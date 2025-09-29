@@ -1,6 +1,6 @@
 # WorkspaceX: AI-Native Future of Work Platform
 
-## _Building the Open Ecosystem for Human-AI Augmented Workspaces_
+## Building the Open Ecosystem for Human-AI Augmented Workspaces
 
 ---
 
@@ -44,14 +44,14 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 
 ### **Release Schedule**
 
-- **Foundation (F)**: Q1-Q2 2025 - Core platform capabilities
-- **Evolution (E)**: Q3-Q4 2025 - AI-native features and automation
-- **Expansion (X)**: Q1-Q2 2026 - Global scale and advanced integrations
-- **Transcendence (T)**: Q3+ 2026 - Future of work platform leadership
+- **Foundation (F)**: Q3-Q4 2025 - Core platform capabilities
+- **Evolution (E)**: Q1-Q2 2026 - AI-native features and automation
+- **Expansion (X)**: Q3-Q4 2026 - Global scale and advanced integrations
+- **Transcendence (T)**: Q1+ 2027 - Future of work platform leadership
 
 ---
 
-# 🚀 **FOUNDATION PHASE** `[Q1-Q2 2025]`
+# 🚀 **FOUNDATION PHASE** `[Q3-Q4 2025]`
 
 ## F1: Communication & Collaboration Hub
 
@@ -128,9 +128,41 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 - [ ] Collaborative session indicators (who's working together)
 - [ ] Working hours and timezone display
 
+## F2: Agent Ecosystem Foundation
+
+### F2.1: Open Agent SDK & Marketplace
+
+**Build the foundational marketplace and SDK that transforms WorkspaceX into an extensible agent ecosystem.**
+
+#### F2.1.1: Open Agent SDK & Marketplace `[P0]`
+
+**As a developer, I want to create and distribute AI agents that extend WorkspaceX capabilities.**
+
+**Acceptance Criteria:**
+
+- [ ] Agent development SDK with specialized workspace framework
+- [ ] Marketplace platform with discovery, rating, and distribution
+- [ ] Agent certification system for quality and security verification
+- [ ] Revenue sharing model for agent developers
+- [ ] Sandboxed execution with permission-based access
+- [ ] Agent analytics with performance metrics and usage insights
+
+#### F2.1.2: Basic Agent Types & Templates `[P1]`
+
+**As a team, I want ready-to-use agents that solve common workspace challenges.**
+
+**Acceptance Criteria:**
+
+- [ ] Project management agent templates
+- [ ] Meeting facilitation and note-taking agents
+- [ ] Content creation and writing assistant agents
+- [ ] Task automation and workflow agents
+- [ ] Communication optimization agents
+- [ ] Basic analytics and reporting agents
+
 ---
 
-# 🤖 **EVOLUTION PHASE** `[Q3-Q4 2025]`
+# 🤖 **EVOLUTION PHASE** `[Q1-Q2 2026]`
 
 ## E1: AI-Agent Foundation
 
@@ -271,7 +303,7 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 
 ---
 
-# 🌐 **EXPANSION PHASE** `[Q1-Q2 2026]`
+# 🌐 **EXPANSION PHASE** `[Q3-Q4 2026]`
 
 ## X1: Analytics & Business Intelligence
 
@@ -386,7 +418,7 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 
 ---
 
-# 🔮 **TRANSCENDENCE PHASE** `[Q3+ 2026]`
+# 🔮 **TRANSCENDENCE PHASE** `[Q1+ 2027]`
 
 ## T1: Advanced Human-AI Collaboration
 
@@ -420,24 +452,11 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 - [ ] Cognitive load monitoring with intelligent break suggestions
 - [ ] Flow state preservation with interruption protection
 
-### T1.2: Agent Ecosystem Foundation
+### T1.2: Advanced Agent Ecosystem
 
-**Build the open marketplace and SDK that transforms WorkspaceX into an extensible agent ecosystem.**
+**Evolve the agent ecosystem with advanced features for enterprise and global scale.**
 
-#### T1.2.1: Open Agent SDK & Marketplace `[P0]`
-
-**As a developer, I want to create and distribute AI agents that extend WorkspaceX capabilities.**
-
-**Acceptance Criteria:**
-
-- [ ] Agent development SDK with specialized workspace framework
-- [ ] Marketplace platform with discovery, rating, and distribution
-- [ ] Agent certification system for quality and security verification
-- [ ] Revenue sharing model for agent developers
-- [ ] Sandboxed execution with permission-based access
-- [ ] Agent analytics with performance metrics and usage insights
-
-#### T1.2.2: Cross-Platform Agent Federation `[P1]`
+#### T1.2.1: Cross-Platform Agent Federation `[P0]`
 
 **As an organization, I want agents that work across different tools and platforms in my tech stack.**
 
@@ -449,6 +468,19 @@ WorkspaceX reimagines collaboration as **AI-native workspace augmentation** wher
 - [ ] Cross-platform analytics with unified insights
 - [ ] Federation management with centralized agent behavior control
 - [ ] Identity bridging with single agent identity across tools
+
+#### T1.2.2: Enterprise Agent Governance `[P1]`
+
+**As an enterprise, I want comprehensive governance and control over agent ecosystems.**
+
+**Acceptance Criteria:**
+
+- [ ] Enterprise-wide agent policy management and enforcement
+- [ ] Compliance frameworks for regulated industries
+- [ ] Agent behavior monitoring and audit trails
+- [ ] Data governance and privacy controls for agent interactions
+- [ ] Risk assessment and mitigation for agent deployments
+- [ ] Integration with enterprise security and identity systems
 
 ## T2: Collective Intelligence Network
 
