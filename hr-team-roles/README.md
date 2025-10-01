@@ -61,6 +61,28 @@ This folder contains detailed role descriptions for all essential positions need
 - Design Researchers (3-4 roles)
 - Design Implementation Team (6-8 roles)
 
+### **🗣️ Brand, Marketing & Communications (15-20 Roles)**
+
+**Location**: `/brand-marketing-communications/`
+
+**Mission Storytelling & Growth Team:**
+
+- VP of Brand & Communications
+- Head of Marketing Strategy
+- Head of Product Marketing (PMM)
+- Head of Growth & Lifecycle
+- Head of Content & Editorial (Mission Storytelling)
+- PR & Media Relations Lead
+- Community & Social Media Lead
+- Developer Relations Marketing Lead (DevRel Marketing)
+- Events & Experiences Lead (Summits, Hackathons)
+- Performance Marketing Manager (Demand Gen)
+- SEO/Content Marketing Manager
+- Copywriter/Brand Narrative Strategist (Mission/Vision)
+- Visual/Multimedia Producer (Video, Motion)
+- Website & Martech Manager (CMS, Analytics)
+- Partnerships & Ecosystem Marketing Manager
+
 ### **🌟 Community & Ecosystem Development (15-20 Roles)**
 
 **Location**: `/community-ecosystem/`
@@ -133,6 +155,14 @@ This folder contains detailed role descriptions for all essential positions need
 - Operations team (5 roles)
 - Legal & compliance (3 roles)
 
+**Brand & Communications (5-6 roles within total cap):**
+
+- VP of Brand & Communications (or Interim Head)
+- Product Marketing Manager (1)
+- Content & Editorial Lead (mission storytelling) (1)
+- PR/Comms Lead (1)
+- Performance/SEO Marketing (1)
+
 ### **Phase 2: Innovation Expansion (100-120 people) - Q3-Q4 2025**
 
 **SCALING PRIORITIES:**
@@ -151,6 +181,15 @@ This folder contains detailed role descriptions for all essential positions need
 - Enhanced user research (3 roles)
 - Developer tools team (4 roles)
 
+**Marketing & Growth (10-12 roles within phase cap):**
+
+- Head of Growth & Lifecycle (1)
+- Product Marketing (2-3)
+- Performance Marketing (2)
+- Content Studio: Writer + Multimedia Producer (2)
+- Events & Experiences Lead (1)
+- Website/Martech Manager (1)
+
 ### **Phase 3: Global Scaling (200-250 people) - Q1-Q2 2026**
 
 **WORLDWIDE EXPANSION:**
@@ -163,6 +202,14 @@ This folder contains detailed role descriptions for all essential positions need
 - Advanced analytics (10 roles)
 - Enhanced compliance (15 roles)
 
+**Global Brand & Regional Marketing (15-20 roles within phase cap):**
+
+- Regional Marketing Directors (3)
+- Localization Marketing Managers (3-4)
+- Partnerships & Ecosystem Marketing (3-4)
+- PR/Media (global + regions) (3-4)
+- Social/Community Marketing (3-4)
+
 ### **Phase 4: Ecosystem Leadership (400-500 people) - Q3-Q4 2026**
 
 **PLATFORM TRANSCENDENCE:**
@@ -174,6 +221,13 @@ This folder contains detailed role descriptions for all essential positions need
 - Advanced AI development (35 roles)
 - Worldwide operations (25 roles)
 - Innovation breakthrough team (25 roles)
+
+**Ecosystem Brand & Thought Leadership (25-30 roles within phase cap):**
+
+- Mission Storytelling Studio (Editors, Producers) (8-10)
+- Global Events & Experiences (7-8)
+- Executive Communications & Analyst Relations (5-6)
+- Strategic Initiatives: Education, Partnerships Marketing (4-6)
 
 ---
 
