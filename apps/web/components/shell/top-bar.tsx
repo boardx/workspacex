@@ -47,14 +47,14 @@ export function TopBar({
 
       <div className="h-4 w-px bg-border" aria-hidden />
 
-      <p data-testid="role-bar" className="text-12 text-muted-foreground">
+      <p data-testid="role-bar" className="truncate text-12 text-muted-foreground">
         {describeIdentity(identity)}
       </p>
 
       {isDev && (
         <div
           data-testid="role-preview-switcher"
-          className="ml-auto flex items-center gap-1 rounded-md border border-border-subtle bg-panel p-1"
+          className="ml-auto hidden items-center gap-1 rounded-md border border-border-subtle bg-panel p-1 lg:flex"
         >
           <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">预览视角</span>
           {PROJECT_ROLES.map((r) => (
