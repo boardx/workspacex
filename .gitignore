@@ -54,3 +54,6 @@ output/
 .next-prod-gate/
 .next-ui-gate/
 _fl-parts/
+.next-e2e/
+playwright-report/
+test-results/

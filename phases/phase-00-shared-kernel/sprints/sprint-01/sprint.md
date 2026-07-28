@@ -17,3 +17,24 @@
 ## 完成标准
 - 上述每个 feature 经 `pnpm harness verify --sprint 00/01` 门控为 `passing`。
 - `session-handoff.md` 与 `progress.md` 已更新。
+
+---
+
+## 2026-07-29 变更：F01 转 blocked，拆出 F18
+
+开工 F01 前核实：它的三条 verification 指向的测试文件不存在，而它们所需的**后端本身不存在**
+——`apps/api` 无、零 NestJS、零迁移、零 PG 连接。
+
+若照原样开工，F01（5 点）实际要交付的是「NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 +
+`acl_bindings` 表 + 两层交集判定」：**估点失真三倍**，且 F02~F13 十二个后端 feature 的
+共同前置会被埋进 F01 的实现里，**下一个 feature 的人不知道它已经有了**。
+
+⇒ 拆出 **F18 后端内核**（`uc-0-6`，13 点，契约束 `api-kernel`）。
+理由与 UC-0.4 从 F01~F13 里拆出前端内核完全相同——**前端有内核，后端没有**。
+
+- **F01** → `blocked`，`depends_on: [F18]`。解除条件：F18 passing
+  （`pnpm harness sweep-unblock` 会自动放行）。
+- **F18** 未进本 sprint：其契约束 `api-kernel` 尚待人类签核，
+  `new-sprint` 会拒绝（ADR-020 门控，已实测反证）。
+
+⇒ **本 sprint 的可做工作已全部完成**（F14 passing）。下一步是人类签 `api-kernel`。

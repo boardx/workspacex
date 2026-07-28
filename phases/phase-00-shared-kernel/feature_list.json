@@ -9,9 +9,11 @@
       "title": "两层角色本体：组织角色×团队 与 项目角色 落到统一 acl_bindings，任一次鉴权都是两层交集且可解释",
       "user_visible_behavior": "任何受保护读写请求都由服务端按 (组织角色, 团队) × (项目角色) 的交集判定放行/拒绝；拒绝时返回可解释原因（是组织层还是项目层限制），且不泄露资源存在性。同一账号切换组织后，项目级上下文全部清空、权限按当前组织重新求值。",
       "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R3",
-      "depends_on": [],
+      "depends_on": [
+        "F18"
+      ],
       "points": 5,
-      "status": "not_started",
+      "status": "blocked",
       "sprint": "01",
       "owner": null,
       "verification": [
@@ -21,7 +23,7 @@
       ],
       "evidence": "",
       "needs_ui_signoff": false,
-      "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。"
+      "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。 【2026-07-29 转 blocked】开工前核实：本 feature 的三条 verification 指向的测试文件不存在，而它们所需的后端根本不存在（apps/api 无、零 NestJS、零迁移、零 PG 连接）。若在此状态下开工，F01 实际要交付的是「后端内核 + acl_bindings + 两层交集判定」，5 点会失真三倍，且十二个后端 feature 的共同前置会被埋进本 feature 里。故拆出 F18（后端内核，13 点，UC-0.6），本 feature depends_on F18 并转 blocked。解除条件：F18 passing。⚠ F18 所属契约束 api-kernel 尚待人类签核。"
     },
     {
       "id": "F02",
@@ -414,6 +416,33 @@
       "evidence": "",
       "needs_ui_signoff": true,
       "notes": "依据等级：[已裁决 2026-07-28]——人类裁定「本地组织的数据可以导出到其他的正式组织」。**单独成 feature 而不并入 F16，是因为它是 F16 三条隐私承诺的唯一豁口**——混在里面会让「数据不出本机」这条承诺的边界变模糊，也让验收无法独立。五条硬约束（对应五条 verification）：① 显式一次性人工动作，**禁止任何自动同步/后台上传/定时推送**；② 导出前逐项预览将离开本机的内容**及其在目标组织的可见性**（按目标 acl_bindings 预演）；③ 复制而非迁移，本地副本保留；④ **两侧**都写 provenance_events，目标侧标注来源为本地组织（因为它未经该组织的任何入库审核）；⑤ **单向**，反向导入被拒。⚠ V11① 与 F16 的 V3 是同一条网络层断言的两面：不操作时出网恒为 0，覆盖「后台悄悄传」这种最危险的失效方式。priority=2：它不阻塞 F15/F16 落地，但必须与 F16 同期设计，否则豁口会被临时方案侵蚀。"
+    },
+    {
+      "id": "F18",
+      "priority": 1,
+      "area": "kernel-api",
+      "capability": "CAP-API",
+      "title": "后端内核可运行，且洋葱分层/RLS 强制/三道运行时门控由脚本机器把关而不是靠人自觉",
+      "user_visible_behavior": "apps/api 可启动；从空库跑迁移能重建全部结构且连跑两次幂等；以租户 A 的上下文绕过应用层任何过滤直接查库，读到 0 行属于租户 B 的数据，换成 B 则只看得到 B 的行；无凭证请求受保护路由返回 401 而不是匿名放行；违反契约 zod 的请求体返回 400 并指出是哪个字段；handler 抛出带敏感字符串的异常时响应体只有 internal_error 与 traceId，敏感串与表名只出现在日志里；故意写一个从 domain 指向 infrastructure 的 import，lint-arch-deps 会红并指出违规方向与理由。",
+      "spec_ref": "00-core/uc-0-6-后端内核与运行时门控.md#R3",
+      "depends_on": [],
+      "points": 13,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api run test",
+        "node .harness/scripts/lint-arch-deps.mjs",
+        "apps/api/scripts/verify-rls.sh",
+        "apps/api/scripts/verify-runtime-gates.sh",
+        "pnpm --filter api run migrate:check",
+        "node .harness/scripts/lint-contract-source.mjs"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "【本 feature 是 F01~F13 十三个后端 feature 的共同前置】2026-07-29 机器核实：apps/ 下只有 web，apps/api 不存在，全仓零 NestJS、零迁移文件、零 PG 连接；lint-arch-deps.mjs 已写好但每次运行都打印「跳过 apps/api/src：尚未创建」并 exit 0——ADR-020 称它「与既有七道门控同级的强制门控」，实际处于永久空转；architecture.md 点名的三个运行时门控（Guard 全局注册 / ValidationPipe + zod / ExceptionFilter 只回 internal_error）一个都不存在；packages/contracts 的 zod 目前只有前端一个消费者，ADR-020 的「后端 DTO ← 同一份 zod」这条链未接通。不拆出本件的后果：F01（5 点）实际要交付 NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 + acl_bindings 表 + 两层交集判定，估点失真三倍，且十二个后端 feature 的共同前置被埋进 F01 的实现里，下一个 feature 的人不知道它已经有了。这与 UC-0.4（前端内核）从 F01~F13 里拆出来的理由完全相同——前端有内核，后端没有。依据等级：[设计]——从 architecture.md「三个必须建立的机械门控（运行时）」+ ADR-020 + UC-0.3 R7 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。不拆的理由见 R11：没有迁移体系就没有 RLS 策略，没有 RLS 就没有反证，没有洋葱目录 lint-arch-deps 就仍在空转。verification 第 5 条 verify-rls.sh 是最重要的一条——它绕过应用层过滤断言跨租户读 0 行，且同时断言换成自己的租户能读到自己的行；只写前半句的话，一个「一律拒绝」的坏策略也会全绿，隔离与瘫痪必须能被区分。needs_ui_signoff=false：本件零界面。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F14（前端内核）无依赖、可并行。⚠ 所属契约束 api-kernel 尚未签核，new-sprint 会拒绝把它开进 sprint（ADR-020 门控）。"
     }
   ]
 }
