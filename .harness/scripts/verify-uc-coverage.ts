@@ -81,7 +81,9 @@ for (const phaseId of process.argv.slice(2)) {
     const mappedV = new Set<string>();
     const emptyCells: string[] = [];
     for (const line of cov.split("\n")) {
-      const m = /^\|\s*(V\d+)\s*\|(.*)$/.exec(line.trim());
+      // ⚠ 容忍加粗写法 `| **V1** |` —— 各束的表格风格不完全一致，
+      //   门控不该因为排版差异误报「漏了一整条」（本脚本第二版就因此误报 web-kernel 漏 10 条）
+      const m = /^\|\s*\*{0,2}(V\d+)\*{0,2}\s*\|(.*)$/.exec(line.trim());
       if (!m) continue;
       mappedV.add(m[1]!);
       const cells = m[2]!.split("|").map((c) => c.trim());

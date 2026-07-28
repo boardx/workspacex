@@ -182,7 +182,11 @@ export const CONTEXT_PACK_EXITS = [
 import { type OmissionReason, omissionLabel } from "@/lib/omission-reason";
 export type { OmissionReason };
 
-export interface Omission {
+/**
+ * 契约里的 `Omission` 是**线上结构**（`{ref, reason, compliance, explain}`）；
+ * 这里是**展示视图**（带标题、详情、来源引用）。两者不同层，故名字上分开。
+ */
+export interface OmissionView {
   id: string;
   title: string;
   reasonType: OmissionReason;
@@ -195,7 +199,7 @@ export interface Omission {
   masked?: boolean;
 }
 
-export const OMISSIONS: Omission[] = [
+export const OMISSIONS: OmissionView[] = [
   {
     id: "om-poland",
     title: "波兰储能补贴细则 2023",
@@ -230,7 +234,7 @@ export const OMISSIONS: Omission[] = [
  * 「展开」后显示的其余低相关条目（原型：被丢弃 · 14 条低相关 = 4 条明细 + 这 10 条长尾）。
  * 全部 relevance < 0.45（本任务类型阈值），逐条仍带原因——「不得静默丢弃」也适用于长尾。
  */
-export const OMISSIONS_MORE: Omission[] = [
+export const OMISSIONS_MORE: OmissionView[] = [
   { id: "om-2019-tender", title: "2019 荷兰海上风电招标纪要", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "标的为海上风电，与储能进入策略跨品类；相关度 0.33。", relevance: 0.33 },
   { id: "om-generic-swot", title: "通用 SWOT 模板 · 咨询工具箱", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "模板类内容无项目事实，重排分 0.29，未命中术语通道。", relevance: 0.29 },
   { id: "om-cn-subsidy", title: "国内储能补贴政策汇编 2024", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "适用地域为中国，本项目范围德荷；相关度 0.36。", relevance: 0.36 },

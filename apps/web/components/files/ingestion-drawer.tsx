@@ -9,7 +9,7 @@ import { IngestBadge } from "./status";
 import { useReviewState } from "./use-review-state";
 import {
   INGEST_PIPELINE, INGESTION_RUNS, INGEST_META, REVIEW_REASON_LABEL,
-  type IngestState, type IngestionRun,
+  type IngestState, type IngestionRunView,
 } from "@/lib/mock/files";
 
 /**
@@ -64,7 +64,7 @@ export function IngestionDrawer({ onClose }: { onClose: () => void }) {
 
 const ORDER: IngestState[] = INGEST_PIPELINE.filter((s) => s.key !== "REVIEW_PENDING").map((s) => s.key);
 
-function RunCard({ run }: { run: IngestionRun }) {
+function RunCard({ run }: { run: IngestionRunView }) {
   const idx = ORDER.indexOf(run.state === "REVIEW_PENDING" ? "INDEXED" : run.state);
   const meta = INGEST_META[run.state];
   // 失败态重试/手工补录、检出详情展开走本地态；复核处置走共享态（D-U11）。

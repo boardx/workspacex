@@ -15,7 +15,7 @@ import {
   OMISSIONS_MORE,
   OMISSIONS_REMAINING,
   RETRIEVAL_LOG,
-  type Omission,
+  type OmissionView,
   type OmissionReason,
 } from "@/lib/mock/brain";
 import { omissionLabel } from "@/lib/omission-reason";
@@ -36,7 +36,7 @@ const OMISSION_TONE: Record<OmissionReason, "neutral" | "warning" | "danger"> = 
 };
 
 /** 丢弃清单单条 —— 可点开，带原因（这是 F11 的验收面，不是只显示命中项）*/
-function OmissionRow({ item }: { item: Omission }) {
+function OmissionRow({ item }: { item: OmissionView }) {
   const [open, setOpen] = React.useState(false);
   return (
     <li data-testid={`brain-omission-${item.id}`} className="rounded-md border border-border-subtle bg-card">

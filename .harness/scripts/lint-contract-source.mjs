@@ -71,6 +71,8 @@ if (existsSync(srcDir)) {
     if (!f.endsWith(".ts") || f === "index.ts") continue;
     const body = readFileSync(join(srcDir, f), "utf8");
     for (const m of body.matchAll(/^export const ([A-Z]\w+)\s*=\s*z\./gm)) contractNames.add(m[1]);
+    // 契约里也可能用 interface / type 声明纯结构（非 zod），同样是契约的一部分
+    for (const m of body.matchAll(/^export (?:interface|type) ([A-Z]\w+)\b/gm)) contractNames.add(m[1]);
   }
 }
 
@@ -94,6 +96,19 @@ if (existsSync(webLib) && contractNames.size > 0) {
       //   · export { X } from "@repo/contracts/..."  ← 再导出
       //   · export type X = C.X                      ← 别名
       // 规则太糙会误伤正确写法——这条规则第一版就犯过，把 5 处正确的 z.infer 判成副本。
+      // `export interface X { … }` 是**另一种**重新定义——它没有 `= rhs` 形态，
+      // 所以第一版的正则完全漏过了它。阶段一致性复核查出 Omission / Citation
+      // 正是以 interface 形态在前端各写了一份（第七次漂移的最可能人选）。
+      const ifaceRe = new RegExp(`^export interface ${name}\\b`, "m");
+      const im = ifaceRe.exec(body);
+      if (im) {
+        const line = body.slice(0, im.index).split("\n").length;
+        console.error(`✗ [副本] ${rel}:${line} 用 \`interface\` 重新定义了契约里已有的 \`${name}\``);
+        console.error(`    契约在 packages/contracts/src/。正确做法：从契约派生或再导出，不要另写一份结构。`);
+        fail++;
+        continue;
+      }
+
       const re = new RegExp(`^export (?:const|type) ${name}\\s*=\\s*([^;]+);`, "m");
       const m = re.exec(body);
       if (!m) continue;

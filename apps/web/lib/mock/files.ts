@@ -318,7 +318,12 @@ export function buildTree(files: FileItem[] = FILES): TreeSourceNode[] {
 
 /* ── 摄取进度抽屉：正在处理中的上传（跨九态各取一例）──────────────────── */
 
-export interface IngestionRun {
+/**
+ * 契约里的 `IngestionRun` 是**线上结构**；这里是**展示视图**。
+ * ⚠ 已发现一处真分歧：线上字段名是 `status`，本视图叫 `state` ——
+ * 与之前的 `"org"` vs `"org-wide"` 是同一类，会成为联调 bug，已记入一致性复核。
+ */
+export interface IngestionRunView {
   id: string;
   fileName: string;
   state: IngestState;
@@ -333,7 +338,7 @@ export interface IngestionRun {
   artifactId?: string;
 }
 
-export const INGESTION_RUNS: IngestionRun[] = [
+export const INGESTION_RUNS: IngestionRunView[] = [
   { id: "run-1", fileName: "季度供应商评估.pptx", state: "RECEIVED", elapsed: "2 秒" },
   { id: "run-2", fileName: "疑似恶意宏文档.docm", state: "QUARANTINED", elapsed: "8 秒" },
   { id: "run-3", fileName: "采购合同 2024（扫描）.pdf", state: "EXTRACTED", elapsed: "41 秒" },

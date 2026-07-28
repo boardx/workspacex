@@ -10,7 +10,7 @@ import {
   type MessageBadge,
   type ToolCallLog,
   type ToolCallStatus,
-  type Citation,
+  type CitationView,
 } from "@/lib/mock/chat";
 
 type AiMessage = Extract<ChatMessage, { kind: "ai" }>;
@@ -119,7 +119,7 @@ function ToolStatusDot({ status }: { status: ToolCallStatus }) {
 }
 
 /** 引用列表：编号 + 出处全称 + 页码/时间段，点开定位（UC-8.2 R7 引用层，三段缺一不可）*/
-function CitationList({ citations }: { citations: Citation[] }) {
+function CitationList({ citations }: { citations: CitationView[] }) {
   const [openIdx, setOpenIdx] = React.useState<number | null>(null);
   return (
     <ol className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2" data-testid="chat-citations">

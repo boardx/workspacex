@@ -72,15 +72,11 @@ export type OrgKind = z.infer<typeof C.OrgKind>;
  */
 export type ModelPolicy = z.infer<typeof C.ModelPolicy>;
 
-export interface Organization {
-  id: string;
-  name: string;
-  kind: OrgKind;
-  /** 团队为单一归属：组织内一人一队（裁决 O-12）。本地组织恒为 null */
-  team: string | null;
-  /** 仅正式组织可配；本地组织不读此字段（见上方说明） */
-  modelPolicy?: ModelPolicy;
-}
+/**
+ * ⚠ 与契约 `@repo/contracts/identity` 的 `Organization` **字段完全相同**——
+ * 这是真重复（不是视图模型），故直接从契约派生，不在此处另写一份结构。
+ */
+export type Organization = z.infer<typeof C.Organization>;
 
 /**
  * 个人本地组织的三条硬隔离（UC-0.5 R7）—— **是产品承诺，不是配置项**

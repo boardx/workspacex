@@ -103,7 +103,11 @@ export const OMISSION_REASON_LABEL: Record<OmissionReason, string> = Object.from
   Object.entries(OMISSION_REASONS).map(([k, v]) => [k, v.label]),
 ) as Record<OmissionReason, string>;
 
-export interface Omission {
+/**
+ * 契约里的 `Omission` 是**线上结构**（`{ref, reason, compliance, explain}`）；
+ * 这里是**展示视图**（带标题、详情、来源引用）。两者不同层，故名字上分开。
+ */
+export interface OmissionView {
   id: string;
   kind: EvidenceKind;
   title: string;
@@ -114,7 +118,7 @@ export interface Omission {
   sourceRef: string;
 }
 
-export const OMISSIONS: Omission[] = [
+export const OMISSIONS: OmissionView[] = [
   { id: "om-1", kind: "interview", title: "某区域采购负责人 · 7 条引述", reason: "withdrawn", detail: "受访者已撤回授权，本场引述退出检索；引用过它的报告段标「证据已撤回」，不静默删除。", sourceRef: "访谈场次 itv-0714 · D-13" },
   { id: "om-2", kind: "regulation", title: "2024 版补贴细则（旧）", reason: "expired", detail: "监管类 12 个月到期，已转「待复核」；AI 引用时必须提示已过期，本次不纳入。", sourceRef: "组织大脑 · 监管事实 · 过期 14 条之一" },
   { id: "om-3", kind: "survey", title: "法务口切分结论", reason: "low-confidence", detail: "样本量 n=3 < 8，标为不可推断，仅作定性线索，不进结论。", sourceRef: "问卷 sv-1 · 交叉切分 seg-legal" },
@@ -126,7 +130,7 @@ export const OMISSIONS: Omission[] = [
   { id: "om-9", kind: "memory", title: "个人草稿笔记", reason: "unauthorized", detail: "私有层默认私有，组织管理员也看不到，不进上下文包。", sourceRef: "大脑 · 私有层" },
 ];
 
-export function omissionsByReason(reason: OmissionReason): Omission[] {
+export function omissionsByReason(reason: OmissionReason): OmissionView[] {
   return OMISSIONS.filter((o) => o.reason === reason);
 }
 

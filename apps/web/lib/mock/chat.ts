@@ -112,7 +112,11 @@ export const ACTIVE_THREAD = {
 /* ─────────────────────────── 引用（UC-8.2 R7 引用层，三段缺一不可）─────────────────────────── */
 
 export type CitationAnchorKind = "page" | "transcript" | "message";
-export interface Citation {
+/**
+ * 契约里的 `Citation` 是**线上引用**（`{segmentId, artifactVersionId}`）；
+ * 这里是**渲染后的展示视图**（带序号、出处全称、已解析的锚点）。两者不同层，故名字上分开。
+ */
+export interface CitationView {
   index: number;
   /** 出处全称 */
   sourceFullName: string;
@@ -309,7 +313,7 @@ export type ChatMessage =
       badges: MessageBadge[];
       text: string;
       tools?: ToolCallLog;
-      citations?: Citation[];
+      citations?: CitationView[];
     }
   | { id: string; kind: "artifact"; artifact: ArtifactCard }
   | { id: string; kind: "approval"; request: ApprovalRequest }
