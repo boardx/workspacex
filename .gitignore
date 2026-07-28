@@ -51,3 +51,5 @@ phases/requirements-backup/
 
 # 演示导出物（presentations 等），由工具生成，非事实源
 output/
+.next-prod-gate/
+.next-ui-gate/

@@ -324,16 +324,16 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm turbo run typecheck lint test --filter=web",
-        "node apps/web/scripts/check-token-contrast.mjs",
-        "pnpm vitest run tests/web-kernel/single-source-of-truth.test.ts",
-        "pnpm vitest run tests/web-kernel/lint-design-gate.test.ts",
-        "pnpm exec playwright test tests/web-kernel/seven-states.spec.ts",
-        "pnpm exec playwright test tests/web-kernel/preview-switches-absent-in-prod.spec.ts"
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web run contrast",
+        "pnpm --filter web run test",
+        "apps/web/scripts/verify-ui-states.sh",
+        "apps/web/scripts/verify-prod-gates.sh"
       ],
       "evidence": [],
       "needs_ui_signoff": false,
-      "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。"
+      "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。 【2026-07-28 verification 修订】原先写的 playwright 命令是预设而非事实。实际落地后改为六条**已跑通**的命令：typecheck / lint:design / contrast / vitest / verify-ui-states.sh / verify-prod-gates.sh。七态与身份投影的断言改用「对 SSR 出的 HTML 断言固定 testid」而不是浏览器驱动——更稳、无需下载浏览器，且正是 verification 该锚的东西。R12 V9（375/768/1280 三档无横向溢出）仍需 Playwright，**尚未覆盖**，留待补装 Playwright 后加第七条命令。"
     }
   ]
 }
