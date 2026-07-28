@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -17,7 +18,9 @@ import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry
  * - `[忘记密码？]`（R8「原型待补」：按钮在、点了没屏）在此补出接线与后续屏。
  */
 export function LoginForm({ state }: { state: UiState }) {
+  const router = useRouter();
   const [showPwd, setShowPwd] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
 
@@ -126,8 +129,20 @@ export function LoginForm({ state }: { state: UiState }) {
         </div>
       </div>
 
-      <Button variant="primary" size="lg" data-testid="login-submit">
-        登录
+      <Button
+        variant="primary"
+        size="lg"
+        data-testid="login-submit"
+        disabled={submitting}
+        onClick={() => {
+          // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
+          // ⚠ 这是 mock 跳转：真实实现要先建会话、再由服务端决定落地页
+          //   （有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目）。
+          setSubmitting(true);
+          router.push("/projects");
+        }}
+      >
+        {submitting ? "正在进入…" : "登录"}
       </Button>
 
       {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled 标 later）───────── */}

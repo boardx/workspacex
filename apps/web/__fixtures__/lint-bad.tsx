@@ -21,6 +21,8 @@ export function Bad() {
       <p className="text-15">表外档位</p>
       {/* D-35 testid 携带业务数据 */}
       <div data-testid="files-node-合同2024" />
+      {/* MD JSX 文本里残留 Markdown 加粗 */}
+      <p>这条**必须**改用 strong</p>
     </div>
   );
 }

@@ -33,6 +33,7 @@ describe("lint-design.sh 门控", () => {
     ["U7b 裸 outline-none", /U7b/],
     ["§1.2 表外字号档位", /§1\.2/],
     ["D-35 testid 携带业务数据", /D-35/],
+    ["MD JSX 里残留 Markdown 加粗", /\[MD\]/],
   ];
 
   const bad = runLint("__fixtures__/lint-bad.tsx");

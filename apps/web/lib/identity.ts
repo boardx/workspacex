@@ -59,12 +59,28 @@ export function mockIdentity(orgId: string, projectRole: ProjectRole | null): Id
   };
 }
 
-/** 顶部角色说明条的文案（UC-0.3 R8：必须同时显示两层身份）*/
+/**
+ * 顶部角色说明条的两层文案（UC-0.3 R8：在项目里必须同时显示两层身份）
+ *
+ * ⚠ 项目层**可以缺席**——这是正常状态而非缺省值：UC-0.3 R4 E1 明写
+ * 「用户有组织角色但无项目角色时，项目内资源一律不可见」。
+ * 在后台/任务/大脑这类非项目页面上显示「本项目：X」，等于把一个不存在的判定画到界面上。
+ * 调用方用 `lib/project-context.ts` 判断是否在项目里，不在就只传组织层。
+ */
+export function describeOrgLayer(id: Identity): string {
+  return [ORG_ROLE_LABEL[id.orgRole], id.org.team].filter(Boolean).join(" · ");
+}
+
+export function describeProjectLayer(id: Identity): string | null {
+  if (!id.projectRole) return null;
+  return [PROJECT_ROLE_LABEL[id.projectRole], id.groupName].filter(Boolean).join(" · ");
+}
+
+/** 兼容旧调用：两层都在时拼成一行 */
 export function describeIdentity(id: Identity): string {
-  const left = [ORG_ROLE_LABEL[id.orgRole], id.org.team].filter(Boolean).join(" · ");
-  if (!id.projectRole) return left;
-  const right = [PROJECT_ROLE_LABEL[id.projectRole], id.groupName].filter(Boolean).join(" · ");
-  return `${left} ｜ 本项目：${right}`;
+  const left = describeOrgLayer(id);
+  const right = describeProjectLayer(id);
+  return right ? `${left} ｜ 本项目：${right}` : left;
 }
 
 /** 从 URL query 读预览视角。⚠ 生产环境恒为 null（预览开关不可达，R12 V8）*/

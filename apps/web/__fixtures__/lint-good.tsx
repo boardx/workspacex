@@ -12,6 +12,7 @@ export function Good() {
       <input className="outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       <p className="text-13">表内档位</p>
       <div data-testid="files-tree-node" />
+      <p>这条<strong className="font-medium">必须</strong>改用 strong</p>
     </div>
   );
 }

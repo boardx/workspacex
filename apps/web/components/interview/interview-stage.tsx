@@ -52,7 +52,7 @@ export function InterviewStage({ state, view }: { state: UiState; view: Intervie
         >
           <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <p className="text-11 text-muted-foreground">
-            观察者视角：现场为**未发布**内容，此处仅作脱敏只读预览，说话人一律以角色显示、写操作全部隐藏。
+            观察者视角：现场为<strong className="font-medium">未发布</strong>内容，此处仅作脱敏只读预览，说话人一律以角色显示、写操作全部隐藏。
           </p>
         </div>
       )}
@@ -260,7 +260,7 @@ function SegmentRow({
             >
               <p className="inline-flex items-center gap-1 text-10 font-medium text-warning">
                 <AlertTriangle aria-hidden className="h-3 w-3" />
-                两位受访者同时开口，系统**不自动归属**，请人工把每一句指派给对应说话人。
+                两位受访者同时开口，系统<strong className="font-medium text-background-foreground">不自动归属</strong>，请人工把每一句指派给对应说话人。
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {(seg.overlapCandidates ?? []).map((cid) => (

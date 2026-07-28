@@ -25,7 +25,7 @@ export function ConflictBar({ onResolve }: { onResolve: () => void }) {
         <div className="flex flex-col gap-0.5">
           <p className="text-12 font-semibold">文档与画布出现结构性冲突，需要你裁决</p>
           <p className="text-11 text-muted-foreground">
-            便签级改动已按最后写入生效（LWW）；下面是**两侧同时改了结构**的部分，不会自动合并。
+            便签级改动已按最后写入生效（LWW）；下面是<strong className="font-medium text-background-foreground">两侧同时改了结构</strong>的部分，不会自动合并。
             裁决前本画布暂停新的结构性写入。
           </p>
         </div>

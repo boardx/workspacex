@@ -27,8 +27,9 @@ report() { # report <规则号> <说明> <grep 输出>
 case "${TARGETS[*]}" in *__fixtures__*) IS_FIXTURE_RUN=1 ;; *) IS_FIXTURE_RUN=0 ;; esac
 
 # 剥注释行：文档里写「严禁 disabled:opacity-*」不该被判成违规本身。
-# 匹配 `路径:行号:` 之后紧跟 // 或 * 或 /* 的行。
-strip_comments() { grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\*|//|/\*)' || true; }
+# 覆盖四种：块注释续行 `*`、行注释 `//`、块注释起始 `/*`、**JSX 注释 `{/*`**
+# （JSX 注释不渲染，里面的文案不是用户可见文本）。
+strip_comments() { grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\{/\*|/\*|//|\*)' || true; }
 scan() {
   local hits
   hits=$(grep -rnE "$1" "${TARGETS[@]}" --include="*.tsx" --include="*.ts" 2>/dev/null || true)
@@ -102,6 +103,13 @@ if ! grep -q 'FONT_SCALE_KEYS' lib/utils.ts; then
   echo "✗ [§1.2] lib/utils.ts 未登记 FONT_SCALE_KEYS —— tailwind-merge 会把自定义档位当颜色类吞掉"
   VIOLATIONS=$((VIOLATIONS + 1))
 fi
+
+# ── MD 残留 ────────────────────────────────────────────────────────────────
+# JSX 文本里的 `**加粗**` 是**字面量**，浏览器原样显示星号，不会渲染成粗体。
+# 写文案时从 Markdown 复制过来最容易带进这个。要加粗请用 <strong className="font-medium">。
+# （注释行已被 strip_comments 剥掉，本规则只看真实 JSX 文本。）
+report "MD" "JSX 文本里残留 Markdown 加粗（**...**），应改用 <strong>" \
+  "$(scan '\*\*[^*]+\*\*')"
 
 # ── D-35 data-testid 命名规范 ───────────────────────────────────────────────
 # 结构 <域>-<对象>-<角色>，全小写 kebab-case；禁止携带业务数据（中文 / 大写 / 下划线）。

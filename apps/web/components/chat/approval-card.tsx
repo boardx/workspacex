@@ -245,7 +245,7 @@ function ReparamPanel({
   };
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-muted p-2.5" data-testid="chat-approval-reparam-panel">
-      <p className="text-11 text-muted-foreground">改参数后会生成一张**新的**批准卡，原卡保留为历史，不就地改写。</p>
+      <p className="text-11 text-muted-foreground">改参数后会生成一张<strong className="font-medium text-background-foreground">新的</strong>批准卡，原卡保留为历史，不就地改写。</p>
       <div className="flex items-center justify-between gap-2">
         <span className="text-11">本地模型（承接机密数据）</span>
         <Button size="xs" variant={hasLocal ? "primary" : "outline"} onClick={toggleLocal} data-testid="chat-approval-toggle-local">
