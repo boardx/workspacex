@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { Button } from "@/components/ui/button";
+import { ButtonGallery } from "@/components/state/button-gallery";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -62,15 +62,7 @@ export default function KitchenSinkPage({
         {/* ── 按钮 ─────────────────────────────────────────────── */}
         <section className="flex flex-col gap-3" data-testid="section-buttons">
           <h2 className="text-16 font-semibold">按钮</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="primary" data-testid="demo-btn-primary">主行动</Button>
-            <Button variant="secondary" data-testid="demo-btn-secondary">次级</Button>
-            <Button variant="outline" data-testid="demo-btn-outline">描边</Button>
-            <Button variant="ghost" data-testid="demo-btn-ghost">幽灵</Button>
-            <Button variant="ai" data-testid="demo-btn-ai">交给 Ava</Button>
-            <Button variant="destructive" data-testid="demo-btn-destructive">删除</Button>
-            <Button variant="primary" disabled data-testid="demo-btn-disabled">禁用态</Button>
-          </div>
+          <ButtonGallery />
           <p className="text-11 text-muted-foreground">
             禁用态用 <code className="font-mono">bg-disabled</code> +{" "}
             <code className="font-mono">text-disabled-foreground</code>（5.85:1，禁用但可读），

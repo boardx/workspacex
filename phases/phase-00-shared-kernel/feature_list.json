@@ -334,6 +334,56 @@
       "evidence": [],
       "needs_ui_signoff": false,
       "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。 【2026-07-28 verification 修订】原先写的 playwright 命令是预设而非事实。实际落地后改为六条**已跑通**的命令：typecheck / lint:design / contrast / vitest / verify-ui-states.sh / verify-prod-gates.sh。七态与身份投影的断言改用「对 SSR 出的 HTML 断言固定 testid」而不是浏览器驱动——更稳、无需下载浏览器，且正是 verification 该锚的东西。R12 V9（375/768/1280 三档无横向溢出）仍需 Playwright，**尚未覆盖**，留待补装 Playwright 后加第七条命令。"
+    },
+    {
+      "id": "F15",
+      "priority": 1,
+      "area": "kernel-org",
+      "capability": "CAP-API",
+      "title": "能力清单是组织配置，不是产品内置",
+      "user_visible_behavior": "管理员在后台维护本组织的 agent / skill / 模型 / MCP / 画布模板 / 项目蓝本六类清单，页头明写「以下配置只对本组织生效，成员跟随本配置」；成员看到的可用能力完全来自所属组织，不能自行增删；把某组织的清单清空后，该组织成员看到的是空态而不是一套默认值；同一个人在 A / B 两个组织下看到的能力清单不同且互不泄漏；切换组织时整套能力配置一并换掉。",
+      "spec_ref": "00-core/uc-0-5-组织配置平面与个人本地组织.md#R3",
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/no-builtin-capability-lists.test.ts",
+        "pnpm vitest run tests/kernel/org-scoped-capabilities.test.ts",
+        "pnpm vitest run tests/kernel/capability-change-provenance.test.ts"
+      ],
+      "evidence": [],
+      "needs_ui_signoff": true,
+      "notes": "依据等级：[设计]——2026-07-28 人类新需求，无原型无 Backlog。缘由是原型把六个 agent 与18 台模型画得像产品内置，人类明确它们只是某个组织的示例配置。V1 是本 feature 最要紧的一条：静态断言产品代码里不存在硬编码清单，并断言清空组织配置后界面进入空态而不是显示默认值——只验「能读配置」不验「没有内置兜底」，第二个客户进来就会发现清单其实写死在代码里。R7 关键立场：成员跟随组织配置、不做个人覆盖——能力清单直接决定 AI 能读什么数据、能调什么工具，个人覆盖等于绕过组织安全边界。与 UC-0.3 的可见性范围是串联两层：先看本组织有没有，再看我在不在可见范围里，V10 断言两层错误可分辨、不糊成一个。needs_ui_signoff=true：后台七模块要从「产品设置」读感改成「本组织配置」读感，属原型确认缺失。必须先于 03-skill / 04-agent / 20-model / 21-mcp 实现，否则它们会先把清单硬编码进去再拆一次。"
+    },
+    {
+      "id": "F16",
+      "priority": 1,
+      "area": "kernel-org",
+      "capability": "CAP-API",
+      "title": "每个人有一个本地组织，最隐私的数据不出本机",
+      "user_visible_behavior": "新注册用户立即拥有一个「我的本地」组织，无需任何配置动作；顶部组织切换器里它带锁形图标，切进去后整个应用有可感知的状态变化（顶栏换底色 + 常驻说明条），让人始终知道自己在本地模式；本地组织内云端模型整行禁用并注明原因（不是隐藏），发起 AI 调用时出网流量为零；本地运行时没起来时显示依赖失败态并给出启动指引，绝不偷偷改用云端；本地组织对任何他人不可见，包括组织管理员与平台运营。",
+      "spec_ref": "00-core/uc-0-5-组织配置平面与个人本地组织.md#R7",
+      "depends_on": [
+        "F15"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/personal-local-org-autocreate.test.ts",
+        "pnpm vitest run tests/kernel/local-org-zero-egress.test.ts",
+        "pnpm vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
+        "pnpm vitest run tests/kernel/local-org-invisible-to-admin.test.ts"
+      ],
+      "evidence": [],
+      "needs_ui_signoff": true,
+      "notes": "依据等级：[设计]——2026-07-28 人类新需求「每个人有自己的默认的本地的一个组织，一个特殊的组织，可以使用本地模型来处理所有的最隐私的数据」。架构立场（R7）：personal-local 是组织类型的一个取值，与正式组织**共用同一张表与同一套 ACL/RLS 机制**，不是特例分支——避免出现「本地模式」的第二套代码路径，那种分支必然长期失修。三条硬隔离是产品承诺不是配置项：① 模型只走本地/自托管 ② 禁止 MCP 出网 ③ 数据不进共享对象存储与跨组织索引。违反时拒绝并显式报错，**不得静默降级到云端**。⚠ V3 必须在**网络层**断言出网请求数为 0，不能只查应用日志——应用层可能自认为没出网。V5 同等重要：停掉本地运行时后必须失败，且没有任何云端调用发生。它比 UC-0.3 R7 的「个人层对管理员封闭」更强：那条是看不到内容，这条是数据根本不离开本地；因此 UC-0.3 R5 A1 的管理员审计目的访问权**不适用**于本地组织。残留 [待确认] 四条见 UC R10，其中「正式组织能否整体配置成只用自托管模型」对强合规客户很可能是刚需，建议优先裁决。"
     }
   ]
 }

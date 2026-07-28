@@ -1,5 +1,7 @@
 "use client";
-import { Radio, Pause, ChevronRight } from "lucide-react";
+import * as React from "react";
+import Link from "next/link";
+import { Radio, Pause, Play, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +13,8 @@ import { Button } from "@/components/ui/button";
  * 但让长时任务始终可见可控（暂停 / 查看进度）。
  */
 export function AmbientBar() {
+  // 暂停是**真状态**：AI 停在这里不会绕过你继续（与任务屏 R3 「需批准」同一条纪律）
+  const [paused, setPaused] = React.useState(false);
   return (
     <footer
       data-testid="shell-ambient"
@@ -26,12 +30,25 @@ export function AmbientBar() {
       <span className="truncate text-muted-foreground">周宁：客户董事会给的窗口是十八个月…</span>
 
       <div className="ml-auto flex items-center gap-2">
-        <Badge tone="ai" data-testid="ambient-agent-run">Ava 正在重排致命假设优先级 · 2/4</Badge>
-        <Button size="xs" variant="ghost" data-testid="ambient-view-progress">
-          查看进度 <ChevronRight aria-hidden className="h-3 w-3" />
+        <Badge tone={paused ? "neutral" : "ai"} data-testid="ambient-agent-run">
+          Ava {paused ? "已暂停" : "正在重排致命假设优先级"} · 2/4
+        </Badge>
+        <Button asChild size="xs" variant="ghost">
+          {/* 长任务的执行细节在任务屏的「运行中心」，不占这一条 */}
+          <Link href="/tasks" data-testid="ambient-view-progress">
+            查看进度 <ChevronRight aria-hidden className="h-3 w-3" />
+          </Link>
         </Button>
-        <Button size="xs" variant="ghost" data-testid="ambient-pause">
-          <Pause aria-hidden className="h-3 w-3" /> 暂停
+        <Button
+          size="xs"
+          variant={paused ? "primary" : "ghost"}
+          onClick={() => setPaused((v) => !v)}
+          aria-pressed={paused}
+          data-testid="ambient-pause"
+        >
+          {paused
+            ? <><Play aria-hidden className="h-3 w-3" /> 继续</>
+            : <><Pause aria-hidden className="h-3 w-3" /> 暂停</>}
         </Button>
       </div>
     </footer>

@@ -1,8 +1,8 @@
 "use client";
-import { Building2, ChevronDown, FolderKanban } from "lucide-react";
+import { Building2, ChevronDown, FolderKanban, Lock } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
-  MOCK_ORGS, describeOrgLayer, describeProjectLayer,
+  MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
   PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
 } from "@/lib/identity";
 import { resolveProjectContext } from "@/lib/project-context";
@@ -29,15 +29,24 @@ export function TopBar({
   const project = resolveProjectContext(pathname);
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;
+  // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
+  // 隐私模式若不可见，等于不存在。
+  const local = isLocalOrg(identity.org);
 
   return (
     <header
       data-testid="shell-topbar"
-      className="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card px-3"
+      data-local-org={local ? "true" : undefined}
+      className={[
+        "flex h-11 shrink-0 items-center gap-3 border-b px-3 transition-colors duration-200",
+        local ? "border-ai/30 bg-ai-tint" : "border-border bg-card",
+      ].join(" ")}
     >
       {/* ── 组织层：全局常驻 ── */}
       <div className="flex shrink-0 items-center gap-1.5">
-        <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
+        {local
+          ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
+          : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
         <label htmlFor="org-switcher" className="sr-only">切换组织</label>
         <div className="relative">
           <select
@@ -54,7 +63,9 @@ export function TopBar({
             className="h-7 appearance-none rounded-md border border-border bg-card pl-2 pr-6 text-12 font-medium text-card-foreground transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {MOCK_ORGS.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
+              <option key={o.id} value={o.id}>
+                {isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name}
+              </option>
             ))}
           </select>
           <ChevronDown aria-hidden className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -98,8 +109,19 @@ export function TopBar({
         </div>
       )}
 
+      {/* 本地模式常驻说明条 —— 三条硬隔离直接写在顶栏，不藏进设置里 */}
+      {local && (
+        <p
+          data-testid="topbar-local-banner"
+          title={LOCAL_ORG_GUARANTEES.join("；")}
+          className="ml-auto hidden shrink-0 text-10 font-medium text-ai-tint-foreground lg:block"
+        >
+          本地模式 · 只用本地模型 · 数据不出本机
+        </p>
+      )}
+
       {/* 不在项目里时给一句解释，而不是留白——「无项目角色」是正常状态，不是缺失 */}
-      {!project && (
+      {!project && !local && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在项目上下文中 · 项目角色不适用
         </p>

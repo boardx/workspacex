@@ -1,5 +1,8 @@
+"use client";
+import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ProjectMoreMenu } from "./project-more-menu";
@@ -101,31 +104,126 @@ function MetaChips({ items }: { items: (string | undefined)[] }) {
   );
 }
 
+/**
+ * 卡片动作 —— 每个都必须有真实出口（2026-07-28 修）
+ *
+ * 「进入项目」此前是死按钮：没有 onClick、没有链接，点了没反应。
+ * 根因是当时根本没有项目主页；现已补 `/projects/[id]`。
+ * 「看现场大屏」对应的桌面大屏尚未建，故**显式禁用并写明原因**——
+ * 静默无反应是缺陷，显式禁用是设计。
+ */
 function CardActions({ project }: { project: ProjectSummary }) {
   const id = project.id;
+  const home = `/projects/${id}`;
   switch (project.status) {
     case "running":
       return (
         <>
-          <Button variant="primary" size="sm" data-testid={`projects-card-${id}-enter`}>进入项目</Button>
-          <Button variant="outline" size="sm" data-testid={`projects-card-${id}-bigscreen`}>看现场大屏</Button>
+          <Button asChild variant="primary" size="sm">
+            <Link href={home} data-testid={`projects-card-${id}-enter`}>进入项目</Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled
+            title="现场大屏尚未建（原型只抽取到移动端主持台，桌面大屏形态未确认）"
+            data-testid={`projects-card-${id}-bigscreen`}
+          >
+            看现场大屏
+          </Button>
           <ProjectMoreMenu projectId={id} />
         </>
       );
     case "preparing":
       return (
         <>
-          <Button variant="primary" size="sm" data-testid={`projects-card-${id}-design`}>继续设计</Button>
-          <Button variant="outline" size="sm" data-testid={`projects-card-${id}-invite`}>发邀请</Button>
+          <Button asChild variant="primary" size="sm">
+            <Link href={home} data-testid={`projects-card-${id}-design`}>继续设计</Link>
+          </Button>
+          <InviteButton projectId={id} />
         </>
       );
     case "draft":
       return (
-        <Button variant="primary" size="sm" data-testid={`projects-card-${id}-design`}>继续设计</Button>
+        <Button asChild variant="primary" size="sm">
+          <Link href={home} data-testid={`projects-card-${id}-design`}>继续设计</Link>
+        </Button>
       );
     case "delivered":
       return (
-        <Button variant="outline" size="sm" data-testid={`projects-card-${id}-output`}>看产出</Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`${home}/files`} data-testid={`projects-card-${id}-output`}>看产出</Link>
+        </Button>
       );
   }
+}
+
+/**
+ * 「发邀请」—— 原型的 R8 标它为「原型待补」（按钮在、点了没屏）。
+ * 这里补出**最小可用的接线**：展开一次性链接 + 复制 + 撤销。
+ * ⚠ 裁决 D-04：phase-1 只做「生成一次性链接（24h）+ 撤销」，
+ *   二维码 / 按名单群发 / 三档有效期已明确降级到 phase-2，故此处不画。
+ */
+function InviteButton({ projectId }: { projectId: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [revoked, setRevoked] = React.useState(false);
+  const link = `https://workspacex.app/join?p=${projectId}&t=one-time`;
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        size="sm"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        data-testid={`projects-card-${projectId}-invite`}
+      >
+        发邀请
+      </Button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="发邀请"
+          data-testid={`projects-invite-panel-${projectId}`}
+          className="absolute left-0 top-9 z-10 flex w-72 flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md"
+        >
+          <p className="text-12 font-medium">一次性进场链接</p>
+          <p className="break-all rounded-md bg-muted px-2 py-1.5 font-mono text-10">{link}</p>
+          <p className="text-10 text-muted-foreground">
+            24 小时有效 · 可随时撤销 · 落地后核对名单（裁决 D-01：名单实名，不建账号）
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="xs"
+              variant="primary"
+              onClick={() => {
+                void navigator.clipboard?.writeText(link);
+                setCopied(true);
+              }}
+              disabled={revoked}
+              data-testid={`projects-invite-copy-${projectId}`}
+            >
+              {copied ? "已复制" : "复制链接"}
+            </Button>
+            <Button
+              size="xs"
+              variant="destructive"
+              onClick={() => setRevoked(true)}
+              disabled={revoked}
+              data-testid={`projects-invite-revoke-${projectId}`}
+            >
+              {revoked ? "已撤销" : "撤销"}
+            </Button>
+            <Button size="xs" variant="ghost" className="ml-auto" onClick={() => setOpen(false)} data-testid={`projects-invite-close-${projectId}`}>
+              关闭
+            </Button>
+          </div>
+          <p className="text-10 text-muted-foreground">
+            二维码 / 按名单群发 / 三档有效期已按 D-04 降级到 phase-2，本轮不做。
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }

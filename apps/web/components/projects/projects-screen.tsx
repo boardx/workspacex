@@ -72,7 +72,13 @@ export function ProjectsScreen({ state }: { state: UiState }) {
                 className="h-8 w-44 pl-7"
               />
             </div>
-            <Button variant="primary" size="sm" data-testid="projects-new">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled
+              title="新建项目要先选蓝本（UC-2.2「套用蓝本新建项目」），蓝本设计器尚未建 —— 见 ui-preview/README.md 的未建清单"
+              data-testid="projects-new"
+            >
               <Plus aria-hidden className="h-3.5 w-3.5" />
               新建项目
             </Button>
