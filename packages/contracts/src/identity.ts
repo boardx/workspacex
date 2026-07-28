@@ -122,6 +122,37 @@ export const operations = {
     err: [] as const,
   },
 
+  /**
+   * authorizeBatch —— **批量两层交集鉴权**（一致性复核 B-2 / X-1）
+   *
+   * ## 为什么必须有它
+   * UC-0.3 R7「权限沿数据链路传播」要求**六条路径共用同一个判定**：
+   * 检索 / Context Pack / embedding 相似度 / 图节点遍历 / 文件浏览器 / 缓存。
+   * 而召回层一次要判几十上百个 Segment——**只有逐条 `authorize` 的话，
+   * 性能瓶颈会诱导实现者绕过它**（自己写个粗糙的过滤，或者干脆先取后滤）。
+   *
+   * **那正是 R7 被架空的典型路径**：不是有人故意违规，是正确做法太慢。
+   * 所以批量判定不是优化，是**让正确做法成为最省事的做法**的必要条件。
+   *
+   * ⚠ 返回顺序与入参 `objects` 一一对应，调用方不需要再按 id 匹配。
+   * ⚠ 推论不变：交集生成内容取所有来源中**最严格**的一档（不是最宽松，也不是并集）。
+   */
+  authorizeBatch: {
+    method: "POST", path: "/identity/authorize-batch",
+    in: z.object({
+      orgId: z.string(),
+      projectId: z.string().optional(),
+      objects: z.array(z.object({
+        kind: z.enum(["project", "artifact", "segment"]),
+        id: z.string(),
+      })).min(1).max(500),
+      action: z.string(),
+    }),
+    /** 与入参 objects 等长、同序 */
+    out: z.array(PermissionDecision),
+    err: [] as const,
+  },
+
   resolveIdentity: {
     method: "GET", path: "/identity/me",
     in: z.object({ orgId: z.string(), projectId: z.string().optional() }),
@@ -175,6 +206,17 @@ export const operations = {
     err: ["PROJECT_ROLE_INSUFFICIENT", "ORG_SCOPE_DENIED"] as const,
   },
 
+  /**
+   * resolveModelConstraint —— **机密数据的模型约束，唯一判定处**（一致性复核 B-3 / X-5）
+   *
+   * ⚠ `context-pack.resolvePackModelConstraint` **不重新判定**，它只是
+   * 「按本 Pack 的 dataScope 调用本操作」的一层包装——两处返回的 `source`
+   * （promise / policy / none）**必须来自这一个函数**。
+   * 否则会出现「一处说是产品承诺、一处说是组织策略」，
+   * 而这两者的**可否关闭性质完全不同**（承诺不可关，策略管理员可改）。
+   *
+   * 判定归 identity 的理由：只有它持有 `OrgKind` 与 `modelPolicy`。
+   */
   resolveModelConstraint: {
     method: "POST", path: "/identity/model-constraint",
     in: z.object({

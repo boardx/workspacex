@@ -7,3 +7,5 @@
 export * as identity from "./identity";
 export * as artifact from "./artifact";
 export * as contextPack from "./context-pack";
+export * as omissionReason from "./omission-reason";
+export * as provenance from "./provenance";

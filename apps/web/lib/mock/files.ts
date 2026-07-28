@@ -320,13 +320,15 @@ export function buildTree(files: FileItem[] = FILES): TreeSourceNode[] {
 
 /**
  * 契约里的 `IngestionRun` 是**线上结构**；这里是**展示视图**。
- * ⚠ 已发现一处真分歧：线上字段名是 `status`，本视图叫 `state` ——
- * 与之前的 `"org"` vs `"org-wide"` 是同一类，会成为联调 bug，已记入一致性复核。
+ * ⚠ **2026-07-28（一致性复核 B-6）已裁决对齐**：本视图原用 `state`，契约用 `status`，
+ * 同一语义两个名字——与之前的 `"org"` vs `"org-wide"` 是同一类，会成为联调 bug。
+ * **以契约的 `status` 为准**，本视图已改名。
+ * ⚠ 别与七态预览的 URL 参数 `?state=` 混淆——那是完全不同的东西，未改。
  */
 export interface IngestionRunView {
   id: string;
   fileName: string;
-  state: IngestState;
+  status: IngestState;
   elapsed: string;
   /** 失败态的三段式：在哪一步失败 + 为什么 + 能做什么（UC-22.2 R8）*/
   failure?: { where: string; why: string };
@@ -339,15 +341,15 @@ export interface IngestionRunView {
 }
 
 export const INGESTION_RUNS: IngestionRunView[] = [
-  { id: "run-1", fileName: "季度供应商评估.pptx", state: "RECEIVED", elapsed: "2 秒" },
-  { id: "run-2", fileName: "疑似恶意宏文档.docm", state: "QUARANTINED", elapsed: "8 秒" },
-  { id: "run-3", fileName: "采购合同 2024（扫描）.pdf", state: "EXTRACTED", elapsed: "41 秒" },
-  { id: "run-4", fileName: "客户内部成本模型.xlsx", state: "REVIEW_PENDING", elapsed: "1 分 12 秒", reviewReasons: ["confidential"], artifactId: "a-003" },
-  { id: "run-5", fileName: "现场录音 · 补充访谈.m4a", state: "STORED", elapsed: "3 分 40 秒",
+  { id: "run-1", fileName: "季度供应商评估.pptx", status: "RECEIVED", elapsed: "2 秒" },
+  { id: "run-2", fileName: "疑似恶意宏文档.docm", status: "QUARANTINED", elapsed: "8 秒" },
+  { id: "run-3", fileName: "采购合同 2024（扫描）.pdf", status: "EXTRACTED", elapsed: "41 秒" },
+  { id: "run-4", fileName: "客户内部成本模型.xlsx", status: "REVIEW_PENDING", elapsed: "1 分 12 秒", reviewReasons: ["confidential"], artifactId: "a-003" },
+  { id: "run-5", fileName: "现场录音 · 补充访谈.m4a", status: "STORED", elapsed: "3 分 40 秒",
     failure: { where: "读取内容（EXTRACTED）", why: "ASR 服务暂不可用——原件已入库可下载，转录稍后重试。" } },
-  { id: "run-6", fileName: "客户 RFP · 欧洲储能进入.pdf", state: "READY", elapsed: "已完成",
+  { id: "run-6", fileName: "客户 RFP · 欧洲储能进入.pdf", status: "READY", elapsed: "已完成",
     duplicateOf: "已在库（v3，2026-07-12 由 林可 上传）" },
-  { id: "run-7", fileName: "解压炸弹.zip", state: "QUARANTINED", elapsed: "5 秒",
+  { id: "run-7", fileName: "解压炸弹.zip", status: "QUARANTINED", elapsed: "5 秒",
     failure: { where: "安全检查（SCANNED）", why: "解压后总量 42 GB 超上限 2 GB，嵌套 9 层超上限 3 层。已拒绝，未完整解压。" } },
 ];
 

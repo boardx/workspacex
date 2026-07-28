@@ -17,6 +17,7 @@ import { z } from "zod";
 import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
+import * as provenance from "../src/provenance";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const OUT = join(ROOT, "apps/web/lib/generated");
@@ -34,6 +35,7 @@ const MODULES: Bundle[] = [
   { file: "identity", operations: identity.operations },
   { file: "artifact", operations: artifact.operations },
   { file: "context-pack", varName: "contextPack", operations: contextPack.operations },
+  { file: "provenance", operations: provenance.operations },
 ];
 
 /**

@@ -65,8 +65,8 @@ export function IngestionDrawer({ onClose }: { onClose: () => void }) {
 const ORDER: IngestState[] = INGEST_PIPELINE.filter((s) => s.key !== "REVIEW_PENDING").map((s) => s.key);
 
 function RunCard({ run }: { run: IngestionRunView }) {
-  const idx = ORDER.indexOf(run.state === "REVIEW_PENDING" ? "INDEXED" : run.state);
-  const meta = INGEST_META[run.state];
+  const idx = ORDER.indexOf(run.status === "REVIEW_PENDING" ? "INDEXED" : run.status);
+  const meta = INGEST_META[run.status];
   // 失败态重试/手工补录、检出详情展开走本地态；复核处置走共享态（D-U11）。
   const [action, setAction] = React.useState<null | "retry" | "manual">(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
@@ -90,7 +90,7 @@ function RunCard({ run }: { run: IngestionRunView }) {
               "h-1.5 flex-1 rounded-full transition-colors duration-200",
               run.failure && i === idx ? "bg-destructive"
                 : i < idx ? "bg-primary"
-                : i === idx ? (run.state === "READY" ? "bg-success" : "bg-primary")
+                : i === idx ? (run.status === "READY" ? "bg-success" : "bg-primary")
                 : "bg-muted",
             )}
           />
@@ -98,7 +98,7 @@ function RunCard({ run }: { run: IngestionRunView }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <IngestBadge state={run.state} />
+        <IngestBadge state={run.status} />
         {meta.downloadable && !run.failure && <span className="text-10 text-success">原件可下载</span>}
       </div>
 
@@ -136,7 +136,7 @@ function RunCard({ run }: { run: IngestionRunView }) {
       )}
 
       {/* REVIEW_PENDING：接受 / 拒绝 / 查看检出详情（权威入口，写共享状态）*/}
-      {run.state === "REVIEW_PENDING" && (
+      {run.status === "REVIEW_PENDING" && (
         <div className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2" data-testid="files-ingestion-review">
           <p className="text-11 font-medium">等待人工确认</p>
           {run.reviewReasons?.map((r) => (

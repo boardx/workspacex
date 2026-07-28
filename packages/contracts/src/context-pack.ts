@@ -16,16 +16,16 @@
  *   Context Pack 不是字符串数组，而是三段结构 `items[]` / `claims[]` / `omissions[]`。
  */
 import { z } from "zod";
-// ⚠ `omissions[].reason` 的七类封闭枚举**单一事实源在 apps/web/lib/omission-reason.ts**（裁决 D-U4）。
+// ⚠ `omissions[].reason` 的七类封闭枚举**单一事实源在 `./omission-reason.ts`**（同包，2026-07-28 由 apps/web 迁入）（裁决 D-U4）。
 //   这里**引用**它，不另起一套——否则就是第六次「同一事实声明在两处」（ADR-020）。
 //   新增类别必须走 ADR。
-import { OMISSION_REASON_KEYS } from "../../../apps/web/lib/omission-reason";
-import type { OmissionReason } from "../../../apps/web/lib/omission-reason";
+import { OMISSION_REASON_KEYS } from "./omission-reason";
+import type { OmissionReason } from "./omission-reason";
 
 /* ─────────────────────── 枚举（与 domain.md 一一对应）─────────────────────── */
 
 /**
- * ⚠ `omissions[].reason` 的封闭枚举，**值来自单一事实源** `apps/web/lib/omission-reason.ts`。
+ * ⚠ `omissions[].reason` 的封闭枚举，**值来自单一事实源** `./omission-reason.ts`。
  * 命名刻意用 `...Schema` 后缀避开与该文件 `export type OmissionReason` 的重名
  * （否则 `lint-contract-source` 会把那份 type 误判成契约副本）。
  * `withdrawn` / `expired` / `unauthorized` 属**合规性丢弃，必须始终可见**——见 `compliance` 标记。
@@ -328,6 +328,17 @@ export const operations = {
    * F13：机密材料本地模型路由（V9 / D-U1）。**含任何机密条目 ⇒ 本轮所有模型调用走本地，
    * 云端整轮不可用**（不是分流）。语义委托 `identity.resolveModelConstraint`，此处按本 Pack 的
    * items 机密性求值——**跨束**，一致性复核须确认两者判定一致。
+   */
+  /**
+   * resolvePackModelConstraint —— **委托给 `identity.resolveModelConstraint`，不重新判定**
+   * （一致性复核 B-3 / X-5）。
+   *
+   * 本操作只做两件事：① 从 runId 解出本 Pack 的 dataScope（哪些 item 含机密）；
+   * ② 拿着它调 identity 的判定，原样返回其 `localOnly` / `source` / `reason`，
+   * 另附 `confidentialItemCount` 供界面显示「有几条机密」。
+   *
+   * ⚠ **不得在此处重新实现判定逻辑**——`source` 一旦分叉，
+   * 「产品承诺」与「组织策略」的区别就会被抹平，而两者可否关闭完全不同。
    */
   resolvePackModelConstraint: {
     method: "POST", path: "/context-packs/:runId/model-constraint",

@@ -28,6 +28,25 @@ export const authorizeMock: z.infer<typeof identity.operations.authorize.out> = 
   "decisionId": "decisionId-1"
 };
 
+/** authorizeBatch 的成功响应样例（由契约生成） */
+export const authorizeBatchMock: z.infer<typeof identity.operations.authorizeBatch.out> = [
+  {
+    "allowed": false,
+    "orgLayer": {
+      "role": "admin",
+      "teamId": null,
+      "passed": false
+    },
+    "projectLayer": null,
+    "scopeLayer": {
+      "scope": "org-wide",
+      "passed": false
+    },
+    "reasonCode": null,
+    "decisionId": "decisionId-1"
+  }
+];
+
 /** resolveIdentity 的成功响应样例（由契约生成） */
 export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIdentity.out> = {
   "org": {

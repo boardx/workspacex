@@ -99,23 +99,6 @@ export const getIngestionStatusMock: z.infer<typeof artifact.operations.getInges
 /** getIngestionStatus 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const getIngestionStatusErrors = ["ARTIFACT_NOT_FOUND","INGESTION_FAILED"] as const;
 
-/** queryProvenance 的成功响应样例（由契约生成） */
-export const queryProvenanceMock: z.infer<typeof artifact.operations.queryProvenance.out> = [
-  {
-    "id": "id-1",
-    "type": "ingested",
-    "actorId": "actorId-1",
-    "at": "at-1",
-    "artifactId": "artifactId-1",
-    "versionId": null,
-    "mode": null,
-    "detail": {}
-  }
-];
-
-/** queryProvenance 的失败模式全集——界面的异常态必须逐个覆盖 */
-export const queryProvenanceErrors = ["NO_PROJECT_ROLE"] as const;
-
 /** markEvidenceWithdrawn 的成功响应样例（由契约生成） */
 export const markEvidenceWithdrawnMock: z.infer<typeof artifact.operations.markEvidenceWithdrawn.out> = {
   "annotatedReferences": [

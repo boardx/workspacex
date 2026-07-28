@@ -1,8 +1,8 @@
 ---
 phase: "00"
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: " yanbin shen"
+confirmed_at: "2026-7-28"
 ---
 
 # phase-00 阶段一致性复核（ADR-020 第二级门）

@@ -69,21 +69,27 @@ export const AnchorKind = z.enum([
 export const SegmentKind = z.enum(["text", "message", "answer", "audio-span"]);
 
 /**
- * provenance_events 的事件类型。**append-only 血缘 + 越权尝试安全审计**（F08）。
- * `unauthorized-attempt` 是安全审计：越权修改/删除快照的尝试也必须留痕（V7/V8）。
+ * ⚠ **2026-07-28（一致性复核 B-1 / X-2）：provenance 已提取为跨束共享契约。**
+ *
+ * 本束原先自建了一份 `ProvenanceEventType` / `ProvenanceEvent` / `queryProvenance`，
+ * 而 identity 束也写同一张表却没有查询面——两束各造一个的话，
+ * 「查审计」这件事对使用者是分裂的，之后合并是返工。
+ *
+ * ⇒ 三者统一到 `./provenance.ts`。本束只负责**声明自己写哪些事件类型**，
+ *   不再自造查询接口。
  */
-export const ProvenanceEventType = z.enum([
-  "ingested",             // 摄取
-  "transformed",          // 转换（OCR/ASR/摘要/embedding）
-  "generated",            // AI 生成
-  "human-edited",         // 人工编辑草稿
-  "pinned",               // 定版（生成不可变版本）
-  "bound",                // 绑定到项目环节
-  "unbound",              // 解绑
-  "superseded",           // 被新版本替代（纠错只能新增版本 + 标注被替代）
-  "evidence-withdrawn",   // 上游证据撤回（E5：不改快照，标注引用处）
-  "unauthorized-attempt", // 越权尝试（安全审计，V7/V8）
-]);
+export {
+  ProvenanceEventType,
+  ProvenanceEvent,
+  type ProvenanceEventTypeT,
+} from "./provenance";
+
+/** 本束会写入的事件类型（子集声明，供文档与测试核对；查询走共享契约） */
+export const ARTIFACT_PROVENANCE_EVENTS = [
+  "ingested", "transformed", "generated", "human-edited",
+  "pinned", "bound", "unbound", "superseded",
+  "evidence-withdrawn", "unauthorized-attempt",
+] as const;
 
 /** 下游引用用途——**只有固定快照可用于这五类**（F07 / AC1） */
 export const DownstreamPurpose = z.enum([
@@ -183,21 +189,7 @@ export const DerivedRepresentation = z.object({
   modelVersion: z.string().nullable(),
 });
 
-/**
- * `provenance_events` —— **append-only** 血缘（domain I-9）。
- * 无 UPDATE、无 DELETE；越权尝试也写这里（安全审计）。
- */
-export const ProvenanceEvent = z.object({
-  id: z.string(),
-  type: ProvenanceEventType,
-  actorId: z.string(),
-  at: z.string(),
-  artifactId: z.string(),
-  versionId: z.string().nullable(),
-  mode: BindingMode.nullable(),
-  /** 动作影响范围/前后值等（按 type 解释）；越权尝试记录目标与被拒原因 */
-  detail: z.record(z.unknown()),
-});
+
 
 /**
  * 绑定关系 —— 三模式把 Artifact 挂到项目环节。
@@ -373,23 +365,7 @@ export const operations = {
     err: ["ARTIFACT_NOT_FOUND", "INGESTION_FAILED"] as const,
   },
 
-  /**
-   * queryProvenance —— 审计检索（F08 / V7）：按操作者/时间/Artifact/模式检索定版与绑定。
-   * ⚠ **跨束**：identity 束的 mutateCapability 也写 provenance_events。
-   *   coverage 缺口①建议：这应是**统一的** provenance 查询面，不要每束各造一个。
-   */
-  queryProvenance: {
-    method: "GET", path: "/provenance",
-    in: z.object({
-      artifactId: z.string().optional(),
-      actorId: z.string().optional(),
-      mode: BindingMode.optional(),
-      since: z.string().optional(),
-      until: z.string().optional(),
-    }),
-    out: z.array(ProvenanceEvent),
-    err: ["NO_PROJECT_ROLE"] as const,
-  },
+
 
   /**
    * markEvidenceWithdrawn —— E5：快照支撑的上游证据被撤回。

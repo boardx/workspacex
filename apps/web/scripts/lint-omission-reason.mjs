@@ -15,12 +15,15 @@ import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE = join(ROOT, "lib", "omission-reason.ts");
+// ⚠ 单一事实源已于 2026-07-28（一致性复核 B-5）迁入契约包——
+//   原在 apps/web/lib，导致 packages/contracts 反向 import app 包，依赖方向反了。
+//   apps/web/lib/omission-reason.ts 现在只是再导出。
+const SOURCE = join(ROOT, "..", "..", "packages", "contracts", "src", "omission-reason.ts");
 
 const src = readFileSync(SOURCE, "utf8");
 const KEYS = [...src.matchAll(/^\s{2}"?([a-z][a-z0-9-]*)"?:\s*\{/gm)].map((m) => m[1]);
 if (KEYS.length === 0) {
-  console.error("✗ 无法从 lib/omission-reason.ts 解析出枚举键（单一事实源读取失败）");
+  console.error("✗ 无法从 packages/contracts/src/omission-reason.ts 解析出枚举键（单一事实源读取失败）");
   process.exit(1);
 }
 
@@ -41,7 +44,7 @@ for (const file of [...walk(join(ROOT, "lib")), ...walk(join(ROOT, "components")
 
   // ① 第二份清单：`type OmissionReason = "a" | "b" ...`
   if (/type\s+OmissionReason\s*=\s*\n?\s*\|?\s*"/.test(body)) {
-    console.error(`✗ [副本] ${rel} 里出现了第二份 OmissionReason 字面量定义 —— 必须从 lib/omission-reason.ts 取`);
+    console.error(`✗ [副本] ${rel} 里出现了第二份 OmissionReason 字面量定义 —— 必须从 @repo/contracts/omission-reason 取`);
     fail++;
   }
   // ② 表外取值
