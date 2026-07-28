@@ -6,7 +6,7 @@ phases:
     slug: shared-kernel
     name: 共享内核
     goal: "交付跨模块横切契约：Artifact/Version/Segment/Anchor 模型、Context Pack 装配与引用完整性、两层角色与 RLS 强制隔离。所有业务模块依赖它"
-    status: not_started
+    status: in_progress
     depends_on: []
   - id: "01"
     slug: run-a-project

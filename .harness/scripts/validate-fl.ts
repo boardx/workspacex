@@ -24,7 +24,7 @@ interface Feature {
   status?: string;
   owner?: unknown;
   verification?: string[];
-  evidence?: unknown[];
+  evidence?: unknown;
   needs_ui_signoff?: boolean;
   notes?: string;
 }
@@ -81,9 +81,30 @@ for (const phaseId of process.argv.slice(2)) {
     const r = resolveSpecRef(phaseId, f.spec_ref);
     if (!r.ok) say(`${f.id} spec_ref "${f.spec_ref}" — ${r.reason}`);
 
-    if (f.status !== "not_started") say(`${f.id} status=${f.status}（生成阶段只能是 not_started）`);
-    if (f.owner != null) say(`${f.id} owner 应为 null`);
-    if (!Array.isArray(f.evidence) || f.evidence.length > 0) say(`${f.id} evidence 应为空数组`);
+    // ⚠ 本校验器最初假设「清单永远在生成态」，一旦有 feature 真的开工就会误报。
+    //   它该验的是**状态合法且与其它字段自洽**，不是「必须是 not_started」。
+    const LEGAL = ["not_started", "in_progress", "blocked", "passing"];
+    if (!LEGAL.includes(f.status ?? "")) {
+      say(`${f.id} status=${f.status} 不是合法状态（${LEGAL.join(" / ")}）`);
+    }
+    // passing 的归属由 verify 门控写入，此处只查自洽性（证据见下方 evidence 检查）
+    if (f.status === "passing" && !f.sprint) {
+      say(`${f.id} 是 passing 却没有 sprint 归属 —— passing 必须能追回是哪一轮验的`);
+    }
+    if (f.status === "not_started" && f.owner != null) {
+      say(`${f.id} 尚未开工却已有 owner=${String(f.owner)}`);
+    }
+    // ⚠ harness 的 `Feature.evidence` 是 **string**（见 lib/types.ts），模板 scaffold 成 ""。
+    //   我曾在 requirement-author 规格里写成 `[]`，导致 225 个 feature 全带错类型——
+    //   verify 写入时是字符串，被当数组读就变成 50 个单字符。
+    //   **写规格前没查 harness 自己的类型**，这是根因。
+    if (typeof f.evidence !== "string") {
+      say(`${f.id} evidence 类型应为 string（harness lib/types.ts），实为 ${typeof f.evidence}`);
+    } else if (f.status === "not_started" && f.evidence !== "") {
+      say(`${f.id} 尚未开工却已有 evidence："${f.evidence.slice(0, 40)}"`);
+    } else if (f.status === "passing" && !f.evidence.trim()) {
+      say(`${f.id} 是 passing 却没有 evidence —— 没有证据 = 没有完成（AGENTS.md 完成定义）`);
+    }
     if (typeof f.points !== "number" || f.points <= 0) say(`${f.id} points 缺失或非正数`);
     if (!f.user_visible_behavior?.trim()) say(`${f.id} 缺 user_visible_behavior`);
 

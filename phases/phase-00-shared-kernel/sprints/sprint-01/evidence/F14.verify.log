@@ -1,0 +1,330 @@
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter web run lint:design
+[exit 0]
+
+> web@0.1.0 lint:design /Users/shenyanbin/Documents/workspacex/apps/web
+> ./scripts/lint-design.sh
+
+
+✅ lint-design：全部通过（扫描 app components lib）
+
+
+$ pnpm --filter web run contrast
+[exit 0]
+
+> web@0.1.0 contrast /Users/shenyanbin/Documents/workspacex/apps/web
+> node scripts/check-token-contrast.mjs
+
+
+── 明色主题 :root ──
+  ✓ background             #FBFBFA / #141417  17.73:1  (neutral ≥ 4.5)
+  ✓ card                   #FFFFFF / #141417  18.37:1  (neutral ≥ 4.5)
+  ✓ popover                #FFFFFF / #141417  18.37:1  (neutral ≥ 4.5)
+  ✓ muted                  #F2F2EF / #5F5F67  5.60:1  (neutral ≥ 4.5)
+  ✓ secondary              #F0EEEC / #3A3A40  9.76:1  (neutral ≥ 4.5)
+  ✓ accent                 #E5F1EE / #0A6153  6.34:1  (neutral ≥ 4.5)
+  ✓ primary                #0C836F / #FFFFFF  4.69:1  (neutral ≥ 4.5)
+  ✓ disabled               #F0F0EE / #5C5C5C  5.85:1  (neutral ≥ 4.5)
+  ✓ rail                   #F2F2EF / #141417  16.37:1  (neutral ≥ 4.5)
+  ✓ panel                  #F6F6F4 / #141417  16.96:1  (neutral ≥ 4.5)
+  ✓ panel-alt              #FAFAF8 / #141417  17.52:1  (neutral ≥ 4.5)
+  ✓ inverse                #141417 / #FBFBFA  17.73:1  (neutral ≥ 4.5)
+  ✓ ai-tint                #EDEBFD / #4630C0  7.35:1  (neutral ≥ 4.5)
+  ✓ destructive            #B9321A / #FFFFFF  5.95:1  (state ≥ 3)
+  ✓ success                #0C836F / #FFFFFF  4.69:1  (state ≥ 3)
+  ✓ warning                #A06127 / #FFFFFF  4.94:1  (state ≥ 3)
+  ✓ ai                     #4839E8 / #FFFFFF  6.93:1  (state ≥ 3)
+
+── 暗色主题 .dark ──
+  ✓ background             #111113 / #EDEDEF  16.13:1  (neutral ≥ 4.5)
+  ✓ card                   #141417 / #EDEDEF  15.72:1  (neutral ≥ 4.5)
+  ✓ popover                #1A1A1E / #EDEDEF  14.83:1  (neutral ≥ 4.5)
+  ✓ muted                  #242429 / #A8A8B0  6.53:1  (neutral ≥ 4.5)
+  ✓ secondary              #27272C / #D6D6DA  10.20:1  (neutral ≥ 4.5)
+  ✓ accent                 #143B34 / #70D9C4  7.32:1  (neutral ≥ 4.5)
+  ✓ primary                #14AA91 / #06241F  5.61:1  (neutral ≥ 4.5)
+  ✓ disabled               #2A2A2E / #9D9DA7  5.34:1  (neutral ≥ 4.5)
+  ✓ rail                   #17171A / #EDEDEF  15.23:1  (neutral ≥ 4.5)
+  ✓ panel                  #161618 / #EDEDEF  15.51:1  (neutral ≥ 4.5)
+  ✓ panel-alt              #19191D / #EDEDEF  14.94:1  (neutral ≥ 4.5)
+  ✓ inverse                #EDEDEF / #141417  15.72:1  (neutral ≥ 4.5)
+  ✓ ai-tint                #1F1C40 / #B8ADFF  8.07:1  (neutral ≥ 4.5)
+  ✓ destructive            #E16245 / #2B0D05  5.18:1  (state ≥ 3)
+  ✓ success                #14AA91 / #06241F  5.61:1  (state ≥ 3)
+  ✓ warning                #D18D3B / #2A1A06  6.10:1  (state ≥ 3)
+  ✓ ai                     #8D7BFF / #16103A  5.47:1  (state ≥ 3)
+
+✅ 34 对 token 全部达标（明暗两套主题）
+
+
+$ pnpm --filter web run test
+[exit 0]
+
+> web@0.1.0 test /Users/shenyanbin/Documents/workspacex/apps/web
+> vitest run
+
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/web
+
+ ✓ tests/single-source-of-truth.test.ts (7 tests) 2ms
+ ✓ tests/lint-design-gate.test.ts (12 tests) 50ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  00:54:17
+   Duration  475ms (transform 24ms, setup 0ms, collect 113ms, tests 53ms, environment 0ms, prepare 79ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ apps/web/scripts/verify-ui-states.sh
+[exit 0]
+==> 启动 dev 实例（:3198）
+==> 七种必现状态（每态一个固定 testid）
+  ✓ default      → section-states
+  ✓ loading      → loading
+  ✓ empty        → empty
+  ✓ invalid      → err-email
+  ✓ dep-failed   → dep-failed
+  ✓ denied       → denied
+  ✓ success      → saved
+==> 七态互斥（切到 A 时不得同时渲染 B）
+  ✓ 互斥成立
+==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须可选中）
+  ✓ 18 屏 × 6 态全覆盖
+==> 两层身份投影的**作用域**（UC-0.3：项目角色只在项目里成立）
+  ✓ /chat               as=facilitator  → 引导师
+  ✓ /chat               as=groupLead    → 组长
+  ✓ /chat               as=member       → 组员
+  ✓ /chat               as=observer     → 观察者
+  ✓ /projects/p1/canvas as=facilitator  → 引导师
+==> 反向：非项目页面**不得**出现项目层与视角切换器
+  ✓ /tasks          只有组织层
+  ✓ /brain          只有组织层
+  ✓ /admin          只有组织层
+  ✓ /kitchen-sink   只有组织层
+  ✓ /projects       只有组织层
+==> 本地组织：承诺与策略必须可分辨（UC-0.5 V12）
+  ✓ org-yuanyang   → none
+  ✓ org-hengtai    → policy
+  ✓ org-local      → promise
+==> 组织切换（裁决 O-12：切换后团队归属随之改变）
+  ✓ 远洋新能源 → 能源组
+  ✓ 恒泰供应链 → 供应链组
+==> 骨架完整性
+  ✓ 三栏骨架 + 顶部条 + 环境态条齐备
+
+✅ UI 状态门控通过
+
+
+$ apps/web/scripts/verify-prod-gates.sh
+[exit 0]
+==> 生产构建（distDir=.next-prod-gate）
+==> 启动生产实例（:3199）
+==> 断言
+  ✓ 状态预览切换器已移除
+  ✓ 视角预览切换器已移除
+  ✓ ?state=empty 不生效，回落默认态
+  ✓ ?as=observer 不生效
+
+✅ 生产门控通过：预览开关不可达
+
+
+$ pnpm --filter web run e2e
+[exit 0]
+
+> web@0.1.0 e2e /Users/shenyanbin/Documents/workspacex/apps/web
+> playwright test
+
+
+Running 75 tests using 5 workers
+
+  ✓   1 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /kitchen-sink 无横向溢出 (1.6s)
+  ✓   2 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › / 无横向溢出 (1.6s)
+  ✓   3 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /join 无横向溢出 (1.6s)
+  ✓   5 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /login 无横向溢出 (1.6s)
+  ✓   4 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /consent 无横向溢出 (1.6s)
+  ✓   9 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /projects 无横向溢出 (1.3s)
+  ✓   7 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /session 无横向溢出 (1.3s)
+  ✓   6 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /group 无横向溢出 (1.4s)
+  ✓   8 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /chat 无横向溢出 (1.3s)
+  ✓  10 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /projects/p1 无横向溢出 (1.4s)
+  ✓  14 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /brain 无横向溢出 (1.4s)
+  ✓  12 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /tasks 无横向溢出 (1.4s)
+  ✓  15 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin 无横向溢出 (1.3s)
+  ✓  11 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /projects/p1/canvas 无横向溢出 (1.5s)
+  ✓  13 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /projects/p1/files 无横向溢出 (1.5s)
+  ✓  17 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/skill 无横向溢出 (1.4s)
+  ✓  16 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/agent 无横向溢出 (1.4s)
+  ✓  18 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/model 无横向溢出 (1.4s)
+  ✓  19 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/mcp 无横向溢出 (1.3s)
+  ✓  20 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/members 无横向溢出 (1.3s)
+  ✓  21 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /admin/feedback 无横向溢出 (1.5s)
+  ✓  24 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /studio/survey 无横向溢出 (1.5s)
+  ✓  23 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /studio/interview 无横向溢出 (1.5s)
+  ✓  25 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /studio/research 无横向溢出 (1.5s)
+  ✓  22 [chromium] › e2e/responsive.spec.ts:36:11 › mobile-375（375px） › /studio/prototype 无横向溢出 (1.5s)
+  ✓  27 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /kitchen-sink 无横向溢出 (913ms)
+  ✓  26 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › / 无横向溢出 (914ms)
+  ✓  28 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /join 无横向溢出 (909ms)
+  ✓  29 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /login 无横向溢出 (917ms)
+  ✓  30 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /consent 无横向溢出 (920ms)
+  ✓  31 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /group 无横向溢出 (851ms)
+  ✓  32 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /chat 无横向溢出 (857ms)
+  ✓  34 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /projects 无横向溢出 (852ms)
+  ✓  33 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /session 无横向溢出 (858ms)
+  ✓  35 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /projects/p1 无横向溢出 (858ms)
+  ✓  39 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /tasks 无横向溢出 (855ms)
+  ✓  36 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /projects/p1/canvas 无横向溢出 (867ms)
+  ✓  37 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /projects/p1/files 无横向溢出 (871ms)
+  ✓  38 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /brain 无横向溢出 (853ms)
+  ✓  40 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin 无横向溢出 (858ms)
+  ✓  44 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/mcp 无横向溢出 (824ms)
+  ✓  45 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/members 无横向溢出 (817ms)
+  ✓  43 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/model 无横向溢出 (829ms)
+  ✓  41 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/agent 无横向溢出 (834ms)
+  ✓  42 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/skill 无横向溢出 (834ms)
+  ✓  49 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /studio/survey 无横向溢出 (847ms)
+  ✓  50 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /studio/research 无横向溢出 (848ms)
+  ✓  48 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /studio/interview 无横向溢出 (855ms)
+  ✓  46 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /admin/feedback 无横向溢出 (866ms)
+  ✓  47 [chromium] › e2e/responsive.spec.ts:36:11 › tablet-768（768px） › /studio/prototype 无横向溢出 (865ms)
+  ✓  51 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › / 无横向溢出 (775ms)
+  ✓  53 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /join 无横向溢出 (768ms)
+  ✓  52 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /kitchen-sink 无横向溢出 (772ms)
+  ✓  54 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /login 无横向溢出 (771ms)
+  ✓  55 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /consent 无横向溢出 (778ms)
+  ✓  56 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /group 无横向溢出 (807ms)
+  ✓  57 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /session 无横向溢出 (806ms)
+  ✓  59 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /projects 无横向溢出 (807ms)
+  ✓  58 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /chat 无横向溢出 (814ms)
+  ✓  60 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /projects/p1 无横向溢出 (813ms)
+  ✓  64 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /brain 无横向溢出 (1.1s)
+  ✓  62 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /projects/p1/files 无横向溢出 (1.2s)
+  ✓  63 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /tasks 无横向溢出 (1.2s)
+  ✓  61 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /projects/p1/canvas 无横向溢出 (1.2s)
+  ✓  65 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin 无横向溢出 (1.2s)
+  ✓  67 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/skill 无横向溢出 (909ms)
+  ✓  68 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/model 无横向溢出 (908ms)
+  ✓  66 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/agent 无横向溢出 (910ms)
+  ✓  70 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/members 无横向溢出 (913ms)
+  ✓  69 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/mcp 无横向溢出 (923ms)
+  ✓  74 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /studio/survey 无横向溢出 (846ms)
+  ✓  72 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /studio/prototype 无横向溢出 (862ms)
+  ✓  73 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /studio/interview 无横向溢出 (861ms)
+  ✓  75 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /studio/research 无横向溢出 (860ms)
+  ✓  71 [chromium] › e2e/responsive.spec.ts:36:11 › desktop-1280（1280px） › /admin/feedback 无横向溢出 (877ms)
+
+  75 passed (20.1s)
+
+
+
+[BASE VERIFY] $ pnpm -w run verify:base
+[exit 0]
+
+> agentic-harness-template@ verify:base /Users/shenyanbin/Documents/workspacex
+> turbo run typecheck lint test
+
+
+   • Packages in scope: @repo/contracts, @repo/coord-protocol, web
+   • Running typecheck, lint, test in 3 packages
+   • Remote caching disabled
+
+@repo/contracts:test: cache hit, replaying logs b912882229165969
+@repo/contracts:typecheck: cache hit, replaying logs 8393cc33a69ca9e2
+@repo/contracts:lint: cache hit, replaying logs 8034b125e35107f5
+@repo/coord-protocol:test: cache hit, replaying logs 616d8fc852c45dce
+@repo/coord-protocol:typecheck: cache hit, replaying logs fb4312bed24eb065
+@repo/coord-protocol:lint: cache hit, replaying logs ad540133c575347c
+@repo/contracts:test: 
+@repo/contracts:test: > @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: > vitest run
+@repo/contracts:test: 
+@repo/contracts:test: 
+@repo/contracts:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: 
+@repo/contracts:test:  ✓ tests/pending-thresholds.test.ts (6 tests) 25ms
+@repo/contracts:test:  ✓ tests/no-forbidden-routes.test.ts (4 tests) 7ms
+@repo/contracts:test:  ✓ tests/contract-shape.test.ts (17 tests) 10ms
+@repo/contracts:test: 
+@repo/contracts:test:  Test Files  3 passed (3)
+@repo/contracts:test:       Tests  27 passed (27)
+@repo/contracts:test:    Start at  00:46:15
+@repo/contracts:test:    Duration  436ms (transform 91ms, setup 0ms, collect 195ms, tests 42ms, environment 0ms, prepare 305ms)
+@repo/contracts:test: 
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+web:lint: cache hit, replaying logs 3ef6937ffe0ca51a
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:lint: > echo 'lint: ok'
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: lint: ok
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: > @repo/coord-protocol@0.1.0 test /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:test: > vitest run
+@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:typecheck: > tsc --noEmit
+@repo/coord-protocol:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+@repo/coord-protocol:test: 
+web:lint: 
+web:test: cache hit, replaying logs a4bdfba8db8fa077
+web:typecheck: cache hit, replaying logs fa954dc4f4c1ed20
+web:lint: ✔ No ESLint warnings or errors
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  ✓ test/protocol.test.ts (19 tests) 4ms
+@repo/coord-protocol:test:  ✓ test/client.test.ts (20 tests) 7ms
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  Test Files  2 passed (2)
+@repo/coord-protocol:test:       Tests  39 passed (39)
+@repo/coord-protocol:test:    Start at  15:13:42
+@repo/coord-protocol:test:    Duration  457ms (transform 382ms, setup 0ms, collect 407ms, tests 11ms, environment 0ms, prepare 70ms)
+@repo/coord-protocol:test: 
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: > vitest run
+web:test: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: 
+web:test:  ✓ tests/single-source-of-truth.test.ts (7 tests) 5ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 113ms
+web:test: 
+web:test:  Test Files  2 passed (2)
+web:test:       Tests  19 passed (19)
+web:test:    Start at  00:46:15
+web:test:    Duration  945ms (transform 32ms, setup 0ms, collect 349ms, tests 117ms, environment 0ms, prepare 487ms)
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+
+ Tasks:    9 successful, 9 total
+Cached:    9 cached, 9 total
+  Time:    13ms >>> FULL TURBO
+
+• turbo 2.10.5

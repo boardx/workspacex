@@ -56,7 +56,8 @@ UC 用四标记区分证据来源，**它决定 feature 的可信度与排期风
 - `verification`：**可执行命令数组**，退出码 0 即通过
 - `status`：一律 `not_started`（**你无权设 passing**，那只能由 `pnpm harness verify` 门控）
 - `owner`：`null`
-- `evidence`：`[]`
+- `evidence`：`""`（**空字符串，不是空数组**——harness 的 `Feature.evidence` 是 string，
+  见 `.harness/scripts/lib/types.ts`。写成 `[]` 会让 verify 写入的字符串被当数组读成单字符）
 - `needs_ui_signoff`：依据等级不足时为 true
 - `notes`：依据等级、被合并的 UC 列表、已知风险
 
