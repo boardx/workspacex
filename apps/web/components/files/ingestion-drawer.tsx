@@ -1,0 +1,137 @@
+"use client";
+import * as React from "react";
+import { RotateCw, FilePlus2, Check, AlertTriangle, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Drawer } from "./overlay";
+import { IngestBadge } from "./status";
+import {
+  INGEST_PIPELINE, INGESTION_RUNS, INGEST_META, REVIEW_REASON_LABEL,
+  type IngestState, type IngestionRun,
+} from "@/lib/mock/files";
+
+/**
+ * 摄取进度抽屉（UC-22.2 R8）—— 九态状态机的界面呈现。
+ *
+ * ⚠ 这是原型完全没有、且最容易被做成「转圈圈」的地方。此处刻意反其道：
+ *   - 顶部一条**九态阶梯**，让人看清一份文件卡在哪一态、还差几步；
+ *   - 每态都标出**用户可见的出口**（没有出口的中间态 = 黑洞）；
+ *   - 失败态走**三段式**：在哪一步失败 + 为什么 + 能做什么；
+ *   - STORED 之后即标「原件已可下载」，与「已可检索」分开标（两件事）。
+ */
+export function IngestionDrawer({ onClose }: { onClose: () => void }) {
+  return (
+    <Drawer
+      testid="files-ingestion-drawer"
+      title="摄取进度"
+      subtitle="上传后收进这里，可继续做别的事。多文件逐行显示，可单独重试。"
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-4">
+        {INGESTION_RUNS.map((run) => (
+          <RunCard key={run.id} run={run} />
+        ))}
+
+        <Separator />
+
+        {/* 九态图例：把「入库」这个词背后的九个状态摊开，含义 + 出口 + 是否可下载/可检索 */}
+        <div className="flex flex-col gap-2">
+          <p className="text-11 font-medium text-muted-foreground">九态状态机 · 每态的含义与出口</p>
+          {INGEST_PIPELINE.map((s, i) => (
+            <div key={s.key} className="flex gap-2 rounded-md border border-border-subtle bg-panel p-2" data-testid="files-ingestion-legend-row">
+              <span className="mt-0.5 w-4 shrink-0 text-11 tabular-nums text-muted-foreground">{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <IngestBadge state={s.key} />
+                  {s.downloadable && <span className="text-10 text-success">原件可下载</span>}
+                  {s.retrievable && <span className="text-10 text-primary">已进检索</span>}
+                </div>
+                <p className="mt-1 text-11 text-muted-foreground">{s.meaning}</p>
+                <p className="mt-0.5 text-11">出口：{s.exits.join(" · ")}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+
+const ORDER: IngestState[] = INGEST_PIPELINE.filter((s) => s.key !== "REVIEW_PENDING").map((s) => s.key);
+
+function RunCard({ run }: { run: IngestionRun }) {
+  const idx = ORDER.indexOf(run.state === "REVIEW_PENDING" ? "INDEXED" : run.state);
+  const meta = INGEST_META[run.state];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border p-3" data-testid="files-ingestion-run">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 truncate text-12 font-medium" title={run.fileName}>{run.fileName}</p>
+        <span className="shrink-0 text-11 tabular-nums text-muted-foreground">{run.elapsed}</span>
+      </div>
+
+      {/* 九态阶梯：走到哪一步一目了然 */}
+      <div className="flex items-center gap-0.5" data-testid="files-ingestion-ladder">
+        {ORDER.map((st, i) => (
+          <span
+            key={st}
+            title={INGEST_META[st].label}
+            className={cn(
+              "h-1.5 flex-1 rounded-full transition-colors duration-200",
+              run.failure && i === idx ? "bg-destructive"
+                : i < idx ? "bg-primary"
+                : i === idx ? (run.state === "READY" ? "bg-success" : "bg-primary")
+                : "bg-muted",
+            )}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <IngestBadge state={run.state} />
+        {meta.downloadable && !run.failure && <span className="text-10 text-success">原件可下载</span>}
+      </div>
+
+      <p className="text-11 text-muted-foreground">{meta.meaning}</p>
+
+      {/* 幂等命中：使用已有 / 仍作为新版本 */}
+      {run.duplicateOf && (
+        <div className="rounded-md border border-border-subtle bg-panel p-2 text-11" data-testid="files-ingestion-duplicate">
+          幂等命中：{run.duplicateOf}
+        </div>
+      )}
+
+      {/* 失败三段式：在哪一步失败 + 为什么 + 能做什么 */}
+      {run.failure && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2" data-testid="files-ingestion-failure">
+          <p className="flex items-center gap-1.5 text-11 font-medium">
+            <AlertTriangle aria-hidden className="h-3 w-3 text-warning" /> 在「{run.failure.where}」这一步失败
+          </p>
+          <p className="text-11 text-muted-foreground">{run.failure.why}</p>
+          <div className="flex flex-wrap gap-1.5">
+            <Button size="xs" variant="outline" data-testid="files-ingestion-retry"><RotateCw aria-hidden className="h-3 w-3" /> 重试</Button>
+            <Button size="xs" variant="ghost" data-testid="files-ingestion-manual"><FilePlus2 aria-hidden className="h-3 w-3" /> 手工补文本版</Button>
+          </div>
+        </div>
+      )}
+
+      {/* REVIEW_PENDING：接受 / 拒绝 / 查看检出详情 */}
+      {run.state === "REVIEW_PENDING" && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2" data-testid="files-ingestion-review">
+          <p className="text-11 font-medium">等待人工确认</p>
+          {run.reviewReasons?.map((r) => (
+            <p key={r} className="text-11 text-muted-foreground">· {REVIEW_REASON_LABEL[r]}</p>
+          ))}
+          <div className="flex flex-wrap gap-1.5">
+            <Button size="xs" variant="primary" data-testid="files-ingestion-accept"><Check aria-hidden className="h-3 w-3" /> 接受</Button>
+            <Button size="xs" variant="outline" data-testid="files-ingestion-reject">拒绝</Button>
+            <Button size="xs" variant="ghost" data-testid="files-ingestion-detail">查看检出详情 <ArrowRight aria-hidden className="h-3 w-3" /></Button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-11">出口：{meta.exits.join(" · ")}</p>
+    </div>
+  );
+}

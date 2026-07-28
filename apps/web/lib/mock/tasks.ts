@@ -206,7 +206,7 @@ export const WAITING_CARDS: WaitingCard[] = [
 ];
 
 /** 左栏视图与计数（原型：收件箱 3 / 需要我处理 3 / AI 正在执行 5 / 已委派 4 / 项目看板 23 / 模板与自动化 7）*/
-export const TASK_VIEWS = [
+export const TASK_VIEWS: { key: string; label: string; count: number; primary?: boolean }[] = [
   { key: "my-today", label: "我的今天", count: 6, primary: true },
   { key: "inbox", label: "收件箱", count: 3 },
   { key: "need-me", label: "需要我处理", count: 3 },
@@ -214,7 +214,7 @@ export const TASK_VIEWS = [
   { key: "delegated", label: "已委派", count: 4 },
   { key: "board", label: "项目看板", count: 23 },
   { key: "templates", label: "模板与自动化", count: 7 },
-] as const;
+];
 
 /** 运行中心 · 3 个在跑 */
 export const RUN_CENTER = [
@@ -223,12 +223,32 @@ export const RUN_CENTER = [
   { id: "run-persona", initials: "EC", title: "访谈引述合并", step: "已合并 7 组" },
 ] as const;
 
-/** 底注当日汇总 —— 折算口径必须标样本量与口径版本（UC-11.5 R10 · O-37）*/
+/**
+ * 底注当日汇总 —— 折算口径遵循 UC-11.5 R10 · O-37 的**三条原则**（这三条与数值无关，先定）：
+ *   ① 折算系数/单价存为组织可配口径表，不硬编码；
+ *   ② 展示时必须标注样本量与口径版本；
+ *   ③ 样本不足时显示「样本不足」而非折算值。
+ *
+ * ⚠⚠ 三个具体数值 UC 与原型**均未给出**，O-37 原文明示「系数的具体数值无依据，需产品给出」：
+ *   - **每项折算几人时（系数）** —— 未给。下方 aiDone/personHours 是**原型底注逐字**
+ *     （「今日 AI 完成 11 项、折算 6.5 人时」），二者之间**不构成系数关系**，只是演示值。
+ *   - **最小样本量阈值** —— 未给。本文件**不编造阈值**，组件层也**不实现数值门控**；
+ *     只演示「样本充足 → 显示折算值」与「样本不足 → 显示『样本不足』」两条路径的形态。
+ *   - **口径表版本号 / 样本量 N** —— 未给。故不写死具体数字，标为「产品待定」。
+ *   曾经写过的「基于本周 18 项 · 口径表 v3」是占位编造，已移除，避免制造「已过线」的假象。
+ */
 export const TODAY_SUMMARY = {
-  aiDone: 11,
-  personHours: 6.5,
-  ledgerVersion: "组织口径表 v3",
-  sampleSize: 18,
-  waitingAuthz: 2,
+  aiDone: 11, // [原型底注] 逐字
+  personHours: 6.5, // [原型底注] 逐字，非按系数计算
+  waitingAuthz: 2, // [原型底注] 逐字
+  ledgerVersionKnown: false, // 口径表版本号原型/UC 未给
+  minSampleKnown: false, // 最小样本量阈值 UC 明示需产品给出
+  coefficientKnown: false, // 折算系数 UC 明示需产品给出
   responsibilityNote: "责任人始终是人——AI 只拿到行动权，不承担验收。",
+};
+
+/** O-37 ③「样本不足」闸门的演示实例 —— 阈值数值产品待定，此处只示形态 */
+export const TODAY_SUMMARY_LOW_SAMPLE = {
+  aiDone: 2,
+  label: "样本不足，暂不折算人时",
 };

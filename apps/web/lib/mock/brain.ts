@@ -15,11 +15,11 @@ export const LAYER_COUNTS = {
 };
 
 /** 节点类型分布（假设 318、证据 1,204 含反对 96、决策 42）*/
-export const NODE_TYPES = [
+export const NODE_TYPES: { key: string; label: string; count: number; sub?: string }[] = [
   { key: "hypothesis", label: "假设", count: 318 },
   { key: "evidence", label: "证据", count: 1204, sub: "含反对 96" },
   { key: "decision", label: "决策", count: 42 },
-] as const;
+];
 
 /** 立身之本的一条规则 —— 必须显著展示 */
 export const PROMOTION_RULE =
@@ -129,12 +129,12 @@ export const LEDGER_ROWS: LedgerRow[] = [
 /* ─────────────────── AI 读到了什么 · Context Pack（UC-14.6）─────────────────── */
 
 /** 「这次回答检索到什么」按段列出并带 token 数 */
-export const RETRIEVAL_SEGMENTS = [
+export const RETRIEVAL_SEGMENTS: { key: string; label: string; source: string; tokens: string; sub?: string }[] = [
   { key: "context", label: "客户与项目上下文", source: "组织大脑", tokens: "2.1k" },
   { key: "method", label: "方法", source: "Skill 库", tokens: "3.4k" },
   { key: "evidence", label: "证据片段 · 9 条", source: "项目图谱", tokens: "7.8k", sub: "含 1 条反对（强制保留）" },
   { key: "history", label: "历史决策与复盘", source: "决策台账", tokens: "1.6k" },
-] as const;
+];
 
 /** 五种筛选动作（召回/降权/排除/成对/线索）逐条可见，各带条数与理由 */
 export const FILTER_ACTIONS = [
@@ -152,11 +152,11 @@ export const CONTEXT_BUDGET = { used: 14.9, cap: 120, unit: "k", capNote: "上�
 export const SYSTEM_PROMPT = {
   redacted: true,
   sections: [
-    { title: "# 角色", body: "你是战略分析师 Ava，服务远洋新能源的欧洲市场进入项目。" },
-    { title: "# 客户与项目上下文 ← 组织大脑", body: "客户：远洋新能源（能源组）。目标市场：德国、荷兰。已排除：波兰（适用范围不匹配，见降权）。" },
-    { title: "# 方法 ← Skill 库", body: "MECE 假设拆解 → 逐条标注致命假设 → 结论先行。" },
-    { title: "# 证据 ← 项目图谱", body: "9 条证据片段（含 1 条反对，强制保留）。每条带页码/时间码锚点，不得引用未在此列出的证据。" },
-    { title: "# 硬约束", body: "不得写入决策节点；不得引用未在上文列出的证据；客户机密材料只能由本地模型处理。" },
+    { id: "role", title: "# 角色", body: "你是战略分析师 Ava，服务远洋新能源的欧洲市场进入项目。" },
+    { id: "context", title: "# 客户与项目上下文 ← 组织大脑", body: "客户：远洋新能源（能源组）。目标市场：德国、荷兰。已排除：波兰（适用范围不匹配，见降权）。" },
+    { id: "method", title: "# 方法 ← Skill 库", body: "MECE 假设拆解 → 逐条标注致命假设 → 结论先行。" },
+    { id: "evidence", title: "# 证据 ← 项目图谱", body: "9 条证据片段（含 1 条反对，强制保留）。每条带页码/时间码锚点，不得引用未在此列出的证据。" },
+    { id: "hard-constraint", title: "# 硬约束", body: "不得写入决策节点；不得引用未在上文列出的证据；客户机密材料只能由本地模型处理。" },
   ],
 };
 

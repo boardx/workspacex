@@ -49,6 +49,24 @@ for other in loading denied dep-failed saved; do
 done
 [ "$FAIL" -eq 0 ] && echo "  ✓ 互斥成立"
 
+echo "==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须可选中）"
+# 契约：屏处于某态时，该态的**固定保留 testid** 必须出现在 SSR 出的 HTML 里。
+# 与降级粒度无关——分区级降级（如 /tasks 的 ③ 区）也必须挂保留名，
+# 否则该屏在矩阵里被判为漏做异常态，而「漏做异常态」正是已有原型最大的缺陷。
+SCREENS="login join consent group chat projects projects/demo/canvas projects/demo/files \
+tasks brain admin admin/model admin/mcp admin/members studio/prototype \
+studio/interview studio/survey studio/research"
+matrix_fail=0
+for scr in $SCREENS; do
+  for st in loading empty invalid dep-failed denied success; do
+    case "$st" in invalid) want="err-" ;; success) want="saved" ;; *) want="$st" ;; esac
+    if ! curl -s "http://localhost:$PORT/$scr?state=$st" | grep -q "data-testid=\"$want"; then
+      echo "  ✗ /$scr → $st 缺保留 testid（期望 $want）"; matrix_fail=$((matrix_fail+1)); FAIL=1
+    fi
+  done
+done
+[ "$matrix_fail" -eq 0 ] && echo "  ✓ $(echo $SCREENS | wc -w | tr -d ' ') 屏 × 6 态全覆盖"
+
 echo "==> 两层身份投影（UC-0.3 R8：必须同时显示组织层与项目层）"
 assert_role() { # assert_role <as> <期望文案片段>
   local body; body=$(curl -s "http://localhost:$PORT/kitchen-sink?as=$1")

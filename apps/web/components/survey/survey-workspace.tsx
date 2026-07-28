@@ -1,0 +1,236 @@
+"use client";
+import * as React from "react";
+import {
+  Users, UserX, Send, QrCode, ClipboardList, BarChart3, Vote, Timer, ShieldCheck,
+} from "lucide-react";
+import { StateShell } from "@/components/state/state-shell";
+import type { UiState } from "@/lib/ui-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  SURVEY_QUESTIONS, QUESTION_TYPE_LABEL, RECOVERY, missingRoster, CROSS_SEGMENTS,
+  MIN_INFERABLE_N, SURVEY_CONCLUSIONS, LIVE_VOTE, SURVEY_SESSION,
+  canWriteSurvey, type SurveyView, type SurveyOption,
+} from "@/lib/mock/survey";
+
+export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyView }) {
+  const canWrite = canWriteSurvey(view);
+  const missing = missingRoster();
+  const pct = Math.round((RECOVERY.submitted / RECOVERY.rosterTotal) * 100);
+
+  const body = (
+    <Tabs defaultValue="recovery" className="flex flex-col gap-3" data-testid="survey-tabs">
+      <TabsList>
+        <TabsTrigger value="design" data-testid="survey-tab-design"><ClipboardList aria-hidden className="h-3.5 w-3.5" /> 设计</TabsTrigger>
+        <TabsTrigger value="recovery" data-testid="survey-tab-recovery"><Users aria-hidden className="h-3.5 w-3.5" /> 回收</TabsTrigger>
+        <TabsTrigger value="analysis" data-testid="survey-tab-analysis"><BarChart3 aria-hidden className="h-3.5 w-3.5" /> 分析</TabsTrigger>
+        <TabsTrigger value="vote" data-testid="survey-tab-vote"><Vote aria-hidden className="h-3.5 w-3.5" /> 现场投票</TabsTrigger>
+      </TabsList>
+
+      {/* ── 设计：题目与逻辑（题型齐全）───────────────────────── */}
+      <TabsContent value="design" className="flex flex-col gap-2" data-testid="survey-panel-design">
+        <p className="text-11 text-muted-foreground">题目与逻辑。单选 / 多选 / 五点量表 / 开放题，必填与跳转逻辑持续可见。</p>
+        {SURVEY_QUESTIONS.map((q) => (
+          <div key={q.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2.5" data-testid={`survey-design-${q.id}`}>
+            <div className="flex items-center gap-1.5">
+              <Badge tone="outline">{QUESTION_TYPE_LABEL[q.type]}</Badge>
+              <span className="text-12 font-medium">Q{q.no}</span>
+            </div>
+            <p className="text-12">{q.text}</p>
+            {q.options && (
+              <ul className="flex flex-col gap-0.5 pt-0.5">
+                {q.options.map((o, i) => (
+                  <li key={i} className="text-10 text-muted-foreground">· {o.label}</li>
+                ))}
+              </ul>
+            )}
+            {q.type === "open" && <p className="text-10 text-muted-foreground">开放题 · 自由文本，回收后抽样脱敏展示</p>}
+          </div>
+        ))}
+        {canWrite && <Button size="sm" variant="outline" className="self-start" data-testid="survey-design-edit">编辑题目与逻辑…</Button>}
+      </TabsContent>
+
+      {/* ── 回收：进度 9/12 + 名单（缺谁一目了然）─────────────── */}
+      <TabsContent value="recovery" className="flex flex-col gap-3" data-testid="survey-panel-recovery">
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-13 font-semibold" data-testid="survey-recovery-count">
+              已回收 {RECOVERY.submitted}/{RECOVERY.rosterTotal}
+            </span>
+            <span className="text-11 text-muted-foreground">完成率 {pct}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={RECOVERY.submitted} aria-valuemin={0} aria-valuemax={RECOVERY.rosterTotal} aria-label="回收进度">
+            <div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="ai"><ShieldCheck aria-hidden className="h-2.5 w-2.5" /> 匿名回收 · 不记录个人身份</Badge>
+            <span className="text-10 text-muted-foreground">名单只做「谁交了 / 谁没交」的核对，答卷内容与身份不绑定。</span>
+          </div>
+          {canWrite && (
+            <div className="flex items-center gap-1.5">
+              <Button size="xs" variant="outline" data-testid="survey-copy-link"><QrCode aria-hidden className="h-3 w-3" /> 分组链接 / 二维码</Button>
+              <Button size="xs" variant="primary" data-testid="survey-remind" disabled={missing.length === 0}>
+                <Send aria-hidden className="h-3 w-3" /> 按名单催填（缺 {missing.length}）
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5" data-testid="survey-roster">
+          <span className="text-11 font-medium">名单核对</span>
+          <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {RECOVERY.roster.map((r) => (
+              <li
+                key={r.id}
+                data-testid={`survey-roster-${r.id}`}
+                className={
+                  "flex items-center justify-between rounded-sm border px-2 py-1.5 " +
+                  (r.submitted ? "border-border-subtle bg-card" : "border-warning/30 bg-warning/5")
+                }
+              >
+                <span className="min-w-0 truncate text-10">{r.name} · {r.group}</span>
+                {r.submitted ? (
+                  <Badge tone={r.resubmitted ? "neutral" : "primary"}>{r.resubmitted ? "已交 · 以最后一次为准" : "已交"}</Badge>
+                ) : (
+                  <Badge tone="warning"><UserX aria-hidden className="h-2.5 w-2.5" /> 未交</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </TabsContent>
+
+      {/* ── 分析：原始分布 + 交叉切分 + AI 候选结论 ────────────── */}
+      <TabsContent value="analysis" className="flex flex-col gap-3" data-testid="survey-panel-analysis">
+        <div className="flex flex-col gap-2">
+          <span className="text-11 font-medium">原始分布（结论点回这里）</span>
+          {SURVEY_QUESTIONS.filter((q) => q.options).map((q) => (
+            <div key={q.id} id={`survey-q-${q.id}`} data-testid={`survey-dist-${q.id}`} className="scroll-mt-4 flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5">
+              <div className="flex items-center gap-1.5">
+                <Badge tone="outline">{QUESTION_TYPE_LABEL[q.type]}</Badge>
+                <span className="text-11 font-medium">Q{q.no} · {q.text}</span>
+                <span className="ml-auto text-10 text-muted-foreground">n={q.sampleN}{q.scaleAvg ? ` · 均值 ${q.scaleAvg}` : ""}</span>
+              </div>
+              <DistributionBars options={q.options!} />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-1.5" data-testid="survey-cross">
+          <span className="text-11 font-medium">按角色交叉切分</span>
+          <p className="text-10 text-muted-foreground">样本量低于 {MIN_INFERABLE_N} 的切分标为「不可推断」，只作定性线索，不出结论。</p>
+          <ul className="flex flex-col gap-1">
+            {CROSS_SEGMENTS.map((seg) => {
+              const inferable = seg.n >= MIN_INFERABLE_N;
+              return (
+                <li key={seg.id} data-testid={`survey-cross-${seg.id}`} className="flex items-center justify-between rounded-sm border border-border-subtle bg-card px-2 py-1.5">
+                  <span className="text-11">{seg.label} · <span className="text-muted-foreground">n={seg.n}</span></span>
+                  {inferable ? (
+                    <span className="text-10">{seg.topOption}（{seg.topPct}%）</span>
+                  ) : (
+                    <Badge tone="warning" data-testid={`survey-cross-uninferable-${seg.id}`}>不可推断 · n&lt;{MIN_INFERABLE_N}</Badge>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="flex flex-col gap-1.5" data-testid="survey-analysis-conclusions">
+          <span className="text-11 font-medium">AI 候选结论（每条挂题目与样本量）</span>
+          {SURVEY_CONCLUSIONS.map((c) => (
+            <div key={c.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2" data-testid={`survey-analysis-conclusion-${c.id}`}>
+              <div className="flex flex-wrap items-center gap-1">
+                {c.machine && <Badge tone="ai">AI 候选</Badge>}
+                {c.sampleN < MIN_INFERABLE_N && <Badge tone="warning">n={c.sampleN} · 不可推断</Badge>}
+                {c.confirmed && <Badge tone="primary">已入库</Badge>}
+              </div>
+              <p className="text-11">{c.text}</p>
+              <div className="flex items-center gap-1.5">
+                <a href={`#survey-q-${c.questionId}`} className="text-10 text-primary transition-colors duration-200 hover:underline">点回原始分布</a>
+                {canWrite && !c.confirmed && c.sampleN >= MIN_INFERABLE_N && (
+                  <Button size="xs" variant="ai" data-testid={`survey-confirm-${c.id}`}>确认入库</Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+
+      {/* ── 现场投票：60 秒倒计时 + 分布 + 未投的人 ─────────────── */}
+      <TabsContent value="vote" className="flex flex-col gap-3" data-testid="survey-panel-vote">
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-11 text-muted-foreground">从当前假设一键生成</span>
+            <span className="inline-flex items-center gap-1 text-12 font-semibold tabular-nums text-warning" data-testid="survey-vote-timer">
+              <Timer aria-hidden className="h-3.5 w-3.5" /> {LIVE_VOTE.remainingSec}s / {LIVE_VOTE.countdownSec}s
+            </span>
+          </div>
+          <p className="text-13 font-medium">{LIVE_VOTE.question}</p>
+          <p className="text-10 text-muted-foreground">来自假设：{LIVE_VOTE.fromHypothesis}</p>
+          <DistributionBars options={LIVE_VOTE.options as unknown as SurveyOption[]} />
+          <Badge tone="ai" className="self-start"><ShieldCheck aria-hidden className="h-2.5 w-2.5" /> 匿名投票 · 只给分布，不显示个人选择</Badge>
+        </div>
+        <div className="flex flex-col gap-1" data-testid="survey-vote-notvoted">
+          <span className="text-11 font-medium">还没投的人（在哪个模块忙着）</span>
+          {LIVE_VOTE.notVoted.map((p, i) => (
+            <div key={i} className="flex items-center justify-between rounded-sm border border-border-subtle bg-card px-2 py-1.5">
+              <span className="text-10">{p.name}</span>
+              <span className="text-10 text-muted-foreground">{p.where}</span>
+            </div>
+          ))}
+        </div>
+        {canWrite && <Button size="sm" variant="primary" className="self-start" data-testid="survey-vote-new">从当前假设发起投票…</Button>}
+      </TabsContent>
+    </Tabs>
+  );
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-18 font-semibold tracking-tight">{SURVEY_SESSION.active}</h1>
+          <p className="text-11 text-muted-foreground">{SURVEY_SESSION.project} · 最后更新 {SURVEY_SESSION.lastUpdate}</p>
+        </div>
+      </header>
+
+      <StateShell
+        state={state}
+        skeletonRows={6}
+        emptyHint="这个项目还没有问卷——从模板新建一份，或用「会前摸底」快速起题"
+        errors={{
+          duplicate: "检测到同一链接重复提交，已按最后一次生效，未产生重复答卷。",
+          concurrency: "另一名研究员刚改了题目逻辑，你的版本已过期，请刷新后再发布。",
+        }}
+        depFailure={{ what: "匿名回收 / 洞察库依赖暂时不可用。已保留最近一次成功的回收数据，可安全重试。" }}
+        denial={{ layer: "project", reason: "你在本项目中的角色不能查看问卷回收明细；已发布的脱敏汇总可在报告中查看。" }}
+        successMessage="结论已确认入洞察库，并已挂上原始分布出处"
+      >
+        {body}
+      </StateShell>
+    </div>
+  );
+}
+
+/* ── 分布条 ─────────────────────────────────────────────────── */
+function DistributionBars({ options }: { options: SurveyOption[] }) {
+  const max = Math.max(1, ...options.map((o) => o.count));
+  const total = options.reduce((a, o) => a + o.count, 0) || 1;
+  return (
+    <ul className="flex flex-col gap-1">
+      {options.map((o, i) => {
+        const pct = Math.round((o.count / total) * 100);
+        return (
+          <li key={i} className="flex items-center gap-2">
+            <span className="w-40 shrink-0 truncate text-10">{o.label}</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${(o.count / max) * 100}%` }} />
+            </div>
+            <span className="w-14 shrink-0 text-right font-mono text-10 tabular-nums text-muted-foreground">{o.count} · {pct}%</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

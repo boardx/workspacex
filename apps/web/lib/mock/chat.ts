@@ -51,7 +51,8 @@ export const TEAM_AGENTS: TeamAgent[] = [
 
 /** 编制数（侧栏「AI 团队 · N」）≠ 在场数（线程头「团队 N」）—— UC-4.2 R6 两个口径必须分别标注 */
 export const TEAM_ROSTER_COUNT = TEAM_AGENTS.length; // 6，编制数
-export const TEAM_PRESENT_COUNT = TEAM_AGENTS.filter((a) => a.presence !== "idle").length; // 在场数（含跑批中）
+// 在场数 = 仅「在场」态（对齐原型「团队 4」：跑批中/空闲不计入在场数，与编制数 6 分离）
+export const TEAM_PRESENT_COUNT = TEAM_AGENTS.filter((a) => a.presence === "present").length;
 
 /* ─────────────────────────── 线程列表（UC-8.1 R3）─────────────────────────── */
 
@@ -187,7 +188,7 @@ export interface ApprovalRequest {
   title: string;
   /** 调用链（谁调的谁）—— agent 互调深度上限 2（O-36）*/
   callChain: string[];
-  /** 模型集：数据驱动，可含云端 + 本地 */
+  /** 模型集：数据驱动，可含云端 + 本地（含机密的数据只路由到本地模型）*/
   models: ApprovalModel[];
   budget: ApprovalBudget;
   /** 要读的数据及其密级 */
@@ -211,6 +212,8 @@ export function hasConfidential(scope: ApprovalDataItem[]): boolean {
  * 从数据范围推导模型约束。
  * 「含机密 → 仅本地模型」是 D-17（出域＝出组织）在界面上的兑现：
  * 这条约束**由数据推出**，服务端强制，界面只呈现判定结果。
+ * 语义：含机密的数据只能路由到本地模型；一次运行里云端模型可以并存
+ * （只承担非机密部分），但机密数据必须有一个本地模型来承接。
  */
 export function dataScopeConstraint(scope: ApprovalDataItem[]): {
   localModelOnly: boolean;
@@ -240,16 +243,16 @@ export function budgetLine(b: ApprovalBudget): string {
 }
 
 /**
- * 策略校验：若数据含机密（仅本地模型）却选了云端模型 → 返回违规原因。
- * 服务端会在 gateway 层直接拒绝（UC-8.2 V3）；界面用它演示「改到云端模型会被拦」。
+ * 策略校验：数据含机密（仅本地模型）却**没有任何本地模型**承接 → 返回违规原因。
+ * 服务端会在 gateway 层直接拒绝（UC-8.2 V3）；界面用它演示「把模型改到纯云端会被拦」。
  * 返回 null 表示当前模型集合合规。
  */
-export function modelPolicyViolation(req: ApprovalRequest): string | null {
-  const { localModelOnly } = dataScopeConstraint(req.dataScope);
+export function modelPolicyViolation(models: ApprovalModel[], dataScope: ApprovalDataItem[]): string | null {
+  const { localModelOnly } = dataScopeConstraint(dataScope);
   if (!localModelOnly) return null;
-  const cloud = req.models.filter((m) => m.hosting === "cloud");
-  if (cloud.length === 0) return null;
-  return `数据范围含机密，仅本地模型；${cloud.map((m) => m.label).join("、")} 为云端模型，将被 gateway 拒绝`;
+  const hasLocal = models.some((m) => m.hosting === "local");
+  if (hasLocal) return null;
+  return "数据范围含机密，仅本地模型；当前无本地模型承接，将被 gateway 拒绝";
 }
 
 /* ─────────────────────────── 消息流（四类卡 + 进度/转录）─────────────────────────── */
