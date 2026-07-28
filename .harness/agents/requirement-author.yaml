@@ -14,7 +14,7 @@ context_isolation: true
 tools:
   - read_files
   - write_files          # 仅限 phases/<phase>/feature_list.json
-  - bash_readonly        # grep / ls / jq，用于核对 spec_ref 与 testid
+  - bash_search_readonly # grep / find / cat，用于核对 spec_ref 是否真实可解析
 
 model:
   claude: claude-opus-4-8

@@ -5,7 +5,7 @@ model: claude-opus-4-8
 tools:
   - Read
   - Write
-  - bash_readonly
+  - Bash
 ---
 
 你是需求作者。把一个 phase 的 UC 规格转成该阶段唯一权威的 feature_list.json。

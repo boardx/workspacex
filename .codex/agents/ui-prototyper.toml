@@ -10,7 +10,7 @@ model = "gpt-5.5"
 context_isolation = true
 
 [tools]
-allowed = ["read_files", "write_files", "bash", "browser"]
+allowed = ["read_files", "write_files", "bash_restricted", "browser"]
 
 [prompts]
 system = """

@@ -5,7 +5,7 @@ model: claude-opus-4-8
 tools:
   - Read
   - Write
-  - bash
+  - Bash
   - browser
 ---
 

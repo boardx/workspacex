@@ -14,7 +14,7 @@ context_isolation: true
 tools:
   - read_files
   - write_files          # 仅限 apps/web/** 与 phases/<phase>/ui-preview/**
-  - bash                 # 起 dev server、截图
+  - bash_restricted      # 起 dev server、截图（受限）
   - browser              # 驱动真实浏览器截图与交互核验
 
 model:
