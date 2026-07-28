@@ -1,23 +1,26 @@
 #!/usr/bin/env node
 /**
- * lint-contract-source.mjs — API 契约单一事实源门控（ADR-020）
+ * lint-contract-source.mjs -- API contract single-source gate (ADR-020)
  *
- * 检查两件事：
- *   ① **生成物没被手改** —— 重跑生成器，与磁盘上的内容逐字节比对
- *   ② **不存在手写的第二份** —— `apps/web/lib/generated/` 之外不得再定义契约里已有的类型
+ * Two checks:
+ *   1. Generated files have not been hand-edited -- re-run the generator and compare byte
+ *      for byte against what is on disk.
+ *   2. No hand-written second copy -- outside `apps/web/lib/generated/`, nothing may
+ *      redefine a type the contract already declares.
  *
- * 为什么值得一道独立门控：本项目已**五次**因「同一事实声明在两处」而漂移——
- * 设计 token、字号档位、丢弃原因枚举、撤回链 SLA、估点。每一次的形态都一样：
- * 有人改了 A 处，忘了 B 处，然后两处都「看起来对」直到出事。
+ * Why this deserves its own gate: this project has drifted five times from "the same fact
+ * declared in two places" -- design tokens, the font scale, the omission-reason enum, the
+ * withdrawal-chain SLA, story points. The shape is identical every time: someone changes A
+ * and forgets B, and both look correct until something breaks.
  *
- * 生成物被手改是最隐蔽的一种：**改它不会改变契约，只会让 mock 与契约悄悄分家**，
- * 而 mock 对自己永远自洽——界面照跑，直到联调那天。
+ * Hand-edited generated files are the most insidious variant: editing one does not change
+ * the contract, it just quietly separates the mock from it -- and a mock is always
+ * self-consistent, so the UI keeps working right up to integration day.
  */
-import { readFileSync, existsSync, readdirSync, statSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const GEN_DIR = join(ROOT, "apps/web/lib/generated");
@@ -25,45 +28,46 @@ const CONTRACTS = join(ROOT, "packages/contracts");
 
 let fail = 0;
 
-/* ── ① 生成物没被手改 ──────────────────────────────────────────── */
+/* -- 1. generated files have not been hand-edited -------------------------- */
 if (!existsSync(GEN_DIR)) {
-  console.log("  （尚无生成物目录，跳过漂移检查）");
+  console.log("  (no generated directory yet, skipping the drift check)");
 } else {
   const before = new Map();
   for (const f of readdirSync(GEN_DIR)) {
     if (f.endsWith(".ts")) before.set(f, readFileSync(join(GEN_DIR, f), "utf8"));
   }
 
-  // 重跑生成器；生成器直接写回原位，故先留存旧内容再比对
+  // The generator writes in place, so capture the old content before re-running it.
   try {
     execFileSync("pnpm", ["exec", "tsx", "scripts/gen-mock.ts"], {
       cwd: CONTRACTS, stdio: "pipe", encoding: "utf8",
     });
   } catch (e) {
-    console.error(`✗ 生成器跑不起来：${e.message.split("\n")[0]}`);
+    console.error(`✗ the generator failed to run: ${e.message.split("\n")[0]}`);
     process.exit(1);
   }
 
   for (const [name, old] of before) {
     const now = readFileSync(join(GEN_DIR, name), "utf8");
     if (now !== old) {
-      console.error(`✗ [漂移] apps/web/lib/generated/${name} 与契约不一致`);
-      console.error("    要么它被手改了，要么契约改了却没重新生成。");
-      console.error("    修法：pnpm --filter @repo/contracts gen:mock，并把生成物一起提交。");
+      console.error(`✗ [drift] apps/web/lib/generated/${name} does not match the contract`);
+      console.error("    Either it was hand-edited, or the contract changed and was not regenerated.");
+      console.error("    Fix: pnpm --filter @repo/contracts gen:mock, and commit the output with it.");
       fail++;
     }
   }
-  // 生成器可能新产出了文件（契约新增了模块）
+  // The generator may have produced new files (the contract gained a module).
   for (const f of readdirSync(GEN_DIR)) {
     if (f.endsWith(".ts") && !before.has(f)) {
-      console.error(`✗ [漏提交] apps/web/lib/generated/${f} 是新生成的，但未在磁盘的既有清单里`);
+      console.error(`✗ [uncommitted] apps/web/lib/generated/${f} was just generated but is not on disk's existing list`);
       fail++;
     }
   }
 }
 
-/* ── ② 不存在手写的第二份 ──────────────────────────────────────── */
-// 从契约源码抽出所有导出的类型/常量名，再到 apps/web 里找有没有人另起炉灶
+/* -- 2. no hand-written second copy ---------------------------------------- */
+// Collect every exported type/const name from the contract source, then look for anyone
+// who started their own version of it.
 const contractNames = new Set();
 const srcDir = join(CONTRACTS, "src");
 if (existsSync(srcDir)) {
@@ -71,7 +75,8 @@ if (existsSync(srcDir)) {
     if (!f.endsWith(".ts") || f === "index.ts") continue;
     const body = readFileSync(join(srcDir, f), "utf8");
     for (const m of body.matchAll(/^export const ([A-Z]\w+)\s*=\s*z\./gm)) contractNames.add(m[1]);
-    // 契约里也可能用 interface / type 声明纯结构（非 zod），同样是契约的一部分
+    // The contract may also declare plain structures with interface/type (not zod);
+    // those are part of the contract too.
     for (const m of body.matchAll(/^export (?:interface|type) ([A-Z]\w+)\b/gm)) contractNames.add(m[1]);
   }
 }
@@ -85,26 +90,45 @@ function walk(dir, out = []) {
   return out;
 }
 
-const webLib = join(ROOT, "apps/web/lib");
-if (existsSync(webLib) && contractNames.size > 0) {
-  for (const file of walk(webLib)) {
+/**
+ * Scan scope. It MUST include `apps/api`.
+ *
+ * ADR-020's single-source rule says one zod definition feeds the backend DTOs, the frontend
+ * types, OpenAPI and the mock -- but this gate used to scan only the frontend side, so a
+ * hand-copied DTO on the backend triggered nothing at all. That is the highest-risk surface
+ * for "the same fact in two places": backend DTOs are shaped like the contract, so they get
+ * copied, and afterwards both sides are internally consistent until integration day. It has
+ * already happened twice (`"org"|"team"` vs `"org-wide"|"team-only"`, and
+ * `IngestionRun.status` vs `.state`).
+ *
+ * UC-0.6 V10 asserts on THIS LIST containing apps/api, not merely on the script exiting 0.
+ */
+const SCAN_DIRS = ["apps/web/lib", "apps/api/src"];
+const scannedDirs = [];
+for (const dir of SCAN_DIRS) {
+  const abs = join(ROOT, dir);
+  if (!existsSync(abs) || contractNames.size === 0) continue;
+  scannedDirs.push(dir);
+  for (const file of walk(abs)) {
     const rel = relative(ROOT, file);
     const body = readFileSync(file, "utf8");
     for (const name of contractNames) {
-      // ⚠ 只抓**字面量重新定义**。这几种是**正确做法**，必须放行：
-      //   · export type X = z.infer<typeof C.X>     ← 从契约派生
-      //   · export { X } from "@repo/contracts/..."  ← 再导出
-      //   · export type X = C.X                      ← 别名
-      // 规则太糙会误伤正确写法——这条规则第一版就犯过，把 5 处正确的 z.infer 判成副本。
-      // `export interface X { … }` 是**另一种**重新定义——它没有 `= rhs` 形态，
-      // 所以第一版的正则完全漏过了它。阶段一致性复核查出 Omission / Citation
-      // 正是以 interface 形态在前端各写了一份（第七次漂移的最可能人选）。
+      // Only literal REDEFINITION counts. These three are correct and must pass:
+      //   export type X = z.infer<typeof C.X>      <- derived from the contract
+      //   export { X } from "@repo/contracts/..."  <- re-export
+      //   export type X = C.X                      <- alias
+      // A crude rule punishes correct code -- the first version of this check flagged five
+      // legitimate z.infer derivations.
+      //
+      // `export interface X { ... }` is a DIFFERENT form of redefinition: it has no `= rhs`,
+      // so the first version's regex missed it entirely. The phase coherence review found
+      // Omission and Citation redefined exactly that way on the frontend.
       const ifaceRe = new RegExp(`^export interface ${name}\\b`, "m");
       const im = ifaceRe.exec(body);
       if (im) {
         const line = body.slice(0, im.index).split("\n").length;
-        console.error(`✗ [副本] ${rel}:${line} 用 \`interface\` 重新定义了契约里已有的 \`${name}\``);
-        console.error(`    契约在 packages/contracts/src/。正确做法：从契约派生或再导出，不要另写一份结构。`);
+        console.error(`✗ [copy] ${rel}:${line} redefines contract type \`${name}\` with \`interface\``);
+        console.error(`    The contract lives in packages/contracts/src/. Derive from it or re-export it; do not restate the structure.`);
         fail++;
         continue;
       }
@@ -114,14 +138,14 @@ if (existsSync(webLib) && contractNames.size > 0) {
       if (!m) continue;
       const rhs = m[1].trim();
       const derived =
-        /\bz\.infer\s*</.test(rhs) ||          // z.infer 派生
-        /^[A-Z]\w*\.\w+$/.test(rhs) ||          // C.X 别名
-        /@repo\/contracts/.test(rhs);           // 直接引用契约包
+        /\bz\.infer\s*</.test(rhs) ||          // derived via z.infer
+        /^[A-Z]\w*\.\w+$/.test(rhs) ||          // C.X alias
+        /@repo\/contracts/.test(rhs);           // direct reference to the contract package
       if (derived) continue;
       const line = body.slice(0, m.index).split("\n").length;
-      console.error(`✗ [副本] ${rel}:${line} 用**字面量**重新定义了契约里已有的 \`${name}\``);
-      console.error(`    实际写的是：${rhs.slice(0, 60)}`);
-      console.error(`    契约在 packages/contracts/src/。正确做法：export type ${name} = z.infer<typeof C.${name}>;`);
+      console.error(`✗ [copy] ${rel}:${line} redefines contract type \`${name}\` with a LITERAL`);
+      console.error(`    What it actually says: ${rhs.slice(0, 60)}`);
+      console.error(`    The contract lives in packages/contracts/src/. Correct form: export type ${name} = z.infer<typeof C.${name}>;`);
       fail++;
     }
   }
@@ -129,7 +153,10 @@ if (existsSync(webLib) && contractNames.size > 0) {
 
 console.log(
   fail === 0
-    ? `✅ lint-contract-source：生成物与契约一致，无手写副本（契约导出 ${contractNames.size} 个类型）`
-    : `\n❌ ${fail} 处违规。契约是唯一事实源——同一事实声明在两处必然漂移（ADR-020）。`,
+    ? `✅ lint-contract-source: generated files match the contract, no hand-written copies (${contractNames.size} contract types)`
+    : `\n❌ ${fail} violation(s). The contract is the single source -- the same fact in two places always drifts (ADR-020).`,
 );
+// Machine-readable: UC-0.6 V10 asserts this line contains apps/api.
+// "It scanned only the frontend" must not count as a pass.
+console.log(`scanned-dirs=${scannedDirs.join(",") || "(none)"}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -13,7 +13,7 @@
         "F18"
       ],
       "points": 5,
-      "status": "blocked",
+      "status": "not_started",
       "sprint": "01",
       "owner": null,
       "verification": [
@@ -427,20 +427,20 @@
       "spec_ref": "00-core/uc-0-6-后端内核与运行时门控.md#R3",
       "depends_on": [],
       "points": 13,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "main-agent",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
         "pnpm --filter api run test",
-        "node .harness/scripts/lint-arch-deps.mjs",
+        "node .harness/scripts/lint-arch-deps.mjs apps/api/src",
         "apps/api/scripts/verify-rls.sh",
         "apps/api/scripts/verify-runtime-gates.sh",
         "pnpm --filter api run migrate:check",
         "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F18.verify.log @ 2026-07-28T18:58:49.901Z",
       "needs_ui_signoff": false,
       "notes": "【本 feature 是 F01~F13 十三个后端 feature 的共同前置】2026-07-29 机器核实：apps/ 下只有 web，apps/api 不存在，全仓零 NestJS、零迁移文件、零 PG 连接；lint-arch-deps.mjs 已写好但每次运行都打印「跳过 apps/api/src：尚未创建」并 exit 0——ADR-020 称它「与既有七道门控同级的强制门控」，实际处于永久空转；architecture.md 点名的三个运行时门控（Guard 全局注册 / ValidationPipe + zod / ExceptionFilter 只回 internal_error）一个都不存在；packages/contracts 的 zod 目前只有前端一个消费者，ADR-020 的「后端 DTO ← 同一份 zod」这条链未接通。不拆出本件的后果：F01（5 点）实际要交付 NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 + acl_bindings 表 + 两层交集判定，估点失真三倍，且十二个后端 feature 的共同前置被埋进 F01 的实现里，下一个 feature 的人不知道它已经有了。这与 UC-0.4（前端内核）从 F01~F13 里拆出来的理由完全相同——前端有内核，后端没有。依据等级：[设计]——从 architecture.md「三个必须建立的机械门控（运行时）」+ ADR-020 + UC-0.3 R7 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。不拆的理由见 R11：没有迁移体系就没有 RLS 策略，没有 RLS 就没有反证，没有洋葱目录 lint-arch-deps 就仍在空转。verification 第 5 条 verify-rls.sh 是最重要的一条——它绕过应用层过滤断言跨租户读 0 行，且同时断言换成自己的租户能读到自己的行；只写前半句的话，一个「一律拒绝」的坏策略也会全绿，隔离与瘫痪必须能被区分。needs_ui_signoff=false：本件零界面。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F14（前端内核）无依赖、可并行。⚠ 所属契约束 api-kernel 尚未签核，new-sprint 会拒绝把它开进 sprint（ADR-020 门控）。"
     }
