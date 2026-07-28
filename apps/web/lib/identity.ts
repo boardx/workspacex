@@ -32,12 +32,25 @@ export const PROJECT_ROLES = Object.keys(PROJECT_ROLE_LABEL) as ProjectRole[];
  */
 export type OrgKind = "organization" | "personal-local";
 
+/**
+ * 组织级模型策略（UC-0.5 R7，2026-07-28 裁决）
+ *
+ * ⚠ **与个人本地组织的硬隔离①性质不同、不可抹平**：
+ *   · 正式组织的 `modelPolicy` 是**可配置策略**——管理员可改，改动留痕；
+ *   · 本地组织的「只走本地模型」是**不可关闭的产品承诺**——任何接口都改不动。
+ *   用同一个开关表示会让「承诺」退化成「默认值」，所以本字段**只对正式组织有意义**，
+ *   本地组织的约束由 `kind === "personal-local"` 直接推出，不读这个字段。
+ */
+export type ModelPolicy = "any" | "self-hosted-only";
+
 export interface Organization {
   id: string;
   name: string;
   kind: OrgKind;
   /** 团队为单一归属：组织内一人一队（裁决 O-12）。本地组织恒为 null */
   team: string | null;
+  /** 仅正式组织可配；本地组织不读此字段（见上方说明） */
+  modelPolicy?: ModelPolicy;
 }
 
 /**
@@ -57,6 +70,25 @@ export function isLocalOrg(org: Organization): boolean {
   return org.kind === "personal-local";
 }
 
+/**
+ * 本组织是否只允许自托管模型，以及**它是承诺还是策略**。
+ * 界面必须能分辨这两者——这正是 UC-0.5 V12 断言的东西。
+ */
+export function selfHostedOnly(org: Organization): {
+  on: boolean;
+  /** promise = 不可关闭的产品承诺；policy = 管理员可改的策略；none = 不限制 */
+  source: "promise" | "policy" | "none";
+} {
+  if (isLocalOrg(org)) return { on: true, source: "promise" };
+  if (org.modelPolicy === "self-hosted-only") return { on: true, source: "policy" };
+  return { on: false, source: "none" };
+}
+
+export const SELF_HOSTED_SOURCE_LABEL: Record<"promise" | "policy", string> = {
+  promise: "产品承诺 · 不可关闭",
+  policy: "组织策略 · 管理员可改",
+};
+
 export interface Identity {
   displayName: string;
   orgRole: OrgRole;
@@ -69,8 +101,9 @@ export interface Identity {
 
 /** mock 数据 —— 数量级与字段完整度贴近真实（sign-off 要能看出信息密度问题）*/
 export const MOCK_ORGS: Organization[] = [
-  { id: "org-yuanyang", name: "远洋新能源", kind: "organization", team: "能源组" },
-  { id: "org-hengtai", name: "恒泰供应链", kind: "organization", team: "供应链组" },
+  { id: "org-yuanyang", name: "远洋新能源", kind: "organization", team: "能源组", modelPolicy: "any" },
+  // 强合规客户：整组织只用自托管模型（2026-07-28 裁决新增的组织级策略）
+  { id: "org-hengtai", name: "恒泰供应链", kind: "organization", team: "供应链组", modelPolicy: "self-hosted-only" },
   // 注册那一刻自动创建，恒定存在、不可删除 / 退出 / 转让 / 邀请他人（UC-0.5 R7）
   { id: "org-local", name: "林可 的本地", kind: "personal-local", team: null },
 ];

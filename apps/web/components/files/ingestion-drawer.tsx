@@ -63,6 +63,9 @@ const ORDER: IngestState[] = INGEST_PIPELINE.filter((s) => s.key !== "REVIEW_PEN
 function RunCard({ run }: { run: IngestionRun }) {
   const idx = ORDER.indexOf(run.state === "REVIEW_PENDING" ? "INDEXED" : run.state);
   const meta = INGEST_META[run.state];
+  // 乐观处置：失败态重试/手工补录、复核态接受/拒绝、检出详情展开
+  const [action, setAction] = React.useState<null | "retry" | "manual" | "accepted" | "rejected">(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border p-3" data-testid="files-ingestion-run">
@@ -110,9 +113,19 @@ function RunCard({ run }: { run: IngestionRun }) {
           </p>
           <p className="text-11 text-muted-foreground">{run.failure.why}</p>
           <div className="flex flex-wrap gap-1.5">
-            <Button size="xs" variant="outline" data-testid="files-ingestion-retry"><RotateCw aria-hidden className="h-3 w-3" /> 重试</Button>
-            <Button size="xs" variant="ghost" data-testid="files-ingestion-manual"><FilePlus2 aria-hidden className="h-3 w-3" /> 手工补文本版</Button>
+            <Button size="xs" variant="outline" onClick={() => setAction("retry")} data-testid="files-ingestion-retry"><RotateCw aria-hidden className="h-3 w-3" /> 重试</Button>
+            <Button size="xs" variant="ghost" onClick={() => setAction("manual")} data-testid="files-ingestion-manual"><FilePlus2 aria-hidden className="h-3 w-3" /> 手工补文本版</Button>
           </div>
+          {action === "retry" && (
+            <p role="status" className="inline-flex items-center gap-1 text-11 text-primary" data-testid="files-ingestion-retry-status">
+              <RotateCw aria-hidden className="h-3 w-3" /> 已重新排队：从「{run.failure.where}」这一步重试，原件不受影响。
+            </p>
+          )}
+          {action === "manual" && (
+            <p role="status" className="inline-flex items-center gap-1 text-11 text-primary" data-testid="files-ingestion-manual-status">
+              <FilePlus2 aria-hidden className="h-3 w-3" /> 已切到手工补文本：粘贴正文后作为该版本的抽取结果登记。
+            </p>
+          )}
         </div>
       )}
 
@@ -124,10 +137,22 @@ function RunCard({ run }: { run: IngestionRun }) {
             <p key={r} className="text-11 text-muted-foreground">· {REVIEW_REASON_LABEL[r]}</p>
           ))}
           <div className="flex flex-wrap gap-1.5">
-            <Button size="xs" variant="primary" data-testid="files-ingestion-accept"><Check aria-hidden className="h-3 w-3" /> 接受</Button>
-            <Button size="xs" variant="outline" data-testid="files-ingestion-reject">拒绝</Button>
-            <Button size="xs" variant="ghost" data-testid="files-ingestion-detail">查看检出详情 <ArrowRight aria-hidden className="h-3 w-3" /></Button>
+            <Button size="xs" variant="primary" onClick={() => setAction("accepted")} data-testid="files-ingestion-accept"><Check aria-hidden className="h-3 w-3" /> 接受</Button>
+            <Button size="xs" variant="outline" onClick={() => setAction("rejected")} data-testid="files-ingestion-reject">拒绝</Button>
+            <Button size="xs" variant="ghost" onClick={() => setDetailOpen((v) => !v)} data-testid="files-ingestion-detail">查看检出详情 <ArrowRight aria-hidden className="h-3 w-3" /></Button>
           </div>
+          {detailOpen && (
+            <div className="flex flex-col gap-1 rounded-sm border border-border-subtle bg-card p-2" data-testid="files-ingestion-detail-panel">
+              <p className="text-11 font-medium">检出详情（脱敏展示，不回显真实值）</p>
+              <p className="text-11 text-muted-foreground">第 2 页 · 手机号 1 处（138 •••• 2049）</p>
+              <p className="text-11 text-muted-foreground">第 5 页 · 邮箱 1 处（l••@••.cn）</p>
+            </div>
+          )}
+          {(action === "accepted" || action === "rejected") && (
+            <p role="status" className={action === "accepted" ? "inline-flex items-center gap-1 text-11 text-success" : "inline-flex items-center gap-1 text-11 text-destructive"} data-testid="files-ingestion-review-status">
+              <Check aria-hidden className="h-3 w-3" /> {action === "accepted" ? "已接受并转 READY，进入检索召回；处置写入审计。" : "已拒绝：不入检索，材料退回上传者；处置写入审计。"}
+            </p>
+          )}
         </div>
       )}
 

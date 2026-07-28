@@ -18,6 +18,7 @@ import {
 export function ReviewPanel() {
   const pending = FILES.filter((f) => f.ingest === "REVIEW_PENDING");
   const [activeId, setActiveId] = React.useState(pending[0]?.id ?? null);
+  const [resolved, setResolved] = React.useState<Record<string, "accepted" | "rejected">>({});
   const active = pending.find((f) => f.id === activeId) ?? null;
 
   return (
@@ -42,7 +43,11 @@ export function ReviewPanel() {
                 <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <p className="truncate text-12 font-medium">{f.name}.{f.ext}</p>
-                  <p className="text-11 text-muted-foreground">{(f.reviewReasons ?? []).map((r) => REVIEW_REASON_LABEL[r].split("（")[0]).join(" · ")}</p>
+                  <p className="text-11 text-muted-foreground">
+                    {resolved[f.id]
+                      ? (resolved[f.id] === "accepted" ? "已接受 · 已转 READY" : "已拒绝")
+                      : (f.reviewReasons ?? []).map((r) => REVIEW_REASON_LABEL[r].split("（")[0]).join(" · ")}
+                  </p>
                 </div>
               </button>
             );
@@ -52,13 +57,34 @@ export function ReviewPanel() {
 
       {/* 详情 */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {active ? <ReviewDetail file={active} /> : <p className="text-12 text-muted-foreground">队列为空</p>}
+        {active ? (
+          <ReviewDetail
+            file={active}
+            disposition={resolved[active.id] ?? null}
+            onResolve={(d) => setResolved((r) => ({ ...r, [active.id]: d }))}
+          />
+        ) : (
+          <p className="text-12 text-muted-foreground">队列为空</p>
+        )}
       </div>
     </div>
   );
 }
 
-function ReviewDetail({ file }: { file: FileItem }) {
+function ReviewDetail({
+  file, disposition, onResolve,
+}: {
+  file: FileItem;
+  disposition: "accepted" | "rejected" | null;
+  onResolve: (d: "accepted" | "rejected") => void;
+}) {
+  const [note, setNote] = React.useState("");
+  const [showReq, setShowReq] = React.useState(false);
+  const canResolve = note.trim().length >= 4;
+  const resolve = (d: "accepted" | "rejected") => {
+    if (!canResolve) { setShowReq(true); return; }
+    onResolve(d);
+  };
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4" data-testid="files-review-detail">
       <div>
@@ -106,11 +132,28 @@ function ReviewDetail({ file }: { file: FileItem }) {
       {/* 处置：接受 / 拒绝，强制填理由（写审计）*/}
       <div className="flex flex-col gap-2">
         <p className="text-12 font-medium">处置意见（接受 / 拒绝都会写入审计）</p>
-        <Textarea rows={3} placeholder="例如：机密材料已确认由客户授权入库，路由维持仅本地模型。" data-testid="files-review-note" />
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="primary" data-testid="files-review-accept"><Check aria-hidden className="h-3.5 w-3.5" /> 接受并转 READY</Button>
-          <Button size="sm" variant="outline" data-testid="files-review-reject"><X aria-hidden className="h-3.5 w-3.5" /> 拒绝</Button>
-        </div>
+        <Textarea
+          rows={3}
+          value={note}
+          onChange={(e) => { setNote(e.currentTarget.value); if (e.currentTarget.value.trim().length >= 4) setShowReq(false); }}
+          placeholder="例如：机密材料已确认由客户授权入库，路由维持仅本地模型。"
+          data-testid="files-review-note"
+        />
+        {showReq && !canResolve && (
+          <p role="alert" className="text-11 text-destructive" data-testid="files-review-note-required">接受 / 拒绝前必须填写处置理由（至少 4 字，写入审计）。</p>
+        )}
+        {disposition ? (
+          <p role="status" className={disposition === "accepted" ? "inline-flex items-center gap-1.5 text-12 text-success" : "inline-flex items-center gap-1.5 text-12 text-destructive"} data-testid="files-review-resolved">
+            {disposition === "accepted"
+              ? <><Check aria-hidden className="h-3.5 w-3.5" /> 已接受并转 READY，已进入检索召回；处置理由已写审计。</>
+              : <><X aria-hidden className="h-3.5 w-3.5" /> 已拒绝，材料不入检索并退回上传者；处置理由已写审计。</>}
+          </p>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="primary" onClick={() => resolve("accepted")} data-testid="files-review-accept"><Check aria-hidden className="h-3.5 w-3.5" /> 接受并转 READY</Button>
+            <Button size="sm" variant="outline" onClick={() => resolve("rejected")} data-testid="files-review-reject"><X aria-hidden className="h-3.5 w-3.5" /> 拒绝</Button>
+          </div>
+        )}
       </div>
     </div>
   );

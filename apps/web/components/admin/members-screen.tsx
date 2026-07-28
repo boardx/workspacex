@@ -1,13 +1,15 @@
 "use client";
+import * as React from "react";
 import { EyeOff, ScrollText, FileClock, Gauge } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
-  MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT,
+  MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
 
@@ -18,6 +20,14 @@ function quotaTone(pct: number): "primary" | "warning" | "destructive" {
 }
 
 export function MembersScreen({ state }: { state: UiState }) {
+  const [limits, setLimits] = React.useState<Record<string, number>>({});
+  const [quotaOf, setQuotaOf] = React.useState<MemberRow | null>(null);
+  const [newLimit, setNewLimit] = React.useState("");
+  const [accessOpen, setAccessOpen] = React.useState(false);
+  const [toast, setToast] = React.useState<string | null>(null);
+
+  const openQuota = (m: MemberRow) => { setQuotaOf(m); setNewLimit((limits[m.id] ?? m.limitM).toFixed(1)); };
+
   return (
     <AdminScreen
       state={state}
@@ -41,7 +51,8 @@ export function MembersScreen({ state }: { state: UiState }) {
           <Card>
             <CardContent className="flex flex-col pt-2">
               {MEMBERS.map((m, i) => {
-                const pct = Math.round((m.usedM / m.limitM) * 100);
+                const limit = limits[m.id] ?? m.limitM;
+                const pct = Math.round((m.usedM / limit) * 100);
                 return (
                   <div key={m.id} data-testid={`admin-member-row-${m.id}`}>
                     <div className="flex flex-wrap items-center gap-3 py-2.5">
@@ -51,10 +62,10 @@ export function MembersScreen({ state }: { state: UiState }) {
                       <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
                         <Progress value={pct} tone={quotaTone(pct)} label={`${m.name} 配额 ${pct}%`} className="flex-1" />
                         <span className="shrink-0 font-mono text-11 text-muted-foreground">
-                          {m.usedM.toFixed(1)}/{m.limitM.toFixed(1)}M
+                          {m.usedM.toFixed(1)}/{limit.toFixed(1)}M
                         </span>
                       </div>
-                      <Button size="xs" variant="outline" data-testid={`admin-member-quota-${m.id}`}>给他单独提额</Button>
+                      <Button size="xs" variant="outline" onClick={() => openQuota(m)} data-testid={`admin-member-quota-${m.id}`}>给他单独提额</Button>
                     </div>
                     {i < MEMBERS.length - 1 && <Separator />}
                   </div>
@@ -104,7 +115,7 @@ export function MembersScreen({ state }: { state: UiState }) {
                     本月你访问过 {ADMIN_PROJECT_ACCESS_COUNT} 个项目。「升到项目层」是获取内容的唯一路径——不存在申请、提权、临时授权等旁路。
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="self-start" data-testid="admin-members-my-access">
+                <Button size="sm" variant="outline" className="self-start" onClick={() => setAccessOpen(true)} data-testid="admin-members-my-access">
                   <FileClock aria-hidden className="h-3.5 w-3.5" />
                   看我的访问记录
                 </Button>
@@ -130,6 +141,69 @@ export function MembersScreen({ state }: { state: UiState }) {
           </Card>
         </section>
       </div>
+
+      {/* 单独提额 */}
+      {quotaOf && (
+        <AdminModal
+          testid="admin-member-quota-dialog"
+          title={`给 ${quotaOf.name} 单独提额`}
+          subtitle={`当前 ${quotaOf.usedM.toFixed(1)}/${(limits[quotaOf.id] ?? quotaOf.limitM).toFixed(1)}M · ${quotaOf.orgRole} · ${quotaOf.team}`}
+          onClose={() => setQuotaOf(null)}
+          footer={
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setQuotaOf(null)} data-testid="admin-member-quota-cancel">取消</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  const v = parseFloat(newLimit);
+                  if (!Number.isFinite(v) || v <= 0) return;
+                  setLimits((p) => ({ ...p, [quotaOf.id]: v }));
+                  setToast(`已为 ${quotaOf.name} 单独提额至 ${v.toFixed(1)}M；本次操作已记入审计`);
+                  setQuotaOf(null);
+                }}
+                data-testid="admin-member-quota-save"
+              >
+                确认提额
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <Field
+              id="admin-member-quota-input"
+              label="新的月度额度（百万 token）"
+              type="number"
+              value={newLimit}
+              onChange={(e) => setNewLimit(e.currentTarget.value)}
+            />
+            <p className="text-11 text-muted-foreground">
+              提额不会绕过个人层封闭：即便你调高他的额度，仍看不到他个人层的内容，只看得到计数与用量。
+            </p>
+          </div>
+        </AdminModal>
+      )}
+
+      {/* 我的访问记录抽屉 */}
+      {accessOpen && (
+        <AdminDrawer testid="admin-members-access-drawer" title="我的项目层访问记录" subtitle="每一条都对该项目负责人可见，不可删除" onClose={() => setAccessOpen(false)}>
+          <div className="flex flex-col gap-2" data-testid="admin-members-access-full">
+            <p className="text-11 text-muted-foreground">本月共 {ADMIN_ACCESS_LOGS.length} 次升到项目层读取内容。升项目层是获取内容的唯一路径。</p>
+            {ADMIN_ACCESS_LOGS.map((log) => (
+              <div key={log.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="admin-members-access-item">
+                <div className="flex items-center gap-2">
+                  <span className="text-12 font-medium">{log.project}</span>
+                  <Badge tone="primary">对负责人 {log.lead} 可见</Badge>
+                  <span className="ml-auto text-11 text-muted-foreground">{log.when}</span>
+                </div>
+                <p className="text-11 text-muted-foreground">读取范围：项目库文档与转写（不含任何成员个人层）。理由已随访问写入审计。</p>
+              </div>
+            ))}
+          </div>
+        </AdminDrawer>
+      )}
+
+      <Toast message={toast} testid="admin-members-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Plus, Search, MessageSquarePlus, Link2, Save, GitBranch, AlertOctagon, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, MessageSquarePlus, Link2, Save, GitBranch, AlertOctagon, CheckCircle2, Undo2, RotateCcw, Check } from "lucide-react";
 import { StateShell, StatePreviewSwitcher } from "@/components/state/state-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   PROJECT_PROTOTYPES, UNLINKED_PROTOTYPES, PROTOTYPE_FILTERS, PROTOTYPE_STEPS,
-  STUDIO_AUTOSAVE, type PrototypeCard, type PrototypeStatus, type PrototypeFilterKey,
+  STUDIO_AUTOSAVE, ATTACH_STAGES, type PrototypeCard, type PrototypeStatus, type PrototypeFilterKey,
 } from "@/lib/mock/studio";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ const STATUS_LABEL: Record<PrototypeStatus, string> = {
 
 export function PrototypeScreen({ state }: { state: UiState }) {
   const [filter, setFilter] = React.useState<PrototypeFilterKey>("all");
+  const [attaching, setAttaching] = React.useState(false);
+  const [attachedTo, setAttachedTo] = React.useState<string | null>(null);
   const match = (c: PrototypeCard) => filter === "all" || c.status === filter;
   const projectCards = PROJECT_PROTOTYPES.filter(match);
   const unlinkedCards = UNLINKED_PROTOTYPES.filter(match);
@@ -56,9 +59,11 @@ export function PrototypeScreen({ state }: { state: UiState }) {
         {/* 工具条：新建 + 搜索 + 筛选 */}
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="primary" data-testid="studio-prototype-new">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              新建原型
+            <Button size="sm" variant="primary" asChild data-testid="studio-prototype-new">
+              <Link href="/chat">
+                <Plus aria-hidden className="h-3.5 w-3.5" />
+                新建原型
+              </Link>
             </Button>
             <div className="relative flex-1">
               <Search aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -82,21 +87,61 @@ export function PrototypeScreen({ state }: { state: UiState }) {
 
         {/* 新建入口：从一段设计对话开始 */}
         <Card data-testid="studio-prototype-start">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-4">
-            <div className="flex items-start gap-2">
-              <MessageSquarePlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <div className="flex flex-col">
-                <span className="text-13 font-medium">从一段设计对话开始</span>
-                <span className="text-11 text-muted-foreground">描述你想要的界面，AI 生成可点原型；随时可挂到某个项目环节。</span>
+          <CardContent className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <MessageSquarePlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-13 font-medium">从一段设计对话开始</span>
+                  <span className="text-11 text-muted-foreground">描述你想要的界面，AI 生成可点原型；随时可挂到某个项目环节。</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ai" asChild data-testid="studio-prototype-start-chat">
+                  <Link href="/chat">开始设计对话</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={attaching ? "secondary" : "outline"}
+                  onClick={() => setAttaching((v) => !v)}
+                  aria-expanded={attaching}
+                  data-testid="studio-prototype-attach"
+                >
+                  <Link2 aria-hidden className="h-3.5 w-3.5" />
+                  挂到项目环节…
+                </Button>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ai" data-testid="studio-prototype-start-chat">开始设计对话</Button>
-              <Button size="sm" variant="outline" data-testid="studio-prototype-attach">
-                <Link2 aria-hidden className="h-3.5 w-3.5" />
-                挂到项目环节…
-              </Button>
-            </div>
+
+            {/* 「挂到项目环节」展开：选一个环节（原型本地选择，无落库）*/}
+            {attaching && (
+              <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3" data-testid="studio-prototype-attach-panel">
+                <span className="text-11 font-medium text-muted-foreground">选一个项目环节挂上去</span>
+                <ul className="flex flex-col gap-1">
+                  {ATTACH_STAGES.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedTo(s.id)}
+                        data-testid={`studio-prototype-attach-pick-${s.id}`}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          attachedTo === s.id ? "border-primary bg-accent" : "border-border-subtle bg-card",
+                        )}
+                      >
+                        <span className="min-w-0 truncate text-12">{s.project} · {s.stage}</span>
+                        {attachedTo === s.id && <Check aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {attachedTo && (
+                  <p className="text-11 text-muted-foreground" data-testid="studio-prototype-attach-done">
+                    已选中此环节。真正生成原型后会自动挂上去；此处仅为挂载点预选。
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -174,6 +219,10 @@ function PrototypeGroup({
 }
 
 function PrototypeCardView({ c }: { c: PrototypeCard }) {
+  const [undone, setUndone] = React.useState(false);
+  const [showBlockers, setShowBlockers] = React.useState(false);
+  const effectiveStep = undone && c.step > 1 ? c.step - 1 : c.step;
+
   return (
     <Card data-testid={`studio-prototype-card-${c.id}`}>
       <CardContent className="flex flex-col gap-2.5 pt-4">
@@ -191,8 +240,8 @@ function PrototypeCardView({ c }: { c: PrototypeCard }) {
         {/* 五步进度 */}
         <div className="flex items-center gap-1" data-testid={`studio-prototype-steps-${c.id}`}>
           {PROTOTYPE_STEPS.map((label, i) => {
-            const done = i < c.step;
-            const current = i === c.step - 1 && c.status !== "delivered";
+            const done = i < effectiveStep;
+            const current = i === effectiveStep - 1 && c.status !== "delivered";
             return (
               <span
                 key={label}
@@ -217,19 +266,61 @@ function PrototypeCardView({ c }: { c: PrototypeCard }) {
           <span className="ml-auto">{c.updatedAt}</span>
         </div>
 
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {c.status === "delivered" ? (
-            <Button size="xs" variant="outline" data-testid={`studio-prototype-open-${c.id}`}>看交付版</Button>
+            <Button size="xs" variant="outline" asChild data-testid={`studio-prototype-open-${c.id}`}>
+              <Link href="/chat">看交付版</Link>
+            </Button>
           ) : (
-            <Button size="xs" variant="primary" data-testid={`studio-prototype-open-${c.id}`}>继续设计</Button>
+            <Button size="xs" variant="primary" asChild data-testid={`studio-prototype-open-${c.id}`}>
+              <Link href="/chat">继续设计</Link>
+            </Button>
           )}
-          <Button size="xs" variant="ghost" data-testid={`studio-prototype-undo-${c.id}`}>撤回上一步</Button>
+          {undone ? (
+            <Button size="xs" variant="ghost" onClick={() => setUndone(false)} data-testid={`studio-prototype-undo-${c.id}`}>
+              <RotateCcw aria-hidden className="h-3 w-3" /> 重做上一步
+            </Button>
+          ) : (
+            <Button
+              size="xs"
+              variant="ghost"
+              disabled={c.step <= 1}
+              title={c.step <= 1 ? "已在第一步，没有可撤回的改动" : undefined}
+              onClick={() => setUndone(true)}
+              data-testid={`studio-prototype-undo-${c.id}`}
+            >
+              <Undo2 aria-hidden className="h-3 w-3" /> 撤回上一步
+            </Button>
+          )}
           {c.status === "blocked" && (
-            <Button size="xs" variant="outline" data-testid={`studio-prototype-audit-${c.id}`}>
+            <Button
+              size="xs"
+              variant={showBlockers ? "secondary" : "outline"}
+              onClick={() => setShowBlockers((v) => !v)}
+              aria-expanded={showBlockers}
+              data-testid={`studio-prototype-audit-${c.id}`}
+            >
               看 {c.blockers} 项阻断
             </Button>
           )}
         </div>
+
+        {undone && (
+          <p className="text-10 text-muted-foreground" data-testid={`studio-prototype-undone-note-${c.id}`}>
+            已撤回到「{PROTOTYPE_STEPS[Math.max(0, effectiveStep - 1)]}」——只保留最新版本，撤回不产生并行分支。可「重做」回退。
+          </p>
+        )}
+
+        {showBlockers && c.blockerDetails && (
+          <ul className="flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2.5" data-testid={`studio-prototype-blockers-${c.id}`}>
+            {c.blockerDetails.map((b, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-11 text-muted-foreground">
+                <AlertOctagon aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
+                {b}
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );

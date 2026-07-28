@@ -16,20 +16,30 @@ const TOOLS: { key: CanvasTool; label: string; icon: LucideIcon; write: boolean 
   { key: "delete", label: "删除", icon: Trash2, write: true },
 ];
 
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2;
+
 /**
  * 画布工具条（原型四节中栏）：`选择 ＋便签 ＋节点 连线 删除 源码 | ＋ − ⤢`
  * `源码` 是**视图切换**（画布 ⇄ 源码），承载 D-08 数据链的「可查看可手改」。
+ * 缩放 ＋/−/⤢ 真实改动 stage 的 scale（受 ZOOM_MIN/MAX 夹取，到边界显式禁用）。
  * readOnly（观察者 / 只读别组画布，A2）时写工具全部禁用——禁用态走 token，不用 opacity。
  */
 export function CanvasToolbar({
   tool, onToolChange, mode, onModeChange, readOnly,
+  zoom, onZoomIn, onZoomOut, onZoomFit,
 }: {
   tool: CanvasTool;
   onToolChange: (t: CanvasTool) => void;
   mode: "canvas" | "source";
   onModeChange: (m: "canvas" | "source") => void;
   readOnly: boolean;
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomFit: () => void;
 }) {
+  const zoomDisabled = mode === "source";
   return (
     <div
       data-testid="canvas-toolbar"
@@ -63,13 +73,40 @@ export function CanvasToolbar({
       </Button>
 
       <div className="ml-auto flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" aria-label="放大" data-testid="canvas-zoom-in">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="放大"
+          disabled={zoomDisabled || zoom >= ZOOM_MAX}
+          title={zoomDisabled ? "源码视图不支持缩放" : zoom >= ZOOM_MAX ? "已到最大缩放" : undefined}
+          onClick={onZoomIn}
+          data-testid="canvas-zoom-in"
+        >
           <Plus aria-hidden className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" aria-label="缩小" data-testid="canvas-zoom-out">
+        <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground" data-testid="canvas-zoom-level">
+          {Math.round(zoom * 100)}%
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="缩小"
+          disabled={zoomDisabled || zoom <= ZOOM_MIN}
+          title={zoomDisabled ? "源码视图不支持缩放" : zoom <= ZOOM_MIN ? "已到最小缩放" : undefined}
+          onClick={onZoomOut}
+          data-testid="canvas-zoom-out"
+        >
           <Minus aria-hidden className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" aria-label="适应画布" data-testid="canvas-zoom-fit">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="适应画布"
+          disabled={zoomDisabled}
+          title={zoomDisabled ? "源码视图不支持缩放" : "适应画布（回到 100%）"}
+          onClick={onZoomFit}
+          data-testid="canvas-zoom-fit"
+        >
           <Maximize aria-hidden className="h-3.5 w-3.5" />
         </Button>
       </div>

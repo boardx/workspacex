@@ -66,7 +66,7 @@ function SectionDepFailed() {
       <p className="text-11 text-muted-foreground">
         本区数据源中断，其余三区照常。运行中断或超预算的任务会转入「等我判断」，不会静默显示为还在跑。
       </p>
-      <Button size="sm" variant="outline" data-testid="tasks-section-dep-retry">重试</Button>
+      <Button size="sm" variant="outline" onClick={() => window.location.reload()} data-testid="tasks-section-dep-retry">重试</Button>
     </div>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
 import {
-  Users, UserX, Send, QrCode, ClipboardList, BarChart3, Vote, Timer, ShieldCheck,
+  Users, UserX, Send, QrCode, ClipboardList, BarChart3, Vote, Timer, ShieldCheck, Check, Copy,
 } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   SURVEY_QUESTIONS, QUESTION_TYPE_LABEL, RECOVERY, missingRoster, CROSS_SEGMENTS,
@@ -18,6 +19,21 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
   const canWrite = canWriteSurvey(view);
   const missing = missingRoster();
   const pct = Math.round((RECOVERY.submitted / RECOVERY.rosterTotal) * 100);
+
+  const [editing, setEditing] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [confirmedIds, setConfirmedIds] = React.useState<Set<string>>(new Set());
+  const [voteStarted, setVoteStarted] = React.useState(false);
+
+  const copyLink = () => {
+    const url = "https://ke.app/s/eu-storage-precheck?g=2";
+    try {
+      void navigator.clipboard?.writeText(url);
+    } catch {
+      /* 预览环境无剪贴板权限时静默降级，仍给可见反馈 */
+    }
+    setCopied(true);
+  };
 
   const body = (
     <Tabs defaultValue="recovery" className="flex flex-col gap-3" data-testid="survey-tabs">
@@ -48,7 +64,26 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
             {q.type === "open" && <p className="text-10 text-muted-foreground">开放题 · 自由文本，回收后抽样脱敏展示</p>}
           </div>
         ))}
-        {canWrite && <Button size="sm" variant="outline" className="self-start" data-testid="survey-design-edit">编辑题目与逻辑…</Button>}
+        {canWrite && !editing && (
+          <Button size="sm" variant="outline" className="self-start" onClick={() => setEditing(true)} data-testid="survey-design-edit">编辑题目与逻辑…</Button>
+        )}
+        {canWrite && editing && (
+          <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-accent p-3" data-testid="survey-design-editor">
+            <span className="text-11 font-medium">编辑题目文案（每行一题 · 本地预览，不落库）</span>
+            <Textarea
+              rows={SURVEY_QUESTIONS.length}
+              defaultValue={SURVEY_QUESTIONS.map((q) => `Q${q.no} ${q.text}`).join("\n")}
+              data-testid="survey-design-editor-text"
+            />
+            <p className="text-10 text-muted-foreground">
+              量表点数、跳转逻辑与必填项在真实编辑器里逐项可改；此处仅演示「点了有屏」。
+            </p>
+            <div className="flex items-center gap-1.5">
+              <Button size="xs" variant="primary" onClick={() => setEditing(false)} data-testid="survey-design-edit-done">完成编辑</Button>
+              <Button size="xs" variant="ghost" onClick={() => setEditing(false)} data-testid="survey-design-edit-cancel">取消</Button>
+            </div>
+          </div>
+        )}
       </TabsContent>
 
       {/* ── 回收：进度 9/12 + 名单（缺谁一目了然）─────────────── */}
@@ -68,11 +103,21 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
             <span className="text-10 text-muted-foreground">名单只做「谁交了 / 谁没交」的核对，答卷内容与身份不绑定。</span>
           </div>
           {canWrite && (
-            <div className="flex items-center gap-1.5">
-              <Button size="xs" variant="outline" data-testid="survey-copy-link"><QrCode aria-hidden className="h-3 w-3" /> 分组链接 / 二维码</Button>
-              <Button size="xs" variant="primary" data-testid="survey-remind" disabled={missing.length === 0}>
-                <Send aria-hidden className="h-3 w-3" /> 按名单催填（缺 {missing.length}）
-              </Button>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <Button size="xs" variant={copied ? "secondary" : "outline"} onClick={copyLink} data-testid="survey-copy-link">
+                  {copied ? <Check aria-hidden className="h-3 w-3" /> : <QrCode aria-hidden className="h-3 w-3" />}
+                  {copied ? "已复制链接" : "分组链接 / 二维码"}
+                </Button>
+                <Button size="xs" variant="primary" data-testid="survey-remind" disabled={missing.length === 0}>
+                  <Send aria-hidden className="h-3 w-3" /> 按名单催填（缺 {missing.length}）
+                </Button>
+              </div>
+              {copied && (
+                <span className="inline-flex items-center gap-1 text-10 text-muted-foreground" data-testid="survey-copy-link-done">
+                  <Copy aria-hidden className="h-3 w-3" /> 已复制第 2 组分组链接，可粘到群里；二维码同链接。
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -139,22 +184,32 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
 
         <div className="flex flex-col gap-1.5" data-testid="survey-analysis-conclusions">
           <span className="text-11 font-medium">AI 候选结论（每条挂题目与样本量）</span>
-          {SURVEY_CONCLUSIONS.map((c) => (
-            <div key={c.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2" data-testid={`survey-analysis-conclusion-${c.id}`}>
-              <div className="flex flex-wrap items-center gap-1">
-                {c.machine && <Badge tone="ai">AI 候选</Badge>}
-                {c.sampleN < MIN_INFERABLE_N && <Badge tone="warning">n={c.sampleN} · 不可推断</Badge>}
-                {c.confirmed && <Badge tone="primary">已入库</Badge>}
+          {SURVEY_CONCLUSIONS.map((c) => {
+            const confirmed = c.confirmed || confirmedIds.has(c.id);
+            return (
+              <div key={c.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2" data-testid={`survey-analysis-conclusion-${c.id}`}>
+                <div className="flex flex-wrap items-center gap-1">
+                  {c.machine && <Badge tone="ai">AI 候选</Badge>}
+                  {c.sampleN < MIN_INFERABLE_N && <Badge tone="warning">n={c.sampleN} · 不可推断</Badge>}
+                  {confirmed && <Badge tone="primary" data-testid={`survey-confirmed-${c.id}`}>已入库</Badge>}
+                </div>
+                <p className="text-11">{c.text}</p>
+                <div className="flex items-center gap-1.5">
+                  <a href={`#survey-q-${c.questionId}`} className="text-10 text-primary transition-colors duration-200 hover:underline">点回原始分布</a>
+                  {canWrite && !confirmed && c.sampleN >= MIN_INFERABLE_N && (
+                    <Button
+                      size="xs"
+                      variant="ai"
+                      onClick={() => setConfirmedIds((s) => new Set(s).add(c.id))}
+                      data-testid={`survey-confirm-${c.id}`}
+                    >
+                      确认入库
+                    </Button>
+                  )}
+                </div>
               </div>
-              <p className="text-11">{c.text}</p>
-              <div className="flex items-center gap-1.5">
-                <a href={`#survey-q-${c.questionId}`} className="text-10 text-primary transition-colors duration-200 hover:underline">点回原始分布</a>
-                {canWrite && !c.confirmed && c.sampleN >= MIN_INFERABLE_N && (
-                  <Button size="xs" variant="ai" data-testid={`survey-confirm-${c.id}`}>确认入库</Button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </TabsContent>
 
@@ -164,7 +219,7 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
           <div className="flex items-center justify-between">
             <span className="text-11 text-muted-foreground">从当前假设一键生成</span>
             <span className="inline-flex items-center gap-1 text-12 font-semibold tabular-nums text-warning" data-testid="survey-vote-timer">
-              <Timer aria-hidden className="h-3.5 w-3.5" /> {LIVE_VOTE.remainingSec}s / {LIVE_VOTE.countdownSec}s
+              <Timer aria-hidden className="h-3.5 w-3.5" /> {voteStarted ? LIVE_VOTE.countdownSec : LIVE_VOTE.remainingSec}s / {LIVE_VOTE.countdownSec}s
             </span>
           </div>
           <p className="text-13 font-medium">{LIVE_VOTE.question}</p>
@@ -181,7 +236,16 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
             </div>
           ))}
         </div>
-        {canWrite && <Button size="sm" variant="primary" className="self-start" data-testid="survey-vote-new">从当前假设发起投票…</Button>}
+        {canWrite && (
+          voteStarted ? (
+            <div className="flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2.5" data-testid="survey-vote-started">
+              <Timer aria-hidden className="h-3.5 w-3.5 text-warning" />
+              <span className="text-11">投票已发起，{LIVE_VOTE.countdownSec} 秒倒计时开始 · 大屏与各组同步显示（乐观预览，不落库）。</span>
+            </div>
+          ) : (
+            <Button size="sm" variant="primary" className="self-start" onClick={() => setVoteStarted(true)} data-testid="survey-vote-new">从当前假设发起投票…</Button>
+          )
+        )}
       </TabsContent>
     </Tabs>
   );

@@ -18,6 +18,9 @@ const TABS = [
 ] as const;
 
 export function BrainWorkbench({ state }: { state: UiState }) {
+  // 受控标签：总览页的「打开决策台账」可直接切到 ledger 页
+  const [tab, setTab] = React.useState("overview");
+
   return (
     <div className="flex flex-col gap-4 p-5">
       <header className="flex flex-col gap-1">
@@ -40,7 +43,7 @@ export function BrainWorkbench({ state }: { state: UiState }) {
         successMessage="已固定这段上下文到本项目"
         skeletonRows={6}
       >
-        <Tabs defaultValue="overview" className="flex flex-col gap-4">
+        <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-4">
           <TabsList data-testid="brain-tabs">
             {TABS.map((t) => (
               <TabsTrigger key={t.key} value={t.key} data-testid={`brain-tab-${t.key}`}>
@@ -49,7 +52,7 @@ export function BrainWorkbench({ state }: { state: UiState }) {
             ))}
           </TabsList>
 
-          <TabsContent value="overview"><BrainOverview /></TabsContent>
+          <TabsContent value="overview"><BrainOverview onNavigate={setTab} /></TabsContent>
           <TabsContent value="private"><PrivateLayer /></TabsContent>
           <TabsContent value="org"><OrgLayer /></TabsContent>
           <TabsContent value="ledger"><DecisionLedger /></TabsContent>

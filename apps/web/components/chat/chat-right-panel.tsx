@@ -21,10 +21,12 @@ import {
  * 右侧上下文栏（UC-8.2 R3 四）：五标签 转录 / 执行 2/4 / 洞察 6 / 产物 3 / 材料 12，
  * 每个均带计数；默认落在转录页。头部「会议进行中 · 显示转录」+ `自动跟随` 开关 + 计时。
  * 空态（新线程）计数全为 0 且**不隐藏标签**（V14）。
+ * 标签受控：转录里决策点的「看洞察」可直接切到洞察页。
  */
 export function ChatRightPanel({ state = "default" }: { state?: UiState }) {
   const empty = state === "empty";
   const tabs = empty ? RIGHT_TABS_EMPTY : RIGHT_TABS;
+  const [active, setActive] = React.useState("transcript");
   const [follow, setFollow] = React.useState(true);
   const [query, setQuery] = React.useState("");
 
@@ -39,7 +41,7 @@ export function ChatRightPanel({ state = "default" }: { state?: UiState }) {
         </span>
       </div>
 
-      <Tabs defaultValue="transcript" className="flex min-h-0 flex-1 flex-col">
+      <Tabs value={active} onValueChange={setActive} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="flex-wrap px-2 pt-2">
           {tabs.map((t) => (
             <TabsTrigger key={t.key} value={t.key} data-testid={`chat-tab-${t.key}`}>
@@ -56,7 +58,13 @@ export function ChatRightPanel({ state = "default" }: { state?: UiState }) {
                 <span />
               </StateShell>
             ) : (
-              <TranscriptTab follow={follow} onFollowChange={setFollow} query={query} onQueryChange={setQuery} />
+              <TranscriptTab
+                follow={follow}
+                onFollowChange={setFollow}
+                query={query}
+                onQueryChange={setQuery}
+                onSeeInsight={() => setActive("insight")}
+              />
             )}
           </TabsContent>
           {["execution", "insight", "artifact", "material"].map((key) => (
@@ -85,12 +93,13 @@ function tabLabel(tabs: RightTab[], key: string): string {
 }
 
 function TranscriptTab({
-  follow, onFollowChange, query, onQueryChange,
+  follow, onFollowChange, query, onQueryChange, onSeeInsight,
 }: {
   follow: boolean;
   onFollowChange: (v: boolean) => void;
   query: string;
   onQueryChange: (v: string) => void;
+  onSeeInsight: () => void;
 }) {
   const entries = query
     ? TRANSCRIPT_ENTRIES.filter((e) => e.text.includes(query) || e.speaker.includes(query))
@@ -115,7 +124,7 @@ function TranscriptTab({
       </div>
       <ul className="flex flex-col gap-2">
         {entries.map((e) => (
-          <TranscriptRow key={e.id} entry={e} />
+          <TranscriptRow key={e.id} entry={e} onSeeInsight={onSeeInsight} />
         ))}
         {entries.length === 0 && (
           <li className="py-4 text-center text-11 text-muted-foreground">没有匹配「{query}」的逐字稿</li>
@@ -125,7 +134,7 @@ function TranscriptTab({
   );
 }
 
-function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
+function TranscriptRow({ entry, onSeeInsight }: { entry: TranscriptEntry; onSeeInsight: () => void }) {
   return (
     <li className="flex flex-col gap-1" data-testid="chat-transcript-row">
       <div className="flex items-baseline gap-2">
@@ -139,7 +148,8 @@ function TranscriptRow({ entry }: { entry: TranscriptEntry }) {
       {entry.decisionPoint && (
         <div className="flex items-center gap-2">
           <Badge tone="ai">Ava 标记为决策点</Badge>
-          <Button size="xs" variant="ghost" data-testid="chat-transcript-insight">看洞察</Button>
+          {/* 看洞察 → 切到本栏「洞察」页（受控标签，不跳出线程）*/}
+          <Button size="xs" variant="ghost" onClick={onSeeInsight} data-testid="chat-transcript-insight">看洞察 ▸</Button>
         </div>
       )}
     </li>

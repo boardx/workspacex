@@ -1,7 +1,9 @@
 "use client";
+import * as React from "react";
 import { Plus, FileCode2, Braces, DatabaseZap } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { VisibilityBadge } from "./scope-badges";
+import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +17,19 @@ const STATUS_TONE: Record<SkillStatus, "primary" | "warning" | "neutral" | "outl
   disabled: "outline",
 };
 
+const CONTRACT_SAMPLE = `{
+  "name": "假设优先级排序",
+  "prompt_template": "对 {{hypotheses}} 按 {{criteria}} 排序…",
+  "io_schema": { "input": ["hypotheses", "criteria"], "output": ["ranked", "rationale"] },
+  "data_scope": "项目库"
+}`;
+
 export function SkillScreen({ state }: { state: UiState }) {
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [contract, setContract] = React.useState("");
+  const [toast, setToast] = React.useState<string | null>(null);
+
   return (
     <AdminScreen
       state={state}
@@ -34,8 +48,8 @@ export function SkillScreen({ state }: { state: UiState }) {
             共 {SKILLS.length} 个 skill · {SKILLS.filter((s) => s.status === "enabled").length} 个已启用 · 1 个待审核
           </p>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" data-testid="admin-skill-import">导入契约</Button>
-            <Button size="sm" variant="primary" data-testid="admin-skill-add">
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} data-testid="admin-skill-import">导入契约</Button>
+            <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-skill-add">
               <Plus aria-hidden className="h-3.5 w-3.5" />
               新建 skill
             </Button>
@@ -98,6 +112,79 @@ export function SkillScreen({ state }: { state: UiState }) {
           ))}
         </div>
       </div>
+
+      {/* 导入契约 */}
+      {importOpen && (
+        <AdminModal
+          testid="admin-skill-import-dialog"
+          width="lg"
+          title="导入 skill 契约"
+          subtitle="粘贴声明式契约 JSON（不接受可执行代码包，D-06）"
+          onClose={() => setImportOpen(false)}
+          footer={
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setImportOpen(false)} data-testid="admin-skill-import-cancel">取消</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={contract.trim().length < 10}
+                onClick={() => { setImportOpen(false); setContract(""); setToast("契约已解析，数据范围声明将与提交人权限求交后进待审核队列"); }}
+                data-testid="admin-skill-import-submit"
+                title={contract.trim().length < 10 ? "先粘贴契约内容" : undefined}
+              >
+                解析并送审
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            <textarea
+              rows={10}
+              value={contract}
+              onChange={(e) => setContract(e.currentTarget.value)}
+              placeholder={CONTRACT_SAMPLE}
+              data-testid="admin-skill-import-textarea"
+              className="rounded-md border border-border bg-card px-3 py-2 font-mono text-11 text-card-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <p className="text-11 text-muted-foreground">导入只做静态解析与权限求交，不执行任何代码。</p>
+          </div>
+        </AdminModal>
+      )}
+
+      {/* 新建 skill */}
+      {addOpen && (
+        <AdminDrawer
+          testid="admin-skill-panel"
+          title="新建 skill"
+          subtitle="三段契约：模板 · schema · 数据范围"
+          onClose={() => setAddOpen(false)}
+          footer={
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setAddOpen(false)} data-testid="admin-skill-panel-cancel">取消</Button>
+              <Button size="sm" variant="primary" onClick={() => { setAddOpen(false); setToast("已创建 skill 草稿，安全扫描与方法论审核通过后才可启用"); }} data-testid="admin-skill-panel-save">创建草稿</Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <Field id="admin-skill-field-name" label="名称" placeholder="如 假设优先级排序" />
+            <Field id="admin-skill-field-duty" label="职责一句话" placeholder="它替顾问做的那件事" />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="admin-skill-field-template" className="text-11 font-medium text-muted-foreground">提示词模板（可带 {"{{变量}}"}）</label>
+              <textarea
+                id="admin-skill-field-template"
+                rows={4}
+                placeholder="对 {{hypotheses}} 按 {{criteria}} 排序，并给出理由…"
+                data-testid="admin-skill-field-template"
+                className="rounded-md border border-border bg-card px-2.5 py-1.5 text-12 text-card-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <Field id="admin-skill-field-schema" label="输入输出 schema（字段数）" placeholder="如 输入 2 · 输出 3" />
+            <Field id="admin-skill-field-scope" label="数据范围声明（与 MCP 授权范围求交）" placeholder="如 项目库 ＋ 转写" />
+          </div>
+        </AdminDrawer>
+      )}
+
+      <Toast message={toast} testid="admin-skill-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
 }

@@ -4,6 +4,7 @@ import { Check, Loader2, Clock, UserCheck, Lock, AlertTriangle, ShieldCheck, Rot
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "./overlay";
 import { TRASH_TASKS, type TrashTask, type TrashStepState } from "@/lib/mock/files";
 
 /**
@@ -12,7 +13,7 @@ import { TRASH_TASKS, type TrashTask, type TrashStepState } from "@/lib/mock/fil
  * 每个任务按**五步流程**呈现当前步与时间戳；含 legal hold、超时升级、
  * 🔴 **部分失败**（本 UC 最危险的态：半完成的删除比不删更危险，不标完成、不出回执）。
  */
-export function TrashQueue({ canView }: { canView: boolean }) {
+export function TrashQueue({ canView, onToast }: { canView: boolean; onToast: (msg: string) => void }) {
   if (!canView) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-lg border border-border bg-muted py-12 text-center" data-testid="files-trash-denied">
@@ -32,7 +33,7 @@ export function TrashQueue({ canView }: { canView: boolean }) {
         </p>
       </div>
 
-      {TRASH_TASKS.map((task) => <TaskCard key={task.id} task={task} />)}
+      {TRASH_TASKS.map((task) => <TaskCard key={task.id} task={task} onToast={onToast} />)}
     </div>
   );
 }
@@ -44,7 +45,10 @@ const STEP_ICON: Record<TrashStepState, React.ReactNode> = {
   human: <UserCheck aria-hidden className="h-3 w-3 text-ai" />,
 };
 
-function TaskCard({ task }: { task: TrashTask }) {
+function TaskCard({ task, onToast }: { task: TrashTask; onToast: (msg: string) => void }) {
+  const [holdReleased, setHoldReleased] = React.useState(false);
+  const [revoked, setRevoked] = React.useState(false);
+  const [receiptOpen, setReceiptOpen] = React.useState(false);
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border p-4" data-testid="files-trash-task">
       <div className="flex flex-wrap items-start gap-2">
@@ -87,18 +91,36 @@ function TaskCard({ task }: { task: TrashTask }) {
           <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div className="min-w-0">
             <p className="text-11">{task.partialFailure}</p>
-            <Button size="xs" variant="outline" className="mt-1.5" data-testid="files-trash-retry"><RotateCw aria-hidden className="h-3 w-3" /> 重试级联</Button>
+            <Button size="xs" variant="outline" className="mt-1.5" onClick={() => onToast(`已重排「${task.fileName}」的级联删除重试；成功前不标完成、不出回执。`)} data-testid="files-trash-retry"><RotateCw aria-hidden className="h-3 w-3" /> 重试级联</Button>
           </div>
         </div>
       )}
 
       {/* 合规动作 */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {task.legalHold
-          ? <Button size="xs" variant="outline" data-testid="files-trash-release-hold"><ShieldCheck aria-hidden className="h-3 w-3" /> 解除 legal hold</Button>
-          : <Button size="xs" variant="outline" data-testid="files-trash-revoke">撤销删除（宽限期内）</Button>}
-        <Button size="xs" variant="ghost" data-testid="files-trash-receipt"><FileDown aria-hidden className="h-3 w-3" /> 查看 / 补发回执</Button>
+          ? (holdReleased
+              ? <span role="status" className="inline-flex items-center gap-1 text-11 text-success" data-testid="files-trash-hold-released"><ShieldCheck aria-hidden className="h-3 w-3" /> 已解除 legal hold，任务恢复五步流程。</span>
+              : <Button size="xs" variant="outline" onClick={() => { setHoldReleased(true); onToast(`已解除「${task.fileName}」的 legal hold（仅合规负责人可操作，已写审计）。`); }} data-testid="files-trash-release-hold"><ShieldCheck aria-hidden className="h-3 w-3" /> 解除 legal hold</Button>)
+          : (revoked
+              ? <span role="status" className="inline-flex items-center gap-1 text-11 text-success" data-testid="files-trash-revoked"><ShieldCheck aria-hidden className="h-3 w-3" /> 已在宽限期内撤销删除，对象恢复可见。</span>
+              : <Button size="xs" variant="outline" onClick={() => { setRevoked(true); onToast(`已撤销「${task.fileName}」的删除：宽限期内对象恢复、引用重新生效。`); }} data-testid="files-trash-revoke">撤销删除（宽限期内）</Button>)}
+        <Button size="xs" variant="ghost" onClick={() => setReceiptOpen(true)} data-testid="files-trash-receipt"><FileDown aria-hidden className="h-3 w-3" /> 查看 / 补发回执</Button>
       </div>
+
+      {receiptOpen && (
+        <Modal testid="files-trash-receipt-modal" title="删除回执" subtitle={task.fileName} onClose={() => setReceiptOpen(false)}
+          footer={<Button size="sm" variant="primary" onClick={() => { setReceiptOpen(false); onToast("回执已补发给受访者（含删除范围与时间戳）。"); }} data-testid="files-trash-receipt-resend">补发给受访者</Button>}>
+          <div className="flex flex-col gap-2 text-12" data-testid="files-trash-receipt-body">
+            <p>发起：{task.requestedBy} · {task.requestedAt}</p>
+            <p>原因：{task.reason}</p>
+            <p>物理删除截止：{task.physicalDeleteDue}</p>
+            {task.partialFailure
+              ? <p className="text-destructive">当前为部分失败，尚未出正式回执——半完成的删除不出回执，先修复再补发。</p>
+              : <p className="text-muted-foreground">回执范围：原件 + 全部版本 + 全部派生物；引述退出检索、报告段落标「证据已撤回」均已如实记录。</p>}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -418,3 +418,78 @@ export const ITERATION_LOOP = {
   generatedPR: 9,
   reviewedLive: 6,
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────
+// 异常调用链（UC-17.7「查看调用链」下钻）—— 越权/额度异常都能追到具体一次调用
+// ─────────────────────────────────────────────────────────────────────────
+export interface ChainStep {
+  ts: string;
+  actor: string;
+  action: string;
+  /** 该步是否是被拦截/告警的那一步 */
+  blocked?: boolean;
+}
+export const ANOMALY_CHAINS: Record<string, ChainStep[]> = {
+  "a-crm-breach": [
+    { ts: "10:02:11", actor: "吴桐（顾问 · 能源组）", action: "在项目『储能资质尽调』发起 agent『Forge』一次运行" },
+    { ts: "10:02:11", actor: "agent Forge", action: "规划：需要客户联系人 → 拟调用 MCP『客户 CRM』query_contact" },
+    { ts: "10:02:12", actor: "NestJS Guard", action: "校验白名单：Forge 使用者授权范围＝仅项目负责人，query_contact 越出", blocked: true },
+    { ts: "10:02:12", actor: "系统 · 安全", action: "拒绝调用、写审计、计入异常（本月第 7 次），不向 agent 返回任何 CRM 数据" },
+  ],
+  "a-quota-wutong": [
+    { ts: "本月累计", actor: "吴桐（顾问 · 能源组）", action: "跨 4 个项目累计消耗 3.9M token，达个人配额 97%" },
+    { ts: "峰值", actor: "agent Ledger（机密路由）", action: "单次现金流敏感性重算消耗 0.42M（qwen3-72b 本地）" },
+    { ts: "对比", actor: "计量流水线", action: "超能源组人均 2.6 倍，触发额度异常阈值告警", blocked: true },
+  ],
+  "a-quota-batch": [
+    { ts: "连续 3 晚", actor: "系统 · 夜间批处理", action: "组织级用量连续 3 晚越过 90% 阈值" },
+    { ts: "每晚 02:00", actor: "重活队列", action: "重建全组织 embedding 索引（含在跑的重活），未自动限速", blocked: true },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP 每台服务器的工具清单（「看工具 / 配置」下钻；能力维护者只读工具名与描述）
+// ─────────────────────────────────────────────────────────────────────────
+export interface McpTool { name: string; desc: string; writes: boolean; }
+export const MCP_TOOLS: Record<string, McpTool[]> = {
+  "mcp-crm": [
+    { name: "query_contact", desc: "按公司/姓名查客户联系人", writes: false },
+    { name: "query_opportunity", desc: "查销售机会与阶段", writes: false },
+    { name: "list_account_notes", desc: "读客户跟进备注", writes: false },
+    { name: "create_task", desc: "在 CRM 建跟进任务", writes: true },
+  ],
+  "mcp-data": [
+    { name: "search_market", desc: "行业规模与增速检索（Wind/Statista）", writes: false },
+    { name: "get_company_profile", desc: "上市公司画像与财报要点", writes: false },
+    { name: "compare_peers", desc: "同业对标指标对比", writes: false },
+  ],
+  "mcp-kb": [
+    { name: "search_deliverables", desc: "历史交付物全文检索", writes: false },
+    { name: "get_case", desc: "按 case_id 取项目案例", writes: false },
+  ],
+  "mcp-wecom": [
+    { name: "send_notice", desc: "推送通知到企业微信群", writes: true },
+    { name: "request_approval", desc: "发起审批流", writes: true },
+  ],
+  "mcp-timesheet": [
+    { name: "get_hours", desc: "查成员人天投入", writes: false },
+    { name: "get_project_cost", desc: "查项目人力成本", writes: false },
+  ],
+  "mcp-eureg": [
+    { name: "search_regulation", desc: "欧盟法规条目检索", writes: false },
+    { name: "get_article", desc: "取具体条款全文", writes: false },
+  ],
+};
+
+/** agent 试跑的样例输出（「试跑」面板）—— 让人看到一次真实运行的形态，而非转圈 */
+export const AGENT_TRIAL_OUTPUT = {
+  input: "为『欧洲储能进入』做一次假设树体检，指出最致命的 3 条未验证假设。",
+  steps: [
+    "载入 Context Pack（项目库 12 段 + 转写 4 段）",
+    "调用 skill『MECE 假设拆解 v4』",
+    "对每条假设估算证据覆盖度",
+  ],
+  output: "① 客户愿为本地质保付溢价（证据 0 段，致命）② 并网审批 ≤6 个月（与年报冲突）③ 竞品定价维持现状（仅 1 段快照支撑）",
+  tokens: "输入 8,204 · 输出 1,102",
+  model: "claude-opus-4.6",
+};

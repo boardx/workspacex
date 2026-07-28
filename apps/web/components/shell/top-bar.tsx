@@ -1,8 +1,9 @@
 "use client";
-import { Building2, ChevronDown, FolderKanban, Lock } from "lucide-react";
+import { Building2, ChevronDown, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
   MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
+  selfHostedOnly, SELF_HOSTED_SOURCE_LABEL,
   PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
 } from "@/lib/identity";
 import { resolveProjectContext } from "@/lib/project-context";
@@ -32,6 +33,8 @@ export function TopBar({
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
   // 隐私模式若不可见，等于不存在。
   const local = isLocalOrg(identity.org);
+  // UC-0.5 V12：同样是「只用自托管」，**承诺**与**策略**必须在界面上可分辨
+  const sh = selfHostedOnly(identity.org);
 
   return (
     <header
@@ -113,15 +116,31 @@ export function TopBar({
       {local && (
         <p
           data-testid="topbar-local-banner"
+          data-guarantee-source="promise"
           title={LOCAL_ORG_GUARANTEES.join("；")}
           className="ml-auto hidden shrink-0 text-10 font-medium text-ai-tint-foreground lg:block"
         >
           本地模式 · 只用本地模型 · 数据不出本机
+          <span className="ml-1 text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.promise}）</span>
+        </p>
+      )}
+
+      {/* 正式组织配了 self-hosted-only：同样限自托管，但它是**策略**不是承诺 —— 措辞与图标都要不同 */}
+      {!local && sh.on && (
+        <p
+          data-testid="topbar-selfhosted-policy"
+          data-guarantee-source="policy"
+          title="本组织的模型策略被管理员设为「只用自托管模型」。这是可配置策略，与个人本地组织的产品承诺不同。"
+          className="ml-auto hidden shrink-0 items-center gap-1 text-10 font-medium text-accent-foreground lg:flex"
+        >
+          <ShieldCheck aria-hidden className="h-3 w-3" />
+          本组织只用自托管模型
+          <span className="text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.policy}）</span>
         </p>
       )}
 
       {/* 不在项目里时给一句解释，而不是留白——「无项目角色」是正常状态，不是缺失 */}
-      {!project && !local && (
+      {!project && !local && !sh.on && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在项目上下文中 · 项目角色不适用
         </p>

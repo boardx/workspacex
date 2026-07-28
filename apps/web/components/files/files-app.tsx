@@ -2,7 +2,7 @@
 import * as React from "react";
 import {
   Search, Upload, FileArchive, Trash2, FolderInput, Lock, LayoutList, ListTree,
-  Activity, Sparkles, Download,
+  Activity, Sparkles, Download, Check, X,
 } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ export function FilesApp({
     OVERLAY_SCREENS.includes(screen) ? (screen as Overlay) : "none",
   );
   const [versionFile, setVersionFile] = React.useState<FileItem>(FILES[0]!);
+  const [toast, setToast] = React.useState<string | null>(null);
 
   const files = FILES.filter(
     (f) => (selSource === null || f.sourceType === selSource) && (selSeg === null || f.segmentId === selSeg),
@@ -107,7 +108,7 @@ export function FilesApp({
 
         {mode === "trash" ? (
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <TrashQueue canView={previewRole === "facilitator" || qs.as === "compliance"} />
+            <TrashQueue canView={previewRole === "facilitator" || qs.as === "compliance"} onToast={setToast} />
           </div>
         ) : mode === "review" ? (
           <ReviewPanel />
@@ -124,6 +125,7 @@ export function FilesApp({
             onIngestion={() => setOverlay("ingestion")}
             onDelete={() => setOverlay("delete")}
             onClearChecked={() => setChecked(new Set())}
+            onToast={setToast}
           />
         )}
 
@@ -136,8 +138,10 @@ export function FilesApp({
           />
         )}
         {overlay === "ingestion" && <IngestionDrawer onClose={() => setOverlay("none")} />}
-        {overlay === "versions" && <VersionDrawer file={versionFile} onClose={() => setOverlay("none")} />}
-        {overlay === "delete" && <DeleteDialog onClose={() => setOverlay("none")} />}
+        {overlay === "versions" && <VersionDrawer file={versionFile} onClose={() => setOverlay("none")} onToast={setToast} />}
+        {overlay === "delete" && <DeleteDialog onClose={() => setOverlay("none")} onToast={setToast} />}
+
+        <FilesToast message={toast} onDismiss={() => setToast(null)} />
       </div>
     </AppShell>
   );
@@ -147,7 +151,7 @@ export function FilesApp({
 
 function BrowserMode({
   files, uiState, selId, checked, onRow, onToggleCheck, onOpenVersions,
-  onUpload, onIngestion, onDelete, onClearChecked,
+  onUpload, onIngestion, onDelete, onClearChecked, onToast,
 }: {
   files: FileItem[];
   uiState: UiState;
@@ -160,8 +164,18 @@ function BrowserMode({
   onIngestion: () => void;
   onDelete: () => void;
   onClearChecked: () => void;
+  onToast: (msg: string) => void;
 }) {
   const [view, setView] = React.useState<"list" | "tree">("list");
+  const [activeFilters, setActiveFilters] = React.useState<Set<string>>(new Set());
+  const [segMenuOpen, setSegMenuOpen] = React.useState(false);
+
+  const toggleFilter = (key: string) =>
+    setActiveFilters((s) => {
+      const next = new Set(s);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -177,25 +191,50 @@ function BrowserMode({
             <Button size="sm" variant={view === "tree" ? "primary" : "ghost"} onClick={() => setView("tree")} data-testid="files-view-tree"><ListTree aria-hidden className="h-3.5 w-3.5" /> 树</Button>
           </div>
           <Button size="sm" variant="ghost" onClick={onIngestion} data-testid="files-open-ingestion"><Activity aria-hidden className="h-3.5 w-3.5" /> 摄取进度</Button>
-          <Button size="sm" variant="outline" data-testid="files-export-zip"><FileArchive aria-hidden className="h-3.5 w-3.5" /> 导出为 zip</Button>
+          <Button size="sm" variant="outline" onClick={() => onToast("已提交导出：3 份文件正在打包（导出包 exp-3402，含 manifest.json，24 小时有效）")} data-testid="files-export-zip"><FileArchive aria-hidden className="h-3.5 w-3.5" /> 导出为 zip</Button>
           <Button size="sm" variant="primary" onClick={onUpload} data-testid="files-upload"><Upload aria-hidden className="h-3.5 w-3.5" /> 上传材料</Button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5" data-testid="files-filters">
           <span className="text-11 text-muted-foreground">筛选（可组合、可从 URL 还原）：</span>
-          {FILTERS.map((f) => (
-            <Button key={f.key} size="xs" variant="outline" data-testid="files-filter"><Sparkles aria-hidden className="h-2.5 w-2.5" /> {f.label}</Button>
-          ))}
+          {FILTERS.map((f) => {
+            const active = activeFilters.has(f.key);
+            return (
+              <Button key={f.key} size="xs" variant={active ? "primary" : "outline"} onClick={() => toggleFilter(f.key)} data-testid="files-filter">
+                <Sparkles aria-hidden className="h-2.5 w-2.5" /> {f.label}{active ? " ✓" : ""}
+              </Button>
+            );
+          })}
+          {activeFilters.size > 0 && (
+            <Button size="xs" variant="ghost" onClick={() => setActiveFilters(new Set())} data-testid="files-filter-clear">清空筛选（{activeFilters.size}）</Button>
+          )}
         </div>
       </div>
 
       {/* 批量操作条 */}
       {checked.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-panel px-3 py-2" data-testid="files-batch-bar">
+        <div className="relative flex flex-wrap items-center gap-2 border-b border-border bg-panel px-3 py-2" data-testid="files-batch-bar">
           <span className="text-12 font-medium">已选 {checked.size} 项</span>
-          <Button size="xs" variant="outline" data-testid="files-batch-download"><Download aria-hidden className="h-3 w-3" /> 下载</Button>
-          <Button size="xs" variant="outline" data-testid="files-batch-zip"><FileArchive aria-hidden className="h-3 w-3" /> 导出 zip</Button>
-          <Button size="xs" variant="outline" data-testid="files-batch-segment"><FolderInput aria-hidden className="h-3 w-3" /> 归入环节</Button>
-          <Button size="xs" variant="outline" data-testid="files-batch-confidential"><Lock aria-hidden className="h-3 w-3" /> 标记机密</Button>
+          <Button size="xs" variant="outline" onClick={() => onToast(`已为选中的 ${checked.size} 项逐个签发下载 URL（短时效、绑定 principal）`)} data-testid="files-batch-download"><Download aria-hidden className="h-3 w-3" /> 下载</Button>
+          <Button size="xs" variant="outline" onClick={() => onToast(`已提交 ${checked.size} 项的 zip 导出（后台生成，完成后进摄取进度）`)} data-testid="files-batch-zip"><FileArchive aria-hidden className="h-3 w-3" /> 导出 zip</Button>
+          <div className="relative">
+            <Button size="xs" variant="outline" onClick={() => setSegMenuOpen((v) => !v)} data-testid="files-batch-segment"><FolderInput aria-hidden className="h-3 w-3" /> 归入环节</Button>
+            {segMenuOpen && (
+              <div className="absolute left-0 top-full z-20 mt-1 flex w-56 flex-col rounded-md border border-border bg-card p-1 shadow-lg" data-testid="files-batch-segment-menu">
+                {[...AGENDA_SEGMENTS, UNSEGMENTED].map((seg) => (
+                  <button
+                    key={seg.id}
+                    type="button"
+                    onClick={() => { setSegMenuOpen(false); onToast(`已把 ${checked.size} 项归入「${seg.name}」`); onClearChecked(); }}
+                    data-testid="files-batch-segment-option"
+                    className="rounded-sm px-2 py-1.5 text-left text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {seg.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button size="xs" variant="outline" onClick={() => { onToast(`已把 ${checked.size} 项标记为含机密，将进入 REVIEW_PENDING 待复核`); onClearChecked(); }} data-testid="files-batch-confidential"><Lock aria-hidden className="h-3 w-3" /> 标记机密</Button>
           <Button size="xs" variant="outline" onClick={onDelete} data-testid="files-batch-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>
           <Button size="xs" variant="ghost" className="ml-auto" onClick={onClearChecked} data-testid="files-batch-clear">取消选择</Button>
         </div>
@@ -236,6 +275,30 @@ function TreeViewHint() {
     <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border py-10 text-center" data-testid="files-tree-view">
       <ListTree aria-hidden className="h-6 w-6 text-muted-foreground" />
       <p className="text-12 text-muted-foreground">树视图与列表联动：用左栏来源树展开，中列表已随选择筛选。</p>
+    </div>
+  );
+}
+
+/* ── 乐观反馈行（导出 / 批量 / 下载等）role="status"，让人看到动作被接住 ────── */
+
+export function FilesToast({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  React.useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(t);
+  }, [message, onDismiss]);
+  if (!message) return null;
+  return (
+    <div
+      role="status"
+      data-testid="files-toast"
+      className="absolute bottom-4 right-4 z-40 flex max-w-sm items-start gap-2 rounded-lg border border-border bg-card p-3 shadow-lg"
+    >
+      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+      <p className="text-12">{message}</p>
+      <Button size="icon" variant="ghost" onClick={onDismiss} aria-label="关闭提示" data-testid="files-toast-close">
+        <X aria-hidden className="h-3.5 w-3.5" />
+      </Button>
     </div>
   );
 }

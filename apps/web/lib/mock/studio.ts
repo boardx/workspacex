@@ -24,6 +24,8 @@ export interface PrototypeCard {
   components?: number;
   /** 审计阻断数（仅 blocked 卡） */
   blockers?: number;
+  /** 阻断明细（仅 blocked 卡，用于「看 N 项阻断」展开）*/
+  blockerDetails?: string[];
   /** 关联的项目环节；null = 不属于任何项目 */
   projectStage: string | null;
 }
@@ -40,6 +42,10 @@ export const PROJECT_PROTOTYPES: PrototypeCard[] = [
     updatedAt: "8 分钟前",
     components: 11,
     blockers: 2,
+    blockerDetails: [
+      "同意书「撤回」按钮缺少二次确认与影响范围说明（危险动作规范 D-13）",
+      "登录页三个第三方按钮未标 later，会让人以为可用（D-02）",
+    ],
     projectStage: "欧洲市场进入 · 环节 4「一线访谈」",
   },
   {
@@ -104,3 +110,16 @@ export const STUDIO_AUTOSAVE = {
   elapsed: "34:12",
   runningInBackground: true,
 } as const;
+
+/** 「挂到项目环节…」可选的目标环节（原型无接口，仅供本地选择演示）*/
+export interface AttachTarget {
+  id: string;
+  project: string;
+  stage: string;
+}
+export const ATTACH_STAGES: AttachTarget[] = [
+  { id: "st-3", project: "欧洲市场进入", stage: "环节 3「商业模式共创」" },
+  { id: "st-4", project: "欧洲市场进入", stage: "环节 4「一线访谈」" },
+  { id: "st-5", project: "欧洲市场进入", stage: "成果沉淀 · 决策报告" },
+  { id: "st-x", project: "东南亚储能预研", stage: "环节 1「市场扫描」" },
+];

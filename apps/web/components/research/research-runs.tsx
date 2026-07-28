@@ -1,18 +1,25 @@
+"use client";
+import * as React from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RESEARCH_RUNS, RUN_STATUS_LABEL, type RunStatus } from "@/lib/mock/research";
 
-/** 研究 · 左栏：研究列表，每次研究读了多少 / 丢了多少一眼可见。纯展示。 */
+/** 研究 · 左栏：研究列表，每次研究读了多少 / 丢了多少一眼可见。点选切换当前研究（本地高亮）。 */
 const STATUS_TONE: Record<RunStatus, "primary" | "warning" | "neutral"> = {
   ready: "primary", building: "warning", delivered: "neutral",
 };
 
 export function ResearchRuns() {
+  const initial = RESEARCH_RUNS.find((r) => r.active)?.id ?? RESEARCH_RUNS[0]?.id ?? "";
+  const [active, setActive] = React.useState(initial);
   return (
     <div className="flex flex-col gap-3 p-3" data-testid="research-runs">
       <div className="flex items-center justify-between">
         <h2 className="text-13 font-semibold">研究</h2>
-        <Button size="xs" variant="primary" data-testid="research-new">＋ 新建研究</Button>
+        <Button size="xs" variant="primary" asChild data-testid="research-new">
+          <Link href="/chat">＋ 新建研究</Link>
+        </Button>
       </div>
       <p className="text-10 text-muted-foreground">
         一次研究 = 一个上下文包。列表直接标出这次读了多少、丢了多少。
@@ -22,9 +29,12 @@ export function ResearchRuns() {
           <li key={r.id} data-testid={`research-run-${r.id}`}>
             <button
               type="button"
+              onClick={() => setActive(r.id)}
+              aria-pressed={r.id === active}
+              data-testid={`research-run-select-${r.id}`}
               className={
                 "flex w-full flex-col gap-1 rounded-md border p-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-                (r.active ? "border-primary bg-accent" : "border-border-subtle bg-card")
+                (r.id === active ? "border-primary bg-accent" : "border-border-subtle bg-card")
               }
             >
               <div className="flex items-center justify-between gap-2">

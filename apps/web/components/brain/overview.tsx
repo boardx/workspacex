@@ -1,11 +1,13 @@
+"use client";
 import * as React from "react";
-import { Quote, Clock, ArrowLeftRight, GitBranch } from "lucide-react";
+import { Quote, Clock, ArrowLeftRight, GitBranch, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   LAYER_COUNTS,
   NODE_TYPES,
   PROMOTION_RULE,
+  PROMOTION_QUEUE,
   DECAY,
   LATERAL_REUSE,
   STATE_MACHINE,
@@ -34,7 +36,37 @@ function LayerCard({ label, count, testid, note }: { label: string; count: numbe
   );
 }
 
-export function BrainOverview() {
+/** 晋升队列内联面板 —— 逐条列「够格晋升」的前提：被签字决策支撑 + 复盘验证 */
+function PromotionQueuePanel() {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3" data-testid="brain-promotion-queue-panel">
+      <p className="text-11 text-muted-foreground">
+        晋升门槛：<strong className="text-background-foreground">支撑过一个被签字的决策</strong>且在复盘中被验证。逐条给出前提，未达标的不放行。
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {PROMOTION_QUEUE.map((c) => {
+          const eligible = c.backedBy.startsWith("—") ? false : true;
+          return (
+            <li key={c.id} data-testid={`brain-promotion-${c.id}`} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-2.5">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-12 font-medium">{c.title}</span>
+                <Badge tone="outline">{c.fromState}</Badge>
+                <Badge tone={eligible ? "primary" : "warning"}>{eligible ? "达门槛" : "未达门槛"}</Badge>
+              </div>
+              <span className="text-10 text-muted-foreground">{c.project} · 支持 {c.support} · 反对 {c.against}</span>
+              <span className="text-10 text-muted-foreground">支撑决策：{c.backedBy}</span>
+              <span className="text-10 text-muted-foreground">{c.reviewNote}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+export function BrainOverview({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const [showQueue, setShowQueue] = React.useState(false);
+
   return (
     <div className="flex flex-col gap-5">
       <PromotionRuleBanner />
@@ -78,11 +110,19 @@ export function BrainOverview() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="primary" data-testid="brain-promotion-queue">
+          <Button
+            size="sm"
+            variant={showQueue ? "primary" : "outline"}
+            onClick={() => setShowQueue((v) => !v)}
+            aria-expanded={showQueue}
+            data-testid="brain-promotion-queue"
+          >
+            <ClipboardCheck aria-hidden className="h-3.5 w-3.5" />
             晋升队列 · {STATE_MACHINE.queuePending} 待审
           </Button>
-          <Button size="sm" variant="outline" data-testid="brain-open-ledger">打开决策台账</Button>
+          <Button size="sm" variant="outline" onClick={() => onNavigate?.("ledger")} data-testid="brain-open-ledger">打开决策台账 ▸</Button>
         </div>
+        {showQueue && <PromotionQueuePanel />}
       </section>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

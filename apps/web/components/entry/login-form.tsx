@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, KeyRound } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry
  * - D-02：三个第三方按钮**保留视觉位但 disabled 并标 later**，旁注「phase-1 暂不开放」。
  * - 防枚举：校验失败只给一条「邮箱或密码不正确」，不区分邮箱不存在 / 密码错误。
  * - `[忘记密码？]`（R8「原型待补」：按钮在、点了没屏）在此补出接线与后续屏。
+ * - `[创建组织]`（R8「原型待补」）同样补出：需 14 位邀请码的建组面板。
  */
 export function LoginForm({ state }: { state: UiState }) {
   const router = useRouter();
@@ -23,6 +24,83 @@ export function LoginForm({ state }: { state: UiState }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
+  const [createOrg, setCreateOrg] = React.useState(false);
+  const [inviteCode, setInviteCode] = React.useState("");
+  const [orgRequested, setOrgRequested] = React.useState(false);
+
+  if (createOrg) {
+    // 邀请码：14 位（AUTH_POLICY 无此项，界面口径固定 14），去掉空格后计数
+    const codeLen = inviteCode.replace(/\s/g, "").length;
+    const codeReady = codeLen === 14;
+    return (
+      <div className="flex flex-col gap-4" data-testid="login-create-org-panel">
+        <button
+          type="button"
+          onClick={() => {
+            setCreateOrg(false);
+            setOrgRequested(false);
+            setInviteCode("");
+          }}
+          data-testid="login-create-org-back"
+          className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" /> 返回登录
+        </button>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-18 font-semibold">创建组织</h2>
+          <p className="text-12 text-muted-foreground">
+            phase-1 只对受邀企业开放。先输入我们发给你的 14 位邀请码，验证通过后再设管理员账号。
+          </p>
+        </div>
+        {orgRequested ? (
+          <div
+            role="status"
+            data-testid="login-create-org-done"
+            className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3"
+          >
+            <p className="text-13 font-medium">邀请码已受理，正在为你开通组织空间。</p>
+            <p className="text-12 text-muted-foreground">
+              开通后会向管理员邮箱发送首个登录链接（{AUTH_POLICY.resetLinkHours} 小时内有效）。你可以先关掉此页。
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="login-invite-code">14 位邀请码</Label>
+              <div className="relative">
+                <KeyRound aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-invite-code"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.currentTarget.value)}
+                  placeholder="例如 YY-2049-KELE-06"
+                  className="pl-8 font-mono tracking-wide"
+                  data-testid="login-invite-code"
+                />
+              </div>
+              <p className="text-11 text-muted-foreground">
+                已输入 {codeLen}/14 位{codeReady ? " · 长度符合" : ""}。邀请码由远洋商务发放，一码一组织。
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="login-org-name">组织名称</Label>
+              <Input id="login-org-name" placeholder="如 远洋咨询 · 战略事业部" data-testid="login-org-name" />
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={!codeReady}
+              title={codeReady ? undefined : "请先输入完整的 14 位邀请码"}
+              onClick={() => setOrgRequested(true)}
+              data-testid="login-create-org-submit"
+            >
+              验证邀请码并创建
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (forgot) {
     return (
@@ -174,6 +252,7 @@ export function LoginForm({ state }: { state: UiState }) {
         还没有账号？{" "}
         <button
           type="button"
+          onClick={() => setCreateOrg(true)}
           data-testid="login-create-org"
           className="font-medium text-primary underline-offset-4 transition-all duration-200 hover:underline"
         >

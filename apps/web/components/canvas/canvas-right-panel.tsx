@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, MapPin, Ban, Sparkles, Camera, Undo2 } from "lucide-react";
+import { MousePointer2, MapPin, Ban, Sparkles, Camera, Undo2, Check, StickyNote, Spline } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
-import { MOCK_AI_ACTIVITY } from "@/lib/mock/projects";
+import { MOCK_AI_ACTIVITY, AI_CHANGES } from "@/lib/mock/projects";
 
 /**
  * 画布右栏三区（原型四节 · D-08 / D-10）——**客户端组件**：AI 落笔开关与「回退」确认是交互。
@@ -14,6 +14,14 @@ import { MOCK_AI_ACTIVITY } from "@/lib/mock/projects";
 export function CanvasRightPanel() {
   const [directWrite, setDirectWrite] = React.useState(MOCK_AI_ACTIVITY.defaultDirectWrite);
   const [rollbackConfirm, setRollbackConfirm] = React.useState(false);
+  const [showChanges, setShowChanges] = React.useState(false);
+  // 「另存布局快照」是本地乐观动作：坐标不写回 Markdown，但可另存为独立快照（D-08）
+  const [snapshots, setSnapshots] = React.useState<string[]>([]);
+
+  const saveSnapshot = () => {
+    const stamp = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setSnapshots((s) => [`布局快照 · ${stamp}`, ...s].slice(0, 3));
+  };
 
   return (
     <div className="flex flex-col gap-4 p-3" data-testid="canvas-right-panel">
@@ -52,9 +60,18 @@ export function CanvasRightPanel() {
             mermaid 语法里没有坐标位。写回只保留结构，重新渲染时由 mermaid 自动布局。
             「重开后位置变了」不是 bug。
           </p>
-          <Button variant="outline" size="xs" className="mt-1 self-start" data-testid="canvas-save-layout">
+          <Button variant="outline" size="xs" className="mt-1 self-start" onClick={saveSnapshot} data-testid="canvas-save-layout">
             <Camera aria-hidden className="h-3 w-3" /> 另存布局快照
           </Button>
+          {snapshots.length > 0 && (
+            <ul className="mt-1 flex flex-col gap-0.5" data-testid="canvas-layout-snapshots">
+              {snapshots.map((s, i) => (
+                <li key={i} className="inline-flex items-center gap-1 text-10 text-muted-foreground">
+                  <Check aria-hidden className="h-3 w-3 text-success" /> {s}（独立于 Markdown 保存，不影响写回）
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
@@ -67,7 +84,15 @@ export function CanvasRightPanel() {
             Ava 补了 {MOCK_AI_ACTIVITY.stickiesAdded} 张便签、改了 {MOCK_AI_ACTIVITY.edgeLabelsChanged} 条连线标签，都带 AVA 角标。
           </p>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="xs" data-testid="canvas-ai-view">看改动</Button>
+            <Button
+              variant={showChanges ? "secondary" : "outline"}
+              size="xs"
+              onClick={() => setShowChanges((v) => !v)}
+              aria-expanded={showChanges}
+              data-testid="canvas-ai-view"
+            >
+              {showChanges ? "收起改动" : "看改动"}
+            </Button>
             {!rollbackConfirm ? (
               <Button variant="ghost" size="xs" onClick={() => setRollbackConfirm(true)} data-testid="canvas-ai-rollback">
                 <Undo2 aria-hidden className="h-3 w-3" /> 回退
@@ -80,6 +105,24 @@ export function CanvasRightPanel() {
               </span>
             )}
           </div>
+
+          {/* 「看改动」展开：逐条 AVA 落笔（便签 / 连线）*/}
+          {showChanges && (
+            <ul className="flex flex-col gap-1 rounded-md border border-ai/20 bg-card p-2" data-testid="canvas-ai-change-list">
+              {AI_CHANGES.map((ch) => (
+                <li key={ch.id} className="flex items-start gap-1.5 text-10 text-muted-foreground">
+                  {ch.kind === "sticky" ? (
+                    <StickyNote aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-ai-tint-foreground" />
+                  ) : (
+                    <Spline aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-ai-tint-foreground" />
+                  )}
+                  <span>
+                    <span className="font-mono text-background-foreground">{ch.where}</span> · {ch.detail}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* D-10：默认直接落笔，可切「提交建议待接受」*/}

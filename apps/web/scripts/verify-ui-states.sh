@@ -67,16 +67,54 @@ for scr in $SCREENS; do
 done
 [ "$matrix_fail" -eq 0 ] && echo "  ✓ $(echo $SCREENS | wc -w | tr -d ' ') 屏 × 6 态全覆盖"
 
-echo "==> 两层身份投影（UC-0.3 R8：必须同时显示组织层与项目层）"
-assert_role() { # assert_role <as> <期望文案片段>
-  local body; body=$(curl -s "http://localhost:$PORT/kitchen-sink?as=$1")
-  if printf '%s' "$body" | grep -q "$2"; then printf "  ✓ %-12s → %s\n" "$1" "$2"
-  else printf "  ✗ %-12s → 期望含「%s」\n" "$1" "$2"; FAIL=1; fi
+echo "==> 两层身份投影的**作用域**（UC-0.3：项目角色只在项目里成立）"
+# 2026-07-28 修正：此前顶栏无条件渲染「本项目：X」，等于宣称项目角色是全局属性。
+# UC-0.3 R4 E1 明写「有组织角色但无项目角色」是正常状态，故新契约是**双向**的：
+#   在项目里  → 组织层 + 项目层都在
+#   不在项目里 → 只有组织层，且项目层与视角切换器都**不得出现**
+assert_in_project() { # assert_in_project <路由> <as> <期望项目层文案>
+  local body; body=$(curl -s "http://localhost:$PORT/$1?as=$2")
+  if printf '%s' "$body" | grep -q 'data-testid="role-bar-project"' && printf '%s' "$body" | grep -q "$3"; then
+    printf "  ✓ /%-18s as=%-12s → %s\n" "$1" "$2" "$3"
+  else
+    printf "  ✗ /%-18s as=%-12s → 期望项目层含「%s」\n" "$1" "$2" "$3"; FAIL=1
+  fi
 }
-assert_role facilitator "本项目：引导师"
-assert_role groupLead   "本项目：组长"
-assert_role member      "本项目：组员"
-assert_role observer    "本项目：观察者"
+# /chat 是项目上下文（线程挂在某项目下）
+assert_in_project chat facilitator 引导师
+assert_in_project chat groupLead   组长
+assert_in_project chat member      组员
+assert_in_project chat observer    观察者
+assert_in_project projects/p1/canvas facilitator 引导师
+
+echo "==> 反向：非项目页面**不得**出现项目层与视角切换器"
+for scr in tasks brain admin kitchen-sink projects; do
+  body=$(curl -s "http://localhost:$PORT/$scr?as=facilitator")
+  leaked=""
+  printf '%s' "$body" | grep -q 'data-testid="role-bar-project"'      && leaked="$leaked role-bar-project"
+  printf '%s' "$body" | grep -q 'data-testid="role-preview-switcher"' && leaked="$leaked role-preview-switcher"
+  printf '%s' "$body" | grep -q 'data-testid="topbar-project-context"' && leaked="$leaked topbar-project-context"
+  if [ -n "$leaked" ]; then
+    echo "  ✗ /$scr 泄漏了项目层：$leaked"; FAIL=1
+  else
+    printf "  ✓ /%-14s 只有组织层\n" "$scr"
+  fi
+done
+
+echo "==> 本地组织：承诺与策略必须可分辨（UC-0.5 V12）"
+# 同样是「只用自托管」，个人本地组织是**不可关闭的产品承诺**，
+# 正式组织的 self-hosted-only 是**管理员可改的策略**。用同一个开关表示会让承诺退化成默认值。
+assert_guarantee() { # assert_guarantee <org> <期望 source|none>
+  local body; body=$(curl -s "http://localhost:$PORT/tasks?org=$1")
+  # ⚠ set -e + pipefail 下 grep 无命中会让整条管道失败并终止脚本——必须 || true
+  local got; got=$(printf '%s' "$body" | grep -oE 'data-guarantee-source="[a-z]+"' 2>/dev/null | head -1 | sed 's/.*="//;s/"//' || true)
+  got="${got:-none}"
+  if [ "$got" = "$2" ]; then printf "  ✓ %-14s → %s\n" "$1" "$2"
+  else printf "  ✗ %-14s → 期望 %s，实得 %s\n" "$1" "$2" "$got"; FAIL=1; fi
+}
+assert_guarantee org-yuanyang none      # 不限制
+assert_guarantee org-hengtai  policy    # 组织策略，管理员可改
+assert_guarantee org-local    promise   # 产品承诺，不可关闭
 
 echo "==> 组织切换（裁决 O-12：切换后团队归属随之改变）"
 curl -s "http://localhost:$PORT/kitchen-sink?org=org-yuanyang" | grep -q "能源组"   && echo "  ✓ 远洋新能源 → 能源组"   || { echo "  ✗ 远洋新能源"; FAIL=1; }
@@ -84,7 +122,7 @@ curl -s "http://localhost:$PORT/kitchen-sink?org=org-hengtai"  | grep -q "供应
 
 echo "==> 骨架完整性"
 body=$(curl -s "http://localhost:$PORT/kitchen-sink")
-for t in app-shell shell-rail shell-topbar shell-main shell-left-panel shell-right-panel shell-ambient org-switcher role-bar; do
+for t in app-shell shell-rail shell-topbar shell-main shell-left-panel shell-right-panel shell-ambient org-switcher role-bar-org; do
   printf '%s' "$body" | grep -q "data-testid=\"$t\"" || { echo "  ✗ 缺 $t"; FAIL=1; }
 done
 [ "$FAIL" -eq 0 ] && echo "  ✓ 三栏骨架 + 顶部条 + 环境态条齐备"

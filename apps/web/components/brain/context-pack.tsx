@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ChevronRight, EyeOff, ScrollText } from "lucide-react";
+import { ChevronRight, EyeOff, ScrollText, Check, ListTree } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -12,7 +12,10 @@ import {
   SYSTEM_PROMPT,
   CONTEXT_PACK_EXITS,
   OMISSIONS,
+  OMISSIONS_MORE,
   OMISSIONS_REMAINING,
+  RETRIEVAL_LOG,
+  type Omission,
   type OmissionReason,
 } from "@/lib/mock/brain";
 
@@ -23,7 +26,7 @@ const OMISSION_TONE: Record<OmissionReason, "neutral" | "warning" | "danger"> = 
 };
 
 /** 丢弃清单单条 —— 可点开，带原因（这是 F11 的验收面，不是只显示命中项）*/
-function OmissionRow({ item }: { item: (typeof OMISSIONS)[number] }) {
+function OmissionRow({ item }: { item: Omission }) {
   const [open, setOpen] = React.useState(false);
   return (
     <li data-testid={`brain-omission-${item.id}`} className="rounded-md border border-border-subtle bg-card">
@@ -61,8 +64,91 @@ function OmissionRow({ item }: { item: (typeof OMISSIONS)[number] }) {
   );
 }
 
+/** Context Pack 出口区 —— 三个出口各接真实行为（日志面板 / 固定乐观 / 权限禁用）*/
+function ContextExits() {
+  const [openLog, setOpenLog] = React.useState(false);
+  const [pinned, setPinned] = React.useState(false);
+
+  return (
+    <section className="flex flex-col gap-2" data-testid="brain-context-exits">
+      <div className="flex flex-wrap items-center gap-2">
+        {CONTEXT_PACK_EXITS.map((e, i) => {
+          if (e.key === "log") {
+            return (
+              <Button
+                key={e.key}
+                size="sm"
+                variant={openLog ? "primary" : "outline"}
+                onClick={() => setOpenLog((v) => !v)}
+                aria-expanded={openLog}
+                data-testid={`brain-exit-${e.key}`}
+              >
+                <ListTree aria-hidden className="h-3.5 w-3.5" />
+                {openLog ? "收起调用日志" : e.label}
+              </Button>
+            );
+          }
+          if (e.key === "reweight") {
+            // methodOwnerOnly：当前预览身份非方法负责人 → 显式禁用（服务端另行校验），显式禁用是设计
+            return (
+              <Button
+                key={e.key}
+                size="sm"
+                variant="ghost"
+                disabled
+                title="仅方法负责人可见；权重调整会影响全项目检索，服务端另行校验权限"
+                data-testid={`brain-exit-${e.key}`}
+              >
+                {e.label}
+              </Button>
+            );
+          }
+          // pin：乐观固定到本项目
+          return pinned ? (
+            <span
+              key={e.key}
+              className="inline-flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-11 text-success"
+              data-testid={`brain-exit-${e.key}-done`}
+            >
+              <Check aria-hidden className="h-3.5 w-3.5" />
+              已固定到本项目
+            </span>
+          ) : (
+            <Button
+              key={e.key}
+              size="sm"
+              variant={i === 0 ? "outline" : "ghost"}
+              onClick={() => setPinned(true)}
+              data-testid={`brain-exit-${e.key}`}
+            >
+              {e.label}
+            </Button>
+          );
+        })}
+      </div>
+
+      {openLog && (
+        <ol className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle bg-card" data-testid="brain-exit-log-panel">
+          {RETRIEVAL_LOG.map((l) => (
+            <li key={l.id} className="flex items-baseline gap-2 px-2.5 py-1.5" data-testid={`brain-log-${l.id}`}>
+              <span className="shrink-0 font-mono text-10 text-muted-foreground">{l.ts}</span>
+              <Badge tone="outline">{l.op}</Badge>
+              <span className="min-w-0 text-11 text-muted-foreground">{l.detail}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <span className="text-10 text-muted-foreground">
+        「看完整调用日志」在此内联展开；「固定这段上下文」乐观固定到本项目；「调整检索权重」仅方法负责人可见且服务端另行校验。
+      </span>
+    </section>
+  );
+}
+
 export function ContextPackPanel() {
   const budgetPct = Math.round((CONTEXT_BUDGET.used / CONTEXT_BUDGET.cap) * 100);
+  const [showMore, setShowMore] = React.useState(false);
 
   return (
     <div className="flex flex-col gap-5" data-testid="brain-context-pack">
@@ -122,9 +208,17 @@ export function ContextPackPanel() {
           {OMISSIONS.map((o) => (
             <OmissionRow key={o.id} item={o} />
           ))}
+          {showMore && OMISSIONS_MORE.map((o) => <OmissionRow key={o.id} item={o} />)}
         </ul>
-        <Button size="sm" variant="ghost" data-testid="brain-omissions-more">
-          还有 {OMISSIONS_REMAINING} 条低相关 · 展开
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setShowMore((v) => !v)}
+          aria-expanded={showMore}
+          data-testid="brain-omissions-more"
+        >
+          <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", showMore && "rotate-90")} />
+          {showMore ? "收起长尾低相关" : `还有 ${OMISSIONS_REMAINING} 条低相关 · 展开`}
         </Button>
         <p className="text-10 text-muted-foreground">
           不得静默丢弃：低于相关度阈值、超预算裁剪、权限取最严格结果排除，三类原因逐条标注。
@@ -149,16 +243,7 @@ export function ContextPackPanel() {
         <p className="text-10 text-muted-foreground">硬约束段不可被裁剪、不可被 AI 改写；只读快照，不可篡改。</p>
       </section>
 
-      <section className="flex flex-wrap items-center gap-2" data-testid="brain-context-exits">
-        {CONTEXT_PACK_EXITS.map((e, i) => (
-          <Button key={e.key} size="sm" variant={i === 0 ? "outline" : "ghost"} data-testid={`brain-exit-${e.key}`}>
-            {e.label}
-          </Button>
-        ))}
-        <span className="text-10 text-muted-foreground">
-          三个出口按钮已渲染、目标屏待接线（原型待补）；「调整检索权重」仅方法负责人可见且服务端另行校验。
-        </span>
-      </section>
+      <ContextExits />
     </div>
   );
 }

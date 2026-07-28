@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Mic, MicOff, Plus, AudioLines, Hand, Send, Sparkles, Radio } from "lucide-react";
+import { Mic, MicOff, Plus, AudioLines, Hand, Send, Sparkles, Radio, Check } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,29 @@ export function GroupWorkbench({ state, role }: { state: UiState; role: GroupVie
   const [draft, setDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [handRaised, setHandRaised] = React.useState(false);
+  const [fcAccepted, setFcAccepted] = React.useState(false);
+  const localSeq = React.useRef(0);
+
+  const pushSticky = (text: string) => {
+    localSeq.current += 1;
+    setStickies((s) => [...s, { id: `local-${localSeq.current}`, text, author: "参与者 B", mine: true }]);
+  };
 
   const addSticky = () => {
     const text = draft.trim();
     if (!text) return;
-    setStickies((s) => [...s, { id: `local-${s.length + 1}`, text, author: "参与者 B", mine: true }]);
+    pushSticky(text);
     setDraft("");
+  };
+
+  // 「语音转便签」：把最近一段口头发言转成便签（原型 mock 一句转录文本，非真实 ASR）
+  const addVoiceSticky = () => pushSticky("（语音转写）灯塔项目先免费改造，用背书换后续订单");
+
+  // FC 主持建议 → 一键转便签
+  const acceptFcSuggestion = () => {
+    pushSticky("机会：把回本测算做进销售话术，德国业主更认落地数字");
+    setFcAccepted(true);
   };
 
   // 广播条 + 麦克风常驻，任何状态都显示；内容区走七态
@@ -115,13 +132,22 @@ export function GroupWorkbench({ state, role }: { state: UiState; role: GroupVie
         <Input
           value={draft}
           onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && addSticky()}
           placeholder="写一张便签…"
           data-testid="group-add-sticky-input"
         />
         <Button variant="primary" size="lg" onClick={addSticky} data-testid="group-add-sticky" className="shrink-0">
           <Plus aria-hidden className="h-3.5 w-3.5" /> 便签
         </Button>
-        <Button variant="outline" size="lg" data-testid="group-voice-sticky" className="shrink-0">
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={addVoiceSticky}
+          disabled={!micOn}
+          title={micOn ? undefined : "麦克风已关闭，先打开麦克风才能语音转便签"}
+          data-testid="group-voice-sticky"
+          className="shrink-0"
+        >
           <AudioLines aria-hidden className="h-3.5 w-3.5" /> 语音转便签
         </Button>
       </div>
@@ -134,9 +160,15 @@ export function GroupWorkbench({ state, role }: { state: UiState; role: GroupVie
         <Sparkles aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ai-tint-foreground" />
         <div className="flex flex-1 flex-col gap-2">
           <p className="text-12 text-ai-tint-foreground">{GROUP_WORKBENCH.fcSuggestion}</p>
-          <Button variant="ai" size="sm" data-testid="group-fc-accept" className="self-start">
-            好，转成便签
-          </Button>
+          {fcAccepted ? (
+            <span className="inline-flex items-center gap-1 self-start text-11 text-ai-tint-foreground" data-testid="group-fc-accepted">
+              <Check aria-hidden className="h-3.5 w-3.5" /> 已转成一张便签，贴在本组画布上了
+            </span>
+          ) : (
+            <Button variant="ai" size="sm" onClick={acceptFcSuggestion} data-testid="group-fc-accept" className="self-start">
+              好，转成便签
+            </Button>
+          )}
         </div>
       </div>
 
@@ -171,13 +203,26 @@ export function GroupWorkbench({ state, role }: { state: UiState; role: GroupVie
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="lg" data-testid="group-raise-hand">
-                  <Hand aria-hidden className="h-3.5 w-3.5" /> 向引导师举手
-                </Button>
-                <Button variant="primary" size="lg" onClick={() => setSubmitting(true)} data-testid="group-submit-output">
-                  <Send aria-hidden className="h-3.5 w-3.5" /> 提交本组产出
-                </Button>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={handRaised ? "secondary" : "outline"}
+                    size="lg"
+                    onClick={() => setHandRaised((v) => !v)}
+                    aria-pressed={handRaised}
+                    data-testid="group-raise-hand"
+                  >
+                    <Hand aria-hidden className="h-3.5 w-3.5" /> {handRaised ? "已举手 · 收回" : "向引导师举手"}
+                  </Button>
+                  <Button variant="primary" size="lg" onClick={() => setSubmitting(true)} data-testid="group-submit-output">
+                    <Send aria-hidden className="h-3.5 w-3.5" /> 提交本组产出
+                  </Button>
+                </div>
+                {handRaised && (
+                  <span className="inline-flex items-center gap-1 text-11 text-muted-foreground" data-testid="group-hand-raised-note">
+                    <Check aria-hidden className="h-3.5 w-3.5 text-success" /> 已通知引导师，等待被点到；可再次点击收回。
+                  </span>
+                )}
               </div>
             )}
           </div>

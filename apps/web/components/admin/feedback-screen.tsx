@@ -1,6 +1,8 @@
 "use client";
-import { LayoutList, Download, ThumbsDown, ArrowRight, GitPullRequestArrow } from "lucide-react";
+import * as React from "react";
+import { LayoutList, Download, ThumbsDown, ArrowRight, GitPullRequestArrow, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { AdminDrawer, Toast } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +19,17 @@ const SW_TONE: Record<SwFeedbackStatus, "warning" | "ai" | "primary"> = {
   fixed: "primary",
 };
 
+const BOARD_COLUMNS: { key: SwFeedbackStatus; label: string }[] = [
+  { key: "pending", label: "待处理" },
+  { key: "in-iteration", label: "已进入迭代" },
+  { key: "fixed", label: "已修复" },
+];
+
 export function FeedbackScreen({ state }: { state: UiState }) {
+  const [boardOpen, setBoardOpen] = React.useState(false);
+  const [triaged, setTriaged] = React.useState<Set<string>>(new Set());
+  const [toast, setToast] = React.useState<string | null>(null);
+
   return (
     <AdminScreen
       state={state}
@@ -36,11 +48,11 @@ export function FeedbackScreen({ state }: { state: UiState }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-14 font-semibold">迭代闭环 · 本月</h2>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" data-testid="admin-feedback-board">
+              <Button size="sm" variant="outline" onClick={() => setBoardOpen(true)} data-testid="admin-feedback-board">
                 <LayoutList aria-hidden className="h-3.5 w-3.5" />
                 打开迭代看板
               </Button>
-              <Button size="sm" variant="ghost" data-testid="admin-feedback-export">
+              <Button size="sm" variant="ghost" onClick={() => setToast(`已导出反馈明细 CSV（本周 ${SW_FEEDBACK_SUMMARY.total} 条软件反馈 + Agent/Skill 改进项）`)} data-testid="admin-feedback-export">
                 <Download aria-hidden className="h-3.5 w-3.5" />
                 导出
               </Button>
@@ -85,35 +97,80 @@ export function FeedbackScreen({ state }: { state: UiState }) {
             Agent / Skill 改进反馈 <span className="text-11 font-normal text-muted-foreground">· 来自消息级评价</span>
           </h2>
           <div className="flex flex-col gap-1.5">
-            {AGENT_FEEDBACK.map((f) => (
-              <Card key={f.id} data-testid={`admin-feedback-agent-${f.id}`}>
-                <CardContent className="flex flex-col gap-2 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Avatar initials={f.initials} tone="ai" size="sm" />
-                    <span className="text-12 font-medium">{f.target}</span>
-                    <Badge tone="warning">{f.issue}</Badge>
-                    <span className="inline-flex items-center gap-1 text-11 text-muted-foreground">
-                      <ThumbsDown aria-hidden className="h-3 w-3" />
-                      {f.down}
-                    </span>
-                  </div>
-                  <p className="text-11 text-muted-foreground">{f.detail}</p>
-                  {f.outcome ? (
-                    <span className="inline-flex items-center gap-1 text-11 text-primary">
-                      <GitPullRequestArrow aria-hidden className="h-3 w-3" />
-                      {f.outcome}
-                    </span>
-                  ) : (
-                    <Button size="xs" variant="outline" className="self-start" data-testid={`admin-feedback-triage-${f.id}`}>
-                      分诊并生成改进建议
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            {AGENT_FEEDBACK.map((f) => {
+              const isTriaged = triaged.has(f.id);
+              return (
+                <Card key={f.id} data-testid={`admin-feedback-agent-${f.id}`}>
+                  <CardContent className="flex flex-col gap-2 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Avatar initials={f.initials} tone="ai" size="sm" />
+                      <span className="text-12 font-medium">{f.target}</span>
+                      <Badge tone="warning">{f.issue}</Badge>
+                      <span className="inline-flex items-center gap-1 text-11 text-muted-foreground">
+                        <ThumbsDown aria-hidden className="h-3 w-3" />
+                        {f.down}
+                      </span>
+                    </div>
+                    <p className="text-11 text-muted-foreground">{f.detail}</p>
+                    {f.outcome ? (
+                      <span className="inline-flex items-center gap-1 text-11 text-primary">
+                        <GitPullRequestArrow aria-hidden className="h-3 w-3" />
+                        {f.outcome}
+                      </span>
+                    ) : isTriaged ? (
+                      <span className="inline-flex items-center gap-1 text-11 text-primary" data-testid={`admin-feedback-triaged-${f.id}`}>
+                        <GitPullRequestArrow aria-hidden className="h-3 w-3" />
+                        已生成改进建议草案 · 进开发 Agent 队列，待生成 PR
+                      </span>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        className="self-start"
+                        onClick={() => {
+                          setTriaged((s) => new Set(s).add(f.id));
+                          setToast(`已把「${f.target}」分诊为改进建议，开发 Agent 开始生成技术方案`);
+                        }}
+                        data-testid={`admin-feedback-triage-${f.id}`}
+                      >
+                        分诊并生成改进建议
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
       </div>
+
+      {/* 迭代看板抽屉 */}
+      {boardOpen && (
+        <AdminDrawer testid="admin-feedback-board-drawer" title="迭代看板" subtitle="软件反馈按状态分列，拖动在真实系统里改状态" onClose={() => setBoardOpen(false)}>
+          <div className="flex flex-col gap-3" data-testid="admin-feedback-board-columns">
+            {BOARD_COLUMNS.map((col) => {
+              const items = SW_FEEDBACK.filter((f) => f.status === col.key);
+              return (
+                <div key={col.key} className="flex flex-col gap-1.5" data-testid={`admin-feedback-board-col-${col.key}`}>
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={SW_TONE[col.key]}>{col.label}</Badge>
+                    <span className="text-11 text-muted-foreground">{items.length} 条</span>
+                  </div>
+                  {items.map((f) => (
+                    <div key={f.id} className="rounded-md border border-border-subtle bg-panel p-2" data-testid="admin-feedback-board-card">
+                      <p className="text-12 font-medium">{f.title}</p>
+                      <p className="text-11 text-muted-foreground">👍 {f.votes}{f.target ? ` · ${f.target}` : ""}</p>
+                    </div>
+                  ))}
+                  {items.length === 0 && <p className="text-11 text-muted-foreground">本列暂无</p>}
+                </div>
+              );
+            })}
+          </div>
+        </AdminDrawer>
+      )}
+
+      <Toast message={toast} testid="admin-feedback-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
 }

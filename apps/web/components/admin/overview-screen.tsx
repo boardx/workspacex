@@ -1,18 +1,28 @@
 "use client";
-import { TrendingUp, TrendingDown, Minus, ShieldAlert, Download, FileBarChart, Link2 } from "lucide-react";
+import * as React from "react";
+import { TrendingUp, TrendingDown, Minus, ShieldAlert, Download, FileBarChart, Link2, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { AdminDrawer, Toast } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  OVERVIEW_METRICS, OVERVIEW_ANOMALIES, OVERVIEW_ACTIVITY,
+  OVERVIEW_METRICS, OVERVIEW_ANOMALIES, OVERVIEW_ACTIVITY, ANOMALY_CHAINS,
+  type AnomalyItem,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
 
 const TREND_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus } as const;
 
 export function OverviewScreen({ state }: { state: UiState }) {
+  // 乐观状态：已被标记为正常的异常 id + 报告/导出的确认行
+  const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
+  const [chainOf, setChainOf] = React.useState<AnomalyItem | null>(null);
+  const [toast, setToast] = React.useState<string | null>(null);
+
+  const anomalies = OVERVIEW_ANOMALIES;
+
   return (
     <AdminScreen
       state={state}
@@ -48,30 +58,49 @@ export function OverviewScreen({ state }: { state: UiState }) {
 
         {/* 异常待处理 */}
         <section className="flex flex-col gap-2" data-testid="admin-overview-anomalies">
-          <h2 className="text-14 font-semibold">异常待处理</h2>
+          <h2 className="text-14 font-semibold">
+            异常待处理 <span className="text-11 font-normal text-muted-foreground">· {anomalies.length - dismissed.size} 项未处理</span>
+          </h2>
           <div className="flex flex-col gap-2">
-            {OVERVIEW_ANOMALIES.map((a) => (
-              <Card key={a.id} data-testid={`admin-anomaly-${a.id}`}>
-                <CardContent className="flex flex-col gap-2 pt-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={a.severity === "high" ? "danger" : "warning"} data-testid={`admin-anomaly-severity-${a.id}`}>
-                      {a.severity === "high" ? "高" : "中"}
-                    </Badge>
-                    <span className="text-12 font-medium">{a.kind}</span>
-                  </div>
-                  <p className="text-13">{a.detail}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" data-testid={`admin-anomaly-chain-${a.id}`}>
-                      <Link2 aria-hidden className="h-3.5 w-3.5" />
-                      查看调用链
-                    </Button>
-                    <Button size="sm" variant="ghost" data-testid={`admin-anomaly-dismiss-${a.id}`}>
-                      标记为正常
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {anomalies.map((a) => {
+              const isDismissed = dismissed.has(a.id);
+              return (
+                <Card key={a.id} data-testid={`admin-anomaly-${a.id}`}>
+                  <CardContent className="flex flex-col gap-2 pt-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={isDismissed ? "neutral" : a.severity === "high" ? "danger" : "warning"} data-testid={`admin-anomaly-severity-${a.id}`}>
+                        {isDismissed ? "已标记正常" : a.severity === "high" ? "高" : "中"}
+                      </Badge>
+                      <span className="text-12 font-medium">{a.kind}</span>
+                    </div>
+                    <p className={isDismissed ? "text-13 text-muted-foreground line-through" : "text-13"}>{a.detail}</p>
+                    {isDismissed ? (
+                      <p className="inline-flex items-center gap-1 text-11 text-success" data-testid={`admin-anomaly-resolved-${a.id}`}>
+                        <Check aria-hidden className="h-3 w-3" /> 已判定为正常，处置已写入审计（可在活动流复核）
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setChainOf(a)} data-testid={`admin-anomaly-chain-${a.id}`}>
+                          <Link2 aria-hidden className="h-3.5 w-3.5" />
+                          查看调用链
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setDismissed((s) => new Set(s).add(a.id));
+                            setToast(`已把「${a.kind}」标记为正常，处置记入审计`);
+                          }}
+                          data-testid={`admin-anomaly-dismiss-${a.id}`}
+                        >
+                          标记为正常
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
 
@@ -80,11 +109,21 @@ export function OverviewScreen({ state }: { state: UiState }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-14 font-semibold">活动流</h2>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" data-testid="admin-activity-export">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setToast(`已导出活动流 CSV（12,408 条，含在跑的重活标记）`)}
+                data-testid="admin-activity-export"
+              >
                 <Download aria-hidden className="h-3.5 w-3.5" />
                 导出
               </Button>
-              <Button size="sm" variant="primary" data-testid="admin-activity-report">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => setToast(`月度报告生成中…完成后发送到你的收件箱（含用量、异常处置、越权拦截汇总）`)}
+                data-testid="admin-activity-report"
+              >
                 <FileBarChart aria-hidden className="h-3.5 w-3.5" />
                 生成月度报告
               </Button>
@@ -107,6 +146,38 @@ export function OverviewScreen({ state }: { state: UiState }) {
           </Card>
         </section>
       </div>
+
+      {chainOf && (
+        <AdminDrawer
+          testid="admin-anomaly-chain-drawer"
+          title="调用链"
+          subtitle={`${chainOf.kind} · ${chainOf.severity === "high" ? "高" : "中"}危`}
+          onClose={() => setChainOf(null)}
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-12 text-muted-foreground">{chainOf.detail}</p>
+            <Separator />
+            <ol className="flex flex-col gap-2" data-testid="admin-anomaly-chain-steps">
+              {(ANOMALY_CHAINS[chainOf.id] ?? []).map((s, i) => (
+                <li
+                  key={i}
+                  data-testid="admin-anomaly-chain-step"
+                  className={`flex flex-col gap-0.5 rounded-md border p-2.5 ${s.blocked ? "border-destructive/30 bg-destructive/5" : "border-border-subtle bg-panel"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-10 text-muted-foreground">{s.ts}</span>
+                    <span className="text-12 font-medium">{s.actor}</span>
+                    {s.blocked && <Badge tone="danger">拦截点</Badge>}
+                  </div>
+                  <p className="text-11 text-muted-foreground">{s.action}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </AdminDrawer>
+      )}
+
+      <Toast message={toast} testid="admin-overview-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
 }

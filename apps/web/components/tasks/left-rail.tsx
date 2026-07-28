@@ -14,6 +14,10 @@ const GROUPINGS = [
 
 export function TasksLeftRail() {
   const [grouping, setGrouping] = React.useState<string>("by-actor");
+  // 视图选择：默认落在 primary 视图（我的今天）。切换是预览手段，改的是本地高亮。
+  const [activeView, setActiveView] = React.useState<string>(
+    TASK_VIEWS.find((v) => v.primary)?.key ?? TASK_VIEWS[0]?.key ?? "my-today",
+  );
 
   return (
     <div className="flex flex-col gap-4 p-3">
@@ -35,20 +39,25 @@ export function TasksLeftRail() {
       </div>
 
       <nav className="flex flex-col gap-0.5" data-testid="tasks-view-list">
-        {TASK_VIEWS.map((v) => (
-          <button
-            key={v.key}
-            type="button"
-            data-testid={`tasks-view-${v.key}`}
-            className={cn(
-              "flex items-center justify-between rounded-md px-2 py-1.5 text-12 transition-colors duration-200",
-              v.primary ? "bg-accent text-accent-foreground" : "text-background-foreground hover:bg-muted",
-            )}
-          >
-            <span className={cn(v.primary && "font-medium")}>{v.label}</span>
-            <span className="text-10 text-muted-foreground">{v.count}</span>
-          </button>
-        ))}
+        {TASK_VIEWS.map((v) => {
+          const selected = activeView === v.key;
+          return (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => setActiveView(v.key)}
+              aria-current={selected ? "page" : undefined}
+              data-testid={`tasks-view-${v.key}`}
+              className={cn(
+                "flex items-center justify-between rounded-md px-2 py-1.5 text-12 transition-colors duration-200",
+                selected ? "bg-accent text-accent-foreground" : "text-background-foreground hover:bg-muted",
+              )}
+            >
+              <span className={cn(selected && "font-medium")}>{v.label}</span>
+              <span className="text-10 text-muted-foreground">{v.count}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <section className="flex flex-col gap-2" data-testid="tasks-run-center">

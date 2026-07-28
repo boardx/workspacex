@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import type { ProjectRole } from "@/lib/identity";
-import { CanvasToolbar, type CanvasTool } from "./canvas-toolbar";
+import { CanvasToolbar, ZOOM_MIN, ZOOM_MAX, type CanvasTool } from "./canvas-toolbar";
 import { CanvasStage } from "./canvas-stage";
 import { ConflictBar } from "./conflict-bar";
 
@@ -31,9 +31,12 @@ flowchart LR
   n1["致命假设：EMC 可复制"] -->|需验证| n2["验证：3 个园区试点"]
 \`\`\``;
 
+const ZOOM_STEP = 0.1;
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
+
 /**
  * 画布中栏主体（UC-7.3 R8 · 原型四节）——**客户端组件**：
- * 工具选中、画布/源码切换、冲突条裁决都是交互；服务端组件不能传函数 props。
+ * 工具选中、画布/源码切换、缩放、冲突条裁决都是交互；服务端组件不能传函数 props。
  * 七态经 StateShell；冲突条作为「一种可展示的状态」由预览开关控制（原型确认缺失，本次补画）。
  */
 export function CanvasMain({
@@ -46,6 +49,7 @@ export function CanvasMain({
   const [tool, setTool] = React.useState<CanvasTool>("select");
   const [mode, setMode] = React.useState<"canvas" | "source">("canvas");
   const [conflict, setConflict] = React.useState(initialConflict);
+  const [zoom, setZoom] = React.useState(1);
   const readOnly = previewRole === "observer";
 
   return (
@@ -125,9 +129,13 @@ export function CanvasMain({
               mode={mode}
               onModeChange={setMode}
               readOnly={readOnly}
+              zoom={zoom}
+              onZoomIn={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+              onZoomOut={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
+              onZoomFit={() => setZoom(1)}
             />
             {mode === "canvas" ? (
-              <CanvasStage readOnly={readOnly} />
+              <CanvasStage readOnly={readOnly} tool={tool} zoom={zoom} />
             ) : (
               <SourceView />
             )}

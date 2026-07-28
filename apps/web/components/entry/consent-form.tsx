@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { ShieldCheck, Undo2, FileWarning, UserCog, ArrowLeft } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -156,18 +157,17 @@ export function ConsentForm({ state }: { state: UiState }) {
   }
 
   // ── default 态 ──────────────────────────────────────────────────────
+  const allDeclined = CONSENT.items.every((i) => !checked[i.id]);
   return (
     <div className="flex flex-col gap-5">
       <ConsentBody checked={checked} onToggle={(id, v) => setChecked((s) => ({ ...s, [id]: v }))} />
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="primary"
-            size="lg"
-            data-testid="consent-confirm"
-          >
-            确认并进入访谈
+          <Button variant="primary" size="lg" asChild data-testid="consent-confirm">
+            <Link href="/studio/interview">
+              {allDeclined ? "全部拒绝，仍进入访谈" : "确认并进入访谈"}
+            </Link>
           </Button>
           <Button
             variant="outline"

@@ -2,7 +2,7 @@
 import * as React from "react";
 import {
   Radio, Wifi, RefreshCw, Search, Quote, MapPin, AlertTriangle, UserPlus,
-  Languages, ShieldAlert, Play,
+  Languages, ShieldAlert, Play, ShieldCheck, ArrowLeft,
 } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   TRANSCRIPT, RECORDING_TRACKS, SPEAKERS, INTERVIEW_SESSION, AUTHORIZATION,
   authGrantedCount, speakerDisplay, speakerInitials, isReadOnlyView,
@@ -36,6 +37,7 @@ export function InterviewStage({ state, view }: { state: UiState; view: Intervie
     () => new Set(TRANSCRIPT.filter((s) => s.quote).map((s) => s.id)),
   );
   const [assigned, setAssigned] = React.useState<Record<string, string>>({});
+  const [moments, setMoments] = React.useState<Set<string>>(new Set());
 
   // 受访者视角：只看自己的授权与撤回，看不到项目内部材料
   if (view === "interviewee") return <IntervieweeSelfPanel />;
@@ -79,10 +81,18 @@ export function InterviewStage({ state, view }: { state: UiState; view: Intervie
             researcher={canWrite}
             selected={currentTc === seg.tc}
             quoted={quoted.has(seg.id)}
+            moment={moments.has(seg.id)}
             assignedTo={assigned[seg.id]}
             onSeek={() => setCurrentTc(seg.tc)}
             onToggleQuote={() =>
               setQuoted((prev) => {
+                const next = new Set(prev);
+                next.has(seg.id) ? next.delete(seg.id) : next.add(seg.id);
+                return next;
+              })
+            }
+            onToggleMoment={() =>
+              setMoments((prev) => {
                 const next = new Set(prev);
                 next.has(seg.id) ? next.delete(seg.id) : next.add(seg.id);
                 return next;
@@ -186,7 +196,7 @@ export function InterviewStage({ state, view }: { state: UiState; view: Intervie
 /* ── 单条转录段 ──────────────────────────────────────────────── */
 
 function SegmentRow({
-  seg, view, canWrite, researcher, selected, quoted, assignedTo, onSeek, onToggleQuote, onAssign,
+  seg, view, canWrite, researcher, selected, quoted, moment, assignedTo, onSeek, onToggleQuote, onToggleMoment, onAssign,
 }: {
   seg: TranscriptSegment;
   view: InterviewView;
@@ -194,9 +204,11 @@ function SegmentRow({
   researcher: boolean;
   selected: boolean;
   quoted: boolean;
+  moment: boolean;
   assignedTo?: string;
   onSeek: () => void;
   onToggleQuote: () => void;
+  onToggleMoment: () => void;
   onAssign: (speakerId: string) => void;
 }) {
   const isOverlap = seg.status === "pending-manual";
@@ -242,6 +254,7 @@ function SegmentRow({
             {seg.decisionPoint && <Badge tone="ai" data-testid={`itv-decision-${seg.id}`}>AI 标记 · 决策点（待确认）</Badge>}
             {seg.original && <Badge tone="neutral"><Languages aria-hidden className="h-2.5 w-2.5" /> 外语 · 原文/译文</Badge>}
             {quoted && <Badge tone="primary" data-testid={`itv-quote-${seg.id}`}><Quote aria-hidden className="h-2.5 w-2.5" /> 引述</Badge>}
+            {moment && <Badge tone="ai" data-testid={`itv-moment-${seg.id}`}><MapPin aria-hidden className="h-2.5 w-2.5" /> 已标记此刻</Badge>}
             {seg.lowConfidence && <Badge tone="outline">低置信</Badge>}
             {seg.status === "partial" && <Badge tone="neutral">正在识别…</Badge>}
           </div>
@@ -332,8 +345,14 @@ function SegmentRow({
                 <Quote aria-hidden className="h-3 w-3" /> {quoted ? "已标为引述" : "标为引述"}
               </Button>
               {researcher && (
-                <Button size="xs" variant="ghost" data-testid={`itv-mark-moment-${seg.id}`}>
-                  <MapPin aria-hidden className="h-3 w-3" /> 标记此刻
+                <Button
+                  size="xs"
+                  variant={moment ? "primary" : "ghost"}
+                  onClick={onToggleMoment}
+                  aria-pressed={moment}
+                  data-testid={`itv-mark-moment-${seg.id}`}
+                >
+                  <MapPin aria-hidden className="h-3 w-3" /> {moment ? "已标记此刻" : "标记此刻"}
                 </Button>
               )}
             </div>
@@ -381,6 +400,10 @@ function AudioScrubber({ currentTc, onReset }: { currentTc: string | null; onRes
 /* ── 受访者视角：只看自己的授权与撤回 ─────────────────────────── */
 
 function IntervieweeSelfPanel() {
+  const [withdrawing, setWithdrawing] = React.useState(false);
+  const [ack, setAck] = React.useState(false);
+  const [withdrawn, setWithdrawn] = React.useState(false);
+
   return (
     <div className="flex flex-col gap-4 p-4" data-testid="itv-interviewee-self">
       <header className="flex flex-col gap-1">
@@ -410,15 +433,59 @@ function IntervieweeSelfPanel() {
         </p>
       </div>
 
+      {/* 撤回授权：危险动作，二次确认 + 影响范围（D-13）*/}
       <div className="flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3" data-testid="itv-withdraw-self">
         <p className="text-12 font-medium">撤回授权</p>
         <p className="text-11 text-muted-foreground">
           撤回后：本场引述退出检索、引用过它的报告段落会标「证据已撤回」（不静默删除），
           物理删除会在 30 天内完成并给你回执。
         </p>
-        <Button size="sm" variant="destructive" className="self-start" data-testid="itv-withdraw-submit">
-          我要撤回我的授权…
-        </Button>
+
+        {withdrawn ? (
+          <div className="flex flex-col gap-1 rounded-md border border-border bg-card p-2.5" role="status" data-testid="itv-withdraw-done">
+            <span className="inline-flex items-center gap-1 text-12 font-medium">
+              <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-success" /> 撤回申请已提交
+            </span>
+            <p className="text-11 text-muted-foreground">
+              相关引述将在 5 分钟内退出检索；引用过它的报告段落标为「证据已撤回」而非删除；
+              30 天内完成物理删除并向你发送回执。
+            </p>
+          </div>
+        ) : !withdrawing ? (
+          <Button size="sm" variant="destructive" className="self-start" onClick={() => setWithdrawing(true)} data-testid="itv-withdraw-submit">
+            我要撤回我的授权…
+          </Button>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-card p-2.5" data-testid="itv-withdraw-confirm">
+            <button
+              type="button"
+              onClick={() => { setWithdrawing(false); setAck(false); }}
+              data-testid="itv-withdraw-back"
+              className="inline-flex items-center gap-1 self-start text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+            >
+              <ArrowLeft aria-hidden className="h-3 w-3" /> 先不撤回
+            </button>
+            <ul className="flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground" data-testid="itv-withdraw-impact">
+              <li>本场 {WITHDRAWAL_IMPACT.quotesRemoved} 条引述退出检索（5 分钟内生效）。</li>
+              <li>{WITHDRAWAL_IMPACT.affectedReportSegments.length} 段报告将标「证据已撤回」，<strong className="font-medium text-background-foreground">不静默删除</strong>。</li>
+              <li>逐字稿与音频将于 {WITHDRAWAL_IMPACT.retentionDeleteBy} 前物理删除，并给你回执。</li>
+            </ul>
+            <Checkbox
+              checked={ack}
+              onChange={(e) => setAck(e.currentTarget.checked)}
+              data-testid="itv-withdraw-ack"
+              label="我已了解上述影响范围，确认撤回"
+            />
+            <div className="flex items-center gap-1.5">
+              <Button size="xs" variant="destructive" disabled={!ack} onClick={() => setWithdrawn(true)} data-testid="itv-withdraw-commit">
+                确认撤回授权
+              </Button>
+              <Button size="xs" variant="ghost" onClick={() => { setWithdrawing(false); setAck(false); }} data-testid="itv-withdraw-cancel">
+                再想想
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <p className="text-10 text-muted-foreground">

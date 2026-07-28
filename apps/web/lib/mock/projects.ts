@@ -271,6 +271,22 @@ export const MOCK_EDGES: CanvasEdge[] = [
 ];
 
 /** 「AI 在这张画布上」（原型四节右栏 · D-10）*/
+export interface AiChange {
+  id: string;
+  kind: "sticky" | "edge";
+  /** 归到哪个 ## 段落 / 哪条连线 */
+  where: string;
+  detail: string;
+}
+
+/** 「看改动」展开的逐条 AVA 落笔明细（3 便签 + 1 连线标签，与计数一致）*/
+export const AI_CHANGES: AiChange[] = [
+  { id: "ac1", kind: "sticky", where: "## 我们可以怎样", detail: "＋便签「怎样把回本测算做进销售话术」" },
+  { id: "ac2", kind: "sticky", where: "## 我们可以怎样", detail: "＋便签「怎样用标准化 EMC 合同降门槛」" },
+  { id: "ac3", kind: "sticky", where: "## 痛点", detail: "＋便签「并网审批各州不一，工期难承诺」" },
+  { id: "ac4", kind: "edge", where: "n1 → n2", detail: "连线标签改为「需验证」（原「关联」）" },
+];
+
 export const MOCK_AI_ACTIVITY = {
   stickiesAdded: 3,
   edgeLabelsChanged: 1,

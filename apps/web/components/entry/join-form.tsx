@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { Mic, UserCheck, ArrowRightLeft, DoorOpen, RefreshCw, ShieldAlert } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -74,8 +75,8 @@ export function JoinForm({
           <strong className="text-background-foreground">第 {JOIN_CONTEXT.groupNo} 组 · {JOIN_CONTEXT.groupName}</strong>
           ——这不是错误，你不需要重新找链接。
         </p>
-        <Button variant="primary" size="lg" data-testid="join-enter" className="self-start">
-          进入我的小组
+        <Button variant="primary" size="lg" asChild data-testid="join-enter" className="self-start">
+          <Link href="/group">进入我的小组</Link>
         </Button>
       </div>
     );
@@ -184,8 +185,8 @@ export function JoinForm({
             <p className="text-12 text-muted-foreground">
               本组已产出的内容一条没丢。旧设备上的会话已被接管失效，避免两台设备同时冒充你。
             </p>
-            <Button variant="primary" size="lg" data-testid="join-continue" className="self-start">
-              继续本组讨论
+            <Button variant="primary" size="lg" asChild data-testid="join-continue" className="self-start">
+              <Link href="/group">继续本组讨论</Link>
             </Button>
           </div>
         )}
@@ -207,8 +208,8 @@ export function JoinForm({
           <UserCheck aria-hidden className="h-4 w-4 text-muted-foreground" />
           <span className="text-12 text-muted-foreground">已经是远洋的成员？不用再验手机号。</span>
         </div>
-        <Button variant="outline" size="sm" data-testid="join-member-continue">
-          用我的账号直接进
+        <Button variant="outline" size="sm" asChild data-testid="join-member-continue">
+          <Link href="/group">用我的账号直接进</Link>
         </Button>
       </div>
 
@@ -274,8 +275,8 @@ function VerifyForm({
           </p>
         )}
       </div>
-      <Button variant="primary" size="lg" data-testid="join-enter">
-        进入我的小组
+      <Button variant="primary" size="lg" asChild data-testid="join-enter">
+        <Link href="/group">进入我的小组</Link>
       </Button>
     </div>
   );

@@ -16,7 +16,7 @@ import { DELETE_IMPACT } from "@/lib/mock/files";
  * 六类级联失效逐条列出；其中「已支撑已签字决策」的一条**通知拍板人复核，不自动改结论**。
  * 「删除」按钮在填写原因前禁用（防误触 + 全程留痕）。
  */
-export function DeleteDialog({ onClose }: { onClose: () => void }) {
+export function DeleteDialog({ onClose, onToast }: { onClose: () => void; onToast: (msg: string) => void }) {
   const impact = DELETE_IMPACT;
   const [reason, setReason] = React.useState("");
   const canDelete = reason.trim().length >= 4 && !impact.legalHold;
@@ -31,7 +31,13 @@ export function DeleteDialog({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <Button size="sm" variant="ghost" onClick={onClose} data-testid="files-delete-cancel">取消</Button>
-          <Button size="sm" variant="destructive" disabled={!canDelete} data-testid="files-delete-confirm">
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={!canDelete}
+            onClick={() => { onClose(); onToast(`已发起删除「${impact.fileName}」：逻辑失效 ≤5 分钟，物理删除 ≤30 天并出回执；相关报告段落已通知拍板人复核。`); }}
+            data-testid="files-delete-confirm"
+          >
             <Trash2 aria-hidden className="h-3.5 w-3.5" /> 确认删除（逻辑失效 ≤5 分钟）
           </Button>
         </>

@@ -1,10 +1,12 @@
-import { Play, Check, ExternalLink } from "lucide-react";
+"use client";
+import * as React from "react";
+import { Play, Check, ExternalLink, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   MOCK_GROUP_CANVASES, MOCK_PROJECT_CANVASES, MOCK_BOUND_SKILLS,
-  type GroupCanvasStatus, type CanvasSyncStatus,
+  type GroupCanvasStatus, type CanvasSyncStatus, type BoundSkill,
 } from "@/lib/mock/projects";
 
 const GROUP_TONE: Record<GroupCanvasStatus, "primary" | "neutral" | "warning" | "outline"> = {
@@ -20,7 +22,7 @@ const SYNC_TONE: Record<CanvasSyncStatus, "neutral" | "warning" | "primary"> = {
 };
 
 /**
- * 画布左栏三区（原型四节）——纯展示，服务端可渲染。
+ * 画布左栏三区（原型四节）——**客户端组件**：绑定的 skill 可运行 / 可开关（乐观，不落库）。
  * ① 本环节各组画布（4 行状态各不同）② 本项目画布（3 · 1 待同步）③ 本环节绑定的 skill。
  */
 export function CanvasLeftPanel() {
@@ -79,22 +81,7 @@ export function CanvasLeftPanel() {
       <section className="flex flex-col gap-1.5">
         <SectionLabel>本环节绑定的 skill</SectionLabel>
         {MOCK_BOUND_SKILLS.map((s) => (
-          <div
-            key={s.id}
-            data-testid={`canvas-skill-${s.id}`}
-            className="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
-          >
-            <span className="truncate text-12">{s.label}</span>
-            {s.action === "运行" ? (
-              <Button variant="outline" size="xs" data-testid={`canvas-skill-${s.id}-run`}>
-                <Play aria-hidden className="h-3 w-3" /> 运行
-              </Button>
-            ) : (
-              <Button variant="secondary" size="xs" data-testid={`canvas-skill-${s.id}-on`}>
-                <Check aria-hidden className="h-3 w-3" /> 已开
-              </Button>
-            )}
-          </div>
+          <SkillRow key={s.id} skill={s} />
         ))}
         <p className="mt-1 flex items-center gap-1 text-10 text-muted-foreground">
           模板由后台配置
@@ -103,6 +90,67 @@ export function CanvasLeftPanel() {
           </span>
         </p>
       </section>
+    </div>
+  );
+}
+
+/** 单条 skill：`运行` 型可触发一次运行（乐观反馈）；`已开` 型可开关。 */
+function SkillRow({ skill }: { skill: BoundSkill }) {
+  const [runState, setRunState] = React.useState<"idle" | "running" | "done">("idle");
+  const [enabled, setEnabled] = React.useState(true);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const run = () => {
+    setRunState("running");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setRunState("done"), 700);
+  };
+
+  return (
+    <div
+      data-testid={`canvas-skill-${skill.id}`}
+      className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-12">{skill.label}</span>
+        {skill.action === "运行" ? (
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={run}
+            disabled={runState === "running"}
+            data-testid={`canvas-skill-${skill.id}-run`}
+          >
+            {runState === "running" ? (
+              <><Loader2 aria-hidden className="h-3 w-3 animate-spin" /> 运行中</>
+            ) : runState === "done" ? (
+              <><Play aria-hidden className="h-3 w-3" /> 再运行</>
+            ) : (
+              <><Play aria-hidden className="h-3 w-3" /> 运行</>
+            )}
+          </Button>
+        ) : (
+          <Button
+            variant={enabled ? "secondary" : "ghost"}
+            size="xs"
+            onClick={() => setEnabled((v) => !v)}
+            aria-pressed={enabled}
+            data-testid={`canvas-skill-${skill.id}-on`}
+          >
+            <Check aria-hidden className="h-3 w-3" /> {enabled ? "已开" : "已关"}
+          </Button>
+        )}
+      </div>
+      {skill.action === "运行" && runState === "done" && (
+        <span className="text-10 text-muted-foreground" data-testid={`canvas-skill-${skill.id}-ran`}>
+          已运行 · 从便签提取出 3 条假设，已写入假设树（乐观预览，不落库）
+        </span>
+      )}
+      {skill.action === "已开" && !enabled && (
+        <span className="text-10 text-muted-foreground">已关闭：本环节不再自动跑此 skill</span>
+      )}
     </div>
   );
 }

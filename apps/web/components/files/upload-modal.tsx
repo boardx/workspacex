@@ -20,6 +20,7 @@ export function UploadModal({
 }) {
   const [confidential, setConfidential] = React.useState(true); // 继承自项目默认：是
   const [visibility, setVisibility] = React.useState("all");
+  const [dupChoice, setDupChoice] = React.useState<"existing" | "new">("existing"); // A3：默认「使用已有」
 
   return (
     <Modal
@@ -86,9 +87,16 @@ export function UploadModal({
             <AlertTriangle aria-hidden className="h-3.5 w-3.5 text-warning" />
             「客户 RFP.pdf」已在库中（v3，2026-07-12 由 林可 上传）
           </p>
-          <div className="flex gap-2">
-            <Button size="xs" variant="primary" data-testid="files-upload-use-existing">使用已有（默认）</Button>
-            <Button size="xs" variant="outline" data-testid="files-upload-as-new">仍然作为新版本上传</Button>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2">
+              <Button size="xs" variant={dupChoice === "existing" ? "primary" : "outline"} onClick={() => setDupChoice("existing")} data-testid="files-upload-use-existing">使用已有（默认）</Button>
+              <Button size="xs" variant={dupChoice === "new" ? "primary" : "outline"} onClick={() => setDupChoice("new")} data-testid="files-upload-as-new">仍然作为新版本上传</Button>
+            </div>
+            <p className="text-11 text-muted-foreground" data-testid="files-upload-duplicate-choice">
+              {dupChoice === "existing"
+                ? "将复用库中 v3，不产生新字节，只把本次元数据挂到已有条目。"
+                : "将作为 v4 追加——原件不覆盖，历史版本仍可下载。"}
+            </p>
           </div>
         </div>
       </div>

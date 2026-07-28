@@ -223,5 +223,93 @@ export const OMISSIONS: Omission[] = [
   },
 ];
 
-/** 未展开的剩余低相关条数（原型：被丢弃 · 14 条低相关）*/
-export const OMISSIONS_REMAINING = 10;
+/**
+ * 「展开」后显示的其余低相关条目（原型：被丢弃 · 14 条低相关 = 4 条明细 + 这 10 条长尾）。
+ * 全部 relevance < 0.45（本任务类型阈值），逐条仍带原因——「不得静默丢弃」也适用于长尾。
+ */
+export const OMISSIONS_MORE: Omission[] = [
+  { id: "om-2019-tender", title: "2019 荷兰海上风电招标纪要", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "标的为海上风电，与储能进入策略跨品类；相关度 0.33。", relevance: 0.33 },
+  { id: "om-generic-swot", title: "通用 SWOT 模板 · 咨询工具箱", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "模板类内容无项目事实，重排分 0.29，未命中术语通道。", relevance: 0.29 },
+  { id: "om-cn-subsidy", title: "国内储能补贴政策汇编 2024", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "适用地域为中国，本项目范围德荷；相关度 0.36。", relevance: 0.36 },
+  { id: "om-old-quote", title: "2021 EPC 报价单（已失效）", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "报价已过有效期，仅作历史参照，重排分 0.31。", relevance: 0.31 },
+  { id: "om-team-notes", title: "内部周会随手记 · 第 3 周", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "口语化便签，无结构化结论，仅图召回命中，0.27。", relevance: 0.27 },
+  { id: "om-competitor-blog", title: "竞品官网博客译文", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "营销文案、无一手数据，来源可信度低，0.34。", relevance: 0.34 },
+  { id: "om-wiki-grid", title: "维基百科『电网并网』词条", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "通识性内容与项目结论无直接支撑关系，0.30。", relevance: 0.30 },
+  { id: "om-fx-2022", title: "2022 欧元汇率走势备忘", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "时点过旧，现金流模型已用最新汇率假设，0.32。", relevance: 0.32 },
+  { id: "om-hr-headcount", title: "海外派驻人力编制草案", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "属组织内部事务，非市场进入依据，0.28。", relevance: 0.28 },
+  { id: "om-old-persona", title: "上一项目的客户画像 v1", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "跨客户复用需先降权，已标『跨范围』并低于阈值，0.39。", relevance: 0.39 },
+];
+
+/** 未展开的剩余低相关条数（原型：被丢弃 · 14 条低相关 = 4 明细 + 10 长尾）*/
+export const OMISSIONS_REMAINING = OMISSIONS_MORE.length;
+
+/** 完整调用日志（Context Pack「看这次的完整调用日志」展开内容）*/
+export const RETRIEVAL_LOG: { id: string; ts: string; op: string; detail: string }[] = [
+  { id: "lg-1", ts: "14:32:01.220", op: "plan", detail: "任务类型判定 decision-support · 阈值 0.45 · 目标预算 120k" },
+  { id: "lg-2", ts: "14:32:01.244", op: "recall", detail: "graph.search(project:远洋, type:[假设,证据]) → 64 命中" },
+  { id: "lg-3", ts: "14:32:01.402", op: "recall", detail: "brain.recall(生效+待复核) → 47 命中 · 待复核 3 条不计强度" },
+  { id: "lg-4", ts: "14:32:01.510", op: "downweight", detail: "波兰补贴细则等 2 条标『跨范围』降权保留" },
+  { id: "lg-5", ts: "14:32:01.560", op: "exclude", detail: "已撤销条目 1 条永久排除 · 反例文本改走『教训』通道" },
+  { id: "lg-6", ts: "14:32:01.611", op: "rerank", detail: "混合重排 · 14 条低于阈值进丢弃集（逐条留因）" },
+  { id: "lg-7", ts: "14:32:01.703", op: "trim", detail: "装配超预算 · 电价历史曲线按相关度截断" },
+  { id: "lg-8", ts: "14:32:01.740", op: "assemble", detail: "注入 4 段 + 硬约束段 · 客户机密仅路由本地模型" },
+];
+
+/* ─────────────────── 晋升队列（UC-14.5 五态机 · 候选→已验证 的待审）─────────────────── */
+
+export interface PromotionCandidate {
+  id: string;
+  title: string;
+  project: string;
+  /** 当前所处态 */
+  fromState: string;
+  /** 支撑该条晋升的被签字决策（够格晋升的前提）*/
+  backedBy: string;
+  /** 复盘验证情况 */
+  reviewNote: string;
+  /** 支持 / 反对条数（依据强度，反对必列）*/
+  support: number;
+  against: number;
+}
+
+/** 晋升队列 4 条待审（对齐 STATE_MACHINE.queuePending = 4）*/
+export const PROMOTION_QUEUE: PromotionCandidate[] = [
+  { id: "pq-tariff-method", title: "工商储电价机制核查法（可复用方法）", project: "远洋新能源 · 欧洲市场进入", fromState: "候选", backedBy: "采纳路径 B 作为主路径（待签字）", reviewNote: "复盘：待验证 · 需一次真实项目验证", support: 9, against: 2 },
+  { id: "pq-dd-checklist", title: "储能资质可转让性尽调清单 v3", project: "远洋新能源 · 客户尽调", fromState: "已验证", backedBy: "资质可转让但需重新备案（待签字）", reviewNote: "复盘：已验证 1 次 · 达晋升门槛", support: 12, against: 1 },
+  { id: "pq-epc-benchmark", title: "德国 EPC 报价基准区间", project: "北欧海风项目 → 远洋（横向）", fromState: "候选", backedBy: "— 尚无被签字决策支撑", reviewNote: "复盘：未验证 · 横向借用中标『未沉淀』", support: 5, against: 3 },
+  { id: "pq-grid-timing", title: "各州并网时效实测口径", project: "远洋新能源 · 欧洲市场进入", fromState: "候选", backedBy: "以德荷为首发市场（已验证·已晋升）", reviewNote: "复盘：已验证 · 数据源需季度刷新", support: 8, against: 1 },
+];
+
+/* ─────────────────── 推演链（决策台账「看完整推演链/支持链」的展开内容）─────────────────── */
+
+export interface ReasoningStep {
+  id: string;
+  /** 立场：支持 / 反对（反对必须能被翻出来）*/
+  side: "support" | "against";
+  claim: string;
+  /** 带锚点的出处 */
+  source: string;
+}
+
+/** 按决策/台账行 id 归集的推演链片段（缺省用 fallback 生成，见组件层）*/
+export const REASONING_CHAINS: Record<string, ReasoningStep[]> = {
+  "sign-path-b": [
+    { id: "rc-pb-1", side: "support", claim: "路径 B 单位度电成本较路径 A 低 11%，回本周期短 8 个月", source: "Ledger 现金流模型 · 敏感性 2/3" },
+    { id: "rc-pb-2", side: "support", claim: "德荷并网时效近 12 个月内明显缩短，支撑假设①", source: "Bayernwerk《并网时效季报 2025Q1》第 7 页" },
+    { id: "rc-pb-3", side: "against", claim: "补贴退坡后电价套利窗口存在收窄风险，路径 B 对此更敏感", source: "决策台账 · 反对 2 条" },
+  ],
+  "sign-dd-conclusion": [
+    { id: "rc-dd-1", side: "support", claim: "资质主体可依本地合资持照方式承接，法律意见书支持", source: "客户尽调 · 法律意见 v2" },
+    { id: "rc-dd-2", side: "support", claim: "同类项目华东产业园已跑通合资持照路径", source: "横向复用 · 资质尽调清单 v3" },
+    { id: "rc-dd-3", side: "against", claim: "需重新备案，周期不确定，3 条结论置信度偏低", source: "尽调报告 · 低置信度标注" },
+  ],
+};
+
+/** 台账行 id → 推演链（无专属链时用支持/反对条数合成一条概览）*/
+export function reasoningChainFor(id: string, support: number, against: number): ReasoningStep[] {
+  if (REASONING_CHAINS[id]) return REASONING_CHAINS[id];
+  return [
+    { id: `${id}-s`, side: "support", claim: `${support} 条支持证据（含页码/时间码锚点，可逐条翻查）`, source: "项目图谱 · 证据段" },
+    { id: `${id}-a`, side: "against", claim: `${against} 条反对证据（强制保留，不因结论成立而隐藏）`, source: "项目图谱 · 反对段" },
+  ];
+}

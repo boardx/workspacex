@@ -1,69 +1,32 @@
-import { Plus, UserPlus } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  TEAM_AGENTS,
-  TEAM_ROSTER_COUNT,
-  AGENT_PRESENCE_LABEL,
-  AGENT_PRESENCE_TONE,
-  THREAD_GROUPS,
-  type ThreadBadgeKind,
-} from "@/lib/mock/chat";
+import { THREAD_GROUPS, type ThreadBadgeKind } from "@/lib/mock/chat";
+import { ChatTeamPanel } from "./chat-team-panel";
 
 /**
  * 对话屏左栏（272px）—— UC-8.2 R8 信息架构：
  *   顶部 **AI 团队面板**（常驻，UC-8.2 R3 一 / UC-4.2）+ 线程列表（UC-8.1）。
- * 纯展示，无本地状态，作为服务端组件渲染；内部的 Button 是客户端叶子，无需下沉。
+ * 服务端组件渲染；交互部分下沉到客户端叶子 `ChatTeamPanel`。
  */
 export function ChatLeftPanel() {
   return (
     <div className="flex flex-col" data-testid="chat-left-panel">
       <div className="p-3">
-        <Button variant="secondary" size="sm" className="w-full justify-start" data-testid="chat-new-thread">
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          新建对话
+        <Button variant="secondary" size="sm" className="w-full justify-start" asChild data-testid="chat-new-thread">
+          <Link href="/chat">
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            新建对话
+          </Link>
         </Button>
       </div>
 
       <Separator />
 
       {/* ── AI 团队面板（编制数 = 6，UC-4.2 R6 两个计数口径分别标注）── */}
-      <section className="flex flex-col gap-2 p-3" data-testid="chat-team-panel">
-        <div className="flex items-center justify-between">
-          <h2 className="text-11 font-semibold text-background-foreground">
-            本线程的 AI 团队 · {TEAM_ROSTER_COUNT}
-          </h2>
-          <Button variant="ghost" size="xs" data-testid="chat-team-compose">编制</Button>
-        </div>
-        <ul className="flex flex-col gap-1">
-          {TEAM_AGENTS.map((a) => (
-            <li
-              key={a.id}
-              data-testid={`chat-team-agent-${a.id}`}
-              className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors duration-200 hover:bg-muted"
-            >
-              <Avatar initials={a.initials} tone="ai" size="sm" className="mt-0.5" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="truncate text-12 font-medium">
-                    {a.name} · {a.role}
-                  </span>
-                  <Badge tone={AGENT_PRESENCE_TONE[a.presence]} data-testid={`chat-team-presence-${a.id}`}>
-                    {AGENT_PRESENCE_LABEL[a.presence]}
-                  </Badge>
-                </div>
-                <p className="text-10 text-muted-foreground">{a.duty}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Button variant="ghost" size="xs" className="justify-start text-muted-foreground" data-testid="chat-team-market">
-          <UserPlus aria-hidden className="h-3.5 w-3.5" />
-          从 Agent 市场加入
-        </Button>
-      </section>
+      <ChatTeamPanel />
 
       <Separator />
 
