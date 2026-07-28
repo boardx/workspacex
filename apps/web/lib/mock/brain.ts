@@ -169,18 +169,25 @@ export const CONTEXT_PACK_EXITS = [
 
 /**
  * 丢弃清单（omissions）—— UC-14.6 的立身之本：被丢弃/被裁剪/被权限排除的片段
- * **必须可查、带原因**。reasonType 决定原因分类与 Badge tone：
- *   below-threshold → 低于相关度阈值（neutral）
- *   budget-trimmed  → 超预算裁剪（warning）
- *   permission      → 权限取最严格结果排除（danger，脱敏占位）
+ * **必须可查、带原因**。
+ *
+ * ⚠ 裁决 D-U4（2026-07-28）：原因分类是**封闭枚举，唯一事实源在 `lib/omission-reason.ts`**。
+ * 此前本文件自带三类（`below-threshold` / `budget-trimmed` / `permission`），
+ * 与 research 屏的七类**是两套词汇**——两个屏都在回答「AI 丢了什么」却各说各话，
+ * 这正是封闭枚举要防的漂移。已映射到统一词汇：
+ *   below-threshold → low-confidence（低置信）
+ *   budget-trimmed  → budget（预算截断）
+ *   permission      → unauthorized（无授权）
  */
-export type OmissionReason = "below-threshold" | "budget-trimmed" | "permission";
+import { type OmissionReason, omissionLabel } from "@/lib/omission-reason";
+export type { OmissionReason };
 
 export interface Omission {
   id: string;
   title: string;
   reasonType: OmissionReason;
-  reasonLabel: string;
+  /** 展示名来自单一事实源，不在此处硬写 */
+  reasonLabel?: string;
   /** 逐条的具体原因说明，不是一句「已丢弃」*/
   reason: string;
   relevance?: number;
@@ -192,32 +199,28 @@ export const OMISSIONS: Omission[] = [
   {
     id: "om-poland",
     title: "波兰储能补贴细则 2023",
-    reasonType: "below-threshold",
-    reasonLabel: "低于相关度阈值",
+    reasonType: "low-confidence",
     reason: "适用地域为波兰，本项目范围为德荷；相关度 0.38 < 本任务类型（decision-support）阈值 0.45。",
     relevance: 0.38,
   },
   {
     id: "om-brainstorm",
     title: "早期头脑风暴便签 · 第 1 周",
-    reasonType: "below-threshold",
-    reasonLabel: "低于相关度阈值",
+    reasonType: "low-confidence",
     reason: "仅由图召回且重排分低（0.41），未命中精确原话/编号/术语通道，被丢弃。",
     relevance: 0.41,
   },
   {
     id: "om-price-history",
     title: "电价历史曲线 2018–2020（完整版）",
-    reasonType: "budget-trimmed",
-    reasonLabel: "超预算裁剪",
+    reasonType: "budget",
     reason: "命中但装配时超上下文预算 120k，按相关度截断；属证据段较低优先级，裁剪动作已进丢弃集可审查。",
     relevance: 0.52,
   },
   {
     id: "om-salary",
     title: "客户内部薪酬明细表",
-    reasonType: "permission",
-    reasonLabel: "权限取最严格结果",
+    reasonType: "unauthorized",
     reason: "由高密级与低密级两来源合成，取所有来源的最严格权限；你的角色不满足高密级，条目存在但内容不可见（脱敏占位）。",
     masked: true,
   },
@@ -228,16 +231,16 @@ export const OMISSIONS: Omission[] = [
  * 全部 relevance < 0.45（本任务类型阈值），逐条仍带原因——「不得静默丢弃」也适用于长尾。
  */
 export const OMISSIONS_MORE: Omission[] = [
-  { id: "om-2019-tender", title: "2019 荷兰海上风电招标纪要", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "标的为海上风电，与储能进入策略跨品类；相关度 0.33。", relevance: 0.33 },
-  { id: "om-generic-swot", title: "通用 SWOT 模板 · 咨询工具箱", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "模板类内容无项目事实，重排分 0.29，未命中术语通道。", relevance: 0.29 },
-  { id: "om-cn-subsidy", title: "国内储能补贴政策汇编 2024", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "适用地域为中国，本项目范围德荷；相关度 0.36。", relevance: 0.36 },
-  { id: "om-old-quote", title: "2021 EPC 报价单（已失效）", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "报价已过有效期，仅作历史参照，重排分 0.31。", relevance: 0.31 },
-  { id: "om-team-notes", title: "内部周会随手记 · 第 3 周", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "口语化便签，无结构化结论，仅图召回命中，0.27。", relevance: 0.27 },
-  { id: "om-competitor-blog", title: "竞品官网博客译文", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "营销文案、无一手数据，来源可信度低，0.34。", relevance: 0.34 },
-  { id: "om-wiki-grid", title: "维基百科『电网并网』词条", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "通识性内容与项目结论无直接支撑关系，0.30。", relevance: 0.30 },
-  { id: "om-fx-2022", title: "2022 欧元汇率走势备忘", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "时点过旧，现金流模型已用最新汇率假设，0.32。", relevance: 0.32 },
-  { id: "om-hr-headcount", title: "海外派驻人力编制草案", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "属组织内部事务，非市场进入依据，0.28。", relevance: 0.28 },
-  { id: "om-old-persona", title: "上一项目的客户画像 v1", reasonType: "below-threshold", reasonLabel: "低于相关度阈值", reason: "跨客户复用需先降权，已标『跨范围』并低于阈值，0.39。", relevance: 0.39 },
+  { id: "om-2019-tender", title: "2019 荷兰海上风电招标纪要", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "标的为海上风电，与储能进入策略跨品类；相关度 0.33。", relevance: 0.33 },
+  { id: "om-generic-swot", title: "通用 SWOT 模板 · 咨询工具箱", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "模板类内容无项目事实，重排分 0.29，未命中术语通道。", relevance: 0.29 },
+  { id: "om-cn-subsidy", title: "国内储能补贴政策汇编 2024", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "适用地域为中国，本项目范围德荷；相关度 0.36。", relevance: 0.36 },
+  { id: "om-old-quote", title: "2021 EPC 报价单（已失效）", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "报价已过有效期，仅作历史参照，重排分 0.31。", relevance: 0.31 },
+  { id: "om-team-notes", title: "内部周会随手记 · 第 3 周", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "口语化便签，无结构化结论，仅图召回命中，0.27。", relevance: 0.27 },
+  { id: "om-competitor-blog", title: "竞品官网博客译文", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "营销文案、无一手数据，来源可信度低，0.34。", relevance: 0.34 },
+  { id: "om-wiki-grid", title: "维基百科『电网并网』词条", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "通识性内容与项目结论无直接支撑关系，0.30。", relevance: 0.30 },
+  { id: "om-fx-2022", title: "2022 欧元汇率走势备忘", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "时点过旧，现金流模型已用最新汇率假设，0.32。", relevance: 0.32 },
+  { id: "om-hr-headcount", title: "海外派驻人力编制草案", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "属组织内部事务，非市场进入依据，0.28。", relevance: 0.28 },
+  { id: "om-old-persona", title: "上一项目的客户画像 v1", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "跨客户复用需先降权，已标『跨范围』并低于阈值，0.39。", relevance: 0.39 },
 ];
 
 /** 未展开的剩余低相关条数（原型：被丢弃 · 14 条低相关 = 4 明细 + 10 长尾）*/

@@ -6,12 +6,30 @@
  *    切换 `?as=` 只改变本地展示，不改变服务端返回的数据，且生产构建不可达。
  */
 
-/** 组织角色（[原型] 后台「成员与配额」三取值）*/
-export type OrgRole = "admin" | "lead" | "consultant";
+/**
+ * 组织角色（[原型] 后台「成员与配额」三取值 + 裁决 D-U3 新增第四种）
+ *
+ * ⚠ 裁决 D-U3（2026-07-28）：**合规负责人归组织角色，不新增第三层「场景角色」**。
+ * 理由：合规是**组织级职能**（对整个组织的合规负责），本来就该在这一层；
+ * 而受访者已有一次性令牌身份（UC-6.3）、研究员/参与者只是引导师/组员在访谈场景下的
+ * **展示别名**（不落库）。加第三层会让权限矩阵从 4×3 变成 4×3×N，测试成本不成比例。
+ * ⇒ **O-03「项目角色恒为四种」得以保住。**
+ */
+export type OrgRole = "admin" | "lead" | "consultant" | "compliance";
 export const ORG_ROLE_LABEL: Record<OrgRole, string> = {
   admin: "管理员",
   lead: "项目负责人",
   consultant: "顾问",
+  compliance: "合规负责人",
+};
+
+/**
+ * 场景别名（裁决 D-U3）—— **只是展示名，落库仍是项目角色**。
+ * 界面上凡出现这些称呼的地方都要能说清它对应哪个项目角色，否则用户会以为是不同角色。
+ */
+export const SCENE_ALIAS: Record<string, { alias: string; actual: ProjectRole; note: string }> = {
+  researcher: { alias: "研究员", actual: "facilitator", note: "引导师在访谈场景下的称呼" },
+  participant: { alias: "参与者", actual: "member", note: "组员在问卷/投票场景下的称呼" },
 };
 
 /** 项目角色（[设计] UC-0.3 恒为四种；协同引导师 = 引导师多实例，见裁决 O-03）*/

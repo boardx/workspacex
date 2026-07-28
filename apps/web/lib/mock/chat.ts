@@ -210,17 +210,24 @@ export function hasConfidential(scope: ApprovalDataItem[]): boolean {
 
 /**
  * 从数据范围推导模型约束。
- * 「含机密 → 仅本地模型」是 D-17（出域＝出组织）在界面上的兑现：
- * 这条约束**由数据推出**，服务端强制，界面只呈现判定结果。
- * 语义：含机密的数据只能路由到本地模型；一次运行里云端模型可以并存
- * （只承担非机密部分），但机密数据必须有一个本地模型来承接。
+ *
+ * ⚠ **裁决 D-U1（2026-07-28）：全程本地，不分流。**
+ * 语义是「本轮上下文**含任何**机密条目 ⇒ **整轮所有**模型调用走本地，
+ * 云端模型在本轮**不可用**」——不是「机密走本地、云端承接非机密部分」。
+ *
+ * 为什么不分流：分流的安全性取决于**片段级机密判定**的准确率，
+ * 而那是个没有人能保证 100% 的分类问题，一次误判的代价是不可逆的泄漏。
+ * 代价（整轮降级到本地小模型）用「把机密材料单独开一轮」规避，
+ * 且那个规避动作是用户可见可控的。
+ *
+ * 这条约束**由数据推出**，服务端 gateway 按同一规则拦截，界面只呈现判定结果。
  */
 export function dataScopeConstraint(scope: ApprovalDataItem[]): {
   localModelOnly: boolean;
   note: string;
 } {
   if (hasConfidential(scope)) {
-    return { localModelOnly: true, note: "含机密，仅本地模型" };
+    return { localModelOnly: true, note: "含机密，本轮全程本地模型" };
   }
   return { localModelOnly: false, note: "公开数据，可用云端模型" };
 }
@@ -243,16 +250,37 @@ export function budgetLine(b: ApprovalBudget): string {
 }
 
 /**
- * 策略校验：数据含机密（仅本地模型）却**没有任何本地模型**承接 → 返回违规原因。
- * 服务端会在 gateway 层直接拒绝（UC-8.2 V3）；界面用它演示「把模型改到纯云端会被拦」。
+ * 策略校验（裁决 D-U1：全程本地）。
+ *
+ * 两种违规，都会被服务端 gateway 拒绝（UC-8.2 V3）：
+ *   ① 含机密却**混入了云端模型** —— 这是 D-U1 的核心，旧实现允许并存，现在不允许；
+ *   ② 含机密却**一个本地模型都没有** —— 无从承接。
  * 返回 null 表示当前模型集合合规。
  */
 export function modelPolicyViolation(models: ApprovalModel[], dataScope: ApprovalDataItem[]): string | null {
   const { localModelOnly } = dataScopeConstraint(dataScope);
   if (!localModelOnly) return null;
-  const hasLocal = models.some((m) => m.hosting === "local");
-  if (hasLocal) return null;
-  return "数据范围含机密，仅本地模型；当前无本地模型承接，将被 gateway 拒绝";
+  const cloud = models.filter((m) => m.hosting === "cloud");
+  if (cloud.length > 0) {
+    return `本轮含机密数据，按「全程本地」规则不得混入云端模型：${cloud
+      .map((m) => m.label)
+      .join("、")} 需移除，否则将被 gateway 拒绝`;
+  }
+  if (!models.some((m) => m.hosting === "local")) {
+    return "本轮含机密数据，但没有任何本地模型承接，将被 gateway 拒绝";
+  }
+  return null;
+}
+
+/** 某个模型在当前数据范围下是否可选（界面用来置灰云端模型 chip） */
+export function isModelSelectable(model: ApprovalModel, dataScope: ApprovalDataItem[]): {
+  ok: boolean;
+  reason?: string;
+} {
+  if (dataScopeConstraint(dataScope).localModelOnly && model.hosting === "cloud") {
+    return { ok: false, reason: "本轮含机密数据 · 全程本地，云端模型不可用（裁决 D-U1）" };
+  }
+  return { ok: true };
 }
 
 /* ─────────────────────────── 消息流（四类卡 + 进度/转录）─────────────────────────── */

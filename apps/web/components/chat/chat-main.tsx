@@ -11,6 +11,7 @@ import { ReassignBar } from "./reassign-bar";
 import { Composer } from "./composer";
 import {
   ACTIVE_THREAD,
+  TEAM_ROSTER_COUNT,
   CHAT_MESSAGES,
   TEAM_AGENTS,
   AGENT_PRESENCE_LABEL,
@@ -96,7 +97,12 @@ function ChatHeaderActions({ readOnly }: { readOnly: boolean }) {
 
   return (
     <div className="relative flex items-center gap-1">
-      {/* 团队 N = 在场数（≠ 编制数 6）*/}
+      {/*
+        裁决 D-U6（2026-07-28）：「两个数同时显示」，不让用户猜哪个是哪个。
+        · 在场 = 能立刻响应的（presence === "present"）——回答「现在问一句谁会答」
+        · 编制 = 编入本线程的全部 agent（跑批中 / 空闲也算编制内）
+        UC-4.2 R6 本来就要求「两个口径分别标注」，此前只显示了在场数，这次落实。
+      */}
       <Button
         size="sm"
         variant={open === "team" ? "primary" : "ghost"}
@@ -105,7 +111,11 @@ function ChatHeaderActions({ readOnly }: { readOnly: boolean }) {
         data-testid="chat-header-team"
       >
         <Users aria-hidden className="h-3.5 w-3.5" />
-        团队 {ACTIVE_THREAD.presentCount}
+        <span data-testid="chat-header-present-count">在场 {ACTIVE_THREAD.presentCount}</span>
+        <span aria-hidden className="text-muted-foreground">/</span>
+        <span data-testid="chat-header-roster-count" className="text-muted-foreground">
+          编制 {TEAM_ROSTER_COUNT}
+        </span>
       </Button>
 
       {!readOnly && (

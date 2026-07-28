@@ -76,7 +76,8 @@ export function ConsentForm({ state }: { state: UiState }) {
             <p className="text-12 text-muted-foreground">
               文字稿与音频已进入待删除队列，相关引述将在 5 分钟内退出检索。
               引用过它的报告段落会被标为「证据已撤回」而非删除；若已支撑过已签字决策，会通知拍板人复核。
-              我们将在 30 天内完成物理删除并给你回执。
+              收到撤回后我们<strong className="font-medium">立即启动</strong>处理，各环节的完成状态可在
+              处理进度页随时查看；<strong className="font-medium">30 天内</strong>完成物理删除并给你回执。
             </p>
           </div>
         ) : (

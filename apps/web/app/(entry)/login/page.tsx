@@ -32,8 +32,12 @@ export default function LoginPage({
             <span className="text-11 font-medium uppercase tracking-widest text-muted-foreground">
               WorkspaceX
             </span>
+            {/*
+              裁决 D-U8：两版文案并用，分主副——
+              主标题用原型档案版，副标题用 UC-1.1 R8 版（已缩短，去掉与主标题重复的语义）。
+            */}
             <h1 className="text-24 font-semibold tracking-tight">进入你的战略工作空间</h1>
-            <p className="text-13 text-muted-foreground">与你的 AI 团队一起，把最难的问题拆开。</p>
+            <p className="text-13 text-muted-foreground">和你的 AI 团队一起，把最难的问题拆开。</p>
           </header>
           <LoginForm state={state} />
         </div>

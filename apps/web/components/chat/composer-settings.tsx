@@ -7,7 +7,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
 import {
   TEAM_AGENTS, TEAM_ROSTER_COUNT, AGENT_PRESENCE_LABEL,
-  CHAT_MESSAGES, type TeamAgent, type ApprovalRequest,
+  CHAT_MESSAGES, isModelSelectable, type TeamAgent, type ApprovalRequest,
 } from "@/lib/mock/chat";
 
 /** 取流里第一张仍待批准的卡，用它的 registry 数据做模型/预算投影（与批准卡同源） */
@@ -133,7 +133,9 @@ export function ComposerSettings({ open, onClose }: Props) {
         </div>
         {confidential && (
           <p role="alert" data-testid="chat-settings-confidential-notice" className="text-10 text-warning">
-            含机密材料 —— 本轮的模型选择将被限制为<strong className="font-medium">自托管模型</strong>，与批准卡是同一条判定，不是另一套规则。
+            含机密材料 —— 按裁决 D-U1「<strong className="font-medium">全程本地</strong>」，
+            本轮<strong className="font-medium">所有</strong>模型调用都走本地，云端模型整轮不可用
+            （不是「机密走本地、云端承接非机密」）。与批准卡是同一条判定，服务端 gateway 按同一规则拦截。
           </p>
         )}
       </Section>
@@ -156,11 +158,19 @@ export function ComposerSettings({ open, onClose }: Props) {
       {/* ⑤ 模型与预算 */}
       <Section icon={Cpu} title="模型与预算" hint={APPROVAL ? `取自 ${APPROVAL.budget.registrySource}` : "registry 不可用"}>
         <div className="flex flex-wrap items-center gap-1.5" data-testid="chat-settings-models">
-          {APPROVAL?.models.map((m) => (
-            <Badge key={m.id} tone={m.hosting === "local" ? "primary" : "neutral"}>
-              {m.label}
-            </Badge>
-          ))}
+          {APPROVAL?.models.map((m) => {
+            // 裁决 D-U1：含机密时云端模型**整轮不可用**，界面直接置灰并注明原因（不是隐藏——
+            // 隐藏会让人以为「没有这个模型」，置灰+原因才说明「有但本轮不允许」）
+            const sel = isModelSelectable(m, confidential ? [{ id: "c", label: "客户机密材料", confidential: true }] : []);
+            return (
+              <span key={m.id} title={sel.reason} data-testid={`chat-settings-model-${m.id}`}>
+                <Badge tone={!sel.ok ? "neutral" : m.hosting === "local" ? "primary" : "neutral"}>
+                  {!sel.ok && <span className="mr-0.5">✕</span>}
+                  <span className={!sel.ok ? "line-through" : undefined}>{m.label}</span>
+                </Badge>
+              </span>
+            );
+          })}
           {APPROVAL && <Badge tone="outline">预算 {APPROVAL.budget.tokens}</Badge>}
         </div>
         <p className="text-10 text-muted-foreground">

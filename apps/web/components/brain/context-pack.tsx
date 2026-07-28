@@ -18,11 +18,21 @@ import {
   type Omission,
   type OmissionReason,
 } from "@/lib/mock/brain";
+import { omissionLabel } from "@/lib/omission-reason";
 
+/**
+ * 丢弃原因 → 徽标色（裁决 D-U4：原因分类是封闭枚举，此处只做展示映射）
+ * **合规性丢弃**（已撤回 / 时效过期 / 无授权）用 danger/warning——它们不是「相关度不够」，
+ * 而是「有东西被规则挡住了」，读者需要一眼分辨这两类。
+ */
 const OMISSION_TONE: Record<OmissionReason, "neutral" | "warning" | "danger"> = {
-  "below-threshold": "neutral",
-  "budget-trimmed": "warning",
-  permission: "danger",
+  withdrawn: "danger",
+  expired: "warning",
+  unauthorized: "danger",
+  "low-confidence": "neutral",
+  budget: "warning",
+  deduped: "neutral",
+  "out-of-scope": "neutral",
 };
 
 /** 丢弃清单单条 —— 可点开，带原因（这是 F11 的验收面，不是只显示命中项）*/
@@ -51,7 +61,7 @@ function OmissionRow({ item }: { item: Omission }) {
             <span className="tabular-nums text-10 text-muted-foreground">{item.relevance.toFixed(2)}</span>
           )}
           <Badge tone={OMISSION_TONE[item.reasonType]} data-testid={`brain-omission-reason-badge-${item.id}`}>
-            {item.reasonLabel}
+            {item.reasonLabel ?? omissionLabel(item.reasonType)}
           </Badge>
         </span>
       </button>

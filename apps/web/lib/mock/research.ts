@@ -86,18 +86,22 @@ export const READ_ITEMS: ReadItem[] = [
 ];
 
 /* ── 丢弃清单（丢了什么）—— 可查、带原因、可定位 ───────────────── */
-export type OmissionReason =
-  | "withdrawn" | "expired" | "low-confidence" | "unauthorized" | "budget" | "deduped" | "out-of-scope";
+/**
+ * ⚠ 裁决 D-U4：丢弃原因是**封闭枚举**，唯一事实源在 `lib/omission-reason.ts`。
+ * 此处**只做再导出**，不得在这里维护第二份清单——那正是 §1.2 字号事故的同一种失效模式。
+ * 新增类别必须走 ADR。
+ */
+export {
+  OMISSION_REASONS, OMISSION_REASON_KEYS, COMPLIANCE_REASONS,
+  omissionLabel, omissionExplain, isComplianceOmission,
+  type OmissionReason,
+} from "@/lib/omission-reason";
+import { OMISSION_REASONS, type OmissionReason } from "@/lib/omission-reason";
 
-export const OMISSION_REASON_LABEL: Record<OmissionReason, string> = {
-  withdrawn: "证据已撤回",
-  expired: "时效过期",
-  "low-confidence": "低置信筛除",
-  unauthorized: "无授权 · 数据出域",
-  budget: "token 预算截断",
-  deduped: "去重 · 已被更强证据覆盖",
-  "out-of-scope": "越出项目范围",
-};
+/** 兼容旧调用点；label 来自单一事实源 */
+export const OMISSION_REASON_LABEL: Record<OmissionReason, string> = Object.fromEntries(
+  Object.entries(OMISSION_REASONS).map(([k, v]) => [k, v.label]),
+) as Record<OmissionReason, string>;
 
 export interface Omission {
   id: string;
