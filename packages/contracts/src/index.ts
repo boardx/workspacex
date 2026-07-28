@@ -9,3 +9,4 @@ export * as artifact from "./artifact";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
 export * as provenance from "./provenance";
+export * as thresholds from "./thresholds";

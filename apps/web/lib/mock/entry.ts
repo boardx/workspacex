@@ -6,6 +6,19 @@
  *    这里没有任何真实手机号/邮箱，手机号一律以掩码形态存在（D-01：不完整展示）。
  */
 
+/**
+ * 材料保留期的展示文案 —— **不写死数字**（D-14 / 一致性复核 N-4）
+ *
+ * D-14 定了留存期是**五个可配置参数**且「同意书文案必须按项目动态渲染」。
+ * 写死一个数的后果不是「文案不准」，是：**只要有项目配了不同的保留期，
+ * 同意书就会向受访者作出与实际不符的承诺**——那是合规风险。
+ *
+ * 数值仍待合规给出（`@repo/contracts/thresholds` 的 `retentionMaterial`）。
+ * 在那之前**显式说明它按项目而定**，而不是填一个「看起来合理」的 180。
+ */
+export const RETENTION_MATERIAL_LABEL = "按本项目配置的保留期（合规尚未给出默认值）";
+
+
 /* ── 登录页（UC-1.1 R8）───────────────────────────────────────────── */
 
 export interface AuthProvider {
@@ -139,7 +152,7 @@ export const CONSENT = {
     {
       id: "record",
       label: "录音",
-      desc: "只在这场访谈中录，存于远洋的服务器，180 天后自动删除。",
+      desc: `只在这场访谈中录，存于远洋的服务器，${RETENTION_MATERIAL_LABEL}到期后自动删除。`,
       defaultChecked: true,
     },
     {
@@ -252,7 +265,7 @@ export const SESSION = {
       id: "record",
       label: "录音",
       granted: consentDefault("record"),
-      onDesc: "本场访谈录音，180 天后自动删除。",
+      onDesc: `本场访谈录音，${RETENTION_MATERIAL_LABEL}到期后自动删除。`,
       offDesc: "撤销录音等同撤回全部记录，请用下方「撤回全部记录」。",
     },
     {

@@ -426,7 +426,7 @@ export const TRASH_TASKS: TrashTask[] = [
   { id: "del-1", fileName: "客户访谈 03 · 物流总监.m4a", reason: "受访者撤回同意（撤回录音 + 分析）",
     requestedBy: "受访者自助门户", requestedAt: "2026-07-16 20:10", physicalDeleteDue: "2026-08-15",
     steps: FIVE_STEPS(["done", "done", "done", "human", "pending"]) },
-  { id: "del-2", fileName: "内部草稿 · 定价测算 v1.xlsx", reason: "留存期到期（材料保留期 180 天）",
+  { id: "del-2", fileName: "内部草稿 · 定价测算 v1.xlsx", reason: "留存期到期（材料保留期按项目配置，合规尚未给出默认值）",
     requestedBy: "系统 · 到期扫描", requestedAt: "2026-07-10 03:00", physicalDeleteDue: "2026-07-18",
     overdue: true, steps: FIVE_STEPS(["done", "done", "done", "done", "active"]) },
   { id: "del-3", fileName: "客户机密 · 并购意向备忘.pdf", reason: "项目负责人发起删除",
