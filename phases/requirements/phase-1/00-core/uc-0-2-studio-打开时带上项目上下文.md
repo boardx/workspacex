@@ -8,7 +8,12 @@
 > 原型证据链反推的设计稿，需人类确认后才可作为权威。
 
 > 口径（四标记）：**[原型]** ＝ `WorkspaceX Standalone.html` **运行态实际存在**的行为（有界面可查，依据 scratchpad 的 proto-01~10 抽取档案）；**[Backlog]** ＝ `Backlog Use Case.html` 的**文档要求**（原型未必实现）；**[设计]** ＝ 依据前两者反推补全，**需人类确认**；**[待确认]** ＝ 不应由实现者自行决定。
-> 元数据：优先级 **P0**；估点 **13**；建议迭代 **阶段零 · 共享内核**。
+> 元数据：优先级 **P0**；估点 **21**（原 13，2026-07-28 上调）；建议迭代 **阶段零 · 共享内核**。
+> **估点变更说明**：检索策略由笼统的「按权限召回」改为 `context-engine.md` 第四节的
+> **query-planned hybrid**——FTS / 向量 / 图 / 元数据 / Claim **五路并行召回 + RRF 融合 + rerank**，
+> 且 **PostgreSQL FTS 成为一等通道**（含中文分词与中英混合检索评测），
+> 另需交付**带权限过滤的 pgvector recall 测试集**（V12）。
+> Context Pack 的输出结构也从「六元组」细化为 `items[] / claims[] / omissions[]` 三段契约。
 
 ## R1 概览（Use Case 名称 / Actor / 目标 / 系统边界）
 
@@ -22,6 +27,43 @@
 - **系统边界**：上下文装配、来源与版本标注、权限过滤、预算裁剪、可审查性、引用完整性校验。
 - **核心数据对象**：Context Pack、上下文条目（资源 + 版本 + 来源 + 可见范围 + 相关度）、
   筛选动作记录、预算配额、装配快照。
+- [设计] **Context Pack 的输出结构**（与 `docs/architecture/context-engine.md` 第四节逐字对齐）：
+  Context Pack **不是字符串数组**，而是三段结构 `items[]` / `claims[]` / `omissions[]`：
+
+  ```typescript
+  type ContextPack = {
+    packId: string;
+    query: QueryContext;              // tenantId / principalId / projectIds / task /
+                                      // query / timeRange / allowedSensitivity /
+                                      // tokenBudget / freshnessRequirement / evidencePolicy
+    items: Array<{
+      segmentId: string;              // 最小检索单元，指向 segments 表
+      content: string;
+      sourceType: string;             // 文件 / 问卷 / 访谈 / 工作坊 / 照片 / 对话 / 深度研究 / AI 生成
+      artifactVersionId: string;      // 指向不可变版本（UC-0.1 的固定快照）
+      anchor: {                       // 回到原件的定位信息，缺一不可
+        page?: number; bbox?: number[];
+        startMs?: number; endMs?: number;
+        messageId?: string; surveyQuestionId?: string;
+      };
+      retrievalReasons: string[];     // 本条为什么进来 / 被怎么处理了
+      score: number;                  // 相关度
+      permissionDecisionId: string;   // 「为什么这条能给你看」可回溯
+    }>;
+    claims: Array<{
+      statement: string;
+      status: string;                 // proposed/reviewed/accepted/contested/superseded
+      supportingSegmentIds: string[];
+      contradictingSegmentIds: string[];   // 反对证据强制保留（R7）
+    }>;
+    omissions: string[];              // 被丢弃清单，可审查
+  };
+  ```
+
+  与 R6 AC2「六元组」的关系：六元组是这个结构的业务侧表述，
+  `资源 ID`→`artifactVersionId`＋`segmentId`、`版本`→`artifactVersionId`、
+  `来源`→`sourceType`＋`anchor`、`可见范围`→`permissionDecisionId`、
+  `相关度`→`score`、`筛选动作`→`retrievalReasons`。**实现以上面的 TypeScript 结构为准。**
 
 ## R2 前置条件 / 触发条件
 
@@ -41,7 +83,30 @@
    「本环节允许的工具」，据此确定要装配哪些类别的上下文。
 2. **系统处理**：按**权限优先**原则召回候选内容——项目层证据与产出、组织层已生效知识、
    当前用户个人层中**已显式开启**的判断偏好；**个人层私有笔记一律不进**。
-3. **系统处理**：对候选执行五种筛选动作并**逐条留痕**：
+   **【第 2 步的检索策略展开】** [设计] **query-planned hybrid（不是 graph-first）**
+   （`docs/architecture/context-engine.md` 第四节，**推翻**早前
+   `knowledge-ontology.md` 的「graph-first, vector-second」）。
+   graph-first 适合「谁决定了什么」这类结构查询，但**对刚上传、尚未完成实体链接的新材料
+   会直接漏召回**——工作坊现场刚传的材料正是最需要被召回的一批。
+   装配流程固定为：
+   ① **权限与租户过滤**（在 SQL/RLS 层，不在应用层，见 UC-0.3 R7）；
+   ② Query 分类、时间范围识别、实体解析（即「query-planned」——先判断这次查什么，
+      再决定各通道权重，而不是恒定走同一条路）；
+   ③ **五路并行召回**（缺任一路都会在某类查询上系统性漏召）：
+   - **PostgreSQL FTS**——精确原话、编号、姓名、术语。**必须是一等检索通道**：
+     图与向量**都不擅长精确匹配**，缺了它「客户原话到底怎么说的」就查不出来。
+   - **pgvector**——语义近似，承接「换句话说」的同义召回。
+   - **图关系**（`ontology_edges`）——人 / 研究 / 项目 / 决策 / 需求之间的路径；
+     **只给固定加成**，不单独决定结果（对应第 3 步的「线索」）。
+   - **元数据**——项目、来源、时间、研究方法、受访者群体，支撑「上个月能源组做的访谈」这类过滤。
+   - **Claim 检索**（`claims`）——已审核的洞察与决策，对应第 3 步「成对」与组织大脑五态机。
+
+   ④ **RRF 或加权融合**；⑤ cross-encoder / LLM **rerank**；
+   ⑥ 去重、来源多样性、**支持/反驳平衡**；⑦ 按 token budget 压缩（第 4 步）；
+   ⑧ 返回文本 **+ 引用锚点 + 遗漏说明**。
+   中文需明确分词方案，并做**中英混合检索评测**。
+3. **系统处理**：对候选执行五种筛选动作并**逐条留痕**（[设计] **留痕的落地载体 = 每条 `items[]`
+   的 `retrievalReasons` 字符串数组**，五种动作各对应一个 reason 取值，一条可命中多个）：
    - **召回**：[原型] 只取「生效」与「待复核」两态；已过期条目仍召回但打「可能已过期」标。
    - **降权**：[原型] 适用范围不匹配的不排除，标为「跨范围引用」后降权保留。
    - **排除**：[原型] 已撤销条目永久排除；其反例文本作为「教训」另行召回。
@@ -50,6 +115,10 @@
 4. **系统处理**：按**上下文预算**裁剪（[原型] 示例 14.9k / 120k），超出预算的低相关条目丢弃，
    但**丢弃清单必须保留且可点开审查**（[原型]「被丢弃 · 14 条低相关，相关度低于 0.45，
    可点开审查是否漏掉关键内容」）。
+   [设计] **「被丢弃清单可审查」的落地载体 = Context Pack 的 `omissions[]`**——
+   每条记录被丢弃的内容标识与丢弃原因（预算超限 / 低于相关度阈值 / 权限过滤 / 去重折叠）。
+   `omissions[]` 与 `retrievalReasons` 一起，构成 R7「被丢弃不等于不存在」的可执行定义：
+   **装配结果里没有出现的东西，必须在 `omissions[]` 里能解释为什么没出现。**
 5. **系统响应**：在 Studio 右侧「上下文包与证据」栏按段展示装配结果，每条标出**来源资源、版本、
    相关度、被施加的筛选动作**；顶部项目上下文条显示当前项目与环节。
 6. **用户操作**：查看装配后的系统提示（[原型]「可只读审查」）、调整检索权重、
@@ -148,6 +217,13 @@
 - **性能/规模预期**：
   - [设计] Context Pack 装配应在 3 秒内给出可感知反馈；超过 10 秒转后台任务并允许离开页面。
   - [设计] 上下文栏必须分段增量加载，禁止一次加载整个项目历史。
+  - [设计] **pgvector 在叠加权限过滤时可能召回不足**（架构第四节）：近似索引（HNSW/IVF）
+    典型行为是**先近似召回 top-k、再叠加权限/租户/项目过滤**，过滤掉大半后返回条目不足，
+    表现为「明明有这份材料，AI 却说没看到」——这是**静默失败**，比报错更危险。
+    对策：使用**过滤列索引 / 分区 / iterative scans**，并**必须建立一套带权限过滤的
+    recall 测试集**（同一 query 在「无权限过滤」与「叠加权限过滤」两种条件下比较召回率），
+    该测试集是 pgvector 通道的上线门槛，不可用「人工看着还行」代替。
+    embedding 表须**按 model / version 分区**，维度迁移走双写。
 - **安全/隐私/合规**：
   - 最小权限、组织/项目/小组隔离、敏感字段脱敏、AI 读取留痕。
   - [原型] 含客户机密时强制本地模型路由，且该约束必须体现在装配后的系统提示中。
@@ -163,8 +239,12 @@
   它当时看了什么」直接依赖本用例的装配快照）。
 - **跨模块契约**：身份与权限、来源引用、版本、审计事件必须使用统一标识。
 - **[待确认]** 原型说明页指向的「UML 文档第 13 节」不在仓库中；本文为反推设计。
-- **[待确认]** 上下文预算的具体数值（原型示例 120k）是全局固定、按模型能力推导，还是按项目可配。
-- **[待确认]** 相关度阈值（原型示例 0.45）由谁维护、能否按环节调整。
+- **[已裁决 O-36]** 上下文预算的具体数值（原型示例 120k）是全局固定、按模型能力推导，还是按项目可配。
+  **裁决（O-36 第 8 项）**：**随模型窗口推导**（不写死 120k），超限时**按相关度截断**，
+  且**被截断项必须记录进 Context Pack 快照的 `omissions[]`**——与 R7「被丢弃不等于不存在」同一条约束。
+- **[已裁决 O-36]** 相关度阈值（原型示例 0.45）由谁维护、能否按环节调整。
+  **裁决（O-36 第 7 项）**：**可配，配置维度＝按任务类型**（不做全局单值，也不细到按环节）；
+  0.45 作为默认值保留。
 - **[待确认]** Context Pack 装配快照的留存期——它是审计依据，但体量可能很大。
 
 ## R11 切分提示（给 requirement-author）
@@ -190,3 +270,14 @@
 - V8（审计态）：任取一条已定版结论，可还原其定版时的完整 Context Pack 引用清单
   （对应 UC-17.1 AC1「任一条结论都能还原它当时看了什么」）。
 - V9（机密路由）：Context Pack 含标记为客户机密的条目时，模型选择接口只返回自托管模型。
+- V10（结构契约）：[设计] Context Pack 接口返回的 JSON 通过 `ContextPack` 类型的 schema 校验——
+  `items[]` 每条含 `segmentId / content / sourceType / artifactVersionId / anchor /
+  retrievalReasons / score / permissionDecisionId` 八个字段且无一为空（`anchor` 至少命中一种锚点），
+  `claims[]` 每条含 `statement / status / supportingSegmentIds / contradictingSegmentIds`。
+- V11（检索通道）：[设计] 用一条**只含精确原话/编号的 query**（如某受访者的原句、某编号）检索，
+  断言结果命中且 `retrievalReasons` 含 FTS 通道——**验证 FTS 是一等通道而非可选项**；
+  再用同义改写的 query 断言向量通道命中，两者结果不得为空集。
+- V12（权限过滤召回率）：[设计] 对同一组 query，分别在「无权限过滤」与「叠加权限过滤」下运行
+  pgvector 召回，断言过滤条件下的 recall 不低于约定基线；**不得出现「有权访问却召不回」**。
+- V13（遗漏可解释）：[设计] 任取一次装配，断言候选集中每一条未出现在 `items[]` 的内容，
+  都能在 `omissions[]` 中找到对应的丢弃原因。

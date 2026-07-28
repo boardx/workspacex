@@ -9,7 +9,12 @@
 > 原型证据链反推的设计稿，需人类确认后才可作为权威。
 
 > 口径（四标记）：**[原型]** ＝ `WorkspaceX Standalone.html` **运行态实际存在**的行为（有界面可查，依据 scratchpad 的 proto-01~10 抽取档案）；**[Backlog]** ＝ `Backlog Use Case.html` 的**文档要求**（原型未必实现）；**[设计]** ＝ 依据前两者反推补全，**需人类确认**；**[待确认]** ＝ 不应由实现者自行决定。
-> 元数据：优先级 **P0**；估点 **13**；建议迭代 **阶段零 · 共享内核**。
+> 元数据：优先级 **P0**；估点 **21**（原 13，2026-07-28 上调）；建议迭代 **阶段零 · 共享内核**。
+> **估点变更说明**：与 `docs/architecture/context-engine.md` 对齐后，本用例的数据模型从
+> 「Artifact + 版本 + 绑定关系」扩展为 `artifacts / artifact_versions / segments / anchors /
+> derived_representations / provenance_events` 六张表，并新增 **file-first 存储契约**
+> （每个版本必须有真实可下载文件、非文件来源必须物化）与 **S3 + PG 双 canonical** 的灾备约束。
+> `segments` / `anchors` 的填充由摄取流水线承担，本用例只定义模型与不变量，故上调一档而非两档。
 
 ## R1 概览（Use Case 名称 / Actor / 目标 / 系统边界）
 
@@ -26,6 +31,28 @@
 - **系统边界**：Artifact 对象与版本、三模式绑定、项目环节挂载、引用资格判定、快照不可变存储。
 - **核心数据对象**：Artifact、Artifact 版本、固定快照、绑定关系（模式 + 项目 + 环节）、引用记录、
   回流事件。
+- [设计] **与 Context Engine 架构对齐**（`docs/architecture/context-engine.md` 第二节）：
+  本用例的对象名统一采用架构侧的核心表命名，不另立一套——
+
+  | 本用例用词 | Context Engine 表 | 职责 |
+  |---|---|---|
+  | Artifact | `artifacts` | 逻辑对象、来源、类型、所属项目 |
+  | Artifact 版本 / **固定快照** | `artifact_versions` | **不可变版本**、对象存储 key、SHA-256、MIME、版本号 |
+  | 可引用最小单元 | `segments` | 文本 / 消息 / 回答 / 音频时间段 |
+  | 引用锚点 | `anchors` | 页码、bbox、时间码、消息 ID、问卷题号、图片区域 |
+  | 派生物（OCR/ASR/摘要/embedding） | `derived_representations` | 带 `derived_from` 指回原件版本，**不覆盖原件** |
+  | 回流事件 / 定版事件 / 人工编辑 | `provenance_events` | **append-only** 血缘 |
+  | 定版时的引用清单 | `context_packs` | 见 UC-0.2 |
+- [设计] **file-first 原则**（架构第 2.0 节，本用例的存储硬约束）：
+  **能保存成文件的数据一律保存成文件**——每个 Artifact 版本在对象存储里都有一个
+  **真实的、可下载的文件**，不存在「只活在数据库表里」的产出。
+  非文件来源必须物化为文件（问卷 → `responses.csv` + `schema.json`；对话 → `messages.jsonl`；
+  访谈 → 音频 + `transcript.jsonl` + `notes.md`；AI 生成 → 内容文件 + `provenance.json`）。
+  派生物同样是**独立文件且可见**，带 `derived_from` 指回原件版本。
+- [设计] **「固定快照」在存储层的落地** = 一条不可变的 `artifact_version` 记录
+  （对象存储 key + **SHA-256** + MIME + 版本号），写入后永不覆盖；
+  「定版」＝为当前内容生成新的 `artifact_version` 并固化其哈希。
+  R7「快照不可变」与 AC2 的技术实现即此，不是应用层的一个布尔标记。
 
 ## R2 前置条件 / 触发条件
 
@@ -168,6 +195,18 @@
 - **被依赖**：研究 / 访谈 / 问卷 / 原型四个 Studio、13-deliv 产出物验收、10-report 报告引用、
   09-kg 证据入图、14-brain 知识晋升——**全部依赖本协议**，因此必须先于它们落地。
 - **跨模块契约**：身份与权限、来源引用、版本、任务状态、审计事件和通知必须使用统一标识。
+- [设计] **跨模块契约（22-files 项目文件浏览器）**：本用例定义 **Artifact 数据模型**
+  （`artifacts` / `artifact_versions` / `segments` / `anchors` / `derived_representations`），
+  **22-files 是这套模型的用户界面**——文件浏览器里的目录树就是 `artifacts / artifact_versions`
+  的投影，**不是另一套存储**。二者的关系是「模型 ↔ 视图」：
+  本用例不做界面，22-files 不另建表；两者共用同一套 `acl_bindings`
+  （文件浏览器**不是权限旁路**，对浏览器与检索一视同仁）。
+  file-first 原则要求「删除后文件浏览器里那份必须真的消失」，
+  因此 17-gov 的撤回删除流必须同时作用于对象存储与 PG 元数据。
+- [设计] **canonical 双源**（架构第六节修正）：**原件 canonical 在对象存储（S3）、
+  元数据/状态 canonical 在 PostgreSQL**——PG 无法从指针恢复丢失的文件，对象存储也不承载
+  版本谱系与权限。因此**灾备必须同时恢复 PG、对象存储与事件日志**，
+  只恢复其中一个即视为数据损坏；备份与恢复演练需按这三者的**一致性时间点**验证。
 - **[待确认]** 原型说明页指向的「UML 文档第 13 节」不在仓库中；本文为反推设计，
   **需与该文档核对或由人类确认本文取代它**。
 - **[待确认]** 四个模块各自的版本策略是否统一（提交/退回各定一版不可删 · 三模式快照 ·
