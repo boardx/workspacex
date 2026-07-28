@@ -120,6 +120,35 @@ for (const phaseId of process.argv.slice(2)) {
   };
   for (const f of feats) visit(f.id, []);
 
+  // ── 估点漂移检查（2026-07-28 新增）────────────────────────────────
+  // 估点被声明在**两处**：UC 头部的 `估点 **n**`，与 feature_list 里逐 feature 的 points。
+  // 两处必然漂移——本次就查出三处：uc-0-5（13 vs 20，我加 F17 时没回头改头部）、
+  // uc-11-1（3 vs 5，O-27 已裁但头部漏改）、uc-13-4（5 vs 8，O-30 同理）。
+  // 与 token / 字号 / 丢弃原因 / 撤回链是同一种失效模式，故同样上机械门控。
+  {
+    const byUc = new Map<string, number>();
+    for (const f of feats) {
+      const file = (f.spec_ref ?? "").split("#")[0];
+      if (file) byUc.set(file, (byUc.get(file) ?? 0) + (f.points ?? 0));
+    }
+    for (const [rel, sum] of byUc) {
+      const ucPath = join(dir, "requirements", rel);
+      if (!existsSync(ucPath)) continue;
+      const m = /估点\s*\*\*(\d+)\*\*/.exec(readFileSync(ucPath, "utf8"));
+      if (!m) {
+        say(`${rel} 头部没有 \`估点 **n**\`，无法与 feature_list 对账`);
+        continue;
+      }
+      const declared = Number(m[1]);
+      if (declared !== sum) {
+        say(
+          `估点漂移：${rel} 头部声明 ${declared}，feature_list 合计 ${sum}` +
+            `（估点声明在两处必然漂移——改了一处就要改另一处，或说明差异原因）`,
+        );
+      }
+    }
+  }
+
   const pts = feats.reduce((s, f) => s + (f.points ?? 0), 0);
   const signoff = feats.filter((f) => f.needs_ui_signoff);
   console.log(`  ${feats.length} 个 feature / ${pts} 点｜needs_ui_signoff: ${signoff.length} 个`);
