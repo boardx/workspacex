@@ -55,8 +55,17 @@ export function CanvasStage({ readOnly, tool, zoom }: { readOnly: boolean; tool:
     else setSelected(id);
   };
 
+  // ⚠ 2026-07-29（N-7 的响应式断言抓到）：此处原为 `overflow-hidden`，
+  //   在 375/768 下画布内容被裁掉 62px 且**用户无法看到剩下的**。
+  //   画布本来就该能平移——真实的 mermaid 引擎会做 pan/zoom，
+  //   在那之前至少让它可滚动，否则窄屏上的内容是不可达的。
+  //   `data-allow-x-scroll` 是给响应式门控的显式声明：这里的横向滚动是设计，不是缺陷。
   return (
-    <div className="relative flex-1 overflow-hidden bg-panel-alt" data-testid="canvas-stage">
+    <div
+      className="relative flex-1 overflow-auto bg-panel-alt"
+      data-testid="canvas-stage"
+      data-allow-x-scroll="画布需平移；真实引擎会做 pan/zoom"
+    >
       {/* mock 声明：明确告诉 sign-off 这不是真实布局引擎 */}
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1.5">
         <Badge tone="outline">静态占位 · 非 mermaid 渲染</Badge>

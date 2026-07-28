@@ -121,7 +121,11 @@ export function CanvasMain({
           successMessage="已保存为新版本，并写回 mermaid 源码 .md（坐标不写回）"
           className="h-full"
         >
-          <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border">
+          {/* 同 canvas-stage：窄屏下原会裁掉 245px 且不可达，改为可滚动并显式声明 */}
+          <div
+            className="flex h-full flex-col overflow-auto rounded-lg border border-border"
+            data-allow-x-scroll="画布容器需随内容平移"
+          >
             {conflict && <ConflictBar onResolve={() => setConflict(false)} />}
             <CanvasToolbar
               tool={tool}

@@ -29,7 +29,15 @@ export function FilesList({
   onOpenVersions: (f: FileItem) => void;
 }) {
   return (
-    <div className="overflow-x-auto" data-testid="files-list">
+    // ⚠ 这是一张 min-w-[52rem] 的多列表（名称/来源/状态/版本/大小/时间/动作），
+    //   窄屏下横滚是**设计**而非缺陷——列砍掉会丢信息，换成卡片流会丢可比性。
+    //   `data-allow-x-scroll` 是给响应式门控（e2e/responsive.spec.ts）的显式声明：
+    //   意图要写出来，不该让门控从 computed style 去猜。
+    <div
+      className="overflow-x-auto"
+      data-testid="files-list"
+      data-allow-x-scroll="文件表 7 列，窄屏横滚看全；砍列会丢信息"
+    >
       <table className="w-full min-w-[52rem] border-collapse text-12">
         <thead>
           <tr className="border-b border-border text-left text-11 text-muted-foreground">

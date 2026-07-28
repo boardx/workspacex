@@ -31,7 +31,7 @@
 | **V6** | 七态：`?state=` 七取值各自固定 testid 可见且互斥 | `apps/web/scripts/verify-ui-states.sh`（七态 + 互斥 + 18 屏 × 6 态矩阵） | `/kitchen-sink?state=*` `loading`/`empty`/`err-email`/`dep-failed`/`denied`/`saved`/`section-states` | ✅ |
 | **V7** | testid 规范：每个可交互元素带 testid；全部匹配命名正则；无业务数据 | `apps/web/scripts/lint-design.sh`（D-35）——**只查了「无业务数据」**；**「每个可交互元素都带 testid」的正向存在性未被断言**（`lint-dead-controls` 查的是控件是否活，非是否有 testid） | `lint-design.sh` D-35 | ⚠ **缺口 G-6** |
 | **V8** | 生产可达性：生产构建下 `?state=` / `?as=` 不改变渲染 | `apps/web/scripts/verify-prod-gates.sh` | 生产 `/kitchen-sink` · `state-preview-switcher` / `role-preview-switcher` 缺席 | ✅ |
-| **V9** | 响应式：375 / 768 / 1280 三档 `scrollWidth <= clientWidth` 无横向溢出 | ⚠ **无任何自动化门控**——目前**只由人类手动用浏览器验过一次** | —（需 Playwright 补装） | ⚠ **缺口 G-2（真缺口）** |
+| **V9** | 响应式：375 / 768 / 1280 三档 `scrollWidth <= clientWidth` 无横向溢出 | `pnpm --filter web e2e`（Playwright，25 屏 × 3 档 = 75 断言） | 全部 25 条路由 | ✅ |
 | **V10** | 规范同步：`uiux-standards.md` §0 的 U1–U8 每条都能在 `lint-design.sh` 或 e2e 找到对应检查 | `apps/web/scripts/lint-design.sh` 覆盖 U1/U4/U5/U6/U7；**但「U1–U8 逐条都有对应检查」这件事本身没有一道机械断言去证明**（靠人读脚本注释比对） | `lint-design.sh` · `uiux-standards.md` §0 | ⚠ **缺口 G-7** |
 
 ---
@@ -44,7 +44,7 @@
 | # | 缺口 | 性质 | 补法 |
 |---|---|---|---|
 | **G-1** | **七态保留名与「状态→testid」映射没有单一 TS 事实源**。保留名硬编码在 `state-shell.tsx` 的 JSX 里，又在 `verify-ui-states.sh` 里以 `case $st in invalid) want="err-" ...` 重列一遍；`lib/ui-state.ts` 只有状态名（`UI_STATES`）不含保留 testid 名 | **潜在第二份副本**（该是契约却没被固定） | 把保留名 + 映射做成 `lib/ui-state.ts` 里一个纯 TS 常量单源（如 `RESERVED_STATE_TESTIDS`），让 `verify-ui-states.sh` 像 `lint-design.sh` 读 `font-scale.ts` 那样 `sed` 读它。**不用 zod**（见 domain 第三节）。⚠ 这是最典型的第六次漂移候选 |
-| **G-2** | **V9 响应式（375/768/1280 无横向溢出）无自动化覆盖**——**目前只有人类手动用浏览器验过一次** | **真缺口** | 补装 Playwright，加一条 e2e 断言 `document.scrollWidth <= clientWidth`，作为 F14 verification 的第七条命令。在此之前 V9 **不算被机器覆盖**，F14 的「已落地」需在此点上标注保留。UC-0.4 R8 已声明本件以机器门控代替人类 sign-off，V9 是这个承诺唯一未兑现的一条 |
+| ~~G-2~~ | ~~V9 响应式无自动化覆盖~~ | ✅ **已关闭（2026-07-29）** | 见下方「G-2 的关闭过程」 |
 | **G-3** | **「哪些 token 豁免配对」这一豁免清单声明在两处**：`globals.css` 用 `@contrast none` 标注，`single-source-of-truth.test.ts` 又硬编码 `new Set(["border","border-subtle","input","ring"])` | **第二份副本**（该是契约却没被固定） | 让测试从 `globals.css` 的 `@contrast none` 标注动态解析豁免集，删掉硬编码 Set；单源仍是那份 CSS |
 | **G-4** | **`verify-ui-states.sh` 的 `SCREENS` 屏清单是脚本内手维护的**。新增业务屏若忘记加入，静默逃出七态矩阵 | 覆盖可静默漏 | 让屏清单从路由表（`app/` 目录约定）动态派生，而非手抄。这条会随 phase-01 屏数增长而放大风险 |
 | **G-5** | **V3 的反证（注入缺 foreground 的坏 token → exit 1）没有常驻 fixture**。只有正向断言「每个色面 token 有配对」 | 门控自身未被测（对照 V5 的处理） | 仿 `lint-design-gate.test.ts` 的做法，给 `check-token-contrast` 加一个坏 token fixture，断言它 exit 1。否则「对比度门控能抓到缺对」这件事本身没被验证 |
@@ -82,3 +82,47 @@
 3. **G-1 / G-3 是跨/内束的第二份副本** —— 保留名映射（G-1）与豁免清单（G-3）都已经有两处声明，
    是本项目最高发的漂移形态。建议在一致性复核里与「同一事实是否在多处定义」一并收敛。
    ⚠ 收敛方向是**纯 TS 常量单源 + bash 门控 sed 读取**，不是 zod。
+
+
+---
+
+# G-2 的关闭过程 —— 断言写了三版才真正有效
+
+> 记这一段是因为：**前两版都「全绿」，但都没在测**。
+> 这是本项目第五次撞到「门控看起来在跑，其实是空转」，值得把过程留下。
+
+## 第一版：只查 `documentElement.scrollWidth`
+```
+expect(doc.scrollWidth - innerWidth).toBeLessThanOrEqual(1)
+```
+**75 个断言全绿。** 然后我塞了一个 900px 的元素进 `/kitchen-sink` ——**它照样绿**。
+
+原因：`AppShell` 最外层是 `overflow-hidden`，内容再宽也被裁掉，
+**文档级 scrollWidth 恒等于视口宽**。这个断言在这套骨架下永远为真。
+
+## 第二版：查「被裁且不可滚动」
+改为找 `overflow-x: hidden|clip` 且 `scrollWidth > clientWidth` 的容器。
+这一版**抓到了真缺陷**：画布在 375/768 下裁掉 245px 且用户拿不到。
+
+但探针仍然漏过——因为 `<main className="overflow-y-auto">` 会被 CSS
+**隐式**把 `overflow-x` 也算成 `auto`，于是「主内容列需要横滚」被当成
+「可滚动是合法的」放过了。
+
+## 第三版：显式声明制
+改为**任何**横向内容超出容器的元素都算缺陷，除非它带 `data-allow-x-scroll="理由"`。
+**把「这里的横向滚动是设计」变成显式声明，而不是从 computed style 去猜。**
+
+这一版又抓到两处，性质不同：
+- `files-list` 超出 621px —— 是一张 `min-w-[52rem]` 的 7 列表，**横滚确是设计**
+  （砍列会丢信息）→ 加 `data-allow-x-scroll`
+- `/admin/skill` 超出 2px —— 元素是 `overflow-x: visible`，**内容根本没被裁**，
+  只是溢出到父级；父级若裁会被单独抓到 → 规则加一条：跳过 `visible`
+
+## 结果
+75 个断言（25 屏 × 3 档）全过，且反证有效：
+塞 900px 探针 → 被抓；撤掉 → 通过。
+
+## 留下的两条纪律
+1. **写完门控必须立刻造反证。** 「全绿」本身不是证据——它可能是空转。
+2. **意图要写出来，不该被推断。** 「这里的横向滚动是设计」用 `data-allow-x-scroll` 声明，
+   比让门控从 `overflow-x` 的计算值去猜可靠得多——后者在 CSS 的隐式规则面前必然失灵。
