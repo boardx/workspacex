@@ -1,15 +1,16 @@
 "use client";
 import * as React from "react";
-import { Plus, Plug, Wrench, ShieldCheck, Check } from "lucide-react";
+import { Plus, Plug, Wrench, ShieldCheck, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
 import { AdminDrawer, ConfirmDialog, Toast, Field, KV } from "./panel";
+import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import {
-  MCP_SERVERS, MCP_SUMMARY, MCP_CONN_LABEL, MCP_TOOLS, MCP_AUTH_LABEL,
+  MCP_SERVERS, MCP_SUMMARY, MCP_CONN_LABEL, MCP_TOOLS, MCP_AUTH_LABEL, inFlightOf,
   type McpConnStatus, type McpRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
@@ -27,6 +28,8 @@ export function McpScreen({ state }: { state: UiState }) {
   const [panel, setPanel] = React.useState<Panel>(null);
   const [reviewOf, setReviewOf] = React.useState<McpRow | null>(null);
   const [cleared, setCleared] = React.useState<Set<string>>(new Set());
+  const [revoked, setRevoked] = React.useState<Set<string>>(new Set());
+  const [disableOf, setDisableOf] = React.useState<McpRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   return (
@@ -89,7 +92,8 @@ export function McpScreen({ state }: { state: UiState }) {
         {/* 服务器清单：服务器 ｜ 端点 ｜ 工具 ｜ 授权范围 ｜ 评审 ｜ 状态 */}
         <div className="flex flex-col gap-1.5" data-testid="admin-mcp-list">
           {MCP_SERVERS.map((s) => {
-            const isCleared = cleared.has(s.id) || s.reviewStatus === "cleared";
+            const isRevoked = revoked.has(s.id);
+            const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
             return (
               <Card key={s.id} data-testid={`admin-mcp-row-${s.id}`}>
                 <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
@@ -119,12 +123,20 @@ export function McpScreen({ state }: { state: UiState }) {
                     {MCP_CONN_LABEL[s.conn]}
                   </Badge>
 
+                  {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
+
                   <div className="ml-auto flex gap-1.5">
                     <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
                     {!isCleared ? (
-                      <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`}>放行评审</Button>
+                      <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
                     ) : (
-                      <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
+                      <>
+                        <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
+                        <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
+                          <Ban aria-hidden className="h-3 w-3" />
+                          撤销授权
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -230,6 +242,29 @@ export function McpScreen({ state }: { state: UiState }) {
             setCleared((s) => new Set(s).add(reviewOf.id));
             setToast(`已放行「${reviewOf.name}」，工具进入可被调用状态`);
             setReviewOf(null);
+          }}
+        />
+      )}
+
+      {/* 撤销授权二选一确认（D-U5）—— 撤销后该服务器的工具回到隔离、不可被调用 */}
+      {disableOf && (
+        <DisableDialog
+          testid="admin-mcp-disable-dialog"
+          verb="撤销授权"
+          capabilityName={disableOf.name}
+          inFlight={inFlightOf(disableOf.id)}
+          interruptEffect={`正经此服务器发起、尚未返回的 ${inFlightOf(disableOf.id)} 个工具调用会被立即中断；工具回到隔离、不可被任何 agent 调用。`}
+          drainEffect={`已发起的 ${inFlightOf(disableOf.id)} 个工具调用跑完当前一轮，此刻起新调用一律被拒、工具回到隔离。`}
+          onCancel={() => setDisableOf(null)}
+          onConfirm={(mode: DisableMode) => {
+            setRevoked((prev) => new Set(prev).add(disableOf.id));
+            setCleared((prev) => { const n = new Set(prev); n.delete(disableOf.id); return n; });
+            setToast(
+              mode === "interrupt"
+                ? `已撤销「${disableOf.name}」授权并回到隔离，立即中断 ${inFlightOf(disableOf.id)} 个进行中的工具调用`
+                : `已撤销「${disableOf.name}」授权；${inFlightOf(disableOf.id)} 个进行中的工具调用将跑完当前一轮，新调用即刻被拒`,
+            );
+            setDisableOf(null);
           }}
         />
       )}

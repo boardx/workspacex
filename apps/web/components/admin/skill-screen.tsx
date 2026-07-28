@@ -1,13 +1,14 @@
 "use client";
 import * as React from "react";
-import { Plus, FileCode2, Braces, DatabaseZap } from "lucide-react";
+import { Plus, FileCode2, Braces, DatabaseZap, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { VisibilityBadge } from "./scope-badges";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
+import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SKILLS, SKILL_STATUS_LABEL, type SkillStatus } from "@/lib/mock/admin";
+import { SKILLS, SKILL_STATUS_LABEL, inFlightOf, type SkillStatus, type SkillRow } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
 
 const STATUS_TONE: Record<SkillStatus, "primary" | "warning" | "neutral" | "outline"> = {
@@ -28,6 +29,8 @@ export function SkillScreen({ state }: { state: UiState }) {
   const [importOpen, setImportOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [contract, setContract] = React.useState("");
+  const [disabledIds, setDisabledIds] = React.useState<Set<string>>(new Set());
+  const [disableOf, setDisableOf] = React.useState<SkillRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   return (
@@ -64,14 +67,17 @@ export function SkillScreen({ state }: { state: UiState }) {
         </p>
 
         <div className="flex flex-col gap-2" data-testid="admin-skill-list">
-          {SKILLS.map((s) => (
+          {SKILLS.map((s) => {
+            const isDisabled = disabledIds.has(s.id) || s.status === "disabled";
+            const canTakeDown = s.status === "enabled" && !disabledIds.has(s.id);
+            return (
             <Card key={s.id} data-testid={`admin-skill-row-${s.id}`}>
               <CardContent className="flex flex-col gap-2.5 pt-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-13 font-medium">{s.name}</span>
                   <Badge tone="outline" className="font-mono">{s.version}</Badge>
-                  <Badge tone={STATUS_TONE[s.status]} data-testid={`admin-skill-status-${s.id}`}>
-                    {SKILL_STATUS_LABEL[s.status]}
+                  <Badge tone={isDisabled ? "outline" : STATUS_TONE[s.status]} data-testid={`admin-skill-status-${s.id}`}>
+                    {isDisabled ? SKILL_STATUS_LABEL.disabled : SKILL_STATUS_LABEL[s.status]}
                   </Badge>
                   <VisibilityBadge scope={s.visibility} team={s.team} data-testid={`admin-skill-visibility-${s.id}`} />
                   {s.origin === "方法晋升" && <Badge tone="ai">方法晋升</Badge>}
@@ -79,6 +85,12 @@ export function SkillScreen({ state }: { state: UiState }) {
                     <span>{s.calls.toLocaleString()} 次调用</span>
                     {s.satisfaction > 0 && <span>满意度 {s.satisfaction}%</span>}
                   </div>
+                  {canTakeDown && (
+                    <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-skill-disable-${s.id}`}>
+                      <Ban aria-hidden className="h-3 w-3" />
+                      下线
+                    </Button>
+                  )}
                 </div>
 
                 <p className="text-12 text-muted-foreground">{s.duty}</p>
@@ -109,7 +121,8 @@ export function SkillScreen({ state }: { state: UiState }) {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -182,6 +195,28 @@ export function SkillScreen({ state }: { state: UiState }) {
             <Field id="admin-skill-field-scope" label="数据范围声明（与 MCP 授权范围求交）" placeholder="如 项目库 ＋ 转写" />
           </div>
         </AdminDrawer>
+      )}
+
+      {/* 下线二选一确认（D-U5）*/}
+      {disableOf && (
+        <DisableDialog
+          testid="admin-skill-disable-dialog"
+          verb="下线"
+          capabilityName={disableOf.name}
+          inFlight={inFlightOf(disableOf.id)}
+          interruptEffect={`正在引用此 skill 的 ${inFlightOf(disableOf.id)} 个 agent 调用会被立即中断，返回「该能力已被管理员停用」。`}
+          drainEffect={`已发起的 ${inFlightOf(disableOf.id)} 个调用跑完当前一轮，此刻起 agent 白名单不再可绑定此 skill。`}
+          onCancel={() => setDisableOf(null)}
+          onConfirm={(mode: DisableMode) => {
+            setDisabledIds((prev) => new Set(prev).add(disableOf.id));
+            setToast(
+              mode === "interrupt"
+                ? `已下线 skill「${disableOf.name}」，并立即中断 ${inFlightOf(disableOf.id)} 个进行中的调用`
+                : `已下线 skill「${disableOf.name}」；${inFlightOf(disableOf.id)} 个进行中的调用将跑完当前一轮，新调用即刻被拒`,
+            );
+            setDisableOf(null);
+          }}
+        />
       )}
 
       <Toast message={toast} testid="admin-skill-toast" onDismiss={() => setToast(null)} />

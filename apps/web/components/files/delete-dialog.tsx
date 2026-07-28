@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Modal } from "./overlay";
 import { DELETE_IMPACT } from "@/lib/mock/files";
+import { WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
 
 /**
  * 删除确认 + 影响面预览（UC-22.4 R3 第 8~9 步）。
@@ -35,10 +36,10 @@ export function DeleteDialog({ onClose, onToast }: { onClose: () => void; onToas
             size="sm"
             variant="destructive"
             disabled={!canDelete}
-            onClick={() => { onClose(); onToast(`已发起删除「${impact.fileName}」：逻辑失效 ≤5 分钟，物理删除 ≤30 天并出回执；相关报告段落已通知拍板人复核。`); }}
+            onClick={() => { onClose(); onToast(`已发起删除「${impact.fileName}」：${WITHDRAWAL_SLA_SUMMARY.sentence}；相关报告段落已通知拍板人复核。`); }}
             data-testid="files-delete-confirm"
           >
-            <Trash2 aria-hidden className="h-3.5 w-3.5" /> 确认删除（逻辑失效 ≤5 分钟）
+            <Trash2 aria-hidden className="h-3.5 w-3.5" /> 确认删除（逻辑失效 {WITHDRAWAL_SLA_SUMMARY.logical}）
           </Button>
         </>
       }

@@ -3,13 +3,14 @@ import * as React from "react";
 import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
+import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  MODELS, MODEL_FILTERS, MODEL_STATUS_LABEL,
+  MODELS, MODEL_FILTERS, MODEL_STATUS_LABEL, inFlightOf,
   type ModelFilterKey, type ModelRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
@@ -32,6 +33,7 @@ export function ModelScreen({ state }: { state: UiState }) {
   const [tested, setTested] = React.useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = React.useState(false);
   const [testOf, setTestOf] = React.useState<ModelRow | null>(null);
+  const [disableOf, setDisableOf] = React.useState<ModelRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   const rows = MODELS.filter((m) => {
@@ -86,7 +88,7 @@ export function ModelScreen({ state }: { state: UiState }) {
             </div>
             <div className="flex flex-col gap-1.5">
               {hosted.map((m) => (
-                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onTest={() => setTestOf(m)} />
+                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onRequestDisable={() => setDisableOf(m)} onTest={() => setTestOf(m)} />
               ))}
             </div>
           </section>
@@ -102,7 +104,7 @@ export function ModelScreen({ state }: { state: UiState }) {
             </div>
             <div className="flex flex-col gap-1.5">
               {selfHosted.map((m) => (
-                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onTest={() => setTestOf(m)} />
+                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onRequestDisable={() => setDisableOf(m)} onTest={() => setTestOf(m)} />
               ))}
             </div>
           </section>
@@ -148,6 +150,28 @@ export function ModelScreen({ state }: { state: UiState }) {
         />
       )}
 
+      {/* 停用二选一确认（D-U5）*/}
+      {disableOf && (
+        <DisableDialog
+          testid="admin-model-disable-dialog"
+          verb="停用"
+          capabilityName={disableOf.name}
+          inFlight={inFlightOf(disableOf.id)}
+          interruptEffect={`正经此模型推理的 ${inFlightOf(disableOf.id)} 个调用会被立即中断，返回「该能力已被管理员停用」；调用方需改选其它已启用模型。`}
+          drainEffect={`已发起的 ${inFlightOf(disableOf.id)} 个推理跑完当前一轮，此刻起路由不再选用此模型。`}
+          onCancel={() => setDisableOf(null)}
+          onConfirm={(mode: DisableMode) => {
+            setEnabled((prev) => ({ ...prev, [disableOf.id]: false }));
+            setToast(
+              mode === "interrupt"
+                ? `已停用模型「${disableOf.name}」，并立即中断 ${inFlightOf(disableOf.id)} 个进行中的推理`
+                : `已停用模型「${disableOf.name}」；${inFlightOf(disableOf.id)} 个进行中的推理将跑完当前一轮，新调用即刻被拒`,
+            );
+            setDisableOf(null);
+          }}
+        />
+      )}
+
       <Toast message={toast} testid="admin-model-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
   );
@@ -189,7 +213,7 @@ function TestModal({ model, onClose, onPass }: { model: ModelRow; onClose: () =>
   );
 }
 
-function ModelListRow({ m, untested, on, setOn, onTest }: { m: ModelRow; untested: boolean; on: boolean; setOn: (v: boolean) => void; onTest: () => void }) {
+function ModelListRow({ m, untested, on, setOn, onRequestDisable, onTest }: { m: ModelRow; untested: boolean; on: boolean; setOn: (v: boolean) => void; onRequestDisable: () => void; onTest: () => void }) {
   const statusTone = untested ? "warning" : on ? "primary" : "outline";
   return (
     <Card data-testid={`admin-model-row-${m.id}`}>
@@ -212,7 +236,13 @@ function ModelListRow({ m, untested, on, setOn, onTest }: { m: ModelRow; unteste
 
         <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-11 text-muted-foreground">
           <span>上下文 {m.context}</span>
-          <span>{m.price}</span>
+          {/* D-U12：型号定价是编造的演示数据，旁加「示例」小标（自托管的「GPU 摊销」不是数字，不标） */}
+          <span className="inline-flex items-center gap-1" data-testid={`admin-model-price-${m.id}`}>
+            {m.price}
+            {m.price.includes("￥") && (
+              <Badge tone="outline" data-testid={`admin-model-price-sample-${m.id}`}>示例</Badge>
+            )}
+          </span>
           <span className="inline-flex items-center gap-1">
             可选范围 <span className="text-background-foreground">{m.optionalScope}</span>
           </span>
@@ -231,7 +261,7 @@ function ModelListRow({ m, untested, on, setOn, onTest }: { m: ModelRow; unteste
               </span>
               <Toggle
                 checked={on}
-                onCheckedChange={setOn}
+                onCheckedChange={(v) => (on && !v ? onRequestDisable() : setOn(v))}
                 label={`启用/停用 ${m.name}`}
                 data-testid={`admin-model-toggle-${m.id}`}
               />

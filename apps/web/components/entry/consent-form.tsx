@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CONSENT, WITHDRAWAL_FLOW } from "@/lib/mock/entry";
+import { WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
 
 /**
  * 受访者同意书（档案第九节 A / UC-1.2 D-13）——「被记录的人，自己也要有一块屏」。
@@ -74,10 +75,9 @@ export function ConsentForm({ state }: { state: UiState }) {
               <span className="text-14 font-semibold">撤回申请已提交</span>
             </div>
             <p className="text-12 text-muted-foreground">
-              文字稿与音频已进入待删除队列，相关引述将在 5 分钟内退出检索。
+              文字稿与音频已进入待删除队列，相关引述将在 {WITHDRAWAL_SLA_SUMMARY.logical} 内退出检索。
               引用过它的报告段落会被标为「证据已撤回」而非删除；若已支撑过已签字决策，会通知拍板人复核。
-              收到撤回后我们<strong className="font-medium">立即启动</strong>处理，各环节的完成状态可在
-              处理进度页随时查看；<strong className="font-medium">30 天内</strong>完成物理删除并给你回执。
+              我们将在 <strong className="font-medium">{WITHDRAWAL_SLA_SUMMARY.physical}</strong> 内完成物理删除并给你回执（裁决 D-15 第二级 SLA）。
             </p>
           </div>
         ) : (
@@ -166,7 +166,7 @@ export function ConsentForm({ state }: { state: UiState }) {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" size="lg" asChild data-testid="consent-confirm">
-            <Link href="/studio/interview">
+            <Link href="/session">
               {allDeclined ? "全部拒绝，仍进入访谈" : "确认并进入访谈"}
             </Link>
           </Button>

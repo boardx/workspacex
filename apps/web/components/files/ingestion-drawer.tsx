@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Drawer } from "./overlay";
 import { IngestBadge } from "./status";
+import { useReviewState } from "./use-review-state";
 import {
   INGEST_PIPELINE, INGESTION_RUNS, INGEST_META, REVIEW_REASON_LABEL,
   type IngestState, type IngestionRun,
@@ -19,6 +20,9 @@ import {
  *   - 每态都标出**用户可见的出口**（没有出口的中间态 = 黑洞）；
  *   - 失败态走**三段式**：在哪一步失败 + 为什么 + 能做什么；
  *   - STORED 之后即标「原件已可下载」，与「已可检索」分开标（两件事）。
+ *
+ * D-U11：本抽屉是复核处置的**权威入口**。REVIEW_PENDING 的接受/拒绝写入
+ *   `useReviewState` 的共享状态——在这里接受一条，独立复核屏里同一条立刻变态。
  */
 export function IngestionDrawer({ onClose }: { onClose: () => void }) {
   return (
@@ -63,9 +67,11 @@ const ORDER: IngestState[] = INGEST_PIPELINE.filter((s) => s.key !== "REVIEW_PEN
 function RunCard({ run }: { run: IngestionRun }) {
   const idx = ORDER.indexOf(run.state === "REVIEW_PENDING" ? "INDEXED" : run.state);
   const meta = INGEST_META[run.state];
-  // 乐观处置：失败态重试/手工补录、复核态接受/拒绝、检出详情展开
-  const [action, setAction] = React.useState<null | "retry" | "manual" | "accepted" | "rejected">(null);
+  // 失败态重试/手工补录、检出详情展开走本地态；复核处置走共享态（D-U11）。
+  const [action, setAction] = React.useState<null | "retry" | "manual">(null);
   const [detailOpen, setDetailOpen] = React.useState(false);
+  const { dispositions, resolve } = useReviewState();
+  const disposition = run.artifactId ? dispositions[run.artifactId] ?? null : null;
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border p-3" data-testid="files-ingestion-run">
@@ -129,29 +135,31 @@ function RunCard({ run }: { run: IngestionRun }) {
         </div>
       )}
 
-      {/* REVIEW_PENDING：接受 / 拒绝 / 查看检出详情 */}
+      {/* REVIEW_PENDING：接受 / 拒绝 / 查看检出详情（权威入口，写共享状态）*/}
       {run.state === "REVIEW_PENDING" && (
         <div className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2" data-testid="files-ingestion-review">
           <p className="text-11 font-medium">等待人工确认</p>
           {run.reviewReasons?.map((r) => (
             <p key={r} className="text-11 text-muted-foreground">· {REVIEW_REASON_LABEL[r]}</p>
           ))}
-          <div className="flex flex-wrap gap-1.5">
-            <Button size="xs" variant="primary" onClick={() => setAction("accepted")} data-testid="files-ingestion-accept"><Check aria-hidden className="h-3 w-3" /> 接受</Button>
-            <Button size="xs" variant="outline" onClick={() => setAction("rejected")} data-testid="files-ingestion-reject">拒绝</Button>
-            <Button size="xs" variant="ghost" onClick={() => setDetailOpen((v) => !v)} data-testid="files-ingestion-detail">查看检出详情 <ArrowRight aria-hidden className="h-3 w-3" /></Button>
-          </div>
-          {detailOpen && (
+          <p className="text-10 text-muted-foreground">就地处置即可；这与独立复核屏是同一个动作，处置后两处同步。</p>
+          {!disposition ? (
+            <div className="flex flex-wrap gap-1.5">
+              <Button size="xs" variant="primary" onClick={() => run.artifactId && resolve(run.artifactId, "accepted")} data-testid="files-ingestion-accept"><Check aria-hidden className="h-3 w-3" /> 接受</Button>
+              <Button size="xs" variant="outline" onClick={() => run.artifactId && resolve(run.artifactId, "rejected")} data-testid="files-ingestion-reject">拒绝</Button>
+              <Button size="xs" variant="ghost" onClick={() => setDetailOpen((v) => !v)} data-testid="files-ingestion-detail">查看检出详情 <ArrowRight aria-hidden className="h-3 w-3" /></Button>
+            </div>
+          ) : (
+            <p role="status" className={disposition === "accepted" ? "inline-flex items-center gap-1 text-11 text-success" : "inline-flex items-center gap-1 text-11 text-destructive"} data-testid="files-ingestion-review-status">
+              <Check aria-hidden className="h-3 w-3" /> {disposition === "accepted" ? "已接受并转 READY，进入检索召回；处置写入审计。" : "已拒绝：不入检索，材料退回上传者；处置写入审计。"}
+            </p>
+          )}
+          {detailOpen && !disposition && (
             <div className="flex flex-col gap-1 rounded-sm border border-border-subtle bg-card p-2" data-testid="files-ingestion-detail-panel">
               <p className="text-11 font-medium">检出详情（脱敏展示，不回显真实值）</p>
               <p className="text-11 text-muted-foreground">第 2 页 · 手机号 1 处（138 •••• 2049）</p>
               <p className="text-11 text-muted-foreground">第 5 页 · 邮箱 1 处（l••@••.cn）</p>
             </div>
-          )}
-          {(action === "accepted" || action === "rejected") && (
-            <p role="status" className={action === "accepted" ? "inline-flex items-center gap-1 text-11 text-success" : "inline-flex items-center gap-1 text-11 text-destructive"} data-testid="files-ingestion-review-status">
-              <Check aria-hidden className="h-3 w-3" /> {action === "accepted" ? "已接受并转 READY，进入检索召回；处置写入审计。" : "已拒绝：不入检索，材料退回上传者；处置写入审计。"}
-            </p>
           )}
         </div>
       )}

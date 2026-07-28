@@ -1,16 +1,17 @@
 "use client";
 import * as React from "react";
-import { Plus, Pencil, PlayCircle, ShieldQuestion, Eye, Check } from "lucide-react";
+import { Plus, Pencil, PlayCircle, ShieldQuestion, Eye, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { VisibilityBadge } from "./scope-badges";
 import { AdminDrawer, AdminModal, ConfirmDialog, Toast, Field, KV } from "./panel";
+import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
-  AGENTS, AGENT_STATUS_LABEL, MODELS, VISIBILITY_LABEL, AGENT_TRIAL_OUTPUT,
+  AGENTS, AGENT_STATUS_LABEL, MODELS, VISIBILITY_LABEL, AGENT_TRIAL_OUTPUT, inFlightOf,
   type AgentStatus, type AgentRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
@@ -29,6 +30,8 @@ export function AgentScreen({ state }: { state: UiState }) {
   const [trial, setTrial] = React.useState<AgentRow | null>(null);
   const [approveOf, setApproveOf] = React.useState<AgentRow | null>(null);
   const [approved, setApproved] = React.useState<Set<string>>(new Set());
+  const [disabledIds, setDisabledIds] = React.useState<Set<string>>(new Set());
+  const [disableOf, setDisableOf] = React.useState<AgentRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   return (
@@ -64,6 +67,8 @@ export function AgentScreen({ state }: { state: UiState }) {
         <div className="flex flex-col gap-2" data-testid="admin-agent-list">
           {AGENTS.map((a) => {
             const isApproved = approved.has(a.id);
+            const isDisabled = disabledIds.has(a.id);
+            const isRunning = !isDisabled && (isApproved || a.status === "running");
             return (
               <Card key={a.id} data-testid={`admin-agent-row-${a.id}`}>
                 <CardContent className="flex flex-col gap-2 pt-4">
@@ -73,8 +78,8 @@ export function AgentScreen({ state }: { state: UiState }) {
                       <span className="text-13 font-medium">{a.name}</span>
                       <span className="text-11 text-muted-foreground">{a.role}</span>
                     </div>
-                    <Badge tone={isApproved ? "primary" : STATUS_TONE[a.status]} data-testid={`admin-agent-status-${a.id}`}>
-                      {isApproved ? "运行中" : AGENT_STATUS_LABEL[a.status]}
+                    <Badge tone={isDisabled ? "outline" : isApproved ? "primary" : STATUS_TONE[a.status]} data-testid={`admin-agent-status-${a.id}`}>
+                      {isDisabled ? "已停用" : isApproved ? "运行中" : AGENT_STATUS_LABEL[a.status]}
                     </Badge>
                     <VisibilityBadge scope={a.visibility} team={a.team} data-testid={`admin-agent-visibility-${a.id}`} />
                     <div className="ml-auto flex items-center gap-4 text-11 text-muted-foreground">
@@ -91,6 +96,12 @@ export function AgentScreen({ state }: { state: UiState }) {
                         <PlayCircle aria-hidden className="h-3 w-3" />
                         试跑
                       </Button>
+                      {isRunning && (
+                        <Button size="xs" variant="outline" onClick={() => setDisableOf(a)} data-testid={`admin-agent-disable-${a.id}`}>
+                          <Ban aria-hidden className="h-3 w-3" />
+                          停用
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -109,9 +120,14 @@ export function AgentScreen({ state }: { state: UiState }) {
                       </div>
                     </div>
                   )}
-                  {isApproved && (
+                  {isApproved && !isDisabled && (
                     <p className="inline-flex items-center gap-1 text-11 text-success" data-testid={`admin-agent-approved-${a.id}`}>
                       <Check aria-hidden className="h-3 w-3" /> 已会签放行并发布，越权申请已收回
+                    </p>
+                  )}
+                  {isDisabled && (
+                    <p className="inline-flex items-center gap-1 text-11 text-muted-foreground" data-testid={`admin-agent-disabled-${a.id}`}>
+                      <Ban aria-hidden className="h-3 w-3" /> 已停用，不再受理新的编排调用
                     </p>
                   )}
                 </CardContent>
@@ -179,6 +195,28 @@ export function AgentScreen({ state }: { state: UiState }) {
             setApproved((s) => new Set(s).add(approveOf.id));
             setToast(`Agent「${approveOf.name}」已会签放行并发布`);
             setApproveOf(null);
+          }}
+        />
+      )}
+
+      {/* 停用二选一确认（D-U5）*/}
+      {disableOf && (
+        <DisableDialog
+          testid="admin-agent-disable-dialog"
+          verb="停用"
+          capabilityName={disableOf.name}
+          inFlight={inFlightOf(disableOf.id)}
+          interruptEffect={`该 agent 正在跑的 ${inFlightOf(disableOf.id)} 个任务会被立即中断，触发方收到「该能力已被管理员停用」。`}
+          drainEffect={`已在跑的 ${inFlightOf(disableOf.id)} 个任务跑完当前一轮，此刻起不再受理新的编排调用。`}
+          onCancel={() => setDisableOf(null)}
+          onConfirm={(mode: DisableMode) => {
+            setDisabledIds((prev) => new Set(prev).add(disableOf.id));
+            setToast(
+              mode === "interrupt"
+                ? `已停用 agent「${disableOf.name}」，并立即中断 ${inFlightOf(disableOf.id)} 个进行中的任务`
+                : `已停用 agent「${disableOf.name}」；${inFlightOf(disableOf.id)} 个进行中的任务将跑完当前一轮，新调用即刻被拒`,
+            );
+            setDisableOf(null);
           }}
         />
       )}

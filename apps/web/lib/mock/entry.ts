@@ -163,42 +163,15 @@ export const CONSENT = {
 } as const;
 
 /** D-13：撤回是一条真实的数据流，五步全部要画出来 */
-export interface WithdrawalStep {
-  no: string;
-  step: string;
-  sla: string;
-  /** 需要人工介入的步（03/04）在界面上要显著区分 */
-  emphasis?: "evidence" | "human";
-}
 
 /**
- * ⚠ 裁决 D-U2（2026-07-28）：**同意书不写编造的时限。**
- *
- * D-13 的撤回链档案只给了 01「即时」、04「需人工」、05「30 天内」三个时限；
- * 实现期曾按 D-15 两级 SLA **推断补了 02「≤5 分钟」、03「即时」**——那是编出来的数值。
- * 同意书是**对外承诺**，承诺一个做不到的时限比不承诺更危险，
- * 故 02/03 改为「立即启动 · 进度可查」，不给具体数字。
- *
- * ⚠ **本项仍需合规复核**：产品这边不锁死在编出来的数字上，
- *   不代表合规不需要给出真实时限。真实 SLA 由合规给出后再填回这里。
+ * ⚠ 撤回链已收敛为单一事实源 `lib/withdrawal-flow.ts`（2026-07-28）。
+ * 此前本文件、`lib/mock/files.ts`、`components/interview/interview-stage.tsx` 各有一份，
+ * 且已漂移（第 03 步一处「≤5 分钟」一处「即时」）。
+ * **撤回链是对受访者的合规承诺**——三个屏说三个时限就是三份互相矛盾的对外声明。
+ * 此处只做再导出，不得在这里维护第二份。
  */
-export const WITHDRAWAL_FLOW: WithdrawalStep[] = [
-  { no: "01", step: "文字稿与音频进入待删除队列", sla: "即时" },
-  { no: "02", step: "来自该场的 7 条引述退出检索，主题矩阵重算强度", sla: "立即启动 · 进度可查" },
-  {
-    no: "03",
-    step: "引用过它的研究报告段落标为「证据已撤回」，不静默删除",
-    sla: "立即启动 · 进度可查",
-    emphasis: "evidence",
-  },
-  {
-    no: "04",
-    step: "若已支撑过已签字决策，通知拍板人复核，而不是自动改结论",
-    sla: "需人工",
-    emphasis: "human",
-  },
-  { no: "05", step: "物理删除并回执给受访者", sla: "≤30 天" },
-];
+export { WITHDRAWAL_FLOW, WITHDRAWAL_SLA_SUMMARY, EXTERNAL_REPLACEMENT_NOTE, type WithdrawalStep } from "@/lib/withdrawal-flow";
 
 /* ── 预览视角（小组工作台的两个项目角色）─────────────────────── */
 
@@ -219,3 +192,84 @@ export function resolveJoinScene(raw: string | string[] | undefined): JoinScene 
   const ok = JOIN_SCENES.some((s) => s.id === v);
   return ok ? (v as JoinScene) : "default";
 }
+
+/* ── 受访者会话屏（裁决 D-U10 / UC-6.3 一次性令牌身份）──────────────── */
+
+/**
+ * 「被记录的人，自己也要有一块屏」——同意书承诺「事后你随时可以用这条链接回来改选择、
+ * 要一份文字稿、或要求删除全部记录」，那条链接就落在这一屏。
+ *
+ * ⚠ 受访者**不是项目角色**（裁决 D-U3）：走 UC-6.3 的一次性令牌身份，链接形如
+ *   `/session?t=<token>`。令牌失效走 StateShell 的 denied 态，不暴露资源是否存在。
+ *
+ * ⚠ 授权回显与撤回链**都复用同意书的单一事实源**：grants 由 `CONSENT.items` 派生，
+ *   撤回五步直接用 `WITHDRAWAL_FLOW`（含 D-U2 改过的 SLA，不在此另写一套）。
+ */
+
+/** 本场是否还在录音——同意书 D-U10 明确要求「录音中 / 本场已结束」两种都能看到 */
+export type SessionScene = "recording" | "ended";
+
+export const SESSION_SCENES: { id: SessionScene; label: string }[] = [
+  { id: "recording", label: "录音中" },
+  { id: "ended", label: "本场已结束" },
+];
+
+export function resolveSessionScene(raw: string | string[] | undefined): SessionScene {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "ended" ? "ended" : "recording";
+}
+
+export interface SessionGrant {
+  id: string;
+  label: string;
+  /** 当前是否授权（回显同意书里的选择，可在本屏「改」） */
+  granted: boolean;
+  /** 授权时的一句话说明 */
+  onDesc: string;
+  /** 撤销该项后的一句话说明（realname 关闭时说明改用代称） */
+  offDesc: string;
+}
+
+const consentDefault = (id: string) =>
+  CONSENT.items.find((i) => i.id === id)!.defaultChecked;
+
+export const SESSION = {
+  project: CONSENT.project,
+  /** 掩码令牌：一次性令牌身份，界面只回显掩码（不完整展示，D-01 同理） */
+  maskedToken: "sess-••••-7f3a",
+  /** 录音已进行时长（演示值；「本场已结束」场景下不显示计时） */
+  elapsed: "12:34",
+  retentionDays: CONSENT.retentionDays,
+  alias: CONSENT.alias,
+  controller: CONSENT.controller,
+  purpose:
+    "这段录音只用于本项目的研究整理，存于远洋咨询的服务器；不做训练、不外发第三方。",
+  endedNote:
+    "本场访谈已结束，录音已停止。这条链接仍然有效——你随时可以回来改选择、要文字稿、或撤回全部记录。",
+  /** grants 由同意书条款派生，保证「回显的就是当初勾的」 */
+  grants: [
+    {
+      id: "record",
+      label: "录音",
+      granted: consentDefault("record"),
+      onDesc: "本场访谈录音，180 天后自动删除。",
+      offDesc: "撤销录音等同撤回全部记录，请用下方「撤回全部记录」。",
+    },
+    {
+      id: "transcript",
+      label: "转文字稿",
+      granted: consentDefault("transcript"),
+      onDesc: "研究员可整理这场访谈的文字稿；你也可随时要一份属于自己的副本。",
+      offDesc: "不再整理文字稿，已生成的部分进入待删除队列。",
+    },
+    {
+      id: "realname",
+      label: "实名引用",
+      granted: consentDefault("realname"),
+      onDesc: "报告里可以出现你的真实姓名与职务。",
+      offDesc: `报告里一律写成「${CONSENT.alias}」，不出现你的名字。`,
+    },
+  ] satisfies SessionGrant[],
+  /** 文字稿副本的送达方式（演示文案，非承诺时限） */
+  transcriptDelivery: "整理完成后发到你登记的联系方式，附一份纯文本副本。",
+} as const;

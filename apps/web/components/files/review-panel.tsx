@@ -1,10 +1,11 @@
 "use client";
 import * as React from "react";
-import { Check, X, ShieldQuestion, Eye } from "lucide-react";
+import { Check, X, ShieldQuestion, Eye, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { SynthesizedBadge, ConfidentialBadge, SOURCE_ICON } from "./status";
+import { useReviewState } from "./use-review-state";
 import {
   FILES, REVIEW_REASON_LABEL, SOURCE_LABEL, formatBytes, type FileItem,
 } from "@/lib/mock/files";
@@ -13,59 +14,73 @@ import {
  * REVIEW_PENDING 人工复核界面（UC-22.2 R3 第 11 步 / R11 独立屏）。
  * 满足机密 / 疑似 PII / 解析质量低任一者落此。审核人接受后才 READY、才进检索。
  * 接受/拒绝均写审计——所以强制填一句处置理由。
+ *
+ * D-U11：这是摄取抽屉里同一处置动作的**批量视图**，不是另一个动作。处置状态与抽屉
+ *   共享（`useReviewState`，按 artifact_id 对齐）——在抽屉里接受一条，这里同一条立刻变态。
  * [待确认] 审核人角色（负责人 / 合规 / 两者）见 README。
  */
 export function ReviewPanel() {
   const pending = FILES.filter((f) => f.ingest === "REVIEW_PENDING");
   const [activeId, setActiveId] = React.useState(pending[0]?.id ?? null);
-  const [resolved, setResolved] = React.useState<Record<string, "accepted" | "rejected">>({});
+  const { dispositions, resolve } = useReviewState();
   const active = pending.find((f) => f.id === activeId) ?? null;
 
   return (
-    <div className="flex h-full min-h-0" data-testid="files-review-panel">
-      {/* 队列 */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-border">
-        <div className="p-3 pb-2">
-          <h2 className="text-13 font-semibold">待复核 · {pending.length}</h2>
-          <p className="text-11 text-muted-foreground">接受前不进检索召回</p>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          {pending.map((f) => {
-            const Icon = SOURCE_ICON[f.sourceType];
-            return (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setActiveId(f.id)}
-                data-testid="files-review-queue-item"
-                className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${f.id === activeId ? "bg-muted" : "hover:bg-panel"}`}
-              >
-                <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="truncate text-12 font-medium">{f.name}.{f.ext}</p>
-                  <p className="text-11 text-muted-foreground">
-                    {resolved[f.id]
-                      ? (resolved[f.id] === "accepted" ? "已接受 · 已转 READY" : "已拒绝")
-                      : (f.reviewReasons ?? []).map((r) => REVIEW_REASON_LABEL[r].split("（")[0]).join(" · ")}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+    <div className="flex h-full min-h-0 flex-col" data-testid="files-review-panel">
+      {/* 定位说明：这是抽屉里同一动作的批量视图（D-U11）*/}
+      <div className="flex items-start gap-2 border-b border-border-subtle bg-panel px-3 py-2" data-testid="files-review-batch-note">
+        <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <p className="text-11 text-muted-foreground">
+          这是待复核项的<strong className="font-medium text-background-foreground">批量视图</strong>，与摄取抽屉里的「接受 / 拒绝」是<strong className="font-medium text-background-foreground">同一个动作</strong>——在任一处处置，两处即刻同步。摄取抽屉是就地处置的权威入口。
+        </p>
       </div>
 
-      {/* 详情 */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {active ? (
-          <ReviewDetail
-            file={active}
-            disposition={resolved[active.id] ?? null}
-            onResolve={(d) => setResolved((r) => ({ ...r, [active.id]: d }))}
-          />
-        ) : (
-          <p className="text-12 text-muted-foreground">队列为空</p>
-        )}
+      <div className="flex min-h-0 flex-1">
+        {/* 队列 */}
+        <div className="flex w-64 shrink-0 flex-col border-r border-border">
+          <div className="p-3 pb-2">
+            <h2 className="text-13 font-semibold">待复核 · {pending.filter((f) => !dispositions[f.id]).length}</h2>
+            <p className="text-11 text-muted-foreground">接受前不进检索召回</p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+            {pending.map((f) => {
+              const Icon = SOURCE_ICON[f.sourceType];
+              const disp = dispositions[f.id] ?? null;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setActiveId(f.id)}
+                  data-testid="files-review-queue-item"
+                  className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${f.id === activeId ? "bg-muted" : "hover:bg-panel"}`}
+                >
+                  <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="truncate text-12 font-medium">{f.name}.{f.ext}</p>
+                    <p className="text-11 text-muted-foreground">
+                      {disp
+                        ? (disp === "accepted" ? "已接受 · 已转 READY" : "已拒绝")
+                        : (f.reviewReasons ?? []).map((r) => REVIEW_REASON_LABEL[r].split("（")[0]).join(" · ")}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 详情 */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {active ? (
+            <ReviewDetail
+              file={active}
+              disposition={dispositions[active.id] ?? null}
+              onResolve={(d) => resolve(active.id, d)}
+            />
+          ) : (
+            <p className="text-12 text-muted-foreground">队列为空</p>
+          )}
+        </div>
       </div>
     </div>
   );

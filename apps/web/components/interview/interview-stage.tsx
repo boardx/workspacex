@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WITHDRAWAL_SLA_SUMMARY, EXTERNAL_REPLACEMENT_NOTE } from "@/lib/withdrawal-flow";
 import {
   TRANSCRIPT, RECORDING_TRACKS, SPEAKERS, INTERVIEW_SESSION, AUTHORIZATION,
   authGrantedCount, speakerDisplay, speakerInitials, isReadOnlyView,
@@ -438,7 +439,7 @@ function IntervieweeSelfPanel() {
         <p className="text-12 font-medium">撤回授权</p>
         <p className="text-11 text-muted-foreground">
           撤回后：本场引述退出检索、引用过它的报告段落会标「证据已撤回」（不静默删除），
-          物理删除会在 30 天内完成并给你回执。
+          物理删除会在 {WITHDRAWAL_SLA_SUMMARY.physical} 内完成并给你回执。
         </p>
 
         {withdrawn ? (
@@ -446,10 +447,12 @@ function IntervieweeSelfPanel() {
             <span className="inline-flex items-center gap-1 text-12 font-medium">
               <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-success" /> 撤回申请已提交
             </span>
+            {/* 时限来自单一事实源，不在此处复述数字——三个屏说三个时限就是三份矛盾的对外声明 */}
             <p className="text-11 text-muted-foreground">
-              相关引述将在 5 分钟内退出检索；引用过它的报告段落标为「证据已撤回」而非删除；
-              30 天内完成物理删除并向你发送回执。
+              相关引述将在 {WITHDRAWAL_SLA_SUMMARY.logical} 内退出检索；引用过它的报告段落标为「证据已撤回」而非删除；
+              {WITHDRAWAL_SLA_SUMMARY.physical} 内完成物理删除并向你发送回执。
             </p>
+            <p className="text-10 text-muted-foreground">{EXTERNAL_REPLACEMENT_NOTE}</p>
           </div>
         ) : !withdrawing ? (
           <Button size="sm" variant="destructive" className="self-start" onClick={() => setWithdrawing(true)} data-testid="itv-withdraw-submit">
@@ -466,7 +469,7 @@ function IntervieweeSelfPanel() {
               <ArrowLeft aria-hidden className="h-3 w-3" /> 先不撤回
             </button>
             <ul className="flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground" data-testid="itv-withdraw-impact">
-              <li>本场 {WITHDRAWAL_IMPACT.quotesRemoved} 条引述退出检索（5 分钟内生效）。</li>
+              <li>本场 {WITHDRAWAL_IMPACT.quotesRemoved} 条引述退出检索（{WITHDRAWAL_SLA_SUMMARY.logical} 内生效）。</li>
               <li>{WITHDRAWAL_IMPACT.affectedReportSegments.length} 段报告将标「证据已撤回」，<strong className="font-medium text-background-foreground">不静默删除</strong>。</li>
               <li>逐字稿与音频将于 {WITHDRAWAL_IMPACT.retentionDeleteBy} 前物理删除，并给你回执。</li>
             </ul>

@@ -481,6 +481,30 @@ export const MCP_TOOLS: Record<string, McpTool[]> = {
   ],
 };
 
+/**
+ * 各能力「当前进行中的调用数」（D-U5）—— 停用二选一确认里的影响范围 N 从这里取，
+ * **不写死 0**。数量级照活跃度：运行中的热门能力有并发在跑，冷门/已停用的为 0。
+ * 「进行中」= 已发起、尚未返回的调用；停用时它们要么被立即中断，要么允许跑完当前一轮。
+ */
+export const IN_FLIGHT_CALLS: Record<string, number> = {
+  // 模型（被多个 agent 共享，通用强模型并发最高）
+  "m-gpt52": 14, "m-opus46": 9, "m-sonnet46": 6, "m-haiku46": 3, "m-deepseek": 5,
+  "m-gem25p": 2, "m-qwen32": 4, "m-qwen72": 7, "m-llama70": 2, "m-r170": 1,
+  "m-glm9": 1, "m-whisper": 3,
+  // agent（正在替人跑的活）
+  "ag-ava": 3, "ag-scout": 5, "ag-echo": 2, "ag-ledger": 4, "ag-devil": 1,
+  // skill（被 agent 编排调用中）
+  "sk-mece": 6, "sk-quote": 8, "sk-empathy": 11, "sk-benchmark": 2, "sk-pov": 1,
+  "sk-roi": 3, "sk-persona": 1, "sk-risk": 2,
+  // MCP（撤销授权影响的是正经它发起、尚未返回的工具调用）
+  "mcp-crm": 2, "mcp-data": 9, "mcp-kb": 3, "mcp-wecom": 1, "mcp-timesheet": 1,
+};
+
+/** 取某能力当前进行中的调用数（表外恒为 0，不编造）。 */
+export function inFlightOf(id: string): number {
+  return IN_FLIGHT_CALLS[id] ?? 0;
+}
+
 /** agent 试跑的样例输出（「试跑」面板）—— 让人看到一次真实运行的形态，而非转圈 */
 export const AGENT_TRIAL_OUTPUT = {
   input: "为『欧洲储能进入』做一次假设树体检，指出最致命的 3 条未验证假设。",

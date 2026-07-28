@@ -12,6 +12,8 @@
  * conversation/canvas/generated 七类物化文件）。`system` 字段用于让界面一眼区分两者。
  */
 
+import { WITHDRAWAL_FLOW } from "@/lib/withdrawal-flow";
+
 /* ── 来源类型（八值枚举，UC-22.1 R3 第 2 步；与各上游模块同一份定义）───────── */
 
 export type SourceType =
@@ -326,13 +328,16 @@ export interface IngestionRun {
   /** 幂等命中：这份材料已在库（UC-22.2 A3）*/
   duplicateOf?: string;
   reviewReasons?: ReviewReason[];
+  /** 对应的 artifact_id（D-U11）：复核处置以它为键，抽屉与独立复核屏共享同一份状态。
+   *  只有已入库、能进复核队列的运行才有。 */
+  artifactId?: string;
 }
 
 export const INGESTION_RUNS: IngestionRun[] = [
   { id: "run-1", fileName: "季度供应商评估.pptx", state: "RECEIVED", elapsed: "2 秒" },
   { id: "run-2", fileName: "疑似恶意宏文档.docm", state: "QUARANTINED", elapsed: "8 秒" },
   { id: "run-3", fileName: "采购合同 2024（扫描）.pdf", state: "EXTRACTED", elapsed: "41 秒" },
-  { id: "run-4", fileName: "客户内部成本模型.xlsx", state: "REVIEW_PENDING", elapsed: "1 分 12 秒", reviewReasons: ["confidential"] },
+  { id: "run-4", fileName: "客户内部成本模型.xlsx", state: "REVIEW_PENDING", elapsed: "1 分 12 秒", reviewReasons: ["confidential"], artifactId: "a-003" },
   { id: "run-5", fileName: "现场录音 · 补充访谈.m4a", state: "STORED", elapsed: "3 分 40 秒",
     failure: { where: "读取内容（EXTRACTED）", why: "ASR 服务暂不可用——原件已入库可下载，转录稍后重试。" } },
   { id: "run-6", fileName: "客户 RFP · 欧洲储能进入.pdf", state: "READY", elapsed: "已完成",
@@ -397,13 +402,18 @@ export interface TrashTask {
   steps: { no: string; label: string; sla: string; state: TrashStepState }[];
 }
 
-const FIVE_STEPS = (states: TrashStepState[]) => [
-  { no: "01", label: "文字稿与音频进入待删除队列", sla: "即时", state: states[0]! },
-  { no: "02", label: "引述退出检索，主题矩阵重算强度", sla: "≤5 分钟", state: states[1]! },
-  { no: "03", label: "引用过它的报告段落标为「证据已撤回」，不静默删除", sla: "即时", state: states[2]! },
-  { no: "04", label: "若已支撑已签字决策，通知拍板人复核（不自动改结论）", sla: "需人工", state: states[3]! },
-  { no: "05", label: "物理删除并回执给受访者", sla: "≤30 天", state: states[4]! },
-];
+/**
+ * ⚠ 五步与其 SLA 来自单一事实源 `lib/withdrawal-flow.ts`（裁决 D-13 / D-15 / D-19）。
+ * 此前这里维护了一份副本，第 03 步写成「即时」，与同意书那份的「≤5 分钟」**已经漂移**。
+ * 本函数现在只负责把「进度状态」叠加到那份权威定义上，**不再复述内容与时限**。
+ */
+const FIVE_STEPS = (states: TrashStepState[]) =>
+  WITHDRAWAL_FLOW.map((s, i) => ({
+    no: s.no,
+    label: s.step,
+    sla: s.sla,
+    state: states[i]!,
+  }));
 
 export const TRASH_TASKS: TrashTask[] = [
   { id: "del-1", fileName: "客户访谈 03 · 物流总监.m4a", reason: "受访者撤回同意（撤回录音 + 分析）",

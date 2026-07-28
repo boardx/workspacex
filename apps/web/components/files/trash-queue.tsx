@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "./overlay";
 import { TRASH_TASKS, type TrashTask, type TrashStepState } from "@/lib/mock/files";
+import { WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
 
 /**
  * 待删除队列（UC-22.4 R3.c/d / R5）—— **合规负责人专属屏**。
@@ -29,7 +30,7 @@ export function TrashQueue({ canView, onToast }: { canView: boolean; onToast: (m
       <div>
         <h1 className="text-18 font-semibold">待删除队列</h1>
         <p className="mt-0.5 text-12 text-muted-foreground">
-          两级 SLA（D-15）：逻辑失效 ≤5 分钟，物理删除 ≤30 天并出回执。留存宽限期 30 天（O-01，可项目级覆盖）。
+          {WITHDRAWAL_SLA_SUMMARY.sentence}。留存宽限期见 D-14 的删除宽限期参数（O-01，可项目级覆盖；默认值待合规给出）。
         </p>
       </div>
 
