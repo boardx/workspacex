@@ -1,6 +1,6 @@
 # 原始需求索引 — 共享内核（Phase 00）
 
-> 本文件是 `requirements/` 的**阅读地图**，不是需求本体。需求本体在 `00-core/` 下的 3 份 UC。
+> 本文件是 `requirements/` 的**阅读地图**，不是需求本体。需求本体在 `00-core/` 下的 4 份 UC。
 > `requirement-author` 应先读本文，再按下表顺序读 UC，最后生成 `../feature_list.json`。
 > 裁决依据：`phases/requirements/DECISIONS-FINAL.md`（D-01…D-41）+ `DECISIONS-OPEN.md`（O-01…O-40，40 条已全部填写裁决）。
 > 架构依据：`docs/architecture/context-engine.md`。
@@ -28,8 +28,12 @@ Context Pack 装配与引用完整性、两层角色本体与 RLS 强制隔离�
 
 | 目录 | 中文名 | UC 数 | 估点小计 | 一句话职责 |
 |---|---|---|---|---|
-| `00-core/` | M0 跨工具协议 | 3 | **55** | Artifact 模型 + Context Pack + 两层角色，全项目唯一的横切契约层 |
-| | **合计** | **3** | **55** | |
+| `00-core/` | M0 跨工具协议 | 4 | **68** | Artifact 模型 + Context Pack + 两层角色（横切契约层）+ 前端内核与设计单源（UI 关卡前提） |
+| | **合计** | **4** | **68** | |
+
+> 其中 **55 点**源自原始需求（`uc-0-1` / `uc-0-2` / `uc-0-3`），
+> **13 点**（`uc-0-4`）是从 ADR-003 / D-35 / D-36 三项已有裁决反推的**流程前提**，
+> 不计入 699 原始需求基线。见 `phases/requirements/ESTIMATE-BASELINE.md`。
 
 逐份：
 
@@ -37,6 +41,7 @@ Context Pack 装配与引用完整性、两层角色本体与 RLS 强制隔离�
 |---|---|---|---|---|
 | `uc-0-1` | 把 Studio 产出保存回项目 | P0 | **21** | `artifacts` / `artifact_versions` / **三模式绑定**（草稿 · 实时关联 · **固定快照**）；D-30「引用必须指向不可变快照」的实现处 |
 | `uc-0-2` | Studio 打开时带上项目上下文 | P0 | **21** | Context Pack 契约 `items[] / claims[] / omissions[]`；**query-planned hybrid** 五路召回（FTS / 向量 / 图 / 元数据 / Claim）+ RRF + rerank；引用完整性断言 |
+| `uc-0-4` | 前端内核与设计单源 | P0 | **13** | `apps/web` 骨架；**设计 token 与字号档位各自单源**且对比度可机器验算；七态共享外壳；`data-testid` 命名规范 + `lint-design.sh` 门控。**当前唯一的全局开工阻塞**——不做则三个 `has_ui` 阶段的 `new-sprint` 全部被拒 |
 | `uc-0-3` | 角色本体与两层权限模型 | P0 | **13** | 组织角色 × 项目角色两层正交；`acl_bindings` 统一权限表；**PostgreSQL RLS + FORCE ROW LEVEL SECURITY**；权限沿 Segment / embedding / 图节点 / 缓存 / Context Pack 传播 |
 
 ---
@@ -49,7 +54,10 @@ Context Pack 装配与引用完整性、两层角色本体与 RLS 强制隔离�
 `22-files` 全模块、`14-brain/uc-14-6` 检索可审查、`17-gov/uc-17-1` 全链路审计、
 `09-kg` 事实关系、`13-deliv/uc-13-5` 快照绑定契约，都是本阶段三份 UC 的直接下游。
 
-**阶段内先后**（有硬顺序，不可并行乱序）：
+**`uc-0-4` 与其余三份完全无依赖，可立即并行开工**——它是前端侧的前提，与后端契约层不相交。
+它反而是 **phase-01/02/03 全部 96 份 has_ui UC 的前置**（ADR-003 关卡的执行条件）。
+
+**其余三份的阶段内先后**（有硬顺序，不可并行乱序）：
 
 ```
 uc-0-3 角色本体 ──> uc-0-1 Artifact 与三模式 ──> uc-0-2 Context Pack
@@ -154,6 +162,13 @@ uc-0-3 角色本体 ──> uc-0-1 Artifact 与三模式 ──> uc-0-2 Context 
 
 以上三项**不阻塞本阶段开工**（本阶段交付的是后端契约），
 但**会阻塞 phase-1 中承载它们的那几块屏**的 sign-off。建议在本阶段并行发起补画。
+
+⚠ **补画本身此刻还做不了**：`ui-prototyper` 要求 `apps/web` 的真实组件与设计 token，
+而 `apps/` 目前是空目录（详见 `uc-0-4` 的补写缘由）。**`uc-0-4` 是补画的前置**——
+先做它，`ui-prototyper` 才有落笔处。
+
+`uc-0-4` 自身**不走 UI sign-off**：它是关卡的前提而非对象，要求它先过 sign-off
+构成循环依赖。故以机器门控代替（R12 的 V1–V10 全为可执行断言）。
 
 ---
 

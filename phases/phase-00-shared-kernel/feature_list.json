@@ -31,7 +31,9 @@
       "title": "PostgreSQL RLS 强制隔离 + 权限沿数据链路传播：跨租户泄漏为零，且 Artifact 权限传播到 Segment/embedding/图节点/缓存/Context Pack",
       "user_visible_behavior": "用运行时（非 owner）数据库连接直接跨租户 SELECT 返回 0 行；忘记加 WHERE 的默认结果是『查不到』而非『全查到』。一份仅某团队可见的 Artifact，非该团队成员经检索、Context Pack、embedding 相似度、图节点遍历、文件浏览器、缓存命中六条路径全部取不到其内容；交集生成内容取所有来源权限中最严格的一档。",
       "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R7",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 5,
       "status": "not_started",
       "sprint": null,
@@ -53,7 +55,9 @@
       "title": "管理员边界：管理员不是超级用户，个人层只见计数，读取项目内容必留痕且对项目负责人可见",
       "user_visible_behavior": "组织管理员访问其无项目角色的项目内容被拒（AC1）；查询他人个人层仅返回计数字段、响应体中不含内容字段（AC2）；管理员以审计目的读取项目内容时成功但每次写审计日志，项目负责人可在『看我的访问记录』查询到。草稿模式产出对管理员返回 404 而非 403。",
       "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R6",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -75,7 +79,10 @@
       "title": "Artifact 六表数据模型 + file-first 存储契约 + S3/PG 双 canonical",
       "user_visible_behavior": "任一来源（问卷/对话/访谈/AI 生成）保存后，在对象存储里都有一个真实可下载的文件（非文件来源被物化为 responses.csv/messages.jsonl/transcript.jsonl 等）；派生物是独立文件、带 derived_from 指回原件版本、不覆盖原件；每个 Segment 都能回到原件的页码/时间码/消息/题号锚点。",
       "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R1",
-      "depends_on": ["F01", "F02"],
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
       "points": 6,
       "status": "not_started",
       "sprint": null,
@@ -97,7 +104,9 @@
       "title": "固定快照不可变存储：定版=新增不可变 artifact_version（SHA-256 固化），改源不影响已定版、字节一致、不可删",
       "user_visible_behavior": "定版生成 artifact@v1 后修改源 Artifact 再读取 v1，内容字节一致（AC2）；两名用户并发定版只产生一个新版本号，另一方收到『版本已变化』提示；通过任何接口尝试修改或删除已定版快照全部被拒并记录审计事件。",
       "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R7",
-      "depends_on": ["F04"],
+      "depends_on": [
+        "F04"
+      ],
       "points": 4,
       "status": "not_started",
       "sprint": null,
@@ -119,7 +128,10 @@
       "title": "三模式绑定服务（草稿/实时关联/固定快照）与项目侧回流列表契约",
       "user_visible_behavior": "用户在 Studio 选三种模式之一把产出挂到项目环节：草稿仅创建者可见、项目侧不出现；实时关联项目侧随源变动、标注『实时·随源变动』；固定快照生成 artifact@vN 并记录定版人/时间。项目侧『已回流的产出与版本』列表对每条返回 mode/version/pinned_by/pinned_at 四字段（草稿除外）。实时关联可升级为固定快照；固定快照不可降级。",
       "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R3",
-      "depends_on": ["F04", "F05"],
+      "depends_on": [
+        "F04",
+        "F05"
+      ],
       "points": 4,
       "status": "not_started",
       "sprint": null,
@@ -141,7 +153,9 @@
       "title": "下游引用资格门控：只有固定快照可被决策引用、进验收、进报告正式版、写回图谱与组织大脑",
       "user_visible_behavior": "对实时关联/草稿模式产出调用『加入报告正式版/提交验收/引用为决策依据/写回图谱』接口全部返回拒绝，错误信息指向『需先定版』并提供一键定版入口；对固定快照调用同样接口全部成功。",
       "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R6",
-      "depends_on": ["F06"],
+      "depends_on": [
+        "F06"
+      ],
       "points": 4,
       "status": "not_started",
       "sprint": null,
@@ -161,7 +175,9 @@
       "title": "回流/定版审计：provenance_events append-only 血缘 + 越权尝试安全审计 + 通知",
       "user_visible_behavior": "每次定版与绑定可按操作者、时间、Artifact、模式检索；越权修改/删除快照的尝试也留安全审计记录；快照支撑的证据被撤回时不改快照内容、改为在引用处标注『证据已撤回』并通知拍板人复核。",
       "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R7",
-      "depends_on": ["F06"],
+      "depends_on": [
+        "F06"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -182,7 +198,9 @@
       "title": "Context Pack 结构契约：items[]/claims[]/omissions[] 三段结构，每条 items 含八字段六元组、无一为空",
       "user_visible_behavior": "Context Pack 接口返回的 JSON 通过 ContextPack 类型 schema 校验：items[] 每条含 segmentId/content/sourceType/artifactVersionId/anchor/retrievalReasons/score/permissionDecisionId 八字段且非空（anchor 至少命中一种锚点），claims[] 每条含 statement/status/supportingSegmentIds/contradictingSegmentIds（反对证据强制保留）。",
       "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R1",
-      "depends_on": ["F04"],
+      "depends_on": [
+        "F04"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -203,7 +221,10 @@
       "title": "五路并行 query-planned hybrid 召回 + 权限过滤（RLS 层）+ RRF 融合 + rerank，含带权限过滤的 pgvector recall 测试集",
       "user_visible_behavior": "用只含精确原话/编号的 query 检索命中且 retrievalReasons 含 FTS 通道（验证 FTS 是一等通道），用同义改写 query 向量通道命中，两者结果非空；权限与租户过滤在 SQL/RLS 层完成；同一组 query 在『无权限过滤』与『叠加权限过滤』下运行 pgvector 召回，过滤条件下 recall 不低于约定基线（不出现『有权访问却召不回』的静默失败）。",
       "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R3",
-      "depends_on": ["F09", "F02"],
+      "depends_on": [
+        "F09",
+        "F02"
+      ],
       "points": 8,
       "status": "not_started",
       "sprint": null,
@@ -225,7 +246,9 @@
       "title": "五种筛选动作留痕（retrievalReasons）+ 预算裁剪 + 丢弃清单可审查（omissions[]）",
       "user_visible_behavior": "对候选执行召回/降权/排除/成对/线索五种筛选动作并逐条留痕于 items[].retrievalReasons；按 token 预算裁剪后被丢弃条目可通过接口列出、返回数量与所用阈值；候选集中每一条未出现在 items[] 的内容都能在 omissions[] 中找到对应丢弃原因（预算超限/低于相关度阈值/权限过滤/去重折叠）。",
       "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R7",
-      "depends_on": ["F10"],
+      "depends_on": [
+        "F10"
+      ],
       "points": 4,
       "status": "not_started",
       "sprint": null,
@@ -246,7 +269,10 @@
       "title": "引用完整性校验：AI 不得引用不在本次 Context Pack 中的证据",
       "user_visible_behavior": "构造一次 AI 调用使其尝试引用一条不在 Context Pack 中的证据，接口拒绝并记录；引用包内证据则通过。全新无材料项目装配返回真实空态，且以该包发起的 AI 调用被阻断而非生成无来源结论；检索服务不可用时 AI 调用入口被阻断，不出现『无上下文直接生成』。",
       "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R6",
-      "depends_on": ["F09", "F10"],
+      "depends_on": [
+        "F09",
+        "F10"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -267,7 +293,11 @@
       "title": "Context Pack 随定版固化 + 可重放 + 机密材料本地模型路由",
       "user_visible_behavior": "产出定版为固定快照时把本次 Context Pack 引用清单随快照固化，任取一条已定版结论可还原其定版时的完整引用清单（『这条结论当时看了什么』）；同一 run id 重放得到同一 items[]；Context Pack 含标记为客户机密的条目时，模型选择接口只返回自托管模型。",
       "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R7",
-      "depends_on": ["F05", "F09", "F11"],
+      "depends_on": [
+        "F05",
+        "F09",
+        "F11"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -279,6 +309,31 @@
       "evidence": [],
       "needs_ui_signoff": false,
       "notes": "Context Pack 一经用于定版即随快照固化，此后上游变化不改写它（对应 context-engine.md 首批门槛⑥可重放 + uc-17-1 AC1）。可重放是纯函数断言（同 run id 重放得同 items[]）。机密路由：含客户机密条目时本次调用模型选择限自托管模型（R12 V9 机密路由 + V8 审计还原）。依据：[原型]（机密材料只能本地模型）+[设计]（固化/重放）。全 API/纯函数断言，不涉界面。[待确认] Context Pack 装配快照的留存期未定——不阻塞实现，标注待细化（它是审计依据但体量可能很大）。与 F05 快照不可变、F11 omissions 固化协同。"
+    },
+    {
+      "id": "F14",
+      "priority": 1,
+      "area": "kernel-web",
+      "capability": "CAP-UI",
+      "title": "前端内核可运行，且设计规范由脚本机器把关而不是靠人自觉",
+      "user_visible_behavior": "pnpm dev 能起出 apps/web；样板页可用 ?state= 逐个看到默认/加载/空/校验失败/依赖失败/无权限/成功七种状态，每种状态有固定 data-testid 可被 Playwright 选中；顶部有组织切换器与两层角色说明条（形如「顾问 · 能源组 ｜ 本项目：组长 · 第 2 组」）；故意写一个硬编码颜色或裸 <button>，pnpm lint-design 会红并指出违规行。",
+      "spec_ref": "00-core/uc-0-4-前端内核与设计单源.md#R3",
+      "depends_on": [],
+      "points": 13,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm turbo run typecheck lint test --filter=web",
+        "node apps/web/scripts/check-token-contrast.mjs",
+        "pnpm vitest run tests/web-kernel/single-source-of-truth.test.ts",
+        "pnpm vitest run tests/web-kernel/lint-design-gate.test.ts",
+        "pnpm exec playwright test tests/web-kernel/seven-states.spec.ts",
+        "pnpm exec playwright test tests/web-kernel/preview-switches-absent-in-prod.spec.ts"
+      ],
+      "evidence": [],
+      "needs_ui_signoff": false,
+      "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。"
     }
   ]
 }
