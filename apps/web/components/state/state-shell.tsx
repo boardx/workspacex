@@ -2,7 +2,7 @@
 import * as React from "react";
 import { AlertTriangle, Inbox, Loader2, Lock, PlugZap, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
+import { UI_STATES, UI_STATE_LABEL, RESERVED_STATE_TESTID, type UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -44,7 +44,7 @@ export function StateShell({
 }: StateShellProps) {
   if (state === "loading") {
     return (
-      <div data-testid="loading" className={cn("flex animate-pulse flex-col gap-3 p-4", className)}>
+      <div data-testid={RESERVED_STATE_TESTID["loading"]} className={cn("flex animate-pulse flex-col gap-3 p-4", className)}>
         {Array.from({ length: skeletonRows }).map((_, i) => (
           <div key={i} className="h-14 rounded-lg bg-muted" />
         ))}
@@ -56,7 +56,7 @@ export function StateShell({
   if (state === "empty") {
     return (
       <div
-        data-testid="empty"
+        data-testid={RESERVED_STATE_TESTID["empty"]}
         className={cn(
           "flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-12 text-center",
           className,
@@ -80,7 +80,7 @@ export function StateShell({
         {children}
         <div className="flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-3">
           {entries.map(([field, msg]) => (
-            <p key={field} role="alert" data-testid={`err-${field}`} className="text-12 text-destructive">
+            <p key={field} role="alert" data-testid={`${RESERVED_STATE_TESTID.invalid}${field}`} className="text-12 text-destructive">
               {msg}
             </p>
           ))}
@@ -92,7 +92,7 @@ export function StateShell({
   if (state === "dep-failed") {
     return (
       <div
-        data-testid="dep-failed"
+        data-testid={RESERVED_STATE_TESTID["dep-failed"]}
         role="alert"
         className={cn(
           "flex flex-col items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 py-10 text-center",
@@ -120,7 +120,7 @@ export function StateShell({
     // 且不得泄露资源是否存在（R6 失败后置条件）。
     return (
       <div
-        data-testid="denied"
+        data-testid={RESERVED_STATE_TESTID["denied"]}
         role="alert"
         className={cn(
           "flex flex-col items-center gap-3 rounded-lg border border-border bg-muted py-10 text-center",
@@ -145,7 +145,7 @@ export function StateShell({
       <div className={cn("flex flex-col gap-3", className)}>
         {children}
         <p
-          data-testid="saved"
+          data-testid={RESERVED_STATE_TESTID["success"]}
           className="inline-flex items-center gap-1 text-12 text-success transition-opacity duration-300"
         >
           <Check aria-hidden className="h-3.5 w-3.5" />

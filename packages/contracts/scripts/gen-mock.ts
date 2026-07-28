@@ -8,15 +8,33 @@
  * 而不是等到联调才发现。这是把「契约正确性」从人的自觉转成机器可验证的关键一步。
  *
  * 产物带 `@generated` 头，`lint-contract-source` 据此判定它没被手改。
+ * 每个契约束一个 `<file>.mock.ts`；新增契约束时在 MODULES 加一行即可。
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import * as identity from "../src/identity";
+import * as artifact from "../src/artifact";
+import * as contextPack from "../src/context-pack";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const OUT = join(ROOT, "apps/web/lib/generated");
+
+type Op = { out: z.ZodTypeAny; err: readonly string[] };
+/**
+ * `file` = 生成物文件名 / 契约包子路径（可含连字符，如 `context-pack`）；
+ * `varName` = 生成物里 `import * as <varName>` 的 JS 标识符（不能含连字符）。
+ * 省略 `varName` 时默认取 `file`（适用于 identity / artifact 这类本身就是合法标识符的束）。
+ */
+type Bundle = { file: string; varName?: string; operations: Record<string, unknown> };
+
+/** 契约束清单——新增束在此加一行，生成器自动产出 `<file>.mock.ts` */
+const MODULES: Bundle[] = [
+  { file: "identity", operations: identity.operations },
+  { file: "artifact", operations: artifact.operations },
+  { file: "context-pack", varName: "contextPack", operations: contextPack.operations },
+];
 
 /**
  * 从 zod schema 造一个**确定性**样例。
@@ -71,27 +89,30 @@ const HEADER = `/**
  */
 `;
 
-const lines: string[] = [HEADER];
-lines.push(`import type { z } from "zod";`);
-lines.push(`import * as identity from "@repo/contracts/identity";\n`);
-
-for (const [name, op] of Object.entries(identity.operations)) {
-  const o = op as { out: z.ZodTypeAny; err: readonly string[] };
-  const value = JSON.stringify(sample(o.out, name), null, 2);
-  lines.push(`/** ${name} 的成功响应样例（由契约生成） */`);
-  lines.push(
-    `export const ${name}Mock: z.infer<typeof identity.operations.${name}.out> = ${value};\n`,
-  );
-  if (o.err.length) {
-    lines.push(`/** ${name} 的失败模式全集——界面的异常态必须逐个覆盖 */`);
-    lines.push(
-      `export const ${name}Errors = ${JSON.stringify(o.err)} as const;\n`,
-    );
-  }
-}
-
 mkdirSync(OUT, { recursive: true });
-const target = join(OUT, "identity.mock.ts");
-writeFileSync(target, lines.join("\n"), "utf8");
-console.log(`✓ 已生成 ${target}`);
-console.log(`  ${Object.keys(identity.operations).length} 个操作的成功样例 + 失败模式全集`);
+
+for (const bundle of MODULES) {
+  const varName = bundle.varName ?? bundle.file;
+  const lines: string[] = [HEADER];
+  lines.push(`import type { z } from "zod";`);
+  lines.push(`import * as ${varName} from "@repo/contracts/${bundle.file}";\n`);
+
+  for (const [name, op] of Object.entries(bundle.operations)) {
+    const o = op as Op;
+    const value = JSON.stringify(sample(o.out, name), null, 2);
+    lines.push(`/** ${name} 的成功响应样例（由契约生成） */`);
+    lines.push(
+      `export const ${name}Mock: z.infer<typeof ${varName}.operations.${name}.out> = ${value};\n`,
+    );
+    if (o.err.length) {
+      lines.push(`/** ${name} 的失败模式全集——界面的异常态必须逐个覆盖 */`);
+      lines.push(
+        `export const ${name}Errors = ${JSON.stringify(o.err)} as const;\n`,
+      );
+    }
+  }
+
+  const target = join(OUT, `${bundle.file}.mock.ts`);
+  writeFileSync(target, lines.join("\n"), "utf8");
+  console.log(`✓ 已生成 ${target}（${Object.keys(bundle.operations).length} 个操作）`);
+}

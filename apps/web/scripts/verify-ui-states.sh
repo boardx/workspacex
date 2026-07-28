@@ -23,6 +23,25 @@ for _ in $(seq 1 60); do
 done
 [ "${code:-}" = "200" ] || { echo "✗ dev 实例未就绪（${code:-无}）"; tail -20 /tmp/ui-gate.log; exit 1; }
 
+# 七态保留 testid 的**唯一事实源**是 lib/ui-state.ts 的 RESERVED_STATE_TESTID。
+# 这里 sed 读它，不在本脚本里重列一遍——照 lint-design.sh 读 font-scale.ts 的成例。
+# （此前这份映射在 JSX 与本脚本各写一遍，是第六次「同一事实声明在两处」的候选。）
+reserved_testid() {
+  # ⚠ 必须限定在 RESERVED_STATE_TESTID 块内 —— 文件里 UI_STATE_LABEL 先出现且键名相同，
+  #   不限定会读到中文标签（第一版就踩了这个）。
+  awk -v k="$1" '
+    /RESERVED_STATE_TESTID/ { inblk = 1; next }
+    inblk && /^\};/ { exit }
+    inblk && $0 ~ "^[[:space:]]*\"?" k "\"?:" {
+      if (match($0, /:[[:space:]]*"[^"]*"/)) {
+        v = substr($0, RSTART); sub(/^:[[:space:]]*"/, "", v); sub(/".*/, "", v); print v; exit
+      }
+    }' lib/ui-state.ts
+}
+if [ -z "$(reserved_testid loading)" ]; then
+  echo "✗ 无法从 lib/ui-state.ts 读出 RESERVED_STATE_TESTID（单一事实源读取失败）"; exit 1
+fi
+
 echo "==> 七种必现状态（每态一个固定 testid）"
 assert_state() { # assert_state <state> <期望 testid>
   local body; body=$(curl -s "http://localhost:$PORT/kitchen-sink?state=$1")
@@ -59,7 +78,7 @@ studio/interview studio/survey studio/research"
 matrix_fail=0
 for scr in $SCREENS; do
   for st in loading empty invalid dep-failed denied success; do
-    case "$st" in invalid) want="err-" ;; success) want="saved" ;; *) want="$st" ;; esac
+    want=$(reserved_testid "$st")
     if ! curl -s "http://localhost:$PORT/$scr?state=$st" | grep -q "data-testid=\"$want"; then
       echo "  ✗ /$scr → $st 缺保留 testid（期望 $want）"; matrix_fail=$((matrix_fail+1)); FAIL=1
     fi
