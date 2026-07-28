@@ -1,4 +1,6 @@
-/**
+
+import type { z } from "zod";
+import * as C from "@repo/contracts/identity";/**
  * 后台（治理）mock 数据 —— 数量级与字段完整度照 PROTOTYPE-DIGEST 第八节实测密度做。
  *
  * ⚠ 两套枚举**刻意分成两个独立类型**，禁止合并（UC-0.3 R7 / UC-21.1 O-20）：
@@ -65,10 +67,11 @@ export const ORG_HEADER = {
 // ─────────────────────────────────────────────────────────────────────────
 // 枚举 ①：可见性范围（agent / skill / 画布模板）
 // ─────────────────────────────────────────────────────────────────────────
-export type VisibilityScope = "org" | "team";
+/** ⚠ 从契约派生，不在此处定义第二份（ADR-020 / lint-contract-source） */
+export type VisibilityScope = z.infer<typeof C.VisibilityScope>;
 export const VISIBILITY_LABEL: Record<VisibilityScope, string> = {
-  org: "全组织可用",
-  team: "仅某组",
+  "org-wide": "全组织可用",
+  "team-only": "仅某组",
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -180,14 +183,14 @@ export interface AgentRow {
 }
 
 export const AGENTS: AgentRow[] = [
-  { id: "ag-ava", initials: "AV", name: "Ava", role: "战略分析师", visibility: "org", status: "running", model: "claude-opus-4.6", skills: 12, callsPerMonth: 3104 },
-  { id: "ag-scout", initials: "SC", name: "Scout", role: "市场研究", visibility: "org", status: "running", model: "claude-sonnet-4.6", skills: 8, callsPerMonth: 4120 },
-  { id: "ag-echo", initials: "EC", name: "Echo", role: "转录与综合", visibility: "org", status: "running", model: "whisper ＋ sonnet", skills: 5, callsPerMonth: 1930 },
-  { id: "ag-ledger", initials: "LG", name: "Ledger", role: "财务建模", visibility: "team", team: "能源组", status: "running", model: "gpt-5.2", skills: 6, callsPerMonth: 742 },
-  { id: "ag-devil", initials: "DV", name: "Devil", role: "魔鬼代言人", visibility: "org", status: "running", model: "claude-opus-4.6", skills: 3, callsPerMonth: 561 },
-  { id: "ag-jobs", initials: "JB", name: "Jobs", role: "产品化与交付", visibility: "org", status: "disabled", model: "gpt-5.2-mini", skills: 4, callsPerMonth: 0 },
+  { id: "ag-ava", initials: "AV", name: "Ava", role: "战略分析师", visibility: "org-wide", status: "running", model: "claude-opus-4.6", skills: 12, callsPerMonth: 3104 },
+  { id: "ag-scout", initials: "SC", name: "Scout", role: "市场研究", visibility: "org-wide", status: "running", model: "claude-sonnet-4.6", skills: 8, callsPerMonth: 4120 },
+  { id: "ag-echo", initials: "EC", name: "Echo", role: "转录与综合", visibility: "org-wide", status: "running", model: "whisper ＋ sonnet", skills: 5, callsPerMonth: 1930 },
+  { id: "ag-ledger", initials: "LG", name: "Ledger", role: "财务建模", visibility: "team-only", team: "能源组", status: "running", model: "gpt-5.2", skills: 6, callsPerMonth: 742 },
+  { id: "ag-devil", initials: "DV", name: "Devil", role: "魔鬼代言人", visibility: "org-wide", status: "running", model: "claude-opus-4.6", skills: 3, callsPerMonth: 561 },
+  { id: "ag-jobs", initials: "JB", name: "Jobs", role: "产品化与交付", visibility: "org-wide", status: "disabled", model: "gpt-5.2-mini", skills: 4, callsPerMonth: 0 },
   {
-    id: "ag-forge", initials: "FG", name: "Forge", role: "自建 · 客户数据整合", visibility: "team", team: "能源组",
+    id: "ag-forge", initials: "FG", name: "Forge", role: "自建 · 客户数据整合", visibility: "team-only", team: "能源组",
     status: "review", model: "qwen3-72b", skills: 2, callsPerMonth: 0,
     blocker: "工具白名单里有一条越权申请待确认：申请调用 MCP『客户 CRM』(query_contact)，超出该 agent 使用者的授权范围。需安全评审人 + 组织管理员会签。",
   },
@@ -222,17 +225,17 @@ export interface SkillRow {
 }
 
 export const SKILLS: SkillRow[] = [
-  { id: "sk-mece", name: "MECE 假设拆解", duty: "把一个战略问题拆成互斥且穷尽的假设树", version: "v4", status: "enabled", visibility: "org", promptVars: 3, schemaFields: "输入 2 · 输出 5", dataScope: "项目库", origin: "手工", calls: 1842, satisfaction: 92 },
-  { id: "sk-pov", name: "POV 陈述生成", duty: "从访谈证据合成用户观点陈述", version: "v2", status: "enabled", visibility: "org", promptVars: 2, schemaFields: "输入 3 · 输出 4", dataScope: "项目库 ＋ 转写", origin: "手工", calls: 903, satisfaction: 88 },
-  { id: "sk-roi", name: "三路径现金流对比", duty: "对三条商业路径做敏感性与回本测算", version: "v3", status: "enabled", visibility: "team", team: "能源组", promptVars: 4, schemaFields: "输入 6 · 输出 8", dataScope: "项目库 ＋ 电价曲线（含机密，仅本地模型）", origin: "手工", calls: 421, satisfaction: 90 },
-  { id: "sk-quote", name: "访谈引述抽取", duty: "从逐字稿抽可引用的一手引述并标段落", version: "v5", status: "enabled", visibility: "org", promptVars: 2, schemaFields: "输入 1 · 输出 3", dataScope: "原始转写（受同意书约束）", origin: "手工", calls: 2210, satisfaction: 94 },
-  { id: "sk-persona", name: "用户画像合成", duty: "从多组访谈合并同类观点生成画像", version: "v2", status: "enabled", visibility: "org", promptVars: 3, schemaFields: "输入 4 · 输出 6", dataScope: "项目库 ＋ 转写", origin: "手工", calls: 664, satisfaction: 85 },
-  { id: "sk-risk", name: "数据出域红线核查", duty: "核查一条动作是否触发隐私/出域/模型使用红线", version: "v3", status: "enabled", visibility: "org", promptVars: 2, schemaFields: "输入 3 · 输出 2", dataScope: "组织策略库", origin: "手工", calls: 508, satisfaction: 96 },
-  { id: "sk-benchmark", name: "同行落地案例检索", duty: "找同行 AI 落地案例与一手材料，带引用", version: "v2", status: "enabled", visibility: "org", promptVars: 3, schemaFields: "输入 2 · 输出 5", dataScope: "MCP:行业数据库（授权范围内）", origin: "手工", calls: 1177, satisfaction: 87 },
-  { id: "sk-empathy", name: "语音转便签", duty: "把口头讨论实时转成画布便签", version: "v4", status: "enabled", visibility: "org", promptVars: 1, schemaFields: "输入 1 · 输出 1", dataScope: "本组转写", origin: "手工", calls: 3402, satisfaction: 91 },
-  { id: "sk-promote", name: "德国工商储电价机制核查", duty: "核查区域电价机制与并网年报要点", version: "v1", status: "review", visibility: "team", team: "能源组", promptVars: 3, schemaFields: "输入 2 · 输出 4", dataScope: "MCP:欧盟法规库（待评审）", origin: "方法晋升", calls: 0, satisfaction: 0 },
-  { id: "sk-draft", name: "商业模式画布填充（草稿）", duty: "从假设树初填商业模式九宫格", version: "v1", status: "draft", visibility: "org", promptVars: 4, schemaFields: "输入 3 · 输出 9", dataScope: "项目库", origin: "手工", calls: 0, satisfaction: 0 },
-  { id: "sk-legacy", name: "旧版竞品扫描", duty: "已被『同行落地案例检索』取代", version: "v6", status: "disabled", visibility: "org", promptVars: 2, schemaFields: "输入 2 · 输出 4", dataScope: "MCP:行业数据库", origin: "手工", calls: 88, satisfaction: 71 },
+  { id: "sk-mece", name: "MECE 假设拆解", duty: "把一个战略问题拆成互斥且穷尽的假设树", version: "v4", status: "enabled", visibility: "org-wide", promptVars: 3, schemaFields: "输入 2 · 输出 5", dataScope: "项目库", origin: "手工", calls: 1842, satisfaction: 92 },
+  { id: "sk-pov", name: "POV 陈述生成", duty: "从访谈证据合成用户观点陈述", version: "v2", status: "enabled", visibility: "org-wide", promptVars: 2, schemaFields: "输入 3 · 输出 4", dataScope: "项目库 ＋ 转写", origin: "手工", calls: 903, satisfaction: 88 },
+  { id: "sk-roi", name: "三路径现金流对比", duty: "对三条商业路径做敏感性与回本测算", version: "v3", status: "enabled", visibility: "team-only", team: "能源组", promptVars: 4, schemaFields: "输入 6 · 输出 8", dataScope: "项目库 ＋ 电价曲线（含机密，仅本地模型）", origin: "手工", calls: 421, satisfaction: 90 },
+  { id: "sk-quote", name: "访谈引述抽取", duty: "从逐字稿抽可引用的一手引述并标段落", version: "v5", status: "enabled", visibility: "org-wide", promptVars: 2, schemaFields: "输入 1 · 输出 3", dataScope: "原始转写（受同意书约束）", origin: "手工", calls: 2210, satisfaction: 94 },
+  { id: "sk-persona", name: "用户画像合成", duty: "从多组访谈合并同类观点生成画像", version: "v2", status: "enabled", visibility: "org-wide", promptVars: 3, schemaFields: "输入 4 · 输出 6", dataScope: "项目库 ＋ 转写", origin: "手工", calls: 664, satisfaction: 85 },
+  { id: "sk-risk", name: "数据出域红线核查", duty: "核查一条动作是否触发隐私/出域/模型使用红线", version: "v3", status: "enabled", visibility: "org-wide", promptVars: 2, schemaFields: "输入 3 · 输出 2", dataScope: "组织策略库", origin: "手工", calls: 508, satisfaction: 96 },
+  { id: "sk-benchmark", name: "同行落地案例检索", duty: "找同行 AI 落地案例与一手材料，带引用", version: "v2", status: "enabled", visibility: "org-wide", promptVars: 3, schemaFields: "输入 2 · 输出 5", dataScope: "MCP:行业数据库（授权范围内）", origin: "手工", calls: 1177, satisfaction: 87 },
+  { id: "sk-empathy", name: "语音转便签", duty: "把口头讨论实时转成画布便签", version: "v4", status: "enabled", visibility: "org-wide", promptVars: 1, schemaFields: "输入 1 · 输出 1", dataScope: "本组转写", origin: "手工", calls: 3402, satisfaction: 91 },
+  { id: "sk-promote", name: "德国工商储电价机制核查", duty: "核查区域电价机制与并网年报要点", version: "v1", status: "review", visibility: "team-only", team: "能源组", promptVars: 3, schemaFields: "输入 2 · 输出 4", dataScope: "MCP:欧盟法规库（待评审）", origin: "方法晋升", calls: 0, satisfaction: 0 },
+  { id: "sk-draft", name: "商业模式画布填充（草稿）", duty: "从假设树初填商业模式九宫格", version: "v1", status: "draft", visibility: "org-wide", promptVars: 4, schemaFields: "输入 3 · 输出 9", dataScope: "项目库", origin: "手工", calls: 0, satisfaction: 0 },
+  { id: "sk-legacy", name: "旧版竞品扫描", duty: "已被『同行落地案例检索』取代", version: "v6", status: "disabled", visibility: "org-wide", promptVars: 2, schemaFields: "输入 2 · 输出 4", dataScope: "MCP:行业数据库", origin: "手工", calls: 88, satisfaction: 71 },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

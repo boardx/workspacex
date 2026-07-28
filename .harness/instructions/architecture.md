@@ -26,6 +26,46 @@
 | 图投影 | **阶段一不启用 Apache AGE**，先用 `ontology_edges + recursive CTE` | AGE 部署兼容性与托管支持风险高 | 有真实路径性能需求再上，须锁 PG 版本 + 自建镜像 |
 | Agent UI / 实时 | CopilotKit v2 + AG-UI（SSE），**仅作 presentation protocol** | 服务端 run/event 才是权威；协作编辑另用 CRDT（Yjs） | 传输可换 WebSocket，state schema 不变 |
 
+## 后台内部结构：整洁架构（洋葱），依赖方向由脚本强制
+
+（2026-07-28 新增，见 **ADR-020**。此前只定了「用 NestJS」，没定**内部怎么分层**——
+结果是后端契约在画界面时被顺手创造出来，散落在 `apps/web/lib/` 的 mock 里。）
+
+```
+apps/api/src/
+  domain/           实体 / 值对象 / **不变量**   —— 不 import 任何外层
+  application/      用例 / 端口（interface）      —— 只 import domain
+  infrastructure/   PG / S3 / 模型网关 / MCP      —— **实现** application 的端口（依赖倒置）
+  interface/        NestJS 控制器 / DTO / 路由    —— import application，不直接碰 infrastructure
+```
+
+⚠ **洋葱架构的全部价值在「依赖只能指向内层」这一条，而这条可以机械检查。**
+只分目录不查依赖方向 = 四层文件夹 + 零收益。故配套门控 `lint-arch-deps` 是**强制**的，
+与既有的七道门控同级。
+
+`infrastructure` 是特例：它 import `application` 的端口去**实现**它——控制流向外、依赖向内，
+这正是依赖倒置。脚本对它放行，但仍禁止它 import `interface`。
+
+**NestJS 四层管道落在哪一层**：Guard / Pipe / ExceptionFilter / Interceptor 全部属
+`interface` 层，它们是**协议适配**不是业务规则。鉴权的**判定逻辑**在 `application`，
+**强制**在 PG RLS——见下方三个机械门控。
+
+### API 契约单一事实源
+
+```
+  <bundle>/api.contract.ts（zod，唯一事实源）
+     ├─→ 后端 DTO + 全局 ValidationPipe
+     ├─→ 前端 client 类型
+     ├─→ OpenAPI（对外文档 + 契约 diff 门控）
+     └─→ 前端 mock 数据          ←── **必须生成，不许手写**
+```
+
+理由：本项目已**五次**因「同一事实声明在两处」而漂移——设计 token、字号档位、
+丢弃原因枚举、撤回链 SLA、估点。手写 mock 是第六次。
+从契约生成后，**前端自动成为契约的第一个消费者：契约错了界面当场崩**，而不是等到联调。
+
+执行细则见 `.harness/instructions/contract-design.md`。
+
 ## 为什么换 NestJS（原文档自己的触发条件已全中）
 
 上一版把后台定为 Next.js API routes，并写明换重框架的触发条件是
@@ -75,7 +115,12 @@ NestJS 的四层管道与 harness 原有的三层中间件是同一套纪律，�
 HITL 用**动态 `interrupt()`**（不是 `interrupt_before/after`），且
 **节点恢复时副作用必须幂等**。
 
-## 三个必须建立的机械门控
+## 机械门控（三个运行时的 + 三个设计期的）
+
+设计期三道见 ADR-020 / `contract-design.md`：
+`lint-arch-deps`（依赖方向）· `lint-contract-source`（契约单源）· `verify-uc-coverage`（UC 覆盖）。
+
+## 三个必须建立的机械门控（运行时）
 
 1. **鉴权层**：NestJS Guard 全局注册；**且租户/项目隔离在 PG RLS 层强制**，
    应用层过滤只是第二道。⚠ 应用连接**不得使用表 owner 身份**——

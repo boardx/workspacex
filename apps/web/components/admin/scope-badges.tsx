@@ -19,9 +19,9 @@ import {
 export function VisibilityBadge({
   scope, team, "data-testid": testId,
 }: { scope: VisibilityScope; team?: string; "data-testid"?: string }) {
-  const label = scope === "team" && team ? `${VISIBILITY_LABEL.team}（${team}）` : VISIBILITY_LABEL[scope];
+  const label = scope === "team-only" && team ? `${VISIBILITY_LABEL["team-only"]}（${team}）` : VISIBILITY_LABEL[scope];
   return (
-    <Badge tone={scope === "org" ? "primary" : "neutral"} data-testid={testId}>
+    <Badge tone={scope === "org-wide" ? "primary" : "neutral"} data-testid={testId}>
       <Eye aria-hidden className="h-3 w-3" />
       可见性 · {label}
     </Badge>

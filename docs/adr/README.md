@@ -19,6 +19,7 @@
 | ADR-014 | unified-clock-and-loop-discipline | 统一权威时钟 + 分级 loop 纪律 |
 | ADR-018 | spec-ref-closed-loop | 每个 feature 必须能追溯到 requirements/ 下一个 story 章节，claim/verify/doctor 三道机械门 + GitHub 投影延伸闭环 |
 | ADR-019 | atomic-adr-numbering | ADR 编号原子取号（new-adr 命令），同款根因/修法源自 phase-id 撞号收口 |
+| ADR-020 | 阶段设计签核：UC+UI 之外，契约束（领域模型/用例接口/API 契约/UC 覆盖证明）也须经人类签核；洋葱架构依赖方向由脚本强制；mock 由契约生成 | Accepted |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线

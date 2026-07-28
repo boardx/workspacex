@@ -293,8 +293,8 @@ function AgentPanel({
         <div className="flex flex-col gap-1.5">
           <span className="text-11 font-medium text-muted-foreground">可见性范围</span>
           <div className="flex gap-1.5">
-            <Badge tone="primary">{VISIBILITY_LABEL.org}</Badge>
-            <Badge tone="outline">{VISIBILITY_LABEL.team}</Badge>
+            <Badge tone="primary">{VISIBILITY_LABEL["org-wide"]}</Badge>
+            <Badge tone="outline">{VISIBILITY_LABEL["team-only"]}</Badge>
           </div>
           <p className="text-11 text-muted-foreground">这是「谁能看到、用它」，与 MCP 的「授权范围」不是一回事。</p>
         </div>

@@ -1,4 +1,15 @@
 /**
+ * 身份的**前端投影** —— 类型一律从 `@repo/contracts` 派生，此处不定义第二份。
+ *
+ * ⚠ ADR-020：API 契约是唯一事实源。这里曾经手写过 `OrgRole` / `ProjectRole` /
+ *   `OrgKind` / `ModelPolicy` 四个联合类型，与契约构成第二份副本——
+ *   `lint-contract-source` 抓到后已收敛为 `z.infer`。
+ *   同一事实声明在两处必然漂移，本项目已踩过五次。
+ */
+import type { z } from "zod";
+import * as C from "@repo/contracts/identity";
+
+/**
  * 两层身份模型的**前端投影**（UC-0.3）
  *
  * ⚠⚠ 这里的一切都只是界面投影。**真实权限在服务端**（NestJS Guard + PostgreSQL RLS）。
@@ -15,7 +26,7 @@
  * **展示别名**（不落库）。加第三层会让权限矩阵从 4×3 变成 4×3×N，测试成本不成比例。
  * ⇒ **O-03「项目角色恒为四种」得以保住。**
  */
-export type OrgRole = "admin" | "lead" | "consultant" | "compliance";
+export type OrgRole = z.infer<typeof C.OrgRole>;
 export const ORG_ROLE_LABEL: Record<OrgRole, string> = {
   admin: "管理员",
   lead: "项目负责人",
@@ -33,7 +44,7 @@ export const SCENE_ALIAS: Record<string, { alias: string; actual: ProjectRole; n
 };
 
 /** 项目角色（[设计] UC-0.3 恒为四种；协同引导师 = 引导师多实例，见裁决 O-03）*/
-export type ProjectRole = "facilitator" | "groupLead" | "member" | "observer";
+export type ProjectRole = z.infer<typeof C.ProjectRole>;
 export const PROJECT_ROLE_LABEL: Record<ProjectRole, string> = {
   facilitator: "引导师",
   groupLead: "组长",
@@ -48,7 +59,7 @@ export const PROJECT_ROLES = Object.keys(PROJECT_ROLE_LABEL) as ProjectRole[];
  * `personal-local` 与 `organization` **共用同一张表与同一套 ACL / RLS 机制**。
  * 这样做是为了避免出现「本地模式」的第二套代码路径——那种分支必然长期失修。
  */
-export type OrgKind = "organization" | "personal-local";
+export type OrgKind = z.infer<typeof C.OrgKind>;
 
 /**
  * 组织级模型策略（UC-0.5 R7，2026-07-28 裁决）
@@ -59,7 +70,7 @@ export type OrgKind = "organization" | "personal-local";
  *   用同一个开关表示会让「承诺」退化成「默认值」，所以本字段**只对正式组织有意义**，
  *   本地组织的约束由 `kind === "personal-local"` 直接推出，不读这个字段。
  */
-export type ModelPolicy = "any" | "self-hosted-only";
+export type ModelPolicy = z.infer<typeof C.ModelPolicy>;
 
 export interface Organization {
   id: string;
