@@ -219,8 +219,19 @@ function checkIssueClosed(phaseId: string, f: Feature, issues: GhIssue[], findin
  *
  * 判据是「证据日志所在的那个 commit 是 origin/main 的祖先」。
  * 用证据日志而不是任意代码文件，因为它是 verify 门控写出来的，必然与那次通过对应。
+ *
+ * ⚠ **pre-push 时它必须是 WARN，不能是 FAIL** —— 否则鸡生蛋：
+ *   要合进 main 就得先开 PR，要开 PR 就得先 push，而 push 被「还没进 main」拦住。
+ *   第一版就是 FAIL，我当场撞上了。
+ *   ⇒ 默认 WARN；CI（合到 main 之后）用 `--strict` 判 FAIL。
+ *   这不是放松标准，是把标准放在**它能被满足的那个时点**。
  */
-function checkMergedToMain(phaseId: string, f: Feature, findings: Finding[]): void {
+function checkMergedToMain(
+  phaseId: string,
+  f: Feature,
+  findings: Finding[],
+  level: "FAIL" | "WARN",
+): void {
   if (f.status !== "passing" || !f.sprint) return;
   const rel = `phases/${relative(REPO_ROOT, findPhaseDir(phaseId))}/sprints/sprint-${f.sprint}/evidence/${f.id}.verify.log`
     .replace(/^phases\/phases\//, "phases/");
@@ -245,6 +256,8 @@ function checkMergedToMain(phaseId: string, f: Feature, findings: Finding[]): vo
 
 export function doctor(args: Args): void {
   const only = args.opts["phase"] ?? null;
+  /** `--strict`：把「必须已合入 main」升为 FAIL。CI 用；pre-push 不用（见 checkMergedToMain） */
+  const strict = args.flags["strict"] === true;
   const rm = loadRoadmap();
   const phaseIds = (only ? [only] : rm.phases.map((p) => p.id)).filter((id) => {
     try {
@@ -275,7 +288,7 @@ export function doctor(args: Args): void {
     for (const f of fl.features) {
       if (f.status === "passing") {
         checkPassingEvidence(id, f, findings);
-        checkMergedToMain(id, f, findings);
+        checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
       }
       checkSpecRef(id, f, findings);
       if (issues) {

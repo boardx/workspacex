@@ -71,6 +71,11 @@ jobs:
       - name: 迁移幂等（无视版本表强制重放）
         run: pnpm --filter api run migrate:check
 
+      # --strict：把「passing 的实现必须已合入 main」升为 FAIL。
+      # pre-push 时它只能是 WARN（那时还没合，本来就合不了），CI 才是它能被满足的时点。
+      - name: 审计链体检（严格模式）
+        run: pnpm harness doctor --strict
+
       - name: 契约单源 / 洋葱分层
         run: |
           node .harness/scripts/lint-contract-source.mjs
