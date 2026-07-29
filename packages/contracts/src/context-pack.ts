@@ -103,6 +103,19 @@ export const ContextPackReason = z.enum([
  * 该「至少命中一种」是跨字段约束，不写成 zod refine（会污染 mock 生成），
  * 由 domain I-1 的断言与 application 层强制。
  */
+/**
+ * 引用锚点。
+ *
+ * ⚠ **修订 E-1（2026-07-29，按推论采纳）**：补 `imageRegion`。
+ * 原定义的六个字段覆盖不了 `artifact.Anchor` 的 `image-region` 一种，
+ * 而 `photo` 是八种 `ContextSourceType` 之一 ⇒ **每个照片派生的 segment 都被 I-1
+ * 结构性地挡在所有 Context Pack 之外，且悄无声息**（读起来像「相关性低」）。
+ * 那是产品少了一整类内容，而没有任何东西会报。
+ *
+ * ⚠ **修订 E-2**：`endMs` 此前不可达——引用面有跨度，而存储侧的 locator 只有时间点。
+ * 修法是给**存储侧**支持 timespan（`SegmentKind` 本就有 `audio-span`），
+ * 而不是从引用面删掉 `endMs`：后者是向下妥协，会让「引用到一段话」永远做不到。
+ */
 export const Anchor = z.object({
   page: z.number().int().optional(),
   bbox: z.array(z.number()).optional(),
@@ -110,6 +123,10 @@ export const Anchor = z.object({
   endMs: z.number().int().optional(),
   messageId: z.string().optional(),
   surveyQuestionId: z.string().optional(),
+  /** 图像区域（归一化 0–1，左上原点）。photo / 扫描件的锚点落在这里 */
+  imageRegion: z
+    .object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
+    .optional(),
 });
 
 /** 查询上下文（context-engine.md 第四节 `QueryContext` 逐字对齐） */

@@ -174,7 +174,7 @@ describe("claims: opposing evidence has a place to live and cannot be dropped fr
   });
 });
 
-describe("omissions: the reason is the closed seven, and compliance is derived from it", () => {
+describe("omissions: the reason set is CLOSED, and compliance is derived from it", () => {
   const omission = (over: Partial<ContextPack["omissions"][number]>) => ({ ...PACK.omissions[0]!, ...over });
 
   it("accepts every one of the seven, with the compliance flag the single source gives", () => {
@@ -182,7 +182,14 @@ describe("omissions: the reason is the closed seven, and compliance is derived f
       const om = omission({ reason, compliance: OR.isComplianceOmission(reason), explain: OR.omissionExplain(reason) });
       expect(packStructureViolations({ ...PACK, omissions: [om] })).toEqual([]);
     }
-    expect(OR.OMISSION_REASON_KEYS).toHaveLength(7);
+    // Count asserted against the contract, not a literal, because the set is closed but
+    // not frozen: ADR-021 added `unlocatable` as an eighth. A hardcoded 7 would have made
+    // this test the thing that blocks a reviewed, ADR-backed change -- and the property
+    // that matters is "closed", i.e. every member is declared and nothing else parses.
+    expect(OR.OMISSION_REASON_KEYS.length).toBe(Object.keys(OR.OMISSION_REASONS).length);
+    expect(OR.OMISSION_REASON_KEYS.length).toBeGreaterThanOrEqual(7);
+    // The closedness itself: an undeclared reason must not parse.
+    expect((OR.OMISSION_REASON_KEYS as readonly string[]).includes("made-up-reason")).toBe(false);
   });
 
   it("rejects a reason outside the seven", () => {

@@ -52,7 +52,13 @@ export const assembleContextPackMock: z.infer<typeof contextPack.operations.asse
         "startMs": 1,
         "endMs": 1,
         "messageId": "messageId-1",
-        "surveyQuestionId": "surveyQuestionId-1"
+        "surveyQuestionId": "surveyQuestionId-1",
+        "imageRegion": {
+          "x": 1,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        }
       },
       "retrievalReasons": [
         "recall"
@@ -132,7 +138,13 @@ export const replayContextPackMock: z.infer<typeof contextPack.operations.replay
         "startMs": 1,
         "endMs": 1,
         "messageId": "messageId-1",
-        "surveyQuestionId": "surveyQuestionId-1"
+        "surveyQuestionId": "surveyQuestionId-1",
+        "imageRegion": {
+          "x": 1,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        }
       },
       "retrievalReasons": [
         "recall"
@@ -278,7 +290,13 @@ export const addManualItemMock: z.infer<typeof contextPack.operations.addManualI
         "startMs": 1,
         "endMs": 1,
         "messageId": "messageId-1",
-        "surveyQuestionId": "surveyQuestionId-1"
+        "surveyQuestionId": "surveyQuestionId-1",
+        "imageRegion": {
+          "x": 1,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        }
       },
       "retrievalReasons": [
         "recall"
@@ -358,7 +376,13 @@ export const adjustRetrievalWeightsMock: z.infer<typeof contextPack.operations.a
         "startMs": 1,
         "endMs": 1,
         "messageId": "messageId-1",
-        "surveyQuestionId": "surveyQuestionId-1"
+        "surveyQuestionId": "surveyQuestionId-1",
+        "imageRegion": {
+          "x": 1,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        }
       },
       "retrievalReasons": [
         "recall"

@@ -214,7 +214,7 @@ describe("a segment that cannot be located does not enter items[]", () => {
         unmappedAnchors: [{ mapped: false, kind: "image-region", why: "no-field-in-contract" }],
       },
     ]);
-    // ⚠ And it is NOT in omissions[], because no reason in the closed seven fits. As the
+    // ⚠ And it is NOT in omissions[], because no reason fitted when this was written. ADR-021 later added `unlocatable`; as the
     // contract stands, a photo segment is neither cited nor explained. See the F09 report.
     expect(built.omissions).toEqual([]);
   });

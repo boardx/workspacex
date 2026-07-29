@@ -104,7 +104,7 @@ export function packStructureViolations(pack: ContextPack): readonly StructureVi
     }
     const known = (OR.OMISSION_REASON_KEYS as readonly string[]).includes(om.reason);
     if (!known) {
-      out.push({ at: `omissions[${i}].reason`, problem: `"${om.reason}" is outside the closed seven (D-U4, I-3)` });
+      out.push({ at: `omissions[${i}].reason`, problem: `"${om.reason}" is outside the closed reason set (D-U4, I-3)` });
       return;
     }
     const derived = OR.isComplianceOmission(om.reason);
