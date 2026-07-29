@@ -62,6 +62,15 @@ import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/p
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
+// F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
+// their providers next to it without three-way merges in the middle of an existing list.
+import {
+  PASSWORD_HASHER,
+  REGISTRATION_REPOSITORY,
+} from "./application/auth/ports";
+import { BcryptPasswordHasher } from "./infrastructure/auth/bcrypt-password-hasher";
+import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
+import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
 
 @Module({
   controllers: [
@@ -71,6 +80,7 @@ import type { DatabasePort } from "./application/ports/database.port";
     ProvenanceController,
     CapabilityController,
     ArtifactBindingController,
+    AuthRegistrationController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -128,6 +138,16 @@ import type { DatabasePort } from "./application/ports/database.port";
     { provide: SESSION_STORE, useClass: InMemorySessionStore },
     { provide: AUTHORIZATION_CACHE, useClass: InMemoryAuthorizationCache },
     { provide: DECISION_ID_FACTORY, useClass: UuidDecisionIdFactory },
+    // F19. ⚠ No `SESSION_STORE` here: F20 owns session issuance, and the identity bundle's
+    // binding above is the one that exists. Two features each providing it would be two
+    // session stores, which is indistinguishable from one until a user is logged out at
+    // random.
+    {
+      provide: REGISTRATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },

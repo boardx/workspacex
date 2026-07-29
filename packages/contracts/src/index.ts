@@ -5,6 +5,7 @@
  * **任何一样都不许手写第二份**——本项目已五次因「同一事实声明在两处」而漂移。
  */
 export * as identity from "./identity";
+export * as auth from "./auth";
 export * as artifact from "./artifact";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";

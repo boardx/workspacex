@@ -353,7 +353,21 @@ describe("lint-permission-paths: counter-proof", () => {
     // A ceiling alone is a number someone bumps. The property that actually matters is
     // that each exemption was ARGUED -- so the reason strings are checked too, and a
     // one-liner like "legacy" or "TODO" fails.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(4);
+    //
+    // ⚠ Raised 4 -> 5 by F19, and the bump is exactly the act this comment warns about, so
+    // here is the argument. The new entry is
+    // `infrastructure/auth/pg-registration-repository.ts`: it INSERTs into `organizations`
+    // and `org_memberships` while creating an organization that does not exist yet, for an
+    // anonymous caller holding an invite code. `Guarded<T>` protects DISCLOSURE, and there
+    // is nothing to disclose and nobody to judge -- "may this person read the row they are
+    // creating" has no answer.
+    //
+    // What makes this bump different from a quiet one: the exemption's PREMISE is now
+    // enforced, not asserted. `tests/auth/registration-repo-is-write-only.test.ts` parses
+    // that file and fails if any statement naming a tenant table is anything but an INSERT,
+    // so the day it grows a SELECT the gate goes red. No other entry on the allowlist has
+    // that, and a sixth should be expected to bring one.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(5);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

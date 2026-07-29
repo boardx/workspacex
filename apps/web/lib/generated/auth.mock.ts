@@ -1,0 +1,22 @@
+/**
+ * @generated 由 packages/contracts 生成，**请勿手改**。
+ *
+ * 改这里的值不会改变契约，只会让 mock 与契约漂移——
+ * 而「同一事实声明在两处必然漂移」是本项目已经踩过五次的坑（ADR-020）。
+ * 要改请改 packages/contracts/src/*.ts，然后跑 pnpm --filter @repo/contracts gen:mock。
+ *
+ * 门控：node .harness/scripts/lint-contract-source.mjs
+ */
+
+import type { z } from "zod";
+import * as auth from "@repo/contracts/auth";
+
+/** redeemInviteAndCreateOrg 的成功响应样例（由契约生成） */
+export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out> = {
+  "userId": "userId-1",
+  "orgId": "orgId-1",
+  "emailVerificationSent": true
+};
+
+/** redeemInviteAndCreateOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const redeemInviteAndCreateOrgErrors = ["INVITE_CODE_INVALID","EMAIL_TAKEN"] as const;
