@@ -1,82 +1,143 @@
 # 参考技术架构（reference stack）
 
-> 渐进式披露第 3 层。这是模板推荐的**参考栈**——每层给出默认选型 + 选型理由 +
-> 可替换点。硬约束只有一条（上游用真实需求换来的）：**架构必须可移植**——
-> 同一套代码要能部署到不同云平台与私有环境，禁止把业务逻辑绑死在单一云的专有原语上。
-> 组织本体/知识图谱的数据架构单独成篇：`docs/architecture/knowledge-ontology.md`。
+> 渐进式披露第 3 层。这是本项目的**参考栈**——每层给出默认选型 + 选型理由 +
+> 可替换点。硬约束只有一条：**架构必须可移植**——同一套代码要能部署到不同云平台与
+> 私有环境，禁止把业务逻辑绑死在单一云的专有原语上。
+>
+> 两篇配套文档：
+> - **产品域的上下文底座** → `docs/architecture/context-engine.md`（Artifact/Segment/Claim/ContextPack）
+> - **harness 自己的元本体** → `docs/architecture/knowledge-ontology.md`
+>   （developer/agent/feature/ADR，服务开发过程，**与产品域不共用表**）
 
 ## 分层总表
 
 | 层 | 默认选型 | 为什么 | 可替换点 |
 |---|---|---|---|
-| 前端 | Next.js（App Router）+ Tailwind + shadcn/ui | SSR/RSC 与 API 同进程共享 session；组件可控 | 任意 SPA 框架，但保留「设计单源门控」模式（见下） |
-| 后台 | Next.js API routes + **三层中间件**（Guard/Pipe/ErrorBoundary） | 纯函数 + Web 标准 Request/Response，Node 与 edge runtime 都能跑，零运行时分裂 | 换重框架（NestJS 等）的触发条件见上游案例：开放第三方 API / 强制模块边界 / 重型编排，三条有一再换 |
-| AI（单轮） | **gateway 抽象层**（provider 可插拔）+ sanctioned stub | 模型/供应商必然更换，业务代码只依赖 gateway 接口；e2e 必须能在无真实 API key 时确定性通过 | 任意 provider（Anthropic/OpenAI/Qwen/本地模型），一个适配器一个文件 |
-| Agent 编排（多步） | **LangGraph**（StateGraph + Postgres checkpointer） | 见下方「Agent 编排引擎」一节 | CrewAI/AutoGen 等，但先量化"到底是不是多阶段流水线"再选（见下） |
-| 数据库 | PostgreSQL = canonical + **显式 SQL 迁移**（不用 ORM 魔法） | 单一事实源；迁移可读可审计；pgvector/AGE 扩展同库承载向量与图（免运维第二套存储） | 任意托管 PG / 自托管；迁移 runner 可换但迁移文件必须显式 SQL |
-| 实时同步 | WebSocket + 服务端权威状态；协作编辑用 CRDT（如 Yjs） | 客户端断线重连/多端一致是常态不是异常 | 单机=自托管 ws 进程；边缘=Durable Object；**协议不变，载体可换**（协调协议 coord/0.1 就是这个原则的实例） |
-| 图/本体 | Postgres + pgvector + **Apache AGE**（图投影可重建） | 见 knowledge-ontology.md——canonical 永远是关系表，图是投影 | 图查询层可换（Neo4j 等），但 canonical 在 PG 这条不变 |
-| 对象存储 | S3 兼容接口（MinIO 自托管 / 云 S3） | 接口标准化，多云/私有随意切 | 任意 S3 兼容实现 |
-| 缓存/队列 | Redis **仅运行时**（可丢失不可作为事实源） | 事实只在 PG；Redis 挂了系统降级不损数据 | 任意兼容实现，或小规模直接不用 |
+| 前端 | Next.js（App Router）+ Tailwind + shadcn/ui | SSR/RSC；组件可控 | 任意 SPA 框架，但保留「设计单源门控」 |
+| **后台** | **NestJS**（模块化 + DI + Guard/Pipe/Interceptor/Filter 四层管道） | 见下方「为什么换 NestJS」 | 换回轻框架的条件：三条触发条件全部消失 |
+| **摄取/研究 worker** | **独立 NestJS 进程**（与 API 同代码库不同入口） | OCR/ASR/批量导入/深度研究是**分钟级长任务**，不能占 HTTP 生命周期 | 可拆独立服务，但必须与 API 共用领域层 |
+| **任务队列** | **PG outbox + job table 起步**；规模化后 NATS JetStream / 托管持久队列 | 摄取**不可丢失**，与「Redis 可丢失」矛盾 | 队列实现可换，**持久语义不可换** |
+| 缓存 | Redis **仅缓存**（与队列彻底分开） | 事实只在 PG；Redis 挂了降级不损数据 | 任意兼容实现，或小规模不用 |
+| AI（单轮） | gateway 抽象层 + sanctioned stub + **model registry** | 模型必然更换；e2e 必须能在无真实 key 时确定性通过 | 任意 provider，一适配器一文件 |
+| Agent 编排（多步） | **LangGraph**（StateGraph + Postgres checkpointer），**仅限深度研究/HITL/多阶段生成** | 见下方「编排引擎的边界」 | 先量化「是不是真的多阶段流水线」再选 |
+| 数据库 | PostgreSQL = **元数据/状态 canonical** + 显式 SQL 迁移 + **RLS 强制隔离** | 单一事实源；迁移可审计 | 任意托管/自托管 PG；迁移文件必须显式 SQL |
+| **对象存储** | S3 兼容 = **原件 canonical** | **PG 无法从指针恢复丢失的文件**；灾备须同时恢复 PG + 对象存储 + 事件日志 | 任意 S3 兼容实现 |
+| 检索 | **PostgreSQL FTS + pgvector + 元数据 + 关系递归查询**，query-planned 并行融合 | 图与向量都不擅长精确原话/编号/姓名/术语 | 见 context-engine.md 第四节 |
+| 图投影 | **阶段一不启用 Apache AGE**，先用 `ontology_edges + recursive CTE` | AGE 部署兼容性与托管支持风险高 | 有真实路径性能需求再上，须锁 PG 版本 + 自建镜像 |
+| Agent UI / 实时 | CopilotKit v2 + AG-UI（SSE），**仅作 presentation protocol** | 服务端 run/event 才是权威；协作编辑另用 CRDT（Yjs） | 传输可换 WebSocket，state schema 不变 |
+
+## 后台内部结构：整洁架构（洋葱），依赖方向由脚本强制
+
+（2026-07-28 新增，见 **ADR-020**。此前只定了「用 NestJS」，没定**内部怎么分层**——
+结果是后端契约在画界面时被顺手创造出来，散落在 `apps/web/lib/` 的 mock 里。）
+
+```
+apps/api/src/
+  domain/           实体 / 值对象 / **不变量**   —— 不 import 任何外层
+  application/      用例 / 端口（interface）      —— 只 import domain
+  infrastructure/   PG / S3 / 模型网关 / MCP      —— **实现** application 的端口（依赖倒置）
+  interface/        NestJS 控制器 / DTO / 路由    —— import application，不直接碰 infrastructure
+```
+
+⚠ **洋葱架构的全部价值在「依赖只能指向内层」这一条，而这条可以机械检查。**
+只分目录不查依赖方向 = 四层文件夹 + 零收益。故配套门控 `lint-arch-deps` 是**强制**的，
+与既有的七道门控同级。
+
+`infrastructure` 是特例：它 import `application` 的端口去**实现**它——控制流向外、依赖向内，
+这正是依赖倒置。脚本对它放行，但仍禁止它 import `interface`。
+
+**NestJS 四层管道落在哪一层**：Guard / Pipe / ExceptionFilter / Interceptor 全部属
+`interface` 层，它们是**协议适配**不是业务规则。鉴权的**判定逻辑**在 `application`，
+**强制**在 PG RLS——见下方三个机械门控。
+
+### API 契约单一事实源
+
+```
+  <bundle>/api.contract.ts（zod，唯一事实源）
+     ├─→ 后端 DTO + 全局 ValidationPipe
+     ├─→ 前端 client 类型
+     ├─→ OpenAPI（对外文档 + 契约 diff 门控）
+     └─→ 前端 mock 数据          ←── **必须生成，不许手写**
+```
+
+理由：本项目已**五次**因「同一事实声明在两处」而漂移——设计 token、字号档位、
+丢弃原因枚举、撤回链 SLA、估点。手写 mock 是第六次。
+从契约生成后，**前端自动成为契约的第一个消费者：契约错了界面当场崩**，而不是等到联调。
+
+执行细则见 `.harness/instructions/contract-design.md`。
+
+## 为什么换 NestJS（原文档自己的触发条件已全中）
+
+上一版把后台定为 Next.js API routes，并写明换重框架的触发条件是
+**「开放第三方 API / 强制模块边界 / 重型编排，三条有一再换」**。现在三条全中：
+
+1. **开放第三方 API**——`21-mcp` 模块要注册外部 MCP 服务器、暴露工具调用面。
+2. **强制模块边界**——21 个业务模块（含共享内核），模块间依赖必须被框架约束，
+   靠自觉维持边界在这个规模上不成立。
+3. **重型编排**——摄取流水线九态状态机、深度研究、多路 ASR/OCR，都是分钟级长任务。
+
+NestJS 的四层管道与 harness 原有的三层中间件是同一套纪律，只是由框架强制：
+
+| harness 要求 | NestJS 对应 |
+|---|---|
+| `withAuth` 鉴权层 | **Guard**（全局注册，handler 拿到非空 principal） |
+| `withValidation(zod)` 校验层 | **Pipe**（全局 ValidationPipe + zod schema） |
+| 错误边界只回 `internal_error` | **ExceptionFilter**（细节只进日志） |
+| —— | **Interceptor**：统一 trace / 审计事件 / token 计量 |
+
+**Next.js 的定位收缩为**：前端渲染 + 轻 BFF（会话、页面数据聚合）。
+**所有领域逻辑、长任务、第三方接入都在 NestJS**。
+
+⚠ 边缘部署形态相应调整：边缘只跑前端与静态资源，**NestJS 与 worker 留在可移植层**
+（容器）。上一版「后台必须是纯 Web 标准以便跑在 edge」的约束随之解除——
+换来的是模块边界与长任务能力，这是这个项目规模下的正确交换。
 
 ## 部署三形态（同一套代码）
 
-1. **单机私有**：docker compose（PG+MinIO+Redis）+ systemd 托管应用进程 + Caddy TLS。
+1. **单机私有**：docker compose（PG + MinIO + Redis）+ NestJS API + worker 进程 + Caddy TLS。
 2. **多云容器**：任意 k8s / 容器服务，镜像同一份。
-3. **边缘混合**：静态/门户走边缘平台（Cloudflare Pages 等），有状态服务留守可移植层。
-   边缘上的代码必须是纯 Web 标准（这正是后台选三层中间件而非重框架的原因）。
+3. **边缘混合**：前端走边缘平台，**NestJS API 与 worker 留守可移植层**。
 
-规则：**有 CD 的目标不手动部署**；迁移先于部署且幂等；冒烟带漂移探针
-（模式见 `.github/workflows/examples/deploy-pattern.yml.example`）。
+规则：**有 CD 的目标不手动部署**；迁移先于部署且幂等；冒烟带漂移探针。
 
-## Agent 编排引擎：多步 AI 功能用状态图，不手搓（上游真实教训）
+## 编排引擎的边界（三层不要混）
 
-产品里出现"多轮/多阶段"的 AI 功能（如深度研究、多步表单填写、需要人工确认才
-继续的生成流程）时，**默认反应通常是手写一个临时状态机**——先用几个 if/switch
-串起来，数据模型里加个 `status` 字段假装有阶段。这条路径的真实代价在上游被
-验证过：手写状态机没有检查点持久化（进程重启/请求超时就丢状态）、没有条件边
-（分支逻辑散落在业务代码里）、没有原生的人工中断点（"生成完计划、等用户确认
-再继续"这种常见需求得靠额外的状态字段模拟）——而这些恰好是 **LangGraph**
-（`@langchain/langgraph` + `@langchain/langgraph-checkpoint-postgres`）已经
-生产验证过的能力。
+| 层 | 载体 | 生命周期 | 典型场景 |
+|---|---|---|---|
+| **摄取流水线** | **持久任务系统**（PG outbox + worker） | 秒~分钟，**不可丢失、必须幂等** | OCR / ASR / 解析 / 切片 / 索引 |
+| **产品内多步 AI** | **LangGraph**（PG checkpointer） | 秒~分钟 | 深度研究、多阶段生成、**人工确认后继续** |
+| **开发者协调** | `docs/coordination-protocol.md` | 小时~天 | 多个开发 agent 认领任务、心跳、交接 |
 
-**判断要不要上 LangGraph 的信号**：数据模型里已经有"阶段/状态"字段
-（`status: pending/running/done` 这类），但执行代码是一次性完成、靠解析结果
-硬编出多阶段的样子——这是最典型的"该用图、还在用字符串模拟图"信号。单轮生成
-（一次 prompt 一次结果，没有阶段概念）不需要 LangGraph，继续用上面的 gateway
-抽象层就够。
+**最常见的误用**：把摄取流水线塞进 LangGraph。摄取要的是**幂等、可重放、可重试、
+背压**，那是任务队列的职责；LangGraph 要的是**条件边、检查点、人工中断**，
+那是编排的职责。混用会让两边都难以推理。
 
-**落地要点**：
-- checkpointer 选 Postgres（`@langchain/langgraph-checkpoint-postgres`），落在
-  与业务表同一个 PG 实例——不为编排引擎引入第二个状态存储，呼应「canonical
-  只有一个」的架构纪律。
-- `interrupt_before`/`interrupt_after` 是"某阶段生成完、等人工确认再继续"的
-  **原生实现**，不要再用额外字段手动模拟这条约束。
-- 不要不分场景地把所有 AI 功能都套上 LangGraph——先量化"这个功能是不是真的
-  多阶段流水线"，单轮生成硬套图模型是过度工程。
+HITL 用**动态 `interrupt()`**（不是 `interrupt_before/after`），且
+**节点恢复时副作用必须幂等**。
 
-**边界（容易和多 agent 协调层混淆，务必分清）**：LangGraph 编排的是**产品内
-一次请求内的多步执行**（节点=一次模型/工具调用，秒到分钟级生命周期），跟本
-模板的**开发者协调协议**（`docs/coordination-protocol.md`——协调多个独立、
-长时运行的开发 agent 会话，认领任务、心跳、交接，小时到天级生命周期）是完全
-不同的两层问题。不要用 LangGraph 编排开发 agent 之间的协作，也不要用协调协议
-模拟一次 AI 请求内的多步生成——两层各自有自己的状态载体和生命周期，混用会
-让两边都变得难以推理。
+## 机械门控（三个运行时的 + 三个设计期的）
 
-## 三个必须建立的机械门控（上游血泪，缺一层就等出事）
+设计期三道见 ADR-020 / `contract-design.md`：
+`lint-arch-deps`（依赖方向）· `lint-contract-source`（契约单源）· `verify-uc-coverage`（UC 覆盖）。
 
-1. **鉴权层**：`withAuth` 包裹所有需登录路由——handler 拿到非空 user，不再手写 401。
-2. **校验层**：`withValidation(zod)`——校验层"根本不存在"是最常见的静默缺陷
-   （上游实测 152 路由 0 校验库）。
-3. **错误边界**：意外错误只回 `internal_error`，细节只进日志；**lint 门控**响应体里的
-   `String(err)`/`err.message`（上游肉眼估 3 处泄漏，机器一扫 51 处）。
+## 三个必须建立的机械门控（运行时）
 
-同理前端：**设计 token 单源**（字号/色彩比例尺一个文件定义）+ lint 拦超出比例尺的
-硬编码值。原则：**能机器判定的一致性，绝不交给人肉抽查**。
+1. **鉴权层**：NestJS Guard 全局注册；**且租户/项目隔离在 PG RLS 层强制**，
+   应用层过滤只是第二道。⚠ 应用连接**不得使用表 owner 身份**——
+   PG 中表 owner 默认不受 RLS 约束。
+2. **校验层**：全局 ValidationPipe + zod。校验层「根本不存在」是最常见的静默缺陷。
+3. **错误边界**：ExceptionFilter 只回 `internal_error`；**lint 门控**响应体里的
+   `String(err)`/`err.message`。
+
+同理前端：**设计 token 单源** + lint 拦超出比例尺的硬编码值。
+原则：**能机器判定的一致性，绝不交给人肉抽查**。
 
 ## 不变量（实现必须遵守）
 
-- 仓库即唯一事实来源；所有状态可从 PG + 迁移重建。
-- 任何"看起来能跑"都不算数：feature 完成 = verification 命令退出码 0 + 证据落盘。
-- 多 agent 并行时的资源互斥走协调协议（`docs/coordination-protocol.md`），
-  禁止各自发明锁。
+- 仓库即唯一事实来源；所有状态可从 **PG + 迁移 + 对象存储**重建。
+- **原件不可变**：写入对象存储后永不覆盖，更新走新 `artifact_version`。
+- **能保存成文件的数据一律成文件**，且在项目文件浏览器可见可下载
+  （见 context-engine.md 第 2.0 节）。
+- **AI 引用必须可定位**到页码/时间码/消息，无锚点的引用视为不合格。
+- 任何「看起来能跑」都不算数：feature 完成 = verification 退出码 0 + 证据落盘。
+- 多 agent 并行的资源互斥走协调协议，禁止各自发明锁。

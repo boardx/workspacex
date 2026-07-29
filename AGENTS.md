@@ -44,6 +44,10 @@
 - **文件规模**:业务源文件原则上不超过 2000 行;接近上限时必须按领域职责拆分。超过 2000 行仅允许有明确豁免、拆分计划和验证证据,禁止继续在超限文件中堆功能。
 - **UI 先行(仅 has_ui 阶段)**:UI 相关阶段的 `feature_list` 必须在真实 UI 经**人类**确认
   (`ui-signoff.md` status: confirmed)之后才定稿;`new-sprint` 对未确认的 UI 阶段直接拒绝。见 ADR-003。
+- **设计签核**:feature 开工前,其所属**契约束**必须经人类签核
+  (`design-signoff.md` status: confirmed),且该阶段的**一致性复核**已通过。见 ADR-020。
+  ⚠ **同一事实不得声明在两处**——本项目已五次因此漂移(设计 token / 字号档位 /
+  丢弃原因枚举 / 撤回链 SLA / 估点)。凡出现第二份副本,一律收敛为单一事实源 + 机械门控。
 
 ## 完成定义(DON'T EDIT — 这是整个 harness 最关键的部分)
 一个 feature 只有同时满足以下条件才算 `passing`:
@@ -61,7 +65,8 @@
 - 没有半成品处于未记录状态;下一轮无需人工修复即可继续。
 
 ## 按需深入(渐进式披露,需要时才读)
-- 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
+- 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`
+- **契约先行的设计流程（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
 - 智能体编排/工具/记忆约定 → `.harness/instructions/agentic-patterns.md`
 - 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
@@ -86,6 +91,12 @@
    改为 `confirmed`。未确认不得进入下一步（`new-sprint` 会拒绝）。
 4. 调 **requirement-author** 智能体：读该文件夹全部 `*.md`（UI 阶段还读已确认 UI）→ 生成
    `feature_list.json`（带可执行 `verification`，锚定真实 `data-testid`）。
+5. **设计签核关卡**（ADR-020，2026-07-28 新增）：**UC + UI 不足以确认整个设计**——
+   后端契约会在画界面时被顺手创造出来却无人评审。故 feature 开工前还需签**契约束**，
+   每束四件：① 领域模型与不变量 ② 用例接口 ③ API 契约 ④ UC 覆盖证明。
+   两级粒度：**按能力域签契约束** + **阶段级一致性复核**（查各束交叉约束是否打架）。
+   一个 feature 可开工 ⟺ 所属契约束已签 ∧ 阶段一致性复核通过。见
+   `.harness/instructions/contract-design.md`。
 `requirements/` 是输入,不是权威;权威永远是 `feature_list.json`。
 
 ## 常用 harness 命令

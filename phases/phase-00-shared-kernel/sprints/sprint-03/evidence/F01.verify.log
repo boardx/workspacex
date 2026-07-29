@@ -1,0 +1,255 @@
+$ pnpm --filter api run typecheck
+[exit 0]
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/api
+> tsc --noEmit
+
+
+
+$ pnpm --filter api run lint
+[exit 0]
+
+> @repo/api@0.0.0 lint /Users/shenyanbin/Documents/workspacex/apps/api
+> node scripts/lint-error-leak.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+
+✅ lint-error-leak: 10 files in the interface layer, no error detail reaches a response
+scanned=10
+✅ lint-arch-deps: 31 files, all dependencies point inward
+scanned=31
+
+
+$ pnpm --filter api exec vitest run tests/kernel/rbac-two-layer.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/kernel/rbac-two-layer.test.ts (21 tests) 629ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  09:37:11
+   Duration  960ms (transform 55ms, setup 0ms, collect 76ms, tests 629ms, environment 0ms, prepare 33ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/kernel/rbac-role-matrix.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/kernel/rbac-role-matrix.test.ts (72 tests) 3645ms
+
+ Test Files  1 passed (1)
+      Tests  72 passed (72)
+   Start at  09:37:12
+   Duration  3.92s (transform 66ms, setup 0ms, collect 88ms, tests 3.64s, environment 0ms, prepare 82ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/kernel/org-switch-context-reset.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+{"level":"error","msg":"http exception","traceId":"6959b2c9-5d9c-4c88-b3ce-3af982ffbac1","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.me (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:115:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b7768063-f78d-4209-a411-fcb06845fb8c","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.switchOrg (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:132:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"a52b70ac-1d1e-4f8a-b74e-9a798b0b0c8c","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"7560da33-9db2-4e1c-960d-39896359edf1","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/kernel/org-switch-context-reset.test.ts (11 tests) 872ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  09:37:16
+   Duration  1.08s (transform 69ms, setup 0ms, collect 36ms, tests 872ms, environment 0ms, prepare 24ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/kernel/contract-response.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/kernel/contract-response.test.ts (8 tests) 569ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:37:18
+   Duration  785ms (transform 71ms, setup 0ms, collect 60ms, tests 569ms, environment 0ms, prepare 21ms)
+
+
+
+$ apps/api/scripts/verify-rls.sh
+[exit 0]
+== bringing up postgres, resetting to an empty database ==
+== applying migrations as the owner ==
+applied 3 migration(s), skipped 0
+  + 0001-kernel-roles.sql
+  + 0002-rls-probe.sql
+  + 0003-identity.sql
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
+ Container workspacex-kernel-postgres-1 Running 
+
+
+$ node .harness/scripts/lint-contract-source.mjs
+[exit 0]
+✅ lint-contract-source: generated files match the contract, no hand-written copies (53 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+
+
+
+[BASE VERIFY] $ pnpm -w run verify:base
+[exit 0]
+
+> agentic-harness-template@ verify:base /Users/shenyanbin/Documents/workspacex
+> turbo run typecheck lint test
+
+
+   • Packages in scope: @repo/api, @repo/contracts, @repo/coord-protocol, web
+   • Running typecheck, lint, test in 4 packages
+   • Remote caching disabled
+
+@repo/contracts:test: cache miss, executing 5bae32bc54f9b060
+@repo/contracts:lint: cache miss, executing 8673e446357cff22
+web:test: cache miss, executing 80c59d7263c0a29e
+@repo/contracts:typecheck: cache miss, executing a1da6b78a214a95b
+@repo/api:test: cache miss, executing e211ccf377eca9d4
+@repo/api:lint: cache miss, executing a34ac57cf0663df8
+@repo/coord-protocol:test: cache hit, replaying logs 616d8fc852c45dce
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: > @repo/coord-protocol@0.1.0 test /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:test: > vitest run
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  ✓ test/protocol.test.ts (19 tests) 4ms
+@repo/coord-protocol:test:  ✓ test/client.test.ts (20 tests) 7ms
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  Test Files  2 passed (2)
+@repo/coord-protocol:test:       Tests  39 passed (39)
+@repo/coord-protocol:test:    Start at  15:13:42
+@repo/coord-protocol:test:    Duration  457ms (transform 382ms, setup 0ms, collect 407ms, tests 11ms, environment 0ms, prepare 70ms)
+@repo/coord-protocol:test: 
+@repo/coord-protocol:lint: cache hit, replaying logs ad540133c575347c
+@repo/coord-protocol:typecheck: cache hit, replaying logs fb4312bed24eb065
+web:typecheck: cache miss, executing 50518f1086e52840
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:lint: > echo 'lint: ok'
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: lint: ok
+@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/packages/coord-protocol
+@repo/coord-protocol:typecheck: > tsc --noEmit
+@repo/coord-protocol:typecheck: 
+web:lint: cache miss, executing 0d723d0f0436c599
+@repo/api:typecheck: cache miss, executing 88f5be44be8c9f81
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+@repo/contracts:test: 
+@repo/contracts:test: > @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: > vitest run
+@repo/contracts:test: 
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: > vitest run
+web:test: 
+@repo/api:test: 
+@repo/api:test: > @repo/api@0.0.0 test /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:test: > vitest run
+@repo/api:test: 
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 10 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=10
+@repo/api:lint: ✅ lint-arch-deps: 31 files, all dependencies point inward
+@repo/api:lint: scanned=31
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+@repo/api:test: 
+@repo/api:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:test: 
+@repo/contracts:test: 
+@repo/contracts:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: 
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: 
+@repo/contracts:test:  ✓ tests/pending-thresholds.test.ts (6 tests) 25ms
+@repo/contracts:test:  ✓ tests/no-forbidden-routes.test.ts (4 tests) 4ms
+@repo/contracts:test:  ✓ tests/contract-shape.test.ts (17 tests) 9ms
+@repo/contracts:test: 
+@repo/contracts:test:  Test Files  3 passed (3)
+@repo/contracts:test:       Tests  27 passed (27)
+@repo/contracts:test:    Start at  09:37:21
+@repo/contracts:test:    Duration  1.11s (transform 306ms, setup 0ms, collect 712ms, tests 37ms, environment 0ms, prepare 623ms)
+@repo/contracts:test: 
+web:test:  ✓ tests/single-source-of-truth.test.ts (7 tests) 2ms
+@repo/api:test:  ✓ tests/arch-gate.test.ts (7 tests) 337ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 126ms
+web:test: 
+web:test:  Test Files  2 passed (2)
+web:test:       Tests  19 passed (19)
+web:test:    Start at  09:37:21
+web:test:    Duration  994ms (transform 51ms, setup 0ms, collect 455ms, tests 129ms, environment 0ms, prepare 332ms)
+web:test: 
+@repo/api:test:  ✓ tests/contract-single-source.test.ts (4 tests) 724ms
+@repo/api:test:    ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 707ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"48ce28a7-5eb5-48c5-b069-ddc16b924aca","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.me (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:115:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/contract-response.test.ts (8 tests) 1223ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"e72c29e1-5f49-4a0c-b143-4b346f6bfee9","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.switchOrg (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:132:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/rbac-two-layer.test.ts (21 tests) 1446ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"c61785f6-f490-428e-a73b-4e2177bb6552","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"6901baf7-a011-45f0-ae02-a6addc5c5017","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test:  ✓ tests/kernel/org-switch-context-reset.test.ts (11 tests) 1614ms
+web:lint: ✔ No ESLint warnings or errors
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+@repo/api:test:  ✓ tests/kernel/rbac-role-matrix.test.ts (72 tests) 4628ms
+@repo/api:test: 
+@repo/api:test:  Test Files  6 passed (6)
+@repo/api:test:       Tests  123 passed (123)
+@repo/api:test:    Start at  09:37:21
+@repo/api:test:    Duration  6.04s (transform 924ms, setup 0ms, collect 2.63s, tests 9.97s, environment 1ms, prepare 2.26s)
+@repo/api:test: 
+
+ Tasks:    12 successful, 12 total
+Cached:    3 cached, 12 total
+  Time:    6.745s 
+
+• turbo 2.10.5

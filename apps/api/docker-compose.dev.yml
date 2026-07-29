@@ -1,0 +1,64 @@
+# Local dependencies for the backend kernel.
+#
+# Ports are deliberately non-default (55432 / 59000 / 56379) so this stack cannot collide
+# with a PostgreSQL/Redis the developer already runs.
+#
+# ------------------------------------------------------------------------------------
+# X-3 "zero egress" -- LANDING SITE, owner: api-kernel (F18)
+# ------------------------------------------------------------------------------------
+# The phase-00 coherence review flagged that this constraint "falls through the crack:
+# the frontend assumes the backend owns it, the backend assumes ops owns it", and it was
+# signed off on 2026-07-28 with NO owner. As of 2026-07-29 it has one.
+#
+# Split of responsibility, confirmed at api-kernel sign-off:
+#   * this bundle (F18) owns the LANDING SITE -- the network-policy block below and its
+#     counterpart in the deployment manifests;
+#   * F16 (local-organization complete form) owns the ASSERTION that egress is zero.
+#
+# It is not implemented here on purpose. The assertion only means something once a local
+# organization exists to assert it about, and a deny-all written now with nothing checking
+# it would be exactly the kind of decorative control this project keeps catching.
+#
+# Where it goes when F16 lands: a `networks:` entry with `internal: true` for the
+# local-model path plus an explicit egress allowlist. The observation point is the NETWORK
+# layer, not application logs -- application logs can only show "I did not initiate egress",
+# never "no egress occurred" (third-party SDKs, telemetry and transitive dependencies all
+# make outbound calls).
+# ------------------------------------------------------------------------------------
+
+services:
+  postgres:
+    # pgvector is needed from the start: F10's hybrid retrieval depends on it, and adding
+    # the extension later means a second base image and a second set of migrations.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev
+      POSTGRES_DB: workspacex
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d workspacex"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      # Dev data is disposable on purpose: every gate run starts from an empty database,
+      # which is what makes "rebuildable from migrations alone" a real claim rather than
+      # something that happens to be true of one long-lived local database.
+      - /var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":59001"
+    environment:
+      MINIO_ROOT_USER: minio_dev
+      MINIO_ROOT_PASSWORD: minio_dev_secret
+    ports:
+      - "59000:9000"
+      - "59001:59001"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "56379:6379"

@@ -1,0 +1,201 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+ * 设计 token —— 唯一事实源（UC-0.4 R3 步骤 2 / uiux-standards §1.1）
+ *
+ * ⚠ 这是全仓**唯一**允许定义色面值的地方。
+ *   - 组件层不许用 opacity 或覆盖类"修"对比度，对比度问题一律回到这里改 token 值；
+ *   - `scripts/check-token-contrast.mjs` **直接解析本文件**（不是读第二份清单），
+ *     对明暗两套主题机械计算 WCAG 对比度，缺配对或不过线 exit 1。
+ *
+ * 配对规则（checker 据此自动配对，无需维护第二份名单）：
+ *   `--x` 必须有 `--x-foreground`。分组由紧邻上一行的注释标记决定：
+ *     "@contrast neutral"  → ≥ 4.5:1（正文可读线）
+ *     "@contrast state"    → ≥ 3.0:1（大字 / UI 组件线；警示红在 4.5 线下
+ *                            无法保持色相辨识度，显式取舍）
+ *     "@contrast none"     → 不参与配对检查（纯结构性，不承载文字）
+ *
+ * 色值依据：对运行态原型 `WorkspaceX Standalone.html` 的 computed style 实测统计。
+ * **凡与实测值不同的，都是为过对比度线而调暗的**，已在行内注明原值。
+ * ========================================================================== */
+
+@layer base {
+  :root {
+    /* @contrast neutral */
+    --background: 60 11% 98.2%;          /* #FBFBFA 应用画布 */
+    --background-foreground: 240 6% 8.4%; /* #17171A */
+
+    /* @contrast neutral */
+    --card: 0 0% 100%;                    /* #FFFFFF */
+    --card-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --muted: 60 10% 94.3%;               /* #F2F2EF */
+    --muted-foreground: 240 4% 39%;      /* #5F5F67 ← 实测 #6E6E76，调暗以在 muted 底上过 4.5 */
+
+    /* @contrast neutral */
+    --secondary: 40 10% 93.3%;           /* #F0EFEC */
+    --secondary-foreground: 240 5% 24%;  /* #3A3A40 */
+
+    /* @contrast neutral */
+    --accent: 166 30% 92.2%;             /* #E4F2EF 青绿浅底 */
+    --accent-foreground: 170 82% 21%;    /* #0A6155 */
+
+    /* @contrast neutral */
+    --primary: 170 83% 28%;              /* #0C8371 ← 实测 #0E8F7C（4.0:1 不过线），调暗至 4.67:1 */
+    --primary-foreground: 0 0% 100%;
+
+    /* @contrast neutral */
+    --disabled: 60 6% 93.7%;             /* #F0F0EE 禁用底 */
+    --disabled-foreground: 0 0% 36.1%;   /* #5C5C5C —— 禁用但可读，5.9:1 */
+
+    /* @contrast neutral */
+    --rail: 60 10% 94.3%;                /* #F2F2EF 左侧图标栏（实测 76px 那列）*/
+    --rail-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --panel: 60 8% 96.1%;                /* #F7F7F5 左侧面板（实测 272px）*/
+    --panel-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --panel-alt: 60 11% 97.6%;           /* #FAFAF8 右侧面板（实测 300px）*/
+    --panel-alt-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --inverse: 240 6% 8.4%;              /* #17171A 反色实心面 */
+    --inverse-foreground: 60 11% 98.2%;
+
+    /* @contrast neutral */
+    --ai-tint: 247 79% 95.7%;            /* #E9E7FB AI/agent 浅底 */
+    --ai-tint-foreground: 249 60% 47.1%; /* #3D2FBF */
+
+    /* @contrast state */
+    --destructive: 9 75% 41.4%;          /* #B23A27 ← 实测 #C0402B，调暗 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* @contrast state */
+    --success: 170 83% 28%;              /* #0C8371 与 primary 同值：青绿即"已完成/在场" */
+    --success-foreground: 0 0% 100%;
+
+    /* @contrast state */
+    --warning: 29 61% 39%;               /* #9E5F27 ← 实测青铜 #B87333，调暗 */
+    --warning-foreground: 0 0% 100%;
+
+    /* @contrast state */
+    --ai: 245 79% 56.7%;                 /* #4B3BE8 AI 在场色（实测）*/
+    --ai-foreground: 0 0% 100%;
+
+    /* @contrast none —— 结构性，不承载文字 */
+    --border: 47 19% 85.7%;              /* #E0DED5 暖灰主边框（实测 20 处主导）*/
+    --border-subtle: 45 14% 91%;         /* #EBEAE5 */
+    --input: 47 19% 85.7%;
+    --ring: 170 83% 28%;
+
+    --radius: 0.4375rem;                 /* 7px —— 实测主导圆角 */
+
+    --shadow-sm: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04);
+    --shadow-md: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04), 0 10px 28px 0 hsl(240 6% 8.4% / 0.06);
+    --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
+  }
+
+  .dark {
+    /* @contrast neutral */
+    --background: 240 6% 7.1%;           /* #121214 */
+    --background-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --card: 240 6% 8.4%;
+    --card-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --popover: 240 7% 11%;
+    --popover-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --muted: 240 6% 15.1%;
+    --muted-foreground: 240 5% 67.5%;
+
+    /* @contrast neutral */
+    --secondary: 240 5% 16.3%;
+    --secondary-foreground: 240 5% 84.7%;
+
+    /* @contrast neutral */
+    --accent: 170 50% 15.3%;
+    --accent-foreground: 168 58% 64.5%;
+
+    /* @contrast neutral */
+    --primary: 170 79% 37.3%;
+    --primary-foreground: 170 70% 8.4%;
+
+    /* @contrast neutral */
+    --disabled: 240 5% 17.3%;
+    --disabled-foreground: 240 5% 63.5%;   /* 55.7% 时仅 4.15:1，被 checker 拦下，提亮至过线 */
+
+    /* @contrast neutral */
+    --rail: 240 6% 9.8%;
+    --rail-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --panel: 240 6% 9%;
+    --panel-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --panel-alt: 240 6% 10.6%;
+    --panel-alt-foreground: 240 5% 93.3%;
+
+    /* @contrast neutral */
+    --inverse: 240 5% 93.3%;
+    --inverse-foreground: 240 6% 8.4%;
+
+    /* @contrast neutral */
+    --ai-tint: 246 40% 18%;
+    --ai-tint-foreground: 248 100% 83.9%;
+
+    /* @contrast state */
+    --destructive: 11 72% 57.6%;
+    --destructive-foreground: 12 78% 9.4%;
+
+    /* @contrast state */
+    --success: 170 79% 37.3%;
+    --success-foreground: 170 70% 8.4%;
+
+    /* @contrast state */
+    --warning: 33 62% 52.5%;
+    --warning-foreground: 33 75% 9.4%;
+
+    /* @contrast state */
+    --ai: 248 100% 74.1%;
+    --ai-foreground: 248 56% 14.5%;
+
+    /* @contrast none */
+    --border: 240 5% 20%;
+    --border-subtle: 240 5% 16.3%;
+    --input: 240 5% 20%;
+    --ring: 170 79% 37.3%;
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 1px 2px 0 hsl(0 0% 0% / 0.4), 0 10px 28px 0 hsl(0 0% 0% / 0.36);
+    --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.6);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-background-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 焦点环全局兜底：严禁裸 outline-none 消除焦点可见性（uiux-standards §5）*/
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}

@@ -1,0 +1,453 @@
+{
+  "phase": "00",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "kernel-auth",
+      "capability": "CAP-API",
+      "title": "两层角色本体：组织角色×团队 与 项目角色 落到统一 acl_bindings，任一次鉴权都是两层交集且可解释",
+      "user_visible_behavior": "任何受保护读写请求都由服务端按 (组织角色, 团队) × (项目角色) 的交集判定放行/拒绝；拒绝时返回可解释原因（是组织层还是项目层限制），且不泄露资源存在性。同一账号切换组织后，项目级上下文全部清空、权限按当前组织重新求值。",
+      "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R3",
+      "depends_on": [
+        "F18"
+      ],
+      "points": 5,
+      "status": "passing",
+      "sprint": "03",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/rbac-two-layer.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/rbac-role-matrix.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/org-switch-context-reset.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/contract-response.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "node .harness/scripts/lint-contract-source.mjs"
+      ],
+      "evidence": "evidence/F01.verify.log @ 2026-07-29T01:37:27.392Z",
+      "needs_ui_signoff": false,
+      "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。 【2026-07-29 转 blocked】开工前核实：本 feature 的三条 verification 指向的测试文件不存在，而它们所需的后端根本不存在（apps/api 无、零 NestJS、零迁移、零 PG 连接）。若在此状态下开工，F01 实际要交付的是「后端内核 + acl_bindings + 两层交集判定」，5 点会失真三倍，且十二个后端 feature 的共同前置会被埋进本 feature 里。故拆出 F18（后端内核，13 点，UC-0.6），本 feature depends_on F18 并转 blocked。解除条件：F18 passing。⚠ F18 所属契约束 api-kernel 尚待人类签核。 【2026-07-29 实现记录】verification 原写的三条 `pnpm vitest run tests/kernel/*.ts` 是预设路径（当时 apps/api 尚不存在），已改为八条**已跑通**的命令。落地内容：迁移 0003-identity.sql（organizations/teams/projects/groups/org_memberships/project_memberships/acl_bindings 七表，全部 FORCE RLS + 租户策略；I-1 由触发器强制，跨组织绑定插入即失败）；domain 层 decide() 纯函数实现两层交集与可解释拒绝；application 层 authorize/authorizeBatch/authorizeDerived + switchOrganization/resolveIdentity；infrastructure 层 PgIdentityRepository（批量绑定一次往返）；interface 层四条契约路由。⚠ 实现过程暴露两处**契约缺陷**：① PermissionDecision 的 orgLayer.role / projectLayer.role 原为非空，但失败枚举第一条就是 NO_ORG_MEMBERSHIP（无角色可填），且 usecases 明写 NO_PROJECT_ROLE「是正常状态不是异常」——契约表达不了自己声明的拒绝态，已改为可空并注明理由；② 契约 Organization 带 team 字段而实现漏了，且**响应从未被契约校验过**（只校验请求），故补 contract-response.test.ts 逐条断言响应体 parse 通过。两项均为对已签契约束的修订，需人类复签，见 design-coherence 修订 B。⚠ 另修一处 NestJS 陷阱：方法级 @UsePipes 会作用于**每一个参数**（含 @CurrentPrincipal），导致所有请求 400；已改为参数级 @Body(pipe)。角色矩阵单源在 domain/identity/project-role-matrix.ts，前端需要时必须**迁移**到 packages/contracts 而非复制，已有测试守着。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "kernel-auth",
+      "capability": "CAP-API",
+      "title": "PostgreSQL RLS 强制隔离 + 权限沿数据链路传播：跨租户泄漏为零，且 Artifact 权限传播到 Segment/embedding/图节点/缓存/Context Pack",
+      "user_visible_behavior": "用运行时（非 owner）数据库连接直接跨租户 SELECT 返回 0 行；忘记加 WHERE 的默认结果是『查不到』而非『全查到』。一份仅某团队可见的 Artifact，非该团队成员经检索、Context Pack、embedding 相似度、图节点遍历、文件浏览器、缓存命中六条路径全部取不到其内容；交集生成内容取所有来源权限中最严格的一档。",
+      "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R7",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/rls-force-nonowner.test.ts",
+        "pnpm vitest run tests/kernel/rls-cross-tenant-zero-leak.test.ts",
+        "pnpm vitest run tests/kernel/permission-propagation-six-paths.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "对应 context-engine.md 首批门槛②（跨租户泄漏为零）与需求 V9/V10。依据：[设计]（架构第五节 + uc-0-3 R7），但均为可机器验证的 SQL/API 断言。三条硬断言必须自动化、不接受人工核对配置：①运行时连接角色不是任何业务表 owner（比对 pg_class.relowner 与 current_user）；②所有含租户数据表启用 FORCE ROW LEVEL SECURITY；③非 owner 连接跨租户查询返回 0 行。⚠ 若用表 owner 连接，RLS 被静默旁路且不报错，测试会假通过——rls-force-nonowner.test.ts 专门防这一点。acl_bindings 与 RLS 策略必须在 artifacts 建表时就带上（见 F04 依赖本 feature），事后补 RLS=重做迁移。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "kernel-auth",
+      "capability": "CAP-API",
+      "title": "管理员边界：管理员不是超级用户，个人层只见计数，读取项目内容必留痕且对项目负责人可见",
+      "user_visible_behavior": "组织管理员访问其无项目角色的项目内容被拒（AC1）；查询他人个人层仅返回计数字段、响应体中不含内容字段（AC2）；管理员以审计目的读取项目内容时成功但每次写审计日志，项目负责人可在『看我的访问记录』查询到。草稿模式产出对管理员返回 404 而非 403。",
+      "spec_ref": "00-core/uc-0-3-角色本体与两层权限模型.md#R6",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/admin-boundary-deny.test.ts",
+        "pnpm vitest run tests/kernel/admin-personal-layer-count-only.test.ts",
+        "pnpm vitest run tests/kernel/admin-audit-access-visible-to-lead.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11 明确要求：管理员边界（R7 第 2、3 条）必须独立成 feature 并有独立验收——它是『我的大脑』整层能否成立的前提。依据混合 [原型]（个人层对管理员封闭、访问留痕对项目负责人可见）+[设计]（管理员非超级用户）。对应 V1/V2 与 uc-0-1 V4（草稿仅创建者可读，含管理员返回 404）。全 API 断言。管理员边界界面（『你作为管理员看不到什么』说明区 + 分层拒绝原因提示）在原型为确认缺失，界面切片由 phase-01 承接，但本 feature 的可验证核心全在 API 层。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "kernel-artifact",
+      "capability": "CAP-API",
+      "title": "Artifact 六表数据模型 + file-first 存储契约 + S3/PG 双 canonical",
+      "user_visible_behavior": "任一来源（问卷/对话/访谈/AI 生成）保存后，在对象存储里都有一个真实可下载的文件（非文件来源被物化为 responses.csv/messages.jsonl/transcript.jsonl 等）；派生物是独立文件、带 derived_from 指回原件版本、不覆盖原件；每个 Segment 都能回到原件的页码/时间码/消息/题号锚点。",
+      "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R1",
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/artifact-schema-six-tables.test.ts",
+        "pnpm vitest run tests/kernel/file-first-materialization.test.ts",
+        "pnpm vitest run tests/kernel/anchor-back-to-origin.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "六表：artifacts / artifact_versions / segments / anchors / derived_representations / provenance_events。与 22-files 的边界：本 feature 定义模型与存储契约，22-files（phase-01, 47 点）是同一套模型的用户界面投影，不另建表、不重复计点（见 overview 5.2）。依据：[设计]，但 D-38 已裁定反推设计为权威。⚠[待确认] 原型说明页指向的『UML 文档第 13 节』不在仓库中——若该 UML 文档出现需校对本设计。canonical 双源：原件在 S3、元数据/状态在 PG，灾备须同时恢复 PG+对象存储+事件日志的一致性时间点。本 feature 只定义模型与不变量，segments/anchors 的填充由摄取流水线（下游）承担。"
+    },
+    {
+      "id": "F05",
+      "priority": 1,
+      "area": "kernel-artifact",
+      "capability": "CAP-API",
+      "title": "固定快照不可变存储：定版=新增不可变 artifact_version（SHA-256 固化），改源不影响已定版、字节一致、不可删",
+      "user_visible_behavior": "定版生成 artifact@v1 后修改源 Artifact 再读取 v1，内容字节一致（AC2）；两名用户并发定版只产生一个新版本号，另一方收到『版本已变化』提示；通过任何接口尝试修改或删除已定版快照全部被拒并记录审计事件。",
+      "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R7",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/snapshot-immutable-roundtrip.test.ts",
+        "pnpm vitest run tests/kernel/snapshot-concurrent-single-version.test.ts",
+        "pnpm vitest run tests/kernel/snapshot-no-edit-no-delete.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "『固定快照』在存储层=一条不可变 artifact_version 记录（对象存储 key + SHA-256 + MIME + 版本号），写入后永不覆盖，不是应用层布尔标记。快照不可变 round-trip 是最稳的纯函数/API 断言（写入→改源→断言原版本 SHA-256 不变，对应 R12 V2/V6/V8）。与 13-deliv/uc-13-5 快照绑定契约（3 点）是同一套不可变语义的两侧：本 feature 交付存储机制，13-deliv 交付交付业务规则，不在两处各建一套快照表（overview 5.2）。依据：[原型]（正式产出只绑固定快照、旧版仍被引用是正常的）+[设计]（不可删、纠错只能新增版本）。[待确认] 快照不可删与 180 天材料保留期如何共存（O-01 裁决：不可删对象不受留存期约束，单独走 O-39 法定留存清单，O-39 仍是外部合规输入缺口）——不阻塞实现，标注待细化。"
+    },
+    {
+      "id": "F06",
+      "priority": 1,
+      "area": "kernel-artifact",
+      "capability": "CAP-API",
+      "title": "三模式绑定服务（草稿/实时关联/固定快照）与项目侧回流列表契约",
+      "user_visible_behavior": "用户在 Studio 选三种模式之一把产出挂到项目环节：草稿仅创建者可见、项目侧不出现；实时关联项目侧随源变动、标注『实时·随源变动』；固定快照生成 artifact@vN 并记录定版人/时间。项目侧『已回流的产出与版本』列表对每条返回 mode/version/pinned_by/pinned_at 四字段（草稿除外）。实时关联可升级为固定快照；固定快照不可降级。",
+      "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R3",
+      "depends_on": [
+        "F04",
+        "F05"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/binding-three-modes.test.ts",
+        "pnpm vitest run tests/kernel/backflow-list-fields.test.ts",
+        "pnpm vitest run tests/kernel/mode-upgrade-no-downgrade.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "绑定关系必须存 artifact_version_id 而非 artifact_id。对应 R12 V3（列表四字段非空）、A2（模式升级）、A3（禁止降级）。自动保存只写草稿，永不改变已有绑定、永不产生新快照。依据：[原型]（底部 [挂到项目环节…][保存] 两按钮已探明存在）+[设计]（三模式选择器为『原型待补/确认缺失』——按钮已渲染但点进去的三模式选择流程无任何屏，项目侧『已回流的产出与版本』分区只见于说明页文字）。needs_ui_signoff=true：三模式选择器 + 回流列表徽标（草稿/实时·随源变动/已定版 vN）的界面切片需补画原型并由产品/设计确认，随 phase-01 承载它的 Studio 底栏交付；本 feature 的绑定服务与列表契约用 API 断言，可先行开工。"
+    },
+    {
+      "id": "F07",
+      "priority": 1,
+      "area": "kernel-artifact",
+      "capability": "CAP-API",
+      "title": "下游引用资格门控：只有固定快照可被决策引用、进验收、进报告正式版、写回图谱与组织大脑",
+      "user_visible_behavior": "对实时关联/草稿模式产出调用『加入报告正式版/提交验收/引用为决策依据/写回图谱』接口全部返回拒绝，错误信息指向『需先定版』并提供一键定版入口；对固定快照调用同样接口全部成功。",
+      "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R6",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/reference-eligibility-gate.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11 明确：引用资格门控（主流程第 5 步）是本用例价值核心，必须单独成 feature 并有独立验收，不能混在绑定服务里。对应 AC1 与 R12 V1（纯 API 状态机断言，最稳）。定版是必要条件非充分条件——需验收的产出还须经 UC-13.2 验收后才获证据资格（下游）。依据：[原型]（正式产出与决策只能绑固定快照）+[设计]（写回图谱/组织大脑的门控）。全 API 断言，不涉界面。"
+    },
+    {
+      "id": "F08",
+      "priority": 1,
+      "area": "kernel-artifact",
+      "capability": "CAP-API",
+      "title": "回流/定版审计：provenance_events append-only 血缘 + 越权尝试安全审计 + 通知",
+      "user_visible_behavior": "每次定版与绑定可按操作者、时间、Artifact、模式检索；越权修改/删除快照的尝试也留安全审计记录；快照支撑的证据被撤回时不改快照内容、改为在引用处标注『证据已撤回』并通知拍板人复核。",
+      "spec_ref": "00-core/uc-0-1-把-studio-产出保存回项目.md#R7",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/provenance-append-only.test.ts",
+        "pnpm vitest run tests/kernel/audit-backflow-searchable.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "横切审计留痕收敛点：一个 provenance_events append-only 写入 feature，下游写操作不各自埋点（overview 5.1）。对应 R12 V7（审计态可检索）+ E5（证据撤回不改快照、通知复核）。依据：[原型]+[设计]。append-only 与不可删是纯函数/API 断言。此 feature 是 17-gov/uc-17-1 全链路审计的直接上游。"
+    },
+    {
+      "id": "F09",
+      "priority": 1,
+      "area": "kernel-context",
+      "capability": "CAP-API",
+      "title": "Context Pack 结构契约：items[]/claims[]/omissions[] 三段结构，每条 items 含八字段六元组、无一为空",
+      "user_visible_behavior": "Context Pack 接口返回的 JSON 通过 ContextPack 类型 schema 校验：items[] 每条含 segmentId/content/sourceType/artifactVersionId/anchor/retrievalReasons/score/permissionDecisionId 八字段且非空（anchor 至少命中一种锚点），claims[] 每条含 statement/status/supportingSegmentIds/contradictingSegmentIds（反对证据强制保留）。",
+      "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R1",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/context-pack-schema.test.ts",
+        "pnpm vitest run tests/kernel/context-pack-six-tuple.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "Context Pack 不是字符串数组而是三段结构（与 context-engine.md 第四节逐字对齐）。六元组是 items 结构的业务侧表述：资源ID→artifactVersionId+segmentId、版本→artifactVersionId、来源→sourceType+anchor、可见范围→permissionDecisionId、相关度→score、筛选动作→retrievalReasons。对应 R12 V10（结构契约 schema 校验）+ V2（六元组无一为空）。纯 schema/纯函数断言。依据：[设计]（反推），D-38 采纳为权威。⚠[待确认] UML 文档第 13 节缺失，若出现需校对。artifactVersionId 指向 F05 的不可变版本。"
+    },
+    {
+      "id": "F10",
+      "priority": 1,
+      "area": "kernel-context",
+      "capability": "CAP-API",
+      "title": "五路并行 query-planned hybrid 召回 + 权限过滤（RLS 层）+ RRF 融合 + rerank，含带权限过滤的 pgvector recall 测试集",
+      "user_visible_behavior": "用只含精确原话/编号的 query 检索命中且 retrievalReasons 含 FTS 通道（验证 FTS 是一等通道），用同义改写 query 向量通道命中，两者结果非空；权限与租户过滤在 SQL/RLS 层完成；同一组 query 在『无权限过滤』与『叠加权限过滤』下运行 pgvector 召回，过滤条件下 recall 不低于约定基线（不出现『有权访问却召不回』的静默失败）。",
+      "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R3",
+      "depends_on": [
+        "F09",
+        "F02"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/retrieval-five-channels.test.ts",
+        "pnpm vitest run tests/kernel/retrieval-fts-first-class.test.ts",
+        "pnpm vitest run tests/kernel/pgvector-permission-recall.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "query-planned hybrid（推翻 graph-first）：五路并行召回（PostgreSQL FTS 一等通道 / pgvector / 图关系 ontology_edges 只给固定加成 / 元数据 / Claim 检索）→ RRF/加权融合 → cross-encoder/LLM rerank → 去重/来源多样性/支持反驳平衡。对应 R12 V11（检索通道）+V12（权限过滤召回率）。pgvector recall 测试集是该通道的上线门槛（估点变更说明明确列为交付物），不可用『人工看着还行』代替——已并入本 feature 的 verification。中文需明确分词方案 + 中英混合检索评测。依据：[设计]（架构第四节）。这是 8 点最大的 feature，若单会话吃不下可在实现时按五路拆子任务，但 recall 门槛必须随召回一同交付。[待确认] token 预算数值/各路配额（O-36：随模型窗口推导、按任务类型可配，0.45 默认）——不阻塞，实现先按假设走。"
+    },
+    {
+      "id": "F11",
+      "priority": 1,
+      "area": "kernel-context",
+      "capability": "CAP-API",
+      "title": "五种筛选动作留痕（retrievalReasons）+ 预算裁剪 + 丢弃清单可审查（omissions[]）",
+      "user_visible_behavior": "对候选执行召回/降权/排除/成对/线索五种筛选动作并逐条留痕于 items[].retrievalReasons；按 token 预算裁剪后被丢弃条目可通过接口列出、返回数量与所用阈值；候选集中每一条未出现在 items[] 的内容都能在 omissions[] 中找到对应丢弃原因（预算超限/低于相关度阈值/权限过滤/去重折叠）。",
+      "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R7",
+      "depends_on": [
+        "F10"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
+        "pnpm vitest run tests/kernel/omissions-auditable.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "R11 明确：丢弃清单可审查（第 4 步）是最容易被实现者省略的项之一，必须独立成 feature 并有独立验收。『被丢弃不等于不存在』的可执行定义=装配结果里没出现的东西必须在 omissions[] 里能解释为什么没出现（对应 R12 V13 遗漏可解释 + V3 丢弃条目可列出）。反对证据强制保留、冲突事实成对注入、已撤销条目永久排除但反例作为『教训』另行召回。依据：五种动作为[原型]，omissions[]/retrievalReasons 落地载体为[设计]。needs_ui_signoff=true：承载它的 Studio『上下文包与证据』右栏在原型为『原型确认缺失』（大脑『AI 读到了什么』屏完整存在且已抽取，但研究/问卷/原型三个 Studio 运行态外壳已完整探明、其中没有这一栏），界面需补画并确认两者关系，随 phase-01 交付；本 feature 的 omissions/retrievalReasons 契约用 API 断言可先行开工。[已裁决 O-36] 阈值 0.45 默认、按任务类型可配。"
+    },
+    {
+      "id": "F12",
+      "priority": 1,
+      "area": "kernel-context",
+      "capability": "CAP-API",
+      "title": "引用完整性校验：AI 不得引用不在本次 Context Pack 中的证据",
+      "user_visible_behavior": "构造一次 AI 调用使其尝试引用一条不在 Context Pack 中的证据，接口拒绝并记录；引用包内证据则通过。全新无材料项目装配返回真实空态，且以该包发起的 AI 调用被阻断而非生成无来源结论；检索服务不可用时 AI 调用入口被阻断，不出现『无上下文直接生成』。",
+      "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R6",
+      "depends_on": [
+        "F09",
+        "F10"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/citation-integrity.test.ts",
+        "pnpm vitest run tests/kernel/empty-pack-blocks-ai.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11 明确：引用完整性校验（第 7 步）是最容易被省略的两项之一，必须独立成 feature 并有独立验收。对应 AC1 与 context-engine.md 首批门槛①（100% 引用可定位），是本阶段总验收面。R12 V1（引用包外证据被拒）+V5（空态阻断）+V6（依赖失败阻断）。纯 API 断言。依据：[设计]（对应原型系统提示硬约束原文『可只读审查』）。不涉界面。"
+    },
+    {
+      "id": "F13",
+      "priority": 1,
+      "area": "kernel-context",
+      "capability": "CAP-API",
+      "title": "Context Pack 随定版固化 + 可重放 + 机密材料本地模型路由",
+      "user_visible_behavior": "产出定版为固定快照时把本次 Context Pack 引用清单随快照固化，任取一条已定版结论可还原其定版时的完整引用清单（『这条结论当时看了什么』）；同一 run id 重放得到同一 items[]；Context Pack 含标记为客户机密的条目时，模型选择接口只返回自托管模型。",
+      "spec_ref": "00-core/uc-0-2-studio-打开时带上项目上下文.md#R7",
+      "depends_on": [
+        "F05",
+        "F09",
+        "F11"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/context-pack-pinned-replay.test.ts",
+        "pnpm vitest run tests/kernel/confidential-local-model-routing.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "Context Pack 一经用于定版即随快照固化，此后上游变化不改写它（对应 context-engine.md 首批门槛⑥可重放 + uc-17-1 AC1）。可重放是纯函数断言（同 run id 重放得同 items[]）。机密路由：含客户机密条目时本次调用模型选择限自托管模型（R12 V9 机密路由 + V8 审计还原）。依据：[原型]（机密材料只能本地模型）+[设计]（固化/重放）。全 API/纯函数断言，不涉界面。[待确认] Context Pack 装配快照的留存期未定——不阻塞实现，标注待细化（它是审计依据但体量可能很大）。与 F05 快照不可变、F11 omissions 固化协同。"
+    },
+    {
+      "id": "F14",
+      "priority": 1,
+      "area": "kernel-web",
+      "capability": "CAP-UI",
+      "title": "前端内核可运行，且设计规范由脚本机器把关而不是靠人自觉",
+      "user_visible_behavior": "pnpm dev 能起出 apps/web；样板页可用 ?state= 逐个看到默认/加载/空/校验失败/依赖失败/无权限/成功七种状态，每种状态有固定 data-testid 可被 Playwright 选中；顶部有组织切换器与两层角色说明条（形如「顾问 · 能源组 ｜ 本项目：组长 · 第 2 组」）；故意写一个硬编码颜色或裸 <button>，pnpm lint-design 会红并指出违规行。",
+      "spec_ref": "00-core/uc-0-4-前端内核与设计单源.md#R3",
+      "depends_on": [],
+      "points": 13,
+      "status": "passing",
+      "sprint": "01",
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web run contrast",
+        "pnpm --filter web run test",
+        "apps/web/scripts/verify-ui-states.sh",
+        "apps/web/scripts/verify-prod-gates.sh",
+        "pnpm --filter web run e2e"
+      ],
+      "evidence": "evidence/F14.verify.log @ 2026-07-28T16:55:49.274Z",
+      "needs_ui_signoff": false,
+      "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。 【2026-07-28 verification 修订】原先写的 playwright 命令是预设而非事实。实际落地后改为六条**已跑通**的命令：typecheck / lint:design / contrast / vitest / verify-ui-states.sh / verify-prod-gates.sh。七态与身份投影的断言改用「对 SSR 出的 HTML 断言固定 testid」而不是浏览器驱动——更稳、无需下载浏览器，且正是 verification 该锚的东西。R12 V9（375/768/1280 三档无横向溢出）仍需 Playwright，**尚未覆盖**，留待补装 Playwright 后加第七条命令。 【2026-07-29 补齐 R12 V9】此前 notes 记着「V9（375/768/1280 三档无横向溢出）仍需 Playwright，尚未覆盖」——现已补上：`pnpm --filter web run e2e` 跑 25 屏 × 3 档 = 75 个断言。⚠ 断言写了三版才真正有效（前两版都全绿但在空转，过程记在 web-kernel/coverage.md 末尾），并顺带抓到画布在 375/768 下裁掉 245px 且不可达的真缺陷。⇒ UC-0.4 R8「本件以机器门控代替人类 sign-off，V1–V10 无一依赖人工判断」的承诺现已全部兑现。"
+    },
+    {
+      "id": "F15",
+      "priority": 1,
+      "area": "kernel-org",
+      "capability": "CAP-API",
+      "title": "能力清单是组织配置，不是产品内置",
+      "user_visible_behavior": "管理员在后台维护本组织的 agent / skill / 模型 / MCP / 画布模板 / 项目蓝本六类清单，页头明写「以下配置只对本组织生效，成员跟随本配置」；成员看到的可用能力完全来自所属组织，不能自行增删；把某组织的清单清空后，该组织成员看到的是空态而不是一套默认值；同一个人在 A / B 两个组织下看到的能力清单不同且互不泄漏；切换组织时整套能力配置一并换掉。 管理员还可把整个组织配置成「只用自托管模型」——云端模型在该组织内整行禁用并注明原因（不是隐藏）。",
+      "spec_ref": "00-core/uc-0-5-组织配置平面与个人本地组织.md#R3",
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
+      "points": 10,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/no-builtin-capability-lists.test.ts",
+        "pnpm vitest run tests/kernel/org-scoped-capabilities.test.ts",
+        "pnpm vitest run tests/kernel/capability-change-provenance.test.ts",
+        "pnpm vitest run tests/kernel/org-model-policy.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "依据等级：[设计]——2026-07-28 人类新需求，无原型无 Backlog。缘由是原型把六个 agent 与18 台模型画得像产品内置，人类明确它们只是某个组织的示例配置。V1 是本 feature 最要紧的一条：静态断言产品代码里不存在硬编码清单，并断言清空组织配置后界面进入空态而不是显示默认值——只验「能读配置」不验「没有内置兜底」，第二个客户进来就会发现清单其实写死在代码里。R7 关键立场：成员跟随组织配置、不做个人覆盖——能力清单直接决定 AI 能读什么数据、能调什么工具，个人覆盖等于绕过组织安全边界。与 UC-0.3 的可见性范围是串联两层：先看本组织有没有，再看我在不在可见范围里，V10 断言两层错误可分辨、不糊成一个。needs_ui_signoff=true：后台七模块要从「产品设置」读感改成「本组织配置」读感，属原型确认缺失。必须先于 03-skill / 04-agent / 20-model / 21-mcp 实现，否则它们会先把清单硬编码进去再拆一次。 【2026-07-28 裁决追加，+2 点】正式组织可配 modelPolicy: \"self-hosted-only\" | \"any\"。⚠ 与个人本地组织的硬隔离①**性质不同、不可抹平**：正式组织这条是**可配置策略**（管理员可改、改动留痕）；本地组织那条是**不可关闭的产品承诺**。数据模型与界面必须能分辨二者——用同一个开关表示会让「承诺」退化成「默认值」（V12 断言这一点）。这条裁决同时让「本地组织恒为单人」的取舍成立：有多人+不出网需求的客户走私有部署的正式组织 + 本策略，而不是把本地组织做成多人。"
+    },
+    {
+      "id": "F16",
+      "priority": 1,
+      "area": "kernel-org",
+      "capability": "CAP-API",
+      "title": "每个人有一个本地组织，最隐私的数据不出本机",
+      "user_visible_behavior": "新注册用户立即拥有一个「我的本地」组织，无需任何配置动作；顶部组织切换器里它带锁形图标，切进去后整个应用有可感知的状态变化（顶栏换底色 + 常驻说明条），让人始终知道自己在本地模式；本地组织内云端模型整行禁用并注明原因（不是隐藏），发起 AI 调用时出网流量为零；本地运行时没起来时显示依赖失败态并给出启动指引，绝不偷偷改用云端；本地组织对任何他人不可见，包括组织管理员与平台运营。 本地组织恒为单人——没有邀请入口，成员列表只有自己。",
+      "spec_ref": "00-core/uc-0-5-组织配置平面与个人本地组织.md#R7",
+      "depends_on": [
+        "F15"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/personal-local-org-autocreate.test.ts",
+        "pnpm vitest run tests/kernel/local-org-zero-egress.test.ts",
+        "pnpm vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
+        "pnpm vitest run tests/kernel/local-org-invisible-to-admin.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "依据等级：[设计]——2026-07-28 人类新需求「每个人有自己的默认的本地的一个组织，一个特殊的组织，可以使用本地模型来处理所有的最隐私的数据」。架构立场（R7）：personal-local 是组织类型的一个取值，与正式组织**共用同一张表与同一套 ACL/RLS 机制**，不是特例分支——避免出现「本地模式」的第二套代码路径，那种分支必然长期失修。三条硬隔离是产品承诺不是配置项：① 模型只走本地/自托管 ② 禁止 MCP 出网 ③ 数据不进共享对象存储与跨组织索引。违反时拒绝并显式报错，**不得静默降级到云端**。⚠ V3 必须在**网络层**断言出网请求数为 0，不能只查应用日志——应用层可能自认为没出网。V5 同等重要：停掉本地运行时后必须失败，且没有任何云端调用发生。它比 UC-0.3 R7 的「个人层对管理员封闭」更强：那条是看不到内容，这条是数据根本不离开本地；因此 UC-0.3 R5 A1 的管理员审计目的访问权**不适用**于本地组织。残留 [待确认] 四条见 UC R10，其中「正式组织能否整体配置成只用自托管模型」对强合规客户很可能是刚需，建议优先裁决。 【2026-07-28 裁决】本地组织**恒为单人，不允许邀请他人**。「本地多人（同一局域网/同一部署）」的中间形态本轮不做——一旦允许多人，就要回答「成员名单存在哪、身份怎么验、数据在谁的机器上」，那实际上是一个私有部署的正式组织。有此需求的客户走私有部署 + F15 的 self-hosted-only 策略，等价保障且模型不分叉。"
+    },
+    {
+      "id": "F17",
+      "priority": 2,
+      "area": "kernel-org",
+      "capability": "CAP-API",
+      "title": "把本地成果导出到正式组织——隐私承诺的唯一豁口，全程受控",
+      "user_visible_behavior": "在本地组织里可以显式发起一次「导出到某个正式组织」；点下去先看到逐项预览：哪些材料/片段/结论会离开本机，以及它们进入目标组织后谁会看到（按目标组织的权限预演）；确认后本地副本仍在（是复制不是搬走）；本地侧与目标侧各留一条痕迹，目标侧的条目明确标注「来自某成员的本地组织，未经本组织入库审核」；反过来把正式组织的数据导入本地组织会被拒绝。",
+      "spec_ref": "00-core/uc-0-5-组织配置平面与个人本地组织.md#R10",
+      "depends_on": [
+        "F16",
+        "F04",
+        "F08"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": "04",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/kernel/local-export-no-auto-sync.test.ts",
+        "pnpm vitest run tests/kernel/local-export-preview-gate.test.ts",
+        "pnpm vitest run tests/kernel/local-export-copy-not-move.test.ts",
+        "pnpm vitest run tests/kernel/local-export-provenance-both-sides.test.ts",
+        "pnpm vitest run tests/kernel/local-import-rejected.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "依据等级：[已裁决 2026-07-28]——人类裁定「本地组织的数据可以导出到其他的正式组织」。**单独成 feature 而不并入 F16，是因为它是 F16 三条隐私承诺的唯一豁口**——混在里面会让「数据不出本机」这条承诺的边界变模糊，也让验收无法独立。五条硬约束（对应五条 verification）：① 显式一次性人工动作，**禁止任何自动同步/后台上传/定时推送**；② 导出前逐项预览将离开本机的内容**及其在目标组织的可见性**（按目标 acl_bindings 预演）；③ 复制而非迁移，本地副本保留；④ **两侧**都写 provenance_events，目标侧标注来源为本地组织（因为它未经该组织的任何入库审核）；⑤ **单向**，反向导入被拒。⚠ V11① 与 F16 的 V3 是同一条网络层断言的两面：不操作时出网恒为 0，覆盖「后台悄悄传」这种最危险的失效方式。priority=2：它不阻塞 F15/F16 落地，但必须与 F16 同期设计，否则豁口会被临时方案侵蚀。"
+    },
+    {
+      "id": "F18",
+      "priority": 1,
+      "area": "kernel-api",
+      "capability": "CAP-API",
+      "title": "后端内核可运行，且洋葱分层/RLS 强制/三道运行时门控由脚本机器把关而不是靠人自觉",
+      "user_visible_behavior": "apps/api 可启动；从空库跑迁移能重建全部结构且连跑两次幂等；以租户 A 的上下文绕过应用层任何过滤直接查库，读到 0 行属于租户 B 的数据，换成 B 则只看得到 B 的行；无凭证请求受保护路由返回 401 而不是匿名放行；违反契约 zod 的请求体返回 400 并指出是哪个字段；handler 抛出带敏感字符串的异常时响应体只有 internal_error 与 traceId，敏感串与表名只出现在日志里；故意写一个从 domain 指向 infrastructure 的 import，lint-arch-deps 会红并指出违规方向与理由。",
+      "spec_ref": "00-core/uc-0-6-后端内核与运行时门控.md#R3",
+      "depends_on": [],
+      "points": 13,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "main-agent",
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api run test",
+        "node .harness/scripts/lint-arch-deps.mjs apps/api/src",
+        "apps/api/scripts/verify-rls.sh",
+        "apps/api/scripts/verify-runtime-gates.sh",
+        "pnpm --filter api run migrate:check",
+        "node .harness/scripts/lint-contract-source.mjs"
+      ],
+      "evidence": "evidence/F18.verify.log @ 2026-07-28T18:58:49.901Z",
+      "needs_ui_signoff": false,
+      "notes": "【本 feature 是 F01~F13 十三个后端 feature 的共同前置】2026-07-29 机器核实：apps/ 下只有 web，apps/api 不存在，全仓零 NestJS、零迁移文件、零 PG 连接；lint-arch-deps.mjs 已写好但每次运行都打印「跳过 apps/api/src：尚未创建」并 exit 0——ADR-020 称它「与既有七道门控同级的强制门控」，实际处于永久空转；architecture.md 点名的三个运行时门控（Guard 全局注册 / ValidationPipe + zod / ExceptionFilter 只回 internal_error）一个都不存在；packages/contracts 的 zod 目前只有前端一个消费者，ADR-020 的「后端 DTO ← 同一份 zod」这条链未接通。不拆出本件的后果：F01（5 点）实际要交付 NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 + acl_bindings 表 + 两层交集判定，估点失真三倍，且十二个后端 feature 的共同前置被埋进 F01 的实现里，下一个 feature 的人不知道它已经有了。这与 UC-0.4（前端内核）从 F01~F13 里拆出来的理由完全相同——前端有内核，后端没有。依据等级：[设计]——从 architecture.md「三个必须建立的机械门控（运行时）」+ ADR-020 + UC-0.3 R7 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。不拆的理由见 R11：没有迁移体系就没有 RLS 策略，没有 RLS 就没有反证，没有洋葱目录 lint-arch-deps 就仍在空转。verification 第 5 条 verify-rls.sh 是最重要的一条——它绕过应用层过滤断言跨租户读 0 行，且同时断言换成自己的租户能读到自己的行；只写前半句的话，一个「一律拒绝」的坏策略也会全绿，隔离与瘫痪必须能被区分。needs_ui_signoff=false：本件零界面。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F14（前端内核）无依赖、可并行。⚠ 所属契约束 api-kernel 尚未签核，new-sprint 会拒绝把它开进 sprint（ADR-020 门控）。"
+    }
+  ]
+}

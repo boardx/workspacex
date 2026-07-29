@@ -7,6 +7,7 @@ import { renderTemplateFile, nowISO } from "./lib/render";
 import { parseArgs, req } from "./lib/args";
 import { log, die } from "./lib/log";
 import { assertUiSignedOff } from "./lib/ui-signoff";
+import { assertDesignSignedOff } from "./lib/design-signoff";
 import type { Args } from "./lib/args";
 
 export function newSprint(args: Args): void {
@@ -26,6 +27,15 @@ export function newSprint(args: Args): void {
 
   // 分配 feature 到本 sprint（改阶段权威清单的 sprint 字段）
   const assign = (args.opts["features"] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+  // 设计签核关卡（ADR-020）：feature 所属契约束已签 ∧ 阶段一致性复核通过，才可开工。
+  // ⚠ 放在 assign 解析之后——门控要知道**这次开的是哪些 feature**，
+  //   否则只能粗到「整个阶段签没签」，那会让先签的束白等后签的束。
+  try {
+    assertDesignSignedOff(phaseId, assign);
+  } catch (e) {
+    die((e as Error).message);
+  }
   for (const fid of assign) {
     const f = findFeature(fl, fid);
     // 保护"passing 不可逆"语义：passing 的 feature 不能重新分配 sprint

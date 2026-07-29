@@ -1,0 +1,181 @@
+/**
+ * validate-fl.ts — feature_list 的独立校验器
+ *
+ * 用 harness 自己的 `resolveSpecRef` 校验 spec_ref（不另写一份解析逻辑），
+ * 再加几条 feature_list 特有的完整性检查。
+ *
+ * 为什么不直接用 `pnpm harness verify`：那条命令是**状态转移门控**（把 feature 标 passing），
+ * 需要 sprint 上下文。这里要的是「清单本身写得对不对」，是不同的事。
+ *
+ * 用法：pnpm exec tsx .harness/scripts/validate-fl.ts <phase-id> [更多 phase-id…]
+ */
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { resolveSpecRef, hasRequirementsCoverage } from "./lib/spec-ref";
+import { findPhaseDir } from "./lib/paths";
+
+interface Feature {
+  id: string;
+  title?: string;
+  user_visible_behavior?: string;
+  spec_ref?: string;
+  depends_on?: string[];
+  points?: number;
+  status?: string;
+  owner?: unknown;
+  verification?: string[];
+  evidence?: unknown;
+  needs_ui_signoff?: boolean;
+  notes?: string;
+}
+
+/** 不验证行为的占位式 verification —— 这类等于没有验证 */
+const PLACEHOLDER = [
+  /^echo\s/i,
+  /^test\s+-[ef]\s/i,
+  /^ls\s/i,
+  /^true$/i,
+  /^cat\s/i,
+];
+
+let totalBad = 0;
+
+for (const phaseId of process.argv.slice(2)) {
+  let dir: string;
+  try {
+    dir = findPhaseDir(phaseId);
+  } catch (e) {
+    console.error(`✗ phase ${phaseId}: ${(e as Error).message}`);
+    totalBad++;
+    continue;
+  }
+  const flPath = join(dir, "feature_list.json");
+  if (!existsSync(flPath)) {
+    console.error(`✗ phase ${phaseId}: 没有 feature_list.json`);
+    totalBad++;
+    continue;
+  }
+
+  const fl = JSON.parse(readFileSync(flPath, "utf8")) as { phase?: string; features: Feature[] };
+  const feats = fl.features ?? [];
+  const ids = new Set(feats.map((f) => f.id));
+  let bad = 0;
+  const say = (msg: string) => {
+    console.log(`  ✗ ${msg}`);
+    bad++;
+  };
+
+  console.log(`\n── phase ${phaseId} ──`);
+
+  const cov = hasRequirementsCoverage(phaseId);
+  if (!cov.ok) say(`requirements 覆盖：${cov.reason}`);
+
+  // 脚手架占位没被覆盖，是最容易漏的一种「看起来生成了」
+  for (const f of feats) {
+    if (/示例|example|健康检查端点/i.test(f.title ?? "")) {
+      say(`${f.id} 仍是脚手架占位（"${f.title}"）—— 该阶段的清单没有真正生成`);
+    }
+  }
+
+  for (const f of feats) {
+    const r = resolveSpecRef(phaseId, f.spec_ref);
+    if (!r.ok) say(`${f.id} spec_ref "${f.spec_ref}" — ${r.reason}`);
+
+    // ⚠ 本校验器最初假设「清单永远在生成态」，一旦有 feature 真的开工就会误报。
+    //   它该验的是**状态合法且与其它字段自洽**，不是「必须是 not_started」。
+    const LEGAL = ["not_started", "in_progress", "blocked", "passing"];
+    if (!LEGAL.includes(f.status ?? "")) {
+      say(`${f.id} status=${f.status} 不是合法状态（${LEGAL.join(" / ")}）`);
+    }
+    // passing 的归属由 verify 门控写入，此处只查自洽性（证据见下方 evidence 检查）
+    if (f.status === "passing" && !f.sprint) {
+      say(`${f.id} 是 passing 却没有 sprint 归属 —— passing 必须能追回是哪一轮验的`);
+    }
+    if (f.status === "not_started" && f.owner != null) {
+      say(`${f.id} 尚未开工却已有 owner=${String(f.owner)}`);
+    }
+    // ⚠ harness 的 `Feature.evidence` 是 **string**（见 lib/types.ts），模板 scaffold 成 ""。
+    //   我曾在 requirement-author 规格里写成 `[]`，导致 225 个 feature 全带错类型——
+    //   verify 写入时是字符串，被当数组读就变成 50 个单字符。
+    //   **写规格前没查 harness 自己的类型**，这是根因。
+    if (typeof f.evidence !== "string") {
+      say(`${f.id} evidence 类型应为 string（harness lib/types.ts），实为 ${typeof f.evidence}`);
+    } else if (f.status === "not_started" && f.evidence !== "") {
+      say(`${f.id} 尚未开工却已有 evidence："${f.evidence.slice(0, 40)}"`);
+    } else if (f.status === "passing" && !f.evidence.trim()) {
+      say(`${f.id} 是 passing 却没有 evidence —— 没有证据 = 没有完成（AGENTS.md 完成定义）`);
+    }
+    if (typeof f.points !== "number" || f.points <= 0) say(`${f.id} points 缺失或非正数`);
+    if (!f.user_visible_behavior?.trim()) say(`${f.id} 缺 user_visible_behavior`);
+
+    if (!Array.isArray(f.verification) || f.verification.length === 0) {
+      say(`${f.id} 没有 verification`);
+    } else {
+      for (const v of f.verification) {
+        if (PLACEHOLDER.some((re) => re.test(v.trim()))) {
+          say(`${f.id} verification 是占位式、不验证行为："${v}"`);
+        }
+      }
+    }
+
+    for (const d of f.depends_on ?? []) {
+      if (d.includes(":")) continue; // 跨阶段引用
+      if (!ids.has(d)) say(`${f.id} 依赖不存在的 ${d}`);
+    }
+  }
+
+  // 依赖成环
+  const state = new Map<string, 0 | 1 | 2>();
+  const byId = new Map(feats.map((f) => [f.id, f]));
+  const visit = (id: string, path: string[]): void => {
+    if (state.get(id) === 2) return;
+    if (state.get(id) === 1) {
+      say(`依赖成环：${[...path, id].join(" → ")}`);
+      return;
+    }
+    state.set(id, 1);
+    for (const d of (byId.get(id)?.depends_on ?? []).filter((x) => !x.includes(":"))) {
+      if (byId.has(d)) visit(d, [...path, id]);
+    }
+    state.set(id, 2);
+  };
+  for (const f of feats) visit(f.id, []);
+
+  // ── 估点漂移检查（2026-07-28 新增）────────────────────────────────
+  // 估点被声明在**两处**：UC 头部的 `估点 **n**`，与 feature_list 里逐 feature 的 points。
+  // 两处必然漂移——本次就查出三处：uc-0-5（13 vs 20，我加 F17 时没回头改头部）、
+  // uc-11-1（3 vs 5，O-27 已裁但头部漏改）、uc-13-4（5 vs 8，O-30 同理）。
+  // 与 token / 字号 / 丢弃原因 / 撤回链是同一种失效模式，故同样上机械门控。
+  {
+    const byUc = new Map<string, number>();
+    for (const f of feats) {
+      const file = (f.spec_ref ?? "").split("#")[0];
+      if (file) byUc.set(file, (byUc.get(file) ?? 0) + (f.points ?? 0));
+    }
+    for (const [rel, sum] of byUc) {
+      const ucPath = join(dir, "requirements", rel);
+      if (!existsSync(ucPath)) continue;
+      const m = /估点\s*\*\*(\d+)\*\*/.exec(readFileSync(ucPath, "utf8"));
+      if (!m) {
+        say(`${rel} 头部没有 \`估点 **n**\`，无法与 feature_list 对账`);
+        continue;
+      }
+      const declared = Number(m[1]);
+      if (declared !== sum) {
+        say(
+          `估点漂移：${rel} 头部声明 ${declared}，feature_list 合计 ${sum}` +
+            `（估点声明在两处必然漂移——改了一处就要改另一处，或说明差异原因）`,
+        );
+      }
+    }
+  }
+
+  const pts = feats.reduce((s, f) => s + (f.points ?? 0), 0);
+  const signoff = feats.filter((f) => f.needs_ui_signoff);
+  console.log(`  ${feats.length} 个 feature / ${pts} 点｜needs_ui_signoff: ${signoff.length} 个`);
+  if (bad === 0) console.log("  ✅ 全部通过");
+  totalBad += bad;
+}
+
+console.log(totalBad === 0 ? "\n✅ 全部阶段通过" : `\n❌ 共 ${totalBad} 项不合格`);
+process.exit(totalBad === 0 ? 0 : 1);

@@ -1,4 +1,31 @@
-# roadmap.yaml — 所有阶段(phase=项目)的单一来源。
-# new-phase 会往这里追加条目；状态由 sync/doctor 维护，禁止手改 passing 计数。
-version: 1
-phases: []
+# roadmap.yaml — 所有阶段(phase=项目)的单一来源
+# new-phase 脚本读写本文件;每个阶段会在 phases/ 下 scaffold 一个目录。
+project: undefined
+phases:
+  - id: "00"
+    slug: shared-kernel
+    name: 共享内核
+    goal: "交付跨模块横切契约：Artifact/Version/Segment/Anchor 模型、Context Pack 装配与引用完整性、两层角色与 RLS 强制隔离。所有业务模块依赖它"
+    status: in_progress
+    depends_on: []
+  - id: "01"
+    slug: run-a-project
+    name: 能跑完一场项目
+    goal: "从进场到产出的完整闭环：身份与邀请、项目蓝本、Skill/Agent 能力平面、模型与 MCP、实时转录、访谈、推演画布、对话、项目文件。⚠ 含两个契约先行项：「报告段落标失效」与「ontology_edges 失效」两个接口虽属 phase-02 的 10-report/09-kg，但被本阶段 22-files/uc-22-4 的删除级联依赖（D-13 已裁定撤回最小切片前置），必须在本阶段以契约桩形式先行交付，否则 UC-22.4 的 AC2 无法达成"
+    status: not_started
+    depends_on: ["00"]
+    has_ui: true
+  - id: "02"
+    slug: visible-outcomes
+    name: 让推演与成果可见
+    goal: "知识图谱与决策树、洞察报告、待办看板、问卷与投票、成果交付"
+    status: not_started
+    depends_on: ["00", "01"]
+    has_ui: true
+  - id: "03"
+    slug: reuse-and-governance
+    name: 跨项目复用与治理
+    goal: "组织大脑与知识晋升、客户门户、数字专家、审计合规与数据治理"
+    status: not_started
+    depends_on: ["00", "02"]
+    has_ui: true

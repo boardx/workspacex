@@ -43,3 +43,17 @@ phases/requirements/oldcode/
 
 # evidence 日志必须入库（AGENTS.md 完成定义：没有证据 = 没有完成）
 !phases/**/evidence/*.log
+
+# 需求整改期的原始材料快照（3 个旧代码库 + 设计稿 + OCR 训练数据 + 音频，约 30MB
+# 二进制）。它只在「原型 ↔ 需求」审计期间作对照用，权威来源是 phases/requirements/
+# 下已整理的 99 份 UC，不入库。
+phases/requirements-backup/
+
+# 演示导出物（presentations 等），由工具生成，非事实源
+output/
+.next-prod-gate/
+.next-ui-gate/
+_fl-parts/
+.next-e2e/
+playwright-report/
+test-results/

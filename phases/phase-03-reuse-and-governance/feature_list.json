@@ -1,0 +1,1117 @@
+{
+  "phase": "03",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "全链路审计：四类事件同一条 append-only 事件流，任何人不可删，且没有留痕就没有调用",
+      "user_visible_behavior": "在任一项目触发角色/版本/Agent调用/决策四类事件，它们出现在同一条时间线上、无法删除；关掉审计写入时业务动作整体失败回滚。",
+      "spec_ref": "17-gov/uc-17-1-全链路审计.md#R7",
+      "depends_on": [
+        "p0:F08"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/audit-single-provenance-table.test.ts",
+        "pnpm vitest run tests/gov/audit-append-only-no-delete.test.ts",
+        "pnpm vitest run tests/gov/audit-write-is-precondition.test.ts",
+        "pnpm vitest run tests/gov/agent-run-replayable-four-artifacts.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "依据[原型]项目级审计屏已存在(/项目→成果沉淀→审计与反馈)，本feature只写实并落 provenance_events 单表(与phase-00 F08同一张append-only表，禁止另建audit_events)。V9(UPDATE/DELETE全拒)、V7(写入失败整体回滚)、V8(agent run四样可重放)为核心断言。D-34 A′：项目级不搬走。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-UI",
+      "title": "组织级跨项目审计检索屏：合规负责人按项目/人/时间跨项目检索并导出，检索本身也写审计",
+      "user_visible_behavior": "合规负责人在后台新增的跨项目审计检索屏输入条件，返回多个项目的事件并可导出CSV/JSON；该次检索产生一条审计记录。",
+      "spec_ref": "17-gov/uc-17-1-全链路审计.md#R8",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/org-audit-cross-project-search.test.ts",
+        "pnpm --filter web run e2e tests/e2e/gov-org-audit-screen.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "原型确认缺失：后台九子模块已穷举无此屏(D-34需新建)。needs_ui_signoff。补画约1屏后由人类确认(ADR-003)方可进new-sprint。与项目级时间线是同一份数据的两种视图。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "受访者四项独立同意 + 授权只读镜像 + 未确认不能开始（服务端硬约束）",
+      "user_visible_behavior": "受访者在免注册链接上逐项勾选录音/转写/AI分析/署名四项；研究员侧只读镜像不能代勾；受访者未提交前『开始访谈』被服务端拒绝。",
+      "spec_ref": "17-gov/uc-17-2-授权撤回与删除.md#R3",
+      "depends_on": [
+        "p1:uc-6-3"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/consent-four-independent-toggles.test.ts",
+        "pnpm vitest run tests/gov/consent-readonly-mirror-no-proxy.test.ts",
+        "pnpm vitest run tests/gov/consent-not-submitted-blocks-start.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "依据[原型]受访者授权屏完整存在(consent-* testid已建于/consent)。四项各自降级语义(拒AI分析→只原文引述不进检索/主题矩阵自动归纳/数字专家材料集)。AC5/AC6服务端拒绝。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "撤回两级SLA可测量 + 第④步拍板人复核不自动改结论 + 删除回执 + legal hold",
+      "user_visible_behavior": "触发撤回后≤5分钟逻辑失效(退出检索/报告段落标失效/主题矩阵重算)、≤30天物理删除并出回执；若撤回内容支撑过已签字决策则通知拍板人复核而非自动改结论；legal hold时物理删除挂起并向受访者明示。",
+      "spec_ref": "17-gov/uc-17-2-授权撤回与删除.md#R7",
+      "depends_on": [
+        "F03",
+        "F07",
+        "F16",
+        "p1:uc-22-4"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/withdrawal-two-tier-sla-measurable.test.ts",
+        "pnpm vitest run tests/gov/withdrawal-step4-no-auto-decision-change.test.ts",
+        "pnpm vitest run tests/gov/withdrawal-receipt-and-legalhold.test.ts",
+        "node -e \"const s=require('./apps/web/lib/withdrawal-flow.ts');\""
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "数值来自单一事实源 apps/web/lib/withdrawal-flow.ts(D-13内容/D-15时限≤5分钟·≤30天/D-19人工确认)，不另立数值；断言全文无『24小时』。⚠边界(避免重复计点)：删除传播实现归 phase-1 uc-22-4，本feature只覆盖合规语义/SLA断言/回执/拍板复核(第④步)。1点即此增量。"
+    },
+    {
+      "id": "F05",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "五参数留存策略单一事实源：组织默认值+允许区间+项目级可覆盖，超区间服务端拒绝",
+      "user_visible_behavior": "合规负责人设五参数(材料/留痕/删除宽限/知识有效期/审计保留)默认值与允许区间；项目负责人可在区间内覆盖，超区间被拒并返回上下界；其他模块读到的都是这一套。",
+      "spec_ref": "17-gov/uc-17-3-数据保留与出域.md#R3",
+      "depends_on": [
+        "p0:F04"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/retention-five-params-single-source.test.ts",
+        "pnpm vitest run tests/gov/retention-project-override-in-range.test.ts",
+        "pnpm vitest run tests/gov/retention-out-of-range-rejected.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-14五参数。默认值已由O-01定稿可写入(材料180/留痕180/删除宽限30/知识有效期6·12·24月/审计1095天)；⚠允许区间[待确认·待合规](TODO-2)→改写为结构性断言：只校验默认值所属参数硬约束(删除宽限≤30天)+区间配置表驱动，不写死区间数。UC-17.2/14.5/17.1读同一份。"
+    },
+    {
+      "id": "F06",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "同意书文案按项目动态渲染 + 禁止用于训练硬开关无绕过路径",
+      "user_visible_behavior": "改某项目材料保留期后，该项目受访者授权屏显示的保留期数值随之改变；渲染失败时阻断授权流程不展示模板占位符；开启禁止用于训练后任何角色/API/配置都无法绕过。",
+      "spec_ref": "17-gov/uc-17-3-数据保留与出域.md#R7",
+      "depends_on": [
+        "F05"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/consent-copy-dynamic-render-per-project.test.ts",
+        "pnpm vitest run tests/gov/consent-render-fail-blocks-auth.test.ts",
+        "pnpm vitest run tests/gov/training-ban-no-bypass-enumerated.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "解决 TODO-3 合规风险：/consent 现写死『180天』，任一项目改保留期即向受访者作出与实际不符的承诺。D-14要求动态渲染。consent-body testid可锚。禁训开关依据[原型]研究计划参数已存在，硬开关口径为[设计]强化。"
+    },
+    {
+      "id": "F07",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "出域两层：出组织(闭源/自托管硬路由，机密只走自托管Warden拦截) + 出法域驻留路由 + 材料级机密标记",
+      "user_visible_behavior": "标为客户机密的材料路由到闭源第三方模型被Warden拦下并给可读理由、走自托管成功、无合格自托管时明确失败；设驻留地区后存储/推理/备份任一不满足即明确失败。",
+      "spec_ref": "17-gov/uc-17-3-数据保留与出域.md#R3",
+      "depends_on": [
+        "F05",
+        "p0:F13"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/egress-org-closed-vs-selfhosted.test.ts",
+        "pnpm vitest run tests/gov/confidential-material-level-mark-O17.test.ts",
+        "pnpm vitest run tests/gov/residency-storage-inference-backup-fail.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-17出域=出组织(phase-1闭源/自托管二分)+出法域(phase-3增量,本feature)。O-17机密标记材料级/上传人工勾选/继承项目默认/不做AI识别/随派生取最严。⚠O-38驻留地区枚举[待确认·待外部输入]→实现为受控枚举字段取值从配置读、枚举留空，不写死地区；断言只验『三处任一不满足即失败』的结构，不验具体地区。"
+    },
+    {
+      "id": "F08",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "多组织硬隔离：RLS层默认拒绝跨组织+不泄露存在性、同一人多组织切换清空上下文、跨组织输出不可逆聚合样本量闸门",
+      "user_visible_behavior": "组织A管理员逐一请求组织B资源全部默认拒绝且不泄露是否存在；同一账号切到另一组织后上下文完全替换无残留；跨组织输出只返回不可逆聚合，样本量<8拒绝输出。",
+      "spec_ref": "17-gov/uc-17-4-多组织与权限治理.md#R7",
+      "depends_on": [
+        "p0:F01",
+        "p0:F02"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/org-isolation-rls-default-deny.test.ts",
+        "pnpm vitest run tests/gov/org-isolation-nonowner-role.test.ts",
+        "pnpm vitest run tests/gov/org-switch-context-reset.test.ts",
+        "pnpm vitest run tests/gov/cross-org-aggregate-min-sample-8.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "复用phase-00两层角色(uc-0-3)不重定义。O-12切换模型(一账号+顶部切换器+清空项目级上下文+重新求值)已闭合可实现。O-16最小聚合样本量=8(全仓唯一门槛)。⚠必须以非owner角色跑RLS断言(owner默认不受RLS约束→假通过)。"
+    },
+    {
+      "id": "F09",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-UI",
+      "title": "多组织治理屏：组织列表/顶部切换器/角色模板按组织定制/组织停用冻结但保留审计",
+      "user_visible_behavior": "在后台新增的组织治理屏切换组织、定制某组织角色模板(不影响他组织)、停用组织后其成员访问被冻结而审计仍可被合规负责人查询。",
+      "spec_ref": "17-gov/uc-17-4-多组织与权限治理.md#R8",
+      "depends_on": [
+        "F08"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/org-template-per-org-isolated.test.ts",
+        "pnpm vitest run tests/gov/org-deactivate-freeze-keep-audit.test.ts",
+        "pnpm --filter web run e2e tests/e2e/gov-multi-org-screen.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "原型确认缺失(整模块屏)：后台『组织』分组只有成员与配额+反馈与迭代，已穷举无多组织管理/切换/停用/角色模板屏。needs_ui_signoff，补画3-4屏后人类确认。O-29组织生命周期已裁决。"
+    },
+    {
+      "id": "F10",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "管理员权力边界：个人层只见计数(响应体无内容字段) + 旁路封堵 + 权限传播全链路不洗白",
+      "user_visible_behavior": "管理员查他人个人层只返回计数字段、响应体不含内容；逐一尝试导出/搜索/AI检索/API/任何申请入口获取个人层内容全部被拒并记安全审计；个人层内容在segment/向量/图/缓存/Context Pack每一层都不可达。",
+      "spec_ref": "17-gov/uc-17-5-管理员权力边界.md#R7",
+      "depends_on": [
+        "p0:F03",
+        "p0:F02"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/admin-personal-layer-count-only-field.test.ts",
+        "pnpm vitest run tests/gov/admin-bypass-blocked-enumerated.test.ts",
+        "pnpm vitest run tests/gov/permission-propagation-all-layers.test.ts",
+        "pnpm vitest run tests/gov/summary-no-permission-whitewash.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-18第一条+O-04。依据[原型]/admin成员与配额『你作为管理员看不到什么』已建(admin-members-private-counts/boundary testid)。⚠个人本地组织(F16 phase-00)不受组织管理员审计访问，本feature审计类断言须排除local-org(UC-0.3 R5 A1不适用)。字段级断言非渲染断言。"
+    },
+    {
+      "id": "F11",
+      "priority": 1,
+      "area": "gov",
+      "capability": "CAP-UI",
+      "title": "管理员项目层访问强制留痕且对项目负责人可见（留痕是前置条件）+ 看我的访问记录 + 不区分是否持项目角色",
+      "user_visible_behavior": "管理员读取一个他没有项目角色的项目内容会成功但立即产生审计事件并出现在该项目负责人的时间线；审计写失败时读取被拒绝；管理员点[看我的访问记录]看到自己的访问历史。",
+      "spec_ref": "17-gov/uc-17-5-管理员权力边界.md#R3",
+      "depends_on": [
+        "F10",
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/admin-project-access-traced-visible-to-lead.test.ts",
+        "pnpm vitest run tests/gov/admin-access-role-agnostic-O04.test.ts",
+        "pnpm --filter web run e2e tests/e2e/admin-my-access-log.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-18第二条+O-04直接验收：断言『返回内容+一条审计事件』而非403(两名管理员持/不持项目角色结果相同)。[看我的访问记录]按钮已渲染、目标屏原型待补→补接线。admin-members-my-access/access-logs/project-access testid可锚。"
+    },
+    {
+      "id": "F12",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "反馈与迭代闭环(采集端)：软件反馈+投票+状态机 + 消息级评价聚合成含具体改动的改进建议",
+      "user_visible_behavior": "用户提软件反馈并投票，反馈按票数排序、状态从待处理流转到已修复带版本号；对某skill多条消息打👎后系统生成含现象/负评数/归因/具体参数改动四段的改进建议，[看N个原始案例]数与负评数一致。",
+      "spec_ref": "17-gov/uc-17-6-反馈与迭代闭环.md#R7",
+      "depends_on": [
+        "p1:uc-8-1",
+        "p2:uc-3-1"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/feedback-vote-state-machine.test.ts",
+        "pnpm vitest run tests/gov/feedback-suggestion-four-parts-structural.test.ts",
+        "pnpm vitest run tests/gov/feedback-vague-no-pr.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "依据[原型]/admin反馈与迭代已建(admin-feedback-software/agent/board testid)。O-37满意度=👍/(👍+👎)最小样本10、聚合浮现阈值3条相似👎→结构性断言(不用分数)。O-11状态术语草稿→待审核→已启用→已停用。上下文必须是packId(可重放)不是拼接文本。"
+    },
+    {
+      "id": "F13",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "改进闭环：人工复核是必经环节（开发Agent不得自行上线，三步不可颠倒）+ 灰度/回滚 + 闭环度量 + 参与者反馈自动推送",
+      "user_visible_behavior": "开发Agent直接调用上线/合并接口被拒并记安全审计，只有人工复核人放行后才进灰度；灰度中可回滚且理由归档不可覆盖；闭环度量(反馈数→PR数→上线数→满意度变化)对全组织可见；项目侧涉AI的参与者文字反馈自动进后台Skill改进队列。",
+      "spec_ref": "17-gov/uc-17-6-反馈与迭代闭环.md#R7",
+      "depends_on": [
+        "F12"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/dev-agent-cannot-self-ship.test.ts",
+        "pnpm vitest run tests/gov/review-gray-rollback-audit.test.ts",
+        "pnpm vitest run tests/gov/feedback-loop-metrics-public.test.ts",
+        "pnpm vitest run tests/gov/participant-feedback-auto-push.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "与D-27/UC-14.4『拍板栏只能是人名』同源(AI不能自我放行),实现应共用同一门禁。附件含PII推送前脱敏(D-16)。skill改动仍走03-skill上线门禁不绕过。O-21复核人=方法论审核人。admin-feedback-loop testid可锚。"
+    },
+    {
+      "id": "F14",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "异常检测处置矩阵：三级阈值取最先触发 × 四类任务处置(含客户机密禁止降级/无替代模型明确失败/决策辅助先问人) + 降级是一等属性",
+      "user_visible_behavior": "同一越线条件下四类任务分别：普通生成自动降级并在消息上标注、研究/财务/合规/决策辅助先弹人工审批点、含客户机密不降级(请人批准或失败)、无合格替代模型明确失败;降级事实写审计且下游引用可追溯。",
+      "spec_ref": "17-gov/uc-17-7-异常检测与限速.md#R7",
+      "depends_on": [
+        "F01",
+        "F07",
+        "p2:uc-20-3"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/threshold-three-tier-first-hit.test.ts",
+        "pnpm vitest run tests/gov/task-type-four-tier-disposal.test.ts",
+        "pnpm vitest run tests/gov/degrade-is-first-class-attribute.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "依据[原型]/admin成员与配额三级×四类矩阵已建。O-36消耗离群=10倍/24h滚动窗口(结构性,阈值可配)。含客户机密禁止降级读F07的confidential标记(O-17),不自建机密判定。降级Segment在Context Pack须由retrievalReasons/sourceType识别(否则静默降级污染证据不可发现)。"
+    },
+    {
+      "id": "F15",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-UI",
+      "title": "权限异常越权拦截计数+限速+拦截告警合规负责人（最小影响）+ 消耗离群只告警 + 埋点不可用保守策略",
+      "user_visible_behavior": "同一主体时间窗内连续越权被拒达阈值后触发限速、再超触发拦截并告警合规负责人，其权限内正常操作不受影响；消耗离群只告警不自动限速；用量埋点不可用时对高风险任务保守拒绝、普通生成放行并告警。",
+      "spec_ref": "17-gov/uc-17-7-异常检测与限速.md#R6",
+      "depends_on": [
+        "F14",
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/gov/override-count-ratelimit-intercept.test.ts",
+        "pnpm vitest run tests/gov/anomaly-min-impact-and-conservative.test.ts",
+        "pnpm --filter web run e2e tests/e2e/gov-override-anomaly-list.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "越权异常列表与告警屏确认缺失(原型只在批次总结提到机制)→needs_ui_signoff补画约1屏。⚠越权计数阈值与限速曲线[待确认](消耗侧O-36已闭合、越权侧仍缺)→断言只验『计数递增→限速→拦截→告警』的结构与最小影响原则,不写死阈值。admin-anomaly-chain testid可锚部分。"
+    },
+    {
+      "id": "F16",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "决策台账：决策对象与状态机 + 依据聚合(支持/反对/最强置信度/影响面) + 『等我签字』一页视图单响应",
+      "user_visible_behavior": "在/brain决策台账看到每条决策的项目/拍板人/依据强度/复盘列;点『等我签字』在单屏内同时看到问句、支持N条·最强x.x｜反对N条·最强x.x、如果错了的影响面、谁在等(agent已停N分+汇报日期)。",
+      "spec_ref": "14-brain/uc-14-4-决策台账.md#R3",
+      "depends_on": [
+        "p0:F01",
+        "p0:F07",
+        "F01"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/decision-object-state-machine.test.ts",
+        "pnpm vitest run tests/brain/sign-view-single-response-aggregate.test.ts",
+        "pnpm vitest run tests/brain/opposing-evidence-not-filtered.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-decision-ledger.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "依据[原型]/brain决策台账已建(brain-decision-ledger/ledger-table/ledger-header/open-ledger testid)。反对证据必须保留(与14.6同源)。依据引用指向不可变版本+anchor可定位。O-31签署仅产品内留痕,界面禁用『法律效力』措辞。⚠[看完整推演链][支持链]按钮已渲染目标屏原型待补(推演链编辑器已后置backlog)→补接线。"
+    },
+    {
+      "id": "F17",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "拍板栏只能是人名（服务端强制，MVP立身之本）+ 签署授权三元组校验 + 签字后成为可引用依据并进复盘队列",
+      "user_visible_behavior": "以agent身份(服务账号/自动化规则/批量导入三路径)写入decision.decided_by三次全被服务端拒绝、台账拍板列无非人类主体;签署授权类型×人×有效期过期即拒;签字后决策citable=true并出现在复盘队列,签字前引用它被拒。",
+      "spec_ref": "14-brain/uc-14-4-决策台账.md#R7",
+      "depends_on": [
+        "F16"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/decided-by-human-only-three-paths.test.ts",
+        "pnpm vitest run tests/brain/sign-authz-triple-expired-reject.test.ts",
+        "pnpm vitest run tests/brain/signed-becomes-citable-into-review.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11要求独立成feature独立服务端拒绝验收,是MVP-1立身之本。台账只增不删(provenance_events append-only)。签字是引用资格闸门。⚠复盘默认到期天数与决策分类枚举[待确认]→不据此写断言,只验『缺复盘结论不得进晋升队列』的结构。"
+    },
+    {
+      "id": "F18",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "复盘四态 + 被推翻的降级级联打标（与晋升共用一套实现）",
+      "user_visible_behavior": "决策到期录入复盘结论取四态(待验证/已验证/已验证已晋升/被推翻);把一条决策标为被推翻后它支撑的组织层条目状态转已降级、且引用过它的每个项目都产生打标记录、负面结论转反例/教训资产。",
+      "spec_ref": "14-brain/uc-14-4-决策台账.md#R3",
+      "depends_on": [
+        "F16"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/review-four-states.test.ts",
+        "pnpm vitest run tests/brain/superseded-cascade-tag-all-refs.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "被推翻的级联打标与UC-14.5降级路径共用同一实现(R11)。只有复盘=已验证的决策所支撑的条目才够格进14.5晋升(D-32联动)。被推翻知识不删除转反例资产。"
+    },
+    {
+      "id": "F19",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "知识五态机=claims.status单一持久化状态字段（禁止两套状态字段），业务五态由 status+valid_from/valid_to 派生",
+      "user_visible_behavior": "在/brain晋升队列看到五态计数条(候选/已验证/已批准/生效/待复核)与三出口(被替代/被撤销/驳回);断言claims表有且仅有一个状态字段,五态计数完全由claims.status+有效期派生,不存在第二个持久化状态字段。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R10",
+      "depends_on": [
+        "p0:F02"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/claims-single-status-field.test.ts",
+        "pnpm vitest run tests/brain/five-state-derived-from-status.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-state-machine.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11第一个feature必须是claims表与status enum,按R10对应表落一个字段。若同时存在knowledge_status与claims.status两字段直接判不通过。与09-kg的Claim生命周期是同一件事(业务视图vs数据视图)。brain-state-machine/state-exits testid可锚。contested呈现为『生效·存在冲突』。"
+    },
+    {
+      "id": "F20",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "晋升严格准入D-32：只有支撑过一个被签字的决策且复盘中被验证的判断才够格晋升（服务端拒绝反例）",
+      "user_visible_behavior": "构造三种候选①无支撑决策②有决策但未签字③已签字但复盘未验证——三者均无法晋升并明确显示缺哪条;第四种(已签字+复盘已验证)可晋升;以agent身份尝试直接迁移到已批准被拒,人点[我来审]确认后方可。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F16",
+        "F18",
+        "F19"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/promotion-admission-d32-two-gates.test.ts",
+        "pnpm vitest run tests/brain/promotion-ai-cannot-self-promote.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-promotion-rule.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "★『只有支撑过已签字决策才够格晋升』落成的核心断言：读UC-14.4台账的签字+复盘结论两硬门槛,任一不满足服务端拒绝。R11要求独立验收,是整个组织大脑可信度闸门。brain-promotion-rule/promotion-queue testid可锚常驻规则文案。AI只能提名,进入已批准及以后只能由人执行。"
+    },
+    {
+      "id": "F21",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "批准前必填三项（适用范围/有效期/复核负责人缺项服务端拒绝）+ 有效期到期转待复核（仍检索、引用提示已过期、不计定题强度）",
+      "user_visible_behavior": "三项必填逐一置空调用批准接口三次全被服务端拒绝并指明缺项,三项齐备后迁移到生效;把一条条目有效期改为已过期后它仍出现在检索结果、携带『可能已过期』标记、且定题强度计算结果不含它的权重。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F19",
+        "F05"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/required-three-fields-server-reject.test.ts",
+        "pnpm vitest run tests/brain/expired-to-review-still-searchable.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-decay.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-33过期三件事(转待复核+仍检索引用提示+不计定题强度)。⚠有效期默认值(监管12月/市场/行业6月/方法24月)属D-14『知识有效期』参数,原文写明默认值与允许区间仍需合规给出(TODO-2)→不把12/6写死成断言,改写为结构性断言『到期后必须转待复核且引用时提示过期,期限本身来自F05配置』。brain-decay/decay-count testid可锚。"
+    },
+    {
+      "id": "F22",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "脱敏闸门组织层可逆映射+权限门控回溯留痕 + AI提名人工确认 + 方法类晋升生成skill",
+      "user_visible_behavior": "客户机密条目脱敏稿未经人确认时批准被拒;确认后组织层可见脱敏稿,有权者可由脱敏稿回溯到原文与客户且回溯产生审计记录、无权者回溯被拒;批准一条方法类条目后Skill库出现对应可调用skill。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F19",
+        "p0:F13"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/redaction-reversible-audit-trace.test.ts",
+        "pnpm vitest run tests/brain/ai-nomination-human-confirm.test.ts",
+        "pnpm vitest run tests/brain/method-promotion-generates-skill.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-16组织层内两级脱敏的可逆一侧(与F23跨组织不可逆分成两个feature,失败语义不同)。脱敏服务不可用时闸门保持关闭而非放行。方法晋升生成skill走03-skill上线门禁。客户机密条目走自托管/本地模型硬路由。"
+    },
+    {
+      "id": "F23",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "跨组织不可逆聚合输出闸门：样本量<8拒绝输出并标『不可推断』，计数口径=独立受访者人数",
+      "user_visible_behavior": "跨组织输出接口在样本量<8时拒绝输出并标『不可推断』;构造同一受访者的多条引述仍只计1人。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/cross-org-aggregate-min-sample-8.test.ts",
+        "pnpm vitest run tests/brain/count-unit-distinct-respondents.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "O-16最小聚合样本量=8(全仓唯一门槛,与12-3同源,与F08共用同一常量)。计数口径=独立受访者人数(同一人多条引述只计1)。R11要求与强证据下限5人分成两个feature:此为输出闸门。"
+    },
+    {
+      "id": "F24",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "普遍性断言强证据下限：独立受访者5人，低于5只能写『部分受访者提到』（服务端强制，计数是人不是条）",
+      "user_visible_behavior": "构造由4名独立受访者支撑的洞察无法写成普遍性断言(服务端拒绝提示『部分受访者提到』),补到5名后通过;同一受访者的5条引述仍只计1人仍被拒。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/universal-claim-lower-bound-5.test.ts",
+        "pnpm vitest run tests/brain/count-is-person-not-quote.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "O-16强证据数下限=独立受访者5人(写作约束,与F23输出闸门分开,R11)。服务端强制不是文案建议。"
+    },
+    {
+      "id": "F25",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "反例库数据表示（撤销转superseded记录永久保留+反例文本另行召回）+ 降级/撤销级联打标 + 被替代不断链",
+      "user_visible_behavior": "撤销一条条目后它status=superseded且记录仍在、不出现在Context Pack的claims[]、其反例文本仍可被检索到且retrievalReasons含『反例/教训』结果标『此条已被撤销』;被替代时旧条目仍可被历史决策引用不断链。",
+      "spec_ref": "14-brain/uc-14-5-知识五态机与晋升.md#R7",
+      "depends_on": [
+        "F19",
+        "F18"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/counterexample-superseded-kept.test.ts",
+        "pnpm vitest run tests/brain/revoke-cascade-tag-and-no-broken-link.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "已撤销条目本身永久排除、但反例文本作为教训另行召回(两半不可混)。级联打标与UC-14.4 R3第6步共用同一实现。被替代不断链(D-30,supersedes_claim_id)。"
+    },
+    {
+      "id": "F26",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "检索可审查·五种筛选动作记录（召回集只取生效+待复核、撤销排除+反例召回、降权保留标跨范围引用、成对、线索）",
+      "user_visible_behavior": "在/brain『AI读到了什么』请求检索记录,返回体中召回/降权/排除/成对/线索五种筛选动作各自成组、每组含条数与理由文本;构造适用范围不匹配的条目断言它出现在降权组标『跨范围引用』不在排除组。",
+      "spec_ref": "14-brain/uc-14-6-检索可审查.md#R7",
+      "depends_on": [
+        "p0:F09",
+        "p0:F10",
+        "p0:F11",
+        "F19"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/five-filter-actions-grouped.test.ts",
+        "pnpm vitest run tests/brain/recall-set-live-and-review-only.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-filter-actions.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "消费phase-00 F09/F10/F11 Context Pack,不重做装配器。五种筛选动作=items[].retrievalReasons取值域。检索是query-planned hybrid非graph-first。brain-filter-actions/retrieval-segments testid可锚。"
+    },
+    {
+      "id": "F27",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "丢弃集可审查（omissions，阈值按任务类型可配，超预算裁剪进omissions，合规性丢弃始终可见不折叠截断）+ 上下文预算",
+      "user_visible_behavior": "构造若干相关度低于阈值的候选断言它们出现在丢弃集且可逐条展开;withdrawn/expired/unauthorized三类合规性丢弃即使折叠也始终可见不被截断;检索记录返回上下文预算已用值与上限值。",
+      "spec_ref": "14-brain/uc-14-6-检索可审查.md#R7",
+      "depends_on": [
+        "F26",
+        "p0:F11"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/omissions-auditable-expandable.test.ts",
+        "pnpm vitest run tests/brain/compliance-omissions-always-visible.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-omissions.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-U4:omissions[].reason封闭枚举七类(新增走ADR),withdrawn/expired/unauthorized是合规性丢弃必须始终可见不得因折叠截断消失。O-36阈值按任务类型可配(不写死0.45)、预算上限随模型窗口推导超限截断项进omissions。brain-omissions/omissions-more/context-budget testid可锚。"
+    },
+    {
+      "id": "F28",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "反对证据强制保留 + 系统提示装配只读快照（四段注入+硬约束段不可裁剪不可AI改写）",
+      "user_visible_behavior": "候选含反对证据时断言反对证据必然出现在注入段且注入段标注反对条数,尝试筛除反对证据的调用被拒;读取系统提示快照断言含四段注入标题与硬约束段原文,尝试写接口修改快照被拒(只读)。",
+      "spec_ref": "14-brain/uc-14-6-检索可审查.md#R7",
+      "depends_on": [
+        "F26"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/opposing-evidence-forced-kept.test.ts",
+        "pnpm vitest run tests/brain/system-prompt-readonly-snapshot.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-system-prompt.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "反对证据强制保留(与14.4依据强度必须含反对同源)。硬约束段不可被裁剪不可被AI改写、原文逐字可见(『客户机密材料只能由本地模型处理』与D-17联动)。brain-system-prompt/context-pack testid可锚。"
+    },
+    {
+      "id": "F29",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "报告工作台来源角标 + 未挂来源标灰（本UC主验收锚点，D-24）",
+      "user_visible_behavior": "在报告工作台生成一节内容,该节渲染出来源角标且角标数与检索记录中该节引用的片段数一致;构造一句无来源支撑的内容断言它被渲染为标灰样式;点来源角标可跳到本次检索会话中的对应片段。",
+      "spec_ref": "14-brain/uc-14-6-检索可审查.md#R6",
+      "depends_on": [
+        "F26"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/report-badge-count-matches-citations.test.ts",
+        "pnpm vitest run tests/brain/unsourced-sentence-greyed.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "D-24指定主验收锚点=报告工作台来源角标+未挂来源标灰。⚠该testid(report-section-source-badge/report-unsourced-sentence)在phase-02 apps/web尚未建(现有section-badges是kitchen-sink),属跨阶段UI依赖→verification回退到Context Pack契约API断言(角标数=片段数、未挂来源=无来源引用的结构断言),phase-02补testid后可升级为UI断言。是我最不确定的3个feature之一。"
+    },
+    {
+      "id": "F30",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "Context Pack契约与可重放（每items有retrievalReasons/permissionDecisionId/anchor、omissions完整、无第二套检索记录表、绕过Context API被拒、摘要不洗白权限）",
+      "user_visible_behavior": "任取一次AI调用读其context_packs行,断言每个items[]都有非空retrievalReasons(全落五种筛选动作枚举)/非空permissionDecisionId/可定位anchor、被丢弃与裁剪片段全在omissions[]、不存在context_packs之外第二套检索记录表;直接以agent身份读segments/claims/向量表被拒;高低密级合成注入对只持低密级用户不可见并写入omissions。",
+      "spec_ref": "14-brain/uc-14-6-检索可审查.md#R7",
+      "depends_on": [
+        "p0:F09",
+        "F26"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/context-pack-contract-complete.test.ts",
+        "pnpm vitest run tests/brain/bypass-context-api-rejected.test.ts",
+        "pnpm vitest run tests/brain/summary-strictest-permission.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "承接架构首批门槛第⑥条(每次Agent运行能重放当时Context Pack)与UC-17.1 AC1(结论还原)。大部分能力在phase-00 F09-F13,本feature是14.6对其的消费面契约验收+绕过封堵+摘要不洗白。RLS零泄漏须以非owner角色断言。"
+    },
+    {
+      "id": "F31",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "结论写回队列+去重（经Context API取Pack）+ 冲突组模型 status=contested 并存不合并",
+      "user_visible_behavior": "把两个项目验证过的同一结论写回后能看到两处来源;检出冲突时两条并列成对保留status=contested、各带置信度/被引用决策数/样本量,不自动合并不择一;去重命中理由落retrievalReasons、未召回而被判无冲突的可从omissions复核。",
+      "spec_ref": "14-brain/uc-14-1-结论写回与去重.md#R7",
+      "depends_on": [
+        "F19",
+        "F26"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/writeback-two-sources-visible.test.ts",
+        "pnpm vitest run tests/brain/conflict-contested-coexist.test.ts",
+        "pnpm vitest run tests/brain/writeback-via-context-api-only.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "写回状态迁移归UC-14.5、检索行为归14.6,本UC聚焦写回队列与去重/冲突裁决。冲突组=status=contested两条并存不合并,分歧由claim_evidence支持/反驳承载。冲突组ID在写回/晋升队列/检索三处共用同一标识。O-16计数口径=独立受访者人数。"
+    },
+    {
+      "id": "F32",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "冲突三出口（并成带条件一条→被替代 / 保留两条标适用差异→成对注入 / 派agent补样本→未决+任务），服务端；agent不可选出口",
+      "user_visible_behavior": "构造一个冲突组:选『并成带条件一条』后两条原记录状态为被替代且未被删除、合并结果缺三项必填时无法生效;选『保留两条标适用差异』后两条各持不同适用范围且检索中成对注入;选『派agent补样本』后生成一条任务、冲突组仍未决且两条均未丢失;以agent身份调用选出口接口被服务端拒绝。",
+      "spec_ref": "14-brain/uc-14-1-结论写回与去重.md#R3",
+      "depends_on": [
+        "F31"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/conflict-three-exits-distinct-shapes.test.ts",
+        "pnpm vitest run tests/brain/conflict-agent-cannot-choose-exit.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11要求三出口独立成feature,三个出口后置数据形态各不相同(被替代/双条并存带适用范围/未决+任务)需分别验收。合并不删除旧条目(D-30)。派agent补样本不是裁决。"
+    },
+    {
+      "id": "F33",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "跨项目纵向调用+自然语言提问带来源（命中项字段完整、可溯源、零命中给缺口）+ 过期降权",
+      "user_visible_behavior": "自然语言提问返回的每条命中含可点击原始材料链接且字段完整(相关度/状态/适用范围/有效期剩余/被引用决策数),[引入当前项目]把命中挂进当前项目保留指向组织层的引用;零命中返回『组织层没有直接答案』+缺口提示不含无来源内容;过期条目仍在结果、带过期提示、定题强度不含它。",
+      "spec_ref": "14-brain/uc-14-2-跨项目调用.md#R7",
+      "depends_on": [
+        "F26",
+        "F19"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/nl-query-sourced-fields-complete.test.ts",
+        "pnpm vitest run tests/brain/zero-hit-gap-hint-no-fabrication.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-org-layer.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "跨项目检索只经Context API取Pack,不直查claims/segments/向量表(与F26共用同一装配器,只是scope从单项目放宽到组织)。检索是query-planned hybrid(FTS一等通道,新上传材料同样命中)。brain-org-layer testid可锚。"
+    },
+    {
+      "id": "F34",
+      "priority": 1,
+      "area": "brain",
+      "capability": "CAP-UI",
+      "title": "横向复用『未沉淀』引用类型（一等引用，项目→项目不经组织层，标未沉淀+源项目，借用方须对源项目持项目角色RLS，可按月计数）",
+      "user_visible_behavior": "从项目A横向借用一条未晋升结论到项目B:引用类型为『未沉淀』且携带源项目标识、源条目状态未变未进晋升队列、横向复用计数+1;借用方对项目A无项目角色时借用被拒且原因标明为项目层限制。",
+      "spec_ref": "14-brain/uc-14-2-跨项目调用.md#R7",
+      "depends_on": [
+        "F33",
+        "p0:F02"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/lateral-reuse-unsettled-badge.test.ts",
+        "pnpm vitest run tests/brain/lateral-reuse-requires-source-project-role.test.ts",
+        "pnpm --filter web run e2e tests/e2e/brain-lateral-reuse.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "R11要求『未沉淀』引用类型独立成feature(是跨模块引用语义不是界面徽标)。横向复用不构成晋升(晋升仍走14.5 D-32)。组织角色不因组织身份获得跨项目借用权(uc-0-3 AC1),须RLS层强制、非owner角色。brain-lateral-reuse/lateral-count testid可锚。"
+    },
+    {
+      "id": "F35",
+      "priority": 2,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "方法与教训沉淀：复盘产物两条去向（沉淀为知识条目送晋升 / 提交回蓝本），未选去向不构成沉淀，方法类批准后生成skill",
+      "user_visible_behavior": "复盘产物未选任一去向时不出现在晋升队列、不出现在蓝本改动建议队列、不被跨项目检索到;方法类教训经14.5批准后Skill库出现对应skill。",
+      "spec_ref": "14-brain/uc-14-3-方法与教训沉淀.md#R7",
+      "depends_on": [
+        "F20"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/retro-explicit-destination-required.test.ts",
+        "pnpm vitest run tests/brain/method-lesson-generates-skill.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "P1。没有复盘就没有沉淀入口([设计]强化口径)。⚠复盘页本体『复盘→沉淀』屏未探明(不是确认缺失,补抽取即可)→verification用API层不锚未建UI。质量阈值不用分数改结构性断言(每条教训必须挂≥1条来源场次,未挂来源标灰,O-35)。"
+    },
+    {
+      "id": "F36",
+      "priority": 2,
+      "area": "brain",
+      "capability": "CAP-API",
+      "title": "提交回蓝本（偏离清单+生成蓝本新版本+已开项目锁版本不追溯D-30）+ 教训溯源不可抹除",
+      "user_visible_behavior": "提交一条偏离回蓝本:生成蓝本v(N+1)、已开过的项目实例仍绑定vN且内容未变、新建项目套用到v(N+1);查规则详情返回教训场次列表(含项目名与复盘时间)且列表不可被编辑抹除。",
+      "spec_ref": "14-brain/uc-14-3-方法与教训沉淀.md#R7",
+      "depends_on": [
+        "F35",
+        "p1:uc-2-3"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/brain/submit-to-blueprint-new-version-no-retro.test.ts",
+        "pnpm vitest run tests/brain/lesson-provenance-immutable.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "P1。R11要求提交回蓝本独立成feature且与UC-2.3/2.4共用同一套蓝本版本模型不另建。教训溯源=provenance_events append-only查询结果不可篡改。蓝本改动建议需蓝本负责人审批。⚠蓝本改动建议审批屏未探明→API层验收。"
+    },
+    {
+      "id": "F37",
+      "priority": 1,
+      "area": "portal",
+      "capability": "CAP-UI",
+      "title": "外部只读链接载体（签发/有效期/撤销即时）+ 链接身份绑定观察者角色（不新建客户角色）+ 发布范围模型（必填+绑定固定快照）",
+      "user_visible_behavior": "客户方观察者打开只读链接免注册进入,可见范围=观察者权限模型∩发布范围;越权请求私聊/未发布草稿/原始转写/任意写接口全被拒且各产生审计;发布时不选发布范围或不绑定版本时发布接口被拒,发布后改工作版本客户侧仍是绑定快照;内部观察者与外部链接身份对同一已发布内容可见字段完全一致。",
+      "spec_ref": "15-portal/uc-15-1-只读门户与授权.md#R7",
+      "depends_on": [
+        "p1:uc-0-3",
+        "p1:uc-1-2"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/portal/readonly-link-observer-binding.test.ts",
+        "pnpm vitest run tests/portal/publish-scope-snapshot-required.test.ts",
+        "pnpm --filter web run e2e tests/e2e/portal-readonly.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "★needs_ui_signoff:客户门户本体确认缺失(原型只有[预览客户版]空按钮),D-22 A裁定补画3屏后人类确认(ADR-003)方可进new-sprint。权限内核100%复用观察者(D-12)不新建客户角色。客户可见=已发布artifact_versions只读投影,不存在客户专用副本表。撤回/删除对客户侧同样生效(与22-files同一acl_bindings)。"
+    },
+    {
+      "id": "F38",
+      "priority": 1,
+      "area": "portal",
+      "capability": "CAP-UI",
+      "title": "时限性临时读权与流程节点自动失效（失效条件是流程节点不是时间到期）",
+      "user_visible_behavior": "授予『第2组原始内容临时读权·环节3结束失效』:环节3进行中请求原始内容成功,推进到环节4后同一请求被拒无需任何人工操作,授予与失效两条事件都在项目审计时间线且对项目负责人可见。",
+      "spec_ref": "15-portal/uc-15-1-只读门户与授权.md#R3",
+      "depends_on": [
+        "F37"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/portal/temp-read-stage-node-auto-expiry.test.ts",
+        "pnpm vitest run tests/portal/temp-read-grant-revoke-audited.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "needs_ui_signoff(同F37客户门户确认缺失)。R11要求流程节点自动失效独立成feature独立验收(唯一一处权限随流程自动收回)。失效条件是流程节点不是时间到期,不允许签发无失效条件的原始内容读权。"
+    },
+    {
+      "id": "F39",
+      "priority": 1,
+      "area": "portal",
+      "capability": "CAP-API",
+      "title": "客户反馈唯一开孔（observer仅client_feedback:create，逐接口枚举验收）+ 反馈锚定固定快照",
+      "user_visible_behavior": "以客户方观察者身份逐一枚举全部写接口,除client_feedback:create外全部被服务端拒绝、客户读取他人反馈被拒;提交反馈后把被锚定报告升到新版本,反馈仍指向原快照版本号且卡片显示『该内容已更新至vN』。",
+      "spec_ref": "15-portal/uc-15-2-客户反馈回流.md#R7",
+      "depends_on": [
+        "F37"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/portal/client-feedback-only-write-hole.test.ts",
+        "pnpm vitest run tests/portal/feedback-anchor-fixed-snapshot.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "P1模块但本feature承载安全关键面。needs_ui_signoff(客户门户确认缺失)。观察者是纯只读连评论入口都没有→反馈是新增能力不是投影(本UC不减点理由)。唯一开孔写在权限模型里可逐接口验收(AC4),不得用『客户是另一种角色』绕过。反馈只生成新版本建议不直接改claims。"
+    },
+    {
+      "id": "F40",
+      "priority": 2,
+      "area": "portal",
+      "capability": "CAP-UI",
+      "title": "第七类来源徽标『客户反馈』+ 汇入待办看板 + 答复闭环 + 状态回写客户侧三档",
+      "user_visible_behavior": "反馈自动生成的看板卡片source=client_feedback且徽标枚举长度为7,把卡片从进行中拖到已完成后客户侧状态同步变为已答复;判定无需处理时仍返回理由无静默关闭;卡片负责人恒为人(agent被指派为负责人被拒)。",
+      "spec_ref": "15-portal/uc-15-2-客户反馈回流.md#R3",
+      "depends_on": [
+        "F39",
+        "p2:uc-11-1"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/portal/seventh-source-badge-board.test.ts",
+        "pnpm vitest run tests/portal/feedback-status-writeback-three-tier.test.ts",
+        "pnpm --filter web run e2e tests/e2e/portal-feedback-loop.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "needs_ui_signoff。第七类徽标作为对既有看板模块(11-board)的小改动,复用『自动汇入+状态回写到原处』既有链路,不新建工单系统。来源徽标枚举集中定义(六类+客户反馈=七类)。D-39负责人恒为人。客户侧三档(已收到/处理中/已答复)不暴露内部列名。"
+    },
+    {
+      "id": "F41",
+      "priority": 2,
+      "area": "portal",
+      "capability": "CAP-UI",
+      "title": "进度投影页（无新采集）+ 保留意见去署名（服务端响应体无提出人字段）+ 不泄露发布范围外内容存在性",
+      "user_visible_behavior": "客户方观察者请求门户首页单次响应即含环节N/M/当前环节名/倒计时/最新动态/成果去向三项计数/产出物清单及生成状态/下一个里程碑;给结论附一条署名保留意见时客户侧响应体含reservation_count但不含提出人字段、内部侧同一条返回提出人;点击不在发布范围内的成果去向返回『尚未对你发布』且响应体不含标题与摘要。",
+      "spec_ref": "15-portal/uc-15-3-进度与里程碑可见.md#R7",
+      "depends_on": [
+        "F37"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/portal/progress-projection-no-new-capture.test.ts",
+        "pnpm vitest run tests/portal/reservation-deidentified-server-side.test.ts",
+        "pnpm --filter web run e2e tests/e2e/portal-progress.spec.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "P1。needs_ui_signoff(客户门户首页确认缺失)。D-40保留意见对客户可见但去署名(O-30:去署名正文+发布前逐条人工确认可改写,不是只显示条数)。去署名在服务端完成(字段级断言非渲染)。纯投影无新数据采集。过滤规则全局固定不可由项目负责人配置。与D-19取向一致(不靠规则自动改写靠人工确认兜底)。"
+    },
+    {
+      "id": "F42",
+      "priority": 1,
+      "area": "persona",
+      "capability": "CAP-UI",
+      "title": "数字专家对象+材料集绑定（经Context API不直查）+ 知识边界声明 + 混排列表三项强标记（D-25展示层）+ 场次计数隔离",
+      "user_visible_behavior": "打开任一数字专家返回构造来源计数(如12场)且可下钻到具体场次、每个引用能追到材料段落;访谈列表中数字人条目与真人条目在同一列表返回且数字人携带三项标记字段(is_virtual/built_from_count/exploratory)、在类型列描述行状态列三处呈现;创建数字专家后访谈场次计数未增加、洞察来源分布中虚拟与真人分开统计。",
+      "spec_ref": "16-persona/uc-16-1-构造数字专家.md#R7",
+      "depends_on": [
+        "p0:F09",
+        "p1:uc-6-3"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/digital-expert-material-via-context-api.test.ts",
+        "pnpm vitest run tests/persona/digital-expert-mixlist-three-marks.test.ts",
+        "pnpm vitest run tests/persona/digital-expert-session-count-isolated.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "★needs_ui_signoff:界面尚未建(apps/web无persona屏)+专家设定子标签内部未探明。D-25展示层(混排+三项强标记)。材料集经Context API/QueryContext不直查segments(否则撤回材料后数字专家仍记得)。拒绝AI分析的受访者内容不进材料集。材料被撤回时数字专家同步失效(UC-17.2级联)。⚠材料不足阈值[待确认]→不写死。"
+    },
+    {
+      "id": "F43",
+      "priority": 1,
+      "area": "persona",
+      "capability": "CAP-API",
+      "title": "虚拟来源标识服务端强制（不可前端覆盖/不可移除，写入强洞察/决策依据/晋升一律拒绝）+ 材料撤回同步失效（D-25服务端层）",
+      "user_visible_behavior": "取一条数字专家产物逐一尝试①标为强洞察②作为决策依据引用(14.4)③提名进组织层晋升队列(14.5)——三者全被服务端拒绝并各留一条安全审计;再尝试通过接口置空/篡改is_virtual字段断言被拒。",
+      "spec_ref": "16-persona/uc-16-1-构造数字专家.md#R7",
+      "depends_on": [
+        "F42",
+        "F16",
+        "F20"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/virtual-mark-server-enforced-reject.test.ts",
+        "pnpm vitest run tests/persona/virtual-mark-immutable.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "★『虚拟结论不能作为强洞察、不进决策依据』落成服务端断言(不只是UI标记),D-25实质。needs_ui_signoff(persona界面未建)。被UC-16.2/16.3复用。虚拟来源标识全局统一一等字段,洞察/证据/决策依据三处共用同一判定。"
+    },
+    {
+      "id": "F44",
+      "priority": 1,
+      "area": "persona",
+      "capability": "CAP-UI",
+      "title": "虚拟推演卡六字段（不确定&会被推翻强制非空非占位服务端校验）+ 引用双源可溯 + 问题来自RQ覆盖状态",
+      "user_visible_behavior": "请求任一推演卡返回体含六字段(stance/reasoning/implication/citations/uncertainty/falsifier)且uncertainty与falsifier非空;构造模型未产出这两项的推演接口返回失败无卡落库、以『无/暂无/不适用』占位填充被校验拒绝;每张卡citations至少含一条可解析的访谈时间码或组织层条目引用、引用为空的推演判为失败。",
+      "spec_ref": "16-persona/uc-16-2-虚拟推演一场访谈.md#R7",
+      "depends_on": [
+        "F42",
+        "p1:uc-6-2"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/deduction-card-six-fields.test.ts",
+        "pnpm vitest run tests/persona/uncertainty-falsifier-required-no-placeholder.test.ts",
+        "pnpm vitest run tests/persona/citations-dual-source-traceable.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "needs_ui_signoff(界面未建)。本UC最具体最可验证的一条:『不确定』『会被推翻』是『虚拟不能作为强洞察』的内容层实现。O-35质量标准不用分数改结构性断言(两字段非空非模板占位、falsifier须含可证伪条件指向具体可观察事件)。问题来自RQ,自定义问题标非RQ不计覆盖率。"
+    },
+    {
+      "id": "F45",
+      "priority": 1,
+      "area": "persona",
+      "capability": "CAP-API",
+      "title": "synthesized标记全链路传播（sourceType可区分、evidencePolicy=primary-only排除进omissions、不计强证据）+ 四个出口（[变成真人访谈提问]跨06-itv带会被推翻条件）",
+      "user_visible_behavior": "生成一张虚拟推演卡后其Artifact/全部Segment/embedding/图节点都带synthesized、在Context Pack中items[].sourceType明确标synthesized与真人条目可程序化区分、以evidencePolicy=primary-only检索时该条目不在items[]且排除原因在omissions;点[变成真人访谈提问]该问题出现在对应访谈提纲中且携带原推演的会被推翻条件作为判定目标;逐一尝试前端改/API置空/另存为/导出重导入四条路径后synthesized标记均仍在。",
+      "spec_ref": "16-persona/uc-16-2-虚拟推演一场访谈.md#R7",
+      "depends_on": [
+        "F44",
+        "p0:F09"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/synthesized-propagation-all-derivatives.test.ts",
+        "pnpm vitest run tests/persona/primary-only-excludes-synthesized.test.ts",
+        "pnpm vitest run tests/persona/deduction-to-interview-question.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "needs_ui_signoff。synthesized是跨模块契约(14-brain检索/14-brain晋升/22-files文件浏览器三处同时识别)。标记随派生传播不可移除不可洗白。虚拟推演永不计入强证据(O-16只计真人受访者)。file-first:推演产物物化为文件+provenance.json(prompt/model/run)。"
+    },
+    {
+      "id": "F46",
+      "priority": 2,
+      "area": "persona",
+      "capability": "CAP-UI",
+      "title": "采纳队列待判不构成洞察 + 分歧组status=contested并列不裁决 + [把冲突写成访谈N必问题]跨06-itv + 被真人推翻标注(保留)+材料补充信号",
+      "user_visible_behavior": "队列中处于待判的项不出现在洞察计数/证据矩阵/决策依据可选项中,采纳后仍受D-25约束;构造三位专家对同一问题的立场三条并列返回系统未合并或择一、冲突关系被显式标注、点[把这处冲突写成访谈13的必问题]后访谈13提纲出现一条标为必问的问题且携带各方立场;把一条虚拟立场标为被真人推翻后原推演卡未被删除且带该标记、可跳到推翻它的真人引述、生成一条指向其材料集的补充信号。",
+      "spec_ref": "16-persona/uc-16-3-虚拟与真人对照.md#R7",
+      "depends_on": [
+        "F44",
+        "F31",
+        "p1:uc-6-4"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/adopt-queue-pending-not-insight.test.ts",
+        "pnpm vitest run tests/persona/divergence-contested-to-must-ask.test.ts",
+        "pnpm vitest run tests/persona/rebutted-by-human-kept-marked.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "P1。needs_ui_signoff(采纳与标注子标签内部未探明+界面未建)。分歧组=status=contested与UC-14.1冲突成对同一套模型不另建。被真人推翻=superseded记录永久保留转教训资产。必问题复用06-itv提纲对象与『必问』标记,是M16对06-itv第二个写入口(与F45共用写入实现)。待判不构成洞察是防止虚拟悄悄变证据的第一道闸。"
+    },
+    {
+      "id": "F47",
+      "priority": 2,
+      "area": "persona",
+      "capability": "CAP-API",
+      "title": "访谈模板反向沉淀：两个溯源字段（来源场次/使用计数系统维护不可手工写）+ 变更建议审定升版不追溯 + 去个体化PII闸门 + 提名进晋升",
+      "user_visible_behavior": "从两场访谈分别沉淀后模板标签页返回sourced_from_project_count=2且可下钻、用该模板新建访谈后used_count+1、两个计数不可通过接口手工写入;构造含受访者姓名/邮箱/手机号与可识别原话的素材断言沉淀被PII闸门阻断、人工确认去个体化后方可提交、最终模板不含任何上述标识;素材全部来自拒绝AI分析的受访者时沉淀被拒。",
+      "spec_ref": "16-persona/uc-16-4-访谈模板反向沉淀.md#R7",
+      "depends_on": [
+        "p1:uc-6-1",
+        "F20"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/persona/template-provenance-counts-system-maintained.test.ts",
+        "pnpm vitest run tests/persona/template-deidentify-pii-gate.test.ts",
+        "pnpm vitest run tests/persona/template-version-no-retro.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": true,
+      "notes": "P1。needs_ui_signoff(模板编辑器/单场复盘子标签未探明+界面未建)。R11要求去个体化PII闸门独立验收(模板跨项目复用,残留受访者原话即跨项目隐私泄露)。PII最小集五类(邮箱/手机号/身份证号/银行卡号/详细住址,O-39)。两个计数字段与06-itv模板对象一并实现不复制模板表。⚠素材不足阈值[待确认]→不写死。本UC只提名不自行晋升。"
+    }
+  ]
+}
