@@ -602,9 +602,19 @@ export const LANDING_ACTIONS = {
   ],
 };
 
-/** 可见范围枚举（UC-8.5 R7；徽标为 [设计] 待裁决——原型线程卡/线程头均无此徽标）*/
-export type VisibilityScope = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
-export const VISIBILITY_SCOPE_LABEL: Record<VisibilityScope, string> = {
+/**
+ * 对话可见性枚举（UC-8.5 R7；徽标为 [设计] 待裁决——原型线程卡/线程头均无此徽标）
+ *
+ * ⚠ 原名 `VisibilityScope` —— 与契约 `identity.VisibilityScope` **同名不同义**，
+ * 被 `lint-contract-source` 当场拦下（2026-07-29）。契约那个是 artifact 的可见范围
+ * `["org-wide","team-only"]`（2 值），这个是**对话**的可见性（5 值），两者不是一回事。
+ *
+ * 与 phase-00 一致性复核里 `IngestionRun` 的 `status` vs `state` 是同一类问题，
+ * 处理方式沿用那次立的纪律：**同名会掩盖分歧，改名而不是合并**。
+ * ⇒ 改名 `ChatVisibility`。若日后产品裁定两者本应统一，那是一次签核动作，不是一次改名。
+ */
+export type ChatVisibility = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
+export const CHAT_VISIBILITY_LABEL: Record<ChatVisibility, string> = {
   "member-private": "组员私聊",
   "group-shared": "本组共享",
   "all-hands": "全场",
@@ -627,7 +637,7 @@ export interface LandingArtifact {
   citationCount: number;
   /** 未挂来源标灰（AC3）—— 服务端可判定状态，不是纯视觉 */
   hasSource: boolean;
-  visibility: VisibilityScope;
+  visibility: ChatVisibility;
 }
 export const LANDING_ARTIFACTS: LandingArtifact[] = [
   {

@@ -1,6 +1,6 @@
 import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { VISIBILITY_SCOPE_LABEL, type VisibilityScope } from "@/lib/mock/chat";
+import { CHAT_VISIBILITY_LABEL, type ChatVisibility } from "@/lib/mock/chat";
 
 /**
  * 可见范围徽标（UC-8.5 AC1 / R8）
@@ -12,13 +12,13 @@ import { VISIBILITY_SCOPE_LABEL, type VisibilityScope } from "@/lib/mock/chat";
  *
  * 色调按「越私密越冷」：私有/私聊=neutral、本组共享/团队=ai、全场=primary。
  */
-export function VisibilityBadge({ scope }: { scope: VisibilityScope }) {
+export function VisibilityBadge({ scope }: { scope: ChatVisibility }) {
   const tone: "neutral" | "ai" | "primary" =
     scope === "all-hands" ? "primary" : scope === "member-private" || scope === "private" ? "neutral" : "ai";
   return (
     <Badge tone={tone} data-testid={`chat-visibility-${scope}`} title="[设计·待裁决] 可见范围徽标，原型未见此控件">
       <Eye aria-hidden className="h-3 w-3" />
-      {VISIBILITY_SCOPE_LABEL[scope]}
+      {CHAT_VISIBILITY_LABEL[scope]}
     </Badge>
   );
 }
