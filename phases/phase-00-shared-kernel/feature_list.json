@@ -42,17 +42,21 @@
         "F01"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f02",
       "verification": [
-        "pnpm vitest run tests/kernel/rls-force-nonowner.test.ts",
-        "pnpm vitest run tests/kernel/rls-cross-tenant-zero-leak.test.ts",
-        "pnpm vitest run tests/kernel/permission-propagation-six-paths.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/rls-force-nonowner.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/rls-cross-tenant-zero-leak.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
+      "evidence": "evidence/F02.verify.log @ 2026-07-29T02:47:07.985Z",
       "needs_ui_signoff": false,
-      "notes": "对应 context-engine.md 首批门槛②（跨租户泄漏为零）与需求 V9/V10。依据：[设计]（架构第五节 + uc-0-3 R7），但均为可机器验证的 SQL/API 断言。三条硬断言必须自动化、不接受人工核对配置：①运行时连接角色不是任何业务表 owner（比对 pg_class.relowner 与 current_user）；②所有含租户数据表启用 FORCE ROW LEVEL SECURITY；③非 owner 连接跨租户查询返回 0 行。⚠ 若用表 owner 连接，RLS 被静默旁路且不报错，测试会假通过——rls-force-nonowner.test.ts 专门防这一点。acl_bindings 与 RLS 策略必须在 artifacts 建表时就带上（见 F04 依赖本 feature），事后补 RLS=重做迁移。"
+      "notes": "对应 context-engine.md 首批门槛②（跨租户泄漏为零）与需求 V9/V10。依据：[设计]（架构第五节 + uc-0-3 R7），但均为可机器验证的 SQL/API 断言。三条硬断言必须自动化、不接受人工核对配置：①运行时连接角色不是任何业务表 owner（比对 pg_class.relowner 与 current_user）；②所有含租户数据表启用 FORCE ROW LEVEL SECURITY；③非 owner 连接跨租户查询返回 0 行。⚠ 若用表 owner 连接，RLS 被静默旁路且不报错，测试会假通过——rls-force-nonowner.test.ts 专门防这一点。acl_bindings 与 RLS 策略必须在 artifacts 建表时就带上（见 F04 依赖本 feature），事后补 RLS=重做迁移。 【2026-07-29 实现记录】verification 原写的三条是预设路径（从仓库根跑，vitest 找不到 apps/api 下的文件），已改为七条已跑通的命令。落地：migration 0004 的 kernel_tenant_table_audit() 把「哪些表带租户数据、有没有被治理」从**手维护清单改为 catalog 派生**——旧门控问的是「已启用 RLS 的表是否都 FORCE」，一张全新的、根本没开 RLS 的表**不会被问到**，而那恰恰是刚加的、没人想过的那张。application/security/permission-filter.ts 的 Guarded<T> 把 payload 藏进模块私有 WeakMap：拿不到 T 除非走 disclose()，**忘记鉴权从疏漏变成类型错**；配 lint-permission-paths.mjs 拦「绕过守卫直接读租户表」。⚠ V10 六条路径中**只有缓存是活的**，其余五条的子系统尚不存在（F04/F09/F10/phase-01），故本件断言的是「六条 id 走同一个 decide() 且判定相同」+「派生取最严格来源」+「未来的读路径无法绕开判定」，**不是「六个跑起来的子系统都测过」**——registry 里每条都带 owner 字段，且有测试断言 owner 非空。与 F03 合并时暴露一处收敛：F03 另有一套守内容的机制，一个规则两扇门，已收敛为 discloseDecided() 一扇门两个判定来源。"
     },
     {
       "id": "F03",
@@ -66,17 +70,20 @@
         "F01"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f03",
       "verification": [
-        "pnpm vitest run tests/kernel/admin-boundary-deny.test.ts",
-        "pnpm vitest run tests/kernel/admin-personal-layer-count-only.test.ts",
-        "pnpm vitest run tests/kernel/admin-audit-access-visible-to-lead.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/admin-boundary-deny.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/admin-personal-layer-count-only.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/admin-audit-access-visible-to-lead.test.ts",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F03.verify.log @ 2026-07-29T02:47:38.551Z",
       "needs_ui_signoff": false,
-      "notes": "R11 明确要求：管理员边界（R7 第 2、3 条）必须独立成 feature 并有独立验收——它是『我的大脑』整层能否成立的前提。依据混合 [原型]（个人层对管理员封闭、访问留痕对项目负责人可见）+[设计]（管理员非超级用户）。对应 V1/V2 与 uc-0-1 V4（草稿仅创建者可读，含管理员返回 404）。全 API 断言。管理员边界界面（『你作为管理员看不到什么』说明区 + 分层拒绝原因提示）在原型为确认缺失，界面切片由 phase-01 承接，但本 feature 的可验证核心全在 API 层。"
+      "notes": "R11 明确要求：管理员边界（R7 第 2、3 条）必须独立成 feature 并有独立验收——它是『我的大脑』整层能否成立的前提。依据混合 [原型]（个人层对管理员封闭、访问留痕对项目负责人可见）+[设计]（管理员非超级用户）。对应 V1/V2 与 uc-0-1 V4（草稿仅创建者可读，含管理员返回 404）。全 API 断言。管理员边界界面（『你作为管理员看不到什么』说明区 + 分层拒绝原因提示）在原型为确认缺失，界面切片由 phase-01 承接，但本 feature 的可验证核心全在 API 层。 【2026-07-29 实现记录】verification 原写的三条是预设路径，已改为六条已跑通的命令。⚠ 实现暴露两处契约缺陷：① coverage.md 把 V1 与 V2 都映射到 authorize——而 authorize 返回的是**判定不是内容**，于是 D-18 只被在判定函数上证过，且 **I-8「响应体中不存在内容字段」对着 authorize 断言是空转的**（那个响应本来就没有内容字段）。补 readContent + getPersonalLayerSummary 两个操作，在**真正返回 body 的端点**上断言。② ProvenanceEventType 的封闭枚举里有 admin-project-access 并注明 D-18，**但没有任何束的任何操作能产生它**——事件类型定义了，产生它的动作没有。落地：migration 0005 建 content_items + provenance_events（append-only，应用角色 UPDATE/DELETE 被 GRANT 层面拒绝，有数据库侧断言）。个人层只回计数断言的是**键集合**而非值，并对 contract 的 out.shape 做同样断言，使「形状长出一个 content 字段」也会红。审计留痕在**返回 body 之前**写入：留痕写不进去则读失败——反方向是内容在无记录的情况下被送出，那与边界不存在无法区分。"
     },
     {
       "id": "F04",

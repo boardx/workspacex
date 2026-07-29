@@ -47,6 +47,28 @@ export const authorizeBatchMock: z.infer<typeof identity.operations.authorizeBat
   }
 ];
 
+/** readContent 的成功响应样例（由契约生成） */
+export const readContentMock: z.infer<typeof identity.operations.readContent.out> = {
+  "itemId": "itemId-1",
+  "layer": "personal",
+  "status": "draft",
+  "body": "body-1",
+  "provenanceEventId": null
+};
+
+/** readContent 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const readContentErrors = ["NO_ORG_MEMBERSHIP","ORG_SCOPE_DENIED","NO_PROJECT_ROLE","PROJECT_ROLE_INSUFFICIENT","ADMIN_NOT_SUPERUSER","PERSONAL_LAYER_CLOSED"] as const;
+
+/** getPersonalLayerSummary 的成功响应样例（由契约生成） */
+export const getPersonalLayerSummaryMock: z.infer<typeof identity.operations.getPersonalLayerSummary.out> = {
+  "userId": "userId-1",
+  "itemCount": 1,
+  "reasonCode": null
+};
+
+/** getPersonalLayerSummary 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const getPersonalLayerSummaryErrors = ["NO_ORG_MEMBERSHIP"] as const;
+
 /** resolveIdentity 的成功响应样例（由契约生成） */
 export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIdentity.out> = {
   "org": {

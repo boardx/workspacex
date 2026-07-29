@@ -7,6 +7,7 @@ import {
   migrateOnce,
   resetOrgs,
   seedOrg,
+  workerPort,
 } from "../support/db";
 import {
   AUTHORIZATION_CACHE,
@@ -32,7 +33,7 @@ import {
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
-const PORT = 33220;
+const PORT = workerPort(33220);
 const BASE = `http://127.0.0.1:${PORT}`;
 const USER = "u-multi";
 

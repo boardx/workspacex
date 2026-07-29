@@ -1,0 +1,365 @@
+/**
+ * F02 -- UC-0.3 R12 V10: permission travels along the data path, all six routes.
+ *
+ * ## Read this before reading the assertions
+ *
+ * V10 names six routes to the same content: retrieval, Context Pack, embedding similarity,
+ * graph traversal, file browser, cache. **Five of those subsystems do not exist yet.**
+ * They arrive with F09 (Context Pack), F10 (retrieval + pgvector), F04 (the artifact
+ * tables everything derives from) and phase-01 (09-kg, 22-files). Only the cache is live
+ * today, because F01 shipped `AuthorizationCache`.
+ *
+ * So this file does NOT claim "six running subsystems were tested and denied". It claims,
+ * precisely:
+ *
+ *   1. All six paths resolve through ONE decision -- the same `decide()` F01 wrote. That
+ *      is the whole ruling of coherence X-1, and it is asserted by driving each of the six
+ *      path ids through `disclose()` against the same team-only object and requiring
+ *      identical verdicts. If a later feature forks its own filter, the fork will not be
+ *      in `PROPAGATION_PATHS` and `disclose` will refuse it.
+ *   2. Derived content takes the STRICTEST of its sources (I-7 / artifact I-13), so a
+ *      summary cannot launder a team-only original into an org-wide answer.
+ *   3. Content cannot physically leave a repository without a decision: the payload lives
+ *      in a module-private WeakMap and `lint-permission-paths.mjs` blocks the other route.
+ *
+ * What is NOT proven, stated plainly rather than left to be discovered: no real retrieval
+ * query, no real pgvector recall, no real graph walk and no real file listing has been
+ * exercised, because none exists. Each of those features must add its own end-to-end V10
+ * assertion; what F02 guarantees is that it cannot build one that skips the decision.
+ *
+ * ## The scenario
+ *
+ * An artifact visible only to the energy team, plus the derived objects each path would
+ * hand back. `u-platform` is a full member of the organization in a different team --
+ * which is the interesting case, because org membership alone is not the question.
+ */
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import {
+  addBinding,
+  addOrgMember,
+  ensureDatabase,
+  migrateOnce,
+  resetOrgs,
+  seedOrg,
+} from "../support/db";
+import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
+import {
+  CountingDecisionIdFactory,
+  InMemoryAuthorizationCache,
+} from "../../src/infrastructure/identity/in-memory-session-store";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { toOrgId } from "../../src/domain/org-id";
+import { PROPAGATION_PATHS, type PropagationPathId } from "../../src/domain/identity/propagation-paths";
+import { UNSATISFIABLE_TEAM } from "../../src/domain/identity/permission-decision";
+import { decisionCacheKey, disclose, guard } from "../../src/application/security/permission-filter";
+
+const ORG = "org-f02-prop";
+const PROJECT = "proj-f02-prop";
+const ARTIFACT = { kind: "artifact", id: "art-energy-only" } as const;
+const SECRET = "the-team-only-content";
+
+let db: PgDatabase;
+let deps: { repo: PgIdentityRepository; ids: CountingDecisionIdFactory };
+let fx: Awaited<ReturnType<typeof seedOrg>>;
+
+beforeAll(async () => {
+  ensureDatabase();
+  await migrateOnce();
+  db = new PgDatabase(appConfig());
+  deps = { repo: new PgIdentityRepository(db), ids: new CountingDecisionIdFactory() };
+});
+
+beforeEach(async () => {
+  await resetOrgs(ORG);
+  fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
+  await addOrgMember(ORG, "u-energy", "consultant", fx.teams.energy!);
+  await addOrgMember(ORG, "u-platform", "consultant", fx.teams.platform!);
+  // The original: visible to the energy team only.
+  await addBinding({
+    orgId: ORG,
+    subject: { kind: "team", id: fx.teams.energy! },
+    object: ARTIFACT,
+    scope: "team-only",
+    ownerTeamId: fx.teams.energy!,
+  });
+});
+
+/**
+ * What each path would hand back. All of them are DERIVED from the same artifact, which is
+ * the point of R7: the derivative must not be looser than the original.
+ */
+const derivedFor = (path: string) =>
+  guard({ kind: "segment", id: `seg-via-${path}` }, SECRET, [ARTIFACT]);
+
+const call = (userId: string, path: PropagationPathId) =>
+  disclose(deps, {
+    userId,
+    orgId: toOrgId(ORG),
+    action: "read.artifact",
+    // No projectId: this is an ORG-layer visibility question (team scope), and adding a
+    // project context would let a project-role failure mask the scope failure being tested.
+    path,
+    items: [derivedFor(path)],
+  });
+
+describe("the registry is the coverage claim, so it is asserted first", () => {
+  it("names exactly the six paths UC-0.3 R12 V10 lists", () => {
+    expect(PROPAGATION_PATHS.map((p) => p.id).sort()).toEqual([
+      "cache",
+      "context-pack",
+      "embedding-similarity",
+      "file-browser",
+      "graph-traversal",
+      "retrieval",
+    ]);
+    // The UC is written in Chinese; the ids are not. Keeping the original wording on each
+    // entry is what makes the mapping back to the spec checkable rather than a claim.
+    expect(PROPAGATION_PATHS.map((p) => p.ucTerm)).toEqual([
+      "检索", "Context Pack", "embedding 相似度", "图节点遍历", "文件浏览器", "缓存命中",
+    ]);
+  });
+
+  it("every path that is not live names who builds it -- 'later' has to have an owner", () => {
+    for (const p of PROPAGATION_PATHS) {
+      expect(p.owner, `${p.id} has no owner`).toMatch(/F\d\d|phase-\d\d/);
+    }
+    // Honest today: one live, five mechanism-only. If this number ever changes without the
+    // corresponding end-to-end assertion, this test is where it gets noticed.
+    expect(PROPAGATION_PATHS.filter((p) => p.status === "live").map((p) => p.id)).toEqual(["cache"]);
+  });
+
+  it("a seventh path cannot be invented by writing a seventh module", async () => {
+    await expect(
+      disclose(deps, {
+        userId: "u-platform",
+        orgId: toOrgId(ORG),
+        action: "read.artifact",
+        // Cast required: the union already REJECTS this at compile time, which is the
+        // stronger guarantee. The cast forces the runtime guard to be exercised too, for
+        // ids that arrive as data rather than as source.
+        path: "export-to-slack" as PropagationPathId,
+        items: [derivedFor("x")],
+      }),
+    ).rejects.toThrow(/unknown propagation path/);
+  });
+});
+
+describe("V10: all six paths deny the same content to the same person", () => {
+  for (const path of PROPAGATION_PATHS.map((p) => p.id)) {
+    it(`${path}: a non-energy member gets no content`, async () => {
+      const r = await call("u-platform", path);
+      expect(r.visible).toEqual([]);
+      expect(r.withheld).toHaveLength(1);
+      // The denial has to say it was an ORG-layer restriction, not a project one -- E3.
+      // Otherwise the user goes looking for a project role they already have.
+      expect(r.withheld[0]!.reasonCode).toBe("ORG_SCOPE_DENIED");
+      // Nothing about the content, in any field, including serialised.
+      expect(JSON.stringify(r.withheld)).not.toContain(SECRET);
+    });
+
+    it(`${path}: an energy member DOES get it -- propagation, not paralysis`, async () => {
+      const r = await call("u-energy", path);
+      expect(r.withheld).toEqual([]);
+      expect(r.visible.map((v) => v.payload)).toEqual([SECRET]);
+      // R10 ④: every disclosed item carries the decision that let it through, so
+      // "why was I shown this" is answerable later from the Context Pack alone.
+      expect(r.visible[0]!.permissionDecisionId).toMatch(/^d-\d+$/);
+    });
+  }
+
+  it("the six verdicts are the SAME decision, not six lookalikes (coherence X-1)", async () => {
+    // If a path ever grew its own filter, this is what would drift first: same subject,
+    // same object, different answer depending on which door you came in.
+    const verdicts = await Promise.all(
+      PROPAGATION_PATHS.map(async (p) => {
+        const r = await call("u-platform", p.id);
+        return `${r.visible.length}/${r.withheld[0]?.reasonCode}`;
+      }),
+    );
+    expect(new Set(verdicts).size, `paths disagreed: ${verdicts.join(", ")}`).toBe(1);
+  });
+});
+
+describe("I-7 / artifact I-13: derived content takes the strictest source", () => {
+  beforeEach(async () => {
+    await addBinding({
+      orgId: ORG,
+      subject: { kind: "team", id: fx.teams.platform! },
+      object: { kind: "artifact", id: "art-org-wide" },
+      scope: "org-wide",
+    });
+    await addBinding({
+      orgId: ORG,
+      subject: { kind: "team", id: fx.teams.platform! },
+      object: { kind: "artifact", id: "art-platform-only" },
+      scope: "team-only",
+      ownerTeamId: fx.teams.platform!,
+    });
+  });
+
+  it("mixing an org-wide source with a team-only source yields team-only, not org-wide", async () => {
+    // The laundering case R7 describes: a Context Pack item assembled from a public source
+    // and a restricted one. Taking the union -- the intuitive move if you think of
+    // permissions as capabilities that accumulate -- publishes the restricted half.
+    const item = guard({ kind: "segment", id: "seg-mixed" }, SECRET, [
+      { kind: "artifact", id: "art-org-wide" },
+      ARTIFACT,
+    ]);
+    const base = { orgId: toOrgId(ORG), action: "read.artifact", path: "context-pack" as const, items: [item] };
+    expect((await disclose(deps, { ...base, userId: "u-platform" })).visible).toEqual([]);
+    expect((await disclose(deps, { ...base, userId: "u-energy" })).visible.map((v) => v.payload)).toEqual([SECRET]);
+  });
+
+  it("sources owned by two DIFFERENT teams are visible to neither", async () => {
+    // No single team satisfies both, so the strictest reading is "nobody". Falling back to
+    // either team's scope would hand each team the other's material.
+    const item = guard({ kind: "segment", id: "seg-two-teams" }, SECRET, [
+      ARTIFACT,
+      { kind: "artifact", id: "art-platform-only" },
+    ]);
+    const base = { orgId: toOrgId(ORG), action: "read.artifact", path: "retrieval" as const, items: [item] };
+    for (const u of ["u-energy", "u-platform"]) {
+      const r = await disclose(deps, { ...base, userId: u });
+      expect(r.visible, `${u} saw a two-team intersection`).toEqual([]);
+      expect(r.withheld[0]!.reasonCode).toBe("ORG_SCOPE_DENIED");
+    }
+    // And the sentinel is not a real team anyone could join.
+    expect(UNSATISFIABLE_TEAM).not.toMatch(/^org-/);
+  });
+
+  it("an unbound object still defaults to org-wide -- and that is contained by the org layer", async () => {
+    // Stated as a test rather than a comment because it is the one place the filter is
+    // permissive by default. A non-member gets nothing regardless, which is what makes the
+    // default acceptable.
+    const item = guard({ kind: "segment", id: "seg-unbound" }, SECRET, []);
+    const base = { orgId: toOrgId(ORG), action: "read.artifact", path: "file-browser" as const, items: [item] };
+    expect((await disclose(deps, { ...base, userId: "u-platform" })).visible).toHaveLength(1);
+    const outsider = await disclose(deps, { ...base, userId: "u-nobody" });
+    expect(outsider.visible).toEqual([]);
+    expect(outsider.withheld[0]!.reasonCode).toBe("NO_ORG_MEMBERSHIP");
+  });
+});
+
+describe("the payload cannot leave without a decision", () => {
+  it("a guarded item carries no reachable content", () => {
+    const g = derivedFor("retrieval");
+    // Not a hidden property, not a private field: no property at all. So logging it,
+    // spreading it or serialising it -- the three things that happen to objects by
+    // accident -- cannot emit the content.
+    expect(JSON.stringify(g)).not.toContain(SECRET);
+    expect(Object.keys(g)).toEqual(["ref", "sources"]);
+    expect(JSON.stringify({ ...g })).not.toContain(SECRET);
+  });
+
+  it("a denied item's content is absent from the result, not blanked out", async () => {
+    // I-8's shape, applied here: the field must not EXIST. "content: ''" is still a
+    // statement about the content, and it is the shape that later gets 'fixed' by filling
+    // the field back in.
+    const r = await call("u-platform", "retrieval");
+    expect(Object.keys(r.withheld[0]!).sort()).toEqual(["permissionDecisionId", "reasonCode", "ref"]);
+  });
+});
+
+describe("the cache path (the one that is live today)", () => {
+  it("the cache key is scoped by organization", () => {
+    // Same user, same object, different org. Without orgId in the key, switching orgs
+    // serves the previous organization's verdict from memory: no query runs, so no RLS
+    // policy is consulted, and nothing anywhere looks wrong (O-12).
+    const k = (orgId: string) =>
+      decisionCacheKey({ userId: "u", orgId: toOrgId(orgId), path: "retrieval", action: "read.artifact", ref: ARTIFACT });
+    expect(k("org-a")).not.toBe(k("org-b"));
+    expect(k("org-a").startsWith("u|")).toBe(true); // the cache buckets on the first segment
+  });
+
+  it("the key separates paths and actions too", () => {
+    const base = { userId: "u", orgId: toOrgId(ORG), ref: ARTIFACT };
+    const a = decisionCacheKey({ ...base, path: "retrieval", action: "read.artifact" });
+    const b = decisionCacheKey({ ...base, path: "file-browser", action: "read.artifact" });
+    const c = decisionCacheKey({ ...base, path: "retrieval", action: "write.artifact" });
+    expect(new Set([a, b, c]).size).toBe(3);
+  });
+
+  it("invalidating a user drops every cached verdict for them and nobody else's", async () => {
+    const cache = new InMemoryAuthorizationCache();
+    await cache.set(decisionCacheKey({ userId: "u1", orgId: toOrgId(ORG), path: "retrieval", action: "r", ref: ARTIFACT }), true);
+    await cache.set(decisionCacheKey({ userId: "u2", orgId: toOrgId(ORG), path: "retrieval", action: "r", ref: ARTIFACT }), true);
+    await cache.invalidateUser("u1");
+    expect(await cache.size("u1")).toBe(0);
+    expect(await cache.size("u2")).toBe(1);
+  });
+});
+
+/**
+ * The filter stops content leaving without a decision. It does not stop a repository
+ * ignoring it and returning raw rows -- that is this gate's job, and a gate nobody has
+ * watched go red is a gate nobody knows works.
+ */
+describe("lint-permission-paths: counter-proof", () => {
+  const API = fileURLToPath(new URL("../..", import.meta.url));
+  const GATE = join(API, "scripts/lint-permission-paths.mjs");
+  const run = (...args: string[]): { code: number; out: string } => {
+    try {
+      return { code: 0, out: execFileSync("node", [GATE, ...args], { cwd: API, encoding: "utf8", stdio: "pipe" }) };
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
+      return { code: err.status ?? 1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
+    }
+  };
+
+  it("scans the real source tree and derives a real table list (not the exit code)", () => {
+    const r = run();
+    expect(r.code, r.out).toBe(0);
+    expect(Number(/scanned=(\d+)/.exec(r.out)?.[1] ?? -1), "gate scanned nothing").toBeGreaterThan(20);
+    // Parsed out of migrations/*.sql. Zero here means the parse silently failed and the
+    // gate would pass every file forever.
+    expect(Number(/tenant-tables=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeGreaterThanOrEqual(8);
+  });
+
+  it("rejects a permission-blind read from outside infrastructure", () => {
+    const r = run("apps/api/__fixtures__/permission-bad");
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("leaky-retrieval.ts");
+    expect(r.out).toContain("acl_bindings");
+    // Also catches the table reached through a JOIN, which is how the second half of a
+    // query gets forgotten about.
+    expect(r.out).toContain("projects");
+  });
+
+  it("rejects a raw read even when it IS in infrastructure -- the folder is not the rule", () => {
+    const r = run("apps/api/__fixtures__/permission-bad");
+    expect(r.out).toContain("raw-repo.ts");
+    expect(r.out).toContain("does not import application/security/permission-filter");
+  });
+
+  it("does NOT over-fire on the correct shape", () => {
+    const r = run("apps/api/__fixtures__/permission-good");
+    expect(r.code, r.out).toBe(0);
+    expect(Number(/scanned=(\d+)/.exec(r.out)?.[1] ?? -1)).toBe(1);
+  });
+
+  it("the allowlist stays short, and every entry carries a real argument", () => {
+    const r = run();
+    // A ceiling alone is a number someone bumps. The property that actually matters is
+    // that each exemption was ARGUED -- so the reason strings are checked too, and a
+    // one-liner like "legacy" or "TODO" fails.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(4);
+
+    const src = readFileSync(
+      fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
+      "utf8",
+    );
+    const block = /const ALLOWLIST = new Map\(\[([\s\S]*?)\n\]\);/.exec(src)?.[1] ?? "";
+    const reasons = [...block.matchAll(/"((?:[^"\\]|\\.){40,})",\n\s*\],/g)].map((m) => m[1]!);
+    const entries = [...block.matchAll(/\[\n\s*"src\//g)].length;
+    expect(entries, "could not parse the allowlist -- this assertion would be vacuous").toBeGreaterThan(0);
+    expect(reasons.length, "an allowlist entry has no real justification").toBe(entries);
+    for (const reason of reasons) {
+      expect(reason, `weak justification: ${reason}`).not.toMatch(/^(todo|legacy|temporary|for now)\b/i);
+    }
+  });
+});

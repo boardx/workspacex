@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS _kernel_migrations (
   applied_at timestamptz NOT NULL DEFAULT now()
 )`;
 
+/** Arbitrary but fixed. Every migrator in a database must agree on it or it locks nothing. */
+const MIGRATION_LOCK_KEY = 8_014_530_119_003_001;
+
 export function migrationFiles(dir = MIGRATIONS_DIR): string[] {
   return readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 }
@@ -46,6 +49,24 @@ export async function migrate(
   const applied: string[] = [];
   const skipped: string[] = [];
   try {
+    // Serialise concurrent migrators against THIS database.
+    //
+    // Vitest runs each test file in its own process and every one of them calls
+    // `migrateOnce()`. When a migration file is new, they all try to apply it at once, and
+    // `CREATE TABLE IF NOT EXISTS` is not atomic: two sessions both observe "does not
+    // exist", both create, and the loser dies with
+    // `duplicate key value violates unique constraint "pg_type_typname_nsp_index"` --
+    // a message that says nothing about concurrency and sends you looking at the SQL.
+    //
+    // ⚠ This is the mirror image of the note in 0001. There, an advisory lock did NOT work,
+    // because roles are CLUSTER-wide while advisory locks are DATABASE-scoped, so workers
+    // on separate databases serialised nothing. Here the contention is inside one database,
+    // which is exactly the case advisory locks do cover.
+    //
+    // Session-level, not transaction-level: the lock has to span every file, and the files
+    // are applied in one transaction each. It is released when the client disconnects in
+    // the `finally` below, so a crashed migrator cannot wedge the next one.
+    await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
     await client.query(VERSION_TABLE);
     const done = new Set(
       (await client.query<{ name: string }>("SELECT name FROM _kernel_migrations")).rows.map((r) => r.name),
@@ -91,6 +112,9 @@ export async function migrate(
       applied.push(name);
     }
   } finally {
+    // Released implicitly by disconnecting, but released explicitly so the intent is
+    // visible and a future refactor to a pooled client does not silently hold it forever.
+    await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]).catch(() => undefined);
     await client.end();
   }
   return { applied, skipped };

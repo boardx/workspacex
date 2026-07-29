@@ -22,6 +22,23 @@ const COMPOSE = ["compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p", "wo
  */
 const DB = process.env.WORKSPACEX_DB ?? "workspacex";
 
+/**
+ * ...and it has to reach the CONNECTION, which for a while it did not (found in F02).
+ *
+ * `pg-config` reads `PGDATABASE`; only `scripts/lib.sh` translated WORKSPACEX_DB into it.
+ * So `WORKSPACEX_DB=wsx_xx pnpm exec vitest run` -- the documented way to run a worker's
+ * tests -- created `wsx_xx` above and then connected to the shared `workspacex` anyway.
+ * The isolation the comment above promises was not in effect for a single vitest run, and
+ * nothing could have told you: cross-worker interference shows up as flaky assertions, not
+ * as an error.
+ *
+ * Assigned rather than overwritten: lib.sh sets PGDATABASE explicitly for the shell gates,
+ * and that setting has to win.
+ */
+if (process.env.PGDATABASE === undefined || process.env.PGDATABASE === "") {
+  process.env.PGDATABASE = DB;
+}
+
 export function ensureDatabase(): void {
   execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
   let ready = false;
@@ -35,12 +52,34 @@ export function ensureDatabase(): void {
     }
   }
   if (!ready) throw new Error("postgres did not become ready");
-  // Create the worker's database if it is not the shared default one.
-  if (DB !== "workspacex") {
-    execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-tAc",
-      `SELECT 1 FROM pg_database WHERE datname='${DB}'`], { stdio: "pipe", encoding: "utf8" }).trim() === "1" ||
-      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-c",
-        `CREATE DATABASE ${DB}`], { stdio: "pipe" });
+  createDatabaseIfMissing();
+}
+
+/**
+ * Create the worker's database, tolerating the race.
+ *
+ * vitest runs test FILES in parallel, and every one of them calls `ensureDatabase()`. A
+ * check-then-create is not atomic: nine processes all see "missing" and eight of them then
+ * fail on CREATE. That is not a hypothetical -- it is what a fresh database did on the
+ * first run, with six of nine files erroring out in beforeAll and 154 tests reported as
+ * "skipped", which reads like a config problem rather than a race.
+ *
+ * So: attempt it, and treat "already exists" (SQLSTATE 42P04) as success. Losing the race
+ * is the expected outcome for eight of nine callers.
+ */
+function createDatabaseIfMissing(): void {
+  if (DB === "workspacex") return; // the shared default is created by docker-compose
+  try {
+    execFileSync(
+      "docker",
+      [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1",
+        "-c", `CREATE DATABASE ${DB}`],
+      { stdio: "pipe", encoding: "utf8" },
+    );
+  } catch (e) {
+    const out = `${(e as { stdout?: string }).stdout ?? ""}${(e as { stderr?: string }).stderr ?? ""}`;
+    // 42P04 = duplicate_database. Anything else is a real failure and must surface.
+    if (!/already exists|42P04/i.test(out)) throw e;
   }
 }
 
@@ -164,6 +203,38 @@ export async function addProjectMember(
   );
 }
 
+/**
+ * Seed one content item.
+ *
+ * `layer` defaults to `project` and `status` to `published` because that is the ordinary
+ * case; the interesting fixtures (personal items, other people's drafts) name what makes
+ * them interesting at the call site rather than relying on a default.
+ */
+export async function addContentItem(opts: {
+  orgId: string;
+  id: string;
+  ownerUserId: string;
+  body: string;
+  layer?: "personal" | "project";
+  projectId?: string | null;
+  groupId?: string | null;
+  status?: "draft" | "published";
+}): Promise<void> {
+  const layer = opts.layer ?? "project";
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO content_items (id, org_id, layer, project_id, group_id, owner_user_id, status, body)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        opts.id, opts.orgId, layer,
+        layer === "personal" ? null : (opts.projectId ?? null),
+        layer === "personal" ? null : (opts.groupId ?? null),
+        opts.ownerUserId, opts.status ?? "published", opts.body,
+      ],
+    ),
+  );
+}
+
 export async function addBinding(opts: {
   orgId: string;
   subject: { kind: "user" | "group" | "team"; id: string };
@@ -178,4 +249,22 @@ export async function addBinding(opts: {
       [opts.orgId, opts.subject.kind, opts.subject.id, opts.object.kind, opts.object.id, opts.scope, opts.ownerTeamId ?? null],
     ),
   );
+}
+
+/**
+ * A listening port that is unique per worker.
+ *
+ * Test files that boot the app bind a fixed port. Two workers running the full suite at
+ * once therefore collide on it -- `EADDRINUSE` on the SECOND worker, reported as a failing
+ * test file rather than as a resource clash. Database isolation alone does not buy
+ * parallelism; the ports have to move too.
+ *
+ * Derived from WORKSPACEX_DB so it is stable within a worker (a rerun binds the same port,
+ * which matters when a previous run left a socket in TIME_WAIT) and disjoint across
+ * workers. The offset is bounded so it cannot wander into the ephemeral range.
+ */
+export function workerPort(base: number): number {
+  let h = 0;
+  for (const ch of DB) h = (h * 31 + ch.charCodeAt(0)) % 97;
+  return base + h * 20;
 }

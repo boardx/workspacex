@@ -8,6 +8,7 @@ import {
   migrateOnce,
   resetOrgs,
   seedOrg,
+  workerPort,
 } from "../support/db";
 
 /**
@@ -29,7 +30,7 @@ import {
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
-const PORT = 33230;
+const PORT = workerPort(33230);
 const BASE = `http://127.0.0.1:${PORT}`;
 const ORG = "org-resp";
 const PROJECT = "proj-resp";

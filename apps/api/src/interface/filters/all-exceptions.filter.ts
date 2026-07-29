@@ -20,6 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
+import { identity } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -35,6 +36,28 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   422: "unprocessable",
   503: "dependency_unavailable",
 };
+
+/**
+ * The ONE piece of exception detail allowed into a response body: `reasonCode`.
+ *
+ * This looks like the thing the file's header forbids, so here is the distinction. The ban
+ * is on using exception MESSAGES as codes -- arbitrary internal strings becoming a public
+ * contract by accident. `PermissionReason` is the opposite: a closed enum in
+ * `@repo/contracts` that the frontend already renders against, and it is parsed against
+ * that enum here, so nothing outside it can pass through no matter what an exception
+ * carries.
+ *
+ * It has to be here because UC-0.3 R8 requires a denial to say WHICH LAYER refused --
+ * "org-level restriction: this resource is limited to the energy team" versus "you have no
+ * role in this project". Four different problems rendered as one bare 403 send the user
+ * hunting for a permission that was never the issue.
+ */
+function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const parsed = identity.PermissionReason.safeParse((body as { reasonCode?: unknown }).reasonCode);
+  return parsed.success ? { reasonCode: parsed.data } : {};
+}
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -60,7 +83,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       this.logger.error("http exception", { traceId, err: exception, status });
-      res.status(status).json({ error: CODE_BY_STATUS[status] ?? "internal_error", traceId });
+      res.status(status).json({
+        error: CODE_BY_STATUS[status] ?? "internal_error",
+        traceId,
+        ...permissionReasonOf(exception),
+      });
       return;
     }
 
