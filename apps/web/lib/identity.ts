@@ -110,6 +110,17 @@ export const LOCAL_RUNTIME_STARTUP_HINT = C.LOCAL_RUNTIME_STARTUP_HINT;
 export const isLocalModelEndpoint = C.isLocalModelEndpoint;
 
 /**
+ * 导出豁口（F17）——**这三样都不许在界面里另写一份**。
+ *
+ * ⚠ `localExportUnvettedNote` 尤其危险：同一句话有三个消费者（目标侧 `artifacts` 行、
+ *   两侧 provenance 事件、这一屏的文案）。界面自己拼一句的后果不是「文案不一致」，
+ *   而是「这条材料到底审没审过」在库里和屏幕上有两个答案。
+ */
+export const localExportUnvettedNote = C.localExportUnvettedNote;
+export const LOCAL_EXPORT_PREVIEW_TTL_MS = C.LOCAL_EXPORT_PREVIEW_TTL_MS;
+export type LocalExportReason = z.infer<typeof C.LocalExportReason>;
+
+/**
  * 本组织是否只允许自托管模型，以及**它是承诺还是策略**。
  * 界面必须能分辨这两者——这正是 UC-0.5 V12 断言的东西。
  */

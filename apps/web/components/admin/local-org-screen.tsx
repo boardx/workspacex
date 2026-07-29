@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Lock, ServerCog, ShieldCheck, User, CloudOff } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { LocalExportPanel } from "./local-export-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -146,6 +147,9 @@ export function LocalOrgScreen({ state }: { state: UiState }) {
             </CardContent>
           </Card>
         </section>
+
+        {/* ── 导出豁口（F17）：三条承诺唯一被允许打开的口子，就放在承诺下面 ── */}
+        <LocalExportPanel />
 
         {/* ── 本地运行时状态 ── */}
         <section className="flex flex-col gap-2" data-testid="local-org-runtime">

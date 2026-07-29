@@ -67,9 +67,17 @@ import { IdentityController } from "./interface/controllers/identity.controller"
 // by a use case, because it patches `net.Socket.prototype.connect` for the whole process --
 // that is a deployment decision, and the composition root is where deployment decisions live.
 import { LocalOrgController } from "./interface/controllers/local-org.controller";
-import { EGRESS_GUARD, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
+import { EGRESS_GUARD, EXPORT_TRANSPORT, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
 import { ProcessEgressGuard } from "./infrastructure/egress/local-egress-guard";
 import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
+// F17: 隐私承诺的唯一豁口。
+import { LocalExportController } from "./interface/controllers/local-export.controller";
+import { LOCAL_EXPORT_REPOSITORY } from "./application/identity/local-export-ports";
+import { PgLocalExportRepository } from "./infrastructure/identity/pg-local-export-repository";
+import { ObjectStoreExportTransport } from "./infrastructure/identity/object-store-export-transport";
+import { OBJECT_STORE, type ObjectStore } from "./application/artifact/ports";
+import { FsObjectStore } from "./infrastructure/storage/fs-object-store";
+import { objectStoreRoot } from "./infrastructure/storage/object-store-root";
 import { CapabilityController } from "./interface/controllers/capability.controller";
 import {
   CAPABILITY_REPOSITORY,
@@ -116,6 +124,7 @@ import { AuthOrgController } from "./interface/controllers/auth-org.controller";
     ProvenanceController,
     CapabilityController,
     LocalOrgController,
+    LocalExportController,
     ArtifactBindingController,
     AuthRegistrationController,
     AuthController,
@@ -175,10 +184,31 @@ import { AuthOrgController } from "./interface/controllers/auth-org.controller";
     // count is really zero. The path exists end to end so 04-agent reports into it rather
     // than inventing a number for `affectedInFlightCalls` (see the port's note).
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
-    // F06. `ObjectStore` is deliberately NOT provided: no route writes bytes, because the
-    // two operations that would (`saveDraft`, `pinVersion`) still have no request shape
-    // able to carry them (coherence D-2). A provider for a port nothing injects would
-    // suggest otherwise.
+    // ⚠ `ObjectStore` USED to be deliberately unprovided ("no route writes bytes, because
+    // `saveDraft` / `pinVersion` still have no request shape able to carry them" -- coherence
+    // D-2). That note was accurate and is now out of date: F17's export MOVES BYTES, and it
+    // is the first route that does. The reason for the original absence was "a provider for
+    // a port nothing injects suggests a capability that is not there", which is the opposite
+    // of the situation now.
+    //
+    // ⚠ `saveDraft` / `pinVersion` still have no request shape -- providing the store does
+    // NOT open those paths, and nothing here should be read as saying it does.
+    { provide: OBJECT_STORE, useFactory: () => new FsObjectStore(objectStoreRoot()) },
+    // F17. Called INSIDE the aperture (see `export-to-organization.ts` step 5), so a future
+    // cross-deployment transport inherits the approval check instead of having to remember it.
+    {
+      provide: EXPORT_TRANSPORT,
+      useFactory: (store: ObjectStore) => new ObjectStoreExportTransport(store),
+      inject: [OBJECT_STORE],
+    },
+    {
+      provide: LOCAL_EXPORT_REPOSITORY,
+      // Takes the provenance WRITER, not its own INSERT: `provenance_events` is one table
+      // with one writer (X-2), and the export needs an append inside a transaction it owns.
+      useFactory: (db: DatabasePort, prov: PgProvenanceRepository) =>
+        new PgLocalExportRepository(db, prov),
+      inject: [DATABASE_PORT, PROVENANCE_WRITER],
+    },
     {
       provide: ARTIFACT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgArtifactRepository(db),

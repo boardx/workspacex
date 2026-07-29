@@ -14,6 +14,7 @@
  */
 import { provenance } from "@repo/contracts";
 import type { z } from "zod";
+import type { TenantSession } from "../ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 
 /** Derived from the shared contract, never restated. */
@@ -33,6 +34,28 @@ export interface ProvenanceAppendInput {
 export interface ProvenanceWriter {
   /** Returns the new event's id. Throws if it could not be persisted -- see read-content. */
   append(input: ProvenanceAppendInput): Promise<string>;
+
+  /**
+   * The same append, inside a transaction the CALLER already owns (F17).
+   *
+   * ## Why this exists rather than a second INSERT somewhere
+   *
+   * V11④ says an export writes provenance on BOTH sides, and F17's whole position is that an
+   * export whose audit did not land must not have happened. That is one transaction spanning
+   * two tenants -- and `append` cannot participate in it, because it opens its own.
+   *
+   * The alternative was for the export repository to write its own INSERT into
+   * `provenance_events`. That is a second declaration of how an audit event is written, in
+   * the one table where "was this recorded" has to have exactly one answer. So the port grows
+   * a method instead, and there stays ONE implementation of the insert.
+   *
+   * ⚠ The caller is responsible for the tenant context: this method does NOT set
+   * `app.current_org`, because it does not own the transaction. That is the price of the
+   * shape, stated rather than left to be discovered -- an export writes the target event
+   * under the target tenant and the local event under the local one, by re-pointing the
+   * transaction-local setting between them.
+   */
+  appendWithin(session: TenantSession, input: ProvenanceAppendInput): Promise<string>;
 }
 
 export interface ProvenanceReader {
