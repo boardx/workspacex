@@ -83,7 +83,7 @@ export function RetentionPanel({ state, view }: { state: UiState; view: RecView 
                   <Toggle checked={RETENTION_PARAM.noTraining} onCheckedChange={() => {}} label="禁止用于训练" data-testid="rec-no-training" />
                   <span className="text-11 text-muted-foreground">独立开关，与保留期并列，全生命周期恒成立</span>
                 </div>
-                <p className="inline-flex items-center gap-1 text-9 text-muted-foreground"><Info aria-hidden className="h-3 w-3" /> 数值区间仍待合规收窄（O-01 默认已给：材料 180 天）；实现按参数读取，不写常量。</p>
+                <p className="inline-flex items-center gap-1 text-9 text-muted-foreground"><Info aria-hidden className="h-3 w-3" /> 数值区间仍待合规收窄（O-01 默认已给：材料 180 天）；实现按参数读取，不写常量。</p> {/* [threshold-ok:retentionMaterial] 文案本身说的就是「按参数读取，不写常量」 */}
               </div>
             </div>
           </section>

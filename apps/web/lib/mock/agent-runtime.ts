@@ -177,7 +177,7 @@ export const MCP_SECURITY_SWITCHES: McpSecuritySwitch[] = [
   },
   {
     id: "sw-log", label: "涉客户数据的工具调用全量留痕", defaultOn: true, lock: "toggleable",
-    consequence: "关掉后：涉客户数据的调用不再全量留痕（留存期读组织「留痕保留期」参数，非写死 180 天）。需二次确认并留痕。",
+    consequence: "关掉后：涉客户数据的调用不再全量留痕（留存期读组织「留痕保留期」参数，非写死 180 天）。需二次确认并留痕。", // [threshold-ok:retentionMaterial] 文案本身说的就是「读参数、非写死」
     executedBy: "本用例 + UC-4.4",
   },
   {

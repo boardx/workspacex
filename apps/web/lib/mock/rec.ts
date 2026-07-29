@@ -339,7 +339,7 @@ export const VOICEPRINT = {
   /** 本场是否已全部指派完成 */
   allAssigned: false,
   fallbackDay: 7,
-  note: "本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。",
+  note: "本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。", // [threshold-ok:retentionMaterial] 说明性对比，非取值
 };
 
 /* ─────────────────────── UC-5.3 AI 打点候选队列（打点屏）─────────────────── */
@@ -444,7 +444,7 @@ export const CONSENT_RENDER = {
     submittedBy: "P-10 陈涛",
     submittedAt: "2026-04-20",
     days: 180,
-    text: "录音——只在这场访谈中录，存于远洋咨询的服务器，180 天后自动删除；禁止用于训练。",
+    text: "录音——只在这场访谈中录，存于远洋咨询的服务器，180 天后自动删除；禁止用于训练。", // [threshold-ok:retentionMaterial] 同上：快照正文，改掉它才是错的
   },
   /** 渲染变量缺失时不得发出授权链接（E6）*/
   requiredVars: ["材料保留期", "数据控制方", "联系人", "合规邮箱"],
