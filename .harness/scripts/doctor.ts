@@ -199,13 +199,24 @@ function checkIssueExists(phaseId: string, f: Feature, issues: GhIssue[], findin
   });
 }
 
-/** ② passing 的 feature，它的 issue 必须已关闭 —— 否则看板上永远显示在做 */
-function checkIssueClosed(phaseId: string, f: Feature, issues: GhIssue[], findings: Finding[]): void {
+/**
+ * ② passing 的 feature，它的 issue 必须已关闭 —— 否则看板上永远显示在做。
+ *
+ * ⚠ 与 ③ 同样的鸡生蛋：issue 由 PR 的 `Closes #N` 关闭，而 PR 要先 push 才能开。
+ *   ⇒ pre-push 是 WARN，CI（`--strict`）才是 FAIL。第一版两条都写成 FAIL，都撞上了。
+ */
+function checkIssueClosed(
+  phaseId: string,
+  f: Feature,
+  issues: GhIssue[],
+  findings: Finding[],
+  level: "FAIL" | "WARN",
+): void {
   if (f.status !== "passing") return;
   const issue = findIssue(issues, phaseId, f);
   if (!issue || issue.state === "CLOSED") return;
   findings.push({
-    level: "FAIL",
+    level,
     phase: phaseId,
     msg: `${f.id} 是 passing 但 issue #${issue.number} 仍 OPEN —— 跑 sync --apply，或确认 PR 是否带了 \`Closes #${issue.number}\``,
   });
@@ -293,7 +304,7 @@ export function doctor(args: Args): void {
       checkSpecRef(id, f, findings);
       if (issues) {
         checkIssueExists(id, f, issues, findings);
-        checkIssueClosed(id, f, issues, findings);
+        checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
       }
     }
     checkProgressRow(id, findings);
