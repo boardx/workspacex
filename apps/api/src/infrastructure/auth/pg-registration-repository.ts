@@ -43,6 +43,8 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
+  JoinNewOrgInput,
+  JoinNewOrgResult,
   RedeemAndCreateOrgInput,
   RedeemAndCreateOrgResult,
   RegistrationRepository,
@@ -63,6 +65,24 @@ class Rollback extends Error {
     super(reason);
   }
 }
+
+/**
+ * The redemption statement, shared by both entry points (F22).
+ *
+ * ⚠ Extracted so there is exactly ONE conditional UPDATE in this file. I-4 is a property of
+ * this statement's shape -- `WHERE ... AND redeemed_by_user_id IS NULL`, assert one row --
+ * and `one-code-one-org-concurrency.test.ts` layer 2 exists precisely because the forbidden
+ * SELECT-then-UPDATE shape lets BOTH racers through with no error anywhere. A second copy
+ * of this statement is a second chance to write that shape, in a path whose concurrency
+ * nobody re-tested.
+ */
+const REDEEM_SQL = `UPDATE invite_codes
+      SET redeemed_by_user_id = $1, redeemed_at = now(), created_org_id = $2
+    WHERE code = $3
+      AND redeemed_by_user_id IS NULL
+      AND revoked_at IS NULL
+      AND expires_at > now()
+    RETURNING code`;
 
 /** PostgreSQL SQLSTATE 23505 = unique_violation. */
 function uniqueViolationConstraint(e: unknown): string | null {
@@ -150,16 +170,11 @@ export class PgRegistrationRepository implements RegistrationRepository {
     // ⚠ RETURNING + row count, not `rowCount`: `TenantSession` exposes rows only. Asserting
     // `rows.length === 1` is the same assertion; `RETURNING code` keeps the payload to a
     // value the caller already had.
-    const redeemed = await s.query<{ code: string }>(
-      `UPDATE invite_codes
-          SET redeemed_by_user_id = $1, redeemed_at = now(), created_org_id = $2
-        WHERE code = $3
-          AND redeemed_by_user_id IS NULL
-          AND revoked_at IS NULL
-          AND expires_at > now()
-        RETURNING code`,
-      [input.userId, input.orgId, input.code],
-    );
+    const redeemed = await s.query<{ code: string }>(REDEEM_SQL, [
+      input.userId,
+      input.orgId,
+      input.code,
+    ]);
     if (redeemed.rows.length !== 1) throw new Rollback("invite-code-invalid");
 
     // (5) Queue the verification email, in the same transaction.
@@ -177,6 +192,61 @@ export class PgRegistrationRepository implements RegistrationRepository {
        VALUES ($1, $2, $3, $4)`,
       [input.verificationToken, input.userId, input.email, input.verificationExpiresAt],
     );
+  }
+
+  /**
+   * F22 / O-12: an existing account spends a new code and becomes admin of a SECOND org.
+   *
+   * ## What is NOT here, and why that is the assertion
+   *
+   * No `INSERT INTO credentials`. O-12: "此时**不新建账号**" -- the failure mode is a second
+   * account on the same address, which then makes "同一人登录进的是同一账号" (UC-1.1) false
+   * without anything erroring: both accounts work, and the user's organizations are split
+   * across two logins depending on which password they happen to remember.
+   * `multi-org-membership.test.ts` asserts the credential count is unchanged, which is
+   * UC-1.5 V10 ① word for word.
+   *
+   * ## Still one transaction, and still the conditional UPDATE
+   *
+   * I-4 does not get weaker because the account already exists: two people spending the same
+   * code must still produce exactly one organization. Same statement (`REDEEM_SQL`), same
+   * ordering rule -- redemption LAST, because `created_org_id` references the organization.
+   *
+   * ⚠ Write-only against tenant tables, like the rest of this file, so the
+   * `lint-permission-paths` allowlist entry and `registration-repo-is-write-only.test.ts`
+   * both still hold. The caller's identity is established by the Guard before this runs;
+   * nothing here reads tenant content to decide anything.
+   */
+  async joinExistingUserToNewOrg(input: JoinNewOrgInput): Promise<JoinNewOrgResult> {
+    try {
+      await this.db.withTenant(input.orgId, async (s) => {
+        await s.query(
+          `INSERT INTO organizations (id, name, kind) VALUES ($1, $2, 'organization')`,
+          [input.orgId, input.orgName],
+        );
+        // Admin of the organization they created (UC-1.5 R3 step 5, same as registration).
+        // `team_id` NULL: a brand new organization has no teams.
+        await s.query(
+          `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+          [input.userId, input.orgId],
+        );
+        const redeemed = await s.query<{ code: string }>(REDEEM_SQL, [
+          input.userId,
+          input.orgId,
+          input.code,
+        ]);
+        if (redeemed.rows.length !== 1) throw new Rollback("invite-code-invalid");
+      });
+      return { ok: true, orgId: input.orgId };
+    } catch (e) {
+      // `email-taken` is unreachable on this path (no credential is written), but the union
+      // is narrowed rather than cast: a Rollback carrying it would mean this method grew a
+      // credential insert, and silently reporting that as an invalid code would hide it.
+      if (e instanceof Rollback && e.reason === "invite-code-invalid") {
+        return { ok: false, reason: "invite-code-invalid" };
+      }
+      throw e;
+    }
   }
 
   /**
