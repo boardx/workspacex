@@ -4,7 +4,10 @@
  * Each route's request body is validated by the schema FROM THE CONTRACT, never a local
  * copy (`lint-contract-source` enforces that, and it now scans this package).
  */
-import { Body, Controller, Get, Inject, NotFoundException, Post, Query } from "@nestjs/common";
+import {
+  Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
+  NotFoundException, Post, Query,
+} from "@nestjs/common";
 import { identity as C } from "@repo/contracts";
 import {
   authorize,
@@ -17,6 +20,20 @@ import {
   switchOrganization,
 } from "../../application/identity/switch-organization";
 import {
+  ContentDeniedError,
+  ContentNotFoundError,
+  readContent,
+} from "../../application/identity/read-content";
+import { getPersonalLayerSummary } from "../../application/identity/personal-layer-summary";
+import {
+  CONTENT_REPOSITORY,
+  type ContentRepository,
+} from "../../application/identity/content-ports";
+import {
+  PROVENANCE_WRITER,
+  type ProvenanceWriter,
+} from "../../application/provenance/ports";
+import {
   AUTHORIZATION_CACHE,
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
@@ -26,6 +43,7 @@ import {
   type IdentityRepository,
   type SessionStore,
 } from "../../application/identity/ports";
+import type { ReadPurpose } from "../../domain/identity/admin-boundary";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -35,9 +53,11 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 export const AUTHORIZE_SCHEMA = C.operations.authorize.in;
 export const AUTHORIZE_BATCH_SCHEMA = C.operations.authorizeBatch.in;
 export const SWITCH_ORG_SCHEMA = C.operations.switchOrganization.in;
+export const READ_CONTENT_SCHEMA = C.operations.readContent.in;
 
 type AuthorizeBody = { orgId: string; projectId?: string; object: { kind: "project" | "artifact" | "segment"; id: string }; action: string };
 type AuthorizeBatchBody = { orgId: string; projectId?: string; objects: { kind: "project" | "artifact" | "segment"; id: string }[]; action: string };
+type ReadContentBody = { orgId: string; projectId: string; itemId: string; purpose: ReadPurpose };
 
 @Controller()
 export class IdentityController {
@@ -46,6 +66,8 @@ export class IdentityController {
     @Inject(SESSION_STORE) private readonly sessions: SessionStore,
     @Inject(AUTHORIZATION_CACHE) private readonly cache: AuthorizationCache,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    @Inject(CONTENT_REPOSITORY) private readonly content: ContentRepository,
+    @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
 
   private get deps(): AuthorizeDeps {
@@ -94,6 +116,84 @@ export class IdentityController {
       objects: body.objects,
       action: body.action,
     });
+  }
+
+  /**
+   * The read path the admin boundary is actually about (F03 / D-18).
+   *
+   * ## The status codes here are the requirement, not a detail
+   *
+   *   403 + reasonCode  the caller may not read this, and the UI can say which layer
+   *                     closed the door (UC-0.3 R8 -- never a bare "no permission")
+   *   404               the item does not exist, OR it is somebody else's draft. These are
+   *                     deliberately the same response: 403 on a draft answers the question
+   *                     "is there something here", and for a draft that answer is the leak
+   *                     (uc-0-1 V4)
+   *   404 on NO_ORG_MEMBERSHIP  a denial must not reveal that the organization exists
+   *
+   * ## Why the schema is on the parameter
+   *
+   * A method-level `@UsePipes` runs against EVERY parameter including `@CurrentPrincipal`,
+   * so the contract schema would be applied to the principal, fail, and 400 every request.
+   * The symptom reads as a malformed body, which sends you to debug the client.
+   */
+  // 200, not Nest's default 201 for POST. The verb is POST because the operation has a
+  // side effect (the audit row), but nothing is CREATED from the caller's point of view --
+  // and a client that branches on 201 would treat every read as a write.
+  @HttpCode(HttpStatus.OK)
+  @Post("/identity/content/read")
+  async readContent(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(READ_CONTENT_SCHEMA)) body: ReadContentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await readContent(
+        { repo: this.repo, ids: this.ids, content: this.content, provenance: this.provenance },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(body.orgId),
+          projectId: body.projectId,
+          itemId: body.itemId,
+          purpose: body.purpose,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ContentNotFoundError) throw new NotFoundException();
+      if (e instanceof ContentDeniedError) {
+        if (e.reasonCode === "NO_ORG_MEMBERSHIP") throw new NotFoundException();
+        // The reason code travels in the body, not in the status. Four denial reasons
+        // collapsed into one 403 is exactly the "just show 'no permission'" that R8 rules
+        // out -- the user cannot tell an org-layer restriction from a project-layer one.
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Counts, and nothing else -- invariant I-8.
+   *
+   * There is no sibling route that returns personal-layer content, and that absence is the
+   * design: the only way to read someone's personal item is `/identity/content/read`,
+   * which refuses it for anyone but the owner regardless of org role or stated purpose.
+   */
+  @Get("/identity/personal-layer/summary")
+  async personalLayerSummary(
+    @CurrentPrincipal() principal: Principal,
+    @Query("orgId") orgId: string,
+    @Query("userId") userId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getPersonalLayerSummary(
+        { repo: this.repo, content: this.content },
+        { requesterId: principal.userId, orgId: toOrgId(orgId), userId },
+      );
+    } catch (e) {
+      if (e instanceof NoOrgMembershipError) throw new NotFoundException();
+      throw e;
+    }
   }
 
   @Get("/identity/me")

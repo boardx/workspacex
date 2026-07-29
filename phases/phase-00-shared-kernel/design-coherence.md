@@ -349,3 +349,58 @@ projectLayer: z.object({ role: ProjectRole, groupId: …, passed: … }).nullabl
 这类自定义参数装饰器——于是契约 schema 被拿去校验 principal，**所有请求一律 400**。
 症状看起来像「客户端请求体不对」，第一反应会去查调用方。
 ⇒ 校验管道一律挂在**参数**上：`@Body(new ZodBodyPipe(SCHEMA))`。
+
+---
+
+# 九、修订 C（2026-07-29，F03 实现）—— 契约束 `identity` 缺两个操作，**需人类复签**
+
+> 和修订 B 同类：不是「实现遇到困难所以改契约」，是**契约表达不了它自己声明的验收**。
+> 两条都由「写断言时发现无处可断」抓出来，不是靠人读文档读出来的。
+
+## ⚠ C-1 V1/V2 记在 `authorize` 名下，而 `authorize` 不返回内容
+
+`contracts/identity/coverage.md` 一、V1 与 V2 两行的「API 操作」列都填的是
+`authorize → ADMIN_NOT_SUPERUSER / PERSONAL_LAYER_CLOSED`。两条都对不上：
+
+- **V1 说的是读取路径**。`authorize` 只返回判定对象。于是「管理员不是超级用户」
+  只被证明在**判定函数**里成立，**没有任何一条真实读取路径被证明会去问它**。
+  判定函数绿着、读取路径绕过它，正是本项目最想防住的那种绿。
+- **V2 的断言是「响应体中不存在内容字段」**。`authorize` 的响应体里本来就没有内容字段——
+  **拿它去断言 I-8 是空转**。要让这条断言有意义，必须有一个**真的返回了东西**的响应，
+  而它返回的恰好只有计数。
+
+**处置**：契约新增两个操作（连同 `ContentLayer` / `ContentStatus` / `ReadPurpose` 三个枚举）——
+
+| 操作 | 路径 | 作用 |
+|---|---|---|
+| `readContent` | `POST /identity/content/read` | 唯一的内容读取面。个人层与项目层**共用这一道门**，由服务端按 `layer` 分流；另开一个个人层读取接口意味着 I-8 要写两遍，漏掉的那一遍不会有任何东西报警 |
+| `getPersonalLayerSummary` | `GET /identity/personal-layer/summary` | 管理员对他人个人层唯一拿得到的东西：计数 |
+
+⚠ `readContent` 是 POST 而非 GET，因为它**有副作用**（审计目的读取必写 `provenance_events`）。
+一个会写库的 GET 比一个语义不纯的 POST 危险得多。
+
+## ⚠ C-2 `admin-project-access` 是个没人能产生的事件类型
+
+`provenance.ts` 的封闭枚举里有 `admin-project-access`，注释写着「D-18：必留痕且对负责人可见」。
+但**两束的操作表里没有任何一个操作会写它**——R4 A1 的审计目的读取在契约里根本不存在。
+即：留痕的**事件类型**定义好了，**产生它的动作**没定义。
+
+**处置**：`readContent` 的 `purpose: "audit"` 就是那个动作，返回 `provenanceEventId`。
+查询走**已有的**共享 `queryProvenance`（X-2 的裁决在此第一次被真正消费，没有另造第二个查询面）。
+
+## 两条实现期裁决，请一并复看
+
+1. **审计豁口只给 `admin`，不给 `compliance`。** R5 合规负责人一行写明「可查审计链……
+   **不因此获得项目内容读取权**」，R4 A1 的豁口写的是管理员。故两者在此**恰好分道**：
+   合规能看到「谁读了什么」，管理员还能看到「什么」，代价是自己进记录。
+2. **`purpose: "audit"` 只豁免项目层，不豁免组织层可见性范围。** AC3 说「仅某团队」的资源
+   「无论其项目角色为何」都不可见。两层都豁免的话，`purpose: "audit"` 就是一把**谁都能敲出来的万能钥匙**，
+   而那正是 D-18 要防的形状。
+
+## 需要人类做什么
+
+1. 复看 C-1 / C-2 对**已签契约束 `identity`** 的修订与上面两条裁决，认可后重签
+   `contracts/identity/design-signoff.md`（agent 不代劳）。
+2. `coverage.md` 一、V1/V2 两行的「API 操作」列需据此更新（`authorize` → `readContent` /
+   `getPersonalLayerSummary`），并复核反向检查表「有没有多余的 API」新增两行。
+   ⚠ 这两处**没有由 agent 代改**：覆盖矩阵是签核件的一部分。

@@ -164,6 +164,38 @@ export async function addProjectMember(
   );
 }
 
+/**
+ * Seed one content item.
+ *
+ * `layer` defaults to `project` and `status` to `published` because that is the ordinary
+ * case; the interesting fixtures (personal items, other people's drafts) name what makes
+ * them interesting at the call site rather than relying on a default.
+ */
+export async function addContentItem(opts: {
+  orgId: string;
+  id: string;
+  ownerUserId: string;
+  body: string;
+  layer?: "personal" | "project";
+  projectId?: string | null;
+  groupId?: string | null;
+  status?: "draft" | "published";
+}): Promise<void> {
+  const layer = opts.layer ?? "project";
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO content_items (id, org_id, layer, project_id, group_id, owner_user_id, status, body)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        opts.id, opts.orgId, layer,
+        layer === "personal" ? null : (opts.projectId ?? null),
+        layer === "personal" ? null : (opts.groupId ?? null),
+        opts.ownerUserId, opts.status ?? "published", opts.body,
+      ],
+    ),
+  );
+}
+
 export async function addBinding(opts: {
   orgId: string;
   subject: { kind: "user" | "group" | "team"; id: string };
