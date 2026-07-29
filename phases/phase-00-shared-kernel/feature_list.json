@@ -179,13 +179,19 @@
         "F06"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "04",
       "owner": "agent-f07",
       "verification": [
-        "pnpm vitest run tests/kernel/reference-eligibility-gate.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/reference-eligibility-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/binding-three-modes.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F07.verify.log @ 2026-07-29T17:54:17.313Z",
       "notes": "R11 明确：引用资格门控（主流程第 5 步）是本用例价值核心，必须单独成 feature 并有独立验收，不能混在绑定服务里。对应 AC1 与 R12 V1（纯 API 状态机断言，最稳）。定版是必要条件非充分条件——需验收的产出还须经 UC-13.2 验收后才获证据资格（下游）。依据：[原型]（正式产出与决策只能绑固定快照）+[设计]（写回图谱/组织大脑的门控）。全 API 断言，不涉界面。"
     },
     {
@@ -200,14 +206,16 @@
         "F06"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "04",
       "owner": "agent-f08",
       "verification": [
-        "pnpm vitest run tests/kernel/provenance-append-only.test.ts",
-        "pnpm vitest run tests/kernel/audit-backflow-searchable.test.ts"
+        "pnpm --filter api exec vitest run tests/kernel/provenance-append-only.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/audit-backflow-searchable.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
+      "evidence": "evidence/F08.verify.log @ 2026-07-29T17:54:23.766Z",
       "notes": "横切审计留痕收敛点：一个 provenance_events append-only 写入 feature，下游写操作不各自埋点（overview 5.1）。对应 R12 V7（审计态可检索）+ E5（证据撤回不改快照、通知复核）。依据：[原型]+[设计]。append-only 与不可删是纯函数/API 断言。此 feature 是 17-gov/uc-17-1 全链路审计的直接上游。"
     },
     {
@@ -277,14 +285,18 @@
         "F10"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f11",
       "verification": [
-        "pnpm vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
-        "pnpm vitest run tests/kernel/omissions-auditable.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/omissions-auditable.test.ts",
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web run test",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F11.verify.log @ 2026-07-29T17:54:30.016Z",
       "notes": "R11 明确：丢弃清单可审查（第 4 步）是最容易被实现者省略的项之一，必须独立成 feature 并有独立验收。『被丢弃不等于不存在』的可执行定义=装配结果里没出现的东西必须在 omissions[] 里能解释为什么没出现（对应 R12 V13 遗漏可解释 + V3 丢弃条目可列出）。反对证据强制保留、冲突事实成对注入、已撤销条目永久排除但反例作为『教训』另行召回。依据：五种动作为[原型]，omissions[]/retrievalReasons 落地载体为[设计]。needs_ui_signoff=true：承载它的 Studio『上下文包与证据』右栏在原型为『原型确认缺失』（大脑『AI 读到了什么』屏完整存在且已抽取，但研究/问卷/原型三个 Studio 运行态外壳已完整探明、其中没有这一栏），界面需补画并确认两者关系，随 phase-01 交付；本 feature 的 omissions/retrievalReasons 契约用 API 断言可先行开工。[已裁决 O-36] 阈值 0.45 默认、按任务类型可配。"
     },
     {
@@ -300,14 +312,18 @@
         "F10"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "04",
       "owner": "agent-f12",
       "verification": [
-        "pnpm vitest run tests/kernel/citation-integrity.test.ts",
-        "pnpm vitest run tests/kernel/empty-pack-blocks-ai.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/citation-integrity.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/empty-pack-blocks-ai.test.ts",
+        "node .harness/scripts/lint-arch-deps.mjs",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F12.verify.log @ 2026-07-29T17:54:33.989Z",
       "notes": "R11 明确：引用完整性校验（第 7 步）是最容易被省略的两项之一，必须独立成 feature 并有独立验收。对应 AC1 与 context-engine.md 首批门槛①（100% 引用可定位），是本阶段总验收面。R12 V1（引用包外证据被拒）+V5（空态阻断）+V6（依赖失败阻断）。纯 API 断言。依据：[设计]（对应原型系统提示硬约束原文『可只读审查』）。不涉界面。"
     },
     {
@@ -400,16 +416,22 @@
         "F15"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f16",
       "verification": [
-        "pnpm vitest run tests/kernel/personal-local-org-autocreate.test.ts",
-        "pnpm vitest run tests/kernel/local-org-zero-egress.test.ts",
-        "pnpm vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
-        "pnpm vitest run tests/kernel/local-org-invisible-to-admin.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/kernel/personal-local-org-autocreate.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-org-zero-egress.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-org-invisible-to-admin.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test",
+        "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
+      "evidence": "evidence/F16.verify.log @ 2026-07-29T17:54:48.766Z",
       "notes": "依据等级：[设计]——2026-07-28 人类新需求「每个人有自己的默认的本地的一个组织，一个特殊的组织，可以使用本地模型来处理所有的最隐私的数据」。架构立场（R7）：personal-local 是组织类型的一个取值，与正式组织**共用同一张表与同一套 ACL/RLS 机制**，不是特例分支——避免出现「本地模式」的第二套代码路径，那种分支必然长期失修。三条硬隔离是产品承诺不是配置项：① 模型只走本地/自托管 ② 禁止 MCP 出网 ③ 数据不进共享对象存储与跨组织索引。违反时拒绝并显式报错，**不得静默降级到云端**。⚠ V3 必须在**网络层**断言出网请求数为 0，不能只查应用日志——应用层可能自认为没出网。V5 同等重要：停掉本地运行时后必须失败，且没有任何云端调用发生。它比 UC-0.3 R7 的「个人层对管理员封闭」更强：那条是看不到内容，这条是数据根本不离开本地；因此 UC-0.3 R5 A1 的管理员审计目的访问权**不适用**于本地组织。残留 [待确认] 四条见 UC R10，其中「正式组织能否整体配置成只用自托管模型」对强合规客户很可能是刚需，建议优先裁决。 【2026-07-28 裁决】本地组织**恒为单人，不允许邀请他人**。「本地多人（同一局域网/同一部署）」的中间形态本轮不做——一旦允许多人，就要回答「成员名单存在哪、身份怎么验、数据在谁的机器上」，那实际上是一个私有部署的正式组织。有此需求的客户走私有部署 + F15 的 self-hosted-only 策略，等价保障且模型不分叉。"
     },
     {
@@ -553,14 +575,16 @@
         "F19"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "05",
       "owner": "agent-f22",
       "verification": [
-        "pnpm vitest run tests/auth/multi-org-membership.test.ts",
-        "pnpm vitest run tests/auth/org-disabled-readonly.test.ts"
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/auth/multi-org-membership.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/org-disabled-readonly.test.ts",
+        "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
+      "evidence": "evidence/F22.verify.log @ 2026-07-29T17:53:52.878Z",
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F09。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
     }
   ]

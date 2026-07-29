@@ -1,15 +1,26 @@
 ---
 phase: "00"
-# ⚠ 如实声明这次复核**实际看过**哪些束（ADR-023 决策四）。下面这四个来自本文
-#   「复核范围」表，它是 2026-07-28 做的；`api-kernel`（07-29 签）与 `auth`（07-30 签）
-#   在它之后才出现，**从未进入任何一致性复核**——F18~F22 由此被放行，其中
-#   F19/F20/F21 已 passing 并合入 main。
-#   这条会让 doctor / new-sprint / claim 变红，那是对的：门控不能追认已经发生的放行。
-#   **修法是人类重做复核并把这两个束纳入范围表，不是在这里补两个名字。**
-covers_bundles: [identity, artifact, context-pack, web-kernel]
+# 如实声明这次复核**实际看过**哪些束（ADR-023 决策四）。
+#
+# ⚠ 例外记录 —— 2026-07-29，yanbin shen 裁决「按已签核处理」
+#
+#   前四个束（identity / artifact / context-pack / web-kernel）来自本文「复核范围」表，
+#   那是 2026-07-28 做的正式复核。`api-kernel`（07-29 签）与 `auth`（07-30 签）
+#   在它之后才出现，**从未进入任何一致性复核**——F18~F22 由此被放行，
+#   其中 F19/F20/F21 已 passing 并合入 main。
+#
+#   门控（ADR-023 决策四）为此报红，那是对的：它不能追认已经发生的放行。
+#   人类在 2026-07-29 明示按已签核处理，故把两个束纳入范围表。
+#   **这不是「复核过了」，是「人类知情后决定不补做」**——两者在后果上不同，
+#   所以写在这里而不是静默补两个名字。
+#
+#   下游若因这两个束的交叉约束出问题（典型：auth 的会话/组织语义与 identity 的
+#   SessionStore 各写一份——F22 已经撞到这个，登记为 KNOWN_CONTRACT_GAPS.C8），
+#   回到这条记录，而不是去追问「复核为什么没发现」。它没复核。
+covers_bundles: [identity, artifact, context-pack, web-kernel, api-kernel, auth]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: " yanbin shen"
-confirmed_at: "2026-7-28"
+confirmed_at: "2026-07-29T10:22:44+08:00"
 ---
 
 # phase-00 阶段一致性复核（ADR-020 第二级门）
