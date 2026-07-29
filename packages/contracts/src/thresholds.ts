@@ -20,6 +20,8 @@
  * **不要直接把数字写进业务代码**——那样下次改它又要全仓找。
  */
 
+import type { QueryTaskName } from "./context-pack";
+
 export type PendingThreshold = {
   readonly known: false;
   /** 规则本身（确定的部分）——据此写结构性断言，不必等数值 */
@@ -54,7 +56,30 @@ export function requireValue<T>(t: Threshold<T>, name: string): T {
   return t.value;
 }
 
+/**
+ * 相关度阈值的取值形状（O-36：默认值 + 按任务类型可配）。
+ *
+ * `byTask` 用 `Partial`：**没配的任务类型走 `default`**，而不是「没配就没有阈值」。
+ * 一个「没配就不过滤」的实现会让丢弃清单在某些任务类型下神秘地空掉。
+ */
+export type RelevanceThresholdValue = {
+  readonly default: number;
+  readonly byTask: Partial<Record<QueryTaskName, number>>;
+};
+
 export const THRESHOLDS = {
+  /* ── O-36：Context Pack 相关度阈值（**已裁决**，故 known: true）──────── */
+  contextPackRelevance: {
+    known: true,
+    value: { default: 0.45, byTask: {} },
+    rule:
+      "低于阈值的候选不进 items[]，但**必须**逐条进 omissions[]（reason=`low-confidence`）——" +
+      "「不得静默丢弃」；阈值**按任务类型可配**，未单独配置的任务类型用 default",
+    source:
+      "裁决 O-36（DECISIONS-OPEN 第 7 条：0.45 可配、配置维度＝按任务类型）；" +
+      "原型「被丢弃 · 14 条低相关，相关度低于 0.45」",
+  } satisfies ResolvedThreshold<RelevanceThresholdValue>,
+
   /* ── N-2：召回质量基线 ────────────────────────────────────────── */
   vectorRecallBaseline: {
     known: false,
@@ -133,6 +158,19 @@ export const THRESHOLDS = {
 } as const satisfies Record<string, Threshold<unknown>>;
 
 export type ThresholdName = keyof typeof THRESHOLDS;
+
+/**
+ * 本次装配用的相关度阈值 —— **前后端唯一的取数口**（O-36）。
+ *
+ * ⚠ 不许任何地方再写 `0.45`。它此前散在四处：契约注释、`usecases.md`、
+ * 前端 mock 的三段文案、以及调用日志文案里；只要有人按任务类型配了一个新值，
+ * 界面上那句「相关度 0.38 < 阈值 0.45」就会当场说谎，而没有任何东西会红。
+ */
+export function relevanceThresholdFor(task: QueryTaskName): number {
+  const t = THRESHOLDS.contextPackRelevance;
+  const v = requireValue<RelevanceThresholdValue>(t, "contextPackRelevance");
+  return v.byTask[task] ?? v.default;
+}
 
 /** 仍待裁决的项——供报告与门控使用 */
 export function pendingThresholds(): { name: ThresholdName; t: PendingThreshold }[] {

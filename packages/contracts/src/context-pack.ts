@@ -21,6 +21,11 @@ import { z } from "zod";
 //   新增类别必须走 ADR。
 import { OMISSION_REASON_KEYS } from "./omission-reason";
 import type { OmissionReason } from "./omission-reason";
+// ⚠ 五种筛选动作同理：**单一事实源在 `./filter-action.ts`**（2026-07-29 由 F11 收敛）。
+//   收敛前这里是 `recall/downweight/exclude/paired/lead`，而 `apps/web/lib/mock/brain.ts`
+//   是 `recall/downweight/exclude/pair/clue` —— 两份键对不上，且两边都不会报错。
+import { FILTER_ACTION_KEYS } from "./filter-action";
+import type { FilterActionKey } from "./filter-action";
 
 /* ─────────────────────── 枚举（与 domain.md 一一对应）─────────────────────── */
 
@@ -50,14 +55,16 @@ export const RetrievalChannel = z.enum([
   "fts", "vector", "graph", "metadata", "claim",
 ]);
 
-/** 五种筛选动作（R3）——每条动作在 `items[].retrievalReasons` 里留痕，一条可命中多个 */
-export const FilterAction = z.enum([
-  "recall",      // 召回：只取「生效」「待复核」两态
-  "downweight",  // 降权：适用范围不匹配→标「跨范围引用」后降权保留
-  "exclude",     // 排除：已撤销条目永久排除（其反例作为「教训」另行召回）
-  "paired",      // 成对：冲突事实两条同时注入，引擎不替人选
-  "lead",        // 线索：图谱路径只给固定加成
-]);
+/**
+ * 五种筛选动作（R3），**值来自单一事实源** `./filter-action.ts`（含展示名与解释）。
+ *
+ * ⚠ 一条可命中多个。**但不是五种都能落在 `items[].retrievalReasons`**：
+ * `exclude` 的结果就是「这条不在 items[] 里」，它的痕迹只能在 `omissions[]`——
+ * 见 `KNOWN_CONTRACT_GAPS.G1` 与 `filter-action.ts` 的 `tracedIn`。
+ */
+export const FilterAction = z.enum(
+  FILTER_ACTION_KEYS as [FilterActionKey, ...FilterActionKey[]],
+);
 
 /** Claim 五态（与 context-engine.md `claims.status` 一致） */
 export const ClaimStatus = z.enum([
@@ -66,6 +73,9 @@ export const ClaimStatus = z.enum([
 
 /** 查询任务类型（决定各通道权重的「query-planned」输入） */
 export const QueryTask = z.enum(["search", "answer", "research", "decision-support"]);
+
+/** 任务类型的取值，供 `thresholds.ts` 按任务类型配相关度阈值（O-36）时引用，不另列一份 */
+export type QueryTaskName = z.infer<typeof QueryTask>;
 
 /** 证据策略（QueryContext.evidencePolicy） */
 export const EvidencePolicy = z.enum(["primary-only", "reviewed", "all"]);
@@ -402,3 +412,79 @@ export const operations = {
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;
+
+/**
+ * 实现期查出、**尚未修的**契约缺口 —— 如实登记，不自行发明字段或原因码
+ * （写法同 `auth.ts` 的 `KNOWN_CONTRACT_GAPS`；ADR-020 签核的契约只有人类能改）。
+ *
+ * ⚠ 这些是 **F11 实现时撞到的**，不是评审看出来的：每一条都是「按契约写下去，
+ * 会写出一个自洽但答不出问题的实现」。
+ */
+export const KNOWN_CONTRACT_GAPS = {
+  /**
+   * **`exclude` 永远不可能出现在 `items[].retrievalReasons` 里。**
+   *
+   * 契约原文（本文件 `FilterAction` 的注释）与 F11 的验收（`user_visible_behavior`）
+   * 都写着「五种筛选动作**逐条留痕于 `items[].retrievalReasons`**」。
+   * 但 `exclude` 的定义是「已撤销条目**永久排除**」——被排除的候选按定义不在 `items[]` 里，
+   * 于是这条痕迹**结构性地无处可落**。
+   *
+   * 后果如果不登记：实现者面前只有两条路，都坏——
+   *   ① 给某条留下来的 item 打上 `exclude`（**说谎**，它没被排除）；
+   *   ② 干脆不留痕（验收那句话变成四种动作，而没有任何东西会红）。
+   *
+   * F11 的处理：`exclude` 的痕迹落在 `omissions[]`（reason=`withdrawn`），
+   * 并把「哪种动作留在哪一段」写进 `filter-action.ts` 的 `tracedIn` 让它可被断言。
+   * **没有改契约的字段，也没有给 item 打假标记。**
+   */
+  G1: "`exclude` can never appear in items[].retrievalReasons -- an excluded candidate is by definition not an item; its only possible trace is omissions[]",
+  /**
+   * `usecases.md` 的 `ListOmissions` 输出写的是
+   * `{ omissions, droppedCount, thresholdUsed, tokenBudget, complianceAlwaysShown }`，
+   * 而本文件的 `listOmissions.out` **没有 `tokenBudget`**。
+   *
+   * 影响不是少一个字段：`budget` 类丢弃的解释是「预算用尽被截断」，
+   * 而读的人拿不到本次预算是多少，**这句解释就无法核对**。
+   */
+  G2: "usecases.md's ListOmissions returns tokenBudget; the operation's out schema omits it, so a `budget` discard cannot be checked against the budget it blames",
+  /**
+   * **I-4 的前提在契约里不存在。** I-4 说合规性丢弃「在任何折叠/截断/**分页**下都出现在返回中」，
+   * 但 `listOmissions` 的 `in` 里**没有任何分页/截断参数**——服务端不可能分页，
+   * 于是「折叠」只发生在前端，I-4 在 API 层是**无法被证伪的**。
+   *
+   * F11 的处理：把 I-4 的断言放在**它真正能失效的那一层**（前端把长尾折叠起来的那段代码），
+   * 同时在 API 层断言 `complianceAlwaysShown` 不受 `reasonFilter` 影响（那是契约里唯一
+   * 真实存在的收窄手段）。
+   */
+  G3: "listOmissions has no pagination/limit input, so I-4's 「分页下合规项仍返回」 cannot fail at the API layer; the fold only exists in the frontend",
+  /**
+   * `Omission` 只有 `ref`（segmentId 或 candidateId），**没有任何人类可读的标识**。
+   * 「被丢弃不等于不存在」要成立，读的人得知道被丢弃的是**什么**；
+   * 原型那一栏渲染的是标题（「波兰储能补贴细则 2023」），而契约给不出标题。
+   * 前端只能拿到一串 id ⇒ 要么另发一次请求（契约没有这个操作），要么编一个展示名。
+   */
+  G4: "Omission carries only a ref id -- no title/snippet -- so a discard list rendered strictly from the contract shows the reader a list of opaque ids",
+  /**
+   * Pack 有 `tokensUsed`，但**没有任何一条 item 或 omission 带自己的 token 体积**。
+   * 于是「为什么裁掉的是这条而不是那条」在 Pack 内不可重建——
+   * `budget` 类丢弃的可审查性只到「它被预算裁了」为止。
+   */
+  G5: "no per-item token size anywhere in the pack, so a `budget` discard cannot be shown to be the right one to drop",
+  /**
+   * **相关度阈值 0.45 今天没有可施加的对象。**
+   *
+   * O-36 的阈值是 [0,1] 上的相关度，而 phase-00 的流水线里**没有任何东西产出这样一个数**：
+   * `ContextItem.score` 装的是 RRF 融合分（`domain/retrieval/rrf.ts` 明写它不是概率、
+   * 不是相似度，`1/(60+1)` 已经是 0.016），`RerankPort` 返回的是**顺序不是分数**，
+   * 而模型网关不在本阶段。
+   *
+   * 后果如果不登记：实现者会把 RRF 分喂进 0.45（**几乎全被丢弃**，且丢弃清单会煞有介事地
+   * 写「相关度 0.016 < 0.45」），或者随手归一化一个看起来合理的数——
+   * 那个数会被渲染、被截图，从此变成事实标准（`thresholds.ts` 开头那段事故）。
+   *
+   * F11 的处理：阈值**规则**实现并断言，相关度数值由调用方显式提供，且被 `Relevance`
+   * 品牌类型挡住（`domain/context-pack/screening.ts`）——想把融合分当相关度用，
+   * 必须自己写一句话说明它的来源。
+   */
+  G6: "nothing in phase-00 produces a [0,1] relevance figure for O-36's threshold to act on; ContextItem.score is an RRF score and RerankPort returns an order, not scores",
+} as const;
