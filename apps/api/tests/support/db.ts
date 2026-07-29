@@ -52,12 +52,34 @@ export function ensureDatabase(): void {
     }
   }
   if (!ready) throw new Error("postgres did not become ready");
-  // Create the worker's database if it is not the shared default one.
-  if (DB !== "workspacex") {
-    execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-tAc",
-      `SELECT 1 FROM pg_database WHERE datname='${DB}'`], { stdio: "pipe", encoding: "utf8" }).trim() === "1" ||
-      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-c",
-        `CREATE DATABASE ${DB}`], { stdio: "pipe" });
+  createDatabaseIfMissing();
+}
+
+/**
+ * Create the worker's database, tolerating the race.
+ *
+ * vitest runs test FILES in parallel, and every one of them calls `ensureDatabase()`. A
+ * check-then-create is not atomic: nine processes all see "missing" and eight of them then
+ * fail on CREATE. That is not a hypothetical -- it is what a fresh database did on the
+ * first run, with six of nine files erroring out in beforeAll and 154 tests reported as
+ * "skipped", which reads like a config problem rather than a race.
+ *
+ * So: attempt it, and treat "already exists" (SQLSTATE 42P04) as success. Losing the race
+ * is the expected outcome for eight of nine callers.
+ */
+function createDatabaseIfMissing(): void {
+  if (DB === "workspacex") return; // the shared default is created by docker-compose
+  try {
+    execFileSync(
+      "docker",
+      [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1",
+        "-c", `CREATE DATABASE ${DB}`],
+      { stdio: "pipe", encoding: "utf8" },
+    );
+  } catch (e) {
+    const out = `${(e as { stdout?: string }).stdout ?? ""}${(e as { stderr?: string }).stderr ?? ""}`;
+    // 42P04 = duplicate_database. Anything else is a real failure and must surface.
+    if (!/already exists|42P04/i.test(out)) throw e;
   }
 }
 

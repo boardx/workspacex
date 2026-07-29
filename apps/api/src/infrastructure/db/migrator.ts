@@ -46,6 +46,20 @@ export async function migrate(
   const applied: string[] = [];
   const skipped: string[] = [];
   try {
+    /**
+     * Serialise concurrent migrators OF THE SAME DATABASE.
+     *
+     * vitest runs test files in parallel and each one calls migrate() against the shared
+     * worker database. Without this they all read an empty `_kernel_migrations`, all decide
+     * every file is pending, and race on the DDL -- `DROP POLICY` / `CREATE POLICY` pairs
+     * are the ones that actually collide.
+     *
+     * ⚠ Advisory locks are scoped to the DATABASE, which is exactly why the same trick did
+     * NOT work for the cluster-wide role in migration 0001 (see the note there). Here every
+     * contender IS in one database, so it is the right tool. Session-level, not
+     * transaction-level: it has to span the whole loop, which commits per file.
+     */
+    await client.query("SELECT pg_advisory_lock(hashtext('workspacex:migrate'))");
     await client.query(VERSION_TABLE);
     const done = new Set(
       (await client.query<{ name: string }>("SELECT name FROM _kernel_migrations")).rows.map((r) => r.name),
@@ -91,6 +105,9 @@ export async function migrate(
       applied.push(name);
     }
   } finally {
+    // Released implicitly by disconnecting, but released explicitly so the intent is
+    // visible and a future refactor to a pooled client does not silently hold it forever.
+    await client.query("SELECT pg_advisory_unlock(hashtext('workspacex:migrate'))").catch(() => undefined);
     await client.end();
   }
   return { applied, skipped };
