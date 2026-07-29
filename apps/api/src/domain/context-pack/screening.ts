@@ -122,7 +122,31 @@ export function applyRelevanceThreshold(
   candidates: readonly ScreenableCandidate[],
   task: QueryTaskName,
 ): ScreenStep & { readonly thresholdUsed: number } {
-  const thresholdUsed = TH.relevanceThresholdFor(task);
+  return applyThresholdValue(candidates, TH.relevanceThresholdFor(task));
+}
+
+/**
+ * The same cut, against a threshold that is GIVEN rather than looked up (F13 replay).
+ *
+ * ⚠ This exists because `relevanceThresholdFor(task)` answers "what would this task use
+ * TODAY", and a replay of a run from last month must apply what THAT run applied. O-36
+ * allows a per-task override; the first time one lands, a replay that looked the number up
+ * would silently re-screen an old candidate set at a threshold it never saw, and the
+ * resulting pack would be presented as "what the AI read" for a conclusion that was reached
+ * under different rules. `ports.ts` states the same rule for the audit read side
+ * (`StoredPackAudit.thresholdUsed` -- read back, never recomputed); this is the half that
+ * makes it true for the items as well as for the number printed next to them.
+ */
+export function applyThresholdValue(
+  candidates: readonly ScreenableCandidate[],
+  thresholdUsed: number,
+): ScreenStep & { readonly thresholdUsed: number } {
+  if (!Number.isFinite(thresholdUsed) || thresholdUsed < 0 || thresholdUsed > 1) {
+    throw new Error(
+      `a recorded relevance threshold must be a finite number in [0,1], got ${thresholdUsed} ` +
+        `-- an out-of-range threshold either keeps everything or drops everything, silently`,
+    );
+  }
   const kept: ScreenableCandidate[] = [];
   const omissions: Omission[] = [];
   for (const c of candidates) {
@@ -251,8 +275,16 @@ export function screenCandidates(input: {
   readonly tokenBudget: number;
   /** Segments that could not be anchored (I-1) -- explained as `unlocatable` (ADR-021). */
   readonly unanchorable?: readonly string[];
+  /**
+   * The run's OWN threshold, for a replay (F13). Absent for a fresh assembly, which is the
+   * only moment at which "what does this task use" is the right question to ask.
+   */
+  readonly thresholdUsed?: number;
 }): ScreenOutcome {
-  const threshold = applyRelevanceThreshold(input.candidates, input.task);
+  const threshold =
+    input.thresholdUsed === undefined
+      ? applyRelevanceThreshold(input.candidates, input.task)
+      : applyThresholdValue(input.candidates, input.thresholdUsed);
   const deduped = dedupeCandidates(threshold.kept);
   const budget = trimToBudget(deduped.kept, input.tokenBudget);
   const unanchorable = input.unanchorable ?? [];

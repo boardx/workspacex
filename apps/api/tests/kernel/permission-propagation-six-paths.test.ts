@@ -367,7 +367,20 @@ describe("lint-permission-paths: counter-proof", () => {
     // that file and fails if any statement naming a tenant table is anything but an INSERT,
     // so the day it grows a SELECT the gate goes red. No other entry on the allowlist has
     // that, and a sixth should be expected to bring one.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(5);
+    //
+    // ⚠ Raised 5 -> 6 by F13, and it brings one, as demanded above. The new entry is
+    // `infrastructure/context-pack/pg-context-pack-store.ts` (`context_packs`), and its
+    // argument is not "the filter was inconvenient" but "the decision the filter attaches is
+    // the WRONG decision": re-authorising a frozen run's segments at replay time mints new
+    // `permissionDecisionId`s -- so I-11's "follow the id to the judgement that applied" lands
+    // on a judgement made today -- and lets a since-revoked permission SHRINK a pinned pack,
+    // which is I-7 broken by the mechanism meant to protect it. Same shape as the provenance
+    // entry: an audit trail cannot be gated on the answer it exists to supply.
+    //
+    // Its ENFORCED premise: a run is readable back only by the principal it was assembled
+    // FOR, checked in `readRow` and asserted in `context-pack-pinned-replay.test.ts`, which
+    // also removes the check to show the assertion is load-bearing.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(6);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
