@@ -32,6 +32,10 @@
 import { classifyTransition, isAllowedTransition } from "../../domain/artifact/binding-modes";
 import type { OrgId } from "../../domain/org-id";
 import { authorize } from "../identity/authorize";
+import {
+  recordBackflow,
+  recordUnauthorizedAttempt,
+} from "../provenance/record-audit";
 import { VersionChangedError } from "./pin-version";
 import { BIND_ACTION } from "./bind-to-project-step";
 import type { BindingDeps, BindingRecord } from "./binding-ports";
@@ -75,7 +79,18 @@ export async function upgradeBinding(
     action: BIND_ACTION,
   });
   if (!decision.allowed) {
-    throw decision.reasonCode === "PROJECT_ROLE_INSUFFICIENT"
+    const reasonCode =
+      decision.reasonCode === "PROJECT_ROLE_INSUFFICIENT"
+        ? "PROJECT_ROLE_INSUFFICIENT"
+        : "NO_PROJECT_ROLE";
+    await recordUnauthorizedAttempt(deps.provenance, {
+      orgId,
+      actorId: userId,
+      target: { kind: "artifact", id: existing.artifactId },
+      action: "upgradeBinding",
+      reasonCode,
+    });
+    throw reasonCode === "PROJECT_ROLE_INSUFFICIENT"
       ? new ProjectRoleInsufficientError(`${userId} may not pin in ${existing.projectId}`)
       : new NoProjectRoleError(`${userId} has no usable role in ${existing.projectId}`);
   }
@@ -109,12 +124,33 @@ export async function upgradeBinding(
     toVersionId: versionId,
   };
   if (!isAllowedTransition(transition)) {
+    // Reachable only for an ALREADY pinned binding (this operation's `to` is always
+    // `pinned`), i.e. re-aiming a live citation at newer bytes. V8's "modify a fixed
+    // snapshot" in its least obvious form, and the one an insider actually reaches for.
+    await recordUnauthorizedAttempt(deps.provenance, {
+      orgId,
+      actorId: userId,
+      target: { kind: "artifact", id: existing.artifactId },
+      action: "upgradeBinding",
+      reasonCode: "CANNOT_DOWNGRADE",
+    });
     throw new CannotDowngradeError(
       `binding ${bindingId} is ${existing.mode} and cannot be upgraded (${classifyTransition(transition)})`,
     );
   }
 
   await bindings.raiseMode(orgId, bindingId, "pinned", versionId);
+  await recordBackflow(deps.provenance, {
+    orgId,
+    actorId: userId,
+    artifactId: existing.artifactId,
+    bindingId,
+    projectId: existing.projectId,
+    stepId: existing.stepId,
+    mode: "pinned",
+    pinnedVersionId: versionId,
+    previousMode: existing.mode,
+  });
   return {
     id: existing.id,
     artifactId: existing.artifactId,

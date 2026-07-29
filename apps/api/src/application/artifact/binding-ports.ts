@@ -16,6 +16,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
 import type { Guarded } from "../security/permission-filter";
 import type { AuthorizeDeps } from "../identity/authorize";
+import type { ProvenanceWriter } from "../provenance/ports";
 import type { ArtifactRepository, IdFactory } from "./ports";
 
 /**
@@ -32,6 +33,16 @@ export interface BindingDeps {
   readonly artifacts: ArtifactRepository;
   readonly auth: AuthorizeDeps;
   readonly ids: IdFactory;
+  /**
+   * The audit trail (F08), and REQUIRED rather than optional.
+   *
+   * An optional writer is a writer that is absent wherever somebody forgot, and "did that
+   * bind leave a trail" then depends on which call site you look at. Making it mandatory
+   * means a new binding use case cannot be constructed without deciding what it records --
+   * which is the whole of the overview's 5.1 (one collection point, no per-operation
+   * instrumentation).
+   */
+  readonly provenance: ProvenanceWriter;
 }
 
 export type BindingRecord = z.infer<typeof A.Binding>;
@@ -88,6 +99,21 @@ export interface BackflowRow {
   } | null;
 }
 
+/**
+ * One place a withdrawn snapshot is cited from.
+ *
+ * `createdBy` is here because E5 says the people to notify are the ones whose decision the
+ * citation supports, and the only such person this model knows about is whoever put the
+ * citation there. Naming that limitation is better than calling the field `approverId` and
+ * implying the model has decisions in it -- it does not; 拍板 belongs to 13-deliv.
+ */
+export interface ReferenceSite {
+  readonly bindingId: string;
+  readonly projectId: string;
+  readonly stepId: string;
+  readonly createdBy: string;
+}
+
 export interface BindingRepository {
   create(b: NewBinding): Promise<void>;
 
@@ -118,6 +144,22 @@ export interface BindingRepository {
 
   /** Does this artifact exist in this tenant? Feeds `ARTIFACT_NOT_FOUND`. */
   artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
+
+  /**
+   * The pinned bindings that CITE a given version -- E5's 「引用处」.
+   *
+   * `pinned` only, and that is the whole of I-14 restated from the other end: a `live`
+   * binding does not cite a version, it resolves to whatever the head is now, so a
+   * withdrawal has nothing to annotate there. Returning live bindings would annotate rows
+   * that never rested on the withdrawn evidence.
+   *
+   * Returns ids and authors, no title -- so unlike `listForProject` it carries no content
+   * and needs no `Guarded`. The authors are who E5 notifies.
+   */
+  listPinnedBindingsForVersion(
+    orgId: OrgId,
+    versionId: string,
+  ): Promise<readonly ReferenceSite[]>;
 
   /**
    * The project-side rows, guarded.

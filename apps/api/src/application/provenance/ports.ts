@@ -39,5 +39,34 @@ export interface ProvenanceReader {
   query(orgId: OrgId, q: Omit<ProvenanceQuery, "orgId">): Promise<ProvenancePage>;
 }
 
+/**
+ * Telling a person that something they signed off on now rests on withdrawn evidence (E5).
+ *
+ * A port rather than a return value. `markEvidenceWithdrawn.out` promises
+ * `notifiedApprovers`, and a use case that computes that list and tells nobody satisfies
+ * every assertion anyone would think to write while leaving the one person who has to act
+ * uninformed. So "notified" has to mean something durable, and the durable thing is a row
+ * (`provenance_notifications`, migration 0010).
+ *
+ * ⚠ It takes a `provenanceEventId`, not a reason and not a target. The notice is a POINTER
+ * at the audit event; copying the reason into it would put "which evidence was withdrawn and
+ * why" in two places, and the two would diverge the first time one of them is edited.
+ */
+export interface ReviewNotifier {
+  /**
+   * Record a review notice for each recipient. Idempotent per (event, recipient): re-running
+   * a withdrawal must not double an inbox.
+   *
+   * Returns the recipients now on record for this event -- which is what the use case
+   * reports, so the response cannot claim somebody was notified when the row is absent.
+   */
+  notify(
+    orgId: OrgId,
+    provenanceEventId: string,
+    recipientIds: readonly string[],
+  ): Promise<readonly string[]>;
+}
+
 export const PROVENANCE_WRITER = Symbol("ProvenanceWriter");
 export const PROVENANCE_READER = Symbol("ProvenanceReader");
+export const REVIEW_NOTIFIER = Symbol("ReviewNotifier");

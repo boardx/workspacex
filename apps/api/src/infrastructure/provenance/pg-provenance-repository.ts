@@ -18,6 +18,7 @@ import type {
   ProvenanceQuery,
   ProvenanceReader,
   ProvenanceWriter,
+  ReviewNotifier,
 } from "../../application/provenance/ports";
 import type { OrgId } from "../../domain/org-id";
 
@@ -57,7 +58,8 @@ function decodeCursor(c: string): { at: string; id: string } | null {
 
 const DEFAULT_LIMIT = 100;
 
-export class PgProvenanceRepository implements ProvenanceWriter, ProvenanceReader {
+export class PgProvenanceRepository
+implements ProvenanceWriter, ProvenanceReader, ReviewNotifier {
   constructor(private readonly db: DatabasePort) {}
 
   async append(input: ProvenanceAppendInput): Promise<string> {
@@ -125,6 +127,38 @@ export class PgProvenanceRepository implements ProvenanceWriter, ProvenanceReade
         events: rows.map(toRecord),
         nextCursor: hasMore && rows.length > 0 ? encodeCursor(rows[rows.length - 1]!) : null,
       };
+    });
+  }
+
+  /**
+   * `ReviewNotifier` (F08 / E5). Same class as the trail on purpose -- a notice is a pointer
+   * INTO the trail, its FK guarantees the event it names exists, and splitting them into two
+   * repositories would make it possible to build one without the other.
+   *
+   * `ON CONFLICT DO NOTHING` + `RETURNING` would report only the rows this call inserted, so
+   * a retry would answer "notified nobody". The SELECT afterwards reports who is on record,
+   * which is what the caller promises its user.
+   */
+  async notify(
+    orgId: OrgId,
+    provenanceEventId: string,
+    recipientIds: readonly string[],
+  ): Promise<readonly string[]> {
+    if (recipientIds.length === 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO provenance_notifications (org_id, recipient_id, provenance_event_id)
+         SELECT $1, r, $3::uuid FROM unnest($2::text[]) AS r
+         ON CONFLICT (provenance_event_id, recipient_id) DO NOTHING`,
+        [orgId, recipientIds, provenanceEventId],
+      );
+      const r = await s.query<{ recipient_id: string }>(
+        `SELECT recipient_id FROM provenance_notifications
+          WHERE org_id = $1 AND provenance_event_id = $2::uuid
+          ORDER BY recipient_id`,
+        [orgId, provenanceEventId],
+      );
+      return r.rows.map((row) => row.recipient_id);
     });
   }
 }
