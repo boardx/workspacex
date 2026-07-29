@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { identity } from "@repo/contracts";
+import { auth, identity } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -51,12 +51,29 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * "org-level restriction: this resource is limited to the energy team" versus "you have no
  * role in this project". Four different problems rendered as one bare 403 send the user
  * hunting for a permission that was never the issue.
+ *
+ * ## Two enums, both closed (F19)
+ *
+ * `auth.AuthReason` joins `identity.PermissionReason` here because the auth bundle's
+ * failures are the same kind of thing: a closed enum in `@repo/contracts` that the frontend
+ * renders against. Without it an `INVITE_CODE_INVALID` would be silently DROPPED by the
+ * parse below and the caller would receive a bare `bad_request` -- the registration wizard
+ * could not tell an unusable invite code from a malformed request body, and nothing would
+ * report the loss because dropping is this function's normal behaviour for anything it does
+ * not recognise.
+ *
+ * ⚠ Tried in order, and the union is still CLOSED: a value outside both enums cannot pass,
+ * no matter what an exception carries. Adding a third enum here should be a deliberate act;
+ * adding a free string must never be one.
  */
 function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
-  const parsed = identity.PermissionReason.safeParse((body as { reasonCode?: unknown }).reasonCode);
-  return parsed.success ? { reasonCode: parsed.data } : {};
+  const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const permission = identity.PermissionReason.safeParse(raw);
+  if (permission.success) return { reasonCode: permission.data };
+  const authReason = auth.AuthReason.safeParse(raw);
+  return authReason.success ? { reasonCode: authReason.data } : {};
 }
 
 @Catch()
