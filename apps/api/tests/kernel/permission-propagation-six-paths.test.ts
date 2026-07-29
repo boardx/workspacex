@@ -39,6 +39,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import {
+  addArtifact,
   addBinding,
   addOrgMember,
   ensureDatabase,
@@ -79,6 +80,11 @@ beforeEach(async () => {
   fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, "u-energy", "consultant", fx.teams.energy!);
   await addOrgMember(ORG, "u-platform", "consultant", fx.teams.platform!);
+  // Real `artifacts` rows since F04: 0006 closed the trigger gap 0003 declared, so a
+  // binding can no longer name an object that does not exist.
+  for (const id of [ARTIFACT.id, "art-org-wide", "art-platform-only"]) {
+    await addArtifact({ orgId: ORG, id, projectId: PROJECT });
+  }
   // The original: visible to the energy team only.
   await addBinding({
     orgId: ORG,
