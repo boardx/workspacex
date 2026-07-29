@@ -59,6 +59,21 @@ jobs:
           git diff --exit-code .claude/agents .codex/agents \
             || (echo "✗ subagent 生成物与 .harness/agents/*.yaml 不一致：改了 yaml 请重新跑 pnpm harness gen-subagents 并提交" && exit 1)
 
+      # 审计链体检（ADR-012）。放在 PR 门控上的理由（2026-07-29 控制平面审计发现）：
+      # 在此之前 doctor 只出现在 backend-gates.yml，而那份的触发条件是 push to main /
+      # tag —— 即**合并之后**。假 passing、断证据、派生视图漂移全都在合入 main 才被发现，
+      # 那时它已经是 main 的一部分了，属于事后审计而非门控。PR 阶段唯一的防线是本地
+      # pre-push hook，而它装在未随 clone 分发的 .git/hooks 里、可被 --no-verify 一行绕过。
+      #
+      # 这里**不加 --strict**：strict 会把「passing 必须已合入 main」升为 FAIL，而 PR 阶段
+      # 本来就还没合，是鸡生蛋（backend-gates.yml 那份注释里记着同一个坑）。合并后的
+      # backend-gates 仍然跑 --strict，两道互补：PR 拦伪造证据，合并后拦未落地。
+      - name: 审计链体检
+        env:
+          # doctor 的 issue 检查走 gh；没有 token 时它自己降级为 WARN 而非阻断
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm harness doctor
+
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
       - name: 受影响模块 typecheck/lint/test

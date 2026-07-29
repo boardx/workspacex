@@ -12,6 +12,7 @@ import { findPhaseDir, sprintDir, PROGRESS_PATH, REPO_ROOT } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
+import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -66,15 +67,40 @@ function checkPassingEvidence(phaseId: string, f: Feature, findings: Finding[]):
     return;
   }
   const content = readFileSync(logPath, "utf8");
+  const rel = relative(REPO_ROOT, logPath);
   if (!content.includes("[exit 0]")) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 日志里没有任何 [exit 0] 记录（${logPath}）——日志存在但看不到成功执行` });
   }
   if (content.includes("[BACKFILL: 重跑未通过")) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 标注了补跑未通过，需人工核实这条 passing 是否成立` });
   }
+  // 到这里为止，全部检查都只看日志"长得像不像证据"——而 2026-07-29 的承重测试证明，
+  // 手写一份 5 行、含 [exit 0] 的日志就能全过（见 .harness/state/quality-document.md）。
+  // 指纹把日志和"verify 真的跑过并落盘"绑定起来。
+  const fp = checkFingerprint(content);
+  if (fp.kind === "tampered") {
+    findings.push({
+      level: "FAIL",
+      phase: phaseId,
+      msg: `${f.id} 的 evidence 日志正文与 verify 落盘时的指纹不一致（${rel}）——日志在产出之后被改过。别手动编辑证据日志，重跑 pnpm harness verify --sprint ${phaseId}/${f.sprint}`,
+    });
+  } else if (fp.kind === "missing") {
+    findings.push(
+      isLegacyEvidence(phaseId, f.id)
+        ? {
+            level: "WARN",
+            phase: phaseId,
+            msg: `${f.id} 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint ${phaseId}/${f.sprint} --backfill-evidence 补上后把它从名单里删掉`,
+          }
+        : {
+            level: "FAIL",
+            phase: phaseId,
+            msg: `${f.id} 的 evidence 日志没有 verify 指纹（${rel}）——它不是 pnpm harness verify 产出的。手写的日志不是证据；跑 pnpm harness verify --sprint ${phaseId}/${f.sprint}`,
+          },
+    );
+  }
   // 磁盘上存在还不够：必须被 git 跟踪，否则本地体检通过、origin 上依然断链
   // （全仓 85 FAIL 的最大来源正是"verify 落盘了日志但从未 commit"）。
-  const rel = relative(REPO_ROOT, logPath);
   if (sh(`git ls-files --error-unmatch "${rel}"`).code !== 0) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 日志只在本地磁盘、未提交进 git（${rel}）——git add 它，否则 origin 上证据链是断的` });
   }

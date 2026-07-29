@@ -1,0 +1,15 @@
+{
+  "_why": "2026-07-29 evidence 指纹门控上线前就已 passing 的 feature。它们的日志由旧版 verify 产出，没有指纹尾行——按缺指纹判 FAIL 会制造无意义的 FAIL 风暴（同 doctor.ts 对 spec_ref 的历史存量处理）。名单只减不增：谁跑过 `pnpm harness verify --sprint <NN>/<MM> --backfill-evidence` 补出真实日志，就把谁从这里删掉。新增 passing 一律不得进入本名单。",
+  "_gate_landed_at": "2026-07-29",
+  "grandfathered": [
+    "00/F01",
+    "00/F02",
+    "00/F03",
+    "00/F04",
+    "00/F05",
+    "00/F09",
+    "00/F14",
+    "00/F15",
+    "00/F18"
+  ]
+}
