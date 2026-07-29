@@ -98,17 +98,21 @@
         "F02"
       ],
       "points": 6,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f04",
       "verification": [
-        "pnpm vitest run tests/kernel/artifact-schema-six-tables.test.ts",
-        "pnpm vitest run tests/kernel/file-first-materialization.test.ts",
-        "pnpm vitest run tests/kernel/anchor-back-to-origin.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/artifact-schema-six-tables.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/file-first-materialization.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/anchor-back-to-origin.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
+      "evidence": "evidence/F04.verify.log @ 2026-07-29T05:19:40.390Z",
       "needs_ui_signoff": false,
-      "notes": "六表：artifacts / artifact_versions / segments / anchors / derived_representations / provenance_events。与 22-files 的边界：本 feature 定义模型与存储契约，22-files（phase-01, 47 点）是同一套模型的用户界面投影，不另建表、不重复计点（见 overview 5.2）。依据：[设计]，但 D-38 已裁定反推设计为权威。⚠[待确认] 原型说明页指向的『UML 文档第 13 节』不在仓库中——若该 UML 文档出现需校对本设计。canonical 双源：原件在 S3、元数据/状态在 PG，灾备须同时恢复 PG+对象存储+事件日志的一致性时间点。本 feature 只定义模型与不变量，segments/anchors 的填充由摄取流水线（下游）承担。"
+      "notes": "六表：artifacts / artifact_versions / segments / anchors / derived_representations / provenance_events。与 22-files 的边界：本 feature 定义模型与存储契约，22-files（phase-01, 47 点）是同一套模型的用户界面投影，不另建表、不重复计点（见 overview 5.2）。依据：[设计]，但 D-38 已裁定反推设计为权威。⚠[待确认] 原型说明页指向的『UML 文档第 13 节』不在仓库中——若该 UML 文档出现需校对本设计。canonical 双源：原件在 S3、元数据/状态在 PG，灾备须同时恢复 PG+对象存储+事件日志的一致性时间点。本 feature 只定义模型与不变量，segments/anchors 的填充由摄取流水线（下游）承担。 【2026-07-29 实现记录】清单原写的 verification 路径是对的、命令是错的（pnpm vitest → pnpm exec vitest，且不设 WORKSPACEX_DB 会静默用共享库），已改为七条已跑通的。落地 migration 0006 五张表 + 约束 + 触发器 + RLS，并把 0003 里 acl_bindings 触发器对 artifact/segment 的 I-1 校验缺口补上（那是 0003 自己写明的已知缺口）。14 条不变量中 9 条今日可断言，5 条明确归 F05/F06/F07——逐条列在 agent 报告里。⚠ 暴露三处契约缺陷：① Artifact.scope 是 acl_bindings.scope 的第二份声明——authorize() 只读后者，存两份意味着「鉴权器不看的那份」可以是错的且看起来是对的，第七次漂移的候选；已按不存储解决（scope 由绑定投影出来），但契约文本仍写着要存，需修订。② operations.saveDraft 的 in 不含任何内容字段，out 却返回 materializedKeys——按契约实现的端点无论如何产不出文件；故 F04 刻意不出 controller，编一个 body 形状就是第二份请求契约。③ content_items 被当作 ObjectRef{kind:artifact} 引用但住在另一张表，触发器缺口补上后这处碰撞才显形。另：agent 自查出自己一条测试是空转的（共用 id 工厂前，第二次调用死在主键冲突上，根本没走到被测逻辑），已修并记下原因。"
     },
     {
       "id": "F05",

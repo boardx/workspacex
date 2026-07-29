@@ -404,3 +404,51 @@ projectLayer: z.object({ role: ProjectRole, groupId: …, passed: … }).nullabl
 2. `coverage.md` 一、V1/V2 两行的「API 操作」列需据此更新（`authorize` → `readContent` /
    `getPersonalLayerSummary`），并复核反向检查表「有没有多余的 API」新增两行。
    ⚠ 这两处**没有由 agent 代改**：覆盖矩阵是签核件的一部分。
+
+---
+
+# 十、修订 D（2026-07-29，F04 实现）—— 三处契约缺陷，**需人类复签 `artifact` 束**
+
+## ⚠ D-1 `Artifact.scope` 是 `acl_bindings.scope` 的第二份声明
+
+契约给 `artifacts` 一个 `scope` 字段。但 `authorize()` **只从 `acl_bindings` 读 scope**，
+从别处一概不读。两处都存 ⇒ **鉴权器不看的那一份可以是错的，而且看起来是对的**。
+
+这正是本项目已发生七次的那个形态，且这次是在**权限**上。
+
+**处置**：不存。`0006` 里没有 `scope` 列，`Artifact.scope` 是**从绑定投影出来的读模型**
+（无绑定 ⇒ org-wide，即已文档化的默认）。理由写在迁移里。
+⇒ **契约文本仍写着要存，需要修订。**
+
+## ⚠ D-2 `operations.saveDraft` 做不到它自己 `out` 承诺的事
+
+```
+in:  { artifactId?, orgId, projectId, source, title }   ← 不含任何内容
+out: { …, materializedKeys }                            ← 却要返回落盘的文件键
+```
+
+**按这份契约实现的 HTTP 端点，无论如何都产不出文件。** 而 schema 有 `size_bytes > 0`，
+照它建出来的端点只会 400 或者写不进任何东西。
+
+⇒ F04 **刻意不出 controller**：编一个 body 形状（multipart？base64？）就是**第二份请求契约**，
+而那是这个项目最不该再犯的错。契约需要先补一个内容/parts 字段，F05 才能接端点。
+
+## ⚠ D-3 `content_items` 被当作 `artifact` 引用，但住在另一张表
+
+`pg-content-repository.ts` 把 `content_items` 的行当 `ObjectRef { kind: "artifact" }` 用。
+在 `acl_bindings` 的 I-1 触发器补上 artifact 校验之前，这处**看不出来**——
+现在 `admin-boundary-deny.test.ts` 必须塞一行 id 与 `content_items` 相同的 `artifacts`。
+
+它能跑，但它是一次**命名空间碰撞**。已在测试里写明而不是抹平。
+⇒ phase-01 `22-files` 之前需要一个明确裁决：content_items 是不是 artifact 的一种。
+
+## 顺带记两条
+
+**F04 自查出自己一条测试是空转的。** 「什么都没写进去」那条用了新的 id 工厂，
+于是第二次调用死在主键冲突上，**根本没走到被测逻辑**——把前置检查关掉它照样绿。
+改为共用一个 id 工厂后才真正生效。⚠ 第八次「门控看起来在跑其实没在测」。
+
+**`artifacts.id` 是全局主键而非租户内唯一**，与 `projects` / `content_items` 及所有既有表一致，
+故是系统性的、不是 F04 引入的。两个后果：并行测试文件会在裸 id 上撞；
+调用方可以用主键冲突探测别的租户的 id 空间（尽管 RLS 让行不可见）。
+未单方面改动——改它会与五张既有表分家。**需要一次裁决。**
