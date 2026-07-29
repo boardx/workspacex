@@ -43,7 +43,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/rls-force-nonowner.test.ts",
@@ -67,7 +67,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/admin-boundary-deny.test.ts",
@@ -92,7 +92,7 @@
       ],
       "points": 6,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/artifact-schema-six-tables.test.ts",
@@ -116,7 +116,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/snapshot-immutable-roundtrip.test.ts",
@@ -141,7 +141,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/binding-three-modes.test.ts",
@@ -165,7 +165,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/reference-eligibility-gate.test.ts"
@@ -187,7 +187,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/provenance-append-only.test.ts",
@@ -210,7 +210,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/context-pack-schema.test.ts",
@@ -234,7 +234,7 @@
       ],
       "points": 8,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/retrieval-five-channels.test.ts",
@@ -258,7 +258,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
@@ -282,7 +282,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/citation-integrity.test.ts",
@@ -307,7 +307,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/context-pack-pinned-replay.test.ts",
@@ -357,7 +357,7 @@
       ],
       "points": 10,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/no-builtin-capability-lists.test.ts",
@@ -382,7 +382,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/personal-local-org-autocreate.test.ts",
@@ -409,7 +409,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "04",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/kernel/local-export-no-auto-sync.test.ts",

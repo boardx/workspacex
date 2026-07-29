@@ -58,18 +58,35 @@ export async function migrate(
       const sql = readFileSync(join(dir, name), "utf8");
       const checksum = createHash("sha256").update(sql).digest("hex");
       // One transaction per file: a failure rolls the whole file back, never half a schema.
-      await client.query("BEGIN");
-      try {
-        await client.query(sql);
-        await client.query(
-          `INSERT INTO _kernel_migrations (name, checksum) VALUES ($1, $2)
-             ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum`,
-          [name, checksum],
-        );
-        await client.query("COMMIT");
-      } catch (e) {
-        await client.query("ROLLBACK");
-        throw new Error(`migration ${name} failed: ${(e as Error).message}`);
+      //
+      // Retried on TRANSIENT catalog contention only. Cluster-wide objects (roles) are
+      // shared by every database, so parallel workers can collide on them even though
+      // their schemas are independent. Those two error classes are PostgreSQL telling us
+      // "try again", not "your migration is wrong" -- and retrying anything broader would
+      // turn a real failure into a hang.
+      const TRANSIENT = /tuple concurrently updated|deadlock detected|concurrent update/i;
+      let attempt = 0;
+      for (;;) {
+        attempt += 1;
+        await client.query("BEGIN");
+        try {
+          await client.query(sql);
+          await client.query(
+            `INSERT INTO _kernel_migrations (name, checksum) VALUES ($1, $2)
+               ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum`,
+            [name, checksum],
+          );
+          await client.query("COMMIT");
+          break;
+        } catch (e) {
+          await client.query("ROLLBACK");
+          const msg = (e as Error).message;
+          if (attempt < 5 && TRANSIENT.test(msg)) {
+            await new Promise((r) => setTimeout(r, 50 * attempt));
+            continue;
+          }
+          throw new Error(`migration ${name} failed: ${msg}`);
+        }
       }
       applied.push(name);
     }

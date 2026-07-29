@@ -14,17 +14,34 @@ import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-confi
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url));
 const COMPOSE = ["compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p", "workspacex-kernel"];
 
+/**
+ * The database name comes from WORKSPACEX_DB, so parallel workers do not share one.
+ *
+ * The gate scripts run DROP DATABASE; without per-worker names, two workers destroy each
+ * other's fixtures mid-run and the failure looks like flaky tests rather than a collision.
+ */
+const DB = process.env.WORKSPACEX_DB ?? "workspacex";
+
 export function ensureDatabase(): void {
   execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
-  for (let i = 0; i < 60; i++) {
+  let ready = false;
+  for (let i = 0; i < 60 && !ready; i++) {
     try {
-      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-U", "postgres", "-d", "workspacex"], { stdio: "pipe" });
-      return;
+      // Readiness against the SERVER: a per-worker database may not exist yet.
+      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-U", "postgres"], { stdio: "pipe" });
+      ready = true;
     } catch {
       execFileSync("sleep", ["1"]);
     }
   }
-  throw new Error("postgres did not become ready");
+  if (!ready) throw new Error("postgres did not become ready");
+  // Create the worker's database if it is not the shared default one.
+  if (DB !== "workspacex") {
+    execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-tAc",
+      `SELECT 1 FROM pg_database WHERE datname='${DB}'`], { stdio: "pipe", encoding: "utf8" }).trim() === "1" ||
+      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "psql", "-U", "postgres", "-d", "postgres", "-c",
+        `CREATE DATABASE ${DB}`], { stdio: "pipe" });
+  }
 }
 
 /**
