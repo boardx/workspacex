@@ -30,13 +30,38 @@ import { HealthController } from "./interface/controllers/health.controller";
 import { KernelProbeController } from "./interface/controllers/kernel-probe.controller";
 import { HEALTH_PROBE_FACTORY } from "./interface/ports.di";
 
+import {
+  AUTHORIZATION_CACHE,
+  DECISION_ID_FACTORY,
+  IDENTITY_REPOSITORY,
+  SESSION_STORE,
+} from "./application/identity/ports";
+import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
+import {
+  InMemoryAuthorizationCache,
+  InMemorySessionStore,
+  UuidDecisionIdFactory,
+} from "./infrastructure/identity/in-memory-session-store";
+import { IdentityController } from "./interface/controllers/identity.controller";
+import type { DatabasePort } from "./application/ports/database.port";
+
 @Module({
-  controllers: [HealthController, KernelProbeController],
+  controllers: [HealthController, KernelProbeController, IdentityController],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     { provide: PRINCIPAL_RESOLVER_PORT, useClass: HeaderPrincipalResolver },
     { provide: HEALTH_PROBE_FACTORY, useValue: pgHealthProbe },
+    {
+      provide: IDENTITY_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Process-local for now. Real session storage arrives with phase-01 01-auth, together
+    // with the credential format this kernel deliberately did not decide (UC-0.6 A-3).
+    { provide: SESSION_STORE, useClass: InMemorySessionStore },
+    { provide: AUTHORIZATION_CACHE, useClass: InMemoryAuthorizationCache },
+    { provide: DECISION_ID_FACTORY, useClass: UuidDecisionIdFactory },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },

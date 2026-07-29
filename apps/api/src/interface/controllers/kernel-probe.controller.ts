@@ -9,7 +9,7 @@
  * There is NO business logic here. `acl_bindings` and the two-layer intersection belong to
  * F01; this file only proves the three pipelines are actually mounted.
  */
-import { Body, Controller, Get, Inject, Post, UsePipes } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post } from "@nestjs/common";
 import { identity } from "@repo/contracts";
 import { DATABASE_PORT, type DatabasePort } from "../../application/ports/database.port";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -40,8 +40,9 @@ export class KernelProbeController {
 
   /** Surface under test for validation: body checked by the CONTRACT's zod, 400 + fields on failure */
   @Post("/validate")
-  @UsePipes(new ZodBodyPipe(PROBE_BODY_SCHEMA))
-  validate(@Body() body: unknown) {
+  // Parameter-level, not `@UsePipes` on the method: a method-level pipe runs against every
+  // parameter, including custom param decorators like @CurrentPrincipal.
+  validate(@Body(new ZodBodyPipe(PROBE_BODY_SCHEMA)) body: unknown) {
     return { ok: true, keys: Object.keys(body as object).sort() };
   }
 

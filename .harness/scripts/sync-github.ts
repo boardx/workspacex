@@ -25,6 +25,8 @@ interface SyncCfg {
   issue_policy: { open_for: string; near_term_window: number };
   labels: { blocked: string; passing: string; area_prefix: string };
   status_actions: Record<string, StatusActions>;
+  /** harness owner(agent 身份) → GitHub 登录名。没映射的 owner 不投影为 assignee */
+  owner_github_map?: Record<string, string>;
 }
 
 export interface ProjectedIssue {
@@ -293,9 +295,14 @@ export function syncGithub(args: Args): void {
       writeFileSync(bodyFile, body);
 
       // owner → GitHub assignee（单向投影；owner 为 null 则不设 assignee）
-      const assigneeArg = f.owner
-        ? ` --assignee ${JSON.stringify(f.owner)}`
-        : "";
+      //
+      // ⚠ harness 的 owner 是 **agent 身份**（main-agent / coord-architecture …），
+      //   基本不是 GitHub 登录名。直接当 assignee 传过去必然 422，而 422 的代价不只是
+      //   「没设上负责人」——见下方创建处：issue 已经建出来了命令才失败。
+      //   故只有在 `owner_github_map` 里显式映射过的 owner 才投影为 assignee；
+      //   没映射的照旧只写进 issue body（归因信息不会丢）。
+      const ghLogin = cfg.owner_github_map?.[f.owner ?? ""];
+      const assigneeArg = ghLogin ? ` --assignee ${JSON.stringify(ghLogin)}` : "";
 
       // 幂等 + 收敛：不存在则创建；已存在则更新 body（文件是权威，投影必须跟着文件走——
       // 否则改了模版/notes/verification，存量 issue 永远停在旧信息上）。
@@ -355,8 +362,21 @@ export function syncGithub(args: Args): void {
           if (r.code !== 0 && assigneeArg) {
             // owner 是 harness 身份(如 coord-architecture)而非 GitHub 用户时 assignee 会被
             // gh 拒绝——退化为不带 assignee 重试,投影不该因归因字段整条失败(#526)。
-            log.warn(`assignee 失败,退化为无 assignee 重试: ${title}`);
-            r = sh(createCmd.replace(assigneeArg, ""));
+            //
+            // ⚠ 但**必须先看这次失败有没有已经把 issue 建出来**。
+            //   `gh issue create` 是先 POST 建 issue、再设 assignee：assignee 非法时
+            //   issue **已经存在**，命令却返回非 0。无条件重试 = 建出第二条。
+            //   2026-07-29 实测：F18 因 owner="main-agent" 不是 GitHub 用户，
+            //   被建成 #2 与 #3 两条（#3 被正确关闭，#2 成了永远 OPEN 的孤儿）。
+            //   重试前先从失败那次的输出里捞 issue URL，捞到就当已建成。
+            const already = `${r.stdout}\n${r.stderr}`.match(/\/issues\/(\d+)/);
+            if (already) {
+              log.warn(`assignee 失败但 issue 已建出(#${already[1]})，不重复创建: ${title}`);
+              r = { code: 0, stdout: r.stdout || `/issues/${already[1]}`, stderr: "" };
+            } else {
+              log.warn(`assignee 失败,退化为无 assignee 重试: ${title}`);
+              r = sh(createCmd.replace(assigneeArg, ""));
+            }
           }
           if (r.code !== 0) {
             log.err(`gh 命令失败(${r.code}): ${createCmd}\n${r.stderr}`);

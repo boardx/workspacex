@@ -13,17 +13,22 @@
         "F18"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": "01",
+      "status": "passing",
+      "sprint": "03",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/kernel/rbac-two-layer.test.ts",
-        "pnpm vitest run tests/kernel/rbac-role-matrix.test.ts",
-        "pnpm vitest run tests/kernel/org-switch-context-reset.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/rbac-two-layer.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/rbac-role-matrix.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/org-switch-context-reset.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/contract-response.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F01.verify.log @ 2026-07-29T01:37:27.392Z",
       "needs_ui_signoff": false,
-      "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。 【2026-07-29 转 blocked】开工前核实：本 feature 的三条 verification 指向的测试文件不存在，而它们所需的后端根本不存在（apps/api 无、零 NestJS、零迁移、零 PG 连接）。若在此状态下开工，F01 实际要交付的是「后端内核 + acl_bindings + 两层交集判定」，5 点会失真三倍，且十二个后端 feature 的共同前置会被埋进本 feature 里。故拆出 F18（后端内核，13 点，UC-0.6），本 feature depends_on F18 并转 blocked。解除条件：F18 passing。⚠ F18 所属契约束 api-kernel 尚待人类签核。"
+      "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。 【2026-07-29 转 blocked】开工前核实：本 feature 的三条 verification 指向的测试文件不存在，而它们所需的后端根本不存在（apps/api 无、零 NestJS、零迁移、零 PG 连接）。若在此状态下开工，F01 实际要交付的是「后端内核 + acl_bindings + 两层交集判定」，5 点会失真三倍，且十二个后端 feature 的共同前置会被埋进本 feature 里。故拆出 F18（后端内核，13 点，UC-0.6），本 feature depends_on F18 并转 blocked。解除条件：F18 passing。⚠ F18 所属契约束 api-kernel 尚待人类签核。 【2026-07-29 实现记录】verification 原写的三条 `pnpm vitest run tests/kernel/*.ts` 是预设路径（当时 apps/api 尚不存在），已改为八条**已跑通**的命令。落地内容：迁移 0003-identity.sql（organizations/teams/projects/groups/org_memberships/project_memberships/acl_bindings 七表，全部 FORCE RLS + 租户策略；I-1 由触发器强制，跨组织绑定插入即失败）；domain 层 decide() 纯函数实现两层交集与可解释拒绝；application 层 authorize/authorizeBatch/authorizeDerived + switchOrganization/resolveIdentity；infrastructure 层 PgIdentityRepository（批量绑定一次往返）；interface 层四条契约路由。⚠ 实现过程暴露两处**契约缺陷**：① PermissionDecision 的 orgLayer.role / projectLayer.role 原为非空，但失败枚举第一条就是 NO_ORG_MEMBERSHIP（无角色可填），且 usecases 明写 NO_PROJECT_ROLE「是正常状态不是异常」——契约表达不了自己声明的拒绝态，已改为可空并注明理由；② 契约 Organization 带 team 字段而实现漏了，且**响应从未被契约校验过**（只校验请求），故补 contract-response.test.ts 逐条断言响应体 parse 通过。两项均为对已签契约束的修订，需人类复签，见 design-coherence 修订 B。⚠ 另修一处 NestJS 陷阱：方法级 @UsePipes 会作用于**每一个参数**（含 @CurrentPrincipal），导致所有请求 400；已改为参数级 @Body(pipe)。角色矩阵单源在 domain/identity/project-role-matrix.ts，前端需要时必须**迁移**到 packages/contracts 而非复制，已有测试守着。"
     },
     {
       "id": "F02",

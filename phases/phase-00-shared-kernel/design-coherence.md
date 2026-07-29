@@ -284,3 +284,68 @@ PG 系统目录 / NestJS 管道，没有一个能 import zod）。两者理由�
 - [ ] **两处现存的门控空洞** —— `lint-arch-deps` 至今**从未扫过一个文件**；
       `lint-contract-source` **只覆盖前端侧**，后端抄一份 DTO 不会有任何东西报警
 - [ ] **F01 转 blocked 的处置认可吗** —— 它仍在 sprint 00/01 里，但已挂在 F18 上
+
+---
+
+# 八、修订 B（2026-07-29，F01 实现）—— 契约束 `identity` 的两处缺陷，**需人类复签**
+
+> 这两条不是「实现遇到困难所以改契约」，是**契约表达不了它自己声明的状态**。
+> 都由机械门控抓出来，不是靠人读出来的——记在这里是因为它揭示了一类此前没人查的东西。
+
+## ⚠ B-7 `PermissionDecision` 表达不了自己的拒绝态
+
+**原定义**（已签）：
+
+```ts
+orgLayer:     z.object({ role: OrgRole,     teamId: …, passed: … })          // 非空
+projectLayer: z.object({ role: ProjectRole, groupId: …, passed: … }).nullable()
+```
+
+**问题**：同一份 `usecases.md` 的失败枚举里，第一条是 `NO_ORG_MEMBERSHIP`
+——**「不是这个组织的成员」的判定结果里没有组织角色可填**。
+第三条 `NO_PROJECT_ROLE` 更明确，原文写着「**这是正常状态不是异常**」，
+可 `projectLayer.role` 是非空的，同样填不出来。
+
+⇒ 实现时只有三条路：编一个假角色 / 把整个 layer 置空（丢掉「哪一层没过」这个信息）/
+把 `role` 放开为可空。**前两条都会让「为什么被拒」失真，而那正是这个对象存在的全部理由。**
+
+**处置**：两处 `role` 改为 `.nullable()`，并在契约里写明两种 null 的区别——
+`projectLayer === null` 是「本次请求没有项目上下文」（I-11），
+`projectLayer.role === null` 是「有上下文但此人无角色」。
+**合并这两者会让前端分不清「不是项目页」与「是项目页但你没权限」**，而这两种要渲染的东西完全不同。
+
+**怎么发现的**：`lint-contract-source` 报「`apps/api` 里用 interface 重新定义了契约已有的
+`PermissionDecision`」。改为 `z.infer` 派生后，类型当场对不上。
+——门控本来是防副本的，顺手证明了契约本身不成立。
+
+## ⚠ B-8 响应体从未被契约校验过
+
+**问题**：全局 ValidationPipe 校验的是**进来的**请求。**出去的响应没有任何东西校验。**
+即 ADR-020「同一份 zod → 后端 DTO + 前端类型」这条链，**返回方向是断的**：
+服务端可以返回一个契约没描述的结构，所有门控照样全绿——
+因为前端类型也从同一份契约生成，它只会**对现实的判断是错的**，不会报错。
+
+**这不是假设**：F01 实现时，契约的 `Organization` 带 `team` 字段，仓储层的行类型漏了它，
+`/identity/me` 会返回一个缺字段的 body。**在 `contract-response.test.ts` 存在之前，没有任何东西会失败。**
+
+**处置**：补 `apps/api/tests/kernel/contract-response.test.ts`，
+对每条路由的响应体 `C.operations.<op>.out.safeParse()` 逐条断言，
+并**特别覆盖拒绝路径**（就是 B-7 里契约写错的那条）。
+另加一组反向断言证明这些 schema 确实会拒绝漂移的 body——否则整个文件可能在空转。
+
+⚠ **刻意不做「响应校验管道」**：那会把一次 schema 疏漏变成生产环境的 500。
+构建期失败才是发现它的正确位置。
+
+## 需要人类做什么
+
+1. 复看上述两处对**已签契约束 `identity`** 的修订，认可后重签
+   `contracts/identity/design-signoff.md`（agent 不代劳）。
+2. 顺带确认一条推论：**「响应必须被契约校验」应当成为所有束的通用要求**，
+   而不只是 identity 这一束补了。若认可，它该写进 `contract-design.md` 的硬规则。
+
+## 附：同一轮抓到的一个 NestJS 陷阱（不涉及契约，记着免得再踩）
+
+方法级 `@UsePipes(schema)` 会作用于 **handler 的每一个参数**，包括 `@CurrentPrincipal()`
+这类自定义参数装饰器——于是契约 schema 被拿去校验 principal，**所有请求一律 400**。
+症状看起来像「客户端请求体不对」，第一反应会去查调用方。
+⇒ 校验管道一律挂在**参数**上：`@Body(new ZodBodyPipe(SCHEMA))`。

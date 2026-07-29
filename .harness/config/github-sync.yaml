@@ -1,7 +1,7 @@
 # github-sync.yaml — 文件 → GitHub 单向映射规则(GitHub 只读投影)
 version: 1
 
-repo: "<owner>/<repo>"             # owner/name
+repo: "boardx/workspacex"          # owner/name（2026-07-29 由模板占位改为真实仓库）
 
 direction: one-way              # 单向:文件是事实来源,GitHub 是投影
 
@@ -12,7 +12,8 @@ mapping:
 
 # 只对"当前/近期"的 sprint 开 Issue,避免一次开数百个
 issue_policy:
-  open_for: near_term           # near_term | all（创建已幂等；all 在大清单上较慢，逐 feature 查询）
+  open_for: all                 # near_term | all（创建已幂等；all 在大清单上较慢，逐 feature 查询）
+                                # 2026-07-29 改 all：人类要求 feature 全量可见于 GitHub，不只当前 sprint
   near_term_window: 2           # near_term 模式：当前 + 往后 N 个 sprint
 
 labels:
@@ -26,3 +27,12 @@ status_actions:
   blocked:     { add_label: "status:blocked" }
   in_progress: { add_label: "status:in-progress" }
   not_started: { }
+
+# harness owner(agent 身份) → GitHub 登录名。
+# ⚠ 没映射的 owner **不会**被投影为 assignee——harness 的 owner 是 agent 身份
+#   （main-agent / coord-architecture …），当 GitHub 用户传过去必然 422，
+#   而 422 的代价不只是「没设上负责人」：`gh issue create` 是先建 issue 再设 assignee，
+#   失败时 issue 已经存在，旧代码无条件重试就建出了第二条
+#   （2026-07-29 实测：F18 被建成 #2 与 #3 两条）。
+#   归因信息不会丢——owner 本来就写在 issue body 里。
+owner_github_map: {}

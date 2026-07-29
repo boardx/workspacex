@@ -81,10 +81,31 @@ export const Organization = z.object({
 
 export const PermissionDecision = z.object({
   allowed: z.boolean(),
-  orgLayer: z.object({ role: OrgRole, teamId: z.string().nullable(), passed: z.boolean() }),
-  /** ⚠ 不在项目上下文时为 null——项目角色只对某个目标项目成立（domain I-11） */
+  /**
+   * ⚠ `role` 可为 null —— **2026-07-29 修订，F01 实现时发现的契约缺陷**。
+   *
+   * 原定义写的是 `role: OrgRole`（非空）。但本对象的失败枚举里第一条就是
+   * `NO_ORG_MEMBERSHIP`：**「不是这个组织的成员」的判定结果里没有组织角色可填**。
+   * 即：契约表达不了它自己声明的拒绝状态。
+   *
+   * 实现时只有三条路：编一个假角色、把 layer 整个置空（丢掉「组织层没过」这个信息）、
+   * 或者把 role 放开为可空。前两条都会让「为什么被拒」这件事失真，而那正是本对象存在的理由。
+   */
+  orgLayer: z.object({
+    role: OrgRole.nullable(), teamId: z.string().nullable(), passed: z.boolean(),
+  }),
+  /**
+   * ⚠ **两层可空，含义不同，不能合并**：
+   * · `projectLayer === null` —— 本次请求**没有项目上下文**（domain I-11）。
+   * · `projectLayer.role === null` —— 有项目上下文，但此人在该项目**无角色**。
+   *   usecases.md 对 `NO_PROJECT_ROLE` 明写「**这是正常状态不是异常**」——
+   *   所以它必须能被表达出来，而原定义（role 非空）表达不了。
+   *
+   * 把两者合并成一个 null 会让前端分不清「不是项目页」与「是项目页但你没角色」，
+   * 而这两种要渲染的东西完全不同（后者是无权限态，前者什么都不该出现）。
+   */
   projectLayer: z.object({
-    role: ProjectRole, groupId: z.string().nullable(), passed: z.boolean(),
+    role: ProjectRole.nullable(), groupId: z.string().nullable(), passed: z.boolean(),
   }).nullable(),
   scopeLayer: z.object({ scope: VisibilityScope, passed: z.boolean() }),
   reasonCode: PermissionReason.nullable(),

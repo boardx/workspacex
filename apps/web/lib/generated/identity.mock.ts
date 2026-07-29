@@ -15,7 +15,7 @@ import * as identity from "@repo/contracts/identity";
 export const authorizeMock: z.infer<typeof identity.operations.authorize.out> = {
   "allowed": false,
   "orgLayer": {
-    "role": "admin",
+    "role": null,
     "teamId": null,
     "passed": false
   },
@@ -33,7 +33,7 @@ export const authorizeBatchMock: z.infer<typeof identity.operations.authorizeBat
   {
     "allowed": false,
     "orgLayer": {
-      "role": "admin",
+      "role": null,
       "teamId": null,
       "passed": false
     },
