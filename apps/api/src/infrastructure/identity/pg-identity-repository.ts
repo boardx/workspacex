@@ -10,7 +10,7 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   BindingRow,
   IdentityRepository,
-  ObjectRef,
+  AclObjectRef,
   OrgMembershipRow,
   OrganizationRow,
   ProjectMembershipRow,
@@ -83,7 +83,7 @@ export class PgIdentityRepository implements IdentityRepository {
    * (coherence review B-2): per-object queries would make correct authorization the slow
    * path, and a slow correct path is one people route around.
    */
-  async findBindings(orgId: OrgId, objects: readonly ObjectRef[]): Promise<Map<string, BindingRow>> {
+  async findBindings(orgId: OrgId, objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     if (objects.length === 0) return new Map();
     return this.db.withTenant(orgId, async (s) => {
       const kinds = objects.map((o) => o.kind);

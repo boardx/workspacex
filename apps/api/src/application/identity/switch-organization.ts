@@ -14,37 +14,42 @@
  */
 import type {
   AuthorizationCache,
+  DecisionIdFactory,
   IdentityRepository,
   OrganizationRow,
   SessionStore,
 } from "./ports";
 import type { OrgId } from "../../domain/org-id";
+import type { CapabilityListing } from "../../domain/identity/capability-listing";
+import type { CapabilityRepository } from "./capability-ports";
+import { listCapabilities } from "./list-capabilities";
+
+/** One declaration, seen from two places -- see `errors.ts`. */
+export { NoOrgMembershipError } from "./errors";
+import { NoOrgMembershipError } from "./errors";
 
 export interface SwitchOrgDeps {
   readonly repo: IdentityRepository;
   readonly sessions: SessionStore;
   readonly cache: AuthorizationCache;
-}
-
-export class NoOrgMembershipError extends Error {
-  readonly code = "NO_ORG_MEMBERSHIP";
-  constructor() {
-    // No org id in the message: whether that org exists is not this caller's business.
-    super("NO_ORG_MEMBERSHIP");
-  }
+  readonly capabilities: CapabilityRepository;
+  readonly ids: DecisionIdFactory;
 }
 
 export interface SwitchOrgResult {
   readonly org: OrganizationRow;
   /**
-   * Always [] here.
+   * The NEW organization's entire configuration, and nothing from the old one (F15 / R3 5).
    *
-   * The capability listing belongs to F15, and F15's acceptance V1 is that an organization
-   * with no configuration returns an EMPTY ARRAY rather than any built-in default. Shipping
-   * a placeholder list now would create exactly the built-in default that requirement
-   * forbids, and it would look like configuration to whoever saw it first.
+   * Resolved here rather than left for the client to fetch afterwards, because the contract
+   * makes "the previous organization's agents/skills/models/MCPs do not come across" a
+   * post-effect of THIS operation. A client that had to ask separately would render the
+   * previous list for however long that request took, which is the visible form of the bug.
+   *
+   * `[]` for an organization with nothing configured -- never a built-in default (V1). The
+   * emptiness is not produced here; it is what an unconfigured organization has.
    */
-  readonly capabilities: readonly never[];
+  readonly capabilities: readonly CapabilityListing[];
 }
 
 export async function switchOrganization(
@@ -68,7 +73,14 @@ export async function switchOrganization(
   await cache.invalidateUser(userId);
   await sessions.setOrg(userId, toOrgId);
 
-  return { org: { ...org, team: membership.teamId }, capabilities: [] };
+  // Resolved AFTER the cache is invalidated and the org is switched, so nothing here can be
+  // served from a verdict made under the previous organization (O-12 post-effect ③).
+  const { visible } = await listCapabilities(
+    { repo, capabilities: deps.capabilities, ids: deps.ids },
+    { userId, orgId: toOrgId },
+  );
+
+  return { org: { ...org, team: membership.teamId }, capabilities: visible };
 }
 
 export interface ResolvedIdentity {

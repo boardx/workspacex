@@ -22,8 +22,37 @@ export interface ProjectMembershipRow {
   readonly isHost: boolean;
 }
 
-export interface ObjectRef {
+/**
+ * The object kinds `acl_bindings` can bind -- the same three the contract's
+ * `authorize.in.object.kind` lists, and the same three that table's CHECK allows.
+ */
+export interface AclObjectRef {
   readonly kind: "project" | "artifact" | "segment";
+  readonly id: string;
+}
+
+/**
+ * Anything the guarded read path can wrap.
+ *
+ * ## Why `capability` is here but NOT in `AclObjectRef`
+ *
+ * A capability listing carries tenant data and a visibility scope, so it must travel through
+ * `permission-filter` like everything else -- otherwise the admin console becomes a second
+ * doorway to tenant rows and `lint-permission-paths` is right to refuse it.
+ *
+ * But its scope does NOT come from `acl_bindings`. That table binds CONTENT, and its I-1
+ * trigger resolves each object against its organization through the content tables; a
+ * capability has no such table and is not content -- it is the configuration that decides
+ * what may act on content (F15). Its scope is a column on its own row, judged by
+ * `decideCapabilityVisibility`, which feeds the SAME `decide()`.
+ *
+ * Splitting the two types is what makes that unbypassable in the type system: `authorize` /
+ * `authorizeBatch` / `findBindings` take `AclObjectRef`, so handing them a capability is a
+ * compile error rather than a lookup that finds no binding and quietly returns the
+ * permissive default scope. Before the split, that silent path was the reachable one.
+ */
+export interface ObjectRef {
+  readonly kind: AclObjectRef["kind"] | "capability";
   readonly id: string;
 }
 
@@ -51,7 +80,7 @@ export interface IdentityRepository {
    * Bindings for many objects in ONE round trip. Returns a map keyed by `kind:id`;
    * objects with no binding are simply absent.
    */
-  findBindings(orgId: OrgId, objects: readonly ObjectRef[]): Promise<Map<string, BindingRow>>;
+  findBindings(orgId: OrgId, objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>>;
   /** Organizations this user belongs to -- used by SwitchOrganization's membership check */
   listMemberships(userId: string): Promise<readonly { orgId: string; orgRole: OrgRole }[]>;
 }

@@ -148,6 +148,58 @@ export const CapabilityListing = z.object({
   enabled: z.boolean(),
 });
 
+/**
+ * `mutateCapability` 的三种 payload —— **2026-07-29 修订，F15 实现时发现的契约缺陷**。
+ *
+ * 原定义写的是 `payload: z.record(z.unknown())`,一个开放口袋。但服务端必须知道
+ * 「新增一条能力要给什么」才能实现 `op: "add"`,于是这份形状**一定会存在**——
+ * 问题只是它写在契约里,还是被实现者写在后端。
+ *
+ * 后者正是 ADR-020 要防的那种漂移:后端的 DTO 长得像契约,于是被手抄一份,
+ * 之后两边各自自洽,直到联调才炸。本仓已因此漂移两次(`"org"|"team"` vs
+ * `"org-wide"|"team-only"`;`IngestionRun.status` vs `.state`),
+ * 并且 `contract-single-source.test.ts` 会直接拦下后端里的任何 `z.object(`——
+ * 那条门控是对的,所以形状收敛到这里。
+ *
+ * ⚠ 仍然表达不了的:`op` 与 payload 的**对应关系**。`op` 是 payload 的兄弟字段而不是
+ * 判别式,所以这里只能写成 union,校验管道拦不住「op=add 却发了 update 的 payload」;
+ * 服务端按 op 再解析一次(用的仍是本文件的 schema,不是第二份声明)。
+ * 彻底的修法是把 `op` + `payload` 合并成一个判别联合,那是结构性改动,留给契约的主人。
+ */
+export const CapabilityAddPayload = z
+  .object({
+    name: z.string().min(1),
+    scope: VisibilityScope,
+    /** `scope: "team-only"` 时必填。哪个团队拥有它——缺了它,可见性规则无法回答 */
+    ownerTeamId: z.string().nullable().optional(),
+  })
+  /**
+   * 与 `acl_bindings_team_only_needs_team` 同一条规则,同一个理由:
+   * 「仅某团队可见」却没说是哪个团队,不是更严的规则,是**无法回答**的规则——
+   * 而无法回答的规则会被下游实现者判成「放行」。
+   * ⚠ 数据库的 CHECK 才是保证(它挡住所有写入者);这里是**给人看的那道**,
+   * 让管理员拿到字段级 400 而不是一个 500。
+   */
+  .refine((v) => v.scope !== "team-only" || (v.ownerTeamId ?? null) !== null, {
+    path: ["ownerTeamId"],
+    message: "team-only capability needs an owning team",
+  });
+
+/**
+ * ⚠ **不含 `enabled`**,这是刻意的。
+ * 通过 update 关掉一条能力,会绕过 D-U5 的全部保护——中断模式、受影响调用数、
+ * 确认弹窗、留痕里的 `disableMode`。同一个动作,少了让它安全的每一样东西。
+ * 停用只有一条路:`op: "disable"`。
+ */
+export const CapabilityUpdatePayload = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  scope: VisibilityScope.optional(),
+  ownerTeamId: z.string().nullable().optional(),
+});
+
+export const CapabilityDisablePayload = z.object({ id: z.string().min(1) });
+
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
 /**
@@ -316,6 +368,18 @@ export const operations = {
       orgId: z.string(),
       kind: CapabilityKind,
       op: z.enum(["add", "update", "disable"]),
+      /**
+       * ⚠ 仍是开放口袋,**这是权衡后的结论不是遗漏**。见上方三个 payload 的修订说明。
+       *
+       * 试过写成 `z.union([Add, Update, Disable])`:管道确实会拦下垃圾,但错误退化成
+       * `payload: invalid_union`——**字段级错误没了**。而「哪个字段错了」正是
+       * UC-0.3 R8 那条纪律在校验面上的同一个要求:笼统的失败等于没有失败信息。
+       * 由于服务端本来就要按 `op` 再解析一次(`op` 是 payload 的兄弟而非判别式),
+       * union 不多挡任何东西,只是把错误说糊。
+       *
+       * ⇒ 形状归契约(上方三个 schema),按 `op` 选用归服务端。
+       * 彻底的修法是把 `op` + `payload` 合并成判别联合,那是结构性改动,留给契约的主人。
+       */
       payload: z.record(z.unknown()),
       /** D-U5：停用时必填。默认 interrupt（安全事件）；drain = 允许跑完当前一轮（版本下线） */
       disableMode: z.enum(["interrupt", "drain"]).optional(),

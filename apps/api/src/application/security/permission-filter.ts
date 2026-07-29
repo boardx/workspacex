@@ -36,7 +36,29 @@ import { strictestScope, type PermissionDecision } from "../../domain/identity/p
 import { isPropagationPath, type PropagationPathId } from "../../domain/identity/propagation-paths";
 import type { OrgId } from "../../domain/org-id";
 import { authorizeBatch, authorizeDerived, type AuthorizeDeps } from "../identity/authorize";
-import type { ObjectRef } from "../identity/ports";
+import type { AclObjectRef, ObjectRef } from "../identity/ports";
+
+/**
+ * Narrow a guarded item's ref to something `authorize` can actually judge.
+ *
+ * `disclose()` judges through `acl_bindings`, and a capability listing has no binding row --
+ * its scope is a column on its own row (F15). Passing one here used to be possible and
+ * silently harmless-looking: the binding lookup would find nothing and fall back to the
+ * permissive default scope, so every capability would come back visible to everybody with a
+ * decision object that looked entirely normal.
+ *
+ * Throwing is right rather than denying: this is a programming error (wrong doorway), not a
+ * verdict, and the same reasoning the unregistered-path check already uses.
+ */
+function toAclRef(ref: ObjectRef): AclObjectRef {
+  if (ref.kind === "capability") {
+    throw new Error(
+      `capability "${ref.id}" cannot be judged by authorize -- its scope is not in acl_bindings. ` +
+        `Use decideCapabilityVisibility (domain/identity/capability-listing) and discloseDecided().`,
+    );
+  }
+  return { kind: ref.kind, id: ref.id };
+}
 
 /**
  * Tenant data that has been read but NOT yet cleared for a requester.
@@ -139,7 +161,7 @@ export async function disclose<T>(deps: AuthorizeDeps, input: DiscloseInput<T>):
   if (plain.length > 0) {
     const ds = await authorizeBatch(deps, {
       userId, orgId, projectId, action,
-      objects: plain.map((i) => i.ref),
+      objects: plain.map((i) => toAclRef(i.ref)),
     });
     // Same length, same ORDER -- guaranteed by the port, which is why nothing here matches
     // by id. Matching by id is where one item's content gets paired with another's verdict.
@@ -160,8 +182,8 @@ export async function disclose<T>(deps: AuthorizeDeps, input: DiscloseInput<T>):
         // own ref so the argument is at least truthful. Flagged in the F02 report: a
         // required parameter that is ignored invites a caller to believe it is being
         // judged, which for a security function is the wrong belief to invite.
-        objects: [i.ref],
-        sources: i.sources,
+        objects: [toAclRef(i.ref)],
+        sources: i.sources.map(toAclRef),
       }),
     );
   }
