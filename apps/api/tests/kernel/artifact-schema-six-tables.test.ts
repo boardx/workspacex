@@ -459,3 +459,34 @@ describe("the new tables are governed like every other tenant table", () => {
     expect(seen).not.toContain("f04s-art-theirs");
   });
 });
+
+/**
+ * A-1 (2026-07-29): ids stay unguessable.
+ *
+ * `artifacts.id` is a GLOBAL primary key, not tenant-scoped -- the same as `projects`,
+ * `content_items` and every other existing table, so it is systemic rather than something
+ * F04 introduced. Making it `(org_id, id)` would mean changing five tables at once.
+ *
+ * The risk it leaves is narrow and real: a caller can probe another tenant's id space via
+ * primary-key violation, even though RLS keeps the rows themselves invisible. What closes
+ * that is not the key shape, it is UNGUESSABILITY -- and UUIDs already provide it.
+ *
+ * So the ruling is "keep the global key, assert the ids are UUIDs". This test IS that
+ * ruling. Without it, someone switching to a readable sequential id for debugging would
+ * reopen the hole silently, and every other test would stay green.
+ */
+describe("A-1: 生成的 id 不可猜（UUID），否则主键冲突会变成跨租户探测通道", () => {
+  it("id factory 产出 <前缀>-<UUID> 而非序列或时间戳", async () => {
+    const { UuidIdFactory } = await import("../../src/infrastructure/artifact/uuid-id-factory");
+    const f = new UuidIdFactory();
+    // 前缀是刻意的（见该文件注释）：裸 UUID 出现在存储键 / acl_bindings.object_id /
+    // provenance target 里，读者看不出它指什么，而类型传错会变成静默查不到而非报错。
+    const ids = Array.from({ length: 20 }, () => f.next("art"));
+    const PREFIXED_UUID =
+      /^art-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    for (const id of ids) expect(id, `${id} 不是 <前缀>-UUID`).toMatch(PREFIXED_UUID);
+    // 不可猜：排序后的顺序不应等于生成顺序（序列型 id 会相等）
+    expect([...ids].sort().join()).not.toBe(ids.join());
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
