@@ -36,7 +36,9 @@
     ".next/types/**/*.ts",
     ".next-prod-gate/types/**/*.ts",
     ".next-ui-gate/types/**/*.ts",
-    ".next-e2e/types/**/*.ts"
+    ".next-e2e/types/**/*.ts",
+    ".next-tpl-preview/types/**/*.ts",
+    ".next-oa/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

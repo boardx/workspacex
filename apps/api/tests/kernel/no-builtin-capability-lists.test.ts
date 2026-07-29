@@ -82,15 +82,55 @@ describe("V1 static: no built-in capability list exists in product code", () => 
 
   it("the prototype's mock data is counted as DEBT, not silently excluded", () => {
     // Excluding apps/web/lib/mock would make the gate green on the side where the built-in
-    // lists actually still are. It is reported, capped here, and cannot grow unnoticed.
+    // lists actually still are. It is reported here and cannot grow UNNOTICED.
+    //
+    // ⚠ 2026-07-29：断言从「条数 ≤ 20」改为「文件必须在申报清单里」。
+    //
+    // 改的原因不是门控挡路，是**它挡的东西挑错了**。phase-01 走 ADR-003 的 UI 先行关卡，
+    // 十个能力域各要用真实组件 + mock 把界面做出来供人类签核，mock 是那道关卡的**产物**，
+    // 条数按设计就会涨（两个域落地就从 20 涨到 36）。于是这个数字变成移动靶：
+    // 每来一个域就改一次上限，而「改一次上限」和「门控失效」在提交历史里长得一模一样。
+    //
+    // 本仓的纪律是**断言性质，不是断言数量**（`toHaveLength(N)` 会挡住一次正当的新增）。
+    // 这里要守的性质是「债务不会在没人注意时长出来」——那就让**新增一个带债务的文件**
+    // 成为一个必须显式声明的动作，而条数在申报过的文件里怎么涨都无所谓。
+    //
+    // 偿还路径确定：某个域的契约束一旦签核，它的 mock 就该改为从 packages/contracts 生成
+    // （`packages/contracts/scripts/gen-mock.ts` 已有这条路），届时该文件应当从本清单里删掉。
+    // ⚠ phase-01 十个束全签完之后若这份清单还没缩短，说明 UI 先行的产物没有回流成契约——
+    // 那才是真正要报警的事，而条数上限永远发现不了它。
+    const DECLARED_MOCK_DEBT = [
+      "apps/web/lib/mock/admin.ts",        // phase-00 F15 原型遗留（最早的那笔）
+      "apps/web/lib/mock/tasks.ts",        // phase-00 原型遗留
+      "apps/web/lib/mock/chat.ts",         // phase-01 chat 域 UI 先行
+      "apps/web/lib/mock/interview-studio.ts", // phase-01 itv 域 UI 先行
+      "apps/web/lib/mock/rec.ts",          // phase-01 rec 域 UI 先行
+      "apps/web/lib/mock/agent-runtime.ts",// phase-01 agent-runtime 域 UI 先行
+    ];
     const r = runGate();
-    expect(num(r.out, "debt"), "prototype mock debt should not grow").toBeLessThanOrEqual(20);
-    expect(num(r.out, "debt"), "if this hits zero the console was rewired -- delete the allowance").toBeGreaterThan(0);
-    for (const line of r.out.split("\n").filter((l) => l.startsWith("· [debt]"))) {
+    const debtLines = r.out.split("\n").filter((l) => l.startsWith("· [debt]"));
+    // 债务仍然只许待在原型 mock 目录下——这条没变，它挡的是「债务跑进产品代码」。
+    for (const line of debtLines) {
       expect(line, "debt must stay confined to the prototype mock folder").toContain(
         "apps/web/lib/mock/",
       );
     }
+    const files = [...new Set(debtLines.map((l) => l.split(" ")[2]!.split(":")[0]!))].sort();
+    const undeclared = files.filter((f) => !DECLARED_MOCK_DEBT.includes(f));
+    expect(
+      undeclared,
+      "新的原型 mock 文件带进了内建能力清单，但没有在 DECLARED_MOCK_DEBT 里申报。" +
+        "这不是自动失败——把它加进上面的清单并写明属于哪个域、哪次 UI 先行，就通过了。" +
+        "要拦的是「没人注意地长出来」，不是「长出来」。",
+    ).toEqual([]);
+    // 反向：清单里列了但实际已经没有债务的文件，说明它已经改成从契约生成了 —— 该删掉，
+    // 否则清单会变成一份没人维护的白名单，那是本仓踩过的另一个坑。
+    const stale = DECLARED_MOCK_DEBT.filter((f) => !files.includes(f));
+    expect(stale, "这些文件已无债务，从 DECLARED_MOCK_DEBT 里删掉").toEqual([]);
+    expect(
+      debtLines.length,
+      "if this hits zero the console was rewired -- delete the allowance",
+    ).toBeGreaterThan(0);
   });
 
   it("no migration seeds capability_listings", () => {
