@@ -57,3 +57,8 @@ _fl-parts/
 .next-e2e/
 playwright-report/
 test-results/
+
+# CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与
+# VM 上的 runner environment file 里），但含部署形态，仍然不进仓库。
+# 模板见 .harness/config/local.env.example
+.harness/config/local.env
