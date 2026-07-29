@@ -192,6 +192,25 @@ export function buildIssueBody(
  *  返回完整投影字段（number/title/body/state）：body 供 marker 校验（避免误动非 sync issue），
  *  state 供 close 幂等判断（已 CLOSED 不重复关，也绝不重开——#526）。
  *  返回数组而非首个匹配：标题碰撞时首个匹配可能是人工 issue，marker 判定必须在全量上做（#713）。 */
+/**
+ * 全量 issue 缓存，按**投影 marker** 匹配，而不是按标题搜索。
+ *
+ * ⚠ 2026-07-29：`gh issue list --search "<标题>"` 对**中文长标题匹配不上**——
+ *   F07/F08 因此被重复创建成 #30/#31（原本是 #15/#16）。
+ *   marker 是我们自己写进 body 的确定性字符串，本地比对不受搜索索引影响，
+ *   也不受索引延迟影响（`#526` 记的那个「创建即 passing 搜不到」正是同一根源）。
+ */
+let ALL_ISSUES: ProjectedIssue[] | null = null;
+function allIssues(repo: string, apply: boolean): ProjectedIssue[] {
+  if (!apply) return [];
+  if (ALL_ISSUES) return ALL_ISSUES;
+  const r = sh(
+    `gh issue list --repo ${JSON.stringify(repo)} --state all --limit 500 --json number,title,body,state`,
+  );
+  ALL_ISSUES = r.code === 0 ? (JSON.parse(r.stdout || "[]") as ProjectedIssue[]) : [];
+  return ALL_ISSUES;
+}
+
 function findIssuesByTitle(repo: string, title: string, apply: boolean): ProjectedIssue[] {
   if (!apply) return []; // dry-run 不实际查询
   // --state all：含已关闭 issue，否则幂等检查会漏掉 closed issue 而重复创建
@@ -209,6 +228,10 @@ function findIssuesByTitle(repo: string, title: string, apply: boolean): Project
 
 /** 通过 title + body marker 搜索投影 issue（close 前使用，避免误关非 sync issue）。 */
 function findProjectedIssue(repo: string, title: string, phaseId: string, featureId: string, apply: boolean): ProjectedIssue | null {
+  // marker 优先：确定性、不受搜索索引与中文分词影响。搜标题只作兜底。
+  const marker = projectionMarker(phaseId, featureId);
+  const byMarker = allIssues(repo, apply).find((i) => i.body?.includes(marker));
+  if (byMarker) return byMarker;
   return partitionTitleMatches(findIssuesByTitle(repo, title, apply), phaseId, featureId).projection;
 }
 
@@ -308,7 +331,11 @@ export function syncGithub(args: Args): void {
       // 否则改了模版/notes/verification，存量 issue 永远停在旧信息上）。
       // #713：所有会 edit/close 的路径统一先验 marker（用 GitHub 上的现存 body 判定），
       // 无 marker 的同名 issue 是标题碰撞的人工 issue——一律不动，也不创建同名新 issue（fail-safe）。
-      const matches = findIssuesByTitle(cfg.repo, title, apply);
+      // marker 优先（见 findProjectedIssue 的注释）：标题搜索对中文长标题匹配不上，
+      // 已因此重复创建过 #30/#31。
+      const marker = projectionMarker(phaseId, f.id);
+      const byMarker = allIssues(cfg.repo, apply).find((i) => i.body?.includes(marker));
+      const matches = byMarker ? [byMarker] : findIssuesByTitle(cfg.repo, title, apply);
       const { projection: existing, collisions } = partitionTitleMatches(matches, phaseId, f.id);
       for (const c of collisions) {
         log.warn(
