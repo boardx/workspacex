@@ -61,6 +61,14 @@ phases/phase-00-shared-kernel/contracts/identity/
   design-signoff.md  签核状态（人类改，agent 不许改），frontmatter 带 covers: [F01, …]
 ```
 
+> ⚠ **机械门控对 `ui.md` 的强制范围只到 `roadmap.yaml` 里 `has_ui: true` 的阶段。**
+> `requiredBundleFiles()`（`.harness/scripts/lib/design-signoff.ts`）是这条的唯一实现，
+> `verify-uc-coverage` / `new-sprint` / `claim` / `doctor` 都读它。
+> phase-00 没有 `has_ui`（它是共享内核，零界面），因此它的六个束不因缺 `ui.md` 被拦。
+> 有界面的阶段（01/02/03）建 `contracts/` 目录那一刻，这条对它们全部束生效。
+> 写在这里是因为「文档要求」和「脚本强制」不一致时，本仓的纪律是**以脚本为准**——
+> 没有脚本的规范条目视为未落地。
+
 **签核③ API 契约不住在束目录**，它住在 `packages/contracts/src/<bundle>.ts`（zod 单一事实源），
 因为它要被后端、前端、mock、OpenAPI 同时 import——放进 `phases/` 下就无法被代码引用。
 

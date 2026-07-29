@@ -5,7 +5,7 @@
  * 领域模型再漂亮、API 再整齐，只要有一条 UC 的验收线索找不到对应接口，业务就是跑不通的。
  *
  * 检查四件事：
- *   ① 每个签核束都有 coverage.md
+ *   ① 每个签核束的必备材料齐全、签核本身合法（判定在 lib/design-signoff，不在这里重写）
  *   ② UC 的 R12 验收线索**逐条**在 coverage 表里出现（不许漏行）
  *   ③ 每条都有「API 操作」与「前端消费点」两列，**不许空着**
  *      —— 空着意味着没人想过它怎么被调用、怎么被人看见
@@ -14,11 +14,16 @@
  * ⚠ 本脚本**不判断映射得对不对**——那是人在签核时做的事。
  *   它只保证「每条都被想过」，把「漏了一整条」这种最容易发生的失误挡住。
  *
+ * ⚠ 束↔feature 的映射**只从 design-signoff.md 的 frontmatter `covers:` 读**
+ *   （ADR-023 决策三）。此前这里和 lib/design-signoff.ts 各有一份中文正则去抓
+ *   coverage.md 正文——同一个映射两份实现，正是本项目最高发的失效模式。
+ *
  * 用法：pnpm exec tsx .harness/scripts/verify-uc-coverage.ts <phase-id> […]
  */
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { findPhaseDir } from "./lib/paths";
+import { auditSignoff, readBundleSignoffs, readCoherence } from "./lib/design-signoff";
 
 interface Feature { id: string; spec_ref?: string; points?: number }
 
@@ -37,44 +42,33 @@ for (const phaseId of process.argv.slice(2)) {
     continue;
   }
 
-  const bundles = readdirSync(contractsDir).filter((n) =>
-    statSync(join(contractsDir, n)).isDirectory(),
-  );
+  const signoffs = readBundleSignoffs(phaseId);
+  const bundles = signoffs.map((s) => s.bundle);
   if (bundles.length === 0) say("contracts/ 下没有任何契约束");
 
   const fl = JSON.parse(
     readFileSync(join(dir, "feature_list.json"), "utf8"),
   ) as { features: Feature[] };
 
-  /* ── ① 四件套齐全 + 签核状态 ────────────────────────────────── */
-  const REQUIRED = ["domain.md", "usecases.md", "coverage.md", "design-signoff.md"];
+  /* ── ① 材料齐全 + 签核合法性：复用签核链的唯一判定实现 ────────── */
+  // featureIds 传 []：这里只做结构性检查，「谁能开工」是 new-sprint/claim/doctor 的事。
+  const audit = auditSignoff(phaseId, []);
+  for (const m of audit.fails) say(m);
+  for (const m of audit.warns) console.log(`  ⚠ ${m}`);
+
   const covered = new Set<string>();
   const bundleOfFeature = new Map<string, string>();
+  for (const s of signoffs) {
+    for (const id of s.features) {
+      covered.add(id);
+      if (!bundleOfFeature.has(id)) bundleOfFeature.set(id, s.bundle);
+    }
+  }
 
   for (const b of bundles) {
-    for (const f of REQUIRED) {
-      if (!existsSync(join(contractsDir, b, f))) say(`${b}/ 缺 ${f}`);
-    }
     const covPath = join(contractsDir, b, "coverage.md");
     if (!existsSync(covPath)) continue;
     const cov = readFileSync(covPath, "utf8");
-
-    // 从 coverage 头部抓「覆盖 feature：…」整行，再从行内抽出全部 F 编号。
-    // ⚠ 不能只匹配连续的 F 编号——头部常写成
-    //   「覆盖 feature：F01 F02 F03（uc-0-3）· F15 F16 F17（uc-0-5）」
-    //   在「（」处截断会漏掉后半段（本脚本第一版就漏了 F15 F16 F17）。
-    const fm = /覆盖 feature[：:]([^\n]+)/.exec(cov);
-    if (!fm) {
-      say(`${b}/coverage.md 头部没写「覆盖 feature：F0x F0y …」，无法核对是否全覆盖`);
-    } else {
-      for (const id of fm[1]!.match(/F\d+/g) ?? []) {
-        if (covered.has(id)) {
-          say(`${id} 被多个束覆盖（${bundleOfFeature.get(id)} 与 ${b}）—— 束之间必须无重叠`);
-        }
-        covered.add(id);
-        bundleOfFeature.set(id, b);
-      }
-    }
 
     /* ── ②③ R12 逐条覆盖 + 两列不许空 ──────────────────────── */
     // 从 coverage 表里抓已映射的 V 编号（表格首列形如 | V3 | …）
@@ -128,20 +122,15 @@ for (const phaseId of process.argv.slice(2)) {
   if (ghost.length) say(`契约束声称覆盖了不存在的 feature：${ghost.join(" ")}`);
 
   /* ── 签核状态汇总（不判失败，只报告）────────────────────────── */
-  const signed: string[] = [];
-  const pending: string[] = [];
-  for (const b of bundles) {
-    const p = join(contractsDir, b, "design-signoff.md");
-    if (!existsSync(p)) continue;
-    (/^status:\s*confirmed/m.test(readFileSync(p, "utf8")) ? signed : pending).push(b);
-  }
-  const coherence = join(dir, "design-coherence.md");
-  const coherenceOk =
-    existsSync(coherence) && /^status:\s*confirmed/m.test(readFileSync(coherence, "utf8"));
+  const signed = signoffs.filter((s) => s.status === "confirmed").map((s) => s.bundle);
+  const pending = signoffs.filter((s) => s.status !== "confirmed").map((s) => s.bundle);
+  const co = readCoherence(phaseId);
+  const outOfScope = bundles.filter((b) => !co.coversBundles.includes(b));
 
   console.log(`  ${bundles.length} 个契约束｜已签 ${signed.length}｜待签 ${pending.length}`);
   if (pending.length) console.log(`    待签：${pending.join(" ")}`);
-  console.log(`  阶段一致性复核：${coherenceOk ? "✅ 已通过" : "⏳ 未通过"}`);
+  console.log(`  阶段一致性复核：${co.status === "confirmed" ? "✅ 已通过" : "⏳ 未通过"}`);
+  if (outOfScope.length) console.log(`    ⚠ 未进入复核范围的束：${outOfScope.join(" ")}`);
   if (bad === 0) console.log("  ✅ 覆盖矩阵完整");
   totalBad += bad;
 }

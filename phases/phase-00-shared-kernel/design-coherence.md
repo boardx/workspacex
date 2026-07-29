@@ -1,5 +1,12 @@
 ---
 phase: "00"
+# ⚠ 如实声明这次复核**实际看过**哪些束（ADR-023 决策四）。下面这四个来自本文
+#   「复核范围」表，它是 2026-07-28 做的；`api-kernel`（07-29 签）与 `auth`（07-30 签）
+#   在它之后才出现，**从未进入任何一致性复核**——F18~F22 由此被放行，其中
+#   F19/F20/F21 已 passing 并合入 main。
+#   这条会让 doctor / new-sprint / claim 变红，那是对的：门控不能追认已经发生的放行。
+#   **修法是人类重做复核并把这两个束纳入范围表，不是在这里补两个名字。**
+covers_bundles: [identity, artifact, context-pack, web-kernel]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: " yanbin shen"
 confirmed_at: "2026-7-28"

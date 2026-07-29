@@ -13,6 +13,7 @@ import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
+import { auditSignoff } from "./lib/design-signoff";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -172,6 +173,37 @@ function checkSpecRef(phaseId: string, f: Feature, findings: Finding[]): void {
   if (!r.ok) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 正在 in_progress 但没有可追溯的 story：${r.reason}` });
   }
+}
+
+
+/**
+ * 签核链体检（ADR-023 决策六）。
+ *
+ * doctor 覆盖了证据链、派生视图链、GitHub 可见性链——**签核链是唯一没覆盖的那条**。
+ * 而它恰恰是最脆的：`new-sprint` 那道门只在建 sprint 那一刻问一次，
+ * 之后 feature 的归属、束的 covers、一致性复核的范围都还能改，没有任何东西回头看。
+ * 于是 phase-00 出现了「F18–F22 靠一份从没看过它们的复核解锁开工」。
+ *
+ * 这里查的是**已经开工或已经完成的** feature（in_progress / passing）——
+ * 它们是「已经发生的放行」，正是要回头核对的对象。not_started 由 claim 那道门管。
+ *
+ * 分级：结构性缺陷与非法签核判 FAIL（它们让「这个设计被人看过了」不成立）；
+ * 签名毛边一类判 WARN。沿用既有 `--strict` 约定：strict 只影响「必须已合入 main」，
+ * 签核链两种模式一致——签核不存在「时点还没到」的问题，签了就是签了。
+ */
+function checkSignoffChain(phaseId: string, findings: Finding[]): void {
+  let active: string[];
+  try {
+    active = loadFeatureList(phaseId)
+      .features.filter((f) => f.status === "in_progress" || f.status === "passing")
+      .map((f) => f.id);
+  } catch {
+    return;
+  }
+  const audit = auditSignoff(phaseId, active);
+  if (!audit.applicable) return; // 该阶段没有 contracts/，未采用契约束流程
+  for (const msg of audit.fails) findings.push({ level: "FAIL", phase: phaseId, msg: `签核链：${msg}` });
+  for (const msg of audit.warns) findings.push({ level: "WARN", phase: phaseId, msg: `签核链：${msg}` });
 }
 
 
@@ -336,6 +368,7 @@ export function doctor(args: Args): void {
     checkProgressRow(id, findings);
     checkRoadmapDrift(id, findings);
     checkOrphanInProgress(id, findings);
+    checkSignoffChain(id, findings);
   }
 
   const fails = findings.filter((f) => f.level === "FAIL");
@@ -347,6 +380,9 @@ export function doctor(args: Args): void {
     log.err("审计链存在断裂。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。");
     process.exitCode = 1;
   } else {
-    log.ok("审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致。");
+    log.ok(
+      "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
+        "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内。",
+    );
   }
 }
