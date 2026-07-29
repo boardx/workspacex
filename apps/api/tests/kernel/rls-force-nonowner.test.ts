@@ -87,20 +87,25 @@ describe("I-6: every tenant-carrying table is ENABLE + FORCE with a real tenant 
 
   it("is not idle: it classifies the tables that actually exist", async () => {
     const rows = await audit();
-    const ok = rows.filter((r) => r.verdict === "ok").map((r) => r.table_name);
-    // Named rather than counted, so that a table DISAPPEARING from the audit -- the way a
-    // renamed or dropped-and-recreated table would -- fails instead of quietly lowering
-    // the bar. F04's artifact tables get added to this list by F04, not by a wildcard.
-    expect(ok.sort()).toEqual([
-      "acl_bindings",
-      "groups",
-      "org_memberships",
-      "organizations",
-      "project_memberships",
-      "projects",
-      "rls_probe",
-      "teams",
-    ]);
+    const ok = new Set(rows.filter((r) => r.verdict === "ok").map((r) => r.table_name));
+
+    // The tables that must NEVER silently drop out of the audit. A table disappearing --
+    // renamed, or dropped and recreated without RLS -- has to fail rather than quietly
+    // lower the bar.
+    //
+    // ⚠ Asserted as a SUBSET, not an exact list. The first version froze the full set, and
+    // it broke the moment F03 landed two tables in a parallel branch: a hand-maintained
+    // expectation in the very test whose point is that the table set comes from the
+    // CATALOG. Every new table is still covered -- by the assertion above, which requires
+    // zero misconfigured tables across whatever the catalog holds.
+    for (const t of [
+      "acl_bindings", "groups", "org_memberships", "organizations",
+      "project_memberships", "projects", "rls_probe", "teams",
+    ]) {
+      expect(ok.has(t), `${t} vanished from the tenant-table audit`).toBe(true);
+    }
+    // Non-vacuity: an audit returning nothing would satisfy "no misconfigured table".
+    expect(ok.size).toBeGreaterThanOrEqual(8);
   });
 
   it("finds the tenant root through its foreign keys, not by name", async () => {

@@ -35,6 +35,7 @@
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import {
@@ -341,8 +342,24 @@ describe("lint-permission-paths: counter-proof", () => {
     expect(Number(/scanned=(\d+)/.exec(r.out)?.[1] ?? -1)).toBe(1);
   });
 
-  it("the allowlist is short, because every entry is code the rule does not protect", () => {
+  it("the allowlist stays short, and every entry carries a real argument", () => {
     const r = run();
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(3);
+    // A ceiling alone is a number someone bumps. The property that actually matters is
+    // that each exemption was ARGUED -- so the reason strings are checked too, and a
+    // one-liner like "legacy" or "TODO" fails.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(4);
+
+    const src = readFileSync(
+      fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
+      "utf8",
+    );
+    const block = /const ALLOWLIST = new Map\(\[([\s\S]*?)\n\]\);/.exec(src)?.[1] ?? "";
+    const reasons = [...block.matchAll(/"((?:[^"\\]|\\.){40,})",\n\s*\],/g)].map((m) => m[1]!);
+    const entries = [...block.matchAll(/\[\n\s*"src\//g)].length;
+    expect(entries, "could not parse the allowlist -- this assertion would be vacuous").toBeGreaterThan(0);
+    expect(reasons.length, "an allowlist entry has no real justification").toBe(entries);
+    for (const reason of reasons) {
+      expect(reason, `weak justification: ${reason}`).not.toMatch(/^(todo|legacy|temporary|for now)\b/i);
+    }
   });
 });

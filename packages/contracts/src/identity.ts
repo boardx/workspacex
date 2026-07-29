@@ -62,6 +62,32 @@ export const PermissionReason = z.enum([
   "AUTH_SERVICE_UNAVAILABLE", // ⚠ 一律拒绝，**不得降级放行**
 ]);
 
+/**
+ * 内容所在的**层**。这是「我的大脑」整层能否成立的前提（UC-0.3 R7 第 2 条）。
+ *
+ * ⚠ 两层不是同一张表的两个筛选条件那么简单：**个人层对任何人封闭**（含管理员），
+ * 拿到某人私有内容**只有一条路径——本人显式升到项目层**。
+ * 所以它是一等字段，不是「可见性范围」的一个取值：可见性范围是组织层的资源准入，
+ * 合并进去会让「管理员看不到个人层」退化成一条可被配置改掉的策略。
+ */
+export const ContentLayer = z.enum(["personal", "project"]);
+
+/**
+ * 草稿态是**权限事实**不是展示状态（uc-0-1 R5 / V4）：
+ * 草稿模式产出**仅创建者可见**，项目管理员与组织管理员均不可见，
+ * 且对其余角色返回 **404 而非 403**——403 会泄露「这里有一份你看不到的草稿」。
+ */
+export const ContentStatus = z.enum(["draft", "published"]);
+
+/**
+ * 读取意图。`audit` 是 UC-0.3 R4 A1 给管理员开的**唯一**豁口：
+ * 允许读，但**每次访问必写审计日志且对项目负责人可见**。
+ *
+ * ⚠ 它必须是**入参**而不是服务端推断出来的：留痕的对象是「你自称为什么要看」，
+ * 服务端替调用方猜意图，等于审计记录里没有任何人做过声明。
+ */
+export const ReadPurpose = z.enum(["work", "audit"]);
+
 /** 机密约束的来源——**三者必须可分辨**（domain I-10 的界面投影） */
 export const ConstraintSource = z.enum([
   "promise", // 本地组织：不可关闭的产品承诺
@@ -172,6 +198,82 @@ export const operations = {
     /** 与入参 objects 等长、同序 */
     out: z.array(PermissionDecision),
     err: [] as const,
+  },
+
+  /**
+   * readContent —— **真实的内容读取面**（F03，2026-07-29 修订 C）
+   *
+   * ## 为什么非加不可
+   * 覆盖矩阵把 V1/V2 都记在 `authorize` 名下，但 `authorize` **只返回判定，不返回内容**。
+   * 于是「管理员不是超级用户」这条只被证明在判定函数里成立，
+   * **没有任何一条真实读取路径被证明会去问它**——而 D-18 说的正是读取路径。
+   * 判定函数绿着、读取路径绕过它，是本项目最想防住的那种绿。
+   *
+   * ## 为什么是 POST 而不是 GET
+   * 它**有副作用**：审计目的读取必写 `provenance_events`。
+   * 一个会写库的 GET 比一个语义不纯的 POST 危险得多（被缓存、被预取、被重放）。
+   *
+   * ## 为什么个人层也走这道门
+   * 个人层内容**没有**自己的读取接口——它和项目内容共用这一个入口，
+   * 由服务端按 `layer` 分流。另开一个 `/personal-layer/read` 意味着
+   * I-8 要在两处各写一遍，而漏掉的那一处不会有任何东西报警。
+   *
+   * ⚠ `provenanceEventId` 非 null ⇔ 本次是审计目的读取且**留痕已落库**。
+   *   留痕写失败时本操作必须失败——「内容给了、痕没留下」是 A1 的反面。
+   */
+  readContent: {
+    method: "POST", path: "/identity/content/read",
+    in: z.object({
+      orgId: z.string(),
+      projectId: z.string(),
+      itemId: z.string(),
+      purpose: ReadPurpose,
+    }),
+    out: z.object({
+      itemId: z.string(),
+      layer: ContentLayer,
+      status: ContentStatus,
+      body: z.string(),
+      /** 非 null ⇔ 这次读取以审计名义发生，痕已落库 */
+      provenanceEventId: z.string().nullable(),
+    }),
+    /**
+     * ⚠ 草稿与「不存在」在**协议层不可区分**（uc-0-1 V4）：两者都是 404，
+     * 所以这里没有 `DRAFT_*` 码——有这么一个码，等于把「这儿有份草稿」写进了响应。
+     */
+    err: [
+      "NO_ORG_MEMBERSHIP", "ORG_SCOPE_DENIED", "NO_PROJECT_ROLE",
+      "PROJECT_ROLE_INSUFFICIENT", "ADMIN_NOT_SUPERUSER", "PERSONAL_LAYER_CLOSED",
+    ] as const,
+  },
+
+  /**
+   * getPersonalLayerSummary —— **管理员对他人个人层唯一能拿到的东西：计数**（I-8 / V2）
+   *
+   * ## 为什么必须有这个操作
+   * I-8 的断言是「响应体中**不存在**内容字段」。`authorize` 返回的是判定对象，
+   * 里面本来就没有内容字段——**拿它去断言 I-8 是空转**。
+   * 要让这条断言有意义，必须有一个**真的返回了点什么**的响应，
+   * 而它返回的恰好只有计数。
+   *
+   * ⚠ `out` 里**永远不得**出现 content / body / text / excerpt / preview / snippet
+   *   任何一种。「内容为空串」与「没有内容字段」是两种不同的失败，
+   *   只有后者是安全的：空串会随实现变化被填上，缺字段不会。
+   */
+  getPersonalLayerSummary: {
+    method: "GET", path: "/identity/personal-layer/summary",
+    in: z.object({ orgId: z.string(), userId: z.string() }),
+    out: z.object({
+      userId: z.string(),
+      itemCount: z.number().int().nonnegative(),
+      /**
+       * 查他人时恒为 `PERSONAL_LAYER_CLOSED`；查自己为 null。
+       * 界面据此说清「这里为什么只有数字」——只显示一个数字而不解释，
+       * 用户的第一反应是「加载失败了」。
+       */
+      reasonCode: PermissionReason.nullable(),
+    }),
+    err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
   resolveIdentity: {

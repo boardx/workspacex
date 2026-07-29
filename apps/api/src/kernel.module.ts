@@ -43,10 +43,15 @@ import {
   UuidDecisionIdFactory,
 } from "./infrastructure/identity/in-memory-session-store";
 import { IdentityController } from "./interface/controllers/identity.controller";
+import { ProvenanceController } from "./interface/controllers/provenance.controller";
+import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
+import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
+import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
+import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
 
 @Module({
-  controllers: [HealthController, KernelProbeController, IdentityController],
+  controllers: [HealthController, KernelProbeController, IdentityController, ProvenanceController],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
@@ -56,6 +61,23 @@ import type { DatabasePort } from "./application/ports/database.port";
       provide: IDENTITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: CONTENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgContentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // One instance behind both tokens, on purpose: the writer and the reader are two
+    // views of ONE table with ONE query surface (X-2). Two providers would be the first
+    // step toward two implementations, and then toward two tables.
+    {
+      provide: PROVENANCE_WRITER,
+      useFactory: (db: DatabasePort) => new PgProvenanceRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PROVENANCE_READER,
+      useExisting: PROVENANCE_WRITER,
     },
     // Process-local for now. Real session storage arrives with phase-01 01-auth, together
     // with the credential format this kernel deliberately did not decide (UC-0.6 A-3).

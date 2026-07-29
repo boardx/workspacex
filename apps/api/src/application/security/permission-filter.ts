@@ -180,6 +180,41 @@ export async function disclose<T>(deps: AuthorizeDeps, input: DiscloseInput<T>):
 }
 
 /**
+ * Unwrap a guarded item using a decision that was ALREADY made elsewhere.
+ *
+ * ## Why this exists
+ *
+ * `disclose()` judges via `authorize`/`authorizeBatch`. Some reads need a richer rule that
+ * `authorize` does not express -- F03's `decideContentRead` folds in the personal-layer
+ * boundary, the admin-not-superuser rule and the audit purpose, and those cannot be
+ * reduced to an action string.
+ *
+ * The wrong resolution is to let such a read bypass the guard, because then there are TWO
+ * doorways between tenant data and a human, and the one nobody is looking at is the one
+ * that leaks. (F02 and F03 were built in parallel and each shipped its own mechanism; the
+ * merge is what surfaced it. Both were green alone.)
+ *
+ * So: one doorway, two decision sources. The payload still cannot be reached except
+ * through this module, and the decision is still the thing that decides.
+ *
+ * ⚠ The caller supplies the decision, so this function cannot verify the rule was the
+ * right one -- it verifies only that a decision was made and consulted. That is a real
+ * limit, and it is why the decision-producing functions live in `domain/` where they are
+ * tested directly.
+ */
+export function discloseDecided<T>(item: Guarded<T>, decision: PermissionDecision): Disclosed<T> | Withheld {
+  if (!decision.allowed) {
+    return { ref: item.ref, reasonCode: decision.reasonCode, permissionDecisionId: decision.decisionId };
+  }
+  return { ref: item.ref, payload: PAYLOAD.get(item) as T, permissionDecisionId: decision.decisionId };
+}
+
+/** Narrow a `discloseDecided` result. */
+export function isDisclosed<T>(r: Disclosed<T> | Withheld): r is Disclosed<T> {
+  return "payload" in r;
+}
+
+/**
  * The cache key for a verdict (R7's sixth path).
  *
  * Every axis the decision depends on is in the key, in a fixed order. A key missing `org`

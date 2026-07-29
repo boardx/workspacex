@@ -203,6 +203,38 @@ export async function addProjectMember(
   );
 }
 
+/**
+ * Seed one content item.
+ *
+ * `layer` defaults to `project` and `status` to `published` because that is the ordinary
+ * case; the interesting fixtures (personal items, other people's drafts) name what makes
+ * them interesting at the call site rather than relying on a default.
+ */
+export async function addContentItem(opts: {
+  orgId: string;
+  id: string;
+  ownerUserId: string;
+  body: string;
+  layer?: "personal" | "project";
+  projectId?: string | null;
+  groupId?: string | null;
+  status?: "draft" | "published";
+}): Promise<void> {
+  const layer = opts.layer ?? "project";
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO content_items (id, org_id, layer, project_id, group_id, owner_user_id, status, body)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        opts.id, opts.orgId, layer,
+        layer === "personal" ? null : (opts.projectId ?? null),
+        layer === "personal" ? null : (opts.groupId ?? null),
+        opts.ownerUserId, opts.status ?? "published", opts.body,
+      ],
+    ),
+  );
+}
+
 export async function addBinding(opts: {
   orgId: string;
   subject: { kind: "user" | "group" | "team"; id: string };
@@ -217,4 +249,22 @@ export async function addBinding(opts: {
       [opts.orgId, opts.subject.kind, opts.subject.id, opts.object.kind, opts.object.id, opts.scope, opts.ownerTeamId ?? null],
     ),
   );
+}
+
+/**
+ * A listening port that is unique per worker.
+ *
+ * Test files that boot the app bind a fixed port. Two workers running the full suite at
+ * once therefore collide on it -- `EADDRINUSE` on the SECOND worker, reported as a failing
+ * test file rather than as a resource clash. Database isolation alone does not buy
+ * parallelism; the ports have to move too.
+ *
+ * Derived from WORKSPACEX_DB so it is stable within a worker (a rerun binds the same port,
+ * which matters when a previous run left a socket in TIME_WAIT) and disjoint across
+ * workers. The offset is bounded so it cannot wander into the ephemeral range.
+ */
+export function workerPort(base: number): number {
+  let h = 0;
+  for (const ch of DB) h = (h * 31 + ch.charCodeAt(0)) % 97;
+  return base + h * 20;
 }

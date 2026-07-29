@@ -55,6 +55,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/db/migrator.ts",
     "schema/DDL machinery; its rls_probe row count feeds the migration idempotency digest, not a response",
   ],
+  [
+    "src/infrastructure/provenance/pg-provenance-repository.ts",
+    "provenance_events is the AUDIT TRAIL, not tenant content: an append-only record of who touched what. Guarding it with the same filter would be circular in the same way the identity repository is -- the trail is what you consult to answer 'was that read authorised', so it cannot itself require the answer first. Who may READ the trail is enforced one layer up, in application/provenance/query-provenance.ts (project lead sees their project, everyone sees their own, nobody sees a stranger's), and that rule has its own tests.",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */
