@@ -36,7 +36,17 @@ services:
       POSTGRES_PASSWORD: postgres_dev
       POSTGRES_DB: workspacex
     ports:
-      - "55432:5432"
+      # Bound to LOOPBACK, not 0.0.0.0.
+      #
+      # Docker publishes to all interfaces by default, and on a public host that puts
+      # PostgreSQL on the internet with a password that is committed in this file. It was
+      # briefly true on devapp.boardx.us: only a cloud security group -- one nobody in this
+      # repo controls or can see -- stood between the two. Security that depends on a rule
+      # you cannot read is not a property of this system.
+      #
+      # Nothing needs the wider binding: local dev and the gate scripts all use 127.0.0.1,
+      # and anything in-cluster talks over the compose network, not the published port.
+      - "127.0.0.1:55432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d workspacex"]
       interval: 2s
@@ -55,10 +65,10 @@ services:
       MINIO_ROOT_USER: minio_dev
       MINIO_ROOT_PASSWORD: minio_dev_secret
     ports:
-      - "59000:9000"
-      - "59001:59001"
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:59001"
 
   redis:
     image: redis:7-alpine
     ports:
-      - "56379:6379"
+      - "127.0.0.1:56379:6379"
