@@ -342,6 +342,16 @@ export const operations = {
    * referenceForDownstream —— **下游引用资格门控**（F07，本用例价值核心）。
    * ⚠ 只有指向**固定快照**（不可变 artifact_version）的引用才被允许；
    *   对 live/draft 一律 REQUIRES_PINNED，并提供一键定版入口（错误 detail 带 artifactId）。
+   *
+   * ⚠ **2026-07-29（F07 实现记录）：`in` 里只有 `versionId`，而 `versionId` 恒指向一条
+   * 不可变版本行——按字面读，本操作永远 eligible，`REQUIRES_PINNED` 不可达，整道门空转。**
+   * 实现取的是另一读法：资格是**绑定**的属性不是版本的属性（`live` 解析到 head、`draft`
+   * 不上项目侧），故判据为「存在一条 `pinned` 绑定恰好钉住这个版本」。分歧已报未猜，
+   * 见 `apps/api/src/domain/artifact/downstream-eligibility.ts` 的模块头。
+   *
+   * ⚠ `out` 是本文件里**唯一 `.strict()` 的 out**：门控的失败方向是「多返回了字段」
+   * （例如把 `artifactId` 顺手塞进成功响应），zod 默认剥离未知键会让这个方向的断言全是瞎的。
+   * 其余约 30 个 out 尚未 strict——那是跨束改动，单列。
    */
   referenceForDownstream: {
     method: "POST", path: "/artifacts/versions/:versionId/references",
@@ -350,7 +360,7 @@ export const operations = {
       purpose: DownstreamPurpose,
       referencedBy: z.object({ kind: z.string(), id: z.string() }),
     }),
-    out: z.object({ referenceId: z.string(), eligible: z.boolean() }),
+    out: z.object({ referenceId: z.string(), eligible: z.boolean() }).strict(),
     err: ["REQUIRES_PINNED", "SNAPSHOT_IMMUTABLE", "ARTIFACT_NOT_FOUND"] as const,
   },
 

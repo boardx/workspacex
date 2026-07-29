@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { identity } from "@repo/contracts";
+import { artifact, identity } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -59,6 +59,32 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   return parsed.success ? { reasonCode: parsed.data } : {};
 }
 
+/**
+ * The SECOND and last piece of exception detail allowed through: an `ArtifactError` code and
+ * the artifact it is about (F07 / E1).
+ *
+ * Same shape of exemption as `permissionReasonOf`, and it needs the same justification.
+ * `REQUIRES_PINNED` is not an internal string: it is a member of a closed enum in
+ * `@repo/contracts`, it is parsed against that enum here, and nothing outside it passes no
+ * matter what an exception carries. `artifactId` is parsed as a plain non-empty string and
+ * is only ever the PARENT of a version the caller just addressed successfully -- it
+ * discloses no resource the caller could not already name.
+ *
+ * It has to be here because AC1's refusal is required to be actionable: uc-0-1 E1 says the
+ * denial must offer 一键定版, and an interface that receives `{"error":"conflict"}` has
+ * nothing to offer it with. That is the difference between a gate and a dead end -- and a
+ * dead end is what users route around by copying the content somewhere the gate is not.
+ */
+function artifactErrorOf(exception: HttpException): { artifactError?: string; artifactId?: string } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { artifactError?: unknown; artifactId?: unknown };
+  const code = artifact.ArtifactError.safeParse(raw.artifactError);
+  if (!code.success) return {};
+  const id = typeof raw.artifactId === "string" && raw.artifactId.length > 0 ? raw.artifactId : undefined;
+  return id === undefined ? { artifactError: code.data } : { artifactError: code.data, artifactId: id };
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   constructor(@Inject(LOGGER_PORT) private readonly logger: LoggerPort) {}
@@ -87,6 +113,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...permissionReasonOf(exception),
+        ...artifactErrorOf(exception),
       });
       return;
     }

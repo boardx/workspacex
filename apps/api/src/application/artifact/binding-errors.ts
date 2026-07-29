@@ -61,19 +61,37 @@ export class PinnedRequiresVersionError extends BindingError {}
 export class NoVersionToBindError extends BindingError {}
 
 /**
+ * `REQUIRES_PINNED` (E1 / AC1 / I-14) -- the downstream citation gate refused (F07).
+ *
+ * Carries the ARTIFACT id, and that is not decoration: E1 requires the refusal to offer
+ * 一键定版, and an interface cannot address an artifact it was never told about. The caller
+ * supplied a version id; the artifact behind it is what the remedy acts on.
+ *
+ * A typed field rather than a message: `lint-error-leak` bans the interface layer from
+ * reading `.message` off an exception, and it is right to -- messages here name the ids of
+ * whatever the caller was refused. A field is the only way to pass one deliberately.
+ */
+export class RequiresPinnedError extends BindingError {
+  constructor(readonly artifactId: string, message: string) {
+    super(message);
+  }
+}
+
+/**
  * Which contract code each failure maps to. `null` = the contract has no code for it.
  *
  * Keyed by the class, not by a string: a string key can drift from the class name and this
  * cannot.
  */
-export const CONTRACT_CODE_BY_ERROR: ReadonlyMap<
-  new (...args: never[]) => BindingError,
-  ArtifactErrorCode | null
-> = new Map([
+type BindingErrorCtor = abstract new (...args: never[]) => BindingError;
+
+export const CONTRACT_CODE_BY_ERROR: ReadonlyMap<BindingErrorCtor, ArtifactErrorCode | null> =
+  new Map<BindingErrorCtor, ArtifactErrorCode | null>([
   [ArtifactNotFoundError, "ARTIFACT_NOT_FOUND" as const],
   [NoProjectRoleError, "NO_PROJECT_ROLE" as const],
   [ProjectRoleInsufficientError, "PROJECT_ROLE_INSUFFICIENT" as const],
   [CannotDowngradeError, "CANNOT_DOWNGRADE" as const],
+  [RequiresPinnedError, "REQUIRES_PINNED" as const],
   [PinnedRequiresVersionError, null],
   [NoVersionToBindError, null],
 ]);

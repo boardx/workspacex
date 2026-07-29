@@ -52,10 +52,13 @@ import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-
 import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
+import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
 import { ARTIFACT_REPOSITORY, ID_FACTORY } from "./application/artifact/ports";
 import { BINDING_REPOSITORY } from "./application/artifact/binding-ports";
+import { DOWNSTREAM_REFERENCE_REPOSITORY } from "./application/artifact/reference-ports";
 import { PgArtifactRepository } from "./infrastructure/artifact/pg-artifact-repository";
 import { PgBindingRepository } from "./infrastructure/artifact/pg-binding-repository";
+import { PgDownstreamReferenceRepository } from "./infrastructure/artifact/pg-downstream-reference-repository";
 import { UuidIdFactory } from "./infrastructure/artifact/uuid-id-factory";
 import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
 import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
@@ -71,6 +74,7 @@ import type { DatabasePort } from "./application/ports/database.port";
     ProvenanceController,
     CapabilityController,
     ArtifactBindingController,
+    ArtifactReferenceController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -120,6 +124,14 @@ import type { DatabasePort } from "./application/ports/database.port";
     {
       provide: BINDING_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgBindingRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F07. The single door every downstream citation passes through -- see 0010's header
+    // and coverage gap ③: the five consumers live in other bundles, so the gate is a table
+    // with a trigger rather than a check inside one use case.
+    {
+      provide: DOWNSTREAM_REFERENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDownstreamReferenceRepository(db),
       inject: [DATABASE_PORT],
     },
     { provide: ID_FACTORY, useClass: UuidIdFactory },

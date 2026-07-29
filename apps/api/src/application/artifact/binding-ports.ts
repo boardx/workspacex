@@ -14,6 +14,7 @@ import { artifact as A } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
+import type { CitationAnchor } from "../../domain/artifact/downstream-eligibility";
 import type { Guarded } from "../security/permission-filter";
 import type { AuthorizeDeps } from "../identity/authorize";
 import type { ArtifactRepository, IdFactory } from "./ports";
@@ -115,6 +116,17 @@ export interface BindingRepository {
 
   /** The id of version number `n` of an artifact; null when there is no such version. */
   findVersionIdByNumber(orgId: OrgId, artifactId: string, n: number): Promise<string | null>;
+
+  /**
+   * Every binding of this artifact, reduced to the two fields the citation rule reads (F07).
+   *
+   * The whole set, unfiltered. A4 lets one artifact be bound to several steps at several
+   * versions, so "is THIS version pinned somewhere" is a question about the set -- and a
+   * repository that answered it with `WHERE mode = 'pinned' AND pinned_version_id = $x`
+   * would move the judgement into SQL, where the only way to assert it is to assert the
+   * query. See `judgeCitation`.
+   */
+  findAnchorsForArtifact(orgId: OrgId, artifactId: string): Promise<readonly CitationAnchor[]>;
 
   /** Does this artifact exist in this tenant? Feeds `ARTIFACT_NOT_FOUND`. */
   artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
