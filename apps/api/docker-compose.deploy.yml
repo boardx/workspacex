@@ -22,6 +22,12 @@
 # ⚠ Project name is `workspacex`, distinct from the gates' `workspacex-kernel`. Same host,
 #   two stacks: a `docker compose -p workspacex-kernel down -v` during a CI run must not be
 #   able to reach the deployed data.
+#
+# ⚠ And therefore DIFFERENT PORTS. Both stacks publishing 55432 on one host is not a
+#   collision you get warned about once and fix -- whichever starts second fails to bind,
+#   and if the deployed one is the loser the app quietly connects to the CI database that
+#   `verify-rls.sh` is about to DROP. Defaults here are shifted by one (55433/59010/56380);
+#   override via PGPORT / MINIO_PORT / REDIS_PORT.
 
 services:
   postgres:
@@ -35,7 +41,7 @@ services:
     ports:
       # Loopback only. Docker publishes to all interfaces by default, and this host is on
       # the public internet -- see the note in docker-compose.dev.yml.
-      - "127.0.0.1:${PGPORT:-55432}:5432"
+      - "127.0.0.1:${PGPORT:-55433}:5432"
     volumes:
       # A NAMED volume, which is the whole reason this file exists.
       - workspacex_pgdata:/var/lib/postgresql/data
@@ -53,8 +59,8 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
     ports:
-      - "127.0.0.1:59000:9000"
-      - "127.0.0.1:59001:59001"
+      - "127.0.0.1:${MINIO_PORT:-59010}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-59011}:59001"
     volumes:
       # Object storage holds originals, and the architecture's invariant is that an original
       # is never overwritten. Losing the volume would violate that in the most direct way.
@@ -64,7 +70,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "127.0.0.1:56379:6379"
+      - "127.0.0.1:${REDIS_PORT:-56380}:6379"
     volumes:
       # Redis is a cache today, but sessions land here with phase-01 01-auth. Persisting it
       # now costs nothing and avoids a silent "everyone logged out" on the first restart
