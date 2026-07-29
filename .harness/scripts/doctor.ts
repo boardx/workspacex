@@ -259,7 +259,7 @@ function checkMergedToMain(
   const merged = sh(`git merge-base --is-ancestor ${commit} origin/main`, REPO_ROOT);
   if (merged.code === 0) return;
   findings.push({
-    level: "FAIL",
+    level,
     phase: phaseId,
     msg: `${f.id} 是 passing 但实现（${commit.slice(0, 8)}）还不在 origin/main 上 —— 开 PR 合并，别停在分支上`,
   });
