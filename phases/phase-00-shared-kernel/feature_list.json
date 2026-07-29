@@ -185,9 +185,9 @@
         "F06"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f07",
       "verification": [
         "pnpm vitest run tests/kernel/reference-eligibility-gate.test.ts"
       ],
@@ -207,9 +207,9 @@
         "F06"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f08",
       "verification": [
         "pnpm vitest run tests/kernel/provenance-append-only.test.ts",
         "pnpm vitest run tests/kernel/audit-backflow-searchable.test.ts"
@@ -311,9 +311,9 @@
         "F10"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f12",
       "verification": [
         "pnpm vitest run tests/kernel/citation-integrity.test.ts",
         "pnpm vitest run tests/kernel/empty-pack-blocks-ai.test.ts"
@@ -574,9 +574,9 @@
         "F19"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "05",
-      "owner": null,
+      "owner": "agent-f22",
       "verification": [
         "pnpm vitest run tests/auth/multi-org-membership.test.ts",
         "pnpm vitest run tests/auth/org-disabled-readonly.test.ts"
