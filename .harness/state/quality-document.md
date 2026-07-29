@@ -161,3 +161,27 @@ ADR-005 要防的形态，且它不是假设，是本次审计的一手观测。
 
 未动的：第 3 条（僵尸规则二选一）、第 4 条（模板漂移）、第 5 条（hooksPath），以及
 9 个历史存量 feature 的证据补跑。下次审计从这里接。
+
+### ⚠ 第 2 条落地了但当前跑不起来 —— GitHub 账单
+
+PR #27 的 CI 10 秒即红，原因不是改动：
+
+> The job was not started because recent account payments have failed or your
+> spending limit needs to be increased.
+
+**GitHub 托管 runner 当前拒绝启动任何 job**，`harness-verify.yml` 整份（含我新加的
+doctor 步骤）处于不可执行状态。`backend-gates.yml` 跑在自建 runner 上，推测不受影响
+（未实测）。
+
+于是当前的真实门控形势比审计正文里写的还要弱一层：
+
+| 门控 | 状态 |
+|------|------|
+| PR 阶段 doctor（本次新加） | 代码已合，**因账单无法执行** |
+| PR 阶段 typecheck/lint/test | 同上，**无法执行** |
+| pre-push hook | 未随 clone 分发 + `--no-verify` 可绕 + 新 worktree 里必然失效 |
+| 合并后 `doctor --strict` | 自建 runner，推测仍可用（未实测） |
+
+**这是本次审计最讽刺的一条**：花一轮把「门控存在但不承重」修掉，结果发现门控所在的
+执行平面本身欠费停机。修账单是人类的事（agent 无权处理付款），但它必须被写在这里，
+否则下一个 agent 会以为 PR 有 CI 保护。
