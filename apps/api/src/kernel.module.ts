@@ -95,6 +95,11 @@ import type { DatabasePort } from "./application/ports/database.port";
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
 import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
 import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
+// F22 (auth bundle, continued): 多组织归属 + 组织停用只读降级。
+// ⚠ 冻结本身**不在这里**——它是迁移 0012 的 RESTRICTIVE 策略。这个 repository 只打标记。
+import { ORG_LIFECYCLE_REPOSITORY } from "./application/auth/ports";
+import { PgOrgLifecycleRepository } from "./infrastructure/auth/pg-org-lifecycle-repository";
+import { AuthOrgController } from "./interface/controllers/auth-org.controller";
 
 @Module({
   controllers: [
@@ -108,6 +113,7 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     AuthController,
     ArtifactReferenceController,
     EvidenceWithdrawalController,
+    AuthOrgController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -224,6 +230,14 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     {
       provide: REGISTRATION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F22. ⚠ 没有 `purge` 之类的 provider：phase-00 里没有任何东西会在留存期届满后销毁数据
+    // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
+    // 会让下一个接管理界面的人以为它已经在跑了。
+    {
+      provide: ORG_LIFECYCLE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrgLifecycleRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent

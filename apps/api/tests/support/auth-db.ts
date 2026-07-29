@@ -153,6 +153,101 @@ export async function resetAuthFixtures(opts: {
   });
 }
 
+/* ─────────────────────────── F22 组织生命周期 ─────────────────────────── */
+
+export interface OrgLifecycleRowRaw {
+  id: string;
+  status: string;
+  disabled_at: Date | null;
+  retention_until: Date | null;
+}
+
+/**
+ * 直接读 `organizations` 的生命周期列。
+ *
+ * ⚠ 以 owner（superuser，绕过 RLS）读，因为断言的对象是**库里到底落了什么**——
+ * 走应用路径读回来再断言，等于用被测代码证明被测代码。
+ * 「留存截止日期 = 停用时刻 + 契约常量」这条单一事实源门控只有这样读才成立。
+ */
+export async function readOrgLifecycle(orgId: string): Promise<OrgLifecycleRowRaw | null> {
+  return asOwner(async (c) => {
+    const r = await c.query<OrgLifecycleRowRaw>(
+      `SELECT id, status, disabled_at, retention_until FROM organizations WHERE id = $1`,
+      [orgId],
+    );
+    return r.rows[0] ?? null;
+  });
+}
+
+/** 这批邮箱下有几个账号。UC-1.5 V10 ① 逐字：「账号表记录数不变」。 */
+export async function countCredentials(emailLike: string): Promise<number> {
+  return asOwner(async (c) => {
+    const r = await c.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM credentials WHERE email LIKE $1`,
+      [emailLike],
+    );
+    return Number(r.rows[0]?.n ?? "0");
+  });
+}
+
+/** 某账号的全部组织成员关系。多组织归属唯一的落地形态。 */
+export async function membershipsOf(
+  userId: string,
+): Promise<{ org_id: string; org_role: string }[]> {
+  return asOwner(async (c) => {
+    const r = await c.query<{ org_id: string; org_role: string }>(
+      `SELECT org_id, org_role FROM org_memberships WHERE user_id = $1 ORDER BY org_id`,
+      [userId],
+    );
+    return r.rows;
+  });
+}
+
+/**
+ * 迁移 0012 冻结了哪些表 —— **从 catalog 问库，不从迁移文件里读**。
+ *
+ * 门控要回答的是「库现在是什么样」，而不是「迁移文件里写了什么」。
+ * 两者会分叉：`CREATE TABLE IF NOT EXISTS` 在表已存在时静默空操作，
+ * 迁移文件里的约束一条都不生效（0010 末尾记录的正是这次事故）。
+ */
+export async function frozenTableAudit(): Promise<
+  { table: string; ins: number; upd: number; del: number }[]
+> {
+  return asOwner(async (c) => {
+    const r = await c.query<{ table: string; ins: string; upd: string; del: string }>(
+      `WITH tenant AS (
+         SELECT c.relname::text AS name
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relkind = 'r'
+            AND EXISTS (
+              SELECT 1 FROM pg_constraint con
+               JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = con.conkey[1]
+               WHERE con.conrelid = c.oid AND con.contype = 'f'
+                 AND a.attname = 'org_id' AND array_length(con.conkey, 1) = 1
+            )
+       )
+       SELECT t.name AS "table",
+         (SELECT count(*)::text FROM pg_policies p
+           WHERE p.schemaname='public' AND p.tablename=t.name AND p.permissive='RESTRICTIVE'
+             AND p.cmd='INSERT' AND p.with_check LIKE '%kernel_org_is_writable%') AS ins,
+         (SELECT count(*)::text FROM pg_policies p
+           WHERE p.schemaname='public' AND p.tablename=t.name AND p.permissive='RESTRICTIVE'
+             AND p.cmd='UPDATE' AND p.with_check LIKE '%kernel_org_is_writable%') AS upd,
+         (SELECT count(*)::text FROM pg_policies p
+           WHERE p.schemaname='public' AND p.tablename=t.name AND p.permissive='RESTRICTIVE'
+             AND p.cmd='DELETE' AND p.qual LIKE '%kernel_org_is_writable%') AS del
+         FROM tenant t ORDER BY 1`,
+    );
+    return r.rows.map((x) => ({
+      table: x.table,
+      ins: Number(x.ins),
+      upd: Number(x.upd),
+      del: Number(x.del),
+    }));
+  });
+}
+
 /**
  * Delete organizations created during a test whose ids were generated at random.
  *

@@ -52,7 +52,17 @@ export interface AclObjectRef {
  * permissive default scope. Before the split, that silent path was the reachable one.
  */
 export interface ObjectRef {
-  readonly kind: AclObjectRef["kind"] | "capability";
+  /**
+   * ⚠ `organization` added by F22, and it is in `ObjectRef` but NOT in `AclObjectRef` for
+   * exactly the reason `capability` is: an organization's export is not gated by an
+   * `acl_bindings` row. Handing one to `authorizeBatch` would find no binding, fall back to
+   * the permissive default scope, and produce a normal-looking "allowed" for anybody in the
+   * organization -- which is the opposite of "仅管理员可导出" (O-29 ③). Keeping it out of
+   * `AclObjectRef` makes that a compile error instead of a silent grant; the rule that does
+   * apply lives in `domain/auth/org-lifecycle.ts` and reaches the payload through
+   * `discloseDecided`.
+   */
+  readonly kind: AclObjectRef["kind"] | "capability" | "organization";
   readonly id: string;
 }
 

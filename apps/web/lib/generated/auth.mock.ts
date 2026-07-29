@@ -52,3 +52,50 @@ export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeem
 
 /** redeemInviteAndCreateOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const redeemInviteAndCreateOrgErrors = ["INVITE_CODE_INVALID","EMAIL_TAKEN"] as const;
+
+/** switchOrgAtLogin 的成功响应样例（由契约生成） */
+export const switchOrgAtLoginMock: z.infer<typeof auth.operations.switchOrgAtLogin.out> = {
+  "org": {
+    "id": "id-1",
+    "name": "name-1",
+    "kind": "organization",
+    "team": null,
+    "modelPolicy": "any"
+  }
+};
+
+/** switchOrgAtLogin 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const switchOrgAtLoginErrors = ["NO_ORG_MEMBERSHIP","SESSION_EXPIRED","SESSION_REVOKED","AUTH_SERVICE_UNAVAILABLE"] as const;
+
+/** joinOrgWithInvite 的成功响应样例（由契约生成） */
+export const joinOrgWithInviteMock: z.infer<typeof auth.operations.joinOrgWithInvite.out> = {
+  "orgId": "orgId-1"
+};
+
+/** joinOrgWithInvite 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const joinOrgWithInviteErrors = ["INVITE_CODE_INVALID","EMAIL_NOT_VERIFIED","SESSION_EXPIRED","SESSION_REVOKED"] as const;
+
+/** exportOrganization 的成功响应样例（由契约生成） */
+export const exportOrganizationMock: z.infer<typeof auth.operations.exportOrganization.out> = {
+  "org": {
+    "id": "id-1",
+    "name": "name-1",
+    "kind": "organization",
+    "team": null,
+    "modelPolicy": "any"
+  },
+  "lifecycle": {
+    "status": "active",
+    "disabledAt": null,
+    "retentionUntil": null
+  },
+  "tables": [
+    {
+      "table": "table-1",
+      "rowCount": 1
+    }
+  ]
+};
+
+/** exportOrganization 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const exportOrganizationErrors = ["NO_ORG_MEMBERSHIP","SESSION_EXPIRED","SESSION_REVOKED"] as const;
