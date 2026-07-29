@@ -71,6 +71,12 @@ function scalar(raw: string): string {
   const s = raw.trim();
   const quoted = /^(["'])([\s\S]*?)\1/.exec(s);
   if (quoted) return quoted[2]!.trim();
+  // ⚠ 整行只有注释 ⇒ 空值。`confirmed_by:            # 确认人（姓名/邮箱）` 这种模板占位
+  //   此前会被解析成字符串 `"# 确认人（姓名/邮箱）"`——**非空**，于是
+  //   「status 是 confirmed 但没有 confirmed_by ⇒ 签核必须记名」那条检查
+  //   会被一个注释骗过去。下面那行 `\s+#` 要求 `#` 前有空白，而这里的 s 已 trim，
+  //   `#` 落在行首就匹配不上。2026-07-30 phase-01 建九个束时抓到（九份模板全长这样）。
+  if (s.startsWith("#")) return "";
   return s.replace(/\s+#.*$/, "").trim();
 }
 

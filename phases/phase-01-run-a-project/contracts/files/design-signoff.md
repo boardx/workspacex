@@ -34,9 +34,19 @@ phase-00 `artifact/coverage.md` 的缺口 **4 / 6 / 7** 明写「契约桩在 ph
 
 ### 签核前请重点确认
 
-- [ ] **删除确认与待删除队列这两屏，你看过图了吗** —— 它们**目前没有截图**（`ui.md` G-1）。
-      而 `uc-22-4-trash-partial`（**部分失败**态）是 UC-22.4 R8 唯一要求「逐屏设计」的态。
-      **半完成的删除比不删更危险**——这一张不看就签，等于没签 F45/F46。
+- [ ] **删除确认与待删除队列这两屏，你看过图了吗** —— 截图已由并行 ui-prototyper 补齐
+      （`uc-22-4-delete-impact.png` / `uc-22-4-trash-compliance.png` 含**部分失败** / `uc-22-4-trash-denied.png`）。
+      「部分失败」是 UC-22.4 R8 唯一要求「逐屏设计」的态，**半完成的删除比不删更危险**——
+      这一张不看就签，等于没签 F45/F46。
+- [ ] 🔴 **四处「界面已先表了一半态」——最容易被当成已裁决的地方**。
+      原型 agent 明确说明这些是它**被迫取的默认，不是裁决**（`ui-preview/files/README.md` 第二节）：
+      | 挂起项 | 界面上现在长什么样 | 危险在哪 |
+      |---|---|---|
+      | 观察者下载权（T-6 🔴） | `browser-denied` 画「不可带走」，但**下载按钮结构被保留**，未硬编码进组件 | 看起来像已定，其实没定。不定则 F31/F32 的 RLS 断言写不出 |
+      | 机密搜索片段（T-6 🔴） | 搜索框在，但**没有第八种状态可切**来表达片段给不给看 | 不定则「搜索失效」与「片段泄露」**两种情况都在界面上不可见地存在** |
+      | 七类物化时限（T-3 🔴） | 上传弹层与摄取抽屉里**根本没显示「多久算物化完成」**，因为没有权威数 | 别把「界面没这字段」误读成「不需要」——AC2 的断言直接依赖那五个数 |
+      | 能否删中间版本 / 能否撤销（T-4 T-5 🔴） | 版本屏每版只给「下载」不给「删除此版本」（默认=不能删）；删除屏没有撤销入口（默认=不提供），**但待删除队列组件里已有 `files-trash-revoke`** | 两个都是保守默认；且**撤销这件事在两个屏上表了相反的态** |
+      ⇒ 这四条**不签掉就等于默许了原型 agent 替你做的选择**。
 - [ ] **「物化失败」这个态在界面上不存在**（G-3 🔴）。现有 `files-ingestion-failure` 是**摄取**失败，
       与「业务对象存在但没变成文件」不是同一件事。而 UC-22.3 自称**静默失败是它最危险的缺陷模式**，
       V9 明写「不存在业务对象存在但浏览器什么都没有的静默态」——它恰好无法被表达。
@@ -162,7 +172,7 @@ packages/contracts/src/files.ts      ← zod 单一事实源
 
 | # | 冲突 | 必须裁定什么 |
 |---|---|---|
-| 🔴 **C-1** | **`sourceType` 枚举两份定义**：phase-00 artifact 束 **7 值**（`survey/conversation/interview/prototype-run/research-run/upload/ai-generated`）vs 本束 **8 值**（`file/survey/interview/workshop/research/conversation/canvas/generated`）。命名对不上（`upload`↔`file`、`ai-generated`↔`generated`、`research-run`↔`research`），**基数也不同**（phase-01 多 `workshop`/`canvas`，phase-00 多 `prototype-run`） | 收敛为**一份**封闭枚举，裁定 `prototype-run` 归属。**在此之前不要写 `files.ts` 的枚举** |
+| 🔴 **C-1** | **`sourceType` 枚举两份定义**：`packages/contracts/src/artifact.ts` 的 `ArtifactSource` **7 值** vs mock/UC 的 **8 值**。3 对同义异名 + 2 个契约缺失值（`workshop`/`canvas`，**已被界面当一等来源画进左树**）+ 1 个反向孤儿（`prototype-run`）。逐值对照见 `domain.md` 二·五节 T-11。**两侧独立发现同一件事**：本轮契约核对 + 并行 ui-prototyper（`8e8282a`） | 收敛为**一份**封闭枚举，mock `import` 它而非自己再声明。**在此之前不要写 `files.ts` 的枚举**。⚠ 同形状第二处：mock 的 `IngestState` 本地副本，今天值一致、改一处即漂 |
 | **C-2** | phase-00 I-11「固定快照不可删」vs 本束 N-16「删除后全部版本 404」 | 不是矛盾，是「默认不可删 + 唯一合规豁口」。N-22 已给形态，**请人类确认该边界** |
 | **C-3** | F47 的「报告段落标失效」桩 vs phase-00 的 `markEvidenceWithdrawn` | 极可能是**同一个操作**。若相同则本束不新造 |
 

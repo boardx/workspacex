@@ -122,7 +122,7 @@
 
 | # | 冲突 | 两处怎么写的 | 处置 |
 |---|---|---|---|
-| **C-1** 🔴 | **`sourceType` 枚举的值与基数不一致** | phase-00 `artifact/domain.md`：**7 类** `survey / conversation / interview / prototype-run / research-run / upload / ai-generated`；本束四份 UC：**8 类** `file / survey / interview / workshop / research / conversation / canvas / generated` | 差异不只是命名（`upload`↔`file`、`ai-generated`↔`generated`、`research-run`↔`research`），**基数也不同**：phase-01 多出 `workshop` 与 `canvas`，phase-00 多出 `prototype-run`。这是**同一个字段的两份定义**。必须在一致性复核上收敛为一份封闭枚举（N-3），并裁定 `prototype-run` 归到哪一类。⚠ 在收敛前，`packages/contracts/src/files.ts` **不应**先固化八值 |
+| **C-1** 🔴 | **`sourceType` 枚举的值与基数不一致** | `packages/contracts/src/artifact.ts` 的 `ArtifactSource`：**7 值**；`apps/web/lib/mock/files.ts` 的 `SourceType` 与四份 UC：**8 值** | 差异不只是命名（3 对同义异名），**基数也不同**：mock/UC 多出 `workshop` 与 `canvas`（**契约里根本没有对应值，而界面已把它们当一等来源画进左树七节点**），契约多出 `prototype-run`（UC 侧无位置）。**同一个字段的两份定义，且已经漂了。** 逐值对照表与裁决要求见 `domain.md` 第二·五节（T-11）。⚠ 在收敛前，`packages/contracts/src/files.ts` **不应**先固化任何一套——那是第三份副本。⚠ 同形状第二处：mock 的 `IngestState` 是摄取九态的本地副本，**今天值一致，改一处即漂** |
 | **C-2** | **快照不可删 vs 合规删除** | phase-00 I-11「固定快照不可删」；本束 N-16「删除后全部版本 download 404」 | **不是矛盾，是「默认不可删 + 唯一合规豁口」**。本束 N-22 给出共存形态（快照行仍在，引用项标「证据已撤回」）。这正是 phase-00 缺口⑥说的「契约桩在 phase-01 先行」，**本轮已交付**。请人类确认该边界 |
 | **C-3** | **`markEvidenceWithdrawn`（phase-00）vs F47 的报告段落失效桩** | 两者形状高度相似（都是「标注引用处 + 通知拍板人 + 不改快照」） | 极可能**是同一个操作**。一致性复核须裁定：若相同则本束**不新造**，直接调 phase-00 的；否则说清差异。否则就是第 N 次同一事实两处声明 |
 
