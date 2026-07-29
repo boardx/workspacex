@@ -22,7 +22,27 @@ import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.
 import { appConfig } from "./infrastructure/db/pg-config";
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
-import { HeaderPrincipalResolver } from "./infrastructure/auth/header-principal-resolver";
+
+// F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
+// PLACEHOLDER F18 shipped while the credential format was undecided (UC-0.6 A-3), and the
+// format is now decided (opaque token + Redis). The file stays -- its injection path lives
+// on inside `SessionTokenPrincipalResolver`, which sixteen existing kernel test files
+// depend on -- but the composition root now names the real resolver.
+import {
+  CLOCK, CREDENTIAL_REPOSITORY, LOGIN_ATTEMPT_REPOSITORY, MAILER, PASSWORD_HASHER,
+  RESET_TOKEN_REPOSITORY, SESSION_TOKEN_STORE, TOKEN_FACTORY,
+  type SessionTokenStore,
+} from "./application/auth/ports";
+import { BcryptPasswordHasher } from "./infrastructure/auth/bcrypt-password-hasher";
+import {
+  PgCredentialRepository, PgLoginAttemptRepository, PgResetTokenRepository,
+} from "./infrastructure/auth/pg-credential-repository";
+import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
+import { SessionTokenPrincipalResolver } from "./infrastructure/auth/session-token-principal-resolver";
+import { SystemClock, UuidTokenFactory } from "./infrastructure/auth/system-clock";
+import { OutboxMailer } from "./infrastructure/auth/outbox-mailer";
+import { AuthController } from "./interface/controllers/auth.controller";
+import type { Clock } from "./application/auth/ports";
 
 import { AllExceptionsFilter } from "./interface/filters/all-exceptions.filter";
 import { PrincipalGuard } from "./interface/guards/principal.guard";
@@ -62,6 +82,11 @@ import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/p
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
+// F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
+// their providers next to it without three-way merges in the middle of an existing list.
+import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
+import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
+import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
 
 @Module({
   controllers: [
@@ -71,11 +96,18 @@ import type { DatabasePort } from "./application/ports/database.port";
     ProvenanceController,
     CapabilityController,
     ArtifactBindingController,
+    AuthRegistrationController,
+    AuthController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
-    { provide: PRINCIPAL_RESOLVER_PORT, useClass: HeaderPrincipalResolver },
+    {
+      provide: PRINCIPAL_RESOLVER_PORT,
+      useFactory: (sessions: SessionTokenStore, clock: Clock) =>
+        new SessionTokenPrincipalResolver({ sessions, clock }),
+      inject: [SESSION_TOKEN_STORE, CLOCK],
+    },
     { provide: HEALTH_PROBE_FACTORY, useValue: pgHealthProbe },
     {
       provide: IDENTITY_REPOSITORY,
@@ -123,11 +155,52 @@ import type { DatabasePort } from "./application/ports/database.port";
       inject: [DATABASE_PORT],
     },
     { provide: ID_FACTORY, useClass: UuidIdFactory },
-    // Process-local for now. Real session storage arrives with phase-01 01-auth, together
-    // with the credential format this kernel deliberately did not decide (UC-0.6 A-3).
+    // ⚠ Still process-local, and that is CORRECT -- do not "fix" it by pointing it at Redis.
+    //
+    // This is `identity`'s SessionStore: the per-user project-scoped CONTEXT that
+    // `switchOrganization` clears (O-12). It is NOT the session-token store; that one is
+    // `SESSION_TOKEN_STORE` below, and it IS Redis-backed as of F20. The two share a word
+    // and nothing else. Gap A-3 ("session storage is still in-process") was about the token
+    // store, and it is closed.
     { provide: SESSION_STORE, useClass: InMemorySessionStore },
+
+    /* ── F20 / F21 auth ─────────────────────────────────────────────────────── */
+    {
+      provide: CREDENTIAL_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgCredentialRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: LOGIN_ATTEMPT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgLoginAttemptRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: RESET_TOKEN_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgResetTokenRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Opaque token + Redis (domain §3 ①): JWT cannot satisfy I-5 "all existing sessions
+    // invalid immediately" without a blacklist, which is this with extra steps.
+    { provide: SESSION_TOKEN_STORE, useFactory: () => new RedisSessionTokenStore(redisConfig()) },
+    { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
+    { provide: TOKEN_FACTORY, useClass: UuidTokenFactory },
+    { provide: CLOCK, useClass: SystemClock },
+    // ⚠ Records, does not send. Mail is EGRESS (X-3) and gap A-4 -- whether a local
+    // organization may use password login at all is still an open product question, and
+    // wiring an SMTP client here would answer it by accident. See outbox-mailer.ts.
+    { provide: MAILER, useClass: OutboxMailer },
     { provide: AUTHORIZATION_CACHE, useClass: InMemoryAuthorizationCache },
     { provide: DECISION_ID_FACTORY, useClass: UuidDecisionIdFactory },
+    // F19. ⚠ No `SESSION_STORE` here: F20 owns session issuance, and the identity bundle's
+    // binding above is the one that exists. Two features each providing it would be two
+    // session stores, which is indistinguishable from one until a user is logged out at
+    // random.
+    {
+      provide: REGISTRATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },

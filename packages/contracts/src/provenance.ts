@@ -70,10 +70,10 @@ export const ProvenanceEvent = z.object({
   target: z.object({
     kind: z.enum(["artifact", "artifact-version", "capability", "membership", "project", "organization"]),
     id: z.string(),
-  }),
+  }).strict(),
   /** 动作的影响范围 / 前后值等，按 `type` 解释；越权尝试记录目标与被拒原因 */
   detail: z.record(z.unknown()),
-});
+}).strict();
 
 export const operations = {
   /**
@@ -97,11 +97,11 @@ export const operations = {
       until: z.string().optional(),
       limit: z.number().int().positive().max(500).optional(),
       cursor: z.string().optional(),
-    }),
+    }).strict(),
     out: z.object({
       events: z.array(ProvenanceEvent),
       nextCursor: z.string().nullable(),
-    }),
+    }).strict(),
     err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT"] as const,
   },
 } as const;

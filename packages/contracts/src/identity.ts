@@ -103,7 +103,7 @@ export const Organization = z.object({
   kind: OrgKind,
   team: z.string().nullable(),
   modelPolicy: ModelPolicy.optional(),
-});
+}).strict();
 
 export const PermissionDecision = z.object({
   allowed: z.boolean(),
@@ -119,7 +119,7 @@ export const PermissionDecision = z.object({
    */
   orgLayer: z.object({
     role: OrgRole.nullable(), teamId: z.string().nullable(), passed: z.boolean(),
-  }),
+  }).strict(),
   /**
    * ⚠ **两层可空，含义不同，不能合并**：
    * · `projectLayer === null` —— 本次请求**没有项目上下文**（domain I-11）。
@@ -132,12 +132,12 @@ export const PermissionDecision = z.object({
    */
   projectLayer: z.object({
     role: ProjectRole.nullable(), groupId: z.string().nullable(), passed: z.boolean(),
-  }).nullable(),
-  scopeLayer: z.object({ scope: VisibilityScope, passed: z.boolean() }),
+  }).strict().nullable(),
+  scopeLayer: z.object({ scope: VisibilityScope, passed: z.boolean() }).strict(),
   reasonCode: PermissionReason.nullable(),
   /** 写进 Context Pack 的 items[]，使「为什么这条能给你看」可回溯（UC-0.2） */
   decisionId: z.string(),
-});
+}).strict();
 
 export const CapabilityListing = z.object({
   id: z.string(),
@@ -146,7 +146,7 @@ export const CapabilityListing = z.object({
   name: z.string(),
   scope: VisibilityScope,
   enabled: z.boolean(),
-});
+}).strict();
 
 /**
  * `mutateCapability` 的三种 payload —— **2026-07-29 修订，F15 实现时发现的契约缺陷**。
@@ -196,9 +196,9 @@ export const CapabilityUpdatePayload = z.object({
   name: z.string().min(1).optional(),
   scope: VisibilityScope.optional(),
   ownerTeamId: z.string().nullable().optional(),
-});
+}).strict();
 
-export const CapabilityDisablePayload = z.object({ id: z.string().min(1) });
+export const CapabilityDisablePayload = z.object({ id: z.string().min(1) }).strict();
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
@@ -213,9 +213,9 @@ export const operations = {
     in: z.object({
       orgId: z.string(),
       projectId: z.string().optional(),
-      object: z.object({ kind: z.enum(["project", "artifact", "segment"]), id: z.string() }),
+      object: z.object({ kind: z.enum(["project", "artifact", "segment"]), id: z.string() }).strict(),
       action: z.string(),
-    }),
+    }).strict(),
     // ⚠ 鉴权结果是**可解释的数据不是异常**，任何情况都返回 200 + decision
     out: PermissionDecision,
     err: [] as const,
@@ -244,9 +244,9 @@ export const operations = {
       objects: z.array(z.object({
         kind: z.enum(["project", "artifact", "segment"]),
         id: z.string(),
-      })).min(1).max(500),
+      }).strict()).min(1).max(500),
       action: z.string(),
-    }),
+    }).strict(),
     /** 与入参 objects 等长、同序 */
     out: z.array(PermissionDecision),
     err: [] as const,
@@ -280,7 +280,7 @@ export const operations = {
       projectId: z.string(),
       itemId: z.string(),
       purpose: ReadPurpose,
-    }),
+    }).strict(),
     out: z.object({
       itemId: z.string(),
       layer: ContentLayer,
@@ -288,7 +288,7 @@ export const operations = {
       body: z.string(),
       /** 非 null ⇔ 这次读取以审计名义发生，痕已落库 */
       provenanceEventId: z.string().nullable(),
-    }),
+    }).strict(),
     /**
      * ⚠ 草稿与「不存在」在**协议层不可区分**（uc-0-1 V4）：两者都是 404，
      * 所以这里没有 `DRAFT_*` 码——有这么一个码，等于把「这儿有份草稿」写进了响应。
@@ -314,7 +314,7 @@ export const operations = {
    */
   getPersonalLayerSummary: {
     method: "GET", path: "/identity/personal-layer/summary",
-    in: z.object({ orgId: z.string(), userId: z.string() }),
+    in: z.object({ orgId: z.string(), userId: z.string() }).strict(),
     out: z.object({
       userId: z.string(),
       itemCount: z.number().int().nonnegative(),
@@ -324,27 +324,27 @@ export const operations = {
        * 用户的第一反应是「加载失败了」。
        */
       reasonCode: PermissionReason.nullable(),
-    }),
+    }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
   resolveIdentity: {
     method: "GET", path: "/identity/me",
-    in: z.object({ orgId: z.string(), projectId: z.string().optional() }),
+    in: z.object({ orgId: z.string(), projectId: z.string().optional() }).strict(),
     out: z.object({
       org: Organization,
       orgRole: OrgRole,
       teamId: z.string().nullable(),
       projectRole: ProjectRole.nullable(),
       groupId: z.string().nullable(),
-    }),
+    }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
   switchOrganization: {
     method: "POST", path: "/identity/switch-org",
-    in: z.object({ toOrgId: z.string() }),
-    out: z.object({ org: Organization, capabilities: z.array(CapabilityListing) }),
+    in: z.object({ toOrgId: z.string() }).strict(),
+    out: z.object({ org: Organization, capabilities: z.array(CapabilityListing) }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
     /**
      * ⚠ 副作用是**契约的一部分**，不是实现细节（O-12 + F15）：
@@ -356,7 +356,7 @@ export const operations = {
 
   listCapabilities: {
     method: "GET", path: "/capabilities",
-    in: z.object({ orgId: z.string(), kind: CapabilityKind }),
+    in: z.object({ orgId: z.string(), kind: CapabilityKind }).strict(),
     // ⚠ 组织配置为空时返回 []，**不返回任何内置默认值**（F15 验收面 V1）
     out: z.array(CapabilityListing),
     err: ["NO_ORG_MEMBERSHIP"] as const,
@@ -383,13 +383,13 @@ export const operations = {
       payload: z.record(z.unknown()),
       /** D-U5：停用时必填。默认 interrupt（安全事件）；drain = 允许跑完当前一轮（版本下线） */
       disableMode: z.enum(["interrupt", "drain"]).optional(),
-    }),
+    }).strict(),
     out: z.object({
       listing: CapabilityListing,
       provenanceEventId: z.string(),
       /** ⚠ 契约的一部分：确认弹窗要显示「当前有 N 个进行中的调用会被中断」 */
       affectedInFlightCalls: z.number().int().nonnegative(),
-    }),
+    }).strict(),
     err: ["PROJECT_ROLE_INSUFFICIENT", "ORG_SCOPE_DENIED"] as const,
   },
 
@@ -408,8 +408,8 @@ export const operations = {
     method: "POST", path: "/identity/model-constraint",
     in: z.object({
       orgId: z.string(),
-      dataScope: z.array(z.object({ itemId: z.string(), confidential: z.boolean() })),
-    }),
+      dataScope: z.array(z.object({ itemId: z.string(), confidential: z.boolean() }).strict()),
+    }).strict(),
     /**
      * ⚠ D-U1「全程本地，不分流」：`dataScope` 含**任何** confidential
      * ⇒ localOnly=true ⇒ 本轮**所有**模型调用走本地，云端整轮不可用。
@@ -420,7 +420,7 @@ export const operations = {
       localOnly: z.boolean(),
       source: ConstraintSource,
       reason: z.string(),
-    }),
+    }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
@@ -428,15 +428,15 @@ export const operations = {
     method: "POST", path: "/identity/export/preview",
     in: z.object({
       fromLocalOrgId: z.string(), toOrgId: z.string(), artifactIds: z.array(z.string()),
-    }),
+    }).strict(),
     /** 逐项列出将离开本机的内容**及其在目标组织的可见性**（按目标 acl_bindings 预演） */
     out: z.object({
       items: z.array(z.object({
         artifactId: z.string(), title: z.string(),
-        willBeVisibleTo: z.array(z.object({ kind: z.string(), id: z.string(), name: z.string() })),
-      })),
+        willBeVisibleTo: z.array(z.object({ kind: z.string(), id: z.string(), name: z.string() }).strict()),
+      }).strict()),
       token: z.string(),
-    }),
+    }).strict(),
     err: ["NO_ORG_MEMBERSHIP", "EXPORT_DIRECTION_FORBIDDEN"] as const,
   },
 
@@ -447,14 +447,14 @@ export const operations = {
       artifactIds: z.array(z.string()),
       /** ⚠ 必须先 previewExport 并由人确认——**禁止任何自动同步/后台上传/定时推送** */
       confirmedPreviewToken: z.string(),
-    }),
+    }).strict(),
     out: z.object({
       /** ⚠ 复制而非迁移：本地副本保留 */
       copiedArtifactIds: z.array(z.string()),
       /** ⚠ **两侧**都写；目标侧条目标注「来自本地组织，未经本组织入库审核」 */
       localProvenanceEventId: z.string(),
       targetProvenanceEventId: z.string(),
-    }),
+    }).strict(),
     /** ⚠ 单向：正式组织 → 本地组织的导入一律 EXPORT_DIRECTION_FORBIDDEN */
     err: ["EXPORT_PREVIEW_REQUIRED", "NO_ORG_MEMBERSHIP", "EXPORT_DIRECTION_FORBIDDEN"] as const,
   },

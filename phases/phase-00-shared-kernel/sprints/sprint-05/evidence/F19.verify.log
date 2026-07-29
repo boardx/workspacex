@@ -1,0 +1,461 @@
+$ pnpm --filter api run typecheck
+[exit 0]
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/api
+> tsc --noEmit
+
+
+
+$ pnpm --filter api run lint
+[exit 0]
+
+> @repo/api@0.0.0 lint /Users/shenyanbin/Documents/workspacex/apps/api
+> node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+
+✅ lint-error-leak: 14 files in the interface layer, no error detail reaches a response
+scanned=14
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=91 tenant-tables=22 allowlisted=5
+· [debt] apps/web/lib/mock/admin.ts:186  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/admin.ts:187  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/admin.ts:188  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/admin.ts:189  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:44  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:45  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/chat.ts:46  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:47  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:48  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/chat.ts:49  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/chat.ts:336  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:374  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:383  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:411  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:445  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:446  list-shaped constant `models` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:471  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:521  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=237 violations=0 debt=20 migrations=11
+✅ lint-arch-deps: 89 files, all dependencies point inward
+scanned=89
+
+
+$ pnpm --filter api exec vitest run tests/auth
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/auth/registration-repo-is-write-only.test.ts (4 tests) 2ms
+{"level":"error","msg":"http exception","traceId":"47cb96ca-75cb-4e2f-867c-0bd6daca7ee5","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/auth/one-code-one-org-concurrency.test.ts (8 tests) 1448ms
+   ✓ 1. the statement: conditional UPDATE admits exactly one winner > B's redemption returns zero rows once A has committed, with no application coordination 342ms
+   ✓ 3. the repository: N simultaneous registrations create ONE organization > the full use case behaves the same way end to end (real hashing, contracted errors) 497ms
+{"level":"error","msg":"http exception","traceId":"f392ba1a-15c6-4ae0-911b-462cf36193e4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"2b441240-d7d3-4031-b097-c479d49e2146","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/auth/register-email-verification.test.ts (7 tests) 2141ms
+   ✓ the token is issued with the contracted window and the contracted properties > two registrations never share a token 491ms
+ ✓ tests/auth/password-hash-invariant.test.ts (12 tests) 2290ms
+   ✓ 1. the hasher > salts: the same password twice gives two different hashes, both verifying 1118ms
+{"level":"error","msg":"http exception","traceId":"7bf2565e-4421-494c-9080-1f1ef744147e","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"aede6ea7-520b-4238-a5fc-e53b386040f6","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3eeea1d8-c221-42da-a1f8-2a254695aae6","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"e514a130-8084-4359-8cf5-2ddfd089689c","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:102:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"contract validation failed","traceId":"1eba4efc-c746-4015-ad0f-ff2c149a2509","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"1cbb37df-1d85-4c4b-a769-b90f638db072","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"9e2b1c08-50e0-4136-b7d6-555b749d5747","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"341ffa44-b67a-430f-a122-8a9262d9e6a4","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/auth/register-http-contract.test.ts (14 tests) 3305ms
+   ✓ failure: invite code -- four causes, ONE indistinguishable response > absent / spent / expired / revoked produce byte-identical bodies apart from traceId 1163ms
+   ✓ failure: email already registered > 409 + EMAIL_TAKEN, and the second code is NOT spent 453ms
+ ✓ tests/auth/invite-code-redeem-atomic.test.ts (9 tests) 4568ms
+   ✓ every failure leaves NO half organization (I-4) > code already redeemed: second attempt rolls back entirely, first org untouched 763ms
+   ✓ every failure leaves NO half organization (I-4) > email taken: the code is NOT spent, so the user can retry after signing in (A2/A3) 483ms
+   ✓ every failure leaves NO half organization (I-4) > expired code (O-29: 90 days): refused, nothing created 484ms
+   ✓ every failure leaves NO half organization (I-4) > revoked code: refused, nothing created 468ms
+   ✓ every failure leaves NO half organization (I-4) > absent code: refused, nothing created 463ms
+   ✓ the four ways a code can fail are indistinguishable (V9 / V11) > absent, spent, expired and revoked all produce the identical error object 1087ms
+
+ Test Files  6 passed (6)
+      Tests  54 passed (54)
+   Start at  19:50:57
+   Duration  4.90s (transform 317ms, setup 0ms, collect 663ms, tests 13.75s, environment 1ms, prepare 370ms)
+
+
+
+$ apps/api/scripts/verify-rls.sh
+[exit 0]
+== bringing up postgres, resetting to an empty database ==
+== applying migrations as the owner ==
+applied 11 migration(s), skipped 0
+  + 0001-kernel-roles.sql
+  + 0002-rls-probe.sql
+  + 0003-identity.sql
+  + 0004-f02-tenant-isolation-audit.sql
+  + 0005-f03-admin-boundary.sql
+  + 0006-f04-artifact-model.sql
+  + 0007-f05-snapshot-immutability.sql
+  + 0008-f06-binding-modes.sql
+  + 0008-f15-capability-listings.sql
+  + 0009-f10-retrieval-index.sql
+  + 0010-f19-auth-registration.sql
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
+  ✓ audit is not idle: 22 tenant tables classified ok
+  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
+ Container workspacex-kernel-postgres-1 Running 
+
+
+$ pnpm --filter api run migrate:check
+[exit 0]
+
+> @repo/api@0.0.0 migrate:check /Users/shenyanbin/Documents/workspacex/apps/api
+> ./scripts/verify-migrations.sh
+
+  applied 11 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /Users/shenyanbin/Documents/workspacex/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+ Container workspacex-kernel-postgres-1 Running 
+
+
+$ node .harness/scripts/lint-contract-source.mjs
+[exit 0]
+✅ lint-contract-source: generated files match the contract, no hand-written copies (63 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+
+
+$ pnpm --filter @repo/contracts run test
+[exit 0]
+
+> @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+
+ ✓ tests/no-forbidden-routes.test.ts (6 tests) 2ms
+ ✓ tests/pending-thresholds.test.ts (6 tests) 23ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 2ms
+ ✓ tests/contract-shape.test.ts (17 tests) 5ms
+
+ Test Files  4 passed (4)
+      Tests  31 passed (31)
+   Start at  19:51:06
+   Duration  245ms (transform 75ms, setup 0ms, collect 174ms, tests 32ms, environment 0ms, prepare 168ms)
+
+
+
+
+[BASE VERIFY] $ pnpm -w run verify:base
+[exit 0]
+
+> agentic-harness-template@ verify:base /Users/shenyanbin/Documents/workspacex
+> turbo run typecheck lint test
+
+
+   • Packages in scope: @repo/api, @repo/contracts, @repo/coord-protocol, web
+   • Running typecheck, lint, test in 4 packages
+   • Remote caching disabled
+
+@repo/contracts:lint: cache hit, replaying logs 74492e98fa6f770b
+@repo/contracts:test: cache hit, replaying logs 4a84905c3508687b
+@repo/coord-protocol:lint: cache hit, replaying logs ad540133c575347c
+@repo/contracts:typecheck: cache hit, replaying logs f12c563b5a202679
+web:typecheck: cache hit, replaying logs 58c699d5579743ae
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/coord-protocol:test: cache hit, replaying logs 616d8fc852c45dce
+@repo/coord-protocol:typecheck: cache hit, replaying logs fb4312bed24eb065
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:test: 
+@repo/contracts:test: > @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: > vitest run
+@repo/contracts:test: 
+@repo/contracts:test: 
+@repo/contracts:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+@repo/contracts:test: 
+@repo/contracts:test:  ✓ tests/pending-thresholds.test.ts (6 tests) 42ms
+@repo/contracts:test:  ✓ tests/no-forbidden-routes.test.ts (6 tests) 4ms
+@repo/contracts:test:  ✓ tests/contract-shape.test.ts (17 tests) 12ms
+@repo/contracts:test:  ✓ tests/out-schemas-strict.test.ts (2 tests) 4ms
+@repo/contracts:test: 
+@repo/contracts:test:  Test Files  4 passed (4)
+@repo/contracts:test:       Tests  31 passed (31)
+@repo/contracts:test:    Start at  19:41:22
+@repo/contracts:test:    Duration  1.02s (transform 844ms, setup 0ms, collect 1.80s, tests 61ms, environment 0ms, prepare 714ms)
+@repo/contracts:test: 
+web:test: cache hit, replaying logs 3bcda8f8ffc32fb5
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/determined-herschel-4a7fc6/packages/coord-protocol
+@repo/coord-protocol:lint: > echo 'lint: ok'
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: lint: ok
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: > @repo/coord-protocol@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/determined-herschel-4a7fc6/packages/coord-protocol
+@repo/coord-protocol:test: > vitest run
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/determined-herschel-4a7fc6/packages/coord-protocol
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  ✓ test/protocol.test.ts (19 tests) 5ms
+@repo/coord-protocol:test:  ✓ test/client.test.ts (20 tests) 10ms
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  Test Files  2 passed (2)
+@repo/coord-protocol:test:       Tests  39 passed (39)
+@repo/coord-protocol:test:    Start at  18:29:56
+@repo/coord-protocol:test:    Duration  1.12s (transform 200ms, setup 0ms, collect 438ms, tests 14ms, environment 0ms, prepare 353ms)
+@repo/coord-protocol:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/determined-herschel-4a7fc6/packages/coord-protocol
+@repo/coord-protocol:typecheck: > tsc --noEmit
+@repo/coord-protocol:typecheck: 
+web:lint: cache hit, replaying logs 5368a7a8c6f24ece
+@repo/api:typecheck: cache hit, replaying logs 4a11f85047506507
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: > vitest run
+web:test: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/web
+web:test: 
+web:test:  ✓ tests/single-source-of-truth.test.ts (7 tests) 5ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 324ms
+web:test:    ✓ lint-design.sh 门控 > 对合规 fixture 放行（exit 0） 319ms
+web:test: 
+web:test:  Test Files  2 passed (2)
+web:test:       Tests  19 passed (19)
+web:test:    Start at  19:41:22
+web:test:    Duration  1.51s (transform 61ms, setup 0ms, collect 440ms, tests 328ms, environment 0ms, prepare 522ms)
+web:test: 
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/api:lint: cache hit, replaying logs 9933e5c044732297
+@repo/api:test: cache hit, replaying logs 5827cd0fc493e144
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 14 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=14
+@repo/api:lint: ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+@repo/api:lint: scanned=91 tenant-tables=22 allowlisted=5
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:186  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:187  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:188  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:189  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:44  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:45  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:46  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:47  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:48  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:49  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:336  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:374  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:383  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:411  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:445  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:446  list-shaped constant `models` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:471  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:521  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+@repo/api:lint: ✅ lint-no-builtin-capabilities: no built-in capability list in product code
+@repo/api:lint: scanned=237 violations=0 debt=20 migrations=11
+@repo/api:lint: ✅ lint-arch-deps: 89 files, all dependencies point inward
+@repo/api:lint: scanned=89
+@repo/api:test: 
+@repo/api:test: > @repo/api@0.0.0 test /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:test: > vitest run
+@repo/api:test: 
+@repo/api:test: 
+@repo/api:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+@repo/api:test: 
+@repo/api:test:  ✓ tests/kernel/context-pack-schema.test.ts (24 tests) 7ms
+@repo/api:test:  ✓ tests/kernel/rbac-two-layer.test.ts (21 tests) 2398ms
+@repo/api:test:  ✓ tests/auth/one-code-one-org-concurrency.test.ts (8 tests) 2193ms
+@repo/api:test:    ✓ 1. the statement: conditional UPDATE admits exactly one winner > B's redemption returns zero rows once A has committed, with no application coordination 405ms
+@repo/api:test:    ✓ 3. the repository: N simultaneous registrations create ONE organization > the full use case behaves the same way end to end (real hashing, contracted errors) 723ms
+@repo/api:test:  ✓ tests/kernel/artifact-schema-six-tables.test.ts (33 tests) 2950ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"43b5740f-1b93-4a87-b979-ed19ca09fd1c","detail":{"name":"ConflictException","message":"cannot_downgrade","stack":"ConflictException: cannot_downgrade\n    at ArtifactBindingController.run (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/artifact-binding.controller.ts:207:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"dacc0fb4-2ce9-4d79-ad35-147db6e10f49","detail":{"name":"ConflictException","message":"version_changed","stack":"ConflictException: version_changed\n    at ArtifactBindingController.run (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/artifact-binding.controller.ts:208:51)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"93aedd2d-14df-4363-afb0-a7f10e49c18b","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ArtifactBindingController.run (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/artifact-binding.controller.ts:205:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"0df77638-f30a-45ee-a3f4-ee0ad5b70b8e","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at ArtifactBindingController.run (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/artifact-binding.controller.ts:200:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/snapshot-concurrent-single-version.test.ts (10 tests) 753ms
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"769dcea3-b7b1-45b8-8b3c-81f5ae200aa6","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test:  ✓ tests/kernel/binding-three-modes.test.ts (14 tests) 3600ms
+@repo/api:test:    ✓ the three modes are the contract's three modes > artifact_bindings.mode enumerates exactly BindingMode 330ms
+@repo/api:test:    ✓ I-8: pinned means frozen to a version, and only pinned does > a binding cannot pin another artifact's version 405ms
+@repo/api:test:    ✓ draft: private to its author, on nobody's project side > the row exists and names its author, and NO requester sees it in the list 453ms
+@repo/api:test:    ✓ draft: private to its author, on nobody's project side > counter-proof: the SAME binding appears the moment it stops being a draft 316ms
+@repo/api:test:    ✓ live follows the source, pinned does not -- asserted against the same move > after a new version is pinned, the live entry moved to v2 and the pinned entry is still v1 328ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"244b6226-9f04-44d6-85ca-2d34487cd745","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ArtifactBindingController.run (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/artifact-binding.controller.ts:202:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/mode-upgrade-no-downgrade.test.ts (14 tests) 3619ms
+@repo/api:test:    ✓ A2: an upgrade really upgrades > live -> pinned freezes at the head the caller declared, and the badge changes 344ms
+@repo/api:test:    ✓ A2: an upgrade really upgrades > draft -> pinned is also an upgrade, and draft -> live is the only way to publish 470ms
+@repo/api:test:  ✓ tests/kernel/backflow-list-fields.test.ts (13 tests) 3732ms
+@repo/api:test:    ✓ V3: every row carries mode / version / pinnedBy / pinnedAt, none of them empty > both modes fill all four, from different places 326ms
+@repo/api:test:    ✓ V3: every row carries mode / version / pinnedBy / pinnedAt, none of them empty > the four fields track WHAT MOVED: live re-reads the head, pinned does not 489ms
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"3bdaeea1-12f4-43b7-b913-d10128a8f280","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"e660a9e8-cf48-43d2-87d1-e675f91ea981","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:154:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 4394ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"32c18656-5a0a-4275-8210-727c3ba0127a","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:154:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"b3d08343-072a-48a4-b1ef-fc7b597e358b","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:154:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"fa805305-543f-486b-b835-c1c1e13ca6c7","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:149:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"36d4f146-a7a6-41e8-866d-4259edb4bd32","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:161:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"54e39727-67a8-47a1-8d26-6cc1192043a8","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:161:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"39753509-f6e2-4824-a60b-e12d06f6da49","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"19a38a99-084b-4b1c-93b0-7a2e44cbc5be","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at CapabilityController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:161:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/file-first-materialization.test.ts (21 tests) 1057ms
+@repo/api:test:  ✓ tests/kernel/capability-change-provenance.test.ts (19 tests) 1714ms
+@repo/api:test:  ✓ tests/kernel/snapshot-no-edit-no-delete.test.ts (14 tests) 1006ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"c769b1a3-06a9-4aed-a0e3-32bcd154cef9","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at CapabilityController.list (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/capability.controller.ts:115:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/anchor-back-to-origin.test.ts (11 tests) 1193ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"585e0c56-1b23-4557-bdad-d877836581a4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/retrieval-five-channels.test.ts (37 tests) 5961ms
+@repo/api:test:    ✓ all five channels are wired to something real > each channel returns at least one row on its own terms 366ms
+@repo/api:test:    ✓ all five channels are wired to something real > counter-proof: with the corpus emptied, every channel returns nothing 534ms
+@repo/api:test:    ✓ all five channels are wired to something real > the graph channel gives every hit the same score -- a fixed bonus, never a verdict 351ms
+@repo/api:test:    ✓ all five channels are wired to something real > graph traversal stops at depth 2 -- an uncapped walk is graph-first by accident 340ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"1081fe2a-a469-465e-8a78-feb1ef80efb3","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"c314bd7f-04c0-4a25-a7ad-64d55eb9f6f4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/org-scoped-capabilities.test.ts (14 tests) 2198ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"2ed8c185-1ba0-4716-bf0d-ffd93f0cf67a","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"955cba8e-dc04-496b-82fe-de1d8888aec6","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"538527ad-df57-42e7-b6d5-c351b7d6e797","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:99:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"89fb7a31-86f9-4536-b7c5-f19a46ead7ac","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test:  ✓ tests/kernel/no-builtin-capability-lists.test.ts (11 tests) 1666ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"1cffb028-c270-4ca7-8350-888f38e2b69c","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ProvenanceController.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/provenance.controller.ts:81:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/rls-force-nonowner.test.ts (13 tests) 439ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"5ec42b8e-e40d-4908-b609-687c200bdde6","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ProvenanceController.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/provenance.controller.ts:78:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"3e748e1d-3a6b-4fe4-8224-0d978c395fc8","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.modelConstraint (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:278:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/org-model-policy.test.ts (15 tests) 2391ms
+@repo/api:test:  ✓ tests/auth/password-hash-invariant.test.ts (12 tests) 2627ms
+@repo/api:test:    ✓ 1. the hasher > salts: the same password twice gives two different hashes, both verifying 1349ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"27cbf60c-8a5f-4bc4-a93b-58e996c95563","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/auth-registration.controller.ts:102:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"8149b651-fcfb-4f08-b187-7fde3d7473b5","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"6bf89037-3957-4be4-b673-8a437f9c6d08","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"cf92e2e4-d6b1-4edf-92c1-425b43981e9c","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"5866c390-03d8-4c5f-95a5-60ef3be15944","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"229fb6fa-ba6c-4c85-b655-3bdcb4bfa3e9","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/auth/register-http-contract.test.ts (14 tests) 3948ms
+@repo/api:test:    ✓ the route is reachable WITHOUT authentication, and only this route is > registration does not require a principal (@Public), but a protected route still does 357ms
+@repo/api:test:    ✓ success: the response conforms to the contract > 201 with { userId, orgId, emailVerificationSent: true } 322ms
+@repo/api:test:    ✓ success: the response conforms to the contract > the response carries NO organization content and no credential material 327ms
+@repo/api:test:    ✓ failure: invite code -- four causes, ONE indistinguishable response > absent / spent / expired / revoked produce byte-identical bodies apart from traceId 1519ms
+@repo/api:test:    ✓ failure: email already registered > 409 + EMAIL_TAKEN, and the second code is NOT spent 670ms
+@repo/api:test: {"level":"error","msg":"unhandled exception","traceId":"94c2c673-6331-4661-9db4-3011601fa9ce","detail":{"name":"error","message":"permission denied for table provenance_events","stack":"error: permission denied for table provenance_events\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at /Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:69:17\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at Module.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/identity/read-content.ts:120:25)\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:159:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/snapshot-immutable-roundtrip.test.ts (5 tests) 581ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"5254d482-e8f3-48e2-90d7-3c46c33f02cb","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"9a6ca1c6-e5d3-4ea6-9536-12447c757a74","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/auth/invite-code-redeem-atomic.test.ts (9 tests) 5704ms
+@repo/api:test:    ✓ the happy path writes all four things, and writes them as the app role > creates credential + organization + admin membership + verification, and spends the code 362ms
+@repo/api:test:    ✓ every failure leaves NO half organization (I-4) > code already redeemed: second attempt rolls back entirely, first org untouched 899ms
+@repo/api:test:    ✓ every failure leaves NO half organization (I-4) > email taken: the code is NOT spent, so the user can retry after signing in (A2/A3) 589ms
+@repo/api:test:    ✓ every failure leaves NO half organization (I-4) > expired code (O-29: 90 days): refused, nothing created 635ms
+@repo/api:test:    ✓ every failure leaves NO half organization (I-4) > revoked code: refused, nothing created 626ms
+@repo/api:test:    ✓ every failure leaves NO half organization (I-4) > absent code: refused, nothing created 609ms
+@repo/api:test:    ✓ the four ways a code can fail are indistinguishable (V9 / V11) > absent, spent, expired and revoked all produce the identical error object 1455ms
+@repo/api:test:  ✓ tests/kernel/admin-audit-access-visible-to-lead.test.ts (14 tests) 2041ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"dde9b53a-7fe3-4ee9-8358-c7ff2663d76e","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/context-pack-six-tuple.test.ts (33 tests) 6ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"0eb3836f-72e9-4693-90cc-e1d8e7350cfe","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"1a4cfff7-15c9-406c-9cdb-0054565e01a5","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"aa9514ca-b0c9-4b4a-8298-f9af5f8b674a","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.me (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:223:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/retrieval-fts-first-class.test.ts (15 tests) 3820ms
+@repo/api:test:    ✓ V11 arm 1 -- an exact query hits, and it hits THROUGH fts > a mixed CN/EN query reaches a mixed CN/EN document 308ms
+@repo/api:test:    ✓ query planning does not silently drop the exact channel > an exact-looking query weights fts above its baseline 333ms
+@repo/api:test:  ✓ tests/kernel/context-pack-items-from-disclosure.test.ts (6 tests) 1003ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"957aefab-e5d3-448c-b16f-0c889b92b2cb","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.switchOrg (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:248:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"606ba6dc-79c2-4539-96a2-66efca86341a","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:170:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/auth/registration-repo-is-write-only.test.ts (4 tests) 2ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"f7324513-5686-426e-a9f6-93311a4a98c8","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:170:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"56268f1d-7fd3-473f-9dda-3130aa78c4f3","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:170:52)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"2952b812-ff2d-4734-b34f-816d0d480973","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"dade5e9e-c2d2-4f1d-88df-681fbc81017f","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"c0490167-cc1c-4977-a90c-d1a41ae30c31","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:172:57)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test:  ✓ tests/kernel/admin-boundary-deny.test.ts (12 tests) 1887ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"7c8fd134-ac8c-4642-9247-889efc4e3fd6","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test:  ✓ tests/arch-gate.test.ts (7 tests) 214ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"8c8b5d59-fac3-48cd-81b3-979da194f587","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at IdentityController.readContent (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/identity.controller.ts:176:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"contract validation failed","traceId":"c13d82a4-13ad-4430-b6d3-3f82913311a9","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+@repo/api:test:  ✓ tests/kernel/org-switch-context-reset.test.ts (11 tests) 1595ms
+@repo/api:test:  ✓ tests/kernel/contract-response.test.ts (8 tests) 883ms
+@repo/api:test:  ✓ tests/kernel/admin-personal-layer-count-only.test.ts (10 tests) 1434ms
+@repo/api:test:  ✓ tests/contract-single-source.test.ts (4 tests) 490ms
+@repo/api:test:    ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 468ms
+@repo/api:test:  ✓ tests/kernel/rls-cross-tenant-zero-leak.test.ts (8 tests) 1049ms
+@repo/api:test:  ✓ tests/auth/register-email-verification.test.ts (7 tests) 2374ms
+@repo/api:test:    ✓ a new account starts unverified and can be verified -- BOTH directions > registration leaves email_verified_at NULL, and confirming sets it 353ms
+@repo/api:test:    ✓ a new account starts unverified and can be verified -- BOTH directions > the link is ONE-TIME: a second click changes nothing and reports nothing new 355ms
+@repo/api:test:    ✓ a new account starts unverified and can be verified -- BOTH directions > an expired link (O-28: 24 hours) is refused, and the account stays unverified 342ms
+@repo/api:test:    ✓ a new account starts unverified and can be verified -- BOTH directions > a forged token verifies nobody 308ms
+@repo/api:test:    ✓ the token is issued with the contracted window and the contracted properties > two registrations never share a token 522ms
+@repo/api:test:  ✓ tests/kernel/pgvector-permission-recall.test.ts (14 tests) 10705ms
+@repo/api:test:    ✓ V12: the permission filter costs no entitled document > across the whole query set, at full window 2437ms
+@repo/api:test:    ✓ V12: the permission filter costs no entitled document > ...and at a narrow window, where a restricted neighbour could displace an entitled row 666ms
+@repo/api:test:    ✓ V12: the permission filter costs no entitled document > counter-proof: the harness DOES report a loss when one is injected 608ms
+@repo/api:test:    ✓ V12: the permission filter costs no entitled document > counter-proof: the restricted rows really are being withheld 802ms
+@repo/api:test:    ✓ V12: the permission filter costs no entitled document > the two arms differ exactly by the restricted rows, and by nothing else 723ms
+@repo/api:test:    ✓ recall measurement itself > recall over an empty ground truth is undefined, not 1 789ms
+@repo/api:test:    ✓ recall measurement itself > the measured recall of the filtered arm is a real number over a non-empty ground truth 734ms
+@repo/api:test:    ✓ ⚠ the shipping bar cannot be judged -- N-2 is undecided > `vectorRecallBaseline` is registered as unknown, with an owner and a stated blockage 672ms
+@repo/api:test:    ✓ ⚠ the shipping bar cannot be judged -- N-2 is undecided > judging a measured recall THROWS rather than returning a pass 872ms
+@repo/api:test:    ✓ ⚠ the shipping bar cannot be judged -- N-2 is undecided > no business code has quietly written a recall baseline in 611ms
+@repo/api:test:    ✓ ⚠ the ANN failure mode is not exercised, and its absence is asserted > there is no approximate index on the embedding column 516ms
+@repo/api:test:    ✓ ⚠ the ANN failure mode is not exercised, and its absence is asserted > the embedding column has no fixed dimension, and the registry enforces one instead 409ms
+@repo/api:test:    ✓ ⚠ the ANN failure mode is not exercised, and its absence is asserted > an unregistered model cannot have embeddings at all 316ms
+@repo/api:test:    ✓ ⚠ the ANN failure mode is not exercised, and its absence is asserted > two models coexist on one segment -- dual-write during a dimension migration 334ms
+@repo/api:test:  ✓ tests/kernel/rbac-role-matrix.test.ts (72 tests) 5735ms
+@repo/api:test: 
+@repo/api:test:  Test Files  37 passed (37)
+@repo/api:test:       Tests  586 passed (586)
+@repo/api:test:    Start at  19:47:10
+@repo/api:test:    Duration  14.85s (transform 1.08s, setup 0ms, collect 4.14s, tests 87.37s, environment 3ms, prepare 1.66s)
+@repo/api:test: 
+
+ Tasks:    12 successful, 12 total
+Cached:    12 cached, 12 total
+  Time:    16ms >>> FULL TURBO
+
+• turbo 2.10.5
+
+[harness-verify v1 sha256=dd390677a13d9232946a8d5ba4d0400db8786b211c8e46bf39698f11660e9a2d commit=27c6fc25fd7bc9f567a9f7ea489f74f38f572a00 at=2026-07-29T11:51:06.758Z]

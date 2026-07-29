@@ -269,15 +269,23 @@ describe("the payload is validated even though the contract leaves it open", () 
     const added = await mutateOk(ADMIN, {
       orgId: ORG, kind: "agent", op: "add", payload: { name: "Keeper", scope: "org-wide" },
     });
-    await mutateOk(ADMIN, {
+    // REJECTED, not silently ignored (changed 2026-07-29 when the contract's payload
+    // schemas became `.strict()`).
+    //
+    // Ignoring it was the weaker guarantee: the caller gets a 200 and believes the
+    // capability is now disabled, while it is still serving traffic. A 400 tells them to
+    // use `op: "disable"`, which is the path that carries an interruption mode, a count of
+    // in-flight calls and a provenance record (D-U5).
+    const rejected = await mutate(ADMIN, {
       orgId: ORG, kind: "agent", op: "update",
       payload: { id: added.listing.id, enabled: false },
     });
+    expect(rejected.status, await rejected.clone().text()).toBe(400);
+
     const body = (await fetch(`${BASE}/capabilities?orgId=${ORG}&kind=agent`, {
       headers: auth(ADMIN),
     }).then((r) => r.json())) as { enabled: boolean }[];
-    // Still enabled: an `enabled` key in an update payload is ignored, so disabling always
-    // goes through the path that has an interruption mode, a call count and a record.
+    // And nothing changed -- a refused request must not have half-applied.
     expect(body[0]!.enabled).toBe(true);
   });
 

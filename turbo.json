@@ -1,5 +1,34 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  // globalPassThroughEnv exists because turbo 2.x defaults to STRICT env mode: a task
+  // receives only the variables declared here, not the caller's environment.
+  //
+  // That silently defeated the per-worker database isolation the whole test setup rests on.
+  // `WORKSPACEX_DB=wsx_f20 pnpm -w run verify:base` -- the documented pre-merge command --
+  // dropped the variable at the turbo boundary, so `apps/api` connected to the SHARED
+  // `workspacex` database while the operator believed they were isolated. Two workers then
+  // migrate and truncate each other's fixtures, and the result is assertions that pass or
+  // fail depending on who ran what a second earlier: it reads as flakiness, never as a
+  // collision. Found by F20, when a parallel feature's table shape reached this worker's run.
+  //
+  // Note the same suite is CORRECT when invoked as
+  // `cd apps/api && WORKSPACEX_DB=... pnpm exec vitest run`, because there is no turbo
+  // boundary to cross -- which is exactly why the problem stayed invisible.
+  "globalPassThroughEnv": [
+    "WORKSPACEX_DB",
+    "PGDATABASE",
+    "PGHOST",
+    "PGPORT",
+    "APP_DB_USER",
+    "APP_DB_PASSWORD",
+    "MIGRATION_DB_USER",
+    "MIGRATION_DB_PASSWORD",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "REDIS_PREFIX",
+    "KERNEL_ALLOW_TEST_PRINCIPAL",
+    "KERNEL_QUIET"
+  ],
   "tasks": {
     "build": {
       "dependsOn": [

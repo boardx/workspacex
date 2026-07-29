@@ -135,7 +135,7 @@ export const Artifact = z.object({
   synthesized: z.boolean(),
   /** 资源可见性范围。⚠ 必须沿数据链路传播到 segment/embedding/图节点（见 domain I-13，跨束） */
   scope: z.enum(["org-wide", "team-only"]),
-});
+}).strict();
 
 /**
  * `artifact_versions` —— **不可变版本**。
@@ -157,7 +157,7 @@ export const ArtifactVersion = z.object({
   pinnedAt: z.string(),
   /** 定版时的 Context Pack 引用清单 id（见 UC-0.2）——支撑「这条结论当时看了什么」 */
   contextPackId: z.string().nullable(),
-});
+}).strict();
 
 /** `segments` —— 最小检索单元。每个 segment 必须能回到原件（≥1 个 anchor，domain I-7） */
 export const Segment = z.object({
@@ -165,7 +165,7 @@ export const Segment = z.object({
   artifactVersionId: z.string(),
   kind: SegmentKind,
   ordinal: z.number().int().nonnegative(),
-});
+}).strict();
 
 /** `anchors` —— 回到原件的具体位置 */
 export const Anchor = z.object({
@@ -174,7 +174,7 @@ export const Anchor = z.object({
   kind: AnchorKind,
   /** 定位符：页码/时间码/消息 ID/题号等（按 kind 解释） */
   locator: z.string(),
-});
+}).strict();
 
 /**
  * `derived_representations` —— 派生物是**独立文件**，带 `derivedFrom` 指回原件版本，
@@ -187,7 +187,7 @@ export const DerivedRepresentation = z.object({
   objectStorageKey: z.string(),  // 派生物同样是可下载文件
   model: z.string().nullable(),
   modelVersion: z.string().nullable(),
-});
+}).strict();
 
 
 
@@ -205,7 +205,7 @@ export const Binding = z.object({
   stepId: z.string(),
   mode: BindingMode,
   pinnedVersionId: z.string().nullable(),
-});
+}).strict();
 
 /**
  * 项目侧「已回流的产出与版本」一行。
@@ -221,7 +221,7 @@ export const BackflowEntry = z.object({
   pinnedAt: z.string(),
   /** 界面徽标：草稿 / 实时 · 随源变动 / 已定版 vN（R8） */
   badge: z.enum(["draft", "live", "pinned"]),
-});
+}).strict();
 
 /** 摄取运行态——供 `/projects/[id]/files` 摄取抽屉渲染九态阶梯 */
 export const IngestionRun = z.object({
@@ -233,7 +233,7 @@ export const IngestionRun = z.object({
   pipelineVersion: z.string(),
   /** 失败态的原因；REVIEW_PENDING 的触发原因（PII/synth/低置信） */
   note: z.string().nullable(),
-});
+}).strict();
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
@@ -255,13 +255,13 @@ export const operations = {
       projectId: z.string().nullable(),
       source: ArtifactSource,
       title: z.string(),
-    }),
+    }).strict(),
     out: z.object({
       artifactId: z.string(),
       autosavedAt: z.string(),
       /** 物化产出的文件 key（file-first：draft 也必须有真实文件） */
       materializedKeys: z.array(z.string()),
-    }),
+    }).strict(),
     err: ["MATERIALIZATION_FAILED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
@@ -276,13 +276,13 @@ export const operations = {
       artifactId: z.string(),
       /** 乐观并发：客户端认为的当前最新版本号；不匹配即 VERSION_CHANGED */
       expectedHeadVersion: z.number().int().nonnegative(),
-    }),
+    }).strict(),
     out: z.object({
       versionId: z.string(),
       versionNumber: z.number().int().positive(),
       contentHash: z.string(),
       objectStorageKey: z.string(),
-    }),
+    }).strict(),
     err: [
       "PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED",
       "MATERIALIZATION_FAILED", "DEPENDENCY_UNAVAILABLE",
@@ -303,7 +303,7 @@ export const operations = {
       mode: BindingMode,
       /** pinned 模式必填：要冻结到哪个版本 */
       sourceVersionId: z.string().optional(),
-    }),
+    }).strict(),
     out: Binding,
     err: [
       "NO_PROJECT_ROLE", "PROJECT_ROLE_INSUFFICIENT",
@@ -318,7 +318,7 @@ export const operations = {
    */
   upgradeBinding: {
     method: "POST", path: "/artifacts/bindings/:bindingId/upgrade",
-    in: z.object({ bindingId: z.string(), expectedHeadVersion: z.number().int().nonnegative() }),
+    in: z.object({ bindingId: z.string(), expectedHeadVersion: z.number().int().nonnegative() }).strict(),
     out: Binding,
     err: [
       "CANNOT_DOWNGRADE", "VERSION_CHANGED",
@@ -332,7 +332,7 @@ export const operations = {
    */
   listBackflow: {
     method: "GET", path: "/projects/:projectId/backflow",
-    in: z.object({ projectId: z.string(), stepId: z.string().optional() }),
+    in: z.object({ projectId: z.string(), stepId: z.string().optional() }).strict(),
     // 空态返回 []，不生成伪数据（V5）
     out: z.array(BackflowEntry),
     err: ["NO_PROJECT_ROLE"] as const,
@@ -348,9 +348,9 @@ export const operations = {
     in: z.object({
       versionId: z.string(),
       purpose: DownstreamPurpose,
-      referencedBy: z.object({ kind: z.string(), id: z.string() }),
-    }),
-    out: z.object({ referenceId: z.string(), eligible: z.boolean() }),
+      referencedBy: z.object({ kind: z.string(), id: z.string() }).strict(),
+    }).strict(),
+    out: z.object({ referenceId: z.string(), eligible: z.boolean() }).strict(),
     err: ["REQUIRES_PINNED", "SNAPSHOT_IMMUTABLE", "ARTIFACT_NOT_FOUND"] as const,
   },
 
@@ -360,7 +360,7 @@ export const operations = {
    */
   getIngestionStatus: {
     method: "GET", path: "/artifacts/:artifactId/ingestion",
-    in: z.object({ artifactId: z.string() }),
+    in: z.object({ artifactId: z.string() }).strict(),
     out: IngestionRun,
     err: ["ARTIFACT_NOT_FOUND", "INGESTION_FAILED"] as const,
   },
@@ -374,14 +374,14 @@ export const operations = {
    */
   markEvidenceWithdrawn: {
     method: "POST", path: "/artifacts/versions/:versionId/evidence-withdrawn",
-    in: z.object({ versionId: z.string(), reason: z.string() }),
+    in: z.object({ versionId: z.string(), reason: z.string() }).strict(),
     out: z.object({
       /** 被标注「证据已撤回」的下游引用 */
       annotatedReferences: z.array(z.string()),
       /** 被通知复核的拍板人 */
       notifiedApprovers: z.array(z.string()),
       provenanceEventId: z.string(),
-    }),
+    }).strict(),
     err: ["ARTIFACT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;

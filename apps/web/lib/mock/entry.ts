@@ -53,15 +53,18 @@ export const LOGIN_BRAND = {
   sampleEmail: "linke@yuanyang-consulting.cn",
 };
 
-/** O-28 链接有效期统一表里与登录相关的两条（用于文案，不写死在组件里） */
-export const AUTH_POLICY = {
-  sessionDays: 30,
-  passwordMinLen: 12,
-  resetLinkHours: 1,
-  lockAfterFails: 5,
-  lockWindowMinutes: 15,
-  lockDurationMinutes: 15,
-};
+/**
+ * O-28 / O-29 裁决出的认证策略数值——**re-export，不是副本**。
+ *
+ * ⚠ 2026-07-29（F20）收敛：这里原本手写着六个数字，而后端实现登录/锁定/重置时
+ * 必然要写第二份。本项目已**五次**因「同一事实声明在两处」而漂移，这将是第六次。
+ * ⇒ 唯一那份在 `packages/contracts/src/auth.ts` 的 `AUTH_POLICY`，
+ *   前端 re-export、后端 import，`tests/single-source-of-truth.test.ts` 机械门控。
+ *
+ * 顺带补齐了 `inviteCodeLength`：登录页组件里原本写着
+ * 「AUTH_POLICY 无此项，界面口径固定 14」——那句注释本身就是一份副本的自白。
+ */
+export { AUTH_POLICY } from "@repo/contracts/auth";
 
 /* ── 链接落地页 / 小组工作台（UC-1.2 R8）─────────────────────────── */
 
