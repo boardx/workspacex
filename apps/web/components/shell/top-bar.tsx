@@ -117,7 +117,7 @@ export function TopBar({
         <p
           data-testid="topbar-local-banner"
           data-guarantee-source="promise"
-          title={LOCAL_ORG_GUARANTEES.join("；")}
+          title={LOCAL_ORG_GUARANTEES.map((g) => g.statement).join("；")}
           className="ml-auto hidden shrink-0 text-10 font-medium text-ai-tint-foreground lg:block"
         >
           本地模式 · 只用本地模型 · 数据不出本机

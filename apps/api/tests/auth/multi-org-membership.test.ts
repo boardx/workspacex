@@ -136,9 +136,19 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
     expect(await countCredentials(`%@${DOMAIN}`), "第二个组织不得带来第二个账号").toBe(1);
 
     // V10 ②：两个组织，都是 admin，同一个 userId。
+    //
+    // ⚠ 2026-07-29 F16 合并后修正：注册会**自动建一个个人本地组织**（I-2），
+    // 所以成员关系是三条而不是两条。断言写成「恰好两条」会在 F16 之后变红，
+    // 而正确的性质不是「一共几条」，是「这两个被邀请的组织都在、且都是 admin，
+    // 多出来的恰好是那一个本地组织」——本地组织不出现在这里，
+    // 它就从组织切换器里消失了，而它确实是这个人所属的组织。
     const m = await membershipsOf(userId);
-    expect(m.map((x) => x.org_id).sort()).toEqual([orgA, orgB].sort());
-    expect(m.every((x) => x.org_role === "admin")).toBe(true);
+    const local = m.filter((x) => x.org_id.startsWith("org-local-"));
+    const invited = m.filter((x) => !x.org_id.startsWith("org-local-"));
+    expect(invited.map((x) => x.org_id).sort()).toEqual([orgA, orgB].sort());
+    expect(invited.every((x) => x.org_role === "admin")).toBe(true);
+    // I-2：本地组织恰好一个，不多不少。多了说明自动创建不幂等。
+    expect(local).toHaveLength(1);
 
     await resetOrgsOwnedBy([userId]);
   });
@@ -150,7 +160,11 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
 
     const res = await post("/auth/login", { email: EMAIL, password: PASSWORD });
     const login = (await res.json()) as { orgs: string[] };
-    expect(login.orgs.sort()).toEqual([orgA, orgB].sort());
+    // 同上：orgs 里还有 F16 自动创建的个人本地组织。断言两个被邀请的组织都在、
+    // 且本地组织恰好一个，而不是断言总数。
+    const invitedOrgs = login.orgs.filter((o) => !o.startsWith("org-local-"));
+    expect(invitedOrgs.sort()).toEqual([orgA, orgB].sort());
+    expect(login.orgs.filter((o) => o.startsWith("org-local-"))).toHaveLength(1);
 
     await resetOrgsOwnedBy([userId]);
   });
@@ -166,7 +180,12 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
 
     // ⚠ 关键：失败方**不留下半个组织**。只看状态码看不出这件事——
     // 失败的那次完全可能已经把 organizations 那行提交了。
-    expect(await membershipsOf(userId)).toHaveLength(2);
+    //
+    // 断言的是「被邀请进的组织仍然只有那两个」，不是成员关系总数——
+    // F16 之后还有一个自动创建的个人本地组织（I-2），把它算进总数
+    // 会让这条断言在一次与它无关的合并里变红。
+    const after = await membershipsOf(userId);
+    expect(after.filter((x) => !x.org_id.startsWith("org-local-"))).toHaveLength(2);
 
     await resetOrgsOwnedBy([userId]);
   });

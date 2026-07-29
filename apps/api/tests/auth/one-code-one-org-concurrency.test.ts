@@ -35,6 +35,7 @@ import {
   issueInviteCode,
   makeCode,
   orgsOwnedBy,
+  personalLocalOrgsOwnedBy,
   readInviteCode,
   resetAuthFixtures,
   resetOrgsOwnedBy,
@@ -289,6 +290,11 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
       const winner = winners[0]!;
       if (winner.ok) {
         expect(await orgsOwnedBy([winner.userId])).toEqual([winner.orgId]);
+        // F16: exactly ONE personal-local organization for the winner, even though N
+        // transactions raced. This is I-2 under the same concurrency that V3 is about -- and
+        // the interesting direction, because the local org is created without a contended
+        // invite-code row to serialise on: it is the unique index doing the work.
+        expect(await personalLocalOrgsOwnedBy([winner.userId])).toHaveLength(1);
         const row = await readInviteCode(code);
         expect(row!.redeemed_by_user_id).toBe(winner.userId);
         expect(row!.created_org_id).toBe(winner.orgId);
@@ -298,6 +304,10 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
       // is the "half organization" in its most confusing form.
       const loserUserIds = candidates.map((c) => c.userId).filter((u) => u !== winner.userId);
       expect(await orgsOwnedBy(loserUserIds)).toEqual([]);
+      // ...and no loser left a personal-local organization behind either. That row would be
+      // unreachable (its owner has no account) and would only surface much later, as an I-2
+      // unique-index violation on a retry.
+      expect(await personalLocalOrgsOwnedBy(loserUserIds)).toEqual([]);
     });
   }
 

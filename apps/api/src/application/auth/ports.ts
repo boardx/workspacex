@@ -20,6 +20,8 @@ import type { SessionRecord } from "../../domain/auth/session-lifetime";
 import type { LoginAttempt } from "../../domain/auth/lockout";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
+import type { z } from "zod";
+import type { identity } from "@repo/contracts";
 
 /* ───────────────────────────── credentials ───────────────────────────── */
 
@@ -374,7 +376,8 @@ export interface OrgExportPayload {
 export interface OrgLifecycleRow {
   readonly orgId: string;
   readonly name: string;
-  readonly kind: "organization" | "personal-local";
+  /** ⚠ 从契约的 `OrgKind` 取，不在这里复述字面量——F16 的单一事实源门控会红。 */
+  readonly kind: z.infer<typeof identity.OrgKind>;
   readonly modelPolicy: string;
   readonly status: "active" | "disabled";
   readonly disabledAt: Date | null;

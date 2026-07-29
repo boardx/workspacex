@@ -42,6 +42,10 @@
  * statement touching a tenant table is not an INSERT. The exemption carries its own gate.
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
+import {
+  insertPersonalLocalOrg,
+  newLocalOrgId,
+} from "../identity/pg-identity-repository";
 import type {
   JoinNewOrgInput,
   JoinNewOrgResult,
@@ -153,6 +157,31 @@ export class PgRegistrationRepository implements RegistrationRepository {
       `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
       [input.userId, input.orgId],
     );
+
+    // (3b) The PERSONAL-LOCAL organization -- "注册即有" (F16 / invariant I-2).
+    //
+    // ⚠ In THIS transaction, not after it. A follow-up call would leave a window in which an
+    // account exists without a local organization, and nothing downstream checks for that
+    // state: every later path assumes the organization is there, so the users whose
+    // registration was interrupted would simply have a broken account with no error anywhere.
+    //
+    // The two INSERTs live in `pg-identity-repository.ts` rather than being spelled out here,
+    // so the `kind = 'personal-local'` / `owner_user_id` / membership triple has exactly one
+    // definition. That also keeps this file write-only against tenant tables, which is the
+    // premise its lint-permission-paths exemption rests on (and which
+    // `registration-repo-is-write-only.test.ts` enforces).
+    //
+    // The tenant setting is re-pointed for the duration and then restored: `set_config(...,
+    // true)` is transaction-local, and the statements that follow are the invited
+    // organization's, not the local one's.
+    const localOrgId = newLocalOrgId();
+    await s.query("SELECT set_config('app.current_org', $1, true)", [localOrgId]);
+    await insertPersonalLocalOrg(s, {
+      orgId: localOrgId,
+      userId: input.userId,
+      displayName: input.displayName,
+    });
+    await s.query("SELECT set_config('app.current_org', $1, true)", [input.orgId]);
 
     // (4) Redemption -- the conditional UPDATE. See the file header.
     //

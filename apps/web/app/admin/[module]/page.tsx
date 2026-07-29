@@ -7,6 +7,7 @@ import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { FeedbackScreen } from "@/components/admin/feedback-screen";
+import { LocalOrgScreen } from "@/components/admin/local-org-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
 import type { AdminModuleKey } from "@/lib/mock/admin";
@@ -19,6 +20,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   mcp: McpScreen,
   members: MembersScreen,
   feedback: FeedbackScreen,
+  local: LocalOrgScreen,
 };
 
 export function generateStaticParams() {

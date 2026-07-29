@@ -25,11 +25,14 @@ import type {
 } from "../../application/auth/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
+import type { z } from "zod";
+import type { identity } from "@repo/contracts";
 
 interface OrgRow {
   id: string;
   name: string;
-  kind: "organization" | "personal-local";
+  /** ⚠ 从契约的 `OrgKind` 取，不在这里复述字面量——F16 的单一事实源门控会红。 */
+  kind: z.infer<typeof identity.OrgKind>;
   model_policy: string;
   status: "active" | "disabled";
   disabled_at: Date | null;

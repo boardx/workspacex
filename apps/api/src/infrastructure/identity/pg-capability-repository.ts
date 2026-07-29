@@ -41,9 +41,10 @@ interface Row {
   scope: string;
   owner_team_id: string | null;
   enabled: boolean;
+  endpoint: string | null;
 }
 
-const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled";
+const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint";
 
 function toGuarded(row: Row): GuardedCapability {
   const listing: CapabilityListing = {
@@ -53,12 +54,18 @@ function toGuarded(row: Row): GuardedCapability {
     name: row.name,
     scope: row.scope as VisibilityScope,
     enabled: row.enabled,
+    endpoint: row.endpoint,
+    // Derived by `projectListingForOrg` in the use case, which is the only place that knows
+    // the organization's kind. Null here rather than a guessed string: a reason invented at
+    // the storage layer would be a second, unreconciled answer to "why is this row grey".
+    disabledReason: null,
   };
   return {
     facts: {
       id: row.id,
       scope: row.scope as VisibilityScope,
       ownerTeamId: row.owner_team_id,
+      endpoint: row.endpoint,
     },
     listing: guard({ kind: "capability", id: row.id }, listing),
   };
@@ -103,10 +110,10 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async insert(orgId: OrgId, input: CapabilityInsert): Promise<GuardedCapability> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, endpoint)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING ${COLUMNS}`,
-        [`cap-${randomUUID()}`, orgId, input.kind, input.name, input.scope, input.ownerTeamId],
+        [`cap-${randomUUID()}`, orgId, input.kind, input.name, input.scope, input.ownerTeamId, input.endpoint],
       );
       const row = r.rows[0];
       // An INSERT ... RETURNING with no row means the write did not happen; handing back a
@@ -131,10 +138,11 @@ export class PgCapabilityRepository implements CapabilityRepository {
             SET name          = COALESCE($3, name),
                 scope         = COALESCE($4, scope),
                 owner_team_id = CASE WHEN COALESCE($4, scope) = 'org-wide' THEN NULL
-                                     ELSE COALESCE($5, owner_team_id) END
+                                     ELSE COALESCE($5, owner_team_id) END,
+                endpoint      = COALESCE($6, endpoint)
           WHERE org_id = $1 AND id = $2
         RETURNING ${COLUMNS}`,
-        [orgId, id, patch.name ?? null, patch.scope ?? null, patch.ownerTeamId ?? null],
+        [orgId, id, patch.name ?? null, patch.scope ?? null, patch.ownerTeamId ?? null, patch.endpoint ?? null],
       );
       const row = r.rows[0];
       return row ? toGuarded(row) : null;

@@ -93,6 +93,31 @@ export interface IdentityRepository {
   findBindings(orgId: OrgId, objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>>;
   /** Organizations this user belongs to -- used by SwitchOrganization's membership check */
   listMemberships(userId: string): Promise<readonly { orgId: string; orgRole: OrgRole }[]>;
+
+  /* ───────────────────────── F16: the personal-local organization ───────────────────────── */
+
+  /**
+   * Create this user's personal-local organization, or return the existing one (I-2).
+   *
+   * ⚠ Idempotent by UNIQUE INDEX, not by check-then-insert -- see
+   * `application/identity/personal-local-org.ts`. The signature returns the organization
+   * rather than a boolean "created" flag on purpose: a caller that branches on "did I create
+   * it" is a caller that will eventually do something only on first creation, and first
+   * creation is not observable under a retry.
+   */
+  ensurePersonalLocalOrg(userId: string, displayName: string): Promise<OrganizationRow>;
+
+  /**
+   * This user's own local organization.
+   *
+   * ⚠ Takes a userId and NOT an orgId. There is no "find the local org with this id" method
+   * anywhere in this port, so no use case can be written that reaches another person's local
+   * organization by id -- the isolation is a shape rather than a check.
+   */
+  findPersonalLocalOrg(userId: string): Promise<OrganizationRow | null>;
+
+  /** How many members an organization has. For a personal-local org this is I-3's assertion. */
+  countOrgMembers(orgId: OrgId): Promise<number>;
 }
 
 export const IDENTITY_REPOSITORY = Symbol("IdentityRepository");

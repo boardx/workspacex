@@ -84,7 +84,9 @@ beforeEach(async () => {
   await resetOrgs(FORMAL, STRICT, LOCAL);
   await seedOrg({ orgId: FORMAL, projectId: `${FORMAL}-p` });
   await seedOrg({ orgId: STRICT, projectId: `${STRICT}-p` });
-  await seedOrg({ orgId: LOCAL, kind: "personal-local", projectId: `${LOCAL}-p` });
+  // The owner is USER: F16's single-member trigger admits only the organization's owner, so
+  // a fixture that adds any other member is a fixture describing a state that cannot exist.
+  await seedOrg({ orgId: LOCAL, kind: "personal-local", ownerUserId: USER, projectId: `${LOCAL}-p` });
   for (const o of [FORMAL, STRICT, LOCAL]) await addOrgMember(o, USER, "admin", null);
   // An administrator configures it. That is the whole point of a policy.
   await asApp(STRICT, (c) =>
@@ -162,8 +164,12 @@ describe("I-10: the promise cannot be switched off through ANY interface", () =>
     await expect(
       asOwner((c) =>
         c.query(
-          "INSERT INTO organizations (id, name, kind, model_policy) VALUES ($1,$2,'personal-local','self-hosted-only')",
-          [`${LOCAL}-2`, "sneaky"],
+          // `owner_user_id` is supplied because F16's migration 0012 requires it for a
+          // personal-local row. Without it this INSERT would still fail -- but for the WRONG
+          // constraint, and the assertion below would pass while proving nothing about the
+          // policy column.
+          "INSERT INTO organizations (id, name, kind, model_policy, owner_user_id) VALUES ($1,$2,'personal-local','self-hosted-only',$3)",
+          [`${LOCAL}-2`, "sneaky", `${LOCAL}-2-owner`],
         ),
       ),
     ).rejects.toThrow(/organizations_local_policy_is_not_configurable/);
