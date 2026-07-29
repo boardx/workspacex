@@ -1,9 +1,9 @@
 ---
 bundle: auth
 phase: "00"
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T10:22:44+08:00"
 ---
 
 # 契约束 `auth` 设计签核

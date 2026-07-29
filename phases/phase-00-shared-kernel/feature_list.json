@@ -258,17 +258,22 @@
         "F02"
       ],
       "points": 8,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f10",
       "verification": [
-        "pnpm vitest run tests/kernel/retrieval-five-channels.test.ts",
-        "pnpm vitest run tests/kernel/retrieval-fts-first-class.test.ts",
-        "pnpm vitest run tests/kernel/pgvector-permission-recall.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/retrieval-five-channels.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/retrieval-fts-first-class.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/pgvector-permission-recall.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F10.verify.log @ 2026-07-29T10:28:08.616Z",
       "needs_ui_signoff": false,
-      "notes": "query-planned hybrid（推翻 graph-first）：五路并行召回（PostgreSQL FTS 一等通道 / pgvector / 图关系 ontology_edges 只给固定加成 / 元数据 / Claim 检索）→ RRF/加权融合 → cross-encoder/LLM rerank → 去重/来源多样性/支持反驳平衡。对应 R12 V11（检索通道）+V12（权限过滤召回率）。pgvector recall 测试集是该通道的上线门槛（估点变更说明明确列为交付物），不可用『人工看着还行』代替——已并入本 feature 的 verification。中文需明确分词方案 + 中英混合检索评测。依据：[设计]（架构第四节）。这是 8 点最大的 feature，若单会话吃不下可在实现时按五路拆子任务，但 recall 门槛必须随召回一同交付。[待确认] token 预算数值/各路配额（O-36：随模型窗口推导、按任务类型可配，0.45 默认）——不阻塞，实现先按假设走。"
+      "notes": "query-planned hybrid（推翻 graph-first）：五路并行召回（PostgreSQL FTS 一等通道 / pgvector / 图关系 ontology_edges 只给固定加成 / 元数据 / Claim 检索）→ RRF/加权融合 → cross-encoder/LLM rerank → 去重/来源多样性/支持反驳平衡。对应 R12 V11（检索通道）+V12（权限过滤召回率）。pgvector recall 测试集是该通道的上线门槛（估点变更说明明确列为交付物），不可用『人工看着还行』代替——已并入本 feature 的 verification。中文需明确分词方案 + 中英混合检索评测。依据：[设计]（架构第四节）。这是 8 点最大的 feature，若单会话吃不下可在实现时按五路拆子任务，但 recall 门槛必须随召回一同交付。[待确认] token 预算数值/各路配额（O-36：随模型窗口推导、按任务类型可配，0.45 默认）——不阻塞，实现先按假设走。 【2026-07-29 实现记录】五路（fts/vector/graph/metadata/claim）各自落到真实表，权限判定在**召回内部**逐路进行，且刻意分用 retrieval 与 embedding-similarity 两条 PROPAGATION_PATHS——全部路由到同一条会让另一条注册了却没有流量。⚠ **两条验收在 N-2/N-3 给出数值前无法判定**，已精确写明：① 「过滤条件下 recall 不低于约定基线」——judgeRecall() 直接抛错，没有基线就没有通过，哪怕实测 1.0 也不算；同一句话的另一半「不出现有权访问却召不回」不需要数字，已双臂断言（索引直查 vs 经 disclose），零丢失。② 五路配额为等分并返回 provisional:true + 登记表引用，**规则**全部已断言。⚠ **完全没有被检验的一条**：没有 ANN 索引，所以 R9/V12 真正的失效模式（先近似 top-k 再过滤）**今天不可能发生**——ANN 需要固定维度，而维度取决于 phase-00 还没选的 embedding 模型。编一个维度并建 HNSW 会为一个永远不会上线的配置产出一个看起来测过的召回数字。**索引的「不存在」本身被断言了**，将来出现时套件会红并必须重新武装。九道反证全部确认变红。"
     },
     {
       "id": "F11",
