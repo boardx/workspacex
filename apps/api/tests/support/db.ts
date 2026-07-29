@@ -235,6 +235,91 @@ export async function addContentItem(opts: {
   );
 }
 
+/**
+ * Seed one artifact.
+ *
+ * Needed by every test that binds an ACL to `object_kind = 'artifact'`. Before F04 those
+ * bindings named ids with no row behind them, because the table did not exist; migration
+ * 0006 closes the gap 0003 wrote down, so the referent now has to be real.
+ *
+ * That is not fixture bureaucracy: `acl_bindings_uniq` keys on a caller-supplied object id,
+ * so a binding naming an artifact that does not exist sits there until an artifact IS
+ * created with that id -- and then arrives pre-granted to whoever the stale row names.
+ */
+export async function addArtifact(opts: {
+  orgId: string;
+  id: string;
+  projectId?: string | null;
+  source?: string;
+  createdBy?: string;
+}): Promise<void> {
+  const source = opts.source ?? "upload";
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        opts.id, opts.orgId, opts.projectId ?? null, source, `artifact ${opts.id}`,
+        opts.createdBy ?? "u-seed", source === "ai-generated",
+      ],
+    ),
+  );
+}
+
+/**
+ * Seed an artifact version, a segment under it, and the segment's anchor -- in ONE
+ * transaction.
+ *
+ * The three cannot be separated: I-7 is a DEFERRED constraint, so a transaction that commits
+ * a segment without an anchor is rejected at COMMIT. Doing it in one call is therefore the
+ * honest shape rather than a convenience -- a helper that inserted only the segment would be
+ * a helper that always fails.
+ *
+ * Creates the artifact too when it is absent, because a version needs one and a test that
+ * only cares about segment-level ACLs should not have to say so.
+ */
+export async function addSegment(opts: {
+  orgId: string;
+  segmentId: string;
+  artifactId: string;
+  versionId?: string;
+  ordinal?: number;
+  anchor?: { kind: string; locator: string };
+}): Promise<{ versionId: string }> {
+  const versionId = opts.versionId ?? `${opts.segmentId}-v1`;
+  const anchor = opts.anchor ?? { kind: "page", locator: "1" };
+  await asApp(opts.orgId, async (c) => {
+    await c.query(
+      `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
+       VALUES ($1,$2,NULL,'upload',$3,'u-seed',false) ON CONFLICT (id) DO NOTHING`,
+      [opts.artifactId, opts.orgId, `artifact ${opts.artifactId}`],
+    );
+    await c.query(
+      `INSERT INTO artifact_versions
+         (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
+          size_bytes, pinned_by)
+       VALUES ($1,$2,$3,1,$4,$5,'application/octet-stream',1,'u-seed')
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        versionId, opts.orgId, opts.artifactId,
+        `${opts.orgId}/artifacts/${opts.artifactId}/v1/${versionId}`,
+        // A syntactically valid SHA-256 -- the column constrains its shape, and a fixture
+        // that says "deadbeef" would fail for a reason unrelated to what a test is asserting.
+        "0".repeat(64),
+      ],
+    );
+    await c.query(
+      `INSERT INTO segments (id, org_id, artifact_version_id, kind, ordinal) VALUES ($1,$2,$3,'text',$4)`,
+      [opts.segmentId, opts.orgId, versionId, opts.ordinal ?? 0],
+    );
+    await c.query(
+      `INSERT INTO anchors (id, org_id, segment_id, kind, locator) VALUES ($1,$2,$3,$4,$5)`,
+      [`${opts.segmentId}-anchor`, opts.orgId, opts.segmentId, anchor.kind, anchor.locator],
+    );
+  });
+  return { versionId };
+}
+
 export async function addBinding(opts: {
   orgId: string;
   subject: { kind: "user" | "group" | "team"; id: string };

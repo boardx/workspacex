@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { identity as C } from "@repo/contracts";
 import {
+  addArtifact,
   addBinding,
   addContentItem,
   addOrgMember,
@@ -146,6 +147,11 @@ describe("AC1 / D-18: on the real read path, an admin is not a superuser", () =>
 
 describe("AC3: the org layer still applies, and says so", () => {
   beforeEach(async () => {
+    // ⚠ The ObjectRef kind for a content item is `artifact` (see PgContentRepository), but
+    // `content_items` and `artifacts` are different tables. Since F04 closed 0003's trigger
+    // gap, a binding on that ref needs a real `artifacts` row -- so the two ids are seeded
+    // to match. That they must match is a modelling collision F04 surfaced, not fixed.
+    await addArtifact({ orgId: ORG, id: ITEM, projectId: PROJECT });
     await addBinding({
       orgId: ORG,
       subject: { kind: "team", id: fx.teams.platform! },
