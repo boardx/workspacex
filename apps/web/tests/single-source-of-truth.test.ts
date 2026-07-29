@@ -89,6 +89,72 @@ describe("认证策略数值单一事实源", () => {
   });
 });
 
+/**
+ * Context Pack：五种筛选动作 + 相关度阈值 单一事实源（F11 / O-36 / KNOWN_CONTRACT_GAPS.G1）
+ *
+ * 事故形状与前两次一模一样，只是这次**已经漂移了**：
+ * 契约的 `FilterAction` 是 `recall/downweight/exclude/paired/lead`，
+ * 而 `lib/mock/brain.ts` 自带的那份是 `…/pair/clue`——**后两个键对不上**，
+ * 两边各自自洽，没有任何东西会红。相关度阈值 `0.45` 同理，在本包里出现过三次。
+ *
+ * ⇒ 唯一那份分别收敛进 `@repo/contracts/filter-action` 与
+ *   `@repo/contracts/thresholds`。这里钉死「前端没有第二份」。
+ */
+describe("筛选动作与相关度阈值单一事实源", () => {
+  const brain = readFileSync(new URL("../lib/mock/brain.ts", import.meta.url), "utf8");
+  const panel = readFileSync(new URL("../components/brain/context-pack.tsx", import.meta.url), "utf8");
+
+  it("brain.ts 的筛选动作从契约取键与展示名，不自己列", () => {
+    expect(brain).toMatch(/from\s+"@\/lib\/filter-action"/);
+    expect(brain).toMatch(/FILTER_ACTION_KEYS\.map/);
+    // 手抄的迹象：本地又写出一串 { key: "...", label: "..." }
+    expect(brain).not.toMatch(/key:\s*"(recall|downweight|exclude|paired|pair|lead|clue)"/);
+  });
+
+  it("契约里的五种动作与前端渲染的是同一组键（含曾漂移的那两个）", async () => {
+    const { FILTER_ACTION_KEYS } = await import("@repo/contracts/filter-action");
+    const { FILTER_ACTIONS } = await import("../lib/mock/brain");
+    expect(FILTER_ACTIONS.map((f) => f.key)).toEqual(FILTER_ACTION_KEYS);
+    // ⚠ 断言的是「与契约一致」而不是 toHaveLength(5)——后者会挡下一次经评审的正当新增。
+    expect(FILTER_ACTION_KEYS).toContain("paired");
+    expect(FILTER_ACTION_KEYS).toContain("lead");
+    expect(FILTER_ACTION_KEYS).not.toContain("pair");
+    expect(FILTER_ACTION_KEYS).not.toContain("clue");
+  });
+
+  it("相关度阈值从契约取，前端不写字面量 0.45", async () => {
+    const { relevanceThresholdFor } = await import("@repo/contracts/thresholds");
+    const { RELEVANCE_THRESHOLD, PACK_TASK } = await import("../lib/mock/brain");
+    expect(RELEVANCE_THRESHOLD).toBe(relevanceThresholdFor(PACK_TASK));
+    for (const [name, body] of [["brain.ts", brain], ["context-pack.tsx", panel]] as const) {
+      const hits = body.split("\n").filter((l) => !/^\s*(\*|\/\/|\{\/\*)/.test(l) && /\b0\.45\b/.test(l));
+      expect(hits, `${name} 里出现了阈值字面量：\n${hits.join("\n")}`).toEqual([]);
+    }
+  });
+
+  /**
+   * I-4 在**前端**才有失效的机会：契约的 `listOmissions` 没有分页参数
+   * （KNOWN_CONTRACT_GAPS.G3），所以「只显示前 N 条」这件事只发生在这个组件里。
+   * 断言合规判据取自单一事实源，且折叠只作用于非合规那一栏。
+   */
+  it("合规性丢弃的判据取自单一事实源，且不在折叠范围内", async () => {
+    expect(panel).toMatch(/isComplianceOmission/);
+    // 手抄的迹象：组件里自己列「哪三种算合规」
+    expect(panel).not.toMatch(/\[\s*"withdrawn"\s*,\s*"expired"\s*,\s*"unauthorized"\s*\]/);
+
+    const { OMISSIONS, OMISSIONS_MORE } = await import("../lib/mock/brain");
+    const { isComplianceOmission } = await import("../lib/omission-reason");
+    const all = [...OMISSIONS, ...OMISSIONS_MORE];
+    const compliance = all.filter((o) => isComplianceOmission(o.reasonType));
+    const other = all.filter((o) => !isComplianceOmission(o.reasonType));
+    // 折叠的是 other 那一栏；合规栏一条都不在里面（否则「只显示前 N 条」会吃掉它们）。
+    expect(compliance.length).toBeGreaterThan(0);
+    expect(other.some((o) => isComplianceOmission(o.reasonType))).toBe(false);
+    expect(panel).toMatch(/otherOmissions\.slice\(0,\s*VISIBLE_OMISSIONS\)/);
+    expect(panel).not.toMatch(/allOmissions\.slice\(/);
+  });
+});
+
 describe("设计 token 单一事实源", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
