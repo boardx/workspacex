@@ -126,8 +126,9 @@ export const Anchor = z.object({
   /** 图像区域（归一化 0–1，左上原点）。photo / 扫描件的锚点落在这里 */
   imageRegion: z
     .object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
+    .strict()
     .optional(),
-});
+}).strict();
 
 /** 查询上下文（context-engine.md 第四节 `QueryContext` 逐字对齐） */
 export const QueryContext = z.object({
@@ -136,13 +137,13 @@ export const QueryContext = z.object({
   projectIds: z.array(z.string()),
   task: QueryTask,
   query: z.string(),
-  timeRange: z.object({ from: z.string().nullable(), to: z.string().nullable() }).nullable(),
+  timeRange: z.object({ from: z.string().nullable(), to: z.string().nullable() }).strict().nullable(),
   allowedSensitivity: z.array(z.string()),
   /** ⚠ 不写死 120k：随模型窗口推导，超限按相关度截断（裁决 O-36） */
   tokenBudget: z.number().int().positive(),
   freshnessRequirement: z.string().nullable(),
   evidencePolicy: EvidencePolicy,
-});
+}).strict();
 
 /**
  * 一条上下文条目 —— **八字段六元组，无一为空**（R6 AC2 / R12 V2 / V10）。
@@ -163,7 +164,7 @@ export const ContextItem = z.object({
   score: z.number(),
   /** 「为什么这条能给你看」可回溯——指向 `identity` 束一次真实的 PermissionDecision（跨束） */
   permissionDecisionId: z.string(),
-});
+}).strict();
 
 /** Claim 引用——**反对证据强制保留**（R7）：`contradictingSegmentIds` 不得被筛除 */
 export const ClaimRef = z.object({
@@ -171,7 +172,7 @@ export const ClaimRef = z.object({
   status: ClaimStatus,
   supportingSegmentIds: z.array(z.string()),
   contradictingSegmentIds: z.array(z.string()),
-});
+}).strict();
 
 /**
  * 一条丢弃记录 —— **被丢弃不等于不存在**（R7）。
@@ -186,14 +187,14 @@ export const Omission = z.object({
   compliance: z.boolean(),
   /** 面向被解释的人的一句话（取自单一事实源的 explain，可带上下文补充） */
   explain: z.string(),
-});
+}).strict();
 
 /** 一路召回在本次装配里的计划与权重（query-planned 的可审查投影） */
 export const RetrievalChannelPlan = z.object({
   channel: RetrievalChannel,
   weight: z.number(),
   hitCount: z.number().int().nonnegative(),
-});
+}).strict();
 
 /* ─────────────────────────────── 聚合 ─────────────────────────────── */
 
@@ -214,12 +215,12 @@ export const ContextPack = z.object({
   tokensUsed: z.number().int().nonnegative(),
   /** 已固化为定版快照时非 null——固化后本对象内容按 contentHash 不可变（I-7） */
   pinnedSnapshotId: z.string().nullable(),
-});
+}).strict();
 
 export const Citation = z.object({
   segmentId: z.string(),
   artifactVersionId: z.string(),
-});
+}).strict();
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
@@ -248,7 +249,7 @@ export const operations = {
       freshnessRequirement: z.string().nullable(),
       /** A4 手动增补：人工指定项**不受相关度阈值裁剪**（E2 时报错不静默丢弃） */
       manualItemSegmentIds: z.array(z.string()),
-    }),
+    }).strict(),
     out: ContextPack,
     err: [
       "RETRIEVAL_UNAVAILABLE",
@@ -264,7 +265,7 @@ export const operations = {
    */
   replayContextPack: {
     method: "GET", path: "/context-packs/:runId",
-    in: z.object({ runId: z.string() }),
+    in: z.object({ runId: z.string() }).strict(),
     out: ContextPack,
     err: ["RUN_NOT_FOUND"] as const,
   },
@@ -277,7 +278,7 @@ export const operations = {
     in: z.object({
       runId: z.string(),
       reasonFilter: OmissionReasonSchema.optional(),
-    }),
+    }).strict(),
     out: z.object({
       omissions: z.array(Omission),
       /** 被丢弃数量（原型「被丢弃 · 14 条低相关」） */
@@ -286,7 +287,7 @@ export const operations = {
       thresholdUsed: z.number(),
       /** ⚠ 合规性丢弃（withdrawn/expired/unauthorized）**必被此列表全量包含**，永不折叠 */
       complianceAlwaysShown: z.array(Omission),
-    }),
+    }).strict(),
     err: ["RUN_NOT_FOUND"] as const,
   },
 
@@ -295,12 +296,12 @@ export const operations = {
    */
   gateAiCall: {
     method: "POST", path: "/context-packs/:runId/ai-gate",
-    in: z.object({ runId: z.string() }),
+    in: z.object({ runId: z.string() }).strict(),
     out: z.object({
       allowed: z.boolean(),
       /** allowed=false 时给出分层原因（EMPTY_CANDIDATE_SET / RETRIEVAL_UNAVAILABLE / CONFIDENTIAL_...） */
       blockReason: ContextPackReason.nullable(),
-    }),
+    }).strict(),
     err: ["RUN_NOT_FOUND"] as const,
   },
 
@@ -313,12 +314,12 @@ export const operations = {
     in: z.object({
       runId: z.string(),
       citedSegmentIds: z.array(z.string()),
-    }),
+    }).strict(),
     out: z.object({
       allowed: z.boolean(),
       /** 越界引用的 segmentId 清单（空数组=全部在包内） */
       offendingSegmentIds: z.array(z.string()),
-    }),
+    }).strict(),
     err: ["RUN_NOT_FOUND", "CITATION_OUT_OF_PACK"] as const,
   },
 
@@ -331,13 +332,13 @@ export const operations = {
       runId: z.string(),
       /** 目标必须是**固定快照**版本（`artifact` 束 F06），否则 PIN_REQUIRES_SNAPSHOT */
       artifactVersionId: z.string(),
-    }),
+    }).strict(),
     out: z.object({
       snapshotId: z.string(),
       /** 固化内容的内容哈希——固化后按此哈希断言不可变 */
       contentHash: z.string(),
       frozenItemCount: z.number().int().nonnegative(),
-    }),
+    }).strict(),
     err: ["RUN_NOT_FOUND", "PIN_REQUIRES_SNAPSHOT"] as const,
   },
 
@@ -359,13 +360,13 @@ export const operations = {
    */
   resolvePackModelConstraint: {
     method: "POST", path: "/context-packs/:runId/model-constraint",
-    in: z.object({ runId: z.string() }),
+    in: z.object({ runId: z.string() }).strict(),
     out: z.object({
       localOnly: z.boolean(),
       source: ModelConstraintSource,
       reason: z.string(),
       confidentialItemCount: z.number().int().nonnegative(),
-    }),
+    }).strict(),
     err: ["RUN_NOT_FOUND"] as const,
   },
 
@@ -379,7 +380,7 @@ export const operations = {
       runId: z.string(),
       segmentId: z.string(),
       actorId: z.string(),
-    }),
+    }).strict(),
     out: ContextPack,
     err: ["RUN_NOT_FOUND", "BUDGET_EXCEEDS_MANUAL", "MANUAL_ITEM_UNAUTHORIZED"] as const,
   },
@@ -393,7 +394,7 @@ export const operations = {
       runId: z.string(),
       /** 各通道权重覆盖（键为 RetrievalChannel） */
       weights: z.record(z.number()),
-    }),
+    }).strict(),
     out: ContextPack,
     err: ["RUN_NOT_FOUND", "RETRIEVAL_UNAVAILABLE"] as const,
   },

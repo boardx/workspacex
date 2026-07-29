@@ -137,7 +137,7 @@ export const Credential = z.object({
   displayName: z.string(),
   /** null = 未验证。未验证的账号**不能登录**（I-8） */
   emailVerifiedAt: z.string().datetime().nullable(),
-});
+}).strict();
 
 /**
  * `Session` —— **F20 拥有它**（签发与校验）。F19 不签发会话，只把形状定在这里，
@@ -158,7 +158,7 @@ export const Session = z.object({
   expiresAt: z.string().datetime(),
   /** null = 有效 */
   revokedAt: z.string().datetime().nullable(),
-});
+}).strict();
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
@@ -213,7 +213,7 @@ export const operations = {
       password: PasswordPolicy,
       displayName: z.string().min(1),
       orgName: z.string().min(1),
-    }),
+    }).strict(),
     /**
      * ⚠ `.strict()` —— **F19 实现时发现的、影响整条 ADR-020 返回链的问题**。
      *

@@ -493,18 +493,21 @@
       "spec_ref": "01-auth/uc-1-5-用邀请码创建组织并注册.md#R3",
       "depends_on": [],
       "points": 6,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "05",
+      "owner": "agent-f19",
       "verification": [
-        "pnpm vitest run tests/auth/invite-code-redeem-atomic.test.ts",
-        "pnpm vitest run tests/auth/register-email-verification.test.ts",
-        "pnpm vitest run tests/auth/one-code-one-org-concurrency.test.ts",
-        "pnpm vitest run tests/ui/create-org-wizard.test.tsx"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/auth",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "node .harness/scripts/lint-contract-source.mjs",
+        "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F19.verify.log @ 2026-07-29T11:51:06.759Z",
       "needs_ui_signoff": false,
-      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F08。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15）"
+      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F08。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15） 【2026-07-29 实现记录】清单原写的 verification 用 pnpm vitest run（跑不起来，要 pnpm exec），且含 tests/ui/create-org-wizard.test.tsx 这个前端测试（本件不覆盖），已改为七条已跑通的。I-4 双向断言：跨四张表按精确 id 校验回滚；5 路真并发 × 5 轮断言**组织数**（不是成功数）；另加一条对 UPDATE 语句本身的栅栏测试。反证 13 道全红，其中「改成 SELECT-then-UPDATE」→ 5 轮全红、5 个赢家 = **5 个组织**。⚠ 查出一条**项目级**缺陷：C.operations.*.out.safeParse() ——contract-design 硬规则 6 的整个机制——**检测不到多出来的字段**，因为 zod 默认剥掉未知键。而「多一个字段」恰恰是响应漂移最常见的方向（没有任何东西会崩）。已全仓修（见 out-schemas-strict.test.ts）。⚠ 另一条需人类：C1 —— **没有任何操作能设置 emailVerifiedAt**，于是 F19 建的账号永远无法登录，而 F19 与 F20 的验收**都是绿的**；coverage.md 的反向检查结构上找不到它（它找的是孤儿操作，不是孤儿需求）。已在应用层实现规则，未加操作也未加路由。"
     },
     {
       "id": "F20",
@@ -519,7 +522,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "05",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/auth/login-password-auth.test.ts",
@@ -544,7 +547,7 @@
       ],
       "points": 1,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "05",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/auth/forgot-password-flow.test.ts",
@@ -568,7 +571,7 @@
       ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "05",
       "owner": null,
       "verification": [
         "pnpm vitest run tests/auth/multi-org-membership.test.ts",
