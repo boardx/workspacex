@@ -174,6 +174,10 @@ export async function mutateCapability(
       name: p.name,
       scope: p.scope,
       ownerTeamId: p.ownerTeamId ?? null,
+      // F16: where it runs. In a personal-local organization migration 0012 refuses anything
+      // but a loopback endpoint -- the admin gets a constraint violation rather than a row
+      // that would have made the promise quietly untrue.
+      endpoint: p.endpoint ?? null,
     });
     const listing = open(row, deps, membership);
     const provenanceEventId = await provenance.append({

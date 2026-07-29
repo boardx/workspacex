@@ -103,7 +103,9 @@ export const switchOrganizationMock: z.infer<typeof identity.operations.switchOr
       "kind": "agent",
       "name": "name-1",
       "scope": "org-wide",
-      "enabled": false
+      "enabled": false,
+      "endpoint": null,
+      "disabledReason": null
     }
   ]
 };
@@ -119,7 +121,9 @@ export const listCapabilitiesMock: z.infer<typeof identity.operations.listCapabi
     "kind": "agent",
     "name": "name-1",
     "scope": "org-wide",
-    "enabled": false
+    "enabled": false,
+    "endpoint": null,
+    "disabledReason": null
   }
 ];
 
@@ -134,7 +138,9 @@ export const mutateCapabilityMock: z.infer<typeof identity.operations.mutateCapa
     "kind": "agent",
     "name": "name-1",
     "scope": "org-wide",
-    "enabled": false
+    "enabled": false,
+    "endpoint": null,
+    "disabledReason": null
   },
   "provenanceEventId": "provenanceEventId-1",
   "affectedInFlightCalls": 1
@@ -152,6 +158,49 @@ export const resolveModelConstraintMock: z.infer<typeof identity.operations.reso
 
 /** resolveModelConstraint 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const resolveModelConstraintErrors = ["NO_ORG_MEMBERSHIP"] as const;
+
+/** getLocalOrg 的成功响应样例（由契约生成） */
+export const getLocalOrgMock: z.infer<typeof identity.operations.getLocalOrg.out> = {
+  "org": {
+    "id": "id-1",
+    "name": "name-1",
+    "kind": "organization",
+    "team": null,
+    "modelPolicy": "any"
+  },
+  "guarantees": [
+    {
+      "id": "local-model-only",
+      "statement": "statement-1"
+    }
+  ],
+  "memberCount": 1,
+  "canInvite": false,
+  "storagePrefix": "storagePrefix-1"
+};
+
+/** getLocalOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const getLocalOrgErrors = ["NO_ORG_MEMBERSHIP"] as const;
+
+/** getLocalRuntimeStatus 的成功响应样例（由契约生成） */
+export const getLocalRuntimeStatusMock: z.infer<typeof identity.operations.getLocalRuntimeStatus.out> = {
+  "available": false,
+  "endpoint": "endpoint-1",
+  "failure": null
+};
+
+/** getLocalRuntimeStatus 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const getLocalRuntimeStatusErrors = ["NO_ORG_MEMBERSHIP","LOCAL_ORG_ONLY"] as const;
+
+/** invokeLocalModel 的成功响应样例（由契约生成） */
+export const invokeLocalModelMock: z.infer<typeof identity.operations.invokeLocalModel.out> = {
+  "capabilityId": "capabilityId-1",
+  "endpoint": "endpoint-1",
+  "output": "output-1"
+};
+
+/** invokeLocalModel 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const invokeLocalModelErrors = ["NO_ORG_MEMBERSHIP","LOCAL_ORG_ONLY","CAPABILITY_NOT_FOUND","CLOUD_MODEL_FORBIDDEN","LOCAL_RUNTIME_UNAVAILABLE"] as const;
 
 /** previewExport 的成功响应样例（由契约生成） */
 export const previewExportMock: z.infer<typeof identity.operations.previewExport.out> = {

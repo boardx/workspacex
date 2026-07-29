@@ -85,7 +85,26 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   // "refuse", never as a degraded allow. Ordering matters only in that the first match wins,
   // and for that code the rendered result is identical either way.
   const authReason = auth.AuthReason.safeParse(raw);
-  return authReason.success ? { reasonCode: authReason.data } : {};
+  if (authReason.success) return { reasonCode: authReason.data };
+
+  /**
+   * F16: `identity.LocalOrgReason`, the third and last closed enum here.
+   *
+   * Same restriction, same reasoning -- a closed enum in `@repo/contracts`, parsed against
+   * that enum, so nothing outside it reaches a response. It is separate from
+   * `PermissionReason` because it answers a different question: `PermissionReason` says WHO
+   * was refused and at which layer, while these say the local runtime is down, the endpoint
+   * is off-machine, or this route only serves personal-local organizations. Rendering a
+   * dependency failure as a permission denial sends the user to ask an administrator for
+   * access they already have.
+   *
+   * ⚠ Note what does NOT pass: the startup hint. It is a contract CONSTANT
+   * (`LOCAL_RUNTIME_STARTUP_HINT`) the frontend reads directly, so the server never carries
+   * the sentence across the wire -- carrying it would be the same fact in two places, which
+   * is the failure this project has had five times.
+   */
+  const localOrg = identity.LocalOrgReason.safeParse(raw);
+  return localOrg.success ? { reasonCode: localOrg.data } : {};
 }
 
 @Catch()

@@ -27,6 +27,7 @@ import {
   type CapabilityKind,
   type CapabilityListing,
 } from "../../domain/identity/capability-listing";
+import { projectListingForOrg } from "../../domain/identity/local-org";
 import type { OrgId } from "../../domain/org-id";
 import {
   discloseDecided,
@@ -74,6 +75,13 @@ export async function listCapabilities(
   const membership = await repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new NoOrgMembershipError();
 
+  // The organization's KIND, read once. It decides whether a cloud endpoint is even usable
+  // here (F16 guarantee 1), and that judgement is made in one place -- `projectListingForOrg`
+  // -- rather than by each screen deciding what to grey out. A per-screen decision is how one
+  // console ends up hiding the row and another showing it enabled.
+  const org = await repo.findOrganization(input.orgId);
+  if (org === null) throw new NoOrgMembershipError();
+
   const rows: readonly GuardedCapability[] =
     input.kind === undefined
       ? await capabilities.listAll(input.orgId)
@@ -93,7 +101,11 @@ export async function listCapabilities(
     // The payload is unreachable except through this call -- forgetting to judge is a type
     // error, not an omission (permission-filter).
     const r = discloseDecided(row.listing, decision);
-    if (isDisclosed(r)) visible.push(r.payload);
+    // ⚠ Projected AFTER the visibility decision, never instead of it. The local-org rule
+    // greys a row out; it never reveals one the requester may not see. Doing it the other way
+    // round would make "禁用并注明原因" a channel through which a team-only capability's
+    // existence leaks to everyone.
+    if (isDisclosed(r)) visible.push(projectListingForOrg(r.payload, org.kind));
     else withheld.push(r);
   }
 

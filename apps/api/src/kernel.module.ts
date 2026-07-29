@@ -63,6 +63,13 @@ import {
   UuidDecisionIdFactory,
 } from "./infrastructure/identity/in-memory-session-store";
 import { IdentityController } from "./interface/controllers/identity.controller";
+// F16: the personal-local organization. The egress guard is wired here rather than imported
+// by a use case, because it patches `net.Socket.prototype.connect` for the whole process --
+// that is a deployment decision, and the composition root is where deployment decisions live.
+import { LocalOrgController } from "./interface/controllers/local-org.controller";
+import { EGRESS_GUARD, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
+import { ProcessEgressGuard } from "./infrastructure/egress/local-egress-guard";
+import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
 import { CapabilityController } from "./interface/controllers/capability.controller";
 import {
   CAPABILITY_REPOSITORY,
@@ -95,6 +102,7 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     IdentityController,
     ProvenanceController,
     CapabilityController,
+    LocalOrgController,
     ArtifactBindingController,
     AuthRegistrationController,
     AuthController,
@@ -109,6 +117,10 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
       inject: [SESSION_TOKEN_STORE, CLOCK],
     },
     { provide: HEALTH_PROBE_FACTORY, useValue: pgHealthProbe },
+    // Constructing it installs the patch. Eager, not lazy: a guard that installs itself on
+    // first use is a guard that is absent for everything that happened before first use.
+    { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
+    { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
     {
       provide: IDENTITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),

@@ -183,6 +183,14 @@ export interface OrgFixture {
 export async function seedOrg(opts: {
   orgId: string;
   kind?: "organization" | "personal-local";
+  /**
+   * Required in effect for `kind: "personal-local"` (F16 / migration 0012): a local
+   * organization without an owner cannot exist -- the CHECK refuses it. Defaulted rather than
+   * made mandatory so the existing call sites that do not care keep reading as they did, but
+   * a test that seeds a local org and then adds a member has to use THIS id, because the
+   * single-member trigger admits only the owner.
+   */
+  ownerUserId?: string;
   teamNames?: string[];
   projectId: string;
   groupNames?: string[];
@@ -194,9 +202,11 @@ export async function seedOrg(opts: {
   const groups: Record<string, string> = {};
 
   await asApp(orgId, async (c) => {
-    await c.query("INSERT INTO organizations (id, name, kind) VALUES ($1, $2, $3)", [
-      orgId, `org ${orgId}`, opts.kind ?? "organization",
-    ]);
+    const kind = opts.kind ?? "organization";
+    await c.query(
+      "INSERT INTO organizations (id, name, kind, owner_user_id) VALUES ($1, $2, $3, $4)",
+      [orgId, `org ${orgId}`, kind, kind === "personal-local" ? (opts.ownerUserId ?? `${orgId}-owner`) : null],
+    );
     for (const t of teamNames) {
       const id = `${orgId}-team-${t}`;
       await c.query("INSERT INTO teams (id, org_id, name) VALUES ($1, $2, $3)", [id, orgId, t]);
@@ -318,6 +328,16 @@ export async function addSegment(opts: {
   const versionId = opts.versionId ?? `${opts.segmentId}-v1`;
   const anchor = opts.anchor ?? { kind: "page", locator: "1" };
   await asApp(opts.orgId, async (c) => {
+    // F16: a personal-local organization's objects must live under `local/<orgId>/`, and the
+    // trigger in migration 0012 enforces it both ways. Derived here rather than passed in,
+    // so a test that happens to seed a local org cannot accidentally place its bytes in the
+    // shared key space -- which is the very thing the trigger exists to prevent.
+    const kindRow = await c.query<{ kind: string }>(
+      "SELECT kind FROM organizations WHERE id = $1", [opts.orgId],
+    );
+    const keyPrefix = kindRow.rows[0]?.kind === "personal-local"
+      ? `local/${opts.orgId}/`
+      : `${opts.orgId}/`;
     await c.query(
       `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
        VALUES ($1,$2,NULL,'upload',$3,'u-seed',false) ON CONFLICT (id) DO NOTHING`,
@@ -331,7 +351,7 @@ export async function addSegment(opts: {
        ON CONFLICT (id) DO NOTHING`,
       [
         versionId, opts.orgId, opts.artifactId,
-        `${opts.orgId}/artifacts/${opts.artifactId}/v1/${versionId}`,
+        `${keyPrefix}artifacts/${opts.artifactId}/v1/${versionId}`,
         // A syntactically valid SHA-256 -- the column constrains its shape, and a fixture
         // that says "deadbeef" would fail for a reason unrelated to what a test is asserting.
         "0".repeat(64),
@@ -370,14 +390,22 @@ export async function addCapability(opts: {
   scope?: "org-wide" | "team-only";
   ownerTeamId?: string | null;
   enabled?: boolean;
+  /**
+   * Where it runs (F16). Left null by default because most kinds have no endpoint; a test
+   * that seeds a MODEL says where it lives, and in a personal-local organization migration
+   * 0012 will refuse anything that is not loopback -- which is itself an assertion worth
+   * having available at the fixture level.
+   */
+  endpoint?: string | null;
 }): Promise<void> {
   await asApp(opts.orgId, (c) =>
     c.query(
-      `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
         opts.id, opts.orgId, opts.kind, opts.name,
         opts.scope ?? "org-wide", opts.ownerTeamId ?? null, opts.enabled ?? true,
+        opts.endpoint ?? null,
       ],
     ),
   );

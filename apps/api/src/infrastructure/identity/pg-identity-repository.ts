@@ -6,7 +6,8 @@
  * what makes the query readable to the next person. But if one were ever dropped, RLS still
  * holds; that asymmetry is the whole point of F18's design.
  */
-import type { DatabasePort } from "../../application/ports/database.port";
+import { randomUUID } from "node:crypto";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   BindingRow,
   IdentityRepository,
@@ -17,6 +18,7 @@ import type {
 } from "../../application/identity/ports";
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
+import { isLocalOrg, LOCAL_ORG_KIND } from "../../domain/identity/local-org";
 
 export class PgIdentityRepository implements IdentityRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -142,4 +144,111 @@ export class PgIdentityRepository implements IdentityRepository {
       return r.rows.map((row) => ({ orgId: row.org_id, orgRole: row.org_role as OrgRole }));
     });
   }
+
+  /* ───────────────────────── F16: the personal-local organization ───────────────────────── */
+
+  /**
+   * Idempotent creation (I-2).
+   *
+   * The read-then-insert below is NOT what makes it idempotent -- the partial unique index
+   * `organizations_one_personal_local_per_user` is. The read is an optimisation for the
+   * common case; the `catch` is the correctness. Two concurrent registrations of one user
+   * both see "none", both insert, and one gets a unique violation instead of a second local
+   * organization existing quietly.
+   */
+  async ensurePersonalLocalOrg(userId: string, displayName: string): Promise<OrganizationRow> {
+    const existing = await this.findPersonalLocalOrg(userId);
+    if (existing) return existing;
+
+    const orgId = newLocalOrgId();
+    try {
+      await this.db.withTenant(orgId as OrgId, (s) =>
+        insertPersonalLocalOrg(s, { orgId, userId, displayName }),
+      );
+    } catch (e) {
+      // 23505 = unique_violation: somebody else won the race, which is the correct outcome.
+      if ((e as { code?: string }).code !== "23505") throw e;
+    }
+
+    const org = await this.findPersonalLocalOrg(userId);
+    if (org === null) throw new Error("personal-local org missing right after ensure (I-2)");
+    return org;
+  }
+
+  /**
+   * This user's local organization, found through their memberships.
+   *
+   * ⚠ Deliberately NOT a `SELECT ... FROM organizations WHERE owner_user_id = $1` under
+   * `withoutTenant`. That query would be blocked by RLS anyway (the policy compares against
+   * an unset setting and matches nothing -- the trap `listMemberships` already fell into
+   * once), and the version that "fixed" it would be another SECURITY DEFINER function able to
+   * find a local organization by owner. Such a function is precisely the tool a future
+   * admin-console feature would reach for, and the promise is that no such lookup exists.
+   *
+   * So: memberships first (the same SECURITY DEFINER path every organization uses, scoped to
+   * ONE user), then each organization read under its own tenant context.
+   */
+  async findPersonalLocalOrg(userId: string): Promise<OrganizationRow | null> {
+    const memberships = await this.listMemberships(userId);
+    for (const m of memberships) {
+      const org = await this.findOrganization(m.orgId as OrgId);
+      if (org && isLocalOrg(org.kind)) return org;
+    }
+    return null;
+  }
+
+  async countOrgMembers(orgId: OrgId): Promise<number> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ n: string }>(
+        "SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1",
+        [orgId],
+      );
+      return Number(r.rows[0]?.n ?? "0");
+    });
+  }
+}
+
+/** `org-local-<uuid>`. Prefixed for the same reason capability ids are: ids get read by people. */
+export function newLocalOrgId(): string {
+  return `org-local-${randomUUID()}`;
+}
+
+/**
+ * The INSERT pair, shared by `ensurePersonalLocalOrg` and by REGISTRATION.
+ *
+ * ## Why it is exported rather than duplicated in the registration repository
+ *
+ * F16 requires the local organization to exist from the first moment an account does, and
+ * "the same transaction" is the only version of that claim which survives a crash. So
+ * `PgRegistrationRepository` calls this INSIDE its transaction rather than calling the
+ * repository afterwards. Two copies of these two INSERTs would be two places for the
+ * `owner_user_id` / membership pairing to drift -- and a local organization with no
+ * membership row is invisible to its own owner (`findPersonalLocalOrg` goes through
+ * memberships), which reads as "the feature did not run".
+ *
+ * ⚠ It re-points `app.current_org` at the new organization. That is safe and required: the
+ * setting is transaction-local (`set_config(..., true)`), and the caller's own tenant context
+ * has to be restored afterwards -- which the caller does, because only it knows what that was.
+ */
+export async function insertPersonalLocalOrg(
+  s: TenantSession,
+  input: { readonly orgId: string; readonly userId: string; readonly displayName: string },
+): Promise<void> {
+  await s.query(
+    // The kind and the owner column travel together -- migration 0012's CHECK refuses either
+    // without the other, so there is no half-formed local org for anything to find.
+    //
+    // ⚠ The kind is BOUND from `LOCAL_ORG_KIND` rather than written into the SQL text. A
+    // string literal here would be a second declaration of the value the whole feature turns
+    // on, in the one place a reader is least likely to look for it -- and it would be invisible
+    // to the frontend's and backend's type systems alike.
+    `INSERT INTO organizations (id, name, kind, owner_user_id) VALUES ($1, $2, $3, $4)`,
+    [input.orgId, `${input.displayName} 的本地`, LOCAL_ORG_KIND, input.userId],
+  );
+  // 'admin' because there is nobody above them: the org has exactly one member, forever
+  // (I-3). `team_id` is NULL -- a single-member organization has no teams to belong to.
+  await s.query(
+    `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+    [input.userId, input.orgId],
+  );
 }

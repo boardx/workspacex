@@ -89,6 +89,83 @@ describe("认证策略数值单一事实源", () => {
   });
 });
 
+/**
+ * 本地组织判定的单一事实源（F16 / UC-0.5 R7）
+ *
+ * 事故形状与前六次一模一样，代价却不同：前几次漂移错的是界面上一个数字，
+ * 这一次错的是**数据出不出本机**。
+ *
+ * 收敛前，同一条判定在三处各有一份：
+ *   · `apps/web/lib/identity.ts` 的 `isLocalOrg()`（字面量比较）与手写的三条承诺
+ *   · `apps/api/src/domain/identity/model-constraint.ts` 的 `orgKind === "personal-local"`
+ *   · 前端界面里另写的「云端不可用」文案
+ * ⇒ 全部收敛进 `packages/contracts/src/identity.ts`。这里钉死前端这一半，
+ *   后端那一半由 `apps/api/tests/kernel/local-org-invisible-to-admin.test.ts` 钉。
+ */
+describe("本地组织判定单一事实源", () => {
+  const files = (paths: string[]): { path: string; body: string }[] =>
+    paths.map((p) => ({ path: p, body: readFileSync(new URL(`../${p}`, import.meta.url), "utf8") }));
+
+  /**
+   * ⚠ 断言的是**代码**不是注释——本文件上方那条 F20 的教训在这里立刻复现了一次：
+   * 第一版没有剥注释，于是「解释为什么不能写 `kind === "personal-local"`」的那句注释
+   * 自己把门控打红了。会因为注释措辞失败的检查，第一次误报就会被人删掉。
+   */
+  const code = (body: string): string =>
+    body.split("\n").filter((l) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l)).join("\n");
+
+  it("lib/identity.ts 不再自己声明三条承诺，也不自己比字面量", async () => {
+    const [identity] = files(["lib/identity.ts"]);
+    const body = code(identity!.body);
+    expect(body).toMatch(/LOCAL_ORG_GUARANTEES\s*=\s*C\.LOCAL_ORG_GUARANTEES/);
+    expect(body).toMatch(/C\.isLocalOrgKind\(/);
+    // 手抄的迹象：本地又出现一个字符串数组，或者直接比 kind
+    expect(body).not.toMatch(/LOCAL_ORG_GUARANTEES\s*=\s*\[/);
+    expect(body).not.toMatch(/kind\s*===\s*"personal-local"/);
+  });
+
+  it("界面组件里不出现 personal-local 字面量", () => {
+    // 组件应当调 `isLocalOrg()`。字面量出现在组件里，意味着某一天契约改了、
+    // 而这一处不会有任何东西提醒。
+    const offenders = files([
+      "components/shell/top-bar.tsx",
+      "components/admin/local-org-screen.tsx",
+    ]).filter(({ body }) =>
+      body
+        .split("\n")
+        .filter((l) => !/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(l))
+        .some((l) => /["']personal-local["']/.test(l)),
+    );
+    expect(offenders.map((o) => o.path)).toEqual([]);
+  });
+
+  it("契约里的承诺、启动指引、端点判定都能取到，且判定确实会拒绝", async () => {
+    const C = await import("@repo/contracts/identity");
+    // ⚠ 断言的是「三条各自的 id 与契约一致」而不是 toHaveLength(3)——
+    //   后者会把一次经评审的正当新增当成失败（contract-design 硬规则 7）。
+    expect(C.LOCAL_ORG_GUARANTEES.map((g) => g.id)).toEqual(
+      expect.arrayContaining(["local-model-only", "no-mcp-egress", "no-shared-storage"]),
+    );
+    expect(C.LOCAL_RUNTIME_STARTUP_HINT).toContain("不会替你改用云端");
+
+    // 端点判定的两个方向。只断言「本机的算本机」时，一个恒 true 的实现也会绿。
+    expect(C.isLocalModelEndpoint("http://127.0.0.1:11434")).toBe(true);
+    expect(C.isLocalModelEndpoint("http://localhost:1234")).toBe(true);
+    expect(C.isLocalModelEndpoint("https://api.vendor.example/v1")).toBe(false);
+    // 局域网**不算**本机：承诺的字面是「不出本机」，不是「不出内网」。
+    expect(C.isLocalModelEndpoint("http://192.168.1.50:11434")).toBe(false);
+    expect(C.isLocalModelEndpoint(null)).toBe(false);
+  });
+
+  it("本地组织屏的云端禁用原因取自契约函数，不是界面里另写的一句", () => {
+    const [screen] = files(["components/admin/local-org-screen.tsx"]);
+    expect(screen!.body).toMatch(/localOrgCloudDisabledReason\(/);
+    expect(screen!.body).toMatch(/LOCAL_RUNTIME_STARTUP_HINT/);
+    // 手抄的迹象：界面自己拼一句「云端模型不可用」
+    expect(screen!.body).not.toMatch(/const\s+\w*[Rr]eason\s*=\s*["'`]/);
+  });
+});
+
 describe("设计 token 单一事实源", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 

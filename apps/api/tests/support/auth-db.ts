@@ -122,10 +122,43 @@ export async function orgsOwnedBy(userIds: readonly string[]): Promise<string[]>
   if (userIds.length === 0) return [];
   return asOwner(async (c) => {
     const r = await c.query<{ org_id: string }>(
-      `SELECT org_id FROM org_memberships WHERE user_id = ANY($1::text[]) AND org_role = 'admin'`,
+      // ⚠ REAL organizations only (F16, 2026-07-29).
+      //
+      // Registration now creates TWO organizations per account: the invited one and the
+      // user's personal-local one, in the same transaction. Every F19 assertion here is about
+      // "how many organizations did this invite code produce", and including the local one
+      // would turn "exactly one" into "two" everywhere -- reported as a broken invariant when
+      // the invariant is intact.
+      //
+      // The filter is on `kind`, not on a name pattern: `kind` is what the CHECK constraint
+      // and the unique index key off, so this query and the database agree by construction.
+      // `personalLocalOrgsOwnedBy` below is how a test asks about the other one.
+      `SELECT m.org_id FROM org_memberships m
+         JOIN organizations o ON o.id = m.org_id
+        WHERE m.user_id = ANY($1::text[]) AND m.org_role = 'admin'
+          AND o.kind <> 'personal-local'`,
       [userIds],
     );
     return r.rows.map((x) => x.org_id);
+  });
+}
+
+/**
+ * The personal-local organizations these users own (F16 / I-2).
+ *
+ * Separate from `orgsOwnedBy` rather than a flag on it, because the two answer different
+ * questions and a boolean parameter would make every call site's meaning depend on an
+ * argument nobody reads. Used for cleanup and by F19's rollback assertions, which now have to
+ * say that the LOCAL organization rolled back too.
+ */
+export async function personalLocalOrgsOwnedBy(userIds: readonly string[]): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  return asOwner(async (c) => {
+    const r = await c.query<{ id: string }>(
+      `SELECT id FROM organizations WHERE owner_user_id = ANY($1::text[]) AND kind = 'personal-local'`,
+      [userIds],
+    );
+    return r.rows.map((x) => x.id);
   });
 }
 
@@ -161,6 +194,10 @@ export async function resetAuthFixtures(opts: {
  * exactly one organization -- so the memberships are the index.
  */
 export async function resetOrgsOwnedBy(userIds: readonly string[]): Promise<void> {
-  const orgIds = await orgsOwnedBy(userIds);
+  // BOTH kinds: the invited organization and the personal-local one that registration creates
+  // alongside it. Cleaning only the first would leave a local organization per registered user
+  // behind, and the unique index (I-2) would then fail the NEXT run for the same user id with
+  // an error that says nothing about a stale fixture.
+  const orgIds = [...(await orgsOwnedBy(userIds)), ...(await personalLocalOrgsOwnedBy(userIds))];
   if (orgIds.length > 0) await resetAuthFixtures({ orgIds });
 }

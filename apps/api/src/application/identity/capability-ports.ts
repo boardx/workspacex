@@ -24,6 +24,14 @@ export interface CapabilityScopeFacts {
   readonly scope: VisibilityScope;
   /** Which team owns a team-only capability. Meaningless for org-wide. */
   readonly ownerTeamId: string | null;
+  /**
+   * Where this capability runs (F16 contract revision). A FACT, not part of the disclosure:
+   * `invokeLocalModel` has to know it BEFORE deciding whether the call may happen at all, and
+   * a value you must read in order to decide cannot live behind the decision.
+   *
+   * `null` for kinds that do not run anywhere remote (skill / canvas-template / blueprint).
+   */
+  readonly endpoint: string | null;
 }
 
 export interface GuardedCapability {
@@ -44,12 +52,14 @@ export interface CapabilityInsert {
   readonly name: string;
   readonly scope: VisibilityScope;
   readonly ownerTeamId: string | null;
+  readonly endpoint: string | null;
 }
 
 export interface CapabilityPatch {
   readonly name?: string;
   readonly scope?: VisibilityScope;
   readonly ownerTeamId?: string | null;
+  readonly endpoint?: string | null;
 }
 
 /**

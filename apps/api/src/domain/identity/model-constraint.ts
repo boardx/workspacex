@@ -38,6 +38,7 @@
  */
 import { identity } from "@repo/contracts";
 import type { z } from "zod";
+import { isLocalOrg } from "./local-org";
 
 /** All three DERIVED from the contract, never restated -- same reasoning as `roles.ts`. */
 export type OrgKind = z.infer<typeof identity.OrgKind>;
@@ -65,7 +66,11 @@ export function resolveModelConstraintRule(input: ModelConstraintInput): ModelCo
   // invariant, not a style choice: if the policy were read first, a local organization whose
   // policy column said "any" would answer "no restriction", and the promise would have been
   // switched off by a field the domain says local organizations do not have.
-  if (input.orgKind === "personal-local") {
+  // ⚠ `isLocalOrg`, not `=== "personal-local"` (F16). The literal used to appear here, in
+  // `resolve-model-constraint.ts` and in the web shell -- three copies of the judgement that
+  // decides whether data may leave the machine. The other five drifts this project has had
+  // cost a wrong number on a screen; this one would cost the promise.
+  if (isLocalOrg(input.orgKind)) {
     return {
       localOnly: true,
       source: "promise",

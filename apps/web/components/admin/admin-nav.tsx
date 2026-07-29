@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, LayoutDashboard, Users, MessageSquareHeart } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
 import { cn } from "@/lib/utils";
@@ -12,9 +12,11 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   overview: LayoutDashboard,
   members: Users,
   feedback: MessageSquareHeart,
+  // 锁形图标，与顶栏切到本地组织时的那把锁是同一个符号——同一件事在两处要看起来是同一件事
+  local: Lock,
 };
 
-/** 后台左栏 —— 两组共 7 个模块（AI 能力 / 组织）。纯展示 + Link，靠 active 高亮。 */
+/** 后台左栏 —— 两组共 8 个模块（AI 能力 / 组织）。纯展示 + Link，靠 active 高亮。 */
 export function AdminNav({ active }: { active: AdminModuleKey }) {
   return (
     <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
