@@ -11,7 +11,6 @@ import {
   migrateOnce,
   resetOrgs,
   seedOrg,
-  workerPort,
 } from "../support/db";
 
 /**
@@ -34,8 +33,8 @@ import {
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
-const PORT = workerPort(33233);
-const BASE = `http://127.0.0.1:${PORT}`;
+// Port and BASE are assigned at listen() time -- see the note in beforeAll.
+let BASE: string;
 const ORG = "org-f03-audit";
 const PROJECT = "proj-f03-audit";
 const ITEM = "item-f03-audit";
@@ -66,7 +65,17 @@ beforeAll(async () => {
   await migrateOnce();
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(PORT);
+  // Port 0: the OS assigns a free one and we read it back.
+  //
+  // The previous version derived a port from a hash of WORKSPACEX_DB. That is a workaround,
+  // not a fix -- two runs whose names collide mod the hash space pick the same port, and
+  // CI hit exactly that on its second run (EADDRINUSE 33550). It also leaves a run that
+  // died mid-test holding a port the next run wants.
+  //
+  // Asking for 0 removes the whole class: there is no number to collide on.
+  await app.listen(0);
+  const addr = app.getHttpServer().address();
+  BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 });
 
 afterAll(async () => {

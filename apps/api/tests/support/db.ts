@@ -279,21 +279,3 @@ export async function addBinding(opts: {
     ),
   );
 }
-
-/**
- * A listening port that is unique per worker.
- *
- * Test files that boot the app bind a fixed port. Two workers running the full suite at
- * once therefore collide on it -- `EADDRINUSE` on the SECOND worker, reported as a failing
- * test file rather than as a resource clash. Database isolation alone does not buy
- * parallelism; the ports have to move too.
- *
- * Derived from WORKSPACEX_DB so it is stable within a worker (a rerun binds the same port,
- * which matters when a previous run left a socket in TIME_WAIT) and disjoint across
- * workers. The offset is bounded so it cannot wander into the ephemeral range.
- */
-export function workerPort(base: number): number {
-  let h = 0;
-  for (const ch of DB) h = (h * 31 + ch.charCodeAt(0)) % 97;
-  return base + h * 20;
-}
