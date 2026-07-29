@@ -22,6 +22,23 @@ const COMPOSE = ["compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p", "wo
  */
 const DB = process.env.WORKSPACEX_DB ?? "workspacex";
 
+/**
+ * ...and it has to reach the CONNECTION, which for a while it did not (found in F02).
+ *
+ * `pg-config` reads `PGDATABASE`; only `scripts/lib.sh` translated WORKSPACEX_DB into it.
+ * So `WORKSPACEX_DB=wsx_xx pnpm exec vitest run` -- the documented way to run a worker's
+ * tests -- created `wsx_xx` above and then connected to the shared `workspacex` anyway.
+ * The isolation the comment above promises was not in effect for a single vitest run, and
+ * nothing could have told you: cross-worker interference shows up as flaky assertions, not
+ * as an error.
+ *
+ * Assigned rather than overwritten: lib.sh sets PGDATABASE explicitly for the shell gates,
+ * and that setting has to win.
+ */
+if (process.env.PGDATABASE === undefined || process.env.PGDATABASE === "") {
+  process.env.PGDATABASE = DB;
+}
+
 export function ensureDatabase(): void {
   execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
   let ready = false;
