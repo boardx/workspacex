@@ -5,6 +5,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { sprintDir } from "./lib/paths";
+import { appendFingerprint } from "./lib/evidence-fingerprint";
 import {
   loadFeatureList,
   saveFeatureList,
@@ -97,7 +98,7 @@ export function verify(args: Args): void {
       // 若重跑发现命令实际失败，如实记录，绝不悄悄抹平——status 仍保持 passing 不动，
       // 留给人工核实这条 passing 判定当初是否有效。
       const ev = join(sprintDir(phaseId, sprintId!), "evidence", `${f.id}.verify.log`);
-      writeFileSync(ev, logs.join("\n\n"), "utf8");
+      writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
       f.evidence = `evidence/${f.id}.verify.log @ ${new Date().toISOString()}${ok ? "" : " [BACKFILL: 重跑未通过，请人工核实]"}`;
       if (ok) log.ok(`${f.id} 补写证据完成，重跑通过`);
       else log.err(`${f.id} 补写时重跑未通过——status 不变，已在 evidence 中标注，需人工核实`);
@@ -122,7 +123,7 @@ export function verify(args: Args): void {
     // 3) 证据落盘到 sprint evidence
     if (sprintId) {
       const ev = join(sprintDir(phaseId, sprintId), "evidence", `${f.id}.verify.log`);
-      writeFileSync(ev, logs.join("\n\n"), "utf8");
+      writeFileSync(ev, appendFingerprint(logs.join("\n\n")), "utf8");
     }
 
     if (ok) {

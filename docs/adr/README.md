@@ -21,6 +21,7 @@
 | ADR-019 | atomic-adr-numbering | ADR 编号原子取号（new-adr 命令），同款根因/修法源自 phase-id 撞号收口 |
 | ADR-020 | 阶段设计签核：UC+UI 之外，契约束（领域模型/用例接口/API 契约/UC 覆盖证明）也须经人类签核；洋葱架构依赖方向由脚本强制；mock 由契约生成 | Accepted |
 | ADR-021 | context-pack-unlocatable（写正文时补一句话主题描述） | Proposed |
+| ADR-022 | evidence 日志带机器指纹 + doctor 进 PR 门控（堵死「手写日志冒充 passing」） | Proposed |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
