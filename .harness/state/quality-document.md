@@ -102,6 +102,12 @@ workflow）`grep -c doctor` = **0**。所以 PR 阶段唯一的审计链门控�
   `spec_ref`、`needs_ui_signoff`。其中 `spec_ref` 是 ADR-018 闭环的锚点、`points` 是
   sprint 规划输入。从模板 scaffold 出的新 phase 会天然缺这些字段。
 - **陈旧 worktree 7 个**（`git worktree list`），`sweep-worktrees.ts` 存在但未定期跑。
+- **pre-push 门控与 ADR-005 直接打架**：ADR-005 要求所有改动在独立 worktree 里做，而
+  新建 worktree 没有 `node_modules`，pre-push hook 第一步 `turbo --affected` 直接
+  `Command "turbo" not found` 而中止 push。本次审计推送时实测撞上。于是每个守规矩开
+  worktree 的 agent 都被迫 `--no-verify`——**规矩越守，门控越被绕过**。要么每个 worktree
+  跑一次 `pnpm install`（慢），要么 hook 在依赖不可用时降级为 warn（当前只有 doctor
+  那一段这么做了，turbo 那段没有）。
 
 ---
 
