@@ -104,7 +104,23 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * is the failure this project has had five times.
    */
   const localOrg = identity.LocalOrgReason.safeParse(raw);
-  return localOrg.success ? { reasonCode: localOrg.data } : {};
+  if (localOrg.success) return { reasonCode: localOrg.data };
+
+  /**
+   * F17: `identity.LocalExportReason`, the fourth closed enum.
+   *
+   * ⚠ Added because its two codes were being SILENTLY DROPPED here. They are declared in the
+   * contract (`previewExport.err` / `exportToOrganization.err`) but belonged to no enum, so
+   * the parses above all failed and the caller got a bare `conflict`. The status code was
+   * right and the reason was gone -- and the UI needs the reason, because "you have not
+   * previewed" and "this request does not match the list you confirmed" ask the user for
+   * different things.
+   *
+   * Same shape of exemption as the three above, same restriction: a closed enum in
+   * `@repo/contracts`, parsed against that enum, nothing else passes.
+   */
+  const localExport = identity.LocalExportReason.safeParse(raw);
+  return localExport.success ? { reasonCode: localExport.data } : {};
 }
 
 /**
