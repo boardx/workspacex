@@ -19,7 +19,7 @@ phase: "00"
 #   回到这条记录，而不是去追问「复核为什么没发现」。它没复核。
 covers_bundles: [identity, artifact, context-pack, web-kernel, api-kernel, auth]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: " yanbin shen"
+confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-29T10:22:44+08:00"
 ---
 
