@@ -10,6 +10,7 @@
 原始需求/UC ─[requirement-author]→ feature(behavior)
             ─[verification-writer]→ + 可执行验收(verification)
             ─[sprint-planner]→ + depends_on + wave + parallel_safe
+            ─[人类签核]→ 所属契约束 design-signoff 三节 confirmed + 阶段一致性复核
             ─[DoR 门控]→ ready-for-dev   （rubrics/ready-for-dev.md）
             ─[harness sync / github-projector]→ GitHub Issue（富正文）
             ─[N 个 agent: claim + worktree]→ 按 issue 验收并行开发
@@ -18,7 +19,21 @@
 
 ## 1. Definition of Ready（准入）
 
-见 [`.harness/rubrics/ready-for-dev.md`]。issue 必须满足 7 条才 `ready-for-dev`，否则 `needs-spec` 不准开发。
+见 [`.harness/rubrics/ready-for-dev.md`]。issue 必须满足 8 条才 `ready-for-dev`，否则 `needs-spec` 不准开发。
+
+**签核在并行流水线里的位置：签核是波次的前置，不是 feature 的前置。**
+契约束按能力域切，一个束通常横跨多个 wave 的 feature；因此签核不是每个 agent 各自等自己那一条，
+而是**在放一批 agent 出去之前，先把这批 feature 所属的束全部签完**：
+
+- **谁签**：人类。agent 产材料、不签字，`status` 受 CODEOWNERS + CI 保护（ADR-023 决策五）。
+- **卡在哪**：`new-sprint` **和 `claim`**——`claim` 才是真正的开工动作
+  （只守 `new-sprint` 时，手改 `feature_list.json` 的 `sprint` 字段就能绕过）。
+- **对编排器的含义**：就绪队列里只放「所属束已签 ∧ 阶段一致性复核已声明覆盖该束」的 feature。
+  一个束未签会同时挡住它覆盖的**全部** feature——所以束的签核顺序应当跟着 wave 走，
+  地基束（identity / api-kernel / web-kernel）先签。
+- **未采用契约束流程的阶段**（没有 `contracts/` 目录）这道门整体放行，见 contract-design.md §四。
+
+细则一律见 [`.harness/instructions/contract-design.md`]，此处不复述。
 
 ## 2. feature schema 扩展（在现有字段上加 3 个）
 
@@ -70,6 +85,7 @@ prototype: <区块/截图>  ·  路由/界面: <interface-operation-inventory �
 ## DoR
 - [x] 行为可观察  - [x] 有可执行验收  - [x] 粒度可单会话
 - [x] 依赖已解  - [x] 落点+设计参照已定  - [x] 无悬决  - [x] 证据位已定
+- [x] 设计已签核（契约束 <bundle> confirmed + 阶段一致性复核覆盖该束）
 ```
 
 `harness sync` 扩展：只为 `ready:true` 的 feature 开 issue；写入上述富正文 + labels；

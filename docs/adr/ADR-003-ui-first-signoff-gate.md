@@ -3,6 +3,21 @@
 - 状态: Accepted
 - 适用层：方法论（可移植：随模板打包）
 - 日期: 2026-07-01
+- 关系：被 **ADR-023**（签核统一为三件）**扩展并收敛**。本 ADR **继续有效**——它记录了
+  「为什么 UI 必须先经人类看过」这个决策当时是怎么定的；但**「签核对象有几件、放在哪个文件、
+  由什么脚本执行」以 ADR-023 为准**。正文以下内容一字未改，是决策档案。
+
+> ⚠ **标题里「才生成 feature_list」与本 ADR 自己的决策不符。**
+> 「备选（已否决）」第一条明确否决了「门控卡在 feature_list 生成本身」，
+> 实际门控卡在 `new-sprint`。**实现实为：`assertUiSignedOff` 只在 `new-sprint` 被调用，
+> feature_list 可以在 UI 未确认时先生成。**标题应读作「才开 sprint」。
+> 这个偏差的后果见 ADR-023 背景第 3 条（phase-01/02/03 的 `ui-signoff.md` 全部 pending，
+> 而三份 feature_list 已生成完毕）。
+>
+> ⚠ **本 ADR 未写、但 `ui-signoff.ts` 实际执行的一条**：即便 `status: confirmed`，
+> 若该阶段 `requirements/` 没有真实 story 覆盖（全是裸模板），门控**仍然拒绝**
+> （`hasRequirementsCoverage`，人类拍板 2026-07-19）。见 ADR-023 与
+> `.harness/instructions/contract-design.md`。
 
 ## 背景
 
@@ -30,6 +45,12 @@
 `ui-signoff.md` 不是 `confirmed` 时，`pnpm harness new-sprint` 直接拒绝——即「UI 未确认不得进入代码开发」。
 
 非 UI 阶段（`has_ui` 缺省/false）不受影响，流水线保持原样。
+
+> ⚠ **签核位置已被 ADR-023 收敛。** 上文第 2、3 步的 phase 级 `ui-signoff.md`
+> 不再是独立的签核件：UI 成为**束级 `design-signoff.md` 三节中的第 ① 节**
+> （材料写在束目录下 `ui.md`，引用 `ui-preview/` 截图）。
+> **人类签核动作从两次变一次。**现存 phase 级 `ui-signoff.md` 在该阶段建立
+> `contracts/` 目录时并入束级。见 ADR-023 决策一。
 
 ## 后果
 

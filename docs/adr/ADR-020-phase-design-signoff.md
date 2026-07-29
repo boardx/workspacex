@@ -4,6 +4,23 @@
 - 适用层：方法论（可移植：随模板打包）
 - 日期: 2026-07-28
 - 扩展：**ADR-003**（UI 先行确认关卡）。ADR-003 仍然有效，本 ADR 把签核对象从「一件」扩成「四件」。
+- 关系：被 **ADR-023**（签核统一为三件）**扩展并收敛**。本 ADR **继续有效**——它记录了
+  「为什么 UC + UI 不足以确认整个设计」这个决策当时是怎么定的；但**「签核对象有几件、
+  放在哪个文件、由什么脚本执行」以 ADR-023 为准**：签核面收敛为三件
+  （UI / 用例 / API 契约），`domain.md` 与 `coverage.md` 降级为必备支撑材料
+  （仍被脚本强制存在，不得删除）。正文以下内容一字未改，是决策档案。
+
+> ⚠ **下文第 46、115 行的 `has_ui` 限定词与实现不符。**
+> **实现实为：门控与 `has_ui` 无关——`assertDesignSignedOff` 看的是该阶段有没有
+> `contracts/` 目录。没有该目录 ⇒ 整道门控静默放行（不追溯拦住 2026-07-28 之前的阶段）；
+> 一旦建了 `contracts/`，无论 `has_ui` 是什么，门控立即生效。**
+> 见 `.harness/scripts/lib/design-signoff.ts` 的 `readBundleSignoffs` / `assertDesignSignedOff`，
+> 以及 ADR-023。
+>
+> ⚠ **本 ADR 未写、但 `design-signoff.ts` 实际执行的一条**：要开工的 feature
+> **必须属于某个契约束**，否则报「不属于任何契约束」并拒绝——不属于任何束不是「无需签核」，
+> 而是**失败**。束↔feature 的映射当前抓的是 `coverage.md` 正文那行散文；
+> ADR-023 决策三把它改为 `design-signoff.md` frontmatter 的 `covers:` 字段。
 
 ## 背景
 
@@ -54,6 +71,13 @@ mock 是手写的，它对自己永远自洽。
 
 **UI 不被替代，它是第 ④ 件的一部分**——「前端消费点」就是已建成的界面。
 ADR-003 的 `ui-signoff.md` 继续存在，成为契约束签核的一个组成项。
+
+> ⚠ **「成为组成项」当时只写了、没做。** 实现上 UI 签核与契约束签核是 `new-sprint.ts` 里
+> **两条互不相干的 assert**，数据也在两个文件里，人类要签两次。
+> **实现的目标状态（ADR-023 决策一）**：签核面收敛为 UI / 用例 / API 契约三件，
+> 全部落在束目录下**同一份** `design-signoff.md` 的三节里；不再有 phase 级独立签核。
+> 本节的 ① `domain.md` 与 ④ `coverage.md` 降为必备支撑材料——**脚本仍强制它们存在**，
+> 只是不再算作「签核面」这个对外名词。理由见 ADR-023 决策二。
 
 ### 二、两级粒度：契约束签核 + 阶段一致性复核
 
@@ -114,6 +138,11 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 
 **`new-sprint` 的拒绝条件扩展**：`has_ui` 阶段除 `ui-signoff.md: confirmed` 外，
 还需该 feature 所属契约束的 `design-signoff.md: confirmed`，且阶段一致性复核通过。
+
+> ⚠ **两处与实现不符，见本文件头部的标注。** ① `has_ui` 不是触发条件，
+> 「该阶段有没有 `contracts/` 目录」才是；② 只守 `new-sprint` 是不够的——
+> 真正的开工动作是 `claim`，`claim` 当前不问签核。ADR-023 决策六把这道门扩到 `claim`
+> 与 `doctor`。目标状态以 ADR-023 为准。
 
 ## 后果
 

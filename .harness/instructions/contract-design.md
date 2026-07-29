@@ -1,7 +1,12 @@
-# 契约先行的设计流程（ADR-020 的执行书）
+# 契约先行的设计流程（ADR-020 + ADR-023 的执行书）
 
 > 渐进式披露第 3 层。**开工前读这份**——它规定 feature 从「已生成」到「可开工」之间要做什么。
-> 决策依据见 `docs/adr/ADR-020-phase-design-signoff.md`，这里只讲怎么做。
+> 决策依据见 `docs/adr/ADR-023-unified-signoff.md`（签核面的权威）与
+> `docs/adr/ADR-020-phase-design-signoff.md`（为什么要有这一层），这里只讲怎么做。
+>
+> **签核面 = 三件，签在一处**：UI / 用例 / API 契约，全在束目录下同一份
+> `design-signoff.md` 的三节里。`domain.md` 与 `coverage.md` 是**必备支撑材料**——
+> 不属于「签核面」这个对外名词，但**脚本继续强制它们存在**（见 §一「每束的产出」）。
 
 ## 为什么有这一层（一句话）
 
@@ -21,7 +26,7 @@
 按**能力域**切，不按模块切。判据是「**这些东西的不变量互相依赖吗**」——
 互相依赖的必须同束，否则会出现「A 束签了，B 束签的时候发现 A 的不变量不成立」。
 
-phase-00 的五个束（试点）：
+phase-00 的**六个束**（试点，磁盘为准：`phases/phase-00-shared-kernel/contracts/`）：
 
 | 束 | 覆盖的 feature | 依据 UC | 点 | 核心不变量 |
 |---|---|---|---:|---|
@@ -29,29 +34,50 @@ phase-00 的五个束（试点）：
 | `artifact` 原件·版本·绑定 | F04 F05 F06 F07 F08 | uc-0-1 | 21 | 原件不可变；更新走新版本；SHA-256 可校验；固定快照绑定后上游变化不改写它 |
 | `context-pack` 上下文装配 | F09 F10 F11 F12 F13 | uc-0-2 | 21 | 引用必可定位；丢弃清单可查带原因；同 run id 可重放 |
 | `web-kernel` 前端内核 | F14 | uc-0-4 | 13 | 设计 token / 字号档位单源；七态固定保留名 |
+| `api-kernel` 后端内核与运行时门控 | F18 | uc-0-6 | 13 | 洋葱依赖只向内；响应体也受契约校验 |
+| `auth` 注册与登录 | F19 F20 F21 F22 | 01-auth/uc-1-5 + uc-1-1 | 12 | 邀请码一次性；会话与组织归属绑定（自 phase-01 迁入） |
 
-合计 **88 点 = phase-00 全量**，无遗漏、无重叠。
+合计 **113 点 / F01–F22 = phase-00 全量**，无遗漏、无重叠。
 
-> ⚠ **`binding` 曾被单独列为第五束，后并入 `artifact`。** 判据就是上面那条：
+> ⚠ **此表是派生视图，不是权威。** 权威是各束 `design-signoff.md` 的 frontmatter
+> `covers:`（ADR-023 决策三）。改束的覆盖范围改那里，**不要**只改这张表——
+> 「同一事实声明在两处」是本仓最高发的缺陷。
+
+> ⚠ **`binding` 曾被单独列为一个束，后并入 `artifact`。** 判据就是上面那条：
 > 它只有 F06 一个 feature，与 artifact 共用同一份 UC（uc-0-1），
 > 且它的不变量（固定快照绑定后上游变化不改写它）**依赖** artifact 的不变量（版本不可变）——
 > 拆开会出现「artifact 束签了，binding 束签的时候发现前者的不变量不够用」。
-> **一个束 = 一份 UC** 在 phase-00 恰好成立，这不是巧合：UC 本来就是按能力域写的。
 
-### 每束四件产出
+### 每束的产出
 
 放在 `phases/<phase>/contracts/<bundle>/`：
 
 ```
-phases/00-shared-kernel/contracts/identity/
-  domain.md          ① 领域模型：实体、值对象、**不变量**
-  usecases.md        ② 用例接口：application 层的输入/输出端口
-  api.contract.ts    ③ API 契约：zod schema（唯一事实源）
-  coverage.md        ④ UC 覆盖证明：UC 的 R12 → API 操作 → 前端消费点
-  design-signoff.md  签核状态（人类改，agent 不许改）
+phases/phase-00-shared-kernel/contracts/identity/
+  ui.md              签核① UI：界面落点 + 引用 phases/<phase>/ui-preview/ 截图
+  usecases.md        签核② 用例接口：application 层的输入/输出端口 + 失败模式
+  domain.md          支撑：领域模型——实体、值对象、**不变量**
+  coverage.md        支撑：UC 覆盖证明——UC 的 R12 → API 操作 → 前端消费点
+  design-signoff.md  签核状态（人类改，agent 不许改），frontmatter 带 covers: [F01, …]
 ```
 
-#### ① `domain.md` —— 最内层，不依赖任何人
+**签核③ API 契约不住在束目录**，它住在 `packages/contracts/src/<bundle>.ts`（zod 单一事实源），
+因为它要被后端、前端、mock、OpenAPI 同时 import——放进 `phases/` 下就无法被代码引用。
+
+> ⚠ **旧版本本文件写的 `api.contract.ts` 是错的：全仓不存在任何 `api.contract.ts`。**
+> 真实位置见上（`packages/contracts/src/artifact.ts`、`identity.ts`、`auth.ts`、
+> `context-pack.ts` …）。束名与文件名对齐；新束加文件时同时在 `src/index.ts` 导出。
+
+#### 签核① `ui.md` —— 人看到的界面对不对
+
+写这一束的**界面落点**：路由、关键组件、稳定 `data-testid`，并逐条引用
+`phases/<phase>/ui-preview/` 下的截图。UI 由 **ui-prototyper** 用 `apps/web` 真实组件 + mock 做出来
+（ADR-003），但**签核动作不再单独发生在 phase 级 `ui-signoff.md`**，
+而是作为 `design-signoff.md` 的第一节被人类确认（ADR-023 决策一）。
+
+现存 phase-01/02/03 的 phase 级 `ui-signoff.md` 在这些阶段建立 `contracts/` 目录时并入束级。
+
+#### 支撑材料 `domain.md` —— 最内层，不依赖任何人
 
 写实体、值对象，**重点是不变量**。不变量的判据：**它在任何时刻都为真，违反即数据损坏**。
 
@@ -62,7 +88,12 @@ phases/00-shared-kernel/contracts/identity/
 
 ⚠ 不要写「应该」「建议」——那些是规则不是不变量。不变量必须能写成断言。
 
-#### ② `usecases.md` —— 中层，定义端口
+⚠ **`domain.md` 不在签核面里，但不许删。** zod 能写 `reason: enum(7)`，写不了
+「这个枚举是封闭的，新增必须走 ADR」——ADR-020 举的四个事实上的后端契约
+**没有一个是 API 形状问题，全是不变量问题**。删掉它，「同一事实两处声明」失去唯一收敛点。
+理由全文见 ADR-023 决策二。
+
+#### 签核② `usecases.md` —— 中层，定义端口
 
 每个用例一段：输入、输出、前置条件、失败模式。
 **失败模式要穷举**——「失败长什么样」是契约的一半，界面靠它渲染异常态。
@@ -75,12 +106,12 @@ UC: 把 Studio 产出保存回项目
   err: NO_PROJECT_ROLE | STUDIO_RUN_NOT_FOUND | PINNED_REQUIRES_SNAPSHOT
 ```
 
-#### ③ `api.contract.ts` —— 唯一事实源
+#### 签核③ `packages/contracts/src/<bundle>.ts` —— 唯一事实源
 
 zod schema。**这一份生成四样东西**：
 
 ```
-  api.contract.ts（唯一事实源）
+  packages/contracts/src/<bundle>.ts（唯一事实源）
      ├─→ 后端 DTO + ValidationPipe 运行时校验
      ├─→ 前端 client 类型
      ├─→ OpenAPI（对外文档 + 契约 diff 门控）
@@ -91,7 +122,7 @@ zod schema。**这一份生成四样东西**：
 （设计 token / 字号档位 / 丢弃原因枚举 / 撤回链 SLA / 估点）。手写 mock 是第六次。
 从契约生成后，**前端自动成为契约的第一个消费者：契约错了界面当场崩**，而不是等到联调。
 
-#### ④ `coverage.md` —— 横切，证明接口够用
+#### 支撑材料 `coverage.md` —— 横切，证明接口够用
 
 一张表，每行一条 UC 的 R12 验收线索：
 
@@ -103,6 +134,9 @@ zod schema。**这一份生成四样东西**：
 **两个方向都要查**：
 - **UC → API**：有 UC 的验收线索找不到对应 API ⇒ **接口不够，业务跑不通**
 - **API → UC**：有 API 操作没有任何 UC 要它 ⇒ **接口是多余的，或有 UC 没写**
+
+⚠ **`coverage.md` 不在签核面里，但不许删。** 它是唯一做**双向**检查的一件——
+UI / 用例 / API 三件各自都无法自查这个性质（ADR-023 决策二）。
 
 ---
 
@@ -139,14 +173,42 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 
 ## 四、签核流程（人类的动作，agent 不许代劳）
 
-1. agent 产出四件套 → `design-signoff.md` 的 `status: pending`
-2. **人类**逐件核对，重点看：
-   - **不变量**是不是真的不变量（能写成断言吗）
-   - **失败模式**穷举了吗（界面的异常态靠它）
-   - **coverage 的两个方向**都查了吗
+1. agent 产出三件签核材料 + 两件支撑材料 → `design-signoff.md` 的 `status: pending`，
+   frontmatter 写 `covers: [F01, F02, …]`（束↔feature 映射的**权威**，ADR-023 决策三）。
+2. **人类**在同一份 `design-signoff.md` 里逐节确认三件，重点看：
+   - **① UI**：界面落点与截图对不对
+   - **② 用例**：**失败模式**穷举了吗（界面的异常态靠它）
+   - **③ API 契约**：对外形状与错误码对不对
+   - 顺带核支撑材料：**不变量**是不是真的不变量（能写成断言吗）；**coverage 的两个方向**都查了吗
 3. 人类把 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`
-4. 全部束签完后，做**阶段一致性复核** → `phases/<phase>/design-coherence.md`
-5. `new-sprint` 门控：feature 所属束已签 ∧ 一致性复核通过，否则拒绝
+   （**ISO 8601，且不得晚于当下**——现存 `auth` 束有一个 `2026-07-30` 的未来时间戳待更正）。
+4. 全部束签完后，做**阶段一致性复核** → `phases/<phase>/design-coherence.md`，
+   其 frontmatter 必须写 `covers_bundles: [...]`，**声明的束集合 ⊇ 本阶段全部束**（ADR-023 决策四）。
+5. 门控：feature 所属束已签 ∧ 一致性复核覆盖并通过，否则拒绝。
+   门守在 `new-sprint` **和 `claim`**（真正的开工动作是 claim），`doctor` 另有签核链体检。
+
+### 签核状态受机械保护（ADR-023 决策五）
+
+`design-signoff.md` / `design-coherence.md` 的 `status:` 是整条签核链**唯一的信任根**。
+它由 `.github/CODEOWNERS` 指给人类，CI 检查「改了 status 行且提交者不是 CODEOWNERS ⇒ 失败」。
+**agent 一次 `Edit` 就能把 pending 改成 confirmed**——这就是为什么它必须被机械保护，
+而不是靠本文件写一句「不许改」。
+
+### 门控的三条实际行为（脚本在做、以前文档没写）
+
+以下三条是 `.harness/scripts/lib/` 里已经在执行、而 ADR-020 / ADR-003 从未写过的：
+
+1. **没有 `contracts/` 目录 ⇒ 整道设计签核门静默放行。**
+   `assertDesignSignedOff` 在 `readBundleSignoffs` 返回空数组时直接 `return`。
+   理由是不追溯拦住 2026-07-28 之前的阶段；**代价是这成了新阶段的默认逃生口**——
+   一个阶段只要不建 `contracts/`，签核门对它等于不存在。
+   ⚠ 触发条件是**有没有 `contracts/` 目录**，**不是 `has_ui`**。ADR-020 正文的 `has_ui`
+   限定词是错的（已在该 ADR 头部标注）。
+2. **feature 必须属于某个束，否则失败。** 不属于任何束**不是「无需签核」而是拒绝**：
+   报「`Fxx` 不属于任何契约束 —— 无法确认它的设计被评审过」。
+3. **UI 签核即便 `confirmed` 也可能不放行。** `assertUiSignedOff` 先跑
+   `hasRequirementsCoverage`：该阶段 `requirements/` 若没有真实 story 覆盖（全是裸模板），
+   直接拒绝。人类拍板 2026-07-19：**「界面对不对」不能替代「这块界面背后有没有一个真实需求」。**
 
 ### 阶段一致性复核查什么
 
@@ -162,7 +224,8 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 
 ## 五、给 agent 的硬规则
 
-1. **不许改 `design-signoff.md` 的 status** —— 那是人类的动作（同 ADR-003 的 `ui-signoff.md`）。
+1. **不许改 `design-signoff.md` / `design-coherence.md` 的 `status` / `confirmed_by` /
+   `confirmed_at`** —— 那是人类的动作，且受 CODEOWNERS + CI 保护（ADR-023 决策五）。
 2. **不许手写 mock** —— 从契约生成。发现手写的，收敛掉。
 3. **不许在两处声明同一事实** —— 发现第二份副本，收敛为单源 + 加门控。
    本项目的先例：`lib/font-scale.ts`、`lib/omission-reason.ts`、`lib/withdrawal-flow.ts`

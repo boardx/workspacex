@@ -7,9 +7,16 @@ confirmed_at:            # 确认时间（ISO，如 2026-07-01T10:00:00Z）
 
 # UI 先行确认 — {{PHASE_NAME}}（Phase {{PHASE_ID}}）
 
+> ⚠ **ADR-023 起，phase 级 UI 签核不再是独立的一次签核。** UI 成为束级
+> `phases/<phase>/contracts/<bundle>/design-signoff.md` 三节中的第 ① 节，材料写在同目录 `ui.md`。
+> 本文件在该阶段建立 `contracts/` 目录之前继续有效（`new-sprint` 仍读它的 `status`），
+> 建立之后其内容并入束级。**签核件数与位置以 ADR-023 为准。**
+>
 > 这是本阶段的 **UI 签核关卡**（ADR-003）。UI 相关阶段必须先把真实界面做出来、
-> 由**人类工程师确认**，才能生成/定稿 `feature_list.json` 并开 sprint 进入代码开发。
+> 由**人类工程师确认**，才能开 sprint 进入代码开发（`feature_list.json` 本身不被此门卡住）。
 > 门控由 `new-sprint` 强制：本文件顶部 `status` 不是 `confirmed` 时，`pnpm harness new-sprint` 直接拒绝。
+> ⚠ 另有一条：即便 `status: confirmed`，若本阶段 `requirements/` 全是裸模板、没有真实 story
+> 覆盖，门控**仍然拒绝**（`hasRequirementsCoverage`）。
 
 ## 交付形态（本阶段约定）
 - **真实组件**：直接写在 `apps/web` 里，用 **mock 数据**、**不接后端**。人类确认后，feature 开发 = 把这些 UI 接上真逻辑，**UI 不丢弃、可复用**。
@@ -33,4 +40,4 @@ confirmed_at:            # 确认时间（ISO，如 2026-07-01T10:00:00Z）
 -
 
 ---
-**确认动作**：核对无误后，把顶部 frontmatter 的 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`，提交。之后才可调 requirement-author 生成 feature_list、跑 new-sprint。
+**确认动作**：核对无误后，把顶部 frontmatter 的 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`（ISO 8601，不得晚于当下），提交。之后才可跑 new-sprint。**这是人的动作，agent 不得代劳。**

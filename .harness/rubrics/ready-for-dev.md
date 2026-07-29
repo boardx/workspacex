@@ -17,6 +17,13 @@
    `interface-operation-inventory.md` 路由）都已指定。复用既有设计 token / shadcn 组件（见 uiux-standards）。
 6. **无悬而未决**：澄清问题清单（见 requirement-author）已全部回答，无 TODO/待定。
 7. **证据位**：`evidence` 路径已约定（如 `evidence/<id>.verify.log`）。
+8. **设计已签核**：本 feature 属于某个契约束（束级 `design-signoff.md` 的 frontmatter
+   `covers:` 里有它），该束 `status: confirmed`，且本阶段 `design-coherence.md` 已通过
+   **并在 `covers_bundles:` 里声明覆盖了该束**。
+   - 「不属于任何束」= **拒绝**，不是「无需签核」。
+   - 该阶段尚无 `contracts/` 目录时本条自动满足（脚本层的逃生口，见下）。
+   - 签核是**人的动作**：`status` 只能由人类改，agent 改了会被 CODEOWNERS + CI 拦。
+   - 权威规格 ADR-023；怎么做见 [`.harness/instructions/contract-design.md`]。
 
 ## 并行可调度补充字段（不影响 ready，但调度需要）
 
@@ -26,9 +33,11 @@
 ## 状态机
 
 ```
-needs-spec ──(补齐 DoR 7 条)──▶ ready-for-dev ──(claim)──▶ in-progress ──(verify 绿)──▶ passing
+needs-spec ──(补齐 DoR 8 条)──▶ ready-for-dev ──(claim)──▶ in-progress ──(verify 绿)──▶ passing
      ▲                                                          │
      └──────────────(依赖未过 / 缺验收)──── blocked ◀───────────┘
 ```
 
-`ready-for-dev` 的判定可被脚本门控：feature 满足 1–7 → 打 `ready:true`；sync 只为 `ready:true` 开 issue。
+`ready-for-dev` 的判定可被脚本门控：feature 满足 1–8 → 打 `ready:true`；sync 只为 `ready:true` 开 issue。
+第 8 条已有可执行形式（`assertDesignSignedOff`），其余各条的门控化程度不一——
+**没有脚本的条目视为未落地**，别把它们当成已经在把关。
