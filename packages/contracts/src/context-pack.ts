@@ -297,6 +297,8 @@ export const operations = {
   gateAiCall: {
     method: "POST", path: "/context-packs/:runId/ai-gate",
     in: z.object({ runId: z.string() }).strict(),
+    // ⚠ `.strict()`：响应体的多余键必须被拒。服务端多返一个契约没描述的字段，
+    //   前端类型也从这份契约生成，于是**没有任何东西会报**。
     out: z.object({
       allowed: z.boolean(),
       /** allowed=false 时给出分层原因（EMPTY_CANDIDATE_SET / RETRIEVAL_UNAVAILABLE / CONFIDENTIAL_...） */
@@ -315,6 +317,8 @@ export const operations = {
       runId: z.string(),
       citedSegmentIds: z.array(z.string()),
     }).strict(),
+    // ⚠ `.strict()`：同上。这里尤其要紧——多返一个 `warnings` 之类的字段，
+    //   会让「拒绝」在调用方看起来像「通过但有提示」。
     out: z.object({
       allowed: z.boolean(),
       /** 越界引用的 segmentId 清单（空数组=全部在包内） */
