@@ -26,6 +26,9 @@ const SCREENS = [
   "/admin", "/admin/agent", "/admin/skill", "/admin/model",
   "/admin/mcp", "/admin/members", "/admin/feedback",
   "/studio/prototype", "/studio/interview", "/studio/survey", "/studio/research",
+  "/studio/interview/i-wang?tab=design", "/studio/interview/i-wang?tab=respondents",
+  "/studio/interview/i-wang?tab=record", "/studio/interview/i-wang?tab=insight",
+  "/studio/interview?tab=templates",
 ];
 
 for (const vp of VIEWPORTS) {
