@@ -1,0 +1,78 @@
+# Deployed dependencies. Separate file from `docker-compose.dev.yml` on purpose.
+#
+# ## Why not just reuse the dev one
+#
+# The dev file puts PostgreSQL's data directory on **tmpfs**, and that is correct there:
+# every gate run starts from an empty database, which is what makes "rebuildable from
+# migrations alone" a claim that is exercised rather than one that happens to be true of
+# a long-lived local database.
+#
+# Deployed, the same line means the database is wiped on every container restart. Today
+# that costs nothing -- there is no real data yet. The moment F01's `acl_bindings` holds a
+# real organization it is a landmine, and it is the kind that goes off during an unrelated
+# `docker restart` at the worst possible time.
+#
+# Two files rather than one file with an override, because the difference is not a tweak:
+# one deliberately destroys data and the other deliberately preserves it. Expressing that
+# as a flag invites someone to flip it.
+#
+# ## Usage
+#   docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d
+#
+# ⚠ Project name is `workspacex`, distinct from the gates' `workspacex-kernel`. Same host,
+#   two stacks: a `docker compose -p workspacex-kernel down -v` during a CI run must not be
+#   able to reach the deployed data.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      # Deployed credentials come from the environment, never from this file. The dev file
+      # hardcodes them, which is fine for a disposable database and not fine here.
+      POSTGRES_PASSWORD: ${MIGRATION_DB_PASSWORD:?set MIGRATION_DB_PASSWORD}
+      POSTGRES_DB: ${PGDATABASE:-workspacex}
+    ports:
+      # Loopback only. Docker publishes to all interfaces by default, and this host is on
+      # the public internet -- see the note in docker-compose.dev.yml.
+      - "127.0.0.1:${PGPORT:-55432}:5432"
+    volumes:
+      # A NAMED volume, which is the whole reason this file exists.
+      - workspacex_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":59001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
+    ports:
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:59001"
+    volumes:
+      # Object storage holds originals, and the architecture's invariant is that an original
+      # is never overwritten. Losing the volume would violate that in the most direct way.
+      - workspacex_miniodata:/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:56379:6379"
+    volumes:
+      # Redis is a cache today, but sessions land here with phase-01 01-auth. Persisting it
+      # now costs nothing and avoids a silent "everyone logged out" on the first restart
+      # after that feature ships.
+      - workspacex_redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  workspacex_pgdata:
+  workspacex_miniodata:
+  workspacex_redisdata:
