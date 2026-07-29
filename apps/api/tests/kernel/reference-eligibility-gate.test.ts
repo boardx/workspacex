@@ -3,6 +3,8 @@ process.env.KERNEL_QUIET = "1";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { artifact as C } from "@repo/contracts";
 import {
@@ -427,7 +429,7 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
       );
       return r.rows.map((x) => x.t).sort();
     });
-    // The five that legitimately name a version, and why each is not a citation:
+    // The six that legitimately name a version, and why each is not a citation:
     //   artifact_bindings        the pin itself -- it is what this gate READS.
     //   derived_representations  OCR / ASR / summary of one version (I-6). Not a citation.
     //   downstream_references    the door.
@@ -436,13 +438,35 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     //                            item is assembled from segments, so F13's "Pack 随定版固化"
     //                            must cite through this door and not through segment ids.
     //                            Recorded here so that fact has somewhere to be checked.
+    //   context_packs            ⚠ ADDED BY F13, and it is the case the line above anticipated.
+    //                            `pinned_snapshot_id` is the freeze, not a citation: it records
+    //                            WHICH snapshot a run's evidence list was frozen onto. It does
+    //                            not bypass this gate, because `pinContextPack` reaches its
+    //                            verdict through `judgeCitation` -- the same function
+    //                            `referenceForDownstream` uses -- and refuses
+    //                            PIN_REQUIRES_SNAPSHOT for a live/draft/unbound version. That
+    //                            behaviour is asserted in both directions in
+    //                            `context-pack-pinned-replay.test.ts`; the structural half is
+    //                            below, so a future rewrite of `pin-pack.ts` around its own
+    //                            eligibility rule is caught HERE, where the door is defined.
     expect(referrers).toEqual([
       "artifact_bindings",
+      "context_packs",
       "derived_representations",
       "downstream_references",
       "segment_text",
       "segments",
     ]);
+
+    // The structural half of the F13 entry above. A second eligibility rule inside the pin
+    // path is exactly the "decides for itself" that coverage gap ③ forbids, and it would not
+    // show up in the FK list at all.
+    const pinSrc = readFileSync(
+      fileURLToPath(new URL("../../src/application/context-pack/pin-pack.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(pinSrc).toContain("judgeCitation");
+    expect(pinSrc.length, "could not read pin-pack.ts -- this assertion would be vacuous").toBeGreaterThan(500);
 
     // Counter-proof: the query really catches a new referrer. Created and rolled back, so
     // the schema is unchanged -- without this, a query that returned a hard-coded list would

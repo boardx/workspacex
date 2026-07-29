@@ -105,3 +105,107 @@ export interface ContextPackAuditStore {
 export const CONTEXT_PACK_AUDIT_STORE = Symbol("ContextPackAuditStore");
 
 export type ListOmissionsOut = z.infer<typeof CP.operations.listOmissions.out>;
+
+/* ───────────────────────── F13: persistence, replay, pinning ───────────────────────── */
+
+import type { RecordedRun } from "../../domain/context-pack/recorded-run";
+import type { SelectableModel } from "../../domain/context-pack/model-routing";
+import type { ModelConstraint } from "../../domain/identity/model-constraint";
+
+/**
+ * A recorded run as it comes back out of storage.
+ *
+ * ⚠ **There is no `pack` field here, and that absence is the feature.** F09, F11 and F12 each
+ * left persistence to F13 saying "building a table now would be guessing at the shape";
+ * the shape it turned out to need is INPUTS, not output. A `pack` column would make
+ * `replayContextPack` a `SELECT`, and every assertion about replay would then be an assertion
+ * about the database's ability to return what was put in it. `context_packs` (migration 0016)
+ * has no column able to hold an item, and `context-pack-pinned-replay.test.ts` asserts that
+ * against `information_schema` so the absence cannot be quietly reversed.
+ */
+export interface RecordedRunRow {
+  readonly run: RecordedRun;
+  /** The digest of the pack this run produced when it produced it. Replay is checked against it. */
+  readonly contentHash: string;
+  /** Non-null once the run has been frozen onto a snapshot (I-7). */
+  readonly pinnedSnapshotId: string | null;
+}
+
+export interface PinRecord {
+  readonly runId: string;
+  readonly snapshotId: string;
+  readonly artifactVersionId: string;
+  readonly contentHash: string;
+  readonly frozenItemCount: number;
+}
+
+/**
+ * Persistence for the bundle. The write half F09/F11/F12 deliberately did not guess at.
+ *
+ * `ContextRunStore` and `ContextPackAuditStore` (above) are the two read shapes that already
+ * existed; one implementation answers all three, because they are three questions about ONE
+ * row and two rows is how the gate's answer and the audit's answer come to disagree.
+ */
+export interface ContextPackStore {
+  /** Record a successful assembly. `contentHash` is the digest of the pack it produced. */
+  record(run: RecordedRun, contentHash: string): Promise<void>;
+  /**
+   * Record a run whose retrieval failed.
+   *
+   * A failed assembly is a STATE, not the absence of one -- see the note on `RunState`. Without
+   * this, `RETRIEVAL_UNAVAILABLE` would be unreachable from `gateAiCall`, whose only input is
+   * a runId, and the gate would answer `RUN_NOT_FOUND` ("check your id") to an outage.
+   */
+  recordFailure(input: { readonly runId: string; readonly orgId: OrgId }): Promise<void>;
+  findRecorded(runId: string): Promise<RecordedRunRow | null>;
+  /** `"assembled" | "retrieval-unavailable"`, or null for an unknown run. */
+  findStatus(runId: string): Promise<"assembled" | "retrieval-unavailable" | null>;
+  /** Freeze the run onto a snapshot. Write-once: a second pin of the same run must fail. */
+  pin(record: PinRecord): Promise<void>;
+  /**
+   * Which of these segments are confidential AS OF NOW.
+   *
+   * Unioned with the recorded flags rather than replacing them -- see
+   * `resolve-pack-model-constraint.ts` for why neither side alone is safe.
+   */
+  confidentialNow(orgId: OrgId, segmentIds: readonly string[]): Promise<ReadonlySet<string>>;
+  /** The models this organization has configured, for V9's "只返回自托管模型" filter. */
+  listModels(orgId: OrgId): Promise<readonly SelectableModel[]>;
+}
+
+export const CONTEXT_PACK_STORE = Symbol("ContextPackStore");
+
+/**
+ * The delegation the contract demands, expressed as a port rather than as an import.
+ *
+ * `resolvePackModelConstraint`'s doc comment says, in the imperative: 委托给
+ * `identity.resolveModelConstraint`，不重新判定. A port makes that structural -- this bundle's
+ * use case has no way to reach a rule of its own, because the only thing in scope is somebody
+ * else's answer.
+ */
+export interface ModelConstraintPort {
+  resolve(input: {
+    readonly userId: string;
+    readonly orgId: OrgId;
+    readonly dataScope: readonly { readonly itemId: string; readonly confidential: boolean }[];
+  }): Promise<ModelConstraint>;
+}
+
+export const MODEL_CONSTRAINT_PORT = Symbol("ModelConstraintPort");
+
+/**
+ * `PIN_REQUIRES_SNAPSHOT` -- the target is not a 固定快照.
+ *
+ * ⚠ The criterion is F07's, imported rather than re-decided: an `artifact_versions` row is
+ * immutable by construction, so "is this version a snapshot" read literally is always true and
+ * the refusal would be unreachable. Eligibility is a property of the BINDING
+ * (`domain/artifact/downstream-eligibility.judgeCitation`). Re-deciding it here would give this
+ * bundle a second answer to a question the artifact bundle already answers, and the two would
+ * differ exactly when a version is bound `live`.
+ */
+export class PinRequiresSnapshotError extends Error {
+  readonly reason = "PIN_REQUIRES_SNAPSHOT" as const;
+  constructor(readonly artifactVersionId: string, detail: string) {
+    super(`cannot pin a context pack to ${artifactVersionId}: ${detail}`);
+  }
+}
