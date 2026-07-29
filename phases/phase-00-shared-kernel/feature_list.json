@@ -156,17 +156,22 @@
         "F05"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f06",
       "verification": [
-        "pnpm vitest run tests/kernel/binding-three-modes.test.ts",
-        "pnpm vitest run tests/kernel/backflow-list-fields.test.ts",
-        "pnpm vitest run tests/kernel/mode-upgrade-no-downgrade.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/binding-three-modes.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/backflow-list-fields.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/mode-upgrade-no-downgrade.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F06.verify.log @ 2026-07-29T09:23:23.345Z",
       "needs_ui_signoff": true,
-      "notes": "绑定关系必须存 artifact_version_id 而非 artifact_id。对应 R12 V3（列表四字段非空）、A2（模式升级）、A3（禁止降级）。自动保存只写草稿，永不改变已有绑定、永不产生新快照。依据：[原型]（底部 [挂到项目环节…][保存] 两按钮已探明存在）+[设计]（三模式选择器为『原型待补/确认缺失』——按钮已渲染但点进去的三模式选择流程无任何屏，项目侧『已回流的产出与版本』分区只见于说明页文字）。needs_ui_signoff=true：三模式选择器 + 回流列表徽标（草稿/实时·随源变动/已定版 vN）的界面切片需补画原型并由产品/设计确认，随 phase-01 承载它的 Studio 底栏交付；本 feature 的绑定服务与列表契约用 API 断言，可先行开工。"
+      "notes": "绑定关系必须存 artifact_version_id 而非 artifact_id。对应 R12 V3（列表四字段非空）、A2（模式升级）、A3（禁止降级）。自动保存只写草稿，永不改变已有绑定、永不产生新快照。依据：[原型]（底部 [挂到项目环节…][保存] 两按钮已探明存在）+[设计]（三模式选择器为『原型待补/确认缺失』——按钮已渲染但点进去的三模式选择流程无任何屏，项目侧『已回流的产出与版本』分区只见于说明页文字）。needs_ui_signoff=true：三模式选择器 + 回流列表徽标（草稿/实时·随源变动/已定版 vN）的界面切片需补画原型并由产品/设计确认，随 phase-01 承载它的 Studio 底栏交付；本 feature 的绑定服务与列表契约用 API 断言，可先行开工。 【2026-07-29 实现记录】F06 出了 controller（与 F04/F05 不同）：bindToProjectStep / upgradeBinding / listBackflow 的 in 都带齐了用例需要的东西，D-2 那堵墙在这里不存在。I-8 的绑定半边（F05 交接给本件的）双向断言：CHECK((mode=pinned)=(pinned_version_id IS NOT NULL)) 两个方向 + 触发器确认 pinned 版本属于本 artifact + 行为面（同一 artifact 上 live 与 pinned 并存，源前进一版，live 跟到 v2 而 pinned 仍在 v1）。⚠ 十一道反证里**有一道回来是空转的，没有粉饰**：把 pg-binding-repository 的 sources 整个清空——即删掉派生关系——**没有任何测试变红**。原来那条自称验 I-13 的测试改了名，因为它并没有验 I-13；缺口写成了断言。查出的契约缺陷：① BackflowEntry 在**单源文件内部**把同一事实声明了两次（mode 与 badge，且 badge 没复用 BindingMode）——第七次，而且就发生在那个为防止它而存在的文件里；② CANNOT_DOWNGRADE 挂在**不可能降级的那个操作**上（upgradeBinding.in 没有 mode），真正可降级的路径是 bindToProjectStep 重新绑定，而它的 err 里没有这个码；③ draft 的 out: Binding 与「不产生项目侧行」矛盾（没有行就没有 id）；④ 两种失败没有 ArtifactError 码，其中一种 schema 根本不校验（bindToProjectStep.in.parse({mode:pinned}) 不带 sourceVersionId 也能过，规则只活在散文里）；⑤ 回流行没有 ObjectRef kind 能称呼自己，I-13 的最严格来源遍历结构性地塌掉了；⑥ A2 的「升级即生成新的不可变版本」按签核契约不可实现（upgradeBinding.in 不带内容），实现为冻结到声明的 head——那也是更好的行为（钉住用户当时看的那一版），分歧已报未猜。⚠ 另报一次**间歇性失败**：首轮 verify:base 在 admin-personal-layer-count-only 上出 8 个 SocketError，三次重跑（含冷库）未复现；本件多起两个 Nest 进程，争用是合理猜测但未证实——如实报告而非解释掉。"
     },
     {
       "id": "F07",
@@ -472,6 +477,101 @@
       "evidence": "evidence/F18.verify.log @ 2026-07-28T18:58:49.901Z",
       "needs_ui_signoff": false,
       "notes": "【本 feature 是 F01~F13 十三个后端 feature 的共同前置】2026-07-29 机器核实：apps/ 下只有 web，apps/api 不存在，全仓零 NestJS、零迁移文件、零 PG 连接；lint-arch-deps.mjs 已写好但每次运行都打印「跳过 apps/api/src：尚未创建」并 exit 0——ADR-020 称它「与既有七道门控同级的强制门控」，实际处于永久空转；architecture.md 点名的三个运行时门控（Guard 全局注册 / ValidationPipe + zod / ExceptionFilter 只回 internal_error）一个都不存在；packages/contracts 的 zod 目前只有前端一个消费者，ADR-020 的「后端 DTO ← 同一份 zod」这条链未接通。不拆出本件的后果：F01（5 点）实际要交付 NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 + acl_bindings 表 + 两层交集判定，估点失真三倍，且十二个后端 feature 的共同前置被埋进 F01 的实现里，下一个 feature 的人不知道它已经有了。这与 UC-0.4（前端内核）从 F01~F13 里拆出来的理由完全相同——前端有内核，后端没有。依据等级：[设计]——从 architecture.md「三个必须建立的机械门控（运行时）」+ ADR-020 + UC-0.3 R7 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。不拆的理由见 R11：没有迁移体系就没有 RLS 策略，没有 RLS 就没有反证，没有洋葱目录 lint-arch-deps 就仍在空转。verification 第 5 条 verify-rls.sh 是最重要的一条——它绕过应用层过滤断言跨租户读 0 行，且同时断言换成自己的租户能读到自己的行；只写前半句的话，一个「一律拒绝」的坏策略也会全绿，隔离与瘫痪必须能被区分。needs_ui_signoff=false：本件零界面。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F14（前端内核）无依赖、可并行。⚠ 所属契约束 api-kernel 尚未签核，new-sprint 会拒绝把它开进 sprint（ADR-020 门控）。"
+    },
+    {
+      "id": "F19",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "用 14 位邀请码创建组织并注册（一码一组织、事务性核销）+ 邮箱验证",
+      "user_visible_behavior": "登录页点「创建组织·需要14位邀请码」→输码（防枚举，不区分不存在与已用）→填工作邮箱/姓名/设密码→收到 24 小时一次性验证链接→点击激活账号→填组织名→系统创建组织并分配 org_id、把用户设为首个管理员、同事务核销邀请码；注册完成即已登录落到空组织首页。一枚邀请码只能创建一个组织，第二次被拒。",
+      "spec_ref": "01-auth/uc-1-5-用邀请码创建组织并注册.md#R3",
+      "depends_on": [],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/auth/invite-code-redeem-atomic.test.ts",
+        "pnpm vitest run tests/auth/register-email-verification.test.ts",
+        "pnpm vitest run tests/auth/one-code-one-org-concurrency.test.ts",
+        "pnpm vitest run tests/ui/create-org-wizard.test.tsx"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F08。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15）"
+    },
+    {
+      "id": "F20",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "正式成员用工作邮箱+密码登录，失败提示防枚举，连续失败限速并锁定",
+      "user_visible_behavior": "在 /login 填工作邮箱+密码点[登录]，正确即进入本人账号并落到全部项目列表；错误统一提示「邮箱或密码不正确」，不区分邮箱不存在与密码错误；连续 5 次/15 分钟窗口后账号锁定 15 分钟并邮件发解锁链接。社交登录/飞书/SSO 三个按钮保留视觉位但 disabled。密码策略 ≥12 位+查弱口令库、不强制字符类、不强制定期更换。",
+      "spec_ref": "01-auth/uc-1-1-邮箱账号登录.md#R3",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/auth/login-password-auth.test.ts",
+        "pnpm vitest run tests/auth/login-enumeration-guard.test.ts",
+        "pnpm vitest run tests/auth/login-lockout-ratelimit.test.ts",
+        "pnpm vitest run tests/ui/login-screen.test.tsx"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F01。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：登录主流程[原型]（/login 已建成，锚 login-form/login-email/login-password/login-submit/login-providers），防枚举/限速/锁定/密码策略为[设计]已裁 O-28。界面已建成于 apps/web/components/entry（登录主屏可立即签），本 feature 交付后端认证+会话+防枚举+限速与密码策略实现。D-02：phase-1 只邮箱+密码，社交/SSO 置 disabled（login-providers）。V1/V4/V5/V5a 对应。密码策略实现为三份 UC（1.1/1.5/1.6）共用同一份，不各写一套。\n【跨分片依赖待确认】phase-00: acl_bindings 两层交集鉴权与会话上下文（F01）"
+    },
+    {
+      "id": "F21",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "忘记密码找回四步，重置成功后吊销该账号全部既有会话",
+      "user_visible_behavior": "点登录页[忘记密码？]→填邮箱→无论是否注册都返回同一「若已注册，重置邮件已发出」→邮箱收到 1 小时一次性重置链接→设新密码→旧密码失效、重置前建立的全部会话全部失效、强制重新登录，并强制发「密码已修改」通知。重发 60 秒冷却/每日 5 次。",
+      "spec_ref": "01-auth/uc-1-1-邮箱账号登录.md#R4",
+      "depends_on": [
+        "F20"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/auth/forgot-password-flow.test.ts",
+        "pnpm vitest run tests/auth/password-reset-revokes-sessions.test.ts",
+        "pnpm vitest run tests/ui/login-forgot-panel.test.tsx"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F02。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：[原型]按钮[忘记密码？]在登录页存在（原型待补=已接线），四屏与接线为[设计]已裁 O-28④。界面已建成（锚 login-forgot-link/login-forgot-email/login-forgot-submit/login-forgot-sent/login-forgot-back）。AC3「重置后全部旧会话失效」独立验收（V3）。"
+    },
+    {
+      "id": "F22",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "一账号归属多组织 + 组织停用只读降级（仅管理员可导出，留存期后销毁）",
+      "user_visible_behavior": "已有账号可用新邀请码创建/加入第二个组织（不新建账号，只新增 org_member），顶部组织切换器出现多个组织，切换时清空全部项目级上下文、权限按当前组织重算；组织被停用后普通成员登录成功但全部写接口被拒、界面顶部常驻「组织已停用·只读」条，管理员仍可导出，数据保留至留存期届满再销毁。",
+      "spec_ref": "01-auth/uc-1-5-用邀请码创建组织并注册.md#R10",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm vitest run tests/auth/multi-org-membership.test.ts",
+        "pnpm vitest run tests/auth/org-disabled-readonly.test.ts"
+      ],
+      "evidence": "",
+      "needs_ui_signoff": false,
+      "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F09。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
     }
   ]
 }

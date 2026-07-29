@@ -24,7 +24,7 @@
       ],
       "evidence": "",
       "needs_ui_signoff": false,
-      "notes": "依据：登录主流程[原型]（/login 已建成，锚 login-form/login-email/login-password/login-submit/login-providers），防枚举/限速/锁定/密码策略为[设计]已裁 O-28。界面已建成于 apps/web/components/entry（登录主屏可立即签），本 feature 交付后端认证+会话+防枚举+限速与密码策略实现。D-02：phase-1 只邮箱+密码，社交/SSO 置 disabled（login-providers）。V1/V4/V5/V5a 对应。密码策略实现为三份 UC（1.1/1.5/1.6）共用同一份，不各写一套。\n【跨分片依赖待确认】phase-00: acl_bindings 两层交集鉴权与会话上下文（F01）"
+      "notes": "【2026-07-29 已迁出到 phase-00 F20】不在本阶段实现。迁出理由见 phase-00 该 feature 的 notes。保留本条而不删除，是为了让「它去哪了」可追溯。 依据：登录主流程[原型]（/login 已建成，锚 login-form/login-email/login-password/login-submit/login-providers），防枚举/限速/锁定/密码策略为[设计]已裁 O-28。界面已建成于 apps/web/components/entry（登录主屏可立即签），本 feature 交付后端认证+会话+防枚举+限速与密码策略实现。D-02：phase-1 只邮箱+密码，社交/SSO 置 disabled（login-providers）。V1/V4/V5/V5a 对应。密码策略实现为三份 UC（1.1/1.5/1.6）共用同一份，不各写一套。\n【跨分片依赖待确认】phase-00: acl_bindings 两层交集鉴权与会话上下文（F01）"
     },
     {
       "id": "F02",
@@ -48,7 +48,7 @@
       ],
       "evidence": "",
       "needs_ui_signoff": false,
-      "notes": "依据：[原型]按钮[忘记密码？]在登录页存在（原型待补=已接线），四屏与接线为[设计]已裁 O-28④。界面已建成（锚 login-forgot-link/login-forgot-email/login-forgot-submit/login-forgot-sent/login-forgot-back）。AC3「重置后全部旧会话失效」独立验收（V3）。"
+      "notes": "【2026-07-29 已迁出到 phase-00 F21】不在本阶段实现。迁出理由见 phase-00 该 feature 的 notes。保留本条而不删除，是为了让「它去哪了」可追溯。 依据：[原型]按钮[忘记密码？]在登录页存在（原型待补=已接线），四屏与接线为[设计]已裁 O-28④。界面已建成（锚 login-forgot-link/login-forgot-email/login-forgot-submit/login-forgot-sent/login-forgot-back）。AC3「重置后全部旧会话失效」独立验收（V3）。"
     },
     {
       "id": "F03",
@@ -187,7 +187,7 @@
       ],
       "evidence": "",
       "needs_ui_signoff": false,
-      "notes": "依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15）"
+      "notes": "【2026-07-29 已迁出到 phase-00 F19】不在本阶段实现。迁出理由见 phase-00 该 feature 的 notes。保留本条而不删除，是为了让「它去哪了」可追溯。 依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15）"
     },
     {
       "id": "F09",
@@ -210,7 +210,7 @@
       ],
       "evidence": "",
       "needs_ui_signoff": false,
-      "notes": "依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
+      "notes": "【2026-07-29 已迁出到 phase-00 F22】不在本阶段实现。迁出理由见 phase-00 该 feature 的 notes。保留本条而不删除，是为了让「它去哪了」可追溯。 依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
     },
     {
       "id": "F10",
