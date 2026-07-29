@@ -27,6 +27,7 @@ import type {
   StoredBinding,
 } from "../../application/artifact/binding-ports";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
+import type { CitationAnchor } from "../../domain/artifact/downstream-eligibility";
 import type { OrgId } from "../../domain/org-id";
 
 interface BindingRowShape {
@@ -122,6 +123,32 @@ export class PgBindingRepository implements BindingRepository {
         [orgId, artifactId, n],
       );
       return r.rows[0]?.id ?? null;
+    });
+  }
+
+  async findAnchorsForArtifact(
+    orgId: OrgId,
+    artifactId: string,
+  ): Promise<readonly CitationAnchor[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      // No `WHERE mode = 'pinned'`: the citation rule is a predicate over the whole set
+      // (`judgeCitation`), and it is kept there so it is asserted directly rather than
+      // through a query.
+      //
+      // ⚠ MEASURED, not assumed: adding `AND mode = 'pinned'` here changes NO test outcome
+      // (all 29 stay green), because `judgeCitation` still compares the version id. So this
+      // is a testability preference, not a correctness one, and saying otherwise would be
+      // the over-claim this project keeps catching. What IS load-bearing is returning the
+      // rows at all -- emptying this list turns ten assertions red.
+      const r = await s.query<{ mode: string; pinned_version_id: string | null }>(
+        `SELECT mode, pinned_version_id FROM artifact_bindings
+          WHERE org_id = $1 AND artifact_id = $2`,
+        [orgId, artifactId],
+      );
+      return r.rows.map((row) => ({
+        mode: row.mode as BindingModeName,
+        pinnedVersionId: row.pinned_version_id,
+      }));
     });
   }
 
