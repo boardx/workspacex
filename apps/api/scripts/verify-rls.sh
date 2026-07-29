@@ -47,6 +47,38 @@ want "app_rw cannot run DDL in public" "f" "$ddl"
 unforced=$(psql_owner -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND NOT c.relforcerowsecurity;")
 want "every RLS-enabled table is FORCEd" "0" "$unforced"
 
+# ---------------------------------------------------------------------------
+# F02: the assertion above is CONDITIONAL ON RLS ALREADY BEING ON.
+#
+# Read it again: it counts tables that have row security enabled but not forced. A new
+# table with an `org_id` column and no row security at all is not in that count. It was
+# green, and the table was open to every tenant.
+#
+# `kernel_tenant_table_audit()` (migration 0004) computes which tables carry tenant data
+# from pg_catalog -- so a table added next month is in scope without anyone updating a
+# list, which is the only version of this check that survives contact with a growing
+# schema. It also reports tables the runtime role can read that have NO tenant key at all:
+# those cannot be filtered on and are holes by construction unless the table declares
+# `kernel-no-tenant-data:` in its COMMENT.
+# ---------------------------------------------------------------------------
+bad_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict NOT LIKE 'ok' AND verdict NOT LIKE 'exempt-%';")
+want "every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived)" "0" "$bad_tables"
+if [ "$bad_tables" != "0" ]; then
+  echo "    offending tables:"
+  psql_owner -c "SELECT table_name || ' -> ' || verdict FROM kernel_tenant_table_audit() WHERE verdict NOT LIKE 'ok' AND verdict NOT LIKE 'exempt-%';" | sed 's/^/      /'
+fi
+
+# Non-vacuity. An audit that classified nothing as tenant-carrying would satisfy the line
+# above perfectly. That is this project's most repeated failure -- a gate that is green
+# because it is idle -- so the count is asserted, not the absence of failures.
+ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
+if [ "$ok_tables" -ge 8 ]; then ok "audit is not idle: $ok_tables tenant tables classified ok"; else bad "audit found only $ok_tables tenant tables -- it is not seeing the schema"; fi
+
+# Exemptions must be DECLARED on the table, and there must be few of them. An exemption
+# nobody had to write down is one nobody reviewed.
+undeclared=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'UNTENANTED_BUT_GRANTED';")
+want "no table is readable by the runtime role without either a tenant key or a written exemption" "0" "$undeclared"
+
 probe_exists=$(psql_owner -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='rls_probe';")
 want "rls_probe exists (assertion 8: the evidence table is a kernel asset)" "1" "$probe_exists"
 
@@ -63,7 +95,7 @@ echo "$RESULT"
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "✅ verify-rls: RLS is enforced -- app_rw is not an owner, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed"
+  echo "✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed"
   exit 0
 fi
 echo "❌ verify-rls: $fail assertion(s) failed."
