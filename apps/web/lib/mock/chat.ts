@@ -526,3 +526,246 @@ export const TRANSCRIPT_SESSION = {
   status: "会议进行中 · 显示转录",
   elapsed: "28:14",
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * UC-8.3 对话产出落地 —— 三模式绑定 / 出处回链 / 未挂来源标灰 / 产物标签徽标
+ *
+ * ⚠ 机制底座在 `00-core/uc-0-1`（D-38 / D-30），本模块只做**对话侧入口与门控接线**。
+ *   三模式的语义、快照不可变、引用资格门控**不在此另建**——这里只是它的展示投影。
+ *   凡界面上暗示「对话另有一套产出机制」的地方，README 都标了待裁决。
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** 三绑定模式（UC-8.3 R3 步骤 3 表；取值承接 uc-0-1，不得增删）*/
+export type BindMode = "draft" | "live" | "snapshot";
+export interface BindModeSpec {
+  mode: BindMode;
+  label: string;
+  /** 徽标文案（右栏产物列表用）—— UC-8.3 R8：三态明确区分 */
+  badge: string;
+  badgeTone: "neutral" | "ai" | "primary";
+  /** 语义一句话 */
+  semantic: string;
+  /** 「能被拿来干什么」—— 必须并列展示后果，不能只给三个单选钮（R3 步骤 3）*/
+  canDo: string;
+  /** 是否可进正式产出与决策（门控用）*/
+  eligibleForDecision: boolean;
+}
+export const BIND_MODES: BindModeSpec[] = [
+  {
+    mode: "draft",
+    label: "草稿",
+    badge: "草稿",
+    badgeTone: "neutral",
+    semantic: "仅创建者可见，项目侧不出现",
+    canDo: "不可被任何下游引用；管理员与项目负责人均不可见",
+    eligibleForDecision: false,
+  },
+  {
+    mode: "live",
+    label: "实时关联",
+    badge: "实时 · 随源变动",
+    badgeTone: "ai",
+    semantic: "项目侧出现，内容指向 Artifact 当前最新版，随源变动",
+    canDo: "可查看、可讨论；不可进正式产出与决策",
+    eligibleForDecision: false,
+  },
+  {
+    mode: "snapshot",
+    label: "固定快照",
+    badge: "已定版 vN",
+    badgeTone: "primary",
+    semantic: "对当前内容做不可变复制，生成 artifact@vN，记录定版人 / 时间 / Context Pack 引用清单",
+    canDo: "正式产出与决策只能绑定它；固定快照不可变、不可删除",
+    eligibleForDecision: true,
+  },
+];
+
+/** 引用资格门控的四个下游动作（UC-8.3 R3 步骤 4 / V1）—— 服务端强制要求固定快照 */
+export const DECISION_ACTIONS = [
+  "加入报告正式版",
+  "提交验收",
+  "引用为决策依据",
+  "写回图谱与组织大脑",
+] as const;
+
+/** 对话侧落地动作集（UC-8.3 R3 步骤 1，按场景分组）*/
+export const LANDING_ACTIONS = {
+  live: [
+    { id: "paste-canvas", label: "贴到本组画布", danger: false },
+    { id: "broadcast", label: "转给全场", danger: false },
+    { id: "ask-research", label: "让研究模块补证据", danger: false },
+  ],
+  research: [
+    { id: "save-insight", label: "存为洞察", danger: false },
+    { id: "add-report", label: "加入报告", danger: false },
+    { id: "deep-research", label: "开一场深度研究", danger: false },
+  ],
+};
+
+/** 可见范围枚举（UC-8.5 R7；徽标为 [设计] 待裁决——原型线程卡/线程头均无此徽标）*/
+export type VisibilityScope = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
+export const VISIBILITY_SCOPE_LABEL: Record<VisibilityScope, string> = {
+  "member-private": "组员私聊",
+  "group-shared": "本组共享",
+  "all-hands": "全场",
+  "team-visible": "团队可见",
+  private: "私有",
+};
+
+/** 落地产出（右栏「产物」标签的真实条目；数量级贴近真实——一个线程可产出多条）*/
+export interface LandingArtifact {
+  id: string;
+  artType: string;
+  name: string;
+  mode: BindMode;
+  version?: string;
+  pinnedBy?: string;
+  pinnedAt?: string;
+  /** 出处回链（AC1）—— 缺失时只能落草稿、不得定版 */
+  conversationId: string;
+  messageId: string | null;
+  citationCount: number;
+  /** 未挂来源标灰（AC3）—— 服务端可判定状态，不是纯视觉 */
+  hasSource: boolean;
+  visibility: VisibilityScope;
+}
+export const LANDING_ARTIFACTS: LandingArtifact[] = [
+  {
+    id: "art-hyp-tree", artType: "假设树", name: "进入模式",
+    mode: "snapshot", version: "v3", pinnedBy: "林可", pinnedAt: "今天 14:36",
+    conversationId: "eu-storage", messageId: "m3", citationCount: 3, hasSource: true, visibility: "group-shared",
+  },
+  {
+    id: "art-grid-brief", artType: "简报", name: "德国并网时效核查",
+    mode: "live",
+    conversationId: "eu-storage", messageId: "m5", citationCount: 1, hasSource: true, visibility: "team-visible",
+  },
+  {
+    id: "art-epc-note", artType: "备忘", name: "EPC 产能风险（口头结论）",
+    mode: "draft",
+    conversationId: "eu-storage", messageId: null, citationCount: 0, hasSource: false, visibility: "private",
+  },
+];
+
+/** 门控判定纯函数（对齐服务端；界面只呈现结果，不自定义规则）*/
+export function canEnterDecision(a: LandingArtifact): { ok: boolean; reason?: string } {
+  if (!a.hasSource) return { ok: false, reason: "未挂来源，不能进报告（先补来源）" };
+  if (a.mode !== "snapshot") return { ok: false, reason: "需先定版为固定快照" };
+  return { ok: true };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * UC-8.4 预设对话下发 —— 编写 / 下发对象 / 可见性范围校验 / 使用计数
+ *
+ * ⚠⚠ 本 UC 核心行为整体来自 `Backlog Use Case.html`，**原型 0 命中**（口径重标 2026-07-28）：
+ *    对话屏、后台、组员入口三处均无预设列表/编辑器/下发对象选择器/使用计数。
+ *    这里画的**整屏都是 [Backlog]/[设计] 的补画原型**，README 逐条标待裁决。
+ *
+ * ⚠⚠ **权限模型未定**：谁能给谁下发、被下发者能不能改/拒——UC 未写死。
+ *    界面上把这三个问题做成**显式待裁决卡**，不替 UC 表态。
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** 下发对象类型（R3 步骤 1）*/
+export type DispatchTargetKind = "all-hands" | "groups" | "roles";
+export const DISPATCH_TARGET_LABEL: Record<DispatchTargetKind, string> = {
+  "all-hands": "全场",
+  groups: "指定组",
+  roles: "指定角色",
+};
+
+/** 预设引用的 agent / skill（下发时校验可见性范围，越范围直接拒绝——R3 步骤 1 / V1c）*/
+export interface PresetResourceRef {
+  id: string;
+  name: string;
+  kind: "agent" | "skill";
+  /** 可见性范围：全组织可用 / 仅某组（承接 uc-0-3）*/
+  scope: "org" | "group";
+  scopeGroup?: string;
+}
+
+export interface Preset {
+  id: string;
+  name: string;
+  /** 开场提示（R3 步骤 1）*/
+  openingPrompt: string;
+  agents: PresetResourceRef[];
+  skills: PresetResourceRef[];
+  target: { kind: DispatchTargetKind; detail: string };
+  /** 使用计数 = 真实使用实例数（AC1 / V1）—— 不是下发人数 */
+  instanceCount: number;
+  dispatchedTo: number;
+  status: "draft" | "dispatched";
+}
+export const PRESETS: Preset[] = [
+  {
+    id: "preset-hyp",
+    name: "假设梳理开局",
+    openingPrompt: "先把本组的进入策略拆成 4 组假设，标出其中的致命假设（不成立即推翻路径），每条结论必须挂来源。",
+    agents: [
+      { id: "av", name: "Ava · 战略分析师", kind: "agent", scope: "org" },
+      { id: "sc", name: "Scout · 同行情报", kind: "agent", scope: "org" },
+    ],
+    skills: [{ id: "mece", name: "MECE 假设拆解", kind: "skill", scope: "org" }],
+    target: { kind: "all-hands", detail: "全场 8 组" },
+    instanceCount: 6,
+    dispatchedTo: 8,
+    status: "dispatched",
+  },
+  {
+    id: "preset-interview",
+    name: "访谈速记与提要",
+    openingPrompt: "把本组这场客户访谈的转录抽成 5 条关键引述，合并同类观点，每条标出说话人与时间码。",
+    agents: [{ id: "ec", name: "Echo · 访谈综合", kind: "agent", scope: "org" }],
+    skills: [{ id: "quote", name: "引述抽取", kind: "skill", scope: "group", scopeGroup: "能源组" }],
+    target: { kind: "groups", detail: "第 2 组、第 5 组" },
+    instanceCount: 2,
+    dispatchedTo: 12,
+    status: "dispatched",
+  },
+  {
+    id: "preset-ledger",
+    name: "收益测算模板",
+    openingPrompt: "按三路径算人天节省、单位成本与回本周期，含补贴退坡后的敏感性。",
+    agents: [{ id: "lg", name: "Ledger · 收益测算", kind: "agent", scope: "group", scopeGroup: "能源组" }],
+    skills: [],
+    target: { kind: "roles", detail: "各组组长" },
+    instanceCount: 0,
+    dispatchedTo: 0,
+    status: "draft",
+  },
+];
+
+/** 下发范围校验（R3 步骤 1 / V1c）：预设里引用的 agent/skill 若对下发对象不可见 → 下发即拒绝 */
+export function dispatchScopeViolation(
+  preset: Preset,
+  targetGroup: string | null,
+): { blocked: boolean; offenders: PresetResourceRef[] } {
+  const refs = [...preset.agents, ...preset.skills];
+  // 演示：下发对象若不是资源所属组，则组范围资源越界
+  const offenders = refs.filter(
+    (r) => r.scope === "group" && r.scopeGroup && r.scopeGroup !== targetGroup,
+  );
+  return { blocked: offenders.length > 0, offenders };
+}
+
+/**
+ * UC-8.4 的三个未定权限问题（UC 未写死，不替它表态）——界面显式呈现为待裁决卡。
+ * README 第二/三节据此展开。
+ */
+export const PRESET_OPEN_QUESTIONS = [
+  {
+    id: "who-can-dispatch",
+    q: "谁能给谁下发预设？",
+    detail: "UC-8.4 R1 只写「引导师预先写好…下发给各组」。组长能不能给本组下发？项目负责人（组织角色）能不能跨组下发？UC 未写死。",
+  },
+  {
+    id: "can-recipient-edit",
+    q: "被下发者能不能改预设？",
+    detail: "R3 步骤 2 只说「打开即用、不需自己配」。打开后能不能改开场提示 / 增删 agent？改了还算「同一个预设的实例」吗（影响使用计数口径）？UC 未写死。",
+  },
+  {
+    id: "can-recipient-refuse",
+    q: "被下发者能不能拒收 / 忽略？",
+    detail: "下发是「推送」还是「上架供取用」？若组员默认不可私聊（O-24），下发一个含私聊的预设是否被拒？UC 未写死。",
+  },
+] as const;
