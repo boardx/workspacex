@@ -66,6 +66,12 @@ describe("1. the hasher", () => {
   });
 });
 
+/**
+ * ⚠ 断言的是**具名约束** `credentials_hash_is_slow`，不是「消息里出现 password_hash」。
+ * 后者会被列级匿名 CHECK（`credentials_password_hash_check`）意外满足——F19/F20 合并前
+ * 正是那种写法，于是这几条测试在「约束根本没建出来、只剩别的列级 CHECK」时依然可能变绿。
+ * 约束有名字，就断言名字。
+ */
 describe("2. the database refuses a non-conforming hash, whoever writes it", () => {
   async function insertHash(userId: string, hash: string) {
     return asOwner((c) =>
@@ -79,19 +85,19 @@ describe("2. the database refuses a non-conforming hash, whoever writes it", () 
   it("plaintext is rejected -- by the OWNER, i.e. by the most privileged writer there is", async () => {
     // The owner bypasses RLS and every application layer. If plaintext gets in here, it gets
     // in from a repair script, a fixture, or a migration -- the writers nobody reviews.
-    await expect(insertHash("u-i2-plain", PASSWORD)).rejects.toThrow(/password_hash/);
+    await expect(insertHash("u-i2-plain", PASSWORD)).rejects.toThrow(/credentials_hash_is_slow/);
   });
 
   it("bcrypt below cost 12 is rejected", async () => {
     await expect(
       insertHash("u-i2-weak", "$2b$04$abcdefghijklmnopqrstuvabcdefghijklmnopqrstuvwxyz01234"),
-    ).rejects.toThrow(/password_hash/);
+    ).rejects.toThrow(/credentials_hash_is_slow/);
   });
 
   it("base64 of the password is rejected (a 'reversible encoding' is not a hash)", async () => {
     await expect(
       insertHash("u-i2-b64", Buffer.from(PASSWORD).toString("base64")),
-    ).rejects.toThrow(/password_hash/);
+    ).rejects.toThrow(/credentials_hash_is_slow/);
   });
 
   it("...and a real cost-12 hash IS accepted, so the constraint is not simply a wall", async () => {

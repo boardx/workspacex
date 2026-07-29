@@ -1,66 +1,79 @@
 /**
- * `PasswordHasher` implementation -- invariant I-2.
+ * bcrypt password hashing -- invariant I-2.
  *
- * ## Why bcrypt cost 12 and not argon2id
+ * domain.md fixes the algorithm and its parameters as part of the CONTRACT: argon2id, or
+ * bcrypt with cost >= 12. bcrypt is chosen here because `bcryptjs` is pure JavaScript --
+ * no native build step, so the gate scripts and CI cannot fail for a reason unrelated to
+ * anything this project is about. Swapping to argon2id later changes this file and the
+ * CHECK constraint in migration 0010, and nothing else.
  *
- * The contract accepts either ("argon2id 或 bcrypt cost >= 12"). argon2id is the better
- * primitive, and every JS argon2 binding is a NATIVE module: a prebuilt binary per
- * platform, a compile step where there is no prebuild, and a class of CI failure that has
- * nothing to do with this feature. `bcryptjs` is pure JavaScript, so the hash this file
- * produces on a maintainer's laptop is byte-compatible with the one CI produces, and there
- * is no toolchain in between.
- *
- * ⚠ The cost of that choice, stated rather than glossed: pure-JS bcrypt is several times
- * slower than the native implementation at the same cost factor, so cost 12 here is
- * *more* expensive per hash than cost 12 elsewhere -- fine for a defender, and it means a
- * registration request spends most of a second in this function. That is why the use case
- * hashes OUTSIDE the transaction (see the note there).
- *
- * ## Why the cost is 12 and not "at least 12"
- *
- * Because 12 is the contract's floor and a floor is what gets read as "the number". Raising
- * it is a deliberate act with a measurable latency cost; it is a constant here so that act
- * is one edit in one place, and `password-hash-invariant.test.ts` asserts the stored hash's
- * cost field is >= 12 rather than == 12, so raising it does not break a test.
+ * The cost is asserted in three independent places, because one of them alone is a rule
+ * nobody enforces:
+ *   - here, at write time;
+ *   - `credentials_hash_is_slow` in migration 0010, so the TABLE refuses a weak hash even
+ *     from a backfill script that never runs this code;
+ *   - `login-password-auth.test.ts`, which reads a stored hash and asserts its shape.
  */
 import bcrypt from "bcryptjs";
 import type { PasswordHasher } from "../../application/auth/ports";
 
-/** Invariant I-2's floor. */
+/**
+ * ⚠ Contract minimum (domain I-2). Raising it is fine; lowering it violates the signed
+ * contract AND is rejected by the table's CHECK constraint.
+ */
 export const BCRYPT_COST = 12;
 
+/**
+ * A fixed, real bcrypt hash at the SAME cost, used only by `verifyDummy`.
+ *
+ * It has to be a genuine cost-12 hash of something: bcrypt's verification cost is driven by
+ * the cost factor encoded in the digest, so a fake string would either throw or return
+ * instantly -- and returning instantly is exactly the timing signal this exists to erase.
+ *
+ * The plaintext behind it is irrelevant and unrecoverable; nothing ever authenticates
+ * against it. It is generated once at module load rather than checked in as a literal so it
+ * cannot drift out of step with `BCRYPT_COST`.
+ */
+const DUMMY_HASH = bcrypt.hashSync("dummy-password-for-constant-time-login", BCRYPT_COST);
+
 export class BcryptPasswordHasher implements PasswordHasher {
+  /**
+   * ⚠ The cost is a constructor argument ONLY so that the floor is enforceable at
+   * construction. It is not a tuning knob: the default is the contract's value, and
+   * anything below `BCRYPT_COST` throws rather than silently producing a hash the table's
+   * `credentials_hash_is_slow` CHECK would reject at INSERT time -- a failure that would
+   * otherwise surface as a database error at registration, far from its cause.
+   */
   constructor(private readonly cost: number = BCRYPT_COST) {
-    // A cost below the contract's floor is not a configuration choice, it is a violation of
-    // I-2 -- and it would be one that produces perfectly valid-looking hashes. Refusing at
-    // construction means the process does not start, rather than quietly storing weak
-    // hashes that only a schema CHECK later objects to.
     if (cost < BCRYPT_COST) {
-      throw new Error(`bcrypt cost ${cost} is below the invariant I-2 floor of ${BCRYPT_COST}`);
+      throw new Error(
+        `bcrypt cost ${cost} is below the invariant I-2 floor of ${BCRYPT_COST}`,
+      );
     }
   }
 
-  /**
-   * ⚠ The plaintext is never logged, never returned, and never stored on `this`.
-   *
-   * `lint-error-leak` does not cover this layer and no linter checks "did you log the
-   * password", so the discipline is: this function's only output is its return value.
-   * `tests/auth/password-hash-invariant.test.ts` scans every auth source file for a log or
-   * error call that mentions a password-ish identifier, which is the mechanical half.
-   */
-  hash(plaintext: string): Promise<string> {
+  async hash(plaintext: string): Promise<string> {
     return bcrypt.hash(plaintext, this.cost);
   }
 
-  /**
-   * F20 uses this. Present so there is one hasher port rather than two implementations
-   * that could disagree about the algorithm.
-   *
-   * ⚠ `bcrypt.compare` is constant-time with respect to the hash comparison, and it
-   * deliberately does the full KDF work even for a wrong password -- which is the property
-   * F20's I-1 timing half depends on. Do not "optimise" a fast pre-check in front of it.
-   */
-  verify(plaintext: string, hash: string): Promise<boolean> {
+  async verify(plaintext: string, hash: string): Promise<boolean> {
     return bcrypt.compare(plaintext, hash);
+  }
+
+  /**
+   * ⚠ THE TIMING HALF OF I-1. Do not replace with `return false`.
+   *
+   * When login finds no account it calls this instead of `verify`, so both failure paths
+   * spend the same ~100ms in bcrypt. Without it the two differ by roughly three orders of
+   * magnitude and the login endpoint enumerates the user table for anyone with a stopwatch,
+   * no matter how identical the response bodies are.
+   *
+   * The comparison result is discarded on purpose -- `compare` against DUMMY_HASH is
+   * essentially never true, and if it somehow were, there is no account to log in to. The
+   * work is the point, not the answer.
+   */
+  async verifyDummy(plaintext: string): Promise<false> {
+    await bcrypt.compare(plaintext, DUMMY_HASH);
+    return false;
   }
 }

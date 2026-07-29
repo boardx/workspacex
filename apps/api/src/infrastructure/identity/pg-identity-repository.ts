@@ -115,17 +115,28 @@ export class PgIdentityRepository implements IdentityRepository {
 
   /**
    * Cross-organization read, so it cannot go through `withTenant` -- listing "which orgs am
-   * I in" is by definition not scoped to one of them.
+   * I in" is by definition not scoped to one of them (O-12: one account, many orgs).
    *
-   * RLS therefore does not help here, which is why the query is restricted to the caller's
-   * own user_id and returns ONLY org ids and roles. No names, no counts, nothing about the
-   * organizations themselves: those come from `findOrganization` afterwards, under tenant
-   * scope, one at a time.
+   * ⚠ FIXED 2026-07-29 (F20). The previous body was a plain
+   * `SELECT ... FROM org_memberships WHERE user_id = $1` inside `withoutTenant`, under a
+   * comment saying "RLS therefore does not help here". RLS does not merely fail to help --
+   * it BLOCKS it: the policy is `org_id = current_setting('app.current_org', true)`, which
+   * with the setting unset compares against NULL and matches nothing. Under the runtime role
+   * this method returned `[]` unconditionally.
+   *
+   * Nothing caught it because nothing called it. F20's login is the first caller that ever
+   * needed the answer, and it got an empty list back for an account with a membership.
+   * Measured: app_rw sees 0 rows without tenant context, the owner sees 1.
+   *
+   * The read now goes through `kernel_user_org_ids()`, a SECURITY DEFINER function declared
+   * in migration 0010 -- one user, ids and roles only, nothing about the organizations
+   * themselves. Those still come from `findOrganization` afterwards, under tenant scope, one
+   * at a time. See the migration for why that shape rather than loosening the policy.
    */
   async listMemberships(userId: string): Promise<readonly { orgId: string; orgRole: OrgRole }[]> {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{ org_id: string; org_role: string }>(
-        "SELECT org_id, org_role FROM org_memberships WHERE user_id = $1",
+        "SELECT org_id, org_role FROM kernel_user_org_ids($1)",
         [userId],
       );
       return r.rows.map((row) => ({ orgId: row.org_id, orgRole: row.org_role as OrgRole }));

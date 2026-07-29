@@ -91,57 +91,20 @@ COMMENT ON TABLE invite_codes IS
   'SELECT+UPDATE only (never INSERT/DELETE) because issuance is offline per O-29, so a '
   'compromised runtime role can spend an existing code but cannot mint one.';
 
-/* ─────────────────────────── credentials ─────────────────────────── */
-
-CREATE TABLE IF NOT EXISTS credentials (
-  user_id       text PRIMARY KEY,
-  -- Stored already lower-cased; the CHECK makes that a schema fact rather than a
-  -- convention every future writer has to remember. domain.md: "唯一，小写规范化后比较".
-  --
-  -- ⚠ The CHECK and the unique index are BOTH needed and are not redundant. Without the
-  -- CHECK, `UNIQUE (lower(email))` still prevents duplicates, but the stored value can be
-  -- mixed case -- and then a plain `WHERE email = $1` lookup (the shape a future author
-  -- will write) misses the row and reports "no such user" for a real account.
-  email         text NOT NULL CHECK (email = lower(email)),
-  display_name  text NOT NULL,
-
-  -- Invariant I-2, enforced by the DATABASE.
-  --
-  -- This is the SQL projection of `PasswordHashFormat` in packages/contracts/src/auth.ts.
-  -- It is the one duplicated fact this feature permits, and the conditions are: it is
-  -- annotated with its source, and `password-hash-invariant.test.ts` asserts that the
-  -- regex here and the contract's regex accept and reject the SAME sample set -- so drift
-  -- between them fails a test rather than silently loosening storage.
-  --
-  -- Why in the schema at all, given the application already hashes: application code is one
-  -- INSERT away from being bypassed (a migration, a fixture, a repair script, a future
-  -- repository). "Never plaintext" has to be true for every writer, and only the database
-  -- sees every writer. A plaintext password cannot be stored in this column -- it is
-  -- rejected by the constraint, not by a code review.
-  password_hash text NOT NULL CHECK (
-    password_hash ~ '^\$2[aby]\$(1[2-9]|[2-9][0-9])\$[./A-Za-z0-9]{53}$'
-    OR password_hash ~ '^\$argon2id\$v=[0-9]+\$m=[0-9]+,t=[0-9]+,p=[0-9]+\$[^$]+\$[^$]+$'
-  ),
-
-  -- null = unverified. I-8: an unverified account cannot log in.
-  email_verified_at timestamptz,
-  created_at        timestamptz NOT NULL DEFAULT now()
-);
-
--- Uniqueness on the normalized form. Case-folding at the index, so `A@x.com` and `a@x.com`
--- cannot both exist regardless of who writes the row.
-CREATE UNIQUE INDEX IF NOT EXISTS credentials_email_uniq ON credentials (lower(email));
-
-COMMENT ON TABLE credentials IS
-  'kernel-no-tenant-data: authentication happens BEFORE a tenant is known -- that is what '
-  'authentication is for -- and O-12 ruled user<->organization is one-to-many, so a '
-  'credential pinned to one org would contradict the ruling. WHAT app_rw CAN ACTUALLY SEE: '
-  'every email address, display name and password HASH. That is a real surface and it is '
-  'inherent to the login path, not an accident of this schema. It is bounded by I-2: the '
-  'CHECK on password_hash makes it impossible for any writer -- application, migration or '
-  'repair script -- to store a plaintext or reversible password here. No organization '
-  'content, membership or permission is reachable from this table.';
-
+/* ─── credentials 由 0010-auth-credentials-sessions.sql 拥有 ───────────
+ *
+ * 两个并行 feature（F19 注册、F20 登录）各建过一张 `credentials`。
+ * `CREATE TABLE IF NOT EXISTS` 会让**后跑的那个静默变成空操作**——
+ * 于是它的约束一条都不生效，而失败要等到某次 INSERT 才浮出来。
+ *
+ * 归属裁决（2026-07-29）：归 F20 那份，因为它把「口令必须是慢哈希」做成了
+ * **表级 CHECK**——连 owner 都插不进弱哈希。F19 那份缺这条。
+ * 同时把 F19 独有的两样并了进去：`email = lower(email)` 的 CHECK 与 `display_name`。
+ * 取并集比二选一强，且两边的理由都成立。
+ *
+ * 排序也改了：credentials/sessions 排 0010，本文件排 0011，
+ * 否则本文件先跑、上面那个空操作就会发生。
+ */
 /* ──────────────────── email_verification_tokens ──────────────────── */
 
 -- The token AND the outbox entry, in one table, on purpose.

@@ -14,8 +14,8 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import * as identity from "../src/identity";
 import * as auth from "../src/auth";
+import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as provenance from "../src/provenance";
@@ -33,6 +33,7 @@ type Bundle = { file: string; varName?: string; operations: Record<string, unkno
 
 /** 契约束清单——新增束在此加一行，生成器自动产出 `<file>.mock.ts` */
 const MODULES: Bundle[] = [
+  { file: "auth", operations: auth.operations },
   { file: "identity", operations: identity.operations },
   { file: "auth", operations: auth.operations },
   { file: "artifact", operations: artifact.operations },

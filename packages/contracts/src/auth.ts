@@ -2,70 +2,123 @@
  * 契约束 `auth` — ③ API 契约（**唯一事实源**）
  *
  * ADR-020：这一份生成四样东西，任何一样都不许手写第二份——
- *   ├─→ 后端 DTO + ZodBodyPipe 的运行时校验
+ *   ├─→ 后端 DTO + `ZodBodyPipe` 的运行时校验
  *   ├─→ 前端 client 类型
  *   ├─→ OpenAPI
  *   └─→ 前端 mock 数据
  *
- * 覆盖 feature：**F19 F20 F21 F22**
+ * 覆盖 feature：**F19 F20 F21 F22**（12 点）
  * 领域模型见 `phases/phase-00-shared-kernel/contracts/auth/domain.md`
- * 用例接口见 同目录 `usecases.md`；UC 覆盖见 `coverage.md`
+ * 用例接口见 同目录 `usecases.md`；R12 映射见 `coverage.md`
  *
- * ⚠ **本文件被四个 feature 共用，改动必须是加法**。F19 建凭据，F20 校验凭据并签发会话，
- * F21 重置口令，F22 切组织。谁把共用的 `Credential` / `Session` 改成不兼容的形状，
- * 另外三件当场断——而它们各自的测试都是绿的。
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * 【F19 实现时发现、并在此登记的契约缺陷】——见文件末尾 `KNOWN_CONTRACT_GAPS`
- * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠ **本文件由 F19 与 F20/F21 并行写入。** 新增只许**追加**，不许改写他人段落。
+ *   F20/F21 段：`login` / `requestPasswordReset` / `completePasswordReset`
+ *   F19/F22 段：`redeemInviteAndCreateOrg` / `switchOrgAtLogin`（见文件末尾占位）
  */
 import { z } from "zod";
 
-/* ─────────────────────────── 统一失败枚举 ─────────────────────────── */
+/* ─────────────────────── 策略常量（O-28 裁决，全仓唯一副本）─────────────────────── */
 
 /**
- * `AuthReason` —— 认证域的统一失败枚举（usecases.md 第一节）。
+ * O-28 / O-29 裁决出的认证策略数值。**这是全仓唯一一份。**
  *
- * ⚠ **这里刻意没有 `INVITE_CODE_REDEEMED`**，而且这不是遗漏。
+ * ⚠ 收敛于 2026-07-29（F20）：这些数字原本在 `apps/web/lib/mock/entry.ts` 里
+ * 手写了一份（`AUTH_POLICY`），而后端马上要写第二份。本项目已**五次**因
+ * 「同一事实声明在两处」而漂移（设计 token / 字号档位 / 丢弃原因枚举 /
+ * 撤回链 SLA / 估点），这将是第六次。⇒ 前端改为从这里 re-export，
+ * 后端从这里 import，`apps/web/tests/single-source-of-truth.test.ts` 加机械门控。
  *
- * 「这个码存在但已被用掉」会告诉攻击者**哪些码是真的**，从而把 14 位码的爆破空间
- * 按命中率剪枝——攻击者只要能分辨「不存在」与「已用」，枚举成本就从「猜出一个可用码」
- * 降到「猜出一个曾经存在的码」，而后者的密度高得多。
- * ⇒ 与「不存在」共用 `INVITE_CODE_INVALID`。
+ * 出处逐条：
+ * · `sessionDays`            UC-1.1 R3 第 2 步（[Backlog] 数字，非原型实测）
+ * · `passwordMinLen`         O-28 ①（NIST 取向：长度 + 弱口令库 > 字符类组合）
+ * · `resetLinkHours`         O-28 ④ + R10 链接有效期统一表
+ * · `lockAfterFails` / `lockWindowMinutes` / `lockDurationMinutes`   O-28 ③
+ * · `resendCooldownSeconds` / `resendDailyMax`                       O-28 ④
+ * · `inviteCodeLength`       UC-1.5 / O-29 ①（原先只写在登录页组件的注释里）
+ */
+export const AUTH_POLICY = {
+  sessionDays: 30,
+  passwordMinLen: 12,
+  resetLinkHours: 1,
+  lockAfterFails: 5,
+  lockWindowMinutes: 15,
+  lockDurationMinutes: 15,
+  resendCooldownSeconds: 60,
+  resendDailyMax: 5,
+  inviteCodeLength: 14,
+} as const;
+
+/* ─────────────────────────────── 枚举 ─────────────────────────────── */
+
+/**
+ * 统一失败枚举（usecases.md）。**封闭性是要守的性质，成员数不是**
+ * （硬规则 7：`toHaveLength(n)` 会拦下一次经评审的正当新增）。
  *
- * ⚠ 代价：真实用户重复点击时看到的提示不够精确（「邀请码无效」而不是「这个码已经用过了」）。
- * 这是**刻意的取舍**，写在这里是为了让下一个觉得「用户体验不好」的人先读到理由，
- * 而不是顺手加一个码。防枚举这条最容易被「更好的用户体验」侵蚀。
+ * ⚠ 三处刻意的「不可分辨」，每一处都是安全属性不是文案疏漏：
+ * · `INVALID_CREDENTIAL`   邮箱不存在 **与** 密码错误共用（I-1）
+ * · `INVITE_CODE_INVALID`  不存在 **与** 已核销共用（否则 14 位码的爆破空间被按命中率剪枝）
+ * · `RESET_TOKEN_INVALID`  过期 **与** 伪造共用
  *
- * ⚠ **`EMAIL_TAKEN` 与「防枚举」的关系不同，不要类推**：
- * 它确实泄露「这个邮箱注册过」，但注册接口无法避免——不告诉用户邮箱被占用，
- * 用户就永远不知道该去登录（UC-1.5 A2 明写要提示「该邮箱已注册，请登录后使用邀请码创建组织」）。
- * 邮箱枚举的正确防线在**登录**与**找回密码**那两个接口（I-1 与 `RequestPasswordReset`
- * 恒返回 sent:true），不在这里。
+ * ⚠ 刻意**没有** `INVITE_CODE_REDEEMED` 与 `EMAIL_NOT_FOUND`。加回去就是枚举通道。
  */
 export const AuthReason = z.enum([
-  /** 邮箱不存在与密码错误**共用这一个码**（I-1）。分开就是枚举通道 */
   "INVALID_CREDENTIAL",
-  /** 锁定期内**正确口令也返回它**（I-3） */
   "ACCOUNT_LOCKED",
   "EMAIL_NOT_VERIFIED",
-  /** **不区分「不存在」与「已被用」**——见上方长注 */
   "INVITE_CODE_INVALID",
-  /**
-   * ⚠ **usecases.md 的枚举表里没有它，但 `RedeemInviteAndCreateOrg.err` 里有**。
-   * F19 实现时发现的契约不自洽：操作声明了一个统一枚举里不存在的码。
-   * 收敛方向只能是「补进枚举」——因为操作的 err 是界面必须渲染的东西，
-   * 而枚举是给界面看的那份清单。见 `KNOWN_CONTRACT_GAPS.C2`。
-   */
-  "EMAIL_TAKEN",
-  /** 过期与伪造共用一个码 */
   "RESET_TOKEN_INVALID",
   "SESSION_EXPIRED",
-  /** 与过期分开：用户需要知道是「被踢了」还是「太久没用」 */
+  /** 与 SESSION_EXPIRED 分开：用户需要分辨「被踢了」还是「太久没用」 */
   "SESSION_REVOKED",
+  "EMAIL_TAKEN",
+  /** Redis / 认证依赖不可用。⚠ **一律拒绝，不得降级放行**（同 identity 的同名码） */
+  "AUTH_SERVICE_UNAVAILABLE",
 ]);
 
-/* ─────────────────────────── 值对象 / 策略 ─────────────────────────── */
+/** 口令被拒的原因。⚠ 刻意**没有** `MISSING_UPPERCASE` 之类——O-28 ① 明确不强制字符类 */
+export const PasswordRejection = z.enum([
+  "TOO_SHORT",
+  /** 命中常见泄露口令字典 */
+  "WEAK_COMMON",
+]);
+
+/* ─────────────────────────────── 实体 ─────────────────────────────── */
+
+/**
+ * 凭据。**注意这里没有 `passwordHash`。**
+ *
+ * 契约描述的是**协议上会出现的形状**；口令哈希从不离开服务端，把它写进契约
+ * 就等于宣布存在一条能读到它的路径。哈希的算法与参数是契约的一部分
+ * （domain I-2），但它是**存储侧**的契约，声明在 migration 与 `PasswordHasher`
+ * 端口上，不在这里。
+ */
+export const Credential = z.object({
+  userId: z.string(),
+  /** **唯一**，小写规范化后比较（domain 一节） */
+  email: z.string().email(),
+  /** null = 未验证。未验证不得登录（I-8 / UC-1.5 R7） */
+  emailVerifiedAt: z.string().datetime().nullable(),
+});
+
+/**
+ * 会话。
+ *
+ * ⚠ `revokedAt` 是**写标记不是删行**（I-7）：删了就再也查不出「谁在什么时候被踢的」，
+ * 而那正是 UC-1.1 R6 要求进审计的四类事件之一。
+ */
+export const Session = z.object({
+  /** 不可猜（UUID，不得是序列）——I-6，同 identity A-1 */
+  id: z.string(),
+  userId: z.string(),
+  currentOrgId: z.string().nullable(),
+  issuedAt: z.string().datetime(),
+  /** issuedAt + AUTH_POLICY.sessionDays */
+  expiresAt: z.string().datetime(),
+  /** null = 有效 */
+  revokedAt: z.string().datetime().nullable(),
+});
+
+/* ───────────────────────────── 操作 ───────────────────────────── */
 
 /**
  * 邀请码形态。**14 位**（UC-1.5 / domain.md `InviteCode.code`）。
@@ -93,116 +146,106 @@ export const InviteCodeValue = z.string().length(14);
 export const PasswordPolicy = z.string().min(12);
 
 /**
- * 口令哈希的**可接受形态** —— 不变量 I-2 的机器可判定形式。
- *
- * I-2 原文：「口令只以**慢哈希**存储（argon2id 或 bcrypt cost ≥ 12），
- * **任何地方不得出现明文或可逆编码**」。
- *
- * ⚠ 为什么这条正则在**契约**里而不是在后端：断言 I-2 的测试、生成哈希的实现、
- * 以及数据库的 CHECK 约束是三处，三处各写一份「什么算慢哈希」必然漂移——
- * 而漂移的方向是**放松**（有人为了让测试过，把 cost 从 12 调到 10 并顺手改正则）。
- * 现在三处都从这一份派生：实现用它自检、测试用它断言、迁移里的 CHECK 是它的 SQL 投影
- * （SQL 投影无法从 TS 生成，故在迁移里逐字重复并注明来源——那是本项目唯一允许的
- * 「第二份副本」形式：一份带出处标注的机械投影，且有测试断言两者同时接受/拒绝同一组样本）。
- *
- * 两支：
- *   · bcrypt   `$2a$12$…` / `$2b$…` / `$2y$…`，cost 必须 ≥ 12（两位数 12-99）
- *   · argon2id `$argon2id$v=19$m=…,t=…,p=…$salt$hash`
- */
-export const PasswordHashFormat = z
-  .string()
-  .regex(
-    /^(\$2[aby]\$(1[2-9]|[2-9]\d)\$[./A-Za-z0-9]{53}|\$argon2id\$v=\d+\$m=\d+,t=\d+,p=\d+\$[^$]+\$[^$]+)$/,
-    "password hash must be bcrypt cost>=12 or argon2id (invariant I-2)",
-  );
-
-/* ─────────────────────────────── 实体 ─────────────────────────────── */
-
-/**
- * `Credential` —— F19 创建它，F20 校验它，F21 改它的哈希。
- *
- * ⚠ **刻意不含 `passwordHash`**，尽管 domain.md 的实体表里有这个字段。
- *
- * 理由：本文件生成前端类型、mock 与 OpenAPI。把 `passwordHash` 放进**线路形态**，
- * 等于给「哪天有人把它塞进响应体」开了一条合法通道，而且 mock 生成器会当场
- * 把一个假哈希写进前端代码库。domain.md 描述的是**存储实体**，本文件描述的是
- * **可以离开服务端的东西**——两者不是同一个集合，这个差集就是 `passwordHash`。
- *
- * 哈希的形态约束由 `PasswordHashFormat` 单独表达（它约束的是存储，不是响应体）。
- */
-export const Credential = z.object({
-  userId: z.string(),
-  /** **唯一**，小写规范化后比较（domain.md）。规范化在服务端做，不信任客户端 */
-  email: z.string().email(),
-  displayName: z.string(),
-  /** null = 未验证。未验证的账号**不能登录**（I-8） */
-  emailVerifiedAt: z.string().datetime().nullable(),
-}).strict();
-
-/**
- * `Session` —— **F20 拥有它**（签发与校验）。F19 不签发会话，只把形状定在这里，
- * 免得两件各写一份（同一事实两处 = 本项目已踩过五次的坑）。
- *
- * ⚠ `revokedAt` 存在的意义是「吊销是**写标记不是删行**」（I-7）——
- * 删了行就查不出「谁在什么时候被踢的」。所以这个字段不是可选的软删除风格，
- * 它是不变量的载体。
- */
-export const Session = z.object({
-  /** 不可猜：UUID，**不得是序列**（I-6 / A-1） */
-  id: z.string().uuid(),
-  userId: z.string(),
-  /** 未选定组织时为 null（A3：账号已可用但无组织归属） */
-  currentOrgId: z.string().nullable(),
-  issuedAt: z.string().datetime(),
-  /** 有效期 30 天（UC-1.3 / V12） */
-  expiresAt: z.string().datetime(),
-  /** null = 有效 */
-  revokedAt: z.string().datetime().nullable(),
-}).strict();
-
-/* ───────────────────────────── 操作 ───────────────────────────── */
-
-/**
  * 每个操作 = { method, path, in, out, err }。
- * `err` 穷举失败模式——**「失败长什么样」是契约的一半**，界面的异常态全靠它。
- *
- * ⚠ **`path` 是本文件新增的信息**：usecases.md 只给了用例签名，没给 HTTP 路径。
- * `identity` 束的 ③ 件里路径是契约的一部分（前端据此发请求），所以这里必须有；
- * 取值按该束既有惯例（`/identity/*`）平移为 `/auth/*`。若产品侧另有路由规划，
- * 改这里一处即可，前后端同时跟随。
+ * `err` 穷举失败模式——**「失败长什么样」是契约的一半**。
+ * 本束的失败面尤其重要：**认证的失败面就是它的攻击面**。
  */
 export const operations = {
   /**
-   * `RedeemInviteAndCreateOrg`（**F19**）
+   * `Login`（F20）— UC-1.1 R3 / V7 V8 V9，coverage V4
    *
-   * ```
-   * in:  { code, email, password, displayName, orgName }
-   * out: { userId, orgId, emailVerificationSent: true }
-   * err: INVITE_CODE_INVALID | EMAIL_TAKEN
-   * ```
+   * ⚠ **未找到用户时也要跑一次等价开销的假哈希**（I-1 的耗时半边）。
+   * 「邮箱不存在」走一条不做哈希校验的短路径，「密码错误」要跑一次慢哈希——
+   * 两者耗时差一个数量级，响应体一模一样也没用：攻击者拿秒表就能枚举。
    *
-   * ## 事务边界是契约的一部分（I-4）
+   * ⚠ 这行代码看起来像纯粹的浪费，**极容易在 code review 里被删掉**
+   * （coverage.md 第五节第 4 条点名了这个风险）。断言写在
+   * `tests/auth/login-enumeration-guard.test.ts`，并且写清了理由。
+   */
+  login: {
+    method: "POST", path: "/auth/login",
+    in: z.object({
+      email: z.string().email(),
+      /**
+       * ⚠ 登录时**不**校验口令强度：策略变严之后老账号仍须能登录，
+       * 而且「你的密码太短」这句话本身就把「这个邮箱有账号」说出去了。
+       * 强度校验只发生在**设置口令**时（注册 / 重置）。
+       */
+      password: z.string().min(1),
+    }),
+    /** ⚠ 只给组织 id，**不给角色**（I-9：本束不产生任何权限判定） */
+    out: z.object({
+      sessionToken: z.string(),
+      userId: z.string(),
+      orgs: z.array(z.string()),
+      expiresAt: z.string().datetime(),
+    }).strict(),
+    err: ["INVALID_CREDENTIAL", "ACCOUNT_LOCKED", "EMAIL_NOT_VERIFIED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `RequestPasswordReset`（F21）— UC-1.1 R4 A2 步骤 2 / coverage V10
    *
-   * **核销、建组织、建 owner 成员、建凭据在同一个事务里**。任何一步失败，
-   * 整体回滚——**不留下半个组织**。
+   * ⚠ **无论邮箱是否存在都返回 `{ sent: true }`**——否则这个端点就是一个
+   * 不需要任何凭据的枚举接口：攻击者拿一份邮箱名单跑一遍就知道谁是客户。
    *
-   * ## 并发语义（V3，F19 最容易做错的一点）
+   * `sent` 写成 `z.literal(true)` 而不是 `z.boolean()`，是为了让「有没有可能返回 false」
+   * 这个问题在**类型层**就没有答案——`z.boolean()` 会诱导后来者加一条 `sent: false` 分支。
+   */
+  requestPasswordReset: {
+    method: "POST", path: "/auth/password-reset/request",
+    in: z.object({ email: z.string().email() }),
+    out: z.object({ sent: z.literal(true) }).strict(),
+    err: [] as const,
+  },
+
+  /**
+   * `CompletePasswordReset`（F21）— UC-1.1 R4 A2 步骤 5 / AC3 / coverage V11
    *
-   * 两路同时用同一个码，必须**恰好一个成功**。落法：
-   * ```sql
-   * UPDATE invite_codes SET redeemed_by = $1 WHERE code = $2 AND redeemed_by IS NULL
-   * ```
-   * 并断言影响行数 === 1。**不要先 SELECT 再 UPDATE**，那中间有窗口。
+   * ⚠ `revokedSessionCount` 是**契约的一部分**，不是调试字段：
+   * UC-1.1 R4 要求重置后吊销该账号**全部**既有会话，而「吊销了几个」是那条要求
+   * **唯一可被断言、也是唯一能让用户看见**的形式。
+   * **最常见的做错方式是只吊销当前会话**——而只吊销当前会话时，
+   * 「重置成功」的响应与正确实现**完全一样**，除了这个数字。
+   */
+  completePasswordReset: {
+    method: "POST", path: "/auth/password-reset/complete",
+    in: z.object({
+      token: z.string().min(1),
+      /**
+       * 强度在服务端按 `domain/auth/password-policy` 校验并返回字段级错误。
+       * 这里只挡住空串——**长度阈值不在这里写死**，否则它就是第二份副本
+       * （`AUTH_POLICY.passwordMinLen` 是唯一那份）。
+       */
+      newPassword: z.string().min(1),
+    }),
+    out: z.object({
+      /** ⚠ 重置前建立的会话数，全部已 revoke。只吊销当前会话的实现这里会返回 1 */
+      revokedSessionCount: z.number().int().nonnegative(),
+    }).strict(),
+    err: ["RESET_TOKEN_INVALID", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `ValidateSession` — F18 的 `PrincipalResolverPort` 的**真实实现**。
    *
-   * ⚠ 做错时**不抛异常**：它会建出**两个组织**，两边都「登录正常」，
-   * 没有任何东西会报。所以这条只能靠**真正并发的**断言证明，顺序调用两次证明不了它。
+   * 它现在是 `HeaderPrincipalResolver`（测试注入，生产不可达）。F20 之后
+   * 生产路径走 `SessionTokenPrincipalResolver`，凭据形态 = 不透明 token + Redis
+   * （domain 第三节①：JWT 与 I-5「立即失效」**正面冲突**）。
    *
-   * ## `emailVerificationSent` 为什么是 `z.literal(true)` 而不是 boolean
-   *
-   * UC-1.5 E4：「**邮件发送失败必须显式提示，不得静默成功**」。
-   * 写成 boolean，服务端就可以返回 200 + `false`——而那正是「静默成功」的形状：
-   * 状态码是成功的，界面照着 happy path 走，用户以为注册完成了。
-   * 写成字面量 true，「没发出去」在协议层**无法表达**，只能变成一个失败响应。
+   * ⚠ 刻意**不开放 HTTP 路由**：会话校验是 Guard 的内部动作，
+   * 给它一个端点等于给攻击者一个免费的 token 有效性预言机。
+   * 这里登记形状是为了让端口签名与契约同源。
+   */
+  validateSession: {
+    method: "INTERNAL", path: "(guard)",
+    in: z.object({ sessionToken: z.string() }),
+    out: z.object({ userId: z.string(), currentOrgId: z.string().nullable() }).strict().nullable(),
+    err: ["SESSION_EXPIRED", "SESSION_REVOKED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ── F19 段（合并自并行 feature）─────────────────────────────────
+   * switchOrgAtLogin (F22): ⚠ 不重新实现切换，调 identity.switchOrganization
    */
   redeemInviteAndCreateOrg: {
     method: "POST",
@@ -213,7 +256,7 @@ export const operations = {
       password: PasswordPolicy,
       displayName: z.string().min(1),
       orgName: z.string().min(1),
-    }).strict(),
+    }),
     /**
      * ⚠ `.strict()` —— **F19 实现时发现的、影响整条 ADR-020 返回链的问题**。
      *
@@ -249,6 +292,38 @@ export const operations = {
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;
+
+
+/* ── 以下自 F19（注册侧）并入 ────────────────────────────────────
+ * 两个并行 feature 各自建了一份 auth 地基。合并时以 F20 那份为底（它更完整：
+ * 会话、锁定、重置都在里面），再把 F19 独有的搬过来——而不是二选一。
+ */
+
+
+
+/**
+ * 口令哈希的**可接受形态** —— 不变量 I-2 的机器可判定形式。
+ *
+ * I-2 原文：「口令只以**慢哈希**存储（argon2id 或 bcrypt cost ≥ 12），
+ * **任何地方不得出现明文或可逆编码**」。
+ *
+ * ⚠ 为什么这条正则在**契约**里而不是在后端：断言 I-2 的测试、生成哈希的实现、
+ * 以及数据库的 CHECK 约束是三处，三处各写一份「什么算慢哈希」必然漂移——
+ * 而漂移的方向是**放松**（有人为了让测试过，把 cost 从 12 调到 10 并顺手改正则）。
+ * 现在三处都从这一份派生：实现用它自检、测试用它断言、迁移里的 CHECK 是它的 SQL 投影
+ * （SQL 投影无法从 TS 生成，故在迁移里逐字重复并注明来源——那是本项目唯一允许的
+ * 「第二份副本」形式：一份带出处标注的机械投影，且有测试断言两者同时接受/拒绝同一组样本）。
+ *
+ * 两支：
+ *   · bcrypt   `$2a$12$…` / `$2b$…` / `$2y$…`，cost 必须 ≥ 12（两位数 12-99）
+ *   · argon2id `$argon2id$v=19$m=…,t=…,p=…$salt$hash`
+ */
+export const PasswordHashFormat = z
+  .string()
+  .regex(
+    /^(\$2[aby]\$(1[2-9]|[2-9]\d)\$[./A-Za-z0-9]{53}|\$argon2id\$v=\d+\$m=\d+,t=\d+,p=\d+\$[^$]+\$[^$]+)$/,
+    "password hash must be bcrypt cost>=12 or argon2id (invariant I-2)",
+  );
 
 /**
  * F19 实现时撞到的契约缺口，逐条登记在契约自己身上。

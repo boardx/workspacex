@@ -11,6 +11,38 @@
 import type { z } from "zod";
 import * as auth from "@repo/contracts/auth";
 
+/** login 的成功响应样例（由契约生成） */
+export const loginMock: z.infer<typeof auth.operations.login.out> = {
+  "sessionToken": "sessionToken-1",
+  "userId": "userId-1",
+  "orgs": [
+    "orgs-1"
+  ],
+  "expiresAt": "expiresAt-1"
+};
+
+/** login 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const loginErrors = ["INVALID_CREDENTIAL","ACCOUNT_LOCKED","EMAIL_NOT_VERIFIED","AUTH_SERVICE_UNAVAILABLE"] as const;
+
+/** requestPasswordReset 的成功响应样例（由契约生成） */
+export const requestPasswordResetMock: z.infer<typeof auth.operations.requestPasswordReset.out> = {
+  "sent": true
+};
+
+/** completePasswordReset 的成功响应样例（由契约生成） */
+export const completePasswordResetMock: z.infer<typeof auth.operations.completePasswordReset.out> = {
+  "revokedSessionCount": 1
+};
+
+/** completePasswordReset 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const completePasswordResetErrors = ["RESET_TOKEN_INVALID","AUTH_SERVICE_UNAVAILABLE"] as const;
+
+/** validateSession 的成功响应样例（由契约生成） */
+export const validateSessionMock: z.infer<typeof auth.operations.validateSession.out> = null;
+
+/** validateSession 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const validateSessionErrors = ["SESSION_EXPIRED","SESSION_REVOKED","AUTH_SERVICE_UNAVAILABLE"] as const;
+
 /** redeemInviteAndCreateOrg 的成功响应样例（由契约生成） */
 export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out> = {
   "userId": "userId-1",
