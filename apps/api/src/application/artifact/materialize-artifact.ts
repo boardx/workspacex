@@ -63,6 +63,27 @@ export interface MaterializeInput {
   readonly actorId: string;
   /** File name (as named by the materialization plan) to bytes. */
   readonly parts: Readonly<Record<string, Uint8Array>>;
+  /**
+   * Write EXACTLY this version number, instead of "whatever comes after the current head".
+   *
+   * ⚠ Added by F05, and not a convenience -- the default is unsafe for any caller that has
+   * already made a decision about the head.
+   *
+   * The default re-reads the head here and takes `head + 1`. Under concurrency that turns a
+   * lost race into a SUCCESS at a different number: two writers both check that the head is
+   * 1, the first commits v2, and the second -- arriving a moment later -- reads head 2 and
+   * cheerfully writes v3. Nothing collides, nothing is refused, and the second writer's
+   * snapshot is recorded as succeeding v2, a version it never saw. Its lineage is then a
+   * statement that is not true, and E4's "the other party is told the version changed" never
+   * happens.
+   *
+   * Measured, not theorised: `snapshot-concurrent-single-version.test.ts` produced exactly
+   * that (two fulfilled pins, numbered 2 and 3) before this parameter existed.
+   *
+   * So a caller holding an `expectedHeadVersion` passes the number it means, and the
+   * collision it is entitled to gets to happen.
+   */
+  readonly versionNumber?: number;
 }
 
 export interface MaterializeResult {
@@ -76,6 +97,18 @@ export interface MaterializeResult {
 
 /** The contract's `MATERIALIZATION_FAILED`. */
 export class MaterializationFailedError extends Error {}
+
+/**
+ * A storage key for this version number was already taken -- i.e. another writer got there
+ * first with the same head.
+ *
+ * A SUBCLASS, so every existing `MATERIALIZATION_FAILED` mapping keeps working unchanged and
+ * `pin-version.ts` can still tell this one case apart. It is the only materialization failure
+ * where retrying against the new head succeeds; the rest ("you did not supply schema.json")
+ * fail identically forever, and reporting them all as `VERSION_CHANGED` would tell a user to
+ * refresh their way out of a missing file.
+ */
+export class VersionKeyTakenError extends MaterializationFailedError {}
 /** The contract's `DEPENDENCY_UNAVAILABLE`. */
 export class DependencyUnavailableError extends Error {}
 
@@ -117,7 +150,10 @@ export async function materializeArtifact(
     });
   }
 
-  const versionNumber = (await repo.headVersionNumber(input.orgId, artifactId)) + 1;
+  // Re-reading the head is only correct when nobody upstream has already decided which
+  // number this is. See `versionNumber` on the input type.
+  const versionNumber =
+    input.versionNumber ?? (await repo.headVersionNumber(input.orgId, artifactId)) + 1;
   const versionId = ids.next("ver");
 
   // Every part named by the plan that the caller supplied -- required ones are guaranteed
@@ -142,10 +178,11 @@ export async function materializeArtifact(
       await store.putOnce(key, bytes, mime);
     } catch (e) {
       // A taken key means a version number was reused, i.e. two writers raced on the head.
-      // Reported as a materialization failure and NOT retried under a new number here:
-      // choosing the new number is F05's optimistic-concurrency decision, and guessing at it
-      // from two places is how two versions end up claiming to be v2.
-      if (e instanceof ObjectExistsError) throw new MaterializationFailedError(e.message);
+      // Still NOT retried under a new number here: choosing the new number is the pin path's
+      // optimistic-concurrency decision, and guessing at it from two places is how two
+      // versions end up claiming to be v2. F05 gave it a distinguishable type so that path
+      // can map it to VERSION_CHANGED without string-matching.
+      if (e instanceof ObjectExistsError) throw new VersionKeyTakenError(e.message);
       if (e instanceof ObjectStoreUnavailableError) throw new DependencyUnavailableError(e.message);
       throw e;
     }

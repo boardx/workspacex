@@ -31,6 +31,22 @@ export class ObjectExistsError extends Error {
 export class ObjectStoreUnavailableError extends Error {}
 
 /**
+ * Two writers reached the same `(artifactId, versionNumber)`.
+ *
+ * Raised by the repository, not by a caller inspecting a driver error: SQLSTATE 23505 and the
+ * constraint name `artifact_versions_uniq_number` are PostgreSQL facts, and an application
+ * module that reads them is an application module that knows which database it is on. It also
+ * has to be a distinct error rather than "the insert failed": the pin path turns exactly this
+ * into `VERSION_CHANGED`, and telling it apart from a genuine write fault by matching on a
+ * message is how a storage outage starts being reported as a concurrent edit.
+ */
+export class DuplicateVersionNumberError extends Error {
+  constructor(readonly artifactId: string, readonly versionNumber: number) {
+    super(`version ${versionNumber} of ${artifactId} already exists`);
+  }
+}
+
+/**
  * The bytes. Write-once (I-2).
  *
  * ⚠ `putOnce` refusing an existing key is only HALF of I-2, and the weaker half. It is an

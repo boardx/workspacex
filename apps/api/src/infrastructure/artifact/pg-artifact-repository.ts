@@ -12,6 +12,7 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import { guard, type Guarded } from "../../application/security/permission-filter";
+import { DuplicateVersionNumberError } from "../../application/artifact/ports";
 import type {
   AnchorKind,
   ArtifactRepository,
@@ -23,6 +24,18 @@ import type {
   SegmentRecord,
 } from "../../application/artifact/ports";
 import type { OrgId } from "../../domain/org-id";
+
+/**
+ * Is this a unique violation on one of the named constraints?
+ *
+ * Reads `code` and `constraint` off the driver's error rather than matching the message.
+ * Messages are localised by `lc_messages` and reworded between major versions; the SQLSTATE
+ * and the constraint name are contract.
+ */
+function isUniqueViolation(e: unknown, ...constraints: string[]): boolean {
+  const err = e as { code?: string; constraint?: string };
+  return err?.code === "23505" && typeof err.constraint === "string" && constraints.includes(err.constraint);
+}
 
 export class PgArtifactRepository implements ArtifactRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -38,18 +51,33 @@ export class PgArtifactRepository implements ArtifactRepository {
   }
 
   async createVersion(v: NewArtifactVersion): Promise<void> {
-    await this.db.withTenant(v.orgId, (s) =>
-      s.query(
-        `INSERT INTO artifact_versions
-           (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
-            size_bytes, pinned_by, context_pack_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
-          v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
-          v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId,
-        ],
-      ),
-    );
+    try {
+      await this.db.withTenant(v.orgId, (s) =>
+        s.query(
+          `INSERT INTO artifact_versions
+             (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
+              size_bytes, pinned_by, context_pack_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
+            v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId,
+          ],
+        ),
+      );
+    } catch (e) {
+      // 23505 on either uniqueness rule is the same event seen from two angles: two writers
+      // aimed at the same version number (`_uniq_number`), or at the same storage key
+      // (`_uniq_key`, which is keyed on the version number too). Both mean the head moved.
+      //
+      // Narrowed to those two constraints on purpose. Catching bare 23505 would also swallow
+      // a duplicate PRIMARY KEY -- a re-used version id, which is a caller bug -- and report
+      // it as somebody else's concurrent pin, sending the user to press retry on something
+      // that will fail identically forever.
+      if (isUniqueViolation(e, "artifact_versions_uniq_number", "artifact_versions_uniq_key")) {
+        throw new DuplicateVersionNumberError(v.artifactId, v.versionNumber);
+      }
+      throw e;
+    }
     // No ON CONFLICT clause, deliberately. A duplicate (artifact_id, version_number) is a
     // concurrent pin, and swallowing it with DO NOTHING would report success for a write
     // that did not happen -- the caller would then hand out a version id that names
