@@ -220,16 +220,20 @@
         "F04"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f09",
       "verification": [
-        "pnpm vitest run tests/kernel/context-pack-schema.test.ts",
-        "pnpm vitest run tests/kernel/context-pack-six-tuple.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/context-pack-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/context-pack-six-tuple.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/context-pack-items-from-disclosure.test.ts",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F09.verify.log @ 2026-07-29T07:35:13.990Z",
       "needs_ui_signoff": false,
-      "notes": "Context Pack 不是字符串数组而是三段结构（与 context-engine.md 第四节逐字对齐）。六元组是 items 结构的业务侧表述：资源ID→artifactVersionId+segmentId、版本→artifactVersionId、来源→sourceType+anchor、可见范围→permissionDecisionId、相关度→score、筛选动作→retrievalReasons。对应 R12 V10（结构契约 schema 校验）+ V2（六元组无一为空）。纯 schema/纯函数断言。依据：[设计]（反推），D-38 采纳为权威。⚠[待确认] UML 文档第 13 节缺失，若出现需校对。artifactVersionId 指向 F05 的不可变版本。"
+      "notes": "Context Pack 不是字符串数组而是三段结构（与 context-engine.md 第四节逐字对齐）。六元组是 items 结构的业务侧表述：资源ID→artifactVersionId+segmentId、版本→artifactVersionId、来源→sourceType+anchor、可见范围→permissionDecisionId、相关度→score、筛选动作→retrievalReasons。对应 R12 V10（结构契约 schema 校验）+ V2（六元组无一为空）。纯 schema/纯函数断言。依据：[设计]（反推），D-38 采纳为权威。⚠[待确认] UML 文档第 13 节缺失，若出现需校对。artifactVersionId 指向 F05 的不可变版本。 【2026-07-29 实现记录】清单里的文件名是对的、跑法是错的（pnpm vitest → pnpm exec vitest；不设 WORKSPACEX_DB 会静默用共享库），已改为六条已跑通的。刻意**不建迁移**：F09 是结构契约，Pack 的持久化形状属 F10/F13，现在建 context_packs 表就是在猜。必填字段集合取自 Object.keys(CP.ContextItem.shape)，不写手维护清单——这条本身就被反证过（改成硬编码八个名字后，空 channels 不再被抓）。items 的 permissionDecisionId 只能来自 disclose() 在 path:context-pack 上的输出，这使 PROPAGATION_PATHS 里那一条从「预留」变成「真的」。⚠ 查出五处契约缺陷（记在 design-coherence 修订 E，需复签 context-pack 束），其中 E-1 最重：artifact.Anchor 的六种 kind 里 image-region 在 contextPack.Anchor 里**无处可映射**，而 photo 是八种 ContextSourceType 之一——**按签核的契约，每一个照片派生的 segment 都被 I-1 结构性地挡在所有 Context Pack 之外，且悄无声息**（读起来像「相关性低」）。未自行发明 imageRegion 字段，缺口写成了一条测试，契约修好时它会变红。"
     },
     {
       "id": "F10",
