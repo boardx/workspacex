@@ -1,0 +1,90 @@
+# backend-gates.yml —— 需要真 Docker + PostgreSQL 的那套门控，跑在自建 runner 上。
+#
+# 与 harness-verify.yml 分开的理由：那份跑在 GitHub 托管 runner 上，是**轻量**门控
+# （turbo --affected 的 typecheck/lint/test）。后端门控要起 PG 容器、跑 RLS 反证、
+# 起两个 Nest 进程做双向断言——托管 runner 上又慢又贵，且 `apps/api` 加进来之后
+# 那份 workflow 其实**从未跑过它的测试**（turbo 会命中 @repo/api，而它需要 docker）。
+#
+# 触发：打标签（local.env 的 ANSWER_Q3）+ 手动。
+# ⚠ 我的建议是 main 上也跑：自建 runner 没有分钟数成本，而「只在打标签时跑」意味着
+#   问题会在发版那天一次性爆出来。要开的话把下面 push.branches 那两行注释去掉即可。
+name: backend-gates
+
+on:
+  push:
+    tags: ["v*"]
+    # branches: [main]     # ← 取消注释即在 main 上也跑
+  workflow_dispatch:
+
+# 同一时刻只跑一个：门控会 DROP DATABASE，而这台机器上还跑着部署的那套栈。
+# 并发跑两个 job 的隔离靠 WORKSPACEX_DB 已经做了，但排队更省心，也更容易读日志。
+concurrency:
+  group: backend-gates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    runs-on: [self-hosted, linux, arm64, workspacex]
+    # fork 的 PR 一律不上自建 runner（local.env ANSWER_Q2=no）。
+    # 自建 runner 跑的是被触发那份代码：接受 fork 等于任何人提个 PR 就能在这台机器上
+    # 执行任意命令。这里是显式的第二道——GitHub 的默认行为不该是唯一那道。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 30
+    env:
+      # 每次运行一个独立数据库。门控会 DROP DATABASE，和部署那套栈
+      # （项目名 workspacex、端口 55433）必须够不着彼此。
+      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: typecheck / lint
+        run: |
+          pnpm --filter api run typecheck
+          pnpm --filter api run lint
+
+      - name: 单元与集成测试（含 RLS、两层交集、契约响应校验）
+        run: pnpm --filter api exec vitest run
+
+      - name: RLS 强制隔离（反证：绕过应用层过滤跨租户读 0 行）
+        run: apps/api/scripts/verify-rls.sh
+
+      - name: 三道运行时门控（双向断言 + 生产不可达）
+        run: apps/api/scripts/verify-runtime-gates.sh
+
+      - name: 迁移幂等（无视版本表强制重放）
+        run: pnpm --filter api run migrate:check
+
+      - name: 契约单源 / 洋葱分层
+        run: |
+          node .harness/scripts/lint-contract-source.mjs
+          node .harness/scripts/lint-arch-deps.mjs apps/api/src
+
+      - name: 清掉本次运行的数据库
+        # always()：job 被取消时也要清，否则残留库会一直堆到撑爆磁盘。
+        if: always()
+        run: |
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
+            psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
+
+  deploy:
+    needs: gates
+    # 只有打标签才部署。标签是人的显式动作，这满足 architecture.md
+    # 「有 CD 的目标不手动部署」而又不至于每次 push 都动 staging。
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: [self-hosted, linux, arm64, workspacex]
+    timeout-minutes: 20
+    steps:
+      - name: 部署并冒烟
+        # 走 /usr/local/bin 的副本，不是仓库里那份——sudoers 只许这一条路径。
+        # 指仓库那份的话，一个 PR 改掉 deploy.sh 就等于拿到 root。
+        run: sudo /usr/local/bin/workspacex-deploy "${{ github.ref_name }}"
