@@ -185,7 +185,7 @@
         "F06"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -207,7 +207,7 @@
         "F06"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -287,7 +287,7 @@
         "F10"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -311,7 +311,7 @@
         "F10"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -336,7 +336,7 @@
         "F11"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -415,7 +415,7 @@
         "F15"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -442,7 +442,7 @@
         "F08"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "04",
       "owner": null,
       "verification": [
@@ -521,16 +521,19 @@
         "F19"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "05",
-      "owner": null,
+      "owner": "agent-f20f21",
       "verification": [
-        "pnpm vitest run tests/auth/login-password-auth.test.ts",
-        "pnpm vitest run tests/auth/login-enumeration-guard.test.ts",
-        "pnpm vitest run tests/auth/login-lockout-ratelimit.test.ts",
-        "pnpm vitest run tests/ui/login-screen.test.tsx"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/auth/login-password-auth.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/login-enumeration-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/login-lockout-ratelimit.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/password-hash-invariant.test.ts",
+        "apps/api/scripts/verify-runtime-gates.sh",
+        "pnpm --filter web run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F20.verify.log @ 2026-07-29T12:36:52.543Z",
       "needs_ui_signoff": false,
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F01。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：登录主流程[原型]（/login 已建成，锚 login-form/login-email/login-password/login-submit/login-providers），防枚举/限速/锁定/密码策略为[设计]已裁 O-28。界面已建成于 apps/web/components/entry（登录主屏可立即签），本 feature 交付后端认证+会话+防枚举+限速与密码策略实现。D-02：phase-1 只邮箱+密码，社交/SSO 置 disabled（login-providers）。V1/V4/V5/V5a 对应。密码策略实现为三份 UC（1.1/1.5/1.6）共用同一份，不各写一套。\n【跨分片依赖待确认】phase-00: acl_bindings 两层交集鉴权与会话上下文（F01）"
     },
@@ -546,15 +549,16 @@
         "F20"
       ],
       "points": 1,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "05",
-      "owner": null,
+      "owner": "agent-f20f21",
       "verification": [
-        "pnpm vitest run tests/auth/forgot-password-flow.test.ts",
-        "pnpm vitest run tests/auth/password-reset-revokes-sessions.test.ts",
-        "pnpm vitest run tests/ui/login-forgot-panel.test.tsx"
+        "pnpm --filter api exec vitest run tests/auth/forgot-password-flow.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/password-reset-revokes-sessions.test.ts",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter web run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F21.verify.log @ 2026-07-29T12:37:23.826Z",
       "needs_ui_signoff": false,
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F02。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：[原型]按钮[忘记密码？]在登录页存在（原型待补=已接线），四屏与接线为[设计]已裁 O-28④。界面已建成（锚 login-forgot-link/login-forgot-email/login-forgot-submit/login-forgot-sent/login-forgot-back）。AC3「重置后全部旧会话失效」独立验收（V3）。"
     },
