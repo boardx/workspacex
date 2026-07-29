@@ -21,6 +21,19 @@
 ```
 如果 `init.sh` 的验证失败,**停下来先修基础状态**,不要在坏的基础上叠新功能。
 
+## 开发任务必须在 GitHub 上可见（不可绕过）
+每一个 feature 的生命周期**必须**是：
+```
+feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owner>-<phase>-<feature>
+   → 实现（进展写在该 issue 的评论里，不是只写在本地）
+   → harness verify 门控转 passing → PR 带 `Closes #<issue>` → 合入 main
+```
+- **不许**在没有 issue 的情况下开发。看不见的开发只有做的人知道在做什么。
+- **不许**把多个 feature 塞进一个 PR 再一起合。一个 issue 一个 PR。
+- **每次迭代都在对应 issue 上展开**：设计取舍、撞到的墙、反证结果，写成评论。
+  写在本地 commit message 里的东西，别人要 clone 才看得到。
+- 由 `pnpm harness doctor` 机械检查（三条，见完成定义第 5、6 条）。
+
 ## 开工流程(每轮会话开始)
 0. **先确认角色,角色决定 loop 策略,不可跳过**:人类要你当 main coordinator →
    先用 `coordinator` skill(挂 5 分钟 loop);当某模块的 module coordinator →
@@ -55,7 +68,15 @@
 2. 该 feature 的每一条 `verification` 命令都执行成功(退出码 0)。
 3. 证据已写入 `evidence`(命令输出 / 日志 / commit / 截图路径)。
 4. 没有引入新的失败:`./init.sh` 的基础验证仍然通过。
+5. **该 feature 在 GitHub 上有对应 issue，且该 issue 已由 PR 关闭**（2026-07-29 新增）。
+6. **实现已合入 `main`** —— 标了 passing 但代码只停在分支上，它对别人不存在。
 没有证据 = 没有完成。"代码写完了""看起来能跑"都不算完成。
+
+⚠ **第 5、6 条是 2026-07-29 补的，因为规范早就有、门控一直没有。**
+`sync-github.ts` 生成的 issue 正文里逐字写着「分支 `worker/…`，PR 关联本 issue
+（`Closes #N`）」，而 8 个 feature 一路做到 passing、其中 5 个连 issue 都没有。
+规范不是缺失的，是**没有脚本**——这正是本文件自己那条：
+**没有脚本的规范条目视为未落地**。现在 `harness doctor` 三条检查把它变成会红的东西。
 
 ## 干净收尾(每轮会话结束前)
 逐项过一遍 `.harness/rubrics/clean-state-checklist.md`,确保:

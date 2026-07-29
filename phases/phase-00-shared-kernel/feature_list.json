@@ -376,18 +376,22 @@
         "F02"
       ],
       "points": 10,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f15",
       "verification": [
-        "pnpm vitest run tests/kernel/no-builtin-capability-lists.test.ts",
-        "pnpm vitest run tests/kernel/org-scoped-capabilities.test.ts",
-        "pnpm vitest run tests/kernel/capability-change-provenance.test.ts",
-        "pnpm vitest run tests/kernel/org-model-policy.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/no-builtin-capability-lists.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/org-scoped-capabilities.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/capability-change-provenance.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/org-model-policy.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
+      "evidence": "evidence/F15.verify.log @ 2026-07-29T09:11:14.716Z",
       "needs_ui_signoff": true,
-      "notes": "依据等级：[设计]——2026-07-28 人类新需求，无原型无 Backlog。缘由是原型把六个 agent 与18 台模型画得像产品内置，人类明确它们只是某个组织的示例配置。V1 是本 feature 最要紧的一条：静态断言产品代码里不存在硬编码清单，并断言清空组织配置后界面进入空态而不是显示默认值——只验「能读配置」不验「没有内置兜底」，第二个客户进来就会发现清单其实写死在代码里。R7 关键立场：成员跟随组织配置、不做个人覆盖——能力清单直接决定 AI 能读什么数据、能调什么工具，个人覆盖等于绕过组织安全边界。与 UC-0.3 的可见性范围是串联两层：先看本组织有没有，再看我在不在可见范围里，V10 断言两层错误可分辨、不糊成一个。needs_ui_signoff=true：后台七模块要从「产品设置」读感改成「本组织配置」读感，属原型确认缺失。必须先于 03-skill / 04-agent / 20-model / 21-mcp 实现，否则它们会先把清单硬编码进去再拆一次。 【2026-07-28 裁决追加，+2 点】正式组织可配 modelPolicy: \"self-hosted-only\" | \"any\"。⚠ 与个人本地组织的硬隔离①**性质不同、不可抹平**：正式组织这条是**可配置策略**（管理员可改、改动留痕）；本地组织那条是**不可关闭的产品承诺**。数据模型与界面必须能分辨二者——用同一个开关表示会让「承诺」退化成「默认值」（V12 断言这一点）。这条裁决同时让「本地组织恒为单人」的取舍成立：有多人+不出网需求的客户走私有部署的正式组织 + 本策略，而不是把本地组织做成多人。"
+      "notes": "依据等级：[设计]——2026-07-28 人类新需求，无原型无 Backlog。缘由是原型把六个 agent 与18 台模型画得像产品内置，人类明确它们只是某个组织的示例配置。V1 是本 feature 最要紧的一条：静态断言产品代码里不存在硬编码清单，并断言清空组织配置后界面进入空态而不是显示默认值——只验「能读配置」不验「没有内置兜底」，第二个客户进来就会发现清单其实写死在代码里。R7 关键立场：成员跟随组织配置、不做个人覆盖——能力清单直接决定 AI 能读什么数据、能调什么工具，个人覆盖等于绕过组织安全边界。与 UC-0.3 的可见性范围是串联两层：先看本组织有没有，再看我在不在可见范围里，V10 断言两层错误可分辨、不糊成一个。needs_ui_signoff=true：后台七模块要从「产品设置」读感改成「本组织配置」读感，属原型确认缺失。必须先于 03-skill / 04-agent / 20-model / 21-mcp 实现，否则它们会先把清单硬编码进去再拆一次。 【2026-07-28 裁决追加，+2 点】正式组织可配 modelPolicy: \"self-hosted-only\" | \"any\"。⚠ 与个人本地组织的硬隔离①**性质不同、不可抹平**：正式组织这条是**可配置策略**（管理员可改、改动留痕）；本地组织那条是**不可关闭的产品承诺**。数据模型与界面必须能分辨二者——用同一个开关表示会让「承诺」退化成「默认值」（V12 断言这一点）。这条裁决同时让「本地组织恒为单人」的取舍成立：有多人+不出网需求的客户走私有部署的正式组织 + 本策略，而不是把本地组织做成多人。 【2026-07-29 实现记录】V1 双向断言：空组织返回 [] **且那个空来自空表**；已配置组织返回的正是配置的内容（逐 kind）。新增 lint-no-builtin-capabilities 门控：产品源码与任何迁移里都不得出现内置清单，反证含正反两面（派生枚举/注释/单元素列表不得误伤）。⚠ 查出六处缺陷，其中三处使 F15 自己的 user_visible_behavior **按签核的契约无法实现**：① CapabilityListing 没有 ownerTeamId，一条 team-only 清单说不出是哪个团队；② 没有 disabledReason；③ **没有任何字段能区分云端模型与自建模型**，于是 modelPolicy=self-hosted-only 时服务端根本无从判断该把哪些模型行置灰——「云端模型整行禁用并注明原因（不是隐藏）」按现契约做不到。未自行发明字段。另：mutateCapability.in.payload 原为 z.record(z.unknown())，开放结构保证实现者会在后端另声明一份（正是 ADR-020 的漂移），已收敛进契约三个 payload schema；但 op 是 payload 的兄弟字段而非判别器，真正的修法是合成 discriminated union，属契约所有者的决定。mutateCapability.err 用的是项目层的码而前置条件是组织角色——用项目层码报组织层拒绝，正是 R8 要防的。ConstraintSource 三取值不够：D-U1 在正式组织里的「机密整轮本地」既不是 promise 也不是 policy 也不是 none，建议加 confidential-data。前端 apps/web/lib/mock 里仍有原型硬编码清单（20 处），新门控把它计为**债务并用测试封顶**，而不是豁免。"
     },
     {
       "id": "F16",

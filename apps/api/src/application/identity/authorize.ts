@@ -13,7 +13,7 @@ import {
   type ScopeInput,
 } from "../../domain/identity/permission-decision";
 import type { OrgId } from "../../domain/org-id";
-import type { DecisionIdFactory, IdentityRepository, ObjectRef } from "./ports";
+import type { AclObjectRef, DecisionIdFactory, IdentityRepository } from "./ports";
 
 export interface AuthorizeDeps {
   readonly repo: IdentityRepository;
@@ -24,11 +24,11 @@ export interface AuthorizeInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly projectId?: string;
-  readonly object: ObjectRef;
+  readonly object: AclObjectRef;
   readonly action: string;
 }
 
-const keyOf = (o: ObjectRef): string => `${o.kind}:${o.id}`;
+const keyOf = (o: AclObjectRef): string => `${o.kind}:${o.id}`;
 
 /**
  * An object with no binding row is treated as `org-wide`.
@@ -56,7 +56,7 @@ export interface AuthorizeBatchInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly projectId?: string;
-  readonly objects: readonly ObjectRef[];
+  readonly objects: readonly AclObjectRef[];
   readonly action: string;
 }
 
@@ -110,7 +110,7 @@ export async function authorizeBatch(
  */
 export async function authorizeDerived(
   deps: AuthorizeDeps,
-  input: AuthorizeBatchInput & { readonly sources: readonly ObjectRef[] },
+  input: AuthorizeBatchInput & { readonly sources: readonly AclObjectRef[] },
 ): Promise<PermissionDecision> {
   const { repo, ids } = deps;
   const orgMembership = await repo.findOrgMembership(input.userId, input.orgId);

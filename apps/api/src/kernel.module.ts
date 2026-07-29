@@ -43,6 +43,13 @@ import {
   UuidDecisionIdFactory,
 } from "./infrastructure/identity/in-memory-session-store";
 import { IdentityController } from "./interface/controllers/identity.controller";
+import { CapabilityController } from "./interface/controllers/capability.controller";
+import {
+  CAPABILITY_REPOSITORY,
+  IN_FLIGHT_CALLS,
+} from "./application/identity/capability-ports";
+import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-repository";
+import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
 import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
@@ -51,7 +58,13 @@ import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenanc
 import type { DatabasePort } from "./application/ports/database.port";
 
 @Module({
-  controllers: [HealthController, KernelProbeController, IdentityController, ProvenanceController],
+  controllers: [
+    HealthController,
+    KernelProbeController,
+    IdentityController,
+    ProvenanceController,
+    CapabilityController,
+  ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
@@ -79,6 +92,15 @@ import type { DatabasePort } from "./application/ports/database.port";
       provide: PROVENANCE_READER,
       useExisting: PROVENANCE_WRITER,
     },
+    {
+      provide: CAPABILITY_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgCapabilityRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Process-local, and honestly so: nothing in phase-00 starts a model call, so every
+    // count is really zero. The path exists end to end so 04-agent reports into it rather
+    // than inventing a number for `affectedInFlightCalls` (see the port's note).
+    { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
     // Process-local for now. Real session storage arrives with phase-01 01-auth, together
     // with the credential format this kernel deliberately did not decide (UC-0.6 A-3).
     { provide: SESSION_STORE, useClass: InMemorySessionStore },

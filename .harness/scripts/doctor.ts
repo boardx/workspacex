@@ -148,8 +148,127 @@ function checkSpecRef(phaseId: string, f: Feature, findings: Finding[]): void {
   }
 }
 
+
+/* ── GitHub 可见性门控（2026-07-29 新增）─────────────────────────────────────
+ *
+ * 规范早就有了：`sync-github.ts` 生成的 issue 正文里逐字写着
+ * 「分支 `worker/<owner>-<phase>-<feature>-<slug>`，PR 关联本 issue（`Closes #N`）」。
+ *
+ * **但没有任何东西检查它。** 于是 8 个 feature 一路做到 passing，其中 5 个连 issue
+ * 都没有，全部靠直接合进分支再批量 PR。规范不是缺失的，是**没有门控**——
+ * 这正是本项目自己那条：「没有脚本的规范条目视为未落地」。
+ *
+ * 下面三条把它变成会红的东西。
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** issue 正文里的投影 marker，与 sync-github.ts 保持一致 */
+function issueMarker(phaseId: string, featureId: string): string {
+  return `<!-- harness-feature: ${phaseId}/${featureId} -->`;
+}
+
+interface GhIssue { number: number; state: string; body: string }
+
+/** 一次拉全部 issue（含已关闭），避免逐 feature 查询把 API 打爆 */
+function loadIssues(): GhIssue[] | null {
+  const r = sh(`gh issue list --state all --limit 300 --json number,state,body`, REPO_ROOT);
+  if (r.code !== 0) return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
+  try {
+    return JSON.parse(r.stdout) as GhIssue[];
+  } catch {
+    return null;
+  }
+}
+
+function findIssue(issues: GhIssue[], phaseId: string, f: Feature): GhIssue | undefined {
+  return issues.find((i) => i.body?.includes(issueMarker(phaseId, f.id)));
+}
+
+/**
+ * ① 领了 sprint 的 feature 必须有 issue。
+ *
+ * 「开发任务必须在 GitHub 上可见」这条，落到机器上就是这一句。
+ * 没有 issue 的开发 = 只有做的人知道在做什么。
+ */
+function checkIssueExists(phaseId: string, f: Feature, issues: GhIssue[], findings: Finding[]): void {
+  if (!f.sprint) return; // 未领取的 feature 不要求有 issue
+  if (findIssue(issues, phaseId, f)) return;
+  findings.push({
+    level: "FAIL",
+    phase: phaseId,
+    msg: `${f.id} 已领入 sprint ${f.sprint} 但 GitHub 上没有对应 issue —— 跑 \`pnpm harness sync --phase ${phaseId} --apply\``,
+  });
+}
+
+/**
+ * ② passing 的 feature，它的 issue 必须已关闭 —— 否则看板上永远显示在做。
+ *
+ * ⚠ 与 ③ 同样的鸡生蛋：issue 由 PR 的 `Closes #N` 关闭，而 PR 要先 push 才能开。
+ *   ⇒ pre-push 是 WARN，CI（`--strict`）才是 FAIL。第一版两条都写成 FAIL，都撞上了。
+ */
+function checkIssueClosed(
+  phaseId: string,
+  f: Feature,
+  issues: GhIssue[],
+  findings: Finding[],
+  level: "FAIL" | "WARN",
+): void {
+  if (f.status !== "passing") return;
+  const issue = findIssue(issues, phaseId, f);
+  if (!issue || issue.state === "CLOSED") return;
+  findings.push({
+    level,
+    phase: phaseId,
+    msg: `${f.id} 是 passing 但 issue #${issue.number} 仍 OPEN —— 跑 sync --apply，或确认 PR 是否带了 \`Closes #${issue.number}\``,
+  });
+}
+
+/**
+ * ③ passing 的实现必须**已经在 main 上**。
+ *
+ * 这一条是「走 PR 合并到 main」的可执行形式，而且刻意用 git 本地判定而不是问 GitHub：
+ * 一个 feature 标了 passing、证据也齐，但代码只在某个分支上——那它对别人不存在。
+ *
+ * 判据是「证据日志所在的那个 commit 是 origin/main 的祖先」。
+ * 用证据日志而不是任意代码文件，因为它是 verify 门控写出来的，必然与那次通过对应。
+ *
+ * ⚠ **pre-push 时它必须是 WARN，不能是 FAIL** —— 否则鸡生蛋：
+ *   要合进 main 就得先开 PR，要开 PR 就得先 push，而 push 被「还没进 main」拦住。
+ *   第一版就是 FAIL，我当场撞上了。
+ *   ⇒ 默认 WARN；CI（合到 main 之后）用 `--strict` 判 FAIL。
+ *   这不是放松标准，是把标准放在**它能被满足的那个时点**。
+ */
+function checkMergedToMain(
+  phaseId: string,
+  f: Feature,
+  findings: Finding[],
+  level: "FAIL" | "WARN",
+): void {
+  if (f.status !== "passing" || !f.sprint) return;
+  const rel = `phases/${relative(REPO_ROOT, findPhaseDir(phaseId))}/sprints/sprint-${f.sprint}/evidence/${f.id}.verify.log`
+    .replace(/^phases\/phases\//, "phases/");
+  const head = sh(`git log -1 --format=%H -- ${JSON.stringify(rel)}`, REPO_ROOT);
+  if (head.code !== 0 || !head.stdout.trim()) {
+    findings.push({
+      level: "WARN",
+      phase: phaseId,
+      msg: `${f.id} 的证据日志 ${rel} 不在 git 历史里 —— 无法判定是否已合入 main`,
+    });
+    return;
+  }
+  const commit = head.stdout.trim();
+  const merged = sh(`git merge-base --is-ancestor ${commit} origin/main`, REPO_ROOT);
+  if (merged.code === 0) return;
+  findings.push({
+    level,
+    phase: phaseId,
+    msg: `${f.id} 是 passing 但实现（${commit.slice(0, 8)}）还不在 origin/main 上 —— 开 PR 合并，别停在分支上`,
+  });
+}
+
 export function doctor(args: Args): void {
   const only = args.opts["phase"] ?? null;
+  /** `--strict`：把「必须已合入 main」升为 FAIL。CI 用；pre-push 不用（见 checkMergedToMain） */
+  const strict = args.flags["strict"] === true;
   const rm = loadRoadmap();
   const phaseIds = (only ? [only] : rm.phases.map((p) => p.id)).filter((id) => {
     try {
@@ -161,6 +280,15 @@ export function doctor(args: Args): void {
   });
 
   const findings: Finding[] = [];
+  // GitHub 侧一次拉全，离线时降级为一条 WARN 而不是阻断本地开发
+  const issues = loadIssues();
+  if (issues === null) {
+    findings.push({
+      level: "WARN",
+      phase: "-",
+      msg: "读不到 GitHub issue（gh 未登录 / 离线）—— 本次跳过「开发任务必须在 issue 上可见」的检查",
+    });
+  }
   for (const id of phaseIds) {
     let fl;
     try {
@@ -169,8 +297,15 @@ export function doctor(args: Args): void {
       continue; // 没有 feature_list 的 phase（纯 requirements 期）不体检
     }
     for (const f of fl.features) {
-      if (f.status === "passing") checkPassingEvidence(id, f, findings);
+      if (f.status === "passing") {
+        checkPassingEvidence(id, f, findings);
+        checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
+      }
       checkSpecRef(id, f, findings);
+      if (issues) {
+        checkIssueExists(id, f, issues, findings);
+        checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
+      }
     }
     checkProgressRow(id, findings);
     checkRoadmapDrift(id, findings);
@@ -186,6 +321,6 @@ export function doctor(args: Args): void {
     log.err("审计链存在断裂。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。");
     process.exitCode = 1;
   } else {
-    log.ok("审计链完整：所有 passing 都有真实非空证据，派生视图与源一致。");
+    log.ok("审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致。");
   }
 }

@@ -25,6 +25,11 @@ import {
   readContent,
 } from "../../application/identity/read-content";
 import { getPersonalLayerSummary } from "../../application/identity/personal-layer-summary";
+import { resolveModelConstraint } from "../../application/identity/resolve-model-constraint";
+import {
+  CAPABILITY_REPOSITORY,
+  type CapabilityRepository,
+} from "../../application/identity/capability-ports";
 import {
   CONTENT_REPOSITORY,
   type ContentRepository,
@@ -54,10 +59,12 @@ export const AUTHORIZE_SCHEMA = C.operations.authorize.in;
 export const AUTHORIZE_BATCH_SCHEMA = C.operations.authorizeBatch.in;
 export const SWITCH_ORG_SCHEMA = C.operations.switchOrganization.in;
 export const READ_CONTENT_SCHEMA = C.operations.readContent.in;
+export const MODEL_CONSTRAINT_SCHEMA = C.operations.resolveModelConstraint.in;
 
 type AuthorizeBody = { orgId: string; projectId?: string; object: { kind: "project" | "artifact" | "segment"; id: string }; action: string };
 type AuthorizeBatchBody = { orgId: string; projectId?: string; objects: { kind: "project" | "artifact" | "segment"; id: string }[]; action: string };
 type ReadContentBody = { orgId: string; projectId: string; itemId: string; purpose: ReadPurpose };
+type ModelConstraintBody = { orgId: string; dataScope: { itemId: string; confidential: boolean }[] };
 
 @Controller()
 export class IdentityController {
@@ -68,6 +75,7 @@ export class IdentityController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(CONTENT_REPOSITORY) private readonly content: ContentRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Inject(CAPABILITY_REPOSITORY) private readonly capabilities: CapabilityRepository,
   ) {}
 
   private get deps(): AuthorizeDeps {
@@ -225,9 +233,47 @@ export class IdentityController {
     assertPrincipal(principal);
     try {
       return await switchOrganization(
-        { repo: this.repo, sessions: this.sessions, cache: this.cache },
+        {
+          repo: this.repo,
+          sessions: this.sessions,
+          cache: this.cache,
+          // Switching organizations returns the NEW organization's whole configuration --
+          // that post-effect is contract text, not an optimisation (O-12 + F15).
+          capabilities: this.capabilities,
+          ids: this.ids,
+        },
         { userId: principal.userId, toOrgId: toOrgId(body.toOrgId) },
       );
+    } catch (e) {
+      if (e instanceof NoOrgMembershipError) throw new NotFoundException();
+      throw e;
+    }
+  }
+
+  /**
+   * The ONE place that answers "must this round stay local, and why" (coherence B-3 / X-5).
+   *
+   * POST rather than GET because `dataScope` is a list that can be long and describes what is
+   * about to be processed -- a request body, not a bookmarkable address. It has no side
+   * effect.
+   *
+   * ⚠ `source` is the load-bearing half of the response, not `localOnly`: a personal-local
+   * organization's `promise` and a real organization's `policy` produce the same boolean and
+   * differ in whether anybody can switch them off (uc-0-5 R10 ruling / V12).
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/identity/model-constraint")
+  async modelConstraint(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(MODEL_CONSTRAINT_SCHEMA)) body: ModelConstraintBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await resolveModelConstraint(this.repo, {
+        userId: principal.userId,
+        orgId: toOrgId(body.orgId),
+        dataScope: body.dataScope,
+      });
     } catch (e) {
       if (e instanceof NoOrgMembershipError) throw new NotFoundException();
       throw e;

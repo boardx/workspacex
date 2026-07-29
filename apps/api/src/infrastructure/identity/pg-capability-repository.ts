@@ -1,0 +1,156 @@
+/**
+ * PostgreSQL implementation of `CapabilityRepository`.
+ *
+ * Every query runs through `withTenant`, so RLS is the first line and the `org_id`
+ * predicates are the second.
+ *
+ * ## Why nothing here returns a plain row
+ *
+ * `capability_listings` carries tenant data with a per-row visibility scope, so it is a
+ * table `lint-permission-paths` requires to be read behind the guard -- and rightly: the
+ * admin console is the second-largest read surface in the product, and a repository handing
+ * back raw rows makes forgetting to judge them an omission instead of a type error.
+ *
+ * The scope facts come back OUTSIDE the guard, because they are what the decision is made
+ * FROM. Putting them inside would make the decision need the payload it is deciding about.
+ *
+ * ## Ids are minted here
+ *
+ * `cap-<uuid>`, never supplied by a caller. The prefix is for the same reason
+ * `UuidIdFactory` uses one: these ids appear in `provenance_events.target_id`, where a bare
+ * uuid tells a reader nothing about what it names.
+ */
+import { randomUUID } from "node:crypto";
+import type { DatabasePort } from "../../application/ports/database.port";
+import type {
+  CapabilityInsert,
+  CapabilityPatch,
+  CapabilityRepository,
+  GuardedCapability,
+} from "../../application/identity/capability-ports";
+import { guard } from "../../application/security/permission-filter";
+import type { CapabilityKind, CapabilityListing } from "../../domain/identity/capability-listing";
+import type { VisibilityScope } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
+
+interface Row {
+  id: string;
+  org_id: string;
+  kind: string;
+  name: string;
+  scope: string;
+  owner_team_id: string | null;
+  enabled: boolean;
+}
+
+const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled";
+
+function toGuarded(row: Row): GuardedCapability {
+  const listing: CapabilityListing = {
+    id: row.id,
+    orgId: row.org_id,
+    kind: row.kind as CapabilityKind,
+    name: row.name,
+    scope: row.scope as VisibilityScope,
+    enabled: row.enabled,
+  };
+  return {
+    facts: {
+      id: row.id,
+      scope: row.scope as VisibilityScope,
+      ownerTeamId: row.owner_team_id,
+    },
+    listing: guard({ kind: "capability", id: row.id }, listing),
+  };
+}
+
+export class PgCapabilityRepository implements CapabilityRepository {
+  constructor(private readonly db: DatabasePort) {}
+
+  async listByKind(orgId: OrgId, kind: CapabilityKind): Promise<readonly GuardedCapability[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<Row>(
+        `SELECT ${COLUMNS} FROM capability_listings
+          WHERE org_id = $1 AND kind = $2
+          ORDER BY name`,
+        [orgId, kind],
+      );
+      return r.rows.map(toGuarded);
+    });
+  }
+
+  async listAll(orgId: OrgId): Promise<readonly GuardedCapability[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<Row>(
+        `SELECT ${COLUMNS} FROM capability_listings WHERE org_id = $1 ORDER BY kind, name`,
+        [orgId],
+      );
+      return r.rows.map(toGuarded);
+    });
+  }
+
+  async findById(orgId: OrgId, id: string): Promise<GuardedCapability | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<Row>(
+        `SELECT ${COLUMNS} FROM capability_listings WHERE org_id = $1 AND id = $2`,
+        [orgId, id],
+      );
+      const row = r.rows[0];
+      return row ? toGuarded(row) : null;
+    });
+  }
+
+  async insert(orgId: OrgId, input: CapabilityInsert): Promise<GuardedCapability> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<Row>(
+        `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING ${COLUMNS}`,
+        [`cap-${randomUUID()}`, orgId, input.kind, input.name, input.scope, input.ownerTeamId],
+      );
+      const row = r.rows[0];
+      // An INSERT ... RETURNING with no row means the write did not happen; handing back a
+      // fabricated listing would tell the admin their configuration was saved.
+      if (!row) throw new Error("capability insert returned no row");
+      return toGuarded(row);
+    });
+  }
+
+  async update(orgId: OrgId, id: string, patch: CapabilityPatch): Promise<GuardedCapability | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      // COALESCE on the parameter, so an absent field keeps its stored value. Building the
+      // SET clause from whichever keys are present would put caller-supplied strings into
+      // SQL text, which is the one thing this file must never do.
+      //
+      // ⚠ Consequence, stated rather than hidden: `ownerTeamId: null` cannot be told apart
+      // from "not supplied" through this path, so a team-only capability cannot be widened to
+      // org-wide by nulling the team alone -- it is done by setting `scope: "org-wide"`, and
+      // the CHECK constraint then requires the team to go with it.
+      const r = await s.query<Row>(
+        `UPDATE capability_listings
+            SET name          = COALESCE($3, name),
+                scope         = COALESCE($4, scope),
+                owner_team_id = CASE WHEN COALESCE($4, scope) = 'org-wide' THEN NULL
+                                     ELSE COALESCE($5, owner_team_id) END
+          WHERE org_id = $1 AND id = $2
+        RETURNING ${COLUMNS}`,
+        [orgId, id, patch.name ?? null, patch.scope ?? null, patch.ownerTeamId ?? null],
+      );
+      const row = r.rows[0];
+      return row ? toGuarded(row) : null;
+    });
+  }
+
+  async setEnabled(orgId: OrgId, id: string, enabled: boolean): Promise<GuardedCapability | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<Row>(
+        `UPDATE capability_listings SET enabled = $3
+          WHERE org_id = $1 AND id = $2
+        RETURNING ${COLUMNS}`,
+        [orgId, id, enabled],
+      );
+      const row = r.rows[0];
+      return row ? toGuarded(row) : null;
+    });
+  }
+}
