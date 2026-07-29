@@ -44,6 +44,14 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "**不是**一个通用的版本删除接口。",
   },
   {
+    pattern: /^(PUT|PATCH)\s+\/artifacts\/[^/]+\/versions/i,
+    why:
+      "artifact I-11 的另一半：固定快照**不可改**，与不可删是同一条不变量。" +
+      "F05 补：原表只禁了 DELETE，于是一条 `PATCH /artifacts/:id/versions/:vid` " +
+      "不会触发任何告警——而数据库层拒绝 UPDATE 之后，这样的路由只会变成一个恒 500 的端点，" +
+      "它宣告了一种系统不提供、也不该提供的能力。纠错的唯一途径是新增版本（pinVersion）。",
+  },
+  {
     pattern: /^(PUT|PATCH|DELETE)\s+\/provenance/i,
     why:
       "provenance_events 是 append-only：无 UPDATE、无 DELETE。" +

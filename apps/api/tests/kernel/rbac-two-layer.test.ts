@@ -1,7 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  addArtifact,
   addBinding,
   addOrgMember,
+  addSegment,
   addProjectMember,
   asApp,
   ensureDatabase,
@@ -101,6 +103,9 @@ describe("R4 E3: a team-scoped denial says it came from the ORG layer", () => {
   beforeEach(async () => {
     await addOrgMember(ORG, "u-platform", "consultant", fx.teams.platform!);
     await addProjectMember(ORG, PROJECT, "u-platform", "facilitator", null);
+    // The artifact has to exist since F04: migration 0006 closed the gap 0003 declared, so
+    // an ACL binding can no longer name an object that is not there.
+    await addArtifact({ orgId: ORG, id: "ledger", projectId: PROJECT });
     await addBinding({
       orgId: ORG,
       subject: { kind: "team", id: fx.teams.energy! },
@@ -207,6 +212,8 @@ describe("I-7: several sources take the STRICTEST scope, not the union", () => {
   it("a derived object is judged by the strictest of its sources, end to end", async () => {
     await addOrgMember(ORG, "u-energy", "consultant", fx.teams.energy!);
     await addProjectMember(ORG, PROJECT, "u-energy", "facilitator", null);
+    await addArtifact({ orgId: ORG, id: "src-open", projectId: PROJECT });
+    await addArtifact({ orgId: ORG, id: "src-platform", projectId: PROJECT });
     await addBinding({
       orgId: ORG, subject: { kind: "team", id: fx.teams.energy! },
       object: { kind: "artifact", id: "src-open" }, scope: "org-wide",
@@ -239,6 +246,10 @@ describe("authorizeBatch (coherence review B-2 / X-1)", () => {
   it("returns one decision per object, in the SAME order", async () => {
     await addOrgMember(ORG, "u-energy", "consultant", fx.teams.energy!);
     await addProjectMember(ORG, PROJECT, "u-energy", "facilitator", null);
+    // s1 and s3 stay unseeded on purpose: they are unbound objects, and the point of the
+    // assertion is that an unbound object is judged by the org layer alone. Only s2 needs a
+    // real row, because only s2 carries a binding.
+    await addSegment({ orgId: ORG, segmentId: "s2", artifactId: "art-batch" });
     await addBinding({
       orgId: ORG, subject: { kind: "team", id: fx.teams.platform! },
       object: { kind: "segment", id: "s2" }, scope: "team-only", ownerTeamId: fx.teams.platform!,

@@ -33,6 +33,9 @@ const OMISSION_TONE: Record<OmissionReason, "neutral" | "warning" | "danger"> = 
   budget: "warning",
   deduped: "neutral",
   "out-of-scope": "neutral",
+  // ADR-021。⚠ 刻意是 neutral 不是 danger：定位失败是**技术问题**不是合规丢弃，
+  // 染成合规色会让读者以为「有东西被规则挡住了」，而那正是这套配色要区分的另一类。
+  unlocatable: "neutral",
 };
 
 /** 丢弃清单单条 —— 可点开，带原因（这是 F11 的验收面，不是只显示命中项）*/

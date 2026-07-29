@@ -21,6 +21,8 @@ const REASON_TONE: Record<OmissionReason, "danger" | "warning" | "outline" | "ne
   budget: "outline",
   deduped: "neutral",
   "out-of-scope": "neutral",
+  // ADR-021：技术性定位失败，不是合规丢弃 —— 见 brain/context-pack.tsx 同处注释
+  unlocatable: "neutral",
 };
 
 export function ContextPack({ state, view }: { state: UiState; view: ResearchView }) {

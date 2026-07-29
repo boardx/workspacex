@@ -404,3 +404,132 @@ projectLayer: z.object({ role: ProjectRole, groupId: …, passed: … }).nullabl
 2. `coverage.md` 一、V1/V2 两行的「API 操作」列需据此更新（`authorize` → `readContent` /
    `getPersonalLayerSummary`），并复核反向检查表「有没有多余的 API」新增两行。
    ⚠ 这两处**没有由 agent 代改**：覆盖矩阵是签核件的一部分。
+
+---
+
+# 十、修订 D（2026-07-29，F04 实现）—— 三处契约缺陷，**需人类复签 `artifact` 束**
+
+## ⚠ D-1 `Artifact.scope` 是 `acl_bindings.scope` 的第二份声明
+
+契约给 `artifacts` 一个 `scope` 字段。但 `authorize()` **只从 `acl_bindings` 读 scope**，
+从别处一概不读。两处都存 ⇒ **鉴权器不看的那一份可以是错的，而且看起来是对的**。
+
+这正是本项目已发生七次的那个形态，且这次是在**权限**上。
+
+**处置**：不存。`0006` 里没有 `scope` 列，`Artifact.scope` 是**从绑定投影出来的读模型**
+（无绑定 ⇒ org-wide，即已文档化的默认）。理由写在迁移里。
+⇒ **契约文本仍写着要存，需要修订。**
+
+## ⚠ D-2 `operations.saveDraft` 做不到它自己 `out` 承诺的事
+
+```
+in:  { artifactId?, orgId, projectId, source, title }   ← 不含任何内容
+out: { …, materializedKeys }                            ← 却要返回落盘的文件键
+```
+
+**按这份契约实现的 HTTP 端点，无论如何都产不出文件。** 而 schema 有 `size_bytes > 0`，
+照它建出来的端点只会 400 或者写不进任何东西。
+
+⇒ F04 **刻意不出 controller**：编一个 body 形状（multipart？base64？）就是**第二份请求契约**，
+而那是这个项目最不该再犯的错。契约需要先补一个内容/parts 字段，F05 才能接端点。
+
+## ⚠ D-3 `content_items` 被当作 `artifact` 引用，但住在另一张表
+
+`pg-content-repository.ts` 把 `content_items` 的行当 `ObjectRef { kind: "artifact" }` 用。
+在 `acl_bindings` 的 I-1 触发器补上 artifact 校验之前，这处**看不出来**——
+现在 `admin-boundary-deny.test.ts` 必须塞一行 id 与 `content_items` 相同的 `artifacts`。
+
+它能跑，但它是一次**命名空间碰撞**。已在测试里写明而不是抹平。
+⇒ phase-01 `22-files` 之前需要一个明确裁决：content_items 是不是 artifact 的一种。
+
+## 顺带记两条
+
+**F04 自查出自己一条测试是空转的。** 「什么都没写进去」那条用了新的 id 工厂，
+于是第二次调用死在主键冲突上，**根本没走到被测逻辑**——把前置检查关掉它照样绿。
+改为共用一个 id 工厂后才真正生效。⚠ 第八次「门控看起来在跑其实没在测」。
+
+**`artifacts.id` 是全局主键而非租户内唯一**，与 `projects` / `content_items` 及所有既有表一致，
+故是系统性的、不是 F04 引入的。两个后果：并行测试文件会在裸 id 上撞；
+调用方可以用主键冲突探测别的租户的 id 空间（尽管 RLS 让行不可见）。
+未单方面改动——改它会与五张既有表分家。**需要一次裁决。**
+
+---
+
+# 十一、修订 E（2026-07-29，F09 实现）—— 五处契约缺陷，**需人类复签 `context-pack` 束**
+
+> 同修订 B/C/D：不是「实现遇到困难所以改契约」，是**照契约实现会产出错误行为**。
+> F09 只交付结构契约（items/claims/omissions 三段 + 八字段无一为空），下述五条都是在
+> 「把一条真实的 F04 segment 变成一条合法 item」这一步撞出来的。
+
+## ⚠ E-1 `Anchor` 有两份声明，且**覆盖面不一致**——`image-region` 无处可去
+
+| 束 | 形状 | 用途 |
+|---|---|---|
+| `artifact.Anchor` | `{ id, segmentId, kind, locator }`，`kind` 六取值 | **存**（migration 0006） |
+| `contextPack.Anchor` | `{ page?, bbox?, startMs?, endMs?, messageId?, surveyQuestionId? }` | **引**（items[]） |
+
+两份都已签核，彼此不引用。映射后：`page→page` `bbox→bbox` `timecode→startMs`
+`message-id→messageId` `question-no→surveyQuestionId` 五条通，**`image-region` 一条都不通**——
+`contextPack.Anchor` 没有任何字段能装图像区域。
+
+后果不是理论上的：`photo` 是 `ContextSourceType` 的八来源之一，而照片的 segment 正是按
+图像区域锚定的。**按签核的契约实现，任何照片派生的 segment 都被 I-1 结构性地挡在 items[] 之外**，
+且挡得很安静——它落进 `omissions[]`，读起来像「低相关」，而不是「schema 装不下它的出处」。
+
+**处置**：F09 **不发明字段**（发明 `imageRegion?` 就是实现者写第二份契约，即 F04 对 `saveDraft`
+拒绝做的事）。`toContextItemAnchor` 返回 `{ mapped: false, why: "no-field-in-contract" }`，
+并在 `context-pack-schema.test.ts` 里把这个缺口**断言下来**，改契约时该断言会红。
+⇒ **契约需补 `imageRegion?` 或把两份 Anchor 收敛成一份，需复签。**
+
+## ⚠ E-2 `endMs` 永远填不上——同一缺陷的反向
+
+`contextPack.Anchor` 有 `startMs` + `endMs`（一个区间），`artifact.AnchorKind` 只有
+`timecode`（一个点）。**没有任何可存储的东西能填 `endMs`**，而 `SegmentKind` 里有 `audio-span`。
+音频区间只能引到它从哪开始，引不到到哪结束。危害小于 E-1，同一个根因。
+
+## ⚠ E-3 「八字段」是九字段
+
+UC-0.2 R12 V10、`feature_list.json` F09、`domain.md` 的小标题都写「**八字段**」并列举八个；
+而签核的 `ContextItem` schema 与 `domain.md` 该标题下的表格是**九个**——`channels` 为 V11
+（「FTS 是一等通道」的可断言证据）后加。
+
+实现**按 schema 走（查九个）**：schema 是权威，而没人查的那个字段正是会空掉的那个。
+⇒ 三处散文的计数需要更正，否则下一个实现者会照「八」写死一份清单。
+
+## ⚠ E-4 I-1 的「落 omissions」分支在封闭七类下**不可执行**
+
+I-1 原文：无锚点候选「**不得进 items，落 `omissions` 或抛 `ANCHOR_MISSING`**」。
+但 `OmissionReason` 是封闭七类（D-U4），**七类里没有一类意思是「定位不到」**：
+写 `out-of-scope` 对使用者渲染成「不在本次检索范围」，是句谎话；加第八类要走 ADR。
+
+⇒ 「落 omissions」这条路当前**走不通**，只剩抛 `ANCHOR_MISSING` 一条。F09 的
+`buildContextItems` 因此把这类候选放在**单独的 `unanchorable` 列表**里返回，不硬塞进七类之一。
+后果：E-1 里的照片 segment **既不被引用、也不被解释**——恰恰是 I-2「被丢弃不等于不存在」
+要消灭的状态。⇒ 需裁决：补第八类（走 ADR），还是在 Pack 里另开一段。
+
+## ⚠ E-5 I-2 与 I-8 在个人层内容上**互相矛盾**
+
+- I-2：候选集中**每一条**未进 `items[]` 的内容，都要能在 `omissions[]` 找到记录。
+- I-8：个人层私有笔记**永不出现**在 `items[]` **与 `omissions.ref`** 两处（连存在都不暴露）。
+
+两条只有在「个人层私有笔记**根本不进候选集**」时才相容——即在候选集构造期就排除
+（UC-0.2 R3 第 2 步「个人层私有笔记一律不进」），而不是在过滤期排除。
+**`domain.md` 没有任何一处说这件事**，只读 I-2 的实现者会老老实实写下那条 omission 记录，
+从而泄漏存在性。⇒ I-2 的措辞需明确「候选集」的定义已排除个人层私有内容。
+候选集构造属 F10，F09 已在 `build-items.ts` 头部写明交接。
+
+## 顺带记一条：**V10 通过不等于 V2 通过，而 `coverage.md` 把它们记成同一件事**
+
+`coverage.md` 把 V2（八字段无一为空）的 API 列填 `assembleContextPack（ContextItem schema）`。
+**schema 给不了 V2**：`CP.ContextItem.parse()` 接受
+
+```
+{ segmentId: "", content: "", artifactVersionId: "", anchor: {},
+  retrievalReasons: [], channels: [], score: 0, permissionDecisionId: "" }
+```
+
+——每个字段都在、类型都对、校验通过，而这条 item 一文不值：它不引用任何东西、定位不到任何地方，
+`permissionDecisionId` 对「为什么这条能给你看」的回答是沉默。**这比缺一条 item 更糟**，
+因为缺的看得出来缺，这条会照常渲染、照常占预算、照常被引用。
+⇒ V2 与 V10 是两条断言，只有一条能用 zod 表达。F09 交付的
+`emptyContextItemFields` / `packStructureViolations` 是另一条；`coverage.md` 该格应分开写。

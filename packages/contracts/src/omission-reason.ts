@@ -57,6 +57,21 @@ export const OMISSION_REASONS = {
     explain: "不在本次检索的范围内（如跨项目、跨组织，或本轮限定的材料集之外）",
     compliance: false,
   },
+  /**
+   * ⚠ **第八种，修订 E-4（2026-07-29，按推论采纳；枚举是封闭的，需补 ADR）**
+   *
+   * I-1 写的是「定位不到就落 omissions **或** 抛 ANCHOR_MISSING」，
+   * 但原来的七种里**没有一种表示「定位不到」**——于是这类条目
+   * **既不被引用、也不被解释**，而那正是 I-2 要消灭的状态。
+   *
+   * ⚠ `compliance: false` 是刻意的：定位失败是**技术问题**不是合规丢弃，
+   * 标成 true 会让它挤占「必须始终可见」那一栏，把真正的撤回/过期条目挤下去。
+   */
+  unlocatable: {
+    label: "无法定位",
+    explain: "找不到可用的锚点（页码/时间码/消息/图像区域），无法给出可回溯的引用位置",
+    compliance: false,
+  },
 } as const satisfies Record<string, { label: string; explain: string; compliance: boolean }>;
 
 export type OmissionReason = keyof typeof OMISSION_REASONS;

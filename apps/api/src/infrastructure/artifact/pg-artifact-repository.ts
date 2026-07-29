@@ -1,0 +1,195 @@
+/**
+ * PostgreSQL implementation of `ArtifactRepository`.
+ *
+ * Every query runs through `withTenant`, so RLS is the first line and the `org_id`
+ * predicates are the second.
+ *
+ * `findSegments` returns `Guarded<SegmentRecord>` with `sources` naming the originating
+ * artifact -- see the port for why, and `permission-filter.ts` for what makes it impossible
+ * to unwrap without a decision. This file is the reason the guarded read path exists at all:
+ * segments are the first tenant rows in the kernel that are DERIVED from something else, and
+ * "the original is team-only but its segments are not" is the laundering bug R7 describes.
+ */
+import type { DatabasePort } from "../../application/ports/database.port";
+import { guard, type Guarded } from "../../application/security/permission-filter";
+import { DuplicateVersionNumberError } from "../../application/artifact/ports";
+import type {
+  AnchorKind,
+  ArtifactRepository,
+  ArtifactVersionRecord,
+  NewArtifact,
+  NewArtifactVersion,
+  NewSegment,
+  SegmentKind,
+  SegmentRecord,
+} from "../../application/artifact/ports";
+import type { OrgId } from "../../domain/org-id";
+
+/**
+ * Is this a unique violation on one of the named constraints?
+ *
+ * Reads `code` and `constraint` off the driver's error rather than matching the message.
+ * Messages are localised by `lc_messages` and reworded between major versions; the SQLSTATE
+ * and the constraint name are contract.
+ */
+function isUniqueViolation(e: unknown, ...constraints: string[]): boolean {
+  const err = e as { code?: string; constraint?: string };
+  return err?.code === "23505" && typeof err.constraint === "string" && constraints.includes(err.constraint);
+}
+
+export class PgArtifactRepository implements ArtifactRepository {
+  constructor(private readonly db: DatabasePort) {}
+
+  async createArtifact(a: NewArtifact): Promise<void> {
+    await this.db.withTenant(a.orgId, (s) =>
+      s.query(
+        `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [a.id, a.orgId, a.projectId, a.source, a.title, a.createdBy, a.synthesized],
+      ),
+    );
+  }
+
+  async createVersion(v: NewArtifactVersion): Promise<void> {
+    try {
+      await this.db.withTenant(v.orgId, (s) =>
+        s.query(
+          `INSERT INTO artifact_versions
+             (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
+              size_bytes, pinned_by, context_pack_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
+            v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId,
+          ],
+        ),
+      );
+    } catch (e) {
+      // 23505 on either uniqueness rule is the same event seen from two angles: two writers
+      // aimed at the same version number (`_uniq_number`), or at the same storage key
+      // (`_uniq_key`, which is keyed on the version number too). Both mean the head moved.
+      //
+      // Narrowed to those two constraints on purpose. Catching bare 23505 would also swallow
+      // a duplicate PRIMARY KEY -- a re-used version id, which is a caller bug -- and report
+      // it as somebody else's concurrent pin, sending the user to press retry on something
+      // that will fail identically forever.
+      if (isUniqueViolation(e, "artifact_versions_uniq_number", "artifact_versions_uniq_key")) {
+        throw new DuplicateVersionNumberError(v.artifactId, v.versionNumber);
+      }
+      throw e;
+    }
+    // No ON CONFLICT clause, deliberately. A duplicate (artifact_id, version_number) is a
+    // concurrent pin, and swallowing it with DO NOTHING would report success for a write
+    // that did not happen -- the caller would then hand out a version id that names
+    // somebody else's row.
+  }
+
+  async headVersionNumber(orgId: OrgId, artifactId: string): Promise<number> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ n: string | null }>(
+        `SELECT max(version_number)::text AS n FROM artifact_versions
+          WHERE org_id = $1 AND artifact_id = $2`,
+        [orgId, artifactId],
+      );
+      // `max()` over no rows is NULL, and 0 is the right answer: the next version is 1.
+      return Number(r.rows[0]?.n ?? "0");
+    });
+  }
+
+  async findVersion(orgId: OrgId, versionId: string): Promise<ArtifactVersionRecord | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; artifact_id: string; version_number: number; object_storage_key: string;
+        content_hash: string; mime: string; size_bytes: string; pinned_by: string;
+        pinned_at: Date; context_pack_id: string | null;
+      }>(
+        `SELECT id, artifact_id, version_number, object_storage_key, content_hash, mime,
+                size_bytes, pinned_by, pinned_at, context_pack_id
+           FROM artifact_versions WHERE org_id = $1 AND id = $2`,
+        [orgId, versionId],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        id: row.id,
+        artifactId: row.artifact_id,
+        versionNumber: row.version_number,
+        objectStorageKey: row.object_storage_key,
+        contentHash: row.content_hash,
+        mime: row.mime,
+        // bigint arrives as a string from node-postgres. `Number` is applied once, here,
+        // rather than wherever a caller happens to compare it -- `"12" > 9` is false.
+        sizeBytes: Number(row.size_bytes),
+        pinnedBy: row.pinned_by,
+        pinnedAt: row.pinned_at.toISOString(),
+        contextPackId: row.context_pack_id,
+      };
+    });
+  }
+
+  async addSegments(orgId: OrgId, segments: readonly NewSegment[]): Promise<void> {
+    if (segments.length === 0) return;
+    // ONE transaction for segments and their anchors, and that is load-bearing. I-7 is a
+    // DEFERRED constraint checked at COMMIT: split across two transactions, the first one
+    // commits a segment with no anchor and the constraint fires correctly -- so the atomicity
+    // here is what makes the correct insert order possible at all.
+    await this.db.withTenant(orgId, async (s) => {
+      for (const seg of segments) {
+        await s.query(
+          `INSERT INTO segments (id, org_id, artifact_version_id, kind, ordinal)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [seg.id, orgId, seg.artifactVersionId, seg.kind, seg.ordinal],
+        );
+        for (const a of seg.anchors) {
+          await s.query(
+            `INSERT INTO anchors (id, org_id, segment_id, kind, locator) VALUES ($1,$2,$3,$4,$5)`,
+            [a.id, orgId, seg.id, a.kind, a.locator],
+          );
+        }
+      }
+    });
+  }
+
+  async findSegments(orgId: OrgId, versionId: string): Promise<readonly Guarded<SegmentRecord>[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; artifact_version_id: string; kind: string; ordinal: number;
+        artifact_id: string; anchor_kinds: string[] | null; anchor_locators: string[] | null;
+      }>(
+        // The artifact id is joined in, not looked up afterwards: it is the `sources` entry
+        // the guard needs, and a second round trip to fetch it is a round trip a caller can
+        // decide to skip.
+        `SELECT sg.id, sg.artifact_version_id, sg.kind, sg.ordinal, v.artifact_id,
+                array_agg(a.kind ORDER BY a.id)    FILTER (WHERE a.id IS NOT NULL) AS anchor_kinds,
+                array_agg(a.locator ORDER BY a.id) FILTER (WHERE a.id IS NOT NULL) AS anchor_locators
+           FROM segments sg
+           JOIN artifact_versions v ON v.id = sg.artifact_version_id AND v.org_id = sg.org_id
+           LEFT JOIN anchors a ON a.segment_id = sg.id AND a.org_id = sg.org_id
+          WHERE sg.org_id = $1 AND sg.artifact_version_id = $2
+          GROUP BY sg.id, sg.artifact_version_id, sg.kind, sg.ordinal, v.artifact_id
+          ORDER BY sg.ordinal`,
+        [orgId, versionId],
+      );
+      return r.rows.map((row) => {
+        const kinds = row.anchor_kinds ?? [];
+        const locators = row.anchor_locators ?? [];
+        const record: SegmentRecord = {
+          id: row.id,
+          artifactVersionId: row.artifact_version_id,
+          kind: row.kind as SegmentKind,
+          ordinal: row.ordinal,
+          anchors: kinds.map((k, i) => ({ kind: k as AnchorKind, locator: locators[i]! })),
+        };
+        // `sources` is the artifact, not the segment. I-13: a segment's effective scope is
+        // its original's and may only be narrower, so the decision has to be made about the
+        // original -- judging the segment on its own binding is how a team-only artifact's
+        // text leaves through an unbound segment.
+        return guard<SegmentRecord>(
+          { kind: "segment", id: row.id },
+          record,
+          [{ kind: "artifact", id: row.artifact_id }],
+        );
+      });
+    });
+  }
+}

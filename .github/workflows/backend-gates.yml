@@ -5,15 +5,16 @@
 # 起两个 Nest 进程做双向断言——托管 runner 上又慢又贵，且 `apps/api` 加进来之后
 # 那份 workflow 其实**从未跑过它的测试**（turbo 会命中 @repo/api，而它需要 docker）。
 #
-# 触发：打标签（local.env 的 ANSWER_Q3）+ 手动。
-# ⚠ 我的建议是 main 上也跑：自建 runner 没有分钟数成本，而「只在打标签时跑」意味着
-#   问题会在发版那天一次性爆出来。要开的话把下面 push.branches 那两行注释去掉即可。
+# 触发：main 的每次推送 + 打标签 + 手动。
+# `local.env` 的 ANSWER_Q3 原填「打标签时跑」，2026-07-29 按 P-1 改为 main 上也跑：
+# 自建 runner 没有分钟数成本，而「只在打标签时跑」意味着问题在发版当天一次性爆出来。
 name: backend-gates
 
 on:
   push:
     tags: ["v*"]
-    # branches: [main]     # ← 取消注释即在 main 上也跑
+    branches: [main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
+                         # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
 
 # 同一时刻只跑一个：门控会 DROP DATABASE，而这台机器上还跑着部署的那套栈。
