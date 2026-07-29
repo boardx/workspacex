@@ -229,6 +229,36 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     return revoked;
   }
 
+  /**
+   * F22: point THIS session at another organization.
+   *
+   * ⚠ `KEEPTTL`, exactly as in `revokeAllForUser`. Without it the `SET` resets the key to no
+   * expiry at all, and a session that was 3 days from lapsing becomes immortal -- a 30-day
+   * limit (AUTH_POLICY.sessionDays) that any org switch quietly lifts. Nothing reports it;
+   * the session simply never ends.
+   *
+   * ⚠ Not a read-modify-write guarded by WATCH. The only field written is `currentOrgId`,
+   * the only other writer is `revokeAllForUser`, and losing that race in either direction is
+   * benign: revoke-then-switch leaves a revoked session pointed at a new org (still
+   * rejected by `checkSession`), switch-then-revoke leaves it revoked. A revoked session is
+   * unusable whichever way the interleaving falls, so the transaction would buy nothing.
+   *
+   * ⚠ Deliberately does NOT resurrect an expired/absent key: returns false and lets the use
+   * case answer SESSION_REVOKED. Re-creating the record would mint a live session out of a
+   * token that no longer had one.
+   */
+  async setCurrentOrg(token: string, orgId: string): Promise<boolean> {
+    await this.ready();
+    const key = tokenKey(this.cfg.keyPrefix, token);
+    const raw = await this.redis.get(key);
+    if (raw === null) return false;
+    const s = JSON.parse(raw) as StoredSession;
+    if (s.revokedAt !== null) return false;
+    s.currentOrgId = orgId;
+    await this.redis.set(key, JSON.stringify(s), "KEEPTTL");
+    return true;
+  }
+
   async listForUser(userId: string): Promise<readonly SessionRecord[]> {
     await this.ready();
     const keys = await this.redis.smembers(userKey(this.cfg.keyPrefix, userId));

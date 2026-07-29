@@ -13,12 +13,12 @@ import {
   CONTEXT_PACK_EXITS,
   OMISSIONS,
   OMISSIONS_MORE,
-  OMISSIONS_REMAINING,
   RETRIEVAL_LOG,
+  RELEVANCE_THRESHOLD,
   type OmissionView,
   type OmissionReason,
 } from "@/lib/mock/brain";
-import { omissionLabel } from "@/lib/omission-reason";
+import { omissionLabel, isComplianceOmission } from "@/lib/omission-reason";
 
 /**
  * 丢弃原因 → 徽标色（裁决 D-U4：原因分类是封闭枚举，此处只做展示映射）
@@ -159,9 +159,22 @@ function ContextExits() {
   );
 }
 
+/** 长列表默认显示几条。折叠是展示决定，**只对非合规丢弃生效**（I-4）。 */
+const VISIBLE_OMISSIONS = 4;
+
 export function ContextPackPanel() {
   const budgetPct = Math.round((CONTEXT_BUDGET.used / CONTEXT_BUDGET.cap) * 100);
   const [showMore, setShowMore] = React.useState(false);
+
+  /**
+   * 合规与非合规分栏 —— **判据取自单一事实源** `OMISSION_REASONS[r].compliance`，
+   * 不在组件里另列一份「哪三种算合规」。另列的那份会在第八种原因（ADR-021）出现时
+   * 悄悄失准，而失准的方向是把该始终可见的条目折叠掉。
+   */
+  const allOmissions = React.useMemo(() => [...OMISSIONS, ...OMISSIONS_MORE], []);
+  const complianceOmissions = allOmissions.filter((o) => isComplianceOmission(o.reasonType));
+  const otherOmissions = allOmissions.filter((o) => !isComplianceOmission(o.reasonType));
+  const droppedCount = allOmissions.length;
 
   return (
     <div className="flex flex-col gap-5" data-testid="brain-context-pack">
@@ -193,6 +206,16 @@ export function ContextPackPanel() {
               <div className="flex items-center gap-2">
                 <Badge tone="outline">{f.label}</Badge>
                 <span className="text-11 font-medium text-muted-foreground">{f.count}</span>
+                {/*
+                  ⚠ 「排除」的痕迹不在上面那张证据表里——被排除的候选按定义不在 items[] 里，
+                  它只能在下面的丢弃清单中找到（KNOWN_CONTRACT_GAPS.G1）。写出来，
+                  是因为读者默认五种动作都能在同一处翻到，而那是做不到的。
+                */}
+                {f.tracedIn === "omissions" && (
+                  <span className="text-10 text-muted-foreground" data-testid={`brain-filter-${f.key}-traced-in`}>
+                    · 痕迹在下方「被丢弃」清单
+                  </span>
+                )}
               </div>
               <p className="text-11 text-muted-foreground">{f.reason}</p>
             </li>
@@ -214,27 +237,51 @@ export function ContextPackPanel() {
       {/* 丢弃清单（omissions）—— 立身之本：被丢弃/裁剪/权限排除的都可查、带原因 */}
       <section className="flex flex-col gap-2" data-testid="brain-omissions">
         <div className="flex items-center gap-2">
-          <h3 className="text-13 font-semibold">被丢弃 · {OMISSIONS.length + OMISSIONS_REMAINING} 条低相关</h3>
+          <h3 className="text-13 font-semibold">被丢弃 · 共 {droppedCount} 条</h3>
           <Badge tone="outline">可逐条点开审查</Badge>
         </div>
-        <ul className="flex flex-col gap-1.5">
-          {OMISSIONS.map((o) => (
+
+        {/*
+          合规性丢弃（已撤回 / 时效过期 / 无授权）——永不折叠（I-4）。
+          ⚠ 它们单独成栏而不是混在长列表里，正因为下面那个「展开/收起」是它们唯一可能
+          消失的地方：契约的 listOmissions 没有分页参数（KNOWN_CONTRACT_GAPS.G3），
+          所以「只显示前 N 条」这件事只发生在这里，I-4 也只能在这里失效。
+        */}
+        {complianceOmissions.length > 0 && (
+          <div className="flex flex-col gap-1.5" data-testid="brain-omissions-compliance">
+            <span className="text-10 text-muted-foreground">
+              合规性丢弃 {complianceOmissions.length} 条 · 不因折叠或截断隐藏
+            </span>
+            <ul className="flex flex-col gap-1.5">
+              {complianceOmissions.map((o) => (
+                <OmissionRow key={o.id} item={o} />
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <ul className="flex flex-col gap-1.5" data-testid="brain-omissions-relevance">
+          {(showMore ? otherOmissions : otherOmissions.slice(0, VISIBLE_OMISSIONS)).map((o) => (
             <OmissionRow key={o.id} item={o} />
           ))}
-          {showMore && OMISSIONS_MORE.map((o) => <OmissionRow key={o.id} item={o} />)}
         </ul>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setShowMore((v) => !v)}
-          aria-expanded={showMore}
-          data-testid="brain-omissions-more"
-        >
-          <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", showMore && "rotate-90")} />
-          {showMore ? "收起长尾低相关" : `还有 ${OMISSIONS_REMAINING} 条低相关 · 展开`}
-        </Button>
+        {otherOmissions.length > VISIBLE_OMISSIONS && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowMore((v) => !v)}
+            aria-expanded={showMore}
+            data-testid="brain-omissions-more"
+          >
+            <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", showMore && "rotate-90")} />
+            {showMore
+              ? "收起长尾低相关"
+              : `还有 ${otherOmissions.length - VISIBLE_OMISSIONS} 条低相关 · 展开`}
+          </Button>
+        )}
         <p className="text-10 text-muted-foreground">
-          不得静默丢弃：低于相关度阈值、超预算裁剪、权限取最严格结果排除，三类原因逐条标注。
+          不得静默丢弃：低于相关度阈值（本次 {RELEVANCE_THRESHOLD}）、超预算裁剪、权限取最严格结果排除、
+          去重折叠、无法定位，逐条标注原因。
         </p>
       </section>
 

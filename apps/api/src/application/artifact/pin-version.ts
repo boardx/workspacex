@@ -54,12 +54,31 @@
  * Reported rather than worked around.
  */
 import type { OrgId } from "../../domain/org-id";
+import type { ProvenanceWriter } from "../provenance/ports";
 import {
   VersionKeyTakenError,
   materializeArtifact,
   type MaterializeDeps,
 } from "./materialize-artifact";
 import { DuplicateVersionNumberError, type ArtifactSource } from "./ports";
+
+/**
+ * `MaterializeDeps` plus the audit trail (F08).
+ *
+ * The writer hangs off THIS use case and not off `materializeArtifact`, although the latter
+ * is what actually writes the row. `materializeArtifact` serves both `saveDraft` and this
+ * one, and R7 is emphatic that autosaving a draft is not a 定版 -- auditing inside the
+ * shared materializer would record every keystroke's worth of autosave as a pin, which is
+ * worse than recording none: V7's "每次定版可检索" becomes a list you cannot read.
+ *
+ * ⚠ Known gap, reported rather than papered over: a version minted by calling
+ * `materializeArtifact` directly (F04's path, and what the test fixtures use for v1) leaves
+ * NO event. Its honest event type is `ingested` / `generated`, which belong to the ingestion
+ * pipeline F04 declares and phase-00 does not build.
+ */
+export interface PinVersionDeps extends MaterializeDeps {
+  readonly provenance: ProvenanceWriter;
+}
 
 /**
  * The contract's `VERSION_CHANGED` (E4/V6).
@@ -116,7 +135,7 @@ export interface PinVersionResult {
 }
 
 export async function pinVersion(
-  deps: MaterializeDeps,
+  deps: PinVersionDeps,
   input: PinVersionInput,
 ): Promise<PinVersionResult> {
   // (1) The pre-check. Cheap, gives the better error, and keeps the ordinary stale-client
@@ -144,6 +163,20 @@ export async function pinVersion(
       title: input.title,
       actorId: input.actorId,
       parts: input.parts,
+    });
+    // V7: 每次定版可按操作者/时间/Artifact 检索. Targets the ARTIFACT, not the version it
+    // just created -- see record-audit.ts on why the search key decides the target.
+    await deps.provenance.append({
+      orgId: input.orgId,
+      type: "pinned",
+      actorId: input.actorId,
+      target: { kind: "artifact", id: r.artifactId },
+      detail: {
+        versionId: r.versionId,
+        versionNumber: r.versionNumber,
+        contentHash: r.contentHash,
+        objectStorageKey: r.materializedKeys[0]!,
+      },
     });
     return {
       artifactId: r.artifactId,

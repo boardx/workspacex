@@ -140,8 +140,10 @@ harness 是控制平面：管理"工作如何被定义、执行、验证、审�
 - **phase**：`new-phase` scaffold 出 requirements/ 文件夹；原始需求（大白话/用户
   故事）先进文件夹，再由 requirement-author 转成带可执行验证的 feature_list。
   **requirements 是输入不是权威**——权威永远是 feature_list.json。
-- **UI 先行关卡**（仅 has_ui 阶段）：feature 清单定稿前，先用真实组件+mock 数据把
-  界面做出来经**人类**确认（ui-signoff.md）；未确认 new-sprint 直接拒绝。
+- **设计签核关卡**：feature 开工前，人类在束级 `design-signoff.md` 一次签**三件**——
+  ① UI（先用真实组件+mock 把界面做出来）② 用例接口 ③ API 契约；再加一道阶段一致性复核。
+  未签核 `new-sprint` / `claim` 直接拒绝。规格见 ADR-023（扩展并收敛 ADR-003 / ADR-020），
+  执行书见 `.harness/instructions/contract-design.md`。
 - **sprint**：`new-sprint` 从 feature_list 圈一批 feature，派生只读 active-features
   视图（禁止手改）。sprint 内纪律：每 owner 同时只有一个 in_progress；范围只及
   当前 feature；`verify --sprint` 是唯一收口。

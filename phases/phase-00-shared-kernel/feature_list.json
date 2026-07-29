@@ -27,7 +27,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F01.verify.log @ 2026-07-29T01:37:27.392Z",
-      "needs_ui_signoff": false,
       "notes": "内核契约层，全部 68+ 份下游 UC 的 R5 段共同底座。依据：组织角色三取值与团队为[原型]，项目角色四取值为[设计]（O-03 已裁决协同引导师=引导师多实例，RBAC 表不新增行）。acl_bindings 为唯一权限表（不另建三套），客体粒度下探到 Segment。rbac-role-matrix 按四项目角色枚举权限矩阵（对应 V4），org-switch-context-reset 对应 V11（O-12 一账号+顶部组织切换器，team 单一归属）。verification 全为 API/纯函数断言。UI 侧的顶部组织切换器控件在原型中为『原型确认缺失』，其界面切片随 phase-01 承接 ui-signoff；本 feature 只交付后端契约（清空上下文+重求值），可 API 断言，故 needs_ui_signoff=false。这是 phase-01 全部业务模块的硬前置。 【2026-07-29 转 blocked】开工前核实：本 feature 的三条 verification 指向的测试文件不存在，而它们所需的后端根本不存在（apps/api 无、零 NestJS、零迁移、零 PG 连接）。若在此状态下开工，F01 实际要交付的是「后端内核 + acl_bindings + 两层交集判定」，5 点会失真三倍，且十二个后端 feature 的共同前置会被埋进本 feature 里。故拆出 F18（后端内核，13 点，UC-0.6），本 feature depends_on F18 并转 blocked。解除条件：F18 passing。⚠ F18 所属契约束 api-kernel 尚待人类签核。 【2026-07-29 实现记录】verification 原写的三条 `pnpm vitest run tests/kernel/*.ts` 是预设路径（当时 apps/api 尚不存在），已改为八条**已跑通**的命令。落地内容：迁移 0003-identity.sql（organizations/teams/projects/groups/org_memberships/project_memberships/acl_bindings 七表，全部 FORCE RLS + 租户策略；I-1 由触发器强制，跨组织绑定插入即失败）；domain 层 decide() 纯函数实现两层交集与可解释拒绝；application 层 authorize/authorizeBatch/authorizeDerived + switchOrganization/resolveIdentity；infrastructure 层 PgIdentityRepository（批量绑定一次往返）；interface 层四条契约路由。⚠ 实现过程暴露两处**契约缺陷**：① PermissionDecision 的 orgLayer.role / projectLayer.role 原为非空，但失败枚举第一条就是 NO_ORG_MEMBERSHIP（无角色可填），且 usecases 明写 NO_PROJECT_ROLE「是正常状态不是异常」——契约表达不了自己声明的拒绝态，已改为可空并注明理由；② 契约 Organization 带 team 字段而实现漏了，且**响应从未被契约校验过**（只校验请求），故补 contract-response.test.ts 逐条断言响应体 parse 通过。两项均为对已签契约束的修订，需人类复签，见 design-coherence 修订 B。⚠ 另修一处 NestJS 陷阱：方法级 @UsePipes 会作用于**每一个参数**（含 @CurrentPrincipal），导致所有请求 400；已改为参数级 @Body(pipe)。角色矩阵单源在 domain/identity/project-role-matrix.ts，前端需要时必须**迁移**到 packages/contracts 而非复制，已有测试守着。"
     },
     {
@@ -55,7 +54,6 @@
         "pnpm --filter api run migrate:check"
       ],
       "evidence": "evidence/F02.verify.log @ 2026-07-29T11:54:50.986Z",
-      "needs_ui_signoff": false,
       "notes": "对应 context-engine.md 首批门槛②（跨租户泄漏为零）与需求 V9/V10。依据：[设计]（架构第五节 + uc-0-3 R7），但均为可机器验证的 SQL/API 断言。三条硬断言必须自动化、不接受人工核对配置：①运行时连接角色不是任何业务表 owner（比对 pg_class.relowner 与 current_user）；②所有含租户数据表启用 FORCE ROW LEVEL SECURITY；③非 owner 连接跨租户查询返回 0 行。⚠ 若用表 owner 连接，RLS 被静默旁路且不报错，测试会假通过——rls-force-nonowner.test.ts 专门防这一点。acl_bindings 与 RLS 策略必须在 artifacts 建表时就带上（见 F04 依赖本 feature），事后补 RLS=重做迁移。 【2026-07-29 实现记录】verification 原写的三条是预设路径（从仓库根跑，vitest 找不到 apps/api 下的文件），已改为七条已跑通的命令。落地：migration 0004 的 kernel_tenant_table_audit() 把「哪些表带租户数据、有没有被治理」从**手维护清单改为 catalog 派生**——旧门控问的是「已启用 RLS 的表是否都 FORCE」，一张全新的、根本没开 RLS 的表**不会被问到**，而那恰恰是刚加的、没人想过的那张。application/security/permission-filter.ts 的 Guarded<T> 把 payload 藏进模块私有 WeakMap：拿不到 T 除非走 disclose()，**忘记鉴权从疏漏变成类型错**；配 lint-permission-paths.mjs 拦「绕过守卫直接读租户表」。⚠ V10 六条路径中**只有缓存是活的**，其余五条的子系统尚不存在（F04/F09/F10/phase-01），故本件断言的是「六条 id 走同一个 decide() 且判定相同」+「派生取最严格来源」+「未来的读路径无法绕开判定」，**不是「六个跑起来的子系统都测过」**——registry 里每条都带 owner 字段，且有测试断言 owner 非空。与 F03 合并时暴露一处收敛：F03 另有一套守内容的机制，一个规则两扇门，已收敛为 discloseDecided() 一扇门两个判定来源。"
     },
     {
@@ -82,7 +80,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F03.verify.log @ 2026-07-29T11:54:57.376Z",
-      "needs_ui_signoff": false,
       "notes": "R11 明确要求：管理员边界（R7 第 2、3 条）必须独立成 feature 并有独立验收——它是『我的大脑』整层能否成立的前提。依据混合 [原型]（个人层对管理员封闭、访问留痕对项目负责人可见）+[设计]（管理员非超级用户）。对应 V1/V2 与 uc-0-1 V4（草稿仅创建者可读，含管理员返回 404）。全 API 断言。管理员边界界面（『你作为管理员看不到什么』说明区 + 分层拒绝原因提示）在原型为确认缺失，界面切片由 phase-01 承接，但本 feature 的可验证核心全在 API 层。 【2026-07-29 实现记录】verification 原写的三条是预设路径，已改为六条已跑通的命令。⚠ 实现暴露两处契约缺陷：① coverage.md 把 V1 与 V2 都映射到 authorize——而 authorize 返回的是**判定不是内容**，于是 D-18 只被在判定函数上证过，且 **I-8「响应体中不存在内容字段」对着 authorize 断言是空转的**（那个响应本来就没有内容字段）。补 readContent + getPersonalLayerSummary 两个操作，在**真正返回 body 的端点**上断言。② ProvenanceEventType 的封闭枚举里有 admin-project-access 并注明 D-18，**但没有任何束的任何操作能产生它**——事件类型定义了，产生它的动作没有。落地：migration 0005 建 content_items + provenance_events（append-only，应用角色 UPDATE/DELETE 被 GRANT 层面拒绝，有数据库侧断言）。个人层只回计数断言的是**键集合**而非值，并对 contract 的 out.shape 做同样断言，使「形状长出一个 content 字段」也会红。审计留痕在**返回 body 之前**写入：留痕写不进去则读失败——反方向是内容在无记录的情况下被送出，那与边界不存在无法区分。"
     },
     {
@@ -111,7 +108,6 @@
         "pnpm --filter api run migrate:check"
       ],
       "evidence": "evidence/F04.verify.log @ 2026-07-29T11:55:05.247Z",
-      "needs_ui_signoff": false,
       "notes": "六表：artifacts / artifact_versions / segments / anchors / derived_representations / provenance_events。与 22-files 的边界：本 feature 定义模型与存储契约，22-files（phase-01, 47 点）是同一套模型的用户界面投影，不另建表、不重复计点（见 overview 5.2）。依据：[设计]，但 D-38 已裁定反推设计为权威。⚠[待确认] 原型说明页指向的『UML 文档第 13 节』不在仓库中——若该 UML 文档出现需校对本设计。canonical 双源：原件在 S3、元数据/状态在 PG，灾备须同时恢复 PG+对象存储+事件日志的一致性时间点。本 feature 只定义模型与不变量，segments/anchors 的填充由摄取流水线（下游）承担。 【2026-07-29 实现记录】清单原写的 verification 路径是对的、命令是错的（pnpm vitest → pnpm exec vitest，且不设 WORKSPACEX_DB 会静默用共享库），已改为七条已跑通的。落地 migration 0006 五张表 + 约束 + 触发器 + RLS，并把 0003 里 acl_bindings 触发器对 artifact/segment 的 I-1 校验缺口补上（那是 0003 自己写明的已知缺口）。14 条不变量中 9 条今日可断言，5 条明确归 F05/F06/F07——逐条列在 agent 报告里。⚠ 暴露三处契约缺陷：① Artifact.scope 是 acl_bindings.scope 的第二份声明——authorize() 只读后者，存两份意味着「鉴权器不看的那份」可以是错的且看起来是对的，第七次漂移的候选；已按不存储解决（scope 由绑定投影出来），但契约文本仍写着要存，需修订。② operations.saveDraft 的 in 不含任何内容字段，out 却返回 materializedKeys——按契约实现的端点无论如何产不出文件；故 F04 刻意不出 controller，编一个 body 形状就是第二份请求契约。③ content_items 被当作 ObjectRef{kind:artifact} 引用但住在另一张表，触发器缺口补上后这处碰撞才显形。另：agent 自查出自己一条测试是空转的（共用 id 工厂前，第二次调用死在主键冲突上，根本没走到被测逻辑），已修并记下原因。"
     },
     {
@@ -140,7 +136,6 @@
         "pnpm --filter @repo/contracts run test"
       ],
       "evidence": "evidence/F05.verify.log @ 2026-07-29T11:55:12.615Z",
-      "needs_ui_signoff": false,
       "notes": "『固定快照』在存储层=一条不可变 artifact_version 记录（对象存储 key + SHA-256 + MIME + 版本号），写入后永不覆盖，不是应用层布尔标记。快照不可变 round-trip 是最稳的纯函数/API 断言（写入→改源→断言原版本 SHA-256 不变，对应 R12 V2/V6/V8）。与 13-deliv/uc-13-5 快照绑定契约（3 点）是同一套不可变语义的两侧：本 feature 交付存储机制，13-deliv 交付交付业务规则，不在两处各建一套快照表（overview 5.2）。依据：[原型]（正式产出只绑固定快照、旧版仍被引用是正常的）+[设计]（不可删、纠错只能新增版本）。[待确认] 快照不可删与 180 天材料保留期如何共存（O-01 裁决：不可删对象不受留存期约束，单独走 O-39 法定留存清单，O-39 仍是外部合规输入缺口）——不阻塞实现，标注待细化。 【2026-07-29 实现记录】查出两个**可复现的真 bug**，不是文档问题。① 运行时角色能销毁不可变快照：0006 的 REVOKE UPDATE,DELETE 生效了、而且无关紧要——artifact_versions.artifact_id 的 ON DELETE CASCADE 加上 GRANT DELETE ON artifacts，使 DELETE FROM artifacts 返回 DELETE 1 且版本行随之消失。**级联动作不对子表做权限检查。** F04 全部不可变性测试当时都是绿的。0007 加两个 BEFORE DELETE 触发器修掉。② expectedHeadVersion 是装饰性的：前置检查之后 materializeArtifact 又重读 head 取 head+1，于是竞态输家在 v3 上成功，把自己的快照记成接在一个它作者从未见过的版本之后。实测两次定版拿到 2 和 3。改为预留声明的版本号。③ agent 自查出自己 path-3 那条测试是空转的（第九次）：插入冲突的 v2 会把 head 变成 2，前置检查先触发，唯一索引根本没被走到——把 23505 映射整个删掉它照样绿。已改为只伪造 headVersionNumber。⚠ D-2 在 pinVersion 上复发（in 不含内容、out 承诺 contentHash），同样不出 controller。⚠ 模型里**没有草稿缓冲区**：domain.md 说定版是冻结可变草稿缓冲，0006 没有这样的列，F04 的保存路径直接写版本——「定版冻结当前内容」没有指称对象，这是模型缺口不只是 schema 缺口。⚠ X-4 仍阻塞：O-39 不存在，未加任何删除路径/开关/豁免角色，并有测试断言这个封锁仍在。残留的洞已写明：要销毁一个快照，只能销毁整个组织。"
     },
     {
@@ -170,7 +165,6 @@
         "pnpm --filter @repo/contracts run test"
       ],
       "evidence": "evidence/F06.verify.log @ 2026-07-29T11:55:22.884Z",
-      "needs_ui_signoff": true,
       "notes": "绑定关系必须存 artifact_version_id 而非 artifact_id。对应 R12 V3（列表四字段非空）、A2（模式升级）、A3（禁止降级）。自动保存只写草稿，永不改变已有绑定、永不产生新快照。依据：[原型]（底部 [挂到项目环节…][保存] 两按钮已探明存在）+[设计]（三模式选择器为『原型待补/确认缺失』——按钮已渲染但点进去的三模式选择流程无任何屏，项目侧『已回流的产出与版本』分区只见于说明页文字）。needs_ui_signoff=true：三模式选择器 + 回流列表徽标（草稿/实时·随源变动/已定版 vN）的界面切片需补画原型并由产品/设计确认，随 phase-01 承载它的 Studio 底栏交付；本 feature 的绑定服务与列表契约用 API 断言，可先行开工。 【2026-07-29 实现记录】F06 出了 controller（与 F04/F05 不同）：bindToProjectStep / upgradeBinding / listBackflow 的 in 都带齐了用例需要的东西，D-2 那堵墙在这里不存在。I-8 的绑定半边（F05 交接给本件的）双向断言：CHECK((mode=pinned)=(pinned_version_id IS NOT NULL)) 两个方向 + 触发器确认 pinned 版本属于本 artifact + 行为面（同一 artifact 上 live 与 pinned 并存，源前进一版，live 跟到 v2 而 pinned 仍在 v1）。⚠ 十一道反证里**有一道回来是空转的，没有粉饰**：把 pg-binding-repository 的 sources 整个清空——即删掉派生关系——**没有任何测试变红**。原来那条自称验 I-13 的测试改了名，因为它并没有验 I-13；缺口写成了断言。查出的契约缺陷：① BackflowEntry 在**单源文件内部**把同一事实声明了两次（mode 与 badge，且 badge 没复用 BindingMode）——第七次，而且就发生在那个为防止它而存在的文件里；② CANNOT_DOWNGRADE 挂在**不可能降级的那个操作**上（upgradeBinding.in 没有 mode），真正可降级的路径是 bindToProjectStep 重新绑定，而它的 err 里没有这个码；③ draft 的 out: Binding 与「不产生项目侧行」矛盾（没有行就没有 id）；④ 两种失败没有 ArtifactError 码，其中一种 schema 根本不校验（bindToProjectStep.in.parse({mode:pinned}) 不带 sourceVersionId 也能过，规则只活在散文里）；⑤ 回流行没有 ObjectRef kind 能称呼自己，I-13 的最严格来源遍历结构性地塌掉了；⑥ A2 的「升级即生成新的不可变版本」按签核契约不可实现（upgradeBinding.in 不带内容），实现为冻结到声明的 head——那也是更好的行为（钉住用户当时看的那一版），分歧已报未猜。⚠ 另报一次**间歇性失败**：首轮 verify:base 在 admin-personal-layer-count-only 上出 8 个 SocketError，三次重跑（含冷库）未复现；本件多起两个 Nest 进程，争用是合理猜测但未证实——如实报告而非解释掉。"
     },
     {
@@ -185,14 +179,19 @@
         "F06"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f07",
       "verification": [
-        "pnpm vitest run tests/kernel/reference-eligibility-gate.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/reference-eligibility-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/binding-three-modes.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
-      "needs_ui_signoff": false,
+      "evidence": "evidence/F07.verify.log @ 2026-07-29T17:54:17.313Z",
       "notes": "R11 明确：引用资格门控（主流程第 5 步）是本用例价值核心，必须单独成 feature 并有独立验收，不能混在绑定服务里。对应 AC1 与 R12 V1（纯 API 状态机断言，最稳）。定版是必要条件非充分条件——需验收的产出还须经 UC-13.2 验收后才获证据资格（下游）。依据：[原型]（正式产出与决策只能绑固定快照）+[设计]（写回图谱/组织大脑的门控）。全 API 断言，不涉界面。"
     },
     {
@@ -207,15 +206,16 @@
         "F06"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f08",
       "verification": [
-        "pnpm vitest run tests/kernel/provenance-append-only.test.ts",
-        "pnpm vitest run tests/kernel/audit-backflow-searchable.test.ts"
+        "pnpm --filter api exec vitest run tests/kernel/provenance-append-only.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/audit-backflow-searchable.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
-      "needs_ui_signoff": false,
+      "evidence": "evidence/F08.verify.log @ 2026-07-29T17:54:23.766Z",
       "notes": "横切审计留痕收敛点：一个 provenance_events append-only 写入 feature，下游写操作不各自埋点（overview 5.1）。对应 R12 V7（审计态可检索）+ E5（证据撤回不改快照、通知复核）。依据：[原型]+[设计]。append-only 与不可删是纯函数/API 断言。此 feature 是 17-gov/uc-17-1 全链路审计的直接上游。"
     },
     {
@@ -242,7 +242,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F09.verify.log @ 2026-07-29T11:55:28.132Z",
-      "needs_ui_signoff": false,
       "notes": "Context Pack 不是字符串数组而是三段结构（与 context-engine.md 第四节逐字对齐）。六元组是 items 结构的业务侧表述：资源ID→artifactVersionId+segmentId、版本→artifactVersionId、来源→sourceType+anchor、可见范围→permissionDecisionId、相关度→score、筛选动作→retrievalReasons。对应 R12 V10（结构契约 schema 校验）+ V2（六元组无一为空）。纯 schema/纯函数断言。依据：[设计]（反推），D-38 采纳为权威。⚠[待确认] UML 文档第 13 节缺失，若出现需校对。artifactVersionId 指向 F05 的不可变版本。 【2026-07-29 实现记录】清单里的文件名是对的、跑法是错的（pnpm vitest → pnpm exec vitest；不设 WORKSPACEX_DB 会静默用共享库），已改为六条已跑通的。刻意**不建迁移**：F09 是结构契约，Pack 的持久化形状属 F10/F13，现在建 context_packs 表就是在猜。必填字段集合取自 Object.keys(CP.ContextItem.shape)，不写手维护清单——这条本身就被反证过（改成硬编码八个名字后，空 channels 不再被抓）。items 的 permissionDecisionId 只能来自 disclose() 在 path:context-pack 上的输出，这使 PROPAGATION_PATHS 里那一条从「预留」变成「真的」。⚠ 查出五处契约缺陷（记在 design-coherence 修订 E，需复签 context-pack 束），其中 E-1 最重：artifact.Anchor 的六种 kind 里 image-region 在 contextPack.Anchor 里**无处可映射**，而 photo 是八种 ContextSourceType 之一——**按签核的契约，每一个照片派生的 segment 都被 I-1 结构性地挡在所有 Context Pack 之外，且悄无声息**（读起来像「相关性低」）。未自行发明 imageRegion 字段，缺口写成了一条测试，契约修好时它会变红。"
     },
     {
@@ -272,7 +271,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F10.verify.log @ 2026-07-29T11:55:42.955Z",
-      "needs_ui_signoff": false,
       "notes": "query-planned hybrid（推翻 graph-first）：五路并行召回（PostgreSQL FTS 一等通道 / pgvector / 图关系 ontology_edges 只给固定加成 / 元数据 / Claim 检索）→ RRF/加权融合 → cross-encoder/LLM rerank → 去重/来源多样性/支持反驳平衡。对应 R12 V11（检索通道）+V12（权限过滤召回率）。pgvector recall 测试集是该通道的上线门槛（估点变更说明明确列为交付物），不可用『人工看着还行』代替——已并入本 feature 的 verification。中文需明确分词方案 + 中英混合检索评测。依据：[设计]（架构第四节）。这是 8 点最大的 feature，若单会话吃不下可在实现时按五路拆子任务，但 recall 门槛必须随召回一同交付。[待确认] token 预算数值/各路配额（O-36：随模型窗口推导、按任务类型可配，0.45 默认）——不阻塞，实现先按假设走。 【2026-07-29 实现记录】五路（fts/vector/graph/metadata/claim）各自落到真实表，权限判定在**召回内部**逐路进行，且刻意分用 retrieval 与 embedding-similarity 两条 PROPAGATION_PATHS——全部路由到同一条会让另一条注册了却没有流量。⚠ **两条验收在 N-2/N-3 给出数值前无法判定**，已精确写明：① 「过滤条件下 recall 不低于约定基线」——judgeRecall() 直接抛错，没有基线就没有通过，哪怕实测 1.0 也不算；同一句话的另一半「不出现有权访问却召不回」不需要数字，已双臂断言（索引直查 vs 经 disclose），零丢失。② 五路配额为等分并返回 provisional:true + 登记表引用，**规则**全部已断言。⚠ **完全没有被检验的一条**：没有 ANN 索引，所以 R9/V12 真正的失效模式（先近似 top-k 再过滤）**今天不可能发生**——ANN 需要固定维度，而维度取决于 phase-00 还没选的 embedding 模型。编一个维度并建 HNSW 会为一个永远不会上线的配置产出一个看起来测过的召回数字。**索引的「不存在」本身被断言了**，将来出现时套件会红并必须重新武装。九道反证全部确认变红。"
     },
     {
@@ -287,15 +285,18 @@
         "F10"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f11",
       "verification": [
-        "pnpm vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
-        "pnpm vitest run tests/kernel/omissions-auditable.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/kernel/filter-actions-retrieval-reasons.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/omissions-auditable.test.ts",
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web run test",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
-      "needs_ui_signoff": true,
+      "evidence": "evidence/F11.verify.log @ 2026-07-29T17:54:30.016Z",
       "notes": "R11 明确：丢弃清单可审查（第 4 步）是最容易被实现者省略的项之一，必须独立成 feature 并有独立验收。『被丢弃不等于不存在』的可执行定义=装配结果里没出现的东西必须在 omissions[] 里能解释为什么没出现（对应 R12 V13 遗漏可解释 + V3 丢弃条目可列出）。反对证据强制保留、冲突事实成对注入、已撤销条目永久排除但反例作为『教训』另行召回。依据：五种动作为[原型]，omissions[]/retrievalReasons 落地载体为[设计]。needs_ui_signoff=true：承载它的 Studio『上下文包与证据』右栏在原型为『原型确认缺失』（大脑『AI 读到了什么』屏完整存在且已抽取，但研究/问卷/原型三个 Studio 运行态外壳已完整探明、其中没有这一栏），界面需补画并确认两者关系，随 phase-01 交付；本 feature 的 omissions/retrievalReasons 契约用 API 断言可先行开工。[已裁决 O-36] 阈值 0.45 默认、按任务类型可配。"
     },
     {
@@ -311,15 +312,18 @@
         "F10"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f12",
       "verification": [
-        "pnpm vitest run tests/kernel/citation-integrity.test.ts",
-        "pnpm vitest run tests/kernel/empty-pack-blocks-ai.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/citation-integrity.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/empty-pack-blocks-ai.test.ts",
+        "node .harness/scripts/lint-arch-deps.mjs",
+        "node .harness/scripts/lint-contract-source.mjs"
       ],
-      "evidence": "",
-      "needs_ui_signoff": false,
+      "evidence": "evidence/F12.verify.log @ 2026-07-29T17:54:33.989Z",
       "notes": "R11 明确：引用完整性校验（第 7 步）是最容易被省略的两项之一，必须独立成 feature 并有独立验收。对应 AC1 与 context-engine.md 首批门槛①（100% 引用可定位），是本阶段总验收面。R12 V1（引用包外证据被拒）+V5（空态阻断）+V6（依赖失败阻断）。纯 API 断言。依据：[设计]（对应原型系统提示硬约束原文『可只读审查』）。不涉界面。"
     },
     {
@@ -344,7 +348,6 @@
         "pnpm vitest run tests/kernel/confidential-local-model-routing.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "Context Pack 一经用于定版即随快照固化，此后上游变化不改写它（对应 context-engine.md 首批门槛⑥可重放 + uc-17-1 AC1）。可重放是纯函数断言（同 run id 重放得同 items[]）。机密路由：含客户机密条目时本次调用模型选择限自托管模型（R12 V9 机密路由 + V8 审计还原）。依据：[原型]（机密材料只能本地模型）+[设计]（固化/重放）。全 API/纯函数断言，不涉界面。[待确认] Context Pack 装配快照的留存期未定——不阻塞实现，标注待细化（它是审计依据但体量可能很大）。与 F05 快照不可变、F11 omissions 固化协同。"
     },
     {
@@ -370,7 +373,6 @@
         "pnpm --filter web run e2e"
       ],
       "evidence": "evidence/F14.verify.log @ 2026-07-28T16:55:49.274Z",
-      "needs_ui_signoff": false,
       "notes": "【本 feature 是当前唯一的全局开工阻塞】ADR-003 要求 ui-prototyper 用 apps/web 的真实组件 + 设计 token 出图，但 2026-07-28 机器核实：apps/ 是空目录、全仓零 React/Next 依赖；uiux-standards.md 点名的 lint-design.sh / check-token-contrast.mjs / lib/font-scale.ts / lib/utils.ts / globals.css 五个门控产物一个都不存在；其引用的 ADR-013 也不在 docs/adr/。规范描述的是上游模板项目已建成、本仓尚未建成的系统。不做此件，phase-01/02/03 三个 has_ui 阶段的 new-sprint 全部会被拒。依据等级：[设计]——从 ADR-003 + D-35 + D-36 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。needs_ui_signoff 取 false 是刻意的：本件是 UI 先行关卡的前提而非对象，要求它先过 sign-off 构成循环依赖（sign-off 需要 ui-prototyper，ui-prototyper 需要本件），故以机器门控代替人类 sign-off——R12 的 V1–V10 全部为可执行断言，无一条依赖人工判断。不拆的理由见 R11：token 单源没建好则 lint 无从检查，lint 没建好则七态外壳无法验收，拆开会产生一串「做完了但验不了」的中间态。verification 第 4 条 lint-design-gate 是最重要的一条——它对故意违规的 fixture 断言 exit 1；只验「脚本能跑」不验「脚本能抓到违规」等于没有门控。附带交付：补写 ADR-013「字号档位单一事实源」（走 pnpm harness new-adr，不手工占号）。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F01–F13 无依赖，可并行开工。 【2026-07-28 verification 修订】原先写的 playwright 命令是预设而非事实。实际落地后改为六条**已跑通**的命令：typecheck / lint:design / contrast / vitest / verify-ui-states.sh / verify-prod-gates.sh。七态与身份投影的断言改用「对 SSR 出的 HTML 断言固定 testid」而不是浏览器驱动——更稳、无需下载浏览器，且正是 verification 该锚的东西。R12 V9（375/768/1280 三档无横向溢出）仍需 Playwright，**尚未覆盖**，留待补装 Playwright 后加第七条命令。 【2026-07-29 补齐 R12 V9】此前 notes 记着「V9（375/768/1280 三档无横向溢出）仍需 Playwright，尚未覆盖」——现已补上：`pnpm --filter web run e2e` 跑 25 屏 × 3 档 = 75 个断言。⚠ 断言写了三版才真正有效（前两版都全绿但在空转，过程记在 web-kernel/coverage.md 末尾），并顺带抓到画布在 375/768 下裁掉 245px 且不可达的真缺陷。⇒ UC-0.4 R8「本件以机器门控代替人类 sign-off，V1–V10 无一依赖人工判断」的承诺现已全部兑现。"
     },
     {
@@ -400,7 +402,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F15.verify.log @ 2026-07-29T11:55:54.191Z",
-      "needs_ui_signoff": true,
       "notes": "依据等级：[设计]——2026-07-28 人类新需求，无原型无 Backlog。缘由是原型把六个 agent 与18 台模型画得像产品内置，人类明确它们只是某个组织的示例配置。V1 是本 feature 最要紧的一条：静态断言产品代码里不存在硬编码清单，并断言清空组织配置后界面进入空态而不是显示默认值——只验「能读配置」不验「没有内置兜底」，第二个客户进来就会发现清单其实写死在代码里。R7 关键立场：成员跟随组织配置、不做个人覆盖——能力清单直接决定 AI 能读什么数据、能调什么工具，个人覆盖等于绕过组织安全边界。与 UC-0.3 的可见性范围是串联两层：先看本组织有没有，再看我在不在可见范围里，V10 断言两层错误可分辨、不糊成一个。needs_ui_signoff=true：后台七模块要从「产品设置」读感改成「本组织配置」读感，属原型确认缺失。必须先于 03-skill / 04-agent / 20-model / 21-mcp 实现，否则它们会先把清单硬编码进去再拆一次。 【2026-07-28 裁决追加，+2 点】正式组织可配 modelPolicy: \"self-hosted-only\" | \"any\"。⚠ 与个人本地组织的硬隔离①**性质不同、不可抹平**：正式组织这条是**可配置策略**（管理员可改、改动留痕）；本地组织那条是**不可关闭的产品承诺**。数据模型与界面必须能分辨二者——用同一个开关表示会让「承诺」退化成「默认值」（V12 断言这一点）。这条裁决同时让「本地组织恒为单人」的取舍成立：有多人+不出网需求的客户走私有部署的正式组织 + 本策略，而不是把本地组织做成多人。 【2026-07-29 实现记录】V1 双向断言：空组织返回 [] **且那个空来自空表**；已配置组织返回的正是配置的内容（逐 kind）。新增 lint-no-builtin-capabilities 门控：产品源码与任何迁移里都不得出现内置清单，反证含正反两面（派生枚举/注释/单元素列表不得误伤）。⚠ 查出六处缺陷，其中三处使 F15 自己的 user_visible_behavior **按签核的契约无法实现**：① CapabilityListing 没有 ownerTeamId，一条 team-only 清单说不出是哪个团队；② 没有 disabledReason；③ **没有任何字段能区分云端模型与自建模型**，于是 modelPolicy=self-hosted-only 时服务端根本无从判断该把哪些模型行置灰——「云端模型整行禁用并注明原因（不是隐藏）」按现契约做不到。未自行发明字段。另：mutateCapability.in.payload 原为 z.record(z.unknown())，开放结构保证实现者会在后端另声明一份（正是 ADR-020 的漂移），已收敛进契约三个 payload schema；但 op 是 payload 的兄弟字段而非判别器，真正的修法是合成 discriminated union，属契约所有者的决定。mutateCapability.err 用的是项目层的码而前置条件是组织角色——用项目层码报组织层拒绝，正是 R8 要防的。ConstraintSource 三取值不够：D-U1 在正式组织里的「机密整轮本地」既不是 promise 也不是 policy 也不是 none，建议加 confidential-data。前端 apps/web/lib/mock 里仍有原型硬编码清单（20 处），新门控把它计为**债务并用测试封顶**，而不是豁免。"
     },
     {
@@ -415,17 +416,22 @@
         "F15"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f16",
       "verification": [
-        "pnpm vitest run tests/kernel/personal-local-org-autocreate.test.ts",
-        "pnpm vitest run tests/kernel/local-org-zero-egress.test.ts",
-        "pnpm vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
-        "pnpm vitest run tests/kernel/local-org-invisible-to-admin.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/kernel/personal-local-org-autocreate.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-org-zero-egress.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-runtime-no-cloud-fallback.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-org-invisible-to-admin.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test",
+        "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
-      "needs_ui_signoff": true,
+      "evidence": "evidence/F16.verify.log @ 2026-07-29T17:54:48.766Z",
       "notes": "依据等级：[设计]——2026-07-28 人类新需求「每个人有自己的默认的本地的一个组织，一个特殊的组织，可以使用本地模型来处理所有的最隐私的数据」。架构立场（R7）：personal-local 是组织类型的一个取值，与正式组织**共用同一张表与同一套 ACL/RLS 机制**，不是特例分支——避免出现「本地模式」的第二套代码路径，那种分支必然长期失修。三条硬隔离是产品承诺不是配置项：① 模型只走本地/自托管 ② 禁止 MCP 出网 ③ 数据不进共享对象存储与跨组织索引。违反时拒绝并显式报错，**不得静默降级到云端**。⚠ V3 必须在**网络层**断言出网请求数为 0，不能只查应用日志——应用层可能自认为没出网。V5 同等重要：停掉本地运行时后必须失败，且没有任何云端调用发生。它比 UC-0.3 R7 的「个人层对管理员封闭」更强：那条是看不到内容，这条是数据根本不离开本地；因此 UC-0.3 R5 A1 的管理员审计目的访问权**不适用**于本地组织。残留 [待确认] 四条见 UC R10，其中「正式组织能否整体配置成只用自托管模型」对强合规客户很可能是刚需，建议优先裁决。 【2026-07-28 裁决】本地组织**恒为单人，不允许邀请他人**。「本地多人（同一局域网/同一部署）」的中间形态本轮不做——一旦允许多人，就要回答「成员名单存在哪、身份怎么验、数据在谁的机器上」，那实际上是一个私有部署的正式组织。有此需求的客户走私有部署 + F15 的 self-hosted-only 策略，等价保障且模型不分叉。"
     },
     {
@@ -453,7 +459,6 @@
         "pnpm vitest run tests/kernel/local-import-rejected.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据等级：[已裁决 2026-07-28]——人类裁定「本地组织的数据可以导出到其他的正式组织」。**单独成 feature 而不并入 F16，是因为它是 F16 三条隐私承诺的唯一豁口**——混在里面会让「数据不出本机」这条承诺的边界变模糊，也让验收无法独立。五条硬约束（对应五条 verification）：① 显式一次性人工动作，**禁止任何自动同步/后台上传/定时推送**；② 导出前逐项预览将离开本机的内容**及其在目标组织的可见性**（按目标 acl_bindings 预演）；③ 复制而非迁移，本地副本保留；④ **两侧**都写 provenance_events，目标侧标注来源为本地组织（因为它未经该组织的任何入库审核）；⑤ **单向**，反向导入被拒。⚠ V11① 与 F16 的 V3 是同一条网络层断言的两面：不操作时出网恒为 0，覆盖「后台悄悄传」这种最危险的失效方式。priority=2：它不阻塞 F15/F16 落地，但必须与 F16 同期设计，否则豁口会被临时方案侵蚀。"
     },
     {
@@ -480,7 +485,6 @@
         "node .harness/scripts/lint-contract-source.mjs"
       ],
       "evidence": "evidence/F18.verify.log @ 2026-07-28T18:58:49.901Z",
-      "needs_ui_signoff": false,
       "notes": "【本 feature 是 F01~F13 十三个后端 feature 的共同前置】2026-07-29 机器核实：apps/ 下只有 web，apps/api 不存在，全仓零 NestJS、零迁移文件、零 PG 连接；lint-arch-deps.mjs 已写好但每次运行都打印「跳过 apps/api/src：尚未创建」并 exit 0——ADR-020 称它「与既有七道门控同级的强制门控」，实际处于永久空转；architecture.md 点名的三个运行时门控（Guard 全局注册 / ValidationPipe + zod / ExceptionFilter 只回 internal_error）一个都不存在；packages/contracts 的 zod 目前只有前端一个消费者，ADR-020 的「后端 DTO ← 同一份 zod」这条链未接通。不拆出本件的后果：F01（5 点）实际要交付 NestJS 骨架 + 洋葱四层 + 迁移体系 + RLS 策略 + acl_bindings 表 + 两层交集判定，估点失真三倍，且十二个后端 feature 的共同前置被埋进 F01 的实现里，下一个 feature 的人不知道它已经有了。这与 UC-0.4（前端内核）从 F01~F13 里拆出来的理由完全相同——前端有内核，后端没有。依据等级：[设计]——从 architecture.md「三个必须建立的机械门控（运行时）」+ ADR-020 + UC-0.3 R7 三项已有裁决反推的执行前提，无原始需求亦无 Backlog 条目。不拆的理由见 R11：没有迁移体系就没有 RLS 策略，没有 RLS 就没有反证，没有洋葱目录 lint-arch-deps 就仍在空转。verification 第 5 条 verify-rls.sh 是最重要的一条——它绕过应用层过滤断言跨租户读 0 行，且同时断言换成自己的租户能读到自己的行；只写前半句的话，一个「一律拒绝」的坏策略也会全绿，隔离与瘫痪必须能被区分。needs_ui_signoff=false：本件零界面。不计入 699 原始需求基线，见 phases/requirements/ESTIMATE-BASELINE.md。与 F14（前端内核）无依赖、可并行。⚠ 所属契约束 api-kernel 尚未签核，new-sprint 会拒绝把它开进 sprint（ADR-020 门控）。"
     },
     {
@@ -506,7 +510,6 @@
         "pnpm --filter @repo/contracts run test"
       ],
       "evidence": "evidence/F19.verify.log @ 2026-07-29T11:51:06.759Z",
-      "needs_ui_signoff": false,
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F08。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：注册入口文案「创建组织·需要14位邀请码」为[原型]，注册四步为[设计]。⚠ UC-1.5 R8 曾判注册链路为『原型确认缺失』，但 2026-07-28 前端已建成注册向导（锚 login-create-org-panel/login-invite-code/login-org-name/login-create-org-submit/login-create-org-done），故 needs_ui_signoff=false。O-29①：邀请码线下签发、90 天有效、batch_id、服务端入库/核销/吊销/审计四链路，phase-1 不做码管理界面。一码一组织事务性单独验收（V1/V7）。身份根，必须先于 UC-1.6/1.1。\n【跨分片依赖待确认】phase-00: 组织/账号/组织成员统一标识（F15） 【2026-07-29 实现记录】清单原写的 verification 用 pnpm vitest run（跑不起来，要 pnpm exec），且含 tests/ui/create-org-wizard.test.tsx 这个前端测试（本件不覆盖），已改为七条已跑通的。I-4 双向断言：跨四张表按精确 id 校验回滚；5 路真并发 × 5 轮断言**组织数**（不是成功数）；另加一条对 UPDATE 语句本身的栅栏测试。反证 13 道全红，其中「改成 SELECT-then-UPDATE」→ 5 轮全红、5 个赢家 = **5 个组织**。⚠ 查出一条**项目级**缺陷：C.operations.*.out.safeParse() ——contract-design 硬规则 6 的整个机制——**检测不到多出来的字段**，因为 zod 默认剥掉未知键。而「多一个字段」恰恰是响应漂移最常见的方向（没有任何东西会崩）。已全仓修（见 out-schemas-strict.test.ts）。⚠ 另一条需人类：C1 —— **没有任何操作能设置 emailVerifiedAt**，于是 F19 建的账号永远无法登录，而 F19 与 F20 的验收**都是绿的**；coverage.md 的反向检查结构上找不到它（它找的是孤儿操作，不是孤儿需求）。已在应用层实现规则，未加操作也未加路由。"
     },
     {
@@ -534,7 +537,6 @@
         "pnpm --filter web run test"
       ],
       "evidence": "evidence/F20.verify.log @ 2026-07-29T12:36:52.543Z",
-      "needs_ui_signoff": false,
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F01。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：登录主流程[原型]（/login 已建成，锚 login-form/login-email/login-password/login-submit/login-providers），防枚举/限速/锁定/密码策略为[设计]已裁 O-28。界面已建成于 apps/web/components/entry（登录主屏可立即签），本 feature 交付后端认证+会话+防枚举+限速与密码策略实现。D-02：phase-1 只邮箱+密码，社交/SSO 置 disabled（login-providers）。V1/V4/V5/V5a 对应。密码策略实现为三份 UC（1.1/1.5/1.6）共用同一份，不各写一套。\n【跨分片依赖待确认】phase-00: acl_bindings 两层交集鉴权与会话上下文（F01）"
     },
     {
@@ -559,7 +561,6 @@
         "pnpm --filter web run test"
       ],
       "evidence": "evidence/F21.verify.log @ 2026-07-29T12:37:23.826Z",
-      "needs_ui_signoff": false,
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F02。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：[原型]按钮[忘记密码？]在登录页存在（原型待补=已接线），四屏与接线为[设计]已裁 O-28④。界面已建成（锚 login-forgot-link/login-forgot-email/login-forgot-submit/login-forgot-sent/login-forgot-back）。AC3「重置后全部旧会话失效」独立验收（V3）。"
     },
     {
@@ -574,15 +575,16 @@
         "F19"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "05",
-      "owner": null,
+      "owner": "agent-f22",
       "verification": [
-        "pnpm vitest run tests/auth/multi-org-membership.test.ts",
-        "pnpm vitest run tests/auth/org-disabled-readonly.test.ts"
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/auth/multi-org-membership.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/org-disabled-readonly.test.ts",
+        "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
-      "needs_ui_signoff": false,
+      "evidence": "evidence/F22.verify.log @ 2026-07-29T17:53:52.878Z",
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F09。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
     }
   ]

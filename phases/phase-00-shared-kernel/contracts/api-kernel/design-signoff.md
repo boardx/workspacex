@@ -1,6 +1,7 @@
 ---
 bundle: api-kernel
 phase: "00"
+covers: [F18]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-29"

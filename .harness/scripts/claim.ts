@@ -7,6 +7,7 @@ import { loadFeatureList, saveFeatureList, findFeature, writeActiveFeatures } fr
 import { refreshProgress } from "./lib/progress";
 import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
+import { assertDesignSignedOff } from "./lib/design-signoff";
 import { req } from "./lib/args";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -31,6 +32,16 @@ export function claim(args: Args): void {
           `再把 feature_list.json 里 ${featureId} 的 spec_ref 填成 "<文件名>.md#R<n>"。`
       );
     }
+  }
+
+  // 保护 0.5：设计签核（ADR-023 决策六）。
+  // 「开工前必须签核」此前只守 new-sprint 一个入口，而**真正的开工动作是 claim**：
+  // 手改 feature_list.json 的 sprint 字段就能把新 feature 塞进已建 sprint，
+  // 然后 claim 一路放行——那道门等于没有。这里补上同一道判定（同一个函数，不是第二份实现）。
+  try {
+    assertDesignSignedOff(phaseId, [featureId]);
+  } catch (e) {
+    die((e as Error).message);
   }
 
   // 保护 1：不能认领已被他人持有的 feature

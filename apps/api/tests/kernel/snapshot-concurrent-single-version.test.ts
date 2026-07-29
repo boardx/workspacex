@@ -7,6 +7,9 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgArtifactRepository } from "../../src/infrastructure/artifact/pg-artifact-repository";
+// F08 made the audit trail a REQUIRED dependency of pinVersion: a pin that leaves no
+// record is not a pin this system performs, so it cannot be constructed without one.
+import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
 import { pinVersion, VersionChangedError } from "../../src/application/artifact/pin-version";
 import { materializeArtifact, MaterializationFailedError } from "../../src/application/artifact/materialize-artifact";
@@ -48,6 +51,7 @@ const PROJECT = "proj-f05-concurrent";
 let root: string;
 let db: PgDatabase;
 let repo: PgArtifactRepository;
+let provenance: PgProvenanceRepository;
 let store: FsObjectStore;
 
 class SeqIds implements IdFactory {
@@ -63,6 +67,7 @@ beforeAll(async () => {
   await migrateOnce();
   db = new PgDatabase(appConfig());
   repo = new PgArtifactRepository(db);
+  provenance = new PgProvenanceRepository(db);
 });
 
 afterAll(async () => {
@@ -101,7 +106,7 @@ async function seedArtifact(ids: IdFactory) {
 
 const pin = (ids: IdFactory, artifactId: string, expectedHeadVersion: number, actorId: string, body: string) =>
   pinVersion(
-    { store, repo, ids },
+    { store, repo, ids, provenance },
     {
       orgId: toOrgId(ORG), artifactId, expectedHeadVersion,
       source: "conversation", title: "a chat", actorId, parts: { "messages.jsonl": enc(body) },
@@ -245,7 +250,7 @@ describe("the three loser paths, provoked one at a time", () => {
 
     await expect(
       pinVersion(
-        { store, repo: staleHead, ids },
+        { store, repo: staleHead, ids, provenance },
         {
           orgId: toOrgId(ORG), artifactId: a.artifactId, expectedHeadVersion: 1,
           source: "conversation", title: "a chat", actorId: "u-b",
@@ -280,7 +285,7 @@ describe("the three loser paths, provoked one at a time", () => {
     const ids = new SeqIds();
     const a = await seedArtifact(ids);
     const err = await pinVersion(
-      { store, repo, ids },
+      { store, repo, ids, provenance },
       {
         orgId: toOrgId(ORG), artifactId: a.artifactId, expectedHeadVersion: 1,
         source: "survey", title: "a survey", actorId: "u",

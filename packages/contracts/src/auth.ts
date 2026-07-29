@@ -16,6 +16,16 @@
  *   F19/F22 段：`redeemInviteAndCreateOrg` / `switchOrgAtLogin`（见文件末尾占位）
  */
 import { z } from "zod";
+/**
+ * ⚠ 跨束 import，且是刻意的（F22）。
+ *
+ * `switchOrgAtLogin` 的响应里那个「组织」与 `identity.switchOrganization` 返回的
+ * **是同一个东西**——本用例只做会话侧的那一半然后调用它（usecases.md）。
+ * 在这里重新写一遍 `z.object({ id, name, kind, ... })` 就是第二份副本，
+ * 而漂移的方向已经有先例：`identity.Organization` 后来加了 `modelPolicy`，
+ * 副本不会跟着加，于是同一个组织对象在两个端点上字段不一样，两边都不报错。
+ */
+import { Organization } from "./identity";
 
 /* ─────────────────────── 策略常量（O-28 裁决，全仓唯一副本）─────────────────────── */
 
@@ -46,6 +56,20 @@ export const AUTH_POLICY = {
   resendCooldownSeconds: 60,
   resendDailyMax: 5,
   inviteCodeLength: 14,
+  /**
+   * 组织停用后数据保留多少天才销毁（O-29 ③ 的「留存期」，取值来自 **O-01 的材料保留期 180 天**）。
+   *
+   * ⚠ **这是全仓唯一一份，且刻意不在 SQL 里出现。**
+   * `organizations.retention_until` 由 application 层算好再写库，
+   * 迁移里**没有** `DEFAULT now() + interval '180 days'`——一旦有，它就是第二份副本，
+   * 而漂移的方向是「有人改了 TS 常量，库里的默认值纹丝不动」，
+   * 表现为**新停用的组织按新策略、旧代码路径按老策略**，两边都没有报错。
+   * `tests/auth/org-disabled-readonly.test.ts` 断言库里落下的日期 = 本常量推出来的日期。
+   *
+   * ⚠ O-01 的裁决把留存期定成「可配置五参数」之一；这里写死 180 是**取其默认值**，
+   * 参数化（按组织覆盖）不在 phase-00 范围，见 `KNOWN_CONTRACT_GAPS.C10`。
+   */
+  orgRetentionDays: 180,
 } as const;
 
 /* ─────────────────────────────── 枚举 ─────────────────────────────── */
@@ -73,6 +97,30 @@ export const AuthReason = z.enum([
   "EMAIL_TAKEN",
   /** Redis / 认证依赖不可用。⚠ **一律拒绝，不得降级放行**（同 identity 的同名码） */
   "AUTH_SERVICE_UNAVAILABLE",
+
+  /* ── F22 追加。⚠ 只许追加，不许改写上面的成员 ────────────────────────── */
+
+  /**
+   * 切到一个自己不属于的组织（usecases.md `SwitchOrgAtLogin.err` 明写这一条）。
+   *
+   * ⚠ 与 `identity.PermissionReason.NO_ORG_MEMBERSHIP` **同名但不是同一个枚举**。
+   * 两个束的失败面本来就是两套（一个答「你是谁」、一个答「你能做什么」），
+   * 而这条码在两处都被各自的 usecases.md 点名要求。不合并的理由：
+   * 合并意味着 `auth` 要 import `identity` 的枚举，于是 auth 的失败面从此随 identity 变动，
+   * 而 auth 是更内层的束。**同名是刻意的，含义也刻意一致**，
+   * `tests/auth/multi-org-membership.test.ts` 断言两处的字面量相等——
+   * 有第二份副本就必须有机械门控，这是那道门控。
+   */
+  "NO_ORG_MEMBERSHIP",
+
+  /**
+   * 组织已停用，处于只读降级（O-29 ③ / UC-1.5 V12 ①）。
+   *
+   * ⚠ 它**不是**鉴权失败：请求者的身份与角色都没问题，是**组织本身**被冻结了。
+   * 分开一个码是因为界面要显示的是常驻的「组织已停用·只读」条，
+   * 而不是「你没有权限」——后者会让管理员去找权限设置，那里什么也改不了。
+   */
+  "ORG_DISABLED",
 ]);
 
 /** 口令被拒的原因。⚠ 刻意**没有** `MISSING_UPPERCASE` 之类——O-28 ① 明确不强制字符类 */
@@ -144,6 +192,40 @@ export const InviteCodeValue = z.string().length(14);
  * 见 `KNOWN_CONTRACT_GAPS.C4`。写成 `.min(12)` 然后声称满足 O-28 才是最坏的做法。
  */
 export const PasswordPolicy = z.string().min(12);
+
+/* ─────────────────────── 组织生命周期（F22 / O-29 ③）─────────────────────── */
+
+/**
+ * 组织的生命周期状态。**恰好两个值，且刻意没有第三个。**
+ *
+ * ⚠ **没有 `purged`（已销毁）。** O-29 ③ 说数据「留存期届满再销毁」，
+ * 而 phase-00 **没有实现任何销毁调度器**——没有定时任务、没有清理作业、
+ * 没有任何东西会在 `retentionUntil` 过去之后动一下。
+ * 加一个 `purged` 取值，会让契约看起来覆盖了那条链路，而它是空的：
+ * 任何读到这个枚举的人（包括写界面的人）都会以为销毁已经存在。
+ * ⇒ 缺的东西就让它缺着并写下来，见 `KNOWN_CONTRACT_GAPS.C13`。
+ *
+ * ⚠ 也**没有** `deleting` / `deleted`：硬删除明确不在 phase-1 范围（O-29 ③）。
+ */
+export const OrgStatus = z.enum(["active", "disabled"]);
+
+/**
+ * 停用事实。`disabled` 的三个字段**同生共死**——
+ * 停用时间在而留存截止不在，不是「更宽松的状态」，是一个**答不出「什么时候能删」的状态**，
+ * 而那正是 O-29 ③ 唯一要求记住的东西。库里由一条 CHECK 保证（迁移 0012）。
+ */
+export const OrgLifecycle = z.object({
+  status: OrgStatus,
+  /** null ⟺ status === "active" */
+  disabledAt: z.string().datetime().nullable(),
+  /**
+   * `disabledAt + AUTH_POLICY.orgRetentionDays`。null ⟺ status === "active"。
+   *
+   * ⚠ **由 application 层算出来再写库**，库里没有 `DEFAULT ... interval`。
+   * 理由见 `AUTH_POLICY.orgRetentionDays` 的长注：那会是第二份副本。
+   */
+  retentionUntil: z.string().datetime().nullable(),
+}).strict();
 
 /**
  * 每个操作 = { method, path, in, out, err }。
@@ -288,6 +370,116 @@ export const operations = {
      */
     err: ["INVITE_CODE_INVALID", "EMAIL_TAKEN"] as const,
   },
+
+  /* ── F22 段 ──────────────────────────────────────────────────────────
+   * 契约文件头部的占位写着「F19/F22 段：redeemInviteAndCreateOrg / switchOrgAtLogin」，
+   * 这里是 F22 那一半，外加 O-12 与 O-29 ③ 落地必需的两个操作。
+   */
+
+  /**
+   * `SwitchOrgAtLogin`（F22）— usecases.md 的 F22 用例，coverage V5
+   *
+   * ## ⚠ 它**不重新实现切换**
+   *
+   * `identity.switchOrganization` 已经有完整的副作用语义（清项目上下文、清鉴权缓存、
+   * 按新组织重新求值，O-12），本用例只做**会话侧的那一半**然后调用它。
+   * usecases.md 逐字写着「两处各写一遍就是第八次漂移」。
+   * `tests/auth/multi-org-membership.test.ts` 解析实现文件，断言它确实调用了
+   * `switchOrganization`，且**没有**自己调 `clearProjectScoped` / `invalidateUser` / `setOrg`——
+   * 「不重新实现」是可机械判定的，就不该只写在注释里。
+   *
+   * ## 「会话侧的那一半」具体是什么，以及为什么非有不可
+   *
+   * `identity.switchOrganization` 写的是 identity 的 `SessionStore`（按 user 存的
+   * 项目级上下文）。**它碰不到 Redis 里那条 bearer 会话记录**，而 `validateSession`
+   * 正是从那条记录里取 `currentOrgId` 交给 Guard 当 principal。
+   * ⇒ 只调 `/identity/switch-org` 的话，**principal 的组织根本没变**：
+   * 界面切过去了，服务端认的还是旧组织。这是 F22 实现时查出来的既有缺陷，
+   * 见 `KNOWN_CONTRACT_GAPS.C8`。
+   *
+   * ## `in` 与 usecases.md 的差异（刻意）
+   *
+   * usecases.md 写 `in: { sessionToken, toOrgId }`。**application 层的签名正是那个**，
+   * 但 HTTP 的 `in` 只有 `toOrgId`：`sessionToken` 走 Authorization 头。
+   * 把 bearer token 放进请求体，它就会出现在每一条访问日志、每一次抓包回放、
+   * 以及任何把 body 打进日志的中间件里——而 `validateSession` 同样把它标成 INTERNAL，
+   * 理由是一样的。
+   */
+  switchOrgAtLogin: {
+    method: "POST", path: "/auth/switch-org",
+    in: z.object({ toOrgId: z.string() }).strict(),
+    /**
+     * ⚠ 只有 `org`，**没有** `capabilities`——与 `identity.switchOrganization` 的响应刻意不同。
+     * 那份能力清单是 identity 那个操作的契约产出（F15 的 post-effect），
+     * 在这里再返回一份，就等于同一份数据有两个来源、两条更新路径。
+     */
+    out: z.object({ org: Organization }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "SESSION_EXPIRED", "SESSION_REVOKED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `JoinOrgWithInvite`（F22）— O-12 / UC-1.5 R10 / V10
+   *
+   * ## 为什么必须是一个**独立**的操作
+   *
+   * O-12 逐字写着：「**已有账号再次使用一枚新邀请码创建第二个组织是合法路径**，
+   * 不得因『该邮箱已注册』而拒绝；此时**不新建账号**」。
+   * 而 `redeemInviteAndCreateOrg` 对已注册邮箱的回答恰恰是 `EMAIL_TAKEN`——
+   * 它**必须**这么答（那条路径上调用者是匿名访客，不能凭一个邮箱就往已有账号上挂组织）。
+   *
+   * ⇒ 两条路径的区别不是参数，是**调用者是谁**：
+   * 一条是匿名 + 邀请码，一条是**已登录会话** + 邀请码。
+   * 用一个带可选 userId 的操作合并它们，等于让「要不要建新账号」由请求体里的一个字段决定——
+   * 那个字段一旦可伪造，就是「拿一枚码把自己挂进别人账号」。
+   *
+   * ⚠ 本操作**不在** usecases.md 的操作表里。coverage.md 的 V5 只映到 `SwitchOrgAtLogin`，
+   * 而切换器切不出一个不存在的成员关系。登记在 `KNOWN_CONTRACT_GAPS.C9`。
+   */
+  joinOrgWithInvite: {
+    method: "POST", path: "/auth/join-org",
+    in: z.object({
+      code: InviteCodeValue,
+      orgName: z.string().min(1),
+    }).strict(),
+    /**
+     * ⚠ 没有 `userId`：调用者就是它自己，服务端把它回述一遍毫无信息量，
+     * 却让「响应里的 userId 与会话里的不一致」成为一种可表达的状态。
+     */
+    out: z.object({ orgId: z.string() }).strict(),
+    err: ["INVITE_CODE_INVALID", "EMAIL_NOT_VERIFIED", "SESSION_EXPIRED", "SESSION_REVOKED"] as const,
+  },
+
+  /**
+   * `ExportOrganization`（F22）— O-29 ③「停用期间**仅管理员可导出**」/ UC-1.5 V12 ②
+   *
+   * ## ⚠ 这个操作让 `auth` 越了自己的界，如实说明
+   *
+   * domain.md 第零节：「**本束不得自己做权限判定**」。而「仅管理员可导出」就是一条判定。
+   * coverage.md 的缺口 A-2 早就点名了这件事——V6 有验收无操作，
+   * 「不定的话 F22 会带着一条无法判定的验收」。
+   * 两条路：把验收留成判不了的，或者在 auth 里做这条判定并**大声登记**。
+   * 取后者，且判定收敛成 `domain/auth/org-lifecycle.ts` 里**一个纯函数**，
+   * 不散在 controller 与 repository 里。见 `KNOWN_CONTRACT_GAPS.C11`。
+   *
+   * ## `out` 是**清单**不是内容转储，且这个词是认真的
+   *
+   * 返回的是组织自身的行、成员列表、以及按表的行数——**没有一条业务内容**。
+   * 真正的内容导出（材料/产出/审计链打包）不在 phase-00，见 `KNOWN_CONTRACT_GAPS.C12`。
+   * 把它叫「导出」而返回内容为空，才是最坏的做法：验收会绿，而用户拿不到数据。
+   */
+  exportOrganization: {
+    method: "GET", path: "/auth/org-export",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z.object({
+      org: Organization,
+      lifecycle: OrgLifecycle,
+      /** 每张携带租户键的表在本组织下有多少行。⚠ 数组元素也要 `.strict()`，它不继承 */
+      tables: z.array(
+        z.object({ table: z.string(), rowCount: z.number().int().nonnegative() }).strict(),
+      ),
+    }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "SESSION_EXPIRED", "SESSION_REVOKED"] as const,
+  },
 } as const;
 
 export type Operations = typeof operations;
@@ -372,4 +564,47 @@ export const KNOWN_CONTRACT_GAPS = {
    * 其余契约束（identity / artifact / context-pack / provenance）的 `out` 都还没 strict。
    */
   C7: "hard rule 6's out.safeParse() cannot detect EXTRA response fields; every other bundle's `out` is still non-strict",
+
+  /* ── F22 实现时撞到的（2026-07-29）────────────────────────────────── */
+
+  /**
+   * **`/identity/switch-org` 换不掉 principal 的组织。**
+   *
+   * `identity.switchOrganization` 写的是 identity 的 `SessionStore`（按 user 存的项目级上下文），
+   * 而 Guard 的 principal 来自 `validateSession`，后者读的是 Redis 里那条 bearer 会话记录的
+   * `currentOrgId`——两者互不相干。于是切换之后：界面按新组织渲染，
+   * 服务端每一次鉴权用的还是**登录时那一个**组织。
+   *
+   * 这条缺陷在 F22 之前不可见：phase-00 里没有第二个组织可切，
+   * `orgs[0]` 恒等于唯一那个，两个来源永远一致。
+   *
+   * F22 的处理：新增 `switchOrgAtLogin`，它补上会话侧那一半再调 identity 的用例。
+   * ⚠ **`/identity/switch-org` 仍然存在且仍然是半截的**——改它属于 `identity` 束的签核范围，
+   * 本 feature 不越界改别人的契约（同 F19 对 C7 的处理）。
+   */
+  C8: "POST /identity/switch-org does not update the bearer session's currentOrgId, so the Guard's principal keeps the OLD org after a successful switch",
+  /**
+   * **已有账号用新邀请码加入第二个组织，契约里没有操作。**
+   * O-12 逐字规定了这条路径合法，UC-1.5 V10 逐条列了它的验收，
+   * 而 usecases.md 的 F22 只有 `SwitchOrgAtLogin`——切换器切不出一个不存在的成员关系。
+   * coverage.md 第四节的「无孤儿操作」反向检查同样查不出缺的操作（与 C1 同一个盲区）。
+   * F22 新增了 `joinOrgWithInvite`，**它是签核后新增的，需要重新签核**。
+   */
+  C9: "O-12 / UC-1.5 V10 require an existing account to redeem a NEW code into a SECOND org; usecases.md has no such operation (only SwitchOrgAtLogin)",
+  /** O-01 把留存期定成可配置五参数之一；这里只取默认值 180 天，没有按组织覆盖的机制。 */
+  C10: "org retention is O-01's configurable parameter; only the 180-day default is implemented, with no per-organization override",
+  /**
+   * **`exportOrganization` 让 `auth` 做了一条权限判定**，
+   * 而 domain.md 第零节明写本束不得做判定。coverage.md 的 A-2 预告了这个两难
+   * （V6 有验收无操作）。取「做，并登记」而不是「留一条判不了的验收」。
+   */
+  C11: "exportOrganization performs an ORG-LAYER authorization (admin only), which domain.md §0 forbids this bundle from doing; A-2 predicted this",
+  /** 「导出」目前返回清单（组织行 + 成员 + 按表行数），**不含任何业务内容**。 */
+  C12: "exportOrganization returns a MANIFEST, not a content dump; packaging materials/outputs/audit chain is not in phase-00",
+  /**
+   * **「留存期后销毁」没有实现。** 有 `retentionUntil` 这个日期，
+   * 没有任何东西会在它过去之后动一下——没有调度器、没有清理作业、没有 `purged` 状态。
+   * ⚠ 这是**如实登记的缺口**：`OrgStatus` 刻意只有两个值，就是为了不让契约替这条链路背书。
+   */
+  C13: "retention-elapsed DESTRUCTION is not implemented: retentionUntil is stored and nothing ever acts on it (no scheduler, no purged state)",
 } as const;

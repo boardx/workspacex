@@ -22,10 +22,10 @@ interface Feature {
   depends_on?: string[];
   points?: number;
   status?: string;
+  sprint?: string | null;
   owner?: unknown;
   verification?: string[];
   evidence?: unknown;
-  needs_ui_signoff?: boolean;
   notes?: string;
 }
 
@@ -170,9 +170,17 @@ for (const phaseId of process.argv.slice(2)) {
     }
   }
 
+  // ⚠ 这里曾打印 `needs_ui_signoff: n 个`。该字段全仓 87 个 feature 带着它，
+  //   **只有本文件读、只用来打印这个计数，没有任何门控**。ADR-023 删掉了它：
+  //   「留着一个只被打印的布尔比没有更糟——它让人以为有关卡。」
+  //   UI 签核现在落在束级 `contracts/<bundle>/ui.md` + design-signoff.md 上。
   const pts = feats.reduce((s, f) => s + (f.points ?? 0), 0);
-  const signoff = feats.filter((f) => f.needs_ui_signoff);
-  console.log(`  ${feats.length} 个 feature / ${pts} 点｜needs_ui_signoff: ${signoff.length} 个`);
+  for (const f of feats) {
+    if ("needs_ui_signoff" in f) {
+      say(`${f.id} 仍带已废弃字段 needs_ui_signoff —— ADR-023 已删除它（UI 签核移到束级 ui.md）`);
+    }
+  }
+  console.log(`  ${feats.length} 个 feature / ${pts} 点`);
   if (bad === 0) console.log("  ✅ 全部通过");
   totalBad += bad;
 }

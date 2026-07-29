@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { auth, identity } from "@repo/contracts";
+import { artifact, auth, identity } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -85,7 +85,52 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   // "refuse", never as a degraded allow. Ordering matters only in that the first match wins,
   // and for that code the rendered result is identical either way.
   const authReason = auth.AuthReason.safeParse(raw);
-  return authReason.success ? { reasonCode: authReason.data } : {};
+  if (authReason.success) return { reasonCode: authReason.data };
+
+  /**
+   * F16: `identity.LocalOrgReason`, the third and last closed enum here.
+   *
+   * Same restriction, same reasoning -- a closed enum in `@repo/contracts`, parsed against
+   * that enum, so nothing outside it reaches a response. It is separate from
+   * `PermissionReason` because it answers a different question: `PermissionReason` says WHO
+   * was refused and at which layer, while these say the local runtime is down, the endpoint
+   * is off-machine, or this route only serves personal-local organizations. Rendering a
+   * dependency failure as a permission denial sends the user to ask an administrator for
+   * access they already have.
+   *
+   * ⚠ Note what does NOT pass: the startup hint. It is a contract CONSTANT
+   * (`LOCAL_RUNTIME_STARTUP_HINT`) the frontend reads directly, so the server never carries
+   * the sentence across the wire -- carrying it would be the same fact in two places, which
+   * is the failure this project has had five times.
+   */
+  const localOrg = identity.LocalOrgReason.safeParse(raw);
+  return localOrg.success ? { reasonCode: localOrg.data } : {};
+}
+
+/**
+ * The SECOND and last piece of exception detail allowed through: an `ArtifactError` code and
+ * the artifact it is about (F07 / E1).
+ *
+ * Same shape of exemption as `permissionReasonOf`, and it needs the same justification.
+ * `REQUIRES_PINNED` is not an internal string: it is a member of a closed enum in
+ * `@repo/contracts`, it is parsed against that enum here, and nothing outside it passes no
+ * matter what an exception carries. `artifactId` is parsed as a plain non-empty string and
+ * is only ever the PARENT of a version the caller just addressed successfully -- it
+ * discloses no resource the caller could not already name.
+ *
+ * It has to be here because AC1's refusal is required to be actionable: uc-0-1 E1 says the
+ * denial must offer 一键定版, and an interface that receives `{"error":"conflict"}` has
+ * nothing to offer it with. That is the difference between a gate and a dead end -- and a
+ * dead end is what users route around by copying the content somewhere the gate is not.
+ */
+function artifactErrorOf(exception: HttpException): { artifactError?: string; artifactId?: string } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { artifactError?: unknown; artifactId?: unknown };
+  const code = artifact.ArtifactError.safeParse(raw.artifactError);
+  if (!code.success) return {};
+  const id = typeof raw.artifactId === "string" && raw.artifactId.length > 0 ? raw.artifactId : undefined;
+  return id === undefined ? { artifactError: code.data } : { artifactError: code.data, artifactId: id };
 }
 
 @Catch()
@@ -116,6 +161,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...permissionReasonOf(exception),
+        ...artifactErrorOf(exception),
       });
       return;
     }

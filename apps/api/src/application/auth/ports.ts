@@ -19,6 +19,9 @@
 import type { SessionRecord } from "../../domain/auth/session-lifetime";
 import type { LoginAttempt } from "../../domain/auth/lockout";
 import type { OrgId } from "../../domain/org-id";
+import type { Guarded } from "../security/permission-filter";
+import type { z } from "zod";
+import type { identity } from "@repo/contracts";
 
 /* ───────────────────────────── credentials ───────────────────────────── */
 
@@ -119,6 +122,30 @@ export interface SessionTokenStore {
   revokeAllForUser(userId: string, at: Date): Promise<number>;
   /** All sessions of a user, revoked ones included -- so I-7 ("still there, marked") is assertable. */
   listForUser(userId: string): Promise<readonly SessionRecord[]>;
+
+  /**
+   * F22: point THIS session at another organization.
+   *
+   * ⚠ Why this has to exist at all, and why it is the whole point of `switchOrgAtLogin`.
+   *
+   * `identity.switchOrganization` writes identity's own `SessionStore` -- the per-user
+   * project-scoped context. It cannot reach the record behind the bearer token, and the
+   * Guard's principal comes from exactly that record (`validateSession` reads
+   * `currentOrgId` off it). So without this method, a "successful" org switch leaves every
+   * subsequent request authorised against the OLD organization, with the new one rendered
+   * on screen. Nothing errors; the two sources simply disagree.
+   *
+   * That defect was invisible before F22 because there was never a second organization to
+   * switch to -- `orgs[0]` was always the only one, so the two sources always agreed.
+   *
+   * ⚠ ONE session, not all of them. Organizations are switched per DEVICE: O-12's post
+   * effects are about the current context, and moving every session would mean switching
+   * org on a laptop silently re-scopes a phone that is mid-task.
+   *
+   * @returns false when the token names no live session -- the caller turns that into
+   *          SESSION_EXPIRED / SESSION_REVOKED rather than pretending the switch happened.
+   */
+  setCurrentOrg(token: string, orgId: OrgId): Promise<boolean>;
 }
 
 export const SESSION_TOKEN_STORE = Symbol("SessionTokenStore");
@@ -249,6 +276,112 @@ export interface RegistrationRepository {
    * outcome for three causes, see `domain/auth/email-verification.ts`.
    */
   confirmEmailVerification(token: string, now: Date): Promise<{ userId: string } | null>;
+
+  /**
+   * F22 / O-12: an EXISTING account spends a NEW code and gets a SECOND organization.
+   *
+   * ⚠ A separate method rather than an optional `userId` on `redeemAndCreateOrg`.
+   *
+   * The two paths differ in WHO IS CALLING, not in their arguments: one is an anonymous
+   * visitor holding a code, the other is an authenticated session holding a code. Merging
+   * them makes "do we mint a new account" depend on a field in the request -- and a
+   * forgeable field there reads "spend one code, attach yourself to somebody else's
+   * account".
+   *
+   * ⚠ Still ONE call, for the same reason as `redeemAndCreateOrg`: I-4's indivisibility is
+   * about redemption + organization + membership, and none of that gets weaker because the
+   * credential already exists.
+   *
+   * ⚠ NO credential is written here. O-12: "此时**不新建账号**，只新建组织并把该账号设为其
+   * 管理员（否则会出现同邮箱多账号，与 UC-1.1『同一人登录进的是同一账号』冲突）".
+   * `multi-org-membership.test.ts` asserts the credential COUNT is unchanged -- which is
+   * UC-1.5 V10 ① word for word, and the only assertion that catches a second account.
+   */
+  joinExistingUserToNewOrg(input: JoinNewOrgInput): Promise<JoinNewOrgResult>;
 }
 
+export interface JoinNewOrgInput {
+  readonly code: string;
+  /** Already authenticated by the use case. The repository never derives it from a body. */
+  readonly userId: string;
+  readonly orgId: OrgId;
+  readonly orgName: string;
+}
+
+export type JoinNewOrgResult =
+  | { readonly ok: true; readonly orgId: OrgId }
+  | { readonly ok: false; readonly reason: "invite-code-invalid" };
+
 export const REGISTRATION_REPOSITORY = Symbol("RegistrationRepository");
+
+/* ─────────────────────── organization lifecycle (F22) ─────────────────────── */
+
+/**
+ * O-29 ③: disable is NOT delete. Reads survive, writes are frozen, data waits out the
+ * retention window.
+ *
+ * ⚠ There is deliberately no `purge()` on this port. Nothing in phase-00 destroys anything
+ * after `retentionUntil` -- no scheduler, no job, nothing. A method here would be the
+ * shape of a promise that has no implementation behind it, and the person wiring the admin
+ * screen would find it and believe it. Recorded as `KNOWN_CONTRACT_GAPS.C13`.
+ *
+ * ⚠ `disable` is on the port but is NOT reachable over HTTP. Disabling an organization is
+ * a PLATFORM-OPERATIONS action, exactly like issuing invite codes (O-29 ①: 签发方 = 平台
+ * 运营方，线下签发). Handing a tenant-facing endpoint the ability to freeze the tenant is
+ * a self-service kill switch nobody asked for, and O-29 ③ never says the customer performs
+ * it. What the acceptance is about is the EFFECT of the disabled state, not its trigger.
+ */
+export interface OrgLifecycleRepository {
+  /**
+   * The export manifest, WRAPPED.
+   *
+   * ⚠ `Guarded<T>` rather than a plain row, and one call rather than `read()` +
+   * `tableCounts()`. Both follow from the same rule: `permission-filter` is the ONE doorway
+   * between tenant data and a human (UC-0.3 R7 / X-1), and a repository that hands back raw
+   * rows leaves nothing forcing a decision. Two methods would mean two payloads, and the
+   * second one -- per-table row counts, i.e. how much data this customer holds -- is the one
+   * that would quietly be returned unguarded because "it is only numbers".
+   *
+   * The decision itself is `domain/auth/org-lifecycle.ts`'s `decideOrgExport`, unwrapped
+   * through `discloseDecided`: `authorize` cannot express "admin only" (it would find no
+   * `acl_bindings` row, fall back to the permissive default scope, and allow every member).
+   *
+   * @returns null when the organization does not exist -- distinct from "wrapped but denied".
+   */
+  readExportManifest(orgId: OrgId): Promise<Guarded<OrgExportPayload> | null>;
+  /**
+   * Freeze an organization. `disabledAt` and `retentionUntil` are both supplied by the
+   * caller: the retention window is computed from the contract constant in
+   * `domain/auth/org-lifecycle.ts`, and the database stores what it is told. Any
+   * `DEFAULT now() + interval` in SQL would be a second copy of the policy.
+   */
+  disable(orgId: OrgId, disabledAt: Date, retentionUntil: Date): Promise<void>;
+  /** Lift the freeze. Present so "disabled" cannot silently mean "deleted" (see migration 0012). */
+  reactivate(orgId: OrgId): Promise<void>;
+}
+
+export interface OrgExportPayload {
+  readonly org: OrgLifecycleRow;
+  /**
+   * Per-table row counts.
+   *
+   * ⚠ Tables are derived from the catalog, not listed -- same reasoning as
+   * `kernel_tenant_table_audit()`. A hand-written list is missing exactly the table somebody
+   * added last week, and an export that silently omits a table is worse than one that
+   * fails: the customer believes they took their data with them.
+   */
+  readonly tables: readonly { table: string; rowCount: number }[];
+}
+
+export interface OrgLifecycleRow {
+  readonly orgId: string;
+  readonly name: string;
+  /** ⚠ 从契约的 `OrgKind` 取，不在这里复述字面量——F16 的单一事实源门控会红。 */
+  readonly kind: z.infer<typeof identity.OrgKind>;
+  readonly modelPolicy: string;
+  readonly status: "active" | "disabled";
+  readonly disabledAt: Date | null;
+  readonly retentionUntil: Date | null;
+}
+
+export const ORG_LIFECYCLE_REPOSITORY = Symbol("OrgLifecycleRepository");

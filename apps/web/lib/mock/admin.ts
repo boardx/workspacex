@@ -18,7 +18,10 @@ import * as C from "@repo/contracts/identity";/**
 // 模块导航（左栏两组共 7 个）
 // ─────────────────────────────────────────────────────────────────────────
 export type AdminModuleKey =
-  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback";
+  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback"
+  // F16：本地组织。归在「组织」组里而不是「AI 能力」组——它是一个组织，
+  // 只不过是只有一个人、且数据不出本机的那种。
+  | "local";
 
 export interface AdminModuleMeta {
   key: AdminModuleKey;
@@ -44,6 +47,7 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
       { key: "feedback", label: "反馈", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] },
+      { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
   },
 ];

@@ -85,15 +85,29 @@ export type Organization = z.infer<typeof C.Organization>;
  * ③ 数据不出本地部署（不进共享对象存储、不进跨组织索引）
  * 违反时**拒绝并显式报错，不得静默降级到云端**。
  */
-export const LOCAL_ORG_GUARANTEES = [
-  "模型调用只走本地 / 自托管端点，云端模型在此不可选",
-  "禁止任何 MCP 出网调用",
-  "数据不出本地部署，不进共享对象存储与跨组织索引",
-] as const;
+export const LOCAL_ORG_GUARANTEES = C.LOCAL_ORG_GUARANTEES;
 
+/**
+ * ⚠ **2026-07-29（F16）收敛**：这两样以前是本文件自己声明的第二份事实——
+ * 三条承诺是手写的字符串数组，判定是 `org.kind === "personal-local"` 的字面量比较。
+ * 后端也各有一份（`domain/identity/model-constraint.ts`）。
+ *
+ * 前五次「同一事实两处声明」的代价是界面上一个数字不对；这一条决定的是
+ * **数据出不出本机**，所以它被搬进契约（`isLocalOrgKind` / `LOCAL_ORG_GUARANTEES`），
+ * 前后端都从那里取，`tests/single-source-of-truth.test.ts` 钉住前端这一半。
+ */
 export function isLocalOrg(org: Organization): boolean {
-  return org.kind === "personal-local";
+  return C.isLocalOrgKind(org.kind);
 }
+
+/** 云端条目在本地组织里被禁用的原因——同样是契约文案，不在界面里另写一句。 */
+export const localOrgCloudDisabledReason = C.localOrgCloudDisabledReason;
+
+/** 本地运行时的启动指引。界面直接渲染它，不自己编「稍后重试」。 */
+export const LOCAL_RUNTIME_STARTUP_HINT = C.LOCAL_RUNTIME_STARTUP_HINT;
+
+/** 端点是否在本机——与出网守卫、数据库触发器同一条规则。 */
+export const isLocalModelEndpoint = C.isLocalModelEndpoint;
 
 /**
  * 本组织是否只允许自托管模型，以及**它是承诺还是策略**。
@@ -102,7 +116,7 @@ export function isLocalOrg(org: Organization): boolean {
 export function selfHostedOnly(org: Organization): {
   on: boolean;
   /** promise = 不可关闭的产品承诺；policy = 管理员可改的策略；none = 不限制 */
-  source: "promise" | "policy" | "none";
+  source: z.infer<typeof C.ConstraintSource>;
 } {
   if (isLocalOrg(org)) return { on: true, source: "promise" };
   if (org.modelPolicy === "self-hosted-only") return { on: true, source: "policy" };
@@ -130,7 +144,9 @@ export const MOCK_ORGS: Organization[] = [
   // 强合规客户：整组织只用自托管模型（2026-07-28 裁决新增的组织级策略）
   { id: "org-hengtai", name: "恒泰供应链", kind: "organization", team: "供应链组", modelPolicy: "self-hosted-only" },
   // 注册那一刻自动创建，恒定存在、不可删除 / 退出 / 转让 / 邀请他人（UC-0.5 R7）
-  { id: "org-local", name: "林可 的本地", kind: "personal-local", team: null },
+  // 取值也从契约常量来，不写字面量：这条 mock 是「本地组织长什么样」的唯一前端样本，
+  // 它写错了，界面会拿一个不是本地组织的东西演示本地模式，而且一路绿。
+  { id: "org-local", name: "林可 的本地", kind: C.LOCAL_ORG_KIND, team: null },
 ];
 
 export function mockIdentity(orgId: string, projectRole: ProjectRole | null): Identity {
@@ -138,7 +154,7 @@ export function mockIdentity(orgId: string, projectRole: ProjectRole | null): Id
   return {
     displayName: "林可",
     // 本地组织里没有「上级」——自己就是唯一成员，无人可管
-    orgRole: org.kind === "personal-local" ? "admin" : "consultant",
+    orgRole: isLocalOrg(org) ? "admin" : "consultant",
     org,
     projectRole,
     projectName: projectRole ? "欧洲市场进入" : null,

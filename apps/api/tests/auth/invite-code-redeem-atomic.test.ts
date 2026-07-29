@@ -28,6 +28,7 @@ import {
   issueInviteCode,
   makeCode,
   orgsOwnedBy,
+  personalLocalOrgsOwnedBy,
   readCredentialByEmail,
   readInviteCode,
   readVerificationTokens,
@@ -191,6 +192,15 @@ describe("every failure leaves NO half organization (I-4)", () => {
       .toBeNull();
     expect(await countOrganizations([a.orgId]), "an organization survived").toBe(0);
     expect(await orgsOwnedBy([a.userId]), "an admin membership survived").toEqual([]);
+    // F16: registration also creates the user's personal-local organization, in the SAME
+    // transaction. So "nothing survives" now has a second half -- and it is the half that
+    // would be easy to get wrong, because a local organization left behind by a failed
+    // registration is invisible (nobody has an account to look at it with) right up until
+    // that user registers again and hits the I-2 unique index.
+    expect(
+      await personalLocalOrgsOwnedBy([a.userId]),
+      "a personal-local organization survived a rolled-back registration",
+    ).toEqual([]);
     const tokens = await asOwner(async (c) => {
       const r = await c.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM email_verification_tokens WHERE user_id = $1`,

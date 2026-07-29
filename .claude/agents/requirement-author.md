@@ -29,7 +29,11 @@ UC 用四标记区分证据来源，**它决定 feature 的可信度与排期风
 - **原型待补** = 点进去了是空按钮 → 要补接线
 
 凡 feature 的主要依据是 `[Backlog]` / `[设计]` / `原型确认缺失` 的，
-必须在该 feature 上标 `needs_ui_signoff: true`，并在 `notes` 写明依据等级。
+必须在 `notes` 里写明依据等级，并在回复里单列出来——它们的设计还没被人看过。
+⚠ 不要再往 feature 上加 `needs_ui_signoff` 字段：ADR-023 已删除它。
+UI 是否被人类确认过，权威在束级 `contracts/<bundle>/ui.md` + `design-signoff.md`，
+由 `new-sprint` / `claim` / `doctor` 三处门控读同一份判定。
+一个只被打印、没有任何门控读的布尔比没有更糟——它让人以为有关卡。
 
 ## 切分方法
 1. 逐份读 UC 的 **R11 切分提示**——那是原作者给的切分建议，优先采纳。
@@ -52,7 +56,6 @@ UC 用四标记区分证据来源，**它决定 feature 的可信度与排期风
 - `owner`：`null`
 - `evidence`：`""`（**空字符串，不是空数组**——harness 的 `Feature.evidence` 是 string，
   见 `.harness/scripts/lib/types.ts`。写成 `[]` 会让 verify 写入的字符串被当数组读成单字符）
-- `needs_ui_signoff`：依据等级不足时为 true
 - `notes`：依据等级、被合并的 UC 列表、已知风险
 
 ## verification 的写法（最容易糊弄的地方，重点看这里）
@@ -68,7 +71,7 @@ UC 用四标记区分证据来源，**它决定 feature 的可信度与排期风
 **禁止**的 verification：
 - `echo "done"`、`test -f xxx` 这类不验证行为的占位
 - 依赖人工判断的（"打开页面确认样式正确"）
-- 依赖尚未定稿的数值（如未裁决的阈值）——那种 feature 应标 `needs_ui_signoff`
+- 依赖尚未定稿的数值（如未裁决的阈值）——那种 feature 应在 notes 标出依据不足
   或拆出「结构性断言」先做（参考 O-13 的处理：把数值型 AC 改写为
   「重叠语音段必须标注为待人工指派、不得静默归给单一说话人」）
 
@@ -84,12 +87,13 @@ UC 头部元数据有 `估点`。一个 feature 的点数 = 它覆盖的 UC 片�
 2. 每条 `verification` 是可执行命令，不是描述
 3. 没有任何 feature 的 status 不是 `not_started`
 4. `depends_on` 无环，且被依赖者都在清单里（跨阶段引用除外）
-5. 主要依据为 `[Backlog]`/`[设计]`/`原型确认缺失` 的都标了 `needs_ui_signoff`
+5. 主要依据为 `[Backlog]`/`[设计]`/`原型确认缺失` 的都在 notes 写明了依据等级
 6. 估点合计与各 UC 头部声明值对得上（差异要在 notes 说明）
 
 ## 输出
 写入 `phases/<phase>/feature_list.json`，并在回复里给出：
 - feature 数、估点合计、依赖层次（哪些是第一批可开工的）
-- `needs_ui_signoff: true` 的清单（这些进不了 new-sprint）
+- 依据等级不足（`[Backlog]`/`[设计]`/`原型确认缺失`）的清单——
+  它们所属的契约束签核前进不了 new-sprint / claim
 - 你合并了哪些横切关注点、避免了多少重复计点
 - 你认为切分得最不确定的 3 个 feature，及原因

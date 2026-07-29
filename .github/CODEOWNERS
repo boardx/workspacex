@@ -1,0 +1,27 @@
+# CODEOWNERS —— 签核文件的人类所有权（ADR-023 决策五）
+#
+# 为什么有这份文件：签核链是「这个设计被人看过了」这句话的唯一凭据，
+# 而在此之前它**完全裸露**——无 CODEOWNERS、无 hook、无 CI diff 检查。
+# 任何 agent 一次 Edit 就能把 `status: pending` 改成 `confirmed` 并填一个假的
+# `confirmed_by`，`new-sprint` 立刻放行。整条链的信任根可以被它守护的对象自己改写。
+#
+# ⚠ **需要人类替换下面的占位 handle。** `@REPLACE-WITH-HUMAN-GITHUB-HANDLE`
+#   不是一个真实的 GitHub 用户，GitHub 会忽略指向不存在用户的规则——
+#   也就是说**这份文件在被替换之前不产生任何保护**。
+#   替换成真实 handle（如 `@usam-shen`）或团队（`@org/humans`）后，
+#   再到仓库 Settings → Branches → 分支保护规则里勾上
+#   「Require review from Code Owners」，这条才真正生效。
+#
+# CODEOWNERS 只能做到「改这些文件需要人类 review」。它挡不住
+# 「人类点了 approve 但没真看」——那部分靠 ADR-023 决策三/四把签核范围
+# 变成结构化字段（covers / covers_bundles），让机器能指出到底哪几个束没被复核过。
+
+# 签核动作本身：status / confirmed_by / confirmed_at 三行是人类的动作，agent 不得代劳。
+**/design-signoff.md    @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+**/design-coherence.md  @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+
+# ADR-003 的 UI 先行签核（ADR-023 之后新阶段并入束级，但存量阶段仍在用这份）
+**/ui-signoff.md        @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+
+# CODEOWNERS 自己也必须归人类——否则一次 PR 就能把上面三条删掉。
+/.github/CODEOWNERS     @REPLACE-WITH-HUMAN-GITHUB-HANDLE

@@ -63,6 +63,13 @@ import {
   UuidDecisionIdFactory,
 } from "./infrastructure/identity/in-memory-session-store";
 import { IdentityController } from "./interface/controllers/identity.controller";
+// F16: the personal-local organization. The egress guard is wired here rather than imported
+// by a use case, because it patches `net.Socket.prototype.connect` for the whole process --
+// that is a deployment decision, and the composition root is where deployment decisions live.
+import { LocalOrgController } from "./interface/controllers/local-org.controller";
+import { EGRESS_GUARD, LOCAL_MODEL_RUNTIME } from "./application/identity/local-org-ports";
+import { ProcessEgressGuard } from "./infrastructure/egress/local-egress-guard";
+import { HttpLocalModelRuntime } from "./infrastructure/identity/http-local-model-runtime";
 import { CapabilityController } from "./interface/controllers/capability.controller";
 import {
   CAPABILITY_REPOSITORY,
@@ -72,13 +79,21 @@ import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-
 import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
+import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
 import { ARTIFACT_REPOSITORY, ID_FACTORY } from "./application/artifact/ports";
 import { BINDING_REPOSITORY } from "./application/artifact/binding-ports";
+import { DOWNSTREAM_REFERENCE_REPOSITORY } from "./application/artifact/reference-ports";
 import { PgArtifactRepository } from "./infrastructure/artifact/pg-artifact-repository";
 import { PgBindingRepository } from "./infrastructure/artifact/pg-binding-repository";
+import { PgDownstreamReferenceRepository } from "./infrastructure/artifact/pg-downstream-reference-repository";
 import { UuidIdFactory } from "./infrastructure/artifact/uuid-id-factory";
 import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
-import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
+import {
+  PROVENANCE_READER,
+  PROVENANCE_WRITER,
+  REVIEW_NOTIFIER,
+} from "./application/provenance/ports";
+import { EvidenceWithdrawalController } from "./interface/controllers/evidence-withdrawal.controller";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
@@ -87,6 +102,11 @@ import type { DatabasePort } from "./application/ports/database.port";
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
 import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
 import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
+// F22 (auth bundle, continued): 多组织归属 + 组织停用只读降级。
+// ⚠ 冻结本身**不在这里**——它是迁移 0012 的 RESTRICTIVE 策略。这个 repository 只打标记。
+import { ORG_LIFECYCLE_REPOSITORY } from "./application/auth/ports";
+import { PgOrgLifecycleRepository } from "./infrastructure/auth/pg-org-lifecycle-repository";
+import { AuthOrgController } from "./interface/controllers/auth-org.controller";
 
 @Module({
   controllers: [
@@ -95,9 +115,13 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     IdentityController,
     ProvenanceController,
     CapabilityController,
+    LocalOrgController,
     ArtifactBindingController,
     AuthRegistrationController,
     AuthController,
+    ArtifactReferenceController,
+    EvidenceWithdrawalController,
+    AuthOrgController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -109,6 +133,10 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
       inject: [SESSION_TOKEN_STORE, CLOCK],
     },
     { provide: HEALTH_PROBE_FACTORY, useValue: pgHealthProbe },
+    // Constructing it installs the patch. Eager, not lazy: a guard that installs itself on
+    // first use is a guard that is absent for everything that happened before first use.
+    { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
+    { provide: LOCAL_MODEL_RUNTIME, useFactory: () => new HttpLocalModelRuntime() },
     {
       provide: IDENTITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
@@ -129,6 +157,13 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     },
     {
       provide: PROVENANCE_READER,
+      useExisting: PROVENANCE_WRITER,
+    },
+    // Third view of the same instance (F08). A notice is a pointer into the trail and its
+    // FK says so; a separate provider would be the first step toward a notification store
+    // that can name events which do not exist.
+    {
+      provide: REVIEW_NOTIFIER,
       useExisting: PROVENANCE_WRITER,
     },
     {
@@ -152,6 +187,14 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     {
       provide: BINDING_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgBindingRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F07. The single door every downstream citation passes through -- see 0010's header
+    // and coverage gap ③: the five consumers live in other bundles, so the gate is a table
+    // with a trigger rather than a check inside one use case.
+    {
+      provide: DOWNSTREAM_REFERENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDownstreamReferenceRepository(db),
       inject: [DATABASE_PORT],
     },
     { provide: ID_FACTORY, useClass: UuidIdFactory },
@@ -199,6 +242,14 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     {
       provide: REGISTRATION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F22. ⚠ 没有 `purge` 之类的 provider：phase-00 里没有任何东西会在留存期届满后销毁数据
+    // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
+    // 会让下一个接管理界面的人以为它已经在跑了。
+    {
+      provide: ORG_LIFECYCLE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrgLifecycleRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent

@@ -136,14 +136,51 @@ export const RETRIEVAL_SEGMENTS: { key: string; label: string; source: string; t
   { key: "history", label: "历史决策与复盘", source: "决策台账", tokens: "1.6k" },
 ];
 
-/** 五种筛选动作（召回/降权/排除/成对/线索）逐条可见，各带条数与理由 */
-export const FILTER_ACTIONS = [
-  { key: "recall", label: "召回", count: "47 命中", reason: "组织层只取「生效」+「待复核」两态；待复核仍进候选，但不参与定题强度计算。" },
-  { key: "downweight", label: "降权", count: "2 条", reason: "适用范围不匹配（如「波兰不在范围内」），标为「跨范围引用」后降权保留——降权不等于排除。" },
-  { key: "exclude", label: "排除", count: "1 条", reason: "已撤销条目永久排除；但其反例文本作为「教训」另行召回。" },
-  { key: "pair", label: "成对", count: "1 组", reason: "冲突事实的两条同时注入，引擎不替你选，由你裁决。" },
-  { key: "clue", label: "线索", count: "3 条路径", reason: "图谱路径只给固定加成，不单独决定结果。" },
-] as const;
+/**
+ * 五种筛选动作（召回/降权/排除/成对/线索）逐条可见，各带条数与理由。
+ *
+ * ⚠ **键、展示名、说明全部取自契约的单一事实源**（`@/lib/filter-action`）。
+ * 此前本文件自带一份，键是 `pair` / `clue`，而契约是 `paired` / `lead`——
+ * 两份都自洽，界面按自己那份渲染、后端按自己那份留痕，谁都不会报错，
+ * 直到有人想把这一栏和 `items[].retrievalReasons` 对起来（F11 收敛）。
+ *
+ * 这里剩下的只有**本次装配的条数**——那是数据，不是事实定义。
+ */
+import { FILTER_ACTION_KEYS, filterActionLabel, filterActionExplain, filterActionTracedIn } from "@/lib/filter-action";
+import { relevanceThresholdFor } from "@repo/contracts/thresholds";
+
+/** 原型示例的各动作条数（数据侧，按契约键索引）*/
+const FILTER_ACTION_COUNTS: Record<string, string> = {
+  recall: "47 命中",
+  downweight: "2 条",
+  exclude: "1 条",
+  paired: "1 组",
+  lead: "3 条路径",
+};
+
+export const FILTER_ACTIONS = FILTER_ACTION_KEYS.map((key) => ({
+  key,
+  label: filterActionLabel(key),
+  count: FILTER_ACTION_COUNTS[key] ?? "—",
+  reason: filterActionExplain(key),
+  /**
+   * ⚠ 这一动作的痕迹落在 Pack 的哪一段（`items` 还是 `omissions`）。
+   * `exclude` 是 `omissions`——被排除的候选不在 `items[]` 里，界面若声称
+   * 「五种动作都在上面那张证据表里」就是在说一件做不到的事（KNOWN_CONTRACT_GAPS.G1）。
+   */
+  tracedIn: filterActionTracedIn(key),
+}));
+
+/**
+ * 本次装配的任务类型与相关度阈值。
+ *
+ * ⚠ **阈值不在本文件里**：它是裁决 O-36 的数值，单一事实源在
+ * `@repo/contracts/thresholds`（`THRESHOLDS.contextPackRelevance`），按任务类型可配。
+ * 收敛前 `0.45` 在本文件出现三次（丢弃条目的说明、长尾注释、调用日志），
+ * 一旦有人给某个任务类型配了别的值，这三处会当场向用户说谎而没有任何东西会红。
+ */
+export const PACK_TASK = "decision-support" as const;
+export const RELEVANCE_THRESHOLD = relevanceThresholdFor(PACK_TASK);
 
 /** 上下文预算（原型 14.9k / 120k；上限随模型窗口推导，不写死）*/
 export const CONTEXT_BUDGET = { used: 14.9, cap: 120, unit: "k", capNote: "上限随模型上下文窗口推导 · gpt-5.2" };
@@ -204,7 +241,7 @@ export const OMISSIONS: OmissionView[] = [
     id: "om-poland",
     title: "波兰储能补贴细则 2023",
     reasonType: "low-confidence",
-    reason: "适用地域为波兰，本项目范围为德荷；相关度 0.38 < 本任务类型（decision-support）阈值 0.45。",
+    reason: `适用地域为波兰，本项目范围为德荷；相关度 0.38 < 本任务类型（${PACK_TASK}）阈值 ${RELEVANCE_THRESHOLD}。`,
     relevance: 0.38,
   },
   {
@@ -232,7 +269,8 @@ export const OMISSIONS: OmissionView[] = [
 
 /**
  * 「展开」后显示的其余低相关条目（原型：被丢弃 · 14 条低相关 = 4 条明细 + 这 10 条长尾）。
- * 全部 relevance < 0.45（本任务类型阈值），逐条仍带原因——「不得静默丢弃」也适用于长尾。
+ * 全部 relevance 低于本任务类型阈值（见 `RELEVANCE_THRESHOLD`），逐条仍带原因——
+ * 「不得静默丢弃」也适用于长尾。
  */
 export const OMISSIONS_MORE: OmissionView[] = [
   { id: "om-2019-tender", title: "2019 荷兰海上风电招标纪要", reasonType: "low-confidence", reasonLabel: "低于相关度阈值", reason: "标的为海上风电，与储能进入策略跨品类；相关度 0.33。", relevance: 0.33 },
@@ -252,7 +290,7 @@ export const OMISSIONS_REMAINING = OMISSIONS_MORE.length;
 
 /** 完整调用日志（Context Pack「看这次的完整调用日志」展开内容）*/
 export const RETRIEVAL_LOG: { id: string; ts: string; op: string; detail: string }[] = [
-  { id: "lg-1", ts: "14:32:01.220", op: "plan", detail: "任务类型判定 decision-support · 阈值 0.45 · 目标预算 120k" },
+  { id: "lg-1", ts: "14:32:01.220", op: "plan", detail: `任务类型判定 ${PACK_TASK} · 阈值 ${RELEVANCE_THRESHOLD} · 目标预算 120k` },
   { id: "lg-2", ts: "14:32:01.244", op: "recall", detail: "graph.search(project:远洋, type:[假设,证据]) → 64 命中" },
   { id: "lg-3", ts: "14:32:01.402", op: "recall", detail: "brain.recall(生效+待复核) → 47 命中 · 待复核 3 条不计强度" },
   { id: "lg-4", ts: "14:32:01.510", op: "downweight", detail: "波兰补贴细则等 2 条标『跨范围』降权保留" },

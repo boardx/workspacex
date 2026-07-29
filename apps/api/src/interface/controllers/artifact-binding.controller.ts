@@ -73,6 +73,10 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "../../application/identity/ports";
+import {
+  PROVENANCE_WRITER,
+  type ProvenanceWriter,
+} from "../../application/provenance/ports";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -100,6 +104,7 @@ export class ArtifactBindingController {
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
+    @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
 
   private get deps(): BindingDeps {
@@ -108,6 +113,7 @@ export class ArtifactBindingController {
       artifacts: this.artifacts,
       auth: { repo: this.identity, ids: this.decisions },
       ids: this.ids,
+      provenance: this.provenance,
     };
   }
 

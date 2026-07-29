@@ -57,6 +57,23 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `Use decideCapabilityVisibility (domain/identity/capability-listing) and discloseDecided().`,
     );
   }
+  /**
+   * F22, and the failure it prevents is the SAME shape as `capability`'s, one notch worse.
+   *
+   * An organization has no `acl_bindings` row, so `authorize` would find nothing, fall back
+   * to `DEFAULT_SCOPE` (org-wide), see a non-null org role, and return `allowed: true` --
+   * for EVERY member. The export whose whole rule is "仅管理员" (O-29 ③) would be granted to
+   * every consultant in the organization, with a perfectly normal-looking decision object
+   * and a decisionId to match. The rule that does apply is `decideOrgExport`
+   * (domain/auth/org-lifecycle.ts), unwrapped through `discloseDecided`.
+   */
+  if (ref.kind === "organization") {
+    throw new Error(
+      `organization "${ref.id}" cannot be judged by authorize -- it has no acl_bindings row, ` +
+        `so authorize would allow every MEMBER. Use decideOrgExport (domain/auth/org-lifecycle) ` +
+        `and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 

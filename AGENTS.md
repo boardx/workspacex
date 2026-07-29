@@ -55,10 +55,11 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
   `pnpm harness verify`,由验证脚本门控转移。`passing` 不可逆。
 - **范围纪律**:只动当前 feature 涉及的代码,别顺手重构无关区域。
 - **文件规模**:业务源文件原则上不超过 2000 行;接近上限时必须按领域职责拆分。超过 2000 行仅允许有明确豁免、拆分计划和验证证据,禁止继续在超限文件中堆功能。
-- **UI 先行(仅 has_ui 阶段)**:UI 相关阶段的 `feature_list` 必须在真实 UI 经**人类**确认
-  (`ui-signoff.md` status: confirmed)之后才定稿;`new-sprint` 对未确认的 UI 阶段直接拒绝。见 ADR-003。
-- **设计签核**:feature 开工前,其所属**契约束**必须经人类签核
-  (`design-signoff.md` status: confirmed),且该阶段的**一致性复核**已通过。见 ADR-020。
+- **设计签核(三件、一处签)**:feature 开工前,其所属**契约束**必须经人类签核——
+  束目录下**一份** `design-signoff.md`,三节对应 **① UI ② 用例 ③ API 契约**;
+  且该阶段的**一致性复核**已通过。签核是**人的动作,agent 不许改 status**。
+  见 ADR-023(权威)、ADR-003 / ADR-020(决策档案);怎么做 →
+  `.harness/instructions/contract-design.md`。
   ⚠ **同一事实不得声明在两处**——本项目已五次因此漂移(设计 token / 字号档位 /
   丢弃原因枚举 / 撤回链 SLA / 估点)。凡出现第二份副本,一律收敛为单一事实源 + 机械门控。
 
@@ -87,7 +88,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 
 ## 按需深入(渐进式披露,需要时才读)
 - 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`
-- **契约先行的设计流程（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
+- **契约先行的设计流程 + 签核执行书（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-023 / ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
 - 智能体编排/工具/记忆约定 → `.harness/instructions/agentic-patterns.md`
 - 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
@@ -107,17 +108,15 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 原始需求 → 智能体 → 权威功能清单：
 1. `pnpm harness new-phase [--ui]` scaffold 出 `phases/<phase>/requirements/` 文件夹（`--ui` = 有界面的阶段）。
 2. 把**原始需求**（大白话/用户故事）写进该文件夹，可按领域放多份 `*.md`（auth.md/teams.md/rooms.md…）。
-3. **【仅 UI 阶段，has_ui】UI 先行确认关卡**（ADR-003）：先由 **ui-prototyper** 用真实组件
-   （`apps/web` + mock 数据）把界面做出来 → **人类工程师**核对 → 把 `ui-signoff.md` 的 `status`
-   改为 `confirmed`。未确认不得进入下一步（`new-sprint` 会拒绝）。
-4. 调 **requirement-author** 智能体：读该文件夹全部 `*.md`（UI 阶段还读已确认 UI）→ 生成
+3. **UI 先行**（ADR-003）：有界面的阶段由 **ui-prototyper** 用真实组件（`apps/web` + mock）
+   把界面做出来、截图存 `ui-preview/`——它是签核第 ① 件的材料，不再单独签一次。
+4. 调 **requirement-author** 智能体：读该文件夹全部 `*.md`（UI 阶段还读已建成 UI）→ 生成
    `feature_list.json`（带可执行 `verification`，锚定真实 `data-testid`）。
-5. **设计签核关卡**（ADR-020，2026-07-28 新增）：**UC + UI 不足以确认整个设计**——
-   后端契约会在画界面时被顺手创造出来却无人评审。故 feature 开工前还需签**契约束**，
-   每束四件：① 领域模型与不变量 ② 用例接口 ③ API 契约 ④ UC 覆盖证明。
-   两级粒度：**按能力域签契约束** + **阶段级一致性复核**（查各束交叉约束是否打架）。
-   一个 feature 可开工 ⟺ 所属契约束已签 ∧ 阶段一致性复核通过。见
-   `.harness/instructions/contract-design.md`。
+5. **设计签核关卡**（ADR-023）：**UC + UI 不足以确认整个设计**——后端契约会在画界面时
+   被顺手创造出来却无人评审。按能力域切**契约束**，人类在束级 `design-signoff.md`
+   一次签三件（UI / 用例 / API 契约），再做**阶段一致性复核**（查各束交叉约束是否打架）。
+   一个 feature 可开工 ⟺ 所属契约束已签 ∧ 阶段一致性复核通过。细则、支撑材料与
+   逃生口见 `.harness/instructions/contract-design.md`。
 `requirements/` 是输入,不是权威;权威永远是 `feature_list.json`。
 
 ## 常用 harness 命令

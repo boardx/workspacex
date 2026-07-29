@@ -12,6 +12,7 @@ import {
   resolveModelConstraintRule,
   type ModelConstraint,
 } from "../../domain/identity/model-constraint";
+import { isLocalOrg } from "../../domain/identity/local-org";
 import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository } from "./ports";
 import { NoOrgMembershipError } from "./switch-organization";
@@ -36,7 +37,7 @@ export async function resolveModelConstraint(
     // Passed only for a real organization. For a personal-local one there is nothing to
     // pass: the promise comes from `kind`, and handing the rule a policy it must remember
     // not to read is how "must not read" eventually becomes "reads".
-    modelPolicy: org.kind === "personal-local" ? undefined : org.modelPolicy,
+    modelPolicy: isLocalOrg(org.kind) ? undefined : org.modelPolicy,
     dataScope: input.dataScope,
   });
 }

@@ -21,7 +21,6 @@
         "pnpm vitest run tests/board/transition-matrix-o27.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [D-26]+[已裁决 O-27]。这是 11-board 全模块地基，任务对象/status enum 定义在此（phase-00 内核未含任务对象，故落此处）。覆盖 uc-11-1 V1/V13/V14。纯 API/状态机断言，不锚 UI。20 个有序对逐格断言实际放行集合与矩阵一致、回退空理由被拒。被 F02-F10、F17（工作卡派发）、F24（缺料看板）、F43（行动项）依赖。"
     },
     {
@@ -47,7 +46,6 @@
         "pnpm vitest run tests/board/writeback-transaction.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]+[D-26/D-39]。覆盖 uc-11-1 V2-V8。needs_ui_signoff：项目内四列看板与全局五列看板在 apps/web 尚未建（现仅 /tasks 我的今天），折叠 inbox 呈现形式与 owner/executor 视觉分列须补画确认；后端投影/回写/计数契约 API 可验先行。owner=人服务端校验（D-39）在此落地，被 F43 复用。7天折叠为 Backlog·原型确认缺失，仅做后端不删+可检索，不阻断。"
     },
     {
@@ -72,7 +70,6 @@
         "pnpm vitest run tests/board/ingest-dedup-and-archival.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]+[D-27/D-28]+[已裁决 O-26]。覆盖 uc-11-2 V1-V18。needs_ui_signoff：项目内『收件箱 N』折叠入口为 [设计] 新增（项目内筛选行原型只有四项），R2/R3 二次确认弹窗未探明。风险表 O-26 二十行为首版可配，新增操作类型须先入表；组长不可接受 R3（上收项目负责人），与 F08 授权流 R3 上抛为同一取向。inbox 不计入列计数/不触发提醒（被 F05/F04 消费）。"
     },
     {
@@ -98,7 +95,6 @@
         "pnpm vitest run tests/board/filter-permission-before-filter.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（四项 filter）+[D-29/D-39]+[设计]（scope 维度）。覆盖 uc-11-3 V1-V20。needs_ui_signoff：全局 scope 切换器与卡上项目名展示未探明（proto 项目看板标题写死单项目），次级筛选控件位置原型未画。与 F06 我的今天并存不互斥、读同一 status enum。scope/filter 必须两个独立参数，合并成枚举后续加作用域全量返工。"
     },
     {
@@ -124,7 +120,6 @@
         "pnpm vitest run tests/board/nudge-record-cooldown.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [Backlog]（三时点/催办）+[D-27/D-39]。覆盖 uc-11-4 V1-V15。needs_ui_signoff：催办入口/提醒设置/催办记录/通知落地四屏在已探明两个看板屏内确认缺失（『催办』二字十份档案零命中），实现前须补画；已有到期日/逾期标/底注计数可直接作数据源。AC4 口径一致必须与 F02 计数是同一份代码而非照抄。O-33 通知规范：催办冷却 4h、到期提醒 09:00 用户时区。本模块不实现 AI 代发外发。"
     },
     {
@@ -152,7 +147,6 @@
         "pnpm --filter web exec vitest run tests/ui/my-today.render.test.tsx"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（/tasks 我的今天四分区完整存在）+[D-29/D-39]+[O-37]。覆盖 uc-11-5 V1-V16。UI 已建成于 apps/web /tasks，本 feature 主要接后端；UI 断言锚真实 testid：tasks-today-summary / tasks-risk-badge(R1/R2/R3) / tasks-owner-line vs tasks-executor-badge(双身份区分) / tasks-waiting-on / tasks-summary-low-sample-demo + tasks-summary-coefficient-note（O-37『样本不足』结构性断言：三个数值系数/最小样本量/单价未定稿，改写为『样本量低于配置阈值时显示样本不足且不显示折算值』，阈值来自配置）。分区归属是派生计算不落库（V9 断表结构无分区列）。"
     },
     {
@@ -179,7 +173,6 @@
         "pnpm vitest run tests/board/permpack-waiting-input-no-skip.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [裁决·权限三层]+[原型]（等待输入/去授权）+[设计]。覆盖 uc-11-6 V1-V6,V17,V18。这是 AI 参与执行的安全底座，必须先于任何 agent 真实执行任务的 feature 上线。核心是判定服务（API 可验），故 needs_ui_signoff=false；授权弹窗屏未探明由 F08 承接。三层取交只能在交集内加权限不能突破另两层；空权限包≠全部允许。waiting_input/blocked 是标记不是 status 列（不占五态 enum）。"
     },
     {
@@ -203,7 +196,6 @@
         "pnpm vitest run tests/board/authz-reject-timeout-blocked.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [裁决 O-36⑤/O-26③④]+[原型]。覆盖 uc-11-6 V7-V16,V19,V20。needs_ui_signoff：授权弹窗屏未探明（proto 抽取只到 [去授权] 按钮），核心交互须补画覆盖『四件事+两个范围参数』。O-36⑤超时：现场 5min/非现场 24h 可配、超时≠批准；O-26③ R3 上收项目负责人、扩权类安全评审人+组织管理员会签；O-26④ 被拒 30min 冷却、累计 3 次转人工；O-26⑤ 不允许预授权。授权记录不可删。 【2026-07-28 解环】原先 F08 依赖 F06 形成环。F08 是授权流**引擎**，F06「我的今天」只是它的**消费者**（授权请求在「等我判断」区露出）——消费关系不是依赖关系。已移除 F08→F06，保留 F06→F08。"
     },
     {
@@ -229,7 +221,6 @@
         "pnpm vitest run tests/board/risk-override-only-via-template.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]+[D-28]。覆盖 uc-11-7 V1-V5,V17,V19。needs_ui_signoff：模板编辑器屏未探明（proto 抽取只到列表摘要）。任务模板（一类任务默认值）与蓝本（一场项目骨架，02-tpl）是不同层级两种模板，不得同表。模板权限包受 F07 三层交集约束、不能提权。risk_level_override 降档需额外审批为待确认。"
     },
     {
@@ -257,7 +248,6 @@
         "pnpm vitest run tests/board/budget-90-downgrade-100-waiting.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]+[D-27/D-33]+[O-36⑥]。覆盖 uc-11-7 V6-V16,V20。needs_ui_signoff：规则配置屏未探明。V8『规则二永不建卡』是本 feature 最关键断言。规则一/二依赖 14-brain（phase-03），未到位前只实现触发接口+mock 事件验收。预算三档 O-36⑥：90% 降级不硬停→100% 等待输入求追加→未获追加 blocked，追加批准恒为人。"
     },
     {
@@ -283,7 +273,6 @@
         "pnpm vitest run tests/kg/evidence-count-distinct-source-o25.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（枚举取值/三态）+[设计]（闭合性/claims 字段/O-25）。覆盖 uc-9-1 V1,V2,V3,V16,V17。架构立场：节点落 claims、边落 claim_evidence(支持/反驳)+ontology_edges，阶段一不启用 AGE（ontology_edges+recursive CTE）；canonical 为 PG 关系表，图/向量是可重建投影。枚举校验必须先落否则后续所有验收无从断言。纯 API/SQL 断言，事实关系屏未在 apps/web 建，本 feature 只交付数据与规则。"
     },
     {
@@ -307,7 +296,6 @@
         "pnpm vitest run tests/kg/refresh-15s-incremental-degrade.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（三通道/15秒刷新）+[Backlog]（合并去重）+[设计]（降级）。覆盖 uc-9-1 V4,V10,V13。档案中不存在『Chat』上游模块（原提法系杜撰已删）。混合检索走 query-planned hybrid 五路并行（推翻 graph-first），新入图节点靠 FTS 通道不被漏召（对应 p00:F10）。API 可验。"
     },
     {
@@ -332,7 +320,6 @@
         "pnpm vitest run tests/kg/d33-expired-not-in-strength.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（冲突态/证据留存）+[设计]（成对召回/D-33）。R11 建议『反对证据不可删』与『过期不参与强度』合并（共享强度计算入口），本 feature 采纳。覆盖 uc-9-1 V6,V7,V8,V9,V18,V19,V20,V21。contradicting 行只能随 Claim superseded 或走 17-gov 级联失效退出（合规撤回优先级更高，见 F14）。选边是人的动作非检索层动作。API/SQL 可验。"
     },
     {
@@ -357,7 +344,6 @@
         "pnpm vitest run tests/kg/contradicting-withdrawal-audit-trail.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "契约先行项②（roadmap phase-01 goal 明写 22-files/uc-22-4 删除级联依赖此接口）。边界：契约桩已在 phase-01 以最小切片交付（能被删除队列命中即失效图边），本阶段交付完整实现——失效级联的全部派生物覆盖、强度重算联动、合规撤回对 contradicting 的例外处理与留痕。与 F28（撤回逻辑失效）的分工：F28 编排撤回全链路（逻辑失效≤5min/反向索引/影响面），F14 只负责图边这一类派生物的失效并保证不重复计点。依据 [设计]（架构第五节级联失效表）。纯 SQL/API 断言。"
     },
     {
@@ -382,7 +368,6 @@
         "pnpm vitest run tests/kg/fork-evidence-count-and-forecast.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（七态/六依据/岔口/预判）+[设计]（闭合性）+[已裁决 O-25 映射表]。覆盖 uc-9-2 V1-V10,V18-V20。needs_ui_signoff：决策树屏未在 apps/web 建（brief 仅 /brain 决策台账），且岔口证据下钻/预判计算依据下钻未探明。落库只有 claims.status+decision_state 两列、两展示视角纯函数推导，禁第三套状态词。人日估算来源为[待确认]，先做『关掉 N 节点』（数据齐）。"
     },
     {
@@ -406,7 +391,6 @@
         "pnpm vitest run tests/kg/actor-human-shared-gate-14brain.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（否决留痕）+[设计]（AI 闸门/复活）。横切合并：R11 明确本闸门与 14-brain 决策台账『拍板栏只能是人名』是同一条规则两侧，共用同一套『操作者必须自然人』服务端校验（分开实现极易漂移），故合并为一个 feature；14-brain 侧在 phase-03 复用不重复计点。覆盖 uc-9-2 V12,V13,V17。needs_ui_signoff：复活流程为『原型确认缺失』（十份档案零命中），须人类先裁决是否纳入范围，notes 标依据不足。可锚 /brain 的 brain-decision-ledger/brain-ledger-table 验拍板栏人名。"
     },
     {
@@ -432,7 +416,6 @@
         "pnpm vitest run tests/kg/dispatch-dedup-and-rollback.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（五工作卡/[开展]）+[Backlog]（不重复派发/回滚）+[D-39/D-27/D-26]。覆盖 uc-9-3 V1-V15。needs_ui_signoff：『已开展』后置态/执行进度回填口/不重复派发拦截提示/失败回滚提示四项原型确认缺失（五张卡全未开展态）。①（列表存在理由：强制绑定目标节点）与④（派发链路）是两硬骨头、⑤失败回滚必须与④同 feature 否则线上留孤儿卡。看板契约复用 F01/F02（D-26 五态）。现场投票 VT 是本派发的一种工作类型（见 F37）。"
     },
     {
@@ -458,7 +441,6 @@
         "pnpm vitest run tests/kg/writeback-async-idempotent-queue.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（按组清单/两出口/硬约束文案）+[Backlog]（冲突拦截）+[D-33]。覆盖 uc-9-5 V1-V20。needs_ui_signoff：『冲突未解阻断批量确认』的任何界面表达为原型确认缺失（事实关系屏两区块无关联表达），冲突阻断态与写回批次状态页/组行明细层须补画。⚠ 本用例写回闸门=组长确认·作用对象=现场图谱节点，与 F42（uc-13-2 写回闸门=验收·作用对象=产出物）D-e 明确不是同一规则、不得合并同一校验入口。②写回闸门必须先落。现场两出口与大脑侧三出口分开建模。"
     },
     {
@@ -484,7 +466,6 @@
         "pnpm vitest run tests/kg/pipeline-completion-o32-denominator.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（整屏完整存在，横轴九环节逐字一致，推翻此前『整屏无』误判）+[D-03 术语三分]+[已裁决 O-32]。覆盖 uc-9-4 V1-V20。needs_ui_signoff：流水线屏未在 apps/web 建，且『未启用环节隐藏』(Backlog)与原型 36 格全渲染直接冲突为[待确认]须人类裁决，不得实现者自选。O-32④完成度=已完成/已定义结构化不加权（加权不可复现）、O-32③停滞阈值默认 5min 可配。方法库依赖 14-brain(phase-03)未到位前 mock。已完成只能真实产出+验收驱动、AI 只能产出『建议下一步』。"
     },
     {
@@ -509,7 +490,6 @@
         "pnpm vitest run tests/report/version-status-binding.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [Backlog/原型]（清单四屏 D-23 完整存在）+[设计]（三态×版本号，与原型冲突见 R7）。覆盖 uc-10-1 V1-V11。needs_ui_signoff：10-report 界面尚未在 apps/web 建（brief 明列）；且 V4『非草稿态是否显示版本号』与原型列表冲突为[待确认]，结构性断言只保留『同一 report_id@vN 不得同时两态』、『status 非空 version 为空被拒』这条待人类裁决。file-first：每版报告物化为对象存储真实可下载文件（artifacts+artifact_versions 带 SHA-256），与 22-files 同源不另存副本。"
     },
     {
@@ -537,7 +517,6 @@
         "pnpm vitest run tests/report/conflict-both-sides-in-text.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（工作台 D-23 完整存在）+[Backlog]（切换口吻不丢引用）。覆盖 uc-10-2 V4-V10,V13,V16,V17。needs_ui_signoff：界面未在 apps/web 建、引用展开层未探明。七类=Context Pack items[].sourceType 同一份枚举；AI 生成内容标 synthesized 不得伪装一手证据（不计入强证据/不作取材源/不推 Claim 升 accepted）。生成经 Context API 领 Context Pack、不绕服务平面。"
     },
     {
@@ -564,7 +543,6 @@
         "pnpm vitest run tests/report/source-ref-permission-decision.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（『每句挂来源未挂标灰』）+[Backlog]（不能进发布版）+[设计]（服务端强制/anchor/permissionDecisionId）。R11 明确标灰门禁必须单独成 feature（是 D-24 检索可审查验收锚点）。覆盖 uc-10-2 V1,V2,V3,V11,V12。needs_ui_signoff：『N 段未挂来源』发布阻断说明属原型确认缺失（发布入口已抽取只有一个按钮无阻断位）须补画。source_ref 落点=Context Pack items[]，是全项目硬不变量『引用必须可定位到页码/时间码/消息』的落点。"
     },
     {
@@ -588,7 +566,6 @@
         "pnpm vitest run tests/report/exemption-audit-trail.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（缺料提示 D-23 存在）+[已裁决 O-32①]。R11 明确统一门禁判定服务必须先于两出口落地并单独成 feature（两处各写一份校验是最可能的实现缺陷）。覆盖 uc-10-3 V1-V6,V14,V17。needs_ui_signoff：界面未在 apps/web 建（豁免/禁用态原因为设计补全）。O-32①缺料纯结构化规则不引入模型判断（模型判断无可复现基线写不出 verification）。"
     },
     {
@@ -614,7 +591,6 @@
         "pnpm vitest run tests/report/missing-sync-fail-closed.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（[报告缺料]卡+底注『状态改了会回写到原处』D-23 存在）+[设计]（fail-closed）。R11 明确『看板状态回写』不能与『建卡』合并（否则只做单向派发就报完成），故与 F23 分开。覆盖 uc-10-3 V7-V13,V15,V16。needs_ui_signoff：报告缺料屏未在 apps/web 建。缺料项与看板卡一对一稳定映射、双方持有对方 ID 不靠标题匹配。D-26 项目内四列 inbox 折叠不丢卡、缺料卡默认落待办。"
     },
     {
@@ -642,7 +618,6 @@
         "pnpm vitest run tests/report/readonly-link-expiry-revoke-audit.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（入口按钮 D-23 存在）+[Backlog]（链接有效期/撤销）+[D-40]。覆盖 uc-10-4 V1-V3,V7-V16。needs_ui_signoff：界面未在 apps/web 建；导出配置面板/引用展开层/版本历史三处下钻未探明、[预览客户版]为原型待补（空按钮须补画）。客户版与内部版是口径差异非两份内容。链接有效期规则对齐 D-14 五参数（待合规）。D-19 撤回替换见 F27（拆开）。"
     },
     {
@@ -668,7 +643,6 @@
         "pnpm vitest run tests/report/paragraph-lose-source-graying-block-publish.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "契约先行项①（roadmap phase-01 goal：22-files/uc-22-4 删除级联依赖『报告段落标失效』接口）。边界：契约桩已在 phase-01 交付（能被删除队列命中即在引用处标失效），本阶段交付完整实现——对内标注+段落降级+失去全部来源联动标灰门禁。与 F27（对外替换）、F28（撤回逻辑失效编排）分工避免重复计点：F26 只负责报告段落对内失效标注这一侧。依据 [D-19]（对内可见对外不自动改写，2026-07-28 措辞修正，以修正后为准）。需 UI signoff：标注表现落在引用展开层未探明。段落级『待复核』命名与节级/知识五态机『待复核』撞词为[D-h 待确认]（建议改『证据待补正』）。"
     },
     {
@@ -692,7 +666,6 @@
         "pnpm vitest run tests/report/d19-replacement-authz-and-audit.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [D-19]（对外不自动改写、需人工确认后替换，措辞修正后为准，与 uc-10-5 R7/uc-10-4 R7『两方向都禁止静默』一致）。R11 明确 D-19 两条路必须拆两个 feature（对内立即可见 vs 对外不自动改写，合成一个极易做成自动改写），故与 F26 分开。覆盖 uc-10-4 V4-V6、uc-10-5 V6-V7。needs_ui_signoff：对外替换队列独立待办入口为[设计]、界面未建。撤回相关时限一律引用 D-13/D-15/D-19 单一事实源 apps/web/lib/withdrawal-flow.ts，不另立数值。"
     },
     {
@@ -720,7 +693,6 @@
         "pnpm vitest run tests/report/withdrawal-not-expiry-state-isolation.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [D-15]（两级 SLA 废弃 24 小时口径）+[D-33]（撤回≠过期不得混用同一状态字段取值）+[设计]（级联失效架构第五节）。R11 明确 source_ref 反向索引最先落地、逻辑失效与物理删除拆两个 feature。覆盖 uc-10-5 V1,V3,V4,V11,V15,V16,V18,V19,V21。与 F14 分工：F14 只做 ontology_edges 一类失效、F28 编排全链路不重复计点。⚠ embedding 是最易漏项（向量索引近似召回在权限过滤前发生），必须网络/索引层断言。SLA 硬性非期望值。纯 API/SQL 断言，故 needs_ui_signoff=false。"
     },
     {
@@ -746,7 +718,6 @@
         "pnpm vitest run tests/report/conflict-resolve-explicit-record.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（proto-04 第 02 步『主题矩阵重算强度』）+[设计]。R11 明确单独成 feature（横跨主题聚合/节状态/09-kg 证据计数，合进逻辑失效必被做成『只标失效不重算』）。覆盖 uc-10-5 V12,V13。仅把 source_ref 标失效而计数不变判失败——否则结论继续靠已不存在的证据显示为『强』。重算并入 5 分钟 SLA。纯 API/SQL，needs_ui_signoff=false。依赖 F35（survey 主题聚合）。"
     },
     {
@@ -771,7 +742,6 @@
         "pnpm vitest run tests/report/decision-not-auto-changed-notify.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [D-15]（物理删除≤30天+回执）+[uc-0-1 E5]（撤回不改快照通知拍板人复核）。R11 明确逻辑失效与物理删除拆两个 feature（合成一个必然只做后者）。覆盖 uc-10-5 V2,V8,V9,V10。物理删除 30 天默认值与 D-14 删除宽限期对齐待合规给出，按 D-15 上限书写。纯 API/SQL，needs_ui_signoff=false。撤回时限单一事实源 apps/web/lib/withdrawal-flow.ts。"
     },
     {
@@ -796,7 +766,6 @@
         "pnpm --filter web exec vitest run tests/ui/survey-single-ui.render.test.tsx"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（列表屏+工作台三屏 D-23 完整存在）+[设计]（四态闭合/不可变属性）。覆盖 uc-12-1 V2-V6,V11,V12,V15。UI 已建成于 apps/web /studio/survey，接后端为主；UI 断言锚真实 testid：survey-tabs/survey-tab-design/survey-tab-analysis/survey-tab-recovery/survey-tab-vote/survey-list/survey-new/survey-view-switcher。R7.1 单一界面硬约束作为架构约束写进本 feature 验收（不得两套表/两条 API）。V3 草稿态动作文案[继续设计]vs[继续编辑]为[D-g 待确认]不写死。"
     },
     {
@@ -821,7 +790,6 @@
         "pnpm vitest run tests/survey/ai-question-no-exemption.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（题目侧→报告章节+章节侧供料/缺口 D-23 存在）+[设计]（判定口径）。R11 明确双向映射表应作为独立 feature 优先做（是 UC-12.2 阻断二的数据基础）。覆盖 uc-12-1 V1,V7,V7a-V7f,V10,V13。needs_ui_signoff：UI 已建（survey-design-editor 等）故 false，但题型编辑器/跳转逻辑/必答与选项配置未探明、[叫 AI 帮我补充题目]/[新增报告章节]为原型待补（空按钮），生成→检测→阻断链路属[设计]。报告章节清单来自 10-report 报告模板。"
     },
     {
@@ -845,7 +813,6 @@
         "pnpm vitest run tests/survey/publish-gate-server-enforced.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（『质量门禁 2 阻断』行内呈现 D-23 存在）+[设计]（服务端强制）。R11 明确两类阻断拆两个 feature、发布闸门作第三个单独验收，但阻断二自身不再拆题目侧/章节侧（共用一张映射表拆开会只查一侧）。覆盖 uc-12-2 V1-V6,V19d。needs_ui_signoff：UI 已建（survey-panel-design）门禁行内呈现存在故 false。编辑期只提示发布期变阻断两处共用同一套判定实现（不得编辑期说没问题发布期才报错）。"
     },
     {
@@ -873,7 +840,6 @@
         "pnpm vitest run tests/survey/file-first-responses-schema-pair.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（[催未交14人]/[改触发时机]/[复制为新问卷] D-23 存在，此前『真缺』判定推翻）+[Backlog]+[D-03 术语三分]。覆盖 uc-12-2 V7-V18,V19a-V19c,V20-V24。needs_ui_signoff：未交名单明细未探明、客户侧单列与催办历史为原型确认缺失（工作台屏无对应视图）须补画。议程环节=D-03 三套同名概念之一，绑定落议程环节稳定标识（改档 7↔11↔14↔19 能判断绑定是否仍成立）。file-first：responses.csv+schema.json 必须成对、schema 绑问卷版本、anchor 用 surveyQuestionId。O-40：phase-1 只支持中国内地手机号、非手机号走邮箱邀请+观察者。"
     },
     {
@@ -900,7 +866,6 @@
         "pnpm vitest run tests/survey/strong-evidence-5-distinct-respondent.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [Backlog]（切分/候选挂样本量/<8 不可推断）+[已裁决 O-16]。覆盖 uc-12-3 V1-V9,V13,V18-V21。needs_ui_signoff：切分器/样本量标注/『不可推断』标记/AI 候选区/确认入库为原型确认缺失（回收与分析屏只渲染到主题聚合层，proto-09 明写这些未渲染）须补画。O-16：最小聚合样本量=8 与 D-16 跨组织共用一个可配阈值（全仓唯一门槛）；强证据下限=独立受访者 5 人（作用于普遍性措辞）；8 与 5 两个不同用途不合并。分析读物化文件对（responses.csv+schema.json）不扫业务表、走 Context API。"
     },
     {
@@ -925,7 +890,6 @@
         "pnpm vitest run tests/survey/skill-queue-push-status-not-lie.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": false,
       "notes": "依据 [原型]（参与者反馈块+已推送到 Skill 改进队列，成果沉淀→审计与反馈完整存在）+[已裁决 O-37]。覆盖 uc-12-3 V10,V11,V12,V12a,V12b,V22。本用例是 O-37 满意度/成本口径的权威定义处（02-tpl/03-skill/20-model 引用不各写）：蓝本满意度=复盘 1-5 分均值带样本量、skill 满意度 min 样本 10、改进浮现阈值 3 条相似👎、成本单价可配价目表 CNY 手工维护。数值待产品确认但『低于最小样本量不显示百分比只显示样本不足』『任何分数带样本量』先定下（结构性断言）。API 可验故 needs_ui_signoff=false。"
     },
     {
@@ -951,7 +915,6 @@
         "pnpm vitest run tests/survey/vote-flow-back-node-report.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（VT 派发卡+组员参与计数+报告角标三处存在）+[Backlog]（60 秒倒计时/未投者所在模块）+[设计]（回流）。覆盖 uc-12-4 V1-V16。needs_ui_signoff：投票进行中屏与结果屏整屏未渲染（proto-06 明列移动端投票屏未探明），题干/选项/倒计时/参与计数/分布/写入图谱指示全属 Backlog 须补抽取。可锚已有 survey-vote-new/survey-vote-timer/survey-vote-notvoted/survey-vote-started testid。必须实现为图谱派发链路一个工作类型（与 F17 共用派发回流契约、不做孤立现场小工具）。"
     },
     {
@@ -976,7 +939,6 @@
         "pnpm vitest run tests/deliv/suspected-conclusion-not-in-ledger.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（候选决策分区+签署前可回听+疑似结论单列 完整存在，此前『真缺』作废）+[设计]（回听禁用门控）。R11 明确『回听门控』是两价值核心之一须独立成 feature 有独立验收（是独立拒绝路径）。覆盖 uc-13-1 V1,V2,V5,V11,V12。needs_ui_signoff：13-deliv 界面尚未在 apps/web 建（brief 明列）；回听播放器形态+授权过期态文案需补确认。O-31：回听失败态与『回听不可用→禁用签署』联动为原型确认缺失。录音过期删除后回听降级为明示说明不静默死链。"
     },
     {
@@ -1001,7 +963,6 @@
         "pnpm vitest run tests/deliv/sign-immutable-o31-hash.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（授权两态运行态文案+有效期至 8/31+疑似结论单列）+[设计]（矩阵抽象）+[已裁决 O-31]。R11 明确『授权矩阵』是两价值核心之一须独立成 feature。覆盖 uc-13-1 V3,V4,V6,V7,V8,V9,V10,V12。needs_ui_signoff：签署授权配置面为原型确认缺失（项目设置六子标签无此页）、过期态从未渲染。O-31 phase-1/2 仅产品内留痕不接 CA/电子签名法体系、界面避免『法律效力』措辞。签署授权与角色正交（角色决定看得见/授权决定签得了）。依赖 F41 验收闸门（依据须先验收才有证据资格）。"
     },
     {
@@ -1026,7 +987,6 @@
         "pnpm vitest run tests/deliv/returned-version-readonly-snapshot.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（审计流水版本类事件『退回 v1 转只读快照』『v1 退回理由已归档不可覆盖』完整存在）+[D-31 正名『输出物』非『产出槽』不新增字段]+[设计]（版本链落点）。R11 明确『产出状态机不可变性』是两价值核心之一须独立成 feature、四条不可变规则应有专门拒绝路径测试。覆盖 uc-13-2 V2-V5,V13。needs_ui_signoff：产出物列表页存在可签但组长 [提交本组产出] 流程与 [审阅并交付] 后验收清单屏未探明、13-deliv 界面未在 apps/web 建。file-first：提交/退回/锁定各版都在 22-files 可见可下载。"
     },
     {
@@ -1051,7 +1011,6 @@
         "pnpm vitest run tests/deliv/submit-accept-separation.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（前置检查『4/4 组已提交且无退回中』+审计版本类事件完整存在）+[D-31]+[设计]（提交/验收分离）。覆盖 uc-13-2 V1,V6,V10,V15。needs_ui_signoff：逐件验收面板与 v1↔v2 逐分区对比视图为设计补全、[审阅并交付]后验收清单屏未探明、界面未在 apps/web 建。⚠ uc-0-1 的『不做版本并排比较』指 Studio 侧定版，产出物验收侧逐分区对比属本用例范围两者不冲突。验收口径本场覆盖不回写蓝本。被 F39/F42/F44 依赖。"
     },
     {
@@ -1076,7 +1035,6 @@
         "pnpm vitest run tests/deliv/writeback-brain-accept-gate.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（『验收后才成为可被决策引用的证据』+写回组织大脑『节点+31 决策+3』）+[D-e]。R11 明确『证据资格门控』是两价值核心之一须独立成 feature。覆盖 uc-13-2 V7,V9,V11。⚠ D-e：本用例写回闸门=验收·作用对象=项目产出物，与 F18（uc-9-5 写回闸门=组长确认·作用对象=现场图谱节点）不是同一条规则、不得合并同一校验入口。定版是必要非充分条件（须经验收）。needs_ui_signoff：界面未在 apps/web 建。依赖 F46 快照绑定门禁链、F41 验收。"
     },
     {
@@ -1102,7 +1060,6 @@
         "pnpm vitest run tests/deliv/outcome-summary-consistency.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（行动项跟踪 11 项只读列表+成果去向+假设状态+看板来源徽标+回写底注完整存在）+[D-39/D-27]。R11 明确 D-39 负责人恒为人服务端校验须单独成 feature 有独立拒绝路径验收（不能只做前端下拉）。覆盖 uc-13-3 V1-V14。needs_ui_signoff：新建/编辑行动项表单与到期升级提醒界面为已探明区确认缺失（『无责任人不允许保存』『升级提醒项目经理』无处落地）须补画、界面未在 apps/web 建。行动项与 11-board 是同一条数据两视图。owner=人校验复用 F02 同一套。"
     },
     {
@@ -1128,7 +1085,6 @@
         "pnpm vitest run tests/deliv/reserved-opinion-per-item-confirm-o30.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（发布范围/发布人授权/前置检查/保留意见随结论发布/绑定 v2 五项完整存在，此前『真缺』作废）+[D-40]+[已裁决 O-30]。R11 明确『保留意见双版本渲染』与『必须绑定固定快照』是两价值核心须各自成 feature 有独立验收（去署名要内容不丢+署名不出双向断言）。覆盖 uc-13-4 V1-V9,V19-V22。needs_ui_signoff：[预览客户版]空按钮客户版视图整屏未画须补画、界面未在 apps/web 建。O-30：D-40『去署名』=显示去署名正文非只显示条数、逐条人工确认关卡阻断、禁止自动改写、改写留痕、不得改变意见实质。O-30 客户可见过滤规则全局固定不可按项目配置。"
     },
     {
@@ -1152,7 +1108,6 @@
         "pnpm vitest run tests/deliv/promotion-d32-display-only.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（已交付项目卡『决策 6·晋升 2』『被引用 14 次』『横向借用 3 次』）+[D-32]。覆盖 uc-13-4 V15-V18。needs_ui_signoff：三组计数具体排布与下钻行为未探明（点开『被引用 14 次』能否看是哪 14 处）、界面未在 apps/web 建。横向借用=未经组织层直接借用标『未沉淀』是需被看见的欠账、不得并入『被引用』粉饰。晋升口径 D-32 判定与写入属 14-brain(phase-03)、本用例只读展示不判定。"
     },
     {
@@ -1178,7 +1133,6 @@
         "pnpm vitest run tests/deliv/reference-fixed-no-drift.test.ts"
       ],
       "evidence": "",
-      "needs_ui_signoff": true,
       "notes": "依据 [原型]（三绑定点分布各屏）+[设计]（门禁链/绑定固定性），引用 uc-0-1 唯一定义不重复定义（表述差异一律以 uc-0-1 为准）。R11 明确『门禁链拒绝路径』是价值核心须单独成 feature 有独立验收（价值全在拒绝上）。覆盖 uc-13-5 V1-V11。⚠ 与 phase-00 F05 快照不可变是同一套不可变语义两侧：F05 交付存储机制(SHA-256/不可变版本)、本 feature 交付 13-deliv 交付业务规则(三绑定点+四段门禁链)，不在两处各建一套快照表也不重复计点（D-30 引用指向 uc-0-1 三模式绑定已实现）。绑定必存 artifact_version_id 而非 artifact_id。10-report/09-kg/14-brain 引用资格判定复用本契约门禁链。本用例无独立界面表现分布 13-deliv 各屏，needs_ui_signoff 随各屏。"
     }
   ]

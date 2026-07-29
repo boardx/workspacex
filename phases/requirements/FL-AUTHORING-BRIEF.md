@@ -23,7 +23,7 @@
 `spec_ref`（`<相对路径>.md#R<n>`，**必须真实存在且该 `## R<n>` 章节可匹配**）/
 `depends_on`（分片内）/ `depends_on_note`（跨分片，字符串描述）/ `points` / `status`（一律 `not_started`）/
 `owner`（`null`）/ `verification`（**可执行命令数组**）/ `evidence`（`[]`）/
-`needs_ui_signoff` / `notes`（依据等级、被合并的 UC、已知风险）/
+`notes`（依据等级、被合并的 UC、已知风险）/
 `priority`（1=本阶段必做，2=可延后）/ `area`（模块前缀，如 `auth`）/ `capability`（`CAP-API` / `CAP-UI` / `CAP-WEB`）。
 
 ## 三、⚠ 与旧版 requirement-author 规格不同的一点：**现在可以写 UI 断言了**
@@ -61,7 +61,9 @@
 **未探明**（没点进去看过，补抽取即可）/ **原型待补**（按钮在、点了没屏，补接线）/
 **原型确认缺失**（枚举完毕确认不存在，**必须补画整屏且卡 sign-off**）。
 
-凡主要依据是 `[Backlog]` / `[设计]` / `原型确认缺失` 的，`needs_ui_signoff: true` 并在 notes 写明依据等级。
+凡主要依据是 `[Backlog]` / `[设计]` / `原型确认缺失` 的，在 notes 写明依据等级并单列出来。
+⚠ 不再有 `needs_ui_signoff` 字段（ADR-023 删除）：它全仓只被打印、没有任何门控读，
+反而让人以为有关卡。UI 是否被人类确认，权威在束级 `contracts/<bundle>/ui.md` + `design-signoff.md`。
 
 ## 五、必须读的裁决文件（按此顺序）
 
@@ -145,5 +147,5 @@ UC 头部有 `估点`。feature 的点数 = 它覆盖的 UC 片段之和。
 2. 每条 `verification` 是可执行命令；UI 断言锚的 testid **确实存在于代码里**
 3. 没有任何 feature 的 status 不是 `not_started`
 4. 分片内 `depends_on` 无环
-5. 主要依据为 `[Backlog]`/`[设计]`/`原型确认缺失` 的都标了 `needs_ui_signoff`
+5. 主要依据为 `[Backlog]`/`[设计]`/`原型确认缺失` 的都在 notes 写明了依据等级
 6. 估点合计与 UC 头部声明对得上（差异写进 notes）

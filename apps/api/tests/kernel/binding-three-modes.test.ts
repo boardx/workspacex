@@ -341,7 +341,7 @@ describe("live follows the source, pinned does not -- asserted against the same 
   async function seedArtifactSecondVersion(artifactId: string): Promise<number> {
     const { pinVersion } = await import("../../src/application/artifact/pin-version");
     const r = await pinVersion(
-      { store: h.store, repo: h.deps.artifacts, ids: h.ids },
+      { store: h.store, repo: h.deps.artifacts, ids: h.ids, provenance: h.provenance },
       {
         orgId: org(), artifactId, expectedHeadVersion: 1,
         source: "conversation", title: "a chat", actorId: AUTHOR,

@@ -23,6 +23,143 @@ import { z } from "zod";
 export const OrgKind = z.enum(["organization", "personal-local"]);
 
 /**
+ * 「本地组织」这件事的**判定规则单源**（F16，2026-07-29 新增）
+ *
+ * ## 为什么必须收敛到契约里
+ * 在此之前，同一条判定至少存在两份实现：
+ *   · `apps/web/lib/identity.ts` 的 `isLocalOrg()` / `selfHostedOnly()`
+ *   · `apps/api/src/domain/identity/model-constraint.ts` 的 `orgKind === "personal-local"`
+ * 两份都自洽，直到有人只改其中一份——本项目已**五次**因此漂移。
+ * 而这一条的漂移代价与前五次不同：它决定的是**数据出不出本机**。
+ *
+ * ⚠ 字面量 `"personal-local"` 在本文件之外**不得再出现**；
+ *   `apps/web/tests/single-source-of-truth.test.ts` 与
+ *   `apps/api/tests/kernel/local-org-invisible-to-admin.test.ts` 分别钉住前后端。
+ */
+export const LOCAL_ORG_KIND = OrgKind.enum["personal-local"];
+
+/** 唯一判定入口。传 `Organization`、传裸 kind 都走这里，不许自己比字符串。 */
+export function isLocalOrgKind(kind: string | null | undefined): boolean {
+  return kind === LOCAL_ORG_KIND;
+}
+
+/**
+ * 本地组织的三条硬隔离 —— **产品承诺，不是配置项**（uc-0-5 R7）
+ *
+ * 结构化而不是三句散文：界面要逐条列（顶栏说明条 / 本地组织屏），
+ * 后端要按 `id` 报出「是哪一条被触犯了」。散文做不到后者，于是后端会另编一套码，
+ * 那就是第二份副本。
+ */
+export const LOCAL_ORG_GUARANTEES = [
+  // ⚠ 字段名是 `statement` 而不是 `text`。理由不是风格：mock 生成器会为 `text: z.string()`
+  // 产出样例值 `"text-1"`，而 `apps/web/scripts/lint-design.sh` 的字号档位规则扫的正是
+  // `text-<数字>`——于是一条完全正确的契约会让前端的设计门控变红。
+  // 改门控是错的（它扫的东西没错，只是撞名），改字段名是对的。
+  {
+    id: "local-model-only",
+    statement: "模型调用只走本地 / 自托管端点，云端模型在此不可选",
+  },
+  {
+    id: "no-mcp-egress",
+    statement: "禁止任何 MCP 出网调用",
+  },
+  {
+    id: "no-shared-storage",
+    statement: "数据不出本地部署，不进共享对象存储与跨组织索引",
+  },
+] as const;
+
+export const LocalOrgGuaranteeId = z.enum([
+  "local-model-only", "no-mcp-egress", "no-shared-storage",
+]);
+
+/**
+ * 本地组织路径的失败码 —— **闭集**，与 `PermissionReason` / `AuthReason` 同一性质（F16）。
+ *
+ * ## 为什么不塞进 `PermissionReason`
+ * 那个枚举回答的是「谁被拒绝了、卡在哪一层」。这四条回答的是**别的问题**：
+ * 依赖没起来、端点不在本机、这条路由只服务本地组织、这个组织没配这条能力。
+ * 混进去会让前端拿「无权限态」去渲染一个「依赖失败态」——两者要用户做的事完全不同。
+ *
+ * ⚠ 错误响应体里**只有码**，没有 startupHint 文案。
+ *   指引本身是契约常量（`LOCAL_RUNTIME_STARTUP_HINT`），前端直接读，
+ *   不靠服务端把这句话搬运一趟——搬运就意味着同一句话在两处存在。
+ *   （`getLocalRuntimeStatus` 的 200 响应里带 hint，那是契约描述过的字段，不是异常通道。）
+ */
+export const LocalOrgReason = z.enum([
+  "LOCAL_ORG_ONLY",
+  "CAPABILITY_NOT_FOUND",
+  "CLOUD_MODEL_FORBIDDEN",
+  "LOCAL_RUNTIME_UNAVAILABLE",
+]);
+
+/**
+ * 本地组织的对象存储键前缀（硬隔离③的**可断言形式**）
+ *
+ * 「数据不进共享对象存储」若只写成一句承诺，是查不了的。写成键前缀之后它有了两道门控：
+ * 迁移 0012 的触发器（数据库层，挡住所有写入者）与 `local-org-zero-egress` 的断言。
+ *
+ * ⚠ 前缀本身不是隔离，**部署把这个前缀映射到本机卷**才是。
+ *   契约能保证的是「本地组织的对象一定落在这个前缀下、且这个前缀下只有本地组织的对象」，
+ *   于是「哪些字节不许出本机」变成一个可以指着说的集合，而不是一句形容词。
+ */
+export const LOCAL_ORG_STORAGE_PREFIX = "local/";
+
+export function localObjectKeyPrefix(orgId: string): string {
+  return `${LOCAL_ORG_STORAGE_PREFIX}${orgId}/`;
+}
+
+/**
+ * 一个模型 / MCP 端点算不算「没出本机」—— **判定单源**。
+ *
+ * 后端的出网守卫、能力清单的云端置灰、界面的文案，三处用的必须是同一个函数。
+ * 这条如果各写各的，会出现「守卫认为是本地、界面标成云端」（或者更糟，反过来）。
+ *
+ * ⚠ 只认回环与 unix socket。局域网地址（10./192.168.）**刻意不算本地**：
+ *   「另一台机器上的自托管模型」对隐私承诺来说已经是出本机了——
+ *   承诺的字面是「不出本机」，不是「不出内网」。
+ *   有多机自托管需求的客户走正式组织 + `modelPolicy: "self-hosted-only"`（F15），
+ *   那是**策略**，可以按部署放宽；承诺不行。
+ */
+export function isLocalModelEndpoint(endpoint: string | null | undefined): boolean {
+  if (!endpoint) return false;
+  if (endpoint.startsWith("unix:")) return true;
+  let host: string;
+  try {
+    host = new URL(endpoint).hostname;
+  } catch {
+    return false;
+  }
+  // URL 会把 IPv6 主机名裹在方括号里
+  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
+  return h === "localhost" || h === "::1" || h === "127.0.0.1" || /^127\./.test(h);
+}
+
+/**
+ * 云端能力在本地组织里被禁用的原因文案 —— **整行禁用并注明原因，不是隐藏**（uc-0-5 R8）。
+ *
+ * 藏起来读作「产品做不到这件事」，而真相是「这个组织不允许」。两者会把用户带去完全不同的地方。
+ */
+export function localOrgCloudDisabledReason(endpoint: string | null): string {
+  return (
+    `本地组织的产品承诺：${LOCAL_ORG_GUARANTEES[0].statement}。` +
+    `该条目的端点${endpoint ? `（${endpoint}）` : ""}不在本机，故整行禁用。` +
+    `这不是管理员配置，任何接口都改不动它。`
+  );
+}
+
+/**
+ * 本地运行时起不来时给用户的启动指引 —— **单源**。
+ *
+ * 后端在 `LOCAL_RUNTIME_UNAVAILABLE` 里带上它，界面直接渲染。
+ * 界面另写一份的后果不是「文案不一致」这么轻：真正的失效模式是**界面替用户猜原因**，
+ * 然后猜出一句「稍后重试」，而正确动作是去把本地运行时起起来。
+ */
+export const LOCAL_RUNTIME_STARTUP_HINT =
+  "本地推理运行时未就绪。请在本机启动它（默认端点 http://127.0.0.1:11434），" +
+  "确认后重试。⚠ 系统不会替你改用云端模型——那会违反本地组织的产品承诺。";
+
+/**
  * ⚠ 仅**正式组织**有意义。本地组织的「只走本地」是不可关闭的产品承诺，
  * 由 `kind === "personal-local"` 直接推出，**不读此字段**（domain I-10）。
  * 用同一个可写字段表示会让「承诺」退化成「默认值」。
@@ -146,6 +283,30 @@ export const CapabilityListing = z.object({
   name: z.string(),
   scope: VisibilityScope,
   enabled: z.boolean(),
+  /**
+   * 端点 —— **2026-07-29 修订，F16 实现时被迫补上的契约缺陷**。
+   *
+   * F15 的实现记录里写着：「**没有任何字段能区分云端模型与自建模型**，于是
+   * modelPolicy=self-hosted-only 时服务端根本无从判断该把哪些模型行置灰」，
+   * 并且**刻意没有自行发明字段**。F16 的 user_visible_behavior 第三句
+   * （「本地组织内云端模型整行禁用并注明原因」）撞上同一个洞，绕不过去了。
+   *
+   * ⚠ 补的是 `endpoint`（端点本身）而**不是** `endpointKind: "cloud" | "self-hosted"`。
+   *   后者是一个可以与事实不符的标签：一条写着 `self-hosted` 却指向 api.example.com
+   *   的记录会让承诺静默失效，而没有任何东西能发现——分类字段的正确性无人守。
+   *   端点是事实，云端与否由 `isLocalModelEndpoint()` **推导**，判定只有一处。
+   *
+   * `null` 表示这类能力没有端点（skill / canvas-template / blueprint）。
+   */
+  endpoint: z.string().nullable(),
+  /**
+   * 为什么这一行是灰的 —— F15 记录的缺陷②，同样在 F16 变成阻塞。
+   *
+   * ⚠ **派生值，不落库**：它是 `enabled=false` 或本地组织承诺的**后果**，
+   *   不是管理员填的字段。落库会立刻产生第二份事实（库里写着一个原因、
+   *   规则推出另一个原因），且没人能保证两者一致。
+   */
+  disabledReason: z.string().nullable(),
 }).strict();
 
 /**
@@ -172,6 +333,12 @@ export const CapabilityAddPayload = z
     scope: VisibilityScope,
     /** `scope: "team-only"` 时必填。哪个团队拥有它——缺了它,可见性规则无法回答 */
     ownerTeamId: z.string().nullable().optional(),
+    /**
+     * 端点（model / mcp 才有）。见 `CapabilityListing.endpoint` 的修订说明。
+     * 本地组织里只接受 `isLocalModelEndpoint()` 为真的端点——由迁移 0012 的触发器强制，
+     * 应用层无从绕过。
+     */
+    endpoint: z.string().nullable().optional(),
   })
   /**
    * 与 `acl_bindings_team_only_needs_team` 同一条规则,同一个理由:
@@ -422,6 +589,99 @@ export const operations = {
       reason: z.string(),
     }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
+  },
+
+  /**
+   * getLocalOrg —— 「每个人有一个本地组织」的**读取面**（F16 / I-2 / I-3）
+   *
+   * ## 为什么不是 `/identity/me?orgId=<本地组织>`
+   * `resolveIdentity` 回答的是「我在这个组织里是谁」，它的 out 里没有地方放
+   * 三条承诺、成员数、以及「这里没有邀请入口」。而这三样正是本地组织**与众不同**的全部内容，
+   * 塞进 `/identity/me` 会让每个正式组织的响应都带上一组恒为 null 的字段。
+   *
+   * ## 注册即有：这条路由**不创建**任何东西
+   * 创建发生在注册事务里（`EnsurePersonalLocalOrg`，与凭据/正式组织同一个事务）。
+   * 若这里也能创建，那就有了两条创建路径，而 I-2（每人恰好一个）要靠两处各自不出错。
+   */
+  getLocalOrg: {
+    method: "GET", path: "/identity/local-org",
+    in: z.object({}).strict(),
+    out: z.object({
+      org: Organization,
+      /** 逐条列出，界面直接渲染；后端报错时按 id 指名是哪一条 */
+      guarantees: z.array(z.object({
+        id: LocalOrgGuaranteeId, statement: z.string(),
+      }).strict()),
+      /**
+       * ⚠ `z.literal(1)`，不是 `z.number()` —— I-3「本地组织成员数恒为 1」。
+       * 写成 number，一个成员数为 2 的本地组织就是一个**契约描述得出来**的状态，
+       * 于是它只是个 bug；写成 literal，它连表达都表达不出来，
+       * `contract-response.test.ts` 当场红。构建期失败是发现它的正确位置。
+       */
+      memberCount: z.literal(1),
+      /** 恒 false（2026-07-28 裁决：本地组织恒为单人）。界面据此**不渲染邀请入口** */
+      canInvite: z.literal(false),
+      /** 本地组织的对象都落在这个前缀下——「哪些字节不许出本机」的可指认集合 */
+      storagePrefix: z.string(),
+    }).strict(),
+    err: ["NO_ORG_MEMBERSHIP"] as const,
+  },
+
+  /**
+   * getLocalRuntimeStatus —— 本地运行时起没起来（F16 的依赖失败态）
+   *
+   * ⚠ 它的存在本身就是「绝不偷偷改用云端」的一半：**失败必须是用户能看见的一个状态**。
+   *   没有这条路由，界面唯一能表达的失败就是「AI 调用出错了」，
+   *   而那种笼统的错误正是让人去点「换个模型试试」的东西。
+   */
+  getLocalRuntimeStatus: {
+    method: "GET", path: "/identity/local-org/runtime",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z.object({
+      available: z.boolean(),
+      endpoint: z.string(),
+      /** 不可用时非 null。`startupHint` 来自 `LOCAL_RUNTIME_STARTUP_HINT`，前端不另写一份 */
+      failure: z.object({
+        code: z.literal("LOCAL_RUNTIME_UNAVAILABLE"),
+        detail: z.string(),
+        startupHint: z.string(),
+      }).strict().nullable(),
+    }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "LOCAL_ORG_ONLY"] as const,
+  },
+
+  /**
+   * invokeLocalModel —— 本地组织里发起一次模型调用（F16 的 V3 / V5 所断言的那条真实路径）
+   *
+   * ## 为什么 F16 需要一条真的调用路径
+   * 「发起 AI 调用时出网流量为零」这句话，只有存在**一次真实调用**时才能被断言。
+   * 用 `resolveModelConstraint` 去证明它是空转：那个函数返回一个判定对象，
+   * 它当然不出网——F03 已经踩过同型的坑（判定函数绿着、读取路径绕过它）。
+   *
+   * ## 失败模式穷举，且每一条都**不得降级**
+   *   LOCAL_RUNTIME_UNAVAILABLE  本地运行时不可达 → 报错 + 启动指引，**不改用云端**
+   *   CLOUD_MODEL_FORBIDDEN      指名的模型端点不在本机 → 拒绝，**不静默换一个本地模型**
+   *   CAPABILITY_NOT_FOUND       本组织没有配置这个模型（F15：没有内置兜底清单）
+   *   LOCAL_ORG_ONLY             这条路由只服务本地组织；正式组织走各自的模型网关
+   */
+  invokeLocalModel: {
+    method: "POST", path: "/identity/local-org/model-call",
+    in: z.object({
+      orgId: z.string(),
+      /** 指 `CapabilityListing.id`，不是模型名——名字会重、会改 */
+      capabilityId: z.string(),
+      prompt: z.string().min(1),
+    }).strict(),
+    out: z.object({
+      capabilityId: z.string(),
+      /** 实际把请求发去了哪里。⚠ 断言它 `isLocalModelEndpoint()` 为真的是测试，不是自述 */
+      endpoint: z.string(),
+      output: z.string(),
+    }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "LOCAL_ORG_ONLY", "CAPABILITY_NOT_FOUND",
+      "CLOUD_MODEL_FORBIDDEN", "LOCAL_RUNTIME_UNAVAILABLE",
+    ] as const,
   },
 
   previewExport: {

@@ -19,7 +19,7 @@
 | 5 | 能不能现在开工 | 前置依赖 | `depends_on[]` + 各依赖的**实时状态**（passing 与否） |
 | 6 | 在整体里的位置 | 元数据表 | phase / sprint / capability / priority / wave / area |
 | 7 | 按什么流程干活 | 开工流程 | claim → 读上下文 → 实现 → verify 门控 → PR 规范 |
-| 8 | 规则的权威在哪 | 各处链接 | feature_list.json / requirements/ / ui-signoff.md / session-handoff.md / AGENTS.md |
+| 8 | 规则的权威在哪 | 各处链接 | feature_list.json / requirements/ / 所属契约束的 design-signoff.md（ADR-023）/ session-handoff.md / AGENTS.md |
 | 9 | 属于哪个总追踪 Issue | Parent Tracking Issue | roadmap phase 的可选 `tracking_issue` |
 | 10 | 这个任务的 story 出处 | Story | `spec_ref`（2026-07-19 起必填；指回 requirements/ 具体章节，形成需求→feature→issue 闭环） |
 
@@ -59,7 +59,7 @@ https://github.com/<repo>/issues/<tracking_issue>
 > 本 issue 是仓库的只读投影；权威是 feature_list.json（链接）。不一致以仓库为准。
 1. ./init.sh
 2. pnpm harness claim --phase <p> --feature <F> --owner <id>
-3. 读 requirements/、ui-signoff.md、session-handoff.md（均为链接）
+3. 读 requirements/、所属契约束的 design-signoff.md 三节（UI/用例/API 契约）、session-handoff.md（均为链接）
 4. 范围纪律：最小实现、不碰 active-features.json
 5. 逐条跑 verification → 证据落盘 → pnpm harness verify 门控（禁止手改 status）
 6. 分支/PR 规范（Closes #issue）+ 收尾 progress/handoff
