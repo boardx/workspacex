@@ -29,9 +29,10 @@ export function LoginForm({ state }: { state: UiState }) {
   const [orgRequested, setOrgRequested] = React.useState(false);
 
   if (createOrg) {
-    // 邀请码：14 位（AUTH_POLICY 无此项，界面口径固定 14），去掉空格后计数
+    // 邀请码长度从契约取（AUTH_POLICY.inviteCodeLength），去掉空格后计数。
+    // ⚠ 原来这里写死字面量，并在注释里自陈「契约无此项」——那句注释就是一份副本的自白。
     const codeLen = inviteCode.replace(/\s/g, "").length;
-    const codeReady = codeLen === 14;
+    const codeReady = codeLen === AUTH_POLICY.inviteCodeLength;
     return (
       <div className="flex flex-col gap-4" data-testid="login-create-org-panel">
         <button
@@ -79,7 +80,7 @@ export function LoginForm({ state }: { state: UiState }) {
                 />
               </div>
               <p className="text-11 text-muted-foreground">
-                已输入 {codeLen}/14 位{codeReady ? " · 长度符合" : ""}。邀请码由远洋商务发放，一码一组织。
+                已输入 {codeLen}/{AUTH_POLICY.inviteCodeLength} 位{codeReady ? " · 长度符合" : ""}。邀请码由远洋商务发放，一码一组织。
               </p>
             </div>
             <div className="flex flex-col gap-1.5">

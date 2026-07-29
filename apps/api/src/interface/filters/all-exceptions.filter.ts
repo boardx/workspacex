@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { identity } from "@repo/contracts";
+import { auth, identity } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -55,8 +55,24 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
 function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
-  const parsed = identity.PermissionReason.safeParse((body as { reasonCode?: unknown }).reasonCode);
-  return parsed.success ? { reasonCode: parsed.data } : {};
+  const raw = (body as { reasonCode?: unknown }).reasonCode;
+
+  const permission = identity.PermissionReason.safeParse(raw);
+  if (permission.success) return { reasonCode: permission.data };
+
+  // F20/F21: `auth.AuthReason` passes for the same reason and under the same restriction.
+  //
+  // It is a closed enum in `@repo/contracts`, parsed against that enum here, so nothing
+  // outside it reaches a response no matter what an exception carries. The frontend renders
+  // against it directly (the login screen's error copy is per-code).
+  //
+  // ⚠ Two codes appear in BOTH enums (`AUTH_SERVICE_UNAVAILABLE`). That is not a
+  // duplicated fact -- `identity`'s means "the authorization service is unreachable" and
+  // `auth`'s means "the session store is unreachable", and both must reach the client as
+  // "refuse", never as a degraded allow. Ordering matters only in that the first match wins,
+  // and for that code the rendered result is identical either way.
+  const authReason = auth.AuthReason.safeParse(raw);
+  return authReason.success ? { reasonCode: authReason.data } : {};
 }
 
 @Catch()
