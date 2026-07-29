@@ -52,6 +52,12 @@ jobs:
           pnpm --filter api run typecheck
           pnpm --filter api run lint
 
+      # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。
+      # ⚠ 这不是竞态的修法——修法在 tests/support/db.ts 里（并行调用要能容忍抢输）。
+      #   只靠这一步「看起来」也能过，但任何直接跑 vitest 的人又会踩回去。
+      - name: 起 postgres
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+
       - name: 单元与集成测试（含 RLS、两层交集、契约响应校验）
         run: pnpm --filter api exec vitest run
 
