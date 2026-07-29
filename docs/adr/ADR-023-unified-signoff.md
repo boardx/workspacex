@@ -50,6 +50,19 @@
 | ② | **用例（use case）** | 束目录下 `usecases.md` | 用例接口与失败模式穷举对不对 |
 | ③ | **API 契约** | `packages/contracts/src/<bundle>.ts`（zod 单一事实源） | 对外形状与错误码对不对 |
 
+**第 ③ 件对「无对外 HTTP 面」的束怎么落**：`api-kernel` 与 `web-kernel` 两束的
+`coverage.md` / `domain.md` 里已经逐字写着「这个束**没有业务 HTTP API**」——
+它们契约的是**门控与管道**（角色、RLS、错误信封、设计 token、固定 testid），不是路由形状。
+硬要给它们造一个 `packages/contracts/src/api-kernel.ts` 就是为了让门控绿而发明一份空契约。
+
+⇒ 第 ③ 件的可接受形态有两种，**二选一，必须显式**：
+- `packages/contracts/src/<bundle>.ts` 存在；**或**
+- `domain.md` 里显式声明本束无对外 HTTP 面，且 `coverage.md` 的「API 操作」列
+  填**可执行的门控命令**（这正是那两束当前的写法）。
+
+门控据此判定：两者都没有 ⇒ 失败并报出「第 ③ 件缺失」。
+**不接受沉默的第三种情况**——「忘了写契约」和「本来就没有 HTTP 面」在磁盘上必须长得不一样。
+
 签核动作落在**一个文件**：束目录下的 `design-signoff.md`，正文分三节，
 对应上表三件。**不再有 phase 级的独立 `ui-signoff.md` 签核。**
 
