@@ -126,17 +126,22 @@
         "F04"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f05",
       "verification": [
-        "pnpm vitest run tests/kernel/snapshot-immutable-roundtrip.test.ts",
-        "pnpm vitest run tests/kernel/snapshot-concurrent-single-version.test.ts",
-        "pnpm vitest run tests/kernel/snapshot-no-edit-no-delete.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/kernel/snapshot-immutable-roundtrip.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/snapshot-concurrent-single-version.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/snapshot-no-edit-no-delete.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F05.verify.log @ 2026-07-29T07:44:32.232Z",
       "needs_ui_signoff": false,
-      "notes": "『固定快照』在存储层=一条不可变 artifact_version 记录（对象存储 key + SHA-256 + MIME + 版本号），写入后永不覆盖，不是应用层布尔标记。快照不可变 round-trip 是最稳的纯函数/API 断言（写入→改源→断言原版本 SHA-256 不变，对应 R12 V2/V6/V8）。与 13-deliv/uc-13-5 快照绑定契约（3 点）是同一套不可变语义的两侧：本 feature 交付存储机制，13-deliv 交付交付业务规则，不在两处各建一套快照表（overview 5.2）。依据：[原型]（正式产出只绑固定快照、旧版仍被引用是正常的）+[设计]（不可删、纠错只能新增版本）。[待确认] 快照不可删与 180 天材料保留期如何共存（O-01 裁决：不可删对象不受留存期约束，单独走 O-39 法定留存清单，O-39 仍是外部合规输入缺口）——不阻塞实现，标注待细化。"
+      "notes": "『固定快照』在存储层=一条不可变 artifact_version 记录（对象存储 key + SHA-256 + MIME + 版本号），写入后永不覆盖，不是应用层布尔标记。快照不可变 round-trip 是最稳的纯函数/API 断言（写入→改源→断言原版本 SHA-256 不变，对应 R12 V2/V6/V8）。与 13-deliv/uc-13-5 快照绑定契约（3 点）是同一套不可变语义的两侧：本 feature 交付存储机制，13-deliv 交付交付业务规则，不在两处各建一套快照表（overview 5.2）。依据：[原型]（正式产出只绑固定快照、旧版仍被引用是正常的）+[设计]（不可删、纠错只能新增版本）。[待确认] 快照不可删与 180 天材料保留期如何共存（O-01 裁决：不可删对象不受留存期约束，单独走 O-39 法定留存清单，O-39 仍是外部合规输入缺口）——不阻塞实现，标注待细化。 【2026-07-29 实现记录】查出两个**可复现的真 bug**，不是文档问题。① 运行时角色能销毁不可变快照：0006 的 REVOKE UPDATE,DELETE 生效了、而且无关紧要——artifact_versions.artifact_id 的 ON DELETE CASCADE 加上 GRANT DELETE ON artifacts，使 DELETE FROM artifacts 返回 DELETE 1 且版本行随之消失。**级联动作不对子表做权限检查。** F04 全部不可变性测试当时都是绿的。0007 加两个 BEFORE DELETE 触发器修掉。② expectedHeadVersion 是装饰性的：前置检查之后 materializeArtifact 又重读 head 取 head+1，于是竞态输家在 v3 上成功，把自己的快照记成接在一个它作者从未见过的版本之后。实测两次定版拿到 2 和 3。改为预留声明的版本号。③ agent 自查出自己 path-3 那条测试是空转的（第九次）：插入冲突的 v2 会把 head 变成 2，前置检查先触发，唯一索引根本没被走到——把 23505 映射整个删掉它照样绿。已改为只伪造 headVersionNumber。⚠ D-2 在 pinVersion 上复发（in 不含内容、out 承诺 contentHash），同样不出 controller。⚠ 模型里**没有草稿缓冲区**：domain.md 说定版是冻结可变草稿缓冲，0006 没有这样的列，F04 的保存路径直接写版本——「定版冻结当前内容」没有指称对象，这是模型缺口不只是 schema 缺口。⚠ X-4 仍阻塞：O-39 不存在，未加任何删除路径/开关/豁免角色，并有测试断言这个封锁仍在。残留的洞已写明：要销毁一个快照，只能销毁整个组织。"
     },
     {
       "id": "F06",
