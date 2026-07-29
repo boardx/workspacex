@@ -52,6 +52,17 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "它宣告了一种系统不提供、也不该提供的能力。纠错的唯一途径是新增版本（pinVersion）。",
   },
   {
+    pattern: /^DELETE\s+\/artifacts\/bindings/i,
+    why:
+      "artifact A3 / I-11：固定快照绑定不可降级。**删除就是换一种写法的降级**——" +
+      "删掉 pinned 绑定再以 live 重建，项目侧就从「已定版 v1」变回「实时·随源变动」，" +
+      "而所有 UPDATE 侧的断言依旧全绿（这正是 0007 在 artifact_versions 上查到的形状：" +
+      "REVOKE 守住了一扇门，旁边那扇 `DELETE FROM artifacts` 一直开着）。" +
+      "F06 因此在库层同时封了 UPDATE 与 DELETE，并且不提供解绑路由：" +
+      "`usecases.md` 九个用例里没有 unbind，`unbound` 事件类型却已存在——" +
+      "解绑显然被预见到了，但它还没有接口。**先不发明它。**",
+  },
+  {
     pattern: /^(PUT|PATCH|DELETE)\s+\/provenance/i,
     why:
       "provenance_events 是 append-only：无 UPDATE、无 DELETE。" +

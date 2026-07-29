@@ -116,19 +116,37 @@ describe("I-6: every tenant-carrying table is ENABLE + FORCE with a real tenant 
     expect(rows.find((r) => r.table_name === "acl_bindings")?.tenant_column).toBe("org_id");
   });
 
-  it("the only exemption is declared on the table itself", async () => {
+  it("every exemption is declared on the table itself", async () => {
+    // ⚠ This used to read `toEqual(["_kernel_migrations"])`. That is a COUNT assertion, and it
+    // went red when F10 added a second legitimately non-tenant table (`embedding_models`: a
+    // model's identity and dimension are the same fact for every organization, and a per-tenant
+    // copy is one more place for them to disagree). A properly declared exemption failing its
+    // own gate is the shape hard rule 7 warns about -- assert the closed PROPERTY, not the size
+    // of the set.
+    //
+    // The property has not been weakened. What must hold is unchanged and now holds for all of
+    // them: an exemption is a sentence a person wrote on the table, in the form the audit reads,
+    // and it is never merely the absence of a tenant column.
     const rows = await audit();
     const exempt = rows.filter((r) => r.verdict.startsWith("exempt-") && r.runtime_grants > 0);
-    expect(exempt.map((r) => r.table_name)).toEqual(["_kernel_migrations"]);
-    expect(exempt[0]!.verdict).toBe("exempt-declared-no-tenant-data");
-    const comment = await asOwner(async (c) =>
-      (
-        await c.query<{ d: string | null }>("SELECT obj_description('_kernel_migrations'::regclass, 'pg_class') AS d")
-      ).rows[0]!.d,
-    );
-    // The exemption has to be a sentence someone wrote, not an entry in a script that was
-    // edited while trying to make a gate go green.
-    expect(comment).toMatch(/^kernel-no-tenant-data: .+/);
+    expect(exempt.length, "no exemption at all -- this assertion would be vacuous").toBeGreaterThan(0);
+    expect(exempt.map((r) => r.table_name)).toContain("_kernel_migrations");
+
+    for (const r of exempt) {
+      expect(r.verdict, `${r.table_name} is granted to the runtime without a declared exemption`)
+        .toBe("exempt-declared-no-tenant-data");
+      const comment = await asOwner(async (c) =>
+        (
+          await c.query<{ d: string | null }>(
+            "SELECT obj_description($1::regclass, 'pg_class') AS d",
+            [r.table_name],
+          )
+        ).rows[0]!.d,
+      );
+      // The exemption has to be a sentence someone wrote, not an entry in a script that was
+      // edited while trying to make a gate go green.
+      expect(comment, `${r.table_name}`).toMatch(/^kernel-no-tenant-data: .+/);
+    }
   });
 });
 

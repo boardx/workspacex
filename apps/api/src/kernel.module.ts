@@ -51,6 +51,12 @@ import {
 import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-repository";
 import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
+import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
+import { ARTIFACT_REPOSITORY, ID_FACTORY } from "./application/artifact/ports";
+import { BINDING_REPOSITORY } from "./application/artifact/binding-ports";
+import { PgArtifactRepository } from "./infrastructure/artifact/pg-artifact-repository";
+import { PgBindingRepository } from "./infrastructure/artifact/pg-binding-repository";
+import { UuidIdFactory } from "./infrastructure/artifact/uuid-id-factory";
 import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
 import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
@@ -64,6 +70,7 @@ import type { DatabasePort } from "./application/ports/database.port";
     IdentityController,
     ProvenanceController,
     CapabilityController,
+    ArtifactBindingController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -101,6 +108,21 @@ import type { DatabasePort } from "./application/ports/database.port";
     // count is really zero. The path exists end to end so 04-agent reports into it rather
     // than inventing a number for `affectedInFlightCalls` (see the port's note).
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
+    // F06. `ObjectStore` is deliberately NOT provided: no route writes bytes, because the
+    // two operations that would (`saveDraft`, `pinVersion`) still have no request shape
+    // able to carry them (coherence D-2). A provider for a port nothing injects would
+    // suggest otherwise.
+    {
+      provide: ARTIFACT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgArtifactRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: BINDING_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgBindingRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: ID_FACTORY, useClass: UuidIdFactory },
     // Process-local for now. Real session storage arrives with phase-01 01-auth, together
     // with the credential format this kernel deliberately did not decide (UC-0.6 A-3).
     { provide: SESSION_STORE, useClass: InMemorySessionStore },
