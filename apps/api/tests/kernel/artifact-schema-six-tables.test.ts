@@ -88,18 +88,44 @@ describe("the six tables exist, and there is exactly one of each", () => {
     for (const t of [...F04_TABLES, "provenance_events"]) expect(names, `${t} is missing`).toContain(t);
   });
 
-  it("F04 did NOT create a second provenance table", async () => {
+  it("there is exactly ONE audit trail, found by its shape and not by its name", async () => {
     // Coherence X-2 ruled that provenance_events is one table with one query surface shared
     // by the identity and artifact bundles. The failure this guards against is not a wrong
     // name -- it is two audit trails, after which "was that action logged" has two answers.
-    const provenanceish = await asOwner(async (c) => {
+    //
+    // ⚠ Rewritten in F08, and the rewrite makes it STRICTER rather than looser. The previous
+    // version matched `relname LIKE '%provenance%'` and asserted the list was exactly
+    // `['provenance_events']`. That has the failure mode this project keeps finding: a
+    // second trail called `audit_log` or `activity_events` passed it silently, while a
+    // NON-trail whose name happens to contain the word failed it. F08 adds exactly such a
+    // table -- `provenance_notifications` holds `(recipient, event id)` and no event data at
+    // all -- so the guard now looks for the SHAPE of a trail: who did what to which object.
+    const trailShaped = await asOwner(async (c) => {
       const r = await c.query<{ relname: string }>(
-        `SELECT relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = 'public' AND c.relkind = 'r' AND relname LIKE '%provenance%'`,
+        `SELECT c.relname
+           FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relkind = 'r'
+            AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'actor_id')
+            AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'target_kind')
+          ORDER BY 1`,
       );
       return r.rows.map((x) => x.relname);
     });
-    expect(provenanceish).toEqual(["provenance_events"]);
+    expect(trailShaped).toEqual(["provenance_events"]);
+
+    // ...and the notification table cannot become the second trail by accretion: it may
+    // point at an event, it may not describe one.
+    const notificationColumns = await asOwner(async (c) => {
+      const r = await c.query<{ attname: string }>(
+        `SELECT a.attname FROM pg_attribute a
+          WHERE a.attrelid = 'provenance_notifications'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+          ORDER BY 1`,
+      );
+      return r.rows.map((x) => x.attname);
+    });
+    expect(notificationColumns).toEqual([
+      "created_at", "id", "org_id", "provenance_event_id", "recipient_id",
+    ]);
   });
 
   it("granularity reaches Segment -- acl_bindings can name one, and the row is real", async () => {

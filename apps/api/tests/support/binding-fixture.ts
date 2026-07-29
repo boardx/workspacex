@@ -17,6 +17,7 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgArtifactRepository } from "../../src/infrastructure/artifact/pg-artifact-repository";
 import { PgBindingRepository } from "../../src/infrastructure/artifact/pg-binding-repository";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
+import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
 import { materializeArtifact } from "../../src/application/artifact/materialize-artifact";
 import { pinVersion } from "../../src/application/artifact/pin-version";
@@ -53,6 +54,8 @@ export interface Harness {
   readonly store: FsObjectStore;
   readonly ids: SeqIds;
   readonly root: string;
+  /** The real audit trail, exposed so F08's assertions can read what the use cases wrote. */
+  readonly provenance: PgProvenanceRepository;
   close(): Promise<void>;
 }
 
@@ -61,13 +64,17 @@ export async function makeHarness(filePrefix: string): Promise<Harness> {
   const db = new PgDatabase(appConfig());
   const store = new FsObjectStore(root);
   const ids = new SeqIds(filePrefix);
+  // The REAL repository, not a spy. F08's assertions are about rows in `provenance_events`
+  // -- a fake writer would let every one of them pass against a system that audits nothing.
+  const provenance = new PgProvenanceRepository(db);
   const deps: BindingDeps = {
     bindings: new PgBindingRepository(db),
     artifacts: new PgArtifactRepository(db),
     auth: { repo: new PgIdentityRepository(db), ids: new SeqDecisionIds() },
     ids,
+    provenance,
   };
-  return { db, deps, store, ids, root, close: () => db.close() };
+  return { db, deps, store, ids, root, provenance, close: () => db.close() };
 }
 
 export interface SeededArtifact {
@@ -111,7 +118,7 @@ export async function seedArtifact(
 
   for (let n = 1; n < bodies.length; n++) {
     const r = await pinVersion(
-      { store, repo, ids: h.ids },
+      { store, repo, ids: h.ids, provenance: h.provenance },
       {
         orgId: toOrgId(orgId),
         artifactId: first.artifactId,

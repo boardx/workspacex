@@ -49,6 +49,10 @@ import {
 } from "../../domain/artifact/binding-modes";
 import type { OrgId } from "../../domain/org-id";
 import { authorize } from "../identity/authorize";
+import {
+  recordBackflow,
+  recordUnauthorizedAttempt,
+} from "../provenance/record-audit";
 import type { BindingDeps, BindingRecord, StoredBinding } from "./binding-ports";
 import {
   ArtifactNotFoundError,
@@ -99,7 +103,22 @@ export async function bindToProjectStep(
     action: BIND_ACTION,
   });
   if (!decision.allowed) {
-    throw decision.reasonCode === "PROJECT_ROLE_INSUFFICIENT"
+    const reasonCode =
+      decision.reasonCode === "PROJECT_ROLE_INSUFFICIENT"
+        ? "PROJECT_ROLE_INSUFFICIENT"
+        : "NO_PROJECT_ROLE";
+    // Written BEFORE the existence check runs -- indeed the existence check has not run at
+    // all yet, and that ordering is the anti-enumeration property: the trail records the id
+    // the caller addressed, real or not, so "was this refusal audited" is not an oracle for
+    // "does this artifact exist". Awaited, not fired and forgotten: see record-audit.ts.
+    await recordUnauthorizedAttempt(deps.provenance, {
+      orgId,
+      actorId: userId,
+      target: { kind: "artifact", id: artifactId },
+      action: "bindToProjectStep",
+      reasonCode,
+    });
+    throw reasonCode === "PROJECT_ROLE_INSUFFICIENT"
       ? new ProjectRoleInsufficientError(`${userId} may not bind in ${projectId}`)
       : new NoProjectRoleError(`${userId} has no usable role in ${projectId}`);
   }
@@ -116,10 +135,18 @@ export async function bindToProjectStep(
     await bindings.create({
       id, orgId, artifactId, projectId, stepId, mode, pinnedVersionId, createdBy: userId,
     });
+    // AFTER the write, so the trail never claims a bind that did not happen. The opposite
+    // ordering (audit first) is the one that survives a failed write, and a trail with
+    // phantom entries is not a better trail than one with missing entries -- it is the same
+    // defect pointed the other way.
+    await recordBackflow(deps.provenance, {
+      orgId, actorId: userId, artifactId, bindingId: id, projectId, stepId, mode,
+      pinnedVersionId,
+    });
     return { id, artifactId, projectId, stepId, mode, pinnedVersionId };
   }
 
-  return raiseExisting(deps, orgId, existing, mode, pinnedVersionId);
+  return raiseExisting(deps, orgId, userId, existing, mode, pinnedVersionId);
 }
 
 /**
@@ -174,6 +201,7 @@ async function resolvePinnedVersion(
 async function raiseExisting(
   deps: BindingDeps,
   orgId: OrgId,
+  actorId: string,
   existing: StoredBinding,
   mode: BindingModeName,
   pinnedVersionId: string | null,
@@ -185,11 +213,33 @@ async function raiseExisting(
     toVersionId: pinnedVersionId,
   };
   if (!isAllowedTransition(transition)) {
+    // R12 V8: an attempt to modify a fixed snapshot is refused AND recorded. This is the
+    // reachable one -- re-binding a pinned binding as live, or re-pointing it at another
+    // version. The caller had the role; what they lacked was the right, and a security
+    // trail that only holds role failures misses every attack by an insider who has one.
+    await recordUnauthorizedAttempt(deps.provenance, {
+      orgId,
+      actorId,
+      target: { kind: "artifact", id: existing.artifactId },
+      action: "bindToProjectStep",
+      reasonCode: "CANNOT_DOWNGRADE",
+    });
     throw new CannotDowngradeError(
       `binding ${existing.id} is ${existing.mode} and cannot become ${mode} (${classifyTransition(transition)})`,
     );
   }
   await deps.bindings.raiseMode(orgId, existing.id, mode, pinnedVersionId);
+  await recordBackflow(deps.provenance, {
+    orgId,
+    actorId,
+    artifactId: existing.artifactId,
+    bindingId: existing.id,
+    projectId: existing.projectId,
+    stepId: existing.stepId,
+    mode,
+    pinnedVersionId,
+    previousMode: existing.mode as BindingModeName,
+  });
   return {
     id: existing.id,
     artifactId: existing.artifactId,

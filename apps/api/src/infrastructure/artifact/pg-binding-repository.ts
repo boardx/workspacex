@@ -24,6 +24,7 @@ import type {
   BackflowRow,
   BindingRepository,
   NewBinding,
+  ReferenceSite,
   StoredBinding,
 } from "../../application/artifact/binding-ports";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
@@ -159,6 +160,40 @@ export class PgBindingRepository implements BindingRepository {
         [orgId, artifactId],
       );
       return r.rows.length > 0;
+    });
+  }
+
+  /**
+   * E5's reference sites. `mode = 'pinned'` is in the WHERE and not left to the caller: a
+   * live binding does not cite this version, it resolves to the head, and annotating it
+   * would mark a citation that never rested on the withdrawn bytes.
+   *
+   * Ordered by id so `annotatedReferences` is stable -- an unordered list is one a caller
+   * cannot compare, and comparing it is exactly what a withdrawal review does.
+   */
+  async listPinnedBindingsForVersion(
+    orgId: OrgId,
+    versionId: string,
+  ): Promise<readonly ReferenceSite[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string;
+        project_id: string;
+        step_id: string;
+        created_by: string;
+      }>(
+        `SELECT id, project_id, step_id, created_by
+           FROM artifact_bindings
+          WHERE org_id = $1 AND pinned_version_id = $2 AND mode = 'pinned'
+          ORDER BY id`,
+        [orgId, versionId],
+      );
+      return r.rows.map((row) => ({
+        bindingId: row.id,
+        projectId: row.project_id,
+        stepId: row.step_id,
+        createdBy: row.created_by,
+      }));
     });
   }
 

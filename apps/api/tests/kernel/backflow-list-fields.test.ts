@@ -155,7 +155,7 @@ describe("V3: every row carries mode / version / pinnedBy / pinnedAt, none of th
     const pinnedAtBefore = before.find((r) => r.bindingId === pinned.id)!.pinnedAt;
 
     await pinVersion(
-      { store: h.store, repo: h.deps.artifacts, ids: h.ids },
+      { store: h.store, repo: h.deps.artifacts, ids: h.ids, provenance: h.provenance },
       {
         orgId: org(), artifactId: a.artifactId, expectedHeadVersion: 1,
         source: "conversation", title: "a chat", actorId: "u-second-definer",

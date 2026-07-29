@@ -7,6 +7,9 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgArtifactRepository } from "../../src/infrastructure/artifact/pg-artifact-repository";
+// F08 made the audit trail a REQUIRED dependency of pinVersion: a pin that leaves no
+// record is not a pin this system performs, so it cannot be constructed without one.
+import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
 import { materializeArtifact } from "../../src/application/artifact/materialize-artifact";
 import { pinVersion } from "../../src/application/artifact/pin-version";
@@ -45,6 +48,7 @@ const PROJECT = "proj-f05-immutable";
 let root: string;
 let db: PgDatabase;
 let repo: PgArtifactRepository;
+let provenance: PgProvenanceRepository;
 let store: FsObjectStore;
 
 class SeqIds implements IdFactory {
@@ -60,6 +64,7 @@ beforeAll(async () => {
   await migrateOnce();
   db = new PgDatabase(appConfig());
   repo = new PgArtifactRepository(db);
+  provenance = new PgProvenanceRepository(db);
 });
 
 afterAll(async () => {
@@ -251,7 +256,7 @@ describe("the permitted correction: add a version, never edit one", () => {
     const ids = new SeqIds();
     const v1 = await pinned(ids, "as first pinned\n");
     const v2 = await pinVersion(
-      { store, repo, ids },
+      { store, repo, ids, provenance },
       {
         orgId: toOrgId(ORG), artifactId: v1.artifactId, expectedHeadVersion: 1,
         source: "conversation", title: "a chat", actorId: "u-corrector",

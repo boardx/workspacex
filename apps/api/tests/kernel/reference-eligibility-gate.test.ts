@@ -255,7 +255,7 @@ async function seedArtifactVersionOn(artifactId: string): Promise<string> {
   const { pinVersion } = await import("../../src/application/artifact/pin-version");
   const head = await h.deps.artifacts.headVersionNumber(org(), artifactId);
   const r = await pinVersion(
-    { store: h.store, repo: h.deps.artifacts, ids: h.ids },
+    { store: h.store, repo: h.deps.artifacts, ids: h.ids, provenance: h.provenance },
     {
       orgId: org(), artifactId, expectedHeadVersion: head,
       source: "conversation", title: "a chat", actorId: AUTHOR,

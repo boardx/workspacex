@@ -81,7 +81,12 @@ import { PgBindingRepository } from "./infrastructure/artifact/pg-binding-reposi
 import { PgDownstreamReferenceRepository } from "./infrastructure/artifact/pg-downstream-reference-repository";
 import { UuidIdFactory } from "./infrastructure/artifact/uuid-id-factory";
 import { CONTENT_REPOSITORY } from "./application/identity/content-ports";
-import { PROVENANCE_READER, PROVENANCE_WRITER } from "./application/provenance/ports";
+import {
+  PROVENANCE_READER,
+  PROVENANCE_WRITER,
+  REVIEW_NOTIFIER,
+} from "./application/provenance/ports";
+import { EvidenceWithdrawalController } from "./interface/controllers/evidence-withdrawal.controller";
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
@@ -102,6 +107,7 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     AuthRegistrationController,
     AuthController,
     ArtifactReferenceController,
+    EvidenceWithdrawalController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -133,6 +139,13 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
     },
     {
       provide: PROVENANCE_READER,
+      useExisting: PROVENANCE_WRITER,
+    },
+    // Third view of the same instance (F08). A notice is a pointer into the trail and its
+    // FK says so; a separate provider would be the first step toward a notification store
+    // that can name events which do not exist.
+    {
+      provide: REVIEW_NOTIFIER,
       useExisting: PROVENANCE_WRITER,
     },
     {
