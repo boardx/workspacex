@@ -39,19 +39,48 @@ if (process.env.PGDATABASE === undefined || process.env.PGDATABASE === "") {
   process.env.PGDATABASE = DB;
 }
 
-export function ensureDatabase(): void {
-  execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
-  let ready = false;
-  for (let i = 0; i < 60 && !ready; i++) {
-    try {
-      // Readiness against the SERVER: a per-worker database may not exist yet.
-      execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-U", "postgres"], { stdio: "pipe" });
-      ready = true;
-    } catch {
-      execFileSync("sleep", ["1"]);
-    }
+/** Is the compose postgres container up and accepting connections? */
+function postgresReady(): boolean {
+  try {
+    execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-U", "postgres"], {
+      stdio: "pipe",
+    });
+    return true;
+  } catch {
+    return false;
   }
-  if (!ready) throw new Error("postgres did not become ready");
+}
+
+export function ensureDatabase(): void {
+  // `docker compose up` is NOT safe to call concurrently.
+  //
+  // vitest runs test files in parallel processes and every one of them calls this. When the
+  // container does not exist yet, they all try to create it and eleven of twelve die with
+  // `Conflict. The container name "..." is already in use`.
+  //
+  // This never happens locally, because the container has been up for hours by the time you
+  // run anything -- `up -d` is then a no-op and the race has nothing to race on. It fired on
+  // the very first CI run, on a machine where nothing was running yet. Same shape as the
+  // CREATE DATABASE race fixed earlier: an operation that is idempotent in its *effect* but
+  // not in its *execution*.
+  //
+  // So: check first, and treat losing the create race as success -- the winner's container
+  // is exactly what we wanted. Only a container that never becomes ready is a real failure.
+  if (!postgresReady()) {
+    try {
+      execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
+    } catch (e) {
+      const out = `${(e as { stdout?: string }).stdout ?? ""}${(e as { stderr?: string }).stderr ?? ""}`;
+      // Losing to a concurrent creator is the expected outcome for most callers.
+      if (!/already in use|Conflict/i.test(out)) throw e;
+    }
+    let ready = false;
+    for (let i = 0; i < 60 && !ready; i++) {
+      ready = postgresReady();
+      if (!ready) execFileSync("sleep", ["1"]);
+    }
+    if (!ready) throw new Error("postgres did not become ready");
+  }
   createDatabaseIfMissing();
 }
 
