@@ -349,6 +349,40 @@ export async function addSegment(opts: {
   return { versionId };
 }
 
+/**
+ * Seed one capability listing.
+ *
+ * ⚠ There is no `seedDefaultCapabilities()` and there must never be one. F15's acceptance V1
+ * is that an unconfigured organization is EMPTY, so every test that wants capabilities says
+ * exactly which ones it wants at the call site -- and a test that says nothing gets nothing,
+ * which is the case V1 is about. A convenience helper that seeded "the usual six" would
+ * quietly re-create the built-in list inside the test suite, where nothing scans for it.
+ *
+ * Inserted as the app role under tenant scope, like every other fixture: if a policy's WITH
+ * CHECK were wrong, owner-side inserts would sail through and the tests would rest on data
+ * production could never have written.
+ */
+export async function addCapability(opts: {
+  orgId: string;
+  id: string;
+  kind: "agent" | "skill" | "model" | "mcp" | "canvas-template" | "blueprint";
+  name: string;
+  scope?: "org-wide" | "team-only";
+  ownerTeamId?: string | null;
+  enabled?: boolean;
+}): Promise<void> {
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        opts.id, opts.orgId, opts.kind, opts.name,
+        opts.scope ?? "org-wide", opts.ownerTeamId ?? null, opts.enabled ?? true,
+      ],
+    ),
+  );
+}
+
 export async function addBinding(opts: {
   orgId: string;
   subject: { kind: "user" | "group" | "team"; id: string };

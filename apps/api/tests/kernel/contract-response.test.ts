@@ -155,8 +155,9 @@ describe("every response conforms to the contract's `out` schema", () => {
     }).then((r) => r.json());
     const parsed = C.operations.switchOrganization.out.safeParse(body);
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(body)).toBeNull();
-    // Empty, not a built-in default list -- that is F15's acceptance V1, and shipping a
-    // placeholder now would create exactly the default it forbids.
+    // Empty because this organization has configured nothing -- F15's acceptance V1. The
+    // resolution is real now (F15): the configured direction is asserted in
+    // no-builtin-capability-lists.test.ts, which is what stops "always []" from passing.
     expect((body as { capabilities: unknown[] }).capabilities).toEqual([]);
   });
 });
