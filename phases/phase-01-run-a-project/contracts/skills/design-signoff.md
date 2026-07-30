@@ -2,9 +2,9 @@
 bundle: skills
 phase: "01"
 covers: [F61, F62, F63, F64, F65, F66, F67, F68]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-# status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-# confirmed_by: "yanbin shen"
-# confirmed_at: "2026-07-30T16:50:06+08:00"
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
 
 # 契约束 `skills` 设计签核

@@ -8,9 +8,9 @@ phase: "01"
 #   以及 Q-3 ① 的改名对齐要回头改 phase-00 已合入 main 的代码（F121 3 点）。
 #   这三件在写「8–10 个」那天都还没裁。
 covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128]
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: "" # "yanbin shen"
-confirmed_at: "" #"2026-07-30T16:50:06+08:00"
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
 
 

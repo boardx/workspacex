@@ -5,6 +5,10 @@ import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as auth from "../src/auth";
 import * as project from "../src/project";
+import * as interview from "../src/interview";
+import * as recording from "../src/recording";
+import * as canvas from "../src/canvas";
+import * as chat from "../src/chat";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -28,6 +32,11 @@ import * as project from "../src/project";
  */
 
 const BUNDLES = { identity, artifact, contextPack, auth, project } as const;
+const BUNDLES = {
+  identity, artifact, contextPack, auth,
+  // ── phase-01 束（不加进来 = 这道门对新契约不生效）──
+  interview, recording, canvas, chat,
+} as const;
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {

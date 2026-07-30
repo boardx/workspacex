@@ -13,3 +13,9 @@ export * as omissionReason from "./omission-reason";
 export * as filterAction from "./filter-action";
 export * as provenance from "./provenance";
 export * as thresholds from "./thresholds";
+
+/* ── phase-01 契约束 ─────────────────────────────────────────────── */
+export * as interview from "./interview";
+export * as recording from "./recording";
+export * as canvas from "./canvas";
+export * as chat from "./chat";
