@@ -130,6 +130,8 @@
 | 12 | **多 worktree 共用同一个 postgres 会互踢** | F116 首次全量跑出 77 failed / `Connection terminated unexpectedly`；别人的 `DROP DATABASE … WITH (FORCE)` 踢掉连接 | prompt 里写明：遇到设独有 `WORKSPACEX_DB` 重跑，**不要当成代码缺陷去改代码** |
 | 13 | **迁移序号会撞车** | F116 与 F118 的 notes 都写「下一个可用序号是 0018」 | F116 占 0018；**F118 改 0019**。后续同时派两个带迁移的 feature 时，coordinator 先分号 |
 | 14 | **`verify-rls.sh` 的下限是共享棘轮** | F116 把 8 抬到 29 | 后续任何新增租户表的 feature 都要同步抬数，否则它会红 |
+| 17 | **`git stash` 栈是整个仓库共享的，不是每个 worktree 一个** | F07 的 worker 用 `git stash` 做基线对比，它的 `git stash pop` 弹出并**丢弃了 F48 的 stash 条目**（迁移 + `src/{application,domain}/model/` + 测试 + 两套 fixture）。文件被解到错误的工作树里，恢复到 scratchpad 后人工归还 | worker prompt 必须写明：**不要用 `git stash` 做基线对比**。改用 `git worktree add` 另开一份，或 `git stash create`（只造对象、不入栈）。这是纪律 1/2「共享可写状态」的第四次事故——索引、工作树、**stash 栈**都是全仓共享的 |
+| 18 | **共享开发库会被别的分支的迁移污染** | F07 的用例在 24 个文件里炸 `null value in column "kind"`——`projects.kind` 已被应用到共享库 `workspacex`，而 F07 的分支里没有那条迁移（它是 F116 的 0018） | 每个 worker 用独有的 `WORKSPACEX_DB`。共享库对「分支各自有迁移」的模型天然不成立 |
 | 16 | **并发上限不是「agent 数」，是这台机器** | 13 个 agent 并发时 load average 到 **102**、104 个 vitest 进程；`verify:base` 里大批 `@repo/api` 用例以 **10 秒超时**红掉（单跑全绿），一个 agent 串行重跑被 OOM kill，两个 agent 因此用了 `--no-verify` push | **本机并发上限约 6–8 个 agent**。超过之后 agent 验证不了自己的活 ⇒ 只能 `--no-verify` ⇒ 唯一诚实的检查变成 GitHub CI（它不受本机负载影响）。**加 agent 反而让交付质量下降** |
 | 15 | **签核门控的测试偶发红** | `design-signoff.test.ts:309` 在一次 `verify:base` 里红过（`expected […(4)] to deeply equal []`），单跑 5 次全绿 | 已开独立任务查根因。⚠ `auditSignoff` 是整条签核链**唯一**的判定实现，偶发红/绿 = 这条链在随机放行 |
 
