@@ -1,5 +1,12 @@
 # `project` 束 · 第 ① 件（UI）签核材料
 
+> **截图索引自检**：本文件引用 **19** 张截图，目录 `phases/phase-01-run-a-project/ui-preview/project/`
+> 下实际 **19** 张 png —— **N == M == 19，逐张核对全部存在，无漏引、无死链、索引内无重复列**。
+> （核对口径：以**唯一文件名**计数；第二节为做对比而重复提到的 5 个文件名不重复计入。）
+> 机械复核：`ls ui-preview/project/*.png | xargs -n1 basename | sort -u`
+> 与本文件中 `grep -o '[a-zA-Z0-9._-]*\.png'` 的去重结果应当逐行相等。
+> ⚠ 数字相等**只说明索引不撒谎**，不说明覆盖完整 —— 本域仍缺 3 个屏，见第四节 C 类。
+
 > **材料位置**：`phases/phase-01-run-a-project/ui-preview/project/` —— **19 张真实截图**
 > + `README.md`（截图清单与设计决定）+ `PROTOTYPE-ANSWERS.md`（对着运行态逐条核验 12 条裁决）。
 >
@@ -23,16 +30,16 @@
 
 | 截图 | 状态 / 视角 |
 |---|---|
-| `uc-00-2-overview-default.png` | 默认 · 引导师 |
-| `uc-00-2-overview-loading.png` | 加载态 |
-| `uc-00-2-overview-empty.png` | 空态（引导「套蓝本或从空白开始」，**不伪造结构**） |
-| `uc-00-2-overview-invalid.png` | 校验失败态 |
-| `uc-00-2-overview-dep-failed.png` | 依赖失败态（含重试；**不得把失败呈现为空列表**） |
-| `uc-00-2-overview-denied.png` | 无权限态（说明是**项目层**限制，不只显示「无权限」） |
-| `uc-00-2-overview-success.png` | 成功态 |
-| `uc-00-2-overview-groupLead.png` | **组长视角** |
-| `uc-00-2-overview-member.png` | **组员视角** |
-| `uc-00-2-overview-observer.png` | **观察者视角** |
+| `ui-preview/project/uc-00-2-overview-default.png` | 默认 · 引导师 |
+| `ui-preview/project/uc-00-2-overview-loading.png` | 加载态 |
+| `ui-preview/project/uc-00-2-overview-empty.png` | 空态（引导「套蓝本或从空白开始」，**不伪造结构**） |
+| `ui-preview/project/uc-00-2-overview-invalid.png` | 校验失败态 |
+| `ui-preview/project/uc-00-2-overview-dep-failed.png` | 依赖失败态（含重试；**不得把失败呈现为空列表**） |
+| `ui-preview/project/uc-00-2-overview-denied.png` | 无权限态（说明是**项目层**限制，不只显示「无权限」） |
+| `ui-preview/project/uc-00-2-overview-success.png` | 成功态 |
+| `ui-preview/project/uc-00-2-overview-groupLead.png` | **组长视角** |
+| `ui-preview/project/uc-00-2-overview-member.png` | **组员视角** |
+| `ui-preview/project/uc-00-2-overview-observer.png` | **观察者视角** |
 
 > 七态说明：7 个标签共享一个中区 `StateShell`，故七态在概览抓一套即代表全屏机制；
 > 换任意标签 `?state=X` 都会命中同一套保留 testid（本域是**整区级**降级，不是分区级）。
@@ -41,15 +48,15 @@
 
 | 截图 | 屏 · 状态 / 视角 |
 |---|---|
-| `uc-00-2-research-default.png` | 研究洞察 · 默认 |
-| `uc-2-2-prep-default.png` | 项目筹备 · 默认（定题 + 四组 + **议程环节三角色分工表**） |
-| `uc-5-1-live-default.png` | 现场协作 · 默认 · 引导师（主持台 + 四组并行 + 「需要介入」） |
-| `uc-5-1-live-observer.png` | 现场协作 · **观察者**（原始引述换成脱敏占位，介入/听组按钮全隐藏） |
-| `uc-00-3-results-default.png` | 成果沉淀 · 默认 · 引导师（结论 + 假设状态 + 成果去向 + 发布结论 + 候选决策 + 审计） |
-| `uc-00-3-results-observer.png` | 成果沉淀 · **观察者**（发布区与候选决策区**整块隐藏**） |
-| `uc-11-1-todo-default.png` | 待办 · 默认（四列看板 + 卡片来源徽标） |
-| `uc-11-1-todo-observer.png` | 待办 · **观察者**（新建/加卡隐藏，卡片不可拖） |
-| `uc-2-2-settings-default.png` | 设置 · 默认（六块 + 参与者与邀请 + AI 权限开关 + 产出与留存） |
+| `ui-preview/project/uc-00-2-research-default.png` | 研究洞察 · 默认 |
+| `ui-preview/project/uc-2-2-prep-default.png` | 项目筹备 · 默认（定题 + 四组 + **议程环节三角色分工表**） |
+| `ui-preview/project/uc-5-1-live-default.png` | 现场协作 · 默认 · 引导师（主持台 + 四组并行 + 「需要介入」） |
+| `ui-preview/project/uc-5-1-live-observer.png` | 现场协作 · **观察者**（原始引述换成脱敏占位，介入/听组按钮全隐藏） |
+| `ui-preview/project/uc-00-3-results-default.png` | 成果沉淀 · 默认 · 引导师（结论 + 假设状态 + 成果去向 + 发布结论 + 候选决策 + 审计） |
+| `ui-preview/project/uc-00-3-results-observer.png` | 成果沉淀 · **观察者**（发布区与候选决策区**整块隐藏**） |
+| `ui-preview/project/uc-11-1-todo-default.png` | 待办 · 默认（四列看板 + 卡片来源徽标） |
+| `ui-preview/project/uc-11-1-todo-observer.png` | 待办 · **观察者**（新建/加卡隐藏，卡片不可拖） |
+| `ui-preview/project/uc-2-2-settings-default.png` | 设置 · 默认（六块 + 参与者与邀请 + AI 权限开关 + 产出与留存） |
 
 **合计 19 张。**
 
@@ -68,14 +75,14 @@
 ## 二、签核时**重点核对的 3 处**（来自原型作者的建议，本文只转指针）
 
 1. **四视角是不是真的改变了界面**（不是换个文案）——
-   对比 `uc-5-1-live-default.png` vs `uc-5-1-live-observer.png`、
-   `uc-00-3-results-default.png` vs `uc-00-3-results-observer.png`：
+   对比 `ui-preview/project/uc-5-1-live-default.png` vs `ui-preview/project/uc-5-1-live-observer.png`、
+   `ui-preview/project/uc-00-3-results-default.png` vs `ui-preview/project/uc-00-3-results-observer.png`：
    观察者的原始引述、发布区、签署区应**消失**而非变灰。
    ⚠ 这与 `domain.md` I-P11「`observer` 动作集合**恰好** `["read.published"]`」是同一件事的两侧：
    **服务端不下发**，不是前端隐藏。
-2. **Q-12 的父子项目**（`uc-2-2-prep-default.png` 顶部「已套用蓝本」区 +
+2. **Q-12 的父子项目**（`ui-preview/project/uc-2-2-prep-default.png` 顶部「已套用蓝本」区 +
    `PROTOTYPE-ANSWERS.md` Q-12）——**它决定整个 project 实体的形状，也决定 itv 的范围模型。**
-3. **危险动作的二次确认**（`uc-00-3-results-default.png` 的「发布结论」→ 确认框列影响范围）——
+3. **危险动作的二次确认**（`ui-preview/project/uc-00-3-results-default.png` 的「发布结论」→ 确认框列影响范围）——
    确认「发布 = 绑定确定版本 + 影响范围 + 不可静默撤回」这套话术是否符合合规预期。
 
 ---

@@ -1,13 +1,30 @@
 # 契约束 `templates` — 签核① UI：人看到的界面对不对
 
-> # ⚠ 截图待 ui-prototyper 产出后补 —— 在此之前第 ① 件**不具备签核条件**
+> **自检（可机械核对）：本文件引用 24 张截图，目录下实际 24 张。**
+> 目录 = `phases/phase-01-run-a-project/ui-preview/tpl/`（`ls *.png | wc -l` 应得 `24`）。
+> 二者相等，且第二节逐张列出、无遗漏无重复。
 >
-> `phases/phase-01-run-a-project/ui-preview/` 下当前只有 **三份 markdown**
-> （`README.md` / `PROTOTYPE-DIGEST.md` / `README-files.md`）与一个 `files/` 目录，
-> **没有任何截图**。本文因此是**骨架**：它把「本束需要哪几块屏、哪些已建成、哪些没建」
-> 写实，并给出约定的截图文件名，供 ui-prototyper 逐块补齐。
+> ⚠ **目录名是 `tpl/`，不是 `templates/`。** 束名叫 `templates`，截图目录叫 `tpl`（跟随能力域代号）。
+> 本文所有截图路径一律写作 `ui-preview/tpl/<文件名>.png`，请勿按束名去 `ui-preview/templates/` 找，那个目录不存在。
 >
-> **人类现在不应该在 `design-signoff.md` 的 ① 节打勾。** 没有截图的 UI 签核是签一张白纸。
+> ⚠ **`ui-preview/project/` 下另有同名前缀的 `uc-2-2-prep-default.png` / `uc-2-2-settings-default.png`，
+> 那是 `project` 束的材料，不归本束索引**（同一事实不得声明在两处）。本束只索引 `ui-preview/tpl/` 下这 24 张。
+
+## 本文现在是什么状态
+
+**截图已产出，第 ① 件具备「可看」的条件，但不具备「全覆盖」的条件。**
+
+- ui-prototyper 已用 `apps/web` 真实组件 + mock 跑出 `/tpl` 预览面，抓了 **24 张真图**（非设计稿），
+  覆盖 UC-2.1 / 2.2 / 2.3 / 2.4 四份用例的七态与四视角。索引见第二节，产出说明见
+  [`ui-preview/tpl/README.md`](../../ui-preview/tpl/README.md)。
+- 但**原先设想的 19 块屏并未被 24 张图全部覆盖**：有 4 项**确认未产出**，另有 6 项虽有图或有壳、
+  其内部/性质仍是缺口。逐条见第三节「第 ① 件材料缺口」。
+- 第一节各屏的「现状」列仍写 **未建**——那说的是**真实产品路由**（`/admin/blueprint`、
+  `/projects/[projectId]/prep` 等）在 `apps/web` 里确实还不存在。**原型落在预览路由 `/tpl` 上，
+  不等于产品路由已建成**，两者不要混读。
+
+**人类可以开始看第 ① 件了，但请带着第三节的缺口清单看**；在缺口被处置（补画 / 补抽取 / 明确豁免）之前，
+勾选 ① 节等于连同这些缺口一起签掉。
 
 ---
 
@@ -17,12 +34,17 @@
 以下每一条都已在仓库里核实（`apps/web/app/projects/`、`apps/web/components/projects/`、
 `apps/web/components/admin/`）。
 
-> ⚠ **2026-07-30 本文写作期间发现 `apps/web/components/tpl/`（`tpl-app.tsx` / `parts.tsx`）
-> 与 `apps/web/lib/mock/tpl.ts` 正在被并行产出，尚未提交、无路由挂载。**
-> 已见 `tpl-nav` / `tpl-screen-switch` / `tpl-role-switch` / `tpl-confirm-impact` /
-> `tpl-confirm-reason` 等 testid，形态像是本束原型的外壳与危险动作确认框。
-> **本文下面的「未建」判定按本次核实时的已提交状态写实**；ui-prototyper 落地并截图后，
-> 请逐块把「现状」列改成真实路由 + 组件路径 + 真实 `data-testid`，**不要凭这段注记直接改成「已建成」**。
+> ⚠ **2026-07-30 更新：`apps/web/app/tpl/page.tsx` ＋ `apps/web/components/tpl/*` ＋
+> `apps/web/lib/mock/tpl.ts` 已落地，本束原型跑在预览路由 `/tpl` 上（屏切换走 `?screen=`，
+> 视角走 `?as=`，七态走 `?state=`），并已产出第二节那 24 张截图。**
+> 元素带 `tpl-*` 系列 `data-testid`（`tpl-nav` / `tpl-screen-switch` / `tpl-role-switch` /
+> `tpl-confirm-impact` / `tpl-confirm-reason` …），七态用保留名 `loading/empty/err-*/denied/dep-failed/saved`。
+>
+> **但下面各屏「现状」列的「未建」判定仍然成立、不要改**：它说的是**产品路由**
+> （`/admin/blueprint`、`/projects/[projectId]/prep`、`/projects/[projectId]/settings/workflow` …）
+> 在 `apps/web` 里不存在。`/tpl` 是**预览面**（`NODE_ENV=production` 下连预览控制条都不渲染），
+> 它证明「界面长什么样已被确定」，不证明「产品里点得到」。
+> 把「有原型截图」读成「已建成」，会让 F18–F30 的验收锚到一个用户走不到的路由上。
 
 ### 1. 蓝本设计器（本束主屏）—— **未建**
 
@@ -157,36 +179,131 @@
 
 ---
 
-## 二、截图清单（待补）
+## 二、截图索引 —— 真实存在的 24 张，逐张对应
 
-ui-prototyper 产出后请按下列文件名存入 `phases/phase-01-run-a-project/ui-preview/`，
-并回到本文把每块屏的「现状」列从「未建」改为真实路由 + 组件路径 + 真实 `data-testid`。
+**这一节不是约定文件名，是目录里真实文件的完整索引。** 路径一律相对仓库根：
+`phases/phase-01-run-a-project/ui-preview/tpl/<文件名>.png`，本节内简写为 `ui-preview/tpl/…`。
+再说一次：**目录名 `tpl/`，不是束名 `templates/`。**
 
-| # | 截图文件名 | 内容 | 服务 feature |
+抓图条件（见 `ui-preview/tpl/README.md`）：`next dev -p 3222`，视口 1360×900，2×，
+真实组件 + mock，**0 条真实控制台报错**；375 / 768 两档 `docOverflow = 0`。
+
+七态一律走共享 `StateShell`（D-36 豁免逐屏设计，见第五节），视角由 `?as=` 投影
+（预览手段，真实权限在服务端 RLS）。下表「态 / 视角」列即截图当时的 `?state=` / `?as=` 取值。
+
+### A. 蓝本设计器 —— UC-2.1（8 张）
+
+| 截图 | 态 / 视角 | 屏上有什么 | 服务 feature |
 |---|---|---|---|
-| 1 | `ui-preview/tpl-blueprint-designer-shell.png` | 设计器外壳：版本条 + 自动保存 + 三动作 + 五组目录 + 完成度侧栏 | F18 |
-| 2 | `ui-preview/tpl-blueprint-designer-tier.png` | 时长档位四档 + `[＋ 档位]` + 半场依据说明 + 换档位确认对话框 | F19 |
-| 3 | `ui-preview/tpl-blueprint-designer-format-lang.png` | 形式三选 + 语言三选 + 「全线上自动 +2 环节」的来源标记 | F19 |
-| 4 | `ui-preview/tpl-blueprint-designer-model-quota.png` | 模型策略三 lane + 配额区（含「现场卡住比多花钱贵。」） | F20 |
-| 5 | `ui-preview/tpl-blueprint-designer-init-preview.png` | 右侧「套用后会初始化什么」六类一览 + 底部不回写提示句 | F21 |
-| 6 | `ui-preview/tpl-blueprint-publish-gate.png` | 发布被拒两态：未试跑 / 必填未完成（含侧栏高亮与直达） | F22 |
-| 7 | `ui-preview/tpl-blueprint-list.png` | 后台项目蓝本列表页：七行元数据 + 行操作 + 页头统计 + 新建三入口 | F30 |
-| 8 | `ui-preview/tpl-blueprint-version-history.png` | 版本历史 + 回滚入口 + 回滚确认（**需补画**） | F30 |
-| 9 | `ui-preview/tpl-blueprint-archive-delete.png` | 删除/归档确认与影响范围提示（「有 N 个项目仍引用此蓝本」）（**需补画**） | F30 |
-| 10 | `ui-preview/tpl-new-project-wizard.png` | 新建项目向导两步：选蓝本 → 选档位 + 预览「将初始化什么」 | F23 |
-| 11 | `ui-preview/tpl-project-prep-tabs.png` | 项目筹备页四子标签（标签名自带计数） | F24 |
-| 12 | `ui-preview/tpl-project-prep-topic.png` | 定题区：主题/背景 + 三个 AI 按钮 + 来源计数 + `[保存并同步到全场]` | F24 |
-| 13 | `ui-preview/tpl-project-prep-grouping.png` | 分组区 + 组卡 + 组状态三态 + 未分组人员 | F25 |
-| 14 | `ui-preview/tpl-project-prep-subjects.png` | 组卡内观察/访谈对象表六列 + `[AI 建议人选]` | F25 |
-| 15 | `ui-preview/tpl-workflow-orchestration.png` | 工作流编排整屏：模板行 + 环节链 + 三角色矩阵 + 模板库 | F26 |
-| 16 | `ui-preview/tpl-matrix-to-tasks.png` | 矩阵格 → 待办的来源徽标与联动（跨到 `/tasks`） | F27 |
-| 17 | `ui-preview/tpl-retro-submit-back.png` | 复盘 → 偏离清单 + 勾选 + 理由输入（⚠ **先补抽取原型**再画） | F29 |
-| 18 | `ui-preview/tpl-pending-changes-inbox.png` | 蓝本侧待审改动收件面 + 同一处多场改动并排（⚠ **确认缺失，需补画**） | F29 |
-| 19 | `ui-preview/tpl-project-card-blueprint-badge.png` | 项目卡上的 `蓝本 … v4`（补 `projects-card-<id>-blueprint` 之后） | F30 |
+| `ui-preview/tpl/uc-2-1-designer-default.png` | default · facilitator | **本屏的全景图（一张长图含原设想 #1–#5 五块）**：版本条 `v4 已发布 · 用过 12 次 · 改动生成 v5` + `草稿自动保存 · 14:52`（无保存按钮）+ 三动作 `[预览参与者视图] [试跑一场] [发布 v5]` + 五组 15 项目录与完成度 `13/15` + 时长档位四档与 `＋ 档位` + 形式三选与语言 + 模型策略与配额 + 六类一览 | F17 F18 F19 F20 F21 |
+| `ui-preview/tpl/uc-2-1-designer-loading.png` | loading | 设计器加载态（skeleton） | F18 |
+| `ui-preview/tpl/uc-2-1-designer-empty.png` | empty | 新建蓝本空态（完成度 0/N，五组目录全空） | F17 F18 |
+| `ui-preview/tpl/uc-2-1-designer-invalid.png` | invalid | 发布门槛校验失败：**必填未完成 与 未试跑 两道门槛画在同一张**（对应原设想 #6 的「两态」，未拆成两张）| F22 |
+| `ui-preview/tpl/uc-2-1-designer-dep-failed.png` | dep-failed | 依赖失败：20-model 模型清单不可用，模型策略区降级 | F20 |
+| `ui-preview/tpl/uc-2-1-designer-denied.png` | denied | 无权限：观察者不可编辑、看不到草稿 | F17 |
+| `ui-preview/tpl/uc-2-1-designer-success.png` | success | 成功态：已发布 v5，旧版归档 | F22 |
+| `ui-preview/tpl/uc-2-1-designer-publish-confirm.png` | 确认框 | **发布二次确认**：两道门槛复述 + 影响范围列举 + D-9「与原型冲突」旗标。演示的是「危险动作统一走 `ConfirmDialog`」这一套（S-14），不是一个孤零零的红按钮 | F22 |
+
+### B. 蓝本列表 / 版本与锁定 —— UC-2.4（6 张）
+
+| 截图 | 态 / 视角 | 屏上有什么 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/tpl/uc-2-4-list-default.png` | default | 后台「项目蓝本」列表：7 行元数据 + 行操作 + 页头统计 + 新建三入口；满意度列按阈值显示「4.6（9 场）」或「样本不足」 | F30 F22 |
+| `ui-preview/tpl/uc-2-4-list-denied.png` | denied | 组织层可见性限制下的无权限态 | F30 |
+| `ui-preview/tpl/uc-2-4-list-archive-confirm.png` | 确认框 | **归档二次确认**：演示「引用计数 > 0 ⇒ 只能归档、不能删除」这条由服务端派生的行操作二分（O-18①），含影响范围「有 N 个项目仍引用此蓝本」 | F30 |
+| `ui-preview/tpl/uc-2-4-versions-default.png` | default | 版本历史 v1–v4 + 版本间差异 + 锁定徽标 + 回滚入口 | F30 |
+| `ui-preview/tpl/uc-2-4-versions-invalid.png` | invalid | 校验失败：回滚到「正被进行中项目使用」的版本被拒，且**列出占用它的项目**（`ROLLBACK_TARGET_IN_USE` 不得只给一句失败） | F30 |
+| `ui-preview/tpl/uc-2-4-versions-rollback-confirm.png` | 确认框 | **回滚二次确认**：演示回滚语义是「新建一个等同旧版的新版本」而非拨指针（O-18②），确认文案里写明 `rolled_back_from`、历史线性、版本号只增不减 | F30 |
+
+### C. 新建向导 / 项目筹备 / 工作流编排 —— UC-2.2（8 张）
+
+| 截图 | 态 / 视角 | 屏上有什么 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/tpl/uc-2-2-apply-default.png` | default（向导第 1 步） | 新建项目向导 · 选蓝本，底部带**「项目侧缺失概念」警示框**（议程环节字段名四方打架：已落库 `stepId` / 已实现动作词 `stage.*` / `uc-2-2` 同文档内 `agenda_stage` 与 `agenda_segment_id`，详见 `ui-preview/tpl/README.md` 第二节 #1） | F23 |
+| `ui-preview/tpl/uc-2-2-apply-step2.png` | default（向导第 2 步） | **分步态**：向导两步流的第二步 —— 选档位 + 预览「套用后会初始化什么」六类。与上一张合起来才是完整的两步流，缺一张读不出「确认后才写入」 | F21 F23 |
+| `ui-preview/tpl/uc-2-2-apply-dep-failed.png` | dep-failed | 快照内核不可用 ⇒ 拦住建项目，避免产生无版本引用的项目 | F23 |
+| `ui-preview/tpl/uc-2-2-prep-default.png` | default · facilitator | 项目筹备页：四子标签（标签名自带计数）+ 定题单点继承 + 分组编排 + 组卡内观察/访谈对象表。**原设想 #11–#14 四条合并在这一张里** | F24 F25 |
+| `ui-preview/tpl/uc-2-2-prep-invalid.png` | invalid | 校验失败：主题超长 + 有组无组长 ⇒ 无法「保存并同步到全场」 | F24 |
+| `ui-preview/tpl/uc-2-2-prep-member.png` | default · **member** | **组员视角投影**：写操作按钮置灰（视角轴 `?as=` 的权限态演示，V14） | F24 F25 |
+| `ui-preview/tpl/uc-2-2-workflow-default.png` | default | 工作流编排：模板层（`已套用 · 来自后台 v2`）+ 议程环节 × 三角色矩阵 + 模板库三行 | F26 F27 |
+| `ui-preview/tpl/uc-2-2-workflow-switch-confirm.png` | 确认框 | **换工作流模板二次确认**：破坏性动作 + 影响范围 + D-11 未定旗标。⚠ 注意这是**换模板**，不是**换时长档位**——换档位的确认框未产出，见第三节 G-3 | F26 |
+
+### D. 提回蓝本 —— UC-2.3（2 张）
+
+| 截图 | 态 / 视角 | 屏上有什么 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/tpl/uc-2-3-promote-default.png` | default · facilitator | 左右两栏一张图：**项目侧偏离清单**（逐项「蓝本原值 → 本场实际值」+ 勾选 + 必填理由 + `[提交回蓝本]` + 「已提交，等待维护者审阅 —— 不是已生效」）与**蓝本侧待审改动收件面**（`3 待审` + 每条来源/时间/基准版本 + `接受/拒绝` + 「只有蓝本维护者能合并」+ **「同一处 2 场提回 · 并排看理由」的并排态**）。原设想 #17 + #18 都在这一张里。⚠ 屏顶自带旗标「整份 UC 不可 sign-off —— 两侧屏一个未探明、一个确认缺失」，见第三节 G-7 / G-8 | F29 |
+| `ui-preview/tpl/uc-2-3-promote-empty.png` | empty | 真实空态：本场照蓝本跑、无偏离（`NO_DEVIATIONS` 不强行凑条目） | F29 |
+
+**合计 24 张，与目录下 `*.png` 实际数量相等。**
 
 ---
 
-## 三、`ui-preview` 现有三份 markdown 里与本束相关的已知缺口
+## 三、第 ① 件材料缺口 —— 原设想 19 条里没被这 24 张覆盖的部分
+
+原先设想的 19 张是**按内容切**的，实际产出是**按屏 × 状态切**的：一张 `designer-default` 长图吞掉了
+原 #1–#5，一张 `prep-default` 吞掉了原 #11–#14。**这不是缺口**，逐条对应关系已写在第二节表里。
+
+**真正的缺口是下面这些。它们没有截图，也不会因为「24 张听起来很多」而消失。**
+
+### 确认未产出（原设想里有、24 张图里没有）
+
+- **G-1** ⚠ 未产出：**矩阵格 → 待办的来源徽标与跨屏联动（原设想 #16 `tpl-matrix-to-tasks`，F27）** —— 该屏尚未画。
+  `workflow-default` 里的矩阵是**静态三行**，`[看任务]` 只弹 toast，**没有跨到 `/tasks` 的那一跳**，
+  来源徽标也未出现。⚠ 这不是「少一张图」而已：F27 的验收断言写的是
+  「3 环节 × 3 角色 = 9 格 ⇒ 恰好 9 条待办」，而**这条 round-trip 界面上一次也没被演示过**，
+  且它的粒度前提（一格是一条还是多条）仍卡在 **D-10 未裁**。签 ① 节不等于签掉了 F27 的联动。
+- **G-2** ⚠ 未产出：**项目卡上的蓝本徽标 `蓝本 … v4`（原设想 #19 `tpl-project-card-blueprint-badge`，F30）** —— 该屏尚未画。
+  原因是它**不在 `/tpl` 预览面里**，属 `/projects` 项目列表（已建成屏）。
+  保留其原始性质：该处**当前没有独立 `data-testid`**，只是 `MetaChips` 里一段用
+  `c.startsWith("蓝本")` 加粗的普通文本，而 `uc-2-4 V1` / `uc-2-1 V8` / `uc-2-2 V3`
+  **三条验收都要断言它** ⇒ 仍**建议补 `projects-card-<id>-blueprint`**（见第一节第 3 块）。
+- **G-3** ⚠ 未产出：**换时长档位的确认对话框与增删演示（原设想 #2 的后半，F19）** —— 该确认框尚未画。
+  `designer-default` 画了四档与 `＋ 档位`，但屏上自己写着「**此处换档位仅重算数字，未演示增删动画与撤销**」，
+  并挂着红色「与原型冲突 · 待裁」旗标。保留其原因：
+  **换档位的「可选自动增删 / 必留只压缩时间」是 Backlog 口径（缺 D-8），原型只说「环节表随之变化」，
+  没有可选/必留之分，也没有压缩时间，回滚语义为纯反推。** 裁决未下之前，这张图**画出来也是错的**——
+  它是**等裁决**，不是等排期。
+- **G-4** ⚠ 未产出：**删除确认框（引用计数 = 0 的那一支，原设想 #9 的后半，F30）** —— 该确认框尚未画。
+  `list-archive-confirm` 只覆盖了**归档**分支（引用数 > 0）。第五节明写「蓝本行操作二分：
+  `[× 删除]`（引用数 = 0）vs `[归档]`（引用数 > 0），**由服务端派生、不是前端隐藏**」——
+  **二分只有一支有图**。另注 `BLUEPRINT_IN_USE` 要求「删除接口不得有任何强制参数可绕过」，
+  这条在界面上同样无从核对。
+
+### 有图或有壳、但性质仍是缺口（不要当作已签）
+
+- **G-5** ⚠ 未产出：**设计器 15 个配置项各自打开后的编辑器面板（二级 sign-off）** —— 面板内部尚未画。
+  保留原因分类：**未探明 ≠ 原型没做**。`designer-default` 里每个「当前项面板」只放了占位旗标
+  （截图上原文：「此项打开后的具体编辑器 —— 二级 sign-off，未探明」）。
+  议程编辑器 / 材料准备 / 会前任务 / Agent 编排 / Skill 绑定 / 输出物验收口径编辑器**均未画**，
+  **补抽取原型之前不得自行设计其内部交互（D-05）**。第 16 项同属此类。
+- **G-6** ⚠ 未产出：**筹备页 `议程` / `材料准备` / `会前任务` 三个子标签的内部** —— 打开后的编辑器尚未画。
+  `prep-default` 只有四子标签的**外壳与计数**，`定题与分组` 是唯一有内容的一个。
+  同属**未探明**：原型里这三个标签打开是什么样，本轮抽取没点开，**不能断言原型没画**。
+- **G-7** ⚠ 性质缺口：**项目侧复盘屏（原设想 #17）虽已出图，但那是补画草案，原型仍未探明。**
+  `promote-default` 左栏画了偏离清单，屏顶自带「未探明」橙旗。原始性质原样保留：
+  **本轮抽取未点开复盘，不能断言原型有没有画偏离清单**，且**复盘属哪个一级标签本身未定**
+  （成果沉淀？设置？独立屏？）⇒ **要补抽取，不是补画**。
+- **G-8** ⚠ 性质缺口：**蓝本侧「待审改动」收件面（原设想 #18）虽已出图，但属「已探明区内确认缺失」的补画草案。**
+  `promote-default` 右栏画了收件面（含并排态），屏上自带蓝旗并写明：
+  **入口挂哪（列表行 / 设计器顶部 / 独立收件箱）、是否有未读角标、通知方式都待定**，
+  且「蓝本维护者」是组织角色还是每份蓝本单独指定的 owner **仍缺 D-1**。
+  ⚠ **G-7 与 G-8 性质不同，不可混为一谈**：一个是「还没去看」，一个是「看过了，没有」。
+  混为一谈会导致要么白等补抽取、要么凭空发明界面。**整份 UC-2.3 因此不可 sign-off。**
+- **G-9** 说明（非缺陷）：**F28 无独立屏**。「不回写蓝本 / 不动后台模板本体」是后端不变量（I-9），
+  界面只能在三处文案里承诺（设计器六类一览底部 / 工作流「改动只影响这场」/ 提回屏「唯一沉淀通道」），
+  **防线本身不可见**，只能靠「接口面扫描结果为空集」这条反向断言守。第 ① 件签不到它。
+- **G-10** ⚠ 未产出：**移动档（375 / 768）截图**。24 张全是 1360 桌面图；两个窄档只跑了溢出探针
+  （`docOverflow = 0` 通过），**未抓图**。且 **`/tpl` 尚未加入 `e2e/responsive.spec.ts` 的 `SCREENS` 列表**
+  （该文件跨 agent 共享，按并行纪律本轮未动），建议合入后补一行 `"/tpl"`。
+
+> **给签核人的一句话**：24 张图能回答「这些屏长什么样」，不能回答
+> G-1（联动没演示过）、G-3 / G-4（危险动作二分只画了一半）、G-5 / G-6（面板内部空白）。
+> 其中 **G-3 与 D-8、G-1 与 D-10 是「等裁决」而非「等排期」**——先补图只会补出一张待返工的图。
+
+---
+
+## 四、`ui-preview` 根目录三份 markdown 里与本束相关的已知缺口
 
 以下 S-xx 条目摘自 `ui-preview/README.md`（它们是「UC 没写、由实现者替 UC 做了的决定」，
 **不是 bug，是缺口被填的位置**）。只摘与本束相关的：
@@ -207,7 +324,7 @@ ui-prototyper 产出后请按下列文件名存入 `phases/phase-01-run-a-projec
 
 ---
 
-## 四、七态豁免（D-36）
+## 五、七态豁免（D-36）
 
 七种必现状态（默认 / 加载 / 空 / 校验失败 / 依赖失败 / 无权限 / 成功）**sign-off 时豁免逐屏设计**，
 按 `.harness/instructions/uiux-standards.md` 的统一规范实现。

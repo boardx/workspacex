@@ -105,11 +105,15 @@ export function newPhase(args: Args): void {
     )
   );
 
-  // UI 相关阶段（--ui）：scaffold UI 先行确认关卡产物（ADR-003）。
+  // UI 相关阶段（--ui）：只 scaffold 截图落点。
+  //
+  // ⚠ 2026-07-30 起**不再产出 phase 级 `ui-signoff.md`**（ADR-023 决策一）：
+  //   UI 签核并入束级 `contracts/<束>/design-signoff.md` 的第 ① 件，材料写在同目录 `ui.md`。
+  //   契约束**不 scaffold 空壳**——束怎么切是设计动作（按能力域），
+  //   建一个空目录只会在 `auditSignoff` 里换来一条「空 covers 的束不成立」的红。
   if (hasUi) {
     mkdirSync(join(dir, "ui-preview"), { recursive: true });
     writeFileSync(join(dir, "ui-preview", ".gitkeep"), "");
-    writeFileSync(join(dir, "ui-signoff.md"), renderTemplateFile("ui-signoff.template.md", vars));
   }
 
   refreshProgress();
@@ -118,9 +122,11 @@ export function newPhase(args: Args): void {
   log.info(`  1. 把原始需求写进 ${join(dir, "requirements")}/（可按领域放多份 *.md）`);
   if (hasUi) {
     log.info(`  2. 【UI 先行】做真实 UI（apps/web + mock，套用 uiux-standards），截图存 ${join(dir, "ui-preview")}/`);
-    log.info(`  3. 填 ${join(dir, "ui-signoff.md")} → 人类工程师核对 → 把 status 改为 confirmed`);
-    log.info(`  4. 调 requirement-author 智能体：读需求 + 已确认 UI → 生成 feature_list.json`);
-    log.info(`  5. pnpm harness new-sprint --phase ${id} --id 01 ...（UI 未 confirmed 会被门控拒绝）`);
+    log.info(`  3. 按能力域切契约束：${join(dir, "contracts")}/<束>/{ui,domain,usecases,coverage,design-signoff}.md`);
+    log.info(`     （ui.md 引用 ui-preview/ 截图；design-signoff.md 的 frontmatter 填 covers: [F01, …]）`);
+    log.info(`  4. 调 requirement-author 智能体：读需求 + 已建成 UI → 生成 feature_list.json`);
+    log.info(`  5. 人类逐束签核 design-signoff.md（① UI ② 用例 ③ API 契约），再签 ${join(dir, "design-coherence.md")}`);
+    log.info(`  6. pnpm harness new-sprint --phase ${id} --id 01 ...（束未签 / has_ui 却零契约束，都会被门控拒绝）`);
   } else {
     log.info(`  2. 调 requirement-author 智能体：读该文件夹全部 *.md → 生成 feature_list.json`);
     log.info(`  3. pnpm harness new-sprint --phase ${id} --id 01 --features F01,F02 ...`);

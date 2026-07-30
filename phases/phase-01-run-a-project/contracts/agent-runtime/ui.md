@@ -1,15 +1,28 @@
 # 契约束 `agent-runtime` — ① UI（签核第一件）
 
-> 🚨 **截图待补：`phases/phase-01-run-a-project/ui-preview/` 下目前只有三份 markdown
-> （`README.md` / `PROTOTYPE-DIGEST.md` / `README-files.md`）与一个 `files/` 子目录，
-> 没有任何 `.png` 截图文件。**
+> ✅ **自检：本文件引用 48 张截图，目录下实际 48 张。**
+> 目录＝`phases/phase-01-run-a-project/ui-preview/agent-runtime/`
+> （`ls *.png | wc -l` → 48，另有一份 `README.md` 说明，不计入）。
+> 两数相等，且下面第三节逐张列出、无重复、无遗漏 —— **不存在死链**。
 >
-> ⇒ **在截图补齐之前，第 ① 件不具备签核条件。**
-> `design-signoff.md` 的 `## ① UI` 一节请留空不勾，等 ui-prototyper 按下面的
-> 「截图清单」产出后再签。②（用例）与 ③（API 契约）两节可以先看。
+> 📸 **截图已产出**（ui-prototyper 用 `apps/web` 真实组件 + mock 跑 `next dev` 抓的，
+> 视口 1360×900 @2×，非设计稿）。材料位置与逐张说明见
+> `ui-preview/agent-runtime/README.md`；本文件第三节是它的**索引 + 与本束屏号的对照**。
+>
+> ⚠ **但截图覆盖的是「净新屏」六块，不是本束全部屏。**
+> 后台三张**列表屏**（模型 / MCP / Agent）与总览屏虽已用真实组件建成、带稳定
+> `data-testid`（见第二节实测表），**本轮没有抓图**；原设想的 11 个文件名**一张都不存在**。
+> 逐条缺口见「三之二、第 ① 件材料缺口」。
+>
+> ⇒ **签核条件：净新屏六块（权限内核 / MCP 安全策略 / 机密路由 / AI 团队编排 / 私聊 / 行为审计）
+> 材料齐备，可签；已建成列表屏只能凭第二节的 `data-testid` 实测表与源码签，无图可看。**
+> 这个差别请在签 `design-signoff.md` 的 `## ① UI` 时明确接受或退回。
 
 > 覆盖 feature：**F48–F60** —— 派生视图，权威是 `design-signoff.md` 的 `covers:`
 > 界面依据：`ui-preview/PROTOTYPE-DIGEST.md` 第八节（后台）、第二节（对话）、第七节（任务）；
+> UI 先行原型（本束净新屏）：`ui-preview/agent-runtime/`（48 张 png + README）
+> ← `apps/web/app/preview/agent-runtime/page.tsx` + `apps/web/components/agent-runtime/*`
+> + `apps/web/lib/mock/agent-runtime.ts`（纯 mock，不接后端）
 > 已建成代码：`apps/web/app/admin/[module]/page.tsx` + `apps/web/components/admin/*`
 
 ---
@@ -26,15 +39,20 @@
 | **S3** | 后台 · Agent 管理 | `/admin/agent` | F55 F56 | **已建成** |
 | **S4** | 后台 · 数据总览（异常待处理 / 越权拦截 / 活动流） | `/admin` | F53 F54 F60 | **已建成** |
 | **S5** | 对话屏 · 本线程的 AI 团队 + 批准卡 + tool-call 明细 | `/chat` | F51 F57 F58 F59 F60 | **已建成**（宿主归 `chat` 束） |
-| **S6** | 项目设置 · **AI 权限三开关** + 工作流编排绑 agent | `/projects/[id]`（设置区） | F58 F59 | **未建** |
-| **S7** | 蓝本设计器 · **第 12 项「Agent 编排」** + 【模型策略】三档 | 蓝本设计器（归 02-tpl） | F50 F57 | **未建** |
-| **S8** | 项目 · 成果沉淀 → **审计与反馈**（四类事件同一条时间线） | `/projects/[id]`（成果沉淀区） | F60 | **未建**（⚠ 原型里**存在**，D-34「已存在，别搬走」；本仓未建） |
-| **S9** | 后台 · **组织级审计检索屏**（按项目/人/时间 + 导出） | `/admin/audit`（建议） | F60 | **未建**（⚠ **原型中就不存在**，D-34 新引入，**需从零补画**） |
-| **S10** | 对话屏 · **与单个 agent 的私聊面板**（右侧滑出） | `/chat`（滑出面板） | F59 | **未建**（⚠ 对话屏已完整探明，**无任何私聊入口**——需从零补画） |
-| **S11** | 主持台 · **AI 团队编排区**（当前载入了谁 / 为什么 / 下一步换谁） | 主持台全场视图 | F57 | **未建**（⚠ 主持台已完整探明，**无此区块**——需从零补画） |
+| **S6** | 项目设置 · **AI 权限三开关** + 工作流编排绑 agent | `/projects/[id]`（设置区） | F58 F59 | **未建**（✅ 三开关已在 `?screen=team` 原型中补画，见 `uc-4-2-team-default.png`；工作流编排绑 agent 仍未画） |
+| **S7** | 蓝本设计器 · **第 12 项「Agent 编排」** + 【模型策略】三档 | 蓝本设计器（归 02-tpl） | F50 F57 | **未建**（❌ **原型也未画**，README §五-3 逐字写「真·未探明，本轮未画」） |
+| **S8** | 项目 · 成果沉淀 → **审计与反馈**（四类事件同一条时间线） | `/projects/[id]`（成果沉淀区） | F60 | **未建**（⚠ 原型里**存在**，D-34「已存在，别搬走」；本仓未建。✅ 四类事件同一时间线已在 `uc-4-4-audit-default.png` 补画） |
+| **S9** | 后台 · **组织级审计检索屏**（按项目/人/时间 + 导出） | `/admin/audit`（建议） | F60 | **未建**（⚠ **原型中就不存在**，D-34 新引入。✅ 已从零补画：`uc-4-4-audit-default.png`（组织管理员可见）/ `uc-4-4-audit-facilitator.png`（其余视角不可见）；多维联动筛选与导出 round-trip 未做，README §五-4） |
+| **S10** | 对话屏 · **与单个 agent 的私聊面板**（右侧滑出） | `/chat`（滑出面板） | F59 | **未建**（⚠ 对话屏已完整探明，**无任何私聊入口**。✅ 已从零整面补画：`uc-4-3-chat-*.png` 九张） |
+| **S11** | 主持台 · **AI 团队编排区**（当前载入了谁 / 为什么 / 下一步换谁） | 主持台全场视图 | F57 | **未建**（⚠ 主持台已完整探明，**无此区块**。✅ 已从零补画：`uc-4-2-team-*.png` 八张） |
 
 **已建成 5 块 / 未建 6 块。** 未建的 6 块里，**S8 是「原型有、本仓没建」，
 S9 / S10 / S11 是「原型里本来就没有」——性质不同，补法也不同**（前者补实现，后者要先补设计）。
+
+⚠ **「未建」列的口径没变 —— 它说的是「生产路由未建」，不是「没设计」。**
+S9 / S10 / S11 三块「要先补设计」的，**设计这一步已由 UI 先行原型完成**
+（`/preview/agent-runtime`，48 张图），签核时看的是那批图；**生产路由仍然未建**，
+实现工作量一点没少。S7 是唯一**连设计都还没有**的一块。
 
 ---
 
@@ -120,28 +138,149 @@ S9 / S10 / S11 是「原型里本来就没有」——性质不同，补法也�
 
 ---
 
-## 三、截图清单（待补）
+## 三、截图索引（真实文件，48 张，逐张核对过）
 
-> 约定文件名放 `phases/phase-01-run-a-project/ui-preview/<slug>.png`。
-> 七态请用预览开关拍：`?state=loading|empty|invalid|dep-failed|denied|success`。
+> 目录：`ui-preview/agent-runtime/`（路径相对 phase 根）。**下表每一行都是磁盘上真实存在的
+> `.png`**，不是约定文件名。原型路由 `/preview/agent-runtime`，三个查询参数：
+> `?screen=`（6 屏）｜`?as=`（视角）｜`?state=`（七态，走共享 `StateShell`）。
+> 逐张的 UC 节次与 feature 归属见 `ui-preview/agent-runtime/README.md` 第一节，本表不重抄。
 
-| # | 文件名 | 拍什么 | 对应屏 |
-|---|---|---|---|
-| 1 | `ui-preview/admin-model.png` | 模型管理列表：两个分组 + 筛选 + 状态 + 行操作 + 两条组说明 | S1 |
-| 2 | `ui-preview/admin-model-test.png` | 五项测试判读面板（**同时暴露缺口 3**：只有勾选，无三选 + 证据） | S1 |
-| 3 | `ui-preview/admin-model-disable.png` | 停用二选一确认框 + 影响范围「N 个进行中的调用」+ 理由必填 | S1 |
-| 4 | `ui-preview/admin-mcp.png` | MCP 五列清单 + `已隔离 · 待安全评审` 行 + **安全策略四开关区** | S2 |
-| 5 | `ui-preview/admin-mcp-tools.png` | 「N 工具」展开的工具清单（白名单编辑器的数据源） | S2 |
-| 6 | `ui-preview/admin-agent.png` | Agent 列表三态（运行中 / 草稿含阻断文案 / 待审核含门禁文案与越权申请数） | S3 |
-| 7 | `ui-preview/admin-agent-definition.png` | `[查看定义]` 六段并列（**暴露缺口 14**：无「数据范围」「最近试跑」两列） | S3 |
-| 8 | `ui-preview/admin-overview-anomaly.png` | 数据总览「异常待处理」两条告警 + `[查看调用链]` 下钻 | S4 |
-| 9 | `ui-preview/chat-approval-confidential.png` | 批准卡「含机密，仅本地模型」+ `[改]` 面板候选收窄 + 调用链 Ava → Ledger | S5 |
+**六屏合计 9 + 5 + 8 + 8 + 9 + 9 = 48 张。**
 
-⚠ 另建议补两张**空态**：`admin-model-empty.png` / `admin-agent-empty.png`——
-原型每屏都填满样例数据、**零空态**，而本束有 6 条验收线索直接考空态
-（20-1 V9、20-2 V11、21-1 V13、21-2 V14、4-1 V12、4-2 V13、4-3 V10、4-4 V15）。
+### 屏 1 · 三层权限 · 工具白名单编辑器（`?screen=permission`，UC-4.1 / UC-21.1）— 9 张
 
-未建的 6 块屏（S6–S11）**无截图可拍**，它们是缺口不是遗漏——见下一节与 `coverage.md` 缺口清单。
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 1 | `ui-preview/agent-runtime/uc-4-1-permission-default.png` | default | 能力维护者 | 三层求交并列三格 + 白名单编辑器；「卡在第 ② 层」高亮 |
+| 2 | `ui-preview/agent-runtime/uc-4-1-permission-cosign.png` | default | 组织管理员 | 会签复选**仅此视角出现** |
+| 3 | `ui-preview/agent-runtime/uc-4-1-permission-tool-whitelist-cosign.png` | default | 组织管理员 | 越权申请逐条裁决弹层（双签闸门） |
+| 4 | `ui-preview/agent-runtime/uc-4-1-permission-loading.png` | loading | 能力维护者 | 七态 U1 |
+| 5 | `ui-preview/agent-runtime/uc-4-1-permission-empty.png` | empty | 能力维护者 | 白名单为空 ＝ 不得发布（对应 S3 的 `admin-agent-definition-blocker`） |
+| 6 | `ui-preview/agent-runtime/uc-4-1-permission-invalid.png` | invalid | 能力维护者 | 越权未会签不得保存 |
+| 7 | `ui-preview/agent-runtime/uc-4-1-permission-dep-failed.png` | dep-failed | 能力维护者 | MCP 网关不可达 |
+| 8 | `ui-preview/agent-runtime/uc-4-1-permission-denied.png` | denied | 引导师 | 只用不配 |
+| 9 | `ui-preview/agent-runtime/uc-4-1-permission-success.png` | success | 能力维护者 | 会签放行、白名单定稿 |
+
+### 屏 2 · MCP 安全策略 · 放行评审（`?screen=mcp-policy`，UC-21.2）— 5 张
+
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 10 | `ui-preview/agent-runtime/uc-21-2-mcp-policy-default.png` | default | 组织管理员 | **安全策略四开关区**（第 3 条只读常开、第 4 条只读常关，带锁形图标）+ 隔离行 |
+| 11 | `ui-preview/agent-runtime/uc-21-2-mcp-review-panel.png` | default | 组织管理员 | 放行评审弹层：结论三选 + 理由 + 授权范围 |
+| 12 | `ui-preview/agent-runtime/uc-21-2-mcp-policy-invalid.png` | invalid | 组织管理员 | 放行未设授权范围 |
+| 13 | `ui-preview/agent-runtime/uc-21-2-mcp-policy-empty.png` | empty | 组织管理员 | 无待评审服务器 |
+| 14 | `ui-preview/agent-runtime/uc-21-2-mcp-policy-denied.png` | denied | 能力维护者 | 策略只读 |
+
+⚠ 屏 2 **没有 loading / dep-failed 两态**（其余五屏都有）。这不是漏列，是原型没拍。
+
+### 屏 3 · 机密数据的模型路由 · 批准卡（`?screen=routing`，UC-20.3 / UC-20.2）— 8 张
+
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 15 | `ui-preview/agent-runtime/uc-20-3-routing-default.png` | default | 引导师 | 批准卡「含机密，仅本地模型」+ 调用链 —— **S-01 / X-3 裁决的界面证据** |
+| 16 | `ui-preview/agent-runtime/uc-20-3-routing-explain.png` | default | 引导师 | 「含机密」可点解释下钻（逐项机密判定依据） |
+| 17 | `ui-preview/agent-runtime/uc-20-3-routing-change-confidential.png` | default | 引导师 | `[改]` 面板：含机密时**只列自托管候选** |
+| 18 | `ui-preview/agent-runtime/uc-20-3-routing-nolocal-fail.png` | dep-failed | 引导师 | **无可用自托管 ⇒ 整屏失败、零逃生口**（本束最重要一态） |
+| 19 | `ui-preview/agent-runtime/uc-20-3-routing-invalid.png` | invalid | 引导师 | 改成闭源被拒 |
+| 20 | `ui-preview/agent-runtime/uc-20-3-routing-dep-failed.png` | dep-failed | 引导师 | 证据平面不可达 |
+| 21 | `ui-preview/agent-runtime/uc-20-3-routing-denied.png` | denied | 观察者 | — |
+| 22 | `ui-preview/agent-runtime/uc-20-3-routing-success.png` | success | 引导师 | 路由到本地 qwen3-32b |
+
+⚠ 屏 3 **没有 loading / empty 两态**。dep-failed 有两张（18 无本地模型 / 20 证据平面不可达），
+是两种不同的依赖失败，不是重复。
+
+### 屏 4 · AI 团队编排 · 主持台（`?screen=team`，UC-4.2）— 8 张
+
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 23 | `ui-preview/agent-runtime/uc-4-2-team-default.png` | default | 引导师 | 编制≠在场双徽标（S-06）+ 因什么载入 + 下一步换谁 + 优先级裁剪 + 改派 + **项目级 AI 权限三开关**（＝S6 的一半） |
+| 24 | `ui-preview/agent-runtime/uc-4-2-team-member.png` | default | 组员 | 改派提示条「存在但不可操作 + `待确认` 徽标」——**界面被迫先呈现一半**，见缺口 ③ |
+| 25 | `ui-preview/agent-runtime/uc-4-2-team-observer.png` | default | 观察者 | 只见在场名单 |
+| 26 | `ui-preview/agent-runtime/uc-4-2-team-loading.png` | loading | 引导师 | — |
+| 27 | `ui-preview/agent-runtime/uc-4-2-team-empty.png` | empty | 引导师 | 无 agent，不自动塞默认 |
+| 28 | `ui-preview/agent-runtime/uc-4-2-team-invalid.png` | invalid | 引导师 | 可见性不覆盖本项目 |
+| 29 | `ui-preview/agent-runtime/uc-4-2-team-dep-failed.png` | dep-failed | 引导师 | 实时通道不可用 → 非实时（对应第二节末尾「非实时标注无 testid」那条存疑） |
+| 30 | `ui-preview/agent-runtime/uc-4-2-team-success.png` | success | 引导师 | 按环节重新载入，原因已记录 |
+
+⚠ 屏 4 **没有 denied 态**（观察者视角第 25 张承担了「看得少」，但没有「完全不可见」那一态）。
+
+### 屏 5 · 与单个 agent 私聊（`?screen=chat`，UC-4.3）— 9 张
+
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 31 | `ui-preview/agent-runtime/uc-4-3-chat-default.png` | default | 引导师 | skill 清单（带版本）+ 常驻「可被审计」告知条 + 转出入口 |
+| 32 | `ui-preview/agent-runtime/uc-4-3-chat-transfer-provenance.png` | default | 引导师 | 转出到主线程 · 出处预览弹层 |
+| 33 | `ui-preview/agent-runtime/uc-4-3-chat-member.png` | default | 组员 | 默认无私聊入口（O-24） |
+| 34 | `ui-preview/agent-runtime/uc-4-3-chat-denied.png` | denied | 观察者 | 无私聊入口 |
+| 35 | `ui-preview/agent-runtime/uc-4-3-chat-loading.png` | loading | 引导师 | — |
+| 36 | `ui-preview/agent-runtime/uc-4-3-chat-empty.png` | empty | 引导师 | 无可私聊 agent |
+| 37 | `ui-preview/agent-runtime/uc-4-3-chat-invalid.png` | invalid | 引导师 | 目标主线程已归档，转出被拒 |
+| 38 | `ui-preview/agent-runtime/uc-4-3-chat-dep-failed.png` | dep-failed | 引导师 | 模型停用 / MCP 隔离 ⇒ 能力受限 |
+| 39 | `ui-preview/agent-runtime/uc-4-3-chat-success.png` | success | 引导师 | 转出带出处，正文未进主线程 |
+
+### 屏 6 · Agent 行为审计（`?screen=audit`，UC-4.4）— 9 张
+
+| # | 文件 | 状态 | 视角 | 拍到了什么 |
+|---:|---|---|---|---|
+| 40 | `ui-preview/agent-runtime/uc-4-4-audit-default.png` | default | 组织管理员 | 四类事件同一条时间线 + 异常限速 + **组织级检索区**（＝S9） |
+| 41 | `ui-preview/agent-runtime/uc-4-4-audit-drill-toolcalls.png` | default | 组织管理员 | tool-call 四要素 + 调用链深度 2 + 采纳与否 + **三层权限快照** |
+| 42 | `ui-preview/agent-runtime/uc-4-4-audit-chain.png` | default | 组织管理员 | 异常调用链下钻（含拦截点，归「授权范围越权」） |
+| 43 | `ui-preview/agent-runtime/uc-4-4-audit-facilitator.png` | default | 引导师 / 项目负责人 | **无组织级检索**，给「切到组织管理员查看」说明而非空白 |
+| 44 | `ui-preview/agent-runtime/uc-4-4-audit-denied.png` | denied | 组长 | 审计屏整体不可见 |
+| 45 | `ui-preview/agent-runtime/uc-4-4-audit-loading.png` | loading | 组织管理员 | — |
+| 46 | `ui-preview/agent-runtime/uc-4-4-audit-empty.png` | empty | 组织管理员 | 无审计事件，**不造示例** |
+| 47 | `ui-preview/agent-runtime/uc-4-4-audit-invalid.png` | invalid | 组织管理员 | 留痕写入失败即调用失败（E2 / AC6） |
+| 48 | `ui-preview/agent-runtime/uc-4-4-audit-success.png` | success | 组织管理员 | 导出 CSV，可复现 |
+
+---
+
+## 三之二、第 ① 件材料缺口 —— 原设想里有、实际没画的
+
+> 本节是**故意显眼**的。上一版本文件按「界面依据」设想了 11 个截图文件名
+> （`ui-preview/admin-*.png` / `chat-approval-confidential.png` 等），
+> 实际产出走的是另一条路线：ui-prototyper 明确**只补净新屏、不重画已建成的列表屏**
+> （`ui-preview/agent-runtime/README.md` 顶部「范围纪律」＋ §五-2）。
+> ⇒ **那 11 个设想文件名一个都不存在，且不会被补**，除非签核时明确要求。
+> 下面逐条列出，签核人必须知道自己**在没有这些图的情况下**签了什么。
+
+**缺口 K = 11 条（设想截图）+ 1 条（整屏未设计）= 12 条。**
+
+### A. 已建成但无截图的四块屏（凭第二节 `data-testid` 实测表与源码签，无图）
+
+- ⚠ 未产出：**模型管理列表**（两个分组 + 筛选 + 状态 + 行操作 + 两条组说明，原设想 `ui-preview/admin-model.png`，S1）—— 该屏尚未画
+- ⚠ 未产出：**五项测试判读面板**（原设想 `ui-preview/admin-model-test.png`，S1；原本要用它暴露 `coverage.md` 缺口 3「只有勾选，无三选 + 证据」）—— 该屏尚未画
+- ⚠ 未产出：**模型停用二选一确认框**（影响范围「N 个进行中的调用」+ 理由必填，原设想 `ui-preview/admin-model-disable.png`，S1）—— 该屏尚未画
+- ⚠ 未产出：**MCP 五列清单 + `已隔离 · 待安全评审` 行**（原设想 `ui-preview/admin-mcp.png`，S2）—— 该屏尚未画。**注意**：同一设想文件名里的「安全策略四开关区」已由第三节第 10 张（`uc-21-2-mcp-policy-default.png`）覆盖，**缺的是清单那半边**
+- ⚠ 未产出：**「N 工具」展开的工具清单**（白名单编辑器的数据源，原设想 `ui-preview/admin-mcp-tools.png`，S2）—— 该屏尚未画
+- ⚠ 未产出：**Agent 列表三态**（运行中 / 草稿含阻断文案 / 待审核含门禁文案与越权申请数，原设想 `ui-preview/admin-agent.png`，S3）—— 该屏尚未画
+- ⚠ 未产出：**`[查看定义]` 六段并列只读视图**（原设想 `ui-preview/admin-agent-definition.png`，S3；原本要用它暴露 `coverage.md` 缺口 14「无『数据范围』『最近试跑』两列」）—— 该屏尚未画
+- ⚠ 未产出：**数据总览「异常待处理」两条告警 + `[查看调用链]` 下钻**（原设想 `ui-preview/admin-overview-anomaly.png`，S4）—— 该屏尚未画。**注意**：调用链下钻的**语义**已由 `uc-4-4-audit-chain.png` 覆盖，但那是审计屏的下钻，**不是 `/admin` 总览屏的**
+- ⚠ 未产出：**`/chat` 宿主屏上的批准卡**（原设想 `ui-preview/chat-approval-confidential.png`，S5）—— 该屏尚未画。**注意**：批准卡本身的三张关键图已由 `uc-20-3-routing-default / -explain / -change-confidential.png` 覆盖，缺的是**它嵌在真实对话流里长什么样**（宿主归 `chat` 束）
+
+### B. 上一版本自己点名"另建议补"的两张空态 —— 也没补
+
+- ⚠ 未产出：**模型管理空态**（原设想 `ui-preview/admin-model-empty.png`）—— 该屏尚未画
+- ⚠ 未产出：**Agent 管理空态**（原设想 `ui-preview/admin-agent-empty.png`）—— 该屏尚未画
+
+⇒ 上一版提出这两张的理由**依然成立且未被消解**：原型每屏都填满样例数据、**零空态**，
+而本束有 8 条验收线索直接考空态（20-1 V9、20-2 V11、21-1 V13、21-2 V14、
+4-1 V12、4-2 V13、4-3 V10、4-4 V15）。净新屏六块里已有 5 张 empty 图
+（第 5 / 13 / 27 / 36 / 46 张），**但它们全在净新屏上，`/admin/*` 三张列表屏的空态一张都没有**。
+
+### C. 连设计都还没有的一块（不是没截图，是没画）
+
+- ⚠ 未产出：**蓝本设计器第 12 项「Agent 编排」配置面板内部**（触发条件编辑器、优先级设置、
+  【模型策略】三档，S7 / F50 F57）—— 该屏尚未画。`ui-preview/agent-runtime/README.md`
+  §二-6 与 §五-3 逐字记为「真·未探明，本轮未画」，且「4 个」到底是 4 条规则还是 4 个 agent
+  **未定**。这一条**不是抓图问题，是设计缺失**，签核时性质与上面 11 条不同。
+
+### D. 净新屏内部缺的七态格子（不是屏缺，是态缺）
+
+- 屏 2（MCP 安全策略）缺 **loading / dep-failed**
+- 屏 3（机密路由）缺 **loading / empty**
+- 屏 4（AI 团队编排）缺 **denied**
+
+⇒ 若某条 verification 要锚 `StateShell` 的这几个保留 testid，**目前没有对应截图作为设计依据**。
 
 ---
 
@@ -205,11 +344,18 @@ S9 / S10 / S11 是「原型里本来就没有」——性质不同，补法也�
 
 ## 五、这一件签核时要看什么
 
-1. **截图到齐了吗** —— 没到齐这一节不能签（本文顶部的红字）。
-2. **已建成的 5 块屏，信息架构对不对** —— 尤其 S3 的三态行（运行中 / 草稿含阻断文案 /
-   待审核含门禁文案与越权申请数）与 S2 的四开关区（第 3 条只读常开、第 4 条只读常关）。
+1. **你接受「净新屏有图、已建成列表屏无图」这个覆盖面吗** —— 第三节的 48 张图真实存在、
+   六屏 × 七态 × 四视角，覆盖权限内核 / MCP 安全策略 / 机密路由 / AI 团队编排 / 私聊 / 行为审计；
+   但 `/admin/model` `/admin/mcp` `/admin/agent` `/admin` 四块**一张图都没有**，
+   只能凭第二节的 `data-testid` 实测表与源码签。**「三之二」列的 12 条缺口就是你要接受或退回的东西。**
+   若不接受，退回项应是缺口 A 的 9 条 + B 的 2 张空态。
+2. **已建成的 5 块屏，信息架构对不对**（**无截图，看第二节实测表 + 跑 `/admin/*` 亲眼看**）——
+   尤其 S3 的三态行（运行中 / 草稿含阻断文案 / 待审核含门禁文案与越权申请数）；
+   S2 的四开关区已有图（第 10 张），可直接看第 3 条只读常开、第 4 条只读常关。
 3. **未建的 6 块屏，缺口性质分清了吗** —— S8 是「原型有本仓没建」（补实现）；
-   **S9 / S10 / S11 是「原型里本来就没有」（要先补设计，再补实现）**。
-   后三块压着约 25 条验收线索，是本束第 ① 件最大的风险。
+   **S9 / S10 / S11 是「原型里本来就没有」（要先补设计，再补实现）**，
+   其中**设计这一步已由 UI 先行原型补上**（S9→第 40/43 张，S10→第 31–39 张，S11→第 23–30 张），
+   **生产路由仍未建**。**S7（蓝本第 12 项「Agent 编排」）是唯一连设计都还没有的一块**——
+   见「三之二」C 节，它压着 F50 / F57 的一部分验收线索，是本束第 ① 件现在最大的风险。
 4. **S-01 / S-06 / S-13 三条实现者替 UC 做的决定，你认可吗** —— 尤其 **S-01**，
    它不是界面问题，是**后端拦截规则**问题。

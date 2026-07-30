@@ -83,7 +83,11 @@ phases/phase-00-shared-kernel/contracts/identity/
 （ADR-003），但**签核动作不再单独发生在 phase 级 `ui-signoff.md`**，
 而是作为 `design-signoff.md` 的第一节被人类确认（ADR-023 决策一）。
 
-现存 phase-01/02/03 的 phase 级 `ui-signoff.md` 在这些阶段建立 `contracts/` 目录时并入束级。
+> ⛔ **phase 级 `ui-signoff.md` 已于 2026-07-30 停用。** `lib/ui-signoff.ts` 与
+> `assertUiSignedOff` 已删除，`new-phase --ui` 不再产出该文件。
+> phase-01/02/03 那三份保留为档案，**改它们的 `status` 不产生任何门控效果**
+> （`design-signoff.test.ts` 有一条测试钉住「harness 可执行代码里不存在任何对它的引用」）。
+> 束级 `design-signoff.md` 是**唯一**的签核门。
 
 #### 支撑材料 `domain.md` —— 最内层，不依赖任何人
 
@@ -206,17 +210,21 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 
 以下三条是 `.harness/scripts/lib/` 里已经在执行、而 ADR-020 / ADR-003 从未写过的：
 
-1. **没有 `contracts/` 目录 ⇒ 整道设计签核门静默放行。**
-   `assertDesignSignedOff` 在 `readBundleSignoffs` 返回空数组时直接 `return`。
+1. **没有契约束 ⇒ 静默放行，但 `has_ui: true` 的阶段除外**（2026-07-30 收口）。
+   `auditSignoff` 在 `readBundleSignoffs` 返回空数组时返回 `applicable: false`。
    理由是不追溯拦住 2026-07-28 之前的阶段；**代价是这成了新阶段的默认逃生口**——
    一个阶段只要不建 `contracts/`，签核门对它等于不存在。
-   ⚠ 触发条件是**有没有 `contracts/` 目录**，**不是 `has_ui`**。ADR-020 正文的 `has_ui`
-   限定词是错的（已在该 ADR 头部标注）。
+   ⚠ **`has_ui: true` 的阶段没有这个逃生口**：零契约束 ⇒ **判失败**，
+   报「本阶段标了 has_ui 却没有契约束，按 ADR-023 它无法被签核；建 contracts/ 或把 has_ui 撤掉」。
+   这条是 ADR-023 决策一落地时补的——撤掉 phase 级 UI 门的同时若不堵这里，
+   phase-02/03 会从「有门」变成「无门」（收敛前 `claim --phase 02` 实测已经放行）。
 2. **feature 必须属于某个束，否则失败。** 不属于任何束**不是「无需签核」而是拒绝**：
    报「`Fxx` 不属于任何契约束 —— 无法确认它的设计被评审过」。
-3. **UI 签核即便 `confirmed` 也可能不放行。** `assertUiSignedOff` 先跑
+3. **束签核即便 `confirmed` 也可能不放行。** `auditSignoff` 的第 ⓪ 条先跑
    `hasRequirementsCoverage`：该阶段 `requirements/` 若没有真实 story 覆盖（全是裸模板），
-   直接拒绝。人类拍板 2026-07-19：**「界面对不对」不能替代「这块界面背后有没有一个真实需求」。**
+   直接拒绝。人类拍板 2026-07-19：**「设计对不对」不能替代「这块设计背后有没有一个真实需求」。**
+   ⚠ 这条原先住在已停用的 `assertUiSignedOff` 里、只管 `has_ui` 阶段；
+   2026-07-30 随门收敛搬到束级，适用面扩到**任何采用契约束流程的阶段**。
 
 ### 阶段一致性复核查什么
 

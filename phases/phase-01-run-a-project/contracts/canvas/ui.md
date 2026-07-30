@@ -1,11 +1,17 @@
 # 契约束 `canvas` — 签核①：UI（人看到的界面对不对）
 
-> 🔴 **截图待 ui-prototyper 产出后补。在此之前第 ① 件不具备签核条件。**
+> **自检：本文件引用 40 张截图，目录下实际 40 张（N == M == 40，无死链、无漏引、无重复引用）。**
+> 核对命令：`ls phases/phase-01-run-a-project/ui-preview/canvas/*.png | wc -l`
+> 与本文件第五节表格行数比对。
 >
-> `phases/phase-01-run-a-project/ui-preview/` 下**目前只有三份 markdown**
-> （`README.md` / `PROTOTYPE-DIGEST.md` / `README-files.md`）和一个 `files/` 目录，
-> **没有任何截图**。本文件因此是**骨架**：它列清楚「本束需要哪几块屏、哪些已建成、
-> 已建成的真实落点是什么、还缺哪些截图」，但**不能代替看图**。
+> ✅ **截图已产出**：`phases/phase-01-run-a-project/ui-preview/canvas/`
+> —— **40 张 png ＋ 一份 `README.md`**（ui-prototyper 的 sign-off 说明，含它替 UC 做的判断）。
+> 原型跑在顶层路由 `/canvas`，一页切**五屏**（`?screen=`）×**四视角**（`?as=`）×**七态**（`?state=`），
+> 真实组件 + mock，非设计稿。第五节是这 40 张的完整索引。
+>
+> 🔴 **但材料不完整**：原设想的 20 条截图里 **9 条没有对应产出**（多为特写/对话框开态），
+> 逐条列在**第五节之后的「第 ① 件材料缺口」**一节。**签核时请先看那一节**——
+> 本文件不为了好看而隐瞒缺口。
 >
 > 覆盖 feature：见 `design-signoff.md` frontmatter `covers:`（权威）。
 > 依据 UC：`uc-7-1` R8 · `uc-7-2` R8 · `uc-7-3` R8（画布屏完整抽取）· `uc-7-4` R8
@@ -18,10 +24,10 @@
 |---|---|---|---|---|
 | **1** | **推演画布**（左栏三区 + 工具条 + 标题区 + 冲突条 + 右栏三区） | `/projects/[projectId]/canvas` | F103 F104 F105 F106 | ✅ **已建成**（⚠ 是 mock 壳，见下） |
 | **2** | **Studio · 原型** | `/studio/prototype` | ⚠ 映射存疑，见下 | ✅ 已建成 |
-| **3** | **后台 → 画布模板**（模板库列表 + 三段发布流程 + 归档确认框 + 12 类白名单开关区） | `/admin/canvas-templates`（**待定**） | F100 F101 | ❌ **未建**——`/admin` 下 7 个模块无一是它 |
-| **4** | **蓝本设计器 · 16 项设计配置的第 9「项目材料」/ 第 10「分组打印素材」/ 第 13「Skill 绑定」** | 未定 | F102 | ❌ **未建**，且原型侧属**未探明**（proto-05/06/08 的未探明清单逐字写着「蓝本 16 项各配置面板」） |
-| **5** | **全场图谱 · 事实关系**（节点三态徽标 + `[批量确认]` + 冲突待判定区） | 未定 | F107 | ❌ **未建**（`/brain` 是组织大脑，不是它） |
-| **6** | **本组小树**（组级图谱） | 未定 | F107 | ❌ **未建**，且原型侧属**未探明**（档案只探明了全场视图） |
+| **3** | **后台 → 画布模板**（模板库列表 + 三段发布流程 + 归档确认框 + 12 类白名单开关区） | `/admin/canvas-templates`（**待定**） | F100 F101 | ⚠ 原判「未建」**已过时**：本轮已由 `/canvas?screen=template-admin` 原创补画（8 张图，第五节） |
+| **4** | **蓝本设计器 · 16 项设计配置的第 9「项目材料」/ 第 10「分组打印素材」/ 第 13「Skill 绑定」** | 未定 | F102 | ⚠ 原判「未建」**已过时**：已由 `/canvas?screen=segment-binding` 原创补画（8 张图）。但**档案侧仍属未探明**（proto-05/06/08 逐字写着「蓝本 16 项各配置面板」未点进去）——画出来的是设计提案，不是抽取结果 |
+| **5** | **全场图谱 · 事实关系**（节点三态徽标 + `[批量确认]` + 冲突待判定区） | 未定 | F107 | ⚠ 原判「未建」**已过时**：已由 `/canvas?screen=backflow` 原创补画（8 张图）。（`/brain` 仍是组织大脑，不是它） |
+| **6** | **本组小树**（组级图谱） | 未定 | F107 | ⚠ 原判「未建」**已过时**：已由 `backflow` 屏的 `member` 视角补画（`uc-7-4-backflow-member.png`）。**档案侧仍属未探明**（只探明全场视图）——原创设计，签核重点 |
 | — | 项目文件浏览器（画布的源码 `.md` 与布局快照在此可见可下载） | `/projects/[projectId]/files` | 消费方，**属 artifact / 22-files 束** | ✅ 已建成（本束只引用，不重复签核） |
 
 ---
@@ -105,7 +111,12 @@
 
 ---
 
-## 四、屏 3–6 · 未建的四块（明确的缺口，不是遗漏）
+## 四、屏 3–6 · 原判「未建」的四块（本轮已补画原型，缺口分析保留）
+
+> ⚠ **本节写于截图产出之前**：当时这四块屏一张都没有。本轮 ui-prototyper 已在 `/canvas`
+> 下把四块全部原创补画并出图（见第五节）。**下表逐条「缺什么 / 为什么非有不可」的分析仍然有效**——
+> 它现在的读法是「补画的这四屏，请对着这张表核对它有没有把该有的东西画出来」，
+> 而不是「这些东西不存在」。未被补画覆盖的条目见「第 ① 件材料缺口」一节。
 
 | 屏 | 缺什么 | 为什么它非有不可 |
 |---|---|---|
@@ -119,34 +130,135 @@
 
 ---
 
-## 五、截图清单（待补 —— ui-prototyper 产出后逐条回填）
+## 五、截图清单 —— 真实产出的 40 张，逐张索引
 
-| # | 约定文件名 | 内容 | 屏 |
+> 全部路径相对 phase 根，即 `phases/phase-01-run-a-project/` 下的 `ui-preview/canvas/*.png`。
+> 五屏 × 八张：七态（`default / loading / empty / invalid / dep-failed / denied / success`）
+> 各一张，第八张是该屏的**关键视角或冲突态**（每屏至少一张非 happy-path）。
+> 视角未标注处为默认 `facilitator`（引导师）。
+> 每张图对应的屏／UC／feature 归属，与 `ui-preview/canvas/README.md` 第一节对照表一致。
+
+### 5.1 `template-admin` 屏 —— 后台画布模板库（UC-7.1 R3 主线 A / R7 / R8 · F101，辅 F100）
+
+对应本文第一节的**屏 3**。F100 无独立屏，其界面落点是模板库的 `key vN` 列
+（`persona v3` / `empathy v4 显示: empathy-map` 等五处 `key≠display_name`），在 `-default` 图里。
+
+| # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 1 | `ui-preview/canvas-main-default.png` | 画布屏默认态（三栏全貌） | 1 |
-| 2 | `ui-preview/canvas-left-panel-states.png` | 左栏三区：四组画布四态 + 本项目画布三态 + skill 两种 runMode | 1 |
-| 3 | `ui-preview/canvas-conflict-bar.png` | 顶部冲突条 + 三出口 + 两侧改动摘要（`?conflict=on`） | 1 |
-| 4 | `ui-preview/canvas-conflict-result.png` | 裁决后：采纳侧生效 + **另一侧已存为版本**的可见证据 | 1 |
-| 5 | `ui-preview/canvas-source-view.png` | `[源码]` 视图 + 「有 N 条语法被忽略」提示（**提示条待建**） | 1 |
-| 6 | `ui-preview/canvas-ai-panel.png` | 右栏「AI 在这张画布上」+ AVA 角标 + `[看改动]` `[回退]` | 1 |
-| 7 | `ui-preview/canvas-ai-rollback-confirm.png` | 回滚二次确认（S-14） | 1 |
-| 8 | `ui-preview/canvas-whitespace-hint.png` | **留白提示条 + `[清一格]`**（待建） | 1 |
-| 9 | `ui-preview/canvas-no-citation-sticky.png` | **「无来源 · 待补」草稿样式**（待建） | 1 |
-| 10 | `ui-preview/canvas-export-rules.png` | 右栏导出规则两条 + `[另存布局快照]` | 1 |
-| 11 | `ui-preview/canvas-readonly.png` | 别组画布只读态（写操作全部禁用） | 1 |
-| 12 | `ui-preview/canvas-empty.png` | 新建画布只有模板骨架与空分区，**零示例便签** | 1 |
-| 13 | `ui-preview/admin-canvas-templates-list.png` | 后台模板库列表（22 个 · 19 已发布 · 2 草稿待审 · 1 已归档） | 3 |
-| 14 | `ui-preview/admin-canvas-template-publish.png` | 三段发布流程（草稿 → 试跑 → 发布） | 3 |
-| 15 | `ui-preview/admin-canvas-template-archive.png` | **归档确认框 + 「有 N 个议程环节仍绑定此模板」** | 3 |
-| 16 | `ui-preview/admin-mermaid-whitelist.png` | 12 类白名单开关（4 组 × 3）+ 常驻说明 | 3 |
-| 17 | `ui-preview/blueprint-segment-binding.png` | 议程环节绑定模板与 skill（含两模板上限提示） | 4 |
-| 18 | `ui-preview/graph-facts-plenary.png` | 全场图谱事实关系（三态徽标 + 来源链 + `[批量确认]`） | 5 |
-| 19 | `ui-preview/graph-conflict-pending.png` | 「冲突待判定」区 + `[上台讨论]` `[标为不确定]`（**不自动择一**） | 5 |
-| 20 | `ui-preview/graph-group-tree.png` | 本组小树 | 6 |
+| 1 | `ui-preview/canvas/uc-7-1-template-admin-default.png` | default · facilitator | 模板库列表全貌 + `key vN` 双列对照 + 三段发布流程说明条 + 底部 12 类 mermaid 白名单开关区 |
+| 2 | `ui-preview/canvas/uc-7-1-template-admin-loading.png` | loading | 列表骨架态 |
+| 3 | `ui-preview/canvas/uc-7-1-template-admin-empty.png` | empty | 一个模板都没有 |
+| 4 | `ui-preview/canvas/uc-7-1-template-admin-invalid.png` | invalid | 校验失败（`err-*`） |
+| 5 | `ui-preview/canvas/uc-7-1-template-admin-dep-failed.png` | dep-failed | 上游依赖不可用 |
+| 6 | `ui-preview/canvas/uc-7-1-template-admin-denied.png` | denied | 无后台权限 |
+| 7 | `ui-preview/canvas/uc-7-1-template-admin-success.png` | success | 发布成功后的落地态（`saved`） |
+| 8 | `ui-preview/canvas/uc-7-1-template-admin-observer.png` | default · **observer** | 观察者只读投影：新建 / 发布 / 归档 / 白名单开关**均不渲染** |
 
-> 七态与角色态用已有预览轴取：`?state=loading|empty|invalid|dep-failed|denied|success` ·
-> `?as=facilitator|groupLead|member|observer`。⚠ 三个预览开关**在生产构建下不可达**，
-> 由 `scripts/verify-prod-gates.sh` 断言——它们不是权限，只是预览手段。
+### 5.2 `segment-binding` 屏 —— 议程环节绑定模板与 skill（UC-7.1 R3 主线 B / R4·E1 / R8 · F102）
+
+对应本文第一节的**屏 4**（蓝本 16 项第 9/10/13）。⚠ 档案侧属**未探明**，此屏是原创设计提案。
+
+| # | 截图 | 状态 / 视角 | 内容 |
+|---|---|---|---|
+| 9 | `ui-preview/canvas/uc-7-1-segment-binding-default.png` | default · facilitator | 环节 ↔ 模板 / skill 绑定面 + 两模板上限计数 `1/2` + 顶部橙色告警条（「议程环节」四名并存，裁决指向 OPEN-QUESTIONS） |
+| 10 | `ui-preview/canvas/uc-7-1-segment-binding-loading.png` | loading | — |
+| 11 | `ui-preview/canvas/uc-7-1-segment-binding-empty.png` | empty | 该环节尚未绑定任何模板 / skill |
+| 12 | `ui-preview/canvas/uc-7-1-segment-binding-invalid.png` | invalid | **绑第三个模板被拒**（两模板上限的拒绝形态） |
+| 13 | `ui-preview/canvas/uc-7-1-segment-binding-dep-failed.png` | dep-failed | — |
+| 14 | `ui-preview/canvas/uc-7-1-segment-binding-denied.png` | denied | — |
+| 15 | `ui-preview/canvas/uc-7-1-segment-binding-success.png` | success | 绑定已保存 |
+| 16 | `ui-preview/canvas/uc-7-1-segment-binding-member.png` | default · **member** | 组员只读——只有引导师能配置绑定 |
+
+### 5.3 `ai-draft` 屏 —— AI 起草留白（UC-7.2 R3 / R7 / R8 · F106）
+
+**本束头号签核对象**：「AI 故意没写完」的表达形态（虚线空位卡「留给现场 · AI 故意没填」+ 分区头 `已填 2/4 · 留 2 格`）。
+原设想的第 8 条（留白提示条 + `[清一格]`）与第 9 条（「无来源 · 待补」草稿样式）**都落在这一屏的 `-default` 图里**，
+不是两张独立特写——这是本文替原清单做的合并判断。
+
+| # | 截图 | 状态 / 视角 | 内容 |
+|---|---|---|---|
+| 17 | `ui-preview/canvas/uc-7-2-ai-draft-default.png` | default · facilitator | 虚线空位卡 + `已填 N/M · 留 K 格` + **留白提示条与 `[清一格]`** + **「无来源 · 待补」灰色虚线草稿样式** + AVA 角标 + `[一键回滚本轮]` |
+| 18 | `ui-preview/canvas/uc-7-2-ai-draft-loading.png` | loading | 起草中 |
+| 19 | `ui-preview/canvas/uc-7-2-ai-draft-empty.png` | empty | 尚未起草 / 回滚后的空态 + `[重新起草]` |
+| 20 | `ui-preview/canvas/uc-7-2-ai-draft-invalid.png` | invalid | — |
+| 21 | `ui-preview/canvas/uc-7-2-ai-draft-dep-failed.png` | dep-failed | Context Pack 取不到（上游 `context-pack` 束不可用） |
+| 22 | `ui-preview/canvas/uc-7-2-ai-draft-denied.png` | denied | — |
+| 23 | `ui-preview/canvas/uc-7-2-ai-draft-success.png` | success | 起草完成、完成度落地 |
+| 24 | `ui-preview/canvas/uc-7-2-ai-draft-observer.png` | default · **observer** | 观察者**看不到原始引述原文** |
+
+### 5.4 `editor` 屏 —— 组内协作画布编辑器（UC-7.3 R3 / R7 / R8 · F103 F104 F105）
+
+对应本文第一节的**屏 1**，复用第二节实测的 `canvas-*` 既有组件（未重画，只接进屏切换）。
+⚠ 该屏画布本体是**静态占位壳**（S-17），核对的是信息架构。
+
+| # | 截图 | 状态 / 视角 | 内容 |
+|---|---|---|---|
+| 25 | `ui-preview/canvas/uc-7-3-editor-default.png` | default · facilitator | **三栏全貌**：左栏三区（各组画布 / 本项目画布 / 环节 skill）+ 工具条 + 画布区 + 右栏（选中对象 / 导出规则两条 / `[另存布局快照]` / 「AI 在这张画布上」+ `[看改动]` `[回退]`） |
+| 26 | `ui-preview/canvas/uc-7-3-editor-loading.png` | loading | — |
+| 27 | `ui-preview/canvas/uc-7-3-editor-empty.png` | empty | **新建画布只有模板骨架与空分区，零示例便签** |
+| 28 | `ui-preview/canvas/uc-7-3-editor-invalid.png` | invalid | — |
+| 29 | `ui-preview/canvas/uc-7-3-editor-dep-failed.png` | dep-failed | — |
+| 30 | `ui-preview/canvas/uc-7-3-editor-denied.png` | denied | 无写权限投影——**兼作原设想第 11 条「别组画布只读、写操作全部禁用」的呈现**（见缺口一节的取舍说明） |
+| 31 | `ui-preview/canvas/uc-7-3-editor-success.png` | success | 已同步 / 已保存（`saved`） |
+| 32 | `ui-preview/canvas/uc-7-3-editor-conflict.png` | **conflict**（`?conflict=on`） | 结构性冲突条常驻横条 + 三出口（`保留文档` / `保留画布` / `并排比较`）+ 两侧改动摘要 |
+
+### 5.5 `backflow` 屏 —— 回流知识图谱（UC-7.4 R3 / R7 / R8 · F107）
+
+对应本文第一节的**屏 5 与屏 6**（全场事实关系 + 本组小树）。
+
+| # | 截图 | 状态 / 视角 | 内容 |
+|---|---|---|---|
+| 33 | `ui-preview/canvas/uc-7-4-backflow-default.png` | default · facilitator | 全场事实关系（节点三态徽标 + 每节点一条来源链「第 3 组 · 研究模块 9 来源 · 12:05 · seg-3#0142」+ **来源链断的 `gn5` 节点「来源链断 · 不得写回」**）+ `[批量确认]` 勾选清单 + 「冲突待判定」红条与 `[上台讨论]` `[标为不确定]` + 推演流水线 `12/36 · 4 场景 × 9 环节` 及底部 `[设计·待确认]` 映射注脚 |
+| 34 | `ui-preview/canvas/uc-7-4-backflow-loading.png` | loading | — |
+| 35 | `ui-preview/canvas/uc-7-4-backflow-empty.png` | empty | 尚无可回流的事实 |
+| 36 | `ui-preview/canvas/uc-7-4-backflow-invalid.png` | invalid | — |
+| 37 | `ui-preview/canvas/uc-7-4-backflow-dep-failed.png` | dep-failed | — |
+| 38 | `ui-preview/canvas/uc-7-4-backflow-denied.png` | denied | **观察者态直接走 denied**（脱敏粒度 UC 未给，见待确认 Q-4） |
+| 39 | `ui-preview/canvas/uc-7-4-backflow-success.png` | success | 组长确认后写回成功 |
+| 40 | `ui-preview/canvas/uc-7-4-backflow-member.png` | default · **member** | **本组小树**：组员只见本组，看不到全场各组来源。⚠ 原创设计（档案只探明全场），签核重点 |
+
+> 七态与角色态由预览轴驱动：`?state=loading|empty|invalid|dep-failed|denied|success` ·
+> `?as=facilitator|groupLead|member|observer` · `?screen=` 五屏 · `?conflict=on`。
+> ⚠ 这些预览开关**在生产构建下不可达**，由 `scripts/verify-prod-gates.sh` 断言——
+> 它们不是权限，只是预览手段；真实权限在服务端 RLS。
+>
+> ⚠ **`groupLead`（组长）视角一张图都没有。** 四视角轴里只截了 facilitator / member / observer。
+> 而本束「只有组长确认才写回大脑」（F107 的价值核心）恰恰是组长视角的事——见缺口一节 G-10。
+
+---
+
+## 五之二、第 ① 件材料缺口（**签核必看**）
+
+> 骨架期原清单列了 20 条约定截图。上一节的 40 张真实图覆盖了其中 11 条；
+> **剩下 9 条没有对应产出**，外加 1 条视角缺口。缺口一律显式列出，不合并、不淡化。
+> 判据：只要「原设想要求的是一张独立特写 / 一个开态对话框」而实际只是被某张全景图**包含**，
+> 就仍记为未产出（全景图上看不清的东西，签核时等于没看见）。
+
+| 缺口 | 原设想条目 | 状态 | 影响 |
+|---|---|---|---|
+| **G-1** | 左栏三区特写：四组画布**四态** + 本项目画布**同步三态** + skill **两种 `runMode`** 同屏陈列 | ⚠ 未产出：`canvas-left-panel-states` 左栏状态陈列特写 —— 该屏尚未画（仅在 `uc-7-3-editor-default.png` 全景里出现单一状态） | 四态 / 三态 / `[运行]` 与 `[已开]` **不可混用**（uc-7-4 R8）这三组枚举的**可辨识性无法核对** |
+| **G-2** | 冲突裁决**之后**：采纳侧生效 + **另一侧已存为版本**的可见证据 | ⚠ 未产出：`canvas-conflict-result` 裁决后态 —— 该屏尚未画（只有裁决**前**的 `uc-7-3-editor-conflict.png`） | `preservedVersionId` 永不为空是 D-09 的价值核心（见 `design-signoff.md` ②）。**「另一侧被存下来了」这件事在界面上目前无证据**，人无法确认自己没丢东西 |
+| **G-3** | `[源码]` 视图特写 + **「有 N 条语法被忽略」**顶部提示 | ⚠ 未产出：`canvas-source-view` 源码视图与白名单忽略提示 —— 该屏尚未画 | uc-7-1 R7 · AC3 的白名单语义（**只关渲染、不关书写、源码原样保留**）**在图上不可核对**；这正是第二节末表「缺一整层规则可见形态」里的一项 |
+| **G-4** | 右栏「AI 在这张画布上」特写：AVA 角标 + 改动列表 + `[看改动]` `[回退]` | ⚠ 未产出：`canvas-ai-panel` 右栏 AI 面板特写 —— 该屏尚未画（仅含于 `uc-7-3-editor-default.png` 全景） | D-10「AI 默认落笔 + 角标 + 可回滚」在**编辑器屏内**的形态看不清（`ai-draft` 屏是另一条路径的形态，不等价） |
+| **G-5** | AI 回滚**二次确认对话框开态**（S-14） | ⚠ 未产出：`canvas-ai-rollback-confirm` 回滚二次确认 —— 该屏尚未画 | S-14 与 D-10「一键回滚」的口径之争（**「一键」是否允许一次二次确认**）**没有图可指**。本束契约按「允许」写，但这是签核要拍的一条 |
+| **G-6** | 右栏导出规则两条 + `[另存布局快照]` 特写 | ⚠ 未产出：`canvas-export-rules` 导出规则特写 —— 该屏尚未画（仅含于 `uc-7-3-editor-default.png` 全景） | D-08 三条硬规则里最易做反的「**坐标不写回**」（warning 边框 + 禁止图标 + 「重开后位置变了不是 bug」）**加重强调的效果无法核对** |
+| **G-7** | **归档确认框开态** + 「有 N 个议程环节仍绑定此模板」 | ⚠ 未产出：`admin-canvas-template-archive` 归档确认对话框 —— 该屏尚未画（`tpladmin-archive-dialog` 组件已实现，但没截开态图） | **O-10 ③ 的显式要求**。这是第四节点名「非有不可」的那一条，也是 `design-signoff.md` ① 单独列出的一条。**当前没有图能证明它长什么样** |
+| **G-8** | 12 类 mermaid 白名单开关（4 组 × 3）+ 常驻说明特写 | ⚠ 未产出：`admin-mermaid-whitelist` 白名单开关区特写 —— 该屏尚未画（开关区含于 `uc-7-1-template-admin-default.png` 底部全景） | 12 类枚举的封闭性、以及「关掉后仍可书写」的说明文案**在全景图上读不清** |
+| **G-9** | 「冲突待判定」区特写 + `[上台讨论]` `[标为不确定]`（**不自动择一**） | ⚠ 未产出：`graph-conflict-pending` 冲突待判定特写 —— 该屏尚未画（红条含于 `uc-7-4-backflow-default.png` 全景） | 「两侧边并存、不自动择一」对应 `claims.status = contested` 下**不得删除任一侧边**（跨束约束，见交叉约束表 09-kg 行）。这条**只能从全景图远看** |
+| **G-10** | （原清单未列，本文补记）**`groupLead` 视角** 任一屏 | ⚠ 未产出：组长视角截图 —— 四视角轴只截了 facilitator / member / observer | F107「**只有组长确认才写回大脑**」是本束价值核心，而**组长自己看到的界面一张都没有**。`backflow` 屏的「组长已确认 · 可写回 / 待组长确认」只在引导师视角下被观察到 |
+
+**不构成缺口、但需说明的两条：**
+
+- 原清单第 8、9 条（留白提示条 + `[清一格]` / 「无来源 · 待补」草稿样式）**已产出**，
+  但不是两张独立特写，而是并入 `uc-7-2-ai-draft-default.png`。该屏以留白为主体、
+  两者是画面主角而非角落细节，故**判定为已覆盖**。这是本文替原清单做的取舍。
+- 第一节的**屏 2 `/studio/prototype` 无截图**。本束认为它**不服务本束任何 feature**（第三节），
+  因此**不列为缺口**；若签核时判定该映射成立，它将立刻变成第 11 条缺口。
+
+> ⚠ 缺口 **G-2 / G-5 / G-7** 三条各自对应一个**已在契约里写死的判断**
+> （`preservedVersionId` 永不为空 / 二次确认是否算「一键」/ 归档影响面 N）。
+> 三者都是「界面上没有图 ⇒ 人只能按文字签」。签核时若不接受这种签法，
+> 请把它们退回 ui-prototyper 补图，而不是在文字上确认。
 
 ---
 
@@ -170,11 +282,22 @@
 
 ## 七、签核前请重点确认（第 ① 件）
 
-- [ ] **截图为零 —— 现在不能签这一件。** 请先让 ui-prototyper 按第五节清单产出，再回来看。
+- [ ] **先过「第 ① 件材料缺口」一节（五之二）的 10 条 G-x**，再决定这一件签不签。
+      40 张图已在 `ui-preview/canvas/`，覆盖原清单 20 条中的 11 条；
+      **G-2（冲突裁决后另一侧已存为版本）/ G-5（回滚二次确认）/ G-7（归档影响面 N）
+      三条无图可看**，而它们各自锁着一个已写进契约的判断。
+      要么接受「按文字签这三条」，要么退回补图——**不要含糊过去**。
+- [ ] **`groupLead` 视角零截图**（G-10）：F107「只有组长确认才写回大脑」是本束价值核心，
+      而组长看到的界面一张都没有。确认这是否可接受。
+- [ ] **补画的四屏是设计提案，不是档案抽取**：`segment-binding`（蓝本 16 项第 9/10/13）与
+      `backflow-member`（本组小树）在原型档案里属**未探明**——ui-prototyper 是**原创**画的。
+      签它等于签一套新设计，不是确认既有事实。
 - [ ] **画布屏是 mock 壳**（S-17）：确认「核对的是信息架构对不对」这个前提你接受。
 - [ ] **缺一整层「规则的可见形态」**（第二节末表 7 项）：确认它们随 F105/F106 一起交付，
       还是明确降级为「本阶段不做」。**含糊过去 = 规则等于不存在。**
-- [ ] **四块屏未建**（后台画布模板 / 蓝本 16 项第 9·10·13 / 全场图谱 / 本组小树）：
-      确认它们的归属阶段与承载方，特别是 F101 的**归档确认框**（O-10 ③ 的显式要求）。
+- [ ] **原「四块屏未建」已补画**（后台画布模板 / 蓝本 16 项第 9·10·13 / 全场图谱 / 本组小树）：
+      改为对着第四节的表核对「补画的这四屏有没有把该有的东西画出来」。
+      ⚠ 其中 F101 的**归档确认框**（O-10 ③ 的显式要求）**组件已实现但无开态截图**（G-7）。
+      另请确认这四屏的最终归属路由——原型跑在临时的顶层 `/canvas?screen=`，不是产品路由。
 - [ ] **`/studio/prototype` ↔ UC-7.1 的映射**：确认它是否成立（本束认为不成立）。
 - [ ] **模板选择面板的分类维度**：至今 0 依据，补画原型前需裁决。
