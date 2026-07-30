@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
+import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<AdminModuleKey, LucideIcon> = {
@@ -9,6 +10,9 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   skill: Boxes,
   model: Cpu,
   mcp: Plug,
+  // 画布模板与项目蓝本：与全局左栏「画布」「蓝本」用同一个符号——同一件事在两处要看起来是同一件事
+  canvasadmin: Shapes,
+  blueprint: LayoutTemplate,
   overview: LayoutDashboard,
   members: Users,
   feedback: MessageSquareHeart,
@@ -16,7 +20,13 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   local: Lock,
 };
 
-/** 后台左栏 —— 两组共 8 个模块（AI 能力 / 组织）。纯展示 + Link，靠 active 高亮。 */
+/**
+ * 后台左栏 —— 两组（AI 能力 / 组织）。纯展示 + Link，靠 active 高亮。
+ *
+ * ⚠ 「AI 能力」组的**项集合**不是随手写的：它必须与契约 `AssetKind` 的取值集合
+ * **双向相等**（asset-governance I-2），门控在 `./asset-kind-nav.ts` + `tests/ui/
+ * admin-nav-asset-kinds-bijective.test.tsx`。删一项 / 多一项 / 契约加值没跟，都会红。
+ */
 export function AdminNav({ active }: { active: AdminModuleKey }) {
   return (
     <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
@@ -36,7 +46,7 @@ export function AdminNav({ active }: { active: AdminModuleKey }) {
               <Link
                 key={item.key}
                 href={item.href}
-                data-testid={`admin-nav-${item.key}`}
+                data-testid={ADMIN_NAV_TESTID[item.key]}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-all duration-200",
