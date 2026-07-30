@@ -22,10 +22,15 @@ import { Button } from "@/components/ui/button";
  *   作用域判定见 `lib/project-context.ts`。
  *
  * ⚠ 视角切换器是**预览手段，不是权限实现**，且生产构建不可达（verify-prod-gates.sh 断言）。
+ *
+ * ⚠ `hideRoleSwitcher`（2026-07-30）：**角色切换的唯一来源 = 各域内容区自带的切换器**。
+ *   当本页内容区自带一个（如项目工作台的四视角切换器、问卷的 view-switcher）时，
+ *   顶栏这个预览切换器**让位不渲染**，避免「同一页两套角色切换系统」。
+ *   顶栏此时仍显示项目上下文标签（项目名·角色），只是不再出第二个切换器。
  */
 export function TopBar({
-  identity, previewRole,
-}: { identity: Identity; previewRole: ProjectRole | null }) {
+  identity, previewRole, hideRoleSwitcher,
+}: { identity: Identity; previewRole: ProjectRole | null; hideRoleSwitcher?: boolean }) {
   const pathname = usePathname();
   const project = resolveProjectContext(pathname);
   const isDev = process.env.NODE_ENV !== "production";
@@ -35,6 +40,8 @@ export function TopBar({
   const local = isLocalOrg(identity.org);
   // UC-0.5 V12：同样是「只用自托管」，**承诺**与**策略**必须在界面上可分辨
   const sh = selfHostedOnly(identity.org);
+  // 顶栏是否出自己的预览切换器：在项目上下文里、开发态、且本页没有自带一套
+  const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
 
   return (
     <header
@@ -97,8 +104,8 @@ export function TopBar({
         </>
       )}
 
-      {/* ── 视角切换器：预览手段，同样只在项目里；生产不可达 ── */}
-      {isDev && project && (
+      {/* ── 视角切换器：预览手段，只在项目里、且本页未自带时出现；生产不可达 ── */}
+      {showOwnSwitcher && (
         <div
           data-testid="role-preview-switcher"
           className="ml-auto hidden shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-panel p-1 lg:flex"

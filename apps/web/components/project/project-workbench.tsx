@@ -66,7 +66,8 @@ export function ProjectWorkbench({
   const subNav = SUB_NAV[tab];
 
   return (
-    <AppShell identity={identity} previewRole={null}>
+    // hideRoleSwitcher：工作台自带四视角切换器（project-role-switcher），顶栏让位不再出第二套
+    <AppShell identity={identity} previewRole={null} hideRoleSwitcher>
       <div className="flex h-full min-h-0 flex-col bg-card" data-testid="project-workbench">
         {/* ── 项目头 ─────────────────────────────────────────── */}
         <div className="shrink-0 border-b border-border px-6 pt-4">

@@ -8,6 +8,46 @@
 > 需要人类逐条确认。确认后请把结论回写进对应 UC，并把 `ui-signoff.md` 的 status 改为 confirmed。
 > ⚠ **status 只能由人类改**，任何 agent 都不得自行改动。
 
+## 2026-07-30 接线修正（签核材料必须活在产品里）
+
+> 背景：三个独立 agent（最终用户 / UIUX / 需求）各自撞上同一根病——**十一束的现行 v2 屏
+> 全部做好了，却全部孤立**，只能敲 URL 进；左栏导航连的是另一套更旧的骨架屏。
+> 「评审签的和用户用的不是同一个产品。」而没有任何门控能发现它（旧门控只验单屏七态）。
+
+**已修（本次接线）：**
+1. **十一束现行屏全部接进左栏导航**（`apps/web/lib/navigation.ts`，仍是五段语义分组）：
+   对话`/chat`｜项目`/projects`·蓝本`/tpl`｜研究`/studio/research`·访谈`/itv`·录音`/rec`·
+   问卷`/studio/survey`·画布`/canvas`｜大脑`/brain`·任务`/tasks`｜
+   后台`/admin`·技能`/skill`·智能体`/preview/agent-runtime`·成员`/org-admin/preview`·资产`/asset-governance`｜文件`/projects/demo/files`。
+2. **两套「同一件事两做」的旧骨架屏退役**：`/studio/interview`（旧访谈 Studio，`components/interview/`）
+   307 重定向到 `/itv`（interview 束现行屏）；`/studio/prototype`（旧单栏原型）重定向到 `/canvas`
+   （canvas 束现行屏）。旧组件保留留痕、不再有入口。
+3. **顶栏上下文矛盾修好**：`/project` 工作台此前顶栏恒显「不在项目上下文·项目角色不适用」，
+   与满屏项目内容 + 工作台自带的四视角切换器直接矛盾。已让 `/project` 声明项目上下文，矛盾消除。
+   **组织级能力域**（蓝本/技能/成员/智能体/资产）**刻意仍显示「不在项目上下文」——那是对的**
+   （它们是组织治理，不属于某个项目）。
+
+**角色/视角切换的唯一来源（人类请核对这一句）：**
+> **各域内容区自带的切换器**（项目工作台的 `project-role-switcher`、问卷的 `SurveyViewSwitcher`…）。
+> 顶栏 `TopBar` 只负责组织切换 + 上下文标签；它自己的预览切换器由新增的 `hideRoleSwitcher`
+> 让位——**页面自带一套时，顶栏不再出第二套**。这终结了此前「同一页两套角色切换系统」。
+
+**新增门控（补上那个盲区）：** `.harness/scripts/lint-nav-reachability.mjs`
+双向核对「导航树 ↔ 契约束现行路由」：每束现行屏必须能从导航直接走到 ∧ 导航里不得有指向
+非束/旧骨架屏的入口 ∧ 无死链。已接入 `verify:base` 与 PR 门控，反证套件
+`lint-nav-reachability.test.ts`（9 条）随 harness 自测跑。
+
+**仍点不到 / 未建（如实保留，未造假入口）：**
+- **现场大屏**（桌面主持投屏）：`/projects/[id]` 的 `stage` 工作面 `href:null`，显式禁用 +
+  「尚未建（原型档案主持台为移动端形态，桌面大屏未抽取）」。**这是真缺口，不是 bug**。
+- 社区 skill 导入：D-06 裁定 phase-1 不做，入口置灰（设计裁决，非断链）。
+
+**⚠ 本次改动重抓的截图：** `ui-preview/project-v2/` 全部 92 张（唯一 `fullPage` 截图的域，
+含左栏与顶栏；其余十束按内容区裁剪，不含壳，故不受导航改动影响）。文件名不变，
+`lint-ui-material` 仍绿（引用集 == 实存集）。
+
+---
+
 ## 屏 → 路由 → UC 对照
 
 | 屏 | 路由 | 主要 UC |

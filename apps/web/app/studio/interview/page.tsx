@@ -1,32 +1,15 @@
-import { AppShell } from "@/components/shell/app-shell";
-import { InterviewStudio } from "@/components/interview/interview-studio";
-import { resolvePreviewState } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
-import { resolveScope } from "@/lib/mock/interview-studio";
+import { redirect } from "next/navigation";
 
 /**
- * Studio · 访谈 —— 列表与范围（UC-6.0）+ 访谈模板标签（UC-6.1）。
+ * ⚠ 已退役（2026-07-30）——访谈能力域的**现行**实现是 v2 束 `/itv`（interview 束，
+ * ui-material-map.json 声明目录 itv-v2；旧 itv/ 44 张已被保真度审计推翻）。
  *
- * 这是访谈 Studio 的落地屏：跨项目全部访谈的列表、范围切换器、两标签、筛选。
- * 「独立发起，不依赖项目」——打开某场进入 `/studio/interview/[id]` 的六标签详情
- * （研究设计 / 受访者 / 虚拟 / 专家推演 / 记录 / 洞察与报告）。
+ * 本路由（旧「访谈 Studio」骨架屏，`components/interview/`）与 `/itv`（`components/itv/`）
+ * 曾是**同一概念的两套活实现并存**，导致「评审签的和用户用的不是同一个产品」。
+ * 收敛为单一实现：本路由永久重定向到现行束路由，导航不再指向它。
  *
- * 七态经 `?state=` 走完；范围经 `?scope=`；标签经 `?tab=interviews|templates`。
+ * 组件 `components/interview/*` 保留留痕（不删），但不再有任何入口。
  */
-export default function InterviewStudioPage({
-  searchParams,
-}: {
-  searchParams: { state?: string; as?: string; org?: string; scope?: string; tab?: string };
-}) {
-  const state = resolvePreviewState(searchParams.state);
-  const scopeId = resolveScope(searchParams.scope);
-  const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
-  const tab = searchParams.tab === "templates" ? "templates" : "interviews";
-
-  return (
-    <AppShell identity={identity} previewRole={previewRole}>
-      <InterviewStudio state={state} scopeId={scopeId} tab={tab} />
-    </AppShell>
-  );
+export default function DeprecatedInterviewStudioPage() {
+  redirect("/itv");
 }
