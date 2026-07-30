@@ -108,6 +108,7 @@ describe("V1 static: no built-in capability list exists in product code", () => 
       "apps/web/lib/mock/agent-runtime.ts",// phase-01 agent-runtime 域 UI 先行
       "apps/web/lib/mock/canvas.ts",       // phase-01 canvas 域 UI 先行
       "apps/web/lib/mock/skill.ts",        // phase-01 skill 域 UI 先行
+      "apps/web/lib/mock/project.ts",      // phase-01 project（项目本身）域 UI 先行
     ];
     const r = runGate();
     const debtLines = r.out.split("\n").filter((l) => l.startsWith("· [debt]"));
