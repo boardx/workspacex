@@ -4,6 +4,9 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as project from "../src/project";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -19,6 +22,9 @@ const BUNDLES = [
   ["artifact", artifact.operations],
   ["context-pack", contextPack.operations],
   ["project", project.operations],
+  ["agent-runtime", agentRuntime.operations],
+  ["skills", skills.operations],
+  ["templates", templates.operations],
 ] as const;
 
 type Op = {
