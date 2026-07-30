@@ -82,6 +82,12 @@ jobs:
       - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
         run: node .harness/scripts/lint-ui-material.mjs
 
+      # 跨屏可达性：ADR-023 的签核屏必须是产品里走得到的屏，不是只能敲 URL 进的孤岛。
+      # 本轮病根——十一束的 v2 屏全做好却全部孤立、导航连的是旧骨架屏——旧门控（只验单屏七态）
+      # 一个都发现不了。这道门控双向核对「导航树 ↔ 契约束现行路由」，且只读源码/config，毫秒级。
+      - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
+        run: node .harness/scripts/lint-nav-reachability.mjs
+
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。

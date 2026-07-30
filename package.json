@@ -5,7 +5,8 @@
   "scripts": {
     "harness": "tsx .harness/scripts/cli.ts",
     "lint:ui-material": "node .harness/scripts/lint-ui-material.mjs",
-    "verify:base": "pnpm run lint:ui-material && pnpm exec vitest run --dir .harness && turbo run typecheck lint test",
+    "lint:nav-reachability": "node .harness/scripts/lint-nav-reachability.mjs",
+    "verify:base": "pnpm run lint:ui-material && pnpm run lint:nav-reachability && pnpm exec vitest run --dir .harness && turbo run typecheck lint test",
     "test": "vitest run"
   },
   "devDependencies": {

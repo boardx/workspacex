@@ -1,22 +1,15 @@
-import { AppShell } from "@/components/shell/app-shell";
-import { PrototypeScreen } from "@/components/studio/prototype-screen";
-import { resolvePreviewState } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { redirect } from "next/navigation";
 
 /**
- * Studio · 原型（07-canvas / uc-7-1 · PROTOTYPE-DIGEST 第五节）
- * 单栏 825px，无左右栏——内容自己在 max-w-[825px] 里居中。
+ * ⚠ 已退役（2026-07-30）——推演画布的**现行**实现是 v2 束 `/canvas`（canvas 束，
+ * 三栏 + 结构性冲突裁决 + AI 落笔回退；ui-material-map.json 声明目录 canvas-v2）。
+ *
+ * 本路由（旧「Studio 原型」骨架屏，单栏 825px，`components/studio/prototype-screen`）
+ * 与 `/canvas` 覆盖同一 UC 域（07-canvas），是同一概念的两套实现并存。
+ * 收敛为单一实现：本路由永久重定向到 `/canvas`，导航「画布」项已指向 `/canvas`。
+ *
+ * 组件 `components/studio/prototype-screen` 保留留痕（不删），但不再有入口。
  */
-export default function StudioPrototypePage({
-  searchParams,
-}: { searchParams: { state?: string; as?: string; org?: string } }) {
-  const state = resolvePreviewState(searchParams.state);
-  const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
-
-  return (
-    <AppShell identity={identity} previewRole={previewRole}>
-      <PrototypeScreen state={state} />
-    </AppShell>
-  );
+export default function DeprecatedStudioPrototypePage() {
+  redirect("/canvas");
 }
