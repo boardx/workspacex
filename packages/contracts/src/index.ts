@@ -22,3 +22,6 @@ export * as interview from "./interview";
 export * as recording from "./recording";
 export * as canvas from "./canvas";
 export * as chat from "./chat";
+export * as agentRuntime from "./agent-runtime";
+export * as skills from "./skills";
+export * as templates from "./templates";

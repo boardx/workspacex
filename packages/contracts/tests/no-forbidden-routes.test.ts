@@ -11,6 +11,9 @@ import * as chat from "../src/chat";
 import * as files from "../src/files";
 import * as orgAdmin from "../src/org-admin";
 import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
 
 /**
  * 「不存在」也是一种契约（一致性复核 N-5）
@@ -42,6 +45,9 @@ const ALL_OPERATIONS = {
   files: files.operations,
   "org-admin": orgAdmin.operations,
   "asset-governance": assetGovernance.operations,
+  "agent-runtime": agentRuntime.operations,
+  skills: skills.operations,
+  templates: templates.operations,
 } as Record<string, Record<string, { method?: string; path?: string }>>;
 
 /** 明确禁止存在的路由。每条都要写清「为什么不能有」——否则后人会以为是漏了 */
@@ -90,6 +96,37 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "谁加上删除，级联会静默清掉或摘掉一批行，这正是要守着它不存在的原因。" +
       "项目结束的出口只有归档（Q-5 B：archived = 只读，归档不删除任何内容），" +
       "而**归档不该借道 X-4 那个只留给合规撤回的豁口**。",
+  },
+  {
+    pattern: /^POST\s+\/mcp-servers\/discover-by-agent/i,
+    why:
+      "agent-runtime 开关四（O-19）：phase-1 **不提供打开能力**（只读常关）。" +
+      "裁决同 N-5 取「不提供该 API」——agent 自行接入 MCP 服务器是权限静默扩大的最短路径（I-21），" +
+      "而 `AGENT_CANNOT_DISCOVER_MCP` 这个码是给「有人试图这么干」准备的告警，" +
+      "不是给一个官方入口准备的返回值。",
+  },
+  {
+    pattern: /^(PUT|PATCH|DELETE)\s+\/audit\/entries/i,
+    why:
+      "agent-runtime I-51：四类事件同一条时间线，**不可删除、不可修改**。" +
+      "任何删除/修改请求一律被拒并记安全审计——但一条恒 403 的写路由仍然宣告了" +
+      "一种系统不提供、也不该提供的能力。下钻只读（GET）是合法的。",
+  },
+  {
+    pattern: /^POST\s+\/skills\/[^/]+\/enable$/i,
+    why:
+      "skills I-23 双重门禁：`已启用` **只能由 `reviewSkillVersion` 的 approve 分支产生**。" +
+      "一条直达的启用路由就是那条绕过路径本身——而 `GATE_NOT_PASSED` 是给" +
+      "「有人从别的入口试图置为已启用」准备的告警，不是给一个官方后门准备的返回值。" +
+      "⚠ 只匹配 `enable`，不匹配 `disable` / `restore`（后两者是合法操作）。",
+  },
+  {
+    pattern: /^(PATCH|PUT)\s+\/workflow-templates\/[^/]+\/from-instance/i,
+    why:
+      "templates I-17：实例改动**不回写模板本体**。唯一出口是 `saveAsOrgTemplate`（新建一份）" +
+      "与 UC-2.3 的回提链路（提交 → 维护者合并）。" +
+      "一条「把实例同步回模板」的路由会让蓝本悄悄变成最后一场的样子，" +
+      "而 `TEMPLATE_WRITEBACK_FORBIDDEN` 正是为了让这种尝试**被看见**。",
   },
   {
     pattern: /^(PUT|PATCH|DELETE)\s+\/provenance/i,

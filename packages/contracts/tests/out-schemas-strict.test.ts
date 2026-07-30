@@ -12,6 +12,9 @@ import * as chat from "../src/chat";
 import * as files from "../src/files";
 import * as orgAdmin from "../src/org-admin";
 import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -41,6 +44,14 @@ const BUNDLES = {
   interview, recording, canvas, chat,
 } as const;
 const BUNDLES = { identity, artifact, contextPack, auth, project, files, orgAdmin, assetGovernance } as const;
+  identity,
+  artifact,
+  contextPack,
+  auth,
+  project,
+  agentRuntime,
+  skills,
+  templates,
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {

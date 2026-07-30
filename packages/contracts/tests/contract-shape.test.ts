@@ -11,6 +11,9 @@ import * as chat from "../src/chat";
 import * as files from "../src/files";
 import * as orgAdmin from "../src/org-admin";
 import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -34,6 +37,9 @@ const BUNDLES = [
   ["files", files.operations],
   ["org-admin", orgAdmin.operations],
   ["asset-governance", assetGovernance.operations],
+  ["agent-runtime", agentRuntime.operations],
+  ["skills", skills.operations],
+  ["templates", templates.operations],
 ] as const;
 
 type Op = {
