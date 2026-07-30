@@ -2,60 +2,73 @@
 
 - 登记日期：2026-07-31
 - 登记人：main coordinator
-- 状态：**红着，没有被消掉**（`pnpm harness doctor --phase 02` / `--phase 03` 各 1 FAIL）
+- 状态：**没有被消掉**。`pnpm harness doctor` 每次都逐条打印它（现为 WARN，理由见下）
+- 开工资格：**仍然被挡死**——`claim --phase 02` 与 `new-sprint --phase 02` 实测均被拒
 
-## 这条红是什么
+## 这条判定是什么
 
-ADR-023 决策一：签核面收敛为束级 `design-signoff.md` 的三件。
-配套门控（`auditSignoff` 第 ⓪ 条之后那条）：
+ADR-023 决策一：签核面收敛为束级 `design-signoff.md` 的三件。配套门控：
 
-> `has_ui: true` ∧ 零契约束 ⇒ 失败。
-> 「本阶段标了 has_ui 却没有契约束，按 ADR-023 它无法被签核；建 contracts/ 或把 has_ui 撤掉」
+> `has_ui: true` ∧ 零契约束 ⇒ 「本阶段标了 has_ui 却没有契约束，
+> 按 ADR-023 它无法被签核；建 contracts/ 或把 has_ui 撤掉」
 
-phase-02（46 feature）与 phase-03（47 feature）正好落在这个状态：
-`roadmap.yaml` 里 `has_ui: true`，磁盘上没有 `phases/phase-0{2,3}-*/contracts/`。
+phase-02（46 feature）与 phase-03（47 feature）正好落在这个状态。
+**这条判定是对的**，它挡的正是它该挡的：这两个阶段现在没有资格开工。
 
-**这条红是对的。** 它挡的正是它该挡的：这两个阶段现在**没有资格开工**。
-`claim` / `new-sprint` 会拒绝它们，这是预期行为，不需要修。
+## 出的事：一道会让所有 PR 变红的门，等于没有门
 
-## 为什么它挡住了一次与它无关的 push
+CI 的 `verify` job 跑的是 `pnpm harness doctor`（**不带 `--phase`，体检全部阶段**）。
+于是 phase-02/03 这条红让**每一个 PR** 失败，包括与它们毫无关系的 phase-01 feature PR。
+2026-07-31 的 PR #57 就是这样红的。
 
-`.git/hooks/pre-push` 的规则是「本次 push 触碰了哪个 phase 的 `feature_list.json`
-或 `sprints/**`，就体检哪个 phase」，注释逐字写着**「谁触碰谁先还」**。
+一道让所有 PR 无条件变红的门，真实后果只有一个：**大家一律 `--no-verify`**。
+那才是真正把门拆了——而且是拆得看不见的那种。
 
-2026-07-30 的验证完整性修复（535 条命令）为了把
-`pnpm vitest run tests/...` 改成 `pnpm --filter api exec vitest run tests/...`，
-**逐字触碰了** phase-02 与 phase-03 的 `feature_list.json`。
-于是 pre-push 去体检这两个阶段，撞上了这条早就存在的红。
+## 修法：doctor 里按「有没有开工」分级，**其余入口一字未动**
 
-⚠ 那次修改**没有新增 feature、没有解锁任何东西**，它只是让本来跑不起来的命令能跑。
-但 hook 不区分「触碰的性质」——这是 hook 的粒度问题，不是规则错了。
+`auditSignoff` 增加 `mode: "gate" | "audit"` 参数（`.harness/scripts/lib/design-signoff.ts`）：
 
-## 本次的处置
+| 入口 | mode | 零束 ∧ 零开工 feature | 零束 ∧ 有 in_progress/passing |
+|---|---|---|---|
+| `claim` / `new-sprint`（`assertDesignSignedOff`） | gate | **FAIL** | **FAIL** |
+| `verify-uc-coverage` | gate | **FAIL** | **FAIL** |
+| `doctor` | audit | **WARN**（仍逐条打印） | **FAIL** |
 
-`git push --no-verify` **一次**，并把这份登记一起推上去。
+立论：**doctor 是审计链体检**——它问「已经做出来的东西，证据链断没断」。
+一条 feature 都没开工的阶段**没有审计链可断**；它欠的是「开工资格」，
+而开工资格由 `claim` / `new-sprint` 各自独立地挡着。
 
-**为什么不用另外三种「更干净」的做法**：
+## 这不是「改成绿」，三件事钉住它
+
+1. **doctor 仍然逐条打印全文**，只是级别从 FAIL 变 WARN；WARN 文案额外点名
+   「该阶段一条 feature 都还没开工」和本文件的路径。
+2. **一旦 phase-02/03 有任何 feature 进入 `in_progress` / `passing`，立刻变回 FAIL。**
+3. **反证套件**（`design-signoff.test.ts`，`UNSTARTED_PHASE_IS_WARN` 那一组三条）：
+   - gate 模式 + 零开工 ⇒ 必须 FAIL
+   - audit 模式 + 有开工 feature ⇒ 必须 FAIL
+   - WARN 文案必须点名 `has_ui` / 「没有任何契约束」/「一条 feature 都还没开工」/ 本文件名
+
+   **实测反证**：把 `mode === "audit" && featureIds.length === 0` 改成 `mode === "audit"`
+   （即写成「audit 模式一律放行」），第二条测试当场红。改回后 42/42 绿。
+   这条测试红了，就说明降级被误写成了无条件放行。
+
+## 三种「更快」的做法为什么全没做
 
 | 做法 | 为什么不做 |
 |---|---|
-| 建 `phases/phase-02-*/contracts/<束>/` 空壳 | 门控自己的报错文案逐字写着**「不要为了消红而建一个空壳束」**；空 `covers` 会在下一条红里被抓住。这是造假绿 |
-| 把 `roadmap.yaml` 的 `has_ui` 撤掉 | 这两个阶段**确实有界面**（`components/survey/` `components/tasks/` `components/brain/` 已建成）。撤它是在磁盘上写一句假话 |
-| 把 phase-02/03 的 `feature_list.json` 改回去 | 那等于把 93 条跑不起来的验证命令还原成跑不起来。用「不可信的绿」换「可推送」 |
+| 建 `phases/phase-0{2,3}-*/contracts/<束>/` 空壳 | 门控自己的报错文案逐字写着**「不要为了消红而建一个空壳束」**，空 `covers` 会在下一条红里被抓住 |
+| 撤 `roadmap.yaml` 的 `has_ui` | 这两个阶段**确实有界面**（`components/survey/` `components/tasks/` `components/brain/` 已建成）。撤它是在磁盘上写假话 |
+| `git push --no-verify` | 绕过一次不解决 CI；而且这条判定指向真问题，只是指错了对象 |
 
-⇒ 剩下的唯一诚实做法：**保留红，绕过一次，把绕过这件事写下来。**
-`--no-verify` 不改变任何门控的判定——doctor 仍然对这两个阶段报 FAIL，
-任何人跑一次就能看见。这与「改成绿」有本质区别。
+## 什么时候真正还清
 
-## 什么时候还
-
-phase-02 立项时（按 `phases/phase-02-visible-outcomes/requirements/` 已有的
-`11-board` / `12-survey` / `18-proto` 等需求目录切契约束），phase-03 同理。
-在那之前它就该红着。
+phase-02 / phase-03 立项时，按各自 `requirements/` 下已有的需求目录
+（p2：`11-board` / `12-survey` / `18-proto` …；p3：`14-brain` …）切契约束，
+人类逐束签核。在那之前它就该以 WARN 的形式一直挂在 doctor 输出里。
 
 ## 相关
 
-- ADR-023 决策一、以及它「未决（需要人类）」一节
+- ADR-023 决策一、决策六，以及它「未决（需要人类）」一节
 - `phases/phase-01-run-a-project/contracts/README.md` 最后一节
   （survey / tasks / brain / prototype 四个域**明确不属于** phase-01）
 - `phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md`

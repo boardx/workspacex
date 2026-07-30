@@ -272,29 +272,65 @@ export interface SignoffAudit {
  *   实测过：撤门之前 `claim --phase 02 --feature F01` 就已经一路放行了
  *   （`claim` 从来只问束级门，不问 phase 级 UI 门）。
  *   所以收敛的同时必须把这个口堵上：has_ui ∧ 零契约束 ⇒ **失败**，不是放行。
+ *
+ * @param mode `"gate"`（默认，new-sprint / claim / verify-uc-coverage）
+ *   与 `"audit"`（doctor）。**唯一的区别只有一处**，见 `UNSTARTED_PHASE_IS_WARN` 注释。
  */
 export function auditSignoff(
   phaseId: string,
   featureIds: string[],
   now: Date = new Date(),
+  mode: "gate" | "audit" = "gate",
 ): SignoffAudit {
   const bundles = readBundleSignoffs(phaseId);
   if (bundles.length === 0) {
     if (!phaseHasUi(phaseId)) return { fails: [], warns: [], applicable: false };
-    return {
-      applicable: true,
-      warns: [],
-      fails: [
-        `Phase ${phaseId} 在 roadmap.yaml 里标了 \`has_ui: true\`，却没有任何契约束` +
-          `（phases/phase-${phaseId}-*/contracts/<束>/）——按 ADR-023 决策一，UI 签核是束级` +
-          `\`design-signoff.md\` 的第 ① 件，**没有束就没有地方签，这个阶段无法被签核**。\n` +
-          `    ⚠ 这条红是 2026-07-30 补的：在此之前有界面的阶段靠 phase 级 UI 签核关卡（ADR-003，已停用）挡着，` +
-          `ADR-023 把两道门收敛成一道，若不同时堵这里，该阶段会从「有门」变成「无门」。\n` +
-          `    修法二选一：⑴ 按能力域切契约束，建 contracts/<束>/{ui,domain,usecases,coverage,design-signoff}.md，` +
-          `人类逐束签核；⑵ 该阶段确实没有界面 → 把 roadmap.yaml 里的 has_ui 撤掉。\n` +
-          `    **不要为了消红而建一个空壳束**——空 covers 的束会在下一条红里被抓住。`,
-      ],
-    };
+    const msg =
+      `Phase ${phaseId} 在 roadmap.yaml 里标了 \`has_ui: true\`，却没有任何契约束` +
+      `（phases/phase-${phaseId}-*/contracts/<束>/）——按 ADR-023 决策一，UI 签核是束级` +
+      `\`design-signoff.md\` 的第 ① 件，**没有束就没有地方签，这个阶段无法被签核**。\n` +
+      `    ⚠ 这条红是 2026-07-30 补的：在此之前有界面的阶段靠 phase 级 UI 签核关卡（ADR-003，已停用）挡着，` +
+      `ADR-023 把两道门收敛成一道，若不同时堵这里，该阶段会从「有门」变成「无门」。\n` +
+      `    修法二选一：⑴ 按能力域切契约束，建 contracts/<束>/{ui,domain,usecases,coverage,design-signoff}.md，` +
+      `人类逐束签核；⑵ 该阶段确实没有界面 → 把 roadmap.yaml 里的 has_ui 撤掉。\n` +
+      `    **不要为了消红而建一个空壳束**——空 covers 的束会在下一条红里被抓住。`;
+
+    /* ── UNSTARTED_PHASE_IS_WARN（2026-07-31）────────────────────────────
+     *
+     * doctor 是**审计链**体检：它问「已经做出来的东西，证据链断没断」。
+     * 一个**一条 feature 都还没开工**的阶段没有审计链可断——
+     * 它欠的是「开工资格」，而那由 `claim` / `new-sprint` 各自独立地挡着
+     * （两者用的就是本函数的 `"gate"` 模式）。
+     *
+     * 为什么必须区分：CI 的 `pnpm harness doctor`（无 --phase）体检**全部**阶段。
+     * phase-02/03「标了 has_ui、还没切束」这条红因此让**每一个 PR** 都失败，
+     * 包括与 phase-02/03 毫无关系的 phase-01 feature PR。
+     * 一道会让所有 PR 变红的门，实际效果是「大家一律 --no-verify」——
+     * 那才是真正把门拆了。
+     *
+     * ⚠ 这**不是**放行，是降级为 WARN：
+     *   - doctor 仍然逐条打印它，`.harness/state/DEBT-phase-02-03-signoff-chain.md` 登记着它
+     *   - 一旦该阶段有任何 feature 进入 in_progress / passing（`featureIds` 非空），
+     *     立刻回到 FAIL —— 那时它就真的是一条断掉的审计链了
+     *   - `"gate"` 模式（claim / new-sprint / verify-uc-coverage）**行为一字未变**，
+     *     仍然是 FAIL。已实测：`claim --phase 02` 与 `new-sprint --phase 02` 都被拒
+     *
+     * 反证在 `design-signoff.test.ts`：零束 + 已开工 feature ⇒ audit 模式也必须 FAIL。
+     * 那条测试红了，就说明这个降级被误写成了无条件放行。 */
+    const unstartedPhaseIsWarn = mode === "audit" && featureIds.length === 0;
+    if (unstartedPhaseIsWarn) {
+      return {
+        applicable: true,
+        fails: [],
+        warns: [
+          msg +
+            `\n    ⚠ 本条在 doctor 里降级为 WARN，因为该阶段**一条 feature 都还没开工**` +
+            `（没有 in_progress / passing），没有审计链可断。开工资格仍由 claim / new-sprint 独立挡着。` +
+            `一旦有 feature 开工，它立刻变回 FAIL。登记：.harness/state/DEBT-phase-02-03-signoff-chain.md`,
+        ],
+      };
+    }
+    return { applicable: true, warns: [], fails: [msg] };
   }
 
   const fails: string[] = [];

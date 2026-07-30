@@ -376,6 +376,41 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
     }
   });
 
+  /* ── UNSTARTED_PHASE_IS_WARN 的反证套件（2026-07-31）──────────────────
+   *
+   * 降级本身的风险是：写成「audit 模式一律放行」。那样 phase-02 真的开工之后
+   * doctor 会安静地绿着——正是本仓九次「全绿但空转」的第十次。
+   * 下面三条把「降级的边界」钉死：只在 audit 模式 ∧ 零开工 feature 时降级，
+   * 其余三种组合必须仍是 FAIL。 */
+  it("降级只在 audit 模式发生：同样零开工 feature，gate 模式仍判 FAIL", () => {
+    for (const phaseId of ["02", "03"]) {
+      const gate = auditSignoff(phaseId, [], NOW); // 默认 "gate"
+      expect(gate.fails.join("\n")).toMatch(/没有任何契约束/);
+      expect(gate.warns).toEqual([]);
+    }
+  });
+
+  it("降级只在零开工时发生：audit 模式 + 有 in_progress/passing 的 feature ⇒ 变回 FAIL", () => {
+    for (const phaseId of ["02", "03"]) {
+      const started = auditSignoff(phaseId, ["F01"], NOW, "audit");
+      expect(started.fails.join("\n")).toMatch(/没有任何契约束/);
+      expect(started.warns).toEqual([]);
+    }
+  });
+
+  it("降级后这条缺口仍然可见、有名字：WARN 文案点名 has_ui、点名它为什么被降级、并给出登记位置", () => {
+    for (const phaseId of ["02", "03"]) {
+      const r = auditSignoff(phaseId, [], NOW, "audit");
+      expect(r.applicable).toBe(true);
+      expect(r.fails).toEqual([]);
+      const w = r.warns.join("\n");
+      expect(w).toMatch(/has_ui/);
+      expect(w).toMatch(/没有任何契约束/);
+      expect(w).toMatch(/一条 feature 都还没开工/);
+      expect(w).toMatch(/DEBT-phase-02-03-signoff-chain\.md/);
+    }
+  });
+
   it("assertDesignSignedOff 对 phase-02/03 抛错 —— new-sprint 与 claim 共用它，两个入口一起被挡", () => {
     for (const phaseId of ["02", "03"]) {
       expect(() => assertDesignSignedOff(phaseId, ["F01"])).toThrow(/has_ui/);

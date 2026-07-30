@@ -200,7 +200,10 @@ function checkSignoffChain(phaseId: string, findings: Finding[]): void {
   } catch {
     return;
   }
-  const audit = auditSignoff(phaseId, active);
+  // "audit" 模式：见 design-signoff.ts 的 UNSTARTED_PHASE_IS_WARN。
+  // 与 "gate" 模式的唯一差别是「零契约束 ∧ 一条 feature 都没开工」由 FAIL 降为 WARN；
+  // 其余所有判定逐字相同（同一个函数，不是第二份实现）。
+  const audit = auditSignoff(phaseId, active, new Date(), "audit");
   if (!audit.applicable) return; // 该阶段没有 contracts/，未采用契约束流程
   for (const msg of audit.fails) findings.push({ level: "FAIL", phase: phaseId, msg: `签核链：${msg}` });
   for (const msg of audit.warns) findings.push({ level: "WARN", phase: phaseId, msg: `签核链：${msg}` });
