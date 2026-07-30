@@ -1015,9 +1015,29 @@ context-pack 范围）都只在 ② 下成立，而 ① 需要推翻它们、③
    **未裁决。**
 3. **RLS 与租户隔离要复制到新表**，且 `verify-rls.sh` 从 catalog 推导租户表，
    新表会被自动纳入——这是好事，但意味着三张表都要带 `org_id` 且策略一致。
-4. **`Artifact.projectId` 指向哪一类？** phase-00 已签契约里它是单一外键。
-   三类实体意味着要么三个可空外键，要么一个多态引用（后者与 `object_kind` 闭集同型）。
-   **未裁决，且它影响 phase-00 已 passing 的 F04/F06/F07。**
+4. **`Artifact.projectId` 指向哪一类？** —— **已裁决 D（超类型表），yanbin shen，2026-07-30。**
+
+   `projects` 降为**通用容器**（id / org_id / name / status），三类各建 1:1 子类型表：
+   `workshops`（议程环节、分组、会前/现场/会后）· `research_projects`（研究计划、深度研究）·
+   `user_insights`（访谈、问卷）。
+
+   **为什么是 D**（候选与代价见本条上方表格）：
+   - **`projects(id)` 现有 7 条外键一条都不用改**（`groups` / `project_memberships` /
+     `artifact_bindings` / `artifacts` / `admin_project_access` / 检索索引 ×2）
+   - **保住数据库级引用完整性**。候选 B（多态 `owner_kind` + `owner_id`）做不了外键，
+     而本仓刚因「约束没下沉到数据库」栽过两次（F04 的级联删除、F08 的 append-only
+     被 `ON DELETE CASCADE` 绕过）——放弃这一层与那条纪律正面冲突。
+   - **artifact 机件只有一套**。候选 C 要把 version / segment / anchor / provenance /
+     Context Pack 引用**复制两遍**，那是 `identity/domain.md:22` 点名的「第二套路径必然长期失修」，
+     而且复制的是全仓最复杂的一套。
+   - 加第四类项目只加一张子表，不加列、不改外键。
+
+   ⚠ **这是修订已签核的 phase-00 `identity` 束**：`projects` 的语义从「工作坊」
+   变为「容器超类型」。属签核动作，不是实现细节。
+
+   ⚠ **不变的部分要写死**：三类共用的只有「容器身份 + 组织归属 + 状态」，
+   **过程与目的完全不同的那部分全在各自子表里**（这是人类裁决 C 的原意，D 必须守住它）。
+   任何把工作坊专属字段（议程环节、分组）加进 `projects` 的改动都违反本条。
 5. **访谈挂在哪一类**——人类同日指出访谈的 UI 与原型完全不同，
    `itv` 域正在重做（`ui-preview/itv-v2/`），会顺带核实这一点。
 
