@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
+import { mcpEndpointHint } from "@/lib/mcp-endpoint-hint";
 import type { UiState } from "@/lib/ui-state";
 import {
   MCP_SECURITY_SWITCHES, REVIEW_VERDICTS, MCP_SERVERS, MCP_AUTH_LABEL,
@@ -113,7 +114,20 @@ export function McpPolicyScreen({ role, state }: { role: RuntimeRole; state: UiS
                     <span className="text-12 font-medium">{ISOLATED.name}</span>
                     <span className="text-11 text-muted-foreground">{ISOLATED.note}</span>
                   </div>
-                  <span className="font-mono text-10 text-muted-foreground">{ISOLATED.endpoint}</span>
+                  {/*
+                    端点对「能力维护者」不可见（domain I-6 / F52）。
+                    此前这一行无条件渲染 ISOLATED.endpoint，而本屏的角色切换器里就有
+                    maintainer —— 内网地址对一个只读角色是直接露出来的。
+                    维护者拿到的是两值粗粒度提示（与契约 McpServerRow.endpointHint 同粒度），
+                    信息量到此为止，拨不过去。
+                  */}
+                  {canReview ? (
+                    <span className="font-mono text-10 text-muted-foreground" data-testid="mcp-isolated-endpoint">{ISOLATED.endpoint}</span>
+                  ) : (
+                    <span className="text-10 text-muted-foreground" data-testid="mcp-isolated-endpoint-hint">
+                      端点 · {mcpEndpointHint(ISOLATED.endpoint)}（端点与凭据仅组织管理员 / 安全评审人可见）
+                    </span>
+                  )}
                 </div>
                 <span className="text-11 text-muted-foreground">{ISOLATED.tools} 工具</span>
                 <AuthScopeBadge scope={ISOLATED.authScope} team={ISOLATED.authTeam} />
