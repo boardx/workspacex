@@ -5,6 +5,9 @@ import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as auth from "../src/auth";
 import * as project from "../src/project";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -27,7 +30,7 @@ import * as project from "../src/project";
  * declares it separately. This test walks the tree so a nested object cannot be forgotten.
  */
 
-const BUNDLES = { identity, artifact, contextPack, auth, project } as const;
+const BUNDLES = { identity, artifact, contextPack, auth, project, files, orgAdmin, assetGovernance } as const;
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {

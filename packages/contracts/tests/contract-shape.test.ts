@@ -4,6 +4,9 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as project from "../src/project";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -19,6 +22,9 @@ const BUNDLES = [
   ["artifact", artifact.operations],
   ["context-pack", contextPack.operations],
   ["project", project.operations],
+  ["files", files.operations],
+  ["org-admin", orgAdmin.operations],
+  ["asset-governance", assetGovernance.operations],
 ] as const;
 
 type Op = {

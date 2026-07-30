@@ -6,7 +6,7 @@ phase: "01"
 #   解锁路径见正文「解除这些红的路径」。
 #   ⚠ 不要为了消红随手填 feature 编号——那是把「还没有 feature」谎报成
 #     「已经评审过这些 feature」，比现在这条红糟得多。
-covers: []
+covers: [F132, F133, F134, F135, F136, F137, F138, F139, F140, F141, F142, F143]
 status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: ""         # 确认人（姓名/邮箱）
 confirmed_at: ""         # ISO 8601，且不得晚于签核当下
