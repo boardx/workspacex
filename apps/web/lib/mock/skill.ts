@@ -26,6 +26,7 @@
 
 export const SKILL_SCREENS = [
   "library",
+  "tryrun",
   "binding",
   "temp",
   "versioning",
@@ -36,6 +37,7 @@ export type SkillScreen = (typeof SKILL_SCREENS)[number];
 
 export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
   library: "Skill 库与双门禁",
+  tryrun: "试跑 · 场景×校验×回归",
   binding: "绑定到环节与角色",
   temp: "对话里临时加减",
   versioning: "版本与停用",
@@ -45,6 +47,7 @@ export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
 
 export const SKILL_SCREEN_UC: Record<SkillScreen, string> = {
   library: "UC-3.1 · F61/F62",
+  tryrun: "UC-3.1 R? · 试跑整屏",
   binding: "UC-3.2 · F63/F64",
   temp: "UC-3.3 · F65",
   versioning: "UC-3.4 · F66",
@@ -369,6 +372,71 @@ export const TRY_RUN_SAMPLE = {
     log: "run_id=try-9f3 · model=self-hosted · schema_error: missing required `rationale`",
   },
 };
+
+/* ─────────────────────────── 试跑整屏（原型 isSkRun · 偏移 15728257）─────────────────────────── */
+/**
+ * ⚠ v1 把「试跑」降格成一个四行面板（TryRunPanel：只有 input/output）。原型的试跑是**整屏**：
+ *   测试场景（3 个）× 输入材料 × 运行参数 × 执行轨迹 × 输出 × 自动校验（4 条）× 存为回归用例 × 跑全部用例。
+ *   `回归用例` 在 apps/web 原命中 0——自动校验与回归用例是试跑的核心，不是可选装饰。
+ * ⚠ D-06（无沙箱）**挡不住这条**：自动校验（结构/证据/越权/写库四断言）与回归用例（钉住一次跑对的输入输出、
+ *   每次改都重跑）都不需要执行任意代码——它们是对**声明式契约输出**的断言，纯前端可呈现。
+ *
+ * 逐字复刻原型「试跑 · MECE 假设拆解」（mece-decomposition）。待迁入 packages/contracts · SkillTryRun。
+ */
+export interface TryRunScenario { id: string; name: string; desc: string; }
+export const TRYRUN_SCENARIOS: TryRunScenario[] = [
+  { id: "real", name: "远洋 · 欧洲进入策略", desc: "真实项目材料，3 份访谈 ＋ 成本样本" },
+  { id: "empty", name: "空材料压力测试", desc: "看它会不会硬编结论" },
+  { id: "counter", name: "只有反面证据", desc: "验证「必须留反对意见」是否生效" },
+];
+
+export const TRYRUN_INPUT_MATERIAL =
+  "远洋能源要不要自建欧洲 EPC 团队？现有材料：3 份访谈纪要、1 份资质备案时限说明、欧洲 412 个项目的成本样本。";
+
+export interface TryRunParam { key: string; value: string; }
+export const TRYRUN_PARAMS: TryRunParam[] = [
+  { key: "模型", value: "claude-sonnet-4.6" },
+  { key: "上下文", value: "48k / 200k" },
+  { key: "组织大脑检索", value: "开 · 仅已验证" },
+  { key: "温度", value: "0.3" },
+];
+
+export interface TryRunTraceStep { label: string; detail: string; }
+export const TRYRUN_TRACE: TryRunTraceStep[] = [
+  { label: "读取 SKILL.md 与 references/output-schema.md", detail: "契约三件 · 已装载" },
+  { label: "按价值链维度切分，得到 4 个分支", detail: "MECE · 无重叠无遗漏" },
+  { label: "检索证据：本项目 9 条，组织层 3 条", detail: "组织层仅已验证 · 越权调用已拦截" },
+  { label: "按 schema 输出并自检", detail: "evals/regression.jsonl 4/4 通过" },
+];
+
+export const TRYRUN_OUTPUT = `## 命题
+自建欧洲 EPC 团队，能在 18 个月内把交付成本压到收购方案以下。
+
+## 假设树
+- 资质与备案 | 致命度 高 | 验证成本 低 | 证据 3
+  - 重新备案 4–6 个月（组织层，2026-03 前有效）
+- 人力供给 | 致命度 高 | 验证成本 中 | 证据 2
+- 单项目成本 | 致命度 中 | 验证成本 高 | 证据 5
+- 客户接受度 | 致命度 中 | 验证成本 低 | 证据 未验证
+
+## 建议下一步
+先验「人力供给」：两周内约谈 3 家本地猎头，比重跑成本模型便宜。`;
+
+export interface TryRunCheck { pass: boolean; label: string; detail: string; }
+export const TRYRUN_CHECKS: TryRunCheck[] = [
+  { pass: true, label: "必需的三个段落齐全", detail: "命题 / 假设树 / 建议下一步" },
+  { pass: true, label: "无证据分支未给置信度", detail: "0 处违规" },
+  { pass: true, label: "反对证据被保留", detail: "1 条" },
+  { pass: true, label: "引用的组织层知识标了有效期", detail: "1/1" },
+];
+
+export const TRYRUN_META = {
+  title: "试跑 · MECE 假设拆解",
+  tag: "mece-decomposition",
+  hint: "改动未发布，只影响这次试跑",
+  runCost: "4.2s · 11.8k tokens · ￥0.11",
+  regressionHint: "跑得对的这一次可以钉成回归用例，以后每次改都会重跑",
+} as const;
 
 /* ─────────────────────────── 绑定：环节 × 角色矩阵（F63/F64）─────────────────────────── */
 

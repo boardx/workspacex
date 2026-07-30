@@ -11,6 +11,7 @@ import {
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
 import { SkillLibrary } from "./skill-library";
+import { SkillTryRun } from "./skill-tryrun";
 import { SkillBinding } from "./skill-binding";
 import { SkillTempMount } from "./skill-temp-mount";
 import { SkillVersioning } from "./skill-versioning";
@@ -54,6 +55,7 @@ export function SkillApp({
         <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {screen === "library" && <SkillLibrary state={uiState} view={view} />}
+          {screen === "tryrun" && <SkillTryRun state={uiState} view={view} />}
           {screen === "binding" && <SkillBinding state={uiState} view={view} />}
           {screen === "temp" && <SkillTempMount state={uiState} view={view} />}
           {screen === "versioning" && <SkillVersioning state={uiState} view={view} />}
@@ -106,6 +108,7 @@ function LeftNav({
 function RightRail({ screen }: { screen: SkillScreen }) {
   const notes: Record<SkillScreen, { title: string; body: string }> = {
     library: { title: "双重门禁", body: "安全扫描（自动）与方法论审核（人工）是两道独立门禁，两职能不合并、均由组织管理员指派、不得自审自批。" },
+    tryrun: { title: "试跑不落库", body: "试跑用当前未发布的契约跑，不影响线上；自动校验（结构/证据/越权/写库）与回归用例都不需要沙箱（D-06 挡不住），是对契约输出的断言。" },
     binding: { title: "两级继承", body: "后台模板级默认值 → 项目实例级可覆盖、不回写；沉淀回组织只有一条显式路径 [另存为组织模板]。" },
     temp: { title: "作用域", body: "临时挂载只对当前这条对话生效，不改蓝本；组员默认不可自加（服务端拒）。" },
     versioning: { title: "不可变快照", body: "发新版旧版自动归档，已建实例锁定版本、不因发新版漂移；对存在任何引用的 skill 硬删永久拒绝。" },

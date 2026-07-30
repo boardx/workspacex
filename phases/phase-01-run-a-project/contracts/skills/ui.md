@@ -2,12 +2,12 @@
 
 > ## 自检（可机械核对）
 >
-> **本文件引用 59 张截图，目录下实际 59 张。N == M，无死链、无多列、无遗漏。**
+> **本文件引用 67 张截图，目录下实际 67 张。N == M，无死链、无多列、无遗漏。**
 >
-> 目录：`phases/phase-01-run-a-project/ui-preview/skill/`
+> 目录：`phases/phase-01-run-a-project/ui-preview/skill-v2/`
 > ⚠ **目录名是单数 `skill/`，与本契约束名 `skills` 不同**（束名复数、原型目录单数）。
 > 上一版本文按 `ui-preview/skills-*.png` 约定了 14 个**设想文件名**，那 14 条**一张都不存在**——
-> 全部是死链，已在第三节替换为真实索引。查图请一律走 `ui-preview/skill/`。
+> 全部是死链，已在第三节替换为真实索引。查图请一律走 `ui-preview/skill-v2/`。
 > 目录下另有一份 `README.md`（ui-prototyper 自述：预览怎么走、它替 UC 做了哪些决定），
 > 不计入截图数。
 >
@@ -176,7 +176,7 @@
 
 ## 三、截图索引（真实文件，59 张全列）
 
-> 全部位于 **`phases/phase-01-run-a-project/ui-preview/skill/`**——
+> 全部位于 **`phases/phase-01-run-a-project/ui-preview/skill-v2/`**——
 > 再说一次：**目录名单数 `skill/`，束名复数 `skills`，两者不一致**，别去 `ui-preview/skills*` 找。
 > 命名规律：`<uc>-<屏>-<状态或视角>.png`。抓图条件：`next dev`，视口 1360×900，2×，0 条真实控制台报错。
 >
@@ -189,7 +189,7 @@
 
 ### 屏 A · `uc-3-1-library` — Skill 库与双门禁（12 张）｜UC-3.1 R3/R7/R8 · F61 F62
 
-| 文件（`ui-preview/skill/…`） | 类别 | 演示什么 |
+| 文件（`ui-preview/skill-v2/…`） | 类别 | 演示什么 |
 |---|---|---|
 | `uc-3-1-library-default.png` | 七态 default | Skill 库主屏：四态状态机、来源标记（系统按入口自动打标、提交人不可改写）、**待审核·双门禁**区（安全扫描 ✓通过 / ⚠有风险项 与 方法论审核 ⏳待审 / ↩已退回 两枚 Badge **并排**）、`[批准发布]` `[退回（附理由）]`、**自审自批禁用**（按钮 disabled + 红字「提交人 ≠ 审核人，O-21」）、`[试跑]`（挂 `补画` 黄标）、配额条 |
 | `uc-3-1-library-loading.png` | 七态 loading | 库列表加载骨架 |
@@ -329,7 +329,7 @@
 
 ## 五、ui-preview 顶层 markdown 里与本束相关的已知缺口
 
-> 这些是 `ui-preview/README.md`（**顶层那份**，不是 `ui-preview/skill/README.md`）记录的
+> 这些是 `ui-preview/README.md`（**顶层那份**，不是 `ui-preview/skill-v2/README.md`）记录的
 > 「UC 没写、由实现者替 UC 做了的决定」。与本束相关的有四条，签核时请一并确认。
 
 | S 编号 | 内容 | 为什么与本束相关 |
@@ -342,3 +342,21 @@
 `PROTOTYPE-DIGEST.md` 中与本束相关的三处（均为已建成投影，可作为截图取景依据）：
 AI 发言头部 `skill: MECE 假设拆解` · 画布左栏「本环节绑定的 skill」（`提取假设 → 假设树 [运行]` /
 `语音转便签 [已开]`）· 后台七模块导航（总览 / Agent / **Skill** / 模型 / MCP / 成员配额 / 反馈）。
+
+
+---
+
+## 附录 · v2 新增截图索引（3.1 试跑整屏补画（场景×执行轨迹×自动校验×回归用例））
+
+> 门控 `lint-ui-material` 做双向集合相等：本束目录 `ui-preview/skill-v2/` 实存 **67** 张，上文各屏引用的既有 59 张 + 下面新增 **8** 张 = **67**，逐张列出、无孤图、无死链。
+
+> 既有屏（权限/路由/MCP/团队/审计 或 库/绑定/版本/晋升/反馈 或 现场/指派/引述/保留）的截图**已随本目录复制进 v2**，其文件名与引用见上文各节，未改动；此处只补列本轮**新画/重拍**的屏。
+
+- `uc-3-1-tryrun-default.png`
+- `uc-3-1-tryrun-denied.png`
+- `uc-3-1-tryrun-dep-failed.png`
+- `uc-3-1-tryrun-empty.png`
+- `uc-3-1-tryrun-invalid.png`
+- `uc-3-1-tryrun-loading.png`
+- `uc-3-1-tryrun-role-denied.png`
+- `uc-3-1-tryrun-success.png`

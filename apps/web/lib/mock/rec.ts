@@ -27,16 +27,28 @@ export const ARTIFACT_SOURCES = ArtifactSource.options; // survey/conversation/i
 
 /* ─────────────────────── 预览维度：屏 / 载体 / 视角 ─────────────────────── */
 
-export type RecScreen = "live" | "assign" | "annotate" | "retention";
-export const REC_SCREENS: RecScreen[] = ["live", "assign", "annotate", "retention"];
+export type RecScreen =
+  | "prep" | "live" | "process" | "verify" | "assign" | "annotate" | "retention";
+// prep / process / verify 是本轮（rec-v2）补画的三屏：授权矩阵 / 处理状态 / 逐字稿校对。
+// 它们原型早已存在（准备室 16088061 / 处理状态 16121854 / 逐字稿校对 16125909），
+// v1 却把它们塌成一个布尔 authComplete / 一个「处理中」/ 一个只读结果——见 rec-v2/V1-WAS-WRONG.md。
+export const REC_SCREENS: RecScreen[] = [
+  "prep", "live", "process", "verify", "assign", "annotate", "retention",
+];
 export const REC_SCREEN_LABEL: Record<RecScreen, string> = {
+  prep: "准备室 · 逐人授权",
   live: "实时转录",
+  process: "处理状态",
+  verify: "逐字稿校对",
   assign: "指派说话人",
   annotate: "引述与打点",
   retention: "回流与保留期",
 };
 export const REC_SCREEN_UC: Record<RecScreen, string> = {
+  prep: "UC-5.1 R8 · 授权矩阵",
   live: "UC-5.1 · F69–F73",
+  process: "UC-5.1 · 处理状态",
+  verify: "UC-5.3 · 逐字稿校对",
   assign: "UC-5.2 · F74–F75",
   annotate: "UC-5.3 · F76–F77",
   retention: "UC-5.4 · F78–F79",

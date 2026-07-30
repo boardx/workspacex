@@ -12,6 +12,9 @@ import {
   type RecScreen, type Carrier, type RecView,
 } from "@/lib/mock/rec";
 import { RightRailNav } from "./right-rail";
+import { RecPrep } from "./rec-prep";
+import { RecProcess } from "./rec-process";
+import { RecVerify } from "./rec-verify";
 import { LiveTranscript } from "./live-transcript";
 import { SpeakerAssign } from "./speaker-assign";
 import { QuoteAnnotate } from "./quote-annotate";
@@ -55,6 +58,9 @@ export function RecApp({
       <div className="flex h-full min-h-0 flex-col">
         <PreviewControls href={href} screen={screen} carrier={carrier} uiState={uiState} qs={qs} />
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {screen === "prep" && <RecPrep state={uiState} view={view} />}
+          {screen === "process" && <RecProcess state={uiState} view={view} />}
+          {screen === "verify" && <RecVerify state={uiState} view={view} />}
           {screen === "live" && <LiveTranscript state={uiState} carrier={carrier} view={view} />}
           {screen === "assign" && <SpeakerAssign state={uiState} view={view} />}
           {screen === "annotate" && <QuoteAnnotate state={uiState} view={view} />}

@@ -315,6 +315,120 @@ export const REASSIGN_HINT = {
 export interface ChatSkill { name: string; version: string; }
 export interface ChatMessage { id: string; from: "user" | "agent"; text: string; transferable?: boolean; }
 
+/**
+ * 可单独私聊的 agent 花名册（原型 `AG` 数组，偏移 17044000–17048000）。
+ *
+ * ⚠ v1 的三重错：
+ *   (1) chat-screen.tsx:101 写「档案里的『私聊』全指人际私聊」——错。原型 `AG` 数组明确定义了
+ *       **6 个可单独私聊的 agent**，各带 model/skills/quick/lines/占位符；侧栏「本线程的 AI 团队·6」
+ *       每行都是「点开与这个 agent 单聊」的按钮（`go: () => set({ agentChat: key })`）。
+ *   (2) 只画了单个 Ava 的私聊，没有 6 人花名册与 agent 切换。
+ *   (3) 把默认值画反了：原型能力表「与 AI 的对话 / 本组共享推演，组员私聊汇总在这 / 开·必留」
+ *       （偏移 16609949）——组员私聊默认**开**。v1 写 `memberChatEnabled = false`。
+ *
+ * 讽刺之处：v1 用同一个 `AG` 数组填了主持台名单（team-screen），却在隔壁 chat 屏说这块数据不存在。
+ *
+ * 这里逐字复刻 6 个 agent；占位符 `ph` 是各 agent 专属（「只问 Ava：这条假设怎么验？」等）。
+ * 待迁入 packages/contracts · ThreadChatAgent。
+ */
+export interface ChatAgent {
+  key: string;
+  initials: string;
+  name: string;
+  role: string;      // name 后半（· 战略分析师）
+  desc: string;
+  presence: PresenceState;
+  model: string;
+  skills: string[];
+  /** 该 agent 的示例私聊往返（who/时间/文本/是否本人发） */
+  lines: { who: string; t: string; text: string; self: boolean }[];
+  quick: string[];
+  /** 输入框专属占位符 —— agent 各不相同 */
+  placeholder: string;
+}
+
+export const AGENT_CHAT_ROSTER: ChatAgent[] = [
+  {
+    key: "ava", initials: "AV", name: "Ava", role: "战略分析师", desc: "拆问题、标致命假设、给结论先行",
+    presence: "present", model: "opus-4.6 · 主动插话 开",
+    skills: ["MECE 假设拆解", "结论先行写作", "致命假设识别"],
+    lines: [
+      { who: "Ava", t: "14:28", text: "三条路径共用前两层，差异集中在执行前提。我把 4 个致命假设按可验证性排了序。", self: false },
+      { who: "你", t: "14:30", text: "先只看能两周内验的那两个。", self: true },
+      { who: "Ava", t: "14:31", text: "「本地资质可转」和「EPC 产能可预订」——都能用公开数据验，我已生成核查清单。", self: false },
+    ],
+    quick: ["再拆一层", "标出最弱的一环", "写成三句话"], placeholder: "只问 Ava：这条假设怎么验？",
+  },
+  {
+    key: "atlas", initials: "AT", name: "Atlas", role: "流程诊断", desc: "把业务流拆成任务，标可自动化环节",
+    presence: "present", model: "sonnet · 读流程库",
+    skills: ["任务级拆解", "自动化机会识别", "工时基线"],
+    lines: [
+      { who: "Atlas", t: "13:50", text: "并网申报流程 14 个任务里，6 个是纯材料整理，占 41% 工时。", self: false },
+      { who: "你", t: "14:02", text: "这 6 个里哪些能今年就动？", self: true },
+      { who: "Atlas", t: "14:03", text: "4 个只依赖内部数据，不需要电网侧配合，可以先做。", self: false },
+    ],
+    quick: ["按工时排序", "只看可自动化的", "给试点范围"], placeholder: "只问 Atlas：这个流程哪里最浪费？",
+  },
+  {
+    key: "scout", initials: "SC", name: "Scout", role: "同行情报", desc: "找同行 AI 落地案例与一手材料，带引用",
+    presence: "present", model: "3 并行 · 主动插话 开",
+    skills: ["一手材料检索", "交叉验证", "出处标注"],
+    lines: [
+      { who: "Scout", t: "14:02", text: "德国三家 EPC 的在建规模：两家有公开季报，第三家只有行业协会口径。", self: false },
+      { who: "你", t: "14:05", text: "行业协会那条标为不确定。", self: true },
+      { who: "Scout", t: "14:06", text: "已标注，并附上两处冲突数据的原文链接。", self: false },
+    ],
+    quick: ["再找两个来源", "只要官方口径", "列出冲突项"], placeholder: "只问 Scout：这个数字有出处吗？",
+  },
+  {
+    key: "ledger", initials: "LG", name: "Ledger", role: "收益测算", desc: "算人天节省、单位成本与回本周期",
+    presence: "running", model: "本地模型 · 需批准",
+    skills: ["现金流建模", "敏感性分析", "回本周期"],
+    lines: [
+      { who: "Ledger", t: "14:10", text: "三条路径的现金流已跑完，折现率用的是 8%，需要财务确认。", self: false },
+      { who: "你", t: "14:12", text: "换 10% 再跑一遍。", self: true },
+      { who: "Ledger", t: "14:12", text: "正在重算，约 40 秒。合资路径回本会从 4.2 年推到 4.9 年。", self: false },
+    ],
+    quick: ["改折现率", "看敏感性", "导出测算表"], placeholder: "只问 Ledger：换个假设会怎样？",
+  },
+  {
+    key: "warden", initials: "WD", name: "Warden", role: "风险与合规", desc: "数据出域、隐私、模型使用红线",
+    presence: "present", model: "命中即拦 · 主动插话 开",
+    skills: ["红线检查", "数据出域判定", "合规清单"],
+    lines: [
+      { who: "Warden", t: "13:40", text: "本地化率 40% 是补贴目录硬门槛，收购路径需要重新核资质主体。", self: false },
+      { who: "你", t: "13:44", text: "这条写进约束清单。", self: true },
+      { who: "Warden", t: "13:45", text: "已加入，并标为不可协商项。", self: false },
+    ],
+    quick: ["查一条红线", "看约束清单", "评估这个做法"], placeholder: "只问 Warden：这样做合规吗？",
+  },
+  {
+    key: "echo", initials: "EC", name: "Echo", role: "访谈综合", desc: "转录一线访谈、抽引述、合并同类观点",
+    presence: "idle", model: "被动 · 仅被 @ 时出现",
+    skills: ["逐字转录", "引述抽取", "同类观点合并"],
+    lines: [
+      { who: "Echo", t: "11:20", text: "9 场访谈里「谁为收益不达标负责」出现 7 次，没有一次得到明确回答。", self: false },
+      { who: "你", t: "11:25", text: "做成追问清单。", self: true },
+      { who: "Echo", t: "11:26", text: "已生成 4 条追问，附各自的原话出处。", self: false },
+    ],
+    quick: ["抽三段原话", "合并同类项", "生成追问清单"], placeholder: "只问 Echo：他们原话怎么说的？",
+  },
+];
+
+/**
+ * 组员私聊默认开关 —— 原型能力表「与 AI 的对话 / 本组共享推演，组员私聊汇总在这 / 开·必留」
+ * （偏移 16609949）。默认 **开**（v1 写反成 false）。组员默认可私聊，且私聊必留档汇总。
+ * 观察者仍无私聊入口（只读）。
+ */
+export const MEMBER_CHAT_DEFAULT_ON = true;
+export const MEMBER_CHAT_META = {
+  label: "与 AI 的对话",
+  usage: "本组共享推演，组员私聊汇总在这",
+  policy: "开 · 必留",
+} as const;
+
+
 export const PRIVATE_CHAT = {
   agentId: "ag-ava",
   agentInitials: "AV",
