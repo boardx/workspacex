@@ -11,7 +11,8 @@
  * 因此本文件**从契约 import 锚点/段模态的取值**，不另抄一份枚举（避免第 N 次「同一事实两处」）。
  *
  * ── 契约里还缺、我在此集中声明并标注「待迁入 packages/contracts」的 ────────────────
- *   · SegmentStatus（正在识别 / 待校对 / 两人同时说话·待人工指派 / 定稿）—— rec 专属转写态
+ *   · ~~SegmentStatus~~ —— **契约已建成**（`recording.SegmentStatus`），但取值与本地那份
+ *     互有出入 ⇒ 已改名 `SegmentStatusView` 并登记 `CONTRACT_DIVERGENCES.D11`，等人裁
  *   · PiiType（O-39 五类）—— 遮盖类型全集，契约里只有 thresholds 的规则占位、无枚举
  *   · 匿名声道（说话人 A/B/C）与「声道↔人映射」实体 —— diarization 产物，契约未建模
  *   · 材料保留期解析结果（项目覆盖值→组织默认值）—— thresholds.ts 标 known:false，数值待合规
@@ -27,16 +28,28 @@ export const ARTIFACT_SOURCES = ArtifactSource.options; // survey/conversation/i
 
 /* ─────────────────────── 预览维度：屏 / 载体 / 视角 ─────────────────────── */
 
-export type RecScreen = "live" | "assign" | "annotate" | "retention";
-export const REC_SCREENS: RecScreen[] = ["live", "assign", "annotate", "retention"];
+export type RecScreen =
+  | "prep" | "live" | "process" | "verify" | "assign" | "annotate" | "retention";
+// prep / process / verify 是本轮（rec-v2）补画的三屏：授权矩阵 / 处理状态 / 逐字稿校对。
+// 它们原型早已存在（准备室 16088061 / 处理状态 16121854 / 逐字稿校对 16125909），
+// v1 却把它们塌成一个布尔 authComplete / 一个「处理中」/ 一个只读结果——见 rec-v2/V1-WAS-WRONG.md。
+export const REC_SCREENS: RecScreen[] = [
+  "prep", "live", "process", "verify", "assign", "annotate", "retention",
+];
 export const REC_SCREEN_LABEL: Record<RecScreen, string> = {
+  prep: "准备室 · 逐人授权",
   live: "实时转录",
+  process: "处理状态",
+  verify: "逐字稿校对",
   assign: "指派说话人",
   annotate: "引述与打点",
   retention: "回流与保留期",
 };
 export const REC_SCREEN_UC: Record<RecScreen, string> = {
+  prep: "UC-5.1 R8 · 授权矩阵",
   live: "UC-5.1 · F69–F73",
+  process: "UC-5.1 · 处理状态",
+  verify: "UC-5.3 · 逐字稿校对",
   assign: "UC-5.2 · F74–F75",
   annotate: "UC-5.3 · F76–F77",
   retention: "UC-5.4 · F78–F79",
@@ -86,16 +99,20 @@ export function isReadOnlyRec(v: RecView): boolean {
 /* ─────────────────────── 转写段模型（待迁入 packages/contracts）─────────────────────── */
 
 /**
- * 转写段状态 —— **rec 专属，契约未建模，待迁入**。
+ * 转写段状态（展示层）。⚠ 原注释说「契约未建模」——**2026-07-31 起不再成立**：
+ * 契约 `recording.SegmentStatus = ["partial","final","pending-manual","disputed"]` 已建成，
+ * 与这里**四对四但各有一个对方没有的态**（这里有 `low-confidence`，契约有 `disputed`），
+ * 两个都有 UC 出处 ⇒ 改名分离 + 登记 `CONTRACT_DIVERGENCES.D11`，**不自己选边**。
+ *
  * 三种「不稳定态」一律不可被抽为引述（UC-5.1 R7 / UC-5.3 R7 硬约束）：
  */
-export type SegmentStatus =
+export type SegmentStatusView =
   | "final" // 已定稿，可引述
   | "partial" // 正在识别（UC-5.1 R8 常驻控件③）——定稿前不可引述、不进检索与 AI 归纳
   | "low-confidence" // 识别置信度低·待校对（UC-5.1 E7 / UC-5.2 R5）
   | "pending-manual"; // 两人同时说话·待人工指派（O-13：不得静默归给单一说话人）
 
-export const UNQUOTABLE_STATUSES: SegmentStatus[] = ["partial", "low-confidence", "pending-manual"];
+export const UNQUOTABLE_STATUSES: SegmentStatusView[] = ["partial", "low-confidence", "pending-manual"];
 export function isQuotable(s: TranscriptSegment): boolean {
   return !UNQUOTABLE_STATUSES.includes(s.status);
 }
@@ -121,8 +138,14 @@ export interface SegAnchor {
   messageId?: string;
 }
 
-export type EvidenceNature = "personal" | "secondhand" | "opinion";
-export const EVIDENCE_NATURE_LABEL: Record<EvidenceNature, string> = {
+/**
+ * 证据性质（展示层）。⚠ 与契约 `recording.EvidenceNature` **语义 1:1、线上码不同**：
+ * 契约取中文字面值 `["个人经历","二手转述","观点"]`，这里取英文码 + 中文 label。
+ * ⇒ 改名分离 + 登记 `CONTRACT_DIVERGENCES.D12`。
+ * ⚠ 这一条**建议按通则裁**（契约整体中英文混用且无成文规则），不要单独拍。
+ */
+export type EvidenceNatureView = "personal" | "secondhand" | "opinion";
+export const EVIDENCE_NATURE_LABEL: Record<EvidenceNatureView, string> = {
   personal: "个人经历",
   secondhand: "二手转述",
   opinion: "观点",
@@ -134,7 +157,7 @@ export interface TranscriptSegment {
   anonChannel: "A" | "B" | "C" | null;
   /** 指派后的真人 id（指向 SPEAKERS）；null = 出处待补（UC-5.2 R3 第 4 步）*/
   assignedTo: string | null;
-  status: SegmentStatus;
+  status: SegmentStatusView;
   anchor: SegAnchor;
   /** 遮盖后的展示文本（默认读接口只返回这个）*/
   maskedText: string;
@@ -143,7 +166,7 @@ export interface TranscriptSegment {
   /** 已被标为引述 */
   quote?: {
     rq: string | null; // 绑定的研究问题（UC-5.3 R3 第 3 步），可空
-    nature: EvidenceNature;
+    nature: EvidenceNatureView;
   };
   /** AI 打点候选（origin: ai，落候选态，不进证据库直到人工确认）*/
   aiMoment?: {

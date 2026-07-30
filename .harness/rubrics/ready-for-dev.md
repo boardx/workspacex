@@ -21,7 +21,11 @@
    `covers:` 里有它），该束 `status: confirmed`，且本阶段 `design-coherence.md` 已通过
    **并在 `covers_bundles:` 里声明覆盖了该束**。
    - 「不属于任何束」= **拒绝**，不是「无需签核」。
-   - 该阶段尚无 `contracts/` 目录时本条自动满足（脚本层的逃生口，见下）。
+   - 该阶段 `requirements/` 必须有真实 story（不是裸模板），否则它的束不可签核
+     （人类拍板 2026-07-19；2026-07-30 从已停用的 phase 级 UI 门搬进束级门）。
+   - 尚无契约束时本条自动满足（脚本层的逃生口）——**但 `has_ui: true` 的阶段没有这个逃生口**：
+     零契约束直接判失败（2026-07-30 收口，见 ADR-023 决策一）。
+   - phase 级 `ui-signoff.md` 已停用，UI 是束级 `design-signoff.md` 的第 ① 件；**改前者无效**。
    - 签核是**人的动作**：`status` 只能由人类改，agent 改了会被 CODEOWNERS + CI 拦。
    - 权威规格 ADR-023；怎么做见 [`.harness/instructions/contract-design.md`]。
 

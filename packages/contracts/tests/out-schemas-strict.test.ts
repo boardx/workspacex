@@ -4,6 +4,18 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as auth from "../src/auth";
+import * as project from "../src/project";
+import * as interview from "../src/interview";
+import * as recording from "../src/recording";
+import * as canvas from "../src/canvas";
+import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
+import * as research from "../src/research";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -26,7 +38,12 @@ import * as auth from "../src/auth";
  * declares it separately. This test walks the tree so a nested object cannot be forgotten.
  */
 
-const BUNDLES = { identity, artifact, contextPack, auth } as const;
+const BUNDLES = {
+  identity, artifact, contextPack, auth, project,
+  // ── phase-01 十一束（不加进来 = 这道门对新契约完全不生效）──
+  interview, recording, canvas, chat, files, orgAdmin, assetGovernance,
+  agentRuntime, skills, templates, research,
+} as const;
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {

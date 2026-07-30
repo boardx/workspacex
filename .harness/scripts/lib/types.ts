@@ -41,7 +41,12 @@ export interface RoadmapPhase {
   goal: string;
   status: PhaseStatus;
   depends_on: string[];
-  /** true = 本阶段有用户界面，须先过 UI 先行确认关卡（ui-signoff.md confirmed）才能开 sprint。见 ADR-003。 */
+  /**
+   * true = 本阶段有用户界面。两个机械后果，都在束级签核门里（ADR-023 决策一，2026-07-30）：
+   * ① 该阶段每个契约束必须有 `ui.md`（UI 签核的第 ① 件材料）；
+   * ② 该阶段若**没有任何契约束**，签核门直接判失败——有界面却无处签核，不是放行的理由。
+   * （原 phase 级 `ui-signoff.md` 关卡见 ADR-003，已于 2026-07-30 停用。）
+   */
   has_ui?: boolean;
   /** Existing GitHub umbrella issue used for external phase coordination. */
   tracking_issue?: number;

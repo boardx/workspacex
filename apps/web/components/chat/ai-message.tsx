@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   TOOL_CALL_STATUS_LABEL,
   type ChatMessage,
-  type MessageBadge,
+  type MessageBadgeView,
   type ToolCallLog,
   type ToolCallStatus,
   type CitationView,
@@ -57,7 +57,7 @@ export function AiMessage({ msg }: { msg: AiMessage }) {
   );
 }
 
-function MessageHeaderBadge({ badge }: { badge: MessageBadge }) {
+function MessageHeaderBadge({ badge }: { badge: MessageBadgeView }) {
   if (badge.kind === "degraded") {
     return (
       <Badge tone="warning" data-testid="chat-badge-degraded">

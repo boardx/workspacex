@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { Search, Plus, Quote } from "lucide-react";
 import { StateShell, StatePreviewSwitcher } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -15,10 +16,12 @@ import {
 } from "@/lib/mock/projects";
 
 /**
- * 项目列表主体（UC-2.2 R8 · 原型第三节）——**客户端组件**：
- * 筛选切换与 StateShell 的 onCreate/retry 都是事件处理器，
+ * 项目列表主体（UC-2.2 R8 · 原型第三节）—— **project 域的主入口**（人类 2026-07-30）：
+ * 点项目 app 先看到这张列表，能增（新建）/改（卡片⋯菜单编辑）/查（筛选+搜索）/退役（归档）。
+ * ⚠ 删除**刻意不提供**：Q-9 裁「不提供删除项目」，由归档承接「不再用了」（见 ui-preview README）。
+ *
+ * **客户端组件**：筛选切换与 StateShell 的 retry 都是事件处理器，
  * 服务端组件不能把函数当 props 传给客户端组件，故整块下沉到这里。
- * 页面壳保持服务端组件（读 searchParams），只把 state 传进来。
  */
 export function ProjectsScreen({ state }: { state: UiState }) {
   const [filter, setFilter] = React.useState<ProjectFilterKey>("all");
@@ -66,21 +69,18 @@ export function ProjectsScreen({ state }: { state: UiState }) {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索项目"
+                placeholder="搜索项目 / 客户"
                 aria-label="搜索项目"
                 data-testid="projects-search"
                 className="h-8 w-44 pl-7"
               />
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              disabled
-              title="新建项目要先选蓝本（UC-2.2「套用蓝本新建项目」），蓝本设计器尚未建 —— 见 ui-preview/README.md 的未建清单"
-              data-testid="projects-new"
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              新建项目
+            {/* 增：新建项目 → 套用蓝本向导（C-2 已补屏 /project/new）*/}
+            <Button asChild variant="primary" size="sm" data-testid="projects-new">
+              <Link href="/project/new">
+                <Plus aria-hidden className="h-3.5 w-3.5" />
+                新建项目
+              </Link>
             </Button>
           </div>
         </div>
@@ -92,7 +92,7 @@ export function ProjectsScreen({ state }: { state: UiState }) {
         state={state}
         skeletonRows={4}
         emptyHint="还没有项目。用一个已发布的蓝本新建一场协作试试。"
-        onCreate={() => window.alert("演示：新建项目向导（选蓝本 → 选档位 → 预览将初始化什么）")}
+        onCreate={() => { window.location.href = "/project/new"; }}
         errors={{ blueprint: "请先选择一个已发布的蓝本", duration: "请选择一个时长档位（半天 / 一天 / 两天 / 三天）" }}
         depFailure={{
           what: "蓝本服务（登录管理 / 蓝本发布）暂时不可用，无法列出可套用的蓝本",

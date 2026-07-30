@@ -18,7 +18,7 @@ import {
   INTERVIEW_SCOPES, SCOPE_OPEN_QUESTIONS, INTERVIEW_FILTERS, INTERVIEW_ROWS,
   INTERVIEW_STATUS_LABEL, interviewCounts, ATTACH_STAGES,
   INTERVIEW_TEMPLATES, DETAIL_HEADER,
-  type InterviewFilterKey, type InterviewRow, type InterviewStatus, type InterviewTemplate,
+  type InterviewFilterKey, type InterviewRowView, type InterviewStatus, type InterviewTemplate,
 } from "@/lib/mock/interview-studio";
 
 const STATUS_TONE: Record<InterviewStatus, "warning" | "primary" | "neutral" | "outline"> = {
@@ -142,7 +142,7 @@ export function InterviewStudio({
                     当前筛选「{INTERVIEW_FILTERS.find((f) => f.key === filter)?.label}」下没有访谈
                   </p>
                 ) : (
-                  rows.map((r) => <InterviewRowView key={r.id} r={r} state={state} />)
+                  rows.map((r) => <InterviewRowItem key={r.id} r={r} state={state} />)
                 )}
               </div>
             </StateShell>
@@ -207,7 +207,7 @@ function ScopeSwitcher({ current, tab, state }: { current: string; tab: string; 
 }
 
 /* ── 列表行（七列信息 + 虚拟强标记 + 挂到项目环节）──────────────── */
-function InterviewRowView({ r, state }: { r: InterviewRow; state: string }) {
+function InterviewRowItem({ r, state }: { r: InterviewRowView; state: string }) {
   const [attaching, setAttaching] = React.useState(false);
   const [attachedTo, setAttachedTo] = React.useState<string | null>(null);
 

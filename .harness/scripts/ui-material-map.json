@@ -1,0 +1,24 @@
+{
+  "//": "契约束 ↔ 截图目录 的唯一事实源（lint-ui-material.mjs 读它，别处不许再抄一份）。",
+  "//1": "键 = phases/<phase>/contracts/<束>/ui.md 的 <phase>；值的键 = <束>；值 = phases/<phase>/ 下的截图目录相对路径。",
+  "//2": "为什么必须显式声明而不是猜同名：四个束的目录名与束名不同（interview→itv-v2、recording→rec、skills→skill、templates→tpl-v2）。",
+  "//3": "为什么 interview 指向 itv-v2、templates 指向 tpl-v2：v1（itv/ 44 张、tpl/ 24 张）已被保真度审计推翻，不算签核材料；推翻要留痕，旧目录不删。",
+  "//4": "新增一个带 ui.md 的束时必须在这里补一行；不补 = 门控报「未声明截图目录」而不是静默跳过。",
+  "//5": "asset-governance（第 11 束，2026-07-30 建）声明了目录但目录尚未产出，门控会报判定④「目录不存在/0 张 png」——那是正确的红：材料确实还没有。不补这一行的话报的是判定③「未声明」，报错理由就不对了（真实情况是「已声明、待产出」，不是「有人忘了声明」）。ui-prototyper 交付后此红自动消。",
+  "//5b": "research（第 12 束，2026-07-30 建；D-20 已裁 21 点却三个 phase 都没有该模块，见 phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md）同 asset-governance：声明了目录但目录尚未产出，门控报判定④「目录不存在/0 张 png」——那是正确的红。ui-prototyper 交付后此红自动消。",
+  "//6": "为什么 project 指向 project-v2：v1（project/ 19 张，只有概览拿到七态、无四视角对照）已被推翻——补齐两层界面（列表 + 工作台）× 七态 × 四视角、修好「客户分享链接默认反了」等保真度错误，见 project-v2/V1-WAS-WRONG.md。旧目录不删，留痕。",
+  "phase-01-run-a-project": {
+    "agent-runtime": "ui-preview/agent-runtime-v2",
+    "asset-governance": "ui-preview/asset-governance",
+    "canvas": "ui-preview/canvas-v2",
+    "chat": "ui-preview/chat-v2",
+    "files": "ui-preview/files",
+    "interview": "ui-preview/itv-v2",
+    "org-admin": "ui-preview/org-admin",
+    "project": "ui-preview/project-v2",
+    "recording": "ui-preview/rec-v2",
+    "research": "ui-preview/research",
+    "skills": "ui-preview/skill-v2",
+    "templates": "ui-preview/tpl-v2"
+  }
+}

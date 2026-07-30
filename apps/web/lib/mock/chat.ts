@@ -11,19 +11,31 @@
  * ⚠ 批准卡（ApprovalRequest）是**产品信任核心**，其模型 / 预算 / 数据范围三项
  *   必须**数据驱动**（裁决 D-07：模型与 MCP 管理进 phase-1）。
  *   「含机密，仅本地模型」由 `dataScopeConstraint()` 从数据推出，不是写死文案。
+ *
+ * ⚠ **本文件与 `@repo/contracts/chat` 的关系**（2026-07-31 逐条比对后收敛）：
+ *   · 取值完全相同的（`ToolCallStatus` / `CitationAnchorKind`）⇒ 已改为 `z.infer` 派生。
+ *   · 结构不同的渲染视图（线程卡 / 工具调用行 / 右栏标签）⇒ 加 `View` 后缀分离。
+ *   · 取值也不一致的（在场态 / 可见性 / 徽标 / 批准态）⇒ 加 `View` 后缀 **＋ 登记进
+ *     `@/lib/contract-divergences`**，哪边对是**签核动作**，不由本文件选边。
  */
+import type { z } from "zod";
+import * as C from "@repo/contracts/chat";
 
 /* ─────────────────────────── AI 团队面板（UC-4.2 / UC-8.2 R3 一） ─────────────────────────── */
 
-/** agent 在场态三取值（enum，不得增删 —— UC-8.2 R7 / UC-4.2 R7）*/
-export type AgentPresence = "present" | "batching" | "idle";
-export const AGENT_PRESENCE_LABEL: Record<AgentPresence, string> = {
+/**
+ * agent 在场态（展示层）。⚠ 与契约 `chat.AgentPresence` **同名不同义且取值不一致**
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D04`（那里也记了契约侧 `AgentPresence`
+ * 被声明两次这件事）。**不要就地合并**——合并会让「跑批中」这个在场数分母消失。
+ */
+export type AgentPresenceView = "present" | "batching" | "idle";
+export const AGENT_PRESENCE_LABEL: Record<AgentPresenceView, string> = {
   present: "在场",
   batching: "跑批中",
   idle: "空闲",
 };
 /** 在场态徽标色调：跑批中=ai（正在工作）、空闲=neutral、在场=primary */
-export const AGENT_PRESENCE_TONE: Record<AgentPresence, "primary" | "ai" | "neutral"> = {
+export const AGENT_PRESENCE_TONE: Record<AgentPresenceView, "primary" | "ai" | "neutral"> = {
   present: "primary",
   batching: "ai",
   idle: "neutral",
@@ -36,7 +48,7 @@ export interface TeamAgent {
   role: string;
   /** 职责一句话 —— UC-8.2 R7：不得只显示名称 */
   duty: string;
-  presence: AgentPresence;
+  presence: AgentPresenceView;
 }
 
 /** 六个 agent 全给（PROTOTYPE-DIGEST 第二节实测表）*/
@@ -57,7 +69,13 @@ export const TEAM_PRESENT_COUNT = TEAM_AGENTS.filter((a) => a.presence === "pres
 /* ─────────────────────────── 线程列表（UC-8.1 R3）─────────────────────────── */
 
 export type ThreadBadgeKind = "transcribing" | "review" | "archived" | "agents" | "time";
-export interface ThreadCard {
+/**
+ * 线程卡（展示层）。⚠ 与契约 `chat.ThreadCard` **同名不同义**：
+ * 契约那份是线上载荷 `{id,title,subtitle,badges[],agentSummary,lastActivityAt,visibilityScope}`，
+ * 这份是**渲染后的列表行**（单个已选好的徽标 + 合成的 meta 串 + 选中态）。
+ * 结构不同、取值不冲突 ⇒ 改名分离即可，无需人类裁决。
+ */
+export interface ThreadCardView {
   id: string;
   title: string;
   /** 状态徽标 —— UC-8.1 R7：一等取值，不得自造 */
@@ -70,7 +88,7 @@ export interface ThreadGroup {
   key: string;
   /** 按时间分组，组标题常驻（UC-8.1 R8）*/
   label: string;
-  threads: ThreadCard[];
+  threads: ThreadCardView[];
 }
 
 export const THREAD_GROUPS: ThreadGroup[] = [
@@ -111,7 +129,8 @@ export const ACTIVE_THREAD = {
 
 /* ─────────────────────────── 引用（UC-8.2 R7 引用层，三段缺一不可）─────────────────────────── */
 
-export type CitationAnchorKind = "page" | "transcript" | "message";
+/** ⚠ 与契约 `chat.CitationAnchorKind` **逐值相同** ⇒ 从契约派生，不留第二份（ADR-020）。 */
+export type CitationAnchorKind = z.infer<typeof C.CitationAnchorKind>;
 /**
  * 契约里的 `Citation` 是**线上引用**（`{segmentId, artifactVersionId}`）；
  * 这里是**渲染后的展示视图**（带序号、出处全称、已解析的锚点）。两者不同层，故名字上分开。
@@ -127,14 +146,21 @@ export interface CitationView {
 
 /* ─────────────────────────── 工具调用（UC-8.2 R7 工具调用层）─────────────────────────── */
 
-export type ToolCallStatus = "done" | "reuse" | "running" | "failed";
+/** ⚠ 与契约 `chat.ToolCallStatus` **逐值相同** ⇒ 从契约派生，不留第二份（ADR-020）。 */
+export type ToolCallStatus = z.infer<typeof C.ToolCallStatus>;
 export const TOOL_CALL_STATUS_LABEL: Record<ToolCallStatus, string> = {
   done: "完成",
   reuse: "复用",
   running: "运行中",
   failed: "失败",
 };
-export interface ToolCall {
+/**
+ * 一次工具调用（展示层）。⚠ 与契约 `chat.ToolCall` **同名不同义**：
+ * 契约那份是审计载荷（十个字段，含 `callerAgentId` / `pipelineVersion` / `provenanceEventId`），
+ * 这份是**折叠面板里渲染的一行**——签名与结果都已拼成人读串。
+ * 结构不同、取值不冲突（`status` 已从契约派生）⇒ 改名分离即可。
+ */
+export interface ToolCallView {
   /** 函数签名 + 实参 */
   signature: string;
   /** 命中数 / 复用标记 / 运行态短语 */
@@ -148,12 +174,19 @@ export interface ToolCallLog {
   readItems: number;
   /** 汇总：token 读取量 */
   tokens: string;
-  calls: ToolCall[];
+  calls: ToolCallView[];
 }
 
 /* ─────────────────────────── 消息头角标（UC-8.2 R7 状态可见性）─────────────────────────── */
 
-export type MessageBadge =
+/**
+ * 消息头角标（展示层）。⚠ 与契约 `chat.MessageBadge` **同名不同义且取值不一致**
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D06`。
+ * 契约是裸枚举 `["degraded","review-pending"]`；这里是带载荷的可辨识联合，
+ * 且待复核那一档的码是 `review` 不是 `review-pending`。载荷（`model` / `count`）
+ * 在契约里没有字段承载——**由谁提供也是待裁项**，不在此处发明。
+ */
+export type MessageBadgeView =
   | { kind: "degraded"; model: string } // 降级运行 · sonnet
   | { kind: "review"; count: number }; // 待复核 3
 
@@ -184,11 +217,17 @@ export interface ApprovalDataItem {
   /** 机密标记 —— 「仅本地模型」由此推导 */
   confidential: boolean;
 }
-export type ApprovalStatus = "paused" | "expired" | "approved" | "declined";
+/**
+ * 批准卡状态（展示层）。⚠ 与契约 `chat.ApprovalStatus` **同名、取值是其真子集**
+ * （少 `reparamed`）⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D07`。
+ * 不直接派生的原因：契约把「改参后批准」当一等出口，视图这边没有对应卡片态；
+ * 直接 `z.infer` 会静默多出一个界面渲染不了的取值，那是假的一致。
+ */
+export type ApprovalStatusView = "paused" | "expired" | "approved" | "declined";
 
 export interface ApprovalRequest {
   id: string;
-  status: ApprovalStatus;
+  status: ApprovalStatusView;
   title: string;
   /** 调用链（谁调的谁）—— agent 互调深度上限 2（O-36）*/
   callChain: string[];
@@ -310,7 +349,7 @@ export type ChatMessage =
       skill?: string;
       thinking?: string; // 「思考了 8.2 秒 · 4 步」
       time: string;
-      badges: MessageBadge[];
+      badges: MessageBadgeView[];
       text: string;
       tools?: ToolCallLog;
       citations?: CitationView[];
@@ -484,14 +523,19 @@ export const COMPOSER_STATUS = {
 
 /* ─────────────────────────── 右栏五标签（UC-8.2 R3 步骤 13）─────────────────────────── */
 
-export interface RightTab {
-  key: string;
+/**
+ * 右栏标签行（展示层）。⚠ 与契约 `chat.RightTab` **同名不同义**：
+ * 契约那份是**五值枚举**（标签的 key），这份是渲染一行所需的 `{key,label,count}`。
+ * ⇒ 改名分离，且 `key` **就用契约那个枚举**——保证五个 key 与契约同源。
+ */
+export interface RightTabView {
+  key: z.infer<typeof C.RightTab>;
   label: string;
   /** null = 无计数（转录）；「已完成/总数」形式用 countDisplay */
   count: number | null;
   countDisplay?: string;
 }
-export const RIGHT_TABS: RightTab[] = [
+export const RIGHT_TABS: RightTabView[] = [
   { key: "transcript", label: "转录", count: null },
   { key: "execution", label: "执行", count: 4, countDisplay: "2/4" },
   { key: "insight", label: "洞察", count: 6 },
@@ -500,7 +544,7 @@ export const RIGHT_TABS: RightTab[] = [
 ];
 
 /** 空态：新线程五标签计数全为 0 且不隐藏（UC-8.2 V14）*/
-export const RIGHT_TABS_EMPTY: RightTab[] = RIGHT_TABS.map((t) =>
+export const RIGHT_TABS_EMPTY: RightTabView[] = RIGHT_TABS.map((t) =>
   t.key === "transcript" ? t : { ...t, count: 0, countDisplay: t.key === "execution" ? "0/0" : undefined },
 );
 
@@ -612,9 +656,14 @@ export const LANDING_ACTIONS = {
  * 与 phase-00 一致性复核里 `IngestionRun` 的 `status` vs `state` 是同一类问题，
  * 处理方式沿用那次立的纪律：**同名会掩盖分歧，改名而不是合并**。
  * ⇒ 改名 `ChatVisibility`。若日后产品裁定两者本应统一，那是一次签核动作，不是一次改名。
+ *
+ * ⚠ **2026-07-31 第二轮**：契约随后新建了 `chat.ChatVisibility`（五值），与本类型
+ * 四值逐字相同、第五档码不同（契约 `plenary` vs 这里 `all-hands`）。
+ * ⇒ 再次改名 `ChatVisibilityView`，取值分歧登记为 `CONTRACT_DIVERGENCES.D05`。
+ * **不自己选词**——线上码定成哪个是签核动作。
  */
-export type ChatVisibility = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
-export const CHAT_VISIBILITY_LABEL: Record<ChatVisibility, string> = {
+export type ChatVisibilityView = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
+export const CHAT_VISIBILITY_LABEL: Record<ChatVisibilityView, string> = {
   "member-private": "组员私聊",
   "group-shared": "本组共享",
   "all-hands": "全场",
@@ -637,7 +686,7 @@ export interface LandingArtifact {
   citationCount: number;
   /** 未挂来源标灰（AC3）—— 服务端可判定状态，不是纯视觉 */
   hasSource: boolean;
-  visibility: ChatVisibility;
+  visibility: ChatVisibilityView;
 }
 export const LANDING_ARTIFACTS: LandingArtifact[] = [
   {
@@ -665,30 +714,39 @@ export function canEnterDecision(a: LandingArtifact): { ok: boolean; reason?: st
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * UC-8.4 预设对话下发 —— 编写 / 下发对象 / 可见性范围校验 / 使用计数
+ * UC-8.4 预设对话与技能 —— v2 重画（原型有完整一屏，v1 误报「预设 0 命中」）
  *
- * ⚠⚠ 本 UC 核心行为整体来自 `Backlog Use Case.html`，**原型 0 命中**（口径重标 2026-07-28）：
- *    对话屏、后台、组员入口三处均无预设列表/编辑器/下发对象选择器/使用计数。
- *    这里画的**整屏都是 [Backlog]/[设计] 的补画原型**，README 逐条标待裁决。
+ * ⚠ v1 逐字宣称「预设二字原型 0 命中…每一个控件都是新设计」。实测 `预设` = 9 处命中，
+ *    构成一整屏（原型 wsPhase="chats"，即【工作坊详情 → 对话子页】，引导师视角）：
+ *      · 页头「预设对话与技能」（15442983）
+ *      · 表头四列「预设对话 | 内置技能 | 下发对象 | 使用」（15447263–15447347）
+ *      · JS 数据 chatPresets 4 行带 to/used（16974471）
+ *      · 编辑器弹层标题「新建预设对话（下发给组长 / 组员）」+ CTA「保存并下发」（16836655）
+ *      · 「预设技能 · 引导师已配好，可增减」（15574080）
+ *      · 「下发只给入口，不代替对话」（15448694）
  *
- * ⚠⚠ **权限模型未定**：谁能给谁下发、被下发者能不能改/拒——UC 未写死。
- *    界面上把这三个问题做成**显式待裁决卡**，不替 UC 表态。
+ * ⚠ v1 把三条「权限模型待裁决」摆在签核人面前，原型全部答死（见 PRESET_ANSWERED）：
+ *    ① 谁能下发？→ 引导师下发给组长/组员（弹层标题 16836655）
+ *    ② 被下发者能改？→ 能改（预设技能·引导师已配好，可增减 15574080）
+ *    ③ 被下发者能拒？→ 上架供取用「点开即用」，不是推送（15448694 + newChatFoot 16837179）
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-/** 下发对象类型（R3 步骤 1）*/
-export type DispatchTargetKind = "all-hands" | "groups" | "roles";
+/**
+ * 下发对象（原型 `to` 字段三取值 = 角色范围；编辑器另有「只给第 N 组」的组覆盖）。
+ * ⚠ v1 把它换成了「组范围」（全场/指定组/指定角色），原型主模型是【角色范围】：
+ *    全部组长 + 组员 / 全部组长 / 全部组员，编辑器里再叠一个可选的「只给第 4 组」。
+ */
+export type DispatchTargetKind = "leads-and-members" | "leads" | "members";
 export const DISPATCH_TARGET_LABEL: Record<DispatchTargetKind, string> = {
-  "all-hands": "全场",
-  groups: "指定组",
-  roles: "指定角色",
+  "leads-and-members": "全部组长 + 组员",
+  leads: "全部组长",
+  members: "全部组员",
 };
 
-/** 预设引用的 agent / skill（下发时校验可见性范围，越范围直接拒绝——R3 步骤 1 / V1c）*/
-export interface PresetResourceRef {
-  id: string;
+/** 预设自带的内置技能（原型：读本组画布 / 缺口检测 / 生成便签 / 反例检索 / 汇报稿…）*/
+export interface PresetSkillRef {
   name: string;
-  kind: "agent" | "skill";
-  /** 可见性范围：全组织可用 / 仅某组（承接 uc-0-3）*/
+  /** 可见性范围：全组织可用 / 仅某组（越范围下发即拒，承接 uc-0-3）*/
   scope: "org" | "group";
   scopeGroup?: string;
 }
@@ -696,86 +754,135 @@ export interface PresetResourceRef {
 export interface Preset {
   id: string;
   name: string;
-  /** 开场提示（R3 步骤 1）*/
-  openingPrompt: string;
-  agents: PresetResourceRef[];
-  skills: PresetResourceRef[];
-  target: { kind: DispatchTargetKind; detail: string };
-  /** 使用计数 = 真实使用实例数（AC1 / V1）—— 不是下发人数 */
-  instanceCount: number;
-  dispatchedTo: number;
-  status: "draft" | "dispatched";
+  /** 一句话说明（原型 note，如「对着本组画布找缺什么」）*/
+  note: string;
+  /** 内置技能（原型「内置技能」列）*/
+  skills: PresetSkillRef[];
+  /** 下发对象（原型「下发对象」列，角色范围）*/
+  to: DispatchTargetKind;
+  /** 使用次数（原型「使用」列，如「9 次」= 真实实例数）*/
+  used: number;
 }
+
+/**
+ * 原型 chatPresets 4 行（16974471）——全部是「组员在某个环节现场用的小工具」，
+ * 不是 /chat 主屏的战略顾问团队语料（v1 错误 4：搬错了语料）。
+ */
 export const PRESETS: Preset[] = [
   {
-    id: "preset-hyp",
-    name: "假设梳理开局",
-    openingPrompt: "先把本组的进入策略拆成 4 组假设，标出其中的致命假设（不成立即推翻路径），每条结论必须挂来源。",
-    agents: [
-      { id: "av", name: "Ava · 战略分析师", kind: "agent", scope: "org" },
-      { id: "sc", name: "Scout · 同行情报", kind: "agent", scope: "org" },
-    ],
-    skills: [{ id: "mece", name: "MECE 假设拆解", kind: "skill", scope: "org" }],
-    target: { kind: "all-hands", detail: "全场 8 组" },
-    instanceCount: 6,
-    dispatchedTo: 8,
-    status: "dispatched",
+    id: "preset-gap", name: "补齐产出缺口", note: "对着本组画布找缺什么",
+    skills: [{ name: "读本组画布", scope: "org" }, { name: "缺口检测", scope: "org" }, { name: "生成便签", scope: "org" }],
+    to: "leads-and-members", used: 9,
   },
   {
-    id: "preset-interview",
-    name: "访谈速记与提要",
-    openingPrompt: "把本组这场客户访谈的转录抽成 5 条关键引述，合并同类观点，每条标出说话人与时间码。",
-    agents: [{ id: "ec", name: "Echo · 访谈综合", kind: "agent", scope: "org" }],
-    skills: [{ id: "quote", name: "引述抽取", kind: "skill", scope: "group", scopeGroup: "能源组" }],
-    target: { kind: "groups", detail: "第 2 组、第 5 组" },
-    instanceCount: 2,
-    dispatchedTo: 12,
-    status: "dispatched",
+    id: "preset-devil", name: "唱反调", note: "找最强反例与隐含前提",
+    skills: [{ name: "反例检索", scope: "org" }, { name: "前提识别", scope: "org" }],
+    to: "leads", used: 4,
   },
   {
-    id: "preset-ledger",
-    name: "收益测算模板",
-    openingPrompt: "按三路径算人天节省、单位成本与回本周期，含补贴退坡后的敏感性。",
-    agents: [{ id: "lg", name: "Ledger · 收益测算", kind: "agent", scope: "group", scopeGroup: "能源组" }],
-    skills: [],
-    target: { kind: "roles", detail: "各组组长" },
-    instanceCount: 0,
-    dispatchedTo: 0,
-    status: "draft",
+    id: "preset-fact", name: "事实核查", note: "核便签里的数字与政策",
+    // 「证据检索」仅能源组可见 —— 用来演示「越范围下发即拒」（下方 dispatchScopeViolation）
+    skills: [{ name: "事实核查", scope: "org" }, { name: "证据检索", scope: "group", scopeGroup: "能源组" }],
+    to: "members", used: 6,
+  },
+  {
+    id: "preset-report", name: "汇报稿三句话", note: "环节末生成可念的稿子",
+    skills: [{ name: "汇报稿", scope: "org" }, { name: "口语化", scope: "org" }],
+    to: "leads", used: 2,
   },
 ];
 
-/** 下发范围校验（R3 步骤 1 / V1c）：预设里引用的 agent/skill 若对下发对象不可见 → 下发即拒绝 */
+/** 页头 + 规则条（原型逐字）*/
+export const PRESET_HEADER = {
+  title: "预设对话与技能",
+  sub: "预设里带好技能与开场提示，组长和组员在自己视角点开即用，不需要自己配。",
+  sectionTitle: "预设对话 · 已下发",
+  columns: ["预设对话", "内置技能", "下发对象", "使用"],
+  /** 「下发只给入口，不代替对话」——同时是问题 ③「能不能拒」的原型答案 */
+  rule: "下发只给入口，不代替对话：组员仍是自己跟 agent 谈，产出默认留在他自己的对话里，除非他主动贴到小组画布。",
+};
+
+/**
+ * 编辑器弹层（原型 isMNewChat 15570986 + newChat* 16836655）。
+ * 标题/CTA/可见性说明/落点提示均取原型原文。
+ */
+export const PRESET_EDITOR = {
+  title: "新建预设对话（下发给组长 / 组员）", // newChatTitle 16836655
+  cta: "保存并下发", // newChatCta 16836740
+  context: "环节 3 · 假设风暴 · 第 2 组",
+  // newChatVis 16836811（引导师视角原文）
+  visNote: "预设本身对被下发的人可见；他们各自开始后，生成的是各自私有的对话——组员的对话只有他本人、他的组长和你（引导师）能看到。",
+  // newChatFoot 16837179
+  foot: "下发后出现在对应角色视角的「点开即用」区",
+  // 「从预设开始」四选项（newChatPresets 16837282）
+  startFrom: [
+    { ab: "GA", name: "补齐产出缺口", note: "读本组画布，指出缺什么、给候选内容" },
+    { ab: "DV", name: "唱反调", note: "针对本组结论找最强反例与前提漏洞" },
+    { ab: "FC", name: "事实核查", note: "把便签里的数字和政策去查一遍" },
+    { ab: "WR", name: "写成一段", note: "把散便签整理成可汇报的三句话" },
+  ],
+  // 预设技能 · 引导师已配好，可增减（15574080）—— 同时是问题 ②「能不能改」的原型答案
+  skillsNote: "预设技能 · 引导师已配好，可增减",
+  presetSkills: ["读本组画布", "缺口检测", "生成便签"],
+  // 带入的现场上下文（15574887；逐字稿未授权 15575782）
+  contextSources: [
+    { label: "本环节任务说明", on: true },
+    { label: "第 2 组画布 · 14 张便签", on: true },
+    { label: "会前问卷结论", on: false },
+    { label: "逐字稿（未授权）", on: false, locked: true },
+  ],
+  // 下发对象（15576002）：角色范围两项 + 可选「只给第 4 组」组覆盖
+  dispatchTargets: [
+    { id: "leads", label: "全部 4 组组长", on: true },
+    { id: "members", label: "全部 12 位组员", on: true },
+    { id: "group-4", label: "只给第 4 组", on: false },
+  ],
+};
+
+/**
+ * 消费端（组员视角「点开即用」区）——原型 roleThreads「组员对话 · 5」+
+ * 「引导师预设 · N」chip（16913560 附近）。下发后出现在此，点开即用、可拒可忽略。
+ */
+export const PRESET_CONSUMER = {
+  roleLabel: "组员视角 · 点开即用",
+  note: "引导师下发的预设出现在这里。点开即用，也可以不用——它是上架供取用，不是推送任务。",
+  chips: PRESETS.map((p) => p.name),
+};
+
+/**
+ * 下发范围校验（V1c）：预设里引用的组范围技能，若下发对象不是它所属组 → 下发即拒。
+ * 原型「证据检索」仅能源组可见；下发给全部组员即越界。
+ */
 export function dispatchScopeViolation(
   preset: Preset,
   targetGroup: string | null,
-): { blocked: boolean; offenders: PresetResourceRef[] } {
-  const refs = [...preset.agents, ...preset.skills];
-  // 演示：下发对象若不是资源所属组，则组范围资源越界
-  const offenders = refs.filter(
+): { blocked: boolean; offenders: PresetSkillRef[] } {
+  const offenders = preset.skills.filter(
     (r) => r.scope === "group" && r.scopeGroup && r.scopeGroup !== targetGroup,
   );
   return { blocked: offenders.length > 0, offenders };
 }
 
 /**
- * UC-8.4 的三个未定权限问题（UC 未写死，不替它表态）——界面显式呈现为待裁决卡。
- * README 第二/三节据此展开。
+ * 三条 v1「待裁决」→ 原型已答（带出处偏移）。界面按此渲染，不再摆成「待裁决」。
  */
-export const PRESET_OPEN_QUESTIONS = [
+export const PRESET_ANSWERED = [
   {
     id: "who-can-dispatch",
     q: "谁能给谁下发预设？",
-    detail: "UC-8.4 R1 只写「引导师预先写好…下发给各组」。组长能不能给本组下发？项目负责人（组织角色）能不能跨组下发？UC 未写死。",
+    answer: "引导师下发给组长 / 组员。屏本身只在引导师视角的工作坊详情下出现。",
+    evidence: "弹层标题「新建预设对话（下发给组长 / 组员）」· 偏移 16836655",
   },
   {
     id: "can-recipient-edit",
     q: "被下发者能不能改预设？",
-    detail: "R3 步骤 2 只说「打开即用、不需自己配」。打开后能不能改开场提示 / 增删 agent？改了还算「同一个预设的实例」吗（影响使用计数口径）？UC 未写死。",
+    answer: "能改。技能是「引导师已配好，可增减」，被下发者可在自己视角增删。",
+    evidence: "「预设技能 · 引导师已配好，可增减」· 偏移 15574080",
   },
   {
     id: "can-recipient-refuse",
-    q: "被下发者能不能拒收 / 忽略？",
-    detail: "下发是「推送」还是「上架供取用」？若组员默认不可私聊（O-24），下发一个含私聊的预设是否被拒？UC 未写死。",
+    q: "被下发者能不能拒 / 忽略？",
+    answer: "能。这是「上架供取用」而非推送——下发只给入口，出现在「点开即用」区，用不用由本人决定。",
+    evidence: "「下发只给入口，不代替对话」偏移 15448694 · newChatFoot「点开即用」偏移 16837179",
   },
 ] as const;

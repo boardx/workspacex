@@ -17,11 +17,11 @@
 # 变成结构化字段（covers / covers_bundles），让机器能指出到底哪几个束没被复核过。
 
 # 签核动作本身：status / confirmed_by / confirmed_at 三行是人类的动作，agent 不得代劳。
-**/design-signoff.md    @REPLACE-WITH-HUMAN-GITHUB-HANDLE
-**/design-coherence.md  @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+**/design-signoff.md    @usamshen
+**/design-coherence.md  @usamshen
 
 # ADR-003 的 UI 先行签核（ADR-023 之后新阶段并入束级，但存量阶段仍在用这份）
-**/ui-signoff.md        @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+**/ui-signoff.md        @usamshen
 
 # CODEOWNERS 自己也必须归人类——否则一次 PR 就能把上面三条删掉。
-/.github/CODEOWNERS     @REPLACE-WITH-HUMAN-GITHUB-HANDLE
+/.github/CODEOWNERS     @usamshen

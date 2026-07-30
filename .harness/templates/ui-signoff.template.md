@@ -1,43 +1,36 @@
----
-phase: "{{PHASE_ID}}"
-status: pending          # pending | confirmed —— 人类工程师确认 UI 后，把这里改成 confirmed
-confirmed_by:            # 确认人（姓名/邮箱）
-confirmed_at:            # 确认时间（ISO，如 2026-07-01T10:00:00Z）
----
+# ⛔ 已停用模板 — phase 级 UI 先行确认（ADR-003）
 
-# UI 先行确认 — {{PHASE_NAME}}（Phase {{PHASE_ID}}）
-
-> ⚠ **ADR-023 起，phase 级 UI 签核不再是独立的一次签核。** UI 成为束级
-> `phases/<phase>/contracts/<bundle>/design-signoff.md` 三节中的第 ① 节，材料写在同目录 `ui.md`。
-> 本文件在该阶段建立 `contracts/` 目录之前继续有效（`new-sprint` 仍读它的 `status`），
-> 建立之后其内容并入束级。**签核件数与位置以 ADR-023 为准。**
+> **本模板自 2026-07-30 起不再被任何脚本渲染**（ADR-023 决策一）。
+> `new-phase --ui` 不再 scaffold `phases/<phase>/ui-signoff.md`。
+> 保留本文件仅为留痕，让「为什么仓库里有三份停用的 `ui-signoff.md`」有出处。
 >
-> 这是本阶段的 **UI 签核关卡**（ADR-003）。UI 相关阶段必须先把真实界面做出来、
-> 由**人类工程师确认**，才能开 sprint 进入代码开发（`feature_list.json` 本身不被此门卡住）。
-> 门控由 `new-sprint` 强制：本文件顶部 `status` 不是 `confirmed` 时，`pnpm harness new-sprint` 直接拒绝。
-> ⚠ 另有一条：即便 `status: confirmed`，若本阶段 `requirements/` 全是裸模板、没有真实 story
-> 覆盖，门控**仍然拒绝**（`hasRequirementsCoverage`）。
+> **不要复制它去建新的 phase 级签核文件。** 建了也不会有任何门控读它。
 
-## 交付形态（本阶段约定）
-- **真实组件**：直接写在 `apps/web` 里，用 **mock 数据**、**不接后端**。人类确认后，feature 开发 = 把这些 UI 接上真逻辑，**UI 不丢弃、可复用**。
-- 视觉/交互严格遵循 [uiux-standards.md](../../.harness/instructions/uiux-standards.md)。
+## UI 签核现在在哪
 
-## UI 范围清单（逐屏/逐组件勾选，覆盖 requirements/ 里的用户故事）
-<!-- ui-prototyper 填写：每一项 = 一块可见界面，附组件路径与截图。人类逐项核对。 -->
-- [ ] （示例）Board Header 框架 — `apps/web/components/board/board-header.tsx` — 截图：`ui-preview/board-header.png`
-- [ ] …
+UI 是**束级 `design-signoff.md` 三节中的第 ① 节**，材料写在同目录 `ui.md`：
 
-## 组件落点（apps/web 下真实路径）
-<!-- 列出本阶段新增/改动的组件文件，供 requirement-author 把 user_visible_behavior 锚定到真实元素（data-testid）。 -->
--
+```
+phases/<phase>/contracts/<束>/
+  ui.md              签核① 界面落点：路由、关键组件、稳定 data-testid，逐条引用 ui-preview/ 截图
+  usecases.md        签核② 用例接口与失败模式穷举
+  domain.md          支撑：实体与不变量
+  coverage.md        支撑：UC 的 R12 → API 操作 → 前端消费点
+  design-signoff.md  ①②③ 三节一次签；frontmatter 带 covers: [F01, …]
+phases/<phase>/design-coherence.md   阶段一致性复核，frontmatter 带 covers_bundles: [...]
+```
 
-## 截图证据
-<!-- 截图存放在同目录 ui-preview/ 下，这里贴相对链接。 -->
--
+签核③ API 契约住在 `packages/contracts/src/<bundle>.ts`（zod 单一事实源）。
 
-## 人类确认意见
-<!-- 确认人填写：通过 / 需修改（列出修改点）。改完再确认。 -->
--
+## 从 ADR-003 保留下来、现在由束级门执行的两条
 
----
-**确认动作**：核对无误后，把顶部 frontmatter 的 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`（ISO 8601，不得晚于当下），提交。之后才可跑 new-sprint。**这是人的动作，agent 不得代劳。**
+1. **UI 由 ui-prototyper 用 `apps/web` 真实组件 + mock 先做出来，截图存 `phases/<phase>/ui-preview/`。**
+   ADR-003 的理由未变：让界面方向在便宜的阶段被人类拍板。
+2. **即便 `status: confirmed`，该阶段 `requirements/` 没有真实 story 覆盖就仍然拒绝**
+   （`hasRequirementsCoverage`，人类拍板 2026-07-19）。这条已搬进 `auditSignoff`，
+   且适用面扩到**任何采用契约束流程的阶段**，不再限于 `has_ui`。
+
+## 怎么做
+
+`.harness/instructions/contract-design.md`（执行书）· `docs/adr/ADR-023-unified-signoff.md`（权威）
+· `docs/adr/ADR-003-ui-first-signoff-gate.md`（原始理由，仍有效）

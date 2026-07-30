@@ -11,12 +11,12 @@
       "spec_ref": "01-auth/uc-1-1-邮箱账号登录.md#R8",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-auth",
       "verification": [
-        "pnpm vitest run tests/auth/device-session-30d.test.ts",
-        "pnpm vitest run tests/auth/kick-device-invalidates-session.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/kick-device-invalidates-session.test.ts"
       ],
       "evidence": "",
       "notes": "依据等级：AC2 的 30 天/设备指纹/踢下线全部为[Backlog]，设备与会话列表在原型中为『原型确认缺失』（登录页与后台各屏已逐字段抽取，无任何设备/会话入口，需补画整块能力入口）。UI 未建（无 device/kick testid），故 needs_ui_signoff=true，进不了 new-sprint 直到补画并签。后端可 API 断言（V2）。30 天为 Backlog 数字，不当原型证据。 ⚠ 原 depends_on 里的 F01 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F20"
@@ -38,9 +38,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/four-viewpoint-button-diff.test.ts",
-        "pnpm vitest run tests/auth/overprivilege-fields-absent.test.ts",
-        "pnpm vitest run tests/auth/preview-mode-no-write.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/four-viewpoint-button-diff.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/overprivilege-fields-absent.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/preview-mode-no-write.test.ts"
       ],
       "evidence": "",
       "notes": "依据：四视角权限说明与独有按钮为[原型]（proto-05），但四视角切换器是项目工作台顶部控件，代码中未建（无 perspective/viewpoint testid，项目工作台子屏未建）。故 needs_ui_signoff=true。核心断言为按钮集差集（V3：引导师⊇组长⊃组员⊃观察者=∅）与越权字段缺席（V2），可 API 执行。O-03：协同引导师=引导师多实例，映射 facilitator，RBAC 四行不扩。合并 UC-1.4 的四视角裁剪与预览态。D-12：观察者是一等角色（+8 主要落点）。\n【跨分片依赖待确认】phase-00: 两层交集鉴权中间件与 acl_bindings（F01）"
@@ -61,8 +61,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/temp-grant-expires-on-stage.test.ts",
-        "pnpm vitest run tests/auth/temp-grant-audit.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/temp-grant-expires-on-stage.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/temp-grant-audit.test.ts"
       ],
       "evidence": "",
       "notes": "依据：临时提权与「环节3结束自动失效」的审计记录为[原型]（proto-05），但授予入口（选人→选资源→选失效环节）原型未画、需补，故 needs_ui_signoff=true。失效必须由服务端在环节状态机变更时主动收回，不依赖前端/轮询。验收跨环节状态机（V4），API 可执行。\n【跨分片依赖待确认】06-现场协作: 议程环节状态机（环节切换事件源）"
@@ -83,9 +83,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/admin-boundary-personal-counts-only.test.ts",
-        "pnpm vitest run tests/auth/admin-project-read-audited.test.ts",
-        "pnpm vitest run tests/ui/admin-members-boundary.test.tsx"
+        "pnpm --filter api exec vitest run tests/auth/admin-boundary-personal-counts-only.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/admin-project-read-audited.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/admin-members-boundary.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[人类已拍板 D-18]，管理员边界说明区为[原型]。界面已建成（锚 admin-members-boundary/admin-members-private-counts/admin-members-my-access/admin-members-access-logs）。R11 要求独立成 feature（「我的大脑」整层前提）。V5 对应四条断言。\n【跨分片依赖待确认】phase-00: 审计事件模型（provenance/audit）"
@@ -100,12 +100,12 @@
       "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R3",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-auth2",
       "verification": [
-        "pnpm vitest run tests/auth/team-visibility-filter.test.ts",
-        "pnpm vitest run tests/auth/deny-reason-org-layer.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/team-visibility-filter.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/deny-reason-org-layer.test.ts"
       ],
       "evidence": "",
       "notes": "依据：可见性范围只在 agent 与画布模板两类上[原型]确认存在；skill 与蓝本的补字段为[设计]（蓝本侧已由 O-18④ 裁定支持）。团队单一归属（O-12），仅某团队判定是相等比较。V6 对应。API 断言。\n【跨分片依赖待确认】phase-00: 资源可见性范围一等字段（F01/F15）；03-skill/04-agent/20-model/21-mcp: 各资源的可见性范围取值"
@@ -120,14 +120,14 @@
       "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-auth3",
       "verification": [
-        "pnpm vitest run tests/auth/member-invite-activation.test.ts",
-        "pnpm vitest run tests/auth/activation-link-tamper-server-authoritative.test.ts",
-        "pnpm vitest run tests/auth/activation-member-creation-atomic.test.ts",
-        "pnpm vitest run tests/ui/admin-members-list.test.tsx"
+        "pnpm --filter api exec vitest run tests/auth/member-invite-activation.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/activation-link-tamper-server-authoritative.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/activation-member-creation-atomic.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/admin-members-list.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：成员表/[邀请成员]入口/待激活行/[重发]为[原型]，激活落地页与篡改防护为[设计]。成员表已建成（锚 admin-members-list）；[邀请成员]弹层为『原型待补』（按钮在、无屏），激活落地页为『原型确认缺失』——但核心为接后端，UI 断言只锚已建成的成员表，弹层/激活页可后补接线，故 needs_ui_signoff=false 但 notes 标记弹层待接线。AC5 篡改无效（V5）与激活/成员创建原子性（V9）独立验收。O-28⑤：点击激活链接即证明邮箱所有权，不二次发信。合并 UC-1.6 主流程。\n【跨分片依赖待确认】phase-00: 组织成员/角色/团队一等实体（F15） ⚠ 原 depends_on 里的 F08 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F19"
@@ -148,10 +148,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/admin-invite-dual-review.test.ts",
-        "pnpm vitest run tests/auth/quota-exhausted-hard-block.test.ts",
-        "pnpm vitest run tests/auth/team-crud-occupancy-check.test.ts",
-        "pnpm vitest run tests/auth/member-removal-preserves-attribution.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/admin-invite-dual-review.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/quota-exhausted-hard-block.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/team-crud-occupancy-check.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/member-removal-preserves-attribution.test.ts"
       ],
       "evidence": "",
       "notes": "依据：全部为[设计]已裁决——O-28⑥（双人复核）、O-29⑤（配额硬阻断）、O-29④（团队增删改+删除前占用校验）、O-29②（成员移除=停用访问不删产出、署名保留、释放配额）。是 UC-1.6 上调 +3 点的落点。成员移除与 UC-17.2 授权撤回不得混用同一代码路径（结果相反）。V7a/V7c/V7d 对应。API 断言。"
@@ -172,10 +172,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/join-token-phone-roster.test.ts",
-        "pnpm vitest run tests/auth/join-no-account-created.test.ts",
-        "pnpm vitest run tests/auth/join-token-required.test.ts",
-        "pnpm vitest run tests/ui/join-verify-form.test.tsx"
+        "pnpm --filter api exec vitest run tests/auth/join-token-phone-roster.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/join-no-account-created.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/join-token-required.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/join-verify-form.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：链接落地页与小组工作台为[原型]（proto-04），D-01 名单实名（手机号验证+名单核对不建账号）为[人类已拍板]，O-06 令牌统一为『分组链接+一次性令牌』（采信 proto-04）。界面已建成（锚 join-phone/join-get-code/join-code/join-verify-form/join-enter/join-member-continue）。R11 要求「名单核对」与「手机号验证」各自验收（两独立条件缺一即回到匿名）。V1（账号表不新增）与 V6a（无令牌进不去）对应。接后端。\n【跨分片依赖待确认】phase-00: 免注册身份与正式账号共用操作者标识空间但类型可区分（F01）"
@@ -196,10 +196,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/join-wrong-group-redirect.test.ts",
-        "pnpm vitest run tests/auth/join-apply-pending-approval.test.ts",
-        "pnpm vitest run tests/auth/join-reconnect-same-stage.test.ts",
-        "pnpm vitest run tests/ui/join-accidents-mic.test.tsx"
+        "pnpm --filter api exec vitest run tests/auth/join-wrong-group-redirect.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/join-apply-pending-approval.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/join-reconnect-same-stage.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/join-accidents-mic.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：三种意外行为为[原型]明文（proto-04），三屏原型未单独画但已建成于代码（锚 join-wrong-group/join-not-listed/join-apply/join-apply-approve/join-apply-reject/join-reconnect/join-mic-note/group-mic-toggle/group-mic-status）。R11 要求三种意外各自独立验收（V3/V4/V5）。麦克风 V10。恢复依据是手机号+名单条目，不依赖 Cookie。"
@@ -220,8 +220,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/phone-withdrawal-queue.test.ts",
-        "pnpm vitest run tests/auth/phone-retire-from-search.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/phone-withdrawal-queue.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/phone-retire-from-search.test.ts",
         "node apps/web/scripts/lint-withdrawal-flow.mjs"
       ],
       "evidence": "",
@@ -237,14 +237,14 @@
       "spec_ref": "01-auth/uc-1-3-生成与撤销邀请链接.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-auth4",
       "verification": [
-        "pnpm vitest run tests/auth/invite-links-model.test.ts",
-        "pnpm vitest run tests/auth/invite-identity-four-choices.test.ts",
-        "pnpm vitest run tests/auth/invite-validity-three-tiers.test.ts",
-        "pnpm vitest run tests/auth/invite-onetime-used-by.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/invite-links-model.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/invite-identity-four-choices.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/invite-validity-three-tiers.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/invite-onetime-used-by.test.ts"
       ],
       "evidence": "",
       "notes": "依据：两处载体（参与者与邀请 / 分组与签到）均为[原型]完整存在（proto-08/proto-06），O-06 令牌契约、O-03 协同引导师=facilitator 展示别名。⚠ 但管理面 UI 是项目工作台/设置子屏，代码未建（无 invite/participant/roster testid），故 needs_ui_signoff=true。「记录使用者」为『原型确认缺失』（链接卡片在视野内无该字段，落点 invite_link.used_by 已由 O-06 闭合，呈现位置待补画）。观察者链接只读须与 UC-1.4 观察者判定共用同一套服务端判定，不另做过滤。V5b/V5c/V5d/V7b 对应。必须早于 UC-1.2。\n【跨分片依赖待确认】phase-00: 项目角色可由一次性链接授予（F01）；02-tpl: 参与者名单与分组来自蓝本第3项分组规则（T52） ⚠ 原 depends_on 里的 F08 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F19"
@@ -265,9 +265,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/auth/revoke-5s-new-access-denied.test.ts",
-        "pnpm vitest run tests/auth/revoke-onsite-survive-until-stage-end.test.ts",
-        "pnpm vitest run tests/auth/checkin-writeback.test.ts"
+        "pnpm --filter api exec vitest run tests/auth/revoke-5s-new-access-denied.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/revoke-onsite-survive-until-stage-end.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/checkin-writeback.test.ts"
       ],
       "evidence": "",
       "notes": "依据：AC2「撤销后 5 秒新访问失效」为[Backlog]（5 秒非原型数字，撤销动作本身有原型依据）；O-06 裁定已在场者保留至环节结束（唯一有明确锚点可写 verification 的界限）。分组与签到到场回写为[原型]。UI 同 T30 未建，needs_ui_signoff=true；时序验收 API 可执行（V2/V7）。R11 要求「5 秒内失效」独立成 feature 有时序验收（链接外泄唯一止血手段）。\n【跨分片依赖待确认】06-现场协作: 议程环节状态机（会话失效锚点）"
@@ -282,13 +282,13 @@
       "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-tpl",
       "verification": [
-        "pnpm vitest run tests/tpl/blueprint-config-table-driven.test.ts",
-        "pnpm vitest run tests/tpl/completeness-denominator-from-table.test.ts",
-        "pnpm vitest run tests/tpl/required-column-drives-gate.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/blueprint-config-table-driven.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/completeness-denominator-from-table.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/required-column-drives-gate.test.ts"
       ],
       "evidence": "",
       "notes": "依据：D-03 术语三分[人类已拍板]，O-07（第16项待补抽取、分母由定义表驱动）、O-18⑤（required 布尔列）已裁决——两个未决（第16项是什么、哪些必填）由同一张表吸收，清单变化不改代码，故 verification 可立即写为参数化 N（V1）。纯后端领域模型，无 UI，needs_ui_signoff=false。版本模型与 UC-2.2 T50 快照绑定、UC-2.4 T65 列表/归档共用同一版本内核，本 feature 只占领域模型不与它们重复计点。是 UC-2.1(21) 拆分第 1 项。\n【跨分片依赖待确认】phase-00: UC-0.1 版本与固定快照内核（F0x）；00-core: acl_bindings 权限（F01）"
@@ -309,9 +309,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/designer-shell-version-bar.test.ts",
-        "pnpm vitest run tests/tpl/draft-autosave-truthful.test.ts",
-        "pnpm vitest run tests/ui/blueprint-designer-shell.test.tsx"
+        "pnpm --filter api exec vitest run tests/tpl/designer-shell-version-bar.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/draft-autosave-truthful.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
       ],
       "evidence": "",
       "notes": "⚠ 蓝本设计器界面尚未建（/projects 新建项目显式禁用，title 写「蓝本设计器尚未建」），是本分片最大界面缺口。依据：设计器外壳为[原型]（proto-05，D-05 一级可立即 sign-off），但代码未实现，故 needs_ui_signoff=true，进不了 new-sprint 直到补画并签。草稿自动保存最后时刻必须真实（V12：保存失败不得显示已自动保存）。是 UC-2.1 拆分第 2 项。"
@@ -332,9 +332,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/duration-tier-agenda-count.test.ts",
-        "pnpm vitest run tests/tpl/online-mode-adds-two-stages.test.ts",
-        "pnpm vitest run tests/ui/blueprint-duration-form.test.tsx"
+        "pnpm --filter api exec vitest run tests/tpl/duration-tier-agenda-count.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/online-mode-adds-two-stages.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-duration-form.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：四档议程环节数 7/11/14/19 与「全线上自动+2」为[原型]（有原型原文）；换档位增删规则为[Backlog]（原型只说「环节表随之变化」，未区分可选/必留、未规定压缩时间）；回滚语义为[设计]反推。UI 未建（设计器），needs_ui_signoff=true。V3/V4/V5 对应。V4 的 Backlog 增删规则待人类确认后定稿。是 UC-2.1 拆分第 3、4 项合并。"
@@ -355,9 +355,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/model-strategy-three-lanes.test.ts",
-        "pnpm vitest run tests/tpl/confidential-local-not-downgraded.test.ts",
-        "pnpm vitest run tests/tpl/quota-90-downgrade-not-halt.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/model-strategy-three-lanes.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/confidential-local-not-downgraded.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/quota-90-downgrade-not-halt.test.ts"
       ],
       "evidence": "",
       "notes": "依据：三条策略、3.5M预算、90%降级不硬停「现场卡住比多花钱贵」均为[原型]。D-U1：含机密整轮走本地、后端 gateway 按同规则拦截（不是分流），机密仅本地不可被配额降级覆盖。UI 在未建设计器内，needs_ui_signoff=true。核心路由 API 可断言（V10/V11）。20-model 模型清单为组织配置示例非硬编码（依赖 phase-00 F15）。是 UC-2.1 拆分第 5 项。\n【跨分片依赖待确认】20-model: 模型策略只能从已启用的模型中选（D-07）；phase-00: 六类能力清单是组织配置非产品内置（F15）"
@@ -378,8 +378,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/init-preview-six-categories.test.ts",
-        "pnpm vitest run tests/tpl/trial-run-prereq-for-publish.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/init-preview-six-categories.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/trial-run-prereq-for-publish.test.ts"
       ],
       "evidence": "",
       "notes": "依据：六类一览与三动作按钮为[原型]；本 feature 只负责生成并展示一览，AC2「初始化项逐项对得上」在 UC-2.2（T50）验收，共用同一份契约（避免两处漂移）。UI 未建，needs_ui_signoff=true。V7/V9 对应。是 UC-2.1 拆分第 6、7 项合并。"
@@ -401,9 +401,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/publish-gate-required-and-trial.test.ts",
-        "pnpm vitest run tests/tpl/version-generation-transactional.test.ts",
-        "pnpm vitest run tests/tpl/new-blueprint-three-entries.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/publish-gate-required-and-trial.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/version-generation-transactional.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/new-blueprint-three-entries.test.ts"
       ],
       "evidence": "",
       "notes": "依据：AC3a 未试跑不得发布为[原型]（列表页原文「试跑一场后才能发布」）；AC3b 必填未完成不得发布为[Backlog]（与原型 15/16、12/16、9/16 已发布冲突，必填清单待产品给出，但由 required 列驱动故不阻断实现——V6 断言写成「由 required 列驱动」，自然解释原型已发布蓝本那些缺项 required=false）；旧版归档为[设计]（跨对象挪用画布模板文案）。UI 未建，needs_ui_signoff=true。V6/V7/V13/V18 对应。是 UC-2.1 拆分第 8、9 项合并。"
@@ -426,10 +426,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/apply-six-category-init.test.ts",
-        "pnpm vitest run tests/tpl/blueprint-snapshot-binding.test.ts",
-        "pnpm vitest run tests/tpl/apply-transactional-idempotent.test.ts",
-        "pnpm vitest run tests/ui/new-project-wizard.test.tsx"
+        "pnpm --filter api exec vitest run tests/tpl/apply-six-category-init.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/blueprint-snapshot-binding.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/apply-transactional-idempotent.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/new-project-wizard.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：六类初始化、快照绑定、项目筹备落地为[原型]（proto-05/proto-08）。⚠ 新建项目当前显式禁用（projects-new disabled，title「蓝本设计器尚未建」），向导 UI 未建，needs_ui_signoff=true。快照绑定语义与 UC-2.4 T65 同源但本 feature 占「套用时写入快照」这一面，不与 T65（列表/归档/回滚）重复计点。V1/V2/V3/V12/V13 对应。是 UC-2.2(21) 拆分第 1、2、3 项。\n【跨分片依赖待确认】phase-00: UC-0.1 固定快照不可变（D-30）"
@@ -450,8 +450,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/prep-tabs-counts.test.ts",
-        "pnpm vitest run tests/tpl/single-source-theme-inheritance.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/prep-tabs-counts.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/single-source-theme-inheritance.test.ts"
       ],
       "evidence": "",
       "notes": "依据：项目筹备页定题与分组子标签为[原型]（proto-05 完整存在，可立即 sign-off），但代码未建项目工作台子屏，needs_ui_signoff=true。单点继承硬约束（V5：不存在第二份主题/背景）。AI 生成必须挂来源、需人确认（V8）。是 UC-2.2 拆分第 4、5 项。"
@@ -472,8 +472,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/grouping-three-states.test.ts",
-        "pnpm vitest run tests/tpl/interview-object-table-structure.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/interview-object-table-structure.test.ts"
       ],
       "evidence": "",
       "notes": "依据：分组区与观察/访谈对象表为[原型]（proto-05 可立即 sign-off），代码未建，needs_ui_signoff=true。组状态恒三态不得自造第四态（V7）；AI 均衡分组/建议人选是建议需人确认（V8）。V9 对象表结构断言。是 UC-2.2 拆分第 6、7 项。\n【跨分片依赖待确认】06-itv: 访谈对象的实际预约、提纲生成、转写回流本组"
@@ -494,9 +494,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/workflow-template-two-level.test.ts",
-        "pnpm vitest run tests/tpl/agenda-role-matrix-edit.test.ts",
-        "pnpm vitest run tests/tpl/save-as-org-template.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/workflow-template-two-level.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/agenda-role-matrix-edit.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/save-as-org-template.test.ts"
       ],
       "evidence": "",
       "notes": "依据：工作流编排整屏为[原型]（proto-08，可立即 sign-off），代码未建，needs_ui_signoff=true。O-02：蓝本⊃工作流模板（两层结构），[另存为组织模板]产出工作流模板（非新蓝本），与 UC-2.3 提回蓝本是两条不同路径。矩阵列集由角色表驱动不硬编码（O-03）。字段名写全 agenda_stage/agenda_segment_id，禁裸词 stage。V9e（绑定列与 UC-3.2 同一份数据）/V9f（换模板确认）。是 UC-2.2 拆分第 8、9 项。\n【跨分片依赖待确认】03-skill: UC-3.2 Skill 绑定到议程环节与角色（矩阵绑定列即其配置面，共用同一实现）"
@@ -517,8 +517,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/matrix-cell-to-todo-sync.test.ts",
-        "pnpm vitest run tests/tpl/stage-status-drives-three-views.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/matrix-cell-to-todo-sync.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/stage-status-drives-three-views.test.ts"
       ],
       "evidence": "",
       "notes": "依据：「编排一次，三套视图与待办自动生成」为[原型]硬规则（跨模块契约）。⚠ 21 点是把矩阵计入 UC-2.2 的口径；矩阵与 UC-3.2/UC-11.2/UC-1.4 重叠，requirement-author 应确保三处不重复实现同一份矩阵与同步逻辑（否则两套职责表）。D-39 负责人恒为人。核心是 API 契约（V9b/V9c），可独立验证，needs_ui_signoff=false，但矩阵编辑 UI 依赖 T53（已标 signoff）。是 UC-2.2 拆分第 10、11 项。\n【跨分片依赖待确认】11-board: 待办卡来源徽标、格ID↔卡ID 映射、联动、幂等（本用例最重跨模块契约）；01-auth: UC-1.4 四视角首屏驱动（T04）；06-现场协作: 议程环节状态机"
@@ -539,8 +539,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/no-writeback-to-blueprint.test.ts",
-        "pnpm vitest run tests/tpl/no-backend-asset-mutation-path.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/no-writeback-to-blueprint.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/no-backend-asset-mutation-path.test.ts"
       ],
       "evidence": "",
       "notes": "依据：不回写蓝本/不动后台模板本体为[原型]最核心硬规则（两处同义表述）。R11 要求独立 feature 级验收不能只靠代码评审。V4/V9d 对应，与 UC-2.3 T60 V7 互为镜像断言。纯 API/隔离断言，needs_ui_signoff=false。是 UC-2.2 拆分第 12 项。"
@@ -562,9 +562,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/deviation-diff-by-config-table.test.ts",
-        "pnpm vitest run tests/tpl/pending-change-not-live.test.ts",
-        "pnpm vitest run tests/tpl/merge-only-by-maintainer.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/deviation-diff-by-config-table.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/pending-change-not-live.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/merge-only-by-maintainer.test.ts"
       ],
       "evidence": "",
       "notes": "依据：整份 UC-2.3 主流程与规则为[Backlog]（逐字出自 Backlog UC-2.3），唯一[原型]证据是入口路径「复盘→提交回蓝本」这一句。UI 两侧屏一个『未探明』（复盘屏）一个『原型确认缺失』（蓝本侧收件面），故 needs_ui_signoff=true。R11 建议先切 diff 服务+待审改动模型+合并权限三个不依赖具体屏的后端 feature（本 feature 即此），UI 留到补抽取/补画后。偏离 diff 按配置项定义表遍历不硬编码 16。理由必填（V4）、提交≠生效（V3）、唯一通道（V7）。P1 收尾项。O-02：与另存为组织模板是两条不同路径不合并。"
@@ -586,10 +586,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/tpl/snapshot-no-drift.test.ts",
-        "pnpm vitest run tests/tpl/blueprint-list-metadata.test.ts",
-        "pnpm vitest run tests/tpl/archive-and-delete-refcount.test.ts",
-        "pnpm vitest run tests/tpl/rollback-as-new-version.test.ts"
+        "pnpm --filter api exec vitest run tests/tpl/snapshot-no-drift.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/blueprint-list-metadata.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/archive-and-delete-refcount.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/rollback-as-new-version.test.ts"
       ],
       "evidence": "",
       "notes": "依据：快照绑定「已开过的项目锁在自己的版本上」、列表元数据、行操作三按钮为[原型]（proto-03，列表页可立即 sign-off）；归档语义 O-18③（复用 O-10）、删除 O-18①（引用计数门控）、回滚 O-18②（新建等同旧版）、可见性 O-18④、满意度 O-37③ 均已裁决。⚠ 蓝本列表 UI 代码未建（无 admin blueprint testid），版本历史屏/回滚入口/删除确认为『原型确认缺失』，故 needs_ui_signoff=true。满意度样本量阈值未定稿→写结构性断言（低于阈值显示「样本不足」，阈值来自配置）。⚠ 排期：快照绑定是 UC-2.2 套用时就必须成立的数据契约，T40/T50 已前置到迭代1。V2/V4/V6/V7/V7b/V7c/V7d 对应。\n【跨分片依赖待确认】phase-00: UC-0.1 固定快照不可变（D-30）"
@@ -604,14 +604,14 @@
       "spec_ref": "22-files/uc-22-1-项目文件浏览器.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-files",
       "verification": [
-        "pnpm vitest run tests/files/artifacts-list-rls.test.ts",
-        "pnpm vitest run tests/files/visible-equals-searchable.test.ts",
-        "pnpm vitest run tests/files/tree-list-metadata.test.ts",
-        "pnpm vitest run tests/ui/files-browser.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/artifacts-list-rls.test.ts",
+        "pnpm --filter api exec vitest run tests/files/visible-equals-searchable.test.ts",
+        "pnpm --filter api exec vitest run tests/files/tree-list-metadata.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-browser.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：本 UC 绝大部分[设计]（架构 context-engine.md file-first），文件浏览器本体在原型中『原型确认缺失』——但 2026-07-28 前端已建成文件页（锚 files-tree/files-list/files-row/files-origin-badge/files-ingest-badge/files-view-toggle），故 needs_ui_signoff=false。⚠ 47 点是 artifacts/artifact_versions 的 UI 投影，存储模型在 phase-00 F04，本 feature 不重复建表、不重复计点。R11 要求「可见集合≡检索可见集合」单独成 feature 跨四角色矩阵测试（V1）。权限判定必须在 SQL/RLS 层，应用连接不得用表 owner 身份。V10（agent 归属）。接后端。\n【跨分片依赖待确认】phase-00: F04 artifacts/artifact_versions 存储模型（不重复建表）；phase-00: UC-0.3 两层角色+acl_bindings（F01）；phase-00: UC-0.2 Context Pack/Context API 检索可见集合（F02）"
@@ -632,9 +632,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/preview-five-types.test.ts",
-        "pnpm vitest run tests/files/download-url-short-lived-onetime.test.ts",
-        "pnpm vitest run tests/ui/files-preview.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/preview-five-types.test.ts",
+        "pnpm --filter api exec vitest run tests/files/download-url-short-lived-onetime.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-preview.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构）。UI 已建成（锚 files-preview-pdf/files-preview-image/files-preview-audio/files-preview-text/files-preview-jsonl/files-preview-none/files-preview-download）。预览渲染必须防 XSS/SVG 脚本注入/HTML 内联，未知类型 attachment+隔离域名。V2（file-first 核心：每节点可下载且 SHA-256 一致）。接后端。\n【跨分片依赖待确认】17-gov: UC-17.1 四类审计事件（下载）"
@@ -655,9 +655,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/zip-export-roundtrip.test.ts",
-        "pnpm vitest run tests/files/export-manifest-sha256.test.ts",
-        "pnpm vitest run tests/files/fts-search-six-filters.test.ts"
+        "pnpm --filter api exec vitest run tests/files/zip-export-roundtrip.test.ts",
+        "pnpm --filter api exec vitest run tests/files/export-manifest-sha256.test.ts",
+        "pnpm --filter api exec vitest run tests/files/fts-search-six-filters.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构 file-first：对象存储那棵树本身是可离线打开的完整交付物）。UI 已建成（锚 files-export-zip/files-batch-zip/files-batch-download/files-search/files-filters）。V4（导出 round-trip：目录层级同构+manifest sha256 相等+文件数=manifest 条目数无静默截断）。导出规模上限/有效期/是否二次审批待确认（R10），不阻塞结构性断言。接后端。"
@@ -678,9 +678,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/empty-and-dependency-failed.test.ts",
-        "pnpm vitest run tests/files/no-access-equals-not-exist.test.ts",
-        "pnpm vitest run tests/files/rename-is-contract.test.ts",
+        "pnpm --filter api exec vitest run tests/files/empty-and-dependency-failed.test.ts",
+        "pnpm --filter api exec vitest run tests/files/no-access-equals-not-exist.test.ts",
+        "pnpm --filter api exec vitest run tests/files/rename-is-contract.test.ts",
         "bash apps/web/scripts/verify-ui-states.sh"
       ],
       "evidence": "",
@@ -702,10 +702,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/upload-server-validation.test.ts",
-        "pnpm vitest run tests/files/scan-eicar-malware.test.ts",
-        "pnpm vitest run tests/files/mime-sniff-zipbomb.test.ts",
-        "pnpm vitest run tests/files/no-orphan-version.test.ts"
+        "pnpm --filter api exec vitest run tests/files/upload-server-validation.test.ts",
+        "pnpm --filter api exec vitest run tests/files/scan-eicar-malware.test.ts",
+        "pnpm --filter api exec vitest run tests/files/mime-sniff-zipbomb.test.ts",
+        "pnpm --filter api exec vitest run tests/files/no-orphan-version.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[原型]仅材料准备屏 [上传材料] 按钮与「9 已入库材料」计数，九态/幂等/扫描/PI 防线全部[设计]（架构第三节）。UI 已建成（锚 files-upload/files-upload-dropzone/files-upload-precheck-row/files-upload-submit/files-upload-visibility）。V4（EICAR 拒绝入正式区+留痕+告警）/V5（解压炸弹实际值与上限值+未完整解压）/V6（MIME 嗅探扩展名与 Content-Type 均不被信任）/V11（无孤儿）。文件大小/批量/解压炸弹五个上限与类型白名单待确认（R10），不阻塞结构性断言。绑环节 V8：agenda_segment_id，禁 design_facet_id/method_stage_id（D-03a）。接后端。\n【跨分片依赖待确认】phase-00: F04 artifacts/artifact_versions 存储（不重复建表）"
@@ -726,10 +726,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/nine-state-visible-exits.test.ts",
-        "pnpm vitest run tests/files/original-visible-before-ready.test.ts",
-        "pnpm vitest run tests/files/worker-replay-no-duplicate.test.ts",
-        "pnpm vitest run tests/ui/files-ingestion-ladder.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/nine-state-visible-exits.test.ts",
+        "pnpm --filter api exec vitest run tests/files/original-visible-before-ready.test.ts",
+        "pnpm --filter api exec vitest run tests/files/worker-replay-no-duplicate.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-ingestion-ladder.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构第三节可重放幂等异步状态机）。UI 已建成（锚 files-ingestion-ladder/files-ingestion-run/files-ingestion-detail/files-ingestion-retry/files-open-ingestion）。摄取用持久任务系统（PG outbox+job table），不得用 LangGraph（架构第六节）。V2（九态合法子序列+每态非空 label 与 exits）/V3（原件优先）/V10（依赖失败降级原件入库）/V12（重放）。接后端。"
@@ -750,9 +750,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/idempotent-no-duplicate-segment.test.ts",
-        "pnpm vitest run tests/files/four-adapters-extract.test.ts",
-        "pnpm vitest run tests/files/segment-anchor-modality.test.ts"
+        "pnpm --filter api exec vitest run tests/files/idempotent-no-duplicate-segment.test.ts",
+        "pnpm --filter api exec vitest run tests/files/four-adapters-extract.test.ts",
+        "pnpm --filter api exec vitest run tests/files/segment-anchor-modality.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构第七节首批完成门槛第3条）。R11+架构均要求「重复上传不产生重复 Segment」单独成 feature。V1（幂等，架构门槛3）。UI 幂等命中二选一在 T78。纯 API/round-trip 断言，needs_ui_signoff=false。OCR/转录/摘要/embedding 都记录模型与版本。"
@@ -773,7 +773,7 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/prompt-injection-redteam.test.ts"
+        "pnpm --filter api exec vitest run tests/files/prompt-injection-redteam.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]🔴（架构第三节最高优先，知识库 prompt injection 主防线）。R11 要求单独成 feature 需红队用例而非普通单测。V7（🔴 红队通过率 100%：文档内容以带来源标注数据块出现、抽取文本包裹为 <document> 边界不拼进 system prompt、文件名也是不可信输入、「忽略以上指令」等模式不改变行为）。纯 API/红队断言，needs_ui_signoff=false。\n【跨分片依赖待确认】phase-00: Context Pack 装配（F02）"
@@ -795,9 +795,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/review-pending-gate.test.ts",
-        "pnpm vitest run tests/files/ai-fill-missing-material.test.ts",
-        "pnpm vitest run tests/ui/files-review-drawer.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/review-pending-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/files/ai-fill-missing-material.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-review-drawer.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[原型][让 AI 补齐缺料]按钮，REVIEW_PENDING 判定为[设计]。D-U11：摄取复核权威入口是摄取抽屉，独立复核屏是同一动作的批量视图两处共享状态。UI 已建成（锚 files-ingestion-review/files-review-panel/files-review-accept/files-review-reject/files-review-pii/files-upload-duplicate-choice/files-upload-use-existing/files-upload-as-new）。V13（AI 补料：generated+synthesized+provenance.json+REVIEW_PENDING+人接受前不召回）。PII 最小集五类（O-39）。审核人角色待确认（R10），不阻塞结构断言。接后端。"
@@ -818,8 +818,8 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/materialize-event-bus-debounce.test.ts",
-        "pnpm vitest run tests/files/materialize-shared-queue-backpressure.test.ts"
+        "pnpm --filter api exec vitest run tests/files/materialize-event-bus-debounce.test.ts",
+        "pnpm --filter api exec vitest run tests/files/materialize-shared-queue-backpressure.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构 2.0/2.1）。R11 要求横切 feature：物化事件总线+去抖+持久队列。物化产物复用 UC-22.2 摄取链路不另建（幂等与权限传播一套实现）。E5（物化风暴不丢事件）。纯后端，needs_ui_signoff=false。是 UC-22.3 横切第 1 项。\n【跨分片依赖待确认】08-chat: 会话结束的定义（决定对话文件粒度）"
@@ -840,9 +840,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/materialize-seven-sources.test.ts",
-        "pnpm vitest run tests/files/conversation-file-granularity.test.ts",
-        "pnpm vitest run tests/files/canvas-mermaid-roundtrip.test.ts"
+        "pnpm --filter api exec vitest run tests/files/materialize-seven-sources.test.ts",
+        "pnpm --filter api exec vitest run tests/files/conversation-file-granularity.test.ts",
+        "pnpm --filter api exec vitest run tests/files/canvas-mermaid-roundtrip.test.ts"
       ],
       "evidence": "",
       "notes": "依据：几乎全部[设计]（架构，原型只证明「材料是统一池子且有计数」——对话右栏「材料 12」+项目筹备「9 已入库材料」）。UI 就是 T70 文件浏览器（本 UC 主要无独立界面），故 needs_ui_signoff=false。R11 建议按来源拆七个 feature，此处合并为一个 5 点 feature（同一物化模式）。V1（file-first 总闸：每 source_ref 文件名集合=契约表）/V2（对话粒度：50条消息→1个文件、50个 Segment）/V4（画布 mermaid round-trip 逐字符相等，D-08 用 round-trip 断言最稳）/V8（结构保留）。字段绑定只能 agenda_segment_id（V12）。\n【跨分片依赖待确认】12-survey: responses.csv 行结构+schema.json 题目定义（题号↔报告章节双向映射）；06-itv: 访谈音频+transcript.jsonl+notes.md（同意撤回通知物化侧）；05-rec: 工作坊多路音频+diarization transcript；08-chat: 消息结构+会话边界；07-canvas: mermaid 源码为权威形式（D-08）"
@@ -863,9 +863,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/synthesized-evidence-policy.test.ts",
-        "pnpm vitest run tests/files/generated-primary-only-zero-recall.test.ts",
-        "pnpm vitest run tests/files/intersection-strictest-visibility.test.ts"
+        "pnpm --filter api exec vitest run tests/files/synthesized-evidence-policy.test.ts",
+        "pnpm --filter api exec vitest run tests/files/generated-primary-only-zero-recall.test.ts",
+        "pnpm --filter api exec vitest run tests/files/intersection-strictest-visibility.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]🔴（架构第三/四/五节 + D-25 + 16-persona，同一条约束两端）。R11 要求横切 feature：synthesized 标记与 evidencePolicy 服务端强制，D-25 落地点需跨模块验收。V5（🔴 服务端强制，篡改 evidencePolicy 仍按最严）/V7（权限最严）。必须服务端强制不只是视觉标记，纯 API，needs_ui_signoff=false。是 UC-22.3 横切第 2 项。\n【跨分片依赖待确认】16-persona: 数字专家产出走 generated+synthesized 服务端强制不进决策依据（D-25）；phase-00: Context Pack/QueryContext evidencePolicy（F02）"
@@ -886,9 +886,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/zero-object-missing-file.test.ts",
-        "pnpm vitest run tests/files/materialize-failure-visible.test.ts",
-        "pnpm vitest run tests/files/provenance-required-for-ready.test.ts"
+        "pnpm --filter api exec vitest run tests/files/zero-object-missing-file.test.ts",
+        "pnpm --filter api exec vitest run tests/files/materialize-failure-visible.test.ts",
+        "pnpm --filter api exec vitest run tests/files/provenance-required-for-ready.test.ts"
       ],
       "evidence": "",
       "notes": "依据：[设计]🔴（架构 file-first 总闸）。R11 要求「零个业务对象缺文件」单独成 feature（file-first 的总闸）。UI 是 T70 文件浏览器 + 业务对象侧「已入库N个文件」角标（对话右栏「材料 12」现成落点，已建成）。V1（总闸缺文件数为0）/V6（溯源完整，缺 model 停 REVIEW_PENDING）/V9（物化失败可见）/V10（幂等）。needs_ui_signoff=false（浏览器已建成）。是 UC-22.3 第 3 项。"
@@ -910,9 +910,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/version-never-overwrite.test.ts",
-        "pnpm vitest run tests/files/derived-not-overwrite-original.test.ts",
-        "pnpm vitest run tests/ui/files-version-derived.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/version-never-overwrite.test.ts",
+        "pnpm --filter api exec vitest run tests/files/derived-not-overwrite-original.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-version-derived.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[设计]🔴（架构 2.0.4）。UI 已建成（锚 files-version-row/files-version-download/files-version-copy-sha/files-version-current/files-derived-row/files-derived-download/files-version-upload-new）。⚠ 47 点是 UI 投影，存储在 phase-00 F04，不重复建表。引用（Context Pack/报告角标/固定快照）指向具体 artifact_version_id 不是 artifact_id（D-30，否则新版一上传历史结论证据被偷换）。V1（版本不覆盖）/V2（幂等）/V3（🔴 派生不覆盖原件）。接后端。\n【跨分片依赖待确认】phase-00: F04 artifacts/artifact_versions 存储 + UC-0.1 固定快照（D-30）"
@@ -933,9 +933,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/delete-impact-preview-confirm.test.ts",
-        "pnpm vitest run tests/files/delete-six-cascade-invalidation.test.ts",
-        "pnpm vitest run tests/files/delete-two-tier-sla.test.ts",
+        "pnpm --filter api exec vitest run tests/files/delete-impact-preview-confirm.test.ts",
+        "pnpm --filter api exec vitest run tests/files/delete-six-cascade-invalidation.test.ts",
+        "pnpm --filter api exec vitest run tests/files/delete-two-tier-sla.test.ts",
         "node apps/web/scripts/lint-withdrawal-flow.mjs"
       ],
       "evidence": "",
@@ -957,10 +957,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/files/trash-queue-legalhold.test.ts",
-        "pnpm vitest run tests/files/retention-param-single-source.test.ts",
-        "pnpm vitest run tests/files/physical-delete-receipt.test.ts",
-        "pnpm vitest run tests/ui/files-trash-queue.test.tsx"
+        "pnpm --filter api exec vitest run tests/files/trash-queue-legalhold.test.ts",
+        "pnpm --filter api exec vitest run tests/files/retention-param-single-source.test.ts",
+        "pnpm --filter api exec vitest run tests/files/physical-delete-receipt.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/files-trash-queue.test.tsx"
       ],
       "evidence": "",
       "notes": "依据：[设计]（架构第五节 legal hold/retention/审计，O-01 留存五参数已裁）。UI 已建成（锚 files-trash-queue/files-trash-steps/files-trash-legalhold/files-trash-release-hold/files-trash-receipt/files-trash-overdue/files-trash-partial）。留存五参数（材料180/留痕180/删除宽限30/知识有效期6·12·24月/审计1095天）不硬编码、一处配置多处消费（V11：grep -r 180 不出现在留存判定逻辑）。删除证明格式/是否可验证签名为 O-39 未定项（待合规），不阻塞结构断言。V8（legal hold）/V9（回执如实）/V11（留存参数单点）/V13（合规负责人是唯一能看到已从浏览器消失但未物理删除对象的角色）。\n【跨分片依赖待确认】17-gov: UC-17.3 留存五参数单点配置项目级可覆盖（D-14/O-01）；T71: 导出留痕（回执如实说明已出域边界）"
@@ -975,12 +975,12 @@
       "spec_ref": "22-files/uc-22-4-版本-派生物与删除传播.md#R10",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-files2",
       "verification": [
-        "pnpm vitest run tests/files/contract-stub-ontology-edge-invalidate.test.ts",
-        "pnpm vitest run tests/files/contract-stub-report-segment-invalidate.test.ts"
+        "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-ontology-edge-invalidate.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-report-segment-invalidate.test.ts"
       ],
       "evidence": "",
       "notes": "依据：roadmap.yaml 已把 uc-22-4 删除级联依赖的两个 phase-02 接口写成 phase-01 契约先行项。这两个接口属 phase-02 模块（09-kg ontology_edges、10-report/13-deliv 报告段落），本 feature 只出契约桩让 T86 的六类级联⑤⑥可验证失效（AC2 门槛）。⚠ 计点说明：本 feature 1 点是 phase-02 工作前置到 phase-01 的净新增，不在 22-files 模块头部声明的 47 点内（模块 47 点是 UI 投影视角）；因此本分片 files 合计=47+1=48。⚠ 六类级联依赖外部模块提供失效接口是本模块最大外部风险，需排期确保这两个接口先于 T86 就绪。\n【跨分片依赖待确认】09-kg（phase-02）: ontology_edges 失效接口正式实现；10-report/13-deliv（phase-02）: 报告段落标失效接口正式实现；roadmap.yaml: 已把这两项写成 phase-01 契约先行项"
@@ -995,14 +995,14 @@
       "spec_ref": "20-model/uc-20-1-接入并测试一个模型.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-model",
       "verification": [
-        "pnpm --filter web vitest run tests/capability/model/registry-fields.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/credential-never-echoed.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/combo-model-single-record.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/no-hardcoded-model-list.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/model/registry-fields.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/credential-never-echoed.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/combo-model-single-record.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/no-hardcoded-model-list.test.ts"
       ],
       "evidence": "",
       "notes": "依据：状态三取值/二分/凭据成员看不到/组合模型为 [原型]；合规属性受控枚举取值从配置读取（O-38，枚举内容留空不阻塞编码）；组合记录 O-22③（一个 model_id → 一个 pipeline，合规属性取成员交集，含闭源成员即闭源链路）；价目表 CNY 手工维护 O-37；provider 抽象不绑定厂商 O-40。列表屏已建成于 apps/web/components/admin/model-screen.tsx（testid admin-model-group-hosted / admin-model-group-self / admin-model-filters），本 feature 交付的是数据模型与凭据保管后端；接入表单为真·未探明（补抽取，不阻塞）。no-hardcoded-model-list.test.ts 兑现 F15 验收面 V1：产品代码删清单后仍能跑、空配置见空态。20-model 是 03-skill/04-agent 模型下拉的硬前置，须最先做。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（18 台模型是某组织的示例配置，不得硬编码进代码或种子数据）；phase-00: F01/F02 两层权限与 RLS（凭据仅管理员可见）；phase-00: 统一审计事件模型（接入/配置变更进审计）",
@@ -1024,9 +1024,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/model/admission-test-gate.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/test-verdict-immutable.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/combo-member-all-pass.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/model/admission-test-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/test-verdict-immutable.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/combo-member-all-pass.test.ts"
       ],
       "evidence": "",
       "notes": "依据：五项测试固定为 [原型]；phase-1 人工判读不做自动化为 [人类已拍板 D-07]；质量判定用结构性断言不打分为 [已裁决 O-35]。测试记录面板已建成于 admin/model-screen.tsx（testid admin-model-test-items / admin-model-test-item / admin-model-test-submit），交付的是判读记录持久化与门禁后端。连通性一次真实探活是否纳入 phase-1 为 [待确认]，按“建议纳入”写但门禁不依赖它。",
@@ -1048,9 +1048,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/model/selectable-set-equals-enabled.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/disable-cascade-dep-failed.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/disable-choice-interrupt-or-finish.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/selectable-set-equals-enabled.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/disable-cascade-dep-failed.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/disable-choice-interrupt-or-finish.test.ts",
         "bash apps/web/scripts/verify-ui-states.sh"
       ],
       "evidence": "",
@@ -1073,10 +1073,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/model/confidential-hard-route.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/chat-datascope-contract.test.ts",
-        "pnpm --filter web vitest run tests/capability/model/no-model-call-bypasses-router.test.ts",
-        "pnpm --filter web vitest run tests/single-source-of-truth.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/model/confidential-hard-route.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/chat-datascope-contract.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/model/no-model-call-bypasses-router.test.ts",
+        "pnpm --filter web exec vitest run tests/single-source-of-truth.test.ts"
       ],
       "evidence": "",
       "notes": "依据：该硬约束在原型五处独立出现 [原型] + D-U1（整轮走本地，非分流）+ O-19（开关不可关）+ O-17（材料级粒度，phase-1 无分段路由）。批准卡与对话“更多设置”共用的纯函数 dataScopeConstraint/modelPolicyViolation/isModelSelectable（apps/web/lib/mock/chat.ts）是要落成真实后端规则的契约——chat-datascope-contract.test.ts 断言后端与该纯函数行为一致（chat-approval-datascope-note / chat-approval-policy-violation / chat-approval-toggle-local 三 testid 已存在）。核心为服务端硬路由，API/纯函数可验，故不需 UI 签核；无自托管失败态由七态外壳 dep-failed 覆盖。这是横切控制，先于任何处理客户材料的模块。\n【跨分片依赖待确认】21-mcp: 安全策略开关三“客户机密材料仅允许本地模型处理”（T07 提供开关存在与常开，执行体即本 feature）；08-chat: 批准卡消费模型与预算展示；17-gov: 机密标记采集（O-17 上传时人工勾选，材料级；本 feature 只消费标记）；phase-00: Context Engine / Context Pack（机密标记随 artifactVersionId 传播进 Pack）",
@@ -1092,13 +1092,13 @@
       "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-mcp",
       "verification": [
-        "pnpm --filter web vitest run tests/capability/mcp/three-orthogonal-fields.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/tool-namespace.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/credential-endpoint-hidden.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/mcp/three-orthogonal-fields.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/tool-namespace.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/credential-endpoint-hidden.test.ts"
       ],
       "evidence": "",
       "notes": "三套枚举防合并的核心 feature（UC-0.3 R7 硬约束）：three-orthogonal-fields.test.ts 构造一台 auth_scope=全体成员 且 review_status=待安全评审 且 connection_status=不可达 的服务器，断言三字段各自独立可查、不可达不被写成已隔离（对应 UC-21.1 V18，O-20 裁决）。“仅某团队”一档由 O-20 补齐与 agent/skill 可见性范围对齐。列表屏已建成于 apps/web/components/admin/mcp-screen.tsx（testid admin-mcp-list / admin-mcp-tools-list / admin-mcp-tool-row），交付数据模型与工具发现后端。是 04-agent 三层权限第①层的前置，先于 T09。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（6 台 MCP 是示例配置，不得硬编码）；phase-00: F01/F02 权限与 RLS（凭据/端点仅管理员）",
@@ -1120,9 +1120,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/mcp/auth-scope-server-enforce.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/isolated-server-blocked.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/new-tool-not-auto-whitelisted.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/mcp/auth-scope-server-enforce.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/isolated-server-blocked.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/new-tool-not-auto-whitelisted.test.ts"
       ],
       "evidence": "",
       "notes": "安全内核：授权范围与默认隔离均在服务端强制，API 可验。越权拦截计数的原型证据（数据总览“客户 CRM 已拦截 7 次”）归属本 feature（授权范围执行），不是 UC-21.2 开关四。默认隔离/越权拒绝为 [设计]（原型只渲染隔离行，执行行为无界面证据），但均可机器验证。三层求交的完整矩阵在 T09 验收。\n【跨分片依赖待确认】11-board/00-core: 任务权限包 R1/R2/R3 与 [去授权] 入口（本 feature 只暴露申请接口）",
@@ -1145,10 +1145,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/mcp/policy-switch-defaults-and-lock.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/review-release-flow.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/customer-data-trace-retention-param.test.ts",
-        "pnpm --filter web vitest run tests/capability/mcp/agent-cannot-self-discover.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/mcp/policy-switch-defaults-and-lock.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/review-release-flow.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/customer-data-trace-retention-param.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/mcp/agent-cannot-self-discover.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：放行评审面板（结论三选/理由填写/授权范围设定/证据附件）在原型中无入口、无角色、无屏——原型确认缺失，须补画整屏并卡 sign-off；开关的二次确认与“关掉会发生什么”说明也需补画。四开关的勾选状态与文案已建成于 mcp-screen.tsx（testid admin-mcp-policy / admin-mcp-policy-toggle）。可关闭性 O-19；留痕天数读 O-01 参数（V6a）；开关四执行证据原型确认缺失、phase-1 不实现打开路径。留痕落 provenance_events 与 UC-4.4/17-gov 共用一份数据（不另建）。\n【跨分片依赖待确认】20-model: 开关三执行体为机密硬路由（T04）；17-gov/phase-00: O-01 留存参数（留痕保留期），本 feature 只消费不自建；phase-00: provenance_events append-only 血缘表",
@@ -1164,13 +1164,13 @@
       "spec_ref": "04-agent/uc-4-1-注册一个-agent.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-agent",
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/clone-drops-whitelist.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/version-snapshot-lock.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/disabled-not-loadable.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/clone-drops-whitelist.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/version-snapshot-lock.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/disabled-not-loadable.test.ts"
       ],
       "evidence": "",
       "notes": "依据：复制不继承权限 O-22①；版本+锁版本 O-22⑤；已停用态 O-22④（已归档为已停用终态子类不单列）。可见性范围二取值为 [原型]。Agent 管理列表屏已建成于 apps/web/components/admin/agent-screen.tsx（testid admin-agent-list / admin-agent-add），交付领域模型与版本快照后端；配置面板内部为真·未探明（补抽取）。agent 版本锁定是 UC-4.4“当时跑的是哪一版”可回答的前提。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（Ava/Scout 等 agent 是示例配置，不得硬编码）；phase-00: D-30 不可变快照 / 版本锁定",
@@ -1194,10 +1194,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/three-layer-intersection.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/whitelist-required-to-publish.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/two-review-functions-cosign.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/model-dropdown-enabled-only.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/three-layer-intersection.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/whitelist-required-to-publish.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/two-review-functions-cosign.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/model-dropdown-enabled-only.test.ts"
       ],
       "evidence": "",
       "notes": "权限内核，全部服务端 API 可验。three-layer-intersection.test.ts 对应 UC-4.1 V4/V21（O-23 取交集不可放宽）；两职能会签 O-21（V20）；未配白名单阻断为 [原型 硬闸门]（testid admin-agent-definition-blocker 已建成）；模型下拉只出已启用为 [原型]（testid admin-agent-field-model）。降级策略三取值与按任务类型分级、并发排队 O-22②（有效并发=min(agent级,组织级剩余)，超限排队不拒绝）一并在本 feature 的服务端规则内实现并各带断言。工具白名单编辑器面板为真·未探明（补抽取）。\n【跨分片依赖待确认】phase-00: F01 两层权限本体 + 统一 acl_bindings；11-board/00-core: 任务权限包 R1/R2/R3 第③层（D-28 按操作类型自动推导）",
@@ -1219,9 +1219,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/load-rule-idempotent-top4.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/roster-vs-present-count.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/why-loaded-explainable.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/load-rule-idempotent-top4.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/roster-vs-present-count.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/why-loaded-explainable.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：主持台“当前载入了谁/为什么/下一步换谁”面板与“因什么载入”的任何呈现均为原型确认缺失（主持台全场视图已完整探明、无 AI 团队编排区），须补画原型。线程级 AI 团队列表含三态、两个计数已建成于 apps/web/components/chat/（testid chat-team-panel / chat-header-present-count / chat-header-roster-count 已存在）——D-U6 两口径（在场/编制）验收锚 roster-vs-present-count.test.ts + 这两个 testid。字段命名 D-03a：agenda_segment / design_facet / method_stage 三名不共用。“取前4/因什么载入/换人换技能”多为 [Backlog]（原型 0 命中）。\n【跨分片依赖待确认】02-tpl: 议程环节表与切换事件 agenda_segment.switched / agenda_segment.state_changed（D-03a，载入触发条件只能引用 agenda_segment_id）；08-chat: 线程级团队面板宿主",
@@ -1232,8 +1232,8 @@
       "priority": 1,
       "area": "agent",
       "capability": "CAP-WEB",
-      "title": "项目级 AI 权限三开关（默认全关，三粒度收紧优先）+ 基于三层权限求交的改派路由（人工确认，理由须写具体授权名）",
-      "user_visible_behavior": "在 项目→设置→AI 权限 有三个开关（Facilitator 主动提议收敛 / 实时转录与语音转便签 / AI 直接在小组画布落笔），新建项目时默认全关；关掉某项后对应行为立即停止（如关掉“AI 直接在小组画布落笔”后 AI 只能提交建议待接受）。三粒度（组织/agent 级、项目级、画布/线程级）取交集收紧优先、下层不能放宽上层——agent 级允许插话但项目级关闭时仍不插话，画布级也无法再打开。对话输入区上方出现改派提示“这条更适合 Scout：它有行业数据库授权”，理由写出具体授权名，改派必须人点 [改派]、[×] 可忽略；把行业数据库 MCP 置为已隔离后该建议不再出现。开关变更留痕且对项目成员可见。",
+      "title": "项目级 AI 权限三开关（三粒度收紧优先；⚠ 三者默认值未裁，界面显示「默认值未裁」）+ 基于三层权限求交的改派路由（人工确认，理由须写具体授权名）",
+      "user_visible_behavior": "在 项目→设置→AI 权限 有三个开关（Facilitator 主动提议收敛 / 实时转录与语音转便签 / AI 直接在小组画布落笔）；三者的默认值尚未裁决，故界面每项挂「默认值未裁」徽标、区块顶部挂一条「默认值待人类裁决 · 无出处」提示（testid team-ai-switch-default-pending / team-switch-pending-<id>），而不是画成某个方向的默认。关掉某项后对应行为立即停止（如关掉“AI 直接在小组画布落笔”后 AI 只能提交建议待接受）。三粒度（组织/agent 级、项目级、画布/线程级）取交集收紧优先、下层不能放宽上层——agent 级允许插话但项目级关闭时仍不插话，画布级也无法再打开。对话输入区上方出现改派提示“这条更适合 Scout：它有行业数据库授权”，理由写出具体授权名，改派必须人点 [改派]、[×] 可忽略；把行业数据库 MCP 置为已隔离后该建议不再出现。开关变更留痕且对项目成员可见。",
       "spec_ref": "04-agent/uc-4-2-按状态载入-agent.md#R7",
       "depends_on": [
         "F57"
@@ -1243,12 +1243,12 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/ai-permission-three-grain-intersection.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/ai-permission-default-off.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/reassign-route-by-authz.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/ai-permission-three-grain-intersection.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/project-ai-switch-defaults-pending.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/reassign-route-by-authz.test.ts"
       ],
       "evidence": "",
-      "notes": "依据：项目级 AI 权限三开关为 [原型 批次8]，合成规则收紧优先与默认全关为 O-23。改派路由基于 MCP 授权集为 [原型]，判据=三层权限求交（T09），改派是建议须人确认为 [设计]。项目设置 AI 权限三开关与改派提示条已建成于 chat 组件（testid chat-reassign-bar / chat-reassign-reason / chat-reassign-apply / chat-reassign-dismiss 已存在），交付后端规则与三粒度服务端求交。\n【跨分片依赖待确认】07-canvas: “AI 直接在小组画布落笔”开关的落地对象（D-10）；21-mcp: 改派授权集来源（T06）",
+      "notes": "依据：项目级 AI 权限三开关为 [原型 批次8]，**合成规则**（取交集 / 收紧优先 / 下层不可放宽 / 服务端求交）为 O-23。\n⚠ 2026-07-30 更正伪造出处：本条此前写「默认全关为 O-23」——不成立。DECISIONS-OPEN.md:655 的 O-23 裁决行逐字只有一句「裁决：合成规则 = 取交集（收紧优先），且不可被下层放宽」，「默认全关」只出现在推荐段（:650-651），裁决行未提。⇒ **默认值无出处 → 待裁**，三项已登记进 packages/contracts/src/thresholds.ts 的 projectAiDefaultProposeConvergence / projectAiDefaultVoiceToNote / projectAiDefaultCanvasWrite（known:false，取值即抛错，不给「悄悄用一个 false」的机会），apps/web/lib/mock/agent-runtime.ts 的 defaultOn 已改为从那里读。\n⚠ 且原型（权威，纪律第 7 条）与「全关」相反：15.2532M 设置磁贴副标题逐字「AI 权限 / 3 项 · 1 项已关」⇒ 2 项开；15.2748M 主动提议收敛=开、语音转便签=开、画布落笔=关（本场覆写）；15.2146M 蓝本预览「AI 可在小组画布落笔」=开（蓝本默认）。判读依据 background:#17171A + 旋钮 right:2px = 开，#DEDCD3 + left:2px = 关。连带 [D-10] 逐字「AI 画布写权限：默认直接落笔」也与「全关」相反（uc-4-2:103 vs 旧 :120，相隔 17 行，已修）。\n⚠ verification 里原有的 ai-permission-default-off.test.ts **文件名本身预设了答案**，已换成 packages/contracts/tests/project-ai-switch-defaults-pending.test.ts —— 该文件**已存在且真的会红**：七条断言在裁决落地前只证「取值抛错 + 三项在待定表 + 标为真阻塞 + rule 里不再夹带默认全关」，并带两条反空转反证（⑤ 集合非空、⑥ requireValue 对已定值项不抛错，堵掉「第一行就 throw」的实现）。实测反证：把其中一项偷改为 known:true/value:false（即偷偷把「默认关」定死）⇒ 7 条里 5 条转红，⑤⑥ 保持绿（正确，它们不该被这个变更影响）。\n⚠ 旧路径 `pnpm --filter web vitest run tests/capability/agent/ai-permission-default-off.test.ts` 有两个问题：⑴ 文件名 `default-off` **本身预设了答案**；⑵ 该命令形式在本仓**恒 exit 0**（apps/web 有 test 脚本、无 vitest 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过 —— 即这条验收此前是空转的（REVIEW-REQUIREMENTS V-1，同形共 21 个 feature）。\n⚠ 人类裁决落地后：把三项改成 known:true + source 记明裁决号，届时 ②③ 会失败，**那是正确信号**，改成断言真实默认值即可。裁决前不许把任何一侧写成断言。\n改派路由基于 MCP 授权集为 [原型]，判据=三层权限求交（T09），改派是建议须人确认为 [设计]。项目设置 AI 权限三开关与改派提示条已建成于 chat 组件（testid chat-reassign-bar / chat-reassign-reason / chat-reassign-apply / chat-reassign-dismiss 已存在），交付后端规则与三粒度服务端求交。\n【跨分片依赖待确认】07-canvas: “AI 直接在小组画布落笔”开关的落地对象（D-10）；21-mcp: 改派授权集来源（T06）",
       "_uc_points_declared": "见 T10"
     },
     {
@@ -1268,9 +1268,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/private-chat-isolation-provenance.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/private-chat-no-privilege-escalation.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/private-chat-project-layer-audit.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/private-chat-isolation-provenance.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/private-chat-no-privilege-escalation.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/private-chat-project-layer-audit.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：私聊入口与右侧滑出面板为原型确认缺失（对话屏已完整探明、未见任何人与 agent 私聊入口；档案中“私聊”全指组员人际私聊），右侧滑出布局/skill 清单呈现/[转到主线程] 位置与出处预览均需补画原型。核心隔离与权限规则可 API 验。归属项目层 O-24（V13/V14/V15/V16）；组员逐场开关 O-24；不改编制 O-24。priority=2（P1，迭代 5 收尾）。\n【跨分片依赖待确认】08-chat: 主线程与转出目标；phase-00: D-18/O-04 管理员访问留痕",
@@ -1294,10 +1294,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/agent/toolcall-four-fields-namespace.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/no-trace-no-call.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/callchain-depth-no-inherit.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/anomaly-10x-24h-rate-limit.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/agent/toolcall-four-fields-namespace.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/no-trace-no-call.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/callchain-depth-no-inherit.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/agent/anomaly-10x-24h-rate-limit.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：组织级审计检索屏（D-34，按项目/人/时间+导出）在原型中不存在、需从零补画并卡 sign-off。项目级审计时间线、消息内 tool-call 明细、批准卡、后台数据总览异常区均已建成（testid chat-tool-call-row / chat-tool-calls-detail / chat-approval-callchain-detail / admin-overview-anomalies / admin-anomaly-chain-step 已存在），核心审计规则 API 可验。阈值 10倍/24h、深度2 为 O-36；被调不继承权限 [设计]；provenance append-only 与 agent run 四件套为架构对齐。异常检测实时判据保留、调用量统计报表 D-07 不做（不造数）。priority=2（P1 迭代5）。\n【跨分片依赖待确认】phase-00: provenance_events append-only + agent_runs/agent_steps/context_packs（架构 P4）；17-gov: 组织级审计检索屏（D-34，本 feature 定义 Agent 调用事件字段与检索维度）",
@@ -1313,14 +1313,14 @@
       "spec_ref": "03-skill/uc-3-1-上传并校验一个-skill.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-skill",
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/contract-static-validation.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/scope-not-exceed-submitter.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/status-enum-exactly-four.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/source-tag-system-assigned.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/contract-static-validation.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/scope-not-exceed-submitter.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/status-enum-exactly-four.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/source-tag-system-assigned.test.ts"
       ],
       "evidence": "",
       "notes": "依据：契约三件套/无沙箱 D-06；四态状态机 O-11（V13：不存在“已发布”字面量）；来源标记自动打标 [设计]；数据范围越权检查以提交人当前权限为上界。列表屏已建成于 apps/web/components/admin/skill-screen.tsx（testid admin-skill-list / admin-skill-add / admin-skill-import），交付契约模型与校验/扫描后端；配置面板内部为真·未探明（补抽取）。社区导入 D-06 phase-1 不实现（只保留 source=community 取值，入口置灰）。Context API 唯一通路可用架构依赖规则测试断言。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（86 条 skill 是示例配置，不得硬编码）；phase-00: Context Engine / Context API（skill 运行时唯一取数通路 + context_packs 记录）；D-06: phase-1 skill=声明式契约，无沙箱、不执行任意代码",
@@ -1343,10 +1343,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/dual-gate-cannot-bypass.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/no-self-review.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/visibility-scope-four-entries.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/satisfaction-sample-insufficient.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/dual-gate-cannot-bypass.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/no-self-review.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/visibility-scope-four-entries.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/satisfaction-sample-insufficient.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：skill 侧 [试跑] 入口与试跑结果为原型确认缺失（行内操作只有 [编辑]，[试跑] 只存在于 Agent 管理与画布模板草稿行，属不同对象不可跨屏挪用），须补画原型。待审核行与双门禁文案已建成于 skill-screen.tsx。两职能 O-21；满意度口径与最小样本量 O-37（数值待产品确认，但“低于样本量不显示百分比”这条结构断言无论数值如何已定）；可见性范围与 MCP 授权范围/评审状态是独立字段不合并。满意度百分比的数据来源是 T21。\n【跨分片依赖待确认】phase-00: F01 两层权限（审核人=组织级职能授权，可跨团队审）",
@@ -1368,9 +1368,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/binding-model-distinguishable-slot.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/instance-override-no-writeback.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/binding-version-snapshot.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/binding-model-distinguishable-slot.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/instance-override-no-writeback.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/binding-version-snapshot.test.ts"
       ],
       "evidence": "",
       "notes": "依据：两级继承（模板级默认值→实例级可覆盖不回写）与另存为组织模板为 [原型 硬规则]；绑定槽混合可区分为 [设计]；快照锁版本 D-30。设置→工作流编排屏（环节×三角色矩阵）已建成、可直接签，交付绑定条目模型与继承边界后端。协同引导师=引导师多实例 O-03（切模板/另存须主持人确认）。绑定槽编辑态为真·未探明（补抽取）。\n【跨分片依赖待确认】02-tpl/UC-2.2: 工作流模板与议程环节表（本用例宿主，O-02 蓝本⊃工作流模板）；07-canvas: 绑定槽内画布模板",
@@ -1392,9 +1392,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/each-cell-generates-todo.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/segment-switch-remount-and-views.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/orphan-binding-no-silent-drop.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/each-cell-generates-todo.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/segment-switch-remount-and-views.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/orphan-binding-no-silent-drop.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：AC1“现场切议程环节时挂载的 skill 自动换”这一句出自 [Backlog]（原型未直接呈现该联动），是本 feature 的主要交付行为之一，须补画/确认原型。每格生成待办、三视角首屏跟着换、画布左栏只读投影为 [原型 硬规则]（已建成，可直接签）；待办负责人恒为人 D-39。四条硬规则各带独立断言。\n【跨分片依赖待确认】11-board/UC-11.2: 待办看板与流转（本 feature 只负责生成并同步过去这条边）；07-canvas: 画布左栏只读投影；02-tpl: agenda_segment.switched / state_changed 事件（D-03a）",
@@ -1417,9 +1417,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/member-cannot-self-mount.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/temp-mount-source-distinguishable.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/member-cannot-self-mount.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/temp-mount-source-distinguishable.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：“＋加技能”入口本身为原型确认缺失（输入区四元素已逐项完整探明、其中没有任何加减 skill 的按钮，此前记为“面板未探明”是用未探明掩盖造假，已更正），入口与选择器面板均需补画原型。结果态挂载栏（chat-ai-skill testid 已存在）与角标已建成，可直接签。组员默认不可自加为 [Backlog]；组长是否逐场开关为 [待确认]。priority=2（P1，迭代 5，2 点）。\n【跨分片依赖待确认】08-chat: 对话线程；phase-00: F01 两层权限（组员拒绝服务端）",
@@ -1441,9 +1441,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/reference-enumeration-three-kinds.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/hard-delete-permanently-rejected.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/reference-enumeration-three-kinds.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/hard-delete-permanently-rejected.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：skill 的停用/归档入口与确认对话框、已停用状态呈现为原型确认缺失（行内操作只有 [编辑]，[归档]/[停用]/[恢复] 只存在于画布模板行属不同对象不可跨屏挪用），补齐的草稿与已停用两态界面需补画原型。版本语义参照画布模板 [人类已拍板]；四态断言与 UC-3.1 逐字一致 O-11；硬删拒绝 D-30；停用共享确认框（disable-dialog）复用 T03 的 D-U5 实现（立即中断/跑完当前一轮），此处不重复计点。priority=2（P1 迭代5，3 点）。\n【跨分片依赖待确认】20-model: 历史版本依赖失败态来源（T03）；phase-00: D-30 不可变快照；O-01 快照/绑定关系不受留存期约束、永久可解析",
@@ -1466,9 +1466,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/promotion-source-tag-and-link.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/promotion-not-auto-published.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/source-knowledge-status-linkage.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/promotion-source-tag-and-link.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/promotion-not-auto-published.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/source-knowledge-status-linkage.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：skill 详情页“来自组织大脑”区块为新增设计，且触发端 14-brain 在 phase-3——本 feature 按 R10 处置② 只做接收端（来源取值/双向关联字段/自动生成≠自动发布门禁路径先建好，触发端待 14-brain 就位后接通），估点 5 已按② 计。依据：晋升生成 skill [原型]；严格准入 D-32；自动生成≠自动发布 [设计]；同职能两道独立门禁 O-21（晋升审批与生成 skill 的方法论审核由同职能行使但同一人在同一链上只行使一次裁决）；脱敏闸门 D-16。方法/Skill 同一份资产两个视图不得建互不关联副本。priority=2。\n【跨分片依赖待确认】14-brain: 晋升队列与知识五态机（触发端，D-24 属 phase-3；phase-1 只做接收端，触发端就位后接通）；04-agent: 目标 agent 默认方法绑定（T09）",
@@ -1492,10 +1492,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web vitest run tests/capability/skill/rating-attribution-to-version.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/aggregation-structural-classify-route.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/proposal-no-auto-publish.test.ts",
-        "pnpm --filter web vitest run tests/capability/skill/satisfaction-formula-sample-floor.test.ts"
+        "pnpm --filter api exec vitest run tests/capability/skill/rating-attribution-to-version.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/aggregation-structural-classify-route.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/proposal-no-auto-publish.test.ts",
+        "pnpm --filter api exec vitest run tests/capability/skill/satisfaction-formula-sample-floor.test.ts"
       ],
       "evidence": "",
       "notes": "needs_ui_signoff=true：对话消息的 👍/👎 评价控件为原型确认缺失（对话屏消息流已逐元素完整探明、其中没有任何评价控件；后台“来自消息级评价”是聚合结果不能反推采集侧控件已画），[生成 skill 改进 PR] 点开的提案 diff 页未探明——评价交互与 diff 页均需补画。反馈与迭代聚合列表与闭环指标已建成于 apps/web/components/admin/feedback-screen.tsx（testid admin-feedback-agent / admin-feedback-loop / admin-feedback-software 已存在，交付满意度百分比字段的唯一数据来源后端）。满意度口径 O-37（与 T15/UC-3.1 逐字一致）；聚合用结构性判据不用相似度打分 O-35；人工复核必经 [原型 硬约束]；改进 PR=契约变更提案非代码 PR（D-06）；灰度发布 phase-2。priority=2。\n【跨分片依赖待确认】08-chat/UC-3.3: 消息级评价采集点与 skill 角标归因；04-agent/UC-4.4: 异常评价检测口径（T13）；20-model/UC-20.3: 提案生成模型路由（含机密案例走自托管，T04）",
@@ -1508,18 +1508,19 @@
       "spec_ref": "05-rec/uc-5-1-开启多路录音并实时出字.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-rec",
       "verification": [
-        "pnpm vitest run tests/rec/multi-track-no-crosstalk.test.ts",
-        "pnpm vitest run tests/rec/mic-permission-decline-no-segment.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/multi-track-no-crosstalk.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/mic-permission-decline-no-segment.test.ts",
         "grep -rq 'data-testid=.group-mic-toggle' apps/web/components/entry"
       ],
       "evidence": "",
       "notes": "依据 [原型]。界面已建成：/session 组内录音（group-mic-toggle）、/studio/interview 转录区（itv-tracks/itv-realtime-bar）、/chat 线程转录卡；本 feature 交付 source_type∈{workshop,interview,thread} 的采集与权限门控数据层。AC1 跨路隔离为结构断言（各路注入已知音频，断言互不含）。\n【跨分片依赖待确认】01-auth: 授权与可见性判定；phase-00: F14 七态外壳与保留态名",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "01"
     },
     {
       "id": "F70",
@@ -1533,8 +1534,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/segment-anchor-completeness.test.ts",
-        "pnpm vitest run tests/rec/partial-segment-not-citable.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/segment-anchor-completeness.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/partial-segment-not-citable.test.ts",
         "grep -rq 'data-testid=.itv-transcript' apps/web/components/interview"
       ],
       "evidence": "",
@@ -1555,8 +1556,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/overlap-pending-manual.test.ts",
-        "pnpm vitest run tests/rec/disputed-lowconf-not-citable.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/overlap-pending-manual.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/disputed-lowconf-not-citable.test.ts"
       ],
       "evidence": "",
       "notes": "依据裁决 O-13（结构性断言，不依赖数值阈值）。合并 UC-5.1/E7（检测重叠）与 UC-5.2/R5（两态处理出口）为一件事；mock 的 SegmentStatus 已含 pending-manual/disputed（seg-08 无默认选中）。数值型混淆率阈值 [待确认·待补数]，不阻断本 feature。",
@@ -1576,8 +1577,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/pii-mask-five-types.test.ts",
-        "pnpm vitest run tests/rec/phone-encrypted-masked.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/pii-mask-five-types.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/phone-encrypted-masked.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+裁决 O-39。加密密钥策略/法定留存清单仍待合规输入，但五类最小集与手机号存储形态已闭合、可先动工。共享脱敏内核，07-canvas/06-itv/08-chat 引用不重造。\n【跨分片依赖待确认】17-gov: D-16 两级脱敏内核（本 feature 只做转写侧接入点，不另造规则）",
@@ -1597,8 +1598,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/file-first-materialization.test.ts",
-        "pnpm vitest run tests/rec/derived-from-original-unchanged.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/file-first-materialization.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/derived-from-original-unchanged.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [设计]（Context Engine file-first）。不重复实现存储（存储在 phase-00 F04），本 feature 只做录制产物的物化与登记投影。\n【跨分片依赖待确认】phase-00: F04 Artifact 六表 + file-first 存储契约；22-files: 目录树与下载（同一套 acl_bindings，非权限旁路）",
@@ -1618,8 +1619,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/assign-backfill-revocable.test.ts",
-        "pnpm vitest run tests/rec/candidate-from-onsite-roster-only.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/assign-backfill-revocable.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/candidate-from-onsite-roster-only.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+[Backlog]。声道↔人映射是独立实体、被引述/洞察/报告/图谱共同引用（不把真名冗余进每条转写段）；候选人名单只来自本场在场名单，无任何跨场次声纹比对调用。完整校对屏属未探明（补抽取即可），入口与行内操作已探明。",
@@ -1639,8 +1640,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/voiceprint-embedding-destroy-on-assign.test.ts",
-        "pnpm vitest run tests/rec/voiceprint-fallback-day7-destroy.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/voiceprint-embedding-destroy-on-assign.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/voiceprint-fallback-day7-destroy.test.ts"
       ],
       "evidence": "",
       "notes": "依据裁决 O-14。embedding 属 derived_representations，销毁是物理删除+审计事件（非打标记），存活期远短于材料保留期（180 天）。\n【跨分片依赖待确认】17-gov: UC-17.2 撤回与删除范围（声纹特征纳入）",
@@ -1660,8 +1661,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/quote-anchor-and-rq-binding.test.ts",
-        "pnpm vitest run tests/rec/unstable-segments-reject-quote.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/quote-anchor-and-rq-binding.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/unstable-segments-reject-quote.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]。引述是指向 transcript.jsonl 某个 anchor 的引用，不复制正文；正在识别/待校对/待人工指派三态段落一律不可被标为引述（AC4）。",
@@ -1681,8 +1682,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/ai-annotation-candidate-gate.test.ts",
-        "pnpm vitest run tests/rec/ai-annotation-origin-and-audit.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/ai-annotation-candidate-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/ai-annotation-origin-and-audit.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]。origin: ai|human 区分、不混入人工打点计数；对齐 D-27「AI 生成的卡一律落 inbox 草稿态」。依据片段被撤回/改写时对应候选自动失效。\n【跨分片依赖待确认】phase-00: Context Pack（打点候选只经 Context API 取上下文）",
@@ -1697,17 +1698,18 @@
       "spec_ref": "05-rec/uc-5-4-转写回流与保留期.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-rec2",
       "verification": [
-        "pnpm vitest run tests/rec/retention-param-resolution-no-hardcode.test.ts",
-        "pnpm vitest run tests/rec/expiry-freeze-and-delete-cert.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/retention-param-resolution-no-hardcode.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/expiry-freeze-and-delete-cert.test.ts"
       ],
       "evidence": "",
       "notes": "依据 D-14/裁决 O-01（默认值已给出：材料 180 天，区间仍待合规收窄，不阻断）。改写为结构性断言：读参数返回默认值 + 全仓无硬编码天数（静态检查）。UC-5.4 为 P1。\n【跨分片依赖待确认】00-core/17-gov: 留存策略内核（五参数读取接口）；phase-00: F04 Artifact / 不可删对象豁免",
       "priority": 2,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F79",
@@ -1721,8 +1723,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/rec/consent-render-from-params.test.ts",
-        "pnpm vitest run tests/rec/consent-snapshot-immutable.test.ts"
+        "pnpm --filter api exec vitest run tests/rec/consent-render-from-params.test.ts",
+        "pnpm --filter api exec vitest run tests/rec/consent-snapshot-immutable.test.ts"
       ],
       "evidence": "",
       "notes": "依据 D-14。三处呈现（研究计划参数面板/材料库保留至/授权页告知）读同一个解析结果，任一处对不上即缺陷。渲染消费方是 UC-6.3；UC-5.4 为 P1。",
@@ -1737,17 +1739,18 @@
       "spec_ref": "06-itv/uc-6-0-访谈-studio-列表与范围.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-itv",
       "verification": [
-        "pnpm vitest run tests/itv/scope-nullable-project-projection.test.ts",
-        "pnpm vitest run tests/itv/scope-server-side-filter-no-leak.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/scope-nullable-project-projection.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/scope-server-side-filter-no-leak.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+[设计]。这是 06-itv 其余全部 feature 的地基（若做成 project_id NOT NULL，6.1/6.2/6.5/6.7 全返工）。范围过滤在服务端，不得返回全量再前端过滤。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS 强制隔离",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F81",
@@ -1761,8 +1764,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/mount-to-segment-snapshot.test.ts",
-        "pnpm vitest run tests/itv/virtual-real-counts-split.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/mount-to-segment-snapshot.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/virtual-real-counts-split.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+D-38/D-25。phase-1 只做虚拟来源的列表展示+探索性隔离标记；构造能力归 phase-3 的 16-persona。\n【跨分片依赖待确认】phase-00: F06 三模式绑定服务（挂载绑定固定快照）",
@@ -1782,8 +1785,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/template-apply-three-things-detached.test.ts",
-        "pnpm vitest run tests/itv/template-usage-count-not-writable.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/template-apply-three-things-detached.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/template-usage-count-not-writable.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]（列表已探明）但 UC-6.1 新建访谈模板的编辑/套用界面尚未建（简报指令），故 needs_ui_signoff。模板版本按 artifact_versions 不可变+SHA-256，套用固化版本号。",
@@ -1803,8 +1806,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/template-reverse-extract-draft.test.ts",
-        "pnpm vitest run tests/itv/template-editor-list.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/template-reverse-extract-draft.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/template-editor-list.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [设计]（反向抽取唯一线索是括注「来自 3 场项目」，语义未定，原型确认缺失）+简报「UC-6.1 界面未建」。抽取若用 AI 只经 Context API，且拒绝 AI 分析的片段不进抽取输入（O-05）。",
@@ -1825,8 +1828,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/wizard-three-steps-carryover.test.ts",
-        "pnpm vitest run tests/itv/draft-not-confirmed-reject-onsite.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/wizard-three-steps-carryover.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/draft-not-confirmed-reject-onsite.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]（研究设计标签已探明）但简报明示 UC-6.2 界面尚未建，故 needs_ui_signoff。[重新生成大纲] 对已手改段落弹二次确认。\n【跨分片依赖待确认】phase-00: Context Pack（大纲生成上下文只经 Context API，剥离 PII）",
@@ -1846,8 +1849,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/outline-goal-before-two-questions.test.ts",
-        "pnpm vitest run tests/itv/research-plan-params-render.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/outline-goal-before-two-questions.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/research-plan-params-render.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]，界面未建（简报）。每段结构固定两层且顺序不可颠倒（目标在问法前，序列化断言）；合计超参数时提示压缩且引用参数值而非写死 60。质量提示是否阻断进现场 [待确认]，本 feature 只提示。",
@@ -1867,7 +1870,7 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/token-two-kinds-lifecycle.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/token-two-kinds-lifecycle.test.ts",
         "grep -rq 'data-testid=.consent-controller' apps/web/components/entry"
       ],
       "evidence": "",
@@ -1888,8 +1891,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/consent-bits-four-independent.test.ts",
-        "pnpm vitest run tests/itv/researcher-mirror-readonly.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/consent-bits-four-independent.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/researcher-mirror-readonly.test.ts",
         "grep -rq 'data-testid=.consent-decline-all' apps/web/components/entry"
       ],
       "evidence": "",
@@ -1910,8 +1913,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/start-interview-hard-gate-server.test.ts",
-        "pnpm vitest run tests/itv/unauthorized-no-segment.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/start-interview-hard-gate-server.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/unauthorized-no-segment.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型·硬约束]。仅前端禁用而后端放行不算实现（V2 重点断言直接调开始接口被拒）。必需受访者=主访对象（可多选），观察/陪同不进门禁（O-15）。",
@@ -1932,8 +1935,8 @@
       "owner": null,
       "verification": [
         "node apps/web/scripts/lint-withdrawal-flow.mjs",
-        "pnpm vitest run tests/itv/withdrawal-five-steps-two-sla.test.ts",
-        "pnpm vitest run tests/itv/withdrawal-cascade-invalidation.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/withdrawal-five-steps-two-sla.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/withdrawal-cascade-invalidation.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+D-13/D-15/D-19。时限一律引用单一事实源 apps/web/lib/withdrawal-flow.ts，不另立数值（曾漂移过）；lint-withdrawal-flow.mjs 是现存门控。D-19：对内可见、对外不自动改写需人工确认后替换。全流程不得出现「24 小时」时限。\n【跨分片依赖待确认】22-files: 删除级联到文件层（与 uc-22-4 删除传播同一批实现，只计一次）；17-gov: UC-17.2 撤回删除最小切片共用底座；phase-00: F04 file-first / 不可删对象豁免",
@@ -1953,7 +1956,7 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/ai-cannot-write-outline-status.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/ai-cannot-write-outline-status.test.ts",
         "grep -rq 'data-testid=.itv-outline' apps/web/components/interview",
         "grep -rq 'data-testid=.itv-auth-count' apps/web/components/interview"
       ],
@@ -1976,8 +1979,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/speaking-time-private-nudge-dual-signal.test.ts",
-        "pnpm vitest run tests/itv/copilot-not-delivered-to-interviewee.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/speaking-time-private-nudge-dual-signal.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/copilot-not-delivered-to-interviewee.test.ts",
         "grep -rq 'data-testid=.itv-copilot' apps/web/components/interview"
       ],
       "evidence": "",
@@ -1998,7 +2001,7 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/rq-coverage-values-human-only.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/rq-coverage-values-human-only.test.ts",
         "grep -rq 'data-testid=.itv-coverage-summary' apps/web/components/interview"
       ],
       "evidence": "",
@@ -2019,8 +2022,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/consent-per-speaker-prefilter.test.ts",
-        "pnpm vitest run tests/itv/context-pack-omits-declined-speaker.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/consent-per-speaker-prefilter.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/context-pack-omits-declined-speaker.test.ts"
       ],
       "evidence": "",
       "notes": "依据裁决 O-05。这是全模块共享的合规内核接入点，被 T23（副驾驶）、T26/T27（归纳）、T31（回流）、07-canvas T38（起草）、08-chat 共同依赖。断言在 context_packs 快照层不含被排除者 segmentId（不只看界面）。\n【跨分片依赖待确认】phase-00: Context Pack 构建契约（per-speaker 检索层过滤点）",
@@ -2041,9 +2044,9 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/evidence-matrix-five-values.test.ts",
-        "pnpm vitest run tests/itv/conformity-appeasement-not-counted.test.ts",
-        "pnpm vitest run tests/itv/unique-counterexample-preserved.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/evidence-matrix-five-values.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/conformity-appeasement-not-counted.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/unique-counterexample-preserved.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]。每条洞察必须挂原始引述与出处（时间码+说话人+场次），入库固化来源快照（D-30）；场次数≠人数，样本量必须同时给 N 场·M 位。\n【跨分片依赖待确认】09-kg: claims + claim_evidence 知识平面落点",
@@ -2063,8 +2066,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/virtual-source-server-isolation.test.ts",
-        "pnpm vitest run tests/itv/generality-claim-independent-le5.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/virtual-source-server-isolation.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/generality-claim-independent-le5.test.ts"
       ],
       "evidence": "",
       "notes": "依据 D-25 + 裁决 O-16（触发线=独立受访者 5 人，计数口径=独立受访者人数：同一人多次算 1，附和与虚拟不计入；跨组织聚合最小样本量=8，全仓单一门槛）。虚拟隔离必须服务端强制，不只是视觉标记。",
@@ -2085,8 +2088,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/portal-three-rights.test.ts",
-        "pnpm vitest run tests/itv/portal-token-scope-and-lifetime.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/portal-three-rights.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/portal-token-scope-and-lifetime.test.ts",
         "grep -rq 'data-testid=.consent-withdraw-done' apps/web/components/entry"
       ],
       "evidence": "",
@@ -2107,8 +2110,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/object-two-projections-single-record.test.ts",
-        "pnpm vitest run tests/itv/consent-status-single-source.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/consent-status-single-source.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]（列名与两按钮已探明）但组卡对象表完整交互属未探明/原型确认缺失，故 needs_ui_signoff。这张表是项目↔访谈唯一双向桥、UC-6.2「选对象」与 UC-6.5 矩阵列头的取数来源。",
@@ -2129,8 +2132,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/contact-mask-audit-export-exclude.test.ts",
-        "pnpm vitest run tests/itv/ai-suggest-candidate-no-autofill-contact.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/contact-mask-audit-export-exclude.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/ai-suggest-candidate-no-autofill-contact.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [设计]+D-27。[AI 建议人选]是原型待补（光秃按钮，结果形态未渲染），联系方式遮盖复用 UC-5.1 PII 内核（T04）不另造。needs_ui_signoff。\n【跨分片依赖待确认】21-mcp: 若 AI 建议人选检索外部来源，受 MCP 授权范围约束",
@@ -2151,8 +2154,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/itv/appointment-draft-no-auto-send.test.ts",
-        "pnpm vitest run tests/itv/transcript-backflow-to-group-consent-scoped.test.ts"
+        "pnpm --filter api exec vitest run tests/itv/appointment-draft-no-auto-send.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/transcript-backflow-to-group-consent-scoped.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]（那句话定义了本表全部理由）+D-28。回流是本表下游价值核心；预约结果形态属原型待补，故 needs_ui_signoff。13 点来源=双向链路+两处投影一致+个人数据处理三件事叠加。\n【跨分片依赖待确认】11-task/D-28: 外发动作风险分级 R3；phase-00: F06 固定快照绑定",
@@ -2167,17 +2170,18 @@
       "spec_ref": "07-canvas/uc-7-1-模板库与环节绑定.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-canvas",
       "verification": [
-        "pnpm vitest run tests/canvas/template-registry-19-key-displayname.test.ts",
-        "pnpm vitest run tests/canvas/binding-uses-key-not-displayname.test.ts"
+        "pnpm --filter api exec vitest run tests/canvas/template-registry-19-key-displayname.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/binding-uses-key-not-displayname.test.ts"
       ],
       "evidence": "",
       "notes": "依据 D-08 + 裁决 O-09。这是 07-canvas 四份 UC 的共同技术底座、必须最先落地。fabric-markdown（13 种 mermaid 图 + 19 A0 模板 + 164 单测）以源码并入 packages/（不是 npm 依赖），npm 依赖版本在 ADR 锁定；不改任何 key（否则 164 单测失效）。verification 走契约断言，不依赖 UI，故 needs_ui_signoff=false。",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F101",
@@ -2191,8 +2195,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/publish-archive-instance-version.test.ts",
-        "pnpm vitest run tests/canvas/mermaid-whitelist-ignored-count.test.ts"
+        "pnpm --filter api exec vitest run tests/canvas/publish-archive-instance-version.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/mermaid-whitelist-ignored-count.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+裁决 O-10。归档禁新增绑定但不禁存量实例化（唯一同时满足「归档只影响能不能新建」与「现场不跑挂」的读法）；归档确认框提示「有 N 个议程环节仍绑定此模板」。「未试跑不得发布」的阻断属原型确认缺失，本 feature 不含该阻断。",
@@ -2212,8 +2216,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/segment-binding-instantiation.test.ts",
-        "pnpm vitest run tests/canvas/segment-two-template-limit.test.ts"
+        "pnpm --filter api exec vitest run tests/canvas/segment-binding-instantiation.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/segment-two-template-limit.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [设计]。蓝本 16 项设计配置的第 9/10/13 项配置面板属未探明（proto-05/06/08 未探明清单），模板选择面板的分类维度属原型确认缺失，故 needs_ui_signoff。「最多两个模板」上限出自 Backlog。",
@@ -2233,8 +2237,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts",
-        "pnpm vitest run tests/canvas/three-way-transform.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/three-way-transform.test.ts",
         "grep -rq 'data-testid=.canvas-source-view' apps/web/components/canvas"
       ],
       "evidence": "",
@@ -2255,8 +2259,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/sticky-geometry-region-roundtrip.test.ts",
-        "pnpm vitest run tests/canvas/coords-not-written-back.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/sticky-geometry-region-roundtrip.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/coords-not-written-back.test.ts",
         "grep -rq 'data-testid=.canvas-save-layout' apps/web/components/canvas"
       ],
       "evidence": "",
@@ -2277,8 +2281,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/conflict-bar-three-exits-keep-both.test.ts",
-        "pnpm vitest run tests/canvas/structural-vs-sticky-decision-table.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/conflict-bar-three-exits-keep-both.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/structural-vs-sticky-decision-table.test.ts",
         "grep -rq 'data-testid=.canvas-conflict-bar' apps/web/components/canvas"
       ],
       "evidence": "",
@@ -2300,8 +2304,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/whitespace-rules-warn-not-block.test.ts",
-        "pnpm vitest run tests/canvas/ava-badge-atomic-rollback.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/whitespace-rules-warn-not-block.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/ava-badge-atomic-rollback.test.ts",
         "grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas"
       ],
       "evidence": "",
@@ -2323,8 +2327,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/canvas/backflow-source-chain-unbroken.test.ts",
-        "pnpm vitest run tests/canvas/only-lead-confirmed-writeback.test.ts"
+        "pnpm --filter api exec vitest run tests/canvas/backflow-source-chain-unbroken.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/only-lead-confirmed-writeback.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]（两端已探明）但画布→图谱的回流动作本身属原型确认缺失（中间无汇入入口）、[批量确认]属原型待补，故 needs_ui_signoff。UC-7.4 为 P1（迭代 5 收尾）。节点三态映射 claims.status（accepted/contested/proposed），互斥=contested 支持与反驳边并存。\n【跨分片依赖待确认】09-kg: ontology_objects/edges + claims/claim_evidence；14-brain: 组织大脑写回",
@@ -2339,18 +2343,19 @@
       "spec_ref": "08-chat/uc-8-5-对话可见性规则.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-chat",
       "verification": [
-        "pnpm vitest run tests/chat/visibility-two-layer-intersection.test.ts",
-        "pnpm vitest run tests/chat/observer-downgrade-server-side.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/visibility-two-layer-intersection.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/observer-downgrade-server-side.test.ts",
         "grep -rq 'data-testid=.chat-observer-tag' apps/web/components/chat"
       ],
       "evidence": "",
       "notes": "依据 [原型]（四视角完整）+D-12/O-04/O-24。08-chat 其余四份的可见性语义全部引用本 UC、不各自定义；观察者降级是服务端不下发而非前端隐藏。可见范围徽标 AC1 界面部分 [设计]（原型未见徽标），服务端字段本身 [原型] 明确。chat-observer-tag/chat-readonly-note 已存在。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS / F03 管理员边界（角色枚举与判定中间件来自 00-core/uc-0-3）",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F109",
@@ -2364,8 +2369,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/thread-badge-single-source.test.ts",
-        "pnpm vitest run tests/chat/messages-jsonl-file-granularity.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/thread-badge-single-source.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/messages-jsonl-file-granularity.test.ts",
         "grep -rq 'data-testid=.chat-thread-list' apps/web/components/chat"
       ],
       "evidence": "",
@@ -2386,7 +2391,7 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/team-panel-presence-tri-state.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/team-panel-presence-tri-state.test.ts",
         "grep -rq 'data-testid=.chat-team-panel' apps/web/components/chat",
         "grep -rq 'data-testid=.chat-ai-message' apps/web/components/chat"
       ],
@@ -2408,8 +2413,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/tool-call-chain-provenance-projection.test.ts",
-        "pnpm vitest run tests/chat/citation-anchor-100pct-locatable.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/tool-call-chain-provenance-projection.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/citation-anchor-100pct-locatable.test.ts",
         "grep -rq 'data-testid=.chat-tool-call-row' apps/web/components/chat"
       ],
       "evidence": "",
@@ -2430,9 +2435,9 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/approval-gate-six-fields-no-execute.test.ts",
-        "pnpm vitest run tests/chat/confidential-whole-round-local-only.test.ts",
-        "pnpm vitest run tests/chat/approval-model-budget-from-registry.test.ts"
+        "pnpm --filter api exec vitest run tests/chat/approval-gate-six-fields-no-execute.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/confidential-whole-round-local-only.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/approval-model-budget-from-registry.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [原型]+D-07/D-U1/O-36。批准卡是产品信任核心、独立成 feature。现有纯函数在 apps/web/lib/mock/chat.ts：dataScopeConstraint/modelPolicyViolation/isModelSelectable/modelLine/budgetLine —— 这是要落成真实后端契约的东西。D-U1 是「含机密⇒整轮走本地」不是分流，后端 gateway 按同一规则拦截。批准超时=现场 5 分钟/非现场 24 小时（O-36），预算达 100% 转「等待输入」求追加。三个值（人时折算系数等）尚未定稿，本 feature 不据其写断言。\n【跨分片依赖待确认】20-model: model registry（模型/单价/用途策略/PII policy/fallback 供数）；11-task: 批准后的后台任务与任务队列",
@@ -2453,8 +2458,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/right-tabs-five-with-counts.test.ts",
-        "pnpm vitest run tests/chat/proactive-speech-requires-source.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/right-tabs-five-with-counts.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/proactive-speech-requires-source.test.ts",
         "grep -rq 'data-testid=.chat-reassign-reason' apps/web/components/chat"
       ],
       "evidence": "",
@@ -2475,8 +2480,8 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/citation-eligibility-snapshot-only.test.ts",
-        "pnpm vitest run tests/chat/no-source-greyed-gate.test.ts"
+        "pnpm --filter api exec vitest run tests/chat/citation-eligibility-snapshot-only.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/no-source-greyed-gate.test.ts"
       ],
       "evidence": "",
       "notes": "依据 D-38/D-30。三模式绑定/快照不可变/引用资格门控全部在 phase-00 F05/F06，本 feature 只做对话侧入口与门控接线（不重复实现 uc-0-1）。定版前置：100% 引用可定位、有任一引用无法定位则只能落草稿。\n【跨分片依赖待确认】phase-00: F05 固定快照不可变 / F06 三模式绑定服务（不自建机制）",
@@ -2497,14 +2502,833 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm vitest run tests/chat/preset-usage-count-instances.test.ts",
-        "pnpm vitest run tests/chat/preset-dispatch-scope-check.test.ts"
+        "pnpm --filter api exec vitest run tests/chat/preset-usage-count-instances.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/preset-dispatch-scope-check.test.ts"
       ],
       "evidence": "",
       "notes": "依据 [Backlog]——「预设」二字在原型抽取档案 0 命中，列表/编辑器/下发对象选择器/使用计数/接收入口全部原型确认缺失，故 needs_ui_signoff。UC-8.4 为 P1。预设实例继承 UC-8.2 全部规则、不得预先批准任何高影响动作、不得预置绕过权限或同意位的检索范围（O-05）。\n【跨分片依赖待确认】03-skill/04-agent: 资源可见性范围（phase-00 F15 组织配置）",
       "priority": 2,
       "area": "chat",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F116",
+      "title": "三类容器落库：projects 超类型（列集合白名单）+ workshops/research_projects/user_insights 三张 1:1 子类型表（判别列 kind + 复合外键互斥）",
+      "user_visible_behavior": "建工作坊 / 研究项目 / 用户洞察三类容器，各自落一行 projects + 一行对应子类型表；同一个容器不可能同时是两类——给 kind='workshop' 的容器插 research_projects 行被数据库外键拒绝，给同一容器插第二条 workshops 行是主键冲突（两种失败可分辨），把已有子行的容器 kind 改掉同样被复合外键拒绝；往 projects 加任何工作坊专属列（议程环节 / 分组 / 蓝本引用）会让列集合白名单门控直接变红；三张新表自动进 RLS 网，verify-rls.sh 判 ok 的表数增加 3。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R7",
+      "depends_on": [],
+      "points": 6,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-project",
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/projects-column-set.test.ts",
+        "pnpm --filter api exec vitest run tests/project/subtype-exclusive-1to1.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-12 裁 C（三类独立容器）+ 连带 4 裁 D（超类型 + 1:1 子类型表）+ U-9 裁 A（判别列 kind + 复合外键，纯声明式无触发器）。落 I-P33 / I-P34 / I-P36。\n⚠ 白名单门控必须是**集合相等**不是黑名单——黑名单挡不住下一个没被想到的名字（agenda_segment_id 被挡住了，current_segment_id 没有）。判定抽成纯函数 checkProjectsColumnSet(actual)，配三条反证：喂 [...白名单,'agenda_segment_id'] 断言 extra 恰为该项；喂 ['id','org_id'] 断言 missing 非空；断言常量长度恒为 5（防「改白名单来消红」）。缺反证时一个 return {ok:true} 的实现让主门永远绿。\n⚠ I-P34 的三条反证（互斥生效 / 两种失败可区分 / 判别列不是摆设）逐条见 domain.md §一之三第 2 小节，缺第二条时「三张子表全部只读」的实现两条都绿。\n⚠ projects(id) 现有 7 条外键一条不改（groups / project_memberships / admin_project_access / artifacts / artifact_bindings / segment_text / claims）——这是候选 D 被选中的首要理由。\n⚠ 迁移新增一支，下一个可用序号是 0018（0016 / 0017 已被 F13 / F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F01/F02（两层角色 + RLS 强制隔离）、F22（组织生命周期冻结策略；0014:151-172 是 catalog 推导的函数 kernel_apply_org_freeze_policies()，不是写死清单，三张新子表会自动进——但该函数只在被调用时重算，所以 0018 迁移末尾必须加一行 SELECT kernel_apply_org_freeze_policies();，且不得在新迁移里再抄一份三条策略。断言不用新写：apps/api/tests/auth/org-disabled-readonly.test.ts:300-318 的 catalog 审计已覆盖新表并自带反空转反证）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F117",
+      "title": "createProject：一条创建路径 + 蓝本可选参数 + 两行原子写入 + 幂等 + 创建者不自动获角色",
+      "user_visible_behavior": "项目负责人（组织角色 lead）点新建，选三类之一，可选一个已发布蓝本或传 null 走空白新建；一次提交原子地写出容器行与子类型行，中途失败不留「有容器没子类型」的半成品；同一请求重复提交只建出一个容器；kind 不在三值闭集内直接 INVALID_KIND；组织角色 admin 与其余角色一律 ORG_ROLE_INSUFFICIENT；创建者不会被自动授予任何项目角色，所以他建完之后在列表里看得见这个项目（managed 段）却读不到里面的内容。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/create-project-atomic-two-rows.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-idempotent.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-org-role-gate.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-1 裁 C（一条创建路径 + 蓝本可选参数，空白新建 = 传 null，六类初始化跳过而非写空值）+ U-4 裁 A（admin 不能创建）+ Q-4② 裁「lead 对自建未加入的项目持管理权、不持内容读取权」。\n⚠「不自动给创建者授予项目角色」是 Q-4② 推出来的，不是 Q-1 连带 3（那格是空的）：若创建即授角色，Q-4② 那条边的两端就不存在了，「管理员不是超级用户」随之破掉。\n⚠ 组织 disabled 不写应用层码——PG RESTRICTIVE 策略拒写，断言在数据库层（I-P28）。\n⚠「蓝本无效」这个码故意没有名字：U-5 裁 B 定的是补套那一侧，创建时蓝本不合法的判据仍无出处。一个不会被抛出的码读起来像覆盖。\n⚠ 幂等键无出处（契约面没编一个），见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P9。\n【跨阶段依赖】phase-00: F01（组织角色判定）、provenance 通道（⚠ ProvenanceEventType 里没有「项目已创建」这个类型，见 GAPS.P3）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F118",
+      "title": "agenda_segments 独立表：四态 + mergedInto + 同工作坊至多一个 active 的部分唯一索引 + artifact_bindings 补外键",
+      "user_visible_behavior": "议程环节从「一个没人管的字符串 id」变成有身份有状态的行：pending/active/closed/skipped 四态，closed 与 skipped 都能带 mergedInto 指向并入目标；同一个工作坊里并发把两条环节置为 active，恰好一条成功、另一条拿到明确错误而不是静默覆盖；插入一条指向不存在环节的绑定被外键拒绝，指向存在环节的绑定成功——孤儿绑定从此不可能存在。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/agenda-segment-four-states.test.ts",
+        "pnpm --filter api exec vitest run tests/project/agenda-segment-single-active-index.test.ts",
+        "pnpm --filter api exec vitest run tests/project/binding-segment-fk-no-orphan.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2① 裁 A（建独立表 agenda_segments）+ Q-2② 裁 B（四态 + mergedInto）+ Q-8 裁 2（artifact_bindings 补外键）。落 I-P42 / I-P43 / I-P44。\n⚠ 挂 workshops（workshop_id → workshops(id)）不是 projects——议程环节是工作坊机件；超类型模型下 workshops.id ≡ projects.id，故 bindToProjectStep 的 projectId 仍是容器 id，两句不冲突。\n⚠ 不得退化成 startedAt/endedAt 时间戳：临时提权的失效条件是流程节点不是时间点（uc-1-4:98），时间戳表达不了「被跳过」与「被合并」。\n⚠「至多一个 active」必须是 DB 部分唯一索引（CREATE UNIQUE INDEX ... ON agenda_segments (workshop_id) WHERE state='active'），不是应用层先查后写——先查后写在并发下就是那条空转的门。反证：断言确实能把某一条置为 active（否则「谁都不能 active」的实现也全绿）。\n⚠ 外键那条同样要双向：指向存在环节的绑定要断言成功，否则「所有绑定都拒绝」的实现全绿（V13）。\n⚠ 迁移取 0018-*（0016/0017 已被 F13/F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F06 三模式绑定（artifact_bindings 表与 UNIQUE(artifact_id, project_id, step_id)）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F119",
+      "title": "advanceAgendaSegment：推进 / 提前结束 / 跳过 / 合并四种去向 + 权限闭集判定",
+      "user_visible_behavior": "引导师在主持台点下一环节，当前环节按四种去向之一终结（正常推进 / 提前结束 / 跳过 / 合并进另一条），下一条环节成为唯一的 active，三视角首屏跟着它走；组长、组员、观察者点不到这个动作，服务端也一律 PROJECT_ROLE_INSUFFICIENT；对已 closed 或已 skipped 的环节再次推进得到 SEGMENT_TERMINAL；容器已归档时推进被拒。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/advance-segment-four-outcomes.test.ts",
+        "pnpm --filter api exec vitest run tests/project/advance-segment-role-gate.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2② 裁 B（四态 + mergedInto）+ I-P10（推进已在闭集动作词表里，前提不再讨论）。\n⚠ 动作词引用 apps/api/src/domain/identity/project-role-matrix.ts，不得抄第二份 PROJECT_ACTIONS 常量（I-P12）。Q-3 ① 裁「改名对齐」后为 agendaSegment.advance——改名本身归 F121，本 feature 用改名后的名字。\n⚠ SEGMENT_ALREADY_ACTIVE 由部分唯一索引产生（F118 建的），本 feature 只是把它翻译成失败码，不在应用层再判一次。\n⚠ 临时提权的收回是本操作的副作用，但它的验收（四向 + 反向反证）归 F127，两处不重复计点。\n⚠ 容器归档时的失败码在裁决里故意没有名字（U-2⑵ 采纳「拒绝归档」但未命名码），见 GAPS.P7——本 feature 不发明它，归档侧的判据归 F124。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F120",
+      "title": "环节接受来源白名单 setAcceptedSources + STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 两条空转失败码的双向还债",
+      "user_visible_behavior": "引导师给某个环节配「本环节只收哪几类产出」（不配 = 全接受）；往一个 closed 环节绑产出被拒且内容保留为草稿不丢，往 skipped 环节绑同样被拒，而往 active 环节绑成功；配了 ['upload'] 的环节拒绝一个 prototype-run 产出、接受一个 upload 产出，没配白名单的环节任何来源都收得下；系统里没有第二条把 Studio 产出挂进项目的路由。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R4",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/step-closed-bidirectional.test.ts",
+        "pnpm --filter api exec vitest run tests/project/accepted-sources-whitelist.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2③ 裁（acceptedSources 默认全接受，空数组 = 不限制）+ Q-8（补外键使两码可评估）+ U-3① 裁 A（Studio 挂载路径唯一）。落 I-P45 / I-P17。\n🔴 这是 phase-00 两条空转失败码的唯一还债处，验收**必须双向**，逐字依据：a check that cannot fail is worse than an absent one, because it reads as coverage（0008-f06-binding-modes.sql:29-31）。\n⚠ V4 三条：closed 拒 + open 通 + skipped 亦拒（终态有两个，只测 closed 会漏 skipped）。\n⚠ V5 三条：非空白名单拒不在名单内的来源 + 同一环节接受名单内的来源 + acceptedSources=[] 的环节任何来源都通。第三条是 Q-2③ 特别要求的——默认全接受意味着这道门默认不生效，没有「至少一个环节配了非空白名单」的用例，这条码等于没上线。\n⚠ U-3① 那条「唯一挂载路径」断言要配反证：断言禁止清单非空且含既有条目，否则一个被清空的清单也全绿。唯一挂载点是 phase-00 artifact.bindToProjectStep（F06 已 passing），本束不新增第二条。\n⚠ 环节卡上的白名单控件原型不存在（ui.md B-4），界面形状属签核第 ① 件待补。\n【跨阶段依赖】phase-00: F06 bindToProjectStep（两码的抛出方在那里，本 feature 只让它们第一次有判据）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F121",
+      "title": "议程环节命名单源收敛：phase-00 的 stepId / step_id / stage.* 改名对齐 + 败选名门控（含反证）",
+      "user_visible_behavior": "全仓只剩一种叫法 agenda_segment / agendaSegmentId / agendaSegment.*；三个败选名 agenda_stage、step_id·stepId、stage. 在代码、迁移、契约、前端里一处都搜不到；把一段故意含败选名的字符串喂给门控的判定函数，它返回失败——门控本身不是在扫一个空目录。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R1",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/naming-single-source-gate.test.ts",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：D-03a（字段名全局权威）+ Q-3 B 裁 ①「改名对齐」——三个败选名一并判负。落 I-P20 / V14。\n🔴 这是**修订已签核束**（phase-00 artifact + identity）：波及的真实文件清单与出现次数见 contracts/project/MIGRATION-IMPACT.md 第二节。改名是签核动作不是实现动作，开工前须确认该束签核人已点头。\n⚠ 门控的判定必须抽成纯函数再测，反证是「喂一个故意植入败选名的字符串，断言返回失败」——否则一个「什么都没扫到」的 grep 也全绿（本仓九次全绿空转的同一形状）。\n⚠ **不改错误码字面量**：STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 不随之改成 SEGMENT_*。Q-3 的裁决文本只提到字段名与动作词，改码属另一次修订，已登记为 MIGRATION-IMPACT.md 第二节的待确认边界。\n【跨阶段依赖】phase-00: F01（动作词闭集 project-role-matrix.ts）、F06（artifact_bindings.step_id）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F122",
+      "title": "listProjects 两段式返回（我在里面 / 我管着它）+ 归档与组织停用「显示且标注只读」+ 平铺不折叠",
+      "user_visible_behavior": "打开项目列表，看到分开的两段：我持有项目角色的容器，和我作为 lead/admin 可管理的容器——不是一个混合数组加一个布尔；已归档的容器和所属组织被停用的容器都还在列表里、带只读标注且两种只读原因可分辨，不会凭空消失；三类容器平铺展示不折叠成父子；一个项目都没有时两段都是空列表，界面是真实空态而不是示例数据。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/list-projects-two-segments.test.ts",
+        "pnpm --filter api exec vitest run tests/project/list-projects-readonly-visible.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-6① 裁 B（两段式，{member[], managed[]}）+ Q-7③ 裁「组织停用时项目显示且标注只读」+ Q-5 B（归档同一种只读呈现）+ Q-12 必裁三件之 3「平铺」。\n⚠ 不许压成混合数组加 canManage 布尔：与 D-8「projectLayer 的两种 null 不许合并」是同一条已签纪律，压成一个列表会让前端猜。\n⚠ 出现在 managed 段里 ≠ 能进去看内容（D-18 边界）：响应体不得因此附带任何内容摘要或计数。\n⚠ 藏起来读作「产品做不到这件事」，而真相是「这个组织不允许」——两种只读必须可分辨（archived vs org-disabled），Q-5 ↔ Q-7③ 两处呈现必须一致。\n⚠ 列表项不带准备度：口径在 O-32 ④ 已定，但项目筹备侧的「已定义项」表无出处（U-6 第二格空白），见 GAPS.P6。\n⚠ GET /projects 是本束新造的第一个路由；全部项目列表屏原型未画（ui.md C-1），属签核第 ① 件待补。\n⚠ U-4 裁 A 之后，admin 的入列理由只剩「管理」，不含「我建的」。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F123",
+      "title": "getProjectOverview 概览白名单四件 + 回流列表呈现 + 空态/依赖失败/分层无权限三态可区分",
+      "user_visible_behavior": "进项目概览，只看到四样有出处的东西：当前议程环节、四类项目角色人数、已回流的产出与版本、蓝本名与版本——没有准备度百分比，也没有「尚未绑定的产出」这一区；回流每行四字段非空、徽标是草稿/实时/已定版三取值之一，草稿不出现在别人的列表里；新项目返回空列表并渲染真实空态；存储不可用时显示可解释错误与重试，而不是显示成一个空列表；无项目角色者看到的是分层的无权限态，说得清是组织层还是项目层挡的。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F116",
+        "F118"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/overview-whitelist-four-blocks.test.ts",
+        "pnpm --filter api exec vitest run tests/project/overview-empty-vs-dependency-failure.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-6② 裁（概览白名单四件）+ U-3② 确认（不展示未绑定产出，Q-6② 的白名单即答案）+ I-P24（回流列表路由/字段/徽标/空态/失败码已定，不可再发明）。\n⚠ 白名单是封闭的：加第五件属修订已签核裁决，不是「补一个板块」。未绑定产出不在名单内 ⇒ 按字面已被排除；用户要找它得去 Studio 侧，那是 Q-11 裁 ② 的必然结果。\n⚠ 空列表与依赖失败**必须可区分**（uc-00-2 V9）：把失败呈现成空列表，用户会以为「这里本来就没有东西」。\n⚠ 概览不显示准备度，改用口径明确的计数；在别处编一个分母就是第二份事实（本仓已因此出过事故，design-coherence.md:200）。「就绪检查 3/3」的分母表是哪张仍无出处，见 GAPS.P6。\n⚠ 回流数据面 phase-00 F06 已 passing，本 feature 只做它的项目侧投影，不重复建模不重复计点。\n⚠ 非工作坊两类的概览（currentAgendaSegment / roleCounts 都为 null）在裁决里没有替代内容，本 feature 只保证它不崩、不伪造。\n【跨阶段依赖】phase-00: F06 listBackflow（已签核已实现）、F01 authorize（分层无权限态）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F124",
+      "title": "archiveProject / unarchiveProject：两态只读做在 PG RESTRICTIVE 策略 + 归档四连带 + 删除接口不存在的断言",
+      "user_visible_behavior": "项目负责人把项目归档，它变成只读：任何写入被数据库策略拒绝，而读仍然可用，界面显示只读原因而不是 404；归档不删除任何东西（版本表与审计表行数差为 0），误归档能一键恢复为活跃；还有环节正在进行时拒绝归档、要求先收尾；归档容器里已定版的快照仍可被下游引用；Context Pack 默认不召回归档内容、需要时可显式请求；系统里没有也不会有删除项目的接口。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/archive-readonly-and-readable.test.ts",
+        "pnpm --filter api exec vitest run tests/project/archive-four-consequences.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-5 裁 B（两态，archived = 只读，归档不删除任何内容）+ U-2 四条全采（⑴ 可逆 ⑵ 有 active 环节时拒绝归档 ⑶ 能引用（仍受 I-14 只能引 pinned）⑷ Context Pack 默认不召回、可显式请求）+ Q-9（不提供删除项目）。落 I-P38 / I-P39 / I-P40。\n⚠ 冻结做在 PG RESTRICTIVE 策略里（照 F22 组织冻结的已 passing 形状），不是应用层 if；应用层的 PROJECT_ARCHIVED 是它的投影，不是第二处判定。\n⚠ I-P38 的三条断言缺一不可：拒写 + **读仍可用**（只断言拒写时，一个「归档即 404」的实现也全绿）+ 不产生任何删除。\n⚠ 不照抄组织冻结的不可逆形状：组织冻结罕见、代价由组织承担；项目归档是日常动作，不可逆代价大得多（U-2⑴ 逐字）。解归档权限同归档者，不新造角色。\n🔴 U-2⑵「有 active 环节时拒绝归档」已裁，但**它的失败码在裁决里故意没有名字**，usecases.md §3.2 的新增码清单里也没有 ⇒ 契约面表达不了这个已裁定的失败，见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P7。开工前需要人类补一个码名，否则这条只能落成一个没有码的 400。\n⚠ U-2⑷ 是**修订 phase-00 已签核的 context-pack 契约**（QueryContext 加显式开关，context-pack/domain.md:33），签核动作不是实现动作。\n⚠ deleteProject 的交付物是一条断言它不存在的测试（已落在 packages/contracts/tests/no-forbidden-routes.test.ts），反证是断言禁止清单非空且含既有条目。\n【跨阶段依赖】phase-00: F22 组织生命周期（策略形状可复用）、artifact I-11（快照不可删改降）、context-pack（U-2⑷ 需重新签核）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F125",
+      "title": "项目成员三用例（加入 / 改角色 / 移除）：两个入口共用同一 application 用例 + 变更下一次请求即生效 + 展示别名不落库",
+      "user_visible_behavior": "把组织内成员直接指派进项目，或让组织外的人走邀请链接进来——两条路径最终走的是同一段判定与落库代码，差别只在身份来源；一人在一个项目里恰好一个角色，写第二行是主键冲突；在一个还开着的会话里撤销某人的项目角色，他的下一次请求就被拒，不等会话过期也不等缓存 TTL；以「协同引导师」身份进场，库里存的是 facilitator，全库搜不到 co-facilitator 字样。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/member-two-entries-one-usecase.test.ts",
+        "pnpm --filter api exec vitest run tests/project/role-change-effective-next-request.test.ts",
+        "pnpm --filter api exec vitest run tests/project/display-alias-not-persisted.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-4① 裁 B（两个入口，但共用同一 application 用例）+ Q-4③ 裁（不缓存跨请求的判定结论，只缓存单请求内的）+ O-03（协同引导师是 facilitator 多实例，其中一名带 is_host）。落 I-P7 / I-P8。\n⚠ 两条入口共用一个用例的理由与「readContent 为什么不给个人层另开接口」同型：另开一个接口意味着不变量要写两遍，漏掉的那一遍不会有任何东西报警。\n⚠ 仅 kind='workshop'。另两类的成员模型归 F128（U-1 裁 B），本 feature 不覆盖。\n⚠「移除最后一名引导师 / 最后一名 is_host」未裁（uc-00-3 E6，is_host 在库里是无约束布尔，既无 DB 约束也无规则出处）——本 feature 不自行设定，不为它加失败码。\n⚠ 受访者不持项目角色（走一次性令牌，UC-6.3），不进本 feature。\n【跨阶段依赖】phase-00: F01（项目角色闭集与 acl_bindings，不另建权限表）、provenance membership 事件类型（已存在）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F126",
+      "title": "两层交叉第 ④ 格：lead 对自建未加入的项目持管理权、不持内容读取权（含审计留痕）",
+      "user_visible_behavior": "项目负责人建了一个项目却没给自己项目角色：他能改这个项目的成员、设置与生命周期，但点进内容会被拒——拒的理由说得清是项目层挡的，不是「你不是这个组织的人」；组织管理员以 purpose:\"audit\" 读同一份内容是放行 + 留痕 + 对项目负责人可见，而不是 403，且不区分他有没有该项目的角色；把资源标成仅某团队后，不在该团队的管理员即使带 audit 也仍被拒。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R5",
+      "depends_on": [
+        "F117",
+        "F125"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/cross-layer-fourth-cell.test.ts",
+        "pnpm --filter api exec vitest run tests/project/audit-purpose-not-403.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-4② 裁（lead 对自建未加入的项目持管理权、不持内容读取权）——它是 D-18「管理员不是超级用户」的同一条规则的同一侧。落 I-P14 / uc-00-3 V3 第 ④ 格。\n🔴 断言方向被 O-04 反转过一次：purpose:\"audit\" 是**放行 + 留痕 + 对负责人可见**，不是 403，且不区分管理员是否持有该项目角色。照旧稿写 expect(403) 会写出一个断言错误方向的绿灯。\n⚠ audit 只豁免项目层，不豁免组织层可见性范围（design-coherence.md:412-415）——两层都豁免会让它成为「谁都能敲出来的万能钥匙」。\n⚠ 前三格在 phase-00 F01/F03 已 passing，本 feature 只补第 ④ 格，不重复计点。第 ④ 格原型从未演示（ui.md B-5），界面属签核第 ① 件待补。\n【跨阶段依赖】phase-00: F01 authorize、F03 管理员权力边界、readContent 的 provenanceEventId 非 null 语义",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F127",
+      "title": "临时提权的授予与按流程节点服务端主动收回（正常结束 / 提前结束 / 跳过 / 合并四向 + 反向反证）",
+      "user_visible_behavior": "引导师在某个环节里临时给某人开一份额外的读权限，说明它「到本环节结束为止」；环节还在进行时这份权限确实有效；环节以四种方式中的任意一种终结——正常推进、提前结束、被跳过、被合并进别的环节——那份权限在下一次请求就失效，不靠前端隐藏也不靠定时轮询兜底；每次授予与每次收回都能按操作者、时间、对象检索到。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R3",
+      "depends_on": [
+        "F119",
+        "F125"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/temp-grant-revoked-by-four-outcomes.test.ts",
+        "pnpm --filter api exec vitest run tests/project/temp-grant-active-while-segment-open.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：uc-1-4:77-80,97-100 逐字（失效条件是**流程节点不是时间点**；提前结束/跳过/合并同样立即失效；收回必须由服务端在状态机变更时主动做）+ Q-2② 的四态。落 I-P18 ⑴ / uc-00-3 V8。\n🔴 反向反证不可省：只有四条正向断言时，一个「从不授权」的实现四条全绿。必须再断言「环节仍进行时该权限有效」。\n⚠ R11 明确建议它独立成 feature：失效路径是跨模块的，且它是 uc-1-4 里唯一带「服务端主动收回」硬要求的机制。\n⚠ 提权是在既有项目角色**之上追加**，不是换一个角色——不得写成改 project_memberships.project_role。\n⚠ 与视角切换器不是一回事（UC-1.4 A1：那是「预览别人看到什么」的工具，不是提权）。\n【跨阶段依赖】phase-00: F01 acl_bindings（提权落在这里，不另建表）、provenance 审计通道",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F128",
+      "title": "非工作坊两类的成员表（拥有者 / 协作者）+ 分组与项目成员在非工作坊容器下的禁止判据下沉到数据库",
+      "user_visible_behavior": "研究项目与用户洞察各有自己的成员名单，只有拥有者和协作者两档，界面上看不到引导师/组长/组员/观察者这四种工作坊角色；往一个研究项目或用户洞察容器里插分组、或写一行工作坊项目成员，被数据库外键直接拒绝——不是应用层某个 if 拦下的，所以不管从哪条写入路径进来都拦得住。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R7",
+      "depends_on": [
+        "F116",
+        "F125"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/non-workshop-member-tables.test.ts",
+        "pnpm --filter api exec vitest run tests/project/workshop-only-machinery-fk-denied.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：U-1 裁 B（各自一张成员表 research_project_members / user_insight_members，role ∈ {owner, collaborator}）+ U-7 裁 A（分组与 project_memberships 在非工作坊容器下都禁，判据靠 kind 复合外键下沉到数据库）+ 人类 2026-07-30 逐字收窄（「在访谈里是没有这几种角色的，引导师、组长什么的是不必要的」）。落 I-P6 / I-P37。\n⚠ 两档**不复用**工作坊四角色——共表或复用就是把四角色重新拉回研究项目的射程，且会逼 I-P6 的闭集断言放宽（U-1 候选 C/D 被否的理由）。\n⚠「拥有者 / 协作者」两个词原型里没有逐字出现，是 U-1 候选 B 对「负责人 + 其余可进来的人」的最小命名，人类已勾选采纳。\n⚠ 禁止判据必须是外键冲突而不是应用层报错：groups 与 project_memberships 各加 kind 常量列 CHECK + FOREIGN KEY (project_id, kind) REFERENCES projects(id, kind)，与 F116 的子表同一手法（强依赖 U-9 裁 A）。两张既有表加列并回填，属迁移动作。\n⚠ 三张子表与两张新成员表不在 F22 冻结策略的写死表清单里（0014:165-184），需一并补进去。\n🔴 契约面现在只有枚举没有操作：usecases.md UC-P9 仍写着「另两类 → U-1 待裁，本文不写」（写在裁决之前，没回头更新），见 KNOWN_CONTRACT_GAPS.P2。开操作 = 签核后新增，需要人类重新签核。不补的后果：apps/web/lib/mock/itv.ts:26 已自造三档视角并自注「待迁入 packages/contracts」，第二份事实源正在长出来。\n【跨阶段依赖】phase-00: F02 RLS（两张新成员表须各带 org_id 自动入网）、F22 组织冻结策略表清单",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F129",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "逐工具授权模型：McpTool.sideEffect 三值闭集 + 开放给五值全序（补 需人工确认每次 / 未开放）+ 新工具默认未开放 + 服务器级为上限、工具级只能更严",
+      "user_visible_behavior": "在 后台→AI 能力→MCP→某服务器 的「逐工具授权」面板里，探测到的每个工具各占一行，三列分别是 工具 / 副作用 / 开放给，行尾一个开关；面板头显示「逐工具授权 · N 个 · 默认全关 · 已开 M」。副作用取 只读 / 对外发送 / 写入外部 三值之一（只读为绿、两种带副作用为红），开放给取 全体成员 / 仅某团队 / 仅项目负责人 / 需人工确认每次 / 未开放 五值之一。刚探测到的新工具一律是「未开放」，必须逐个开——不会因为服务器放行就自动可调用。服务器级授权范围是上限：服务器设为「仅项目负责人」时，把某个工具设成「全体成员」会被拒（不得放宽上层）；反过来服务器设「全体成员」时把工具设「未开放」是允许的，该工具随即不可被任何 agent 调用。副作用未标注的工具按最严处理（等同带副作用），不会被当成只读放开。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
+      "depends_on": [
+        "F52"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/tool-side-effect-closed-set.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-auth-scope-total-order.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-narrower-than-server.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/new-tool-defaults-closed.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 本 feature 补的是「粒度错 + 枚举缺两值 + `副作用` 域字段不存在」三件（2026-07-30 需求分析师审计 M-1…M-3）。此前 `逐工具` / `副作用` / `需人工确认每次` / `未开放` 在 `contracts/agent-runtime/**` 与 `requirements/21-mcp/**` **全部 0 命中**。\n出处 [原型] `phases/requirements/WorkspaceX Standalone.html` 字节偏移 **16,684,300**：面板头逐字 `逐工具授权 · 9 个` / `默认全关` / `已开 3`；表头三列逐字 `工具` | `副作用` | `开放给`；实值（逐行按字节复核，`background:#17171A`+旋钮 `right:2px`=开、`#DEDCD3`+`left:2px`=关）：`search_regulation` 只读·全体成员·开 / `get_directive_text` 只读·全体成员·开 / `compare_jurisdictions` 只读·仅项目负责人·开 / `submit_inquiry` 对外发送·需人工确认每次·关 / `upload_document` 写入外部·未开放·关。\n⚠ `副作用` 与 O-19 的 `involvesCustomerData`（涉客户数据）**正交，不得合并**：前者答「会不会改变外部世界」，后者答「数据敏不敏感」。一个只读工具可以碰客户数据，一个外发工具可以只碰公开数据。I-23 已改为只约束 `involvesCustomerData` 这一个字段。\n⚠ `副作用` 的取值来源（握手探测 vs 人工标注）**原型未演示 ⇒ [待裁]**，但**不给「默认只读」**：未标注按最严处理。默认只读会让一个未标注的外发工具被开放给全体成员——正是 F130 要防的那件事。\n⚠ 「新工具默认未开放」这个默认值**有原型出处**（`16,684,300` 逐字 `默认全关`），与 O-23 那个**无出处**的「三个 AI 开关默认全关」（见 F58）是两件不同的事，**不要混用出处**。\n⚠ 全序落成**显式序数常量**，不靠字符串比较——它是 F130 服务端可判定的前提。\n⚠ 闭集断言写「成员集合与契约相等 ∧ 未声明的值不能通过」，**不要 `toHaveLength(3)`/`(5)`**（纪律第 9 条：断言性质不是数量，`toHaveLength` 会挡住正当新增）。\n⚠ `tool-scope-narrower-than-server` 必须**双向**：越界（服务器`仅项目负责人`+工具`全体成员`）被拒 **且** 合规（服务器`全体成员`+工具`全体成员`）可调用——只写前者时「一律不可调用」的实现全绿。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpTool`（`ToolSideEffect` / `ToolAuthScope` 两个闭集表）+ 不变式 **I-29′**。\n⚠ 界面**尚不存在**（签核第 ① 件新缺口，已登记在 `contracts/agent-runtime/ui.md` 第四节）——原型有这张表，我们的 `apps/web` 没有。\n🔴 **与 O-20 冲突，需人类确认 O-20 是否据此修订** —— 本批**不改 O-20**（决策档案是人类的）。O-20 裁的是服务器级 `auth_scope` 三值（`仅项目负责人`/`仅某团队`/`全体成员`），而原型同一屏给的是**逐工具 × 五取值 × 带 `副作用` 列**。O-20 的问题陈述通篇只讨论「授权范围列」与「仅某团队要不要加」，一次也没有提到 `逐工具` / `副作用` / `需人工确认每次` / `未开放`⇒ **很可能它是在没看过这张表时把模型收窄成三值的**。裁定前不得按任一侧写死断言。冲突登记在 `requirements/21-mcp/uc-21-1` R3 第 4 步末。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F130",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "安全不变式 I-28′：带副作用的工具授权范围封顶（最宽「需人工确认每次」）—— 服务端强制 + 纯函数判定 + sideEffect 变更时重新求值 + 四格双向断言",
+      "user_visible_behavior": "把一个副作用为「对外发送」或「写入外部」的工具，其「开放给」设成 全体成员 / 仅某团队 / 仅项目负责人 中任意一个，服务端一律拒绝并返回 TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP，界面给出禁用理由（「带副作用的工具最宽只能到『需人工确认每次』」）而不是静默置灰；设成 需人工确认每次 或 未开放 则正常保存生效。只读工具设成 全体成员 正常保存。绕过界面直接打 API 同样被拒。并且：一个原本 只读 + 全体成员 的工具，若重新探测后副作用变为 对外发送，它的开放给会被当场收紧到 需人工确认每次，而不是保持在全体成员等到下次有人去改它。设成 需人工确认每次 的工具每被调用一次就产生一条确认记录（谁、何时、批的是哪一次调用）。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R7",
+      "depends_on": [
+        "F129"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-pure-fn.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-server-enforced.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 **这是安全不变式，不是界面校验**（2026-07-30 补，审计 M-4：此前封顶不变式在契约里不存在）。\n出处 [原型] 字节偏移 **16,688,300** 逐字：「带副作用的工具（对外发送、写入外部）永远不能设为『全体成员自动调用』，最宽只能到『需人工确认每次』。」\n形式化（服务端可判定）：`maxScopeFor(sideEffect) = sideEffect === '只读' ? 4(全体成员) : 1(需人工确认每次)`；不变式 `rank(tool.authScope) <= maxScopeFor(tool.sideEffect)`；等价于 `副作用 ∈ {对外发送, 写入外部} ⟹ 开放给 ∈ {需人工确认每次, 未开放}`。\n落地四条，缺任一条即判未落地：\n⑴ 判定抽成**纯函数** `checkToolScopeCap({sideEffect, authScope}): {ok, reason?}`，与 I-P33 的 `checkProjectsColumnSet` 同形，可脱 HTTP 直测。\n⑵ **服务端强制**：`setToolAuthScope` 写路径上调用它，越界返回 `TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP`。⚠ **不得只在前端置灰**——置灰挡不住直接打 API。\n⑶ **`sideEffect` 变更时重新求值并当场收紧**。⚠ 这条最容易漏：只在「设置授权范围」一个入口校验，会留下「从只读那一侧走进来」的绕过路径。\n⑷ **双向 + 边界 + 变更路径四格断言**：\n  · 越界被拒：`对外发送`×`全体成员` ⇒ 拒 + 该错误码；`写入外部`×`仅某团队` ⇒ 拒\n  · ⭐ **合规值通过**：`对外发送`×`需人工确认每次` ⇒ **通过**；`对外发送`×`未开放` ⇒ **通过**；`只读`×`全体成员` ⇒ **通过**。🔴 **缺这一格时，一个「一律拒绝」的实现会让越界那一侧全绿**——纪律第 9、10 条，本仓九次「全绿但空转」的同一形状。这是本条最关键的一格。\n  · 边界恰好：`只读`×`全体成员` 通过 ∧ `对外发送`×`仅项目负责人` 被拒（封顶值取错一档、把 `仅项目负责人` 也放过，否则不会被发现）\n  · 变更路径：`只读`+`全体成员` 的工具改 `sideEffect` 为 `对外发送` ⇒ 其 `authScope` 被收紧\n⚠ 断言**性质不是数量**——不要写「拒绝了 N 次」。\n⚠ `需人工确认每次` 必然带一条**逐次确认记录**（谁/何时/批的是哪一次调用），否则「确认过」无法证明，I-27 第三层没有落点。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpTool` 的「安全不变式 I-28′」小节 + 不变式表 I-28′。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F131",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "第三方源 14 天隔离期：quarantineUntil 计时（时间戳非布尔）+ 期内仅平台组可调用且全量留痕 + 期满进「已到期待复核」不自动开放 + 天数读组织参数不硬编码",
+      "user_visible_behavior": "注册一台第三方 MCP 服务器后，它除了「已隔离」之外还带一个隔离期截止时刻，界面显示「隔离期还剩 N 天」；隔离期内以非平台组身份调用它的任何工具一律被拒，以平台组身份调用则通过，且每一次调用（含被拒的尝试）都写 provenance 全量留痕——不受安全策略开关二「涉客户数据才留痕」的影响。把组织的隔离期参数从 14 天改成 3 天，新注册服务器的截止时刻随之变化，代码里搜不到裸的 14。隔离期到点后服务器不会自动对成员开放，而是转入「已到期待复核」并出现在待办里；放行仍然要人点，放行时必须同时设定授权范围。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
+      "depends_on": [
+        "F52",
+        "F54"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-window-timing.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-platform-group-only.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-expiry-no-auto-release.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-days-from-param.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 **整块缺失**（2026-07-30 补，审计 M-4 连带）：`隔离期` / `14 天` / `平台组` 此前在 `feature_list.json` 中 **0 命中**。\n出处 [原型] 字节偏移 **16,683,800** 逐字：「第三方源默认进入 **14 天隔离期**：只有平台组可调用，全量留痕，期满复核后才对成员开放。」\n⚠ **`quarantineUntil` 是时间戳不是布尔**——布尔答不了「还剩几天」「到期了没有」，而这两件事界面上都要显示、待办里都要用。\n⚠ **`14` 不硬编码**：读组织级参数，与 O-01「留痕保留期」同形。该默认值**有原型出处**，可落 `known: true` + `source = 原型 16,683,800`（区别于无出处的默认值）。参照 I-24 的反证形状：把参数改成另一个值，断言到期时间随之变化 + 代码扫描无裸字面量。\n⚠ **期满不自动开放**：原型逐字「**期满复核后**才对成员开放」⇒ 到期只是让「复核」变得可做。为此 `McpServer.reviewStatus` 补一个 `已到期待复核` 取值——缺它时到期的服务器会静默停在 `待安全评审` 里无人处理，界面上「到期了」和「还没人看」无法区分。\n⚠ 断言必须**双向**：期内非平台组调用被拒 **且** 平台组调用**通过**（并必写 provenance）。只写「被拒」那一侧时，一个「隔离期内谁都不能调用」的实现全绿，而原型明说平台组可以。同理「期满不自动开放」要断言它**没有**转成 `已放行`，不是只断言它「还是隔离」。\n🔴 **[待裁] `平台组` 无其它出处**：它在本阶段仅此一处出现，是 `uc-0-3` 角色本体里的哪个角色？是新的团队类型？还是「组织管理员 + 安全评审人」的合称？**不发明，不代答**——裁定前该身份判定不得写死（否则会造出一个只在测试夹具里存在的角色）。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpServer` 的 `quarantineUntil` / `quarantineDays` / `reviewStatus` 补值 + 不变式 **I-30′**。\n⚠ 界面**尚不存在**（签核第 ① 件新缺口，已登记在 `contracts/agent-runtime/ui.md` 第四节）。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F132",
+      "title": "后台左栏「AI 能力」组的项集合 ＝ AssetKind 六值（双向相等 + 反证套件）—— 补上画布模板与项目蓝本两项",
+      "user_visible_behavior": "管理后台左栏的「AI 能力」分组里能看到全部六种资产：Agent、Skill、模型、MCP 服务器、画布模板、项目蓝本。今天只有四项——点不进画布模板、项目蓝本是 404，这正是人类「为什么在管理后台看不到项目蓝本」那条投诉。补齐之后，谁再从任一侧删掉一项（少画一个入口，或从 AssetKind 里删一个取值），门控当场报红。",
+      "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-asset",
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/admin-nav-asset-kinds-bijective.test.tsx",
+        "grep -rq 'admin-nav-blueprint' apps/web/components/admin",
+        "grep -rq 'admin-nav-canvasadmin' apps/web/components/admin"
+      ],
+      "evidence": "",
+      "notes": "依据：asset-governance domain.md I-1（AssetKind 恰六值）+ I-2（左栏项集合 ＝ AssetKind 取值集合，**双向**）。\n⚠ **单向断言在今天的代码上就是绿的**：`apps/web/components/admin/admin-nav.tsx` 现在只有 agent/skill/model/mcp 四个资产键，「左栏每一项都是合法 AssetKind」完全成立，而缺了两项没有任何东西报警。⇒ 验收必须是**双向集合差为空 + 反证套件**（从任一侧删一个，门控必须红），照 `lint-ui-material.mjs` 已有的形状抄。\n⚠ 断言用**成员集合相等**，不是 `toHaveLength(6)`（coding-standards E-4）：长度断言在「删一个、加一个」时全绿。\n⚠ 分组与顺序待 Q-11 裁；本 feature 只做**集合相等**，不锁顺序。\n契约：`packages/contracts/src/asset-governance.ts` 的 `AssetKind` 与 `operations.listAdminNav`。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F133",
+      "title": "左栏计数与组织额度条：取不到显示「—」而不是 0，单类计数失败不拖垮整个左栏",
+      "user_visible_behavior": "左栏每一项后面带一个数字；某一类的计数查询挂了，那一项显示「—」，其余项照常显示数字，左栏不会整个空掉。顶部组织额度条显示已用/总额与剩余天数。「—」和 0 在界面上是两件事：0 是「这类资产一个都没有」，「—」是「这个数现在取不到」。",
+      "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R7",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/admin-nav-count-unavailable.test.tsx",
+        "grep -rq 'admin-header' apps/web/components/admin"
+      ],
+      "evidence": "",
+      "notes": "依据：asset-governance domain I-24（`count = \"—\"` 表示取不到，**不得返回 0 代替**）+ usecases.md `ListAdminNav`。\n⚠ 把「取不到」呈现成 0，会让一次后端故障看起来像一个空目录——用户不会去报障，他会以为东西还没建。\n⚠ 反证：造一个计数查询抛错的场景，断言该项为「—」**且其余项仍有数字**（只断言「—」出现，一个整体失败的实现也会绿）。\n契约：`asset-governance.operations.listAdminNav.out.groups[].items[].count` 是 `number | \"—\"` 的联合，`null` 不合法。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F134",
+      "title": "治理三项 + 复核周期的配置屏：六种资产完全一样，四个字段各缺一次都拒绝发布",
+      "user_visible_behavior": "打开任意一种资产（Agent / Skill / 模型 / MCP 服务器 / 画布模板 / 项目蓝本）的治理页，看到的是同一套四项配置：可见范围（指定团队 / 全组织 / 仅自己-私有草稿）、谁能改、负责人、复核周期（6 / 12 / 24 个月）。任意一项没填就去发布，会被明确告知缺的是哪一项，而不是一句笼统的「配置不完整」。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/governance-uniform-across-six-kinds.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/governance-incomplete-four-fields.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 三项 + 周期（原型逐字「治理与发布这一步六种资产完全一样」）；domain I-10 / I-11。\n⚠ **六类各跑一遍**，不是挑一类跑——「完全一样」这句话只有对六个取值逐一断言才是可检验的。\n⚠ **四个字段各造一次缺失**（I-10）：缺一个就漏一条路径。只测「全空」的实现会漏掉「只缺负责人」。\n🔴 **Q-1b 未裁**：代码侧现状是 3/6——MCP 走**已签核**的 `McpAuthScope`（`lead|team|all`），模型与蓝本根本没有这个字段。本 feature 按契约的「六类统一」实现，**若 Q-1b 裁「不统一」，本条要重做**；若裁「统一」，动的是 `agent-runtime` 的已签核字段（重签）。见 `asset-governance.KNOWN_CONTRACT_GAPS.AG1`。\n⚠ `AssetVisibility`（三值）与**已签核**的 `identity.VisibilityScope`（两值）刻意不同名，避开「同名不同义」；两套语义并存本身仍是缺口（AG8）。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F135",
+      "title": "可见性只有一条写入路径 —— 「全组织」返回需联签态，且不发明审批流",
+      "user_visible_behavior": "把一个资产的可见范围改成「全组织」，界面明确显示它还没真的对全组织可见、需要领域负责人联签；改成「指定团队」必须选至少一个团队，选空了保存不了。不管是人手动改，还是后面复核到期自动降级，改可见性走的都是同一条服务端路径。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R7",
+      "depends_on": [
+        "F134"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/visibility-single-write-path.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/visibility-whole-org-requires-cosign.test.ts",
+        "apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第一项 + domain I-14（降级必须走**与发布相同的可见性写入路径**，不得有第二条后门）。\n⚠ 「无第二条写入路径」的断言方式是**同一函数被调用**，不是「结果看起来一样」——两条路径写出同样的行，在结果断言下永远绿，直到其中一条漏掉了某个副作用。\n⚠ **联签流程 `[待确认]`**：本条只实现「需联签」这一态（`requiresCosign: true`，资产尚未进入全组织），**不发明审批流**。发明它就是在无出处的地方造一条治理路径。\n⚠ `负责人 ∈ editableBy` 是否为不变量 → **Q-9 未裁**，本条**不擅自强制**：强制它让「负责人只审不改」表达不出来，放开它让资产可能无人可改。两边都有代价 ⇒ 是人类的裁决。\n【跨阶段依赖】可见性判定函数本体属 phase-00 `identity`（X-1），本条是调用方不是第二个实现。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F136",
+      "title": "发布前检查清单是派生视图 —— 每一条都能点回它的来源，不是一张手写的固定清单",
+      "user_visible_behavior": "点「发布前检查」，看到一串检查项，每项显示通过/未通过、是否阻断，并且每一条都能追回它是根据什么算出来的。规则变了，清单跟着变；不会出现「规则早就改了，清单还在显示旧项」这种情况。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F134"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/preflight-items-have-source-ref.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/asset-preflight-blocking.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第四项 + domain I-22（每一条都带 `sourceRef`，清单是**派生视图**不是手写清单）。\n⚠ 手写的清单会在规则变更后继续显示旧项，而**没有任何东西会红**——这正是要求 `sourceRef` 恒非空的理由：追不回来源的检查项等于一句无从核对的断言。\n⚠ 反证：改掉一条来源规则，断言清单里对应项**跟着变**；一个把清单写死的实现在只断言「清单非空」时全绿。\n⚠ 清单内容**按资产类型可变**（原型的「四栏配置完整」是 Agent 专属）→ Q-1b。本条不锁死清单内容，只锁「每条可追源」。\n⚠ 原型这一屏**四条全 PASS，没有一条失败态**（八份 UC 的 60 余条异常流程在原型上一条都没有）。别继承这个缺陷：验收必须包含至少一条 `blocking: true` 的红项。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F137",
+      "title": "发布：三条独立禁用条件各一条反例 + 复核到期日由发布时刻与周期算出 + 发布写审计",
+      "user_visible_behavior": "点发布，如果六道关有阻断、或治理四项没填齐、或发布前检查有红色阻断项，会被拒绝，并且明确告诉你是哪一类问题挡住的——三种情况说的不是同一句话。发布成功后能看到复核到期日，它等于发布时间加上你选的复核周期；谁在什么时候把什么资产发到了什么可见范围，都留了痕。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F134",
+        "F136"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/publish-three-independent-blockers.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/publish-review-due-derivation.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/publish-audit-event.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第五项；domain I-5 / I-10 + usecases.md `PublishAsset` 的三条独立禁用条件。\n🔴 **三条各造一次反例**：`GATE_NOT_PASSED` · `GOVERNANCE_INCOMPLETE` · `PREFLIGHT_HAS_BLOCKING_ITEM`。**缺一条就漏一条路径**；合并成一个「不满足发布条件」的码会让界面说不出该去处理哪一件。\n⚠ 不变量 `reviewDueAt = publishedAt + reviewCycle`——它是**推导出来的**，不是一个可被单独写入的字段。断言方式是改周期后重发布，到期日跟着变。\n⚠ `mode: \"staged\"`（灰度）**语义待 Q-3**：契约保留参数**不定义行为**，本 feature 同样**不实现灰度**。实现它就是替人类裁 Q-3。\n⚠ 三档周期与「30 天」的**语义定义处待 Q-7**（与 14-brain 的知识条目到期规则必须是同一个实现）。本条是**消费面**，实现里**不得**写下 30 这个数字——那会是本仓第九次「同一事实两处声明」。见 AG3。\n【跨阶段依赖】六道关本体随 Q-0 留在 phase-2；`GATE_NOT_PASSED` 在 phase-1 由导入路径之外的场景触发。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F138",
+      "title": "复核三态状态机：到期自动转「待复核」，仍可用但调用时会提示",
+      "user_visible_behavior": "一个已发布的资产到了复核期，状态自动变成「待复核」——不需要任何人去点。它**仍然可以用**，不会被停用、也不会从检索范围里消失，只是每次被调用时会提示使用者「这个资产已过复核期」。复核一次之后，状态回到生效，计时重新开始。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R3",
+      "depends_on": [
+        "F137"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/review-clock-state-machine.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/review-pending-still-usable.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-6` R3 状态机 + R7 规则 1/2/3（本 UC 是这些规则的**唯一文字定义处**）。原型逐字：「到期后自动转『待复核』，仍可用但调用时会提示；30 天无人复核则降级为仅负责人可见。」\n🔴 **「仍可用」是必须反向断言的一条**：只断言「到期后状态变了」，一个把待复核实现成**停用**的实现也会全绿——而那把规则从「提醒」变成了「断供」。⇒ 必须断言待复核资产**仍能被调用**、**仍在检索范围内**，且**调用时带提示**。\n🔴 **`ReviewAsset` 的 `conclusion` 取值集合无依据**（R7 规则 8，本束最大空白：「复核」这个动作具体做什么，原型 0 命中）。契约把它写成开放字符串**不发明枚举**；本 feature 同样只做「复核发生过 ⇒ 计时重置」，**不实现任何结论分支**。见 AG2。\n⚠ 计时规则的**定义处待 Q-7**——本条是消费面，实现里不落 30 这个数。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F139",
+      "title": "主动扫描降级：一个从来没人调用过的到期资产，也会被降级（反证惰性判定）",
+      "user_visible_behavior": "系统会主动扫描所有资产的复核时钟。一个从发布起就没有任何人调用过、又过了复核期又过了 30 天的资产，同样会被降级为仅负责人可见——不会因为「没人读过它」就永远停在原地。后台能看到「最近一次扫描时间」；扫描停摆时这个时间会变旧，而不是什么都不显示。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R7",
+      "depends_on": [
+        "F138"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/review-scan-zero-call-asset-downgraded.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/review-scan-last-scan-observable.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-15（**零调用**的到期资产也会被降级）+ usecases.md `ScanReviewClocks`。\n🔴 **端口的名字本身是契约**：`Scan…`（主动）而不是 `EvaluateOnRead…`（惰性）。惰性判定会让「30 天无人复核」对**无人调用的资产永不触发**——而那正是最该降级的那一批。\n🔴 **反证用例是本条的主证据**：造一个从未被调用的到期资产，跑扫描，断言它被降级。没有这一条，一个纯惰性的实现在所有「读一下就降级了」的用例下全绿。\n⚠ 「最近一次扫描时间」必须**可观测**（`lastScanAt` 在响应里，不是一条日志）：扫描停摆时它变旧，而不是静默——静默的定时任务挂掉是没人会发现的那种故障。\n⚠ 与 MCP 的 14 天隔离期是两套还是一套计时器 → **Q-6 未裁**（推荐串行：隔离期 → 首次复核 → 常规周期）。采纳可能触发 `agent-runtime` 重签。本条**不实现串行**。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F140",
+      "title": "降级走同一条可见性写入路径，且负责人已停用时给出无主资产提示与接管入口",
+      "user_visible_behavior": "资产被降级后，除负责人外的其他成员在列表、搜索、绑定面板、Context Pack 四个地方都看不到它，直接访问也是「找不到」而不是「没权限」；负责人仍然看得见，资产没有被删。如果这时负责人本人已经停用了，界面明确显示这是一份无主资产，并给出接管入口，而不是让它悄无声息地谁都看不见。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R7",
+      "depends_on": [
+        "F139",
+        "F135"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/downgrade-visibility-four-surfaces.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/downgrade-owner-missing.test.ts",
+        "apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-12 / I-14 + `uc-23-6` R7 规则 7（降级**不是删除**：资产仍存在、负责人仍可见、可恢复）+ E1。\n⚠ **四个入口各断言 0 命中**（列表 / 搜索 / 绑定面板 / Context Pack），且直读返回 **404 非 403**——与 `skills` I-14 同形，**复用同一判定函数**，不写第二份。\n⚠ 降级必须调用与 F135 同一个可见性写入函数（I-14），断言「无第二条写入路径」。\n🔴 **`uc-23-6` E1 的洞**：降级终态但 `ownerId` 已停用 ⇒ 这份资产**谁都看不见**。兜底接管人 `[待确认]` ⇒ 本条只把这个态**表达出来**（`ASSET_DOWNGRADED_OWNER_MISSING` + 接管入口），**不发明接管规则**。\n⚠ 恢复路径（E4）`[待确认]`，本条不做。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F141",
+      "title": "资产目录：文件树 + 文件内容读取，徽标由扩展名派生且未知扩展名不报错",
+      "user_visible_behavior": "打开一个 Skill 或 Agent，能看到它的文件树（根文件加上 references / assets / scripts / prompts / tools / evals 这些目录），点任一文件能看到内容和大小。文件旁边的类型徽标由扩展名决定；遇到没见过的扩展名显示 MD，而不是报错或者显示空白。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R3",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/asset-directory-tree.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/asset-file-badge-fallback.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/asset-directory-browse.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-3` R3 + usecases.md `GetAssetDirectory` / `ReadAssetFile`；`badge` 由扩展名派生，**未知扩展名 ⇒ `MD`（fallback 不报错）**。\n⚠ **本组端口只对 2/6 类资产有依据**（skill / agent）。另外四类是不是目录形态 `[待确认]` ⇒ **适用范围本身是未知的**（AG4）。本 feature 只做 skill / agent 两类，**不假装六类都有目录**。\n⚠ 不在 `editableBy` 内的人**仍可读**（只读态），这与「不可见」是两件事——见 F142。\n⚠ Q-0 已裁方案 C：**目录浏览编辑留在 phase-1**（D-06 排除的是**执行**任意代码，不是「看和改文件」）。外部导入与六道关随 phase-2。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F142",
+      "title": "编辑器保存：frontmatter 坏了不入库，不在「谁能改」集合里的人只有只读态（没有写端点）",
+      "user_visible_behavior": "在资产编辑器里改一个文件并保存，保存成功后大小更新。如果根文件的 frontmatter 写坏了（解析不了、或者必填项缺了），保存被拒绝并说明坏在哪里，**内容不会进库**。不在「谁能改」这一项里的人打开同一个文件，看得到内容但没有保存按钮，而且就算绕过界面直接调接口也一样被拒。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R3",
+      "depends_on": [
+        "F141",
+        "F134"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/asset-file-write-frontmatter-invalid.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/asset-not-editable-readonly.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-3` R3 / R5 + usecases.md `WriteAssetFile`；`ASSET_NOT_EDITABLE`（可见但不可改，与「不可见」不同）· `CONTRACT_VALIDATION_FAILED`（**不入库**）。\n⚠ 「只读」必须在**服务端**成立：断言直接调写接口被拒，不是断言界面没渲染保存按钮。\n🔴 **本条刻意不做「保存后重扫 02 关」（I-25），这是一个已知的洞不是遗漏**：不做它，六道关**在导入之后即可绕过**——在编辑器里加一段提示注入就行。六道关本体随 Q-0 留在 phase-2，所以这个洞在 phase-1 内**关不上**，但它必须在签核时被看见。见 AG6。\n🔴 **并发编辑无契约**（`uc-23-3` E5），留空是刻意的：默认「后写覆盖」会**静默丢数据**，不该由实现者定。⇒ 本条**不加**乐观并发字段；两人同改的行为**在本轮是未定义的**，验收时不要假装它已定。见 AG5。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F143",
+      "title": "根文件不可删不可改名，且发布后运行时装载的文件集合 ＝ 目录里看到的集合（双向）",
+      "user_visible_behavior": "试图删除或重命名 SKILL.md / AGENT.md 会被明确拒绝——它是这个资产的根文件。其余文件可以新建、改名、删除。资产发布之后，运行时真正装载的文件，和你在目录里看到的那一份清单是同一份：不会出现「编辑器里改了但运行时根本不读」的文件，也不会有运行时偷偷读了却不在列表里的文件。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R7",
+      "depends_on": [
+        "F141",
+        "F137"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/root-file-undeletable.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/runtime-loadset-equals-directory.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-7（根文件不可删）+ I-6（发布后运行时装载的文件集合 ＝ `GetAssetDirectory` 返回的集合，**双向相等**）。\n🔴 **I-6 必须双向断言**：单向（「装载的都在列表里」）在一个「列表多显示了几个文件」的实现上也是绿的——而那意味着你在编辑器里改的文件**运行时根本不读**，改完没生效却查不出原因。反过来的单向则漏掉「运行时偷读了列表外的文件」。\n⚠ 改根文件名等价于删根文件 ⇒ 同样拒绝（契约里 `renameAssetFile.err` 含 `ROOT_FILE_UNDELETABLE`）。\n⚠ `rootFile` 由 `AssetKind` 决定；本条随 F141 只覆盖 skill / agent 两类（AG4）。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F144",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "新建深度研究配置面板：七组字段 + 逐项默认值 + 实时预览句，三处入口对观察者不存在于 DOM",
+      "user_visible_behavior": "引导师从三处入口任一（研究 Studio 的「＋ 新建研究」、项目内「＋ 新建深度研究」、现场「＋ 发起研究」）打开弹层，看到七组字段且每一组都带默认值——研究类型默认「桌面研究」、时间盒默认「标准」、来源偏好默认勾中「官方与监管」与「行业报告」、交付形式默认勾中「研究简报」、决策节点默认 n1。改任一字段，预览句实时重算并包含所选来源的全部名称。从小组能力面进入时「挂到哪一组」被预填为该组。创建后落到该研究的详情屏并出现「研究已创建 · …」提示；Scout 不可用时研究仍创建成功、停在待运行、显示重试。观察者视角下三处入口按钮**不存在于 DOM**（不是灰掉）。",
+      "spec_ref": "24-research/uc-24-1-新建深度研究与研究配置.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "w0-research",
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/research-new-config-defaults.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-preview-sentence.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-entry-observer-absent.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "这就是 D-20 逐字点名的那一块（`DECISIONS-FINAL.md:97`「新建深度研究配置面板（研究场景 / 可判定问题 / 4 类型 / 3 档时间盒 / 来源偏好 / 交付形式 / 挂到组或决策节点）」）。七项配置的契约面是 `packages/contracts/src/research.ts` 的 `ResearchConfig` 与 `operations.createResearch`。\n⚠ **默认值断言必须逐项写死为 uc-24-1 R3 表里的值**（R7.5）——本仓已因「默认值画反」判过一次重做（`PROTOTYPE-SWEEP-UI.md` P-05），而**看截图看不出来默认值画反**。\n⚠ 预览句断言要打在**性质**上（包含所选来源的全部名称），不是断言某个固定字符串——深度档位有两串文案（`nrDepths[].note` vs `DEPTH_L`），哪串权威 **Q-1 未裁**，契约刻意一串都不落（`KNOWN_CONTRACT_GAPS.R2`）。\n⚠ **E1 是本 feature 最容易做丢的一条**：模型不可用**不得**让创建失败——契约面的表达就是 `createResearch.err` 里**没有** `MODEL_UNAVAILABLE`。谁把它加进去，E1 当场破。\n⚠ 观察者断言打在 DOM 不存在上（N-10），不是 `disabled` 属性。\n🔴 **开工前置**：本束 `design-signoff.md` 仍 `status: pending`，且 Q-2（`/studio/research` 路由被 UC-0.2 Context Pack 占用）未裁——**屏落在哪条路由上还没定**，`data-testid` 无处锚定。"
+    },
+    {
+      "id": "F145",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "研究详情四段结果 + Scout 执行步骤：低置信不被过滤、单来源落「争议 / 不确定」、部分路失败仍可见",
+      "user_visible_behavior": "打开一个已出结论的研究，左半是与 Scout 的深度对话（每轮含结论层与编号执行步骤：检索份数按来源类别计数、交叉验证标为不确定的条数、抽取的可规划变量），右半是四段固定结构——关键发现 / 争议 · 不确定 / 外部来源 / 研究结论。段 ③ 的置信度以数值渲染（0.9 / 0.7 / 0.3），置信度 0.3 的来源**出现在**段 ③ 而不是被过滤掉。只有 1 条来源的问题落进段 ②「争议 / 不确定」且不出现在段 ①。12 路检索里 3 路失败时，已完成路的结果可见、失败路单独标出可重试。零来源时段 ④ 是数据需求说明而不是结论。观察者视角无输入框、无出口动作按钮。",
+      "spec_ref": "24-research/uc-24-2-深度研究对话与交叉验证.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/run-low-confidence-not-filtered.test.ts",
+        "pnpm --filter api exec vitest run tests/research/run-partial-routes-visible.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-detail-four-sections.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.getResearchDetail` / `operations.runResearch` / `ResearchResult` / `ResearchRun`。\n⚠ **N-3 落在形状上而不是注释里**：`getResearchDetail` **没有任何** `minConfidence` / `hideLowConfidence` 参数——加一个就是给「丢弃」开门，而 `res.goal` 逐字是「低置信度**必须标出而不是丢弃**」。\n⚠ **E1 的可断言面是三件**：`plannedRoutes` / `completedRoutes` / `failedRoutes`。只返回一个 `success: boolean` 的实现会让「3 挂 9 成」与「全挂」在响应里长得一样。\n⚠ 断言**性质**不是数量：断言「0.3 那条出现在段 ③」，**不是** `toHaveLength(14)`（纪律第 9 条 / coding-standards E-4）。\n⚠ 执行步骤①的分类计数必须与来源偏好口径**同源**（R7.4），否则是第二份来源枚举；全称↔简称映射 **Q-7 未裁** ⇒ 契约里键是 `z.string()`（`KNOWN_CONTRACT_GAPS.R8`），**这条断言在 Q-7 裁定前写不成机械判据**。\n⚠ 对话消息本体**复用 `chat` 束**（X-H，已签核），不起第二套对话模型。"
+    },
+    {
+      "id": "F146",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "研究列表三处 + 研究计划三计数与证据表：目标缺失渲染「—」而非「0」，归档不删除且被引证据不失效",
+      "user_visible_behavior": "研究 Studio 列表、项目内深度研究列表、Studio 左栏研究三段各自渲染，卡片显示「证据 41 / 目标 50」且分子跟着数据走；把目标设为缺失时渲染「/ —」而**不是**「/ 0」。研究计划详情显示三计数（研究问题 / 证据 / 候选洞察）与证据表四列「证据 / 来源 / 置信度 / 去向」。归档一条研究后它仍能被「已归档」标签筛出，且它被引用的证据仍可解析。观察者视角下未共享的研究**不在返回的数据里**（数据层过滤，不是界面隐藏）。",
+      "spec_ref": "24-research/uc-24-3-研究studio列表与研究计划详情.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/plan-counts-null-not-zero.test.ts",
+        "pnpm --filter api exec vitest run tests/research/archive-keeps-references.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-list-target-dash.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.listResearch` / `operations.getResearchPlan` / `operations.archiveResearch` / `Evidence`。\n⚠ **N-8 是本 feature 的主战场**：`evidenceTarget` 是 `nullable`，`null` 与 `0` **必须可区分**——返回 0 会让人读成「目标 0，已超额完成」。同理 `Evidence.confidence` 可空（原型逐字给的是 `—`）。\n⚠ **N-7：归档不是删除**，且要断言**两半**——「仍能被筛出」与「被引证据仍可解析」。只断言前半的实现会漏掉后半，而后半才是 D-20 立论（研究是 09-kg 证据的主要生产者）的依据。\n⚠ 可见性断言打在**数据层**（E5 / R12.5），不是 DOM——渲染层隐藏在 API 层挡不住任何东西。\n⚠ 计数是**派生值**：`listResearch` 不接受 `count` 入参再原样回显（本仓已确认的「假数据穿透」形状，`asset-governance/coverage.md` 第 5 条同型）。\n⚠ 「去向」的值域 **Q-12 未裁**且**归属未裁**（与 phase-03 `14-brain` 的「≥1 条反对证据」是同一概念）⇒ 契约里是 `z.string()`，R12-7 那条断言现在写不成机械判据（`EVIDENCE_DISPOSITION_PENDING`）。"
+    },
+    {
+      "id": "F147",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-API",
+      "title": "结论入洞察库的三道门槛 + 决策节点回流的部分成功：入库已成而回流失败时不得回滚、不得乐观显示",
+      "user_visible_behavior": "在结论区点「加入洞察库」，系统跑三道门控：无外部来源 ⇒ 阻断并说明；条目在「争议 / 不确定」段 ⇒ 阻断；涉及未经人判定的冲突 ⇒ 阻断。三条全过才入库，产出的是**候选**洞察（状态含「待入定题池」/「待送综合 Studio 验证」）。含 0.3 低置信来源的合格结论入库成功，且入库后的洞察上仍能读到该来源与其置信度。配置里选了「不挂节点」的研究入库成功且无回流记录；挂了 n1 的研究入库后节点上出现一条带置信度的回流记录；节点已被删除时**入库仍成功**且回流失败原因可读；下游返 500 时结论原状保留、可重试、**不显示已入库**。",
+      "spec_ref": "24-research/uc-24-4-研究结论回流与去向.md#R3",
+      "depends_on": [
+        "F145"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/promote-three-gates.test.ts",
+        "pnpm --filter api exec vitest run tests/research/promote-partial-success.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-exit-actions-observer-absent.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.promoteConclusionToInsight`（三个失败码 + `out.nodeBackflow` 三态）。\n⚠ **三个码必须分开**（`NO_EXTERNAL_SOURCE` / `EVIDENCE_IS_DISPUTED` / `CONFLICT_PENDING_HUMAN`）：它们对应三条**不同的补救路径**（补来源 / 改判定 / 等人判）。合成一个 `PROMOTE_BLOCKED` 会让用户走错路。\n⚠ **阻断断言必须打在行为上（入库未发生），不是按钮的 `disabled` 属性**（R12.1 逐字）——灰按钮在无障碍与 API 层都挡不住。\n⚠ **部分成功是本束唯一的一处**：`DECISION_NODE_GONE` 出现在 `out.nodeBackflow.reason` 而**不在任何 `err` 里**。把它放进 `err` ⇒ 前端读到失败 ⇒ 回滚一次**已经成功的入库**。\n⚠ `nodeBackflow` 的三态必须可分：`attempted:false`（配置里就没挂节点，**合法路径不是降级**）/ `ok:true` / `ok:false + reason`。只给一个布尔的话，「没挂节点」和「挂了但失败」一样。\n⚠ 重复入库的语义 **Q-15 未裁**，本 feature **不实现**幂等/报错/新建任一种；「送入综合 Studio」**在任何 phase 都不存在**（Q-11 / X-D，且 `interview` 束已签核却已有这个按钮）——**不实现**。"
+    },
+    {
+      "id": "F148",
+      "priority": 2,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "现场研究任务列表与冲突判定：三个动作无预选无倒计时，冲突为 0 时区块仍在（空态而非消失）",
+      "user_visible_behavior": "现场「深度研究 · 现场」屏显示「本场研究任务 | n 个 · m 个已就绪」，两个数随数据变化；每行含时间、问题、提出方（第 2 组提出 / 引导师提出）、状态与「打开」。开「只看有冲突的」后返回集 ⊆ 冲突数 > 0 的行。冲突待判定区给出三个动作「以样本为准」「再补一路检索」「上台讨论」——三个都**不是**预选态、无 autofocus、无倒计时；判定后能读到「谁在何时选了哪一条」。把冲突置零时该区块**仍然渲染**并显示空态（不是消失）。一行的 agent 失败时其余行状态不变。观察者视角下「＋ 发起研究」与三个判定动作**不存在于 DOM**。",
+      "spec_ref": "24-research/uc-24-5-现场深度研究与冲突判定.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/conflict-resolution-audit.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-live-conflicts-no-preselect.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-live-empty-conflict-block.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.listLiveResearchTasks` / `operations.listConflicts` / `operations.resolveConflict` / `ResearchConflict`。\n⚠ **N-6 落在形状上**：`ResearchConflict` **没有** `suggestedAction` / `defaultAction` / `countdownSeconds` 任何一个字段——agent 的建议是**一段文字**（`agentSuggestion`），不是一个预选值。有了那个字段，前端把它渲染成预选/高亮只是时间问题，而那正是「系统替人拍板」。\n⚠ 断言**性质**不是数量：断言「三项都不是预选/自动执行」，**不是** `toHaveLength(3)`。\n⚠ **A1 的判据取「冲突数 > 0」而非状态词**——状态枚举 Q-10 未收敛，按词过滤会在 Q-10 裁完后整条失效（契约里 `status` 是 `z.string()` + `RESEARCH_STATUS_PENDING`）。\n⚠ **A2：冲突 0 时区块不隐藏**——隐藏会让引导师以为这个能力不存在。\n⚠ `上台讨论` 的**后果 Q-18 未裁**：本 feature 只记录该动作，**绝不实现它把冲突升级成什么**（`PENDING_PORTS.EscalateConflictToAgenda`）。组长能否判定 **Q-14 未裁** ⇒ 本 feature 不设角色分支。\n⚠ 现场行第三列「无冲突显来源数 / 有冲突显冲突数」是**同列两义**（Q-17 未裁）⇒ 契约两个数都给，界面选一个。\n⚠ 刷新率**无出处**（Q-20：原型只在知识图谱屏给了「每 15 秒」，那不是本域的数）⇒ 不实现轮询。"
     }
   ]
 }

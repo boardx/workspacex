@@ -49,7 +49,9 @@ export function requirementsDir(phaseId: string): string {
 }
 
 /** requirements/ 文件夹是否存在、非空、且至少一份非 README 的 *.md 已经填了内容
- *  （不是原样保留的裸模板）。UI 先行关卡（ui-signoff）用这个判定"有没有对应的 requirements"。 */
+ *  （不是原样保留的裸模板）。束级设计签核门（`auditSignoff`）用这个判定"有没有对应的 requirements"。
+ *  ⚠ 2026-07-30 之前它的调用点是 phase 级 UI 门 `assertUiSignedOff`；那道门随 ADR-023 决策一
+ *  撤掉，这条行为搬进了束级门（人类拍板 2026-07-19 的那条不许跟着一起消失）。 */
 export function hasRequirementsCoverage(phaseId: string): SpecRefResult {
   let dir: string;
   try {

@@ -11,6 +11,10 @@ import { resolveSurveyView } from "@/lib/mock/survey";
 /**
  * Studio · 问卷（UC-12.1 设计 / 12.2 发放回收 / 12.3 交叉分析 / 12.4 现场投票）。
  * 主区四视图用 Tabs；七态经 `?state=`，角色视角经 `?view=`。交互下沉客户端组件。
+ *
+ * ⚠ hideRoleSwitcher：本页内容区自带 `SurveyViewSwitcher`（角色视角），
+ *   顶栏（/studio/survey 属隐式项目路由）不再出第二个预览切换器——
+ *   角色切换的唯一来源是内容区自带的那个。
  */
 export default function SurveyPage({
   searchParams,
@@ -26,6 +30,7 @@ export default function SurveyPage({
     <AppShell
       identity={identity}
       previewRole={previewRole}
+      hideRoleSwitcher
       left={<SurveyList />}
       right={<SurveyEvidence />}
     >

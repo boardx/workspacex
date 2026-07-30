@@ -16,6 +16,19 @@ export function loadRoadmap(): Roadmap {
 }
 
 /**
+ * 本阶段是否被标记为有 UI（roadmap 的 `has_ui`）。
+ *
+ * ⚠ 这是 `has_ui` 的**唯一**读取点。2026-07-30 之前它住在 `lib/ui-signoff.ts`——
+ *   那个模块随 phase 级 UI 签核关卡一起被 ADR-023 决策一撤掉了，
+ *   但 `has_ui` 本身仍然有两个用途，都在束级门里：
+ *   ① `requiredBundleFiles()` 只对 has_ui 阶段要求束目录下的 `ui.md`；
+ *   ② `auditSignoff()` 对「has_ui 却没有任何契约束」的阶段判失败（见该函数注释）。
+ */
+export function phaseHasUi(phaseId: string): boolean {
+  return Boolean(loadRoadmap().phases.find((p) => p.id === phaseId)?.has_ui);
+}
+
+/**
  * 读现有文件里 "project:" 行之前的全部注释块，原样保留。
  * 这段可能是人工写的重要上下文（编号约定/依赖映射说明等），不能被 saveRoadmap
  * 每次调用都用固定两行覆盖掉——这是一个真实发生过的数据丢失 bug（见 commit 历史）。

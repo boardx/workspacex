@@ -7,6 +7,23 @@
   「为什么 UI 必须先经人类看过」这个决策当时是怎么定的；但**「签核对象有几件、放在哪个文件、
   由什么脚本执行」以 ADR-023 为准**。正文以下内容一字未改，是决策档案。
 
+> ## ⛔ 本 ADR 的 phase 级 `ui-signoff.md` 关卡已于 2026-07-30 停用
+>
+> **由 ADR-023 决策一取代：UI 成为束级 `contracts/<束>/design-signoff.md` 的第 ① 件**
+> （材料写在同目录 `ui.md`）。人类签核动作从两次变一次。
+>
+> 落地内容（2026-07-30）：
+> - `lib/ui-signoff.ts` 与 `assertUiSignedOff` **已删除**；`new-sprint` 只剩束级那一道门。
+> - `new-phase --ui` **不再 scaffold** `ui-signoff.md`；模板 `.harness/templates/ui-signoff.template.md` 改为停用说明。
+> - 现存 phase-01/02/03 三份 `ui-signoff.md` **保留为档案**，顶部加停用块，
+>   frontmatter 原值不动；**改它们的 `status` 不再有任何门控效果**（有测试钉住）。
+> - 同时堵上一个逃生口：`has_ui: true` 却没有 `contracts/` 目录的阶段，签核门**判失败**而非静默放行。
+>   不堵会让 phase-02/03 从「有门」变成「无门」——撤掉的正是当时挡住它们的唯一一道门。
+>
+> **本 ADR 的理由仍然有效**：界面方向要在便宜的阶段（mock UI）就被人类拍板，
+> UI 先行的产物（`apps/web` 真实组件 + `ui-preview/` 截图）一件不少，只是签核动作换了地方。
+> 正文以下内容一字未改。
+
 > ⚠ **标题里「才生成 feature_list」与本 ADR 自己的决策不符。**
 > 「备选（已否决）」第一条明确否决了「门控卡在 feature_list 生成本身」，
 > 实际门控卡在 `new-sprint`。**实现实为：`assertUiSignedOff` 只在 `new-sprint` 被调用，

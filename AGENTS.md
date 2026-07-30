@@ -58,6 +58,8 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **设计签核(三件、一处签)**:feature 开工前,其所属**契约束**必须经人类签核——
   束目录下**一份** `design-signoff.md`,三节对应 **① UI ② 用例 ③ API 契约**;
   且该阶段的**一致性复核**已通过。签核是**人的动作,agent 不许改 status**。
+  **这是唯一的签核门**——phase 级 `ui-signoff.md` 已于 2026-07-30 停用(改它无效);
+  `has_ui: true` 却没有 `contracts/` 的阶段**判失败**,不是放行。
   见 ADR-023(权威)、ADR-003 / ADR-020(决策档案);怎么做 →
   `.harness/instructions/contract-design.md`。
   ⚠ **同一事实不得声明在两处**——本项目已五次因此漂移(设计 token / 字号档位 /

@@ -107,7 +107,11 @@ describe("V1 static: no built-in capability list exists in product code", () => 
       "apps/web/lib/mock/rec.ts",          // phase-01 rec 域 UI 先行
       "apps/web/lib/mock/agent-runtime.ts",// phase-01 agent-runtime 域 UI 先行
       "apps/web/lib/mock/canvas.ts",       // phase-01 canvas 域 UI 先行
-      "apps/web/lib/mock/skill.ts",        // phase-01 skill 域 UI 先行
+      "apps/web/lib/mock/skill.ts",
+      "apps/web/lib/mock/research-studio.ts", // phase-01 research 域 UI 先行（D-20 补建）        // phase-01 skill 域 UI 先行
+      "apps/web/lib/mock/project.ts",      // phase-01 project（项目本身）域 UI 先行
+      "apps/web/lib/mock/tpl.ts",          // phase-01 templates 域 UI 先行（tpl-v2 保真度重做：Agent 编排面板含 Scout）
+      "apps/web/lib/mock/asset-governance.ts", // phase-01 asset-governance 域 UI 先行（六道关/查重/灰度/复核降级/文件树/试跑台）
     ];
     const r = runGate();
     const debtLines = r.out.split("\n").filter((l) => l.startsWith("· [debt]"));

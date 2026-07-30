@@ -3,6 +3,18 @@ import { z } from "zod";
 import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
+import * as project from "../src/project";
+import * as interview from "../src/interview";
+import * as recording from "../src/recording";
+import * as canvas from "../src/canvas";
+import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
+import * as research from "../src/research";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -17,6 +29,19 @@ const BUNDLES = [
   ["identity", identity.operations],
   ["artifact", artifact.operations],
   ["context-pack", contextPack.operations],
+  ["project", project.operations],
+  // ── phase-01 束（不加进来 = 这三道门对新契约不生效）──
+  ["interview", interview.operations],
+  ["recording", recording.operations],
+  ["canvas", canvas.operations],
+  ["chat", chat.operations],
+  ["files", files.operations],
+  ["org-admin", orgAdmin.operations],
+  ["asset-governance", assetGovernance.operations],
+  ["agent-runtime", agentRuntime.operations],
+  ["skills", skills.operations],
+  ["templates", templates.operations],
+  ["research", research.operations],
 ] as const;
 
 type Op = {

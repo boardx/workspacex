@@ -16,15 +16,21 @@ import { cn } from "@/lib/utils";
  *   ≥md  收起右栏（上下文包与证据栏），中栏拿到宽度
  *   <md  收起图标栏与左右栏，改用底部一级 tab；顶部条与中栏保留
  * 三档（375 / 768 / 1280）都不得出现横向溢出（uiux-standards U8 / UC-0.4 R12 V9）。
+ *
+ * ⚠ `hideRoleSwitcher`（2026-07-30）：当**本页内容区自带角色/视角切换器**时置 true，
+ *   顶栏就不再渲染它自己的预览切换器——避免「同一页两套角色切换系统」。
+ *   角色切换的唯一来源 = 各域内容区自带的切换器；顶栏只负责组织切换 + 上下文标签。
  */
 export function AppShell({
-  identity, previewRole, left, right, children,
+  identity, previewRole, left, right, children, hideRoleSwitcher,
 }: {
   identity: Identity;
   previewRole: ProjectRole | null;
   left?: React.ReactNode;
   right?: React.ReactNode;
   children: React.ReactNode;
+  /** 本页自带角色/视角切换器时置 true，顶栏让位不再出第二套 */
+  hideRoleSwitcher?: boolean;
 }) {
   return (
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
@@ -32,7 +38,7 @@ export function AppShell({
         <IconRail avatarInitial={identity.displayName.slice(0, 1)} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar identity={identity} previewRole={previewRole} />
+        <TopBar identity={identity} previewRole={previewRole} hideRoleSwitcher={hideRoleSwitcher} />
         <div className="flex min-h-0 flex-1">
           {left && (
             <aside

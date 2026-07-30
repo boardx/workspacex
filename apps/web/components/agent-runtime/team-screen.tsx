@@ -11,9 +11,27 @@ import { Toggle } from "@/components/ui/toggle";
 import type { UiState } from "@/lib/ui-state";
 import {
   THREAD_AI_TEAM, TEAM_COUNTS, NEXT_SEGMENT_SWAP, CLIPPED_BY_PRIORITY,
-  PROJECT_AI_SWITCHES, REASSIGN_HINT, PRESENCE_LABEL,
+  PROJECT_AI_SWITCHES, REASSIGN_HINT, PRESENCE_LABEL, requireValue,
   type PresenceState, type RuntimeRole,
 } from "@/lib/mock/agent-runtime";
+
+/**
+ * 三个开关的**默认值未裁**（O-23 裁决行只答了合成规则，见
+ * `@repo/contracts/thresholds` 的 `projectAiDefault*`）。
+ *
+ * ⚠ 这里刻意**不**回落成 `false`——「默认全关」是一个从未被裁决、
+ * 且被原型（15.2532M「3 项 · 1 项已关」）与 D-10 两次否定的方向。
+ * 未裁时界面进入 `null`（未定）态并把缺口画出来，
+ * 而**取值**仍走 `requireValue`（裁决落地后 `known: true`，此处自然拿到真值）。
+ */
+function initialSwitchState(): Record<string, boolean | null> {
+  return Object.fromEntries(
+    PROJECT_AI_SWITCHES.map((s) => [
+      s.id,
+      s.defaultOn.known ? requireValue<boolean>(s.defaultOn, s.defaultOnName) : null,
+    ]),
+  );
+}
 
 const ROLES: RuntimeRole[] = ["facilitator", "groupLead", "member", "observer", "admin"];
 const PRESENCE_TONE: Record<PresenceState, "primary" | "warning" | "neutral"> = {
@@ -21,9 +39,7 @@ const PRESENCE_TONE: Record<PresenceState, "primary" | "warning" | "neutral"> = 
 };
 
 export function TeamScreen({ role, state }: { role: RuntimeRole; state: UiState }) {
-  const [aiOn, setAiOn] = React.useState<Record<string, boolean>>(
-    () => Object.fromEntries(PROJECT_AI_SWITCHES.map((s) => [s.id, s.defaultOn])),
-  );
+  const [aiOn, setAiOn] = React.useState<Record<string, boolean | null>>(initialSwitchState);
   const [realtime, setRealtime] = React.useState(true);
   const [reasoned, setReasoned] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -37,7 +53,7 @@ export function TeamScreen({ role, state }: { role: RuntimeRole; state: UiState 
       state={state}
       roles={ROLES}
       title="AI 团队编排 · 主持台"
-      intro="谁在场随现场状态自动变化。主持台回答三件事：当前载入了谁 / 为什么 / 下一步换成谁。编制数 ≠ 在场数。项目级 AI 权限三开关默认全关（收紧优先）。"
+      intro="谁在场随现场状态自动变化。主持台回答三件事：当前载入了谁 / 为什么 / 下一步换成谁。编制数 ≠ 在场数。项目级 AI 权限三开关按收紧优先合成（O-23）；三者的默认值 O-23 未裁，界面显示为「默认值未裁」。"
       emptyHint="本线程还没有任何 agent —— 从 Agent 市场加入一个，不自动塞默认 agent"
       errors={{ team: "编制校验失败：Ledger『仅能源组』可见性范围不覆盖本项目（平台组），无法载入。" }}
       depFailure="规则求值依赖议程环节事件与实时通道；实时通道不可用，团队切换已降级为轮询。"
@@ -144,23 +160,34 @@ export function TeamScreen({ role, state }: { role: RuntimeRole; state: UiState 
           </Card>
         )}
 
-        {/* D · 项目级 AI 权限三开关（默认全关） */}
+        {/* D · 项目级 AI 权限三开关（合成规则已裁 O-23；**默认值未裁**） */}
         <section className="flex flex-col gap-2" data-testid="team-ai-switches">
-          <SectionTitle hint="O-23：默认全关，收紧优先（任一层关闭即关闭，下层不能放宽）。变更须留痕、对项目成员可见。">
+          <SectionTitle hint="O-23 裁的是合成规则：收紧优先（任一层关闭即关闭，下层不能放宽），服务端求交。变更须留痕、对项目成员可见。⚠ 三个开关的默认值 O-23 未裁 —— 此前写的「默认全关」是伪造出处，且原型为「3 项 · 1 项已关」。">
             项目级 AI 权限（这场里的权限）
           </SectionTitle>
+          <Badge tone="warning" data-testid="team-ai-switch-default-pending">
+            默认值待人类裁决 · 无出处（O-23 裁决行只答了合成规则；原型 15.2532M 为「3 项 · 1 项已关」，与「默认全关」相反）
+          </Badge>
           {PROJECT_AI_SWITCHES.map((s) => (
             <Card key={s.id} data-testid={`team-switch-${s.id}`}>
               <CardContent className="flex flex-wrap items-start justify-between gap-3 py-3">
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="text-12 font-medium">{s.label}</span>
-                    {!(aiOn[s.id] ?? false) && <Badge tone="outline">本场已关闭</Badge>}
+                    {aiOn[s.id] === null ? (
+                      <Badge tone="warning" data-testid={`team-switch-pending-${s.id}`}>
+                        默认值未裁
+                      </Badge>
+                    ) : (
+                      aiOn[s.id] === false && <Badge tone="outline">本场已关闭</Badge>
+                    )}
                   </div>
                   <p className="text-11 text-muted-foreground">{s.offConsequence}</p>
                   <p className="text-10 text-muted-foreground">受影响：{s.affected}</p>
                 </div>
                 <Toggle
+                  // 未裁时旋钮只能画在某一侧（控件是二值的）——所以缺口靠上面那枚
+                  // 「默认值未裁」徽标承载，**不靠旋钮位置**。看截图的人不会把它读成裁决。
                   checked={aiOn[s.id] ?? false}
                   onCheckedChange={(v) => {
                     if (!canEdit) { setToast("仅引导师（含协同引导师，主持人确认）可改项目级 AI 权限"); return; }

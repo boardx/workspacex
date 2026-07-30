@@ -19,7 +19,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { findPhaseDir, REPO_ROOT } from "./paths";
-import { phaseHasUi } from "./ui-signoff";
+import { phaseHasUi } from "./roadmap";
+import { hasRequirementsCoverage } from "./spec-ref";
 
 export type SignoffStatus = "pending" | "confirmed" | "missing";
 
@@ -173,7 +174,10 @@ export interface BundleSignoff {
   missingFiles: string[];
 }
 
-/** has_ui 阶段的束必须有 `ui.md`（ADR-023 决策一 ①）；非 UI 阶段不要求 */
+/**
+ * has_ui 阶段的束必须有 `ui.md`（ADR-023 决策一 ①）；非 UI 阶段不要求。
+ * 2026-07-30 起 `ui.md` 是 UI 签核的**唯一**材料位置——phase 级 `ui-signoff.md` 已停用。
+ */
 export function requiredBundleFiles(phaseId: string): string[] {
   const base = ["domain.md", "usecases.md", "coverage.md", "design-signoff.md"];
   return phaseHasUi(phaseId) ? [...base, "ui.md"] : base;
@@ -243,7 +247,11 @@ export function readCoherenceStatus(phaseId: string): SignoffStatus {
 export interface SignoffAudit {
   fails: string[];
   warns: string[];
-  /** 该阶段是否采用契约束流程（没有 contracts/ 目录 → false，全部检查跳过） */
+  /**
+   * 该阶段是否受签核门约束。
+   * 没有契约束 **且** 非 has_ui 阶段 → false，全部检查跳过；
+   * has_ui 阶段即便零契约束也是 true（此时 fails 里就一条：它无法被签核）。
+   */
   applicable: boolean;
 }
 
@@ -256,17 +264,94 @@ export interface SignoffAudit {
  * ⚠ 不做契约设计的阶段（没有 contracts/ 目录）**直接放行**——
  *   ADR-020 是 2026-07-28 引入的，此前的阶段不该被追溯拦住。
  *   一旦某阶段建了 contracts/，就说明它选择了这套流程，门控随之生效。
+ *
+ * ⚠⚠ **但 `has_ui: true` 的阶段没有这个逃生口**（2026-07-30，ADR-023 决策一落地）。
+ *   在此之前，有界面的阶段被两道门挡着：phase 级 `ui-signoff.md`（ADR-003）
+ *   和这道束级门。ADR-023 决策一把两道收敛成一道之后，phase-02/03 那种
+ *   「标了 has_ui、还没建 contracts/」的阶段会从「有门」直接变成「无门」——
+ *   实测过：撤门之前 `claim --phase 02 --feature F01` 就已经一路放行了
+ *   （`claim` 从来只问束级门，不问 phase 级 UI 门）。
+ *   所以收敛的同时必须把这个口堵上：has_ui ∧ 零契约束 ⇒ **失败**，不是放行。
+ *
+ * @param mode `"gate"`（默认，new-sprint / claim / verify-uc-coverage）
+ *   与 `"audit"`（doctor）。**唯一的区别只有一处**，见 `UNSTARTED_PHASE_IS_WARN` 注释。
  */
 export function auditSignoff(
   phaseId: string,
   featureIds: string[],
   now: Date = new Date(),
+  mode: "gate" | "audit" = "gate",
 ): SignoffAudit {
   const bundles = readBundleSignoffs(phaseId);
-  if (bundles.length === 0) return { fails: [], warns: [], applicable: false };
+  if (bundles.length === 0) {
+    if (!phaseHasUi(phaseId)) return { fails: [], warns: [], applicable: false };
+    const msg =
+      `Phase ${phaseId} 在 roadmap.yaml 里标了 \`has_ui: true\`，却没有任何契约束` +
+      `（phases/phase-${phaseId}-*/contracts/<束>/）——按 ADR-023 决策一，UI 签核是束级` +
+      `\`design-signoff.md\` 的第 ① 件，**没有束就没有地方签，这个阶段无法被签核**。\n` +
+      `    ⚠ 这条红是 2026-07-30 补的：在此之前有界面的阶段靠 phase 级 UI 签核关卡（ADR-003，已停用）挡着，` +
+      `ADR-023 把两道门收敛成一道，若不同时堵这里，该阶段会从「有门」变成「无门」。\n` +
+      `    修法二选一：⑴ 按能力域切契约束，建 contracts/<束>/{ui,domain,usecases,coverage,design-signoff}.md，` +
+      `人类逐束签核；⑵ 该阶段确实没有界面 → 把 roadmap.yaml 里的 has_ui 撤掉。\n` +
+      `    **不要为了消红而建一个空壳束**——空 covers 的束会在下一条红里被抓住。`;
+
+    /* ── UNSTARTED_PHASE_IS_WARN（2026-07-31）────────────────────────────
+     *
+     * doctor 是**审计链**体检：它问「已经做出来的东西，证据链断没断」。
+     * 一个**一条 feature 都还没开工**的阶段没有审计链可断——
+     * 它欠的是「开工资格」，而那由 `claim` / `new-sprint` 各自独立地挡着
+     * （两者用的就是本函数的 `"gate"` 模式）。
+     *
+     * 为什么必须区分：CI 的 `pnpm harness doctor`（无 --phase）体检**全部**阶段。
+     * phase-02/03「标了 has_ui、还没切束」这条红因此让**每一个 PR** 都失败，
+     * 包括与 phase-02/03 毫无关系的 phase-01 feature PR。
+     * 一道会让所有 PR 变红的门，实际效果是「大家一律 --no-verify」——
+     * 那才是真正把门拆了。
+     *
+     * ⚠ 这**不是**放行，是降级为 WARN：
+     *   - doctor 仍然逐条打印它，`.harness/state/DEBT-phase-02-03-signoff-chain.md` 登记着它
+     *   - 一旦该阶段有任何 feature 进入 in_progress / passing（`featureIds` 非空），
+     *     立刻回到 FAIL —— 那时它就真的是一条断掉的审计链了
+     *   - `"gate"` 模式（claim / new-sprint / verify-uc-coverage）**行为一字未变**，
+     *     仍然是 FAIL。已实测：`claim --phase 02` 与 `new-sprint --phase 02` 都被拒
+     *
+     * 反证在 `design-signoff.test.ts`：零束 + 已开工 feature ⇒ audit 模式也必须 FAIL。
+     * 那条测试红了，就说明这个降级被误写成了无条件放行。 */
+    const unstartedPhaseIsWarn = mode === "audit" && featureIds.length === 0;
+    if (unstartedPhaseIsWarn) {
+      return {
+        applicable: true,
+        fails: [],
+        warns: [
+          msg +
+            `\n    ⚠ 本条在 doctor 里降级为 WARN，因为该阶段**一条 feature 都还没开工**` +
+            `（没有 in_progress / passing），没有审计链可断。开工资格仍由 claim / new-sprint 独立挡着。` +
+            `一旦有 feature 开工，它立刻变回 FAIL。登记：.harness/state/DEBT-phase-02-03-signoff-chain.md`,
+        ],
+      };
+    }
+    return { applicable: true, warns: [], fails: [msg] };
+  }
 
   const fails: string[] = [];
   const warns: string[] = [];
+
+  /* ⓪ requirements 覆盖 —— 人类拍板 2026-07-19，2026-07-30 从 `assertUiSignedOff` 搬到这里。
+   *
+   * 原文只作用于 phase 级 UI 门：「即便 status: confirmed，若该阶段 requirements/ 全是裸模板
+   * 就仍然拒绝」。那道门随 ADR-023 决策一撤掉了，但**这条行为不能跟着一起消失**——
+   * 它管的不是「界面对不对」而是「这块设计背后有没有一个真实需求」，
+   * 两个把关（人 + 这条检查）本来就是分工的。搬到束级门之后它的适用面反而更正确：
+   * 不再限于 has_ui 阶段，**任何采用契约束流程的阶段**都得先有真实 story。 */
+  const coverage = hasRequirementsCoverage(phaseId);
+  if (!coverage.ok) {
+    fails.push(
+      `Phase ${phaseId} 的 requirements/ 没有真实 story 覆盖，因此它的契约束不可签核：${coverage.reason}\n` +
+        `    契约束签的是「这块设计对不对」，前提是先有「这块设计要解决谁的什么问题」。\n` +
+        `    修法：在 phases/phase-${phaseId}-*/requirements/ 下用 .harness/templates/requirements.template.md ` +
+        `写清楚需求（R1-Rn），再回到束级 design-signoff.md。（人类拍板 2026-07-19）`,
+    );
+  }
 
   /* ① 每个束的结构性完整性 */
   const seen = new Map<string, string>(); // feature id → 已声明它的束
@@ -286,7 +371,19 @@ export function auditSignoff(
           `束↔feature 的映射权威在这里，不在 coverage.md 正文（ADR-023 决策三）。文件：${b.signoffPath}`,
       );
     } else if (b.features.length === 0) {
-      fails.push(`契约束「${b.bundle}」声明了 \`covers:\` 但为空 —— 一个不覆盖任何 feature 的束不成立`);
+      fails.push(
+        `契约束「${b.bundle}」声明了 \`covers: []\`（空）—— 一个不覆盖任何 feature 的束不成立，` +
+          `**因此它不可签核**。\n` +
+          `    最常见的原因：**该能力域的 feature 还没生成**——束目录先建好了，` +
+          `而 feature_list.json 里还没有属于它的条目（例如它依赖一批尚未裁决的问题，` +
+          `requirement-author 还不能生成 feature）。\n` +
+          `    这条红是**故意的**：空 covers 若被放行，「这个束覆盖的 feature 全部已评审」` +
+          `会因为集合为空而**平凡为真**，读起来像绿灯，实际什么都没评审` +
+          `（本仓九次「全绿但空转」的形状）。\n` +
+          `    修法只有两条：⑴ 裁决完成 → requirement-author 生成 feature → 填进 \`covers:\`；` +
+          `⑵ 该域确实不该有束 → 删掉束目录。**不要为了消红而随手填一个 feature 编号。**\n` +
+          `    文件：${b.signoffPath}`,
+      );
     }
     for (const fid of b.features) {
       const owner = seen.get(fid);

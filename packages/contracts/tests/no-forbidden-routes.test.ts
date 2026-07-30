@@ -3,6 +3,18 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as provenance from "../src/provenance";
+import * as project from "../src/project";
+import * as interview from "../src/interview";
+import * as recording from "../src/recording";
+import * as canvas from "../src/canvas";
+import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
+import * as agentRuntime from "../src/agent-runtime";
+import * as skills from "../src/skills";
+import * as templates from "../src/templates";
+import * as research from "../src/research";
 
 /**
  * 「不存在」也是一种契约（一致性复核 N-5）
@@ -25,6 +37,19 @@ const ALL_OPERATIONS = {
   artifact: artifact.operations,
   "context-pack": contextPack.operations,
   provenance: provenance.operations,
+  project: project.operations,
+  // ── phase-01 束 ──
+  interview: interview.operations,
+  recording: recording.operations,
+  canvas: canvas.operations,
+  chat: chat.operations,
+  files: files.operations,
+  "org-admin": orgAdmin.operations,
+  "asset-governance": assetGovernance.operations,
+  "agent-runtime": agentRuntime.operations,
+  skills: skills.operations,
+  templates: templates.operations,
+  research: research.operations,
 } as Record<string, Record<string, { method?: string; path?: string }>>;
 
 /** 明确禁止存在的路由。每条都要写清「为什么不能有」——否则后人会以为是漏了 */
@@ -63,10 +88,96 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "解绑显然被预见到了，但它还没有接口。**先不发明它。**",
   },
   {
+    // ⚠ 只匹配容器本身（`/projects` 与 `/projects/:id`），**不匹配**其下的子资源——
+    //   `DELETE /projects/:projectId/members/:userId`（移除成员）是合法且必须存在的。
+    pattern: /^DELETE\s+\/projects(\/:?[^/]+)?$/i,
+    why:
+      "project Q-9 / I-P40：**不提供删除项目**。交付物是这条断言它不存在的测试，不是一个接口。" +
+      "级联事实不变：groups / project_memberships / artifact_bindings 是 ON DELETE CASCADE，" +
+      "artifacts / segment_text / claims / admin_project_access 是 SET NULL 或 CASCADE——" +
+      "谁加上删除，级联会静默清掉或摘掉一批行，这正是要守着它不存在的原因。" +
+      "项目结束的出口只有归档（Q-5 B：archived = 只读，归档不删除任何内容），" +
+      "而**归档不该借道 X-4 那个只留给合规撤回的豁口**。",
+  },
+  {
+    pattern: /^POST\s+\/mcp-servers\/discover-by-agent/i,
+    why:
+      "agent-runtime 开关四（O-19）：phase-1 **不提供打开能力**（只读常关）。" +
+      "裁决同 N-5 取「不提供该 API」——agent 自行接入 MCP 服务器是权限静默扩大的最短路径（I-21），" +
+      "而 `AGENT_CANNOT_DISCOVER_MCP` 这个码是给「有人试图这么干」准备的告警，" +
+      "不是给一个官方入口准备的返回值。",
+  },
+  {
+    pattern: /^(PUT|PATCH|DELETE)\s+\/audit\/entries/i,
+    why:
+      "agent-runtime I-51：四类事件同一条时间线，**不可删除、不可修改**。" +
+      "任何删除/修改请求一律被拒并记安全审计——但一条恒 403 的写路由仍然宣告了" +
+      "一种系统不提供、也不该提供的能力。下钻只读（GET）是合法的。",
+  },
+  {
+    pattern: /^POST\s+\/skills\/[^/]+\/enable$/i,
+    why:
+      "skills I-23 双重门禁：`已启用` **只能由 `reviewSkillVersion` 的 approve 分支产生**。" +
+      "一条直达的启用路由就是那条绕过路径本身——而 `GATE_NOT_PASSED` 是给" +
+      "「有人从别的入口试图置为已启用」准备的告警，不是给一个官方后门准备的返回值。" +
+      "⚠ 只匹配 `enable`，不匹配 `disable` / `restore`（后两者是合法操作）。",
+  },
+  {
+    pattern: /^(PATCH|PUT)\s+\/workflow-templates\/[^/]+\/from-instance/i,
+    why:
+      "templates I-17：实例改动**不回写模板本体**。唯一出口是 `saveAsOrgTemplate`（新建一份）" +
+      "与 UC-2.3 的回提链路（提交 → 维护者合并）。" +
+      "一条「把实例同步回模板」的路由会让蓝本悄悄变成最后一场的样子，" +
+      "而 `TEMPLATE_WRITEBACK_FORBIDDEN` 正是为了让这种尝试**被看见**。",
+  },
+  {
     pattern: /^(PUT|PATCH|DELETE)\s+\/provenance/i,
     why:
       "provenance_events 是 append-only：无 UPDATE、无 DELETE。" +
       "审计日志可改等于审计不成立——「被拒绝的动作有没有留痕」将不可回答。",
+  },
+
+  /* ── phase-01 追加 ─────────────────────────────────────────────── */
+  {
+    pattern: /^(POST|PUT|PATCH)\s+\/interviews\/[^/]+\/consent-mirror/i,
+    why:
+      "interview I-1 / V4：同意位**只有受访者本人能写**。研究员侧的 `getConsentMirror` " +
+      "是**只读镜像**，本束刻意不提供任何写他人同意位的用例——" +
+      "`CONSENT_STAFF_READONLY` 因此在契约里是**不可达**的码，它存在的唯一目的是让门控" +
+      "对「构造出来的写请求」断言被拒。\n" +
+      "裁决同 identity 的 N-5：取「不提供该 API」而非「提供但恒拒」——攻击面为零，" +
+      "不存在「拒绝逻辑写错了」这种失效。而「没有」这件事没人会去验，本条就是那个警报：" +
+      "某天有人为了「帮受访者补一下」加了这个写口，会在这里红。",
+  },
+  {
+    pattern: /^(PUT|PATCH|DELETE)\s+\/recording\/consent\/[^/]+\/snapshot/i,
+    why:
+      "recording I-38：已提交的同意书渲染快照**不可回溯改写**。" +
+      "受访者当时看到的那份字（含「保留 180 天」这样的具体承诺）是他做决定的依据，" +
+      "事后任何人都不能改——包括「把 180 改成新值」这种善意修正：" +
+      "改了它，「当时告知了什么」就永远答不出来了。" +
+      "`freezeConsentSnapshot`（POST）只写一次，纠错的唯一途径是新的同意流程。",
+  },
+  {
+    pattern: /^(PUT|PATCH)\s+\/interviews\/templates\/[^/]+\/usage/i,
+    why:
+      "interview I-8：`用过 N 次` 是**统计投影，不是可写字段**。" +
+      "契约的 `createTemplate` / `updateTemplate` 的 `in` 里根本没有 `usedCount`，" +
+      "但那只挡住了「从已有端口写进去」。一条独立的 usage 写口会绕过它，" +
+      "而一个可以手改的使用次数，会让「哪个模板真的好用」这件事从此不可信。",
+  },
+  {
+    // ⚠ 只匹配研究本体（`/research` 与 `/research/:id`）。
+    //   `/research-conflicts/...` / `/research-conclusions/...` 是另外的资源，不在此列。
+    pattern: /^DELETE\s+\/research(\/:?[^/]+)?$/i,
+    why:
+      "research N-7：研究**只归档不删除**，且被引用的证据在归档后**不失效**。" +
+      "硬删除会让引用方（09-kg 的证据、10-report 的取材、14-brain 的候选洞察）凭空断链，" +
+      "而 D-20 的立论正是「研究 Studio 是 09-kg 证据的主要生产者」——" +
+      "生产者能被删掉，立论就没了。\n" +
+      "⚠ 这条比一般的「不提供删除」更需要一个警报：原型的行动作 handler 叫 `delDrItem`，" +
+      "而它的提示逐字是「已**归档**该研究主题」`[原型 @16,907,049B]`——**名字像删除、行为是归档**。" +
+      "照着 handler 名做实现的人会造出一个真的删除，且不会有任何东西报警。本条就是那个警报。",
   },
 ];
 

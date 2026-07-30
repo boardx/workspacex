@@ -173,9 +173,9 @@ export function buildIssueBody(
     ``,
     `1. 环境：\`./init.sh\`（验证失败先修基础状态，别在坏地基上开工）。`,
     `2. 认领：\`pnpm harness claim --phase ${phaseId} --feature ${f.id} --owner <你的-agent-id>\`（同一 owner 同时最多一个 in_progress）。`,
-    `3. 读上下文：[\`requirements/\`](${blob(`phases/${phaseDir}/requirements`)})（原始需求）、[\`ui-signoff.md\`](${blob(
-      `phases/${phaseDir}/ui-signoff.md`
-    )})（已确认 UI 的组件落点与 data-testid）、[\`sprints/sprint-${sprintId}/session-handoff.md\`](${blob(
+    `3. 读上下文：[\`requirements/\`](${blob(`phases/${phaseDir}/requirements`)})（原始需求）、[\`contracts/\`](${blob(
+      `phases/${phaseDir}/contracts`
+    )})（本 feature 所属契约束：\`ui.md\` 给组件落点与 data-testid，\`usecases.md\` 给失败模式，\`design-signoff.md\` 给签核状态）、[\`sprints/sprint-${sprintId}/session-handoff.md\`](${blob(
       `phases/${phaseDir}/sprints/sprint-${sprintId}/session-handoff.md`
     )})（上一轮交接）。`,
     `4. 实现：只做本 feature 的最小实现，不顺手重构无关区域；不碰 \`active-features.json\`（脚本派生只读）。`,

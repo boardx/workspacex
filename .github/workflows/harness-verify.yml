@@ -74,6 +74,51 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness doctor
 
+      # 签核第 ① 件的材料完整性：ui.md 引用的截图集合 == ui-preview/ 实存集合。
+      # 放在 PR 门控而不是 backend-gates 的理由：它只读 phases/**，不需要 Docker/PG，
+      # 跑一次不到 100ms；而它要挡的失效（加一张图忘了写进索引、改文件名留下死链）
+      # 恰恰发生在写 ui.md 的那个 PR 里，合并后才发现就晚了。
+      # turbo --affected 覆盖不到它：phases/ 不是 workspace 包，改 phases/** 一个包都不 affected。
+      - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
+        run: node .harness/scripts/lint-ui-material.mjs
+
+      # 签核第 ③ 件（API 契约）必须存在。ADR-023 决策一规定它二选一：
+      #   packages/contracts/src/<束>.ts 存在，**或** domain.md 显式声明本束无对外 HTTP 面
+      #   且 coverage.md 的「API 操作」列填可执行门控命令。「不接受沉默的第三种情况」。
+      # 2026-07-30 实测：`grep "第 ③\|无对外 HTTP" .harness/scripts/` **零命中** ——
+      # 该判定从来没有被执行过，而十一束里十束的契约文件不存在、其中十束已签「三件已确认」。
+      # 架构师反证 CP-1：合规 fixture 阶段故意不建 <bundle>.ts ⇒ auditSignoff fails=0、
+      # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
+      # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
+      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
+        run: node .harness/scripts/lint-third-artifact.mjs
+
+      # verification 必须真的会红。放在 PR 门控的理由与上一步同源，且更硬：
+      # 2026-07-30 实测 `pnpm --filter web vitest run <任意路径>` **恒 exit 0**
+      # （apps/web 没有 `vitest` 脚本，pnpm 在无匹配脚本时安静退 0），而 verify.ts 只看退出码
+      # ⇒ 当时 21 个 feature / 84 点（已签核的 agent-runtime + skills 两束全部）今天就能
+      # 整套全绿、零实现。这类失效**只在改 feature_list.json 的那个 PR 里产生**，
+      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      # 它自带动态探针（每种形态构造必然失败的变体真跑一次），不需要 Docker/PG。
+      - name: verification 必须真的会红（无恒 0 / 无不确定形态）
+        run: node .harness/scripts/lint-verification-can-fail.mjs
+
+      # harness 自己的测试（含上面两道门控的反证套件）。
+
+      # 跨屏可达性：ADR-023 的签核屏必须是产品里走得到的屏，不是只能敲 URL 进的孤岛。
+      # 本轮病根——十一束的 v2 屏全做好却全部孤立、导航连的是旧骨架屏——旧门控（只验单屏七态）
+      # 一个都发现不了。这道门控双向核对「导航树 ↔ 契约束现行路由」，且只读源码/config，毫秒级。
+      - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
+        run: node .harness/scripts/lint-nav-reachability.mjs
+
+      # harness 自己的测试（含上面那道门控的反证套件）。
+      # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
+      # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
+      # 控制平面的测试不跑，等于控制平面没有测试。
+      - name: harness 控制平面自测（含门控反证）
+        run: pnpm exec vitest run --dir .harness
+
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
       - name: 受影响模块 typecheck/lint/test

@@ -66,6 +66,30 @@
 签核动作落在**一个文件**：束目录下的 `design-signoff.md`，正文分三节，
 对应上表三件。**不再有 phase 级的独立 `ui-signoff.md` 签核。**
 
+> ### ✅ 本条已于 2026-07-30 落地（人类裁决），并同时堵上一个逃生口
+>
+> `assertUiSignedOff` / `lib/ui-signoff.ts` 已删除，`new-sprint` 只剩束级
+> `assertDesignSignedOff` 一道门（`claim` / `doctor` / `verify-uc-coverage` 本来就读它）。
+>
+> **必须一起做的第二件事**：`auditSignoff` 原本在「零契约束」时静默 `applicable: false` 放行
+> （理由是不追溯拦住 ADR-020 之前的阶段）。phase-02/03 恰好是 `has_ui: true` 且**没有**
+> `contracts/` 目录——挡住它们的唯一一道门正是被撤掉的那道。只撤门不堵口，
+> 这两个阶段会从「有门」变成「无门」。实测过：收敛之前
+> `pnpm harness claim --phase 02 --feature F01` 就**已经**一路放行了，
+> 因为 `claim` 从来只问束级门。
+>
+> ⇒ 新规则：**`has_ui: true` ∧ 零契约束 ⇒ 失败**，报「本阶段标了 has_ui 却没有契约束，
+> 按 ADR-023 它无法被签核；建 contracts/ 或把 has_ui 撤掉」。非 UI 阶段的逃生口保持不变。
+>
+> 另有一条**文档从未写过、却有价值**的行为随之搬家：`assertUiSignedOff` 里的
+> `hasRequirementsCoverage`（即便 `status: confirmed`，requirements/ 全是裸模板也拒绝，
+> 人类拍板 2026-07-19）。它现在是 `auditSignoff` 的第 ⓪ 条，适用面从 `has_ui` 阶段
+> 扩到**任何采用契约束流程的阶段**。
+>
+> 三份 phase 级 `ui-signoff.md` 保留为档案（顶部加停用块，frontmatter 原值不动），
+> 并有测试钉住「harness 可执行代码里不存在任何对 ui-signoff.md 的引用」——
+> 把它们改成 `confirmed` 不产生任何门控效果。
+
 ### 二、`domain.md` 与 `coverage.md` 降级为「必备支撑材料」，但不得删除
 
 它们不再属于「签核面」这个对外名词，但**脚本继续强制它们存在**。理由：

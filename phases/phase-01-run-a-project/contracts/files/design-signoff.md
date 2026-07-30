@@ -2,9 +2,9 @@
 bundle: files
 phase: "01"
 covers: [F31, F32, F33, F34, F35, F36, F37, F38, F39, F40, F41, F42, F43, F44, F45, F46, F47]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
 
 # 契约束 `files` 设计签核
@@ -26,7 +26,9 @@ phase-00 `artifact/coverage.md` 的缺口 **4 / 6 / 7** 明写「契约桩在 ph
 
 ## ① UI —— 人看到的界面对不对
 
-→ 本束 `ui.md`（10 块屏、7 屏已建成、真实 `data-testid` 逐组件核对、12 张截图已在 `ui-preview/files/`）
+→ 本束 `ui.md`（10 块屏、7 屏已建成、真实 `data-testid` 逐组件核对）
+→ 截图在 `ui-preview/files/`；**索引、张数与未产出缺口一律以 `ui.md` 第三节为准**，
+  本文件**不复述**（同一事实不得声明在两处——此处曾写过一个与实际不符的张数）。
 
 ⚠ **本模块原型确认缺失**（不是「未探明」）：项目工作台 7 标签 + 项目设置 6 子标签均已完整抽取，
 其中没有任何文件浏览 / 目录树 / 版本列表 / 删除确认的界面。原型只有四处**计数钩子**，都无下钻目标。
@@ -198,6 +200,23 @@ packages/contracts/src/files.ts      ← zod 单一事实源
 | phase-01 `20-model` / `21-mcp` | 机密标记（O-17 材料级）驱动模型路由；开关 3「机密仅本地模型」不允许关闭（O-19） | 下游 |
 | phase-02 `09-kg` / `10-report` / `13-deliv` | 级联失效第 ⑤ 类与报告段落标失效 —— F47 契约先行桩。**任一模块不提供失效接口，AC2 就无法达成** | 下游 |
 | **部署形态**（无归属） | 🔴 缺口 11：N-21（物理删除清版本化桶全部历史版本）与 phase-00 I-2（object-lock 写一次）**不能在同一个桶上同时成立**。须裁定分桶策略并写进 `architecture.md` | **契约管不到** |
+
+---
+
+## ⑤ 视图层与契约的取值分歧 —— **这几条要你裁，我没有代改**
+
+`lint-contract-source` 在 2026-07-31 抓到 31 处「契约与 `apps/web` 各有一份定义」。
+逐条比对后分三类：取值完全相同的已改为 `z.infer` 派生；结构不同的渲染视图已加
+`View` 后缀分离；**取值也不一致的**只能改名 + 登记，因为「哪边对」是签核动作。
+
+本束涉及 1 条：`D13 PreviewKind`
+
+⚠ **对照表与待答问题只有一份**，在 `apps/web/lib/contract-divergences.ts`
+（`CONTRACT_DIVERGENCES`，按 id 查）。此处**故意不复制**——本仓已九次因
+「同一事实声明在两处」漂移，一份会漂的对照表比没有更糟。
+
+裁完之后：判契约对 ⇒ 视图层删 `*View` 改 `z.infer`；判视图对 ⇒ **由人**改
+`packages/contracts/src/`（agent 不得改已签契约），两种都要把该条目从登记簿删掉。
 
 ---
 

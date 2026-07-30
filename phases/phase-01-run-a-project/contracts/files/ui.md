@@ -1,5 +1,13 @@
 # 契约束 `files` — ① UI（人看到的界面对不对）
 
+> **自检（2026-07-30 机械核对）：本文件引用 15 张截图，目录 `ui-preview/files/` 下实际 15 张。N == M == 15，逐张核对全部真实存在，无死链。**
+> 索引表（第三·一节）内**每张恰好一行、不重复**；正文另有两处**交叉引用**（`uc-22-1-browser-default.png`、`uc-22-4-trash-compliance.png`）指向索引里已有的图，不是第二条索引项。
+> 另有 **1 条未产出条目**（`uc-22-3` 物化失败态），它**不计入 N**——它没有文件名可引，见第三·三节「第 ① 件材料缺口」。
+> 复核命令（**唯一实现**，别再手写 grep —— 手写的那版正则不认中文文件名，会假绿）：
+> ```bash
+> node .harness/scripts/lint-ui-material.mjs
+> ```
+
 > phase-01 是 `has_ui: true` 阶段，本文件由 `requiredBundleFiles()` 强制存在，缺则门控红。
 > 覆盖 feature：见 `design-signoff.md` frontmatter `covers:`（**权威**）。
 
@@ -15,12 +23,18 @@
 ⇒ **本束界面的每一处都是原创设计**，没有「原型就长这样」可以援引。
 
 **截图现状（2026-07-30 更新，并行 ui-prototyper 已 commit `8e8282a`）**：
-`phases/phase-01-run-a-project/ui-preview/files/` 下**已有 14 张 PNG + 一份 `README.md`**，
+`ui-preview/files/` 下**实有 15 张 PNG + 一份 `README.md`**，
 用真实组件跑 dev server（视口 1360×900，2×）抓取，**不是设计稿**，抓图时 0 条真实控制台报错。
 **删除确认与待删除队列（含合规视角的部分失败、组员视角的无权限投影）的截图已补齐。**
 
-⚠ **仍缺 1 张**：`uc-22-3` 的「物化失败」行态——**因为该态尚未实现**（缺口 G-3），
-补图前须先补实现。⚠ 另需注意原型 agent 自陈的「没做/做不到」（本文件第七节）：
+⚠ **数字更正（本次核对）**：此处曾写「14 张」、第三节表头曾写「已有（14 张）」，
+而该表实际列了 15 行、目录里也实有 15 个文件——**是计数写错，不是少了一张**。
+`design-signoff.md` ① 节曾写「12 张」，同属过时数字。三处已收敛为**一处**：
+截图索引只在本文件第三节声明，`design-signoff.md` 只指向本文件、不再复述数目。
+
+⚠ **1 个态未产出截图**：`uc-22-3` 的「物化失败」行态——**因为该态尚未实现**（缺口 G-3），
+补图前须先补实现。它没有文件可引，故不在索引里占行，见第三·三节。
+⚠ 另需注意原型 agent 自陈的「没做/做不到」（本文件第七节）：
 截图里的九态是**静态陈列九个例子，不是真的状态机流转**；预览器是占位、搜索筛选不真过滤。
 **看图确认的是信息架构与文案，不是功能已实现。**
 
@@ -40,8 +54,8 @@
 | ③ | 摄取进度抽屉（九态） | `ingestion` | `ingestion-drawer.tsx` | F36 F37 F39 F40 | **已建成** |
 | ④ | 人工复核（`REVIEW_PENDING`） | `review` | `review-panel.tsx` `use-review-state.ts` | F39 F42 F43 | **已建成** |
 | ⑤ | 版本列表 + 派生物下钻 | `versions` | `version-drawer.tsx` | F44 | **已建成** |
-| ⑥ | 删除确认 + 影响面预览 | `delete` | `delete-dialog.tsx` | F45 F47 | **已建成（缺截图）** |
-| ⑦ | 待删除队列（合规） | `trash` | `trash-queue.tsx` | F45 F46 F47 | **已建成（缺截图）** |
+| ⑥ | 删除确认 + 影响面预览 | `delete` | `delete-dialog.tsx` | F45 F47 | **已建成**（截图已补，见三·一③） |
+| ⑦ | 待删除队列（合规） | `trash` | `trash-queue.tsx` | F45 F46 F47 | **已建成**（截图已补，见三·一③） |
 | ⑧ | 物化的落点（**无独立屏**） | — | 树的七类系统来源节点 + `synthesized` 角标 | F40 F41 F42 F43 | 落在 ① 内；⚠ **「物化失败」行态未建**，见缺口 G-3 |
 | ⑨ | 恶意文件留痕的处置视图 | — | — | F35 | ⚠ **未建**，见缺口 G-4 |
 | ⑩ | 改名入口 | — | — | F34（V11 契约态） | ⚠ **未建**，见缺口 G-5 |
@@ -49,7 +63,7 @@
 状态外壳：`StateShell` 的七态（默认/加载/空/校验失败/依赖失败/无权限/成功）作用在主屏中列表区，
 按 D-36 统一实现，签核时豁免逐屏设计。
 ⚠ **唯一例外**：UC-22.4 R8 明写「**部分失败**」态不在七种必现态里，**必须逐屏设计**——
-它已实现为 `files-trash-partial`，但**没有截图**。
+它已实现为 `files-trash-partial`，**截图见 `ui-preview/files/uc-22-4-trash-compliance.png`**（该图内含部分失败区）。
 
 ---
 
@@ -115,35 +129,70 @@
 
 ## 三、截图清单
 
-### 已有（14 张，路径均相对仓库根）
+### 三·一 已产出（**15 张，= 目录实存数**）
 
-| 文件 | 屏 / 态 | 服务 feature |
+路径写法**统一为 `ui-preview/files/<文件名>.png`**（相对本 phase 目录，即
+`phases/phase-01-run-a-project/` 之下）。此前混用绝对/相对两种写法，已收敛为一种。
+「视角」= `?as=` 取值；「态」= `?state=` 取值。
+
+**① 浏览器主屏 · UC-22.1（8 张，覆盖七态 + 观察者投影）**
+
+| 文件 | 态 | 视角 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/files/uc-22-1-browser-default.png` | `default` — 三栏：来源树 / 列表 / 预览 | facilitator | F31 F32 F44 |
+| `ui-preview/files/uc-22-1-browser-loading.png` | `loading` — skeleton | facilitator | F34 |
+| `ui-preview/files/uc-22-1-browser-empty.png` | `empty` — 八来源节点 count:0（V5·22-1 / A5） | facilitator | F34 |
+| `ui-preview/files/uc-22-1-browser-invalid.png` | `invalid` — 导出 1,240 > 上限 1,000（E2） | facilitator | F33 F34 |
+| `ui-preview/files/uc-22-1-browser-dep-failed.png` | `dep-failed` — 对象存储不可用，预览/下载置灰（V7·22-1） | facilitator | F34 |
+| `ui-preview/files/uc-22-1-browser-denied.png` | `denied` — 只见已发布已脱敏（V6·22-1 / V11·22-3） | observer | F31 F34 |
+| `ui-preview/files/uc-22-1-browser-success.png` | `success` — 导出包已生成 | facilitator | F33 |
+| `ui-preview/files/uc-22-1-browser-observer.png` | `default`（**不是** `denied`）— 视角投影而非拒绝（A2·22-1） | observer | F31 |
+
+**② 上传与摄取 · UC-22.2（3 张）**
+
+| 文件 | 屏 / 态 | 视角 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/files/uc-22-2-upload.png` | 上传弹层 `default` — 白名单预检 / 机密勾选 / 可见性 / 幂等二选一 | facilitator | F35 F37 |
+| `ui-preview/files/uc-22-2-ingestion-ladder.png` | 摄取抽屉 `default` — 九态阶梯 + 每态出口 + 失败三段式 | facilitator | F36 F37 F40 |
+| `ui-preview/files/uc-22-2-review-pending.png` | 人工复核 `default` — `REVIEW_PENDING` 接受/拒绝 | facilitator | F39 F42 |
+
+**③ 版本、派生物与删除 · UC-22.4（4 张）**
+
+| 文件 | 屏 / 态 | 视角 | 服务 feature |
+|---|---|---|---|
+| `ui-preview/files/uc-22-4-versions.png` | 版本抽屉 `default` — 版本列表 + 派生物（各带 `derived_from`） | facilitator | F44 |
+| `ui-preview/files/uc-22-4-delete-impact.png` | 删除确认 `default` — 六类级联 + 已出域警示 + 二次确认 | facilitator | F45 F47 |
+| `ui-preview/files/uc-22-4-trash-compliance.png` | 待删除队列 — 五步 + SLA + legal hold + **部分失败**（R8 唯一要求逐屏设计的态） | compliance（⚠ 临时投影，S-02） | F46 |
+| `ui-preview/files/uc-22-4-trash-denied.png` | 待删除队列 `denied` — 无权限投影 | member | F46 |
+
+**④ UC-22.3（0 张，且是设计意图而非遗漏）**
+UC-22.3 **没有独立屏**（R8：界面就是 UC-22.1 的浏览器）。它的落点在
+`ui-preview/files/uc-22-1-browser-default.png` 的左树七类系统节点 + 列表的 `物化器 · xxx`
+上传者标记 + `synthesized` 角标。对应 F41 F42 F43。
+⚠ 但**「物化失败」态不在其中**，见三·三。
+
+小计：8 + 3 + 4 + 0 = **15 张，与目录实存 15 个 `.png` 一一对应，无遗漏、无重复、无死链。**
+
+### 三·二 目录里那份 `README.md`
+
+`ui-preview/files/README.md` 是原型 agent 的 sign-off 说明（六节）。它**不是截图**，不计入 15。
+本文件第四节的 S-xx / README-files 条目、第五节缺口、下面的「没做/做不到」都从它摘录。
+⚠ 它对同一批截图另有一份表（第一节，含 UC 节次列）——**那是溯源视图，不是第二份索引**：
+新增/删除截图只改本文件三·一，README 是原型 agent 当时的产出记录，不随后续修订。
+
+### 三·三 **第 ① 件材料缺口（未产出截图，K = 1）**
+
+⚠ 与第五节的 G-x 是**两类不同性质的东西**：这里是**没画图**，第五节是**没实现**。
+本节只收「设想过、但目录里没有对应文件」的条目，**不写假路径**——曾被引用的
+`uc-22-3-materialize-failed` **从未存在**，现改写为缺口条目：
+
+| # | 缺口条目 | 关联 |
 |---|---|---|
-| `phases/phase-01-run-a-project/ui-preview/files/uc-22-1-browser-default.png` | 主屏 默认（三栏：来源树/列表/预览） | F31 F32 F44 |
-| `…/uc-22-1-browser-loading.png` | 主屏 加载（skeleton） | F34 |
-| `…/uc-22-1-browser-empty.png` | 主屏 空（八来源节点 count:0，V5·22-1 / A5） | F34 |
-| `…/uc-22-1-browser-invalid.png` | 主屏 校验失败（导出 1,240 > 上限 1,000，E2） | F33 F34 |
-| `…/uc-22-1-browser-dep-failed.png` | 主屏 依赖失败（对象存储不可用，预览/下载置灰，V7·22-1） | F34 |
-| `…/uc-22-1-browser-denied.png` | 主屏 无权限（观察者只见已发布已脱敏，V6·22-1 / V11·22-3） | F31 F34 |
-| `…/uc-22-1-browser-success.png` | 主屏 成功（导出包已生成） | F33 |
-| `…/uc-22-1-browser-observer.png` | 观察者**默认态**（视角投影，非拒绝，A2·22-1） | F31 |
-| `…/uc-22-2-upload.png` | 上传弹层（白名单预检 / 机密勾选 / 可见性 / 幂等二选一） | F35 F37 |
-| `…/uc-22-2-ingestion-ladder.png` | 摄取九态阶梯 + 每态出口 + 失败三段式 | F36 F37 F40 |
-| `…/uc-22-2-review-pending.png` | 人工复核（`REVIEW_PENDING` 接受/拒绝） | F39 F42 |
-| `…/uc-22-4-versions.png` | 版本列表 + 派生物（各带 `derived_from`） | F44 |
-| `…/uc-22-4-delete-impact.png` | 删除确认 + 影响面（六类级联 + 已出域警示 + 二次确认） | F45 F47 |
-| `…/uc-22-4-trash-compliance.png` | 待删除队列 · 合规视角（五步 + SLA + legal hold + **部分失败**） | F46 |
-| `…/uc-22-4-trash-denied.png` | 待删除队列 · 组员视角（无权限投影） | F46 |
+| **K-1** | ⚠ **未产出：UC-22.3「物化失败」行态（业务对象存在但没变成文件）—— 该屏尚未画** | 根因是 **G-3 🔴 该态尚未实现**，补图前须先补实现。UC-22.3 自称静默失败是它最危险的缺陷模式，而它恰好无法被表达（V9·22-3 明写「不存在业务对象存在但浏览器什么都没有的静默态」） |
 
-⚠ UC-22.3 **没有独立屏**（R8：界面就是 UC-22.1 的浏览器）。它的落点在
-`uc-22-1-browser-default.png` 的左树七类系统节点 + 列表的 `物化器 · xxx` 上传者标记 +
-`synthesized` 角标。对应 F41 F42 F43。
-
-### **仍待补（1 张）**
-
-| 约定文件名 | 屏 / 态 | 状态 |
-|---|---|---|
-| `ui-preview/files/uc-22-3-materialize-failed.png` | 「物化失败」行态 | ⚠ **该态尚未实现**（G-3 🔴）。补图前须先补实现——UC-22.3 自称静默失败是它最危险的缺陷模式，而它恰好无法被表达 |
+另有三处**实现未建、因而也无图可截**，它们已在第五节以 G-x 记录，不在此重复列为 K：
+G-4（恶意文件留痕处置视图）、G-5（改名入口）、以及 ⑨⑩ 两屏。
+⇒ 一旦其中任一实现落地，**须同时**补图、补进三·一、并把三·三与顶部自检的数字一起改。
 
 ### ⚠ 看图时必须同时知道的「没做/做不到」（原型 agent 自陈，README 第五节）
 

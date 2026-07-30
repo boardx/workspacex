@@ -7,8 +7,22 @@
 export * as identity from "./identity";
 export * as auth from "./auth";
 export * as artifact from "./artifact";
+export * as project from "./project";
+export * as files from "./files";
+export * as orgAdmin from "./org-admin";
+export * as assetGovernance from "./asset-governance";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
 export * as filterAction from "./filter-action";
 export * as provenance from "./provenance";
 export * as thresholds from "./thresholds";
+
+/* ── phase-01 契约束 ─────────────────────────────────────────────── */
+export * as interview from "./interview";
+export * as recording from "./recording";
+export * as canvas from "./canvas";
+export * as chat from "./chat";
+export * as agentRuntime from "./agent-runtime";
+export * as skills from "./skills";
+export * as templates from "./templates";
+export * as research from "./research";

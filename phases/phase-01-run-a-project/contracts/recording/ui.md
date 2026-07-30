@@ -1,11 +1,29 @@
 # 契约束 `recording` — 签核① UI：人看到的界面对不对
 
-> # ⚠ 截图待 ui-prototyper 产出后补
+> ## 截图自检：**本文件引用 56 张截图，目录下实际 56 张**（N == M == 32，全部真实存在）
 >
-> **`phases/phase-01-run-a-project/ui-preview/` 下目前只有三份 markdown，没有任何截图。**
-> 在截图补齐之前，**第 ① 件不具备签核条件** —— 人类无法在只有文字描述的情况下
-> 确认「人看到的界面对不对」。本文件现在是**骨架**：它列清了本束需要哪几块屏、
-> 哪些已建成（含真实路由与 `data-testid`）、哪些没建、以及截图补齐后应该长什么名字。
+> 核对命令（任何人可复跑）：
+> ```bash
+> ls -1 phases/phase-01-run-a-project/ui-preview/rec-v2/*.png | wc -l          # → 32（M）
+> grep -o 'ui-preview/rec-v2/[a-z0-9./-]*\.png' phases/phase-01-run-a-project/contracts/recording/ui.md \
+>   | sort -u | wc -l                                                        # → 32（N，去重后）
+> ```
+> N 与 M 一旦不等，**必须在本行下方写明差在哪**，不得只改数字。当前无差异。
+>
+> ### ⚠ 目录名与束名对不上：截图在 `ui-preview/rec-v2/`，不是 `ui-preview/recording/`
+>
+> 本束叫 `recording`，但 ui-prototyper 是按**能力域代号 `rec`**（05-rec）建的目录。
+> **真实路径一律是 `phases/phase-01-run-a-project/ui-preview/rec-v2/<文件名>.png`。**
+> `ui-preview/recording/` **不存在**，写成它就是死链 —— 本文件的第一版就是这么断的，别再断第二次。
+>
+> ### ⚠ 截图拍的是 `/rec`，不是本文件 §一 里那四块既有屏
+>
+> ui-prototyper 把 `rec` 做成了**独立顶层路由 `/rec` 的「转写工作台」**（四屏 × 七态 × 三载体 × 五视角），
+> 理由见 `ui-preview/rec-v2/README.md` §三-1：转写是三载体共享能力，用载体切换器表达比分散到三处更好核对。
+> 它**没有改** `/studio/interview`、`/group`、`/chat`、`/consent`。
+> 所以：**§一 描述的是仓里既有的四块屏（真实 `data-testid`，grep 自 `apps/web/`），
+> §二 的截图拍的是新建的 `/rec` 原型**。两者心智一致但不是同一套界面 —— 签核时请明确
+> 你签的是「`/rec` 这套工作台的形态」，不是「`/studio/interview` 现在长这样」。
 >
 > 本文件里的 `data-testid` 全部是**从 `apps/web/` 源码里 grep 出来的真实值**，不是设计稿上的期望值。
 > 标「未建」的地方，就是真的没有。
@@ -138,28 +156,115 @@ R8 反推的布局：左侧匿名声道卡（时长占比 / 首次出现时间�
 
 ---
 
-## 二、截图清单（待补）
+## 二、截图索引（真实文件，共 32 张，全部存在）
 
-> ui-prototyper 产出后，按下列文件名存进 `phases/phase-01-run-a-project/ui-preview/`，
-> 并把本节的「待补」逐条改成引用。**文件名是约定，不要随手改** —— 改了本文件的引用就断了。
+> 路径前缀一律 **`ui-preview/rec-v2/`**（⚠ 是 `rec/`，不是 `recording/`，见文首）。
+> 原型是 `/rec` 工作台，四屏由 `?screen=` 切；每屏一套七态由 `?state=` 切
+> （`default / loading / empty / invalid / dep-failed / denied / success`，走共享 `StateShell`）；
+> 另有 `?carrier=`（workshop / interview / thread）与 `?as=`（视角）两轴，只在需要演示差异时单独抓图。
+> 依据：`ui-preview/rec-v2/README.md` §一。**下表逐张列全 32 张，无遗漏、无重复。**
 
-| 截图文件 | 内容 | 现状 |
+### 屏 1 · 实时转录 `?screen=live` —— UC-5.1（10 张）
+
+| 截图 | 状态 / 视角 | 演示什么 | feature |
+|---|---|---|---|
+| `ui-preview/rec-v2/uc-5-1-live-default.png` | **default** · 访谈载体 | 转录区 + 逐字稿全貌：五标签＋四常驻控件；PII 行内「已自动遮盖：… · 查看原文需权限」＋ `rec-pii-reveal-*`；`seg-03` 遮盖但可引述 vs `seg-06/07/08` 不稳定态不可引述的同屏对照 | F69 F70 F72 |
+| `ui-preview/rec-v2/uc-5-1-live-loading.png` | **loading** | 转写接入中（UC-5.1 R8 必现状态） | F69 F70 |
+| `ui-preview/rec-v2/uc-5-1-live-empty.png` | **empty** | 尚无转写段的空态 | F69 F70 |
+| `ui-preview/rec-v2/uc-5-1-live-invalid.png` | **invalid** | 入参/校验失败态（U1–U3） | F69 F70 |
+| `ui-preview/rec-v2/uc-5-1-live-dep-failed.png` | **dep-failed** | 依赖失败（ASR / 组织默认保留期缺失等上游不可用） | F69 F70 |
+| `ui-preview/rec-v2/uc-5-1-live-denied.png` | **denied** · 组员视角 | 跨组无权限：组员不进他组结果集（UC-5.1 R5；UC-0.3 R8） | F69 |
+| `ui-preview/rec-v2/uc-5-1-live-success.png` | **success** | 操作完成回执态 | F69 F70 |
+| `ui-preview/rec-v2/uc-5-1-live-workshop.png` | **特殊态：载体 = workshop** | 项目现场四组并行的轨道状态条（录制中 / 断网缓存 / 已关麦 / **未录制**），含**拒绝麦克风**那一路（A2/E1）——这是「未录制」显式标注的落点 | F69 |
+| `ui-preview/rec-v2/uc-5-1-live-thread.png` | **特殊态：载体 = thread** | 对话线程里的「会议转录中」形态：同一套 `SegmentRow`，只在会话头分叉（延迟/语言方向/录音路数/file-first 产物清单） | F69 |
+| `ui-preview/rec-v2/uc-5-1-live-observer.png` | **特殊态：视角 = observer** | 观察者脱敏只读：说话人以角色显示、写操作全隐藏（S-11 的一种表态，⚠ 见 §三缺口 G-2） | F69 |
+
+### 屏 2 · 指派说话人 `?screen=assign` —— UC-5.2（7 张）
+
+| 截图 | 状态 | 演示什么 | feature |
+|---|---|---|---|
+| `ui-preview/rec-v2/uc-5-2-assign-default.png` | **default** | 匿名声道卡（说话人 A/B/C）＋候选名单（未授权者 P-12 置灰显示不隐藏）＋指派＋**撤销**；**两态待处理**＝「待人工指派」与「争议 · 多人认领」；顶部常驻声纹 embedding 销毁提示（O-14） | F74 F75 |
+| `ui-preview/rec-v2/uc-5-2-assign-loading.png` | **loading** | 回填进行中 | F74 |
+| `ui-preview/rec-v2/uc-5-2-assign-empty.png` | **empty** | 无待指派声道 | F74 |
+| `ui-preview/rec-v2/uc-5-2-assign-invalid.png` | **invalid** | 并发 / 争议校验失败（E1/E3） | F74 |
+| `ui-preview/rec-v2/uc-5-2-assign-dep-failed.png` | **dep-failed** | 依赖失败（在场名单/聚类结果不可用） | F74 |
+| `ui-preview/rec-v2/uc-5-2-assign-denied.png` | **denied** | 无指派权限 | F74 |
+| `ui-preview/rec-v2/uc-5-2-assign-success.png` | **success** | 指派完成 + 全量回填回执 | F74 |
+
+### 屏 3 · 引述与打点 `?screen=annotate` —— UC-5.3（7 张）
+
+| 截图 | 状态 | 演示什么 | feature |
+|---|---|---|---|
+| `ui-preview/rec-v2/uc-5-3-annotate-default.png` | **default** | 引述↔RQ 绑定 ＋ **AI 打点候选独立队列**，带 `[确认] [编辑后确认] [忽略]` 三出口；依据被撤回的失效候选灰显划线 | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-loading.png` | **loading** | 候选生成中 | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-empty.png` | **empty** | 无候选 / 无引述 | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-invalid.png` | **invalid** | **不稳定态拒绝引述**（partial / lowConfidence / pending-manual / disputed 四个拒绝码要能分流，E5/E6） | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-dep-failed.png` | **dep-failed** | 依赖失败（RQ 列表 / AI 服务不可用） | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-denied.png` | **denied** | 无标注权限 | F76 F77 |
+| `ui-preview/rec-v2/uc-5-3-annotate-success.png` | **success** | 标记完成 | F76 F77 |
+
+### 屏 4 · 回流与保留期 `?screen=retention` —— UC-5.4（8 张）
+
+| 截图 | 状态 / 视角 | 演示什么 | feature |
+|---|---|---|---|
+| `ui-preview/rec-v2/uc-5-4-retention-default.png` | **default** | 保留期参数面板 ＋ 材料库**逐份**「保留至 …」＋ 同意书「动态渲染 vs 已提交快照」并列对照；**🔴 到期但删不掉红卡**（I-11 / X-4 冲突，本束最硬的待裁决项，见签核说明 §二-1） | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-loading.png` | **loading** | 参数读取中 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-empty.png` | **empty** | 无到期材料 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-invalid.png` | **invalid** | 参数非法 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-dep-failed.png` | **dep-failed** | **org-default 保留期缺失**（I-33：缺失时拒绝开始录制，不用隐含常量兜底）／同意书**变量缺失**（I-39：不得发出授权链接）——E5/E6 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-denied.png` | **denied** | 无保留期配置权限 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-success.png` | **success** | 到期删除完成 / 删除证明回执 | F78 F79 |
+| `ui-preview/rec-v2/uc-5-4-retention-interviewee.png` | **特殊态：视角 = interviewee** | 受访者授权告知视角：同意书上的保留期天数由参数渲染（`180` 是项目当前取值示例、**不是产品常量**，I-32 不许硬编码） | F79 |
+
+**小计：10 + 7 + 7 + 8 = 32 张，与目录实际数一致。**
+
+---
+
+## 二之二、第 ① 件材料缺口（原设想有、现在没有的）
+
+> ⚠ **两类缺口性质不同，分开标：**
+> - **「未画图」** —— 界面上其实有，只是没单独抓一张图，或压根没这块画面。
+> - **「未实现」** —— 原型上整块能力就不在（原表已标「整块未建」的那些）。
+> 下表先给「原设想 11 条 → 真实截图」的逐条核实，再汇总真缺口。
+
+### （a）原设想 11 条的逐条核实
+
+| 原设想文件名（**已作废，全部不存在**） | 真实落点 | 判定 |
 |---|---|---|
-| `ui-preview/rec-interview-stage.png` | `/studio/interview` 转录区 + 逐字稿全貌（默认态） | 待补 |
-| `ui-preview/rec-interview-overlap.png` | `seg-08` 重叠段「两人同时说话 · 待人工指派」+ 无默认选中 + 保持待指派出口 | 待补 |
-| `ui-preview/rec-interview-lowconf.png` | `seg-12` 低置信「待校对」+ **解除出口**（D-10 补的） | 待补 · **出口未建** |
-| `ui-preview/rec-interview-pii.png` | 逐字稿行内「已自动遮盖：… · 查看原文需权限」+ `[查看原文]` 出口 + 无权限态 | 待补 · **整块未建** |
-| `ui-preview/rec-interview-ai-annotation.png` | AI 打点候选态 + `[确认] [编辑后确认] [忽略]` + `[看洞察]` 依据出口 | 待补 · **三出口未建** |
-| `ui-preview/rec-assign-speaker.png` | 逐字稿校对屏：声道卡 + 候选名单 + 指派 + **撤销** | 待补 · **整屏未建** |
-| `ui-preview/rec-group-mic.png` | `/group` 麦克风开关 + 「未录制」显式标注 + 「录制已暂停」缺口标记 | 待补 · **后两者未建** |
-| `ui-preview/rec-chat-transcript.png` | `/chat` 右栏五标签 + 转录卡 + 自动跟随 + 正在识别 | 待补 |
-| `ui-preview/rec-retention-per-material.png` | 逐份转写的「保留至 …」与删除时间（AC1b） | 待补 · **整块未建** |
-| `ui-preview/rec-consent-render.png` | `/consent` 保留期文案由参数渲染 + 已提交快照对照 | 待补 |
-| `ui-preview/rec-offline-gap.png` | 断网缓存与补传：转写流 gap 标记 | 待补 · **整块未建** |
+| `rec-interview-stage` | `ui-preview/rec-v2/uc-5-1-live-default.png` | ✅ 有对应（但拍的是 `/rec` 不是 `/studio/interview`） |
+| `rec-interview-overlap` | 内容并入 `uc-5-1-live-default.png`（`seg-06/07/08` 不稳定态）＋ `uc-5-2-assign-default.png`（两态待处理、无默认选中、保持待指派） | ✅ 有对应，无独立截图 |
+| `rec-interview-lowconf` | 低置信段可见于 `uc-5-1-live-default.png`；**解除出口没有** | ⚠ 部分 —— 见 G-1 |
+| `rec-interview-pii` | 遮盖标注与 `rec-pii-reveal-*` 按钮已在 `uc-5-1-live-default.png`；**点开后的授权屏与无权限拒绝态没有** | ⚠ 部分 —— 原表「整块未建」**已不成立**（按钮已建），改判见 G-2 |
+| `rec-interview-ai-annotation` | `ui-preview/rec-v2/uc-5-3-annotate-default.png`（三出口 + 失效候选） | ✅ 有对应；原表「三出口未建」**已不成立** |
+| `rec-assign-speaker` | `ui-preview/rec-v2/uc-5-2-assign-*.png`（7 张） | ✅ 有对应；原表「整屏未建」**已不成立**（但此屏是按 R8 反推补的 [设计]，仍需人类确认布局本意） |
+| `rec-group-mic` | `ui-preview/rec-v2/uc-5-1-live-workshop.png`（四组并行轨道状态，含「未录制」与拒绝麦克风路） | ✅ 有对应；原表「后两者未建」中的**「未录制」已建**，**「录制已暂停」的转写流缺口标记仍无** —— 见 G-3 |
+| `rec-chat-transcript` | `ui-preview/rec-v2/uc-5-1-live-thread.png` | ✅ 有对应（拍的是 `/rec` 的 thread 载体，不是 `/chat` 右栏本体） |
+| `rec-retention-per-material` | `ui-preview/rec-v2/uc-5-4-retention-default.png`（材料库逐份「保留至」） | ✅ 有对应；原表「整块未建」**已不成立** |
+| `rec-consent-render` | `ui-preview/rec-v2/uc-5-4-retention-default.png`（渲染 vs 快照并列）＋ `uc-5-4-retention-interviewee.png` | ✅ 有对应 |
+| `rec-offline-gap` | 轨道级「断网缓存」可见于 `uc-5-1-live-workshop.png`；**转写流上的 gap 标记没有** | ⚠ 部分 —— 见 G-3 |
+
+### （b）真缺口汇总（K = 6）
+
+| # | 缺口 | 类型 |
+|---|---|---|
+| **G-1** | ⚠ 未产出：`识别置信度低 · 待校对` 的**解除出口**（文本修正）—— 该屏尚未画。⚠ 同时**未实现**：行内操作条里没有文本编辑入口。**它不是排期问题，是设计缺失，需先裁决 `domain.md` D-10**；不补它，该状态在产品上是死的 | **未画图 + 未实现** |
+| **G-2** | ⚠ 未产出：PII **「查看原文」点开之后**的授权屏与**无权限拒绝态** —— 该屏尚未画。按钮（`rec-pii-reveal-*`）已建，但「弹二次授权 / 走审批 / 谁能批」UC-5.1 R3 第 6 步只说「独立授权动作并写审计」没说形态（`ui-preview/rec-v2/README.md` §二-3）。**另一条同源未定项**：观察者/组员**能否下载**音频与逐字稿（R5 未写死，原型被迫二选一呈现） | **未画图**（形态未定，非实现遗漏） |
+| **G-3** | ⚠ 未产出：**转写流上的 gap 缺口标记**与**「录制已暂停」在转写侧看得见的后果** —— 该屏尚未画。轨道级状态（断网缓存 / 已关麦 / 未录制）已在 `uc-5-1-live-workshop.png`，但「不把断点拼接成连续假象」的**逐字稿侧 gap 呈现**整块没有 | **未画图 + 未实现** |
+| **G-4** | ⚠ 未产出：逐字稿校对屏的**代表片段试听** —— 该屏尚未画。`ui-preview/rec-v2/README.md` §五-3 明写「音频不真播」：点时间码只高亮该段，没有播放器/波形/跳转，AC2「点时间码跳回音频」在界面上验不了 | **未实现**（mock 边界，非遗漏） |
+| **G-5** | ⚠ 未产出：**屏 5「项目文件浏览器」**（F73 录制产物可见可下载）—— 该屏尚未画，`ui-preview/rec-v2/` 下无对应截图。**这是设计使然**：它归 `files` 束交付（见 §一 屏 5）。签核本束时请一并确认这条边界，否则会出现「两边都以为对方做了」 | **跨束，不在本束截图范围** |
+| **G-6** | ⚠ 未产出：**响应式 375 / 768 档截图** —— 只抓了 1360×900 桌面图（`ui-preview/rec-v2/README.md` §五-7）。`AppShell` 有响应式断点，本次未跑该屏 | **未画图**（实现可能有，未取证） |
+
+> ⚠ 以上六条**不得因为「32 张全绿」被吞掉**。第 ① 件的截图数对得上，**不等于**界面覆盖是完整的。
 
 ---
 
 ## 三、本束的界面缺口一览（给签核人的一页纸）
+
+> ⚠ **本节说的是 §一 那四块既有屏（`/studio/interview` `/group` `/chat` `/consent`）上的缺口，
+> 原文保留不改。** `/rec` 原型**没有动这四块屏**，所以这些条目在既有屏上**依然成立**；
+> 但其中 #1 #2 #3 #5 #6 #7 #8 在 `/rec` 工作台上**已有原型形态**（对照 §二之二（a）表）。
+> 换句话说：**「原型画了」≠「既有屏实现了」**，开工时要么把 `/rec` 收编为正式落点、
+> 要么把这些形态搬回既有屏 —— 这本身是一个需要人类拍板的取舍。
 
 | # | 缺什么 | 影响的 feature | 能否 API 先行 |
 |---|---|---|---|
@@ -198,11 +303,53 @@ R8 反推的布局：左侧匿名声道卡（时长占比 / 首次出现时间�
 
 ## 五、签核这一节时请确认
 
-- [ ] **截图全部待补** —— 在 ui-prototyper 产出之前，第 ① 件**不具备签核条件**。
-      请确认是「等截图再签」还是「先签 ②③、① 单独等」（ADR-023 是三件在一处逐节确认，
-      本束建议前者）。
+- [x] ~~截图全部待补~~ —— **已解除**：`ui-preview/rec-v2/` 下 32 张截图齐备，第 ① 件**已具备签核条件**，
+      索引见 §二。请注意签的是 **`/rec` 工作台**的形态，不是 `/studio/interview` 的现状（见文首）。
+- [ ] **§二之二（b）的 6 条真缺口（G-1～G-6）** 逐条表态：哪些必须在 F69–F79 开工前补出、
+      哪些接受带缺口开工。其中 **G-1 需先裁决 D-10**，**G-2 需先定 PII 授权形态与观察者下载权**
+      （UC-5.1 R5/R10 两条挂起项），**G-5 是跨束边界**（F73 的可见可下载由 `files` 束交付）。
+- [ ] **`/rec` 与既有四屏的关系**：`/rec` 是新建的独立工作台，与 `/studio/interview` 的转录区
+      并存。请裁定是把 `/rec` 收编为正式落点，还是把原型形态搬回既有屏 ——
+      **不裁定就会出现同一能力两处实现**（本仓已因「同一事实两处」漂移过五次）。
+- [ ] **`ui-preview/rec-v2/README.md` §二 的 5 条「界面上无法自洽」** 一并过一遍，尤其
+      **#1 材料保留期到期删除 vs 定版快照不可删（I-11 / X-4）** —— 已画成
+      `ui-preview/rec-v2/uc-5-4-retention-default.png` 里的 🔴 红卡，原型**没有**替它做删/不删的决定。
 - [ ] **§三 的 9 个界面缺口**，哪些必须在 F69–F79 开工前补出、哪些接受 API 先行。
       其中 **#4（待校对的解除出口）需要先裁决 D-10**，它不是排期问题而是设计缺失。
 - [ ] **S-16 的力度**是否符合 O-13 的本意（这是 F71 的全部界面语义）。
 - [ ] **S-11 观察者判定三处不一致**要不要在本阶段统一。
 - [ ] **屏 5 的跨束边界**：F73 的「在文件浏览器可见可下载」由 `files` 束交付，本束只负责物化与登记。
+
+
+---
+
+## 附录 · v2 新增截图索引（5.1/5.3 补画三屏（准备室授权矩阵 / 处理状态 / 逐字稿校对））
+
+> 门控 `lint-ui-material` 做双向集合相等：本束目录 `ui-preview/rec-v2/` 实存 **56** 张，上文各屏引用的既有 32 张 + 下面新增 **24** 张 = **56**，逐张列出、无孤图、无死链。
+
+> 既有屏（权限/路由/MCP/团队/审计 或 库/绑定/版本/晋升/反馈 或 现场/指派/引述/保留）的截图**已随本目录复制进 v2**，其文件名与引用见上文各节，未改动；此处只补列本轮**新画/重拍**的屏。
+
+- `uc-5-1-prep-default.png`
+- `uc-5-1-prep-denied.png`
+- `uc-5-1-prep-dep-failed.png`
+- `uc-5-1-prep-empty.png`
+- `uc-5-1-prep-interviewee.png`
+- `uc-5-1-prep-invalid.png`
+- `uc-5-1-prep-loading.png`
+- `uc-5-1-prep-success.png`
+- `uc-5-1-process-default.png`
+- `uc-5-1-process-denied.png`
+- `uc-5-1-process-dep-failed.png`
+- `uc-5-1-process-empty.png`
+- `uc-5-1-process-invalid.png`
+- `uc-5-1-process-loading.png`
+- `uc-5-1-process-member.png`
+- `uc-5-1-process-success.png`
+- `uc-5-3-verify-default.png`
+- `uc-5-3-verify-denied.png`
+- `uc-5-3-verify-dep-failed.png`
+- `uc-5-3-verify-empty.png`
+- `uc-5-3-verify-invalid.png`
+- `uc-5-3-verify-loading.png`
+- `uc-5-3-verify-observer.png`
+- `uc-5-3-verify-success.png`

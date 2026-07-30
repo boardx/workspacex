@@ -219,10 +219,25 @@ export const Binding = z.object({
 | `stepId` / `step_id` | `packages/contracts/src/artifact.ts:205`；`apps/api/migrations/0008-f06-binding-modes.sql:47` | 已签契约 + 已落库 |
 | `stage.*`（`stage.advance` 等） | `apps/api/src/domain/identity/project-role-matrix.ts:26-30` | 已实现的动作词表 |
 | `agenda_stage` | `phases/phase-01-run-a-project/requirements/02-tpl/uc-2-2-套用蓝本新建项目.md:29`：「代码、接口字段、UI 文案、测试断言中**不得裸用「环节」二字**，须写全 `agenda_stage`」（裁决 D-03） | phase-01 需求，人类已拍板 |
-| `agenda_segment` / `agenda_segment_id` | 同一份 uc-2-2 的 `:394`；`phases/phase-01-run-a-project/requirements/22-files/uc-22-1-项目文件浏览器.md:40,72,85` | phase-01 需求 |
+| `agenda_segment` / `agenda_segment_id` | 同一份 uc-2-2 的 `:394`；`phases/phase-01-run-a-project/requirements/22-files/uc-22-1-项目文件浏览器.md:40,72,85`；**并已由 `phases/requirements/DECISIONS-FINAL.md:31` 的 D-03a 定稿为权威名**（见下方补引） | phase-01 需求 + **已定稿裁决** |
 
 ⚠ 注意第三、四行**出自同一份文件**：`uc-2-2:29` 命令写 `agenda_stage`，`uc-2-2:394` 自己写了
 `agenda_segment_id`。而 phase-00 已签核并已落库的是 `stepId`，已实现的动作词是 `stage.*`。
+
+### 补引（2026-07-30，只补引用不改结论）
+
+⚠ 本条上表原先**只引了 D-03，漏了 D-03a**。补上出处：
+`phases/requirements/DECISIONS-FINAL.md:31` 的 **D-03a「字段名消歧（2026-07-28 定稿，全局权威）」**
+已把三个概念分成三个字段——议程环节 **`agenda_segment` / `agenda_segment_id`**、
+16 项设计配置 `design_facet`（恒 16）、9 个方法环节 `method_stage`（恒 9），
+并明写三者**不得共用 `stage`/`phase`/`segment` 一个名**；
+对外事件为 `agenda_segment.switched` / `agenda_segment.state_changed`。
+
+**本条的事实陈述不变**（仓库里确实同时存在四个名字，这是已发生的漂移）；
+变的只是**其中一个名字已经有了人类裁决的地位**：`agenda_stage` 在 D-03a 之后不再有效，
+`agenda_segment_id` 是权威名。⇒ 因此 `OPEN-QUESTIONS.md` **Q-3 已从「待裁决」降级为
+「确认既有裁决」**，其唯一开放的子问是「phase-00 已签核的 `stepId` / `stage.*` 要不要改名对齐」
+——D-03a 没有说这件事，而它是**修订已签核束**的动作。详见 Q-3 正文。
 
 本仓已**六次**因「同一事实声明在两处」漂移
 （`phases/phase-00-shared-kernel/design-coherence.md:141-142` 列出六次）。

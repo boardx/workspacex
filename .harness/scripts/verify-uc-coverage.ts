@@ -37,7 +37,11 @@ for (const phaseId of process.argv.slice(2)) {
   const dir = findPhaseDir(phaseId);
   const contractsDir = join(dir, "contracts");
   if (!existsSync(contractsDir)) {
-    say("没有 contracts/ 目录 —— 该阶段尚未做契约束设计（ADR-020）");
+    // 判定复用 lib/design-signoff（唯一实现）：`has_ui` 阶段零契约束是**失败**，
+    // 而不是「还没轮到它」——ADR-023 决策一撤掉 phase 级 UI 门之后，这里是它的替身之一。
+    const fails = auditSignoff(phaseId, []).fails;
+    if (fails.length) for (const m of fails) say(m);
+    else say("没有 contracts/ 目录 —— 该阶段尚未做契约束设计（ADR-020）");
     totalBad += bad;
     continue;
   }

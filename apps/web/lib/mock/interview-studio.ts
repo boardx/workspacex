@@ -25,7 +25,15 @@
 
 export type ScopeKind = "research-project" | "none";
 
-export interface InterviewScope {
+/**
+ * 范围切换器的一档（展示层）。⚠ 原名 `InterviewScope` —— 与契约 `interview.InterviewScope`
+ * **同名不同义**：契约那份是**范围值对象** `{kind, projectId, researchProjectId}`
+ * （回答「这条访谈属于哪里」），这份是**切换器上的一个可点档位**
+ * `{id, kind, label, count}`——带展示文案与该范围下的访谈计数，契约里两者都没有。
+ * ⇒ 改名分离，无取值分歧（`kind` 的 `research-project` / `none` 与契约
+ * `InterviewScopeKind` 同义，收敛时应改为从契约派生）。
+ */
+export interface InterviewScopeView {
   id: string;
   kind: ScopeKind;
   label: string;
@@ -33,7 +41,7 @@ export interface InterviewScope {
   count: number;
 }
 
-export const INTERVIEW_SCOPES: InterviewScope[] = [
+export const INTERVIEW_SCOPES: InterviewScopeView[] = [
   { id: "rp-procurement", kind: "research-project", label: "研究项目 · 采购决策如何形成", count: 22 },
   { id: "unassigned", kind: "none", label: "不属于任何项目", count: 5 },
 ];
@@ -65,7 +73,16 @@ export const INTERVIEW_STATUS_LABEL: Record<InterviewStatus, string> = {
   running: "执行", done: "完成", prepping: "筹备", draft: "草稿",
 };
 
-export interface InterviewRow {
+/**
+ * 访谈列表行（展示层）。⚠ 原名 `InterviewRow` —— 与契约 `interview.InterviewRow`
+ * **同名不同义**：契约是 `{interviewId,title,sourceKind,scope,tags,archived,whenAt}`，
+ * 这份是渲染一行所需的 `{object,objectInitials,belongsTo,owner,status,progress,
+ * metric,scopeId,projectId,virtual,tags,actions}`——含首字母、一句话进展、行尾动作按钮。
+ * ⇒ 改名分离，无取值分歧。
+ * ⚠ `lib/mock/itv.ts` 里另有一份同用途、字段不同的行模型（本仓「两套访谈界面并存」
+ * 的一部分），那边也已改名——**两套并存本身是待收敛的债**，不属本次门控范围。
+ */
+export interface InterviewRowView {
   id: string;
   /** 对象（受访者/对象描述）——列表默认只显示描述，联系方式进详情（R9 隐私）*/
   object: string;
@@ -88,7 +105,7 @@ export interface InterviewRow {
   actions: ("open" | "live" | "insight" | "rerun")[];
 }
 
-export const INTERVIEW_ROWS: InterviewRow[] = [
+export const INTERVIEW_ROWS: InterviewRowView[] = [
   {
     id: "i-wang", object: "业主 A · 采购总监", objectInitials: "王",
     belongsTo: "欧洲进入策略 · 林可", owner: "林可", status: "running",

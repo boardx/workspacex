@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   A0_TEMPLATES, ORG_TEMPLATES, MERMAID_WHITELIST, IGNORED_SYNTAX_COUNT, PUBLISH_FLOW_NOTE,
-  type TemplateRow, type PublishStatus, type WhitelistType,
+  type CanvasTemplateRow, type PublishStatus, type WhitelistType,
 } from "@/lib/mock/canvas";
 
 const ALL_TEMPLATES = [...A0_TEMPLATES, ...ORG_TEMPLATES];
@@ -34,7 +34,7 @@ const FILTERS: Filter[] = ["全部", "已发布", "草稿", "已归档"];
 export function TemplateAdmin({ state, previewRole }: { state: UiState; previewRole: ProjectRole | null }) {
   const [filter, setFilter] = React.useState<Filter>("全部");
   const [view, setView] = React.useState<"list" | "card">("list");
-  const [archiving, setArchiving] = React.useState<TemplateRow | null>(null);
+  const [archiving, setArchiving] = React.useState<CanvasTemplateRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   // 观察者只读：写操作（新建/发布/归档/白名单开关）不渲染
   const readOnly = previewRole === "observer";
@@ -175,7 +175,7 @@ export function TemplateAdmin({ state, previewRole }: { state: UiState; previewR
 }
 
 /** 发布状态机的行操作：不同状态给不同动作，危险动作（归档）与主操作分离 */
-function RowActions({ row, readOnly, onArchive, onToast }: { row: TemplateRow; readOnly: boolean; onArchive: () => void; onToast: (s: string) => void }) {
+function RowActions({ row, readOnly, onArchive, onToast }: { row: CanvasTemplateRow; readOnly: boolean; onArchive: () => void; onToast: (s: string) => void }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -214,7 +214,7 @@ function RowActions({ row, readOnly, onArchive, onToast }: { row: TemplateRow; r
 }
 
 /** 归档二次确认 + 影响面（O-10 ③：有 N 个议程环节仍绑定此模板）*/
-function ArchiveDialog({ row, onClose, onConfirm }: { row: TemplateRow; onClose: () => void; onConfirm: () => void }) {
+function ArchiveDialog({ row, onClose, onConfirm }: { row: CanvasTemplateRow; onClose: () => void; onConfirm: () => void }) {
   const bound = row.boundSegments ?? 0;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="archive-title" data-testid="tpladmin-archive-dialog">

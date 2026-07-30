@@ -2,9 +2,9 @@
 bundle: skills
 phase: "01"
 covers: [F61, F62, F63, F64, F65, F66, F67, F68]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
 
 # 契约束 `skills` 设计签核
@@ -47,17 +47,31 @@ phase-1 **无沙箱、不执行任意代码**（D-06）。本束契约的是这�
 
 材料：本束 [`ui.md`](./ui.md)。
 
-> ## ⚠ 这一节**现在不具备签核条件**
-> `phases/phase-01-run-a-project/ui-preview/` 下**只有三份 markdown，没有任何截图**。
-> `ui.md` 已写成骨架（八块屏 / 真实 testid / 14 张待补截图的约定文件名），
-> 但在 ui-prototyper 产出截图之前，请**不要**把上面的 `status` 改成 `confirmed`。
+> ## 材料状态：**已到位，可以开评**
+> 旧断言「ui-preview/ 下只有三份 markdown、没有任何截图」**已不成立**。
+> ui-prototyper 已用真实组件产出 **6 屏 × 七态 + 交互/视角态，共 59 张**截图，
+> 位于 `phases/phase-01-run-a-project/ui-preview/skill/`（⚠ **目录名单数 `skill/`，与束名 `skills` 不同**）。
+> 逐张索引、每张演示什么、以及 **8 条真实缺口**，**只在 [`ui.md`](./ui.md) 一处维护**——
+> 本文件不重抄，避免第二事实源。
+>
+> ⚠ 但「材料到位」**≠**「已签」：`ui.md` 第四节列的 8 条缺口须逐条裁决后，
+> 人类才可把上面的 `status` 改成 `confirmed`。
 
 **签核前请重点确认：**
 
-- [ ] **屏 5（项目 → 设置 → 工作流编排）在本仓根本不存在** —— `/projects/[id]` 下只有
+- [ ] **`ui.md` 第四节 8 条「未产出」缺口逐条裁决**（接受 / 要求补画 / 移出 phase-1）。
+      其中第 8 条是本束最大风险，单列如下 ↓
+- [ ] **两套 skill 界面并存，收敛路径必须当场定死** —— 59 张截图全部出自 ui-prototyper
+      新建的 mock 并行路由 `/skill`；本仓**已建成**的 `/admin/skill`、`/admin/feedback`、
+      `/chat`、`/projects/[id]/canvas` 四块**生产屏一张截图都没有**。
+      原型画的是「应该长什么样」，生产屏仍是「现在错着的样子」。
+      改造生产屏 / 原型屏转正 / 二选一 —— 不定就是 ADR-020 要防的第二事实源。
+- [ ] **屏 5（项目 → 设置 → 工作流编排）在本仓生产平面根本不存在** —— `/projects/[id]` 下只有
       `canvas` 与 `files`。UC-3.2 R8 那句「该屏已存在、可直接签」指的是 **HTML 原型**，
       不是本仓已建成的 React 屏。**F63 + F64 合计 8 点几乎全压在这块未建的屏上**，
       请确认这个认知差已被消除。
+      ⚠ 注意：原型平面**已把它画出来**（`uc-3-2-binding-*.png`，兑现 R8 三块中的 ①②，
+      第 ③ 块无图）。「原型有」不等于「生产有」，两个平面别混。
 - [ ] **两处已建界面与契约语义相反**（比「没建」更危险，因为看起来是有的）：
       ① `/chat` 的 `chat-settings-skill` 是**单选 chip**，而 UC-3.3 要的是**多选临时挂载列表 + 加/减**；
       ② `/admin/feedback` 的 `admin-feedback-triage-{id}` 把**归类**与**生成提案**合成一个按钮，
@@ -157,10 +171,32 @@ phase-1 **无沙箱、不执行任意代码**（D-06）。本束契约的是这�
 
 ---
 
+## ⑤ 视图层与契约的取值分歧 —— **这几条要你裁，我没有代改**
+
+`lint-contract-source` 在 2026-07-31 抓到 31 处「契约与 `apps/web` 各有一份定义」。
+逐条比对后分三类：取值完全相同的已改为 `z.infer` 派生；结构不同的渲染视图已加
+`View` 后缀分离；**取值也不一致的**只能改名 + 登记，因为「哪边对」是签核动作。
+
+本束涉及 2 条：`D08 SkillStatus` · `D09 SkillSource`
+
+⚠ **对照表与待答问题只有一份**，在 `apps/web/lib/contract-divergences.ts`
+（`CONTRACT_DIVERGENCES`，按 id 查）。此处**故意不复制**——本仓已九次因
+「同一事实声明在两处」漂移，一份会漂的对照表比没有更糟。
+
+裁完之后：判契约对 ⇒ 视图层删 `*View` 改 `z.infer`；判视图对 ⇒ **由人**改
+`packages/contracts/src/`（agent 不得改已签契约），两种都要把该条目从登记簿删掉。
+
+---
+
 ## 确认动作
 
 人类逐节核对三件（① UI / ② 用例 / ③ API 契约）后，把上面 frontmatter 的 `status`
 改为 `confirmed`，并填 `confirmed_by` / `confirmed_at`（ISO 8601，**不得晚于签核当下**）。
 
 ⚠ **这是人的动作，不是 agent 的**（ADR-023 决策五：该字段受 CODEOWNERS + CI 保护）。
-⚠ 在 `ui-preview/` 出现本束截图之前，第 ① 件**不具备签核条件**。
+
+⚠ **第 ① 件的门槛（替代旧的「等截图出现」）**：本束截图**已产出**
+（`ui-preview/skill/`，59 张，索引见 [`ui.md`](./ui.md) 第三节）。
+现在的门槛不是「有没有图」，而是——
+**`ui.md` 第四节那 8 条「⚠ 未产出」缺口是否已被逐条裁决**。
+其中第 8 条（原型屏 `/skill` 与四块生产屏并存、生产屏零截图）**不定就不要签**。

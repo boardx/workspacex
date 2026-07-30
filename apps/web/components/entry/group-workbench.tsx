@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { GROUP_WORKBENCH, type Sticky, type GroupViewRole } from "@/lib/mock/entry";
+import { GROUP_WORKBENCH, type StickyView, type GroupViewRole } from "@/lib/mock/entry";
 
 /**
  * 小组工作台（档案第九节 C / UC-1.2 R8「小组工作台（已画）」）——只有本组的东西。
@@ -20,7 +20,7 @@ import { GROUP_WORKBENCH, type Sticky, type GroupViewRole } from "@/lib/mock/ent
  */
 export function GroupWorkbench({ state, role }: { state: UiState; role: GroupViewRole }) {
   const [micOn, setMicOn] = React.useState(true);
-  const [stickies, setStickies] = React.useState<Sticky[]>(GROUP_WORKBENCH.stickies);
+  const [stickies, setStickies] = React.useState<StickyView[]>(GROUP_WORKBENCH.stickies);
   const [draft, setDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -232,7 +232,7 @@ export function GroupWorkbench({ state, role }: { state: UiState; role: GroupVie
   );
 }
 
-function StickyBoard({ stickies }: { stickies: Sticky[] }) {
+function StickyBoard({ stickies }: { stickies: StickyView[] }) {
   return (
     <div className="flex flex-col gap-2" data-testid="group-stickies">
       <span className="text-11 font-medium text-muted-foreground">本组便签 · {stickies.length}</span>
