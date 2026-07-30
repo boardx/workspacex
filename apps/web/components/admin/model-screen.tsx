@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  MODELS, MODEL_FILTERS, MODEL_STATUS_LABEL, inFlightOf,
+  MODELS, MODEL_FILTERS, MODEL_STATUS_VIEW_LABEL, inFlightOf,
   type ModelFilterKey, type ModelRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
@@ -222,7 +222,7 @@ function ModelListRow({ m, untested, on, setOn, onRequestDisable, onTest }: { m:
           <div className="flex items-center gap-2">
             <span className="font-mono text-12 font-medium">{m.name}</span>
             <Badge tone={statusTone} data-testid={`admin-model-status-${m.id}`}>
-              {MODEL_STATUS_LABEL[untested ? "untested" : on ? "enabled" : "disabled"]}
+              {MODEL_STATUS_VIEW_LABEL[untested ? "untested" : on ? "enabled" : "disabled"]}
             </Badge>
             {m.confidentialOk && (
               <Badge tone="ai" data-testid={`admin-model-confidential-${m.id}`}>

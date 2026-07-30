@@ -8,10 +8,10 @@ import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SKILLS, SKILL_STATUS_LABEL, inFlightOf, type SkillStatus, type SkillRow } from "@/lib/mock/admin";
+import { SKILLS, SKILL_STATUS_LABEL, inFlightOf, type SkillStatusView, type SkillRow } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
 
-const STATUS_TONE: Record<SkillStatus, "primary" | "warning" | "neutral" | "outline"> = {
+const STATUS_TONE: Record<SkillStatusView, "primary" | "warning" | "neutral" | "outline"> = {
   enabled: "primary",
   review: "warning",
   draft: "neutral",

@@ -14,7 +14,7 @@
  * ⚠ 契约缺口（**待迁入 `packages/contracts`**，不要在此另立第二份权威）：
  *   本域是全新能力（六道关 / 查重 / 灰度发布 / 复核周期降级 / 文件树 / 试跑台在现有
  *   feature_list 与原型 JS 里除运行态数据区外 0 命中）。以下形状目前只在这份 mock 里：
- *   · `AssetKind`（六种资产的封闭枚举）、`GateVerdict`（三级结论）、`ReviewCycle`、
+ *   · `AssetKindView`（六种资产的封闭枚举）、`GateVerdict`（三级结论）、`ReviewCycle`、
  *     `Visibility`、`MarketSource` 都应补进契约。
  *   · 「灰度发布」的语义（发给谁、怎么回退）目前只有原型文字，无契约。
  *
@@ -126,14 +126,19 @@ export const ASSET_KINDS = [
   "canvas",
   "blueprint",
 ] as const;
-export type AssetKind = (typeof ASSET_KINDS)[number];
+/**
+ * ⚠ 与契约 `asset-governance.AssetKind` **同名、取值不一致**：六对六，只有第五档
+ * 契约写 `canvas-template`、这里写 `canvas` ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D10`。
+ * 这一条不是纯命名：裸 `canvas` 会与 canvas 束的**画布实例**撞名。哪边对由人裁。
+ */
+export type AssetKindView = (typeof ASSET_KINDS)[number];
 
 /**
  * 后台左栏「AI 能力」六项 —— 顺序、计数、图标字母取自人类确认截图与 AD_META。
  * `count` 是该资产已有条目数；`newLabel` 是 AN_META 里的新建入口文案。
  */
 export const AG_ASSET_NAV: {
-  kind: AssetKind;
+  kind: AssetKindView;
   label: string;
   count: number;
   icon: string;

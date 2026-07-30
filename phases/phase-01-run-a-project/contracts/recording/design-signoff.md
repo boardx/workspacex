@@ -183,6 +183,23 @@ packages/contracts/src/recording.ts        （zod 单一事实源，尚未创建
 
 ---
 
+## ⑤ 视图层与契约的取值分歧 —— **这几条要你裁，我没有代改**
+
+`lint-contract-source` 在 2026-07-31 抓到 31 处「契约与 `apps/web` 各有一份定义」。
+逐条比对后分三类：取值完全相同的已改为 `z.infer` 派生；结构不同的渲染视图已加
+`View` 后缀分离；**取值也不一致的**只能改名 + 登记，因为「哪边对」是签核动作。
+
+本束涉及 2 条：`D11 SegmentStatus` · `D12 EvidenceNature`
+
+⚠ **对照表与待答问题只有一份**，在 `apps/web/lib/contract-divergences.ts`
+（`CONTRACT_DIVERGENCES`，按 id 查）。此处**故意不复制**——本仓已九次因
+「同一事实声明在两处」漂移，一份会漂的对照表比没有更糟。
+
+裁完之后：判契约对 ⇒ 视图层删 `*View` 改 `z.infer`；判视图对 ⇒ **由人**改
+`packages/contracts/src/`（agent 不得改已签契约），两种都要把该条目从登记簿删掉。
+
+---
+
 ## 确认动作
 
 人类逐节核对 ①②③ 后，把 frontmatter 的 `status` 改为 `confirmed`，

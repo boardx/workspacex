@@ -2,7 +2,7 @@ import { Eye, KeyRound, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   VISIBILITY_LABEL, MCP_AUTH_LABEL, MCP_REVIEW_LABEL,
-  type VisibilityScope, type McpAuthScope, type McpReviewStatus,
+  type VisibilityScope, type McpAuthScope, type McpReviewStatusView,
 } from "@/lib/mock/admin";
 
 /**
@@ -45,7 +45,7 @@ export function AuthScopeBadge({
 /** ③ MCP 评审状态 —— 盾牌，独立于授权范围 */
 export function ReviewBadge({
   status, "data-testid": testId,
-}: { status: McpReviewStatus; "data-testid"?: string }) {
+}: { status: McpReviewStatusView; "data-testid"?: string }) {
   if (status === "cleared") {
     return (
       <Badge tone="neutral" data-testid={testId}>

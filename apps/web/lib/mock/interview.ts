@@ -9,6 +9,8 @@
  * 与 `lib/mock/entry.ts` 的受访者同意书（CONSENT / WITHDRAWAL_FLOW）对齐：
  *    两侧共用同一套授权口径，受访者屏拒绝的项 = 研究员屏被禁用/降级的项。
  */
+import type { z } from "zod";
+import * as C from "@repo/contracts/recording";
 
 /* ── 预览视角（UC-6.4 R5 多角色，视角切换是预览手段而非权限实现）──────── */
 
@@ -102,7 +104,15 @@ export const RECORDING_TRACKS: RecordingTrack[] = [
 
 /* ── 转录段（说话人分离 + 时间码 + 重叠 + 外语 + 引述 + 决策点）────────── */
 
-export type SegmentStatus = "final" | "partial" | "pending-manual" | "disputed";
+/**
+ * ⚠ 与契约 `recording.SegmentStatus` **逐值相同**（partial / final / pending-manual /
+ * disputed）⇒ 从契约派生，不留第二份（ADR-020）。
+ *
+ * 🔴 注意：`lib/mock/rec.ts` 里同名的那份**与契约不同**（它有 `low-confidence`、
+ * 没有 `disputed`）。⇒ 视图层原本就有两份互相矛盾的转写段状态，那一份已改名
+ * `SegmentStatusView` 并登记为 `CONTRACT_DIVERGENCES.D11` 等人裁。
+ */
+export type SegmentStatus = z.infer<typeof C.SegmentStatus>;
 
 export interface TranscriptSegment {
   id: string;

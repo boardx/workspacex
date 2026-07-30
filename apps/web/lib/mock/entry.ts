@@ -104,7 +104,14 @@ export const JOIN_SCENES: { id: JoinScene; label: string }[] = [
 
 /* 小组工作台 */
 
-export interface Sticky {
+/**
+ * 便签（参与者端展示层）。⚠ 原名 `Sticky` —— 与契约 `canvas.Sticky` **同名不同义**：
+ * 契约那份是线上便签 `{stickyId,sectionId,text,color,size,authorRef,aiGenerated,citationRef}`，
+ * 这份是参与者小组工作台上渲染的 `{id,text,author,mine?}`——`mine` 是**纯前端概念**
+ * （高亮本人贴的，但不暴露真实身份），契约里不该有也确实没有。
+ * ⇒ 改名分离，无取值分歧。
+ */
+export interface StickyView {
   id: string;
   text: string;
   author: string;
@@ -132,7 +139,7 @@ export const GROUP_WORKBENCH = {
     { id: "s5", text: "预算审批要走三级，怕拖过窗口期", author: "参与者 B", mine: true },
     { id: "s6", text: "去年那家供应商违约过一次", author: "高琳" },
     { id: "s7", text: "数据出境卡在合规，方案 B 更稳", author: "陈默" },
-  ] satisfies Sticky[],
+  ] satisfies StickyView[],
   fcSuggestion:
     "你们组还没写「机会」那一行，剩 12 分钟。要我把刚才口头说的三点转成便签吗？",
 };
@@ -187,7 +194,7 @@ export const CONSENT = {
  * **撤回链是对受访者的合规承诺**——三个屏说三个时限就是三份互相矛盾的对外声明。
  * 此处只做再导出，不得在这里维护第二份。
  */
-export { WITHDRAWAL_FLOW, WITHDRAWAL_SLA_SUMMARY, EXTERNAL_REPLACEMENT_NOTE, type WithdrawalStep } from "@/lib/withdrawal-flow";
+export { WITHDRAWAL_FLOW, WITHDRAWAL_SLA_SUMMARY, EXTERNAL_REPLACEMENT_NOTE, type WithdrawalStepSpec } from "@/lib/withdrawal-flow";
 
 /* ── 预览视角（小组工作台的两个项目角色）─────────────────────── */
 

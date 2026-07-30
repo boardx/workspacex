@@ -1,6 +1,6 @@
 import { Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { CHAT_VISIBILITY_LABEL, type ChatVisibility } from "@/lib/mock/chat";
+import { CHAT_VISIBILITY_LABEL, type ChatVisibilityView } from "@/lib/mock/chat";
 
 /**
  * 可见范围徽标（UC-8.5 AC1 / R8）
@@ -12,7 +12,7 @@ import { CHAT_VISIBILITY_LABEL, type ChatVisibility } from "@/lib/mock/chat";
  *
  * 色调按「越私密越冷」：私有/私聊=neutral、本组共享/团队=ai、全场=primary。
  */
-export function VisibilityBadge({ scope }: { scope: ChatVisibility }) {
+export function VisibilityBadge({ scope }: { scope: ChatVisibilityView }) {
   const tone: "neutral" | "ai" | "primary" =
     scope === "all-hands" ? "primary" : scope === "member-private" || scope === "private" ? "neutral" : "ai";
   return (

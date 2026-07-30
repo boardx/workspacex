@@ -11,19 +11,31 @@
  * ⚠ 批准卡（ApprovalRequest）是**产品信任核心**，其模型 / 预算 / 数据范围三项
  *   必须**数据驱动**（裁决 D-07：模型与 MCP 管理进 phase-1）。
  *   「含机密，仅本地模型」由 `dataScopeConstraint()` 从数据推出，不是写死文案。
+ *
+ * ⚠ **本文件与 `@repo/contracts/chat` 的关系**（2026-07-31 逐条比对后收敛）：
+ *   · 取值完全相同的（`ToolCallStatus` / `CitationAnchorKind`）⇒ 已改为 `z.infer` 派生。
+ *   · 结构不同的渲染视图（线程卡 / 工具调用行 / 右栏标签）⇒ 加 `View` 后缀分离。
+ *   · 取值也不一致的（在场态 / 可见性 / 徽标 / 批准态）⇒ 加 `View` 后缀 **＋ 登记进
+ *     `@/lib/contract-divergences`**，哪边对是**签核动作**，不由本文件选边。
  */
+import type { z } from "zod";
+import * as C from "@repo/contracts/chat";
 
 /* ─────────────────────────── AI 团队面板（UC-4.2 / UC-8.2 R3 一） ─────────────────────────── */
 
-/** agent 在场态三取值（enum，不得增删 —— UC-8.2 R7 / UC-4.2 R7）*/
-export type AgentPresence = "present" | "batching" | "idle";
-export const AGENT_PRESENCE_LABEL: Record<AgentPresence, string> = {
+/**
+ * agent 在场态（展示层）。⚠ 与契约 `chat.AgentPresence` **同名不同义且取值不一致**
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D04`（那里也记了契约侧 `AgentPresence`
+ * 被声明两次这件事）。**不要就地合并**——合并会让「跑批中」这个在场数分母消失。
+ */
+export type AgentPresenceView = "present" | "batching" | "idle";
+export const AGENT_PRESENCE_LABEL: Record<AgentPresenceView, string> = {
   present: "在场",
   batching: "跑批中",
   idle: "空闲",
 };
 /** 在场态徽标色调：跑批中=ai（正在工作）、空闲=neutral、在场=primary */
-export const AGENT_PRESENCE_TONE: Record<AgentPresence, "primary" | "ai" | "neutral"> = {
+export const AGENT_PRESENCE_TONE: Record<AgentPresenceView, "primary" | "ai" | "neutral"> = {
   present: "primary",
   batching: "ai",
   idle: "neutral",
@@ -36,7 +48,7 @@ export interface TeamAgent {
   role: string;
   /** 职责一句话 —— UC-8.2 R7：不得只显示名称 */
   duty: string;
-  presence: AgentPresence;
+  presence: AgentPresenceView;
 }
 
 /** 六个 agent 全给（PROTOTYPE-DIGEST 第二节实测表）*/
@@ -57,7 +69,13 @@ export const TEAM_PRESENT_COUNT = TEAM_AGENTS.filter((a) => a.presence === "pres
 /* ─────────────────────────── 线程列表（UC-8.1 R3）─────────────────────────── */
 
 export type ThreadBadgeKind = "transcribing" | "review" | "archived" | "agents" | "time";
-export interface ThreadCard {
+/**
+ * 线程卡（展示层）。⚠ 与契约 `chat.ThreadCard` **同名不同义**：
+ * 契约那份是线上载荷 `{id,title,subtitle,badges[],agentSummary,lastActivityAt,visibilityScope}`，
+ * 这份是**渲染后的列表行**（单个已选好的徽标 + 合成的 meta 串 + 选中态）。
+ * 结构不同、取值不冲突 ⇒ 改名分离即可，无需人类裁决。
+ */
+export interface ThreadCardView {
   id: string;
   title: string;
   /** 状态徽标 —— UC-8.1 R7：一等取值，不得自造 */
@@ -70,7 +88,7 @@ export interface ThreadGroup {
   key: string;
   /** 按时间分组，组标题常驻（UC-8.1 R8）*/
   label: string;
-  threads: ThreadCard[];
+  threads: ThreadCardView[];
 }
 
 export const THREAD_GROUPS: ThreadGroup[] = [
@@ -111,7 +129,8 @@ export const ACTIVE_THREAD = {
 
 /* ─────────────────────────── 引用（UC-8.2 R7 引用层，三段缺一不可）─────────────────────────── */
 
-export type CitationAnchorKind = "page" | "transcript" | "message";
+/** ⚠ 与契约 `chat.CitationAnchorKind` **逐值相同** ⇒ 从契约派生，不留第二份（ADR-020）。 */
+export type CitationAnchorKind = z.infer<typeof C.CitationAnchorKind>;
 /**
  * 契约里的 `Citation` 是**线上引用**（`{segmentId, artifactVersionId}`）；
  * 这里是**渲染后的展示视图**（带序号、出处全称、已解析的锚点）。两者不同层，故名字上分开。
@@ -127,14 +146,21 @@ export interface CitationView {
 
 /* ─────────────────────────── 工具调用（UC-8.2 R7 工具调用层）─────────────────────────── */
 
-export type ToolCallStatus = "done" | "reuse" | "running" | "failed";
+/** ⚠ 与契约 `chat.ToolCallStatus` **逐值相同** ⇒ 从契约派生，不留第二份（ADR-020）。 */
+export type ToolCallStatus = z.infer<typeof C.ToolCallStatus>;
 export const TOOL_CALL_STATUS_LABEL: Record<ToolCallStatus, string> = {
   done: "完成",
   reuse: "复用",
   running: "运行中",
   failed: "失败",
 };
-export interface ToolCall {
+/**
+ * 一次工具调用（展示层）。⚠ 与契约 `chat.ToolCall` **同名不同义**：
+ * 契约那份是审计载荷（十个字段，含 `callerAgentId` / `pipelineVersion` / `provenanceEventId`），
+ * 这份是**折叠面板里渲染的一行**——签名与结果都已拼成人读串。
+ * 结构不同、取值不冲突（`status` 已从契约派生）⇒ 改名分离即可。
+ */
+export interface ToolCallView {
   /** 函数签名 + 实参 */
   signature: string;
   /** 命中数 / 复用标记 / 运行态短语 */
@@ -148,12 +174,19 @@ export interface ToolCallLog {
   readItems: number;
   /** 汇总：token 读取量 */
   tokens: string;
-  calls: ToolCall[];
+  calls: ToolCallView[];
 }
 
 /* ─────────────────────────── 消息头角标（UC-8.2 R7 状态可见性）─────────────────────────── */
 
-export type MessageBadge =
+/**
+ * 消息头角标（展示层）。⚠ 与契约 `chat.MessageBadge` **同名不同义且取值不一致**
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D06`。
+ * 契约是裸枚举 `["degraded","review-pending"]`；这里是带载荷的可辨识联合，
+ * 且待复核那一档的码是 `review` 不是 `review-pending`。载荷（`model` / `count`）
+ * 在契约里没有字段承载——**由谁提供也是待裁项**，不在此处发明。
+ */
+export type MessageBadgeView =
   | { kind: "degraded"; model: string } // 降级运行 · sonnet
   | { kind: "review"; count: number }; // 待复核 3
 
@@ -184,11 +217,17 @@ export interface ApprovalDataItem {
   /** 机密标记 —— 「仅本地模型」由此推导 */
   confidential: boolean;
 }
-export type ApprovalStatus = "paused" | "expired" | "approved" | "declined";
+/**
+ * 批准卡状态（展示层）。⚠ 与契约 `chat.ApprovalStatus` **同名、取值是其真子集**
+ * （少 `reparamed`）⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D07`。
+ * 不直接派生的原因：契约把「改参后批准」当一等出口，视图这边没有对应卡片态；
+ * 直接 `z.infer` 会静默多出一个界面渲染不了的取值，那是假的一致。
+ */
+export type ApprovalStatusView = "paused" | "expired" | "approved" | "declined";
 
 export interface ApprovalRequest {
   id: string;
-  status: ApprovalStatus;
+  status: ApprovalStatusView;
   title: string;
   /** 调用链（谁调的谁）—— agent 互调深度上限 2（O-36）*/
   callChain: string[];
@@ -310,7 +349,7 @@ export type ChatMessage =
       skill?: string;
       thinking?: string; // 「思考了 8.2 秒 · 4 步」
       time: string;
-      badges: MessageBadge[];
+      badges: MessageBadgeView[];
       text: string;
       tools?: ToolCallLog;
       citations?: CitationView[];
@@ -484,14 +523,19 @@ export const COMPOSER_STATUS = {
 
 /* ─────────────────────────── 右栏五标签（UC-8.2 R3 步骤 13）─────────────────────────── */
 
-export interface RightTab {
-  key: string;
+/**
+ * 右栏标签行（展示层）。⚠ 与契约 `chat.RightTab` **同名不同义**：
+ * 契约那份是**五值枚举**（标签的 key），这份是渲染一行所需的 `{key,label,count}`。
+ * ⇒ 改名分离，且 `key` **就用契约那个枚举**——保证五个 key 与契约同源。
+ */
+export interface RightTabView {
+  key: z.infer<typeof C.RightTab>;
   label: string;
   /** null = 无计数（转录）；「已完成/总数」形式用 countDisplay */
   count: number | null;
   countDisplay?: string;
 }
-export const RIGHT_TABS: RightTab[] = [
+export const RIGHT_TABS: RightTabView[] = [
   { key: "transcript", label: "转录", count: null },
   { key: "execution", label: "执行", count: 4, countDisplay: "2/4" },
   { key: "insight", label: "洞察", count: 6 },
@@ -500,7 +544,7 @@ export const RIGHT_TABS: RightTab[] = [
 ];
 
 /** 空态：新线程五标签计数全为 0 且不隐藏（UC-8.2 V14）*/
-export const RIGHT_TABS_EMPTY: RightTab[] = RIGHT_TABS.map((t) =>
+export const RIGHT_TABS_EMPTY: RightTabView[] = RIGHT_TABS.map((t) =>
   t.key === "transcript" ? t : { ...t, count: 0, countDisplay: t.key === "execution" ? "0/0" : undefined },
 );
 
@@ -612,9 +656,14 @@ export const LANDING_ACTIONS = {
  * 与 phase-00 一致性复核里 `IngestionRun` 的 `status` vs `state` 是同一类问题，
  * 处理方式沿用那次立的纪律：**同名会掩盖分歧，改名而不是合并**。
  * ⇒ 改名 `ChatVisibility`。若日后产品裁定两者本应统一，那是一次签核动作，不是一次改名。
+ *
+ * ⚠ **2026-07-31 第二轮**：契约随后新建了 `chat.ChatVisibility`（五值），与本类型
+ * 四值逐字相同、第五档码不同（契约 `plenary` vs 这里 `all-hands`）。
+ * ⇒ 再次改名 `ChatVisibilityView`，取值分歧登记为 `CONTRACT_DIVERGENCES.D05`。
+ * **不自己选词**——线上码定成哪个是签核动作。
  */
-export type ChatVisibility = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
-export const CHAT_VISIBILITY_LABEL: Record<ChatVisibility, string> = {
+export type ChatVisibilityView = "member-private" | "group-shared" | "all-hands" | "team-visible" | "private";
+export const CHAT_VISIBILITY_LABEL: Record<ChatVisibilityView, string> = {
   "member-private": "组员私聊",
   "group-shared": "本组共享",
   "all-hands": "全场",
@@ -637,7 +686,7 @@ export interface LandingArtifact {
   citationCount: number;
   /** 未挂来源标灰（AC3）—— 服务端可判定状态，不是纯视觉 */
   hasSource: boolean;
-  visibility: ChatVisibility;
+  visibility: ChatVisibilityView;
 }
 export const LANDING_ARTIFACTS: LandingArtifact[] = [
   {
