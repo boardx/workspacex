@@ -12,7 +12,22 @@ phase: "01"
 #   ADR-023 决策四那条门控挡的正是相反方向：只改这个字段而不做复核，
 #   是把「没复核」谎报成「复核过」。`project` 束自己的 covers 为空、status 为 pending，
 #   两道门都还红着，这是预期状态。
-covers_bundles: [agent-runtime, canvas, chat, files, interview, org-admin, project, recording, skills, templates]
+#
+# 2026-07-30（同日晚些时候）由十束改为**十一束**：新增 `asset-governance`
+#   （外来资产的导入与生命周期治理 + 后台外壳这一层公共宿主）。
+#   起因：人类当天提出「导入市场上主流使用的 agents / skills」「项目文件的浏览和编辑」
+#   「生命周期管理」，并追问「为什么在管理后台看不到项目蓝本」。
+#   ⚠ 与上一次一样，本次**只改了 covers_bundles 这一个字段**，
+#     `status` / `confirmed_by` / `confirmed_at` 一律未动。上面那段警告**原样适用**：
+#     不要把「covers_bundles 里有 asset-governance」读作「该束已被复核」。
+#   ⚠ 且本次比上一次更需要重做复核，不是沿用：
+#     `asset-governance` 自己提出了 **10 条跨束交叉约束 X-A…X-J**
+#     （见 contracts/asset-governance/domain.md 第三节），其中至少四条会**回头触碰
+#     已签核的束**（skills 的 D-06 / fileCount / source 枚举；agent-runtime 的 McpAuthScope）。
+#     第二~六节的交叉约束章节**仍然留白**，而现在它欠的东西比昨天多了 10 条。
+#   ⚠ 该束自己的 covers 为空、status 为 pending，且它有一条 🔴 全束阻塞项
+#     （Q-0：本域与已拍板的 D-06 正面冲突）。三道门都红着，这是预期状态。
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, skills, templates]
 status: pending            # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:              # 确认人（姓名/邮箱）
 confirmed_at:              # ISO 8601，且不得晚于签核当下
