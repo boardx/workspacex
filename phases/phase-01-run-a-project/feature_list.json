@@ -2920,6 +2920,292 @@
       ],
       "evidence": "",
       "notes": "🔴 **整块缺失**（2026-07-30 补，审计 M-4 连带）：`隔离期` / `14 天` / `平台组` 此前在 `feature_list.json` 中 **0 命中**。\n出处 [原型] 字节偏移 **16,683,800** 逐字：「第三方源默认进入 **14 天隔离期**：只有平台组可调用，全量留痕，期满复核后才对成员开放。」\n⚠ **`quarantineUntil` 是时间戳不是布尔**——布尔答不了「还剩几天」「到期了没有」，而这两件事界面上都要显示、待办里都要用。\n⚠ **`14` 不硬编码**：读组织级参数，与 O-01「留痕保留期」同形。该默认值**有原型出处**，可落 `known: true` + `source = 原型 16,683,800`（区别于无出处的默认值）。参照 I-24 的反证形状：把参数改成另一个值，断言到期时间随之变化 + 代码扫描无裸字面量。\n⚠ **期满不自动开放**：原型逐字「**期满复核后**才对成员开放」⇒ 到期只是让「复核」变得可做。为此 `McpServer.reviewStatus` 补一个 `已到期待复核` 取值——缺它时到期的服务器会静默停在 `待安全评审` 里无人处理，界面上「到期了」和「还没人看」无法区分。\n⚠ 断言必须**双向**：期内非平台组调用被拒 **且** 平台组调用**通过**（并必写 provenance）。只写「被拒」那一侧时，一个「隔离期内谁都不能调用」的实现全绿，而原型明说平台组可以。同理「期满不自动开放」要断言它**没有**转成 `已放行`，不是只断言它「还是隔离」。\n🔴 **[待裁] `平台组` 无其它出处**：它在本阶段仅此一处出现，是 `uc-0-3` 角色本体里的哪个角色？是新的团队类型？还是「组织管理员 + 安全评审人」的合称？**不发明，不代答**——裁定前该身份判定不得写死（否则会造出一个只在测试夹具里存在的角色）。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpServer` 的 `quarantineUntil` / `quarantineDays` / `reviewStatus` 补值 + 不变式 **I-30′**。\n⚠ 界面**尚不存在**（签核第 ① 件新缺口，已登记在 `contracts/agent-runtime/ui.md` 第四节）。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F132",
+      "title": "后台左栏「AI 能力」组的项集合 ＝ AssetKind 六值（双向相等 + 反证套件）—— 补上画布模板与项目蓝本两项",
+      "user_visible_behavior": "管理后台左栏的「AI 能力」分组里能看到全部六种资产：Agent、Skill、模型、MCP 服务器、画布模板、项目蓝本。今天只有四项——点不进画布模板、项目蓝本是 404，这正是人类「为什么在管理后台看不到项目蓝本」那条投诉。补齐之后，谁再从任一侧删掉一项（少画一个入口，或从 AssetKind 里删一个取值），门控当场报红。",
+      "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/admin-nav-asset-kinds-bijective.test.tsx",
+        "grep -rq 'admin-nav-blueprint' apps/web/components/admin",
+        "grep -rq 'admin-nav-canvasadmin' apps/web/components/admin"
+      ],
+      "evidence": "",
+      "notes": "依据：asset-governance domain.md I-1（AssetKind 恰六值）+ I-2（左栏项集合 ＝ AssetKind 取值集合，**双向**）。\n⚠ **单向断言在今天的代码上就是绿的**：`apps/web/components/admin/admin-nav.tsx` 现在只有 agent/skill/model/mcp 四个资产键，「左栏每一项都是合法 AssetKind」完全成立，而缺了两项没有任何东西报警。⇒ 验收必须是**双向集合差为空 + 反证套件**（从任一侧删一个，门控必须红），照 `lint-ui-material.mjs` 已有的形状抄。\n⚠ 断言用**成员集合相等**，不是 `toHaveLength(6)`（coding-standards E-4）：长度断言在「删一个、加一个」时全绿。\n⚠ 分组与顺序待 Q-11 裁；本 feature 只做**集合相等**，不锁顺序。\n契约：`packages/contracts/src/asset-governance.ts` 的 `AssetKind` 与 `operations.listAdminNav`。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F133",
+      "title": "左栏计数与组织额度条：取不到显示「—」而不是 0，单类计数失败不拖垮整个左栏",
+      "user_visible_behavior": "左栏每一项后面带一个数字；某一类的计数查询挂了，那一项显示「—」，其余项照常显示数字，左栏不会整个空掉。顶部组织额度条显示已用/总额与剩余天数。「—」和 0 在界面上是两件事：0 是「这类资产一个都没有」，「—」是「这个数现在取不到」。",
+      "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R7",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/admin-nav-count-unavailable.test.tsx",
+        "grep -rq 'admin-header' apps/web/components/admin"
+      ],
+      "evidence": "",
+      "notes": "依据：asset-governance domain I-24（`count = \"—\"` 表示取不到，**不得返回 0 代替**）+ usecases.md `ListAdminNav`。\n⚠ 把「取不到」呈现成 0，会让一次后端故障看起来像一个空目录——用户不会去报障，他会以为东西还没建。\n⚠ 反证：造一个计数查询抛错的场景，断言该项为「—」**且其余项仍有数字**（只断言「—」出现，一个整体失败的实现也会绿）。\n契约：`asset-governance.operations.listAdminNav.out.groups[].items[].count` 是 `number | \"—\"` 的联合，`null` 不合法。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F134",
+      "title": "治理三项 + 复核周期的配置屏：六种资产完全一样，四个字段各缺一次都拒绝发布",
+      "user_visible_behavior": "打开任意一种资产（Agent / Skill / 模型 / MCP 服务器 / 画布模板 / 项目蓝本）的治理页，看到的是同一套四项配置：可见范围（指定团队 / 全组织 / 仅自己-私有草稿）、谁能改、负责人、复核周期（6 / 12 / 24 个月）。任意一项没填就去发布，会被明确告知缺的是哪一项，而不是一句笼统的「配置不完整」。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/governance-uniform-across-six-kinds.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/governance-incomplete-four-fields.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 三项 + 周期（原型逐字「治理与发布这一步六种资产完全一样」）；domain I-10 / I-11。\n⚠ **六类各跑一遍**，不是挑一类跑——「完全一样」这句话只有对六个取值逐一断言才是可检验的。\n⚠ **四个字段各造一次缺失**（I-10）：缺一个就漏一条路径。只测「全空」的实现会漏掉「只缺负责人」。\n🔴 **Q-1b 未裁**：代码侧现状是 3/6——MCP 走**已签核**的 `McpAuthScope`（`lead|team|all`），模型与蓝本根本没有这个字段。本 feature 按契约的「六类统一」实现，**若 Q-1b 裁「不统一」，本条要重做**；若裁「统一」，动的是 `agent-runtime` 的已签核字段（重签）。见 `asset-governance.KNOWN_CONTRACT_GAPS.AG1`。\n⚠ `AssetVisibility`（三值）与**已签核**的 `identity.VisibilityScope`（两值）刻意不同名，避开「同名不同义」；两套语义并存本身仍是缺口（AG8）。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F135",
+      "title": "可见性只有一条写入路径 —— 「全组织」返回需联签态，且不发明审批流",
+      "user_visible_behavior": "把一个资产的可见范围改成「全组织」，界面明确显示它还没真的对全组织可见、需要领域负责人联签；改成「指定团队」必须选至少一个团队，选空了保存不了。不管是人手动改，还是后面复核到期自动降级，改可见性走的都是同一条服务端路径。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R7",
+      "depends_on": [
+        "F134"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/visibility-single-write-path.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/visibility-whole-org-requires-cosign.test.ts",
+        "apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第一项 + domain I-14（降级必须走**与发布相同的可见性写入路径**，不得有第二条后门）。\n⚠ 「无第二条写入路径」的断言方式是**同一函数被调用**，不是「结果看起来一样」——两条路径写出同样的行，在结果断言下永远绿，直到其中一条漏掉了某个副作用。\n⚠ **联签流程 `[待确认]`**：本条只实现「需联签」这一态（`requiresCosign: true`，资产尚未进入全组织），**不发明审批流**。发明它就是在无出处的地方造一条治理路径。\n⚠ `负责人 ∈ editableBy` 是否为不变量 → **Q-9 未裁**，本条**不擅自强制**：强制它让「负责人只审不改」表达不出来，放开它让资产可能无人可改。两边都有代价 ⇒ 是人类的裁决。\n【跨阶段依赖】可见性判定函数本体属 phase-00 `identity`（X-1），本条是调用方不是第二个实现。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F136",
+      "title": "发布前检查清单是派生视图 —— 每一条都能点回它的来源，不是一张手写的固定清单",
+      "user_visible_behavior": "点「发布前检查」，看到一串检查项，每项显示通过/未通过、是否阻断，并且每一条都能追回它是根据什么算出来的。规则变了，清单跟着变；不会出现「规则早就改了，清单还在显示旧项」这种情况。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F134"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/preflight-items-have-source-ref.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/asset-preflight-blocking.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第四项 + domain I-22（每一条都带 `sourceRef`，清单是**派生视图**不是手写清单）。\n⚠ 手写的清单会在规则变更后继续显示旧项，而**没有任何东西会红**——这正是要求 `sourceRef` 恒非空的理由：追不回来源的检查项等于一句无从核对的断言。\n⚠ 反证：改掉一条来源规则，断言清单里对应项**跟着变**；一个把清单写死的实现在只断言「清单非空」时全绿。\n⚠ 清单内容**按资产类型可变**（原型的「四栏配置完整」是 Agent 专属）→ Q-1b。本条不锁死清单内容，只锁「每条可追源」。\n⚠ 原型这一屏**四条全 PASS，没有一条失败态**（八份 UC 的 60 余条异常流程在原型上一条都没有）。别继承这个缺陷：验收必须包含至少一条 `blocking: true` 的红项。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F137",
+      "title": "发布：三条独立禁用条件各一条反例 + 复核到期日由发布时刻与周期算出 + 发布写审计",
+      "user_visible_behavior": "点发布，如果六道关有阻断、或治理四项没填齐、或发布前检查有红色阻断项，会被拒绝，并且明确告诉你是哪一类问题挡住的——三种情况说的不是同一句话。发布成功后能看到复核到期日，它等于发布时间加上你选的复核周期；谁在什么时候把什么资产发到了什么可见范围，都留了痕。",
+      "spec_ref": "23-asset/uc-23-4-治理与发布.md#R3",
+      "depends_on": [
+        "F134",
+        "F136"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/publish-three-independent-blockers.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/publish-review-due-derivation.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/publish-audit-event.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-4` R3 第五项；domain I-5 / I-10 + usecases.md `PublishAsset` 的三条独立禁用条件。\n🔴 **三条各造一次反例**：`GATE_NOT_PASSED` · `GOVERNANCE_INCOMPLETE` · `PREFLIGHT_HAS_BLOCKING_ITEM`。**缺一条就漏一条路径**；合并成一个「不满足发布条件」的码会让界面说不出该去处理哪一件。\n⚠ 不变量 `reviewDueAt = publishedAt + reviewCycle`——它是**推导出来的**，不是一个可被单独写入的字段。断言方式是改周期后重发布，到期日跟着变。\n⚠ `mode: \"staged\"`（灰度）**语义待 Q-3**：契约保留参数**不定义行为**，本 feature 同样**不实现灰度**。实现它就是替人类裁 Q-3。\n⚠ 三档周期与「30 天」的**语义定义处待 Q-7**（与 14-brain 的知识条目到期规则必须是同一个实现）。本条是**消费面**，实现里**不得**写下 30 这个数字——那会是本仓第九次「同一事实两处声明」。见 AG3。\n【跨阶段依赖】六道关本体随 Q-0 留在 phase-2；`GATE_NOT_PASSED` 在 phase-1 由导入路径之外的场景触发。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F138",
+      "title": "复核三态状态机：到期自动转「待复核」，仍可用但调用时会提示",
+      "user_visible_behavior": "一个已发布的资产到了复核期，状态自动变成「待复核」——不需要任何人去点。它**仍然可以用**，不会被停用、也不会从检索范围里消失，只是每次被调用时会提示使用者「这个资产已过复核期」。复核一次之后，状态回到生效，计时重新开始。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R3",
+      "depends_on": [
+        "F137"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/review-clock-state-machine.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/review-pending-still-usable.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-6` R3 状态机 + R7 规则 1/2/3（本 UC 是这些规则的**唯一文字定义处**）。原型逐字：「到期后自动转『待复核』，仍可用但调用时会提示；30 天无人复核则降级为仅负责人可见。」\n🔴 **「仍可用」是必须反向断言的一条**：只断言「到期后状态变了」，一个把待复核实现成**停用**的实现也会全绿——而那把规则从「提醒」变成了「断供」。⇒ 必须断言待复核资产**仍能被调用**、**仍在检索范围内**，且**调用时带提示**。\n🔴 **`ReviewAsset` 的 `conclusion` 取值集合无依据**（R7 规则 8，本束最大空白：「复核」这个动作具体做什么，原型 0 命中）。契约把它写成开放字符串**不发明枚举**；本 feature 同样只做「复核发生过 ⇒ 计时重置」，**不实现任何结论分支**。见 AG2。\n⚠ 计时规则的**定义处待 Q-7**——本条是消费面，实现里不落 30 这个数。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F139",
+      "title": "主动扫描降级：一个从来没人调用过的到期资产，也会被降级（反证惰性判定）",
+      "user_visible_behavior": "系统会主动扫描所有资产的复核时钟。一个从发布起就没有任何人调用过、又过了复核期又过了 30 天的资产，同样会被降级为仅负责人可见——不会因为「没人读过它」就永远停在原地。后台能看到「最近一次扫描时间」；扫描停摆时这个时间会变旧，而不是什么都不显示。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R7",
+      "depends_on": [
+        "F138"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/review-scan-zero-call-asset-downgraded.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/review-scan-last-scan-observable.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-15（**零调用**的到期资产也会被降级）+ usecases.md `ScanReviewClocks`。\n🔴 **端口的名字本身是契约**：`Scan…`（主动）而不是 `EvaluateOnRead…`（惰性）。惰性判定会让「30 天无人复核」对**无人调用的资产永不触发**——而那正是最该降级的那一批。\n🔴 **反证用例是本条的主证据**：造一个从未被调用的到期资产，跑扫描，断言它被降级。没有这一条，一个纯惰性的实现在所有「读一下就降级了」的用例下全绿。\n⚠ 「最近一次扫描时间」必须**可观测**（`lastScanAt` 在响应里，不是一条日志）：扫描停摆时它变旧，而不是静默——静默的定时任务挂掉是没人会发现的那种故障。\n⚠ 与 MCP 的 14 天隔离期是两套还是一套计时器 → **Q-6 未裁**（推荐串行：隔离期 → 首次复核 → 常规周期）。采纳可能触发 `agent-runtime` 重签。本条**不实现串行**。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F140",
+      "title": "降级走同一条可见性写入路径，且负责人已停用时给出无主资产提示与接管入口",
+      "user_visible_behavior": "资产被降级后，除负责人外的其他成员在列表、搜索、绑定面板、Context Pack 四个地方都看不到它，直接访问也是「找不到」而不是「没权限」；负责人仍然看得见，资产没有被删。如果这时负责人本人已经停用了，界面明确显示这是一份无主资产，并给出接管入口，而不是让它悄无声息地谁都看不见。",
+      "spec_ref": "23-asset/uc-23-6-复核到期与降级.md#R7",
+      "depends_on": [
+        "F139",
+        "F135"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/downgrade-visibility-four-surfaces.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/downgrade-owner-missing.test.ts",
+        "apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-12 / I-14 + `uc-23-6` R7 规则 7（降级**不是删除**：资产仍存在、负责人仍可见、可恢复）+ E1。\n⚠ **四个入口各断言 0 命中**（列表 / 搜索 / 绑定面板 / Context Pack），且直读返回 **404 非 403**——与 `skills` I-14 同形，**复用同一判定函数**，不写第二份。\n⚠ 降级必须调用与 F135 同一个可见性写入函数（I-14），断言「无第二条写入路径」。\n🔴 **`uc-23-6` E1 的洞**：降级终态但 `ownerId` 已停用 ⇒ 这份资产**谁都看不见**。兜底接管人 `[待确认]` ⇒ 本条只把这个态**表达出来**（`ASSET_DOWNGRADED_OWNER_MISSING` + 接管入口），**不发明接管规则**。\n⚠ 恢复路径（E4）`[待确认]`，本条不做。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F141",
+      "title": "资产目录：文件树 + 文件内容读取，徽标由扩展名派生且未知扩展名不报错",
+      "user_visible_behavior": "打开一个 Skill 或 Agent，能看到它的文件树（根文件加上 references / assets / scripts / prompts / tools / evals 这些目录），点任一文件能看到内容和大小。文件旁边的类型徽标由扩展名决定；遇到没见过的扩展名显示 MD，而不是报错或者显示空白。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R3",
+      "depends_on": [
+        "F132"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/asset-directory-tree.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/asset-file-badge-fallback.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/asset-directory-browse.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-3` R3 + usecases.md `GetAssetDirectory` / `ReadAssetFile`；`badge` 由扩展名派生，**未知扩展名 ⇒ `MD`（fallback 不报错）**。\n⚠ **本组端口只对 2/6 类资产有依据**（skill / agent）。另外四类是不是目录形态 `[待确认]` ⇒ **适用范围本身是未知的**（AG4）。本 feature 只做 skill / agent 两类，**不假装六类都有目录**。\n⚠ 不在 `editableBy` 内的人**仍可读**（只读态），这与「不可见」是两件事——见 F142。\n⚠ Q-0 已裁方案 C：**目录浏览编辑留在 phase-1**（D-06 排除的是**执行**任意代码，不是「看和改文件」）。外部导入与六道关随 phase-2。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F142",
+      "title": "编辑器保存：frontmatter 坏了不入库，不在「谁能改」集合里的人只有只读态（没有写端点）",
+      "user_visible_behavior": "在资产编辑器里改一个文件并保存，保存成功后大小更新。如果根文件的 frontmatter 写坏了（解析不了、或者必填项缺了），保存被拒绝并说明坏在哪里，**内容不会进库**。不在「谁能改」这一项里的人打开同一个文件，看得到内容但没有保存按钮，而且就算绕过界面直接调接口也一样被拒。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R3",
+      "depends_on": [
+        "F141",
+        "F134"
+      ],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/asset/asset-file-write-frontmatter-invalid.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/asset-not-editable-readonly.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：`uc-23-3` R3 / R5 + usecases.md `WriteAssetFile`；`ASSET_NOT_EDITABLE`（可见但不可改，与「不可见」不同）· `CONTRACT_VALIDATION_FAILED`（**不入库**）。\n⚠ 「只读」必须在**服务端**成立：断言直接调写接口被拒，不是断言界面没渲染保存按钮。\n🔴 **本条刻意不做「保存后重扫 02 关」（I-25），这是一个已知的洞不是遗漏**：不做它，六道关**在导入之后即可绕过**——在编辑器里加一段提示注入就行。六道关本体随 Q-0 留在 phase-2，所以这个洞在 phase-1 内**关不上**，但它必须在签核时被看见。见 AG6。\n🔴 **并发编辑无契约**（`uc-23-3` E5），留空是刻意的：默认「后写覆盖」会**静默丢数据**，不该由实现者定。⇒ 本条**不加**乐观并发字段；两人同改的行为**在本轮是未定义的**，验收时不要假装它已定。见 AG5。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F143",
+      "title": "根文件不可删不可改名，且发布后运行时装载的文件集合 ＝ 目录里看到的集合（双向）",
+      "user_visible_behavior": "试图删除或重命名 SKILL.md / AGENT.md 会被明确拒绝——它是这个资产的根文件。其余文件可以新建、改名、删除。资产发布之后，运行时真正装载的文件，和你在目录里看到的那一份清单是同一份：不会出现「编辑器里改了但运行时根本不读」的文件，也不会有运行时偷偷读了却不在列表里的文件。",
+      "spec_ref": "23-asset/uc-23-3-资产目录的浏览与编辑.md#R7",
+      "depends_on": [
+        "F141",
+        "F137"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/asset/root-file-undeletable.test.ts",
+        "pnpm --filter api exec vitest run tests/asset/runtime-loadset-equals-directory.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据：domain I-7（根文件不可删）+ I-6（发布后运行时装载的文件集合 ＝ `GetAssetDirectory` 返回的集合，**双向相等**）。\n🔴 **I-6 必须双向断言**：单向（「装载的都在列表里」）在一个「列表多显示了几个文件」的实现上也是绿的——而那意味着你在编辑器里改的文件**运行时根本不读**，改完没生效却查不出原因。反过来的单向则漏掉「运行时偷读了列表外的文件」。\n⚠ 改根文件名等价于删根文件 ⇒ 同样拒绝（契约里 `renameAssetFile.err` 含 `ROOT_FILE_UNDELETABLE`）。\n⚠ `rootFile` 由 `AssetKind` 决定；本条随 F141 只覆盖 skill / agent 两类（AG4）。",
+      "priority": 1,
+      "area": "asset",
+      "capability": "CAP-API"
     }
   ]
 }

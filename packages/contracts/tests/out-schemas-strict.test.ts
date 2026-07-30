@@ -9,6 +9,9 @@ import * as interview from "../src/interview";
 import * as recording from "../src/recording";
 import * as canvas from "../src/canvas";
 import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -37,6 +40,7 @@ const BUNDLES = {
   // ── phase-01 束（不加进来 = 这道门对新契约不生效）──
   interview, recording, canvas, chat,
 } as const;
+const BUNDLES = { identity, artifact, contextPack, auth, project, files, orgAdmin, assetGovernance } as const;
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {

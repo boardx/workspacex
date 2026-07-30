@@ -8,6 +8,9 @@ import * as interview from "../src/interview";
 import * as recording from "../src/recording";
 import * as canvas from "../src/canvas";
 import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -28,6 +31,9 @@ const BUNDLES = [
   ["recording", recording.operations],
   ["canvas", canvas.operations],
   ["chat", chat.operations],
+  ["files", files.operations],
+  ["org-admin", orgAdmin.operations],
+  ["asset-governance", assetGovernance.operations],
 ] as const;
 
 type Op = {

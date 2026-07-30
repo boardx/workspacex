@@ -8,6 +8,9 @@ import * as interview from "../src/interview";
 import * as recording from "../src/recording";
 import * as canvas from "../src/canvas";
 import * as chat from "../src/chat";
+import * as files from "../src/files";
+import * as orgAdmin from "../src/org-admin";
+import * as assetGovernance from "../src/asset-governance";
 
 /**
  * 「不存在」也是一种契约（一致性复核 N-5）
@@ -36,6 +39,9 @@ const ALL_OPERATIONS = {
   recording: recording.operations,
   canvas: canvas.operations,
   chat: chat.operations,
+  files: files.operations,
+  "org-admin": orgAdmin.operations,
+  "asset-governance": assetGovernance.operations,
 } as Record<string, Record<string, { method?: string; path?: string }>>;
 
 /** 明确禁止存在的路由。每条都要写清「为什么不能有」——否则后人会以为是漏了 */
