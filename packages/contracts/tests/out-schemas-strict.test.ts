@@ -37,21 +37,12 @@ import * as templates from "../src/templates";
  * declares it separately. This test walks the tree so a nested object cannot be forgotten.
  */
 
-const BUNDLES = { identity, artifact, contextPack, auth, project } as const;
 const BUNDLES = {
-  identity, artifact, contextPack, auth,
-  // ── phase-01 束（不加进来 = 这道门对新契约不生效）──
-  interview, recording, canvas, chat,
+  identity, artifact, contextPack, auth, project,
+  // ── phase-01 十一束（不加进来 = 这道门对新契约完全不生效）──
+  interview, recording, canvas, chat, files, orgAdmin, assetGovernance,
+  agentRuntime, skills, templates,
 } as const;
-const BUNDLES = { identity, artifact, contextPack, auth, project, files, orgAdmin, assetGovernance } as const;
-  identity,
-  artifact,
-  contextPack,
-  auth,
-  project,
-  agentRuntime,
-  skills,
-  templates,
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
 function objectsIn(schema: z.ZodTypeAny, path: string, out: [string, z.ZodObject<z.ZodRawShape>][] = [], seen = new Set<unknown>()): [string, z.ZodObject<z.ZodRawShape>][] {
