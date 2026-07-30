@@ -27,7 +27,25 @@ phase: "01"
 #     第二~六节的交叉约束章节**仍然留白**，而现在它欠的东西比昨天多了 10 条。
 #   ⚠ 该束自己的 covers 为空、status 为 pending，且它有一条 🔴 全束阻塞项
 #     （Q-0：本域与已拍板的 D-06 正面冲突）。三道门都红着，这是预期状态。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, skills, templates]
+#
+# 2026-07-30（再晚些）由十一束改为**十二束**：新增 `research`（研究 Studio）。
+#   起因：D-20 于 2026-07-27 已裁「研究 Studio 立项（新模块 M18，约 21 点）」，
+#   三份档案一致（PENDING:337 / FINAL:97 / DELTA:301「维持 A」），而**三个 phase 都没有该模块**
+#   ——`REVIEW-REQUIREMENTS.md:102` 早就标了 🔴，那条 🔴 也没触发任何动作。
+#   逐条证据与本次未做的事见 `requirements/SCOPE-DELTA-2026-07-30.md`。
+#   ⚠ 与前两次一样，本次**只改了 covers_bundles 这一个字段**，
+#     `status` / `confirmed_by` / `confirmed_at` 一律未动。上面那段警告**原样适用**：
+#     不要把「covers_bundles 里有 research」读作「该束已被复核」。
+#   ⚠ 本次同样比上一次更需要重做复核：`research` 自己提出 **10 条跨束交叉约束 X-A…X-J**
+#     （见 contracts/research/domain.md 第三节），其中**六条触碰已签核的束**
+#     （recording / interview / files / agent-runtime / chat）。尤其两条：
+#     · **X-E**：`files`（已签核）的八值来源枚举约束**逐字点名「研究 Studio 的产出侧」**
+#       ——即**一个已签核束正在依赖一个当时不存在的束**，与 `project` 束当初同形。
+#     · **X-D**：`interview`（已签核）的 `INSIGHT_REPORT_EXPORTS` 里已有「送入综合 Studio」，
+#       而「综合 Studio」**在任何 phase 都不存在** ⇒ 已签核束里有一个通往未定义目的地的出口。
+#   ⚠ 该束自己的 covers 为空、status 为 pending，且有三条阻塞（Q-2 / Q-8 未裁、feature 未生成、
+#     截图目录未产出）。四道门都红着，这是预期状态。
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates]
 status: pending            # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:              # 确认人（姓名/邮箱）
 confirmed_at:              # ISO 8601，且不得晚于签核当下

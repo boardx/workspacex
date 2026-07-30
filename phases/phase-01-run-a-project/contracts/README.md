@@ -18,8 +18,28 @@
 | `canvas` | `07-canvas` | **`canvas-v2/`** | 8 | 26 |
 | `chat` | `08-chat` | **`chat-v2/`** | 8 | 24 |
 | `files` | `22-files` | `files/` | 17 | 48 |
+| `asset-governance` | `23-asset` | `asset-governance/` | **0**（未生成） | — |
+| **`research`** | **`24-research`** | `research/`（**尚未产出**） | **0**（未生成） | **21**（估，D-20） |
 
-**只有 `project` / `canvas` / `chat` / `files` 三套名字一致**，其余七束至少有一处不同。
+**只有 `project` / `canvas` / `chat` / `files` / `asset-governance` / `research` 名字一致**，
+其余六束至少有一处不同。
+⚠ 表中「feature / 点」两列对**未生成 feature 的束**填 `0` 与估点，
+**不要把估点读成已生成**——权威是各束 `design-signoff.md` 的 `covers:`（现在都是 `[]`）。
+
+## `research` 这一行为什么现在就该在表里
+
+D-20（2026-07-27）已裁「研究 Studio 立项（新模块，约 21 点）」，三份档案一致，
+而**三个 phase 都没有该模块**——2026-07-30 补建。逐条证据见
+[`../requirements/SCOPE-DELTA-2026-07-30.md`](../requirements/SCOPE-DELTA-2026-07-30.md)。
+
+⚠ **它的截图目录 `ui-preview/research/` 尚未产出**，因此 `lint-ui-material` 会对它报红
+（判定④「目录不存在 / 0 张 png」）。**那是正确的红**，理由见 `research/ui.md` 顶部。
+
+⚠ **它的路由登记有一处「绿得不诚实」**：`nav-reachability.config.json` 里
+`research → /studio/research` 使门控判定②通过，**但那条路由现在渲染的是
+UC-0.2 Context Pack 的屏，不是本束的屏**（`navigation.ts:75` 的 `ucRefs` 逐字
+`["00-core/uc-0-2"]`）。这是 `research/OPEN-QUESTIONS.md` **Q-2（阻塞级）**，
+**裁定后必须回来复核这一行**。
 
 ## 为什么 `agent-runtime` 合并了三个 area
 
@@ -47,4 +67,22 @@
 
 | 需求目录 | 状态 |
 |---|---|
-| `23-asset`（外来资产导入与生命周期治理） | 2026-07-30 人类新提需求，第 11 束 `asset-governance` 在建 |
+| —（无） | 2026-07-30 起 phase-01 的每个需求目录都有对应束：`23-asset` → `asset-governance`（第 11 束）、`24-research` → `research`（第 12 束）|
+
+## 明确**不属于** phase-01 的四个域（别再把它们当缺失）
+
+`apps/web` 里已建成 `components/survey/` · `components/tasks/` · `components/brain/` ·
+`components/studio/prototype-screen.tsx`，但它们**不属于 phase-01 的任何束，也不该属于**：
+
+| 界面 | 它的需求在哪 | feature 在哪 |
+|---|---|---|
+| `components/survey/` · `/studio/survey` | `phase-02/requirements/12-survey/`（4 份 UC） | phase-02，**7 个** |
+| `components/tasks/` · `/tasks` | `phase-02/requirements/11-board/`（7 份 UC） | phase-02，**10 个** |
+| `components/brain/` · `/brain` | `phase-03/requirements/14-brain/`（6 份 UC） | phase-03，**21 个** |
+| `components/studio/prototype-screen.tsx` | **尚无 UC** —— D-21 已裁 phase-2，2026-07-30 补登记 `phase-02/requirements/18-proto/00-REGISTRATION.md` | 无（待 phase-02 立项）|
+
+⇒ 它们的路由在 `nav-reachability.config.json` 的 **`allowRoutes`** 里，
+那份文件的注释 `//5` 逐字写着这是「**别的能力域/阶段（研究、问卷、大脑、任务）**」。
+⚠ **这一节存在的原因**：2026-07-30 有一份原型通读报告把这四个域判为
+「五个无主能力域，需人类补范围裁决」，据此差点在 phase-01 建出四份重复模块。
+逐条更正见 [`../requirements/SCOPE-DELTA-2026-07-30.md`](../requirements/SCOPE-DELTA-2026-07-30.md) 第三节。
