@@ -54,9 +54,10 @@ export function extractRefs(body) {
   lines.forEach((text, i) => {
     for (const m of text.matchAll(RE)) {
       const raw = m[0];
-      // 占位符 / 命名规则说明，不是真实引用：
-      //   `<uc-id>-<屏名>-<状态>.png`、`itv-v2/*.png`、光秃秃的 `.png`
-      if (/[<>*]/.test(raw)) continue;
+      // 占位符 / 命名规则说明 / 复核命令里的正则，不是真实引用：
+      //   `<uc-id>-<屏名>-<状态>.png`、`ui-preview/x/*.png`、`[a-z0-9-]+\.png`、光秃秃的 `.png`
+      // 真实截图文件名里不会出现 < > * \，所以拿它们当占位符标记是安全的。
+      if (/[<>*\\]/.test(raw)) continue;
       if (raw === ".png") continue;
       out.push({ raw, line: i + 1 });
     }
@@ -77,6 +78,21 @@ export function normalizeRef(raw, declaredDir) {
   if (idx >= 0) return p.slice(idx);
   if (!p.includes("/")) return `${declaredDir}/${p}`;
   return p;
+}
+
+/**
+ * 抽出 ui.md 顶部那行人写的自检：「本文件引用 N 张截图，目录下实际 M 张」。
+ *
+ * 为什么要抽它出来对：这行字是**同一事实的第二份副本**（第一份是文件系统本身）。
+ * 本仓已五次因「同一事实声明在两处」漂移。既然十份 ui.md 都写了它，正确的收敛
+ * 不是把它删掉（人类签核时要一眼看到量级），而是把它**变成会被机械核对的断言**。
+ * 十份文件的写法各不相同，所以只认最松的两个模式，且限定在文件头 20 行内。
+ */
+export function extractSelfCheck(body) {
+  const head = body.split("\n").slice(0, 20).join("\n");
+  const n = /引用\s*\*{0,2}\s*(\d+)\s*\*{0,2}\s*张/.exec(head);
+  const m = /实际\s*\*{0,2}\s*(\d+)\s*\*{0,2}\s*张/.exec(head);
+  return { declaredN: n ? Number(n[1]) : null, declaredM: m ? Number(m[1]) : null };
 }
 
 function listPngs(dir) {
@@ -149,8 +165,8 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, only = [] } = 
       continue;
     }
 
-    const actualSet = new Set(actual);
-    const refs = extractRefs(readFileSync(ui, "utf8"));
+    const body = readFileSync(ui, "utf8");
+    const refs = extractRefs(body);
     const referenced = new Map(); // basename -> 首次出现行号
 
     for (const { raw, line } of refs) {
@@ -184,6 +200,21 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, only = [] } = 
       errors.push(
         `[未被引用] ${label}: phases/${phase}/${declaredDir}/${f} 实存，但 ui.md 一次都没引用它。\n` +
         `    人类签核只看 ui.md，没被索引到的图等于不存在——要么补进索引表，要么删掉这张图。`,
+      );
+    }
+
+    /* ── ⑤ 顶部自检行必须存在，且数字必须与机械统计一致 ─────────────── */
+    const { declaredN, declaredM } = extractSelfCheck(body);
+    if (declaredN === null || declaredM === null) {
+      errors.push(
+        `[缺自检行] ${label}/ui.md 头 20 行里找不到「本文件引用 N 张截图，目录下实际 M 张」这行自检。\n` +
+        `    人类签核靠它一眼看量级。写上它，本门控会替你核对（当前实测 N=${referenced.size}、M=${actual.length}）。`,
+      );
+    } else if (declaredN !== referenced.size || declaredM !== actual.length) {
+      errors.push(
+        `[自检行过时] ${label}/ui.md 顶部写着「引用 ${declaredN} 张 / 实际 ${declaredM} 张」，` +
+        `实测是「引用 ${referenced.size} 张 / 实际 ${actual.length} 张」。\n` +
+        `    这行字是同一事实的第二份副本——改了截图就得同步改它，否则它今天为真、明天悄悄变假。`,
       );
     }
 

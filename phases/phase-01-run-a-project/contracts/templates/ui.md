@@ -7,7 +7,7 @@
 > ⚠ **目录名是 `tpl/`，不是 `templates/`。** 束名叫 `templates`，截图目录叫 `tpl`（跟随能力域代号）。
 > 本文所有截图路径一律写作 `ui-preview/tpl/<文件名>.png`，请勿按束名去 `ui-preview/templates/` 找，那个目录不存在。
 >
-> ⚠ **`ui-preview/project/` 下另有同名前缀的 `uc-2-2-prep-default.png` / `uc-2-2-settings-default.png`，
+> ⚠ **`ui-preview/project/` 下另有同名前缀的 `uc-2-2-prep-default` / `uc-2-2-settings-default` 两张，
 > 那是 `project` 束的材料，不归本束索引**（同一事实不得声明在两处）。本束只索引 `ui-preview/tpl/` 下这 24 张。
 
 ## 本文现在是什么状态

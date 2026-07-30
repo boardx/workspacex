@@ -90,7 +90,7 @@ sign-off 说明，**它才是每张图的原始注解，本表是给签核人用
 七态由 `?state=` 切、四视角由 `?as=` 切，均走共享 `StateShell`。
 
 > ⚠ 下表**是本文件对截图的全部引用，共 18 条，与目录下 18 个 `.png` 一一对应，不多不少、不重复**。
-> 原骨架里那套 `chat-<slug>.png` 命名约定（`chat-main-default.png` 等）**是当时设想的、一张都不存在**，
+> 原骨架里那套 `chat-<slug>.png` 命名约定（`chat-main-default` 等）**是当时设想的、一张都不存在**，
 > 已整体移入第五节的缺口清单，不在此处伪装成材料。
 
 ### 3.1 UC-8.3 对话产出落地 · `/chat/landing`（服务 F114） —— 9 张
@@ -148,47 +148,47 @@ sign-off 说明，**它才是每张图的原始注解，本表是给签核人用
 
 ### A. `/chat` 主屏（S1，已建成但零张截图）—— G-01 ～ G-18
 
-- ⚠ 未产出：`/chat` 默认态全屏三栏（原设想 `chat-main-default.png`） —— 该屏尚未画（**G-01**）
+- ⚠ 未产出：`/chat` 默认态全屏三栏（原设想 `chat-main-default`） —— 该屏尚未画（**G-01**）
   ↳ 连带 **S-06「在场 4 / 编制 6 同屏是否可接受」无图可签**。
-- ⚠ 未产出：第二栏「今天 / 本周」两组 + 四类线程卡徽标（原 `chat-thread-list-groups.png`） —— 该屏尚未画（**G-02**）
-- ⚠ 未产出：AI 团队面板 6 个 agent 三态 + 职责一句话 + `＋ 从 Agent 市场加入`（原 `chat-team-panel.png`） —— 该屏尚未画（**G-03**）
-- ⚠ 未产出：工具调用区展开含一条失败态（原 `chat-tool-calls-expanded.png`） —— 该屏尚未画（**G-04**）
+- ⚠ 未产出：第二栏「今天 / 本周」两组 + 四类线程卡徽标（原 `chat-thread-list-groups`） —— 该屏尚未画（**G-02**）
+- ⚠ 未产出：AI 团队面板 6 个 agent 三态 + 职责一句话 + `＋ 从 Agent 市场加入`（原 `chat-team-panel`） —— 该屏尚未画（**G-03**）
+- ⚠ 未产出：工具调用区展开含一条失败态（原 `chat-tool-calls-expanded`） —— 该屏尚未画（**G-04**）
   ↳ 「失败条不被隐藏」这条 F111 的核心承诺**无图可验**。
-- ⚠ 未产出：引用角标三段（编号 + 出处全称 + 页码/时间段）（原 `chat-citation-anchor.png`） —— 该屏尚未画（**G-05**）
-- ⚠ 未产出：**批准卡六项披露 + 三出口 + 「已暂停」**（原 `chat-approval-card.png`） —— 该屏尚未画（**G-06**）
+- ⚠ 未产出：引用角标三段（编号 + 出处全称 + 页码/时间段）（原 `chat-citation-anchor`） —— 该屏尚未画（**G-05**）
+- ⚠ 未产出：**批准卡六项披露 + 三出口 + 「已暂停」**（原 `chat-approval-card`） —— 该屏尚未画（**G-06**）
   ↳ 🔴 **本束最重要的一条 S-01（机密数据能否与云端模型并存）的界面载体就是这张，现在没有。**
   第五节说它是「`README.md` 自己列的建议优先核对 5 处第 1 位」——**优先核对的东西没有图**。
-- ⚠ 未产出：`[改参数再跑]` 面板 + 生成新卡后原卡存档（原 `chat-approval-reparam.png`） —— 该屏尚未画（**G-07**）
-- ⚠ 未产出：批准卡过期态「已过期 · 未执行」（原 `chat-approval-expired.png`） —— 该屏尚未画（**G-08**）
+- ⚠ 未产出：`[改参数再跑]` 面板 + 生成新卡后原卡存档（原 `chat-approval-reparam`） —— 该屏尚未画（**G-07**）
+- ⚠ 未产出：批准卡过期态「已过期 · 未执行」（原 `chat-approval-expired`） —— 该屏尚未画（**G-08**）
   ↳ 这是实现替原型补的态，`design-signoff.md` 第 ① 件已把它列为待确认项，无图。
-- ⚠ 未产出：右栏五标签与计数（`执行 2/4`）（原 `chat-right-tabs.png`） —— 该屏尚未画（**G-09**）
-- ⚠ 未产出：`降级运行 · sonnet` 与 `待复核 3` 标在消息头（原 `chat-badges-in-place.png`） —— 该屏尚未画（**G-10**）
-- ⚠ 未产出：`/chat?as=observer` 全屏（原 `chat-observer-view.png`） —— 该屏尚未画（**G-11**）
+- ⚠ 未产出：右栏五标签与计数（`执行 2/4`）（原 `chat-right-tabs`） —— 该屏尚未画（**G-09**）
+- ⚠ 未产出：`降级运行 · sonnet` 与 `待复核 3` 标在消息头（原 `chat-badges-in-place`） —— 该屏尚未画（**G-10**）
+- ⚠ 未产出：`/chat?as=observer` 全屏（原 `chat-observer-view`） —— 该屏尚未画（**G-11**）
   ↳ 落地屏有观察者投影（#8），但 **S-11 问的是 `/chat` 主屏观察者还剩什么**，不能拿落地屏顶替。
-- ⚠ 未产出：四视角（引导师/组长/组员/观察者）并置对照（原 `chat-role-views-4up.png`） —— 该屏尚未画（**G-12**）
-- ⚠ 未产出：`/chat?state=empty` 新线程空态（原 `chat-empty.png`） —— 该屏尚未画（**G-13**）
-- ⚠ 未产出：`/chat?state=dep-failed`（原 `chat-dep-failed.png`） —— 该屏尚未画（**G-14**）
-- ⚠ 未产出：`/chat?state=denied` **且区分组织层/项目层**（原 `chat-denied.png`，即 S4） —— 该屏尚未画（**G-15**）
+- ⚠ 未产出：四视角（引导师/组长/组员/观察者）并置对照（原 `chat-role-views-4up`） —— 该屏尚未画（**G-12**）
+- ⚠ 未产出：`/chat?state=empty` 新线程空态（原 `chat-empty`） —— 该屏尚未画（**G-13**）
+- ⚠ 未产出：`/chat?state=dep-failed`（原 `chat-dep-failed`） —— 该屏尚未画（**G-14**）
+- ⚠ 未产出：`/chat?state=denied` **且区分组织层/项目层**（原 `chat-denied`，即 S4） —— 该屏尚未画（**G-15**）
   ↳ 落地屏 #6 已带 `denied-layer`，但 `/chat` 主屏**代码上仍不区分**（缺口 18），两处口径需统一。
-- ⚠ 未产出：产物卡（`[AI]` 标 + 结构摘要 + 语义标注 + 后续动作）（原 `chat-artifact-card.png`） —— 该屏尚未画（**G-16**）
-- ⚠ 未产出：转录卡（内嵌实时文字 + 真实录制时长计时）（原 `chat-transcript-card.png`） —— 该屏尚未画（**G-17**）
-- ⚠ 未产出：移动端（底部 tab + 上滑抽屉）（原 `chat-mobile.png`） —— 该屏尚未画（**G-18**）
+- ⚠ 未产出：产物卡（`[AI]` 标 + 结构摘要 + 语义标注 + 后续动作）（原 `chat-artifact-card`） —— 该屏尚未画（**G-16**）
+- ⚠ 未产出：转录卡（内嵌实时文字 + 真实录制时长计时）（原 `chat-transcript-card`） —— 该屏尚未画（**G-17**）
+- ⚠ 未产出：移动端（底部 tab + 上滑抽屉）（原 `chat-mobile`） —— 该屏尚未画（**G-18**）
   ↳ 与第五节「未建的屏」同源：`AppShell` 只做了三档折叠，各屏移动端专属布局未做；
   `/chat/landing`、`/chat/preset` 的 375 / 768 档同样未截图。
 
 ### B. 早先标为「待补画后才有」、至今仍未产出的屏 —— G-19 ～ G-22
 
-- ⚠ 未产出：**可见范围徽标的真实落点**（线程卡 / 线程头，原 `chat-visibility-badge.png`，即 S2） —— 该屏尚未画（**G-19**）
+- ⚠ 未产出：**可见范围徽标的真实落点**（线程卡 / 线程头，原 `chat-visibility-badge`，即 S2） —— 该屏尚未画（**G-19**）
   ↳ `VisibilityBadge` 提案组件存在，但**只嵌在 8.3 产物条上演示**。
   uc-8-5 AC1 要签的恰恰是「**贴在哪几处**」，而那几处一张图都没有。
-- ⚠ 未产出：**agent 私聊入口与告知条**（原 `chat-private-chat-entry.png`，即 S3） —— 该屏尚未画（**G-20**）
+- ⚠ 未产出：**agent 私聊入口与告知条**（原 `chat-private-chat-entry`，即 S3） —— 该屏尚未画（**G-20**）
   ↳ 契约上存在、界面上连入口都没有；uc-8-5 R7/R10 的「是否对组员显式告知」无处可签。
-- ⚠ 未产出：**agent 编制面板**（`[编制]` 点开的抽屉，原 `chat-team-compose-panel.png`，即 S5） —— 该屏尚未画（**G-21**）
+- ⚠ 未产出：**agent 编制面板**（`[编制]` 点开的抽屉，原 `chat-team-compose-panel`，即 S5） —— 该屏尚未画（**G-21**）
   ↳ 现状是 `chat-team-edit-hint` 一行提示文字，不是面板。
 - ⚠ 未产出：**「项目工作台 → 与 AI 的对话」第二入口**（`/projects/[id]`，即 S9，uc-8-2 V12） —— 该屏尚未画（**G-22**）
 
-> 早先同列于「待补画」的 `chat-binding-mode-selector.png` / `chat-no-source-greyed.png` /
-> `preset-list.png` / `preset-editor.png` / `preset-dispatch-targets.png` / `preset-usage-count.png`
+> 早先同列于「待补画」的 `chat-binding-mode-selector` / `chat-no-source-greyed` /
+> `preset-list` / `preset-editor` / `preset-dispatch-targets` / `preset-usage-count`
 > **六项已被本轮真实截图覆盖**（分别落在 3.1 的 #1/#9 与 3.2 的 #10/#16/#18），
 > 只是**文件名与落点路由都与当初设想不同**，故不再保留旧名。
 

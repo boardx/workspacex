@@ -3,12 +3,9 @@
 > **自检（2026-07-30 机械核对）：本文件引用 15 张截图，目录 `ui-preview/files/` 下实际 15 张。N == M == 15，逐张核对全部真实存在，无死链。**
 > 索引表（第三·一节）内**每张恰好一行、不重复**；正文另有两处**交叉引用**（`uc-22-1-browser-default.png`、`uc-22-4-trash-compliance.png`）指向索引里已有的图，不是第二条索引项。
 > 另有 **1 条未产出条目**（`uc-22-3` 物化失败态），它**不计入 N**——它没有文件名可引，见第三·三节「第 ① 件材料缺口」。
-> 复核命令：
+> 复核命令（**唯一实现**，别再手写 grep —— 手写的那版正则不认中文文件名，会假绿）：
 > ```bash
-> cd phases/phase-01-run-a-project
-> ls ui-preview/files/*.png | xargs -n1 basename | sort > /tmp/a
-> grep -oE 'ui-preview/files/[a-z0-9-]+\.png' contracts/files/ui.md | sed 's#.*/##' | sort -u > /tmp/b
-> diff /tmp/a /tmp/b && echo OK
+> node .harness/scripts/lint-ui-material.mjs
 > ```
 
 > phase-01 是 `has_ui: true` 阶段，本文件由 `requiredBundleFiles()` 强制存在，缺则门控红。
@@ -187,7 +184,7 @@ UC-22.3 **没有独立屏**（R8：界面就是 UC-22.1 的浏览器）。它的
 
 ⚠ 与第五节的 G-x 是**两类不同性质的东西**：这里是**没画图**，第五节是**没实现**。
 本节只收「设想过、但目录里没有对应文件」的条目，**不写假路径**——曾被引用的
-`uc-22-3-materialize-failed.png` **从未存在**，现改写为缺口条目：
+`uc-22-3-materialize-failed` **从未存在**，现改写为缺口条目：
 
 | # | 缺口条目 | 关联 |
 |---|---|---|

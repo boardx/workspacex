@@ -237,7 +237,7 @@ S9 / S10 / S11 三块「要先补设计」的，**设计这一步已由 UI 先�
 ## 三之二、第 ① 件材料缺口 —— 原设想里有、实际没画的
 
 > 本节是**故意显眼**的。上一版本文件按「界面依据」设想了 11 个截图文件名
-> （`ui-preview/admin-*.png` / `chat-approval-confidential.png` 等），
+> （`ui-preview/admin-*.png` / `chat-approval-confidential` 等），
 > 实际产出走的是另一条路线：ui-prototyper 明确**只补净新屏、不重画已建成的列表屏**
 > （`ui-preview/agent-runtime/README.md` 顶部「范围纪律」＋ §五-2）。
 > ⇒ **那 11 个设想文件名一个都不存在，且不会被补**，除非签核时明确要求。
@@ -247,20 +247,20 @@ S9 / S10 / S11 三块「要先补设计」的，**设计这一步已由 UI 先�
 
 ### A. 已建成但无截图的四块屏（凭第二节 `data-testid` 实测表与源码签，无图）
 
-- ⚠ 未产出：**模型管理列表**（两个分组 + 筛选 + 状态 + 行操作 + 两条组说明，原设想 `ui-preview/admin-model.png`，S1）—— 该屏尚未画
-- ⚠ 未产出：**五项测试判读面板**（原设想 `ui-preview/admin-model-test.png`，S1；原本要用它暴露 `coverage.md` 缺口 3「只有勾选，无三选 + 证据」）—— 该屏尚未画
-- ⚠ 未产出：**模型停用二选一确认框**（影响范围「N 个进行中的调用」+ 理由必填，原设想 `ui-preview/admin-model-disable.png`，S1）—— 该屏尚未画
-- ⚠ 未产出：**MCP 五列清单 + `已隔离 · 待安全评审` 行**（原设想 `ui-preview/admin-mcp.png`，S2）—— 该屏尚未画。**注意**：同一设想文件名里的「安全策略四开关区」已由第三节第 10 张（`uc-21-2-mcp-policy-default.png`）覆盖，**缺的是清单那半边**
-- ⚠ 未产出：**「N 工具」展开的工具清单**（白名单编辑器的数据源，原设想 `ui-preview/admin-mcp-tools.png`，S2）—— 该屏尚未画
-- ⚠ 未产出：**Agent 列表三态**（运行中 / 草稿含阻断文案 / 待审核含门禁文案与越权申请数，原设想 `ui-preview/admin-agent.png`，S3）—— 该屏尚未画
-- ⚠ 未产出：**`[查看定义]` 六段并列只读视图**（原设想 `ui-preview/admin-agent-definition.png`，S3；原本要用它暴露 `coverage.md` 缺口 14「无『数据范围』『最近试跑』两列」）—— 该屏尚未画
-- ⚠ 未产出：**数据总览「异常待处理」两条告警 + `[查看调用链]` 下钻**（原设想 `ui-preview/admin-overview-anomaly.png`，S4）—— 该屏尚未画。**注意**：调用链下钻的**语义**已由 `uc-4-4-audit-chain.png` 覆盖，但那是审计屏的下钻，**不是 `/admin` 总览屏的**
-- ⚠ 未产出：**`/chat` 宿主屏上的批准卡**（原设想 `ui-preview/chat-approval-confidential.png`，S5）—— 该屏尚未画。**注意**：批准卡本身的三张关键图已由 `uc-20-3-routing-default / -explain / -change-confidential.png` 覆盖，缺的是**它嵌在真实对话流里长什么样**（宿主归 `chat` 束）
+- ⚠ 未产出：**模型管理列表**（两个分组 + 筛选 + 状态 + 行操作 + 两条组说明，原设想 `ui-preview/admin-model`，S1）—— 该屏尚未画
+- ⚠ 未产出：**五项测试判读面板**（原设想 `ui-preview/admin-model-test`，S1；原本要用它暴露 `coverage.md` 缺口 3「只有勾选，无三选 + 证据」）—— 该屏尚未画
+- ⚠ 未产出：**模型停用二选一确认框**（影响范围「N 个进行中的调用」+ 理由必填，原设想 `ui-preview/admin-model-disable`，S1）—— 该屏尚未画
+- ⚠ 未产出：**MCP 五列清单 + `已隔离 · 待安全评审` 行**（原设想 `ui-preview/admin-mcp`，S2）—— 该屏尚未画。**注意**：同一设想文件名里的「安全策略四开关区」已由第三节第 10 张（`uc-21-2-mcp-policy-default.png`）覆盖，**缺的是清单那半边**
+- ⚠ 未产出：**「N 工具」展开的工具清单**（白名单编辑器的数据源，原设想 `ui-preview/admin-mcp-tools`，S2）—— 该屏尚未画
+- ⚠ 未产出：**Agent 列表三态**（运行中 / 草稿含阻断文案 / 待审核含门禁文案与越权申请数，原设想 `ui-preview/admin-agent`，S3）—— 该屏尚未画
+- ⚠ 未产出：**`[查看定义]` 六段并列只读视图**（原设想 `ui-preview/admin-agent-definition`，S3；原本要用它暴露 `coverage.md` 缺口 14「无『数据范围』『最近试跑』两列」）—— 该屏尚未画
+- ⚠ 未产出：**数据总览「异常待处理」两条告警 + `[查看调用链]` 下钻**（原设想 `ui-preview/admin-overview-anomaly`，S4）—— 该屏尚未画。**注意**：调用链下钻的**语义**已由 `uc-4-4-audit-chain.png` 覆盖，但那是审计屏的下钻，**不是 `/admin` 总览屏的**
+- ⚠ 未产出：**`/chat` 宿主屏上的批准卡**（原设想 `ui-preview/chat-approval-confidential`，S5）—— 该屏尚未画。**注意**：批准卡本身的三张关键图已由 `uc-20-3-routing-default / -explain / -change-confidential` 覆盖，缺的是**它嵌在真实对话流里长什么样**（宿主归 `chat` 束）
 
 ### B. 上一版本自己点名"另建议补"的两张空态 —— 也没补
 
-- ⚠ 未产出：**模型管理空态**（原设想 `ui-preview/admin-model-empty.png`）—— 该屏尚未画
-- ⚠ 未产出：**Agent 管理空态**（原设想 `ui-preview/admin-agent-empty.png`）—— 该屏尚未画
+- ⚠ 未产出：**模型管理空态**（原设想 `ui-preview/admin-model-empty`）—— 该屏尚未画
+- ⚠ 未产出：**Agent 管理空态**（原设想 `ui-preview/admin-agent-empty`）—— 该屏尚未画
 
 ⇒ 上一版提出这两张的理由**依然成立且未被消解**：原型每屏都填满样例数据、**零空态**，
 而本束有 8 条验收线索直接考空态（20-1 V9、20-2 V11、21-1 V13、21-2 V14、

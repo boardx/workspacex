@@ -231,17 +231,17 @@ R8 反推的布局：左侧匿名声道卡（时长占比 / 首次出现时间�
 
 | 原设想文件名（**已作废，全部不存在**） | 真实落点 | 判定 |
 |---|---|---|
-| `rec-interview-stage.png` | `ui-preview/rec/uc-5-1-live-default.png` | ✅ 有对应（但拍的是 `/rec` 不是 `/studio/interview`） |
-| `rec-interview-overlap.png` | 内容并入 `uc-5-1-live-default.png`（`seg-06/07/08` 不稳定态）＋ `uc-5-2-assign-default.png`（两态待处理、无默认选中、保持待指派） | ✅ 有对应，无独立截图 |
-| `rec-interview-lowconf.png` | 低置信段可见于 `uc-5-1-live-default.png`；**解除出口没有** | ⚠ 部分 —— 见 G-1 |
-| `rec-interview-pii.png` | 遮盖标注与 `rec-pii-reveal-*` 按钮已在 `uc-5-1-live-default.png`；**点开后的授权屏与无权限拒绝态没有** | ⚠ 部分 —— 原表「整块未建」**已不成立**（按钮已建），改判见 G-2 |
-| `rec-interview-ai-annotation.png` | `ui-preview/rec/uc-5-3-annotate-default.png`（三出口 + 失效候选） | ✅ 有对应；原表「三出口未建」**已不成立** |
-| `rec-assign-speaker.png` | `ui-preview/rec/uc-5-2-assign-*.png`（7 张） | ✅ 有对应；原表「整屏未建」**已不成立**（但此屏是按 R8 反推补的 [设计]，仍需人类确认布局本意） |
-| `rec-group-mic.png` | `ui-preview/rec/uc-5-1-live-workshop.png`（四组并行轨道状态，含「未录制」与拒绝麦克风路） | ✅ 有对应；原表「后两者未建」中的**「未录制」已建**，**「录制已暂停」的转写流缺口标记仍无** —— 见 G-3 |
-| `rec-chat-transcript.png` | `ui-preview/rec/uc-5-1-live-thread.png` | ✅ 有对应（拍的是 `/rec` 的 thread 载体，不是 `/chat` 右栏本体） |
-| `rec-retention-per-material.png` | `ui-preview/rec/uc-5-4-retention-default.png`（材料库逐份「保留至」） | ✅ 有对应；原表「整块未建」**已不成立** |
-| `rec-consent-render.png` | `ui-preview/rec/uc-5-4-retention-default.png`（渲染 vs 快照并列）＋ `uc-5-4-retention-interviewee.png` | ✅ 有对应 |
-| `rec-offline-gap.png` | 轨道级「断网缓存」可见于 `uc-5-1-live-workshop.png`；**转写流上的 gap 标记没有** | ⚠ 部分 —— 见 G-3 |
+| `rec-interview-stage` | `ui-preview/rec/uc-5-1-live-default.png` | ✅ 有对应（但拍的是 `/rec` 不是 `/studio/interview`） |
+| `rec-interview-overlap` | 内容并入 `uc-5-1-live-default.png`（`seg-06/07/08` 不稳定态）＋ `uc-5-2-assign-default.png`（两态待处理、无默认选中、保持待指派） | ✅ 有对应，无独立截图 |
+| `rec-interview-lowconf` | 低置信段可见于 `uc-5-1-live-default.png`；**解除出口没有** | ⚠ 部分 —— 见 G-1 |
+| `rec-interview-pii` | 遮盖标注与 `rec-pii-reveal-*` 按钮已在 `uc-5-1-live-default.png`；**点开后的授权屏与无权限拒绝态没有** | ⚠ 部分 —— 原表「整块未建」**已不成立**（按钮已建），改判见 G-2 |
+| `rec-interview-ai-annotation` | `ui-preview/rec/uc-5-3-annotate-default.png`（三出口 + 失效候选） | ✅ 有对应；原表「三出口未建」**已不成立** |
+| `rec-assign-speaker` | `ui-preview/rec/uc-5-2-assign-*.png`（7 张） | ✅ 有对应；原表「整屏未建」**已不成立**（但此屏是按 R8 反推补的 [设计]，仍需人类确认布局本意） |
+| `rec-group-mic` | `ui-preview/rec/uc-5-1-live-workshop.png`（四组并行轨道状态，含「未录制」与拒绝麦克风路） | ✅ 有对应；原表「后两者未建」中的**「未录制」已建**，**「录制已暂停」的转写流缺口标记仍无** —— 见 G-3 |
+| `rec-chat-transcript` | `ui-preview/rec/uc-5-1-live-thread.png` | ✅ 有对应（拍的是 `/rec` 的 thread 载体，不是 `/chat` 右栏本体） |
+| `rec-retention-per-material` | `ui-preview/rec/uc-5-4-retention-default.png`（材料库逐份「保留至」） | ✅ 有对应；原表「整块未建」**已不成立** |
+| `rec-consent-render` | `ui-preview/rec/uc-5-4-retention-default.png`（渲染 vs 快照并列）＋ `uc-5-4-retention-interviewee.png` | ✅ 有对应 |
+| `rec-offline-gap` | 轨道级「断网缓存」可见于 `uc-5-1-live-workshop.png`；**转写流上的 gap 标记没有** | ⚠ 部分 —— 见 G-3 |
 
 ### （b）真缺口汇总（K = 6）
 
