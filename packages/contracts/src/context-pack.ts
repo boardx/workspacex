@@ -491,4 +491,54 @@ export const KNOWN_CONTRACT_GAPS = {
    * 必须自己写一句话说明它的来源。
    */
   G6: "nothing in phase-00 produces a [0,1] relevance figure for O-36's threshold to act on; ContextItem.score is an RRF score and RerankPort returns an order, not scores",
+  /**
+   * **`ContextItem` cannot say whether an item is confidential, and I-10 is stated over items.**
+   *
+   * I-10: 「`items[]` 含**任何**机密条目 ⇒ 本轮 `localOnly = true`」. The nine fields of
+   * `ContextItem` include no sensitivity marker, so a client holding a `ContextPack` -- which
+   * is what `replayContextPack` and `assembleContextPack` both return -- cannot evaluate the
+   * invariant the domain states about it, and cannot render 「这条是机密」 next to the item that
+   * caused the whole round to be confined.
+   *
+   * `QueryContext.allowedSensitivity` is the nearest thing and it is the wrong direction: it
+   * says what the QUERY was permitted to reach, not what came back.
+   *
+   * F13's handling: confidentiality is read from `segment_text.confidential` (F10's column)
+   * and recorded per candidate in `context_packs.recorded`; `resolvePackModelConstraint`
+   * returns only the COUNT, which is what the contract offers. No field was added to
+   * `ContextItem` and no marker was smuggled into an existing one -- so a UI that wants to
+   * point at the offending item still cannot, and that is reported rather than papered over.
+   */
+  G7: "ContextItem carries no confidentiality marker, so I-10 (stated over items[]) cannot be evaluated from a ContextPack alone; only resolvePackModelConstraint's confidentialItemCount reaches the client, and it names no item",
+  /**
+   * **`pinContextPack` has no `orgId`, and neither does `replayContextPack`.**
+   *
+   * Every other operation that touches tenant data either carries an `orgId`
+   * (`assembleContextPack`) or is scoped by a session. These two take a bare `runId`, which
+   * means the tenant has to come from somewhere the contract does not describe. Under RLS a
+   * run from another organization is simply invisible, so the outcome is `RUN_NOT_FOUND`
+   * rather than a leak -- but the contract as written cannot say that, and an implementation
+   * that resolved the tenant FROM the runId (the obvious reading) would be a cross-tenant
+   * read with a plausible signature.
+   *
+   * F13's handling: the store binds the tenant at construction and every query carries
+   * `org_id` on top of RLS. Recorded rather than fixed, because adding `orgId` to a signed
+   * `in` schema is the contract owner's call.
+   */
+  G8: "replayContextPack / pinContextPack take only a runId with no tenant, so the obvious implementation (resolve the org FROM the run) is a cross-tenant read; the tenant has to be supplied out of band",
+  /**
+   * **`PinContextPack` cannot express「已经固化过了」.**
+   *
+   * `err` is `[RUN_NOT_FOUND, PIN_REQUIRES_SNAPSHOT]`. I-7 requires a pinned pack to be
+   * immutable, so a second pin of the same run -- to a different snapshot, say -- must be
+   * refused; and there is no code for it. The available codes are both lies (`RUN_NOT_FOUND`
+   * says the id is wrong; `PIN_REQUIRES_SNAPSHOT` blames a target that may be perfectly valid).
+   *
+   * F13's handling: the refusal is the DATABASE's (migration 0016's `context_pack_pin_is_final`
+   * trigger), it raises rather than returning a contract code, and no new member was invented
+   * for `ContextPackReason`. The consequence is that a client sees a 500-shaped failure for a
+   * condition that is really a 409, which is a worse experience than the right code would give
+   * and a better one than a wrong code would.
+   */
+  G9: "pinContextPack has no error code for「this run is already pinned」, so I-7's refusal cannot be reported as a contract failure; F13 raises from the DB trigger rather than reusing RUN_NOT_FOUND or PIN_REQUIRES_SNAPSHOT, both of which would misdescribe it",
 } as const;

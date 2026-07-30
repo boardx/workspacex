@@ -19,6 +19,13 @@ dist/
 # 构建损坏时把 .next 改名保留的现场（`.next.corrupt-<ts>/`）——`.next/` 盖不住它，
 # 曾有一坨 117MB 的残骸在主 checkout 里躺了几天没人认领
 .next.corrupt-*/
+# ⚠ 通配，不要退回逐个枚举（2026-07-29）。
+#   原先这里逐行列着 .next-prod-gate/ .next-ui-gate/ .next-e2e/ ——
+#   每起一个新的预览/门控 build 目录就要记得加一行，而没人会记得。
+#   phase-01 的 UI 先行原型起了 .next-oa 与 .next-tpl-preview 两个新目录，
+#   两个都进了库（174 个文件，含 webpack cache 的 .pack.gz）。
+#   一条通配规则顶掉一整类，比一份要人维护的清单可靠。
+.next-*/
 *.tsbuildinfo
 
 # 本地环境与运行时态（派生，不入库）
@@ -51,10 +58,7 @@ phases/requirements-backup/
 
 # 演示导出物（presentations 等），由工具生成，非事实源
 output/
-.next-prod-gate/
-.next-ui-gate/
 _fl-parts/
-.next-e2e/
 playwright-report/
 test-results/
 

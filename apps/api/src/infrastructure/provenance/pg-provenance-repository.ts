@@ -10,7 +10,7 @@
  * convenient path; the grant is the guarantee.
  */
 import { provenance as P } from "@repo/contracts";
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   ProvenanceAppendInput,
   ProvenanceEventRecord,
@@ -63,24 +63,35 @@ implements ProvenanceWriter, ProvenanceReader, ReviewNotifier {
   constructor(private readonly db: DatabasePort) {}
 
   async append(input: ProvenanceAppendInput): Promise<string> {
+    return this.db.withTenant(input.orgId, (s) => this.appendWithin(s, input));
+  }
+
+  /**
+   * The one and only INSERT into `provenance_events`.
+   *
+   * `append` is this plus a transaction. Keeping the SQL in a single place is not tidiness:
+   * F17 needs an append inside a transaction it already owns (two tenants, one atom), and
+   * the alternative -- a second INSERT in the export repository -- would be a second
+   * declaration of how an audit event is written, in the one table where "was this recorded"
+   * must have exactly one answer.
+   */
+  async appendWithin(s: TenantSession, input: ProvenanceAppendInput): Promise<string> {
     // Parsed against the shared contract before it reaches SQL. The database CHECK says
     // the same thing, and that duplication is deliberate and reconciled by a test: this
     // gives a readable error at the boundary, the CHECK covers every other writer.
     const type = P.ProvenanceEventType.parse(input.type);
-    return this.db.withTenant(input.orgId, async (s) => {
-      const r = await s.query<{ id: string }>(
-        `INSERT INTO provenance_events (org_id, type, actor_id, target_kind, target_id, detail)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-         RETURNING id`,
-        [input.orgId, type, input.actorId, input.target.kind, input.target.id,
-         JSON.stringify(input.detail)],
-      );
-      const id = r.rows[0]?.id;
-      // An INSERT ... RETURNING with no row back means the write did not happen. Silently
-      // returning an empty id would hand the caller a "trail id" pointing at nothing.
-      if (!id) throw new Error("provenance append returned no id");
-      return id;
-    });
+    const r = await s.query<{ id: string }>(
+      `INSERT INTO provenance_events (org_id, type, actor_id, target_kind, target_id, detail)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+       RETURNING id`,
+      [input.orgId, type, input.actorId, input.target.kind, input.target.id,
+       JSON.stringify(input.detail)],
+    );
+    const id = r.rows[0]?.id;
+    // An INSERT ... RETURNING with no row back means the write did not happen. Silently
+    // returning an empty id would hand the caller a "trail id" pointing at nothing.
+    if (!id) throw new Error("provenance append returned no id");
+    return id;
   }
 
   async query(orgId: OrgId, q: Omit<ProvenanceQuery, "orgId">): Promise<ProvenancePage> {

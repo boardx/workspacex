@@ -340,14 +340,15 @@
         "F11"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f13",
       "verification": [
-        "pnpm vitest run tests/kernel/context-pack-pinned-replay.test.ts",
-        "pnpm vitest run tests/kernel/confidential-local-model-routing.test.ts"
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/kernel/context-pack-pinned-replay.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/confidential-local-model-routing.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F13.verify.log @ 2026-07-29T19:05:53.922Z",
       "notes": "Context Pack 一经用于定版即随快照固化，此后上游变化不改写它（对应 context-engine.md 首批门槛⑥可重放 + uc-17-1 AC1）。可重放是纯函数断言（同 run id 重放得同 items[]）。机密路由：含客户机密条目时本次调用模型选择限自托管模型（R12 V9 机密路由 + V8 审计还原）。依据：[原型]（机密材料只能本地模型）+[设计]（固化/重放）。全 API/纯函数断言，不涉界面。[待确认] Context Pack 装配快照的留存期未定——不阻塞实现，标注待细化（它是审计依据但体量可能很大）。与 F05 快照不可变、F11 omissions 固化协同。"
     },
     {
@@ -448,17 +449,19 @@
         "F08"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "04",
-      "owner": null,
+      "owner": "agent-f17",
       "verification": [
-        "pnpm vitest run tests/kernel/local-export-no-auto-sync.test.ts",
-        "pnpm vitest run tests/kernel/local-export-preview-gate.test.ts",
-        "pnpm vitest run tests/kernel/local-export-copy-not-move.test.ts",
-        "pnpm vitest run tests/kernel/local-export-provenance-both-sides.test.ts",
-        "pnpm vitest run tests/kernel/local-import-rejected.test.ts"
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter api exec vitest run tests/kernel/local-export-no-auto-sync.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-export-preview-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-export-copy-not-move.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-export-provenance-both-sides.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/local-import-rejected.test.ts",
+        "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
+      "evidence": "evidence/F17.verify.log @ 2026-07-29T19:06:09.255Z",
       "notes": "依据等级：[已裁决 2026-07-28]——人类裁定「本地组织的数据可以导出到其他的正式组织」。**单独成 feature 而不并入 F16，是因为它是 F16 三条隐私承诺的唯一豁口**——混在里面会让「数据不出本机」这条承诺的边界变模糊，也让验收无法独立。五条硬约束（对应五条 verification）：① 显式一次性人工动作，**禁止任何自动同步/后台上传/定时推送**；② 导出前逐项预览将离开本机的内容**及其在目标组织的可见性**（按目标 acl_bindings 预演）；③ 复制而非迁移，本地副本保留；④ **两侧**都写 provenance_events，目标侧标注来源为本地组织（因为它未经该组织的任何入库审核）；⑤ **单向**，反向导入被拒。⚠ V11① 与 F16 的 V3 是同一条网络层断言的两面：不操作时出网恒为 0，覆盖「后台悄悄传」这种最危险的失效方式。priority=2：它不阻塞 F15/F16 落地，但必须与 F16 同期设计，否则豁口会被临时方案侵蚀。"
     },
     {

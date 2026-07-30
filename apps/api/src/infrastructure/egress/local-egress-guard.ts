@@ -42,17 +42,36 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import net from "node:net";
-import { LocalOrgEgressBlockedError } from "../../application/identity/errors";
-import type { EgressGuard } from "../../application/identity/local-org-ports";
+import {
+  ExportApertureClosedError,
+  ExportItemNotApprovedError,
+  LocalOrgEgressBlockedError,
+} from "../../application/identity/errors";
+import type { EgressGuard, ExportAperture } from "../../application/identity/local-org-ports";
 import type { OrgId } from "../../domain/org-id";
 
 interface Scope {
   readonly orgId: string;
+  /**
+   * The artifacts a human confirmed may leave, or `null` when this scope is ordinary local
+   * work with no export in it (`runLocalOnly`).
+   */
+  readonly approved: ReadonlySet<string> | null;
+  /**
+   * The artifact whose transfer is happening RIGHT NOW on this async chain, or `null`.
+   *
+   * ⚠ This is the entire difference between "the guard is off during an export" and "the
+   * guard is open for the selected items". It is non-null only inside `aperture.send`, so a
+   * connection opened anywhere else during the same export -- a telemetry ping, a retry
+   * helper, an unrelated await in the same request -- sees `null` and is refused.
+   */
+  readonly transferring: string | null;
 }
 
 const store = new AsyncLocalStorage<Scope>();
 
 const refusals: { orgId: string; target: string }[] = [];
+const permits: { orgId: string; artifactId: string; target: string }[] = [];
 
 /** Loopback only. Everything else is off this machine, LAN included. */
 export function isLoopbackTarget(host: string | undefined): boolean {
@@ -135,6 +154,12 @@ export function installEgressGuard(): void {
     if (scope !== undefined) {
       const { host, label } = targetOf(args);
       if (!isLoopbackTarget(host)) {
+        // F17: the ONE aperture. Note what is checked -- not "is an export running" but
+        // "is a confirmed artifact being transferred on THIS async chain right now".
+        if (scope.transferring !== null) {
+          permits.push({ orgId: scope.orgId, artifactId: scope.transferring, target: label });
+          return (original as (...a: unknown[]) => net.Socket).apply(this, args);
+        }
         refusals.push({ orgId: scope.orgId, target: label });
         // THROWN, not silently dropped. A dropped connection looks like a network blip and
         // gets retried; an exception stops the operation and reaches a human. The promise is
@@ -152,7 +177,7 @@ export class ProcessEgressGuard implements EgressGuard {
   }
 
   runLocalOnly<T>(orgId: OrgId, fn: () => Promise<T>): Promise<T> {
-    return store.run({ orgId }, fn);
+    return store.run({ orgId, approved: null, transferring: null }, fn);
   }
 
   attemptedEgress(): number {
@@ -161,5 +186,71 @@ export class ProcessEgressGuard implements EgressGuard {
 
   refusals(): readonly { orgId: string; target: string }[] {
     return refusals.slice();
+  }
+
+  /* ─────────────────────── F17: the one aperture in the promise ─────────────────────── */
+
+  /**
+   * ⚠ The scope this installs has `transferring: null`, i.e. it is **exactly as closed as
+   * `runLocalOnly`**. An export does not loosen the promise; it merely brings an aperture
+   * into existence, and the aperture is what opens -- per artifact, for the duration of one
+   * call.
+   */
+  runExport<T>(
+    orgId: OrgId,
+    approvedArtifactIds: readonly string[],
+    fn: (aperture: ExportAperture) => Promise<T>,
+  ): Promise<T> {
+    const approved = new Set(approvedArtifactIds);
+    const aperture = new ScopedAperture(approved);
+    return store
+      .run({ orgId, approved, transferring: null }, () => fn(aperture))
+      .finally(() => aperture.close());
+  }
+
+  permits(): readonly { orgId: string; artifactId: string; target: string }[] {
+    return permits.slice();
+  }
+}
+
+/**
+ * The aperture object handed to `runExport`'s callback.
+ *
+ * ## The `live` flag is not belt-and-braces
+ *
+ * Without it, a reference kept past `runExport` would be usable in a place where there is no
+ * scope at all -- and outside every scope this guard counts nothing and blocks nothing, so a
+ * leaked aperture would not merely stay open, it would be a hole with no guard behind it.
+ * That is precisely the shape of "sync the local org to the server every night": grab the
+ * aperture during a real, human-initiated export, hold it, and use it from a timer.
+ *
+ * So `send` refuses twice over: the aperture must be live, AND the current async chain must
+ * still be inside the scope that created it.
+ */
+class ScopedAperture implements ExportAperture {
+  private live = true;
+
+  constructor(private readonly approved: ReadonlySet<string>) {}
+
+  close(): void {
+    this.live = false;
+  }
+
+  async send<T>(artifactId: string, fn: () => Promise<T>): Promise<T> {
+    if (!this.live) throw new ExportApertureClosedError(artifactId);
+    const scope = store.getStore();
+    // Not the same check as `live`: a live aperture can still be reached from an async chain
+    // that has left its scope (a detached promise started inside the export, resolving
+    // outside it). The store is what says "this chain is the export".
+    if (scope === undefined || scope.approved !== this.approved) {
+      throw new ExportApertureClosedError(artifactId);
+    }
+    if (!this.approved.has(artifactId)) {
+      // Refused BEFORE any transfer starts. This is the narrow-vs-wide distinction made
+      // reachable: on the success path it is invisible, and it is the only thing separating
+      // this implementation from one that simply disables the guard for the request.
+      throw new ExportItemNotApprovedError(artifactId);
+    }
+    return store.run({ ...scope, transferring: artifactId }, fn);
   }
 }

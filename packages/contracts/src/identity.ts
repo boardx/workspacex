@@ -94,6 +94,36 @@ export const LocalOrgReason = z.enum([
 ]);
 
 /**
+ * 导出豁口的失败码 —— **闭集**，与 `LocalOrgReason` 同一性质（F17，2026-07-30 新增）。
+ *
+ * ## 为什么这个枚举必须存在
+ *
+ * 这两条码**本来就写在契约里**（`previewExport.err` / `exportToOrganization.err`），
+ * 但错误边界（`all-exceptions.filter.ts`）只放行**闭枚举**的成员——
+ * 那条限制是对的：异常消息不该因为凑巧被塞进 `reasonCode` 就变成对外契约。
+ * 代价是：不属于任何枚举的码会被**静默丢弃**，客户端收到一个光秃秃的 `conflict`。
+ *
+ * ⚠ 这不是推测。F17 实现时第一次跑门控，`EXPORT_PREVIEW_REQUIRED` 就是这样消失的：
+ *   状态码 409 是对的，`reasonCode` 没了，而界面靠它区分「你还没预览」与
+ *   「这次请求和你确认过的清单对不上」——两者要用户做的事不同。
+ *   F19 在 `AuthReason` 上踩过同一个坑，注释就写在那道过滤器里。
+ *
+ * ## 为什么不并进 `LocalOrgReason`
+ *
+ * 那个枚举回答的是「本地组织这条路走不通，因为依赖/端点/组织类型」。
+ * 这两条回答的是**导出这一次动作**的状态：确认过没有、方向对不对。
+ * 合并会让前端拿「依赖失败态」去渲染一个「请再确认一次」的流程。
+ *
+ * ⚠ **成员集合与两个操作的 `err` 必须一致**，由
+ *   `apps/api/tests/kernel/local-import-rejected.test.ts` 机械核对——
+ *   否则这里就成了第二份失败面声明。
+ */
+export const LocalExportReason = z.enum([
+  "EXPORT_PREVIEW_REQUIRED",
+  "EXPORT_DIRECTION_FORBIDDEN",
+]);
+
+/**
  * 本地组织的对象存储键前缀（硬隔离③的**可断言形式**）
  *
  * 「数据不进共享对象存储」若只写成一句承诺，是查不了的。写成键前缀之后它有了两道门控：
@@ -722,3 +752,91 @@ export const operations = {
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;
+
+/* ═══════════════════ F17：导出豁口的常量（单一事实源）═══════════════════ */
+
+/**
+ * 目标侧条目的来源标注 —— **一句话，一个地方**。
+ *
+ * user_visible_behavior 的原话是「目标侧的条目明确标注『来自某成员的本地组织，
+ * 未经本组织入库审核』」。这句话有三个消费者：目标侧 `artifacts` 行的标注、
+ * 两侧 `provenance_events` 的 detail、以及界面上那一行文案。
+ *
+ * ⚠ 它必须在这里而不是在后端或界面里：这是本项目第六次「同一事实两处声明」的
+ *   现成候选，而漂移的形式会特别难看——库里标着一句、界面显示另一句，
+ *   于是「这条东西到底审没审过」变成两个互相矛盾的答案。
+ *
+ * ⚠ 是**函数**而不是常量字符串：标注必须说清是**谁**的本地组织。
+ *   一句不带人的「来自某个本地组织」在目标组织里是不可追责的。
+ */
+export function localExportUnvettedNote(ownerDisplayId: string): string {
+  return (
+    `来自成员 ${ownerDisplayId} 的本地组织，未经本组织入库审核。` +
+    `它是该成员显式发起的一次性导出，不是本组织的入库流程产物。`
+  );
+}
+
+/**
+ * 预览令牌的有效期。**预览与确认之间隔了多久仍算「同一次人工动作」**。
+ *
+ * ⚠ 存在的理由不是安全余量，是 V11①「禁止任何自动同步/后台上传/定时推送」：
+ *   一个永不过期的令牌就是一把可以放进定时任务里的钥匙——攒一个 token，
+ *   之后每晚推一次，每一次都能出示「人确认过」的证据。有效期把
+ *   「人刚刚看过这份清单」变成一个可验证的事实而不是一个历史声明。
+ *
+ * 一次性由数据库的条件 UPDATE 保证（迁移 0016），这里只管新鲜度。
+ */
+export const LOCAL_EXPORT_PREVIEW_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * 已知契约缺陷（F17 实现时发现，**如实登记而不是自行发明**）。
+ *
+ * 与 `auth.KNOWN_CONTRACT_GAPS` 同一约定：写下来的洞是可以被下一个人看见的洞，
+ * 被顺手补上的洞会变成没人评审过的第二份契约。
+ */
+export const KNOWN_CONTRACT_GAPS = {
+  /**
+   * **`previewExport` / `exportToOrganization` 没有「这件成果不存在 / 不属于该本地组织」的失败码。**
+   *
+   * 两个操作的 `err` 合计只有三条：NO_ORG_MEMBERSHIP、EXPORT_DIRECTION_FORBIDDEN、
+   * EXPORT_PREVIEW_REQUIRED。而 `artifactIds` 是调用方给的，里面完全可能有一个
+   * 本地组织里没有的 id。
+   *
+   * F17 的处理（**没有发明新码**）：预览只列出**真实存在**的条目，令牌绑定的正是
+   * 这一组 id；随后 `exportToOrganization` 要求请求的 id 集合与令牌完全相等，
+   * 于是带着一个不存在的 id 去导出会得到 `EXPORT_PREVIEW_REQUIRED`
+   * （「你确认过的那份预览不覆盖这次请求」），语义是准确的。
+   *
+   * 代价照实说：**用户在预览里看到的是「少了一条」而不是「这一条为什么不能导」**。
+   * 补法需要人类重新签核（要么加失败码，要么给 preview 的 out 加一个不可导条目清单）。
+   */
+  C_F17_1: "no failure code for an artifactId that does not exist in the local org; preview silently omits it",
+  /**
+   * **`exportToOrganization.out.copiedArtifactIds` 回答不了「副本在目标组织的 id 是什么」。**
+   *
+   * 字段名只说「被复制的那些」。而 `artifacts.id` 是**全局唯一**的，所以目标侧的副本
+   * 必然是一个**新 id**——响应里那组 id 只能是源 id（本实现即如此），
+   * 于是「导出成功了，去目标组织看看」这个动作在协议层无路可走。
+   *
+   * F17 的处理：源→目标的映射写进**两侧 provenance 事件的 `detail.copies`**，
+   * 审计查得到；响应体不动，因为改它是契约形状变更，要人类签核。
+   */
+  C_F17_2: "copiedArtifactIds cannot express the source->target id mapping; the mapping lives only in provenance detail",
+  /**
+   * **`previewExport.out.items[].willBeVisibleTo[].kind` 是 `z.string()` 而不是枚举。**
+   *
+   * 主体只有三种（user / team / group，见 `acl_bindings.subject_kind`），
+   * 而这里是一个开放字符串——界面无法据此分派图标或文案，只能把它当标签打印。
+   * 一个开放的 kind 也意味着服务端写错了没人发现（`.strict()` 只挡多余字段，不挡取值）。
+   */
+  C_F17_3: "willBeVisibleTo[].kind is an open string, not the closed user|team|group set acl_bindings enforces",
+  /**
+   * **没有任何操作能读回「目标组织里哪些条目是本地导入来的」。**
+   *
+   * user_visible_behavior 要求目标侧条目带标注，标注也确实落了库（迁移 0016 的
+   * `artifacts.imported_from_org_id` + `imported_from_note`），但 identity 束里
+   * 没有列举 artifact 的操作，artifact 束的操作也不返回这两个字段。
+   * ⇒ 标注**存在且可审计（provenance）**，但**不在任何响应体里**。
+   */
+  C_F17_4: "the target-side 'unvetted, came from a local org' mark is stored and audited but no operation returns it",
+} as const;

@@ -74,10 +74,30 @@ const HARDCODE_PATTERNS: { name: string; re: RegExp; hint: string }[] = [
   },
   {
     name: "retentionMaterial",
-    re: /\b180\s*天(?!.*动态渲染)/,
+    re: /\b180\s*天/,
     hint: "材料保留期须按项目动态渲染（D-14），不得写死 180 天",
   },
 ];
+
+/**
+ * 显式豁免标记 —— 一行带 `[threshold-ok:<项>] <理由>` 才放行。
+ *
+ * ⚠ 2026-07-29：原先 `retentionMaterial` 的正则用负向前瞻放行含「动态渲染」四个字的行。
+ * phase-01 的 UI 先行原型一来就撞出三条**误报**：
+ *   · `agent-runtime.ts` 那行字面写着「留存期读组织参数，**非写死** 180 天」
+ *   · `retention-panel.tsx` 那行写着「实现按参数读取，**不写常量**」
+ *   · `rec.ts` 里一份**已提交的同意书快照**记着当时的 180——它是历史数据，
+ *     不回溯改写正是 D-14 要的行为，改掉它才是错的
+ * 三条说的都正是门控要的事，却被门控判违规。
+ *
+ * 靠往前瞻里再塞几个词（「非写死」「不写常量」…）不是修法：那等于让「碰巧写对措辞」
+ * 决定放不放行，而真正的硬编码只要不提这些词就能溜过去。本仓记过这个形状——
+ * **过度触发的门控会被静音，那是门控彻底失效的方式**。
+ *
+ * ⇒ 改成显式标记：豁免是一个**可 grep、带理由、写给 reviewer 看**的动作。
+ * 想绕过门控依然要动手写一行字，但那行字会出现在 diff 里，且必须说明为什么。
+ */
+const EXEMPT = /\[threshold-ok:(\w+)\]/;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const n of readdirSync(dir)) {
@@ -95,16 +115,38 @@ describe("业务代码不得硬编码待定阈值", () => {
     ...walk(join(ROOT, "packages/contracts/src")),
   ];
 
-  it.each(HARDCODE_PATTERNS)("$name 没有被写死", ({ re, hint }) => {
+  it.each(HARDCODE_PATTERNS)("$name 没有被写死", ({ name, re, hint }) => {
     const hits: string[] = [];
     for (const f of files) {
       const body = readFileSync(f, "utf8");
       body.split("\n").forEach((line, i) => {
         // 注释行放行——文档里说明「不得写死 180 天」本身不该被判违规
         if (/^\s*(\*|\/\/|\/\*|\{\/\*)/.test(line)) return;
+        // 显式豁免：`[threshold-ok:<项>]` 必须点名是哪一项，
+        // 顺手写个通用的 `[threshold-ok]` 放行不了别的项。
+        const ex = EXEMPT.exec(line);
+        if (ex && ex[1] === name) return;
         if (re.test(line)) hits.push(`${relative(ROOT, f)}:${i + 1}  ${line.trim().slice(0, 80)}`);
       });
     }
-    expect(hits, hits.length ? `${hint}\n  ${hits.join("\n  ")}` : "").toEqual([]);
+    expect(
+      hits,
+      hits.length
+        ? `${hint}\n  ${hits.join("\n  ")}\n` +
+          `确属正当（如：单一声明处、历史快照、说明文案）时，在该行加 ` +
+          `\`[threshold-ok:${name}] <理由>\` —— 豁免要写在 diff 里，让 reviewer 看见。`
+        : "",
+    ).toEqual([]);
+  });
+
+  it("反证：豁免标记必须点名具体项，写个通用的放行不了", () => {
+    // 没有这一条，把 EXEMPT 放宽成 /\[threshold-ok\]/ 就能一次关掉所有项，且没人会发现。
+    const line = 'const d = "180 天"; // [threshold-ok:vectorRecallBaseline] 张冠李戴';
+    const ex = EXEMPT.exec(line);
+    expect(ex?.[1]).toBe("vectorRecallBaseline");
+    expect(ex?.[1]).not.toBe("retentionMaterial");
+    // 且没有标记时确实会被抓到
+    const rule = HARDCODE_PATTERNS.find((p) => p.name === "retentionMaterial")!;
+    expect(rule.re.test('const d = "180 天";')).toBe(true);
   });
 });

@@ -83,3 +83,59 @@ export class LocalOrgEgressBlockedError extends Error {
     super("LOCAL_ORG_EGRESS_BLOCKED");
   }
 }
+
+/* ─────────────────────────── F17: the one aperture ─────────────────────────── */
+
+/**
+ * The confirmed preview is missing, spent, stale, or does not cover this request.
+ *
+ * ⚠ One class for all four, and that is DELIBERATE -- unlike the four local-org failures
+ * above, which are separate because each maps to a different thing the user must do. Here
+ * the thing to do is identical in every case: **look at the list again and confirm it**.
+ * Telling them "your token expired" versus "your token was already used" would only invite
+ * a client that retries with the other kind of token, and there is no such thing.
+ */
+export class ExportPreviewRequiredError extends Error {
+  readonly code = "EXPORT_PREVIEW_REQUIRED";
+  constructor() {
+    super("EXPORT_PREVIEW_REQUIRED");
+  }
+}
+
+/** Not a local-to-real export. The aperture points one way and has no reverse. */
+export class ExportDirectionForbiddenError extends Error {
+  readonly code = "EXPORT_DIRECTION_FORBIDDEN";
+  constructor() {
+    super("EXPORT_DIRECTION_FORBIDDEN");
+  }
+}
+
+/**
+ * Something tried to move an artifact the human did not confirm.
+ *
+ * ⚠ NOT a contract error code, and it must never become one. It is not a state a valid
+ * request can reach -- the use case only ever transfers what the consumed token approved --
+ * so reaching it means our own code tried to smuggle. A wire code would make it look like a
+ * condition a client can handle; a 500 is the honest answer, because it is a defect.
+ */
+export class ExportItemNotApprovedError extends Error {
+  readonly code = "EXPORT_ITEM_NOT_APPROVED";
+  constructor(readonly artifactId: string) {
+    super("EXPORT_ITEM_NOT_APPROVED");
+  }
+}
+
+/**
+ * The aperture was used after the export that created it ended.
+ *
+ * ⚠ Also not a wire code, and its existence is the point: this is the exact shape a
+ * background uploader takes -- keep the capability from a real, human-initiated export and
+ * use it later from a timer. V11① forbids that, and a thrown error is how the ban is
+ * enforced rather than remembered.
+ */
+export class ExportApertureClosedError extends Error {
+  readonly code = "EXPORT_APERTURE_CLOSED";
+  constructor(readonly artifactId: string) {
+    super("EXPORT_APERTURE_CLOSED");
+  }
+}

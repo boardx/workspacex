@@ -98,6 +98,50 @@ describe("parseFrontmatter", () => {
     expect(fm["tags"]).toEqual(["a", "b"]);
   });
 
+  // ⚠ 2026-07-30 phase-01 建九个束时抓到的真洞：模板里的
+  //   `confirmed_by:            # 确认人（姓名/邮箱）` 会被解析成字符串
+  //   `"# 确认人（姓名/邮箱）"`——**非空**。于是「confirmed 却没有 confirmed_by」
+  //   那条检查（本文件下方那条测试）会被一个注释骗过去：
+  //   人类只把 status 改成 confirmed、名字忘了填，门控照样放行，
+  //   而**签核记名是这条链的信任根**。九个束的模板全是这个形状。
+  it("值只有注释 → 视为空值（注释不许冒充签名）", () => {
+    const p = join(PHASE_DIR, "fm-comment.md");
+    writeFileSync(
+      p,
+      `---\nbundle: b\nstatus: pending          # pending | confirmed\n` +
+        `confirmed_by:            # 确认人（姓名/邮箱）\nconfirmed_at:            # ISO 8601\n---\n`,
+      "utf8",
+    );
+    const fm = parseFrontmatter(p)!;
+    expect(fm["confirmed_by"]).toBe("");
+    expect(fm["confirmed_at"]).toBe("");
+    // 反向：真填了名字就必须原样读出来，不能被上面那条规则误伤
+    writeFileSync(
+      p,
+      `---\nbundle: b\nconfirmed_by: yanbin shen   # 确认人\n---\n`,
+      "utf8",
+    );
+    expect(parseFrontmatter(p)!["confirmed_by"]).toBe("yanbin shen");
+  });
+
+  it("confirmed + confirmed_by 只剩模板注释 → 拒绝（这正是上一条要防的后果）", () => {
+    const dir = join(CONTRACTS, "comment-signed");
+    mkdirSync(dir, { recursive: true });
+    for (const f of ["domain.md", "usecases.md", "coverage.md"]) {
+      writeFileSync(join(dir, f), "x\n", "utf8");
+    }
+    writeFileSync(
+      join(dir, "design-signoff.md"),
+      `---\nbundle: comment-signed\ncovers: [F01]\n` +
+        `status: confirmed        # pending | confirmed\n` +
+        `confirmed_by:            # 确认人（姓名/邮箱）\n` +
+        `confirmed_at: "2026-07-28"\n---\n`,
+      "utf8",
+    );
+    writeCoherence({ coversBundles: ["comment-signed"] });
+    expect(auditSignoff(PHASE_ID, ["F01"], NOW).fails.join("\n")).toMatch(/没有 confirmed_by/);
+  });
+
   it("没有 frontmatter → null（与「有 frontmatter 但字段为空」区分开）", () => {
     const p = join(PHASE_DIR, "plain.md");
     writeFileSync(p, "# 没有 frontmatter\ncovers: [F01]\n", "utf8");

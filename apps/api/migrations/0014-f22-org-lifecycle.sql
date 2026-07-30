@@ -138,7 +138,17 @@ GRANT EXECUTE ON FUNCTION kernel_org_is_writable(text) TO app_rw;
 --
 -- ④ DELETE 必须单列：`WITH CHECK` 只作用于 INSERT/UPDATE 的**新行**，DELETE 没有新行。
 --    漏掉它的表现是「插不进、改不了、但删得掉」，而「写被拒」的断言全绿。
-DO $$
+-- ⚠ 2026-07-30（F17）：这段从 `DO $$ ... $$` 改成一个**函数**，并在文件末尾调用它。
+--
+-- 理由不是复用的美感，是一次真实的失败：F17 新建了租户表 `local_export_previews`，
+-- 而本文件的编号在它之前——首次跑迁移时这张表还不存在，于是它拿不到三条冻结策略；
+-- 只有 `migrate:check` 的**强制重放**（忽略版本表、按序再跑一遍）才会补上，
+-- 表现为「重放后 schema 摘要不一致」。也就是说：**新库上的新租户表默认没有冻结**，
+-- 而 F22 的全部断言依旧全绿——它们测的是当时已存在的那些表。
+--
+-- 把规则做成函数之后，任何后续迁移在建完自己的租户表后调用一次即可，
+-- 而规则本身仍然**只声明在这一处**（在这里再抄一份三条策略才是第二份事实源）。
+CREATE OR REPLACE FUNCTION kernel_apply_org_freeze_policies() RETURNS void AS $$
 DECLARE
   r record;
 BEGIN
@@ -184,7 +194,13 @@ BEGIN
       r.name || '_org_frozen_del', r.name);
   END LOOP;
 END
-$$;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION kernel_apply_org_freeze_policies() IS
+  'F22 的三条 RESTRICTIVE 冻结策略，按 pg_catalog 找出全部租户表后逐张安装。'
+  '⚠ 建了新的租户表之后必须调用一次——否则那张表在新库上没有冻结，而 F22 的断言仍全绿。';
+
+SELECT kernel_apply_org_freeze_policies();
 
 -- ⚠ 注意 organizations **没有** 上面两段的任何一条：ON DELETE CASCADE 会从
 -- organizations 一路删下去，而删除组织本身在 phase-1 是不提供的路径

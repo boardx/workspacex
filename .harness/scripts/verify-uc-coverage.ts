@@ -101,7 +101,12 @@ for (const phaseId of process.argv.slice(2)) {
       if (!existsSync(ucPath)) continue;
       const body = readFileSync(ucPath, "utf8");
       const r12 = body.slice(body.indexOf("## R12"));
-      const declared = [...r12.matchAll(/^-\s*(V\d+)/gm)].map((m) => m[1]!);
+      // ⚠ 容忍加粗写法 `- **V1（成功态）**：…` —— 与上面读表格那段是**同一个疏漏的两侧**，
+      //   那一侧在第二版就修了（注释还留着「本脚本第二版就因此误报 web-kernel 漏 10 条」），
+      //   这一侧没修。后果比误报更糟：**漏报**。phase-01 建九个束时实测，
+      //   651 条 R12 里有 119 条（18%）因为加了两个星号而对门控**完全不存在**——
+      //   coverage 表一条不写照样绿。2026-07-30 补齐。
+      const declared = [...r12.matchAll(/^-\s*\*{0,2}(V\d+)/gm)].map((m) => m[1]!);
       const missing = declared.filter((v) => !mappedV.has(v));
       if (missing.length) {
         say(
