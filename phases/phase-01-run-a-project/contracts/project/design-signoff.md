@@ -12,16 +12,27 @@ confirmed_at:             # ISO 8601，且不得晚于签核当下
 
 # 契约束 `project` 设计签核（第 10 个束）
 
-> ## 🔴 本束**现在不可签核**。请不要把 `status` 改成 `confirmed`。
+> ## 🔴 本束**现在仍不可签核**。请不要把 `status` 改成 `confirmed`。
 >
-> 理由不是材料没写完，是**签核对象还不存在**：
+> **✅ 2026-07-30：12 条裁决已全部完成**（`requirements/00-project/OPEN-QUESTIONS.md`，
+> 逐条勾选 + 署名 `yanbin shen` + ISO 时间戳）。**它们不再是阻塞项。**
+> `domain.md` / `usecases.md` / `coverage.md` 已按裁决重写，
+> 另出一份 [`MIGRATION-IMPACT.md`](./MIGRATION-IMPACT.md) 登记「裁决会回头改哪些已合入 `main` 的东西」。
 >
-> - `phases/phase-01-run-a-project/feature_list.json` 里**没有任何属于本域的 feature**。
->   全仓 111 个 feature 分给了前九个束（F03–F115），本域是 0 个。
-> - 本域的 feature 生成被 `requirements/00-project/OPEN-QUESTIONS.md` 的 **12 条裁决**卡住：
->   项目怎么创建（Q-1）、议程环节是不是一张表（Q-2）、项目实体上有没有父子/类型维度（Q-12）
->   ——**这三条不定，连「项目」这张表有几列都写不出来**，更写不出可执行的 `verification`。
-> - 因此 frontmatter 的 `covers:` 是 `[]`。
+> ### 现在阻塞的是另外**两条**（互相独立，解决其一不能签）
+>
+> **① `feature` 尚未生成。**
+> `phases/phase-01-run-a-project/feature_list.json` 里仍**没有任何属于本域的 feature**，
+> 因此 frontmatter 的 `covers:` 仍是 `[]`。
+> 裁决完成后的下一步是 **requirement-author** 据裁决生成 feature——**这一步还没做**。
+>
+> **② 第 ① 件材料（UI）不完整：六个标签页缺七态与四视角。**
+> 19 张截图里 **10 张是「概览」一个标签页**；其余六个标签页各 1–2 张，
+> **没有七态、没有四视角对照**。而本束第 ① 件最要紧的性质恰恰是
+> 「**四视角是否真的改变界面**」。另有三屏完全未画（新建流程 / 全部项目 / 组织停用只读）。
+> 逐条见 [`ui.md`](./ui.md) 第四节 C 类。
+>
+> ⇒ **即便 feature 生成完了，第 ① 件也不具备完整签核条件。** 两条必须都解决。
 >
 > **`covers: []` 会让 `pnpm exec tsx .harness/scripts/verify-uc-coverage.ts 01` 报红**，
 > 报错逐字为「声明了 `covers: []`（空）—— 一个不覆盖任何 feature 的束不成立，**因此它不可签核**」。
@@ -34,25 +45,33 @@ confirmed_at:             # ISO 8601，且不得晚于签核当下
 > 而那时 UI 与 API 形状已经被别人顺手创造出来了（ADR-020 的立论）。
 > 建束 + 报红 = **缺口是可见的、有名字的、会在每次 `doctor` 里出现的**。
 >
-> ### 解除这条红的唯一路径（顺序不可颠倒）
+> ### 解除这条红的路径（顺序不可颠倒）
 >
-> 1. 人类裁决 `requirements/00-project/OPEN-QUESTIONS.md` 的 12 条
->    （其中 **Q-3 已降级为确认动作**，见该文「已有答案」列）。
+> 1. ~~人类裁决 12 条~~ **✅ 2026-07-30 完成**。
 > 2. **requirement-author** 读 `00-project/uc-00-1/2/3` + 裁决结果 → 生成本域 feature
 >    并写进 `feature_list.json`（它是唯一有权改清单的角色）。
 > 3. 有人把生成出来的 feature 编号填进本文件 frontmatter 的 `covers:`。
-> 4. 补齐本目录 `usecases.md` / `coverage.md` 里所有「待裁决 → Q-N」的留白。
+> 4. **ui-prototyper 补齐六个标签页的七态 + 四视角 + 三屏缺屏**（`ui.md` 第四节 C 类）。
 > 5. **然后**人类才逐节核对下面三件并签核。
 >
 > ⚠ **不要为了消红而随手填一个 feature 编号。** 那是把「还没有 feature」谎报成
 > 「已经评审过这些 feature」，比现在这条红糟得多。
+>
+> ### ⚠ 裁决落地时浮出来的**九条新待裁**（U-1…U-9）
+>
+> 12 条答完不等于全定了。落到不变量上时又浮出九条，逐条在
+> [`domain.md`](./domain.md) 第八节。其中三条是**本束新提出的**（U-7 / U-8 / U-9），
+> **按纪律应回流进 `OPEN-QUESTIONS.md`——那是人类或 requirement-author 的动作，
+> 本束的材料无权改那份文件。**
 
-覆盖 feature：**（无 —— 待生成，估 8–10 个 / 32–40 点）**
+覆盖 feature：**（无 —— 待生成，估 8–10 个 / 32–40 点；⚠ 三类容器已定为三张子类型表，估点可能偏低）**
 依据 UC：`00-project/uc-00-1 项目与议程环节的领域模型` · `uc-00-2 项目列表与项目主页` ·
 `uc-00-3 项目成员与两层角色交互`
 支撑考证：`requirements/00-project/DERIVED-FROM-CONTRACTS.md`（已签核契约定死了什么，**权威在那份文件**）
-待裁清单：`requirements/00-project/OPEN-QUESTIONS.md`（12 条）
-UI 材料：`ui-preview/project/`（19 张截图）+ `ui-preview/project/PROTOTYPE-ANSWERS.md`
+裁决清单：`requirements/00-project/OPEN-QUESTIONS.md`（12 条，**2026-07-30 已全部裁决**，**裁决原文是权威**）
+迁移影响：本束 [`MIGRATION-IMPACT.md`](./MIGRATION-IMPACT.md)（裁决会回头改哪些已合入 `main` 的东西）
+UI 材料：`ui-preview/project/`（19 张截图）+ `ui-preview/project/PROTOTYPE-ANSWERS.md`；
+访谈侧的推翻留痕见 `ui-preview/itv-v2/V1-WAS-WRONG.md`（错误 5 与本束的角色裁决同源）
 
 ## 这个束为什么现在才出现
 
@@ -124,34 +143,70 @@ UI 材料：`ui-preview/project/`（19 张截图）+ `ui-preview/project/PROTOTY
 [`ui.md`](./ui.md) 第四节。**签核时请以 `ui.md` 第四节为清单**，不要在这里再抄一遍
 （同一事实两处声明是本仓头号失败模式）。
 
-其中**必须先裁才能签 ① 件**的三条：
+### 签核前请重点确认（**按 12 条裁决重写**）
 
-- [ ] **Q-12 的第五种形状**：原型是「项目挂父项目」的父子归属，**不是 `kind` 维度**。
-      请确认这是数据模型（项目自引用外键）还是仅 UI 措辞。
-      → `OPEN-QUESTIONS.md` **Q-12**（候选 **E**）。**它决定整个 project 实体的形状，也决定 itv 的范围模型。**
+- [x] ~~**Q-12 的第五种形状**（项目挂父项目）~~ —— **已裁决，且裁的是别的**：
+      Q-12 取 **C，且是三类独立实体**（工作坊 / 研究项目 / 用户洞察），
+      落地形状取 **D（`projects` 降为容器超类型 + 三张 1:1 子类型表）**。
+      **候选 E（父子项目）未被采纳** ⇒ 原型那句「挂到哪个项目（决定能读哪些洞察与图谱）」
+      **不是数据模型**。⚠ **但 UI 里那个字段仍然画着**——
+      **签核 ① 件时必须确认它在界面上的处置**（删除？改成「所属研究项目」？保留为遗留？），
+      否则界面会继续宣称一个已被否决的模型。
+- [ ] 🔴 **本域 UI 现在是「工作坊」的 UI，而不是「项目」的 UI。**
+      裁决把「项目」收窄为工作坊（模板 + 会前/现场/会后三段 AI 增强）。
+      ⇒ 19 张截图里的议程环节、四组分工、现场协作、四视角**全部只适用于工作坊**。
+      **研究项目与用户洞察这两类容器，本域一张截图都没有。**
+      签 ① 件时请明确：这两类的界面是**本束的第 ① 件材料缺口**，还是**由别的束（`itv` 等）承担**。
+- [ ] 🔴 **访谈的四视角必须撤掉。** 人类原话逐字「在访谈里是没有这几种角色的，
+      引导师、组长什么的是不必要的」。⚠ 本域 `ui.md` 第二节仍把「四视角是不是真的改变界面」
+      列为重点核对项——**那条在工作坊内成立，在访谈上不成立**。
+      推翻留痕见 `ui-preview/itv-v2/V1-WAS-WRONG.md` 错误 5。
 - [ ] **`/project` 要不要纳入 `project-context`**：全局顶栏说「不在项目上下文中 · 项目角色不适用」，
       而工作台顶头又显示满满的项目身份——**两处对「我在不在项目里」给了相反答案**。
-      这是真实的信息架构分歧，不是样式 bug（`ui-preview/project/README.md` 第三节 #2）。
-- [ ] **议程环节字段名**：UI 已显示中文、testid 用中性名 `agenda-item-*`。
-      → **Q-3 已由 D-03a 定为 `agenda_segment`**，此处只需确认「testid 是否随之改名」。
+      ⚠ **12 条裁决没有覆盖这一条**（`ui.md` A-2），**它仍是 ① 件的阻塞项**。
+- [ ] **议程环节 testid 是否随字段名改名**：UI 显示中文、testid 用中性名 `agenda-item-*`；
+      字段名已由 D-03a 定为 `agenda_segment`，且 **Q-3 ① 裁「改名对齐」** ⇒
+      此处只需确认「testid 是否一并改成 `agenda-segment-*`」。
+- [ ] **六个标签页的七态与四视角** —— 见本节上方的表与顶部醒目块 ②。**这是 ① 件的硬门槛。**
 
 ---
 
 ## ② 用例 —— 用例接口与失败模式穷举对不对
 
-材料：本束 [`usecases.md`](./usecases.md)（**骨架**，凡待裁项写「待裁决 → OPEN-QUESTIONS Q-N」）。
-支撑：本束 [`domain.md`](./domain.md)（不变量，**每条都指回 `DERIVED-FROM-CONTRACTS.md` 的 D-N**）。
+材料：本束 [`usecases.md`](./usecases.md)（**2026-07-30 已从骨架填成可评审的用例**）。
+支撑：本束 [`domain.md`](./domain.md)（不变量，每条都指回 `DERIVED-FROM-CONTRACTS.md` 的 D-N 或某条裁决）。
 
-⚠ **`usecases.md` 现在是骨架而不是定稿**，因为用例的**输入形状**取决于 Q-1 / Q-2 / Q-12：
-`createProject` 的入参有没有 `blueprintVersionId?`、有没有 `parentProjectId?`，
-`advanceSegment` 操作的是一张表还是一段 JSON——三条都还没答。
-**在这些留白被填上之前，第 ② 件不具备签核条件。**
+✅ **用例的输入形状现在有了**：`createProject` 的入参已由 **Q-1 C**（一条创建路径 +
+`blueprintVersionId?`）与 **Q-12 C/D**（`kind` 三值）定死；**没有** `parentProjectId`
+（候选 E 未被采纳）；`advanceAgendaSegment` 操作的是**一张真表**（Q-2① A）。
 
-### 签核前请重点确认（不依赖裁决、现在就能看的部分）
+⚠ 仍未定稿的是**九条新待裁**（U-1…U-9）对应的部分——它们在 `usecases.md` 里**留空并标注**，
+**不是遗漏**。其中 **U-1（研究项目 / 用户洞察的成员模型）** 使这两类容器的用例**整体缺席**。
 
+### 签核前请重点确认（**按 12 条裁决重写**）
+
+- [ ] 🔴 **三类是三类，不是一类加一个开关。** 裁决原话逐字：「他们的**过程和目的完全不同**」。
+      ⇒ `projects` 只承担「容器身份 + 组织归属 + 状态」；
+      **任何把工作坊专属字段（议程环节、分组）加进 `projects` 的改动都违反裁决**。
+      本束把这条写成 **I-P33** 并配了**机械门控 + 三条反证**（`domain.md` §一之三）——
+      请确认那份门控设计足够（尤其：它是**白名单等值**，不是黑名单；
+      黑名单挡得住 `agenda_segment_id`，挡不住下一个没被想到的名字）。
+- [ ] 🔴 **`projects.kind` 判别列是本束替你做的判断，不在裁决原文里。**
+      裁决说「三类各建 1:1 子类型表」，**没有说 1:1 怎么保证**；
+      而「子表 PK = FK 到 `projects.id`」只能保证**每张表至多一行**，
+      保不了**三张表合计至多一行**。本束用「判别列 + 复合外键」把它降成一行的 `kind` 值。
+      ⇒ **请明确接受或否决**（否决则 1:1 只能靠测试层断言，与「约束下沉到数据库」的纪律相反，
+      本仓已因此栽过两次：F04 的级联删除、F08 的 append-only 被 `ON DELETE CASCADE` 绕过）。
+      → `domain.md` I-P34 与 §一之三第 2 小节，登记为 **U-9**。
+- [ ] 🔴 **四种项目角色只属于工作坊**（裁决逐字：「在访谈里是没有这几种角色的」）。
+      ⇒ 研究项目与用户洞察的成员模型**仍未裁**（**U-1**），本束**没有为它们写任何用例**。
+      请确认「不写」是对的，而不是漏了。
+- [ ] **`acl_bindings.object_kind` 在 D 下加不加值**：Q-12 **连带 1** 说加 2 个值，
+      而**连带 4 的 D** 使它不必要（三类都是 `projects` 行）。两条同日写就，先后未写明。
+      本束按「D 覆盖连带 1」处理（**不加值**）——**这是本束的判断，请确认**。→ **U-8**
 - [ ] **本束不得重新讨论「环节要不要有状态」这个前提**——它已经签核过了
       （`stage.advance` 在已实现的闭集动作词表里，源自 UC-0.3 R5）。
-      本束只讨论**状态机长什么样**。见 `domain.md` I-P9。
+      本束只讨论**状态机长什么样**（Q-2② 已裁：四态 + `mergedInto`）。见 `domain.md` I-P10 / I-P43。
 - [ ] **两个失败码的反证是硬要求**。`STEP_CLOSED` / `STEP_REJECTS_ARTIFACT_TYPE` 在已签契约里，
       而迁移注释逐字记着它们今天「not evaluable by anything in this repository today」，
       并拒绝用「一个永远说 open 的可空查表」假装覆盖：
@@ -174,24 +229,43 @@ UI 材料：`ui-preview/project/`（19 张截图）+ `ui-preview/project/PROTOTY
 **本束有对外 HTTP 面。** 第 ③ 件的落点将是：
 
 ```
-packages/contracts/src/project.ts        ← 尚未创建，且**现在不该创建**
-apps/api/migrations/00NN-project-*.sql   ← 尚未创建
+packages/contracts/src/project.ts        ← 尚未创建（形状已由裁决定死，但仍等 feature 生成）
+apps/api/migrations/0018-project-*.sql   ← 尚未创建。⚠ 序号取 0018：0016/0017 已被 F13/F17 占用
 ```
 
-⚠ **现在不该创建 `project.ts`，因为它的第一行就要在三个未裁决的分叉上二选一：**
+✅ **此前挡着 `project.ts` 第一行的六个分叉，2026-07-30 全部有答案了：**
 
-| 未裁决项 | 它决定 `project.ts` 的什么 |
+| 原分叉 | 裁决结果 → `project.ts` 里长什么样 |
 |---|---|
-| **Q-12**（`kind` / 两外键 / 两表 / 无维度 / **父子**） | `Project` schema 上有没有 `parentProjectId` 或 `kind`；以及**权限投影有几套** |
-| **Q-1**（创建路径） | `createProject.in` 有没有 `blueprintVersionId?`；创建事务有一处还是两处 |
-| **Q-2①**（环节是不是一张表） | 有没有 `AgendaSegment` 实体与 `agenda_segments` 表；两个失败码可不可判 |
-| **Q-5**（生命周期） | `Project` 上有没有 `status`；有没有 `archiveProject` 操作 |
-| **Q-6①**（列表返回谁的） | `listProjects.out` 是一个数组还是**两段**（「我在里面」/「我管着它」） |
-| **Q-10**（无项目内容怎么读） | 要不要把 phase-00 `readContent.in.projectId` 放开为 nullable（**改已签核束**） |
+| **Q-12** | **C + 连带 4 的 D**：`Project = { id, orgId, name, status, kind }`，`kind` 三值闭枚举；**没有** `parentProjectId`；权限投影**只有一套**（三类都是 `projects` 行，走同一套 `acl_bindings` 与 RLS） |
+| **Q-1** | **C**：`createProject.in` **有** `blueprintVersionId?: string \| null`；创建事务**一处**（但必须原子写两行：容器 + 子类型） |
+| **Q-2①** | **A**：**有** `AgendaSegment` 实体与 `agenda_segments` 表；两个失败码**由此可判** |
+| **Q-5** | **B**：`Project` 上**有** `status ∈ {active, archived}`；**有** `archiveProject`；`unarchiveProject` **未定**（U-2⑴） |
+| **Q-6①** | **B**：`listProjects.out` 是**两段** `{ member[], managed[] }`，**不是**混合数组加 `canManage` |
+| **Q-10** | **A**：把 phase-00 `readContent.in.projectId` 放开为 `nullable`——⚠ **改已签核束**，且**作为契约缺陷报告提给签核人**，不由实现者顺手改 |
 
-⇒ 先写 schema 再等裁决 = 写一份注定要改的单源，而**它一落地就会被别的束当权威引用**。
+⚠ **但仍不该现在就写 `project.ts`**，理由变了：不再是「形状未知」，而是
+**本束还没有任何 feature**——一份没有 feature 承接的单源一落地就会被别的束当权威引用，
+而没有任何 `verification` 命令守着它。
 
-### 签核前请重点确认
+### 签核前请重点确认（**按 12 条裁决重写**）
+
+- [ ] 🔴 **`projects` 的语义变了：从「工作坊」变为「容器超类型」。**
+      这是**修订 phase-00 已签核的 `identity` 束**（`status: confirmed`，
+      `confirmed_at: 2026-07-29T07:35:09+08:00`，覆盖 F01 F02 F03 F15 F16 F17）。
+      **这是签核动作，不是实现细节** —— 逐条影响面见 [`MIGRATION-IMPACT.md`](./MIGRATION-IMPACT.md) 第一节。
+      好消息：`projects(id)` 现有 **7 条外键一条不改**（这正是 D 被选中的首要理由）。
+- [ ] 🔴 **`stepId` / `stage.*` 改名对齐**（Q-3 B 裁 ①）。
+      这是**修订 phase-00 已签核的 `artifact` + `identity` 两束**，
+      波及 **21 个文件 / 109 处** `step_id`·`stepId` 与 **14 处** `stage.*`，
+      直接触及已 passing 的 **F01 / F06 / F07 / F08 / F13** 的验收命令。
+      **这是签核动作，不是实现细节** —— 逐条清单见 `MIGRATION-IMPACT.md` 第二节。
+      ⚠ 两个失败码的**字面量**（`STEP_CLOSED` / `STEP_REJECTS_ARTIFACT_TYPE`）**改不改，裁决没说**，本束不改。
+- [ ] 🔴 **最危险的三条改动不会让任何门控变红** —— `MIGRATION-IMPACT.md` 第三节 3.2：
+      ⑴ F22 的组织冻结策略是**逐表写死**的，三张新子表**不会自动进去**（`verify-rls.sh` 查的是租户隔离，不是冻结）；
+      ⑵ `projects.kind` 若带 `DEFAULT 'workshop'`，一切全绿且把历史数据静默归类；
+      ⑶ 前端 5 处「命名待裁决」的注释会变成事实错误，其中 `skill-app.tsx:126` **把它画在界面上**。
+      请确认三条各自的处置。
 
 - [ ] **本束必须复用、不得新造的四样东西**（每样都已签核并已实现）：
       ⑴ `acl_bindings` 三种 object 粒度闭集（`project` / `artifact` / `segment`）；
@@ -207,9 +281,14 @@ apps/api/migrations/00NN-project-*.sql   ← 尚未创建
       若只校验请求体，服务端多下发一个字段**不会有任何门控变红**（前端类型也从同一份契约生成）。
       需要 `out.safeParse()` 的**反向断言**。
 - [ ] **`GET /projects` 目前在契约里不存在**（`packages/contracts` 里 `/projects` 只出现于
-      backflow 一处）。它是本束要**新造**的第一个路由，其形状被 Q-6① 卡着。
-- [ ] **`DELETE /projects/*` 若裁决为「不提供」，需要一条断言守着它不存在**——
-      照抄 N-5 的做法（「『没有』这件事本身没人会去验」）。见 `usecases.md` 与 Q-9。
+      backflow 一处）。它是本束要**新造**的第一个路由；形状已由 **Q-6① B** 定死为
+      **两段式** `{ member[], managed[] }`。⚠ 出现在 `managed` 里 **≠** 能进去看内容（D-18 边界）。
+- [ ] **`DELETE /projects/*` 已裁决「不提供」**（Q-9）⇒ 交付物是**一条断言它不存在的测试**，
+      不是一个接口。照抄 N-5（「『没有』这件事本身没人会去验」）。
+      ⚠ 反证：同时断言该禁止清单**非空且含既有条目**，否则一个被清空的清单也全绿。
+- [ ] **不存在的东西也要确认「确实不做」**：`parentProjectId`（候选 E 未采纳）·
+      `unarchiveProject`（**U-2⑴ 未裁**）· 父子相关的失败码 · 研究项目 / 用户洞察的成员接口
+      （**U-1 未裁**）。⚠ 这四样**现在写任何一样都是发明**。见 `coverage.md` 第四节。
 
 ---
 
@@ -219,11 +298,13 @@ apps/api/migrations/00NN-project-*.sql   ← 尚未创建
 |---|---|---|---|
 | **X-6** | **议程环节（`agenda_segment`）是谁的**：绑定挂载点 / 三视角首屏切换驱动源 / 临时提权失效锚点 | `templates` · `canvas` · `skills` · `org-admin` · `agent-runtime` · `files` · `interview` | 阶段 `design-coherence.md` 的 X-6 已记「它既不在 `org-admin` 也还不存在」。**本束就是它的归属答案。**⚠ 六个束的 feature 已在环节上排工——本束不定，它们的挂载点悬空 |
 | **X-3'** | **字段名单源**：`agenda_segment` 已由 **D-03a** 定稿并有机械门控（`files` 束 N-4），但 `templates` 束仍有 **2 处**写旧名 `agenda_stage`（`domain.md:25` 两名并列、`ui.md:123`） | `templates` · `files` · phase-00 `artifact`（`stepId`） | 这是**第七次「同一事实两处」已经开始的样子**。⚠ 复核时还要处置 phase-00 的 `stepId` / `stage.*` 改不改（**修订已签核束**）→ `OPEN-QUESTIONS.md` Q-3 第三节 |
-| **X-15** | **父子项目（若 Q-12 裁 E）与 I-7 / I-13 的方向冲突** | phase-00 `identity` · `artifact` · phase-01 `interview` | 原型那句「挂到哪个项目（**决定能读哪些洞察与图谱**）」字面要的是**沿父子边放宽读范围**，而 I-7 逐字「取所有来源中最严格的一档（不是最宽松，也不是并集）」、I-13「只收紧不放宽」。**二者必有一个要改**，这是签核动作 |
-| **X-16** | **项目归档（若 Q-5 裁 B）与 X-4 豁口边界** | phase-00 `artifact`（I-11 / X-4） | 「归档不删除任何内容」这句话本身就是 X-4 豁口的正确一侧——豁口只留给**合规撤回**，不该被「项目结束」借道。⚠ 且 X-4 依赖 **O-39 法定留存清单**，那份清单**不存在** |
+| **X-15** | ~~父子项目与 I-7 / I-13 的方向冲突~~ **已消解**：Q-12 裁 **C/D 而非 E** ⇒ **父子边不存在**，且必裁三件之 1 逐字答「**不传播**」 | phase-00 `identity` · `artifact` · phase-01 `interview` | 保留此行只为留痕：原型那句「挂到哪个项目（决定能读哪些洞察与图谱）」**未被采纳为数据模型**。⚠ 但**界面上那个字段还画着** —— 处置是第 ① 件的确认项 |
+| **X-21** 🔴 **新** | **修订已签核的 phase-00 `identity` 束**：`projects` 的语义从「工作坊」变为**容器超类型**（Q-12 C + 连带 4 D） | phase-00 `identity`（`status: confirmed`，覆盖 F01 F02 F03 F15 F16 F17） | **这是签核动作，不是实现细节。** 表结构上 `projects(id)` 的 7 条外键一条不改，所以**没有任何门控会因语义变更变红**——正因如此它必须走签核，否则一个已签核束的语义会在无人点头的情况下改掉。⚠ 连带三条：`acl_bindings.object_kind` 加不加值（**U-8**）· `projects.kind` 判别列可不可接受（**U-9**）· `admin_project_access` 的审计语义是否按 kind 区分（无出处）。逐条影响面见 [`MIGRATION-IMPACT.md`](./MIGRATION-IMPACT.md) 第一节 |
+| **X-22** 🔴 **新** | **`stepId` / `stage.*` 改名对齐**（Q-3 B 裁 ①）：`step_id`→`agenda_segment_id`、`stage.*`→`agendaSegment.*` | phase-00 `artifact`（覆盖 F04 F05 F06 F07 F08）· phase-00 `identity`（动作词表在 `project-role-matrix.ts`） | **这是签核动作，不是实现细节** —— 它动的是**两个已签核束**与**五个已 passing feature 的验收命令**（F01 / F06 / F07 / F08 / F13）。真实规模：**21 个文件 / 109 处** `step_id`·`stepId`，**14 处** `stage.*`。⚠ 三处特别注意：⑴ 新增迁移序号是 **`0018-*`**（`0016`/`0017` 已占用，Q-8 推荐里写的 `0016` 已过期）；⑵ `rbac-two-layer.test.ts` 里那条**故意不存在**的 `"stage.selfDestruct"` 反证必须一起改，否则它会变成永远通过的空转断言；⑶ 前端 5 处旧名**全在注释/文案里，`typecheck` 一处都不会红** → grep 门控范围必须包含 `apps/web`。逐条清单见 `MIGRATION-IMPACT.md` 第二节 |
+| **X-16** | **项目归档（Q-5 **已裁 B**）与 X-4 豁口边界**。⚠ 归档的**四个连带行为全部未裁**（**U-2**） | phase-00 `artifact`（I-11 / X-4） | 「归档不删除任何内容」这句话本身就是 X-4 豁口的正确一侧——豁口只留给**合规撤回**，不该被「项目结束」借道。⚠ 且 X-4 依赖 **O-39 法定留存清单**，那份清单**不存在** |
 | **X-17** | **`readContent.in.projectId` 非空 vs `Artifact.projectId` 可空** | phase-00 `identity` · `artifact` · `context-pack` | 一条**已签核契约内部的紧张关系**：按字面，`projectId = null` 的 artifact 没有合法读取路径。→ Q-10 / Q-11 连带 1，**两条是同一个洞** |
-| **X-18** | **`QueryContext.projectIds` 不按项目状态过滤** | phase-00 `context-pack` | 若项目可归档（Q-5 B），Context Pack 会不会召回归档项目的内容？现在没有任何地方说它要按状态过滤。**这是一个真实的检索面缺口** |
-| **X-19** | **`groups` 挂哪一级 / `projects` 的级联删除路径** | phase-00 `identity`（`0003-identity.sql`） | `groups` / `project_memberships` / `acl_bindings` / `artifact_bindings` 全部 `ON DELETE CASCADE` 到 `projects`。若 Q-12 裁 E（自引用外键），**级联会多一条路径**；若 Q-9 裁「提供删除」，级联会静默清掉绑定行 |
+| **X-18** | **`QueryContext.projectIds` 不按项目状态过滤** | phase-00 `context-pack` | ⚠ **归档既已裁定成立（Q-5 B），这条就从「假设」变成了「真缺口」**：现在没有任何地方说 Context Pack 要按状态过滤，而**它不会让任何门控变红** → **U-2⑷** |
+| **X-19** | **`groups` 挂哪一级 / `projects` 的级联路径** | phase-00 `identity`（`0003-identity.sql`） | Q-9 已裁「不提供删除」⇒ 级联静默清行的风险由 `no-forbidden-routes` 断言守住。⚠ **新问题**：`groups.project_id` 指向**超类型**，而分组是**工作坊机件** ⇒ 研究项目 / 用户洞察下可以插分组，**外键层不可表达为禁止** → **U-7**。⚠ 另：三张新子表**不在 F22 冻结策略的写死表清单里**（`0014:165-184`），组织停用后子类型行仍可写 —— 见 `MIGRATION-IMPACT.md` 3.2① |
 | **X-20** | **保留 testid 清单是单源，本域 19 屏必须进那张表** | phase-00 `web-kernel` | `web-kernel` 的屏清单是手维护的，已被登记为漂移候选并注明「phase-01 屏数增长后风险放大」。本域一次加 7 个标签页 |
 
 ---
