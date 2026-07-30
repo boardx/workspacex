@@ -15,13 +15,27 @@ import * as C from "@repo/contracts/identity";/**
  */
 
 // ─────────────────────────────────────────────────────────────────────────
-// 模块导航（左栏两组共 7 个）
+// 模块导航（左栏两组）
 // ─────────────────────────────────────────────────────────────────────────
 export type AdminModuleKey =
   | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback"
+  // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
+  // 左栏却只画了四个 —— 人类那句「为什么在管理后台看不到项目蓝本」问的正是这个。
+  // ⚠ 键取原型 `AN_META` 的键（`canvasadmin`），**不是**契约码也不是视图码：
+  //   这是路由段/testid 命名空间，与 `CONTRACT_DIVERGENCES.D10`（契约 `canvas-template`
+  //   vs 视图 `canvas`）**无关，也不构成对它的裁决**。映射见
+  //   `components/admin/asset-kind-nav.ts`。
+  | "canvasadmin" | "blueprint"
   // F16：本地组织。归在「组织」组里而不是「AI 能力」组——它是一个组织，
   // 只不过是只有一个人、且数据不出本机的那种。
   | "local";
+
+/**
+ * 「AI 能力」组的组名 —— 单点声明。
+ * `asset-kind-nav.ts` 的双向门控要按组名从 `ADMIN_NAV` 里取出资产项集合；
+ * 组名写两遍就是「同一事实两处」，改一处会让门控静默地检查一个空组（平凡为真）。
+ */
+export const AI_CAPABILITY_GROUP = "AI 能力";
 
 export interface AdminModuleMeta {
   key: AdminModuleKey;
@@ -33,12 +47,17 @@ export interface AdminModuleMeta {
 
 export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
   {
-    group: "AI 能力",
+    group: AI_CAPABILITY_GROUP,
+    // ⚠ 这一组的**项集合**受 `asset-kind-nav.ts` 的双向门控约束：它必须与契约
+    //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
+    //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
     items: [
       { key: "agent", label: "Agent", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
       { key: "skill", label: "Skill", href: "/admin/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
       { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
+      { key: "canvasadmin", label: "画布模板", href: "/admin/canvasadmin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
+      { key: "blueprint", label: "项目蓝本", href: "/admin/blueprint", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },
   {
