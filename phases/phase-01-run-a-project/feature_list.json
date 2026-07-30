@@ -11,9 +11,9 @@
       "spec_ref": "01-auth/uc-1-1-邮箱账号登录.md#R8",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-auth",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
         "pnpm --filter api exec vitest run tests/auth/kick-device-invalidates-session.test.ts"
@@ -100,9 +100,9 @@
       "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R3",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-auth2",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/team-visibility-filter.test.ts",
         "pnpm --filter api exec vitest run tests/auth/deny-reason-org-layer.test.ts"
@@ -120,9 +120,9 @@
       "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-auth3",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/member-invite-activation.test.ts",
         "pnpm --filter api exec vitest run tests/auth/activation-link-tamper-server-authoritative.test.ts",
@@ -237,9 +237,9 @@
       "spec_ref": "01-auth/uc-1-3-生成与撤销邀请链接.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-auth4",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/invite-links-model.test.ts",
         "pnpm --filter api exec vitest run tests/auth/invite-identity-four-choices.test.ts",
@@ -282,9 +282,9 @@
       "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-tpl",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/blueprint-config-table-driven.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/completeness-denominator-from-table.test.ts",
@@ -604,9 +604,9 @@
       "spec_ref": "22-files/uc-22-1-项目文件浏览器.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-files",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/artifacts-list-rls.test.ts",
         "pnpm --filter api exec vitest run tests/files/visible-equals-searchable.test.ts",
@@ -975,9 +975,9 @@
       "spec_ref": "22-files/uc-22-4-版本-派生物与删除传播.md#R10",
       "depends_on": [],
       "points": 1,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-files2",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-ontology-edge-invalidate.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-report-segment-invalidate.test.ts"
@@ -995,9 +995,9 @@
       "spec_ref": "20-model/uc-20-1-接入并测试一个模型.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-model",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/model/registry-fields.test.ts",
         "pnpm --filter api exec vitest run tests/capability/model/credential-never-echoed.test.ts",
@@ -1092,9 +1092,9 @@
       "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-mcp",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/mcp/three-orthogonal-fields.test.ts",
         "pnpm --filter api exec vitest run tests/capability/mcp/tool-namespace.test.ts",
@@ -1164,9 +1164,9 @@
       "spec_ref": "04-agent/uc-4-1-注册一个-agent.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-agent",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/clone-drops-whitelist.test.ts",
         "pnpm --filter api exec vitest run tests/capability/agent/version-snapshot-lock.test.ts",
@@ -1313,9 +1313,9 @@
       "spec_ref": "03-skill/uc-3-1-上传并校验一个-skill.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-skill",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/contract-static-validation.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/scope-not-exceed-submitter.test.ts",
@@ -1508,8 +1508,8 @@
       "spec_ref": "05-rec/uc-5-1-开启多路录音并实时出字.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-rec",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/multi-track-no-crosstalk.test.ts",
         "pnpm --filter api exec vitest run tests/rec/mic-permission-decline-no-segment.test.ts",
@@ -1698,8 +1698,8 @@
       "spec_ref": "05-rec/uc-5-4-转写回流与保留期.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-rec2",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/retention-param-resolution-no-hardcode.test.ts",
         "pnpm --filter api exec vitest run tests/rec/expiry-freeze-and-delete-cert.test.ts"
@@ -1739,8 +1739,8 @@
       "spec_ref": "06-itv/uc-6-0-访谈-studio-列表与范围.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-itv",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/scope-nullable-project-projection.test.ts",
         "pnpm --filter api exec vitest run tests/itv/scope-server-side-filter-no-leak.test.ts"
@@ -2170,8 +2170,8 @@
       "spec_ref": "07-canvas/uc-7-1-模板库与环节绑定.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-canvas",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/template-registry-19-key-displayname.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/binding-uses-key-not-displayname.test.ts"
@@ -2343,8 +2343,8 @@
       "spec_ref": "08-chat/uc-8-5-对话可见性规则.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w0-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/visibility-two-layer-intersection.test.ts",
         "pnpm --filter api exec vitest run tests/chat/observer-downgrade-server-side.test.ts",
@@ -2518,9 +2518,9 @@
       "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R7",
       "depends_on": [],
       "points": 6,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-project",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2933,9 +2933,9 @@
       "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-asset",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter web exec vitest run tests/ui/admin-nav-asset-kinds-bijective.test.tsx",
@@ -3222,9 +3222,9 @@
       "spec_ref": "24-research/uc-24-1-新建深度研究与研究配置.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "w0-research",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter web exec vitest run tests/ui/research-new-config-defaults.test.tsx",
