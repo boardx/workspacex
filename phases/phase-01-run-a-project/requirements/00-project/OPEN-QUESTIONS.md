@@ -80,7 +80,7 @@ Q-12 决定项目实体上有没有「类型 / 父子」维度，Q-11 决定项�
 | [**Q-6**](#q6) 🟡 | 项目列表 / 项目主页要展示什么？ | **部分** — ② **原型已答**（`PROTOTYPE-ANSWERS.md` Q-6：概览内容在运行态极明确，见 `uc-00-2-overview-default.png`）；① 「两段式返回」是响应体设计，**未覆盖**；准备度口径仍是 uc-2-2 的 `[待确认]` | ① **B** 两段式返回（「我在里面」与「我管着它」**分开**，不是一个混合数组加布尔）；② 概览只放**已有出处**的东西，**准备度不在本域定义** | 束：phase-00 `web-kernel`（顶栏两层身份条）。feature：**无**——`uc-00-2:195` 明写「Q-6 裁决前不要为项目列表生成 feature」。纯下游：吃 Q-4② / Q-5 / Q-11 / Q-12 的裁决 | ☐ 采纳推荐　☐ 选其它（写编号 ____） |
 | [**Q-9**](#q9) 🟡 | 「删除项目」提供吗？ | **未覆盖** — 有**先例未推广**：N-5 只裁了「不提供删除组织」（phase-00 `design-coherence.md:209`）；原型未出现删除项目入口，是**弱旁证不是证据** | **不提供**，并照抄 N-5：把 `DELETE /projects/*` 加进 `no-forbidden-routes.test.ts` 的禁止清单 | 束：九束均无删除项目。feature：**无**。纯下游：其成立性依赖 Q-5 选 B（归档承接「不再用了」） | ☐ 采纳推荐　☐ 选其它（写编号 ____） |
 | [**Q-7**](#q7) 🟡 | 一个人能同时在多少项目里？项目能不能跨组织？ | **部分（主体已定）** — 跨组织由 **I-1** 答死（`.../identity/domain.md:84`，外键层不可表达）；多组织切换由 **O-12 裁决①** 定死（`DECISIONS-OPEN.md:328-354`：一账号 + 顶部切换器 + 切换清空项目上下文 + 一人可归属多组织 + 团队单一归属）；容量由 **O-34 裁决**（`DECISIONS-OPEN.md:906-929`：组织并发项目 20 等，标注未实测）。剩 ①人均上限 与 ③停用组织下项目的呈现 **未覆盖** | 跨组织**已由 I-1 答死**（不可表达，非待定项）。剩余三问：① **不设**人均上限；② 若有跨组织诉求走**导出/复制**语义；③ 组织被停用时其项目**显示且标注只读**，不消失 | 束：`org-admin`（组织生命周期与切换器）。feature：**F95** 边缘相关；主体已被 **O-34**（容量基线）与 **I-1**（同组织约束）覆盖，本条只剩三个局部问 | ☐ 采纳推荐　☐ 选其它（写编号 ____） |
-| [**Q-3**](#q3) ✅ | 「环节」这个字段到底叫什么？ | **已定** — `phases/requirements/DECISIONS-FINAL.md:31` **D-03a**（2026-07-28 定稿，**自称全局权威**）：议程环节 = `agenda_segment` / `agenda_segment_id`，事件 `agenda_segment.switched` / `.state_changed` | **不是待裁决，是确认动作。** 唯一真正开放的子问：phase-00 已签核并已落库的 `stepId` / `step_id` 与已实现的闭集动作词 `stage.*` **要不要改名对齐**（那是**修订已签核束**，D-03a 没有说这件事） | 束：`templates`（**仍写 `agenda_stage` 的只剩这 2 个文件**：`domain.md:25` 两名并列、`ui.md:123`）；已按 D-03a 落地的 **14 个文件**见正文清单；`interview`（`domain.md:33` / `usecases.md:94` 仍写 `stepId`，那是**契约层原名**不是漂移）。feature：**F26 F31 F33 F35 F41 F57 F64** | ☐ 确认 D-03a 有效（`agenda_segment_id`）　☐ 另裁 `stepId`/`stage.*` 改不改：____ |
+| [**Q-3**](#q3) ✅ | 「环节」这个字段到底叫什么？ | **已定** — `phases/requirements/DECISIONS-FINAL.md:31` **D-03a**（2026-07-28 定稿，**自称全局权威**）：议程环节 = `agenda_segment` / `agenda_segment_id`，事件 `agenda_segment.switched` / `.state_changed` | **不是待裁决，是确认动作。** 唯一真正开放的子问：phase-00 已签核并已落库的 `stepId` / `step_id` 与已实现的闭集动作词 `stage.*` **要不要改名对齐**（那是**修订已签核束**，D-03a 没有说这件事） | 束：`templates`（**残留量不写死数字**，现场跑 `grep -rniE 'agenda_?stage' phases/phase-01-run-a-project/contracts/templates/`，判据 = 输出为空；2026-07-30 实测 **19 行 / 21 处**。⚠ 此前写「只剩 2 个文件：`domain.md:25`、`ui.md:123`」是错的，`ui.md` 只有 111 行且已无该词）；已按 D-03a 落地的 **14 个文件**见正文清单；`interview`（`domain.md:33` / `usecases.md:94` 仍写 `stepId`，那是**契约层原名**不是漂移）。feature：**F26 F31 F33 F35 F41 F57 F64** | ☐ 确认 D-03a 有效（`agenda_segment_id`）　☐ 另裁 `stepId`/`stage.*` 改不改：____ |
 
 ## 连带效应速查（某条的答案会锁死另一条）
 
@@ -309,15 +309,44 @@ templates/domain.md               templates/usecases.md
 其中 `files/domain.md:101` 的 **N-4 已经有 information_schema 机械断言**——
 也就是说这个名字**已经被门控守着了**，不是纸面约定。
 
-**仍写旧名 `agenda_stage` 的只剩 2 个文件**（同一个束）：
+**仍写旧名的地方 —— 不给数字，给一条可复跑的命令**
 
-| 文件 | 行 | 现状 | 该怎么改 |
-|---|---|---|---|
-| `contracts/templates/domain.md` | `:25` | 表格里 `agenda_stage_*` / `agenda_segment_id` **两名并列** | 删掉 `agenda_stage_*`，只留 `agenda_segment_id`。⚠ 这行同时并列了类型名 `AgendaStage` / `AgendaSegment`，也要收敛 |
-| `contracts/templates/ui.md` | `:123` | 逐字写「我们自己的表述与字段名一律写全「议程环节」/ `agenda_stage`」 | 把 `agenda_stage` 换成 `agenda_segment` |
+⚠ **2026-07-30 更正**：本节此前写「**只剩 2 个文件**：`domain.md:25` 两名并列、
+`ui.md:123` 逐字写 `agenda_stage`」。**两条都不成立**：
+`contracts/templates/ui.md` **只有 111 行**（`:123` 指向文件尾之外），
+且**全文已无该词**（`grep -c` = 0）。真实残留远多于 2 处。
 
-⚠ **改这 2 处是「按已有裁决收敛」，不是新裁决**，但它们属于 `templates` 束的签核材料，
+**残留量会随 Q-3 ① 改名推进而变，写死数字必然过期**——这正是本仓「同一事实两处」
+的形状（错误计数当时已被复制三份：本节、上表 Q-3 行、`contracts/project/design-signoff.md`
+的 X-3'）。⇒ 现在只登记**判据与命令**，数量当场跑：
+
+```bash
+# 判据：输出为空。非空即仍有旧名（含 snake 与 camel 两种写法）
+grep -rniE 'agenda_?stage' phases/phase-01-run-a-project/contracts/templates/
+
+# 想看规模
+grep -rniE 'agenda_?stage' phases/phase-01-run-a-project/contracts/templates/ | wc -l   # 行数
+grep -rnioE 'agenda_?stage' phases/phase-01-run-a-project/contracts/templates/ | wc -l  # 出现次数
+```
+
+**2026-07-30 实测基线**（只作参照，**不作判据**）：**19 行 / 21 处**，
+分布在 `templates/domain.md`（`:25` 两名并列、`:121` `:202` `:259`）、
+`templates/usecases.md`（`:93` `:111` `:212` `:232` `:360` `:386` `:392` `:410` `:414` `:415` `:493`）、
+`templates/coverage.md`（`:35` `:69` `:107` `:184`）。
+⚠ 大多是 **camelCase 的 `AgendaStageInstance` / `setAgendaStageStatus` / `agendaStageId`**
+——**只 grep snake_case 会漏掉绝大部分**，这也是上一版把它数成「2 处」的直接原因。
+
+⚠ **命令刻意只扫 `contracts/templates/`**。`contracts/project/` 下另有 4 处
+（`domain.md` I-P20、`usecases.md` V14、`coverage.md` V14、`MIGRATION-IMPACT.md`）
+——那些是**门控自身在描述「哪个名字是败选的」**，必须提到该词，**不是残留，不要改**。
+把它们算进残留正是「按数字判定」会犯的第二个错。
+⚠ 另一个败选名族 `stepId` / `step_id` / `stage.*` **不在本命令范围内**（它是 X-22 / Q-3 ③
+的单独一条，`org-admin` 束里有一批 `*StageId` 至今未登记）。三族要三条命令，不要合成一条。
+
+⚠ **这是「按已有裁决（D-03a）收敛」，不是新裁决**，但它属于 `templates` 束的签核材料，
 故仍应由该束签核人在签 `templates` 时一并确认——本文不代改。
+⚠ 收敛时**连带改类型名与方法名**（`AgendaStageInstance` → `AgendaSegmentInstance`、
+`setAgendaStageStatus` → `setAgendaSegmentStatus`），否则会留下「表名新、类型名旧」的两名并存。
 
 **另有两处写 `stepId`，但那不是漂移**：`contracts/interview/domain.md:33`、
 `contracts/interview/usecases.md:94`。`stepId` 是 **phase-00 已签核契约的原字段名**

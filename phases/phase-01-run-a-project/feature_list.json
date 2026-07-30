@@ -1232,8 +1232,8 @@
       "priority": 1,
       "area": "agent",
       "capability": "CAP-WEB",
-      "title": "项目级 AI 权限三开关（默认全关，三粒度收紧优先）+ 基于三层权限求交的改派路由（人工确认，理由须写具体授权名）",
-      "user_visible_behavior": "在 项目→设置→AI 权限 有三个开关（Facilitator 主动提议收敛 / 实时转录与语音转便签 / AI 直接在小组画布落笔），新建项目时默认全关；关掉某项后对应行为立即停止（如关掉“AI 直接在小组画布落笔”后 AI 只能提交建议待接受）。三粒度（组织/agent 级、项目级、画布/线程级）取交集收紧优先、下层不能放宽上层——agent 级允许插话但项目级关闭时仍不插话，画布级也无法再打开。对话输入区上方出现改派提示“这条更适合 Scout：它有行业数据库授权”，理由写出具体授权名，改派必须人点 [改派]、[×] 可忽略；把行业数据库 MCP 置为已隔离后该建议不再出现。开关变更留痕且对项目成员可见。",
+      "title": "项目级 AI 权限三开关（三粒度收紧优先；⚠ 三者默认值未裁，界面显示「默认值未裁」）+ 基于三层权限求交的改派路由（人工确认，理由须写具体授权名）",
+      "user_visible_behavior": "在 项目→设置→AI 权限 有三个开关（Facilitator 主动提议收敛 / 实时转录与语音转便签 / AI 直接在小组画布落笔）；三者的默认值尚未裁决，故界面每项挂「默认值未裁」徽标、区块顶部挂一条「默认值待人类裁决 · 无出处」提示（testid team-ai-switch-default-pending / team-switch-pending-<id>），而不是画成某个方向的默认。关掉某项后对应行为立即停止（如关掉“AI 直接在小组画布落笔”后 AI 只能提交建议待接受）。三粒度（组织/agent 级、项目级、画布/线程级）取交集收紧优先、下层不能放宽上层——agent 级允许插话但项目级关闭时仍不插话，画布级也无法再打开。对话输入区上方出现改派提示“这条更适合 Scout：它有行业数据库授权”，理由写出具体授权名，改派必须人点 [改派]、[×] 可忽略；把行业数据库 MCP 置为已隔离后该建议不再出现。开关变更留痕且对项目成员可见。",
       "spec_ref": "04-agent/uc-4-2-按状态载入-agent.md#R7",
       "depends_on": [
         "F57"
@@ -1244,11 +1244,11 @@
       "owner": null,
       "verification": [
         "pnpm --filter web vitest run tests/capability/agent/ai-permission-three-grain-intersection.test.ts",
-        "pnpm --filter web vitest run tests/capability/agent/ai-permission-default-off.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/project-ai-switch-defaults-pending.test.ts",
         "pnpm --filter web vitest run tests/capability/agent/reassign-route-by-authz.test.ts"
       ],
       "evidence": "",
-      "notes": "依据：项目级 AI 权限三开关为 [原型 批次8]，合成规则收紧优先与默认全关为 O-23。改派路由基于 MCP 授权集为 [原型]，判据=三层权限求交（T09），改派是建议须人确认为 [设计]。项目设置 AI 权限三开关与改派提示条已建成于 chat 组件（testid chat-reassign-bar / chat-reassign-reason / chat-reassign-apply / chat-reassign-dismiss 已存在），交付后端规则与三粒度服务端求交。\n【跨分片依赖待确认】07-canvas: “AI 直接在小组画布落笔”开关的落地对象（D-10）；21-mcp: 改派授权集来源（T06）",
+      "notes": "依据：项目级 AI 权限三开关为 [原型 批次8]，**合成规则**（取交集 / 收紧优先 / 下层不可放宽 / 服务端求交）为 O-23。\n⚠ 2026-07-30 更正伪造出处：本条此前写「默认全关为 O-23」——不成立。DECISIONS-OPEN.md:655 的 O-23 裁决行逐字只有一句「裁决：合成规则 = 取交集（收紧优先），且不可被下层放宽」，「默认全关」只出现在推荐段（:650-651），裁决行未提。⇒ **默认值无出处 → 待裁**，三项已登记进 packages/contracts/src/thresholds.ts 的 projectAiDefaultProposeConvergence / projectAiDefaultVoiceToNote / projectAiDefaultCanvasWrite（known:false，取值即抛错，不给「悄悄用一个 false」的机会），apps/web/lib/mock/agent-runtime.ts 的 defaultOn 已改为从那里读。\n⚠ 且原型（权威，纪律第 7 条）与「全关」相反：15.2532M 设置磁贴副标题逐字「AI 权限 / 3 项 · 1 项已关」⇒ 2 项开；15.2748M 主动提议收敛=开、语音转便签=开、画布落笔=关（本场覆写）；15.2146M 蓝本预览「AI 可在小组画布落笔」=开（蓝本默认）。判读依据 background:#17171A + 旋钮 right:2px = 开，#DEDCD3 + left:2px = 关。连带 [D-10] 逐字「AI 画布写权限：默认直接落笔」也与「全关」相反（uc-4-2:103 vs 旧 :120，相隔 17 行，已修）。\n⚠ verification 里原有的 ai-permission-default-off.test.ts **文件名本身预设了答案**，已换成 packages/contracts/tests/project-ai-switch-defaults-pending.test.ts —— 该文件**已存在且真的会红**：七条断言在裁决落地前只证「取值抛错 + 三项在待定表 + 标为真阻塞 + rule 里不再夹带默认全关」，并带两条反空转反证（⑤ 集合非空、⑥ requireValue 对已定值项不抛错，堵掉「第一行就 throw」的实现）。实测反证：把其中一项偷改为 known:true/value:false（即偷偷把「默认关」定死）⇒ 7 条里 5 条转红，⑤⑥ 保持绿（正确，它们不该被这个变更影响）。\n⚠ 旧路径 `pnpm --filter web vitest run tests/capability/agent/ai-permission-default-off.test.ts` 有两个问题：⑴ 文件名 `default-off` **本身预设了答案**；⑵ 该命令形式在本仓**恒 exit 0**（apps/web 有 test 脚本、无 vitest 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过 —— 即这条验收此前是空转的（REVIEW-REQUIREMENTS V-1，同形共 21 个 feature）。\n⚠ 人类裁决落地后：把三项改成 known:true + source 记明裁决号，届时 ②③ 会失败，**那是正确信号**，改成断言真实默认值即可。裁决前不许把任何一侧写成断言。\n改派路由基于 MCP 授权集为 [原型]，判据=三层权限求交（T09），改派是建议须人确认为 [设计]。项目设置 AI 权限三开关与改派提示条已建成于 chat 组件（testid chat-reassign-bar / chat-reassign-reason / chat-reassign-apply / chat-reassign-dismiss 已存在），交付后端规则与三粒度服务端求交。\n【跨分片依赖待确认】07-canvas: “AI 直接在小组画布落笔”开关的落地对象（D-10）；21-mcp: 改派授权集来源（T06）",
       "_uc_points_declared": "见 T10"
     },
     {
@@ -2525,7 +2525,7 @@
         "pnpm --filter api run migrate:check"
       ],
       "evidence": "",
-      "notes": "依据：Q-12 裁 C（三类独立容器）+ 连带 4 裁 D（超类型 + 1:1 子类型表）+ U-9 裁 A（判别列 kind + 复合外键，纯声明式无触发器）。落 I-P33 / I-P34 / I-P36。\n⚠ 白名单门控必须是**集合相等**不是黑名单——黑名单挡不住下一个没被想到的名字（agenda_segment_id 被挡住了，current_segment_id 没有）。判定抽成纯函数 checkProjectsColumnSet(actual)，配三条反证：喂 [...白名单,'agenda_segment_id'] 断言 extra 恰为该项；喂 ['id','org_id'] 断言 missing 非空；断言常量长度恒为 5（防「改白名单来消红」）。缺反证时一个 return {ok:true} 的实现让主门永远绿。\n⚠ I-P34 的三条反证（互斥生效 / 两种失败可区分 / 判别列不是摆设）逐条见 domain.md §一之三第 2 小节，缺第二条时「三张子表全部只读」的实现两条都绿。\n⚠ projects(id) 现有 7 条外键一条不改（groups / project_memberships / admin_project_access / artifacts / artifact_bindings / segment_text / claims）——这是候选 D 被选中的首要理由。\n⚠ 迁移新增一支，下一个可用序号是 0018（0016 / 0017 已被 F13 / F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F01/F02（两层角色 + RLS 强制隔离）、F22（组织生命周期冻结策略；⚠ 三张新子表不在 0014:165-184 的写死表清单里，需一并补进去）",
+      "notes": "依据：Q-12 裁 C（三类独立容器）+ 连带 4 裁 D（超类型 + 1:1 子类型表）+ U-9 裁 A（判别列 kind + 复合外键，纯声明式无触发器）。落 I-P33 / I-P34 / I-P36。\n⚠ 白名单门控必须是**集合相等**不是黑名单——黑名单挡不住下一个没被想到的名字（agenda_segment_id 被挡住了，current_segment_id 没有）。判定抽成纯函数 checkProjectsColumnSet(actual)，配三条反证：喂 [...白名单,'agenda_segment_id'] 断言 extra 恰为该项；喂 ['id','org_id'] 断言 missing 非空；断言常量长度恒为 5（防「改白名单来消红」）。缺反证时一个 return {ok:true} 的实现让主门永远绿。\n⚠ I-P34 的三条反证（互斥生效 / 两种失败可区分 / 判别列不是摆设）逐条见 domain.md §一之三第 2 小节，缺第二条时「三张子表全部只读」的实现两条都绿。\n⚠ projects(id) 现有 7 条外键一条不改（groups / project_memberships / admin_project_access / artifacts / artifact_bindings / segment_text / claims）——这是候选 D 被选中的首要理由。\n⚠ 迁移新增一支，下一个可用序号是 0018（0016 / 0017 已被 F13 / F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F01/F02（两层角色 + RLS 强制隔离）、F22（组织生命周期冻结策略；0014:151-172 是 catalog 推导的函数 kernel_apply_org_freeze_policies()，不是写死清单，三张新子表会自动进——但该函数只在被调用时重算，所以 0018 迁移末尾必须加一行 SELECT kernel_apply_org_freeze_policies();，且不得在新迁移里再抄一份三条策略。断言不用新写：apps/api/tests/auth/org-disabled-readonly.test.ts:300-318 的 catalog 审计已覆盖新表并自带反空转反证）",
       "priority": 1,
       "area": "project",
       "capability": "CAP-API"
@@ -2845,6 +2845,81 @@
       "priority": 1,
       "area": "project",
       "capability": "CAP-API"
+    },
+    {
+      "id": "F129",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "逐工具授权模型：McpTool.sideEffect 三值闭集 + 开放给五值全序（补 需人工确认每次 / 未开放）+ 新工具默认未开放 + 服务器级为上限、工具级只能更严",
+      "user_visible_behavior": "在 后台→AI 能力→MCP→某服务器 的「逐工具授权」面板里，探测到的每个工具各占一行，三列分别是 工具 / 副作用 / 开放给，行尾一个开关；面板头显示「逐工具授权 · N 个 · 默认全关 · 已开 M」。副作用取 只读 / 对外发送 / 写入外部 三值之一（只读为绿、两种带副作用为红），开放给取 全体成员 / 仅某团队 / 仅项目负责人 / 需人工确认每次 / 未开放 五值之一。刚探测到的新工具一律是「未开放」，必须逐个开——不会因为服务器放行就自动可调用。服务器级授权范围是上限：服务器设为「仅项目负责人」时，把某个工具设成「全体成员」会被拒（不得放宽上层）；反过来服务器设「全体成员」时把工具设「未开放」是允许的，该工具随即不可被任何 agent 调用。副作用未标注的工具按最严处理（等同带副作用），不会被当成只读放开。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
+      "depends_on": [
+        "F52"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/tool-side-effect-closed-set.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-auth-scope-total-order.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-narrower-than-server.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/new-tool-defaults-closed.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 本 feature 补的是「粒度错 + 枚举缺两值 + `副作用` 域字段不存在」三件（2026-07-30 需求分析师审计 M-1…M-3）。此前 `逐工具` / `副作用` / `需人工确认每次` / `未开放` 在 `contracts/agent-runtime/**` 与 `requirements/21-mcp/**` **全部 0 命中**。\n出处 [原型] `phases/requirements/WorkspaceX Standalone.html` 字节偏移 **16,684,300**：面板头逐字 `逐工具授权 · 9 个` / `默认全关` / `已开 3`；表头三列逐字 `工具` | `副作用` | `开放给`；实值（逐行按字节复核，`background:#17171A`+旋钮 `right:2px`=开、`#DEDCD3`+`left:2px`=关）：`search_regulation` 只读·全体成员·开 / `get_directive_text` 只读·全体成员·开 / `compare_jurisdictions` 只读·仅项目负责人·开 / `submit_inquiry` 对外发送·需人工确认每次·关 / `upload_document` 写入外部·未开放·关。\n⚠ `副作用` 与 O-19 的 `involvesCustomerData`（涉客户数据）**正交，不得合并**：前者答「会不会改变外部世界」，后者答「数据敏不敏感」。一个只读工具可以碰客户数据，一个外发工具可以只碰公开数据。I-23 已改为只约束 `involvesCustomerData` 这一个字段。\n⚠ `副作用` 的取值来源（握手探测 vs 人工标注）**原型未演示 ⇒ [待裁]**，但**不给「默认只读」**：未标注按最严处理。默认只读会让一个未标注的外发工具被开放给全体成员——正是 F130 要防的那件事。\n⚠ 「新工具默认未开放」这个默认值**有原型出处**（`16,684,300` 逐字 `默认全关`），与 O-23 那个**无出处**的「三个 AI 开关默认全关」（见 F58）是两件不同的事，**不要混用出处**。\n⚠ 全序落成**显式序数常量**，不靠字符串比较——它是 F130 服务端可判定的前提。\n⚠ 闭集断言写「成员集合与契约相等 ∧ 未声明的值不能通过」，**不要 `toHaveLength(3)`/`(5)`**（纪律第 9 条：断言性质不是数量，`toHaveLength` 会挡住正当新增）。\n⚠ `tool-scope-narrower-than-server` 必须**双向**：越界（服务器`仅项目负责人`+工具`全体成员`）被拒 **且** 合规（服务器`全体成员`+工具`全体成员`）可调用——只写前者时「一律不可调用」的实现全绿。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpTool`（`ToolSideEffect` / `ToolAuthScope` 两个闭集表）+ 不变式 **I-29′**。\n⚠ 界面**尚不存在**（签核第 ① 件新缺口，已登记在 `contracts/agent-runtime/ui.md` 第四节）——原型有这张表，我们的 `apps/web` 没有。\n🔴 **与 O-20 冲突，需人类确认 O-20 是否据此修订** —— 本批**不改 O-20**（决策档案是人类的）。O-20 裁的是服务器级 `auth_scope` 三值（`仅项目负责人`/`仅某团队`/`全体成员`），而原型同一屏给的是**逐工具 × 五取值 × 带 `副作用` 列**。O-20 的问题陈述通篇只讨论「授权范围列」与「仅某团队要不要加」，一次也没有提到 `逐工具` / `副作用` / `需人工确认每次` / `未开放`⇒ **很可能它是在没看过这张表时把模型收窄成三值的**。裁定前不得按任一侧写死断言。冲突登记在 `requirements/21-mcp/uc-21-1` R3 第 4 步末。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F130",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "安全不变式 I-28′：带副作用的工具授权范围封顶（最宽「需人工确认每次」）—— 服务端强制 + 纯函数判定 + sideEffect 变更时重新求值 + 四格双向断言",
+      "user_visible_behavior": "把一个副作用为「对外发送」或「写入外部」的工具，其「开放给」设成 全体成员 / 仅某团队 / 仅项目负责人 中任意一个，服务端一律拒绝并返回 TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP，界面给出禁用理由（「带副作用的工具最宽只能到『需人工确认每次』」）而不是静默置灰；设成 需人工确认每次 或 未开放 则正常保存生效。只读工具设成 全体成员 正常保存。绕过界面直接打 API 同样被拒。并且：一个原本 只读 + 全体成员 的工具，若重新探测后副作用变为 对外发送，它的开放给会被当场收紧到 需人工确认每次，而不是保持在全体成员等到下次有人去改它。设成 需人工确认每次 的工具每被调用一次就产生一条确认记录（谁、何时、批的是哪一次调用）。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R7",
+      "depends_on": [
+        "F129"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-pure-fn.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-server-enforced.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 **这是安全不变式，不是界面校验**（2026-07-30 补，审计 M-4：此前封顶不变式在契约里不存在）。\n出处 [原型] 字节偏移 **16,688,300** 逐字：「带副作用的工具（对外发送、写入外部）永远不能设为『全体成员自动调用』，最宽只能到『需人工确认每次』。」\n形式化（服务端可判定）：`maxScopeFor(sideEffect) = sideEffect === '只读' ? 4(全体成员) : 1(需人工确认每次)`；不变式 `rank(tool.authScope) <= maxScopeFor(tool.sideEffect)`；等价于 `副作用 ∈ {对外发送, 写入外部} ⟹ 开放给 ∈ {需人工确认每次, 未开放}`。\n落地四条，缺任一条即判未落地：\n⑴ 判定抽成**纯函数** `checkToolScopeCap({sideEffect, authScope}): {ok, reason?}`，与 I-P33 的 `checkProjectsColumnSet` 同形，可脱 HTTP 直测。\n⑵ **服务端强制**：`setToolAuthScope` 写路径上调用它，越界返回 `TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP`。⚠ **不得只在前端置灰**——置灰挡不住直接打 API。\n⑶ **`sideEffect` 变更时重新求值并当场收紧**。⚠ 这条最容易漏：只在「设置授权范围」一个入口校验，会留下「从只读那一侧走进来」的绕过路径。\n⑷ **双向 + 边界 + 变更路径四格断言**：\n  · 越界被拒：`对外发送`×`全体成员` ⇒ 拒 + 该错误码；`写入外部`×`仅某团队` ⇒ 拒\n  · ⭐ **合规值通过**：`对外发送`×`需人工确认每次` ⇒ **通过**；`对外发送`×`未开放` ⇒ **通过**；`只读`×`全体成员` ⇒ **通过**。🔴 **缺这一格时，一个「一律拒绝」的实现会让越界那一侧全绿**——纪律第 9、10 条，本仓九次「全绿但空转」的同一形状。这是本条最关键的一格。\n  · 边界恰好：`只读`×`全体成员` 通过 ∧ `对外发送`×`仅项目负责人` 被拒（封顶值取错一档、把 `仅项目负责人` 也放过，否则不会被发现）\n  · 变更路径：`只读`+`全体成员` 的工具改 `sideEffect` 为 `对外发送` ⇒ 其 `authScope` 被收紧\n⚠ 断言**性质不是数量**——不要写「拒绝了 N 次」。\n⚠ `需人工确认每次` 必然带一条**逐次确认记录**（谁/何时/批的是哪一次调用），否则「确认过」无法证明，I-27 第三层没有落点。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpTool` 的「安全不变式 I-28′」小节 + 不变式表 I-28′。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
+    },
+    {
+      "id": "F131",
+      "priority": 1,
+      "area": "mcp",
+      "capability": "CAP-API",
+      "title": "第三方源 14 天隔离期：quarantineUntil 计时（时间戳非布尔）+ 期内仅平台组可调用且全量留痕 + 期满进「已到期待复核」不自动开放 + 天数读组织参数不硬编码",
+      "user_visible_behavior": "注册一台第三方 MCP 服务器后，它除了「已隔离」之外还带一个隔离期截止时刻，界面显示「隔离期还剩 N 天」；隔离期内以非平台组身份调用它的任何工具一律被拒，以平台组身份调用则通过，且每一次调用（含被拒的尝试）都写 provenance 全量留痕——不受安全策略开关二「涉客户数据才留痕」的影响。把组织的隔离期参数从 14 天改成 3 天，新注册服务器的截止时刻随之变化，代码里搜不到裸的 14。隔离期到点后服务器不会自动对成员开放，而是转入「已到期待复核」并出现在待办里；放行仍然要人点，放行时必须同时设定授权范围。",
+      "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
+      "depends_on": [
+        "F52",
+        "F54"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-window-timing.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-platform-group-only.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-expiry-no-auto-release.test.ts",
+        "pnpm --filter api exec vitest run tests/mcp/quarantine-days-from-param.test.ts"
+      ],
+      "evidence": "",
+      "notes": "🔴 **整块缺失**（2026-07-30 补，审计 M-4 连带）：`隔离期` / `14 天` / `平台组` 此前在 `feature_list.json` 中 **0 命中**。\n出处 [原型] 字节偏移 **16,683,800** 逐字：「第三方源默认进入 **14 天隔离期**：只有平台组可调用，全量留痕，期满复核后才对成员开放。」\n⚠ **`quarantineUntil` 是时间戳不是布尔**——布尔答不了「还剩几天」「到期了没有」，而这两件事界面上都要显示、待办里都要用。\n⚠ **`14` 不硬编码**：读组织级参数，与 O-01「留痕保留期」同形。该默认值**有原型出处**，可落 `known: true` + `source = 原型 16,683,800`（区别于无出处的默认值）。参照 I-24 的反证形状：把参数改成另一个值，断言到期时间随之变化 + 代码扫描无裸字面量。\n⚠ **期满不自动开放**：原型逐字「**期满复核后**才对成员开放」⇒ 到期只是让「复核」变得可做。为此 `McpServer.reviewStatus` 补一个 `已到期待复核` 取值——缺它时到期的服务器会静默停在 `待安全评审` 里无人处理，界面上「到期了」和「还没人看」无法区分。\n⚠ 断言必须**双向**：期内非平台组调用被拒 **且** 平台组调用**通过**（并必写 provenance）。只写「被拒」那一侧时，一个「隔离期内谁都不能调用」的实现全绿，而原型明说平台组可以。同理「期满不自动开放」要断言它**没有**转成 `已放行`，不是只断言它「还是隔离」。\n🔴 **[待裁] `平台组` 无其它出处**：它在本阶段仅此一处出现，是 `uc-0-3` 角色本体里的哪个角色？是新的团队类型？还是「组织管理员 + 安全评审人」的合称？**不发明，不代答**——裁定前该身份判定不得写死（否则会造出一个只在测试夹具里存在的角色）。\n契约：`contracts/agent-runtime/domain.md` §B 组 `McpServer` 的 `quarantineUntil` / `quarantineDays` / `reviewStatus` 补值 + 不变式 **I-30′**。\n⚠ 界面**尚不存在**（签核第 ① 件新缺口，已登记在 `contracts/agent-runtime/ui.md` 第四节）。\n⚠ verification 用 `pnpm --filter api exec vitest run …` 形式，**不是** `pnpm --filter web vitest run …`：后者在本仓恒 exit 0（`apps/web` 有 `test` 脚本、无 `vitest` 脚本，且 web 未装 vitest ⇒ pnpm 「无匹配脚本」退出 0），实测垃圾路径也判通过；`--filter api exec vitest` 对不存在的文件实测 exit=254。这是 F48–F68 既存 21 个 feature 的同形问题（REVIEW-REQUIREMENTS V-1），本批新 feature 不再复制它。"
     }
   ]
 }
