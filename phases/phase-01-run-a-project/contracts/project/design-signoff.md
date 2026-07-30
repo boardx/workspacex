@@ -1,14 +1,18 @@
 ---
 bundle: project
 phase: "01"
-# ⚠ 空列表是**故意的**，不是漏填。本域在 feature_list.json 里目前**没有任何 feature**
-#   （估 8–10 个 / 32–40 点，待 OPEN-QUESTIONS 的 12 条裁决完成后由 requirement-author 生成）。
-#   空 `covers:` 会让 auditSignoff 报红，那正是我们要的——见正文顶部的醒目块。
-covers: []
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+# ⚠ 2026-07-30：feature 已生成，`covers:` 不再是空列表。
+#   原估 8–10 个 / 32–40 点，实测 **13 个 / 56 点**——正文顶部已注明「三类子表已定，估点可能偏低」，
+#   偏低的来源是可归因的：U-9 A 的判别列 + 三张 1:1 子类型表（F116 单件就 6 点）、
+#   U-1 B 的两张新成员表 + U-7 A 的两张既有表加列回填（F128 5 点）、
+#   以及 Q-3 ① 的改名对齐要回头改 phase-00 已合入 main 的代码（F121 3 点）。
+#   这三件在写「8–10 个」那天都还没裁。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128]
+status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "" # "yanbin shen"
+confirmed_at: "" #"2026-07-30T16:50:06+08:00"
 ---
+
 
 # 契约束 `project` 设计签核（第 10 个束）
 

@@ -2,9 +2,9 @@
 bundle: org-admin
 phase: "01"
 covers: [F03, F04, F05, F06, F07, F10, F11, F12, F13, F14, F15, F16]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
 
 # 契约束 `org-admin` 设计签核

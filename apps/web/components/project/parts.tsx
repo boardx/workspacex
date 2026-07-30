@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Lock, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -42,6 +43,52 @@ export function StatChip({
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * 观察者裁剪说明条 —— 当某块内容对观察者**整块消失**（不是变灰）时，
+ * 用它替代那块，明确告诉观察者「这里本来有东西，但不在你的只读范围内」。
+ * ⚠ 这是「四视角真的改变界面」的可见承诺：内容消失 + 说清原因，而不是留个灰按钮。
+ */
+export function ObserverNotice({
+  what, testId,
+}: { what: string; testId?: string }) {
+  return (
+    <div
+      data-testid={testId}
+      className="flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-panel px-3.5 py-3 text-11 text-muted-foreground"
+    >
+      <EyeOff aria-hidden className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1">{what}</span>
+      <Badge tone="outline">观察者只读</Badge>
+    </div>
+  );
+}
+
+/**
+ * 组织停用后的只读原因条（uc-00-1 V12：显示只读原因而非隐藏）。
+ * 内容仍在，只在顶部挂一条「为什么现在只读」的说明。
+ */
+export function OrgDisabledBanner({
+  title, reason, hint,
+}: { title: string; reason: string; hint: string }) {
+  return (
+    <div
+      role="status"
+      data-testid="project-org-disabled-banner"
+      className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 px-4 py-3"
+    >
+      <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-13 font-medium text-warning-foreground">{title}</span>
+          <Badge tone="warning">全项目只读</Badge>
+        </div>
+        <p className="text-11 text-muted-foreground">{reason}</p>
+        <p className="text-11 text-muted-foreground">{hint}</p>
+      </div>
+    </div>
   );
 }
 

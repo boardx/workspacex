@@ -1,13 +1,16 @@
 "use client";
 import * as React from "react";
-import { MoreHorizontal, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, AlertTriangle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * 项目卡的 `⋯` 菜单 —— 承载**危险动作**（归档）。
- * 硬规则 6：删除/归档这类动作必须二次确认 + 影响范围说明，
- * 不做成孤零零的红按钮。这里点「归档项目」后展开影响范围面板再确认。
+ * 项目卡的 `⋯` 菜单 —— 承载**增删改**里的「改」（编辑）与「退役」（归档）。
+ * 硬规则 6：归档这类动作必须二次确认 + 影响范围说明，不做成孤零零的红按钮。
+ *
+ * ⚠ **没有「删除项目」是有意的**：Q-9 裁「不提供删除项目」，由归档（Q-5 方案 B）承接
+ *   「这个项目不再用了」。人类 2026-07-30 提到的「增删改」里的「删」= 归档退役，不是硬删除。
+ *   （硬删除会加进 `no-forbidden-routes.test.ts` 的禁止清单。）
  */
 export function ProjectMoreMenu({ projectId }: { projectId: string }) {
   const [open, setOpen] = React.useState(false);
@@ -37,6 +40,16 @@ export function ProjectMoreMenu({ projectId }: { projectId: string }) {
         >
           {!confirming ? (
             <div className="flex flex-col">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => window.alert("演示：编辑项目（改名 / 改蓝本 / 改时长，前端投影）")}
+                data-testid={`projects-more-${projectId}-edit`}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 text-card-foreground transition-colors duration-200 hover:bg-muted"
+              >
+                <Pencil aria-hidden className="h-3.5 w-3.5" />
+                编辑项目
+              </button>
               <MenuItem testid={`projects-more-${projectId}-bigscreen`}>看现场大屏</MenuItem>
               <MenuItem testid={`projects-more-${projectId}-copy-invite`}>复制邀请链接</MenuItem>
               <div className="my-1 h-px bg-border" aria-hidden />
@@ -50,6 +63,9 @@ export function ProjectMoreMenu({ projectId }: { projectId: string }) {
                 <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
                 归档项目
               </button>
+              <p className="px-2 py-1 text-9 text-muted-foreground">
+                不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${projectId}`}>

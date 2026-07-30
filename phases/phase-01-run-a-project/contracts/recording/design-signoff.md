@@ -2,10 +2,11 @@
 bundle: recording
 phase: "01"
 covers: [F69, F70, F71, F72, F73, F74, F75, F76, F77, F78, F79]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-07-30T16:50:06+08:00"
 ---
+
 
 # 契约束 `recording` 设计签核
 

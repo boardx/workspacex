@@ -2,9 +2,9 @@
 bundle: agent-runtime
 phase: "01"
 covers: [F48, F49, F50, F51, F52, F53, F54, F55, F56, F57, F58, F59, F60]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:             # 确认人（姓名/邮箱）
-confirmed_at:             # ISO 8601，且不得晚于签核当下
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
+confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下
 ---
 
 # 契约束 `agent-runtime` 设计签核

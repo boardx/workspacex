@@ -2505,6 +2505,346 @@
       "priority": 2,
       "area": "chat",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F116",
+      "title": "三类容器落库：projects 超类型（列集合白名单）+ workshops/research_projects/user_insights 三张 1:1 子类型表（判别列 kind + 复合外键互斥）",
+      "user_visible_behavior": "建工作坊 / 研究项目 / 用户洞察三类容器，各自落一行 projects + 一行对应子类型表；同一个容器不可能同时是两类——给 kind='workshop' 的容器插 research_projects 行被数据库外键拒绝，给同一容器插第二条 workshops 行是主键冲突（两种失败可分辨），把已有子行的容器 kind 改掉同样被复合外键拒绝；往 projects 加任何工作坊专属列（议程环节 / 分组 / 蓝本引用）会让列集合白名单门控直接变红；三张新表自动进 RLS 网，verify-rls.sh 判 ok 的表数增加 3。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R7",
+      "depends_on": [],
+      "points": 6,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/projects-column-set.test.ts",
+        "pnpm --filter api exec vitest run tests/project/subtype-exclusive-1to1.test.ts",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-12 裁 C（三类独立容器）+ 连带 4 裁 D（超类型 + 1:1 子类型表）+ U-9 裁 A（判别列 kind + 复合外键，纯声明式无触发器）。落 I-P33 / I-P34 / I-P36。\n⚠ 白名单门控必须是**集合相等**不是黑名单——黑名单挡不住下一个没被想到的名字（agenda_segment_id 被挡住了，current_segment_id 没有）。判定抽成纯函数 checkProjectsColumnSet(actual)，配三条反证：喂 [...白名单,'agenda_segment_id'] 断言 extra 恰为该项；喂 ['id','org_id'] 断言 missing 非空；断言常量长度恒为 5（防「改白名单来消红」）。缺反证时一个 return {ok:true} 的实现让主门永远绿。\n⚠ I-P34 的三条反证（互斥生效 / 两种失败可区分 / 判别列不是摆设）逐条见 domain.md §一之三第 2 小节，缺第二条时「三张子表全部只读」的实现两条都绿。\n⚠ projects(id) 现有 7 条外键一条不改（groups / project_memberships / admin_project_access / artifacts / artifact_bindings / segment_text / claims）——这是候选 D 被选中的首要理由。\n⚠ 迁移新增一支，下一个可用序号是 0018（0016 / 0017 已被 F13 / F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F01/F02（两层角色 + RLS 强制隔离）、F22（组织生命周期冻结策略；⚠ 三张新子表不在 0014:165-184 的写死表清单里，需一并补进去）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F117",
+      "title": "createProject：一条创建路径 + 蓝本可选参数 + 两行原子写入 + 幂等 + 创建者不自动获角色",
+      "user_visible_behavior": "项目负责人（组织角色 lead）点新建，选三类之一，可选一个已发布蓝本或传 null 走空白新建；一次提交原子地写出容器行与子类型行，中途失败不留「有容器没子类型」的半成品；同一请求重复提交只建出一个容器；kind 不在三值闭集内直接 INVALID_KIND；组织角色 admin 与其余角色一律 ORG_ROLE_INSUFFICIENT；创建者不会被自动授予任何项目角色，所以他建完之后在列表里看得见这个项目（managed 段）却读不到里面的内容。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/create-project-atomic-two-rows.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-idempotent.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-org-role-gate.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-1 裁 C（一条创建路径 + 蓝本可选参数，空白新建 = 传 null，六类初始化跳过而非写空值）+ U-4 裁 A（admin 不能创建）+ Q-4② 裁「lead 对自建未加入的项目持管理权、不持内容读取权」。\n⚠「不自动给创建者授予项目角色」是 Q-4② 推出来的，不是 Q-1 连带 3（那格是空的）：若创建即授角色，Q-4② 那条边的两端就不存在了，「管理员不是超级用户」随之破掉。\n⚠ 组织 disabled 不写应用层码——PG RESTRICTIVE 策略拒写，断言在数据库层（I-P28）。\n⚠「蓝本无效」这个码故意没有名字：U-5 裁 B 定的是补套那一侧，创建时蓝本不合法的判据仍无出处。一个不会被抛出的码读起来像覆盖。\n⚠ 幂等键无出处（契约面没编一个），见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P9。\n【跨阶段依赖】phase-00: F01（组织角色判定）、provenance 通道（⚠ ProvenanceEventType 里没有「项目已创建」这个类型，见 GAPS.P3）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F118",
+      "title": "agenda_segments 独立表：四态 + mergedInto + 同工作坊至多一个 active 的部分唯一索引 + artifact_bindings 补外键",
+      "user_visible_behavior": "议程环节从「一个没人管的字符串 id」变成有身份有状态的行：pending/active/closed/skipped 四态，closed 与 skipped 都能带 mergedInto 指向并入目标；同一个工作坊里并发把两条环节置为 active，恰好一条成功、另一条拿到明确错误而不是静默覆盖；插入一条指向不存在环节的绑定被外键拒绝，指向存在环节的绑定成功——孤儿绑定从此不可能存在。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/agenda-segment-four-states.test.ts",
+        "pnpm --filter api exec vitest run tests/project/agenda-segment-single-active-index.test.ts",
+        "pnpm --filter api exec vitest run tests/project/binding-segment-fk-no-orphan.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2① 裁 A（建独立表 agenda_segments）+ Q-2② 裁 B（四态 + mergedInto）+ Q-8 裁 2（artifact_bindings 补外键）。落 I-P42 / I-P43 / I-P44。\n⚠ 挂 workshops（workshop_id → workshops(id)）不是 projects——议程环节是工作坊机件；超类型模型下 workshops.id ≡ projects.id，故 bindToProjectStep 的 projectId 仍是容器 id，两句不冲突。\n⚠ 不得退化成 startedAt/endedAt 时间戳：临时提权的失效条件是流程节点不是时间点（uc-1-4:98），时间戳表达不了「被跳过」与「被合并」。\n⚠「至多一个 active」必须是 DB 部分唯一索引（CREATE UNIQUE INDEX ... ON agenda_segments (workshop_id) WHERE state='active'），不是应用层先查后写——先查后写在并发下就是那条空转的门。反证：断言确实能把某一条置为 active（否则「谁都不能 active」的实现也全绿）。\n⚠ 外键那条同样要双向：指向存在环节的绑定要断言成功，否则「所有绑定都拒绝」的实现全绿（V13）。\n⚠ 迁移取 0018-*（0016/0017 已被 F13/F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F06 三模式绑定（artifact_bindings 表与 UNIQUE(artifact_id, project_id, step_id)）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F119",
+      "title": "advanceAgendaSegment：推进 / 提前结束 / 跳过 / 合并四种去向 + 权限闭集判定",
+      "user_visible_behavior": "引导师在主持台点下一环节，当前环节按四种去向之一终结（正常推进 / 提前结束 / 跳过 / 合并进另一条），下一条环节成为唯一的 active，三视角首屏跟着它走；组长、组员、观察者点不到这个动作，服务端也一律 PROJECT_ROLE_INSUFFICIENT；对已 closed 或已 skipped 的环节再次推进得到 SEGMENT_TERMINAL；容器已归档时推进被拒。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/advance-segment-four-outcomes.test.ts",
+        "pnpm --filter api exec vitest run tests/project/advance-segment-role-gate.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2② 裁 B（四态 + mergedInto）+ I-P10（推进已在闭集动作词表里，前提不再讨论）。\n⚠ 动作词引用 apps/api/src/domain/identity/project-role-matrix.ts，不得抄第二份 PROJECT_ACTIONS 常量（I-P12）。Q-3 ① 裁「改名对齐」后为 agendaSegment.advance——改名本身归 F121，本 feature 用改名后的名字。\n⚠ SEGMENT_ALREADY_ACTIVE 由部分唯一索引产生（F118 建的），本 feature 只是把它翻译成失败码，不在应用层再判一次。\n⚠ 临时提权的收回是本操作的副作用，但它的验收（四向 + 反向反证）归 F127，两处不重复计点。\n⚠ 容器归档时的失败码在裁决里故意没有名字（U-2⑵ 采纳「拒绝归档」但未命名码），见 GAPS.P7——本 feature 不发明它，归档侧的判据归 F124。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F120",
+      "title": "环节接受来源白名单 setAcceptedSources + STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 两条空转失败码的双向还债",
+      "user_visible_behavior": "引导师给某个环节配「本环节只收哪几类产出」（不配 = 全接受）；往一个 closed 环节绑产出被拒且内容保留为草稿不丢，往 skipped 环节绑同样被拒，而往 active 环节绑成功；配了 ['upload'] 的环节拒绝一个 prototype-run 产出、接受一个 upload 产出，没配白名单的环节任何来源都收得下；系统里没有第二条把 Studio 产出挂进项目的路由。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R4",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/step-closed-bidirectional.test.ts",
+        "pnpm --filter api exec vitest run tests/project/accepted-sources-whitelist.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-2③ 裁（acceptedSources 默认全接受，空数组 = 不限制）+ Q-8（补外键使两码可评估）+ U-3① 裁 A（Studio 挂载路径唯一）。落 I-P45 / I-P17。\n🔴 这是 phase-00 两条空转失败码的唯一还债处，验收**必须双向**，逐字依据：a check that cannot fail is worse than an absent one, because it reads as coverage（0008-f06-binding-modes.sql:29-31）。\n⚠ V4 三条：closed 拒 + open 通 + skipped 亦拒（终态有两个，只测 closed 会漏 skipped）。\n⚠ V5 三条：非空白名单拒不在名单内的来源 + 同一环节接受名单内的来源 + acceptedSources=[] 的环节任何来源都通。第三条是 Q-2③ 特别要求的——默认全接受意味着这道门默认不生效，没有「至少一个环节配了非空白名单」的用例，这条码等于没上线。\n⚠ U-3① 那条「唯一挂载路径」断言要配反证：断言禁止清单非空且含既有条目，否则一个被清空的清单也全绿。唯一挂载点是 phase-00 artifact.bindToProjectStep（F06 已 passing），本束不新增第二条。\n⚠ 环节卡上的白名单控件原型不存在（ui.md B-4），界面形状属签核第 ① 件待补。\n【跨阶段依赖】phase-00: F06 bindToProjectStep（两码的抛出方在那里，本 feature 只让它们第一次有判据）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F121",
+      "title": "议程环节命名单源收敛：phase-00 的 stepId / step_id / stage.* 改名对齐 + 败选名门控（含反证）",
+      "user_visible_behavior": "全仓只剩一种叫法 agenda_segment / agendaSegmentId / agendaSegment.*；三个败选名 agenda_stage、step_id·stepId、stage. 在代码、迁移、契约、前端里一处都搜不到；把一段故意含败选名的字符串喂给门控的判定函数，它返回失败——门控本身不是在扫一个空目录。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R1",
+      "depends_on": [
+        "F118"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/naming-single-source-gate.test.ts",
+        "pnpm --filter api run migrate:check",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：D-03a（字段名全局权威）+ Q-3 B 裁 ①「改名对齐」——三个败选名一并判负。落 I-P20 / V14。\n🔴 这是**修订已签核束**（phase-00 artifact + identity）：波及的真实文件清单与出现次数见 contracts/project/MIGRATION-IMPACT.md 第二节。改名是签核动作不是实现动作，开工前须确认该束签核人已点头。\n⚠ 门控的判定必须抽成纯函数再测，反证是「喂一个故意植入败选名的字符串，断言返回失败」——否则一个「什么都没扫到」的 grep 也全绿（本仓九次全绿空转的同一形状）。\n⚠ **不改错误码字面量**：STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 不随之改成 SEGMENT_*。Q-3 的裁决文本只提到字段名与动作词，改码属另一次修订，已登记为 MIGRATION-IMPACT.md 第二节的待确认边界。\n【跨阶段依赖】phase-00: F01（动作词闭集 project-role-matrix.ts）、F06（artifact_bindings.step_id）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F122",
+      "title": "listProjects 两段式返回（我在里面 / 我管着它）+ 归档与组织停用「显示且标注只读」+ 平铺不折叠",
+      "user_visible_behavior": "打开项目列表，看到分开的两段：我持有项目角色的容器，和我作为 lead/admin 可管理的容器——不是一个混合数组加一个布尔；已归档的容器和所属组织被停用的容器都还在列表里、带只读标注且两种只读原因可分辨，不会凭空消失；三类容器平铺展示不折叠成父子；一个项目都没有时两段都是空列表，界面是真实空态而不是示例数据。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/list-projects-two-segments.test.ts",
+        "pnpm --filter api exec vitest run tests/project/list-projects-readonly-visible.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-6① 裁 B（两段式，{member[], managed[]}）+ Q-7③ 裁「组织停用时项目显示且标注只读」+ Q-5 B（归档同一种只读呈现）+ Q-12 必裁三件之 3「平铺」。\n⚠ 不许压成混合数组加 canManage 布尔：与 D-8「projectLayer 的两种 null 不许合并」是同一条已签纪律，压成一个列表会让前端猜。\n⚠ 出现在 managed 段里 ≠ 能进去看内容（D-18 边界）：响应体不得因此附带任何内容摘要或计数。\n⚠ 藏起来读作「产品做不到这件事」，而真相是「这个组织不允许」——两种只读必须可分辨（archived vs org-disabled），Q-5 ↔ Q-7③ 两处呈现必须一致。\n⚠ 列表项不带准备度：口径在 O-32 ④ 已定，但项目筹备侧的「已定义项」表无出处（U-6 第二格空白），见 GAPS.P6。\n⚠ GET /projects 是本束新造的第一个路由；全部项目列表屏原型未画（ui.md C-1），属签核第 ① 件待补。\n⚠ U-4 裁 A 之后，admin 的入列理由只剩「管理」，不含「我建的」。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F123",
+      "title": "getProjectOverview 概览白名单四件 + 回流列表呈现 + 空态/依赖失败/分层无权限三态可区分",
+      "user_visible_behavior": "进项目概览，只看到四样有出处的东西：当前议程环节、四类项目角色人数、已回流的产出与版本、蓝本名与版本——没有准备度百分比，也没有「尚未绑定的产出」这一区；回流每行四字段非空、徽标是草稿/实时/已定版三取值之一，草稿不出现在别人的列表里；新项目返回空列表并渲染真实空态；存储不可用时显示可解释错误与重试，而不是显示成一个空列表；无项目角色者看到的是分层的无权限态，说得清是组织层还是项目层挡的。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F116",
+        "F118"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/overview-whitelist-four-blocks.test.ts",
+        "pnpm --filter api exec vitest run tests/project/overview-empty-vs-dependency-failure.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-6② 裁（概览白名单四件）+ U-3② 确认（不展示未绑定产出，Q-6② 的白名单即答案）+ I-P24（回流列表路由/字段/徽标/空态/失败码已定，不可再发明）。\n⚠ 白名单是封闭的：加第五件属修订已签核裁决，不是「补一个板块」。未绑定产出不在名单内 ⇒ 按字面已被排除；用户要找它得去 Studio 侧，那是 Q-11 裁 ② 的必然结果。\n⚠ 空列表与依赖失败**必须可区分**（uc-00-2 V9）：把失败呈现成空列表，用户会以为「这里本来就没有东西」。\n⚠ 概览不显示准备度，改用口径明确的计数；在别处编一个分母就是第二份事实（本仓已因此出过事故，design-coherence.md:200）。「就绪检查 3/3」的分母表是哪张仍无出处，见 GAPS.P6。\n⚠ 回流数据面 phase-00 F06 已 passing，本 feature 只做它的项目侧投影，不重复建模不重复计点。\n⚠ 非工作坊两类的概览（currentAgendaSegment / roleCounts 都为 null）在裁决里没有替代内容，本 feature 只保证它不崩、不伪造。\n【跨阶段依赖】phase-00: F06 listBackflow（已签核已实现）、F01 authorize（分层无权限态）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F124",
+      "title": "archiveProject / unarchiveProject：两态只读做在 PG RESTRICTIVE 策略 + 归档四连带 + 删除接口不存在的断言",
+      "user_visible_behavior": "项目负责人把项目归档，它变成只读：任何写入被数据库策略拒绝，而读仍然可用，界面显示只读原因而不是 404；归档不删除任何东西（版本表与审计表行数差为 0），误归档能一键恢复为活跃；还有环节正在进行时拒绝归档、要求先收尾；归档容器里已定版的快照仍可被下游引用；Context Pack 默认不召回归档内容、需要时可显式请求；系统里没有也不会有删除项目的接口。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/archive-readonly-and-readable.test.ts",
+        "pnpm --filter api exec vitest run tests/project/archive-four-consequences.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-5 裁 B（两态，archived = 只读，归档不删除任何内容）+ U-2 四条全采（⑴ 可逆 ⑵ 有 active 环节时拒绝归档 ⑶ 能引用（仍受 I-14 只能引 pinned）⑷ Context Pack 默认不召回、可显式请求）+ Q-9（不提供删除项目）。落 I-P38 / I-P39 / I-P40。\n⚠ 冻结做在 PG RESTRICTIVE 策略里（照 F22 组织冻结的已 passing 形状），不是应用层 if；应用层的 PROJECT_ARCHIVED 是它的投影，不是第二处判定。\n⚠ I-P38 的三条断言缺一不可：拒写 + **读仍可用**（只断言拒写时，一个「归档即 404」的实现也全绿）+ 不产生任何删除。\n⚠ 不照抄组织冻结的不可逆形状：组织冻结罕见、代价由组织承担；项目归档是日常动作，不可逆代价大得多（U-2⑴ 逐字）。解归档权限同归档者，不新造角色。\n🔴 U-2⑵「有 active 环节时拒绝归档」已裁，但**它的失败码在裁决里故意没有名字**，usecases.md §3.2 的新增码清单里也没有 ⇒ 契约面表达不了这个已裁定的失败，见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P7。开工前需要人类补一个码名，否则这条只能落成一个没有码的 400。\n⚠ U-2⑷ 是**修订 phase-00 已签核的 context-pack 契约**（QueryContext 加显式开关，context-pack/domain.md:33），签核动作不是实现动作。\n⚠ deleteProject 的交付物是一条断言它不存在的测试（已落在 packages/contracts/tests/no-forbidden-routes.test.ts），反证是断言禁止清单非空且含既有条目。\n【跨阶段依赖】phase-00: F22 组织生命周期（策略形状可复用）、artifact I-11（快照不可删改降）、context-pack（U-2⑷ 需重新签核）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F125",
+      "title": "项目成员三用例（加入 / 改角色 / 移除）：两个入口共用同一 application 用例 + 变更下一次请求即生效 + 展示别名不落库",
+      "user_visible_behavior": "把组织内成员直接指派进项目，或让组织外的人走邀请链接进来——两条路径最终走的是同一段判定与落库代码，差别只在身份来源；一人在一个项目里恰好一个角色，写第二行是主键冲突；在一个还开着的会话里撤销某人的项目角色，他的下一次请求就被拒，不等会话过期也不等缓存 TTL；以「协同引导师」身份进场，库里存的是 facilitator，全库搜不到 co-facilitator 字样。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R3",
+      "depends_on": [
+        "F116"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/member-two-entries-one-usecase.test.ts",
+        "pnpm --filter api exec vitest run tests/project/role-change-effective-next-request.test.ts",
+        "pnpm --filter api exec vitest run tests/project/display-alias-not-persisted.test.ts",
+        "pnpm --filter web run test",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-4① 裁 B（两个入口，但共用同一 application 用例）+ Q-4③ 裁（不缓存跨请求的判定结论，只缓存单请求内的）+ O-03（协同引导师是 facilitator 多实例，其中一名带 is_host）。落 I-P7 / I-P8。\n⚠ 两条入口共用一个用例的理由与「readContent 为什么不给个人层另开接口」同型：另开一个接口意味着不变量要写两遍，漏掉的那一遍不会有任何东西报警。\n⚠ 仅 kind='workshop'。另两类的成员模型归 F128（U-1 裁 B），本 feature 不覆盖。\n⚠「移除最后一名引导师 / 最后一名 is_host」未裁（uc-00-3 E6，is_host 在库里是无约束布尔，既无 DB 约束也无规则出处）——本 feature 不自行设定，不为它加失败码。\n⚠ 受访者不持项目角色（走一次性令牌，UC-6.3），不进本 feature。\n【跨阶段依赖】phase-00: F01（项目角色闭集与 acl_bindings，不另建权限表）、provenance membership 事件类型（已存在）",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F126",
+      "title": "两层交叉第 ④ 格：lead 对自建未加入的项目持管理权、不持内容读取权（含审计留痕）",
+      "user_visible_behavior": "项目负责人建了一个项目却没给自己项目角色：他能改这个项目的成员、设置与生命周期，但点进内容会被拒——拒的理由说得清是项目层挡的，不是「你不是这个组织的人」；组织管理员以 purpose:\"audit\" 读同一份内容是放行 + 留痕 + 对项目负责人可见，而不是 403，且不区分他有没有该项目的角色；把资源标成仅某团队后，不在该团队的管理员即使带 audit 也仍被拒。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R5",
+      "depends_on": [
+        "F117",
+        "F125"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/cross-layer-fourth-cell.test.ts",
+        "pnpm --filter api exec vitest run tests/project/audit-purpose-not-403.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：Q-4② 裁（lead 对自建未加入的项目持管理权、不持内容读取权）——它是 D-18「管理员不是超级用户」的同一条规则的同一侧。落 I-P14 / uc-00-3 V3 第 ④ 格。\n🔴 断言方向被 O-04 反转过一次：purpose:\"audit\" 是**放行 + 留痕 + 对负责人可见**，不是 403，且不区分管理员是否持有该项目角色。照旧稿写 expect(403) 会写出一个断言错误方向的绿灯。\n⚠ audit 只豁免项目层，不豁免组织层可见性范围（design-coherence.md:412-415）——两层都豁免会让它成为「谁都能敲出来的万能钥匙」。\n⚠ 前三格在 phase-00 F01/F03 已 passing，本 feature 只补第 ④ 格，不重复计点。第 ④ 格原型从未演示（ui.md B-5），界面属签核第 ① 件待补。\n【跨阶段依赖】phase-00: F01 authorize、F03 管理员权力边界、readContent 的 provenanceEventId 非 null 语义",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F127",
+      "title": "临时提权的授予与按流程节点服务端主动收回（正常结束 / 提前结束 / 跳过 / 合并四向 + 反向反证）",
+      "user_visible_behavior": "引导师在某个环节里临时给某人开一份额外的读权限，说明它「到本环节结束为止」；环节还在进行时这份权限确实有效；环节以四种方式中的任意一种终结——正常推进、提前结束、被跳过、被合并进别的环节——那份权限在下一次请求就失效，不靠前端隐藏也不靠定时轮询兜底；每次授予与每次收回都能按操作者、时间、对象检索到。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R3",
+      "depends_on": [
+        "F119",
+        "F125"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/temp-grant-revoked-by-four-outcomes.test.ts",
+        "pnpm --filter api exec vitest run tests/project/temp-grant-active-while-segment-open.test.ts",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：uc-1-4:77-80,97-100 逐字（失效条件是**流程节点不是时间点**；提前结束/跳过/合并同样立即失效；收回必须由服务端在状态机变更时主动做）+ Q-2② 的四态。落 I-P18 ⑴ / uc-00-3 V8。\n🔴 反向反证不可省：只有四条正向断言时，一个「从不授权」的实现四条全绿。必须再断言「环节仍进行时该权限有效」。\n⚠ R11 明确建议它独立成 feature：失效路径是跨模块的，且它是 uc-1-4 里唯一带「服务端主动收回」硬要求的机制。\n⚠ 提权是在既有项目角色**之上追加**，不是换一个角色——不得写成改 project_memberships.project_role。\n⚠ 与视角切换器不是一回事（UC-1.4 A1：那是「预览别人看到什么」的工具，不是提权）。\n【跨阶段依赖】phase-00: F01 acl_bindings（提权落在这里，不另建表）、provenance 审计通道",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
+    },
+    {
+      "id": "F128",
+      "title": "非工作坊两类的成员表（拥有者 / 协作者）+ 分组与项目成员在非工作坊容器下的禁止判据下沉到数据库",
+      "user_visible_behavior": "研究项目与用户洞察各有自己的成员名单，只有拥有者和协作者两档，界面上看不到引导师/组长/组员/观察者这四种工作坊角色；往一个研究项目或用户洞察容器里插分组、或写一行工作坊项目成员，被数据库外键直接拒绝——不是应用层某个 if 拦下的，所以不管从哪条写入路径进来都拦得住。",
+      "spec_ref": "00-project/uc-00-3-项目成员与两层角色交互.md#R7",
+      "depends_on": [
+        "F116",
+        "F125"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/non-workshop-member-tables.test.ts",
+        "pnpm --filter api exec vitest run tests/project/workshop-only-machinery-fk-denied.test.ts",
+        "pnpm --filter api run migrate:check",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter @repo/contracts run test"
+      ],
+      "evidence": "",
+      "notes": "依据：U-1 裁 B（各自一张成员表 research_project_members / user_insight_members，role ∈ {owner, collaborator}）+ U-7 裁 A（分组与 project_memberships 在非工作坊容器下都禁，判据靠 kind 复合外键下沉到数据库）+ 人类 2026-07-30 逐字收窄（「在访谈里是没有这几种角色的，引导师、组长什么的是不必要的」）。落 I-P6 / I-P37。\n⚠ 两档**不复用**工作坊四角色——共表或复用就是把四角色重新拉回研究项目的射程，且会逼 I-P6 的闭集断言放宽（U-1 候选 C/D 被否的理由）。\n⚠「拥有者 / 协作者」两个词原型里没有逐字出现，是 U-1 候选 B 对「负责人 + 其余可进来的人」的最小命名，人类已勾选采纳。\n⚠ 禁止判据必须是外键冲突而不是应用层报错：groups 与 project_memberships 各加 kind 常量列 CHECK + FOREIGN KEY (project_id, kind) REFERENCES projects(id, kind)，与 F116 的子表同一手法（强依赖 U-9 裁 A）。两张既有表加列并回填，属迁移动作。\n⚠ 三张子表与两张新成员表不在 F22 冻结策略的写死表清单里（0014:165-184），需一并补进去。\n🔴 契约面现在只有枚举没有操作：usecases.md UC-P9 仍写着「另两类 → U-1 待裁，本文不写」（写在裁决之前，没回头更新），见 KNOWN_CONTRACT_GAPS.P2。开操作 = 签核后新增，需要人类重新签核。不补的后果：apps/web/lib/mock/itv.ts:26 已自造三档视角并自注「待迁入 packages/contracts」，第二份事实源正在长出来。\n【跨阶段依赖】phase-00: F02 RLS（两张新成员表须各带 org_id 自动入网）、F22 组织冻结策略表清单",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
     }
   ]
 }
