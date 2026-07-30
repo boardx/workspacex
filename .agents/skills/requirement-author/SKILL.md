@@ -36,11 +36,13 @@ description: >
 若本阶段是 UI 阶段（`new-phase --ui` 标记），流水线里多一道**前置关卡**（ADR-003）：
 
 1. **先** 由 [ui-prototyper] 把真实 UI 做出来（`apps/web` + mock 数据）→ 人类工程师确认。
-2. **只有** `phases/<phase>/ui-signoff.md` 的 `status` 为 `confirmed` 后，你才开始生成 `feature_list.json`。
-   未 confirmed 就动手 = 违反关卡（`new-sprint` 也会拒绝开发）。
-3. 生成时，**输入不只是 requirements/**，还包括**已确认的真实 UI**：把 `user_visible_behavior` 和
-   `verification` **锚定到界面里真实存在的 `data-testid`/元素**（ui-signoff.md 已列出组件落点），
-   让验证契约对着已确认的界面，而不是凭空描述。
+2. **界面做出来之后**你才开始生成 `feature_list.json`。
+   ⚠ 2026-07-30（ADR-023 决策一）起**没有 phase 级 `ui-signoff.md`**——UI 是束级
+   `contracts/<束>/design-signoff.md` 的第 ① 件。签核发生在 feature 之后（束的 `covers:`
+   要填 feature 编号），所以**不要等签核再生成清单**；未签核挡的是**开工**（`new-sprint` / `claim`）。
+3. 生成时，**输入不只是 requirements/**，还包括**已建成的真实 UI**：把 `user_visible_behavior` 和
+   `verification` **锚定到界面里真实存在的 `data-testid`/元素**（束级 `ui.md` 已列出组件落点），
+   让验证契约对着看得见的界面，而不是凭空描述。
 
 ---
 
