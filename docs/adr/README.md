@@ -23,6 +23,7 @@
 | ADR-021 | context-pack-unlocatable（写正文时补一句话主题描述） | Proposed |
 | ADR-022 | evidence 日志带机器指纹 + doctor 进 PR 门控（堵死「手写日志冒充 passing」） | Proposed |
 | ADR-023 | unified-signoff | 签核统一为三件（UI / 用例 / API 契约）、一处签（束级 `design-signoff.md`）；束↔feature 映射改结构化 `covers:`；一致性复核须声明 `covers_bundles:`；签核文件受 CODEOWNERS+CI 保护；签核门从 `new-sprint` 扩到 `claim`/`doctor`。**扩展并收敛 ADR-003 与 ADR-020** |
+| ADR-100 | fabric-markdown-vendoring-and-version-lock | `fabric-markdown` 源码并入 `packages/`（本仓从此是 owner）；`fabric` / `mermaid` 锁**确切版本**而非 caret；19 个模板 `key` 冻结、`displayName` 单点在契约层；上游回流规程。**项目实现层第一条** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
