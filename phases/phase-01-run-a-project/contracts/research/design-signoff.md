@@ -1,12 +1,13 @@
 ---
 bundle: research
 phase: "01"
-# ⚠ feature 尚未生成，`covers:` 是空列表，这是**预期状态**，不是待修的故障。
-#   估 5–7 个 / 21 点（D-20 定的「约 21 点」，`DECISIONS-DELTA.md:301` 补
-#   「范围已明确…估点可按确定范围重算而非风险溢价」）。
-#   五份 UC 头部的估点合计 = 5+5+5+3+3 = 21，与 D-20 对齐。
+# feature 已于 2026-07-31 生成：**5 个 / 21 点**，与 D-20 定的「约 21 点」一致。
+#   一份 UC 一个 feature，points 逐份等于该 UC 头部的 `估点 **n**`（5+5+5+3+3 = 21）——
+#   这样 `validate-fl.ts` 的估点漂移检查（按 spec_ref 归组求和）逐 UC 对得上。
 #   ⚠ 估点的单一事实源是**各 UC 头部的 `估点 **n**`**；本注释与 00-index.md 的表都是派生视图。
-covers: []
+#   ⚠ **`covers:` 有值 ≠ 本束可签核。** 另外两条阻塞（Q-2 / Q-8 未裁、UI 材料未产出）仍然红着，
+#     逐条见正文。`status` 只能由人类改。
+covers: [F144, F145, F146, F147, F148]
 status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: ""
 confirmed_at: ""
@@ -16,7 +17,7 @@ confirmed_at: ""
 
 > ## 🔴 本束**现在不可签核**。请不要把 `status` 改成 `confirmed`。
 >
-> ### 三条阻塞，互相独立，解决其一不能签
+> ### 三条阻塞里**第 ② 条已于 2026-07-31 解除**，另两条仍然红着，解决其一不能签
 >
 > **① `OPEN-QUESTIONS.md` 的两条阻塞级未裁。**
 > - **Q-2**：`/studio/research` 路由已被 UC-0.2 Context Pack 占用
@@ -29,10 +30,12 @@ confirmed_at: ""
 > 另有三个枚举未裁（**Q-10** 状态 / **Q-12** 证据去向 / **Q-7** 来源类别），
 > 它们不阻塞开工，但**阻塞机械断言**——枚举值域未定时，任何涉及它们的 verification 都写不成。
 >
-> **② `feature` 尚未生成。**
-> `phases/phase-01-run-a-project/feature_list.json` 里**没有任何属于本域的 feature**，
-> 因此 frontmatter 的 `covers:` 是 `[]`。
-> 下一步是 **requirement-author** 据 UC + 裁决生成 feature ——**这一步还没做**。
+> **② ✅ `feature` 已生成（2026-07-31）：F144…F148，5 个 / 21 点。**
+> frontmatter 的 `covers:` 已填这五个编号，`verify-uc-coverage` 的「空 `covers`」那条红随之解除。
+> ⚠ **它们是在 20 条待裁一条都没裁的情况下生成的**，因此每条 `notes` 里都写死了
+> 「哪一条断言现在写不成机械判据、卡在哪个 Q」（F145 卡 Q-7、F146 卡 Q-12、F148 卡 Q-10/Q-14/Q-17/Q-18）。
+> **签核时请把这些当成本束的真实完成度读，不要读作「已经可以开工」**——
+> 开工的前置是本文件 `status: confirmed` ∧ 阶段一致性复核通过，两条都还没有。
 >
 > **③ 第 ① 件材料（UI）完全不存在。**
 > `ui-preview/research/` **目录尚未产出**，`ui.md` 引用 0 张截图。
@@ -45,7 +48,8 @@ confirmed_at: ""
 > | 门控 | 会报什么 | 为什么这条红是对的 |
 > |---|---|---|
 > | `lint-ui-material.mjs` | 判定④「目录不存在 / 0 张 png」 | 材料确实还没产出。映射行**已预先登记**在 `ui-material-map.json`，不登记的话报的是判定③「未声明」，**报错理由就不对了** |
-> | `verify-uc-coverage.ts 01` | 「声明了 `covers: []`（空）—— 一个不覆盖任何 feature 的束不成立，**因此它不可签核**」 | feature 确实还没生成 |
+> | ~~`verify-uc-coverage.ts 01`~~ | ~~「声明了 `covers: []`（空）」~~ | **2026-07-31 已解除**：`covers:` 已填 F144…F148 |
+> | `lint-third-artifact.mjs` | ~~「第 ③ 件缺失」/「coverage 无映射表」~~ | **2026-07-31 已解除**：`packages/contracts/src/research.ts` 已建（形态 A），`coverage.md` 已出 V1…V41 逐行映射表 |
 > | `lint-nav-reachability.mjs` | 判定①（若只登记 ui-material 不登记 nav 路由） | 已同步登记 `/studio/research`，因此**本条现在是绿的**；⚠ 但它绿得**不诚实**——那条路由现在渲染的是 UC-0.2 的屏，不是本束的屏。**Q-2 裁定后必须回来复核这一行。** |
 >
 > ### 为什么宁可红，不肯不建这个束
@@ -60,6 +64,20 @@ confirmed_at: ""
 > 「来源类型八值枚举必须与 12-survey / 06-itv / 05-rec / 08-chat / 07-canvas /
 > **研究 Studio** 的产出侧一致」。本束不存在，那条跨束约束就是**悬空的**。
 >
+> 🔴 **2026-07-31 更新：第 ③ 件写完之后，这条约束不再悬空——它现在是「悬空且对不齐」。**
+> 三方核对结果（见 `packages/contracts/src/research.ts` 的 `RESEARCH_ARTIFACT_SOURCE`
+> 与 `KNOWN_CONTRACT_GAPS.R3`）：
+> **已签核**的 `artifact.ArtifactSource` 里研究那一项叫 **`research-run`**；
+> 界面侧 `apps/web/lib/mock/files.ts` 的 `SourceType` 与本束 `domain.md` 的 X-E 都叫 **`research`**。
+> ⇒ **两票 `research` 对一票 `research-run`，而那一票是已签核的那一票。**
+> 对齐方向**是签核动作不是实现动作**，请在下面第 ③ 节一并裁：
+> (a) 改 `artifact`（动已签核束）；(b) 改界面侧与本束（动两处，且 `files.ts` 的
+> `SOURCE_TYPE_VOCABULARY_DISPUTED` 还并列着 `workshop` / `canvas` / `prototype-run` 三个更大的分歧，
+> 单独对齐 research 这一项**解决不了那张表**）。
+> ⚠ 本束的处置是**不选边**，但把「已签核侧的字面量是 `research-run`」钉成**编译期事实**：
+> 对方改名 ⇒ `pnpm --filter @repo/contracts run typecheck` 当场红。
+> **这条跨束约束从今天起有一道会红的门，不再是一句话。**
+>
 > ### 解除这三条红的路径（顺序不可颠倒）
 >
 > 1. 人类裁 `requirements/24-research/OPEN-QUESTIONS.md`
@@ -67,15 +85,21 @@ confirmed_at: ""
 > 2. 按裁决回改 `domain.md` / `usecases.md` / `coverage.md`。
 > 3. **ui-prototyper** 产出 `ui-preview/research/`（按 `ui.md` 第二节的 A–E 五组屏），
 >    回填 `ui.md` 的真实索引与自检行。
-> 4. **requirement-author** 生成本域 feature 写进 `feature_list.json`
->    （它是唯一有权改清单的角色）。
-> 5. 有人把生成出来的 feature 编号填进本文件 frontmatter 的 `covers:`。
+> 4. ✅ ~~生成本域 feature 写进 `feature_list.json`~~ —— **2026-07-31 已做**（F144…F148）。
+> 5. ✅ ~~把 feature 编号填进本文件 frontmatter 的 `covers:`~~ —— **2026-07-31 已做**。
 > 6. **然后**人类才逐节核对下面三件并签核。
 >
 > ⚠ **不要为了消红而随手填一个 feature 编号。** 那是把「还没有 feature」谎报成
 > 「已经评审过这些 feature」，比现在这条红糟得多。
+> ⇒ 第 4、5 步先于第 1、3 步做完，是**刻意的顺序倒置**，理由与代价写在这里：
+> 第 ③ 件门控 `lint-third-artifact` 要求 `coverage.md` 有一张逐行 R12 映射表，
+> 而映射的粒度是 feature ——**没有 feature 就没有可映射的对象**，那条红解不开。
+> ⚠ 代价是：这 5 个 feature 是在 20 条待裁**一条都没裁**的情况下生成的。
+> 因此它们的 `notes` 里逐条写死了「哪条断言卡在哪个 Q、现在写不成机械判据」，
+> 且 `coverage.md` 第二节把 5 条被 Q 阻塞的线索**具名保留为缺口**，没有一条被填成假落点。
 
-覆盖 feature：**（无 —— 待生成，估 5–7 个 / **21 点**，与 D-20 一致）**
+覆盖 feature：**F144 F145 F146 F147 F148**（5 个 / **21 点**，与 D-20 的「约 21 点」一致）
+⚠ **这一行是派生视图，不是权威。** 权威是本文件 frontmatter 的 `covers:`（ADR-023 决策三）。
 依据 UC：`24-research/uc-24-1 新建深度研究与研究配置` · `uc-24-2 深度研究对话与交叉验证` ·
 `uc-24-3 研究 Studio 列表与研究计划详情` · `uc-24-4 研究结论回流与去向` ·
 `uc-24-5 现场深度研究与冲突判定`
@@ -156,9 +180,12 @@ D-20 在 2026-07-27 那一轮就已裁定「**研究 Studio 立项**（新开模
 
 ## ③ API 契约 —— 接口形状对不对
 
-材料：[`usecases.md`](./usecases.md) 一 / 二节（12 个端口）+ 三节（5 个**随裁决增删**的端口）。
+材料：**`packages/contracts/src/research.ts`（唯一事实源，2026-07-31 建，12 个操作 / 12 个错误码）**
++ [`usecases.md`](./usecases.md) 一 / 二节（12 个端口）+ 三节（5 个**随裁决增删**的端口，
+已落成 `PENDING_PORTS` 常量，加上 `CopyResearch` 共 6 条）
++ [`coverage.md`](./coverage.md) 的 V1…V41 逐行映射表。
 
-**评审时请重点看这四件**：
+**评审时请重点看这六件**（前四件是原有的，后两件是写第 ③ 件时**查出来的**）：
 
 1. **`PromoteConclusionToInsight` 的双返回**（入库结果 + 节点回流结果）。
    这是本束唯一的**部分成功**语义，做成单一 `Result` 会导致前端回滚已成功的入库。
@@ -173,6 +200,22 @@ D-20 在 2026-07-27 那一轮就已裁定「**研究 Studio 立项**（新开模
    本域的研究计划屏也有同一去向（「候选洞察 7 · 待送综合 Studio 验证」）。
    ⇒ **一个已由您签核的束（`interview`）里，已有一个通往未定义目的地的出口。**
    这条**不能由本束单方面裁**（会改动已签核束的语义），已登记为 **Q-11 / X-D**。
+5. 🔴 **`usecases.md` 零节「复用（不新建）」五条里，四条的出处不成立。**
+   写 `research.ts` 时逐条 grep 过（`grep -rE '"(FORBIDDEN_ROLE|AGENT_RUN_FAILED|QUOTE_REVOKED|SOURCE_OUT_OF_SCOPE)"'
+   packages/contracts/src` → **零命中**）：
+   - `FORBIDDEN_ROLE`（称来自 `project` / `org-admin`）：**全仓不存在** ⇒ 契约改用真实存在的
+     `NO_PROJECT_ROLE` / `PROJECT_ROLE_INSUFFICIENT`（`identity` 是它们的单一事实源）。
+   - `MODEL_UNAVAILABLE`（称来自 `agent-runtime`）：存在，**但在 `skills.SkillError` 里**。
+     归属写错的后果不是文档瑕疵——它会让人去改错的束，改完还以为对齐了。
+   - `AGENT_RUN_FAILED` / `QUOTE_REVOKED` / `SOURCE_OUT_OF_SCOPE`：**都不存在**，
+     ⇒ **由 `research.ts` 第一次声明**（`KNOWN_CONTRACT_GAPS.R1`）。
+   **请裁**：这三条该归本束，还是该由对方束（`agent-runtime` / `interview` / `recording`，
+   **三束均已签核**）声明？后者是**修订已签核束**，不是本束能做的。
+   ⚠ `project` 束当初撞到过一模一样的形状（`usecases.md:54` 声称 `ORG_ROLE_INSUFFICIENT`
+   与 phase-00 同码同义，核过之后那句话不成立）。**「声称复用」不等于「真的存在」。**
+6. 🔴 **X-E 与 `files`（已签核）对不齐**——`research-run` vs `research`，见上方「为什么宁可红」一节末尾。
+   **请裁对齐方向。** 这条现在有一道编译期门控守着（改名即 tsc 红），但**门控守的是「不许悄悄漂」，
+   不是「已经对齐了」**。
 
 ---
 

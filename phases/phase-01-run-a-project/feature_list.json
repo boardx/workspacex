@@ -3206,6 +3206,124 @@
       "priority": 1,
       "area": "asset",
       "capability": "CAP-API"
+    },
+    {
+      "id": "F144",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "新建深度研究配置面板：七组字段 + 逐项默认值 + 实时预览句，三处入口对观察者不存在于 DOM",
+      "user_visible_behavior": "引导师从三处入口任一（研究 Studio 的「＋ 新建研究」、项目内「＋ 新建深度研究」、现场「＋ 发起研究」）打开弹层，看到七组字段且每一组都带默认值——研究类型默认「桌面研究」、时间盒默认「标准」、来源偏好默认勾中「官方与监管」与「行业报告」、交付形式默认勾中「研究简报」、决策节点默认 n1。改任一字段，预览句实时重算并包含所选来源的全部名称。从小组能力面进入时「挂到哪一组」被预填为该组。创建后落到该研究的详情屏并出现「研究已创建 · …」提示；Scout 不可用时研究仍创建成功、停在待运行、显示重试。观察者视角下三处入口按钮**不存在于 DOM**（不是灰掉）。",
+      "spec_ref": "24-research/uc-24-1-新建深度研究与研究配置.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter web exec vitest run tests/ui/research-new-config-defaults.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-preview-sentence.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-entry-observer-absent.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "这就是 D-20 逐字点名的那一块（`DECISIONS-FINAL.md:97`「新建深度研究配置面板（研究场景 / 可判定问题 / 4 类型 / 3 档时间盒 / 来源偏好 / 交付形式 / 挂到组或决策节点）」）。七项配置的契约面是 `packages/contracts/src/research.ts` 的 `ResearchConfig` 与 `operations.createResearch`。\n⚠ **默认值断言必须逐项写死为 uc-24-1 R3 表里的值**（R7.5）——本仓已因「默认值画反」判过一次重做（`PROTOTYPE-SWEEP-UI.md` P-05），而**看截图看不出来默认值画反**。\n⚠ 预览句断言要打在**性质**上（包含所选来源的全部名称），不是断言某个固定字符串——深度档位有两串文案（`nrDepths[].note` vs `DEPTH_L`），哪串权威 **Q-1 未裁**，契约刻意一串都不落（`KNOWN_CONTRACT_GAPS.R2`）。\n⚠ **E1 是本 feature 最容易做丢的一条**：模型不可用**不得**让创建失败——契约面的表达就是 `createResearch.err` 里**没有** `MODEL_UNAVAILABLE`。谁把它加进去，E1 当场破。\n⚠ 观察者断言打在 DOM 不存在上（N-10），不是 `disabled` 属性。\n🔴 **开工前置**：本束 `design-signoff.md` 仍 `status: pending`，且 Q-2（`/studio/research` 路由被 UC-0.2 Context Pack 占用）未裁——**屏落在哪条路由上还没定**，`data-testid` 无处锚定。"
+    },
+    {
+      "id": "F145",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "研究详情四段结果 + Scout 执行步骤：低置信不被过滤、单来源落「争议 / 不确定」、部分路失败仍可见",
+      "user_visible_behavior": "打开一个已出结论的研究，左半是与 Scout 的深度对话（每轮含结论层与编号执行步骤：检索份数按来源类别计数、交叉验证标为不确定的条数、抽取的可规划变量），右半是四段固定结构——关键发现 / 争议 · 不确定 / 外部来源 / 研究结论。段 ③ 的置信度以数值渲染（0.9 / 0.7 / 0.3），置信度 0.3 的来源**出现在**段 ③ 而不是被过滤掉。只有 1 条来源的问题落进段 ②「争议 / 不确定」且不出现在段 ①。12 路检索里 3 路失败时，已完成路的结果可见、失败路单独标出可重试。零来源时段 ④ 是数据需求说明而不是结论。观察者视角无输入框、无出口动作按钮。",
+      "spec_ref": "24-research/uc-24-2-深度研究对话与交叉验证.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/run-low-confidence-not-filtered.test.ts",
+        "pnpm --filter api exec vitest run tests/research/run-partial-routes-visible.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-detail-four-sections.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.getResearchDetail` / `operations.runResearch` / `ResearchResult` / `ResearchRun`。\n⚠ **N-3 落在形状上而不是注释里**：`getResearchDetail` **没有任何** `minConfidence` / `hideLowConfidence` 参数——加一个就是给「丢弃」开门，而 `res.goal` 逐字是「低置信度**必须标出而不是丢弃**」。\n⚠ **E1 的可断言面是三件**：`plannedRoutes` / `completedRoutes` / `failedRoutes`。只返回一个 `success: boolean` 的实现会让「3 挂 9 成」与「全挂」在响应里长得一样。\n⚠ 断言**性质**不是数量：断言「0.3 那条出现在段 ③」，**不是** `toHaveLength(14)`（纪律第 9 条 / coding-standards E-4）。\n⚠ 执行步骤①的分类计数必须与来源偏好口径**同源**（R7.4），否则是第二份来源枚举；全称↔简称映射 **Q-7 未裁** ⇒ 契约里键是 `z.string()`（`KNOWN_CONTRACT_GAPS.R8`），**这条断言在 Q-7 裁定前写不成机械判据**。\n⚠ 对话消息本体**复用 `chat` 束**（X-H，已签核），不起第二套对话模型。"
+    },
+    {
+      "id": "F146",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "研究列表三处 + 研究计划三计数与证据表：目标缺失渲染「—」而非「0」，归档不删除且被引证据不失效",
+      "user_visible_behavior": "研究 Studio 列表、项目内深度研究列表、Studio 左栏研究三段各自渲染，卡片显示「证据 41 / 目标 50」且分子跟着数据走；把目标设为缺失时渲染「/ —」而**不是**「/ 0」。研究计划详情显示三计数（研究问题 / 证据 / 候选洞察）与证据表四列「证据 / 来源 / 置信度 / 去向」。归档一条研究后它仍能被「已归档」标签筛出，且它被引用的证据仍可解析。观察者视角下未共享的研究**不在返回的数据里**（数据层过滤，不是界面隐藏）。",
+      "spec_ref": "24-research/uc-24-3-研究studio列表与研究计划详情.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/plan-counts-null-not-zero.test.ts",
+        "pnpm --filter api exec vitest run tests/research/archive-keeps-references.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-list-target-dash.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.listResearch` / `operations.getResearchPlan` / `operations.archiveResearch` / `Evidence`。\n⚠ **N-8 是本 feature 的主战场**：`evidenceTarget` 是 `nullable`，`null` 与 `0` **必须可区分**——返回 0 会让人读成「目标 0，已超额完成」。同理 `Evidence.confidence` 可空（原型逐字给的是 `—`）。\n⚠ **N-7：归档不是删除**，且要断言**两半**——「仍能被筛出」与「被引证据仍可解析」。只断言前半的实现会漏掉后半，而后半才是 D-20 立论（研究是 09-kg 证据的主要生产者）的依据。\n⚠ 可见性断言打在**数据层**（E5 / R12.5），不是 DOM——渲染层隐藏在 API 层挡不住任何东西。\n⚠ 计数是**派生值**：`listResearch` 不接受 `count` 入参再原样回显（本仓已确认的「假数据穿透」形状，`asset-governance/coverage.md` 第 5 条同型）。\n⚠ 「去向」的值域 **Q-12 未裁**且**归属未裁**（与 phase-03 `14-brain` 的「≥1 条反对证据」是同一概念）⇒ 契约里是 `z.string()`，R12-7 那条断言现在写不成机械判据（`EVIDENCE_DISPOSITION_PENDING`）。"
+    },
+    {
+      "id": "F147",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-API",
+      "title": "结论入洞察库的三道门槛 + 决策节点回流的部分成功：入库已成而回流失败时不得回滚、不得乐观显示",
+      "user_visible_behavior": "在结论区点「加入洞察库」，系统跑三道门控：无外部来源 ⇒ 阻断并说明；条目在「争议 / 不确定」段 ⇒ 阻断；涉及未经人判定的冲突 ⇒ 阻断。三条全过才入库，产出的是**候选**洞察（状态含「待入定题池」/「待送综合 Studio 验证」）。含 0.3 低置信来源的合格结论入库成功，且入库后的洞察上仍能读到该来源与其置信度。配置里选了「不挂节点」的研究入库成功且无回流记录；挂了 n1 的研究入库后节点上出现一条带置信度的回流记录；节点已被删除时**入库仍成功**且回流失败原因可读；下游返 500 时结论原状保留、可重试、**不显示已入库**。",
+      "spec_ref": "24-research/uc-24-4-研究结论回流与去向.md#R3",
+      "depends_on": [
+        "F145"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/promote-three-gates.test.ts",
+        "pnpm --filter api exec vitest run tests/research/promote-partial-success.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-exit-actions-observer-absent.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.promoteConclusionToInsight`（三个失败码 + `out.nodeBackflow` 三态）。\n⚠ **三个码必须分开**（`NO_EXTERNAL_SOURCE` / `EVIDENCE_IS_DISPUTED` / `CONFLICT_PENDING_HUMAN`）：它们对应三条**不同的补救路径**（补来源 / 改判定 / 等人判）。合成一个 `PROMOTE_BLOCKED` 会让用户走错路。\n⚠ **阻断断言必须打在行为上（入库未发生），不是按钮的 `disabled` 属性**（R12.1 逐字）——灰按钮在无障碍与 API 层都挡不住。\n⚠ **部分成功是本束唯一的一处**：`DECISION_NODE_GONE` 出现在 `out.nodeBackflow.reason` 而**不在任何 `err` 里**。把它放进 `err` ⇒ 前端读到失败 ⇒ 回滚一次**已经成功的入库**。\n⚠ `nodeBackflow` 的三态必须可分：`attempted:false`（配置里就没挂节点，**合法路径不是降级**）/ `ok:true` / `ok:false + reason`。只给一个布尔的话，「没挂节点」和「挂了但失败」一样。\n⚠ 重复入库的语义 **Q-15 未裁**，本 feature **不实现**幂等/报错/新建任一种；「送入综合 Studio」**在任何 phase 都不存在**（Q-11 / X-D，且 `interview` 束已签核却已有这个按钮）——**不实现**。"
+    },
+    {
+      "id": "F148",
+      "priority": 2,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "title": "现场研究任务列表与冲突判定：三个动作无预选无倒计时，冲突为 0 时区块仍在（空态而非消失）",
+      "user_visible_behavior": "现场「深度研究 · 现场」屏显示「本场研究任务 | n 个 · m 个已就绪」，两个数随数据变化；每行含时间、问题、提出方（第 2 组提出 / 引导师提出）、状态与「打开」。开「只看有冲突的」后返回集 ⊆ 冲突数 > 0 的行。冲突待判定区给出三个动作「以样本为准」「再补一路检索」「上台讨论」——三个都**不是**预选态、无 autofocus、无倒计时；判定后能读到「谁在何时选了哪一条」。把冲突置零时该区块**仍然渲染**并显示空态（不是消失）。一行的 agent 失败时其余行状态不变。观察者视角下「＋ 发起研究」与三个判定动作**不存在于 DOM**。",
+      "spec_ref": "24-research/uc-24-5-现场深度研究与冲突判定.md#R3",
+      "depends_on": [
+        "F144"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/conflict-resolution-audit.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/research-live-conflicts-no-preselect.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/research-live-empty-conflict-block.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约面：`operations.listLiveResearchTasks` / `operations.listConflicts` / `operations.resolveConflict` / `ResearchConflict`。\n⚠ **N-6 落在形状上**：`ResearchConflict` **没有** `suggestedAction` / `defaultAction` / `countdownSeconds` 任何一个字段——agent 的建议是**一段文字**（`agentSuggestion`），不是一个预选值。有了那个字段，前端把它渲染成预选/高亮只是时间问题，而那正是「系统替人拍板」。\n⚠ 断言**性质**不是数量：断言「三项都不是预选/自动执行」，**不是** `toHaveLength(3)`。\n⚠ **A1 的判据取「冲突数 > 0」而非状态词**——状态枚举 Q-10 未收敛，按词过滤会在 Q-10 裁完后整条失效（契约里 `status` 是 `z.string()` + `RESEARCH_STATUS_PENDING`）。\n⚠ **A2：冲突 0 时区块不隐藏**——隐藏会让引导师以为这个能力不存在。\n⚠ `上台讨论` 的**后果 Q-18 未裁**：本 feature 只记录该动作，**绝不实现它把冲突升级成什么**（`PENDING_PORTS.EscalateConflictToAgenda`）。组长能否判定 **Q-14 未裁** ⇒ 本 feature 不设角色分支。\n⚠ 现场行第三列「无冲突显来源数 / 有冲突显冲突数」是**同列两义**（Q-17 未裁）⇒ 契约两个数都给，界面选一个。\n⚠ 刷新率**无出处**（Q-20：原型只在知识图谱屏给了「每 15 秒」，那不是本域的数）⇒ 不实现轮询。"
     }
   ]
 }

@@ -1,11 +1,12 @@
 ---
 bundle: asset-governance
 phase: "01"
-# ⚠ feature 尚未生成 —— 这是本束的**预期状态**，不是待修的故障。
-#   生成 feature 的先决条件是 OPEN-QUESTIONS.md 的 Q-0 裁决（本域与已拍板的 D-06 正面冲突）。
-#   解锁路径见正文「解除这些红的路径」。
+# feature 已按 Q-0 裁决（`requirements/23-asset/DECISION-Q0.md`，方案 C：拆）生成：
+#   **12 个 / 61 点**，`spec_ref` 全部落在 uc-23-3 / 23-4 / 23-6 / 23-8（C 保留在 phase-1 的那一半）。
+#   另四份 UC 的 55 条 R12 随 D-06 留 phase-2，在 coverage.md 第五节逐行具名。
+#   ⚠ **`covers:` 有值 ≠ 本束可签核。** Q-1b / Q-7 / Q-11 / Q-12 与 UI 材料仍红着，逐条见正文。
 #   ⚠ 不要为了消红随手填 feature 编号——那是把「还没有 feature」谎报成
-#     「已经评审过这些 feature」，比现在这条红糟得多。
+#     「已经评审过这些 feature」，比一条红糟得多。
 covers: [F132, F133, F134, F135, F136, F137, F138, F139, F140, F141, F142, F143]
 status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: ""         # 确认人（姓名/邮箱）
@@ -29,10 +30,21 @@ confirmed_at: ""         # ISO 8601，且不得晚于签核当下
 > 按旧裁决做 = 无视人类当天的明确要求。两边都不是 agent 能承担的。**
 > 推荐方案与代价见 `requirements/23-asset/OPEN-QUESTIONS.md` Q-0（推荐 **C：拆**）。
 >
-> **② feature 尚未生成。** `covers: []`。
-> `pnpm exec tsx .harness/scripts/verify-uc-coverage.ts 01` 会报
-> 「声明了 `covers: []`（空）—— 一个不覆盖任何 feature 的束不成立，**因此它不可签核**」。
-> **这条红是本束的正确状态。**
+> **② ✅ feature 已按 Q-0 裁决（方案 C）生成：F132 … F143，12 个 / 61 点。**
+> `covers:` 已填，`verify-uc-coverage` 的「空 `covers`」那条红随之解除。
+> 12 个 feature 的 `spec_ref` 全部落在 `uc-23-3 / 23-4 / 23-6 / 23-8` 四份上——
+> 即**方案 C 保留在 phase-1 的那一半**；另四份随 D-06 留 phase-2，
+> 其 55 条 R12 线索在 [`coverage.md`](./coverage.md) 第五节**逐行具名**，
+> 一条都没有被编上一个本 phase 不存在的端口。
+>
+> ⚠ **两条「裁决与落地对不上」，请在签核时一并收敛**（详见 `coverage.md` 第七节）：
+> - ⚠ **缺口 15**：Q-0 的裁决记在 `requirements/23-asset/DECISION-Q0.md`
+>   （裁决人：main coordinator，依据人类 2026-07-30 的授权），
+>   而 `OPEN-QUESTIONS.md` 里 Q-0 的复选框**仍未勾、裁决行仍空白、无署名无时间戳**——
+>   **而那份文件自称「裁决原文的唯一所在」。** 两处记载不一致，收敛哪一份是**签核动作**。
+> - ⚠ **缺口 17**：`DECISION-Q0.md` 逐字写着「**试跑台 phase-1 保留**，但第 05 关沙箱试跑不做」，
+>   而本束**没有为试跑台生成任何 feature、也没有端口** ⇒ `uc-23-5` 的 14 条现在整体
+>   落在 phase-2 一侧。**这与裁决文对不上。**
 >
 > **③ 第 ① 件材料（UI）完全不存在。**
 > `ui-preview/asset-governance/` **目录尚未产出**（ui-prototyper 正在做）。
@@ -55,11 +67,14 @@ confirmed_at: ""         # ISO 8601，且不得晚于签核当下
 >
 > ### 解除这些红的路径（顺序不可颠倒）
 >
-> 1. **人类裁 `Q-0`** —— 决定本域整体进 phase-1 / 推 phase-2 / 拆（推荐 C）。
+> 1. ⚠ **`Q-0` 已由 main coordinator 裁 C**（`requirements/23-asset/DECISION-Q0.md`，
+>    依据人类 2026-07-30 的授权），feature 与 `coverage.md` 都已按 C 落地。
+>    **但 `OPEN-QUESTIONS.md` 的 Q-0 裁决行仍是空白**（⚠ 缺口 15）——
+>    请人类**确认或推翻**这条裁决，并把结论落到 OPEN-QUESTIONS 里（那是它自称的唯一所在）。
+>    ⚠ 一并请看 ⚠ **缺口 17**：裁决文说「试跑台 phase-1 保留」，而落地里它整块在 phase-2。
 > 2. 人类裁 **Q-1b / Q-7 / Q-11 / Q-12** 四条（它们决定不变量与边界，不裁就写不出 `verification`）。
-> 3. **requirement-author** 据裁决结果生成本域 feature 并写进 `feature_list.json`
->    （它是唯一有权改清单的角色）。
-> 4. 有人把生成出来的 feature 编号填进本文件 frontmatter 的 `covers:`。
+> 3. ✅ ~~生成本域 feature 写进 `feature_list.json`~~ —— **已做**（F132…F143，按方案 C）。
+> 4. ✅ ~~把 feature 编号填进 frontmatter 的 `covers:`~~ —— **已做**。
 > 5. **ui-prototyper 产出 `ui-preview/asset-governance/`**，按 [`ui.md`](./ui.md) 第五节的优先级。
 > 6. 有人把真实截图索引填进 `ui.md` 第三节（**双向集合相等**，不许写设想的文件名）。
 > 7. **然后**人类才逐节核对下面三件并签核。
@@ -68,8 +83,10 @@ confirmed_at: ""         # ISO 8601，且不得晚于签核当下
 >    正文的交叉约束章节仍留白**。本束提出了 **10 条跨束约束（X-A…X-J）**，
 >    ⇒ **阶段一致性复核必须重做，不能沿用**。
 
-覆盖 feature：**（无 —— 待生成）**
-依据 UC：`23-asset/uc-23-1` … `uc-23-8`（**8 份**，R12 合计 111 条验收线索）
+覆盖 feature：**F132 … F143**（12 个 / 61 点）
+⚠ **这一行是派生视图，不是权威。** 权威是本文件 frontmatter 的 `covers:`（ADR-023 决策三）。
+依据 UC：`23-asset/uc-23-1` … `uc-23-8`（**8 份**，R12 合计 **108** 条验收线索）
+⚠ 旧版此处写 **111**，与逐份重数不符（14+15+15+14+14+13+12+11 = 108）；已按机械重数改正。
 待裁清单：`requirements/23-asset/OPEN-QUESTIONS.md`（**13 条**，Q-0 是全束阻塞项）
 模块索引：`requirements/23-asset/00-index.md`（**含边界判据，先读它**）
 UI 材料：`ui-preview/asset-governance/`（**尚未产出**）
@@ -202,8 +219,10 @@ B 类缺全部异常态 · C 类完全无屏 5 条 · D 类无 handler 6 处）�
 
 - `domain.md`：**29 条不变量**（I-1…I-29），其中 5 条跨束（🔗）、5 条依赖未裁问题（⚠）；
   **10 条跨束交叉约束 X-A…X-J**。
-- `coverage.md`：**现在不是覆盖证明，是覆盖缺口清单**。
-  111 条 R12 线索里**只有 1 条现在成立**；**55 条刻意未做映射**（依赖 Q-0）。
+- `coverage.md`：**现在是一张逐行标注了缺口的覆盖映射表**（2026-07-31 补齐 V1…Vn 行键）。
+  **108** 条 R12 线索里**只有 1 条现在成立**（23-8 / V1）；
+  **55 条随 D-06 留 phase-2，逐行具名为「⚠ 缺口 P2」**——这是 Q-0 裁 C 的直接结果，
+  是判断而非遗漏，且**一条都没有被编上一个本 phase 不存在的端口**。
   反向检查（API → UC）**查出 3 处悬空**：数据总览 / 成员配额 / 反馈的 UC 依据
   全在 **phase-03 的 `17-gov`**，屏却在 phase-01 的代码里。
 
