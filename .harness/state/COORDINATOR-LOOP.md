@@ -32,7 +32,46 @@
 
 ⚠ **暂停 push**（人类明示）。本地 commit 照常，**不要 `git push`**，直到人类说可以。
 
-## L2 · 当前战役（一次审核修正轮）
+## L2 · 当前战役（2026-07-31 起）：**phase-01 开发**
+
+⚠ 上一场战役（审核修正轮）**已完成**，原文见下方「上一场战役（存档）」。
+人类 2026-07-30 逐个签核了 12 束 + 一致性复核，并授权：
+> 上面的任务做完就开始推到 GitHub 开始开发吧，我需要休息了，**在我醒来之前不要停掉开发**，
+> 需要通过 **subagent** 来加快，把整个 phase1 给做完。
+
+⇒ **push 解禁**（上一场的「暂停 push」已作废）。
+
+### 波次（拓扑排序，无环，无跨阶段悬空依赖）
+
+| wave | feature | 点 | 状态 |
+|---:|---:|---:|---|
+| 0 | 19 | 72 | **sprint-01，issue #38–#56，已全部 claim** |
+| 1 | 34 | 121 | 待 |
+| 2 | 36 | 121 | 待 |
+| 3 | 20 | 64 | 待 |
+| 4 | 17 | 71 | 待 |
+| 5 | 15 | 53 | 待 |
+| 6 | 3 | 11 | 待 |
+
+### 并发模型（**这段是防事故的，不要改**）
+
+**`feature_list.json` 的状态变更只在主 checkout 发生，只由我做。**
+19 个 agent 各自在 `isolation: worktree` 里实现，**一律不碰**
+`feature_list.json` / `PROGRESS.md` / `sprints/` / 任何 `design-signoff.md` / `roadmap.yaml`。
+`claim` 我已经在主 checkout 里逐条做完（owner = `w0-<area>`，每个 owner 恰好一个 in_progress）。
+`verify` 也由我在主 checkout 集中跑。
+
+⇒ 否则 19 个工作树会同时改同一个 JSON，合并冲突把一晚上的工作变成一晚上的 rebase。
+
+### 每个 feature 的完成定义（照 AGENTS.md，不打折）
+
+1. 行为端到端可见 2. 每条 `verification` 退出码 0 3. 证据落 `evidence`
+4. `./init.sh` 基础验证仍过 5. **有 issue 且被 PR 关闭** 6. **已合入 main**
+
+⇒ agent 交付物 = **分支 + PR（带 `Closes #N`）+ issue 上的实现评论**。
+**agent 不许把 feature 标成 passing**——那是 `harness verify` 的事，我来跑。
+
+### 上一场战役（存档）：一次审核修正轮
 
 ### 阶段 A · 穷尽原型（进行中）
 - [ ] `PROTOTYPE-SWEEP-UI.md` —— 字节 15.0–16.6M 界面区**通读**
