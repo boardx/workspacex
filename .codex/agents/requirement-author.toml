@@ -65,17 +65,43 @@ UI 是否被人类确认过，权威在束级 `contracts/<bundle>/ui.md` + `desi
 - `notes`：依据等级、被合并的 UC 列表、已知风险
 
 ## verification 的写法（最容易糊弄的地方，重点看这里）
+
+### 🔴 命令形态：只有一种正确写法，照抄
+```
+pnpm --filter <api|web|@repo/contracts> exec vitest run tests/<域>/<文件>.test.ts
+```
+**`exec` 不可省**。少了它就变成 `pnpm --filter <pkg> vitest run X`，
+pnpm 会去找该包名为 `vitest` 的**脚本**，找不到就**安静退出 0**——
+于是任意垃圾路径都判通过。2026-07-30 实测：`真实路径 exit=0 / 垃圾路径 exit=0`，
+当时 21 个 feature / 84 点（两个已签核束的全部）可以零实现整套全绿。
+**同样禁止**从仓库根跑 `pnpm vitest run tests/…`：根目录没有 tests/、没有 vitest.config.ts，
+而 vitest 的路径参数是**子串匹配**，它会命中 `.claude/worktrees/agent-*/**` 里的多份仓库副本
+⇒ 同一条命令的结果取决于当下有几个 agent worktree（实测 `26 failed | 1 passed` vs `1 passed`）。
+
+包归属按测试路径的语义判，**不要机械前缀替换**：
+kernel / rls / migration / 领域不变量 → `api`；组件与界面（`.test.tsx`）→ `web`；
+契约 schema / 契约桩 → `@repo/contracts`。
+
+这条规则有机械门控：`node .harness/scripts/lint-verification-can-fail.mjs`
+（已在 `verify:base` 与 PR 门控里）。它会对每种形态构造「必然失败变体」真跑一次，
+恒 0 的形态直接点名报红。写完清单**自己先跑一遍**。
+
 **优先级从高到低**：
 1. **round-trip / 纯函数断言**——能在 Node 里跑，最稳。
-   例：`npx vitest run tests/roundtrip-guard.test.ts`
+   例：`pnpm --filter api exec vitest run tests/canvas/roundtrip-guard.test.ts`
 2. **API 层断言**——权限、状态机、幂等、级联失效都该在这层验。
    例：断言「重复上传后 segments 行数差值为 0」「删除后 download 返回 404」
 3. **UI 断言**——只在行为必须靠界面才能观察时使用。
    ⚠ 原型**零 `data-testid`**，UI 断言需先有 testid 命名规范，
    没有就**不要写 UI 断言**，改用上面两层。
 
-**禁止**的 verification：
+**禁止**的 verification（权威清单是
+`.harness/scripts/lint-verification-can-fail.mjs` 的 `UNTRUSTWORTHY_SHAPES`，
+每条带「怎么发现的」；这里只举例，**不要在别处再抄一份**）：
 - `echo "done"`、`test -f xxx` 这类不验证行为的占位
+- 缺 `exec` 的 `pnpm --filter <pkg> vitest run X`、根级 `pnpm vitest run X`（见上）
+- `node -e "const s=require('…')"` 这类内联 import——import 成功即 exit 0，零断言
+- 任何以 `|| true` / `; true` 结尾的命令（把失败吞掉）
 - 依赖人工判断的（"打开页面确认样式正确"）
 - 依赖尚未定稿的数值（如未裁决的阈值）——那种 feature 应在 notes 标出依据不足
   或拆出「结构性断言」先做（参考 O-13 的处理：把数值型 AC 改写为

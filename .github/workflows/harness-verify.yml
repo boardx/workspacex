@@ -82,7 +82,17 @@ jobs:
       - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
         run: node .harness/scripts/lint-ui-material.mjs
 
-      # harness 自己的测试（含上面那道门控的反证套件）。
+      # verification 必须真的会红。放在 PR 门控的理由与上一步同源，且更硬：
+      # 2026-07-30 实测 `pnpm --filter web vitest run <任意路径>` **恒 exit 0**
+      # （apps/web 没有 `vitest` 脚本，pnpm 在无匹配脚本时安静退 0），而 verify.ts 只看退出码
+      # ⇒ 当时 21 个 feature / 84 点（已签核的 agent-runtime + skills 两束全部）今天就能
+      # 整套全绿、零实现。这类失效**只在改 feature_list.json 的那个 PR 里产生**，
+      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      # 它自带动态探针（每种形态构造必然失败的变体真跑一次），不需要 Docker/PG。
+      - name: verification 必须真的会红（无恒 0 / 无不确定形态）
+        run: node .harness/scripts/lint-verification-can-fail.mjs
+
+      # harness 自己的测试（含上面两道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
       # 控制平面的测试不跑，等于控制平面没有测试。

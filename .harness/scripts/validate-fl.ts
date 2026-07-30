@@ -29,14 +29,20 @@ interface Feature {
   notes?: string;
 }
 
-/** 不验证行为的占位式 verification —— 这类等于没有验证 */
-const PLACEHOLDER = [
-  /^echo\s/i,
-  /^test\s+-[ef]\s/i,
-  /^ls\s/i,
-  /^true$/i,
-  /^cat\s/i,
-];
+/**
+ * 不可信的 verification 形态清单 —— **不在这里重列一遍**。
+ *
+ * 这里曾硬编码五条（echo / test -ef / ls / true / cat）。2026-07-30 查出第六种：
+ * `pnpm --filter web vitest run <任意路径>` 恒 exit 0（缺 `exec`，pnpm 在无匹配脚本时退 0），
+ * 当时 21 个 feature / 84 点靠它验收。这份清单显然会继续长，
+ * 而「同一事实声明在两处」在本仓已五次真的漂移 ⇒ 清单唯一事实源是
+ * `lint-verification-can-fail.mjs` 的 `UNTRUSTWORTHY_SHAPES`（每条带「怎么发现的」），
+ * 本文件只 import 它。那道门控还会做本文件做不到的事：**实测命令会不会红**。
+ */
+// @ts-expect-error —— .mjs 无类型声明，故意直接引（照 lint-ui-material.test.ts 的成例）
+import { UNTRUSTWORTHY_SHAPES } from "./lint-verification-can-fail.mjs";
+
+const SHAPES = UNTRUSTWORTHY_SHAPES as Array<{ name: string; kind: string; re: RegExp; why: string }>;
 
 let totalBad = 0;
 
@@ -112,8 +118,12 @@ for (const phaseId of process.argv.slice(2)) {
       say(`${f.id} 没有 verification`);
     } else {
       for (const v of f.verification) {
-        if (PLACEHOLDER.some((re) => re.test(v.trim()))) {
-          say(`${f.id} verification 是占位式、不验证行为："${v}"`);
+        const hit = SHAPES.find((s) => s.re.test(v.trim()));
+        if (hit) {
+          say(
+            `${f.id} verification 不可信（${hit.kind === "always-zero" ? "恒 0" : "结果不确定"}:${hit.name}）："${v}"\n` +
+              `      ${hit.why}`,
+          );
         }
       }
     }
