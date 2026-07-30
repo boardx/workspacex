@@ -82,6 +82,18 @@ jobs:
       - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
         run: node .harness/scripts/lint-ui-material.mjs
 
+      # 签核第 ③ 件（API 契约）必须存在。ADR-023 决策一规定它二选一：
+      #   packages/contracts/src/<束>.ts 存在，**或** domain.md 显式声明本束无对外 HTTP 面
+      #   且 coverage.md 的「API 操作」列填可执行门控命令。「不接受沉默的第三种情况」。
+      # 2026-07-30 实测：`grep "第 ③\|无对外 HTTP" .harness/scripts/` **零命中** ——
+      # 该判定从来没有被执行过，而十一束里十束的契约文件不存在、其中十束已签「三件已确认」。
+      # 架构师反证 CP-1：合规 fixture 阶段故意不建 <bundle>.ts ⇒ auditSignoff fails=0、
+      # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
+      # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
+      # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
+        run: node .harness/scripts/lint-third-artifact.mjs
+
       # verification 必须真的会红。放在 PR 门控的理由与上一步同源，且更硬：
       # 2026-07-30 实测 `pnpm --filter web vitest run <任意路径>` **恒 exit 0**
       # （apps/web 没有 `vitest` 脚本，pnpm 在无匹配脚本时安静退 0），而 verify.ts 只看退出码

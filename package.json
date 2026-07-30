@@ -7,7 +7,8 @@
     "lint:ui-material": "node .harness/scripts/lint-ui-material.mjs",
     "lint:verification": "node .harness/scripts/lint-verification-can-fail.mjs",
     "lint:nav-reachability": "node .harness/scripts/lint-nav-reachability.mjs",
-    "verify:base": "pnpm run lint:ui-material && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm exec vitest run --dir .harness && turbo run typecheck lint test --continue",
+    "lint:third-artifact": "node .harness/scripts/lint-third-artifact.mjs",
+    "verify:base": "pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm exec vitest run --dir .harness && turbo run typecheck lint test --continue",
     "test": "vitest run"
   },
   "devDependencies": {
