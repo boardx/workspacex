@@ -71,8 +71,20 @@ fi
 # Non-vacuity. An audit that classified nothing as tenant-carrying would satisfy the line
 # above perfectly. That is this project's most repeated failure -- a gate that is green
 # because it is idle -- so the count is asserted, not the absence of failures.
+#
+# The floor is a RATCHET, not a constant. F116 added three tenant tables (workshops /
+# research_projects / user_insights) and the invariant it had to prove was "the audit's ok
+# count went UP by three" -- a table classified `exempt-*`, or not classified at all,
+# would have left the count where it was and nobody would have looked. With a floor of 8
+# against a real count of 26, that check was structurally incapable of noticing.
+#
+# So the floor tracks the measured count: 26 before F116, 29 after. `-ge` rather than `-eq`
+# because features legitimately add tables and this gate must not be the thing that turns
+# red for it; raising the floor is the deliberate act that records "N more tables are now
+# in the tenant net".
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-if [ "$ok_tables" -ge 8 ]; then ok "audit is not idle: $ok_tables tenant tables classified ok"; else bad "audit found only $ok_tables tenant tables -- it is not seeing the schema"; fi
+OK_TABLES_FLOOR=29
+if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
 # nobody had to write down is one nobody reviewed.
