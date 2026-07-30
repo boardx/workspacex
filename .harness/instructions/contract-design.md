@@ -89,6 +89,25 @@ phases/phase-00-shared-kernel/contracts/identity/
 > （`design-signoff.test.ts` 有一条测试钉住「harness 可执行代码里不存在任何对它的引用」）。
 > 束级 `design-signoff.md` 是**唯一**的签核门。
 
+> ### 截图材料完整性由 `lint-ui-material.mjs` 机械门控（2026-07-30 起）
+>
+> 命令：`node .harness/scripts/lint-ui-material.mjs`（已接进 `pnpm -w run verify:base`
+> 与 `harness-verify.yml` 的 PR 门控）。它对每个 `contracts/<束>/ui.md` 断言：
+> **引用的截图集合 == 对应 `ui-preview/<目录>/` 里实存的 png 集合**——
+> 双向、逐张、点名到具体路径/文件名。
+>
+> 三条写作约定，违反会红：
+> 1. **束↔截图目录的映射只声明在 `.harness/scripts/ui-material-map.json`**（唯一事实源）。
+>    四个束目录名与束名不同（`interview`→`itv-v2`、`recording`→`rec`、`skills`→`skill`、
+>    `templates`→`tpl`），所以门控**不猜同名**；新束不补映射 = 报「未声明」，不是静默跳过。
+> 2. **缺口条目（`⚠ 未产出：…`）不得写成 `.png` 路径。** 缺口是文字，不是链接——
+>    写成 `foo.png` 会被判为死链。正确写法：去掉 `.png` 后缀，用文字描述缺哪张。
+> 3. **顶部那行「本文件引用 N 张，目录实存 M 张」的自检必须存在，且数字被机械核对。**
+>    它是同一事实的第二份副本，不核对就一定漂移。
+>
+> ⚠ 别再手写 grep 去数截图：文件名含中文，`[a-z0-9-]+\.png` 那类正则会对每个束返回
+> **0 处命中**而看起来「全绿」——2026-07-30 已真实发生过一次，错数字还被上报了两次。
+
 #### 支撑材料 `domain.md` —— 最内层，不依赖任何人
 
 写实体、值对象，**重点是不变量**。不变量的判据：**它在任何时刻都为真，违反即数据损坏**。

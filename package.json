@@ -4,7 +4,8 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "harness": "tsx .harness/scripts/cli.ts",
-    "verify:base": "turbo run typecheck lint test",
+    "lint:ui-material": "node .harness/scripts/lint-ui-material.mjs",
+    "verify:base": "pnpm run lint:ui-material && pnpm exec vitest run --dir .harness && turbo run typecheck lint test",
     "test": "vitest run"
   },
   "devDependencies": {

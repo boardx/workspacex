@@ -74,6 +74,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: pnpm harness doctor
 
+      # 签核第 ① 件的材料完整性：ui.md 引用的截图集合 == ui-preview/ 实存集合。
+      # 放在 PR 门控而不是 backend-gates 的理由：它只读 phases/**，不需要 Docker/PG，
+      # 跑一次不到 100ms；而它要挡的失效（加一张图忘了写进索引、改文件名留下死链）
+      # 恰恰发生在写 ui.md 的那个 PR 里，合并后才发现就晚了。
+      # turbo --affected 覆盖不到它：phases/ 不是 workspace 包，改 phases/** 一个包都不 affected。
+      - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
+        run: node .harness/scripts/lint-ui-material.mjs
+
+      # harness 自己的测试（含上面那道门控的反证套件）。
+      # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
+      # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
+      # 控制平面的测试不跑，等于控制平面没有测试。
+      - name: harness 控制平面自测（含门控反证）
+        run: pnpm exec vitest run --dir .harness
+
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
       - name: 受影响模块 typecheck/lint/test

@@ -105,11 +105,11 @@ function listPngs(dir) {
   return out.sort();
 }
 
-function findUiMds() {
+function findUiMds(phasesRoot = PHASES) {
   const found = [];
-  if (!existsSync(PHASES)) return found;
-  for (const phase of readdirSync(PHASES).sort()) {
-    const contracts = join(PHASES, phase, "contracts");
+  if (!existsSync(phasesRoot)) return found;
+  for (const phase of readdirSync(phasesRoot).sort()) {
+    const contracts = join(phasesRoot, phase, "contracts");
     if (!existsSync(contracts) || !statSync(contracts).isDirectory()) continue;
     for (const bundle of readdirSync(contracts).sort()) {
       const ui = join(contracts, bundle, "ui.md");
@@ -119,12 +119,12 @@ function findUiMds() {
   return found;
 }
 
-export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, only = [] } = {}) {
+export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
   const errors = [];
   const rows = [];
   const map = JSON.parse(readFileSync(mapFile, "utf8"));
 
-  let targets = findUiMds();
+  let targets = findUiMds(phasesRoot ?? join(root, "phases"));
   if (only.length) targets = targets.filter((t) => only.includes(t.phase));
   if (targets.length === 0) {
     errors.push(`没有找到任何 phases/<phase>/contracts/<束>/ui.md —— 门控无对象可查，视为失败（空集不许平凡为真）`);
