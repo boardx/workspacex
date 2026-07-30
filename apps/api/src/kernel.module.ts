@@ -124,6 +124,11 @@ import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope
 import { INTERVIEW_SCOPE_REPOSITORY } from "./application/interview/ports";
 import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interview-scope-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
+// F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
+// 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
+import { CHAT_REPOSITORY } from "./application/chat/ports";
+import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
+import { ChatController } from "./interface/controllers/chat.controller";
 
 @Module({
   controllers: [
@@ -142,6 +147,7 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
     AuthOrgController,
     OrgAdminScopeController,
     InterviewScopeController,
+    ChatController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -288,6 +294,12 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
     // F22. ⚠ 没有 `purge` 之类的 provider：phase-00 里没有任何东西会在留存期届满后销毁数据
     // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
     // 会让下一个接管理界面的人以为它已经在跑了。
+    // F108. 仓储只负责取数，可见性判定在 domain 一处——见 pg-chat-repository 头部。
+    {
+      provide: CHAT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgChatRepository(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: ORG_LIFECYCLE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgLifecycleRepository(db),
