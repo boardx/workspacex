@@ -8,9 +8,9 @@ phase: "01"
 #   ⚠ **`covers:` 有值 ≠ 本束可签核。** 另外两条阻塞（Q-2 / Q-8 未裁、UI 材料未产出）仍然红着，
 #     逐条见正文。`status` 只能由人类改。
 covers: [F144, F145, F146, F147, F148]
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
+confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下
 ---
 
 # 契约束 `research` 设计签核（第 12 个束）
