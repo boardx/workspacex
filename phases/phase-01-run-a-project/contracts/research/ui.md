@@ -1,171 +1,119 @@
 # 契约束 `research` — 签核①：UI（界面落点）
 
-> ## 🔴 自检（可机械核对）：**本文件引用 0 张截图，目录尚未产出。**
+> ## 自检（可机械核对）：**本文件引用 49 张截图，`ui-preview/research/` 目录下实际 49 张（N == M == 49）。**
 >
-> 目录：`phases/phase-01-run-a-project/ui-preview/research/`
-> **该目录现在不存在** —— 待 ui-prototyper 产出。
+> 目录：`phases/phase-01-run-a-project/ui-preview/research/`（ui-prototyper 2026-07-31 产出）。
+> 截图目录映射已在 `.harness/scripts/ui-material-map.json` 声明为 `research → ui-preview/research`。
+> 详细索引与「我替人类做的判断 / 无法自洽的点」见同目录 `README.md`——**本文件是 ui.md 侧的引用表**。
 >
-> ⇒ **`lint-ui-material.mjs` 会对本束报红**，报的是判定④「目录不存在 / 目录里 0 张 png」。
-> **这条红是本束的正确状态，不是待修的故障。**
-> 已在 `.harness/scripts/ui-material-map.json` 补上本束的映射行——
-> 不补的话门控报的是判定③「未声明截图目录」，那是**报错的理由不对**：
-> 真实情况是「已声明、材料还没产出」，不是「有人忘了声明」。两者在后果上不同。
-> （同一处理方式的先例：`contracts/asset-governance/ui.md`。）
+> ⚠ 原型出处一律给**字节**偏移（`[原型 @n,nnn,nnnB]`，指 `phases/requirements/WorkspaceX Standalone.html`，
+> 17,050,600 字节，按偏移取证，勿整份读）。本束与 `PROTOTYPE-SWEEP-UI.md` 同坐标系（字节）。
 >
-> ⚠ **本文刻意不写任何**设想的**文件名（占位式文件名）。** 上游 `skills` 束栽过一次同形的坑：
-> 它的旧版 ui.md 按约定写了 14 个**设想的**文件名，那 14 条**一张都不存在**、全部是死链
-> （留痕在 `contracts/skills/ui.md` 顶部）。
-> 本文用**文字**描述该有哪些屏，等 ui-prototyper 产出后再由它或后续 agent 填真实索引。
->
-> ## 签核条件的现状
->
-> **第 ① 件材料（UI）现在完全不具备签核条件。** 且这不是唯一的阻塞——
-> `design-signoff.md` 里另有两条（Q-2 / Q-8 未裁、feature 未生成）。
-> **三条必须都解除，才谈得上逐屏评审。**
-> **`design-signoff.md` 的 `status` 只能由人类改，agent 不许动。**
-
-> 覆盖 feature 与依据 UC 见 `design-signoff.md`（权威）。
-> ⚠ 本文提到的**已建成**路由与文件路径**均已在仓库中核实**（下面每处都给了路径），不是推测。
-> 原型出处一律给**字节**偏移（`[原型 @n,nnn,nnnB]`，指 `phases/requirements/WorkspaceX Standalone.html`，
-> 17,050,600 字节，**按偏移取证，勿整份读**）。
-> ⚠ **本束用字节偏移**，与 `ui-preview/PROTOTYPE-SWEEP-UI.md` 同坐标系；
-> `contracts/asset-governance` 用的是**字符**偏移，两者相差约 139,915，**不要混用**。
+> ⚠ **本文件的 `status` 类签核动作只能由人类做，agent 不许动 `design-signoff.md`。**
 
 ---
 
-## 一、读本文前必须先分清三个平面
-
-> 不分清，下面每一条「已建成 / 未建 / 原型有」都会被误读。
+## 一、三个平面（不分清，下面每一条「已建成/未建」都会被误读）
 
 | 平面 | 在哪 | 是什么 |
 |---|---|---|
-| **生产屏** | `apps/web/app/studio/research/page.tsx` + `components/research/*` | 本仓**已有**的实现。⚠ **它服务的是 UC-0.2 Context Pack，不是本束** |
-| **原型屏** | `WorkspaceX Standalone.html` 的界面区与 **JS 数据区** | 人类给的设计原型。**它有的，生产平面未必有** |
-| **签核材料屏** | `ui-preview/research/`（**尚未产出**） | ui-prototyper 用 `apps/web` 真实组件 + mock 产出的截图。**签核第 ① 件评审的是这一平面** |
+| **生产屏** | `apps/web/app/research/page.tsx` + `components/research-studio/*` | 本束的 UI 先行原型（真实组件 + mock）。**新建在顶层 `/research`** |
+| **占用屏** | `apps/web/app/studio/research/page.tsx` + `components/research/*` | ⚠ 服务 **UC-0.2 Context Pack**，**不是本束**。见「二」Q-2 |
+| **原型屏** | `WorkspaceX Standalone.html` 界面区与 JS 数据区 | 人类给的设计原型。它有的，生产平面此前未必有 |
 
-### ⚠ 本束的特殊之处：**生产平面上的「研究」不是本束的研究**
+⚠ **本束在生产平面上从零开始**：`grep -c "研究场景\|时间盒\|桌面研究…" apps/web/lib/mock/research.ts` → **0**。
+本原型的 mock 在**另一个文件** `apps/web/lib/mock/research-studio.ts`，与 Context Pack 的 `research.ts` 无关。
 
-这一条必须写在最前面，否则会被当成「已经做了大半」：
+## 二、路由处置（Q-2 阻塞级 · 未裁）
 
-| | `/studio/research` 现状 | 本束要的 |
-|---|---|---|
-| `navigation.ts:75` 的 `ucRefs` | `["00-core/uc-0-2"]`（**Context Pack**） | `24-research/uc-24-1…5` |
-| 屏内容 | 一次研究**读了什么 / 丢了什么**：`RESEARCH_RUNS` / `CONTEXT_PACK` / 丢弃清单 / 洞察矩阵 | 研究问题 · 证据表 · 候选洞察 · 深度对话 · 七项配置面板 |
-| 自述 | `lib/mock/research.ts:1-8` 逐字「**Context Pack（UC-0.2）最直接的消费面**」 | — |
-| 机械核实 | `grep -c "研究场景\|时间盒\|桌面研究\|竞品拆解\|监管政策\|客户侧核实\|来源偏好\|交付形式\|证据表\|候选洞察" apps/web/lib/mock/research.ts` → **0** | — |
-
-⇒ **本束在生产平面上是从零开始**，只有路由壳可复用，且复用它会与 UC-0.2 抢同一条路由
-→ **Q-2（阻塞级）**，见 `requirements/24-research/OPEN-QUESTIONS.md`。
+`/studio/research` 现渲染 Context Pack。本原型**最小可逆**地：研究 Studio 建在顶层 `/research`；
+`navigation.ts` 的「研究」一级导航重指 `/studio/research` → `/research`、ucRefs 换成 `24-research/uc-24-1…5`；
+`nav-reachability.config.json` 的 `bundleRoutes.research` 同步为 `/research`（那条「绿得不诚实」从此为真）。
+Context Pack 页面**未改**，仍 `/studio/research` 直达。**Q-2 的最终归并留给人类**（README「三」）。
 
 ---
 
-## 二、本束需要哪几块屏（五份 UC → 屏清单）
+## 三、屏清单与七态（五份 UC → 五块屏 × 七态 + 视角对照 + 特殊子态）
 
-> 每一屏都注明：原型出处（字节）· 生产平面现状 · 该由 ui-prototyper 画什么。
-> **不写文件名**（见顶部说明）。
+预览手段：`?screen=` / `?state=` / `?as=owner|collaborator` / `?sub=`（仅开发可达）。
 
-### A · 新建深度研究弹层（`uc-24-1`）
+### A · 新建深度研究弹层（`uc-24-1`）· `screen=new`
 
-- **原型**：DOM 在 **16,740,400–16,746,000**；七组字段的**数据数组与预览句在 16,903,700–16,906,900**。
-  ⚠ 后者在 **JS 数据区，点原型点不到** —— 本仓已十次在同一盲区吃亏。
-- **生产平面**：**未建**（`grep -rl "新建深度研究" apps/web` → 0）。
-- **要画**：
-  1. 弹层默认态（**七组字段的默认值必须逐项等于 `domain.md` 1.4–1.7 的表**——
-     `kind=桌面研究` / `depth=标准` / 来源两项 / 交付一项 / 节点 `n1`）。
-     ⚠ **默认值画反 = 重做**（本轮已因 P-05 判过一次）。
-  2. 预览句随字段变化的**至少两个不同取值**的截图（证明它是算出来的，不是写死的）。
-  3. 从小组能力面进入时「组」被预填的那一态。
-  4. 观察者视角：**入口按钮不存在**。
-- **七态**：本弹层需 `default` / `loading`（提交中）/ `error`（校验失败）三态起。
+- **原型**：DOM 16,740,400–16,746,000；七组字段数据数组与预览句 16,903,700–16,906,900（JS 数据区，点原型点不到）。
+- **要点**：七组默认值逐项等于原型常量（`desk` / `std` / 来源两项 / 交付一项 / 节点 `n1`），画反即重做。
+  预览句随字段实时重算（N-12 / N-4）。
 
-### B · 研究主题详情：深度对话 + 四段结果（`uc-24-2`）
+七态：`uc-24-1-new-default.png` · `uc-24-1-new-loading.png` · `uc-24-1-new-empty.png` ·
+`uc-24-1-new-invalid.png` · `uc-24-1-new-dep-failed.png` · `uc-24-1-new-denied.png` · `uc-24-1-new-success.png`
 
-- **原型**：**15,339,332–15,348,077**（整屏）。
-- **生产平面**：**未建**（对话面可复用 `chat` 束已建成组件，右半四段全新）。
-- **要画**：
-  1. 「已出结论」完整态：左半 n 轮对话（含**执行步骤三条编号**），右半四段
-     （关键发现 / 争议·不确定 / 外部来源表 / 研究结论）。
-  2. **低置信在场**的那一态 —— 段 ③ 里必须能看到 `0.3` 与「已标注」（**N-3**）。
-  3. **样本不足**的那一态 —— 结论落进段 ②，段 ① 不含它（**N-2 / N-5** 的生产侧）。
-  4. `loading`：部分路已回、部分在跑（**E1「已完成的可以先看」**）。
-  5. `error`：检索失败 + 可重试。
-  6. `empty`：零来源 —— 段 ④ 是**数据需求说明**，不是结论。
-  7. 观察者视角：无输入框、无出口动作。
+特殊：`uc-24-1-new-preview-alt.png`（预览句另一取值，证明算出来的）·
+`uc-24-1-new-group-prefill.png`（A1 从组预填）· 视角：`uc-24-1-new-view-collaborator.png`
 
-### C · 三处列表 + 研究计划详情（`uc-24-3`）
+### B · 研究主题详情：对话 + 四段结果（`uc-24-2`）· `screen=detail`
 
-- **原型**：**16,157,163–16,173,305**（Studio 列表 + 研究计划三计数 + 证据表）·
-  **15,326,428–15,339,332**（项目内主题列表）· **16,003,815–16,005,200**（Studio 左栏三段）。
-- **生产平面**：**未建**（现有 `ResearchRuns` 左栏是 Context Pack 的运行列表，不是本束的研究列表）。
-- **要画**：
-  1. Studio 研究列表（卡片含四个数：证据 / 目标 / 研究问题 / 候选洞察）。
-  2. 项目内主题列表（含 `关键 · 置顶`、`林可提出 · 来源 14`、两个行动作）。
-  3. Studio 左栏三段（三种不同状态各一条）。
-  4. 研究计划详情：三计数条 + **证据表四列**（证据 / 来源 / 置信度 / 去向）。
-  5. `empty`：空列表 —— **不得**出现编造的示例卡。
-  6. **目标缺失**那一态：渲染 `/ —` 而**不是** `/ 0`（**N-8**）。
-  7. 四视角对照（引导师 / 组长 / 组员 / 观察者）——⚠ 本束第 ① 件最要紧的性质是
-     **四视角是否真的改变界面**，不是好不好看。`project` 束的第 ① 件就栽在缺四视角对照上。
+- **原型**：15,339,332–15,348,077（整屏）。左半对话（含执行步骤三条编号），右半四段
+  （关键发现 / 争议·不确定 / 外部来源表 / 研究结论）。低置信 0.3 必现且带标注（N-3）。
 
-### D · 结论出口与门控阻断（`uc-24-4`）
+七态：`uc-24-2-detail-default.png` · `uc-24-2-detail-loading.png` · `uc-24-2-detail-empty.png` ·
+`uc-24-2-detail-invalid.png` · `uc-24-2-detail-dep-failed.png` · `uc-24-2-detail-denied.png` ·
+`uc-24-2-detail-success.png` · 视角：`uc-24-2-detail-view-collaborator.png`
 
-- **原型**：**15,347,036–15,348,077**（结论区三按钮）·
-  **16,942,800–16,944,400**（对话面三动作与产出物，**在 JS 数据区**）。
-- **生产平面**：**未建**。
-- **要画**：
-  1. 三按钮正常态（`加入洞察库` / `补充资料` / `标为关键问题`）。
-  2. **阻断态 ×3**：无外部来源 / 争议条目 / 冲突未判定 —— 三条错误码各一张
-     （`NO_EXTERNAL_SOURCE` / `EVIDENCE_IS_DISPUTED` / `CONFLICT_PENDING_HUMAN`）。
-     ⚠ **必须画成「点了被拒 + 说明」，不是「按钮灰掉」** —— 灰按钮在 API 层挡不住任何东西。
-  3. **部分成功态**：入库成功 + 节点回流失败（`DECISION_NODE_GONE`）——
-     这一张最容易被画成「整体失败」，务必单独出。
-  4. 对话面三动作（`存为洞察` / `加入报告` / `开一场深度研究`）。
-  5. 观察者视角：**零个出口动作**（**N-10**）。
+### C · 研究 Studio 列表 + 研究计划详情（`uc-24-3`）· `screen=list` / `screen=plan`
 
-### E · 现场深度研究与冲突判定（`uc-24-5`）
+- **原型**：16,157,163–16,173,305（列表 + 三计数 + 证据表）· 16,003,815–16,005,200（左栏三段）。
+- **要点**：卡片四个数（证据/目标/研究问题/候选洞察）· 证据表四列（证据/来源/置信度/去向）·
+  目标缺失渲染 `—` 不是 `0`（N-8）· 行动作文案是「归档」不是删除（N-7）。
 
-- **原型**：**15,493,520–15,500,339**（整屏）。
-- **生产平面**：**未建**（`PROTOTYPE-SWEEP-UI.md` 索引表判为「部分：缺现场研究任务列表与冲突筛选」）。
-- **要画**：
-  1. 任务列表四行三态（`运行中` / `已就绪` / `待判定`）+ 头部两个数（总数 / 已就绪数）。
-  2. `只看有冲突的` 开 / 关两态。
-  3. 冲突待判定区 + 三个动作 —— ⚠ **三个动作都不得画成预选/高亮默认**（**N-6**）。
-  4. 冲突为 0 时：区块**仍在**，显示空态（A2）。
-  5. 单行失败态（E1）：其余行不受影响。
-  6. 引导师 / 组长 两视角对照 —— 判定动作只应出现在引导师那一张（**Q-14 未裁前按 `[设计]` 画**）。
+列表七态：`uc-24-3-list-default.png` · `uc-24-3-list-loading.png` · `uc-24-3-list-empty.png` ·
+`uc-24-3-list-invalid.png` · `uc-24-3-list-dep-failed.png` · `uc-24-3-list-denied.png` ·
+`uc-24-3-list-success.png` · 视角：`uc-24-3-list-view-collaborator.png`
+
+计划七态：`uc-24-3-plan-default.png` · `uc-24-3-plan-loading.png` · `uc-24-3-plan-empty.png` ·
+`uc-24-3-plan-invalid.png` · `uc-24-3-plan-dep-failed.png` · `uc-24-3-plan-denied.png` ·
+`uc-24-3-plan-success.png` · 特殊：`uc-24-3-plan-target-missing.png`（N-8）· 视角：`uc-24-3-plan-view-collaborator.png`
+
+### D · 结论出口与门控阻断（`uc-24-4`）· `screen=detail&sub=…`
+
+- **原型**：15,347,036–15,348,077（结论区三按钮）· 16,942,800–16,944,400（对话面三动作，JS 数据区）。
+- **要点**：三种阻断画成「点了被拒 + 说明 + 错误码」，**不是灰按钮**；部分成功单独出一张。
+
+`uc-24-4-detail-block-no-source.png`（`NO_EXTERNAL_SOURCE` · N-1）·
+`uc-24-4-detail-block-disputed.png`（`EVIDENCE_IS_DISPUTED` · N-2）·
+`uc-24-4-detail-block-conflict.png`（`CONFLICT_PENDING_HUMAN` · N-5）·
+`uc-24-4-detail-promote-partial.png`（入库成功 + `DECISION_NODE_GONE` 回流失败，不回滚 · E2）
+
+### E · 现场深度研究与冲突判定（`uc-24-5`）· `screen=live`
+
+- **原型**：15,493,520–15,500,339（整屏）。任务列表三态（运行中/已就绪/待判定）+ 头部两个数 +
+  冲突待判定区三动作（平权、无预选、无倒计时 · N-6）+ 提出方留痕（N-9）。
+
+七态：`uc-24-5-live-default.png` · `uc-24-5-live-loading.png` · `uc-24-5-live-empty.png` ·
+`uc-24-5-live-invalid.png` · `uc-24-5-live-dep-failed.png` · `uc-24-5-live-denied.png` ·
+`uc-24-5-live-success.png` · 特殊：`uc-24-5-live-conflict-filter.png`（只看冲突 · A1）·
+`uc-24-5-live-conflict-empty.png`（冲突为 0 时区块仍在 · A2）· 视角：`uc-24-5-live-view-collaborator.png`
 
 ---
 
-## 三、屏与不变量的对应（评审时按这张表看）
+## 四、屏与不变量的对应（评审时按这张表看 —— 四视角/阻断态比 happy path 重要）
 
-| 不变量 | 在哪几张图上能看出来 |
+| 不变量 | 在哪张图看得出来 |
 |---|---|
-| **N-1** 入库需外部来源 | D.2 第一张 |
-| **N-2** 争议项永不入库 | B.3 · D.2 第二张 |
-| **N-3** 低置信标出不丢弃 | B.2 · C.4（证据表 `0.3` 行）|
-| **N-4** 检索不越出来源偏好 | A.2（预览句「来源限定在…」）+ B.1（执行步骤分类计数）|
-| **N-5** 冲突先标不确定 | E.3 · D.2 第三张 |
-| **N-6** 建议不预选不自动执行 | E.3 |
-| **N-7** 只归档不删除 | C.2（行动作文案是「归档」）|
-| **N-8** 缺失渲染 `—` 不是 `0` | C.6 |
-| **N-9** 提出方留痕 | C.2 · E.1 |
-| **N-10** 观察者出口 = 空集 | A.4 · B.7 · C.7 · D.5 |
-| **N-11** 入库是候选洞察 | C.4（「待送…验证」）· D.1 |
-| **N-12** 七项配置是执行契约 | A.1 · A.2 |
+| **N-1** 入库需外部来源 | `uc-24-4-detail-block-no-source.png` |
+| **N-2** 争议项永不入库 | `uc-24-2-detail-default.png`（段②）· `uc-24-4-detail-block-disputed.png` |
+| **N-3** 低置信标出不丢弃 | `uc-24-2-detail-default.png`（段③ 0.3）· `uc-24-3-plan-default.png`（证据表 0.3 行）|
+| **N-4** 检索不越出来源偏好 | `uc-24-1-new-default.png` · `uc-24-1-new-preview-alt.png`（预览句「来源限定在…」）|
+| **N-5** 冲突先标不确定 | `uc-24-5-live-default.png` · `uc-24-4-detail-block-conflict.png` |
+| **N-6** 建议不预选不自动执行 | `uc-24-5-live-default.png` |
+| **N-7** 只归档不删除 | `uc-24-3-list-default.png`（行动作文案「归档」）|
+| **N-8** 缺失渲染 `—` 不是 `0` | `uc-24-3-plan-target-missing.png` |
+| **N-9** 提出方留痕 | `uc-24-3-list-default.png` · `uc-24-5-live-default.png` |
+| **N-10** 观察者出口 = 空集 | `uc-24-1-new-denied.png` · `uc-24-2-detail-denied.png` · `uc-24-3-list-denied.png` · `uc-24-3-plan-denied.png` · `uc-24-5-live-denied.png` |
+| **N-11** 入库是候选洞察 | `uc-24-3-plan-default.png`（「待送综合 Studio 验证」）· `uc-24-4-detail-promote-partial.png` |
+| **N-12** 七项配置是执行契约 | `uc-24-1-new-default.png` · `uc-24-1-new-preview-alt.png` |
 
-⚠ 评审时**优先看这张表里的图**。四视角与阻断态比 happy path 重要得多——
-本束的原型材料**极度偏向 happy path**（`usecases.md` 零节已登记这一点）。
+⚠ 视角对照四张（列表/计划/详情/现场的 `<屏名>-view-collaborator` 截图）是本束第 ① 件最要紧的性质：
+**owner 与 collaborator 是否真的改变界面**——见 README「四①②③」的三处待人类核对判断。
 
----
-
-## 四、产出后要做的事
-
-1. ui-prototyper 把截图放进 `ui-preview/research/`。
-2. **回来把本文第二节的文字描述换成真实文件名索引**，并在顶部写自检行
-   （`本文件引用 N 张截图，目录下实际 M 张，N == M`）。
-3. `lint-ui-material.mjs` 的红自动消（映射行已预先登记在 `ui-material-map.json`）。
-4. **然后**人类才逐屏评审第 ① 件。
-
-⚠ **不要**为了让门控变绿而建一个空目录或塞几张不相干的图。
-`lint-ui-material` 校的是**双向集合相等**，塞图会从判定④的红变成判定②的红（孤图），
-而且会让人以为材料已经有了。
+⚠ **观察者是七态里的 `denied` 投影，不是第四视角**：研究成员模型 = owner/collaborator（U-1=B），
+原型研究管理区 16.099M–16.125M 无任何成员/角色控件（负向印证）。U-1 与各 UC R5 的四项目角色有张力，
+取舍与理由见 README「四①」。**签核时请一并确认这条取舍。**

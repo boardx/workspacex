@@ -5,7 +5,7 @@
   "//3": "为什么 project 的路由是 /projects 而不是 /project：/projects 是列表主入口（导航项「项目」指向它），/project 工作台从列表卡片进（1 跳）。断言束的**入口**在导航里即可。",
   "//4": "为什么 files 的路由带具体 id /projects/demo/files：文件浏览器挂在项目下，导航项 FILES_NAV 用 demo 项目做入口（真实实现按当前项目拼）。",
   "//5": "allowRoutes：导航里**故意存在、但不属于 phase-01 任何束**的路由——它们是别的能力域/阶段（问卷→phase-02 12-survey、大脑→phase-03 14-brain、任务→phase-02 11-board）或组织治理总览（后台）。反向判定放行它们；**不在此列且不是束路由的导航项 = 红**（多半是又冒出来的旧骨架屏，如 /studio/interview /studio/prototype）。⚠ 2026-07-30：**研究已从本列移出**，改为 bundleRoutes 的 research（第 12 束）——D-20 早已裁定研究 Studio 立项，是 phase-01 的束，不是「别的阶段」。见 phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md。",
-  "//5c": "⚠ research → /studio/research 这一行**现在绿得不诚实**：判定②只断言「束路由出现在导航里」，而该路由目前渲染的是 UC-0.2 Context Pack 的屏（navigation.ts 的 ucRefs 逐字 00-core/uc-0-2），不是 research 束的屏。这是 requirements/24-research/OPEN-QUESTIONS.md 的 Q-2（阻塞级），**裁定后必须回来复核这一行**。这条注释存在的意义：让一个门控挡不住的缺口至少**有名字、被写下来**。",
+  "//5c": "2026-07-31（ui-prototyper）：research 现行路由改为 /research —— 研究 Studio 的 UI 先行原型（UC-24.1…24.5）已建在顶层 /research，navigation.ts 的「研究」一级导航已重指到它、ucRefs 换成 24-research 五份。这条绿从此是**真的**（束路由渲染的就是束的屏）。⚠ Q-2（阻塞级·未裁）的最终 IA 归并——Context Pack 是迁进研究详情的一个标签（方案 A），还是两个「研究」并列（方案 C）——仍待人类；Context Pack 页面暂留在 /studio/research 直达（已不在导航里）。见 ui-preview/research/README.md 与 OPEN-QUESTIONS.md Q-2。",
   "//6": "断言的是**性质不是数量**（COORDINATOR-LOOP 纪律第 9 条）：不写「导航项必须恰好 N 个」。新增一个正当能力域只需在 bundleRoutes 或 allowRoutes 里显式登记一行，而不是撞死一个移动靶。",
   "phase-01-run-a-project": {
     "bundleRoutes": {
@@ -19,7 +19,7 @@
       "agent-runtime": "/preview/agent-runtime",
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",
-      "research": "/studio/research",
+      "research": "/research",
       "files": "/projects/demo/files"
     },
     "allowRoutes": [
