@@ -286,7 +286,19 @@ export function auditSignoff(
           `束↔feature 的映射权威在这里，不在 coverage.md 正文（ADR-023 决策三）。文件：${b.signoffPath}`,
       );
     } else if (b.features.length === 0) {
-      fails.push(`契约束「${b.bundle}」声明了 \`covers:\` 但为空 —— 一个不覆盖任何 feature 的束不成立`);
+      fails.push(
+        `契约束「${b.bundle}」声明了 \`covers: []\`（空）—— 一个不覆盖任何 feature 的束不成立，` +
+          `**因此它不可签核**。\n` +
+          `    最常见的原因：**该能力域的 feature 还没生成**——束目录先建好了，` +
+          `而 feature_list.json 里还没有属于它的条目（例如它依赖一批尚未裁决的问题，` +
+          `requirement-author 还不能生成 feature）。\n` +
+          `    这条红是**故意的**：空 covers 若被放行，「这个束覆盖的 feature 全部已评审」` +
+          `会因为集合为空而**平凡为真**，读起来像绿灯，实际什么都没评审` +
+          `（本仓九次「全绿但空转」的形状）。\n` +
+          `    修法只有两条：⑴ 裁决完成 → requirement-author 生成 feature → 填进 \`covers:\`；` +
+          `⑵ 该域确实不该有束 → 删掉束目录。**不要为了消红而随手填一个 feature 编号。**\n` +
+          `    文件：${b.signoffPath}`,
+      );
     }
     for (const fid of b.features) {
       const owner = seen.get(fid);

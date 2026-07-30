@@ -2,9 +2,17 @@
 phase: "01"
 # 本次一致性复核**实际看过**哪些束（ADR-023 决策四）。
 # ⚠ 门控要求：声明的束集合 ⊇ 本阶段全部束。
-#   下面九个是 2026-07-30 建骨架时磁盘上的全部束；**新增束必须同时加进这里并重做复核**，
+#   下面十个是磁盘上的全部束；**新增束必须同时加进这里并重做复核**，
 #   否则新束的 feature 会靠一份从没看过它们的复核解锁开工（ADR-023 背景 1 的原样复现）。
-covers_bundles: [agent-runtime, canvas, chat, files, interview, org-admin, recording, skills, templates]
+#
+# 2026-07-30 由九束改为十束：新增 `project`（项目本身，最晚被发现缺失的能力域）。
+#   ⚠ 本次**只改了这一个字段**，`status` / `confirmed_by` / `confirmed_at` 一律未动，
+#   第二~六节的交叉约束复核**仍未做**（本文 status 仍是 pending）。
+#   ⚠ 不要把「covers_bundles 里有 project」读作「project 束已被复核」——
+#   ADR-023 决策四那条门控挡的正是相反方向：只改这个字段而不做复核，
+#   是把「没复核」谎报成「复核过」。`project` 束自己的 covers 为空、status 为 pending，
+#   两道门都还红着，这是预期状态。
+covers_bundles: [agent-runtime, canvas, chat, files, interview, org-admin, project, recording, skills, templates]
 status: pending            # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:              # 确认人（姓名/邮箱）
 confirmed_at:              # ISO 8601，且不得晚于签核当下
@@ -18,7 +26,7 @@ confirmed_at:              # ISO 8601，且不得晚于签核当下
 >
 > **只查交叉约束。** 单束内的问题在签该束时已经看过了，这里不重复。
 
-## 一、复核范围（九个束 / 111 个 feature / 361 点）
+## 一、复核范围（**十个束** / 111 个 feature / 361 点）
 
 | 束 | 覆盖 feature | 数 | 点 | 依据 UC |
 |---|---|---:|---:|---|
@@ -31,7 +39,27 @@ confirmed_at:              # ISO 8601，且不得晚于签核当下
 | `skills` | F61–F68 | 8 | 31 | `03-skill/uc-3-1` … `uc-3-6`（6 份） |
 | `canvas` | F100–F107 | 8 | 26 | `07-canvas/uc-7-1` … `uc-7-4`（4 份） |
 | `chat` | F108–F115 | 8 | 24 | `08-chat/uc-8-1` … `uc-8-5`（5 份） |
-| **合计** | **F03–F115** | **111** | **361** | **44 份 UC** |
+| `project` | **（无）** | **0** | **0** | `00-project/uc-00-1 · 00-2 · 00-3`（3 份） |
+| **合计** | **F03–F115** | **111** | **361** | **47 份 UC** |
+
+### ⚠ 第 10 个束 `project`：feature 数为 0，且**这是它的正确状态**
+
+`project`（项目本身）是**最晚被发现缺失**的能力域——九束的切分是在它被发现之前定的。
+它在 `feature_list.json` 里**没有任何 feature**（估 8–10 个 / 32–40 点），
+因为 `requirements/00-project/OPEN-QUESTIONS.md` 的 **12 条裁决**未完成时，
+requirement-author 连「项目这张表有几列」都写不出来，更写不出可执行的 `verification`。
+
+⇒ 它的 `design-signoff.md` frontmatter 是 `covers: []`，
+这会让 `verify-uc-coverage.ts` / `doctor` **报红**，报错逐字为
+「声明了 `covers: []`（空）—— 一个不覆盖任何 feature 的束不成立，**因此它不可签核**」。
+**这条红是故意留的**：空 covers 若被放行，「本束覆盖的 feature 全部已评审」
+会因集合为空而**平凡为真**，读起来像绿灯而实际什么都没评审
+（本仓九次「全绿但空转」的形状）。
+
+⚠ **本束是 X-6 的归属答案**：下方待议清单 X-6 逐字写着议程环节的状态机
+「既不在 `org-admin` 也还不存在」——它属于 `project` 束。
+六个束的 feature（F05 F16 F19 F26 F27 F31 F63 F64 F81 F102）已经在议程环节上排工，
+而**环节实体本身没有任何 feature**。⇒ 复核时必须处置这个倒置。
 
 > ⚠ **这张表是派生视图，不是权威。** 束↔feature 映射的权威是各束
 > `design-signoff.md` 的 frontmatter `covers:`（ADR-023 决策三）。
@@ -112,8 +140,11 @@ confirmed_at:              # ISO 8601，且不得晚于签核当下
 - `pnpm harness doctor --phase 01` 报签核链不合格
 
 拒绝理由有两级，**两级都要过**：
-1. 该 feature 所属束的 `design-signoff.md` `status` 不是 `confirmed`（现在九个束全是 `pending`）
+1. 该 feature 所属束的 `design-signoff.md` `status` 不是 `confirmed`（现在**十个束**全是 `pending`）
 2. 本文件的 `status` 不是 `confirmed`（现在是 `pending`）
+
+另有第三条**结构性**拒绝（与开工无关，但会让 `doctor` / `verify-uc-coverage` 报红）：
+3. `project` 束的 `covers:` 为空 —— 见上方第一节末尾，**这是它的正确状态**，不是待修故障。
 
 ⇒ **phase-01 的 111 个 feature 现在一个都开不了工。这是预期效果，不是故障。**
 
