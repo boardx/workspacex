@@ -106,7 +106,11 @@ beforeEach(async () => {
 async function tryWrite(orgId: string, id: string): Promise<string | null> {
   try {
     await asApp(orgId, (c) =>
-      c.query("INSERT INTO projects (id, org_id, name) VALUES ($1, $2, $3)", [id, orgId, "probe"]),
+      // F116: `kind` is NOT NULL with no default. Spelling it out keeps this probe failing
+      // for the reason it is about (the freeze policy) rather than for a missing column.
+      c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'workshop')", [
+        id, orgId, "probe",
+      ]),
     );
     return null;
   } catch (e) {

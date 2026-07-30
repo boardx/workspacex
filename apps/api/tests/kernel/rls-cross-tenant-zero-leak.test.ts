@@ -126,7 +126,9 @@ describe("I-4: writes -- a leak in the other direction", () => {
     // WITH CHECK, not USING. Without it a compromised or buggy caller plants rows in
     // someone else's tenant -- invisible to itself afterwards, which makes it worse.
     await expect(
-      asApp(A, (c) => c.query("INSERT INTO projects (id, org_id, name) VALUES ($1, $2, $3)", ["x-cross", B, "planted"])),
+      // F116: `kind` spelled out on purpose. Omitting it would make this row rejected by a
+      // NOT NULL violation, and the test would be green while WITH CHECK was gone.
+      asApp(A, (c) => c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'workshop')", ["x-cross", B, "planted"])),
     ).rejects.toThrow();
   });
 

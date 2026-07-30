@@ -193,6 +193,10 @@ export async function seedOrg(opts: {
   ownerUserId?: string;
   teamNames?: string[];
   projectId: string;
+  /** F116: which of the three container kinds. Defaults to `workshop` -- the only kind
+   *  that has groups and the four project roles, which is what every existing fixture
+   *  relies on. A test about the other two kinds says so at the call site. */
+  projectKind?: "workshop" | "research_project" | "user_insight";
   groupNames?: string[];
 }): Promise<OrgFixture> {
   const { orgId, projectId } = opts;
@@ -212,7 +216,12 @@ export async function seedOrg(opts: {
       await c.query("INSERT INTO teams (id, org_id, name) VALUES ($1, $2, $3)", [id, orgId, t]);
       teams[t] = id;
     }
-    await c.query("INSERT INTO projects (id, org_id, name) VALUES ($1, $2, $3)", [projectId, orgId, `project ${projectId}`]);
+    // F116: `kind` is a discriminator with NO default -- "I forgot to say which of the
+    // three kinds this is" must not be silently writable. Fixtures default to `workshop`
+    // because that is what every pre-F116 caller meant, and say so explicitly.
+    await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, $4)", [
+      projectId, orgId, `project ${projectId}`, opts.projectKind ?? "workshop",
+    ]);
     for (const g of groupNames) {
       const id = `${projectId}-${g}`;
       await c.query("INSERT INTO groups (id, org_id, project_id, name) VALUES ($1, $2, $3, $4)", [id, orgId, projectId, g]);

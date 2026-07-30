@@ -74,7 +74,8 @@ beforeEach(async () => {
   await resetOrgs(ORG);
   fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await h.db.withTenant(toOrgId(ORG), (s) =>
-    s.query("INSERT INTO projects (id, org_id, name) VALUES ($1,$2,$3)", [
+    // F116: `kind` is NOT NULL with no default.
+    s.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,'workshop')", [
       OTHER_PROJECT, ORG, "second project",
     ]),
   );
