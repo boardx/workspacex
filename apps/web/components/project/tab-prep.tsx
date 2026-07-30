@@ -1,19 +1,22 @@
 "use client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SectionTitle, StatChip } from "./parts";
+import { SectionTitle, StatChip, ObserverNotice } from "./parts";
 import {
   PROJECT_HEADER, PREP_GROUPS, AGENDA, BLUEPRINT_CATALOG, PROJECT_ROLE_LABEL,
-  ROLE_CAN_WRITE, type ProjectRole,
+  ROLE_CAN_WRITE, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
 
 /**
  * 项目筹备（原型 isWsScope / isWsAgenda）—— 复用 tpl 域（套用蓝本、议程环节）。
  * 净新在项目侧的是：定题与分组（四组：场景/组长/组员/访谈对象）+ 议程环节的三角色分工表。
- * ⚠ 「议程环节」命名四选一未裁决 → OPEN-QUESTIONS Q-3；UI 显示中文「环节」，testid 用中性名。
+ * ⚠ 「议程环节」命名**已裁决** → D-03a `agenda_segment`（Q-3① 改名对齐）；
+ *   UI 显示中文「环节」，testid 统一为 `agenda-segment-*`。
+ * ⚠ 观察者显著更少：分组名单（组长/组员/访谈对象）是内部编排，整块消失；只保留定题与议程只读。
  */
-export function TabPrep({ view }: { view: ProjectRole }) {
-  const canWrite = ROLE_CAN_WRITE[view];
+export function TabPrep({ view, readOnly = false }: { view: ProjectRole; readOnly?: boolean }) {
+  const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
+  const isObserver = observerHidden(view);
   const roleKeys: ProjectRole[] = ["facilitator", "groupLead", "member"];
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-prep">
@@ -25,32 +28,39 @@ export function TabPrep({ view }: { view: ProjectRole }) {
           <div className="flex flex-wrap items-center gap-2">
             <StatChip tone="success">已套用蓝本 {BLUEPRINT_CATALOG[0]?.name}</StatChip>
             <StatChip>{BLUEPRINT_CATALOG[0]?.meta}</StatChip>
-            <span className="text-10 text-muted-foreground">命名待裁决 → Q-1（创建路径）/ Q-3（环节字段名）</span>
+            <span className="text-10 text-muted-foreground">工作坊模板骨架 · 环节字段名已定为 agenda_segment（D-03a）</span>
           </div>
         </div></Card>
       </section>
 
-      {/* 四组：场景 / 组长 / 组员 / 访谈对象 */}
-      <section>
-        <SectionTitle meta="每组：场景 · 组长 · 组员 · 访谈对象">分组与组长</SectionTitle>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" data-testid="project-prep-groups">
-          {PREP_GROUPS.map((g) => (
-            <Card key={g.id} data-testid={`project-prep-group-${g.id}`}>
-              <div className="flex flex-col gap-1.5 p-3.5 text-11">
-                <div className="flex items-center gap-2">
-                  <span className="text-12 font-medium">{g.name}</span>
-                  <StatChip>{g.scenario}</StatChip>
+      {/* 四组：场景 / 组长 / 组员 / 访谈对象 —— 观察者不可见（内部编排） */}
+      {isObserver ? (
+        <ObserverNotice
+          testId="project-prep-observer-notice"
+          what="分组名单（组长 / 组员 / 访谈对象）与筹备编排属于内部协作视图，不在观察者只读范围内。你能看到的是定题与下方议程骨架。"
+        />
+      ) : (
+        <section>
+          <SectionTitle meta="每组：场景 · 组长 · 组员 · 访谈对象">分组与组长</SectionTitle>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" data-testid="project-prep-groups">
+            {PREP_GROUPS.map((g) => (
+              <Card key={g.id} data-testid={`project-prep-group-${g.id}`}>
+                <div className="flex flex-col gap-1.5 p-3.5 text-11">
+                  <div className="flex items-center gap-2">
+                    <span className="text-12 font-medium">{g.name}</span>
+                    <StatChip>{g.scenario}</StatChip>
+                  </div>
+                  <Row k="组长" v={g.lead} />
+                  <Row k="组员" v={g.members} />
+                  <Row k="访谈对象" v={g.interviewee} />
                 </div>
-                <Row k="组长" v={g.lead} />
-                <Row k="组员" v={g.members} />
-                <Row k="访谈对象" v={g.interviewee} />
-              </div>
-            </Card>
-          ))}
-        </div>
-      </section>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* 议程环节 · 三角色分工表 */}
+      {/* 议程环节 · 三角色分工表（只读骨架，四视角都可见） */}
       <section>
         <SectionTitle meta="编排一次，三套视图与待办自动生成">议程 · 每个环节三种角色各做什么</SectionTitle>
         <Card>
@@ -81,7 +91,7 @@ export function TabPrep({ view }: { view: ProjectRole }) {
 function RowGroup({ seg, roleKeys }: { seg: typeof AGENDA[number]; roleKeys: ProjectRole[] }) {
   return (
     <>
-      <div className={`px-2.5 py-2.5 ${seg.current ? "bg-panel" : ""}`} data-testid={`agenda-item-${seg.no}`}>
+      <div className={`px-2.5 py-2.5 ${seg.current ? "bg-panel" : ""}`} data-testid={`agenda-segment-${seg.no}`}>
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-10 text-muted-foreground">{seg.no}</span>
           <span className="font-medium">{seg.title}</span>

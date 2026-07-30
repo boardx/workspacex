@@ -11,14 +11,19 @@
  * ── 契约对齐 ──────────────────────────────────────────────────────────
  * 项目角色四种直接复用 `@/lib/identity`（其 `ProjectRole` 由 `@repo/contracts` 派生），
  * 不在此另抄一份枚举——那是本项目踩过五次的「同一事实两处」。
+ * ⚠ 裁决（人类 2026-07-30）：**「项目」= 工作坊**（模板 + 会前/现场/会后三段 AI 增强）。
+ *   四种项目角色**只属工作坊**。研究项目 / 用户洞察是**另外两类独立容器**（Q-12 裁 C+D），
+ *   它们**只有拥有者 + 协作者两档**（U-1），界面归 `interview`/`research` 束，不在本域画。
  *
  * ── 契约里还缺、集中在此声明并标注「待迁入 packages/contracts」的 ─────────────
  *   · 「议程环节」实体本身 —— feature_list 里没有 feature 承接（OPEN-QUESTIONS Q-2）；
- *     命名四选一未裁决（Q-3），故 UI 显示中文「环节」、testid 用中性名 `agenda-item-*`。
+ *     命名**已裁决**（Q-3① 改名对齐 → `agenda_segment` / `agenda_segment_id`，D-03a 权威），
+ *     UI 显示中文「环节」、testid 统一为 `agenda-segment-*`（旧 `agenda-item-*` 已废弃）。
  *   · 项目生命周期状态（active/archived）—— Q-5 未裁决，此处只演示 active。
  *   · 准备度百分比口径 —— uc-2-2 已登记 [待确认]，overview 改用原型里确实存在的「就绪检查 3/3」。
  *   · 发布结论的「绑定产出版本」「保留意见随发布」—— 成果沉淀屏有控件，契约未建模。
- *   · 候选决策（来自转写、待签署）实体 —— 成果沉淀屏有，契约未建模。
+ *   · 候选决策（来自转写，待签署）实体 —— 成果沉淀屏有，契约未建模。
+ *   · 组织停用后项目的只读呈现（uc-00-1 V12「显示只读原因而非隐藏」）—— 契约未建模。
  *
  * ⚠ 本文件含 AI agent 名（Scout/Echo/Ava/Ledger）与蓝本清单等「内建能力清单」形状，
  *   它们是**一个组织的示例配置**（uc-0-5 R7），已按纪律登记进
@@ -39,7 +44,7 @@ export const PROJECT_TABS: ProjectTab[] = [
   "overview", "research", "prep", "live", "results", "todo", "settings",
 ];
 
-/** 主标签定义（顺序、文案、角标）—— 逐字来自原型 tab 条 */
+/** 主标签定义（顺序、文案、角标）—— 逐字来自原型 tab 条（阶段式，Layout B/wsDetailView）*/
 export const TAB_DEFS: Array<{ key: ProjectTab; label: string; badge?: string; badgeTone?: "neutral" | "danger" }> = [
   { key: "overview", label: "概览" },
   { key: "research", label: "研究洞察", badge: "12" },
@@ -98,13 +103,43 @@ export const ROLE_SCOPE_NOTE: Record<ProjectRole, string> = {
   facilitator: "同一个界面，你有全部权限：四组对话、原始转写、切环节与介入。",
   groupLead: "同一个界面，你能看第 2 组的全部对话与组员私聊，能提交本组产出；别组内容与全场控制不可见。",
   member: "同一个界面，你能看第 2 组的共享内容与自己的对话；别组内容、组员私聊与全场控制不可见。",
-  observer: "同一个界面，只读：已发布产出与脱敏聚合可见；原始转写、私聊与任何操作按钮都关掉了。",
+  observer: "同一个界面，只读：已发布产出与脱敏聚合可见；原始转写、私聊、内部协作视图与任何操作按钮都关掉了。",
 };
 
 /** 观察者只读——canWrite=false 时隐藏所有操作按钮（前端投影，真实权限在服务端 RLS）*/
 export const ROLE_CAN_WRITE: Record<ProjectRole, boolean> = {
   facilitator: true, groupLead: true, member: true, observer: false,
 };
+
+/**
+ * 全场控制（切环节 / +5 分钟 / 介入 / 发布结论）**只有引导师**。
+ * 组长能提交本组、看本组全部；组员只读本组共享；观察者什么控制都没有。
+ * ⚠ 这是「四视角真的改变界面」的另一侧：别把组长/组员画成缩水的引导师。
+ */
+export const ROLE_STAGE_CONTROL: Record<ProjectRole, boolean> = {
+  facilitator: true, groupLead: false, member: false, observer: false,
+};
+
+/**
+ * 「我的组」—— 组长/组员对本组（第 2 组 = g2）有完整可见；引导师看全部（null=不限）；
+ * 观察者无归属（只看脱敏聚合）。别组对组长/组员**只显示进度，不显示原始引述**。
+ */
+export const ROLE_OWN_GROUP: Record<ProjectRole, string | null> = {
+  facilitator: null, groupLead: "g2", member: "g2", observer: null,
+};
+
+/** 是否能看到**所有**组的原始引述（只有引导师）。组长/组员只在本组看，观察者全脱敏。 */
+export const ROLE_SEES_ALL_RAW: Record<ProjectRole, boolean> = {
+  facilitator: true, groupLead: false, member: false, observer: false,
+};
+
+/**
+ * 观察者对「内部协作视图」（当前环节分工 / 待办看板明细 / 分组名单 / 设置配置区 / 原始洞察库）
+ * 一律**看不到**（内容消失，不是变灰）。用它统一驱动各 tab 的观察者裁剪。
+ */
+export function observerHidden(view: ProjectRole): boolean {
+  return view === "observer";
+}
 
 /** [原型] 视角徽标底色语义 token（原型用黑/铜/靛/灰，此处映射到设计 token） */
 export type ProjectBadgeTone = "neutral" | "primary" | "ai" | "warning" | "outline";
@@ -130,12 +165,23 @@ export const PROJECT_HEADER = {
   reportDate: "7 月 29 日汇报",
 };
 
+/**
+ * [设计] 组织停用后项目的只读呈现（uc-00-1 V12：**显示只读原因而非隐藏**）。
+ * ⚠ 原型完全空白——列表卡片有「已归档」标签但从未演示行为（PROTOTYPE-ANSWERS Q-5）；
+ *   组织停用连标签都没有。此处按 V12 的规范补一个「保留内容 + 只读 + 说明原因」的呈现。
+ */
+export const ORG_DISABLED_BANNER = {
+  title: "所属组织「远洋新能源」已被停用",
+  reason: "组织管理员或平台已停用该组织。项目内容全部保留、暂时转为只读；组织恢复后自动解除，无需重建。",
+  hint: "只读期间可查看已有产出、审计与历史，但不能编辑、提交、发布、切换环节或邀请。",
+};
+
 /* ─────────────────────── 概览（净新，原型 isWsOver） ─────────────────────── */
 
 /** [原型] 顶部状态条：进行中 · 环节 3/7 · 就绪检查 3/3 · 12 人在场 · 09:00 开始 */
 export const OVERVIEW_STATUS = {
   phase: "进行中",
-  segment: "环节 3 / 7", // 命名待裁决 → Q-3；显示中文
+  segment: "环节 3 / 7", // agenda_segment（D-03a）；显示中文「环节」
   readyCheck: "就绪检查 3/3 ✓", // 原型用「就绪检查」而非「准备度%」（后者口径 [待确认]）
   attendance: "12 人在场 · 4 组",
   timing: "09:00 开始 · 预计 12:30 进入整理",
@@ -308,8 +354,8 @@ export const PREP_GROUPS = [
 
 /**
  * [原型] 议程环节 · 每个环节三种角色各做什么（原型 isWsAgenda 的核心）。
- * ⚠ 命名待裁决 → OPEN-QUESTIONS Q-3（stepId / stage.* / agenda_stage / agenda_segment）。
- * 界面显示中文「环节」，testid 用中性名 `agenda-item-*`。
+ * ⚠ 命名**已裁决** → D-03a `agenda_segment` / `agenda_segment_id`（Q-3① 改名对齐）。
+ * 界面显示中文「环节」，testid 统一为 `agenda-segment-*`（旧 `agenda-item-*` 已废弃）。
  */
 export const AGENDA = [
   { no: "02", title: "现状共识", meta: "25m · Scout 简报", current: false, roles: { facilitator: "播报市场简报", groupLead: "记下本组疑问", member: "听 · 可提问" } },
@@ -326,6 +372,47 @@ export const BLUEPRINT_CATALOG = [
   { id: "bp-journey", name: "用户旅程共创", desc: "画旅程、标痛点、排机会", meta: "8 环节 · 半天 · 用过 9 次" },
   { id: "bp-dd", name: "尽调结论评审", desc: "把证据摆上桌，逐条签字", meta: "6 环节 · 3 小时 · 用过 5 次" },
 ];
+
+/* ─────────────────────── 新建项目流程（原型 wsCreateView / isWsCreate） ─────────────────────── */
+
+/**
+ * [原型] 新建项目向导 —— 步骤 1「选蓝本九宫格」+ 从空白 / 复制一场；步骤 2「主题与时长」。
+ * ⚠ **本域最关键的一处裁决落点**：原型步骤 2 有「**挂到哪个项目（决定能读哪些洞察与图谱）**」
+ *   字段（原型 JS 数据区 byte 15208776），默认值「远洋新能源 · 欧洲市场进入」——它宣称的是
+ *   **父子项目模型（Q-12 候选 E）**，而 Q-12 已裁 **C（三类独立容器）+ D（超类型表）**，
+ *   **E 未被采纳**。处置：把该字段**改成明确的跨容器只读引用**「关联研究来源」，
+ *   并在旁注写清它**不是父子层级**。详见 `ui-preview/project-v2/README.md` 第二节 与 `V1-WAS-WRONG.md`。
+ */
+export const NEWPROJECT = {
+  /** 步骤 1：两张「非蓝本」入口（原型 byte 15206899「从空白开始」等） */
+  scratchOptions: [
+    { id: "scratch", title: "从空白开始", desc: "自己排环节，没有骨架约束" },
+    { id: "copy", title: "复制一场已办的", desc: "连议程、画布绑定、AI 配置一起复制" },
+  ],
+  blueprintNote: "蓝本必须先选：它决定环节骨架、每个环节绑哪张画布、AI 有什么权限。选完后面三步只是把骨架伸缩成这一场的议程。",
+  /** 步骤 2：主题与时长（默认值逐字来自原型 JS 数据区 byte 15207xxx，已核对） */
+  defaults: {
+    name: "欧洲进入策略 Kickoff 项目",
+    durationTiers: [
+      { id: "90m", label: "90 分钟", on: false },
+      { id: "half", label: "半天 · 3.5h", on: true },
+      { id: "full", label: "全天", on: false },
+      { id: "custom", label: "自定义", on: false, dashed: true },
+    ],
+    datetime: "7/31 09:00",
+    headcount: "12 人 → 4 组 × 3 人",
+  },
+  /**
+   * 处置后的「关联研究来源」字段（原「挂到哪个项目」）。
+   * value 是可选引用；note 明说这是**跨容器只读引用**，不是父子层级。
+   */
+  linkedSources: {
+    label: "关联研究来源（可选 · 决定能读哪些洞察与图谱）",
+    value: "远洋新能源 · 欧洲市场进入（研究项目）",
+    placeholder: "不引用任何研究来源",
+    note: "把一个「研究项目 / 用户洞察」容器作为只读来源引用进来，工作坊便能读到它的洞察与图谱。这是跨容器引用，不是父子归属 —— Q-12 裁定三类独立容器（C+D），父子模型（E）未采纳。",
+  },
+} as const;
 
 /* ─────────────────────── 设置（原型 isWsSetup） ─────────────────────── */
 
@@ -347,12 +434,26 @@ export const PARTICIPANTS = [
 ];
 export const INVITE_IDENTITIES = ["组员", "组长", "观察者（只读）", "协同引导师"];
 
-/** [原型] AI 在这场里的权限（对应设置 AI 权限）*/
+/** [原型] AI 在这场里的权限——三项默认值已对原型 JS 数据区（byte 15274xxx）逐条核过：前两项开、末项关 */
 export const AI_PERMISSIONS = [
   { id: "ap1", label: "Facilitator 主动提议收敛", on: true },
   { id: "ap2", label: "实时转录与语音转便签", on: true },
   { id: "ap3", label: "AI 直接在小组画布落笔", on: false },
 ];
+
+/**
+ * [原型] 产出与留存 —— 三项的默认值**已对原型 JS 数据区逐条核过**（isSetOut 块 byte 15274086）：
+ *   · 「结束后自动写回组织大脑」= **开**（原型底色 #17171A）
+ *   · 「客户可见的分享链接」= **关**（原型底色 #DEDCD3、滑块在左）← v1 mock 曾误画成「开 ✓」，
+ *     这是**保真度错误（屏在、控件在、默认值反了）**，已改。见 V1-WAS-WRONG.md。
+ *   · 转录留存 180 天（非开关）。
+ * ⚠ 分享链接默认**关**很重要：只有开启后观察者/客户方才按已发布内容可见（B-1 的边界仍未定）。
+ */
+export const RETENTION_SETTINGS = [
+  { id: "rs1", label: "结束后自动写回组织大脑", on: true, note: "" },
+  { id: "rs2", label: "客户可见的分享链接", on: false, note: "默认关闭 · 开启后观察者与客户方才按已发布内容可见" },
+];
+export const RETENTION_DAYS_LABEL = "转录留存 180 天";
 
 /* ─────────────────────── 每屏 UC 溯源（供 README 与 sign-off 回溯） ─────────────────────── */
 

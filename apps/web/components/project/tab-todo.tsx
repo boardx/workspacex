@@ -1,16 +1,43 @@
 "use client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SectionTitle, StatChip } from "./parts";
-import { KANBAN_COLUMNS, KANBAN_CARDS, ROLE_CAN_WRITE, type ProjectRole } from "@/lib/mock/project";
+import { SectionTitle, StatChip, ObserverNotice } from "./parts";
+import {
+  KANBAN_COLUMNS, KANBAN_CARDS, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
+} from "@/lib/mock/project";
 
 /**
  * 待办看板（净新，原型 isWsTodo · 四列）—— 卡片来源自动同步：
  * 会前任务 / 现场行动项 / 报告缺料 / 决策后续。状态改了回写原处（此原型不真回写）。
- * ⚠ 观察者只读：不显示「新建 / 加一张」，卡片不可拖动。
+ * ⚠ 观察者显著更少：整个看板是内部协作视图，**卡片明细整块消失**，只留每列计数聚合。
+ * ⚠ 组员/组长可见看板但只读（不可拖）；新建/加卡仅 canWrite。
  */
-export function TabTodo({ view }: { view: ProjectRole }) {
-  const canWrite = ROLE_CAN_WRITE[view];
+export function TabTodo({ view, readOnly = false }: { view: ProjectRole; readOnly?: boolean }) {
+  const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
+  const isObserver = observerHidden(view);
+
+  if (isObserver) {
+    return (
+      <div className="flex h-full flex-col gap-3 p-6" data-testid="project-todo">
+        <SectionTitle meta="内部协作视图" className="mb-0">待办看板</SectionTitle>
+        <ObserverNotice
+          testId="project-todo-observer-notice"
+          what="待办看板是项目内部的协作视图，逐张卡片不在观察者只读范围内。你能看到的是下方每列的数量聚合。"
+        />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="project-todo-observer-counts">
+          {KANBAN_COLUMNS.map((col) => (
+            <Card key={col.key} data-testid={`project-todo-count-${col.key}`}>
+              <div className="flex flex-col items-center gap-1 p-4">
+                <span className="font-mono text-18 tabular-nums">{KANBAN_CARDS.filter((c) => c.col === col.key).length}</span>
+                <span className="text-10 text-muted-foreground">{col.label}</span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col gap-3 p-6" data-testid="project-todo">
       <div className="flex flex-wrap items-center gap-2.5">

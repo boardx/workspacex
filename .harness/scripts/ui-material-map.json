@@ -4,6 +4,7 @@
   "//2": "为什么必须显式声明而不是猜同名：四个束的目录名与束名不同（interview→itv-v2、recording→rec、skills→skill、templates→tpl-v2）。",
   "//3": "为什么 interview 指向 itv-v2、templates 指向 tpl-v2：v1（itv/ 44 张、tpl/ 24 张）已被保真度审计推翻，不算签核材料；推翻要留痕，旧目录不删。",
   "//4": "新增一个带 ui.md 的束时必须在这里补一行；不补 = 门控报「未声明截图目录」而不是静默跳过。",
+  "//5": "为什么 project 指向 project-v2：v1（project/ 19 张，只有概览拿到七态、无四视角对照）已被推翻——补齐两层界面（列表 + 工作台）× 七态 × 四视角、修好「客户分享链接默认反了」等保真度错误，见 project-v2/V1-WAS-WRONG.md。旧目录不删，留痕。",
   "phase-01-run-a-project": {
     "agent-runtime": "ui-preview/agent-runtime-v2",
     "canvas": "ui-preview/canvas-v2",
@@ -11,7 +12,7 @@
     "files": "ui-preview/files",
     "interview": "ui-preview/itv-v2",
     "org-admin": "ui-preview/org-admin",
-    "project": "ui-preview/project",
+    "project": "ui-preview/project-v2",
     "recording": "ui-preview/rec-v2",
     "skills": "ui-preview/skill-v2",
     "templates": "ui-preview/tpl-v2"

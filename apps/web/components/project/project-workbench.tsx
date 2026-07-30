@@ -4,12 +4,13 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StateShell } from "@/components/state/state-shell";
+import { OrgDisabledBanner } from "./parts";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
-  TAB_DEFS, TAB_LABEL, SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_BADGE_TONE,
-  PROJECT_HEADER, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
-  type ProjectTab, type ProjectRole,
+  TAB_DEFS, TAB_LABEL, SUB_NAV, ROLE_SCOPE_NOTE, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL,
+  ROLE_BADGE_TONE, PROJECT_HEADER, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
+  ORG_DISABLED_BANNER, type ProjectTab, type ProjectRole,
 } from "@/lib/mock/project";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
@@ -20,31 +21,40 @@ import { TabPrep } from "./tab-prep";
 import { TabSettings } from "./tab-settings";
 
 /**
- * 项目工作台（project 域主编排）—— 原型 wsDetailView 的 React 转译。
+ * 项目工作台（project 域主编排 · Layout B / 原型 wsDetailView 的 React 转译）。
+ *
+ * ⚠ 原型证据（byte offset）：项目列表卡片「进入项目」按钮 → `openWs`（byte 15169552 区）
+ *   → 本工作台，顶部是**阶段式** tab（isWsOver@15221492 / isWsRov@15277095 /
+ *   isWsScope@15348094 / isWsAgenda@15368783 / isWsDuring@15401543 / isWsAfter@15500356 /
+ *   isWsTodo@15530664 + isSetup）。这是静态原型里项目空间的**权威**布局。
+ *   另有 Layout A（`/projects/[projectId]` 工作面清单）见 README 第六节「两版并存·待裁决」。
  *
  * 复用已确认的三栏骨架 AppShell（图标栏 + 组织切换顶栏）；工作台自身提供第二级
  * 项目头（‹全部项目 + 项目名 + 三类人 + Facilitator(AI)）、视角切换器、主标签、视角说明条。
  *
  * ⚠ 视角切换器是**预览手段，不是权限实现**：真实两层交集鉴权在服务端 NestJS Guard + RLS。
  *   `?as=` 只改本地展示（且四视角真的改变界面——观察者看到的显著更少）。
- * ⚠ 「议程环节」字段名四选一未裁决（Q-3），界面显示中文，testid 用中性名。
+ * ⚠ 组织停用（`?orgState=disabled`）时全项目只读：显示只读原因条，不隐藏内容（uc-00-1 V12）。
  */
 export function ProjectWorkbench({
-  identity, uiState, tab, view, sub, qs,
+  identity, uiState, tab, view, sub, orgDisabled = false, qs,
 }: {
   identity: Identity;
   uiState: UiState;
   tab: ProjectTab;
   view: ProjectRole;
   sub: string | null;
+  orgDisabled?: boolean;
   qs: { org?: string };
 }) {
-  const canWrite = ROLE_CAN_WRITE[view];
+  const canWrite = ROLE_CAN_WRITE[view] && !orgDisabled;
+  const stageControl = ROLE_STAGE_CONTROL[view] && !orgDisabled;
   const isObserver = view === "observer";
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
     if (qs.org) p.set("org", qs.org);
+    if (orgDisabled) p.set("orgState", "disabled");
     const t = o.tab ?? tab; if (t && t !== "overview") p.set("tab", t);
     const as = o.as ?? view; if (as) p.set("as", as);
     const st = o.state ?? uiState; if (st && st !== "default") p.set("state", st);
@@ -90,11 +100,11 @@ export function ProjectWorkbench({
               ))}
             </div>
 
-            {/* 角色相关动作（组长/组员有；观察者无——只读） */}
-            {view === "groupLead" && (
+            {/* 角色相关动作（组长/组员有；观察者无——只读；组织停用时也隐藏） */}
+            {view === "groupLead" && canWrite && (
               <Button size="sm" variant="primary" data-testid="project-submit-group">提交本组产出</Button>
             )}
-            {view === "member" && (
+            {view === "member" && canWrite && (
               <Button size="sm" variant="outline" data-testid="project-raise-hand">举手</Button>
             )}
           </div>
@@ -137,11 +147,12 @@ export function ProjectWorkbench({
             {canWrite
               ? <span className="shrink-0 font-mono text-9 text-success" data-testid="project-scope-can-write">可发言</span>
               : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">只读</span>}
+            {stageControl && <span className="shrink-0 font-mono text-9 text-primary" data-testid="project-scope-stage-control">全场控制</span>}
           </div>
         </div>
 
         {/* ── 预览调试条（仅 dev） ───────────────────────────── */}
-        <PreviewBar href={href} uiState={uiState} tab={tab} view={view} />
+        <PreviewBar href={href} uiState={uiState} tab={tab} view={view} orgDisabled={orgDisabled} qs={qs} />
 
         {/* ── 主体：可选左子导航 + 内容 ─────────────────────── */}
         <div className="flex min-h-0 flex-1">
@@ -175,6 +186,11 @@ export function ProjectWorkbench({
           )}
 
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="project-main">
+            {orgDisabled && (
+              <div className="p-6 pb-0">
+                <OrgDisabledBanner {...ORG_DISABLED_BANNER} />
+              </div>
+            )}
             <StateShell
               state={uiState}
               className="p-6"
@@ -189,7 +205,7 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(tab, view, sub)}
+              {renderTab(tab, view, sub, orgDisabled)}
             </StateShell>
           </main>
         </div>
@@ -198,28 +214,41 @@ export function ProjectWorkbench({
   );
 }
 
-function renderTab(tab: ProjectTab, view: ProjectRole, _sub: string | null) {
+function renderTab(tab: ProjectTab, view: ProjectRole, _sub: string | null, orgDisabled: boolean) {
   switch (tab) {
-    case "overview": return <TabOverview view={view} />;
-    case "research": return <TabResearch view={view} />;
-    case "prep": return <TabPrep view={view} />;
-    case "live": return <TabLive view={view} />;
-    case "results": return <TabResults view={view} />;
-    case "todo": return <TabTodo view={view} />;
-    case "settings": return <TabSettings view={view} />;
+    case "overview": return <TabOverview view={view} readOnly={orgDisabled} />;
+    case "research": return <TabResearch view={view} readOnly={orgDisabled} />;
+    case "prep": return <TabPrep view={view} readOnly={orgDisabled} />;
+    case "live": return <TabLive view={view} readOnly={orgDisabled} />;
+    case "results": return <TabResults view={view} readOnly={orgDisabled} />;
+    case "todo": return <TabTodo view={view} readOnly={orgDisabled} />;
+    case "settings": return <TabSettings view={view} readOnly={orgDisabled} />;
   }
 }
 
 /** 仅开发/预览环境的调试切换条（生产构建不渲染，UC-0.4 R9 / R12 V8）*/
 function PreviewBar({
-  href, uiState, tab, view,
+  href, uiState, tab, view, orgDisabled, qs,
 }: {
   href: (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => string;
   uiState: UiState;
   tab: ProjectTab;
   view: ProjectRole;
+  orgDisabled: boolean;
+  qs: { org?: string };
 }) {
   if (process.env.NODE_ENV === "production") return null;
+  // 组织停用开关：拼一个反转 orgState 的链接
+  const toggleOrgHref = (() => {
+    const p = new URLSearchParams();
+    if (qs.org) p.set("org", qs.org);
+    if (!orgDisabled) p.set("orgState", "disabled");
+    if (tab !== "overview") p.set("tab", tab);
+    if (view) p.set("as", view);
+    if (uiState !== "default") p.set("state", uiState);
+    const s = p.toString();
+    return s ? `?${s}` : "?";
+  })();
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle bg-panel-alt px-6 py-1.5" data-testid="project-preview-bar">
       <span className="font-mono text-9 uppercase tracking-wider text-muted-foreground">七态</span>
@@ -234,6 +263,9 @@ function PreviewBar({
           <a href={href({ tab: t, sub: undefined })}>{TAB_LABEL[t]}</a>
         </Button>
       ))}
+      <Button asChild size="xs" variant={orgDisabled ? "primary" : "ghost"} className="ml-2 transition-colors" data-testid="project-preview-orgdisabled">
+        <a href={toggleOrgHref}>组织停用</a>
+      </Button>
       <span className="font-mono text-9 text-muted-foreground">· 当前 {view}</span>
     </div>
   );

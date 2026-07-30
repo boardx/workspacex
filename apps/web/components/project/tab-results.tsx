@@ -4,23 +4,25 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionTitle, StatChip } from "./parts";
 import {
-  RESULTS, CANDIDATE_DECISIONS, AUDIT_TRAIL, ROLE_CAN_WRITE, type ProjectRole,
+  RESULTS, CANDIDATE_DECISIONS, AUDIT_TRAIL, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, type ProjectRole,
 } from "@/lib/mock/project";
 
 /**
  * 成果沉淀（原型 isWsAfter）—— 项目结论 / 假设状态 / 成果去向 /
  * 发布结论（危险动作：绑定确定版本 + 二次确认 + 影响范围）/ 候选决策（来自转写，签署是危险动作）/ 审计。
+ * ⚠ 发布结论 = 全场控制，只有引导师且非只读；候选决策签署需 canWrite；
+ *   观察者只看已发布结论 + 统计聚合 + 审计（发布区与候选决策区整块消失）。
  */
-export function TabResults({ view }: { view: ProjectRole }) {
-  const canWrite = ROLE_CAN_WRITE[view];
-  const canPublish = view === "facilitator"; // [原型] 发布人「林可 · 引导师 有发布授权」
+export function TabResults({ view, readOnly = false }: { view: ProjectRole; readOnly?: boolean }) {
+  const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
+  const canPublish = ROLE_STAGE_CONTROL[view] && !readOnly; // 发布人「林可 · 引导师 有发布授权」
   const [confirmPublish, setConfirmPublish] = React.useState(false);
   const h = RESULTS.hypothesis;
   const d = RESULTS.destinations;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-results">
-      {/* 项目结论 */}
+      {/* 项目结论（已发布，四视角都可见） */}
       <section>
         <SectionTitle meta={RESULTS.conclusion.signedBy}>项目结论</SectionTitle>
         <Card><div className="p-4 text-13 leading-relaxed" data-testid="project-results-conclusion">{RESULTS.conclusion.text}</div></Card>
@@ -47,7 +49,7 @@ export function TabResults({ view }: { view: ProjectRole }) {
         </section>
       </div>
 
-      {/* 发布结论 —— 危险动作，必须绑定确定版本 */}
+      {/* 发布结论 —— 危险动作，必须绑定确定版本（仅引导师 · 非只读） */}
       {canPublish && (
         <section>
           <SectionTitle meta="必须绑定一个确定的产出版本">发布结论</SectionTitle>
