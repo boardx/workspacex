@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { DurationTier, MeetingFormat, ConfigItem } from "@/lib/mock/tpl";
+import type { DurationTierView, MeetingFormat, ConfigItem } from "@/lib/mock/tpl";
 import {
   DURATION_TIERS, TIER_LABEL, AGENDA_COUNT_BY_TIER, TIER_HALF_SESSIONS,
   MEETING_FORMATS, MEETING_LANGS, ONLINE_EXTRA_SEGMENTS, MODEL_STRATEGY, QUOTA_POLICY,
@@ -67,7 +67,7 @@ function AiNote({ tag = "AI", children }: { tag?: string; children: React.ReactN
  * 面板 1 · 基本配置（总览）—— 档位 / 形式语言 / 模型 / 配额 / 六类初始化一览
  * ══════════════════════════════════════════════════════════════════════════ */
 export function BasicOverviewPanel({ item }: { item: ConfigItem }) {
-  const [tier, setTier] = React.useState<DurationTier>("two-day");
+  const [tier, setTier] = React.useState<DurationTierView>("two-day");
   const [format, setFormat] = React.useState<MeetingFormat>("hybrid");
   const [lang, setLang] = React.useState("bilingual");
   const agendaCount = AGENDA_COUNT_BY_TIER[tier] + (format === "online" ? ONLINE_EXTRA_SEGMENTS.length : 0);
@@ -161,7 +161,7 @@ export function BasicOverviewPanel({ item }: { item: ConfigItem }) {
     </>
   );
 }
-const TIER_NOTE: Record<DurationTier, string> = {
+const TIER_NOTE: Record<DurationTierView, string> = {
   "half-day": "只到收敛，不做原型", "one-day": "加商业模式草稿", "two-day": "加原型与用户测试", "three-day": "加迭代与落地计划",
 };
 

@@ -158,7 +158,13 @@ export interface DerivedFile {
 
 /* ── 预览类型（UC-22.1 R3 第 4 步）──────────────────────────────────────── */
 
-export type PreviewKind = "pdf" | "image" | "audio" | "text" | "markdown" | "jsonl" | "csv" | "unsupported";
+/**
+ * ⚠ 与契约 `files.PreviewKind` **同名、取值不一致**（视图多 `markdown` / `csv`）
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D13`。
+ * 这不是装饰性差异：契约下 `.md` / `.csv` 会落进 `unsupported`（界面显示「不支持预览」），
+ * 视图这边是能预览的——**同一个文件在两套定义下用户看到的东西不同**。哪边对由人裁。
+ */
+export type PreviewKindView = "pdf" | "image" | "audio" | "text" | "markdown" | "jsonl" | "csv" | "unsupported";
 
 /* ── 文件条目 ─────────────────────────────────────────────────────────── */
 
@@ -179,7 +185,7 @@ export interface FileItem {
   sha256: string;
   synthesized?: boolean;        // generated 类必带
   integrity?: "ok" | "failed";  // 完整性校验（SHA-256 比对）
-  preview: PreviewKind;
+  preview: PreviewKindView;
   /** 隔离/扫描不通过的留痕记录：可见但不可下载（UC-22.2 E2）*/
   quarantineNote?: string;
   derived?: DerivedFile[];

@@ -365,7 +365,16 @@ export const INTERVIEW_STATUS_LABEL: Record<InterviewStatus, string> = {
   draft: "草稿",
 };
 
-export interface InterviewRow {
+/**
+ * 访谈列表行（展示层，itv 那一套界面）。⚠ 原名 `InterviewRow` —— 与契约
+ * `interview.InterviewRow` **同名不同义**：契约是
+ * `{interviewId,title,sourceKind,scope,tags,archived,whenAt}`，这份是渲染行
+ * `{subject,subjectInitial,belongsTo,scope,status,source,progress,metric,templateName,actions}`。
+ * ⇒ 改名分离，无取值分歧。
+ * ⚠ `lib/mock/interview-studio.ts` 里另有一份同用途的行模型——**两套访谈界面并存**
+ * 是本仓已知的债，改名不解决它，只是不再掩盖它。
+ */
+export interface InterviewRowView {
   id: string;
   subject: string;
   subjectInitial: string;
@@ -379,7 +388,7 @@ export interface InterviewRow {
   actions: string[];
 }
 
-export const INTERVIEW_LIST: InterviewRow[] = [
+export const INTERVIEW_LIST: InterviewRowView[] = [
   {
     id: "iv-11",
     subject: "业主 A · 采购总监",

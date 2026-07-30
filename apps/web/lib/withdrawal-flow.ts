@@ -28,7 +28,16 @@ export type WithdrawalEmphasis =
   /** 需人工介入：系统不替人改结论 */
   | "human";
 
-export interface WithdrawalStep {
+/**
+ * 撤回链的**一步定义**（静态合规文案）。⚠ 原名 `WithdrawalStep` —— 与契约
+ * `interview.WithdrawalStep` **同名不同义**：契约那份是**运行时状态**
+ * `{no: number, state: string, dueAt: string|null}`（某一次具体撤回走到第几步、什么时候到期），
+ * 这份是**五步链本身的定义**（`no` 是 `"01"` 这样的展示编号，还带 `sla` / `emphasis` /
+ * `ruling` 出处）。一个是实例、一个是规格，合并会让「这条链承诺什么」与
+ * 「这次撤回走到哪」变成同一个类型。
+ * ⇒ 改名 `WithdrawalStepSpec`。无取值分歧，不需人类裁决。
+ */
+export interface WithdrawalStepSpec {
   no: string;
   /** 这一步实际发生什么 */
   step: string;
@@ -39,7 +48,7 @@ export interface WithdrawalStep {
   ruling: string;
 }
 
-export const WITHDRAWAL_FLOW: WithdrawalStep[] = [
+export const WITHDRAWAL_FLOW: WithdrawalStepSpec[] = [
   {
     no: "01",
     step: "文字稿与音频进入待删除队列",

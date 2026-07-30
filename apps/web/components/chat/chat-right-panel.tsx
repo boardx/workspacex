@@ -13,7 +13,7 @@ import {
   RIGHT_TABS_EMPTY,
   TRANSCRIPT_ENTRIES,
   TRANSCRIPT_SESSION,
-  type RightTab,
+  type RightTabView,
   type TranscriptEntry,
 } from "@/lib/mock/chat";
 
@@ -82,13 +82,13 @@ export function ChatRightPanel({ state = "default" }: { state?: UiState }) {
   );
 }
 
-function TabCount({ tab }: { tab: RightTab }) {
+function TabCount({ tab }: { tab: RightTabView }) {
   if (tab.countDisplay) return <span className="ml-1 text-10 text-muted-foreground">{tab.countDisplay}</span>;
   if (tab.count === null) return null;
   return <span className="ml-1 text-10 text-muted-foreground">{tab.count}</span>;
 }
 
-function tabLabel(tabs: RightTab[], key: string): string {
+function tabLabel(tabs: RightTabView[], key: string): string {
   return tabs.find((t) => t.key === key)?.label ?? key;
 }
 

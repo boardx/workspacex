@@ -52,7 +52,14 @@ export type PublishStatus = "草稿" | "试跑" | "已发布" | "已归档";
 /** 可见性范围（对齐 00-core/uc-0-3 资源可见性字段）*/
 export type Visibility = "全体成员" | "仅某组";
 
-export interface TemplateRow {
+/**
+ * 画布模板注册表的一行。⚠ 原名 `TemplateRow` —— 与契约 `interview.TemplateRow`
+ * **同名但根本是两个实体**：那边是**访谈模板**行（`{templateId,name,usedCount,oneLiner,
+ * questionCount,minutesRange}`），这边是**画布模板**行（`{key,displayName,cnName,kind,
+ * status,version,visibility,usedBy,structure,builtin}`）。零字段重合。
+ * ⇒ 改名而不是合并（无取值分歧，不需人类裁决）。
+ */
+export interface CanvasTemplateRow {
   /** 程序契约，不可改，跨模块唯一标识（[O-09]）*/
   key: string;
   /** 展示名（[O-09] 五处与 key 不同）*/
@@ -77,7 +84,7 @@ export interface TemplateRow {
  * 19 个《工作坊模板 A0》内置模板（[O-09] key + displayName 双列，五处差异逐字一致）。
  * ⚠ 待迁入 packages/contracts —— 真实来源是 fabric-markdown 源码的 `key:` 字段（164 单测钉住）。
  */
-export const A0_TEMPLATES: TemplateRow[] = [
+export const A0_TEMPLATES: CanvasTemplateRow[] = [
   { key: "persona", displayName: "persona", cnName: "用户画像", kind: "canvas", status: "已发布", version: "v3", visibility: "全体成员", usedBy: 41, structure: "信息栏＋6 分区＋便签", builtin: true },
   { key: "pestel", displayName: "pestel", cnName: "PESTEL 分析", kind: "canvas", status: "已发布", version: "v2", visibility: "全体成员", usedBy: 22, structure: "6 分区 · 政治/经济/社会/技术/环境/法律", builtin: true },
   { key: "swot", displayName: "swot", cnName: "SWOT 分析", kind: "canvas", status: "已发布", version: "v2", visibility: "全体成员", usedBy: 30, structure: "2×2 · 优势/劣势/机会/威胁", builtin: true },
@@ -100,7 +107,7 @@ export const A0_TEMPLATES: TemplateRow[] = [
 ];
 
 /** 组织自建 / 非发布态模板（覆盖草稿/试跑/归档三态 + 内置的假设树）*/
-export const ORG_TEMPLATES: TemplateRow[] = [
+export const ORG_TEMPLATES: CanvasTemplateRow[] = [
   { key: "assumption-tree", displayName: "assumption-tree", cnName: "假设树", kind: "mermaid", status: "已发布", version: "v2", visibility: "全体成员", usedBy: 19, structure: "flowchart · 内置不可删", builtin: true },
   { key: "journey-procurement", displayName: "journey-procurement", cnName: "采购比选旅程（高琳自建）", kind: "canvas", status: "草稿", version: "v0.4", visibility: "仅某组", usedBy: 0, structure: "从 user-journey 复制后改的 5 阶段版", builtin: false },
   { key: "esg-scorecard", displayName: "esg-scorecard", cnName: "ESG 记分卡（试跑中）", kind: "canvas", status: "试跑", version: "v0.9", visibility: "仅某组", usedBy: 1, structure: "环境/社会/治理 3 分区 · 指定「欧洲市场进入」试跑", builtin: false },
@@ -285,7 +292,14 @@ export const SEGMENT_BINDINGS: SegmentBinding[] = [
 /* ══════════════════════════════ UC-7.2 · AI 起草留白（F106） ══════════════════════════════ */
 
 /** 引述三件套（转录片段 id + 时间码 + 原文）—— 缺任一即标「无来源·待补」*/
-export interface Quote {
+/**
+ * 引述三件套（展示层）。⚠ 原名 `Quote` —— 契约里 `Quote` 被声明**两次**
+ * （`interview.ts` `{quoteId,segmentId,text,subjectId,rqId}`、`recording.ts` 另一份），
+ * 而这里是画布草稿便签上渲染的 `{segmentId,timecode,text}`——带**时间码**，
+ * 契约两份都没有这个字段。⇒ 改名分离。
+ * 🔴 契约侧同名重复本身是个问题，见 `@/lib/contract-divergences` 的 `CONTRACT_SIDE_ISSUES`。
+ */
+export interface QuoteView {
   segmentId: string; // transcript segment id（可回到 22-files transcript.jsonl）
   timecode: string; // 12:05
   text: string; // 原文
@@ -296,7 +310,7 @@ export interface DraftSticky {
   text: string;
   byAva: boolean;
   /** 有引述 = 已填；null = 无来源·待补，不计入完成度分子（规则②）*/
-  quote: Quote | null;
+  quote: QuoteView | null;
 }
 
 export interface DraftSection {
@@ -334,13 +348,21 @@ export const DRAFT_SECTIONS: DraftSection[] = [
 ];
 
 /** 留白提示（规则被突破时非阻断提示，贴在分区上；[清一格] 一键留白）*/
-export interface WhitespaceWarning {
+/**
+ * 留白提示（展示层）。⚠ 原名 `WhitespaceWarning` —— 与契约 `canvas.WhitespaceWarning`
+ * **同名不同义**：契约那份是 `{rule: WhitespaceRule, sectionId, stickyId, message}`，
+ * 这份是渲染用的 `{sectionId, kind, message}`，`kind` 直接存中文标签。
+ * 两个 `kind` 与契约 `WhitespaceRule` **1:1 对应**（已填满 ↔ `section-full`、
+ * 缺引述 ↔ `missing-citation`），不构成取值分歧，所以只改名、不进待裁清单。
+ * ⚠ 契约那份还带 `stickyId`（定位到具体便签），这里没有——收敛时要补上。
+ */
+export interface WhitespaceWarningView {
   sectionId: string;
   kind: "已填满" | "缺引述";
   message: string;
 }
-export function computeWhitespaceWarnings(sections: DraftSection[]): WhitespaceWarning[] {
-  const out: WhitespaceWarning[] = [];
+export function computeWhitespaceWarnings(sections: DraftSection[]): WhitespaceWarningView[] {
+  const out: WhitespaceWarningView[] = [];
   for (const s of sections) {
     if (s.stickies.length >= s.capacity) {
       out.push({ sectionId: s.id, kind: "已填满", message: `本分区已被 AI 填满（${s.stickies.length}/${s.capacity}），建议留一格给现场` });

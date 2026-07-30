@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "lib", "withdrawal-flow.ts");
 const src = readFileSync(SOURCE, "utf8");
-if (!/export const WITHDRAWAL_FLOW: WithdrawalStep\[\] = \[/.test(src)) {
+if (!/export const WITHDRAWAL_FLOW: WithdrawalStepSpec\[\] = \[/.test(src)) {
   console.error("✗ lib/withdrawal-flow.ts 里找不到 WITHDRAWAL_FLOW 定义（单一事实源读取失败）");
   process.exit(1);
 }

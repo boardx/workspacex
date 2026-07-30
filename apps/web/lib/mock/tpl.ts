@@ -23,20 +23,28 @@ import { PROJECT_ROLE_LABEL } from "@/lib/identity";
  * TODO(contract): 待迁入 packages/contracts/templates —— 以下为 tpl 专属临时副本
  * ════════════════════════════════════════════════════════════════════════ */
 
-/** 时长档位（templates/domain.md I-20：内建四档封闭，自定义档位另立 custom）*/
-export type DurationTier = "half-day" | "one-day" | "two-day" | "three-day";
-export const DURATION_TIERS: DurationTier[] = ["half-day", "one-day", "two-day", "three-day"];
-export const TIER_LABEL: Record<DurationTier, string> = {
+/**
+ * 时长档位（templates/domain.md I-20：内建四档封闭，自定义档位另立 custom）
+ *
+ * ⚠ 与契约 `templates.DurationTier` **同名、取值不一致**（契约五值，多 `custom`）
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D15`。
+ * 下面三张按档位索引的表（环节数 7/11/14/19、半场数、档位文案）在 `custom` 下
+ * **根本没有值可填**——这正是契约拒绝它（`CUSTOM_TIER_RULE_UNDEFINED`，D-7
+ * 「宁可拒绝也不猜一个推导式」）的理由。所以四档不是遗漏，是被动躲开了。
+ */
+export type DurationTierView = "half-day" | "one-day" | "two-day" | "three-day";
+export const DURATION_TIERS: DurationTierView[] = ["half-day", "one-day", "two-day", "three-day"];
+export const TIER_LABEL: Record<DurationTierView, string> = {
   "half-day": "半天", "one-day": "一天", "two-day": "两天", "three-day": "三天",
 };
 /** 议程环节数 = 档位的函数（templates/domain.md I-15；uc-2-1 AC4a：7/11/14/19）*/
-export const AGENDA_COUNT_BY_TIER: Record<DurationTier, number> = {
+export const AGENDA_COUNT_BY_TIER: Record<DurationTierView, number> = {
   "half-day": 7, "one-day": 11, "two-day": 14, "three-day": 19,
 };
-export const TIER_HALF_SESSIONS: Record<DurationTier, string> = {
+export const TIER_HALF_SESSIONS: Record<DurationTierView, string> = {
   "half-day": "1 个半场", "one-day": "2 个半场", "two-day": "4 个半场", "three-day": "6 个半场",
 };
-export const DEFAULT_TIER: DurationTier = "two-day"; // 原型默认「两天」
+export const DEFAULT_TIER: DurationTierView = "two-day"; // 原型默认「两天」
 
 /**
  * 目录分组（templates/domain.md I-20 / ConfigItemDefinition.group）。
@@ -474,11 +482,17 @@ export const INIT_CATEGORIES: { key: string; label: string; writes: string; land
  * UC-2.4 蓝本列表页 —— 行元数据与状态
  * ════════════════════════════════════════════════════════════════════════ */
 
-export type BlueprintState = "published" | "draft";
+/**
+ * ⚠ 与契约 `templates.BlueprintState` **同名、取值不一致**（契约三值，多 `archived`）
+ * ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D14`。
+ * 契约对归档有硬不变量（I-7「归档不影响可达性，已套用项目仍可实例化」），
+ * 而这份两值渲染不出归档行——归档蓝本要么消失、要么显示成 `published`，都与 I-7 冲突。
+ */
+export type BlueprintStateView = "published" | "draft";
 export interface BlueprintRow {
   id: string;
   name: string;
-  state: BlueprintState;
+  state: BlueprintStateView;
   version: number | null; // 草稿态为 null，不显示版本号
   agendaSegments: number; // 议程环节数（随档位变）
   duration: string; // 如 3.5h / 5d
@@ -548,17 +562,24 @@ export const PROJECT_TOPIC = {
   aiGenerated: true, // 机器产出，必须挂来源（uc-2-2 R7）
 };
 
-export type GroupStatus = "recording-ready" | "short-n" | "needs-intervention";
-export const GROUP_STATUS_LABEL: Record<GroupStatus, string> = {
+/**
+ * 分组**就绪度**（筹备页）。⚠ 原名 `GroupStatus` —— 与契约 `templates.GroupStatus`
+ * **同名但是两个维度**：契约那份是分组的**进度生命周期** `["未开始","进行中","已完成"]`
+ * （I-14 三值封闭），这份是筹备阶段的**健康度/就绪度**（录音就绪 / 缺 N 人 / 需介入）。
+ * 一个「进行中」的组同时可以「缺 N 人」——两者正交，合并会互相顶替。
+ * ⇒ 改名分离，无取值分歧，不需人类裁决。
+ */
+export type GroupReadinessView = "recording-ready" | "short-n" | "needs-intervention";
+export const GROUP_STATUS_LABEL: Record<GroupReadinessView, string> = {
   "recording-ready": "录音就绪", "short-n": "缺 N 人", "needs-intervention": "需介入",
 };
-export const GROUP_STATUS_TONE: Record<GroupStatus, "primary" | "warning" | "danger"> = {
+export const GROUP_STATUS_TONE: Record<GroupReadinessView, "primary" | "warning" | "danger"> = {
   "recording-ready": "primary", "short-n": "warning", "needs-intervention": "danger",
 };
 export interface ProjectGroup {
   ordinal: number;
   name: string;
-  status: GroupStatus;
+  status: GroupReadinessView;
   statusDetail: string;
   scenario: string;
   memberCount: number;

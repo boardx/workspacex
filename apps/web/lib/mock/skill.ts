@@ -94,8 +94,14 @@ export function viewToProjectRole(
 /* ─────────────────────────── 来源标记（封闭枚举）─────────────────────────── */
 
 export const SKILL_SOURCES = ["self", "cc", "canvas", "community", "promoted"] as const;
-export type SkillSource = (typeof SKILL_SOURCES)[number];
-export const SKILL_SOURCE_LABEL: Record<SkillSource, string> = {
+/**
+ * ⚠ 与契约 `skills.SkillSource` **同名、取值不一致**（契约三值中文 `自建/晋升生成/CC`，
+ * 这里五值英文，多 `canvas` 与 `community`）⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D09`。
+ * `community` 已由 D-06 判 phase-1 不实现（入口置灰）——**「保留取值但不实现」与
+ * 「契约里没有这个取值」是两种不同的承诺**，不能靠删一个了事。
+ */
+export type SkillSourceView = (typeof SKILL_SOURCES)[number];
+export const SKILL_SOURCE_LABEL: Record<SkillSourceView, string> = {
   self: "自建",
   cc: "CC 内置",
   canvas: "画布",
@@ -108,8 +114,14 @@ export const COMMUNITY_DISABLED = true;
 /* ─────────────────────────── 四态状态机（O-11：恰四态）─────────────────────────── */
 
 export const SKILL_STATUSES = ["draft", "review", "enabled", "disabled"] as const;
-export type SkillStatus = (typeof SKILL_STATUSES)[number];
-export const SKILL_STATUS_LABEL: Record<SkillStatus, string> = {
+/**
+ * ⚠ 与契约 `skills.SkillStatus` **同名、取值不一致**：契约五值中文（多 `被退回`），
+ * 这里四值英文 ⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D08`。
+ * 🔴 下面那句「O-11：恰四态」与契约的五值**直接冲突**，必有一方作废——
+ * 那是签核动作，本文件不代裁。缺 `被退回` 时「从没提交过」与「提交被打回」同形。
+ */
+export type SkillStatusView = (typeof SKILL_STATUSES)[number];
+export const SKILL_STATUS_LABEL: Record<SkillStatusView, string> = {
   draft: "草稿",
   review: "待审核",
   enabled: "已启用",
@@ -131,8 +143,8 @@ export function satisfactionText(up: number, down: number): string {
 export interface SkillRow {
   id: string;
   name: string;
-  source: SkillSource;
-  status: SkillStatus;
+  source: SkillSourceView;
+  status: SkillStatusView;
   version: string;
   calls: number;
   up: number;
@@ -293,14 +305,14 @@ export const SKILLS: SkillRow[] = [
   },
 ];
 
-export const SKILL_STATUS_TONE: Record<SkillStatus, "primary" | "warning" | "neutral" | "outline"> = {
+export const SKILL_STATUS_TONE: Record<SkillStatusView, "primary" | "warning" | "neutral" | "outline"> = {
   enabled: "primary",
   review: "warning",
   draft: "neutral",
   disabled: "outline",
 };
 
-export const SKILL_SOURCE_TONE: Record<SkillSource, "neutral" | "ai" | "outline" | "primary"> = {
+export const SKILL_SOURCE_TONE: Record<SkillSourceView, "neutral" | "ai" | "outline" | "primary"> = {
   self: "neutral",
   cc: "outline",
   canvas: "outline",
@@ -315,7 +327,7 @@ export interface ReviewItem {
   name: string;
   submitter: string;
   submittedAt: string;
-  source: SkillSource;
+  source: SkillSourceView;
   files?: number;
   /** 两道门禁的独立结论：安全扫描 / 方法论审核 */
   securityScan: "passed" | "risk" | "rejected";

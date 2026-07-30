@@ -8,7 +8,7 @@ import * as C from "@repo/contracts/identity";/**
  *      —— 取值「全组织可用 / 仅某组」。
  *   ② McpAuthScope（授权范围）：MCP 服务器「谁能通过 agent 调用它的工具」
  *      —— 取值「仅项目负责人 / 仅某团队 / 全体成员」。
- *   另有 ③ McpReviewStatus（评审状态）与 ② 正交：一台服务器可以同时
+ *   另有 ③ McpReviewStatusView（评审状态）与 ② 正交：一台服务器可以同时
  *      「授权范围＝全体成员」且「评审状态＝待安全评审」。三者互不为同一字段。
  *
  * 这些都是**界面投影**，真实权限在服务端（NestJS Guard + RLS）。
@@ -91,8 +91,14 @@ export const MCP_AUTH_LABEL: Record<McpAuthScope, string> = {
 // ─────────────────────────────────────────────────────────────────────────
 // 枚举 ③：MCP 评审状态（与②正交）
 // ─────────────────────────────────────────────────────────────────────────
-export type McpReviewStatus = "cleared" | "pending";
-export const MCP_REVIEW_LABEL: Record<McpReviewStatus, string> = {
+/**
+ * ⚠ 与契约 `agent-runtime.McpReviewStatus` **同名、取值不一致**（契约五值中文，
+ * 这里二值英文）⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D03`。
+ * 缺失的三态都有独立处置动作（`维持隔离` / `有条件放行` / `已到期待复核`），
+ * 不是同义词——**哪边对由人裁**，本文件不选边。
+ */
+export type McpReviewStatusView = "cleared" | "pending";
+export const MCP_REVIEW_LABEL: Record<McpReviewStatusView, string> = {
   cleared: "已放行",
   pending: "待安全评审",
 };
@@ -203,8 +209,13 @@ export const AGENTS: AgentRow[] = [
 // ─────────────────────────────────────────────────────────────────────────
 // Skill（UC-3.1 · D-06 声明式契约，不是可执行代码包）
 // ─────────────────────────────────────────────────────────────────────────
-export type SkillStatus = "enabled" | "review" | "draft" | "disabled";
-export const SKILL_STATUS_LABEL: Record<SkillStatus, string> = {
+/**
+ * ⚠ 与契约 `skills.SkillStatus` **同名、取值不一致**（契约五值中文含 `被退回`，
+ * 这里四值英文）⇒ 已改名分离，见 `CONTRACT_DIVERGENCES.D08`。
+ * 🔴 两侧都自称「封闭集合」而数量不同——**必须有一方作废**，那是签核动作。
+ */
+export type SkillStatusView = "enabled" | "review" | "draft" | "disabled";
+export const SKILL_STATUS_LABEL: Record<SkillStatusView, string> = {
   enabled: "已启用",
   review: "待审核",
   draft: "草稿",
@@ -216,7 +227,7 @@ export interface SkillRow {
   name: string;
   duty: string;
   version: string;
-  status: SkillStatus;
+  status: SkillStatusView;
   visibility: VisibilityScope;
   team?: string;
   /** 契约三段（D-06）：提示词模板变量数 / schema 字段数 / 数据范围声明 */
@@ -336,7 +347,7 @@ export interface McpRow {
   authScope: McpAuthScope;
   authTeam?: string;
   /** 枚举③ —— 与授权范围正交 */
-  reviewStatus: McpReviewStatus;
+  reviewStatus: McpReviewStatusView;
   conn: McpConnStatus;
   touchesClientData: boolean;
 }

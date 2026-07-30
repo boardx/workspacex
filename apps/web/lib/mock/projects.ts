@@ -6,6 +6,8 @@
  * 四种项目状态的字段完整度差异很大，这正是 sign-off 要看的东西。
  * 数字为原型示例蓝本的取值，非硬编码业务口径。
  */
+import type { z } from "zod";
+import * as C from "@repo/contracts/canvas";
 
 /* ─────────────────────────── 项目列表（UC-2.2 R8 / 数字三节） ─────────────────────────── */
 
@@ -174,10 +176,14 @@ export const MOCK_HISTORICAL: HistoricalProject[] = [
 
 /* ─────────────────────────── 推演画布（UC-7.3 R8 / 数字四节） ─────────────────────────── */
 
-/** [原型] 组画布状态四取值（O-32：「落后」= 有必填分区为空）*/
-export type GroupCanvasStatus = "进行中" | "只读" | "落后" | "你在这组";
-/** [原型] 同步三态 */
-export type CanvasSyncStatus = "已同步" | "待同步" | "画布领先";
+/**
+ * [原型] 组画布状态四取值（O-32：「落后」= 有必填分区为空）
+ * ⚠ 与契约 `canvas.GroupCanvasStatus` **逐值相同**（只是列举顺序不同）
+ * ⇒ 从契约派生，不留第二份（ADR-020）。
+ */
+export type GroupCanvasStatus = z.infer<typeof C.GroupCanvasStatus>;
+/** [原型] 同步三态。⚠ 与契约 `canvas.CanvasSyncStatus` **逐值相同** ⇒ 从契约派生。 */
+export type CanvasSyncStatus = z.infer<typeof C.CanvasSyncStatus>;
 
 export interface GroupCanvas {
   id: string;

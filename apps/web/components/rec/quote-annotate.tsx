@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import {
   AI_MOMENTS, RESEARCH_QUESTIONS, TRANSCRIPT, EVIDENCE_NATURE_LABEL, isQuotable,
   speakerDisplay, isReadOnlyRec, canWriteRec,
-  type RecView, type AiMomentCandidate, type EvidenceNature,
+  type RecView, type AiMomentCandidate, type EvidenceNatureView,
 } from "@/lib/mock/rec";
 
 /**

@@ -9,7 +9,7 @@ import type { ProjectRole } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 import {
   BLUEPRINTS, DURATION_TIERS, TIER_LABEL, AGENDA_COUNT_BY_TIER, DEFAULT_TIER,
-  INIT_CATEGORIES, configTotal, type DurationTier,
+  INIT_CATEGORIES, configTotal, type DurationTierView,
 } from "@/lib/mock/tpl";
 import { SignoffFlag, ConfirmDialog } from "./parts";
 import { ProjectSideGaps } from "./project-gaps";
@@ -21,7 +21,7 @@ export function ApplyWizardScreen({
 }: { uiState: UiState; previewRole: ProjectRole | null; onToast: (m: string) => void }) {
   const [step, setStep] = React.useState<1 | 2>(1);
   const [bpId, setBpId] = React.useState<string>(APPLICABLE[0]!.id);
-  const [tier, setTier] = React.useState<DurationTier>(DEFAULT_TIER);
+  const [tier, setTier] = React.useState<DurationTierView>(DEFAULT_TIER);
   const [confirm, setConfirm] = React.useState(false);
   const bp = APPLICABLE.find((b) => b.id === bpId)!;
   const total = configTotal();
