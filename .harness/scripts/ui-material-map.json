@@ -1,19 +1,19 @@
 {
   "//": "契约束 ↔ 截图目录 的唯一事实源（lint-ui-material.mjs 读它，别处不许再抄一份）。",
   "//1": "键 = phases/<phase>/contracts/<束>/ui.md 的 <phase>；值的键 = <束>；值 = phases/<phase>/ 下的截图目录相对路径。",
-  "//2": "为什么必须显式声明而不是猜同名：四个束的目录名与束名不同（interview→itv-v2、recording→rec、skills→skill、templates→tpl）。",
-  "//3": "为什么 interview 指向 itv-v2 而不是 itv：v1 的 itv/（44 张）已被推翻，不算签核材料。",
+  "//2": "为什么必须显式声明而不是猜同名：四个束的目录名与束名不同（interview→itv-v2、recording→rec、skills→skill、templates→tpl-v2）。",
+  "//3": "为什么 interview 指向 itv-v2、templates 指向 tpl-v2：v1（itv/ 44 张、tpl/ 24 张）已被保真度审计推翻，不算签核材料；推翻要留痕，旧目录不删。",
   "//4": "新增一个带 ui.md 的束时必须在这里补一行；不补 = 门控报「未声明截图目录」而不是静默跳过。",
   "phase-01-run-a-project": {
-    "agent-runtime": "ui-preview/agent-runtime",
-    "canvas": "ui-preview/canvas",
-    "chat": "ui-preview/chat",
+    "agent-runtime": "ui-preview/agent-runtime-v2",
+    "canvas": "ui-preview/canvas-v2",
+    "chat": "ui-preview/chat-v2",
     "files": "ui-preview/files",
     "interview": "ui-preview/itv-v2",
     "org-admin": "ui-preview/org-admin",
     "project": "ui-preview/project",
-    "recording": "ui-preview/rec",
-    "skills": "ui-preview/skill",
-    "templates": "ui-preview/tpl"
+    "recording": "ui-preview/rec-v2",
+    "skills": "ui-preview/skill-v2",
+    "templates": "ui-preview/tpl-v2"
   }
 }
