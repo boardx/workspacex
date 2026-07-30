@@ -3,6 +3,10 @@ import { z } from "zod";
 import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
+import * as interview from "../src/interview";
+import * as recording from "../src/recording";
+import * as canvas from "../src/canvas";
+import * as chat from "../src/chat";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -17,6 +21,11 @@ const BUNDLES = [
   ["identity", identity.operations],
   ["artifact", artifact.operations],
   ["context-pack", contextPack.operations],
+  // ── phase-01 束（不加进来 = 这三道门对新契约不生效）──
+  ["interview", interview.operations],
+  ["recording", recording.operations],
+  ["canvas", canvas.operations],
+  ["chat", chat.operations],
 ] as const;
 
 type Op = {
