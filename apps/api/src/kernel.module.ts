@@ -134,6 +134,17 @@ import { ChatController } from "./interface/controllers/chat.controller";
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
 import { PgOrgInviteRepository } from "./infrastructure/auth/pg-org-invite-repository";
 import { OrgInviteController } from "./interface/controllers/org-invite.controller";
+// F31 (files bundle): the project file browser's three READ routes.
+// ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
+// anything wired here. The repository provided below is the only reader of it, and the
+// application layer deliberately does NOT filter a second time -- see the port's header.
+import {
+  ARTIFACT_BROWSER_REPOSITORY,
+  OBJECT_STORE_PROBE,
+} from "./application/files/ports";
+import { PgArtifactBrowserRepository } from "./infrastructure/files/pg-artifact-browser-repository";
+import { ObjectStoreHeadProbe } from "./infrastructure/files/object-store-head-probe";
+import { FilesBrowserController } from "./interface/controllers/files-browser.controller";
 
 @Module({
   controllers: [
@@ -154,6 +165,7 @@ import { OrgInviteController } from "./interface/controllers/org-invite.controll
     InterviewScopeController,
     ChatController,
     OrgInviteController,
+    FilesBrowserController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -251,6 +263,19 @@ import { OrgInviteController } from "./interface/controllers/org-invite.controll
       inject: [DATABASE_PORT],
     },
     { provide: ID_FACTORY, useClass: UuidIdFactory },
+    // F31. One repository behind the browser's list, tree and search, on purpose: three
+    // providers would be the first step toward three visibility predicates, and "可见集合 ≡
+    // 检索可见集合" is exactly the property that cannot survive that.
+    {
+      provide: ARTIFACT_BROWSER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgArtifactBrowserRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: OBJECT_STORE_PROBE,
+      useFactory: (store: ObjectStore) => new ObjectStoreHeadProbe(store),
+      inject: [OBJECT_STORE],
+    },
     // ⚠ Still process-local, and that is CORRECT -- do not "fix" it by pointing it at Redis.
     //
     // This is `identity`'s SessionStore: the per-user project-scoped CONTEXT that
