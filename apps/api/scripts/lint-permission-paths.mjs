@@ -67,6 +67,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/provenance/pg-provenance-repository.ts",
     "provenance_events (and provenance_notifications, which holds only 'who was told about which event') is the AUDIT TRAIL, not tenant content: an append-only record of who touched what. Guarding it with the same filter would be circular in the same way the identity repository is -- the trail is what you consult to answer 'was that read authorised', so it cannot itself require the answer first. Who may READ the trail is enforced one layer up, in application/provenance/query-provenance.ts (project lead sees their project, everyone sees their own, nobody sees a stranger's), and that rule has its own tests.",
   ],
+  [
+    "src/infrastructure/auth/pg-org-invite-repository.ts",
+    "F10 org-member activation: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, not content being disclosed to a requester -- and on this path there is no requester to judge, because the caller is an anonymous visitor holding an activation token who does not yet belong to any organization. `disclose()` demands a requester and produces a decision; 'may this person read the row that decides what they are about to be granted' has no answer, so guarding it would be circular in exactly the way the identity repository's entry describes. What replaces the decision is that the invite row's CONTENT never leaves the file: `activate()` returns only the grant (userId / orgId / orgRole / teamId), never `email` and never `invited_by`; the email is used solely as an INSERT parameter for the credential row the activation creates. ⚠ The exemption is valid ONLY while that stays true, so it is not left as a claim: tests/auth/member-invite-activation.test.ts asserts the returned grant carries no invite-content field, and asserts it is load-bearing by widening the return. If that test is deleted, this entry must go with it.",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */

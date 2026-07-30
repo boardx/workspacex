@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, identity, interview } from "@repo/contracts";
+import { artifact, auth, identity, interview, orgAdmin } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -139,7 +139,27 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * 一个「顺手把 reasonCode 带上」的改动会当场打开 uc-6-0/E3 的枚举探测面。
    */
   const interviewError = interview.InterviewError.safeParse(raw);
-  return interviewError.success ? { reasonCode: interviewError.data } : {};
+  if (interviewError.success) return { reasonCode: interviewError.data };
+
+  /**
+   * F10: `orgAdmin.OrgAdminError`, the SIXTH closed enum.
+   *
+   * Added for the same reason `LocalExportReason` was: without it, `INVITE_NOT_FOUND` and
+   * `INVITE_DUPLICATE` are declared in the contract (`activateOrgMember.err` /
+   * `inviteOrgMember.err`) but belong to no enum here, so every parse above fails and the
+   * caller gets a bare `bad_request`. The status would be right and the reason gone -- and
+   * the reason is the whole interface: "this link is no longer usable" and "your request
+   * body was malformed" send the user to two completely different places.
+   *
+   * ⚠ Same restriction as the five above: a closed enum in `@repo/contracts`, parsed against
+   * that enum, nothing outside it passes. ⚠ It OVERLAPS `identity.PermissionReason` by
+   * design (`PROJECT_ROLE_INSUFFICIENT`, `AUTH_SERVICE_UNAVAILABLE`, ...) -- `org-admin`'s
+   * usecases.md says in its first section that permission failures REUSE identity's codes
+   * rather than growing a second set, so the earlier parse winning is the contracted
+   * outcome, not a collision to be broken.
+   */
+  const orgAdminReason = orgAdmin.OrgAdminError.safeParse(raw);
+  return orgAdminReason.success ? { reasonCode: orgAdminReason.data } : {};
 }
 
 /**
