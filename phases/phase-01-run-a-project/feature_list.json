@@ -12,7 +12,7 @@
       "depends_on": [],
       "points": 1,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
@@ -101,7 +101,7 @@
       "depends_on": [],
       "points": 1,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/team-visibility-filter.test.ts",
@@ -121,7 +121,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/member-invite-activation.test.ts",
@@ -238,7 +238,7 @@
       "depends_on": [],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/invite-links-model.test.ts",
@@ -283,7 +283,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/blueprint-config-table-driven.test.ts",
@@ -605,7 +605,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/files/artifacts-list-rls.test.ts",
@@ -976,7 +976,7 @@
       "depends_on": [],
       "points": 1,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-ontology-edge-invalidate.test.ts",
@@ -996,7 +996,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/model/registry-fields.test.ts",
@@ -1093,7 +1093,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/mcp/three-orthogonal-fields.test.ts",
@@ -1165,7 +1165,7 @@
       "depends_on": [],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/clone-drops-whitelist.test.ts",
@@ -1314,7 +1314,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/contract-static-validation.test.ts",
@@ -1519,7 +1519,8 @@
       "notes": "依据 [原型]。界面已建成：/session 组内录音（group-mic-toggle）、/studio/interview 转录区（itv-tracks/itv-realtime-bar）、/chat 线程转录卡；本 feature 交付 source_type∈{workshop,interview,thread} 的采集与权限门控数据层。AC1 跨路隔离为结构断言（各路注入已知音频，断言互不含）。\n【跨分片依赖待确认】01-auth: 授权与可见性判定；phase-00: F14 七态外壳与保留态名",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "01"
     },
     {
       "id": "F70",
@@ -1707,7 +1708,8 @@
       "notes": "依据 D-14/裁决 O-01（默认值已给出：材料 180 天，区间仍待合规收窄，不阻断）。改写为结构性断言：读参数返回默认值 + 全仓无硬编码天数（静态检查）。UC-5.4 为 P1。\n【跨分片依赖待确认】00-core/17-gov: 留存策略内核（五参数读取接口）；phase-00: F04 Artifact / 不可删对象豁免",
       "priority": 2,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F79",
@@ -1747,7 +1749,8 @@
       "notes": "依据 [原型]+[设计]。这是 06-itv 其余全部 feature 的地基（若做成 project_id NOT NULL，6.1/6.2/6.5/6.7 全返工）。范围过滤在服务端，不得返回全量再前端过滤。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS 强制隔离",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F81",
@@ -2177,7 +2180,8 @@
       "notes": "依据 D-08 + 裁决 O-09。这是 07-canvas 四份 UC 的共同技术底座、必须最先落地。fabric-markdown（13 种 mermaid 图 + 19 A0 模板 + 164 单测）以源码并入 packages/（不是 npm 依赖），npm 依赖版本在 ADR 锁定；不改任何 key（否则 164 单测失效）。verification 走契约断言，不依赖 UI，故 needs_ui_signoff=false。",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F101",
@@ -2350,7 +2354,8 @@
       "notes": "依据 [原型]（四视角完整）+D-12/O-04/O-24。08-chat 其余四份的可见性语义全部引用本 UC、不各自定义；观察者降级是服务端不下发而非前端隐藏。可见范围徽标 AC1 界面部分 [设计]（原型未见徽标），服务端字段本身 [原型] 明确。chat-observer-tag/chat-readonly-note 已存在。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS / F03 管理员边界（角色枚举与判定中间件来自 00-core/uc-0-3）",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "01"
     },
     {
       "id": "F109",
@@ -2514,7 +2519,7 @@
       "depends_on": [],
       "points": 6,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2929,7 +2934,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3218,7 +3223,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts run test",
