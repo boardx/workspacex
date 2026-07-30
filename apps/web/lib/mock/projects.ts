@@ -9,10 +9,22 @@
 
 /* ─────────────────────────── 项目列表（UC-2.2 R8 / 数字三节） ─────────────────────────── */
 
-/** [原型] 项目状态四取值，不得自造第五态 */
-export type ProjectStatus = "running" | "preparing" | "draft" | "delivered";
+/**
+ * [原型] 项目**卡片展示态**四取值，不得自造第五态。
+ *
+ * ⚠ 原名 `ProjectStatus` —— 与契约 `project.ProjectStatus` **同名不同义**，
+ * 被 `lint-contract-source` 当场拦下（2026-07-30）。契约那个是**生命周期**
+ * `["active","archived"]`（Q-5 裁 B，两态、有状态机）；这个是列表卡片上的
+ * **展示态**（正在进行/筹备中/草稿/已交付），两者不是一回事：
+ * 一个已交付的项目仍然是 `active`。
+ *
+ * 与 `IngestionRun` 的 `status` vs `state`、`VisibilityScope` vs `ChatVisibility`
+ * 是同一类，处理方式沿用那两次立的纪律：**同名会掩盖分歧，改名而不是合并**。
+ * ⇒ 改名 `ProjectCardState`。若日后产品裁定两者应统一，那是一次签核动作，不是一次改名。
+ */
+export type ProjectCardState = "running" | "preparing" | "draft" | "delivered";
 
-export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
+export const PROJECT_CARD_STATE_LABEL: Record<ProjectCardState, string> = {
   running: "正在进行",
   preparing: "筹备中",
   draft: "草稿",
@@ -29,7 +41,7 @@ export interface ProjectSummary {
   priority: boolean;
   /** 时间行，如「今天 14:00–17:30」「周四 14:00」「上周五」*/
   schedule: string;
-  status: ProjectStatus;
+  status: ProjectCardState;
 
   /** ● 正在进行 专有：环节进度 / 在场人数 / 组数 */
   stageProgress?: string; // 环节 3/7

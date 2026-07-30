@@ -416,13 +416,35 @@ export const NEWPROJECT = {
 
 /* ─────────────────────── 设置（原型 isWsSetup） ─────────────────────── */
 
+/**
+ * [原型] 产出与留存 —— 三项的默认值**已对原型 JS 数据区逐条核过**（isSetOut 块 byte 15274086）：
+ *   · 「结束后自动写回组织大脑」= **开**（原型底色 #17171A）
+ *   · 「客户可见的分享链接」= **关**（原型底色 #DEDCD3、滑块在左）← v1 mock 曾误画成「开 ✓」，
+ *     这是**保真度错误（屏在、控件在、默认值反了）**，已改。见 V1-WAS-WRONG.md。
+ *   · 转录留存 180 天（非开关）。
+ * ⚠ 分享链接默认**关**很重要：只有开启后观察者/客户方才按已发布内容可见（B-1 的边界仍未定）。
+ */
+export const RETENTION_SETTINGS = [
+  { id: "rs1", label: "结束后自动写回组织大脑", on: true, note: "" },
+  { id: "rs2", label: "客户可见的分享链接", on: false, note: "默认关闭 · 开启后观察者与客户方才按已发布内容可见" },
+];
+/**
+ * 留存期的**唯一声明处**（D-14：须按项目动态渲染，代码不得写死）。
+ *
+ * ⚠ 真实实现必须从项目参数读；这里是 mock 的单一事实源，
+ * 所有展示位一律从它派生，**不许再出现第二个字面量**——
+ * 本仓已四次因阈值散落而漂移。
+ */
+export const RETENTION_DAYS = 180; // [threshold-ok:retentionMaterial] mock 的唯一声明处，其余展示位从它派生
+export const RETENTION_DAYS_LABEL = `转录留存 ${RETENTION_DAYS} 天`;
+
 export const SETTINGS_SECTIONS = [
   { key: "flow", title: "工作流编排", desc: "模板 · 环节 · 三角色分工" },
   { key: "invite", title: "参与者与邀请", desc: "9 / 12 已确认" },
   { key: "basic", title: "基本信息", desc: "时间 · 形式 · 分组 · 语言" },
   { key: "ai", title: "AI 权限", desc: "3 项 · 1 项已关" },
   { key: "graph", title: "知识图谱", desc: "节点 84 · 分带与过期" },
-  { key: "retention", title: "产出与留存", desc: "写回大脑 · 留存 180 天" },
+  { key: "retention", title: "产出与留存", desc: `写回大脑 · 留存 ${RETENTION_DAYS} 天` },
 ];
 
 /** [原型] 参与者名单——身份四选 + 邀请状态（贴合原型「参与者与邀请」屏） */
@@ -441,19 +463,6 @@ export const AI_PERMISSIONS = [
   { id: "ap3", label: "AI 直接在小组画布落笔", on: false },
 ];
 
-/**
- * [原型] 产出与留存 —— 三项的默认值**已对原型 JS 数据区逐条核过**（isSetOut 块 byte 15274086）：
- *   · 「结束后自动写回组织大脑」= **开**（原型底色 #17171A）
- *   · 「客户可见的分享链接」= **关**（原型底色 #DEDCD3、滑块在左）← v1 mock 曾误画成「开 ✓」，
- *     这是**保真度错误（屏在、控件在、默认值反了）**，已改。见 V1-WAS-WRONG.md。
- *   · 转录留存 180 天（非开关）。
- * ⚠ 分享链接默认**关**很重要：只有开启后观察者/客户方才按已发布内容可见（B-1 的边界仍未定）。
- */
-export const RETENTION_SETTINGS = [
-  { id: "rs1", label: "结束后自动写回组织大脑", on: true, note: "" },
-  { id: "rs2", label: "客户可见的分享链接", on: false, note: "默认关闭 · 开启后观察者与客户方才按已发布内容可见" },
-];
-export const RETENTION_DAYS_LABEL = "转录留存 180 天";
 
 /* ─────────────────────── 每屏 UC 溯源（供 README 与 sign-off 回溯） ─────────────────────── */
 

@@ -6,10 +6,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ProjectMoreMenu } from "./project-more-menu";
-import { PROJECT_STATUS_LABEL, type ProjectSummary, type ProjectStatus } from "@/lib/mock/projects";
+import { PROJECT_CARD_STATE_LABEL, type ProjectSummary, type ProjectCardState } from "@/lib/mock/projects";
 import { cn } from "@/lib/utils";
 
-const STATUS_TONE: Record<ProjectStatus, "primary" | "warning" | "outline" | "neutral"> = {
+const STATUS_TONE: Record<ProjectCardState, "primary" | "warning" | "outline" | "neutral"> = {
   running: "primary",
   preparing: "warning",
   draft: "outline",
@@ -43,7 +43,7 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
           <div className="flex shrink-0 items-center gap-1.5">
             {project.priority && <Badge tone="warning">高优先级</Badge>}
             <Badge tone={STATUS_TONE[project.status]} data-testid={`projects-card-${project.id}-status`}>
-              {PROJECT_STATUS_LABEL[project.status]}
+              {PROJECT_CARD_STATE_LABEL[project.status]}
             </Badge>
           </div>
         </div>

@@ -534,7 +534,7 @@ export const RESEARCH_DESIGN: ResearchDesign = {
     perSession: "1–3 人（同组织不超过 2 人）",
     duration: "60 分（多人场 90 分）",
     retentionParamLabel: "材料保留期",
-    retentionValueSource: "读项目参数 · 默认 180 天（代码不写死天数，O-01）",
+    retentionValueSource: "读项目参数 · 默认 180 天（代码不写死天数，O-01）", // [threshold-ok:retentionMaterial] 这句本身就是在说「不写死」，是纪律说明不是取值
     noTraining: true,
   },
 };
