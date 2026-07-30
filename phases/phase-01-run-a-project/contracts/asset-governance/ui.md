@@ -1,5 +1,7 @@
 # 契约束 `asset-governance` — 签核①：UI（界面落点）
 
+> **自检：本文件引用 64 张截图，`ui-preview/asset-governance/` 目录下实际 64 张（N == M == 64，无死链、无漏引、无重复引用）。**
+>
 > ## 🔴 自检（可机械核对）：**本文件引用 0 张截图，目录尚未产出。**
 >
 > 目录：`phases/phase-01-run-a-project/ui-preview/asset-governance/`
@@ -11,7 +13,7 @@
 > 不补的话门控报的是判定③「未声明截图目录」，那是**报错的理由不对**：
 > 真实情况是「已声明、材料还没产出」，不是「有人忘了声明」。两者在后果上不同。
 >
-> ⚠ **本文刻意不写任何 `xxx.png` 文件名。** 上游 `skills` 束栽过一次同形的坑：
+> ⚠ **本文刻意不写任何**设想的**文件名（占位式文件名）。** 上游 `skills` 束栽过一次同形的坑：
 > 它的旧版 ui.md 按约定写了 14 个**设想的**文件名，那 14 条**一张都不存在**、全部是死链
 > （留痕在 `contracts/skills/ui.md` 顶部）。
 > 本文用**文字**描述该有哪些屏，等 ui-prototyper 产出后再由它或后续 agent 填真实索引。
@@ -200,3 +202,97 @@ ui-prototyper 产出后，此处填**真实**索引（文件名逐字、可点�
 
 ⚠ **不要重复截六类资产各自的管理屏**（那些在 `skill-v2` / `agent-runtime-v2` /
 `canvas-v2` / `tpl-v2` 四个已签核束的材料里）。判据见第一节末。
+
+## 截图索引（机械生成，与目录逐张相等）
+
+> 本文件引用 **64** 张，`ui-preview/asset-governance/` 实存 **64** 张。
+> 复核：`node .harness/scripts/lint-ui-material.mjs`（双向集合相等，死链与孤图都会红）。
+
+### agent-editor（7 张）
+
+- `ui-preview/asset-governance/uc-ag-agent-editor-default.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-denied.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-empty.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-invalid.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-loading.png`
+- `ui-preview/asset-governance/uc-ag-agent-editor-success.png`
+
+### blueprint（7 张）
+
+- `ui-preview/asset-governance/uc-ag-blueprint-default.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-denied.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-empty.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-invalid.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-loading.png`
+- `ui-preview/asset-governance/uc-ag-blueprint-success.png`
+
+### dashboard（11 张）
+
+- `ui-preview/asset-governance/uc-ag-dashboard-default.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-denied.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-empty.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-invalid.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-loading.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-success.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-view-maintainer.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-view-member.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-view-owner.png`
+- `ui-preview/asset-governance/uc-ag-dashboard-view-reviewer.png`
+
+### gates（7 张）
+
+- `ui-preview/asset-governance/uc-ag-gates-default.png`
+- `ui-preview/asset-governance/uc-ag-gates-denied.png`
+- `ui-preview/asset-governance/uc-ag-gates-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-gates-empty.png`
+- `ui-preview/asset-governance/uc-ag-gates-invalid.png`
+- `ui-preview/asset-governance/uc-ag-gates-loading.png`
+- `ui-preview/asset-governance/uc-ag-gates-success.png`
+
+### governance（11 张）
+
+- `ui-preview/asset-governance/uc-ag-governance-default.png`
+- `ui-preview/asset-governance/uc-ag-governance-denied.png`
+- `ui-preview/asset-governance/uc-ag-governance-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-governance-empty.png`
+- `ui-preview/asset-governance/uc-ag-governance-invalid.png`
+- `ui-preview/asset-governance/uc-ag-governance-loading.png`
+- `ui-preview/asset-governance/uc-ag-governance-success.png`
+- `ui-preview/asset-governance/uc-ag-governance-view-maintainer.png`
+- `ui-preview/asset-governance/uc-ag-governance-view-member.png`
+- `ui-preview/asset-governance/uc-ag-governance-view-owner.png`
+- `ui-preview/asset-governance/uc-ag-governance-view-reviewer.png`
+
+### newskill（7 张）
+
+- `ui-preview/asset-governance/uc-ag-newskill-default.png`
+- `ui-preview/asset-governance/uc-ag-newskill-denied.png`
+- `ui-preview/asset-governance/uc-ag-newskill-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-newskill-empty.png`
+- `ui-preview/asset-governance/uc-ag-newskill-invalid.png`
+- `ui-preview/asset-governance/uc-ag-newskill-loading.png`
+- `ui-preview/asset-governance/uc-ag-newskill-success.png`
+
+### skill-editor（7 张）
+
+- `ui-preview/asset-governance/uc-ag-skill-editor-default.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-denied.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-empty.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-invalid.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-loading.png`
+- `ui-preview/asset-governance/uc-ag-skill-editor-success.png`
+
+### tryrun（7 张）
+
+- `ui-preview/asset-governance/uc-ag-tryrun-default.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-denied.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-dep-failed.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-empty.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-invalid.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-loading.png`
+- `ui-preview/asset-governance/uc-ag-tryrun-success.png`
+

@@ -3,6 +3,7 @@ import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
 import * as provenance from "../src/provenance";
+import * as project from "../src/project";
 
 /**
  * 「不存在」也是一种契约（一致性复核 N-5）
@@ -25,6 +26,7 @@ const ALL_OPERATIONS = {
   artifact: artifact.operations,
   "context-pack": contextPack.operations,
   provenance: provenance.operations,
+  project: project.operations,
 } as Record<string, Record<string, { method?: string; path?: string }>>;
 
 /** 明确禁止存在的路由。每条都要写清「为什么不能有」——否则后人会以为是漏了 */
@@ -61,6 +63,18 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "F06 因此在库层同时封了 UPDATE 与 DELETE，并且不提供解绑路由：" +
       "`usecases.md` 九个用例里没有 unbind，`unbound` 事件类型却已存在——" +
       "解绑显然被预见到了，但它还没有接口。**先不发明它。**",
+  },
+  {
+    // ⚠ 只匹配容器本身（`/projects` 与 `/projects/:id`），**不匹配**其下的子资源——
+    //   `DELETE /projects/:projectId/members/:userId`（移除成员）是合法且必须存在的。
+    pattern: /^DELETE\s+\/projects(\/:?[^/]+)?$/i,
+    why:
+      "project Q-9 / I-P40：**不提供删除项目**。交付物是这条断言它不存在的测试，不是一个接口。" +
+      "级联事实不变：groups / project_memberships / artifact_bindings 是 ON DELETE CASCADE，" +
+      "artifacts / segment_text / claims / admin_project_access 是 SET NULL 或 CASCADE——" +
+      "谁加上删除，级联会静默清掉或摘掉一批行，这正是要守着它不存在的原因。" +
+      "项目结束的出口只有归档（Q-5 B：archived = 只读，归档不删除任何内容），" +
+      "而**归档不该借道 X-4 那个只留给合规撤回的豁口**。",
   },
   {
     pattern: /^(PUT|PATCH|DELETE)\s+\/provenance/i,

@@ -7,6 +7,7 @@
 export * as identity from "./identity";
 export * as auth from "./auth";
 export * as artifact from "./artifact";
+export * as project from "./project";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
 export * as filterAction from "./filter-action";

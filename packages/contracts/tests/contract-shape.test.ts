@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as identity from "../src/identity";
 import * as artifact from "../src/artifact";
 import * as contextPack from "../src/context-pack";
+import * as project from "../src/project";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -17,6 +18,7 @@ const BUNDLES = [
   ["identity", identity.operations],
   ["artifact", artifact.operations],
   ["context-pack", contextPack.operations],
+  ["project", project.operations],
 ] as const;
 
 type Op = {
