@@ -25,3 +25,4 @@ export * as chat from "./chat";
 export * as agentRuntime from "./agent-runtime";
 export * as skills from "./skills";
 export * as templates from "./templates";
+export * as research from "./research";

@@ -14,6 +14,7 @@ import * as assetGovernance from "../src/asset-governance";
 import * as agentRuntime from "../src/agent-runtime";
 import * as skills from "../src/skills";
 import * as templates from "../src/templates";
+import * as research from "../src/research";
 
 /**
  * 「不存在」也是一种契约（一致性复核 N-5）
@@ -48,6 +49,7 @@ const ALL_OPERATIONS = {
   "agent-runtime": agentRuntime.operations,
   skills: skills.operations,
   templates: templates.operations,
+  research: research.operations,
 } as Record<string, Record<string, { method?: string; path?: string }>>;
 
 /** 明确禁止存在的路由。每条都要写清「为什么不能有」——否则后人会以为是漏了 */
@@ -163,6 +165,19 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
       "契约的 `createTemplate` / `updateTemplate` 的 `in` 里根本没有 `usedCount`，" +
       "但那只挡住了「从已有端口写进去」。一条独立的 usage 写口会绕过它，" +
       "而一个可以手改的使用次数，会让「哪个模板真的好用」这件事从此不可信。",
+  },
+  {
+    // ⚠ 只匹配研究本体（`/research` 与 `/research/:id`）。
+    //   `/research-conflicts/...` / `/research-conclusions/...` 是另外的资源，不在此列。
+    pattern: /^DELETE\s+\/research(\/:?[^/]+)?$/i,
+    why:
+      "research N-7：研究**只归档不删除**，且被引用的证据在归档后**不失效**。" +
+      "硬删除会让引用方（09-kg 的证据、10-report 的取材、14-brain 的候选洞察）凭空断链，" +
+      "而 D-20 的立论正是「研究 Studio 是 09-kg 证据的主要生产者」——" +
+      "生产者能被删掉，立论就没了。\n" +
+      "⚠ 这条比一般的「不提供删除」更需要一个警报：原型的行动作 handler 叫 `delDrItem`，" +
+      "而它的提示逐字是「已**归档**该研究主题」`[原型 @16,907,049B]`——**名字像删除、行为是归档**。" +
+      "照着 handler 名做实现的人会造出一个真的删除，且不会有任何东西报警。本条就是那个警报。",
   },
 ];
 

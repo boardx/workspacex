@@ -15,6 +15,7 @@ import * as assetGovernance from "../src/asset-governance";
 import * as agentRuntime from "../src/agent-runtime";
 import * as skills from "../src/skills";
 import * as templates from "../src/templates";
+import * as research from "../src/research";
 
 /**
  * Every operation's `out` must be STRICT.
@@ -41,7 +42,7 @@ const BUNDLES = {
   identity, artifact, contextPack, auth, project,
   // ── phase-01 十一束（不加进来 = 这道门对新契约完全不生效）──
   interview, recording, canvas, chat, files, orgAdmin, assetGovernance,
-  agentRuntime, skills, templates,
+  agentRuntime, skills, templates, research,
 } as const;
 
 /** Every ZodObject reachable from a schema, with a path for the failure message. */
