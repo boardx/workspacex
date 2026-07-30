@@ -157,7 +157,11 @@
    「AI 团队 · 6」vs「团队 4」对不上的正解。AC2 要求两口径分别标注不混用。
 8. **「因什么载入」做成每行可展开的 AI 底色说明块**（`team-*`）；「下一步换谁」「本可载入但被优先级裁剪」
    做成主持台两张并列卡。这三件 UC-4.2 R8 都标原型确认缺失（原型 AI 团队六行零载入原因）。
-9. **项目级 AI 权限三开关默认全关**（`team`，O-23）+ 每个开关旁「关掉会发生什么 + 受影响 agent/skill」。
+9. **项目级 AI 权限三开关**（`team`）+ 每个开关旁「关掉会发生什么 + 受影响 agent/skill」。
+   合成规则按 O-23（收紧优先、服务端求交）；⚠ **三者默认值 O-23 未裁**（2026-07-30 更正，
+   旧文写「默认全关为 O-23」是伪造出处），界面显示「默认值未裁」徽标
+   （`team-ai-switch-default-pending` / `team-switch-pending-*`），
+   单一事实源在 `@repo/contracts/thresholds` 的 `projectAiDefault*`。
 10. **审计条目下钻里补「三层权限快照」「Context Pack 可重放」两行**（`audit-drill`）——O-22⑤ / 架构 P4
     要求每条 tool-call 带 `agent_version / skill_version / model_id + 三层权限快照`，缺任一即审计不完整。
 11. **组织级审计检索屏（D-34 新建、原型无）仅组织管理员视角出现**（`audit-default` vs `audit-facilitator`），

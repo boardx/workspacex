@@ -105,7 +105,7 @@ IF NEW.object_kind = 'project' THEN
 | **F04**（artifact 六表） | artifact（已签） | `artifacts.project_id` 同上：一个 artifact 现在可能挂在研究项目或用户洞察下 | 🟠 |
 | **F06**（三模式绑定 + 回流） | artifact（已签） | `artifact_bindings` 同上；且**本节与第二节的改名叠加**（见 2.3） | 🔴 |
 | **F10**（五路召回） | context-pack（已签） | `segment_text.project_id` / `claims.project_id` 现在跨三类容器；**检索是否要按 kind 分区？未裁** | 🟠 |
-| **F22**（组织停用只读） | org 生命周期 | `projects` 在受管表清单内；三张子表**是否也要进冻结策略**？——`0014` 的策略是**逐表装**的，新表**不会自动进去** | 🔴 **见 3.2** |
+| **F22**（组织停用只读） | org 生命周期 | `projects` 在受管表清单内；三张子表自动进冻结策略（`0014` 是 catalog 推导的**函数**），但该函数**只在被调用时**重算 | 🟠 **见 3.2①**：新迁移末尾加一行 `SELECT kernel_apply_org_freeze_policies();` |
 
 ---
 
@@ -217,14 +217,34 @@ Q-3 的裁决文本只提到**字段名**与**动作词**，**没有提错误码
 
 ### 3.2 🔴 **不会变红，但会改变行为**（本文认为风险最高的三条，逐条给处置）
 
-**① `0014-f22-org-lifecycle.sql` 的冻结策略是「逐表装」的，三张新子表不会自动进去。**
-`0014:165-184` 给每张受管表装 `_org_frozen_ins/_upd/_del` 三条 RESTRICTIVE 策略——
-**表清单是写死的**。新建的 `workshops` / `research_projects` / `user_insights` **不在里面**。
-⇒ 组织被停用后，**容器行冻住了，子类型行没有**：
-一个 `disabled` 组织下的工作坊，其议程环节仍可被改。
-⚠ `verify-rls.sh` **不会红**——它查的是租户隔离（`org_id` 策略），**不是冻结策略**。
-**处置**：建表迁移里**必须同时**装三条冻结策略，并补一条断言
-「`disabled` 组织下子类型表的 UPDATE 被拒」。**没有这条断言，这个洞不可能被发现。**
+**① 新建的租户表不会自动获得冻结策略——但缺的只是「在新迁移末尾调一次函数」。**
+
+⚠ **本条此前的表述是错的，2026-07-30 实测更正**（旧表述：「`0014:165-184` 表清单是写死的」
+「没有这条断言这个洞不可能被发现」）。两句都不成立：
+
+- **不是写死清单**：`apps/api/migrations/0014-f22-org-lifecycle.sql:151-172` 是
+  `CREATE OR REPLACE FUNCTION kernel_apply_org_freeze_policies()`，表集合由
+  **`pg_class` / `pg_constraint` catalog 推导**（「带 `org_id` 且该列有指向 `organizations`
+  的单列外键的普通表」），`organizations` / `rls_probe` 由推导条件自然排除。
+  该文件 `:140-150` 的注释已记录这次重构的起因，正是 F17 新表拿不到策略。
+- **断言早已存在**：`apps/api/tests/auth/org-disabled-readonly.test.ts:300-318`
+  （注意在 `tests/auth/` 不在 `tests/kernel/`）——`frozenTableAudit()` 逐表核
+  `ins/upd/del` 各恰 1 条，`missing` 必须为空；并配了**反空转反证**
+  （`audit.length >= 8`、`not.toContain('rls_probe')`、`not.toContain('organizations')`），
+  所以「一张表都没扫到」不会让主断言平凡为真。
+
+**真实缺口只剩一行**：`CREATE OR REPLACE FUNCTION` 只在被**调用**时才重算策略
+（`0014:203`、`0017-f17-local-export.sql:174` 各调一次）。新迁移建完
+`workshops` / `research_projects` / `user_insights` / `agenda_segments` 后若不调用，
+这四张表在**新库首次跑迁移时**没有冻结策略——只有 `migrate:check` 的强制重放才会补上，
+表现为「重放后 schema 摘要不一致」。
+
+**处置**：`0018-*` 建表语句之后、文件末尾加一行
+```sql
+SELECT kernel_apply_org_freeze_policies();
+```
+**不要**在新迁移里再抄一份三条策略——那才是第二份事实源（`0014:148-150` 逐字警告过）。
+断言不需要新写：上面那条 catalog 审计会自动覆盖新表。
 
 **② `projects.kind` 加了默认值 `'workshop'` 的那条路（见 1.4）。**
 全绿，且把历史数据静默归类。**处置**：`NOT NULL` 无默认值，让 4 处 INSERT 变红。
@@ -271,7 +291,8 @@ Q-3 的裁决文本只提到**字段名**与**动作词**，**没有提错误码
 2. requirement-author 据裁决生成本束 feature → 填 `covers:`。
 3. 改名（第二节）单独一支，**先契约后实现后测试**，一个 PR 一件事。
 4. 建三张子类型表 + `agenda_segments` + 补外键（`0018-*` 起）。
-5. 加 `status` + 冻结策略（**连带 3.2① 的三条 RESTRICTIVE 策略**）。
+5. 加 `status`；冻结策略**不用手写**——按 3.2① 在新迁移末尾调一次
+   `kernel_apply_org_freeze_policies()`。
 6. 门控与反证（`domain.md` §一之三 + `usecases.md` §4.1 的十条双向断言）。
 
 ⚠ 第 6 步**不许放到最后当收尾**。本仓九次「全绿但空转」的共同形状就是

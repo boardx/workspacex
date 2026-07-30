@@ -23,6 +23,13 @@ import {
   OVERVIEW_ANOMALIES, ANOMALY_CHAINS,
   type AgentRow, type ModelRow, type McpRow, type McpAuthScope,
 } from "./admin";
+import {
+  THRESHOLDS, requireValue,
+  type Threshold, type ThresholdName,
+} from "@repo/contracts/thresholds";
+
+export { requireValue };
+export type { Threshold, ThresholdName };
 
 export {
   AGENTS, MODELS, MCP_SERVERS, MCP_TOOLS, MCP_AUTH_LABEL,
@@ -287,18 +294,48 @@ export const CLIPPED_BY_PRIORITY = [
   { name: "Quill", role: "文书起草", why: "本可载入但被优先级裁剪（第 6 顺位）" },
 ];
 
-/** 项目级 AI 权限三开关 —— O-23：默认全关，收紧优先。 */
+/**
+ * 项目级 AI 权限三开关。
+ *
+ * **合成规则**已裁（O-23）：三粒度取交集、收紧优先、下层不可放宽、服务端求交。
+ * **默认值未裁**——此处此前写死 `defaultOn: false` 并署「O-23 默认全关」，
+ * 2026-07-30 实测该出处是伪造的（O-23 裁决行只答了合成规则），
+ * 且原型三项里**有两项是开的**（15.2532M「3 项 · 1 项已关」）。
+ *
+ * ⇒ `defaultOn` 不再是 boolean，而是 `Threshold<boolean>`：
+ * 想拿到 boolean 必须过 `requireValue`，**未裁时抛错**而不是给出一个
+ * 从未被裁决的 `false`。唯一事实源在 `@repo/contracts/thresholds`，
+ * 本文件不许再声明第二份（同一事实两处 = 本仓已漂移五次的形状）。
+ */
 export interface ProjectAiSwitch {
   id: string;
   label: string;
-  defaultOn: boolean;
+  /** 默认值的**登记项**，不是值本身。取值走 `requireValue(s.defaultOn, s.defaultOnName)` */
+  defaultOn: Threshold<boolean>;
+  /** `THRESHOLDS` 里的键名 —— 抛错信息要说得出是哪一项没裁 */
+  defaultOnName: ThresholdName;
   offConsequence: string;
   affected: string;
 }
 export const PROJECT_AI_SWITCHES: ProjectAiSwitch[] = [
-  { id: "pa-propose", label: "Facilitator 主动提议收敛", defaultOn: false, offConsequence: "关掉后：AI 不再主动提示投票/收敛，只在被 @ 时回应。", affected: "Ava / Atlas 的主动插话" },
-  { id: "pa-transcribe", label: "实时转录与语音转便签", defaultOn: false, offConsequence: "关掉后：现场语音不转文字、不落便签。", affected: "Echo · skill『语音转便签 v4』" },
-  { id: "pa-canvas", label: "AI 直接在小组画布落笔", defaultOn: false, offConsequence: "关掉后：AI 只能『提交建议待接受』，不直接落笔（D-10）。", affected: "所有会写画布的 agent" },
+  {
+    id: "pa-propose", label: "Facilitator 主动提议收敛",
+    defaultOn: THRESHOLDS.projectAiDefaultProposeConvergence,
+    defaultOnName: "projectAiDefaultProposeConvergence",
+    offConsequence: "关掉后：AI 不再主动提示投票/收敛，只在被 @ 时回应。", affected: "Ava / Atlas 的主动插话",
+  },
+  {
+    id: "pa-transcribe", label: "实时转录与语音转便签",
+    defaultOn: THRESHOLDS.projectAiDefaultVoiceToNote,
+    defaultOnName: "projectAiDefaultVoiceToNote",
+    offConsequence: "关掉后：现场语音不转文字、不落便签。", affected: "Echo · skill『语音转便签 v4』",
+  },
+  {
+    id: "pa-canvas", label: "AI 直接在小组画布落笔",
+    defaultOn: THRESHOLDS.projectAiDefaultCanvasWrite,
+    defaultOnName: "projectAiDefaultCanvasWrite",
+    offConsequence: "关掉后：AI 只能『提交建议待接受』，不直接落笔（D-10 逐字「默认直接落笔」）。", affected: "所有会写画布的 agent",
+  },
 ];
 
 /** 改派提示条（原型明证）—— 判据是 MCP 授权集，理由须写出具体授权名。 */

@@ -193,7 +193,7 @@
 | V13 | 空态：线程无任何 agent 时显示真实空态与加入入口，不自动塞默认 agent | `getThreadAiTeam` → `roster: []` | `/chat?state=empty` `chat-team-market` | ✅ |
 | V14 | 审计态：载入、换出、编制变更、AI 权限开关变更、改派可按操作者、时间、线程、触发事件检索 | `queryAuditTimeline` | `/admin` `admin-overview-activity` | ⚠ **缺口 22**（项目级审计屏未建） |
 | V15 | O-23 三粒度求交：agent 级允许插话、项目级关闭 ⇒ 行为关闭；再在画布/线程级尝试打开 ⇒ **无法放宽**，仍关闭 | `getProjectAiPermissions.effective` | —（API 层验收） | ✅ 见 I-38 |
-| V16 | O-23 默认全关：新建项目时三个 AI 权限开关默认值均为**关** | `getProjectAiPermissions`（新建默认） | ⚠ 项目设置「AI 权限」屏未建 | ⚠ **缺口 7 同源** |
+| V16 | **默认值未裁**：`requireValue(THRESHOLDS.projectAiDefault*)` **抛错**，界面显示「默认值未裁」而不是画成某个方向 | `getProjectAiPermissions`（新建默认 ⇒ 报未裁，不给值） | `/agent-runtime?screen=team` `team-ai-switch-default-pending` / `team-switch-pending-*` | ⚠ **待人类裁决**（O-23 只裁了合成规则；旧口径「默认全关」是伪造出处，2026-07-30 撤） |
 | V17 | O-22④ 停用不进池：把某 agent 停用 ⇒ 从可载入池消失；已锁版本的在跑项目不受影响 | `disableAgent` + `evaluateLoadRules` | `/admin/agent` `admin-agent-disable-dialog` | ✅ 见 I-32 |
 | V18 | O-22⑤ 锁版本载入：现场载入的是**项目开工时锁定的 agent 版本**，后台改动不影响运行期 | `lockAgentVersionForProject` + `evaluateLoadRules` | —（API 层验收） | ✅ 见 I-31 |
 | V19 | O-22② 并发排队：并发已满时命中载入规则 ⇒ 任务**排队**并显示位次，不出现「载入失败」 | `enqueueAgentTask` → `{state:"queued", position}` | `/chat` `chat-approval-queue`；`/tasks` 运行中心 | ✅ 见 I-33 |
