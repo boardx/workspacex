@@ -122,19 +122,26 @@ beforeEach(async () => {
 /* ══════════════ I-1 可见范围五值封闭 ══════════════ */
 
 describe("I-1: 可见范围枚举封闭，且数据库与契约同源", () => {
-  it("数据库 CHECK 的取值集合逐值等于契约枚举", async () => {
-    const src = await asApp(ORG, async (c) => {
+  const constraintValues = (conname: string) =>
+    asApp(ORG, async (c) => {
       const r = await c.query<{ def: string }>(
-        `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
-          WHERE conname = 'chat_threads_visibility_scope'`,
+        "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = $1",
+        [conname],
       );
-      return r.rows[0]?.def ?? "";
+      const src = r.rows[0]?.def ?? "";
+      return [...src.matchAll(/'([a-z-]+)'::text/g)].map((m) => m[1]!).sort();
     });
-    const inDb = [...src.matchAll(/'([a-z-]+)'::text/g)].map((m) => m[1]!).sort();
-    // 断言**集合相等**，不断言长度：数成员数会把一次正当的、经 ADR 的新增拦下来
-    // （contract-design §五-7），而集合相等在新增时会明确指出是哪一侧还没跟上。
-    expect(inDb).toEqual([...C.ChatVisibility.options].sort());
-  });
+
+  // ⚠ 枚举在迁移里出现**两次**（线程一次、消息一次），所以两条都要比对。
+  //   只比线程那一条，第二份副本就会自己漂走——本仓已五次因「同一事实两处」出事。
+  it.each(["chat_threads_visibility_scope", "chat_messages_visibility_scope"])(
+    "%s 的取值集合逐值等于契约枚举",
+    async (conname) => {
+      // 断言**集合相等**，不断言长度：数成员数会把一次正当的、经 ADR 的新增拦下来
+      // （contract-design §五-7），而集合相等在新增时会明确指出是哪一侧还没跟上。
+      expect(await constraintValues(conname)).toEqual([...C.ChatVisibility.options].sort());
+    },
+  );
 
   it("未声明的取值 safeParse 必失败，且数据库也写不进去", async () => {
     expect(C.ChatVisibility.safeParse("all-hands").success).toBe(false);
