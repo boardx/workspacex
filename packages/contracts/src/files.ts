@@ -233,17 +233,65 @@ export const FILES_FORBIDDEN_ROUTES = [
 ] as const;
 
 /**
- * **出站端口，本束调用、他模块实现**（`usecases.md` E 组 / F47）。
+ * **出站端口，本束调用、他模块实现**（`usecases.md` E 组 / F47 契约先行桩）。
  *
  * 🔴 **任一模块不提供失效接口，AC2 就无法达成**——这是本模块最大的外部风险
  *   （uc-22-4 R10 逐字）。
  * ⚠ 第 ② 个端口与 phase-00 `artifact.markEvidenceWithdrawn` **形状高度相似**，
  *   须一致性复核确认**是不是同一个**。是同一个却各写一份，就是第 N 次同一事实两处。
+ *   见 `KNOWN_CONTRACT_GAPS.FS11` / coverage C-3。
+ *
+ * ## 为什么它们**不在** `operations` 里
+ * `operations` 是**本束提供的 HTTP 面**；这两个是**本束调用**的东西，实现体在 phase-02。
+ * 把它们写进 `operations` 会在 phase-01 凭空长出两条本仓不实现的路由，
+ * 且 `contract-shape.test.ts` 的「每个操作都有 method/path」会逼人替 09-kg 编一个路由。
+ * ⇒ 与 `UNTRUSTED_DOCUMENT_PORT` 同一处理：**是端口不是操作**。
+ * `method` / `path` **刻意缺席**——它由提供方（09-kg / 10-report）在 phase-02 定，
+ * 本束只定 `in` / `out` / `err` 三件的**形状**。
+ *
+ * ## `versionIds` 的 `.min(1)` 是刻意的
+ * 空集调用会让「一条边都没失效」与「什么都没做」在响应上不可分辨——
+ * 而这正是六类级联最危险的失败形状（一个只做前两项的实现在「跑完了」这种断言下全绿）。
+ * ⇒ 契约上就不存在「拿空集去级联」这条路径。
+ * ⚠ 但 `out` 仍分不清「本来就没有相关边」与「目标模块没干活」，
+ *   见 `KNOWN_CONTRACT_GAPS.FS13`——**本文件不发明第三个字段来补它**。
  */
-export const OUTBOUND_PORTS = [
-  { port: "invalidateOntologyEdges", providedBy: "09-kg (phase-02)", err: "CASCADE_TARGET_UNAVAILABLE" },
-  { port: "annotateWithdrawnEvidence", providedBy: "10-report / 13-deliv (phase-02)", err: "CASCADE_TARGET_UNAVAILABLE" },
-] as const;
+export const OUTBOUND_PORTS = {
+  /**
+   * ⑤ 图边失效（09-kg 提供）。`usecases.md` E 组第一条逐字。
+   * ⚠ 对应 `CascadeKind.ontology-edges`——这个端口失败 ⟺ 该类级联 `failed`。
+   */
+  invalidateOntologyEdges: {
+    providedBy: "09-kg (phase-02)",
+    /** ⚠ 空集不得成为一次「成功」——见上方长注 */
+    in: z.object({ artifactId: z.string().min(1), versionIds: z.array(z.string().min(1)).min(1) }).strict(),
+    out: z.object({ invalidatedEdgeIds: z.array(z.string()) }).strict(),
+    err: ["CASCADE_TARGET_UNAVAILABLE"] as const,
+    /** 该端口在六类级联中的落点 */
+    cascadeKind: "ontology-edges",
+  },
+  /**
+   * 报告段落标「证据已撤回」（10-report / 13-deliv 提供）。D-19。
+   * ⚠ **它不是六类之一**：六类级联外加的一条（`requestDeletion` 长注逐字「外加」），
+   *   故 `cascadeKind: null`。把它算成第七类会让 `CascadeKind` 的封闭六值失真。
+   * ⚠ **对内可见、对外不自动改写**：本端口只负责标注与通知，
+   *   **不改已签字结论**——替换须人工确认（与 `artifact.markEvidenceWithdrawn` 同义）。
+   */
+  annotateWithdrawnEvidence: {
+    providedBy: "10-report / 13-deliv (phase-02)",
+    /** `reason` 的最短长度 UC **没写**；此处取 `requestDeletion.reason` 的 min(4) 以外的保守值 min(1)，差异登记在 `FS13` */
+    in: z.object({ versionIds: z.array(z.string().min(1)).min(1), reason: z.string().min(1) }).strict(),
+    out: z
+      .object({ annotatedSectionIds: z.array(z.string()), notifiedApprovers: z.array(z.string()) })
+      .strict(),
+    err: ["CASCADE_TARGET_UNAVAILABLE"] as const,
+    /** ⚠ null 是结论不是遗漏：报告段落标注**不在** `CascadeKind` 六值内 */
+    cascadeKind: null,
+  },
+} as const;
+
+/** 出站端口名。⚠ 由 `OUTBOUND_PORTS` 派生，**不另列一份名字清单** */
+export type OutboundPortName = keyof typeof OUTBOUND_PORTS;
 
 /**
  * 🔴 **`wrapDocumentAsData` 是端口不是 HTTP 操作**（架构第三节）。
@@ -1285,4 +1333,16 @@ export const KNOWN_CONTRACT_GAPS = {
    *   因为没有权威数值。**别把「界面上没有这个字段」误读成「不需要这个字段」**。
    */
   FS12: "six [待定] numbers (T-1 file size cap, T-2 type allowlist, T-3 materialization deadline, T-8 partial-withdrawal cascade map, T-10 export threshold, ingestion timeout) leave several acceptance assertions unexecutable; their absence from the UI is a hole, not a decision",
+  /**
+   * 🔴 **两个出站端口的 `out` 分不清「本来就没有」与「目标模块没干活」。**
+   * `invalidatedEdgeIds: []` 与 `annotatedSectionIds: []` 都是合法的成功响应，
+   * 而它们同时也是「09-kg 收到请求后什么都没做」的响应——**逐字节相同**。
+   * ⇒ 六类级联第 ⑤ 项会在这种情况下记 `ok`，回执照出，而边其实还在图里。
+   * ⚠ 本文件**不发明第三个字段**（如 `matchedEdgeCount` / `targetScanned`）来补它：
+   *   那是 09-kg 的响应形状，属 phase-02 的设计，替他定就是替人裁决。
+   *   ⇒ F47 的契约测试对此**只断言形状，不断言语义**，缺口留在这里等一致性复核。
+   * ⚠ `annotateWithdrawnEvidence.in.reason` 的最短长度 UC 未写；本文件取 min(1)，
+   *   而调用侧 `requestDeletion.reason` 是 min(4)——**两处约束不一致**，一并裁。
+   */
+  FS13: "both outbound ports' out cannot distinguish 'no matching edges/sections existed' from 'the phase-02 module did nothing' — byte-identical responses, so cascade ⑤ records ok and the receipt is issued while the edges may still be live. Deliberately NOT patched with an invented third field (that is 09-kg's response shape). Also: reason min length is min(1) here vs min(4) on the calling requestDeletion",
 } as const;
