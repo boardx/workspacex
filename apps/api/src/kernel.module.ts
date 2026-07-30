@@ -115,6 +115,11 @@ import { AuthRegistrationController } from "./interface/controllers/auth-registr
 import { ORG_LIFECYCLE_REPOSITORY } from "./application/auth/ports";
 import { PgOrgLifecycleRepository } from "./infrastructure/auth/pg-org-lifecycle-repository";
 import { AuthOrgController } from "./interface/controllers/auth-org.controller";
+// phase-01 F07 (org-admin bundle): 资源可见性范围过滤。
+// ⚠ 没有新的 provider —— 它复用 phase-00 的 IDENTITY_REPOSITORY / CAPABILITY_REPOSITORY /
+//   DECISION_ID_FACTORY。新加一个 provider 会是「第二个判定实现」的第一步，而 usecases.md
+//   逐字写着这一条是 identity 的调用契约，不是第二个实现。
+import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope.controller";
 
 @Module({
   controllers: [
@@ -131,6 +136,7 @@ import { AuthOrgController } from "./interface/controllers/auth-org.controller";
     ArtifactReferenceController,
     EvidenceWithdrawalController,
     AuthOrgController,
+    OrgAdminScopeController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
