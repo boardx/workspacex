@@ -62,7 +62,17 @@ export interface ObjectRef {
    * apply lives in `domain/auth/org-lifecycle.ts` and reaches the payload through
    * `discloseDecided`.
    */
-  readonly kind: AclObjectRef["kind"] | "capability" | "organization";
+  /**
+   * ⚠ `interview` 由 F80 加入，理由与 `capability` / `organization` **完全同型**：
+   * 一场访谈是租户内容（标题即内容），所以它必须走 `permission-filter` 这道唯一的门；
+   * 但它的可见性**不来自 `acl_bindings`** —— 它是「创建者 + 显式协作者
+   * （+ 项目非空时的项目成员）」两种投影，规则在 `domain/interview/scope.ts`。
+   *
+   * 把它排除在 `AclObjectRef` 之外，就是把「顺手交给 authorizeBatch 判一下」
+   * 变成**编译错误**而不是一次找不到绑定、于是退回宽松默认 scope 的静默放行 ——
+   * 对一场只有创建者能看的独立访谈，那种放行就是 I-31 被彻底作废。
+   */
+  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview";
   readonly id: string;
 }
 

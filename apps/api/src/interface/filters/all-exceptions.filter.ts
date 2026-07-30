@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, identity } from "@repo/contracts";
+import { artifact, auth, identity, interview } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -120,7 +120,26 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * `@repo/contracts`, parsed against that enum, nothing else passes.
    */
   const localExport = identity.LocalExportReason.safeParse(raw);
-  return localExport.success ? { reasonCode: localExport.data } : {};
+  if (localExport.success) return { reasonCode: localExport.data };
+
+  /**
+   * F80: `interview.InterviewError`, the fifth closed enum —— 加它的理由与上一条**逐字相同**，
+   * 而且是同一个 bug 又发生了一次。
+   *
+   * `SCOPE_NOT_VISIBLE` 声明在契约的 `listInterviews.err` 里，却不属于上面任何一个枚举，
+   * 于是四次 safeParse 全部失败，调用方收到一个光秃秃的 `{"error":"forbidden"}`。
+   * 状态码对，原因没了 —— 而 uc-6-0/V7 要求「本范围无访谈」与「无权查看本范围」
+   * **文案不同**，前端唯一能据以分辨的就是这个码。丢掉它，那条验收线索在实现上无法满足。
+   *
+   * ⚠ 这不是给异常开的口子：`InterviewError` 是 `@repo/contracts` 里的封闭枚举，
+   * 在这里对着那个枚举 parse，枚举之外的任何字符串都过不来。
+   *
+   * ⚠ 注意 `NO_INTERVIEW_ACCESS` **不走这条路**：它必须与「不存在」逐字节不可区分，
+   * 所以那条路径抛的是不带 `reasonCode` 的裸 404（见 `interview-scope.controller.ts`）。
+   * 一个「顺手把 reasonCode 带上」的改动会当场打开 uc-6-0/E3 的枚举探测面。
+   */
+  const interviewError = interview.InterviewError.safeParse(raw);
+  return interviewError.success ? { reasonCode: interviewError.data } : {};
 }
 
 /**

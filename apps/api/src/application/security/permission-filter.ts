@@ -74,6 +74,25 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `and discloseDecided().`,
     );
   }
+  /**
+   * F80，与上面两条同型，而且是其中后果最直接的一条。
+   *
+   * 一场 `project_id IS NULL` 的访谈没有 `acl_bindings` 行 ⇒ `authorize` 找不到绑定 ⇒
+   * 退回 `DEFAULT_SCOPE`（org-wide）⇒ 看见非空的组织角色 ⇒ 返回 `allowed: true`。
+   * 也就是说：**一场只有创建者能看的独立访谈，会对全组织每个人放行**，
+   * 而那个 decision 对象长得完全正常、还带着一个 decisionId。这正是 I-31 说的
+   * 「不因无项目而全组织可见」的反面。
+   *
+   * 适用的规则是 `decideInterviewVisibility`（domain/interview/visibility-decision），
+   * 经 `discloseDecided` 取出载荷。
+   */
+  if (ref.kind === "interview") {
+    throw new Error(
+      `interview "${ref.id}" cannot be judged by authorize -- it has no acl_bindings row, ` +
+        `so authorize would allow every member of the organization. Use ` +
+        `decideInterviewVisibility (domain/interview/visibility-decision) and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 
