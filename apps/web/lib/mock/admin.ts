@@ -245,20 +245,35 @@ export const SKILLS: SkillRow[] = [
 // ─────────────────────────────────────────────────────────────────────────
 // 模型（UC-20.1 / UC-20.2 · D-07：启用/停用 + 可选范围过滤）
 // ─────────────────────────────────────────────────────────────────────────
-export type ModelStatus = "enabled" | "disabled" | "untested";
-export const MODEL_STATUS_LABEL: Record<ModelStatus, string> = {
+/**
+ * ⚠ 原名 `ModelStatus` / `ModelKind` —— 与 `agent-runtime.ts` 的同名契约类型
+ * **同名不同义、且取值不一致**，被 `lint-contract-source` 拦下（2026-07-31）。
+ *
+ * | | 契约（权威） | 本文件（展示层） |
+ * |---|---|---|
+ * | `ModelKind` | `["closed-api", "self-hosted"]` | `"hosted-api" \| "self-hosted"` |
+ * | `ModelStatus` | `["待测试","已启用","已停用","依赖失败"]`（4 值） | `"enabled"\|"disabled"\|"untested"`（3 值） |
+ *
+ * 🔴 **不只是命名差异**：`closed-api` vs `hosted-api` 是两个不同的词；
+ * 状态少一个「依赖失败」。**哪边对需要人类裁决**（登记进签核清单）。
+ *
+ * 沿用本仓已立九次的纪律：**同名会掩盖分歧，改名而不是合并** ⇒ 加 `View` 后缀。
+ * 收敛方向定了之后，本文件应改为从 `@repo/contracts` 派生，而不是保留第二份。
+ */
+export type ModelStatusView = "enabled" | "disabled" | "untested";
+export const MODEL_STATUS_VIEW_LABEL: Record<ModelStatusView, string> = {
   enabled: "已启用",
   disabled: "未启用",
   untested: "待测试",
 };
 
-export type ModelKind = "hosted-api" | "self-hosted";
+export type ModelKindView = "hosted-api" | "self-hosted";
 
 export interface ModelRow {
   id: string;
   name: string;
-  kind: ModelKind;
-  status: ModelStatus;
+  kind: ModelKindView;
+  status: ModelStatusView;
   vendor: string;
   /** 能力标签（闭源）/ 许可证·特性（开源） */
   tags: string;
