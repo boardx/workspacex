@@ -1,260 +1,333 @@
 "use client";
 import * as React from "react";
-import { Send, Bot, Wrench, Users, HelpCircle, AlertTriangle, ShieldAlert } from "lucide-react";
+import {
+  Send, Wrench, Plus, X, CheckCircle2, AlertTriangle, Lock, Sparkles, MessageSquarePlus,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { StaticSwitch } from "@/components/itv/static-switch";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
+import { cn } from "@/lib/utils";
 import {
-  PRESETS,
-  DISPATCH_TARGET_LABEL,
-  PRESET_OPEN_QUESTIONS,
-  dispatchScopeViolation,
-  type Preset,
-  type DispatchTargetKind,
+  PRESETS, DISPATCH_TARGET_LABEL, PRESET_HEADER, PRESET_EDITOR, PRESET_CONSUMER,
+  PRESET_ANSWERED, dispatchScopeViolation, type Preset,
 } from "@/lib/mock/chat";
 
 /**
- * UC-8.4 预设对话下发 —— **整屏都是补画原型**（原型 0 命中，口径重标 2026-07-28）。
+ * UC-8.4 预设对话与技能 —— v2 重画（原型有完整一屏，v1 误报「预设 0 命中」）。
  *
- * ⚠⚠ 这是本束**权限模型未定**的一屏：谁能给谁下发、被下发者能不能改/拒——UC 未写死。
- *    界面把这三个问题做成**显式「待裁决」卡**，不替 UC 表态（见顶部横幅 + 右侧待裁决区）。
- *    使用计数按「真实实例数」而非「下发人数」呈现（AC1 / V1）。
+ * 原型落点：工作坊详情 → 对话子页（引导师视角）。四列表格 + 规则条 + 新建预设弹层。
+ * ⚠ v1 把三条权限规则摆成「待裁决」，原型全部答死——本屏改渲染为「原型已答 + 出处」。
+ * 视角：引导师视角看下发端；组员 / 观察者视角看「点开即用」消费端（只读投影）。
  */
-export function PresetDispatch({ state, readOnly = false }: { state: UiState; readOnly?: boolean }) {
+export function PresetDispatch({
+  state, readOnly = false, consumerView = false,
+}: { state: UiState; readOnly?: boolean; consumerView?: boolean }) {
+  const [editorOpen, setEditorOpen] = React.useState(false);
+
   return (
     <div className="flex h-full flex-col" data-testid="chat-preset">
       <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
         <Send aria-hidden className="h-4 w-4 text-muted-foreground" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h1 className="truncate text-14 font-semibold">预设对话与技能</h1>
-          <p className="truncate text-11 text-muted-foreground">
-            引导师预先写好开场提示与内置 skill，下发给各组，打开即用
-          </p>
+          <h1 className="truncate text-14 font-semibold">{PRESET_HEADER.title}</h1>
+          <p className="truncate text-11 text-muted-foreground">{PRESET_HEADER.sub}</p>
         </div>
-        <Badge tone="warning" data-testid="chat-preset-proto-tag" title="原型 0 命中，本屏为补画原型">
-          补画原型 · 待裁决
-        </Badge>
+        {!consumerView && (
+          <Button size="sm" variant="primary" disabled={readOnly} data-testid="chat-preset-new" onClick={() => setEditorOpen(true)}>
+            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建预设
+          </Button>
+        )}
       </header>
-
-      {/* 权限未定横幅 —— 高风险，放在最顶，人类一眼看到 */}
-      <div className="shrink-0 border-b border-warning/30 bg-warning/10 px-4 py-2" data-testid="chat-preset-power-banner">
-        <p className="flex items-start gap-1.5 text-11 text-warning">
-          <ShieldAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            <strong>这屏是权限模型问题，不只是界面问题。</strong>
-            谁能给谁下发、被下发者能不能改 / 能不能拒——UC-8.4 未写死。下方按现有线索先渲染，
-            <strong>三处「?」为待裁决，请勿当已确认设计</strong>。
-          </span>
-        </p>
-      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <StateShell
           state={state}
           skeletonRows={4}
           emptyHint="还没有预设。写好开场提示与内置 skill，选下发对象后下发给各组。"
-          onCreate={() => window.alert("演示：新建预设")}
-          errors={{ name: "预设名不能为空", target: "请选择下发对象（全场 / 指定组 / 指定角色）" }}
-          depFailure={{ what: "skill / agent 目录服务暂时不可用，无法校验可见性范围，暂不能下发。" }}
-          denial={{ layer: "project", reason: "只有引导师可以编写与下发预设（此判定本身待裁决）" }}
-          successMessage="已下发给全场 8 组 · 各人开始后生成各自私有对话"
+          onCreate={() => setEditorOpen(true)}
+          errors={{
+            "preset-name": "预设名称不能为空",
+            "preset-scope": "「证据检索」仅『能源组』可见，下发给全部组员会越界——先缩小下发范围或换技能",
+          }}
+          depFailure={{ what: "内置技能服务（skill runtime）暂不可用，预设可保存为草稿但暂不能下发" }}
+          denial={{ layer: "project", reason: "只有引导师能在工作坊里新建 / 下发预设；组长与组员在自己视角「点开即用」。你不是本工作坊的引导师" }}
+          successMessage="预设已保存并下发 · 出现在对应角色视角的「点开即用」区"
         >
-          {!readOnly && <PresetBody />}
+          {consumerView ? <ConsumerPanel /> : <DispatcherPanel readOnly={readOnly} onNew={() => setEditorOpen(true)} />}
         </StateShell>
       </div>
+
+      {editorOpen && !readOnly && <PresetEditorOverlay onClose={() => setEditorOpen(false)} />}
     </div>
   );
 }
 
-function PresetBody() {
-  const [selected, setSelected] = React.useState<Preset>(PRESETS[0]!);
+/* ───────────────────────── 下发端（引导师视角）───────────────────────── */
+function DispatcherPanel({ readOnly, onNew }: { readOnly: boolean; onNew: () => void }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="flex flex-col gap-4">
-        <PresetList selected={selected} onSelect={setSelected} />
-        <PresetEditor preset={selected} />
-      </div>
-      <OpenQuestions />
+    <div className="flex flex-col gap-4">
+      {/* 三条「原型已答」——替代 v1 的三张「待裁决」卡 */}
+      <section className="rounded-lg border border-border bg-panel p-3" data-testid="chat-preset-answered">
+        <p className="mb-2 flex items-center gap-1.5 text-11 font-medium text-foreground">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-primary" />
+          权限模型：原型已答（v1 曾把这三条摆成「待裁决」，实为已有答案）
+        </p>
+        <div className="grid gap-2 md:grid-cols-3">
+          {PRESET_ANSWERED.map((a) => (
+            <div key={a.id} className="rounded-md border border-border-subtle bg-card p-2.5" data-testid={`chat-preset-answered-${a.id}`}>
+              <p className="text-11 font-medium text-foreground">{a.q}</p>
+              <p className="mt-1 text-11 text-foreground">{a.answer}</p>
+              <p className="mt-1.5 text-10 text-muted-foreground">出处：{a.evidence}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 预设表 · 四列（原型表头） */}
+      <section data-testid="chat-preset-table">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 className="text-12 font-semibold">{PRESET_HEADER.sectionTitle}</h2>
+          <Badge tone="neutral">{PRESETS.length}</Badge>
+        </div>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-11">
+            <thead>
+              <tr className="border-b border-border-subtle bg-panel text-left text-muted-foreground">
+                {PRESET_HEADER.columns.map((c) => (
+                  <th key={c} className="px-3 py-2 font-medium">{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PRESETS.map((p) => (
+                <PresetRow key={p.id} preset={p} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* 规则条 —— 同时是「能不能拒」的原型答案 */}
+        <p className="mt-2 flex items-start gap-1.5 rounded-md bg-ai-tint/40 px-2.5 py-2 text-11 text-ai-tint-foreground" data-testid="chat-preset-rule">
+          <Sparkles aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {PRESET_HEADER.rule}
+        </p>
+        <div className="mt-2">
+          <Button size="sm" variant="outline" disabled={readOnly} data-testid="chat-preset-new-inline" onClick={onNew}>
+            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建预设
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }
 
-function PresetList({ selected, onSelect }: { selected: Preset; onSelect: (p: Preset) => void }) {
+function PresetRow({ preset }: { preset: Preset }) {
+  const groupSkill = preset.skills.find((s) => s.scope === "group");
   return (
-    <section className="flex flex-col gap-2" data-testid="chat-preset-list">
-      <h2 className="text-12 font-semibold">预设（{PRESETS.length}）</h2>
-      <ul className="flex flex-col gap-2">
-        {PRESETS.map((p) => (
-          <li key={p.id}>
-            <button
-              type="button"
-              onClick={() => onSelect(p)}
-              aria-pressed={p.id === selected.id}
-              data-testid={`chat-preset-item-${p.id}`}
-              className={[
-                "flex w-full items-center gap-2 rounded-md border p-3 text-left transition-all duration-200",
-                p.id === selected.id ? "border-primary bg-muted" : "border-border bg-card hover:bg-muted",
-              ].join(" ")}
+    <tr className="border-b border-border-subtle align-top last:border-0" data-testid={`chat-preset-row-${preset.id}`}>
+      <td className="px-3 py-2.5">
+        <div className="font-medium text-foreground">{preset.name}</div>
+        <div className="mt-0.5 text-10 text-muted-foreground">{preset.note}</div>
+      </td>
+      <td className="px-3 py-2.5">
+        <div className="flex flex-wrap gap-1">
+          {preset.skills.map((s) => (
+            <span
+              key={s.name}
+              className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-10 text-foreground"
+              data-testid={`chat-preset-skill-${preset.id}-${s.name}`}
+              title={s.scope === "group" ? `仅『${s.scopeGroup}』可见` : "全组织可用"}
             >
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-13 font-medium">{p.name}</span>
-                <span className="truncate text-10 text-muted-foreground">
-                  下发对象：{DISPATCH_TARGET_LABEL[p.target.kind]} · {p.target.detail}
-                </span>
-              </div>
-              {p.status === "draft" ? (
-                <Badge tone="neutral">草稿</Badge>
-              ) : (
-                <span className="flex flex-col items-end gap-0.5">
-                  {/* 使用计数 = 真实实例数（AC1）—— 与下发人数分开显示，不让人误读 */}
-                  <Badge tone="primary" data-testid={`chat-preset-usage-${p.id}`}>
-                    用过 {p.instanceCount} 次
-                  </Badge>
-                  <span className="text-10 text-muted-foreground" data-testid={`chat-preset-dispatched-${p.id}`}>
-                    下发给 {p.dispatchedTo} 人
-                  </span>
-                </span>
-              )}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <p className="text-10 text-muted-foreground">
-        ⚠ 待裁决：使用计数按<strong>实例数</strong>（真实开始的对话）算，不是下发人数——下发 8 组、只有 6 个实例，就是 6。
-      </p>
-    </section>
-  );
-}
-
-function PresetEditor({ preset }: { preset: Preset }) {
-  const [targetKind, setTargetKind] = React.useState<DispatchTargetKind>(preset.target.kind);
-  // 演示：把下发对象组设为「第 5 组」，触发「仅能源组」资源的越界拒绝（V1c）
-  const targetGroup = targetKind === "groups" ? "第 5 组" : null;
-  const violation = dispatchScopeViolation(preset, targetGroup);
-
-  React.useEffect(() => setTargetKind(preset.target.kind), [preset.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <Card data-testid="chat-preset-editor">
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="preset-prompt">开场提示</Label>
-          <Textarea
-            id="preset-prompt"
-            defaultValue={preset.openingPrompt}
-            data-testid="chat-preset-prompt"
-            className="min-h-16 text-12"
-          />
+              <Wrench aria-hidden className="h-2.5 w-2.5 text-muted-foreground" />
+              {s.name}
+              {s.scope === "group" && <Lock aria-hidden className="h-2.5 w-2.5 text-warning" />}
+            </span>
+          ))}
         </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <ResourceList icon={<Bot aria-hidden className="h-3.5 w-3.5" />} title="内置 agent" refs={preset.agents} />
-          <ResourceList icon={<Wrench aria-hidden className="h-3.5 w-3.5" />} title="内置 skill" refs={preset.skills} />
-        </div>
-
-        {/* 下发对象选择器（R3 步骤 1）*/}
-        <div className="flex flex-col gap-1.5">
-          <span className="flex items-center gap-1.5 text-11 font-medium">
-            <Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-            下发对象
-          </span>
-          <div className="flex flex-wrap gap-1.5" data-testid="chat-preset-target">
-            {(Object.keys(DISPATCH_TARGET_LABEL) as DispatchTargetKind[]).map((k) => (
-              <Button
-                key={k}
-                size="xs"
-                variant={k === targetKind ? "primary" : "outline"}
-                onClick={() => setTargetKind(k)}
-                data-testid={`chat-preset-target-${k}`}
-              >
-                {DISPATCH_TARGET_LABEL[k]}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* 可见性范围校验（R3 步骤 1 / V1c）—— 越范围下发即拒绝，不是下发后失败 */}
-        {violation.blocked ? (
-          <div
-            role="alert"
-            data-testid="chat-preset-scope-violation"
-            className="flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2.5"
-          >
-            <p className="flex items-center gap-1.5 text-11 font-medium text-destructive">
-              <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-              下发被拒 · 组织层可见性限制
-            </p>
-            <p className="text-10 text-muted-foreground">
-              这些资源仅对「
-              {violation.offenders.map((o) => o.scopeGroup).join("、")}
-              」可见，超出下发对象（{targetGroup}）范围：
-              {violation.offenders.map((o) => o.name).join("、")}。越范围的资源在下发时即拒绝。
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-10 text-muted-foreground">
-              预设可见 ≠ 实例可见：各人开始后生成<strong>各自私有</strong>的对话（可见性判定归 UC-8.5）。
-            </p>
-            <Button size="sm" variant="primary" data-testid="chat-preset-dispatch-btn">
-              <Send aria-hidden className="h-3.5 w-3.5" />
-              下发
-            </Button>
+        {groupSkill && (
+          <div className="mt-1 flex items-center gap-1 text-10 text-warning" data-testid={`chat-preset-scope-warn-${preset.id}`}>
+            <AlertTriangle aria-hidden className="h-3 w-3" />
+            「{groupSkill.name}」仅『{groupSkill.scopeGroup}』可见 · 下发对象含此范围外的组即拒
           </div>
         )}
-
-        <p className="rounded-md bg-muted px-2 py-1.5 text-10 text-muted-foreground" data-testid="chat-preset-no-preapprove">
-          ⚠ 预设<strong>不得预先批准任何高影响动作</strong>：实例继承 UC-8.2 全部规则（AI 主动发言必带来源、高影响动作走批准卡）。
-        </p>
-      </CardContent>
-    </Card>
+      </td>
+      <td className="px-3 py-2.5">
+        <Badge tone="outline" data-testid={`chat-preset-to-${preset.id}`}>{DISPATCH_TARGET_LABEL[preset.to]}</Badge>
+      </td>
+      <td className="px-3 py-2.5 tabular-nums text-muted-foreground" data-testid={`chat-preset-used-${preset.id}`}>
+        {preset.used} 次
+      </td>
+    </tr>
   );
 }
 
-function ResourceList({
-  icon, title, refs,
-}: { icon: React.ReactNode; title: string; refs: Preset["agents"] }) {
+/* ───────────────────────── 消费端（组员 / 观察者视角）───────────────────────── */
+function ConsumerPanel() {
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="flex items-center gap-1.5 text-11 font-medium text-muted-foreground">{icon}{title}</span>
-      {refs.length === 0 ? (
-        <span className="text-10 text-muted-foreground">（无）</span>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {refs.map((r) => (
-            <li key={r.id} className="flex items-center gap-1.5 text-11">
-              <span className="min-w-0 flex-1 truncate">{r.name}</span>
-              <Badge tone={r.scope === "org" ? "neutral" : "ai"}>
-                {r.scope === "org" ? "全组织可用" : `仅${r.scopeGroup}`}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col gap-3" data-testid="chat-preset-consumer">
+      <div className="flex items-center gap-2">
+        <MessageSquarePlus aria-hidden className="h-4 w-4 text-primary" />
+        <h2 className="text-12 font-semibold">{PRESET_CONSUMER.roleLabel}</h2>
+      </div>
+      <p className="text-11 text-muted-foreground">{PRESET_CONSUMER.note}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {PRESETS.map((p) => (
+          <div key={p.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2.5" data-testid={`chat-preset-consumer-item-${p.id}`}>
+            <Badge tone="primary">引导师预设</Badge>
+            <div className="min-w-0 flex-1">
+              <div className="text-11 font-medium text-foreground">{p.name}</div>
+              <div className="text-10 text-muted-foreground">{p.note}</div>
+            </div>
+            <Button size="xs" variant="outline" onClick={() => window.alert(`演示：点开「${p.name}」，开始你和 agent 的私有对话`)} data-testid={`chat-preset-open-${p.id}`}>点开即用</Button>
+          </div>
+        ))}
+      </div>
+      <p className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-panel px-2.5 py-2 text-10 text-muted-foreground" data-testid="chat-preset-consumer-note">
+        <Lock aria-hidden className="h-3 w-3" />
+        这些是引导师下发的入口。用不用你自己定；点开后是你和 agent 的私有对话，产出默认留在你这里，除非你主动贴到小组画布。
+      </p>
     </div>
   );
 }
 
-/** 三个未定权限问题，显式渲染为待裁决卡（不替 UC 表态）*/
-function OpenQuestions() {
+/* ───────────────────────── 新建预设弹层（原型 isMNewChat）───────────────────────── */
+function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
+  const e = PRESET_EDITOR;
+  const [start, setStart] = React.useState(e.startFrom[0]!.name);
+  const [targets, setTargets] = React.useState<Record<string, boolean>>(
+    Object.fromEntries(e.dispatchTargets.map((t) => [t.id, t.on])),
+  );
+  // 演示越界：勾了「只给第 4 组」而预设含仅『能源组』可见的组范围技能 → 报越界。
+  const groupOnlyChecked = targets["group-4"];
+  const demoPreset = PRESETS.find((p) => p.skills.some((s) => s.scope === "group"))!;
+  const violation = dispatchScopeViolation(demoPreset, groupOnlyChecked ? "第 4 组" : "能源组");
+
   return (
-    <aside className="flex flex-col gap-2" data-testid="chat-preset-open-questions">
-      <h2 className="flex items-center gap-1.5 text-12 font-semibold">
-        <HelpCircle aria-hidden className="h-3.5 w-3.5 text-warning" />
-        待裁决（UC 未写死）
-      </h2>
-      {PRESET_OPEN_QUESTIONS.map((q) => (
-        <Card key={q.id} className="border-warning/30" data-testid={`chat-preset-question-${q.id}`}>
-          <CardContent className="flex flex-col gap-1 p-3">
-            <p className="text-11 font-medium text-warning">{q.q}</p>
-            <p className="text-10 text-muted-foreground">{q.detail}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </aside>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="chat-preset-editor">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+        <div className="flex items-start justify-between border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-13 font-semibold" data-testid="chat-preset-editor-title">{e.title}</h2>
+            <p className="mt-0.5 text-10 text-muted-foreground">{e.context}</p>
+          </div>
+          <button type="button" onClick={onClose} data-testid="chat-preset-editor-close" className="text-muted-foreground transition-colors hover:text-background-foreground">
+            <X aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          {/* 可见性说明（newChatVis） */}
+          <p className="mb-3 flex items-start gap-1.5 rounded-md bg-panel px-2.5 py-2 text-10 text-muted-foreground" data-testid="chat-preset-editor-vis">
+            <Badge tone="neutral">V</Badge>
+            {e.visNote}
+          </p>
+
+          {/* 从预设开始 */}
+          <Field label="从预设开始">
+            <div className="grid grid-cols-2 gap-1.5">
+              {e.startFrom.map((s) => (
+                <button
+                  key={s.name} type="button"
+                  onClick={() => setStart(s.name)}
+                  data-testid={`chat-preset-editor-start-${s.name}`}
+                  className={cn(
+                    "flex items-start gap-2 rounded-md border px-2 py-1.5 text-left",
+                    s.name === start ? "border-primary bg-panel" : "border-border-subtle hover:bg-muted/60",
+                  )}
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-9 font-semibold text-muted-foreground">{s.ab}</span>
+                  <span className="min-w-0">
+                    <span className="block text-11 font-medium text-foreground">{s.name}</span>
+                    <span className="block text-9 text-muted-foreground">{s.note}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="对话名称">
+            <input
+              data-testid="chat-preset-editor-name"
+              defaultValue={start}
+              className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </Field>
+
+          {/* 预设技能 · 引导师已配好，可增减（问题②答案） */}
+          <Field label={e.skillsNote}>
+            <div className="flex flex-wrap gap-1.5" data-testid="chat-preset-editor-skills">
+              {e.presetSkills.map((s) => (
+                <span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-foreground">
+                  {s} <X aria-hidden className="h-2.5 w-2.5 text-muted-foreground" />
+                </span>
+              ))}
+              <button type="button" onClick={() => window.alert("演示：添加技能")} className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-10 text-muted-foreground" data-testid="chat-preset-editor-add-skill">
+                <Plus aria-hidden className="h-2.5 w-2.5" /> 添加技能
+              </button>
+            </div>
+          </Field>
+
+          {/* 带入的现场上下文 */}
+          <Field label="带入的现场上下文">
+            <div className="flex flex-col gap-1" data-testid="chat-preset-editor-context">
+              {e.contextSources.map((c) => (
+                <label key={c.label} className="flex items-center justify-between rounded-md border border-border-subtle px-2 py-1 text-11">
+                  <span className={cn(c.locked && "text-muted-foreground")}>
+                    {c.label} {c.locked && <Lock aria-hidden className="inline h-2.5 w-2.5" />}
+                  </span>
+                  <StaticSwitch on={c.on} label={c.label} testId={`chat-preset-ctx-${c.label}`} />
+                </label>
+              ))}
+            </div>
+          </Field>
+
+          {/* 下发对象 */}
+          <Field label="下发对象">
+            <div className="flex flex-col gap-1" data-testid="chat-preset-editor-targets">
+              {e.dispatchTargets.map((t) => (
+                <label key={t.id} className="flex items-center gap-2 rounded-md border border-border-subtle px-2 py-1 text-11">
+                  <input
+                    type="checkbox" checked={!!targets[t.id]}
+                    onChange={(ev) => setTargets((s) => ({ ...s, [t.id]: ev.target.checked }))}
+                    data-testid={`chat-preset-target-${t.id}`}
+                    className="h-3.5 w-3.5 accent-primary"
+                  />
+                  <span>{t.label}</span>
+                </label>
+              ))}
+            </div>
+            {violation.blocked && (
+              <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-10 text-warning" data-testid="err-preset-scope">
+                <AlertTriangle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
+                越界：「{violation.offenders.map((o) => o.name).join("、")}」仅『能源组』可见，下发给第 4 组即超出范围——下发会被拒。先缩小范围或换技能。
+              </p>
+            )}
+          </Field>
+
+          <Field label="开场提示">
+            <Textarea data-testid="chat-preset-editor-opening" rows={3} defaultValue="先读本组画布，指出还缺哪几类信息，每条给一个候选便签，标出可能的来源。" />
+          </Field>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
+          <span className="text-10 text-muted-foreground">{e.foot}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={onClose} data-testid="chat-preset-editor-cancel">取消</Button>
+            <Button size="sm" variant="primary" disabled={violation.blocked} data-testid="chat-preset-editor-save">{e.cta}</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-3">
+      <div className="mb-1 text-10 font-medium text-muted-foreground">{label}</div>
+      {children}
+    </div>
   );
 }

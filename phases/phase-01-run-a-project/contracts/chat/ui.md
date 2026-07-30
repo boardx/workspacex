@@ -1,12 +1,16 @@
 # 契约束 `chat` — ① UI（签核面第 ① 件）
 
-> **自检：本文件引用 18 张截图，`ui-preview/chat/` 目录下实际 18 张。N == M == 18，逐张核对全部真实存在。**
-> （核对命令：`ls -1 phases/phase-01-run-a-project/ui-preview/chat/*.png | wc -l`）
+> **自检：本文件引用 20 张截图，`ui-preview/chat-v2/` 目录下实际 20 张。N == M == 20，逐张核对全部真实存在。**
+> （核对命令：`node .harness/scripts/lint-ui-material.mjs`；双向集合相等）
+>
+> 🔄 **`/chat/preset`（UC-8.4）为 v2 重画**：v1（`ui-preview/chat/`）误报「预设原型 0 命中、每个控件都是新设计」，
+> 并把三条已被原型答死的权限规则摆成「待裁决」。v2 目录 `chat-v2/` 含 **11 张重画的预设屏** ＋ **9 张原样承载的落地屏**（`/chat/landing`）。
+> v1 目录保留不动（推翻要留痕），本文件不引用它的任何一张。逐条偏移见 `ui-preview/chat-v2/V1-WAS-WRONG.md`。
 
 # 🟠 截图已部分产出：UC-8.3 / UC-8.4 两屏可签，其余屏仍**不具备签核条件**
 
-ui-prototyper 已产出 **18 张真实截图**（`ui-preview/chat/`，另附一份 `README.md` 说明），
-覆盖 **UC-8.3 对话产出落地（`/chat/landing`）9 张** 与 **UC-8.4 预设对话下发（`/chat/preset`）9 张**，
+ui-prototyper 已产出 **20 张真实截图**（`ui-preview/chat-v2/`，另附一份 `README.md` 说明），
+覆盖 **UC-8.3 对话产出落地（`/chat/landing`）9 张** 与 **UC-8.4 预设对话与技能（`/chat/preset`）11 张（v2 重画）**，
 均为真实组件跑 dev server（1360×900，2×）实拍，非设计稿。
 
 **但本束的主屏 `/chat`（UC-8.1 / 8.2 / 8.5，服务 F109 F110 F111 F112 F113）一张截图都没有。**
@@ -33,8 +37,8 @@ ADR-023 背景 3 记录的正是这个爆点「没有被消除，只是被推迟
 | S4 | **「为什么被拒」两层区分** | `/chat?state=denied` | F108 | ⚠ **半建**（`/chat` 七态占位在，**不区分组织层/项目层**；`/chat/landing` 的 denied 态已带 `denied-layer`） | ⚠ 只有落地屏那张（`uc-8-3-landing-denied.png`），`/chat` 主屏侧无图（G-15） |
 | S5 | **agent 编制面板**（`[编制]` 点开） | `/chat`（抽屉） | F110 | ⚠ **半建**（原型是空按钮；现为 `chat-team-edit-hint` 一行提示） | ❌ **零张**（G-21） |
 | S6 | **三模式选择器 + 产物徽标** | 原设想 `/chat` 右栏「产物」→ **实际落在 `/chat/landing`** | F114 | ✅ **本轮已画**（phase-00 `artifact` 束缺口④说的是同一块 UI） | ✅ **9 张**（见 3.1 #1～#9，尤以 #1 为主） |
-| S7 | **未挂来源标灰 + 「补来源」入口** | 原设想 `/chat` 产物卡→ **实际落在 `/chat/landing`** | F114 | ✅ **本轮已画**（标灰原文在洞察报告工作台，对话侧属跨屏借证，见 `ui-preview/chat/README.md` 第二节 4） | ✅ **1 张**（见 3.1 #9） |
-| S8 | **预设列表 / 编辑器 / 下发对象选择器 / 使用计数 / 接收入口** | 原设想未定（uc-8-4 R8 的「预设对话与技能」是**推断的页面名**）→ **实际定为 `/chat/preset`** | F115 | ✅ **本轮整屏补画**（原型 0 命中，每个控件都是新设计，权限模型三条待裁决） | ✅ **9 张**（见 3.2 #10～#18） |
+| S7 | **未挂来源标灰 + 「补来源」入口** | 原设想 `/chat` 产物卡→ **实际落在 `/chat/landing`** | F114 | ✅ **本轮已画**（标灰原文在洞察报告工作台，对话侧属跨屏借证，见 `ui-preview/chat-v2/README.md` 第二节 4） | ✅ **1 张**（见 3.1 #9） |
+| S8 | **预设列表 / 编辑器 / 下发对象选择器 / 使用计数 / 点开即用消费端** | uc-8-4 R8「预设对话与技能」→ `/chat/preset`（原型 wsPhase="chats"，工作坊详情→对话子页） | F115 | 🔄 **v2 重画**：原型有完整一屏（v1 误报 0 命中）；四列表 + 编辑器弹层 + 消费端逐字复原，权限模型三条**原型已答**（非待裁决） | ✅ **11 张**（见 3.2 #10～#20） |
 | S9 | **「项目工作台 → 与 AI 的对话」第二入口** | `/projects/[id]`（未建） | F110（uc-8-2 V12） | ❌ **未建** | ❌ **零张**（G-22） |
 
 > ⚠ **本轮把 S6 / S7 / S8 从「未建」推进到「已画并有截图」，落点由 `/chat` 内嵌改成了两条新路由
@@ -82,14 +86,14 @@ ADR-023 背景 3 记录的正是这个爆点「没有被消除，只是被推迟
 
 ---
 
-## 三、截图清单（真实索引 —— 18 张，全部实拍存在）
+## 三、截图清单（真实索引 —— 20 张，全部实拍存在）
 
-目录：`phases/phase-01-run-a-project/ui-preview/chat/`（另含一份 `README.md`，是 ui-prototyper 的
+目录：`phases/phase-01-run-a-project/ui-preview/chat-v2/`（另含一份 `README.md`，是 ui-prototyper 的
 sign-off 说明，**它才是每张图的原始注解，本表是给签核人用的索引**）。
 抓图条件：真实组件 + `next dev`，视口 1360×900 @2×，0 条真实控制台报错。
 七态由 `?state=` 切、四视角由 `?as=` 切，均走共享 `StateShell`。
 
-> ⚠ 下表**是本文件对截图的全部引用，共 18 条，与目录下 18 个 `.png` 一一对应，不多不少、不重复**。
+> ⚠ 下表**是本文件对截图的全部引用，共 20 条，与目录下 20 个 `.png` 一一对应，不多不少、不重复**。
 > 原骨架里那套 `chat-<slug>.png` 命名约定（`chat-main-default` 等）**是当时设想的、一张都不存在**，
 > 已整体移入第五节的缺口清单，不在此处伪装成材料。
 
@@ -97,44 +101,45 @@ sign-off 说明，**它才是每张图的原始注解，本表是给签核人用
 
 | # | 截图路径 | 状态 / 视角 | 拍什么 | 回答哪个签核问题 |
 |---|---|---|---|---|
-| 1 | `ui-preview/chat/uc-8-3-landing-default.png` | `default` · facilitator | 落地主屏：落地动作集 + 产物列表 + **三模式选择器（并列三卡 + 各自后果）** + 决策门控 chip 排 | 三模式是否该做成并列三卡而非单选钮；「能被拿来干什么 / 会不会随源变动 / 可不可进决策」印在卡上是否合适（UC-8.3 R3 步骤 1/3/4、R8） |
-| 2 | `ui-preview/chat/uc-8-3-landing-loading.png` | `loading` · facilitator | 骨架屏（skeleton），保留名 `loading` | 七态齐备性（UC-0.4 / U1） |
-| 3 | `ui-preview/chat/uc-8-3-landing-empty.png` | `empty` · facilitator | 线程内无可落地结论 —— **不生成伪产出** | 空态不造数据（UC-8.3 A1 / U2） |
-| 4 | `ui-preview/chat/uc-8-3-landing-invalid.png` | `invalid` · facilitator | 校验失败：未选绑定模式 / 未挂来源不可定版（`err-mode` / `err-source`） | 校验点是否落在正确的两处（UC-8.3 R3 步骤 3 / U3） |
-| 5 | `ui-preview/chat/uc-8-3-landing-dep-failed.png` | `dep-failed` · facilitator | 报告服务 / 图谱写回不可用时的降级呈现 | 依赖失败时输入与最近成功数据是否保留（UC-8.3 E2/E8） |
-| 6 | `ui-preview/chat/uc-8-3-landing-denied.png` | `denied` · observer | 无权限态，**带 `denied-layer` 区分组织层/项目层**（此处为项目层：观察者，落地不下发） | ⚠ 两层区分只在这一屏做到了；`/chat` 主屏仍不区分（缺口 18 / 第四节 G-15） |
-| 7 | `ui-preview/chat/uc-8-3-landing-success.png` | `success` · facilitator | 已定版 v3 · 已加入报告正式版（`saved`） | 成功文案是否体现「产生了不可变版本」 |
-| 8 | `ui-preview/chat/uc-8-3-landing-observer.png` | `default` · **observer**（视角投影，非拒绝） | 观察者默认态：**落地动作整块不渲染**，不是置灰 | **S-11 观察者到底还剩什么**；「不渲染 ≠ 禁用」是否为正确投影（UC-8.3 R5 / UC-8.5 R6）。⚠ 界面投影不等于权限实现，真实降级须服务端不下发 |
-| 9 | `ui-preview/chat/uc-8-3-landing-nosource-gate.png` | 特殊态 · facilitator | **选中「未挂来源」的结论**后：条目标灰 + 「固定快照」模式卡禁用并给原因 + 四个决策动作 chip 全灰 + 一行「被服务端阻断」+ `chat-gate-pin-now` 一键定版入口 | 🔴 两条关键裁决同屏：①「加入报告」走**阻断 + 一键定版**而非自动定版（UC-8.3 标 [待确认]，实现选了保守一路）；② **对话侧标灰是否与洞察报告工作台同规则**（标灰原文只在 proto-05，对话侧属跨屏借证）。对应 UC-8.3 R7 AC3 / R3 步骤 4 |
+| 1 | `ui-preview/chat-v2/uc-8-3-landing-default.png` | `default` · facilitator | 落地主屏：落地动作集 + 产物列表 + **三模式选择器（并列三卡 + 各自后果）** + 决策门控 chip 排 | 三模式是否该做成并列三卡而非单选钮；「能被拿来干什么 / 会不会随源变动 / 可不可进决策」印在卡上是否合适（UC-8.3 R3 步骤 1/3/4、R8） |
+| 2 | `ui-preview/chat-v2/uc-8-3-landing-loading.png` | `loading` · facilitator | 骨架屏（skeleton），保留名 `loading` | 七态齐备性（UC-0.4 / U1） |
+| 3 | `ui-preview/chat-v2/uc-8-3-landing-empty.png` | `empty` · facilitator | 线程内无可落地结论 —— **不生成伪产出** | 空态不造数据（UC-8.3 A1 / U2） |
+| 4 | `ui-preview/chat-v2/uc-8-3-landing-invalid.png` | `invalid` · facilitator | 校验失败：未选绑定模式 / 未挂来源不可定版（`err-mode` / `err-source`） | 校验点是否落在正确的两处（UC-8.3 R3 步骤 3 / U3） |
+| 5 | `ui-preview/chat-v2/uc-8-3-landing-dep-failed.png` | `dep-failed` · facilitator | 报告服务 / 图谱写回不可用时的降级呈现 | 依赖失败时输入与最近成功数据是否保留（UC-8.3 E2/E8） |
+| 6 | `ui-preview/chat-v2/uc-8-3-landing-denied.png` | `denied` · observer | 无权限态，**带 `denied-layer` 区分组织层/项目层**（此处为项目层：观察者，落地不下发） | ⚠ 两层区分只在这一屏做到了；`/chat` 主屏仍不区分（缺口 18 / 第四节 G-15） |
+| 7 | `ui-preview/chat-v2/uc-8-3-landing-success.png` | `success` · facilitator | 已定版 v3 · 已加入报告正式版（`saved`） | 成功文案是否体现「产生了不可变版本」 |
+| 8 | `ui-preview/chat-v2/uc-8-3-landing-observer.png` | `default` · **observer**（视角投影，非拒绝） | 观察者默认态：**落地动作整块不渲染**，不是置灰 | **S-11 观察者到底还剩什么**；「不渲染 ≠ 禁用」是否为正确投影（UC-8.3 R5 / UC-8.5 R6）。⚠ 界面投影不等于权限实现，真实降级须服务端不下发 |
+| 9 | `ui-preview/chat-v2/uc-8-3-landing-nosource-gate.png` | 特殊态 · facilitator | **选中「未挂来源」的结论**后：条目标灰 + 「固定快照」模式卡禁用并给原因 + 四个决策动作 chip 全灰 + 一行「被服务端阻断」+ `chat-gate-pin-now` 一键定版入口 | 🔴 两条关键裁决同屏：①「加入报告」走**阻断 + 一键定版**而非自动定版（UC-8.3 标 [待确认]，实现选了保守一路）；② **对话侧标灰是否与洞察报告工作台同规则**（标灰原文只在 proto-05，对话侧属跨屏借证）。对应 UC-8.3 R7 AC3 / R3 步骤 4 |
 
-### 3.2 UC-8.4 预设对话下发 · `/chat/preset`（服务 F115） —— 9 张
+### 3.2 UC-8.4 预设对话与技能 · `/chat/preset`（服务 F115） —— 11 张 🔄 v2 重画
 
-> ⚠ **整屏为补画原型**：「预设」二字在原型抽取档案 proto-01～10 中 **0 命中**，
-> 每一个控件都是新设计，屏内 `chat-preset-proto-tag` 已自标「补画原型 · 待裁决」。
+> 🔄 **本屏 v2 重画**。v1 逐字宣称「预设二字原型 0 命中、每个控件都是新设计」，并把三条权限规则
+> 摆成「待裁决」卡。实测 `预设` = 9 处命中，构成完整一屏（原型 wsPhase="chats"，工作坊详情→对话子页，引导师视角）。
+> 三条「待裁决」**原型全部答死**（屏内改渲染为「权限模型：原型已答」区，逐条带出处偏移）：
+> ① 谁下发 = 引导师给组长/组员（弹层标题 **16836655**）② 能不能改 = 能改（**15574080**）
+> ③ 能不能拒 = 上架供取用「点开即用」，不是推送（**15448694** / newChatFoot **16837179**）。
+> 逐条偏移对照见 `ui-preview/chat-v2/V1-WAS-WRONG.md`。
 
 | # | 截图路径 | 状态 / 视角 | 拍什么 | 回答哪个签核问题 |
 |---|---|---|---|---|
-| 10 | `ui-preview/chat/uc-8-4-preset-default.png` | `default` · facilitator | 预设主屏：**权限未定橙色横幅**（`chat-preset-power-banner`）+ 预设列表 + 编辑器 + **右侧三张「待裁决」卡**；使用计数与下发人数**分两行**（`用过 N 次` / `下发给 M 人`） | 🔴🔴 **本束唯一的权限模型空洞**：谁能下发（组长？项目负责人跨组？）/ 被下发者能不能改（改了还算同一预设的实例吗→ 直接决定 AC1「真实实例数」口径）/ 能不能拒（推送 vs 上架）。**必须在此拍板，否则 feature_list 会把未定的权限模型当成已定**（UC-8.4 R3 步骤 1/2/3、R8） |
-| 11 | `ui-preview/chat/uc-8-4-preset-loading.png` | `loading` · facilitator | 骨架屏 | 七态齐备性（U1） |
-| 12 | `ui-preview/chat/uc-8-4-preset-empty.png` | `empty` · facilitator | 无预设，引导编写并下发 | 空态引导措辞（UC-8.4 V3 / U2） |
-| 13 | `ui-preview/chat/uc-8-4-preset-invalid.png` | `invalid` · facilitator | 校验失败：预设名为空 / 未选下发对象（`err-name` / `err-target`） | 校验点是否够（UC-8.4 R3 步骤 1） |
-| 14 | `ui-preview/chat/uc-8-4-preset-dep-failed.png` | `dep-failed` · facilitator | skill / agent 目录不可用 → **无法校验范围**时的降级 | 范围校验不可用时应拒绝下发还是允许带风险下发（UC-8.4 E1） |
-| 15 | `ui-preview/chat/uc-8-4-preset-denied.png` | `denied` · member | 无权限态：「只有引导师可下发」 | 🔴 **这条判定本身就是待裁决项**——截图呈现的是实现暂取的口径，不是已定结论（UC-8.4 R5） |
-| 16 | `ui-preview/chat/uc-8-4-preset-success.png` | `success` · facilitator | 已下发全场 8 组，各人开始后生成私有对话（`saved`） | 「下发」与「实例化」的时机分离是否正确（UC-8.4 R3 步骤 3/4） |
-| 17 | `ui-preview/chat/uc-8-4-preset-observer.png` | `default` · **observer** | 观察者视角投影：**编辑器整块不渲染**（`readOnly` 分支） | 观察者对预设的可见边界（UC-8.4 R5） |
-| 18 | `ui-preview/chat/uc-8-4-preset-scope-violation.png` | 特殊态 · facilitator | **把下发对象切到「指定组 = 第5组」** → 预设 2 引用的「引述抽取」skill 仅「能源组」可见 → **下发即被拒**（`chat-preset-scope-violation`） | V1c「**下发时即拒绝，不是下发后失败**」是否为正确时机；越范围拒绝属组织层限制的文案与力度（UC-8.4 R3 步骤 1 / V1c） |
-
-> **视角覆盖说明**：18 张里实际出现的 `?as=` 取值是 **facilitator / observer 两种**
-> （observer 各 2 张：#6 denied、#8 投影；#15 denied 为 member 视角）。
-> **groupLead 视角一张都没有** —— 而「组长能不能给本组下发预设」正是 UC-8.4 待裁决三条之一，
-> 也是 uc-8-5 R7「组长能看本组组员私聊」的落点。这一缺口记为第四节 **G-23**。
+| 10 | `ui-preview/chat-v2/uc-8-4-preset-default.png` | `default` · facilitator（引导师=下发端） | 预设主屏：**三张「原型已答」卡**（各带出处偏移）+ **四列表**（预设对话｜内置技能｜下发对象｜使用）4 行原型预设（补齐产出缺口/唱反调/事实核查/汇报稿三句话）+ 规则条「下发只给入口，不代替对话」+ 新建预设 | 三条权限规则的原型答案是否被产品接受为最终口径（原型答死，不再是待裁决）；下发对象=角色范围；使用计数=真实实例数（AC1） |
+| 11 | `ui-preview/chat-v2/uc-8-4-preset-loading.png` | `loading` · facilitator | 骨架屏 | 七态齐备性（U1） |
+| 12 | `ui-preview/chat-v2/uc-8-4-preset-empty.png` | `empty` · facilitator | 无预设，引导编写并下发 | 空态引导措辞（UC-8.4 V3 / U2） |
+| 13 | `ui-preview/chat-v2/uc-8-4-preset-invalid.png` | `invalid` · facilitator | 校验失败：预设名为空 / 范围越界（`err-preset-name` / `err-preset-scope`） | 校验点是否够（UC-8.4 R3 步骤 1） |
+| 14 | `ui-preview/chat-v2/uc-8-4-preset-dep-failed.png` | `dep-failed` · facilitator | skill runtime 不可用 → 可存草稿、暂不能下发 | 依赖失败时的降级口径（UC-8.4 E1） |
+| 15 | `ui-preview/chat-v2/uc-8-4-preset-denied.png` | `denied` · groupLead | 无权限态：只有引导师能新建/下发；组长在自己视角点开即用 | 这条判定**原型已答**（谁能下发=引导师，16836655）——截图呈现的是原型口径，不再是待裁决 |
+| 16 | `ui-preview/chat-v2/uc-8-4-preset-success.png` | `success` · facilitator | 已保存并下发，出现在对应角色视角「点开即用」区（`saved`） | 「下发」与「实例化」时机分离是否正确（UC-8.4 R3 步骤 3/4） |
+| 17 | `ui-preview/chat-v2/uc-8-4-preset-consumer-observer.png` | `default` · **observer**（消费端） | 观察者视角 = 「点开即用」消费端只读投影 | 观察者对预设的可见边界（UC-8.4 R5）；界面投影≠权限实现 |
+| 18 | `ui-preview/chat-v2/uc-8-4-preset-scope-violation.png` | 特殊态 · **编辑器弹层开** | 编辑器勾「只给第 4 组」+ 预设含仅『能源组』可见的「证据检索」skill → **下发即被拒**（`err-preset-scope`，`保存并下发` 置灰） | V1c「下发时即拒、不是下发后失败」；⚠ **下发对象模型 = 角色范围（全部组长/组员）+ 可选组覆盖「只给第 N 组」**，非 v1 的「指定组」三档模型 |
+| 19 | `ui-preview/chat-v2/uc-8-4-preset-consumer-member.png` | `default` · **member**（消费端） | 组员视角 = 「点开即用」：引导师下发的 4 个预设，点开即用、也可不用 | 「上架供取用不是推送」的界面投影（问题③的原型答案落地形态） |
+| 20 | `ui-preview/chat-v2/uc-8-4-preset-editor.png` | 编辑器弹层开 · facilitator | 新建预设弹层：标题「新建预设对话（下发给组长 / 组员）」+ 从预设开始 4 选 + 预设技能·引导师已配好可增减 + 带入现场上下文（逐字稿未授权锁）+ 下发对象 3 勾 + 开场提示 + 保存并下发 | 编辑器逐字对原型（16836655 / 15574080 / 15576002）；「引导师已配好，可增减」= 问题②「能不能改」的答案 |
 
 ### 3.3 `data-testid` 前缀（供后续 verification 锚定）
 
 新增两屏的前缀：`chat-landing-*` · `chat-mode-*`（含 `chat-mode-option-snapshot`）·
 `chat-gate-*`（含 `chat-gate-blocked` / `chat-gate-pin-now`）· `chat-decision-action-*` ·
-`chat-preset-*`（含 `chat-preset-power-banner` / `chat-preset-question-*` /
-`chat-preset-scope-violation` / `chat-preset-proto-tag`）· `chat-visibility-*`；
+`chat-preset-*`（含 `chat-preset-answered-*` / `chat-preset-row-*` / `chat-preset-editor` /
+`chat-preset-editor-*` / `chat-preset-target-*` / `chat-preset-consumer` / `chat-preset-consumer-item-*`）· `chat-visibility-*`；
 七态保留名 `loading` / `empty` / `err-*` / `denied` / `dep-failed` / `saved`。
 第二节 2.1 那张表列的是 **`/chat` 主屏**的实测 testid，两者不重叠。
 
@@ -194,17 +199,17 @@ sign-off 说明，**它才是每张图的原始注解，本表是给签核人用
 
 ### C. 视角维度缺口 —— G-23
 
-- ⚠ 未产出：**groupLead（组长）视角的任何一张截图** —— 该视角尚未画（**G-23**）
-  ↳ 四视角切换器代码里支持 `?as=groupLead`，但 18 张图里 0 命中。
-  而「组长能否给本组下发预设」「组长能看本组组员私聊」都是本束待裁决的核心，
-  **签核人无法从材料里看到组长看到的是什么**。
+- ⚠ 部分产出：**groupLead（组长）视角** —— 预设屏 denied 态用了 groupLead（#15），
+  但 `/chat` 主屏（S1）与落地屏（#1–#9）仍无组长视角对照（**G-23**，已从「零张」降为「仅预设 denied 一张」）。
+  ↳ 「组长能否给本组下发预设」原型已答（引导师下发给组长/组员，16836655）；
+  「组长能看本组组员私聊」（uc-8-5 R7）仍需 `/chat` 主屏材料，此处未覆盖。
 
 ### 缺口小结（可机械核对）
 
 | 口径 | 数 |
 |---|---:|
-| 本文件引用的截图（第三节） | **18** |
-| `ui-preview/chat/` 目录下实际 `.png` | **18** |
+| 本文件引用的截图（第三节） | **20** |
+| `ui-preview/chat-v2/` 目录下实际 `.png` | **20** |
 | 差额 | **0** |
 | 明确记名的未产出缺口（G-01 ～ G-23） | **23** |
 | 其中屏级缺口（G-01～G-22） | 22 |

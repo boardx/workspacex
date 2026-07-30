@@ -14,6 +14,7 @@
 
 export type CanvasScreen =
   | "template-admin" // UC-7.1 后台画布模板库 + 发布状态机 + mermaid 白名单（F101）
+  | "template-editor" // UC-7.1 后台画布模板【编辑器】v2 重画：设计对话 / fabric.js⇄Markdown 双向同步 / 分区属性含每区 AI 权限 / 版本历史 / 使用填充率（F100/F101）
   | "segment-binding" // UC-7.1 议程环节绑定模板与 skill（F102）
   | "editor" // UC-7.3 组内协作编辑画布（F103/F104/F105）—— 复用既有编辑器组件
   | "ai-draft" // UC-7.2 AI 起草留白规则（F106）
@@ -21,6 +22,7 @@ export type CanvasScreen =
 
 export const CANVAS_SCREENS: { id: CanvasScreen; label: string; uc: string }[] = [
   { id: "template-admin", label: "画布模板库", uc: "UC-7.1 · F101" },
+  { id: "template-editor", label: "模板编辑器", uc: "UC-7.1 · F100/F101" },
   { id: "segment-binding", label: "环节绑定", uc: "UC-7.1 · F102" },
   { id: "editor", label: "画布编辑器", uc: "UC-7.3 · F103-105" },
   { id: "ai-draft", label: "AI 起草留白", uc: "UC-7.2 · F106" },
@@ -140,6 +142,121 @@ export const IGNORED_SYNTAX_COUNT = 1;
 /** 发布状态机的下一步动作（[原型] 草稿行 `[发布][试跑]` 并列——「未试跑不得发布」阻断属原型确认缺失，不做阻断）*/
 export const PUBLISH_FLOW_NOTE =
   "三段流程：草稿（仅作者可见）→ 试跑（指定一个项目）→ 发布（全员可绑定）。原型草稿行 [发布][试跑] 并列、无阻断；「未试跑不得发布」属原型确认缺失，本原型不做硬阻断。";
+
+/* ══════════════════════════════ UC-7.1 · 画布模板【编辑器】（F100/F101）—— v2 重画 ══════════════════════════════ */
+/**
+ * 后台画布模板编辑器（原型 `isAdCvEdit` 15800335，编辑器覆盖 15800878–15829400）。
+ * v1 整屏未画、且被 README 误报「原型里根本不存在」。本块按四大块逐字复原：
+ *   ① 设计对话（4 轮 + 上传 .md/.canvas/.mmd/大图，15802822–15807464）
+ *   ② 画布 fabric.js ⇄ Markdown 双向同步（15808189–15814733）
+ *   ③ 结构检查器：信息栏字段 / 分区（导出为 ## 段落）/ 分区属性含【每区 AI 权限】（15815266–15823987）
+ *   ④ 版本历史 + 使用填充率 + 诊断（15824817–15829400）
+ * ⚠ 全 mock，零后端。真实落地时模板结构应从 packages/contracts 的画布模板契约派生。
+ */
+
+/** 模板编辑器头部（原型：用户画像 / persona / v3 已发布 · 有未发布改动）*/
+export const TEMPLATE_EDITOR_HEAD = {
+  name: "用户画像",
+  key: "persona",
+  publishedVersion: "v3",
+  hasUnpublished: true, // 「有未发布改动」→ v4 草稿
+  visibility: "全体成员" as Visibility,
+  draftVersion: "v4",
+};
+
+/** ① 设计对话（原型 4 轮 + 大图解析）—— from = ai | user；kind = text | upload */
+export interface DesignDialogTurn {
+  from: "ai" | "user";
+  text: string;
+  /** 用户上传的画布文件（原型：我们线下有一版 A0 大图 → persona-A0-2024.canvas.md 已解析）*/
+  parsed?: { file: string; result: string };
+}
+export const DESIGN_DIALOG: DesignDialogTurn[] = [
+  { from: "ai", text: "这张画布填完，要让人看见哪几类信息？一类一句就行，我来切分区。" },
+  { from: "user", text: "这个人是谁、他想达成什么、卡在哪、平时怎么做事、谁能影响他。" },
+  { from: "ai", text: "切成 信息栏 ＋ 5 个分区 了，每区配了一句引导提问。「谁能影响他」我写成「影响因素」——右边可以直接改。" },
+  { from: "user", text: "我们线下有一版 A0 大图，按它来。", parsed: { file: "persona-A0-2024.canvas.md", result: "已解析 · 6 个二级标题 → 6 区 · 已套用" } },
+  { from: "ai", text: "按大图补了「动机」区，共 6 区。右边已用 fabric.js 渲染出来了，直接拖着改，改动会写回 Markdown。" },
+];
+export const DESIGN_DIALOG_UPLOAD_HINT = "上传画布文件 .md / .canvas / .mmd / 大图照片";
+export const DESIGN_DIALOG_QUICK = ["哪一区大家最填不出来", "用真实材料试填"];
+
+/** ② 双向同步状态（原型：画布·fabric.js ⇄ Markdown · 3 秒前）*/
+export const CANVAS_MARKDOWN_SYNC = {
+  lastSync: "3 秒前",
+  note: "画布用 fabric.js 渲染，改分区名、提问、便签都会即时写回左边的 Markdown；反过来改 Markdown 也会重建画布。",
+  mermaidNote: "mermaid 围栏里的节点＝分区，缩进＝层级，画布里的改动写回同一段围栏。",
+  dualUse: "一份 Markdown 两种用法：现场用 fabric.js 渲染成能贴便签的画布，写进报告时按 mermaid 出图。不各自维护两套。",
+  /** persona.md 的 mermaid 围栏（导出预览）*/
+  mermaid: `\`\`\`mermaid
+flowchart TB
+  info[信息栏 · 5 字段]
+  info --> z1[目标和需求]
+  info --> z2[痛点和挑战]
+  info --> z3[行为与偏好]
+  info --> z4[影响因素]
+  info --> z5[动机]
+  info --> z6[关键场景]
+\`\`\``,
+};
+
+/** ③ 信息栏字段（原型：姓名 / 年龄 / 区域 / 职位 / 行业）*/
+export const INFO_BAR_FIELDS = ["姓名", "年龄", "区域", "职位", "行业"];
+
+/** 分区属性（原型：段落标题 / 导出为 / 引导提问 / 便签上限 / 便签颜色 / 必填 / 每区 AI 权限）*/
+export interface TemplateZone {
+  num: string; // 01
+  name: string; // 目标和需求
+  heading: string; // 导出为 ## 段落标题
+  prompt: string; // 引导提问（显示在框里）
+  stickyMax: number; // 便签上限
+  color: string; // 便签颜色（hex，仅呈现）
+  required: boolean; // 必填（空着不能提交产出）
+  /** 每区 AI 权限（原型 15823358–15823987「AI 能不能动这一区」）*/
+  aiAddSticky: boolean; // 允许 AI 补便签
+  aiEditHuman: boolean; // 允许 AI 改人写的便签
+  /** 使用填充率 · 近 6 场项目（原型 15828 区，null = 新区无数据）*/
+  fillRate: number | null;
+}
+export const TEMPLATE_ZONES: TemplateZone[] = [
+  { num: "01", name: "痛点和挑战", heading: "## 痛点和挑战", prompt: "他现在卡在哪？哪一步最费劲？", stickyMax: 8, color: "#E8556B", required: true, aiAddSticky: true, aiEditHuman: false, fillRate: 96 },
+  { num: "02", name: "目标和需求", heading: "## 目标和需求", prompt: "他想达成什么？成功长什么样？", stickyMax: 8, color: "#17A97C", required: true, aiAddSticky: true, aiEditHuman: false, fillRate: 88 },
+  { num: "03", name: "行为与偏好", heading: "## 行为与偏好", prompt: "他平时怎么做事？习惯用什么？", stickyMax: 6, color: "#4B3BE8", required: false, aiAddSticky: true, aiEditHuman: false, fillRate: 61 },
+  { num: "04", name: "影响因素", heading: "## 影响因素", prompt: "谁能否决他的采购决定？", stickyMax: 6, color: "#B87333", required: false, aiAddSticky: true, aiEditHuman: true, fillRate: 17 },
+  { num: "05", name: "动机", heading: "## 动机", prompt: "他为什么现在要做这件事？", stickyMax: 5, color: "#0E8F7C", required: false, aiAddSticky: true, aiEditHuman: false, fillRate: null },
+  { num: "06", name: "关键场景", heading: "## 关键场景", prompt: "这些需求最常在什么场景下出现？", stickyMax: 5, color: "#6E6E76", required: false, aiAddSticky: false, aiEditHuman: false, fillRate: null },
+];
+export const TEMPLATE_LAYOUT_OPTIONS = ["2 列", "3 列", "4 列"];
+export const TEMPLATE_LAYOUT_CURRENT = "3 列";
+
+/** ④ 版本历史（原型：v4 未发布 / v3 当前发布版·11 个项目在用 / v2 已归档·3 个历史画布仍引用）*/
+export interface TemplateVersion {
+  version: string;
+  note: string;
+  by: string;
+  when: string;
+  status: "未发布" | "当前发布版" | "已归档";
+  usage?: string; // 11 个项目在用 / 3 个历史画布仍引用
+  /** 已用出去的画布锁在自己的版本上 → 可对比 / 回滚（回滚仅对未发布草稿开放）*/
+  canRollback: boolean;
+}
+export const TEMPLATE_VERSIONS: TemplateVersion[] = [
+  { version: "v4", note: "把「影响因素」的提问改成具体问句；新增必填标记", by: "高琳", when: "12 分钟前", status: "未发布", canRollback: false },
+  { version: "v3", note: "从 4 区扩到 6 区，拆出「动机」和「影响因素」", by: "林可", when: "2025-11", status: "当前发布版", usage: "11 个项目在用", canRollback: false },
+  { version: "v2", note: "初版 4 区", by: "—", when: "—", status: "已归档", usage: "3 个历史画布仍引用", canRollback: true },
+];
+export const TEMPLATE_VERSION_LOCK_NOTE = "已用出去的画布锁在自己的版本上——发布新版不会改动历史画布，回滚只影响未发布草稿。";
+
+/** 使用填充率 · 近 6 场项目 + 一条诊断（原型 15828–15830）*/
+export const TEMPLATE_USAGE = {
+  scope: "近 6 场项目",
+  /** 诊断：填充率最低的一区，AI 给的改法（已进 v4 草稿）*/
+  diagnosis: {
+    zone: "影响因素",
+    text: "6 场里 5 场是空的——大概率不是用户没想法，是提问太抽象。",
+    suggestion: "Ava 建议改成「谁能否决他的采购决定？」，这条改动已经放进 v4 草稿。",
+  },
+};
 
 /* ══════════════════════════════ UC-7.1 · 议程环节绑定（F102） ══════════════════════════════ */
 

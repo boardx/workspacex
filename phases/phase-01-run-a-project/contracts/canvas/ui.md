@@ -1,13 +1,17 @@
 # 契约束 `canvas` — 签核①：UI（人看到的界面对不对）
 
-> **自检：本文件引用 40 张截图，目录下实际 40 张（N == M == 40，无死链、无漏引、无重复引用）。**
-> 核对命令：`ls phases/phase-01-run-a-project/ui-preview/canvas/*.png | wc -l`
-> 与本文件第五节表格行数比对。
+> **自检：本文件引用 51 张截图，`ui-preview/canvas-v2/` 目录下实际 51 张（N == M == 51，无死链、无漏引、无重复引用）。**
+> 核对命令：`node .harness/scripts/lint-ui-material.mjs`（唯一实现；双向集合相等）。
 >
-> ✅ **截图已产出**：`phases/phase-01-run-a-project/ui-preview/canvas/`
-> —— **40 张 png ＋ 一份 `README.md`**（ui-prototyper 的 sign-off 说明，含它替 UC 做的判断）。
-> 原型跑在顶层路由 `/canvas`，一页切**五屏**（`?screen=`）×**四视角**（`?as=`）×**七态**（`?state=`），
-> 真实组件 + mock，非设计稿。第五节是这 40 张的完整索引。
+> 🔄 **本束的「后台画布模板编辑器」屏为 v2 重画**（原 `ui-preview/canvas/` 里**整屏未画**、
+> 且 README 误报「原型里根本不存在」；见保真度审计 AUDIT-1 §二·错误1）。v2 目录 `canvas-v2/`
+> 是本束新的签核材料集：**新增 11 张「模板编辑器」屏**（`uc-7-1-template-editor-*`，见 §5.6）
+> ＋ 原样承载其余四屏的 40 张（template-admin / segment-binding / ai-draft / editor / backflow）。
+> v1 目录 `ui-preview/canvas/` **保留不动**（推翻要留痕），本文件**不引用**它的任何一张。
+>
+> ✅ **截图已产出**：`phases/phase-01-run-a-project/ui-preview/canvas-v2/` —— **51 张 png ＋ 一份 `README.md`**。
+> 原型跑在顶层路由 `/canvas`，一页切**六屏**（`?screen=`，含新增 template-editor）×**四视角**（`?as=`）×**七态**（`?state=`），
+> 真实组件 + mock，非设计稿。第五节是这 51 张的完整索引。
 >
 > 🔴 **但材料不完整**：原设想的 20 条截图里 **9 条没有对应产出**（多为特写/对话框开态），
 > 逐条列在**第五节之后的「第 ① 件材料缺口」**一节。**签核时请先看那一节**——
@@ -25,6 +29,7 @@
 | **1** | **推演画布**（左栏三区 + 工具条 + 标题区 + 冲突条 + 右栏三区） | `/projects/[projectId]/canvas` | F103 F104 F105 F106 | ✅ **已建成**（⚠ 是 mock 壳，见下） |
 | **2** | **Studio · 原型** | `/studio/prototype` | ⚠ 映射存疑，见下 | ✅ 已建成 |
 | **3** | **后台 → 画布模板**（模板库列表 + 三段发布流程 + 归档确认框 + 12 类白名单开关区） | `/admin/canvas-templates`（**待定**） | F100 F101 | ⚠ 原判「未建」**已过时**：本轮已由 `/canvas?screen=template-admin` 原创补画（8 张图，第五节） |
+| **3b** | **后台画布模板【编辑器】**（设计对话 + fabric.js⇄Markdown 双向同步 + 分区属性含**每区 AI 权限** + 版本历史/回滚 + 使用填充率） | `/canvas?screen=template-editor`（**待定**） | F100 F101 | 🔄 **v2 重画**：原 canvas/ **整屏未画**且误报「原型不存在」。原型 `isAdCvEdit` 15800335，编辑器覆盖 15800878–15829400，逐字复原（见 §5.6 与 `V1-WAS-WRONG.md`） |
 | **4** | **蓝本设计器 · 16 项设计配置的第 9「项目材料」/ 第 10「分组打印素材」/ 第 13「Skill 绑定」** | 未定 | F102 | ⚠ 原判「未建」**已过时**：已由 `/canvas?screen=segment-binding` 原创补画（8 张图）。但**档案侧仍属未探明**（proto-05/06/08 逐字写着「蓝本 16 项各配置面板」未点进去）——画出来的是设计提案，不是抽取结果 |
 | **5** | **全场图谱 · 事实关系**（节点三态徽标 + `[批量确认]` + 冲突待判定区） | 未定 | F107 | ⚠ 原判「未建」**已过时**：已由 `/canvas?screen=backflow` 原创补画（8 张图）。（`/brain` 仍是组织大脑，不是它） |
 | **6** | **本组小树**（组级图谱） | 未定 | F107 | ⚠ 原判「未建」**已过时**：已由 `backflow` 屏的 `member` 视角补画（`uc-7-4-backflow-member.png`）。**档案侧仍属未探明**（只探明全场视图）——原创设计，签核重点 |
@@ -130,13 +135,14 @@
 
 ---
 
-## 五、截图清单 —— 真实产出的 40 张，逐张索引
+## 五、截图清单 —— 真实产出的 51 张，逐张索引
 
-> 全部路径相对 phase 根，即 `phases/phase-01-run-a-project/` 下的 `ui-preview/canvas/*.png`。
+> 全部路径相对 phase 根，即 `phases/phase-01-run-a-project/` 下的 `ui-preview/canvas-v2/*.png`。
+> 屏 3b（`template-editor`）是 v2 重画的新屏，索引在 §5.6。
 > 五屏 × 八张：七态（`default / loading / empty / invalid / dep-failed / denied / success`）
 > 各一张，第八张是该屏的**关键视角或冲突态**（每屏至少一张非 happy-path）。
 > 视角未标注处为默认 `facilitator`（引导师）。
-> 每张图对应的屏／UC／feature 归属，与 `ui-preview/canvas/README.md` 第一节对照表一致。
+> 每张图对应的屏／UC／feature 归属，与 `ui-preview/canvas-v2/README.md` 第一节对照表一致。
 
 ### 5.1 `template-admin` 屏 —— 后台画布模板库（UC-7.1 R3 主线 A / R7 / R8 · F101，辅 F100）
 
@@ -145,14 +151,14 @@
 
 | # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 1 | `ui-preview/canvas/uc-7-1-template-admin-default.png` | default · facilitator | 模板库列表全貌 + `key vN` 双列对照 + 三段发布流程说明条 + 底部 12 类 mermaid 白名单开关区 |
-| 2 | `ui-preview/canvas/uc-7-1-template-admin-loading.png` | loading | 列表骨架态 |
-| 3 | `ui-preview/canvas/uc-7-1-template-admin-empty.png` | empty | 一个模板都没有 |
-| 4 | `ui-preview/canvas/uc-7-1-template-admin-invalid.png` | invalid | 校验失败（`err-*`） |
-| 5 | `ui-preview/canvas/uc-7-1-template-admin-dep-failed.png` | dep-failed | 上游依赖不可用 |
-| 6 | `ui-preview/canvas/uc-7-1-template-admin-denied.png` | denied | 无后台权限 |
-| 7 | `ui-preview/canvas/uc-7-1-template-admin-success.png` | success | 发布成功后的落地态（`saved`） |
-| 8 | `ui-preview/canvas/uc-7-1-template-admin-observer.png` | default · **observer** | 观察者只读投影：新建 / 发布 / 归档 / 白名单开关**均不渲染** |
+| 1 | `ui-preview/canvas-v2/uc-7-1-template-admin-default.png` | default · facilitator | 模板库列表全貌 + `key vN` 双列对照 + 三段发布流程说明条 + 底部 12 类 mermaid 白名单开关区 |
+| 2 | `ui-preview/canvas-v2/uc-7-1-template-admin-loading.png` | loading | 列表骨架态 |
+| 3 | `ui-preview/canvas-v2/uc-7-1-template-admin-empty.png` | empty | 一个模板都没有 |
+| 4 | `ui-preview/canvas-v2/uc-7-1-template-admin-invalid.png` | invalid | 校验失败（`err-*`） |
+| 5 | `ui-preview/canvas-v2/uc-7-1-template-admin-dep-failed.png` | dep-failed | 上游依赖不可用 |
+| 6 | `ui-preview/canvas-v2/uc-7-1-template-admin-denied.png` | denied | 无后台权限 |
+| 7 | `ui-preview/canvas-v2/uc-7-1-template-admin-success.png` | success | 发布成功后的落地态（`saved`） |
+| 8 | `ui-preview/canvas-v2/uc-7-1-template-admin-observer.png` | default · **observer** | 观察者只读投影：新建 / 发布 / 归档 / 白名单开关**均不渲染** |
 
 ### 5.2 `segment-binding` 屏 —— 议程环节绑定模板与 skill（UC-7.1 R3 主线 B / R4·E1 / R8 · F102）
 
@@ -160,14 +166,14 @@
 
 | # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 9 | `ui-preview/canvas/uc-7-1-segment-binding-default.png` | default · facilitator | 环节 ↔ 模板 / skill 绑定面 + 两模板上限计数 `1/2` + 顶部橙色告警条（「议程环节」四名并存，裁决指向 OPEN-QUESTIONS） |
-| 10 | `ui-preview/canvas/uc-7-1-segment-binding-loading.png` | loading | — |
-| 11 | `ui-preview/canvas/uc-7-1-segment-binding-empty.png` | empty | 该环节尚未绑定任何模板 / skill |
-| 12 | `ui-preview/canvas/uc-7-1-segment-binding-invalid.png` | invalid | **绑第三个模板被拒**（两模板上限的拒绝形态） |
-| 13 | `ui-preview/canvas/uc-7-1-segment-binding-dep-failed.png` | dep-failed | — |
-| 14 | `ui-preview/canvas/uc-7-1-segment-binding-denied.png` | denied | — |
-| 15 | `ui-preview/canvas/uc-7-1-segment-binding-success.png` | success | 绑定已保存 |
-| 16 | `ui-preview/canvas/uc-7-1-segment-binding-member.png` | default · **member** | 组员只读——只有引导师能配置绑定 |
+| 9 | `ui-preview/canvas-v2/uc-7-1-segment-binding-default.png` | default · facilitator | 环节 ↔ 模板 / skill 绑定面 + 两模板上限计数 `1/2` + 顶部橙色告警条（「议程环节」四名并存，裁决指向 OPEN-QUESTIONS） |
+| 10 | `ui-preview/canvas-v2/uc-7-1-segment-binding-loading.png` | loading | — |
+| 11 | `ui-preview/canvas-v2/uc-7-1-segment-binding-empty.png` | empty | 该环节尚未绑定任何模板 / skill |
+| 12 | `ui-preview/canvas-v2/uc-7-1-segment-binding-invalid.png` | invalid | **绑第三个模板被拒**（两模板上限的拒绝形态） |
+| 13 | `ui-preview/canvas-v2/uc-7-1-segment-binding-dep-failed.png` | dep-failed | — |
+| 14 | `ui-preview/canvas-v2/uc-7-1-segment-binding-denied.png` | denied | — |
+| 15 | `ui-preview/canvas-v2/uc-7-1-segment-binding-success.png` | success | 绑定已保存 |
+| 16 | `ui-preview/canvas-v2/uc-7-1-segment-binding-member.png` | default · **member** | 组员只读——只有引导师能配置绑定 |
 
 ### 5.3 `ai-draft` 屏 —— AI 起草留白（UC-7.2 R3 / R7 / R8 · F106）
 
@@ -177,14 +183,14 @@
 
 | # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 17 | `ui-preview/canvas/uc-7-2-ai-draft-default.png` | default · facilitator | 虚线空位卡 + `已填 N/M · 留 K 格` + **留白提示条与 `[清一格]`** + **「无来源 · 待补」灰色虚线草稿样式** + AVA 角标 + `[一键回滚本轮]` |
-| 18 | `ui-preview/canvas/uc-7-2-ai-draft-loading.png` | loading | 起草中 |
-| 19 | `ui-preview/canvas/uc-7-2-ai-draft-empty.png` | empty | 尚未起草 / 回滚后的空态 + `[重新起草]` |
-| 20 | `ui-preview/canvas/uc-7-2-ai-draft-invalid.png` | invalid | — |
-| 21 | `ui-preview/canvas/uc-7-2-ai-draft-dep-failed.png` | dep-failed | Context Pack 取不到（上游 `context-pack` 束不可用） |
-| 22 | `ui-preview/canvas/uc-7-2-ai-draft-denied.png` | denied | — |
-| 23 | `ui-preview/canvas/uc-7-2-ai-draft-success.png` | success | 起草完成、完成度落地 |
-| 24 | `ui-preview/canvas/uc-7-2-ai-draft-observer.png` | default · **observer** | 观察者**看不到原始引述原文** |
+| 17 | `ui-preview/canvas-v2/uc-7-2-ai-draft-default.png` | default · facilitator | 虚线空位卡 + `已填 N/M · 留 K 格` + **留白提示条与 `[清一格]`** + **「无来源 · 待补」灰色虚线草稿样式** + AVA 角标 + `[一键回滚本轮]` |
+| 18 | `ui-preview/canvas-v2/uc-7-2-ai-draft-loading.png` | loading | 起草中 |
+| 19 | `ui-preview/canvas-v2/uc-7-2-ai-draft-empty.png` | empty | 尚未起草 / 回滚后的空态 + `[重新起草]` |
+| 20 | `ui-preview/canvas-v2/uc-7-2-ai-draft-invalid.png` | invalid | — |
+| 21 | `ui-preview/canvas-v2/uc-7-2-ai-draft-dep-failed.png` | dep-failed | Context Pack 取不到（上游 `context-pack` 束不可用） |
+| 22 | `ui-preview/canvas-v2/uc-7-2-ai-draft-denied.png` | denied | — |
+| 23 | `ui-preview/canvas-v2/uc-7-2-ai-draft-success.png` | success | 起草完成、完成度落地 |
+| 24 | `ui-preview/canvas-v2/uc-7-2-ai-draft-observer.png` | default · **observer** | 观察者**看不到原始引述原文** |
 
 ### 5.4 `editor` 屏 —— 组内协作画布编辑器（UC-7.3 R3 / R7 / R8 · F103 F104 F105）
 
@@ -193,14 +199,14 @@
 
 | # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 25 | `ui-preview/canvas/uc-7-3-editor-default.png` | default · facilitator | **三栏全貌**：左栏三区（各组画布 / 本项目画布 / 环节 skill）+ 工具条 + 画布区 + 右栏（选中对象 / 导出规则两条 / `[另存布局快照]` / 「AI 在这张画布上」+ `[看改动]` `[回退]`） |
-| 26 | `ui-preview/canvas/uc-7-3-editor-loading.png` | loading | — |
-| 27 | `ui-preview/canvas/uc-7-3-editor-empty.png` | empty | **新建画布只有模板骨架与空分区，零示例便签** |
-| 28 | `ui-preview/canvas/uc-7-3-editor-invalid.png` | invalid | — |
-| 29 | `ui-preview/canvas/uc-7-3-editor-dep-failed.png` | dep-failed | — |
-| 30 | `ui-preview/canvas/uc-7-3-editor-denied.png` | denied | 无写权限投影——**兼作原设想第 11 条「别组画布只读、写操作全部禁用」的呈现**（见缺口一节的取舍说明） |
-| 31 | `ui-preview/canvas/uc-7-3-editor-success.png` | success | 已同步 / 已保存（`saved`） |
-| 32 | `ui-preview/canvas/uc-7-3-editor-conflict.png` | **conflict**（`?conflict=on`） | 结构性冲突条常驻横条 + 三出口（`保留文档` / `保留画布` / `并排比较`）+ 两侧改动摘要 |
+| 25 | `ui-preview/canvas-v2/uc-7-3-editor-default.png` | default · facilitator | **三栏全貌**：左栏三区（各组画布 / 本项目画布 / 环节 skill）+ 工具条 + 画布区 + 右栏（选中对象 / 导出规则两条 / `[另存布局快照]` / 「AI 在这张画布上」+ `[看改动]` `[回退]`） |
+| 26 | `ui-preview/canvas-v2/uc-7-3-editor-loading.png` | loading | — |
+| 27 | `ui-preview/canvas-v2/uc-7-3-editor-empty.png` | empty | **新建画布只有模板骨架与空分区，零示例便签** |
+| 28 | `ui-preview/canvas-v2/uc-7-3-editor-invalid.png` | invalid | — |
+| 29 | `ui-preview/canvas-v2/uc-7-3-editor-dep-failed.png` | dep-failed | — |
+| 30 | `ui-preview/canvas-v2/uc-7-3-editor-denied.png` | denied | 无写权限投影——**兼作原设想第 11 条「别组画布只读、写操作全部禁用」的呈现**（见缺口一节的取舍说明） |
+| 31 | `ui-preview/canvas-v2/uc-7-3-editor-success.png` | success | 已同步 / 已保存（`saved`） |
+| 32 | `ui-preview/canvas-v2/uc-7-3-editor-conflict.png` | **conflict**（`?conflict=on`） | 结构性冲突条常驻横条 + 三出口（`保留文档` / `保留画布` / `并排比较`）+ 两侧改动摘要 |
 
 ### 5.5 `backflow` 屏 —— 回流知识图谱（UC-7.4 R3 / R7 / R8 · F107）
 
@@ -208,14 +214,14 @@
 
 | # | 截图 | 状态 / 视角 | 内容 |
 |---|---|---|---|
-| 33 | `ui-preview/canvas/uc-7-4-backflow-default.png` | default · facilitator | 全场事实关系（节点三态徽标 + 每节点一条来源链「第 3 组 · 研究模块 9 来源 · 12:05 · seg-3#0142」+ **来源链断的 `gn5` 节点「来源链断 · 不得写回」**）+ `[批量确认]` 勾选清单 + 「冲突待判定」红条与 `[上台讨论]` `[标为不确定]` + 推演流水线 `12/36 · 4 场景 × 9 环节` 及底部 `[设计·待确认]` 映射注脚 |
-| 34 | `ui-preview/canvas/uc-7-4-backflow-loading.png` | loading | — |
-| 35 | `ui-preview/canvas/uc-7-4-backflow-empty.png` | empty | 尚无可回流的事实 |
-| 36 | `ui-preview/canvas/uc-7-4-backflow-invalid.png` | invalid | — |
-| 37 | `ui-preview/canvas/uc-7-4-backflow-dep-failed.png` | dep-failed | — |
-| 38 | `ui-preview/canvas/uc-7-4-backflow-denied.png` | denied | **观察者态直接走 denied**（脱敏粒度 UC 未给，见待确认 Q-4） |
-| 39 | `ui-preview/canvas/uc-7-4-backflow-success.png` | success | 组长确认后写回成功 |
-| 40 | `ui-preview/canvas/uc-7-4-backflow-member.png` | default · **member** | **本组小树**：组员只见本组，看不到全场各组来源。⚠ 原创设计（档案只探明全场），签核重点 |
+| 33 | `ui-preview/canvas-v2/uc-7-4-backflow-default.png` | default · facilitator | 全场事实关系（节点三态徽标 + 每节点一条来源链「第 3 组 · 研究模块 9 来源 · 12:05 · seg-3#0142」+ **来源链断的 `gn5` 节点「来源链断 · 不得写回」**）+ `[批量确认]` 勾选清单 + 「冲突待判定」红条与 `[上台讨论]` `[标为不确定]` + 推演流水线 `12/36 · 4 场景 × 9 环节` 及底部 `[设计·待确认]` 映射注脚 |
+| 34 | `ui-preview/canvas-v2/uc-7-4-backflow-loading.png` | loading | — |
+| 35 | `ui-preview/canvas-v2/uc-7-4-backflow-empty.png` | empty | 尚无可回流的事实 |
+| 36 | `ui-preview/canvas-v2/uc-7-4-backflow-invalid.png` | invalid | — |
+| 37 | `ui-preview/canvas-v2/uc-7-4-backflow-dep-failed.png` | dep-failed | — |
+| 38 | `ui-preview/canvas-v2/uc-7-4-backflow-denied.png` | denied | **观察者态直接走 denied**（脱敏粒度 UC 未给，见待确认 Q-4） |
+| 39 | `ui-preview/canvas-v2/uc-7-4-backflow-success.png` | success | 组长确认后写回成功 |
+| 40 | `ui-preview/canvas-v2/uc-7-4-backflow-member.png` | default · **member** | **本组小树**：组员只见本组，看不到全场各组来源。⚠ 原创设计（档案只探明全场），签核重点 |
 
 > 七态与角色态由预览轴驱动：`?state=loading|empty|invalid|dep-failed|denied|success` ·
 > `?as=facilitator|groupLead|member|observer` · `?screen=` 五屏 · `?conflict=on`。
@@ -224,6 +230,30 @@
 >
 > ⚠ **`groupLead`（组长）视角一张图都没有。** 四视角轴里只截了 facilitator / member / observer。
 > 而本束「只有组长确认才写回大脑」（F107 的价值核心）恰恰是组长视角的事——见缺口一节 G-10。
+
+---
+
+### 5.6 `template-editor` 屏 —— 后台画布模板【编辑器】（UC-7.1 · F100/F101）🔄 v2 重画
+
+原型 `isAdCvEdit`（偏移 15800335），编辑器覆盖 15800878–15829400，四大块逐字复原：
+① 设计对话（4 轮 + 上传 `.md/.canvas/.mmd/大图`，15802822）② 画布 fabric.js ⇄ Markdown 双向同步（15808189）
+③ 结构检查器：信息栏字段 / 分区（导出为 ## 段落）/ **分区属性含每区 AI 权限**「允许 AI 补便签 / 允许 AI 改人写的便签」（15823358）
+④ 版本历史 v4/v3/v2 + 回滚（15824817）+ 使用填充率 96/88/61/17% + 一条诊断（15828–15830）。
+危险动作：**发布 v4** / **回滚到此版** —— 二次确认 + 影响范围（历史画布锁在各自版本、发布不可逆）。
+
+| # | 截图 | 状态 / 视角 | 内容 |
+|---|---|---|---|
+| 41 | `ui-preview/canvas-v2/uc-7-1-template-editor-default.png` | default · facilitator | 四大块全貌：设计对话 4 轮 / fabric⇄Markdown（mermaid 围栏）/ 6 分区 + 分区属性 + 每区 AI 权限 / 版本历史 v4·v3·v2 / 填充率 + 诊断 |
+| 42 | `ui-preview/canvas-v2/uc-7-1-template-editor-loading.png` | loading | 编辑器骨架态 |
+| 43 | `ui-preview/canvas-v2/uc-7-1-template-editor-empty.png` | empty | 新模板：先描述要展示的信息，助手切分区 |
+| 44 | `ui-preview/canvas-v2/uc-7-1-template-editor-invalid.png` | invalid | 校验失败（`err-*`：影响因素引导提问为空 / 便签上限 <1） |
+| 45 | `ui-preview/canvas-v2/uc-7-1-template-editor-dep-failed.png` | dep-failed | 设计对话 AI（Ava）不可用，可手工编辑分区与 Markdown |
+| 46 | `ui-preview/canvas-v2/uc-7-1-template-editor-denied.png` | denied | 无权限（组织层：仅管理员/模板作者可编辑） |
+| 47 | `ui-preview/canvas-v2/uc-7-1-template-editor-success.png` | success | v4 已发布 · 11 个项目将用新版（`saved`） |
+| 48 | `ui-preview/canvas-v2/uc-7-1-template-editor-observer.png` | default · **observer** | 观察者只读：发布/回滚/编辑均不渲染或禁用 |
+| 49 | `ui-preview/canvas-v2/uc-7-1-template-editor-member.png` | default · **member** | 组员只读投影（写权限在组织后台） |
+| 50 | `ui-preview/canvas-v2/uc-7-1-template-editor-zone-influence.png` | default · 选中「影响因素」区 | 分区属性 + **每区 AI 权限**开关（该区「允许 AI 改人写的便签」为开）+ 填充率 17% 标红 |
+| 51 | `ui-preview/canvas-v2/uc-7-1-template-editor-publish-confirm.png` | 危险动作二次确认 | **发布 v4** 的二次确认框 + 影响范围说明（历史画布锁版、发布不可逆） |
 
 ---
 
@@ -283,7 +313,7 @@
 ## 七、签核前请重点确认（第 ① 件）
 
 - [ ] **先过「第 ① 件材料缺口」一节（五之二）的 10 条 G-x**，再决定这一件签不签。
-      40 张图已在 `ui-preview/canvas/`，覆盖原清单 20 条中的 11 条；
+      51 张图已在 `ui-preview/canvas-v2/`（含 v2 新增的模板编辑器 11 张）；原清单 20 条中覆盖 11 条；
       **G-2（冲突裁决后另一侧已存为版本）/ G-5（回滚二次确认）/ G-7（归档影响面 N）
       三条无图可看**，而它们各自锁着一个已写进契约的判断。
       要么接受「按文字签这三条」，要么退回补图——**不要含糊过去**。

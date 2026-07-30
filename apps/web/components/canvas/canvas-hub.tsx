@@ -7,6 +7,7 @@ import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
 import { CANVAS_SCREENS, type CanvasScreen } from "@/lib/mock/canvas";
 import { TemplateAdmin } from "./template-admin";
+import { TemplateEditor } from "./template-editor";
 import { SegmentBinding } from "./segment-binding";
 import { AiDraftPanel } from "./ai-draft-panel";
 import { KnowledgeBackflow } from "./knowledge-backflow";
@@ -46,6 +47,7 @@ export function CanvasHub({
         <PreviewControlBar screen={screen} state={uiState} role={previewRole} />
         <div className="min-h-0 flex-1">
           {screen === "template-admin" && <TemplateAdmin state={uiState} previewRole={previewRole} />}
+          {screen === "template-editor" && <TemplateEditor state={uiState} previewRole={previewRole} />}
           {screen === "segment-binding" && <SegmentBinding state={uiState} previewRole={previewRole} />}
           {screen === "ai-draft" && <AiDraftPanel state={uiState} previewRole={previewRole} />}
           {screen === "backflow" && <KnowledgeBackflow state={uiState} previewRole={previewRole} />}
