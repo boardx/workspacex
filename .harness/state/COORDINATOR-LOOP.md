@@ -122,6 +122,17 @@
 | 9 | 断言**性质**不是**数量** | `toHaveLength(N)` 会挡住正当新增；债务上限成移动靶 |
 | 10 | 缺口要**可见、有名字、会在 doctor 里出现** | 宁可红，不可假绿；空集会让断言平凡为真 |
 
+## 开发期新增的坑（2026-07-31，每条都有事故）
+
+| # | 坑 | 怎么发现的 | 对策 |
+|---|---|---|---|
+| 11 | **agent 拿到的 worktree 基线是旧的** | F55 的工作树坐在 `2d86edc`，那里 F55 的 verification 还是 `pnpm --filter web vitest run …`——正是 `lint-verification-can-fail` 手工点名的「恒 exit 0」假绿形态 | 每份 worker prompt 必须逐字带 `git fetch origin && git checkout -b <branch> origin/main`。**这条救过一次** |
+| 12 | **多 worktree 共用同一个 postgres 会互踢** | F116 首次全量跑出 77 failed / `Connection terminated unexpectedly`；别人的 `DROP DATABASE … WITH (FORCE)` 踢掉连接 | prompt 里写明：遇到设独有 `WORKSPACEX_DB` 重跑，**不要当成代码缺陷去改代码** |
+| 13 | **迁移序号会撞车** | F116 与 F118 的 notes 都写「下一个可用序号是 0018」 | F116 占 0018；**F118 改 0019**。后续同时派两个带迁移的 feature 时，coordinator 先分号 |
+| 14 | **`verify-rls.sh` 的下限是共享棘轮** | F116 把 8 抬到 29 | 后续任何新增租户表的 feature 都要同步抬数，否则它会红 |
+| 16 | **并发上限不是「agent 数」，是这台机器** | 13 个 agent 并发时 load average 到 **102**、104 个 vitest 进程；`verify:base` 里大批 `@repo/api` 用例以 **10 秒超时**红掉（单跑全绿），一个 agent 串行重跑被 OOM kill，两个 agent 因此用了 `--no-verify` push | **本机并发上限约 6–8 个 agent**。超过之后 agent 验证不了自己的活 ⇒ 只能 `--no-verify` ⇒ 唯一诚实的检查变成 GitHub CI（它不受本机负载影响）。**加 agent 反而让交付质量下降** |
+| 15 | **签核门控的测试偶发红** | `design-signoff.test.ts:309` 在一次 `verify:base` 里红过（`expected […(4)] to deeply equal []`），单跑 5 次全绿 | 已开独立任务查根因。⚠ `auditSignoff` 是整条签核链**唯一**的判定实现，偶发红/绿 = 这条链在随机放行 |
+
 ## 状态快照（每轮更新）
 
 - 分支 `docs/requirements-prototype-audit`，最后提交见 `git log`
