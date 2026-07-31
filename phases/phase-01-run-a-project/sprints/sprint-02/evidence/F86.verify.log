@@ -1,15 +1,63 @@
+F86 — 一次性签署令牌 + 门户长效令牌 + 受访者授权页外壳与动态渲染快照
+issue #95 / worker/w2-itv2-01-F86
+
 $ pnpm --filter api exec vitest run tests/itv/token-two-kinds-lifecycle.test.ts
-[exit 1]
+[exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/f86-worktree/apps/api
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/token-two-kinds-lifecycle.test.ts
-filter:  tests/itv/token-two-kinds-lifecycle.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ ✓ tests/itv/token-two-kinds-lifecycle.test.ts (8 tests) 4ms
 
-No test files found, exiting with code 1
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  04:40:25
+   Duration  245ms (transform 39ms, setup 0ms, collect 43ms, tests 4ms, environment 0ms, prepare 30ms)
 
-[harness-verify v1 sha256=007c116b10ffdcaf6d6fe1d6d90ee82ad4a287f7f6672c0fd4b03025fc9a930f commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:48:37.716Z]
+
+$ grep -rq 'data-testid=.consent-controller' apps/web/components/entry
+[exit 0]
+(match: apps/web/components/entry/consent-form.tsx — component pre-existed this feature, per issue notes "界面已建于 /consent")
+
+
+---- 补充证据（issue 未列为门控项，但按 AGENTS.md 硬约束逐条留痕）----
+
+$ pnpm --filter api exec tsc --noEmit -p .
+[exit 2 — sole remaining error is packages/fabric-markdown/src/diagrams/registry.ts:13
+ "Cannot find name 'Element'" — pre-existing on origin/main HEAD (commit 125d84c
+ "feat(canvas): F100 fabric-markdown 源码并入 packages/"), unrelated to this feature.
+ No F86 file (domain/interview/consent-token.ts, application/interview/{consent-token-ports,
+ issue-signing-token,get-consent-page,submit-consent,revoke-portal-token,resend-portal-token,
+ errors}.ts, infrastructure/interview/in-memory-consent-token-repository.ts,
+ tests/itv/token-two-kinds-lifecycle.test.ts) produces a type error.]
+
+$ pnpm --filter api lint
+[exit 0]
+✅ lint-error-leak: 30 files in the interface layer, no error detail reaches a response
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+✅ lint-design-facet-single-source: the definition table has one source
+✅ design-facet catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 19 个文件，skill 取数只经 Context API（I-25）
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+✅ lint-arch-deps: 346 files, all dependencies point inward
+
+$ pnpm exec vitest run <76 non-DB test files under apps/api/tests, i.e. every *.test.ts
+  that does not import tests/support/db — per issue #74's standing guidance:
+  "do NOT run Postgres-dependent tests locally in full; typecheck them, run pure/
+  non-DB tests locally; CI/coordinator runs DB tests for real.">
+[exit 0]
+
+ Test Files  76 passed (76)
+      Tests  1072 passed (1072)
+   Start at  04:42:26
+   Duration  4.97s (transform 1.32s, setup 0ms, collect 7.78s, tests 12.19s, environment 6ms, prepare 2.92s)
+
+(includes tests/contract-single-source.test.ts, tests/arch-gate.test.ts,
+ tests/itv/token-two-kinds-lifecycle.test.ts — all green.)
+
+---- 明确未跑（按 issue #74 与本 feature 的 agent-bootstrap 指引） ----
+
+`pnpm -w run verify:base`（含 `turbo run typecheck lint test`）未在本地整跑：
+apps/api 的 `test` 脚本是不分类的 `vitest run`，会拉着全部 Postgres 依赖测试
+（含本仓 81/124 需要 Postgres 的文件）一起跑，这正是 issue #74 记录的连接数竞态
+不确定性的触发条件。CI / coordinator 按标准流程整跑该门控。
