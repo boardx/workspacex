@@ -383,16 +383,32 @@ describe("binding is a write, and the role matrix decides it (R5)", () => {
     // Both calls must fail the same way. If existence were checked first, the pair
     // (not-found vs forbidden) tells an outsider which ids are real.
     const real = await seedArtifact(h, ORG, PROJECT, ["x\n"], AUTHOR);
-    const withReal = bindToProjectStep(h.deps, {
-      userId: STRANGER, orgId: org(), artifactId: real.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
-    });
-    const withFake = bindToProjectStep(h.deps, {
-      userId: STRANGER, orgId: org(), artifactId: "no-such-artifact", projectId: PROJECT,
-      stepId: STEP, mode: "live",
-    });
-    await expect(withReal).rejects.toBeInstanceOf(NoProjectRoleError);
-    await expect(withFake).rejects.toBeInstanceOf(NoProjectRoleError);
+
+    // ⚠ `allSettled` 而不是「先建两个 promise，再逐个 await」。
+    //
+    // 那个写法在这里是一枚定时炸弹，而且已经炸过：两个调用都会 reject，
+    // 但只有第一个立刻被 await —— 第二个在 `await expect(withReal)` 那段窗口里
+    // **没有任何 handler**，于是 Node 报 unhandled rejection。
+    // 症状极具欺骗性：`Test Files 83 passed | Tests 1163 passed`，
+    // 却带一行 `Errors 1 error`，vitest 退出码 1，pre-push 全仓中止。
+    // 单跑这个文件永远是绿的（窗口太窄），只有整套并行、机器有负载时才现形。
+    // `allSettled` 在**创建的同一刻**就给两个 promise 挂上了 handler，
+    // 而两者仍然是并发发起的 —— 本用例要的「两条路径同样失败」一点没变。
+    const [withReal, withFake] = await Promise.allSettled([
+      bindToProjectStep(h.deps, {
+        userId: STRANGER, orgId: org(), artifactId: real.artifactId,
+        projectId: PROJECT, stepId: STEP, mode: "live",
+      }),
+      bindToProjectStep(h.deps, {
+        userId: STRANGER, orgId: org(), artifactId: "no-such-artifact", projectId: PROJECT,
+        stepId: STEP, mode: "live",
+      }),
+    ]);
+
+    expect(withReal.status).toBe("rejected");
+    expect(withFake.status).toBe("rejected");
+    expect((withReal as PromiseRejectedResult).reason).toBeInstanceOf(NoProjectRoleError);
+    expect((withFake as PromiseRejectedResult).reason).toBeInstanceOf(NoProjectRoleError);
   });
 });
 
