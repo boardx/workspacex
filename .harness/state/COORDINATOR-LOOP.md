@@ -45,8 +45,8 @@
 
 | wave | feature | 点 | 状态 |
 |---:|---:|---:|---|
-| 0 | 19 | 72 | **sprint-01，issue #38–#56，已全部 claim** |
-| 1 | 34 | 121 | 待 |
+| 0 | 19 | 72 | ✅ **全部 passing**（sprint-01，issue #38–#56 全关） |
+| 1 | 34 | 121 | **进行中**：sprint-02 收了其中 28 个「干净可派」的（issue #81–#108）；另 6 个（F125 F129 F134 F145 F146 F148）卡待裁项，**不派** |
 | 2 | 36 | 121 | 待 |
 | 3 | 20 | 64 | 待 |
 | 4 | 17 | 71 | 待 |
@@ -143,7 +143,10 @@
 
 ## 状态快照（每轮更新）
 
-- 分支 `docs/requirements-prototype-audit`，最后提交见 `git log`
+- **工作分支已回到 `main`**（`docs/requirements-prototype-audit` 已随 PR #57 / #71 合入并停用）
+- **待你拍板的全部事项**：`phases/phase-01-run-a-project/DECISIONS-PENDING-AB.md`（17 条，每条两个 action）
+- **签核后状态复核**：`phases/phase-01-run-a-project/SIGNOFF-RECONCILIATION-2026-07-31.md`
+- **合并队列串行化**（纪律 24）：同一时刻只让一个带「上限数字」改动的 PR 进入 rebase→合并
 - phase-00：22/22 passing，已在 `main`
 - phase-01：124 feature / 417 点；十束已签 9（`project` 待签）+ 第 11 束 `asset-governance` 在建
 - 一致性复核：`pending`（**必须等全部束签完**）
