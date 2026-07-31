@@ -2685,7 +2685,7 @@
       "points": 4,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w1-e2e",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
