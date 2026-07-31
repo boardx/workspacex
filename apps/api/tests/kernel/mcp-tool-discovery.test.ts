@@ -1,23 +1,16 @@
 /**
  * F52 backend: tool discovery, and the three-orthogonal-fields invariant on the WRITE side.
  *
- * The web-side tests prove the SHAPE keeps three dimensions. This one proves the write path
- * cannot collapse them: a probe timeout lands as `不可达`, and there is no code path from a
- * probe to `已隔离` at all.
+ * ⚠ 三正交字段的**写入侧**断言（探测结果绝不写成「已隔离」、拒绝时说得出是哪一维）
+ * 已搬到 `tests/capability/mcp/three-orthogonal-fields.test.ts` —— 那是 F52 的验收命令
+ * 指向的文件。**不在两处各留一份**：同一条断言声明在两处，与同一个事实声明在两处同性质。
+ * 本文件只留发现机制本身（变更集 / 命名空间 / F130 ⑶ / 失败路径）。
  *
  * Every group carries a counter-proof -- an input that must fail. Without them a suite like
  * this is green against a stub that does nothing, which this project has hit nine times.
  */
 import { describe, expect, it } from "vitest";
 import { agentRuntime as AR } from "@repo/contracts";
-import {
-  callability,
-  connectionStatusFromProbe,
-  initialStatusOnRegister,
-  isolatedByPolicy,
-  violatesScopeOnRelease,
-  type ProbeOutcome,
-} from "../../src/domain/mcp/server-status";
 import {
   clampScopeToSideEffect,
   discoverMcpTools,
@@ -59,96 +52,7 @@ const WRITE_TOOL: DiscoveredTool = {
   sideEffect: "写入外部",
 };
 
-const ALL_PROBES: ProbeOutcome[] = ["reachable", "rate-limited", "timeout", "auth-rejected"];
-
 /* ── probe -> connection status ────────────────────────────────── */
-
-describe("三正交字段的写入侧：探测结果不会被写成策略结果", () => {
-  it("超时记为「不可达」，不是「已隔离」（UC-21.1 V18 / O-20）", () => {
-    expect(connectionStatusFromProbe("timeout")).toBe("不可达");
-    expect(connectionStatusFromProbe("timeout")).not.toBe("已隔离");
-  });
-
-  it("凭据被拒记为「凭据失效」，也不是「已隔离」", () => {
-    expect(connectionStatusFromProbe("auth-rejected")).toBe("凭据失效");
-  });
-
-  it("**没有任何**探测结果能产出「已隔离」——隔离只由策略产生", () => {
-    for (const o of ALL_PROBES) {
-      expect(connectionStatusFromProbe(o), `探测 ${o} 产出了已隔离`).not.toBe("已隔离");
-    }
-    // 而策略那条路径确实存在，所以上面不是因为「根本没人写已隔离」而恒真
-    expect(isolatedByPolicy()).toBe("已隔离");
-  });
-
-  it("四种探测结果映射到四个不同的、契约声明过的取值", () => {
-    const mapped = ALL_PROBES.map(connectionStatusFromProbe);
-    for (const m of mapped) expect(AR.McpConnectionStatus.safeParse(m).success).toBe(true);
-    expect(new Set(mapped).size).toBe(ALL_PROBES.length);
-  });
-
-  it("反证：把 timeout 也映射成「已隔离」，两个来源就产出同一个值", () => {
-    const collapsed = (o: ProbeOutcome) => (o === "timeout" ? "已隔离" : connectionStatusFromProbe(o));
-    // 代价不是「取值变少」（仍是 4 个），而是拿到「已隔离」的人再也分不清
-    // 这是策略隔离还是网络不通——排障方向完全相反。
-    expect(collapsed("timeout")).toBe(isolatedByPolicy());
-    expect(connectionStatusFromProbe("timeout")).not.toBe(isolatedByPolicy());
-  });
-});
-
-describe("注册初始态（I-18）与放行前置（I-25）", () => {
-  it("开关一为开 ⇒ 待安全评审 ∧ 已隔离，两个字段各自显式写入", () => {
-    expect(initialStatusOnRegister(true)).toEqual({
-      reviewStatus: "待安全评审",
-      connectionStatus: "已隔离",
-    });
-  });
-
-  it("开关一为关时评审状态**不变**（它不是连接状态的函数）", () => {
-    expect(initialStatusOnRegister(false).reviewStatus).toBe("待安全评审");
-    expect(initialStatusOnRegister(false).connectionStatus).toBe("已连接");
-  });
-
-  it("「已放行但授权范围未定」被判违规", () => {
-    expect(violatesScopeOnRelease({ reviewStatus: "已放行", authScope: null })).toBe(true);
-    expect(violatesScopeOnRelease({ reviewStatus: "已放行", authScope: "全体成员" })).toBe(false);
-    // 反证：未放行的行不受这条约束，否则它会拦下正常的待评审记录
-    expect(violatesScopeOnRelease({ reviewStatus: "待安全评审", authScope: null })).toBe(false);
-  });
-});
-
-describe("拒绝时说得出是哪一维（正交的操作性收益）", () => {
-  it("未评审 ⇒ 卡在 reviewStatus，即便网络完全正常", () => {
-    const r = callability({ reviewStatus: "待安全评审", connectionStatus: "已连接" });
-    expect(r.callable).toBe(false);
-    expect(r.callable === false && r.blockedBy).toBe("reviewStatus");
-  });
-
-  it("已放行但不可达 ⇒ 卡在 connectionStatus，不会被说成「没评审」", () => {
-    const r = callability({ reviewStatus: "已放行", connectionStatus: "不可达" });
-    expect(r.callable).toBe(false);
-    expect(r.callable === false && r.blockedBy).toBe("connectionStatus");
-    expect(r.callable === false && r.detail).toBe("不可达");
-  });
-
-  it("「已到期待复核」卡在评审维 —— 它不是「待安全评审」的同义词，但拦的是同一层", () => {
-    const r = callability({ reviewStatus: "已到期待复核", connectionStatus: "已连接" });
-    expect(r.callable === false && r.blockedBy).toBe("reviewStatus");
-    expect(r.callable === false && r.detail).toBe("已到期待复核");
-  });
-
-  it("限流中仍可调用（限流不是不可用）", () => {
-    expect(callability({ reviewStatus: "已放行", connectionStatus: "限流中" }).callable).toBe(true);
-  });
-
-  it("反证：把两维压成一个布尔，就答不出「为什么用不了」", () => {
-    const merged = (s: { reviewStatus: string; connectionStatus: string }) =>
-      s.reviewStatus === "已放行" && s.connectionStatus === "已连接";
-    // 两个原因完全不同的行，压缩后给出同一个答案
-    expect(merged({ reviewStatus: "待安全评审", connectionStatus: "已连接" })).toBe(false);
-    expect(merged({ reviewStatus: "已放行", connectionStatus: "不可达" })).toBe(false);
-  });
-});
 
 /* ── discovery ─────────────────────────────────────────────────── */
 
