@@ -160,11 +160,13 @@ import { FilesDeliveryController } from "./interface/controllers/files-delivery.
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
-// ⚠ 只有 `PROJECT_REPOSITORY` 一个 provider，且它只有 `create` 一个方法：
-//   列表 / 概览 / 归档是 F118…F124，给还不存在的能力留绑定，
-//   会让下一个接界面的人以为它已经在跑了（同 F80 / F108 那两段的理由）。
-import { PROJECT_REPOSITORY } from "./application/project/ports";
+// F117：`PROJECT_REPOSITORY`，只有 `create` 一个方法。
+// F122（本次新增）：`PROJECT_LIST_REPOSITORY`，独立 provider——两者的
+// `lint-permission-paths` 豁免各自成立，见 `application/project/ports.ts` 的注释。
+// 概览 / 归档仍是 F123/F124，未落地前不给它们留绑定（同 F80 / F108 那两段的理由）。
+import { PROJECT_LIST_REPOSITORY, PROJECT_REPOSITORY } from "./application/project/ports";
 import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
+import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
 
 @Module({
@@ -398,6 +400,12 @@ import { ProjectController } from "./interface/controllers/project.controller";
       provide: PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgProjectRepository(db, ids),
       inject: [DATABASE_PORT, ID_FACTORY],
+    },
+    // F122：独立 provider，见 `pg-project-list-repository.ts` 文件头。
+    {
+      provide: PROJECT_LIST_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectListRepository(db),
+      inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
