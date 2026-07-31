@@ -1,15 +1,92 @@
 $ pnpm --filter api exec vitest run tests/files/empty-and-dependency-failed.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+
+ ✓ tests/files/empty-and-dependency-failed.test.ts (7 tests) 760ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  06:07:00
+   Duration  1.34s (transform 253ms, setup 0ms, collect 365ms, tests 760ms, environment 0ms, prepare 43ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/files/no-access-equals-not-exist.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+
+ ✓ tests/files/no-access-equals-not-exist.test.ts (4 tests) 412ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  06:07:02
+   Duration  1.32s (transform 382ms, setup 0ms, collect 649ms, tests 412ms, environment 0ms, prepare 37ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/files/rename-is-contract.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+
+ ✓ tests/files/rename-is-contract.test.ts (12 tests) 1223ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  06:07:04
+   Duration  1.95s (transform 307ms, setup 0ms, collect 480ms, tests 1.22s, environment 0ms, prepare 35ms)
+
+
+
+$ bash apps/web/scripts/verify-ui-states.sh
 [exit 1]
+==> 启动 dev 实例（:3198）
+==> 七种必现状态（每态一个固定 testid）
+  ✓ default      → section-states
+  ✓ loading      → loading
+  ✓ empty        → empty
+  ✓ invalid      → err-email
+  ✓ dep-failed   → dep-failed
+  ✓ denied       → denied
+  ✓ success      → saved
+==> 七态互斥（切到 A 时不得同时渲染 B）
+  ✓ 互斥成立
+==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须可选中）
+  ✗ /studio/prototype → loading 缺保留 testid（期望 loading）
+  ✗ /studio/prototype → empty 缺保留 testid（期望 empty）
+  ✗ /studio/prototype → invalid 缺保留 testid（期望 err-）
+  ✗ /studio/prototype → dep-failed 缺保留 testid（期望 dep-failed）
+  ✗ /studio/prototype → denied 缺保留 testid（期望 denied）
+  ✗ /studio/prototype → success 缺保留 testid（期望 saved）
+  ✗ /studio/interview → loading 缺保留 testid（期望 loading）
+  ✗ /studio/interview → empty 缺保留 testid（期望 empty）
+  ✗ /studio/interview → invalid 缺保留 testid（期望 err-）
+  ✗ /studio/interview → dep-failed 缺保留 testid（期望 dep-failed）
+  ✗ /studio/interview → denied 缺保留 testid（期望 denied）
+  ✗ /studio/interview → success 缺保留 testid（期望 saved）
+==> 两层身份投影的**作用域**（UC-0.3：项目角色只在项目里成立）
+  ✓ /chat               as=facilitator  → 引导师
+  ✓ /chat               as=groupLead    → 组长
+  ✓ /chat               as=member       → 组员
+  ✓ /chat               as=observer     → 观察者
+  ✓ /projects/p1/canvas as=facilitator  → 引导师
+==> 反向：非项目页面**不得**出现项目层与视角切换器
+  ✓ /tasks          只有组织层
+  ✓ /brain          只有组织层
+  ✓ /admin          只有组织层
+  ✓ /kitchen-sink   只有组织层
+  ✓ /projects       只有组织层
+==> 本地组织：承诺与策略必须可分辨（UC-0.5 V12）
+  ✓ org-yuanyang   → none
+  ✓ org-hengtai    → policy
+  ✓ org-local      → promise
+==> 组织切换（裁决 O-12：切换后团队归属随之改变）
+  ✓ 远洋新能源 → 能源组
+  ✓ 恒泰供应链 → 供应链组
+==> 骨架完整性
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+❌ UI 状态门控失败
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/files/empty-and-dependency-failed.test.ts
-filter:  tests/files/empty-and-dependency-failed.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
-
-No test files found, exiting with code 1
-
-[harness-verify v1 sha256=67c53cce3b59a0dc082b66d8ad9a328b61b9361a4f724b3e628bf339e01cfa78 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:47:04.947Z]
+[harness-verify v1 sha256=1211cef5afd51a2be2d3bf53a4a1c97b2e131ad577f26c8ae7864bb87cbc0327 commit=aae4c05404730f6423303c96bcde3289edb0ff98 at=2026-07-31T22:08:03.482Z]

@@ -35,6 +35,15 @@ export const PROJECT_ACTIONS = [
   "content.postNote",     // 贴便签
   "content.speak",        // 发言
   "content.vote",         // 投票
+  /**
+   * F34 (files 束 · uc-22-1 `renameArtifact`): 「调用者有写权限」的具体形状。
+   * ⚠ 没有一份已签核的 UC 把「谁能改文件名」钉到某个角色——`usecases.md` 只写
+   * 「pre: 调用者有写权限」。这里按现有 content.* 三项的先例（facilitator/groupLead/member
+   * 皆可写，observer 皆不可写）取同样的分组，**不是**对「谁能上传/改名」的裁决，
+   * 是「非 observer 即可写」这个已有惯例的延伸。F35（uploadArtifact）落地时如果需要
+   * 更细的角色区分，应在这里改，而不是另建一个不经过本矩阵的判定。
+   */
+  "content.renameFile",   // 改文件名（改名走契约，见 N-23）
   /* read surfaces, split by what each role may see */
   "read.ownGroup",        // 本组内容
   "read.allHands",        // 全场已共享
@@ -58,18 +67,18 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   facilitator: [
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
   ],
   // Runs their own group. No room control: they cannot advance the stage for everyone.
   groupLead: [
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Participates. Cannot submit on the group's behalf or confirm its nodes.
   member: [
-    "content.postNote", "content.speak", "content.vote",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Read-only, and narrower than "read": no raw transcript, no private chat, no own-group

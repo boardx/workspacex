@@ -32,15 +32,24 @@
  *   transaction (see `DownloadGrantRepository.consume`), so a consumed grant without a trail
  *   is not a state this system can be in.
  *
- * ## 🔴 What is NOT implemented here, stated rather than left to be discovered
+ * ## 🔴 F34 (V8·22-1): `INTEGRITY_CHECK_FAILED` is now real for `issueDownloadUrl`, still not
+ * for `previewArtifactVersion`
  *
- * `INTEGRITY_CHECK_FAILED` is in both operations' `err` lists and is **not raised anywhere in
- * this file**. Raising it truthfully means reading the object's bytes and comparing SHA-256
- * against `artifact_versions.content_hash` on every preview and every issuance -- that is
- * F42's 完整性校验 and it needs an object store that can stream. There is no partial version of
- * it worth having: a check that only ran when the store happened to be fast would make
- * 「校验过了」 unanswerable. So the code is declared by the contract and unreachable in this
- * implementation, and that is reported, not hidden behind a `catch`.
+ * `issueDownloadUrl` reads the object's bytes through `ObjectIntegrityChecker` and compares
+ * SHA-256 against `artifact_versions.content_hash` (via `DeliverableVersion.contentHash`)
+ * before minting a token -- a tampered object is refused a download, not just noticed after
+ * the fact. The check writes an `integrity-check-failed` provenance event first (⚠ pending
+ * ADR-101-style ratification -- see the enum's own comment in `packages/contracts/src/
+ * provenance.ts`), so "禁止下载并告警写审计" (E4·22-1) has an audit row backing it, and the
+ * throw happens after the write has been attempted -- a download that got refused for
+ * integrity reasons must not also be a download nobody can find a record of.
+ *
+ * `previewArtifactVersion` is DELIBERATELY left as before: it has no reason to read the whole
+ * object (a preview does not stream the original), and doing the check there anyway would
+ * mean paying the full-object read cost on every hover/click rather than once per actual
+ * download intent. `INTEGRITY_CHECK_FAILED` therefore stays declared-and-unreachable on the
+ * preview path -- narrower than the signed contract's `err` list promises, and that gap is
+ * reported here rather than silently widened.
  */
 import { files as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -56,7 +65,7 @@ import type { PermissionDecision } from "../../domain/identity/permission-decisi
 import type { IdFactory } from "../artifact/ports";
 import type { ProvenanceWriter } from "../provenance/ports";
 import { discloseDecided, isDisclosed, type Disclosed } from "../security/permission-filter";
-import type { ObjectStoreProbe } from "./ports";
+import type { ObjectIntegrityChecker, ObjectStoreProbe } from "./ports";
 import type {
   ConsumedDownloadGrant,
   DeliverableVersion,
@@ -72,6 +81,7 @@ export type IssueDownloadUrlResult = z.infer<typeof C.operations.issueDownloadUr
 export type DeliveryReasonCode =
   | "ARTIFACT_NOT_FOUND"
   | "DEPENDENCY_UNAVAILABLE"
+  | "INTEGRITY_CHECK_FAILED"
   | "DOWNLOAD_URL_EXPIRED"
   | "DOWNLOAD_URL_CONSUMED";
 
@@ -84,6 +94,8 @@ export class FilesDeliveryError extends Error {
 export interface DeliveryDeps extends AuthorizeDeps {
   readonly grants: DownloadGrantRepository;
   readonly objectStore: ObjectStoreProbe;
+  /** F34 (V8·22-1): the real byte-level SHA-256 check `issueDownloadUrl` runs before minting. */
+  readonly integrity: ObjectIntegrityChecker;
   readonly urls: DownloadUrlBuilder;
   readonly provenance: ProvenanceWriter;
   /**
@@ -190,6 +202,27 @@ export async function issueDownloadUrl(
    * says so instead of behaving like a broken one.
    */
   if (!(await deps.objectStore.available())) throw new FilesDeliveryError("DEPENDENCY_UNAVAILABLE");
+
+  /**
+   * F34 (V8·22-1): 「对象 SHA-256 不匹配的行标『完整性校验失败』，禁止下载并告警写审计」.
+   *
+   * Runs AFTER the availability check (a down store is `DEPENDENCY_UNAVAILABLE`, not a
+   * mismatch) and BEFORE minting (a corrupted object must never get as far as a valid,
+   * signable download URL). The audit write happens before the throw, not after: if the
+   * write itself failed there would be no record that a corrupted object was ever caught,
+   * which is worse than the mismatch itself.
+   */
+  const integrity = await deps.integrity.verify(version.objectKey, version.contentHash);
+  if (integrity !== "ok") {
+    await deps.provenance.append({
+      orgId: input.orgId,
+      type: "integrity-check-failed",
+      actorId: input.userId,
+      target: { kind: "artifact-version", id: version.versionId },
+      detail: { artifactId: version.artifactId, objectKey: version.objectKey, reason: integrity },
+    });
+    throw new FilesDeliveryError("INTEGRITY_CHECK_FAILED");
+  }
 
   const token = mintDownloadToken();
   const now = deps.now();

@@ -182,6 +182,15 @@ import {
 } from "./infrastructure/files/pg-export-repository";
 import { NodeZipBuilder } from "./infrastructure/files/zip-codec";
 import { FilesExportController } from "./interface/controllers/files-export.controller";
+// F34 (V8·22-1): the real byte-level SHA-256 check `issueDownloadUrl` runs before minting.
+import { OBJECT_INTEGRITY_CHECKER } from "./application/files/ports";
+import { ObjectStoreIntegrityChecker } from "./infrastructure/files/object-store-integrity-checker";
+// F34 (N-23 / V11·22-1): renameArtifact / resolveArtifactAlias -- migration 0033's
+// `artifact_aliases`. One repository behind both, same reason F31/F32 have one each: two
+// providers would be the first step toward two answers to "what was this artifact called".
+import { ARTIFACT_RENAME_REPOSITORY } from "./application/files/rename-ports";
+import { PgArtifactRenameRepository } from "./infrastructure/files/pg-artifact-rename-repository";
+import { FilesRenameController } from "./interface/controllers/files-rename.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -235,6 +244,7 @@ import { AssetDirectoryController } from "./interface/controllers/asset-director
     FilesBrowserController,
     FilesDeliveryController,
     FilesExportController,
+    FilesRenameController,
     DeviceSessionController,
     ProjectController,
     AssetDirectoryController,
@@ -354,6 +364,19 @@ import { AssetDirectoryController } from "./interface/controllers/asset-director
     {
       provide: DOWNLOAD_GRANT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDownloadGrantRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F34 (V8·22-1). Same `ObjectStore` instance as everything else that reads bytes -- not a
+    // second store, just a second thing done with it.
+    {
+      provide: OBJECT_INTEGRITY_CHECKER,
+      useFactory: (store: ObjectStore) => new ObjectStoreIntegrityChecker(store),
+      inject: [OBJECT_STORE],
+    },
+    // F34 (N-23 / V11·22-1).
+    {
+      provide: ARTIFACT_RENAME_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgArtifactRenameRepository(db),
       inject: [DATABASE_PORT],
     },
     // ⚠ The isolated origin is a security boundary, not cosmetics -- an uploaded .html or a
