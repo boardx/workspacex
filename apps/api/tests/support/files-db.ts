@@ -8,6 +8,21 @@
  * Everything is written through the APP role inside a tenant transaction (`asApp`), never as
  * the owner. If a policy's WITH CHECK were wrong, owner-side inserts would sail through and
  * these tests would rest on rows production could never have written.
+ *
+ * ## ⚠ Artifact ids must be namespaced PER TEST FILE, not just per organization
+ *
+ * `db.ts` says "every test file owns its own org ids", and that is necessary but NOT
+ * sufficient here: `artifacts.id` is a bare `text PRIMARY KEY` (migration 0006) with no
+ * organization in the key. Two files in different tenants that both seed an artifact called
+ * `a-open` collide on `artifacts_pkey` -- and only when vitest happens to run them at the same
+ * time, so it looks like a flake rather than a name clash.
+ *
+ * That is not hypothetical: this file's first version used `a-open`, and so does
+ * `tests/kernel/retrieval-five-channels.test.ts`. Every file alone was green; the full suite
+ * failed with `duplicate key value violates unique constraint "artifacts_pkey"` in a beforeAll,
+ * which reports as the whole FILE failing rather than as a fixture problem.
+ *
+ * So: prefix ids with something naming the file (`f31rls-`, `f31eq-`, `f31meta-`).
  */
 import { asApp } from "./db";
 import type { IngestionStatus } from "../../src/domain/files/ingestion-visibility";

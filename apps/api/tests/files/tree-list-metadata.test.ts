@@ -62,24 +62,26 @@ beforeAll(async () => {
 
   await seedOrg({ orgId: ORG, projectId: PROJECT, teamNames: ["energy"] });
   await asApp(ORG, (c) =>
-    c.query("INSERT INTO projects (id, org_id, name) VALUES ($1,$2,$3)", [EMPTY_PROJECT, ORG, "empty"]),
+    // F116: `kind` is a discriminator with NO default -- "I forgot to say which kind"
+    // must not be silently writable. `workshop` is what every pre-F116 caller meant.
+    c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,'workshop')", [EMPTY_PROJECT, ORG, "empty"]),
   );
   await addOrgMember(ORG, "u-fac", "consultant", `${ORG}-team-energy`);
   await addProjectMember(ORG, PROJECT, "u-fac", "facilitator", null, true);
   await addProjectMember(ORG, EMPTY_PROJECT, "u-fac", "facilitator", null, true);
 
   await addBrowserArtifact({
-    orgId: ORG, id: "m-human", projectId: PROJECT, source: "upload", title: "field notes",
+    orgId: ORG, id: "f31meta-human", projectId: PROJECT, source: "upload", title: "field notes",
     agendaSegmentId: "seg-3", sizeBytes: 4096, ingestionStatus: "READY",
     creator: { kind: "user", id: "u-fac" },
   });
   await addBrowserArtifact({
-    orgId: ORG, id: "m-agent", projectId: PROJECT, source: "ai-generated", title: "ai summary",
+    orgId: ORG, id: "f31meta-agent", projectId: PROJECT, source: "ai-generated", title: "ai summary",
     agendaSegmentId: null, sizeBytes: 512, confidential: true, ingestionStatus: "REVIEW_PENDING",
     creator: { kind: "agent", id: "agent-writer", runId: "run-9911" },
   });
   await addBrowserArtifact({
-    orgId: ORG, id: "m-stored", projectId: PROJECT, source: "interview", title: "raw audio",
+    orgId: ORG, id: "f31meta-stored", projectId: PROJECT, source: "interview", title: "raw audio",
     agendaSegmentId: "seg-3", sizeBytes: 900_000, ingestionStatus: "STORED",
     creator: { kind: "user", id: "u-fac" },
   });
@@ -117,7 +119,7 @@ describe("the columns are constrained by the database, not by convention", () =>
         c.query(
           `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized, creator_kind, agent_run_id)
            VALUES ($1,$2,$3,'upload','probe','who',false,$4,$5)`,
-          [`m-probe-${kind}-${runId ?? "null"}`, ORG, PROJECT, kind, runId],
+          [`f31meta-probe-${kind}-${runId ?? "null"}`, ORG, PROJECT, kind, runId],
         ),
       );
     // A human row carrying a run id would render as "uploaded by a person" while pointing at
@@ -148,9 +150,9 @@ describe("N-7: originalDownloadable and retrievable are two independent booleans
       userId: "u-fac", orgId: toOrgId(ORG), projectId: PROJECT, filters: null, cursor: null, pageSize: null,
     });
     const byId = new Map(r.nodes.map((n) => [n.artifactId, n]));
-    expect(byId.get("m-stored")).toMatchObject({ originalDownloadable: true, retrievable: false });
-    expect(byId.get("m-agent")).toMatchObject({ originalDownloadable: true, retrievable: false, confidential: true });
-    expect(byId.get("m-human")).toMatchObject({ originalDownloadable: true, retrievable: true, confidential: false });
+    expect(byId.get("f31meta-stored")).toMatchObject({ originalDownloadable: true, retrievable: false });
+    expect(byId.get("f31meta-agent")).toMatchObject({ originalDownloadable: true, retrievable: false, confidential: true });
+    expect(byId.get("f31meta-human")).toMatchObject({ originalDownloadable: true, retrievable: true, confidential: false });
   });
 });
 
@@ -162,13 +164,13 @@ describe("the row payload", () => {
     const parsed = C.operations.listProjectArtifacts.out.safeParse(r);
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(r)).toBeNull();
 
-    const human = r.nodes.find((n) => n.artifactId === "m-human")!;
+    const human = r.nodes.find((n) => n.artifactId === "f31meta-human")!;
     expect(human.name).toBe("field notes");
     expect(human.sizeBytes).toBe(4096);
     expect(human.agendaSegmentId).toBe("seg-3");
     // null, not "—". The dash is the browser's rendering of null and belongs to the frontend;
     // a server that sends "—" has made a display decision the client cannot undo.
-    expect(r.nodes.find((n) => n.artifactId === "m-agent")!.agendaSegmentId).toBeNull();
+    expect(r.nodes.find((n) => n.artifactId === "f31meta-agent")!.agendaSegmentId).toBeNull();
     expect(new Date(human.updatedAt).toString()).not.toBe("Invalid Date");
   });
 

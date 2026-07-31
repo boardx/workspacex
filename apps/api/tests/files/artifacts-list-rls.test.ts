@@ -81,7 +81,9 @@ beforeAll(async () => {
   const fixture = await seedOrg({ orgId: ORG, projectId: PROJECT, teamNames: ["energy", "platform"] });
   teams = fixture.teams;
   await asApp(ORG, (c) =>
-    c.query("INSERT INTO projects (id, org_id, name) VALUES ($1,$2,$3)", [OTHER_PROJECT, ORG, "other"]),
+    // F116: `kind` is a discriminator with NO default -- "I forgot to say which kind"
+    // must not be silently writable. `workshop` is what every pre-F116 caller meant.
+    c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1,$2,$3,'workshop')", [OTHER_PROJECT, ORG, "other"]),
   );
 
   // Four project roles + one org member with no project role. The matrix F31 names.
@@ -95,11 +97,11 @@ beforeAll(async () => {
   await addProjectMember(ORG, PROJECT, "u-member", "member", null);
   await addProjectMember(ORG, PROJECT, "u-observer", "observer", null);
 
-  await addBrowserArtifact({ orgId: ORG, id: "a-open", projectId: PROJECT, title: "open notes" });
-  await addBrowserArtifact({ orgId: ORG, id: "a-energy", projectId: PROJECT, title: "energy only briefing" });
-  await addBrowserArtifact({ orgId: ORG, id: "a-platform", projectId: PROJECT, title: "platform only briefing" });
-  await addBrowserArtifact({ orgId: ORG, id: "a-multi", projectId: PROJECT, title: "claimed by two teams" });
-  await addBrowserArtifact({ orgId: ORG, id: "a-elsewhere", projectId: OTHER_PROJECT, title: "different project" });
+  await addBrowserArtifact({ orgId: ORG, id: "f31rls-open", projectId: PROJECT, title: "open notes" });
+  await addBrowserArtifact({ orgId: ORG, id: "f31rls-energy", projectId: PROJECT, title: "energy only briefing" });
+  await addBrowserArtifact({ orgId: ORG, id: "f31rls-platform", projectId: PROJECT, title: "platform only briefing" });
+  await addBrowserArtifact({ orgId: ORG, id: "f31rls-multi", projectId: PROJECT, title: "claimed by two teams" });
+  await addBrowserArtifact({ orgId: ORG, id: "f31rls-elsewhere", projectId: OTHER_PROJECT, title: "different project" });
 
   const teamOnly = (objectId: string, team: string) =>
     addBinding({
@@ -109,16 +111,16 @@ beforeAll(async () => {
       scope: "team-only",
       ownerTeamId: teams[team]!,
     });
-  await teamOnly("a-energy", "energy");
-  await teamOnly("a-platform", "platform");
+  await teamOnly("f31rls-energy", "energy");
+  await teamOnly("f31rls-platform", "platform");
   // TWO owning teams -> `strictestScope` says nobody. The interesting row: it is the one an
   // implementation that takes the UNION of bindings would show to both teams.
-  await teamOnly("a-multi", "energy");
-  await teamOnly("a-multi", "platform");
+  await teamOnly("f31rls-multi", "energy");
+  await teamOnly("f31rls-multi", "platform");
 
   // Another tenant, same shaped data. Nothing may ever cross.
   await seedOrg({ orgId: OTHER, projectId: PROJECT + "-x", teamNames: ["energy"] });
-  await addBrowserArtifact({ orgId: OTHER, id: "a-other-tenant", projectId: PROJECT + "-x", title: "other tenant secret" });
+  await addBrowserArtifact({ orgId: OTHER, id: "f31rls-other-tenant", projectId: PROJECT + "-x", title: "other tenant secret" });
 
   db = new PgDatabase(appConfig());
   deps = {
@@ -137,18 +139,18 @@ afterAll(async () => {
 describe("the visible set, per role", () => {
   it("a facilitator on the energy team sees org-wide + energy-only, and NOT platform-only", async () => {
     const r = await list("u-fac");
-    expect(r.nodes.map((n) => n.artifactId).sort()).toEqual(["a-energy", "a-open"]);
+    expect(r.nodes.map((n) => n.artifactId).sort()).toEqual(["f31rls-energy", "f31rls-open"]);
   });
 
   it("a member on the platform team sees org-wide + platform-only", async () => {
     const r = await list("u-member");
-    expect(r.nodes.map((n) => n.artifactId).sort()).toEqual(["a-open", "a-platform"]);
+    expect(r.nodes.map((n) => n.artifactId).sort()).toEqual(["f31rls-open", "f31rls-platform"]);
   });
 
   it("an artifact claimed by TWO owning teams is visible to NEITHER (strictest, not union)", async () => {
     for (const user of ["u-fac", "u-lead", "u-member"]) {
       const r = await list(user);
-      expect(r.nodes.map((n) => n.artifactId), user).not.toContain("a-multi");
+      expect(r.nodes.map((n) => n.artifactId), user).not.toContain("f31rls-multi");
     }
   });
 
@@ -172,10 +174,10 @@ describe("the response PAYLOAD carries no trace of what was filtered out", () =>
     const r = await list("u-member");
     const payload = JSON.stringify(r);
     for (const leak of [
-      "a-energy", "energy only briefing",           // another team's artifact
-      "a-multi", "claimed by two teams",            // the unsatisfiable one
-      "a-elsewhere", "different project",           // another project
-      "a-other-tenant", "other tenant secret",      // another tenant
+      "f31rls-energy", "energy only briefing",           // another team's artifact
+      "f31rls-multi", "claimed by two teams",            // the unsatisfiable one
+      "f31rls-elsewhere", "different project",           // another project
+      "f31rls-other-tenant", "other tenant secret",      // another tenant
     ]) {
       expect(payload, `"${leak}" reached the response body`).not.toContain(leak);
     }
@@ -262,7 +264,7 @@ describe("the predicate is in the database, and it is load-bearing", () => {
 
   it("baseline: the real function excludes the other team's artifact", async () => {
     await withBroken([], async (c) => {
-      expect(await visibleIds(c, teams.platform!)).toEqual(["a-open", "a-platform"]);
+      expect(await visibleIds(c, teams.platform!)).toEqual(["f31rls-open", "f31rls-platform"]);
     });
   });
 
@@ -280,8 +282,8 @@ describe("the predicate is in the database, and it is load-bearing", () => {
     // Red-on-purpose direction: with the predicate gone, a platform user reaches the energy
     // team's briefing AND the two-team artifact. If this list did not change, the predicate
     // was never doing anything and every assertion above was vacuous.
-    expect(ids).toContain("a-energy");
-    expect(ids).toContain("a-multi");
+    expect(ids).toContain("f31rls-energy");
+    expect(ids).toContain("f31rls-multi");
   });
 
   /**
@@ -322,7 +324,7 @@ describe("the predicate is in the database, and it is load-bearing", () => {
   });
 
   it("COUNTER-PROOF: the same query scoped to the OTHER tenant returns the row -- so the emptiness above was RLS, not an empty table", async () => {
-    expect(await asAppScopedTo(OTHER, PROJECT + "-x")).toEqual(["a-other-tenant"]);
+    expect(await asAppScopedTo(OTHER, PROJECT + "-x")).toEqual(["f31rls-other-tenant"]);
   });
 
   it("...and the function's own project filter is not what did it: this tenant's project is non-empty", async () => {

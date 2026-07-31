@@ -112,7 +112,7 @@ beforeAll(async () => {
   // Every artifact carries the same token, so the query "everything" is a real query rather
   // than a per-artifact special case.
   const text = `${CORPUS_TOKEN} shared body text`;
-  for (const id of ["e-open", "e-energy", "e-platform", "e-both-teams"]) {
+  for (const id of ["f31eq-open", "f31eq-energy", "f31eq-platform", "f31eq-both-teams"]) {
     await addBrowserArtifact({ orgId: ORG, id, projectId: PROJECT, title: `${id} document`, text });
   }
   const teamOnly = (objectId: string, team: string) =>
@@ -123,10 +123,10 @@ beforeAll(async () => {
       scope: "team-only",
       ownerTeamId: teams[team]!,
     });
-  await teamOnly("e-energy", "energy");
-  await teamOnly("e-platform", "platform");
-  await teamOnly("e-both-teams", "energy");
-  await teamOnly("e-both-teams", "platform");
+  await teamOnly("f31eq-energy", "energy");
+  await teamOnly("f31eq-platform", "platform");
+  await teamOnly("f31eq-both-teams", "energy");
+  await teamOnly("f31eq-both-teams", "platform");
 
   db = new PgDatabase(appConfig());
   deps = {
@@ -170,8 +170,8 @@ describe("V1: the two sets are equal, for every role in the matrix", () => {
   it("is not vacuous: the sets are non-empty and DIFFER between requesters", async () => {
     const energy = await listIds("u-fac-energy");
     const platform = await listIds("u-member-platform");
-    expect(energy).toEqual(["e-energy", "e-open"]);
-    expect(platform).toEqual(["e-open", "e-platform"]);
+    expect(energy).toEqual(["f31eq-energy", "f31eq-open"]);
+    expect(platform).toEqual(["f31eq-open", "f31eq-platform"]);
     // Two equal empty sets satisfy both directions above. This is what stops that reading.
     expect(energy).not.toEqual(platform);
   });
@@ -179,8 +179,8 @@ describe("V1: the two sets are equal, for every role in the matrix", () => {
   it("the two-team artifact is in NEITHER set, for anybody", async () => {
     for (const user of REQUESTERS) {
       const [l, s] = await Promise.all([listIds(user), searchIds(user)]);
-      if (l !== "denied") expect(l, user).not.toContain("e-both-teams");
-      if (s !== "denied") expect(s, user).not.toContain("e-both-teams");
+      if (l !== "denied") expect(l, user).not.toContain("f31eq-both-teams");
+      if (s !== "denied") expect(s, user).not.toContain("f31eq-both-teams");
     }
   });
 });
@@ -216,7 +216,7 @@ describe("COUNTER-PROOF: a search that bypasses the predicate breaks the equalit
 
     const extra = rogue.filter((id) => !(list as string[]).includes(id));
     // Named explicitly rather than as `.length > 0`: the point is WHICH rows escape.
-    expect(extra.sort()).toEqual(["e-both-teams", "e-energy"]);
+    expect(extra.sort()).toEqual(["f31eq-both-teams", "f31eq-energy"]);
 
     // And stated as the assertion the suite above uses, so the shape of the failure is the
     // shape of the real one: `search \ list` would be non-empty.
