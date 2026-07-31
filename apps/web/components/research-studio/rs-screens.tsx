@@ -19,6 +19,7 @@ import {
   RS_LIVE_TASKS, RS_CONFLICTS, liveCounts, actionAllowed, RS_EMPTY_HINT,
   type RsView, type RsScreen, type RsConfig,
 } from "@/lib/mock/research-studio";
+import { NewResearchFlow } from "./new-research";
 
 /* ── 共享小件 ─────────────────────────────────────────────────────────── */
 
@@ -156,7 +157,16 @@ export function RsListScreen({ state, view }: { state: UiState; view: RsView }) 
           title="研究项目 · 3"
           uc="UC-24.3"
           sub="打开任意一个进入全屏管理：研究问题、证据表、候选洞察。"
-          actions={<Button size="sm" variant="primary" data-testid="rs-list-new"><Search className="h-3.5 w-3.5" />＋ 新建研究</Button>}
+          /*
+           * F144：入口换成真入口（`NewResearchFlow`）。**像素不变**——同一个 Button、
+           * 同一个放大镜、同一句 `＋ 新建研究`；变的只有 `data-testid`
+           * （`rs-list-new` → `rs-entry-studio`，由 `researchEntryTestId` 单点构造）。
+           * ⚠ 角色写死 `facilitator`：本原型的视角切换器是 owner/collaborator 两档
+           *   （U-1 已裁=B），观察者是**项目语境的只读投影**、落在七态的 `denied`
+           *   （见 `ui-preview/research/README.md` 四①）。观察者入口不存在于 DOM
+           *   这条断在组件级（`research-entry-observer-absent`），不在本屏。
+           */
+          actions={<NewResearchFlow role="facilitator" at="studio" icon={<Search className="h-3.5 w-3.5" />} />}
         />
         <TagRow tags={RS_LIST_TAGS} />
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
@@ -499,7 +509,8 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
               <button data-testid="rs-live-filter" data-on={filterOn} className={cn("flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-11", filterOn ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground")}>
                 <Filter className="h-3 w-3" />只看有冲突的
               </button>
-              <Button size="sm" variant="primary" data-testid="rs-live-new">＋ 发起研究</Button>
+              {/* F144：同上，像素不变；`rs-live-new` → `rs-entry-live`。 */}
+              <NewResearchFlow role="facilitator" at="live" />
             </div>
           }
         />
