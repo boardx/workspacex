@@ -215,19 +215,36 @@ describe("I-P36: 三张子类型表自动进 RLS 网", () => {
   });
 
   it("F22 的三条冻结策略也覆盖了三张新表（0018 末尾那一句 SELECT 的全部理由）", async () => {
+    // ⚠ 2026-08-01（F124）：这三张表现在**同时**挂着两组独立的 RESTRICTIVE 冻结——
+    // F22 的组织停用冻结（`*_org_frozen_*`，0018 末尾调用 `kernel_apply_org_freeze_policies()`
+    // 时装上）与 F124 的容器归档冻结（`*_project_archived_*`，`20260801120000_f124_*.sql`
+    // 末尾调用 `kernel_apply_project_archive_policies()` 时装上）。按策略名前缀分开计数，
+    // 而不是简单把总数从 3 改成 6：分开计数才断言得出「两组冻结**各自**齐全」，
+    // 一个只装对了其中一组、总数却凑巧等于 6 的实现不会被这条断言放过。
     const counts = await asOwner(async (c) => {
-      const r = await c.query<{ tablename: string; n: string }>(
-        `SELECT tablename, count(*)::text AS n FROM pg_policies
+      const r = await c.query<{ tablename: string; prefix: string; n: string }>(
+        `SELECT tablename,
+                CASE WHEN policyname LIKE '%\\_org\\_frozen\\_%' ESCAPE '\\' THEN 'org_frozen'
+                     WHEN policyname LIKE '%\\_project\\_archived\\_%' ESCAPE '\\' THEN 'project_archived'
+                     ELSE 'other' END AS prefix,
+                count(*)::text AS n
+           FROM pg_policies
           WHERE schemaname='public' AND permissive='RESTRICTIVE'
             AND tablename IN ('workshops','research_projects','user_insights')
-          GROUP BY tablename`,
+          GROUP BY tablename, prefix`,
       );
-      return Object.fromEntries(r.rows.map((x) => [x.tablename, Number(x.n)]));
+      const out: Record<string, Record<string, number>> = {};
+      for (const row of r.rows) {
+        (out[row.tablename] ??= {})[row.prefix] = Number(row.n);
+      }
+      return out;
     });
     for (const t of ["workshops", "research_projects", "user_insights"]) {
-      // INSERT / UPDATE / DELETE 各一条。少了这一行，新库上三张表没有冻结，
-      // 而 F22 的全部断言依旧全绿——它们测的是当时已存在的那些表。
-      expect(counts[t], `${t} 的 RESTRICTIVE 冻结策略数`).toBe(3);
+      // 每组各自 INSERT / UPDATE / DELETE 三条。少了任一行,新库上这张表就少了对应
+      // 那一组冻结,而各自的既有断言依旧全绿——它们测的是当时已存在的那一组。
+      expect(counts[t]?.org_frozen, `${t} 的 F22 组织冻结策略数`).toBe(3);
+      expect(counts[t]?.project_archived, `${t} 的 F124 容器归档冻结策略数`).toBe(3);
+      expect(counts[t]?.other, `${t} 出现了未预期的第三组 RESTRICTIVE 策略`).toBeUndefined();
     }
   });
 });

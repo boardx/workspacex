@@ -61,13 +61,17 @@ import {
   MergeTargetRequiredError,
 } from "../../application/project/advance-agenda-segment-errors";
 import { getProjectOverview } from "../../application/project/get-project-overview";
-import { ProjectError } from "../../application/project/errors";
+import { archiveProject } from "../../application/project/archive-project";
+import { unarchiveProject } from "../../application/project/unarchive-project";
+import { ProjectArchiveBlockedByActiveSegmentError, ProjectError } from "../../application/project/errors";
 import {
   AGENDA_SEGMENT_REPOSITORY,
+  PROJECT_ARCHIVE_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
   type AgendaSegmentRepository,
+  type ProjectArchiveRepository,
   type ProjectListRepository,
   type ProjectOverviewRepository,
   type ProjectRepository,
@@ -115,6 +119,9 @@ type AdvanceBody = z.infer<typeof C.operations.advanceAgendaSegment.in>;
 
 /** 同上，`getProjectOverview` 的入参契约（F123）。 */
 export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
+/** 同上，`archiveProject` / `unarchiveProject` 的入参契约（F124）。两者形状相同：`{ projectId }`。 */
+export const ARCHIVE_PROJECT_SCHEMA = C.operations.archiveProject.in;
+export const UNARCHIVE_PROJECT_SCHEMA = C.operations.unarchiveProject.in;
 
 type CreateBody = {
   orgId: string;
@@ -132,6 +139,7 @@ export class ProjectController {
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(AGENDA_SEGMENT_REPOSITORY) private readonly segments: AgendaSegmentRepository,
+    @Inject(PROJECT_ARCHIVE_REPOSITORY) private readonly archiveRepo: ProjectArchiveRepository,
     @Inject(BINDING_REPOSITORY) private readonly bindings: BindingRepository,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
@@ -392,6 +400,73 @@ export class ProjectController {
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE" || e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
           // ⚠ 两者都是 503：判定服务不可用、以及本操作自己的依赖不可用，都不是一个
           //   裁定，渲染成 403 会让用户去找管理员要一个他本来就有的权限。
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F124 UC-P4 `archiveProject`。`orgId` 取自 `principal.orgId`——同 `advance`/`overview`
+   * 两条路由的形状，契约 `archiveProject.in` 本就只有 `{ projectId }`，没有 `orgId` 字段。
+   *
+   * ⚠ `active-segment-exists`（U-2⑵）落成一个**不带 `reasonCode` 的裸 400**——
+   * 契约的 `archiveProject.err` 表达不了这个已裁定的失败（`KNOWN_CONTRACT_GAPS.P7`），
+   * 见 `application/project/errors.ts` 的 `ProjectArchiveBlockedByActiveSegmentError`
+   * 文件头。这不是本路由的疏漏，是已知、已报告的契约缺口。
+   */
+  @Post("/projects/:projectId/archive")
+  async archive(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(ARCHIVE_PROJECT_SCHEMA).transform({ projectId }) as {
+      projectId: string;
+    };
+
+    try {
+      return await archiveProject(
+        { repo: this.archiveRepo, identity: this.identity },
+        { orgId: principal.orgId, actorId: principal.userId, projectId: input.projectId },
+      );
+    } catch (e) {
+      if (e instanceof ProjectArchiveBlockedByActiveSegmentError) {
+        throw new BadRequestException();
+      }
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F124 UC-P4 `unarchiveProject`（U-2⑴ 裁 a：归档可逆，权限同归档者）。
+   */
+  @Post("/projects/:projectId/unarchive")
+  async unarchive(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(UNARCHIVE_PROJECT_SCHEMA).transform({ projectId }) as {
+      projectId: string;
+    };
+
+    try {
+      return await unarchiveProject(
+        { repo: this.archiveRepo, identity: this.identity },
+        { orgId: principal.orgId, actorId: principal.userId, projectId: input.projectId },
+      );
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });

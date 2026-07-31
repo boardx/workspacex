@@ -194,3 +194,48 @@ export interface ProjectOverviewRepository {
 }
 
 export const PROJECT_OVERVIEW_REPOSITORY = Symbol("ProjectOverviewRepository");
+
+/* ═══════════════════════ F124：`archiveProject` / `unarchiveProject` 的独立端口 ═══════════════════════ */
+
+/**
+ * ⚠ 故意也不是 `ProjectRepository` 的第四个方法，理由同 F122/F123 那两条——
+ * `pg-project-repository.ts` 被钉死「只有一条 `INSERT INTO projects`」，归档/解归档
+ * 是 `UPDATE`，各自的 `lint-permission-paths` 豁免各自成立，不合并。
+ *
+ * ⚠ 「有 active 议程环节时拒绝归档」（U-2⑵）的判定与「读状态 + 写状态」放在**同一次
+ * 仓储调用**里完成，不是应用层先查一次环节表、再查一次项目状态、再决定写不写——
+ * 先查后写在并发下会读到「此刻没有 active 环节」然后写，而写入完成前另一个请求
+ * 刚把某个环节推进为 `active`（`SEGMENT_ALREADY_ACTIVE` 那条契约注释点过名的同一类
+ * 竞态）。仓储把「检查 + 更新」放进一次事务，由数据库的可见性规则保证不出现
+ * 「归档了，但恰好有一条环节还在 active」的中间态。
+ */
+export type ArchiveOutcome =
+  | { readonly kind: "archived"; readonly projectId: string }
+  /** 容器不存在。契约 `archiveProject.err` 没有 NOT_FOUND，同 `create-project.ts`
+   *  「非成员与非 lead 同码」的先例，由 application 并入 `ORG_ROLE_INSUFFICIENT`。 */
+  | { readonly kind: "not-found" }
+  /** 已经是 archived —— `archiveProject.err` 的 `PROJECT_ARCHIVED` 就是为这条准备的
+   *  （契约文件头「对 archived 容器写入」覆盖「再次归档」这一特例）。 */
+  | { readonly kind: "already-archived" }
+  /** U-2⑵ 已裁「拒绝」，但失败码故意没有名字（`KNOWN_CONTRACT_GAPS.P7`）。application
+   *  层为它抛一个**不在** `ProjectReason` 里的本地错误，见 `./errors.ts` 的
+   *  `ProjectArchiveBlockedError`——本仓储只负责把这个判定结果如实报出来。 */
+  | { readonly kind: "active-segment-exists" };
+
+export type UnarchiveOutcome =
+  | { readonly kind: "unarchived"; readonly projectId: string }
+  | { readonly kind: "not-found" };
+
+export interface ProjectArchiveRepository {
+  /** 一次调用完成：读容器状态 + 判断有无 `active` 议程环节 + 满足条件时写 `archived`。 */
+  archive(orgId: OrgId, projectId: string): Promise<ArchiveOutcome>;
+
+  /**
+   * **无条件幂等**（同 F22 `OrgLifecycleRepository.reactivate` 的先例）：项目已是
+   * `active` 时再解归档直接返回当前状态，不报错——契约 `unarchiveProject.err` 里
+   * 没有「已经是 active」这个码，本仓储不发明一个。
+   */
+  unarchive(orgId: OrgId, projectId: string): Promise<UnarchiveOutcome>;
+}
+
+export const PROJECT_ARCHIVE_REPOSITORY = Symbol("ProjectArchiveRepository");

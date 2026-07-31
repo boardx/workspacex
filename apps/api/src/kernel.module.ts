@@ -172,12 +172,13 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
 // F117：`PROJECT_REPOSITORY`，只有 `create` 一个方法。
 // F122（本次新增）：`PROJECT_LIST_REPOSITORY`，独立 provider——两者的
 // `lint-permission-paths` 豁免各自成立，见 `application/project/ports.ts` 的注释。
-// F119：`AGENDA_SEGMENT_REPOSITORY`；F123（本次新增）：`PROJECT_OVERVIEW_REPOSITORY`——
-// 独立 provider，见 `application/project/ports.ts` 与各自
-// `pg-agenda-segment-repository.ts` / `pg-project-overview-repository.ts` 的注释。
-// 归档仍是 F124，未落地前不给它留绑定（同 F80 / F108 那两段的理由）。
+// F119：`AGENDA_SEGMENT_REPOSITORY`；F123：`PROJECT_OVERVIEW_REPOSITORY`；
+// F124（本次新增）：`PROJECT_ARCHIVE_REPOSITORY`——独立 provider，见
+// `application/project/ports.ts` 与各自 `pg-agenda-segment-repository.ts` /
+// `pg-project-overview-repository.ts` / `pg-project-archive-repository.ts` 的注释。
 import {
   AGENDA_SEGMENT_REPOSITORY,
+  PROJECT_ARCHIVE_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
@@ -186,6 +187,7 @@ import { PgProjectRepository } from "./infrastructure/project/pg-project-reposit
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
+import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
@@ -468,6 +470,12 @@ import { AssetDirectoryController } from "./interface/controllers/asset-director
     },
     // F141: fixture-backed (2/6 AssetKinds, AG4) -- see the class header for why.
     { provide: ASSET_FILE_REPOSITORY, useFactory: () => new FixtureAssetFileRepository() },
+    // F124：独立 provider，见 `pg-project-archive-repository.ts` 文件头。
+    {
+      provide: PROJECT_ARCHIVE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectArchiveRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },
