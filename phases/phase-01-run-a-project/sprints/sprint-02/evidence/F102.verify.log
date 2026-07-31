@@ -1,0 +1,38 @@
+F102 verification — 2026-07-31T16:55:51Z
+=== typecheck (pre-existing unrelated failure noted below, see PR description) ===
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/f102-clean/apps/api
+> tsc --noEmit
+
+../../packages/fabric-markdown/src/diagrams/registry.ts(13,13): error TS2304: Cannot find name 'Element'.
+/Users/shenyanbin/Documents/workspacex/.claude/worktrees/f102-clean/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+=== vitest segment-binding-instantiation + segment-two-template-limit ===
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/f102-clean/apps/api
+
+ ✓ tests/canvas/segment-binding-instantiation.test.ts (5 tests) 2ms
+ ✓ tests/canvas/segment-two-template-limit.test.ts (11 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  00:55:55
+   Duration  347ms (transform 161ms, setup 0ms, collect 224ms, tests 4ms, environment 0ms, prepare 67ms)
+
+=== lint ===
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=768 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 19 个文件，skill 取数只经 Context API（I-25）
+scanned=19 violations=0
+✅ lint-arch-deps: 303 files, all dependencies point inward
+scanned=303
