@@ -1,15 +1,63 @@
 $ pnpm --filter api exec vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts
-[exit 1]
+[exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/f65-worktree/apps/api
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts
-filter:  tests/capability/skill/temp-mount-scope-current-thread.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ ✓ tests/capability/skill/temp-mount-scope-current-thread.test.ts (6 tests) 2ms
 
-No test files found, exiting with code 1
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  04:41:58
+   Duration  386ms (transform 163ms, setup 0ms, collect 215ms, tests 2ms, environment 0ms, prepare 32ms)
 
-[harness-verify v1 sha256=3f3002309197d944295db29d2848999e7f28e0a3226a4e49f8f9e7f7218d05f4 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:51:15.958Z]
+
+
+$ pnpm --filter api exec vitest run tests/capability/skill/member-cannot-self-mount.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f65-worktree/apps/api
+
+ ✓ tests/capability/skill/member-cannot-self-mount.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  04:41:59
+   Duration  368ms (transform 148ms, setup 0ms, collect 203ms, tests 2ms, environment 0ms, prepare 28ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/skill/temp-mount-source-distinguishable.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f65-worktree/apps/api
+
+ ✓ tests/capability/skill/temp-mount-source-distinguishable.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  04:41:59
+   Duration  346ms (transform 156ms, setup 0ms, collect 203ms, tests 2ms, environment 0ms, prepare 35ms)
+
+
+
+[SUPPLEMENTARY] $ pnpm --filter api exec vitest run tests/capability/skill/
+[exit 0] — 13 files / 163 tests passed（含既有 F61/F63/F64 用例，回归未破坏）
+
+[SUPPLEMENTARY] $ pnpm --filter api exec vitest run tests/contract-single-source.test.ts
+[exit 0] — 4 tests passed（契约单源门禁：新端口/类型未在 apps/api 重写第二份）
+
+[SUPPLEMENTARY] $ pnpm --filter api run typecheck
+[exit 2] — 唯一残留错误是 packages/fabric-markdown/src/diagrams/registry.ts:13 的
+`Cannot find name 'Element'`，与本 feature 无关：`git stash` 掉本次全部改动后
+在同一 worktree 重跑同一命令，该错误同样出现（基线本就存在）。
+本次新增/改动的四个源文件（thread-mount.ts / mount-skill-to-thread.ts /
+unmount-skill-from-thread.ts / ports.ts 的 diff）与三个新测试文件均无 tsc 报错。
+
+[SUPPLEMENTARY] $ pnpm --filter api run lint
+[exit 0] — lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+lint-design-facet-single-source / lint-skill-context-api-only / lint-naming-single-source /
+lint-arch-deps 全部通过（既有 debt 条目均在 apps/web/lib/mock/*，与本 feature 无关）。
+
+[已知未跑]：本轮未执行 `pnpm harness verify --sprint 01/02 --feature F65`
+（该命令会拉起 `pnpm -w run verify:base`，含全仓 turbo typecheck/lint/test 与
+Postgres 相关用例；per issue #74，Postgres 依赖测试留给 CI/coordinator 跑）。

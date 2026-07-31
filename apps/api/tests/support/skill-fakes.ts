@@ -17,6 +17,7 @@ import type {
   SkillDraftStorePort,
   SkillVisibilityPort,
   SubmitterGrantsPort,
+  ThreadMountStorePort,
   TodoPublisherPort,
   WorkflowTemplateReadPort,
 } from "../../src/application/skill/ports";
@@ -32,6 +33,7 @@ import type {
   WorkflowTemplateBody,
 } from "../../src/domain/skill/orchestration";
 import type { SkillLifecycleStatus } from "../../src/domain/skill/skill-status";
+import type { ThreadSkillMount } from "../../src/domain/skill/thread-mount";
 
 export interface AuditSpy extends SecurityAuditPort {
   readonly events: { kind: string; principalId: string; detail: string }[];
@@ -295,6 +297,33 @@ export function orgSkillCatalog(...enabled: string[]): OrgSkillCatalogPort {
 /** 「已被绑定过的 skill」替身（`listIdleSkills` 用）。 */
 export function boundSkillIds(...ids: string[]): AllOrchestrationsPort {
   return { async boundSkillIds() { return ids; } };
+}
+
+/* ═══════════════════ F65：线程临时挂载的替身 ═══════════════════ */
+
+/**
+ * 线程挂载存储替身。**按 `threadId` 分桶**——这是 I-18（只对当前线程生效）
+ * 在测试替身里的落点：读写 A 线程物理上碰不到 B 线程那一桶。
+ */
+export interface ThreadMountStoreSpy extends ThreadMountStorePort {
+  readonly savesByThread: Map<string, readonly ThreadSkillMount[]>;
+}
+
+export function threadMountStore(
+  initial: Readonly<Record<string, readonly ThreadSkillMount[]>> = {},
+): ThreadMountStoreSpy {
+  const savesByThread = new Map<string, readonly ThreadSkillMount[]>(
+    Object.entries(initial),
+  );
+  return {
+    savesByThread,
+    async load(threadId) {
+      return savesByThread.get(threadId) ?? [];
+    },
+    async save(threadId, mounts) {
+      savesByThread.set(threadId, mounts);
+    },
+  };
 }
 
 /** 一份能过静态校验的最小契约。测试里只改它要考的那一格。 */
