@@ -13,8 +13,8 @@
  *   「组织层拒的」与「项目层拒的」这两种回答本身就能反推出资源存在。
  */
 import {
-  Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
-  NotFoundException, Param, Post, Query, ServiceUnavailableException,
+  Body, ConflictException, Controller, ForbiddenException, Get, GoneException, HttpCode,
+  HttpStatus, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { chat as C } from "@repo/contracts";
@@ -34,7 +34,22 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "../../application/identity/ports";
-import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
+import {
+  PROVENANCE_READER,
+  PROVENANCE_WRITER,
+  type ProvenanceReader,
+  type ProvenanceWriter,
+} from "../../application/provenance/ports";
+import {
+  expandToolCallChain,
+  ProvenanceUnavailableError,
+} from "../../application/chat/expand-tool-call-chain";
+import {
+  AnchorUnresolvableError,
+  CitationNotFoundError,
+  locateCitation,
+  SourceArtifactDeletedError,
+} from "../../application/chat/locate-citation";
 import { listThreads } from "../../application/chat/list-threads";
 import {
   mutateThread,
@@ -135,6 +150,7 @@ export class ChatController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Inject(PROVENANCE_READER) private readonly provenanceReader: ProvenanceReader,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
@@ -567,6 +583,66 @@ export class ChatController {
     } catch (e) {
       if (e instanceof GetUsagePresetNotFoundError) throw new NotFoundException("preset_not_found");
       if (e instanceof PresetNotVisibleError) throw new NotFoundException();
+      throw e;
+    }
+  }
+
+  /* ── F111：工具调用链与引用（uc-8-2 UC-14/UC-15）─────────────────────── */
+
+  /**
+   * 展开工具调用链。**是 `provenance_events` 的投影**（I-22）——见
+   * `expand-tool-call-chain.ts` 文件头。失败条不隐藏（I-25），运行中态是正常返回值。
+   */
+  @Get("/chat/messages/:messageId/tool-calls")
+  async toolCalls(
+    @CurrentPrincipal() principal: Principal,
+    @Param("messageId") messageId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await expandToolCallChain(
+        { ...this.deps, provenance: this.provenanceReader },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), messageId },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      if (e instanceof ProvenanceUnavailableError) {
+        throw new ServiceUnavailableException("provenance_unavailable");
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 定位一条引用。状态码：
+   *   404  不可见或不存在（I-3，与其余读路径同一个出口）
+   *   422  `ANCHOR_UNRESOLVABLE`——**这条引用不合格**，不是"暂时找不到"（I-24），
+   *        与 `mutate-thread.ts` 的 `TITLE_INVALID` 同一档：请求形状合法，内容不满足业务前置。
+   *   410  `SOURCE_ARTIFACT_DELETED`——来源材料已不在，与"引用本身写错了"（422）
+   *        是两种不同的不合格,用 Gone 区分"曾经存在、现在没了"。
+   */
+  @Get("/chat/citations/:citationId")
+  async citation(
+    @CurrentPrincipal() principal: Principal,
+    @Param("citationId") citationId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await locateCitation(
+        this.deps,
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), citationId },
+      );
+    } catch (e) {
+      if (e instanceof CitationNotFoundError) throw new NotFoundException();
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      if (e instanceof AnchorUnresolvableError) {
+        throw new UnprocessableEntityException({ reasonCode: "ANCHOR_UNRESOLVABLE" });
+      }
+      if (e instanceof SourceArtifactDeletedError) {
+        throw new GoneException({ reasonCode: "SOURCE_ARTIFACT_DELETED" });
+      }
       throw e;
     }
   }
