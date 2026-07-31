@@ -122,7 +122,9 @@ import { AuthOrgController } from "./interface/controllers/auth-org.controller";
 import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope.controller";
 // F80 (phase-01 · 06-itv): 访谈范围模型。project_id 可空 + 两种权限投影 + 服务端过滤。
 import { INTERVIEW_SCOPE_REPOSITORY } from "./application/interview/ports";
+import { INTERVIEW_ATTACHMENT_REPOSITORY } from "./application/interview/attachment-ports";
 import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interview-scope-repository";
+import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 // F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
 // 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
@@ -348,11 +350,17 @@ import { ProjectController } from "./interface/controllers/project.controller";
       inject: [DATABASE_PORT],
     },
     // F80. ⚠ 没有 `INTERVIEW_WRITE_*` 之类的 provider：F80 只建范围与可见性两条读路径，
-    // 新建向导是 F84、挂载是 F81。给一个还不存在的能力留个绑定，
+    // 新建向导是 F84。给一个还不存在的能力留个绑定，
     // 会让下一个接界面的人以为它已经在跑了。
     {
       provide: INTERVIEW_SCOPE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgInterviewScopeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F81：挂到项目环节（固定快照绑定）。
+    {
+      provide: INTERVIEW_ATTACHMENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewAttachmentRepository(db),
       inject: [DATABASE_PORT],
     },
     // F10：组织成员邀请与激活（UC-1.6）。

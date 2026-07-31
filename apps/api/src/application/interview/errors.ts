@@ -22,6 +22,21 @@ export class ScopeNotVisibleError extends Error {
 }
 
 /**
+ * 挂载的目标版本不是**固定快照**（D-30 / I-30，与 artifact 束 I-14 是同一条）。
+ *
+ * ⚠ 「是不是固定快照」不按字面读成「是不是一条 artifact_versions 行」——
+ * 每一行按构造都是不可变快照，那种读法让本拒绝不可达，而一道其全部价值就是会拒绝的门
+ * 永远不会拒绝。判定委托给 `domain/artifact/downstream-eligibility.ts` 的 `judgeCitation`，
+ * **不在本束重写一遍**。
+ */
+export class RequiresPinnedError extends Error {
+  readonly code = "REQUIRES_PINNED" as const;
+  constructor(readonly versionId: string) {
+    super(`REQUIRES_PINNED: ${versionId}`);
+  }
+}
+
+/**
  * 范围选择器自相矛盾（`kind: "none"` 却带了 projectId 之类）。
  *
  * ⚠ 契约的 `InterviewError` 里**没有**对应的码，所以它不是一个契约拒绝，

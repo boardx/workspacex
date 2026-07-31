@@ -449,11 +449,26 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     //                            `context-pack-pinned-replay.test.ts`; the structural half is
     //                            below, so a future rewrite of `pin-pack.ts` around its own
     //                            eligibility rule is caught HERE, where the door is defined.
+    //   interview_step_attachments
+    //                            ⚠ ADDED BY F81 (migration 0030), and this gate is what
+    //                            found it —— 它不是被通知的，是自己抓到的。
+    //                            `pinned_version_id` 是「这个项目环节引用了当时那一份访谈产出」
+    //                            （D-30 / interview I-30，契约自己写着「artifact 束 I-14 是同一条」）。
+    //                            它**不**绕过这道门：`attachToProjectStep` 的判定走的就是
+    //                            `judgeCitation` —— 与 `referenceForDownstream` / `pinContextPack`
+    //                            同一个函数 —— 非 pinned 一律 `REQUIRES_PINNED`；
+    //                            数据库侧还有 0030 的 `interview_attachment_requires_pinned` 触发器，
+    //                            它调用的 `kernel_version_is_pinned()` 与本文件顶上那条
+    //                            `citable(version) ⟺ ∃ pinned binding` 是同一条谓词。
+    //                            两个方向都在 `tests/itv/mount-to-segment-snapshot.test.ts` 里断言；
+    //                            结构那一半在下面 —— 于是一次「给挂载单独写一套 eligibility」的重写
+    //                            会在**这里**被抓到，也就是这道门被定义的地方。
     expect(referrers).toEqual([
       "artifact_bindings",
       "context_packs",
       "derived_representations",
       "downstream_references",
+      "interview_step_attachments",
       "segment_text",
       "segments",
     ]);
@@ -467,6 +482,19 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     );
     expect(pinSrc).toContain("judgeCitation");
     expect(pinSrc.length, "could not read pin-pack.ts -- this assertion would be vacuous").toBeGreaterThan(500);
+
+    // 同一条结构断言，加在 F81 的挂载路径上（理由见上面那条列表注释）。
+    const attachSrc = readFileSync(
+      fileURLToPath(
+        new URL("../../src/application/interview/attach-to-project-step.ts", import.meta.url),
+      ),
+      "utf8",
+    );
+    expect(attachSrc).toContain("judgeCitation");
+    expect(
+      attachSrc.length,
+      "could not read attach-to-project-step.ts -- this assertion would be vacuous",
+    ).toBeGreaterThan(500);
 
     // Counter-proof: the query really catches a new referrer. Created and rolled back, so
     // the schema is unchanged -- without this, a query that returned a hard-coded list would
