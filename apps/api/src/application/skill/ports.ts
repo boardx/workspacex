@@ -22,6 +22,7 @@ import type {
   ProjectOrchestration,
   WorkflowTemplateBody,
 } from "../../domain/skill/orchestration";
+import type { ThreadSkillMount } from "../../domain/skill/thread-mount";
 
 /**
  * 提交人**当时**持有的数据范围（I-12 的上界）。
@@ -77,10 +78,16 @@ export interface SkillDraftStorePort {
 /**
  * 安全审计。⚠ I-23 逐字要求绕过尝试**写审计**——
  * 一次没有留痕的拒绝，事后无法与「从未发生」区分。
+ *
+ * ⚠ `"skill-member-self-mount-attempt"`（F65）：组员/未获下放权限的组长直调
+ *   `mountSkillToThread` 被服务端拒绝时写入——同 I-23 同一道纪律在挂载场景的落点。
  */
 export interface SecurityAuditPort {
   record(event: {
-    readonly kind: "skill-gate-bypass-attempt" | "skill-source-tag-write-attempt";
+    readonly kind:
+      | "skill-gate-bypass-attempt"
+      | "skill-source-tag-write-attempt"
+      | "skill-member-self-mount-attempt";
     readonly principalId: string;
     readonly detail: string;
   }): Promise<void>;
@@ -201,4 +208,21 @@ export interface OrgSkillCatalogPort {
 /** A5/V8：该组织范围内**已被任一环节绑定过**的 skill id 集合。 */
 export interface AllOrchestrationsPort {
   boundSkillIds(orgId: string): Promise<readonly string[]>;
+}
+
+/* ═══════════════════ F65：对话内临时加减 ═══════════════════ */
+
+/**
+ * 线程临时挂载的读写面。**入口只认 `threadId`**（I-18）——
+ * 与 F63 的 `ProjectOrchestrationStorePort` 只认 `projectId` 同一种落法：
+ * 这个端口结构上拿不到「别的线程」或「蓝本」，要让一次挂载影响到它们，
+ * 得先给端口加参数，那是一次会被 review 看见的改动。
+ *
+ * ⚠ 这里**没有**按 `agendaSegmentId`/`projectId` 读写的方法：
+ *   本挂载与蓝本绑定（`ProjectOrchestrationStorePort`）是两个互不相交的存储面，
+ *   混成一个会让「来源可区分」失去结构性的落点。
+ */
+export interface ThreadMountStorePort {
+  load(threadId: string): Promise<readonly ThreadSkillMount[]>;
+  save(threadId: string, mounts: readonly ThreadSkillMount[]): Promise<void>;
 }
