@@ -4,19 +4,20 @@
  *
  * ## 权限闭集判定：谁能做这四个动作，不是四个分别判断
  *
- * 四个动作词只对应**一个**权限动作 `stage.advance`——`usecases.md` 逐字「动作词在**已实现的
- * 闭集**里」，I-P10 / I-P12 要求引用 `project-role-matrix.ts` 而不是另起判断。⇒ 本用例
- * 只调用一次 `authorize()`，`facilitator` 通过、`groupLead`/`member`/`observer` 一律
+ * 四个动作词只对应**一个**权限动作 `agendaSegment.advance`——`usecases.md` 逐字「动作词在
+ * **已实现的闭集**里」，I-P10 / I-P12 要求引用 `project-role-matrix.ts` 而不是另起判断。⇒
+ * 本用例只调用一次 `authorize()`，`facilitator` 通过、`groupLead`/`member`/`observer` 一律
  * `PROJECT_ROLE_INSUFFICIENT`，无角色 `NO_PROJECT_ROLE`——四个动作共用同一次判定，
  * 不是「先查一次角色，再针对每个 action 各查一次」。
  *
- * ⚠ **动作字面量仍是 `stage.advance`，不是 `agendaSegment.advance`。**
- *   `project-role-matrix.ts` 今天只声明了前者；Q-3 ① 裁的「改名对齐」是 **F121** 的交付物
- *   （修订已签核的 phase-00 `identity` 束，属签核动作，不在本 feature 里顺手改）。
- *   本文件在 F121 落地前**必须引用矩阵里实际存在的字面量**——把它写成
- *   `agendaSegment.advance` 会让 `roleAllows()` 查一个矩阵里不存在的动作，
- *   四种角色会全部落空（连 `facilitator` 也会被拒），这不是「提前对齐」，是引入一个新洞。
- *   F121 完成改名后，这个常量随之改一处即可（I-P12 的「引用不得抄」保证只有一处要改）。
+ * ⚠ **动作字面量现在是 `agendaSegment.advance`，不再是旧的 `stage` 前缀动作词。**
+ *   `project-role-matrix.ts` 曾经只声明旧前缀（F121 的败选名之一，见
+ *   `scripts/lib/naming-single-source-patterns.mjs`，此处不重复拼出该字面量，避免又
+ *   触发它自己的门控）；**F121**（PR #150，已合入 main）完成了「改名对齐」交付物，
+ *   把矩阵里的字面量改成了 `agendaSegment.advance`。本文件现在**必须引用矩阵里实际
+ *   存在的字面量**——继续引用旧前缀会让 `roleAllows()` 查一个矩阵里已不存在的动作，
+ *   四种角色会全部落空（连 `facilitator` 也会被拒），这正是当初「提前对齐会引入新洞」
+ *   那条纪律的反面：现在滞后没跟着改，同样会引入一个洞。
  *
  * ## SEGMENT_ALREADY_ACTIVE 由数据库产生，本用例只翻译它
  *
@@ -51,8 +52,8 @@ import { AgendaSegmentNotFoundError, MergeTargetRequiredError } from "./advance-
 import { ProjectError } from "./errors";
 import type { AdvanceAgendaSegmentResult, AgendaSegmentRepository } from "./ports";
 
-/** 见文件头「动作字面量仍是 stage.advance」一节。引用矩阵，不新造常量值。 */
-export const ADVANCE_AGENDA_SEGMENT_ACTION = "stage.advance" as const;
+/** 见文件头「动作字面量现在是 agendaSegment.advance」一节。引用矩阵，不新造常量值。 */
+export const ADVANCE_AGENDA_SEGMENT_ACTION = "agendaSegment.advance" as const;
 
 /** 今天没有临时提权的存储层可收回——见文件头。F127 落地后这个常量的用法需要重新审视。 */
 const NO_TEMPORARY_GRANTS_TO_REVOKE = 0;

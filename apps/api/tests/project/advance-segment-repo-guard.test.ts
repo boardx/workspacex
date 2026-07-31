@@ -4,8 +4,8 @@
  * **不需要 Postgres，可本地跑**（同 `create-project-idempotent.test.ts` 那条载荷测试的写法）。
  *
  * 豁免的论证：`disclose()` 在这条路径上没有意义——`advance-agenda-segment.ts` 已经在
- * 调用仓储**之前**做完 `authorize({ action: "stage.advance" })` 判定（权限先于存在性，
- * 同 `bindToProjectStep` 的顺序），仓储返回的行**就是**这次被授权动作改动的那一条环节，
+ * 调用仓储**之前**做完 `authorize({ action: "agendaSegment.advance" })` 判定（权限先于
+ * 存在性，同 `bindToProjectStep` 的顺序），仓储返回的行**就是**这次被授权动作改动的那一条环节，
  * 不是任意读取面。这条豁免只在仓储从未touch第二张租户表时成立，所以本文件断言这一点，
  * 而不是让它停留在一句注释里。
  */

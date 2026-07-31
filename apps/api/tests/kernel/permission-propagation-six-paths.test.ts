@@ -504,7 +504,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // `openingPrompt`/`skills`/`agents` to a caller. `tests/chat/preset-content-echo-only.test.ts`
     // asserts each function's result shape excludes those three keys via an in-memory fake
     // repository. If that test is deleted, this entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(13);
+    //
+    // ⚠ Raised 13 -> 14 by F119 (advanceAgendaSegment, UC-P7), merged on top of the F115 raise
+    // above -- RE-MEASURED on the combined (rebased) tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (see below for the fresh count). The one
+    // new entry is `infrastructure/project/pg-agenda-segment-repository.ts` -- a WRITE path
+    // (current segment's state/merged_into plus, in the same transaction, the next pending
+    // segment's activation) reached only after `authorize({action:'agendaSegment.advance'})`
+    // already ran and passed, one layer up in `advance-agenda-segment.ts` (permission before
+    // existence, same ordering as `bindToProjectStep`). Its enforced premise is asserted in
+    // `tests/project/advance-segment-repo-guard.test.ts`, which fails if any tenant table
+    // other than `agenda_segments` appears in the file. If that test is ever deleted, this
+    // entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(14);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

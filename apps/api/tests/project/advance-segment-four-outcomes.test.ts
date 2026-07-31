@@ -23,7 +23,7 @@ import { MergeTargetRequiredError } from "../../src/application/project/advance-
 import { ProjectError } from "../../src/application/project/errors";
 import type { DecisionIdFactory } from "../../src/application/identity/ports";
 import { toOrgId } from "../../src/domain/org-id";
-import { addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
+import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
 
 const ORG = "f119-org-outcomes";
 const FACILITATOR = "u-f119-facilitator";
@@ -52,6 +52,11 @@ beforeAll(async () => {
   await asApp(ORG, (c) =>
     c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [ORG, `org ${ORG}`]),
   );
+  // 项目角色不能替代组织成员资格——两层判定各自独立（decide() 的 org 层先于 project 层），
+  // 漏掉这一步会让 facilitator 在 org 层就被 NO_ORG_MEMBERSHIP 拦下，从未走到项目层判断。
+  // 只加一次（beforeAll，而不是每个 workshop 各加一次）：org_memberships 的主键是
+  // (user_id, org_id)，同一个 FACILITATOR 在同一个 ORG 下第二次 INSERT 会撞主键。
+  await addOrgMember(ORG, FACILITATOR, "consultant", null);
 });
 
 afterAll(async () => {
