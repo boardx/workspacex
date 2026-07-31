@@ -278,6 +278,44 @@ describe("② 激活：入场即带组织角色 + 团队", () => {
     expect(cred.rows[0].email_verified_at).not.toBeNull();
   });
 
+  it("已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织）", async () => {
+    // 这个人已经有账号了（比如他在别的组织里）。
+    await asOwner((c) =>
+      c.query(
+        `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+         VALUES ($1, $2, $3, $4, now())`,
+        ["u-f10-existing", "existing@f10main.test", "e", fakeHasher.canned],
+      ),
+    );
+    const before = await asOwner((c) =>
+      c.query("SELECT count(*)::int AS n FROM credentials WHERE email LIKE '%@f10main.test'"),
+    );
+
+    const invited = await invite({ email: "existing@f10main.test" });
+    const out = await activateOrgMember(
+      { repo, hasher: fakeHasher, sessions: fakeSessions(), tokens: fakeTokens() },
+      {
+        token: invited.token!,
+        mode: "existing-account",
+        profile: null,
+        // ⚠ Guard 认证过的 userId，不是请求体里的字符串（控制器里同样如此）。
+        existingUserId: "u-f10-existing",
+        untrustedClaims: NO_CLAIMS,
+      },
+    );
+
+    expect(out.userId).toBe("u-f10-existing");
+    expect(out.orgRole).toBe("consultant");
+    expect(out.teamId).toBe(fixture.teams.energy);
+
+    // 🔴 没有新建第二个账号。新建的那一天，「同一人登录进的是同一账号」(UC-1.1) 就假了，
+    //    而且不会有任何东西报错：两个账号都能用，组织按记住了哪个密码来分。
+    const after = await asOwner((c) =>
+      c.query("SELECT count(*)::int AS n FROM credentials WHERE email LIKE '%@f10main.test'"),
+    );
+    expect(after.rows[0].n).toBe(before.rows[0].n);
+  });
+
   it("I-1 幂等重放：同一 token 第二次调用是 INVITE_NOT_FOUND，**不是「已激活成功」**", async () => {
     const invited = await invite();
     await activate(invited.token!);
