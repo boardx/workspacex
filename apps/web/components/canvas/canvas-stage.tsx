@@ -1,167 +1,259 @@
 "use client";
 import * as React from "react";
-import { Sparkles } from "lucide-react";
+import { Canvas as FabricCanvas } from "fabric";
+import {
+  markdownToCanvas,
+  canvasToMarkdown,
+  FlowNode,
+  type DiagramModel,
+} from "@repo/fabric-markdown";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  MOCK_SECTIONS, MOCK_STICKIES, MOCK_NODES, MOCK_EDGES,
-  type CanvasSticky, type CanvasNode,
-} from "@/lib/mock/projects";
 import type { CanvasTool } from "./canvas-toolbar";
 
+let nodeSeq = 0;
+
 /**
- * 画布本体 —— **只是壳与静态呈现，不接 mermaid 渲染引擎**（那属于后续 feature）。
- * 分区框 / 便签 / 节点用绝对定位的 div 表现，连线用 currentColor 的 SVG 直线。
- * AI 落笔的便签与连线带 AVA 角标（D-10）。选中态用 ring 表达。
+ * 画布本体 —— **真实 mermaid 引擎渲染**（F103，替换此前「非 mermaid 渲染」的静态壳）。
  *
- * 工具条不是死壳：`zoom` 真实缩放 stage；`＋便签`/`＋节点` 点空白处落一个 chip（本地乐观，
- * 不落库）；`删除` 点 chip 移除它。这样人类能看到工具「被接住了」——不做真实布局引擎。
+ * 数据链（D-08 硬约束）：`markdown`（含 mermaid 围栏）由父组件持有，是唯一事实来源。
+ * 挂载/`markdown` 被**源码视图手改**（外部变化）时，重新走一次
+ * `markdown → mermaid 文本 → DiagramModel → fabric` 完整解析并重渲染；
+ * 画布内对象被**用户在这张画布上编辑**（拖动 / 加节点 / 删除）时，走反方向
+ * `fabric → DiagramModel → mermaid 文本 → markdown`，只把变化点回写给父组件 ——
+ * 用 `lastEmittedRef` 记录「这次 markdown 变化是不是我自己刚发出去的」，避免
+ * 画布编辑触发的回写又被当成「外部改动」重新解析一遍、把 mermaid 自动布局出的
+ * 新坐标覆盖用户刚拖好的位置（R7 ②「坐标不写回 Markdown」的直接推论：
+ * 一份 markdown 可以对应多种画布坐标，不能拿它当„画布状态"的权威）。
  */
-export function CanvasStage({ readOnly, tool, zoom }: { readOnly: boolean; tool: CanvasTool; zoom: number }) {
-  const [stickies, setStickies] = React.useState<CanvasSticky[]>(MOCK_STICKIES);
-  const [nodes, setNodes] = React.useState<CanvasNode[]>(MOCK_NODES);
-  const [selected, setSelected] = React.useState<string | null>("n1");
-  const localSeq = React.useRef(0);
-  const surfaceRef = React.useRef<HTMLDivElement>(null);
+export function CanvasStage({
+  readOnly,
+  tool,
+  zoom,
+  markdown,
+  onMarkdownChange,
+}: {
+  readOnly: boolean;
+  tool: CanvasTool;
+  zoom: number;
+  markdown: string;
+  onMarkdownChange: (next: string) => void;
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasElRef = React.useRef<HTMLCanvasElement>(null);
+  const fabricRef = React.useRef<FabricCanvas | null>(null);
+  const lastEmittedRef = React.useRef<string>(markdown);
+  const toolRef = React.useRef(tool);
+  const readOnlyRef = React.useRef(readOnly);
+  const markdownRef = React.useRef(markdown);
+  const onMarkdownChangeRef = React.useRef(onMarkdownChange);
+  const [ignoredCount, setIgnoredCount] = React.useState(0);
+  const [parseError, setParseError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedLabel, setSelectedLabel] = React.useState<string | null>(null);
 
-  const isPlaceTool = tool === "sticky" || tool === "node";
-  const canPlace = isPlaceTool && !readOnly;
+  toolRef.current = tool;
+  readOnlyRef.current = readOnly;
+  markdownRef.current = markdown;
+  onMarkdownChangeRef.current = onMarkdownChange;
 
-  const placeAt = (clientX: number, clientY: number) => {
-    const el = surfaceRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    // rect 已含缩放，用百分比换算与 zoom 无关
-    const x = Math.max(2, Math.min(90, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(4, Math.min(88, ((clientY - rect.top) / rect.height) * 100));
-    localSeq.current += 1;
-    const id = `local-${tool}-${localSeq.current}`;
-    if (tool === "sticky") {
-      setStickies((s) => [...s, { id, text: "新便签（点选可改标签）", sectionId: "sec-hmw", x, y, author: "你" }]);
-    } else {
-      setNodes((n) => [...n, { id, label: "新节点", x, y }]);
-    }
-    setSelected(id);
-  };
+  const emit = React.useCallback((next: string) => {
+    lastEmittedRef.current = next;
+    onMarkdownChangeRef.current(next);
+  }, []);
 
-  const removeChip = (id: string) => {
-    setStickies((s) => s.filter((c) => c.id !== id));
-    setNodes((n) => n.filter((c) => c.id !== id));
-    if (selected === id) setSelected(null);
-  };
+  const syncFromCanvas = React.useCallback(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    const next = canvasToMarkdown(canvas, markdownRef.current);
+    emit(next);
+  }, [emit]);
 
-  const onChipClick = (id: string) => {
-    if (tool === "delete" && !readOnly) removeChip(id);
-    else setSelected(id);
-  };
+  // 挂载：创建真实 fabric.Canvas（一次）。
+  React.useEffect(() => {
+    const el = canvasElRef.current;
+    const container = containerRef.current;
+    if (!el || !container) return;
+    const rect = container.getBoundingClientRect();
+    const canvas = new FabricCanvas(el, {
+      width: Math.max(600, rect.width),
+      height: Math.max(400, rect.height),
+      selection: true,
+    });
+    fabricRef.current = canvas;
 
-  // ⚠ 2026-07-29（N-7 的响应式断言抓到）：此处原为 `overflow-hidden`，
-  //   在 375/768 下画布内容被裁掉 62px 且**用户无法看到剩下的**。
-  //   画布本来就该能平移——真实的 mermaid 引擎会做 pan/zoom，
-  //   在那之前至少让它可滚动，否则窄屏上的内容是不可达的。
-  //   `data-allow-x-scroll` 是给响应式门控的显式声明：这里的横向滚动是设计，不是缺陷。
+    canvas.on("object:modified", syncFromCanvas);
+    canvas.on("selection:created", (e) => {
+      const obj = e.selected?.[0];
+      setSelectedLabel(obj instanceof FlowNode ? obj.label : null);
+    });
+    canvas.on("selection:updated", (e) => {
+      const obj = e.selected?.[0];
+      setSelectedLabel(obj instanceof FlowNode ? obj.label : null);
+    });
+    canvas.on("selection:cleared", () => setSelectedLabel(null));
+
+    canvas.on("mouse:down", (opt) => {
+      if (readOnlyRef.current) return;
+      const t = toolRef.current;
+      if (opt.target) {
+        if (t === "delete" && opt.target instanceof FlowNode) {
+          canvas.remove(opt.target);
+          canvas.fire("object:modified", { target: opt.target });
+          syncFromCanvas();
+        }
+        return;
+      }
+      if (t !== "sticky" && t !== "node") return;
+      const pointer = canvas.getScenePoint(opt.e);
+      nodeSeq += 1;
+      const id = `local-${t}-${nodeSeq}`;
+      const node = new FlowNode({
+        nodeId: id,
+        label: t === "sticky" ? "新便签（点选可改标签）" : "新节点",
+        shape: t === "sticky" ? "stadium" : "rect",
+        x: pointer.x,
+        y: pointer.y,
+        width: 200,
+        height: 60,
+      });
+      canvas.add(node);
+      canvas.setActiveObject(node);
+      syncFromCanvas();
+    });
+
+    return () => {
+      canvas.dispose();
+      fabricRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncFromCanvas]);
+
+  // markdown 变化：只有「不是我自己刚发出的那次」才重新解析并重渲染（源码手改 / 首次挂载）。
+  React.useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    if (markdown === lastEmittedRef.current) return;
+    let cancelled = false;
+    setLoading(true);
+    setParseError(null);
+    markdownToCanvas(markdown, canvas)
+      .then(({ model }: { model: DiagramModel }) => {
+        if (cancelled) return;
+        lastEmittedRef.current = markdown;
+        const ignored = countIgnoredFences(markdown);
+        setIgnoredCount(ignored);
+        setLoading(false);
+        void model;
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setParseError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // fabricRef.current is stable after mount; re-run only when markdown text changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markdown]);
+
+  // 首次挂载后立即解析一次初始 markdown（上面的 effect 依赖 markdown 不变时不会触发）。
+  React.useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    let cancelled = false;
+    markdownToCanvas(markdown, canvas)
+      .then(() => {
+        if (cancelled) return;
+        setIgnoredCount(countIgnoredFences(markdown));
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setParseError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 缩放：滚轮缩放（R8「滚轮缩放」固定口径）以及工具条 +/−/⤢ 的 zoom prop。
+  React.useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    canvas.setZoom(zoom);
+    canvas.requestRenderAll();
+  }, [zoom]);
+
+  // 只读态：禁用所有对象的写操作。
+  React.useEffect(() => {
+    const canvas = fabricRef.current;
+    if (!canvas) return;
+    canvas.selection = !readOnly;
+    canvas.forEachObject((obj) => {
+      obj.selectable = !readOnly;
+      obj.evented = !readOnly;
+    });
+    canvas.requestRenderAll();
+  }, [readOnly, loading]);
+
   return (
     <div
+      ref={containerRef}
       className="relative flex-1 overflow-auto bg-panel-alt"
       data-testid="canvas-stage"
       data-allow-x-scroll="画布需平移；真实引擎会做 pan/zoom"
     >
-      {/* mock 声明：明确告诉 sign-off 这不是真实布局引擎 */}
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1.5">
-        <Badge tone="outline">静态占位 · 非 mermaid 渲染</Badge>
+        <Badge tone="outline">mermaid 引擎渲染</Badge>
         <Badge tone={tool === "delete" ? "danger" : tool === "select" ? "neutral" : "primary"} data-testid="canvas-active-tool">
           当前工具：{TOOL_LABEL[tool]}
         </Badge>
+        {ignoredCount > 0 && (
+          <Badge tone="warning" data-testid="canvas-ignored-syntax">
+            有 {ignoredCount} 条语法被忽略
+          </Badge>
+        )}
       </div>
+
+      {parseError && (
+        <div
+          className="absolute inset-x-2 top-10 z-10 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-11 text-destructive"
+          data-testid="canvas-parse-error"
+        >
+          源码解析失败，画布保留上一次成功渲染的内容：{parseError}
+        </div>
+      )}
 
       <div
-        ref={surfaceRef}
         data-testid="canvas-surface"
-        onClick={(e) => canPlace && e.target === e.currentTarget && placeAt(e.clientX, e.clientY)}
         className={cn(
-          "relative h-full min-h-96 w-full origin-top-left transition-transform duration-200",
-          canPlace && "cursor-crosshair",
+          "relative h-full min-h-96 w-full",
+          tool === "sticky" || tool === "node" ? (readOnly ? "" : "cursor-crosshair") : "",
           tool === "delete" && !readOnly && "cursor-not-allowed",
         )}
-        style={{ transform: `scale(${zoom})` }}
       >
-        {/* 分区框（## 段落）*/}
-        {MOCK_SECTIONS.map((s) => (
-          <div
-            key={s.id}
-            data-testid={`canvas-section-${s.id}`}
-            className="pointer-events-none absolute rounded-lg border border-dashed border-border bg-card/40"
-            style={{ left: `${s.x}%`, top: `${s.y}%`, width: `${s.w}%`, height: `${s.h}%` }}
-          >
-            <div className="flex items-center gap-1 px-2 py-1">
-              <span className="text-11 font-medium text-muted-foreground">## {s.label}</span>
-              {s.required && <span className="text-10 text-muted-foreground">必填</span>}
-            </div>
-          </div>
-        ))}
-
-        {/* 连线（SVG，用 currentColor 取 token 颜色）*/}
-        <svg className="pointer-events-none absolute inset-0 h-full w-full text-border" aria-hidden>
-          {MOCK_EDGES.map((e) => {
-            const from = nodes.find((n) => n.id === e.from);
-            const to = nodes.find((n) => n.id === e.to);
-            if (!from || !to) return null;
-            return (
-              <line
-                key={e.id}
-                x1={`${from.x + 6}%`} y1={`${from.y + 3}%`}
-                x2={`${to.x}%`} y2={`${to.y + 3}%`}
-                stroke="currentColor" strokeWidth={1.5} strokeDasharray="4 3"
-              />
-            );
-          })}
-        </svg>
-
-        {/* 便签 */}
-        {stickies.map((st) => (
-          <StageChip
-            key={st.id}
-            testid={`canvas-sticky-${st.id}`}
-            x={st.x} y={st.y}
-            selected={selected === st.id}
-            deletable={tool === "delete" && !readOnly}
-            onSelect={() => onChipClick(st.id)}
-            byAi={st.byAi}
-            author={st.author}
-            variant="sticky"
-          >
-            {st.text}
-          </StageChip>
-        ))}
-
-        {/* 节点 */}
-        {nodes.map((n) => (
-          <StageChip
-            key={n.id}
-            testid={`canvas-node-${n.id}`}
-            x={n.x} y={n.y}
-            selected={selected === n.id}
-            deletable={tool === "delete" && !readOnly}
-            onSelect={() => onChipClick(n.id)}
-            variant="node"
-          >
-            {n.label}
-          </StageChip>
-        ))}
+        <canvas ref={canvasElRef} data-testid="canvas-fabric-surface" />
       </div>
 
-      {/* 交互口径提示（随工具变化）*/}
       <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-md border border-border-subtle bg-card/90 px-2 py-1">
         <p className="text-10 text-muted-foreground" data-testid="canvas-tool-hint">
-          {readOnly
-            ? "只读，写操作已禁用 · 可缩放查看"
-            : canPlace
-              ? `点画布空白处落一个${tool === "sticky" ? "便签" : "节点"} · 缩放 ${Math.round(zoom * 100)}%`
-              : tool === "delete"
-                ? "点任意便签 / 节点将其删除"
-                : tool === "edge"
-                  ? "连线：按住 shift 点两个节点（原型壳，不接渲染引擎）"
-                  : `点选一个对象查看 / 改标签 · 缩放 ${Math.round(zoom * 100)}%`}
+          {loading
+            ? "渲染中…"
+            : readOnly
+              ? "只读，写操作已禁用 · 可缩放查看"
+              : selectedLabel
+                ? `选中：${selectedLabel} · 缩放 ${Math.round(zoom * 100)}%`
+                : tool === "sticky" || tool === "node"
+                  ? `点画布空白处落一个${tool === "sticky" ? "便签" : "节点"} · 缩放 ${Math.round(zoom * 100)}%`
+                  : tool === "delete"
+                    ? "点任意节点将其删除"
+                    : tool === "edge"
+                      ? "连线：按住 shift 点两个节点"
+                      : `点选一个对象查看 / 改标签 · 缩放 ${Math.round(zoom * 100)}%`}
         </p>
       </div>
     </div>
@@ -176,50 +268,14 @@ const TOOL_LABEL: Record<CanvasTool, string> = {
   delete: "删除",
 };
 
-function StageChip({
-  children, testid, x, y, selected, deletable, onSelect, byAi, author, variant,
-}: {
-  children: React.ReactNode;
-  testid: string;
-  x: number;
-  y: number;
-  selected: boolean;
-  deletable: boolean;
-  onSelect: () => void;
-  byAi?: boolean;
-  author?: string;
-  variant: "sticky" | "node";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      data-testid={testid}
-      aria-pressed={selected}
-      style={{ left: `${x}%`, top: `${y}%` }}
-      className={cn(
-        "absolute flex w-40 flex-col gap-1 rounded-md border p-2 text-left shadow-sm",
-        "transition-all duration-200 hover:shadow-md",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        variant === "sticky" ? "bg-warning/10 border-warning/30" : "bg-card border-border",
-        selected && "ring-2 ring-primary",
-        deletable && "hover:border-destructive hover:ring-2 hover:ring-destructive",
-      )}
-    >
-      <span className="text-11 leading-snug text-card-foreground">{children}</span>
-      <span className="flex items-center justify-between">
-        {byAi ? (
-          <Badge tone="ai" data-testid={`${testid}-ai`}>
-            <Sparkles aria-hidden className="h-2.5 w-2.5" />
-            AVA
-          </Badge>
-        ) : (
-          <span className="text-9 text-muted-foreground">{author}</span>
-        )}
-      </span>
-    </button>
-  );
+/** R7 ③ 白名单忽略计数：mermaid/persona/canvas/usecase 以外的围栏语言按段计数（近似——精确名单在 F101/F102）。 */
+function countIgnoredFences(markdown: string): number {
+  const re = /^```(\w+)/gm;
+  const known = new Set(["mermaid", "persona", "canvas", "usecase"]);
+  let count = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown))) {
+    if (!known.has(m[1] ?? "")) count += 1;
+  }
+  return count;
 }

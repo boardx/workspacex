@@ -11,8 +11,8 @@ import { CanvasToolbar, ZOOM_MIN, ZOOM_MAX, type CanvasTool } from "./canvas-too
 import { CanvasStage } from "./canvas-stage";
 import { ConflictBar } from "./conflict-bar";
 
-/** 源码视图内容（D-08 数据链的「可查看可手改」）——静态 mock 文本 */
-const SOURCE_MD = `# 谁在买储能 · 假设风暴 (hmw)
+/** 源码视图初始内容（D-08 数据链的「可查看可手改」）—— 组员进入这张画布时看到的起点 */
+const INITIAL_SOURCE_MD = `# 谁在买储能 · 假设风暴 (hmw)
 
 ## 谁
 - 工商业园区业主：自投自用
@@ -50,6 +50,7 @@ export function CanvasMain({
   const [mode, setMode] = React.useState<"canvas" | "source">("canvas");
   const [conflict, setConflict] = React.useState(initialConflict);
   const [zoom, setZoom] = React.useState(1);
+  const [markdown, setMarkdown] = React.useState(INITIAL_SOURCE_MD);
   const readOnly = previewRole === "observer";
 
   return (
@@ -139,9 +140,15 @@ export function CanvasMain({
               onZoomFit={() => setZoom(1)}
             />
             {mode === "canvas" ? (
-              <CanvasStage readOnly={readOnly} tool={tool} zoom={zoom} />
+              <CanvasStage
+                readOnly={readOnly}
+                tool={tool}
+                zoom={zoom}
+                markdown={markdown}
+                onMarkdownChange={setMarkdown}
+              />
             ) : (
-              <SourceView />
+              <SourceView markdown={markdown} readOnly={readOnly} onApply={setMarkdown} />
             )}
           </div>
         </StateShell>
@@ -150,16 +157,72 @@ export function CanvasMain({
   );
 }
 
-function SourceView() {
+/**
+ * [源码] 视图——不再是静态 `<pre>`：可直接手改，`[应用]` 或 Ctrl/Cmd+Enter 提交后
+ * 传导回 `markdown`，`CanvasMain` 把新值传给 `CanvasStage` 触发重新解析渲染
+ * （R3 步骤 4「三段任一段的修改都能传导到另外两段」的**源码→画布**方向）。
+ * 本地草稿与已提交值分开存放，避免每敲一个字就触发一次 mermaid 重渲染。
+ */
+function SourceView({
+  markdown,
+  readOnly,
+  onApply,
+}: {
+  markdown: string;
+  readOnly: boolean;
+  onApply: (next: string) => void;
+}) {
+  const [draft, setDraft] = React.useState(markdown);
+  const dirty = draft !== markdown;
+
+  // 画布侧的编辑传导回来时（markdown 变了但不是这里发出的），草稿跟着刷新。
+  React.useEffect(() => {
+    setDraft(markdown);
+  }, [markdown]);
+
+  const apply = () => {
+    if (!dirty) return;
+    onApply(draft);
+  };
+
   return (
-    <div className="flex-1 overflow-auto bg-card p-3" data-testid="canvas-source-view">
-      <div className="mb-2 flex items-center gap-2">
-        <Badge tone="outline" className="font-mono">Markdown ⇄ mermaid ⇄ 画布</Badge>
-        <span className="text-10 text-muted-foreground">三段每段可查看可手改（D-08）；坐标不在这份文本里</span>
+    <div className="flex flex-1 flex-col overflow-auto bg-card p-3" data-testid="canvas-source-view">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Badge tone="outline" className="font-mono">Markdown ⇄ mermaid ⇄ 画布</Badge>
+          <span className="text-10 text-muted-foreground">三段每段可查看可手改（D-08）；坐标不在这份文本里</span>
+        </div>
+        {!readOnly && (
+          <Button
+            size="xs"
+            variant={dirty ? "primary" : "ghost"}
+            disabled={!dirty}
+            onClick={apply}
+            data-testid="canvas-source-apply"
+          >
+            应用（重新解析）
+          </Button>
+        )}
       </div>
-      <pre className="overflow-auto rounded-md border border-border bg-muted p-3 font-mono text-11 leading-relaxed text-card-foreground">
-        {SOURCE_MD}
-      </pre>
+      <textarea
+        className="min-h-0 flex-1 resize-none overflow-auto rounded-md border border-border bg-muted p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        data-testid="canvas-source-textarea"
+        value={draft}
+        readOnly={readOnly}
+        spellCheck={false}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            apply();
+          }
+        }}
+      />
+      {dirty && !readOnly && (
+        <p className="mt-1 text-10 text-muted-foreground" data-testid="canvas-source-dirty-hint">
+          有未应用的手改 · Ctrl/Cmd+Enter 或点「应用」传导到画布
+        </p>
+      )}
     </div>
   );
 }
