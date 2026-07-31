@@ -1128,4 +1128,22 @@ export const KNOWN_CONTRACT_GAPS = {
    *   要么 `AUTH_POLICY` 需要第二个字段。agent 不在这里替人选边。
    */
   OA9: "the project invite code's length/shape is contradictory: AUTH_POLICY.inviteCodeLength = 14 comes from UC-1.5 (the org-creation code) while the prototype's project code `KCK-8F21-EU24` is 12 alphanumerics in three dashed groups; the implementation follows the contract's 'read AUTH_POLICY.inviteCodeLength' instruction and treats dashes as display-only",
+  /**
+   * **F11 落地时撞到的三处「契约里没有专属码/字段」，逐条裁定而不是发明新东西。**
+   *
+   * ① `removeOrgMember` 的 `pre`（`userId ≠ actorId`，不可自移）没有专属错误码——
+   *    `err` 只有 `PROJECT_ROLE_INSUFFICIENT` / `VERSION_CHANGED` / `AUTH_SERVICE_UNAVAILABLE`
+   *    三个。实现复用 `PROJECT_ROLE_INSUFFICIENT`（「你无权对这个目标执行这个操作」）。
+   * ② `removeOrgMember` 与 `mutateTeam` 的 `in` 都**没有版本字段**，但 `err` 都声明了
+   *    `VERSION_CHANGED`。实现把它映射到「目标（成员行 / teamId）在并发下已不存在」——
+   *    对 `mutateTeam` 的 `rename`/`delete` 是「指向的 teamId 已被并发删除」；
+   *    `removeOrgMember` 本身不需要这个映射（不存在即幂等重放，见下一条），
+   *    该码在 `removeOrgMember` 上目前**没有可达路径**，是本次实现的诚实缺口。
+   * ③ `removeOrgMember.out.pendingTasks` 恒为空数组——phase-01 还没有任务系统，
+   *    同 `inviteOrgMember.quotaReserved`（F10）与 `revokeInviteLinks.onsiteSessions`
+   *    （F15）的处置：空数组是「没有任务概念可查」这一真话，不是占位。
+   *
+   * 三条都需要人裁专属码/字段时才能真正关闭；agent 不在这里替人选边。
+   */
+  OA10: "F11: three 'contract has no dedicated code/field' gaps hit during implementation — (1) removeOrgMember's self-removal precondition reuses PROJECT_ROLE_INSUFFICIENT for lack of a dedicated code; (2) removeOrgMember/mutateTeam declare VERSION_CHANGED but their `in` carries no version token, so the implementation maps 'target vanished under concurrency' to it for mutateTeam's rename/delete and leaves it unreached on removeOrgMember (repeat removal is idempotent replay, not a version conflict); (3) removeOrgMember.out.pendingTasks is always [] because phase-01 has no task system yet, same treatment as inviteOrgMember.quotaReserved (F10) and revokeInviteLinks.onsiteSessions (F15)",
 } as const;

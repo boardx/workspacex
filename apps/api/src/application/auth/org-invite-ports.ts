@@ -46,8 +46,40 @@ export type CreateOrgInviteResult =
   /**
    * ⚠ `duplicate` 与 `already-member` 分开，因为 usecases.md 把它们分成两个码，
    * 而它们要用户做的事不同：一个是「别重复邀」，一个是「让他直接登录」。
+   *
+   * `quota-exhausted`（F11 / I-9）同样是**这个仓储自己判的**，不是用例先查一次
+   * 「还有没有配额」再插入——那样两步之间有窗口：两名管理员同时看到「还剩 1 个」，
+   * 都插入成功，配额变成 -1 且没有任何报错。判定与插入必须在同一次锁定里（见实现）。
    */
-  | { readonly ok: false; readonly reason: "duplicate" | "already-member" };
+  | { readonly ok: false; readonly reason: "duplicate" | "already-member" | "quota-exhausted" };
+
+/* ─────────────────────────── 双人复核（F11 / O-28 ⑥） ─────────────────────────── */
+
+export interface ReviewOrgInviteInput {
+  readonly orgId: OrgId;
+  readonly inviteId: string;
+  readonly reviewerId: string;
+  readonly decision: "approve" | "reject";
+  readonly now: Date;
+  /** `approve` 时签发的新令牌；`reject` 时为 null。由用例（不是仓储）生成，见 review-admin-invite.ts。 */
+  readonly token: string | null;
+  readonly tokenExpiresAt: Date | null;
+}
+
+export type ReviewOrgInviteResult =
+  | { readonly ok: true; readonly status: "pending" | "revoked"; readonly tokenIssued: boolean }
+  | {
+      readonly ok: false;
+      /**
+       * ⚠ 三种情形三个码，**不合并**：
+       *   `not-found`：这个 orgId 下根本没有这条邀请 id。
+       *   `self-review`：`reviewerId === invited_by`（I-4），无论当前是什么状态都优先判这条。
+       *   `already-decided`：邀请**存在**但已不在 `awaiting-review`——
+       *     同一 reviewer 重复同一 decision 是幂等重放（`ok: true` 分支，不到这里）；
+       *     到这里的是「别人已经先批/先拒了」或「已被撤销」，映射为 `VERSION_CHANGED`。
+       */
+      readonly reason: "not-found" | "self-review" | "already-decided";
+    };
 
 /* ─────────────────────────── 激活 ─────────────────────────── */
 
@@ -103,6 +135,15 @@ export interface OrgInviteRepository {
 
   /** 一次事务：核销令牌 → 读服务端记录 → 建成员 → 标 used（+ 篡改留痕）。 */
   activate(input: ActivateOrgInviteInput): Promise<ActivateOrgInviteResult>;
+
+  /**
+   * F11 / O-28 ⑥：另一名管理员批准或拒绝一条 `awaiting-review` 邀请。
+   *
+   * 一次事务：锁定该行 → 判自批 → 判状态 → 写 `status` + `reviewed_by/at`（+ approve 时
+   * 一并写 `org_invite_tokens`）。与 `create` 同一条理由：判定与写入必须在同一次锁定里，
+   * 否则两名管理员同时批只生效一次（I-4 的并发半句）无法保证。
+   */
+  reviewAdminInvite(input: ReviewOrgInviteInput): Promise<ReviewOrgInviteResult>;
 }
 
 export const ORG_INVITE_REPOSITORY = Symbol("OrgInviteRepository");

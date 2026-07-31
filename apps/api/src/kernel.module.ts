@@ -136,6 +136,14 @@ import { ChatController } from "./interface/controllers/chat.controller";
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
 import { PgOrgInviteRepository } from "./infrastructure/auth/pg-org-invite-repository";
 import { OrgInviteController } from "./interface/controllers/org-invite.controller";
+// F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 团队增删改 + 成员移除。
+// ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
+//   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
+import { TEAM_REPOSITORY } from "./application/auth/team-ports";
+import { PgTeamRepository } from "./infrastructure/auth/pg-team-repository";
+import { ORG_MEMBER_REPOSITORY } from "./application/auth/org-member-ports";
+import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repository";
+import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
 // anything wired here. The repository provided below is the only reader of it, and the
@@ -188,6 +196,7 @@ import { ProjectController } from "./interface/controllers/project.controller";
     InterviewScopeController,
     ChatController,
     OrgInviteController,
+    OrgAdminManagementController,
     FilesBrowserController,
     FilesDeliveryController,
     DeviceSessionController,
@@ -391,6 +400,18 @@ import { ProjectController } from "./interface/controllers/project.controller";
     {
       provide: ORG_INVITE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgInviteRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F11：团队增删改（占用校验）+ 成员移除（停用访问，不删产出）。两个独立 provider——
+    // 它们分别锁定 `teams` 与 `org_memberships` 两张不同的表，不是同一个仓储的两个方法。
+    {
+      provide: TEAM_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgTeamRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ORG_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
       inject: [DATABASE_PORT],
     },
     // F117。⚠ 复用 `ID_FACTORY` 而不是新造一个 id 工厂：容器 id 会出现在

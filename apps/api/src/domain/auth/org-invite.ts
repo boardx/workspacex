@@ -99,3 +99,22 @@ export function detectTamper(
   if (claims.teamId !== null && claims.teamId !== actual.teamId) return true;
   return false;
 }
+
+/* ═══════════════════════ F11 / O-28 ⑥：双人复核 ═══════════════════════ */
+
+/**
+ * I-4：发起人不可自批。
+ *
+ * ⚠ 写成函数而不是 `reviewerId !== invitedBy` 散在仓储与用例两处——同
+ * `needsDualReview` 一条理由：一处漏了，「自批」在那一条路径上就悄悄放行了。
+ *
+ * ⚠ **组织内只有一名管理员时，这条函数自动挡住全部复核尝试**（该管理员必然是
+ * `invitedBy` 本人），符合 usecases.md「不得因无人复核而退化为单人可批」——
+ * 不需要额外一条"唯一管理员"分支，这条规则本身就是那条约束的落地。
+ */
+export function isSelfReview(reviewerId: string, invitedBy: string): boolean {
+  return reviewerId === invitedBy;
+}
+
+/** 双人复核批准后新签发的令牌有效期。与初次邀请**同一个常量**，不另立一份。 */
+export const ORG_INVITE_REVIEW_TOKEN_VALIDITY_MS = ORG_INVITE_LINK_VALIDITY_MS;

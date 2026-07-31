@@ -198,18 +198,38 @@ export async function seedOrg(opts: {
    *  relies on. A test about the other two kinds says so at the call site. */
   projectKind?: "workshop" | "research_project" | "user_insight";
   groupNames?: string[];
+  /**
+   * F11: `organizations.seat_quota` (migration 20260731085758) defaults to 0 in
+   * production -- "unallocated" is the deliberate starting state (O-29 ⑤), not an
+   * oversight a fixture should paper over. But every fixture written BEFORE F11 calls
+   * `inviteOrgMember` never having heard of a seat limit, and a column that starts at
+   * 0 in production cannot also start at 0 here without breaking every one of them on
+   * the day quota enforcement lands (`member-invite-activation.test.ts` did, verified).
+   * Defaulted generously high so pre-F11 fixtures keep reading exactly as they did;
+   * a test that specifically exercises `QUOTA_EXHAUSTED` sets it explicitly (see
+   * `tests/auth/quota-exhausted-hard-block.test.ts`), which is the only place a small
+   * number belongs.
+   */
+  seatQuota?: number;
 }): Promise<OrgFixture> {
   const { orgId, projectId } = opts;
   const teamNames = opts.teamNames ?? ["energy", "platform"];
   const groupNames = opts.groupNames ?? ["g1", "g2"];
+  const seatQuota = opts.seatQuota ?? 1000;
   const teams: Record<string, string> = {};
   const groups: Record<string, string> = {};
 
   await asApp(orgId, async (c) => {
     const kind = opts.kind ?? "organization";
     await c.query(
-      "INSERT INTO organizations (id, name, kind, owner_user_id) VALUES ($1, $2, $3, $4)",
-      [orgId, `org ${orgId}`, kind, kind === "personal-local" ? (opts.ownerUserId ?? `${orgId}-owner`) : null],
+      "INSERT INTO organizations (id, name, kind, owner_user_id, seat_quota) VALUES ($1, $2, $3, $4, $5)",
+      [
+        orgId,
+        `org ${orgId}`,
+        kind,
+        kind === "personal-local" ? (opts.ownerUserId ?? `${orgId}-owner`) : null,
+        seatQuota,
+      ],
     );
     for (const t of teamNames) {
       const id = `${orgId}-team-${t}`;

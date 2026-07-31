@@ -54,13 +54,17 @@ import type {
   CreateOrgInviteInput,
   CreateOrgInviteResult,
   OrgInviteRepository,
+  ReviewOrgInviteInput,
+  ReviewOrgInviteResult,
 } from "../../application/auth/org-invite-ports";
-import { detectTamper } from "../../domain/auth/org-invite";
+import { detectTamper, isSelfReview } from "../../domain/auth/org-invite";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 
 /** 事务内抛、事务外接，唯一能让一个不该提交的事务不提交的办法。 */
 class Rollback extends Error {
-  constructor(readonly reason: "duplicate" | "already-member" | "not-found") {
+  constructor(
+    readonly reason: "duplicate" | "already-member" | "not-found" | "quota-exhausted" | "self-review" | "already-decided",
+  ) {
     super(reason);
   }
 }
@@ -101,6 +105,64 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
           [input.orgId, input.email],
         );
         if (member.rows.length > 0) throw new Rollback("already-member");
+
+        // (1.4) 幂等重放 / 冲突的判定**必须先于**配额判定。
+        //
+        // ⚠ 这是本文件第一版撞出来的 bug：把配额判定放在幂等判定之前，会让「重复提交
+        //   同一条已存在的邀请」在配额恰好用满时被判成 `QUOTA_EXHAUSTED`——而幂等重放
+        //   根本不产生新行，不该占用任何座位，也就不该被座位数挡住。反证：
+        //   `tests/auth/quota-exhausted-hard-block.test.ts` 那条"幂等重放不占用第二个
+        //   座位"曾经真的红过，红的就是这一段顺序颠倒。
+        // ⚠ 这一步只做**读**，不加锁——两路并发都读到"不存在"时会各自往下走到 (1.5)
+        //   的配额锁定与 (2) 的插入，第二路撞 `org_invites_live_uniq` 时进 catch 分支，
+        //   那里有一份同形状的重放/冲突判断兜底（见下）。两处判断不是重复：
+        //   这一处是**常见路径的快路径**（不用先插入失败一次才知道是重放），
+        //   catch 分支是**并发下这条快路径本身失手时**的兜底，两者缺一，
+        //   要么幂等重放会被配额挡住，要么两路并发新邮箱会各自绕过配额检查。
+        const preExisting = await s.query<InviteRow>(
+          `SELECT id, org_id, email, org_role, team_id, status FROM org_invites
+            WHERE org_id = $1 AND email = $2
+              AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+          [input.orgId, input.email],
+        );
+        const preExistingRow = preExisting.rows[0];
+        if (preExistingRow !== undefined) {
+          if (preExistingRow.org_role !== input.orgRole || preExistingRow.team_id !== input.teamId) {
+            throw new Rollback("duplicate");
+          }
+          return {
+            ok: true as const,
+            inviteId: preExistingRow.id,
+            tokenIssued: false,
+            replayed: true,
+          };
+        }
+
+        // (1.5) I-9：配额硬阻断。**锁定 organizations 那一行**再数——不是先数、
+        // 再插、指望没人在中间插一脚。`SELECT ... FOR UPDATE` 把并发的两名管理员
+        // 串行在这一行上，第二路重新求值时会看到第一路已经占用的那个座位。
+        //
+        // ⚠ 座位数是**数出来的**，不是存出来的：count(org_memberships) + count(未失效
+        //   org_invites)。没有第二本账本要跟这两张表保持同步——那正是本仓五次
+        //   「同一事实两处声明」漂移的形状，这里刻意不重蹈。
+        const quota = await s.query<{ seat_quota: string }>(
+          `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+          [input.orgId],
+        );
+        const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+        const usedMembers = await s.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
+          [input.orgId],
+        );
+        const usedInvites = await s.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM org_invites
+            WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+          [input.orgId],
+        );
+        const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+        // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
+        // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
+        if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
 
         // (2) 邀请行。并发第二路在这里撞 `org_invites_live_uniq`（I-5）。
         //
@@ -177,7 +239,10 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
         };
       });
     } catch (e) {
-      if (e instanceof Rollback && e.reason !== "not-found") {
+      if (
+        e instanceof Rollback &&
+        (e.reason === "duplicate" || e.reason === "already-member" || e.reason === "quota-exhausted")
+      ) {
         return { ok: false, reason: e.reason };
       }
       throw e;
@@ -191,7 +256,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       const grant = await this.db.withoutTenant((s) => this.activateAll(s, input));
       return { ok: true, grant };
     } catch (e) {
-      if (e instanceof Rollback && e.reason !== "duplicate") {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member")) {
         return { ok: false, reason: e.reason };
       }
       throw e;
@@ -321,5 +386,80 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       teamId: actual.teamId,
       tamperRecorded: tampered,
     };
+  }
+
+  /* ─────────────────────────── 双人复核（F11 / O-28 ⑥） ─────────────────────────── */
+
+  async reviewAdminInvite(input: ReviewOrgInviteInput): Promise<ReviewOrgInviteResult> {
+    try {
+      return await this.db.withTenant(input.orgId, (s) => this.reviewOne(s, input));
+    } catch (e) {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "self-review" || e.reason === "already-decided")) {
+        return { ok: false, reason: e.reason };
+      }
+      throw e;
+    }
+  }
+
+  private async reviewOne(s: TenantSession, input: ReviewOrgInviteInput): Promise<ReviewOrgInviteResult> {
+    // `FOR UPDATE`：判定（自批？还在 awaiting-review 吗？）与写入必须在同一次锁定里，
+    // 否则两名管理员同时批只生效一次（I-4 的并发半句）拿不到保证——与 `create` 的
+    // 配额锁定同一条理由：先查后写之间的窗口会让两路都看到"可以批"，然后都写成功。
+    const res = await s.query<{
+      id: string;
+      invited_by: string;
+      status: string;
+      reviewed_by: string | null;
+    }>(
+      `SELECT id, invited_by, status, reviewed_by FROM org_invites WHERE id = $1 FOR UPDATE`,
+      [input.inviteId],
+    );
+    const row = res.rows[0];
+    if (row === undefined) throw new Rollback("not-found");
+
+    // I-4：发起人不可自批。**优先于**状态判断——即便邀请已经被别人批过，
+    // 「你就是当初邀请他的人」这件事本身不因为状态变了而变得可以。
+    if (isSelfReview(input.reviewerId, row.invited_by)) throw new Rollback("self-review");
+
+    if (row.status !== "awaiting-review") {
+      // 幂等重放：**同一个** reviewer 对**同一个**最终状态的重复提交，返回同一结果，
+      // 不重复签发令牌（usecases.md 逐字）。
+      const decidedToPending = row.status === "pending";
+      const decidedToRevoked = row.status === "revoked";
+      const sameReviewer = row.reviewed_by === input.reviewerId;
+      if (sameReviewer && decidedToPending && input.decision === "approve") {
+        return { ok: true, status: "pending", tokenIssued: false };
+      }
+      if (sameReviewer && decidedToRevoked && input.decision === "reject") {
+        return { ok: true, status: "revoked", tokenIssued: false };
+      }
+      // 别人已经先批/先拒了，或它已被撤销（`revoked` 但 `reviewed_by` 不是这个人）——
+      // 邀请**仍然存在**，只是状态已经翻过去了，映射为 VERSION_CHANGED 而非 NOT_FOUND。
+      throw new Rollback("already-decided");
+    }
+
+    if (input.decision === "reject") {
+      await s.query(
+        `UPDATE org_invites SET status = 'revoked', reviewed_by = $2, reviewed_at = $3 WHERE id = $1`,
+        [row.id, input.reviewerId, input.now],
+      );
+      return { ok: true, status: "revoked", tokenIssued: false };
+    }
+
+    // approve：签发新令牌 + 转 pending + 记录复核人。三件在同一事务。
+    await s.query(
+      `UPDATE org_invites
+          SET status = 'pending', reviewed_by = $2, reviewed_at = $3, sent_at = $3
+        WHERE id = $1`,
+      [row.id, input.reviewerId, input.now],
+    );
+    if (input.token !== null && input.tokenExpiresAt !== null) {
+      await s.query(
+        `INSERT INTO org_invite_tokens (token, invite_id, org_id_hint, expires_at)
+         VALUES ($1, $2, $3, $4)`,
+        [input.token, row.id, input.orgId, input.tokenExpiresAt],
+      );
+    }
+    return { ok: true, status: "pending", tokenIssued: true };
   }
 }
