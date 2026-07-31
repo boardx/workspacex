@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts
+filter:  tests/capability/skill/version-snapshot-immutable-lock.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=45167b65a546207b4d6528188a6c525e1c8c327e9e2d6d93c8cee52c9c72c781 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:42:26.735Z]

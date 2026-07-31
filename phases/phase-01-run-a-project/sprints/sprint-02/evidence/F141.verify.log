@@ -1,0 +1,40 @@
+$ pnpm --filter @repo/contracts run test
+[exit 0]
+
+> @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 3ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 6ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 45ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 7ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 32ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  14:42:25
+   Duration  528ms (transform 410ms, setup 0ms, collect 1.13s, tests 101ms, environment 1ms, prepare 634ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/asset/asset-directory-tree.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/asset/asset-directory-tree.test.ts
+filter:  tests/asset/asset-directory-tree.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=a805b1bc2aeea9fc3e58bd554dfd695b49ef1aca0b973e0ddd3ede14fc3412b4 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:42:26.417Z]

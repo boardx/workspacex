@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/object-two-projections-single-record.test.ts
+filter:  tests/itv/object-two-projections-single-record.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=b4732f0d42e2c93a9fe5c992410eb628dace2339fc11fd747e50b06d029cd675 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:41:37.287Z]

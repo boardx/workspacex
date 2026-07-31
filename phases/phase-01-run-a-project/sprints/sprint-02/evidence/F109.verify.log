@@ -1,0 +1,135 @@
+$ pnpm --filter api exec vitest run tests/chat/thread-badge-single-source.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+{"level":"error","msg":"unhandled exception","traceId":"a7c19f6b-f7ad-4bf1-9954-03b6c0cab023","detail":{"name":"error","message":"new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"","stack":"error: new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at PgProvenanceRepository.appendWithin (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:83:15)\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at auditRefusal (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:263:3)\n    at mutateExisting (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:206:5)\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:239:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"unhandled exception","traceId":"6b6a8042-65eb-43e7-97aa-9e7f559c0b55","detail":{"name":"error","message":"new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"","stack":"error: new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at PgProvenanceRepository.appendWithin (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:83:15)\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at createThread (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:174:24)\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:239:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"unhandled exception","traceId":"9c29c6fa-1d9a-4286-a5a6-8ae637a9aebd","detail":{"name":"error","message":"new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"","stack":"error: new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at PgProvenanceRepository.appendWithin (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:83:15)\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at createThread (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:174:24)\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:239:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"contract validation failed","traceId":"1406a03e-d449-46c8-ba6d-126ba475fc2e","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"58227a48-7968-4d63-a5fe-e44269af7781","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:266:48)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"unhandled exception","traceId":"03a2fb7e-42b0-4280-b783-344a9ab250f3","detail":{"name":"error","message":"new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"","stack":"error: new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at PgProvenanceRepository.appendWithin (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:83:15)\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at createThread (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:174:24)\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:239:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"53efa0f4-ebd1-495e-bf52-b91388837077","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:272:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"unhandled exception","traceId":"cfb17048-2ab6-4ae1-a5ad-93947d1ede56","detail":{"name":"error","message":"new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"","stack":"error: new row for relation \"provenance_events\" violates check constraint \"provenance_events_target_kind_check\"\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:33:21)\n    at PgProvenanceRepository.appendWithin (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/provenance/pg-provenance-repository.ts:83:15)\n    at PgDatabase.inTx (/Users/shenyanbin/Documents/workspacex/apps/api/src/infrastructure/db/pg-database.ts:37:19)\n    at auditRefusal (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:263:3)\n    at mutateExisting (/Users/shenyanbin/Documents/workspacex/apps/api/src/application/chat/mutate-thread.ts:206:5)\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:239:14)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ce3dd782-1672-4f40-be84-5cdcbc0bdc71","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:266:48)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"bb0db997-2e22-4816-8c3c-4b2f340b8fdd","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:261:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"9be07845-9b07-44d0-ab13-dbf35c28e0eb","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.mutate (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/chat.controller.ts:261:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ❯ tests/chat/thread-badge-single-source.test.ts (19 tests | 5 failed) 3179ms
+   × I-15 归档线程默认不返回，显式筛选可读 > 归档线程的全部写操作被拒（改名） 120ms
+     → expected 500 to be 403 // Object.is equality
+   × 新建 / 改名 / 删除 > 新建后出现在列表里；改名后标题变；删除返回影响范围 103ms
+     → expected undefined to be truthy
+   × 新建 / 改名 / 删除 > 并发：expectedVersion 不匹配 ⇒ 409，不静默覆盖 105ms
+     → expected 400 to be 200 // Object.is equality
+   × 新建 / 改名 / 删除 > 观察者的写请求被接口拒绝（不只是按钮不渲染） 107ms
+     → expected 500 to be 200 // Object.is equality
+   × 新建 / 改名 / 删除 > 归档只读与无写权是**两个**码，不是同一个 403 110ms
+     → expected 500 to be 403 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 14 passed (19)
+   Start at  14:41:38
+   Duration  3.55s (transform 367ms, setup 0ms, collect 214ms, tests 3.18s, environment 0ms, prepare 35ms)
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat/thread-badge-single-source.test.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/chat/thread-badge-single-source.test.ts > I-15 归档线程默认不返回，显式筛选可读 > 归档线程的全部写操作被拒（改名）
+AssertionError: expected 500 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 500
+
+ ❯ tests/chat/thread-badge-single-source.test.ts:312:22
+    310|       title: "改个名", visibilityScope: null, expectedVersion: 0, reas…
+    311|     });
+    312|     expect(r.status).toBe(403);
+       |                      ^
+    313|   });
+    314| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/chat/thread-badge-single-source.test.ts > 新建 / 改名 / 删除 > 新建后出现在列表里；改名后标题变；删除返回影响范围
+AssertionError: expected undefined to be truthy
+
+- Expected: 
+true
+
++ Received: 
+undefined
+
+ ❯ tests/chat/thread-badge-single-source.test.ts:368:30
+    366|       title: "新线程", visibilityScope: "plenary", expectedVersion: nu…
+    367|     });
+    368|     expect(created.threadId).toBeTruthy();
+       |                              ^
+    369| 
+    370|     const afterCreate = (await (await listThreads("u-fac")).json()) as…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/chat/thread-badge-single-source.test.ts > 新建 / 改名 / 删除 > 并发：expectedVersion 不匹配 ⇒ 409，不静默覆盖
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ tests/chat/thread-badge-single-source.test.ts:413:26
+    411|       title: "甲改的", visibilityScope: null, expectedVersion: 0, reas…
+    412|     });
+    413|     expect(first.status).toBe(200);
+       |                          ^
+    414|     // 乙拿着旧版本号来 —— 必须被拒，而不是把甲的改动盖掉。
+    415|     const second = await mutate("u-fac", {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/chat/thread-badge-single-source.test.ts > 新建 / 改名 / 删除 > 观察者的写请求被接口拒绝（不只是按钮不渲染）
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/chat/thread-badge-single-source.test.ts:443:23
+    441|       expectedVersion: null, reason: null,
+    442|     });
+    443|     expect(ok.status).toBe(200);
+       |                       ^
+    444|   });
+    445| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/chat/thread-badge-single-source.test.ts > 新建 / 改名 / 删除 > 归档只读与无写权是**两个**码，不是同一个 403
+AssertionError: expected 500 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 500
+
+ ❯ tests/chat/thread-badge-single-source.test.ts:470:29
+    468|     // 状态码相同——所以只断状态码的测试分不出这两件事，而它们的出口完…
+    469|     // 前者要先解归档（要权限没有用），后者要找人要权限。
+    470|     expect(archived.status).toBe(403);
+       |                             ^
+    471|     expect(noWrite.status).toBe(403);
+    472|     const a = (await archived.json()) as { reasonCode?: string };
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+[harness-verify v1 sha256=95a32c787288d5d03b2767eea41f77a58faf93e645115d971a69297a04afe641 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:41:41.804Z]

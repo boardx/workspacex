@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/auth/join-token-phone-roster.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/auth/join-token-phone-roster.test.ts
+filter:  tests/auth/join-token-phone-roster.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=4270e8a59af4e570837ea0fb3e2c22e0343568e4d1b3d7588955f890f05f128d commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:39:24.286Z]

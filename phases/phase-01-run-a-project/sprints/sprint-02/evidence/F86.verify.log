@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/itv/token-two-kinds-lifecycle.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/token-two-kinds-lifecycle.test.ts
+filter:  tests/itv/token-two-kinds-lifecycle.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=007c116b10ffdcaf6d6fe1d6d90ee82ad4a287f7f6672c0fd4b03025fc9a930f commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:41:36.963Z]

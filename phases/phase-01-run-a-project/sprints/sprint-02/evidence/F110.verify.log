@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/chat/team-panel-presence-tri-state.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat/team-panel-presence-tri-state.test.ts
+filter:  tests/chat/team-panel-presence-tri-state.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=5a4b31a0a0021ec7a43a2398bc803fc1fefeca7be89f9c99cf7cd9362fe9b328 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:41:42.115Z]
