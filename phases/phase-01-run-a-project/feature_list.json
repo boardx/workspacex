@@ -100,14 +100,14 @@
       "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R3",
       "depends_on": [],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-auth2",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/team-visibility-filter.test.ts",
         "pnpm --filter api exec vitest run tests/auth/deny-reason-org-layer.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F07.verify.log @ 2026-07-31T03:36:01.757Z",
       "notes": "依据：可见性范围只在 agent 与画布模板两类上[原型]确认存在；skill 与蓝本的补字段为[设计]（蓝本侧已由 O-18④ 裁定支持）。团队单一归属（O-12），仅某团队判定是相等比较。V6 对应。API 断言。\n【跨分片依赖待确认】phase-00: 资源可见性范围一等字段（F01/F15）；03-skill/04-agent/20-model/21-mcp: 各资源的可见性范围取值"
     },
     {
@@ -120,7 +120,7 @@
       "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-auth3",
       "verification": [
@@ -129,7 +129,7 @@
         "pnpm --filter api exec vitest run tests/auth/activation-member-creation-atomic.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-members-list.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F10.verify.log @ 2026-07-31T03:36:26.288Z",
       "notes": "依据：成员表/[邀请成员]入口/待激活行/[重发]为[原型]，激活落地页与篡改防护为[设计]。成员表已建成（锚 admin-members-list）；[邀请成员]弹层为『原型待补』（按钮在、无屏），激活落地页为『原型确认缺失』——但核心为接后端，UI 断言只锚已建成的成员表，弹层/激活页可后补接线，故 needs_ui_signoff=false 但 notes 标记弹层待接线。AC5 篡改无效（V5）与激活/成员创建原子性（V9）独立验收。O-28⑤：点击激活链接即证明邮箱所有权，不二次发信。合并 UC-1.6 主流程。\n【跨分片依赖待确认】phase-00: 组织成员/角色/团队一等实体（F15） ⚠ 原 depends_on 里的 F08 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F19"
     },
     {
@@ -604,7 +604,7 @@
       "spec_ref": "22-files/uc-22-1-项目文件浏览器.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-files",
       "verification": [
@@ -613,7 +613,7 @@
         "pnpm --filter api exec vitest run tests/files/tree-list-metadata.test.ts",
         "pnpm --filter web exec vitest run tests/ui/files-browser.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F31.verify.log @ 2026-07-31T03:36:50.252Z",
       "notes": "依据：本 UC 绝大部分[设计]（架构 context-engine.md file-first），文件浏览器本体在原型中『原型确认缺失』——但 2026-07-28 前端已建成文件页（锚 files-tree/files-list/files-row/files-origin-badge/files-ingest-badge/files-view-toggle），故 needs_ui_signoff=false。⚠ 47 点是 artifacts/artifact_versions 的 UI 投影，存储模型在 phase-00 F04，本 feature 不重复建表、不重复计点。R11 要求「可见集合≡检索可见集合」单独成 feature 跨四角色矩阵测试（V1）。权限判定必须在 SQL/RLS 层，应用连接不得用表 owner 身份。V10（agent 归属）。接后端。\n【跨分片依赖待确认】phase-00: F04 artifacts/artifact_versions 存储模型（不重复建表）；phase-00: UC-0.3 两层角色+acl_bindings（F01）；phase-00: UC-0.2 Context Pack/Context API 检索可见集合（F02）"
     },
     {
@@ -995,7 +995,7 @@
       "spec_ref": "20-model/uc-20-1-接入并测试一个模型.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-model",
       "verification": [
@@ -1004,7 +1004,7 @@
         "pnpm --filter api exec vitest run tests/capability/model/combo-model-single-record.test.ts",
         "pnpm --filter api exec vitest run tests/capability/model/no-hardcoded-model-list.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F48.verify.log @ 2026-07-31T03:37:12.533Z",
       "notes": "依据：状态三取值/二分/凭据成员看不到/组合模型为 [原型]；合规属性受控枚举取值从配置读取（O-38，枚举内容留空不阻塞编码）；组合记录 O-22③（一个 model_id → 一个 pipeline，合规属性取成员交集，含闭源成员即闭源链路）；价目表 CNY 手工维护 O-37；provider 抽象不绑定厂商 O-40。列表屏已建成于 apps/web/components/admin/model-screen.tsx（testid admin-model-group-hosted / admin-model-group-self / admin-model-filters），本 feature 交付的是数据模型与凭据保管后端；接入表单为真·未探明（补抽取，不阻塞）。no-hardcoded-model-list.test.ts 兑现 F15 验收面 V1：产品代码删清单后仍能跑、空配置见空态。20-model 是 03-skill/04-agent 模型下拉的硬前置，须最先做。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（18 台模型是某组织的示例配置，不得硬编码进代码或种子数据）；phase-00: F01/F02 两层权限与 RLS（凭据仅管理员可见）；phase-00: 统一审计事件模型（接入/配置变更进审计）",
       "_uc_points_declared": "UC-20.1 声明 8 点；本 UC 拆为 T01(5)+T02(3)=8"
     },
@@ -1092,7 +1092,7 @@
       "spec_ref": "21-mcp/uc-21-1-注册-mcp-服务器与授权范围.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-mcp",
       "verification": [
@@ -1100,7 +1100,7 @@
         "pnpm --filter api exec vitest run tests/capability/mcp/tool-namespace.test.ts",
         "pnpm --filter api exec vitest run tests/capability/mcp/credential-endpoint-hidden.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F52.verify.log @ 2026-07-31T03:37:34.466Z",
       "notes": "三套枚举防合并的核心 feature（UC-0.3 R7 硬约束）：three-orthogonal-fields.test.ts 构造一台 auth_scope=全体成员 且 review_status=待安全评审 且 connection_status=不可达 的服务器，断言三字段各自独立可查、不可达不被写成已隔离（对应 UC-21.1 V18，O-20 裁决）。“仅某团队”一档由 O-20 补齐与 agent/skill 可见性范围对齐。列表屏已建成于 apps/web/components/admin/mcp-screen.tsx（testid admin-mcp-list / admin-mcp-tools-list / admin-mcp-tool-row），交付数据模型与工具发现后端。是 04-agent 三层权限第①层的前置，先于 T09。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（6 台 MCP 是示例配置，不得硬编码）；phase-00: F01/F02 权限与 RLS（凭据/端点仅管理员）",
       "_uc_points_declared": "UC-21.1 声明 8 点 = T05(5)+T06(3)"
     },
