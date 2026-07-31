@@ -1,15 +1,38 @@
 $ pnpm --filter api exec vitest run tests/tpl/model-strategy-three-lanes.test.ts
-[exit 1]
+[exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/tpl/model-strategy-three-lanes.test.ts
-filter:  tests/tpl/model-strategy-three-lanes.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ RUN  v2.1.9 /private/tmp/f20-worktree/apps/api
 
-No test files found, exiting with code 1
+ ✓ tests/tpl/model-strategy-three-lanes.test.ts (7 tests) 2ms
 
-[harness-verify v1 sha256=16abb6f483c376cc143241977846cc203dab11f07b56f926d9dc6c09562f54fb commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:47:04.017Z]
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  04:41:44
+   Duration  330ms (transform 141ms, setup 0ms, collect 182ms, tests 2ms, environment 0ms, prepare 38ms)
+
+$ pnpm --filter api exec vitest run tests/tpl/confidential-local-not-downgraded.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f20-worktree/apps/api
+
+ ✓ tests/tpl/confidential-local-not-downgraded.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  04:41:45
+   Duration  332ms (transform 137ms, setup 0ms, collect 182ms, tests 2ms, environment 0ms, prepare 28ms)
+
+$ pnpm --filter api exec vitest run tests/tpl/quota-90-downgrade-not-halt.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f20-worktree/apps/api
+
+ ✓ tests/tpl/quota-90-downgrade-not-halt.test.ts (7 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  04:41:45
+   Duration  317ms (transform 134ms, setup 0ms, collect 171ms, tests 2ms, environment 0ms, prepare 31ms)
