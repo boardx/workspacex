@@ -516,7 +516,29 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/project/advance-segment-repo-guard.test.ts`, which fails if any tenant table
     // other than `agenda_segments` appears in the file. If that test is ever deleted, this
     // entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(14);
+    //
+    // ⚠ Raised 14 -> 15 by F123 (phase-01 / UC-P3 `getProjectOverview`), rebased onto main a
+    // third time after F119's raise above landed -- RE-MEASURED on the combined (rebased) tree
+    // via `node apps/api/scripts/lint-permission-paths.mjs` (see below for the fresh count),
+    // not computed as "14 + 1". The new entry is
+    // `infrastructure/project/pg-project-overview-repository.ts`. It reads `projects` /
+    // `agenda_segments` / `project_memberships` for three of the whitelist's four fields
+    // (container identity, current agenda segment, four role COUNTS); none of it is
+    // `acl_bindings`-governed content -- same D-18 line `pg-project-list-repository.ts` already
+    // draws for container identity, and `project_memberships` here is read the same way
+    // `pg-identity-repository.ts`'s entry describes (IDENTITY DATA grouped into counts, not
+    // disclosed row-by-row, so guarding it with the decision it feeds would be circular).
+    // `application/project/get-project-overview.ts` already calls `authorize()` against the
+    // same `{kind:'project', id}` object before this repository is ever reached, so this is
+    // not a second, undecided door.
+    //
+    // Its ENFORCED premise: the file stays a projection of those three tables into
+    // container/segment/count shapes only. `tests/project/overview-whitelist-four-blocks.
+    // test.ts` asserts the response is a closed four-field set (no fifth key can smuggle in
+    // artifact/segment CONTENT), and `tests/project/overview-empty-vs-dependency-failure.
+    // test.ts` asserts a dependency outage surfaces as 503, never a silently-empty 200. If
+    // either test is deleted, this entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(15);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

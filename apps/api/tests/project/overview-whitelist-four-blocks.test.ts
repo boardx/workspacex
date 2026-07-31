@@ -87,6 +87,15 @@ beforeEach(async () => {
   await addOrgMember(ORG, LEAD, "lead", null);
   await addOrgMember(ORG, ORG_ADMIN_NO_ROLE, "admin", null);
   await addOrgMember(ORG, CONSULTANT_NO_ROLE, "consultant", null);
+  // 项目层角色叠在一个真实的组织成员身份之上，同 `create-project-org-role-gate.test.ts` /
+  // `step-closed-bidirectional.test.ts` 的既有约定——`decide()` 先判组织层，没有
+  // `org_memberships` 行会先在那一层被拒（`NO_ORG_MEMBERSHIP`），本函数把它塌缩成
+  // `NO_PROJECT_ROLE`，看起来像「没有项目角色」但实际是「压根没找到组织成员行」。
+  await addOrgMember(ORG, FACILITATOR, "consultant", null);
+  await addOrgMember(ORG, GROUP_LEAD, "consultant", null);
+  await addOrgMember(ORG, MEMBER_1, "consultant", null);
+  await addOrgMember(ORG, MEMBER_2, "consultant", null);
+  await addOrgMember(ORG, OBSERVER, "consultant", null);
   await addProjectMember(ORG, WORKSHOP, FACILITATOR, "facilitator", null, true);
   await addProjectMember(ORG, WORKSHOP, GROUP_LEAD, "groupLead", null);
   await addProjectMember(ORG, WORKSHOP, MEMBER_1, "member", null);
@@ -120,6 +129,12 @@ describe("白名单四件是封闭集合，不多不少", () => {
 
   it("非工作坊容器：当前议程环节与角色人数恒为 null，不是缺字段", async () => {
     await addOrgMember(ORG, "u-f123-research-owner", "lead", null);
+    // `authorize()` 的项目层判定不看容器 kind——`research_project` 与 `workshop` 共用同一张
+    // `project_memberships`，没有这一行 LEAD 在 RESEARCH 上没有任何项目角色，`decide()`
+    // 会在项目层直接拒绝（`NO_PROJECT_ROLE`），根本走不到「非工作坊两字段恒为 null」这条断言
+    // 想验证的分支。角色本身对本用例的输出没有影响（`roleCounts`/`currentAgendaSegment`
+    // 只看 `snapshot.kind`），这里只是满足鉴权前提。
+    await addProjectMember(ORG, RESEARCH, LEAD, "facilitator", null, true);
     const out = await overviewOf(LEAD, RESEARCH);
     expect(out.currentAgendaSegment).toBeNull();
     expect(out.roleCounts).toBeNull();
@@ -166,7 +181,7 @@ describe("回流列表：项目侧投影，复用 F06 的既有判据（本 feat
     const a = await seedArtifact(h, ORG, WORKSHOP, ["v1\n"], FACILITATOR);
     const pinned = await bindToProjectStep(h.deps, {
       userId: FACILITATOR, orgId: org(), artifactId: a.artifactId,
-      projectId: WORKSHOP, stepId: "f123-seg-backflow", mode: "pinned",
+      projectId: WORKSHOP, agendaSegmentId: "f123-seg-backflow", mode: "pinned",
       sourceVersionId: a.versionIds[0]!,
     });
 

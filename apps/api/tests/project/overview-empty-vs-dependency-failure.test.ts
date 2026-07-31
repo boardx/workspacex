@@ -54,6 +54,12 @@ afterAll(async () => {
 beforeEach(async () => {
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: WORKSHOP });
+  // 项目层角色不是独立于组织层的——`decide()` 先判组织层（`orgPassed`），项目成员身份
+  // 必须叠在一个真实的组织成员身份之上，同 `create-project-org-role-gate.test.ts` /
+  // `step-closed-bidirectional.test.ts` 的既有约定。少了这一行，`orgPassed` 恒为 false，
+  // `decide()` 返回 `NO_ORG_MEMBERSHIP`，本函数把它塌缩成 `NO_PROJECT_ROLE`——看起来像
+  // 「没有项目角色」，实际是「压根没找到组织成员行」，两回事。
+  await addOrgMember(ORG, FACILITATOR, "consultant", null);
   await addProjectMember(ORG, WORKSHOP, FACILITATOR, "facilitator", null, true);
 });
 
