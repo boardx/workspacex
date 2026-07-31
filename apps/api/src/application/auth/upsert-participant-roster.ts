@@ -63,8 +63,13 @@ export interface UpsertRosterOutput {
  * `+8613800002049` 与 `8613800002049` 会被判为同一个人，而 `13800002049` 是另一个——
  * 这**不理想**，但它是一条可预测、可写成断言的规则；一个半吊子的国别号解析
  * 会在某些前缀上正确、在另一些上悄悄把两个人合成一个。
+ *
+ * ⚠ **导出而非私有**：F12（`join-by-group-link.ts`）要把参与者填的手机号规范化到
+ *   与这里落库的 `contact` **同一形态**才能比对上名单。这两处必须共用同一个函数——
+ *   本仓已五次因「同一事实声明在两处」漂移，第二份手写的规范化规则会是第六次
+ *   （字符集判断稍有出入，"13800002049" 与 "+86-138-0000-2049" 就会被判成两个人）。
  */
-function normalizePhone(raw: string): string {
+export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 

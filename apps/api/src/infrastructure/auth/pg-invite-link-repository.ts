@@ -464,3 +464,222 @@ export class PgParticipantRosterRepository implements ParticipantRosterRepositor
     });
   }
 }
+
+/* ══════════════════════════ 免注册进场（F12 / UC-1.2） ══════════════════════════ */
+//
+// `PgJoinRepository` 住在这个文件而不是自己单独一个文件：它读的三张租户表
+// （invite_links / project_participants / guest_identities）与上面两个仓储读的是
+// 同一批表，且它返回的 `JoinGrant` 与 `consume()` 返回的 `InviteLinkGrant` 同型同理由——
+// **不披露任何租户内容给未授权的请求者**：字段只有 id / role / groupId / alias，
+// 不含手机号、不含其他参与者信息。这与 `consume()` 是同一个「anonymous token holder」
+// 形状（`lint-permission-paths.mjs` 的判据是文件级导入 `permission-filter`，
+// 不是逐个函数；把它拆进独立文件会需要为同一个已有先例再开一条 ALLOWLIST 条目）。
+
+import { guestAliasFor } from "../../domain/auth/guest-identity";
+import type {
+  JoinByGroupLinkAttempt,
+  JoinByGroupLinkOutcome,
+  JoinRepository,
+} from "../../application/auth/join-ports";
+
+interface JoinLinkRow {
+  id: string;
+  project_id: string;
+  group_id: string | null;
+  project_role: ProjectRoleValue;
+  validity: InviteLinkValidity;
+  expires_at: Date | null;
+  used_at: Date | null;
+  revoked_at: Date | null;
+  superseded_at: Date | null;
+}
+
+interface JoinParticipantRow {
+  id: string;
+  group_id: string | null;
+  display_alias: string | null;
+}
+
+interface JoinGuestIdentityRow {
+  id: string;
+  group_id: string | null;
+  project_role: ProjectRoleValue;
+  alias: string;
+}
+
+export class PgJoinRepository implements JoinRepository {
+  constructor(private readonly db: DatabasePort) {}
+
+  /**
+   * 判定顺序：为什么先查名单、再动令牌的使用标记
+   *
+   * I-19 要求两个条件同时成立才建身份，且部分成功禁止。如果先把令牌标记为已用，
+   * 再发现手机号不在名单，就要把那个标记回滚——而回滚本身又是一次写，一旦这一步
+   * 失败，链接就卡在「说不清是用过还是没用过」的中间态。⇒ 顺序固定为：
+   * ① 读链接判是否可用 → ② 读名单判手机号在不在 → ③ 只有两者都过，才做**一次**
+   * 条件写（标记使用 + upsert 免注册身份 + upsert 项目成员）。第 ③ 步内部仍然用
+   * 条件 UPDATE 而不是「先查后写」（同上面 `consume()` I-11 的理由）。
+   *
+   * I-20：`groupId` 恒取名单条目的，`projectRole` 恒取链接的——两者来源不同、互不
+   * 覆盖：链接决定「这枚令牌授予什么角色」（O-06，组长令牌授予 `groupLead`），
+   * 名单决定「这个人实际坐在哪一组」（引导师事后可能重新分组，不必重新签发链接）。
+   * `redirectedFromLinkGroup` 就是这两个来源不一致时的信号。
+   *
+   * I-18：为什么这里完全不碰 `credentials` / `accounts`——免注册身份写的是
+   * `guest_identities` + `project_memberships`，两张表都不是 `credentials`。
+   * `project_memberships.user_id` 是一列**无外键约束**的 text（0003 identity），
+   * 它与正式账号共用同一套操作者标识空间（domain.md `GuestIdentity`），但写入它
+   * 不要求 `credentials` 里存在对应的行。
+   */
+  async joinByGroupLink(input: JoinByGroupLinkAttempt): Promise<JoinByGroupLinkOutcome> {
+    return this.db.withoutTenant(async (s) => {
+      // (1) 定位令牌。无租户上下文 —— 进场请求是匿名的（同 consume 的理由）。
+      const t = await s.query<{ link_id: string; org_id_hint: string }>(
+        `SELECT link_id, org_id_hint FROM invite_link_tokens WHERE token = $1`,
+        [input.token],
+      );
+      const tokenRow = t.rows[0];
+      if (tokenRow === undefined) return { ok: false as const, reason: "not-found" as const };
+
+      const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+      await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
+
+      // (2) 服务端记录 —— 链接是否可用。让位过的链接视同不存在。
+      const linkRes = await s.query<JoinLinkRow>(
+        `SELECT id, project_id, group_id, project_role, validity, expires_at, used_at,
+                revoked_at, superseded_at
+           FROM invite_links WHERE id = $1`,
+        [tokenRow.link_id],
+      );
+      const link = linkRes.rows[0];
+      if (link === undefined || link.superseded_at !== null) {
+        return { ok: false as const, reason: "not-found" as const };
+      }
+
+      const singleUse = isSingleUse(link.validity);
+      const verdict = linkUsability(
+        { revokedAt: link.revoked_at, expiresAt: link.expires_at, usedAt: link.used_at, singleUse },
+        input.now,
+      );
+      if (!verdict.usable) return { ok: false as const, reason: verdict.reason };
+
+      // (3) 名单核对 —— I-19 的另一半。**在动任何写之前**，见上。
+      const pRes = await s.query<JoinParticipantRow>(
+        `SELECT id, group_id, display_alias FROM project_participants
+           WHERE project_id = $1 AND contact_kind = 'phone' AND contact = $2`,
+        [link.project_id, input.phone],
+      );
+      const participant = pRes.rows[0];
+      if (participant === undefined) {
+        return { ok: false as const, reason: "phone-not-on-roster" as const };
+      }
+
+      // (4) 🔴 恰好一次的写：标记令牌使用。与 `consume()` 同一条 WHERE 形状——
+      //     全部失效条件都在这一条里，受影响行数是唯一的证明。
+      const upd = await s.query<{ id: string }>(
+        `UPDATE invite_links SET used_by = $2, used_at = $3
+           WHERE id = $1
+             AND revoked_at IS NULL
+             AND superseded_at IS NULL
+             AND (expires_at IS NULL OR expires_at > $3)
+             AND ($4::boolean = false OR used_at IS NULL)
+           RETURNING id`,
+        [link.id, input.candidateGuestIdentityId, input.now, singleUse],
+      );
+      if (upd.rows[0] === undefined) {
+        // 零行：并发的另一路刚好抢先用掉了这个一次性名额。重新读一次分类。
+        const fresh = await s.query<JoinLinkRow>(
+          `SELECT id, project_id, group_id, project_role, validity, expires_at, used_at,
+                  revoked_at, superseded_at
+             FROM invite_links WHERE id = $1`,
+          [link.id],
+        );
+        const row = fresh.rows[0];
+        if (row === undefined) return { ok: false as const, reason: "not-found" as const };
+        const v2 = linkUsability(
+          { revokedAt: row.revoked_at, expiresAt: row.expires_at, usedAt: row.used_at, singleUse },
+          input.now,
+        );
+        if (v2.usable) {
+          throw new Error(
+            `join link ${row.id}: 条件 UPDATE 匹配零行，但 linkUsability 判定为可用 —— ` +
+              `两处对同一行得出相反结论。`,
+          );
+        }
+        return { ok: false as const, reason: v2.reason };
+      }
+
+      // (5) 免注册身份：幂等 upsert（I-19「同一名单条目重复进场返回同一
+      //     guestIdentityId」）。`groupId` 恒取名单条目的（I-20），`projectRole`
+      //     恒取链接的（O-06 组长令牌）。
+      const alias = guestAliasFor(participant.display_alias, input.phone);
+      const groupId = participant.group_id ?? link.group_id;
+      if (groupId === null) {
+        // 名单条目与链接都没有组号——数据不完整，不是四种契约失败之一，直接抛出
+        // 而不是悄悄落一个空组号（那会让「落地组号恒取名单条目」这条不变量看起来
+        // 成立，而实际上从未被满足过）。
+        throw new Error(
+          `project_participant ${participant.id}: 名单条目与链接均无 group_id，` +
+            `无法确定落地组号（I-20）。`,
+        );
+      }
+
+      const insertGuest = await s.query<JoinGuestIdentityRow>(
+        `INSERT INTO guest_identities (id, org_id, project_id, participant_id, group_id, project_role, alias, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (project_id, participant_id) DO NOTHING
+         RETURNING id, group_id, project_role, alias`,
+        [
+          input.candidateGuestIdentityId,
+          orgId,
+          link.project_id,
+          participant.id,
+          groupId,
+          link.project_role,
+          alias,
+          input.now,
+        ],
+      );
+
+      let guest = insertGuest.rows[0];
+      const reusedIdentity = guest === undefined;
+      if (guest === undefined) {
+        const existing = await s.query<JoinGuestIdentityRow>(
+          `SELECT id, group_id, project_role, alias FROM guest_identities
+             WHERE project_id = $1 AND participant_id = $2`,
+          [link.project_id, participant.id],
+        );
+        guest = existing.rows[0];
+        if (guest === undefined) {
+          throw new Error(
+            `project_participant ${participant.id}: guest_identities upsert 既未插入也未查到既有行——` +
+              `唯一约束与查询用的是不同的键。`,
+          );
+        }
+      }
+
+      // (6) 项目成员：进场即授予项目角色（同一事务，见上「部分成功禁止」）。
+      //     幂等：已有成员行则不覆盖——重复进场不应该悄悄改写此前已生效的分组/角色。
+      await s.query(
+        `INSERT INTO project_memberships (user_id, project_id, org_id, project_role, group_id, is_host)
+           VALUES ($1,$2,$3,$4,$5,false)
+         ON CONFLICT (user_id, project_id) DO NOTHING`,
+        [guest.id, link.project_id, orgId, guest.project_role, guest.group_id],
+      );
+
+      return {
+        ok: true as const,
+        grant: {
+          guestIdentityId: guest.id,
+          orgId,
+          projectId: link.project_id,
+          groupId: guest.group_id ?? groupId,
+          projectRole: guest.project_role,
+          alias: guest.alias,
+          redirectedFromLinkGroup: link.group_id !== null && link.group_id !== guest.group_id,
+          reusedIdentity,
+        },
+      };
+    });
+  }
+}
