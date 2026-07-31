@@ -48,6 +48,7 @@ import {
   type BindingModeName,
 } from "../../domain/artifact/binding-modes";
 import type { OrgId } from "../../domain/org-id";
+import { evaluateStepGate } from "../../domain/project/step-gate";
 import { authorize } from "../identity/authorize";
 import {
   recordBackflow,
@@ -61,6 +62,8 @@ import {
   NoVersionToBindError,
   PinnedRequiresVersionError,
   ProjectRoleInsufficientError,
+  StepClosedError,
+  StepRejectsArtifactTypeError,
 } from "./binding-errors";
 
 /**
@@ -127,6 +130,8 @@ export async function bindToProjectStep(
     throw new ArtifactNotFoundError(`artifact ${artifactId} not found`);
   }
 
+  await assertStepGate(deps, input);
+
   const pinnedVersionId = await resolvePinnedVersion(deps, input);
 
   const existing = await bindings.findByStep(orgId, artifactId, projectId, agendaSegmentId);
@@ -147,6 +152,49 @@ export async function bindToProjectStep(
   }
 
   return raiseExisting(deps, orgId, userId, existing, mode, pinnedVersionId);
+}
+
+/**
+ * F120 / I-P45 / I-P17 -- the two failure codes `bindToProjectStep` was signed off to throw
+ * and, before F118, could never evaluate (0008-f06-binding-modes.sql:26-30).
+ *
+ * ⚠ Runs AFTER `artifactExists` (so `findArtifactSource` always has a row to read) and
+ * BEFORE `resolvePinnedVersion` (a step gate refusal must not depend on which mode was
+ * requested, and pinned-version resolution has its own failure modes that are unrelated to
+ * the step).
+ *
+ * When `agendaSegmentId` names no `agenda_segments` row at all, this is a no-op: F118's own
+ * notes register that outcome as the fixtures pre-dating the foreign key (a bare segment id
+ * string with nothing behind it), and inventing a segment here would be a second, silent way
+ * to decide what F118/F121 already decided belongs to the database's foreign key, not to this
+ * gate. A caller whose `agendaSegmentId` is a dangling string still gets refused -- by the FK,
+ * at INSERT, as `binding-segment-fk-no-orphan.test.ts` asserts -- this function just does not
+ * duplicate that refusal with a different error shape.
+ */
+async function assertStepGate(deps: BindingDeps, input: BindToProjectStepInput): Promise<void> {
+  const { bindings } = deps;
+  const { orgId, artifactId, projectId, agendaSegmentId } = input;
+
+  const segment = await bindings.findSegmentGate(orgId, projectId, agendaSegmentId);
+  if (segment === null) return;
+
+  // Existence was already asserted by the caller (`artifactExists`), so a missing source here
+  // would be a repository inconsistency, not a legitimate outcome to route into a contract
+  // code -- surfaced as `ARTIFACT_NOT_FOUND` rather than silently skipping the gate.
+  const source = await bindings.findArtifactSource(orgId, artifactId);
+  if (source === null) {
+    throw new ArtifactNotFoundError(`artifact ${artifactId} not found`);
+  }
+
+  const verdict = evaluateStepGate(segment, source);
+  if (verdict === "STEP_CLOSED") {
+    throw new StepClosedError(`segment ${agendaSegmentId} is ${segment.state} and refuses new bindings`);
+  }
+  if (verdict === "STEP_REJECTS_ARTIFACT_TYPE") {
+    throw new StepRejectsArtifactTypeError(
+      `segment ${agendaSegmentId} does not accept source "${source}" (accepts: ${segment.acceptedSources.join(", ") || "(unrestricted)"})`,
+    );
+  }
 }
 
 /**

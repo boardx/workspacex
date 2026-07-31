@@ -61,6 +61,22 @@ export class PinnedRequiresVersionError extends BindingError {}
 export class NoVersionToBindError extends BindingError {}
 
 /**
+ * `STEP_CLOSED` (F120 / I-P45) -- the target segment is terminal (`closed` or `skipped`).
+ *
+ * Phase-00 signed this code off for `bindToProjectStep` and could never evaluate it
+ * (0008-f06-binding-modes.sql:26-30: no `steps` table existed). F118 gave a step an entity
+ * and a foreign key; this is that judgement's first live throw site.
+ */
+export class StepClosedError extends BindingError {}
+
+/**
+ * `STEP_REJECTS_ARTIFACT_TYPE` (F120 / I-P17) -- the segment's non-empty whitelist does not
+ * contain the artifact's source. An EMPTY whitelist accepts everything (Q-2③ default) and
+ * never throws this.
+ */
+export class StepRejectsArtifactTypeError extends BindingError {}
+
+/**
  * `REQUIRES_PINNED` (E1 / AC1 / I-14) -- the downstream citation gate refused (F07).
  *
  * Carries the ARTIFACT id, and that is not decoration: E1 requires the refusal to offer
@@ -92,6 +108,8 @@ export const CONTRACT_CODE_BY_ERROR: ReadonlyMap<BindingErrorCtor, ArtifactError
   [ProjectRoleInsufficientError, "PROJECT_ROLE_INSUFFICIENT" as const],
   [CannotDowngradeError, "CANNOT_DOWNGRADE" as const],
   [RequiresPinnedError, "REQUIRES_PINNED" as const],
+  [StepClosedError, "STEP_CLOSED" as const],
+  [StepRejectsArtifactTypeError, "STEP_REJECTS_ARTIFACT_TYPE" as const],
   [PinnedRequiresVersionError, null],
   [NoVersionToBindError, null],
 ]);

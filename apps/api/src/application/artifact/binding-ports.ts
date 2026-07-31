@@ -15,6 +15,7 @@ import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
 import type { CitationAnchor } from "../../domain/artifact/downstream-eligibility";
+import type { StepGateSegment } from "../../domain/project/step-gate";
 import type { Guarded } from "../security/permission-filter";
 import type { AuthorizeDeps } from "../identity/authorize";
 import type { ProvenanceWriter } from "../provenance/ports";
@@ -156,6 +157,29 @@ export interface BindingRepository {
 
   /** Does this artifact exist in this tenant? Feeds `ARTIFACT_NOT_FOUND`. */
   artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
+
+  /**
+   * The artifact's `source` (F120 / I-P17) -- feeds `STEP_REJECTS_ARTIFACT_TYPE`.
+   *
+   * Null when the artifact does not exist. Callers here always call it after
+   * `artifactExists` has already returned true, but the signature does not assume that: a
+   * caller that skipped the existence check gets "no source to judge against" rather than a
+   * thrown driver error.
+   */
+  findArtifactSource(orgId: OrgId, artifactId: string): Promise<z.infer<typeof A.ArtifactSource> | null>;
+
+  /**
+   * The gate-relevant fields of the `agenda_segments` row this (project, segment) names, or
+   * `null` when `agendaSegmentId` names no segment at all (F120 notes: legacy fixtures
+   * pre-dating F118's foreign key use bare id strings; a bind attempt against one of those
+   * still has to be decided by SOMETHING, and it is not this feature's place to invent a
+   * segment).
+   *
+   * `projectId` here IS the segment's `workshop_id` -- the two are the same value domain
+   * under the F116 supertype model (0018), which is exactly what lets this be a single
+   * lookup instead of a join through a translation table.
+   */
+  findSegmentGate(orgId: OrgId, projectId: string, agendaSegmentId: string): Promise<StepGateSegment | null>;
 
   /**
    * The pinned bindings that CITE a given version -- E5's 「引用处」.

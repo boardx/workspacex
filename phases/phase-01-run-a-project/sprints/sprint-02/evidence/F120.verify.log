@@ -1,0 +1,83 @@
+F120 —— 环节接受来源白名单 setAcceptedSources + STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE
+两条空转失败码的双向还债
+
+⚠ 本地策略变更（issue #74）：本地绝不跑任何需要 Postgres 的测试。数据库验证测试
+（step-closed-bidirectional.test.ts / accepted-sources-whitelist.test.ts）本地只跑
+typecheck；纯逻辑单测（step-gate.test.ts）本地跑。两条 DB 测试的实际执行结果由
+CI / test-runner agent 补齐，不在本证据文件的范围内。
+
+$ pnpm --filter @repo/fabric-markdown run build   # D-17 已知坑：裸 typecheck 会先报
+                                                    # `Cannot find name 'Element'`，
+                                                    # 与本 feature 无关，已登记在
+                                                    # phases/phase-01-run-a-project/DECISIONS-PENDING-AB.md
+[exit 0]
+
+$ pnpm --filter api run typecheck
+[exit 0]
+> @repo/api@0.0.0 typecheck
+> tsc --noEmit
+(no output — clean)
+
+$ pnpm --filter api run lint
+[exit 0]
+✅ lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+   lint-design-facet-single-source / design-facet catalog / lint-skill-context-api-only /
+   lint-arch-deps: 303 files, all dependencies point inward — no new violations.
+
+$ pnpm --filter api exec vitest run tests/project/step-gate.test.ts   (纯逻辑单测，本地跑)
+[exit 0]
+ ✓ tests/project/step-gate.test.ts (8 tests)
+   ✓ STEP_CLOSED — closed 环节：拒绝
+   ✓ STEP_CLOSED — skipped 环节：同样拒绝
+   ✓ STEP_CLOSED — 反证：active 环节必须成功
+   ✓ STEP_CLOSED — 反证：pending 环节必须成功
+   ✓ STEP_REJECTS_ARTIFACT_TYPE — 白名单 ['upload'] 拒绝 prototype-run
+   ✓ STEP_REJECTS_ARTIFACT_TYPE — 反证：白名单 ['upload'] 接受 upload
+   ✓ STEP_REJECTS_ARTIFACT_TYPE — 空白名单（默认全接受）对全部七类来源都通
+   ✓ 优先级：closed 且来源不在白名单里 —— 报 STEP_CLOSED 不是来源码
+ Test Files  1 passed (1) | Tests  8 passed (8)
+
+$ pnpm --filter api exec vitest run tests/project/step-closed-bidirectional.test.ts
+$ pnpm --filter api exec vitest run tests/project/accepted-sources-whitelist.test.ts
+NOT RUN LOCALLY（需要 Postgres，本地策略禁止）—— 已过 `tsc --noEmit`（见上），
+逻辑通过 tests/project/step-gate.test.ts 覆盖的同一份纯函数
+（apps/api/src/domain/project/step-gate.ts::evaluateStepGate）单测证明；
+两个文件本身只是把这份判断接到真实的 agenda_segments / artifacts 行上（经
+PgBindingRepository.findSegmentGate / findArtifactSource），执行结果留给
+test-runner / CI 补齐并写回本文件。
+
+$ pnpm --filter @repo/contracts run test
+[exit 0]
+Test Files  8 passed (8) | Tests  166 passed (166)
+（contracts 侧无改动：STEP_GATE_CODES / setAcceptedSources 操作契约在本 feature
+之前已由前置工作写入 packages/contracts/src/project.ts，本 feature 只消费它。）
+
+## 改了什么
+
+- apps/api/src/domain/project/step-gate.ts（新增）—— 纯函数 `evaluateStepGate`：
+  STEP_CLOSED 优先于 STEP_REJECTS_ARTIFACT_TYPE 判定，两者都双向可证。
+- apps/api/src/application/artifact/binding-errors.ts —— 新增 StepClosedError /
+  StepRejectsArtifactTypeError，映射进 CONTRACT_CODE_BY_ERROR（非 null，不影响
+  binding-three-modes.test.ts 里「恰好两个 null」的断言）。
+- apps/api/src/application/artifact/binding-ports.ts —— BindingRepository 新增
+  findArtifactSource / findSegmentGate 两个只读方法。
+- apps/api/src/application/artifact/bind-to-project-step.ts —— 新增 assertStepGate，
+  插在 artifactExists 之后、resolvePinnedVersion 之前。
+- apps/api/src/infrastructure/artifact/pg-binding-repository.ts —— 上述两个方法的
+  Postgres 实现（后者用 `workshop_id = project_id` 单查询，复用 F118 的
+  supertype 值域事实，不新建 join 表）。
+- 测试：apps/api/tests/project/step-gate.test.ts（纯逻辑，本地已跑绿）、
+  apps/api/tests/project/step-closed-bidirectional.test.ts、
+  apps/api/tests/project/accepted-sources-whitelist.test.ts（均已 typecheck）。
+
+## 明确没做的（范围纪律 + COMPOSITION_ROOT 授权边界）
+
+- `setAcceptedSources` 用例本身（UC-P8：引导师配置白名单的写路径）未实现 HTTP
+  controller / kernel.module.ts DI 注册。理由：① 本 feature 的 verification 只
+  列了两个 DB 测试文件，均通过直接对 agenda_segments 写 accepted_sources 列来
+  构造前置条件，不经过该用例；② `ui.md` B-4 登记环节卡的白名单控件原型本就不
+  存在，签核第①件待补，此刻接一个没有界面入口的写路径风险大于收益；
+  ③ F119（advanceAgendaSegment）与本 feature 并行在同一张表上开工，抢先加一层
+  尚无测试锚定的 controller wiring，合并冲突面会不成比例地增加。
+  这是本 feature 唯一未覆盖 user_visible_behavior 的角落，如实报告，不认领超出
+  verification 范围的隐性交付。

@@ -30,6 +30,11 @@ import type {
 import type { BindingModeName } from "../../domain/artifact/binding-modes";
 import type { CitationAnchor } from "../../domain/artifact/downstream-eligibility";
 import type { OrgId } from "../../domain/org-id";
+import type {
+  AgendaSegmentState,
+  ArtifactSource,
+  StepGateSegment,
+} from "../../domain/project/step-gate";
 
 interface BindingRowShape {
   id: string;
@@ -160,6 +165,48 @@ export class PgBindingRepository implements BindingRepository {
         [orgId, artifactId],
       );
       return r.rows.length > 0;
+    });
+  }
+
+  /** F120 / I-P17 -- feeds `STEP_REJECTS_ARTIFACT_TYPE`. */
+  async findArtifactSource(orgId: OrgId, artifactId: string): Promise<ArtifactSource | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ source: string }>(
+        `SELECT source FROM artifacts WHERE org_id = $1 AND id = $2`,
+        [orgId, artifactId],
+      );
+      return (r.rows[0]?.source as ArtifactSource | undefined) ?? null;
+    });
+  }
+
+  /**
+   * F120 / I-P45 -- feeds `STEP_CLOSED` / `STEP_REJECTS_ARTIFACT_TYPE`.
+   *
+   * `project_id = workshop_id` in the WHERE, not a join through a translation table: the
+   * F116 supertype model (0018) makes the two the same value domain, which is the same fact
+   * F118's composite foreign key on `artifact_bindings` relies on. Null when `agendaSegmentId`
+   * names no segment in THIS project -- including a segment that exists but belongs to a
+   * different workshop, which must be indistinguishable from "no such segment" here for the
+   * same cross-workshop-leak reason `binding-segment-fk-no-orphan.test.ts` tests at the FK
+   * level.
+   */
+  async findSegmentGate(
+    orgId: OrgId,
+    projectId: string,
+    agendaSegmentId: string,
+  ): Promise<StepGateSegment | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ state: string; accepted_sources: string[] }>(
+        `SELECT state, accepted_sources FROM agenda_segments
+          WHERE org_id = $1 AND workshop_id = $2 AND id = $3`,
+        [orgId, projectId, agendaSegmentId],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        state: row.state as AgendaSegmentState,
+        acceptedSources: row.accepted_sources as ArtifactSource[],
+      };
     });
   }
 
