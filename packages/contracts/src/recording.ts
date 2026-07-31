@@ -83,6 +83,17 @@ export const RecordingArtifactKind = z.enum([
 export const RetentionResolvedFrom = z.enum(["project", "org"]);
 
 /**
+ * PII 五类（O-39 可执行最小集）—— 转写落库前自动遮盖的类型全集（F72，domain.md §「PII（O-39）」）。
+ *
+ * ⚠ **只增不减，不是封闭枚举**（O-39 原文）：合规输入到位后允许新增第六类，但**现有五个不得删改名**——
+ *   与 `SegmentStatus.disputed` 那种「封闭性待裁」不同，这条的方向是反过来的
+ *   （见 `KNOWN_CONTRACT_GAPS.C_REC_3` 关于封闭性表达不出来的讨论；这里记录的是新增方向的约束）。
+ * ⚠ `apps/web/lib/mock/rec.ts` 曾手写同一个联合类型（标注「契约缺枚举，待迁入」）——
+ *   本次落地后那份改为 `z.infer<typeof C.PiiType>`，不再手抄（`lint-contract-source` 门控）。
+ */
+export const PiiType = z.enum(["email", "phone", "id-card", "bank-card", "address"]);
+
+/**
  * 本束失败模式全集。**「失败长什么样」是契约的一半**——界面的异常态全靠它。
  *
  * ⚠ 四个「通用前置」失败（`UNAUTHENTICATED` / `NO_ORG_ROLE` / `NO_PROJECT_ROLE` /
@@ -232,10 +243,14 @@ export const SegmentAnchor = z.object({
   messageId: z.string().nullable(),
 }).strict();
 
-/** 脱敏命中。⚠ **遮盖在入库前完成**，原文单独加密存储（I-20 / I-21） */
+/**
+ * 脱敏命中。⚠ **遮盖在入库前完成**，原文单独加密存储（I-20 / I-21）。
+ * `span` 是**遮盖后文本**里占位符的位置（界面就地渲染「已自动遮盖：… · 查看原文需权限」要用它），
+ * 不是原文里的位置——原文位置在遮盖后已不可还原，也不该被返回体带出去。
+ */
 export const PiiFinding = z.object({
   findingId: z.string(),
-  type: z.string(),
+  type: PiiType,
   span: z.object({
     start: z.number().int().nonnegative(),
     end: z.number().int().nonnegative(),
@@ -466,7 +481,7 @@ export const operations = {
     method: "POST", path: "/recording/pii-findings/:findingId/reveal",
     in: z.object({ findingId: z.string(), justification: z.string() }).strict(),
     out: z.object({
-      type: z.string(), plaintext: z.string(), auditEventId: z.string(),
+      type: PiiType, plaintext: z.string(), auditEventId: z.string(),
     }).strict(),
     err: [
       "PII_REVEAL_FORBIDDEN", "PII_ORIGINAL_DESTROYED",
