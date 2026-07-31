@@ -120,6 +120,10 @@ import { AuthOrgController } from "./interface/controllers/auth-org.controller";
 //   DECISION_ID_FACTORY。新加一个 provider 会是「第二个判定实现」的第一步，而 usecases.md
 //   逐字写着这一条是 identity 的调用契约，不是第二个实现。
 import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope.controller";
+// F80 (phase-01 · 06-itv): 访谈范围模型。project_id 可空 + 两种权限投影 + 服务端过滤。
+import { INTERVIEW_SCOPE_REPOSITORY } from "./application/interview/ports";
+import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interview-scope-repository";
+import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 
 @Module({
   controllers: [
@@ -137,6 +141,7 @@ import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope
     EvidenceWithdrawalController,
     AuthOrgController,
     OrgAdminScopeController,
+    InterviewScopeController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -286,6 +291,14 @@ import { OrgAdminScopeController } from "./interface/controllers/org-admin-scope
     {
       provide: ORG_LIFECYCLE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgLifecycleRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F80. ⚠ 没有 `INTERVIEW_WRITE_*` 之类的 provider：F80 只建范围与可见性两条读路径，
+    // 新建向导是 F84、挂载是 F81。给一个还不存在的能力留个绑定，
+    // 会让下一个接界面的人以为它已经在跑了。
+    {
+      provide: INTERVIEW_SCOPE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewScopeRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
