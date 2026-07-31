@@ -182,6 +182,72 @@ export function checkToolScopeWithinServer(input: {
 /** 🔴 新发现工具的默认授权范围（原型面板逐字 `默认全关 · 已开 3`）。**有出处的默认值** */
 export const NEWLY_DISCOVERED_TOOL_DEFAULT_SCOPE = ToolAuthScope.enum["未开放"];
 
+/* ───────────── 🟢 F52：工具命名空间（I-20）的机械落点 ───────────── */
+
+/**
+ * 🟢 **F52 追加（纯新增，未改动本文件任何既有声明）。**
+ *
+ * `McpTool.fullName` 原本是裸 `z.string()`，而它上方的注释逐字写着
+ * 「全名恒为 `mcp:<服务器>.<工具>`（I-20），与内建 `graph.` / `brain.` 命名空间可区分」——
+ * **一条写在注释里、没有任何东西守的不变量**。下面这几个导出把它变成会红的东西。
+ *
+ * 为什么非守不可：三层权限的第 ② 层（agent 工具白名单）是**按全名**存的。
+ * 全名一旦有第二套拼法，白名单里会出现两条指向同一个工具的记录，其中一条永远命中不了——
+ * 于是「我明明授权了」和「它调不到」可以同时为真，而两边的数据都自洽。
+ *
+ * ⚠ 这里**只加不改**：没有动 `McpTool` 的字段类型（那会改变已签核的形状），
+ *   校验以纯函数提供，由 F52 的用例与测试在写入路径上调用。
+ *   要不要把 `fullName` 收紧成 `McpToolFullName`，是**人类的裁决**，不是本 feature 自取。
+ */
+export const MCP_TOOL_NAMESPACE_PREFIX = "mcp:";
+
+/**
+ * 被产品**保留**的工具命名空间前缀。声明的是前缀，不是工具清单——
+ * 具体有哪些 `graph.*` 工具仍是组织配置（`lint-no-builtin-capabilities` 的红线在那边）。
+ */
+export const RESERVED_TOOL_NAMESPACE_PREFIXES = ["graph.", "brain."] as const;
+
+/**
+ * `mcp:<服务器>.<工具>`。服务器段用短横线、工具段用下划线——**刻意不同**：
+ * 分隔符是第一个 `.`，两段都允许 `.` 就无法机械还原是哪台服务器。
+ */
+export const MCP_TOOL_FULL_NAME_RE = /^mcp:[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9_]*$/;
+
+/** 唯一构造入口。别在别处拼字符串——拼出来的第二份规则不会有人守。 */
+export function mcpToolFullName(serverSlug: string, toolName: string): string {
+  const full = `${MCP_TOOL_NAMESPACE_PREFIX}${serverSlug}.${toolName}`;
+  if (!MCP_TOOL_FULL_NAME_RE.test(full)) throw new Error(`非法的 MCP 工具全名：${full}`);
+  return full;
+}
+
+/** 唯一解析入口。非法输入返回 `null`，**不抛**——调用方多半在做判定而非构造。 */
+export function parseMcpToolFullName(
+  full: string,
+): { serverSlug: string; toolName: string } | null {
+  if (!MCP_TOOL_FULL_NAME_RE.test(full)) return null;
+  const rest = full.slice(MCP_TOOL_NAMESPACE_PREFIX.length);
+  const dot = rest.indexOf(".");
+  return { serverSlug: rest.slice(0, dot), toolName: rest.slice(dot + 1) };
+}
+
+export function isMcpToolFullName(full: string): boolean {
+  return MCP_TOOL_FULL_NAME_RE.test(full);
+}
+
+/** 内建命名空间判定。与上一个函数**互斥**，由 F52 的测试逐串钉住。 */
+export function isReservedToolFullName(full: string): boolean {
+  return RESERVED_TOOL_NAMESPACE_PREFIXES.some((p) => full.startsWith(p));
+}
+
+/**
+ * 🟢 **F52 追加**：`McpServerRow` 上三个正交字段的名字，**落成值**。
+ *
+ * 「它们是三个字段」这句话几乎无法证伪——任何实现都摆得出三个键。
+ * 有了这个数组，测试才能断言「登记的正是这三个、一个不多一个不少」，
+ * 并对 `authScope × reviewStatus × connectionStatus` 的**全部组合**证明互不可推导。
+ */
+export const MCP_ORTHOGONAL_FIELDS = ["authScope", "reviewStatus", "connectionStatus"] as const;
+
 /**
  * 评审状态。**O-20：与 `authScope` / `connectionStatus` 三者正交，禁止合并**（I-17）。
  *

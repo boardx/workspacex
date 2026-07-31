@@ -1,0 +1,244 @@
+/**
+ * F52：**凭据与端点对非管理员不可见**（domain I-6 / UC-20.1 AC3 / UC-21.1）。
+ *
+ * ## 这一条的落法不是 403 —— 读清楚再实现
+ *
+ * `domain.md` I-6 的验证手段逐字是：
+ *   「扫描响应 zod schema 无 credential/endpoint 字段；能力维护者请求详情断言无该键」
+ * 也就是说，正确的形状是**那个键根本不在响应 schema 里**——
+ * 不是「有键但返回 403」，也不是「返回后再过滤」。
+ *
+ * 差别是实打实的：
+ * · 返回 403 意味着服务端**已经把这个字段查出来了**，只是这一次没给。
+ *   下一个消费点、下一个缓存层、下一条日志，谁都可能把它带出去。
+ * · 「返回后过滤」是**每个消费点各自的自觉**。加一个新界面就漏一次，且漏了不会有东西红。
+ * · 「schema 里没有这个键」是一次性的、全局的，且 `.strict()` 让任何塞回去的尝试当场炸。
+ *
+ * 所以本文件的主断言是**反向**的：往 `McpServerRow` 里塞一个 `endpoint`，解析必须失败。
+ *
+ * ## 凭据比端点更严：**任何**响应 schema 里都不许有，管理员也不例外
+ */
+import { describe, expect, it } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import * as AR from "@repo/contracts/agent-runtime";
+import { mcpEndpointHint } from "@/lib/mcp-endpoint-hint";
+
+/* ───────────────────── schema 键的递归扫描器 ───────────────────── */
+
+/** 收集一个 zod schema 里出现的**全部**键名（递归穿透 array/optional/nullable/object/union） */
+function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
+  if (depth > 14) return [];
+  const def = (schema as unknown as { _def: Record<string, unknown> })._def;
+  switch (def.typeName as string) {
+    case "ZodObject": {
+      const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
+      return Object.entries(shape).flatMap(([k, v]) => [k, ...collectKeys(v as z.ZodTypeAny, depth + 1)]);
+    }
+    case "ZodArray":
+      return collectKeys(def.type as z.ZodTypeAny, depth + 1);
+    case "ZodOptional":
+    case "ZodNullable":
+    case "ZodDefault":
+      return collectKeys(def.innerType as z.ZodTypeAny, depth + 1);
+    case "ZodEffects":
+      return collectKeys(def.schema as z.ZodTypeAny, depth + 1);
+    case "ZodUnion":
+    case "ZodDiscriminatedUnion":
+      return ((def.options as z.ZodTypeAny[]) ?? []).flatMap((o) => collectKeys(o, depth + 1));
+    case "ZodRecord":
+      return collectKeys(def.valueType as z.ZodTypeAny, depth + 1);
+    default:
+      return [];
+  }
+}
+
+const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
+const ENDPOINT_KEY_RE = /^endpoint$/i;
+
+const OPS = Object.entries(AR.operations) as [string, { in: z.ZodTypeAny; out: z.ZodTypeAny }][];
+
+describe("扫描器本身不是空转", () => {
+  it("能从嵌套结构里挖出键", () => {
+    const nested = z.object({ a: z.object({ b: z.array(z.object({ c: z.string() })) }) });
+    expect(collectKeys(nested).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("确实扫到了操作（0 个操作会让下面每条断言恒真）", () => {
+    expect(OPS.length).toBeGreaterThan(30);
+  });
+
+  it("它对写入面确实能扫到 credential —— 否则「响应里扫不到」毫无意义", () => {
+    expect(collectKeys(AR.operations.registerMcpServer.in)).toContain("credential");
+    expect(collectKeys(AR.operations.registerMcpServer.in)).toContain("endpoint");
+  });
+});
+
+describe("凭据：agent-runtime 束的**任何**响应 schema 里都不存在（I-6 / AC3）", () => {
+  it.each(OPS)("%s 的 out 里没有任何凭据类字段", (_name, op) => {
+    const leaked = collectKeys(op.out).filter((k) => SECRET_KEY_RE.test(k));
+    expect(leaked, `响应体里出现了凭据类字段：${leaked.join(",")}`).toEqual([]);
+  });
+
+  it("写入面**允许**带凭据 —— 不对称是有意的，不是漏检", () => {
+    // 注册当然要给凭据，不然连不上。被禁止的是**回显**。
+    expect(collectKeys(AR.operations.registerMcpServer.in)).toContain("credential");
+  });
+
+  it("反证：扫描器确实认得凭据类字段名", () => {
+    const fake = z.object({ credentialRef: z.string(), nested: z.object({ apiKey: z.string() }) });
+    expect(collectKeys(fake).filter((k) => SECRET_KEY_RE.test(k)).sort()).toEqual(["apiKey", "credentialRef"]);
+  });
+});
+
+describe("端点：不在任何响应 schema 里，只以粗粒度提示出现", () => {
+  it.each(OPS)("%s 的 out 里没有 endpoint 这个键", (_name, op) => {
+    const leaked = collectKeys(op.out).filter((k) => ENDPOINT_KEY_RE.test(k));
+    expect(leaked, "响应 schema 里出现了 endpoint 原值").toEqual([]);
+  });
+
+  it("`McpServerRow` 没有 endpoint / credential 键，而不是「有键但被过滤」", () => {
+    const keys = Object.keys(AR.McpServerRow.shape);
+    expect(keys).not.toContain("endpoint");
+    expect(keys).not.toContain("credential");
+    expect(keys).not.toContain("credentialRef");
+  });
+
+  it("**反向断言**：往 McpServerRow 里塞 endpoint ⇒ 解析失败（不是被静默丢掉）", () => {
+    const legit = AR.McpServerRow.parse({
+      serverId: "mcp-crm",
+      name: "客户 CRM",
+      description: "Salesforce 桥接",
+      endpointHint: "内网",
+      authScope: "仅项目负责人",
+      reviewStatus: "已放行",
+      connectionStatus: "已连接",
+      quarantineUntil: null,
+      involvesCustomerData: true,
+      isEgress: false,
+    });
+    expect(AR.McpServerRow.safeParse({ ...legit, endpoint: "mcp://crm.internal:7301" }).success,
+      "多带的 endpoint 被放过了——strict 没生效或 schema 被改宽了").toBe(false);
+    expect(AR.McpServerRow.safeParse({ ...legit, credential: "sk-xxx" }).success).toBe(false);
+    expect(AR.McpServerRow.safeParse({ ...legit, credentialRef: "ref-1" }).success).toBe(false);
+  });
+
+  it("`endpointHint` 是两值粗粒度，信息量不足以拨过去", () => {
+    const hint = AR.McpServerRow.shape.endpointHint;
+    expect(hint.options).toEqual(["内网", "外网"]);
+    // 反证：它不接受任何形似端点的串
+    expect(hint.safeParse("mcp://crm.internal:7301").success).toBe(false);
+    expect(hint.safeParse("crm.internal").success).toBe(false);
+  });
+
+  it("能力维护者要看的四样都在：名 / 说明 / 工具清单 / 授权范围", () => {
+    const keys = Object.keys(AR.McpServerRow.shape);
+    for (const k of ["name", "description", "authScope"]) expect(keys).toContain(k);
+    // 工具清单走 listMcpTools，其行是 McpTool —— 同样无端点无凭据
+    const toolKeys = collectKeys(AR.McpTool);
+    expect(toolKeys.filter((k) => ENDPOINT_KEY_RE.test(k) || SECRET_KEY_RE.test(k))).toEqual([]);
+  });
+});
+
+describe("界面侧：端点原值只出现在管理员/评审人能看到的分支里", () => {
+  /**
+   * ⚠ 断言的是**渲染路径上不存在**，不是「渲染了但报 403」。
+   * 环境是 node（无 DOM），故用渲染源的结构断言。
+   *
+   * ⚠ 「任何组件都不许出现 endpoint」是**错的判据**，会把一条正确的实现判红：
+   *   `/admin/mcp` 整屏就只有组织管理员进得来，端点在那里是**该显示的**。
+   *   真正要查的是：**同一块屏上既有非管理员角色、又无条件渲染端点**。
+   *   本仓的 `mcp-policy-screen` 正是这种——它的角色切换器里就有 `maintainer`。
+   */
+  const COMPONENTS = fileURLToPath(new URL("../../../components", import.meta.url));
+
+  function walk(dir: string, out: string[] = []): string[] {
+    for (const n of readdirSync(dir)) {
+      if (n.startsWith(".") || n === "node_modules") continue;
+      const p = join(dir, n);
+      statSync(p).isDirectory() ? walk(p, out) : /\.tsx?$/.test(n) && out.push(p);
+    }
+    return out;
+  }
+
+  /** 去掉注释：一段解释性文字不该把结构断言弄红 */
+  const strip = (body: string) =>
+    body.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+        .split("\n").filter((l) => !/^\s*(\*|\/\/)/.test(l)).join("\n");
+
+  const files = walk(COMPONENTS).map((f) => [f.slice(COMPONENTS.length + 1), strip(readFileSync(f, "utf8"))] as const);
+
+  /** 一块屏是否把「非管理员角色」也画在自己身上 */
+  const servesNonAdmin = (body: string) => /"maintainer"|'maintainer'/.test(body);
+  /** 是否取了 MCP 服务器对象上的端点原值 */
+  const readsMcpEndpoint = (body: string) => /\b(ISOLATED|server|s|panel\.server)\.endpoint\b/.test(body);
+
+  it("确实扫到了组件（扫到 0 个会让下面恒真）", () => {
+    expect(files.length).toBeGreaterThan(20);
+  });
+
+  it("面向非管理员角色的屏，端点必须被角色条件门住", () => {
+    const offenders = files
+      .filter(([, body]) => servesNonAdmin(body) && readsMcpEndpoint(body))
+      .filter(([, body]) => !/canReview \? \(/.test(body))
+      .map(([f]) => f);
+    expect(offenders, `这些屏有非管理员角色却无条件渲染端点：${offenders.join(", ")}`).toEqual([]);
+  });
+
+  it("mcp-policy-screen 具体到行：端点在门内，门外只给两值粗粒度", () => {
+    const body = files.find(([f]) => f.endsWith("mcp-policy-screen.tsx"))![1];
+    expect(body, "这块屏确实带 maintainer 角色").toContain("maintainer");
+    expect(body).toContain('data-testid="mcp-isolated-endpoint"');
+    expect(body).toContain('data-testid="mcp-isolated-endpoint-hint"');
+    expect(body).toContain("canReview ? (");
+    expect(body).toContain("mcpEndpointHint(ISOLATED.endpoint)");
+    // 端点原值只被取用两次：门内渲染一次，投影成 bit 一次
+    expect(body.split("ISOLATED.endpoint").length - 1).toBe(2);
+  });
+
+  it("粗粒度提示的取值域**就是**契约的两个值，多一档都过不了", () => {
+    expect(mcpEndpointHint("mcp://crm.internal:7301")).toBe("内网");
+    expect(mcpEndpointHint("mcp://10.0.0.5:7301")).toBe("内网");
+    expect(mcpEndpointHint("mcp://192.168.1.9")).toBe("内网");
+    expect(mcpEndpointHint("mcp://localhost:7300")).toBe("内网");
+    expect(mcpEndpointHint("mcp://eu-reg.vendor.eu")).toBe("外网");
+    expect(mcpEndpointHint("mcp://data.wsx.cn:443")).toBe("外网");
+    // 反证：它确实在区分，不是恒返回同一个值
+    expect(mcpEndpointHint("mcp://a.internal")).not.toBe(mcpEndpointHint("mcp://a.example.com"));
+    // 且输出恒在契约的取值域内
+    for (const e of ["mcp://x.internal", "mcp://x.io", "weird", ""]) {
+      expect(AR.McpServerRow.shape.endpointHint.safeParse(mcpEndpointHint(e)).success).toBe(true);
+    }
+  });
+
+  it("提示里不含主机名、端口、协议 —— 它是一个 bit，不是脱敏后的原值", () => {
+    for (const e of ["mcp://crm.internal:7301", "mcp://eu-reg.vendor.eu"]) {
+      const hint = mcpEndpointHint(e);
+      expect(hint.length).toBeLessThanOrEqual(2);
+      expect(e).not.toContain(hint);
+    }
+  });
+
+  it("反证：把门去掉，上面两条会红", () => {
+    const body = files.find(([f]) => f.endsWith("mcp-policy-screen.tsx"))![1];
+    const broken = body.replace("canReview ? (", "true ? (");
+    expect(servesNonAdmin(broken) && readsMcpEndpoint(broken) && !/canReview \? \(/.test(broken)).toBe(true);
+  });
+
+  it("`/admin/mcp` 显示端点**不是**违规 —— 那块屏没有非管理员角色", () => {
+    const body = files.find(([f]) => f.endsWith("admin/mcp-screen.tsx"))![1];
+    expect(readsMcpEndpoint(body), "它确实显示端点").toBe(true);
+    expect(servesNonAdmin(body), "但它不承载 maintainer 角色，所以不在 I-6 的射程内").toBe(false);
+    // 且它自己写明了这一点
+    expect(body).toContain("仅组织管理员可见");
+  });
+
+  it("凭据字面量不出现在任何组件里（`凭据失效` 是连接状态，不算）", () => {
+    const offenders = files
+      .filter(([, body]) => /credential/i.test(body))
+      .map(([f]) => f);
+    expect(offenders, `这些组件里出现了 credential：${offenders.join(", ")}`).toEqual([]);
+  });
+});

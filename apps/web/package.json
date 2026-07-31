@@ -10,6 +10,7 @@
     "lint:design": "./scripts/lint-design.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "vitest": "vitest",
     "contrast": "node scripts/check-token-contrast.mjs",
     "e2e": "playwright test"
   },
