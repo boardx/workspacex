@@ -61,6 +61,40 @@ export async function addTranscriptSession(opts: {
   );
 }
 
+/**
+ * F111：一条落库的引用（`chat_citations`）。
+ *
+ * ⚠ 与其余夹具同一个纪律（`addChatThread` / `addChatMessage` 文件头）：以 app 角色写，
+ *   不以属主写——若某条 RLS 策略的 `WITH CHECK` 写错了，属主插入照样成功，
+ *   测试就建立在生产永远写不出来的数据上。
+ */
+export async function addChatCitation(opts: {
+  orgId: string;
+  citationId: string;
+  messageId: string;
+  index: number;
+  sourceFullName: string;
+  anchorKind: "page" | "transcript" | "message";
+  anchorPage?: number | null;
+  anchorRange?: string | null;
+  anchorMessageId?: string | null;
+  sourceArtifactId?: string | null;
+}): Promise<void> {
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO chat_citations
+         (citation_id, org_id, message_id, idx, source_full_name, anchor_kind,
+          anchor_page, anchor_range, anchor_message_id, source_artifact_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        opts.citationId, opts.orgId, opts.messageId, opts.index, opts.sourceFullName,
+        opts.anchorKind, opts.anchorPage ?? null, opts.anchorRange ?? null,
+        opts.anchorMessageId ?? null, opts.sourceArtifactId ?? null,
+      ],
+    ),
+  );
+}
+
 export async function addChatMessage(opts: {
   orgId: string;
   id: string;

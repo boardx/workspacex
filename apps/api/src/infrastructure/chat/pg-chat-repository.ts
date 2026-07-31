@@ -13,8 +13,10 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
   AgentRosterState,
+  ChatCitationRow,
   ChatMessageRow,
   ChatRepository,
+  MessageLocation,
   NewThreadInput,
   ThreadFileRecord,
   ThreadListRow,
@@ -434,6 +436,75 @@ export class PgChatRepository implements ChatRepository {
       }
       throw e;
     }
+  }
+
+  /* ── F111：工具调用链与引用 ───────────────────────────────────────── */
+
+  /** 见 `ports.ts` 上的注释：判权与查询的起点都是它。 */
+  async findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ thread_id: string; project_id: string }>(
+        `SELECT m.thread_id, t.project_id
+           FROM chat_messages m
+           JOIN chat_threads t ON t.id = m.thread_id AND t.org_id = m.org_id
+          WHERE m.id = $1 AND m.org_id = $2`,
+        [messageId, orgId],
+      );
+      const row = r.rows[0];
+      return row ? { threadId: row.thread_id, projectId: row.project_id } : null;
+    });
+  }
+
+  async messageExists(orgId: OrgId, messageId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query("SELECT 1 FROM chat_messages WHERE id = $1 AND org_id = $2", [
+        messageId, orgId,
+      ]);
+      return r.rows.length > 0;
+    });
+  }
+
+  async findCitation(orgId: OrgId, citationId: string): Promise<ChatCitationRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        citation_id: string;
+        message_id: string;
+        idx: number;
+        source_full_name: string;
+        anchor_kind: string;
+        anchor_page: number | null;
+        anchor_range: string | null;
+        anchor_message_id: string | null;
+        source_artifact_id: string | null;
+      }>(
+        `SELECT citation_id, message_id, idx, source_full_name, anchor_kind,
+                anchor_page, anchor_range, anchor_message_id, source_artifact_id
+           FROM chat_citations WHERE citation_id = $1 AND org_id = $2`,
+        [citationId, orgId],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        citationId: row.citation_id,
+        messageId: row.message_id,
+        index: row.idx,
+        sourceFullName: row.source_full_name,
+        anchorKind: row.anchor_kind as ChatCitationRow["anchorKind"],
+        anchorPage: row.anchor_page,
+        anchorRange: row.anchor_range,
+        anchorMessageId: row.anchor_message_id,
+        sourceArtifactId: row.source_artifact_id,
+      };
+    });
+  }
+
+  async artifactExists(orgId: OrgId, artifactId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query("SELECT 1 FROM artifacts WHERE id = $1 AND org_id = $2", [
+        artifactId, orgId,
+      ]);
+      return r.rows.length > 0;
+    });
   }
 }
 

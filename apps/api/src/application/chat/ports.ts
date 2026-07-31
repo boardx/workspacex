@@ -191,6 +191,30 @@ export interface ChatRepository {
     remove: readonly string[],
     expectedRosterVersion: number,
   ): Promise<UpdateAgentRosterOutcome>;
+
+  /* ── F111：工具调用链与引用（chat 束 domain.md D 组）───────────────────── */
+
+  /**
+   * 一条消息所属的线程与项目。**判权与查询都要从它起步**——`expandToolCallChain` /
+   * `locateCitation` 的契约输入只有 `messageId`（没有 `projectId`/`threadId`），
+   * 而 `resolveVisibility` 要这两者才能判。消息不存在返回 `null`。
+   */
+  findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null>;
+
+  /**
+   * 引用锚点 kind 为 `message` 时，被指的那条消息**是否存在于本组织**（同租户即可，
+   * 不额外判可见性——I-24 问的是"能不能定位到原件"，不是"当前请求者能不能读"）。
+   */
+  messageExists(orgId: OrgId, messageId: string): Promise<boolean>;
+
+  /** 一条引用的完整记录。不存在返回 `null`。 */
+  findCitation(orgId: OrgId, citationId: string): Promise<ChatCitationRow | null>;
+
+  /**
+   * 引用的来源材料是否仍然存在（`SOURCE_ARTIFACT_DELETED`）。
+   * `sourceArtifactId` 为 `null` 时不适用，调用方不应调这个方法。
+   */
+  artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
 }
 
 export const CHAT_REPOSITORY = Symbol("ChatRepository");
@@ -328,3 +352,28 @@ export interface ChatPresetRepository {
 }
 
 export const CHAT_PRESET_REPOSITORY = Symbol("ChatPresetRepository");
+
+/** 见上面 `findMessageLocation`。 */
+export interface MessageLocation {
+  readonly threadId: string;
+  readonly projectId: string;
+}
+
+/**
+ * 一条引用的落库形状（F111）。**这是 `chat.Citation` 唯一的持久化点**——消息读路径
+ * （`get-thread.ts` 的 `toMessage`）目前把 `citations` 写死成 `[]`，是已登记的缺口
+ * （契约没有消息创建端口，写入侧还没有着落）；本表存在的意义是让 `locateCitation`
+ * 有一个真实的"原件"可定位，而不是让这条链路整体停在 mock 阶段。
+ */
+export interface ChatCitationRow {
+  readonly citationId: string;
+  readonly messageId: string;
+  readonly index: number;
+  readonly sourceFullName: string;
+  readonly anchorKind: "page" | "transcript" | "message";
+  readonly anchorPage: number | null;
+  readonly anchorRange: string | null;
+  readonly anchorMessageId: string | null;
+  /** 引用来源的 artifact，非空时才需要判 `SOURCE_ARTIFACT_DELETED`。 */
+  readonly sourceArtifactId: string | null;
+}
