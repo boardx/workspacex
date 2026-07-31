@@ -485,7 +485,26 @@ describe("lint-permission-paths: counter-proof", () => {
     // returning only counts, never a row's content). Both entries' enforced premises are
     // asserted in `tests/auth/team-crud-occupancy-check.test.ts` and
     // `tests/auth/member-removal-preserves-attribution.test.ts` respectively.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(12);
+    //
+    // ⚠ Raised 12 -> 13 by F115 (chat preset dispatch), rebased onto main after F11/F122's
+    // raises above landed -- RE-MEASURED on the combined tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (13), not computed as "12 + 1". The
+    // new entry is `infrastructure/chat/pg-chat-preset-repository.ts`. Its argument is not a
+    // single shape but a composite of ones already established here: `chat_presets` reads are
+    // either the actor's OWN write echoed back (same shape as the project-repository entry)
+    // or consumed only to compute a derived value never returned as content (dispatch scope
+    // check, thread-title lookup, usage aggregate); `project_memberships` / `org_agents` /
+    // `org_skills` reads are IDENTITY/CATALOG data a decision is made FROM, circular to gate
+    // with the decision they'd produce (same shape as the identity-repository entry); and the
+    // `chat_threads` INSERT reuses the SAME visibilityScope='private' mechanism F108/F109
+    // already gate reads of, so this file only writes that row, never reads it back.
+    //
+    // Its ENFORCED premise: none of the four application-layer preset functions
+    // (`upsertPreset`/`dispatchPreset`/`startPresetInstance`/`getPresetUsage`) return
+    // `openingPrompt`/`skills`/`agents` to a caller. `tests/chat/preset-content-echo-only.test.ts`
+    // asserts each function's result shape excludes those three keys via an in-memory fake
+    // repository. If that test is deleted, this entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(13);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
