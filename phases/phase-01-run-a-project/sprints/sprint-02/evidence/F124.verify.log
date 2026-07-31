@@ -12,14 +12,14 @@ $ pnpm --filter api run lint
 > @repo/api@0.0.0 lint /Users/shenyanbin/Documents/workspacex/apps/api
 > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
 
-✅ lint-error-leak: 29 files in the interface layer, no error detail reaches a response
-scanned=29
+✅ lint-error-leak: 30 files in the interface layer, no error detail reaches a response
+scanned=30
 ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
-scanned=266 tenant-tables=46 allowlisted=9
-· [debt] apps/web/lib/mock/admin.ts:215  built-in capability entry `Ava`
-· [debt] apps/web/lib/mock/admin.ts:216  built-in capability entry `Scout`
-· [debt] apps/web/lib/mock/admin.ts:217  built-in capability entry `Echo`
-· [debt] apps/web/lib/mock/admin.ts:218  built-in capability entry `Ledger`
+scanned=304 tenant-tables=51 allowlisted=12
+· [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/admin.ts:222  built-in capability entry `Ledger`
 · [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
 · [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
 · [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
@@ -95,7 +95,7 @@ scanned=266 tenant-tables=46 allowlisted=9
 · [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
 ✅ lint-no-builtin-capabilities: no built-in capability list in product code
-scanned=552 violations=0 debt=78 migrations=30
+scanned=594 violations=0 debt=78 migrations=35
 · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
 · [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
 · [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
@@ -105,12 +105,12 @@ scanned=552 violations=0 debt=78 migrations=30
 · [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
 · [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
 ✅ lint-design-facet-single-source: the definition table has one source
-scanned=692 violations=0 debt=8 keys=15 groups=5
+scanned=765 violations=0 debt=8 keys=15 groups=5
 ✅ design-facet catalog is in sync with the definition table
-✅ lint-skill-context-api-only: 14 个文件，skill 取数只经 Context API（I-25）
-scanned=14 violations=0
-✅ lint-arch-deps: 264 files, all dependencies point inward
-scanned=264
+✅ lint-skill-context-api-only: 19 个文件，skill 取数只经 Context API（I-25）
+scanned=19 violations=0
+✅ lint-arch-deps: 302 files, all dependencies point inward
+scanned=302
 
 
 $ pnpm --filter api exec vitest run tests/project/archive-readonly-and-readable.test.ts
@@ -127,4 +127,4 @@ exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,out
 
 No test files found, exiting with code 1
 
-[harness-verify v1 sha256=baed0221adfc0aaffc953ce5da199c9cc738d51fd92adc9910c820e8511dc8d1 commit=8648b72d8022602012fe9512846b564ca5a36ef8 at=2026-07-31T06:42:23.987Z]
+[harness-verify v1 sha256=267690efbfd19f569b66653f69477b68ca1b704f3d12ffdd0fcaecd8d501c89e commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:50:52.580Z]

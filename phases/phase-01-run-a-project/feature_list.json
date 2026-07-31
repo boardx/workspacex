@@ -144,7 +144,7 @@
         "F10"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-auth",
       "verification": [
@@ -153,7 +153,7 @@
         "pnpm --filter api exec vitest run tests/auth/team-crud-occupancy-check.test.ts",
         "pnpm --filter api exec vitest run tests/auth/member-removal-preserves-attribution.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F11.verify.log @ 2026-07-31T14:46:16.553Z",
       "notes": "依据：全部为[设计]已裁决——O-28⑥（双人复核）、O-29⑤（配额硬阻断）、O-29④（团队增删改+删除前占用校验）、O-29②（成员移除=停用访问不删产出、署名保留、释放配额）。是 UC-1.6 上调 +3 点的落点。成员移除与 UC-17.2 授权撤回不得混用同一代码路径（结果相反）。V7a/V7c/V7d 对应。API 断言。"
     },
     {
@@ -168,7 +168,7 @@
         "F15"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-auth2",
       "verification": [
@@ -177,7 +177,7 @@
         "pnpm --filter api exec vitest run tests/auth/join-token-required.test.ts",
         "pnpm --filter web exec vitest run tests/ui/join-verify-form.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F12.verify.log @ 2026-07-31T14:46:40.504Z",
       "notes": "依据：链接落地页与小组工作台为[原型]（proto-04），D-01 名单实名（手机号验证+名单核对不建账号）为[人类已拍板]，O-06 令牌统一为『分组链接+一次性令牌』（采信 proto-04）。界面已建成（锚 join-phone/join-get-code/join-code/join-verify-form/join-enter/join-member-continue）。R11 要求「名单核对」与「手机号验证」各自验收（两独立条件缺一即回到匿名）。V1（账号表不新增）与 V6a（无令牌进不去）对应。接后端。\n【跨分片依赖待确认】phase-00: 免注册身份与正式账号共用操作者标识空间但类型可区分（F01）"
     },
     {
@@ -261,7 +261,7 @@
         "F15"
       ],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-auth3",
       "verification": [
@@ -269,7 +269,7 @@
         "pnpm --filter api exec vitest run tests/auth/revoke-onsite-survive-until-stage-end.test.ts",
         "pnpm --filter api exec vitest run tests/auth/checkin-writeback.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F16.verify.log @ 2026-07-31T14:47:03.381Z",
       "notes": "依据：AC2「撤销后 5 秒新访问失效」为[Backlog]（5 秒非原型数字，撤销动作本身有原型依据）；O-06 裁定已在场者保留至环节结束（唯一有明确锚点可写 verification 的界限）。分组与签到到场回写为[原型]。UI 同 T30 未建，needs_ui_signoff=true；时序验收 API 可执行（V2/V7）。R11 要求「5 秒内失效」独立成 feature 有时序验收（链接外泄唯一止血手段）。\n【跨分片依赖待确认】06-现场协作: 议程环节状态机（会话失效锚点）"
     },
     {
@@ -1116,7 +1116,7 @@
         "F52"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-mcp",
       "verification": [
@@ -1124,7 +1124,7 @@
         "pnpm --filter api exec vitest run tests/capability/mcp/isolated-server-blocked.test.ts",
         "pnpm --filter api exec vitest run tests/capability/mcp/new-tool-not-auto-whitelisted.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F53.verify.log @ 2026-07-31T14:47:53.609Z",
       "notes": "安全内核：授权范围与默认隔离均在服务端强制，API 可验。越权拦截计数的原型证据（数据总览“客户 CRM 已拦截 7 次”）归属本 feature（授权范围执行），不是 UC-21.2 开关四。默认隔离/越权拒绝为 [设计]（原型只渲染隔离行，执行行为无界面证据），但均可机器验证。三层求交的完整矩阵在 T09 验收。\n【跨分片依赖待确认】11-board/00-core: 任务权限包 R1/R2/R3 与 [去授权] 入口（本 feature 只暴露申请接口）",
       "_uc_points_declared": "见 T05"
     },
@@ -1388,7 +1388,7 @@
         "F63"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-skill",
       "verification": [
@@ -1396,7 +1396,7 @@
         "pnpm --filter api exec vitest run tests/capability/skill/segment-switch-remount-and-views.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/orphan-binding-no-silent-drop.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F64.verify.log @ 2026-07-31T14:48:15.704Z",
       "notes": "needs_ui_signoff=true：AC1“现场切议程环节时挂载的 skill 自动换”这一句出自 [Backlog]（原型未直接呈现该联动），是本 feature 的主要交付行为之一，须补画/确认原型。每格生成待办、三视角首屏跟着换、画布左栏只读投影为 [原型 硬规则]（已建成，可直接签）；待办负责人恒为人 D-39。四条硬规则各带独立断言。\n【跨分片依赖待确认】11-board/UC-11.2: 待办看板与流转（本 feature 只负责生成并同步过去这条边）；07-canvas: 画布左栏只读投影；02-tpl: agenda_segment.switched / state_changed 事件（D-03a）",
       "_uc_points_declared": "见 T16"
     },
@@ -1531,14 +1531,14 @@
         "F69"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w2-rec",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/segment-anchor-completeness.test.ts",
         "pnpm --filter api exec vitest run tests/rec/partial-segment-not-citable.test.ts",
         "grep -rq 'data-testid=.itv-transcript' apps/web/components/interview"
       ],
-      "evidence": "",
+      "evidence": "evidence/F70.verify.log @ 2026-07-31T14:48:37.056Z",
       "notes": "依据 [原型]+[设计]。硬约束：无可定位 anchor 的 Segment 不得入库、不得进检索、不得被 AI 引用（AC2 数据层）。diarization 只做本场内声道，不建跨场次声纹身份库。\n【跨分片依赖待确认】phase-00: Context Pack 与 segments/anchors 统一上下文模型",
       "priority": 1,
       "area": "rec",
@@ -2198,13 +2198,13 @@
         "F100"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w2-canvas",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/publish-archive-instance-version.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/mermaid-whitelist-ignored-count.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F101.verify.log @ 2026-07-31T14:48:59.417Z",
       "notes": "依据 [原型]+裁决 O-10。归档禁新增绑定但不禁存量实例化（唯一同时满足「归档只影响能不能新建」与「现场不跑挂」的读法）；归档确认框提示「有 N 个议程环节仍绑定此模板」。「未试跑不得发布」的阻断属原型确认缺失，本 feature 不含该阻断。",
       "priority": 1,
       "area": "canvas",
@@ -2374,14 +2374,14 @@
         "F108"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w1-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/thread-badge-single-source.test.ts",
         "pnpm --filter api exec vitest run tests/chat/messages-jsonl-file-granularity.test.ts",
         "grep -rq 'data-testid=.chat-thread-list' apps/web/components/chat"
       ],
-      "evidence": "",
+      "evidence": "evidence/F109.verify.log @ 2026-07-31T14:49:26.465Z",
       "notes": "依据 [原型]。界面已建于 /chat（chat-thread-list/chat-new-thread）。线程卡「N 条待复核」与 UC-8.2 消息头「待复核 N」取同一字段（两处数值必须相等）；私聊线程归项目层、不计入 N 个 agent 在场态（O-24）。「更早」分组与检索属原型确认缺失。\n【跨分片依赖待确认】phase-00: F04 file-first / 22-files",
       "priority": 1,
       "area": "chat",
@@ -2397,14 +2397,14 @@
         "F108"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w2-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/team-panel-presence-tri-state.test.ts",
         "grep -rq 'data-testid=.chat-team-panel' apps/web/components/chat",
         "grep -rq 'data-testid=.chat-ai-message' apps/web/components/chat"
       ],
-      "evidence": "",
+      "evidence": "evidence/F110.verify.log @ 2026-07-31T14:49:46.981Z",
       "notes": "依据 [原型]。界面已建（chat-team-panel/chat-ai-message/chat-ai-skill）。在场三态是 enum 不得增删、每个 agent 必须有职责一句话。D-U6：agent 计数两口径「在场 4/编制 6」同时显示（mock 已有 TEAM_PRESENT_COUNT/TEAM_ROSTER_COUNT）。[编制]是原型待补（空按钮）。\n【跨分片依赖待确认】04-agent: agent 清单/可见性范围来自组织配置（phase-00 F15），原型里 6 个 agent 只是示例；phase-00: F15 组织配置平面",
       "priority": 1,
       "area": "chat",
@@ -2580,7 +2580,7 @@
         "F116"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-project",
       "verification": [
@@ -2593,7 +2593,7 @@
         "apps/api/scripts/verify-rls.sh",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F118.verify.log @ 2026-07-31T14:50:17.947Z",
       "notes": "依据：Q-2① 裁 A（建独立表 agenda_segments）+ Q-2② 裁 B（四态 + mergedInto）+ Q-8 裁 2（artifact_bindings 补外键）。落 I-P42 / I-P43 / I-P44。\n⚠ 挂 workshops（workshop_id → workshops(id)）不是 projects——议程环节是工作坊机件；超类型模型下 workshops.id ≡ projects.id，故 bindToProjectStep 的 projectId 仍是容器 id，两句不冲突。\n⚠ 不得退化成 startedAt/endedAt 时间戳：临时提权的失效条件是流程节点不是时间点（uc-1-4:98），时间戳表达不了「被跳过」与「被合并」。\n⚠「至多一个 active」必须是 DB 部分唯一索引（CREATE UNIQUE INDEX ... ON agenda_segments (workshop_id) WHERE state='active'），不是应用层先查后写——先查后写在并发下就是那条空转的门。反证：断言确实能把某一条置为 active（否则「谁都不能 active」的实现也全绿）。\n⚠ 外键那条同样要双向：指向存在环节的绑定要断言成功，否则「所有绑定都拒绝」的实现全绿（V13）。\n⚠ 迁移取 0018-*（0016/0017 已被 F13/F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F06 三模式绑定（artifact_bindings 表与 UNIQUE(artifact_id, project_id, step_id)）",
       "priority": 1,
       "area": "project",
@@ -2683,7 +2683,7 @@
         "F116"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-e2e",
       "verification": [
@@ -2694,7 +2694,7 @@
         "pnpm --filter web run test",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F122.verify.log @ 2026-07-31T14:50:48.515Z",
       "notes": "依据：Q-6① 裁 B（两段式，{member[], managed[]}）+ Q-7③ 裁「组织停用时项目显示且标注只读」+ Q-5 B（归档同一种只读呈现）+ Q-12 必裁三件之 3「平铺」。\n⚠ 不许压成混合数组加 canManage 布尔：与 D-8「projectLayer 的两种 null 不许合并」是同一条已签纪律，压成一个列表会让前端猜。\n⚠ 出现在 managed 段里 ≠ 能进去看内容（D-18 边界）：响应体不得因此附带任何内容摘要或计数。\n⚠ 藏起来读作「产品做不到这件事」，而真相是「这个组织不允许」——两种只读必须可分辨（archived vs org-disabled），Q-5 ↔ Q-7③ 两处呈现必须一致。\n⚠ 列表项不带准备度：口径在 O-32 ④ 已定，但项目筹备侧的「已定义项」表无出处（U-6 第二格空白），见 GAPS.P6。\n⚠ GET /projects 是本束新造的第一个路由；全部项目列表屏原型未画（ui.md C-1），属签核第 ① 件待补。\n⚠ U-4 裁 A 之后，admin 的入列理由只剩「管理」，不含「我建的」。",
       "priority": 1,
       "area": "project",
@@ -2967,7 +2967,7 @@
         "F132"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-asset",
       "verification": [
@@ -2975,7 +2975,7 @@
         "pnpm --filter web exec vitest run tests/ui/admin-nav-count-unavailable.test.tsx",
         "grep -rq 'admin-header' apps/web/components/admin"
       ],
-      "evidence": "",
+      "evidence": "evidence/F133.verify.log @ 2026-07-31T14:51:14.470Z",
       "notes": "依据：asset-governance domain I-24（`count = \"—\"` 表示取不到，**不得返回 0 代替**）+ usecases.md `ListAdminNav`。\n⚠ 把「取不到」呈现成 0，会让一次后端故障看起来像一个空目录——用户不会去报障，他会以为东西还没建。\n⚠ 反证：造一个计数查询抛错的场景，断言该项为「—」**且其余项仍有数字**（只断言「—」出现，一个整体失败的实现也会绿）。\n契约：`asset-governance.operations.listAdminNav.out.groups[].items[].count` 是 `number | \"—\"` 的联合，`null` 不合法。",
       "priority": 1,
       "area": "asset",
