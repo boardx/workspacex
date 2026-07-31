@@ -32,6 +32,66 @@ export const TemplateStatus = z.enum(["draft", "trial", "published", "archived"]
 export const TemplateVisibility = z.enum(["org-wide", "team-only"]);
 
 /**
+ * 19 个内置《工作坊模板 A0》的 `key → displayName` —— **本仓这一列的唯一事实源**（O-09 / I-2）。
+ *
+ * ⚠ 三件事必须同时成立，否则本表就是缺陷而不是契约：
+ *   ① **`key` 不在这里被创造**。key 的权威是 `@repo/fabric-markdown` 源码里
+ *      `registerTemplate({ key: ... })` 的取值（19 个，一个都不许改，改了 164 个既有单测失效）。
+ *      本表是**声明**，库是**派生源**，两者由 F100 的集合相等断言绑死（I-36）：
+ *      `apps/api/tests/canvas/template-registry-19-key-displayname.test.ts`。
+ *      少一个、多一个、改一个字母都会红，且断言逐 key 点名差集——
+ *      **不是 `toHaveLength(19)`**，长度断言会挡住正当的 ADR 新增，且换成另外 19 个 key 照样绿。
+ *   ② **`displayName` 只活在这里**。它承载 proto-03 的原型显示名，是展示层事实，
+ *      不回灌进上游库源码——回灌就变成「同一事实声明在两处」。
+ *   ③ **一切绑定 / 实例固化 / ```` ```canvas ```` 围栏 / 图谱回流 / 契约测试引用的是 key**（I-3）。
+ *      改 `displayName` 不得影响任何既有绑定。
+ *
+ * 五处差异（其余 14 条 `displayName === key`）：
+ *   `empathy`→`empathy-map` · `journey-map`→`user-journey` · `bmc`→`business-model` ·
+ *   `burger`→`burger-comm` · `ai-bmc`→`ai-business-model`
+ */
+export const BUILTIN_CANVAS_TEMPLATES = {
+  persona: "persona",
+  pestel: "pestel",
+  swot: "swot",
+  empathy: "empathy-map",
+  jtbd: "jtbd",
+  "journey-map": "user-journey",
+  "value-proposition": "value-proposition",
+  adlib: "adlib",
+  bmc: "business-model",
+  mvp: "mvp",
+  freytag: "freytag",
+  burger: "burger-comm",
+  "three-horizons": "three-horizons",
+  hmw: "hmw",
+  "golden-circle": "golden-circle",
+  "three-lenses": "three-lenses",
+  storyboard: "storyboard",
+  "ai-strategy": "ai-strategy",
+  "ai-bmc": "ai-business-model",
+} as const satisfies Record<string, string>;
+
+/** 内置模板 key 的联合类型。**不另写一份清单**——由上表推导 */
+export type BuiltinTemplateKey = keyof typeof BUILTIN_CANVAS_TEMPLATES;
+
+/**
+ * 内置模板 key 的 zod 枚举。取值由 `BUILTIN_CANVAS_TEMPLATES` 推导，
+ * **不重复枚举字面量**——第二份副本一律视为缺陷（ADR-023 / 本文件顶部的唯一事实源声明）。
+ */
+export const BuiltinTemplateKeyEnum = z.enum(
+  Object.keys(BUILTIN_CANVAS_TEMPLATES) as [BuiltinTemplateKey, ...BuiltinTemplateKey[]],
+);
+
+/**
+ * 展示层取名的唯一入口。**不要在别处写 `key === "empathy" ? "empathy-map" : key`**。
+ * 非内置（组织自建）模板本表查不到 ⇒ 返回 `undefined`，由调用方用其自身的 `displayName` 字段。
+ */
+export function builtinDisplayName(key: string): string | undefined {
+  return (BUILTIN_CANVAS_TEMPLATES as Record<string, string | undefined>)[key];
+}
+
+/**
  * mermaid 白名单的 12 类封闭枚举。
  * ⚠ 白名单**只关渲染、不关书写**（I-8）——本束**不提供**「删除已写的被禁类型代码块」的能力，
  *   那会违反「不丢内容」。被禁类型的代码块照常保存，只是不渲染。

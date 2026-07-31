@@ -1,0 +1,30 @@
+{
+  "name": "@repo/fabric-markdown",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vendored fork of fabric-markdown v0.1.0 (Markdown ⇄ mermaid ⇄ DiagramModel ⇄ fabric). 源码并入，不是 npm 依赖 —— 见 docs/adr/ADR-100-fabric-markdown.md",
+  "main": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "//types": "运行时直连源码（与 @repo/contracts 同款），但**类型走 dist 的 .d.ts**。原因：本包是浏览器库，registry.ts 等处引用 DOM 的 `Element`；apps/api 的 tsconfig 只开 `lib: [\"ES2022\"]`（故意的——后端不该能写 document/window）。让后端直接 typecheck 本包源码，等于逼 apps/api 打开 DOM lib，那道后端保护就没了。`skipLibCheck` 会跳过 .d.ts 的检查，所以走声明文件两边都保住。见 ADR-100 决策三。",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./src/index.ts" },
+    "./templates": { "types": "./dist/templates-entry.d.ts", "import": "./src/templates-entry.ts" },
+    "./*": { "types": "./dist/*.d.ts", "import": "./src/*.ts" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo '(fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)'",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fabric": "7.4.0",
+    "mermaid": "11.16.0"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  }
+}
