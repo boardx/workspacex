@@ -1074,13 +1074,14 @@ export const KNOWN_CONTRACT_GAPS = {
    */
   OA2: "the 'compliance owner' actor required by withdrawal / legal-hold flows has no home: identity.OrgRole has `compliance` but identity.ProjectRole is a closed four-value set; whether it is an org role or a project role is unsourced",
   /**
-   * **组织邀请链接的 7 天有效期没有单一事实源。**
-   * `usecases.md` 的 `ActivateOrgMember.pre` 写「7 天，O-28 ④」，而 `auth.AUTH_POLICY`
-   * 里只有 `resetLinkHours: 1`（重置密码链接），**没有邀请链接的天数**。
-   * ⇒ 本束**不在这里补一个 `inviteLinkDays: 7`**：那会是第二处策略数值声明点，
-   *   正确的补法是加进 `AUTH_POLICY`（修订已签核束，需签核）。
+   * **组织邀请链接的 7 天有效期 —— 2026-07-31 已裁：域常量即单一事实源，现状不动。**
+   * （yanbin shen，经会话记录，2026-07-31T14:56:11+08:00）
+   * 不并入 `AUTH_POLICY`：那会是第二处策略数值声明点，且 `AUTH_POLICY` 管的是
+   * 认证凭据类策略（密码重置），邀请链接是组织管理类策略，语义域不同。
+   * 权威落在 `apps/api/src/domain/auth/org-invite.ts` 与 `invite-link.ts` 各自的域常量，
+   * 两处常量值须相等（已有断言钉住）。本条目保留在此仅作历史索引，不再是「待裁缺口」。
    */
-  OA3: "the 7-day org-invite link validity has no single source: AUTH_POLICY carries resetLinkHours but no invite-link duration; adding one here would create a second policy declaration site",
+  OA3: "[裁定] the 7-day org-invite link validity is authoritative as a domain constant in apps/api/src/domain/auth/{org-invite,invite-link}.ts; not merged into AUTH_POLICY (different policy domain: auth-credential vs org-management)",
   /**
    * **`?r=member` 这类展示层可读参数与服务端映射的关系，只在散文里说过。**
    * `usecases.md` 写「权威在服务端的 `linkId → projectRole` 映射」，

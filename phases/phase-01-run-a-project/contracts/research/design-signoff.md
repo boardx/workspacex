@@ -17,6 +17,12 @@ confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于�
 
 > ## 🔴 本束**现在不可签核**。请不要把 `status` 改成 `confirmed`。
 >
+> **✅ 2026-07-31 下午再更正**：Q-2（路由占用）与 Q-8（研究分几层）**今日经会话记录裁定**
+> （分别为方案 A、方案 B，见 `requirements/24-research/OPEN-QUESTIONS.md`）。
+> Q-8 解锁 F145–F148 的机械判据；Q-2 需要落地时同步核对 `nav-reachability.config.json`。
+> Q-10/Q-12/Q-7 等枚举类仍未裁，继续阻塞对应 feature 的机械断言，见 `DECISIONS-PENDING-AB.md`。
+> 签核继续有效。—— yanbin shen，经会话记录，2026-07-31T14:56:11+08:00
+>
 > ### 三条阻塞里**第 ② 条已于 2026-07-31 解除**，另两条仍然红着，解决其一不能签
 >
 > **① `OPEN-QUESTIONS.md` 的两条阻塞级未裁。**

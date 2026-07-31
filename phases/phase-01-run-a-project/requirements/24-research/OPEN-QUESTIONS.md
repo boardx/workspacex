@@ -36,7 +36,8 @@ D-20 已裁 **A（立项，约 21 点）**，三份档案一致（`DECISIONS-PEN
 按「原型是权威」（COORDINATOR-LOOP 纪律第 7 条），A 是唯一与原型一致的。
 但它触碰已合入 `main` 的东西，**必须人类点头**。
 
-**选择：**（未裁）
+**选择：A**（按上述推荐：`/studio/research` 改为研究 Studio，Context Pack 迁入研究详情内的标签）
+—— yanbin shen，经会话记录（2026-07-31 用户消息「for all the items, please use the recommended option to move forward. i approve」），2026-07-31T14:56:11+08:00
 
 ### Q-8 · 「研究项目 / 研究计划 / 研究主题」是几层
 
@@ -59,7 +60,9 @@ D-20 已裁 **A（立项，约 21 点）**，三份档案一致（`DECISIONS-PEN
 与 `isResOne` 的三计数「研究问题 5」互相印证，**两层是原型唯一自洽的读法**；C 无出处。
 ⚠ 若选 B，`uc-24-1` 创建的是**研究（计划）**还是**研究问题**，需一并指明。
 
-**选择：**（未裁）
+**选择：B**（两层：研究（计划）→ 研究问题；`uc-24-1` 创建的是**研究（计划）**，
+研究问题是计划下的子项，逐条独立收敛证据与来源）
+—— yanbin shen，经会话记录（2026-07-31 用户消息「for all the items, please use the recommended option to move forward. i approve」），2026-07-31T14:56:11+08:00
 
 ---
 
@@ -183,7 +186,11 @@ D-20 已裁 **A（立项，约 21 点）**，三份档案一致（`DECISIONS-PEN
 疑为 phase-02 `09-kg` / `10-report`，也可能是一个未立项的第五个 Studio。
 ⚠ **本模块不发明它**，`uc-24-4` 已把它排除在 phase-01 之外。
 
-**选择：**（未裁）
+**选择：A**（认定「综合 Studio」＝ phase-02 的 `09-kg` / `10-report`。`interview` 束
+`apps/web/lib/mock/itv.ts:888` 的 `INSIGHT_REPORT_EXPORTS` 与本域 `uc-24-4` 的两处出口
+都指向该模块；phase-02 立项时需在 `09-kg`/`10-report` 的 requirements 里登记「承接来自
+itv/research 两域的送审」这条依赖，不在本次裁决范围内新建模块）
+—— yanbin shen，经会话记录（2026-07-31 用户消息「for all the items, please use the recommended option to move forward. i approve」），2026-07-31T14:56:11+08:00
 
 ### Q-13 · `标为关键问题` 与列表的 `关键 · 置顶` 是不是同一件事
 

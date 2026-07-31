@@ -1,6 +1,10 @@
 # ADR-101: `provenance` 两个封闭枚举缺成员 —— 一次补齐，并把 target 维度的洞写在明处
 
-- 状态: **Proposed** —— ⚠ **需人类追认**（`provenance` 属已签核的 phase-00 束）
+- 状态: **Accepted**（2026-07-31T14:56:11+08:00，yanbin shen，经会话记录：
+  2026-07-31 用户消息「for all the items, please use the recommended option to move forward. i approve」）
+  —— 决策 A（枚举补齐）与决策 C（机械门控）维持已落地状态；
+  **决策 B（target 维度）同时裁为方案 A**（`provenance_events` 加可筛的 `project_id` 维度），
+  见下方决策 B 小节的追认记录。
 - 适用层：项目实现（专属）
 - 日期: 2026-07-31
 - 相关：`design-coherence.md` **XC-10** · `project.ts` `KNOWN_CONTRACT_GAPS.P3` ·
@@ -116,6 +120,13 @@ F117 / F109 落地时应当直接用得上；用不上说明抄错了，那是�
 
 ⚠ **在 B 或 C 之外没有「什么都不做」这一档**：不裁的结果不是维持现状，而是四个 feature
 各自在 `detail` 里塞一份 id——即默认选了 B，但是以四份重复声明的形式。
+
+> **2026-07-31 追认：选 A**（`provenance_events` 加可筛的 `project_id` 维度）。
+> 历史行的回填决策：**新列允许 `NULL`，不做历史回填** —— 已有事件的 `project_id`
+> 留空，`queryProvenance.in` 的 `projectId` 筛选只对本 ADR 之后写入的行生效；
+> 回填是否有必要、按什么口径回填（从 `detail` 里已有的 id 反查）留给需要它的人评估，
+> 不在本次裁决中强制执行（避免为一次尚无消费者的回填写一份一次性脚本）。
+> —— yanbin shen，经会话记录，2026-07-31T14:56:11+08:00
 
 ### 决策 C — 机械门控（**本 PR 已落地**）
 

@@ -18,6 +18,14 @@ confirmed_at: "2026-07-30T16:50:06+08:00"
 
 > ## 🔴 本束**现在仍不可签核**。请不要把 `status` 改成 `confirmed`。
 >
+> **✅ 2026-07-31 更正**：以下 🔴 块描述的是 `status` 签核当时（2026-07-30T16:50:06+08:00）
+> 的状态，**本文正文一字未改**，留痕原文。逐条对账见
+> `phases/phase-01-run-a-project/SIGNOFF-RECONCILIATION-2026-07-31.md`：
+> 下述两条阻塞——① feature 未生成 ② 第 ① 件材料不完整——**均已解除**
+> （`covers:` 现有 13 个编号；`ui-preview/project-v2/` 现有 92 张，`lint-ui-material` 双向集合相等绿）。
+> 签核（frontmatter 的 `status: confirmed`）继续有效。
+> —— yanbin shen，经会话记录，2026-07-31T14:56:11+08:00
+>
 > **✅ 2026-07-30：12 条裁决已全部完成**（`requirements/00-project/OPEN-QUESTIONS.md`，
 > 逐条勾选 + 署名 `yanbin shen` + ISO 时间戳）。**它们不再是阻塞项。**
 > `domain.md` / `usecases.md` / `coverage.md` 已按裁决重写，

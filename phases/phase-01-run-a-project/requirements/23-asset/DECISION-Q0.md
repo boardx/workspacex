@@ -64,6 +64,11 @@ D-06 的**立论**是「phase-1 的 skill 是**声明式契约**，不是可执�
 ⚠ 如果人类验收时认为「试跑台也该留 phase-2」，那就整块移走，代价是
 `agent-runtime` 束里 F55–F60 的验收会失去一个可视化入口——但不影响它们的可实现性。
 
+> **2026-07-31 验收确认**：**试跑台移 phase-2**（本条裁决文原判 phase-1 保留，
+> 与实际落地方向相反——落地里试跑台已整块在 phase-2，本次确认落地为准，
+> 裁决文这一处正式更正）。`agent-runtime` 的 F55–F60 失去可视化入口，不影响可实现性。
+> —— yanbin shen，经会话记录（2026-07-31 用户消息「for all the items, please use the recommended option to move forward. i approve」），2026-07-31T14:56:11+08:00
+
 ## 规模影响
 
 | | feature | 点 |
