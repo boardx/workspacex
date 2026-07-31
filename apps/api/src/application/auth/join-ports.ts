@@ -62,8 +62,36 @@ export type JoinByGroupLinkOutcome =
       readonly reason: "not-found" | "revoked" | "expired" | "used" | "phone-not-on-roster";
     };
 
+/* ─────────────────────── F13 意外③：掉线/换设备重开链接 ─────────────────────── */
+
+export interface ResumeLiveSessionAttempt {
+  readonly token: string;
+  /** 已规范化（同 `joinByGroupLink` 用的 `normalizePhone`）。 */
+  readonly phone: string;
+  readonly deviceId: string;
+  readonly now: Date;
+}
+
+export interface ResumedLiveSession {
+  readonly guestIdentityId: string;
+  readonly groupId: string;
+  /** 被接管的旧设备 id；null = 未发生接管（同设备重连，或此前没记录过设备）。 */
+  readonly takeoverOf: string | null;
+}
+
+export type ResumeLiveSessionOutcome =
+  | { readonly ok: true; readonly resumed: ResumedLiveSession }
+  | {
+      readonly ok: false;
+      /** `no-active-session`：名单条目在名单里且链接有效，但此前从未进过场——
+       *  这不是「重开」的场景，应当走 `JoinByGroupLink` 的初次进场路径。 */
+      readonly reason: "not-found" | "revoked" | "expired" | "used" | "phone-not-on-roster" | "no-active-session";
+    };
+
 export interface JoinRepository {
   joinByGroupLink(input: JoinByGroupLinkAttempt): Promise<JoinByGroupLinkOutcome>;
+  /** F13：掉线/换设备重开——同一 `live_sessions` 行只更新 `device_id`，不新建、不改组/环节。 */
+  resumeLiveSession(input: ResumeLiveSessionAttempt): Promise<ResumeLiveSessionOutcome>;
 }
 
 export const JOIN_REPOSITORY = Symbol("JoinRepository");

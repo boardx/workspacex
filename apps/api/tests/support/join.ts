@@ -4,18 +4,25 @@
  */
 import {
   PgInviteLinkRepository,
+  PgJoinApplicationRepository,
   PgJoinRepository,
   PgParticipantRosterRepository,
 } from "../../src/infrastructure/auth/pg-invite-link-repository";
+import { PgLiveSessionRepository } from "../../src/infrastructure/auth/pg-live-session-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
+import { newLiveSessionId } from "../../src/domain/auth/live-session";
 
 export function repos(db: PgDatabase) {
   return {
     join: new PgJoinRepository(db),
     links: new PgInviteLinkRepository(db),
     roster: new PgParticipantRosterRepository(db),
+    // F13 意外②：名单外访客申请加入 / 引导师批准或拒绝。
+    joinApplication: new PgJoinApplicationRepository(db),
+    // F13 意外③：掉线/换设备重开——用来在测试里先 `checkIn` 出一条既有在场会话。
+    liveSessions: new PgLiveSessionRepository(db, newLiveSessionId),
   };
 }
 
