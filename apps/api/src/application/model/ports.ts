@@ -20,7 +20,13 @@ import type {
   StoredAdmissionTest,
 } from "../../domain/model/admission";
 import type { SealedCredential } from "../../domain/model/credential-vault";
-import type { ModelPoolRow, ModelShape, ModelStatus } from "../../domain/model/registry";
+import type {
+  DisableMode,
+  ModelKind,
+  ModelPoolRow,
+  ModelShape,
+  ModelStatus,
+} from "../../domain/model/registry";
 
 /** What a stored row looks like coming back. Never carries the credential or the endpoint. */
 export interface StoredModel {
@@ -108,6 +114,76 @@ export interface ModelShapeReader {
     orgId: string,
     modelId: string,
   ): Promise<{ readonly shape: ModelShape; readonly memberIds: readonly string[] } | null>;
+}
+
+/* ═══════════════ F50 · 停用 + 可选范围过滤器（uc-20-2 R3 步骤 3–4, I-2 I-5 I-16）═══════════════ */
+
+/** What `disableModel` needs to know about the record it is being asked to disable. */
+export interface ModelKindStatusReader {
+  /** `null` when the organization has no such model. */
+  read(
+    orgId: string,
+    modelId: string,
+  ): Promise<{ readonly kind: ModelKind; readonly version: string } | null>;
+
+  /**
+   * Every OTHER model in `已启用` with `kind === "self-hosted"` — i.e. what would still
+   * stand if `excludingModelId` were disabled. Excludes the target itself so the count
+   * cannot mistake "myself, about to go" for "another one still standing".
+   */
+  countOtherEnabledSelfHosted(orgId: string, excludingModelId: string): Promise<number>;
+}
+
+/**
+ * The four-category reference enumeration — **无清单不得停用**.
+ *
+ * ⚠ `snapshot` must be re-fetchable and re-comparable: `disableModel.in.referenceSnapshotId`
+ * proves the admin confirmed against THIS list, not a stale one loaded minutes ago. A
+ * mismatch is reported as `VERSION_CHANGED` (the contract has no separate code for a stale
+ * reference list — same "the world moved since you looked" bucket as a stale model version).
+ */
+export interface ModelReferenceReader {
+  snapshot(
+    orgId: string,
+    modelId: string,
+  ): Promise<{
+    readonly referenceSnapshotId: string;
+    readonly agents: readonly string[];
+    readonly skills: readonly string[];
+    readonly blueprintPolicies: readonly string[];
+    readonly activeProjects: readonly string[];
+    readonly inFlightCalls: number;
+  }>;
+}
+
+/**
+ * The write side of `disableModel`'s cascade.
+ *
+ * ⚠ No method here takes a replacement model id, for any parameter. That is not an
+ * oversight to fill in later — "停用绝不静默换模型" means there is nothing for such a
+ * parameter to do; a reference becomes `依赖失败` and stops being loaded, full stop.
+ */
+export interface ModelDisableWriter {
+  /** Flip the target row itself to `已停用`. */
+  disable(orgId: string, modelId: string): Promise<void>;
+
+  /**
+   * Mark every listed agent/skill as depending on a disabled model, so they read as
+   * `依赖失败` and stop being loaded (I-16) — never reassigned to another model.
+   */
+  markDependencyFailed(input: {
+    readonly orgId: string;
+    readonly modelId: string;
+    readonly agentIds: readonly string[];
+    readonly skillIds: readonly string[];
+  }): Promise<void>;
+
+  /**
+   * `mode: "interrupt"` — stop in-flight calls against this model now.
+   * `mode: "drain"` — let the current round finish; new calls are refused from this point.
+   * Returns however many calls were actually interrupted (always `0` for `"drain"`).
+   */
+  applyCallPolicy(orgId: string, modelId: string, mode: DisableMode): Promise<number>;
 }
 
 /** The status write `enableModel` performs once the gate opens. */
