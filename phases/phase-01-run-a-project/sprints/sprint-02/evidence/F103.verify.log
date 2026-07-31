@@ -1,15 +1,35 @@
-$ pnpm --filter api exec vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts
-[exit 1]
+=== F103 verification log ===
+Generated: 2026-07-31T21:48:33Z
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+--- pnpm --filter api exec vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts ---
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts
-filter:  tests/canvas/roundtrip-13-mermaid-diagrams.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ RUN  v2.1.9 /private/tmp/f103-worktree/apps/api
 
-No test files found, exiting with code 1
+ ✓ tests/canvas/roundtrip-13-mermaid-diagrams.test.ts (41 tests) 5ms
 
-[harness-verify v1 sha256=0591818c662310c1209eda4f90cacd86a326cfcc86348fc8ce5b719daec44582 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:48:59.739Z]
+ Test Files  1 passed (1)
+      Tests  41 passed (41)
+   Start at  05:48:34
+   Duration  480ms (transform 100ms, setup 0ms, collect 332ms, tests 5ms, environment 0ms, prepare 28ms)
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/canvas/three-way-transform.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f103-worktree/apps/api
+
+ ✓ tests/canvas/three-way-transform.test.ts (6 tests) 102ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  05:48:35
+   Duration  926ms (transform 92ms, setup 0ms, collect 234ms, tests 102ms, environment 362ms, prepare 44ms)
+
+exit code: 0
+
+--- grep -rq 'data-testid=.canvas-source-view' apps/web/components/canvas ---
+apps/web/components/canvas/canvas-main.tsx:189:    <div className="flex flex-1 flex-col overflow-auto bg-card p-3" data-testid="canvas-source-view">
+exit code: 0
+
+--- pnpm --filter api exec tsc --noEmit (new errors only, excluding pre-existing packages/fabric-markdown/src/* — see PR notes) ---
+(no new typecheck errors outside pre-existing fabric-markdown source)

@@ -75,6 +75,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
+      fabric:
+        specifier: 7.4.0
+        version: 7.4.0
       tsx:
         specifier: ^4.19.0
         version: 4.23.1
@@ -108,12 +111,18 @@ importers:
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@repo/fabric-markdown':
+        specifier: workspace:*
+        version: link:../../packages/fabric-markdown
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      fabric:
+        specifier: 7.4.0
+        version: 7.4.0
       lucide-react:
         specifier: ^0.454.0
         version: 0.454.0(react@18.3.1)
