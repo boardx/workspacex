@@ -56,11 +56,11 @@ export class PgArtifactRepository implements ArtifactRepository {
         s.query(
           `INSERT INTO artifact_versions
              (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
-              size_bytes, pinned_by, context_pack_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+              size_bytes, pinned_by, context_pack_id, derived_from)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
-            v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId,
+            v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId, v.derivedFrom,
           ],
         ),
       );

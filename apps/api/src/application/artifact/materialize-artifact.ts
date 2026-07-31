@@ -227,6 +227,9 @@ export async function materializeArtifact(
     // No Context Pack yet: assembly is F09/F10. Recorded as null rather than as an empty
     // string so "there was none" stays distinguishable from "one was recorded and lost".
     contextPackId: null,
+    // F04 never derives what it materializes -- everything this module writes is an
+    // original (F73's `derived_from`, migration `20260731153640_f73_recording_file_first`).
+    derivedFrom: null,
   });
 
   return { artifactId, versionId, versionNumber, materializedKeys: written, contentHash };

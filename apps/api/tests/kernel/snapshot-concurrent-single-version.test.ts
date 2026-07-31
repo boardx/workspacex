@@ -272,7 +272,7 @@ describe("the three loser paths, provoked one at a time", () => {
       repo.createVersion({
         id: `${a.artifactId}-dup`, orgId: toOrgId(ORG), artifactId: a.artifactId, versionNumber: 1,
         objectStorageKey: `elsewhere/${a.artifactId}/dup`, contentHash: "c".repeat(64),
-        mime: "text/plain", sizeBytes: 3, pinnedBy: "u", contextPackId: null,
+        mime: "text/plain", sizeBytes: 3, pinnedBy: "u", contextPackId: null, derivedFrom: null,
       }),
     ).rejects.toThrow(DuplicateVersionNumberError);
   });
