@@ -78,12 +78,25 @@ fi
 # would have left the count where it was and nobody would have looked. With a floor of 8
 # against a real count of 26, that check was structurally incapable of noticing.
 #
-# So the floor tracks the measured count: 26 before F116, 29 after. `-ge` rather than `-eq`
-# because features legitimately add tables and this gate must not be the thing that turns
-# red for it; raising the floor is the deliberate act that records "N more tables are now
-# in the tenant net".
+# So the floor tracks the measured count: 26 before F116, 29 after, 34 now. `-ge` rather
+# than `-eq` because features legitimately add tables and this gate must not be the thing
+# that turns red for it; raising the floor is the deliberate act that records "N more tables
+# are now in the tenant net".
+#
+# ⚠ The jump from 29 to 34 is FIVE tables from two features, and only one of them raised
+# this line. F48 adds three (models / model_composite_members / model_secrets); F80 added
+# two (interview scope) and left the floor at 29, so between those two merges the ratchet
+# had five tables of slack -- which is precisely the state the paragraph above says makes
+# this check "structurally incapable of noticing". Measured on a freshly migrated database
+# after both, hence 34.
+#
+# ⚠ F48's `model_secrets` counts here even though `app_rw` cannot read its `ciphertext`
+# column. That is right: this audit asks "is the table inside the tenant net" (ENABLE+FORCE
+# with a tenant policy), not "can the runtime read every column". The two are independent,
+# and the credential table needs the first precisely because someone may one day widen the
+# second.
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=29
+OK_TABLES_FLOOR=34
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
