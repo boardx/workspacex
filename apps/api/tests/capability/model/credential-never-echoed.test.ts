@@ -213,10 +213,16 @@ describe("nothing in apps/api/src can turn a sealed credential back into plainte
     // `model_secrets` or takes a `SealedCredential`. Reviewed and added here rather than
     // moved to a second ports file, which would have kept this test green by putting the new
     // surface outside its reach.
+    // F50 added five more -- `read` (a SECOND overload name, kind + version for
+    // `disableModel`'s optimistic check), `countOtherEnabledSelfHosted` (a count, not a
+    // row), `snapshot` (the four reference lists + an in-flight count, all ids/numbers),
+    // `disable` / `markDependencyFailed` / `applyCallPolicy` (writes that take ids, a mode
+    // and a reason string). None of the five reads or returns a credential or endpoint.
     expect(methods.sort()).toEqual(
       [
-        "append", "enableRejected", "forOrg", "insert", "listForModel", "listForOrg",
-        "newModelId", "now", "read", "setStatus",
+        "append", "applyCallPolicy", "countOtherEnabledSelfHosted", "disable",
+        "enableRejected", "forOrg", "insert", "listForModel", "listForOrg",
+        "markDependencyFailed", "newModelId", "now", "read", "read", "setStatus", "snapshot",
       ].sort(),
     );
     expect(ports).toContain('export type { CredentialCipher } from "../../domain/model/credential-vault"');

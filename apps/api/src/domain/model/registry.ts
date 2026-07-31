@@ -34,10 +34,19 @@ export type ModelKind = z.infer<typeof C.ModelKind>;
 export type ModelShape = z.infer<typeof C.ModelShape>;
 export type ModelStatus = z.infer<typeof C.ModelStatus>;
 export type RegisterModelInput = z.infer<typeof C.operations.registerModel.in>;
+/** F50 · `disableModel.in.mode` — the two-way choice D-U5 forces (I-16). */
+export type DisableMode = z.infer<typeof C.DisableMode>;
+/** F50 · `listSelectableModels.in.consumer` — the three reuse points (usecases.md 可选范围过滤器). */
+export type ModelConsumer = z.infer<typeof C.ModelConsumer>;
+/** F50 · `listSelectableModels.in.purpose` — same judgement `routeModelCall` uses for confidential. */
+export type ModelPurpose = z.infer<typeof C.ModelPurpose>;
 
 export const MODEL_KINDS = C.ModelKind.options;
 export const MODEL_SHAPES = C.ModelShape.options;
 export const MODEL_STATUSES = C.ModelStatus.options;
+export const DISABLE_MODES = C.DisableMode.options;
+export const MODEL_CONSUMERS = C.ModelConsumer.options;
+export const MODEL_PURPOSES = C.ModelPurpose.options;
 
 /**
  * The state a freshly accepted model is in.
