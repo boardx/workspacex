@@ -184,21 +184,22 @@ export class PgBindingRepository implements BindingRepository {
    *
    * `project_id = workshop_id` in the WHERE, not a join through a translation table: the
    * F116 supertype model (0018) makes the two the same value domain, which is the same fact
-   * F118's composite foreign key on `artifact_bindings` relies on. Null when `step_id` names
-   * no segment in THIS project -- including a segment that exists but belongs to a different
-   * workshop, which must be indistinguishable from "no such segment" here for the same
-   * cross-workshop-leak reason `binding-segment-fk-no-orphan.test.ts` tests at the FK level.
+   * F118's composite foreign key on `artifact_bindings` relies on. Null when `agendaSegmentId`
+   * names no segment in THIS project -- including a segment that exists but belongs to a
+   * different workshop, which must be indistinguishable from "no such segment" here for the
+   * same cross-workshop-leak reason `binding-segment-fk-no-orphan.test.ts` tests at the FK
+   * level.
    */
   async findSegmentGate(
     orgId: OrgId,
     projectId: string,
-    stepId: string,
+    agendaSegmentId: string,
   ): Promise<StepGateSegment | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{ state: string; accepted_sources: string[] }>(
         `SELECT state, accepted_sources FROM agenda_segments
           WHERE org_id = $1 AND workshop_id = $2 AND id = $3`,
-        [orgId, projectId, stepId],
+        [orgId, projectId, agendaSegmentId],
       );
       const row = r.rows[0];
       if (!row) return null;

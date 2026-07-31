@@ -45,22 +45,28 @@ async function seedSegment(id: string, acceptedSources: readonly string[]): Prom
   );
 }
 
-/** A bare artifact of a given `source` -- `draft` mode needs no version. */
+/**
+ * A bare artifact of a given `source` -- `draft` mode needs no version.
+ *
+ * `synthesized` must be true when `source` is `ai-generated` -- `artifacts_ai_is_synthesized`
+ * (0006-f04-artifact-model.sql) requires it, and this fixture seeds all seven `ArtifactSource`
+ * values including that one.
+ */
 async function seedArtifact(id: string, source: string): Promise<void> {
   await asApp(ORG, (c) =>
     c.query(
       `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
-       VALUES ($1,$2,$3,$4,$5,$6,false)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (id) DO NOTHING`,
-      [id, ORG, PROJECT, source, `artifact ${id}`, AUTHOR],
+      [id, ORG, PROJECT, source, `artifact ${id}`, AUTHOR, source === "ai-generated"],
     ),
   );
 }
 
 const org = () => toOrgId(ORG);
-const bind = (artifactId: string, stepId: string) =>
+const bind = (artifactId: string, agendaSegmentId: string) =>
   bindToProjectStep(h.deps, {
-    userId: AUTHOR, orgId: org(), artifactId, projectId: PROJECT, stepId, mode: "draft",
+    userId: AUTHOR, orgId: org(), artifactId, projectId: PROJECT, agendaSegmentId, mode: "draft",
   });
 
 beforeAll(async () => {
@@ -93,7 +99,7 @@ describe("STEP_REJECTS_ARTIFACT_TYPE: a non-empty whitelist rejects and accepts"
     await seedSegment("f120s-only-upload-2", ["upload"]);
     await seedArtifact("f120s-art-upload", "upload");
     const binding = await bind("f120s-art-upload", "f120s-only-upload-2");
-    expect(binding.stepId).toBe("f120s-only-upload-2");
+    expect(binding.agendaSegmentId).toBe("f120s-only-upload-2");
   });
 });
 
@@ -113,7 +119,7 @@ describe("STEP_REJECTS_ARTIFACT_TYPE: an empty whitelist (the Q-2③ default) ac
       const artifactId = `f120s-art-${source}`;
       await seedArtifact(artifactId, source);
       const binding = await bind(artifactId, "f120s-unrestricted");
-      expect(binding.stepId, `source "${source}" was refused on an unrestricted segment`).toBe(
+      expect(binding.agendaSegmentId, `source "${source}" was refused on an unrestricted segment`).toBe(
         "f120s-unrestricted",
       );
     }

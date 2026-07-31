@@ -163,19 +163,19 @@ export async function bindToProjectStep(
  * requested, and pinned-version resolution has its own failure modes that are unrelated to
  * the step).
  *
- * When `step_id` names no `agenda_segments` row at all, this is a no-op: F118's own notes
- * register that outcome as the fixtures pre-dating the foreign key (a bare `step_id` string
- * with nothing behind it), and inventing a segment here would be a second, silent way to
- * decide what F118/F121 already decided belongs to the database's foreign key, not to this
- * gate. A caller whose `step_id` is a dangling string still gets refused -- by the FK, at
- * INSERT, as `binding-segment-fk-no-orphan.test.ts` asserts -- this function just does not
+ * When `agendaSegmentId` names no `agenda_segments` row at all, this is a no-op: F118's own
+ * notes register that outcome as the fixtures pre-dating the foreign key (a bare segment id
+ * string with nothing behind it), and inventing a segment here would be a second, silent way
+ * to decide what F118/F121 already decided belongs to the database's foreign key, not to this
+ * gate. A caller whose `agendaSegmentId` is a dangling string still gets refused -- by the FK,
+ * at INSERT, as `binding-segment-fk-no-orphan.test.ts` asserts -- this function just does not
  * duplicate that refusal with a different error shape.
  */
 async function assertStepGate(deps: BindingDeps, input: BindToProjectStepInput): Promise<void> {
   const { bindings } = deps;
-  const { orgId, artifactId, projectId, stepId } = input;
+  const { orgId, artifactId, projectId, agendaSegmentId } = input;
 
-  const segment = await bindings.findSegmentGate(orgId, projectId, stepId);
+  const segment = await bindings.findSegmentGate(orgId, projectId, agendaSegmentId);
   if (segment === null) return;
 
   // Existence was already asserted by the caller (`artifactExists`), so a missing source here
@@ -188,11 +188,11 @@ async function assertStepGate(deps: BindingDeps, input: BindToProjectStepInput):
 
   const verdict = evaluateStepGate(segment, source);
   if (verdict === "STEP_CLOSED") {
-    throw new StepClosedError(`step ${stepId} is ${segment.state} and refuses new bindings`);
+    throw new StepClosedError(`segment ${agendaSegmentId} is ${segment.state} and refuses new bindings`);
   }
   if (verdict === "STEP_REJECTS_ARTIFACT_TYPE") {
     throw new StepRejectsArtifactTypeError(
-      `step ${stepId} does not accept source "${source}" (accepts: ${segment.acceptedSources.join(", ") || "(unrestricted)"})`,
+      `segment ${agendaSegmentId} does not accept source "${source}" (accepts: ${segment.acceptedSources.join(", ") || "(unrestricted)"})`,
     );
   }
 }

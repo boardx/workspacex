@@ -83,7 +83,7 @@ describe("STEP_CLOSED: terminal segments refuse a bind, non-terminal segments do
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: "f120c-art-closed",
-        projectId: PROJECT, stepId: "f120c-closed", mode: "draft",
+        projectId: PROJECT, agendaSegmentId: "f120c-closed", mode: "draft",
       }),
     ).rejects.toBeInstanceOf(StepClosedError);
   });
@@ -94,7 +94,7 @@ describe("STEP_CLOSED: terminal segments refuse a bind, non-terminal segments do
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: "f120c-art-skipped",
-        projectId: PROJECT, stepId: "f120c-skipped", mode: "draft",
+        projectId: PROJECT, agendaSegmentId: "f120c-skipped", mode: "draft",
       }),
     ).rejects.toBeInstanceOf(StepClosedError);
   });
@@ -104,9 +104,9 @@ describe("STEP_CLOSED: terminal segments refuse a bind, non-terminal segments do
     await seedArtifact("f120c-art-active");
     const binding = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: "f120c-art-active",
-      projectId: PROJECT, stepId: "f120c-active", mode: "draft",
+      projectId: PROJECT, agendaSegmentId: "f120c-active", mode: "draft",
     });
-    expect(binding.stepId).toBe("f120c-active");
+    expect(binding.agendaSegmentId).toBe("f120c-active");
   });
 
   it("反证 -- pending: succeeds as well, the gate is about terminality, not about being 'active' specifically", async () => {
@@ -114,12 +114,12 @@ describe("STEP_CLOSED: terminal segments refuse a bind, non-terminal segments do
     await seedArtifact("f120c-art-pending");
     const binding = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: "f120c-art-pending",
-      projectId: PROJECT, stepId: "f120c-pending", mode: "draft",
+      projectId: PROJECT, agendaSegmentId: "f120c-pending", mode: "draft",
     });
-    expect(binding.stepId).toBe("f120c-pending");
+    expect(binding.agendaSegmentId).toBe("f120c-pending");
   });
 
-  it("a bind against a step_id with no agenda_segments row at all is not decided by this gate (F118's FK decides it at INSERT)", async () => {
+  it("a bind against an agendaSegmentId with no agenda_segments row at all is not decided by this gate (F118's FK decides it at INSERT)", async () => {
     await seedArtifact("f120c-art-noseg");
     // No STEP_CLOSED here -- and no success either, in the general case, because F118's
     // composite FK on `artifact_bindings` refuses the INSERT. This test only asserts that
@@ -128,7 +128,7 @@ describe("STEP_CLOSED: terminal segments refuse a bind, non-terminal segments do
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: "f120c-art-noseg",
-        projectId: PROJECT, stepId: "f120c-does-not-exist", mode: "draft",
+        projectId: PROJECT, agendaSegmentId: "f120c-does-not-exist", mode: "draft",
       }),
     ).rejects.not.toBeInstanceOf(StepClosedError);
   });

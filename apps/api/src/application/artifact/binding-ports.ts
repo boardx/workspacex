@@ -169,16 +169,17 @@ export interface BindingRepository {
   findArtifactSource(orgId: OrgId, artifactId: string): Promise<z.infer<typeof A.ArtifactSource> | null>;
 
   /**
-   * The gate-relevant fields of the `agenda_segments` row this (project, step) names, or
-   * `null` when `step_id` names no segment at all (F120 notes: legacy fixtures pre-dating
-   * F118's foreign key use bare `step_id` strings; a bind attempt against one of those still
-   * has to be decided by SOMETHING, and it is not this feature's place to invent a segment).
+   * The gate-relevant fields of the `agenda_segments` row this (project, segment) names, or
+   * `null` when `agendaSegmentId` names no segment at all (F120 notes: legacy fixtures
+   * pre-dating F118's foreign key use bare id strings; a bind attempt against one of those
+   * still has to be decided by SOMETHING, and it is not this feature's place to invent a
+   * segment).
    *
    * `projectId` here IS the segment's `workshop_id` -- the two are the same value domain
    * under the F116 supertype model (0018), which is exactly what lets this be a single
    * lookup instead of a join through a translation table.
    */
-  findSegmentGate(orgId: OrgId, projectId: string, stepId: string): Promise<StepGateSegment | null>;
+  findSegmentGate(orgId: OrgId, projectId: string, agendaSegmentId: string): Promise<StepGateSegment | null>;
 
   /**
    * The pinned bindings that CITE a given version -- E5's 「引用处」.
