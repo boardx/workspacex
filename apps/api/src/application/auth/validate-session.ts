@@ -17,7 +17,7 @@
  * turning "Redis is down" into "you are not logged in" is a degradation, and the failure
  * row in usecases.md is explicit that Redis being unavailable means REFUSE.
  */
-import { checkSession } from "../../domain/auth/session-lifetime";
+import { checkSession, shouldTouchLastActive } from "../../domain/auth/session-lifetime";
 import type { Clock, SessionTokenStore } from "./ports";
 
 export interface ValidateSessionDeps {
@@ -40,6 +40,25 @@ export async function validateSession(
   // Revoked BEFORE expired -- see `checkSession`. Both are null here; the distinction
   // matters to the user-facing reason code, which the session-list UI (phase-01 F03, not
   // migrated) will surface. Recorded so the domain distinction is not mistaken for dead code.
-  if (checkSession(record, deps.clock.now().getTime()) !== null) return null;
+  const now = deps.clock.now();
+  if (checkSession(record, now.getTime()) !== null) return null;
+
+  /*
+   * F03：推进「最后活跃」。
+   *
+   * ⚠ 位置是刻意的——**在有效性判定之后**。放在前面会给一条已被踢的会话续上活跃时间，
+   *   于是设备列表里那台设备看起来还在用。
+   *
+   * ⚠ 节流（`shouldTouchLastActive`）。不节流就是每个受保护请求在鉴权路径上多一次写，
+   *   而这一列根本不需要秒级精度。
+   *
+   * ⚠ 写失败**照旧向外抛**，不 catch。整个 bundle 的规则是「存储不可用一律拒绝，
+   *   不降级」——这里 catch 掉会开一个例外：Redis 半死时鉴权继续放行，
+   *   而放行正是 503 想要避免的那件事。
+   */
+  if (shouldTouchLastActive(record, now.getTime())) {
+    await deps.sessions.touch(sessionToken, now);
+  }
+
   return { userId: record.userId, currentOrgId: record.currentOrgId };
 }

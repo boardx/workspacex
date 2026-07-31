@@ -124,6 +124,44 @@ export interface SessionTokenStore {
   listForUser(userId: string): Promise<readonly SessionRecord[]>;
 
   /**
+   * F03：吊销**一条**会话——「踢下线」。
+   *
+   * ⚠ 与 `revokeAllForUser` 是两个方法而不是一个带可选参数的方法。
+   *   两者的**前置条件不同**：全量吊销的调用者是「刚改完密码的本人」，单条吊销的调用者
+   *   声称「这条是我的」——而那句声称必须被这里验证。做成可选参数，会让「不传 sessionId
+   *   就是全部」这条隐含语义在某个调用点被误用成「传了一个 undefined 的 sessionId」，
+   *   于是一次踢下线静默变成把自己所有设备都踢了。
+   *
+   * ⚠ `userId` 是**归属校验参数，不是查询便利**。实现必须确认这条会话属于该 userId，
+   *   否则任何人拿到（或猜到）别人的 sessionId 就能踢掉别人的设备——
+   *   而 `usecases.md` 的 `pre` 逐字写着「只能列/踢**自己**的会话」。
+   *
+   * ⚠ **幂等**：重复踢同一条返回**同一个** `revokedAt`（`usecases.md`「幂等重放」）。
+   *   第二次刷新时间戳会让「这台设备是什么时候被踢的」这个审计问题得到一个错误答案。
+   *
+   * ⚠ 标记而非删行（I-7），与 `revokeAllForUser` 同一条理由。
+   *
+   * @returns null = 没有这样一条属于该用户的会话（不存在 / 已自然过期出存储 / 不是他的）。
+   *          三种情况**故意合并成一个返回值**：分开就等于给调用者一个「这个 sessionId
+   *          存在吗」的探测器，而契约的 `err` 里根本没有这一档。
+   */
+  revokeSession(
+    userId: string,
+    sessionId: string,
+    at: Date,
+  ): Promise<{ readonly revokedAt: number; readonly device: string } | null>;
+
+  /**
+   * F03：把这条会话的 `lastActiveAt` 推到 `at`。
+   *
+   * ⚠ 调用方负责节流（`shouldTouchLastActive`），实现这里不再判一次——
+   *   判两次就是「同一事实声明在两处」，而漂移方向是有人改了常量、实现纹丝不动。
+   *
+   * ⚠ 不得复活已过期/已吊销的会话，也不得延长 TTL。它只写一个展示字段。
+   */
+  touch(token: string, at: Date): Promise<void>;
+
+  /**
    * F22: point THIS session at another organization.
    *
    * ⚠ Why this has to exist at all, and why it is the whole point of `switchOrgAtLogin`.

@@ -34,6 +34,7 @@ import { createHash, randomBytes } from "node:crypto";
 import Redis from "ioredis";
 import type { SessionTokenStore } from "../../application/auth/ports";
 import type { SessionRecord } from "../../domain/auth/session-lifetime";
+import { UNKNOWN_DEVICE } from "../../domain/auth/device-fingerprint";
 
 export interface RedisConfig {
   readonly host: string;
@@ -68,6 +69,37 @@ interface StoredSession {
   issuedAt: number;
   expiresAt: number;
   revokedAt: number | null;
+  /* ── F03 的三个字段。同一条记录，见 `SessionRecord` 上的说明 ── */
+  device: string;
+  location: string | null;
+  lastActiveAt: number;
+}
+
+/**
+ * 读回一条记录。
+ *
+ * ⚠ 这个函数存在的唯一原因是 **F03 之前签发的会话没有 device/location/lastActiveAt**。
+ * 直接 `JSON.parse(...) as StoredSession` 会让这三个字段读成 `undefined`，
+ * 而 TypeScript 一个字都不会说——于是设备列表里出现 `undefined` 设备，
+ * `shouldTouchLastActive` 拿 `now - undefined = NaN` 去比较，恒为 false，
+ * 「最后活跃」永远不更新。三个症状没有一个会报错。
+ *
+ * 兜底值是**明写的**而不是「随便给个空」：`UNKNOWN_DEVICE` 是契约允许的诚实值，
+ * `location: null` 是「不知道」，`lastActiveAt` 退回 `issuedAt` 是这条记录唯一确知的活跃时刻。
+ */
+function parseStored(raw: string): StoredSession {
+  const s = JSON.parse(raw) as Partial<StoredSession> & { issuedAt: number };
+  return {
+    id: s.id!,
+    userId: s.userId!,
+    currentOrgId: s.currentOrgId ?? null,
+    issuedAt: s.issuedAt,
+    expiresAt: s.expiresAt!,
+    revokedAt: s.revokedAt ?? null,
+    device: s.device ?? UNKNOWN_DEVICE,
+    location: s.location ?? null,
+    lastActiveAt: s.lastActiveAt ?? s.issuedAt,
+  };
 }
 
 /**
@@ -171,6 +203,9 @@ export class RedisSessionTokenStore implements SessionTokenStore {
       issuedAt: record.issuedAt,
       expiresAt: record.expiresAt,
       revokedAt: record.revokedAt,
+      device: record.device,
+      location: record.location,
+      lastActiveAt: record.lastActiveAt,
     };
 
     // The index and the record are written together. If the index write were skipped on
@@ -192,7 +227,7 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     await this.ready();
     const raw = await this.redis.get(tokenKey(this.cfg.keyPrefix, token));
     if (raw === null) return null;
-    return JSON.parse(raw) as StoredSession;
+    return parseStored(raw);
   }
 
   /**
@@ -218,7 +253,7 @@ export class RedisSessionTokenStore implements SessionTokenStore {
         await this.redis.srem(index, key);
         continue;
       }
-      const s = JSON.parse(raw) as StoredSession;
+      const s = parseStored(raw);
       if (s.revokedAt !== null) continue;
       s.revokedAt = at.getTime();
       // KEEPTTL: the record must not outlive its natural expiry just because it was
@@ -252,11 +287,78 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     const key = tokenKey(this.cfg.keyPrefix, token);
     const raw = await this.redis.get(key);
     if (raw === null) return false;
-    const s = JSON.parse(raw) as StoredSession;
+    const s = parseStored(raw);
     if (s.revokedAt !== null) return false;
     s.currentOrgId = orgId;
     await this.redis.set(key, JSON.stringify(s), "KEEPTTL");
     return true;
+  }
+
+  /**
+   * F03：吊销**一条**会话。归属校验、幂等、标记不删行 —— 三条都在这里。
+   *
+   * ⚠ 归属校验用的是**记录里的 `userId`**，不是索引集合里有没有这个 key。
+   *   用索引判断看起来等价，实际不是：索引里可能残留一条已自然过期、
+   *   key 已被 Redis 回收的会话，那时 `SISMEMBER` 仍为真而记录并不存在。
+   *
+   * ⚠ 先读记录再比对 `userId`，比对不上返回 null —— 与「不存在」**同一个返回值**。
+   *   分开会让调用者能区分「这个 sessionId 是别人的」和「这个 sessionId 不存在」，
+   *   也就是一个会话 id 存在性探测器。
+   *
+   * ⚠ 已经吊销过的直接把**原来的** `revokedAt` 返回（幂等重放）。刷新时间戳会让
+   *   「这台设备什么时候被踢的」得到一个错误答案，而那是 uc-1-1 R6 要求可审计的事件之一。
+   *
+   * ⚠ 不做 WATCH/事务，与 `setCurrentOrg` 同一条理由：并发两路踢同一条，
+   *   两路读到的 `revokedAt` 要么都是 null（写入同一批时间戳，差值在毫秒级、
+   *   且第二路会看到第一路的值而幂等返回），要么其中一路已看到标记。
+   *   两种交错的**最终状态都是「已吊销」**，这正是 `usecases.md` 要的「最终状态唯一」。
+   */
+  async revokeSession(
+    userId: string,
+    sessionId: string,
+    at: Date,
+  ): Promise<{ revokedAt: number; device: string } | null> {
+    await this.ready();
+    const index = userKey(this.cfg.keyPrefix, userId);
+    const keys = await this.redis.smembers(index);
+    for (const key of keys) {
+      const raw = await this.redis.get(key);
+      if (raw === null) {
+        await this.redis.srem(index, key);
+        continue;
+      }
+      const s = parseStored(raw);
+      if (s.id !== sessionId) continue;
+      // 索引是按 userId 建的，所以这一条按理必然属于他。仍然显式比对：
+      // 索引写错（或将来有人复用 key）时，这行是唯一会挡住越权吊销的东西。
+      if (s.userId !== userId) return null;
+      if (s.revokedAt !== null) return { revokedAt: s.revokedAt, device: s.device };
+      s.revokedAt = at.getTime();
+      // KEEPTTL：被踢不等于延寿，也不等于立刻消失（I-7 要求记录还在）。
+      await this.redis.set(key, JSON.stringify(s), "KEEPTTL");
+      return { revokedAt: s.revokedAt, device: s.device };
+    }
+    return null;
+  }
+
+  /**
+   * F03：推进 `lastActiveAt`。
+   *
+   * ⚠ 不复活、不延寿：记录不在就什么都不做，`KEEPTTL` 保住原有到期时间。
+   *   少了 `KEEPTTL`，一个每分钟被访问一次的会话就**永不过期**——
+   *   30 天上限被一个展示字段悄悄取消，而没有任何东西会报错。
+   * ⚠ 已吊销的会话不再更新：它不再「活跃」，继续推进这个字段会让审计里
+   *   出现「被踢之后还在活动」的记录。
+   */
+  async touch(token: string, at: Date): Promise<void> {
+    await this.ready();
+    const key = tokenKey(this.cfg.keyPrefix, token);
+    const raw = await this.redis.get(key);
+    if (raw === null) return;
+    const s = parseStored(raw);
+    if (s.revokedAt !== null) return;
+    s.lastActiveAt = at.getTime();
+    await this.redis.set(key, JSON.stringify(s), "KEEPTTL");
   }
 
   async listForUser(userId: string): Promise<readonly SessionRecord[]> {
@@ -265,7 +367,7 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     const out: SessionRecord[] = [];
     for (const key of keys) {
       const raw = await this.redis.get(key);
-      if (raw !== null) out.push(JSON.parse(raw) as StoredSession);
+      if (raw !== null) out.push(parseStored(raw));
     }
     return out;
   }
