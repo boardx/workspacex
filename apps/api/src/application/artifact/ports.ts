@@ -95,6 +95,21 @@ export interface NewArtifactVersion {
   readonly sizeBytes: number;
   readonly pinnedBy: string;
   readonly contextPackId: string | null;
+  /**
+   * F73 (migration `20260731153640_f73_recording_file_first`): the exact `artifact_versions.id`
+   * this version was produced FROM, or `null` when this version is itself an original.
+   *
+   * Required rather than optional so every caller states it explicitly -- F04's own
+   * `materialize-artifact.ts` passes `null` (nothing it writes is derived), and recording's
+   * transcript/notes materialization passes the audio version's id. A default of `undefined`
+   * here would be the same silent-default failure mode I-32 forbids for retention days, just
+   * on a different column.
+   *
+   * ⚠ Not exposed on the `ArtifactVersion` read contract yet (`packages/contracts/src/artifact.ts`
+   * is a signed contract this feature does not own) -- it is write-only / DB-only until a
+   * read-side use case is signed off to expose it. `findVersion` below does not return it.
+   */
+  readonly derivedFrom: string | null;
 }
 
 export interface NewSegment {
