@@ -206,3 +206,29 @@ export function transcribe(
 
   return { ok: true, segment };
 }
+
+/**
+ * F70 — 「正在识别」中间态的引用/检索/AI 归纳门禁 (uc-5-1 R7)。
+ *
+ * ⚠ **本函数只覆盖 F70 自己产生的两种不可引述状态**：`partial`（最新一句尚未定稿，
+ *   「正在识别」）与 `pending-manual`（重叠段，I-7）。`SEGMENT_LOW_CONFIDENCE_NOT_CITABLE`
+ *   （阈值 `[待定 D-1]`）与 `SEGMENT_DISPUTED_NOT_CITABLE`（`disputed` 状态本身 `[待定 D-9]`，
+ *   见文件顶部注释）都依赖尚未裁定的东西——这两个码留给 F76 的 `markQuote` 在那些前提
+ *   落地后再补，本函数不替它们下判断。
+ *
+ * 三个消费方是同一个问题：`markQuote`（引述）· 检索索引（`indexedSegmentIds`）·
+ * Context Pack / AI 归纳（`rationaleSegmentIds`）——I-3 与本条一起断言的是**同一道门**，
+ * 所以这里只有一个函数，而不是三处各自判断一次。
+ */
+export function checkCitability(
+  segment: Pick<TranscribedSegment, "status">,
+): Extract<RecordingErrorCode, "SEGMENT_PARTIAL_NOT_CITABLE" | "SEGMENT_PENDING_MANUAL_NOT_CITABLE"> | null {
+  if (segment.status === "partial") return "SEGMENT_PARTIAL_NOT_CITABLE";
+  if (segment.status === "pending-manual") return "SEGMENT_PENDING_MANUAL_NOT_CITABLE";
+  return null;
+}
+
+/** `true` 当且仅当 `checkCitability` 放行——供索引 / Context Pack 消费点做集合过滤用。 */
+export function isCitable(segment: Pick<TranscribedSegment, "status">): boolean {
+  return checkCitability(segment) === null;
+}
