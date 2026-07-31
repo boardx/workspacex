@@ -63,6 +63,32 @@
 
 ⇒ 否则 19 个工作树会同时改同一个 JSON，合并冲突把一晚上的工作变成一晚上的 rebase。
 
+### 流水线改版（2026-07-31 下午，人类明示：「用一个 sub agent 做测试，其余 dev agent 只写代码」）
+
+**诊断**：dev agent 在自己的工作树里跑 `TURBO_FORCE=1 pnpm turbo run typecheck lint test`
+是今晚绝大多数负载/token/时间浪费的根：19 个并发 agent 各自起一份全量套件打同一个
+共享 Postgres，互相踢连接、互相制造假红（issue #74），逼出一堆 `--no-verify`。
+**而 GitHub CI（`harness-verify.yml` / `backend-gates.yml`）本来就是一个隔离环境**，
+每次都是全新 clone + 全新 install + 独立 runner，不受本机负载影响。
+本仓已经有「测试 agent」了，只是它叫 CI，而 dev agent 一直在重复它的工作。
+
+⇒ **新流程**：
+1. **dev agent** 只写代码：实现 + 只跑**自己新写的测试文件**（本地快速置信，不是全量）
+   + push 分支 + 开 PR（`Closes #N`）+ issue 评论写反证与撞到的墙。**到此为止，不再本地跑
+   `TURBO_FORCE` 全量 / `verify:base`**。仍然禁止 `git stash`、仍然要用独立 `WORKSPACEX_DB`
+   （只为自己那几个新测试文件，不是为了自证全仓绿）。
+2. **CI 就是测试 agent**：PR 一开，`harness-verify.yml`（typecheck/lint/test --affected）
+   与 `backend-gates.yml`（需要 docker 的那套）自动跑在隔离环境里。
+3. **我（coordinator）看 CI 结果，不重新在本地跑一遍全量**：`gh pr checks <N>` 绿 + 禁改文件清单
+   为空 ⇒ 合并；红了才本地复核定位（此时才需要本地跑，且只跑那一个失败点，不跑全量）。
+4. 迁移号 / ratchet 数字类的合并冲突仍按纪律 24/26 处理（重新实测，不许照抄）——
+   这条不因流程改版而变，CI 环境不共享，测不出「合流后的真值」。
+
+**代价与限度**：CI 目前也在同一台自建 runner（`backend-gates.yml`）上跑，
+issue #74 的不确定性理论上仍可能影响它——但**并发数从 19 降到 1**（CI 逐条 PR 跑，
+而不是 19 个 dev agent 同时跑），今晚的证据是并发数正是触发 #74 的变量之一。
+这不是「修好了 #74」，是**把触发它的条件基本移除**。#74 仍然立着，不关闭。
+
 ### 每个 feature 的完成定义（照 AGENTS.md，不打折）
 
 1. 行为端到端可见 2. 每条 `verification` 退出码 0 3. 证据落 `evidence`
