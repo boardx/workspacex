@@ -46,33 +46,94 @@ export const ProvenanceEventType = z.enum([
   "admin-project-access", // 管理员以审计目的读取项目内容（D-18：必留痕且对负责人可见）
   "local-export", // 本地组织 → 正式组织的导出（F17，隐私承诺的唯一豁口）
 
-  /* ── files 束：交付 ────────────────────────────────── */
+  /* ── phase-01 补齐的成员（ADR-101，需人类追认）────── */
   /**
-   * 🔴 单个原件下载（F32）。**这条是本文件「新增走 ADR」那条纪律的一次欠账，需人类追认。**
+   * 🔴 以下成员由 **ADR-101** 一次性补齐，覆盖 `design-coherence.md` **XC-10** 记录的同一个根：
+   * 本枚举由 identity + artifact **两束**合并而成，而 phase-01 有十个束要写审计事件，
+   * 三个束（`files` / `interview` / `project`）各自撞上「已签核的 UC 要求写审计、
+   * 枚举里没有可写的类型」，且**三个 feature 用了三种处理方式**。
    *
-   * 为什么必须补：本枚举是 identity + artifact **两束**合并而成，而 files 束成文在后。
-   * 已签核的 `contracts/files/usecases.md` 在 `issueDownloadUrl` 下逐字写着
-   * 「下载动作写 `provenance_events`（17-gov/UC-17.1 四类事件之一）」，
-   * `packages/contracts/src/files.ts` 的 `issueDownloadUrl` 长注同义，
-   * `requirements/22-files/uc-22-1-项目文件浏览器.md` 第 98 行同义——
-   * 三处都要求下载留痕，而**枚举里没有任何一个成员表示下载**。
+   * ⚠ **本文件第 18 行写着「新增走 ADR」，所以这些成员的出处就是 ADR-101，
+   *   而 ADR-101 的状态是 Proposed —— `provenance` 属已签核的 phase-00 束，需人类追认。**
+   *   否决时的回退动作写在 ADR-101 的「后果」一节。
+   */
+
+  /**
+   * 单个原件下载（F32 / `files`）。
    *
-   * ⚠ 最接近的 `local-export` 不是它：那是「本地组织 → 正式组织的导出（F17）」，
-   *   一个组织迁移动作。拿它兜下载，会让「材料出域了吗」这个问题在同一个类型里
-   *   混进两种毫不相干的事件，而这正是本文件开头说的「封闭枚举」要防的东西。
-   *
-   * ⇒ 这不是「两套方案待裁」，是一个**漏项**：规范齐全、类型缺席。补上它 F32 的
-   *   「写审计」才落得了地；不补的话那条 feature 的三条安全性质少一条。
-   *   但补的动作本身违反了本文件第 18 行的流程要求，所以它**大声记在这里**，
-   *   请求 ADR 追认，而不是安静地混进列表。
+   * 已签核的 `contracts/files/usecases.md` 在 `issueDownloadUrl` 下逐字：
+   * 「下载动作写 `provenance_events`（17-gov/UC-17.1 四类事件之一）」；
+   * `files.ts` 的 `issueDownloadUrl` 长注与 `requirements/22-files/uc-22-1` 第 98 行同义。
+   * ⚠ 最接近的 `local-export` **不是**它：那是「本地组织 → 正式组织的导出（F17）」，
+   *   一次组织迁移。拿它兜下载会让「材料出域了吗」在同一个类型里混进两件不相干的事。
    */
   "downloaded",
+
+  /* ── project 束：项目生命周期（`project.ts` P3 / XC-10 逐字四值）── */
+  /**
+   * ⚠ 这四个是**代 F117 补的**，不是 F32 用的。出处是 `packages/contracts/src/project.ts:767`
+   * （`KNOWN_CONTRACT_GAPS.P3`）与 `design-coherence.md` XC-10 的「⚠ 一条必须一起处置的缺口」，
+   * 两处逐字列的就是这四个名字。`project` 束四个操作都返回 `provenanceEventId`，
+   * 而封闭枚举里没有对应类型 ⇒ 那四条审计写不进去。
+   * ⇒ 名字**照抄**那两份文档，不重新发明；F117 落地时应当直接用得上，用不上说明抄错了。
+   */
+  "project-created",
+  "project-archived",
+  "project-unarchived",
+  "agenda-segment-state-changed",
+
+  /* ── chat 束：线程生命周期（`chat.ts` C_CHAT_5 / F109 报）── */
+  /**
+   * ⚠ 这三个是**代 F109 补的**。F109 现在把三种线程动作全写成 `human-edited`
+   * （常量 `CHAT_LIFECYCLE_AUDIT_TYPE`，源码里标红），因为枚举里没有可写的类型。
+   *
+   * 🔴 **三个分开，不合并成 `thread-changed` + `detail.op`。**
+   *   uc-8-1 R7 逐字要求「任何覆盖、删除、撤销……都必须记录审计事件」，
+   *   而把删除混进一个通用 `changed` 里靠 detail 区分，意味着「查所有删除」得先解析 jsonb ——
+   *   `queryProvenance` 的筛选面上**没有那个能力**，于是那条查询在契约层根本不存在。
+   * ⚠ 命名照现有成员的构词法「对象-过去分词」（`capability-added` / `role-changed`）。
+   * ⚠ F109 的第四条（被拒的写尝试）**不在这里**：`unauthorized-attempt` 语义本来就对。
+   */
+  "thread-created",
+  "thread-renamed",
+  "thread-deleted",
 
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
 
 export type ProvenanceEventTypeT = z.infer<typeof ProvenanceEventType>;
+
+/**
+ * 事件指向的对象种类 —— **封闭枚举，与 `ProvenanceEventType` 是两件事**。
+ *
+ * ⚠ 提成常量是 ADR-101 顺手收的一处「同一事实两处」：这份取值原先在
+ * `ProvenanceEvent.target.kind` 与 `queryProvenance.in.targetKind` **各写了一遍**，
+ * 而 `queryProvenance` 只能按 target 过滤 ⇒ 两处一旦漂移，
+ * 表现是「某类事件写得进去、查不出来」，且两边各自看都是自洽的。
+ *
+ * 🔴 `interview` 由 ADR-101 补入，见 `ProvenanceEvent.target` 的长注（F80 报告的缺口）。
+ * ⚠ 新增成员与 `ProvenanceEventType` 同一纪律：**走 ADR**。
+ */
+export const ProvenanceTargetKind = z.enum([
+  "artifact", "artifact-version", "capability", "membership", "project", "organization",
+  /** 代 F80 补：没有它，「这一场访谈被谁探过」查不出来。见 `ProvenanceEvent.target` 长注 */
+  "interview",
+  /**
+   * 代 F109 补。规矩来自 `application/provenance/record-audit.ts` 头部：
+   * **「target 是验收标准说你按什么去搜的那个东西」**——uc-8-1 R7 的检索面是
+   * 「操作者 / 时间 / **对象** / 结果」，这里的对象是线程，不是项目。
+   *
+   * 🔴 **但改成 `thread` 会暴露一个 `queryProvenance` 本身的洞，见 ADR-101 第二节。**
+   *   `chat.queryChatAuditEvents` 是**按项目**列的（`/chat/projects/:projectId/audit-events`），
+   *   而 `queryProvenance` 只按 `(targetKind, targetId)` 筛 —— target 一旦是 `thread`，
+   *   「列出本项目下的全部对话审计」就没有可筛的列了，projectId 只活在 `detail` 这个
+   *   `z.record` 里。⚠ 这条**未裁**：ADR-101 列出三条出路并推荐 A，但不替人选。
+   */
+  "thread",
+]);
+
+export type ProvenanceTargetKindT = z.infer<typeof ProvenanceTargetKind>;
 
 /**
  * 一条血缘/审计事件。
@@ -88,11 +149,17 @@ export const ProvenanceEvent = z.object({
   at: z.string(),
   /** 事件归属的组织；查询必按它做租户隔离（RLS 层强制） */
   orgId: z.string(),
-  /** 被作用的对象。不同事件类型指向不同东西，故用通用二元组而非 artifactId 单列 */
-  target: z.object({
-    kind: z.enum(["artifact", "artifact-version", "capability", "membership", "project", "organization"]),
-    id: z.string(),
-  }).strict(),
+  /**
+   * 被作用的对象。不同事件类型指向不同东西，故用通用二元组而非 artifactId 单列。
+   *
+   * 🔴 `interview` 由 **ADR-101** 补入，与上面那批同一个根（XC-10），但**缺的是另一个枚举**——
+   * 这是 F80 报上来的：`apps/api/src/application/interview/get-interview.ts` 文件头逐字写着，
+   * 非协作者按 ID 直读被拒时那条 `unauthorized-attempt` 只能把 target 记成 `organization`、
+   * 把 `interviewId` 塞进 `detail`，于是「**这一场访谈被谁探过**」查不出来，
+   * 只能查「这个组织里有谁被拒过」。`queryProvenance` 只能按 target 过滤，所以这不是美观问题。
+   * ⚠ F80 当时**没有自行改契约**（跨束、已签核），选择报告；ADR-101 是那份报告的落点。
+   */
+  target: z.object({ kind: ProvenanceTargetKind, id: z.string() }).strict(),
   /** 动作的影响范围 / 前后值等，按 `type` 解释；越权尝试记录目标与被拒原因 */
   detail: z.record(z.unknown()),
 }).strict();
@@ -112,7 +179,8 @@ export const operations = {
       /** 不传则查全部类型；传了则按类型过滤（如只看安全审计） */
       types: z.array(ProvenanceEventType).optional(),
       actorId: z.string().optional(),
-      targetKind: z.enum(["artifact", "artifact-version", "capability", "membership", "project", "organization"]).optional(),
+      /** ⚠ 同一份取值，**引用**而不是再抄一遍——见 `ProvenanceTargetKind` 的长注 */
+      targetKind: ProvenanceTargetKind.optional(),
       targetId: z.string().optional(),
       /** ISO 8601 区间 */
       since: z.string().optional(),

@@ -36,28 +36,46 @@
 -- ⚠ 部分唯一索引 `download_grants_live_token_uniq` 是**第二道**，不是同一道：
 --   它管「同一枚令牌不可能有两条在世行」，与「一条在世行只能被消费一次」是两件事。
 --
--- ## provenance_events：`downloaded`
+-- ## provenance_events：ADR-101 的落库半边
 --
 -- 🔴 **这是对已签核跨束契约 `packages/contracts/src/provenance.ts` 的一次增值，需人类追认。**
---   该文件自己写着「事件类型是封闭枚举，**新增走 ADR**」。而：
---     · `contracts/files/usecases.md`（同样已签核）逐字：「下载动作写 `provenance_events`
---       （17-gov/UC-17.1 四类事件之一）」
---     · `requirements/22-files/uc-22-1-项目文件浏览器.md` 第 98 行同义
---     · 枚举里**没有任何一个成员**表示「下载」——最接近的 `local-export` 是
---       「本地组织 → 正式组织的导出（F17）」，语义完全是另一件事
---   ⇒ 两份已签核文件互相矛盾：一份要求写审计，另一份没有可写的类型。
---     这不是「两套方案待裁」，是枚举在 files 束存在之前由 identity + artifact 两束合并而成、
---     漏了 files 束。本迁移补上 `downloaded` 并**大声记在这里与 PR 里**请求 ADR 追认；
---     不补的话 F32 的「写审计」这条根本无法落地，而那是 feature 的三条安全性质之一。
---   ⚠ 契约侧与本 CHECK 的一致由 `admin-audit-access-visible-to-lead.test.ts` 机械门控
---     （它把约束从 pg_catalog 读出来逐成员比对枚举），所以只改一边会当场红。
+--   出处与完整论证在 `docs/adr/ADR-101-provenance-event-type-missing-members.md`（Proposed）。
+--   这里只记「为什么它落在 F32 的迁移里」以及「改了哪两条 CHECK」。
+--
+-- 一句话：本枚举由 identity + artifact **两束**合并而成，phase-01 有十个束要写审计事件，
+-- 三个束各自撞上「已签核的 UC 要求写审计、枚举里没有可写的类型」——
+-- `design-coherence.md` **XC-10** 早就记着它，逐字写着「`ProvenanceEventType` 扩四值（走 ADR）」。
+-- F32 是第三个撞上的，而前两个各用了一种处理方式 ⇒ 一次补齐，不再留第四种。
+--
+--   ① `provenance_events.type`        + `downloaded`（F32 · files）
+--                                      + `project-created` / `project-archived` /
+--                                        `project-unarchived` / `agenda-segment-state-changed`
+--                                        （代 F117 · project，名字照抄 project.ts P3 与 XC-10）
+--                                      + `thread-created` / `thread-renamed` / `thread-deleted`
+--                                        （代 F109 · chat，名字与「三个不合并」的理由见契约长注）
+--   ② `provenance_events.target_kind` + `interview`（代 F80）+ `thread`（代 F109）
+--
+-- ⚠ ②**是另一个枚举**，容易被当成同一件事：F80 / F109 缺的不是事件类型，是 target 的种类。
+--   没有它，「这一场访谈被谁探过」「这条线程发生过什么」都查不出来
+--   （`queryProvenance` 只按 `(targetKind, targetId)` 过滤，`detail` 不可检索），
+--   于是 F80 把 target 记成 `organization`、F109 记成 `project`，各自把 id 塞进 `detail`。
+--
+-- 🔴 **只补枚举补不完这个洞，ADR-101 第二节把它写在了明处：**
+--   target 改成具体对象之后，「列出本项目下的某类审计」就没有可筛的列了 ——
+--   `projectId` 只活在 `detail` 这个 `z.record` 里。四个 feature 会各自往 detail 塞一份
+--   projectId 兜底，那是同一事实的第四、五、六处声明。**该条未裁**，本迁移不发明列。
+--
+-- ⚠ 两条 CHECK 与契约枚举的**双向相等**由
+--   `apps/api/tests/files/provenance-enum-single-source.test.ts` 机械门控：
+--   两个方向各一条断言（契约有而 CHECK 没有 / CHECK 有而契约没有），不是长度比较。
+--   `admin-audit-access-visible-to-lead.test.ts` 对 `type` 那条也仍在。
 --
 -- Replayable：全部 IF NOT EXISTS / DROP-then-CREATE，`migrate:check` 忽略版本表重放每个文件。
 
-/* ─────────────── provenance_events：补 `downloaded` ─────────────── */
+/* ────────── provenance_events：ADR-101 补齐两条封闭枚举 ────────── */
 
--- DROP + ADD 而不是「若不存在则建」：0005 已经建过这条约束，要**改**它就必须先删。
--- 名字沿用 0005 的，于是重放到底是同一条约束而不是并存两条。
+-- DROP + ADD 而不是「若不存在则建」：0005 已经建过这两条约束，要**改**它们就必须先删。
+-- 名字沿用 0005 自动生成的，于是重放到底是同一条约束而不是并存两条。
 DO $$
 BEGIN
   ALTER TABLE provenance_events DROP CONSTRAINT IF EXISTS provenance_events_type_check;
@@ -66,10 +84,27 @@ BEGIN
     'superseded', 'evidence-withdrawn',
     'capability-added', 'capability-updated', 'capability-disabled', 'role-changed',
     'team-changed', 'admin-project-access', 'local-export',
-    -- files 束（F32）：单个原件下载。见文件头。
-    'downloaded',
+    -- ADR-101（Proposed，需人类追认）。见文件头。
+    'downloaded',                      -- F32 · files：单个原件下载
+    'project-created',                 -- 代 F117 · project（project.ts P3 / XC-10 逐字）
+    'project-archived',
+    'project-unarchived',
+    'agenda-segment-state-changed',
+    'thread-created',                  -- 代 F109 · chat（三个分开，理由见契约长注）
+    'thread-renamed',
+    'thread-deleted',
     'unauthorized-attempt'
   ));
+
+  -- ⚠ 另一个枚举。F80 缺的不是事件类型，是 target 的种类——没有它，
+  --   「这一场访谈被谁探过」查不出来。见文件头 ②。
+  ALTER TABLE provenance_events DROP CONSTRAINT IF EXISTS provenance_events_target_kind_check;
+  ALTER TABLE provenance_events ADD CONSTRAINT provenance_events_target_kind_check CHECK (
+    target_kind IN (
+      'artifact', 'artifact-version', 'capability', 'membership', 'project', 'organization',
+      'interview',                     -- 代 F80 · interview（ADR-101）
+      'thread'                         -- 代 F109 · chat（ADR-101）
+    ));
 END
 $$;
 
