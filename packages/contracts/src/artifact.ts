@@ -202,7 +202,7 @@ export const Binding = z.object({
   id: z.string(),
   artifactId: z.string(),
   projectId: z.string(),
-  stepId: z.string(),
+  agendaSegmentId: z.string(),
   mode: BindingMode,
   pinnedVersionId: z.string().nullable(),
 }).strict();
@@ -299,7 +299,7 @@ export const operations = {
     in: z.object({
       artifactId: z.string(),
       projectId: z.string(),
-      stepId: z.string(),
+      agendaSegmentId: z.string(),
       mode: BindingMode,
       /** pinned 模式必填：要冻结到哪个版本 */
       sourceVersionId: z.string().optional(),
@@ -332,7 +332,7 @@ export const operations = {
    */
   listBackflow: {
     method: "GET", path: "/projects/:projectId/backflow",
-    in: z.object({ projectId: z.string(), stepId: z.string().optional() }).strict(),
+    in: z.object({ projectId: z.string(), agendaSegmentId: z.string().optional() }).strict(),
     // 空态返回 []，不生成伪数据（V5）
     out: z.array(BackflowEntry),
     err: ["NO_PROJECT_ROLE"] as const,

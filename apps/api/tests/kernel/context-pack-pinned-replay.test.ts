@@ -180,7 +180,7 @@ beforeEach(async () => {
   await addOrgMember(ORG, USER, "consultant", null);
   await addProjectMember(ORG, PROJECT, USER, "member", null);
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about context-pack replay/pinning, not segment lifecycle -- `pinnableVersion()` below
   // always uses the literal "f13-step-1".
   await seedAgendaSegment(ORG, PROJECT, "f13-step-1");
@@ -356,7 +356,7 @@ describe("PinContextPack：随固定快照固化（I-7）", () => {
     await asApp(ORG, (c) =>
       c.query(
         `INSERT INTO artifact_bindings
-           (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+           (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
           `f13-bind-${segmentId}`, ORG, artifactId, PROJECT, "f13-step-1", mode,

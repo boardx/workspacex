@@ -90,7 +90,7 @@ export const BACKFLOW_SCHEMA = C.operations.listBackflow.in;
 type BindBody = {
   artifactId: string;
   projectId: string;
-  stepId: string;
+  agendaSegmentId: string;
   mode: BindingModeName;
   sourceVersionId?: string;
 };
@@ -140,7 +140,7 @@ export class ArtifactBindingController {
         orgId: principal.orgId,
         artifactId,
         projectId: body.projectId,
-        stepId: body.stepId,
+        agendaSegmentId: body.agendaSegmentId,
         mode: body.mode,
         sourceVersionId: body.sourceVersionId,
       }),
@@ -171,7 +171,7 @@ export class ArtifactBindingController {
   async backflow(
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
-    @Query("stepId") stepId?: string,
+    @Query("agendaSegmentId") agendaSegmentId?: string,
   ) {
     assertPrincipal(principal);
     // A GET has no body, so the contract's `in` is applied to the assembled parameters
@@ -179,14 +179,14 @@ export class ArtifactBindingController {
     // operation with no request body is also the one operation nothing validates.
     const input = new ZodBodyPipe(BACKFLOW_SCHEMA).transform({
       projectId,
-      ...(stepId === undefined ? {} : { stepId }),
-    }) as { projectId: string; stepId?: string };
+      ...(agendaSegmentId === undefined ? {} : { agendaSegmentId }),
+    }) as { projectId: string; agendaSegmentId?: string };
     return this.run(() =>
       listBackflow(this.deps, {
         userId: principal.userId,
         orgId: principal.orgId,
         projectId: input.projectId,
-        stepId: input.stepId,
+        agendaSegmentId: input.agendaSegmentId,
       }),
     );
   }

@@ -146,7 +146,7 @@ export async function upgradeBinding(
     artifactId: existing.artifactId,
     bindingId,
     projectId: existing.projectId,
-    stepId: existing.stepId,
+    agendaSegmentId: existing.agendaSegmentId,
     mode: "pinned",
     pinnedVersionId: versionId,
     previousMode: existing.mode,
@@ -155,7 +155,7 @@ export async function upgradeBinding(
     id: existing.id,
     artifactId: existing.artifactId,
     projectId: existing.projectId,
-    stepId: existing.stepId,
+    agendaSegmentId: existing.agendaSegmentId,
     mode: "pinned",
     pinnedVersionId: versionId,
   };

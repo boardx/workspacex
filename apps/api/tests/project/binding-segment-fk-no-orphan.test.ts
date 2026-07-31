@@ -1,5 +1,5 @@
 /**
- * I-P42 🔴 —— `artifact_bindings.step_id` 首次获得外键（复合：`(step_id, project_id, org_id)
+ * I-P42 🔴 —— `artifact_bindings.agenda_segment_id` 首次获得外键（复合：`(agenda_segment_id, project_id, org_id)
  * → agenda_segments (id, workshop_id, org_id)`）。孤儿绑定（指向不存在的环节，或指向
  * **别的工作坊**的环节）从此不可能存在。
  *
@@ -63,14 +63,14 @@ async function insertBinding(
   orgId: string,
   projectId: string,
   artifactId: string,
-  stepId: string,
+  agendaSegmentId: string,
   id: string,
 ): Promise<void> {
   await asApp(orgId, (c) =>
     c.query(
-      `INSERT INTO artifact_bindings (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+      `INSERT INTO artifact_bindings (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
        VALUES ($1,$2,$3,$4,$5,'draft',NULL,'u-f118')`,
-      [id, orgId, artifactId, projectId, stepId],
+      [id, orgId, artifactId, projectId, agendaSegmentId],
     ),
   );
 }
@@ -93,7 +93,7 @@ describe("I-P42: 结构断言 —— artifact_bindings 首次获得指向 agenda
     });
     expect(rows.length, "artifact_bindings_segment_fkey 外键不存在").toBe(1);
     expect(rows[0]!.def).toMatch(/REFERENCES agenda_segments/);
-    expect(rows[0]!.def).toMatch(/step_id/);
+    expect(rows[0]!.def).toMatch(/agenda_segment_id/);
   });
 });
 
@@ -124,26 +124,26 @@ describe("I-P42: 孤儿绑定不可能存在（双向：拒绝孤儿，也放行
     await resetOrgs(ORG);
   });
 
-  it("反证：step_id 指向不存在的环节 —— 外键拒绝（23503）", async () => {
+  it("反证：agenda_segment_id 指向不存在的环节 —— 外键拒绝（23503）", async () => {
     const code = await sqlstateOf(() =>
       insertBinding(ORG, W1, "f118fk-art-1", "no-such-segment", "f118fk-bind-ghost"),
     );
     expect(code).toBe("23503");
   });
 
-  it("正向：step_id 指向存在且属于同一工作坊的环节 —— 成功", async () => {
+  it("正向：agenda_segment_id 指向存在且属于同一工作坊的环节 —— 成功", async () => {
     await insertBinding(ORG, W1, "f118fk-art-1", "f118fk-seg-w1", "f118fk-bind-ok");
     const row = await asOwner(async (c) => {
-      const r = await c.query<{ step_id: string }>(
-        "SELECT step_id FROM artifact_bindings WHERE id = $1",
+      const r = await c.query<{ agenda_segment_id: string }>(
+        "SELECT agenda_segment_id FROM artifact_bindings WHERE id = $1",
         ["f118fk-bind-ok"],
       );
       return r.rows[0];
     });
-    expect(row?.step_id).toBe("f118fk-seg-w1");
+    expect(row?.agenda_segment_id).toBe("f118fk-seg-w1");
   });
 
-  it("反证：step_id 指向存在但属于另一个工作坊的环节 —— 复合外键拒绝（23503）", async () => {
+  it("反证：agenda_segment_id 指向存在但属于另一个工作坊的环节 —— 复合外键拒绝（23503）", async () => {
     // project_id = W1，但 f118fk-seg-w2 属于 W2 —— 单列外键会放行这一条（环节确实存在），
     // 只有复合外键（要求 workshop_id 也匹配 project_id）才会拒绝它。这正是本表 I-P42
     // 的复合外键要防的洞：三视角首屏据此渲染出一个属于别的工作坊的环节标题。
@@ -156,12 +156,12 @@ describe("I-P42: 孤儿绑定不可能存在（双向：拒绝孤儿，也放行
   it("反向反证：同一个环节在自己的工作坊里仍然可以被再次引用（外键不是把这条环节锁死了）", async () => {
     await insertBinding(ORG, W2, "f118fk-art-3", "f118fk-seg-w2", "f118fk-bind-w2-ok");
     const row = await asOwner(async (c) => {
-      const r = await c.query<{ step_id: string; project_id: string }>(
-        "SELECT step_id, project_id FROM artifact_bindings WHERE id = $1",
+      const r = await c.query<{ agenda_segment_id: string; project_id: string }>(
+        "SELECT agenda_segment_id, project_id FROM artifact_bindings WHERE id = $1",
         ["f118fk-bind-w2-ok"],
       );
       return r.rows[0];
     });
-    expect(row).toEqual({ step_id: "f118fk-seg-w2", project_id: W2 });
+    expect(row).toEqual({ agenda_segment_id: "f118fk-seg-w2", project_id: W2 });
   });
 });

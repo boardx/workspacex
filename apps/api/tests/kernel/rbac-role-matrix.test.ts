@@ -149,7 +149,7 @@ describe("the role hierarchy is real, not decorative", () => {
   });
 
   it("a group lead cannot control the room", async () => {
-    for (const a of PROJECT_ACTIONS.filter((x) => x.startsWith("stage."))) {
+    for (const a of PROJECT_ACTIONS.filter((x) => x.startsWith("agendaSegment."))) {
       expect((await ask("u-groupLead", a)).allowed, a).toBe(false);
     }
   });

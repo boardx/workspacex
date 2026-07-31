@@ -169,7 +169,7 @@ export class InterviewScopeController {
     @Body(new ZodBodyPipe(ATTACH_SCHEMA)) body: {
       interviewId: string;
       projectId: string;
-      stepId: string;
+      agendaSegmentId: string;
       pinnedVersionId: string;
     },
   ) {
@@ -191,7 +191,7 @@ export class InterviewScopeController {
           actorId: principal.userId,
           interviewId,
           projectId: body.projectId,
-          stepId: body.stepId,
+          agendaSegmentId: body.agendaSegmentId,
           pinnedVersionId: body.pinnedVersionId,
         },
       ),

@@ -39,7 +39,7 @@ export const bindToProjectStepMock: z.infer<typeof artifact.operations.bindToPro
   "id": "id-1",
   "artifactId": "artifactId-1",
   "projectId": "projectId-1",
-  "stepId": "stepId-1",
+  "agendaSegmentId": "agendaSegmentId-1",
   "mode": "draft",
   "pinnedVersionId": null
 };
@@ -52,7 +52,7 @@ export const upgradeBindingMock: z.infer<typeof artifact.operations.upgradeBindi
   "id": "id-1",
   "artifactId": "artifactId-1",
   "projectId": "projectId-1",
-  "stepId": "stepId-1",
+  "agendaSegmentId": "agendaSegmentId-1",
   "mode": "draft",
   "pinnedVersionId": null
 };

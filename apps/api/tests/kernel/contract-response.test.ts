@@ -76,7 +76,7 @@ describe("every response conforms to the contract's `out` schema", () => {
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({
         orgId: ORG, projectId: PROJECT,
-        object: { kind: "project", id: PROJECT }, action: "stage.advance",
+        object: { kind: "project", id: PROJECT }, action: "agendaSegment.advance",
       }),
     }).then((r) => r.json());
     const parsed = C.operations.authorize.out.safeParse(body);

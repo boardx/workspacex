@@ -123,11 +123,10 @@ function RightRail({ screen }: { screen: SkillScreen }) {
         <p className="text-12 font-medium">{n.title}</p>
         <p className="text-11 leading-relaxed text-muted-foreground">{n.body}</p>
       </div>
-      <div className="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/5 p-3">
-        <Badge tone="warning" className="w-fit">待裁决</Badge>
+      <div className="flex flex-col gap-1 rounded-lg border border-border-subtle bg-panel p-3">
+        <Badge tone="outline" className="w-fit">已裁决</Badge>
         <p className="text-10 leading-relaxed text-muted-foreground">
-          「议程环节」字段命名未定（stepId / stage.* / agenda_stage / agenda_segment 四名并存）。
-          本原型统一显示「议程环节」并中性承载，见 00-project/OPEN-QUESTIONS.md Q-3。
+          「议程环节」字段命名单源：agendaSegment / agendaSegmentId（Q-3 B① 裁定，F121 已改名对齐）。
         </p>
       </div>
     </div>

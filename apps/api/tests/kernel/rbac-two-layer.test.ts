@@ -338,7 +338,7 @@ describe("R4 E4: inconsistent data denies rather than falling back permissively"
   it("an unknown action is denied, never waved through", async () => {
     await addOrgMember(ORG, "u-f", "consultant", fx.teams.energy!);
     await addProjectMember(ORG, PROJECT, "u-f", "facilitator", null);
-    const d = await call("u-f", "stage.selfDestruct", { projectId: PROJECT });
+    const d = await call("u-f", "agendaSegment.selfDestruct", { projectId: PROJECT });
     // A facilitator can do everything in the declared matrix. An action nobody declared is
     // still denied -- "unknown" must not read as "unrestricted".
     expect(d.allowed).toBe(false);

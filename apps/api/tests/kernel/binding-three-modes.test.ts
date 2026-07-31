@@ -93,10 +93,10 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, ADMIN, "facilitator", null);
   await addOrgMember(ORG, STRANGER, "consultant", fx.teams.platform!);
 
-  // F118: `artifact_bindings.step_id` now has a composite FK into `agenda_segments`
-  // (`artifact_bindings_segment_fkey`). This file predates F118 and treats `stepId` as an
+  // F118: `artifact_bindings.agenda_segment_id` now has a composite FK into `agenda_segments`
+  // (`artifact_bindings_segment_fkey`). This file predates F118 and treats `agendaSegmentId` as an
   // opaque string identifying "which project step" a binding belongs to -- none of its
-  // assertions are about agenda-segment lifecycle, so every literal stepId used anywhere
+  // assertions are about agenda-segment lifecycle, so every literal agendaSegmentId used anywhere
   // below just needs a real row to point at, not any particular state.
   for (const step of [
     STEP, "f06m-s1", "f06m-s2", "f06m-s3", "f06m-s4", "f06m-s9",
@@ -107,8 +107,8 @@ beforeEach(async () => {
 });
 
 const org = () => toOrgId(ORG);
-const listAs = (userId: string, stepId?: string) =>
-  listBackflow(h.deps, { userId, orgId: org(), projectId: PROJECT, stepId });
+const listAs = (userId: string, agendaSegmentId?: string) =>
+  listBackflow(h.deps, { userId, orgId: org(), projectId: PROJECT, agendaSegmentId });
 
 /* ─────────────────────────── the vocabulary has one source ─────────────────────────── */
 
@@ -144,7 +144,7 @@ describe("the three modes are the contract's three modes", () => {
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO artifact_bindings
-             (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+             (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
            VALUES ('f06m-bad',$1,$2,$3,$4,'archived',NULL,'u')`,
           [ORG, a.artifactId, PROJECT, STEP],
         ),
@@ -164,7 +164,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO artifact_bindings
-             (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+             (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
            VALUES ('f06m-iff-1',$1,$2,$3,'f06m-s1','pinned',NULL,'u')`,
           [ORG, a.artifactId, PROJECT],
         ),
@@ -178,7 +178,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO artifact_bindings
-             (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+             (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
            VALUES ('f06m-iff-2',$1,$2,$3,'f06m-s2','live',$4,'u')`,
           [ORG, a.artifactId, PROJECT, a.versionIds[0]],
         ),
@@ -190,7 +190,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
     await asApp(ORG, (c) =>
       c.query(
         `INSERT INTO artifact_bindings
-           (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+           (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
          VALUES ('f06m-iff-ok1',$1,$2,$3,'f06m-s3','live',NULL,'u'),
                 ('f06m-iff-ok2',$1,$2,$3,'f06m-s4','pinned',$4,'u')`,
         [ORG, a.artifactId, PROJECT, a.versionIds[0]],
@@ -208,7 +208,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: mine.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "pinned",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "pinned",
         sourceVersionId: theirs.versionIds[0]!,
       }),
     ).rejects.toBeInstanceOf(ArtifactNotFoundError);
@@ -220,7 +220,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO artifact_bindings
-             (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+             (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
            VALUES ('f06m-cross',$1,$2,$3,'f06m-s9','pinned',$4,'u')`,
           [ORG, mine.artifactId, PROJECT, theirs.versionIds[0]],
         ),
@@ -230,7 +230,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
     // Counter-proof: its OWN version is accepted through the same path.
     const ok = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: mine.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "pinned",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "pinned",
       sourceVersionId: mine.versionIds[0]!,
     });
     expect(ok.pinnedVersionId).toBe(mine.versionIds[0]);
@@ -244,7 +244,7 @@ describe("draft: private to its author, on nobody's project side", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["notes\n"], AUTHOR);
     const binding = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "draft",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "draft",
     });
 
     // ── direction 1: something was actually stored ──────────────────────────────────────
@@ -275,13 +275,13 @@ describe("draft: private to its author, on nobody's project side", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["notes\n"], AUTHOR);
     const draft = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "draft",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "draft",
     });
     expect(await listAs(AUTHOR)).toEqual([]);
 
     const published = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     // The same row, raised -- not a second binding. Two rows for one step is how a project
     // side shows one artifact twice at two versions.
@@ -310,11 +310,11 @@ describe("live follows the source, pinned does not -- asserted against the same 
 
     const live = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "f06m-step-live", mode: "live",
+      projectId: PROJECT, agendaSegmentId: "f06m-step-live", mode: "live",
     });
     const pinned = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "f06m-step-pinned", mode: "pinned",
+      projectId: PROJECT, agendaSegmentId: "f06m-step-pinned", mode: "pinned",
       sourceVersionId: a.versionIds[0]!,
     });
 
@@ -373,21 +373,21 @@ describe("binding is a write, and the role matrix decides it (R5)", () => {
 
     const ok = await bindToProjectStep(h.deps, {
       userId: LEAD, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "f06m-step-lead", mode: "live",
+      projectId: PROJECT, agendaSegmentId: "f06m-step-lead", mode: "live",
     });
     expect(ok.mode).toBe("live");
 
     await expect(
       bindToProjectStep(h.deps, {
         userId: MEMBER, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: "f06m-step-member", mode: "live",
+        projectId: PROJECT, agendaSegmentId: "f06m-step-member", mode: "live",
       }),
     ).rejects.toBeInstanceOf(ProjectRoleInsufficientError);
 
     await expect(
       bindToProjectStep(h.deps, {
         userId: STRANGER, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: "f06m-step-stranger", mode: "live",
+        projectId: PROJECT, agendaSegmentId: "f06m-step-stranger", mode: "live",
       }),
     ).rejects.toBeInstanceOf(NoProjectRoleError);
   });
@@ -410,11 +410,11 @@ describe("binding is a write, and the role matrix decides it (R5)", () => {
     const [withReal, withFake] = await Promise.allSettled([
       bindToProjectStep(h.deps, {
         userId: STRANGER, orgId: org(), artifactId: real.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "live",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
       }),
       bindToProjectStep(h.deps, {
         userId: STRANGER, orgId: org(), artifactId: "no-such-artifact", projectId: PROJECT,
-        stepId: STEP, mode: "live",
+        agendaSegmentId: STEP, mode: "live",
       }),
     ]);
 
@@ -433,7 +433,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "pinned",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "pinned",
       }),
     ).rejects.toBeInstanceOf(PinnedRequiresVersionError);
 
@@ -441,7 +441,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: bare,
-        projectId: PROJECT, stepId: "f06m-step-bare", mode: "live",
+        projectId: PROJECT, agendaSegmentId: "f06m-step-bare", mode: "live",
       }),
     ).rejects.toBeInstanceOf(NoVersionToBindError);
 
@@ -449,7 +449,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     // nothing pinned", so it is a normal state and the refusal above must not generalise.
     const draft = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: bare,
-      projectId: PROJECT, stepId: "f06m-step-bare", mode: "draft",
+      projectId: PROJECT, agendaSegmentId: "f06m-step-bare", mode: "draft",
     });
     expect(draft.mode).toBe("draft");
   });
@@ -460,7 +460,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     // does NOT express it. Asserted so that adding a `.superRefine` turns this red and the
     // application-level check can be reconsidered rather than duplicated forever.
     const parsed = C.operations.bindToProjectStep.in.safeParse({
-      artifactId: "a", projectId: "p", stepId: "s", mode: "pinned",
+      artifactId: "a", projectId: "p", agendaSegmentId: "s", mode: "pinned",
     });
     expect(parsed.success, "the contract now expresses it -- move the check").toBe(true);
   });

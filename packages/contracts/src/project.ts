@@ -78,7 +78,7 @@ export const AgendaSegmentState = z.enum(["pending", "active", "closed", "skippe
  * 推进动作的四种去向（UC-P7 标题逐字：推进 / 跳过 / 提前结束 / 合并）。
  *
  * ⚠ 这不是权限动作词。权限侧的闭集动作词是 `agendaSegment.advance`
- *   （Q-3 ① 裁「改名对齐」后由 `stage.advance` 改名而来），
+ *   （F121 改名对齐后的现名，旧的 `stage.` 前缀写法已判负），
  *   **在 `apps/api/src/domain/identity/project-role-matrix.ts` 里，本束引用不得抄**（I-P12）。
  */
 export const AgendaSegmentAdvanceAction = z.enum(["advance", "closeEarly", "skip", "merge"]);
@@ -174,7 +174,7 @@ const _sharedWithArtifact = ["DEPENDENCY_UNAVAILABLE"] as const satisfies readon
  * **两个由本束「变为可评估」、但抛出者不在本束的失败码。**
  *
  * `STEP_CLOSED` / `STEP_REJECTS_ARTIFACT_TYPE` 是 `artifact.bindToProjectStep` 的 `err`
- * （phase-00 已签核）。它们今天不可评估，因为 `step_id` 无外键、环节无实体、
+ * （phase-00 已签核）。它们此前不可评估，因为绑定关系的环节字段无外键、环节无实体、
  * `acceptedSources` 无出处——**本束建 `agenda_segments` 表 + 补外键 + 落白名单之后，
  * 这两条门第一次能红**（Q-2① A + Q-2③ + Q-8）。
  *
@@ -182,8 +182,8 @@ const _sharedWithArtifact = ["DEPENDENCY_UNAVAILABLE"] as const satisfies readon
  *   这里只用 `satisfies` 钉住「本束依赖的就是 artifact 束那两个字面量」——
  *   `artifact` 侧改名，这里编译失败。
  *
- * ⚠ 两个码的**名字**是否随 Q-3 ① 一起改成 `SEGMENT_*`：**本束不改**
- *   （改错误码字面量属修订已签核束，Q-3 的裁决文本只提到字段名与动作词）。
+ * ⚠ 两个码的**名字**是否随 F121 改名对齐一起改成 `SEGMENT_*`：**本束不改**
+ *   （改错误码字面量属修订已签核束，F121 的裁决文本只提到字段名与动作词）。
  *   已登记为 `MIGRATION-IMPACT.md` 第二节的待确认边界。
  */
 export const STEP_GATE_CODES = [
@@ -240,8 +240,9 @@ export const ProjectListItem = z
  * 议程环节实例（Q-2① 裁 A：**建独立表** `agenda_segments`，挂 `workshops`）。
  *
  * ⚠ 字段名单源：`agendaSegment` / `agendaSegmentId`（D-03a，全局权威）。
- *   三个败选名 `agenda_stage` / `step_id`·`stepId` / `stage.` 由 Q-3 ① 一并判负，
- *   phase-00 已落库的旧名**要改名对齐**（这是签核动作不是实现动作，见 MIGRATION-IMPACT.md）。
+ *   三个败选名（旧驼峰/蛇形环节字段名、`stage.` 前缀动作词、下划线阶段名）
+ *   由 Q-3 ① 一并判负；phase-00 已落库的旧名**已改名对齐**（F121，签核动作，见 MIGRATION-IMPACT.md）。
+ *   全仓不得再出现这三个败选名——由 `tests/project/naming-single-source-gate.test.ts` 门控。
  */
 export const AgendaSegment = z
   .object({

@@ -53,7 +53,7 @@ export const SNAPSHOT_JOIN = `JOIN artifact_versions v ON v.id = a.pinned_versio
 const INTERVIEW_JOIN = `JOIN interview_sessions s ON s.id = a.interview_id AND s.org_id = a.org_id`;
 
 const COLUMNS = `
-  a.id, a.interview_id, a.project_id, a.step_id, a.pinned_version_id,
+  a.id, a.interview_id, a.project_id, a.agenda_segment_id, a.pinned_version_id,
   v.version_number, v.content_hash,
   a.attached_by, a.attached_at, a.detached_at,
   s.project_id AS interview_project_id, s.created_by`;
@@ -62,7 +62,7 @@ interface AttachmentRowShape {
   id: string;
   interview_id: string;
   project_id: string;
-  step_id: string;
+  agenda_segment_id: string;
   pinned_version_id: string;
   version_number: number;
   content_hash: string;
@@ -78,7 +78,7 @@ const toRecord = (r: AttachmentRowShape): AttachmentRecord => ({
   attachmentId: r.id,
   interviewId: r.interview_id,
   projectId: r.project_id,
-  stepId: r.step_id,
+  agendaSegmentId: r.agenda_segment_id,
   pinnedVersionId: r.pinned_version_id,
   pinnedVersionNumber: Number(r.version_number),
   pinnedContentHash: r.content_hash,
@@ -124,14 +124,14 @@ export class PgInterviewAttachmentRepository implements InterviewAttachmentRepos
     return this.db.withTenant(input.orgId, async (s) => {
       await s.query(
         `INSERT INTO interview_step_attachments
-           (id, org_id, interview_id, project_id, step_id, pinned_version_id, attached_by)
+           (id, org_id, interview_id, project_id, agenda_segment_id, pinned_version_id, attached_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [
           input.attachmentId,
           input.orgId,
           input.interviewId,
           input.projectId,
-          input.stepId,
+          input.agendaSegmentId,
           input.pinnedVersionId,
           input.attachedBy,
         ],

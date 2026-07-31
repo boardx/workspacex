@@ -109,7 +109,7 @@ beforeEach(async () => {
   await addOrgMember(OTHER_ORG, OUTSIDER, "consultant", other.teams.energy!);
   await addProjectMember(OTHER_ORG, OTHER_PROJECT, OUTSIDER, "facilitator", null);
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about downstream-reference eligibility, not segment lifecycle -- most calls use
   // `bind()`'s default STEP, but two call sites pass their own literal explicitly.
   await seedAgendaSegment(ORG, PROJECT, STEP);
@@ -122,11 +122,11 @@ const org = () => toOrgId(ORG);
 const bind = (
   mode: "draft" | "live" | "pinned",
   artifactId: string,
-  stepId = STEP,
+  agendaSegmentId = STEP,
   sourceVersionId?: string,
 ) =>
   bindToProjectStep(h.deps, {
-    userId: AUTHOR, orgId: org(), artifactId, projectId: PROJECT, stepId, mode, sourceVersionId,
+    userId: AUTHOR, orgId: org(), artifactId, projectId: PROJECT, agendaSegmentId, mode, sourceVersionId,
   });
 
 const cite = (
