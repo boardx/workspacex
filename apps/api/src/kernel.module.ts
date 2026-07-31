@@ -129,6 +129,11 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
 import { CHAT_REPOSITORY } from "./application/chat/ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import { ChatController } from "./interface/controllers/chat.controller";
+// F10（phase-01 / UC-1.6）：组织成员邀请与激活。
+// ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
+import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
+import { PgOrgInviteRepository } from "./infrastructure/auth/pg-org-invite-repository";
+import { OrgInviteController } from "./interface/controllers/org-invite.controller";
 
 @Module({
   controllers: [
@@ -148,6 +153,7 @@ import { ChatController } from "./interface/controllers/chat.controller";
     OrgAdminScopeController,
     InterviewScopeController,
     ChatController,
+    OrgInviteController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -311,6 +317,12 @@ import { ChatController } from "./interface/controllers/chat.controller";
     {
       provide: INTERVIEW_SCOPE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgInterviewScopeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F10：组织成员邀请与激活（UC-1.6）。
+    {
+      provide: ORG_INVITE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrgInviteRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent

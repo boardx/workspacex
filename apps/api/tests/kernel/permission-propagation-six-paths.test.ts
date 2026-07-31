@@ -380,7 +380,25 @@ describe("lint-permission-paths: counter-proof", () => {
     // Its ENFORCED premise: a run is readable back only by the principal it was assembled
     // FOR, checked in `readRow` and asserted in `context-pack-pinned-replay.test.ts`, which
     // also removes the check to show the assertion is load-bearing.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(6);
+    //
+    // ⚠ Raised 6 -> 7 by F10 (phase-01 / UC-1.6), and it brings an enforced premise, as
+    // demanded above. The new entry is `infrastructure/auth/pg-org-invite-repository.ts`.
+    // Its argument has the same SHAPE as the identity repository's, not the registration
+    // one's: the row it reads from `org_invites` is the AUTHORITY FOR THE GRANT, so gating
+    // it on a decision would be circular -- and on this path there is nobody to judge,
+    // because the caller is an anonymous visitor holding an activation link who does not yet
+    // belong to any organization. "May this person read the row that decides what they are
+    // about to be granted" has no answer. Wrapping the read in `guard()` and discarding the
+    // wrapper would be a shell built to pass THIS gate, which is worse than an exemption
+    // stated in the open.
+    //
+    // Its ENFORCED premise: the invite row's CONTENT never leaves the repository.
+    // `activate()` returns only the grant (userId / orgId / orgRole / teamId /
+    // tamperRecorded) -- never `email`, never `invited_by`; the email is used solely as an
+    // INSERT parameter for the credential row the activation creates. That is asserted in
+    // `tests/auth/member-invite-activation.test.ts`, which also WIDENS the return value to
+    // show the assertion is load-bearing. If that test is deleted, the entry goes with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(7);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

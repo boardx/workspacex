@@ -78,10 +78,10 @@ fi
 # would have left the count where it was and nobody would have looked. With a floor of 8
 # against a real count of 26, that check was structurally incapable of noticing.
 #
-# So the floor tracks the measured count: 26 before F116, 29 after, 34 now. `-ge` rather
-# than `-eq` because features legitimately add tables and this gate must not be the thing
-# that turns red for it; raising the floor is the deliberate act that records "N more tables
-# are now in the tenant net".
+# So the floor tracks the measured count: 26 before F116, 29 after, 34 after F48, 38
+# now. `-ge` rather than `-eq` because features legitimately add tables and this gate must
+# not be the thing that turns red for it; raising the floor is the deliberate act that
+# records "N more tables are now in the tenant net".
 #
 # ⚠ The jump from 29 to 34 is FIVE tables from two features, and only one of them raised
 # this line. F48 adds three (models / model_composite_members / model_secrets); F80 added
@@ -95,8 +95,24 @@ fi
 # with a tenant policy), not "can the runtime read every column". The two are independent,
 # and the credential table needs the first precisely because someone may one day widen the
 # second.
+#
+# ⚠ 34 -> 38 又是**两个 feature**，而且这次是实测抓出来的，不是算出来的：
+#     +2 F10（迁移 0022）：`org_invites`、`org_invite_tamper_attempts`
+#     +2 F108（迁移 0021，随 wave-0 合入）：`chat_threads`、`chat_messages`
+#                —— 同样没有单独抬过这一行
+#   ⇒ 「34 + 我自己的 2」会算出 36，而全新迁移库上实测是 38。差的那 2 就是 F108，
+#     没有人会在算术里想起它。上面那段刚说「留了 N 张表的松量正是这个检查失效的方式」，
+#     所以这一行的数字**只许实测，不许推算**——推算的方向永远是少算，
+#     而少算的结果恰好是这个 ratchet 静默失效。
+#
+# ⚠ F10 的第三张新表 `org_invite_tokens` **不计入，且这是对的**：激活请求是匿名的
+#   （点链接的人还没有会话、也还不属于任何组织），令牌行必须在没有 `app.current_org`
+#   的情况下可查，所以它不带租户键，走与 `invite_codes` 同一条路——由
+#   `kernel-no-tenant-data:` 的 COMMENT 声明，审计判 `exempt-*` 而不是 `ok`。
+#   把它算进来，会让「新表被误判成 exempt」这件事恰好测不出来，
+#   而那正是这个 ratchet 存在的理由。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=34
+OK_TABLES_FLOOR=38
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
