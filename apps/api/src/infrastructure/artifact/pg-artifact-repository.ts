@@ -41,11 +41,20 @@ export class PgArtifactRepository implements ArtifactRepository {
   constructor(private readonly db: DatabasePort) {}
 
   async createArtifact(a: NewArtifact): Promise<void> {
+    // agenda_segment_id / confidential / ingestion_status are F35 additions to `NewArtifact`
+    // (all optional). Explicit `?? <column default>` here rather than leaving them out of
+    // the INSERT list, because "column has NOT NULL DEFAULT" and "caller supplied null"
+    // must both resolve to the SAME value for every existing caller that predates them.
     await this.db.withTenant(a.orgId, (s) =>
       s.query(
-        `INSERT INTO artifacts (id, org_id, project_id, source, title, created_by, synthesized)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [a.id, a.orgId, a.projectId, a.source, a.title, a.createdBy, a.synthesized],
+        `INSERT INTO artifacts
+           (id, org_id, project_id, source, title, created_by, synthesized,
+            agenda_segment_id, confidential, ingestion_status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          a.id, a.orgId, a.projectId, a.source, a.title, a.createdBy, a.synthesized,
+          a.agendaSegmentId ?? null, a.confidential ?? false, a.ingestionStatus ?? "READY",
+        ],
       ),
     );
   }

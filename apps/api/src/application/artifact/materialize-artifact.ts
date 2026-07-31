@@ -84,6 +84,15 @@ export interface MaterializeInput {
    * collision it is entitled to gets to happen.
    */
   readonly versionNumber?: number;
+
+  /**
+   * F35 passthrough to `NewArtifact` -- see that type for why these are optional and what
+   * "undefined" means. Only the upload use case sets them; every other caller (F05 pin,
+   * F06 binding, the F04 tests) is unaffected.
+   */
+  readonly agendaSegmentId?: string | null;
+  readonly confidential?: boolean;
+  readonly ingestionStatus?: string;
 }
 
 export interface MaterializeResult {
@@ -147,6 +156,9 @@ export async function materializeArtifact(
       // `source: "ai-generated", synthesized: false` is exactly the disguise the flag
       // exists to prevent; the schema refuses that combination too.
       synthesized: input.source === "ai-generated",
+      agendaSegmentId: input.agendaSegmentId,
+      confidential: input.confidential,
+      ingestionStatus: input.ingestionStatus,
     });
   }
 

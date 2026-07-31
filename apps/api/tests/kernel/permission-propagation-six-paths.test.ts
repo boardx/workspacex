@@ -568,7 +568,20 @@ describe("lint-permission-paths: counter-proof", () => {
     // `projects`/`agenda_segments`, no returned field beyond {kind, projectId, status}) is asserted
     // by tests/project/archive-readonly-and-readable.test.ts. If that test is ever deleted, this
     // entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(17);
+    //
+    // ⚠ Raised 17 -> 18 by F35 (phase-01 / uc-22-2 malware quarantine trail) -- this raise landed
+    // independently of F124's raise above and was merged here on rebase onto main (through F124
+    // #172 / F33 #178) -- RE-MEASURED on the combined (rebased) tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (18), not computed as "17 + 1". The
+    // new entry is `infrastructure/files/pg-quarantine-repository.ts` -- it has no read method at
+    // all, `record()` is a single INSERT, and a malware-scan verdict is a security/audit fact
+    // about bytes that were REFUSED (no artifact, no artifact_version, nothing UC-0.3 R7
+    // propagation reaches), same category as the provenance-repository entry above.
+    //
+    // Its ENFORCED premise: `tests/files/quarantine-repo-is-write-only.test.ts` parses the
+    // file and asserts every `malware_quarantine_records` reference is an INSERT INTO. If
+    // that test is deleted, this entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(18);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

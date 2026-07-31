@@ -82,6 +82,18 @@ export interface NewArtifact {
   readonly title: string;
   readonly createdBy: string;
   readonly synthesized: boolean;
+  /**
+   * F35 additions -- all optional so every existing caller (F04/F05/F06/F31) keeps its
+   * current behaviour untouched. Undefined means "use the column default"
+   * (`agenda_segment_id IS NULL`, `confidential = false`, `ingestion_status = 'READY'`,
+   * migration 0023). The upload path (`upload-artifact.ts`) is the one caller that passes
+   * all three explicitly, because a freshly-uploaded file is `STORED`, not `READY` -- the
+   * rest of the nine-state pipeline (extract/segment/enrich/index/review) is F36+, not yet
+   * run for a file that just landed in the object store.
+   */
+  readonly agendaSegmentId?: string | null;
+  readonly confidential?: boolean;
+  readonly ingestionStatus?: string;
 }
 
 export interface NewArtifactVersion {
