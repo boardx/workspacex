@@ -145,7 +145,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/admin-invite-dual-review.test.ts",
@@ -169,7 +169,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/join-token-phone-roster.test.ts",
@@ -262,7 +262,7 @@
       ],
       "points": 1,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/revoke-5s-new-access-denied.test.ts",
@@ -306,7 +306,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/designer-shell-version-bar.test.ts",
@@ -628,9 +628,9 @@
         "F31"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w1-files",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/preview-five-types.test.ts",
         "pnpm --filter api exec vitest run tests/files/download-url-short-lived-onetime.test.ts",
@@ -652,7 +652,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/files/zip-export-roundtrip.test.ts",
@@ -675,7 +675,7 @@
       ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/files/empty-and-dependency-failed.test.ts",
@@ -699,7 +699,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/files/upload-server-validation.test.ts",
@@ -1020,9 +1020,9 @@
         "F48"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w1-model",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/model/admission-test-gate.test.ts",
         "pnpm --filter api exec vitest run tests/capability/model/test-verdict-immutable.test.ts",
@@ -1117,7 +1117,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/mcp/auth-scope-server-enforce.test.ts",
@@ -1364,9 +1364,9 @@
         "F61"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w1-skill",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/binding-model-distinguishable-slot.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/instance-override-no-writeback.test.ts",
@@ -1438,7 +1438,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts",
@@ -1542,7 +1542,8 @@
       "notes": "依据 [原型]+[设计]。硬约束：无可定位 anchor 的 Segment 不得入库、不得进检索、不得被 AI 引用（AC2 数据层）。diarization 只做本场内声道，不建跨场次声纹身份库。\n【跨分片依赖待确认】phase-00: Context Pack 与 segments/anchors 统一上下文模型",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F71",
@@ -1730,7 +1731,8 @@
       "notes": "依据 D-14。三处呈现（研究计划参数面板/材料库保留至/授权页告知）读同一个解析结果，任一处对不上即缺陷。渲染消费方是 UC-6.3；UC-5.4 为 P1。",
       "priority": 2,
       "area": "rec",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F80",
@@ -1761,8 +1763,8 @@
         "F80"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w1-itv",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/mount-to-segment-snapshot.test.ts",
         "pnpm --filter api exec vitest run tests/itv/virtual-real-counts-split.test.ts"
@@ -1771,7 +1773,8 @@
       "notes": "依据 [原型]+D-38/D-25。phase-1 只做虚拟来源的列表展示+探索性隔离标记；构造能力归 phase-3 的 16-persona。\n【跨分片依赖待确认】phase-00: F06 三模式绑定服务（挂载绑定固定快照）",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F82",
@@ -1792,7 +1795,8 @@
       "notes": "依据 [原型]（列表已探明）但 UC-6.1 新建访谈模板的编辑/套用界面尚未建（简报指令），故 needs_ui_signoff。模板版本按 artifact_versions 不可变+SHA-256，套用固化版本号。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F83",
@@ -1877,7 +1881,8 @@
       "notes": "依据 [原型]+裁决 O-15。界面已建于 /consent（consent-body/consent-controller）。断言系统中不存在「24 小时单一令牌」实现路径；渲染变量缺失时不得发链接。\n【跨分片依赖待确认】05-rec: T11 同意书动态渲染与渲染快照（同一接口）",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F87",
@@ -2117,7 +2122,8 @@
       "notes": "依据 [原型]（列名与两按钮已探明）但组卡对象表完整交互属未探明/原型确认缺失，故 needs_ui_signoff。这张表是项目↔访谈唯一双向桥、UC-6.2「选对象」与 UC-6.5 矩阵列头的取数来源。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F98",
@@ -2202,7 +2208,8 @@
       "notes": "依据 [原型]+裁决 O-10。归档禁新增绑定但不禁存量实例化（唯一同时满足「归档只影响能不能新建」与「现场不跑挂」的读法）；归档确认框提示「有 N 个议程环节仍绑定此模板」。「未试跑不得发布」的阻断属原型确认缺失，本 feature 不含该阻断。",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F102",
@@ -2245,7 +2252,8 @@
       "notes": "依据 D-08。⚠ 当前 /projects/[id]/canvas 是 mock 壳（有「非 mermaid 渲染」角标），本 feature 交付真实的 mermaid 渲染与往返、替换该壳。round-trip/序列化在纯函数层可在 Node 里跑（绕开原型零 testid 与浏览器 getBBox 依赖），是本模块最稳的 verification。canvas-source-view/canvas-stage 已存在。",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F104",
@@ -2366,8 +2374,8 @@
         "F108"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w1-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/thread-badge-single-source.test.ts",
         "pnpm --filter api exec vitest run tests/chat/messages-jsonl-file-granularity.test.ts",
@@ -2377,7 +2385,8 @@
       "notes": "依据 [原型]。界面已建于 /chat（chat-thread-list/chat-new-thread）。线程卡「N 条待复核」与 UC-8.2 消息头「待复核 N」取同一字段（两处数值必须相等）；私聊线程归项目层、不计入 N 个 agent 在场态（O-24）。「更早」分组与检索属原型确认缺失。\n【跨分片依赖待确认】phase-00: F04 file-first / 22-files",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F110",
@@ -2399,7 +2408,8 @@
       "notes": "依据 [原型]。界面已建（chat-team-panel/chat-ai-message/chat-ai-skill）。在场三态是 enum 不得增删、每个 agent 必须有职责一句话。D-U6：agent 计数两口径「在场 4/编制 6」同时显示（mock 已有 TEAM_PRESENT_COUNT/TEAM_ROSTER_COUNT）。[编制]是原型待补（空按钮）。\n【跨分片依赖待确认】04-agent: agent 清单/可见性范围来自组织配置（phase-00 F15），原型里 6 个 agent 只是示例；phase-00: F15 组织配置平面",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F111",
@@ -2544,9 +2554,9 @@
         "F116"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w1-project",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2571,7 +2581,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2674,7 +2684,7 @@
       ],
       "points": 4,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2727,7 +2737,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2958,7 +2968,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3149,7 +3159,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts run test",
