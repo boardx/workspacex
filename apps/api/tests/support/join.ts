@@ -7,6 +7,7 @@ import {
   PgJoinApplicationRepository,
   PgJoinRepository,
   PgParticipantRosterRepository,
+  PgParticipantWithdrawalRepository,
 } from "../../src/infrastructure/auth/pg-invite-link-repository";
 import { PgLiveSessionRepository } from "../../src/infrastructure/auth/pg-live-session-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -23,6 +24,7 @@ export function repos(db: PgDatabase) {
     joinApplication: new PgJoinApplicationRepository(db),
     // F13 意外③：掉线/换设备重开——用来在测试里先 `checkIn` 出一条既有在场会话。
     liveSessions: new PgLiveSessionRepository(db, newLiveSessionId),
+    withdrawal: new PgParticipantWithdrawalRepository(db),
   };
 }
 
