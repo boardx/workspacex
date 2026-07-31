@@ -147,6 +147,16 @@ import {
 import { PgArtifactBrowserRepository } from "./infrastructure/files/pg-artifact-browser-repository";
 import { ObjectStoreHeadProbe } from "./infrastructure/files/object-store-head-probe";
 import { FilesBrowserController } from "./interface/controllers/files-browser.controller";
+// F32：五类预览器 + 单个下载（短时效 · 一次性 · 绑定 principal · 写审计）。
+// ⚠ 它的版本查找走的是 F31 **同一个** `wsx_visible_artifacts()`，不是第二份谓词——
+//   浏览器里看不见的版本必须预览不了也下载不了，而那要靠「只有一处判定」而不是靠约定。
+import {
+  DOWNLOAD_GRANT_REPOSITORY,
+  DOWNLOAD_URL_BUILDER,
+} from "./application/files/download-ports";
+import { PgDownloadGrantRepository } from "./infrastructure/files/pg-download-grant-repository";
+import { IsolatedDownloadUrlBuilder } from "./infrastructure/files/isolated-download-url-builder";
+import { FilesDeliveryController } from "./interface/controllers/files-delivery.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -177,6 +187,7 @@ import { ProjectController } from "./interface/controllers/project.controller";
     ChatController,
     OrgInviteController,
     FilesBrowserController,
+    FilesDeliveryController,
     DeviceSessionController,
     ProjectController,
   ],
@@ -289,6 +300,17 @@ import { ProjectController } from "./interface/controllers/project.controller";
       useFactory: (store: ObjectStore) => new ObjectStoreHeadProbe(store),
       inject: [OBJECT_STORE],
     },
+    // F32. One repository behind both the version lookup and the grant, for the same reason
+    // F31 has one behind list/tree/search: two providers would be the first step toward two
+    // visibility predicates.
+    {
+      provide: DOWNLOAD_GRANT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDownloadGrantRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // ⚠ The isolated origin is a security boundary, not cosmetics -- an uploaded .html or a
+    // scripted .svg served from the main origin runs there. See the builder's header.
+    { provide: DOWNLOAD_URL_BUILDER, useClass: IsolatedDownloadUrlBuilder },
     // ⚠ Still process-local, and that is CORRECT -- do not "fix" it by pointing it at Redis.
     //
     // This is `identity`'s SessionStore: the per-user project-scoped CONTEXT that

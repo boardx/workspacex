@@ -45,6 +45,13 @@ export interface BrowserArtifactSpec {
   readonly creator?: { kind: "user"; id: string } | { kind: "agent"; id: string; runId: string };
   /** Head-version size. A version is always created: F04 I-5 says a version with no bytes is not one. */
   readonly sizeBytes?: number;
+  /**
+   * Head-version MIME (F32). Defaults to `application/octet-stream` -- which is not a neutral
+   * choice and is the right default: it is the type F32's preview mapping answers
+   * `unsupported` for, so a fixture that forgets to say what it is gets the refusal screen
+   * rather than an accidental previewer.
+   */
+  readonly mime?: string;
   /** Indexed text, so the artifact is reachable through the retrieval channel. */
   readonly text?: string;
 }
@@ -80,7 +87,7 @@ export async function addBrowserArtifact(spec: BrowserArtifactSpec): Promise<voi
       `INSERT INTO artifact_versions
          (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
           size_bytes, pinned_by)
-       VALUES ($1,$2,$3,1,$4,$5,'application/octet-stream',$6,$7)`,
+       VALUES ($1,$2,$3,1,$4,$5,$8,$6,$7)`,
       [
         versionId, spec.orgId, spec.id,
         `${spec.orgId}/artifacts/${spec.id}/v1/${versionId}`,
@@ -89,6 +96,7 @@ export async function addBrowserArtifact(spec: BrowserArtifactSpec): Promise<voi
         "0".repeat(64),
         spec.sizeBytes ?? 1024,
         creator.id,
+        spec.mime ?? "application/octet-stream",
       ],
     );
     await c.query(

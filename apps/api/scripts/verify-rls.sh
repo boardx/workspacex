@@ -157,8 +157,24 @@ fi
 #   （比较是 `-ge`，floor 少 1 永远不会红）。
 #   ⇒ 这一行的唯一正确处理是：冲突整个丢掉，在**合流后的库**上从空库重跑一次。
 #     它不只是「不许推算」，还是「不许沿用自己上一次的实测」。
+
+# ⚠ 43 -> __PENDING__ 是 F32（迁移 0027）在 rebase 到同时含 F49 / F117 / F81 的 main 之后、
+#   于**全新迁移库上第三次重新实测**的：`WORKSPACEX_DB=wsx_f32rls bash scripts/verify-rls.sh`。
+#   F32 只加一张表 `download_grants`（下载授予：短时效 · 一次性 · 绑定 principal），带 org_id ⇒ ok。
+#   ⚠ 它**没有**走 `invite_link_tokens` / `org_invite_tokens` 那条「无租户键的令牌表」的路，
+#     所以不是 `exempt-*`。理由见 0027 文件头：那两张表脱离租户是因为点链接的人还不是
+#     任何组织的成员；而下载链接**绑定 principal**，兑付方必然是已登录的那个人，
+#     会话里带着 org。⇒ 令牌行留在租户内，这一行 +1 而不是 +0。
+#
+#   ⚠ **F32 也在这一行上量了三次，前两次全部作废** —— 与 F81 上面那段是同一件事的第二例：
+#     · 第一次（分支上，main 还没有 F49）：`40 -> 41`
+#     · 第二次（rebase 到含 F49 的 main 之后）：`41 -> 42`
+#     · 第三次（F117 与 F81 又先合入，再 rebase）：本行
+#   ⇒ 到此为止，**四个并行 feature 在这一行上一共产生过九次实测，其中五次已作废**。
+#     作废的从来不是「量错了」，而是「量的那棵树没了」。冲突里两个数字都对、都不能用。
+
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=43
+OK_TABLES_FLOOR=__PENDING__
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
