@@ -234,6 +234,25 @@ export const ToolCall = z.object({
   provenanceEventId: z.string(),
 }).strict();
 
+/**
+ * 一次工具调用写进 `provenance_events.detail` 的存储形状（F111 · uc-8-2 UC-14）。
+ * ⚠ 与 `ToolCall`（对外投影）不是同一个形状：`detail` 里是 `messageId`
+ *   （借用 thread target 之后用来在同一线程的多条消息间区分归属，见
+ *   `tool-call-projection.ts` 文件头），投影时替换成 `provenanceEventId`。
+ */
+export const ToolCallDetail = z.object({
+  messageId: z.string(),
+  function: z.string().min(1),
+  args: z.string(),
+  hitCount: z.number().int().nonnegative().nullable(),
+  reuseFlag: z.boolean().nullable(),
+  status: ToolCallStatus,
+  tokens: z.number().int().nonnegative(),
+  callerAgentId: z.string().min(1),
+  model: z.string().min(1),
+  pipelineVersion: z.string().min(1),
+}).strict();
+
 /** 批准卡的数据范围条目。`confidential` 触发模型策略判定（I-32） */
 export const ApprovalDataScope = z.object({
   name: z.string(),

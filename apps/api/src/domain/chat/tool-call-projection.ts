@@ -25,9 +25,8 @@
  * ——与 `mutate-thread.ts` 把 `projectId` 放进 `detail` 同一个处置（ADR-101 决策 B
  * 未裁期间的临时形状，见该文件文件头）。
  */
-import { provenance as P } from "@repo/contracts";
-import { z } from "zod";
-import type { chat as C } from "@repo/contracts";
+import { provenance as P, chat as C } from "@repo/contracts";
+import type { z } from "zod";
 
 /**
  * ⚠ **借用的类型，不是新语义**。见文件头。下一次 ADR 补上专门的类型时，
@@ -36,19 +35,10 @@ import type { chat as C } from "@repo/contracts";
 export const TOOL_CALL_AUDIT_TYPE: z.infer<typeof P.ProvenanceEventType> = "generated";
 
 /** 一次工具调用写进 `detail` 的形状。`messageId` 是本函数从 target 借用 thread 之后，
- *  用来在同一线程的多条消息间区分「这条调用属于哪条消息」的字段。 */
-export const ToolCallDetail = z.object({
-  messageId: z.string(),
-  function: z.string().min(1),
-  args: z.string(),
-  hitCount: z.number().int().nonnegative().nullable(),
-  reuseFlag: z.boolean().nullable(),
-  status: z.enum(["done", "reuse", "running", "failed"]),
-  tokens: z.number().int().nonnegative(),
-  callerAgentId: z.string().min(1),
-  model: z.string().min(1),
-  pipelineVersion: z.string().min(1),
-}).strict();
+ *  用来在同一线程的多条消息间区分「这条调用属于哪条消息」的字段。
+ *  ⚠ 形状本身是契约（`@repo/contracts` `chat.ToolCallDetail`），这里只引用，不重定义
+ *  （见 `tests/contract-single-source.test.ts` "no backend file declares its own zod object schema"）。 */
+export const ToolCallDetail = C.ToolCallDetail;
 
 export type ToolCallDetailT = z.infer<typeof ToolCallDetail>;
 
