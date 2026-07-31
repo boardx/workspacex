@@ -7,7 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && node scripts/lint-skill-context-api-only.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src",
+    "lint": "node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src",
     "test": "vitest run",
     "migrate": "tsx src/infrastructure/db/migrate-cli.ts",
     "migrate:check": "./scripts/verify-migrations.sh",
