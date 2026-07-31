@@ -146,7 +146,7 @@
       "points": 3,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-auth",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/admin-invite-dual-review.test.ts",
         "pnpm --filter api exec vitest run tests/auth/quota-exhausted-hard-block.test.ts",
@@ -170,7 +170,7 @@
       "points": 4,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-auth2",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/join-token-phone-roster.test.ts",
         "pnpm --filter api exec vitest run tests/auth/join-no-account-created.test.ts",
@@ -263,7 +263,7 @@
       "points": 1,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-auth3",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/revoke-5s-new-access-denied.test.ts",
         "pnpm --filter api exec vitest run tests/auth/revoke-onsite-survive-until-stage-end.test.ts",
@@ -328,9 +328,9 @@
         "F18"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-tpl",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/duration-tier-agenda-count.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/online-mode-adds-two-stages.test.ts",
@@ -351,9 +351,9 @@
         "F18"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-tpl2",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/model-strategy-three-lanes.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/confidential-local-not-downgraded.test.ts",
@@ -374,9 +374,9 @@
         "F18"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-tpl3",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/init-preview-six-categories.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/trial-run-prereq-for-publish.test.ts"
@@ -653,7 +653,7 @@
       "points": 3,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-files",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/zip-export-roundtrip.test.ts",
         "pnpm --filter api exec vitest run tests/files/export-manifest-sha256.test.ts",
@@ -676,7 +676,7 @@
       "points": 2,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-files2",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/empty-and-dependency-failed.test.ts",
         "pnpm --filter api exec vitest run tests/files/no-access-equals-not-exist.test.ts",
@@ -700,7 +700,7 @@
       "points": 4,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-files3",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/upload-server-validation.test.ts",
         "pnpm --filter api exec vitest run tests/files/scan-eicar-malware.test.ts",
@@ -1044,9 +1044,9 @@
         "F49"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-model",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/model/selectable-set-equals-enabled.test.ts",
         "pnpm --filter api exec vitest run tests/capability/model/disable-cascade-dep-failed.test.ts",
@@ -1118,7 +1118,7 @@
       "points": 3,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-mcp",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/mcp/auth-scope-server-enforce.test.ts",
         "pnpm --filter api exec vitest run tests/capability/mcp/isolated-server-blocked.test.ts",
@@ -1388,9 +1388,9 @@
         "F63"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-skill",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/each-cell-generates-todo.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/segment-switch-remount-and-views.test.ts",
@@ -1413,9 +1413,9 @@
         "F63"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w2-skill2",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/member-cannot-self-mount.test.ts",
@@ -1439,7 +1439,7 @@
       "points": 3,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-skill3",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/version-snapshot-immutable-lock.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/reference-enumeration-three-kinds.test.ts",
@@ -1532,7 +1532,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-rec",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/segment-anchor-completeness.test.ts",
         "pnpm --filter api exec vitest run tests/rec/partial-segment-not-citable.test.ts",
@@ -1722,7 +1722,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-rec2",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/consent-render-from-params.test.ts",
         "pnpm --filter api exec vitest run tests/rec/consent-snapshot-immutable.test.ts"
@@ -1786,7 +1786,7 @@
       ],
       "points": 4,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-itv",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/template-apply-three-things-detached.test.ts",
         "pnpm --filter api exec vitest run tests/itv/template-usage-count-not-writable.test.ts"
@@ -1872,7 +1872,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-itv2",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/token-two-kinds-lifecycle.test.ts",
         "grep -rq 'data-testid=.consent-controller' apps/web/components/entry"
@@ -2113,7 +2113,7 @@
       ],
       "points": 4,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-itv3",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts",
         "pnpm --filter api exec vitest run tests/itv/consent-status-single-source.test.ts"
@@ -2199,7 +2199,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-canvas",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/publish-archive-instance-version.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/mermaid-whitelist-ignored-count.test.ts"
@@ -2242,7 +2242,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-canvas2",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/three-way-transform.test.ts",
@@ -2398,7 +2398,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "owner": null,
+      "owner": "w2-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/team-panel-presence-tri-state.test.ts",
         "grep -rq 'data-testid=.chat-team-panel' apps/web/components/chat",
@@ -2582,7 +2582,7 @@
       "points": 5,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-project",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2738,7 +2738,7 @@
       "points": 5,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-project2",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2969,7 +2969,7 @@
       "points": 3,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-asset",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter web exec vitest run tests/ui/admin-nav-count-unavailable.test.tsx",
@@ -3160,7 +3160,7 @@
       "points": 5,
       "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w2-asset2",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/asset-directory-tree.test.ts",
