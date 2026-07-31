@@ -42,6 +42,11 @@ export function fakeSessions(): SessionTokenStore & { issued: SessionRecord[] } 
     revokeAllForUser: async () => 0,
     listForUser: async () => issued,
     setCurrentOrg: async () => true,
+    // F03。这个 fake 只服务于「激活时签发了几条会话」这一类断言，
+    // 所以两个新方法给的是**最小诚实实现**而不是 `null as any`：
+    // 一个 fake 里的 `any` 会让将来某条真正依赖它的断言在假数据上变绿。
+    revokeSession: async () => null,
+    touch: async () => undefined,
   } as SessionTokenStore & { issued: SessionRecord[] };
 }
 

@@ -17,7 +17,7 @@
  * indistinguishable, which they are here because they are the same code AND the same status
  * AND the same elapsed time.
  */
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UnauthorizedException } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
 import { login } from "../../application/auth/login";
 import {
@@ -35,6 +35,7 @@ import {
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { ContractValidationError, ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { Public } from "../public.decorator";
+import { deviceContextOf, type RequestLike } from "../device-context";
 
 export const LOGIN_SCHEMA = C.operations.login.in;
 export const RESET_REQUEST_SCHEMA = C.operations.requestPasswordReset.in;
@@ -79,6 +80,10 @@ export class AuthController {
     // param decorator injects, fail, and 400 every request -- with a symptom that reads as
     // a malformed body and sends you to debug the client.
     @Body(new ZodBodyPipe(LOGIN_SCHEMA)) body: LoginBody,
+    // F03：设备与登录地点。⚠ 从 `Request` 上读，**不从 body 读**——
+    // 契约的 `login.in` 是 `.strict()` 的 `{email,password}`，而且客户端自报的设备名
+    // 会被用户当成事实读。派生规则在 `domain/auth/device-fingerprint.ts`。
+    @Req() req: RequestLike,
   ) {
     try {
       return await login(
@@ -88,6 +93,7 @@ export class AuthController {
           identity: this.identity,
         },
         body,
+        deviceContextOf(req),
       );
     } catch (e) {
       throw toHttp(e);
