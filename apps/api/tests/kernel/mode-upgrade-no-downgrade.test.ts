@@ -13,6 +13,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import { makeHarness, seedArtifact, type Harness } from "../support/binding-fixture";
@@ -44,7 +45,7 @@ import {
 
 const ORG = "org-f06-upgrade";
 const PROJECT = "proj-f06-upgrade";
-const STEP = "step-synthesis";
+const STEP = "f06u-step-synthesis";
 const AUTHOR = "u-f06u-author";
 const MEMBER = "u-f06u-member";
 
@@ -76,6 +77,17 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, AUTHOR, "facilitator", null);
   await addOrgMember(ORG, MEMBER, "consultant", fx.teams.energy!);
   await addProjectMember(ORG, PROJECT, MEMBER, "member", null);
+
+  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file's
+  // stepIds are opaque labels for "which step" a binding targets -- seed a real row for each
+  // literal used anywhere below (note: "somewhere-else" at line ~250 is deliberately NOT
+  // seeded -- that assertion tests that re-targeting is refused by the BEFORE-UPDATE trigger
+  // before the FK is ever consulted, and seeding it would silently change what is proven).
+  for (const step of [
+    STEP, "f06u-step-a", "f06u-step-b", "f06u-step-live", "f06u-step-pin", "f06u-step-raise", "f06u-step-draft",
+  ]) {
+    await seedAgendaSegment(ORG, PROJECT, step);
+  }
 });
 
 const org = () => toOrgId(ORG);
@@ -131,7 +143,7 @@ describe("A2: an upgrade really upgrades", () => {
   it("draft -> pinned is also an upgrade, and draft -> live is the only way to publish", async () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
 
-    const draft = await bind("draft", "step-a", undefined, a.artifactId);
+    const draft = await bind("draft", "f06u-step-a", undefined, a.artifactId);
     const nowPinned = await upgradeBinding(h.deps, {
       userId: AUTHOR, orgId: org(), bindingId: draft.id, expectedHeadVersion: 1,
     });
@@ -141,8 +153,8 @@ describe("A2: an upgrade really upgrades", () => {
     // `pinned`. So publishing a draft as a live reference has exactly one home, and it is
     // `bindToProjectStep` re-binding the same step.
     const b = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
-    const draft2 = await bind("draft", "step-b", undefined, b.artifactId);
-    const live = await bind("live", "step-b", undefined, b.artifactId);
+    const draft2 = await bind("draft", "f06u-step-b", undefined, b.artifactId);
+    const live = await bind("live", "f06u-step-b", undefined, b.artifactId);
     expect(live.id).toBe(draft2.id);
     expect(live.mode).toBe("live");
   });
@@ -198,15 +210,15 @@ describe("A3 / I-11: a pinned binding never goes back", () => {
   it("live -> draft is refused too, and so is re-pointing a pinned binding at a newer version", async () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n", "v2\n"], AUTHOR);
 
-    const live = await bind("live", "step-live", undefined, a.artifactId);
-    await expect(bind("draft", "step-live", undefined, a.artifactId)).rejects.toBeInstanceOf(
+    const live = await bind("live", "f06u-step-live", undefined, a.artifactId);
+    await expect(bind("draft", "f06u-step-live", undefined, a.artifactId)).rejects.toBeInstanceOf(
       CannotDowngradeError,
     );
     expect((await modeOf(live.id))!.mode).toBe("live");
 
     // The case a rank comparison cannot see: same mode, same rank, and the citation moves.
-    const pinned = await bind("pinned", "step-pin", a.versionIds[0], a.artifactId);
-    await expect(bind("pinned", "step-pin", a.versionIds[1], a.artifactId)).rejects.toBeInstanceOf(
+    const pinned = await bind("pinned", "f06u-step-pin", a.versionIds[0], a.artifactId);
+    await expect(bind("pinned", "f06u-step-pin", a.versionIds[1], a.artifactId)).rejects.toBeInstanceOf(
       CannotDowngradeError,
     );
     expect((await modeOf(pinned.id))!.pinned_version_id).toBe(a.versionIds[0]);
@@ -253,7 +265,7 @@ describe("A3 / I-11: a pinned binding never goes back", () => {
 
     // Counter-proof: an UPDATE that RAISES the mode passes the same trigger. Without this,
     // a trigger that raised on every UPDATE would look identical.
-    const live = await bind("live", "step-raise", undefined, a.artifactId);
+    const live = await bind("live", "f06u-step-raise", undefined, a.artifactId);
     await asApp(ORG, (c) =>
       c.query(`UPDATE artifact_bindings SET mode='pinned', pinned_version_id=$2 WHERE id=$1`, [
         live.id, a.versionIds[0],
@@ -289,7 +301,7 @@ describe("A3 / I-11: a pinned binding never goes back", () => {
     // Counter-proof one: a DRAFT binding is not a citation, and deleting it is allowed --
     // so the trigger discriminates rather than refusing everything.
     const b = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
-    const draft = await bind("draft", "step-draft", undefined, b.artifactId);
+    const draft = await bind("draft", "f06u-step-draft", undefined, b.artifactId);
     await asOwner((c) => c.query(`DELETE FROM artifact_bindings WHERE id = $1`, [draft.id]));
     expect(await modeOf(draft.id)).toBeNull();
 
@@ -345,7 +357,7 @@ describe("POST /artifacts/:id/bindings and .../upgrade conform to the contract",
     expect(down.status).toBe(409);
     expect(((await down.json()) as { error: string }).error).toBe("conflict");
 
-    const live = await bind("live", "step-live", undefined, a.artifactId);
+    const live = await bind("live", "f06u-step-live", undefined, a.artifactId);
     const stale = await post(`/artifacts/bindings/${live.id}/upgrade`, {
       bindingId: live.id, expectedHeadVersion: 1,
     });

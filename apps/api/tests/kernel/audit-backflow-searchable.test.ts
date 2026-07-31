@@ -9,6 +9,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import { makeHarness, seedArtifact, type Harness } from "../support/binding-fixture";
@@ -48,7 +49,7 @@ import { PgArtifactRepository } from "../../src/infrastructure/artifact/pg-artif
 
 const ORG = "org-f08-search";
 const PROJECT = "proj-f08-search";
-const STEP = "step-discovery";
+const STEP = "f08s-step-discovery";
 const AUTHOR = "u-f08-author";
 const SECOND = "u-f08-second";
 const MEMBER = "u-f08-member";
@@ -105,6 +106,11 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, MEMBER, "member", null);
   // `lead` is 「项目负责人」 in this ontology (UC-0.3 R5) and is who may read the trail.
   await addOrgMember(ORG, LEAD, "lead", fx.teams.energy!);
+
+  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // is about the provenance/audit trail, not segment lifecycle.
+  await seedAgendaSegment(ORG, PROJECT, STEP);
+  await seedAgendaSegment(ORG, PROJECT, "f08s-step-other");
 });
 
 /* ───────────────────────── V7: 定版与绑定都留痕，且可检索 ───────────────────────── */
@@ -341,7 +347,7 @@ describe("E5: withdrawing evidence annotates and notifies, and never touches the
     // the head -- so annotating it would mark a reference that never rested on this evidence.
     const live = await bindToProjectStep(h.deps, {
       userId: SECOND, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: "step-other", mode: "live",
+      stepId: "f08s-step-other", mode: "live",
     });
 
     const r = await withdraw(a.versionIds[0]!);

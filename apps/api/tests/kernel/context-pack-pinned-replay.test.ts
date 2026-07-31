@@ -10,6 +10,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -178,6 +179,11 @@ beforeEach(async () => {
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, USER, "consultant", null);
   await addProjectMember(ORG, PROJECT, USER, "member", null);
+
+  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // is about context-pack replay/pinning, not segment lifecycle -- `pinnableVersion()` below
+  // always uses the literal "f13-step-1".
+  await seedAgendaSegment(ORG, PROJECT, "f13-step-1");
 });
 
 /* ══════════════════ ① replay is a RECOMPUTATION, not a read-back ══════════════════ */
@@ -353,7 +359,7 @@ describe("PinContextPack：随固定快照固化（I-7）", () => {
            (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [
-          `f13-bind-${segmentId}`, ORG, artifactId, PROJECT, "step-1", mode,
+          `f13-bind-${segmentId}`, ORG, artifactId, PROJECT, "f13-step-1", mode,
           mode === "pinned" ? versionId : null, USER,
         ],
       ),

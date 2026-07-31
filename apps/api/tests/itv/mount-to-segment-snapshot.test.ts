@@ -27,6 +27,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import { resetInterviews, seedInterview } from "../support/interview-db";
@@ -127,11 +128,17 @@ beforeEach(async () => {
   // 一场**不属于任何项目**的访谈 —— R4 的原话是「把一场无项目访谈挂到项目环节」。
   await seedInterview({ orgId: ORG, id: ITV, createdBy: CREATOR, projectId: null });
 
+  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // is about interview-attachment mounting, not segment lifecycle -- seed the two literal
+  // step ids used below (STEP via attachToProjectStep, "f81m-step-pin-source" via pinBinding).
+  await seedAgendaSegment(ORG, PROJECT, STEP);
+  await seedAgendaSegment(ORG, PROJECT, "f81m-step-pin-source");
+
   const art = await seedArtifact(h, ORG, PROJECT, ["v1 的内容"], CREATOR);
   artifactId = art.artifactId;
   v1 = art.versionIds[0]!;
   v1Hash = await hashOf(v1);
-  await pinBinding(artifactId, v1, "step-pin-source");
+  await pinBinding(artifactId, v1, "f81m-step-pin-source");
 }, 90_000);
 
 /** 让上游往前走一版。**每一条快照断言之前都要跑它**，否则那条断言在只有一版时恒真。 */
