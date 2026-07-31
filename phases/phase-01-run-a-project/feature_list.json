@@ -11,14 +11,14 @@
       "spec_ref": "01-auth/uc-1-1-邮箱账号登录.md#R8",
       "depends_on": [],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-auth",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
         "pnpm --filter api exec vitest run tests/auth/kick-device-invalidates-session.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F03.verify.log @ 2026-07-31T04:29:02.455Z",
       "notes": "依据等级：AC2 的 30 天/设备指纹/踢下线全部为[Backlog]，设备与会话列表在原型中为『原型确认缺失』（登录页与后台各屏已逐字段抽取，无任何设备/会话入口，需补画整块能力入口）。UI 未建（无 device/kick testid），故 needs_ui_signoff=true，进不了 new-sprint 直到补画并签。后端可 API 断言（V2）。30 天为 Backlog 数字，不当原型证据。 ⚠ 原 depends_on 里的 F01 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F20"
     },
     {
@@ -237,7 +237,7 @@
       "spec_ref": "01-auth/uc-1-3-生成与撤销邀请链接.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-auth4",
       "verification": [
@@ -246,7 +246,7 @@
         "pnpm --filter api exec vitest run tests/auth/invite-validity-three-tiers.test.ts",
         "pnpm --filter api exec vitest run tests/auth/invite-onetime-used-by.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F15.verify.log @ 2026-07-31T04:28:09.177Z",
       "notes": "依据：两处载体（参与者与邀请 / 分组与签到）均为[原型]完整存在（proto-08/proto-06），O-06 令牌契约、O-03 协同引导师=facilitator 展示别名。⚠ 但管理面 UI 是项目工作台/设置子屏，代码未建（无 invite/participant/roster testid），故 needs_ui_signoff=true。「记录使用者」为『原型确认缺失』（链接卡片在视野内无该字段，落点 invite_link.used_by 已由 O-06 闭合，呈现位置待补画）。观察者链接只读须与 UC-1.4 观察者判定共用同一套服务端判定，不另做过滤。V5b/V5c/V5d/V7b 对应。必须早于 UC-1.2。\n【跨分片依赖待确认】phase-00: 项目角色可由一次性链接授予（F01）；02-tpl: 参与者名单与分组来自蓝本第3项分组规则（T52） ⚠ 原 depends_on 里的 F08 已随 auth 最小可用切片迁入 phase-00（2026-07-29，见 phases/phase-00-shared-kernel/contracts/auth/design-signoff.md），本清单里的副本已删除。跨 phase 依赖 depends_on 表达不了（它是 phase 内局部 id），而 roadmap.yaml 已声明 phase-01 依赖 phase-00，这层依赖由阶段顺序保证。前置：00/F19"
     },
     {
@@ -1698,13 +1698,13 @@
       "spec_ref": "05-rec/uc-5-4-转写回流与保留期.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w0-rec2",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/retention-param-resolution-no-hardcode.test.ts",
         "pnpm --filter api exec vitest run tests/rec/expiry-freeze-and-delete-cert.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F78.verify.log @ 2026-07-31T04:29:19.231Z",
       "notes": "依据 D-14/裁决 O-01（默认值已给出：材料 180 天，区间仍待合规收窄，不阻断）。改写为结构性断言：读参数返回默认值 + 全仓无硬编码天数（静态检查）。UC-5.4 为 P1。\n【跨分片依赖待确认】00-core/17-gov: 留存策略内核（五参数读取接口）；phase-00: F04 Artifact / 不可删对象豁免",
       "priority": 2,
       "area": "rec",
@@ -2170,13 +2170,13 @@
       "spec_ref": "07-canvas/uc-7-1-模板库与环节绑定.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w0-canvas",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/template-registry-19-key-displayname.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/binding-uses-key-not-displayname.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F100.verify.log @ 2026-07-31T04:28:26.489Z",
       "notes": "依据 D-08 + 裁决 O-09。这是 07-canvas 四份 UC 的共同技术底座、必须最先落地。fabric-markdown（13 种 mermaid 图 + 19 A0 模板 + 164 单测）以源码并入 packages/（不是 npm 依赖），npm 依赖版本在 ADR 锁定；不改任何 key（否则 164 单测失效）。verification 走契约断言，不依赖 UI，故 needs_ui_signoff=false。",
       "priority": 1,
       "area": "canvas",
