@@ -476,11 +476,21 @@ export class PgParticipantRosterRepository implements ParticipantRosterRepositor
 // 不是逐个函数；把它拆进独立文件会需要为同一个已有先例再开一条 ALLOWLIST 条目）。
 
 import { guestAliasFor } from "../../domain/auth/guest-identity";
+import { maskPhone } from "../../application/auth/upsert-participant-roster";
 import type {
   JoinByGroupLinkAttempt,
   JoinByGroupLinkOutcome,
   JoinRepository,
+  ResumeLiveSessionAttempt,
+  ResumeLiveSessionOutcome,
 } from "../../application/auth/join-ports";
+import type {
+  ApplyForJoinAttempt,
+  ApplyForJoinOutcome,
+  JoinApplicationRepository,
+  ReviewJoinApplicationAttempt,
+  ReviewJoinApplicationOutcome,
+} from "../../application/auth/join-application-ports";
 
 interface JoinLinkRow {
   id: string;
@@ -680,6 +690,269 @@ export class PgJoinRepository implements JoinRepository {
           reusedIdentity,
         },
       };
+    });
+  }
+
+  /**
+   * F13 意外③：掉线/换设备重开链接（I-23）。
+   *
+   * 判定顺序与 `joinByGroupLink` 相同的前两步（定位令牌 → 名单核对），**但不核销
+   * 令牌、也不新建 `guest_identities`/`live_sessions` 行**——这条用例假定名单条目
+   * 此前已经进过场（存在一条 `ended_at IS NULL` 的会话）。找不到这样的会话，
+   * 说明这其实是初次进场，交回 `no-active-session`，由调用方决定是否转去
+   * `JoinByGroupLink`（这两条用例在契约里就是分开的两个端点，见 usecases.md）。
+   *
+   * 「回到同一组、同一环节、产出不丢」＝只 `UPDATE device_id`，`group_id` /
+   * `entered_at_stage_id` 原封不动。「旧设备立即失效」＝返回换下来的 `takeoverOf`，
+   * interface 层拿它去提示旧设备那一端。
+   */
+  async resumeLiveSession(input: ResumeLiveSessionAttempt): Promise<ResumeLiveSessionOutcome> {
+    return this.db.withoutTenant(async (s) => {
+      const t = await s.query<{ link_id: string; org_id_hint: string }>(
+        `SELECT link_id, org_id_hint FROM invite_link_tokens WHERE token = $1`,
+        [input.token],
+      );
+      const tokenRow = t.rows[0];
+      if (tokenRow === undefined) return { ok: false as const, reason: "not-found" as const };
+
+      const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+      await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
+
+      const linkRes = await s.query<JoinLinkRow>(
+        `SELECT id, project_id, group_id, project_role, validity, expires_at, used_at,
+                revoked_at, superseded_at
+           FROM invite_links WHERE id = $1`,
+        [tokenRow.link_id],
+      );
+      const link = linkRes.rows[0];
+      if (link === undefined || link.superseded_at !== null) {
+        return { ok: false as const, reason: "not-found" as const };
+      }
+
+      const singleUse = isSingleUse(link.validity);
+      const verdict = linkUsability(
+        { revokedAt: link.revoked_at, expiresAt: link.expires_at, usedAt: link.used_at, singleUse },
+        input.now,
+      );
+      if (!verdict.usable) return { ok: false as const, reason: verdict.reason };
+
+      const pRes = await s.query<JoinParticipantRow>(
+        `SELECT id, group_id, display_alias FROM project_participants
+           WHERE project_id = $1 AND contact_kind = 'phone' AND contact = $2`,
+        [link.project_id, input.phone],
+      );
+      const participant = pRes.rows[0];
+      if (participant === undefined) {
+        return { ok: false as const, reason: "phone-not-on-roster" as const };
+      }
+
+      const sessRes = await s.query<{
+        id: string;
+        guest_identity_id: string;
+        group_id: string | null;
+        device_id: string | null;
+      }>(
+        `SELECT id, guest_identity_id, group_id, device_id FROM live_sessions
+           WHERE project_id = $1 AND participant_id = $2 AND ended_at IS NULL`,
+        [link.project_id, participant.id],
+      );
+      const session = sessRes.rows[0];
+      if (session === undefined) {
+        return { ok: false as const, reason: "no-active-session" as const };
+      }
+
+      const oldDeviceId = session.device_id;
+      const takeoverOf = oldDeviceId !== null && oldDeviceId !== input.deviceId ? oldDeviceId : null;
+
+      await s.query(`UPDATE live_sessions SET device_id = $2 WHERE id = $1`, [session.id, input.deviceId]);
+
+      const groupId = session.group_id ?? participant.group_id;
+      if (groupId === null) {
+        throw new Error(
+          `live_sessions ${session.id}: 会话与名单条目均无 group_id，无法确定重开后落地哪一组（I-20 的重开对偶）。`,
+        );
+      }
+
+      return {
+        ok: true as const,
+        resumed: { guestIdentityId: session.guest_identity_id, groupId, takeoverOf },
+      };
+    });
+  }
+}
+
+interface AppLinkRow {
+  id: string;
+  project_id: string;
+  project_role: ProjectRoleValue;
+  validity: InviteLinkValidity;
+  expires_at: Date | null;
+  used_at: Date | null;
+  revoked_at: Date | null;
+  superseded_at: Date | null;
+}
+
+/**
+ * `JoinApplicationRepository` on PostgreSQL —— F13 意外②（`join_applications`，
+ * 迁移 `20260731153916_f13_guestless_entry_edge_cases.sql`）。
+ *
+ * ⚠ **在这个文件里，不是自己的文件**：`lint-permission-paths.mjs` 按文件粒度检查
+ *   「有没有 import `application/security/permission-filter`」，`PgJoinRepository`
+ *   与 `PgInviteLinkRepository` 已经在本文件里合法地这样做（`joinByGroupLink` 的
+ *   `invite_links`/`project_participants` 读取同样不逐条 `guard()`，理由见上方
+ *   `PgJoinRepository` 的注释）。`apply()`/`review()` 的读取是**同一类**：只用来做
+ *   控制流判定（令牌是否可用、单据是否已被处理），从不把行内容（手机号、掩码、
+ *   `display_alias`）放进返回给用例层的 `grant` 对象——`apply()` 只回
+ *   `{applicationId, status, reusedApplication}`，`review()` 只回
+ *   `{applicationId, status}`。放进独立文件会需要为同一件事再开一条 ALLOWLIST 条目
+ *   （而那条linter 有一个硬顶：不超过 12 条），放在这里则不必——与
+ *   `guest_identities`/`project_memberships` 那两个不逐条 guard 的写入是同一个先例。
+ *
+ * ## `apply` 为什么复用 `joinByGroupLink` 同一套「先定位令牌、再判可用性」
+ *
+ * 两条用例都要回答「这条链接现在还能不能用」，答案必须一致——同一条已撤销的链接，
+ * `JoinByGroupLink` 说不能进、`ApplyForJoin` 却说能申请，会让参与者的体验前后矛盾。
+ * `linkUsability` 是唯一判定点，两个方法都从 `invite_links` 读同一行、传同一份
+ * `{revokedAt, expiresAt, usedAt, singleUse}` 进去。
+ *
+ * ## `apply` 的幂等落点：`ON CONFLICT (project_id, phone) WHERE status='pending'`
+ *
+ * 见迁移文件头——与 `guest_identities_participant_uniq`（F12）同一条纪律：
+ * 用部分唯一索引 + `ON CONFLICT` 让「重复申请返回既有单据」在并发下也成立，
+ * 而不是「先查有没有待批单据，没有就插」。
+ *
+ * ## `review` 批准分支为什么手写 SQL 而不是调用 `ParticipantRosterRepository.upsert`
+ *
+ * 批准要求「写名单 + 标记单据 approved」在同一事务，而 `ParticipantRosterRepository`
+ * 是另一个类，它的 `withTenant` 打开的是另一个连接。
+ */
+export class PgJoinApplicationRepository implements JoinApplicationRepository {
+  constructor(private readonly db: DatabasePort) {}
+
+  async apply(input: ApplyForJoinAttempt): Promise<ApplyForJoinOutcome> {
+    return this.db.withoutTenant(async (s) => {
+      const t = await s.query<{ link_id: string; org_id_hint: string }>(
+        `SELECT link_id, org_id_hint FROM invite_link_tokens WHERE token = $1`,
+        [input.token],
+      );
+      const tokenRow = t.rows[0];
+      if (tokenRow === undefined) return { ok: false as const, reason: "not-found" as const };
+
+      const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+      await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
+
+      const linkRes = await s.query<AppLinkRow>(
+        `SELECT id, project_id, project_role, validity, expires_at, used_at, revoked_at, superseded_at
+           FROM invite_links WHERE id = $1`,
+        [tokenRow.link_id],
+      );
+      const link = linkRes.rows[0];
+      if (link === undefined || link.superseded_at !== null) {
+        return { ok: false as const, reason: "not-found" as const };
+      }
+
+      const singleUse = isSingleUse(link.validity);
+      const verdict = linkUsability(
+        { revokedAt: link.revoked_at, expiresAt: link.expires_at, usedAt: link.used_at, singleUse },
+        input.now,
+      );
+      if (!verdict.usable) return { ok: false as const, reason: verdict.reason };
+
+      // 幂等 upsert：同一 (project_id, phone) 待批单据只保留一条（见文件头）。
+      const ins = await s.query<{ id: string }>(
+        `INSERT INTO join_applications (id, org_id, project_id, link_id, phone, status, created_at)
+           VALUES ($1,$2,$3,$4,$5,'pending',$6)
+         ON CONFLICT (project_id, phone) WHERE status = 'pending' DO NOTHING
+         RETURNING id`,
+        [input.candidateApplicationId, orgId, link.project_id, link.id, input.phone, input.now],
+      );
+
+      let applicationId = ins.rows[0]?.id;
+      const reusedApplication = applicationId === undefined;
+      if (applicationId === undefined) {
+        const existing = await s.query<{ id: string }>(
+          `SELECT id FROM join_applications WHERE project_id = $1 AND phone = $2 AND status = 'pending'`,
+          [link.project_id, input.phone],
+        );
+        applicationId = existing.rows[0]?.id;
+        if (applicationId === undefined) {
+          throw new Error(
+            `join_applications: upsert 既未插入也未查到既有待批单据 —— 唯一约束与查询用的是不同的键。`,
+          );
+        }
+      }
+
+      return {
+        ok: true as const,
+        grant: { applicationId, status: "pending" as const, reusedApplication },
+      };
+    });
+  }
+
+  /**
+   * 批准 = 一次事务内：条件 UPDATE `join_applications`（`WHERE status='pending'` 防并发重复处理）
+   * + 写 `project_participants`。拒绝 = 只条件 UPDATE 前者。
+   */
+  async review(input: ReviewJoinApplicationAttempt): Promise<ReviewJoinApplicationOutcome> {
+    return this.db.withTenant(input.orgId, async (s) => {
+      const appRes = await s.query<{ id: string; project_id: string; phone: string; status: string }>(
+        `SELECT id, project_id, phone, status FROM join_applications WHERE id = $1`,
+        [input.applicationId],
+      );
+      const application = appRes.rows[0];
+      if (application === undefined) return { ok: false as const, reason: "not-found" as const };
+
+      if (input.decision === "reject") {
+        const upd = await s.query<{ id: string }>(
+          `UPDATE join_applications
+             SET status = 'rejected', reviewed_by = $2, reviewed_at = $3
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id`,
+          [application.id, input.actorId, input.now],
+        );
+        if (upd.rows[0] === undefined) return { ok: false as const, reason: "already-reviewed" as const };
+        return { ok: true as const, grant: { applicationId: application.id, status: "rejected" as const } };
+      }
+
+      // approve：先写名单（幂等：同联系方式已在名单则复用既有条目，见 A2 去重同一条纪律），
+      // 再条件 UPDATE 单据。
+      const masked = maskPhone(application.phone);
+      const rosterIns = await s.query<{ id: string }>(
+        `INSERT INTO project_participants
+           (id, org_id, project_id, contact_kind, contact, masked, group_id, project_role, created_by, created_at)
+           VALUES ($1,$2,$3,'phone',$4,$5,$6,'member',$7,$8)
+         ON CONFLICT (project_id, contact) DO NOTHING
+         RETURNING id`,
+        [
+          input.candidateParticipantId,
+          input.orgId,
+          application.project_id,
+          application.phone,
+          masked,
+          input.groupId,
+          input.actorId,
+          input.now,
+        ],
+      );
+      let participantId = rosterIns.rows[0]?.id;
+      if (participantId === undefined) {
+        const existing = await s.query<{ id: string }>(
+          `SELECT id FROM project_participants WHERE project_id = $1 AND contact = $2`,
+          [application.project_id, application.phone],
+        );
+        participantId = existing.rows[0]?.id;
+      }
+
+      const upd = await s.query<{ id: string }>(
+        `UPDATE join_applications
+           SET status = 'approved', group_id = $2, reviewed_by = $3, reviewed_at = $4, participant_id = $5
+           WHERE id = $1 AND status = 'pending'
+           RETURNING id`,
+        [application.id, input.groupId, input.actorId, input.now, participantId ?? null],
+      );
+      if (upd.rows[0] === undefined) return { ok: false as const, reason: "already-reviewed" as const };
+
+      return { ok: true as const, grant: { applicationId: application.id, status: "approved" as const } };
     });
   }
 }

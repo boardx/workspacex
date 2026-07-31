@@ -73,8 +73,14 @@ export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
-/** `138 •••• 2049`：留头 3 尾 4。短于 7 位的号码不留头尾，全掩。 */
-function maskPhone(digits: string): string {
+/**
+ * `138 •••• 2049`：留头 3 尾 4。短于 7 位的号码不留头尾，全掩。
+ *
+ * ⚠ **导出而非私有**：F13 `review-join-application.ts`（批准申请写入名单）要生成
+ *   与这里同形的掩码，同 `normalizePhone` 导出的理由——第二份手写掩码规则是
+ *   本仓已发生过五次的「同一事实两处声明」的第六次候选。
+ */
+export function maskPhone(digits: string): string {
   if (digits.length < 7) return "•".repeat(digits.length);
   return `${digits.slice(0, 3)} •••• ${digits.slice(-4)}`;
 }

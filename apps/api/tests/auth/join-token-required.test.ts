@@ -15,6 +15,9 @@ function unreachableRepo(): JoinRepository {
     joinByGroupLink: vi.fn(async () => {
       throw new Error("不应该被调用：LINK_TOKEN_REQUIRED 必须在触碰仓储之前短路。");
     }),
+    resumeLiveSession: vi.fn(async () => {
+      throw new Error("不应该被调用：本文件只测 joinByGroupLink 的短路。");
+    }),
   };
 }
 
