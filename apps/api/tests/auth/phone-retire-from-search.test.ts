@@ -31,6 +31,7 @@ const PHONE_NORMALIZED = "8613900001234";
 
 let db: PgDatabase;
 let R: ReturnType<typeof repos>;
+let fixture: Awaited<ReturnType<typeof seedOrg>>;
 
 const orgId = toOrgId(ORG);
 const guestIds = fixedIds("gi-f14-retire");
@@ -49,7 +50,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetOrgs(ORG);
-  await seedOrg({ orgId: ORG, projectId: PROJECT, groupNames: ["g1"] });
+  fixture = await seedOrg({ orgId: ORG, projectId: PROJECT, groupNames: ["g1"] });
   await addOrgMember(ORG, HOST, "consultant", null);
   await addProjectMember(ORG, PROJECT, HOST, "facilitator", null, true);
   await R.roster.upsert(orgId, PROJECT, HOST, [
@@ -59,7 +60,7 @@ beforeEach(async () => {
       contact: PHONE_NORMALIZED,
       masked: "139 •••• 1234",
       projectRole: "member",
-      groupId: null,
+      groupId: fixture.groups.g1 ?? null,
     },
   ]);
 }, HOOK_TIMEOUT_MS);
@@ -71,7 +72,7 @@ async function issueGroupLink() {
       orgId,
       projectId: PROJECT,
       kind: "group",
-      groupId: null,
+      groupId: fixture.groups.g1 ?? null,
       identity: "member",
       validity: "7d",
       ...facilitator(HOST),
