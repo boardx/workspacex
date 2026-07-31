@@ -15,6 +15,8 @@
  * ⚠ 这里**没有** `grantProjectRole`：Q-4② 裁「创建者不自动获角色」。
  *   给一个不该发生的动作留个端口，下一个人会以为它只是还没被调用。
  */
+import type { z } from "zod";
+import { project } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
 
@@ -152,3 +154,43 @@ export interface AgendaSegmentRepository {
 }
 
 export const AGENDA_SEGMENT_REPOSITORY = Symbol("AgendaSegmentRepository");
+
+/* ═══════════════════════ F123：`getProjectOverview` 的独立端口 ═══════════════════════ */
+
+/**
+ * ⚠ 同 F122 那条注释的理由：不是 `ProjectRepository` 或 `ProjectListRepository` 的
+ * 第三个方法，是一个新接口、新文件、新 DI token——三个仓储各自的
+ * `lint-permission-paths` 豁免各自成立，理由各不相同（见
+ * `infrastructure/project/pg-project-overview-repository.ts` 文件头）。
+ *
+ * `z.infer<typeof project.X>`，不是本文件手写字面量类型：契约的 `AgendaSegment` /
+ * `WorkshopRoleCounts` 是这两个形状的唯一事实源（同本文件 `ProjectKind` 的引用方式）。
+ */
+export type OverviewAgendaSegment = z.infer<typeof project.AgendaSegment>;
+export type OverviewRoleCounts = z.infer<typeof project.WorkshopRoleCounts>;
+
+export interface ProjectSnapshotRow {
+  readonly name: string;
+  readonly kind: ProjectKind;
+  readonly status: "active" | "archived";
+}
+
+export interface ProjectOverviewRepository {
+  /** 容器身份三件：名字 / kind / 状态。不存在返回 `null`（同容器不存在时的既有处理）。 */
+  getProjectSnapshot(orgId: OrgId, projectId: string): Promise<ProjectSnapshotRow | null>;
+
+  /**
+   * 当前议程环节 —— 同一工作坊内 `state='active'` 至多一条（I-P44 的部分唯一索引），
+   * 没有时返回 `null`。⚠ 只对 `kind='workshop'` 的容器调用，调用方负责判 kind。
+   */
+  getCurrentAgendaSegment(orgId: OrgId, workshopId: string): Promise<OverviewAgendaSegment | null>;
+
+  /**
+   * 四类项目角色人数。⚠ 只对 `kind='workshop'` 的容器调用；没有任何成员时四个计数皆为 0，
+   * 不是 `null`——「工作坊存在但还没人」与「这不是工作坊」是两件不同的事，
+   * 后者才是 `roleCounts: null`（契约 `getProjectOverview.out` 逐字）。
+   */
+  getWorkshopRoleCounts(orgId: OrgId, projectId: string): Promise<OverviewRoleCounts>;
+}
+
+export const PROJECT_OVERVIEW_REPOSITORY = Symbol("ProjectOverviewRepository");

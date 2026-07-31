@@ -60,13 +60,16 @@ import {
   AgendaSegmentNotFoundError,
   MergeTargetRequiredError,
 } from "../../application/project/advance-agenda-segment-errors";
+import { getProjectOverview } from "../../application/project/get-project-overview";
 import { ProjectError } from "../../application/project/errors";
 import {
   AGENDA_SEGMENT_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
+  PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
   type AgendaSegmentRepository,
   type ProjectListRepository,
+  type ProjectOverviewRepository,
   type ProjectRepository,
 } from "../../application/project/ports";
 import {
@@ -75,8 +78,22 @@ import {
   type IdentityRepository,
   type DecisionIdFactory,
 } from "../../application/identity/ports";
-import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
 import { isProjectRole } from "../../domain/identity/roles";
+import {
+  BINDING_REPOSITORY,
+  type BindingDeps,
+  type BindingRepository,
+} from "../../application/artifact/binding-ports";
+import {
+  ARTIFACT_REPOSITORY,
+  ID_FACTORY,
+  type ArtifactRepository,
+  type IdFactory,
+} from "../../application/artifact/ports";
+import {
+  PROVENANCE_WRITER,
+  type ProvenanceWriter,
+} from "../../application/provenance/ports";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -96,6 +113,9 @@ export const ADVANCE_AGENDA_SEGMENT_SCHEMA = C.operations.advanceAgendaSegment.i
 /** 直接取自契约的推断类型——`action` 因此是四值联合而不是裸 `string`（同 F119 domain 层）。 */
 type AdvanceBody = z.infer<typeof C.operations.advanceAgendaSegment.in>;
 
+/** 同上，`getProjectOverview` 的入参契约（F123）。 */
+export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
+
 type CreateBody = {
   orgId: string;
   name: string;
@@ -108,11 +128,29 @@ export class ProjectController {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: ProjectRepository,
     @Inject(PROJECT_LIST_REPOSITORY) private readonly listRepo: ProjectListRepository,
+    @Inject(PROJECT_OVERVIEW_REPOSITORY) private readonly overviewRepo: ProjectOverviewRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
-    @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(AGENDA_SEGMENT_REPOSITORY) private readonly segments: AgendaSegmentRepository,
+    @Inject(BINDING_REPOSITORY) private readonly bindings: BindingRepository,
+    @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
+    @Inject(ID_FACTORY) private readonly ids: IdFactory,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
+
+  /**
+   * F123 只复用这一整套（`listBackflow` 要求完整的 `BindingDeps`），不新开一套
+   * 「只带 bindings + auth」的窄类型——同 `ArtifactBindingController` 的 `deps` getter。
+   */
+  private get bindingDeps(): BindingDeps {
+    return {
+      bindings: this.bindings,
+      artifacts: this.artifacts,
+      auth: { repo: this.identity, ids: this.decisions },
+      ids: this.ids,
+      provenance: this.provenance,
+    };
+  }
 
   @Post("/projects")
   async create(
@@ -203,7 +241,7 @@ export class ProjectController {
       screen: string;
     };
     return renderRoleView(
-      { repo: this.identity, ids: this.ids },
+      { repo: this.identity, ids: this.decisions },
       {
         userId: principal.userId,
         orgId: toOrgId(input.orgId),
@@ -239,7 +277,7 @@ export class ProjectController {
     }
     try {
       return await previewAsRole(
-        { repo: this.identity, ids: this.ids, provenance: this.provenance },
+        { repo: this.identity, ids: this.decisions, provenance: this.provenance },
         {
           userId: principal.userId,
           orgId: principal.orgId,
@@ -281,7 +319,7 @@ export class ProjectController {
     try {
       const out = await advanceAgendaSegment(
         {
-          auth: { repo: this.identity, ids: this.ids },
+          auth: { repo: this.identity, ids: this.decisions },
           segments: this.segments,
           provenance: this.provenance,
         },
@@ -312,6 +350,49 @@ export class ProjectController {
         // 里的映射（`artifact-binding.controller.ts:213`）。
         if (e.reasonCode === "SEGMENT_ALREADY_ACTIVE" || e.reasonCode === "SEGMENT_TERMINAL") {
           throw new ConflictException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F123 / UC-P3。三态在这里映射成三种 HTTP 呈现，互不可混：
+   *   200   正常返回（含空态——`backflow: []` / 四个角色计数为 0 都是合法的 200 体）
+   *   403   `NO_PROJECT_ROLE` / `ADMIN_NOT_SUPERUSER`（分层无权限，两个不同的 reasonCode）
+   *   503   `DEPENDENCY_UNAVAILABLE`（依赖失败——不得渲染成空列表，见用例文件头）
+   */
+  @Get("/projects/:projectId/overview")
+  async overview(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    // GET 没有 body，契约的 `in` 照样要过一遍——同 `list`/`backflow` 两条路由的理由。
+    const input = new ZodBodyPipe(GET_PROJECT_OVERVIEW_SCHEMA).transform({ projectId }) as {
+      projectId: string;
+    };
+
+    try {
+      return await getProjectOverview(
+        {
+          repo: this.overviewRepo,
+          auth: { repo: this.identity, ids: this.decisions },
+          binding: this.bindingDeps,
+        },
+        {
+          userId: principal.userId,
+          orgId: principal.orgId,
+          projectId: input.projectId,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE" || e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
+          // ⚠ 两者都是 503：判定服务不可用、以及本操作自己的依赖不可用，都不是一个
+          //   裁定，渲染成 403 会让用户去找管理员要一个他本来就有的权限。
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
