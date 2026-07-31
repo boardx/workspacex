@@ -13,12 +13,14 @@
  * ── 契约里还缺、我在此集中声明并标注「待迁入 packages/contracts」的 ────────────────
  *   · ~~SegmentStatus~~ —— **契约已建成**（`recording.SegmentStatus`），但取值与本地那份
  *     互有出入 ⇒ 已改名 `SegmentStatusView` 并登记 `CONTRACT_DIVERGENCES.D11`，等人裁
- *   · PiiType（O-39 五类）—— 遮盖类型全集，契约里只有 thresholds 的规则占位、无枚举
+ *   · ~~PiiType~~ —— **契约已建成**（F72，`recording.PiiType`），本文件不再手抄，见下方 import。
  *   · 匿名声道（说话人 A/B/C）与「声道↔人映射」实体 —— diarization 产物，契约未建模
  *   · 材料保留期解析结果（项目覆盖值→组织默认值）—— thresholds.ts 标 known:false，数值待合规
- * 上述四组一旦契约补齐，此处应 `import` 之并删除本地副本。见 README 第二节。
+ * 上述三组一旦契约补齐，此处应 `import` 之并删除本地副本。见 README 第二节。
  */
 import { AnchorKind, SegmentKind, IngestionStatus, ArtifactSource } from "@repo/contracts/artifact";
+import { recording as RecC } from "@repo/contracts";
+import type { z } from "zod";
 
 /* 证明与契约同源：这些取值直接来自契约，不是手抄。渲染 file-first 物化时用。 */
 export const ANCHOR_KINDS = AnchorKind.options; // page/bbox/timecode/message-id/question-no/image-region
@@ -117,8 +119,13 @@ export function isQuotable(s: TranscriptSegment): boolean {
   return !UNQUOTABLE_STATUSES.includes(s.status);
 }
 
-/** PII 五类（O-39 可执行最小集）—— **契约缺枚举，待迁入**。手机号等联系方式加密存储、界面只掩码。*/
-export type PiiType = "email" | "phone" | "id-card" | "bank-card" | "address";
+/**
+ * PII 五类（O-39 可执行最小集）—— **契约已建成**（F72，`recording.PiiType`），从契约派生，不手抄。
+ * 手机号等联系方式加密存储（`pii_originals` 表，列级 GRANT）、界面只掩码——两件事分别落在
+ * `apps/api/src/domain/recording/pii-mask.ts` 与本文件（本文件只管展示）。
+ */
+export type PiiType = z.infer<typeof RecC.PiiType>;
+export const PII_TYPES = RecC.PiiType.options;
 export const PII_LABEL: Record<PiiType, string> = {
   email: "邮箱地址",
   phone: "手机号",

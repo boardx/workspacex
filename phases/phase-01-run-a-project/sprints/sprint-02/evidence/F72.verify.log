@@ -1,0 +1,32 @@
+F72 — PII 自动遮盖五类接入 + 手机号加密存储/界面掩码（O-39）
+owner: w3-rec2 · issue: #143 · date: 2026-07-31
+
+$ pnpm --filter api exec vitest run tests/rec/pii-mask-five-types.test.ts tests/rec/phone-encrypted-masked.test.ts
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/rec/pii-mask-five-types.test.ts (29 tests) 3ms
+ ✓ tests/rec/phone-encrypted-masked.test.ts (13 tests) 6ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  01:08:18
+   Duration  329ms (transform 146ms, setup 0ms, collect 354ms, tests 9ms, environment 0ms, prepare 81ms)
+
+Note (per w3-rec2 local-run policy, issue #74): both files are pure-logic / static-file
+checks with no `tests/support/db` import and no Postgres connection, so they were run for
+real locally rather than typecheck-only. Confirmed by grep: neither file imports
+"../support/db".
+
+Supporting gates also run locally and green:
+- pnpm --filter @repo/contracts run typecheck
+- pnpm --filter api run typecheck
+- pnpm --filter web run typecheck
+- pnpm --filter @repo/contracts run test (166 tests, incl. contract-shape.test.ts)
+- node .harness/scripts/lint-contract-source.mjs
+- node .harness/scripts/lint-arch-deps.mjs
+- pnpm --filter api run lint
+- pnpm --filter api exec vitest run tests/rec/*.test.ts (all other rec/* files, unaffected: 76+18 passing)
+- pnpm --filter api exec vitest run tests/capability/model/credential-never-echoed.test.ts (F48's
+  repo-wide plaintext-reader scan, re-run after adding domain/recording/pii-mask.ts, to prove the
+  new file does not trip F48's guarantee)
