@@ -15,6 +15,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import { makeHarness, seedArtifact, type Harness } from "../support/binding-fixture";
@@ -64,7 +65,7 @@ const ORG = "org-f07-gate";
 const OTHER_ORG = "org-f07-other";
 const PROJECT = "proj-f07-gate";
 const OTHER_PROJECT = "proj-f07-other";
-const STEP = "step-synthesis";
+const STEP = "f07-step-synthesis";
 const AUTHOR = "u-f07-author";
 const OUTSIDER = "u-f07-outsider";
 
@@ -107,6 +108,13 @@ beforeEach(async () => {
   const other = await seedOrg({ orgId: OTHER_ORG, projectId: OTHER_PROJECT });
   await addOrgMember(OTHER_ORG, OUTSIDER, "consultant", other.teams.energy!);
   await addProjectMember(OTHER_ORG, OTHER_PROJECT, OUTSIDER, "facilitator", null);
+
+  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // is about downstream-reference eligibility, not segment lifecycle -- most calls use
+  // `bind()`'s default STEP, but two call sites pass their own literal explicitly.
+  await seedAgendaSegment(ORG, PROJECT, STEP);
+  await seedAgendaSegment(ORG, PROJECT, "f07-step-b");
+  await seedAgendaSegment(ORG, PROJECT, "f07-step-live");
 });
 
 const org = () => toOrgId(ORG);
@@ -291,7 +299,7 @@ describe("coverage gap ③: a consumer that skips the use case is refused too", 
     // Counter-proof: the same raw INSERT against a PINNED version succeeds, so the trigger
     // discriminates rather than refusing every insert (which would look identical).
     const b = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
-    await bind("pinned", b.artifactId, "step-b", b.versionIds[0]);
+    await bind("pinned", b.artifactId, "f07-step-b", b.versionIds[0]);
     await insertRaw(ORG, b.versionIds[0]!, "raw-2");
     expect(await rowsFor(b.versionIds[0]!)).toHaveLength(1);
   });
@@ -399,7 +407,7 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
   it("every stored citation resolves to a version some binding pins", async () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n", "v2\n"], AUTHOR);
     await bind("pinned", a.artifactId, STEP, a.versionIds[0]);
-    await bind("live", a.artifactId, "step-live");
+    await bind("live", a.artifactId, "f07-step-live");
     await cite(a.versionIds[0]!);
 
     const offenders = await asOwner(async (c) => {

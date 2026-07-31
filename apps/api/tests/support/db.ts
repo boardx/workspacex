@@ -239,9 +239,24 @@ export async function seedOrg(opts: {
     // F116: `kind` is a discriminator with NO default -- "I forgot to say which of the
     // three kinds this is" must not be silently writable. Fixtures default to `workshop`
     // because that is what every pre-F116 caller meant, and say so explicitly.
+    const projectKind = opts.projectKind ?? "workshop";
     await c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, $4)", [
-      projectId, orgId, `project ${projectId}`, opts.projectKind ?? "workshop",
+      projectId, orgId, `project ${projectId}`, projectKind,
     ]);
+    // F116 requires a matching 1:1 subtype row (I-P34's composite FK rejects a bare
+    // `projects` row with no subtype). This fixture predates F116 and only ever wrote
+    // `projects`; F118 makes the gap visible for the first time because
+    // `agenda_segments.workshop_id` has its own FK into `workshops(id, org_id)` --
+    // without this row, seeding a segment for a `seedOrg`-created container fails with
+    // `agenda_segments_workshop_org_fkey`, not because agenda_segments is wrong, but
+    // because the container it points at was never actually a real workshop.
+    const subtypeTable =
+      projectKind === "workshop"
+        ? "workshops"
+        : projectKind === "research_project"
+          ? "research_projects"
+          : "user_insights";
+    await c.query(`INSERT INTO ${subtypeTable} (id, org_id) VALUES ($1, $2)`, [projectId, orgId]);
     for (const g of groupNames) {
       const id = `${projectId}-${g}`;
       await c.query("INSERT INTO groups (id, org_id, project_id, name) VALUES ($1, $2, $3, $4)", [id, orgId, projectId, g]);
@@ -452,6 +467,40 @@ export async function addBinding(opts: {
       `INSERT INTO acl_bindings (org_id, subject_kind, subject_id, object_kind, object_id, scope, owner_team_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [opts.orgId, opts.subject.kind, opts.subject.id, opts.object.kind, opts.object.id, opts.scope, opts.ownerTeamId ?? null],
+    ),
+  );
+}
+
+/**
+ * F118: a real `agenda_segments` row for a phase-00 fixture's `step_id`.
+ *
+ * `artifact_bindings.step_id` gained a composite FK in F118
+ * (`artifact_bindings_segment_fkey` -> `agenda_segments(id, workshop_id, org_id)`). Every
+ * F06-era test that calls `bindToProjectStep` with a bare string like `"s1"` or
+ * `"step-lead"` now needs a matching row here first, or the insert is refused as an orphan
+ * binding -- which is exactly what the constraint is for, just not what those tests were
+ * about. `seedOrg`'s `projectId` IS the workshop id (F116 supertype model), so `workshopId`
+ * below is that same id, not a new concept.
+ *
+ * ⚠ Ordinal is not meaningful across a fixture's various stepIds (tests seed them in
+ *   whatever order the scenario needs), so it defaults to 0 for every row -- nothing in
+ *   these files reads it.
+ * ⚠ State defaults to `pending`, NOT `active` -- these fixtures routinely seed several
+ *   distinct stepIds under ONE workshop (binding-three-modes alone uses ten), and I-P44's
+ *   partial unique index allows at most one `active` row per workshop. `pending` is a
+ *   legal, permanent resting state that never collides with a sibling segment.
+ */
+export async function seedAgendaSegment(
+  orgId: string,
+  workshopId: string,
+  segmentId: string,
+): Promise<void> {
+  await asApp(orgId, (c) =>
+    c.query(
+      `INSERT INTO agenda_segments (id, org_id, workshop_id, ordinal, title, duration, state)
+       VALUES ($1,$2,$3,0,$4,15,'pending')
+       ON CONFLICT (id) DO NOTHING`,
+      [segmentId, orgId, workshopId, `segment ${segmentId}`],
     ),
   );
 }

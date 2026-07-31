@@ -9,6 +9,7 @@ import {
   ensureDatabase,
   migrateOnce,
   resetOrgs,
+  seedAgendaSegment,
   seedOrg,
 } from "../support/db";
 import {
@@ -55,7 +56,7 @@ import {
 
 const ORG = "org-f06-modes";
 const PROJECT = "proj-f06-modes";
-const STEP = "step-discovery";
+const STEP = "f06m-step-discovery";
 const AUTHOR = "u-f06-author";
 const LEAD = "u-f06-lead";
 const MEMBER = "u-f06-member";
@@ -91,6 +92,18 @@ beforeEach(async () => {
   await addOrgMember(ORG, ADMIN, "admin", fx.teams.energy!);
   await addProjectMember(ORG, PROJECT, ADMIN, "facilitator", null);
   await addOrgMember(ORG, STRANGER, "consultant", fx.teams.platform!);
+
+  // F118: `artifact_bindings.step_id` now has a composite FK into `agenda_segments`
+  // (`artifact_bindings_segment_fkey`). This file predates F118 and treats `stepId` as an
+  // opaque string identifying "which project step" a binding belongs to -- none of its
+  // assertions are about agenda-segment lifecycle, so every literal stepId used anywhere
+  // below just needs a real row to point at, not any particular state.
+  for (const step of [
+    STEP, "f06m-s1", "f06m-s2", "f06m-s3", "f06m-s4", "f06m-s9",
+    "f06m-step-live", "f06m-step-pinned", "f06m-step-lead", "f06m-step-member", "f06m-step-stranger", "f06m-step-bare",
+  ]) {
+    await seedAgendaSegment(ORG, PROJECT, step);
+  }
 });
 
 const org = () => toOrgId(ORG);
@@ -152,7 +165,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
         c.query(
           `INSERT INTO artifact_bindings
              (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
-           VALUES ('f06m-iff-1',$1,$2,$3,'s1','pinned',NULL,'u')`,
+           VALUES ('f06m-iff-1',$1,$2,$3,'f06m-s1','pinned',NULL,'u')`,
           [ORG, a.artifactId, PROJECT],
         ),
       ),
@@ -166,7 +179,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
         c.query(
           `INSERT INTO artifact_bindings
              (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
-           VALUES ('f06m-iff-2',$1,$2,$3,'s2','live',$4,'u')`,
+           VALUES ('f06m-iff-2',$1,$2,$3,'f06m-s2','live',$4,'u')`,
           [ORG, a.artifactId, PROJECT, a.versionIds[0]],
         ),
       ),
@@ -178,8 +191,8 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
       c.query(
         `INSERT INTO artifact_bindings
            (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
-         VALUES ('f06m-iff-ok1',$1,$2,$3,'s3','live',NULL,'u'),
-                ('f06m-iff-ok2',$1,$2,$3,'s4','pinned',$4,'u')`,
+         VALUES ('f06m-iff-ok1',$1,$2,$3,'f06m-s3','live',NULL,'u'),
+                ('f06m-iff-ok2',$1,$2,$3,'f06m-s4','pinned',$4,'u')`,
         [ORG, a.artifactId, PROJECT, a.versionIds[0]],
       ),
     );
@@ -208,7 +221,7 @@ describe("I-8: pinned means frozen to a version, and only pinned does", () => {
         c.query(
           `INSERT INTO artifact_bindings
              (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
-           VALUES ('f06m-cross',$1,$2,$3,'s9','pinned',$4,'u')`,
+           VALUES ('f06m-cross',$1,$2,$3,'f06m-s9','pinned',$4,'u')`,
           [ORG, mine.artifactId, PROJECT, theirs.versionIds[0]],
         ),
       ),
@@ -297,11 +310,11 @@ describe("live follows the source, pinned does not -- asserted against the same 
 
     const live = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "step-live", mode: "live",
+      projectId: PROJECT, stepId: "f06m-step-live", mode: "live",
     });
     const pinned = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "step-pinned", mode: "pinned",
+      projectId: PROJECT, stepId: "f06m-step-pinned", mode: "pinned",
       sourceVersionId: a.versionIds[0]!,
     });
 
@@ -360,21 +373,21 @@ describe("binding is a write, and the role matrix decides it (R5)", () => {
 
     const ok = await bindToProjectStep(h.deps, {
       userId: LEAD, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: "step-lead", mode: "live",
+      projectId: PROJECT, stepId: "f06m-step-lead", mode: "live",
     });
     expect(ok.mode).toBe("live");
 
     await expect(
       bindToProjectStep(h.deps, {
         userId: MEMBER, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: "step-member", mode: "live",
+        projectId: PROJECT, stepId: "f06m-step-member", mode: "live",
       }),
     ).rejects.toBeInstanceOf(ProjectRoleInsufficientError);
 
     await expect(
       bindToProjectStep(h.deps, {
         userId: STRANGER, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: "step-stranger", mode: "live",
+        projectId: PROJECT, stepId: "f06m-step-stranger", mode: "live",
       }),
     ).rejects.toBeInstanceOf(NoProjectRoleError);
   });
@@ -428,7 +441,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: bare,
-        projectId: PROJECT, stepId: "step-bare", mode: "live",
+        projectId: PROJECT, stepId: "f06m-step-bare", mode: "live",
       }),
     ).rejects.toBeInstanceOf(NoVersionToBindError);
 
@@ -436,7 +449,7 @@ describe("failures the contract has no code for -- stated, not papered over", ()
     // nothing pinned", so it is a normal state and the refusal above must not generalise.
     const draft = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: bare,
-      projectId: PROJECT, stepId: "step-bare", mode: "draft",
+      projectId: PROJECT, stepId: "f06m-step-bare", mode: "draft",
     });
     expect(draft.mode).toBe("draft");
   });
