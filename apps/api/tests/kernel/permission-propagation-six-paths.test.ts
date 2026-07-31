@@ -398,7 +398,33 @@ describe("lint-permission-paths: counter-proof", () => {
     // INSERT parameter for the credential row the activation creates. That is asserted in
     // `tests/auth/member-invite-activation.test.ts`, which also WIDENS the return value to
     // show the assertion is load-bearing. If that test is deleted, the entry goes with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(7);
+    //
+    // ⚠ Raised 7 -> 8 by F49 (phase-01 / UC-20.1 R3), and it brings an enforced premise, as
+    // demanded above. The new entry is `infrastructure/model/pg-admission-test-repository.ts`
+    // (`model_admission_tests`, the five admission verdicts).
+    //
+    // Its argument has the same shape as `toAclRef`'s three throws, and that is the point:
+    // `ObjectRef` is project|artifact|segment|capability|organization|interview, and a MODEL
+    // is none of them. A model has no `acl_bindings` row, so a `model` ref pushed through
+    // `authorize` would find no binding, fall back to `DEFAULT_SCOPE` (org-wide), see a
+    // non-null org role and return `allowed: true` FOR EVERY MEMBER -- with a
+    // normal-looking decision and a decisionId to match. That is precisely why `capability`,
+    // `organization` and `interview` THROW there rather than being judged. Adding a fourth
+    // ref kind to make the lint green would be creating that failure, not avoiding it.
+    // Who may read a model's verdicts is an org-admin question -- `recordAdmissionTest` and
+    // `enableModel` both carry `NOT_ORG_ADMIN` and nothing finer -- decided one layer up,
+    // exactly as the provenance entry describes for its trail.
+    //
+    // Its ENFORCED premise is deliberately the strongest of the eight, because F49 ships no
+    // controller and an exemption resting on "nothing calls it yet" would rot in silence.
+    // `tests/capability/model/admission-test-gate.test.ts` asserts (a) every statement in
+    // the file names only `model_admission_tests`, (b) it never uses `withoutTenant`,
+    // (c) the projection emits no key outside `AdmissionTestRecord ∪ {seq}` and the file
+    // mentions nothing credential-shaped, and (d) NOTHING under `src/interface/` reaches
+    // it -- so the day a controller is added, (d) goes red and whoever adds it must attach
+    // the org-admin decision there rather than inherit an exemption written for a file with
+    // no disclosure surface. If that test is deleted, the entry goes with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(8);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
