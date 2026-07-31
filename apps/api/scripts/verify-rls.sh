@@ -158,7 +158,7 @@ fi
 #   ⇒ 这一行的唯一正确处理是：冲突整个丢掉，在**合流后的库**上从空库重跑一次。
 #     它不只是「不许推算」，还是「不许沿用自己上一次的实测」。
 
-# ⚠ 43 -> __PENDING__ 是 F32（迁移 0027）在 rebase 到同时含 F49 / F117 / F81 的 main 之后、
+# ⚠ 43 -> 44 是 F32（迁移 0027）在 rebase 到同时含 F49 / F117 / F81 的 main 之后、
 #   于**全新迁移库上第三次重新实测**的：`WORKSPACEX_DB=wsx_f32rls bash scripts/verify-rls.sh`。
 #   F32 只加一张表 `download_grants`（下载授予：短时效 · 一次性 · 绑定 principal），带 org_id ⇒ ok。
 #   ⚠ 它**没有**走 `invite_link_tokens` / `org_invite_tokens` 那条「无租户键的令牌表」的路，
@@ -174,7 +174,7 @@ fi
 #     作废的从来不是「量错了」，而是「量的那棵树没了」。冲突里两个数字都对、都不能用。
 
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=__PENDING__
+OK_TABLES_FLOOR=44
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
