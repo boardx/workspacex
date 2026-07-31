@@ -93,6 +93,41 @@ export const PublishMode = z.enum(["direct", "staged"]);
 /** 文件徽标。⚠ 由扩展名派生；**未知扩展名 ⇒ `MD`（fallback 不报错）** */
 export const AssetFileBadge = z.enum(["MD", "JSON", "YAML", "JS", "PY", "SH", "CSV", "JSONL"]);
 
+type AssetFileBadgeT2 = z.infer<typeof AssetFileBadge>;
+
+/**
+ * 扩展名 → 徽标 的**唯一映射表**（`uc-23-3` R3 步骤 3 / R7 规则 4 逐字：
+ * `.py → PY` · `.json/.jsonl → { }`（展示态，取值仍是 `JSON`/`JSONL`）· `.yaml/.yml → YM`
+ * · **其余一律 `MD`**）。
+ *
+ * 单点声明，供 `apps/api`（`domain/asset/asset-file-badge.ts`）与 `apps/web` 共用——
+ * 这张表本身就是本仓已经栽过五次的「同一事实两处声明」的候选现场，故不重复写第二份。
+ */
+const EXTENSION_BADGE: Readonly<Record<string, AssetFileBadgeT2>> = {
+  json: "JSON",
+  jsonl: "JSONL",
+  yaml: "YAML",
+  yml: "YAML",
+  js: "JS",
+  ts: "JS",
+  py: "PY",
+  sh: "SH",
+  csv: "CSV",
+};
+
+/**
+ * `assetFileBadgeFromPath` —— 由扩展名派生徽标，**未知扩展名 ⇒ `MD`，不报错**（
+ * `uc-23-3` R7 规则 4）。空扩展名（无 `.`，或以 `.` 结尾）同样落到 `MD`——
+ * 这不是特殊情形，是「未知」的一个普通子集。
+ */
+export function assetFileBadgeFromPath(path: string): AssetFileBadgeT2 {
+  const base = path.split("/").pop() ?? path;
+  const dot = base.lastIndexOf(".");
+  if (dot <= 0 || dot === base.length - 1) return "MD";
+  const ext = base.slice(dot + 1).toLowerCase();
+  return EXTENSION_BADGE[ext] ?? "MD";
+}
+
 /**
  * 本束的失败面。分三段：
  *   ① 与 phase-00 `identity` 束**同码同义**（`_sharedWithIdentity` 是编译期门控）

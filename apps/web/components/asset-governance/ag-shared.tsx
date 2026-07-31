@@ -4,6 +4,7 @@ import { Lock, AlertTriangle, FileText, FileCode, FileJson, Folder } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { assetFileBadgeFromPath } from "@repo/contracts/asset-governance";
 import {
   AG_VIEWS, GATE_VERDICT_LABEL, type AgView, type GateVerdict, type FileNode,
 } from "@/lib/mock/asset-governance";
@@ -129,19 +130,29 @@ export function FileTree({
   testidPrefix: string;
 }) {
   // 把扁平 path 归到目录分组，仅用于展示层级
-  const rows: { type: "dir" | "file"; name: string; path?: string; size?: string; kind?: FileNode["kind"]; depth: number }[] = [];
+  const rows: {
+    type: "dir" | "file";
+    name: string;
+    path?: string;
+    size?: string;
+    kind?: FileNode["kind"];
+    /** 契约 `AssetFileBadge`——由扩展名派生（`assetFileBadgeFromPath`），未知扩展名 ⇒ MD，不报错 */
+    badge?: string;
+    depth: number;
+  }[] = [];
   const seenDir = new Set<string>();
   for (const f of files) {
     const parts = f.path.split("/");
+    const badge = assetFileBadgeFromPath(f.path);
     if (parts.length > 1) {
       const dir = parts[0]!;
       if (!seenDir.has(dir)) {
         seenDir.add(dir);
         rows.push({ type: "dir", name: `${dir}/`, depth: 0 });
       }
-      rows.push({ type: "file", name: parts.slice(1).join("/"), path: f.path, size: f.size, kind: f.kind, depth: 1 });
+      rows.push({ type: "file", name: parts.slice(1).join("/"), path: f.path, size: f.size, kind: f.kind, badge, depth: 1 });
     } else {
-      rows.push({ type: "file", name: f.path, path: f.path, size: f.size, kind: f.kind, depth: 0 });
+      rows.push({ type: "file", name: f.path, path: f.path, size: f.size, kind: f.kind, badge, depth: 0 });
     }
   }
   return (
@@ -149,7 +160,11 @@ export function FileTree({
       {rows.map((r, i) => {
         if (r.type === "dir") {
           return (
-            <div key={`d-${i}`} className="flex items-center gap-1.5 px-2 py-1 text-10 font-medium text-muted-foreground">
+            <div
+              key={`d-${i}`}
+              data-testid={`${testidPrefix}-dir`}
+              className="flex items-center gap-1.5 px-2 py-1 text-10 font-medium text-muted-foreground"
+            >
               <Folder aria-hidden className="h-3 w-3" />
               {r.name}
             </div>
@@ -172,8 +187,14 @@ export function FileTree({
             <span className="flex items-center gap-1.5 truncate">
               <Icon aria-hidden className="h-3 w-3 shrink-0" />
               <span className="truncate">{r.name}</span>
+              <span
+                className="shrink-0 rounded border border-border-subtle px-1 font-mono text-9 text-muted-foreground"
+                data-testid={`${testidPrefix}-file-badge`}
+              >
+                {r.badge}
+              </span>
             </span>
-            <span className="shrink-0 text-9 text-muted-foreground">{r.size}</span>
+            <span className="shrink-0 text-9 text-muted-foreground" data-testid={`${testidPrefix}-file-size`}>{r.size}</span>
           </button>
         );
       })}
