@@ -6,7 +6,8 @@
  *
  *   1. the per-row predicate is IN THE DATABASE (`wsx_visible_artifacts`, migration 0018),
  *   2. it is load-bearing -- neutering it makes a forbidden row appear IN THE RESPONSE PAYLOAD,
- *   3. RLS is load-bearing -- widening the tenant policy makes another tenant's rows appear,
+ *   3. RLS is load-bearing -- the function's output changes with `app.current_org`, which it
+ *      could not do if it were not subject to the tenant policy,
  *   4. the function cannot escape RLS (`SECURITY INVOKER`, asserted from pg_catalog),
  *   5. the SQL scope rule and `decide()` agree over the whole matrix -- the one fact that
  *      unavoidably exists in two languages is the one fact with a differential gate on it.
@@ -283,32 +284,49 @@ describe("the predicate is in the database, and it is load-bearing", () => {
     expect(ids).toContain("a-multi");
   });
 
-  it("COUNTER-PROOF: widen the tenant policy and another tenant's artifact appears", async () => {
-    const ids = await withBroken(
-      [
-        "DROP POLICY IF EXISTS artifacts_tenant ON artifacts",
-        "CREATE POLICY artifacts_tenant ON artifacts USING (true) WITH CHECK (true)",
-        // The other tenant's project id differs, so ask for THAT project while scoped to ORG.
-      ],
-      async (c) => {
+  /**
+   * The tenant half, WITHOUT touching `artifacts`' policy.
+   *
+   * ⚠ The first version of this pair did `DROP POLICY … ON artifacts` inside the rolled-back
+   * transaction. It worked, and it was still wrong: `DROP POLICY` takes an ACCESS EXCLUSIVE
+   * lock on `artifacts` for the life of the transaction, and every other test file running in
+   * parallel against the same database blocks on it. The symptom is not a failure in THIS
+   * file -- it is `artifact-schema-six-tables.test.ts` taking 88 seconds on an assertion about
+   * a catalog query and then timing out. A counter-proof that makes other people's tests flaky
+   * is a counter-proof that will be deleted.
+   *
+   * What replaces it is stronger, not weaker: the tenant setting is varied instead of the
+   * policy. If the function were not subject to RLS -- SECURITY DEFINER, a BYPASSRLS role, a
+   * missing policy -- its output could not depend on `app.current_org`, and these two
+   * assertions could not both hold. "RLS is enabled and FORCEd on every tenant table" is
+   * asserted from the catalog by `rls-force-nonowner.test.ts`, which owns that question.
+   */
+  const asAppScopedTo = async (org: string, project: string): Promise<string[]> =>
+    asOwner(async (c) => {
+      await c.query("BEGIN");
+      try {
+        await c.query("SELECT set_config('app.current_org', $1, true)", [org]);
+        await c.query("SET LOCAL ROLE app_rw");
         const r = await c.query<{ artifact_id: string }>(
           "SELECT artifact_id FROM wsx_visible_artifacts($1, NULL) ORDER BY artifact_id",
-          [PROJECT + "-x"],
+          [project],
         );
         return r.rows.map((x) => x.artifact_id);
-      },
-    );
-    expect(ids, "RLS is what keeps tenants apart here -- with it widened, it must leak").toContain("a-other-tenant");
+      } finally {
+        await c.query("ROLLBACK");
+      }
+    });
+
+  it("scoped to THIS tenant, the other tenant's project yields nothing", async () => {
+    expect(await asAppScopedTo(ORG, PROJECT + "-x")).toEqual([]);
   });
 
-  it("...and with RLS intact, that same query sees nothing", async () => {
-    await withBroken([], async (c) => {
-      const r = await c.query<{ artifact_id: string }>(
-        "SELECT artifact_id FROM wsx_visible_artifacts($1, NULL)",
-        [PROJECT + "-x"],
-      );
-      expect(r.rows).toEqual([]);
-    });
+  it("COUNTER-PROOF: the same query scoped to the OTHER tenant returns the row -- so the emptiness above was RLS, not an empty table", async () => {
+    expect(await asAppScopedTo(OTHER, PROJECT + "-x")).toEqual(["a-other-tenant"]);
+  });
+
+  it("...and the function's own project filter is not what did it: this tenant's project is non-empty", async () => {
+    expect((await asAppScopedTo(ORG, PROJECT)).length).toBeGreaterThan(0);
   });
 });
 
