@@ -56,7 +56,7 @@ export interface ListBackflowInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly projectId: string;
-  readonly stepId?: string;
+  readonly agendaSegmentId?: string;
 }
 
 export async function listBackflow(
@@ -64,7 +64,7 @@ export async function listBackflow(
   input: ListBackflowInput,
 ): Promise<BackflowEntryRecord[]> {
   const { bindings, auth } = deps;
-  const { userId, orgId, projectId, stepId } = input;
+  const { userId, orgId, projectId, agendaSegmentId } = input;
 
   const decision = await authorize(auth, {
     userId,
@@ -77,7 +77,7 @@ export async function listBackflow(
     throw new NoProjectRoleError(`${userId} cannot see ${projectId}`);
   }
 
-  const guarded = await bindings.listForProject(orgId, projectId, stepId);
+  const guarded = await bindings.listForProject(orgId, projectId, agendaSegmentId);
   const { visible } = await disclose<BackflowRow>(auth, {
     userId,
     orgId,

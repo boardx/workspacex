@@ -225,7 +225,7 @@ describe("V11 (3): permissions are re-evaluated against the NEW organization", (
     await enterProject();
     const allowedInA = await post("/identity/authorize", {
       orgId: ORG_A, projectId: PROJ_A,
-      object: { kind: "project", id: PROJ_A }, action: "stage.advance",
+      object: { kind: "project", id: PROJ_A }, action: "agendaSegment.advance",
     }).then((r) => r.json() as Promise<DecisionBody>);
     expect(allowedInA.allowed).toBe(true);
 
@@ -233,7 +233,7 @@ describe("V11 (3): permissions are re-evaluated against the NEW organization", (
 
     const inB = await post("/identity/authorize", {
       orgId: ORG_B, projectId: PROJ_B,
-      object: { kind: "project", id: PROJ_B }, action: "stage.advance",
+      object: { kind: "project", id: PROJ_B }, action: "agendaSegment.advance",
     }).then((r) => r.json() as Promise<DecisionBody>);
     expect(inB.allowed).toBe(false);
     expect(inB.reasonCode).toBe("NO_PROJECT_ROLE");

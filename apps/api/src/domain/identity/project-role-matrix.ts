@@ -23,11 +23,11 @@ import type { ProjectRole } from "./roles";
  */
 export const PROJECT_ACTIONS = [
   /* facilitator row: "controls the room" */
-  "stage.advance",        // 推进环节
-  "stage.broadcast",      // 广播
-  "stage.timer",          // 计时
-  "stage.group",          // 分组
-  "stage.bulkConfirm",    // 批量确认
+  "agendaSegment.advance",        // 推进环节
+  "agendaSegment.broadcast",      // 广播
+  "agendaSegment.timer",          // 计时
+  "agendaSegment.group",          // 分组
+  "agendaSegment.bulkConfirm",    // 批量确认
   /* groupLead row: "runs their own group" */
   "group.submitOutput",   // 提交本组产出
   "group.confirmNode",    // 确认本组节点
@@ -56,7 +56,7 @@ export type ProjectAction = (typeof PROJECT_ACTIONS)[number];
 export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectAction[]>> = {
   // Controls the room; sees everything in it. Multiple instances allowed (O-03).
   facilitator: [
-    "stage.advance", "stage.broadcast", "stage.timer", "stage.group", "stage.bulkConfirm",
+    "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",

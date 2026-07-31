@@ -691,8 +691,8 @@ export const PENDING_CHANGES: PendingChange[] = [
  * ════════════════════════════════════════════════════════════════════════ */
 export const PROJECT_SIDE_UNKNOWNS = [
   { q: "项目怎么创建", state: "无出处", note: "组织角色 lead「创建与管理项目」已签核，但『怎么创建、能不能不套蓝本』无 UC（Q-1）。本向导假定「套蓝本」是主路径。" },
-  { q: "议程环节的字段名", state: "四个名字打架", note: "phase-00 已落库 stepId / 已实现动作词 stage.*；uc-2-2 同一份文档既写 agenda_stage 又写 agenda_segment_id。第 7 次「同一事实两处」，改哪边都非实现者能定（Q-3）。" },
-  { q: "议程环节的实体与状态机", state: "有状态、无集合", note: "『环节可被推进』已签核（stage.advance），『组长切状态 → 三视角首屏切换』依赖它，但状态集合与迁移规则完全没有（Q-2）。矩阵屏的『（当前）』标记是占位。" },
+  { q: "议程环节的字段名", state: "已裁决并改名对齐（F121）", note: "phase-00 遗留的三个败选名（旧驼峰/蛇形环节字段名、旧 stage 前缀动作词）已由 Q-3 B① 裁定并在 F121 收敛为单源 agendaSegment / agendaSegmentId，全仓不再出现。" },
+  { q: "议程环节的实体与状态机", state: "有状态、无集合", note: "『环节可被推进』已签核（agendaSegment.advance），『组长切状态 → 三视角首屏切换』依赖它，但状态集合与迁移规则完全没有（Q-2）。矩阵屏的『（当前）』标记是占位。" },
   { q: "steps 表", state: "明确不存在", note: "0008 迁移逐字写『there is no steps table』，两个失败码 STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 目前不可达，是指派给 phase-01 的债。" },
   { q: "项目生命周期 / status 列", state: "组织有、项目没有", note: "projects 表只有 id/org_id/name 三列，无 status、无蓝本引用列、无创建者列（Q-5）。本原型显示的『准备度%』只是展示值，口径未定（缺 D-13）。" },
   { q: "准备度百分比口径", state: "无口径", note: "原型显示 68% / 15%，但分母构成与权重未探明（缺 D-13）。" },

@@ -28,7 +28,7 @@ export interface AttachmentRecord {
   readonly attachmentId: string;
   readonly interviewId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly pinnedVersionId: string;
   /** ⚠ 属于 `pinnedVersionId` 那一行，**不是** artifact 的 head。 */
   readonly pinnedVersionNumber: number;
@@ -56,7 +56,7 @@ export interface AttachInput {
   readonly attachmentId: string;
   readonly interviewId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly pinnedVersionId: string;
   readonly attachedBy: string;
 }

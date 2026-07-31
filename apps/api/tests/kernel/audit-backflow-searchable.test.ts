@@ -107,7 +107,7 @@ beforeEach(async () => {
   // `lead` is 「项目负责人」 in this ontology (UC-0.3 R5) and is who may read the trail.
   await addOrgMember(ORG, LEAD, "lead", fx.teams.energy!);
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about the provenance/audit trail, not segment lifecycle.
   await seedAgendaSegment(ORG, PROJECT, STEP);
   await seedAgendaSegment(ORG, PROJECT, "f08s-step-other");
@@ -120,7 +120,7 @@ describe("V7: every pin and every bind is retrievable", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const b = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     await upgradeBinding(h.deps, {
       userId: SECOND, orgId: org(), bindingId: b.id, expectedHeadVersion: 1,
@@ -156,7 +156,7 @@ describe("V7: every pin and every bind is retrievable", () => {
     for (const art of [a, other]) {
       await bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: art.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "live",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
       });
     }
     const page = await trail({ targetKind: "artifact", targetId: a.artifactId });
@@ -169,7 +169,7 @@ describe("V7: every pin and every bind is retrievable", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const b = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     await upgradeBinding(h.deps, {
       userId: SECOND, orgId: org(), bindingId: b.id, expectedHeadVersion: 1,
@@ -184,7 +184,7 @@ describe("V7: every pin and every bind is retrievable", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const b = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     const all = await trail({ targetKind: "artifact", targetId: a.artifactId });
     const boundAt = all.events.find((e) => e.type === "bound")!.at;
@@ -207,12 +207,12 @@ describe("V7: every pin and every bind is retrievable", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-      projectId: PROJECT, stepId: STEP, mode: "live",
+      projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     await expect(
       bindToProjectStep(h.deps, {
         userId: MEMBER, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "live",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
       }),
     ).rejects.toBeInstanceOf(ProjectRoleInsufficientError);
 
@@ -243,12 +243,12 @@ describe("V7/V8: a refused attempt is recorded, and reveals nothing", () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
+      agendaSegmentId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
     });
     await expect(
       bindToProjectStep(h.deps, {
         userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-        projectId: PROJECT, stepId: STEP, mode: "live",
+        projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
       }),
     ).rejects.toBeInstanceOf(CannotDowngradeError);
 
@@ -280,7 +280,7 @@ describe("V7/V8: a refused attempt is recorded, and reveals nothing", () => {
           "x-kernel-test-principal": `${MEMBER}:${ORG}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({ artifactId, projectId: PROJECT, stepId: STEP, mode: "live" }),
+        body: JSON.stringify({ artifactId, projectId: PROJECT, agendaSegmentId: STEP, mode: "live" }),
       });
 
     const real = await post(a.artifactId);
@@ -341,13 +341,13 @@ describe("E5: withdrawing evidence annotates and notifies, and never touches the
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const cited = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
+      agendaSegmentId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
     });
     // A live binding on the same artifact. It does not CITE the version -- it resolves to
     // the head -- so annotating it would mark a reference that never rested on this evidence.
     const live = await bindToProjectStep(h.deps, {
       userId: SECOND, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: "f08s-step-other", mode: "live",
+      agendaSegmentId: "f08s-step-other", mode: "live",
     });
 
     const r = await withdraw(a.versionIds[0]!);
@@ -359,7 +359,7 @@ describe("E5: withdrawing evidence annotates and notifies, and never touches the
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     await bindToProjectStep(h.deps, {
       userId: SECOND, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
+      agendaSegmentId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
     });
 
     const r = await withdraw(a.versionIds[0]!);
@@ -426,7 +426,7 @@ describe("E5: withdrawing evidence annotates and notifies, and never touches the
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const cited = await bindToProjectStep(h.deps, {
       userId: AUTHOR, orgId: org(), artifactId: a.artifactId, projectId: PROJECT,
-      stepId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
+      agendaSegmentId: STEP, mode: "pinned", sourceVersionId: a.versionIds[0],
     });
 
     const post = (versionId: string, userId: string) =>

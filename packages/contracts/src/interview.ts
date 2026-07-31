@@ -433,14 +433,14 @@ export const operations = {
     in: z.object({
       interviewId: z.string(),
       projectId: z.string(),
-      stepId: z.string(),
+      agendaSegmentId: z.string(),
       pinnedVersionId: z.string(),
     }).strict(),
     out: z.object({
       attachmentId: z.string(),
       interviewId: z.string(),
       projectId: z.string(),
-      stepId: z.string(),
+      agendaSegmentId: z.string(),
       pinnedVersionId: z.string(),
     }).strict(),
     err: [

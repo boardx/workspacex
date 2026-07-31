@@ -87,7 +87,7 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, OTHER_TEAM, "facilitator", null);
   await addOrgMember(ORG, OUTSIDER, "consultant", fx.teams.platform!);
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about the four backflow fields, not segment lifecycle -- seed the two step labels it
   // actually binds to (OTHER_PROJECT is never bound, so it needs none).
   await seedAgendaSegment(ORG, PROJECT, "f06b-step-live");
@@ -95,8 +95,8 @@ beforeEach(async () => {
 });
 
 const org = () => toOrgId(ORG);
-const listAs = (userId: string, projectId = PROJECT, stepId?: string) =>
-  listBackflow(h.deps, { userId, orgId: org(), projectId, stepId });
+const listAs = (userId: string, projectId = PROJECT, agendaSegmentId?: string) =>
+  listBackflow(h.deps, { userId, orgId: org(), projectId, agendaSegmentId });
 
 const getBackflow = (userId: string, projectId = PROJECT, query = "") =>
   fetch(`${BASE}/projects/${projectId}/backflow${query}`, {
@@ -108,11 +108,11 @@ async function seedTwoEntries() {
   const a = await seedArtifact(h, ORG, PROJECT, ["as it stood\n"], AUTHOR);
   const live = await bindToProjectStep(h.deps, {
     userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-    projectId: PROJECT, stepId: "f06b-step-live", mode: "live",
+    projectId: PROJECT, agendaSegmentId: "f06b-step-live", mode: "live",
   });
   const pinned = await bindToProjectStep(h.deps, {
     userId: AUTHOR, orgId: org(), artifactId: a.artifactId,
-    projectId: PROJECT, stepId: "f06b-step-pinned", mode: "pinned",
+    projectId: PROJECT, agendaSegmentId: "f06b-step-pinned", mode: "pinned",
     sourceVersionId: a.versionIds[0]!,
   });
   return { a, live, pinned };
@@ -201,7 +201,7 @@ describe("V5: an empty project returns [], and no invented rows", () => {
     expect(await listAs(AUTHOR, OTHER_PROJECT)).toEqual([]);
   });
 
-  it("stepId narrows to one step, and to nothing for a step with no bindings", async () => {
+  it("agendaSegmentId narrows to one step, and to nothing for a step with no bindings", async () => {
     const { pinned } = await seedTwoEntries();
     const narrowed = await listAs(AUTHOR, PROJECT, "f06b-step-pinned");
     expect(narrowed.map((r) => r.bindingId)).toEqual([pinned.id]);
@@ -284,9 +284,9 @@ describe("GET /projects/:projectId/backflow conforms to the contract", () => {
     expect(body).toEqual([]);
   });
 
-  it("stepId travels through the query string and is validated by the contract's `in`", async () => {
+  it("agendaSegmentId travels through the query string and is validated by the contract's `in`", async () => {
     const { pinned } = await seedTwoEntries();
-    const body = await getBackflow(AUTHOR, PROJECT, "?stepId=f06b-step-pinned").then((r) => r.json());
+    const body = await getBackflow(AUTHOR, PROJECT, "?agendaSegmentId=f06b-step-pinned").then((r) => r.json());
     expect(C.operations.listBackflow.out.safeParse(body).success).toBe(true);
     expect((body as { bindingId: string }[]).map((r) => r.bindingId)).toEqual([pinned.id]);
   });

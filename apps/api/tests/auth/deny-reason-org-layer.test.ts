@@ -181,7 +181,7 @@ const REFUSALS: Readonly<Record<string, PermissionDecision>> = {
     scope: { scope: "org-wide", ownerTeamId: null },
   }),
   PROJECT_ROLE_INSUFFICIENT: decide({
-    decisionId: "d5", action: "stage.advance",
+    decisionId: "d5", action: "agendaSegment.advance",
     org: { role: "consultant", teamId: "team-energy" },
     project: { role: "observer", groupId: "g1", isHost: false },
     scope: { scope: "org-wide", ownerTeamId: null },

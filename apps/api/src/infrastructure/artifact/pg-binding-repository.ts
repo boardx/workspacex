@@ -35,7 +35,7 @@ interface BindingRowShape {
   id: string;
   artifact_id: string;
   project_id: string;
-  step_id: string;
+  agenda_segment_id: string;
   mode: string;
   pinned_version_id: string | null;
   created_by: string;
@@ -45,13 +45,13 @@ const toStored = (r: BindingRowShape): StoredBinding => ({
   id: r.id,
   artifactId: r.artifact_id,
   projectId: r.project_id,
-  stepId: r.step_id,
+  agendaSegmentId: r.agenda_segment_id,
   mode: r.mode as BindingModeName,
   pinnedVersionId: r.pinned_version_id,
   createdBy: r.created_by,
 });
 
-const SELECT_BINDING = `SELECT id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by
+const SELECT_BINDING = `SELECT id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by
                           FROM artifact_bindings`;
 
 export class PgBindingRepository implements BindingRepository {
@@ -61,9 +61,9 @@ export class PgBindingRepository implements BindingRepository {
     await this.db.withTenant(b.orgId, (s) =>
       s.query(
         `INSERT INTO artifact_bindings
-           (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+           (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [b.id, b.orgId, b.artifactId, b.projectId, b.stepId, b.mode, b.pinnedVersionId, b.createdBy],
+        [b.id, b.orgId, b.artifactId, b.projectId, b.agendaSegmentId, b.mode, b.pinnedVersionId, b.createdBy],
       ),
     );
     // No ON CONFLICT. A duplicate (artifact, project, step) means somebody else bound the
@@ -86,13 +86,13 @@ export class PgBindingRepository implements BindingRepository {
     orgId: OrgId,
     artifactId: string,
     projectId: string,
-    stepId: string,
+    agendaSegmentId: string,
   ): Promise<StoredBinding | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<BindingRowShape>(
         `${SELECT_BINDING}
-          WHERE org_id = $1 AND artifact_id = $2 AND project_id = $3 AND step_id = $4`,
-        [orgId, artifactId, projectId, stepId],
+          WHERE org_id = $1 AND artifact_id = $2 AND project_id = $3 AND agenda_segment_id = $4`,
+        [orgId, artifactId, projectId, agendaSegmentId],
       );
       return r.rows[0] ? toStored(r.rows[0]) : null;
     });
@@ -179,10 +179,10 @@ export class PgBindingRepository implements BindingRepository {
       const r = await s.query<{
         id: string;
         project_id: string;
-        step_id: string;
+        agenda_segment_id: string;
         created_by: string;
       }>(
-        `SELECT id, project_id, step_id, created_by
+        `SELECT id, project_id, agenda_segment_id, created_by
            FROM artifact_bindings
           WHERE org_id = $1 AND pinned_version_id = $2 AND mode = 'pinned'
           ORDER BY id`,
@@ -191,7 +191,7 @@ export class PgBindingRepository implements BindingRepository {
       return r.rows.map((row) => ({
         bindingId: row.id,
         projectId: row.project_id,
-        stepId: row.step_id,
+        agendaSegmentId: row.agenda_segment_id,
         createdBy: row.created_by,
       }));
     });
@@ -200,7 +200,7 @@ export class PgBindingRepository implements BindingRepository {
   async listForProject(
     orgId: OrgId,
     projectId: string,
-    stepId?: string,
+    agendaSegmentId?: string,
   ): Promise<readonly Guarded<BackflowRow>[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
@@ -236,9 +236,9 @@ export class PgBindingRepository implements BindingRepository {
               ORDER BY av.version_number DESC
               LIMIT 1
            ) v ON true
-          WHERE b.org_id = $1 AND b.project_id = $2 AND ($3::text IS NULL OR b.step_id = $3)
+          WHERE b.org_id = $1 AND b.project_id = $2 AND ($3::text IS NULL OR b.agenda_segment_id = $3)
           ORDER BY b.created_at, b.id`,
-        [orgId, projectId, stepId ?? null],
+        [orgId, projectId, agendaSegmentId ?? null],
       );
 
       return r.rows.map((row) => {

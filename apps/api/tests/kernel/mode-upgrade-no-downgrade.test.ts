@@ -78,7 +78,7 @@ beforeEach(async () => {
   await addOrgMember(ORG, MEMBER, "consultant", fx.teams.energy!);
   await addProjectMember(ORG, PROJECT, MEMBER, "member", null);
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file's
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file's
   // stepIds are opaque labels for "which step" a binding targets -- seed a real row for each
   // literal used anywhere below (note: "somewhere-else" at line ~250 is deliberately NOT
   // seeded -- that assertion tests that re-targeting is refused by the BEFORE-UPDATE trigger
@@ -92,10 +92,10 @@ beforeEach(async () => {
 
 const org = () => toOrgId(ORG);
 
-const bind = (mode: "draft" | "live" | "pinned", stepId: string, sourceVersionId?: string, artifactId?: string) =>
+const bind = (mode: "draft" | "live" | "pinned", agendaSegmentId: string, sourceVersionId?: string, artifactId?: string) =>
   bindToProjectStep(h.deps, {
     userId: AUTHOR, orgId: org(), artifactId: artifactId!, projectId: PROJECT,
-    stepId, mode, sourceVersionId,
+    agendaSegmentId, mode, sourceVersionId,
   });
 
 const post = (path: string, body: unknown, userId = AUTHOR) =>
@@ -259,7 +259,7 @@ describe("A3 / I-11: a pinned binding never goes back", () => {
     // trail recorded while changing what it refers to.
     await expect(
       asApp(ORG, (c) =>
-        c.query(`UPDATE artifact_bindings SET step_id='somewhere-else' WHERE id=$1`, [pinned.id]),
+        c.query(`UPDATE artifact_bindings SET agenda_segment_id='somewhere-else' WHERE id=$1`, [pinned.id]),
       ),
     ).rejects.toThrow(/cannot be re-targeted/);
 
@@ -327,7 +327,7 @@ describe("POST /artifacts/:id/bindings and .../upgrade conform to the contract",
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
 
     const bindRes = await post(`/artifacts/${a.artifactId}/bindings`, {
-      artifactId: a.artifactId, projectId: PROJECT, stepId: STEP, mode: "live",
+      artifactId: a.artifactId, projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     expect(bindRes.status).toBe(201);
     const bound = await bindRes.json();
@@ -352,7 +352,7 @@ describe("POST /artifacts/:id/bindings and .../upgrade conform to the contract",
     const pinned = await bind("pinned", STEP, a.versionIds[0], a.artifactId);
 
     const down = await post(`/artifacts/${a.artifactId}/bindings`, {
-      artifactId: a.artifactId, projectId: PROJECT, stepId: STEP, mode: "live",
+      artifactId: a.artifactId, projectId: PROJECT, agendaSegmentId: STEP, mode: "live",
     });
     expect(down.status).toBe(409);
     expect(((await down.json()) as { error: string }).error).toBe("conflict");
@@ -386,7 +386,7 @@ describe("POST /artifacts/:id/bindings and .../upgrade conform to the contract",
   it("a request body the contract rejects never reaches the use case", async () => {
     const a = await seedArtifact(h, ORG, PROJECT, ["v1\n"], AUTHOR);
     const res = await post(`/artifacts/${a.artifactId}/bindings`, {
-      artifactId: a.artifactId, projectId: PROJECT, stepId: STEP, mode: "archived",
+      artifactId: a.artifactId, projectId: PROJECT, agendaSegmentId: STEP, mode: "archived",
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; fields: { path: string }[] };
@@ -403,11 +403,11 @@ describe("POST /artifacts/:id/bindings and .../upgrade conform to the contract",
     // `pinnedVersionId` is nullable, not optional -- a repository row type that drops it is
     // precisely the F01 defect, and it would be invisible without this.
     expect(
-      out.safeParse({ id: "b", artifactId: "a", projectId: "p", stepId: "s", mode: "live" }).success,
+      out.safeParse({ id: "b", artifactId: "a", projectId: "p", agendaSegmentId: "s", mode: "live" }).success,
     ).toBe(false);
     expect(
       out.safeParse({
-        id: "b", artifactId: "a", projectId: "p", stepId: "s", mode: "archived",
+        id: "b", artifactId: "a", projectId: "p", agendaSegmentId: "s", mode: "archived",
         pinnedVersionId: null,
       }).success,
     ).toBe(false);

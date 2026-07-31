@@ -119,7 +119,7 @@ export async function detachFromProjectStep(
       action: "detachFromProjectStep",
       interviewId: detached.interviewId,
       attachmentId: detached.attachmentId,
-      stepId: detached.stepId,
+      agendaSegmentId: detached.agendaSegmentId,
       // 记下被松开的是哪一份快照 —— 「这个环节曾经引用过什么」在解除之后仍然要答得出来。
       pinnedVersionId: detached.pinnedVersionId,
       pinnedContentHash: detached.pinnedContentHash,

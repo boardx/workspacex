@@ -54,7 +54,7 @@ export interface NewBinding {
   readonly orgId: OrgId;
   readonly artifactId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly mode: BindingModeName;
   readonly pinnedVersionId: string | null;
   readonly createdBy: string;
@@ -111,7 +111,7 @@ export interface BackflowRow {
 export interface ReferenceSite {
   readonly bindingId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly createdBy: string;
 }
 
@@ -126,7 +126,7 @@ export interface BindingRepository {
     orgId: OrgId,
     artifactId: string,
     projectId: string,
-    stepId: string,
+    agendaSegmentId: string,
   ): Promise<StoredBinding | null>;
 
   /**
@@ -187,7 +187,7 @@ export interface BindingRepository {
   listForProject(
     orgId: OrgId,
     projectId: string,
-    stepId?: string,
+    agendaSegmentId?: string,
   ): Promise<readonly Guarded<BackflowRow>[]>;
 }
 

@@ -74,13 +74,13 @@ const scopeProject = { kind: "project" as const, projectId: PROJECT, researchPro
 const deps = () => ({ repo: scope, attachments, provenance, decisions, ids });
 
 /** 直接把一条 pinned 绑定写进去。绑定本身怎么建是 F06 的事，本文件只需要「这一版被钉住了」。 */
-async function pinBinding(artifactId: string, versionId: string, stepId: string): Promise<void> {
+async function pinBinding(artifactId: string, versionId: string, agendaSegmentId: string): Promise<void> {
   await asApp(ORG, (c) =>
     c.query(
       `INSERT INTO artifact_bindings
-         (id, org_id, artifact_id, project_id, step_id, mode, pinned_version_id, created_by)
+         (id, org_id, artifact_id, project_id, agenda_segment_id, mode, pinned_version_id, created_by)
        VALUES ($1,$2,$3,$4,$5,'pinned',$6,$7)`,
-      [`bind-${versionId}-${stepId}`, ORG, artifactId, PROJECT, stepId, versionId, CREATOR],
+      [`bind-${versionId}-${agendaSegmentId}`, ORG, artifactId, PROJECT, agendaSegmentId, versionId, CREATOR],
     ),
   );
 }
@@ -128,7 +128,7 @@ beforeEach(async () => {
   // 一场**不属于任何项目**的访谈 —— R4 的原话是「把一场无项目访谈挂到项目环节」。
   await seedInterview({ orgId: ORG, id: ITV, createdBy: CREATOR, projectId: null });
 
-  // F118: artifact_bindings.step_id now has a composite FK into agenda_segments. This file
+  // F118: artifact_bindings.agenda_segment_id now has a composite FK into agenda_segments. This file
   // is about interview-attachment mounting, not segment lifecycle -- seed the two literal
   // step ids used below (STEP via attachToProjectStep, "f81m-step-pin-source" via pinBinding).
   await seedAgendaSegment(ORG, PROJECT, STEP);
@@ -164,7 +164,7 @@ const attach = () =>
     actorId: CREATOR,
     interviewId: ITV,
     projectId: PROJECT,
-    stepId: STEP,
+    agendaSegmentId: STEP,
     pinnedVersionId: v1,
   });
 
@@ -266,7 +266,7 @@ describe("② 只有固定快照挂得上（REQUIRES_PINNED，与 artifact 束 I
         actorId: CREATOR,
         interviewId: ITV,
         projectId: PROJECT,
-        stepId: STEP,
+        agendaSegmentId: STEP,
         pinnedVersionId: other.versionIds[0]!,
       }),
     ).rejects.toBeInstanceOf(RequiresPinnedError);
@@ -278,7 +278,7 @@ describe("② 只有固定快照挂得上（REQUIRES_PINNED，与 artifact 束 I
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO interview_step_attachments
-             (id, org_id, interview_id, project_id, step_id, pinned_version_id, attached_by)
+             (id, org_id, interview_id, project_id, agenda_segment_id, pinned_version_id, attached_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7)`,
           ["att-bypass", ORG, ITV, PROJECT, STEP, other.versionIds[0]!, CREATOR],
         ),
@@ -290,7 +290,7 @@ describe("② 只有固定快照挂得上（REQUIRES_PINNED，与 artifact 束 I
     const a = await attach();
     expect(a.pinnedVersionId).toBe(v1);
     expect(a.interviewId).toBe(ITV);
-    expect(a.stepId).toBe(STEP);
+    expect(a.agendaSegmentId).toBe(STEP);
   });
 });
 

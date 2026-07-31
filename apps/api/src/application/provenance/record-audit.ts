@@ -46,7 +46,7 @@ export interface BindingAuditInput {
   readonly artifactId: string;
   readonly bindingId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly mode: BindingModeName;
   readonly pinnedVersionId: string | null;
   /** Absent when the binding was created by this action rather than raised. */
@@ -71,7 +71,7 @@ export async function recordBackflow(
     detail: {
       bindingId: input.bindingId,
       projectId: input.projectId,
-      stepId: input.stepId,
+      agendaSegmentId: input.agendaSegmentId,
       mode: input.mode,
       pinnedVersionId: input.pinnedVersionId,
       ...(input.previousMode === undefined ? {} : { previousMode: input.previousMode }),

@@ -79,7 +79,7 @@ export interface BindToProjectStepInput {
   readonly orgId: OrgId;
   readonly artifactId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly mode: BindingModeName;
   /** Required when `mode` is `pinned`; the contract's schema does not say so -- see errors. */
   readonly sourceVersionId?: string;
@@ -90,7 +90,7 @@ export async function bindToProjectStep(
   input: BindToProjectStepInput,
 ): Promise<BindingRecord> {
   const { bindings, artifacts, auth, ids } = deps;
-  const { userId, orgId, artifactId, projectId, stepId, mode } = input;
+  const { userId, orgId, artifactId, projectId, agendaSegmentId, mode } = input;
 
   // Permission BEFORE existence. A caller with no role in the project must not be able to
   // learn whether an artifact id exists by comparing two refusals -- the same rule
@@ -129,21 +129,21 @@ export async function bindToProjectStep(
 
   const pinnedVersionId = await resolvePinnedVersion(deps, input);
 
-  const existing = await bindings.findByStep(orgId, artifactId, projectId, stepId);
+  const existing = await bindings.findByStep(orgId, artifactId, projectId, agendaSegmentId);
   if (existing === null) {
     const id = ids.next("bind");
     await bindings.create({
-      id, orgId, artifactId, projectId, stepId, mode, pinnedVersionId, createdBy: userId,
+      id, orgId, artifactId, projectId, agendaSegmentId, mode, pinnedVersionId, createdBy: userId,
     });
     // AFTER the write, so the trail never claims a bind that did not happen. The opposite
     // ordering (audit first) is the one that survives a failed write, and a trail with
     // phantom entries is not a better trail than one with missing entries -- it is the same
     // defect pointed the other way.
     await recordBackflow(deps.provenance, {
-      orgId, actorId: userId, artifactId, bindingId: id, projectId, stepId, mode,
+      orgId, actorId: userId, artifactId, bindingId: id, projectId, agendaSegmentId, mode,
       pinnedVersionId,
     });
-    return { id, artifactId, projectId, stepId, mode, pinnedVersionId };
+    return { id, artifactId, projectId, agendaSegmentId, mode, pinnedVersionId };
   }
 
   return raiseExisting(deps, orgId, userId, existing, mode, pinnedVersionId);
@@ -235,7 +235,7 @@ async function raiseExisting(
     artifactId: existing.artifactId,
     bindingId: existing.id,
     projectId: existing.projectId,
-    stepId: existing.stepId,
+    agendaSegmentId: existing.agendaSegmentId,
     mode,
     pinnedVersionId,
     previousMode: existing.mode as BindingModeName,
@@ -244,7 +244,7 @@ async function raiseExisting(
     id: existing.id,
     artifactId: existing.artifactId,
     projectId: existing.projectId,
-    stepId: existing.stepId,
+    agendaSegmentId: existing.agendaSegmentId,
     mode,
     pinnedVersionId,
   };

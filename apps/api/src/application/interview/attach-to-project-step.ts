@@ -25,7 +25,7 @@
  *
  * ## ⚠ 已知不可求值：`STEP_CLOSED_OR_ARCHIVED`
  *
- * 契约把它列在 `err` 里，本仓**求不出来**：没有 `steps` 表，`step_id` 因此没有外键
+ * 契约把它列在 `err` 里，本仓**求不出来**：没有 `steps` 表，`agenda_segment_id` 因此没有外键
  * （0008 为 `artifact_bindings` 记过同一件事，phase-00 起就没有）。
  * 造一个「永远说 open」的查表来假装覆盖比没有这道检查更糟 —— 它读起来像覆盖。
  * 故：报告，不伪造。
@@ -55,7 +55,7 @@ export interface AttachInputDto {
   readonly actorId: string;
   readonly interviewId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly pinnedVersionId: string;
 }
 
@@ -64,7 +64,7 @@ export interface AttachResult {
   readonly attachmentId: string;
   readonly interviewId: string;
   readonly projectId: string;
-  readonly stepId: string;
+  readonly agendaSegmentId: string;
   readonly pinnedVersionId: string;
 }
 
@@ -118,7 +118,7 @@ export async function attachToProjectStep(
     attachmentId: deps.ids.next("itvatt"),
     interviewId: input.interviewId,
     projectId: input.projectId,
-    stepId: input.stepId,
+    agendaSegmentId: input.agendaSegmentId,
     pinnedVersionId: input.pinnedVersionId,
     attachedBy: input.actorId,
   });
@@ -167,7 +167,7 @@ export async function attachToProjectStep(
       action: "attachToProjectStep",
       interviewId: row.interviewId,
       attachmentId: row.attachmentId,
-      stepId: row.stepId,
+      agendaSegmentId: row.agendaSegmentId,
       pinnedVersionId: row.pinnedVersionId,
       pinnedVersionNumber: row.pinnedVersionNumber,
       pinnedContentHash: row.pinnedContentHash,
@@ -178,7 +178,7 @@ export async function attachToProjectStep(
     attachmentId: row.attachmentId,
     interviewId: row.interviewId,
     projectId: row.projectId,
-    stepId: row.stepId,
+    agendaSegmentId: row.agendaSegmentId,
     pinnedVersionId: row.pinnedVersionId,
   };
 }

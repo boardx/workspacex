@@ -472,21 +472,22 @@ export async function addBinding(opts: {
 }
 
 /**
- * F118: a real `agenda_segments` row for a phase-00 fixture's `step_id`.
+ * F118: a real `agenda_segments` row for a phase-00 fixture's `agendaSegmentId`.
  *
- * `artifact_bindings.step_id` gained a composite FK in F118
- * (`artifact_bindings_segment_fkey` -> `agenda_segments(id, workshop_id, org_id)`). Every
+ * `artifact_bindings.agenda_segment_id` (F121 renamed it from its phase-00 name; the
+ * column gained a composite FK in F118 under that earlier name) is backed by
+ * `artifact_bindings_segment_fkey` -> `agenda_segments(id, workshop_id, org_id)`. Every
  * F06-era test that calls `bindToProjectStep` with a bare string like `"s1"` or
  * `"step-lead"` now needs a matching row here first, or the insert is refused as an orphan
  * binding -- which is exactly what the constraint is for, just not what those tests were
  * about. `seedOrg`'s `projectId` IS the workshop id (F116 supertype model), so `workshopId`
  * below is that same id, not a new concept.
  *
- * ⚠ Ordinal is not meaningful across a fixture's various stepIds (tests seed them in
+ * ⚠ Ordinal is not meaningful across a fixture's various segment ids (tests seed them in
  *   whatever order the scenario needs), so it defaults to 0 for every row -- nothing in
  *   these files reads it.
  * ⚠ State defaults to `pending`, NOT `active` -- these fixtures routinely seed several
- *   distinct stepIds under ONE workshop (binding-three-modes alone uses ten), and I-P44's
+ *   distinct segment ids under ONE workshop (binding-three-modes alone uses ten), and I-P44's
  *   partial unique index allows at most one `active` row per workshop. `pending` is a
  *   legal, permanent resting state that never collides with a sibling segment.
  */

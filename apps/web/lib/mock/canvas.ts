@@ -35,13 +35,12 @@ export function resolveCanvasScreen(raw: string | string[] | undefined): CanvasS
 }
 
 /**
- * ⚠ 「环节」命名未裁决 —— 同一概念在仓库里有四个名字：
- *   `stepId`（artifact.ts:205） / `stage.*`（动作词表） / `agenda_stage` / `agenda_segment`。
- * **本原型一律不挑一个当权威**，界面显示中文「议程环节」，data-testid 用中性 `agenda-seg`，
- * 并把裁决指向 → 见 requirements/00-project/OPEN-QUESTIONS.md Q-2 / Q-3。
+ * 「环节」命名已由 Q-3 B① 裁定并在 F121 完成改名对齐：全仓单源为
+ * `agendaSegment` / `agendaSegmentId`。此前并存的三个败选名已改名清除，
+ * 由 `apps/api/tests/project/naming-single-source-gate.test.ts` 门控禁止再出现。
  */
 export const AGENDA_SEGMENT_NAMING_NOTE =
-  "「议程环节」命名待裁决（stepId / stage.* / agenda_stage / agenda_segment 四名并存）→ 见 OPEN-QUESTIONS Q-2/Q-3";
+  "「议程环节」字段命名单源：agendaSegment / agendaSegmentId（F121 已改名对齐）";
 
 /* ══════════════════════════════ UC-7.1 · 模板注册表（F100/F101） ══════════════════════════════ */
 
