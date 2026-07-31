@@ -194,3 +194,137 @@ export interface ChatRepository {
 }
 
 export const CHAT_REPOSITORY = Symbol("ChatRepository");
+
+/* ══════════════════ F115：预设对话（chat 束 domain.md G 组，uc-8-4）══════════════════ */
+
+/** 预设的持久化形状。**版本按 `chat_presets.version` 管理**，见迁移文件头对
+ * 「为什么不接 `artifact_versions`」的说明——这是本 feature 的一处已知简化。 */
+export interface PresetRecord {
+  readonly id: string;
+  readonly projectId: string;
+  readonly openingPrompt: string;
+  readonly skills: readonly string[];
+  readonly agents: readonly string[];
+  readonly version: number;
+  readonly createdBy: string;
+}
+
+/**
+ * `upsertPreset` 的仓储结果。**判别联合，不是布尔 + 抛异常**——与
+ * `UpdateAgentRosterOutcome`（F110）同一个理由：版本冲突是仓储层的一个数据事实
+ * （`UPDATE ... WHERE version = $expected` 影响 0 行），由 application 层决定
+ * 映射成哪个对外错误。
+ */
+export type UpsertPresetOutcome =
+  | { readonly kind: "ok"; readonly presetId: string; readonly version: number }
+  | { readonly kind: "version-changed" };
+
+export interface UpsertPresetRepoInput {
+  readonly presetId: string;
+  readonly isNew: boolean;
+  readonly openingPrompt: string;
+  readonly skills: readonly string[];
+  readonly agents: readonly string[];
+  readonly expectedVersion: number | null;
+  readonly createdBy: string;
+}
+
+/** 下发记录（幂等重放的落点，契约「同一 (presetId, targets, version) 返回同一 dispatchId」）。 */
+export interface PresetDispatchRecord {
+  readonly dispatchId: string;
+  readonly targetCount: number;
+}
+
+/** 一次实例（预设的一次「开始」），与 `chat_threads` 的一行绑定（I-39 复用既有可见性）。 */
+export interface PresetInstanceRecord {
+  readonly threadId: string;
+  readonly instanceId: string;
+}
+
+export interface ChatPresetRepository {
+  findPreset(orgId: OrgId, presetId: string): Promise<PresetRecord | null>;
+
+  /**
+   * 创建 / 编辑预设。**不可变的是每一个历史版本**：编辑生成新版本号，不覆盖旧版本的语义
+   * （已知简化：本表不像 F04 那样另存每个历史版本的完整快照，只保留当前版本 + 版本号
+   * 单调递增，见迁移文件头「为什么不接 artifact_versions」）。
+   */
+  upsertPreset(
+    orgId: OrgId,
+    projectId: string,
+    input: UpsertPresetRepoInput,
+  ): Promise<UpsertPresetOutcome>;
+
+  /**
+   * agent/skill 是否存在于组织目录（`org_agents` / `org_skills`，同 F110 的占位纪律，
+   * 见迁移文件头）。返回第一个不在目录里的 id；全部存在则两者皆 null。
+   *
+   * ⚠ 这**不是** I-40 要求的「下发对象可见性范围」判定——那份数据来自 F15，跨分片依赖
+   *   未落地（见 `domain/chat/preset-dispatch-scope.ts` 文件头）。这里只做「存不存在」，
+   *   `dispatchPreset` 用它顶替真正的范围判定，是已登记的已知简化，不是结论。
+   */
+  findOutOfScopeResource(
+    orgId: OrgId,
+    agentIds: readonly string[],
+    skillIds: readonly string[],
+  ): Promise<{ readonly kind: "agent" | "skill"; readonly id: string } | null>;
+
+  /** 下发对象命中的用户数（`targetCount`——能取用的人数，不是已创建实例数）。 */
+  countDispatchTargets(
+    orgId: OrgId,
+    projectId: string,
+    targets: { readonly plenary: boolean; readonly groupIds: readonly string[]; readonly roles: readonly string[] },
+  ): Promise<number>;
+
+  /** 幂等重放：同一 (presetId, targetsFingerprint, version) 已下发过就返回原记录。 */
+  findExistingDispatch(
+    orgId: OrgId,
+    presetId: string,
+    targetsFingerprint: string,
+    version: number,
+  ): Promise<PresetDispatchRecord | null>;
+
+  recordDispatch(
+    orgId: OrgId,
+    presetId: string,
+    targetsFingerprint: string,
+    version: number,
+    targetCount: number,
+    targets: { readonly plenary: boolean; readonly groupIds: readonly string[]; readonly roles: readonly string[] },
+  ): Promise<PresetDispatchRecord>;
+
+  /** 该 actor 是否在某次下发的目标范围内（`NOT_DISPATCHED_TO_ACTOR` 判定用）。 */
+  isActorDispatchTarget(
+    orgId: OrgId,
+    presetId: string,
+    projectId: string,
+    actorId: string,
+  ): Promise<boolean>;
+
+  /** 幂等重放：同一人重复「开始」返回同一实例（I-38）。 */
+  findInstanceForActor(
+    orgId: OrgId,
+    presetId: string,
+    actorId: string,
+  ): Promise<PresetInstanceRecord | null>;
+
+  /**
+   * 落一个新实例：**建一行普通线程**（复用 F108/F109 既有的可见性与生命周期机制，
+   * `visibilityScope: "private"` ⇒ 仅创建者可读，I-39 天然成立，不另立第二套判定）
+   * 加一行 `chat_preset_instances` 登记。两者在**同一个事务**里完成。
+   */
+  createPresetInstance(
+    orgId: OrgId,
+    presetId: string,
+    actorId: string,
+    newThread: NewThreadInput,
+  ): Promise<PresetInstanceRecord>;
+
+  /** 该预设的全部实例事实（`startedBy` 用于 I-38 的 usageCount 计算）。 */
+  listPresetInstances(
+    orgId: OrgId,
+    presetId: string,
+  ): Promise<ReadonlyArray<{ readonly instanceId: string; readonly startedBy: string }>>;
+}
+
+export const CHAT_PRESET_REPOSITORY = Symbol("ChatPresetRepository");

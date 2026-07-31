@@ -63,11 +63,38 @@ import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
+import { CHAT_PRESET_REPOSITORY, type ChatPresetRepository } from "../../application/chat/ports";
+import {
+  NoProjectRoleError as UpsertPresetNoProjectRoleError,
+  PresetVersionChangedError as UpsertPresetVersionChangedError,
+  upsertPreset,
+} from "../../application/chat/upsert-preset";
+import {
+  AgentOutOfScopeError as PresetAgentOutOfScopeError,
+  NoProjectRoleError as DispatchPresetNoProjectRoleError,
+  PresetNotFoundError as DispatchPresetNotFoundError,
+  PresetVersionChangedError as DispatchPresetVersionChangedError,
+  SkillOutOfScopeError as PresetSkillOutOfScopeError,
+  dispatchPreset,
+} from "../../application/chat/dispatch-preset";
+import {
+  NotDispatchedToActorError,
+  PresetNotFoundError as StartInstancePresetNotFoundError,
+  startPresetInstance,
+} from "../../application/chat/start-preset-instance";
+import {
+  PresetNotFoundError as GetUsagePresetNotFoundError,
+  PresetNotVisibleError,
+  getPresetUsage,
+} from "../../application/chat/get-preset-usage";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
 export const MUTATE_THREAD_SCHEMA = C.operations.mutateThread.in;
 export const UPDATE_AGENT_ROSTER_SCHEMA = C.operations.updateAgentRoster.in;
+export const UPSERT_PRESET_SCHEMA = C.operations.upsertPreset.in;
+export const DISPATCH_PRESET_SCHEMA = C.operations.dispatchPreset.in;
+export const START_PRESET_INSTANCE_SCHEMA = C.operations.startPresetInstance.in;
 
 type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
@@ -87,6 +114,19 @@ type UpdateAgentRosterBody = {
   remove: string[];
   expectedRosterVersion: number;
 };
+type UpsertPresetBody = {
+  projectId: string;
+  presetId: string | null;
+  openingPrompt: string;
+  skills: string[];
+  agents: string[];
+  expectedVersion: number | null;
+};
+type DispatchPresetBody = {
+  presetId: string;
+  targets: { plenary: boolean | null; groupIds: string[] | null; roles: ("facilitator" | "groupLead" | "member" | "observer")[] | null };
+};
+type StartPresetInstanceBody = { presetId: string };
 
 @Controller()
 export class ChatController {
@@ -99,6 +139,7 @@ export class ChatController {
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
+    @Inject(CHAT_PRESET_REPOSITORY) private readonly chatPresets: ChatPresetRepository,
   ) {}
 
   private get deps() {
@@ -389,6 +430,143 @@ export class ChatController {
         throw new UnprocessableEntityException({ reasonCode: "AGENT_NOT_FOUND" });
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /* ── F115：预设对话（uc-8-4）──────────────────────────────────────── */
+
+  /**
+   * 创建 / 编辑预设。**引导师专属**（uc-8-4 UC-23 `pre`），不是「任意有写权限的角色」。
+   * ⚠ `PRESET_PREAPPROVAL_FORBIDDEN` / `PRESET_SCOPE_BYPASS_FORBIDDEN` 在契约的
+   *   `.strict()` 输入形状下结构性不可达——见 `upsert-preset.ts` 文件头。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/projects/:projectId/presets")
+  async upsertPresetRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(UPSERT_PRESET_SCHEMA)) body: UpsertPresetBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await upsertPreset(
+        { repo: this.repo, chatPresets: this.chatPresets, presetIds: this.artifactIds },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          projectId,
+          presetId: body.presetId,
+          openingPrompt: body.openingPrompt,
+          skills: body.skills,
+          agents: body.agents,
+          expectedVersion: body.expectedVersion,
+        },
+      );
+    } catch (e) {
+      if (e instanceof UpsertPresetNoProjectRoleError) {
+        throw new ForbiddenException({ reasonCode: "NO_PROJECT_ROLE" });
+      }
+      if (e instanceof UpsertPresetVersionChangedError) {
+        throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 下发预设：引导师 → 组长/组员。**下发不创建任何实例**，`out` 只有
+   * `targetCount`——见 `dispatch-preset.ts` 文件头三条逐字答死的语义。
+   * 越范围（AGENT_OUT_OF_SCOPE / SKILL_OUT_OF_SCOPE）在这一层拒绝，422：
+   * 与 `updateRoster` 的 `AGENT_OUT_OF_SCOPE` 同一档——请求形状合法但内容
+   * 不满足业务前置。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/presets/:presetId/dispatch")
+  async dispatchPresetRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("presetId") presetId: string,
+    @Query("projectId") projectId: string,
+    @Body(new ZodBodyPipe(DISPATCH_PRESET_SCHEMA)) body: DispatchPresetBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await dispatchPreset(
+        { repo: this.repo, chatPresets: this.chatPresets },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          projectId,
+          presetId,
+          targets: body.targets,
+          expectedVersion: null,
+        },
+      );
+    } catch (e) {
+      if (e instanceof DispatchPresetNoProjectRoleError) {
+        throw new ForbiddenException({ reasonCode: "NO_PROJECT_ROLE" });
+      }
+      if (e instanceof DispatchPresetNotFoundError) throw new NotFoundException("preset_not_found");
+      if (e instanceof DispatchPresetVersionChangedError) {
+        throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      }
+      if (e instanceof PresetAgentOutOfScopeError) {
+        throw new UnprocessableEntityException({ reasonCode: "AGENT_OUT_OF_SCOPE" });
+      }
+      if (e instanceof PresetSkillOutOfScopeError) {
+        throw new UnprocessableEntityException({ reasonCode: "SKILL_OUT_OF_SCOPE" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 开始一个预设实例。**由取用者本人触发**，幂等——同一人重复点「开始」
+   * 返回同一 `instanceId`（I-38）。实例的可见性走既有 F108 判定，
+   * 与「预设本身可见」是两条独立路径（I-39），见 `start-preset-instance.ts` 文件头。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/presets/:presetId/instances")
+  async startPresetInstanceRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("presetId") presetId: string,
+    @Query("projectId") projectId: string,
+    @Body(new ZodBodyPipe(START_PRESET_INSTANCE_SCHEMA)) _body: StartPresetInstanceBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await startPresetInstance(
+        { chatPresets: this.chatPresets, threadIds: this.artifactIds },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId, presetId },
+      );
+    } catch (e) {
+      if (e instanceof StartInstancePresetNotFoundError) throw new NotFoundException("preset_not_found");
+      if (e instanceof NotDispatchedToActorError) {
+        throw new ForbiddenException({ reasonCode: "NOT_DISPATCHED_TO_ACTOR" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 读预设使用计数。`usageCount` 恒等于真实实例数（I-38），不是下发人数——
+   * 见 `get-preset-usage.ts`。
+   */
+  @Get("/chat/presets/:presetId/usage")
+  async presetUsage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("presetId") presetId: string,
+    @Query("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getPresetUsage(
+        { repo: this.repo, chatPresets: this.chatPresets },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId, presetId },
+      );
+    } catch (e) {
+      if (e instanceof GetUsagePresetNotFoundError) throw new NotFoundException("preset_not_found");
+      if (e instanceof PresetNotVisibleError) throw new NotFoundException();
       throw e;
     }
   }
