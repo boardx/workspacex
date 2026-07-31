@@ -48,6 +48,23 @@ export const DESIGN_FACET_GROUPS = ["basic", "pre-input", "onsite", "ai", "outpu
 
 export type DesignFacetGroup = (typeof DESIGN_FACET_GROUPS)[number];
 
+/**
+ * 五组的**目录标题**（`uc-2-1` R8 侧栏分组标题：基本配置 / 会前输入 / 现场 / AI 能力 / 产出）。
+ *
+ * ⚠ 它住在这里而不是界面里，理由与分母同源（I-5）：一旦分组标题在前端另写一份，
+ * 「表里有这一组」与「界面上有这一组」就成了两件可以各自为真的事。
+ * ⚠ R8 明写侧栏标题**不进「原样呈现」清单**（原型原文是「设计环节」，D-03 已正名为
+ * 「设计配置」），所以这几个词是**本文的产物**，可随裁决改——正因如此更要只有一份。
+ * 类型是 `Record<DesignFacetGroup, string>`：新增一组而忘了给标题 ⇒ **编译期**就红。
+ */
+export const DESIGN_FACET_GROUP_LABEL: Record<DesignFacetGroup, string> = {
+  basic: "基本配置",
+  "pre-input": "会前输入",
+  onsite: "现场",
+  ai: "AI 能力",
+  output: "产出",
+};
+
 /** 契约侧的一行（四字段）。派生，不重写——`lint-contract-source` 强制。 */
 type ContractDesignFacet = z.infer<typeof templates.DesignFacetDefinition>;
 
