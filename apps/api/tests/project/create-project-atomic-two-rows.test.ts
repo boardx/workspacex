@@ -350,37 +350,73 @@ describe("Q-1 C：全仓恰好一条创建路径", () => {
   });
 });
 
-/* ─────────────────────── 契约矛盾的钉子（KNOWN_CONTRACT_GAPS.P3） ─────────────────────── */
+/* ────────── 契约矛盾的钉子（KNOWN_CONTRACT_GAPS.P3）—— 半边已由 ADR-101 补上 ────────── */
 
-describe("🔴 未解决：out 要 provenanceEventId，而 provenance 枚举里没有项目生命周期事件", () => {
-  it("矛盾仍然成立 —— 枚举一旦补上成员，本条当场红，接手的人来这里补写入", () => {
+describe("🔴 P3 的后半截仍未解决：枚举补齐了，create-project 还没发出 provenanceEventId", () => {
+  /**
+   * ## 这条断言被翻转过一次，翻转本身是它设计好的行为
+   *
+   * F117 写这条时，它断言那四个成员**不存在**，并在失败信息里写着
+   * 「枚举一旦补上成员，本条当场红，接手的人来这里补写入」。
+   * ADR-101（F32 顺带一次补齐 files / interview / project / chat 四个束的缺口）
+   * 把四个成员加进了 `ProvenanceEventType` —— 于是它当场红了，**正如它被设计的那样**。
+   *
+   * ⚠ 红了之后的正确处置**不是删掉它**，而是把钉子挪到剩下的那半截上：
+   *   · 已解决：共享枚举里现在有 `project-created` / `project-archived` /
+   *     `project-unarchived` / `agenda-segment-state-changed`（ADR-101，⚠ 状态 Proposed，
+   *     需人类追认；否决时这四个成员会被回退，而下面第一条断言会再次翻回红）
+   *   · **未解决**：`application/project/create-project.ts` 仍然没有写这条审计、
+   *     `createProject` 的响应里仍然没有 `provenanceEventId` —— 而契约要求它有
+   *
+   * ⇒ 两条断言，覆盖翻转的两侧。删掉任何一条都会让「还差什么」重新变成没人看见的事。
+   */
+  it("枚举侧已补齐（ADR-101），而写入侧还没接 —— 差的是后者", () => {
     // 契约那一侧要求这个字段。
     expect(Object.keys(project.operations.createProject.out.shape)).toContain("provenanceEventId");
 
-    // 共享契约这一侧没有任何可写的类型。这不是「找不到最贴切的」，是一个都没有：
-    // 逐字见 packages/contracts/src/project.ts 的 KNOWN_CONTRACT_GAPS.P3。
+    // ① 已解决的那半：四个成员现在都在。
     //
-    // ⚠ 判据不是正则（`admin-project-access` 含 "project" 却是 D-18 的读取留痕，
-    //   不是容器生命周期），而是**逐个点名**契约缺口里那四种事件的候选拼写。
-    //   正则会因为一个无关的名字而红，那种红会被人直接把断言改宽。
+    // ⚠ 判据仍是**逐个点名**而不是正则（`admin-project-access` 含 "project" 却是 D-18 的
+    //   读取留痕，不是容器生命周期）。正则会因为一个无关的名字而绿，那种绿最难发现。
     const CANDIDATES = [
       "project-created",
       "project-archived",
       "project-unarchived",
       "agenda-segment-state-changed",
     ];
-    const present = CANDIDATES.filter((c) =>
-      (provenance.ProvenanceEventType.options as readonly string[]).includes(c),
+    const missing = CANDIDATES.filter(
+      (c) => !(provenance.ProvenanceEventType.options as readonly string[]).includes(c),
     );
     expect(
-      present,
-      "ProvenanceEventType 长出项目生命周期成员了 —— 去 application/project/create-project.ts 补审计写入与响应字段，并删掉本断言",
+      missing,
+      "ADR-101 的项目生命周期成员不见了 —— 若是 ADR-101 被人类否决而回退，" +
+        "请连同 docs/adr/ADR-101 的『回退动作』一节一起处理，不要只改本断言",
     ).toEqual([]);
     // 非空转：枚举确实被读到了，而不是一个空数组让上面那条白绿。
     expect(provenance.ProvenanceEventType.options.length).toBeGreaterThan(10);
+  });
 
-    // ⚠ 本 feature 因此**不返回**该字段，且不编一个假 id。选边属于修订已签核的
-    //   provenance 共享束，agent 不做（同 KNOWN_CONTRACT_GAPS.P8 的先例）。
+  it("② 未解决的那半：createProject 仍不返回 provenanceEventId，且不编假 id", async () => {
+    /**
+     * 钉子挪到这里。枚举有了之后，「为什么还是没有这个字段」变成一个**只剩实现工作**的
+     * 问题 —— 而没有这条断言，它会变成一个没人记得的问题。
+     *
+     * ⚠ 断言的是**行为**（响应里真的没有这个键），不是源码文本：一条 `grep` 断言会在
+     *   有人把字段名拆成模板串时静默转绿。
+     */
+    const created = await createProject(
+      { repo, identity },
+      {
+        orgId: toOrgId(ORG),
+        actorId: LEAD,
+        name: "P3 后半截",
+        kind: "workshop",
+        blueprintVersionId: null,
+      },
+    );
+    expect(Object.keys(created)).not.toContain("provenanceEventId");
+    // ...而 out 契约要求它 —— 这就是缺口本身，写成一条可执行的对账。
+    expect(Object.keys(project.operations.createProject.out.shape)).toContain("provenanceEventId");
     expect(ProjectError).toBeDefined();
   });
 });

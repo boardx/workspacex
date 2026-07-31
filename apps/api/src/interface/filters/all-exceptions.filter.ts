@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, identity, interview, orgAdmin, project } from "@repo/contracts";
+import { artifact, auth, files, identity, interview, orgAdmin, project } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -33,6 +33,14 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   403: "forbidden",
   404: "not_found",
   409: "conflict",
+  /**
+   * F32: a short-lived download URL that has aged out.
+   *
+   * Distinct from 409 on purpose -- 「过期了，重新点一次下载」 and 「这条链接已经被用掉了」 send
+   * the user to two different places, and without an entry here a 410 would be rendered
+   * `internal_error`: a correct status paired with a body claiming the server broke.
+   */
+  410: "gone",
   422: "unprocessable",
   503: "dependency_unavailable",
 };
@@ -180,7 +188,35 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   所以前面的 parse 先赢是**契约要的结果**，不是一次要去掉的碰撞。
    */
   const projectReason = project.ProjectReason.safeParse(raw);
-  return projectReason.success ? { reasonCode: projectReason.data } : {};
+  if (projectReason.success) return { reasonCode: projectReason.data };
+
+  /**
+   * F32: `files.FilesError`, the EIGHTH closed enum —— 加它的理由与前三条**逐字相同**，
+   * 这是同一个 bug 第四次发生。
+   *
+   * ⚠ 「第八」是 **rebase 到同时含 F49 / F117 / F81 的 main 之后重新数的**
+   *   （`grep -c "^  const .*safeParse(raw);" ` = 8 —— 数**调用点**，不是数提及；
+   *   本段与 F117 那段各自提了一次 `safeParse(raw)`，裸 grep 会报 10），
+   *   不是沿用写这段话时的序号。
+   *   写这段话时 F117 还没合入，F32 数出来的是「第七」；合流后 F117 占了第七。
+   *   两次都是实测，而**第一次已经作废** —— 与 `verify-rls.sh` 那个 ratchet 是同一件事的
+   *   第二种形态：并行分支各自数到同一个序号，合流后必须重数，否则文件里会出现两个「第七」。
+   *
+   * `DOWNLOAD_URL_EXPIRED` / `DOWNLOAD_URL_CONSUMED` 声明在契约的 `issueDownloadUrl.err` 里，
+   * 却不属于上面任何一个枚举，于是前七次 safeParse 全部失败，调用方收到一个光秃秃的
+   * `{"error":"gone"}` / `{"error":"conflict"}`。状态码对，原因没了 —— 而这两件事对用户的
+   * 出口完全不同：「过期了，重新点一次下载」 vs 「这条链接已经被别人用掉了，这值得你查一下」。
+   * 前者是重试，后者可能是一次转发泄露。丢掉这个码，第二种情况在界面上不存在。
+   *
+   * ⚠ 不是给异常开的口子：`FilesError` 是 `@repo/contracts` 里的封闭枚举，
+   *   在这里对着那个枚举 parse，枚举之外的任何字符串都过不来。
+   * ⚠ 注意 `ARTIFACT_NOT_FOUND` **不走这条路**，虽然它就在这个枚举里：契约对它有一条更严的
+   *   要求——与「真的不存在」**逐字节同响应**（N-25 / V6·22-1）。所以 `files-delivery.controller.ts`
+   *   那条路径抛的是**不带 reasonCode 的裸 404**。一个「顺手把 reasonCode 带上」的改动
+   *   会当场把整个组织的 artifact id 变成可探测的存在性预言机。
+   */
+  const filesError = files.FilesError.safeParse(raw);
+  return filesError.success ? { reasonCode: filesError.data } : {};
 }
 
 /**

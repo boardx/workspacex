@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SOURCE_ICON, SynthesizedBadge, ConfidentialBadge, OriginBadge } from "./status";
 import {
-  type FileItem, SOURCE_META, INGEST_META, VISIBILITY_LABEL, formatBytes,
+  type FileItem, type PreviewKindView, SOURCE_META, INGEST_META, VISIBILITY_LABEL, formatBytes,
 } from "@/lib/mock/files";
+import {
+  UNSUPPORTED_PREVIEW_NOTICE, VIEW_FOR_CONTRACT_KIND, type PreviewKind,
+} from "@/lib/files/preview-kind";
 
 /**
  * 右预览面板 —— 五类预览（PDF / 图片 / 音频 / 文本-Markdown / JSONL-CSV）。
@@ -16,12 +19,22 @@ import {
  * 对象存储不可用（depFailed）时下载置灰并说明原因；完整性校验失败时禁止下载（E1/E4）。
  */
 export function FilePreview({
-  file, depFailed, onOpenVersions, onDelete,
+  file, depFailed, onOpenVersions, onDelete, contractKind,
 }: {
   file: FileItem | null;
   depFailed: boolean;
   onOpenVersions: () => void;
   onDelete: () => void;
+  /**
+   * F32: the kind the SERVER answered (`previewArtifactVersion.out.kind`).
+   *
+   * Optional, and when absent the panel keeps switching on the mock's `file.preview` -- which
+   * is what every existing prototype screen does. When present it WINS, because the six-value
+   * contract enum is what the backend can actually produce and the eight-value view type is
+   * not (D13). Overriding rather than merging is deliberate: a merge would need a rule for
+   * 「服务端说 unsupported 而本地数据说 csv」, and inventing that rule is casting D13.
+   */
+  contractKind?: PreviewKind;
 }) {
   if (!file) {
     return (
@@ -91,7 +104,7 @@ export function FilePreview({
             body="元数据来自 PG 仍可查看，但预览与下载暂不可用。这不是「点了没反应」——按钮已置灰并说明原因。"
           />
         ) : (
-          <PreviewBody file={file} />
+          <PreviewBody file={file} view={contractKind ? VIEW_FOR_CONTRACT_KIND[contractKind] : file.preview} />
         )}
       </div>
 
@@ -135,8 +148,16 @@ export function FilePreview({
   );
 }
 
-function PreviewBody({ file }: { file: FileItem }) {
-  switch (file.preview) {
+/**
+ * ⚠ `view` is a PARAMETER now, not `file.preview` read inline.
+ *
+ * That is the whole of F32's change to this component: there is exactly one switch over the
+ * preview kind, and the server's answer can drive it. Reading `file.preview` here as well
+ * would give the panel two sources for one decision -- the failure this repository has had six
+ * times -- and the visible symptom would be a pane that disagrees with the backend's `kind`.
+ */
+function PreviewBody({ file, view }: { file: FileItem; view: PreviewKindView }) {
+  switch (view) {
     case "pdf":
       return (
         <div className="flex flex-col gap-2" data-testid="files-preview-pdf">
@@ -201,7 +222,10 @@ function PreviewBody({ file }: { file: FileItem }) {
     case "text":
       return (
         <div className="flex flex-col gap-1.5 rounded-md border border-border bg-panel p-3" data-testid="files-preview-text">
-          <p className="text-12 font-medium">{file.preview === "markdown" ? "Markdown 渲染预览" : "文本预览"}</p>
+          {/* ⚠ `view`, not `file.preview`: when the server drives the pane it must also drive
+              the heading, or a .md file the backend answered `text` for would still be
+              labelled 「Markdown 渲染预览」 from local data the backend never saw. */}
+          <p className="text-12 font-medium">{view === "markdown" ? "Markdown 渲染预览" : "文本预览"}</p>
           <p className="text-11 text-muted-foreground">
             {file.sourceType === "canvas"
               ? "flowchart LR — 进入模式假设树，6 节点，3 个致命假设已标红。mermaid 源码为权威形式（D-08）。"
@@ -214,8 +238,11 @@ function PreviewBody({ file }: { file: FileItem }) {
         <PreviewNotice
           testid="files-preview-unsupported"
           icon={<FileWarning aria-hidden className="h-5 w-5 text-muted-foreground" />}
-          title="此类型不支持预览"
-          body="Office / 二进制等类型不在主域内联渲染（防 XSS / SVG 脚本 / HTML 直渲）。请下载查看。"
+          // ⚠ Verbatim, from a constant. The contract and the feature's
+          // `user_visible_behavior` both require this exact sentence, and an inline copy
+          // drifts into something reasonable-sounding that no longer matches what was signed.
+          title={UNSUPPORTED_PREVIEW_NOTICE}
+          body="Office / 二进制等类型不在主域内联渲染（防 XSS / SVG 脚本 / HTML 直渲）。"
         />
       );
   }

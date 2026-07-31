@@ -41,6 +41,16 @@ const FILTER_MODULE = "application/security/permission-filter";
  *
  * Every entry is a place where the filter CANNOT apply, not a place where it was
  * inconvenient. Keep it at three; a fourth needs an argument this shape:
+ *
+ * ⚠ **F32（迁移 0027，新增 `download_grants`）量过这张表，结论是不用改** ——
+ *   rebase 到同时含 F49 / F117 / F81 的 main 之后实测
+ *   `node scripts/lint-permission-paths.mjs` 报 `allowlisted=9`，F32 **没有**加第 10 条。
+ *   `pg-download-grant-repository.ts` 读 `download_grants` / `artifacts` / `artifact_versions`，
+ *   三张都是租户表，但它在 `infrastructure/` 下、且经 `guard()` 出门，本来就走的是正门。
+ *
+ *   这句话之所以写下来：**「量过、结论是不用改」和「根本没量」在 diff 里长得一模一样**，
+ *   两者都是「这个文件没出现在改动列表里」。同一个仓的 `verify-rls.sh` ratchet 正是
+ *   因为这种不可分辨静默失效过三次（F31 也为此在那边留过同样一句）。
  */
 const ALLOWLIST = new Map([
   [
