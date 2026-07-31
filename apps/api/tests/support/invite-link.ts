@@ -5,14 +5,17 @@
  * （反向断言）挪到一个谁也不会打开的文件里，而它们正是最该被读到的。
  */
 import { PgInviteLinkRepository, PgParticipantRosterRepository } from "../../src/infrastructure/auth/pg-invite-link-repository";
+import { PgLiveSessionRepository } from "../../src/infrastructure/auth/pg-live-session-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
+import { newLiveSessionId } from "../../src/domain/auth/live-session";
 
 export function repos(db: PgDatabase) {
   return {
     links: new PgInviteLinkRepository(db),
     roster: new PgParticipantRosterRepository(db),
+    liveSessions: new PgLiveSessionRepository(db, newLiveSessionId),
   };
 }
 

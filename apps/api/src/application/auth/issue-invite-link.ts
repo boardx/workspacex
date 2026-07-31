@@ -57,7 +57,11 @@ export interface IssueInviteLinkOutput {
   readonly replayed: boolean;
 }
 
-const DEFAULT_BASE_URL = "https://workspacex.invalid";
+/**
+ * ⚠ 导出而不是本文件私有：`get-checkin-board` 的签到板要重建**同一批**链接的 URL
+ * 展示给现场用（`links[].url`），两处各写一份字面量就是第 N 次「同一事实两处声明」。
+ */
+export const DEFAULT_BASE_URL = "https://workspacex.invalid";
 
 export async function issueInviteLink(
   deps: IssueInviteLinkDeps,
