@@ -111,6 +111,11 @@ fi
 #   `kernel-no-tenant-data:` 的 COMMENT 声明，审计判 `exempt-*` 而不是 `ok`。
 #   把它算进来，会让「新表被误判成 exempt」这件事恰好测不出来，
 #   而那正是这个 ratchet 存在的理由。
+#
+# ⚠ F31（迁移 0023）在这一行**没有改数字，但确实实测过**：全新迁移库上 ok 计数 = 38，
+#   与 floor 相等、零松量。F31 一张表都没加（只给 `artifacts` 加列 + 一个 SQL 函数），
+#   所以它对这个数的贡献本来就是 0 —— 记在这里是为了让下一个人能分辨
+#   「有人量过、结论是不用动」和「没人量过、于是没动」。这两件事在 diff 里长得一模一样。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
 OK_TABLES_FLOOR=38
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
