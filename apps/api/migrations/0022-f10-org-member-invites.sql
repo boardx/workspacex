@@ -149,6 +149,18 @@ $$;
 
 GRANT USAGE, SELECT ON SEQUENCE org_invite_tamper_attempts_id_seq TO app_rw;
 
+-- F22 的停用冻结（三条 RESTRICTIVE 策略：INSERT / UPDATE / DELETE）。
+--
+-- ⚠ 必须显式调用一次，**不能**指望 0014 自己扫到这两张表：0014 的编号在前，
+--   首次跑迁移时它们还不存在。漏掉这一行的表现极具欺骗性——新库上这两张表
+--   **没有**冻结（组织已停用却还能往里发新邀请），而 F22 的断言仍然全绿，
+--   因为它们测的是当时已存在的那些表。F80 的 0020 记录过同一个坑。
+-- ⚠ 规则本身只声明在 0014；在这里抄一遍三条 CREATE POLICY 才是第二份事实源。
+-- ⚠ 与上面的 GRANT 是两件事：GRANT 管角色权限，策略管行级准入。
+--   `org_invite_tokens` 不在这个函数的扫描范围内（它没有指向租户根的 org_id 外键），
+--   这是对的：一枚令牌的可用性由 `org_invites` 那一行决定，而那一行是冻结的。
+SELECT kernel_apply_org_freeze_policies();
+
 -- ⚠ 令牌表没有 DELETE：核销是打标记（consumed_at），删掉一枚用过的令牌等于
 -- 让「这条链接已经用过了」变成「这条链接从来不存在」，而 I-1 的幂等重放
 -- 恰好要区分不了这两者的**响应**、却要区分得了这两者的**审计**。

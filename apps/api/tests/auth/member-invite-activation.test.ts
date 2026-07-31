@@ -79,8 +79,12 @@ beforeEach(async () => {
     projectId: `${ORG}-p-energy`,
   });
   // 第二个项目：属于 platform 团队，用来断言「别的团队的资源读不到」。
+  //
+  // ⚠ `kind` 必须显式写。F116（迁移 0018）把它做成了没有默认值的判别列——
+  //   「我忘了说这是三种里的哪一种」不该被静默写进去。取 `workshop`，
+  //   与 `seedOrg` 里那条同一口径，理由也同一条：本用例只需要一个可被绑定的容器。
   await asApp(ORG, (c) =>
-    c.query("INSERT INTO projects (id, org_id, name) VALUES ($1, $2, $3)", [
+    c.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'workshop')", [
       `${ORG}-p-platform`,
       ORG,
       "platform project",
