@@ -58,7 +58,11 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetOrgs(ORG);
-  await seedOrg({ orgId: ORG, projectId: `${ORG}-p` });
+  // ⚠ 本文件是唯一需要**真实生产默认值**（0）的地方，所以显式传 `seatQuota: 0`，
+  // 不依赖 `seedOrg` 给其余测试文件的那个宽松默认值（1000，见 `tests/support/db.ts`
+  // 的注释——那个默认值本身就是「F11 落地那天，所有不关心配额的既有 fixture 突然
+  // 被 QUOTA_EXHAUSTED 挡住」这个真实回归的修复）。
+  await seedOrg({ orgId: ORG, projectId: `${ORG}-p`, seatQuota: 0 });
   await addOrgMember(ORG, ADMIN, "admin", null);
 });
 

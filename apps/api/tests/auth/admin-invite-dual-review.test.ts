@@ -164,11 +164,18 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
       { repo },
       { orgId: toOrgId(ORG), reviewerId: ADMIN_B, reviewerOrgRole: "admin", inviteId: out.inviteId, decision: "approve" },
     );
+    expect(first).toEqual({ status: "pending", tokenIssued: true });
+
     const second = await reviewAdminInvite(
       { repo },
       { orgId: toOrgId(ORG), reviewerId: ADMIN_B, reviewerOrgRole: "admin", inviteId: out.inviteId, decision: "approve" },
     );
-    expect(second).toEqual(first);
+    // ⚠ 「返回同一结果」指的是 `status`（幂等重放不改变最终状态），不是 `tokenIssued`
+    // 逐字相同——`tokenIssued` 字面意思是「这次调用有没有签发新 token」，同 F10
+    // `inviteOrgMember` 对重放的处置一致（`pg-org-invite-repository.ts` 的 `replayed`
+    // 分支恒 `tokenIssued: false`，无论首次调用是不是 true）：重放没有再签一次，
+    // 所以这次的 `tokenIssued` 如实为 false，而不是复述第一次调用发生过什么。
+    expect(second).toEqual({ status: "pending", tokenIssued: false });
     expect(await tokenCount(out.inviteId)).toBe(1);
   });
 

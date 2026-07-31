@@ -106,6 +106,38 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
         );
         if (member.rows.length > 0) throw new Rollback("already-member");
 
+        // (1.4) 幂等重放 / 冲突的判定**必须先于**配额判定。
+        //
+        // ⚠ 这是本文件第一版撞出来的 bug：把配额判定放在幂等判定之前，会让「重复提交
+        //   同一条已存在的邀请」在配额恰好用满时被判成 `QUOTA_EXHAUSTED`——而幂等重放
+        //   根本不产生新行，不该占用任何座位，也就不该被座位数挡住。反证：
+        //   `tests/auth/quota-exhausted-hard-block.test.ts` 那条"幂等重放不占用第二个
+        //   座位"曾经真的红过，红的就是这一段顺序颠倒。
+        // ⚠ 这一步只做**读**，不加锁——两路并发都读到"不存在"时会各自往下走到 (1.5)
+        //   的配额锁定与 (2) 的插入，第二路撞 `org_invites_live_uniq` 时进 catch 分支，
+        //   那里有一份同形状的重放/冲突判断兜底（见下）。两处判断不是重复：
+        //   这一处是**常见路径的快路径**（不用先插入失败一次才知道是重放），
+        //   catch 分支是**并发下这条快路径本身失手时**的兜底，两者缺一，
+        //   要么幂等重放会被配额挡住，要么两路并发新邮箱会各自绕过配额检查。
+        const preExisting = await s.query<InviteRow>(
+          `SELECT id, org_id, email, org_role, team_id, status FROM org_invites
+            WHERE org_id = $1 AND email = $2
+              AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+          [input.orgId, input.email],
+        );
+        const preExistingRow = preExisting.rows[0];
+        if (preExistingRow !== undefined) {
+          if (preExistingRow.org_role !== input.orgRole || preExistingRow.team_id !== input.teamId) {
+            throw new Rollback("duplicate");
+          }
+          return {
+            ok: true as const,
+            inviteId: preExistingRow.id,
+            tokenIssued: false,
+            replayed: true,
+          };
+        }
+
         // (1.5) I-9：配额硬阻断。**锁定 organizations 那一行**再数——不是先数、
         // 再插、指望没人在中间插一脚。`SELECT ... FOR UPDATE` 把并发的两名管理员
         // 串行在这一行上，第二路重新求值时会看到第一路已经占用的那个座位。

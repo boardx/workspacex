@@ -472,7 +472,20 @@ describe("lint-permission-paths: counter-proof", () => {
     // summary, no count could be smuggled in as a sixth key, and (c) it names only the three
     // tables the argument above claims (`project_memberships` / `projects` /
     // `organizations`). If that test is deleted, this entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(10);
+    //
+    // ⚠ Raised 10 -> 12 by F11 (phase-01 / UC-1.6 R10 org-admin bundle), merged on top of
+    // F122's raise above -- RE-MEASURED on the combined tree via
+    // `node scripts/lint-permission-paths.mjs` (12), not computed as "10 + 2". The two new
+    // entries are `infrastructure/auth/pg-team-repository.ts` (MutateTeam's occupancy check
+    // -- same shape as the identity-repository exemption: the thing consulted to decide
+    // whether a delete is ALLOWED cannot itself be gated by that decision, plus one
+    // write-echo of the team the actor is creating/renaming/deleting) and
+    // `infrastructure/auth/pg-org-member-repository.ts` (RemoveOrgMember -- same shape as
+    // the org-invite-repository entry: DELETE/UPDATE against the actor's own organization,
+    // returning only counts, never a row's content). Both entries' enforced premises are
+    // asserted in `tests/auth/team-crud-occupancy-check.test.ts` and
+    // `tests/auth/member-removal-preserves-attribution.test.ts` respectively.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(12);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
