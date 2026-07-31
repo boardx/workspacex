@@ -112,6 +112,12 @@ describe("I-P44: 并发下恰好一条成功，且不是「谁都不能 active�
   });
 
   it("并发把两条环节同时推成 active —— 恰好一条成功，另一条拿到 23505", async () => {
+    // 上一条测试已经把 f118a-first 推成 active——先把它收尾，否则这里的两条并发
+    // UPDATE 会**各自**撞上那条既有的 active，而不是撞上彼此，两条都会失败，
+    // 读起来像「索引把一切都挡住了」而不是「恰好一条赢了并发」。
+    await asApp(ORG, (c) =>
+      c.query("UPDATE agenda_segments SET state = 'closed' WHERE id = $1", ["f118a-first"]),
+    );
     await insertSegment(ORG, W1, "f118a-race-a", "pending");
     await insertSegment(ORG, W1, "f118a-race-b", "pending");
 

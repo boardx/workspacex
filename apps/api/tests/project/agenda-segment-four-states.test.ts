@@ -135,7 +135,21 @@ describe("I-P43: merged_into 只在 closed / skipped 上可非空", () => {
   beforeAll(async () => {
     ensureDatabase();
     await migrateOnce();
+    // 独立的 describe 块 —— 上一个 describe 的 afterAll 已 resetOrgs(ORG)，
+    // 这里必须重新建组织与工作坊，不能假设上一个 describe 留下的行还在。
+    await resetOrgs(ORG);
+    await asApp(ORG, (c) =>
+      c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [
+        ORG,
+        `org ${ORG}`,
+      ]),
+    );
+    await seedWorkshop(ORG, W);
   }, 180_000);
+
+  afterAll(async () => {
+    await resetOrgs(ORG);
+  });
 
   it("反证：pending 带 merged_into —— 被 CHECK 拒绝（23514）", async () => {
     await insertSegment(ORG, W, "f118s-target-a", "closed", null);
