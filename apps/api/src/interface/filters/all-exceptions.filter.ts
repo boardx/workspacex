@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, files, identity, interview, orgAdmin, project } from "@repo/contracts";
+import { artifact, auth, chat, files, identity, interview, orgAdmin, project } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -216,7 +216,36 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   会当场把整个组织的 artifact id 变成可探测的存在性预言机。
    */
   const filesError = files.FilesError.safeParse(raw);
-  return filesError.success ? { reasonCode: filesError.data } : {};
+  if (filesError.success) return { reasonCode: filesError.data };
+
+  /**
+   * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。
+   *
+   * ⚠ 「第九」是 **rebase 到同时含 F49 / F117 / F81 / F18 / F32 的 main 之后重新数的**
+   *   （`grep -c "^  const .*safeParse(raw);"` = 8，本条是第 9 个）。
+   *   **数调用点，不是数提及**：本段与 F117 / F32 那两段各自提了一次 `safeParse(raw)`，
+   *   裸 `grep -c 'safeParse(raw)'` 会报 11。前一位 F32 已经踩过这个坑并写在上面，
+   *   这里照它的方法数了一遍，而不是把它的「第八」加一。
+   *
+   * `mutateThread.err` 里的 `NO_WRITE_ROLE` / `THREAD_ARCHIVED_READONLY` /
+   * `VERSION_CHANGED` / `TITLE_INVALID` 声明在契约里，却不属于上面任何一个枚举，
+   * 于是前八次 safeParse 全部失败，调用方收到光秃秃的 `{"error":"forbidden"}` /
+   * `{"error":"conflict"}`。状态码对，原因没了 —— 而这四件事的出口完全不同：
+   *   · `NO_WRITE_ROLE` 找人要权限；
+   *   · `THREAD_ARCHIVED_READONLY` 先解归档，**要权限没有用**（uc-8-1 R7：归档只读）；
+   *   · `VERSION_CHANGED` 刷新后重试，且必须提示「别人改过了」而不是「你没权限」（V7 / E2）；
+   *   · `TITLE_INVALID` 改输入。
+   * 把前两个都渲染成一个 403，用户会去找管理员要一个他早就有的权限。
+   *
+   * ⚠ **`NOT_VISIBLE` 刻意不走这条路**，虽然它就在这个枚举里 —— 与上面 `ARTIFACT_NOT_FOUND`
+   *   同型同理由：I-3 要求「不可见」与「不存在」**逐字节相同**，所以 `chat.controller.ts`
+   *   那条路径抛的是**不带 reasonCode 的裸 404**。一次「顺手把 reasonCode 带上」的改动
+   *   会把每一条私聊/别组线程的 id 变成可探测的存在性预言机，而状态码看起来毫无变化。
+   *   反证在 `visibility-two-layer-intersection.test.ts` 与
+   *   `messages-jsonl-file-granularity.test.ts` 的两条「逐字节相同」断言上。
+   */
+  const chatError = chat.ChatError.safeParse(raw);
+  return chatError.success ? { reasonCode: chatError.data } : {};
 }
 
 /**

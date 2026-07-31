@@ -13,24 +13,40 @@
  * 在删除**之前**读出来——删完再数只会得到 0，而一个恒为「影响 0 条」的影响范围
  * 比没有影响范围更糟：它看起来像已经验证过了。
  *
- * ## 🔴 [待人类裁决] 对话侧审计事件的类型码 —— **本文件唯一的一处**
+ * ## 对话侧审计事件的类型码 —— **ADR-101（Proposed，需人类追认）**
  *
- * `provenance.ProvenanceEventType` 是**封闭枚举**，里面没有任何一档对应
- * 「线程被建/被改名/被删」；`ProvenanceEvent.target.kind` 也没有 `thread`。
- * 而 `chat` 契约的 `KNOWN_CONTRACT_GAPS.C_CHAT_5` 已经登记了这件事：
- * `queryChatAuditEvents.events[].type` 在对话侧是**开放字符串**，与 phase-00 的封闭枚举
- * 「是同一个查询面」这句话**没有任何机械保证**。
+ * ### 这里曾经是什么样
  *
- * ⇒ 本实现**不新建第二张审计表**（那是 X-2 明令禁止的），也**不修改契约**
- *   （契约由人改，ADR-020）。它把这个选择收敛成下面**一个具名常量**：
- *   裁决落地时改这一处，全仓跟着变；在此之前，读审计日志的人看到的
- *   `human-edited` **不是**「有人编辑了草稿」，而是「对话线程发生了生命周期变更」。
- *   **这是一处已知的语义错配，不是笔误。**
+ * 本文件第一版把三种线程动作**全写成 `human-edited`**（常量 `CHAT_LIFECYCLE_AUDIT_TYPE`，
+ * 文件头标红「已知的语义错配，不是笔误」），因为 `provenance.ProvenanceEventType` 是
+ * 封闭枚举、里面没有任何一档对应「线程被建/被改名/被删」，`target.kind` 也没有 `thread`。
+ * 那正是 `chat` 契约 `KNOWN_CONTRACT_GAPS.C_CHAT_5` 登记的缺口。
  *
- * 要人类回答的问题（二选一，不是「请评估」）：
- *   A. 给 `ProvenanceEventType` 补 `thread-created` / `thread-renamed` / `thread-deleted`，
- *      并给 `target.kind` 补 `thread`；
- *   B. 承认对话侧审计是另一个平面，明确它与 `queryProvenance` 的关系（推翻 X-2）。
+ * **这段历史刻意保留**：ADR-101 的状态是 **Proposed**，人类可能**否决**。
+ * 否决时的回退动作写在 ADR 的「如果人类否决」一节——第 1、2 条会把这两个枚举退回去，
+ * 届时本文件必须退回顶包写法。把历史抹掉，回退的人就得重新推导一遍当初为什么这么写。
+ *
+ * ### 现在
+ *
+ * ADR-101 一次补齐了两个封闭枚举（`ProvenanceEventType` + 新提取的 `ProvenanceTargetKind`），
+ * 其中代 F109 补的正是本文件报上去的那三个成员与那一个 target kind。**名字是照抄的**，
+ * 所以这里应当直接用得上——用不上说明抄错了，那是个可发现的错误。
+ *
+ * ### 🔴 仍然未裁：target 维度（ADR-101 决策 B）
+ *
+ * `target` 现在是 `{kind:"thread", id: threadId}`，规矩来自 `record-audit.ts` 头部
+ * 「**target 是验收标准说你按什么去搜的那个东西**」——uc-8-1 R7 的检索面是
+ * 「操作者 / 时间 / **对象** / 结果」，对象是线程。
+ *
+ * 于是 `projectId` 只能放进 `detail`。⚠ **这是临时的，不是结论**：ADR-101 决策 B
+ * 逐字写着「悬而未决期间，F109 / F117 / F80 落地时仍需在 `detail` 里放 id；
+ * 那是临时的……落地时请引用本 ADR，不要各自解释一遍」。⇒ 这里就是那一次引用，
+ * 不重复三条出路的论证。
+ *
+ * 它现在的**具体代价**：`chat.queryChatAuditEvents` 的 path 是
+ * `/chat/projects/:projectId/audit-events`（按项目列），而 `queryProvenance` 只按
+ * `(targetKind, targetId)` 筛 ⇒ 「列出本项目下的全部对话审计」**没有可筛的列**。
+ * F109 不实现那个端口，所以它没挡住本 feature；实现它的人会第一个撞上。
  */
 import type { OrgId } from "../../domain/org-id";
 import type { ProvenanceWriter } from "../provenance/ports";
@@ -41,14 +57,26 @@ import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibil
 import { ThreadNotVisibleError } from "./get-thread";
 
 /**
- * 🔴 见文件头。**改这一处即可**，别在调用点各自写一个。
+ * 三个动作 → 三个事件类型。**全仓唯一的一处映射**，别在调用点各自写一个。
  *
- * 三个动作故意用同一个码：在裁决之前，任何「create 用 A、delete 用 B」的分档
- * 都是实现者在替产品定义审计词汇表，而那正是 C_CHAT_5 要人类回答的问题本身。
+ * ⚠ **三个分开，不合并成一个 `thread-changed` + `detail.op`**（ADR-101 决策 A 逐字）：
+ *   合并意味着「查所有删除」得先解析 jsonb，而 `queryProvenance` 的筛选面上没有那个能力——
+ *   那条查询在契约层根本不存在。而 uc-8-1 R7 要求的恰恰是删除可追溯。
+ *
+ * `satisfies` 而不是类型标注：标注会把值放宽成整个枚举，而这里要的正是
+ * 「少写一个 op 就编译不过」——`Record<Op, …>` 的穷尽性是这个映射存在的一半理由。
  */
-const CHAT_LIFECYCLE_AUDIT_TYPE: ProvenanceEventKind = "human-edited";
+const CHAT_LIFECYCLE_AUDIT_TYPE = {
+  create: "thread-created",
+  rename: "thread-renamed",
+  delete: "thread-deleted",
+} as const satisfies Record<"create" | "rename" | "delete", ProvenanceEventKind>;
 
-/** 越权尝试也必须留痕（V8）。这一档在枚举里语义**是对的**，不属于上面那个缺口。 */
+/**
+ * 越权尝试也必须留痕（V8）。
+ * ⚠ 这一档**从来没有**属于上面那个缺口：`unauthorized-attempt` 语义本来就对，
+ *   ADR-101 也逐字写了「F80 / F109 的『被拒尝试』用它语义本来就对」，不动。
+ */
 const CHAT_REFUSAL_AUDIT_TYPE: ProvenanceEventKind = "unauthorized-attempt";
 
 export class NoWriteRoleError extends Error {
@@ -145,10 +173,11 @@ async function createThread(
 
   const auditEventId = await deps.provenance.append({
     orgId: input.orgId,
-    type: CHAT_LIFECYCLE_AUDIT_TYPE,
+    type: CHAT_LIFECYCLE_AUDIT_TYPE.create,
     actorId: input.userId,
-    target: { kind: "project", id: projectId },
-    detail: { chatOp: "create", threadId, title },
+    // target = 线程，projectId 进 detail。⚠ 后者是**临时**的，见文件头（ADR-101 决策 B 未裁）。
+    target: { kind: "thread", id: threadId },
+    detail: { projectId, title },
   });
   return { threadId, version: 0, auditEventId, impactScope: null };
 }
@@ -190,10 +219,10 @@ async function mutateExisting(
     if (version === null) throw new VersionChangedError();
     const auditEventId = await deps.provenance.append({
       orgId: input.orgId,
-      type: CHAT_LIFECYCLE_AUDIT_TYPE,
+      type: CHAT_LIFECYCLE_AUDIT_TYPE.rename,
       actorId: input.userId,
-      target: { kind: "project", id: projectId },
-      detail: { chatOp: "rename", threadId, title, version },
+      target: { kind: "thread", id: threadId },
+      detail: { projectId, title, version },
     });
     return { threadId, version, auditEventId, impactScope: null };
   }
@@ -204,16 +233,12 @@ async function mutateExisting(
   if (deleted === null) throw new VersionChangedError();
   const auditEventId = await deps.provenance.append({
     orgId: input.orgId,
-    type: CHAT_LIFECYCLE_AUDIT_TYPE,
+    type: CHAT_LIFECYCLE_AUDIT_TYPE.delete,
     actorId: input.userId,
-    target: { kind: "project", id: projectId },
-    detail: {
-      chatOp: "delete",
-      threadId,
-      reason: input.reason,
-      messageCount,
-      expectedVersion,
-    },
+    // ⚠ 线程行马上就没了，而事件仍指向它——这正是删除追溯要的：
+    //   `provenance_events` 与 `chat_threads` 之间没有外键，事件不随对象消失。
+    target: { kind: "thread", id: threadId },
+    detail: { projectId, reason: input.reason, messageCount, expectedVersion },
   });
   return {
     threadId,
@@ -239,7 +264,13 @@ async function auditRefusal(
     orgId: input.orgId,
     type: CHAT_REFUSAL_AUDIT_TYPE,
     actorId: input.userId,
-    target: { kind: "project", id: projectId },
-    detail: { chatOp: input.op, threadId: input.threadId, reason },
+    // 被拒的 create 还没有线程可指，退回项目；rename / delete 指线程。
+    // ⚠ 不是「统一指项目省事」：一次被拒的删除尝试与那条线程的其余事件必须查得到一起，
+    //   否则「谁试过删它」和「谁删掉了它」在审计里落在两个不同的对象上。
+    target:
+      input.threadId === null
+        ? ({ kind: "project", id: projectId } as const)
+        : ({ kind: "thread", id: input.threadId } as const),
+    detail: { chatOp: input.op, projectId, reason },
   });
 }

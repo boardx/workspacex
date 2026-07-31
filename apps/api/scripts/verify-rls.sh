@@ -174,7 +174,23 @@ fi
 #     作废的从来不是「量错了」，而是「量的那棵树没了」。冲突里两个数字都对、都不能用。
 
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=44
+# ⚠ 44 -> 46 是 F109（迁移 0029）在 rebase 到同时含 F49 / F117 / F81 / F18 / F32 的 main 之后、
+#   于**全新迁移库上重新实测**的：`WORKSPACEX_DB=wsx_f109rls3 bash scripts/verify-rls.sh`
+#   报 `ok = 46`。F109 加了两张表，两张都进这个数：`chat_transcript_sessions` 与
+#   `chat_thread_files` 都带 `org_id` ⇒ 判 `ok`（另外给 `chat_threads` / `chat_messages`
+#   各加了一列，加列对这个数的贡献是 0）。
+#
+#   ⚠ **F109 也在这一行上量了两次，第一次已作废** —— 这是第三例：
+#     · 第一次（分支上，main 还停在 0025）：`40 -> 42`
+#     · 第二次（F49/F117/F81/F18/F32 全部先合入，再 rebase）：本行
+#   rebase 时这一行是一个**普通文本冲突**：两段注释、两个数字（44 与 42），
+#   看起来只要挑一个留下。**挑 42 就漏四张表，且仍然全绿**（比较是 `-ge`）。
+#   正确处理是上面 F81 那段写的：冲突整个丢掉，在合流后的库上从空库重跑一次。这次照做了。
+#
+#   ⚠ 「44 + 我加的 2 = 46」这次算术又恰好对上，**连续第二次**（F49 那段记的是第一次）。
+#     这**仍然不构成**可以推算的理由：算术对上只说明这一轮没有 exempt 表。
+#     F10/F108 那次差 2、F15 那次差 1，两次都是往少了算，而少算的结果恰好是静默失效。
+OK_TABLES_FLOOR=46
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

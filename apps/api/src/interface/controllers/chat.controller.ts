@@ -256,11 +256,21 @@ export class ChatController {
         },
       );
     } catch (e) {
+      // ⚠ **裸 404，不带 reasonCode** —— 与读路径逐字相同（I-3）。
+      //   带上码就等于回答了「这里是不是有个东西你看不到」，而那正是 I-3 禁止回答的问题。
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
-      if (e instanceof NoWriteRoleError) throw new ForbiddenException();
-      if (e instanceof ThreadArchivedReadonlyError) throw new ForbiddenException("thread_archived_readonly");
-      if (e instanceof VersionChangedError) throw new ConflictException("version_changed");
-      if (e instanceof TitleInvalidError) throw new UnprocessableEntityException("title_invalid");
+      // 以下四档**带 reasonCode**：调用方已经看得见这条线程了，这些码讲的是
+      // 「你这个动作为什么不行」，不是「这个东西存不存在」。
+      // 它们是 `chat.ChatError` 的成员，由 `all-exceptions.filter.ts` 第九条 safeParse
+      // 对着那个封闭枚举 parse 后放行——枚举之外的字符串一个都过不来。
+      if (e instanceof NoWriteRoleError) throw new ForbiddenException({ reasonCode: "NO_WRITE_ROLE" });
+      if (e instanceof ThreadArchivedReadonlyError) {
+        throw new ForbiddenException({ reasonCode: "THREAD_ARCHIVED_READONLY" });
+      }
+      if (e instanceof VersionChangedError) throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      if (e instanceof TitleInvalidError) {
+        throw new UnprocessableEntityException({ reasonCode: "TITLE_INVALID" });
+      }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }

@@ -384,6 +384,19 @@ describe("新建 / 改名 / 删除", () => {
     expect(deleted.impactScope).toMatch(/条消息/);
     expect(deleted.auditEventId).toBeTruthy();
 
+    // ⭐ ADR-101 的成员真的被用上了。
+    //
+    // 只断言 `auditEventId` 非空，对「还写着顶包的 `human-edited`」是绿的——
+    // 那正是 rebase 之前的状态。所以这里断的是**落库那一行的类型与 target**：
+    // 类型退回 `human-edited`、或 target 退回 `{kind:"project"}`，当场红。
+    const ev = await provenanceRow(deleted.auditEventId);
+    expect(ev.type).toBe("thread-deleted");
+    expect(ev.target_kind).toBe("thread");
+    expect(ev.target_id).toBe(created.threadId);
+    // projectId 只能待在 detail 里 —— ADR-101 决策 B 未裁，这是**临时**状态。
+    // 断言它在，是为了裁决落地（方案 A 加可筛的列）时这一行会红，提醒把副本删掉。
+    expect((ev.detail as { projectId?: string }).projectId).toBe(PROJECT);
+
     const afterDelete = (await (await listThreads("u-fac")).json()) as ListOut;
     expect(cardOf(afterDelete, created.threadId)).toBeUndefined();
   });
@@ -404,6 +417,9 @@ describe("新建 / 改名 / 删除", () => {
       title: "乙改的", visibilityScope: null, expectedVersion: 0, reason: null,
     });
     expect(second.status).toBe(409);
+    // 409 必须带得出**原因码**：一个光秃秃的 conflict 会让界面提示「你没权限」，
+    // 而真相是「别人改过了，刷新重试」（V7 / E2）。
+    expect(((await second.json()) as { reasonCode?: string }).reasonCode).toBe("VERSION_CHANGED");
     const detail = (await (await readThread("u-fac", created.threadId)).json()) as {
       thread: { version: number };
     };
@@ -417,6 +433,7 @@ describe("新建 / 改名 / 删除", () => {
       expectedVersion: null, reason: null,
     });
     expect(r.status).toBe(403);
+    expect(((await r.json()) as { reasonCode?: string }).reasonCode).toBe("NO_WRITE_ROLE");
     // 成对：同一个请求换引导师来必须成功——否则「谁都建不了」也能通过上一条。
     const ok = await mutate("u-fac", {
       op: "create", projectId: PROJECT, threadId: null, groupId: null,
@@ -432,6 +449,50 @@ describe("新建 / 改名 / 删除", () => {
       title: "   ", visibilityScope: "plenary", expectedVersion: null, reason: null,
     });
     expect(r.status).toBe(422);
+    expect(((await r.json()) as { reasonCode?: string }).reasonCode).toBe("TITLE_INVALID");
+  });
+
+  it("归档只读与无写权是**两个**码，不是同一个 403", async () => {
+    await addChatThread({
+      orgId: ORG, id: "f109b-t-arch3", projectId: PROJECT, groupId: null,
+      visibilityScope: "plenary", createdBy: "u-fac", title: "已归档", archived: true,
+    });
+    const archived = await mutate("u-fac", {
+      op: "rename", projectId: PROJECT, threadId: "f109b-t-arch3", groupId: null,
+      title: "改名", visibilityScope: null, expectedVersion: 0, reason: null,
+    });
+    const noWrite = await mutate("u-obs", {
+      op: "create", projectId: PROJECT, threadId: null, groupId: null,
+      title: "观察者", visibilityScope: "plenary", expectedVersion: null, reason: null,
+    });
+    // 状态码相同——所以只断状态码的测试分不出这两件事，而它们的出口完全不同：
+    // 前者要先解归档（要权限没有用），后者要找人要权限。
+    expect(archived.status).toBe(403);
+    expect(noWrite.status).toBe(403);
+    const a = (await archived.json()) as { reasonCode?: string };
+    const b = (await noWrite.json()) as { reasonCode?: string };
+    expect(a.reasonCode).toBe("THREAD_ARCHIVED_READONLY");
+    expect(b.reasonCode).toBe("NO_WRITE_ROLE");
+    expect(a.reasonCode).not.toBe(b.reasonCode);
+  });
+
+  it("⚠ 但 404 恒不带 reasonCode —— I-3 不因为上面几条被放宽", async () => {
+    const denied = await mutate("u-mem1", {
+      op: "rename", projectId: PROJECT, threadId: "f109b-t-g2", groupId: null,
+      title: "别组的线程", visibilityScope: null, expectedVersion: 0, reason: null,
+    });
+    const ghost = await mutate("u-mem1", {
+      op: "rename", projectId: PROJECT, threadId: "f109b-t-nope", groupId: null,
+      title: "不存在的线程", visibilityScope: null, expectedVersion: 0, reason: null,
+    });
+    expect(denied.status).toBe(404);
+    const strip = (b: Record<string, unknown>) => ({ ...b, traceId: "<any>" });
+    const deniedBody = strip((await denied.json()) as Record<string, unknown>);
+    const ghostBody = strip((await ghost.json()) as Record<string, unknown>);
+    expect(deniedBody).toEqual(ghostBody);
+    // 非空转：确实拿到了一个响应体，而不是两个 undefined 相等；且里面没有 reasonCode。
+    expect(Object.keys(ghostBody)).toContain("error");
+    expect(ghostBody).not.toHaveProperty("reasonCode");
   });
 });
 
@@ -445,6 +506,21 @@ describe("`messageBadges` 是纯函数，取值在契约的封闭枚举内", () 
 });
 
 /* ─────────────────────────── helpers ─────────────────────────── */
+
+/** 直读 `provenance_events` 的那一行——断的是**落库的事实**，不是接口回声。 */
+async function provenanceRow(id: string): Promise<{
+  type: string; target_kind: string; target_id: string; detail: unknown;
+}> {
+  const { asApp } = await import("../support/db");
+  const rows = await asApp(ORG, (c) =>
+    c.query<{ type: string; target_kind: string; target_id: string; detail: unknown }>(
+      "SELECT type, target_kind, target_id, detail FROM provenance_events WHERE id = $1",
+      [id],
+    ),
+  );
+  expect(rows.rows).toHaveLength(1);
+  return rows.rows[0]!;
+}
 
 function mutate(userId: string, body: Record<string, unknown>): Promise<Response> {
   return fetch(`${BASE}/chat/threads/mutate`, {
