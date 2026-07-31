@@ -116,8 +116,16 @@ fi
 #   与 floor 相等、零松量。F31 一张表都没加（只给 `artifacts` 加列 + 一个 SQL 函数），
 #   所以它对这个数的贡献本来就是 0 —— 记在这里是为了让下一个人能分辨
 #   「有人量过、结论是不用动」和「没人量过、于是没动」。这两件事在 diff 里长得一模一样。
+#
+# ⚠ 38 -> 40 是 F15（迁移 0025）**在全新迁移库上实测**的：
+#   `WORKSPACEX_DB=wsx_f15rls bash scripts/verify-rls.sh` 报 `ok = 40`。
+#   F15 加了三张表，只有两张进这个数：`invite_links` 与 `project_participants` 带 org_id ⇒ ok；
+#   第三张 `invite_link_tokens` 与 F10 的 `org_invite_tokens` 同型同理由——扫码进场的人
+#   还没有会话、也还不属于任何组织，令牌行必须在没有 `app.current_org` 的情况下可查 ⇒
+#   由 `kernel-no-tenant-data:` 的 COMMENT 声明，审计判 `exempt-*`。
+#   ⇒ 「38 + 我加的 3」会算出 41，而实测是 40。**这就是为什么这个数只能量不能算**。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=38
+OK_TABLES_FLOOR=40
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

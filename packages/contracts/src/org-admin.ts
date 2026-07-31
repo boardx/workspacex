@@ -1107,4 +1107,24 @@ export const KNOWN_CONTRACT_GAPS = {
    * ⇒ 本束复用 `AUTH_POLICY` 是**取其默认值**，不是说两条策略已确认相同。
    */
   OA7: "the guest-side (registration-free entry) rate-limit thresholds are [待定 B]; reusing AUTH_POLICY here is taking its default, not a ruling that the two policies are the same",
+  /**
+   * **`once` 这一档有没有时间上限，没有出处。**
+   * `InviteLinkValidity` 三档里，`24h` / `7d` 的时长写在成员名字本身
+   * （`domain/auth/invite-link.ts` 直接解析字面量，因此不存在第二份数值），
+   * 而 `once` 只说了「按次失效」。原型的有效期三档同样只有这三个选项、无时限说明。
+   * ⇒ 实现取「一次性链接不按时间失效」，迁移 0025 有 CHECK 钉住
+   *   `validity = 'once' ⇒ expires_at IS NULL`。**这是缺席不是裁定**：
+   *   若安全上要求一次性链接也有兜底时限，那是新增一条策略数值，需人裁。
+   */
+  OA8: "whether a `once` invite link additionally expires by time is unsourced; 24h/7d carry their duration in the enum literal itself, `once` carries none, and the implementation takes 'no time bound' as the absence of a ruling, not as one",
+  /**
+   * **项目邀请码的长度与形态与 `AUTH_POLICY.inviteCodeLength` 对不上。**
+   * `inviteCodeLength: 14` 的出处是 UC-1.5 / O-29 ①，那是**建组织**的邀请码；
+   * 而原型上的项目邀请码 `KCK-8F21-EU24` 是 **12 个字母数字**分成 3 组、带连字符。
+   * `issueInviteLink` 的注释要求「长度读 AUTH_POLICY.inviteCodeLength，本束不写死」，
+   * 实现照办（生成 14 位），连字符仅作展示、不进库、不参与比较。
+   * ⇒ **两个数字都有出处，出处不同**，需人裁：要么它们本来就是同一枚码，
+   *   要么 `AUTH_POLICY` 需要第二个字段。agent 不在这里替人选边。
+   */
+  OA9: "the project invite code's length/shape is contradictory: AUTH_POLICY.inviteCodeLength = 14 comes from UC-1.5 (the org-creation code) while the prototype's project code `KCK-8F21-EU24` is 12 alphanumerics in three dashed groups; the implementation follows the contract's 'read AUTH_POLICY.inviteCodeLength' instruction and treats dashes as display-only",
 } as const;
