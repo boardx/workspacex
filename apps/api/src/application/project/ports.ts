@@ -98,3 +98,57 @@ export interface ProjectListRepository {
 }
 
 export const PROJECT_LIST_REPOSITORY = Symbol("ProjectListRepository");
+
+/* ═══════════════════════ F119：`advanceAgendaSegment` 的独立端口 ═══════════════════════ */
+
+/**
+ * ⚠ **故意不是 `ProjectRepository` 的第三个方法**：同 F122 那条端口分裂的理由——
+ * 这个仓储写的是 `agenda_segments`，不是 `projects`，各自的 `lint-permission-paths`
+ * 豁免各自成立，混进同一个文件会让两条互不相关的断言绑在一起。
+ */
+export interface AgendaSegmentRow {
+  readonly id: string;
+  readonly workshopId: string;
+  readonly ordinal: number;
+  readonly title: string;
+  readonly duration: number;
+  readonly state: "pending" | "active" | "closed" | "skipped";
+  readonly mergedInto: string | null;
+  readonly agendaSegmentDefinitionId: string | null;
+  readonly acceptedSources: readonly string[];
+}
+
+export interface AdvanceAgendaSegmentCommand {
+  readonly orgId: OrgId;
+  readonly workshopId: string;
+  readonly segmentId: string;
+  readonly actorId: string;
+  /** 由 `domain/project/advance-segment-outcomes.ts` 算出来，仓储不自己判定终态。 */
+  readonly nextState: "closed" | "skipped";
+  readonly mergedInto: string | null;
+}
+
+export interface AdvanceAgendaSegmentResult {
+  /** 被推进/结束/跳过/合并的那一条环节，终态已生效。 */
+  readonly segment: AgendaSegmentRow;
+  /**
+   * 按 `ordinal` 紧邻其后、状态为 `pending` 的下一条环节被置为 `active` 的结果；
+   * 没有下一条（本环节是工作坊最后一条）时为 `null`——**不是**报错，是正常的收尾状态。
+   */
+  readonly activatedNext: AgendaSegmentRow | null;
+}
+
+export interface AgendaSegmentRepository {
+  findById(orgId: OrgId, workshopId: string, segmentId: string): Promise<AgendaSegmentRow | null>;
+
+  /**
+   * 一个事务内完成：① 当前环节改终态 ② 紧邻的下一条 `pending` 环节（若存在）置 `active`。
+   * ⚠ ②与 F118 的部分唯一索引 `agenda_segments_one_active_per_workshop` 是同一件事的两面：
+   *   两个并发的 `advance` 调用各自试图激活下一条，索引保证恰好一个成功，
+   *   另一个在这里应当收到 `23505`——由调用方（application 层）翻译成 `SEGMENT_ALREADY_ACTIVE`，
+   *   仓储只负责把驱动错误原样抛出，不在这里吞掉再自造一个语义。
+   */
+  advance(cmd: AdvanceAgendaSegmentCommand): Promise<AdvanceAgendaSegmentResult>;
+}
+
+export const AGENDA_SEGMENT_REPOSITORY = Symbol("AgendaSegmentRepository");

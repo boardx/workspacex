@@ -173,9 +173,14 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
 // F122（本次新增）：`PROJECT_LIST_REPOSITORY`，独立 provider——两者的
 // `lint-permission-paths` 豁免各自成立，见 `application/project/ports.ts` 的注释。
 // 概览 / 归档仍是 F123/F124，未落地前不给它们留绑定（同 F80 / F108 那两段的理由）。
-import { PROJECT_LIST_REPOSITORY, PROJECT_REPOSITORY } from "./application/project/ports";
+import {
+  AGENDA_SEGMENT_REPOSITORY,
+  PROJECT_LIST_REPOSITORY,
+  PROJECT_REPOSITORY,
+} from "./application/project/ports";
 import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
+import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
 
 @Module({
@@ -434,6 +439,13 @@ import { ProjectController } from "./interface/controllers/project.controller";
     {
       provide: PROJECT_LIST_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectListRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F119：独立 provider——见 `application/project/ports.ts` 里 `AgendaSegmentRepository`
+    // 那条「故意不是 ProjectRepository 的第三个方法」的注释。
+    {
+      provide: AGENDA_SEGMENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgendaSegmentRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
