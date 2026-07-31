@@ -124,8 +124,15 @@ fi
 #   还没有会话、也还不属于任何组织，令牌行必须在没有 `app.current_org` 的情况下可查 ⇒
 #   由 `kernel-no-tenant-data:` 的 COMMENT 声明，审计判 `exempt-*`。
 #   ⇒ 「38 + 我加的 3」会算出 41，而实测是 40。**这就是为什么这个数只能量不能算**。
+#
+# ⚠ 40 -> 41 是 F49（迁移 0031）**在全新迁移库上实测**的：
+#   `WORKSPACEX_DB=wsx_f49rls bash scripts/verify-rls.sh` 报 `ok = 41`。
+#   F49 只加一张表 `model_admission_tests`（五项判读的 append-only 日志），带 org_id ⇒ ok。
+#   这次「40 + 1 = 41」算术恰好对上了，而这不构成可以推算的理由 —— 上面 F15 那段记的是
+#   同样的算术差了 1、F10/F108 那段差了 2，两次都是往少了算。这个数**仍然是量出来的**，
+#   算术只是事后核对；下一个人请照样跑一遍，不要因为这次对上了就开始加法。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=40
+OK_TABLES_FLOOR=41
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

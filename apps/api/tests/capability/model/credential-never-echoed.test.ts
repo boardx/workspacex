@@ -204,7 +204,21 @@ describe("nothing in apps/api/src can turn a sealed credential back into plainte
     const methods = [...ports.matchAll(/^\s{2}(\w+)\(/gm)].map((m) => m[1]!);
     // `encrypt` is absent because the cipher port is RE-EXPORTED from the domain vault
     // rather than redeclared here -- one declaration, and it has no decrypt either.
-    expect(methods.sort()).toEqual(["forOrg", "insert", "listForOrg", "newModelId", "now"]);
+    //
+    // ⚠ This list is EXHAUSTIVE on purpose, which means adding a port to `ports.ts` turns
+    // this red. That is the assertion working: it forces whoever adds a method to state, in
+    // this diff, that it returns nothing credential-shaped. F49 added five --
+    // `append` / `listForModel` (the admission log), `read` (a model's shape and member
+    // ids), `setStatus`, `enableRejected` (the audit sink) -- and none of them touches
+    // `model_secrets` or takes a `SealedCredential`. Reviewed and added here rather than
+    // moved to a second ports file, which would have kept this test green by putting the new
+    // surface outside its reach.
+    expect(methods.sort()).toEqual(
+      [
+        "append", "enableRejected", "forOrg", "insert", "listForModel", "listForOrg",
+        "newModelId", "now", "read", "setStatus",
+      ].sort(),
+    );
     expect(ports).toContain('export type { CredentialCipher } from "../../domain/model/credential-vault"');
   });
 });
