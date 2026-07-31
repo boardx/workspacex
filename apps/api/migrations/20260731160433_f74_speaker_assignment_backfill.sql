@@ -94,3 +94,12 @@ DROP POLICY IF EXISTS speaker_assignments_tenant ON speaker_assignments;
 CREATE POLICY speaker_assignments_tenant ON speaker_assignments
   USING (org_id = current_setting('app.current_org', true))
   WITH CHECK (org_id = current_setting('app.current_org', true));
+
+-- 撤销是翻时间戳(UPDATE),不是删行(I-11)——不授 DELETE。
+GRANT SELECT, INSERT, UPDATE ON speaker_assignments TO app_rw;
+
+-- F22 的三条 RESTRICTIVE 冻结策略是按 pg_catalog 扫描当时全部租户表安装的(0014),
+-- 新增租户表之后必须重新调用一次,否则组织冻结("organizations.disabled_at 之后
+-- 禁写")对这张新表不生效——见 tests/auth/org-disabled-readonly.test.ts
+-- 「冻结覆盖面:catalog 推导,不是一张手写清单」。
+SELECT kernel_apply_org_freeze_policies();
