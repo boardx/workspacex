@@ -187,6 +187,12 @@ import { PgProjectListRepository } from "./infrastructure/project/pg-project-lis
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
+// F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
+// `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
+// header for why phase-1 has no persisted file store to back this yet.
+import { ASSET_FILE_REPOSITORY } from "./application/asset/ports";
+import { FixtureAssetFileRepository } from "./infrastructure/asset/fixture-asset-file-repository";
+import { AssetDirectoryController } from "./interface/controllers/asset-directory.controller";
 
 @Module({
   controllers: [
@@ -212,6 +218,7 @@ import { ProjectController } from "./interface/controllers/project.controller";
     FilesDeliveryController,
     DeviceSessionController,
     ProjectController,
+    AssetDirectoryController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -459,6 +466,8 @@ import { ProjectController } from "./interface/controllers/project.controller";
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F141: fixture-backed (2/6 AssetKinds, AG4) -- see the class header for why.
+    { provide: ASSET_FILE_REPOSITORY, useFactory: () => new FixtureAssetFileRepository() },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },

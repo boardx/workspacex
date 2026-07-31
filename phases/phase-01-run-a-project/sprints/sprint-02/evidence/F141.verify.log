@@ -1,40 +1,105 @@
-$ pnpm --filter @repo/contracts run test
-[exit 0]
+F141 verification log — 2026-07-31T21:30:31Z
 
-> @repo/contracts@0.0.0 test /Users/shenyanbin/Documents/workspacex/packages/contracts
+$ pnpm --filter @repo/contracts run test
+
+> @repo/contracts@0.0.0 test /private/tmp/f141-worktree/packages/contracts
 > vitest run
 
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+ RUN  v2.1.9 /private/tmp/f141-worktree/packages/contracts
 
- ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 2ms
- ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
- ✓ tests/pending-thresholds.test.ts (7 tests) 44ms
- ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 5ms
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 4ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 4ms
  ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 5ms
- ✓ tests/no-forbidden-routes.test.ts (15 tests) 4ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 9ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 68ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
  ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
- ✓ tests/contract-shape.test.ts (77 tests) 70ms
+ ✓ tests/contract-shape.test.ts (77 tests) 43ms
 
  Test Files  8 passed (8)
       Tests  166 passed (166)
-   Start at  22:51:14
-   Duration  565ms (transform 480ms, setup 0ms, collect 1.33s, tests 134ms, environment 1ms, prepare 522ms)
+   Start at  05:30:31
+   Duration  540ms (transform 602ms, setup 0ms, collect 1.38s, tests 139ms, environment 1ms, prepare 423ms)
 
-
+[exit 0]
 
 $ pnpm --filter api exec vitest run tests/asset/asset-directory-tree.test.ts
-[exit 1]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/f141-worktree/apps/api
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/asset/asset-directory-tree.test.ts
-filter:  tests/asset/asset-directory-tree.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ ✓ tests/asset/asset-directory-tree.test.ts (12 tests) 2ms
 
-No test files found, exiting with code 1
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  05:30:32
+   Duration  220ms (transform 34ms, setup 0ms, collect 41ms, tests 2ms, environment 0ms, prepare 37ms)
 
-[harness-verify v1 sha256=179a30502f34f5d8054fc59184fdfd06304084925dc3eadc9966ef1531503b9a commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:51:15.647Z]
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/asset/asset-file-badge-fallback.test.ts
+
+ RUN  v2.1.9 /private/tmp/f141-worktree/apps/api
+
+ ✓ tests/asset/asset-file-badge-fallback.test.ts (7 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  05:30:33
+   Duration  189ms (transform 31ms, setup 0ms, collect 33ms, tests 2ms, environment 0ms, prepare 30ms)
+
+[exit 0]
+
+$ pnpm --filter web exec vitest run tests/ui/asset-directory-browse.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f141-worktree/apps/web
+
+ ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 50ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  05:30:33
+   Duration  964ms (transform 82ms, setup 89ms, collect 149ms, tests 50ms, environment 441ms, prepare 22ms)
+
+[exit 0]
+
+$ pnpm --filter api run typecheck
+
+> @repo/api@0.0.0 typecheck /private/tmp/f141-worktree/apps/api
+> tsc --noEmit
+
+[exit 0]
+
+$ pnpm --filter web run typecheck
+
+> web@0.1.0 typecheck /private/tmp/f141-worktree/apps/web
+> tsc --noEmit
+
+[exit 0]
+
+$ node .harness/scripts/lint-arch-deps.mjs
+✅ lint-arch-deps: 344 files, all dependencies point inward
+scanned=344
+[exit 0]
+
+$ node .harness/scripts/lint-contract-source.mjs
+✅ lint-contract-source: generated files match the contract, no hand-written copies (265 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+[exit 0]
+
+──────────────────────────────────────────────────────────────────────────
+NOTE — `pnpm harness verify --sprint 01/02 --feature F141` was invoked and
+reported the four required commands above as passing, but then ran the repo's
+`verify:base` (which shells out to `turbo run typecheck lint test`, covering
+apps/api's FULL Postgres-dependent suite) and that step did not pass locally.
+Per issue #74 (documented at the top of apps/api/vitest.config.ts): running
+the full Postgres suite locally is a known source of nondeterminism (the
+same command back-to-back has been measured green / red(49) / red(61) / red(22)
+/ green / green on an idle machine) unrelated to any single feature's change.
+Standing instruction for this session is to NOT run that suite in full
+locally and to rely on CI/coordinator for it. Accordingly F141 has NOT been
+flipped to `passing` locally (status remains `in_progress`, evidence field
+untouched by this run) — the four scoped verification commands, both
+packages' typecheck, and the two structural lint scripts above are the
+complete set of checks this session performed and all are green.
