@@ -19,18 +19,44 @@ export async function addChatThread(opts: {
   agentPrivate?: boolean;
   /** 只有反证用得上：正常路径不该能写别的值（I-9）。 */
   ownershipLayer?: string;
+  /** F109。缺省空串 —— 0029 给的就是这个默认值。 */
+  title?: string;
+  /** F109：分组用（今天 / 本周 / 本周之前）。缺省 now()。 */
+  lastActivityAt?: Date;
 }): Promise<void> {
   await asApp(opts.orgId, (c) =>
     c.query(
       `INSERT INTO chat_threads
          (id, org_id, project_id, group_id, visibility_scope, phase, archived,
-          ownership_layer, agent_private, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          ownership_layer, agent_private, created_by, title, last_activity_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12, now()))`,
       [
         opts.id, opts.orgId, opts.projectId, opts.groupId ?? null, opts.visibilityScope,
         opts.phase ?? "onsite", opts.archived ?? false, opts.ownershipLayer ?? "project",
-        opts.agentPrivate ?? false, opts.createdBy,
+        opts.agentPrivate ?? false, opts.createdBy, opts.title ?? "",
+        opts.lastActivityAt ?? null,
       ],
+    ),
+  );
+}
+
+/**
+ * F109 / I-14：一个**真实的**转录会话。
+ *
+ * 这个夹具存在的全部意义是让「最后消息很新 + 转录已停」构造得出来。
+ * 没有它，按最后消息时间推断徽标的实现在任何测试下都是绿的。
+ */
+export async function addTranscriptSession(opts: {
+  orgId: string;
+  id: string;
+  threadId: string;
+  stopped?: boolean;
+}): Promise<void> {
+  await asApp(opts.orgId, (c) =>
+    c.query(
+      `INSERT INTO chat_transcript_sessions (id, org_id, thread_id, stopped_at)
+       VALUES ($1,$2,$3,$4)`,
+      [opts.id, opts.orgId, opts.threadId, opts.stopped === true ? new Date() : null],
     ),
   );
 }
@@ -45,15 +71,19 @@ export async function addChatMessage(opts: {
   agentId?: string | null;
   rawTranscript?: boolean;
   visibilityScope?: string | null;
+  /** F109 / I-13：「待复核」的唯一事实源。 */
+  reviewPending?: boolean;
 }): Promise<void> {
   await asApp(opts.orgId, (c) =>
     c.query(
       `INSERT INTO chat_messages
-         (id, org_id, thread_id, author_kind, author_id, agent_id, body, raw_transcript, visibility_scope)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+         (id, org_id, thread_id, author_kind, author_id, agent_id, body, raw_transcript,
+          visibility_scope, review_pending)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         opts.id, opts.orgId, opts.threadId, opts.authorKind ?? "human", opts.authorId,
         opts.agentId ?? null, opts.body, opts.rawTranscript ?? false, opts.visibilityScope ?? null,
+        opts.reviewPending ?? false,
       ],
     ),
   );
