@@ -55,7 +55,7 @@ function input(overrides: Partial<TranscriptionInput> = {}): TranscriptionInput 
 }
 
 /** Stand-in for "what an indexer / Context Pack assembler would keep" (I-3's premise). */
-function indexable(segments: readonly Pick<TranscribedSegment, "status">[]) {
+function indexable(segments: readonly Pick<TranscribedSegment, "status" | "lowConfidence">[]) {
   return segments.filter(isCitable);
 }
 

@@ -32,9 +32,12 @@
  *   the contract has `disputed` and no `low-confidence`; `apps/web/lib/mock/rec.ts`'s
  *   `SegmentStatusView` has `low-confidence` and no `disputed`; both cite a UC. This file
  *   **derives from the contract and touches neither side of the dispute** — it never mints
- *   `disputed` (that is `markDispute`, F71) and it carries low confidence in the contract's
+ *   `disputed` (that is `markDispute`, still unimplemented — `disputed`'s formal status is
+ *   `[待定 D-9]`, `KNOWN_CONTRACT_GAPS.C_REC_3`) and it carries low confidence in the contract's
  *   separate `lowConfidence: boolean` field, which exists on both sides. Picking a winner
- *   here would be an implementer settling a question that is queued for a human.
+ *   here would be an implementer settling a question that is queued for a human. F71 only
+ *   extends `checkCitability` to gate on `disputed`/`lowConfidence` *once already present* —
+ *   it does not decide how a segment gets there.
  * · **PII masking rules.** X-3: the masking kernel lives in 17-gov; this bundle is the
  *   *integration point*, not a second rule set. Masking arrives as a port; unavailable ⇒
  *   `PII_MASKING_UNAVAILABLE` and **nothing is persisted** (I-21: no plaintext ever exists
@@ -208,27 +211,52 @@ export function transcribe(
 }
 
 /**
- * F70 — 「正在识别」中间态的引用/检索/AI 归纳门禁 (uc-5-1 R7)。
+ * F70/F71 — 「正在识别」「待人工指派」「待校对」「争议」四种不可引述态的
+ * 引用/检索/AI 归纳门禁 (uc-5-1 R7, uc-5-1 R4, O-13)。
  *
- * ⚠ **本函数只覆盖 F70 自己产生的两种不可引述状态**：`partial`（最新一句尚未定稿，
- *   「正在识别」）与 `pending-manual`（重叠段，I-7）。`SEGMENT_LOW_CONFIDENCE_NOT_CITABLE`
- *   （阈值 `[待定 D-1]`）与 `SEGMENT_DISPUTED_NOT_CITABLE`（`disputed` 状态本身 `[待定 D-9]`，
- *   见文件顶部注释）都依赖尚未裁定的东西——这两个码留给 F76 的 `markQuote` 在那些前提
- *   落地后再补，本函数不替它们下判断。
+ * ⚠ **O-13 的核心裁定：这是四道各自独立的门，不是一个泛化的"未完成"状态。**
+ *   重叠语音「待人工指派」（`status === "pending-manual"`）与低置信「待校对」
+ *   （`lowConfidence === true`）是两件不同的事——前者是"归属未定"（I-7：系统不静默
+ *   归给单一说话人，`speakerChannelId` 恒为 `null`，mock `seg-07` 即使有
+ *   `overlapCandidates` 也不带任何默认选中的 `assignedTo`），后者是"文本本身存疑"
+ *   （即便说话人早已指派清楚）。两者可以同时成立而互不掩盖，各自解除路径也不同
+ *   （uc-5-2：前者只经 `splitOverlapSegment` 人工拆分，后者只经 `correctSegmentText`
+ *   人工修正）——所以断言与错误码都必须分开给，合并成一个 `SEGMENT_NOT_CITABLE`
+ *   会让界面给不出「去拆分」和「去校对」两个不同出口（`usecases.md` E5）。
+ * ⚠ **低置信度的阈值本身 `[待定 D-1]`，本函数不判定"多低算低"**——那是
+ *   `TranscriptionPolicy.isLowConfidence` 的职责（见文件顶部注释），此处只读
+ *   `segment.lowConfidence` 这个已经算好的布尔标记，"命中即挂门禁"是可以立即
+ *   验收的结构性断言，和数值阈值本身的裁定是两件事（O-13）。
+ * ⚠ `disputed` 的正式性仍是 `[待定 D-9]`（见文件顶部注释 / `KNOWN_CONTRACT_GAPS.C_REC_3`），
+ *   本函数**不负责铸造**该状态（那是尚未实现的 `markDispute`，本 feature 范围之外），
+ *   只负责：**一旦**一个 segment 处于 `disputed`，它同样不可引述，且该拒绝码必须能
+ *   与另外三个区分开来。
  *
  * 三个消费方是同一个问题：`markQuote`（引述）· 检索索引（`indexedSegmentIds`）·
  * Context Pack / AI 归纳（`rationaleSegmentIds`）——I-3 与本条一起断言的是**同一道门**，
  * 所以这里只有一个函数，而不是三处各自判断一次。
  */
 export function checkCitability(
-  segment: Pick<TranscribedSegment, "status">,
-): Extract<RecordingErrorCode, "SEGMENT_PARTIAL_NOT_CITABLE" | "SEGMENT_PENDING_MANUAL_NOT_CITABLE"> | null {
+  segment: Pick<TranscribedSegment, "status" | "lowConfidence">,
+): Extract<
+  RecordingErrorCode,
+  | "SEGMENT_PARTIAL_NOT_CITABLE"
+  | "SEGMENT_PENDING_MANUAL_NOT_CITABLE"
+  | "SEGMENT_DISPUTED_NOT_CITABLE"
+  | "SEGMENT_LOW_CONFIDENCE_NOT_CITABLE"
+> | null {
+  // 状态类的门先判：一段既是 partial/pending-manual/disputed 又同时 lowConfidence，
+  // 报告状态类的码——状态未定这件事本身就挡住了引述，无需再叠加"文本存疑"的理由。
   if (segment.status === "partial") return "SEGMENT_PARTIAL_NOT_CITABLE";
   if (segment.status === "pending-manual") return "SEGMENT_PENDING_MANUAL_NOT_CITABLE";
+  if (segment.status === "disputed") return "SEGMENT_DISPUTED_NOT_CITABLE";
+  // 走到这里说明状态本身已经"定"了（final）——lowConfidence 是独立于 status 的第二道门，
+  // 即使说话人 / 归属都已解决，文本本身待校对也一样不可引述。
+  if (segment.lowConfidence) return "SEGMENT_LOW_CONFIDENCE_NOT_CITABLE";
   return null;
 }
 
 /** `true` 当且仅当 `checkCitability` 放行——供索引 / Context Pack 消费点做集合过滤用。 */
-export function isCitable(segment: Pick<TranscribedSegment, "status">): boolean {
+export function isCitable(segment: Pick<TranscribedSegment, "status" | "lowConfidence">): boolean {
   return checkCitability(segment) === null;
 }
