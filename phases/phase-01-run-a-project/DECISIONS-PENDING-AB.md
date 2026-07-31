@@ -176,6 +176,13 @@ PR #72 合并后那次 backend-gates 红在 `EADDRINUSE :::33210` —— 两次�
 
 ⚠ **`provenance` 属已签核的 phase-00 束，这次新增需要你追认。**
 
+⚠⚠ **只补枚举不够**（F109 查出的，2026-07-31 下午）：`queryProvenance` 只按 `(targetKind, targetId)` 筛。
+一旦 target 改成具体对象（`thread` / `interview` / 具体 artifact），**「列出本项目下的某类审计」就没有可筛的列了**
+—— `projectId` 只活在 `detail` 这个 `z.record` 里。于是四个 feature 会各自往自己的 `detail` 里塞一份 projectId 兜底，
+**那就是同一事实的第四、五、六处声明**（本仓已因此漂移九次）。
+F108 已在用的 `admin-project-access` 今天就是 `target=project`，所以「这条线程被管理员读过」现在也查不出来。
+⇒ ADR-101 必须把 **target 维度**一并处理，候选见 issue #99 的评论（倾向：`provenance_events` 增加可筛的 `project_id` 维度）。
+
 | | action |
 |---|---|
 | **A**（推荐） | **追认 ADR-101**，三个成员一次补齐。理由：这不是「设计留白」而是枚举写漏了——三个已签核的 UC 都要求写审计，而枚举里没有可写的类型，不补则三个束的审计链都是断的 |
