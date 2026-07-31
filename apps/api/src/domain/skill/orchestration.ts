@@ -32,11 +32,12 @@
  */
 import type {
   BindingOwner,
+  BindingSlotRef,
   BindingTrigger,
   DeliverRole,
   SegmentBinding,
 } from "./binding-slot";
-import { skillRefOf } from "./binding-slot";
+import { bindingsOfKind, skillRefOf } from "./binding-slot";
 import type { SkillLifecycleStatus } from "./skill-status";
 
 /** 议程环节。⚠ 宿主属 templates 束，这里只持有本束判定需要的最小形状。 */
@@ -359,4 +360,163 @@ export function upgradeBindingToVersion(
 /** 触发方式的实例级覆盖（R3 步骤 6）。纯函数，同样不碰模板。 */
 export function withTrigger(binding: SegmentBinding, trigger: BindingTrigger): SegmentBinding {
   return { ...binding, trigger };
+}
+
+/* ─────────────────────── F64：角色格 → 待办草稿（I-16） ─────────────────────── */
+
+/**
+ * I-16：编排矩阵的**每一个非空角色格** ↔ **恰一条**待办草稿。
+ *
+ * ⚠ 「非空」的判据就是 `text` 非空白——空文案格根本不是分工，不该产出待办去骚扰谁。
+ *   这是一个纯函数：产多少条待办草稿由格子内容决定，不掺入网络/存储层的成败。
+ *   `assignee` 恒为人这件事**不在这里体现**——本函数根本不知道「人是谁」，
+ *   那是 application 层通过一个独立端口解析的（见 `generate-role-todos.ts` 的
+ *   `RoleAssigneePort`）；`executor` 同理来自绑定表里的 agent-output 槽，
+ *   两者结构性地来自互不相交的两个来源，糊不到一起去。
+ */
+export function nonEmptyRoleCells(o: {
+  readonly roleCells: readonly RoleCell[];
+}): readonly RoleCell[] {
+  return o.roleCells.filter((c) => c.text.trim().length > 0);
+}
+
+/**
+ * 某个角色格所在环节里，**agent 产物**槽挂的 agentId（D-39 的「执行者」半边）。
+ *
+ * ⚠ 只认 `agent-output` 槽；`deliverRoles` 覆盖该角色或「全场共用」才算数——
+ *   否则一个只下发给引导师的 agent 产物会被误记成组员格的执行者。
+ *   找不到就是 `null`：这是**多数格子的常态**（大多数分工是人手动做的），
+ *   不是异常。
+ */
+export function executorAgentIdFor(
+  o: { readonly bindings: readonly SegmentBinding[] },
+  cell: Pick<RoleCell, "agendaSegmentId" | "role">,
+): string | null {
+  const hit = o.bindings.find(
+    (b) =>
+      b.slot.kind === "agent-output" &&
+      b.agendaSegmentId === cell.agendaSegmentId &&
+      (b.deliverRoles.includes(cell.role) || b.deliverRoles.includes("全场共用")),
+  );
+  return hit === undefined || hit.slot.kind !== "agent-output" ? null : hit.slot.agentId;
+}
+
+/* ─────────────────────── F64：现场按环节自动挂载（R3 步骤 7） ─────────────────────── */
+
+/**
+ * 「因环节 03 载入」那句话的**唯一**拼装处（AC1：reason 是契约的一部分）。
+ *
+ * ⚠ 用 segments 数组里的**序号**（从 1 起、两位数补零），不用 `agendaSegmentId`
+ *   的字面量——环节 id 是内部主键（如 `seg-9f2a`），不是给人看的编号；
+ *   序号才是原型里「环节 03」那个 03 的真实来源。id 不在 segments 里时兜底用它本身，
+ *   免得整段挂载因为一个查无此环节的请求而报错。
+ */
+export function mountReasonFor(
+  segments: readonly AgendaSegment[],
+  agendaSegmentId: string,
+): string {
+  const idx = segments.findIndex((s) => s.agendaSegmentId === agendaSegmentId);
+  const ordinal = idx === -1 ? agendaSegmentId : String(idx + 1).padStart(2, "0");
+  return `因环节 ${ordinal} 载入`;
+}
+
+/**
+ * 现场按环节自动挂载的 skill 绑定（不含画布模板/agent 产物——那两支的挂载
+ * 各属 07-canvas / UC-4.2，混在同一条解析路径正是「糊成一个字符串」的后果）。
+ *
+ * ⚠ 组员侧只读：本函数只读不写，**没有任何写变体**——「组员无写入口」（V5）
+ *   在这里是结构性的，不是权限判断出来的。
+ */
+export function mountedSkillBindingsFor(
+  o: { readonly bindings: readonly SegmentBinding[] },
+  agendaSegmentId: string,
+  role: DeliverRole,
+): readonly (SegmentBinding & { readonly slot: Extract<BindingSlotRef, { kind: "skill" }> })[] {
+  return bindingsOfKind(o.bindings, "skill").filter(
+    (b) =>
+      b.agendaSegmentId === agendaSegmentId &&
+      (b.deliverRoles.includes(role) || b.deliverRoles.includes("全场共用")),
+  );
+}
+
+/* ─────────────────────── F64：孤立绑定（切模板 / 删环节，I-26） ─────────────────────── */
+
+/** 待裁决的变更种类。⚠ 只表达「会发生什么」，不携带新模板本体——那是调用方的事。 */
+export type OrphanChange =
+  | { readonly kind: "switch-template" }
+  | { readonly kind: "remove-segment"; readonly agendaSegmentId: string };
+
+/**
+ * 假设 `change` 发生后，**哪些环节还活着**。
+ * 切模板 ⇒ 整份实例被替换，没有任何旧环节存活；删环节 ⇒ 只少这一个。
+ */
+function survivingSegmentIds(
+  o: { readonly segments: readonly AgendaSegment[] },
+  change: OrphanChange,
+): ReadonlySet<string> {
+  if (change.kind === "switch-template") return new Set();
+  return new Set(
+    o.segments.filter((s) => s.agendaSegmentId !== change.agendaSegmentId).map((s) => s.agendaSegmentId),
+  );
+}
+
+/**
+ * **纯读**：预览这次变更会让哪些绑定与角色格失去落点（AC6/V6，previewOrphanBindings 的领域内核）。
+ * ⚠ 不改任何状态——它只是在假设一个尚未发生的变更。
+ */
+export function previewOrphanImpact(
+  o: ProjectOrchestration,
+  change: OrphanChange,
+): {
+  readonly lostBindings: readonly SegmentBinding[];
+  readonly lostRoleCells: readonly RoleCell[];
+} {
+  const surviving = survivingSegmentIds(o, change);
+  return {
+    lostBindings: o.bindings.filter((b) => !surviving.has(b.agendaSegmentId)),
+    lostRoleCells: o.roleCells.filter((c) => !surviving.has(c.agendaSegmentId)),
+  };
+}
+
+/**
+ * **此刻已经悬空**的绑定：指向的环节不在当前 `segments` 里。
+ *
+ * ⚠ 这是「孤立绑定」在数据里的字面定义，不依赖任何「即将发生的变更」——
+ *   它回答的是「现在，此刻，有没有绑定条目已经找不到自己的环节」。
+ *   `confirmOrphanDisposition` 靠它决定「必须裁决哪些」，逐条不许漏（I-26）。
+ */
+export function danglingBindings(o: ProjectOrchestration): readonly SegmentBinding[] {
+  const live = new Set(o.segments.map((s) => s.agendaSegmentId));
+  return o.bindings.filter((b) => !live.has(b.agendaSegmentId));
+}
+
+/** 一条绑定的裁决：迁到别的环节，或删除。⚠ 没有第三种「忽略」——那是静默丢弃的另一种写法。 */
+export interface BindingDisposition {
+  readonly bindingId: string;
+  readonly action: "migrate" | "delete";
+  readonly toAgendaSegmentId: string | null;
+}
+
+/**
+ * 应用一批裁决，产出**新**编排（纯函数，不原地改）。
+ * ⚠ 调用方必须先用 `danglingBindings` 核对覆盖度——本函数本身不做「漏了没」的判断，
+ *   那道门在 application 层（`confirm-orphan-disposition.ts`），因为「零写入」
+ *   这个动作只有在端口层面才谈得上「没发生」。
+ */
+export function applyBindingDispositions(
+  o: ProjectOrchestration,
+  dispositions: readonly BindingDisposition[],
+): ProjectOrchestration {
+  const byId = new Map(dispositions.map((d) => [d.bindingId, d] as const));
+  const bindings: SegmentBinding[] = [];
+  for (const b of o.bindings) {
+    const d = byId.get(b.bindingId);
+    if (d === undefined) {
+      bindings.push(b);
+      continue;
+    }
+    if (d.action === "delete") continue;
+    bindings.push({ ...b, agendaSegmentId: d.toAgendaSegmentId ?? b.agendaSegmentId });
+  }
+  return { ...o, bindings };
 }

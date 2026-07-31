@@ -144,3 +144,61 @@ export interface SkillVisibilityPort {
     readonly principalId: string;
   }): Promise<{ readonly status: SkillLifecycleStatus; readonly currentVersionId: string } | null>;
 }
+
+/* ═══════════════════ F64：编排一次三视图与待办 / 现场自动挂载 / 孤立绑定 ═══════════════════ */
+
+/**
+ * 角色格→待办的**下游发布**（跨束边，`usecases.md`「TodoPublisher | 角色格 → 待办，
+ * 异步可重试，不阻塞编排保存 | outbox + worker（11-board）」）。
+ *
+ * ⚠ 单条失败不抛出中断整批——`publish` 用返回值表达成败，让 use case 能继续处理
+ *   剩下的格子、把这一条计进 `failed`（E4/V12：「编排仍保存成功」）。
+ */
+export interface TodoPublisherPort {
+  publish(input: {
+    readonly agendaSegmentId: string;
+    readonly role: string;
+    readonly text: string;
+    /** ⚠ D-39：待办负责人恒为人。这个字段的值**只能来自 `RoleAssigneePort`**，
+     *   与下面 `executorAgentId` 的来源（绑定表的 agent-output 槽）结构性不相交。 */
+    readonly assigneePrincipalId: string;
+    readonly executorAgentId: string | null;
+  }): Promise<{ readonly ok: true; readonly todoId: string } | { readonly ok: false }>;
+}
+
+/**
+ * 「这场项目里，这个角色此刻是谁」——跨束边（人员归属属 identity/11-board，不属 skill 束）。
+ *
+ * ⚠ 刻意与 `executorAgentIdFor`（读绑定表的 agent-output 槽）分离成两个互不相交的取数通路：
+ *   一个只能问出人，一个只能问出 agent，D-39 的「恒为人」因此是**结构性**的——
+ *   要让 agent 的 id 混进 `assigneePrincipalId`，得先把两个端口的返回值接反，
+ *   那是一次会被类型检查器和 review 同时看见的改动。
+ */
+export interface RoleAssigneePort {
+  assigneeOf(input: {
+    readonly projectId: string;
+    readonly agendaSegmentId: string;
+    readonly role: string;
+  }): Promise<{ readonly principalId: string } | null>;
+}
+
+/**
+ * 挂载解析时的依赖健康度（R3 步骤 7 的 E2：模型/MCP 依赖不可用时**明确告知，不静默跳过**）。
+ * ⚠ 返回值直接落进 `mounts[].disabledReason`——不可用时该条**仍出现在列表里**，
+ *   不是被过滤掉（这条纪律与 `listMountableSkills` 的 `disabledReason` 同口径）。
+ */
+export interface MountHealthPort {
+  checkAvailability(
+    skillId: string,
+  ): Promise<{ readonly available: true } | { readonly available: false; readonly reason: string }>;
+}
+
+/** A5/V8：一个组织下全部**已启用** skill 的读端口（`listIdleSkills` 用）。 */
+export interface OrgSkillCatalogPort {
+  listEnabled(orgId: string): Promise<readonly string[]>;
+}
+
+/** A5/V8：该组织范围内**已被任一环节绑定过**的 skill id 集合。 */
+export interface AllOrchestrationsPort {
+  boundSkillIds(orgId: string): Promise<readonly string[]>;
+}
