@@ -22,27 +22,38 @@
  * 拼装完立刻交给契约 schema 判，所以映射错了会在这里 400，而不是在仓储里变成一次奇怪的查询。
  */
 import {
+  Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Inject,
   NotFoundException,
   Param,
+  Post,
   Query,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { interview as C } from "@repo/contracts";
 import { getInterview } from "../../application/interview/get-interview";
 import { listInterviews } from "../../application/interview/list-interviews";
+import { attachToProjectStep } from "../../application/interview/attach-to-project-step";
+import { detachFromProjectStep } from "../../application/interview/detach-from-project-step";
 import {
   IncoherentScopeError,
   NoInterviewAccessError,
+  RequiresPinnedError,
   ScopeNotVisibleError,
 } from "../../application/interview/errors";
 import {
   INTERVIEW_SCOPE_REPOSITORY,
   type InterviewScopeRepository,
 } from "../../application/interview/ports";
+import {
+  INTERVIEW_ATTACHMENT_REPOSITORY,
+  type InterviewAttachmentRepository,
+} from "../../application/interview/attachment-ports";
+import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import {
   DECISION_ID_FACTORY,
   type DecisionIdFactory,
@@ -55,6 +66,8 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const LIST_INTERVIEWS_SCHEMA = C.operations.listInterviews.in;
 export const GET_INTERVIEW_SCHEMA = C.operations.getInterview.in;
+export const ATTACH_SCHEMA = C.operations.attachToProjectStep.in;
+export const DETACH_SCHEMA = C.operations.detachFromProjectStep.in;
 
 type ListInput = {
   scope: { kind: "project" | "research" | "none"; projectId: string | null; researchProjectId: string | null };
@@ -73,8 +86,11 @@ function triBool(v: string | undefined): boolean | null {
 export class InterviewScopeController {
   constructor(
     @Inject(INTERVIEW_SCOPE_REPOSITORY) private readonly repo: InterviewScopeRepository,
+    @Inject(INTERVIEW_ATTACHMENT_REPOSITORY)
+    private readonly attachments: InterviewAttachmentRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
+    @Inject(ID_FACTORY) private readonly ids: IdFactory,
   ) {}
 
   @Get("/interviews")
@@ -140,6 +156,72 @@ export class InterviewScopeController {
   }
 
   /**
+   * 挂到项目环节。
+   *
+   * ⚠ 路径与请求体都带 `interviewId`。一个静默偏向其中一个的处理器，会让调用方寻址 A
+   * 而挂载记的是 B —— 而挂载正是那条「这个环节引用了哪一场访谈的哪一份快照」的记录。
+   * 与 `artifact-reference.controller.ts` 的同一条判断同形。
+   */
+  @Post("/interviews/:interviewId/attachments")
+  async attach(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body(new ZodBodyPipe(ATTACH_SCHEMA)) body: {
+      interviewId: string;
+      projectId: string;
+      stepId: string;
+      pinnedVersionId: string;
+    },
+  ) {
+    assertPrincipal(principal);
+    if (body.interviewId !== interviewId) {
+      throw new UnprocessableEntityException("interview_id_mismatch");
+    }
+    return this.run(() =>
+      attachToProjectStep(
+        {
+          repo: this.repo,
+          attachments: this.attachments,
+          provenance: this.provenance,
+          decisions: this.decisions,
+          ids: this.ids,
+        },
+        {
+          orgId: principal.orgId,
+          actorId: principal.userId,
+          interviewId,
+          projectId: body.projectId,
+          stepId: body.stepId,
+          pinnedVersionId: body.pinnedVersionId,
+        },
+      ),
+    );
+  }
+
+  /** 解除挂载。产出仍在 —— `interviewStillExists` 由 use case **读出来**，不是常量。 */
+  @Post("/interviews/attachments/:attachmentId/detach")
+  async detach(
+    @CurrentPrincipal() principal: Principal,
+    @Param("attachmentId") attachmentId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(DETACH_SCHEMA).transform({ attachmentId }) as {
+      attachmentId: string;
+    };
+    return this.run(() =>
+      detachFromProjectStep(
+        {
+          repo: this.repo,
+          attachments: this.attachments,
+          provenance: this.provenance,
+          decisions: this.decisions,
+        },
+        { orgId: principal.orgId, actorId: principal.userId, attachmentId: input.attachmentId },
+      ),
+    );
+  }
+
+  /**
    * 唯一的失败映射表。
    *
    * ⚠ 404 分支**没有** message、没有 reasonCode、没有 id。
@@ -157,6 +239,16 @@ export class InterviewScopeController {
       }
       if (e instanceof IncoherentScopeError) {
         throw new UnprocessableEntityException("scope_selector_inconsistent");
+      }
+      // 409 而不是 422：请求本身是良构的，是被引用的那个版本处在错误状态，
+      // 而那个状态是**可修复的**（先定版）—— 与 artifact 束的同一个拒绝取同一个码。
+      // ⚠ 只带 `REQUIRES_PINNED` 与 versionId：versionId 是调用方自己刚发过来的，
+      // 说回去不泄露任何它还不知道的东西。
+      if (e instanceof RequiresPinnedError) {
+        throw new ConflictException({
+          interviewError: "REQUIRES_PINNED",
+          versionId: e.versionId,
+        });
       }
       throw e;
     }

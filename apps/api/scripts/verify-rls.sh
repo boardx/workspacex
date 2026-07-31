@@ -141,8 +141,24 @@ fi
 #   而它们**不能叠**。合流之后 41 已经是 F49 一个人的了，F117 若照抄自己那次的 41，
 #   这个 ratchet 会当场多出一张表的松量，而它仍然全绿。
 #   ⇒ 并行分支合流时，这一行**必须在合流后的库上重跑**，不是在 diff 里对齐。
+#
+# ⚠ 42 -> 43 是 F81（迁移 0030）**在 rebase 到同时含 F49 与 F117 的 main 之后、于全新迁移库上
+#   重新实测**的：`WORKSPACEX_DB=wsx_f81rls bash scripts/verify-rls.sh` 报 `ok = 43`。
+#   F81 只加一张表 `interview_step_attachments`（访谈 → 项目环节的挂载，带 org_id ⇒ ok）；
+#   它另外给 `interview_sessions` 加了一列，加列对这个数的贡献是 0。
+#
+#   ⚠ **F81 在这一行上量了三次，前两次的数字都作废了**，把过程记下来：
+#     · 第一次（分支上，main 还没有 F49 / F117）：`40 -> 41`
+#     · 第二次（rebase 到含 F49 的 main 之后）：`41 -> 42`
+#     · 第三次（F117 又先合入，再 rebase）：`42 -> 43`  ← 本行
+#   三次各自都是实测，三次都对 —— 对的是**当时那棵树**。三个 feature 并行开发，
+#   每次合流都会让前一次的测量作废，而作废的方式在 diff 里长得像一次普通的文本冲突：
+#   两段注释、两个不同的数字，看起来只要挑一个留下。**挑一个就漏一张表，且仍然全绿**
+#   （比较是 `-ge`，floor 少 1 永远不会红）。
+#   ⇒ 这一行的唯一正确处理是：冲突整个丢掉，在**合流后的库**上从空库重跑一次。
+#     它不只是「不许推算」，还是「不许沿用自己上一次的实测」。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=42
+OK_TABLES_FLOOR=43
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
