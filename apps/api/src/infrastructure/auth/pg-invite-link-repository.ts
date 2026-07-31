@@ -56,6 +56,11 @@ import type {
   UpsertParticipantInput,
   UpsertRosterResult,
 } from "../../application/auth/invite-link-ports";
+import type {
+  ParticipantWithdrawalRepository,
+  RegisterWithdrawalInput,
+  RegisterWithdrawalResult,
+} from "../../application/auth/participant-withdrawal-ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import {
   isSingleUse,
@@ -574,9 +579,17 @@ export class PgJoinRepository implements JoinRepository {
       if (!verdict.usable) return { ok: false as const, reason: verdict.reason };
 
       // (3) 名单核对 —— I-19 的另一半。**在动任何写之前**，见上。
+      //
+      // ⚠ F14（I-34 ②）：`AND withdrawn_at IS NULL`。这一行是本仓「检索范围」的唯一定义——
+      //   没有独立的搜索索引，这张表的这条查询本身就是 F12 进场路径的检索范围。撤回
+      //   一旦触发（`withdraw-participant-phone.ts` 在同一事务里写 `withdrawn_at`），
+      //   这里立即读不到那一行，其结果与「从未在名单里」相同（`phone-not-on-roster`）。
+      //   已知缺口：本切片不区分「从未邀请」与「已撤回」两种 phone-not-on-roster 成因——
+      //   两者对参与者都合并渲染成同一「找引导师重发」（契约 E1 的既有取向），
+      //   区分它们属 T86 级联引擎接手后的工作，见 domain.md「与 22-files/17-gov 的分工」。
       const pRes = await s.query<JoinParticipantRow>(
         `SELECT id, group_id, display_alias FROM project_participants
-           WHERE project_id = $1 AND contact_kind = 'phone' AND contact = $2`,
+           WHERE project_id = $1 AND contact_kind = 'phone' AND contact = $2 AND withdrawn_at IS NULL`,
         [link.project_id, input.phone],
       );
       const participant = pRes.rows[0];
@@ -953,6 +966,104 @@ export class PgJoinApplicationRepository implements JoinApplicationRepository {
       if (upd.rows[0] === undefined) return { ok: false as const, reason: "already-reviewed" as const };
 
       return { ok: true as const, grant: { applicationId: application.id, status: "approved" as const } };
+    });
+  }
+}
+
+/* ══════════════════ 撤回与删除范围接入（F14 / UC-1.2 R7） ══════════════════ */
+//
+// 独立类而不是塞进 `PgParticipantRosterRepository`：那个类的三个方法（upsert/list/
+// markSent）答的是「名单管理」，这里答的是「合规撤回」——两者的调用方、鉴权前提
+// （见 `withdraw-participant-phone.ts` 的 `NO_PROJECT_ROLE` 复用理由）、以及在
+// `KNOWN_CONTRACT_GAPS` 里的地位都不同。合并只会让下一个人以为「落名单」也需要走
+// 撤回判定，或者反过来。
+
+interface WithdrawalDbRow {
+  requested_by: "data-subject" | "facilitator";
+  queued_at: Date;
+  logical_retire_deadline: Date;
+  physical_delete_deadline: Date;
+}
+
+export class PgParticipantWithdrawalRepository implements ParticipantWithdrawalRepository {
+  constructor(private readonly db: DatabasePort) {}
+
+  async register(input: RegisterWithdrawalInput): Promise<RegisterWithdrawalResult> {
+    return this.db.withTenant(input.orgId, async (s) => {
+      // (1) 参与者必须先存在于本项目名单——不存在则复用 NO_PROJECT_ROLE（见用例层注释），
+      //     不新造一个会泄露 participantId 是否存在的码。
+      const exists = await s.query<{ id: string }>(
+        `SELECT id FROM project_participants WHERE id = $1 AND project_id = $2`,
+        [input.participantId, input.projectId],
+      );
+      if (exists.rows[0] === undefined) return { kind: "not-found" as const };
+
+      // (2) 幂等落点：`ON CONFLICT (participant_id) DO NOTHING`，与 0025 roster upsert
+      //     同一条纪律——先查后插在并发下会出两张单据、两个不同的 deadline。
+      const ins = await s.query<WithdrawalDbRow>(
+        `INSERT INTO participant_withdrawal_requests
+           (id, org_id, project_id, participant_id, requested_by,
+            queued_at, logical_retire_deadline, physical_delete_deadline)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (participant_id) DO NOTHING
+         RETURNING requested_by, queued_at, logical_retire_deadline, physical_delete_deadline`,
+        [
+          `pwr-${input.participantId}`,
+          input.orgId,
+          input.projectId,
+          input.participantId,
+          input.requestedBy,
+          input.queuedAt,
+          input.logicalRetireDeadline,
+          input.physicalDeleteDeadline,
+        ],
+      );
+
+      const inserted = ins.rows[0];
+      if (inserted !== undefined) {
+        // (3) I-34 ②：退出检索范围的触发——同一事务内把 withdrawn_at 写上。
+        //     `joinByGroupLink` 的名单核对查询已加 `AND withdrawn_at IS NULL`（见该文件）。
+        await s.query(`UPDATE project_participants SET withdrawn_at = $2 WHERE id = $1`, [
+          input.participantId,
+          input.queuedAt,
+        ]);
+        return {
+          kind: "ok" as const,
+          ticket: {
+            queuedAt: inserted.queued_at,
+            logicalRetireDeadline: inserted.logical_retire_deadline,
+            physicalDeleteDeadline: inserted.physical_delete_deadline,
+            created: true,
+            requestedBy: inserted.requested_by,
+          },
+        };
+      }
+
+      // (4) 冲突分支：已有一张在途单据。读出来判断是重放还是冲突（见用例层注释的界线）。
+      const existing = await s.query<WithdrawalDbRow>(
+        `SELECT requested_by, queued_at, logical_retire_deadline, physical_delete_deadline
+           FROM participant_withdrawal_requests WHERE participant_id = $1`,
+        [input.participantId],
+      );
+      const row = existing.rows[0];
+      if (row === undefined) {
+        throw new Error(
+          `participant_withdrawal_requests: INSERT 冲突但 SELECT 未命中同一 participant_id —— ` +
+            `唯一约束与查询用的是不同的键。`,
+        );
+      }
+      if (row.requested_by !== input.requestedBy) return { kind: "conflict" as const };
+
+      return {
+        kind: "ok" as const,
+        ticket: {
+          queuedAt: row.queued_at,
+          logicalRetireDeadline: row.logical_retire_deadline,
+          physicalDeleteDeadline: row.physical_delete_deadline,
+          created: false,
+          requestedBy: row.requested_by,
+        },
+      };
     });
   }
 }

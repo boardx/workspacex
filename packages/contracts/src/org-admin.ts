@@ -179,6 +179,25 @@ const _sharedWithIdentity = [
  */
 export const ORG_ADMIN_POLICY = AUTH_POLICY;
 
+/**
+ * D-15 两级撤回 SLA 的**可计算**形态（F14）。
+ *
+ * ⚠ 这不是第六次「同一事实两处声明」：唯一的**展示字符串**事实源仍然是
+ *   `apps/web/lib/withdrawal-flow.ts` 的 `WITHDRAWAL_SLA_SUMMARY`
+ *   （`"≤5 分钟"` / `"≤30 天"`，由 `lint-withdrawal-flow.mjs` 门控它在前端不出现第二份）。
+ *   那份是**给人看的**，不能拿来做 `deadline = queuedAt + ?` 的日期运算。
+ *   这里是同一条 D-15 裁决换算成毫秒的**唯一**数值形态，后端（`withdraw-participant-phone.ts`）
+ *   算两个 deadline 只从这里取，不再手写 `5 * 60_000` / `30 * 86_400_000`。
+ * ⚠ 若 D-15 改期，这两处都要跟着改；但改的永远是「同一个数字的两种表达」
+ *   （字符串 vs 毫秒），而不是两个可能互相打架的裁决来源。
+ */
+export const WITHDRAWAL_SLA_MS = {
+  /** ≤5 分钟：逻辑失效（关联可识别信息退出检索 + 报告段落标失效的触发）。 */
+  logicalRetire: 5 * 60_000,
+  /** ≤30 天：物理删除并出回执。 */
+  physicalDelete: 30 * 24 * 60 * 60_000,
+} as const;
+
 /* ─────────────────────────── 实体 ─────────────────────────── */
 
 /** 一条组织邀请的对外形状。⚠ **不含 token**——token 只在签发响应里出现一次 */
