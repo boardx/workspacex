@@ -147,6 +147,13 @@ import { ObjectStoreHeadProbe } from "./infrastructure/files/object-store-head-p
 import { FilesBrowserController } from "./interface/controllers/files-browser.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
+// F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
+// ⚠ 只有 `PROJECT_REPOSITORY` 一个 provider，且它只有 `create` 一个方法：
+//   列表 / 概览 / 归档是 F118…F124，给还不存在的能力留绑定，
+//   会让下一个接界面的人以为它已经在跑了（同 F80 / F108 那两段的理由）。
+import { PROJECT_REPOSITORY } from "./application/project/ports";
+import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
+import { ProjectController } from "./interface/controllers/project.controller";
 
 @Module({
   controllers: [
@@ -169,6 +176,7 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
     OrgInviteController,
     FilesBrowserController,
     DeviceSessionController,
+    ProjectController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -352,6 +360,14 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
       provide: ORG_INVITE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgInviteRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // F117。⚠ 复用 `ID_FACTORY` 而不是新造一个 id 工厂：容器 id 会出现在
+    // `acl_bindings.object_id` 与 provenance 的 target 里，两处 id 形状不同的那一天，
+    // 「按对象检索审计」会静默地少返回一半。
+    {
+      provide: PROJECT_REPOSITORY,
+      useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgProjectRepository(db, ids),
+      inject: [DATABASE_PORT, ID_FACTORY],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.

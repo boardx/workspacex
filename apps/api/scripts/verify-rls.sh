@@ -131,8 +131,18 @@ fi
 #   这次「40 + 1 = 41」算术恰好对上了，而这不构成可以推算的理由 —— 上面 F15 那段记的是
 #   同样的算术差了 1、F10/F108 那段差了 2，两次都是往少了算。这个数**仍然是量出来的**，
 #   算术只是事后核对；下一个人请照样跑一遍，不要因为这次对上了就开始加法。
+#
+# ⚠ 41 -> 42 是 F117（迁移 0026）**在全新迁移库上实测**的：
+#   `WORKSPACEX_DB=wsx_f117merged bash scripts/verify-rls.sh` 报 `ok = 42`。
+#   F117 只加一张表 `project_creation_requests`（createProject 的重放表），带 org_id ⇒ ok。
+#
+#   ⚠ 这个数是 **rebase 到 F49 之后重新量的**，不是把自己那一格挪一位。
+#   F117 与 F49 并行开发，两边各自在 40 的基础上抬到 41、各自都实测过——两个 41 都对，
+#   而它们**不能叠**。合流之后 41 已经是 F49 一个人的了，F117 若照抄自己那次的 41，
+#   这个 ratchet 会当场多出一张表的松量，而它仍然全绿。
+#   ⇒ 并行分支合流时，这一行**必须在合流后的库上重跑**，不是在 diff 里对齐。
 ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHERE verdict = 'ok';")
-OK_TABLES_FLOOR=41
+OK_TABLES_FLOOR=42
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
