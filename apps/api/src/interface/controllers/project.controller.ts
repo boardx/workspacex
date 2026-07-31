@@ -42,13 +42,16 @@ import {
   ForbiddenException,
   Get,
   Inject,
+  Param,
   Post,
   Query,
   ServiceUnavailableException,
 } from "@nestjs/common";
-import { project as C } from "@repo/contracts";
+import { project as C, orgAdmin as OA } from "@repo/contracts";
 import { createProject } from "../../application/project/create-project";
 import { listProjects } from "../../application/project/list-projects";
+import { renderRoleView } from "../../application/project/render-role-view";
+import { previewAsRole } from "../../application/project/preview-as-role";
 import { ProjectError } from "../../application/project/errors";
 import {
   PROJECT_LIST_REPOSITORY,
@@ -58,8 +61,12 @@ import {
 } from "../../application/project/ports";
 import {
   IDENTITY_REPOSITORY,
+  DECISION_ID_FACTORY,
   type IdentityRepository,
+  type DecisionIdFactory,
 } from "../../application/identity/ports";
+import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
+import { isProjectRole } from "../../domain/identity/roles";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -70,6 +77,9 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
 /** 同上，`listProjects` 的入参契约。 */
 export const LIST_PROJECTS_SCHEMA = C.operations.listProjects.in;
+/** F04 —— `renderRoleView` / `previewAsRole` 属 `org-admin` 束，入参契约同一条纪律。 */
+export const RENDER_ROLE_VIEW_SCHEMA = OA.operations.renderRoleView.in;
+export const PREVIEW_AS_ROLE_SCHEMA = OA.operations.previewAsRole.in;
 
 type CreateBody = {
   orgId: string;
@@ -84,6 +94,8 @@ export class ProjectController {
     @Inject(PROJECT_REPOSITORY) private readonly repo: ProjectRepository,
     @Inject(PROJECT_LIST_REPOSITORY) private readonly listRepo: ProjectListRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
 
   @Post("/projects")
@@ -144,6 +156,82 @@ export class ProjectController {
         { orgId: toOrgId(input.orgId), actorId: principal.userId },
       );
       return out;
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F04 `RenderRoleView` —— 同一套屏按项目角色裁剪。
+   *
+   * ⚠ 契约 `err: []`：这条路由**永不 403/503**，无权限时也是 200 +
+   * `allowed:false` 的 `decision`（见 `render-role-view.ts` 头部理由）。
+   */
+  @Get("/projects/:projectId/role-view")
+  async roleView(
+    @Param("projectId") projectId: string,
+    @Query("orgId") orgId: string | undefined,
+    @Query("screen") screen: string | undefined,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const input = new ZodBodyPipe(RENDER_ROLE_VIEW_SCHEMA).transform({ projectId, orgId, screen }) as {
+      projectId: string;
+      orgId: string;
+      screen: string;
+    };
+    return renderRoleView(
+      { repo: this.identity, ids: this.ids },
+      {
+        userId: principal.userId,
+        orgId: toOrgId(input.orgId),
+        projectId: input.projectId,
+        screen: input.screen,
+      },
+    );
+  }
+
+  /**
+   * F04 `PreviewAsRole` —— 视角切换器（引导师/项目负责人预览别人看到什么）。
+   *
+   * ⚠ I-30：切换视角不改数据，只改可见范围；预览态下全部写端点必须另经
+   * `authorizeProjectWrite({ previewing: true })`，本路由本身不执行、也不暴露任何写操作。
+   */
+  @Get("/projects/:projectId/role-view/preview")
+  async previewRoleView(
+    @Param("projectId") projectId: string,
+    @Query("screen") screen: string | undefined,
+    @Query("asRole") asRole: string | undefined,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    // ⚠ 契约 `previewAsRole.in` **没有** `orgId` 字段（与 `renderRoleView` 不同形）：
+    // orgId 取自会话里的 `principal.orgId`，不再走 query——这是签核契约本身的形状，不是本
+    // 实现临时决定的。
+    const input = new ZodBodyPipe(PREVIEW_AS_ROLE_SCHEMA).transform({ projectId, asRole }) as {
+      projectId: string;
+      asRole: string;
+    };
+    if (!isProjectRole(input.asRole)) {
+      throw new BadRequestException({ reasonCode: "INVALID_ROLE" });
+    }
+    try {
+      return await previewAsRole(
+        { repo: this.identity, ids: this.ids, provenance: this.provenance },
+        {
+          userId: principal.userId,
+          orgId: principal.orgId,
+          projectId: input.projectId,
+          screen: screen ?? "project-workbench",
+          asRole: input.asRole,
+        },
+      );
     } catch (e) {
       if (e instanceof ProjectError) {
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
