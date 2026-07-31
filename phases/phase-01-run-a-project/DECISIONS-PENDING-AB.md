@@ -148,6 +148,50 @@ PR #72 合并后那次 backend-gates 红在 `EADDRINUSE :::33210` —— 两次�
 | A | 把 `orgInviteLinkDays` 加进 `AUTH_POLICY`（跨 phase-00 契约） |
 | **B**（推荐） | 裁定「域常量即单一事实源」，现状不动 |
 
+## 四点五、开发中长出来的（2026-07-31 下午追加）
+
+**D-15｜`C_REC_2`：被快照引用的材料到期后怎么办**（F78 报）
+
+契约明写「实现者不得选边」。F78 把这类材料放进一个独立的 `deferredPendingRuling` 阶段：
+**既不删（裁决②）、也不静默保留（裁决①）**。⇒ 这些材料现在**既没有删除路径、也没有决定**。
+
+| | action |
+|---|---|
+| A | 到期即删，与普通材料一致（快照里的引用变成失效引用） |
+| B | 保留到引用它的快照本身到期（保留期变成「取两者最大」） |
+
+（我不推荐哪个——这是保留期承诺的语义问题，不是技术问题。）
+
+**D-16｜`ProvenanceEventType` 封闭枚举缺成员，已害到三个束** —— **这条最急**
+
+`design-coherence.md` 的 **XC-10** 早就记着它。现在三个 feature 各自撞上，**处理方式却有三种**：
+
+| feature | 缺什么 | 它怎么处理的 |
+|---|---|---|
+| F80 `interview`（已合入） | 没有访谈探查事件 ⇒「这场访谈被谁探过」查不出来 | 不动契约，登记缺口 |
+| F117 `project`（在 rebase） | 没有项目生命周期事件 ⇒ `createProject.out.provenanceEventId` 返不出来 | 不动契约，用断言钉住，补上时当场红 |
+| F32 `files`（在 rebase） | 没有 `downloaded` ⇒ 已签核的 UC 要求下载写审计但无类型可写 | **直接加进枚举** |
+
+`provenance.ts` 自己写着「新增走 ADR」，而 F32 加了没写 ADR。**我已让它补 ADR-101，一次覆盖三个缺口。**
+
+⚠ **`provenance` 属已签核的 phase-00 束，这次新增需要你追认。**
+
+| | action |
+|---|---|
+| **A**（推荐） | **追认 ADR-101**，三个成员一次补齐。理由：这不是「设计留白」而是枚举写漏了——三个已签核的 UC 都要求写审计，而枚举里没有可写的类型，不补则三个束的审计链都是断的 |
+| B | **否决**，三个 feature 一律改成「钉住缺口、不写审计」（F117 的做法）。代价：`files` / `interview` / `project` 的下载、探查、创建**都没有审计记录**，而它们各自的 UC 要求有 |
+
+**D-17｜`typecheck` 在裸 `pnpm --filter` 下必然红**（F117 在干净 worktree 上复现）
+
+`turbo` 的 `typecheck.dependsOn: ["^build"]` 被裸 `pnpm --filter api run typecheck` 绕过 ⇒
+没先 build `@repo/fabric-markdown` 就报 `Cannot find name 'Element'`。
+**这会咬到每一个照着 `feature_list` 里的命令手跑验证的人。** 已让它单独开 issue。
+
+| | action |
+|---|---|
+| **A**（推荐） | 把 `feature_list` 里的 typecheck 类命令统一改成走 turbo，并让 `lint-verification-can-fail` 把裸形式登记为不可信形态 | 
+| B | 在 `apps/api` 的 `typecheck` 脚本里自己先 build 依赖 |
+
 ## 五、我不需要你裁、已经在做的
 
 - issue **#75** `findBindings` 取最后一行而非最严的（授权判定不确定，影响三种对象）
