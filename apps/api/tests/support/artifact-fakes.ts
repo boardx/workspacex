@@ -39,6 +39,12 @@ export class FakeObjectStore implements ObjectStore {
     const obj = this.objects.get(key);
     return obj === undefined ? null : { sizeBytes: obj.bytes.byteLength, mime: obj.mime };
   }
+
+  /** F33: how many objects have EVER been written. Used to assert "no half-built zip" -- a
+   *  failed export must leave this exactly where it was before the attempt. */
+  get putCount(): number {
+    return this.objects.size;
+  }
 }
 
 interface StoredArtifact extends NewArtifact {}

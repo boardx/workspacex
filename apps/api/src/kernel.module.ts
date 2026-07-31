@@ -166,6 +166,22 @@ import {
 import { PgDownloadGrantRepository } from "./infrastructure/files/pg-download-grant-repository";
 import { IsolatedDownloadUrlBuilder } from "./infrastructure/files/isolated-download-url-builder";
 import { FilesDeliveryController } from "./interface/controllers/files-delivery.controller";
+// F33 (files bundle): 批量 zip 导出。⚠ Reads through the SAME `wsx_visible_artifacts()` F31/F32
+// already use (`PgExportContentRepository`, see its header) -- an export must not reach
+// further than the browser already can. `EXPORT_JOB_REPOSITORY` is a separate, plain record
+// store (no shared visibility predicate to protect), so it is its own provider rather than
+// forced to share an instance with the content repository for no reason.
+import {
+  EXPORT_CONTENT_REPOSITORY,
+  EXPORT_JOB_REPOSITORY,
+  ZIP_BUILDER,
+} from "./application/files/export-ports";
+import {
+  PgExportContentRepository,
+  PgExportJobRepository,
+} from "./infrastructure/files/pg-export-repository";
+import { NodeZipBuilder } from "./infrastructure/files/zip-codec";
+import { FilesExportController } from "./interface/controllers/files-export.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -218,6 +234,7 @@ import { AssetDirectoryController } from "./interface/controllers/asset-director
     OrgAdminManagementController,
     FilesBrowserController,
     FilesDeliveryController,
+    FilesExportController,
     DeviceSessionController,
     ProjectController,
     AssetDirectoryController,
@@ -342,6 +359,18 @@ import { AssetDirectoryController } from "./interface/controllers/asset-director
     // ⚠ The isolated origin is a security boundary, not cosmetics -- an uploaded .html or a
     // scripted .svg served from the main origin runs there. See the builder's header.
     { provide: DOWNLOAD_URL_BUILDER, useClass: IsolatedDownloadUrlBuilder },
+    // F33.
+    {
+      provide: EXPORT_CONTENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgExportContentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EXPORT_JOB_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgExportJobRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: ZIP_BUILDER, useClass: NodeZipBuilder },
     // ⚠ Still process-local, and that is CORRECT -- do not "fix" it by pointing it at Redis.
     //
     // This is `identity`'s SessionStore: the per-user project-scoped CONTEXT that

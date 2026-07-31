@@ -21,6 +21,7 @@
 import type { OrgId } from "../../domain/org-id";
 import type { IngestionStatus } from "../../domain/files/ingestion-visibility";
 import type { Guarded } from "../security/permission-filter";
+import type { AnchorKind } from "../artifact/ports";
 
 /**
  * One row of the browser.
@@ -39,6 +40,18 @@ export interface ArtifactBrowserRow {
   readonly confidential: boolean;
   readonly ingestionStatus: IngestionStatus;
   readonly updatedAt: string;
+}
+
+/**
+ * F33: an artifact hit, plus the best-matching segment's snippet and anchor.
+ *
+ * ⚠ Both are RAW here (not yet fail-closed for confidential material) -- see
+ * `searchVisible`'s doc comment on where that gating happens.
+ */
+export interface ArtifactSearchHitRow extends ArtifactBrowserRow {
+  readonly snippet: string | null;
+  readonly anchorKind: AnchorKind | null;
+  readonly anchorLocator: string | null;
 }
 
 /** Filters, exactly the contract's set. Every field nullable = "not filtering on this". */
@@ -74,11 +87,18 @@ export interface ArtifactBrowserRepository {
    * The FTS read, through THE SAME `wsx_visible_artifacts()`.
    *
    * ⚠ Returns artifact rows, not segment hits, because F31's invariant is about the ARTIFACT
-   * sets being equal. Snippets are `searchArtifacts`'s other half and are gated on T-6
-   * (`files.KNOWN_CONTRACT_GAPS.FS4`, unruled) -- see the use case.
+   * sets being equal -- the snippet/anchor below are the BEST matching segment for that
+   * artifact, an extra projection on top, not a second recall shape.
+   *
+   * F33 fills in `snippet`/`anchorKind`/`anchorLocator` for the first time (F31 always
+   * returned null for both, documented there as "fail-closed, not unfinished"). T-6
+   * (`files.KNOWN_CONTRACT_GAPS.FS4`) is still unruled for CONFIDENTIAL hits specifically --
+   * this repository returns the real values for every row and `searchArtifacts` (application
+   * layer) is what nulls them out when `confidential` is true, so the fail-closed decision
+   * stays in ONE place rather than being half-encoded in SQL and half in TypeScript.
    */
   searchVisible(input: Omit<ListVisibleInput, "cursor"> & { readonly query: string }):
-    Promise<readonly Guarded<ArtifactBrowserRow>[]>;
+    Promise<readonly Guarded<ArtifactSearchHitRow>[]>;
 
   /** Every row of the project the requester may see, unpaginated -- the tree's input. */
   treeRows(input: Omit<ListVisibleInput, "cursor" | "pageSize" | "filters">):
