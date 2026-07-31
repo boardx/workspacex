@@ -49,3 +49,39 @@ export class IncoherentScopeError extends Error {
     super("INCOHERENT_SCOPE");
   }
 }
+
+/* ─────────────────────────── F86：受访者授权（uc-6-3） ─────────────────────────── */
+
+/**
+ * 四个渲染变量（保留期/数据控制方/联系人/合规邮箱）任一缺失（E2）。
+ * ⚠ 抛这个错误就是「不发链接」本身——`issueSigningToken` 在生成任何令牌**之前**校验。
+ */
+export class RetentionParamsMissingError extends Error {
+  readonly code = "RETENTION_PARAMS_MISSING" as const;
+  constructor(readonly interviewId: string) {
+    super(`RETENTION_PARAMS_MISSING: ${interviewId}`);
+  }
+}
+
+/**
+ * 令牌不存在 / 过期 / 已撤销 / 已使用——四种**合并成一个码**（契约 `TOKEN_INVALID`）。
+ * ⚠ 不携带四种里具体是哪一种：那是 `SigningTokenLookupResult.reason` 只供服务端日志读的理由，
+ *   响应体不得逐字节泄露「这个链接以前是有效的」。
+ */
+export class TokenInvalidError extends Error {
+  readonly code = "TOKEN_INVALID" as const;
+  constructor() {
+    super("TOKEN_INVALID");
+  }
+}
+
+/**
+ * 受访者提交时系统写入失败。**绝不能显示成功**——「系统认为已授权但本人没提交」
+ * 是本用例最严重的失败模式（R6 失败后置条件）。
+ */
+export class ConsentWriteFailedError extends Error {
+  readonly code = "CONSENT_WRITE_FAILED" as const;
+  constructor() {
+    super("CONSENT_WRITE_FAILED");
+  }
+}
