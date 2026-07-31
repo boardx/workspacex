@@ -69,14 +69,27 @@ export const DESIGN_FACET_GROUP_LABEL: Record<DesignFacetGroup, string> = {
 type ContractDesignFacet = z.infer<typeof templates.DesignFacetDefinition>;
 
 /**
- * 领域侧的一行 = 契约四字段 **+ `group`**。
+ * 领域侧的一行 = 契约四字段 **+ `group`** **+ `initCategory`**。
  *
  * ⚠ 不叫 `DesignFacetDefinition`：那个名字属于契约，后端重名一次就是第二份定义
  * （`contract-single-source.test.ts` 第二条会红）。
+ *
+ * `initCategory`（F21 / `uc-2-1` R6 AC5，I-17）是「这一项设计配置落进
+ * 『套用后会初始化什么』六类一览的哪一类」——**同一行**，不是另开一张
+ * 「facet key → category」的对照表：那张表本身就是 I-5 在防的第二份副本
+ * （`lint-design-facet-single-source.mjs` 规则 2b 会把它当成第二张定义表报出来）。
+ * 挂在这一行上，`initCategory` 就跟 `required` / `group` 一样，改表即改判断。
+ * ⚠ **可选**（`| null` 且字段本身 optional）：既是因为
+ * `topic-and-background` 刻意不进任何一类（定题是继承的种子，见
+ * `initialization-preview.ts` 文件头），也是为了不逼着已有的测试夹具
+ * （`designer-shell-version-bar.test.ts` 等处手写的 `DesignFacetRow` 字面量）
+ * 都补一个跟它们无关的字段。
  */
 export interface DesignFacetRow extends ContractDesignFacet {
   /** 五组之一（I-20）。⚠ 契约今天带不动这个字段，见 `DESIGN_FACET_CONTRACT_GAP` */
   readonly group: DesignFacetGroup;
+  /** 六类之一；null ⇒ 刻意不进一览（今天只有 `topic-and-background`）。见上方长注 */
+  readonly initCategory?: z.infer<typeof templates.InitializationCategory> | null;
 }
 
 /**
@@ -99,21 +112,23 @@ export interface DesignFacetRow extends ContractDesignFacet {
  * 现状由 `lint-design-facet-single-source.mjs` 报成 DEBT 并把规模钉死，不许悄悄长大。
  */
 export const DESIGN_FACET_DEFINITIONS: readonly DesignFacetRow[] = [
-  { designFacetKey: "topic-and-background", label: "主题与背景", group: "basic", ordinal: 1, required: false },
-  { designFacetKey: "flow-agenda", label: "流程 Agenda", group: "basic", ordinal: 2, required: false },
-  { designFacetKey: "grouping-rule", label: "分组规则", group: "basic", ordinal: 3, required: false },
-  { designFacetKey: "roles-and-perms", label: "角色与权限", group: "basic", ordinal: 4, required: false },
-  { designFacetKey: "survey", label: "问卷", group: "pre-input", ordinal: 1, required: false },
-  { designFacetKey: "interview-and-subjects", label: "访谈与对象", group: "pre-input", ordinal: 2, required: false },
-  { designFacetKey: "pre-tasks", label: "会前任务", group: "pre-input", ordinal: 3, required: false },
-  { designFacetKey: "venue-and-format", label: "场地与形式", group: "onsite", ordinal: 1, required: false },
-  { designFacetKey: "project-materials", label: "项目材料", group: "onsite", ordinal: 2, required: false },
-  { designFacetKey: "print-materials", label: "分组打印素材", group: "onsite", ordinal: 3, required: false },
-  { designFacetKey: "group-capabilities", label: "组内能力", group: "onsite", ordinal: 4, required: false },
-  { designFacetKey: "agent-orchestration", label: "Agent 编排", group: "ai", ordinal: 1, required: false },
-  { designFacetKey: "skill-binding", label: "Skill 绑定", group: "ai", ordinal: 2, required: false },
-  { designFacetKey: "outputs", label: "输出物", group: "output", ordinal: 1, required: false },
-  { designFacetKey: "report-template", label: "报告模板", group: "output", ordinal: 2, required: false },
+  // 定题是分组/议程/AI 上下文共同继承的种子（uc-2-2「定题单点继承」），不是六类之一——
+  // initCategory 刻意留 null，见上方 DesignFacetRow 长注与 initialization-preview.ts 文件头。
+  { designFacetKey: "topic-and-background", label: "主题与背景", group: "basic", ordinal: 1, required: false, initCategory: null },
+  { designFacetKey: "flow-agenda", label: "流程 Agenda", group: "basic", ordinal: 2, required: false, initCategory: "议程环节" },
+  { designFacetKey: "grouping-rule", label: "分组规则", group: "basic", ordinal: 3, required: false, initCategory: "分组" },
+  { designFacetKey: "roles-and-perms", label: "角色与权限", group: "basic", ordinal: 4, required: false, initCategory: "角色分工" },
+  { designFacetKey: "survey", label: "问卷", group: "pre-input", ordinal: 1, required: false, initCategory: "会前任务" },
+  { designFacetKey: "interview-and-subjects", label: "访谈与对象", group: "pre-input", ordinal: 2, required: false, initCategory: "会前任务" },
+  { designFacetKey: "pre-tasks", label: "会前任务", group: "pre-input", ordinal: 3, required: false, initCategory: "会前任务" },
+  { designFacetKey: "venue-and-format", label: "场地与形式", group: "onsite", ordinal: 1, required: false, initCategory: "议程环节" },
+  { designFacetKey: "project-materials", label: "项目材料", group: "onsite", ordinal: 2, required: false, initCategory: "材料清单" },
+  { designFacetKey: "print-materials", label: "分组打印素材", group: "onsite", ordinal: 3, required: false, initCategory: "材料清单" },
+  { designFacetKey: "group-capabilities", label: "组内能力", group: "onsite", ordinal: 4, required: false, initCategory: "分组" },
+  { designFacetKey: "agent-orchestration", label: "Agent 编排", group: "ai", ordinal: 1, required: false, initCategory: "画布与产出物" },
+  { designFacetKey: "skill-binding", label: "Skill 绑定", group: "ai", ordinal: 2, required: false, initCategory: "画布与产出物" },
+  { designFacetKey: "outputs", label: "输出物", group: "output", ordinal: 1, required: false, initCategory: "画布与产出物" },
+  { designFacetKey: "report-template", label: "报告模板", group: "output", ordinal: 2, required: false, initCategory: "画布与产出物" },
 ];
 
 /**
