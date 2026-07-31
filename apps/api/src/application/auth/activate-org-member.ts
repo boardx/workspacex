@@ -35,6 +35,7 @@ import type { UntrustedLinkClaims } from "../../domain/auth/org-invite";
 import { checkPassword } from "../../domain/auth/password-policy";
 import { newUserId } from "../../domain/auth/registration";
 import { SESSION_TTL_MS, type SessionRecord } from "../../domain/auth/session-lifetime";
+import { UNKNOWN_DEVICE } from "../../domain/auth/device-fingerprint";
 import { PasswordPolicyError } from "./errors";
 import { OrgAdminError } from "./org-invite-errors";
 
@@ -130,6 +131,19 @@ export async function activateOrgMember(
     issuedAt: now.getTime(),
     expiresAt: now.getTime() + SESSION_TTL_MS,
     revokedAt: null,
+    /*
+     * F03 的三个字段。⚠ **这条路径没有采集设备上下文，而这里明说而不是留白。**
+     *
+     * 激活是 F10 的用例，它的 `interface` 层没有把 `User-Agent` / 对端地址传下来。
+     * 顺手在这里加参数会改 F10 的用例签名——超出 F03 的范围纪律。
+     * 取兜底值的后果是：通过激活链接建立的那条会话，在「设备与会话」列表里显示
+     * `未知设备`。那是真话（我们确实不知道），而随便填一个 `"Web"` 是假话。
+     *
+     * ⇒ 登记在 issue #55 上：F10 的激活路径应当和登录一样采集设备上下文。
+     */
+    device: UNKNOWN_DEVICE,
+    location: null,
+    lastActiveAt: now.getTime(),
   };
   await deps.sessions.issue(record);
 

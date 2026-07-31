@@ -145,6 +145,8 @@ import {
 import { PgArtifactBrowserRepository } from "./infrastructure/files/pg-artifact-browser-repository";
 import { ObjectStoreHeadProbe } from "./infrastructure/files/object-store-head-probe";
 import { FilesBrowserController } from "./interface/controllers/files-browser.controller";
+// F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
+import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 
 @Module({
   controllers: [
@@ -166,6 +168,7 @@ import { FilesBrowserController } from "./interface/controllers/files-browser.co
     ChatController,
     OrgInviteController,
     FilesBrowserController,
+    DeviceSessionController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },

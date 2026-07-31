@@ -59,7 +59,27 @@ export interface LoginDeps {
 export type LoginInput = z.infer<typeof C.operations.login.in>;
 export type LoginOutput = z.infer<typeof C.operations.login.out>;
 
-export async function login(deps: LoginDeps, input: LoginInput): Promise<LoginOutput> {
+/**
+ * F03：这次登录来自哪台设备、哪个网络。
+ *
+ * ⚠ **第二个参数，不是 `LoginInput` 的字段。** `auth.operations.login.in` 是 phase-00
+ *   已签核的 `{ email, password }.strict()`，往里加字段等于改一份已签核契约；
+ *   而且那会让设备名变成**客户端自报**的值。这两个值只从传输元数据派生
+ *   （`domain/auth/device-fingerprint.ts`），由 `interface` 层从请求头/连接上读出。
+ *
+ * ⚠ 有默认值，但默认值是 `UNKNOWN_DEVICE` 而不是「省略」——一条没有设备名的会话
+ *   在列表里是一行无法与另一行区分的空白，用户据此决定踢哪一台。
+ */
+export interface LoginDeviceContext {
+  readonly device: string;
+  readonly location: string | null;
+}
+
+export async function login(
+  deps: LoginDeps,
+  input: LoginInput,
+  device: LoginDeviceContext,
+): Promise<LoginOutput> {
   const email = normalizeEmail(input.email);
   const now = deps.clock.now();
 
@@ -121,6 +141,15 @@ export async function login(deps: LoginDeps, input: LoginInput): Promise<LoginOu
     issuedAt: now.getTime(),
     expiresAt: now.getTime() + SESSION_TTL_MS,
     revokedAt: null,
+    // F03：设备会话与会话是**同一条记录**（org-admin usecases.md 第六节：
+    // `DeviceSessionRepository` 与 phase-00 的 `SessionStore` 同一个存储）。
+    // 因此 I-33「一次登录恰好一条 DeviceSession」在这里是结构性成立的：
+    // 这个函数只 issue 一次，没有第二处需要保持同步。
+    device: device.device,
+    location: device.location,
+    // 登录本身就是一次活跃。用 issuedAt 而不是 0/null：一台刚登录的设备
+    // 在列表里显示「最后活跃：从未」是假的。
+    lastActiveAt: now.getTime(),
   };
   const sessionToken = await deps.sessions.issue(record);
 

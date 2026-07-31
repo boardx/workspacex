@@ -62,10 +62,16 @@ function deps() {
   };
 }
 
+/**
+ * F03：登录现在还接一个设备上下文。这个文件断言的是锁定与枚举，与设备无关，
+ * 所以固定一个值——让它随机变化会给这些断言引入一个它们并不关心的变量。
+ */
+const FIXED_DEVICE = { device: "Chrome on macOS", location: null } as const;
+
 /** Run a login and report only what the assertions care about. */
 async function tryLogin(email: string, password: string): Promise<{ ok: boolean; reason?: string }> {
   try {
-    await login(deps(), { email, password });
+    await login(deps(), { email, password }, FIXED_DEVICE);
     return { ok: true };
   } catch (e) {
     if (e instanceof AuthError) return { ok: false, reason: e.reason };
@@ -199,7 +205,7 @@ describe("I-3 -- end to end, both directions", () => {
       clock.advance(1_000);
     }
     try {
-      await login(deps(), { email: EMAIL, password: PASSWORD });
+      await login(deps(), { email: EMAIL, password: PASSWORD }, FIXED_DEVICE);
       throw new Error("expected a lockout");
     } catch (e) {
       expect(e).toBeInstanceOf(AuthError);
