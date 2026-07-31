@@ -305,9 +305,9 @@
         "F17"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
-      "owner": null,
+      "owner": "w1-tpl",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/designer-shell-version-bar.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/draft-autosave-truthful.test.ts",
