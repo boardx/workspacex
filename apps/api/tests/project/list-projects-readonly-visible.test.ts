@@ -13,12 +13,16 @@
  *   全部带 `org_id` 外键的租户表并装上冻结策略——`projects` 表在 0014 迁移执行时
  *   已经存在，因此**已经**被那次扫描纳入。本文件下面「组织停用 ⇒ 写被拒」那条
  *   断言测的是**继承来的**保护，不是本 feature 新写的代码。
- * · **容器自己归档**：`usecases.md` UC-P4 与 `0018-f116-*.sql` 的头部注释都明确写着
+ * · **容器自己归档**：`usecases.md` UC-P4 与 `0018-f116-*.sql` 的头部注释此前都明确写着
  *   「只读语义（RESTRICTIVE 策略）不在本迁移里 —— 那是 **F124** 的交付物」。
- *   即：`status='archived'` 今天**只是一个可读的列**，还没有任何 PG 策略在
- *   `archived` 时拒绝对 `projects` 的 UPDATE。⇒ 本文件**不假装**这条防线已存在——
- *   下面「容器归档」一组只断言可见性（显示 + 标注），**不断言写被拒**，
- *   并把这个缺口原样报给签核人（见 issue #103 的实现说明）。
+ *   ✅ **2026-08-01 更新**：F124 已落地（`20260801120000_f124_project_archive_readonly.sql`），
+ *   挂在项目容器上的表（含本文件用到的 `workshops`）现在对归档容器的写入是真实被拒的。
+ *   「写被拒」的反向断言不在**本文件**——它是 F124 自己的交付物，见
+ *   `tests/project/archive-readonly-and-readable.test.ts`；本文件仍然只断言可见性
+ *   （显示 + 标注），职责边界不变，只是不再需要「本文件不假装这条防线已存在」那句免责声明。
+ *   ⚠ 唯一联动：下面 `createProjectRow` 建「已归档」夹具时必须先以 `active` 状态
+ *   插入子类型行、再翻成 `archived`——F124 的冻结策略会挡住对一个已归档容器的
+ *   `INSERT INTO workshops`，直接按目标状态两行一起插会被库拒掉。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { listProjects } from "../../src/application/project/list-projects";
@@ -41,13 +45,24 @@ let identity: PgIdentityRepository;
 let orgs: PgOrgLifecycleRepository;
 
 async function createProjectRow(id: string, name: string, status: "active" | "archived" = "active"): Promise<void> {
+  // ⚠ F124：容器建成 `active` 之后才建子类型行，需要时**最后**再翻成 `archived`。
+  //   迁移 `20260801120000_f124_*.sql` 给 `workshops` 装了 RESTRICTIVE INSERT 策略
+  //   （`kernel_project_is_writable(id)`）——生产路径下这天然成立（`PgProjectRepository`
+  //   在同一个事务里先插 `projects` 后插子类型表，此刻 `status` 恒为 `'active'`，
+  //   见 0018 头部注释），但这里是**直接裸插测试夹具**，顺序不受应用层约束。
+  //   先按 'active' 建两行，再单独 UPDATE 成目标状态，两条语句都不会撞上冻结：
+  //   `projects` 本身不在冻结范围内（承载归档标记本身），子类型表的 INSERT 发生在
+  //   它仍是 active 的那一刻。
   await asApp(ORG, (c) =>
     c.query(
-      "INSERT INTO projects (id, org_id, name, status, kind) VALUES ($1,$2,$3,$4,'workshop')",
-      [id, ORG, name, status],
+      "INSERT INTO projects (id, org_id, name, status, kind) VALUES ($1,$2,$3,'active','workshop')",
+      [id, ORG, name],
     ),
   );
   await asApp(ORG, (c) => c.query("INSERT INTO workshops (id, org_id) VALUES ($1,$2)", [id, ORG]));
+  if (status === "archived") {
+    await asApp(ORG, (c) => c.query("UPDATE projects SET status = 'archived' WHERE id = $1", [id]));
+  }
 }
 
 beforeAll(async () => {

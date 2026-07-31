@@ -556,7 +556,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // and fails on either violation. The day D-16 is decided, the allowlist entry must be
     // REPLACED by a real `decideTemplateVisibility` + `discloseDecided()` path, not renewed --
     // if that companion test is ever deleted, this allowlist entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(16);
+    //
+    // ⚠ Raised 16 -> 17 by F124 (archiveProject/unarchiveProject) -- RE-MEASURED on the combined
+    // (rebased onto main through F82 #173 / F66 #169 / F141 #174) tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs`, not computed as "16 + 1". The new entry
+    // is `infrastructure/project/pg-project-archive-repository.ts`: a WRITE path
+    // (`projects.status`) plus the reads needed to decide whether that write is allowed, gated
+    // upstream by `application/project/archive-project.ts` calling
+    // `canCreateProject`/`findOrgMembership` before this repository ever runs -- same ordering as
+    // the F119/F123 entries above. Its enforced premise (no tenant table beyond
+    // `projects`/`agenda_segments`, no returned field beyond {kind, projectId, status}) is asserted
+    // by tests/project/archive-readonly-and-readable.test.ts. If that test is ever deleted, this
+    // entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(17);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
