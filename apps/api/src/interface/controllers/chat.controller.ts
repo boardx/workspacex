@@ -47,6 +47,12 @@ import {
   FileNotMaterializedError,
   getThreadMessagesFile,
 } from "../../application/chat/get-thread-messages-file";
+import { getAgentPanel } from "../../application/chat/get-agent-panel";
+import {
+  AgentNotFoundError,
+  AgentOutOfScopeError,
+  updateAgentRoster,
+} from "../../application/chat/update-agent-roster";
 import { CLOCK, type Clock } from "../../application/auth/ports";
 import {
   ARTIFACT_REPOSITORY, ID_FACTORY, OBJECT_STORE,
@@ -61,6 +67,7 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
 export const MUTATE_THREAD_SCHEMA = C.operations.mutateThread.in;
+export const UPDATE_AGENT_ROSTER_SCHEMA = C.operations.updateAgentRoster.in;
 
 type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
@@ -73,6 +80,12 @@ type MutateThreadBody = {
   visibilityScope: "member-private" | "group-shared" | "plenary" | "team-visible" | "private" | null;
   expectedVersion: number | null;
   reason: string | null;
+};
+type UpdateAgentRosterBody = {
+  threadId: string;
+  add: string[];
+  remove: string[];
+  expectedRosterVersion: number;
 };
 
 @Controller()
@@ -300,6 +313,81 @@ export class ChatController {
     } catch (e) {
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
       if (e instanceof FileNotMaterializedError) throw new NotFoundException("file_not_materialized");
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /* ── F110：AI 团队面板 / 编制 ──────────────────────────────────────── */
+
+  /**
+   * AI 团队面板。**依赖失败返回 503，不是空面板**——空数组会被读成
+   *   「这个线程没有 agent」，见 `get-agent-panel.ts` 文件头。
+   */
+  @Get("/chat/threads/:threadId/agents")
+  async agentPanel(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getAgentPanel(this.deps, {
+        userId: principal.userId,
+        orgId: toOrgId(principal.orgId),
+        projectId,
+        threadId,
+      });
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 改编制（`[编制]`）。状态码：
+   *   404  不可见或不存在（I-3，与读路径同一个出口）
+   *   403  观察者恒无写权
+   *   409  `VERSION_CHANGED`——**部分成功即整体拒绝**，见 `update-agent-roster.ts` 文件头
+   *   422  `AGENT_OUT_OF_SCOPE` / `AGENT_NOT_FOUND`——请求形状合法但内容不满足业务前置，
+   *        与 `TITLE_INVALID` 同一档（`mutate-thread.ts` 的既有用法）
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/threads/:threadId/agents")
+  async updateRoster(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("projectId") projectId: string,
+    @Body(new ZodBodyPipe(UPDATE_AGENT_ROSTER_SCHEMA)) body: UpdateAgentRosterBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateAgentRoster(
+        { ...this.deps, provenance: this.provenance },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          projectId,
+          threadId,
+          add: body.add,
+          remove: body.remove,
+          expectedRosterVersion: body.expectedRosterVersion,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof NoWriteRoleError) throw new ForbiddenException({ reasonCode: "NO_WRITE_ROLE" });
+      if (e instanceof ThreadArchivedReadonlyError) {
+        throw new ForbiddenException({ reasonCode: "THREAD_ARCHIVED_READONLY" });
+      }
+      if (e instanceof VersionChangedError) throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      if (e instanceof AgentOutOfScopeError) {
+        throw new UnprocessableEntityException({ reasonCode: "AGENT_OUT_OF_SCOPE" });
+      }
+      if (e instanceof AgentNotFoundError) {
+        throw new UnprocessableEntityException({ reasonCode: "AGENT_NOT_FOUND" });
+      }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }

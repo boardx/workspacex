@@ -8,6 +8,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { MessageFacts, ThreadFacts } from "../../domain/chat/thread-visibility";
+import type { AgentPanelAgent } from "../../domain/chat/agent-presence";
 import type { Guarded } from "../security/permission-filter";
 
 /** 一条消息的正文与作者信息。**只在判定通过后取**。 */
@@ -65,6 +66,27 @@ export interface NewThreadInput {
   readonly visibilityScope: string;
   readonly createdBy: string;
 }
+
+/* ── F110：AI 团队面板 / 编制（chat 束 domain.md I-17 / I-18）─────────────── */
+
+/** 编制读出的整包：agent 列表 + 乐观并发用的 roster 版本号。 */
+export interface AgentRosterState {
+  readonly agents: readonly AgentPanelAgent[];
+  readonly rosterVersion: number;
+}
+
+/**
+ * `updateAgentRoster` 的结果。**判别联合，不是布尔 + 抛异常**——
+ * 三种拒绝（版本变了 / agent 越范围 / agent 不存在）在仓储层是三个不同的数据事实
+ * （版本比对 / 目录里查不到 / 编制里没有这一行），仓储只负责报告事实，
+ * 由 `application/chat/update-agent-roster.ts` 决定映射成哪个错误类型——
+ * 与 `renameThread` 返回 `null` 表示版本变了同一个理由，只是这里有三种事实要分。
+ */
+export type UpdateAgentRosterOutcome =
+  | { readonly kind: "ok"; readonly rosterVersion: number; readonly agents: readonly AgentPanelAgent[] }
+  | { readonly kind: "version-changed" }
+  | { readonly kind: "agent-out-of-scope"; readonly agentId: string }
+  | { readonly kind: "agent-not-found"; readonly agentId: string };
 
 export interface ChatRepository {
   /** 判定所需的线程属性，不含正文。线程不存在返回 null。 */
@@ -141,6 +163,34 @@ export interface ChatRepository {
    *   `controlTranscriptCard`（契约里已有那个端口）。F109 只**读**这个状态。
    *   在这里补一对写方法，会让下一个做 F113 的人以为开停已经有实现了，
    *   于是他要么在别处再写一份，要么把一个从未被调用过的方法当成已验证的。 */
+
+  /* ── F110：AI 团队面板 / 编制 ─────────────────────────────────────── */
+
+  /**
+   * 读线程的 agent 编制。线程不存在返回 `null`（与其余读端口同一个「不存在」出口，
+   * 由调用方并入 `ThreadNotVisibleError`）。
+   *
+   * ⚠ 这里返回**全部**编制行，presence 三值都在——I-18 的两个计数由
+   *   `domain/chat/agent-presence.ts` 的 `agentPanelCounts()` 对这份列表算，
+   *   仓储不在 SQL 里算计数（同 F109 `listProjectThreads` 的态度：候选给全，判定/计数在别处）。
+   */
+  findAgentRoster(orgId: OrgId, threadId: string): Promise<AgentRosterState | null>;
+
+  /**
+   * 改编制：一次原子操作里加一批、移一批。
+   *
+   * ⚠ **部分成功即整体拒绝**（契约 `updateAgentRoster` 注释逐字）：`add` 里第一个
+   *   越范围的 agent 就让整个调用连同已经"验证通过"的其余 add/remove 一起回滚，
+   *   不做"加进去 2 个、拒了 1 个"的半成品——实现方式是整个方法在**一个事务**里跑完
+   *   校验与写入，校验失败直接返回拒绝态、不执行任何 INSERT/DELETE/UPDATE。
+   */
+  updateAgentRoster(
+    orgId: OrgId,
+    threadId: string,
+    add: readonly string[],
+    remove: readonly string[],
+    expectedRosterVersion: number,
+  ): Promise<UpdateAgentRosterOutcome>;
 }
 
 export const CHAT_REPOSITORY = Symbol("ChatRepository");

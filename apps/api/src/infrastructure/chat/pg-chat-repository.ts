@@ -12,18 +12,45 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
+  AgentRosterState,
   ChatMessageRow,
   ChatRepository,
   NewThreadInput,
   ThreadFileRecord,
   ThreadListRow,
   ThreadPresentation,
+  UpdateAgentRosterOutcome,
 } from "../../application/chat/ports";
 import type {
   ChatVisibilityScope,
   ThreadFacts,
 } from "../../domain/chat/thread-visibility";
+import type { AgentPresenceValue } from "../../domain/chat/agent-presence";
 import type { OrgId } from "../../domain/org-id";
+
+interface AgentRosterDbRow {
+  agent_id: string;
+  abbr: string;
+  name: string;
+  duty: string;
+  presence: string;
+}
+
+/**
+ * 内部信号，只在本文件的事务函数与外层 catch 之间传递（F110）。
+ * ⚠ 不外泄到 `ChatRepository` 接口——那边是判别联合返回值，不是异常，
+ *   见 `application/chat/ports.ts` 上 `UpdateAgentRosterOutcome` 的注释。
+ */
+class RosterOutOfScopeSignal extends Error {
+  constructor(public readonly agentId: string) {
+    super("roster_out_of_scope");
+  }
+}
+class RosterAgentMissingSignal extends Error {
+  constructor(public readonly agentId: string) {
+    super("roster_agent_missing");
+  }
+}
 
 interface ThreadDbRow {
   id: string;
@@ -296,4 +323,126 @@ export class PgChatRepository implements ChatRepository {
       );
     });
   }
+
+  /* ── F110：AI 团队面板 / 编制 ─────────────────────────────────────── */
+
+  /**
+   * 线程不存在（读不到 `roster_version`）时返回 `null`——与其余读端口同一个「不存在」
+   * 出口。**没有编制的线程返回空数组，不是 `null`**：那是「有线程、编制为空」，
+   * 与「线程本身不存在」是两个不同的事实（同 `getAgentPanel` 文件头「依赖失败 vs
+   * 空面板」的区分）。
+   */
+  async findAgentRoster(orgId: OrgId, threadId: string): Promise<AgentRosterState | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const t = await s.query<{ roster_version: number }>(
+        "SELECT roster_version FROM chat_threads WHERE id = $1 AND org_id = $2",
+        [threadId, orgId],
+      );
+      const rosterVersion = t.rows[0]?.roster_version;
+      if (rosterVersion === undefined) return null;
+      const rows = await s.query<AgentRosterDbRow>(
+        `SELECT ta.agent_id, oa.abbr, oa.name, oa.duty, ta.presence
+           FROM chat_thread_agents ta
+           JOIN org_agents oa ON oa.org_id = ta.org_id AND oa.agent_id = ta.agent_id
+          WHERE ta.org_id = $1 AND ta.thread_id = $2
+          ORDER BY ta.agent_id`,
+        [orgId, threadId],
+      );
+      return { rosterVersion, agents: rows.rows.map(toAgentPanelAgent) };
+    });
+  }
+
+  /**
+   * 改编制。**部分成功即整体拒绝**——见 `ports.ts` 上 `UpdateAgentRosterOutcome` 的注释。
+   *
+   * 实现顺序是关键：
+   *   1. 乐观并发 gate **打头**，与 `renameThread` 同一手法（`UPDATE ... WHERE
+   *      roster_version = $expected RETURNING roster_version`，比对与自增在同一条语句）。
+   *      版本不匹配 ⇒ 直接 `return`（此时还没有任何其余写入，事务提交与否都无所谓）。
+   *   2. 版本 gate 通过之后才做 `add`/`remove` 的范围与存在性校验；校验失败**抛出**
+   *      内部信号，而不是 `return`——抛出会让 `withTenant` 的 `catch` 分支
+   *      `ROLLBACK` 整个事务，**连第 1 步已经写入的版本自增也回滚**。
+   *      这就是"部分成功即整体拒绝"在事务层面的真正实现：不是"检查完了再一起写"，
+   *      是"写錯了就把已经写的也吐出来"。
+   *   3. 全部校验通过后才真正 DELETE / INSERT，再重新 SELECT 整份编制返回。
+   */
+  async updateAgentRoster(
+    orgId: OrgId,
+    threadId: string,
+    add: readonly string[],
+    remove: readonly string[],
+    expectedRosterVersion: number,
+  ): Promise<UpdateAgentRosterOutcome> {
+    try {
+      return await this.db.withTenant(orgId, async (s) => {
+        const bump = await s.query<{ roster_version: number }>(
+          `UPDATE chat_threads
+              SET roster_version = roster_version + 1
+            WHERE id = $1 AND org_id = $2 AND roster_version = $3
+        RETURNING roster_version`,
+          [threadId, orgId, expectedRosterVersion],
+        );
+        const rosterVersion = bump.rows[0]?.roster_version;
+        if (rosterVersion === undefined) return { kind: "version-changed" as const };
+
+        for (const agentId of add) {
+          const r = await s.query(
+            "SELECT 1 FROM org_agents WHERE org_id = $1 AND agent_id = $2",
+            [orgId, agentId],
+          );
+          if (r.rows.length === 0) throw new RosterOutOfScopeSignal(agentId);
+        }
+        for (const agentId of remove) {
+          const r = await s.query(
+            "SELECT 1 FROM chat_thread_agents WHERE org_id = $1 AND thread_id = $2 AND agent_id = $3",
+            [orgId, threadId, agentId],
+          );
+          if (r.rows.length === 0) throw new RosterAgentMissingSignal(agentId);
+        }
+
+        for (const agentId of remove) {
+          await s.query(
+            "DELETE FROM chat_thread_agents WHERE org_id = $1 AND thread_id = $2 AND agent_id = $3",
+            [orgId, threadId, agentId],
+          );
+        }
+        for (const agentId of add) {
+          await s.query(
+            `INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence)
+             VALUES ($1,$2,$3,'off')
+             ON CONFLICT (thread_id, agent_id) DO NOTHING`,
+            [threadId, orgId, agentId],
+          );
+        }
+
+        const rows = await s.query<AgentRosterDbRow>(
+          `SELECT ta.agent_id, oa.abbr, oa.name, oa.duty, ta.presence
+             FROM chat_thread_agents ta
+             JOIN org_agents oa ON oa.org_id = ta.org_id AND oa.agent_id = ta.agent_id
+            WHERE ta.org_id = $1 AND ta.thread_id = $2
+            ORDER BY ta.agent_id`,
+          [orgId, threadId],
+        );
+        return { kind: "ok" as const, rosterVersion, agents: rows.rows.map(toAgentPanelAgent) };
+      });
+    } catch (e) {
+      if (e instanceof RosterOutOfScopeSignal) {
+        return { kind: "agent-out-of-scope", agentId: e.agentId };
+      }
+      if (e instanceof RosterAgentMissingSignal) {
+        return { kind: "agent-not-found", agentId: e.agentId };
+      }
+      throw e;
+    }
+  }
+}
+
+function toAgentPanelAgent(row: AgentRosterDbRow) {
+  return {
+    id: row.agent_id,
+    abbr: row.abbr,
+    name: row.name,
+    duty: row.duty,
+    presence: row.presence as AgentPresenceValue,
+  };
 }
