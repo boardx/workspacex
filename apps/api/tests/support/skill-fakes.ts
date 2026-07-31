@@ -6,13 +6,18 @@
  * 断言返回码证明不了。
  */
 import type {
+  AllOrchestrationsPort,
   ContextApiPort,
+  MountHealthPort,
+  OrgSkillCatalogPort,
   OrgTemplateCreatePort,
   ProjectOrchestrationStorePort,
+  RoleAssigneePort,
   SecurityAuditPort,
   SkillDraftStorePort,
   SkillVisibilityPort,
   SubmitterGrantsPort,
+  TodoPublisherPort,
   WorkflowTemplateReadPort,
 } from "../../src/application/skill/ports";
 import type { DeclarativeContract } from "../../src/domain/skill/declarative-contract";
@@ -219,6 +224,77 @@ export function mixedSlotTemplate(templateId = "tpl-design-thinking", version = 
       { agendaSegmentId: "seg-02", role: "组员", text: "写 ≥1 张便签 · 投票" },
     ],
   };
+}
+
+/* ═══════════════════ F64：待办 / 挂载 / idle 清单的替身 ═══════════════════ */
+
+/**
+ * 角色→人的替身。传入 `"segId/role" → principalId` 表；未列出的一律 `null`
+ * （代表「组织没配这个角色的人」，走 failed 分支，而不是让整批用例抛异常）。
+ */
+export function assigneeTable(
+  table: Readonly<Record<string, string>>,
+): RoleAssigneePort {
+  return {
+    async assigneeOf({ agendaSegmentId, role }) {
+      const principalId = table[`${agendaSegmentId}/${role}`];
+      return principalId === undefined ? null : { principalId };
+    },
+  };
+}
+
+export interface TodoPublisherSpy extends TodoPublisherPort {
+  readonly published: Array<{
+    agendaSegmentId: string;
+    role: string;
+    text: string;
+    assigneePrincipalId: string;
+    executorAgentId: string | null;
+  }>;
+}
+
+/**
+ * 待办发布替身。`failFor` 是一组 `"segId/role"`——命中即返回失败（不抛异常），
+ * 用来断言「一条同步失败不拖垮其它格子」（E4）。
+ */
+export function todoPublisher(failFor: ReadonlySet<string> = new Set()): TodoPublisherSpy {
+  const published: TodoPublisherSpy["published"] = [];
+  let n = 0;
+  return {
+    published,
+    async publish(input) {
+      published.push({ ...input });
+      if (failFor.has(`${input.agendaSegmentId}/${input.role}`)) {
+        return { ok: false };
+      }
+      n += 1;
+      return { ok: true, todoId: `todo-${n}` };
+    },
+  };
+}
+
+/**
+ * 挂载依赖健康度替身。传入一组「不可用」的 skillId → 原因；未列出的一律可用。
+ */
+export function mountHealth(
+  unavailable: Readonly<Record<string, string>> = {},
+): MountHealthPort {
+  return {
+    async checkAvailability(skillId) {
+      const reason = unavailable[skillId];
+      return reason === undefined ? { available: true } : { available: false, reason };
+    },
+  };
+}
+
+/** 组织 skill 目录替身（`listIdleSkills` 用）。 */
+export function orgSkillCatalog(...enabled: string[]): OrgSkillCatalogPort {
+  return { async listEnabled() { return enabled; } };
+}
+
+/** 「已被绑定过的 skill」替身（`listIdleSkills` 用）。 */
+export function boundSkillIds(...ids: string[]): AllOrchestrationsPort {
+  return { async boundSkillIds() { return ids; } };
 }
 
 /** 一份能过静态校验的最小契约。测试里只改它要考的那一格。 */
