@@ -1,6 +1,10 @@
 
 import type { z } from "zod";
-import * as C from "@repo/contracts/identity";/**
+import * as C from "@repo/contracts/identity";
+import type { AdminNavCountSource } from "@/lib/admin-nav-counts";
+import { A0_TEMPLATES, ORG_TEMPLATES } from "@/lib/mock/canvas";
+import { AG_BLUEPRINTS } from "@/lib/mock/asset-governance";
+/**
  * 后台（治理）mock 数据 —— 数量级与字段完整度照 PROTOTYPE-DIGEST 第八节实测密度做。
  *
  * ⚠ 两套枚举**刻意分成两个独立类型**，禁止合并（UC-0.3 R7 / UC-21.1 O-20）：
@@ -568,4 +572,33 @@ export const AGENT_TRIAL_OUTPUT = {
   output: "① 客户愿为本地质保付溢价（证据 0 段，致命）② 并网审批 ≤6 个月（与年报冲突）③ 竞品定价维持现状（仅 1 段快照支撑）",
   tokens: "输入 8,204 · 输出 1,102",
   model: "claude-opus-4.6",
+};
+
+// ─────────────────────────────────────────────────────────────────────────
+// 左栏计数来源（F133 / asset-governance I-24）
+// ─────────────────────────────────────────────────────────────────────────
+/**
+ * 每个左栏项的计数来源 —— 一个可能抛错的函数，真实实现里是一次计数查询。
+ * 这里对齐**各自屏幕实际渲染的清单长度**（`AGENTS.length` 等），而不是另起一份
+ * 手写数字：计数应该等于「你点进去真的能数出来的条目数」，另立一份就是本仓
+ * 记过的「同一事实两处」（AGENTS.md 已有五次前科）。
+ *
+ * ⚠ `local` 恒为 1 —— 不是占位符，是 F16 已裁的产品事实：本地组织恒为单人。
+ * ⚠ `overview`/`feedback` 取的是「待处理」而不是「全部」，因为对总览/反馈入口
+ *   有意义的数字是「还有多少事要看」，不是历史条目总数；`members` 与六种资产
+ *   一样取清单长度，因为成员配额页就是要看「有多少人」。
+ *   这条选择本 feature 不锁死——分组/口径细节待 Q-11，门控只锁「取不到显示—、
+ *   单类失败不传染」这两条不变量，不锁每一项具体数什么。
+ */
+export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource> = {
+  agent: () => AGENTS.length,
+  skill: () => SKILLS.length,
+  model: () => MODELS.length,
+  mcp: () => MCP_SERVERS.length,
+  canvasadmin: () => A0_TEMPLATES.length + ORG_TEMPLATES.length,
+  blueprint: () => AG_BLUEPRINTS.length,
+  overview: () => OVERVIEW_ANOMALIES.length,
+  members: () => MEMBERS.length,
+  feedback: () => SW_FEEDBACK_SUMMARY.pending,
+  local: () => 1,
 };
