@@ -55,3 +55,46 @@ export interface ProjectRepository {
 }
 
 export const PROJECT_REPOSITORY = Symbol("ProjectRepository");
+
+/* ═══════════════════════ F122：`listProjects` 的独立端口 ═══════════════════════ */
+
+/**
+ * ⚠ **故意不是 `ProjectRepository` 的第二个方法**，是一个新接口、新文件、新 DI token。
+ *
+ * `pg-project-repository.ts` 在 `lint-permission-paths.mjs` 的白名单里，理由逐字是
+ * 「a WRITE path plus ONE echo of the caller's own request」，且
+ * `tests/project/create-project-idempotent.test.ts` 有一条断言钉死那个文件**只能有
+ * 一条 SELECT**。把两段列表查询（至少两条新 SELECT）塞进同一个文件，会让那条
+ * 「只有一条回声 SELECT」的断言失去意义——继续放行就是把断言改弱去迁就新代码，
+ * 而不是新代码去满足断言。⇒ 新增一个仓储、新增一条白名单条目，各自的豁免各自成立。
+ */
+export interface ProjectListRow {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: ProjectKind;
+  readonly status: "active" | "archived";
+  /** 供 `domain/project/readonly-reason.ts` 判只读原因；响应体本身不暴露组织状态。 */
+  readonly orgStatus: "active" | "disabled";
+}
+
+export interface ListProjectsForActorQuery {
+  readonly orgId: OrgId;
+  readonly actorId: string;
+  /** `true` = 调用者组织角色是 `lead` 或 `admin`，本次要查 `managed` 段；
+   *  `false` 时 `managed` 恒为 `[]`——**不查**，不是查了个空结果。 */
+  readonly isManager: boolean;
+}
+
+export interface ProjectListRepository {
+  /**
+   * UC-P2 `listProjects` 的两段查询。**一次仓储调用查完两段**，不是两个方法：
+   * 拆成两个方法，调用方就要自己决定「先查哪个、`isManager=false` 时要不要调第二个」，
+   * 而「不查」和「查了返回空」在契约层面看起来一样，容易被静默地都实现成后者。
+   */
+  listForActor(query: ListProjectsForActorQuery): Promise<{
+    readonly member: readonly ProjectListRow[];
+    readonly managed: readonly ProjectListRow[];
+  }>;
+}
+
+export const PROJECT_LIST_REPOSITORY = Symbol("ProjectListRepository");

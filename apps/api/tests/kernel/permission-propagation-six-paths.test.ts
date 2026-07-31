@@ -447,7 +447,32 @@ describe("lint-permission-paths: counter-proof", () => {
     // the file (failing if a second SELECT appears) and separately shows the actor scoping
     // is load-bearing: a different lead submitting the identical request gets a NEW
     // container, never the first one's. If that test is deleted, the entry goes with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(9);
+    //
+    // ⚠ Raised 9 -> 10 by F122 (phase-01 / UC-P2 `listProjects`), and it brings an enforced
+    // premise, as demanded above. The new entry is
+    // `infrastructure/project/pg-project-list-repository.ts` -- a SEPARATE file from F117's
+    // `pg-project-repository.ts` on purpose: that file's existing entry is pinned to "one
+    // write path plus one echo SELECT" and a test asserts exactly that shape, so bolting the
+    // two-segment list query onto it would have broken that assertion's premise rather than
+    // satisfied it (fixing the test to fit new code, not the other way around).
+    //
+    // Its argument is the SAME SHAPE as the identity repository's entry, not the
+    // registration one's: `listProjects`'s two segments are judged by
+    // `project_memberships` (member) and `org_memberships.org_role` (managed) -- the
+    // IDENTITY DATA a decision would be made FROM, not `acl_bindings`. Pushing a `project`
+    // ref through `authorize()` for a listing whose whole point is "which containers does
+    // this membership/role make visible" asks the wrong question, in the same way `model`,
+    // `capability`, `organization` and `interview` all throw in `toAclRef` rather than being
+    // judged through a binding they do not have. D-18 already draws the line this file stays
+    // on: appearing in `managed` is NOT content read access.
+    //
+    // Its ENFORCED premise: `tests/project/list-projects-repo-shape.test.ts` parses the file
+    // and asserts (a) it contains no INSERT/UPDATE/DELETE -- pure read, (b) every row it
+    // returns has EXACTLY the five keys `id/name/kind/status/orgStatus` -- no content, no
+    // summary, no count could be smuggled in as a sixth key, and (c) it names only the three
+    // tables the argument above claims (`project_memberships` / `projects` /
+    // `organizations`). If that test is deleted, this entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(10);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
