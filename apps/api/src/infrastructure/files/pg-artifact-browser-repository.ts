@@ -31,9 +31,11 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   ArtifactBrowserRepository,
   ArtifactBrowserRow,
+  ArtifactSearchHitRow,
   ListVisibleInput,
 } from "../../application/files/ports";
 import type { IngestionStatus } from "../../domain/files/ingestion-visibility";
+import type { AnchorKind } from "../../application/artifact/ports";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 
 /**
@@ -72,6 +74,29 @@ interface Row {
   /** `bigint` arrives as a string from node-postgres. Converted once, here. */
   size_bytes: string | number;
   updated_at: Date;
+}
+
+interface SearchRow extends Row {
+  snippet: string | null;
+  anchor_kind: string | null;
+  anchor_locator: string | null;
+}
+
+function toSearchGuarded(row: SearchRow): Guarded<ArtifactSearchHitRow> {
+  const record: ArtifactSearchHitRow = {
+    artifactId: row.id,
+    name: row.title,
+    sourceType: row.source,
+    agendaSegmentId: row.agenda_segment_id,
+    sizeBytes: Number(row.size_bytes),
+    confidential: row.confidential,
+    ingestionStatus: row.ingestion_status as IngestionStatus,
+    updatedAt: row.updated_at.toISOString(),
+    snippet: row.snippet,
+    anchorKind: row.anchor_kind as AnchorKind | null,
+    anchorLocator: row.anchor_locator,
+  };
+  return guard<ArtifactSearchHitRow>({ kind: "artifact", id: row.id }, record);
 }
 
 function toGuarded(row: Row): Guarded<ArtifactBrowserRow> {
@@ -147,29 +172,50 @@ export class PgArtifactBrowserRepository implements ArtifactBrowserRepository {
   /**
    * Search: filename OR extracted text, over THE SAME visible set.
    *
-   * `LEFT JOIN segment_text` rather than an inner join, so an artifact with no indexed content
-   * can still match by name. With an inner join, "search for a token every file has" would
-   * quietly return a subset of the list and the `visible ≡ searchable` assertion would be
-   * testing a smaller claim than it appears to.
+   * ⚠ Not `LEFT JOIN segment_text ... DISTINCT` any more (F33). That shape matched the F31
+   * claim (「visible ≡ searchable」, an ARTIFACT-set property) but had no way to also carry
+   * ONE snippet per artifact -- a flat join can produce several matching segment rows per
+   * artifact, and `DISTINCT` over the whole row would either explode into duplicates (if a
+   * per-row snippet column were added) or require picking a winner outside SQL. Instead the
+   * best match is chosen INSIDE a `LATERAL` subquery (highest `ts_rank`, one row), and artifact
+   * visibility is still decided by the same EXISTS-shaped predicate the old DISTINCT query
+   * expressed implicitly -- an artifact with no indexed content still matches by filename via
+   * `a.title ILIKE`.
    *
-   * `DISTINCT` because one artifact can have many matching segments; the invariant is about
-   * ARTIFACT sets.
+   * `ts_headline` runs against `wsx_tsquery`, the SAME tokenizer/query function the index and
+   * `WHERE` use (0009's header on why one-sided tokenization is the classic silent-FTS-miss
+   * bug) -- so a headline is never produced for a query the index could not have matched in
+   * the first place.
+   *
+   * Snippet/anchor are returned RAW (not yet gated for confidential material); see
+   * `ports.ts`'s `searchVisible` doc comment for where T-6's fail-closed branch is applied.
    */
   async searchVisible(
     input: Omit<ListVisibleInput, "cursor"> & { readonly query: string },
-  ): Promise<readonly Guarded<ArtifactBrowserRow>[]> {
+  ): Promise<readonly Guarded<ArtifactSearchHitRow>[]> {
     return this.db.withTenant(input.orgId, async (s) => {
-      const r = await s.query<Row>(
-        `SELECT DISTINCT ${ROW_COLUMNS}
+      const r = await s.query<SearchRow>(
+        `SELECT ${ROW_COLUMNS}, hit.snippet, hit.anchor_kind, hit.anchor_locator
          ${VISIBLE}
          ${HEAD_VERSION}
-          LEFT JOIN segment_text st ON st.artifact_id = a.id AND st.org_id = a.org_id
-          WHERE (st.tsv @@ wsx_tsquery($4) OR a.title ILIKE '%' || $4 || '%')
+          LEFT JOIN LATERAL (
+            SELECT ts_headline('simple', st.content, wsx_tsquery($4)) AS snippet,
+                   anc.kind AS anchor_kind, anc.locator AS anchor_locator
+              FROM segment_text st
+              LEFT JOIN anchors anc ON anc.segment_id = st.segment_id AND anc.org_id = st.org_id
+             WHERE st.artifact_id = a.id AND st.org_id = a.org_id AND st.tsv @@ wsx_tsquery($4)
+             ORDER BY ts_rank(st.tsv, wsx_tsquery($4)) DESC
+             LIMIT 1
+          ) hit ON true
+          WHERE (
+            hit.snippet IS NOT NULL
+            OR a.title ILIKE '%' || $4 || '%'
+          )
           ORDER BY updated_at DESC, a.id DESC
           LIMIT $5`,
         [input.orgId, input.projectId, input.requesterTeamId, input.query, input.pageSize],
       );
-      return r.rows.map(toGuarded);
+      return r.rows.map(toSearchGuarded);
     });
   }
 

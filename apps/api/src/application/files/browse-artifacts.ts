@@ -222,18 +222,22 @@ export async function searchArtifacts(
     hits: rows.map((row) => ({
       node: toNode(row),
       /**
-       * 🔴 Always null, and that is fail-closed, not unfinished.
+       * F33: a real snippet/anchor for a NON-confidential hit; still `null` for a confidential
+       * one. T-6 (`files.KNOWN_CONTRACT_GAPS.FS4`) is unruled ONLY for the confidential case --
+       * showing that text would take it out from under the "confidential material stays on the
+       * local model" routing rule (D-U1), and the contract's own note takes the closed branch
+       * for exactly that case. A confidential file still appears in `hits` (search is not
+       * fail-closed to the point of hiding the FILE, only its content), it just carries no
+       * snippet -- the same "filename only" shape `ui-preview/files/README.md` describes.
        *
-       * T-6 is unruled: whether a hit inside a CONFIDENTIAL file may show its text is
-       * `files.KNOWN_CONTRACT_GAPS.FS4`. Showing snippets would take that text out from under
-       * the "confidential material stays on the local model" routing rule (D-U1); the
-       * contract's own note takes the closed branch. Emitting snippets for non-confidential
-       * files only would be a third behaviour nobody signed, and it would leak by omission
-       * (a hit with no snippet would mark the file as confidential).
+       * The gate lives HERE, not in the repository, so there is exactly one place deciding it
+       * rather than half a decision in SQL and half in TypeScript (same discipline as F31's
+       * `unwrap`/`discloseDecided` split).
        */
-      snippet: null,
-      /** Anchors belong to the segment channel; the artifact-level hit has none. */
-      anchor: null,
+      snippet: row.confidential ? null : row.snippet,
+      anchor: row.confidential || row.anchorKind === null || row.anchorLocator === null
+        ? null
+        : { kind: row.anchorKind, value: row.anchorLocator },
     })),
   };
 }
