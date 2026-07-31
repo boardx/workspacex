@@ -72,7 +72,17 @@ export interface ObjectRef {
    * 变成**编译错误**而不是一次找不到绑定、于是退回宽松默认 scope 的静默放行 ——
    * 对一场只有创建者能看的独立访谈，那种放行就是 I-31 被彻底作废。
    */
-  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview";
+  /**
+   * ⚠ `subject` 由 F97 加入，理由与 `interview` **完全同型**：一个访谈/观察对象是
+   * 租户内容（联系方式、背景与要问什么均属未发布的研究意图），必须走
+   * `permission-filter`；但它同样**没有 `acl_bindings` 行**——可见性规则在
+   * `domain/interview/subject-visibility.ts`（创建者 + 本组所属项目的非观察者成员）。
+   *
+   * 排除在 `AclObjectRef` 之外的理由不变：不这样做，`authorizeBatch` 会对一个
+   * 没有绑定行的对象找不到绑定、退回宽松默认 scope，让**观察者也能读对象表**——
+   * 这正是 R5「观察者不可读对象表」被作废的样子。
+   */
+  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview" | "subject";
   readonly id: string;
 }
 

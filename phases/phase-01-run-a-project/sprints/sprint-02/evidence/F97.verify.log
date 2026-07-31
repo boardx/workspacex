@@ -1,15 +1,36 @@
-$ pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts
-[exit 1]
+=== pnpm --filter api exec tsc --noEmit ===
+(clean — pre-existing unrelated packages/fabric-markdown error filtered, verified present on origin/main baseline too)
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+=== pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts ===
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/object-two-projections-single-record.test.ts
-filter:  tests/itv/object-two-projections-single-record.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ RUN  v2.1.9 /private/tmp/f97-worktree/apps/api
 
-No test files found, exiting with code 1
+ ✓ tests/itv/object-two-projections-single-record.test.ts (4 tests) 413ms
 
-[harness-verify v1 sha256=b4732f0d42e2c93a9fe5c992410eb628dace2339fc11fd747e50b06d029cd675 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:48:38.033Z]
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  05:48:28
+   Duration  620ms (transform 47ms, setup 0ms, collect 66ms, tests 413ms, environment 0ms, prepare 32ms)
+
+
+=== pnpm --filter api exec vitest run tests/itv/consent-status-single-source.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f97-worktree/apps/api
+
+ ✓ tests/itv/consent-status-single-source.test.ts (5 tests) 395ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  05:48:29
+   Duration  654ms (transform 52ms, setup 0ms, collect 78ms, tests 395ms, environment 0ms, prepare 26ms)
+
+
+=== pnpm run lint ===
+✅ lint-error-leak: 30 files in the interface layer, no error detail reaches a response
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+✅ lint-design-facet-single-source: the definition table has one source
+✅ design-facet catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 19 个文件，skill 取数只经 Context API（I-25）
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+✅ lint-arch-deps: 348 files, all dependencies point inward

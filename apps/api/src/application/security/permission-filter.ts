@@ -93,6 +93,19 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `decideInterviewVisibility (domain/interview/visibility-decision) and discloseDecided().`,
     );
   }
+  /**
+   * F97，与 `interview` 同型：一个访谈对象没有 `acl_bindings` 行 ⇒ `authorize`
+   * 找不到绑定 ⇒ 退回宽松默认 scope ⇒ 对每个组织成员都放行——包括本该被 R5
+   * 挡在门外的**观察者**。适用的规则是 `decideSubjectVisibility`
+   * （application/interview/subject-visibility-decision），经 `discloseDecided` 取出载荷。
+   */
+  if (ref.kind === "subject") {
+    throw new Error(
+      `subject "${ref.id}" cannot be judged by authorize -- it has no acl_bindings row, ` +
+        `so authorize would allow every member of the organization, including observers. Use ` +
+        `decideSubjectVisibility (application/interview/subject-visibility-decision) and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 
