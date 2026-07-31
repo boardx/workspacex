@@ -144,7 +144,7 @@
         "F10"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -168,7 +168,7 @@
         "F15"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -261,7 +261,7 @@
         "F15"
       ],
       "points": 1,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -305,7 +305,7 @@
         "F17"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-tpl",
       "verification": [
@@ -313,7 +313,7 @@
         "pnpm --filter api exec vitest run tests/tpl/draft-autosave-truthful.test.ts",
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F18.verify.log @ 2026-07-31T06:40:02.449Z",
       "notes": "⚠ 蓝本设计器界面尚未建（/projects 新建项目显式禁用，title 写「蓝本设计器尚未建」），是本分片最大界面缺口。依据：设计器外壳为[原型]（proto-05，D-05 一级可立即 sign-off），但代码未实现，故 needs_ui_signoff=true，进不了 new-sprint 直到补画并签。草稿自动保存最后时刻必须真实（V12：保存失败不得显示已自动保存）。是 UC-2.1 拆分第 2 项。"
     },
     {
@@ -628,7 +628,7 @@
         "F31"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-files",
       "verification": [
@@ -636,7 +636,7 @@
         "pnpm --filter api exec vitest run tests/files/download-url-short-lived-onetime.test.ts",
         "pnpm --filter web exec vitest run tests/ui/files-preview.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F32.verify.log @ 2026-07-31T06:40:26.066Z",
       "notes": "依据：[设计]（架构）。UI 已建成（锚 files-preview-pdf/files-preview-image/files-preview-audio/files-preview-text/files-preview-jsonl/files-preview-none/files-preview-download）。预览渲染必须防 XSS/SVG 脚本注入/HTML 内联，未知类型 attachment+隔离域名。V2（file-first 核心：每节点可下载且 SHA-256 一致）。接后端。\n【跨分片依赖待确认】17-gov: UC-17.1 四类审计事件（下载）"
     },
     {
@@ -651,7 +651,7 @@
         "F31"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -674,7 +674,7 @@
         "F31"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -698,7 +698,7 @@
         "F31"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -1020,7 +1020,7 @@
         "F48"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-model",
       "verification": [
@@ -1028,7 +1028,7 @@
         "pnpm --filter api exec vitest run tests/capability/model/test-verdict-immutable.test.ts",
         "pnpm --filter api exec vitest run tests/capability/model/combo-member-all-pass.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F49.verify.log @ 2026-07-31T06:40:49.515Z",
       "notes": "依据：五项测试固定为 [原型]；phase-1 人工判读不做自动化为 [人类已拍板 D-07]；质量判定用结构性断言不打分为 [已裁决 O-35]。测试记录面板已建成于 admin/model-screen.tsx（testid admin-model-test-items / admin-model-test-item / admin-model-test-submit），交付的是判读记录持久化与门禁后端。连通性一次真实探活是否纳入 phase-1 为 [待确认]，按“建议纳入”写但门禁不依赖它。",
       "_uc_points_declared": "见 T01"
     },
@@ -1116,7 +1116,7 @@
         "F52"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -1364,7 +1364,7 @@
         "F61"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-skill",
       "verification": [
@@ -1372,7 +1372,7 @@
         "pnpm --filter api exec vitest run tests/capability/skill/instance-override-no-writeback.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/binding-version-snapshot.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F63.verify.log @ 2026-07-31T06:41:11.700Z",
       "notes": "依据：两级继承（模板级默认值→实例级可覆盖不回写）与另存为组织模板为 [原型 硬规则]；绑定槽混合可区分为 [设计]；快照锁版本 D-30。设置→工作流编排屏（环节×三角色矩阵）已建成、可直接签，交付绑定条目模型与继承边界后端。协同引导师=引导师多实例 O-03（切模板/另存须主持人确认）。绑定槽编辑态为真·未探明（补抽取）。\n【跨分片依赖待确认】02-tpl/UC-2.2: 工作流模板与议程环节表（本用例宿主，O-02 蓝本⊃工作流模板）；07-canvas: 绑定槽内画布模板",
       "_uc_points_declared": "UC-3.2 声明 8 点 = T16(5)+T17(3)"
     },
@@ -1437,7 +1437,7 @@
         "F61"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -1531,7 +1531,7 @@
         "F69"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/segment-anchor-completeness.test.ts",
@@ -1721,7 +1721,7 @@
         "F78"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/consent-render-from-params.test.ts",
@@ -1763,13 +1763,13 @@
         "F80"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w1-itv",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/mount-to-segment-snapshot.test.ts",
         "pnpm --filter api exec vitest run tests/itv/virtual-real-counts-split.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F81.verify.log @ 2026-07-31T06:41:36.339Z",
       "notes": "依据 [原型]+D-38/D-25。phase-1 只做虚拟来源的列表展示+探索性隔离标记；构造能力归 phase-3 的 16-persona。\n【跨分片依赖待确认】phase-00: F06 三模式绑定服务（挂载绑定固定快照）",
       "priority": 1,
       "area": "itv",
@@ -1785,7 +1785,7 @@
         "F80"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/template-apply-three-things-detached.test.ts",
@@ -1871,7 +1871,7 @@
         "F80"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/token-two-kinds-lifecycle.test.ts",
@@ -2112,7 +2112,7 @@
         "F80"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/object-two-projections-single-record.test.ts",
@@ -2198,7 +2198,7 @@
         "F100"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/publish-archive-instance-version.test.ts",
@@ -2241,7 +2241,7 @@
         "F100"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/roundtrip-13-mermaid-diagrams.test.ts",
@@ -2397,7 +2397,7 @@
         "F108"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/team-panel-presence-tri-state.test.ts",
@@ -2554,7 +2554,7 @@
         "F116"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-project",
       "verification": [
@@ -2565,7 +2565,7 @@
         "pnpm --filter api exec vitest run tests/project/create-project-org-role-gate.test.ts",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F117.verify.log @ 2026-07-31T06:42:12.298Z",
       "notes": "依据：Q-1 裁 C（一条创建路径 + 蓝本可选参数，空白新建 = 传 null，六类初始化跳过而非写空值）+ U-4 裁 A（admin 不能创建）+ Q-4② 裁「lead 对自建未加入的项目持管理权、不持内容读取权」。\n⚠「不自动给创建者授予项目角色」是 Q-4② 推出来的，不是 Q-1 连带 3（那格是空的）：若创建即授角色，Q-4② 那条边的两端就不存在了，「管理员不是超级用户」随之破掉。\n⚠ 组织 disabled 不写应用层码——PG RESTRICTIVE 策略拒写，断言在数据库层（I-P28）。\n⚠「蓝本无效」这个码故意没有名字：U-5 裁 B 定的是补套那一侧，创建时蓝本不合法的判据仍无出处。一个不会被抛出的码读起来像覆盖。\n⚠ 幂等键无出处（契约面没编一个），见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P9。\n【跨阶段依赖】phase-00: F01（组织角色判定）、provenance 通道（⚠ ProvenanceEventType 里没有「项目已创建」这个类型，见 GAPS.P3）",
       "priority": 1,
       "area": "project",
@@ -2580,7 +2580,7 @@
         "F116"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -2683,7 +2683,7 @@
         "F116"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -2736,7 +2736,7 @@
         "F116"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -2967,7 +2967,7 @@
         "F132"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
@@ -3158,7 +3158,7 @@
         "F132"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": null,
       "verification": [
