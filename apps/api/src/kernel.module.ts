@@ -128,8 +128,9 @@ import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-i
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 // F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
 // 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
-import { CHAT_REPOSITORY } from "./application/chat/ports";
+import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
+import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { ChatController } from "./interface/controllers/chat.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
@@ -375,6 +376,13 @@ import { ProjectController } from "./interface/controllers/project.controller";
     {
       provide: CHAT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
+    // 与线程/消息的读写路径没有共享逻辑，合并只会让一个文件同时长两组不相关的方法。
+    {
+      provide: CHAT_PRESET_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgChatPresetRepository(db),
       inject: [DATABASE_PORT],
     },
     {
