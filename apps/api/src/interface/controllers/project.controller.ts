@@ -38,30 +38,40 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Inject,
+  NotFoundException,
   Param,
   Post,
   Query,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { project as C, orgAdmin as OA } from "@repo/contracts";
+import type { z } from "zod";
 import { createProject } from "../../application/project/create-project";
 import { listProjects } from "../../application/project/list-projects";
 import { renderRoleView } from "../../application/project/render-role-view";
 import { previewAsRole } from "../../application/project/preview-as-role";
+import { advanceAgendaSegment } from "../../application/project/advance-agenda-segment";
+import {
+  AgendaSegmentNotFoundError,
+  MergeTargetRequiredError,
+} from "../../application/project/advance-agenda-segment-errors";
 import { ProjectError } from "../../application/project/errors";
 import {
+  AGENDA_SEGMENT_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_REPOSITORY,
+  type AgendaSegmentRepository,
   type ProjectListRepository,
   type ProjectRepository,
 } from "../../application/project/ports";
 import {
-  IDENTITY_REPOSITORY,
   DECISION_ID_FACTORY,
+  IDENTITY_REPOSITORY,
   type IdentityRepository,
   type DecisionIdFactory,
 } from "../../application/identity/ports";
@@ -80,6 +90,11 @@ export const LIST_PROJECTS_SCHEMA = C.operations.listProjects.in;
 /** F04 —— `renderRoleView` / `previewAsRole` 属 `org-admin` 束，入参契约同一条纪律。 */
 export const RENDER_ROLE_VIEW_SCHEMA = OA.operations.renderRoleView.in;
 export const PREVIEW_AS_ROLE_SCHEMA = OA.operations.previewAsRole.in;
+/** 同上，`advanceAgendaSegment` 的入参契约（F119）。 */
+export const ADVANCE_AGENDA_SEGMENT_SCHEMA = C.operations.advanceAgendaSegment.in;
+
+/** 直接取自契约的推断类型——`action` 因此是四值联合而不是裸 `string`（同 F119 domain 层）。 */
+type AdvanceBody = z.infer<typeof C.operations.advanceAgendaSegment.in>;
 
 type CreateBody = {
   orgId: string;
@@ -95,6 +110,7 @@ export class ProjectController {
     @Inject(PROJECT_LIST_REPOSITORY) private readonly listRepo: ProjectListRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    @Inject(AGENDA_SEGMENT_REPOSITORY) private readonly segments: AgendaSegmentRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
 
@@ -236,6 +252,66 @@ export class ProjectController {
       if (e instanceof ProjectError) {
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F119 UC-P7：推进 / 提前结束 / 跳过 / 合并。`workshopId` 在超类型模型下与 `projectId`
+   * 同值域（F116），鉴权仍走 `authorize({ object: { kind: "project", id: workshopId } })`——
+   * 同 `bind-to-project-step` 一路复用「project」这个 object kind，不为工作坊另开一种。
+   */
+  @Post("/workshops/:workshopId/agenda-segments/:segmentId/advance")
+  async advance(
+    @CurrentPrincipal() principal: Principal,
+    @Param("workshopId") workshopId: string,
+    @Param("segmentId") segmentId: string,
+    @Body(new ZodBodyPipe(ADVANCE_AGENDA_SEGMENT_SCHEMA)) body: AdvanceBody,
+  ) {
+    assertPrincipal(principal);
+    // 同 `bind`/`upgrade` 的纪律：路径是资源，body 是契约校验的对象，两者不一致时
+    // 不许静默择一——否则审计里记的可能不是调用者以为自己在动的那一条环节。
+    if (body.workshopId !== workshopId || body.segmentId !== segmentId) {
+      throw new BadRequestException("workshop_or_segment_id_mismatch");
+    }
+
+    try {
+      const out = await advanceAgendaSegment(
+        {
+          auth: { repo: this.identity, ids: this.ids },
+          segments: this.segments,
+          provenance: this.provenance,
+        },
+        {
+          userId: principal.userId,
+          orgId: principal.orgId,
+          workshopId,
+          segmentId,
+          action: body.action,
+          mergeIntoSegmentId: body.mergeIntoSegmentId,
+        },
+      );
+      return out;
+    } catch (e) {
+      if (e instanceof AgendaSegmentNotFoundError) {
+        // ⚠ 契约的 `err` 里没有专门的码——见 `advance-agenda-segment-errors.ts` 头注。
+        throw new NotFoundException();
+      }
+      if (e instanceof MergeTargetRequiredError) {
+        throw new BadRequestException("merge_requires_target");
+      }
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        // 409，不是 403：这两个码是**状态冲突**（并发抢到同一个 active 名额 / 对终态
+        // 再次操作），调用者的权限没有问题——同 `CANNOT_DOWNGRADE` 在 binding 控制器
+        // 里的映射（`artifact-binding.controller.ts:213`）。
+        if (e.reasonCode === "SEGMENT_ALREADY_ACTIVE" || e.reasonCode === "SEGMENT_TERMINAL") {
+          throw new ConflictException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
