@@ -55,3 +55,39 @@ export interface McpToolStore {
   /** Replaces the recorded set. Callers pass the full new set, not a delta. */
   replace(serverId: string, tools: readonly z.infer<typeof McpTool>[]): Promise<void>;
 }
+
+/**
+ * F53 -- 越权拦截计数（`user_visible_behavior`：「后台数据总览可见」）.
+ *
+ * ⚠ **每一次拒绝都记一条**，包括 `MCP_SERVER_ISOLATED` / `MCP_SERVER_IN_QUARANTINE` /
+ *   `AUTH_SCOPE_DENIED` 三种理由（contract 行 397 / 404 / 463 附近逐条标了「计入越权拦截计数」）。
+ *   本接口只收集事件，**不做聚合**——「后台数据总览」怎么汇总是消费方（数据总览页）的事。
+ */
+export interface InterceptCounterPort {
+  recordDenied(event: {
+    readonly serverId: string;
+    readonly toolFullName: string | null;
+    readonly actorId: string;
+    readonly reason: "MCP_SERVER_ISOLATED" | "MCP_SERVER_IN_QUARANTINE" | "AUTH_SCOPE_DENIED";
+  }): Promise<void>;
+}
+
+/**
+ * F53 -- 第③层的申请接口（`requestTaskPermissionGrant`）落库口。
+ *
+ * ⚠ 权限包的**判定与授予**属 00-core / 11-board（X-1，跨束）。这里只负责把「申请」这件事
+ *   持久化成 `pending-human` 状态，交给任务侧的人去按 `[去授权]`——**不判定，不代授权**。
+ */
+export interface TaskPermissionGrantStore {
+  create(request: {
+    readonly requestId: string;
+    readonly taskId: string;
+    readonly toolFullName: string;
+    readonly requestedByAgentId: string;
+    readonly reason: string;
+  }): Promise<void>;
+}
+
+export interface RequestIdFactory {
+  next(): string;
+}
