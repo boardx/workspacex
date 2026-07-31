@@ -424,7 +424,30 @@ describe("lint-permission-paths: counter-proof", () => {
     // it -- so the day a controller is added, (d) goes red and whoever adds it must attach
     // the org-admin decision there rather than inherit an exemption written for a file with
     // no disclosure surface. If that test is deleted, the entry goes with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(8);
+    //
+    // ⚠ Raised 8 -> 9 by F117 (phase-01 / UC-P1 `createProject`) — RE-COUNTED after
+    // rebasing onto F49, not shifted by one. F117 and F49 were developed in parallel and
+    // BOTH raised this line 7 -> 8 against their own tree; both were right and the two do
+    // NOT add up. Copying my own 8 forward would leave the cap one slot loose while staying
+    // green. The number below is what `lint-permission-paths` printed on the merged tree.
+    // The new entry is
+    // `infrastructure/project/pg-project-repository.ts`, and its argument has the same
+    // SHAPE as the registration one's: the file is a WRITE path (three INSERTs -- the
+    // container, its subtype row, and the replay record) plus ONE echo of the caller's own
+    // creation request. `disclose()` needs a requester and a decision, and "may this person
+    // read the container they are creating right now" has no answer -- worse, per Q-4(2)
+    // the creator deliberately holds NO project role over it, so the honest decision would
+    // come back NO_PROJECT_ROLE for the row the caller just wrote. Guarding it would mean
+    // wrapping and immediately discarding the wrapper, i.e. a shell built to pass THIS gate.
+    //
+    // Its ENFORCED premise: every tenant-table statement in the file is an INSERT except
+    // one SELECT, and that SELECT is scoped `fingerprint = $1 AND actor_id = $2` -- so the
+    // only row it can ever read back is the echo of a request the caller themself submitted.
+    // That is asserted in `tests/project/create-project-idempotent.test.ts`, which parses
+    // the file (failing if a second SELECT appears) and separately shows the actor scoping
+    // is load-bearing: a different lead submitting the identical request gets a NEW
+    // container, never the first one's. If that test is deleted, the entry goes with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(9);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

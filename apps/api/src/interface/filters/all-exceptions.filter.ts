@@ -20,7 +20,7 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, identity, interview, orgAdmin } from "@repo/contracts";
+import { artifact, auth, identity, interview, orgAdmin, project } from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -159,7 +159,28 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * outcome, not a collision to be broken.
    */
   const orgAdminReason = orgAdmin.OrgAdminError.safeParse(raw);
-  return orgAdminReason.success ? { reasonCode: orgAdminReason.data } : {};
+  if (orgAdminReason.success) return { reasonCode: orgAdminReason.data };
+
+  /**
+   * F117: `project.ProjectReason`, the SEVENTH closed enum —— 又是同一个 bug 的第四次。
+   *
+   * ⚠ 「第七」是 **rebase 到 F49 之后重新数的**（`grep -c "safeParse(raw)"` = 7），
+   *   不是沿用写这段话时的序号。F80 加过第五个、F10 加过第六个，两次都是并行开发；
+   *   本轮 F49 没有动这个函数，所以序号没变——**没变这件事也是量出来的**。
+   *
+   * `ORG_ROLE_INSUFFICIENT` 与 `INVALID_KIND` 声明在 `createProject.err` 里，
+   * 而它们**不属于**上面任何一个枚举（`ORG_ROLE_INSUFFICIENT` 是本束的第一处声明，
+   * 见 `KNOWN_CONTRACT_GAPS.P1`）。少了这一段，六次 safeParse 全部失败，
+   * 调用方收到一个光秃秃的 `{"error":"forbidden"}` —— 而「你的组织角色不够」
+   * 与「你不在这个组织里」把用户送去两个完全不同的地方（前者找 lead，后者找 admin）。
+   *
+   * ⚠ 与 `orgAdmin` 一样与 `PermissionReason` **有意重叠**
+   *   （`NO_PROJECT_ROLE` / `ADMIN_NOT_SUPERUSER` / `AUTH_SERVICE_UNAVAILABLE` …）：
+   *   契约里 `_sharedWithIdentity` 那道编译期门控钉死了「同名是刻意的」，
+   *   所以前面的 parse 先赢是**契约要的结果**，不是一次要去掉的碰撞。
+   */
+  const projectReason = project.ProjectReason.safeParse(raw);
+  return projectReason.success ? { reasonCode: projectReason.data } : {};
 }
 
 /**
