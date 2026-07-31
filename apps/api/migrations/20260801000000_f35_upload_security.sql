@@ -66,3 +66,9 @@ CREATE POLICY malware_quarantine_records_tenant ON malware_quarantine_records
 -- owner, same as every other tenant table).
 REVOKE ALL ON malware_quarantine_records FROM app_rw;
 GRANT SELECT, INSERT ON malware_quarantine_records TO app_rw;
+
+-- F22 的三条 RESTRICTIVE 冻结策略是按 pg_catalog 扫描当时全部租户表安装的(0014),
+-- 新增租户表之后必须重新调用一次,否则组织冻结("organizations.disabled_at 之后
+-- 禁写")对这张新表不生效——见 tests/auth/org-disabled-readonly.test.ts
+-- 「冻结覆盖面:catalog 推导,不是一张手写清单」(同 F74/F111 的模式)。
+SELECT kernel_apply_org_freeze_policies();
