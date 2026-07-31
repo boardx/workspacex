@@ -471,8 +471,26 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     //                            两个方向都在 `tests/itv/mount-to-segment-snapshot.test.ts` 里断言；
     //                            结构那一半在下面 —— 于是一次「给挂载单独写一套 eligibility」的重写
     //                            会在**这里**被抓到，也就是这道门被定义的地方。
+    //   artifact_versions       ⚠ ADDED BY F73 (migration 20260731153640): `derived_from` is a
+    //                            self-referential FK (`artifact_versions.derived_from
+    //                            REFERENCES artifact_versions(id)`), so `artifact_versions`
+    //                            itself now shows up as its own referrer in this scan. It is
+    //                            NOT a citation and does not go through `judgeCitation`: it is
+    //                            provenance recorded once at creation time (「this transcript
+    //                            version was produced from that audio version, in the SAME
+    //                            recording session」), exactly the same kind of fact
+    //                            `derived_representations.derived_from` already records for
+    //                            OCR/ASR/summary derivatives -- see the migration's own
+    //                            comment for why a transcript can't just BE a
+    //                            `derived_representations` row (it has to be a real,
+    //                            browsable `artifact_versions` row to satisfy F04's file
+    //                            browser). Nothing reads `derived_from` to decide whether a
+    //                            DOWNSTREAM may cite a version; only `judgeCitation` /
+    //                            `kernel_version_is_pinned()` do that, and this column carries
+    //                            no eligibility semantics of its own.
     expect(referrers).toEqual([
       "artifact_bindings",
+      "artifact_versions",
       "context_packs",
       "derived_representations",
       "downstream_references",
