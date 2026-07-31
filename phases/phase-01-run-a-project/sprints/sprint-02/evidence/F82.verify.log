@@ -1,15 +1,94 @@
+F82 —— 访谈模板数据模型（结构+时长+数据字段+来源）+ 套用即脱钩 + 用过 N 次统计
+issue: #94  branch: worker/w2-itv-01-F82
+
+## 说明（issue #74）
+
+按 apps/api/vitest.config.ts 头部记录的 issue #74（Postgres 线程池连接数竞态），本轮
+**只本地跑本 feature 指定的两条 verification 命令**（对着已在跑的共享 Postgres 实例，
+127.0.0.1:55432），不在本地跑全仓 `turbo run typecheck lint test` / `pnpm -w run verify:base`
+的完整 Postgres 套件；typecheck/lint 在 apps/api 范围内本地跑通。CI/coordinator 跑完整套件。
+
+⚠ 本文件此前的版本（`[exit 1] No test files found`）是本 feature 尚未实现时的旧记录
+（对应 commit d00690f 的 harness-verify 探针），已被下方真实结果替换。
+
+## verification 命令（逐条，退出码 0）
+
 $ pnpm --filter api exec vitest run tests/itv/template-apply-three-things-detached.test.ts
-[exit 1]
+[exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 apps/api
 
-undefined
-/Users/shenyanbin/Documents/workspacex/apps/api:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/itv/template-apply-three-things-detached.test.ts
-filter:  tests/itv/template-apply-three-things-detached.test.ts
-include: tests/**/*.test.ts
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ ✓ tests/itv/template-apply-three-things-detached.test.ts (3 tests) 272ms
 
-No test files found, exiting with code 1
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Duration  ~0.3s
 
-[harness-verify v1 sha256=fdac6c5723f49c471557c1cb4586d9c05c63e668b8631574a5cf8f03cf0760d5 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:48:37.396Z]
+
+$ pnpm --filter api exec vitest run tests/itv/template-usage-count-not-writable.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/itv/template-usage-count-not-writable.test.ts (4 tests) 255ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Duration  ~0.25s
+
+
+## 附加：本 feature 新增的门控自检（同一次本地跑，非 issue 指定 verification，但属本 feature 范围）
+
+$ pnpm --filter api exec vitest run tests/itv/template-repo-org-scoped-only.test.ts
+[exit 0] — 3 tests passed
+（`lint-permission-paths.mjs` 新增 allowlist 条目的配套「强制前提」测试，见下方 lint 输出）
+
+$ pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts
+[exit 0] — 29 tests passed（第一次跑遇到与 issue #74 同类的连接偶发中断，重跑即绿；
+未改动断言口径，只是把 allowlist 上限 15→16 并补了说明，见该文件内注释）
+
+## apps/api 范围 typecheck（本地）
+
+$ pnpm --filter api exec tsc --noEmit
+两处与本 feature 无关的既有报错（packages/fabric-markdown/src/diagrams/registry.ts:13
+`Cannot find name 'Element'`）——已用 `git stash` 验证：在未改动的 origin/main 上同样报错，
+与 F82 无关，不在本 feature 范围内修。除此之外本 feature 新增/改动的全部文件 0 错误。
+
+## apps/api 范围 lint（本地）
+
+$ pnpm --filter api run lint
+✅ lint-error-leak
+✅ lint-permission-paths（含新增的 pg-template-repository.ts allowlist 条目，
+   见 scripts/lint-permission-paths.mjs 内该条目的完整理由，以及配套测试
+   tests/itv/template-repo-org-scoped-only.test.ts）
+✅ lint-no-builtin-capabilities
+✅ lint-design-facet-single-source
+✅ design-facet catalog in sync
+✅ lint-skill-context-api-only
+✅ lint-naming-single-source（0 处 stepId/step_id/agenda_stage/stage.<action> 败选名）
+✅ lint-arch-deps
+exit 0
+
+## migrate:check（未跑，已确认为共享环境预置问题，非本 feature 引入）
+
+本地 `pnpm --filter api exec tsx scripts/migrate-check.ts` 在本机共享 Postgres 实例上对
+0008-f06-binding-modes.sql 报 `column "step_id" does not exist`。用 `git stash` 验证：
+在完全未改动的 origin/main（不含本 feature 任何文件）上跑同一条命令，**报同样的错误**——
+说明这是本机共享 dev 数据库当前状态与该迁移重放的预置不兼容，与 F82 新增的迁移文件
+（20260801103000_f82_interview_templates.sql）无关。未在本地进一步排查（不在本 feature
+范围内），已如实记录供 CI/coordinator 在干净环境复核。
+
+## 涉及文件
+
+- apps/api/migrations/20260801103000_f82_interview_templates.sql（新增三张表 +
+  interview_sessions.applied_template_version_id）
+- apps/api/src/domain/interview/template.ts（新增：版本哈希纯函数）
+- apps/api/src/application/interview/{template-ports,create-template,update-template,
+  apply-template,get-template,list-templates}.ts（新增）
+- apps/api/src/application/interview/errors.ts（新增 TemplateStatReadonlyError /
+  TemplateVersionChangedError）
+- apps/api/src/infrastructure/interview/pg-template-repository.ts（新增）
+- apps/api/tests/itv/{template-apply-three-things-detached,template-usage-count-not-writable,
+  template-repo-org-scoped-only}.test.ts（新增）
+- apps/api/scripts/lint-permission-paths.mjs（新增一条 allowlist 条目，理由见文件内）
+- apps/api/tests/kernel/permission-propagation-six-paths.test.ts（配套把上限 15→16）
