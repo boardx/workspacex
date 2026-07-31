@@ -17,6 +17,11 @@
 import type { DataScopeKey } from "../../domain/skill/data-scope";
 import type { SecurityScanResult } from "../../domain/skill/security-gate";
 import type { DeclarativeContract } from "../../domain/skill/declarative-contract";
+import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
+import type {
+  ProjectOrchestration,
+  WorkflowTemplateBody,
+} from "../../domain/skill/orchestration";
 
 /**
  * 提交人**当时**持有的数据范围（I-12 的上界）。
@@ -79,4 +84,63 @@ export interface SecurityAuditPort {
     readonly principalId: string;
     readonly detail: string;
   }): Promise<void>;
+}
+
+/* ═══════════════════ F63：绑定与两级编排 ═══════════════════ */
+
+/**
+ * **「不回写」的结构性落点在这三个端口的方法名里**（I-17）。
+ *
+ * · 模板本体：`WorkflowTemplateReadPort` **只有 `load`**；
+ * · 组织模板：`OrgTemplateCreatePort` **只有 `create`**；
+ * · 可写的只有 `ProjectOrchestrationStorePort`，而它只认 `projectId`。
+ *
+ * ⇒ skill 束的 application 层**拿不到任何能改已存在模板的东西**。
+ *   这比一条「用例里别去写模板表」的纪律强的地方在于：要回写，得先给端口加一个方法，
+ *   而 `instance-override-no-writeback.test.ts` 逐字扫这三个接口的方法名集合，
+ *   多出一个就红。规范没有脚本视为未落地 —— 这就是那个脚本。
+ *
+ * ⚠ 三个端口刻意**分成三个**而不是合成一个 `OrchestrationRepository`：
+ *   合成之后，「读模板」「写实例」「建新模板」共用一个对象，
+ *   方法名集合这条断言立刻失去分辨力，回写只需在同一个对象上多调一个方法。
+ */
+export const TEMPLATE_PORTS_ALLOWED_METHODS = {
+  WorkflowTemplateReadPort: ["load"],
+  OrgTemplateCreatePort: ["create"],
+  ProjectOrchestrationStorePort: ["load", "save"],
+} as const;
+
+/** 模板本体：**只读**。没有 `save`、没有 `update`、没有 `patch`。 */
+export interface WorkflowTemplateReadPort {
+  load(templateId: string): Promise<WorkflowTemplateBody | null>;
+}
+
+/** 项目实例编排：唯一可写的编排面，且入口只认 `projectId`。 */
+export interface ProjectOrchestrationStorePort {
+  load(projectId: string): Promise<ProjectOrchestration | null>;
+  save(orchestration: ProjectOrchestration): Promise<void>;
+}
+
+/**
+ * `[另存为组织模板]`：**只有 create**。
+ *
+ * ⚠ 返回的 `templateId` 由实现方分配，用例断言它 ≠ 来源模板 id ——
+ *   一个「create 了一个同 id 的东西」的实现就是覆盖，只是换了个动词。
+ */
+export interface OrgTemplateCreatePort {
+  create(body: WorkflowTemplateBody): Promise<{ readonly templateId: string }>;
+}
+
+/**
+ * 绑定可选池的判定（UC-3.2 R3 步骤 3：`已启用` ∩ 可见性范围覆盖当前用户）。
+ *
+ * ⚠ 返回 `null` 同时表示「不存在」与「可见性范围外」——**这是故意的**：
+ *   I-14 要求范围外**不返回其存在性**（404 非 403）。让端口区分两者，
+ *   调用方迟早会把区别透出去，那就是一次存在性泄露。
+ */
+export interface SkillVisibilityPort {
+  visibleTo(input: {
+    readonly skillId: string;
+    readonly principalId: string;
+  }): Promise<{ readonly status: SkillLifecycleStatus; readonly currentVersionId: string } | null>;
 }
