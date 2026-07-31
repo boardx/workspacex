@@ -126,6 +126,13 @@ export function gatesAllowEnable(state: GateState): GateVerdict {
  * ⚠ 任何试图直接置 `已启用` 的路径（`草稿 → 已启用`）在这里落到
  *   `GATE_NOT_PASSED` 而不是「非法迁移」，因为 I-23 要求这条**写安全审计**——
  *   它是一次绕过尝试，不是一次手滑。
+ *
+ * ⚠ **`已停用 → 已启用`（`restoreSkill`，F66）是第二个合法产生 `已启用` 的入口**，
+ *   且**不重新过门禁**——`status-enum-exactly-four.test.ts` 已经把这条写成规格：
+ *   「门禁记录在停用前就已经存在」，恢复恢复的是状态，不是重新审一遍契约正文
+ *   （正文本来就没变：I-6 的版本快照不可变，恢复动作根本不碰版本链）。
+ *   因此下面把「唯一合法前驱」从「`待审核` 一个」拆成「`待审核`（过门禁）
+ *   或 `已停用`（免门禁）」两个，其余来源（如 `草稿`）依旧落 `GATE_NOT_PASSED`。
  */
 export function authorizeStatusTransition(input: {
   readonly from: SkillLifecycleStatus;
@@ -134,12 +141,13 @@ export function authorizeStatusTransition(input: {
 }): GateVerdict {
   const { from, to, gates } = input;
 
-  if (to === "已启用" && from !== "待审核") {
+  if (to === "已启用" && from !== "待审核" && from !== "已停用") {
     return {
       allowed: false,
       code: "GATE_NOT_PASSED",
       reason:
-        "「已启用」只能由人工审核的 approve 分支产生；任何直达路径都是绕过双重门禁（I-23，须写安全审计）",
+        "「已启用」只能由人工审核的 approve 分支或 restoreSkill 恢复产生；" +
+        "任何其他直达路径都是绕过双重门禁（I-23，须写安全审计）",
     };
   }
 
@@ -153,6 +161,11 @@ export function authorizeStatusTransition(input: {
 
   if (from === "草稿" && to === "待审核") {
     return scanAllowsSubmission(gates.scan);
+  }
+
+  // 恢复：已停用 → 已启用，免门禁（见上方函数头注释）。
+  if (from === "已停用" && to === "已启用") {
+    return { allowed: true, code: null, reason: null };
   }
 
   if (to === "已启用") {
