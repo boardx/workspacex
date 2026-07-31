@@ -329,7 +329,7 @@
       ],
       "points": 4,
       "status": "in_progress",
-      "sprint": "02",
+      "sprint": null,
       "owner": "w2-tpl",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/duration-tier-agenda-count.test.ts",
@@ -352,7 +352,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": "02",
+      "sprint": null,
       "owner": "w2-tpl2",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/model-strategy-three-lanes.test.ts",
@@ -375,7 +375,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": "02",
+      "sprint": null,
       "owner": "w2-tpl3",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/init-preview-six-categories.test.ts",
@@ -1389,7 +1389,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": "02",
+      "sprint": null,
       "owner": "w2-skill",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/each-cell-generates-todo.test.ts",
@@ -1414,7 +1414,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "sprint": "02",
+      "sprint": null,
       "owner": "w2-skill2",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/temp-mount-scope-current-thread.test.ts",
