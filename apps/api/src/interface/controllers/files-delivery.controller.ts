@@ -34,7 +34,7 @@
  */
 import {
   Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
-  ConflictException, GoneException,
+  ConflictException, GoneException, UnprocessableEntityException,
 } from "@nestjs/common";
 import { files as C } from "@repo/contracts";
 import {
@@ -52,7 +52,10 @@ import {
   type DownloadGrantRepository,
   type DownloadUrlBuilder,
 } from "../../application/files/download-ports";
-import { OBJECT_STORE_PROBE, type ObjectStoreProbe } from "../../application/files/ports";
+import {
+  OBJECT_INTEGRITY_CHECKER, OBJECT_STORE_PROBE,
+  type ObjectIntegrityChecker, type ObjectStoreProbe,
+} from "../../application/files/ports";
 import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
@@ -92,6 +95,7 @@ export class FilesDeliveryController {
     @Inject(DOWNLOAD_GRANT_REPOSITORY) private readonly grants: DownloadGrantRepository,
     @Inject(DOWNLOAD_URL_BUILDER) private readonly urls: DownloadUrlBuilder,
     @Inject(OBJECT_STORE_PROBE) private readonly objectStore: ObjectStoreProbe,
+    @Inject(OBJECT_INTEGRITY_CHECKER) private readonly integrity: ObjectIntegrityChecker,
     @Inject(IDENTITY_REPOSITORY) private readonly repo: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(ID_FACTORY) private readonly idFactory: IdFactory,
@@ -104,6 +108,7 @@ export class FilesDeliveryController {
       ids: this.ids,
       grants: this.grants,
       objectStore: this.objectStore,
+      integrity: this.integrity,
       urls: this.urls,
       provenance: this.provenance,
       idFactory: this.idFactory,
@@ -190,6 +195,11 @@ export class FilesDeliveryController {
           throw new NotFoundException();
         case "DEPENDENCY_UNAVAILABLE":
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        // F34 (V8·22-1): 422 -- the request and the caller's permission are both fine; the
+        // OBJECT is the thing that is wrong. Distinct from 503 (retry later, the store came
+        // back) and from 404 (nothing here says the artifact does not exist).
+        case "INTEGRITY_CHECK_FAILED":
+          throw new UnprocessableEntityException({ reasonCode: e.reasonCode });
         case "DOWNLOAD_URL_EXPIRED":
           throw new GoneException({ reasonCode: e.reasonCode });
         case "DOWNLOAD_URL_CONSUMED":

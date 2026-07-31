@@ -117,5 +117,26 @@ export interface ObjectStoreProbe {
   available(): Promise<boolean>;
 }
 
+/**
+ * F34 (V8·22-1) -- does this version's stored bytes still match the SHA-256 recorded at
+ * pin time?
+ *
+ * A port, not `ObjectStore.get` called inline in `deliver-artifact.ts`, for the same reason
+ * `ObjectStoreProbe` is a port: it lets a test simulate a tampered object without actually
+ * corrupting bytes on disk, and it keeps the delivery use case ignorant of what "reading an
+ * object" costs on whatever store is behind it.
+ *
+ * ⚠ `verify` returns a tri-state, not a boolean: a MISSING object and a WRONG-HASH object are
+ * both integrity failures from the caller's point of view (neither can be served), but they
+ * are different facts to write into an audit event, and collapsing them would make "which one
+ * happened" undiscoverable after the fact.
+ */
+export type IntegrityResult = "ok" | "hash-mismatch" | "object-missing";
+
+export interface ObjectIntegrityChecker {
+  verify(objectKey: string, expectedSha256: string): Promise<IntegrityResult>;
+}
+
 export const ARTIFACT_BROWSER_REPOSITORY = Symbol("ArtifactBrowserRepository");
 export const OBJECT_STORE_PROBE = Symbol("ObjectStoreProbe");
+export const OBJECT_INTEGRITY_CHECKER = Symbol("ObjectIntegrityChecker");

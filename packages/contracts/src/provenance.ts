@@ -98,6 +98,24 @@ export const ProvenanceEventType = z.enum([
   "thread-renamed",
   "thread-deleted",
 
+  /**
+   * 🔴 F34（files 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * 已签核的 `contracts/files/usecases.md` 在 `issueDownloadUrl` 下逐字：
+   * 「SHA-256 与对象字节不符 ⇒ 该行标『完整性校验失败』+ 禁止下载 + 告警」
+   * （V8·22-1，`FilesError.INTEGRITY_CHECK_FAILED`）；`requirements/22-files/uc-22-1` E4 同义。
+   * 最接近的既有成员都不是它：`unauthorized-attempt` 是越权尝试，不是字节损坏；
+   * `evidence-withdrawn` 是上游主动撤回，不是发现对象被篡改/损坏。拿它们顶包会让
+   * 「材料是被删的还是被篡改的」在同一个类型里混进两件不相干的事——ADR-101 开篇就是
+   * 在说这个道理，这里照抄它的处理方式而不是发明第五种。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤与 ADR-101 相同的形状：撤销本行 + 迁移里对应的 CHECK 追加 +
+   * `deliver-artifact.ts` 的 `issueDownloadUrl` 失去写审计这一步。
+   */
+  "integrity-check-failed",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);

@@ -51,6 +51,8 @@ class SeqIds {
 const NEVER_CALLED = { next: (p: string) => `${p}-unused` };
 /** Preview does not touch the store; the probe is only in `deps` because the type says so. */
 const STORE_UP = { available: async () => true };
+/** F34: preview does not run the integrity check either (see `deliver-artifact.ts`'s header) -- only in `deps` because the type says so. */
+const INTEGRITY_OK = { verify: async () => "ok" as const };
 
 let db: PgDatabase;
 let deps: DeliveryDeps;
@@ -130,6 +132,7 @@ beforeAll(async () => {
     ids: new SeqIds(),
     grants: new PgDownloadGrantRepository(db),
     objectStore: STORE_UP,
+    integrity: INTEGRITY_OK,
     urls: new IsolatedDownloadUrlBuilder(),
     provenance: new PgProvenanceRepository(db),
     idFactory: NEVER_CALLED,

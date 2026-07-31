@@ -171,6 +171,23 @@ F117 / F109 落地时应当直接用得上；用不上说明抄错了，那是�
    **否决的代价是具体的，不是"少一个枚举值"。**
 5. 同理 F109 的顶包写法、F117 的钉子断言、F80 的将就注释全部保留原样——它们本来就没动契约。
 
+### 追加（2026-08-01，F34 · files，issue #87）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **1** 个成员，按本 ADR「第五个撞上的人被带到这里」的意图，
+不发明第二种处理：
+
+| 成员 | 代谁补 | 出处 |
+|---|---|---|
+| `integrity-check-failed` | F34 · `files` | `files/usecases.md` `issueDownloadUrl`（V8·22-1）；`uc-22-1` E4 逐字「触发告警并写审计」 |
+
+- 命名沿用「对象-过去分词」构词法，与 `evidence-withdrawn` 同形；语义不同——
+  后者是上游**主动**撤回，前者是**被动发现**字节与记录的 SHA-256 不符。
+- `provenance_events_type_check`（0027 所建）随本次 F34 迁移一并追加该值；
+  `provenance-enum-single-source.test.ts` 的双向断言覆盖它，无需新写测试文件。
+- 否决时的回退：撤销契约里的这一行 + 迁移里对应的 CHECK 追加 +
+  `deliver-artifact.ts` 的 `issueDownloadUrl` 失去写审计这一步（该 use case 的
+  `INTEGRITY_CHECK_FAILED` 分支仍然抛错，只是不再写 provenance）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |

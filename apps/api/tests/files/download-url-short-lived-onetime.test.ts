@@ -64,6 +64,13 @@ class SeqRowIds {
   next(prefix: string): string { return `${prefix}-${++this.n}`; }
 }
 const STORE_UP = { available: async () => true };
+/**
+ * F34: every fixture's `content_hash` is the all-zero placeholder `addBrowserArtifact` writes
+ * (a syntactically valid SHA-256 the fixture never actually hashes bytes against). A fake
+ * that always answers "ok" keeps this file about F32's concerns -- expiry / one-time /
+ * unforwardable / audited -- rather than re-deriving F34's integrity check here too.
+ */
+const INTEGRITY_OK = { verify: async () => "ok" as const };
 
 let db: PgDatabase;
 let deps: DeliveryDeps;
@@ -124,6 +131,7 @@ beforeAll(async () => {
     ids: new SeqIds(),
     grants: new PgDownloadGrantRepository(db),
     objectStore: STORE_UP,
+    integrity: INTEGRITY_OK,
     urls: new IsolatedDownloadUrlBuilder(),
     provenance: new PgProvenanceRepository(db),
     idFactory: new SeqRowIds(),
