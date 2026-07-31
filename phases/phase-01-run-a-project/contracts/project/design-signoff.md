@@ -23,7 +23,7 @@ confirmed_at: "2026-07-30T16:50:06+08:00"
 > `phases/phase-01-run-a-project/SIGNOFF-RECONCILIATION-2026-07-31.md`：
 > 下述两条阻塞——① feature 未生成 ② 第 ① 件材料不完整——**均已解除**
 > （`covers:` 现有 13 个编号；`ui-preview/project-v2/` 现有 92 张，`lint-ui-material` 双向集合相等绿）。
-> 签核（frontmatter 的 `status: confirmed`）继续有效。
+> 签核继续有效（frontmatter 的 `status: confirmed` 不变）。
 > —— yanbin shen，经会话记录，2026-07-31T14:56:11+08:00
 >
 > **✅ 2026-07-30：12 条裁决已全部完成**（`requirements/00-project/OPEN-QUESTIONS.md`，

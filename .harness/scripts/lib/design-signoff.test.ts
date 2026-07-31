@@ -37,6 +37,8 @@ function writeBundle(
     confirmedAt?: string;
     confirmedBy?: string;
     skipFiles?: string[];
+    /** 正文（frontmatter 之后的部分），不给则用最小占位 */
+    body?: string;
   } = {},
 ): void {
   const dir = join(CONTRACTS, name);
@@ -52,7 +54,7 @@ function writeBundle(
     `---\nbundle: ${name}\nphase: "${PHASE_ID}"\n${covers}` +
       `status: ${opts.status ?? "confirmed"}          # pending | confirmed\n` +
       `confirmed_by: "${opts.confirmedBy ?? "yanbin shen"}"\n` +
-      `confirmed_at: "${opts.confirmedAt ?? "2026-07-28"}"\n---\n\n# ${name}\n`,
+      `confirmed_at: "${opts.confirmedAt ?? "2026-07-28"}"\n---\n\n${opts.body ?? `# ${name}\n`}`,
     "utf8",
   );
 }
@@ -269,6 +271,57 @@ describe("auditSignoff —— 开工门控", () => {
     const r = auditSignoff(PHASE_ID, ["F01"], NOW);
     expect(r.fails).toEqual([]);
     expect(r.warns.join("\n")).toMatch(/带首尾空格/);
+  });
+});
+
+describe("正文自称不可签核，且没有重新确认 → 拒绝（2026-07-31 补，D-8）", () => {
+  it("confirmed 且正文自称「请不要把 status 改成 confirmed」、无重新确认 → FAIL 并原样引用那一行", () => {
+    writeBundle("identity", {
+      covers: ["F01"],
+      body: "# identity\n\n> 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。\n",
+    });
+    writeCoherence({ coversBundles: ["identity"] });
+    const { fails } = auditSignoff(PHASE_ID, ["F01"], NOW);
+    expect(fails.join("\n")).toMatch(/正文自称不可签核/);
+    expect(fails.join("\n")).toMatch(/请不要把 `status` 改成 `confirmed`/);
+  });
+
+  it("同样的自称 + 一句「签核继续有效」的重新确认 → 不再拒绝（人类对账后的合法状态）", () => {
+    writeBundle("identity", {
+      covers: ["F01"],
+      body:
+        "# identity\n\n> 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。\n\n" +
+        "> ✅ 2026-07-31 更正：阻塞已解除，签核继续有效。\n",
+    });
+    writeCoherence({ coversBundles: ["identity"] });
+    expect(auditSignoff(PHASE_ID, ["F01"], NOW).fails).toEqual([]);
+  });
+
+  it("反证：删掉「签核继续有效」那句话 → 必须变回 FAIL（不是巧合绿）", () => {
+    writeBundle("identity", {
+      covers: ["F01"],
+      body: "# identity\n\n> 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。\n\n> ✅ 阻塞已解除。\n",
+    });
+    writeCoherence({ coversBundles: ["identity"] });
+    expect(auditSignoff(PHASE_ID, ["F01"], NOW).fails.join("\n")).toMatch(/正文自称不可签核/);
+  });
+
+  it("正文完全不含自称短语（正常情况，本仓绝大多数束）→ 不触发这条检查", () => {
+    writeBundle("identity", { covers: ["F01"], body: "# identity\n\n一切正常。\n" });
+    writeCoherence({ coversBundles: ["identity"] });
+    expect(auditSignoff(PHASE_ID, ["F01"], NOW).fails).toEqual([]);
+  });
+
+  it("status 仍是 pending 时不触发这条检查（走的是另一条「尚未签核」）", () => {
+    writeBundle("identity", {
+      covers: ["F01"],
+      status: "pending",
+      body: "# identity\n\n> 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。\n",
+    });
+    writeCoherence({ coversBundles: ["identity"] });
+    const { fails } = auditSignoff(PHASE_ID, ["F01"], NOW);
+    expect(fails.join("\n")).toMatch(/尚未签核/);
+    expect(fails.join("\n")).not.toMatch(/正文自称不可签核/);
   });
 });
 

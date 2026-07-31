@@ -183,6 +183,31 @@ export function requiredBundleFiles(phaseId: string): string[] {
   return phaseHasUi(phaseId) ? [...base, "ui.md"] : base;
 }
 
+/* ── 正文自称不可签核（ADR-023 背景 2 的直接后果，2026-07-31 补）──────────
+ *
+ * `assertDesignSignedOff` 此前只读 frontmatter 的 `status`，正文写什么都不看。
+ * 后果：三份文件（`project` / `asset-governance` / `research`）的正文逐字写着
+ * 「🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`」，而它们的 `status`
+ * 恰恰都是 `confirmed`——每一道机械门都是绿的，只有人读正文才发现矛盾。
+ *
+ * 这条检查不判断阻塞是否已经解除（那需要理解语义，机械做不到），只做一件事：
+ * **status: confirmed 的束，如果正文含自称不可签核的短语，就必须同时含一句明确的
+ * 重新确认**（本仓的写法是「签核继续有效」，签核时若阻塞已解除、人类照这个格式
+ * 补一个更正块）。没有那句重新确认 ⇒ FAIL，把自称的那一行原样贴出来。
+ *
+ * ⚠ 不判断「阻塞是否真的解除了」——那仍然是人的判断，机械只保证「矛盾不会被沉默略过」。
+ */
+const SELF_DECLARED_BLOCKED_RE = /不可签核|不具备签核条件|请不要把 `status` 改成/;
+const REAFFIRMED_RE = /签核继续有效/;
+
+/** 读 design-signoff.md 正文（frontmatter 之后的部分）。文件不存在 → 空字符串 */
+function readSignoffBody(path: string): string {
+  if (!existsSync(path)) return "";
+  const raw = readFileSync(path, "utf8");
+  const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n([\s\S]*)$/.exec(raw);
+  return m ? m[1]! : raw;
+}
+
 /** 读某阶段全部契约束的签核状态。没有 contracts/ 目录 → 空数组（该阶段还没做契约设计） */
 export function readBundleSignoffs(phaseId: string): BundleSignoff[] {
   const contractsDir = join(findPhaseDir(phaseId), "contracts");
@@ -405,6 +430,19 @@ export function auditSignoff(
         warns.push(
           `契约束「${b.bundle}」的 confirmed_by "${b.confirmedByRaw}" 带首尾空格 —— ` +
             `签名会被当成另一个人，去掉空格（${b.signoffPath}）`,
+        );
+      }
+      /* 正文自称不可签核，且没有明确的「签核继续有效」重新确认 ⇒ FAIL */
+      const body = readSignoffBody(join(REPO_ROOT, b.signoffPath));
+      const selfDeclaredLine = body
+        .split(/\r?\n/)
+        .find((line) => SELF_DECLARED_BLOCKED_RE.test(line));
+      if (selfDeclaredLine && !REAFFIRMED_RE.test(body)) {
+        fails.push(
+          `契约束「${b.bundle}」的 status 是 confirmed，但正文自称不可签核且没有重新确认：\n` +
+            `    「${selfDeclaredLine.trim()}」\n` +
+            `    修法：人类逐条对账后，在正文加一段包含「签核继续有效」的更正块（留痕原文，不删），` +
+            `或把 status 退回 pending。文件：${b.signoffPath}`,
         );
       }
     }
