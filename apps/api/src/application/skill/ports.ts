@@ -18,6 +18,9 @@ import type { DataScopeKey } from "../../domain/skill/data-scope";
 import type { SecurityScanResult } from "../../domain/skill/security-gate";
 import type { DeclarativeContract } from "../../domain/skill/declarative-contract";
 import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
+import type { ReferenceSnapshot } from "../../domain/skill/reference-enumeration";
+import type { SkillVersionSnapshot } from "../../domain/skill/version-chain";
+import type { SkillOriginTag } from "../../domain/skill/source-tag";
 import type {
   ProjectOrchestration,
   WorkflowTemplateBody,
@@ -225,4 +228,41 @@ export interface AllOrchestrationsPort {
 export interface ThreadMountStorePort {
   load(threadId: string): Promise<readonly ThreadSkillMount[]>;
   save(threadId: string, mounts: readonly ThreadSkillMount[]): Promise<void>;
+}
+
+/* ═══════════════════ F66：版本链 / 引用枚举 / 停用恢复 / 硬删 ═══════════════════ */
+
+/**
+ * 版本链的落库面。⚠ **只有 `load` / `save` 两个方法**——同 F63 三端口的纪律，
+ * 方法名集合就是「不能就地改写某一版」的结构性证据：要绕过不可变，
+ * 得先给这个接口新增一个 `patch` 之类的方法，那是一次会被 review 看见的改动。
+ */
+export interface SkillVersionStorePort {
+  loadChain(skillId: string): Promise<readonly SkillVersionSnapshot[]>;
+  saveChain(skillId: string, history: readonly SkillVersionSnapshot[]): Promise<void>;
+}
+
+/**
+ * 引用枚举三类的取数通路，**刻意分成三个方法**（同 F64 `TodoPublisherPort` 一带的纪律）：
+ * 合成一个 `referencesOf()` 会让「进行中项目 / 蓝本绑定 / agent 挂载」这三类
+ * 在契约层面失去分辨力，调用方也更容易在实现时把它们悄悄糊成一次查询。
+ * ⚠ 已知空白：当前 `list-references.ts` 仍用 `Promise.all` 等三者一起返回，
+ *   单类失败会让整个调用失败，尚未做到「一类挂掉不影响另外两类」的隔离——
+ *   留三个独立方法是为将来补这条隔离铺路，本 feature 尚未实现它。
+ */
+export interface ReferenceEnumerationPort {
+  inFlightProjects(skillId: string): Promise<readonly string[]>;
+  templateBindings(skillId: string): Promise<readonly string[]>;
+  agentMounts(skillId: string): Promise<readonly string[]>;
+}
+
+/** 停用前置清单落库（供 `disableSkill` 校验 `referenceSnapshotId` 是否是最新一次）。 */
+export interface ReferenceSnapshotStorePort {
+  save(snapshot: ReferenceSnapshot): Promise<void>;
+  loadLatest(skillId: string): Promise<ReferenceSnapshot | null>;
+}
+
+/** 硬删/停用判定需要知道来源标记（`CC` ⇒ `BUILTIN_NOT_DELETABLE`，I-13）。 */
+export interface SkillSourcePort {
+  sourceOf(skillId: string): Promise<SkillOriginTag | null>;
 }
