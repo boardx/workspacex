@@ -27,6 +27,7 @@ import { chat as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import { capabilitiesFor, observerMayReadMessage } from "../../domain/chat/thread-visibility";
+import { messageBadges } from "../../domain/chat/thread-badges";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { ChatMessageRow, ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
@@ -107,7 +108,9 @@ function toMessage(row: ChatMessageRow): z.infer<typeof C.Message> {
     agentId: row.agentId,
     skill: null,
     thinkingSummary: null,
-    badges: [],
+    // ⭐ I-13：与线程卡的「N 条待复核」**同一个函数**。这里若写成 `[]` 或就地判一次
+    //   `row.reviewPending`，两处数值就变成「碰巧相等」，而碰巧会在下一次改动时结束。
+    badges: messageBadges(row),
     citations: [],
     toolCallSummary: null,
     // 转录卡 / 产物卡的可读内容。见文件头「契约缺口」：正文目前只能经由它出现。

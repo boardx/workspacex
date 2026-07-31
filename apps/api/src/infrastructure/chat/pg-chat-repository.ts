@@ -14,6 +14,9 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 import type {
   ChatMessageRow,
   ChatRepository,
+  NewThreadInput,
+  ThreadFileRecord,
+  ThreadListRow,
   ThreadPresentation,
 } from "../../application/chat/ports";
 import type {
@@ -99,8 +102,11 @@ export class PgChatRepository implements ChatRepository {
         body: string;
         raw_transcript: boolean;
         visibility_scope: string | null;
+        review_pending: boolean;
+        created_at: Date;
       }>(
-        `SELECT id, author_kind, author_id, agent_id, body, raw_transcript, visibility_scope
+        `SELECT id, author_kind, author_id, agent_id, body, raw_transcript, visibility_scope,
+                review_pending, created_at
            FROM chat_messages WHERE thread_id = $1 AND org_id = $2 ORDER BY created_at, id`,
         [threadId, orgId],
       );
@@ -112,6 +118,10 @@ export class PgChatRepository implements ChatRepository {
         body: row.body,
         rawTranscript: row.raw_transcript,
         visibilityScope: row.visibility_scope as ChatVisibilityScope | null,
+        // ⚠ 这是全仓**唯一**读 `review_pending` 的地方。徽标怎么算见
+        //   `domain/chat/thread-badges.ts`——仓储给事实，不给结论（I-13）。
+        reviewPending: row.review_pending,
+        createdAt: row.created_at.toISOString(),
       }));
     });
     return guard({ kind: "project", id: projectId }, rows);
@@ -125,6 +135,165 @@ export class PgChatRepository implements ChatRepository {
         [threadId, orgId],
       );
       return Number(r.rows[0]?.n ?? "0");
+    });
+  }
+
+  /* ── F109 ──────────────────────────────────────────────────────────── */
+
+  /**
+   * 候选行。**没有可见性 WHERE**——过滤由 `resolveVisibility` 逐条判，
+   * 与 `getThread` 同一个门。理由见文件头与 `ports.ts` 上的注释。
+   *
+   * `transcribing` 是一个 EXISTS 子查询，读的是 `chat_transcript_sessions`，
+   * **与 `last_activity_at` 无关**（I-14）。想按时间推断徽标的实现在这里连数据都取不到。
+   */
+  async listProjectThreads(
+    orgId: OrgId,
+    projectId: string,
+    opts: { includeArchived: boolean },
+  ): Promise<readonly ThreadListRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<
+        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean }
+      >(
+        `SELECT t.id, t.project_id, t.group_id, t.visibility_scope, t.created_by, t.archived,
+                t.phase, t.title, t.agent_private, t.last_activity_at, t.version,
+                EXISTS (
+                  SELECT 1 FROM chat_transcript_sessions ts
+                   WHERE ts.thread_id = t.id AND ts.org_id = t.org_id AND ts.stopped_at IS NULL
+                ) AS transcribing
+           FROM chat_threads t
+          WHERE t.org_id = $1 AND t.project_id = $2
+            AND ($3::boolean OR NOT t.archived)
+          ORDER BY t.last_activity_at DESC, t.id`,
+        [orgId, projectId, opts.includeArchived],
+      );
+      return r.rows.map((row) => ({
+        threadId: row.id,
+        projectId: row.project_id,
+        groupId: row.group_id,
+        visibilityScope: row.visibility_scope as ChatVisibilityScope,
+        createdBy: row.created_by,
+        archived: row.archived,
+        title: row.title,
+        agentPrivate: row.agent_private,
+        lastActivityAt: row.last_activity_at.toISOString(),
+        version: row.version,
+        transcribing: row.transcribing,
+      }));
+    });
+  }
+
+  async findSpeakingAgentIds(orgId: OrgId, threadId: string): Promise<readonly string[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ agent_id: string }>(
+        `SELECT DISTINCT agent_id FROM chat_messages
+          WHERE thread_id = $1 AND org_id = $2 AND author_kind = 'agent' AND agent_id IS NOT NULL`,
+        [threadId, orgId],
+      );
+      return r.rows.map((row) => row.agent_id);
+    });
+  }
+
+  async createThread(input: NewThreadInput): Promise<void> {
+    await this.db.withTenant(input.orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_threads
+           (id, org_id, project_id, group_id, visibility_scope, title, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          input.threadId, input.orgId, input.projectId, input.groupId,
+          input.visibilityScope, input.title, input.createdBy,
+        ],
+      );
+    });
+  }
+
+  /**
+   * 乐观并发：`WHERE version = $expected` 在**同一条语句**里比对并自增。
+   * 「先 SELECT 比一下再 UPDATE」在两句之间留着一个窗口，而那个窗口就是 V7 要关的东西。
+   */
+  async renameThread(
+    orgId: OrgId,
+    threadId: string,
+    title: string,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ version: number }>(
+        `UPDATE chat_threads
+            SET title = $1, version = version + 1, last_activity_at = now()
+          WHERE id = $2 AND org_id = $3 AND version = $4
+      RETURNING version`,
+        [title, threadId, orgId, expectedVersion],
+      );
+      return r.rows[0]?.version ?? null;
+    });
+  }
+
+  async deleteThread(
+    orgId: OrgId,
+    threadId: string,
+    expectedVersion: number,
+  ): Promise<{ messageCount: number } | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 条数在同一个事务里、删除之前读。删完再数恒为 0——一个恒为 0 的影响范围
+      // 比没有影响范围更糟：它看起来像已经验证过了。
+      const c = await s.query<{ n: string }>(
+        "SELECT count(*)::text AS n FROM chat_messages WHERE thread_id = $1 AND org_id = $2",
+        [threadId, orgId],
+      );
+      const r = await s.query<{ id: string }>(
+        `DELETE FROM chat_threads
+          WHERE id = $1 AND org_id = $2 AND version = $3
+      RETURNING id`,
+        [threadId, orgId, expectedVersion],
+      );
+      if (r.rows.length === 0) return null;
+      return { messageCount: Number(c.rows[0]?.n ?? "0") };
+    });
+  }
+
+  async findThreadFile(orgId: OrgId, threadId: string): Promise<ThreadFileRecord | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        artifact_id: string;
+        object_key: string;
+        sha256: string;
+        size_bytes: string;
+      }>(
+        `SELECT artifact_id, object_key, sha256, size_bytes::text AS size_bytes
+           FROM chat_thread_files WHERE thread_id = $1 AND org_id = $2`,
+        [threadId, orgId],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        artifactId: row.artifact_id,
+        objectKey: row.object_key,
+        sha256: row.sha256,
+        sizeBytes: Number(row.size_bytes),
+      };
+    });
+  }
+
+  /**
+   * 登记指针。**没有 ON CONFLICT DO NOTHING**：主键冲突要能冒出来。
+   * 吞掉它，第二次物化会静默地留下一个没人指向的 artifact 版本，
+   * 而 I-16「恰好一个」在数据库里仍然成立、在对象存储里已经不成立了。
+   */
+  async recordThreadFile(
+    orgId: OrgId,
+    threadId: string,
+    file: ThreadFileRecord,
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_thread_files
+           (thread_id, org_id, artifact_id, object_key, sha256, size_bytes)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [threadId, orgId, file.artifactId, file.objectKey, file.sha256, file.sizeBytes],
+      );
     });
   }
 }

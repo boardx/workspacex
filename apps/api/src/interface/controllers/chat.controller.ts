@@ -13,8 +13,9 @@
  *   「组织层拒的」与「项目层拒的」这两种回答本身就能反推出资源存在。
  */
 import {
-  Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
+  Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
   NotFoundException, Param, Post, Query, ServiceUnavailableException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { chat as C } from "@repo/contracts";
 import {
@@ -34,6 +35,23 @@ import {
   type IdentityRepository,
 } from "../../application/identity/ports";
 import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
+import { listThreads } from "../../application/chat/list-threads";
+import {
+  mutateThread,
+  NoWriteRoleError,
+  ThreadArchivedReadonlyError,
+  TitleInvalidError,
+  VersionChangedError,
+} from "../../application/chat/mutate-thread";
+import {
+  FileNotMaterializedError,
+  getThreadMessagesFile,
+} from "../../application/chat/get-thread-messages-file";
+import { CLOCK, type Clock } from "../../application/auth/ports";
+import {
+  ARTIFACT_REPOSITORY, ID_FACTORY, OBJECT_STORE,
+  type ArtifactRepository, type IdFactory, type ObjectStore,
+} from "../../application/artifact/ports";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -42,9 +60,20 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
+export const MUTATE_THREAD_SCHEMA = C.operations.mutateThread.in;
 
 type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
+type MutateThreadBody = {
+  op: "create" | "rename" | "delete";
+  projectId: string | null;
+  threadId: string | null;
+  groupId: string | null;
+  title: string | null;
+  visibilityScope: "member-private" | "group-shared" | "plenary" | "team-visible" | "private" | null;
+  expectedVersion: number | null;
+  reason: string | null;
+};
 
 @Controller()
 export class ChatController {
@@ -53,6 +82,10 @@ export class ChatController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+    @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
+    @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
   ) {}
 
   private get deps() {
@@ -147,6 +180,117 @@ export class ChatController {
     } catch (e) {
       // 403，不是 404：这一档与「资源是否存在」无关，它讲的是调用者的组织角色。
       if (e instanceof NotOrgAdminError) throw new ForbiddenException();
+      throw e;
+    }
+  }
+
+  /* ── F109 ──────────────────────────────────────────────────────────── */
+
+  /**
+   * 线程列表（今天/本周分组）。
+   *
+   * ⚠ 过滤发生在 `application`，逐条经 `resolveVisibility`——**响应体里就没有**
+   *   不该有的条目，不是发出去再由前端隐藏。断言查的是这个响应的 JSON。
+   * ⚠ 无可见对话时返回 `groups: []`，**不返回「还有 N 条你看不到」**（uc-8-5 V9）。
+   */
+  @Get("/chat/projects/:projectId/threads")
+  async threads(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Query("includeArchived") includeArchived?: string,
+    @Query("filter") filter?: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await listThreads(
+        { ...this.deps, clock: this.clock },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          projectId,
+          filter: filter as "all" | "project" | "my-agents" | undefined,
+          includeArchived: includeArchived === "true",
+        },
+      );
+    } catch (e) {
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 新建 / 改名 / 删除。
+   *
+   * 状态码：
+   *   404  不可见或不存在（I-3，与读路径同一个出口）
+   *   403  有项目角色但无写权（观察者）。这一档说实话不泄露存在性：
+   *        它讲的是调用者能做什么，而调用者已经能看见这条线程了。
+   *   409  `VERSION_CHANGED`——**不静默覆盖**（V7）。
+   *   422  标题非法。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/threads/mutate")
+  async mutate(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(MUTATE_THREAD_SCHEMA)) body: MutateThreadBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await mutateThread(
+        {
+          ...this.deps,
+          provenance: this.provenance,
+          artifactIds: this.artifactIds,
+        },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          op: body.op,
+          projectId: body.projectId,
+          threadId: body.threadId,
+          groupId: body.groupId,
+          title: body.title,
+          visibilityScope: body.visibilityScope,
+          expectedVersion: body.expectedVersion,
+          reason: body.reason,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof NoWriteRoleError) throw new ForbiddenException();
+      if (e instanceof ThreadArchivedReadonlyError) throw new ForbiddenException("thread_archived_readonly");
+      if (e instanceof VersionChangedError) throw new ConflictException("version_changed");
+      if (e instanceof TitleInvalidError) throw new UnprocessableEntityException("title_invalid");
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 线程的 `messages.jsonl`（file-first）。
+   *
+   * ⚠ 它的越权出口与 `getThread` **逐字相同**（同一个 404、同一个 `resolveVisibility`）。
+   *   文件浏览器不是权限旁路（I-12 / X-5）——这句话在代码里的形式就是这里没有第二套判权。
+   */
+  @Get("/chat/threads/:threadId/messages-file")
+  async messagesFile(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getThreadMessagesFile(
+        {
+          ...this.deps,
+          materialize: { store: this.store, repo: this.artifacts, ids: this.artifactIds },
+        },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId, threadId },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof FileNotMaterializedError) throw new NotFoundException("file_not_materialized");
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }
   }
