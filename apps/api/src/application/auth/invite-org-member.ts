@@ -49,12 +49,12 @@ export interface InviteOrgMemberOutput {
   readonly inviteId: string;
   readonly status: "pending" | "awaiting-review";
   /**
-   * 本次预留的未分配额度条数。
+   * 本次预留的未分配额度条数（F11 起为真实账本，见 org-invite-ports.ts 的
+   * `quota-exhausted` 注释与 `pg-org-invite-repository.ts` 的用尽判定）。
    *
-   * ⚠ **恒为 0，因为 phase-01 里还没有配额账本**（`QuotaLedger` 属 F11）。
-   * 返回 0 是「本次没有预留任何额度」这一**真话**；返回 1 会让界面上的剩余额度
-   * 与库里的事实分叉，而没有任何东西会报错。`QUOTA_EXHAUSTED` 因此在本 feature 里
-   * **不可能被抛出**——这是缺口，写在这里而不是让下一个人从空实现里推断。
+   * ⚠ **幂等重放为 0**（`result.replayed`）——那一条 (org, email, orgRole, teamId)
+   * 早在第一次调用时就已经占用过一个位置，重放不产生第二次占用。
+   * 新建的邀请（无论 `pending` 还是 `awaiting-review`）都真实占用**一个**位置，为 1。
    */
   readonly quotaReserved: number;
   /** ⚠ `status = "awaiting-review"` 时恒为 false（I-3）。 */
@@ -99,6 +99,9 @@ export async function inviteOrgMember(
   });
 
   if (!result.ok) {
+    // I-9：配额用尽时**一律失败，且不产生任何 OrgInvite 行**——仓储在同一次锁定里判定
+    // 并直接不插入（见 `pg-org-invite-repository.ts`），这里只是把三种失败原因翻成三个码。
+    if (result.reason === "quota-exhausted") throw new OrgAdminError("QUOTA_EXHAUSTED");
     throw new OrgAdminError(
       result.reason === "already-member" ? "INVITE_ALREADY_MEMBER" : "INVITE_DUPLICATE",
     );
@@ -107,8 +110,8 @@ export async function inviteOrgMember(
   return {
     inviteId: result.inviteId,
     status,
-    // 幂等重放不重复扣额度（usecases.md 逐字）。这里恒 0 的理由见 `quotaReserved` 的注释。
-    quotaReserved: 0,
+    // 幂等重放不重复扣额度（usecases.md 逐字）；否则这是一次真实占用，为 1。
+    quotaReserved: result.replayed ? 0 : 1,
     tokenIssued: result.tokenIssued,
     // 重放时不把既有邀请的令牌再吐一次：那等于任何一个管理员都能凭「再邀一次」
     // 把别人的激活链接读出来。重放的调用方拿到 inviteId，拿不到令牌。

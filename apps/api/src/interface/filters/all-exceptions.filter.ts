@@ -274,6 +274,40 @@ function artifactErrorOf(exception: HttpException): { artifactError?: string; ar
   return id === undefined ? { artifactError: code.data } : { artifactError: code.data, artifactId: id };
 }
 
+/**
+ * F11: `TEAM_IN_USE`'s occupancy payload — the THIRD and last piece of exception detail
+ * allowed through, same shape of exemption as `artifactErrorOf`.
+ *
+ * `mutateTeam`'s design-signoff note is explicit: "占用项作为 out.blocked 返回同时抛该码：
+ * 错误体带结构化数据是本束的形状" — a response that only says `{"error":"conflict",
+ * "reasonCode":"TEAM_IN_USE"}` sends the admin to guess who is using the team. Structural
+ * validation only (kind/id/label strings, two non-negative counts), not a full zod parse
+ * against the contract's nested object literal — pulling that in here would let the filter
+ * depend on the exact shape `mutateTeam.out.blocked` happens to have today rather than on a
+ * named, reusable schema, and none exists yet for this one nested shape.
+ */
+function teamOccupancyOf(exception: HttpException): { blocked?: unknown } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { reasonCode?: unknown; blocked?: unknown };
+  if (raw.reasonCode !== "TEAM_IN_USE") return {};
+  const blocked = raw.blocked;
+  if (typeof blocked !== "object" || blocked === null) return {};
+  const b = blocked as { memberCount?: unknown; aclBindingCount?: unknown; items?: unknown };
+  const itemsOk =
+    Array.isArray(b.items) &&
+    b.items.every(
+      (it) =>
+        typeof it === "object" &&
+        it !== null &&
+        typeof (it as Record<string, unknown>).kind === "string" &&
+        typeof (it as Record<string, unknown>).id === "string" &&
+        typeof (it as Record<string, unknown>).label === "string",
+    );
+  if (typeof b.memberCount !== "number" || typeof b.aclBindingCount !== "number" || !itemsOk) return {};
+  return { blocked };
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   constructor(@Inject(LOGGER_PORT) private readonly logger: LoggerPort) {}
@@ -303,6 +337,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         traceId,
         ...permissionReasonOf(exception),
         ...artifactErrorOf(exception),
+        ...teamOccupancyOf(exception),
       });
       return;
     }
