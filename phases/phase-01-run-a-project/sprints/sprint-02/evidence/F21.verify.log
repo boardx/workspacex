@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/tpl/init-preview-six-categories.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/tpl/init-preview-six-categories.test.ts
+filter:  tests/tpl/init-preview-six-categories.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=80254d36977b841556a5830065bb00a935d8a6041ff2f6460fb083160e05426d commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:47:04.327Z]

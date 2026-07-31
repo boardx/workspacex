@@ -34,9 +34,9 @@
         "F15"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-auth",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/four-viewpoint-button-diff.test.ts",
         "pnpm --filter api exec vitest run tests/auth/overprivilege-fields-absent.test.ts",
@@ -192,9 +192,9 @@
         "F12"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-auth2",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/join-wrong-group-redirect.test.ts",
         "pnpm --filter api exec vitest run tests/auth/join-apply-pending-approval.test.ts",
@@ -216,9 +216,9 @@
         "F12"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-auth3",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/phone-withdrawal-queue.test.ts",
         "pnpm --filter api exec vitest run tests/auth/phone-retire-from-search.test.ts",
@@ -1554,8 +1554,8 @@
         "F70"
       ],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-rec",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/overlap-pending-manual.test.ts",
         "pnpm --filter api exec vitest run tests/rec/disputed-lowconf-not-citable.test.ts"
@@ -1575,8 +1575,8 @@
         "F70"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-rec2",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/pii-mask-five-types.test.ts",
         "pnpm --filter api exec vitest run tests/rec/phone-encrypted-masked.test.ts"
@@ -1596,8 +1596,8 @@
         "F70"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-rec3",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/file-first-materialization.test.ts",
         "pnpm --filter api exec vitest run tests/rec/derived-from-original-unchanged.test.ts"
@@ -1617,8 +1617,8 @@
         "F70"
       ],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-rec4",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/assign-backfill-revocable.test.ts",
         "pnpm --filter api exec vitest run tests/rec/candidate-from-onsite-roster-only.test.ts"
@@ -1659,8 +1659,8 @@
         "F70"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-rec5",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/quote-anchor-and-rq-binding.test.ts",
         "pnpm --filter api exec vitest run tests/rec/unstable-segments-reject-quote.test.ts"
@@ -2220,8 +2220,8 @@
         "F101"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-canvas",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/segment-binding-instantiation.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/segment-two-template-limit.test.ts"
@@ -2420,8 +2420,8 @@
         "F110"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/tool-call-chain-provenance-projection.test.ts",
         "pnpm --filter api exec vitest run tests/chat/citation-anchor-100pct-locatable.test.ts",
@@ -2509,8 +2509,8 @@
         "F108"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-chat2",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/preset-usage-count-instances.test.ts",
         "pnpm --filter api exec vitest run tests/chat/preset-dispatch-scope-check.test.ts"
@@ -2608,9 +2608,9 @@
         "F118"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-project",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2633,9 +2633,9 @@
         "F118"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-project2",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2658,9 +2658,9 @@
         "F118"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-project3",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2710,9 +2710,9 @@
         "F118"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w3-project4",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",

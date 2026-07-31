@@ -1,0 +1,92 @@
+$ pnpm --filter api exec vitest run tests/capability/model/selectable-set-equals-enabled.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/model/selectable-set-equals-enabled.test.ts (11 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  22:47:05
+   Duration  345ms (transform 144ms, setup 0ms, collect 191ms, tests 2ms, environment 0ms, prepare 34ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/model/disable-cascade-dep-failed.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/model/disable-cascade-dep-failed.test.ts (11 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  22:47:06
+   Duration  345ms (transform 144ms, setup 0ms, collect 190ms, tests 2ms, environment 0ms, prepare 37ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/model/disable-choice-interrupt-or-finish.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/model/disable-choice-interrupt-or-finish.test.ts (8 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  22:47:06
+   Duration  344ms (transform 141ms, setup 0ms, collect 183ms, tests 2ms, environment 0ms, prepare 31ms)
+
+
+
+$ bash apps/web/scripts/verify-ui-states.sh
+[exit 1]
+==> 启动 dev 实例（:3198）
+==> 七种必现状态（每态一个固定 testid）
+  ✓ default      → section-states
+  ✓ loading      → loading
+  ✓ empty        → empty
+  ✓ invalid      → err-email
+  ✓ dep-failed   → dep-failed
+  ✓ denied       → denied
+  ✓ success      → saved
+==> 七态互斥（切到 A 时不得同时渲染 B）
+  ✓ 互斥成立
+==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须可选中）
+  ✗ /studio/prototype → loading 缺保留 testid（期望 loading）
+  ✗ /studio/prototype → empty 缺保留 testid（期望 empty）
+  ✗ /studio/prototype → invalid 缺保留 testid（期望 err-）
+  ✗ /studio/prototype → dep-failed 缺保留 testid（期望 dep-failed）
+  ✗ /studio/prototype → denied 缺保留 testid（期望 denied）
+  ✗ /studio/prototype → success 缺保留 testid（期望 saved）
+  ✗ /studio/interview → loading 缺保留 testid（期望 loading）
+  ✗ /studio/interview → empty 缺保留 testid（期望 empty）
+  ✗ /studio/interview → invalid 缺保留 testid（期望 err-）
+  ✗ /studio/interview → dep-failed 缺保留 testid（期望 dep-failed）
+  ✗ /studio/interview → denied 缺保留 testid（期望 denied）
+  ✗ /studio/interview → success 缺保留 testid（期望 saved）
+==> 两层身份投影的**作用域**（UC-0.3：项目角色只在项目里成立）
+  ✓ /chat               as=facilitator  → 引导师
+  ✓ /chat               as=groupLead    → 组长
+  ✓ /chat               as=member       → 组员
+  ✓ /chat               as=observer     → 观察者
+  ✓ /projects/p1/canvas as=facilitator  → 引导师
+==> 反向：非项目页面**不得**出现项目层与视角切换器
+  ✓ /tasks          只有组织层
+  ✓ /brain          只有组织层
+  ✓ /admin          只有组织层
+  ✓ /kitchen-sink   只有组织层
+  ✓ /projects       只有组织层
+==> 本地组织：承诺与策略必须可分辨（UC-0.5 V12）
+  ✓ org-yuanyang   → none
+  ✓ org-hengtai    → policy
+  ✓ org-local      → promise
+==> 组织切换（裁决 O-12：切换后团队归属随之改变）
+  ✓ 远洋新能源 → 能源组
+  ✓ 恒泰供应链 → 供应链组
+==> 骨架完整性
+
+❌ UI 状态门控失败
+
+[harness-verify v1 sha256=bf4d6e65abd6664783c77ee2ccb710734871aef10e726131754329bd519c28d5 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:47:32.024Z]
