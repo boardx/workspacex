@@ -35,7 +35,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-auth",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/four-viewpoint-button-diff.test.ts",
@@ -193,7 +193,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-auth2",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/join-wrong-group-redirect.test.ts",
@@ -217,7 +217,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-auth3",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/phone-withdrawal-queue.test.ts",
@@ -1564,7 +1564,8 @@
       "notes": "依据裁决 O-13（结构性断言，不依赖数值阈值）。合并 UC-5.1/E7（检测重叠）与 UC-5.2/R5（两态处理出口）为一件事；mock 的 SegmentStatus 已含 pending-manual/disputed（seg-08 无默认选中）。数值型混淆率阈值 [待确认·待补数]，不阻断本 feature。",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F72",
@@ -1585,7 +1586,8 @@
       "notes": "依据 [原型]+裁决 O-39。加密密钥策略/法定留存清单仍待合规输入，但五类最小集与手机号存储形态已闭合、可先动工。共享脱敏内核，07-canvas/06-itv/08-chat 引用不重造。\n【跨分片依赖待确认】17-gov: D-16 两级脱敏内核（本 feature 只做转写侧接入点，不另造规则）",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F73",
@@ -1606,7 +1608,8 @@
       "notes": "依据 [设计]（Context Engine file-first）。不重复实现存储（存储在 phase-00 F04），本 feature 只做录制产物的物化与登记投影。\n【跨分片依赖待确认】phase-00: F04 Artifact 六表 + file-first 存储契约；22-files: 目录树与下载（同一套 acl_bindings，非权限旁路）",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F74",
@@ -1627,7 +1630,8 @@
       "notes": "依据 [原型]+[Backlog]。声道↔人映射是独立实体、被引述/洞察/报告/图谱共同引用（不把真名冗余进每条转写段）；候选人名单只来自本场在场名单，无任何跨场次声纹比对调用。完整校对屏属未探明（补抽取即可），入口与行内操作已探明。",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F75",
@@ -1669,7 +1673,8 @@
       "notes": "依据 [原型]。引述是指向 transcript.jsonl 某个 anchor 的引用，不复制正文；正在识别/待校对/待人工指派三态段落一律不可被标为引述（AC4）。",
       "priority": 1,
       "area": "rec",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F77",
@@ -2230,7 +2235,8 @@
       "notes": "依据 [设计]。蓝本 16 项设计配置的第 9/10/13 项配置面板属未探明（proto-05/06/08 未探明清单），模板选择面板的分类维度属原型确认缺失，故 needs_ui_signoff。「最多两个模板」上限出自 Backlog。",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F103",
@@ -2431,7 +2437,8 @@
       "notes": "依据 [原型]+[设计]。界面已建（chat-tool-calls/chat-tool-call-row/chat-citation-anchor）。展开的调用链是 provenance_events 的展示投影（不另建调用日志表，两套会漂移）、尝试修改被拒（append-only）；引用无锚点视为不合格（全项目硬不变量，100% 可定位）。\n【跨分片依赖待确认】phase-00: provenance_events（append-only 血缘）+ Context Pack 可重放",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F112",
@@ -2519,7 +2526,8 @@
       "notes": "依据 [Backlog]——「预设」二字在原型抽取档案 0 命中，列表/编辑器/下发对象选择器/使用计数/接收入口全部原型确认缺失，故 needs_ui_signoff。UC-8.4 为 P1。预设实例继承 UC-8.2 全部规则、不得预先批准任何高影响动作、不得预置绕过权限或同意位的检索范围（O-05）。\n【跨分片依赖待确认】03-skill/04-agent: 资源可见性范围（phase-00 F15 组织配置）",
       "priority": 2,
       "area": "chat",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F116",
@@ -2609,7 +2617,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-project",
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2634,7 +2642,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-project2",
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2659,7 +2667,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-project3",
       "verification": [
         "pnpm --filter api run typecheck",
@@ -2711,7 +2719,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w3-project4",
       "verification": [
         "pnpm --filter api run typecheck",
