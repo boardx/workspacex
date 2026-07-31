@@ -85,3 +85,33 @@ export class ConsentWriteFailedError extends Error {
     super("CONSENT_WRITE_FAILED");
   }
 }
+
+/**
+ * 试图写 `用过 N 次`（I-8，F82）。
+ *
+ * ⚠ 契约的 `createTemplate`/`updateTemplate` 入参本身就没有 `usedCount` 这个字段
+ * （`.strict()` schema 会在到达这里之前就拒绝多出来的键），所以本仓正常的调用路径永远
+ * 走不到这个错误。它存在的唯一理由与 `CONSENT_STAFF_READONLY` 一样——给「构造出来的写请求」
+ * （绕过类型直接拼 JSON、或未来某个粗心的旁路）留一个可断言的拒绝对象，
+ * 而不是让那类请求安静地把统计值改写掉。
+ */
+export class TemplateStatReadonlyError extends Error {
+  readonly code = "TEMPLATE_STAT_READONLY" as const;
+  constructor(readonly templateId: string) {
+    super(`TEMPLATE_STAT_READONLY: usedCount is a computed projection, not a writable field (${templateId})`);
+  }
+}
+
+/** 并发改同一模板：`expectedVersionNumber` 与当前 head 不一致（uc-6-1/E3，F82）。 */
+export class TemplateVersionChangedError extends Error {
+  readonly code = "TEMPLATE_VERSION_CHANGED" as const;
+  constructor(
+    readonly templateId: string,
+    readonly expectedVersionNumber: number,
+    readonly currentVersionNumber: number,
+  ) {
+    super(
+      `TEMPLATE_VERSION_CHANGED: template ${templateId} expected version ${expectedVersionNumber} but head is ${currentVersionNumber}`,
+    );
+  }
+}

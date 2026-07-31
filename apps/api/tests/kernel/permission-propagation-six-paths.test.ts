@@ -538,7 +538,25 @@ describe("lint-permission-paths: counter-proof", () => {
     // artifact/segment CONTENT), and `tests/project/overview-empty-vs-dependency-failure.
     // test.ts` asserts a dependency outage surfaces as 503, never a silently-empty 200. If
     // either test is deleted, this entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(15);
+    //
+    // ⚠ Raised 15 -> 16 by F82 (uc-6-1 access-templates data model). RE-MEASURED via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (see the fresh count below), not
+    // computed as "15 + 1". The new entry is `infrastructure/interview/pg-template-repository.ts`
+    // -- unlike every entry above, this one is not "the read cannot be judged by authorize()
+    // without over-granting" (the `organization`/`interview` shape) or "this echoes the actor's
+    // own write" (the project-repository shape). It is a THIRD shape: the rule to judge by does
+    // not exist yet. `contracts/interview/domain.md` marks the template visibility range
+    // (org-wide / team-private / personal draft) `[待定 D-16]`, still undecided at signoff.
+    // Writing a `decideTemplateVisibility` now would fabricate the very rule the signoff
+    // deferred -- worse than the gap, because it would read as covered.
+    //
+    // Its ENFORCED premise: every statement in the file is scoped by an explicit `org_id`
+    // predicate/column (the same bound RLS already gives -- not looser), and the file never
+    // calls `withoutTenant`. `tests/itv/template-repo-org-scoped-only.test.ts` parses the file
+    // and fails on either violation. The day D-16 is decided, the allowlist entry must be
+    // REPLACED by a real `decideTemplateVisibility` + `discloseDecided()` path, not renewed --
+    // if that companion test is ever deleted, this allowlist entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(16);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
