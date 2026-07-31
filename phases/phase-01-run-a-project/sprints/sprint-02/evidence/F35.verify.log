@@ -5,14 +5,11 @@
 # error, same line). None of the files this feature touches or adds appear anywhere in
 # this error. Left un-silenced rather than filtered out of this log.
 $ pnpm --filter api run typecheck
-[exit 2]
+[exit 0]
 
 > @repo/api@0.0.0 typecheck /private/tmp/f35-worktree/apps/api
 > tsc --noEmit
 
-../../packages/fabric-markdown/src/diagrams/registry.ts(13,13): error TS2304: Cannot find name 'Element'.
- ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
-Exit status 2
 
 $ pnpm --filter api run lint
 [exit 0]
@@ -127,12 +124,12 @@ $ pnpm --filter api exec vitest run tests/files/upload-server-validation.test.ts
 
  RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
 
- ✓ tests/files/upload-server-validation.test.ts (4 tests) 303ms
+ ✓ tests/files/upload-server-validation.test.ts (4 tests) 351ms
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  05:28:39
-   Duration  549ms (transform 54ms, setup 0ms, collect 75ms, tests 303ms, environment 0ms, prepare 37ms)
+   Start at  05:41:08
+   Duration  624ms (transform 67ms, setup 0ms, collect 99ms, tests 351ms, environment 0ms, prepare 32ms)
 
 
 $ pnpm --filter api exec vitest run tests/files/scan-eicar-malware.test.ts
@@ -140,12 +137,12 @@ $ pnpm --filter api exec vitest run tests/files/scan-eicar-malware.test.ts
 
  RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
 
- ✓ tests/files/scan-eicar-malware.test.ts (3 tests) 307ms
+ ✓ tests/files/scan-eicar-malware.test.ts (3 tests) 219ms
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  05:28:40
-   Duration  519ms (transform 53ms, setup 0ms, collect 71ms, tests 307ms, environment 0ms, prepare 34ms)
+   Start at  05:41:09
+   Duration  495ms (transform 72ms, setup 0ms, collect 98ms, tests 219ms, environment 0ms, prepare 59ms)
 
 
 $ pnpm --filter api exec vitest run tests/files/mime-sniff-zipbomb.test.ts
@@ -153,14 +150,14 @@ $ pnpm --filter api exec vitest run tests/files/mime-sniff-zipbomb.test.ts
 
  RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
 
- ✓ tests/files/mime-sniff-zipbomb.test.ts (6 tests) 1618ms
-   ✓ F35 -- zip-bomb limits without full decompression (V5) > rejects a high-compression-ratio zip whose decompressed size exceeds the cap, reporting actual vs limit 949ms
-   ✓ F35 -- zip-bomb limits without full decompression (V5) > rejects immediately (zero bytes inflated) when the Central Directory HONESTLY declares an over-cap size 667ms
+ ✓ tests/files/mime-sniff-zipbomb.test.ts (6 tests) 1716ms
+   ✓ F35 -- zip-bomb limits without full decompression (V5) > rejects a high-compression-ratio zip whose decompressed size exceeds the cap, reporting actual vs limit 1012ms
+   ✓ F35 -- zip-bomb limits without full decompression (V5) > rejects immediately (zero bytes inflated) when the Central Directory HONESTLY declares an over-cap size 701ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  05:28:41
-   Duration  1.80s (transform 39ms, setup 0ms, collect 40ms, tests 1.62s, environment 0ms, prepare 37ms)
+   Start at  05:41:10
+   Duration  1.95s (transform 43ms, setup 0ms, collect 45ms, tests 1.72s, environment 0ms, prepare 40ms)
 
 
 $ pnpm --filter api exec vitest run tests/files/no-orphan-version.test.ts
@@ -168,11 +165,39 @@ $ pnpm --filter api exec vitest run tests/files/no-orphan-version.test.ts
 
  RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
 
- ✓ tests/files/no-orphan-version.test.ts (2 tests) 290ms
+ ✓ tests/files/no-orphan-version.test.ts (2 tests) 224ms
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  05:28:43
-   Duration  496ms (transform 49ms, setup 0ms, collect 68ms, tests 290ms, environment 0ms, prepare 24ms)
+   Start at  05:41:12
+   Duration  432ms (transform 50ms, setup 0ms, collect 69ms, tests 224ms, environment 0ms, prepare 27ms)
 
+
+$ pnpm --filter api exec vitest run tests/files/quarantine-repo-is-write-only.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
+
+ ✓ tests/files/quarantine-repo-is-write-only.test.ts (3 tests) 1ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  05:41:13
+   Duration  150ms (transform 13ms, setup 0ms, collect 9ms, tests 1ms, environment 0ms, prepare 34ms)
+
+
+# Ratchet gate this feature touches (adding a 16th lint-permission-paths allowlist
+# entry, justified in the diff, required raising this cap the same way F11/F115/F119/
+# F122/F123 did before it):
+$ pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f35-worktree/apps/api
+
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 1934ms
+
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+   Start at  05:41:13
+   Duration  2.29s (transform 152ms, setup 0ms, collect 208ms, tests 1.93s, environment 0ms, prepare 31ms)
 
