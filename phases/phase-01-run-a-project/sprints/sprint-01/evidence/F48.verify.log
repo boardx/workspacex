@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/capability/model/registry-fields.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/capability/model/registry-fields.test.ts
+filter:  tests/capability/model/registry-fields.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=7acd3105e07a8e3ce08f94a6764b51c3525657fbc5e45b5813308fcad645675f commit=835aa96ff58a49428b0cab24e2c2e98c6f6ae6ff at=2026-07-31T02:49:03.252Z]

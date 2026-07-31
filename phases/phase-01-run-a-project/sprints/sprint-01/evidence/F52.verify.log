@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/capability/mcp/three-orthogonal-fields.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/capability/mcp/three-orthogonal-fields.test.ts
+filter:  tests/capability/mcp/three-orthogonal-fields.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=b9fc1e2b05478952d26698ae26cfd25574778814f4e63de8bf6ca58c4e281f70 commit=835aa96ff58a49428b0cab24e2c2e98c6f6ae6ff at=2026-07-31T02:49:03.714Z]

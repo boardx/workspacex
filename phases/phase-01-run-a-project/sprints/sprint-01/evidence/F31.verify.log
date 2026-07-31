@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/files/artifacts-list-rls.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/files/artifacts-list-rls.test.ts
+filter:  tests/files/artifacts-list-rls.test.ts
+include: tests/**/*.test.ts
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+
+[harness-verify v1 sha256=ad9e489280df4884116f9ce52dad03dd4d5a6854326aefa1fb3a7adb30aa25b1 commit=835aa96ff58a49428b0cab24e2c2e98c6f6ae6ff at=2026-07-31T02:48:34.220Z]

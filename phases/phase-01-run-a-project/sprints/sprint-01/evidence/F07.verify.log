@@ -1,0 +1,110 @@
+$ pnpm --filter api exec vitest run tests/auth/team-visibility-filter.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ❯ tests/auth/team-visibility-filter.test.ts (12 tests | 11 failed) 11377ms
+   ✓ the filtering happens on the SERVER: the row is not in the response at all > agent — a wrong-team member's response body does not contain the restricted row 693ms
+   × the filtering happens on the SERVER: the row is not in the response at all > canvas-template — the same, for the second kind F07 names 222ms
+     → insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+   × the filtering happens on the SERVER: the row is not in the response at all > a member of the OWNING team gets both rows — so the denial above was the scope, not the row 184ms
+     → insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > wrong team is denied, and the response carries no fact about the resource 51ms
+     → duplicate key value violates unique constraint "organizations_pkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > owning team is allowed — the route is not a constant `false` 269ms
+     → capability_listing owner_team org-f07-vis-team-energy does not belong to org org-f07-vis (invariant I-1)
+   × ResolveResourceScope: the same judgement, asked directly (V6) > org-wide resources are visible to every member of the organization 73ms
+     → duplicate key value violates unique constraint "organizations_pkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > an id that does not exist is INDISTINGUISHABLE from one restricted to another team (V13) 325ms
+     → insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > an id belonging to a DIFFERENT kind is absent, not cross-reported 172ms
+     → duplicate key value violates unique constraint "organizations_pkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > a resource kind outside the closed capability set is a 400, not a verdict 226ms
+     → insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+   × ResolveResourceScope: the same judgement, asked directly (V6) > the use case is reachable without HTTP and gives the same answer 40ms
+     → duplicate key value violates unique constraint "organizations_pkey"
+   × 「无论其项目角色为何」 — exhaustive over the project-role enum > every project role, including facilitator, is denied a team-only resource of another team 258ms
+     → insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+   × 「无论其项目角色为何」 — exhaustive over the project-role enum > COUNTER-PROOF: the same roles DO get through once the team matches 115ms
+     → duplicate key value violates unique constraint "organizations_pkey"
+
+ Test Files  1 failed (1)
+      Tests  11 failed | 1 passed (12)
+   Start at  10:47:01
+   Duration  15.09s (transform 3.12s, setup 0ms, collect 2.22s, tests 11.38s, environment 0ms, prepare 355ms)
+
+undefined
+/Users/shenyanbin/Documents/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/auth/team-visibility-filter.test.ts
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/team-visibility-filter.test.ts > the filtering happens on the SERVER: the row is not in the response at all > canvas-template — the same, for the second kind F07 names
+ FAIL  tests/auth/team-visibility-filter.test.ts > 「无论其项目角色为何」 — exhaustive over the project-role enum > every project role, including facilitator, is denied a team-only resource of another team
+error: insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:158:17
+    156|     await c.query("BEGIN");
+    157|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    158|     const out = await fn(c);
+       |                 ^
+    159|     await c.query("COMMIT");
+    160|     return out;
+ ❯ Module.addOrgMember tests/support/db.ts:236:3
+ ❯ tests/auth/team-visibility-filter.test.ts:98:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  tests/auth/team-visibility-filter.test.ts > the filtering happens on the SERVER: the row is not in the response at all > a member of the OWNING team gets both rows — so the denial above was the scope, not the row
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > an id that does not exist is INDISTINGUISHABLE from one restricted to another team (V13)
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > a resource kind outside the closed capability set is a 400, not a verdict
+error: insert or update on table "org_memberships" violates foreign key constraint "org_memberships_org_id_fkey"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:158:17
+    156|     await c.query("BEGIN");
+    157|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    158|     const out = await fn(c);
+       |                 ^
+    159|     await c.query("COMMIT");
+    160|     return out;
+ ❯ Module.addOrgMember tests/support/db.ts:236:3
+ ❯ tests/auth/team-visibility-filter.test.ts:99:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > wrong team is denied, and the response carries no fact about the resource
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > org-wide resources are visible to every member of the organization
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > an id belonging to a DIFFERENT kind is absent, not cross-reported
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > the use case is reachable without HTTP and gives the same answer
+ FAIL  tests/auth/team-visibility-filter.test.ts > 「无论其项目角色为何」 — exhaustive over the project-role enum > COUNTER-PROOF: the same roles DO get through once the team matches
+error: duplicate key value violates unique constraint "organizations_pkey"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ tests/support/db.ts:210:5
+    208|   await asApp(orgId, async (c) => {
+    209|     const kind = opts.kind ?? "organization";
+    210|     await c.query(
+       |     ^
+    211|       "INSERT INTO organizations (id, name, kind, owner_user_id) VALUE…
+    212|       [orgId, `org ${orgId}`, kind, kind === "personal-local" ? (opts.…
+ ❯ asApp tests/support/db.ts:158:17
+ ❯ Module.seedOrg tests/support/db.ts:208:3
+ ❯ tests/auth/team-visibility-filter.test.ts:97:8
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  tests/auth/team-visibility-filter.test.ts > ResolveResourceScope: the same judgement, asked directly (V6) > owning team is allowed — the route is not a constant `false`
+error: capability_listing owner_team org-f07-vis-team-energy does not belong to org org-f07-vis (invariant I-1)
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:158:17
+    156|     await c.query("BEGIN");
+    157|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    158|     const out = await fn(c);
+       |                 ^
+    159|     await c.query("COMMIT");
+    160|     return out;
+ ❯ Module.addCapability tests/support/db.ts:410:3
+ ❯ tests/auth/team-visibility-filter.test.ts:105:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+
+[harness-verify v1 sha256=581afb5d9047e2063462e53c877402d7fc7976470e43cfc897d11c08f0eaec86 commit=835aa96ff58a49428b0cab24e2c2e98c6f6ae6ff at=2026-07-31T02:47:17.065Z]

@@ -282,7 +282,7 @@
       "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R7",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-tpl",
       "verification": [
@@ -290,7 +290,7 @@
         "pnpm --filter api exec vitest run tests/tpl/completeness-denominator-from-table.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/required-column-drives-gate.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F17.verify.log @ 2026-07-31T02:48:33.013Z",
       "notes": "依据：D-03 术语三分[人类已拍板]，O-07（第16项待补抽取、分母由定义表驱动）、O-18⑤（required 布尔列）已裁决——两个未决（第16项是什么、哪些必填）由同一张表吸收，清单变化不改代码，故 verification 可立即写为参数化 N（V1）。纯后端领域模型，无 UI，needs_ui_signoff=false。版本模型与 UC-2.2 T50 快照绑定、UC-2.4 T65 列表/归档共用同一版本内核，本 feature 只占领域模型不与它们重复计点。是 UC-2.1(21) 拆分第 1 项。\n【跨分片依赖待确认】phase-00: UC-0.1 版本与固定快照内核（F0x）；00-core: acl_bindings 权限（F01）"
     },
     {
@@ -975,14 +975,14 @@
       "spec_ref": "22-files/uc-22-4-版本-派生物与删除传播.md#R10",
       "depends_on": [],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-files2",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-ontology-edge-invalidate.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/files/contract-stub-report-segment-invalidate.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F47.verify.log @ 2026-07-31T02:49:02.565Z",
       "notes": "依据：roadmap.yaml 已把 uc-22-4 删除级联依赖的两个 phase-02 接口写成 phase-01 契约先行项。这两个接口属 phase-02 模块（09-kg ontology_edges、10-report/13-deliv 报告段落），本 feature 只出契约桩让 T86 的六类级联⑤⑥可验证失效（AC2 门槛）。⚠ 计点说明：本 feature 1 点是 phase-02 工作前置到 phase-01 的净新增，不在 22-files 模块头部声明的 47 点内（模块 47 点是 UI 投影视角）；因此本分片 files 合计=47+1=48。⚠ 六类级联依赖外部模块提供失效接口是本模块最大外部风险，需排期确保这两个接口先于 T86 就绪。\n【跨分片依赖待确认】09-kg（phase-02）: ontology_edges 失效接口正式实现；10-report/13-deliv（phase-02）: 报告段落标失效接口正式实现；roadmap.yaml: 已把这两项写成 phase-01 契约先行项"
     },
     {
@@ -1164,7 +1164,7 @@
       "spec_ref": "04-agent/uc-4-1-注册一个-agent.md#R7",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-agent",
       "verification": [
@@ -1172,7 +1172,7 @@
         "pnpm --filter api exec vitest run tests/capability/agent/version-snapshot-lock.test.ts",
         "pnpm --filter api exec vitest run tests/capability/agent/disabled-not-loadable.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F55.verify.log @ 2026-07-31T02:49:25.503Z",
       "notes": "依据：复制不继承权限 O-22①；版本+锁版本 O-22⑤；已停用态 O-22④（已归档为已停用终态子类不单列）。可见性范围二取值为 [原型]。Agent 管理列表屏已建成于 apps/web/components/admin/agent-screen.tsx（testid admin-agent-list / admin-agent-add），交付领域模型与版本快照后端；配置面板内部为真·未探明（补抽取）。agent 版本锁定是 UC-4.4“当时跑的是哪一版”可回答的前提。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（Ava/Scout 等 agent 是示例配置，不得硬编码）；phase-00: D-30 不可变快照 / 版本锁定",
       "_uc_points_declared": "UC-4.1 声明 8 点 = T08(3)+T09(5)"
     },
@@ -1313,7 +1313,7 @@
       "spec_ref": "03-skill/uc-3-1-上传并校验一个-skill.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-skill",
       "verification": [
@@ -1322,7 +1322,7 @@
         "pnpm --filter api exec vitest run tests/capability/skill/status-enum-exactly-four.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/source-tag-system-assigned.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F61.verify.log @ 2026-07-31T02:49:47.298Z",
       "notes": "依据：契约三件套/无沙箱 D-06；四态状态机 O-11（V13：不存在“已发布”字面量）；来源标记自动打标 [设计]；数据范围越权检查以提交人当前权限为上界。列表屏已建成于 apps/web/components/admin/skill-screen.tsx（testid admin-skill-list / admin-skill-add / admin-skill-import），交付契约模型与校验/扫描后端；配置面板内部为真·未探明（补抽取）。社区导入 D-06 phase-1 不实现（只保留 source=community 取值，入口置灰）。Context API 唯一通路可用架构依赖规则测试断言。\n【跨分片依赖待确认】phase-00: F15 组织配置平面（86 条 skill 是示例配置，不得硬编码）；phase-00: Context Engine / Context API（skill 运行时唯一取数通路 + context_packs 记录）；D-06: phase-1 skill=声明式契约，无沙箱、不执行任意代码",
       "_uc_points_declared": "UC-3.1 声明 8 点 = T14(5)+T15(3)"
     },
@@ -1508,14 +1508,14 @@
       "spec_ref": "05-rec/uc-5-1-开启多路录音并实时出字.md#R3",
       "depends_on": [],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w0-rec",
       "verification": [
         "pnpm --filter api exec vitest run tests/rec/multi-track-no-crosstalk.test.ts",
         "pnpm --filter api exec vitest run tests/rec/mic-permission-decline-no-segment.test.ts",
         "grep -rq 'data-testid=.group-mic-toggle' apps/web/components/entry"
       ],
-      "evidence": "",
+      "evidence": "evidence/F69.verify.log @ 2026-07-31T02:50:09.612Z",
       "notes": "依据 [原型]。界面已建成：/session 组内录音（group-mic-toggle）、/studio/interview 转录区（itv-tracks/itv-realtime-bar）、/chat 线程转录卡；本 feature 交付 source_type∈{workshop,interview,thread} 的采集与权限门控数据层。AC1 跨路隔离为结构断言（各路注入已知音频，断言互不含）。\n【跨分片依赖待确认】01-auth: 授权与可见性判定；phase-00: F14 七态外壳与保留态名",
       "priority": 1,
       "area": "rec",
@@ -1739,13 +1739,13 @@
       "spec_ref": "06-itv/uc-6-0-访谈-studio-列表与范围.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w0-itv",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/scope-nullable-project-projection.test.ts",
         "pnpm --filter api exec vitest run tests/itv/scope-server-side-filter-no-leak.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F80.verify.log @ 2026-07-31T02:50:38.514Z",
       "notes": "依据 [原型]+[设计]。这是 06-itv 其余全部 feature 的地基（若做成 project_id NOT NULL，6.1/6.2/6.5/6.7 全返工）。范围过滤在服务端，不得返回全量再前端过滤。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS 强制隔离",
       "priority": 1,
       "area": "itv",
@@ -2343,14 +2343,14 @@
       "spec_ref": "08-chat/uc-8-5-对话可见性规则.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w0-chat",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/visibility-two-layer-intersection.test.ts",
         "pnpm --filter api exec vitest run tests/chat/observer-downgrade-server-side.test.ts",
         "grep -rq 'data-testid=.chat-observer-tag' apps/web/components/chat"
       ],
-      "evidence": "",
+      "evidence": "evidence/F108.verify.log @ 2026-07-31T02:51:21.405Z",
       "notes": "依据 [原型]（四视角完整）+D-12/O-04/O-24。08-chat 其余四份的可见性语义全部引用本 UC、不各自定义；观察者降级是服务端不下发而非前端隐藏。可见范围徽标 AC1 界面部分 [设计]（原型未见徽标），服务端字段本身 [原型] 明确。chat-observer-tag/chat-readonly-note 已存在。\n【跨分片依赖待确认】phase-00: F01 两层角色 / F02 RLS / F03 管理员边界（角色枚举与判定中间件来自 00-core/uc-0-3）",
       "priority": 1,
       "area": "chat",
@@ -2518,7 +2518,7 @@
       "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R7",
       "depends_on": [],
       "points": 6,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-project",
       "verification": [
@@ -2529,7 +2529,7 @@
         "apps/api/scripts/verify-rls.sh",
         "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
+      "evidence": "evidence/F116.verify.log @ 2026-07-31T02:51:49.596Z",
       "notes": "依据：Q-12 裁 C（三类独立容器）+ 连带 4 裁 D（超类型 + 1:1 子类型表）+ U-9 裁 A（判别列 kind + 复合外键，纯声明式无触发器）。落 I-P33 / I-P34 / I-P36。\n⚠ 白名单门控必须是**集合相等**不是黑名单——黑名单挡不住下一个没被想到的名字（agenda_segment_id 被挡住了，current_segment_id 没有）。判定抽成纯函数 checkProjectsColumnSet(actual)，配三条反证：喂 [...白名单,'agenda_segment_id'] 断言 extra 恰为该项；喂 ['id','org_id'] 断言 missing 非空；断言常量长度恒为 5（防「改白名单来消红」）。缺反证时一个 return {ok:true} 的实现让主门永远绿。\n⚠ I-P34 的三条反证（互斥生效 / 两种失败可区分 / 判别列不是摆设）逐条见 domain.md §一之三第 2 小节，缺第二条时「三张子表全部只读」的实现两条都绿。\n⚠ projects(id) 现有 7 条外键一条不改（groups / project_memberships / admin_project_access / artifacts / artifact_bindings / segment_text / claims）——这是候选 D 被选中的首要理由。\n⚠ 迁移新增一支，下一个可用序号是 0018（0016 / 0017 已被 F13 / F17 占用），不改已 passing 的 0008。\n【跨阶段依赖】phase-00: F01/F02（两层角色 + RLS 强制隔离）、F22（组织生命周期冻结策略；0014:151-172 是 catalog 推导的函数 kernel_apply_org_freeze_policies()，不是写死清单，三张新子表会自动进——但该函数只在被调用时重算，所以 0018 迁移末尾必须加一行 SELECT kernel_apply_org_freeze_policies();，且不得在新迁移里再抄一份三条策略。断言不用新写：apps/api/tests/auth/org-disabled-readonly.test.ts:300-318 的 catalog 审计已覆盖新表并自带反空转反证）",
       "priority": 1,
       "area": "project",
@@ -2933,7 +2933,7 @@
       "spec_ref": "23-asset/uc-23-8-后台外壳与左栏IA.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-asset",
       "verification": [
@@ -2942,7 +2942,7 @@
         "grep -rq 'admin-nav-blueprint' apps/web/components/admin",
         "grep -rq 'admin-nav-canvasadmin' apps/web/components/admin"
       ],
-      "evidence": "",
+      "evidence": "evidence/F132.verify.log @ 2026-07-31T02:52:10.962Z",
       "notes": "依据：asset-governance domain.md I-1（AssetKind 恰六值）+ I-2（左栏项集合 ＝ AssetKind 取值集合，**双向**）。\n⚠ **单向断言在今天的代码上就是绿的**：`apps/web/components/admin/admin-nav.tsx` 现在只有 agent/skill/model/mcp 四个资产键，「左栏每一项都是合法 AssetKind」完全成立，而缺了两项没有任何东西报警。⇒ 验收必须是**双向集合差为空 + 反证套件**（从任一侧删一个，门控必须红），照 `lint-ui-material.mjs` 已有的形状抄。\n⚠ 断言用**成员集合相等**，不是 `toHaveLength(6)`（coding-standards E-4）：长度断言在「删一个、加一个」时全绿。\n⚠ 分组与顺序待 Q-11 裁；本 feature 只做**集合相等**，不锁顺序。\n契约：`packages/contracts/src/asset-governance.ts` 的 `AssetKind` 与 `operations.listAdminNav`。",
       "priority": 1,
       "area": "asset",
@@ -3222,7 +3222,7 @@
       "spec_ref": "24-research/uc-24-1-新建深度研究与研究配置.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "w0-research",
       "verification": [
@@ -3231,7 +3231,7 @@
         "pnpm --filter web exec vitest run tests/ui/research-preview-sentence.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/research-entry-observer-absent.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F144.verify.log @ 2026-07-31T02:52:45.165Z",
       "notes": "这就是 D-20 逐字点名的那一块（`DECISIONS-FINAL.md:97`「新建深度研究配置面板（研究场景 / 可判定问题 / 4 类型 / 3 档时间盒 / 来源偏好 / 交付形式 / 挂到组或决策节点）」）。七项配置的契约面是 `packages/contracts/src/research.ts` 的 `ResearchConfig` 与 `operations.createResearch`。\n⚠ **默认值断言必须逐项写死为 uc-24-1 R3 表里的值**（R7.5）——本仓已因「默认值画反」判过一次重做（`PROTOTYPE-SWEEP-UI.md` P-05），而**看截图看不出来默认值画反**。\n⚠ 预览句断言要打在**性质**上（包含所选来源的全部名称），不是断言某个固定字符串——深度档位有两串文案（`nrDepths[].note` vs `DEPTH_L`），哪串权威 **Q-1 未裁**，契约刻意一串都不落（`KNOWN_CONTRACT_GAPS.R2`）。\n⚠ **E1 是本 feature 最容易做丢的一条**：模型不可用**不得**让创建失败——契约面的表达就是 `createResearch.err` 里**没有** `MODEL_UNAVAILABLE`。谁把它加进去，E1 当场破。\n⚠ 观察者断言打在 DOM 不存在上（N-10），不是 `disabled` 属性。\n🔴 **开工前置**：本束 `design-signoff.md` 仍 `status: pending`，且 Q-2（`/studio/research` 路由被 UC-0.2 Context Pack 占用）未裁——**屏落在哪条路由上还没定**，`data-testid` 无处锚定。"
     },
     {
