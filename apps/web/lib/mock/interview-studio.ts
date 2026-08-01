@@ -151,7 +151,8 @@ export const INTERVIEW_ROWS: InterviewRowView[] = [
   {
     id: "i-archived", object: "旧客户 · 采购委员会主席", objectInitials: "陈",
     belongsTo: "东南亚储能预研 · 高琪", owner: "高琪", status: "done",
-    progress: "已归档；被 2 份报告引用，1 条引述已随撤回失效。", metric: "61 分钟 · 已归档",
+    progress: "已归档；被 2 份报告引用，1 条引述已随撤回失效。",
+    metric: "61 分钟 · 已归档",
     scopeId: "unassigned", projectId: null, virtual: false,
     tags: ["archived"], actions: ["open", "insight"],
   },

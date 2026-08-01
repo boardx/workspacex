@@ -157,6 +157,23 @@ export const ProvenanceEventType = z.enum([
   "approval-requested",
   "approval-decided",
 
+  /**
+   * 🔴 F45（files 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * 已签核的 `contracts/files/usecases.md` `requestDeletion` 长注逐字：
+   * 「删除是高影响操作：服务端鉴权 + 二次确认 + 原因 + 全程审计」（uc-22-4 R9/R5）。
+   * 最接近的既有成员都不是它：`unauthorized-attempt` 是越权尝试，不是一次被批准并
+   * 执行的删除；`evidence-withdrawn` 是上游证据撤回的标注动作，不是删除请求本身
+   * （且指向 VERSION，本事件指向 ARTIFACT）。拿它们顶包会让「谁在什么时候按下了删除、
+   * 填了什么原因」与其它毫不相干的事件混进同一个类型——ADR-101 开篇的道理照旧适用。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形：撤销本行 + 迁移里对应的 CHECK 追加 + `request-deletion.ts` 失去
+   * 写审计这一步（删除仍会执行，只是 R9「全程审计」的承诺重新落空）。
+   */
+  "deletion-requested",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);

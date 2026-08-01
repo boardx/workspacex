@@ -45,6 +45,16 @@ export const PROJECT_ACTIONS = [
    */
   "content.renameFile",   // 改文件名（改名走契约，见 N-23）
   /**
+   * F45（files 束 · uc-22-4 `previewDeleteImpact`/`requestDeletion`）：「调用者是项目负责人」
+   * 的具体形状。⚠ usecases.md 的 `pre` 写的是「项目负责人」，四值角色枚举里没有这个名字——
+   * 按本文件 `facilitator` row 既有的定性（「controls the room」，本文件头一行）取
+   * facilitator = 项目负责人，这是延伸既有惯例，**不是**对 R10「引导师/组长能否发起删除
+   * [待定]」的裁决。groupLead 今天**没有**这个动作，是保守默认（与 UI 版本列表「只给下载不给
+   * 删除此版本」同一处置，`files.KNOWN_CONTRACT_GAPS.FS5` 的姊妹判断），裁决落地时若反向，
+   * 应在这里改，而不是另建一条不经过本矩阵的判定。
+   */
+  "artifact.requestDeletion", // 发起删除 / 预览删除影响面（F45）
+  /**
    * F125（project 束 · UC-P9 `addProjectMember`/`changeProjectRole`/`removeProjectMember`）：
    * 「谁能加人/改角色/移除人」的项目层那一半。UC-00.3 R1 把「引导师」列为本用例的 actor
    * 之一（「控场者」），且 R3 步骤 1 的措辞是「授予者操作」——没有一份已签核的 UC 把这个
@@ -80,6 +90,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
+    "artifact.requestDeletion",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
   ],
   // Runs their own group. No room control: they cannot advance the stage for everyone.

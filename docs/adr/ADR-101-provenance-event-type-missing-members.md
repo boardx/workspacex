@@ -246,6 +246,27 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
   `create-approval-request.ts` / `decide-approval.ts` 失去写审计这一步
   （批准闸门本身的状态机不受影响，`chat_approval_requests` 表独立于 `provenance_events`）。
 
+### 追加（2026-08-01，F45 · files，issue #240）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **1** 个成员，按本 ADR「第五个撞上的人被带到这里」的意图，
+不发明第二种处理：
+
+| 成员 | 代谁补 | 出处 |
+|---|---|---|
+| `deletion-requested` | F45 · `files` | `files.ts` `requestDeletion` 长注·「删除是高影响操作：服务端鉴权 + 二次确认 + 原因 + 全程审计」（uc-22-4 R9/R5） |
+
+- target 用已有的 `artifact`，不新增 target kind：删除请求作用在 artifact 这个粒度上
+  （六类级联的对象都挂在同一个 artifact 之下），与 `bound`/`unbound` 同一挂法。
+- 与 `evidence-withdrawn`（指向 `artifact-version`）分开：删除请求本身指向 ARTIFACT，
+  证据撤回标注指向具体 VERSION——两者是不同粒度的两件事，合并会丢失「删的是哪个版本
+  线，还是哪一版」这个区分。
+- `provenance_events_type_check`（0027 所建，历次追加见 0033/本次）随 F45 迁移
+  （`20260801190000_f45_deletion_cascade.sql`）一并追加该值；
+  `provenance-enum-single-source.test.ts` 的双向断言动态读取契约与 CHECK，
+  覆盖新成员无需改那个测试文件本身。
+- 否决时的回退：撤销契约里这一行 + 迁移里对应的 CHECK 追加 + `request-deletion.ts`
+  失去写审计这一步（删除的六类级联与两级 SLA 均不受影响，独立于 `provenance_events`）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |
