@@ -206,7 +206,13 @@ Type=simple
 User=${APP_USER}
 WorkingDirectory=${APP_DIR}/apps/web
 EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/env pnpm run start -- -p ${APP_WEB_PORT}
+# 2026-08-01 实测踩过：\`pnpm run start -- -p \${PORT}\` 在 systemd ExecStart 里跑，
+# next 收到的实际 argv 里带着字面的 "--"，被解析成"项目目录"，直接崩
+# （Invalid project directory provided, no such directory: .../apps/web/-p）。
+# Next.js 原生认 PORT 环境变量，不需要经过 pnpm 的参数转发这层——改用环境变量，
+# 绕开这整类"--是不是被中间层吃掉"的不确定性，ExecStart 也因此变得更简单。
+Environment=PORT=${APP_WEB_PORT}
+ExecStart=/usr/bin/env pnpm run start
 Restart=on-failure
 RestartSec=5
 
