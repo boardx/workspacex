@@ -34,6 +34,13 @@ export interface AssetFileRepository {
   getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null>;
   /** `null` = the asset has no directory, or the directory has no such path. One outcome for both. */
   readFile(assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null>;
+  /**
+   * `WriteAssetFile` (F142) -- persists `body` at `path`, returning the new size. `null` is the
+   * SAME collapsed outcome as `readFile`: unknown (kind, assetId), or the directory has no such
+   * path -- this port does not create new paths (that's `CreateAssetFile`, out of this
+   * feature's scope).
+   */
+  writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null>;
 }
 
 export const ASSET_FILE_REPOSITORY = Symbol("AssetFileRepository");

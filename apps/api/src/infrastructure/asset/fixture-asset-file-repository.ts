@@ -102,6 +102,20 @@ function sizeOf(body: string): number {
 }
 
 export class FixtureAssetFileRepository implements AssetFileRepository {
+  /**
+   * F142's write-back store. Keyed by `assetKind:assetId:path`, so a write against one
+   * `assetId` never bleeds into another instance of the same fixture tree -- even though
+   * `getDirectory`/`readFile` serve the SAME fixed file list to any `assetId` of a matching
+   * kind (see the class header), a save must only be visible to the (kind, assetId) it was
+   * made against. `null` value entries are never stored -- an override is only ever a body
+   * that replaced the original fixture text.
+   */
+  private readonly overrides = new Map<string, string>();
+
+  private overrideKey(assetKind: AssetKind, assetId: string, path: string): string {
+    return `${assetKind}:${assetId}:${path}`;
+  }
+
   private filesFor(assetKind: AssetKind): readonly FixtureFile[] | null {
     if (assetKind === "skill") return SKILL_FILES;
     if (assetKind === "agent") return AGENT_FILES;
@@ -109,20 +123,34 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
     return null;
   }
 
-  async getDirectory(assetKind: AssetKind, _assetId: string): Promise<AssetDirectoryRecord | null> {
+  private bodyFor(assetKind: AssetKind, assetId: string, file: FixtureFile): string {
+    return this.overrides.get(this.overrideKey(assetKind, assetId, file.path)) ?? file.body;
+  }
+
+  async getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null> {
     const files = this.filesFor(assetKind);
     if (files === null) return null;
     return {
       rootFile: files[0]!.path,
-      entries: files.map((f) => ({ path: f.path, sizeBytes: sizeOf(f.body) })),
+      entries: files.map((f) => ({ path: f.path, sizeBytes: sizeOf(this.bodyFor(assetKind, assetId, f)) })),
     };
   }
 
-  async readFile(assetKind: AssetKind, _assetId: string, path: string): Promise<AssetFileContentRecord | null> {
+  async readFile(assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null> {
     const files = this.filesFor(assetKind);
     if (files === null) return null;
     const file = files.find((f) => f.path === path);
     if (file === undefined) return null;
-    return { sizeBytes: sizeOf(file.body), body: file.body };
+    const body = this.bodyFor(assetKind, assetId, file);
+    return { sizeBytes: sizeOf(body), body };
+  }
+
+  async writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null> {
+    const files = this.filesFor(assetKind);
+    if (files === null) return null;
+    const file = files.find((f) => f.path === path);
+    if (file === undefined) return null;
+    this.overrides.set(this.overrideKey(assetKind, assetId, path), body);
+    return { sizeBytes: sizeOf(body), body };
   }
 }
