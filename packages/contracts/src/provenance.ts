@@ -192,6 +192,29 @@ export const ProvenanceEventType = z.enum([
    */
   "asset-published",
 
+  /**
+   * 🔴 F39（files 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * 已签核的 `requirements/22-files/uc-22-2-上传材料与摄取.md` R3 第 11 步 /
+   * R8 逐字：「处置意见（接受 / 拒绝都会写入审计）」，`resolveReviewPending` 的
+   * `out.provenanceEventId` 是契约 `out` 的一等字段——落痕不是可选项。最接近的既有
+   * 成员都不是它：`human-edited` 是人工编辑草稿正文，不是对一次 REVIEW_PENDING
+   * 复核的处置；`approval-decided` 是 R2/R3 高影响操作批准闸门（chat 束，F112），
+   * 语义相邻但对象不同（那是"批准调用"，这是"复核材料"）——拿它顶包会让「谁批准了
+   * 一次高影响调用」与「谁接受/拒绝了一份待复核材料」混进同一个类型，ADR-101 开篇
+   * 的道理照旧适用。两个成员分开（`-accepted`/`-rejected`），不合并成一个
+   * `review-decided` + `detail.decision`：与 ADR-101 决策 A「线程三值不合并」同一个
+   * 理由——「查全部被拒材料」需要按类型筛，`queryProvenance` 无法解析 `detail` 做筛选。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形：撤销这两行 + 迁移里对应的 CHECK 追加 + `resolve-review-pending.ts`
+   * 失去写审计这一步（接受/拒绝仍会执行，只是 R8「处置意见都会写入审计」的承诺
+   * 重新落空）。
+   */
+  "review-accepted",
+  "review-rejected",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
