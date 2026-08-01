@@ -1,0 +1,55 @@
+$ pnpm --filter api exec vitest run tests/capability/skill/rating-attribution-to-version.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f68-worktree/apps/api
+
+ ✓ tests/capability/skill/rating-attribution-to-version.test.ts (9 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  20:07:55
+   Duration  212ms (transform 33ms, setup 0ms, collect 28ms, tests 3ms, environment 0ms, prepare 64ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/skill/aggregation-structural-classify-route.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f68-worktree/apps/api
+
+ ✓ tests/capability/skill/aggregation-structural-classify-route.test.ts (11 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  20:07:55
+   Duration  184ms (transform 31ms, setup 0ms, collect 27ms, tests 2ms, environment 0ms, prepare 38ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/skill/proposal-no-auto-publish.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f68-worktree/apps/api
+
+ ✓ tests/capability/skill/proposal-no-auto-publish.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  20:07:56
+   Duration  204ms (transform 38ms, setup 0ms, collect 45ms, tests 3ms, environment 0ms, prepare 26ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/skill/satisfaction-formula-sample-floor.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f68-worktree/apps/api
+
+ ✓ tests/capability/skill/satisfaction-formula-sample-floor.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  20:07:56
+   Duration  177ms (transform 19ms, setup 0ms, collect 16ms, tests 2ms, environment 0ms, prepare 26ms)
+
+[exit 0]

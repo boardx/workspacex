@@ -8,6 +8,8 @@
 import type {
   AllOrchestrationsPort,
   ContextApiPort,
+  DataQualityReportPort,
+  ImprovementProposalStorePort,
   MountHealthPort,
   OrgSkillCatalogPort,
   OrgTemplateCreatePort,
@@ -15,6 +17,7 @@ import type {
   PromotionLinkStorePort,
   PromotionSkillStorePort,
   ProjectOrchestrationStorePort,
+  RatingRepositoryPort,
   RedactionGatePort,
   ReviewerFunctionPort,
   RoleAssigneePort,
@@ -26,6 +29,7 @@ import type {
   SkillVisibilityScopePort,
   SourceKnowledgeLinkageStorePort,
   SubmitterGrantsPort,
+  SuggestionCategoryStorePort,
   ThreadMountStorePort,
   TodoPublisherPort,
   WorkflowTemplateReadPort,
@@ -35,6 +39,8 @@ import type { SkillCatalogEntry, SkillCatalogPort } from "../../src/application/
 import type { DeclarativeContract } from "../../src/domain/skill/declarative-contract";
 import type { PromotionLink } from "../../src/domain/skill/promotion-link";
 import type { SkillVersionSnapshot } from "../../src/domain/skill/version-chain";
+import type { DataQualityEntry, RatingRecord } from "../../src/domain/skill/rating-attribution";
+import type { SuggestionCategory } from "../../src/domain/skill/suggestion-aggregation";
 import type {
   BindingSlotRef,
   BindingTrigger,
@@ -517,6 +523,76 @@ export function skillVersionStore(
     },
     async saveChain(skillId, history) {
       savedHistories.set(skillId, history);
+    },
+  };
+}
+
+/* ═══════════════════ F68：改进反馈与版本触发的替身 ═══════════════════ */
+
+/** 消息级评价落库替身。按 `(messageId, raterId)` 幂等键做去重（V13）。 */
+export interface RatingRepositorySpy extends RatingRepositoryPort {
+  readonly saved: RatingRecord[];
+}
+
+export function ratingRepository(initial: readonly RatingRecord[] = []): RatingRepositorySpy {
+  const saved: RatingRecord[] = [...initial];
+  return {
+    saved,
+    async findByIdempotencyKey(key) {
+      return (
+        saved.find((r) => `${r.messageId}::${r.raterId}` === key) ?? null
+      );
+    },
+    async save(record) {
+      saved.push(record);
+    },
+    async listBySkillId(skillId) {
+      return saved.filter((r) => r.attribution.skillId === skillId);
+    },
+  };
+}
+
+/** 数据质量报表替身——E1 缺归因的评价必须可见的落点。 */
+export interface DataQualityReportSpy extends DataQualityReportPort {
+  readonly entries: DataQualityEntry[];
+}
+
+export function dataQualityReport(): DataQualityReportSpy {
+  const entries: DataQualityEntry[] = [];
+  return {
+    entries,
+    async record(entry) {
+      entries.push(entry);
+    },
+  };
+}
+
+/** 聚合建议人工归类落库替身。传入 `结构键 → 归类` 初始表；未列出 ⇒ 未归类。 */
+export function suggestionCategoryStore(
+  initial: Readonly<Record<string, SuggestionCategory>> = {},
+): SuggestionCategoryStorePort {
+  const table = new Map<string, SuggestionCategory>(Object.entries(initial));
+  return {
+    async setCategory(key, category) {
+      table.set(key, category);
+    },
+    async categoryOf(key) {
+      return table.get(key) ?? null;
+    },
+  };
+}
+
+/** 改进提案落库替身。⚠ 只有 `save`——没有任何能把提案置为生效的方法（见 `ports.ts` 注释）。 */
+export interface ImprovementProposalStoreSpy extends ImprovementProposalStorePort {
+  readonly saved: Parameters<ImprovementProposalStorePort["save"]>[0][];
+}
+
+export function improvementProposalStore(): ImprovementProposalStoreSpy {
+  const saved: Parameters<ImprovementProposalStorePort["save"]>[0][] = [];
+  return {
+    saved,
+    async save(proposal) {
+      saved.push(proposal);
     },
   };
 }
