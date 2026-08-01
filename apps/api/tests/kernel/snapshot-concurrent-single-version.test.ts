@@ -249,6 +249,7 @@ describe("the three loser paths, provoked one at a time", () => {
       listVersions: (o, id) => repo.listVersions(o, id),
       createDerived: (d) => repo.createDerived(d),
       listDerived: (o, id) => repo.listDerived(o, id),
+      findVersionByIdempotencyKey: (o, p, h, pv, pav) => repo.findVersionByIdempotencyKey(o, p, h, pv, pav),
     };
 
     await expect(

@@ -13,6 +13,7 @@ import {
   type ArtifactRepository,
   type ArtifactVersionRecord,
   type DerivedRepresentationRecord,
+  type IdempotencyHit,
   type IdFactory,
   type NewArtifact,
   type NewArtifactVersion,
@@ -76,6 +77,27 @@ export class FakeArtifactRepository implements ArtifactRepository {
     this.versions.set(v.id, { ...v, pinnedAt: "2026-07-31T00:00:00Z" });
   }
 
+  /** F37 -- mirrors the DB column defaults (`'1'`/`'1'`) migration
+   *  `20260801190000_f37_idempotent_ingest_and_adapters.sql` gives every pre-F37 caller. */
+  async findVersionByIdempotencyKey(
+    orgId: OrgId,
+    projectId: string | null,
+    contentHash: string,
+    pipelineVersion: string,
+    parserVersion: string,
+  ): Promise<IdempotencyHit | null> {
+    const match = [...this.versions.values()].find((v) => {
+      if (v.orgId !== orgId || v.contentHash !== contentHash) return false;
+      if ((v.pipelineVersion ?? "1") !== pipelineVersion) return false;
+      if ((v.parserVersion ?? "1") !== parserVersion) return false;
+      const owner = this.artifacts.get(v.artifactId);
+      return owner !== undefined && owner.projectId === projectId;
+    });
+    return match === undefined
+      ? null
+      : { artifactId: match.artifactId, versionId: match.id, versionNumber: match.versionNumber };
+  }
+
   async headVersionNumber(orgId: OrgId, artifactId: string): Promise<number> {
     const nums = [...this.versions.values()]
       .filter((v) => v.orgId === orgId && v.artifactId === artifactId)
@@ -100,15 +122,47 @@ export class FakeArtifactRepository implements ArtifactRepository {
     };
   }
 
-  /** Not part of `ArtifactVersionRecord` (see `ports.ts` — write-only until a read-side use
-   *  case is signed off). Tests reach for the fake's own map directly instead:
-   *  `repo.versions.get(id)!.derivedFrom`. */
-  async addSegments(_orgId: OrgId, _segments: readonly NewSegment[]): Promise<void> {
-    throw new Error("FakeArtifactRepository.addSegments is not exercised by F73's tests");
+  /**
+   * F37 -- a real in-memory `segments`/`anchors` pair, mirroring 0006's
+   * `segments_uniq_ordinal` (an insert that collides on `(artifactVersionId, ordinal)`
+   * throws, same shape `ingestion-worker.ts` catches and treats as "already applied" on
+   * replay). Atomic like the real port: either every segment in the batch lands, or none do.
+   */
+  readonly segments = new Map<string, SegmentRecord>();
+
+  async addSegments(_orgId: OrgId, segments: readonly NewSegment[]): Promise<void> {
+    for (const s of segments) {
+      const dup = [...this.segments.values()].some(
+        (row) => row.artifactVersionId === s.artifactVersionId && row.ordinal === s.ordinal,
+      );
+      if (dup) {
+        const err = new Error(`duplicate ordinal ${s.ordinal} for version ${s.artifactVersionId}`) as Error & {
+          code?: string;
+          constraint?: string;
+        };
+        err.code = "23505";
+        err.constraint = "segments_uniq_ordinal";
+        throw err;
+      }
+    }
+    for (const s of segments) {
+      this.segments.set(s.id, {
+        id: s.id,
+        artifactVersionId: s.artifactVersionId,
+        kind: s.kind,
+        ordinal: s.ordinal,
+        anchors: s.anchors.map((a) => ({ kind: a.kind, locator: a.locator })),
+      });
+    }
   }
 
-  async findSegments(_orgId: OrgId, _versionId: string): Promise<readonly Guarded<SegmentRecord>[]> {
-    return [];
+  async findSegments(orgId: OrgId, versionId: string): Promise<readonly Guarded<SegmentRecord>[]> {
+    const version = this.versions.get(versionId);
+    if (version === undefined || version.orgId !== orgId) return [];
+    return [...this.segments.values()]
+      .filter((s) => s.artifactVersionId === versionId)
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((s) => guard<SegmentRecord>({ kind: "segment", id: s.id }, s, [{ kind: "artifact", id: version.artifactId }]));
   }
 
   /** F44 -- not exercised by F73's tests (no test here touches the version list). */

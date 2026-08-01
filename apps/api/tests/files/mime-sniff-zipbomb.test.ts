@@ -308,6 +308,7 @@ function fakeWorkingRepo() {
     findVersion: () => Promise.resolve(null),
     addSegments: () => Promise.resolve(),
     findSegments: () => Promise.resolve([]),
+    findVersionByIdempotencyKey: () => Promise.resolve(null),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
