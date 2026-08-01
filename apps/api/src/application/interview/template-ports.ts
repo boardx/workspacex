@@ -33,6 +33,11 @@ export interface CreateTemplateInput {
   readonly dataFields: readonly TemplateFieldInput[];
   readonly tags: readonly string[];
   readonly contentHash: string;
+  /**
+   * 反向抽取入库时（F83 `confirmTemplateDraft`）填这几场来源访谈；普通 `createTemplate`
+   * 不传即为空数组。
+   */
+  readonly sourceInterviewIds?: readonly string[];
 }
 
 export interface UpdateTemplateInput {
@@ -48,6 +53,12 @@ export interface UpdateTemplateInput {
   readonly dataFields: readonly TemplateFieldInput[];
   readonly tags: readonly string[];
   readonly contentHash: string;
+  /**
+   * 来源链跟着模板走，不因编辑而丢（可追溯性不应该只在第一版有效，F83）。调用方
+   * （`updateTemplate` 用例）负责从当前 head 读出来原样带过来——这里不是「编辑时
+   * 可以改来源」，只是「编辑不该把它清空」。不传即为空数组（普通模板的正常路径）。
+   */
+  readonly sourceInterviewIds?: readonly string[];
 }
 
 /** 一行「模板库列表」——名称/用过N次/一句话/题数/时长区间 五要素，usedCount 现查得出。 */

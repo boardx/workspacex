@@ -581,7 +581,31 @@ describe("lint-permission-paths: counter-proof", () => {
     // Its ENFORCED premise: `tests/files/quarantine-repo-is-write-only.test.ts` parses the
     // file and asserts every `malware_quarantine_records` reference is an INSERT INTO. If
     // that test is deleted, this entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(18);
+    //
+    // ⚠ Raised 18 -> 20 by F83 (uc-6-1 A3, reverse-extraction drafts), rebased onto main
+    // through F82 #173 -- RE-MEASURED via `node apps/api/scripts/lint-permission-paths.mjs`
+    // (20), not computed as "18 + 2". Two new entries, two different shapes:
+    //
+    // `infrastructure/interview/pg-template-draft-repository.ts` is the SAME shape as F82's
+    // `pg-template-repository.ts` entry directly above: a draft is a not-yet-a-template of
+    // exactly the same undecided-visibility (D-16) kind, so the argument does not need
+    // restating, only pointing at. Its enforced premise (org_id-scoped, no `withoutTenant`)
+    // is asserted by `tests/itv/template-draft-repo-org-scoped-only.test.ts`.
+    //
+    // `infrastructure/interview/pg-source-interview-reader.ts` is a DIFFERENT shape from
+    // every entry above except F119/F123/F124: "authorization already happened one layer up,
+    // this file only continues an already-approved action." `extractTemplateDraft` (the use
+    // case) calls `InterviewScopeRepository.findVisibleById` + `decideInterviewVisibility`
+    // (F80's existing guarded path -- the same one `getInterview` uses) for every
+    // `sourceInterviewId` BEFORE this reader is ever invoked, so this file adds no new
+    // visibility surface: it reads only `interview_consent_submissions` (to derive a
+    // boolean, O-05) and `interview_template_applications` (structural content already known
+    // to belong to an interview the caller was just cleared to see) -- never
+    // `interview_sessions` itself. Its enforced premise (only those two tables, never
+    // `interview_sessions`, never `withoutTenant`) is asserted by
+    // `tests/itv/source-interview-reader-org-scoped-only.test.ts`. If either test is
+    // deleted, its entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(20);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -1,0 +1,81 @@
+F83 —— 模板库列表与编辑器 + 从已办访谈反向抽取（草案确认）
+issue: #190  branch: worker/w1-itv4-01-F83
+
+## 说明
+
+依赖 F82（访谈模板数据模型）已合并入 main（commit 8c9f366，PR #173）。本 feature 在其上
+新增：反向抽取草案（`extractTemplateDraft`/`confirmTemplateDraft`，纯单元测试，无需
+Postgres）+ 编辑器/列表用例的补充覆盖（编辑保留来源链）。
+
+两条 verification 命令都是纯单元测试（in-memory fakes，不 import tests/support/db），
+per issue #74 的指引本地可直接跑，不受 Postgres 线程池竞态影响。另外本地也用同一台
+共享 Postgres 实例跑过 F82 原有三条测试（apply-three-things-detached /
+usage-count-not-writable / repo-org-scoped-only）验证无回归，全部通过（见下）。
+
+## verification 命令（逐条，退出码 0）
+
+$ pnpm --filter api exec vitest run tests/itv/template-reverse-extract-draft.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/itv/template-reverse-extract-draft.test.ts (7 tests) 14ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Duration  3.23s
+
+$ pnpm --filter api exec vitest run tests/itv/template-editor-list.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/itv/template-editor-list.test.ts (6 tests) 11ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Duration  4.48s
+
+## 附加证据（非本 feature 必需，但按 AGENTS.md「没有引入新的失败」逐条核实）
+
+$ pnpm --filter api exec vitest run tests/itv/
+ Test Files  14 passed (14)
+      Tests  99 passed (99)
+（含 F82 原有三条：template-apply-three-things-detached / template-usage-count-not-writable /
+template-repo-org-scoped-only，以及本 feature 新增的两条 gate 测试：
+template-draft-repo-org-scoped-only / source-interview-reader-org-scoped-only —— 全部通过，无回归。）
+
+$ pnpm --filter api run lint
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=425 tenant-tables=70 allowlisted=20
+（新增 2 条允许清单条目：pg-template-draft-repository.ts / pg-source-interview-reader.ts，
+均带对应 gate 测试，理由见 scripts/lint-permission-paths.mjs 内联注释）
+✅ lint-arch-deps: 423 files, all dependencies point inward
+（其余 lint 步骤同样全绿，完整输出略）
+
+$ pnpm --filter api exec tsc --noEmit
+（除 packages/fabric-markdown 既有的、与本 feature 无关的预存在错误 —— 已用 git stash 对照
+main 确认同样报错，非本次改动引入 —— 之外，无新增 TypeScript 错误。）
+
+## 判断取舍（如实报告，未擅自替产品裁决）
+
+1. **反向抽取算法是确定性合并，非 AI**：读取每场来源访谈已经套用过的三样东西
+   （`interview_template_applications`，F82 已建），按 `name`/`fieldId` 去重合并。
+   需求文档全程把这条标 [设计]（唯一线索是标签页括注「来自 3 场项目」，原型确认缺失），
+   本仓也没有片段级语义抽取的基础设施（回流成洞察 F93 一束尚未实现）。见
+   `apps/api/src/domain/interview/template-draft.ts` 文件头。
+2. **O-05 粒度**：落地成「该场任一受访者明确拒绝 ai_analysis ⇒ 整场排除」，比原文
+   「拒绝的片段不进」更粗——因为本实现没有片段级归属。同一文件头如实说明。
+3. **`edits` 字段语义**：契约类型是 `string | null`，未定义具体结构；本实现读成 JSON
+   编码的部分覆盖 `{name?, goal?, sections?, dataFields?, tags?}`。见
+   `apps/api/src/domain/interview/template-draft.ts` 的 `applyDraftEdits`。
+4. **无 HTTP 控制器**：F82（本 feature 的依赖）本身也未接 controller——`interview-scope
+   .controller.ts` 是本束目前唯一的控制器，模板/草案的 CRUD 都还没有路由。本次同样只做
+   domain/application/infrastructure + 契约对齐，不新增 controller，避免在依赖尚未打通
+   HTTP 的情况下抢先做路由设计。已作为缺口报告在 PR 描述里。
+5. **可访问性判定复用 F80 既有门**：`extractTemplateDraft` 对每个 `sourceInterviewId`
+   先经 `InterviewScopeRepository.findVisibleById` + `decideInterviewVisibility`（与
+   `getInterview` 同一条路径），而不是在新的 reader 里另判一次——`pg-source-interview-reader
+   .ts` 因此不读 `interview_sessions`，只读已被这道门批准之后的同意位/套用素材两张表。
+6. **草案存储新增迁移** `20260801150000_f83_template_extraction_drafts.sql`：独立表
+   `interview_template_drafts`，理由与触发器（一次性确认）见迁移文件头注释。

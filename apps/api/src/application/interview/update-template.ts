@@ -49,6 +49,10 @@ export async function updateTemplate(
     tags: input.tags,
   });
 
+  // 来源链（F83：反向抽取入库时钉下的 sourceInterviewIds）跟着模板走，编辑不应该
+  // 把它清空——从当前 head 读出来原样带过去，而不是让 repo 默认成空数组。
+  const currentHead = await deps.repo.getHead(input.orgId, input.templateId);
+
   const written = await deps.repo.update({
     orgId: input.orgId,
     templateId: input.templateId,
@@ -61,6 +65,7 @@ export async function updateTemplate(
     dataFields: input.dataFields,
     tags: input.tags,
     contentHash,
+    sourceInterviewIds: currentHead?.sourceInterviewIds ?? [],
   });
 
   if (written === null) {
