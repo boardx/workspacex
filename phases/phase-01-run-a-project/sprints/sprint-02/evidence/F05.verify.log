@@ -1,0 +1,128 @@
+
+ RUN  v2.1.9 /private/tmp/f05-worktree/apps/api
+
+ ✓ tests/auth/temp-grant-expires-on-stage.test.ts (11 tests) 13ms
+ ✓ tests/auth/temp-grant-audit.test.ts (7 tests) 8ms
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  09:59:11
+   Duration  1.73s (transform 821ms, setup 0ms, collect 1.20s, tests 21ms, environment 0ms, prepare 456ms)
+
+exit code: 0
+
+--- supplementary: pnpm --filter api run lint (exit 0) ---
+
+> @repo/api@0.0.0 lint /private/tmp/f05-worktree/apps/api
+> node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+
+✅ lint-error-leak: 33 files in the interface layer, no error detail reaches a response
+scanned=33
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=423 tenant-tables=69 allowlisted=18
+· [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/admin.ts:222  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/asset-governance.ts:339  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `templates` with 6 entries
+· [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `skills` with 6 entries
+· [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/chat.ts:375  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:510  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:565  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:774  list-shaped constant `skills` with 6 entries
+· [debt] apps/web/lib/mock/chat.ts:779  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
+· [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
+· [debt] apps/web/lib/mock/interview-studio.ts:425  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/project.ts:210  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:389  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:390  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+· [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=714 violations=0 debt=78 migrations=49
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=965 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 29 个文件，skill 取数只经 Context API（I-25）
+scanned=29 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 421 files, all dependencies point inward
+scanned=421
+lint exit code: 0
+
+--- supplementary: pnpm --filter api run typecheck ---
+Pre-existing failures in packages/fabric-markdown (Element/SVGElement/CanvasRenderingContext2D
+DOM lib types, unrelated to this feature) reproduce identically on origin/main HEAD
+(ef44cc7) with none of this feature's files present -- confirmed by re-running typecheck
+against a clean worktree with only tracked history. Zero errors reference any file under
+`identity/temporary-grant*`, `check-temporary-grant-access.ts`, or `grant-temporary-read.ts`.
