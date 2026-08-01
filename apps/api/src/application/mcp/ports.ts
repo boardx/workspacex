@@ -8,7 +8,7 @@
  * SHAPE of the question discovery asks of a gateway, and the invariants over the answer.
  */
 import type { z } from "zod";
-import type { McpTool, ToolSideEffect } from "@repo/contracts/agent-runtime";
+import type { McpTool, SecurityPolicy, ToolSideEffect } from "@repo/contracts/agent-runtime";
 
 /** `MCP_SERVER_UNREACHABLE` -- the contract's code, carried rather than re-invented at the edge. */
 export class McpServerUnreachableError extends Error {
@@ -90,4 +90,51 @@ export interface TaskPermissionGrantStore {
 
 export interface RequestIdFactory {
   next(): string;
+}
+
+/**
+ * F54 -- 开关四拒绝事件的计数口。⚠ **独立接口，不是塞进 `InterceptCounterPort`**：
+ * 那个接口的 `reason` 是 F53 已经封闭的三码联合类型（`MCP_SERVER_ISOLATED` /
+ * `MCP_SERVER_IN_QUARANTINE` / `AUTH_SCOPE_DENIED`），改它的类型形状属于改一个已合入
+ * main 的既有契约面，风险与收益不对称；`AGENT_CANNOT_DISCOVER_MCP` 是"这次调用引用的
+ * 服务器根本不存在"，与三码回答的"存在但你不能用"是不同的问题。两个接口都写向同一份
+ * "后台数据总览"展示，由基础设施层的实现决定落到同一张表还是分表——这是持久化细节，
+ * 不是这两个 port 形状该不该合并的理由。
+ */
+export interface AgentDiscoveryInterceptPort {
+  recordDenied(event: {
+    readonly requestedServerId: string;
+    readonly requestedByAgentId: string;
+    readonly reason: "AGENT_CANNOT_DISCOVER_MCP";
+  }): Promise<void>;
+}
+
+/**
+ * F54 -- 四开关的持久化口。⚠ **没有 `delete`**——策略永远存在（默认值 or 已变更的值），
+ * "关闭"是把某个布尔字段改成 `false`，不是删掉一整份策略；`set` 覆盖式写入完整对象，
+ * 调用方（`setSecurityPolicy` 用例）负责只改动一个开关、其余字段原样带回。
+ */
+export interface SecurityPolicyStore {
+  get(): Promise<z.infer<typeof SecurityPolicy>>;
+  set(policy: z.infer<typeof SecurityPolicy>): Promise<void>;
+}
+
+/**
+ * F54 -- 放行评审记录的持久化口。⚠ **只有 `append`**，没有 `update`/`delete`——
+ * "结论与理由不可删除"（R7）在这一层落成"接口里根本没有能删除/修改的方法"，
+ * 与 `provenance_events` 的 append-only 同一种表达方式（见 `review-flow.ts` 文件头）。
+ */
+export interface ReviewRecordStore {
+  append(record: {
+    readonly reviewId: string;
+    readonly serverId: string;
+    readonly reviewerId: string;
+    readonly at: string;
+    readonly verdict: "放行" | "维持隔离" | "有条件放行";
+    readonly reason: string;
+    readonly grantedToolIds: readonly string[];
+    readonly authScopeSet: string | null;
+  }): Promise<void>;
+  /** 该服务器已有的评审记录，倒序（供审计检索 V16，phase-1 只暴露内存实现） */
+  listByServer(serverId: string): Promise<readonly { readonly reviewerId: string }[]>;
 }
