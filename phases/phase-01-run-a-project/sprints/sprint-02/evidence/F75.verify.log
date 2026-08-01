@@ -1,0 +1,301 @@
+$ pnpm --filter api exec vitest run tests/rec/voiceprint-embedding-destroy-on-assign.test.ts
+
+ RUN  v2.1.9 /private/tmp/f75-worktree/apps/api
+
+ ✓ tests/rec/voiceprint-embedding-destroy-on-assign.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  09:29:45
+   Duration  224ms (transform 27ms, setup 0ms, collect 29ms, tests 3ms, environment 0ms, prepare 44ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/rec/voiceprint-fallback-day7-destroy.test.ts
+
+ RUN  v2.1.9 /private/tmp/f75-worktree/apps/api
+
+ ✓ tests/rec/voiceprint-fallback-day7-destroy.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  09:29:46
+   Duration  187ms (transform 27ms, setup 0ms, collect 24ms, tests 2ms, environment 0ms, prepare 38ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/rec/
+
+ RUN  v2.1.9 /private/tmp/f75-worktree/apps/api
+
+ ✓ tests/rec/assign-backfill-revocable.test.ts (7 tests) 3ms
+ ✓ tests/rec/quote-anchor-and-rq-binding.test.ts (13 tests) 8ms
+ ✓ tests/rec/retention-param-resolution-no-hardcode.test.ts (29 tests) 21ms
+ ✓ tests/rec/consent-snapshot-immutable.test.ts (6 tests) 7ms
+ ✓ tests/rec/expiry-freeze-and-delete-cert.test.ts (18 tests) 29ms
+ ✓ tests/rec/mic-permission-decline-no-segment.test.ts (7 tests) 11ms
+ ✓ tests/rec/segment-anchor-completeness.test.ts (24 tests) 9ms
+ ✓ tests/rec/phone-encrypted-masked.test.ts (13 tests) 58ms
+ ✓ tests/rec/partial-segment-not-citable.test.ts (9 tests) 7ms
+ ✓ tests/rec/voiceprint-fallback-day7-destroy.test.ts (6 tests) 4ms
+ ✓ tests/rec/voiceprint-embedding-destroy-on-assign.test.ts (7 tests) 6ms
+ ✓ tests/rec/disputed-lowconf-not-citable.test.ts (9 tests) 3ms
+ ✓ tests/rec/unstable-segments-reject-quote.test.ts (7 tests) 3ms
+ ✓ tests/rec/overlap-pending-manual.test.ts (6 tests) 5ms
+ ✓ tests/rec/consent-render-from-params.test.ts (17 tests) 4ms
+ ✓ tests/rec/pii-mask-five-types.test.ts (29 tests) 7ms
+ ✓ tests/rec/derived-from-original-unchanged.test.ts (4 tests) 9ms
+ ✓ tests/rec/candidate-from-onsite-roster-only.test.ts (5 tests) 4ms
+ ✓ tests/rec/file-first-materialization.test.ts (8 tests) 4ms
+ ✓ tests/rec/multi-track-no-crosstalk.test.ts (7 tests) 3598ms
+   ✓ F69 · 三载体共享一套转写能力 > BYPASS · a carrier that writes its own segments does not compile 1958ms
+   ✓ F69 · 三载体共享一套转写能力 > BYPASS · does NOT over-fire: going through the core compiles 1580ms
+
+ Test Files  20 passed (20)
+      Tests  231 passed (231)
+   Start at  09:29:46
+   Duration  4.15s (transform 697ms, setup 0ms, collect 4.12s, tests 3.80s, environment 2ms, prepare 1.16s)
+
+[exit 0]
+
+$ pnpm --filter api run typecheck  (baseline: fabric-markdown DOM-lib errors pre-exist on origin/main, unrelated to F75 — see PR notes)
+
+> @repo/api@0.0.0 typecheck /private/tmp/f75-worktree/apps/api
+> tsc --noEmit
+
+../../packages/fabric-markdown/src/diagrams/registry.ts(13,13): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/fabric-objects.ts(759,9): error TS2339: Property 'save' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(761,9): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(764,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(765,42): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(772,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(773,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(774,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(775,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(776,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(777,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(779,11): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(780,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(781,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(782,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(783,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(784,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(785,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(786,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(788,13): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(789,26): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(792,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(809,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(810,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(811,11): error TS2339: Property 'bezierCurveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(812,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(819,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(856,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(857,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(859,11): error TS2339: Property 'quadraticCurveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(861,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(863,9): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(885,9): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(906,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(907,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(913,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(914,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(915,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(916,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(917,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(918,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(919,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(920,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(921,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(929,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(930,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(931,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(932,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(933,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(934,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(935,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(936,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(937,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(938,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(943,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(944,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(945,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(946,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(947,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(948,9): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(949,9): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(953,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(954,9): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(955,9): error TS2339: Property 'textAlign' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(956,9): error TS2339: Property 'textBaseline' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(957,25): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(959,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(960,9): error TS2339: Property 'fillRect' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(961,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(962,9): error TS2339: Property 'fillText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(48,24): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(79,29): error TS2304: Cannot find name 'SVGGraphicsElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(82,28): error TS2304: Cannot find name 'SVGGraphicsElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(116,46): error TS2304: Cannot find name 'SVGElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(116,59): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(119,20): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(123,38): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(130,23): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(131,36): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(132,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(133,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(134,39): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(182,49): error TS2304: Cannot find name 'SVGElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(182,62): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(185,15): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(186,36): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(187,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(198,38): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(204,15): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(205,15): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(452,36): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(455,31): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(457,20): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(459,9): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(460,14): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(461,14): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(461,73): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(466,21): error TS18046: 'path' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(646,40): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(648,31): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(650,35): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(651,28): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(652,28): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(653,32): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(654,33): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(665,12): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(819,50): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(831,26): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(832,27): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(833,27): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(841,10): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(842,18): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(844,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(845,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(846,30): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(847,31): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(863,26): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(869,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(870,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(871,30): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(872,31): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(880,68): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(1018,21): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(1022,3): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+[exit 2]
+
+$ pnpm --filter api run lint
+
+> @repo/api@0.0.0 lint /private/tmp/f75-worktree/apps/api
+> node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+
+✅ lint-error-leak: 33 files in the interface layer, no error detail reaches a response
+scanned=33
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=422 tenant-tables=69 allowlisted=18
+· [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/admin.ts:222  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/asset-governance.ts:339  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `templates` with 6 entries
+· [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `skills` with 6 entries
+· [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `templates` with 3 entries
+· [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `skills` with 3 entries
+· [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
+· [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
+· [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/chat.ts:375  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:510  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:565  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:774  list-shaped constant `skills` with 6 entries
+· [debt] apps/web/lib/mock/chat.ts:779  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
+· [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
+· [debt] apps/web/lib/mock/interview-studio.ts:425  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/project.ts:210  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:389  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:390  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+· [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=713 violations=0 debt=78 migrations=49
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=964 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 29 个文件，skill 取数只经 Context API（I-25）
+scanned=29 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 420 files, all dependencies point inward
+scanned=420
+[exit 0]
