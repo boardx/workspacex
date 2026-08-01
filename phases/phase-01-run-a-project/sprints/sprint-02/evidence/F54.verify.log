@@ -1,0 +1,59 @@
+$ pnpm --filter api exec vitest run tests/capability/mcp/policy-switch-defaults-and-lock.test.ts
+
+ RUN  v2.1.9 /private/tmp/f54-worktree/apps/api
+
+ ✓ tests/capability/mcp/policy-switch-defaults-and-lock.test.ts (16 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  16:21:38
+   Duration  237ms (transform 69ms, setup 0ms, collect 80ms, tests 3ms, environment 0ms, prepare 39ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/mcp/review-release-flow.test.ts
+
+ RUN  v2.1.9 /private/tmp/f54-worktree/apps/api
+
+ ✓ tests/capability/mcp/review-release-flow.test.ts (15 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  16:21:39
+   Duration  169ms (transform 20ms, setup 0ms, collect 21ms, tests 3ms, environment 0ms, prepare 26ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/mcp/customer-data-trace-retention-param.test.ts
+
+ RUN  v2.1.9 /private/tmp/f54-worktree/apps/api
+
+ ✓ tests/capability/mcp/customer-data-trace-retention-param.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  16:21:39
+   Duration  343ms (transform 138ms, setup 0ms, collect 181ms, tests 3ms, environment 0ms, prepare 28ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/mcp/agent-cannot-self-discover.test.ts
+
+ RUN  v2.1.9 /private/tmp/f54-worktree/apps/api
+
+ ✓ tests/capability/mcp/agent-cannot-self-discover.test.ts (9 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  16:21:40
+   Duration  206ms (transform 47ms, setup 0ms, collect 55ms, tests 2ms, environment 0ms, prepare 23ms)
+
+[exit 0]
+
+$ pnpm --filter api exec tsc --noEmit (scoped: no errors in apps/api/src or apps/api/tests; pre-existing unrelated failures in packages/fabric-markdown, confirmed present on origin/main before this change via git stash)
+(no errors under apps/api/src or apps/api/tests)
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=514 tenant-tables=75 allowlisted=24
+[exit 0]
