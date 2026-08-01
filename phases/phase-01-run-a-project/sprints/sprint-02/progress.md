@@ -114,3 +114,40 @@
 - 下一步最佳动作：F104（几何归区导出）与 F106/F107 仍待其他 owner 推进；
   本 feature 的三个后端判定模块（classify/lww/resolve/status）都是纯函数，
   与 F104 的 export-source 路径无重叠，无需协调。
+
+### 2026-08-01（F145，owner w1-research2）
+- 本轮目标：F145 —— 研究详情四段结果 + Scout 执行步骤：R7.3 低置信不被过滤、R7.5
+  单来源落「争议 / 不确定」、E1 部分路失败仍可见、E2 零来源为数据需求说明（依赖
+  F144，已 passing）。
+- 开工前发现：`research` 束的 UI（`RsDetailScreen` / `lib/mock/research-studio.ts`）
+  已由 ui-prototyper 在 F144 之前的 UI 先行阶段建成（真实组件 + mock，含四段结构、
+  低置信 0.3 与执行步骤三条编号），本 feature 不重画界面，只补机械判据 + 后端纯逻辑。
+- 已完成：`apps/api/src/domain/research/result-assembly.ts`（纯函数
+  `assembleResearchResult` / `assembleResearchRun` / `isSampleTooSmall`，不连
+  数据库）；三条测试
+  `apps/api/tests/research/run-low-confidence-not-filtered.test.ts`（R7.3 + R7.5 +
+  E2）、`apps/api/tests/research/run-partial-routes-visible.test.ts`（E1：12 路 3
+  路失败时 completedRoutes/failedRoutes 可区分，已完成路的结果不被清空）、
+  `apps/web/tests/ui/research-detail-four-sections.test.tsx`（四段标题、0.3 置信度
+  出现在段③、单来源争议不进段①、Scout 执行步骤枚举、E1/E2/R5 观察者态）。
+- 运行过的验证：`pnpm --filter @repo/contracts run test`、
+  `pnpm --filter api exec vitest run tests/research/run-low-confidence-not-filtered.test.ts`、
+  `pnpm --filter api exec vitest run tests/research/run-partial-routes-visible.test.ts`、
+  `pnpm --filter web exec vitest run tests/ui/research-detail-four-sections.test.tsx`
+  （四条均本地跑绿，均为纯逻辑/组件测试，未连 Postgres，符合 issue #74 的本地策略）；
+  另跑过 `pnpm --filter api run typecheck` / `pnpm --filter web run typecheck` /
+  `pnpm --filter api run lint` / `pnpm --filter web run lint` /
+  `tests/arch-gate.test.ts` / `tests/contract-single-source.test.ts` 全部通过；
+  `./init.sh` 基础验证未见新增失败。
+- 已记录证据：`evidence/F145.verify.log`。
+- 提交记录：分支 `worker/w1-research2-01-F145`；`pnpm harness verify --sprint 01/02
+  --feature F145` 已把状态门控转为 `passing`。
+- 已知风险或未解决问题：`assembleResearchResult` 的 `isSampleTooSmall` 判据用
+  `sourceRef` 去重逼近"独立来源数"，Q-7（来源类别全称/简称映射）与 Q-12（证据
+  「去向」枚举）仍未裁，本 feature 未触碰这两条，涉及它们的机械断言按
+  `KNOWN_CONTRACT_GAPS.R8` 继续搁置。这两个纯函数尚未接到任何 application 层用例
+  / HTTP controller——本 feature 范围只到"组装逻辑本身可断言"，接线留给依赖它的
+  下一个 feature（F146/F147/F148 之一，视 Q-8 两层模型的用例落地顺序而定）。
+- 下一步最佳动作：F146…F148（同束、依赖 Q-10/Q-12/Q-14/Q-17/Q-18 的其余部分）
+  可以开始参考 `result-assembly.ts` 的纯函数写法；不要在其中重新实现一遍
+  `isSampleTooSmall` / 四段组装逻辑。
