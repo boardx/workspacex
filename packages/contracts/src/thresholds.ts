@@ -209,6 +209,16 @@ export const THRESHOLDS = {
     ref: "usecases.md:410（阈值来自 thresholds.ts）/ KNOWN_CONTRACT_GAPS.S4（skills.ts）/ F62 notes（O-37）",
   },
 
+  /* ── F131（UC-21.1 R3 / I-30′）：第三方源隔离期天数（**有原型出处的默认值**）──── */
+  mcpQuarantineDays: {
+    known: true,
+    value: 14,
+    rule:
+      "第三方源默认进入隔离期，期内仅平台组可调用；隔离期天数是组织级参数，" +
+      "`quarantineUntil` 由注册时刻 + 本参数算出，代码中不得另抄一份字面量",
+    source: "原型 16,683,800 逐字「第三方源默认进入 14 天隔离期」",
+  } satisfies ResolvedThreshold<number>,
+
   /* ── N-1：法定留存清单（外部输入缺口，最硬的一条）──────────────── */
   legalHoldCategories: {
     known: false,
