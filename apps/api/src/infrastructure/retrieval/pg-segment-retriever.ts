@@ -46,7 +46,8 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 /** Columns every channel selects, so one mapper serves all five. */
 const COLUMNS = `
   st.segment_id, st.artifact_id, st.artifact_version_id, st.project_id, st.source_type,
-  st.content, st.lifecycle, st.in_scope, st.confidential, st.occurred_at, st.method, st.cohort`;
+  st.content, st.lifecycle, st.in_scope, st.confidential, st.occurred_at, st.method, st.cohort,
+  st.speaker_subject_id`;
 
 interface Row {
   segment_id: string;
@@ -61,6 +62,7 @@ interface Row {
   occurred_at: Date;
   method: string | null;
   cohort: string | null;
+  speaker_subject_id: string | null;
   channel_score: string | number | null;
 }
 
@@ -78,6 +80,7 @@ function toGuarded(row: Row): Guarded<CandidateRow> {
     occurredAt: row.occurred_at.toISOString(),
     method: row.method,
     cohort: row.cohort,
+    speakerSubjectId: row.speaker_subject_id,
     // `numeric`/`real` arrive as strings from node-postgres. Converted once, here, rather than
     // wherever a caller happens to compare -- `"0.9" > 0.5` is a string comparison.
     channelScore: Number(row.channel_score ?? 0),

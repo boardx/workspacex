@@ -40,6 +40,7 @@
  */
 import { contextPack as CP, omissionReason as OR } from "@repo/contracts";
 import type { z } from "zod";
+import { applyConsentPrefilter } from "../../domain/context-pack/consent-prefilter";
 import type { Omission } from "../../domain/context-pack/pack-structure";
 import type { OrgId } from "../../domain/org-id";
 import {
@@ -103,6 +104,12 @@ export interface RetrievalOutcome {
   readonly omissions: readonly Omission[];
   /** For the D-U1 local-model decision, which belongs to identity (X-5) and is not made here. */
   readonly confidentialCount: number;
+  /**
+   * F93/O-05: subject ids actually excluded THIS run by the per-speaker consent prefilter —
+   * the category-only trace A2 asks for, without naming segments or content. Empty when
+   * `declinedSpeakerSubjectIds` was empty or matched nothing.
+   */
+  readonly consentExcludedSubjectIds: readonly string[];
 }
 
 export interface RetrieveInput {
@@ -118,6 +125,15 @@ export interface RetrieveInput {
   readonly weightOverrides?: Readonly<Partial<Record<RetrievalChannel, number>>>;
   /** Graph traversal seeds. Entity resolution is phase-01 09-kg; callers pass what they know. */
   readonly graphSeeds?: readonly { kind: string; id: string }[];
+  /**
+   * F93/O-05: `interview_subjects.id`s whose `ai_analysis` bit is currently declined. Segments
+   * attributed to one of these (`CandidateRow.speakerSubjectId`) are excluded before fusion —
+   * see `domain/context-pack/consent-prefilter.ts`. This module does not look the set up
+   * itself: which subjects are declined is `interview`'s fact
+   * (`deriveConsentStatus === "ai_analysis_declined"`), not retrieval's, and a caller that has
+   * no interview context at all (e.g. a non-interview project) simply omits it.
+   */
+  readonly declinedSpeakerSubjectIds?: ReadonlySet<string>;
 }
 
 export interface RetrieveDeps extends AuthorizeDeps {
@@ -249,6 +265,24 @@ export async function retrieveCandidates(
     }
   }
 
+  /* ── F93/O-05: per-speaker consent prefilter ───────────────────────────────────────────
+   *
+   * After disclosure (so the judgement it is layered on is real) and before fusion (so an
+   * excluded segment can never be ranked, reranked, budgeted or become an item -- see
+   * `consent-prefilter.ts` for why "front-filter, not exit mask" means exactly this position).
+   */
+  const declinedSpeakerSubjectIds = input.declinedSpeakerSubjectIds ?? new Set<string>();
+  const consentPrefilter = applyConsentPrefilter([...byId.values()], declinedSpeakerSubjectIds);
+  const consentExcluded = new Set(consentPrefilter.excluded.map((c) => c.segmentId));
+  for (const c of consentPrefilter.excluded) {
+    byId.delete(c.segmentId);
+    // Compliance discard, same shape as `unauthorized`: the AI pipeline is not a permitted
+    // consumer of this segment while its speaker's consent is declined. Traced by ref/reason
+    // only -- never the content, and never which subject, on this per-segment row (the subject
+    // trace is `consentExcludedSubjectIds` on the outcome, aggregated and deduplicated).
+    omit(c.segmentId, "unauthorized");
+  }
+
   /* ── fusion ─────────────────────────────────────────────────────────────────────────── */
 
   const rankings: ChannelRanking[] = outcomes.map((o) => ({
@@ -256,7 +290,7 @@ export async function retrieveCandidates(
     weight: o.planned.weight,
     ids: o.visible
       .map((v) => v.payload)
-      .filter((r) => !revoked.has(r.segmentId))
+      .filter((r) => !revoked.has(r.segmentId) && !consentExcluded.has(r.segmentId))
       .sort((a, b) => b.channelScore - a.channelScore || (a.segmentId < b.segmentId ? -1 : 1))
       .map((r) => r.segmentId),
   }));
@@ -319,7 +353,11 @@ export async function retrieveCandidates(
 
   const hitCounts = new Map<string, number>();
   for (const o of outcomes) {
-    hitCounts.set(o.planned.channel, o.visible.filter((v) => !revoked.has(v.payload.segmentId)).length);
+    hitCounts.set(
+      o.planned.channel,
+      o.visible.filter((v) => !revoked.has(v.payload.segmentId) && !consentExcluded.has(v.payload.segmentId))
+        .length,
+    );
   }
 
   return {
@@ -332,5 +370,6 @@ export async function retrieveCandidates(
     claims,
     omissions,
     confidentialCount: ranked.filter((r) => r.row.confidential).length,
+    consentExcludedSubjectIds: consentPrefilter.excludedSubjectIds,
   };
 }
