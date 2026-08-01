@@ -211,6 +211,14 @@ export interface ChatRepository {
   findCitation(orgId: OrgId, citationId: string): Promise<ChatCitationRow | null>;
 
   /**
+   * 一条消息挂着的全部引用（F114 · uc-8-3）。**这是 `hasSource` 与"100% 可定位"
+   * 两条判定共同的数据来源**——`landAsArtifact` 用它算 `citationCount` 与逐条
+   * 定位，不另开一条"数一下有没有引用"的查询：两处若各查一次，字段名或过滤条件
+   * 早晚在某次改动里分家。
+   */
+  findCitationsForMessage(orgId: OrgId, messageId: string): Promise<readonly ChatCitationRow[]>;
+
+  /**
    * 引用的来源材料是否仍然存在（`SOURCE_ARTIFACT_DELETED`）。
    * `sourceArtifactId` 为 `null` 时不适用，调用方不应调这个方法。
    */

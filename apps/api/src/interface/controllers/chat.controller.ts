@@ -121,6 +121,25 @@ import {
   APPROVAL_MODEL_REGISTRY_READER,
   type ApprovalModelRegistryReader,
 } from "../../application/chat/approval-model-registry";
+import {
+  ARTIFACT_LANDING_REPOSITORY,
+  type ArtifactLandingRepository,
+} from "../../application/chat/artifact-landing-ports";
+import {
+  CitationUnresolvableRequiresDraftError,
+  landAsArtifact,
+  MaterializationFailedError as LandMaterializationFailedError,
+  MissingProvenanceBacklinkError,
+  NoWriteRoleError as LandNoWriteRoleError,
+} from "../../application/chat/land-as-artifact";
+import {
+  ArtifactLandingNotFoundError,
+  checkDownstreamEligibility,
+  RequiresPinnedError,
+  type ChatDownstreamPurposeName,
+} from "../../application/chat/check-downstream-eligibility";
+import { listThreadArtifacts } from "../../application/chat/list-thread-artifacts";
+import type { LandingModeName } from "../../domain/chat/artifact-landing";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
@@ -131,6 +150,8 @@ export const DISPATCH_PRESET_SCHEMA = C.operations.dispatchPreset.in;
 export const START_PRESET_INSTANCE_SCHEMA = C.operations.startPresetInstance.in;
 export const CREATE_APPROVAL_REQUEST_SCHEMA = C.operations.createApprovalRequest.in;
 export const DECIDE_APPROVAL_SCHEMA = C.operations.decideApproval.in;
+export const LAND_AS_ARTIFACT_SCHEMA = C.operations.landAsArtifact.in;
+export const CHECK_DOWNSTREAM_ELIGIBILITY_SCHEMA = C.operations.checkDownstreamEligibility.in;
 
 type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
@@ -179,6 +200,17 @@ type DecideApprovalBody = {
   newBudget: { tokens: number; amount: number; currency: string } | null;
   newDataScope: { name: string; confidential: boolean }[] | null;
 };
+type LandAsArtifactBody = {
+  threadId: string;
+  messageId: string;
+  mode: LandingModeName;
+  title: string;
+  payloadRef: string;
+};
+type CheckDownstreamEligibilityBody = {
+  artifactId: string;
+  purpose: ChatDownstreamPurposeName;
+};
 
 @Controller()
 export class ChatController {
@@ -194,6 +226,7 @@ export class ChatController {
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
     @Inject(CHAT_PRESET_REPOSITORY) private readonly chatPresets: ChatPresetRepository,
     @Inject(APPROVAL_MODEL_REGISTRY_READER) private readonly modelRegistry: ApprovalModelRegistryReader,
+    @Inject(ARTIFACT_LANDING_REPOSITORY) private readonly landings: ArtifactLandingRepository,
   ) {}
 
   private get deps() {
@@ -796,6 +829,113 @@ export class ChatController {
       );
     } catch (e) {
       if (e instanceof BackgroundTaskNotFoundError) throw new NotFoundException();
+      throw e;
+    }
+  }
+
+  /* ── F114：产出落地（uc-8-3 UC-20/21/22）─────────────────────────────── */
+
+  /**
+   * 把一条结论 / 产物卡落地为 Artifact。状态码：
+   *   404  不可见或不存在（I-3，与其余读路径同一个出口）
+   *   403  观察者恒无写权
+   *   422  `MISSING_PROVENANCE_BACKLINK` / `CITATION_UNRESOLVABLE_REQUIRES_DRAFT`——
+   *        请求形状合法，内容不满足业务前置（与 `TITLE_INVALID` 同一档）
+   *   503  物化失败（对象存储/依赖不可用）——见 `land-as-artifact.ts` 文件头
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/threads/:threadId/artifacts")
+  async landAsArtifactRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Body(new ZodBodyPipe(LAND_AS_ARTIFACT_SCHEMA)) body: LandAsArtifactBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await landAsArtifact(
+        {
+          ...this.deps,
+          artifacts: this.artifacts,
+          store: this.store,
+          artifactIds: this.artifactIds,
+          landings: this.landings,
+          provenance: this.provenance,
+        },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          threadId: body.threadId ?? threadId,
+          messageId: body.messageId,
+          mode: body.mode,
+          title: body.title,
+          payloadRef: body.payloadRef,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof LandNoWriteRoleError) throw new ForbiddenException({ reasonCode: "NO_WRITE_ROLE" });
+      if (e instanceof MissingProvenanceBacklinkError) {
+        throw new UnprocessableEntityException({ reasonCode: "MISSING_PROVENANCE_BACKLINK" });
+      }
+      if (e instanceof CitationUnresolvableRequiresDraftError) {
+        throw new UnprocessableEntityException({ reasonCode: "CITATION_UNRESOLVABLE_REQUIRES_DRAFT" });
+      }
+      if (e instanceof LandMaterializationFailedError) {
+        throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
+      }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 引用资格门（UC-21）。状态码：
+   *   404  不可见或不存在
+   *   422  `REQUIRES_PINNED`——需先定版为固定快照（I-34）
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/artifacts/:artifactId/downstream-eligibility")
+  async checkDownstreamEligibilityRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("artifactId") artifactId: string,
+    @Body(new ZodBodyPipe(CHECK_DOWNSTREAM_ELIGIBILITY_SCHEMA)) body: CheckDownstreamEligibilityBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await checkDownstreamEligibility(
+        { ...this.deps, landings: this.landings },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          artifactId: body.artifactId ?? artifactId,
+          purpose: body.purpose,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof ArtifactLandingNotFoundError) throw new NotFoundException();
+      if (e instanceof RequiresPinnedError) throw new UnprocessableEntityException({ reasonCode: "REQUIRES_PINNED" });
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /** 右栏「产物」列表（UC-22）。草稿仅创建者可见——见 `list-thread-artifacts.ts` 文件头。 */
+  @Get("/chat/threads/:threadId/artifacts")
+  async threadArtifacts(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await listThreadArtifacts(
+        { ...this.deps, landings: this.landings },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId, threadId },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }
   }

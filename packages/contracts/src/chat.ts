@@ -1105,4 +1105,24 @@ export const KNOWN_CONTRACT_GAPS = {
    * 这是一个已登记的简化，不是对两条注释的调和。
    */
   C_CHAT_9: "decideApproval's concurrency semantics (I-29) and its 'idempotent replay' comment are jointly unsatisfiable without an idempotency key in `in`; the implementation picked I-29 and does not attempt retry detection",
+
+  /**
+   * **`landAsArtifact.in` 没有 `agendaSegmentId`，所以 UC-20/21 没有走
+   * phase-00 `bindToProjectStep` / `referenceForDownstream`**（F114，实现中发现）。
+   *
+   * `usecases.md` 逐字要求"三模式绑定与定版调 phase-00 `artifact` 的
+   * `bindToProjectStep` / `pinVersion`"、"引用资格门必须是 `referenceForDownstream`
+   * 那一个，对话侧不自己判"。但 `bindToProjectStep` 要求一个真实的
+   * `agendaSegmentId`（把产出提交到项目议程的某个环节），而本操作的 `in` 只有
+   * `{threadId, messageId, mode, title, payloadRef}`——没有这个字段，也没有理由
+   * 现在就有：对话里落一条草稿不应该预先决定"这对应项目议程哪一环节"，
+   * 更不应该被 `bindToProjectStep` 内部 `group.submitOutput` 的项目角色门槛挡住
+   * （会让"组员"这个 uc-8-3 的 Actor 之一连给自己存草稿都不行）。
+   *
+   * `apps/api/src/application/chat/land-as-artifact.ts` 因此只复用
+   * `materializeArtifact`（F04，真实字节与版本血缘），三模式状态与 `checkDownstreamEligibility`
+   * 的资格判断（`mode === "pinned"`）落在本束自己的 `chat_artifact_landings` 表，
+   * 是一个已登记的简化，不是"同一个门"的完整落地。
+   */
+  C_CHAT_10: "landAsArtifact.in carries no agendaSegmentId, so UC-20/21 do not route through phase-00 bindToProjectStep/referenceForDownstream; mode-gating is reimplemented on chat's own landing table instead",
 } as const;
