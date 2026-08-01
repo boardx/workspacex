@@ -8,6 +8,8 @@
  * concern -- everything the REVIEW_PENDING fork and its resolution need that nothing before
  * it had a reason to expose.
  */
+import type { z } from "zod";
+import { files as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 
 /** O-17: read-only lookup of the material-level confidential flag F35 already writes. */
@@ -17,7 +19,7 @@ export interface ConfidentialityLookup {
 
 export const CONFIDENTIALITY_LOOKUP = Symbol("ConfidentialityLookup");
 
-export type ReviewDecision = "accept" | "reject";
+export type ReviewDecision = z.infer<typeof C.ReviewResolutionDecision>;
 
 export interface ReviewDispositionRecord {
   readonly artifactId: string;

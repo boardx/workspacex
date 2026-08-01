@@ -218,6 +218,13 @@ export const MaterializeTrigger = z.enum(["created", "changed", "closed", "manua
 export const MaterializationGranularity = z.enum(["per-version", "per-session", "per-run"]);
 
 /**
+ * F39 人工复核处置（`resolveReviewPending`）。⚠ 与 `skills.ts` 的 `ReviewDecision`
+ * （approve/reject，技能审核场景）**不是同一枚举**——值域不同（accept 而非 approve），
+ * 场景也不同，不得合并成一个名字。
+ */
+export const ReviewResolutionDecision = z.enum(["accept", "reject"]);
+
+/**
  * **禁止存在的路由**（本束）。交付物是**断言它不存在的测试**，不是接口。
  *
  * ⚠ `deleteVersion`（删除单个中间版本）**能否存在本身 [待定 T-4]**，
@@ -749,7 +756,7 @@ export const operations = {
     method: "POST",
     path: "/artifacts/:artifactId/review-pending/resolve",
     in: z
-      .object({ artifactId: z.string(), decision: z.enum(["accept", "reject"]), note: z.string() })
+      .object({ artifactId: z.string(), decision: ReviewResolutionDecision, note: z.string() })
       .strict(),
     out: z
       .object({ state: z.enum(["READY", "rejected"]), provenanceEventId: z.string() })
