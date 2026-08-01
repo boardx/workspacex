@@ -40,6 +40,7 @@ import {
   type AppliedProject,
   type ApplyBlueprintRepository,
 } from "./apply-blueprint-ports";
+import type { BlueprintAuditWriter } from "./blueprint-audit-ports";
 
 export type ApplyBlueprintOutput = z.infer<typeof templates.operations.applyBlueprint.out>;
 export type ApplyBlueprintErrorCode = z.infer<typeof templates.TemplateError>;
@@ -96,6 +97,12 @@ export interface ApplyBlueprintInput {
 
 export interface ApplyBlueprintDeps {
   readonly repo: ApplyBlueprintRepository;
+  /**
+   * F28：套用成功写 `套用`，权限/可见性判定被拒写 `越权尝试`（`uc-2-2` R6）。
+   * ⚠ 可选——见 `blueprint-audit-ports.ts` 头注：本束尚无落地的审计持久化实现，
+   * 调用点先接好，真实落库随 controller 一起装配。缺省时本用例的判断逻辑不变。
+   */
+  readonly auditWriter?: BlueprintAuditWriter;
 }
 
 export async function applyBlueprintUseCase(
@@ -106,11 +113,21 @@ export async function applyBlueprintUseCase(
 ): Promise<ApplyBlueprintOutput> {
   // ① 谁能建——先于「这个蓝本存不存在」判断，同 F17 `create-project.ts` 的顺序理由：
   // kind/角色这类与「具体这条资源是谁」无关的门槛，不该等一次资源查询之后才拦。
-  if (input.actorOrgRole === null) throw new ApplyBlueprintError("NO_ORG_ROLE");
-  if (!canApplyBlueprint(input.actorOrgRole)) throw new ApplyBlueprintError("ROLE_INSUFFICIENT");
+  // ⚠ 三条越权判定都先写审计再抛错——「记录被拒」不能因为判断顺序被漏埋一半。
+  if (input.actorOrgRole === null) {
+    await recordUnauthorized(deps.auditWriter, input, "NO_ORG_ROLE");
+    throw new ApplyBlueprintError("NO_ORG_ROLE");
+  }
+  if (!canApplyBlueprint(input.actorOrgRole)) {
+    await recordUnauthorized(deps.auditWriter, input, "ROLE_INSUFFICIENT");
+    throw new ApplyBlueprintError("ROLE_INSUFFICIENT");
+  }
 
   if (!input.blueprintExists) throw new ApplyBlueprintError("BLUEPRINT_NOT_FOUND");
-  if (!input.visibleToActor) throw new ApplyBlueprintError("BLUEPRINT_NOT_VISIBLE");
+  if (!input.visibleToActor) {
+    await recordUnauthorized(deps.auditWriter, input, "BLUEPRINT_NOT_VISIBLE");
+    throw new ApplyBlueprintError("BLUEPRINT_NOT_VISIBLE");
+  }
 
   // ③ 版本状态：`resolvedVersion === null` ⇒ 这个蓝本从未发布过任何版本可选；
   // 选中了但状态不是 published（只可能是 archived）⇒ 新增绑定被 I-7 拒绝。
@@ -138,9 +155,37 @@ export async function applyBlueprintUseCase(
     throw err;
   }
 
+  // ⚠ 只在真正建成（含幂等重放）之后才写 `套用`——INITIALIZATION_FAILED 已在上面提前
+  // 抛出，不会走到这里；失败的那次不产生审计记录，同 I-3「发布失败不占号」的同款理由。
+  await deps.auditWriter?.record({
+    orgId: input.orgId,
+    blueprintId: input.blueprintId,
+    actorId: input.actorId,
+    action: "套用",
+    detail: { projectId: applied.projectId, blueprintVersionId: applied.blueprintVersionId },
+  });
+
   return {
     projectId: applied.projectId,
     blueprintVersionId: applied.blueprintVersionId,
     initialized: applied.initialized.map((c) => ({ category: c.category, count: c.count })),
   };
+}
+
+/**
+ * `越权尝试` 写入的公共小尾巴（F28）——三处判定分支各自早退，抽成一个函数只是不让
+ * `detail` 的字段名在三处各写一遍、某天改一处漏两处（同 `record-audit.ts` 头注的理由）。
+ */
+async function recordUnauthorized(
+  auditWriter: BlueprintAuditWriter | undefined,
+  input: ApplyBlueprintInput,
+  reasonCode: ApplyBlueprintErrorCode,
+): Promise<void> {
+  await auditWriter?.record({
+    orgId: input.orgId,
+    blueprintId: input.blueprintId,
+    actorId: input.actorId,
+    action: "越权尝试",
+    detail: { action: "templates.applyBlueprint", reasonCode },
+  });
 }

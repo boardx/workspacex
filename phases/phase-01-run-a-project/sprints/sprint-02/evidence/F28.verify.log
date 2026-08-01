@@ -1,0 +1,81 @@
+# F28 verification evidence
+
+Command: pnpm --filter api exec vitest run tests/tpl/no-writeback-to-blueprint.test.ts
+```
+
+ RUN  v2.1.9 /private/tmp/f28-worktree/apps/api
+
+ ✓ tests/tpl/no-writeback-to-blueprint.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  22:02:14
+   Duration  414ms (transform 162ms, setup 0ms, collect 211ms, tests 3ms, environment 0ms, prepare 56ms)
+
+```
+
+Command: pnpm --filter api exec vitest run tests/tpl/no-backend-asset-mutation-path.test.ts
+```
+
+ RUN  v2.1.9 /private/tmp/f28-worktree/apps/api
+
+ ✓ tests/tpl/no-backend-asset-mutation-path.test.ts (8 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  22:02:15
+   Duration  372ms (transform 150ms, setup 0ms, collect 207ms, tests 4ms, environment 0ms, prepare 36ms)
+
+```
+
+Regression check: full templates-bundle test suite (24 files, 245 tests) — all still pass after apply-blueprint.ts / templates.ts contract changes.
+```
+
+ RUN  v2.1.9 /private/tmp/f28-worktree/apps/api
+
+ ✓ tests/tpl/designer-shell-version-bar.test.ts (15 tests) 9ms
+ ✓ tests/tpl/draft-autosave-truthful.test.ts (14 tests) 4ms
+ ✓ tests/tpl/version-generation-transactional.test.ts (8 tests) 6ms
+ ✓ tests/tpl/init-preview-six-categories.test.ts (12 tests) 8ms
+ ✓ tests/tpl/blueprint-snapshot-binding.test.ts (5 tests) 5ms
+ ✓ tests/tpl/duration-tier-agenda-count.test.ts (17 tests) 8ms
+ ✓ tests/tpl/apply-transactional-idempotent.test.ts (11 tests) 8ms
+ ✓ tests/tpl/no-backend-asset-mutation-path.test.ts (8 tests) 9ms
+ ✓ tests/tpl/completeness-denominator-from-table.test.ts (9 tests) 305ms
+ ✓ tests/tpl/online-mode-adds-two-stages.test.ts (12 tests) 7ms
+ ✓ tests/tpl/no-writeback-to-blueprint.test.ts (5 tests) 6ms
+ ✓ tests/tpl/rollback-as-new-version.test.ts (10 tests) 5ms
+ ✓ tests/tpl/apply-six-category-init.test.ts (13 tests) 5ms
+ ✓ tests/tpl/publish-gate-required-and-trial.test.ts (9 tests) 6ms
+ ✓ tests/tpl/snapshot-no-drift.test.ts (7 tests) 4ms
+ ✓ tests/tpl/blueprint-list-metadata.test.ts (10 tests) 5ms
+ ✓ tests/tpl/required-column-drives-gate.test.ts (9 tests) 3ms
+ ✓ tests/tpl/model-strategy-three-lanes.test.ts (7 tests) 3ms
+ ✓ tests/tpl/new-blueprint-three-entries.test.ts (12 tests) 4ms
+ ✓ tests/tpl/archive-and-delete-refcount.test.ts (15 tests) 3ms
+ ✓ tests/tpl/trial-run-prereq-for-publish.test.ts (8 tests) 2ms
+ ✓ tests/tpl/confidential-local-not-downgraded.test.ts (5 tests) 5ms
+ ✓ tests/tpl/quota-90-downgrade-not-halt.test.ts (7 tests) 3ms
+ ✓ tests/tpl/blueprint-config-table-driven.test.ts (17 tests) 738ms
+   ✓ 没有第二份定义表（机械门控） > 门控真的扫了源码树，并且真的解析到了唯一事实源 385ms
+
+ Test Files  24 passed (24)
+      Tests  245 passed (245)
+   Start at  22:02:16
+   Duration  1.22s (transform 591ms, setup 0ms, collect 3.90s, tests 1.16s, environment 2ms, prepare 1.25s)
+
+```
+
+Regression check: skill-bundle isolation test that reuses the same TEMPLATE_PORTS_ALLOWED_METHODS whitelist.
+```
+
+ RUN  v2.1.9 /private/tmp/f28-worktree/apps/api
+
+ ✓ tests/capability/skill/instance-override-no-writeback.test.ts (22 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  22:02:17
+   Duration  357ms (transform 145ms, setup 0ms, collect 194ms, tests 10ms, environment 0ms, prepare 31ms)
+
+```
