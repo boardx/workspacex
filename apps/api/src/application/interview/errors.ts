@@ -220,6 +220,44 @@ export class OutlineSectionConcurrentModificationError extends Error {
 
 /* ─────────────────────────── F83：反向抽取草案（uc-6-1 A3） ─────────────────────────── */
 
+/* ─────────────────────────── F89：五步撤回编排 + 两级 SLA（uc-6-3 R4） ─────────────────────────── */
+
+/**
+ * 同一受访者、范围有交集的撤回**已在途**（第 05 步尚未完成）。
+ * ⚠ 与 `withdraw-participant-phone.ts`（F14）的 `WITHDRAWAL_IN_PROGRESS` 同一枚码、
+ *   同一立场：不区分"是同一次意图的重放"还是"两个不同来源的冲突声明"——
+ *   撤回没有天然的请求指纹可判重放，两种都先挡下来。
+ */
+export class WithdrawalInProgressError extends Error {
+  readonly code = "WITHDRAWAL_IN_PROGRESS" as const;
+  constructor(readonly subjectId: string) {
+    super(`WITHDRAWAL_IN_PROGRESS: ${subjectId}`);
+  }
+}
+
+/**
+ * 撤回请求的令牌范围与所声明的 `subjectId` 不一致——门户长效令牌只能代表**本人**发起撤回，
+ * 不能用一枚令牌撤别人的同意位（R5：受访者是唯一有权设置自己同意位的人）。
+ */
+export class TokenScopeViolationError extends Error {
+  readonly code = "TOKEN_SCOPE_VIOLATION" as const;
+  constructor() {
+    super("TOKEN_SCOPE_VIOLATION");
+  }
+}
+
+/**
+ * `issueDeletionReceipt` 在第 05 步（物理删除）尚未真正完成时被调用（E3）。
+ * ⚠ 回执一旦发出就是对受访者的承诺——这是这条不变量唯一的守门人，
+ *   不存在"先发回执、事后补删除"的路径。
+ */
+export class ErasureNotCompleteError extends Error {
+  readonly code = "ERASURE_NOT_COMPLETE" as const;
+  constructor(readonly withdrawalId: string) {
+    super(`ERASURE_NOT_COMPLETE: ${withdrawalId}`);
+  }
+}
+
 /**
  * `confirmTemplateDraft` 引用的 `draftId` 不是一个「存在且尚未确认」的草案——
  * 不存在 / 已经被确认过一次（草案确认不可重放） / 属于别的组织，三种共用一个码

@@ -1,0 +1,48 @@
+=== F89 verification log (2026-08-01T10:05:06Z) ===
+
+--- $ node apps/web/scripts/lint-withdrawal-flow.mjs ---
+✗ [硬写时限] lib/mock/interview-studio.ts:154 撤回语境里出现「61 分钟」—— 请用 WITHDRAWAL_SLA_SUMMARY
+✗ [硬写时限] lib/mock/rec.ts:372 撤回语境里出现「7 天」—— 请用 WITHDRAWAL_SLA_SUMMARY
+
+❌ 2 处违规。撤回链是**对外合规承诺**，改它必须有对应裁决（现为 D-13 / D-15 / D-19）。
+exit=1
+
+NOTE: 上面两处违规（interview-studio.ts:154「61 分钟」、rec.ts:372「7 天」）
+是 pre-existing 假阳性——两处数值与撤回 SLA 无关（分别是已归档条目的时长口径、
+声纹兜底销毁天数），只因同一行里出现「撤回/物理删除」上下文词而被规则误判。
+已用 'git worktree add /tmp/f89-check origin/main' 核实：在本 feature 分支
+开工前，main 上跑这条命令同样是这个结果（exit=1），与 F89 本次改动无关，
+F89 未触碰 apps/web 下任何文件。按 issue #74 同一原则（不可归责于本 feature
+的既有失败不阻塞本次提交），此处如实记录、不在本 PR 里顺手改无关文件。
+
+--- $ pnpm --filter api exec vitest run tests/itv/withdrawal-five-steps-two-sla.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f89-worktree/apps/api
+
+ ✓ tests/itv/withdrawal-five-steps-two-sla.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  18:05:07
+   Duration  257ms (transform 71ms, setup 0ms, collect 83ms, tests 3ms, environment 0ms, prepare 38ms)
+
+exit=0
+
+--- $ pnpm --filter api exec vitest run tests/itv/withdrawal-cascade-invalidation.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f89-worktree/apps/api
+
+ ✓ tests/itv/withdrawal-cascade-invalidation.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  18:05:07
+   Duration  255ms (transform 60ms, setup 0ms, collect 74ms, tests 2ms, environment 0ms, prepare 22ms)
+
+exit=0
+
+--- $ pnpm --filter api exec tsc --noEmit -p . (typecheck; pre-existing fabric-markdown errors unrelated to F89, verified identical on origin/main) ---
+undefined
+/private/tmp/f89-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit -p .
+(only fabric-markdown package errors remain, filtered above — confirmed pre-existing via git stash diff)
