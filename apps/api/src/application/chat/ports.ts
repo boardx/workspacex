@@ -215,6 +215,97 @@ export interface ChatRepository {
    * `sourceArtifactId` 为 `null` 时不适用，调用方不应调这个方法。
    */
   artifactExists(orgId: OrgId, artifactId: string): Promise<boolean>;
+
+  /* ── F112：批准闸门（chat 束 domain.md E 组，uc-8-2）───────────────────── */
+
+  /** 落一条新的批准请求，恒以 `paused` 落库（I-27）。 */
+  createApprovalRequest(orgId: OrgId, input: NewApprovalRequestInput): Promise<ApprovalRequestRow>;
+
+  /** 读一条批准请求。不存在返回 `null`。 */
+  findApprovalRequest(orgId: OrgId, requestId: string): Promise<ApprovalRequestRow | null>;
+
+  /**
+   * 状态转移的唯一写口——`UPDATE ... WHERE status = 'paused'`，**乐观并发由数据库回答**
+   * （I-29：单向且一次性）。0 行受影响即返回 `null`，由 application 层判定是「已终态」
+   * 还是「已过期」并映射成对应的对外错误。
+   *
+   * ⚠ **approve/decline 就地改写这一行的 `status`；reparam 额外插入一行新请求**
+   * （I-30：原请求六项披露字节不变，只改 `status` 与 `superseded_by_request_id`）。
+   * 三种出口共用一次原子写，调用方（`decide-approval.ts`）负责准备好
+   * `ApprovalDecisionWrite` 描述的全部字段，仓储不做任何决策。
+   */
+  decideApprovalRequest(
+    orgId: OrgId,
+    requestId: string,
+    write: ApprovalDecisionWrite,
+  ): Promise<ApprovalRequestRow | null>;
+
+  /** 批准后转的后台任务。见迁移文件头：11-task 队列未落地前的最小占位实现。 */
+  createBackgroundTask(orgId: OrgId, input: NewBackgroundTaskInput): Promise<void>;
+
+  findBackgroundTask(orgId: OrgId, taskId: string): Promise<BackgroundTaskRow | null>;
+}
+
+/** 批准卡的数据范围条目——与契约 `ApprovalDataScope` 同形，仓储层只转述不重定义。 */
+export interface ApprovalDataScopeRow {
+  readonly name: string;
+  readonly confidential: boolean;
+}
+
+export interface NewApprovalRequestInput {
+  readonly id: string;
+  readonly threadId: string;
+  readonly agentId: string;
+  readonly action: string;
+  readonly callChain: readonly string[];
+  readonly proposedModels: readonly string[];
+  readonly dataScope: readonly ApprovalDataScopeRow[];
+  readonly estimatedTokens: number;
+  readonly expiresAt: string;
+}
+
+export type ApprovalRequestStatusRow = "paused" | "approved" | "reparamed" | "declined" | "expired";
+
+export interface ApprovalRequestRow {
+  readonly id: string;
+  readonly threadId: string;
+  readonly agentId: string;
+  readonly action: string;
+  readonly status: ApprovalRequestStatusRow;
+  readonly callChain: readonly string[];
+  readonly proposedModels: readonly string[];
+  readonly dataScope: readonly ApprovalDataScopeRow[];
+  readonly estimatedTokens: number;
+  readonly expiresAt: string;
+  readonly taskId: string | null;
+  readonly supersedesRequestId: string | null;
+  readonly supersededByRequestId: string | null;
+}
+
+/** 一次状态转移的写入描述——`decide-approval.ts` 组装，仓储只负责原子写。 */
+export type ApprovalDecisionWrite =
+  | { readonly kind: "approve"; readonly decidedBy: string; readonly taskId: string }
+  | { readonly kind: "decline"; readonly decidedBy: string }
+  | {
+      readonly kind: "reparam";
+      readonly decidedBy: string;
+      readonly newRequest: NewApprovalRequestInput;
+    }
+  | { readonly kind: "expire" };
+
+export interface NewBackgroundTaskInput {
+  readonly taskId: string;
+  readonly approvalRequestId: string;
+  readonly etaMinutes: number;
+}
+
+export type BackgroundTaskStatusRow =
+  "queued" | "running" | "needs-input" | "done" | "failed" | "cancelled";
+
+export interface BackgroundTaskRow {
+  readonly taskId: string;
+  readonly status: BackgroundTaskStatusRow;
+  readonly resultMessageId: string | null;
 }
 
 export const CHAT_REPOSITORY = Symbol("ChatRepository");

@@ -1078,4 +1078,31 @@ export const KNOWN_CONTRACT_GAPS = {
    * 裁决前实现方**不得写死**一套判定。
    */
   C_CHAT_7: "MODEL_POLICY_VIOLATION's confidentiality criterion is undecided; ApprovalDataScope.confidential has no defined producer",
+
+  /**
+   * **`createApprovalRequest.in` 不携带调用方链信息**（F112，实现中发现）。
+   *
+   * 六项披露里的「调用链」（domain.md I-28）字面要求 O-36「agent 互调深度上限 2」
+   * 能被断言，前提是知道"谁调用了谁"。但 `in` 只有 `{threadId, agentId, action,
+   * dataScope, proposedModels, estimatedTokens}`——没有一个字段能表达"这次调用是被
+   * 哪个上一层 agent 触发的"。`apps/api/src/application/chat/create-approval-request.ts`
+   * 的实现把 `callChain` 恒设为 `[agentId]`，满足 I-28 的"非空"但语义单薄，
+   * 是一个已登记的已知简化，不是完整实现。
+   */
+  C_CHAT_8: "createApprovalRequest.in carries no caller-chain information; O-36's two-level agent call depth cannot be asserted from this shape alone",
+
+  /**
+   * **`decideApproval` 的并发语义与幂等重放语义在契约现有输入形状下互不相容**
+   * （F112，实现中发现）。
+   *
+   * `chat.ts` 本文件的注释同时要求：① I-29「并发两次 approve 只有一个生效，
+   * 另一个收到状态已变化」；② "同一 (requestId, expectedStatus) 的重复 approve
+   * 返回同一 taskId，不产生第二个任务"（幂等重放）。`in` 没有携带任何幂等键
+   * （nonce / idempotency-key），单靠 `(requestId, expectedStatus="paused")`
+   * 无法区分"同一调用方在重试"与"另一个调用方在竞争"——这两件事在契约现有
+   * 输入下是同一个观测。`apps/api/src/application/chat/decide-approval.ts`
+   * 取①（domain.md I-29 的"怎么断言"逐条写明的是这一种），未做重试识别；
+   * 这是一个已登记的简化，不是对两条注释的调和。
+   */
+  C_CHAT_9: "decideApproval's concurrency semantics (I-29) and its 'idempotent replay' comment are jointly unsatisfiable without an idempotency key in `in`; the implementation picked I-29 and does not attempt retry detection",
 } as const;

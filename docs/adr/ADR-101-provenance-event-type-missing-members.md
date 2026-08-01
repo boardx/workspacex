@@ -224,6 +224,28 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
 `ADD VALUE`-式的可加行为（Postgres 原生 enum 类型，而不是字符串 CHECK），
 从根上消除"后写者覆盖前写者"这条路。
 
+### 追加（2026-08-01，F112 · chat，issue #196）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **2** 个成员，按本 ADR「第五个撞上的人被带到这里」的意图，
+不发明第二种处理：
+
+| 成员 | 代谁补 | 出处 |
+|---|---|---|
+| `approval-requested` | F112 · `chat` | `chat.ts` `createApprovalRequest` · domain.md I-27/I-28，uc-8-2 R11 |
+| `approval-decided` | F112 · `chat` | `chat.ts` `decideApproval` · domain.md I-29/I-30 |
+
+- 命名沿用「对象-过去分词」构词法；两个成员分开而不是合并成 `approval-changed` +
+  `detail.op`，与决策 A 里「线程三值不合并」同一个理由——按类型筛选批准事件是
+  验收面要求的能力，合并后 `queryProvenance` 筛不出来。
+- target 沿用已有的 `thread`（代 F109 补），不新增 target kind：批准请求挂在发起它的
+  线程上，与工具调用挂靠方式相同（`detail.requestId` 承担「哪一次批准」的区分）。
+- `provenance_events_type_check`（0027 所建，历次追加见 0033/本次）随 F112 迁移
+  （`20260801130000_f112_approval_gate.sql`）一并追加该值；
+  `provenance-enum-single-source.test.ts` 的双向断言覆盖它，无需新写测试文件。
+- 否决时的回退：撤销契约里这两行 + 迁移里对应的 CHECK 追加 +
+  `create-approval-request.ts` / `decide-approval.ts` 失去写审计这一步
+  （批准闸门本身的状态机不受影响，`chat_approval_requests` 表独立于 `provenance_events`）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |
