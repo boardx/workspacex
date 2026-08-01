@@ -140,6 +140,43 @@ export class InMemorySubjectRepository implements SubjectRepository {
   async orgMembershipOf(_orgId: OrgId, userId: string): Promise<{ orgRole: string | null; teamId: string | null }> {
     return this.orgMemberships.get(userId) ?? { orgRole: null, teamId: null };
   }
+
+  /**
+   * F98 添加。这个 F87 fixture 里没有一个"哪个对象是历史候选种子"的场景在用它，
+   * 所以给一个诚实的最小实现（按 `orgName` 线性过滤），不是占位空实现——真正的
+   * 候选建议场景由 F98 自己的 `../support/fake-subject-repository.ts` 覆盖。
+   */
+  async listByOrgName(_orgId: OrgId, orgName: string): Promise<GuardedSubjectRow[]> {
+    const out: GuardedSubjectRow[] = [];
+    for (const stored of this.byId.values()) {
+      if (stored.record.orgName !== orgName) continue;
+      out.push({ item: guard({ kind: "subject", id: stored.record.subjectId }, stored.record), facts: stored.facts });
+    }
+    return out;
+  }
+
+  /**
+   * F98 添加。这个 fixture 不建模 `groups.project_id`（F87 的场景都是按 groupId/
+   * interviewSessionId 取数），所以 `exportSubjects` 相关场景不该用这个 fixture——
+   * 见 `../support/fake-subject-repository.ts`。这里给空实现只是为了满足接口，
+   * 任何测试如果开始依赖它返回真实数据，那是这个方法该被填对的信号，不是本行的责任。
+   */
+  async listByProjectScope(_orgId: OrgId, _projectId: string): Promise<GuardedSubjectRow[]> {
+    return [];
+  }
+
+  /**
+   * F98 添加。这个 fixture 没有加密/掩码密文的存储（`maskContact` 只产出展示用掩码，
+   * 从不保留可还原的密文），所以诚实地恒返回 `sealed: null`——`revealContact` 相关场景
+   * 走 F98 自己的 fixture。
+   */
+  async findContactForReveal(
+    _orgId: OrgId,
+    subjectId: string,
+  ): Promise<{ facts: SubjectVisibilityFacts; sealed: null } | null> {
+    const stored = this.byId.get(subjectId);
+    return stored === undefined ? null : { facts: stored.facts, sealed: null };
+  }
 }
 
 interface SubmissionRow {

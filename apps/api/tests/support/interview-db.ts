@@ -6,6 +6,22 @@
  * 被真的走过一遍的；owner 写入会绕过它，于是整套断言建立在生产永远写不出来的数据上。
  */
 import { asApp, asOwner } from "./db";
+import type { ContactCipher } from "../../src/domain/interview/contact-vault";
+
+/**
+ * A deterministic fixture cipher for `PgInterviewSubjectRepository` (F98's constructor now
+ * requires one -- see that file's header). Base64-encoded, not left as plaintext -- same
+ * discipline `phone-encrypted-masked.test.ts` (F72) already uses for `PiiCipher` fixtures:
+ * it only needs to prove the stored bytes are not the plaintext bytes. Unlike `PiiCipher`,
+ * `ContactCipher` also needs a matching `decrypt` -- F98's `revealContact` is a legitimate
+ * reveal path, so this fixture provides one.
+ */
+export const FIXTURE_CONTACT_CIPHER: ContactCipher = {
+  algorithm: "base64-fixture",
+  keyId: "k-test-contact-1",
+  encrypt: (p) => Buffer.from(p, "utf8").toString("base64"),
+  open: (c) => Buffer.from(c, "base64").toString("utf8"),
+};
 
 export interface SeedInterviewOpts {
   readonly orgId: string;

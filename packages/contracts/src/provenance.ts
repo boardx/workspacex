@@ -116,6 +116,24 @@ export const ProvenanceEventType = z.enum([
    */
   "integrity-check-failed",
 
+  /**
+   * 🔴 F98（interview 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * uc-6-7 R8 逐字：「`[查看]` 需权限且每次写审计」；R5「引导师…可查看联系方式（每次
+   * 查看写审计）」；契约自己的 `revealContact` 注释也逐字：「取到明文也写审计（不只是
+   * 被拒时写，I-21）」——三处已签核文档都要求这个写审计动作，枚举里却没有能表达
+   * 「联系方式明文被查看了」这件事的成员。最接近的既有成员都不是它：`downloaded`
+   * 是文件原件下载（22-files 束，跟对象表毫不相干）；`admin-project-access` 是管理员
+   * 审计读项目内容，不是任何角色查看联系方式明文。拿它们顶包会让「谁看过这个人的手机号」
+   * 与另一件完全不相干的事混在同一个类型里——这正是 ADR-101 开篇反复强调的那种混淆。
+   *
+   * ⚠ 与 F34 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形状：撤销本行 + 迁移里对应的 CHECK 收缩 + `reveal-contact.ts` 失去
+   * 写审计这一步（那意味着 R8 的「每次查看写审计」重新变回无法兑现的承诺）。
+   */
+  "contact-revealed",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
@@ -149,6 +167,12 @@ export const ProvenanceTargetKind = z.enum([
    *   `z.record` 里。⚠ 这条**未裁**：ADR-101 列出三条出路并推荐 A，但不替人选。
    */
   "thread",
+  /**
+   * 🔴 F98（interview 束）补入。没有它，「这个访谈对象的联系方式被谁查看过」
+   * 查不出来——与 `interview`（F80）/ `thread`（F109）同一个根，同一纪律：走 ADR。
+   * 见 `ProvenanceEventType` 里 `contact-revealed` 的长注。
+   */
+  "subject",
 ]);
 
 export type ProvenanceTargetKindT = z.infer<typeof ProvenanceTargetKind>;

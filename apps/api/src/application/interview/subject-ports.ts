@@ -21,6 +21,7 @@
 import type { OrgId } from "../../domain/org-id";
 import type { ConsentBits, SubjectMode, SubjectRecord } from "../../domain/interview/subject";
 import type { SubjectVisibilityFacts } from "../../domain/interview/subject-visibility";
+import type { SealedContact } from "../../domain/interview/contact-vault";
 import type { Guarded } from "../security/permission-filter";
 
 export interface CreateSubjectInput {
@@ -101,6 +102,36 @@ export interface SubjectRepository {
 
   /** 看的人在该组织的角色 + 团队（未归组对象走这个，不查项目角色）。 */
   orgMembershipOf(orgId: OrgId, userId: string): Promise<{ orgRole: string | null; teamId: string | null }>;
+
+  /**
+   * 按机构名（`orgName`）在**整个组织**范围内查历史对象（F98，`[AI 建议人选]`
+   * 的启发式种子——见 `in-memory-candidate-store.ts` 的 `HistoryBasedCandidateSuggester`
+   * 文件头）。⚠ 与 `listByGroup`/`listByInterviewSession` 一样必须经 `guard()` 出门——
+   * 这是"别人也可能读到这一行"的第三条路径，不能因为它服务于生成建议就绕过 R5。
+   */
+  listByOrgName(orgId: OrgId, orgName: string): Promise<GuardedSubjectRow[]>;
+
+  /**
+   * 按项目取该项目**所有组**的对象（F98，`exportSubjects`）。经 `groups.project_id`
+   * 关联——对象表本身没有 `project_id` 列（R3-9：对象只挂 `group_id`，项目归属是
+   * 经组间接的），所以这是一次 JOIN，不是在 `interview_subjects` 上加一列重复声明
+   * 项目归属（那会是"同一事实两处"的第六次）。
+   */
+  listByProjectScope(orgId: OrgId, projectId: string): Promise<GuardedSubjectRow[]>;
+
+  /**
+   * 取一行的**已加密**联系方式，供 `revealContact`（F98）判定后解密。
+   *
+   * ⚠ 与 `findGuardedById` 分开而不是复用：那个方法的 `SubjectRecord` 恒返回
+   * `contactMask`（掩码），从不带 `SealedContact`——多一条从「读对象行」到「拿到密文」
+   * 的旁路，`contactMask` 恒等于遮盖这条不变量就不再是接口形状能保证的了，得靠人记得
+   * 不要在别处解构 `sealedContact`。拆成单独方法，调用方只有 `reveal-contact.ts` 一处。
+   * `sealed === null` ＝ 该对象从未录入过联系方式。
+   */
+  findContactForReveal(
+    orgId: OrgId,
+    subjectId: string,
+  ): Promise<{ readonly facts: SubjectVisibilityFacts; readonly sealed: SealedContact | null } | null>;
 }
 
 export const SUBJECT_REPOSITORY = Symbol("SubjectRepository");

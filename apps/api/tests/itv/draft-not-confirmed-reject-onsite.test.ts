@@ -13,6 +13,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { FIXTURE_CONTACT_CIPHER } from "../support/interview-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgTemplateRepository } from "../../src/infrastructure/interview/pg-template-repository";
@@ -50,7 +51,7 @@ beforeAll(async () => {
   await migrateOnce();
   db = new PgDatabase(appConfig());
   templates = new PgTemplateRepository(db);
-  subjects = new PgInterviewSubjectRepository(db);
+  subjects = new PgInterviewSubjectRepository(db, FIXTURE_CONTACT_CIPHER);
   consent = new PgConsentSubmissionStore(db);
   outlines = new PgOutlineRepository(db);
   wizardInterviews = new PgWizardInterviewRepository(db);
