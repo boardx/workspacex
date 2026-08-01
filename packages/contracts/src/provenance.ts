@@ -174,6 +174,24 @@ export const ProvenanceEventType = z.enum([
    */
   "deletion-requested",
 
+  /**
+   * 🔴 F137（asset-governance 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * 已签核的 `contracts/asset-governance/domain.md` `PublishAsset` 长注逐字：
+   * 「发布必须写审计（谁 / 什么资产 / 什么可见范围 / 什么时间）」（`uc-23-4` R9 / R7 规则 13）。
+   * 最接近的既有成员都不是它：`capability-added` 是能力清单新增（配置存在与否），不是
+   * 「这份已配置好的能力被公开发布」这个动作；`bound`/`pinned` 是 `artifact` 束的血缘动词，
+   * 指向的是内容定版与绑定，不是六种资产统一治理面的发布。拿它们顶包会让「谁在什么时候
+   * 把什么资产发到了什么可见范围」与其它毫不相干的事件混进同一个类型——ADR-101 开篇的
+   * 道理照旧适用。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形：撤销本行 + 迁移里对应的 CHECK 追加 + `publish-asset.ts` 失去写审计这一步
+   * （发布仍会执行，只是 R9「全程审计」的承诺重新落空）。
+   */
+  "asset-published",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
@@ -213,6 +231,14 @@ export const ProvenanceTargetKind = z.enum([
    * 见 `ProvenanceEventType` 里 `contact-revealed` 的长注。
    */
   "subject",
+  /**
+   * 🔴 F137（asset-governance 束）补入，同一根：没有它，「这个资产被谁发布过」只能
+   * 挂在 `capability`（能力清单条目）上——而 `AssetKind` 六值里有两类（`canvas-template` /
+   * `blueprint`）根本不是能力清单的成员（`asset-governance.ts` `AssetKind` 长注），拿
+   * `capability` 顶包会让这两类资产的发布审计查不到自己。见 `ProvenanceEventType` 里
+   * `asset-published` 的长注，同一纪律：走 ADR。
+   */
+  "asset",
 ]);
 
 export type ProvenanceTargetKindT = z.infer<typeof ProvenanceTargetKind>;

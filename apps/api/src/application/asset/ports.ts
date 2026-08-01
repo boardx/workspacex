@@ -65,3 +65,30 @@ export interface AssetGovernanceRepository {
 }
 
 export const ASSET_GOVERNANCE_REPOSITORY = Symbol("AssetGovernanceRepository");
+
+/**
+ * `AssetGateStatusPort` -- F137's seam for `PublishAsset`'s `GATE_NOT_PASSED` check
+ * (`asset-governance.ts` `AssetGovernanceError.GATE_NOT_PASSED`, domain I-5).
+ *
+ * 🔴 **The six landing gates themselves (`uc-23-2`) stay in phase-2 per Q-0/`DECISION-Q0.md`
+ * (plan C) -- this bundle does not build `LandingCheck`, `GateVerdict`, or anything that runs
+ * a real gate.** The issue's own notes are explicit that `GATE_NOT_PASSED` in phase-1 "由导入
+ * 路径之外的场景触发" (triggered by a scenario outside the import path) -- i.e. something has
+ * to be able to report "this asset currently has a blocking gate verdict" WITHOUT that
+ * something being the six-gate engine, because that engine does not exist here yet.
+ *
+ * This port is that something: a single boolean question, answerable today by a phase-1
+ * stand-in that always says "no blocking gate" (see
+ * `infrastructure/asset/always-passing-asset-gate-status.ts`), and swappable later for a real
+ * reader over `uc-23-2`'s `LandingCheck` rows once phase-2 lands -- without `publishAsset.ts`
+ * changing at all. Building a fuller `GateVerdict`/`GateRunState` shape (I-9's two-field
+ * distinction) here would be reconstructing `uc-23-2`'s domain model one field at a time from
+ * this feature's narrower need, which is exactly the kind of "invent the deferred half" this
+ * bundle's contract header repeatedly warns against.
+ */
+export interface AssetGateStatusPort {
+  /** `true` = at least one landing-check verdict for this asset is currently blocking (I-5). */
+  hasBlockingGate(assetKind: AssetKind, assetId: string): Promise<boolean>;
+}
+
+export const ASSET_GATE_STATUS_PORT = Symbol("AssetGateStatusPort");

@@ -234,13 +234,16 @@ import { ProjectController } from "./interface/controllers/project.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
 // header for why phase-1 has no persisted file store to back this yet.
-import { ASSET_FILE_REPOSITORY, ASSET_GOVERNANCE_REPOSITORY } from "./application/asset/ports";
+import { ASSET_FILE_REPOSITORY, ASSET_GATE_STATUS_PORT, ASSET_GOVERNANCE_REPOSITORY } from "./application/asset/ports";
 import { FixtureAssetFileRepository } from "./infrastructure/asset/fixture-asset-file-repository";
 import { AssetDirectoryController } from "./interface/controllers/asset-directory.controller";
 // F134 (asset-governance bundle): the six-kind-uniform governance config screen (`uc-23-4` R3) --
 // `GetAssetGovernance` / `SetAssetGovernance`. No persisted store exists yet for this shape
 // across all six AssetKinds (AG1), so this is in-memory -- see the repository's header for why.
 import { InMemoryAssetGovernanceRepository } from "./infrastructure/asset/in-memory-asset-governance-repository";
+// F137: `PublishAsset`'s `GATE_NOT_PASSED` seam -- see `application/asset/ports.ts`'s
+// `AssetGateStatusPort` header for why phase-1 wires an always-"no blocking gate" stand-in.
+import { AlwaysPassingAssetGateStatus } from "./infrastructure/asset/always-passing-asset-gate-status";
 import { AssetGovernanceController } from "./interface/controllers/asset-governance.controller";
 
 @Module({
@@ -561,6 +564,9 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     // F134: in-memory (no persisted store across all six AssetKinds yet, AG1) -- see the
     // repository's class header for why.
     { provide: ASSET_GOVERNANCE_REPOSITORY, useFactory: () => new InMemoryAssetGovernanceRepository() },
+    // F137: always-"no blocking gate" (the six gates themselves stay in phase-2, Q-0) -- see
+    // the class header for why.
+    { provide: ASSET_GATE_STATUS_PORT, useFactory: () => new AlwaysPassingAssetGateStatus() },
     // F124：独立 provider，见 `pg-project-archive-repository.ts` 文件头。
     {
       provide: PROJECT_ARCHIVE_REPOSITORY,
