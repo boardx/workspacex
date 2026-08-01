@@ -1,0 +1,88 @@
+F147 verification — 2026-08-01T08:06:55Z
+=== pnpm --filter @repo/contracts run test ===
+
+> @repo/contracts@0.0.0 test /private/tmp/f147-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f147-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 4ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 5ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 8ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 66ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 4ms
+ ✓ tests/contract-shape.test.ts (77 tests) 32ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  16:06:55
+   Duration  532ms (transform 670ms, setup 0ms, collect 1.40s, tests 123ms, environment 1ms, prepare 487ms)
+
+
+=== pnpm --filter api exec vitest run tests/research/promote-three-gates.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f147-worktree/apps/api
+
+ ✓ tests/research/promote-three-gates.test.ts (17 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  16:06:56
+   Duration  352ms (transform 145ms, setup 0ms, collect 190ms, tests 4ms, environment 0ms, prepare 39ms)
+
+
+=== pnpm --filter api exec vitest run tests/research/promote-partial-success.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f147-worktree/apps/api
+
+ ✓ tests/research/promote-partial-success.test.ts (11 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:06:57
+   Duration  450ms (transform 179ms, setup 0ms, collect 236ms, tests 4ms, environment 0ms, prepare 56ms)
+
+
+=== pnpm --filter web exec vitest run tests/ui/research-exit-actions-observer-absent.test.tsx ===
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f147-worktree/apps/web
+
+ ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 36ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  16:06:57
+   Duration  1.17s (transform 85ms, setup 100ms, collect 136ms, tests 36ms, environment 591ms, prepare 25ms)
+
+
+=== typecheck (api) — pre-existing unrelated fabric-markdown failures, verified identical with/without this feature's files (diff empty) ===
+../../packages/fabric-markdown/src/mermaid-parser.ts(1018,21): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(1022,3): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+/private/tmp/f147-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+
+=== typecheck (web) ===
+(clean, 0 errors)
+
+=== lint: naming single-source ===
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+
+=== lint: permission paths ===
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=507 tenant-tables=75 allowlisted=24
+
+=== guard: permission-propagation-six-paths allowlist unaffected (no new routes added by this feature) ===
+
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 2342ms
+
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+   Start at  16:07:04
+   Duration  2.78s (transform 183ms, setup 0ms, collect 270ms, tests 2.34s, environment 0ms, prepare 25ms)
+
