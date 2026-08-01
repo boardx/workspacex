@@ -109,6 +109,53 @@ export function canInstantiateExistingBinding(_version: BlueprintVersion): boole
 }
 
 /**
+ * 发布新版本（F30 / I-3 / I-7，`uc-2-4` R3 步骤 1-2 + E6「同事务」）。
+ *
+ * 纯函数版本的「事务」：一次调用要么产出「旧版归档 + 新版追加」这两件事
+ * **都发生**的新历史数组，要么（history 非法）不产出任何东西——
+ * 不存在「新版已生成但旧版仍为当前版」的中间态，因为这里根本没有中间态可言，
+ * 只有一次函数调用前后两个完整快照。真正的事务边界（DB 提交）是外层的事。
+ *
+ * ⚠ 只把 history 中 `state === "published"` 的那一条转 `archived`——
+ *   已经 `archived` 的版本保持不变，不会被「二次归档」覆盖掉它原来的身份。
+ */
+export interface PublishResult {
+  readonly history: readonly BlueprintVersion[];
+  readonly newVersion: BlueprintVersion;
+  /** 与新版生成同事务；仅首次发布（无历史）时为 null（契约 `archivedVersionId`） */
+  readonly archivedVersionId: string | null;
+}
+
+export function publishNewVersion(
+  history: readonly BlueprintVersion[],
+  params: {
+    readonly newVersionId: string;
+    readonly blueprintId: string;
+    readonly content: Readonly<Record<string, unknown>>;
+    readonly changedDesignFacetKeys: readonly string[];
+  },
+): PublishResult {
+  const previouslyPublished = history.find((v) => v.state === "published") ?? null;
+  const archived: BlueprintVersion[] = history.map((v) =>
+    v.id === previouslyPublished?.id ? { ...v, state: "archived" } : v,
+  );
+  const newVersion: BlueprintVersion = {
+    id: params.newVersionId,
+    blueprintId: params.blueprintId,
+    versionNumber: nextVersionNumber(history),
+    content: params.content,
+    changedDesignFacetKeys: params.changedDesignFacetKeys,
+    rolledBackFrom: null,
+    state: "published",
+  };
+  return {
+    history: [...archived, newVersion],
+    newVersion,
+    archivedVersionId: previouslyPublished?.id ?? null,
+  };
+}
+
+/**
  * 草稿态不显示版本号（uc-2-4 R7）。
  *
  * ⚠ 返回 `null` 而不是 `0` 或 `"—"`：0 是一个会被拿去做算术的数，

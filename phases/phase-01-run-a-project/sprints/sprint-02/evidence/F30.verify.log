@@ -1,0 +1,61 @@
+F30 verification — 2026-08-01T16:15:00Z
+Branch: worker/w2-tpl6-01-F30 (isolated git worktree off origin/main@0a0140ce)
+
+=== required verification commands (all 4, exit code 0) ===
+
+$ pnpm --filter api exec vitest run tests/tpl/snapshot-no-drift.test.ts tests/tpl/blueprint-list-metadata.test.ts tests/tpl/archive-and-delete-refcount.test.ts tests/tpl/rollback-as-new-version.test.ts
+
+ RUN  v2.1.9 /private/tmp/f30-worktree/apps/api
+
+ ✓ tests/tpl/archive-and-delete-refcount.test.ts (15 tests) 7ms
+ ✓ tests/tpl/snapshot-no-drift.test.ts (7 tests) 4ms
+ ✓ tests/tpl/rollback-as-new-version.test.ts (10 tests) 8ms
+ ✓ tests/tpl/blueprint-list-metadata.test.ts (10 tests) 6ms
+
+ Test Files  4 passed (4)
+      Tests  42 passed (42)
+
+=== full apps/api/tests/tpl suite (regression check, includes F17/F18/F20/F21/F22) ===
+
+ Test Files  19 passed (19)
+      Tests  203 passed (203)
+
+=== mechanical single-source gates ===
+
+$ node apps/api/scripts/lint-design-facet-single-source.mjs apps/api/src apps/api/tests
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=834 violations=0 debt=0 keys=15 groups=5
+
+$ node apps/api/scripts/lint-naming-single-source.mjs
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=510 tenant-tables=75 allowlisted=24
+
+=== typecheck ===
+
+$ pnpm --filter api run typecheck
+FAILS — but with a pre-existing, unrelated error in packages/fabric-markdown
+(mermaid-parser.ts / fabric-objects.ts: missing DOM lib types — `Element`,
+`SVGElement`, `document`, `CanvasRenderingContext2D` members). Confirmed this
+failure exists on a clean `origin/main` checkout with ZERO F30 changes applied
+(git stash + rerun in the same worktree reproduces the identical error list).
+Same failure already documented as pre-existing in evidence/F102.verify.log.
+No error is reported against any file this feature touches
+(apps/api/src/domain/templates/*, apps/api/tests/tpl/*).
+
+=== per issue #74: Postgres-dependent tests skipped locally (typecheck + pure
+vitest only); all touched code is pure domain functions with no DB dependency. ===
+
+=== files changed ===
+M  apps/api/src/domain/templates/blueprint-version.ts       (+ publishNewVersion / PublishResult)
+A  apps/api/src/domain/templates/snapshot-binding.ts          (AC1/AC2 快照不漂移)
+A  apps/api/src/domain/templates/archive-delete-gate.ts       (O-18① 引用计数门控 + O-18③ 归档确认)
+A  apps/api/src/domain/templates/rollback-gate.ts             (V7 回滚来源版本约束)
+A  apps/api/src/domain/templates/blueprint-list-row.ts        (D-03 列表元数据派生 + O-37③ 满意度阈值 + I-8 行操作)
+A  apps/api/tests/tpl/snapshot-no-drift.test.ts
+A  apps/api/tests/tpl/blueprint-list-metadata.test.ts
+A  apps/api/tests/tpl/archive-and-delete-refcount.test.ts
+A  apps/api/tests/tpl/rollback-as-new-version.test.ts
