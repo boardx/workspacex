@@ -605,7 +605,22 @@ describe("lint-permission-paths: counter-proof", () => {
     // `interview_sessions`, never `withoutTenant`) is asserted by
     // `tests/itv/source-interview-reader-org-scoped-only.test.ts`. If either test is
     // deleted, its entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(20);
+    //
+    // ⚠ Raised 20 -> 21 by F36 (phase-01 / uc-22-2 ingestion outbox + worker), rebased onto
+    // main through F83 (this file) -- RE-MEASURED on the combined tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (21), not computed as "20 + 1". The
+    // new entry is `infrastructure/files/pg-ingestion-repository.ts`: `ingestion_outbox`/
+    // `ingestion_history` rows are job-queue metadata (which step, status/attempts, a state
+    // name + timestamp) -- never a title, mime, bytes, or segment text -- and the worker
+    // calls (`claimNext`/`completeAndAdvance`) have no requester to judge in the first
+    // place, same shape as the identity-repository entry's "the decision is made FROM this"
+    // circularity.
+    //
+    // Its ENFORCED premise: `tests/files/ingestion-repo-metadata-only.test.ts` parses the
+    // file and fails if any returned field falls outside the allowlisted set, or if any
+    // statement is not scoped by an explicit `org_id` predicate (no `withoutTenant`). If
+    // that test is ever deleted, this entry must go with it.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(21);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

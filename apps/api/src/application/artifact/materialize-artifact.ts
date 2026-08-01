@@ -242,6 +242,11 @@ export async function materializeArtifact(
     // F04 never derives what it materializes -- everything this module writes is an
     // original (F73's `derived_from`, migration `20260731153640_f73_recording_file_first`).
     derivedFrom: null,
+    // F36: a version that lands STORED has the rest of the nine-state pipeline still ahead
+    // of it -- queue the first step (`EXTRACTED`) in the SAME transaction as this INSERT.
+    // Every other caller's `ingestionStatus` is undefined/`"READY"`, so this is `null` for
+    // them and nothing gets queued behind an already-finished version.
+    enqueueIngestionOutboxStep: input.ingestionStatus === "STORED" ? "EXTRACTED" : null,
   });
 
   return { artifactId, versionId, versionNumber, materializedKeys: written, contentHash };

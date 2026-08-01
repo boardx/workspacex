@@ -122,6 +122,22 @@ export interface NewArtifactVersion {
    * read-side use case is signed off to expose it. `findVersion` below does not return it.
    */
   readonly derivedFrom: string | null;
+
+  /**
+   * F36 passthrough -- see `MaterializeInput.ingestionStatus`.
+   *
+   * When set (only by the upload path, only when `ingestionStatus === "STORED"`), the
+   * repository writes an `ingestion_outbox` row for this step IN THE SAME TRANSACTION as
+   * this version's INSERT (`PgArtifactRepository.createVersion`). That co-location is the
+   * entire "transactional" half of the transactional-outbox pattern: a worker can never see
+   * a committed `STORED` version with no job to pick it up, because both rows commit or
+   * roll back together.
+   *
+   * `null`/`undefined` (every caller except the upload path) means "no async pipeline runs
+   * after this version" -- F04/F05/F06's own versions are `READY` already and have nothing
+   * queued behind them.
+   */
+  readonly enqueueIngestionOutboxStep?: string | null;
 }
 
 export interface NewSegment {

@@ -61,8 +61,8 @@ export class PgArtifactRepository implements ArtifactRepository {
 
   async createVersion(v: NewArtifactVersion): Promise<void> {
     try {
-      await this.db.withTenant(v.orgId, (s) =>
-        s.query(
+      await this.db.withTenant(v.orgId, async (s) => {
+        await s.query(
           `INSERT INTO artifact_versions
              (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
               size_bytes, pinned_by, context_pack_id, derived_from)
@@ -71,8 +71,23 @@ export class PgArtifactRepository implements ArtifactRepository {
             v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
             v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId, v.derivedFrom,
           ],
-        ),
-      );
+        );
+
+        // F36: same transaction as the version INSERT above -- see `NewArtifactVersion`'s
+        // own doc comment for why that co-location is the whole point. `ON CONFLICT DO
+        // NOTHING` on `ingestion_outbox_uniq_active` makes this call idempotent too: a retry
+        // of the SAME `createVersion` (which cannot happen for the same version id today,
+        // but a future caller that re-derives the same enqueue call must not double-queue)
+        // is a no-op, not a duplicate job.
+        if (v.enqueueIngestionOutboxStep != null) {
+          await s.query(
+            `INSERT INTO ingestion_outbox (org_id, artifact_id, artifact_version_id, step)
+             VALUES ($1,$2,$3,$4)
+             ON CONFLICT ON CONSTRAINT ingestion_outbox_uniq_active DO NOTHING`,
+            [v.orgId, v.artifactId, v.id, v.enqueueIngestionOutboxStep],
+          );
+        }
+      });
     } catch (e) {
       // 23505 on either uniqueness rule is the same event seen from two angles: two writers
       // aimed at the same version number (`_uniq_number`), or at the same storage key
