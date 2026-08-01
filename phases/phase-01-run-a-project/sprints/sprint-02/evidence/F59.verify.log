@@ -1,0 +1,41 @@
+$ pnpm --filter api exec vitest run tests/capability/agent/private-chat-isolation-provenance.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f59-worktree/apps/api
+
+ ✓ tests/capability/agent/private-chat-isolation-provenance.test.ts (10 tests) 20ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  07:09:35
+   Duration  973ms (transform 77ms, setup 0ms, collect 92ms, tests 20ms, environment 0ms, prepare 222ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/agent/private-chat-no-privilege-escalation.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f59-worktree/apps/api
+
+ ✓ tests/capability/agent/private-chat-no-privilege-escalation.test.ts (15 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  07:09:38
+   Duration  1.04s (transform 85ms, setup 0ms, collect 86ms, tests 6ms, environment 0ms, prepare 198ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/agent/private-chat-project-layer-audit.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f59-worktree/apps/api
+
+ ✓ tests/capability/agent/private-chat-project-layer-audit.test.ts (10 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  07:09:41
+   Duration  985ms (transform 81ms, setup 0ms, collect 93ms, tests 7ms, environment 0ms, prepare 113ms)
+
+[exit 0]
