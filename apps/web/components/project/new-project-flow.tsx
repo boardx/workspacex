@@ -9,6 +9,8 @@ import { SectionTitle, StatChip } from "./parts";
 import type { Identity } from "@/lib/identity";
 import type { UiState } from "@/lib/ui-state";
 import { NEWPROJECT, BLUEPRINT_CATALOG } from "@/lib/mock/project";
+import { INIT_CATEGORIES } from "@/lib/mock/tpl";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * 新建项目向导（原型 wsCreateView）—— C-2 缺屏补齐。
@@ -17,13 +19,29 @@ import { NEWPROJECT, BLUEPRINT_CATALOG } from "@/lib/mock/project";
  * ⚠ **处置了一处宣称已被否决模型的字段**：原型步骤 2 的「挂到哪个项目（决定能读哪些洞察与图谱）」
  *   （原型 byte 15208776）宣称父子项目模型（Q-12 候选 E），而 Q-12 已裁 C+D、E 未采纳。
  *   此处改成明确的**跨容器只读引用**「关联研究来源」，并挂一条 callout 说清它不是父子层级。
+ *
+ * ⚠ **F23 补的两处**：
+ *   ① 六类初始化一览——复用 `lib/mock/tpl.ts` 的 `INIT_CATEGORIES`（与设计器面板 01
+ *      的「套用后会初始化什么」同一份数据），不在本文件另开一份六类清单（同 I-17 的理由）。
+ *   ② 「创建项目」按钮的双击/重复点击防护——契约 `applyBlueprint` 的幂等（V13）是后端
+ *      靠 `idempotencyKey` 保证的，但界面层至少不该让同一次点击意图触发两次提交请求；
+ *      本文件用本地状态把按钮在首次点击后置为已提交/禁用，不接后端（同本域 mock 的既有约束）。
  */
 export function NewProjectFlow({
   identity, state,
 }: { identity: Identity; state: UiState }) {
   const [picked, setPicked] = React.useState<string>(BLUEPRINT_CATALOG[0]!.id);
+  const [submitted, setSubmitted] = React.useState(false);
+  const [createCount, setCreateCount] = React.useState(0);
   const d = NEWPROJECT.defaults;
   const src = NEWPROJECT.linkedSources;
+
+  const handleCreate = React.useCallback(() => {
+    // ⚠ 幂等的界面表达：一旦已提交，后续点击一律不再触发（不会让 createCount 继续增长）。
+    if (submitted) return;
+    setSubmitted(true);
+    setCreateCount((n) => n + 1);
+  }, [submitted]);
 
   return (
     <AppShell identity={identity} previewRole={null}>
@@ -163,10 +181,40 @@ export function NewProjectFlow({
               </div></Card>
             </section>
 
+            {/* 六类初始化一览（F23 AC2「逐项对得上」）——复用蓝本设计器同一份数据，不另开一份清单 */}
+            <section>
+              <div className="mb-2 flex items-center gap-2">
+                <StepDot n={3} />
+                <SectionTitle className="mb-0" meta="要么全部成功、要么整体回滚，不建半成品">套用后将初始化什么（六类）</SectionTitle>
+              </div>
+              <Card><ul className="flex flex-col gap-1.5 p-3" data-testid="project-new-init-preview">
+                {INIT_CATEGORIES.map((c) => (
+                  <li key={c.key} className="flex items-start gap-2 text-11" data-testid="project-new-init-item">
+                    <Badge tone="primary">{c.label}</Badge>
+                    <span className="text-muted-foreground">{c.writes}</span>
+                  </li>
+                ))}
+              </ul></Card>
+            </section>
+
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="primary" data-testid="project-new-create">创建项目</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleCreate}
+                disabled={submitted}
+                data-testid="project-new-create"
+                data-create-count={createCount}
+              >
+                {submitted ? "已创建" : "创建项目"}
+              </Button>
               <Button size="sm" variant="ghost" className="transition-colors" data-testid="project-new-cancel">取消</Button>
               <span className="flex-1" />
+              {submitted && (
+                <span data-testid="project-new-created" className="text-11 text-muted-foreground">
+                  已创建项目，绑定「{labelFor(picked)}」的具体版本快照（此后不随蓝本发布漂移）
+                </span>
+              )}
               <StatChip tone="ai">当前选择：{labelFor(picked)}</StatChip>
             </div>
           </div>

@@ -1,0 +1,168 @@
+$ pnpm --filter api exec vitest run tests/tpl/apply-six-category-init.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/api
+
+ ✓ tests/tpl/apply-six-category-init.test.ts (13 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  16:58:39
+   Duration  358ms (transform 152ms, setup 0ms, collect 197ms, tests 2ms, environment 0ms, prepare 32ms)
+
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/blueprint-snapshot-binding.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/api
+
+ ✓ tests/tpl/blueprint-snapshot-binding.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:58:40
+   Duration  385ms (transform 158ms, setup 0ms, collect 213ms, tests 2ms, environment 0ms, prepare 25ms)
+
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/apply-transactional-idempotent.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/api
+
+ ✓ tests/tpl/apply-transactional-idempotent.test.ts (11 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:58:41
+   Duration  347ms (transform 141ms, setup 0ms, collect 190ms, tests 3ms, environment 0ms, prepare 21ms)
+
+
+[exit 0]
+
+$ pnpm --filter web exec vitest run tests/ui/new-project-wizard.test.tsx
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/web
+
+ ✓ tests/ui/new-project-wizard.test.tsx (5 tests) 88ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:58:41
+   Duration  960ms (transform 84ms, setup 78ms, collect 143ms, tests 88ms, environment 380ms, prepare 33ms)
+
+
+[exit 0]
+
+--- additional local verification (per AGENTS.md / issue #74 guidance: skip Postgres-dependent tests locally, typecheck + pure tests only) ---
+
+$ pnpm --filter api exec vitest run tests/tpl
+
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/api
+
+ ✓ tests/tpl/designer-shell-version-bar.test.ts (15 tests) 5ms
+ ✓ tests/tpl/draft-autosave-truthful.test.ts (14 tests) 5ms
+ ✓ tests/tpl/version-generation-transactional.test.ts (8 tests) 3ms
+ ✓ tests/tpl/init-preview-six-categories.test.ts (12 tests) 7ms
+ ✓ tests/tpl/blueprint-snapshot-binding.test.ts (5 tests) 3ms
+ ✓ tests/tpl/duration-tier-agenda-count.test.ts (17 tests) 6ms
+ ✓ tests/tpl/apply-transactional-idempotent.test.ts (11 tests) 8ms
+ ✓ tests/tpl/apply-six-category-init.test.ts (13 tests) 5ms
+ ✓ tests/tpl/completeness-denominator-from-table.test.ts (9 tests) 286ms
+ ✓ tests/tpl/required-column-drives-gate.test.ts (9 tests) 3ms
+ ✓ tests/tpl/publish-gate-required-and-trial.test.ts (9 tests) 5ms
+ ✓ tests/tpl/model-strategy-three-lanes.test.ts (7 tests) 4ms
+ ✓ tests/tpl/confidential-local-not-downgraded.test.ts (5 tests) 5ms
+ ✓ tests/tpl/new-blueprint-three-entries.test.ts (12 tests) 6ms
+ ✓ tests/tpl/online-mode-adds-two-stages.test.ts (12 tests) 8ms
+ ✓ tests/tpl/trial-run-prereq-for-publish.test.ts (8 tests) 5ms
+ ✓ tests/tpl/quota-90-downgrade-not-halt.test.ts (7 tests) 2ms
+ ✓ tests/tpl/blueprint-config-table-driven.test.ts (17 tests) 547ms
+   ✓ 没有第二份定义表（机械门控） > 门控真的扫了源码树，并且真的解析到了唯一事实源 337ms
+
+ Test Files  18 passed (18)
+      Tests  190 passed (190)
+   Start at  16:58:42
+   Duration  1.02s (transform 559ms, setup 0ms, collect 3.18s, tests 913ms, environment 1ms, prepare 886ms)
+
+
+[exit 0]
+
+$ pnpm --filter web exec vitest run
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f23-worktree/apps/web
+
+ ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 8ms
+ ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 11ms
+ ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (131 tests) 16ms
+ ✓ tests/single-source-of-truth.test.ts (22 tests) 107ms
+ ✓ tests/lint-design-gate.test.ts (12 tests) 215ms
+ ✓ tests/ui/files-browser.test.tsx (13 tests) 116ms
+ ✓ tests/ui/files-version-derived.test.tsx (9 tests) 122ms
+ ✓ tests/ui/files-preview.test.tsx (12 tests) 95ms
+ ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 48ms
+ ✓ tests/ui/blueprint-duration-form.test.tsx (19 tests) 616ms
+   ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 482ms
+ ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 161ms
+ ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 714ms
+   ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 476ms
+ ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 345ms
+ ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 107ms
+ ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 134ms
+ ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 89ms
+ ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 93ms
+ ✓ tests/ui/project-live-page.test.tsx (2 tests) 98ms
+ ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 40ms
+ ✓ tests/ui/admin-members-boundary.test.tsx (6 tests) 220ms
+ ✓ tests/ui/admin-members-list.test.tsx (6 tests) 299ms
+ ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 65ms
+ ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 89ms
+ ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 125ms
+ ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 26ms
+ ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 59ms
+ ✓ tests/ui/join-verify-form.test.tsx (5 tests) 39ms
+ ✓ tests/ui/new-project-wizard.test.tsx (5 tests) 111ms
+
+ Test Files  28 passed (28)
+      Tests  438 passed (438)
+   Start at  16:58:44
+   Duration  3.45s (transform 1.24s, setup 2.87s, collect 4.39s, tests 4.17s, environment 11.02s, prepare 1.36s)
+
+
+[exit 0]
+
+$ node apps/api/scripts/lint-design-facet-single-source.mjs apps/api/src apps/api/tests
+
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=832 violations=0 debt=0 keys=15 groups=5
+
+[exit 0]
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=509 tenant-tables=75 allowlisted=24
+
+[exit 0]
+
+$ pnpm --filter api exec tsc --noEmit 2>&1 | grep -v fabric-markdown || true
+
+undefined
+/private/tmp/f23-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit
+
+[exit 0]
+
+$ pnpm --filter web exec tsc --noEmit
+
+
+[exit 0]
+
