@@ -1,0 +1,91 @@
+=== F137 verification log ===
+Generated: 2026-08-01T14:27:01Z
+
+--- pnpm --filter @repo/contracts run test ---
+
+> @repo/contracts@0.0.0 test /private/tmp/f137-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f137-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 5ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 5ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 8ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 68ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 31ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  22:27:02
+   Duration  503ms (transform 582ms, setup 0ms, collect 1.28s, tests 126ms, environment 1ms, prepare 411ms)
+
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/asset/publish-three-independent-blockers.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f137-worktree/apps/api
+
+ ✓ tests/asset/publish-three-independent-blockers.test.ts (4 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  22:27:02
+   Duration  208ms (transform 48ms, setup 0ms, collect 53ms, tests 2ms, environment 0ms, prepare 35ms)
+
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/asset/publish-review-due-derivation.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f137-worktree/apps/api
+
+ ✓ tests/asset/publish-review-due-derivation.test.ts (3 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:27:03
+   Duration  233ms (transform 37ms, setup 0ms, collect 46ms, tests 2ms, environment 0ms, prepare 22ms)
+
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/asset/publish-audit-event.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f137-worktree/apps/api
+
+ ✓ tests/asset/publish-audit-event.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  22:27:03
+   Duration  202ms (transform 45ms, setup 0ms, collect 50ms, tests 2ms, environment 0ms, prepare 34ms)
+
+
+exit code: 0
+
+--- pnpm --filter api run typecheck (filtered: fabric-markdown pre-existing failures unrelated to this feature, see note) ---
+
+> @repo/api@0.0.0 typecheck /private/tmp/f137-worktree/apps/api
+> tsc --noEmit
+
+/private/tmp/f137-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+
+NOTE: apps/api typecheck fails ONLY on pre-existing packages/fabric-markdown DOM-lib
+errors (confirmed present on origin/main before this branch's changes via git stash
+check). No error is reported in any file this feature touches.
+
+--- pnpm --filter api run lint ---
+scanned=49 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 568 files, all dependencies point inward
+scanned=568
+
+exit code: 0
