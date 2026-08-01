@@ -40,11 +40,13 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   ServiceUnavailableException,
@@ -63,7 +65,14 @@ import {
 import { getProjectOverview } from "../../application/project/get-project-overview";
 import { archiveProject } from "../../application/project/archive-project";
 import { unarchiveProject } from "../../application/project/unarchive-project";
-import { ProjectArchiveBlockedByActiveSegmentError, ProjectError } from "../../application/project/errors";
+import { addProjectMember } from "../../application/project/add-project-member";
+import { changeProjectRole } from "../../application/project/change-project-role";
+import { removeProjectMember } from "../../application/project/remove-project-member";
+import {
+  ProjectArchiveBlockedByActiveSegmentError,
+  ProjectError,
+  ProjectMemberAlreadyExistsError,
+} from "../../application/project/errors";
 import {
   AGENDA_SEGMENT_REPOSITORY,
   PROJECT_ARCHIVE_REPOSITORY,
@@ -76,6 +85,12 @@ import {
   type ProjectOverviewRepository,
   type ProjectRepository,
 } from "../../application/project/ports";
+import {
+  MEMBER_SUBJECT_RESOLVER,
+  PROJECT_MEMBERSHIP_REPOSITORY,
+  type MemberSubjectResolver,
+  type ProjectMembershipRepository,
+} from "../../application/project/member-ports";
 import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
@@ -122,6 +137,13 @@ export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
 /** 同上，`archiveProject` / `unarchiveProject` 的入参契约（F124）。两者形状相同：`{ projectId }`。 */
 export const ARCHIVE_PROJECT_SCHEMA = C.operations.archiveProject.in;
 export const UNARCHIVE_PROJECT_SCHEMA = C.operations.unarchiveProject.in;
+/** 同上，F125 三个成员操作的入参契约。 */
+export const ADD_PROJECT_MEMBER_SCHEMA = C.operations.addProjectMember.in;
+export const CHANGE_PROJECT_ROLE_SCHEMA = C.operations.changeProjectRole.in;
+export const REMOVE_PROJECT_MEMBER_SCHEMA = C.operations.removeProjectMember.in;
+
+type AddMemberBody = z.infer<typeof C.operations.addProjectMember.in>;
+type ChangeRoleBody = z.infer<typeof C.operations.changeProjectRole.in>;
 
 type CreateBody = {
   orgId: string;
@@ -140,6 +162,8 @@ export class ProjectController {
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(AGENDA_SEGMENT_REPOSITORY) private readonly segments: AgendaSegmentRepository,
     @Inject(PROJECT_ARCHIVE_REPOSITORY) private readonly archiveRepo: ProjectArchiveRepository,
+    @Inject(PROJECT_MEMBERSHIP_REPOSITORY) private readonly members: ProjectMembershipRepository,
+    @Inject(MEMBER_SUBJECT_RESOLVER) private readonly memberSubjects: MemberSubjectResolver,
     @Inject(BINDING_REPOSITORY) private readonly bindings: BindingRepository,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
@@ -463,6 +487,125 @@ export class ProjectController {
       return await unarchiveProject(
         { repo: this.archiveRepo, identity: this.identity },
         { orgId: principal.orgId, actorId: principal.userId, projectId: input.projectId },
+      );
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F125 UC-P9 `addProjectMember` —— 两个入口（`subject.kind: "orgUser" | "inviteToken"`）
+   * 共用同一个 application 用例，见 `application/project/add-project-member.ts` 文件头。
+   *
+   * ⚠ `orgId` 取自 `principal.orgId`，同 `advance`/`overview`/`archive` 几条路由的形状——
+   * 契约 `addProjectMember.in` 本就只有 `projectId`/`subject`/`projectRole`/`isHost`，
+   * 没有 `orgId` 字段。
+   */
+  @Post("/projects/:projectId/members")
+  async addMember(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(ADD_PROJECT_MEMBER_SCHEMA)) body: AddMemberBody,
+  ) {
+    assertPrincipal(principal);
+    if (body.projectId !== projectId) {
+      throw new BadRequestException("project_id_mismatch");
+    }
+
+    try {
+      return await addProjectMember(
+        {
+          identity: this.identity,
+          members: this.members,
+          resolver: this.memberSubjects,
+          provenance: this.provenance,
+        },
+        {
+          actorId: principal.userId,
+          orgId: principal.orgId,
+          projectId,
+          subject: body.subject,
+          projectRole: body.projectRole,
+          isHost: body.isHost,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ProjectMemberAlreadyExistsError) {
+        // ⚠ 契约没有为「已经是成员」命名任何码——见该类文件头。落成一个不带码的 400。
+        throw new BadRequestException();
+      }
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F125 UC-P9 `changeProjectRole`——下一次请求即生效（Q-4③），不缓存跨请求判定结论。
+   */
+  @Patch("/projects/:projectId/members/:userId")
+  async changeMemberRole(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("userId") userId: string,
+    @Body(new ZodBodyPipe(CHANGE_PROJECT_ROLE_SCHEMA)) body: ChangeRoleBody,
+  ) {
+    assertPrincipal(principal);
+    if (body.projectId !== projectId || body.userId !== userId) {
+      throw new BadRequestException("project_or_user_id_mismatch");
+    }
+
+    try {
+      return await changeProjectRole(
+        { identity: this.identity, members: this.members, provenance: this.provenance },
+        {
+          actorId: principal.userId,
+          orgId: principal.orgId,
+          projectId,
+          userId,
+          projectRole: body.projectRole,
+          isHost: body.isHost,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * F125 UC-P9 `removeProjectMember`。契约 `removeProjectMember.in` 是 `{ projectId, userId }`,
+   * 两者都已在路径参数里,不需要额外的 body 回声比对（同 GET 路由用 query 参数过一遍契约
+   * 校验的理由，这里两个字段都来自路径，直接构造后过校验）。
+   */
+  @Delete("/projects/:projectId/members/:userId")
+  async removeMember(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("userId") userId: string,
+  ) {
+    assertPrincipal(principal);
+    REMOVE_PROJECT_MEMBER_SCHEMA.parse({ projectId, userId });
+
+    try {
+      return await removeProjectMember(
+        { identity: this.identity, members: this.members, provenance: this.provenance },
+        { actorId: principal.userId, orgId: principal.orgId, projectId, userId },
       );
     } catch (e) {
       if (e instanceof ProjectError) {

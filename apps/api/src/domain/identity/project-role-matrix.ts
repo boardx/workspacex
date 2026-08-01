@@ -44,6 +44,18 @@ export const PROJECT_ACTIONS = [
    * 更细的角色区分，应在这里改，而不是另建一个不经过本矩阵的判定。
    */
   "content.renameFile",   // 改文件名（改名走契约，见 N-23）
+  /**
+   * F125（project 束 · UC-P9 `addProjectMember`/`changeProjectRole`/`removeProjectMember`）：
+   * 「谁能加人/改角色/移除人」的项目层那一半。UC-00.3 R1 把「引导师」列为本用例的 actor
+   * 之一（「控场者」），且 R3 步骤 1 的措辞是「授予者操作」——没有一份已签核的 UC 把这个
+   * 动作词写进 R5 的表，这里按 facilitator「控场」的既有定性（本文件头「facilitator row:
+   * controls the room」）延伸，同 `content.renameFile` 那条注释同型的判断，不是裁决。
+   * ⚠ 只属 facilitator：groupLead/member/observer 管不了别人的项目成员身份，
+   *   这与 Q-4②「组织角色 `lead` 对自建未加入的项目持管理权」并不冲突——
+   *   lead 的那条路径**不经过本矩阵**，见 `application/project/member-authorization.ts`
+   *   的「两层 OR」判定：这里只回答项目层内谁能做，组织层的旁路在那个文件里单独判。
+   */
+  "member.manage",        // 加人 / 改角色 / 移除人（F125）
   /* read surfaces, split by what each role may see */
   "read.ownGroup",        // 本组内容
   "read.allHands",        // 全场已共享
@@ -67,7 +79,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   facilitator: [
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote", "content.renameFile",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
   ],
   // Runs their own group. No room control: they cannot advance the stage for everyone.

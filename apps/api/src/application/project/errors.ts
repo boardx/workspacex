@@ -49,3 +49,24 @@ export class ProjectArchiveBlockedByActiveSegmentError extends Error {
     this.name = "ProjectArchiveBlockedByActiveSegmentError";
   }
 }
+
+/**
+ * F125 / `addProjectMember` —— 目标用户在这个项目里已经有一行成员记录（主键
+ * `(user_id, project_id)` 冲突）。
+ *
+ * 同 `ProjectArchiveBlockedByActiveSegmentError` 一样的处境：`packages/contracts/src/
+ * project.ts` 的 `addProjectMember.err` 只有
+ * `["NO_PROJECT_ROLE","PROJECT_ROLE_INSUFFICIENT","ORG_ROLE_INSUFFICIENT",
+ * "PROJECT_ARCHIVED","AUTH_SERVICE_UNAVAILABLE"]` 五个成员，没有一个是为「已经是成员」
+ * 准备的——`usecases.md` 也没有单列这一条异常流程（uc-00-3 R4 只列到 E7「并发改同一人
+ * 的角色」，说的是 `changeProjectRole`，不是重复 `add`）。
+ *
+ * ⇒ 本类**不携带** `reasonCode`，`interface` 层只能落成一个不带码的 400——如实反映
+ * 契约现状，不发明一个未经签核的字面量（`ProjectReason` 是闭合枚举，新增走签核）。
+ */
+export class ProjectMemberAlreadyExistsError extends Error {
+  constructor() {
+    super("add rejected: this user already has a membership row in this project (PK conflict, no dedicated reasonCode in addProjectMember.err)");
+    this.name = "ProjectMemberAlreadyExistsError";
+  }
+}
