@@ -1,0 +1,38 @@
+$ pnpm --filter api exec vitest run tests/capability/agent/load-rule-idempotent-top4.test.ts
+
+ RUN  v2.1.9 /private/tmp/f57-worktree/apps/api
+
+ ✓ tests/capability/agent/load-rule-idempotent-top4.test.ts (13 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  15:52:58
+   Duration  188ms (transform 24ms, setup 0ms, collect 22ms, tests 3ms, environment 0ms, prepare 29ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/agent/roster-vs-present-count.test.ts
+
+ RUN  v2.1.9 /private/tmp/f57-worktree/apps/api
+
+ ✓ tests/capability/agent/roster-vs-present-count.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:52:59
+   Duration  347ms (transform 151ms, setup 0ms, collect 198ms, tests 2ms, environment 0ms, prepare 30ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/agent/why-loaded-explainable.test.ts
+
+ RUN  v2.1.9 /private/tmp/f57-worktree/apps/api
+
+ ✓ tests/capability/agent/why-loaded-explainable.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  15:52:59
+   Duration  339ms (transform 149ms, setup 0ms, collect 191ms, tests 3ms, environment 0ms, prepare 29ms)
+
+[exit 0]
