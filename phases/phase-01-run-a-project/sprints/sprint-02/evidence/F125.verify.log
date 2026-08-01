@@ -1,0 +1,125 @@
+F125 —— 项目成员三用例（加入 / 改角色 / 移除）：两个入口共用同一 application 用例 +
+        变更下一次请求即生效 + 展示别名不落库
+验证证据 —— 生成于隔离 worktree /tmp/f125-worktree（分支 worker/w1-project5-01-F125）
+基线：origin/main @ ade05a5
+
+================================================================================
+结论摘要
+================================================================================
+- typecheck / lint / @repo/contracts test / apps/web test 全部通过（exit 0）。
+- 三条新增 vitest 文件里，两条（member-two-entries-one-usecase / role-change-effective-
+  next-request）是纯内存单测（不连 Postgres），本地**实际执行**通过，不只是 typecheck。
+- 第三条（display-alias-not-persisted）需要真实 Postgres；按 issue #74 的既定处理，
+  本地本应只 tsc 不 vitest run，但本机 docker compose 的 postgres 容器恰好已在运行
+  （workspacex-kernel-postgres-1），实测单独跑该文件、以及与全部 tests/project/*
+  一起顺序跑都通过（见 §4）。仅在跑**全量** `vitest run`（不限定路径，默认多线程并发）
+  时观测到 issue #74 描述的同一种连接耗尽症状（大量文件报 `Connection terminated
+  unexpectedly` / redis 连接失败），且这些失败包含与本 feature 完全无关的文件
+  （auth/login-lockout、chat/citation-anchor 等）——与 F124 记录的处置方式一致：
+  这是已知的、独立于本 feature 的并发不确定性，不在本 feature 范围内代为修复。
+- `pnpm harness verify` 未在本次证据里执行（其余多个并行 agent 正在使用同一个
+  `.harness/state`，按协调规则由认领流程收尾时统一跑）。
+
+================================================================================
+§1 pnpm --filter api run typecheck
+================================================================================
+> @repo/api@0.0.0 typecheck /private/tmp/f125-worktree/apps/api
+> tsc --noEmit
+
+typecheck exit=0
+（`packages/fabric-markdown` 报的一批 DOM lib 相关 TS 错误与本 feature 无关，
+  在未修改任何本 feature 文件的基线上同样复现，见 §5 反证。）
+
+================================================================================
+§2 pnpm --filter api run lint
+================================================================================
+✅ lint-error-leak
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+   scanned=463 tenant-tables=70 allowlisted=20
+   （从基线 18 升到 20：新增两条 `pg-project-membership-repository.ts` /
+     `pg-invite-token-member-resolver.ts`，理由见 `scripts/lint-permission-paths.mjs`
+     里对应条目；`tests/kernel/permission-propagation-six-paths.test.ts` 的阈值断言
+     已同步从 18 改到 20，并按既有惯例记录了测量方式。）
+✅ lint-no-builtin-capabilities
+✅ lint-design-facet-single-source
+✅ design-facet / agenda-tier catalog 同步
+✅ lint-skill-context-api-only
+✅ lint-naming-single-source
+✅ lint-arch-deps
+
+lint exit=0
+
+================================================================================
+§3 pnpm --filter @repo/contracts run test / pnpm --filter web run test
+================================================================================
+@repo/contracts: 8 files / 166 tests passed
+apps/web:        21 files / 368 tests passed
+（本 feature 未修改任何契约文件——`addProjectMember`/`changeProjectRole`/
+  `removeProjectMember` 三个操作已在 `packages/contracts/src/project.ts` 里存在，
+  这两条纯粹是回归确认。）
+
+================================================================================
+§4 apps/api 涉及本 feature 的 vitest 文件
+================================================================================
+$ pnpm exec vitest run tests/project/member-two-entries-one-usecase.test.ts \
+    tests/project/role-change-effective-next-request.test.ts
+  ✓ 2 files / 5 tests passed（纯内存，无需 Postgres）
+
+$ WORKSPACEX_DB=wsx_f125 PGDATABASE=wsx_f125 pnpm exec vitest run tests/project/
+  ✓ 25 files / 156 tests passed | 2 todo（含本 feature 三个新文件 + 既有 22 个文件，
+    全部绿，无回归）
+
+$ WORKSPACEX_DB=wsx_f125 PGDATABASE=wsx_f125 pnpm exec vitest run \
+    tests/kernel/permission-propagation-six-paths.test.ts \
+    tests/kernel/rbac-role-matrix.test.ts tests/kernel/rbac-two-layer.test.ts
+  ✓ 3 files / 134 tests passed（含新增 `member.manage` 动作后矩阵结构性断言、
+    allowlist 阈值断言）
+
+$ pnpm exec vitest run tests/contract-single-source.test.ts
+  ✓ 1 file / 4 tests passed（新增的 application/infrastructure 接口未重定义任何
+    契约类型名）
+
+================================================================================
+§5 已知的、与本 feature 无关的基线噪音
+================================================================================
+- `packages/fabric-markdown` 的 DOM lib 相关 TS 错误（Element / CanvasRenderingContext2D
+  等找不到），在未改动任何本 feature 文件时同样出现（该包本身的 tsconfig lib 配置问题），
+  已核实与本次改动无关。
+- 全量 `vitest run`（不限路径）在本机复现 issue #74 描述的并发连接耗尽：大量与本 feature
+  无关的文件（`tests/auth/*`、`tests/chat/*`、`tests/files/*` 等）报
+  `Connection terminated unexpectedly` / redis `enableOfflineQueue` 错误。分文件/分目录
+  顺序跑（见 §4）时全部通过，证实这是并发下的资源竞争而非本 feature 引入的回归。
+
+================================================================================
+§6 本次改动清单
+================================================================================
+新增：
+  apps/api/src/application/project/member-ports.ts
+  apps/api/src/application/project/member-authorization.ts
+  apps/api/src/application/project/add-project-member.ts
+  apps/api/src/application/project/change-project-role.ts
+  apps/api/src/application/project/remove-project-member.ts
+  apps/api/src/infrastructure/project/pg-project-membership-repository.ts
+  apps/api/src/infrastructure/project/pg-invite-token-member-resolver.ts
+  apps/api/tests/support/member-fakes.ts
+  apps/api/tests/project/member-two-entries-one-usecase.test.ts
+  apps/api/tests/project/role-change-effective-next-request.test.ts
+  apps/api/tests/project/display-alias-not-persisted.test.ts
+
+修改：
+  apps/api/src/domain/identity/project-role-matrix.ts（新增 `member.manage` 动作，
+    仅 facilitator 持有）
+  apps/api/src/application/project/errors.ts（新增 `ProjectMemberAlreadyExistsError`，
+    契约未命名此码，同 `ProjectArchiveBlockedByActiveSegmentError` 的先例）
+  apps/api/src/interface/controllers/project.controller.ts（三条新路由：
+    POST /projects/:projectId/members、PATCH /projects/:projectId/members/:userId、
+    DELETE /projects/:projectId/members/:userId）
+  apps/api/src/kernel.module.ts（两个新 provider：`PROJECT_MEMBERSHIP_REPOSITORY` /
+    `MEMBER_SUBJECT_RESOLVER`）
+  apps/api/scripts/lint-permission-paths.mjs（两条新 ALLOWLIST 条目）
+  apps/api/tests/kernel/permission-propagation-six-paths.test.ts（allowlist 阈值
+    18 → 20，附测量说明）
+
+契约（packages/contracts/src/project.ts）：未改动——`addProjectMember` /
+  `changeProjectRole` / `removeProjectMember` 三个操作已在契约里存在，本 feature 是
+  它们的首次落地实现。

@@ -620,7 +620,33 @@ describe("lint-permission-paths: counter-proof", () => {
     // file and fails if any returned field falls outside the allowlisted set, or if any
     // statement is not scoped by an explicit `org_id` predicate (no `withoutTenant`). If
     // that test is ever deleted, this entry must go with it.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(21);
+    //
+    // ⚠ Raised 20 -> 22 by F125 (project 束 · UC-P9 `addProjectMember`/`changeProjectRole`/
+    // `removeProjectMember`) -- this raise landed INDEPENDENTLY of both F83's raise above and
+    // F36's raise directly above (all three branched from the 18/20-entry tree before each
+    // other's merge) -- RE-MEASURED on the combined tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs`, not computed as "20 + 2". Two new
+    // entries, both gated upstream by `application/project/member-authorization.ts`'s
+    // two-layer OR check (facilitator via `member.manage`, or org role `lead` per Q-4(2))
+    // BEFORE either repository runs, same ordering as the F119/F124 entries above:
+    //   · `infrastructure/project/pg-project-membership-repository.ts` -- writes
+    //     `project_memberships` and echoes back only the caller's own grant; the one extra
+    //     read (`projects.status` in `removeMember`) exists because F124's frozen DELETE
+    //     policy uses `USING` (silent row filtering) rather than `WITH CHECK` (a catchable
+    //     exception), so the archived case is otherwise indistinguishable from "not a member".
+    //   · `infrastructure/project/pg-invite-token-member-resolver.ts` -- reads `invite_links`
+    //     for a token ALREADY consumed by F15's `consumeInviteLink` (`used_by IS NOT NULL`):
+    //     the authority for a grant the token holder already redeemed, not a disclosure
+    //     surface a requester can pick someone else's row from.
+    // If tests/project/member-two-entries-one-usecase.test.ts or
+    // tests/project/display-alias-not-persisted.test.ts are ever deleted, these two entries
+    // must go with them.
+    //
+    // Combined total on this rebase (F36's +1 and F125's +2 landing on the same 20-entry
+    // base, side by side): 20 -> 23 -- RE-MEASURED on the combined tree via
+    // `node apps/api/scripts/lint-permission-paths.mjs` (23), not computed as "21 + 2" or
+    // "22 + 1".
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(23);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

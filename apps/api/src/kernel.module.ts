@@ -208,11 +208,17 @@ import {
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
 } from "./application/project/ports";
+// F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
+// 独立 provider，见 `application/project/member-ports.ts` 与
+// `pg-project-membership-repository.ts` / `pg-invite-token-member-resolver.ts` 的注释。
+import { MEMBER_SUBJECT_RESOLVER, PROJECT_MEMBERSHIP_REPOSITORY } from "./application/project/member-ports";
 import { PgProjectRepository } from "./infrastructure/project/pg-project-repository";
 import { PgProjectListRepository } from "./infrastructure/project/pg-project-list-repository";
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
+import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
+import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
 import { ProjectController } from "./interface/controllers/project.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
@@ -535,6 +541,18 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: PROJECT_ARCHIVE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectArchiveRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F125：独立 provider，见 `pg-project-membership-repository.ts` 文件头。
+    {
+      provide: PROJECT_MEMBERSHIP_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectMembershipRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F125：独立 provider，见 `pg-invite-token-member-resolver.ts` 文件头。
+    {
+      provide: MEMBER_SUBJECT_RESOLVER,
+      useFactory: (db: DatabasePort) => new PgInviteTokenMemberResolver(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
