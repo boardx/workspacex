@@ -1,0 +1,89 @@
+$ pnpm --filter @repo/contracts run test
+[exit 0]
+
+
+> @repo/contracts@0.0.0 test /private/tmp/f148-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f148-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 6ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 9ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 87ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 10ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 11ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 11ms
+ ✓ tests/contract-shape.test.ts (77 tests) 56ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  12:05:22
+   Duration  1.13s (transform 973ms, setup 0ms, collect 2.87s, tests 192ms, environment 1ms, prepare 986ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/research/conflict-resolution-audit.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f148-worktree/apps/api
+
+ ✓ tests/research/conflict-resolution-audit.test.ts (18 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  12:05:23
+   Duration  809ms (transform 333ms, setup 0ms, collect 456ms, tests 7ms, environment 0ms, prepare 113ms)
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/research-live-conflicts-no-preselect.test.tsx
+[exit 0]
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f148-worktree/apps/web
+
+ ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 151ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  12:05:25
+   Duration  1.91s (transform 446ms, setup 134ms, collect 635ms, tests 151ms, environment 577ms, prepare 185ms)
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/research-live-empty-conflict-block.test.tsx
+[exit 0]
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f148-worktree/apps/web
+
+ ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 51ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  12:05:27
+   Duration  1.27s (transform 168ms, setup 86ms, collect 252ms, tests 51ms, environment 489ms, prepare 42ms)
+
+
+
+$ pnpm --filter api run typecheck
+[exit 0]
+
+
+> @repo/api@0.0.0 typecheck /private/tmp/f148-worktree/apps/api
+> tsc --noEmit
+
+
+
+$ pnpm --filter web run typecheck
+[exit 0]
+
+
+> web@0.1.0 typecheck /private/tmp/f148-worktree/apps/web
+> tsc --noEmit
+
