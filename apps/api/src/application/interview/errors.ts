@@ -172,6 +172,52 @@ export class OutlineOverwriteNeedsConfirmError extends Error {
   }
 }
 
+/* ─────────────────────────── F85：大纲编辑器 + 研究计划参数（uc-6-2 R3 步骤6/7） ─────────────────────────── */
+
+/**
+ * `confirmOutline` 校验 AC1：仍有段落缺目标或开场问法不足两条（R6 正常后置条件）。
+ * ⚠ `incompleteCount` 与质量提示计数（`countIncompleteSections`）必须是同一个数——
+ *   两处分叉就是「提示说 2 段还需改，服务端却放行确认」的那种漂移。
+ */
+export class OutlineIncompleteError extends Error {
+  readonly code = "OUTLINE_INCOMPLETE" as const;
+  constructor(
+    readonly outlineId: string,
+    readonly incompleteCount: number,
+  ) {
+    super(`OUTLINE_INCOMPLETE: outline ${outlineId} has ${incompleteCount} incomplete section(s)`);
+  }
+}
+
+/**
+ * 合计时长超过研究计划参数（E6）。⚠ 这是提示，不是阻断——调用方按 `[待确认]`
+ * 现状不拒绝写入，只是在响应里带上这条提示；错误对象本身只在测试里断言「引用了参数值」。
+ */
+export class DurationExceedsPlanError extends Error {
+  readonly code = "DURATION_EXCEEDS_PLAN" as const;
+  constructor(
+    readonly totalMinutes: number,
+    readonly plannedMinutes: number,
+  ) {
+    super(`DURATION_EXCEEDS_PLAN: total ${totalMinutes} minutes exceeds planned ${plannedMinutes} minutes`);
+  }
+}
+
+/**
+ * 逐段手改时，`sectionId` 已不在当前这份大纲里（并发重新生成把它替换掉了）。
+ * ⚠ 与 F82 的 `TemplateVersionChangedError` 同一立场：不静默丢弃这次编辑，
+ *   而是让调用方知道「你改的这一段已经不在了」。
+ */
+export class OutlineSectionConcurrentModificationError extends Error {
+  readonly code = "CONCURRENT_MODIFICATION" as const;
+  constructor(
+    readonly outlineId: string,
+    readonly sectionId: string,
+  ) {
+    super(`CONCURRENT_MODIFICATION: section ${sectionId} no longer exists in outline ${outlineId}`);
+  }
+}
+
 /* ─────────────────────────── F83：反向抽取草案（uc-6-1 A3） ─────────────────────────── */
 
 /**

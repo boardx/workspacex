@@ -88,6 +88,28 @@ export interface OutlineRepository {
 
   /** 确认——状态转 `confirmed`。之后 `startSession` 才可能放行进现场（I-10）。 */
   confirm(orgId: OrgId, outlineId: string): Promise<OutlineRecord>;
+
+  /**
+   * 按 `outlineId` 直读（F85）。⚠ 不做可见性判定——与 `confirm()` 同一立场：
+   * 调用方已经持有这个 `outlineId`（从一次已授权的 `getByInterview` 拿到，或它自己就是
+   * 发起写操作的研究员），这里只是 org 范围内的一次直查，不是给「大纲」另造一套读路径。
+   */
+  getById(orgId: OrgId, outlineId: string): Promise<OutlineRecord | null>;
+
+  /**
+   * 逐段手改的整体覆盖点（F85 `updateOutlineSection`）。
+   *
+   * ⚠ 与 `replaceSections`（AI 重新生成）故意分开：`replaceSections` 之后
+   *   `manuallyEdited` 恒 `false`（那是一次全新生成）；这个方法之后 `manuallyEdited`
+   *   恒 `true`（这是人工改的），且若原状态是 `confirmed`，编辑会把它**打回
+   *   `pending_confirm`**——手改之后必须重新确认一次，不能让「改了但没人确认过」的
+   *   内容继续顶着 `confirmed` 的名义进现场。
+   */
+  updateSections(
+    orgId: OrgId,
+    outlineId: string,
+    sections: readonly OutlineSectionDraft[],
+  ): Promise<OutlineRecord>;
 }
 
 export const OUTLINE_REPOSITORY = Symbol("OutlineRepository");
