@@ -67,11 +67,12 @@ export class PgTemplateRepository implements TemplateRepository {
         `INSERT INTO interview_templates (id, org_id, created_by) VALUES ($1,$2,$3)`,
         [input.templateId, input.orgId, input.actorId],
       );
+      const sourceInterviewIds = input.sourceInterviewIds ?? [];
       await s.query(
         `INSERT INTO interview_template_versions
            (id, template_id, org_id, version_number, name, goal, sections, data_fields, tags,
-            content_hash, created_by)
-         VALUES ($1,$2,$3,1,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10)`,
+            content_hash, source_interview_ids, created_by)
+         VALUES ($1,$2,$3,1,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11)`,
         [
           input.versionId,
           input.templateId,
@@ -82,6 +83,7 @@ export class PgTemplateRepository implements TemplateRepository {
           JSON.stringify(input.dataFields),
           input.tags,
           input.contentHash,
+          sourceInterviewIds,
           input.actorId,
         ],
       );
@@ -99,7 +101,7 @@ export class PgTemplateRepository implements TemplateRepository {
         dataFields: input.dataFields,
         tags: input.tags,
         contentHash: input.contentHash,
-        sourceInterviewIds: [],
+        sourceInterviewIds,
       };
     });
   }
@@ -120,11 +122,12 @@ export class PgTemplateRepository implements TemplateRepository {
       if (Number(head.version_number) !== input.expectedVersionNumber) return null;
 
       const nextVersionNumber = Number(head.version_number) + 1;
+      const sourceInterviewIds = input.sourceInterviewIds ?? [];
       await s.query(
         `INSERT INTO interview_template_versions
            (id, template_id, org_id, version_number, name, goal, sections, data_fields, tags,
-            content_hash, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11)`,
+            content_hash, source_interview_ids, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12)`,
         [
           input.versionId,
           input.templateId,
@@ -136,6 +139,7 @@ export class PgTemplateRepository implements TemplateRepository {
           JSON.stringify(input.dataFields),
           input.tags,
           input.contentHash,
+          sourceInterviewIds,
           input.actorId,
         ],
       );
@@ -154,7 +158,7 @@ export class PgTemplateRepository implements TemplateRepository {
         dataFields: input.dataFields,
         tags: input.tags,
         contentHash: input.contentHash,
-        sourceInterviewIds: [],
+        sourceInterviewIds,
       };
     });
   }

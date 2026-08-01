@@ -140,3 +140,18 @@ export class OutlineOverwriteNeedsConfirmError extends Error {
     super(`OUTLINE_OVERWRITE_NEEDS_CONFIRM: outline ${outlineId} has manually edited sections`);
   }
 }
+
+/* ─────────────────────────── F83：反向抽取草案（uc-6-1 A3） ─────────────────────────── */
+
+/**
+ * `confirmTemplateDraft` 引用的 `draftId` 不是一个「存在且尚未确认」的草案——
+ * 不存在 / 已经被确认过一次（草案确认不可重放） / 属于别的组织，三种共用一个码
+ * （契约 `TEMPLATE_DRAFT_NOT_CONFIRMED`）。与 `TOKEN_INVALID` 同一纪律：不细分是
+ * 哪一种，避免把「这个 id 以前存在过」泄露给调用方。
+ */
+export class TemplateDraftNotConfirmedError extends Error {
+  readonly code = "TEMPLATE_DRAFT_NOT_CONFIRMED" as const;
+  constructor(readonly draftId: string) {
+    super(`TEMPLATE_DRAFT_NOT_CONFIRMED: ${draftId}`);
+  }
+}
