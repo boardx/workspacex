@@ -83,3 +83,34 @@
   （负责人可用现有 `/provenance` 查询接口检索到同一条记录，测试已断言），
   独立的负责人侧专属页面仍是缺口，留给该 UI 载体对应的后续 feature。
 - 下一步最佳动作：无遗留阻塞；下一位可直接认领下一个 `in_progress` feature。
+
+### 2026-08-01（F105，owner w1-canvas4）
+- 本轮目标：F105 —— 便签级 LWW + 结构性冲突条人工裁决三出口（D-09）+ 判定表(O-32)
+  + 状态 enum。依赖 F103（真实 mermaid 渲染，已合入 main，issue #98 CLOSED——
+  issue #195 正文里"未就绪"是 sync 生成时的旧投影，已核实不影响开工）。
+- 已完成：
+  - `apps/api/src/domain/canvas/change-classification.ts` —— `classifyChange`
+    全函数判定表（七行穷举），O-32「便签跨分区移动归 sticky-level」重点断言。
+  - `apps/api/src/domain/canvas/conflict-resolution.ts` —— `applyStructuralChange`
+    （单侧直接同步，两侧同时改才产生 conflictId，I-16）+ `resolveConflict` 三出口
+    （`preservedVersionId` 永不为空，D-09/I-17；`compare` 中间态；幂等重放）。
+  - `apps/api/src/domain/canvas/sticky-lww.ts` —— `applyStickyChange` 便签级 LWW，
+    `supersededRevisionId` 可查到被覆盖的那次（I-19）。
+  - `apps/api/src/domain/canvas/group-canvas-status.ts` —— `computeCompleteness` +
+    `computeGroupCanvasStatus`（落后当且仅当必填分区为空，不跨组横向比较，
+    I-20/I-21）+ 停滞阈值默认 5 分钟可配置（O-32）。
+  - `canvas-conflict-bar` 等 data-testid 已由 F103 建成，未改前端组件。
+- 运行过的验证：issue 点名的两条 vitest（8 + 17 passed）、附加
+  `sticky-lww-and-group-status.test.ts`（12 passed）、grep testid、
+  `pnpm --filter api typecheck`（需先 `pnpm --filter @repo/fabric-markdown build`
+  产出 dist/*.d.ts，同 F120 记录过的坑）、`pnpm --filter api lint`、全部既有
+  `apps/api/tests/canvas/**`（169 tests）复跑仍全绿。
+- 已记录证据：`evidence/F105.verify.log`。
+- 提交记录：分支 `worker/w1-canvas4-01-F105`，PR #207（`Closes #195`）。
+- 已知风险或未解决问题：`GroupCanvasStatus` 四态互斥优先级（只读 > 你在这组 >
+  落后 > 进行中）是本次判断留痕，非 UC/契约显式排序，已在 PR 描述与 issue 评论
+  里点名请人类确认。push 时 pre-push 的 `turbo run typecheck lint test --affected`
+  超时（issue #74 已知不确定性），已按标准授权 `--no-verify` 推送。
+- 下一步最佳动作：F104（几何归区导出）与 F106/F107 仍待其他 owner 推进；
+  本 feature 的三个后端判定模块（classify/lww/resolve/status）都是纯函数，
+  与 F104 的 export-source 路径无重叠，无需协调。
