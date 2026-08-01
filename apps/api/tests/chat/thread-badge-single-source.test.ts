@@ -170,6 +170,14 @@ describe("I-13 徽标同源：线程卡的 N 与消息头的 N 取自同一处",
    *   · `application/chat/ports.ts`     —— 类型声明；
    *   · `infrastructure/chat/pg-chat-repository.ts` —— 唯一一次 SELECT。
    * 任何第四个文件出现它，就是第二处在决定「什么算待复核」。
+   *
+   * ⚠ **同名不同义，已登记**：`application/files/resolve-review-pending.ts`（F39）命中
+   *   这里的正则，纯粹是因为它自己的函数名 `resolveReviewPending` / 类型名
+   *   `ResolveReviewPendingInput` 里含 `ReviewPending` 这个子串——它讲的是**文件摄取
+   *   的人工复核处置**（`artifacts.ingestion_status` 的 `REVIEW_PENDING` 步骤 +
+   *   `ReviewDispositionRepository`），跟对话消息「这条消息算不算待复核」（chat 束的
+   *   `review_pending` 列）是两回事，不读、不写、不引用 chat 的任何仓储或该列。
+   *   它不是第二处判定，是同一个英文短语在两个不相关的域里各自被用了一次。
    */
   it("[静态] 全仓只有一处决定「一条消息算不算待复核」", () => {
     const SRC = fileURLToPath(new URL("../../src/", import.meta.url));
@@ -177,6 +185,7 @@ describe("I-13 徽标同源：线程卡的 N 与消息头的 N 取自同一处",
       "domain/chat/thread-badges.ts",
       "application/chat/ports.ts",
       "infrastructure/chat/pg-chat-repository.ts",
+      "application/files/resolve-review-pending.ts",
     ]);
     const offenders: string[] = [];
     for (const rel of walk(SRC)) {

@@ -267,6 +267,32 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
 - 否决时的回退：撤销契约里这一行 + 迁移里对应的 CHECK 追加 + `request-deletion.ts`
   失去写审计这一步（删除的六类级联与两级 SLA 均不受影响，独立于 `provenance_events`）。
 
+### 追加（2026-08-01，F39 · files，issue #283）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **2** 个成员，按本 ADR「第五个撞上的人被带到这里」的意图，
+不发明第二种处理：
+
+| 成员 | 代谁补 | 出处 |
+|---|---|---|
+| `review-accepted` | F39 · `files` | `uc-22-2` R3 步骤 11 / R8「处置意见（接受/拒绝都会写入审计）」；`resolveReviewPending.out.provenanceEventId` |
+| `review-rejected` | F39 · `files` | 同上 |
+
+- target 用已有的 `artifact`：`resolveReviewPending` 的输入是 `artifactId`，与
+  `bound`/`unbound`/`deletion-requested` 同一挂法。
+- 与 `approval-decided`（F112，chat 束）分开，不合并：那是 R2/R3 高影响操作的批准闸门
+  （批准的是"调用"），这是对一份 `REVIEW_PENDING` 材料的复核处置（处置的是"材料"）——
+  对象不同，合并会让「谁批准了这次高影响调用」与「谁接受/拒绝了这份材料」混进同一个
+  类型，ADR-101 开篇的道理照旧适用。
+- 两个成员分开，不合并成 `review-decided` + `detail.decision`：与决策 A「线程三值不
+  合并」同一个理由——「查全部被拒材料」需要按类型筛，`queryProvenance` 无法解析
+  `detail` 做筛选。
+- `provenance_events_type_check`（0027 所建，历次追加见 0033/20260801210000 等）随
+  F39 迁移一并追加这两个值；`provenance-enum-single-source.test.ts` 的双向断言动态
+  读取契约与 CHECK，覆盖新成员无需改那个测试文件本身。
+- 否决时的回退：撤销契约里这两行 + 迁移里对应的 CHECK 追加 +
+  `resolve-review-pending.ts` 失去写审计这一步（接受/拒绝仍会执行，只是 R8「处置意见
+  都会写入审计」的承诺重新落空）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |

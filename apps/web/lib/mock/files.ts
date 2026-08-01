@@ -219,7 +219,7 @@ export const FILES: FileItem[] = [
     visibility: "all", confidential: false, ingest: "READY", sha256: sha("2b8e…40f1"), preview: "unsupported" },
   { id: "a-003", name: "客户内部成本模型", ext: "xlsx", sourceType: "file", segmentId: "seg-7",
     sizeBytes: 1_204_882, versionCount: 2, createdAt: "2026-07-14 14:33", uploader: { type: "human", name: "林可" },
-    visibility: "team", confidential: true, ingest: "REVIEW_PENDING", reviewReasons: ["confidential"],
+    visibility: "team", confidential: true, ingest: "REVIEW_PENDING", reviewReasons: ["confidential", "pii"],
     sha256: sha("aa19…7c02"), preview: "unsupported" },
   { id: "a-004", name: "现场照片 · 采购部白板", ext: "jpg", sourceType: "file", segmentId: "seg-3",
     sizeBytes: 6_910_223, versionCount: 1, createdAt: "2026-07-15 15:52", uploader: { type: "human", name: "陈默" },
