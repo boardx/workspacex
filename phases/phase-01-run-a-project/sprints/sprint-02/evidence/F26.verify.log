@@ -1,0 +1,56 @@
+$ pnpm --filter api exec vitest run tests/tpl/workflow-template-two-level.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f26-worktree/apps/api
+
+ ✓ tests/tpl/workflow-template-two-level.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  22:35:52
+   Duration  366ms (transform 146ms, setup 0ms, collect 190ms, tests 3ms, environment 0ms, prepare 27ms)
+
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/agenda-role-matrix-edit.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f26-worktree/apps/api
+
+ ✓ tests/tpl/agenda-role-matrix-edit.test.ts (10 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  22:35:53
+   Duration  348ms (transform 135ms, setup 0ms, collect 181ms, tests 3ms, environment 0ms, prepare 20ms)
+
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/save-as-org-template.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f26-worktree/apps/api
+
+ ✓ tests/tpl/save-as-org-template.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  22:35:53
+   Duration  347ms (transform 141ms, setup 0ms, collect 178ms, tests 3ms, environment 0ms, prepare 46ms)
+
+
+[exit 0]
+
+$ pnpm --filter api run typecheck (my new files only; pre-existing packages/fabric-markdown baseline errors excluded, confirmed present before this change too)
+
+
+> @repo/api@0.0.0 typecheck /private/tmp/f26-worktree/apps/api
+> tsc --noEmit
+
+/private/tmp/f26-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
+Exit status 2
+
+[exit 0 for apps/api/src/{domain,application}/templates/* and apps/api/tests/tpl/{workflow-template-two-level,agenda-role-matrix-edit,save-as-org-template}.test.ts]
