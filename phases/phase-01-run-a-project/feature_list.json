@@ -422,9 +422,9 @@
         "F22"
       ],
       "points": 6,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-tpl5",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/apply-six-category-init.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/blueprint-snapshot-binding.test.ts",
@@ -582,9 +582,9 @@
         "F22"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-tpl6",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/snapshot-no-drift.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/blueprint-list-metadata.test.ts",
@@ -746,9 +746,9 @@
         "F36"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-ingest2",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/idempotent-no-duplicate-segment.test.ts",
         "pnpm --filter api exec vitest run tests/files/four-adapters-extract.test.ts",
@@ -814,9 +814,9 @@
         "F36"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-ingest3",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/materialize-event-bus-debounce.test.ts",
         "pnpm --filter api exec vitest run tests/files/materialize-shared-queue-backpressure.test.ts"
@@ -929,9 +929,9 @@
         "F44"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-files5",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/delete-impact-preview-confirm.test.ts",
         "pnpm --filter api exec vitest run tests/files/delete-six-cascade-invalidation.test.ts",
@@ -1141,9 +1141,9 @@
         "F51"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-mcp3",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/mcp/policy-switch-defaults-and-lock.test.ts",
         "pnpm --filter api exec vitest run tests/capability/mcp/review-release-flow.test.ts",
@@ -1215,9 +1215,9 @@
         "F56"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-agent3",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/load-rule-idempotent-top4.test.ts",
         "pnpm --filter api exec vitest run tests/capability/agent/roster-vs-present-count.test.ts",
@@ -1488,9 +1488,9 @@
         "F62"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-skill6",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/skill/rating-attribution-to-version.test.ts",
         "pnpm --filter api exec vitest run tests/capability/skill/aggregation-structural-classify-route.test.ts",
@@ -1859,8 +1859,8 @@
         "F84"
       ],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w2-research5",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/outline-goal-before-two-questions.test.ts",
         "pnpm --filter api exec vitest run tests/itv/research-plan-params-render.test.ts"
@@ -1869,7 +1869,8 @@
       "notes": "依据 [原型]，界面未建（简报）。每段结构固定两层且顺序不可颠倒（目标在问法前，序列化断言）；合计超参数时提示压缩且引用参数值而非写死 60。质量提示是否阻断进现场 [待确认]，本 feature 只提示。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F86",
@@ -1925,8 +1926,8 @@
         "F87"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w2-itv8",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/start-interview-hard-gate-server.test.ts",
         "pnpm --filter api exec vitest run tests/itv/unauthorized-no-segment.test.ts"
@@ -1935,7 +1936,8 @@
       "notes": "依据 [原型·硬约束]。仅前端禁用而后端放行不算实现（V2 重点断言直接调开始接口被拒）。必需受访者=主访对象（可多选），观察/陪同不进门禁（O-15）。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F89",
@@ -1946,8 +1948,8 @@
         "F87"
       ],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w2-itv9",
       "verification": [
         "node apps/web/scripts/lint-withdrawal-flow.mjs",
         "pnpm --filter api exec vitest run tests/itv/withdrawal-five-steps-two-sla.test.ts",
@@ -1957,7 +1959,8 @@
       "notes": "依据 [原型]+D-13/D-15/D-19。时限一律引用单一事实源 apps/web/lib/withdrawal-flow.ts，不另立数值（曾漂移过）；lint-withdrawal-flow.mjs 是现存门控。D-19：对内可见、对外不自动改写需人工确认后替换。全流程不得出现「24 小时」时限。\n【跨分片依赖待确认】22-files: 删除级联到文件层（与 uc-22-4 删除传播同一批实现，只计一次）；17-gov: UC-17.2 撤回删除最小切片共用底座；phase-00: F04 file-first / 不可删对象豁免",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F90",
@@ -2034,8 +2037,8 @@
         "F87"
       ],
       "points": 1,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w2-itv10",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/consent-per-speaker-prefilter.test.ts",
         "pnpm --filter api exec vitest run tests/itv/context-pack-omits-declined-speaker.test.ts"
@@ -2044,7 +2047,8 @@
       "notes": "依据裁决 O-05。这是全模块共享的合规内核接入点，被 T23（副驾驶）、T26/T27（归纳）、T31（回流）、07-canvas T38（起草）、08-chat 共同依赖。断言在 context_packs 快照层不含被排除者 segmentId（不只看界面）。\n【跨分片依赖待确认】phase-00: Context Pack 构建契约（per-speaker 检索层过滤点）",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F94",
@@ -2504,8 +2508,8 @@
         "F113"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w2-chat4",
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/citation-eligibility-snapshot-only.test.ts",
         "pnpm --filter api exec vitest run tests/chat/no-source-greyed-gate.test.ts"
@@ -2514,7 +2518,8 @@
       "notes": "依据 D-38/D-30。三模式绑定/快照不可变/引用资格门控全部在 phase-00 F05/F06，本 feature 只做对话侧入口与门控接线（不重复实现 uc-0-1）。定版前置：100% 引用可定位、有任一引用无法定位则只能落草稿。\n【跨分片依赖待确认】phase-00: F05 固定快照不可变 / F06 三模式绑定服务（不自建机制）",
       "priority": 1,
       "area": "chat",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F115",
@@ -2809,9 +2814,9 @@
         "F125"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-project6",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2835,9 +2840,9 @@
         "F125"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-project7",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2861,9 +2866,9 @@
         "F125"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-project8",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api run lint",
@@ -2916,9 +2921,9 @@
         "F129"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-mcp4",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-pure-fn.test.ts",
@@ -3032,9 +3037,9 @@
         "F134"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-asset4",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/visibility-single-write-path.test.ts",
@@ -3056,9 +3061,9 @@
         "F134"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-asset5",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/preflight-items-have-source-ref.test.ts",
@@ -3201,9 +3206,9 @@
         "F134"
       ],
       "points": 6,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-asset6",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api run typecheck",
@@ -3322,9 +3327,9 @@
         "F145"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w2-research6",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/research/promote-three-gates.test.ts",
