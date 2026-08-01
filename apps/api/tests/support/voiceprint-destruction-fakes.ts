@@ -10,7 +10,7 @@
  */
 import type {
   ChannelAssignmentState,
-  DerivedRepresentation,
+  DerivedRepresentationRef,
   VoiceprintDestroyReason,
   VoiceprintEmbeddingRecord,
 } from "../../src/domain/recording/voiceprint-destruction";
@@ -63,14 +63,14 @@ export class FakeVoiceprintStore implements VoiceprintStore {
 }
 
 export class FakeDerivedRepresentations implements DerivedRepresentationStore {
-  readonly rows = new Map<string, DerivedRepresentation>();
+  readonly rows = new Map<string, DerivedRepresentationRef>();
   failNextInvalidate = false;
 
   addRef(id: string, inputEmbeddingId: string): void {
     this.rows.set(id, { id, inputEmbeddingId, invalidatedAt: null });
   }
 
-  async listReferencing(embeddingIds: readonly string[]): Promise<readonly DerivedRepresentation[]> {
+  async listReferencing(embeddingIds: readonly string[]): Promise<readonly DerivedRepresentationRef[]> {
     const set = new Set(embeddingIds);
     return [...this.rows.values()].filter((d) => set.has(d.inputEmbeddingId));
   }

@@ -10,7 +10,7 @@
  */
 import type {
   ChannelAssignmentState,
-  DerivedRepresentation,
+  DerivedRepresentationRef,
   VoiceprintDestroyReason,
   VoiceprintEmbeddingRecord,
 } from "../../domain/recording/voiceprint-destruction";
@@ -32,7 +32,7 @@ export interface VoiceprintStore {
 
 export interface DerivedRepresentationStore {
   /** Every derived representation whose `inputEmbeddingId` is in this set, valid or not. */
-  listReferencing(embeddingIds: readonly string[]): Promise<readonly DerivedRepresentation[]>;
+  listReferencing(embeddingIds: readonly string[]): Promise<readonly DerivedRepresentationRef[]>;
   /** Marks the given derived representations invalidated as of `at` (I-16). */
   invalidate(ids: readonly string[], at: string): Promise<void>;
 }
@@ -72,7 +72,7 @@ export interface VoiceprintPolicyProvider {
 
 export type {
   ChannelAssignmentState,
-  DerivedRepresentation,
+  DerivedRepresentationRef,
   VoiceprintDestroyReason,
   VoiceprintEmbeddingRecord,
 };

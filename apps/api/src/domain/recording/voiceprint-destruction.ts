@@ -95,8 +95,12 @@ export function isSweepEligible(sessionEndedAt: string, asOf: string, fallbackDa
   return Date.parse(asOf) >= dueMs;
 }
 
-/** 一条以某个声纹 embedding 为输入的派生物/缓存（`derived_representations` 的下游）。 */
-export interface DerivedRepresentation {
+/**
+ * 一条以某个声纹 embedding 为输入的派生物/缓存（`derived_representations` 的下游）。
+ * 这是该 domain 逻辑需要的最小投影，不是 `packages/contracts` 里 `DerivedRepresentation`
+ * 契约的重定义——字段集完全不同（那边是完整实体，这里只取级联失效判定要用的三个字段）。
+ */
+export interface DerivedRepresentationRef {
   readonly id: string;
   readonly inputEmbeddingId: string;
   /** `null` = 仍标记有效。 */
@@ -108,7 +112,7 @@ export interface DerivedRepresentation {
  * 但输入已经不存在的派生物——这些必须被失效，销毁才算完整，不是「删了向量就完事」。
  */
 export function deriveInvalidationTargets(
-  derivedReps: readonly DerivedRepresentation[],
+  derivedReps: readonly DerivedRepresentationRef[],
   destroyedEmbeddingIds: readonly string[],
 ): readonly string[] {
   const destroyed = new Set(destroyedEmbeddingIds);
