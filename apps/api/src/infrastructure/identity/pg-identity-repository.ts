@@ -19,6 +19,7 @@ import type {
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
 import { isLocalOrg, LOCAL_ORG_KIND } from "../../domain/identity/local-org";
+import { strictestScope } from "../../domain/identity/permission-decision";
 
 export class PgIdentityRepository implements IdentityRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -84,6 +85,22 @@ export class PgIdentityRepository implements IdentityRepository {
    * One round trip for the whole batch. This is the reason `authorizeBatch` exists at all
    * (coherence review B-2): per-object queries would make correct authorization the slow
    * path, and a slow correct path is one people route around.
+   *
+   * ⚠ FIXED 2026-08-01 (#75). A single object can carry MULTIPLE binding rows --
+   * `acl_bindings_uniq`'s unique key includes `subject`, so "artifact X is team-only for
+   * team A" and "artifact X is ALSO team-only for team B" are two legal rows on one object.
+   * The previous body kept only the last row read per object key (`out.set` overwrote), and
+   * the query had no `ORDER BY`, so "last" was whichever row Postgres happened to return
+   * last -- undefined, not merely unfortunate.
+   *
+   * Invariant I-7 (permission-decision.ts) already has the right math for "one object
+   * reachable through several sources": `strictestScope`. It was only being called from
+   * `authorizeDerived`, for a DIFFERENT kind of multi-source case (several distinct
+   * objects feeding one derived artifact). A first-class object carrying several binding
+   * rows on ITSELF is the same shape of problem and gets the same fold. Confirmed by the
+   * F31 counter-test: `f31rls-multi` has two team-only rows (energy, platform) and must be
+   * `UNSATISFIABLE_TEAM` -- visible to neither team, not to whichever team's row won the
+   * race.
    */
   async findBindings(orgId: OrgId, objects: readonly AclObjectRef[]): Promise<Map<string, BindingRow>> {
     if (objects.length === 0) return new Map();
@@ -101,16 +118,19 @@ export class PgIdentityRepository implements IdentityRepository {
           WHERE org_id = $1
             AND (object_kind, object_id) IN (
               SELECT * FROM unnest($2::text[], $3::text[])
-            )`,
+            )
+          ORDER BY object_kind, object_id`,
         [orgId, kinds, idsList],
       );
-      const out = new Map<string, BindingRow>();
+      const byObject = new Map<string, BindingRow[]>();
       for (const row of r.rows) {
-        out.set(`${row.object_kind}:${row.object_id}`, {
-          scope: row.scope as BindingRow["scope"],
-          ownerTeamId: row.owner_team_id,
-        });
+        const key = `${row.object_kind}:${row.object_id}`;
+        const rows = byObject.get(key) ?? [];
+        rows.push({ scope: row.scope as BindingRow["scope"], ownerTeamId: row.owner_team_id });
+        byObject.set(key, rows);
       }
+      const out = new Map<string, BindingRow>();
+      for (const [key, rows] of byObject) out.set(key, strictestScope(rows));
       return out;
     });
   }
