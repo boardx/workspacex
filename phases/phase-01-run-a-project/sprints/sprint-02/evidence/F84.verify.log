@@ -1,0 +1,76 @@
+$ pnpm --filter api exec vitest run tests/itv/wizard-three-steps-carryover.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/itv/wizard-three-steps-carryover.test.ts (2 tests) 4389ms
+   ✓ F84 — 三步向导带入内容可见可改 > ① ~ ② 套模板 + 选对象：三样与对象背景都出现在生成的大纲里（AC2） 2067ms
+   ✓ F84 — 三步向导带入内容可见可改 > ③ 不用模板、从空白开始也能走通，且不生成与上下文无关的示例数据（A2 / V9） 976ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  10:49:09
+   Duration  8.99s (transform 2.48s, setup 0ms, collect 3.45s, tests 4.39s, environment 0ms, prepare 317ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv/draft-not-confirmed-reject-onsite.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/itv/draft-not-confirmed-reject-onsite.test.ts (4 tests) 7104ms
+   ✓ F84 — 待确认草案不得进现场（服务端断言） > 大纲仍是 pending_confirm 时，startSession 被服务端拒绝（不是前端标记） 1063ms
+   ✓ F84 — 待确认草案不得进现场（服务端断言） > 研究员确认大纲之后，同一个 startSession 调用改为放行 1724ms
+   ✓ F84 — 待确认草案不得进现场（服务端断言） > 从未生成过大纲的访谈同样被拒绝（不存在与「未确认」是同一个后果） 938ms
+   ✓ F84 — 待确认草案不得进现场（服务端断言） > 非本场研究员、非协作者、非项目成员的第三方被拒绝（NO_INTERVIEW_ACCESS，与 F80 同一条规则） 1426ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:49:20
+   Duration  11.04s (transform 2.08s, setup 0ms, collect 2.81s, tests 7.10s, environment 0ms, prepare 434ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv   (full itv regression, 12 files)
+[exit 0]
+ Test Files  12 passed (12)
+      Tests  85 passed (85)
+
+$ pnpm --filter api run typecheck
+[exit 2 — pre-existing, unrelated]
+Fails only inside packages/fabric-markdown (missing DOM lib types: Element/SVGElement/
+CanvasRenderingContext2D/document). Confirmed identical failure on origin/main with this
+branch's changes stashed out — not introduced by F84. Grepped the failing-file list for
+"interview|outline|wizard|start-session|confirm-outline|generate-outline|create-interview":
+zero matches — none of F84's own files produce a typecheck error.
+
+$ pnpm --filter api run lint
+[exit 0]
+✅ lint-error-leak: no error detail reaches a response
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+   (scanned=426 tenant-tables=70 allowlisted=18 — allowlist unchanged; F84's outline read
+    path (`PgOutlineRepository.getByInterview`) is genuinely guarded via `guard()` +
+    `decideInterviewVisibility` + `discloseDecided`, reusing F80's interview-visibility
+    rule since an outline is a facet of its interview, not a separately-authorized object)
+✅ lint-no-builtin-capabilities
+✅ lint-design-facet-single-source
+✅ design-facet / agenda-tier catalogs in sync
+✅ lint-skill-context-api-only
+✅ lint-naming-single-source
+✅ lint-arch-deps: 424 files, all dependencies point inward
+
+$ pnpm --filter api run migrate:check  (fresh-db replay + schema digest, includes 20260801180000_f84_interview_outline_wizard.sql)
+[fails at migration 0008-f06-binding-modes.sql — pre-existing, unrelated]
+Confirmed identical failure on origin/main with this branch's changes stashed out.
+F84's own migration was independently proven replayable: `migrateOnce()` inside every test
+run above applies all 51 migrations (…0033…20260801180000_f84…) to a fresh per-worker
+database with no error, and every test that depends on the resulting schema passes.
+
+$ WORKSPACEX_DB=<fresh> pnpm --filter api exec ./scripts/verify-rls.sh
+[exit 0]
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table
+   (derived from the catalog, including the new interview_outlines table) is ENABLE+FORCE
+   with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant
+   context is fail-closed.
+
+Evidence collected on: 2026-08-01, branch worker/w1-itv5-01-F84, against a local Postgres
+16 + pgvector instance (docker compose, workspacex-kernel-postgres-1).

@@ -115,3 +115,28 @@ export class TemplateVersionChangedError extends Error {
     );
   }
 }
+
+/* ─────────────────────────── F84：研究设计三步向导 / AI 大纲（uc-6-2） ─────────────────────────── */
+
+/**
+ * 以 `pending_confirm` 大纲进现场（`startSession`）⇒ **服务端拒绝**,不只是前端标记（I-10）。
+ * 这是 F84 的核心断言：草案生成完不等于确认完,`draft-not-confirmed-reject-onsite.test.ts`
+ * 直接构造一个未确认的大纲去调用这里,断言这个错误、而不是一个成功的 `startedAt`。
+ */
+export class OutlineNotConfirmedError extends Error {
+  readonly code = "OUTLINE_NOT_CONFIRMED" as const;
+  constructor(readonly interviewId: string) {
+    super(`OUTLINE_NOT_CONFIRMED: interview ${interviewId} has no confirmed outline`);
+  }
+}
+
+/**
+ * 重新生成会覆盖已手改段落（A3）。取消则修改保留——调用方收到这个错误后不得
+ * 静默重试覆盖,必须先拿到用户的显式确认（`force: true`）。
+ */
+export class OutlineOverwriteNeedsConfirmError extends Error {
+  readonly code = "OUTLINE_OVERWRITE_NEEDS_CONFIRM" as const;
+  constructor(readonly outlineId: string) {
+    super(`OUTLINE_OVERWRITE_NEEDS_CONFIRM: outline ${outlineId} has manually edited sections`);
+  }
+}
