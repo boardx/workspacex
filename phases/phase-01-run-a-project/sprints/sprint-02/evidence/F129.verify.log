@@ -1,0 +1,58 @@
+F129 verification evidence
+Date: 2026-08-01T03:46:08Z
+Branch: worker/w1-mcp2-01-F129
+
+== pnpm --filter api run typecheck ==
+(pre-existing unrelated failures only, in packages/fabric-markdown -- DOM lib typing issue, not touched by this feature; zero errors under apps/api/tests/mcp/**)
+
+== pnpm --filter api exec vitest run tests/mcp/tool-side-effect-closed-set.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f129-worktree/apps/api
+
+ ✓ tests/mcp/tool-side-effect-closed-set.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  11:46:09
+   Duration  400ms (transform 153ms, setup 0ms, collect 205ms, tests 3ms, environment 0ms, prepare 40ms)
+
+EXIT=0
+
+== pnpm --filter api exec vitest run tests/mcp/tool-auth-scope-total-order.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f129-worktree/apps/api
+
+ ✓ tests/mcp/tool-auth-scope-total-order.test.ts (7 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  11:46:09
+   Duration  389ms (transform 149ms, setup 0ms, collect 191ms, tests 2ms, environment 0ms, prepare 33ms)
+
+EXIT=0
+
+== pnpm --filter api exec vitest run tests/mcp/tool-scope-narrower-than-server.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f129-worktree/apps/api
+
+ ✓ tests/mcp/tool-scope-narrower-than-server.test.ts (6 tests) 1ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  11:46:10
+   Duration  369ms (transform 142ms, setup 0ms, collect 192ms, tests 1ms, environment 0ms, prepare 29ms)
+
+EXIT=0
+
+== pnpm --filter api exec vitest run tests/mcp/new-tool-defaults-closed.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f129-worktree/apps/api
+
+ ✓ tests/mcp/new-tool-defaults-closed.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  11:46:11
+   Duration  357ms (transform 146ms, setup 0ms, collect 191ms, tests 3ms, environment 0ms, prepare 33ms)
+
+EXIT=0
