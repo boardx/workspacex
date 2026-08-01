@@ -8,7 +8,7 @@
  * SHAPE of the question discovery asks of a gateway, and the invariants over the answer.
  */
 import type { z } from "zod";
-import type { McpTool, SecurityPolicy, ToolSideEffect } from "@repo/contracts/agent-runtime";
+import type { McpTool, SecurityPolicy, ToolAuthScope, ToolSideEffect } from "@repo/contracts/agent-runtime";
 
 /** `MCP_SERVER_UNREACHABLE` -- the contract's code, carried rather than re-invented at the edge. */
 export class McpServerUnreachableError extends Error {
@@ -54,6 +54,52 @@ export interface McpToolStore {
   current(serverId: string): Promise<readonly z.infer<typeof McpTool>[]>;
   /** Replaces the recorded set. Callers pass the full new set, not a delta. */
   replace(serverId: string, tools: readonly z.infer<typeof McpTool>[]): Promise<void>;
+}
+
+/**
+ * F130 -- the write path `setToolAuthScope` needs, independent of `McpToolStore`'s
+ * per-server shape (that port takes a `serverId`; the write path only has a `toolFullName`
+ * and must not be made to guess or re-derive which server it belongs to).
+ *
+ * ⚠ **`updateAuthScope` writes only the `authScope` field.** It is not a general tool
+ * upsert -- `sideEffect` / `signature` / `schemaFingerprint` are discovery's to change
+ * (`McpToolStore.replace`), not this write path's.
+ */
+export interface ToolAuthScopeStore {
+  /** The tool currently recorded under this full name, or `null` if none is. */
+  findByFullName(toolFullName: string): Promise<z.infer<typeof McpTool> | null>;
+  /** Persists the new `authScope` for an already-recorded tool. */
+  updateAuthScope(
+    toolFullName: string,
+    authScope: z.infer<typeof ToolAuthScope>,
+  ): Promise<void>;
+}
+
+/** `setToolAuthScope` rejects a tool full name nothing has ever discovered. */
+export class McpToolNotFoundError extends Error {
+  readonly reason = "MCP_TOOL_NOT_FOUND" as const;
+  constructor(readonly toolFullName: string) {
+    super(`MCP tool "${toolFullName}" is not recorded`);
+  }
+}
+
+/**
+ * `TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP` -- I-28′, the contract's code for `checkToolScopeCap`
+ * rejecting a write. Carried as a typed error (like `McpServerUnreachableError` above)
+ * rather than a bare string, so callers can `instanceof`-check it without parsing messages.
+ */
+export class ToolScopeExceedsSideEffectCapError extends Error {
+  readonly reason = "TOOL_SCOPE_EXCEEDS_SIDE_EFFECT_CAP" as const;
+  constructor(
+    readonly toolFullName: string,
+    readonly maxAllowedRank: number,
+    readonly requestedRank: number,
+  ) {
+    super(
+      `MCP tool "${toolFullName}": requested authScope rank ${requestedRank} exceeds the ` +
+        `side-effect cap (max allowed rank ${maxAllowedRank})`,
+    );
+  }
 }
 
 /**
