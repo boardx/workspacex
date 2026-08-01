@@ -79,7 +79,7 @@
         "F04"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-auth6",
       "verification": [
@@ -87,7 +87,7 @@
         "pnpm --filter api exec vitest run tests/auth/admin-project-read-audited.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-members-boundary.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F06.verify.log @ 2026-08-01T01:44:45.291Z",
       "notes": "依据：[人类已拍板 D-18]，管理员边界说明区为[原型]。界面已建成（锚 admin-members-boundary/admin-members-private-counts/admin-members-my-access/admin-members-access-logs）。R11 要求独立成 feature（「我的大脑」整层前提）。V5 对应四条断言。\n【跨分片依赖待确认】phase-00: 审计事件模型（provenance/audit）"
     },
     {

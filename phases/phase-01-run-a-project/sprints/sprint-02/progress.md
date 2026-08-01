@@ -48,3 +48,38 @@
 - 下一步最佳动作：F119（advanceAgendaSegment）与 F121（改名对齐）仍在其他 owner
   的分支上并行；`setAcceptedSources` 的 HTTP 落地建议放到明确认领它的下一个
   feature，避免三个 agent 同时抢 kernel.module.ts 的同一段。
+
+### 2026-08-01（F06，owner w1-auth6）
+- 本轮目标：F06 —— D-18 管理员权力边界（个人层只见计数、项目层可读留痕且对项目
+  负责人可见）的独立、GitHub 可见验证。依赖 F04（`in_progress` 但已合入
+  `origin/main` #162，代码稳定；按协调者裁决不算 blocker，照常开工）。
+- 开工前发现：三条 verification 对应的测试文件与 `admin-members-screen.tsx` 的
+  边界区（`admin-members-boundary` 等 testid）已经存在——后端判定逻辑
+  （`admin-boundary.ts` / `personal-layer-summary.ts` / `admin-audit-read.ts`）
+  与前端 UI 都是 F03/F04/F10 早前工作留下的，本 feature 真正要交付的是把
+  D-18 的四句话断言当作 F06 自己的、独立可跑的验证单元钉死下来（而不是依赖
+  F03 的 `tests/kernel/*` 顺带覆盖到）。
+- 已完成：新增 `apps/api/tests/auth/admin-boundary-personal-counts-only.test.ts`
+  （D-18 第①④句：个人层计数、无内容字段、admin 对该条目任何 purpose 都拒绝）、
+  `apps/api/tests/auth/admin-project-read-audited.test.ts`（D-18 第②③④句：
+  audit 读成功+留痕、负责人可查、admin 本人「看我的访问记录」看到同一条 id、
+  work 读仍拒绝且不留痕、单独持项目角色时正常读取且不触发 admin-project-access）、
+  `apps/web/tests/ui/admin-members-boundary.test.tsx`（个人层只显示计数徽标、
+  项目层说明文案、内联访问记录列表与「看我的访问记录」抽屉展示同一批记录）。
+  未改动任何实现代码——三份新测试打的都是既有实现。
+- 运行过的验证：三条 verification 命令均在本地（含真实 Postgres）跑绿：
+  `admin-boundary-personal-counts-only.test.ts`（3/3）、
+  `admin-project-read-audited.test.ts`（7/7）、
+  `admin-members-boundary.test.tsx`（6/6，纯 jsdom，无需 DB）。
+  另跑过 `pnpm --filter api exec tsc --noEmit`，两份新文件零错误（仓库里
+  `packages/fabric-markdown` 的既有 DOM lib 报错与本 feature 无关，未处理）。
+- 已记录证据：`evidence/F06.verify.log`。
+- 提交记录：`pnpm harness verify --sprint 01/02 --feature F06` 门控通过，
+  F06 → `passing`；分支 `worker/w1-auth6-01-F06`，PR 关联 issue #181
+  （`Closes #181`）。
+- 已知风险或未解决问题：`contracts/org-admin/ui.md` 第 14 行标注「项目负责人侧
+  『谁读过我的项目』独立页面（`/projects/[id]/settings/access-log`）未建，且
+  原型未画」——本 feature 的验收锚点走的是 `/admin/members` 已建成的边界区
+  （负责人可用现有 `/provenance` 查询接口检索到同一条记录，测试已断言），
+  独立的负责人侧专属页面仍是缺口，留给该 UI 载体对应的后续 feature。
+- 下一步最佳动作：无遗留阻塞；下一位可直接认领下一个 `in_progress` feature。
