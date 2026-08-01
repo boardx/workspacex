@@ -23,6 +23,7 @@ export * as recording from "./recording";
 export * as canvas from "./canvas";
 export * as chat from "./chat";
 export * as agentRuntime from "./agent-runtime";
+export * as agentPrivateChat from "./agent-private-chat";
 export * as skills from "./skills";
 export * as templates from "./templates";
 export * as research from "./research";
