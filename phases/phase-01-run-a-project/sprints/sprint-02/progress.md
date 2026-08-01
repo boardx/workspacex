@@ -213,3 +213,43 @@
   Postgres 环境下补跑并转移状态，本地未手改 `feature_list.json` 的 `status`。
 - 下一步最佳动作：「项目内深度研究列表」若需要独立路由/组件，建议开一个新
   feature 明确认领；观察者数据层过滤（R12.5）同理另起 feature 覆盖。
+### 2026-08-01（F113，owner w1-chat3）
+- 本轮目标：F113 —— 产物卡/转录卡/进度卡 + 右栏五标签计数 + 消息头角标（降级/待
+  复核同源）+ 改派条（带依据）+ 主动发言必带来源。依赖 F110（`passing`）与 F111
+  （`in_progress` 但已合入 `origin/main` #161，代码稳定；按协调者裁决不算
+  blocker，照常开工）。
+- 开工前发现：本束的 UI（产物卡/进度卡/转录卡/消息头角标/改派条/右栏五标签）
+  与契约 `packages/contracts/src/chat.ts` 的 `getRightTabs` / `agentProactiveSpeak`
+  / `suggestReassignment` / `controlTranscriptCard` 均已由更早的会话建成
+  （`apps/web/components/chat/*.tsx` 的 mock 版 + F109/F110/F111 落下的
+  `thread-badges.ts`/`agent-presence.ts`）；`chat-reassign-reason` 这个
+  data-testid 已经存在，第三条 verification 无需改动即可通过。真正缺的是右栏
+  五标签计数与「主动发言必带来源」这两条的**后端判定逻辑**——此前没有任何一
+  处代码算过它们。
+- 已完成：新增 `apps/api/src/domain/chat/right-tabs.ts`
+  （`computeRightTabs`：恒五个标签、固定顺序、`hidden`/`failed` 两个独立维度、
+  E1 研究阶段只隐藏 `transcript` 一个标签）与
+  `apps/api/src/domain/chat/proactive-speech.ts`（`decideProactiveSpeech`：
+  「取不到来源是正常返回不发言，不是错误」的唯一判定点，且先判开关再判来源，
+  防止「关着但有来源」被悄悄放行）。两份新测试
+  `tests/chat/right-tabs-five-with-counts.test.ts`（9 个用例，含标签独立失败态
+  的反证）与 `tests/chat/proactive-speech-requires-source.test.ts`（8 个用例，
+  含四格判定矩阵的穷举）。
+- 已知缺口（如实登记，未擅自打通）：`getRightTabs`/`agentProactiveSpeak`/
+  `suggestReassignment`/`controlTranscriptCard` 的 application 层 + controller
+  路由**未接线**——它们各自依赖的真实数据源本轮尚未建成：右栏「执行/洞察/产物」
+  三个标签的列表分别属于 agent-runtime 执行追踪、洞察抽取（均未建）与 F114
+  产物落地（sibling feature，`in_progress`，本 PR 不碰）；主动发言的 agent 级
+  开关持久化与 Context API 的「取来源」端口同样未建（属 context-pack 束）。
+  贸然接一条读不到真数据的路由会诱使下一个实现者往里塞假数据「先让它显示出来」
+  ——那正是 `domain.md` I-31 反复点名要防的反例，所以本轮选择把判定逻辑做实、
+  做对、做全测试，路由接线留给这些依赖就绪之后的下一轮。
+- 已记录证据：`evidence/F113.verify.log`（含三条 mandated verification + 补充的
+  `tsc --noEmit` / `lint` / `tests/chat/` 全量结果，后者的 20 个失败全部是
+  issue #74 已知的 Postgres 集成测试本地不稳定，与 F113 无关）。
+- 提交记录：`pnpm harness verify --sprint 01/02 --feature F113` 门控通过，
+  F113 → `passing`；分支 `worker/w1-chat3-01-F113`，PR 关联 issue #197
+  （`Closes #197`）。
+- 下一步最佳动作：待 agent-runtime 执行追踪 / 洞察抽取 / F114 产物落地 /
+  context-pack 来源端口就绪后，接一个后续 feature 把 `getRightTabs` 等四个
+  application + controller 路由真正打通（当前的域逻辑可直接复用，不必重写）。
