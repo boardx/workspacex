@@ -57,6 +57,15 @@ export interface CandidateRow {
   readonly method: string | null;
   readonly cohort: string | null;
   /**
+   * F93/O-05: the `interview_subjects.id` this segment is attributed to, when the source is an
+   * interview transcript with a resolved speaker. `null` = not attributable to a consent-gated
+   * subject (most segments -- files, surveys, workshop notes, or an interview segment whose
+   * speaker has not been resolved). Judged by
+   * `domain/context-pack/consent-prefilter.ts` in `retrieveCandidates`, the same way
+   * `lifecycle`/`in_scope`/`confidential` are judged from row facts rather than re-derived.
+   */
+  readonly speakerSubjectId: string | null;
+  /**
    * The channel's own relevance figure, kept for diagnostics only.
    *
    * Fusion uses RANK, not this number -- see `domain/retrieval/rrf.ts` for why the five

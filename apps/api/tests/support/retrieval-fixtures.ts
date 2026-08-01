@@ -28,6 +28,8 @@ export interface IndexedSegment {
   occurredAt?: string;
   method?: string | null;
   cohort?: string | null;
+  /** F93/O-05: the interview subject this segment's speaker resolves to, if any. */
+  speakerSubjectId?: string | null;
   anchor?: { kind: string; locator: string };
   ordinal?: number;
 }
@@ -51,14 +53,16 @@ export async function indexSegment(s: IndexedSegment): Promise<{ versionId: stri
     c.query(
       `INSERT INTO segment_text
          (segment_id, org_id, artifact_id, artifact_version_id, project_id, source_type, layer,
-          private, lifecycle, in_scope, occurred_at, method, cohort, confidential, content, tsv)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,''::tsvector)
+          private, lifecycle, in_scope, occurred_at, method, cohort, confidential, content, tsv,
+          speaker_subject_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,''::tsvector,$16)
        ON CONFLICT (segment_id) DO UPDATE SET content = EXCLUDED.content`,
       [
         s.segmentId, s.orgId, s.artifactId, versionId, s.projectId ?? null,
         s.sourceType ?? "interview", s.layer ?? "project", s.private ?? false,
         s.lifecycle ?? "effective", s.inScope ?? true, s.occurredAt ?? new Date().toISOString(),
         s.method ?? null, s.cohort ?? null, s.confidential ?? false, s.content,
+        s.speakerSubjectId ?? null,
       ],
     ),
   );

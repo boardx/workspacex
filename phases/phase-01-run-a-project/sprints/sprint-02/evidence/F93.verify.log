@@ -1,0 +1,65 @@
+=== F93 verification log (worker/w2-itv10-01-F93, off origin/main 3cb9597c) ===
+Date: 2026-08-01T10:13:34Z
+
+--- typecheck (apps/api) ---
+exit: 0
+
+--- pnpm --filter api exec vitest run tests/itv/consent-per-speaker-prefilter.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f93-worktree/apps/api
+
+ ✓ tests/itv/consent-per-speaker-prefilter.test.ts (8 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  18:13:40
+   Duration  167ms (transform 16ms, setup 0ms, collect 13ms, tests 2ms, environment 0ms, prepare 35ms)
+
+exit: 0
+
+--- pnpm --filter api exec vitest run tests/itv/context-pack-omits-declined-speaker.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f93-worktree/apps/api
+
+ ✓ tests/itv/context-pack-omits-declined-speaker.test.ts (4 tests) 393ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:13:41
+   Duration  771ms (transform 164ms, setup 0ms, collect 225ms, tests 393ms, environment 0ms, prepare 32ms)
+
+exit: 0
+
+--- regression: existing F10/F11 retrieval + context-pack kernel tests + six-paths allowlist ---
+
+ RUN  v2.1.9 /private/tmp/f93-worktree/apps/api
+
+ ✓ tests/kernel/context-pack-six-tuple.test.ts (33 tests) 6ms
+ ✓ tests/kernel/citation-integrity.test.ts (17 tests) 4ms
+ ✓ tests/kernel/context-pack-schema.test.ts (24 tests) 6ms
+ ✓ tests/kernel/context-pack-items-from-disclosure.test.ts (6 tests) 859ms
+ ✓ tests/kernel/filter-actions-retrieval-reasons.test.ts (7 tests) 1494ms
+   ✓ 五种动作在一次真实装配里都留下了痕迹 > 没有任何一种动作是无痕的 383ms
+   ✓ 五种动作在一次真实装配里都留下了痕迹 > 反证：没有被排除的条目时，exclude 的痕迹为空且被报为无痕 437ms
+ ✓ tests/kernel/context-pack-pinned-replay.test.ts (16 tests) 1728ms
+ ✓ tests/kernel/retrieval-fts-first-class.test.ts (15 tests) 2591ms
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 2733ms
+ ✓ tests/kernel/retrieval-five-channels.test.ts (37 tests) 3427ms
+   ✓ all five channels are wired to something real > each channel returns at least one row on its own terms 334ms
+
+ Test Files  9 passed (9)
+      Tests  184 passed (184)
+   Start at  18:13:42
+   Duration  3.95s (transform 545ms, setup 0ms, collect 2.78s, tests 12.85s, environment 1ms, prepare 475ms)
+
+exit: 0
+
+--- lint-permission-paths ---
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=519 tenant-tables=75 allowlisted=24
+exit: 0
+
+--- lint-naming-single-source ---
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+exit: 0
