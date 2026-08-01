@@ -8,6 +8,13 @@
 # 触发：main 的每次推送 + 打标签 + 手动。
 # `local.env` 的 ANSWER_Q3 原填「打标签时跑」，2026-07-29 按 P-1 改为 main 上也跑：
 # 自建 runner 没有分钟数成本，而「只在打标签时跑」意味着问题在发版当天一次性爆出来。
+#
+# ⚠ 2026-08-01：`runs-on` 曾写 `arm64`，但 `local.env` 的 VM_ARCH 一直是 x86_64，
+# 且新开的替换机（旧机已释放）用 `uname -m` 实测也是 x86_64。两处早已不一致——
+# 之前的 self-hosted runner 就是照着这份错误标签注册的（`devapp-arm64`），所以
+# 「标签对得上」这件事本身不能证明标签是对的，只能证明两边抄的是同一个错。
+# 现在改成 `x64`，与 GitHub 官方架构标签 X64 对齐，且 runner 注册时的标签
+# 由实测 `uname -m` 决定，不再手填。
 name: backend-gates
 
 on:
@@ -17,15 +24,18 @@ on:
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
 
-# 同一时刻只跑一个：门控会 DROP DATABASE，而这台机器上还跑着部署的那套栈。
-# 并发跑两个 job 的隔离靠 WORKSPACEX_DB 已经做了，但排队更省心，也更容易读日志。
+# 同一时刻只跑一个：门控会 DROP DATABASE。并发跑两个 job 的隔离靠
+# WORKSPACEX_DB 已经做了，但排队更省心，也更容易读日志。
+# ⚠ 2026-08-01：旧 runner 主机已释放，新机是 devapp.boardx.us 上的一台干净空机
+# （无 docker、无 boardx 部署栈、无 /opt/boardx）——上面那句「这台机器上还跑着
+# 部署的那套栈」目前不成立，删掉避免误导。真部署到这台机器后再补回等价的话。
 concurrency:
   group: backend-gates-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   gates:
-    runs-on: [self-hosted, linux, arm64, workspacex]
+    runs-on: [self-hosted, linux, x64, workspacex]
     # fork 的 PR 一律不上自建 runner（local.env ANSWER_Q2=no）。
     # 自建 runner 跑的是被触发那份代码：接受 fork 等于任何人提个 PR 就能在这台机器上
     # 执行任意命令。这里是显式的第二道——GitHub 的默认行为不该是唯一那道。
@@ -93,7 +103,7 @@ jobs:
     # 只有打标签才部署。标签是人的显式动作，这满足 architecture.md
     # 「有 CD 的目标不手动部署」而又不至于每次 push 都动 staging。
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: [self-hosted, linux, arm64, workspacex]
+    runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 20
     steps:
       - name: 部署并冒烟
