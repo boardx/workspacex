@@ -23,6 +23,12 @@
 /* ────────── provenance_events: +2 members（ADR-101 先例，Proposed，需人类追认）────────── */
 -- 见 packages/contracts/src/provenance.ts 枚举自身注释与
 -- docs/adr/ADR-101-provenance-event-type-missing-members.md 追加记录（2026-08-01，F112）。
+--
+-- ⚠ 时间戳排在 F98 的 20260801140000 之后（rebase 时改的，原为 130000）：ADR-101 的
+-- F98 追加段落记录了一次实测反证——两条并发迁移都对 provenance_events_type_check
+-- 做 DROP+ADD，"后写者说了算"，先跑的一方会丢自己刚加的成员。这里把 CHECK 的
+-- IN 列表包含 F98 的 'contact-revealed'（而不是只有本 feature 的两个值），确保
+-- 无论迁移器按什么顺序重放，最终落地的 CHECK 都是两边的并集，不是谁覆盖谁。
 
 DO $$
 BEGIN
@@ -36,6 +42,8 @@ BEGIN
     'project-created', 'project-archived', 'project-unarchived', 'agenda-segment-state-changed',
     'thread-created', 'thread-renamed', 'thread-deleted',
     'integrity-check-failed',
+    -- F98（Proposed，需人类追认 —— 见 20260801140000_f98_contact_reveal_audit.sql）
+    'contact-revealed',
     'unauthorized-attempt',
     -- F112（Proposed，需人类追认 —— 见 ADR-101 追加记录）
     'approval-requested', 'approval-decided'
