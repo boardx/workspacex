@@ -25,6 +25,10 @@ BEGIN
     'contact-revealed',
     'approval-requested', 'approval-decided',
     'deletion-requested',
+    -- F39（files 束，rebase 到 F137 之后合并进 main -- 见 packages/contracts/src/provenance.ts
+    -- 的长注）。F137 的这份迁移排在 F39 之后重放，必须把 F39 的两个成员也带上，
+    -- 否则 F137 这次 DROP+ADD 会把它们从 CHECK 里静默丢掉。
+    'review-accepted', 'review-rejected',
     -- F137 (Proposed, 需人类追认 -- 见 packages/contracts/src/provenance.ts 的长注)
     'asset-published',
     'unauthorized-attempt'
