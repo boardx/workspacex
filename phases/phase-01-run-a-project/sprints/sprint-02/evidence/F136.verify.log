@@ -1,0 +1,56 @@
+=== F136 verification log ===
+Generated: 2026-08-01T08:19:28Z
+
+--- pnpm --filter @repo/contracts run test ---
+
+> @repo/contracts@0.0.0 test /private/tmp/f136-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f136-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 7ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 74ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 3ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 10ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 12ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 4ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 6ms
+ ✓ tests/contract-shape.test.ts (77 tests) 65ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  16:19:29
+   Duration  909ms (transform 744ms, setup 0ms, collect 2.11s, tests 181ms, environment 1ms, prepare 925ms)
+
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/asset/preflight-items-have-source-ref.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f136-worktree/apps/api
+
+ ✓ tests/asset/preflight-items-have-source-ref.test.ts (5 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  16:21:03
+   Duration  205ms (transform 38ms, setup 0ms, collect 47ms, tests 3ms, environment 0ms, prepare 34ms)
+
+
+exit code: 0
+
+--- pnpm --filter web exec vitest run tests/ui/asset-preflight-blocking.test.tsx ---
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f136-worktree/apps/web
+
+ ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 34ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  16:21:04
+   Duration  1.07s (transform 78ms, setup 91ms, collect 123ms, tests 34ms, environment 522ms, prepare 23ms)
+
+
+exit code: 0

@@ -263,12 +263,58 @@ export const AG_OWNER = { name: "高琳", team: "平台组", initial: "高" };
 export const AG_REVIEW_RULE =
   "到期后自动转「待复核」，仍可用但调用时会提示；30 天无人复核则降级为仅负责人可见。这与组织大脑里知识条目的规则一致。";
 
-/** 发布前检查（最后一条红色未完成）。 */
-export const AG_PUBLISH_CHECKLIST = [
-  { done: true, label: "四栏配置完整（人格 · 能力 · 模型 · 边界）" },
-  { done: true, label: "沙箱试跑至少 1 次且无阻断项" },
-  { done: true, label: "已指定负责人与复核周期" },
-  { done: false, label: "试跑里那条「重复了同事的反对意见」还没处理——改提示或标为可接受", action: "去处理" },
+/**
+ * 发布前检查（F136，`uc-23-4` R3 第四项 / domain I-22）。
+ *
+ * ⚠ 形状对齐 `packages/contracts/src/asset-governance.ts` 的
+ * `operations.runPreflightChecks.out.items`：`label` / `detail` / `passed` / `blocking` /
+ * `sourceRef` 五个字段一一对应真实的服务端返回形状，不是本文件另起的第二份。
+ * ⚠ `sourceRef` 恒非空——每一条都能追回它是根据什么算出来的（`apps/api` 侧对应
+ * `apps/api/src/domain/asset/asset-governance.ts` 的 `GOVERNANCE_FIELDS`，清单是那个
+ * 数组的派生视图，不是这里手写的固定清单）。
+ * ⚠ 别继承原型的缺陷：原型这一屏四条全 PASS——这里**至少一条 `blocking: true` 且
+ * `passed: false`**（最后一条：负责人尚未指定）。
+ * `action` 是本屏加的界面态（有 `action` 才渲染「去处理」按钮），契约本身不含它。
+ */
+export interface AssetPreflightItemView {
+  readonly label: string;
+  readonly detail: string;
+  readonly passed: boolean;
+  readonly blocking: boolean;
+  readonly sourceRef: string;
+  readonly action?: string;
+}
+
+export const AG_PUBLISH_CHECKLIST: readonly AssetPreflightItemView[] = [
+  {
+    label: "可见范围已设置",
+    detail: "指定团队 · 能源组 · 平台组",
+    passed: true,
+    blocking: true,
+    sourceRef: "asset-governance.ts#GOVERNANCE_FIELDS:visibility",
+  },
+  {
+    label: "谁能改已设置",
+    detail: "负责人 · 平台组管理员 · ＋ 能源组负责人",
+    passed: true,
+    blocking: true,
+    sourceRef: "asset-governance.ts#GOVERNANCE_FIELDS:editableBy",
+  },
+  {
+    label: "复核周期已设置",
+    detail: "12 个月",
+    passed: true,
+    blocking: true,
+    sourceRef: "asset-governance.ts#GOVERNANCE_FIELDS:reviewCycle",
+  },
+  {
+    label: "已指定负责人",
+    detail: "缺少负责人——改提示或标为可接受之前无法发布",
+    passed: false,
+    blocking: true,
+    sourceRef: "asset-governance.ts#GOVERNANCE_FIELDS:ownerId",
+    action: "去处理",
+  },
 ];
 
 /** 灰度发布语义（原型逐字）：发给谁 + 为什么（回滚）。 */

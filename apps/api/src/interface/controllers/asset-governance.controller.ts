@@ -19,6 +19,10 @@ import {
   setAssetGovernance,
   type SetAssetGovernanceResult,
 } from "../../application/asset/set-asset-governance";
+import {
+  runPreflightChecks,
+  type RunPreflightChecksResult,
+} from "../../application/asset/run-preflight-checks";
 import { AssetNotFoundError, AssetOrgScopeDeniedError } from "../../application/asset/get-asset-directory";
 import { ASSET_GOVERNANCE_REPOSITORY, type AssetGovernanceRepository } from "../../application/asset/ports";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
@@ -29,6 +33,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 
 export const GET_ASSET_GOVERNANCE_SCHEMA = C.operations.getAssetGovernance.in;
 export const SET_ASSET_GOVERNANCE_SCHEMA = C.operations.setAssetGovernance.in;
+export const RUN_PREFLIGHT_CHECKS_SCHEMA = C.operations.runPreflightChecks.in;
 
 @Controller()
 export class AssetGovernanceController {
@@ -89,6 +94,35 @@ export class AssetGovernanceController {
       if (e instanceof AssetNotEditableError) {
         throw new UnprocessableEntityException({ reasonCode: "ASSET_NOT_EDITABLE" });
       }
+      throw e;
+    }
+  }
+
+  /**
+   * `RunPreflightChecks` (F136) -- `uc-23-4` R3 第四项 / domain I-22. See
+   * `application/asset/run-preflight-checks.ts` for the derivation; this method is protocol
+   * adaptation only.
+   */
+  @Get("/assets/:assetKind/:assetId/preflight")
+  async preflight(
+    @CurrentPrincipal() principal: Principal,
+    @Param("assetKind") assetKind: string,
+    @Param("assetId") assetId: string,
+  ): Promise<RunPreflightChecksResult> {
+    assertPrincipal(principal);
+    const input = RUN_PREFLIGHT_CHECKS_SCHEMA.parse({ assetKind, assetId });
+    try {
+      return await runPreflightChecks(
+        { repo: this.repo, governance: this.governance },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          assetKind: input.assetKind,
+          assetId: input.assetId,
+        },
+      );
+    } catch (e) {
+      if (e instanceof AssetOrgScopeDeniedError || e instanceof AssetNotFoundError) throw new NotFoundException();
       throw e;
     }
   }

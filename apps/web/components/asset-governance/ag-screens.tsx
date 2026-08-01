@@ -16,7 +16,7 @@ import {
   AG_TRYRUN_SCENARIOS, AG_TRYRUN_INPUT, AG_TRYRUN_PARAMS, AG_TRYRUN_COST,
   AG_TRYRUN_TRACE, AG_TRYRUN_OUTPUT, AG_TRYRUN_CHECKS, AG_TRYRUN_FOOTER,
   AG_BLUEPRINT_HEADER, AG_BLUEPRINTS, blueprintProgressTone,
-  type AgView,
+  type AgView, type AssetPreflightItemView,
 } from "@/lib/mock/asset-governance";
 import {
   ScreenHead, BackstageGate, VerdictBadge, Meter, FileTree, CodeView, DangerConfirm, Panel,
@@ -374,10 +374,16 @@ export function AgGates({ state, view }: ScreenProps) {
 
 /* ─────────────────────────── ③ 导入向导 · 治理与发布 ─────────────────────────── */
 
-export function AgGovernance({ state, view }: ScreenProps) {
+export function AgGovernance({
+  state, view, checklist = AG_PUBLISH_CHECKLIST,
+}: ScreenProps & { checklist?: readonly AssetPreflightItemView[] }) {
   const [vis, setVis] = React.useState<string>("team");
   const [cycle, setCycle] = React.useState<number>(AG_PRODUCT_VALUES.reviewCycleDefaultMonths.value);
-  const redOpen = AG_PUBLISH_CHECKLIST.some((c) => !c.done);
+  // F136: derived from each item's own `blocking`/`passed` -- not a single hand-set boolean --
+  // so a screen with zero blocking-and-failed items disables nothing, and any one of them
+  // reopening the gate is enough (uc-23-4 R3 第四项 / domain I-22).
+  const blockingItems = checklist.filter((c) => c.blocking && !c.passed);
+  const redOpen = blockingItems.length > 0;
   return (
     <Wrap view={view} what="治理与发布" state={state} empty="没有待发布的资产"
       invalid={{ owner: "必须指定一名负责人才能发布" }}
@@ -464,24 +470,36 @@ export function AgGovernance({ state, view }: ScreenProps) {
           </p>
         </Panel>
 
-        {/* 发布前检查 */}
+        {/* 发布前检查 -- 派生视图：每一条都带 sourceRef，可追回来源（F136, domain I-22） */}
         <Panel testid="ag-gov-checklist" className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-11 font-medium text-foreground">发布前检查</span>
-            {redOpen && <Badge tone="danger">1 项未完成</Badge>}
+            {redOpen && <Badge tone="danger">{blockingItems.length} 项未完成</Badge>}
           </div>
           <div className="flex flex-col gap-1.5">
-            {AG_PUBLISH_CHECKLIST.map((c, i) => (
-              <div key={i} className="flex items-center gap-2" data-testid="ag-gov-check-item">
-                <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded", c.done ? "bg-success text-success-foreground" : "border border-destructive")}>
-                  {c.done && <Check aria-hidden className="h-2.5 w-2.5" />}
-                </span>
-                <span className={cn("text-10", c.done ? "text-muted-foreground" : "font-medium text-destructive")}>{c.label}</span>
-                {!c.done && c.action && (
-                  <Button size="xs" variant="outline" className="ml-auto" data-testid="ag-gov-check-fix">{c.action}</Button>
-                )}
-              </div>
-            ))}
+            {checklist.map((c, i) => {
+              const red = c.blocking && !c.passed;
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-2"
+                  data-testid="ag-gov-check-item"
+                  data-source-ref={c.sourceRef}
+                  data-blocking={c.blocking}
+                  data-passed={c.passed}
+                  title={`来源：${c.sourceRef}`}
+                >
+                  <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded", c.passed ? "bg-success text-success-foreground" : "border border-destructive")}>
+                    {c.passed && <Check aria-hidden className="h-2.5 w-2.5" />}
+                  </span>
+                  <span className={cn("text-10", c.passed ? "text-muted-foreground" : "font-medium text-destructive")}>{c.label}</span>
+                  <span className="sr-only" data-testid="ag-gov-check-source">{c.sourceRef}</span>
+                  {red && c.action && (
+                    <Button size="xs" variant="outline" className="ml-auto" data-testid="ag-gov-check-fix">{c.action}</Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <p className="text-9 text-muted-foreground">红色项未清空时「发布」保持禁用。</p>
           <Button size="sm" variant="primary" disabled={redOpen} data-testid="ag-gov-publish"
