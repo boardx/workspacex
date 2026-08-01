@@ -37,3 +37,24 @@ export interface AssetFileRepository {
 }
 
 export const ASSET_FILE_REPOSITORY = Symbol("AssetFileRepository");
+
+/**
+ * F134's stored shape for `AssetGovernance` (`uc-23-4` R3). Deliberately identical for all six
+ * `AssetKind`s -- there is no per-kind variant of this record, which is the "six kinds share one
+ * governance shape" reading of Q-1b (`asset-governance.KNOWN_CONTRACT_GAPS.AG1`) made concrete.
+ */
+export interface AssetGovernanceRecord {
+  readonly visibility: "specified-teams" | "whole-org" | "private-draft";
+  readonly teamIds: readonly string[];
+  readonly editableBy: readonly string[];
+  readonly ownerId: string;
+  readonly reviewCycle: "6m" | "12m" | "24m";
+}
+
+export interface AssetGovernanceRepository {
+  /** `null` = no governance has ever been set for this (kind, assetId) -- not a default value. */
+  get(assetKind: AssetKind, assetId: string): Promise<AssetGovernanceRecord | null>;
+  set(assetKind: AssetKind, assetId: string, governance: AssetGovernanceRecord): Promise<void>;
+}
+
+export const ASSET_GOVERNANCE_REPOSITORY = Symbol("AssetGovernanceRepository");
