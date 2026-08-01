@@ -246,6 +246,9 @@ describe("the three loser paths, provoked one at a time", () => {
       addSegments: (o, s) => repo.addSegments(o, s),
       findSegments: (o, v) => repo.findSegments(o, v),
       headVersionNumber: () => Promise.resolve(1),
+      listVersions: (o, id) => repo.listVersions(o, id),
+      createDerived: (d) => repo.createDerived(d),
+      listDerived: (o, id) => repo.listDerived(o, id),
     };
 
     await expect(

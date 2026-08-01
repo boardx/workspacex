@@ -1,0 +1,115 @@
+# F44 -- 版本列表（原件永不覆盖、每版 SHA-256 可下载）+ 派生物模型
+#
+# Environment note: this worker has real Docker + PostgreSQL available (unlike the "skip
+# Postgres-dependent tests" default for issue #74), so all three verification commands below
+# were run for real against PostgreSQL, not merely typechecked. The api package's FULL test
+# suite (228 files / 2724 tests) and web's full suite (21 files / 367 tests) were also run in
+# full afterwards to confirm no regression -- logged at the bottom.
+
+$ pnpm --filter api exec vitest run tests/files/version-never-overwrite.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/version-never-overwrite.test.ts (3 tests) 232ms
+   ✓ F44 -- version never overwrites, idempotent re-upload, list shows every row > V1: a new upload with DIFFERENT content adds a new version; v1's bytes/hash are untouched
+   ✓ F44 -- version never overwrites, idempotent re-upload, list shows every row > V2: re-uploading the SAME content as the current head is idempotent -- no new row
+   ✓ F44 -- version never overwrites, idempotent re-upload, list shows every row > E7 / optimistic concurrency: a stale `expectedHeadVersion` is rejected as VERSION_CHANGED, never silently applied
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
+
+$ pnpm --filter api exec vitest run tests/files/derived-not-overwrite-original.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/derived-not-overwrite-original.test.ts (3 tests) 236ms
+   ✓ F44 -- rerunning a derivation never touches the original (V3, R7 🔴) > 🔴 two OCR reruns: original hash/bytes unchanged, TWO independent derived rows, both downloadable
+   ✓ F44 -- rerunning a derivation never touches the original (V3, R7 🔴) > embedding is registered but never materialized as a file (R3.b step 4's one exception)
+   ✓ F44 -- rerunning a derivation never touches the original (V3, R7 🔴) > a non-embedding kind with no bytes is refused rather than silently registered with no file
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+
+
+$ pnpm --filter web exec vitest run tests/ui/files-version-derived.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 apps/web
+
+ ✓ tests/ui/files-version-derived.test.tsx (9 tests) 59ms
+   ✓ version list -- every version renders its own row > renders exactly one `files-version-row` per version, none dropped
+   ✓ version list -- every version renders its own row > 🔴 exactly ONE row is the current version -- never zero, never more than one
+   ✓ version list -- every version renders its own row > 🔴 EVERY row -- old and current alike -- has a working download control and a copyable SHA-256
+   ✓ version list -- every version renders its own row > non-current (旧) rows are NOT visually or functionally disabled -- 「旧版仍可下载」 is not a lie in the DOM
+   ✓ 上传新版本 -- the action that adds a version without touching any existing one > clicking it reveals the upload dropzone, and it names the NEXT version number
+   ✓ V10 -- agent creator renders distinguishably from a human, never as one > an agent-created version shows the agent's name (not folded into a person's)
+   ✓ 派生物 (derived files) -- child rows under the original, never merged into it > renders one `files-derived-row` per derived entry, each naming its source VERSION and a non-empty generator
+   ✓ 派生物 (derived files) -- child rows under the original, never merged into it > every materialized derivative has a working download control
+   ✓ 派生物 (derived files) -- child rows under the original, never merged into it > 🔴 an embedding (registered but never materialized) has NO download control at all
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+
+
+## Additional evidence (not part of the required three, run to confirm no regression)
+
+$ pnpm --filter api run typecheck
+[exit 0]  (0 errors in this feature's own files; pre-existing, unrelated `packages/fabric-markdown`
+           canvas/DOM-lib errors are present on origin/main before this branch and are excluded --
+           confirmed by `grep`-ing this feature's touched files out of the error list)
+
+$ pnpm --filter api run lint
+[exit 0]  lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+          lint-design-facet-single-source / lint-skill-context-api-only /
+          lint-naming-single-source / lint-arch-deps all ✅, 0 new violations
+
+$ pnpm --filter api exec vitest run   (FULL suite)
+[exit 0]
+ Test Files  228 passed (228)
+      Tests  2724 passed | 2 todo (2726)
+
+$ pnpm --filter web exec tsc --noEmit -p .
+[exit 0]
+
+$ pnpm --filter web run lint
+[exit 0]  next lint: No ESLint warnings or errors; lint-design.sh: 全部通过
+
+$ pnpm --filter web exec vitest run   (FULL suite)
+[exit 0]
+ Test Files  21 passed (21)
+      Tests  367 passed (367)
+
+## What was built (see PR description for the full list)
+
+- Migration `20260801120500_f44_version_list_and_derived.sql`: per-version creator_kind /
+  agent_run_id / change_source on `artifact_versions`; `pipeline_version` +
+  nullable-except-embedding `object_storage_key` on `derived_representations`.
+- `ArtifactRepository.listVersions` / `.createDerived` / `.listDerived` (port + Postgres impl).
+- `uploadNewVersion` (idempotent re-upload, optimistic concurrency, reuses `materializeArtifact`).
+- `createDerivedRepresentation` (rerun-safe: new row + new object key per generation, embedding
+  registered without a file).
+- `versionContentHash` factored out of `materializeArtifact` so `uploadNewVersion`'s idempotency
+  check uses the exact same hash formula as the write path (a bug caught by this feature's own
+  V2 test -- see PR description).
+- Web: `tests/ui/files-version-derived.test.tsx` against the already-built `version-drawer.tsx`
+  (F44's UI-first predecessor) proves the version-list/derived-file behaviour the contract and
+  `user_visible_behavior` describe, at the component level (same technique as F32's
+  `files-preview.test.tsx`).
+
+## Known gap, reported rather than silently left implicit
+
+No HTTP controller / route registration for `listVersions` / `uploadNewVersion` / `listDerived`
+is included -- the contract's `GET /artifacts/:artifactId/file-versions` etc. exist in
+`packages/contracts/src/files.ts` but nothing in `apps/api/src/interface/controllers` wires them
+yet, and `version-drawer.tsx` still reads from `lib/mock/files.ts`, not a live endpoint. This
+feature's three required verification commands exercise the repository/application layer
+directly (the same pattern `no-orphan-version.test.ts` and `pin-version` tests already use), and
+the issue's `user_visible_behavior` is satisfied by the UI as already built against mock data.
+Wiring the controllers is real, separately-sized work (auth, DTO validation, route registration)
+that no test in this feature's scope requires, and inventing it untested would be exactly the
+"looks done, isn't verified" failure mode this repository's CLAUDE.md warns about. Left for the
+feature that actually wires the browser to the backend, flagged explicitly rather than silently
+assumed.
