@@ -15,7 +15,7 @@ import {
   resetOrgs,
   seedOrg,
 } from "../support/db";
-import { resetInterviews, seedInterview } from "../support/interview-db";
+import { FIXTURE_CONTACT_CIPHER, resetInterviews, seedInterview } from "../support/interview-db";
 import { PgInterviewSubjectRepository } from "../../src/infrastructure/interview/pg-interview-subject-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -42,7 +42,7 @@ beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
-  repo = new PgInterviewSubjectRepository(db);
+  repo = new PgInterviewSubjectRepository(db, FIXTURE_CONTACT_CIPHER);
 }, 120_000);
 
 afterAll(async () => {

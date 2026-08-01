@@ -188,6 +188,42 @@ F117 / F109 落地时应当直接用得上；用不上说明抄错了，那是�
   `deliver-artifact.ts` 的 `issueDownloadUrl` 失去写审计这一步（该 use case 的
   `INTEGRITY_CHECK_FAILED` 分支仍然抛错，只是不再写 provenance）。
 
+### 追加（2026-08-01，F98 · interview，issue #193）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **1** 个成员，`ProvenanceTargetKind` 再补 **1** 个成员，
+同一意图（第五、第六个撞上的人被带到这里，不发明第二种处理）：
+
+| 枚举 | 成员 | 代谁补 | 出处 |
+|---|---|---|---|
+| `ProvenanceEventType` | `contact-revealed` | F98 · `interview` | uc-6-7 R8「`[查看]` 需权限且每次写审计」；R5「引导师…可查看联系方式（每次查看写审计）」；契约 `revealContact` 注释「取到明文也写审计（不只是被拒时写，I-21）」 |
+| `ProvenanceTargetKind` | `subject` | F98 · `interview` | 与 `interview`（F80）/`thread`（F109）同一个根：不补它，「这个访谈对象的联系方式被谁查看过」查不出来 |
+
+- `contact-revealed` 命名沿用「对象-过去分词」构词法，与 `role-changed` 同形。
+- `provenance_events_type_check` / `provenance_events_target_kind_check`
+  随 `20260801140000_f98_contact_reveal_audit.sql` 一并追加这两个值；
+  `provenance-enum-single-source.test.ts` 的双向断言动态读取契约与 CHECK，
+  覆盖新成员无需改那个测试文件本身。
+- `reveal-contact.ts` 对**被拒**的查看尝试复用既有的 `unauthorized-attempt`
+  （不新增第三个事件类型），target 同样记 `subject`——与本 ADR「`unauthorized-attempt`
+  不动」的既定立场一致。
+- 否决时的回退：撤销契约里这两行 + 迁移里对应的两条 CHECK 收缩 +
+  `reveal-contact.ts` 失去写审计这一步（该 use case 的解密分支仍然执行，只是
+  R8「每次查看写审计」的承诺重新落空——即回到 F97 交接时的状态）。
+
+⚠ **反证（本地开发环境实测，2026-08-01）**：这个共享 CHECK 约束的「DROP+ADD」写法
+在**并发**场景下会互相覆盖——本地共享 Postgres 实例上，另一条并发分支
+`20260801130000_f112_approval_gate.sql`（`approval-decided`/`approval-requested`，
+本仓当前 checkout 里不存在这个文件，只在共享 DB 的 `_kernel_migrations` 记录里
+观察到）晚于本 feature 的迁移落到同一张表，`DROP CONSTRAINT` 后 `ADD` 的新
+CHECK 没有带上本 feature 的 `contact-revealed`，导致 `provenance-enum-single-
+source.test.ts` 在本地间歇性变红——不是本 feature 代码的缺陷，是**两条并发迁移
+都改同一个 CHECK 时「后写者说了算」的结构性风险**，ADR-101 从第一次追加起就有
+（F32→F117→F109→F34→F98，每一次追加都要求前一份没有被别的并发分支覆盖）。
+按时间戳去重 rebase 顺序能缓解，但只要多个 feature 并发地对同一个 CHECK 做
+DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要把这两条 CHECK 换成
+`ADD VALUE`-式的可加行为（Postgres 原生 enum 类型，而不是字符串 CHECK），
+从根上消除"后写者覆盖前写者"这条路。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |

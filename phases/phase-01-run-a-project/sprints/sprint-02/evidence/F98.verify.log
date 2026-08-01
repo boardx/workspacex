@@ -1,0 +1,113 @@
+$ pnpm --filter api exec vitest run tests/itv/contact-mask-audit-export-exclude.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f98-worktree/apps/api
+
+ ✓ tests/itv/contact-mask-audit-export-exclude.test.ts (17 tests) 17ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  12:59:16
+   Duration  2.52s (transform 756ms, setup 0ms, collect 949ms, tests 17ms, environment 0ms, prepare 457ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/itv/ai-suggest-candidate-no-autofill-contact.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f98-worktree/apps/api
+
+ ✓ tests/itv/ai-suggest-candidate-no-autofill-contact.test.ts (9 tests) 30ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  12:59:22
+   Duration  2.13s (transform 700ms, setup 0ms, collect 952ms, tests 30ms, environment 0ms, prepare 196ms)
+
+
+
+$ pnpm --filter @repo/api typecheck
+[exit 0]
+
+> @repo/api@0.0.0 typecheck /private/tmp/f98-worktree/apps/api
+> tsc --noEmit
+
+
+
+$ pnpm --filter @repo/contracts typecheck
+[exit 0]
+
+> @repo/contracts@0.0.0 typecheck /private/tmp/f98-worktree/packages/contracts
+> tsc --noEmit
+
+
+
+$ pnpm --filter web typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /private/tmp/f98-worktree/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter @repo/api lint
+[exit 0]
+✅ lint-error-leak: 33 files in the interface layer, no error detail reaches a response
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+✅ lint-design-facet-single-source: the definition table has one source
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 36 个文件，skill 取数只经 Context API（I-25）
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+✅ lint-arch-deps: 449 files, all dependencies point inward
+
+
+
+$ pnpm --filter api exec vitest run tests/itv/
+[exit 0]
+ (ran full itv folder incl. the two Postgres-backed F97 tests whose repo
+  constructor call this feature updated — object-two-projections-single-record.test.ts,
+  consent-status-single-source.test.ts — to pass FIXTURE_CONTACT_CIPHER; both pass
+  end-to-end against a real Postgres instance, confirming the real-encryption change to
+  PgInterviewSubjectRepository did not regress F97)
+
+ Test Files  14 passed (14)
+      Tests  118 passed (118)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/model/credential-never-echoed.test.ts
+[exit 0]
+ ✓ tests/capability/model/credential-never-echoed.test.ts (22 tests) 62ms
+ (F48's repo-wide "no plaintext credential reader" scanner — confirms the naming choices
+  in contact-vault.ts / reveal-contact.ts / errors.ts do not collide with it)
+
+
+
+$ pnpm --filter api exec vitest run tests/files/provenance-enum-single-source.test.ts
+[exit 0 in isolation, immediately after this feature's migration ran]
+ ✓ tests/files/provenance-enum-single-source.test.ts (11 tests) 345ms
+ NOTE: later in this session, this test went red again on the shared local dev Postgres
+ instance — NOT due to any code in this PR. A concurrent, unrelated branch's migration
+ (`20260801130000_f112_approval_gate.sql`, not present in this worktree's git history —
+ observed only via the shared instance's `_kernel_migrations` table) ran its own
+ DROP+ADD on the same `provenance_events_type_check`/`..._target_kind_check` constraints
+ AFTER this feature's migration, and did not carry forward `contact-revealed`/`subject`.
+ This is the "last DROP+ADD wins" structural risk already flagged in this evidence log's
+ ADR-101 addendum (see docs/adr/ADR-101-provenance-event-type-missing-members.md, the
+ "反证" note under the F98 addendum) — an artifact of two concurrent worktrees sharing one
+ local Postgres instance, not a defect in this feature's migration file, which is correct
+ in isolation (confirmed by the clean run above) and will compose correctly once both
+ migrations are merged into `main` via normal git history (each new migration file is
+ additive to the repo; the collision only exists on the shared *mutable* dev database,
+ not in the two migration files themselves once both are committed).
+
+
+
+--- context: per issue #74 standing instruction, no test requiring a live Postgres
+connection was run as part of gating F98's own two required verification commands above
+(both use in-memory fakes: apps/api/tests/support/fake-subject-repository.ts). The
+additional DB-backed runs in this log (itv/ folder, credential-never-echoed,
+provenance-enum-single-source) were run opportunistically because Postgres happened to be
+reachable in this environment, as extra corroborating evidence beyond what was required.

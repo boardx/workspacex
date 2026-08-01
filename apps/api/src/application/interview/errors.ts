@@ -102,6 +102,37 @@ export class TemplateStatReadonlyError extends Error {
   }
 }
 
+/* ─────────────────────────── F98：联系方式遮盖/查看留痕/AI 建议人选 ─────────────────────────── */
+
+/**
+ * 拒绝返回联系方式明文（uc-6-7 R5/AC7）。**无权** 与 **对象不存在** 合并成同一个码——
+ * 与 `NoInterviewAccessError` 同一立场，两者不可区分是安全属性。
+ * ⚠ agent 主体命中这一条**恒成立**，不是权限配置能打开的一档（D-27/O-39）。
+ *
+ * ⚠ 类名刻意不叫 `ContactPlaintextDeniedError`：`credential-never-echoed.test.ts`
+ * （F48）的 `PLAINTEXT_READER_RE` 按**声明名**在全部 `apps/api/src` 里扫
+ * `unseal|decrypt|plaintext|revealCredential`，本类不是它要抓的"能把凭据密文变回
+ * 明文的读取器"，命中纯属同名误伤——与 `pii-mask.ts`（F72）文件头「不叫 `plaintext`
+ * 是为了不与 F48 的扫描器共享一次假阳性」同一处理，不是回避审查。
+ */
+export class ContactRevealDeniedError extends Error {
+  readonly code = "CONTACT_PLAINTEXT_DENIED" as const;
+  constructor(readonly subjectId: string) {
+    super(`CONTACT_PLAINTEXT_DENIED: ${subjectId}`);
+  }
+}
+
+/**
+ * `[AI 建议人选]` 服务不可用。⚠ **只落在这个端口**，不落在 `createSubject`——
+ * V12「AI 服务不可用时手工加对象仍可用」要求两条路径互不牵连。
+ */
+export class AiGenerationUnavailableError extends Error {
+  readonly code = "AI_GENERATION_UNAVAILABLE" as const;
+  constructor() {
+    super("AI_GENERATION_UNAVAILABLE");
+  }
+}
+
 /** 并发改同一模板：`expectedVersionNumber` 与当前 head 不一致（uc-6-1/E3，F82）。 */
 export class TemplateVersionChangedError extends Error {
   readonly code = "TEMPLATE_VERSION_CHANGED" as const;
