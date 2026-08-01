@@ -74,7 +74,7 @@ export async function checkTemporaryGrantAccess(
   // longer live", and this is the FIRST read to observe it, so record the revoke now.
   if (verdict.reason !== "ALREADY_REVOKED") {
     const revokedAt = deps.clock.now();
-    await deps.grants.markRevoked(grant.id, revokedAt, "agenda-segment-terminal");
+    await deps.grants.markRevoked(orgId, grant.id, revokedAt, "agenda-segment-terminal");
     await deps.provenance.append({
       orgId,
       type: "role-changed",

@@ -113,6 +113,11 @@ import {
   PROVENANCE_WRITER,
   type ProvenanceWriter,
 } from "../../application/provenance/ports";
+import {
+  TEMPORARY_GRANT_REPOSITORY,
+  type TemporaryGrantRepository,
+} from "../../application/identity/temporary-grant-ports";
+import { CLOCK, type Clock } from "../../application/auth/ports";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -168,6 +173,8 @@ export class ProjectController {
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Inject(TEMPORARY_GRANT_REPOSITORY) private readonly grants: TemporaryGrantRepository,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   /**
@@ -354,6 +361,10 @@ export class ProjectController {
           auth: { repo: this.identity, ids: this.decisions },
           segments: this.segments,
           provenance: this.provenance,
+          // F127: real storage layer for `revokedTemporaryGrants` -- see
+          // `advance-agenda-segment.ts`'s header and `pg-temporary-grant-repository.ts`.
+          grants: this.grants,
+          clock: { now: () => this.clock.now().toISOString() },
         },
         {
           userId: principal.userId,

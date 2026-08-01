@@ -223,6 +223,11 @@ import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
+// F127（本次新增）：`TEMPORARY_GRANT_REPOSITORY`——F05 交付了判定逻辑但故意不建的存储层，
+// 接进 `advanceAgendaSegment` 的 `revokedTemporaryGrants`。见
+// `application/identity/temporary-grant-ports.ts` / `pg-temporary-grant-repository.ts` 的注释。
+import { TEMPORARY_GRANT_REPOSITORY } from "./application/identity/temporary-grant-ports";
+import { PgTemporaryGrantRepository } from "./infrastructure/identity/pg-temporary-grant-repository";
 import { ProjectController } from "./interface/controllers/project.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
@@ -563,6 +568,14 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: MEMBER_SUBJECT_RESOLVER,
       useFactory: (db: DatabasePort) => new PgInviteTokenMemberResolver(db),
+      inject: [DATABASE_PORT],
+    },
+    // F127：独立 provider，见 `pg-temporary-grant-repository.ts` 文件头。
+    // `temporary-grant-ports.ts` 头部把这张表标为「F05 故意没建」的缺口——本 provider
+    // 是 F127 补上的存储层，接进 `advanceAgendaSegment` 的 `revokedTemporaryGrants`。
+    {
+      provide: TEMPORARY_GRANT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgTemporaryGrantRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent

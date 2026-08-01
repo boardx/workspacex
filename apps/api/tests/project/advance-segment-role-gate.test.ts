@@ -16,6 +16,7 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { PgAgendaSegmentRepository } from "../../src/infrastructure/project/pg-agenda-segment-repository";
+import { PgTemporaryGrantRepository } from "../../src/infrastructure/identity/pg-temporary-grant-repository";
 import {
   advanceAgendaSegment,
   type AdvanceAgendaSegmentDeps,
@@ -51,6 +52,11 @@ beforeAll(async () => {
     auth: { repo: new PgIdentityRepository(db), ids: new SeqDecisionIds() },
     segments: new PgAgendaSegmentRepository(db),
     provenance: new PgProvenanceRepository(db),
+    // F127: real storage layer, wired the same way production does (`kernel.module.ts`).
+    // This file's own assertions are all about the role gate, not about grants -- no grant
+    // is ever created here, so `revokedTemporaryGrants` is expected to be 0 throughout.
+    grants: new PgTemporaryGrantRepository(db),
+    clock: { now: () => new Date().toISOString() },
   };
 
   await resetOrgs(ORG);

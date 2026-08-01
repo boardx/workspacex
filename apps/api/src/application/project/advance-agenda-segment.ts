@@ -26,18 +26,26 @@
  * 下一条——那正是先查后写在并发下的空转门（同 `createProject` 幂等设计头注的同一条纪律）。
  * 仓储的 `advance()` 直接尝试激活下一条，`23505` 原样冒泡到这里，翻译成 `SEGMENT_ALREADY_ACTIVE`。
  *
- * ## `revokedTemporaryGrants` 恒为 0——这是一个已报的缺口，不是没实现
+ * ## `revokedTemporaryGrants`——F127 把它从恒 0 接上真实的收回
  *
- * 契约 `advanceAgendaSegment.out.revokedTemporaryGrants` 要求这个字段，且注释要求它是
- * 「四向失效」这条已签核副作用的**可断言载体**。但按环节授予的临时读权本身**还没有存储层**
- * ——那是 **F127**（`not_started`）的交付物，`grep` 全仓找不到任何 `temporary_grant` 相关的表。
- * 三条路都不通，同 `create-project.ts` 头注处理 `provenanceEventId` 缺口的方式一样，本函数
- * 不选边：
- *   · 编一个非零数字 = 谎报收回了不存在的东西；
- *   · 现在就去建临时提权的存储层 = 越权做了 F127 的交付物，且没有 F127 的验收面守着它；
- *   · 把字段留空 = 契约是 `.strict()` 的，响应体会当场校验失败。
- * ⇒ 恒返回 `0`，如实反映「今天没有任何临时提权可收回」，并将「这四种终结方式都必须触发收回」
- *   报给 F127 承接（本文件不重复计点，`usecases.md` 已注明验收归 F127）。
+ * 契约 `advanceAgendaSegment.out.revokedTemporaryGrants` 要求这个字段是「四向失效」这条
+ * 已签核副作用的**可断言载体**。F05 交付了判定逻辑（`checkTemporaryGrantAccess` 在读侧
+ * 首次观察到失效时收回），但故意没建存储层、也没有把收回接到这里——那是 F127
+ * （`temporary-grant-ports.ts` 头部原话：「越权做了 F127 的交付物」）的交付物。
+ * 本 feature（F127）把 `PgTemporaryGrantRepository`（`temporary_grants` 表，迁移
+ * `20260801200000_f127_temporary_grants_table.sql`）接进来：状态机转移成功后
+ * ——**四种去向落地后一律是终态**（advance/closeEarly/merge 落 `closed`，skip 落
+ * `skipped`；本函数入口的 `isTerminalState` 检查已经保证转移前一定是 pending/active，
+ * 所以转移后一定是终态，不需要对四种 action 分别判断要不要收回）——查出所有仍挂在
+ * **这一条**环节上的活跃临时提权，逐条 `markRevoked` 并各写一条审计事件，返回真实数量。
+ *
+ * ⚠ 不查其它环节：只有 `findActiveBySegment(orgId, workshopId, segmentId)`
+ *   命中的行会被收回——挂在同一工作坊里别的（仍在进行中的）环节上的临时提权不受影响，
+ *   这正是反向反证 `temp-grant-active-while-segment-open.test.ts` 断言的那条。
+ *
+ * ⚠ 与 `checkTemporaryGrantAccess` 共用同一个 `markRevoked`：它是幂等的（`orgId` + `id`
+ *   定位，`revoked_at IS NULL` 才生效），两条路径谁先到都不会重复计数或重复写审计
+ *   （见 `temporary-grant-ports.ts` 的 `markRevoked` 文档）。
  */
 import { authorize, type AuthorizeDeps } from "../identity/authorize";
 import type { OrgId } from "../../domain/org-id";
@@ -48,6 +56,7 @@ import {
   type AgendaSegmentAdvanceAction,
 } from "../../domain/project/advance-segment-outcomes";
 import type { ProvenanceWriter } from "../provenance/ports";
+import type { TemporaryGrantRepository } from "../identity/temporary-grant-ports";
 import { AgendaSegmentNotFoundError, MergeTargetRequiredError } from "./advance-agenda-segment-errors";
 import { ProjectError } from "./errors";
 import type { AdvanceAgendaSegmentResult, AgendaSegmentRepository } from "./ports";
@@ -55,13 +64,14 @@ import type { AdvanceAgendaSegmentResult, AgendaSegmentRepository } from "./port
 /** 见文件头「动作字面量现在是 agendaSegment.advance」一节。引用矩阵，不新造常量值。 */
 export const ADVANCE_AGENDA_SEGMENT_ACTION = "agendaSegment.advance" as const;
 
-/** 今天没有临时提权的存储层可收回——见文件头。F127 落地后这个常量的用法需要重新审视。 */
-const NO_TEMPORARY_GRANTS_TO_REVOKE = 0;
-
 export interface AdvanceAgendaSegmentDeps {
   readonly auth: AuthorizeDeps;
   readonly segments: AgendaSegmentRepository;
   readonly provenance: ProvenanceWriter;
+  /** F127：本次状态机变更要主动收回的临时提权仓储——见文件头「revokedTemporaryGrants」一节。 */
+  readonly grants: TemporaryGrantRepository;
+  /** F127：收回时间戳的来源，同 `check-temporary-grant-access.ts` 的 `clock` 依赖同型。 */
+  readonly clock: { now(): string };
 }
 
 export interface AdvanceAgendaSegmentInput {
@@ -145,11 +155,56 @@ export async function advanceAgendaSegment(
     },
   });
 
+  // 见文件头「revokedTemporaryGrants」一节：转移后一定是终态，无需按 action 分支判断。
+  const revokedTemporaryGrants = await revokeGrantsForTerminatedSegment(deps, {
+    orgId,
+    workshopId,
+    segmentId: result.segment.id,
+    actorId: userId,
+  });
+
   return {
     segment: result.segment,
-    revokedTemporaryGrants: NO_TEMPORARY_GRANTS_TO_REVOKE,
+    revokedTemporaryGrants,
     provenanceEventId,
   };
+}
+
+/**
+ * F127: 收回挂在这一条（刚终结的）环节上的全部活跃临时提权，逐条写审计，返回真实收回数。
+ * 只查 `segmentId` 这一条——同工作坊里别的环节（仍 pending/active）上的临时提权不受影响。
+ */
+async function revokeGrantsForTerminatedSegment(
+  deps: AdvanceAgendaSegmentDeps,
+  args: { orgId: OrgId; workshopId: string; segmentId: string; actorId: string },
+): Promise<number> {
+  const { orgId, workshopId, segmentId, actorId } = args;
+  const candidates = await deps.grants.findActiveBySegment(orgId, workshopId, segmentId);
+  const revokedAt = deps.clock.now();
+  let revoked = 0;
+  for (const grant of candidates) {
+    // `markRevoked` 幂等：与 `checkTemporaryGrantAccess` 的读侧收回共用同一个方法，
+    // 谁先到都只生效一次——见 `temporary-grant-ports.ts` 的文档。
+    const didRevoke = await deps.grants.markRevoked(orgId, grant.id, revokedAt, "agenda-segment-terminal");
+    if (!didRevoke) continue;
+    revoked += 1;
+    await deps.provenance.append({
+      orgId,
+      type: "role-changed",
+      actorId,
+      target: { kind: "project", id: workshopId },
+      detail: {
+        op: "temp-grant-expired",
+        granteeId: grant.granteeId,
+        action: grant.scope.action,
+        groupId: grant.scope.groupId,
+        agendaSegmentId: segmentId,
+        grantId: grant.id,
+        revokedReason: "agenda-segment-terminal",
+      },
+    });
+  }
+  return revoked;
 }
 
 /** PostgreSQL SQLSTATE 23505 = unique_violation（同 `pg-artifact-repository.ts` 等既有判据）。 */

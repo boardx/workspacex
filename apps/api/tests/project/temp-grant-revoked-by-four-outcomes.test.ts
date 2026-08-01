@@ -1,13 +1,17 @@
 /**
- * F119 UC-P7 `advanceAgendaSegment` —— 四种去向（推进 / 提前结束 / 跳过 / 合并），
- * 各自一条断言，不合并成一个泛化的状态转移测试（见 feature notes）。
+ * F127 UC-P7 `advanceAgendaSegment` -- `revokedTemporaryGrants` 从恒 0 接上真实收回：
+ * 一条挂在某环节上的活跃临时提权，在该环节以四种去向中的任意一种终结时，都必须在
+ * **下一次请求**里被服务端主动收回（`temporary-grant.ts` 头部/`advance-agenda-segment.ts`
+ * 头部："失效条件是流程节点不是时间点"，advance/closeEarly/merge 落 `closed`，
+ * skip 落 `skipped`，四者共用同一条收回路径）。
+ *
+ * 每个 outcome 各建一个独立工作坊 + 各一条临时提权（同 F119
+ * `advance-segment-four-outcomes.test.ts` 的理由：四个 it 共享一个工作坊会在
+ * `agenda_segments_one_active_per_workshop` 部分唯一索引上互相踩踏）。
  *
  * ⚠ **本文件需要真实 Postgres，本地只跑 `tsc` 做类型检查，不执行 `vitest run`**
- *   （issue #74；仓库当前纪律：DB 验证测试只在 CI/测试 agent 环境跑）。
- *
- * 每个 outcome 各建一个独立工作坊（两条环节：ordinal 0 起 `active`，ordinal 1 `pending`），
- * 避免四个 it 共享一个工作坊时，`agenda_segments_one_active_per_workshop` 的部分唯一索引
- * 让它们互相踩踏。
+ *   （issue #74；仓库当前纪律：DB 验证测试只在 CI/测试 agent 环境跑，同
+ *   `advance-segment-four-outcomes.test.ts` 文件头的处理）。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -20,48 +24,54 @@ import {
   advanceAgendaSegment,
   type AdvanceAgendaSegmentDeps,
 } from "../../src/application/project/advance-agenda-segment";
-import { MergeTargetRequiredError } from "../../src/application/project/advance-agenda-segment-errors";
-import { ProjectError } from "../../src/application/project/errors";
 import type { DecisionIdFactory } from "../../src/application/identity/ports";
 import { toOrgId } from "../../src/domain/org-id";
-import { addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
+import { addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
 
-const ORG = "f119-org-outcomes";
-const FACILITATOR = "u-f119-facilitator";
+const ORG = "f127-org-four-outcomes";
+const FACILITATOR = "u-f127-facilitator";
+const GRANTEE = "u-f127-grantee";
+
+const SCOPE = { action: "read.rawTranscript", groupId: "g2" } as const;
 
 class SeqDecisionIds implements DecisionIdFactory {
   private n = 0;
   next(): string {
     this.n += 1;
-    return `f119-outcomes-d-${this.n}`;
+    return `f127-outcomes-d-${this.n}`;
+  }
+}
+
+class SeqIds {
+  private n = 0;
+  next(): string {
+    this.n += 1;
+    return `f127-grant-${this.n}`;
   }
 }
 
 let db: PgDatabase;
 let deps: AdvanceAgendaSegmentDeps;
+let grants: PgTemporaryGrantRepository;
+let ids: SeqIds;
 
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
+  grants = new PgTemporaryGrantRepository(db);
+  ids = new SeqIds();
   deps = {
     auth: { repo: new PgIdentityRepository(db), ids: new SeqDecisionIds() },
     segments: new PgAgendaSegmentRepository(db),
     provenance: new PgProvenanceRepository(db),
-    // F127: real storage layer. This file's own four assertions never create a grant, so
-    // `revokedTemporaryGrants` is expected to be 0 in every `it` here -- the "a grant tied
-    // to THIS segment is really revoked" claim is `temp-grant-revoked-by-four-outcomes.test.ts`'s.
-    grants: new PgTemporaryGrantRepository(db),
+    grants,
     clock: { now: () => new Date().toISOString() },
   };
   await resetOrgs(ORG);
   await asApp(ORG, (c) =>
     c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [ORG, `org ${ORG}`]),
   );
-  // 项目角色不能替代组织成员资格——两层判定各自独立（decide() 的 org 层先于 project 层），
-  // 漏掉这一步会让 facilitator 在 org 层就被 NO_ORG_MEMBERSHIP 拦下，从未走到项目层判断。
-  // 只加一次（beforeAll，而不是每个 workshop 各加一次）：org_memberships 的主键是
-  // (user_id, org_id)，同一个 FACILITATOR 在同一个 ORG 下第二次 INSERT 会撞主键。
   await addOrgMember(ORG, FACILITATOR, "consultant", null);
 });
 
@@ -97,24 +107,28 @@ async function seedSegment(
   );
 }
 
-async function stateOf(id: string): Promise<{ state: string; merged_into: string | null } | undefined> {
-  return asOwner(async (c) => {
-    const r = await c.query<{ state: string; merged_into: string | null }>(
-      "SELECT state, merged_into FROM agenda_segments WHERE id = $1",
-      [id],
-    );
-    return r.rows[0];
+async function grantOn(workshopId: string, segmentId: string) {
+  return grants.create({
+    id: ids.next(),
+    orgId: toOrgId(ORG),
+    workshopId,
+    granterId: FACILITATOR,
+    granteeId: GRANTEE,
+    scope: SCOPE,
+    agendaSegmentId: segmentId,
+    createdAt: new Date().toISOString(),
   });
 }
 
-describe("F119: 四种去向各自一条断言", () => {
-  it("advance（正常推进）：当前环节 closed，下一条 pending 环节成为 active", async () => {
+describe("F127: 四种去向各自触发一次真实收回", () => {
+  it("advance（正常推进）：挂在当前环节上的临时提权被收回，revokedTemporaryGrants === 1", async () => {
     const W = `${ORG}-w-advance`;
     const CUR = `${W}-cur`;
     const NEXT = `${W}-next`;
     await seedWorkshop(W);
     await seedSegment(W, CUR, 0, "active");
     await seedSegment(W, NEXT, 1, "pending");
+    const grant = await grantOn(W, CUR);
 
     const out = await advanceAgendaSegment(deps, {
       userId: FACILITATOR,
@@ -126,17 +140,20 @@ describe("F119: 四种去向各自一条断言", () => {
     });
 
     expect(out.segment.state).toBe("closed");
-    expect(out.segment.mergedInto).toBeNull();
-    expect(await stateOf(NEXT)).toMatchObject({ state: "active" });
+    expect(out.revokedTemporaryGrants).toBe(1);
+    const stillActive = await grants.findActiveBySegment(toOrgId(ORG), W, CUR);
+    expect(stillActive).toHaveLength(0);
+    expect((await grants.findActive(toOrgId(ORG), GRANTEE, SCOPE))?.id).not.toBe(grant.id);
   });
 
-  it("closeEarly（提前结束）：当前环节 closed，下一条 pending 环节成为 active", async () => {
+  it("closeEarly（提前结束）：同样立即收回，不靠时间点", async () => {
     const W = `${ORG}-w-close-early`;
     const CUR = `${W}-cur`;
     const NEXT = `${W}-next`;
     await seedWorkshop(W);
     await seedSegment(W, CUR, 0, "active");
     await seedSegment(W, NEXT, 1, "pending");
+    await grantOn(W, CUR);
 
     const out = await advanceAgendaSegment(deps, {
       userId: FACILITATOR,
@@ -148,16 +165,17 @@ describe("F119: 四种去向各自一条断言", () => {
     });
 
     expect(out.segment.state).toBe("closed");
-    expect(await stateOf(NEXT)).toMatchObject({ state: "active" });
+    expect(out.revokedTemporaryGrants).toBe(1);
   });
 
-  it("skip（跳过）：当前环节 skipped，下一条 pending 环节成为 active", async () => {
+  it("skip（跳过）：落 skipped 同样触发收回", async () => {
     const W = `${ORG}-w-skip`;
     const CUR = `${W}-cur`;
     const NEXT = `${W}-next`;
     await seedWorkshop(W);
     await seedSegment(W, CUR, 0, "active");
     await seedSegment(W, NEXT, 1, "pending");
+    await grantOn(W, CUR);
 
     const out = await advanceAgendaSegment(deps, {
       userId: FACILITATOR,
@@ -169,10 +187,10 @@ describe("F119: 四种去向各自一条断言", () => {
     });
 
     expect(out.segment.state).toBe("skipped");
-    expect(await stateOf(NEXT)).toMatchObject({ state: "active" });
+    expect(out.revokedTemporaryGrants).toBe(1);
   });
 
-  it("merge（合并）：当前环节 closed 且 mergedInto 指向目标环节，下一条 pending 环节仍成为 active", async () => {
+  it("merge（合并）：同样落 closed，同样触发收回", async () => {
     const W = `${ORG}-w-merge`;
     const CUR = `${W}-cur`;
     const NEXT = `${W}-next`;
@@ -181,6 +199,7 @@ describe("F119: 四种去向各自一条断言", () => {
     await seedSegment(W, CUR, 0, "active");
     await seedSegment(W, NEXT, 1, "pending");
     await seedSegment(W, TARGET, 2, "pending");
+    await grantOn(W, CUR);
 
     const out = await advanceAgendaSegment(deps, {
       userId: FACILITATOR,
@@ -192,68 +211,55 @@ describe("F119: 四种去向各自一条断言", () => {
     });
 
     expect(out.segment.state).toBe("closed");
-    expect(out.segment.mergedInto).toBe(TARGET);
-    // 合并进哪一条与「谁是下一条」是两件事：TARGET 是 ordinal 2，NEXT（ordinal 1）才是
-    // 紧邻的下一条——两者不应混同。
-    expect(await stateOf(NEXT)).toMatchObject({ state: "active" });
-    expect(await stateOf(TARGET)).toMatchObject({ state: "pending" });
+    expect(out.revokedTemporaryGrants).toBe(1);
   });
 
-  it("反证：merge 缺 mergeIntoSegmentId 被拒（契约无专门码，见 advance-agenda-segment-errors.ts）", async () => {
-    const W = `${ORG}-w-merge-missing-target`;
+  it("同一环节挂两条不同 grantee 的临时提权：两条都被收回，count === 2", async () => {
+    const W = `${ORG}-w-two-grants`;
     const CUR = `${W}-cur`;
+    const NEXT = `${W}-next`;
     await seedWorkshop(W);
     await seedSegment(W, CUR, 0, "active");
-
-    await expect(
-      advanceAgendaSegment(deps, {
-        userId: FACILITATOR,
-        orgId: toOrgId(ORG),
-        workshopId: W,
-        segmentId: CUR,
-        action: "merge",
-        mergeIntoSegmentId: null,
-      }),
-    ).rejects.toBeInstanceOf(MergeTargetRequiredError);
-  });
-
-  it("反证：对已 closed 的环节再次推进得到 SEGMENT_TERMINAL，两个终态都要各测一次", async () => {
-    const W = `${ORG}-w-terminal`;
-    const CLOSED = `${W}-closed`;
-    const SKIPPED = `${W}-skipped`;
-    await seedWorkshop(W);
-    await seedSegment(W, CLOSED, 0, "closed");
-    await seedSegment(W, SKIPPED, 1, "skipped");
-
-    for (const segmentId of [CLOSED, SKIPPED]) {
-      await expect(
-        advanceAgendaSegment(deps, {
-          userId: FACILITATOR,
-          orgId: toOrgId(ORG),
-          workshopId: W,
-          segmentId,
-          action: "advance",
-          mergeIntoSegmentId: null,
-        }),
-      ).rejects.toMatchObject({ reasonCode: "SEGMENT_TERMINAL" } satisfies Partial<ProjectError>);
-    }
-  });
-
-  it("反证：本环节是工作坊最后一条时，没有下一条可激活——这是正常收尾，不是错误", async () => {
-    const W = `${ORG}-w-last-segment`;
-    const ONLY = `${W}-only`;
-    await seedWorkshop(W);
-    await seedSegment(W, ONLY, 0, "active");
+    await seedSegment(W, NEXT, 1, "pending");
+    await grantOn(W, CUR);
+    await grants.create({
+      id: ids.next(),
+      orgId: toOrgId(ORG),
+      workshopId: W,
+      granterId: FACILITATOR,
+      granteeId: "u-f127-second-grantee",
+      scope: { action: "read.privateChat", groupId: null },
+      agendaSegmentId: CUR,
+      createdAt: new Date().toISOString(),
+    });
 
     const out = await advanceAgendaSegment(deps, {
       userId: FACILITATOR,
       orgId: toOrgId(ORG),
       workshopId: W,
-      segmentId: ONLY,
+      segmentId: CUR,
       action: "advance",
       mergeIntoSegmentId: null,
     });
 
-    expect(out.segment.state).toBe("closed");
+    expect(out.revokedTemporaryGrants).toBe(2);
+  });
+
+  it("同一环节没有任何临时提权时，revokedTemporaryGrants === 0（不是恒 0，是如实为 0）", async () => {
+    const W = `${ORG}-w-no-grants`;
+    const CUR = `${W}-cur`;
+    await seedWorkshop(W);
+    await seedSegment(W, CUR, 0, "active");
+
+    const out = await advanceAgendaSegment(deps, {
+      userId: FACILITATOR,
+      orgId: toOrgId(ORG),
+      workshopId: W,
+      segmentId: CUR,
+      action: "advance",
+      mergeIntoSegmentId: null,
+    });
+
+    expect(out.revokedTemporaryGrants).toBe(0);
   });
 });

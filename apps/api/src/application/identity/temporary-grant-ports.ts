@@ -6,14 +6,18 @@
  * unrelated write surface (temporary grants) into it would drag that exemption somewhere
  * it wasn't reasoned about.
  *
- * ⚠ `TemporaryGrantRepository` deliberately has NO durable Postgres implementation yet.
- * `advance-agenda-segment.ts`'s own header notes that "临时提权本身还没有存储层" is F127's
- * deliverable (`feature_list.json` F127, `status: not_started`, no owner, no sprint) --
- * building that table here would be doing F127's job under F05's issue, the exact
- * "same fact declared in two places" failure AGENTS.md calls out five times over. F05's
- * scope (its own two `tests/auth/*` verification files) is the enforcement LOGIC: grant,
- * check-while-live, expire-on-first-observed-termination, audit both. The port is the seam
- * a future Postgres adapter plugs into without this module changing.
+ * F127 (this feature) adds the durable Postgres implementation this port was left waiting
+ * for -- `pg-temporary-grant-repository.ts` (`temporary_grants` table, migration
+ * `20260801200000_f127_temporary_grants_table.sql`) -- plus `findActiveBySegment` below,
+ * the one additional query shape F05 did not need but `advanceAgendaSegment`'s push-revoke
+ * does: "every grant still riding on THIS segment", not "the one grant this grantee holds
+ * for a scope we already know". Nothing F05 shipped changes shape here -- `create` and
+ * `findActive` are exactly as F05 left them. `markRevoked` gets two changes: it now takes
+ * `orgId` (a real `DatabasePort.withTenant` implementation needs it to set the RLS tenant
+ * GUC before the row is even visible -- F05's in-memory fake never needed a tenant context,
+ * so the gap was invisible until a Postgres adapter existed), and it returns a boolean (see
+ * its own doc comment). Both existing callers already hold the `orgId` they read the row
+ * with, so neither change is a shape they cannot satisfy.
  */
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -50,10 +54,33 @@ export interface TemporaryGrantRepository {
 
   /**
    * Marks a grant revoked. Idempotent per grant id -- called from the READ path the first
-   * time expiry is observed (see `check-temporary-grant-access.ts`), so a second read after
-   * the first-observed expiry must be a no-op, not a second audit write.
+   * time expiry is observed (see `check-temporary-grant-access.ts`) AND from the WRITE path
+   * when `advanceAgendaSegment` pushes a revoke at the moment a segment lands terminal
+   * (F127) -- either one may reach an already-revoked row (e.g. a read raced the push, or
+   * the push runs a second time against a segment `SEGMENT_TERMINAL` already rejected
+   * re-advancing), so this must stay a no-op on a second call, not a second audit write.
+   *
+   * `orgId` (added in F127): both real callers already read this exact row via an
+   * org-scoped `findActive`/`findActiveBySegment`, so they already have it; a real
+   * `DatabasePort.withTenant` adapter needs it to set the RLS tenant GUC, or the UPDATE
+   * would run against a session with no tenant context and (correctly, under FORCE RLS)
+   * see zero rows no matter which id is named.
+   *
+   * Returns `true` the one time this call is the one that actually revoked the row (so the
+   * caller knows whether to count it / write the one audit event), `false` when the row was
+   * already revoked and nothing changed -- callers that never needed the distinction (F05's
+   * `check-temporary-grant-access.ts`) can keep ignoring the return value.
    */
-  markRevoked(id: string, revokedAt: string, reason: TemporaryGrantRevokedReason): Promise<void>;
+  markRevoked(orgId: OrgId, id: string, revokedAt: string, reason: TemporaryGrantRevokedReason): Promise<boolean>;
+
+  /**
+   * Every still-live grant riding on this exact agenda segment, regardless of grantee/scope
+   * -- the shape `advanceAgendaSegment` needs (F127): "what must I revoke now that THIS
+   * segment just went terminal", not "does THIS ONE grantee still have access" (that is
+   * `findActive`, F05's shape). Not derivable from `findActive` without knowing every
+   * grantee in advance, which the state machine does not.
+   */
+  findActiveBySegment(orgId: OrgId, workshopId: string, agendaSegmentId: string): Promise<readonly TemporaryGrant[]>;
 }
 
 export const TEMPORARY_GRANT_REPOSITORY = Symbol("TemporaryGrantRepository");

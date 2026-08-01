@@ -1,8 +1,11 @@
 /**
- * Fakes for F05's temporary-grant unit tests. Same reasoning as `role-view-fakes.ts`:
- * `grantTemporaryRead` / `checkTemporaryGrantAccess` are pure application logic over ports,
- * with no durable Postgres store yet (that table is F127's undelivered scope -- see
- * `temporary-grant-ports.ts` header), so the whole claim is testable in memory.
+ * Fakes for F05's (and now F127's) temporary-grant unit tests. Same reasoning as
+ * `role-view-fakes.ts`: `grantTemporaryRead` / `checkTemporaryGrantAccess` are pure
+ * application logic over ports, so the whole claim is testable in memory even though a real
+ * `pg-temporary-grant-repository.ts` now exists (F127, `temporary_grants` table). This fake
+ * mirrors that port 1:1, including `findActiveBySegment` and `markRevoked`'s boolean
+ * "did this call actually revoke it" return -- both added for F127's push-revoke path in
+ * `advanceAgendaSegment`.
  */
 import type { OrgId } from "../../src/domain/org-id";
 import type {
@@ -43,10 +46,31 @@ export class FakeTemporaryGrantRepository implements TemporaryGrantRepository {
     );
   }
 
-  async markRevoked(id: string, revokedAt: string, reason: TemporaryGrantRevokedReason): Promise<void> {
-    const i = this.rows.findIndex((g) => g.id === id);
-    if (i === -1) return;
+  async markRevoked(
+    orgId: OrgId,
+    id: string,
+    revokedAt: string,
+    reason: TemporaryGrantRevokedReason,
+  ): Promise<boolean> {
+    const i = this.rows.findIndex((g) => g.id === id && g.orgId === orgId);
+    if (i === -1) return false;
+    if (this.rows[i]!.revokedAt !== null) return false; // already revoked -- no-op, see port doc
     this.rows[i] = { ...this.rows[i]!, revokedAt, revokedReason: reason };
+    return true;
+  }
+
+  async findActiveBySegment(
+    orgId: OrgId,
+    workshopId: string,
+    agendaSegmentId: string,
+  ): Promise<readonly TemporaryGrant[]> {
+    return this.rows.filter(
+      (g) =>
+        g.orgId === orgId &&
+        g.workshopId === workshopId &&
+        g.agendaSegmentId === agendaSegmentId &&
+        g.revokedAt === null,
+    );
   }
 }
 
