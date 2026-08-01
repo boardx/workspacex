@@ -45,6 +45,20 @@ step "4. 迁移 —— 先于部署，且幂等"
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   pnpm --filter api exec tsx src/infrastructure/db/migrate-cli.ts
 
+step "4b. app_rw 密码对齐 deploy.env"
+# migrations/0001-kernel-roles.sql 首次 CREATE ROLE app_rw 时写死了开发默认密码
+# app_rw_dev（不读任何环境变量——那是给本地/CI 一次性数据库用的，故意的，见该文件
+# 注释）。deploy.env 里的 APP_DB_PASSWORD 是 provision.sh 用 openssl rand 生成的
+# 真实密码，两者从 CREATE ROLE 那一刻起就不一致，API 直接连不上自己的数据库
+# （2026-08-01 实测：password authentication failed for user "app_rw"）。
+# ALTER ROLE PASSWORD 天然幂等——重复设成同一个值不会报错、不会有副作用，不需要
+# 额外的条件判断；只在 migrate-cli 之后跑是因为角色要先存在。
+# shellcheck disable=SC1090
+source <(grep -v '^#' "$ENV_FILE")
+docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
+  -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
+echo "  app_rw 密码已对齐"
+
 step "5. 构建前端"
 sudo -u "$RUN_AS" env NODE_ENV=production pnpm --filter web run build >/dev/null
 echo "  built"
@@ -58,12 +72,26 @@ echo "  workspacex-api / workspacex-web active"
 
 step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 # 只测 200 的冒烟会在「RLS 没生效但服务活着」时全绿，而那正是最该被拦下的状态。
-sleep 3
+#
+# 固定 sleep 3 曾经导致冒烟假红（2026-08-01 实测两次）：systemd 报 active 的那一刻，
+# tsx 才刚 fork 出 esbuild 子进程做首次编译，端口还没绑；冷启动（首次跑这份代码、
+# 没有任何进程/文件缓存热度）量级是 4~5 秒，远比这条重启路径平时快得多的热态更慢。
+# 用「轮询直到端口应答或超时」而不是加大固定 sleep——加大值只是把同一个赌注下得
+# 更大，轮询才是真的不赌。
+for _ in $(seq 1 20); do
+  curl -fsS -o /dev/null "http://127.0.0.1:${APP_API_PORT:-3200}/healthz" 2>/dev/null && break
+  sleep 1
+done
 H=$(curl -fsS "http://127.0.0.1:${APP_API_PORT:-3200}/healthz")
 echo "  $H"
 echo "$H" | grep -q '"trustworthy":true'  || { echo "✗ 内核自检不可信"; exit 1; }
 echo "$H" | grep -q '"rlsForced":true'    || { echo "✗ 有表未 FORCE RLS"; exit 1; }
 echo "$H" | grep -q '"appRoleIsOwner":false' || { echo "✗ 应用角色是表 owner —— RLS 写了但没生效"; exit 1; }
+# Next.js 生产启动同样有冷启动量级，同一个理由，同一个轮询而不是加大固定等待。
+for _ in $(seq 1 20); do
+  curl -fsS -o /dev/null "http://127.0.0.1:${APP_WEB_PORT:-3100}/" 2>/dev/null && break
+  sleep 1
+done
 curl -fsS -o /dev/null "http://127.0.0.1:${APP_WEB_PORT:-3100}/" || { echo "✗ 前端无响应"; exit 1; }
 
 # 门控探针不该对外可达。这条是反向断言：它绿不代表功能好，它红代表暴露了不该暴露的面。
