@@ -1,0 +1,40 @@
+# F87 verification evidence
+
+## 1. pnpm --filter api exec vitest run tests/itv/consent-bits-four-independent.test.ts
+
+ RUN  v2.1.9 /private/tmp/f87-worktree/apps/api
+
+ ✓ tests/itv/consent-bits-four-independent.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+
+## 2. pnpm --filter api exec vitest run tests/itv/researcher-mirror-readonly.test.ts
+
+ RUN  v2.1.9 /private/tmp/f87-worktree/apps/api
+
+ ✓ tests/itv/researcher-mirror-readonly.test.ts (5 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+## 3. grep -rq 'data-testid=.consent-decline-all' apps/web/components/entry
+
+exit code: 0 (already present in apps/web/components/entry/consent-form.tsx, data-testid="consent-decline-all")
+
+## Supplementary checks (not in the three required commands, run for confidence)
+
+- `pnpm --filter api exec tsc --noEmit -p .` — 0 errors under apps/api/src or apps/api/tests
+  (pre-existing unrelated errors exist in packages/fabric-markdown, not touched by this feature).
+- `pnpm --filter api exec vitest run tests/itv/` — 12 test files, 92 tests, all passing
+  (no regression in F86/F97 tests after refactoring `subject-projections.ts`).
+- `pnpm --filter api run lint` — all lint gates pass, 0 violations introduced
+  (lint-error-leak, lint-permission-paths, lint-no-builtin-capabilities,
+  lint-design-facet-single-source, lint-skill-context-api-only,
+  lint-naming-single-source, lint-arch-deps).
+
+Run in an isolated git worktree at /tmp/f87-worktree on branch worker/w1-itv6-01-F87,
+checked out from origin/main (commit ef44cc7), per issue #74's "skip Postgres-dependent
+tests locally" guidance — Postgres was in fact reachable in this environment, so both
+the new pure tests and the existing Postgres-backed F97 regression suite
+(`consent-status-single-source.test.ts`) were run for real, not merely typechecked.
