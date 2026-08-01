@@ -1,0 +1,57 @@
+$ pnpm --filter api exec vitest run tests/tpl/publish-gate-required-and-trial.test.ts
+
+ RUN  v2.1.9 /private/tmp/f22-worktree/apps/api
+
+ ✓ tests/tpl/publish-gate-required-and-trial.test.ts (9 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  09:30:29
+   Duration  556ms (transform 263ms, setup 0ms, collect 337ms, tests 5ms, environment 0ms, prepare 34ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/version-generation-transactional.test.ts
+
+ RUN  v2.1.9 /private/tmp/f22-worktree/apps/api
+
+ ✓ tests/tpl/version-generation-transactional.test.ts (8 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:30:30
+   Duration  388ms (transform 161ms, setup 0ms, collect 211ms, tests 3ms, environment 0ms, prepare 37ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/tpl/new-blueprint-three-entries.test.ts
+
+ RUN  v2.1.9 /private/tmp/f22-worktree/apps/api
+
+ ✓ tests/tpl/new-blueprint-three-entries.test.ts (12 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  09:30:31
+   Duration  548ms (transform 164ms, setup 0ms, collect 231ms, tests 6ms, environment 0ms, prepare 25ms)
+
+[exit 0]
+
+--- additional local verification (per AGENTS.md / issue #74 guidance) ---
+
+$ pnpm --filter api exec tsc --noEmit -p .   (typecheck)
+Pre-existing, unrelated failures only in packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts
+(missing DOM lib types, e.g. CanvasRenderingContext2D / Element / document) — confirmed present
+identically on the pre-F22 tree via `git stash` before writing any F22 files. Filtering those out:
+`tsc --noEmit -p . 2>&1 | grep -v fabric-markdown` produces zero lines from apps/api/src or
+apps/api/tests — the new F22 files (domain/templates/publish-blueprint-version.ts,
+domain/templates/create-blueprint.ts, application/templates/publish-blueprint-version.ts,
+application/templates/create-blueprint.ts, and the 3 new test files) introduce no new type errors.
+
+$ pnpm --filter api run lint
+✅ lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+   lint-design-facet-single-source / gen-design-facet-catalog --check /
+   gen-agenda-tier-catalog --check / lint-skill-context-api-only /
+   lint-naming-single-source / lint-arch-deps
+All pass; violations=0 in every check (pre-existing "debt" entries in apps/web/lib/mock/*
+and apps/web/components/tpl/designer-panels.tsx are unrelated to this feature and predate it).
