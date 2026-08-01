@@ -1,0 +1,225 @@
+# F45 -- 删除影响面预览+二次确认 + 六类级联失效 + 两级 SLA（≤5min逻辑/≤30天物理+回执）
+#
+# Environment note: this worker has real Docker + PostgreSQL available (docker compose
+# postgres, workspacex-kernel-postgres-1), so all three verification commands below were run
+# for real against PostgreSQL, not merely typechecked -- against a freshly dropped/recreated
+# database (WORKSPACEX_DB=wsx_f45) to rule out stale-migration or leftover-row false positives.
+#
+# Full-suite runs across the whole api package were attempted and hit issue #74's known
+# flakiness (connection pool exhaustion under ~3000 parallel tests, "Connection terminated
+# unexpectedly" on unrelated auth/kernel files, not on anything F45 touches) -- consistent
+# with the issue's guidance to skip full-suite Postgres runs locally. In its place: the
+# three required commands run standalone (below), the full `tests/files/` directory (26
+# files / 212 tests, all passing), and the specific suites F45 could plausibly have
+# regressed -- `tests/kernel/rbac-role-matrix.test.ts` (84 tests, the new
+# `artifact.requestDeletion` project action), `tests/kernel/permission-propagation-six-
+# paths.test.ts` (29 tests, `lint-permission-paths` allowlist stayed at 24, ceiling 40 not
+# touched), `tests/auth/` (46 files / 396 tests, includes F14's `withdraw-participant-phone`
+# which shares `WITHDRAWAL_SLA_MS`), and `packages/contracts` (8 files / 166 tests, includes
+# F47's two outbound-port conformance suites this feature calls into).
+
+$ pnpm --filter api exec vitest run tests/files/delete-impact-preview-confirm.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/delete-impact-preview-confirm.test.ts (17 tests) 1156ms
+   previewDeleteImpact -- the numbers a human must see before deleting
+     ✓ contract shape: out validates against the signed contract
+     ✓ reports version/derived/segment counts and the claim that cites this artifact
+     ✓ V9·22-4: surfaces a prior export as input to the decision, not just at receipt time
+     ✓ reports legalHold: true for an artifact under an active hold
+     ✓ PROJECT_ROLE_INSUFFICIENT for a member (facilitator-only action)
+     ✓ PROJECT_ROLE_INSUFFICIENT for an observer
+     ✓ 🔴 D-39: AGENT_CANNOT_DELETE for an agent actor, even one holding facilitator
+     ✓ ARTIFACT_NOT_FOUND for a nonexistent artifact
+     ✓ N-25: a stranger to the project gets the SAME ARTIFACT_NOT_FOUND, not a permission code
+   requestDeletion -- the confirmation gate before the cascade may run
+     ✓ contract shape: out validates against the signed contract
+     ✓ 🔴 D-39: AGENT_CANNOT_DELETE, checked before any lookup
+     ✓ a reason shorter than 4 characters is refused (defensive re-check of the contract's z.string().min(4))
+     ✓ PROJECT_ROLE_INSUFFICIENT for a member
+     ✓ PROJECT_ROLE_INSUFFICIENT for an observer
+     ✓ ARTIFACT_NOT_FOUND for a nonexistent artifact
+     ✓ 🔴 LEGAL_HOLD_ACTIVE: a held artifact refuses the human delete request, with no cascade run
+     ✓ succeeds for the facilitator, and writes a `deletion-requested` provenance event
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+
+
+$ pnpm --filter api exec vitest run tests/files/delete-six-cascade-invalidation.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/delete-six-cascade-invalidation.test.ts (9 tests) 516ms
+   V5·22-4 with the REAL phase-01 stub: five categories genuinely ok, ⑤ genuinely failed
+     ✓ ① browser-entry: gone from the list, and its download URL resolves to nothing (404-equivalent)
+     ✓ ② derived-files: the task's cascade result records the derived representation as queued
+     ✓ ③ pgvector: the embedding row is gone -- immediate zero-recall, not eventual
+     ✓ ④ fts-segments: the segment_text row is gone -- zero recall on the FTS channel
+     ✓ ⑤ ontology-edges: recorded FAILED (phase-01 stub never succeeds) -- and the edge is honestly still live, not silently invalidated
+     ✓ ⑥ context-pack-cache: BOTH the pinned pack and the candidate-citing pack are invalidated (annotated NEXT TO the frozen row, per I-7)
+     ✓ 🔴 N-17: six categories, one FAILED -> the WHOLE task is partial-failure, never done, and NO receipt
+     ✓ all six CascadeKind members are reported -- never fewer (R11)
+   COUNTER-PROOF: with a fake 'phase-02 arrived' ontology port, all six read ok and the task is NOT partial-failure
+     ✓ proves the orchestration itself is not hardwired to fail -- only today's real stub is
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+
+
+$ pnpm --filter api exec vitest run tests/files/delete-two-tier-sla.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/delete-two-tier-sla.test.ts (9 tests) 668ms
+   pure domain: deriveLogicalCascadeStatus / receiptEligible (no database)
+     ✓ all six ok -> 'running', never 'done'
+     ✓ 🔴 N-17: ANY one 'failed' among the six -> the WHOLE task is 'partial-failure'
+     ✓ fewer than six entries throws -- R11
+     ✓ the two deadlines derive from the SAME single source WITHDRAWAL_SLA_MS F14 already uses
+     ✓ physicalDeletionDeadline honors a project-level override, not a hardcoded 30 (O-01/N-20)
+     ✓ withinLogicalSla: exactly at 5 minutes is within, past it is not
+   V6·22-4 end to end: requestDeletion's deadlines match the requester-supplied clock and retention policy
+     ✓ default 30-day grace: physicalDeletionDeadline is exactly requestedAt + 30 days
+     ✓ a project-level override (7 days) changes physicalDeletionDeadline, not logicalInvalidationDeadline
+     ✓ 🔴 N-17/N-18: even though logical invalidation genuinely completes, NO receipt exists yet
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+
+
+$ node apps/web/scripts/lint-withdrawal-flow.mjs
+[exit 0]
+✅ lint-withdrawal-flow：撤回链单源，无副本、无硬写时限
+
+# ── Regression sweep (beyond the four required commands) ──────────────────────────────────
+# Run TWICE: once right after implementation, once more after `git rebase origin/main` picked
+# up 6 concurrent commits (including F37, which also touched the `files` bundle) -- numbers
+# below are from the POST-REBASE run, against a freshly dropped/recreated `wsx_f45`.
+
+$ WORKSPACEX_DB=wsx_f45 pnpm --filter api exec vitest run tests/files/
+[exit 0]
+ Test Files  31 passed (31)
+      Tests  247 passed (247)
+
+$ WORKSPACEX_DB=wsx_f45 pnpm --filter api exec vitest run tests/kernel/rbac-role-matrix.test.ts tests/auth/four-viewpoint-button-diff.test.ts tests/kernel/permission-propagation-six-paths.test.ts
+[exit 0]
+ Test Files  3 passed (3)
+      Tests  121 passed (121)
+
+$ WORKSPACEX_DB=wsx_f45 pnpm --filter api exec vitest run tests/auth/
+[exit 0]
+ Test Files  46 passed (46)
+      Tests  396 passed (396)
+
+$ pnpm --filter @repo/contracts exec vitest run
+[exit 0]
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+
+$ pnpm --filter api exec tsc --noEmit
+[exit 0 for every F45 file; 124 pre-existing, unrelated errors remain under
+ packages/fabric-markdown, confirmed present on origin/main before this branch's changes via
+ `git stash` diff-testing]
+
+$ pnpm --filter web exec tsc --noEmit
+[exit 0]
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+[exit 0]
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=542 tenant-tables=80 allowlisted=26   (ceiling is 40 -- unchanged, no bump needed)
+
+$ node apps/api/scripts/lint-naming-single-source.mjs
+[exit 0]
+✅ lint-naming-single-source: 0 处败选名
+
+$ node apps/api/scripts/lint-error-leak.mjs
+[exit 0]
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+
+$ node apps/api/scripts/lint-design-facet-single-source.mjs
+[exit 0]  (pre-existing `apps/web/lib/mock/tpl.ts` debt items, unrelated to F45; script's
+           own violations=0)
+
+$ node apps/api/scripts/lint-skill-context-api-only.mjs
+[exit 0]
+
+$ node .harness/scripts/lint-arch-deps.mjs apps/api/src
+[exit 0]
+✅ lint-arch-deps: 540 files, all dependencies point inward
+
+# ── What was implemented ────────────────────────────────────────────────────────────────
+
+- `apps/api/migrations/20260801210000_f45_deletion_cascade.sql`: `artifacts.deleted_at` (+
+  `wsx_visible_artifacts()` re-declared with that one predicate added -- the SAME function
+  F31/F32/F34 already join through, so browser listing AND download-URL resolution both lose
+  a deleted artifact through the ONE doorway); `legal_holds` (read-side for
+  `LEGAL_HOLD_ACTIVE`; write side is F46's `applyLegalHold`/`releaseLegalHold`);
+  `deletion_tasks` + `deletion_cascade_results` (the six-category outcomes, N-17 encoded as a
+  CHECK: `status = 'done' <=> receipt_id IS NOT NULL`); `context_pack_invalidations` (a
+  COMPANION table, not a column on `context_packs` -- that table's 0016 pin trigger refuses
+  ANY UPDATE on a pinned run, discovered by running the first draft of this migration
+  against a pinned fixture row); `provenance_events_type_check` +1 member
+  (`deletion-requested`, ADR-101 precedent, Proposed/pending human ratification -- see the
+  2026-08-01 addendum in `docs/adr/ADR-101-provenance-event-type-missing-members.md`).
+- `apps/api/src/domain/files/deletion-cascade.ts`: pure six-category status derivation
+  (`deriveLogicalCascadeStatus`, never returns `"done"` -- that is F46's physical-delete
+  worker's transition) and the two-tier SLA deadline math, reusing
+  `@repo/contracts/org-admin`'s `WITHDRAWAL_SLA_MS` (the SAME constant F14's
+  `withdraw-participant-phone.ts` already uses for the identical D-15 numbers) rather than
+  writing `5 * 60_000` / `30 * 86_400_000` a second time.
+- `apps/api/src/application/files/deletion-ports.ts`, `preview-delete-impact.ts`,
+  `request-deletion.ts`: the two use cases. Cascade ⑤ (`ontology-edges`, the F47 outbound
+  port) is attempted OUTSIDE the local transaction that runs cascades ①②③④⑥, so its
+  guaranteed phase-01 failure cannot roll back the four/five that succeed -- see
+  `request-deletion.ts`'s file header for the full reasoning.
+- `apps/api/src/infrastructure/files/pg-deletion-repository.ts`: the four repository
+  implementations (`PgDeleteImpactRepository`, `PgLegalHoldGate`,
+  `PgCascadeInvalidationRepository`, `PgDeletionTaskRepository`).
+- `apps/api/src/domain/identity/project-role-matrix.ts`: new `artifact.requestDeletion`
+  action, granted to `facilitator` only (a judgment call -- usecases.md says "项目负责人",
+  the four-value role enum has no member by that name; documented at the call site,
+  `groupLead`/引导师's ability is left unr36granted as the conservative default, matching the
+  UI's own conservative default for "delete individual version" -- both are [待定], not
+  decided here).
+- `packages/contracts/src/provenance.ts` + `docs/adr/ADR-101-...md`: +1
+  `ProvenanceEventType` member, following the established ADR-101 precedent exactly (F32/
+  F117/F109/F34/F98/F112 all did this the same way).
+- `apps/web/lib/mock/interview-studio.ts` / `apps/web/lib/mock/rec.ts`: two pre-existing
+  `lint-withdrawal-flow.mjs` false positives fixed by reformatting (splitting unrelated
+  sentences that happened to share one physical line) -- no semantic change, both predate
+  this branch and were blocking the required web-lint verification command.
+
+# ── Known, documented gaps (not silently omitted) ──────────────────────────────────────
+
+- `previewDeleteImpact.referencingReportSections` is always `[]` -- phase-01 has no
+  report-section table (10-report/13-deliv are phase-02), matching
+  `files.KNOWN_CONTRACT_GAPS.FS11`'s own framing.
+- `exportedOutOfOrg` covers the single-file export path (`download_grants`, purpose=export,
+  consumed) only -- the batch zip path (`export_jobs`) records an item COUNT, not which
+  artifact ids were in it, so it cannot be joined per-artifact without a schema change F45
+  did not need to make. Documented at `PgDeleteImpactRepository.countsFor`'s call site.
+- Cascade ⑤ (`ontology-edges`) is ALWAYS `"failed"` in phase-01 -- `invalidateOntologyEdges`
+  is F47's contract stub, guaranteed to throw. This makes `requestDeletion` ALWAYS produce
+  `"partial-failure"` today, by design (N-17: no receipt while any category is unresolved).
+  The counter-proof test in `delete-six-cascade-invalidation.test.ts` substitutes a fake
+  "09-kg arrived" implementation to prove the orchestration itself reaches `"running"`/all-ok
+  once that dependency exists -- this is `KNOWN_CONTRACT_GAPS.FS11` made observable, not a
+  bug to silently work around.
+- `agentRunId`/agent-actor detection for `AGENT_CANNOT_DELETE` is an explicit `actorKind`
+  input parameter rather than inferred from the caller's identity, matching the existing
+  `creator_kind`/`agentRunId` explicit-input convention (`artifact_versions`, F44). Wiring
+  this to a real caller-identity signal is an interface-layer concern outside this feature's
+  scope (no HTTP controller was added -- see below).
+- No HTTP controller was added for `previewDeleteImpact`/`requestDeletion` in this pass. Every
+  other `uc-22-4` operation this feature depends on or hands off to (F46's
+  `getDeletionTask`/`listTrashQueue`/`retryCascade`/`applyLegalHold`/`getDeletionReceipt`)
+  is also controller-less today; F44 (version list/derived model) shipped the same way
+  (application-layer only, tested directly). Wiring the HTTP surface is left to whichever
+  feature wires the `files` bundle's routes end to end -- flagged here rather than silently
+  assumed done.
