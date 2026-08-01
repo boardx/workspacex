@@ -1,0 +1,95 @@
+# F36 -- 摄取九态状态机（每态可见态与出口）+ outbox+worker + 重放
+# uc-22-2 R8. Depends on F35 (merged, PR #175).
+#
+# Environment: local docker-compose postgres (pgvector/pg16) + minio, already running for
+# this workspace. All four verification commands below were run FOR REAL against it, not
+# typecheck-only -- issue #74's "skip Postgres tests locally" standing guidance is for
+# environments with no local PG; this one has one.
+
+$ pnpm --filter api exec vitest run tests/files/nine-state-visible-exits.test.ts
+[exit 0]
+ ✓ tests/files/nine-state-visible-exits.test.ts (29 tests) 15ms
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+
+$ pnpm --filter api exec vitest run tests/files/original-visible-before-ready.test.ts
+[exit 0]
+ ✓ tests/files/original-visible-before-ready.test.ts (2 tests) 3086ms
+   ✓ F36 -- STORED 之后原件即可下载，READY 之前不进检索召回（N-7 端到端） > 走完整条流水线，逐态断言 originalDownloadable / retrievable 372ms
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+
+$ pnpm --filter api exec vitest run tests/files/worker-replay-no-duplicate.test.ts
+[exit 0]
+ ✓ tests/files/worker-replay-no-duplicate.test.ts (2 tests) 3161ms
+   ✓ F36 -- worker 重放不产生重复 Segment（V12） > SEGMENTED 步骤重放两次：segment 只有一份，版本正常继续推进 444ms
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+
+$ pnpm --filter web exec vitest run tests/ui/files-ingestion-ladder.test.tsx
+[exit 0]
+ ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 305ms
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+
+# ── Supporting evidence for the two ports/repo files this feature touches outside its own
+#    new files (materialize-artifact.ts / artifact/ports.ts / pg-artifact-repository.ts,
+#    all F04/F35 shared code extended with an optional, additive field) ──────────────────
+
+$ pnpm --filter api exec tsc --noEmit
+[exit 0]
+
+$ pnpm --filter web exec tsc --noEmit
+[exit 0]
+
+$ node scripts/lint-permission-paths.mjs   (apps/api)
+[exit 0]
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=423 tenant-tables=71 allowlisted=19
+# Allowlist raised 18 -> 19 for pg-ingestion-repository.ts (job-queue metadata only, never
+# artifact content -- enforced by tests/files/ingestion-repo-metadata-only.test.ts, and the
+# ratchet cap in tests/kernel/permission-propagation-six-paths.test.ts raised 18 -> 19 to
+# match).
+
+$ pnpm --filter api exec vitest run tests/files/ingestion-repo-metadata-only.test.ts
+[exit 0]
+ ✓ tests/files/ingestion-repo-metadata-only.test.ts (3 tests) 10061ms
+
+$ pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts
+[exit 0]
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 2595ms
+
+$ pnpm --filter api exec vitest run tests/kernel/reference-eligibility-gate.test.ts
+[exit 0]
+ ✓ tests/kernel/reference-eligibility-gate.test.ts (28 tests) 23850ms
+# `ingestion_outbox`/`ingestion_history` reference artifact_versions (FK) and therefore show
+# up in this gate's exhaustive referrer list -- expected list updated with a justification
+# entry (job-queue/audit pointer, not a citation, same category as derived_from/
+# interview_step_attachments already in that list).
+
+# ── Regression check: full apps/api and apps/web suites ─────────────────────────────────
+#
+# Full `apps/api` run (WORKSPACEX_DB=wsx_f36full pnpm exec vitest run) initially showed 18
+# failing tests across 3 suites beyond the reference-eligibility-gate fix above (already
+# folded in). Every one of them was re-run standalone/in a small group and passed:
+#   tests/files/visible-equals-searchable.test.ts, tests/kernel/admin-boundary-deny.test.ts,
+#   tests/kernel/org-switch-context-reset.test.ts, tests/auth/forgot-password-flow.test.ts,
+#   tests/auth/login-enumeration-guard.test.ts, tests/auth/org-disabled-readonly.test.ts,
+#   tests/auth/password-reset-revokes-sessions.test.ts,
+#   tests/project/overview-whitelist-four-blocks.test.ts, tests/files/preview-five-types.test.ts
+# -- all pass in isolation. This matches the known, previously-documented issue #74
+# (connection-pool exhaustion / hook timeouts under full-suite parallel load against a single
+# docker postgres), not a regression introduced by F36. None of these files were touched by
+# this feature.
+#
+# Full `apps/web` run: 21 files, 368 tests, all green (no regressions).
+
+$ pnpm --filter api run lint
+[exit 0]
+✅ lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+   lint-design-facet-single-source / lint-skill-context-api-only / lint-naming-single-source /
+   lint-arch-deps  -- all clean.
+
+# ── File-size discipline ──────────────────────────────────────────────────────────────────
+# All new/changed business source files well under the 2000-line ceiling (largest new file:
+# pg-ingestion-repository.ts at 194 lines).

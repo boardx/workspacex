@@ -488,12 +488,30 @@ describe("I-14: no non-pinned pointer exists anywhere in the reference table", (
     //                            DOWNSTREAM may cite a version; only `judgeCitation` /
     //                            `kernel_version_is_pinned()` do that, and this column carries
     //                            no eligibility semantics of its own.
+    //   ingestion_outbox /
+    //   ingestion_history       ⚠ ADDED BY F36 (migration 20260801130000): the transactional
+    //                            outbox job table and its append-only history trail (uc-22-2
+    //                            R8's nine-state pipeline). Neither is a citation and neither
+    //                            goes through `judgeCitation`: `artifact_version_id` here
+    //                            names WHICH version a background worker is advancing through
+    //                            EXTRACTED/SEGMENTED/ENRICHED/INDEXED/.../READY, or which
+    //                            states it has already visited -- a job-queue/audit pointer,
+    //                            the same category `derived_representations`/
+    //                            `interview_step_attachments` are NOT (those two are
+    //                            content-shaped; these two are pipeline-state-shaped and
+    //                            carry no artifact content at all, see
+    //                            `tests/files/ingestion-repo-metadata-only.test.ts`). Nothing
+    //                            reads either table to decide whether a DOWNSTREAM may cite a
+    //                            version -- only `judgeCitation`/`kernel_version_is_pinned()`
+    //                            do that, same as `derived_from` above.
     expect(referrers).toEqual([
       "artifact_bindings",
       "artifact_versions",
       "context_packs",
       "derived_representations",
       "downstream_references",
+      "ingestion_history",
+      "ingestion_outbox",
       "interview_step_attachments",
       "segment_text",
       "segments",
