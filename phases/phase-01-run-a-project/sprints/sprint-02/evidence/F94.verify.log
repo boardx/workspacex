@@ -1,0 +1,38 @@
+$ pnpm --filter api exec vitest run tests/itv/evidence-matrix-five-values.test.ts
+
+ RUN  v2.1.9 /private/tmp/f94-worktree/apps/api
+
+ ✓ tests/itv/evidence-matrix-five-values.test.ts (12 tests) 37ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  07:08:14
+   Duration  8.70s (transform 4.46s, setup 0ms, collect 5.71s, tests 37ms, environment 3ms, prepare 756ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/itv/conformity-appeasement-not-counted.test.ts
+
+ RUN  v2.1.9 /private/tmp/f94-worktree/apps/api
+
+ ✓ tests/itv/conformity-appeasement-not-counted.test.ts (6 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  07:08:28
+   Duration  3.15s (transform 1.34s, setup 0ms, collect 1.89s, tests 6ms, environment 0ms, prepare 220ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/itv/unique-counterexample-preserved.test.ts
+
+ RUN  v2.1.9 /private/tmp/f94-worktree/apps/api
+
+ ✓ tests/itv/unique-counterexample-preserved.test.ts (7 tests) 9ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  07:08:34
+   Duration  2.85s (transform 1.08s, setup 0ms, collect 1.45s, tests 9ms, environment 0ms, prepare 418ms)
+
+[exit 0]
