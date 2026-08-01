@@ -1,19 +1,21 @@
 /**
- * `startSession` —— 开始访谈的硬门禁（F84 落地大纲这一半；uc-6-2 R3/AC5 + uc-6-4 startSession 契约）。
+ * `startSession` —— 开始访谈的硬门禁（F84 落地大纲这一半 + F88 落地同意位这一半；
+ * uc-6-2 R3/AC5 + uc-6-3 R3 步骤7/AC2 + uc-6-4 startSession 契约）。
  *
- * ## 为什么这个契约操作的实现出现在 F84 而不是 F88
+ * ## 两道门禁为什么共用一个入口
  *
- * `startSession` 在契约里同时挂着两个错误码：`OUTLINE_NOT_CONFIRMED`（本 feature，
- * 「未经研究员确认的草案不得进现场」是 F84 的 user_visible_behavior 原文）与
- * `CONSENT_REQUIRED`（F88「开始访谈的硬门禁」，检查必需受访者是否已全部签署）。
- * 两个门禁共用一个入口，但各自的数据模型分属不同 feature——F88 的同意位查询依赖
- * F87（尚未开工）。
+ * `startSession` 在契约里挂着两个错误码：`OUTLINE_NOT_CONFIRMED`（F84，「未经研究员
+ * 确认的草案不得进现场」）与 `CONSENT_REQUIRED`（F88，「必需受访者是否已全部签署」）。
+ * 两者是**合取**关系——都满足才放行，没有谁必须先判；本实现把大纲检查放在前面纯粹
+ * 是既有代码顺序，不是优先级声明。
  *
- * ⚠ **已知缺口，如实报告**：本实现只做大纲确认门禁，不做同意位门禁。
- * `CONSENT_REQUIRED` 这条路径现在恒不可达——F88 落地时需要在这个函数里补上
- * 「必需受访者是否已全部提交同意」的检查，且顺序应在大纲检查之后或之前都不影响
- * 正确性（两个门禁是合取关系，没有哪个必须先判）。这里不预先编一个没有依据的
- * 同意位判断去填满契约的两个错误码。
+ * ## F88 补的这一半：同意位门禁
+ *
+ * `checkConsentGate`（`consent-gate.ts`）是唯一判定实现——必需受访者＝本场名单里
+ * `mode !== "observation"` 的对象，任何一人 `pending_consent` 就拒绝
+ * （`ConsentRequiredError`）；非必需但同样待签的人不阻断，计入 `excludedSubjectIds`
+ * 原样返回（E5：「不因一人未签而阻断全场」）。这条判定同时是 F69 录制入口
+ * （`createRecordingConsentGate`）复用的那一个——两处不各自维护一份「是否已授权」。
  *
  * ## 为什么要判「看的人是不是这场访谈的人」
  *
@@ -28,7 +30,8 @@ import type { OrgRole } from "../../domain/identity/roles";
 import type { DecisionIdFactory } from "../identity/ports";
 import { decideInterviewVisibility } from "../../domain/interview/visibility-decision";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
-import { NoInterviewAccessError, OutlineNotConfirmedError } from "./errors";
+import { checkConsentGate, type ConsentGateSubjectReader } from "./consent-gate";
+import { ConsentRequiredError, NoInterviewAccessError, OutlineNotConfirmedError } from "./errors";
 import type { OutlineRepository } from "./outline-ports";
 import type { InterviewScopeRepository } from "./ports";
 
@@ -36,6 +39,7 @@ export interface StartSessionDeps {
   readonly outlines: OutlineRepository;
   readonly scope: InterviewScopeRepository;
   readonly decisions: DecisionIdFactory;
+  readonly consentGate: ConsentGateSubjectReader;
 }
 
 export interface StartSessionDto {
@@ -46,7 +50,7 @@ export interface StartSessionDto {
 
 export interface StartSessionResult {
   readonly startedAt: string;
-  /** F88 落地同意位门禁前，恒为空数组——本实现不判断任何人是否被排除。 */
+  /** 在场但非必需、同意仍待签的人——不阻断开始，只是不被录音/转写（E5）。 */
   readonly excludedSubjectIds: readonly string[];
 }
 
@@ -79,5 +83,13 @@ export async function startSession(deps: StartSessionDeps, input: StartSessionDt
   if (disclosed.payload.status !== "confirmed") {
     throw new OutlineNotConfirmedError(input.interviewId);
   }
-  return { startedAt: new Date().toISOString(), excludedSubjectIds: [] };
+
+  // F88：必需受访者（主访对象）是否已全部提交同意——与大纲检查是合取关系，
+  // 谁先判都不影响正确性，这里放在后面纯粹是既有代码顺序。
+  const gate = await checkConsentGate({ reader: deps.consentGate }, input.orgId, input.interviewId);
+  if (gate.blocked) {
+    throw new ConsentRequiredError(input.interviewId, gate.pendingRequiredSubjectIds);
+  }
+
+  return { startedAt: new Date().toISOString(), excludedSubjectIds: gate.excludedSubjectIds };
 }
