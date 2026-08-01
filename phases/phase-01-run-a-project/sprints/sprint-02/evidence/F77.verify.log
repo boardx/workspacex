@@ -1,0 +1,52 @@
+$ pnpm --filter api exec vitest run tests/rec/ai-annotation-candidate-gate.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f77-worktree/apps/api
+
+ ✓ tests/rec/ai-annotation-candidate-gate.test.ts (21 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  12:37:49
+   Duration  597ms (transform 267ms, setup 0ms, collect 362ms, tests 4ms, environment 0ms, prepare 44ms)
+
+
+$ pnpm --filter api exec vitest run tests/rec/ai-annotation-origin-and-audit.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f77-worktree/apps/api
+
+ ✓ tests/rec/ai-annotation-origin-and-audit.test.ts (13 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  12:37:50
+   Duration  374ms (transform 164ms, setup 0ms, collect 220ms, tests 3ms, environment 0ms, prepare 34ms)
+
+
+---
+Additional local checks (not part of the two required verification commands above, run for
+due diligence before opening the PR):
+
+$ pnpm --filter api exec vitest run tests/rec/
+  Test Files  22 passed (22)
+       Tests  265 passed (265)
+  (full apps/api/tests/rec suite — no regressions from F76/F75's existing tests)
+
+$ pnpm --filter api exec vitest run tests/contract-single-source.test.ts
+  Test Files  1 passed (1)
+       Tests  4 passed (4)
+  (confirms ai-annotation.ts does not redefine any @repo/contracts type locally)
+
+$ cd apps/api && pnpm run lint
+  ✅ lint-no-builtin-capabilities / lint-design-facet-single-source / design-facet catalog /
+     agenda tier catalog / lint-skill-context-api-only / lint-naming-single-source /
+     lint-arch-deps — all 0 violations against the new files.
+
+$ pnpm --filter api exec tsc --noEmit -p .
+  Per issue #74 standing guidance (skip Postgres-dependent tests locally, typecheck only):
+  the monorepo-wide tsc run surfaces pre-existing, unrelated errors in
+  packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts (missing DOM lib types,
+  present on origin/main before this change, outside apps/api/src and untouched by F77).
+  No error attributable to apps/api/src/domain/recording/ai-annotation.ts or the two new
+  test files.
