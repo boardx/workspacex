@@ -81,6 +81,9 @@ const MIME_FOR_KIND: Record<Exclude<DerivedKind, "embedding">, string> = {
   asr: "application/jsonl",
   summary: "text/markdown",
   "visual-description": "text/plain",
+  // F37 -- the other two of the four extraction adapters (PDF/Office and CSV/JSONL).
+  "parsed-text": "text/plain",
+  structured: "application/jsonl",
 };
 
 export async function createDerivedRepresentation(

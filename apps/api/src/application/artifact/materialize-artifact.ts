@@ -103,6 +103,16 @@ export interface MaterializeInput {
   readonly versionCreatorKind?: "user" | "agent";
   readonly versionAgentRunId?: string | null;
   readonly versionChangeSource?: "upload" | "materialize" | "rerun";
+
+  /**
+   * F37 passthrough to `NewArtifactVersion.pipelineVersion`/`.parserVersion` -- see that
+   * type. `upload-artifact.ts` is the one caller that sets these (having already checked
+   * `findVersionByIdempotencyKey` and found no match, i.e. this call is genuinely new
+   * content or a genuine parser-version bump); every other caller leaves them undefined
+   * and gets the column defaults.
+   */
+  readonly pipelineVersion?: string;
+  readonly parserVersion?: string;
 }
 
 export interface MaterializeResult {
@@ -260,6 +270,8 @@ export async function materializeArtifact(
     creatorKind: input.versionCreatorKind,
     agentRunId: input.versionAgentRunId,
     changeSource: input.versionChangeSource,
+    pipelineVersion: input.pipelineVersion,
+    parserVersion: input.parserVersion,
   });
 
   return { artifactId, versionId, versionNumber, materializedKeys: written, contentHash };

@@ -31,7 +31,7 @@
  * BATCH total-size cap, which is a property of the whole request and is checked before any
  * file is touched.
  */
-import { computeContentHash, type ContentHash } from "../../domain/artifact/content-hash";
+import { computeContentHash, versionContentHash, type ContentHash } from "../../domain/artifact/content-hash";
 import {
   EXTENSION_WHITELIST,
   UPLOAD_LIMITS,
@@ -43,10 +43,15 @@ import { scanForMalware } from "../../domain/files/malware-scan";
 import { sniffAndCheck, type SniffedKind } from "../../domain/files/mime-sniff";
 import { inspectZipForBomb, looksLikeZip, type ZipBombReason } from "../../domain/files/zip-inspect";
 import {
+  CURRENT_PARSER_VERSION,
+  CURRENT_PIPELINE_VERSION,
+} from "../../domain/files/idempotency-key";
+import {
   DependencyUnavailableError,
   materializeArtifact,
 } from "../artifact/materialize-artifact";
 import type { ArtifactRepository, IdFactory, ObjectStore } from "../artifact/ports";
+import type { ProvenanceWriter } from "../provenance/ports";
 import type { QuarantineRepository, SecurityAlertPort } from "./upload-ports";
 import type { OrgId } from "../../domain/org-id";
 
@@ -63,6 +68,13 @@ export interface UploadArtifactInput {
   readonly confidential: boolean;
   readonly actorId: string;
   readonly files: readonly UploadFileInput[];
+  /**
+   * F37 -- the third component of the idempotency key (uc-22-2 R7: "parser_version 升版后再
+   * 上传新增派生版本而旧 Segment 未被修改"). Undefined means "current parser", i.e. every
+   * caller before F37 (and every caller that never re-parses) gets the one value that was
+   * ever true for them (`CURRENT_PARSER_VERSION`).
+   */
+  readonly parserVersion?: string;
 }
 
 export interface UploadArtifactDeps {
@@ -71,6 +83,14 @@ export interface UploadArtifactDeps {
   readonly ids: IdFactory;
   readonly quarantine: QuarantineRepository;
   readonly alerts: SecurityAlertPort;
+  /**
+   * F37 -- records the `ingested` provenance event on every accepted file, duplicate or not
+   * (see `processOneFile`). Optional so every pre-F37 caller of this deps shape keeps
+   * compiling unchanged; a caller that omits it simply gets no audit trail for the upload,
+   * which is the same "undefined = no-op" shape `ReviewGate`/`NEVER_NEEDS_REVIEW` already
+   * established in `ingestion-worker.ts` for an unwired port.
+   */
+  readonly provenance?: ProvenanceWriter;
 }
 
 export type RejectionReason =
@@ -86,7 +106,17 @@ export interface AcceptedUpload {
   readonly status: "accepted";
   readonly artifactId: string;
   readonly versionId: string;
+  readonly versionNumber: number;
   readonly contentHash: ContentHash;
+  /**
+   * F37 -- `true` iff this exact content_hash+pipeline_version+parser_version already had a
+   * version in this project: NO new `artifact_versions` row was written, `versionId`/
+   * `versionNumber` name the EXISTING one, and the only new row anywhere is one
+   * `provenance_events` entry. Never silent (uc-22-2 R7 🔴 "幂等命中不得静默") -- this is the
+   * field a caller surfaces as the duplicate-hit choice (contract's `uploadArtifact.out`
+   * `duplicateHit`, the UI half of which is T78 / out of this feature's scope).
+   */
+  readonly duplicate: boolean;
 }
 
 export interface RejectedUpload {
@@ -204,7 +234,60 @@ async function processOneFile(
     }
   }
 
-  // ── 5. object storage write + artifact_version, no-ghost-version guaranteed by F04 ──────
+  // ── 5. idempotency check (F37, uc-22-2 R7) -- BEFORE materializing, never after ─────────
+  // "重复上传不产生重复 Segment" holds by construction once this returns a hit: no new
+  // `artifact_versions` row is written, so no new EXTRACTED/SEGMENTED job is ever enqueued
+  // for it, so no new Segment can be produced for this upload. Validation (steps 1-4) still
+  // ran in full either way (R7 🔴 "服务端必须完整重做全部校验") -- a duplicate file is not
+  // exempt from the security checks just because its bytes were seen before.
+  const parserVersion = input.parserVersion ?? CURRENT_PARSER_VERSION;
+  // `materializeArtifact` records `versionContentHash([<per-file hash>, ...])` as the
+  // version's `content_hash` -- NEVER the bare `computeContentHash` of one file's bytes (see
+  // that function's own comment: a version can be several files, so "the hash of the file"
+  // has no single referent). `upload-new-version.ts` (F44) already established the fix for
+  // comparing a fresh upload against an existing version's hash without re-materializing:
+  // apply the SAME formula here, or every dedup lookup misses by construction (a duplicate
+  // upload would never match the version its first upload actually wrote).
+  const versionKey = versionContentHash([contentHash]);
+  const duplicate = await deps.repo.findVersionByIdempotencyKey(
+    input.orgId,
+    input.projectId,
+    versionKey,
+    CURRENT_PIPELINE_VERSION,
+    parserVersion,
+  );
+  if (duplicate !== null) {
+    // uc-22-2 R7 🔴 "幂等命中不得静默": a new `provenance_events` row records THAT this
+    // upload happened, even though no new version did -- the difference between "nothing
+    // happened" and "a duplicate was recognised and not re-stored" has to be visible in the
+    // trail, not just in this call's return value.
+    await deps.provenance?.append({
+      orgId: input.orgId,
+      type: "ingested",
+      actorId: input.actorId,
+      target: { kind: "artifact", id: duplicate.artifactId },
+      detail: {
+        duplicate: true,
+        filename: file.filename,
+        contentHash,
+        pipelineVersion: CURRENT_PIPELINE_VERSION,
+        parserVersion,
+        versionId: duplicate.versionId,
+        versionNumber: duplicate.versionNumber,
+      },
+    });
+    return {
+      filename: file.filename,
+      status: "accepted",
+      artifactId: duplicate.artifactId,
+      versionId: duplicate.versionId,
+      versionNumber: duplicate.versionNumber,
+      contentHash,
+      duplicate: true,
+    };
+  }
+
+  // ── 6. object storage write + artifact_version, no-ghost-version guaranteed by F04 ──────
   try {
     const result = await materializeArtifact(
       { store: deps.store, repo: deps.repo, ids: deps.ids },
@@ -219,14 +302,33 @@ async function processOneFile(
         confidential: input.confidential,
         // STORED, not READY: F36 owns the rest of the nine-state pipeline. See file header.
         ingestionStatus: "STORED",
+        pipelineVersion: CURRENT_PIPELINE_VERSION,
+        parserVersion,
       },
     );
+    await deps.provenance?.append({
+      orgId: input.orgId,
+      type: "ingested",
+      actorId: input.actorId,
+      target: { kind: "artifact", id: result.artifactId },
+      detail: {
+        duplicate: false,
+        filename: file.filename,
+        contentHash: result.contentHash,
+        pipelineVersion: CURRENT_PIPELINE_VERSION,
+        parserVersion,
+        versionId: result.versionId,
+        versionNumber: result.versionNumber,
+      },
+    });
     return {
       filename: file.filename,
       status: "accepted",
       artifactId: result.artifactId,
       versionId: result.versionId,
+      versionNumber: result.versionNumber,
       contentHash: result.contentHash,
+      duplicate: false,
     };
   } catch (e) {
     if (e instanceof DependencyUnavailableError) {

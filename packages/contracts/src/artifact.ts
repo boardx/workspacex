@@ -55,9 +55,14 @@ export const IngestionStatus = z.enum([
   "SEGMENTED", "ENRICHED", "INDEXED", "REVIEW_PENDING", "READY",
 ]);
 
-/** 派生物类型。带 `derivedFrom` 指回原件版本，**不覆盖原件**（是独立文件） */
+/**
+ * 派生物类型。带 `derivedFrom` 指回原件版本，**不覆盖原件**（是独立文件）
+ * ⚠ F37 新增 `parsed-text`（PDF/Office/纯文本解析）与 `structured`（CSV/JSONL 结构化读取）——
+ * 四类 adapter 里另外两类（图片 OCR / 音视频 ASR）复用既有的 `ocr`/`asr`。四类 adapter 的
+ * 抽取内容都必须落成独立派生文件（不覆盖原件），新增而非在别处再造一份分类。
+ */
 export const DerivedKind = z.enum([
-  "ocr", "asr", "summary", "embedding", "visual-description",
+  "ocr", "asr", "summary", "embedding", "visual-description", "parsed-text", "structured",
 ]);
 
 /** 引用锚点：每个 Segment 必须能回到原件的具体位置 */

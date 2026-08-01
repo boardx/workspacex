@@ -19,6 +19,7 @@ import type {
   ArtifactVersionRecord,
   DerivedKind,
   DerivedRepresentationRecord,
+  IdempotencyHit,
   NewArtifact,
   NewArtifactVersion,
   NewDerivedRepresentation,
@@ -70,14 +71,16 @@ export class PgArtifactRepository implements ArtifactRepository {
           `INSERT INTO artifact_versions
              (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
               size_bytes, pinned_by, context_pack_id, derived_from,
-              creator_kind, agent_run_id, change_source)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+              creator_kind, agent_run_id, change_source, pipeline_version, parser_version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [
             v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
             v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId, v.derivedFrom,
             // F44: undefined -> column default ('user' / NULL / 'materialize'), same
             // ?? convention F35 used for agendaSegmentId/confidential/ingestionStatus.
             v.creatorKind ?? "user", v.agentRunId ?? null, v.changeSource ?? "materialize",
+            // F37: same convention -- undefined -> the '1'/'1' column default.
+            v.pipelineVersion ?? "1", v.parserVersion ?? "1",
           ],
         );
 
@@ -114,6 +117,34 @@ export class PgArtifactRepository implements ArtifactRepository {
     // concurrent pin, and swallowing it with DO NOTHING would report success for a write
     // that did not happen -- the caller would then hand out a version id that names
     // somebody else's row.
+  }
+
+  /** F37 -- see the port's own comment for why this is scoped by `projectId`, not `artifactId`. */
+  async findVersionByIdempotencyKey(
+    orgId: OrgId,
+    projectId: string | null,
+    contentHash: string,
+    pipelineVersion: string,
+    parserVersion: string,
+  ): Promise<IdempotencyHit | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ artifact_id: string; id: string; version_number: number }>(
+        `SELECT v.artifact_id, v.id, v.version_number
+           FROM artifact_versions v
+           JOIN artifacts a ON a.id = v.artifact_id AND a.org_id = v.org_id
+          WHERE v.org_id = $1
+            AND v.content_hash = $2
+            AND v.pipeline_version = $3
+            AND v.parser_version = $4
+            AND a.project_id IS NOT DISTINCT FROM $5
+          ORDER BY v.pinned_at ASC
+          LIMIT 1`,
+        [orgId, contentHash, pipelineVersion, parserVersion, projectId],
+      );
+      const row = r.rows[0];
+      if (row === undefined) return null;
+      return { artifactId: row.artifact_id, versionId: row.id, versionNumber: row.version_number };
+    });
   }
 
   async headVersionNumber(orgId: OrgId, artifactId: string): Promise<number> {

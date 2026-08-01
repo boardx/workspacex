@@ -29,8 +29,9 @@
  * constraint the segment's own identity is defined by (`artifact_version_id, ordinal`) --
  * inventing a second one would be redeclaring that fact a second place.
  */
-import type { ArtifactRepository, IdFactory } from "../artifact/ports";
+import { ObjectExistsError, type ArtifactRepository, type IdFactory, type NewSegment, type ObjectStore } from "../artifact/ports";
 import { legalNextStates } from "../../domain/files/ingestion-pipeline";
+import { runExtractionAdapter } from "../../domain/files/extraction-adapters";
 import type { IngestionOutboxRepository, IngestionStep } from "./ingestion-ports";
 import type { OrgId } from "../../domain/org-id";
 
@@ -38,6 +39,16 @@ export interface IngestionWorkerDeps {
   readonly outbox: IngestionOutboxRepository;
   readonly artifacts: ArtifactRepository;
   readonly ids: IdFactory;
+  /**
+   * F37 -- lets `runStep` fetch a version's actual bytes and run the four extraction
+   * adapters (`domain/files/extraction-adapters.ts`) for real, instead of the placeholder
+   * single-segment stub F36 shipped with. Optional and defaulted to the OLD stub behaviour
+   * when absent, so every caller that predates F37 (both of this file's existing PG-backed
+   * tests construct `IngestionWorkerDeps` without a `store`) keeps compiling and behaving
+   * exactly as before -- adding a mandatory dependency here would be a breaking change to an
+   * already-merged, already-passing feature for no reason internal to this one.
+   */
+  readonly store?: ObjectStore;
 }
 
 /**
@@ -122,10 +133,10 @@ async function processClaimedJob(
 }
 
 /**
- * The step's actual work. `EXTRACTED`/`ENRICHED` have no durable side effect this feature
- * owns (content extraction and embedding generation are later features' bodies to fill in --
- * this module owns the STATE MACHINE, not the NLP); `SEGMENTED` is the one step with a
- * dedup-sensitive write, and `INDEXED` is a pure transition (the fork happens in
+ * The step's actual work. `ENRICHED` has no durable side effect this feature owns (embedding
+ * generation is a later feature's body to fill in -- this module owns the STATE MACHINE, not
+ * the NLP); `EXTRACTED`/`SEGMENTED` are F37's two (the four adapters' derived file, and the
+ * segments/anchors they produce), and `INDEXED` is a pure transition (the fork happens in
  * `decideNextStep`, not here, so it is asserted once rather than duplicated between the two
  * functions).
  */
@@ -135,18 +146,92 @@ async function runStep(
   artifactVersionId: string,
   step: IngestionStep,
 ): Promise<void> {
-  if (step !== "SEGMENTED") return;
+  if (step === "EXTRACTED") return runExtractedStep(deps, orgId, artifactVersionId);
+  if (step === "SEGMENTED") return runSegmentedStep(deps, orgId, artifactVersionId);
+}
+
+/**
+ * F37 -- fetches the version's real bytes and runs one of the four extraction adapters
+ * (`domain/files/extraction-adapters.ts`), materializing its output as an independent
+ * derived file (`derived_representations`, never overwriting the original -- I-6).
+ *
+ * Without `deps.store` this is a no-op, same as F36 shipped it (see `IngestionWorkerDeps`'s
+ * own comment) -- there is no legacy behaviour to preserve here beyond "do nothing", since
+ * F36 never gave this step a body.
+ *
+ * ## Replay-safety, the same technique as `SEGMENTED`'s but one level up
+ *
+ * The object key is namespaced by `(artifactVersionId, adapter kind)` ONLY -- no random
+ * per-attempt id folded in (contrast `createDerivedRepresentation`, which folds in a fresh
+ * `derivedId` specifically so a RERUN of OCR produces a second row, A4). A replay of THIS
+ * step is not a rerun; it is the same worker re-attempting the same extraction of the same
+ * bytes, and a second `putOnce` at the same stable key throws `ObjectExistsError`, which this
+ * function treats as "already applied" -- the same "unique-violation-means-replay" reading
+ * `isSegmentOrdinalConflict` already established for `SEGMENTED`.
+ */
+async function runExtractedStep(deps: IngestionWorkerDeps, orgId: OrgId, artifactVersionId: string): Promise<void> {
+  if (deps.store === undefined) return;
+
+  const version = await deps.artifacts.findVersion(orgId, artifactVersionId);
+  if (version === null) return;
+  const bytes = await deps.store.get(version.objectStorageKey);
+  if (bytes === null) return;
+
+  const extraction = runExtractionAdapter(bytes);
+  const key = `${orgId}/derived/${artifactVersionId}/${extraction.derivedKind}/extracted.txt`;
 
   try {
-    await deps.artifacts.addSegments(orgId, [
+    await deps.store.putOnce(key, new TextEncoder().encode(extraction.derivedText), "text/plain");
+  } catch (e) {
+    if (e instanceof ObjectExistsError) return; // replay -- the derived file already landed
+    throw e;
+  }
+
+  await deps.artifacts.createDerived({
+    id: deps.ids.next("drv"),
+    orgId,
+    derivedFrom: artifactVersionId,
+    kind: extraction.derivedKind,
+    objectStorageKey: key,
+    generatorModel: extraction.generatorModel,
+    generatorVersion: extraction.generatorVersion,
+    pipelineVersion: "1",
+  });
+}
+
+/**
+ * F37 -- re-runs the SAME adapter (pure and deterministic over the same bytes, so this is
+ * not a second declaration of what `runExtractedStep` computed, just the SEGMENTED step
+ * recomputing it independently -- these are two different outbox jobs/transactions, and
+ * carrying state between them would reintroduce the "worker crashed between two steps"
+ * hazard `ingestion-worker.ts`'s header already discusses) and writes one Segment+Anchor
+ * per extracted unit, anchored per the adapter's modality (page/image-region/timecode/
+ * message-id/question-no -- uc-22-2 R7 "每个 Segment 能回到原件").
+ *
+ * Falls back to F36's original single hard-coded segment when `deps.store` is absent, which
+ * is the exact shape `worker-replay-no-duplicate.test.ts` (F36, already merged) asserts on --
+ * this preserves that test's behaviour unchanged rather than risking a regression in an
+ * already-passing feature to widen a dependency this feature does not need there.
+ */
+async function runSegmentedStep(deps: IngestionWorkerDeps, orgId: OrgId, artifactVersionId: string): Promise<void> {
+  const segments =
+    deps.store === undefined
+      ? undefined
+      : await planSegmentsFromBytes(deps, deps.store, orgId, artifactVersionId);
+
+  const toWrite =
+    segments ?? [
       {
         id: deps.ids.next("seg"),
         artifactVersionId,
-        kind: "text",
+        kind: "text" as const,
         ordinal: 0,
-        anchors: [{ id: deps.ids.next("anc"), kind: "page", locator: "1" }],
+        anchors: [{ id: deps.ids.next("anc"), kind: "page" as const, locator: "1" }],
       },
-    ]);
+    ];
+
+  try {
+    await deps.artifacts.addSegments(orgId, toWrite);
   } catch (e) {
     // See this module's header: a unique violation on `segments_uniq_ordinal` means a
     // REPLAY of this exact step, and the segment it would have written already exists.
@@ -154,6 +239,27 @@ async function runStep(
     if (isSegmentOrdinalConflict(e)) return;
     throw e;
   }
+}
+
+async function planSegmentsFromBytes(
+  deps: IngestionWorkerDeps,
+  store: ObjectStore,
+  orgId: OrgId,
+  artifactVersionId: string,
+): Promise<readonly NewSegment[] | undefined> {
+  const version = await deps.artifacts.findVersion(orgId, artifactVersionId);
+  if (version === null) return undefined;
+  const bytes = await store.get(version.objectStorageKey);
+  if (bytes === null) return undefined;
+
+  const extraction = runExtractionAdapter(bytes);
+  return extraction.units.map((unit, ordinal) => ({
+    id: deps.ids.next("seg"),
+    artifactVersionId,
+    kind: unit.segmentKind,
+    ordinal,
+    anchors: [{ id: deps.ids.next("anc"), kind: unit.anchorKind, locator: unit.locator }] as const,
+  }));
 }
 
 function isSegmentOrdinalConflict(e: unknown): boolean {

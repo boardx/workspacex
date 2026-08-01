@@ -1,0 +1,78 @@
+=== pnpm --filter api exec vitest run tests/files/idempotent-no-duplicate-segment.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f37-worktree/apps/api
+
+ ✓ tests/files/idempotent-no-duplicate-segment.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:32:07
+   Duration  251ms (transform 57ms, setup 0ms, collect 64ms, tests 3ms, environment 0ms, prepare 40ms)
+
+exit code: 0
+
+=== pnpm --filter api exec vitest run tests/files/four-adapters-extract.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f37-worktree/apps/api
+
+ ✓ tests/files/four-adapters-extract.test.ts (6 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  18:32:08
+   Duration  242ms (transform 57ms, setup 0ms, collect 72ms, tests 5ms, environment 0ms, prepare 35ms)
+
+exit code: 0
+
+=== pnpm --filter api exec vitest run tests/files/segment-anchor-modality.test.ts ===
+
+ RUN  v2.1.9 /private/tmp/f37-worktree/apps/api
+
+ ✓ tests/files/segment-anchor-modality.test.ts (6 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  18:32:08
+   Duration  316ms (transform 54ms, setup 0ms, collect 69ms, tests 4ms, environment 0ms, prepare 31ms)
+
+exit code: 0
+
+--- supplementary: pnpm --filter api exec tsc --noEmit (exit 0, ignoring pre-existing unrelated packages/fabric-markdown DOM-lib noise) ---
+
+--- supplementary: pnpm --filter api run lint (exit 0) ---
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+scanned=34
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=508 tenant-tables=75 allowlisted=24
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=799 violations=0 debt=78 migrations=56
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=1123 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 40 个文件，skill 取数只经 Context API（I-25）
+scanned=40 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 506 files, all dependencies point inward
+scanned=506
+
+--- supplementary: re-run against real PostgreSQL (docker compose dev DB), confirming migration + PgArtifactRepository changes ---
+WORKSPACEX_DB=workspacex_f37_evidence pnpm exec vitest run tests/files/idempotent-no-duplicate-segment.test.ts tests/files/four-adapters-extract.test.ts tests/files/segment-anchor-modality.test.ts tests/kernel/artifact-schema-six-tables.test.ts tests/kernel/snapshot-concurrent-single-version.test.ts tests/files/worker-replay-no-duplicate.test.ts
+
+ RUN  v2.1.9 /private/tmp/f37-worktree/apps/api
+
+ ✓ tests/files/idempotent-no-duplicate-segment.test.ts (4 tests) 3ms
+ ✓ tests/files/segment-anchor-modality.test.ts (6 tests) 6ms
+ ✓ tests/files/four-adapters-extract.test.ts (6 tests) 7ms
+ ✓ tests/files/worker-replay-no-duplicate.test.ts (2 tests) 1815ms
+   ✓ F36 -- worker 重放不产生重复 Segment（V12） > SEGMENTED 步骤重放两次：segment 只有一份，版本正常继续推进 530ms
+ ✓ tests/kernel/snapshot-concurrent-single-version.test.ts (10 tests) 1978ms
+ ✓ tests/kernel/artifact-schema-six-tables.test.ts (33 tests) 3640ms
+
+ Test Files  6 passed (6)
+      Tests  61 passed (61)
+   Start at  18:32:14
+   Duration  4.16s (transform 381ms, setup 0ms, collect 1.03s, tests 7.45s, environment 0ms, prepare 267ms)
+
+exit code: 0

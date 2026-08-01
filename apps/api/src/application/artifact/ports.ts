@@ -154,6 +154,27 @@ export interface NewArtifactVersion {
    * queued behind them.
    */
   readonly enqueueIngestionOutboxStep?: string | null;
+
+  /**
+   * F37 -- the other two components of the idempotency key (`content_hash` already exists;
+   * see migration `20260801190000_f37_idempotent_ingest_and_adapters.sql`'s header). Optional,
+   * `undefined` means "use the column default" (`'1'`) -- every caller before F37 (F04/F05/
+   * F06/F35/F44/F73) never varied either axis, so their versions are retroactively "pipeline
+   * 1, parser 1", the only value that was ever true for them.
+   *
+   * Only `upload-artifact.ts` sets these explicitly today, so it can look an existing version
+   * up again by the exact same triple on a later request (`findVersionByIdempotencyKey`).
+   */
+  readonly pipelineVersion?: string;
+  readonly parserVersion?: string;
+}
+
+/** One `artifact_versions` row matched by `findVersionByIdempotencyKey` -- just enough for
+ *  the upload path to report a duplicate hit without a second read. */
+export interface IdempotencyHit {
+  readonly artifactId: string;
+  readonly versionId: string;
+  readonly versionNumber: number;
 }
 
 export interface NewSegment {
@@ -260,6 +281,24 @@ export interface ArtifactRepository {
    * caller's side, not a correctness boundary this port enforces.
    */
   listVersions(orgId: OrgId, artifactId: string): Promise<readonly VersionListEntry[]>;
+
+  /**
+   * F37 -- the idempotency lookup `upload-artifact.ts` runs before every materialize call
+   * (uc-22-2 R7: "幂等键=content_hash+pipeline_version+parser_version").
+   *
+   * Scoped by `projectId`, not `artifactId` -- the whole point is that the caller does NOT
+   * yet know which artifact (if any) this upload duplicates; that is what this method
+   * answers. A match means "this exact content, at this exact pipeline/parser version, was
+   * already materialized in this project" -- the caller then skips `createVersion` entirely
+   * rather than creating a second artifact for the same bytes.
+   */
+  findVersionByIdempotencyKey(
+    orgId: OrgId,
+    projectId: string | null,
+    contentHash: string,
+    pipelineVersion: string,
+    parserVersion: string,
+  ): Promise<IdempotencyHit | null>;
 
   /** Insert one `derived_representations` row (F44 / R3.b steps 4-5). Never updates a row. */
   createDerived(d: NewDerivedRepresentation): Promise<void>;
