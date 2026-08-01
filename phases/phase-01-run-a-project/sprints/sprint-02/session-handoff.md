@@ -33,15 +33,43 @@
   （`apps/web/tests/ui/research-detail-four-sections.test.tsx`）。未改动
   `research` 束已建成的 UI（`RsDetailScreen` / `lib/mock/research-studio.ts`）
   ——那是 ui-prototyper 在 F144 之前建的真实组件+mock，本 feature 只加断言。
+- F146（研究列表三处 + 研究计划三计数与证据表：目标缺失渲染「—」而非「0」，
+  归档不删除且被引证据不失效）：四条 verification 命令本地全绿，`tsc --noEmit`
+  （web 零错误 / api 侧唯一报错在 `packages/fabric-markdown`，与本 feature 无关）、
+  `pnpm --filter web run lint` 通过。证据：`evidence/F146.verify.log`。
+  ⚠ **状态仍是 `in_progress`，不是 `passing`**——`pnpm -w run verify:base`
+  本地在 `apps/api` 既有的 `rbac-role-matrix.test.ts` /
+  `reference-eligibility-gate.test.ts` 等 Postgres 集成测试上失败/连接中断，
+  与 issue #74 记录的全量连接数竞态同源，非本 feature 引入。按 #74 的既定处理
+  方式本地跳过，状态转移留给 CI / test-runner 在干净 Postgres 环境下补跑。
+
+### 本轮改动（F146）
+- 新增 `apps/api/src/domain/research/plan-counts.ts`（`derivePlanCounts`：
+  `null` 与 `0` 在三计数上保持可区分）与 `archive.ts`（`archiveResearch` /
+  `filterByArchived` / `resolveEvidenceById`：归档只置位不删除，证据解析与
+  归档状态无关），各配一份对应的纯逻辑测试。
+- **修了一个真实缺口**：`RsListScreen`（`apps/web/components/research-studio/
+  rs-screens.tsx`）此前硬编码 `filter(i => !i.archived)`，已归档研究**永远
+  不出现在任何视图里**，「已归档」标签是纯装饰——效果上把归档做成了删除，
+  与 N-7 正面冲突。现在 `RsListScreen` 接收 `sub`（`sub==="archived"` 时改看
+  已归档集合，模式与 `RsPlanScreen` 已有的 `sub` 用法一致），`TagRow` 的
+  「已归档」标签接了真链接。`research-studio-app.tsx` 把 `sub`/`href` 透传
+  给 `RsListScreen`。
+- 新增 `apps/web/tests/ui/research-list-target-dash.test.tsx`：分子跟着数据走、
+  目标缺失渲染 `—`、Studio 左栏三段独立渲染、归档项可被「已归档」标签筛出且
+  格式化规则与未归档项一致、owner/collaborator 两视角列表内容一致。
+- 未改动 `packages/contracts/src/research.ts`——所需形状（`Research.archivedAt` /
+  `Evidence.confidence` nullable / `getResearchPlan` 三计数 nullable）F144 之前
+  已经就位，本次不新增契约类型（避免与 `contract-single-source.test.ts` 冲突）。
 
 ## 仍损坏或未验证
 - `contracts/org-admin/ui.md` 第 14 行的缺口：项目负责人侧独立的「谁读过我的
   项目」页面（`/projects/[id]/settings/access-log`）未建、原型也未画。当前
   验收走的是负责人用现有 `/provenance` 查询接口检索到同一条记录（已断言），
   专属页面留给该 UI 载体对应的后续 feature。
-- packages/fabric-markdown 存在与 F06 无关的既有 tsc 报错（缺 DOM lib
-  配置），跑 `tsc --noEmit -p apps/api/tsconfig.json` 时会看到，与 F06 的两份
-  新文件无关（那两份文件本身零错误）。
+- packages/fabric-markdown 存在与 F06/F146 无关的既有 tsc 报错（缺 DOM lib
+  配置），跑 `tsc --noEmit -p apps/api/tsconfig.json` 时会看到，与这两个
+  feature 的新文件无关（新文件本身零错误）。
 - `GroupCanvasStatus` 四态互斥优先级（只读 > 你在这组 > 落后 > 进行中）是
   F105 的判断留痕，非 UC 显式排序，需人类在 PR #207 / issue #195 确认。
 - 新 worktree 里 `pnpm --filter api typecheck` 会先因 `@repo/fabric-markdown`
@@ -54,6 +82,12 @@
   HTTP controller，留给依赖它的下一个 feature（F146…F148 之一）。
 - Q-7 / Q-12 / Q-10 / Q-14 / Q-17 / Q-18 仍未裁，涉及它们的机械断言继续搁置
   （`KNOWN_CONTRACT_GAPS.R8`），不要在裁决前替它们发明枚举。
+- F146 遗留：「项目内深度研究列表」目前与 Studio 列表复用同一个 `RsListScreen`
+  组件与同一份 mock 数据，未按 `projectRef` 建独立路由/组件；观察者视角下研究
+  数据层过滤（E5/R12.5）未在本 feature 的四条 verification 里覆盖，两者都留给
+  各自的后续 feature（不在本次 verification 范围内，如实记录不代做）。
+- `pnpm -w run verify:base` 本地因 issue #74 记录的 Postgres 连接数竞态不稳定，
+  与 F06/F105/F145/F146 均无关。
 
 ## 下一步最佳动作
 - F06：无遗留阻塞；下一位可直接认领下一个 `in_progress` feature。
@@ -62,7 +96,11 @@
   F104（几何归区导出）、F106（AI 起草）仍是其他 owner 在推进，未touch 其文件。
 - 建议后续把"`@repo/fabric-markdown` 需要先 build 才能 typecheck"这条坑
   写进 `init.sh` 或某个 setup 脚本，已经是第二次被单独记录在 progress.md 里了。
-- 下一轮可从 F146…F148 里挑一个未认领的开始；写组装类纯函数时先看
+- F146：CI / test-runner 在干净 Postgres 环境下补跑 `verify:base` 后可
+  `pnpm harness verify --sprint 01/02 --feature F146` 把状态门控转 `passing`。
+  「项目内深度研究列表」独立路由与观察者数据层过滤（R12.5）建议各自开新
+  feature 明确认领。
+- 下一轮可从 F147/F148 里挑一个未认领的开始；写组装类纯函数时先看
   `apps/api/src/domain/research/result-assembly.ts` 有没有能直接复用的部分，
   不要重新实现一遍「样本不足判据」或「四段组装」。
 
@@ -72,3 +110,4 @@
 - 调试:`pnpm --filter @repo/fabric-markdown build && pnpm --filter api typecheck`
   / `pnpm --filter api exec vitest run tests/research/*.test.ts`
   / `pnpm --filter web exec vitest run tests/ui/research-detail-four-sections.test.tsx`
+  / `pnpm --filter api exec vitest run tests/research/plan-counts-null-not-zero.test.ts`

@@ -40,23 +40,29 @@ function Head({
   );
 }
 
-function TagRow({ tags, active }: { tags: readonly string[]; active?: string }) {
+/**
+ * ⚠ `hrefFor` 只给「已归档」这一个 tag 接了真过滤（N-7 / V4：归档后仍能被
+ * 「已归档」标签筛出）。其余四个 tag（客户/内部/高优先级/全部）的过滤口径
+ * **未裁**（Q-9：首项 `全部` vs 项目侧 `全部标签` 的差异），本文件不代裁，
+ * 仍是纯展示态——不给它们编一套过滤逻辑。
+ */
+function TagRow({
+  tags, active, hrefFor,
+}: { tags: readonly string[]; active?: string; hrefFor?: (tag: string) => string }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5" data-testid="rs-tag-filter">
-      {tags.map((t) => (
-        <button
-          key={t}
-          data-testid={`rs-tag-${t}`}
-          className={cn(
-            "rounded-full border px-2.5 py-0.5 text-11 transition-colors",
-            (active ?? tags[0]) === t
-              ? "border-primary bg-accent text-accent-foreground"
-              : "border-border text-muted-foreground hover:bg-muted",
-          )}
-        >
-          {t}
-        </button>
-      ))}
+      {tags.map((t) => {
+        const isActive = (active ?? tags[0]) === t;
+        const cls = cn(
+          "rounded-full border px-2.5 py-0.5 text-11 transition-colors",
+          isActive ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:bg-muted",
+        );
+        return hrefFor ? (
+          <a key={t} data-testid={`rs-tag-${t}`} href={hrefFor(t)} className={cls}>{t}</a>
+        ) : (
+          <button key={t} data-testid={`rs-tag-${t}`} className={cls}>{t}</button>
+        );
+      })}
     </div>
   );
 }
@@ -147,14 +153,27 @@ function shellProps(screen: RsScreen): Partial<React.ComponentProps<typeof State
 
 /* ── 屏 1 · 研究 Studio 列表（UC-24.3 A/C）────────────────────────────── */
 
-export function RsListScreen({ state, view }: { state: UiState; view: RsView }) {
-  const items = RS_LIST_ITEMS.filter((i) => !i.archived);
+export function RsListScreen({
+  state, view, sub, href,
+}: {
+  state: UiState;
+  view: RsView;
+  /** ⚠ N-7 / V4：`sub="archived"` 时改看已归档集合——归档不是删除，它必须能被筛出来。 */
+  sub?: string;
+  href?: (o: { sub?: string }) => string;
+}) {
+  // ⚠ 归档只是「换一个筛选条件看」，不是「从这个世界消失」——这是 N-7 的界面落点。
+  const showArchived = sub === "archived";
+  const items = RS_LIST_ITEMS.filter((i) => (showArchived ? i.archived : !i.archived));
+  const tagHref = href
+    ? (t: string) => href({ sub: t === "已归档" ? "archived" : undefined })
+    : undefined;
   return (
     <StateShell state={state} {...shellProps("list")}>
       <div className="flex flex-col gap-4" data-testid="rs-list-screen">
         <Head
           testid="rs-list-head"
-          title="研究项目 · 3"
+          title={showArchived ? `研究项目 · 已归档 ${items.length}` : `研究项目 · ${items.length}`}
           uc="UC-24.3"
           sub="打开任意一个进入全屏管理：研究问题、证据表、候选洞察。"
           /*
@@ -168,7 +187,7 @@ export function RsListScreen({ state, view }: { state: UiState; view: RsView }) 
            */
           actions={<NewResearchFlow role="facilitator" at="studio" icon={<Search className="h-3.5 w-3.5" />} />}
         />
-        <TagRow tags={RS_LIST_TAGS} />
+        <TagRow tags={RS_LIST_TAGS} active={showArchived ? "已归档" : undefined} hrefFor={tagHref} />
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {items.map((it) => (
             <div key={it.id} className="flex flex-col gap-2.5 rounded-lg border border-border bg-card p-3.5" data-testid={`rs-card-${it.id}`}>
