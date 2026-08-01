@@ -131,6 +131,10 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
 import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
+// F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
+// 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
+import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
+import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
 import { ChatController } from "./interface/controllers/chat.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
@@ -466,6 +470,12 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: CHAT_PRESET_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatPresetRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F112. 批准卡的模型/单价数据窄读 F48 的 `models` 表——见该 provider 实现文件头。
+    {
+      provide: APPROVAL_MODEL_REGISTRY_READER,
+      useFactory: (db: DatabasePort) => new PgApprovalModelRegistryReader(db),
       inject: [DATABASE_PORT],
     },
     {

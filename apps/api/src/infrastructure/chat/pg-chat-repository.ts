@@ -9,14 +9,20 @@
  *   仓储只负责取。把「组员看不到别组」写进 SQL，就是第二份可见性实现，
  *   而两份实现里总有一份是旧的。
  */
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
   AgentRosterState,
+  ApprovalDataScopeRow,
+  ApprovalDecisionWrite,
+  ApprovalRequestRow,
+  BackgroundTaskRow,
   ChatCitationRow,
   ChatMessageRow,
   ChatRepository,
   MessageLocation,
+  NewApprovalRequestInput,
+  NewBackgroundTaskInput,
   NewThreadInput,
   ThreadFileRecord,
   ThreadListRow,
@@ -505,6 +511,170 @@ export class PgChatRepository implements ChatRepository {
       ]);
       return r.rows.length > 0;
     });
+  }
+
+  /* ── F112：批准闸门（chat 束 domain.md E 组）────────────────────────── */
+
+  async createApprovalRequest(
+    orgId: OrgId,
+    input: NewApprovalRequestInput,
+  ): Promise<ApprovalRequestRow> {
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_approval_requests
+           (id, org_id, thread_id, agent_id, action, status,
+            call_chain, proposed_models, data_scope, estimated_tokens, expires_at)
+         VALUES ($1, $2, $3, $4, $5, 'paused', $6, $7, $8::jsonb, $9, $10)`,
+        [
+          input.id, orgId, input.threadId, input.agentId, input.action,
+          input.callChain, input.proposedModels, JSON.stringify(input.dataScope),
+          input.estimatedTokens, input.expiresAt,
+        ],
+      );
+      const row = await this.loadApprovalRequestRow(s, orgId, input.id);
+      // 刚写完自己的行，找不到就是仓储自身出了问题——不是业务分支，抛比返回 null 更诚实。
+      if (row === null) throw new Error("createApprovalRequest: row vanished after insert");
+      return row;
+    });
+  }
+
+  async findApprovalRequest(orgId: OrgId, requestId: string): Promise<ApprovalRequestRow | null> {
+    return this.db.withTenant(orgId, (s) => this.loadApprovalRequestRow(s, orgId, requestId));
+  }
+
+  /** 见 `ports.ts` 上的注释：乐观并发与 I-30 的「原请求字节不变」都在这一个方法里体现。 */
+  async decideApprovalRequest(
+    orgId: OrgId,
+    requestId: string,
+    write: ApprovalDecisionWrite,
+  ): Promise<ApprovalRequestRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      let updated: { rows: unknown[] };
+      switch (write.kind) {
+        case "expire":
+          updated = await s.query(
+            `UPDATE chat_approval_requests SET status = 'expired'
+              WHERE id = $1 AND org_id = $2 AND status = 'paused' RETURNING id`,
+            [requestId, orgId],
+          );
+          break;
+        case "approve":
+          updated = await s.query(
+            `UPDATE chat_approval_requests
+                SET status = 'approved', decided_by = $3, decided_at = now(), task_id = $4
+              WHERE id = $1 AND org_id = $2 AND status = 'paused' RETURNING id`,
+            [requestId, orgId, write.decidedBy, write.taskId],
+          );
+          break;
+        case "decline":
+          updated = await s.query(
+            `UPDATE chat_approval_requests
+                SET status = 'declined', decided_by = $3, decided_at = now()
+              WHERE id = $1 AND org_id = $2 AND status = 'paused' RETURNING id`,
+            [requestId, orgId, write.decidedBy],
+          );
+          break;
+        case "reparam":
+          // ⚠ 原请求**只改 `status` 与 `superseded_by_request_id`**——I-30 要求它的六项
+          //   披露字段字节不变，这里没有任何 UPDATE 触碰 call_chain/proposed_models/
+          //   data_scope/estimated_tokens/expires_at。
+          updated = await s.query(
+            `UPDATE chat_approval_requests
+                SET status = 'reparamed', decided_by = $3, decided_at = now(),
+                    superseded_by_request_id = $4
+              WHERE id = $1 AND org_id = $2 AND status = 'paused' RETURNING id`,
+            [requestId, orgId, write.decidedBy, write.newRequest.id],
+          );
+          if (updated.rows.length > 0) {
+            await s.query(
+              `INSERT INTO chat_approval_requests
+                 (id, org_id, thread_id, agent_id, action, status,
+                  call_chain, proposed_models, data_scope, estimated_tokens, expires_at,
+                  supersedes_request_id)
+               VALUES ($1, $2, $3, $4, $5, 'paused', $6, $7, $8::jsonb, $9, $10, $11)`,
+              [
+                write.newRequest.id, orgId, write.newRequest.threadId, write.newRequest.agentId,
+                write.newRequest.action, write.newRequest.callChain, write.newRequest.proposedModels,
+                JSON.stringify(write.newRequest.dataScope), write.newRequest.estimatedTokens,
+                write.newRequest.expiresAt, requestId,
+              ],
+            );
+          }
+          break;
+      }
+      if (updated.rows.length === 0) return null;
+      return this.loadApprovalRequestRow(s, orgId, requestId);
+    });
+  }
+
+  async createBackgroundTask(orgId: OrgId, input: NewBackgroundTaskInput): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_background_tasks (id, org_id, approval_request_id, status, eta_minutes)
+         VALUES ($1, $2, $3, 'running', $4)`,
+        [input.taskId, orgId, input.approvalRequestId, input.etaMinutes],
+      );
+    });
+  }
+
+  async findBackgroundTask(orgId: OrgId, taskId: string): Promise<BackgroundTaskRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ status: string; result_message_id: string | null }>(
+        "SELECT status, result_message_id FROM chat_background_tasks WHERE id = $1 AND org_id = $2",
+        [taskId, orgId],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        taskId,
+        status: row.status as BackgroundTaskRow["status"],
+        resultMessageId: row.result_message_id,
+      };
+    });
+  }
+
+  private async loadApprovalRequestRow(
+    s: TenantSession,
+    orgId: OrgId,
+    requestId: string,
+  ): Promise<ApprovalRequestRow | null> {
+    const r = await s.query<{
+      id: string;
+      thread_id: string;
+      agent_id: string;
+      action: string;
+      status: string;
+      call_chain: string[];
+      proposed_models: string[];
+      data_scope: ApprovalDataScopeRow[];
+      estimated_tokens: number;
+      expires_at: Date;
+      task_id: string | null;
+      supersedes_request_id: string | null;
+      superseded_by_request_id: string | null;
+    }>(
+      `SELECT id, thread_id, agent_id, action, status, call_chain, proposed_models, data_scope,
+              estimated_tokens, expires_at, task_id, supersedes_request_id, superseded_by_request_id
+         FROM chat_approval_requests WHERE id = $1 AND org_id = $2`,
+      [requestId, orgId],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      threadId: row.thread_id,
+      agentId: row.agent_id,
+      action: row.action,
+      status: row.status as ApprovalRequestRow["status"],
+      callChain: row.call_chain,
+      proposedModels: row.proposed_models,
+      dataScope: row.data_scope,
+      estimatedTokens: row.estimated_tokens,
+      expiresAt: row.expires_at.toISOString(),
+      taskId: row.task_id,
+      supersedesRequestId: row.supersedes_request_id,
+      supersededByRequestId: row.superseded_by_request_id,
+    };
   }
 }
 

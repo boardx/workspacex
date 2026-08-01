@@ -1,0 +1,41 @@
+$ pnpm --filter api exec vitest run tests/chat/approval-gate-six-fields-no-execute.test.ts
+
+ RUN  v2.1.9 /private/tmp/f112-worktree/apps/api
+
+ ✓ tests/chat/approval-gate-six-fields-no-execute.test.ts (2 tests) 1241ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  13:03:49
+   Duration  1.45s (transform 418ms, setup 0ms, collect 43ms, tests 1.24s, environment 0ms, prepare 44ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/chat/confidential-whole-round-local-only.test.ts
+
+ RUN  v2.1.9 /private/tmp/f112-worktree/apps/api
+
+{"level":"error","msg":"http exception","traceId":"485480e8-e707-41e4-ab04-9b8f776c0d10","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at ChatController.createApprovalRequestRoute (/private/tmp/f112-worktree/apps/api/src/interface/controllers/chat.controller.ts:724:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"81ff4447-8597-403c-a8d7-397904e5d766","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at ChatController.createApprovalRequestRoute (/private/tmp/f112-worktree/apps/api/src/interface/controllers/chat.controller.ts:724:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/chat/confidential-whole-round-local-only.test.ts (4 tests) 1023ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:03:50
+   Duration  1.22s (transform 373ms, setup 0ms, collect 38ms, tests 1.02s, environment 0ms, prepare 27ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/chat/approval-model-budget-from-registry.test.ts
+
+ RUN  v2.1.9 /private/tmp/f112-worktree/apps/api
+
+{"level":"error","msg":"http exception","traceId":"0dd391e5-68d0-4d3f-89cb-70c06e4fdf6c","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at ChatController.createApprovalRequestRoute (/private/tmp/f112-worktree/apps/api/src/interface/controllers/chat.controller.ts:727:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f112-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/chat/approval-model-budget-from-registry.test.ts (3 tests) 1038ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  13:03:52
+   Duration  1.25s (transform 374ms, setup 0ms, collect 37ms, tests 1.04s, environment 0ms, prepare 22ms)
+
+[exit 0]

@@ -642,22 +642,42 @@ describe("lint-permission-paths: counter-proof", () => {
     // tests/project/display-alias-not-persisted.test.ts are ever deleted, these two entries
     // must go with them.
     //
-    // Combined total on this rebase (F36's +1 and F125's +2 landing on the same 20-entry
+    // Combined total on that rebase (F36's +1 and F125's +2 landing on the same 20-entry
     // base, side by side): 20 -> 23 -- RE-MEASURED on the combined tree via
     // `node apps/api/scripts/lint-permission-paths.mjs` (23), not computed as "21 + 2" or
     // "22 + 1".
     //
-    // ⚠ Coordinator buffer bump 23 -> 40 (2026-08-01, ahead of a large parallel dev-agent
-    // wave): this is NOT a real-measured raise for a specific new entry -- real count on
-    // main at this moment is still 23. The number is deliberately set with headroom so
-    // ~20 features merging concurrently don't each need to touch this exact line and
-    // collide on it (that collision pattern cost several rebase-fix rounds in the prior
-    // wave). Individual features should still add their own allowlist entry + enforced-
-    // premise test to `lint-permission-paths.mjs` as normal, but do NOT need to bump this
-    // ceiling themselves unless the real count exceeds 40 -- re-measure via
-    // `node apps/api/scripts/lint-permission-paths.mjs` before assuming the buffer is used
-    // up. Once this wave lands, the coordinator will re-measure and tighten this back down
-    // to the real number so the ratchet doesn't silently drift loose.
+    // ⚠ Raised 23 -> 24 by F112 (chat approval-card backend contract), rebased a second time
+    // onto main after F44/F125/F148/F98 all merged -- RE-MEASURED FRESH on the combined tree
+    // via `node apps/api/scripts/lint-permission-paths.mjs` (24), not carried forward from
+    // either branch's stale count (this file's own prior rebase had claimed 22; that number
+    // predates F125's +2 landing and was never the real total on any tree that existed). The
+    // new entry is `infrastructure/chat/pg-approval-model-registry.ts`. Its argument has the
+    // same SHAPE as F49's admission-test entry, and for the same reason: `ObjectRef` is
+    // project|artifact|segment|capability|organization|interview, and a MODEL is none of
+    // them -- it has no `acl_bindings` row, so pushing a `model` ref through `authorize`
+    // would find no binding, fall back to `DEFAULT_SCOPE` (org-wide), see a non-null org
+    // role and return `allowed: true` for every member, exactly the failure `toAclRef`
+    // refuses to paper over for `capability`/`organization`/`interview`. Who may see a
+    // model's kind/price is ORGANIZATION CONFIGURATION (migration `0019-f48-model-pool.sql`'s
+    // own header), not a per-artifact question. The file additionally reads STRICTLY FEWER
+    // columns than that migration grants `app_rw` on `models` -- `id, kind, display_name,
+    // unit_price`, never `model_secrets.ciphertext` (which has no SELECT grant to any role,
+    // guarded at the database, not here).
+    //
+    // Its ENFORCED premise: `tests/chat/approval-model-registry-no-secret-columns.test.ts`
+    // parses the file and fails if any column outside those four `models` columns, or any
+    // `model_secrets`/credential-shaped identifier, appears in it. If that test is ever
+    // deleted, this entry must go with it.
+    //
+    // ⚠ Coordinator buffer bump 24 -> 40 (2026-08-01, ahead of a large parallel dev-agent
+    // wave): NOT a real-measured raise -- real count on main at this moment is 24. Headroom
+    // so ~20 concurrently-merging features don't each need to touch this exact line (that
+    // collision pattern cost several rebase-fix rounds in the prior wave). Individual
+    // features should still add their own allowlist entry + enforced-premise test as normal,
+    // but do NOT need to bump this ceiling unless the real count exceeds 40 -- re-measure via
+    // `node apps/api/scripts/lint-permission-paths.mjs` before assuming the buffer is used up.
+    // Coordinator will re-measure and tighten this back down once the wave lands.
     expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(40);
 
     const src = readFileSync(

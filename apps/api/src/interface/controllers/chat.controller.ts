@@ -102,6 +102,25 @@ import {
   PresetNotVisibleError,
   getPresetUsage,
 } from "../../application/chat/get-preset-usage";
+import {
+  createApprovalRequest,
+  ModelPolicyViolationError,
+  RegistryUnavailableError,
+} from "../../application/chat/create-approval-request";
+import {
+  ApprovalExpiredError,
+  ApprovalNotFoundError,
+  ApprovalStatusChangedError,
+  decideApproval,
+} from "../../application/chat/decide-approval";
+import {
+  BackgroundTaskNotFoundError,
+  getBackgroundTask,
+} from "../../application/chat/get-background-task";
+import {
+  APPROVAL_MODEL_REGISTRY_READER,
+  type ApprovalModelRegistryReader,
+} from "../../application/chat/approval-model-registry";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
@@ -110,6 +129,8 @@ export const UPDATE_AGENT_ROSTER_SCHEMA = C.operations.updateAgentRoster.in;
 export const UPSERT_PRESET_SCHEMA = C.operations.upsertPreset.in;
 export const DISPATCH_PRESET_SCHEMA = C.operations.dispatchPreset.in;
 export const START_PRESET_INSTANCE_SCHEMA = C.operations.startPresetInstance.in;
+export const CREATE_APPROVAL_REQUEST_SCHEMA = C.operations.createApprovalRequest.in;
+export const DECIDE_APPROVAL_SCHEMA = C.operations.decideApproval.in;
 
 type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
@@ -142,6 +163,22 @@ type DispatchPresetBody = {
   targets: { plenary: boolean | null; groupIds: string[] | null; roles: ("facilitator" | "groupLead" | "member" | "observer")[] | null };
 };
 type StartPresetInstanceBody = { presetId: string };
+type CreateApprovalRequestBody = {
+  threadId: string;
+  agentId: string;
+  action: string;
+  dataScope: { name: string; confidential: boolean }[];
+  proposedModels: string[];
+  estimatedTokens: number;
+};
+type DecideApprovalBody = {
+  requestId: string;
+  exit: "approve" | "reparam" | "decline";
+  expectedStatus: "paused";
+  newModels: string[] | null;
+  newBudget: { tokens: number; amount: number; currency: string } | null;
+  newDataScope: { name: string; confidential: boolean }[] | null;
+};
 
 @Controller()
 export class ChatController {
@@ -156,6 +193,7 @@ export class ChatController {
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
     @Inject(CHAT_PRESET_REPOSITORY) private readonly chatPresets: ChatPresetRepository,
+    @Inject(APPROVAL_MODEL_REGISTRY_READER) private readonly modelRegistry: ApprovalModelRegistryReader,
   ) {}
 
   private get deps() {
@@ -643,6 +681,121 @@ export class ChatController {
       if (e instanceof SourceArtifactDeletedError) {
         throw new GoneException({ reasonCode: "SOURCE_ARTIFACT_DELETED" });
       }
+      throw e;
+    }
+  }
+
+  /* ── F112：批准闸门（uc-8-2 R3 步骤 6 / R11，产品的信任核心）─────────────── */
+
+  /**
+   * 高影响动作 → 批准请求。恒以 `paused` 落库（I-27），六项披露全非空（I-28）。
+   * ⚠ `MODEL_POLICY_VIOLATION` / `REGISTRY_UNAVAILABLE` 都是 422：两者都是「请求形状
+   *   合法，但内容不满足业务前置」，与 `mutate-thread.ts` 的 `TITLE_INVALID` 同一档。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/threads/:threadId/approval-requests")
+  async createApprovalRequestRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Body(new ZodBodyPipe(CREATE_APPROVAL_REQUEST_SCHEMA)) body: CreateApprovalRequestBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createApprovalRequest(
+        {
+          chat: this.chat,
+          registry: this.modelRegistry,
+          provenance: this.provenance,
+          ids: this.artifactIds,
+          clock: this.clock,
+        },
+        {
+          orgId: toOrgId(principal.orgId),
+          threadId: body.threadId ?? threadId,
+          agentId: body.agentId,
+          action: body.action,
+          dataScope: body.dataScope,
+          proposedModels: body.proposedModels,
+          estimatedTokens: body.estimatedTokens,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ModelPolicyViolationError) {
+        throw new UnprocessableEntityException({ reasonCode: "MODEL_POLICY_VIOLATION", detail: e.detail });
+      }
+      if (e instanceof RegistryUnavailableError) {
+        throw new UnprocessableEntityException({ reasonCode: "REGISTRY_UNAVAILABLE" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 三出口之一。状态码：
+   *   404  请求不存在（与其余读路径同一个「不可见与不存在同出口」精神，此端口无可见性判定，
+   *        故裸 404）
+   *   409  `APPROVAL_STATUS_CHANGED`——已终态不可再转（I-29），见 `decide-approval.ts` 文件头
+   *        关于本实现取哪一种并发语义的登记
+   *   410  `APPROVAL_EXPIRED`——超时不得静默执行
+   *   422  `MODEL_POLICY_VIOLATION`——改参后的新模型集合仍然违反 D-U1
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/approval-requests/:requestId/decide")
+  async decideApprovalRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("requestId") requestId: string,
+    @Body(new ZodBodyPipe(DECIDE_APPROVAL_SCHEMA)) body: DecideApprovalBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await decideApproval(
+        {
+          chat: this.chat,
+          registry: this.modelRegistry,
+          provenance: this.provenance,
+          ids: this.artifactIds,
+          clock: this.clock,
+        },
+        {
+          orgId: toOrgId(principal.orgId),
+          actorId: principal.userId,
+          requestId: body.requestId ?? requestId,
+          exit: body.exit,
+          newModels: body.newModels,
+          newBudget: body.newBudget,
+          newDataScope: body.newDataScope,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ApprovalNotFoundError) throw new NotFoundException();
+      if (e instanceof ApprovalStatusChangedError) {
+        throw new ConflictException({ reasonCode: "APPROVAL_STATUS_CHANGED" });
+      }
+      if (e instanceof ApprovalExpiredError) throw new GoneException({ reasonCode: "APPROVAL_EXPIRED" });
+      if (e instanceof ModelPolicyViolationError) {
+        throw new UnprocessableEntityException({ reasonCode: "MODEL_POLICY_VIOLATION", detail: e.detail });
+      }
+      if (e instanceof RegistryUnavailableError) {
+        throw new UnprocessableEntityException({ reasonCode: "REGISTRY_UNAVAILABLE" });
+      }
+      throw e;
+    }
+  }
+
+  /** 查后台任务回流。见 `get-background-task.ts` 文件头：11-task 落地前的最小占位实现。 */
+  @Get("/chat/tasks/:taskId")
+  async backgroundTask(
+    @CurrentPrincipal() principal: Principal,
+    @Param("taskId") taskId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getBackgroundTask(
+        { chat: this.chat },
+        { orgId: toOrgId(principal.orgId), taskId },
+      );
+    } catch (e) {
+      if (e instanceof BackgroundTaskNotFoundError) throw new NotFoundException();
       throw e;
     }
   }

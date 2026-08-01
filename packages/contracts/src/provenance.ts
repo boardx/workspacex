@@ -134,6 +134,29 @@ export const ProvenanceEventType = z.enum([
    */
   "contact-revealed",
 
+  /**
+   * 🔴 F112（chat 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * 已签核的 `contracts/chat/domain.md` E 组 I-27…I-30 与 uc-8-2 R11 逐字要求批准闸门
+   * 「暂停 → 披露 → 人选 → 转后台」四段独立可验收，`decideApproval` 的 `auditEventId`
+   * 是契约 `out` 的一等字段——落痕不是可选项。最接近的既有成员都不是它：
+   * `human-edited` 是人工编辑草稿正文，不是对一次高影响动作的批复；
+   * `role-changed` 是组织/项目角色变更，与「批准了哪次调用」无关。拿它们顶包会让
+   * 「谁批准了这次高影响动作」与其它毫不相干的事件混进同一个类型——ADR-101 开篇
+   * 那条道理对本次同样成立，这里照抄处理方式，不发明第五种。
+   *
+   * 两个成员分开（`-requested` / `-decided`），不合并成一个 `approval-changed` +
+   * `detail.op`：与 ADR-101 决策 A 里「线程三值不合并」同一个理由——
+   * 「查全部批准通过事件」需要按类型筛，不能靠解析 `detail`（`queryProvenance` 无此能力）。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形：撤销这两行 + 迁移里对应的 CHECK 追加 + `create-approval-request.ts` /
+   * `decide-approval.ts` 失去写审计这一步。
+   */
+  "approval-requested",
+  "approval-decided",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
