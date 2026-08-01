@@ -23,6 +23,9 @@
  *   7. 模板版本 / 图类型切换      → structural
  */
 
+import type { z } from "zod";
+import { canvas as C } from "@repo/contracts";
+
 /** `ChangeDescriptor.kind` 的封闭取值——判定表七行各对应一个 kind。 */
 export const CHANGE_KINDS = [
   "sticky-text",
@@ -36,7 +39,8 @@ export const CHANGE_KINDS = [
 
 export type ChangeKind = (typeof CHANGE_KINDS)[number];
 
-export type ChangeClassification = "sticky-level" | "structural";
+/** 单一事实源：`ChangeClassification` 定义在 packages/contracts/src/canvas.ts。 */
+export type ChangeClassification = z.infer<typeof C.ChangeClassification>;
 
 /** 判定表本表——七行穷举，逐行可读，不用推导式压缩成一条正则/前缀判断。 */
 const CLASSIFICATION_TABLE: Readonly<Record<ChangeKind, ChangeClassification>> = {
