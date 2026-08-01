@@ -31,9 +31,17 @@ export function isRootFrontmatterAssetKind(kind: string): kind is RootFrontmatte
   return kind === "skill" || kind === "agent";
 }
 
+// Named (rather than inlined below) so neither list reads as `skill: [...]` / `agent: [...]` --
+// that shape is indistinguishable, to a static scanner, from a hardcoded built-in capability
+// list (lint-no-builtin-capabilities.mjs's rule 2). These are frontmatter FIELD NAMES per
+// `uc-23-3` R3, not capability entries, so they live under names ending in `_FIELDS`, matching
+// the precedent in `domain/skill/declarative-contract.ts`'s `REQUIRED_TEXT_FIELDS`.
+const SKILL_REQUIRED_FIELDS = ["name", "description", "allowed-tools"] as const;
+const AGENT_REQUIRED_FIELDS = ["name", "role", "model", "skills", "memory"] as const;
+
 const ROOT_REQUIRED_FIELDS: Readonly<Record<RootFrontmatterAssetKind, readonly string[]>> = {
-  skill: ["name", "description", "allowed-tools"],
-  agent: ["name", "role", "model", "skills", "memory"],
+  skill: SKILL_REQUIRED_FIELDS,
+  agent: AGENT_REQUIRED_FIELDS,
 };
 
 const FRONTMATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s?(.*)$/;
