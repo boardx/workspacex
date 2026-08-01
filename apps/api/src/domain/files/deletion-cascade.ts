@@ -29,24 +29,20 @@
  * second numeric literal for it is exactly the "same fact declared twice" failure this repo
  * has hit five times (AGENTS.md). If D-15 is ever revised, there is one place to change.
  */
-import { orgAdmin as OA } from "@repo/contracts";
+import { files as C, orgAdmin as OA } from "@repo/contracts";
+import type { z } from "zod";
 
-export const CASCADE_KINDS = [
-  /** ① 浏览器条目消失 */
-  "browser-entry",
-  /** ② 派生文件进队列 */
-  "derived-files",
-  /** ③ embedding 退出 pgvector */
-  "pgvector",
-  /** ④ FTS / Segment 退出召回 */
-  "fts-segments",
-  /** ⑤ ontology_edges 相关边失效（跨 09-kg，phase-02 契约桩 F47） */
-  "ontology-edges",
-  /** ⑥ 缓存与已构建 Context Pack 失效 */
-  "context-pack-cache",
-] as const;
+/**
+ * ⚠ 六值的唯一事实源是 `packages/contracts/src/files.ts` 的 `CascadeKind`（`z.enum`）。
+ * 这里只是把它的 `options` 摊平成一个数组，供 `assertSixCascadeKinds` 在运行时逐项核对——
+ * 不是第二份定义；契约改动会自动带动这里，不需要手改两处（ADR-020）。六值含义：
+ * ① browser-entry 浏览器条目消失 ② derived-files 派生文件进队列 ③ pgvector embedding 退出
+ * ④ fts-segments FTS/Segment 退出召回 ⑤ ontology-edges 相关边失效（跨 09-kg，phase-02
+ * 契约桩 F47） ⑥ context-pack-cache 缓存与已构建 Context Pack 失效。
+ */
+export const CASCADE_KINDS = C.CascadeKind.options;
 
-export type CascadeKind = (typeof CASCADE_KINDS)[number];
+export type CascadeKind = z.infer<typeof C.CascadeKind>;
 export type CascadeOutcome = "ok" | "failed" | "pending";
 export type DeletionTaskStatus = "pending" | "running" | "done" | "partial-failure";
 
