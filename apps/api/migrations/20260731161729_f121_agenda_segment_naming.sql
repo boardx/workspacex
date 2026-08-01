@@ -13,7 +13,18 @@
 -- `apps/api/tests/project/binding-segment-fk-no-orphan.test.ts`），约束与索引的**名字**
 -- 本身不含 `step_id` 这个禁用 token（`artifact_bindings_uniq_step` /
 -- `artifact_bindings_segment_fkey` 等都以 `_step` 或语义词结尾，不是 `_step_id`），
--- 因此本迁移不需要连带 RENAME CONSTRAINT / RENAME INDEX。
+-- 因此本迁移不需要连带 RENAME CONSTRAINT / RENAME INDEX——**这句话本身没错，但不够**。
+--
+-- ⚠ 2026-08-01 更正（issue #235）：0008/0030 后来还是被改了，但改的不是"改名"这件事，
+-- 是一个不相关的、`IF NOT EXISTS` 本身治不了的问题——0008/0030 里几条
+-- `CREATE INDEX IF NOT EXISTS` 语句字面写死了 `step_id`，`migrate:check` 强制重放这两
+-- 个文件本身时（它们排在本文件之前，重放到它们时列已经被本文件改名），Postgres 在
+-- 判定"这个索引名是否已存在"之前就先解析了列名，照样报错——`IF NOT EXISTS` 只挡得住
+-- 语句执行，挡不住列名解析。这跟"改名要不要连带 RENAME INDEX"是两回事：不需要
+-- RENAME INDEX（本节说的没错，改名后已有索引的定义会被 Postgres 自动更新），但
+-- 0008/0030 自己的语句在被重放时用的是没被改名影响到的、当初写死的字面文本，得让
+-- 它们自己知道"如果列已经不叫这个名字了，就跳过"。详细原因与修法见 0008/0030 文件内
+-- 对应位置的注释，不在此重复。
 --
 -- 两个引用 `step_id` 列的触发器函数（0008 的 `binding_mode_monotonic`、0030 的
 -- `interview_attachment_requires_pinned` / `interview_attachment_snapshot_frozen`）用
