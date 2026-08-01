@@ -20,15 +20,18 @@ import type {
   WizardInterviewRepository,
 } from "../../application/interview/outline-ports";
 
+/** F90：jsonb 数组里逐段多带一个可选 `status`——不建独立列，见 `markSectionStatus` 头注。 */
+type StoredOutlineSection = OutlineSectionDraft & { status?: "done" | "deferred" | null };
+
 interface OutlineRowShape {
   id: string;
   interview_id: string;
   status: OutlineStatusName;
-  sections: OutlineSectionDraft[];
+  sections: StoredOutlineSection[];
   manually_edited: boolean;
 }
 
-function toSectionRecords(sections: readonly OutlineSectionDraft[]): OutlineRecord["sections"] {
+function toSectionRecords(sections: readonly StoredOutlineSection[]): OutlineRecord["sections"] {
   // `sectionId` 不落库为独立列（本迁移把 sections 存成一整个 jsonb 数组，见迁移文件头），
   // 用 `${outlineId}-${order}` 派生一个稳定 id——同一段重新生成后顺序不变则 id 不变，
   // 这对 F85 未来做「保留某一段的手改」有意义，但那是它的范围，这里只保证 id 存在且稳定。
@@ -38,7 +41,11 @@ function toSectionRecords(sections: readonly OutlineSectionDraft[]): OutlineReco
     openers: s.openers,
     minutes: s.minutes,
     order: s.order,
-    status: null,
+    // F90：`create`/`replaceSections`/`updateSections` 都传纯 `OutlineSectionDraft[]`
+    // （没有 `status` 键），jsonb 里自然缺省 ⇒ 读回 `null`——AI 重新生成/研究员手改内容
+    // 都会清空完成态标记，与「内容变了，进度重新算」的直觉一致。只有 `markSectionStatus`
+    // 会往某一段写非 null 的 `status`。
+    status: s.status ?? null,
   }));
 }
 
@@ -170,6 +177,45 @@ export class PgOutlineRepository implements OutlineRepository {
           WHERE org_id = $2 AND id = $3
           RETURNING ${COLUMNS}`,
         [JSON.stringify(sections), orgId, outlineId],
+      );
+      const row = r.rows[0];
+      if (row === undefined) throw new Error(`outline ${outlineId} not found`);
+      return toRecord(row);
+    });
+  }
+
+  /**
+   * F90——逐段人工勾选完成态。⚠ 只重写命中的那一段的 `status`，`sections` 数组其余
+   * 元素原样带回：用 `jsonb_agg` + `CASE ... WHEN order 命中 THEN 覆盖 status`
+   * 重建整个数组，而不是先 `SELECT` 再在应用层拼好整份 `sections` 传回去——避免
+   * 「读出旧数组、拼接、整体覆盖」这种两步之间可能与 `updateSections`/`replaceSections`
+   * 交错的写-写竞争（同一行上直接一条 UPDATE 语句完成，数据库层面原子）。
+   * `sectionId` 是 `sec-${order}` 派生的（见 `toSectionRecords`），所以按
+   * `(elem->>'order')::int` 反解出 order 再比较。
+   */
+  async markSectionStatus(
+    orgId: OrgId,
+    outlineId: string,
+    sectionId: string,
+    status: "done" | "deferred",
+  ): Promise<OutlineRecord> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<OutlineRowShape>(
+        `UPDATE interview_outlines
+            SET sections = (
+              SELECT jsonb_agg(
+                CASE
+                  WHEN ('sec-' || (elem->>'order')) = $4
+                    THEN elem || jsonb_build_object('status', $3::text)
+                  ELSE elem
+                END
+                ORDER BY (elem->>'order')::int
+              )
+              FROM jsonb_array_elements(sections) AS elem
+            )
+          WHERE org_id = $1 AND id = $2
+          RETURNING ${COLUMNS}`,
+        [orgId, outlineId, status, sectionId],
       );
       const row = r.rows[0];
       if (row === undefined) throw new Error(`outline ${outlineId} not found`);

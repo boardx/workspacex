@@ -288,3 +288,21 @@ export class ConsentRequiredError extends Error {
     super(`CONSENT_REQUIRED: interview ${interviewId} has ${pendingSubjectIds.length} required subject(s) pending`);
   }
 }
+
+/* ─────────────────────────── F90：提纲逐段人工勾选（uc-6-4 R3，只有人能写） ─────────────────────────── */
+
+/**
+ * 提纲段落的完成态（`done`/`deferred`）恒**只能由人写**（契约 `setOutlineSectionStatus`
+ * 头注「记录 agent（Echo）只能写转写，不写任何状态字段」）。
+ *
+ * ⚠ 判定不看请求体里任何自称——`SetOutlineSectionStatusCommand.viewerActorKind` 由
+ *   调用方（HTTP 层身份中间件 / 记录 agent 适配层）判定，不接受客户端在请求体里
+ *   自己声明「我是人」。这是「服务端拒绝 origin: ai 的完成态写入」在类型层的落点：
+ *   `origin`/`actorKind` 从不来自可由调用者伪造的字段。
+ */
+export class AiWriteForbiddenError extends Error {
+  readonly code = "AI_WRITE_FORBIDDEN" as const;
+  constructor(readonly sectionId: string) {
+    super(`AI_WRITE_FORBIDDEN: section ${sectionId} status can only be written by a human`);
+  }
+}

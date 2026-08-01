@@ -98,6 +98,18 @@ export class InMemoryOutlineRepository implements OutlineRepository {
     return toRecord(row);
   }
 
+  /** F90——逐段人工勾选完成态；只改命中段落的 `status`，其余原样保留。 */
+  async markSectionStatus(
+    _orgId: OrgId,
+    outlineId: string,
+    sectionId: string,
+    status: "done" | "deferred",
+  ): Promise<OutlineRecord> {
+    const row = this.mustGet(outlineId);
+    row.sections = row.sections.map((s) => (s.sectionId === sectionId ? { ...s, status } : s));
+    return toRecord(row);
+  }
+
   private mustGet(outlineId: string): Row {
     const row = this.byOutlineId.get(outlineId);
     if (row === undefined) throw new Error(`outline ${outlineId} not found`);

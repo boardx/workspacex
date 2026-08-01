@@ -110,6 +110,21 @@ export interface OutlineRepository {
     outlineId: string,
     sections: readonly OutlineSectionDraft[],
   ): Promise<OutlineRecord>;
+
+  /**
+   * F90 —— 逐段人工勾选完成态（`done`/`deferred`）。⚠ 只改这一段的 `status`，
+   * 不触碰 `objective`/`openers`/`minutes`/大纲级 `status`/`manually_edited`——
+   * 与 `updateSections`（F85 逐段手改内容）故意分开：勾选完成态不是「编辑内容」，
+   * 不应该把大纲打回 `pending_confirm`（那是 `updateSections` 才有的副作用）。
+   * 调用方（`setOutlineSectionStatus`）已经拒绝了 `viewerActorKind === "agent"`，
+   * 这个方法本身不重复判定来源，只管写。
+   */
+  markSectionStatus(
+    orgId: OrgId,
+    outlineId: string,
+    sectionId: string,
+    status: "done" | "deferred",
+  ): Promise<OutlineRecord>;
 }
 
 export const OUTLINE_REPOSITORY = Symbol("OutlineRepository");
