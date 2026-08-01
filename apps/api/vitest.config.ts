@@ -17,25 +17,34 @@ export default defineConfig({
     // The gate tests shell out to node and boot a Nest app; the default 5s is too tight.
     testTimeout: 60_000,
     /**
-     * Root cause of issue #74 (full-suite nondeterminism: single run green, back-to-back
-     * runs red with a different failure set each time), found by measurement 2026-07-31:
+     * #76: `hookTimeout` was never set, so it stayed at vitest's default 10s. Every
+     * connected-DB test's `beforeAll` does docker liveness probing + replays every migration
+     * (49 files and climbing, see apps/api/migrations/) + its own fixture seeding -- nowhere
+     * near a 10s operation once the machine has any load on it. `testTimeout` was already
+     * raised to 60s for the same reason ("boots a Nest app"); the hook that runs BEFORE any
+     * test body is heavier than that and was left at 1/6th the budget.
      *
-     *   Postgres max_connections = 100
-     *   PgDatabase pool = { max: 5 } per instance, ~1 instance per integration test file
-     *   81/124 files import tests/support/db (need Postgres); 42 of those call `new PgDatabase`
-     *   Default vitest file parallelism on this 10-core host schedules ~10 files concurrently
+     * Why this matters more than "slow": the failure mode is a MISLEADING one. A hook
+     * timeout reports as `Test Files 1 failed (1)` / `Tests N skipped (N)` -- which reads as
+     * "could not collect this file" (a real prior incident here: `.tsx` missing from
+     * `include`), not as "ran out of time". On a loaded machine this turned a whole file's
+     * worth of real, passing tests into a false failure with a misdiagnosable error shape.
+     */
+    hookTimeout: 120_000,
+    /**
+     * Attempted fix for issue #74 (full-suite nondeterminism: single run green, back-to-back
+     * runs red with a different failure set each time). The hypothesis this was built on:
+     * concurrent test files racing Postgres's max_connections=100 ceiling.
      *
-     *   ⇒ one full local run can open up to ~10 files × ~7 connections (pool + raw
-     *   migration/app clients) ≈ 70 connections against a 100-connection ceiling, with no
-     *   margin for teardown lag between files. That is a connection-count race, not "load" --
-     *   it explains why the SAME command on an IDLE machine was measured to go
-     *   green / red(49) / red(61) / red(22) / green / green across six consecutive runs.
+     * ⚠ MEASURED NOT TO WORK, on its own: five consecutive full runs after adding this cap
+     * still hit 81/124 files failing on the second run (see commit 5c2c196's message -- the
+     * honest record; do not trust a comment over `git log -- <this file>`). #74 is still
+     * OPEN. The cap is kept because it is harmless and does lower worst-case concurrent
+     * connections, but it is not proof of anything and must not be read as one.
      *
-     * Capping the thread pool bounds worst-case concurrent connections to
-     * ~4 files × ~7 ≈ 28, leaving headroom even if two CI runs' teardown/startup overlap.
-     * This is NOT a workaround for slowness -- it is the fix for the nondeterminism itself.
-     * Counter-proof: five consecutive full runs on an idle machine, all green (recorded in
-     * issue #74's closing comment). If it goes red again, the cap is not the whole story.
+     * The most likely remaining direct cause is the hookTimeout gap fixed above -- #74's own
+     * body flags it as "should verify first" and it had never actually been tried before now.
+     * See #74 for the actual verification (repeated-run evidence), not this comment.
      */
     poolOptions: {
       threads: {
