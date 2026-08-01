@@ -37,7 +37,7 @@
  * declaration of the request contract, which is the one thing ADR-020 forbids outright.
  */
 import { MATERIALIZATION_PLAN, requiredFiles, storageKey } from "../../domain/artifact/materialization";
-import { computeContentHash, verifyContentHash } from "../../domain/artifact/content-hash";
+import { computeContentHash, verifyContentHash, versionContentHash } from "../../domain/artifact/content-hash";
 import type { OrgId } from "../../domain/org-id";
 import {
   ObjectExistsError,
@@ -93,6 +93,16 @@ export interface MaterializeInput {
   readonly agendaSegmentId?: string | null;
   readonly confidential?: boolean;
   readonly ingestionStatus?: string;
+
+  /**
+   * F44 passthrough to `NewArtifactVersion` -- see that type for why these are optional.
+   * `uploadNewVersion` (F44) is the first caller to set them explicitly (a human or agent
+   * adding a version to an EXISTING artifact, via upload or a derivation rerun); every other
+   * caller is unaffected and keeps the column defaults.
+   */
+  readonly versionCreatorKind?: "user" | "agent";
+  readonly versionAgentRunId?: string | null;
+  readonly versionChangeSource?: "upload" | "materialize" | "rerun";
 }
 
 export interface MaterializeResult {
@@ -221,7 +231,7 @@ export async function materializeArtifact(
   // One hash for the version, over the per-file hashes in plan order. A version is often
   // several files (survey = responses + schema), so hashing "the file" has no referent; the
   // ordered digest of the parts does, and it changes if any part changes.
-  const contentHash = computeContentHash(new TextEncoder().encode(hashes.join("\n")));
+  const contentHash = versionContentHash(hashes);
 
   await repo.createVersion({
     id: versionId,
@@ -247,6 +257,9 @@ export async function materializeArtifact(
     // Every other caller's `ingestionStatus` is undefined/`"READY"`, so this is `null` for
     // them and nothing gets queued behind an already-finished version.
     enqueueIngestionOutboxStep: input.ingestionStatus === "STORED" ? "EXTRACTED" : null,
+    creatorKind: input.versionCreatorKind,
+    agentRunId: input.versionAgentRunId,
+    changeSource: input.versionChangeSource,
   });
 
   return { artifactId, versionId, versionNumber, materializedKeys: written, contentHash };

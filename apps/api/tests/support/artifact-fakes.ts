@@ -12,12 +12,15 @@ import {
   ObjectExistsError,
   type ArtifactRepository,
   type ArtifactVersionRecord,
+  type DerivedRepresentationRecord,
   type IdFactory,
   type NewArtifact,
   type NewArtifactVersion,
+  type NewDerivedRepresentation,
   type NewSegment,
   type ObjectStore,
   type SegmentRecord,
+  type VersionListEntry,
 } from "../../src/application/artifact/ports";
 import { guard, type Guarded } from "../../src/application/security/permission-filter";
 import type { OrgId } from "../../src/domain/org-id";
@@ -106,6 +109,47 @@ export class FakeArtifactRepository implements ArtifactRepository {
 
   async findSegments(_orgId: OrgId, _versionId: string): Promise<readonly Guarded<SegmentRecord>[]> {
     return [];
+  }
+
+  /** F44 -- not exercised by F73's tests (no test here touches the version list). */
+  async listVersions(orgId: OrgId, artifactId: string): Promise<readonly VersionListEntry[]> {
+    return [...this.versions.values()]
+      .filter((v) => v.orgId === orgId && v.artifactId === artifactId)
+      .sort((a, b) => b.versionNumber - a.versionNumber)
+      .map((v) => ({
+        versionId: v.id,
+        versionNumber: v.versionNumber,
+        createdAt: v.pinnedAt,
+        creator: { type: v.creatorKind ?? "user", id: v.pinnedBy, agentRunId: v.agentRunId ?? null },
+        sizeBytes: v.sizeBytes,
+        sha256: v.contentHash,
+        changeSource: v.changeSource ?? "materialize",
+      }));
+  }
+
+  readonly derived = new Map<string, NewDerivedRepresentation & { createdAt: string }>();
+
+  /** F44 -- not exercised by F73's tests (no test here touches derived representations). */
+  async createDerived(d: NewDerivedRepresentation): Promise<void> {
+    this.derived.set(d.id, { ...d, createdAt: "2026-07-31T00:00:00Z" });
+  }
+
+  async listDerived(orgId: OrgId, artifactId: string): Promise<readonly DerivedRepresentationRecord[]> {
+    const versionIds = new Set(
+      [...this.versions.values()].filter((v) => v.orgId === orgId && v.artifactId === artifactId).map((v) => v.id),
+    );
+    return [...this.derived.values()]
+      .filter((d) => d.orgId === orgId && versionIds.has(d.derivedFrom))
+      .map((d) => ({
+        id: d.id,
+        derivedFrom: d.derivedFrom,
+        kind: d.kind,
+        objectStorageKey: d.objectStorageKey,
+        generatorModel: d.generatorModel,
+        generatorVersion: d.generatorVersion,
+        pipelineVersion: d.pipelineVersion,
+        createdAt: d.createdAt,
+      }));
   }
 }
 

@@ -53,3 +53,17 @@ export function verifyContentHash(objectStorageKey: string, expected: string, by
   const actual = computeContentHash(bytes);
   if (actual !== expected) throw new ContentHashMismatchError(objectStorageKey, expected, actual);
 }
+
+/**
+ * A version's `content_hash` (`materializeArtifact`'s), given the per-FILE hashes of the
+ * parts it is made of, in plan order.
+ *
+ * A version is often several files (survey = responses + schema), so "the hash of the file"
+ * has no single referent -- this is the ordered digest of the parts, and it changes if any
+ * part changes. Exported so callers that need to predict or compare a version's hash WITHOUT
+ * re-materializing it (F44's `uploadNewVersion`, checking whether a re-upload matches the
+ * current head) use the exact same formula rather than a second, driftable copy of it.
+ */
+export function versionContentHash(fileHashes: readonly string[]): ContentHash {
+  return computeContentHash(new TextEncoder().encode(fileHashes.join("\n")));
+}

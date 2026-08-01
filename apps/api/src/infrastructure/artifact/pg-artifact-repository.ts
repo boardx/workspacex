@@ -17,11 +17,15 @@ import type {
   AnchorKind,
   ArtifactRepository,
   ArtifactVersionRecord,
+  DerivedKind,
+  DerivedRepresentationRecord,
   NewArtifact,
   NewArtifactVersion,
+  NewDerivedRepresentation,
   NewSegment,
   SegmentKind,
   SegmentRecord,
+  VersionListEntry,
 } from "../../application/artifact/ports";
 import type { OrgId } from "../../domain/org-id";
 
@@ -65,11 +69,15 @@ export class PgArtifactRepository implements ArtifactRepository {
         await s.query(
           `INSERT INTO artifact_versions
              (id, org_id, artifact_id, version_number, object_storage_key, content_hash, mime,
-              size_bytes, pinned_by, context_pack_id, derived_from)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+              size_bytes, pinned_by, context_pack_id, derived_from,
+              creator_kind, agent_run_id, change_source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
           [
             v.id, v.orgId, v.artifactId, v.versionNumber, v.objectStorageKey, v.contentHash,
             v.mime, v.sizeBytes, v.pinnedBy, v.contextPackId, v.derivedFrom,
+            // F44: undefined -> column default ('user' / NULL / 'materialize'), same
+            // ?? convention F35 used for agendaSegmentId/confidential/ingestionStatus.
+            v.creatorKind ?? "user", v.agentRunId ?? null, v.changeSource ?? "materialize",
           ],
         );
 
@@ -214,6 +222,86 @@ export class PgArtifactRepository implements ArtifactRepository {
           [{ kind: "artifact", id: row.artifact_id }],
         );
       });
+    });
+  }
+
+  async listVersions(orgId: OrgId, artifactId: string): Promise<readonly VersionListEntry[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; version_number: number; pinned_at: Date; pinned_by: string;
+        size_bytes: string; content_hash: string; creator_kind: string; agent_run_id: string | null;
+        change_source: string;
+      }>(
+        `SELECT id, version_number, pinned_at, pinned_by, size_bytes, content_hash,
+                creator_kind, agent_run_id, change_source
+           FROM artifact_versions
+          WHERE org_id = $1 AND artifact_id = $2
+          ORDER BY version_number DESC`,
+        [orgId, artifactId],
+      );
+      return r.rows.map((row) => ({
+        versionId: row.id,
+        versionNumber: row.version_number,
+        createdAt: row.pinned_at.toISOString(),
+        creator: {
+          type: row.creator_kind as "user" | "agent",
+          id: row.pinned_by,
+          agentRunId: row.agent_run_id,
+        },
+        sizeBytes: Number(row.size_bytes),
+        sha256: row.content_hash,
+        changeSource: row.change_source as "upload" | "materialize" | "rerun",
+      }));
+    });
+  }
+
+  async createDerived(d: NewDerivedRepresentation): Promise<void> {
+    // No ON CONFLICT, same reasoning as `createVersion`: this only ever INSERTs a NEW row
+    // (A4 -- a rerun is a new derived version, never an update of the old one), and the
+    // `derived_key_not_an_original` trigger (0006) is what refuses a key collision with an
+    // original outright rather than silently reusing it.
+    await this.db.withTenant(d.orgId, (s) =>
+      s.query(
+        `INSERT INTO derived_representations
+           (id, org_id, derived_from, kind, object_storage_key, model, model_version, pipeline_version)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          d.id, d.orgId, d.derivedFrom, d.kind, d.objectStorageKey,
+          d.generatorModel, d.generatorVersion, d.pipelineVersion,
+        ],
+      ),
+    );
+  }
+
+  async listDerived(orgId: OrgId, artifactId: string): Promise<readonly DerivedRepresentationRecord[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; derived_from: string; kind: string; object_storage_key: string | null;
+        model: string | null; model_version: string | null; pipeline_version: string | null;
+        created_at: Date;
+      }>(
+        // Joined through artifact_versions rather than filtered by a denormalised
+        // artifact_id column on derived_representations: N-15 is precisely that this table
+        // only knows its VERSION, and a shortcut column here would be the second declaration
+        // of "which artifact" the whole point of `derived_from` is to avoid.
+        `SELECT d.id, d.derived_from, d.kind, d.object_storage_key, d.model, d.model_version,
+                d.pipeline_version, d.created_at
+           FROM derived_representations d
+           JOIN artifact_versions v ON v.id = d.derived_from AND v.org_id = d.org_id
+          WHERE d.org_id = $1 AND v.artifact_id = $2
+          ORDER BY d.created_at DESC`,
+        [orgId, artifactId],
+      );
+      return r.rows.map((row) => ({
+        id: row.id,
+        derivedFrom: row.derived_from,
+        kind: row.kind as DerivedKind,
+        objectStorageKey: row.object_storage_key,
+        generatorModel: row.model ?? "",
+        generatorVersion: row.model_version ?? "",
+        pipelineVersion: row.pipeline_version ?? "",
+        createdAt: row.created_at.toISOString(),
+      }));
     });
   }
 }

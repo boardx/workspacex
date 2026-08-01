@@ -108,6 +108,22 @@ export interface NewArtifactVersion {
   readonly pinnedBy: string;
   readonly contextPackId: string | null;
   /**
+   * F44 additions -- optional, same "undefined = column default" contract F35 set for
+   * `NewArtifact` (see `agendaSegmentId` above). Every pre-F44 caller (F04/F05/F06/F35)
+   * leaves these unset and gets `creator_kind = 'user'`, `agent_run_id = NULL`,
+   * `change_source = 'materialize'`, unchanged from what those rows always meant.
+   *
+   * `creatorKind`/`agentRunId` describe WHO wrote this particular version -- distinct from
+   * `pinnedBy` (an id with no shape) and from `artifacts.creator_kind` (one value for the
+   * whole logical object): two versions of the same artifact can come from different actors
+   * (a human uploads v1, an agent's re-run produces v2), and R3.a step 2's version list
+   * shows this per row, not once per artifact.
+   */
+  readonly creatorKind?: "user" | "agent";
+  readonly agentRunId?: string | null;
+  /** 'upload' | 'materialize' | 'rerun' -- R3.a step 2's "变更来源" column, per version. */
+  readonly changeSource?: "upload" | "materialize" | "rerun";
+  /**
    * F73 (migration `20260731153640_f73_recording_file_first`): the exact `artifact_versions.id`
    * this version was produced FROM, or `null` when this version is itself an original.
    *
@@ -168,6 +184,54 @@ export interface SegmentRecord {
   readonly anchors: readonly { kind: AnchorKind; locator: string }[];
 }
 
+/**
+ * One row of `listVersions.out` (contracts/files.ts) -- the version list's per-row shape
+ * (R3.a step 2). `downloadable` is not read off the row: I-2/I-1 make every written version
+ * downloadable forever, so the contract types it `literal(true)` and this record does not
+ * carry a boolean that could disagree with the schema.
+ */
+export interface VersionListEntry {
+  readonly versionId: string;
+  readonly versionNumber: number;
+  readonly createdAt: string;
+  readonly creator: { readonly type: "user" | "agent"; readonly id: string; readonly agentRunId: string | null };
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly changeSource: "upload" | "materialize" | "rerun";
+}
+
+/**
+ * A `derived_representations` row for the read side (`listDerived.out`).
+ *
+ * `objectStorageKey` is `null` exactly when `kind === "embedding"` (R3.b step 4: "除
+ * embedding 外" materialized) -- the DB CHECK `derived_representations_materialized_unless_embedding`
+ * (F44 migration) is the enforcement, this is its read shape.
+ */
+export interface DerivedRepresentationRecord {
+  readonly id: string;
+  readonly derivedFrom: string;
+  readonly kind: DerivedKind;
+  readonly objectStorageKey: string | null;
+  readonly generatorModel: string;
+  readonly generatorVersion: string;
+  readonly pipelineVersion: string;
+  readonly createdAt: string;
+}
+
+/** What `createDerived` needs to write one `derived_representations` row (F44). */
+export interface NewDerivedRepresentation {
+  readonly id: string;
+  readonly orgId: OrgId;
+  /** The exact `artifact_versions.id` this was derived FROM -- never an `artifactId` (N-15). */
+  readonly derivedFrom: string;
+  readonly kind: DerivedKind;
+  /** `null` iff `kind === "embedding"` -- see `DerivedRepresentationRecord`. */
+  readonly objectStorageKey: string | null;
+  readonly generatorModel: string;
+  readonly generatorVersion: string;
+  readonly pipelineVersion: string;
+}
+
 export interface ArtifactRepository {
   createArtifact(a: NewArtifact): Promise<void>;
   /** Throws on a duplicate (artifactId, versionNumber) -- I-10. F05 maps that to VERSION_CHANGED. */
@@ -189,6 +253,23 @@ export interface ArtifactRepository {
    * its segments (UC-0.3 R7).
    */
   findSegments(orgId: OrgId, versionId: string): Promise<readonly Guarded<SegmentRecord>[]>;
+
+  /**
+   * Every version of an artifact, newest first (R3.a step 2 -- the version list expands to
+   * this). Not filtered or paginated: R9's "50 版上限" is a display/perf budget on the
+   * caller's side, not a correctness boundary this port enforces.
+   */
+  listVersions(orgId: OrgId, artifactId: string): Promise<readonly VersionListEntry[]>;
+
+  /** Insert one `derived_representations` row (F44 / R3.b steps 4-5). Never updates a row. */
+  createDerived(d: NewDerivedRepresentation): Promise<void>;
+
+  /**
+   * Every derivative of an artifact's versions, newest first. Rerunning OCR does not delete
+   * or update the old row (A4 -- "旧派生版本保留可下载"), so an artifact that has been
+   * OCR'd twice returns TWO `ocr` rows here, not one.
+   */
+  listDerived(orgId: OrgId, artifactId: string): Promise<readonly DerivedRepresentationRecord[]>;
 }
 
 export const ARTIFACT_REPOSITORY = Symbol("ArtifactRepository");
