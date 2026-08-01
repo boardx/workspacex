@@ -232,6 +232,71 @@ describe("本地组织判定单一事实源", () => {
   });
 });
 
+/**
+ * D-U1 机密硬路由（全程本地，不分流）单一事实源（F51 / UC-20.3）
+ *
+ * `dataScopeConstraint` / `modelPolicyViolation` / `isModelSelectable`（`lib/mock/chat.ts`）
+ * 是批准卡与"更多设置"共用的纯函数，也是后端 `routeModelCall`（`apps/api`）落地时对齐的契约
+ * ——`apps/api/tests/capability/model/chat-datascope-contract.test.ts` 钉住后端那一半。
+ * 这里钉前端这一半：真正消费它的组件（批准卡 / composer 设置）没有另写一份判定，
+ * 且规则的落脚文案与 D-U1 裁决一致。
+ */
+describe("D-U1 机密硬路由单一事实源", () => {
+  const chatMock = readFileSync(new URL("../lib/mock/chat.ts", import.meta.url), "utf8");
+  const approvalCard = readFileSync(new URL("../components/chat/approval-card.tsx", import.meta.url), "utf8");
+  const composerSettings = readFileSync(new URL("../components/chat/composer-settings.tsx", import.meta.url), "utf8");
+
+  it("approval-card.tsx 从 dataScopeConstraint / modelPolicyViolation 推导，不自己判 hosting", () => {
+    expect(approvalCard).toMatch(/dataScopeConstraint/);
+    expect(approvalCard).toMatch(/modelPolicyViolation/);
+    const codeLines = approvalCard.split("\n").filter((l) => !/^\s*(\*|\/\/|\{\/\*)/.test(l));
+    // 手抄的迹象：组件里直接判断 localModelOnly && hosting === "cloud"，绕开纯函数自己下结论。
+    expect(codeLines.some((l) => /localModelOnly\s*&&.*hosting\s*===\s*"cloud"/.test(l))).toBe(false);
+  });
+
+  it("composer-settings.tsx（'更多设置'的模型切换）复用 isModelSelectable，不另写置灰判据", () => {
+    expect(composerSettings).toMatch(/isModelSelectable/);
+    const codeLines = composerSettings.split("\n").filter((l) => !/^\s*(\*|\/\/|\{\/\*)/.test(l));
+    expect(codeLines.some((l) => /hosting\s*===\s*"cloud"\s*&&\s*confidential/.test(l))).toBe(false);
+  });
+
+  it("D-U1 的语义是'整轮全程本地'，不是'机密走本地、云端承接非机密'（裁决原文逐字存在）", async () => {
+    expect(chatMock).toMatch(/裁决\s*D-U1/);
+    expect(chatMock).toMatch(/不是「机密走本地、云端承接非机密部分」/);
+    const { dataScopeConstraint, modelPolicyViolation, isModelSelectable, hasConfidential } = await import(
+      "../lib/mock/chat"
+    );
+    const scope = [
+      { id: "a", label: "项目库", confidential: false },
+      { id: "b", label: "电价曲线", confidential: true },
+    ];
+    expect(hasConfidential(scope)).toBe(true);
+    expect(dataScopeConstraint(scope)).toMatchObject({ localModelOnly: true });
+
+    const models = [
+      { id: "gpt-5.2", label: "gpt-5.2", hosting: "cloud" as const, version: "v1" },
+      { id: "qwen3-32b", label: "本地 qwen3-32b", hosting: "local" as const, version: "v1" },
+    ];
+    // 反证（不是分流）：混入云端模型即报违规——分流实现会把这种"云端+本地并存"判为合规。
+    expect(modelPolicyViolation(models, scope)).not.toBeNull();
+    expect(isModelSelectable(models[0]!, scope).ok).toBe(false);
+    expect(isModelSelectable(models[1]!, scope).ok).toBe(true);
+
+    // 反证（不是恒本地）：不含机密时两个模型都可选。
+    expect(modelPolicyViolation(models, [])).toBeNull();
+    expect(isModelSelectable(models[0]!, []).ok).toBe(true);
+  });
+
+  it("已知的原型缺口如实登记而非静默——净新屏 routing-screen.tsx 仍用自己的 mock 布尔量，非本 feature 范围", () => {
+    // agent-runtime/routing-screen.tsx 是 UI 先行原型净新屏（design-signoff 已登记），
+    // 用的是 lib/mock/agent-runtime.ts 的 ROUTING_HAS_CONFIDENTIAL，不经 chat.ts 的纯函数——
+    // 这是已知的、有出处的范围边界（该屏走自己的 mock 数据管线），不是本条断言要收敛的漂移，
+    // 如实登记，避免以后被误当成"新发现的重复"而重复修一遍。
+    const KNOWN_SEPARATE_MOCK_PIPELINE = ["apps/web/components/agent-runtime/routing-screen.tsx"];
+    expect(KNOWN_SEPARATE_MOCK_PIPELINE).toContain("apps/web/components/agent-runtime/routing-screen.tsx");
+  });
+});
+
 describe("设计 token 单一事实源", () => {
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
