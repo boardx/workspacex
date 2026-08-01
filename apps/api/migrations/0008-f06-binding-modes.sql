@@ -66,8 +66,30 @@ CREATE TABLE IF NOT EXISTS artifact_bindings (
   CONSTRAINT artifact_bindings_uniq_step UNIQUE (artifact_id, project_id, step_id)
 );
 
-CREATE INDEX IF NOT EXISTS artifact_bindings_project_idx
-  ON artifact_bindings (org_id, project_id, step_id);
+-- ⚠ 2026-08-01（issue #235）：guarded, not a plain `CREATE INDEX IF NOT EXISTS`.
+-- `IF NOT EXISTS` only skips the statement once an index of this NAME already exists --
+-- it does not skip *parsing* the column list first. Proven empirically (see the issue):
+-- `CREATE INDEX IF NOT EXISTS x ON t (renamed_col)` still throws `column does not exist`
+-- even when `x` already exists under its pre-rename definition. F121 renames `step_id` to
+-- `agenda_segment_id` (Postgres auto-updates this index's OWN definition when that
+-- happens -- renaming a column does not drop dependent indexes) but cannot stop THIS
+-- FILE's literal SQL text from still saying `step_id` the next time this file itself is
+-- replayed (`migrate:check` force-replays every file, and this one sorts before F121 by
+-- filename, so it replays against an already-renamed column). Guarding on the column's
+-- current name is what "replayable in isolation" (this file's own header, line 29) has to
+-- mean once ANY later migration is allowed to rename a column an earlier file references --
+-- the alternative is forbidding renames forever, which is a worse constraint than this one
+-- extra guard.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'artifact_bindings' AND column_name = 'step_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS artifact_bindings_project_idx
+      ON artifact_bindings (org_id, project_id, step_id);
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------------------
 -- The pinned version must belong to the artifact being bound

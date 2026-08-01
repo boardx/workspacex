@@ -122,14 +122,28 @@ $$;
 -- 一场访谈对同一个环节只能有**一条活着的**挂载。
 -- 部分唯一索引而不是普通 UNIQUE：解除后再挂回同一环节是正常操作（A3），
 -- 普通 UNIQUE 会把「重新挂上」变成一次冲突，于是实现者就会去删旧行 —— 留痕当场没了。
-CREATE UNIQUE INDEX IF NOT EXISTS interview_step_attachments_active_uniq
-  ON interview_step_attachments (org_id, interview_id, project_id, step_id)
-  WHERE detached_at IS NULL;
-
 CREATE INDEX IF NOT EXISTS interview_step_attachments_interview_idx
   ON interview_step_attachments (org_id, interview_id, attached_at);
-CREATE INDEX IF NOT EXISTS interview_step_attachments_step_idx
-  ON interview_step_attachments (org_id, project_id, step_id);
+
+-- ⚠ 2026-08-01（issue #235）：以下两条 guarded，不是裸 `CREATE INDEX IF NOT EXISTS`。
+-- 理由与 0008 的 artifact_bindings_project_idx 那条完全一样（同一个根因，同一处修法，
+-- 见那边的注释）：`IF NOT EXISTS` 只在索引名已存在时跳过语句本身，不跳过先解析列
+-- 名——F121 把 step_id 改名后（Postgres 会自动更新这两条索引已有的定义，改名不会
+-- 让依赖的索引失效），这两条语句字面文本仍然写着 step_id，本文件下次被
+-- `migrate:check` 重放时会直接报 column 不存在。
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'interview_step_attachments' AND column_name = 'step_id'
+  ) THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS interview_step_attachments_active_uniq
+      ON interview_step_attachments (org_id, interview_id, project_id, step_id)
+      WHERE detached_at IS NULL;
+    CREATE INDEX IF NOT EXISTS interview_step_attachments_step_idx
+      ON interview_step_attachments (org_id, project_id, step_id);
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------------------
 -- 门 ①：只有固定快照能被挂（REQUIRES_PINNED）
