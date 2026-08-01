@@ -3274,7 +3274,7 @@
         "F144"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w1-research2",
       "verification": [
@@ -3283,7 +3283,7 @@
         "pnpm --filter api exec vitest run tests/research/run-partial-routes-visible.test.ts",
         "pnpm --filter web exec vitest run tests/ui/research-detail-four-sections.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F145.verify.log @ 2026-08-01T01:59:42.918Z",
       "notes": "契约面：`operations.getResearchDetail` / `operations.runResearch` / `ResearchResult` / `ResearchRun`。\n⚠ **N-3 落在形状上而不是注释里**：`getResearchDetail` **没有任何** `minConfidence` / `hideLowConfidence` 参数——加一个就是给「丢弃」开门，而 `res.goal` 逐字是「低置信度**必须标出而不是丢弃**」。\n⚠ **E1 的可断言面是三件**：`plannedRoutes` / `completedRoutes` / `failedRoutes`。只返回一个 `success: boolean` 的实现会让「3 挂 9 成」与「全挂」在响应里长得一样。\n⚠ 断言**性质**不是数量：断言「0.3 那条出现在段 ③」，**不是** `toHaveLength(14)`（纪律第 9 条 / coding-standards E-4）。\n⚠ 执行步骤①的分类计数必须与来源偏好口径**同源**（R7.4），否则是第二份来源枚举；全称↔简称映射 **Q-7 未裁** ⇒ 契约里键是 `z.string()`（`KNOWN_CONTRACT_GAPS.R8`），**这条断言在 Q-7 裁定前写不成机械判据**。\n⚠ 对话消息本体**复用 `chat` 束**（X-H，已签核），不起第二套对话模型。"
     },
     {
