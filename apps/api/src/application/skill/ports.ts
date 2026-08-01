@@ -26,6 +26,7 @@ import type {
   WorkflowTemplateBody,
 } from "../../domain/skill/orchestration";
 import type { ThreadSkillMount } from "../../domain/skill/thread-mount";
+import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
 
 /**
  * 提交人**当时**持有的数据范围（I-12 的上界）。
@@ -265,4 +266,41 @@ export interface ReferenceSnapshotStorePort {
 /** 硬删/停用判定需要知道来源标记（`CC` ⇒ `BUILTIN_NOT_DELETABLE`，I-13）。 */
 export interface SkillSourcePort {
   sourceOf(skillId: string): Promise<SkillOriginTag | null>;
+}
+
+/* ═══════════════════ F62：评审职能 / 可见性范围 / 满意度 ═══════════════════ */
+
+/**
+ * **组织管理员指派的评审职能**解析（I-5）。⚠ 本端口只回答「这个人此刻是什么职能」，
+ * 不做鉴权判断——「职能对不对／能不能自审」的判断在
+ * `domain/skill/review-authorization.ts` 的纯函数里，端口只负责取数。
+ */
+export interface ReviewerFunctionPort {
+  functionOf(principalId: string): Promise<ReviewerFunctionValue | null>;
+  /**
+   * 该组织内，除 `excludePrincipalId` 外是否**还有至少一名**方法论审核人。
+   * ⚠ 只在「提交人＝审核人」分支下才需要回答这个问题（`NO_SECOND_REVIEWER` 的判据，A4）——
+   *   刻意不做成「列出全部审核人」，列表本身对本次判定是多余信息。
+   */
+  anotherMethodologyReviewerExists(orgId: string, excludePrincipalId: string): Promise<boolean>;
+}
+
+/**
+ * 四入口共用的可见性范围读端口（I-14）。
+ *
+ * ⚠ 与上面 `SkillVisibilityPort`（F63：可绑定池判定，只在 `已启用` 上生效）**不是同一个端口**：
+ *   那个端口回答「这个 skill 现在能不能被绑定」，这个端口回答
+ *   「这个 skill 配置的可见性范围是什么、归哪个团队」——可见性范围与评审/启用状态是
+ *   两个独立字段，不合并（notes 逐字）。
+ * ⚠ 返回 `null` 表示「不存在」——由调用方统一折成 `SKILL_NOT_FOUND`（404 非 403，I-14）。
+ */
+export interface SkillVisibilityScopePort {
+  scopeOf(
+    skillId: string,
+  ): Promise<{ readonly visibility: "org-wide" | "team-only"; readonly ownerTeamId: string | null } | null>;
+}
+
+/** 满意度 👍/👎 计数读端口。⚠ 只读计数，**不算比值**——比值口径单源在 domain 层（O-37）。 */
+export interface SatisfactionCountsPort {
+  countsOf(skillId: string): Promise<{ readonly up: number; readonly down: number }>;
 }
