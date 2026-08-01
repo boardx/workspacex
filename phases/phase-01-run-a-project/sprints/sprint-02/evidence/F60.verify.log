@@ -1,6 +1,6 @@
 # F60 verification evidence
 
-date: 2026-08-02
+date: 2026-08-02 (rebased onto origin/main @ 0e004f8a)
 branch: worker/w3-agent6-01-F60
 issue: #296
 
@@ -29,8 +29,9 @@ $ pnpm --filter api exec vitest run tests/capability/agent/anomaly-10x-24h-rate-
 
 ## Additional checks
 
-- `pnpm --filter api exec vitest run tests/capability/agent/` — full agent capability suite,
-  14 files / 130 tests, all pass (no regression vs F53/F56/F57/F58/F59 siblings).
+- `pnpm --filter api exec vitest run tests/capability/agent/` — full agent capability suite
+  (after rebasing onto origin/main with F58/F59 merged), 19 files / 187 tests, all pass
+  (no regression vs F53/F56/F57/F58/F59 siblings).
 - `pnpm --filter @repo/contracts run typecheck` — exit 0.
 - `pnpm --filter api run typecheck` — pre-existing failures only in `packages/fabric-markdown`
   (unrelated package, not touched by this feature; `TS2304 Cannot find name 'Element'/'document'`
