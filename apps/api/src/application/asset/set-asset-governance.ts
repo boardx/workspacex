@@ -14,6 +14,12 @@
  * ⚠ Editability gate only applies once governance already exists: bootstrapping the very first
  * governance record for an asset cannot be blocked by an `editableBy` set that does not exist
  * yet. Once a record exists, only the owner or a member of `editableBy` may overwrite it.
+ *
+ * ⚠ F135 (`uc-23-4` R7 rule 1, domain I-14): the actual persistence + `requiresCosign` derivation
+ * below is delegated to `writeAssetGovernanceVisibility` -- that function, not this one, is the
+ * single write path a future automatic downgrade (`uc-23-6`, F138/F139) must also call. This
+ * function's own job stops at "is the caller allowed, is the draft complete" -- the write itself
+ * lives in one place so a second caller cannot reimplement it slightly differently.
  */
 import { assetGovernance as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -22,6 +28,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository } from "../identity/ports";
 import type { AssetGovernanceRecord, AssetGovernanceRepository } from "./ports";
 import { AssetOrgScopeDeniedError } from "./get-asset-directory";
+import { writeAssetGovernanceVisibility } from "./write-asset-visibility";
 
 export type SetAssetGovernanceResult = z.infer<typeof C.operations.setAssetGovernance.out>;
 
@@ -70,14 +77,20 @@ export async function setAssetGovernance(
   }
 
   // Fields are guaranteed present past the completeness check above.
-  const record: AssetGovernanceRecord = {
+  const draftRecord: AssetGovernanceRecord = {
     visibility: input.draft.visibility!,
     teamIds: input.draft.visibility === "specified-teams" ? [...(input.draft.teamIds ?? [])] : [],
     editableBy: [...(input.draft.editableBy ?? [])],
     ownerId: input.draft.ownerId!,
     reviewCycle: input.draft.reviewCycle!,
   };
-  await deps.governance.set(input.assetKind, input.assetId, record);
+  // The single write path (F135) -- see the header and `write-asset-visibility.ts`.
+  const { record, requiresCosign } = await writeAssetGovernanceVisibility(
+    deps,
+    input.assetKind,
+    input.assetId,
+    draftRecord,
+  );
 
   return {
     governance: {
@@ -89,6 +102,6 @@ export async function setAssetGovernance(
     },
     // Cosign flow itself is out of scope here -- this feature only surfaces the one bit the
     // contract defines (`requiresCosign`), it does not invent an approval workflow (uc-23-4 A1).
-    requiresCosign: record.visibility === "whole-org",
+    requiresCosign,
   };
 }

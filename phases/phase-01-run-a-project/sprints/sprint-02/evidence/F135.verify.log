@@ -1,0 +1,125 @@
+F135 verification log — 2026-08-01
+branch HEAD: worker/w2-asset4-01-F135, based on origin/main 10401afef1aeffac66d297dc611cb18613d905aa
+
+== pnpm --filter @repo/contracts run test ==
+
+> @repo/contracts@0.0.0 test /private/tmp/f135-worktree/packages/contracts
+> vitest run
+
+ RUN  v2.1.9 /private/tmp/f135-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 3ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 3ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 4ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 8ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 63ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 30ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+
+
+== pnpm --filter api exec vitest run tests/asset/visibility-single-write-path.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f135-worktree/apps/api
+
+ ✓ tests/asset/visibility-single-write-path.test.ts (5 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+
+== pnpm --filter api exec vitest run tests/asset/visibility-whole-org-requires-cosign.test.ts ==
+
+ RUN  v2.1.9 /private/tmp/f135-worktree/apps/api
+
+ ✓ tests/asset/visibility-whole-org-requires-cosign.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
+
+== apps/api/scripts/verify-rls.sh ==
+
+== bringing up postgres, resetting to an empty database ==
+ Container workspacex-kernel-postgres-1 Running
+== applying migrations as the owner ==
+applied 0 migration(s), skipped 58
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
+  ✓ audit is not idle: 80 tenant tables classified ok (floor 46)
+  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced
+
+== additional self-checks (not required by feature verification, per issue #74 + session-handoff practice) ==
+
+pnpm --filter api run typecheck -> exit 2, but ONLY due to packages/fabric-markdown (pre-existing,
+unrelated to this feature) missing 'dom' in its tsconfig lib. Zero errors reported against any
+file this feature touches (apps/api/src/application/asset/{set-asset-governance,write-asset-visibility}.ts,
+apps/api/tests/asset/visibility-*.test.ts) -- confirmed by grep on full output.
+A/B proof: `git stash` on this branch (removing this feature's changes) against the same
+origin/main baseline reproduces the identical error count (124) -- this feature introduces
+zero new typecheck failures.
+
+pnpm --filter api run lint -> exit 0 (all gates ✅, incl. lint-arch-deps 536 files,
+lint-naming-single-source, lint-no-builtin-capabilities)
+
+pnpm --filter api exec vitest run tests/contract-single-source.test.ts -> 4 passed
+  (confirms this feature did not redefine any @repo/contracts type in a backend interface/type)
+
+pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts -> 29 passed
+  (no change to permission code in this feature; allowlist untouched)
+
+pnpm --filter api exec vitest run tests/asset/ -> 9 files, 66 tests passed
+  (full regression sweep of the asset bundle, including F134/F136's existing suites)
+
+node apps/api/scripts/lint-naming-single-source.mjs -> ✅ 0 offenders
+
+== What this feature implements ==
+
+1. `apps/api/src/application/asset/write-asset-visibility.ts` (new): the single function that
+   persists a visibility-bearing `AssetGovernanceRecord` (`writeAssetGovernanceVisibility`) and
+   derives `requiresCosign` from it. This is the one and only call site of
+   `AssetGovernanceRepository.set` for a governance write anywhere under
+   `apps/api/src/{application,domain}/asset` -- enforced by a source-scan test
+   (`visibility-single-write-path.test.ts`) so a future automatic downgrade (`uc-23-6`,
+   F138/F139, not built here) has structurally nowhere else to write from (domain I-14).
+
+2. `apps/api/src/application/asset/set-asset-governance.ts` (modified): now delegates the
+   actual persistence + `requiresCosign` derivation to `writeAssetGovernanceVisibility` instead
+   of calling `deps.governance.set` inline. Permission/completeness checks (already F134's
+   scope) are unchanged.
+
+3. `visibility-whole-org-requires-cosign.test.ts` (new): `visibility: "whole-org"` ->
+   `requiresCosign: true` (with counter-proof against always-true/always-false); `visibility:
+   "specified-teams"` with empty `teamIds` cannot be saved (`GOVERNANCE_INCOMPLETE`, folded into
+   the `visibility` field per F134's own design, not a fifth field); and the response shape
+   carries no invented approval-flow field (only `governance` + `requiresCosign`).
+
+4. `visibility-single-write-path.test.ts` (new): source-scans `src/application/asset` and
+   `src/domain/asset` to assert exactly one call site of `governance.set(...)` exists (in
+   `write-asset-visibility.ts`), plus a behavioral check that `setAssetGovernance`'s persisted
+   side effect is identical to calling `writeAssetGovernanceVisibility` directly.
+
+Not implemented (out of scope, matches issue #252's own boundary notes):
+- The cosign/联签 approval workflow itself ([待确认], `uc-23-4` A1) -- only `requiresCosign: true`
+  is surfaced, no approval state machine invented.
+- The automatic 30-day-no-review downgrade (`uc-23-6`, F138/F139) -- this feature only makes
+  the write path a future downgrade must use, it does not build the scan/timer/downgrade logic.
+- Enforcing `负责人 ∈ editableBy` (Q-9, undecided).
