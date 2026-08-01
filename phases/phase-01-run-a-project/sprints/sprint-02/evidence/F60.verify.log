@@ -1,0 +1,80 @@
+# F60 verification evidence
+
+date: 2026-08-02
+branch: worker/w3-agent6-01-F60
+issue: #296
+
+## Commands (all exit 0)
+
+```
+$ pnpm --filter api exec vitest run tests/capability/agent/toolcall-four-fields-namespace.test.ts
+$ pnpm --filter api exec vitest run tests/capability/agent/no-trace-no-call.test.ts
+$ pnpm --filter api exec vitest run tests/capability/agent/callchain-depth-no-inherit.test.ts
+$ pnpm --filter api exec vitest run tests/capability/agent/anomaly-10x-24h-rate-limit.test.ts
+```
+
+## Combined output
+
+```
+ RUN  v2.1.9 /private/tmp/f60-worktree/apps/api
+
+ ✓ tests/capability/agent/anomaly-10x-24h-rate-limit.test.ts (13 tests) 21ms
+ ✓ tests/capability/agent/callchain-depth-no-inherit.test.ts (12 tests) 17ms
+ ✓ tests/capability/agent/toolcall-four-fields-namespace.test.ts (9 tests) 17ms
+ ✓ tests/capability/agent/no-trace-no-call.test.ts (5 tests) 16ms
+
+ Test Files  4 passed (4)
+      Tests  39 passed (39)
+```
+
+## Additional checks
+
+- `pnpm --filter api exec vitest run tests/capability/agent/` — full agent capability suite,
+  14 files / 130 tests, all pass (no regression vs F53/F56/F57/F58/F59 siblings).
+- `pnpm --filter @repo/contracts run typecheck` — exit 0.
+- `pnpm --filter api run typecheck` — pre-existing failures only in `packages/fabric-markdown`
+  (unrelated package, not touched by this feature; `TS2304 Cannot find name 'Element'/'document'`
+  from missing DOM lib config). No errors in `apps/api/src/domain/agent/**` or the new test files.
+- `pnpm --filter api exec vitest run tests/contract-single-source.test.ts` — 4/4 pass (no new
+  zod object schema declared outside `@repo/contracts`; no contract type redefined).
+- Per issue #74: Postgres-dependent tests skipped locally (none of this feature's verification
+  commands require Postgres — all four are pure-function domain tests over injected fakes).
+
+## What was implemented
+
+- `apps/api/src/domain/agent/tool-call-audit.ts` — `classifyToolNamespace` (builtin
+  `graph.`/`brain.` vs `mcp:<server>.<tool>`, reusing F52's `isReservedToolFullName` /
+  `parseMcpToolFullName`), `recordToolCall` (tool-call four elements + I-44 hard precondition:
+  audit write failure throws `ProvenanceWriteFailedError`, no success value is ever returned).
+- `apps/api/src/domain/agent/call-chain.ts` — `recordCallChainHop`: depth cap (O-36 = 2, read
+  from `thresholds.ts`, not hardcoded), depth-3 termination with trace (I-46), callee permission
+  evaluated independently via F56's `intersectAgentPermission` with no `callerPermission`
+  parameter accepted at all (I-47 structural guarantee), pause-for-approval vs auto-approve
+  (`已暂停` / `人已批准`), `AGENT_DISABLED` / `EFFECTIVE_PERMISSION_DENIED` /
+  `CALL_DEPTH_EXCEEDED` / `PROVENANCE_WRITE_FAILED` error paths all write an audit trace before
+  throwing.
+- `apps/api/src/domain/agent/anomaly-detection.ts` — `detectQuotaAnomaly` (relative-to-baseline
+  10x/24h judgment, O-36, division-by-zero guarded), `raiseQuotaAnomaly` (auto rate limit +
+  `visibleToSubject: true`), `interceptUnauthorizedCall` (intercept + count, not just log),
+  `markAnomalyNormal` (reason required).
+- `packages/contracts/src/thresholds.ts` — added `agentQuotaAnomalyMultiplier` (10),
+  `agentQuotaAnomalyWindowHours` (24), `agentCallChainMaxDepth` (2) as `known: true` resolved
+  thresholds, sourced to the already-decided O-36 items 3/4 in
+  `requirements/04-agent/uc-4-4-agent-行为审计.md`.
+- Test files (39 new tests across 4 files + 1 shared fixture) under
+  `apps/api/tests/capability/agent/`.
+
+## Scope notes / gaps (not implemented, out of this pass)
+
+- This pass covers the four server-side capability tests named in the issue's verification list
+  only (tool-call four elements + namespace, write-failure-fails-the-call, call-chain
+  depth/no-inherit, anomaly 10x/24h). The wider UC-4.4 surface (project-level audit timeline
+  query/export, drill-down, org-level audit search screen D-34, decideApproval's LangGraph
+  HITL/checkpoint wiring, actual Postgres-backed `provenance_events` append-only enforcement,
+  agent_runs/agent_steps/context_packs replay) already has contract shapes in
+  `packages/contracts/src/agent-runtime.ts` (`operations.recordToolCall`,
+  `recordCallChainHop`, `queryAuditTimeline`, `queryOrgAudit`, `listAnomalies`,
+  `markAnomalyNormal`, etc.) but no server route / DB wiring yet — that is real remaining work,
+  not silently dropped scope.
+- `needs_ui_signoff=true` per feature notes for the org-level audit search screen (D-34); this
+  pass is server-side domain logic only, no UI.
