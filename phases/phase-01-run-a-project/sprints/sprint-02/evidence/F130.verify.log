@@ -1,0 +1,45 @@
+$ pnpm --filter api run typecheck
+
+> @repo/api@0.0.0 typecheck /private/tmp/f130-worktree/apps/api
+> tsc --noEmit
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-pure-fn.test.ts
+
+ RUN  v2.1.9 /private/tmp/f130-worktree/apps/api
+
+ ✓ tests/mcp/tool-scope-cap-pure-fn.test.ts (9 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  19:57:57
+   Duration  379ms (transform 150ms, setup 0ms, collect 197ms, tests 2ms, environment 0ms, prepare 44ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-server-enforced.test.ts
+
+ RUN  v2.1.9 /private/tmp/f130-worktree/apps/api
+
+ ✓ tests/mcp/tool-scope-cap-server-enforced.test.ts (8 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  19:57:58
+   Duration  236ms (transform 56ms, setup 0ms, collect 65ms, tests 2ms, environment 0ms, prepare 33ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts
+
+ RUN  v2.1.9 /private/tmp/f130-worktree/apps/api
+
+ ✓ tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  19:57:59
+   Duration  417ms (transform 182ms, setup 0ms, collect 234ms, tests 3ms, environment 0ms, prepare 46ms)
+
+[exit 0]
