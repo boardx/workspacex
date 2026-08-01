@@ -142,6 +142,40 @@ export class PgOutlineRepository implements OutlineRepository {
       return toRecord(row);
     });
   }
+
+  async getById(orgId: OrgId, outlineId: string): Promise<OutlineRecord | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<OutlineRowShape>(
+        `SELECT ${COLUMNS} FROM interview_outlines WHERE org_id = $1 AND id = $2`,
+        [orgId, outlineId],
+      );
+      const row = r.rows[0];
+      return row === undefined ? null : toRecord(row);
+    });
+  }
+
+  /** F85——逐段手改覆盖点：`manually_edited` 恒置 true；已确认过的大纲改后打回 `pending_confirm`。 */
+  async updateSections(
+    orgId: OrgId,
+    outlineId: string,
+    sections: readonly OutlineSectionDraft[],
+  ): Promise<OutlineRecord> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<OutlineRowShape>(
+        `UPDATE interview_outlines
+            SET sections = $1::jsonb,
+                manually_edited = true,
+                status = CASE WHEN status = 'confirmed' THEN 'pending_confirm' ELSE status END,
+                confirmed_at = CASE WHEN status = 'confirmed' THEN NULL ELSE confirmed_at END
+          WHERE org_id = $2 AND id = $3
+          RETURNING ${COLUMNS}`,
+        [JSON.stringify(sections), orgId, outlineId],
+      );
+      const row = r.rows[0];
+      if (row === undefined) throw new Error(`outline ${outlineId} not found`);
+      return toRecord(row);
+    });
+  }
 }
 
 export class PgWizardInterviewRepository implements WizardInterviewRepository {

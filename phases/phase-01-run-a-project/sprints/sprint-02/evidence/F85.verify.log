@@ -1,0 +1,94 @@
+$ pnpm --filter api exec vitest run tests/itv/outline-goal-before-two-questions.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f85-worktree/apps/api
+
+ ✓ tests/itv/outline-goal-before-two-questions.test.ts (16 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  15:58:40
+   Duration  243ms (transform 43ms, setup 0ms, collect 47ms, tests 3ms, environment 0ms, prepare 29ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv/research-plan-params-render.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f85-worktree/apps/api
+
+ ✓ tests/itv/research-plan-params-render.test.ts (32 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  32 passed (32)
+   Start at  16:00:17
+   Duration  209ms (transform 18ms, setup 0ms, collect 14ms, tests 3ms, environment 0ms, prepare 35ms)
+
+
+$ (cd apps/api && pnpm exec tsc --noEmit -p . 2>&1 | grep -v fabric-markdown)
+[exit 0, no output — the only errors tsc reports live in packages/fabric-markdown/**
+ (124 pre-existing errors, confirmed present on origin/main before this branch's changes
+ via `git stash` + rerun; unrelated to apps/api/src or apps/api/tests)]
+
+$ node scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=508 tenant-tables=75 allowlisted=24
+
+$ node scripts/lint-naming-single-source.mjs
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+
+## 说明（issue #74）
+
+本机不跑 Postgres，两条 vitest 命令均为纯单元测试（`InMemoryOutlineRepository`
+fake，见 `apps/api/tests/support/outline-fakes.ts`），未连库。
+`PgOutlineRepository` 新增的 `getById` / `updateSections` 两个方法只经过 `tsc`
+类型检查，未跑集成测试（现有 F84 集成测试 `wizard-three-steps-carryover.test.ts`
+/ `draft-not-confirmed-reject-onsite.test.ts` 依赖 Postgres，同样跳过；它们调用
+的 `confirmOutline` 因新增 `getById` 校验分支而变化，但 F84 生成的草案本身满足
+AC1（每段有目标 + 两条开场问法），新增的完整性校验不应改变其原有结果——
+已在 `outline-goal-before-two-questions.test.ts`「首次生成即可确认」一测里
+用同一个 `generateOutlineDraft` 产出验证这条不变量）。
+
+## 实现范围
+
+- `domain/interview/outline.ts`：新增 `isSectionComplete` / `countIncompleteSections`
+  / `totalOutlineMinutes`（AC1 完整性判定 + 合计时长）。
+- `domain/interview/research-plan.ts`（新文件）：`renderResearchPlanPanel`（研究计划
+  参数面板四行）+ `compressionHint`（E6 压缩提示）+ `multiPersonMinutes`（多人场时长
+  派生）。`retentionDays` 全程作为入参传递，文件中不出现任何写死的保留天数。
+- `application/interview/confirm-outline.ts`：补上 AC1 完整性校验，缺项时抛
+  `OutlineIncompleteError`（`OUTLINE_INCOMPLETE`）。
+- `application/interview/update-outline-section.ts`（新文件）：逐段手改，`null`
+  字段表示不改；编辑后 `manuallyEdited` 置真，已确认大纲打回 `pending_confirm`；
+  `sectionId` 不存在时抛 `OutlineSectionConcurrentModificationError`
+  （`CONCURRENT_MODIFICATION`）。
+- `application/interview/errors.ts`：新增 `OutlineIncompleteError` /
+  `DurationExceedsPlanError` / `OutlineSectionConcurrentModificationError`，
+  码值取自契约 `interview.InterviewError`（`updateOutlineSection` /
+  `confirmOutline` 的 `err` 列表）。
+- `application/interview/outline-ports.ts`：`OutlineRepository` 新增 `getById` /
+  `updateSections` 两个方法。
+- `infrastructure/interview/pg-outline-repository.ts`：上述两个方法的 Postgres
+  实现（`updateSections` 用 `CASE WHEN status='confirmed'` 把手改后的确认态打回
+  `pending_confirm`）。
+
+## 已知缺口（如实报告）
+
+- 未接 HTTP 路由——F84 同样没有为大纲相关端点接 `interface` 层路由，本 feature
+  延续这个现状（应用层函数可被直接调用/测试，契约里的 `updateOutlineSection` /
+  `readResearchPlanParams` / `updateResearchPlanParams` 路径尚未有 Express/Fastify
+  handler）。
+- `readResearchPlanParams` / `updateResearchPlanParams` 的持久化端口未实现——
+  面板的四个可配置字段（`plannedMinutes` / `sameOrgLimit` / `trainingProhibited` /
+  联系人三项）目前没有落库仓储；本 feature 只交付了纯渲染函数
+  `renderResearchPlanPanel`（输入即契约 `ResearchPlanParams` 的形状）。`retentionDays`
+  一项已经与 `domain/recording/retention.ts` 的 `resolveMaterialRetention` 对齐
+  （同一个解析结果，本文件不重算）。
+- `DurationExceedsPlanError` 定义了但未在任何调用路径上被抛出——E6 的措辞是
+  「提示不阻断」，`compressionHint` 已实现为非阻断的字符串返回，错误类保留给
+  未来若产品要求「阻断」时使用（当前 `[待确认]`，见 uc-6-2 R4/E5、E6）。
+- `建议场次` / `每场多人访谈场次` 是渲染函数的外部入参，不在本 feature 内计算——
+  它们依赖访谈对象名单与上下级关系判定（uc-6.7 / uc-6.3 范围），本 feature 只负责
+  渲染，不负责派生这两个数。
+- E1（研究问题照抄检测/经历型改写示例）与「诱导性/照抄体检」不在本 feature 范围
+  （issue notes 已注明是 B 组另一个未实现 feature）。

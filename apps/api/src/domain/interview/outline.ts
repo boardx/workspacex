@@ -111,6 +111,41 @@ function fromContextOnly(who: string, ctx: OutlineDraftContextThree): OutlineSec
 }
 
 /**
+ * 一段是否满足 AC1「有目标 且 至少两条开场问法」（F85，大纲编辑器）。
+ *
+ * ⚠ 空白字符串不算数——`"   "` 当目标或问法都等于没写,和「质量提示计数」
+ *   （`countIncompleteSections`）共用同一条 trim 纪律,否则质量提示会漏掉
+ *   看起来「有内容」实则全是空格的段落。
+ */
+export function isSectionComplete(section: {
+  readonly objective: string;
+  readonly openers: readonly string[];
+}): boolean {
+  const hasObjective = section.objective.trim().length > 0;
+  const openerCount = section.openers.filter((o) => o.trim().length > 0).length;
+  return hasObjective && openerCount >= MIN_OPENERS_PER_SECTION;
+}
+
+/**
+ * 质量提示计数——「N 段还需你改问法」，与实际缺项数一致（uc-6-2 R3 步骤6 / V1）。
+ *
+ * ⚠ 这条断言的反证：若实现只统计「目标为空」而漏掉「开场问法不足两条」，
+ *   对一份「每段都有目标、但某段只有一条问法」的大纲，这里会算出 0，
+ *   而 `isSectionComplete` 对同一段会判 false——两者必须永远同步，
+ *   所以这里直接复用 `isSectionComplete`，不重写一遍判定逻辑。
+ */
+export function countIncompleteSections(
+  sections: readonly { readonly objective: string; readonly openers: readonly string[] }[],
+): number {
+  return sections.filter((s) => !isSectionComplete(s)).length;
+}
+
+/** 大纲合计时长（[原型] 头部「合计 55 分钟」的来源）。 */
+export function totalOutlineMinutes(sections: readonly { readonly minutes: number }[]): number {
+  return sections.reduce((sum, s) => sum + s.minutes, 0);
+}
+
+/**
  * 生成大纲草案——AC1（每段目标 + ≥2 开场问法,目标在前）与 AC2
  * （模板分段/数据字段 + 对象背景可见）同时满足。
  */
