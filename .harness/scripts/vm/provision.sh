@@ -21,6 +21,22 @@
 #     的收尾动作（migrations/0001-kernel-roles.sql 硬编码了 app_rw_dev，
 #     ALTER ROLE 必须在角色真正被 CREATE 出来之后才能跑），写在这个脚本的最后一步
 #     只做"如果角色已存在且密码字段里有真值，就对齐"，不在这里創建角色。
+#
+# 踩过的坑（2026-08-01，同一台机器重置了两次，两次都在这个脚本上摔了跤，记下来
+# 避免第三次）：
+#   1. 第一版没有装 Docker/Node/pnpm 这一步，假设它们已经在——只在"第一次手敲"时
+#      成立，全新机器上不成立。usermod -aG docker 因为 docker 组不存在而失败，
+#      set -e 中止整个脚本，但 useradd 已经成功执行过了。
+#   2. 更隐蔽的后果：下一次重跑（这时 Docker 已经手动装好），`if ! id 用户 exists`
+#      判断为"已存在"，直接跳过整个 if 分支——包括跳过分支里那行本该修复的
+#      usermod。用"资源是否已创建"当幂等判据，会连带把资源创建时的其它副作用一起
+#      跳过，这是这类判据的通病，不是这个脚本独有。现在 usermod 已经挪到 if 分支
+#      外面无条件执行（对已在组里的用户是安全的 no-op）。
+#   3. deploy.sh 用 workspacex 身份跑 pnpm install/build，但 provision.sh 从没给
+#      这个新建用户装过 Node/pnpm——GitHub Actions 的 setup-node/pnpm 只把它们放进
+#      当次 job 的 PATH，`sudo -u workspacex` 起的新进程看不到。现在 Node/pnpm 装
+#      在系统级路径（NodeSource + corepack），sudo 的默认 secure_path 与 workspacex
+#      的 shell 都能直接解析到。
 set -euo pipefail
 
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN, e.g. devapp.boardx.us}
@@ -35,14 +51,43 @@ PGPORT=${PGPORT:-55433}
 
 step() { printf '\n══════ %s ══════\n' "$1"; }
 
+step "0. Docker Engine（⚠ 2026-08-01 补：见下方「踩过的坑」第一条）"
+if ! command -v docker >/dev/null 2>&1; then
+  curl -fsSL https://get.docker.com | sh
+  systemctl enable --now docker
+  echo "装了 Docker $(docker --version)"
+else
+  echo "Docker 已装：$(docker --version)"
+fi
+
+step "0b. Node.js 22 + pnpm（deploy.sh 用 workspacex 身份跑 pnpm install/build，见「踩过的坑」第三条）"
+if ! command -v node >/dev/null 2>&1 || [[ "$(node --version)" != v22.* ]]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+  apt-get -qq install -y nodejs >/dev/null
+  echo "装了 Node $(node --version)"
+else
+  echo "Node 已装：$(node --version)"
+fi
+corepack enable
+PNPM_VER=$(grep -oE '"packageManager": *"pnpm@[0-9.]+"' "$(dirname "${BASH_SOURCE[0]}")/../../../package.json" 2>/dev/null | grep -oE '[0-9.]+$' || echo "9.15.0")
+corepack prepare "pnpm@${PNPM_VER}" --activate
+echo "pnpm $(pnpm --version)（要求 ${PNPM_VER}，来自根 package.json 的 packageManager）"
+
 step "1. 系统用户 ${APP_USER}（非 root、非 sudo——deploy.sh 里所有应用动作都以它身份跑）"
 if ! id "$APP_USER" &>/dev/null; then
   useradd -m -s /bin/bash "$APP_USER"
-  usermod -aG docker "$APP_USER"
   echo "创建 ${APP_USER}"
 else
   echo "${APP_USER} 已存在"
 fi
+# usermod 故意不放在上面的 if 分支里：2026-08-01 实测过的坑——第一次跑 provision.sh
+# 时 Docker 还没装（那时候这个脚本还没有第 0 步），useradd 成功、usermod 因为 docker
+# 组不存在而失败，set -e 中止整个脚本；用户已经建了但没入 docker 组。下一次重跑，
+# 「用户已存在」直接进 else 分支，usermod 那行原本在 if 分支里，永远不会再被跑到——
+# 幂等判断保护的是"用户创建"这个事实，却连带把它内部的其它副作用也一起跳过了，
+# 这是"用存在性判断做幂等"的通病，不是这一个脚本独有。usermod 本身对已在组里的
+# 用户是安全的 no-op，放在分支外无条件跑，不需要额外的存在性判断。
+usermod -aG docker "$APP_USER"
 
 step "2. GitHub 只读 deploy key（不复用装 runner 用的那把管理员钥匙）"
 sudo -u "$APP_USER" mkdir -p "/home/${APP_USER}/.ssh"
