@@ -1,0 +1,55 @@
+$ pnpm --filter api exec vitest run tests/capability/agent/three-layer-intersection.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f56-worktree/apps/api
+
+ ✓ tests/capability/agent/three-layer-intersection.test.ts (13 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  09:54:31
+   Duration  459ms (transform 172ms, setup 0ms, collect 232ms, tests 2ms, environment 0ms, prepare 35ms)
+
+
+$ pnpm --filter api exec vitest run tests/capability/agent/whitelist-required-to-publish.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f56-worktree/apps/api
+
+ ✓ tests/capability/agent/whitelist-required-to-publish.test.ts (9 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  09:54:33
+   Duration  1.15s (transform 525ms, setup 0ms, collect 756ms, tests 5ms, environment 0ms, prepare 47ms)
+
+
+$ pnpm --filter api exec vitest run tests/capability/agent/two-review-functions-cosign.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f56-worktree/apps/api
+
+ ✓ tests/capability/agent/two-review-functions-cosign.test.ts (15 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  09:54:34
+   Duration  489ms (transform 173ms, setup 0ms, collect 237ms, tests 3ms, environment 0ms, prepare 55ms)
+
+
+$ pnpm --filter api exec vitest run tests/capability/agent/model-dropdown-enabled-only.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f56-worktree/apps/api
+
+ ✓ tests/capability/agent/model-dropdown-enabled-only.test.ts (6 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  09:54:35
+   Duration  372ms (transform 145ms, setup 0ms, collect 192ms, tests 2ms, environment 0ms, prepare 24ms)
+
