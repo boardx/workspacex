@@ -1,0 +1,38 @@
+$ pnpm --filter api exec vitest run tests/capability/agent/ai-permission-three-grain-intersection.test.ts
+
+ RUN  v2.1.9 /private/tmp/f58-worktree/apps/api
+
+ ✓ tests/capability/agent/ai-permission-three-grain-intersection.test.ts (13 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  07:05:02
+   Duration  550ms (transform 57ms, setup 0ms, collect 52ms, tests 5ms, environment 0ms, prepare 117ms)
+
+[exit 0]
+
+$ pnpm --filter @repo/contracts exec vitest run tests/project-ai-switch-defaults-pending.test.ts
+
+ RUN  v2.1.9 /private/tmp/f58-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  07:05:03
+   Duration  663ms (transform 116ms, setup 0ms, collect 91ms, tests 7ms, environment 0ms, prepare 197ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/capability/agent/reassign-route-by-authz.test.ts
+
+ RUN  v2.1.9 /private/tmp/f58-worktree/apps/api
+
+ ✓ tests/capability/agent/reassign-route-by-authz.test.ts (9 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  07:05:05
+   Duration  608ms (transform 66ms, setup 0ms, collect 55ms, tests 6ms, environment 0ms, prepare 164ms)
+
+[exit 0]
