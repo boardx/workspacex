@@ -194,6 +194,21 @@ export const THRESHOLDS = {
     ref: "O-23 / D-10 / 原型 15.2146M（蓝本＝开）· 15.2748M（本场＝关）",
   },
 
+  /* ── O-37：Skill 满意度最小样本量（F62；数值待产品确认，结构断言已定）──── */
+  skillSatisfactionMinSample: {
+    known: false,
+    rule:
+      "满意度口径 `👍/(👍+👎)`（不含未评价、不加权）；样本量（👍+👎 之和）低于最小样本量时" +
+      "返回 `value: null ∧ insufficient: true`（显示「样本不足」），**不返回百分比**——" +
+      "这条结构断言无论最终数值是多少都成立，可先于数值裁决实现并测试",
+    owner: "产品",
+    blocksWhat:
+      "不阻塞：F62 的四条 verification 里 `satisfaction-sample-insufficient.test.ts` 断言的是" +
+      "结构规则（低于阈值⇒样本不足），用例可用注入的任意阈值验证；" +
+      "只有 `getSatisfaction` 接口接真实数据时才需要这个数",
+    ref: "usecases.md:410（阈值来自 thresholds.ts）/ KNOWN_CONTRACT_GAPS.S4（skills.ts）/ F62 notes（O-37）",
+  },
+
   /* ── N-1：法定留存清单（外部输入缺口，最硬的一条）──────────────── */
   legalHoldCategories: {
     known: false,

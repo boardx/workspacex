@@ -12,15 +12,20 @@ import type {
   OrgSkillCatalogPort,
   OrgTemplateCreatePort,
   ProjectOrchestrationStorePort,
+  ReviewerFunctionPort,
   RoleAssigneePort,
+  SatisfactionCountsPort,
   SecurityAuditPort,
   SkillDraftStorePort,
   SkillVisibilityPort,
+  SkillVisibilityScopePort,
   SubmitterGrantsPort,
   ThreadMountStorePort,
   TodoPublisherPort,
   WorkflowTemplateReadPort,
 } from "../../src/application/skill/ports";
+import type { ReviewerFunctionValue } from "../../src/domain/skill/review-authorization";
+import type { SkillCatalogEntry, SkillCatalogPort } from "../../src/application/skill/list-skills";
 import type { DeclarativeContract } from "../../src/domain/skill/declarative-contract";
 import type {
   BindingSlotRef,
@@ -324,6 +329,53 @@ export function threadMountStore(
       savesByThread.set(threadId, mounts);
     },
   };
+}
+
+/* ═══════════════════ F62：双重门禁人员维度 / 四入口可见性 / 满意度 ═══════════════════ */
+
+/** 四入口共用的目录替身。⚠ 只读整份目录，团队过滤统一在用例里做（I-14）。 */
+export function skillCatalog(...entries: SkillCatalogEntry[]): SkillCatalogPort {
+  return { async listAll() { return entries; } };
+}
+
+/**
+ * 单个 skill 可见性范围的替身（`getSkillDetail` 的 404-not-403 判定用）。
+ * 传入 `skillId → {visibility, ownerTeamId}` 表；没列出来的一律 `null`（不存在）——
+ * 与 `SkillVisibilityPort`（F63）的既有替身 `visibility()` 同一个"没列出来 ⇒ null"约定。
+ */
+export function visibilityScopeOf(
+  table: Readonly<Record<string, { visibility: "org-wide" | "team-only"; ownerTeamId: string | null }>>,
+): SkillVisibilityScopePort {
+  return {
+    async scopeOf(skillId) {
+      return table[skillId] ?? null;
+    },
+  };
+}
+
+/**
+ * 评审职能替身（I-5/A4）。`functions` 是 `principalId → 职能` 表（未列出 ⇒ 未指派/null）；
+ * `secondReviewerOrgs` 是「该 org 排除某人后仍有第二名方法论审核人」的固定答案集合——
+ * 用一个显式布尔而不是真的去数人头，因为 `anotherMethodologyReviewerExists` 端口
+ * 的契约就是回答布尔问题，不是回答名单（`ports.ts` 注释）。
+ */
+export function reviewerFunctions(
+  functions: Readonly<Record<string, ReviewerFunctionValue>>,
+  anotherExists: boolean,
+): ReviewerFunctionPort {
+  return {
+    async functionOf(principalId) {
+      return functions[principalId] ?? null;
+    },
+    async anotherMethodologyReviewerExists() {
+      return anotherExists;
+    },
+  };
+}
+
+/** 满意度 👍/👎 计数替身。⚠ 只回计数，比值算法在 domain（`satisfaction.ts`）。 */
+export function satisfactionCounts(up: number, down: number): SatisfactionCountsPort {
+  return { async countsOf() { return { up, down }; } };
 }
 
 /** 一份能过静态校验的最小契约。测试里只改它要考的那一格。 */

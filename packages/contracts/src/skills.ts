@@ -84,6 +84,18 @@ export const KnowledgeChangeEffect = z.enum(["annotate", "disable", "new-version
 export const ReviewDecision = z.enum(["approve", "reject"]);
 
 /**
+ * **组织管理员指派的评审职能**（F62；I-5/O-21）。
+ *
+ * ⚠ 两职能**不合并**：`methodology-reviewer` 只裁「批准发布 skill」，
+ *   `security-reviewer` 只裁「工具白名单越权申请」（`agent-runtime` 束的会签，
+ *   同一条纪律见 `KNOWN_CONTRACT_GAPS.S7`：本束 `REVIEWER_FUNCTION_MISMATCH`
+ *   与 `agent-runtime.WRONG_REVIEW_FUNCTION` 同义不同码）。
+ * ⚠ 两职能都**由组织管理员指派**，不是自助申领——本文件不建"申领"操作，
+ *   指派动作属组织管理域（`identity`/`auth` 束），本束只消费指派结果。
+ */
+export const ReviewerFunction = z.enum(["methodology-reviewer", "security-reviewer"]);
+
+/**
  * 停用收尾方式。
  * ⚠ **复用 phase-1 已建成的 `DisableDialog`**（立即中断 / 跑完当前一轮）——
  *   `usecases.md` 逐字「**同一事实不得再写一份**」。

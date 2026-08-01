@@ -1,0 +1,125 @@
+$ pnpm --filter api exec vitest run tests/capability/skill/dual-gate-cannot-bypass.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/dual-gate-cannot-bypass.test.ts (5 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/skill/no-self-review.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/no-self-review.test.ts (4 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/skill/visibility-scope-four-entries.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/visibility-scope-four-entries.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+
+
+$ pnpm --filter api exec vitest run tests/capability/skill/satisfaction-sample-insufficient.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/satisfaction-sample-insufficient.test.ts (7 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+
+
+
+--- 全部四条一次性执行（同一进程,交叉确认互不干扰） ---
+
+$ pnpm --filter api exec vitest run tests/capability/skill/dual-gate-cannot-bypass.test.ts tests/capability/skill/no-self-review.test.ts tests/capability/skill/visibility-scope-four-entries.test.ts tests/capability/skill/satisfaction-sample-insufficient.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/satisfaction-sample-insufficient.test.ts (7 tests) 2ms
+ ✓ tests/capability/skill/visibility-scope-four-entries.test.ts (4 tests) 2ms
+ ✓ tests/capability/skill/no-self-review.test.ts (4 tests) 2ms
+ ✓ tests/capability/skill/dual-gate-cannot-bypass.test.ts (5 tests) 2ms
+
+ Test Files  4 passed (4)
+      Tests  20 passed (20)
+   Duration  260ms (transform 101ms, setup 0ms, collect 127ms, tests 8ms, environment 0ms, prepare 226ms)
+
+
+
+--- 回归：整个 skill 能力域测试套件（20 个文件,不只本 feature 新增的 4 个） ---
+
+$ pnpm --filter api exec vitest run tests/capability/skill
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+ ✓ tests/capability/skill/status-enum-exactly-four.test.ts (16 tests) 15ms
+ ✓ tests/capability/skill/hard-delete-permanently-rejected.test.ts (13 tests) 4ms
+ ✓ tests/capability/skill/scope-not-exceed-submitter.test.ts (16 tests) 245ms
+ ✓ tests/capability/skill/reference-enumeration-three-kinds.test.ts (10 tests) 5ms
+ ✓ tests/capability/skill/contract-static-validation.test.ts (16 tests) 7ms
+ ✓ tests/capability/skill/source-tag-system-assigned.test.ts (17 tests) 5ms
+ ✓ tests/capability/skill/segment-switch-remount-and-views.test.ts (7 tests) 3ms
+ ✓ tests/capability/skill/each-cell-generates-todo.test.ts (7 tests) 5ms
+ ✓ tests/capability/skill/version-snapshot-immutable-lock.test.ts (12 tests) 4ms
+ ✓ tests/capability/skill/binding-version-snapshot.test.ts (16 tests) 5ms
+ ✓ tests/capability/skill/orphan-binding-no-silent-drop.test.ts (8 tests) 4ms
+ ✓ tests/capability/skill/binding-model-distinguishable-slot.test.ts (21 tests) 5ms
+ ✓ tests/capability/skill/instance-override-no-writeback.test.ts (22 tests) 71ms
+ ✓ tests/capability/skill/satisfaction-sample-insufficient.test.ts (7 tests) 2ms
+ ✓ tests/capability/skill/dual-gate-cannot-bypass.test.ts (5 tests) 2ms
+ ✓ tests/capability/skill/no-self-review.test.ts (4 tests) 3ms
+ ✓ tests/capability/skill/visibility-scope-four-entries.test.ts (4 tests) 8ms
+ ✓ tests/capability/skill/temp-mount-source-distinguishable.test.ts (6 tests) 5ms
+ ✓ tests/capability/skill/member-cannot-self-mount.test.ts (5 tests) 8ms
+ ✓ tests/capability/skill/temp-mount-scope-current-thread.test.ts (6 tests) 11ms
+
+ Test Files  20 passed (20)
+      Tests  218 passed (218)
+   Duration  1.71s (transform 1.37s, setup 0ms, collect 6.81s, tests 419ms, environment 2ms, prepare 1.78s)
+
+
+
+--- typecheck（apps/api）：无 skill/thresholds 相关新增错误；129 条 pre-existing 报错
+    （packages/fabric-markdown 的 DOM lib 类型缺失,与本 feature 无关,基线本就存在）
+    与本次改动前 129 条对照,改动后为 124 条（净减少,未新增） ---
+
+$ git stash && pnpm --filter api exec tsc --noEmit 2>&1 | grep -c "error TS"; git stash pop
+129
+$ pnpm --filter api exec tsc --noEmit 2>&1 | grep -c "error TS"
+124
+$ pnpm --filter api exec tsc --noEmit 2>&1 | grep -i "skill\|thresholds"
+[no output — 0 处与本 feature 相关的类型错误]
+
+
+
+--- pnpm --filter api lint：全绿,含 lint-skill-context-api-only（I-25）/ lint-arch-deps ---
+
+$ pnpm --filter api lint
+✅ lint-error-leak(隐含,见完整脚本链)
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+✅ lint-design-facet-single-source: the definition table has one source
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 36 个文件，skill 取数只经 Context API（I-25）
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+✅ lint-arch-deps: 424 files, all dependencies point inward
