@@ -25,6 +25,10 @@ interface ConsentRowShape {
   attribution: boolean;
 }
 
+interface ConsentRowWithMetaShape extends ConsentRowShape {
+  submitted_at: Date;
+}
+
 let seq = 0;
 function nextId(prefix: string): string {
   seq += 1;
@@ -58,6 +62,35 @@ export class PgConsentSubmissionStore implements ConsentSubmissionStore {
       };
     });
     return guard({ kind: "subject", id: subjectId }, bits);
+  }
+
+  async latestSubmissionMeta(
+    orgId: OrgId,
+    interviewSessionId: string,
+    subjectId: string,
+  ): Promise<Guarded<{ readonly bits: ConsentBits; readonly submittedAt: Date } | null>> {
+    const meta = await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<ConsentRowWithMetaShape>(
+        `SELECT record, transcript, ai_analysis, attribution, submitted_at
+           FROM interview_consent_submissions
+          WHERE org_id = $1 AND interview_session_id = $2 AND subject_id = $3
+          ORDER BY submitted_at DESC
+          LIMIT 1`,
+        [orgId, interviewSessionId, subjectId],
+      );
+      const row = r.rows[0];
+      if (row === undefined) return null;
+      return {
+        bits: {
+          record: row.record,
+          transcript: row.transcript,
+          ai_analysis: row.ai_analysis,
+          attribution: row.attribution,
+        },
+        submittedAt: row.submitted_at,
+      };
+    });
+    return guard({ kind: "subject", id: subjectId }, meta);
   }
 
   async submit(orgId: OrgId, interviewSessionId: string, subjectId: string, bits: ConsentBits): Promise<void> {

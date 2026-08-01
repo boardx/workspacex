@@ -129,6 +129,11 @@ export class InMemoryConsentSnapshotRepository implements ConsentSnapshotReposit
     this.bySnapshotId.set(input.snapshotId, row);
     return row;
   }
+
+  /** 测试直读，绕过用例层，用来断言"存储里到底存的是什么"（同 `consent-render-fakes.ts` 的 `peek` 纪律）。 */
+  peek(snapshotId: string): ConsentSnapshotRow | undefined {
+    return this.bySnapshotId.get(snapshotId);
+  }
 }
 
 /** 测试/开发期的固定渲染变量来源——真正实现读项目的「材料保留期」等参数（F82 之后接入）。 */

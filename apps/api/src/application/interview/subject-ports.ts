@@ -116,6 +116,18 @@ export interface ConsentSubmissionStore {
   latestFor(orgId: OrgId, interviewSessionId: string, subjectId: string): Promise<Guarded<ConsentBits | null>>;
 
   /**
+   * 同 `latestFor`，另加**提交时间**（F87 / 只读镜像需要展示"本人选择 + 提交时间"，
+   * uc-6-3 R6）。拆成第二个方法而不是改 `latestFor` 的返回形状——`latestFor` 已被
+   * `subject-projections.ts` 的两处投影调用并有回归测试锁住其返回类型
+   * （`consent-status-single-source.test.ts`），改签名会牵连与本 feature 无关的代码。
+   */
+  latestSubmissionMeta(
+    orgId: OrgId,
+    interviewSessionId: string,
+    subjectId: string,
+  ): Promise<Guarded<{ readonly bits: ConsentBits; readonly submittedAt: Date } | null>>;
+
+  /**
    * 追加一条提交（I-16 append-only）。
    * ⚠ 同样不是公开契约操作——签署令牌、门户、渲染快照（F86/F87）建成后，
    * `submitConsent` 会调这个方法；F97 只钉死「同意位事实存在这一张表」，

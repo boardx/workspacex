@@ -27,6 +27,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
+import type { PermissionDecision } from "../../domain/identity/permission-decision";
 import { deriveConsentStatus, type SubjectConsentStatus, type SubjectRecord } from "../../domain/interview/subject";
 import { decideSubjectVisibility } from "./subject-visibility-decision";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
@@ -41,6 +42,12 @@ export interface SubjectProjectionDeps {
 
 export interface SubjectWithStatus extends SubjectRecord {
   readonly consentStatus: SubjectConsentStatus;
+}
+
+/** 同一行，外加算出该行时用的那个 `PermissionDecision`（F87 需要复用它去解封「提交时间」）。 */
+export interface SubjectWithStatusAndDecision {
+  readonly subject: SubjectWithStatus;
+  readonly decision: PermissionDecision;
 }
 
 /**
@@ -58,7 +65,7 @@ export async function getGroupCardSubjects(
   interviewSessionId: string | null,
 ): Promise<SubjectWithStatus[]> {
   const rows = await deps.subjects.listByGroup(orgId, groupId);
-  return attachStatus(deps, orgId, viewerUserId, rows, interviewSessionId);
+  return (await attachStatus(deps, orgId, viewerUserId, rows, interviewSessionId)).map((r) => r.subject);
 }
 
 /** 访谈侧「受访者名单」投影：同一张 `interview_subjects` 表，按场次取。 */
@@ -69,6 +76,21 @@ export async function getInterviewRosterSubjects(
   interviewSessionId: string,
 ): Promise<SubjectWithStatus[]> {
   const rows = await deps.subjects.listByInterviewSession(orgId, interviewSessionId);
+  return (await attachStatus(deps, orgId, viewerUserId, rows, interviewSessionId)).map((r) => r.subject);
+}
+
+/**
+ * 同 `getInterviewRosterSubjects`，另外带出每一行的 `PermissionDecision`（F87 /
+ * `get-consent-mirror.ts` 需要复用它去解封"提交时间"这个 facet，而不是另起一次判定——
+ * 见 `subject-ports.ts` `ConsentSubmissionStore.latestFor` 头部注释同一条纪律）。
+ */
+export async function getInterviewRosterSubjectsWithDecision(
+  deps: SubjectProjectionDeps,
+  orgId: OrgId,
+  viewerUserId: string,
+  interviewSessionId: string,
+): Promise<SubjectWithStatusAndDecision[]> {
+  const rows = await deps.subjects.listByInterviewSession(orgId, interviewSessionId);
   return attachStatus(deps, orgId, viewerUserId, rows, interviewSessionId);
 }
 
@@ -78,7 +100,7 @@ async function attachStatus(
   viewerUserId: string,
   rows: GuardedSubjectRow[],
   interviewSessionId: string | null,
-): Promise<SubjectWithStatus[]> {
+): Promise<SubjectWithStatusAndDecision[]> {
   if (rows.length === 0) return [];
 
   const groupCtxCache = new Map<
@@ -87,7 +109,7 @@ async function attachStatus(
   >();
   const orgMembership = await deps.subjects.orgMembershipOf(orgId, viewerUserId);
 
-  const out: SubjectWithStatus[] = [];
+  const out: SubjectWithStatusAndDecision[] = [];
   for (const row of rows) {
     let ctx = row.facts.groupId === null ? null : groupCtxCache.get(row.facts.groupId) ?? null;
     if (ctx === null && row.facts.groupId !== null) {
@@ -112,7 +134,10 @@ async function attachStatus(
     const bitsDisclosed = bitsGuarded === null ? null : discloseDecided(bitsGuarded, decision);
     const bits = bitsDisclosed !== null && isDisclosed(bitsDisclosed) ? bitsDisclosed.payload : null;
 
-    out.push({ ...subjectDisclosed.payload, consentStatus: deriveConsentStatus(bits) });
+    out.push({
+      subject: { ...subjectDisclosed.payload, consentStatus: deriveConsentStatus(bits) },
+      decision,
+    });
   }
   return out;
 }
