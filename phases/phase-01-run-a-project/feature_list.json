@@ -446,9 +446,9 @@
         "F23"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-tpl7",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/prep-tabs-counts.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/single-source-theme-inheritance.test.ts"
@@ -490,9 +490,9 @@
         "F23"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-tpl8",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/workflow-template-two-level.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/agenda-role-matrix-edit.test.ts",
@@ -535,9 +535,9 @@
         "F23"
       ],
       "points": 1,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-tpl9",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/no-writeback-to-blueprint.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/no-backend-asset-mutation-path.test.ts"
@@ -558,9 +558,9 @@
         "F17"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-tpl10",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/deviation-diff-by-config-table.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/pending-change-not-live.test.ts",
@@ -769,9 +769,9 @@
         "F37"
       ],
       "points": 1,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-ingest4",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/prompt-injection-redteam.test.ts"
       ],
@@ -791,9 +791,9 @@
         "F37"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-ingest5",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/review-pending-gate.test.ts",
         "pnpm --filter api exec vitest run tests/files/ai-fill-missing-material.test.ts",
@@ -836,9 +836,9 @@
         "F40"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-ingest6",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/materialize-seven-sources.test.ts",
         "pnpm --filter api exec vitest run tests/files/conversation-file-granularity.test.ts",
@@ -953,9 +953,9 @@
         "F45"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-files6",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/trash-queue-legalhold.test.ts",
         "pnpm --filter api exec vitest run tests/files/retention-param-single-source.test.ts",
@@ -1239,9 +1239,9 @@
         "F57"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-agent4",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/ai-permission-three-grain-intersection.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/project-ai-switch-defaults-pending.test.ts",
@@ -1264,9 +1264,9 @@
         "F57"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-agent5",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/private-chat-isolation-provenance.test.ts",
         "pnpm --filter api exec vitest run tests/capability/agent/private-chat-no-privilege-escalation.test.ts",
@@ -1290,9 +1290,9 @@
         "F53"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-agent6",
       "verification": [
         "pnpm --filter api exec vitest run tests/capability/agent/toolcall-four-fields-namespace.test.ts",
         "pnpm --filter api exec vitest run tests/capability/agent/no-trace-no-call.test.ts",
@@ -1971,8 +1971,8 @@
         "F88"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-itv11",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/ai-cannot-write-outline-status.test.ts",
         "grep -rq 'data-testid=.itv-outline' apps/web/components/interview",
@@ -1982,7 +1982,8 @@
       "notes": "依据 [原型]（记录标签已完整探明）。界面已建于 /studio/interview（itv-outline/itv-auth-count/itv-session-header）。AC2 硬约束「勾选权在你」需服务端断言。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F91",
@@ -2060,8 +2061,8 @@
         "F76"
       ],
       "points": 4,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-itv12",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/evidence-matrix-five-values.test.ts",
         "pnpm --filter api exec vitest run tests/itv/conformity-appeasement-not-counted.test.ts",
@@ -2071,7 +2072,8 @@
       "notes": "依据 [原型]。每条洞察必须挂原始引述与出处（时间码+说话人+场次），入库固化来源快照（D-30）；场次数≠人数，样本量必须同时给 N 场·M 位。\n【跨分片依赖待确认】09-kg: claims + claim_evidence 知识平面落点",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F95",
@@ -2104,8 +2106,8 @@
         "F89"
       ],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-itv13",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/portal-three-rights.test.ts",
         "pnpm --filter api exec vitest run tests/itv/portal-token-scope-and-lifetime.test.ts",
@@ -2115,7 +2117,8 @@
       "notes": "依据 [原型]（权利承诺已探明）+裁决 O-15。界面已建于 /consent 撤回流（consent-withdraw-*）。五步撤回流水线本身不在这里实现（复用 T21），本 feature 是第二个触发入口；令牌只映射本人数据切片、服务端强制。文字稿副本交付方式/时限与本人 PII 是否解遮盖 [待确认]。\n【跨分片依赖待确认】17-gov: UC-17.2 撤回删除最小切片（共用五步流水线）",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F97",
@@ -2172,8 +2175,8 @@
         "F93"
       ],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-itv14",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/appointment-draft-no-auto-send.test.ts",
         "pnpm --filter api exec vitest run tests/itv/transcript-backflow-to-group-consent-scoped.test.ts"
@@ -2182,7 +2185,8 @@
       "notes": "依据 [原型]（那句话定义了本表全部理由）+D-28。回流是本表下游价值核心；预约结果形态属原型待补，故 needs_ui_signoff。13 点来源=双向链路+两处投影一致+个人数据处理三件事叠加。\n【跨分片依赖待确认】11-task/D-28: 外发动作风险分级 R3；phase-00: F06 固定快照绑定",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F100",
@@ -2327,8 +2331,8 @@
         "F93"
       ],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w3-canvas5",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/whitespace-rules-warn-not-block.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/ava-badge-atomic-rollback.test.ts",
@@ -2338,7 +2342,8 @@
       "notes": "依据 D-11（「六成」作废，改为两条结构化规则）+ D-10（默认直接落笔、可一键回滚、可按画布改「提交建议待接受」）。R6 的「不包含」改写为「不包含 AI 无角标、不可回滚的覆盖」。留白校验器是纯函数（Node 单测），回滚是事务性写；依赖 T25 保证拒绝 AI 分析者片段不进起草输入。canvas-ai-changes/canvas-ai-rollback/canvas-ai-mode-toggle 已存在。\n【跨分片依赖待确认】phase-00: Context Pack（起草上下文只经 Context API）",
       "priority": 1,
       "area": "canvas",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F107",
@@ -2946,9 +2951,9 @@
         "F54"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-mcp5",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter api exec vitest run tests/mcp/quarantine-window-timing.test.ts",
@@ -3085,9 +3090,9 @@
         "F136"
       ],
       "points": 6,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "w3-asset7",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/publish-three-independent-blockers.test.ts",
