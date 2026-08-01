@@ -345,3 +345,80 @@ describe("R4 E4: inconsistent data denies rather than falling back permissively"
     expect(d.reasonCode).toBe("PROJECT_ROLE_INSUFFICIENT");
   });
 });
+
+// #75: `acl_bindings_uniq` includes `subject` in its unique key, so ONE object legally
+// carries SEVERAL binding rows -- one artifact independently shared team-only to two
+// different teams is two legal rows, not a conflict. `findBindings` used to keep only the
+// last row it happened to read (no ORDER BY, plain Map overwrite), so which team "won" was
+// undefined. It must instead fold every row for that object through `strictestScope`
+// (I-7) -- the same math `authorizeDerived` already uses for multi-SOURCE objects, applied
+// here to multi-BINDING-ROW objects.
+describe("I-7 applies to a single object's own bindings, not only to derived sources (#75)", () => {
+  beforeEach(async () => {
+    await addArtifact({ orgId: ORG, id: "claimed-by-two-teams", projectId: PROJECT });
+    // Two independent team-only rows on the SAME object -- this is exactly the
+    // f31rls-multi fixture shape from the artifact browser's own RLS counter-test.
+    await addBinding({
+      orgId: ORG,
+      subject: { kind: "team", id: fx.teams.energy! },
+      object: { kind: "artifact", id: "claimed-by-two-teams" },
+      scope: "team-only",
+      ownerTeamId: fx.teams.energy!,
+    });
+    await addBinding({
+      orgId: ORG,
+      subject: { kind: "team", id: fx.teams.platform! },
+      object: { kind: "artifact", id: "claimed-by-two-teams" },
+      scope: "team-only",
+      ownerTeamId: fx.teams.platform!,
+    });
+  });
+
+  it("a member of the FIRST owning team (energy) is denied -- no single team satisfies both rows", async () => {
+    await addOrgMember(ORG, "u-energy2", "consultant", fx.teams.energy!);
+    await addProjectMember(ORG, PROJECT, "u-energy2", "facilitator", null);
+    const d = await call("u-energy2", "read.allHands", {
+      projectId: PROJECT,
+      object: { kind: "artifact", id: "claimed-by-two-teams" },
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.reasonCode).toBe("ORG_SCOPE_DENIED");
+    expect(d.scopeLayer).toEqual({ scope: "team-only", passed: false });
+  });
+
+  it("a member of the SECOND owning team (platform) is ALSO denied -- the old bug let whichever row survived win", async () => {
+    await addOrgMember(ORG, "u-platform2", "consultant", fx.teams.platform!);
+    await addProjectMember(ORG, PROJECT, "u-platform2", "facilitator", null);
+    const d = await call("u-platform2", "read.allHands", {
+      projectId: PROJECT,
+      object: { kind: "artifact", id: "claimed-by-two-teams" },
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.reasonCode).toBe("ORG_SCOPE_DENIED");
+    expect(d.scopeLayer).toEqual({ scope: "team-only", passed: false });
+  });
+
+  it("findBindings itself folds both rows into UNSATISFIABLE_TEAM, not just the outer decision", async () => {
+    // Asserts at the repository boundary the issue actually named, not only through the
+    // full authorize() path -- so a future refactor of `decide()` cannot silently make this
+    // pass for the wrong reason.
+    const bindings = await deps.repo.findBindings(toOrgId(ORG), [
+      { kind: "artifact", id: "claimed-by-two-teams" },
+    ]);
+    expect(bindings.get("artifact:claimed-by-two-teams")).toEqual({
+      scope: "team-only",
+      ownerTeamId: UNSATISFIABLE_TEAM,
+    });
+  });
+
+  it("a THIRD team's member is denied the same way -- confirms the result isn't 'whichever team queried'", async () => {
+    await addOrgMember(ORG, "u-outsider", "consultant", null);
+    await addProjectMember(ORG, PROJECT, "u-outsider", "facilitator", null);
+    const d = await call("u-outsider", "read.allHands", {
+      projectId: PROJECT,
+      object: { kind: "artifact", id: "claimed-by-two-teams" },
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.reasonCode).toBe("ORG_SCOPE_DENIED");
+  });
+});
