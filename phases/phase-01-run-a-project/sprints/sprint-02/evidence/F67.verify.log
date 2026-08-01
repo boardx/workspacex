@@ -1,0 +1,38 @@
+=== F67 verification log ===
+date: 2026-08-01T02:10:08Z
+
+--- pnpm --filter api exec vitest run tests/capability/skill/promotion-source-tag-and-link.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f67-worktree/apps/api
+
+ ✓ tests/capability/skill/promotion-source-tag-and-link.test.ts (13 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  10:10:09
+   Duration  252ms (transform 44ms, setup 0ms, collect 46ms, tests 5ms, environment 0ms, prepare 60ms)
+
+
+--- pnpm --filter api exec vitest run tests/capability/skill/promotion-not-auto-published.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f67-worktree/apps/api
+
+ ✓ tests/capability/skill/promotion-not-auto-published.test.ts (9 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  10:10:09
+   Duration  257ms (transform 45ms, setup 0ms, collect 50ms, tests 4ms, environment 0ms, prepare 43ms)
+
+
+--- pnpm --filter api exec vitest run tests/capability/skill/source-knowledge-status-linkage.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f67-worktree/apps/api
+
+ ✓ tests/capability/skill/source-knowledge-status-linkage.test.ts (9 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  10:10:10
+   Duration  240ms (transform 41ms, setup 0ms, collect 45ms, tests 4ms, environment 0ms, prepare 41ms)
+

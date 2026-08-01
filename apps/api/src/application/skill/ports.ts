@@ -27,6 +27,7 @@ import type {
 } from "../../domain/skill/orchestration";
 import type { ThreadSkillMount } from "../../domain/skill/thread-mount";
 import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
+import type { PromotionLink } from "../../domain/skill/promotion-link";
 
 /**
  * 提交人**当时**持有的数据范围（I-12 的上界）。
@@ -91,7 +92,9 @@ export interface SecurityAuditPort {
     readonly kind:
       | "skill-gate-bypass-attempt"
       | "skill-source-tag-write-attempt"
-      | "skill-member-self-mount-attempt";
+      | "skill-member-self-mount-attempt"
+      /** F67：AI 试图自行晋升入库（E2/V5）——AI 可提名，不可自行批准/入库。 */
+      | "skill-ai-self-promotion-attempt";
     readonly principalId: string;
     readonly detail: string;
   }): Promise<void>;
@@ -303,4 +306,71 @@ export interface SkillVisibilityScopePort {
 /** 满意度 👍/👎 计数读端口。⚠ 只读计数，**不算比值**——比值口径单源在 domain 层（O-37）。 */
 export interface SatisfactionCountsPort {
   countsOf(skillId: string): Promise<{ readonly up: number; readonly down: number }>;
+}
+
+/* ═══════════════════ F67：方法晋升生成 skill（phase-1 接收端）═══════════════════ */
+
+/**
+ * 晋升审批人是否为 AI（E2/V5：**AI 可提名，不可自行晋升入库**，
+ * 任何自动入库路径必须被服务端拒绝）。
+ */
+export interface PromoterKindPort {
+  kindOf(principalId: string): Promise<"human" | "ai">;
+}
+
+/**
+ * 源知识是否含客户机密、须先过脱敏闸门（D-16/V7）。
+ * ⚠ 只回答「要不要脱敏」，**不做脱敏本身**——脱敏稿的生成与确认属知识侧（14-brain），
+ *   本域只在闸门未过时拒绝生成 skill。
+ */
+export interface RedactionGatePort {
+  requiresRedaction(knowledgeItemId: string): Promise<boolean>;
+}
+
+/**
+ * 晋升生成的落库面：**直接落 `待审核`**（自动生成 ≠ 自动发布，跳过 `草稿`——
+ * 晋升本身已完成「提交」这一步，但仍需两道门禁齐全才能启用，见 `security-gate.ts`）。
+ *
+ * ⚠ 只有 `savePendingReview` 一个方法，**没有** `publish` / `enable`：
+ *   落库面结构上拿不到把它直接置为已启用的能力，AC2 因此是结构性的一部分，
+ *   不止是调用方纪律。
+ */
+export interface PromotionSkillStorePort {
+  savePendingReview(input: {
+    readonly orgId: string;
+    readonly knowledgeItemId: string;
+    readonly contract: DeclarativeContract;
+    /** 恒为「晋升生成」——由 `assignSourceByEntry("promotion")` 产生，不是入参决定的 */
+    readonly source: SkillOriginTag;
+  }): Promise<{ readonly skillId: string; readonly versionId: string }>;
+}
+
+/**
+ * `PromotionLink` 的落库面。**双向都要能查到**（I-22）：
+ * `loadBySkillId` 供 `getPromotionProvenance`（skill → 源知识/源决策）；
+ * `loadByKnowledgeItemId` 供 `onSourceKnowledgeStateChanged`（源知识 → skill）。
+ * 两个方法读的是**同一份记录**，不是两张各自维护的表——那正是「同一份资产两个
+ * 互不关联副本」的第一次分岔点。
+ */
+export interface PromotionLinkStorePort {
+  save(link: PromotionLink): Promise<void>;
+  loadBySkillId(skillId: string): Promise<PromotionLink | null>;
+  loadByKnowledgeItemId(knowledgeItemId: string): Promise<PromotionLink | null>;
+}
+
+/**
+ * 源知识状态变化 → skill 侧效果的落库面（E5/E6/E7）。
+ *
+ * ⚠ 三个方法对应三种效果，**刻意分开**（同 `TodoPublisherPort` 一带的纪律）：
+ *   合成一个 `applyEffect()` 会让「标注 / 停用 / 发新版」在契约层面失去分辨力。
+ */
+export interface SourceKnowledgeLinkageStorePort {
+  /** `待复核`：标「源方法已过期」，**不改变 `Skill.status`**（D-j 待人类裁决）。 */
+  annotateExpired(skillId: string): Promise<void>;
+  /** `被推翻` / `被撤销`：自动转已停用，不硬删；只改 `Skill.status`，不碰绑定/挂载记录。 */
+  disable(skillId: string): Promise<void>;
+  /** `被替代`：取当前生效版本的契约正文，作为发新版的起点。无生效版本时返回 `null`。 */
+  currentEffectiveContract(
+    skillId: string,
+  ): Promise<{ readonly content: DeclarativeContract } | null>;
 }
