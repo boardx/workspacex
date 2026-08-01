@@ -1,0 +1,57 @@
+# F40 -- 物化事件总线 + 去抖 + 持久队列（复用摄取链路）
+# uc-22-3 R4. Depends on F36 (merged, PR #222).
+#
+# Scope (R11): this feature is ONLY the horizontal event-bus/debounce/queue plumbing --
+# NOT the seven per-source materializers (those are separate features). It is pure
+# application logic over ports (MaterializationQueueRepository / BacklogAlertPort / Clock),
+# with no durable Postgres store of its own yet (same status as F05's temporary-grant
+# bundle) -- so both verification commands are pure vitest, no Postgres needed, and were
+# run for real (not typecheck-only; issue #74's guidance is for Postgres-dependent tests,
+# which these are not).
+
+$ pnpm --filter api exec vitest run tests/files/materialize-event-bus-debounce.test.ts
+[exit 0]
+ RUN  v2.1.9 /private/tmp/f40-worktree/apps/api
+
+ ✓ tests/files/materialize-event-bus-debounce.test.ts (14 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  15:35:28
+   Duration  225ms (transform 34ms, setup 0ms, collect 32ms, tests 3ms, environment 0ms, prepare 47ms)
+
+$ pnpm --filter api exec vitest run tests/files/materialize-shared-queue-backpressure.test.ts
+[exit 0]
+ RUN  v2.1.9 /private/tmp/f40-worktree/apps/api
+
+ ✓ tests/files/materialize-shared-queue-backpressure.test.ts (5 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  15:35:56
+   Duration  214ms (transform 28ms, setup 0ms, collect 25ms, tests 2ms, environment 0ms, prepare 28ms)
+
+# Supporting checks (not part of the feature's own `verification` list, run to prove no
+# regression):
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=509 tenant-tables=75 allowlisted=24
+
+$ node apps/api/scripts/lint-naming-single-source.mjs
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+
+$ pnpm --filter api exec vitest run tests/files/nine-state-visible-exits.test.ts tests/files/quarantine-repo-is-write-only.test.ts tests/files/export-manifest-sha256.test.ts tests/files/mime-sniff-zipbomb.test.ts tests/files/zip-export-roundtrip.test.ts
+[exit 0]
+ Test Files  5 passed (5)
+      Tests  46 passed (46)
+# (unrelated files/* pure tests still green -- no regression from this feature's new files)
+
+# `pnpm --filter api run typecheck` fails on THIS branch, but identically fails on a clean
+# checkout of origin/main with none of this feature's files present (verified via
+# `git stash` before/after): apps/api's tsconfig pulls in `packages/fabric-markdown`, whose
+# `fabric-objects.ts` / `mermaid-parser.ts` are missing DOM lib types (CanvasRenderingContext2D,
+# Element, document, ...) -- pre-existing baseline breakage unrelated to this feature.
+# `grep -i materialize` over the tsc output returns zero matches -- none of the errors are
+# in this feature's own files.
