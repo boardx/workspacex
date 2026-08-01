@@ -5,8 +5,11 @@
  *   `(skillId, skillVersionId, agentId, 人工归类的问题标签)` 四者**全相等**才归为一组。
  *   任何一项不同都是不同的建议——不引入「差不多同一类问题」这种不可复现的判断。
  */
+import type { z } from "zod";
+import { skills } from "@repo/contracts";
 
-export type SuggestionCategory = "contract-solvable" | "implementation-defect" | "model-limited";
+/** 从契约派生，**不重写**（ADR-020）——`SuggestionCategory` 的口径唯一定义在 packages/contracts。 */
+export type SuggestionCategory = z.infer<typeof skills.SuggestionCategory>;
 
 export interface StructuralIssueKey {
   readonly skillId: string;

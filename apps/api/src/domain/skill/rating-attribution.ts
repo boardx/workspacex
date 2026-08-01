@@ -12,7 +12,11 @@
  *   用 try/catch 吞掉这条本该可见的信号。
  */
 
-export type RatingVerdict = "up" | "down";
+import type { z } from "zod";
+import { skills } from "@repo/contracts";
+
+/** 从契约派生，**不重写**（ADR-020）——`RatingVerdict` 的口径唯一定义在 packages/contracts。 */
+export type RatingVerdict = z.infer<typeof skills.RatingVerdict>;
 
 /**
  * 一条评价的归因链。⚠ `skillId` 与 `skillVersionId` 分开建模——
