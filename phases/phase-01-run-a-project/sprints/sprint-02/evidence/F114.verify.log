@@ -1,0 +1,61 @@
+$ pnpm --filter api exec vitest run tests/chat/citation-eligibility-snapshot-only.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f114-worktree/apps/api
+
+ ✓ tests/chat/citation-eligibility-snapshot-only.test.ts (3 tests) 1518ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  20:30:48
+   Duration  ~2s
+
+
+$ pnpm --filter api exec vitest run tests/chat/no-source-greyed-gate.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f114-worktree/apps/api
+
+ ✓ tests/chat/no-source-greyed-gate.test.ts (5 tests) 2468ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  20:28:48
+   Duration  ~2s
+
+
+$ pnpm --filter api run typecheck
+[exit 2 -- pre-existing failures unrelated to F114, confirmed present before this branch's changes
+ via `git stash` diff on packages/fabric-markdown/src/{fabric-objects,mermaid-parser,diagrams/registry}.ts
+ (missing `dom` lib in that package's tsconfig -- Canvas/SVG/Element globals). No error under
+ apps/api/src/** or packages/contracts/src/** introduced by this branch.]
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=524 tenant-tables=76 allowlisted=25
+[new allowlist entry added for src/infrastructure/chat/pg-artifact-landing-repository.ts,
+ backed by tests/chat/artifact-landing-repo-resolve-before-read.test.ts]
+
+$ node apps/api/scripts/lint-naming-single-source.mjs
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+
+$ pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts
+[exit 0]
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 4031ms
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+[allowlisted count 25, within the 40 ceiling -- ceiling assertion untouched]
+
+$ pnpm --filter api exec vitest run tests/chat
+[exit 0]
+ Test Files  20 passed (20)
+      Tests  159 passed (159)
+[full chat bundle regression run, includes both new F114 test files plus the new static-parse
+ guard test tests/chat/artifact-landing-repo-resolve-before-read.test.ts]
+
+Notes:
+- Real PostgreSQL (docker-compose dev stack) and real filesystem ObjectStore were used --
+  no mocks/fakes for the DB-backed assertions above, per the project's testing standard.
+- Migration apps/api/migrations/20260801190000_f114_chat_artifact_landings.sql applied via
+  migrateOnce() during each of the above vitest runs (idempotent, IF NOT EXISTS).

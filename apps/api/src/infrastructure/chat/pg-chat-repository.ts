@@ -504,6 +504,40 @@ export class PgChatRepository implements ChatRepository {
     });
   }
 
+  /** F114：一条消息的全部引用，供 `landAsArtifact` 算 `hasSource` 与逐条定位。 */
+  async findCitationsForMessage(orgId: OrgId, messageId: string): Promise<readonly ChatCitationRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        citation_id: string;
+        message_id: string;
+        idx: number;
+        source_full_name: string;
+        anchor_kind: string;
+        anchor_page: number | null;
+        anchor_range: string | null;
+        anchor_message_id: string | null;
+        source_artifact_id: string | null;
+      }>(
+        `SELECT citation_id, message_id, idx, source_full_name, anchor_kind,
+                anchor_page, anchor_range, anchor_message_id, source_artifact_id
+           FROM chat_citations WHERE message_id = $1 AND org_id = $2
+          ORDER BY idx ASC`,
+        [messageId, orgId],
+      );
+      return r.rows.map((row) => ({
+        citationId: row.citation_id,
+        messageId: row.message_id,
+        index: row.idx,
+        sourceFullName: row.source_full_name,
+        anchorKind: row.anchor_kind as ChatCitationRow["anchorKind"],
+        anchorPage: row.anchor_page,
+        anchorRange: row.anchor_range,
+        anchorMessageId: row.anchor_message_id,
+        sourceArtifactId: row.source_artifact_id,
+      }));
+    });
+  }
+
   async artifactExists(orgId: OrgId, artifactId: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query("SELECT 1 FROM artifacts WHERE id = $1 AND org_id = $2", [

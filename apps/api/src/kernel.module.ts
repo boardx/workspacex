@@ -129,8 +129,10 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
 // F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
 // 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
 import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
+import { ARTIFACT_LANDING_REPOSITORY } from "./application/chat/artifact-landing-ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
+import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
 // 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
@@ -470,6 +472,13 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: CHAT_PRESET_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatPresetRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F114. 落地记录只记指针 + 判定结果，字节与版本血缘仍全部在 phase-00 artifact——
+    // 见 `chat_artifact_landings` 迁移文件头。
+    {
+      provide: ARTIFACT_LANDING_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgArtifactLandingRepository(db),
       inject: [DATABASE_PORT],
     },
     // F112. 批准卡的模型/单价数据窄读 F48 的 `models` 表——见该 provider 实现文件头。

@@ -109,6 +109,32 @@ export async function locateCitation(
 }
 
 /**
+ * F114 · V4d 的"100% 可定位"复用这里判断，不另写一遍（一个事实一处声明）。
+ *
+ * 与 `locateCitation` 判断**完全相同**的两件事——来源材料是否已下架、锚点是否结构性
+ * 可解析——只是这里不判可见性（调用方在自己的可见性门之后才拿到这份引用清单），
+ * 也不抛异常：定版前置要问的是"这一批引用里有没有一条不合格"，不合格的第一条
+ * 出现时调用方要做的是拒绝整个定版请求，不是把某一条的异常甩给客户端。
+ */
+export async function isCitationLocatable(
+  chat: ChatRepository,
+  orgId: OrgId,
+  citation: ChatCitationRow,
+): Promise<boolean> {
+  if (citation.sourceArtifactId !== null) {
+    const exists = await chat.artifactExists(orgId, citation.sourceArtifactId);
+    if (!exists) return false;
+  }
+  try {
+    await assertAnchorResolvable(chat, orgId, citation);
+    return true;
+  } catch (e) {
+    if (e instanceof AnchorUnresolvableError) return false;
+    throw e;
+  }
+}
+
+/**
  * 结构性可定位检查。数据库 CHECK 已保证"kind 对应字段非空"；这里补第二半——
  * "那个字段指向的东西真的存在"。三支穷尽 `anchorKind`（`.strict()` 的三值枚举），
  * 没有 `default`：契约新增第四种锚点会在这里编译不过，而不是悄悄放行。
