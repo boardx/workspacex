@@ -1,0 +1,65 @@
+$ pnpm --filter @repo/fabric-markdown run build   # 前置：issue #115 已知问题，裸 pnpm --filter api typecheck 需先 build fabric-markdown（turbo dependsOn 被绕过），非本 feature 引入
+
+> @repo/fabric-markdown@0.1.0 build /private/tmp/f131-worktree/packages/fabric-markdown
+> tsc -p tsconfig.build.json
+
+[exit 0]
+
+$ pnpm --filter api run typecheck
+
+> @repo/api@0.0.0 typecheck /private/tmp/f131-worktree/apps/api
+> tsc --noEmit
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/quarantine-window-timing.test.ts
+
+ RUN  v2.1.9 /private/tmp/f131-worktree/apps/api
+
+ ✓ tests/mcp/quarantine-window-timing.test.ts (10 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  22:08:48
+   Duration  189ms (transform 24ms, setup 0ms, collect 24ms, tests 2ms, environment 0ms, prepare 45ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/quarantine-platform-group-only.test.ts
+
+ RUN  v2.1.9 /private/tmp/f131-worktree/apps/api
+
+ ✓ tests/mcp/quarantine-platform-group-only.test.ts (9 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  22:08:48
+   Duration  358ms (transform 145ms, setup 0ms, collect 199ms, tests 3ms, environment 0ms, prepare 36ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/quarantine-expiry-no-auto-release.test.ts
+
+ RUN  v2.1.9 /private/tmp/f131-worktree/apps/api
+
+ ✓ tests/mcp/quarantine-expiry-no-auto-release.test.ts (8 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  22:08:49
+   Duration  181ms (transform 29ms, setup 0ms, collect 25ms, tests 2ms, environment 0ms, prepare 37ms)
+
+[exit 0]
+
+$ pnpm --filter api exec vitest run tests/mcp/quarantine-days-from-param.test.ts
+
+ RUN  v2.1.9 /private/tmp/f131-worktree/apps/api
+
+ ✓ tests/mcp/quarantine-days-from-param.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  22:08:50
+   Duration  185ms (transform 30ms, setup 0ms, collect 22ms, tests 3ms, environment 0ms, prepare 36ms)
+
+[exit 0]
