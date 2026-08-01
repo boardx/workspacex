@@ -151,3 +151,65 @@
 - 下一步最佳动作：F146…F148（同束、依赖 Q-10/Q-12/Q-14/Q-17/Q-18 的其余部分）
   可以开始参考 `result-assembly.ts` 的纯函数写法；不要在其中重新实现一遍
   `isSampleTooSmall` / 四段组装逻辑。
+
+### 2026-08-01（F146，owner w1-research3）
+- 本轮目标：F146 —— 研究列表三处 + 研究计划三计数与证据表：目标缺失渲染
+  「—」而非「0」（N-8 主战场），归档不删除且被引证据不失效（N-7 两半）。
+  依赖 F144（研究七项配置面板，已合入 `origin/main` #68）。
+- 开工前发现：`RsListScreen` / `RsPlanScreen`（`rs-screens.tsx`）与它们的 mock
+  数据源（`lib/mock/research-studio.ts`）已由 ui-prototyper 建成，目标缺失渲染
+  `—`、三计数 `?? "—"`、证据表四列都已是真实 UI；**但 `RsListScreen` 硬编码
+  `filter(i => !i.archived)`**——已归档研究永远不出现在任何视图里，`已归档`
+  标签是纯装饰按钮不接任何过滤，这与 N-7「归档后仍能被『已归档』标签筛出」
+  正面冲突：当前实现在效果上把归档做成了删除。
+- 已完成：
+  - `apps/api/src/domain/research/plan-counts.ts` + 测试
+    `plan-counts-null-not-zero.test.ts`：`derivePlanCounts` 纯函数，`null`
+    （目标未设 / 无该子实体）与 `0`（显式为空）在类型与运行时都保持可区分，
+    `evidenceCount` 恒为 `number`（跟着证据数组走，不是写死的）。
+  - `apps/api/src/domain/research/archive.ts` + 测试
+    `archive-keeps-references.test.ts`：`archiveResearch`（只置位
+    `archivedAt`，不删除元素）、`filterByArchived`（三态语义同
+    `listResearch.in.archived`）、`resolveEvidenceById`（证据解析与归档状态
+    无关）。两半（能被筛出 / 证据仍可解析）分别断言，外加一组同一 fixture
+    上的联合断言防止绕过。
+  - 修了上面发现的 UI 缺口：`RsListScreen` 新增 `sub` 支持（`sub==="archived"`
+    时改看已归档集合，与 `RsPlanScreen` 已有的 `sub` 用法同一模式），`TagRow`
+    的「已归档」标签接了真链接（`hrefFor`），点击后 `active` 态与
+    `href="?sub=archived"` 均可断言。`research-studio-app.tsx` 把 `sub` /
+    `href` 透传给 `RsListScreen`。其余四个 tag（客户/内部/高优先级/全部）
+    过滤口径 Q-9 未裁，本次不代裁，仍是纯展示态。
+  - 新增 `apps/web/tests/ui/research-list-target-dash.test.tsx`：卡片进度行
+    分子跟着数据走、目标缺失渲染 `—`、Studio 左栏三段各自独立渲染、归档项
+    默认不在列表但可被「已归档」标签筛出且格式化规则与未归档项一致、
+    owner/collaborator 两视角下列表内容一致。
+- 已知留白（不在本 feature verification 范围内，如实记录）：
+  - 「项目内深度研究列表」目前与 Studio 列表**复用同一个 `RsListScreen` 组件
+    与同一份 mock 数据**，没有按 `projectRef` 建独立路由/组件——`user_visible_
+    behavior` 提到的「三处」中，「Studio 列表」与「Studio 左栏三段」在本文件
+    的测试里各自独立断言，「项目内」这一处目前等价于同一渲染逻辑的另一处挂载
+    （未建独立入口）；这与 issue 元数据「设计参照：无 UI 或沿用现有界面」一致，
+    如需独立路由需另起 feature。
+  - 观察者视角下研究数据层过滤（E5/R12.5）本 feature 的四条 verification
+    未覆盖，契约面已由 `research.ts` 的 `listResearch` 注释与 `KNOWN_CONTRACT_
+    GAPS` 记录，留给覆盖 R12.5 的对应 feature。
+- 运行过的验证：四条 verification 命令本地全绿：
+  `pnpm --filter @repo/contracts run test`（166/166）、
+  `pnpm --filter api exec vitest run tests/research/plan-counts-null-not-zero.test.ts`（11/11）、
+  `pnpm --filter api exec vitest run tests/research/archive-keeps-references.test.ts`（8/8）、
+  `pnpm --filter web exec vitest run tests/ui/research-list-target-dash.test.tsx`（13/13）。
+  另跑过 `pnpm --filter api exec tsc --noEmit` 与 `pnpm --filter web exec tsc --noEmit`：
+  web 侧零错误；api 侧唯一报错在 `packages/fabric-markdown/src/mermaid-parser.ts`
+  （缺 DOM lib 配置），与本 feature 无关，`git stash` 验证过同样报错在改动前就存在。
+  `pnpm --filter web run lint` 通过。`pnpm -w run verify:base` 本地跑到
+  `apps/api` 的 `rbac-role-matrix.test.ts` / `reference-eligibility-gate.test.ts`
+  等既有 Postgres 集成测试时失败/连接中断——与 issue #74 记录的全量 Postgres
+  连接数竞态同源，非本 feature 引入，遵照 #74 的既定处理方式（本地跳过需
+  Postgres 的全量门，只保证四条本 feature 自己的 verification 与 typecheck/lint）。
+- 已记录证据：`evidence/F146.verify.log`。
+- 提交记录：分支 `worker/w1-research3-01-F146`，PR 关联 issue #202
+  （`Closes #202`）。因 `verify:base` 本地受 #74 影响未能跑通，`pnpm harness
+  verify` 未能在本地把状态门控转为 `passing`——留给 CI / test-runner 在干净
+  Postgres 环境下补跑并转移状态，本地未手改 `feature_list.json` 的 `status`。
+- 下一步最佳动作：「项目内深度研究列表」若需要独立路由/组件，建议开一个新
+  feature 明确认领；观察者数据层过滤（R12.5）同理另起 feature 覆盖。

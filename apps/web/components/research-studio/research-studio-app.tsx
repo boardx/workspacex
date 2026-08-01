@@ -55,7 +55,7 @@ export function ResearchStudioApp({
       <div className="flex h-full min-h-0 flex-col">
         <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />
         <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="rs-main">
-          {screen === "list" && <RsListScreen state={uiState} view={view} />}
+          {screen === "list" && <RsListScreen state={uiState} view={view} sub={sub} href={href} />}
           {screen === "plan" && <RsPlanScreen state={uiState} view={view} sub={sub} />}
           {screen === "new" && <RsNewScreen state={uiState} view={view} sub={sub} />}
           {screen === "detail" && <RsDetailScreen state={uiState} view={view} sub={sub} />}
