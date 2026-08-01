@@ -1,0 +1,297 @@
+F128 —— 非工作坊两类的成员表（拥有者 / 协作者）+ 分组与项目成员在非工作坊容器下的禁止判据下沉到数据库
+验证证据 —— 生成于隔离 worktree /tmp/f128-worktree（分支 worker/w2-project8-01-F128）
+基线：origin/main @ 3cb9597c
+
+================================================================================
+结论摘要
+================================================================================
+- 全部 7 条 verification 命令实测通过（exit 0）：typecheck / lint / 两条新增 vitest 文件 /
+  migrate:check / verify-rls.sh / @repo/contracts test。
+- 交付：一份迁移 20260801190000_f128_non_workshop_member_tables.sql——
+  ① 新建 research_project_members / user_insight_members 两张成员表（role ∈ owner|collaborator，
+     与 packages/contracts/src/project.ts 的 NonWorkshopMemberRole 逐字同值），复合外键
+     (project_id, org_id) 分别钉死在 research_projects / user_insights 上；
+  ② groups / project_memberships 各加判别列 kind（CHECK 常量 'workshop'，DEFAULT 'workshop'
+     兜底既有写入路径）+ 复合外键 (project_id, kind) -> projects(id, kind)，把「往非工作坊
+     容器插分组/工作坊项目成员」下沉成数据库外键拒绝（23503）；
+  ③ 两张新表接入 F22 组织冻结（kernel_apply_org_freeze_policies，catalog 驱动，无需改函数）
+     与 F124 容器归档冻结（kernel_apply_project_archive_policies 的显式 VALUES 清单新增两行，
+     因为这两张表的 project_id 外键指向子类型表而非 projects 本身，catalog 推导不出来）。
+- 新增两个测试文件：tests/project/non-workshop-member-tables.test.ts（11 用例）、
+  tests/project/workshop-only-machinery-fk-denied.test.ts（7 用例），逐一区分 23503/23514/23505
+  三种 SQLSTATE，同 subtype-exclusive-1to1.test.ts 的反证形状。
+- 副作用（预期内，已修复）：tests/project/overview-whitelist-four-blocks.test.ts 有一条既有
+  用例（F123）此前靠往 research_project 容器写一行 project_memberships（facilitator）来满足
+  getProjectOverview 的鉴权前提——这正是本 feature 要禁止的写入。已改为用一个只作用于该次调用的
+  fake IdentityRepository 顶替 deps.auth/deps.binding.auth（不写库，不触发新外键），断言本身
+  （非工作坊容器两字段恒为 null）不变。见该文件内 2026-08-01（F128）注释。
+- 已知契约缺口（不在本 feature 范围内，未修）：authorize()/decide() 的项目层判定目前只读
+  project_memberships，没有接上 research_project_members/user_insight_members 的
+  owner/collaborator——两类容器的读权限操作尚未签核（KNOWN_CONTRACT_GAPS.P2），本 feature
+  只交付数据形状与禁止判据，不新增任何应用层用例/路由。
+
+================================================================================
+§1 pnpm --filter api run typecheck
+================================================================================
+
+
+> @repo/api@0.0.0 typecheck /private/tmp/f128-worktree/apps/api
+> tsc --noEmit
+
+typecheck exit=0
+
+================================================================================
+§2 pnpm --filter api run lint
+================================================================================
+
+· [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:510  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/chat.ts:565  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/chat.ts:774  list-shaped constant `skills` with 6 entries
+· [debt] apps/web/lib/mock/chat.ts:779  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
+· [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
+· [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
+· [debt] apps/web/lib/mock/interview-studio.ts:425  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/project.ts:210  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:389  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:390  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+· [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+· [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=809 violations=0 debt=78 migrations=56
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=1144 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 40 个文件，skill 取数只经 Context API（I-25）
+scanned=40 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 516 files, all dependencies point inward
+scanned=516
+lint exit=0（PIPESTATUS 采集写法在 zsh 子 shell 里丢了值，已单独复核：`pnpm run lint` 直接执行 exit=0，本节全部 ✅ 无 ❌ 与之一致）
+
+================================================================================
+§3 pnpm --filter api exec vitest run tests/project/non-workshop-member-tables.test.ts
+================================================================================
+
+
+ RUN  v2.1.9 /private/tmp/f128-worktree/apps/api
+
+ ✓ tests/project/non-workshop-member-tables.test.ts (11 tests) 1232ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  18:50:56
+   Duration  1.64s (transform 155ms, setup 0ms, collect 227ms, tests 1.23s, environment 0ms, prepare 40ms)
+
+vitest(non-workshop-member-tables) exit=0
+
+================================================================================
+§4 pnpm --filter api exec vitest run tests/project/workshop-only-machinery-fk-denied.test.ts
+================================================================================
+
+
+ RUN  v2.1.9 /private/tmp/f128-worktree/apps/api
+
+ ✓ tests/project/workshop-only-machinery-fk-denied.test.ts (7 tests) 395ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  18:50:58
+   Duration  591ms (transform 42ms, setup 0ms, collect 41ms, tests 395ms, environment 0ms, prepare 43ms)
+
+vitest(workshop-only-machinery-fk-denied) exit=0
+
+================================================================================
+§5 pnpm --filter api run migrate:check
+================================================================================
+
+
+> @repo/api@0.0.0 migrate:check /private/tmp/f128-worktree/apps/api
+> ./scripts/verify-migrations.sh
+
+ Container workspacex-kernel-postgres-1 Running 
+NOTICE:  database "f128_ev_mig" does not exist, skipping
+  applied 56 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /private/tmp/f128-worktree/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+migrate:check exit=0
+
+================================================================================
+§6 apps/api/scripts/verify-rls.sh
+================================================================================
+
+== bringing up postgres, resetting to an empty database ==
+ Container workspacex-kernel-postgres-1 Running 
+NOTICE:  database "f128_ev_rls" does not exist, skipping
+== applying migrations as the owner ==
+applied 56 migration(s), skipped 0
+  + 0001-kernel-roles.sql
+  + 0002-rls-probe.sql
+  + 0003-identity.sql
+  + 0004-f02-tenant-isolation-audit.sql
+  + 0005-f03-admin-boundary.sql
+  + 0006-f04-artifact-model.sql
+  + 0007-f05-snapshot-immutability.sql
+  + 0008-f06-binding-modes.sql
+  + 0008-f15-capability-listings.sql
+  + 0009-f10-retrieval-index.sql
+  + 0010-auth-credentials-sessions.sql
+  + 0011-f19-auth-registration.sql
+  + 0012-f07-downstream-references.sql
+  + 0013-f08-provenance-audit.sql
+  + 0014-f22-org-lifecycle.sql
+  + 0015-f16-personal-local-org.sql
+  + 0016-f13-context-pack-persistence.sql
+  + 0017-f17-local-export.sql
+  + 0018-f116-project-supertype-subtypes.sql
+  + 0019-f48-model-pool.sql
+  + 0020-f80-interview-scope.sql
+  + 0021-f108-chat-visibility.sql
+  + 0022-f10-org-member-invites.sql
+  + 0023-f31-files-browser.sql
+  + 0025-f15-project-invite-links.sql
+  + 0026-f117-create-project-idempotency.sql
+  + 0027-f32-download-grants.sql
+  + 0029-f109-thread-list.sql
+  + 0030-f81-interview-step-attachments.sql
+  + 0031-f49-admission-tests.sql
+  + 0032-f110-ai-team-panel.sql
+  + 0033-f34-files-terminal-states.sql
+  + 20260731085758_f11_admin_invite_dual_review.sql
+  + 20260731085808_f118_agenda_segments_table.sql
+  + 20260731090052_f16_revoke_access_timing.sql
+  + 20260731090952_f12_group_link_auto_enroll.sql
+  + 20260731153640_f73_recording_file_first.sql
+  + 20260731153916_f13_guestless_entry_edge_cases.sql
+  + 20260731160433_f74_speaker_assignment_backfill.sql
+  + 20260731161729_f121_agenda_segment_naming.sql
+  + 20260731165010_f72_pii_masking_phone_encryption.sql
+  + 20260731165140_f14_interviewee_phone_withdrawal.sql
+  + 20260731170006_f115_preset_conversation_distribution.sql
+  + 20260731170746_f111_chat_citations.sql
+  + 20260731203510_f33_files_export_jobs.sql
+  + 20260801000000_f35_upload_security.sql
+  + 20260801000000_f97_interview_subjects.sql
+  + 20260801103000_f82_interview_templates.sql
+  + 20260801120000_f124_project_archive_readonly.sql
+  + 20260801120500_f44_version_list_and_derived.sql
+  + 20260801130000_f36_ingestion_outbox.sql
+  + 20260801140000_f98_contact_reveal_audit.sql
+  + 20260801150000_f112_approval_gate.sql
+  + 20260801150000_f83_template_extraction_drafts.sql
+  + 20260801180000_f84_interview_outline_wizard.sql
+  + 20260801190000_f128_non_workshop_member_tables.sql
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
+  ✓ audit is not idle: 77 tenant tables classified ok (floor 46)
+  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
+verify-rls.sh exit=0
+
+================================================================================
+§7 pnpm --filter @repo/contracts run test
+================================================================================
+
+
+> @repo/contracts@0.0.0 test /private/tmp/f128-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f128-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 7ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 3ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 107ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 10ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 10ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 6ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 7ms
+ ✓ tests/contract-shape.test.ts (77 tests) 94ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  18:56:07
+   Duration  1.15s (transform 789ms, setup 0ms, collect 2.65s, tests 245ms, environment 1ms, prepare 1.18s)
+
+@repo/contracts test exit=0
+
+================================================================================
+附加回归核查（超出 issue 列出的 7 条，主动补做）
+================================================================================
+- pnpm exec vitest run tests/project（全目录 27 个文件 174 用例）：全绿，含本 feature
+  修的 overview-whitelist-four-blocks.test.ts 与既有 subtype-exclusive-1to1.test.ts。
+- 抽查引用 project_memberships 的域外测试（tests/chat/visibility-two-layer-intersection、
+  tests/kernel/rls-force-nonowner、rls-cross-tenant-zero-leak、permission-propagation-six-paths、
+  rbac-role-matrix）单独跑：150 用例全绿，未受影响（它们全部只对 workshop 容器写）。
+- 未跑全量 vitest run（无 include 过滤）：本仓已知 issue #74，多文件并发对同一个 Postgres
+  实例会撞连接数上限产生假失败，与 F128 无关，遵循 issue 备注按域名/文件分批验证。
+
+================================================================================
+补记（pre-push 全量 test 暴露的自我反证，已修复并重新验证）
+================================================================================
+harness 的 pre-push 钩子跑了 `pnpm --filter api run test`（全量，非本 issue 列出的 7 条
+之一）。第一版迁移里，`groups_project_kind_fkey` / `project_memberships_project_kind_fkey`
+两条复合外键忘了写 `ON DELETE CASCADE`——`groups.project_id` / `project_memberships.project_id`
+原有的单列外键（0003）一直是 CASCADE：删除一个项目容器时分组与工作坊项目成员本该被一并带走。
+少了 CASCADE 的复合外键会抢在既有级联之前先报外键冲突，实测复现于：
+  · tests/kernel/mode-upgrade-no-downgrade.test.ts「DELETE 项目级联到 artifact_bindings
+    触发 CANNOT_DOWNGRADE」——实际抛出变成 groups_project_kind_fkey 冲突；
+  · tests/project/list-projects-two-segments.test.ts 的 afterEach 清理（resetOrgs）直接
+    报同一条外键冲突。
+已在 apps/api/migrations/20260801190000_f128_non_workshop_member_tables.sql 里补上
+ON DELETE CASCADE（UPDATE 端仍是默认 NO ACTION，workshop-only-machinery-fk-denied.test.ts
+最后一条「判别列不是摆设」的反证不受影响）。修复后重新跑（新的 WORKSPACEX_DB，避免命中
+未带 CASCADE 的旧库残留）：
+
+§1' typecheck: exit=0
+§2' lint: exit=0（9 个 ✅ 检查点全过）
+§3' vitest tests/project/non-workshop-member-tables.test.ts: 11 passed
+§4' vitest tests/project/workshop-only-machinery-fk-denied.test.ts: 7 passed
+§5' migrate:check: exit=0（force replay + schema digest 一致）
+§6' verify-rls.sh: exit=0（77 tenant tables ok，floor 46）
+§7' @repo/contracts test: 166 passed
+
+补充回归（超出 7 条，主动重跑确认无遗留问题）：
+  - tests/project 全目录：28 files / 188 tests / 2 todo，全绿（含刚才两个曾经报错的文件：
+    mode-upgrade-no-downgrade 在 tests/kernel 而非 tests/project，见下一行；
+    list-projects-two-segments.test.ts 在本目录内，5/5 通过）。
+  - tests/kernel/mode-upgrade-no-downgrade.test.ts：14 passed（含「DELETE 项目级联触发
+    CANNOT_DOWNGRADE」那一条）。
+  - tests/kernel/rls-force-nonowner.test.ts、retrieval-fts-first-class.test.ts、
+    local-export-copy-not-move.test.ts：单独隔离跑（不与其它文件抢连接）全绿，确认此前
+    `vitest run tests/kernel`（不加隔离）里的失败是 issue #74 已知的 Postgres 连接数
+    竞争假失败，与本 feature 无关。

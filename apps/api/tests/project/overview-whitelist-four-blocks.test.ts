@@ -20,6 +20,7 @@ import { PgProjectOverviewRepository } from "../../src/infrastructure/project/pg
 import { toOrgId } from "../../src/domain/org-id";
 import { makeHarness, seedArtifact, type Harness } from "../support/binding-fixture";
 import { bindToProjectStep } from "../../src/application/artifact/bind-to-project-step";
+import { FakeRoleViewRepository } from "../support/role-view-fakes";
 import {
   addOrgMember,
   addProjectMember,
@@ -129,13 +130,32 @@ describe("白名单四件是封闭集合，不多不少", () => {
 
   it("非工作坊容器：当前议程环节与角色人数恒为 null，不是缺字段", async () => {
     await addOrgMember(ORG, "u-f123-research-owner", "lead", null);
-    // `authorize()` 的项目层判定不看容器 kind——`research_project` 与 `workshop` 共用同一张
-    // `project_memberships`，没有这一行 LEAD 在 RESEARCH 上没有任何项目角色，`decide()`
-    // 会在项目层直接拒绝（`NO_PROJECT_ROLE`），根本走不到「非工作坊两字段恒为 null」这条断言
-    // 想验证的分支。角色本身对本用例的输出没有影响（`roleCounts`/`currentAgendaSegment`
-    // 只看 `snapshot.kind`），这里只是满足鉴权前提。
-    await addProjectMember(ORG, RESEARCH, LEAD, "facilitator", null, true);
-    const out = await overviewOf(LEAD, RESEARCH);
+    // ⚠ 2026-08-01（F128）：这里**不能**再靠 `addProjectMember(ORG, RESEARCH, ...)` 满足
+    // 鉴权前提——F128 把 `project_memberships` 收窄成工作坊专属机件（U-7 裁 A），
+    // 往 RESEARCH 这样的非工作坊容器写一行工作坊项目成员现在被数据库复合外键
+    // （`project_memberships_project_kind_fkey`）直接拒绝（23503），这正是
+    // `tests/project/workshop-only-machinery-fk-denied.test.ts` 钉住的行为，不是本文件
+    // 该绕过的意外故障。
+    //
+    // 本条断言真正要验证的是**响应形状**（非工作坊两字段恒为 null），不是「项目层鉴权
+    // 如何对非工作坊容器生效」——后者目前没有任何操作可达（`KNOWN_CONTRACT_GAPS.P2`：
+    // 两类容器的成员操作尚未签核，`authorize()` 还没有接上 `research_project_members`/
+    // `user_insight_members` 的 owner/collaborator，这是另一个未来 feature 的范围）。
+    // 用一个只作用于本次调用的 fake `IdentityRepository` 顶替 `deps.auth`（连带
+    // `deps.binding.auth`，两者是同一个 `AuthorizeDeps` 形状，`listBackflow` 内部也
+    // 用它再判一次同一个动作），在内存里让 LEAD 对 RESEARCH 持有一个项目角色——
+    // 不写数据库，因此不撞刚加的复合外键，只是把「鉴权已通过」这件事在测试边界内摆出来，
+    // 让断言能够到达它真正要盯的那两个字段。
+    const fakeAuth = {
+      repo: new FakeRoleViewRepository({
+        [LEAD]: { orgRole: "lead", projectRole: "facilitator", isHost: true },
+      }),
+      ids: h.deps.auth.ids,
+    };
+    const out = await getProjectOverview(
+      { repo: overviewRepo, auth: fakeAuth, binding: { ...h.deps, auth: fakeAuth } },
+      { userId: LEAD, orgId: org(), projectId: RESEARCH },
+    );
     expect(out.currentAgendaSegment).toBeNull();
     expect(out.roleCounts).toBeNull();
     expect(out.kind).toBe("research_project");
