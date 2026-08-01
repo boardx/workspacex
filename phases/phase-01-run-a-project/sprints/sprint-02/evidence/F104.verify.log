@@ -1,0 +1,44 @@
+=== F104 verification log ===
+Generated: 2026-08-01T01:44:24Z
+
+--- pnpm --filter api exec vitest run tests/canvas/sticky-geometry-region-roundtrip.test.ts ---
+
+
+ RUN  v2.1.9 /private/tmp/f104-worktree/apps/api
+
+ ✓ tests/canvas/sticky-geometry-region-roundtrip.test.ts (4 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  09:44:25
+   Duration  2.65s (transform 523ms, setup 0ms, collect 1.82s, tests 6ms, environment 0ms, prepare 293ms)
+
+
+exit code: 0
+
+--- pnpm --filter api exec vitest run tests/canvas/coords-not-written-back.test.ts ---
+
+
+ RUN  v2.1.9 /private/tmp/f104-worktree/apps/api
+
+ ✓ tests/canvas/coords-not-written-back.test.ts (3 tests) 376ms
+   ✓ F104 · 坐标不写回 Markdown（round-trip） > V4：在画布上大幅拖动全部节点后导出，mermaid 文本逻辑等价且不含任何坐标信息 363ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  09:44:29
+   Duration  4.21s (transform 346ms, setup 0ms, collect 1.08s, tests 376ms, environment 1.96s, prepare 138ms)
+
+
+exit code: 0
+
+--- grep -rq 'data-testid=.canvas-save-layout' apps/web/components/canvas ---
+exit code: 0
+
+--- Notes ---
+- `pnpm --filter api exec tsc --noEmit -p .` pre-existing failures in
+  `packages/fabric-markdown/src/mermaid-parser.ts` / `fabric-objects.ts` (missing DOM lib types
+  under apps/api's tsconfig) exist identically on origin/main before this change (verified via
+  `git stash` diff comparison) — not introduced by F104, not in scope to fix here.
+- Per issue #74 standing guidance: Postgres-dependent tests skipped locally; the two new test
+  files are pure Node / jsdom (fabric StaticCanvas), no DB dependency.
