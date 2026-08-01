@@ -30,5 +30,14 @@ export default defineConfig({
       ["tests/**/*.test.tsx", "jsdom"],
     ],
     setupFiles: ["tests/setup-dom.ts"],
+    /**
+     * #76: neither timeout was set here, so both stayed at vitest's defaults (5s test /
+     * 10s hook). This suite doesn't connect to Postgres like apps/api's does, so the risk
+     * is smaller, but jsdom's first spin-up per file is not free on a loaded machine, and
+     * an unset value here is exactly the kind of thing that looks fine until the day it
+     * doesn't -- set explicitly rather than relying on "probably enough".
+     */
+    testTimeout: 15_000,
+    hookTimeout: 30_000,
   },
 });
