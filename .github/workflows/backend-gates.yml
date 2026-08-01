@@ -58,10 +58,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # #115: 裸 `pnpm --filter api run typecheck` 绕过 turbo.json 的
+      # `typecheck: { dependsOn: ["^build"] }`。@repo/fabric-markdown 的类型故意走
+      # dist/*.d.ts 而不是源码（源码引用 DOM 的 Element/CanvasRenderingContext2D，
+      # apps/api 的 tsconfig 只开 lib: ["ES2022"]——见该包 package.json 的 "//types"
+      # 注释）；dist/ 不存在时 exports.types 解析失败回落到源码，于是后端 tsc 直接去
+      # typecheck 一个浏览器库，炸得莫名其妙。`pnpm turbo run` 会先跑
+      # @repo/fabric-markdown#build，和 harness-verify.yml 里已经在用的调用形式一致。
       - name: typecheck / lint
-        run: |
-          pnpm --filter api run typecheck
-          pnpm --filter api run lint
+        run: pnpm turbo run typecheck lint --filter=@repo/api
 
       # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。
       # ⚠ 这不是竞态的修法——修法在 tests/support/db.ts 里（并行调用要能容忍抢输）。
