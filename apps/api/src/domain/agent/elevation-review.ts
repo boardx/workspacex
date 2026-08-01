@@ -21,21 +21,25 @@
  * theatre with no corresponding risk to gate, so a single `否` from either eligible function
  * is final.
  */
-import type { CountersignRole, ElevationVerdict } from "@repo/contracts/agent-runtime";
+import { CountersignRole, ElevationVerdict } from "@repo/contracts/agent-runtime";
+import type { z } from "zod";
 import type { ToolWhitelistEntryT } from "./definition";
+
+type CountersignRoleT = z.infer<typeof CountersignRole>;
+type ElevationVerdictT = z.infer<typeof ElevationVerdict>;
 
 /** The functional roles a natural person can hold. Only two may countersign (O-21). */
 export type ReviewFunction = "methodologyReviewer" | "securityReviewer" | "orgAdmin";
 
 export interface ElevationDecisionInput {
   readonly toolFullName: string;
-  readonly verdict: ElevationVerdict;
+  readonly verdict: ElevationVerdictT;
   readonly reason: string;
   /** The signer's ACTUAL assigned function -- never trusted from `signature.role` alone. */
   readonly actorFunction: ReviewFunction;
   readonly actorId: string;
   /** The claimed signing role. Must be consistent with `actorFunction` (see below). */
-  readonly signatureRole: CountersignRole;
+  readonly signatureRole: CountersignRoleT;
 }
 
 export type ElevationDecisionError =
