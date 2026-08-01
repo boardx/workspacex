@@ -28,6 +28,8 @@ import type {
 import type { ThreadSkillMount } from "../../domain/skill/thread-mount";
 import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
 import type { PromotionLink } from "../../domain/skill/promotion-link";
+import type { DataQualityEntry, RatingRecord } from "../../domain/skill/rating-attribution";
+import type { SuggestionCategory } from "../../domain/skill/suggestion-aggregation";
 
 /**
  * 提交人**当时**持有的数据范围（I-12 的上界）。
@@ -373,4 +375,51 @@ export interface SourceKnowledgeLinkageStorePort {
   currentEffectiveContract(
     skillId: string,
   ): Promise<{ readonly content: DeclarativeContract } | null>;
+}
+
+/* ═══════════════════ F68：改进反馈与版本触发 ═══════════════════ */
+
+/**
+ * 消息级评价的落库面（`rateMessage` 用）。⚠ **只有 `findByIdempotencyKey` / `save`**——
+ * 没有 `update`：一条评价一旦落库不可再改（对照 F66 版本快照「写了就不改」的同一纪律），
+ * 撤销/改评价（R10「待确认」）留给未来另起一个方法，不在这里悄悄允许。
+ */
+export interface RatingRepositoryPort {
+  findByIdempotencyKey(key: string): Promise<RatingRecord | null>;
+  save(record: RatingRecord): Promise<void>;
+  /** 供满意度/聚合读取某 skill 名下全部评价（含未归因的，由调用方按 `deriveSkillSatisfactionCounts` 过滤）。 */
+  listBySkillId(skillId: string): Promise<readonly RatingRecord[]>;
+}
+
+/** 数据质量报表落库面（E1：缺归因的评价不得静默消失，必须可被列出）。 */
+export interface DataQualityReportPort {
+  record(entry: DataQualityEntry): Promise<void>;
+}
+
+/**
+ * 聚合建议的人工归类落库面。⚠ 只有 `setCategory` / `categoryOf`——
+ * 聚合本身（`aggregateSuggestions`）是纯函数重算出来的投影，不落库；
+ * 落库的只有「人对哪个结构键做了什么归类」这一件事（R7 的人工归类字段）。
+ */
+export interface SuggestionCategoryStorePort {
+  setCategory(structuralKey: string, category: SuggestionCategory): Promise<void>;
+  categoryOf(structuralKey: string): Promise<SuggestionCategory | null>;
+}
+
+/**
+ * 改进提案的落库面。⚠ **没有 `publish` / `setEffective`**——
+ * 与 F67 `PromotionSkillStorePort` 同一条纪律：落库面结构上拿不到把提案
+ * 直接置为生效的能力，「未经复核不得上线」因此不止是调用方纪律，也是结构性的。
+ * 上线走 `SkillVersionStorePort`（复用 F66 `releaseVersion`），不是这个端口的方法。
+ */
+export interface ImprovementProposalStorePort {
+  save(proposal: {
+    readonly proposalId: string;
+    readonly skillId: string;
+    readonly baseVersionId: string;
+    readonly draftVersionId: string;
+    readonly schemaBreaking: boolean;
+    readonly machineGenerated: true;
+    readonly humanEdits: number;
+  }): Promise<void>;
 }
