@@ -11,14 +11,20 @@ import type {
   MountHealthPort,
   OrgSkillCatalogPort,
   OrgTemplateCreatePort,
+  PromoterKindPort,
+  PromotionLinkStorePort,
+  PromotionSkillStorePort,
   ProjectOrchestrationStorePort,
+  RedactionGatePort,
   ReviewerFunctionPort,
   RoleAssigneePort,
   SatisfactionCountsPort,
   SecurityAuditPort,
   SkillDraftStorePort,
+  SkillVersionStorePort,
   SkillVisibilityPort,
   SkillVisibilityScopePort,
+  SourceKnowledgeLinkageStorePort,
   SubmitterGrantsPort,
   ThreadMountStorePort,
   TodoPublisherPort,
@@ -27,6 +33,8 @@ import type {
 import type { ReviewerFunctionValue } from "../../src/domain/skill/review-authorization";
 import type { SkillCatalogEntry, SkillCatalogPort } from "../../src/application/skill/list-skills";
 import type { DeclarativeContract } from "../../src/domain/skill/declarative-contract";
+import type { PromotionLink } from "../../src/domain/skill/promotion-link";
+import type { SkillVersionSnapshot } from "../../src/domain/skill/version-chain";
 import type {
   BindingSlotRef,
   BindingTrigger,
@@ -388,5 +396,127 @@ export function validContract(over: Partial<DeclarativeContract> = {}): Declarat
     readsRawTranscript: false,
     fallbackDeclaration: "输出不合 schema 时重试一次，仍失败则返回结构化失败并提示人工接手",
     ...over,
+  };
+}
+
+/* ═══════════════════ F67：晋升生成（phase-1 接收端）的替身 ═══════════════════ */
+
+/** 晋升审批人身份替身。传入一组 AI principalId；未列出的一律视为人类。 */
+export function promoterKind(aiPrincipalIds: ReadonlySet<string> = new Set()): PromoterKindPort {
+  return {
+    async kindOf(principalId) {
+      return aiPrincipalIds.has(principalId) ? "ai" : "human";
+    },
+  };
+}
+
+/** 脱敏闸门替身。传入一组需要脱敏的 knowledgeItemId；未列出的一律不需要。 */
+export function redactionGate(needsRedaction: ReadonlySet<string> = new Set()): RedactionGatePort {
+  return {
+    async requiresRedaction(knowledgeItemId) {
+      return needsRedaction.has(knowledgeItemId);
+    },
+  };
+}
+
+export interface PromotionSkillStoreSpy extends PromotionSkillStorePort {
+  readonly saved: { orgId: string; knowledgeItemId: string; contract: DeclarativeContract; source: string }[];
+  /** 设为 true 时下一次 `savePendingReview` 抛错——模拟「Skill 库不可写」（E8/V11） */
+  readonly failNext: { value: boolean };
+}
+
+export function promotionSkillStore(): PromotionSkillStoreSpy {
+  const saved: PromotionSkillStoreSpy["saved"] = [];
+  const failNext = { value: false };
+  let n = 0;
+  return {
+    saved,
+    failNext,
+    async savePendingReview(input) {
+      if (failNext.value) {
+        failNext.value = false;
+        throw new Error("simulated: skill store unwritable");
+      }
+      saved.push({ ...input });
+      n += 1;
+      return { skillId: `skill-promoted-${n}`, versionId: `ver-promoted-${n}` };
+    },
+  };
+}
+
+/**
+ * `PromotionLink` 存储替身。**双向都能查**（I-22）：内部同时按 `skillId` 与
+ * `knowledgeItemId` 建索引，`save` 一次性更新两处——避免测试替身本身先分叉成
+ * 两份不同步的数据。
+ */
+export interface PromotionLinkStoreSpy extends PromotionLinkStorePort {
+  readonly savedLinks: PromotionLink[];
+}
+
+export function promotionLinkStore(initial: readonly PromotionLink[] = []): PromotionLinkStoreSpy {
+  const bySkillId = new Map<string, PromotionLink>(initial.map((l) => [l.skillId, l]));
+  const savedLinks: PromotionLink[] = [];
+  return {
+    savedLinks,
+    async save(link) {
+      bySkillId.set(link.skillId, link);
+      savedLinks.push(link);
+    },
+    async loadBySkillId(skillId) {
+      return bySkillId.get(skillId) ?? null;
+    },
+    async loadByKnowledgeItemId(knowledgeItemId) {
+      for (const link of bySkillId.values()) {
+        if (link.knowledgeItemId === knowledgeItemId) return link;
+      }
+      return null;
+    },
+  };
+}
+
+/** 源知识状态联动的落库面替身：记录标注/停用调用，并持有一份「当前生效契约」表。 */
+export interface SourceKnowledgeLinkageStoreSpy extends SourceKnowledgeLinkageStorePort {
+  readonly annotated: string[];
+  readonly disabled: string[];
+}
+
+export function sourceKnowledgeLinkageStore(
+  effectiveContracts: Readonly<Record<string, DeclarativeContract>> = {},
+): SourceKnowledgeLinkageStoreSpy {
+  const annotated: string[] = [];
+  const disabled: string[] = [];
+  return {
+    annotated,
+    disabled,
+    async annotateExpired(skillId) {
+      annotated.push(skillId);
+    },
+    async disable(skillId) {
+      disabled.push(skillId);
+    },
+    async currentEffectiveContract(skillId) {
+      const content = effectiveContracts[skillId];
+      return content === undefined ? null : { content };
+    },
+  };
+}
+
+/** 版本链存储替身（复用 F66 的形状），供「被替代 → 发新版」用例测试。 */
+export interface SkillVersionStoreSpy extends SkillVersionStorePort {
+  readonly savedHistories: Map<string, readonly SkillVersionSnapshot[]>;
+}
+
+export function skillVersionStore(
+  initial: Readonly<Record<string, readonly SkillVersionSnapshot[]>> = {},
+): SkillVersionStoreSpy {
+  const savedHistories = new Map<string, readonly SkillVersionSnapshot[]>(Object.entries(initial));
+  return {
+    savedHistories,
+    async loadChain(skillId) {
+      return savedHistories.get(skillId) ?? [];
+    },
+    async saveChain(skillId, history) {
+      savedHistories.set(skillId, history);
+    },
   };
 }
