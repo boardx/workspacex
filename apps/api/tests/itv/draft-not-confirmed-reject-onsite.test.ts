@@ -21,6 +21,7 @@ import { PgInterviewSubjectRepository } from "../../src/infrastructure/interview
 import { PgConsentSubmissionStore } from "../../src/infrastructure/interview/pg-consent-submission-store";
 import { PgOutlineRepository, PgWizardInterviewRepository } from "../../src/infrastructure/interview/pg-outline-repository";
 import { PgInterviewScopeRepository } from "../../src/infrastructure/interview/pg-interview-scope-repository";
+import { PgConsentGateReader } from "../../src/infrastructure/interview/pg-consent-gate-reader";
 import { UuidIdFactory } from "../../src/infrastructure/artifact/uuid-id-factory";
 import { UuidDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { createInterviewFromWizard } from "../../src/application/interview/create-interview-from-wizard";
@@ -43,6 +44,7 @@ let consent: PgConsentSubmissionStore;
 let outlines: PgOutlineRepository;
 let wizardInterviews: PgWizardInterviewRepository;
 let scope: PgInterviewScopeRepository;
+let consentGate: PgConsentGateReader;
 const ids = new UuidIdFactory();
 const decisions = new UuidDecisionIdFactory();
 
@@ -56,6 +58,7 @@ beforeAll(async () => {
   outlines = new PgOutlineRepository(db);
   wizardInterviews = new PgWizardInterviewRepository(db);
   scope = new PgInterviewScopeRepository(db);
+  consentGate = new PgConsentGateReader(db);
 }, 120_000);
 
 afterAll(async () => {
@@ -74,7 +77,7 @@ function deps() {
 }
 
 function sessionDeps() {
-  return { outlines, scope, decisions };
+  return { outlines, scope, decisions, consentGate };
 }
 
 describe("F84 — 待确认草案不得进现场（服务端断言）", () => {

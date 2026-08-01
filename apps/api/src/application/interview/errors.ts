@@ -232,3 +232,21 @@ export class TemplateDraftNotConfirmedError extends Error {
     super(`TEMPLATE_DRAFT_NOT_CONFIRMED: ${draftId}`);
   }
 }
+
+/* ─────────────────────────── F88：开始访谈的硬门禁（uc-6-3 R3 步骤7 / AC2） ─────────────────────────── */
+
+/**
+ * 收到该场**全部必需受访者**（主访对象）的提交前，`startSession` 拒绝——服务端硬约束，
+ * 不是前端标记（AC2）。`pendingSubjectIds` 只供服务端日志/审计；`interface` 层同
+ * `NoInterviewAccessError` 一样，不得把它原样透出到响应体之外的口径（界面只给
+ * 「去授权」出口，不存在按 id 精确提示的绕过面）。
+ */
+export class ConsentRequiredError extends Error {
+  readonly code = "CONSENT_REQUIRED" as const;
+  constructor(
+    readonly interviewId: string,
+    readonly pendingSubjectIds: readonly string[],
+  ) {
+    super(`CONSENT_REQUIRED: interview ${interviewId} has ${pendingSubjectIds.length} required subject(s) pending`);
+  }
+}

@@ -1,0 +1,131 @@
+$ pnpm --filter api exec vitest run tests/itv/start-interview-hard-gate-server.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f88-worktree/apps/api
+
+ ✓ tests/itv/start-interview-hard-gate-server.test.ts (5 tests) 549ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  18:55:21
+   Duration  1.07s (transform 193ms, setup 0ms, collect 281ms, tests 549ms, environment 0ms, prepare 41ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv/unauthorized-no-segment.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f88-worktree/apps/api
+
+ ✓ tests/itv/unauthorized-no-segment.test.ts (3 tests) 351ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  18:55:22
+   Duration  739ms (transform 165ms, setup 0ms, collect 228ms, tests 351ms, environment 0ms, prepare 28ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv/consent-gate-reader-ids-and-bits-only.test.ts   # 补充：让 lint-permission-paths 的新豁免条目不是空口承诺
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f88-worktree/apps/api
+
+ ✓ tests/itv/consent-gate-reader-ids-and-bits-only.test.ts (5 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  18:55:23
+   Duration  173ms (transform 22ms, setup 0ms, collect 11ms, tests 6ms, environment 0ms, prepare 39ms)
+
+
+$ pnpm --filter api exec vitest run tests/itv   # 回归：全部 25 个 itv 测试文件仍绿（含被本 feature 改动的 F84 draft-not-confirmed-reject-onsite.test.ts）
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f88-worktree/apps/api
+
+ ✓ tests/itv/token-two-kinds-lifecycle.test.ts (8 tests) 6ms
+ ✓ tests/itv/contact-mask-audit-export-exclude.test.ts (17 tests) 6ms
+ ✓ tests/itv/outline-goal-before-two-questions.test.ts (16 tests) 3ms
+ ✓ tests/itv/template-reverse-extract-draft.test.ts (7 tests) 14ms
+ ✓ tests/itv/ai-suggest-candidate-no-autofill-contact.test.ts (9 tests) 4ms
+ ✓ tests/itv/template-apply-three-things-detached.test.ts (3 tests) 534ms
+ ✓ tests/itv/researcher-mirror-readonly.test.ts (5 tests) 4ms
+ ✓ tests/itv/template-editor-list.test.ts (6 tests) 8ms
+ ✓ tests/itv/wizard-three-steps-carryover.test.ts (2 tests) 610ms
+ ✓ tests/itv/start-interview-hard-gate-server.test.ts (5 tests) 1018ms
+ ✓ tests/itv/unauthorized-no-segment.test.ts (3 tests) 629ms
+ ✓ tests/itv/consent-bits-four-independent.test.ts (8 tests) 3ms
+ ✓ tests/itv/research-plan-params-render.test.ts (32 tests) 3ms
+ ✓ tests/itv/draft-not-confirmed-reject-onsite.test.ts (4 tests) 646ms
+ ✓ tests/itv/template-repo-org-scoped-only.test.ts (3 tests) 3ms
+ ✓ tests/itv/template-usage-count-not-writable.test.ts (4 tests) 678ms
+ ✓ tests/itv/consent-gate-reader-ids-and-bits-only.test.ts (5 tests) 5ms
+ ✓ tests/itv/source-interview-reader-org-scoped-only.test.ts (4 tests) 2ms
+ ✓ tests/itv/template-draft-repo-org-scoped-only.test.ts (3 tests) 2ms
+ ✓ tests/itv/consent-status-single-source.test.ts (5 tests) 866ms
+ ✓ tests/itv/object-two-projections-single-record.test.ts (4 tests) 687ms
+{"level":"error","msg":"http exception","traceId":"f730e0fd-6a4c-4ad0-8ae1-0961ee6c8a28","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at InterviewScopeController.run (/private/tmp/f88-worktree/apps/api/src/interface/controllers/interview-scope.controller.ts:236:54)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"40a0ec52-71d6-43ba-a4bc-c8833076b4ec","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at InterviewScopeController.run (/private/tmp/f88-worktree/apps/api/src/interface/controllers/interview-scope.controller.ts:236:54)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"d0f20783-8afc-486a-b44a-059257a3d01e","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at InterviewScopeController.run (/private/tmp/f88-worktree/apps/api/src/interface/controllers/interview-scope.controller.ts:238:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/f88-worktree/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/itv/scope-server-side-filter-no-leak.test.ts (9 tests) 2528ms
+ ✓ tests/itv/mount-to-segment-snapshot.test.ts (13 tests) 2754ms
+   ✓ ① 挂的是固定快照 —— 上游继续定版，已挂的那一条不跟着走（V4③ / D-30） > head 换到 v2 之后，挂载读回来的仍是 v1 与 v1 的 content_hash 345ms
+ ✓ tests/itv/virtual-real-counts-split.test.ts (11 tests) 3220ms
+ ✓ tests/itv/scope-nullable-project-projection.test.ts (19 tests) 3484ms
+
+ Test Files  25 passed (25)
+      Tests  205 passed (205)
+   Start at  18:55:24
+   Duration  4.14s (transform 1.71s, setup 0ms, collect 3.65s, tests 17.72s, environment 2ms, prepare 1.17s)
+
+
+$ pnpm --filter api exec vitest run tests/rec   # 回归：F69 录制入口（本 feature 新增的 createRecordingConsentGate 挂在它的 ConsentGate 端口上）
+[exit 0]
+
+
+ RUN  v2.1.9 /private/tmp/f88-worktree/apps/api
+
+ ✓ tests/rec/assign-backfill-revocable.test.ts (7 tests) 3ms
+ ✓ tests/rec/ai-annotation-candidate-gate.test.ts (21 tests) 4ms
+ ✓ tests/rec/quote-anchor-and-rq-binding.test.ts (13 tests) 4ms
+ ✓ tests/rec/consent-snapshot-immutable.test.ts (6 tests) 7ms
+ ✓ tests/rec/phone-encrypted-masked.test.ts (13 tests) 19ms
+ ✓ tests/rec/retention-param-resolution-no-hardcode.test.ts (29 tests) 13ms
+ ✓ tests/rec/expiry-freeze-and-delete-cert.test.ts (18 tests) 15ms
+ ✓ tests/rec/mic-permission-decline-no-segment.test.ts (7 tests) 5ms
+ ✓ tests/rec/segment-anchor-completeness.test.ts (24 tests) 7ms
+ ✓ tests/rec/voiceprint-embedding-destroy-on-assign.test.ts (7 tests) 3ms
+ ✓ tests/rec/voiceprint-fallback-day7-destroy.test.ts (6 tests) 5ms
+ ✓ tests/rec/partial-segment-not-citable.test.ts (9 tests) 5ms
+ ✓ tests/rec/unstable-segments-reject-quote.test.ts (7 tests) 5ms
+ ✓ tests/rec/ai-annotation-origin-and-audit.test.ts (13 tests) 11ms
+ ✓ tests/rec/disputed-lowconf-not-citable.test.ts (9 tests) 4ms
+ ✓ tests/rec/consent-render-from-params.test.ts (17 tests) 9ms
+ ✓ tests/rec/overlap-pending-manual.test.ts (6 tests) 5ms
+ ✓ tests/rec/candidate-from-onsite-roster-only.test.ts (5 tests) 2ms
+ ✓ tests/rec/derived-from-original-unchanged.test.ts (4 tests) 4ms
+ ✓ tests/rec/pii-mask-five-types.test.ts (29 tests) 7ms
+ ✓ tests/rec/file-first-materialization.test.ts (8 tests) 6ms
+ ✓ tests/rec/multi-track-no-crosstalk.test.ts (7 tests) 3455ms
+   ✓ F69 · 三载体共享一套转写能力 > BYPASS · a carrier that writes its own segments does not compile 1873ms
+   ✓ F69 · 三载体共享一套转写能力 > BYPASS · does NOT over-fire: going through the core compiles 1524ms
+
+ Test Files  22 passed (22)
+      Tests  265 passed (265)
+   Start at  18:55:28
+   Duration  4.05s (transform 582ms, setup 0ms, collect 3.81s, tests 3.60s, environment 9ms, prepare 1.16s)
+
+
+$ pnpm --filter api run typecheck
+[exit 0]
+
+(以上过滤掉了 packages/fabric-markdown 的 124 行既有 DOM lib 报错——与本 feature 无关的既有缺口，改动前后逐行相同，已用 git stash 反证核对)
+
+$ node apps/api/scripts/lint-permission-paths.mjs   # 新增 pg-consent-gate-reader.ts 的豁免条目需要过这道结构门
+[exit 0]
+
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=520 tenant-tables=75 allowlisted=25
