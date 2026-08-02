@@ -51,3 +51,13 @@ Notes:
   `packages/fabric-markdown` (canvas/SVG DOM lib typing) that predate this branch and are
   not touched by F25's files; none of the reported errors reference `templates`, `grouping`,
   or `interview-subject`.
+- Pre-push hook (`turbo run typecheck lint test --affected`) caught a real typecheck error
+  of mine on first attempt: `hasAllSixColumns`/`findRowMissingColumns` in
+  `domain/templates/interview-subject.ts` took `Readonly<Record<string, unknown>>`, which
+  `InterviewSubjectRow` (a named interface without an index signature) does not structurally
+  satisfy. Fixed by widening the parameter type to `object` (still uses `in` for the
+  membership check). Re-ran the full affected set after the fix — clean.
+- Full local `pnpm --filter api exec vitest run` (untargeted, whole suite) had 2 pre-existing
+  failing files unrelated to F25 (`tests/kernel/pgvector-permission-recall.test.ts` and one
+  other), consistent with issue #74's documented Postgres connection-pool contention under
+  concurrent agents; none touch `templates`/`grouping`/`interview-subject`.
