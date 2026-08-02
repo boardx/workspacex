@@ -126,6 +126,20 @@ import { INTERVIEW_ATTACHMENT_REPOSITORY } from "./application/interview/attachm
 import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interview-scope-repository";
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
+// F86 (#356): consent-token 真实持久化——替换原 in-memory-consent-token-repository.ts。
+// ⚠ 尚无 controller 调用这三个仓储背后的用例（issue-signing-token 等）：见该文件顶部
+// 与迁移文件头，F86 五个用例目前没有任何 interface 层入口，绑好 provider 只是把
+// 「持久化层」这一半从内存换成真实数据库，不代表这条能力端到端可达。
+import {
+  CONSENT_SNAPSHOT_REPOSITORY,
+  PORTAL_TOKEN_REPOSITORY,
+  SIGNING_TOKEN_REPOSITORY,
+} from "./application/interview/consent-token-ports";
+import {
+  PgConsentSnapshotRepository,
+  PgPortalTokenRepository,
+  PgSigningTokenRepository,
+} from "./infrastructure/interview/pg-consent-token-repository";
 // F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
 // 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
 import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
@@ -519,6 +533,22 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: INTERVIEW_SCOPE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgInterviewScopeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。
+    {
+      provide: SIGNING_TOKEN_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSigningTokenRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PORTAL_TOKEN_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPortalTokenRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: CONSENT_SNAPSHOT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgConsentSnapshotRepository(db),
       inject: [DATABASE_PORT],
     },
     // F81：挂到项目环节（固定快照绑定）。
