@@ -34,11 +34,17 @@ import { getReviewClock, type GetReviewClockResult } from "../../application/ass
 import { reviewAsset, type ReviewAssetResult } from "../../application/asset/review-asset";
 import { scanReviewClocks, type ScanReviewClocksResult } from "../../application/asset/scan-review-clocks";
 import {
+  getAssetOrphanStatus,
+  type GetAssetOrphanStatusResult,
+} from "../../application/asset/get-asset-orphan-status";
+import {
   ASSET_GATE_STATUS_PORT,
   ASSET_GOVERNANCE_REPOSITORY,
+  ASSET_OWNER_STATUS_PORT,
   REVIEW_CLOCK_REPOSITORY,
   type AssetGateStatusPort,
   type AssetGovernanceRepository,
+  type AssetOwnerStatusPort,
   type ReviewClockRepository,
 } from "../../application/asset/ports";
 import { CLOCK, type Clock } from "../../application/auth/ports";
@@ -56,6 +62,7 @@ export const PUBLISH_ASSET_SCHEMA = C.operations.publishAsset.in;
 export const GET_REVIEW_CLOCK_SCHEMA = C.operations.getReviewClock.in;
 export const REVIEW_ASSET_SCHEMA = C.operations.reviewAsset.in;
 export const SCAN_REVIEW_CLOCKS_SCHEMA = C.operations.scanReviewClocks.in;
+export const GET_ASSET_ORPHAN_STATUS_SCHEMA = C.operations.getAssetOrphanStatus.in;
 
 @Controller()
 export class AssetGovernanceController {
@@ -66,6 +73,7 @@ export class AssetGovernanceController {
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(REVIEW_CLOCK_REPOSITORY) private readonly reviewClocks: ReviewClockRepository,
+    @Inject(ASSET_OWNER_STATUS_PORT) private readonly ownerStatus: AssetOwnerStatusPort,
   ) {}
 
   @Get("/assets/:assetKind/:assetId/governance")
@@ -268,5 +276,27 @@ export class AssetGovernanceController {
   async scan(@Body() body: unknown): Promise<ScanReviewClocksResult> {
     const input = SCAN_REVIEW_CLOCKS_SCHEMA.parse({ now: (body as { now?: unknown })?.now });
     return scanReviewClocks({ reviewClocks: this.reviewClocks, governance: this.governance }, { now: input.now });
+  }
+
+  /**
+   * `GetAssetOrphanStatus` (F140) -- `uc-23-6` E1 表达面. See
+   * `application/asset/get-asset-orphan-status.ts`: this endpoint only reports the
+   * "降级 + 负责人已停用" fact and a takeover-entry-point bit, it does not implement takeover
+   * (E1's fallback owner is `[待确认]`). Not gated on org membership beyond `assertPrincipal`
+   * because the fact itself ("this asset is orphaned") is not tenant-scoped visibility --
+   * `getAssetGovernance`/`getReviewClock` already gate the underlying records.
+   */
+  @Get("/assets/:assetKind/:assetId/orphan-status")
+  async orphanStatus(
+    @CurrentPrincipal() principal: Principal,
+    @Param("assetKind") assetKind: string,
+    @Param("assetId") assetId: string,
+  ): Promise<GetAssetOrphanStatusResult> {
+    assertPrincipal(principal);
+    const input = GET_ASSET_ORPHAN_STATUS_SCHEMA.parse({ assetKind, assetId });
+    return getAssetOrphanStatus(
+      { reviewClocks: this.reviewClocks, governance: this.governance, ownerStatus: this.ownerStatus },
+      { assetKind: input.assetKind, assetId: input.assetId },
+    );
   }
 }

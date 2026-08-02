@@ -238,6 +238,7 @@ import {
   ASSET_FILE_REPOSITORY,
   ASSET_GATE_STATUS_PORT,
   ASSET_GOVERNANCE_REPOSITORY,
+  ASSET_OWNER_STATUS_PORT,
   ASSET_RUNTIME_LOADER_PORT,
   REVIEW_CLOCK_REPOSITORY,
 } from "./application/asset/ports";
@@ -255,6 +256,7 @@ import { InMemoryReviewClockRepository } from "./infrastructure/asset/in-memory-
 // F137: `PublishAsset`'s `GATE_NOT_PASSED` seam -- see `application/asset/ports.ts`'s
 // `AssetGateStatusPort` header for why phase-1 wires an always-"no blocking gate" stand-in.
 import { AlwaysPassingAssetGateStatus } from "./infrastructure/asset/always-passing-asset-gate-status";
+import { AlwaysActiveAssetOwnerStatus } from "./infrastructure/asset/always-active-asset-owner-status";
 import { AssetGovernanceController } from "./interface/controllers/asset-governance.controller";
 
 @Module({
@@ -589,6 +591,9 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
       useFactory: (assets: FixtureAssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
       inject: [ASSET_FILE_REPOSITORY],
     },
+    // F140: no "deactivated account" signal exists in this org model yet -- see the class
+    // header for why this always answers "still active".
+    { provide: ASSET_OWNER_STATUS_PORT, useFactory: () => new AlwaysActiveAssetOwnerStatus() },
     // F124：独立 provider，见 `pg-project-archive-repository.ts` 文件头。
     {
       provide: PROJECT_ARCHIVE_REPOSITORY,
