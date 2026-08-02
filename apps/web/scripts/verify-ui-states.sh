@@ -72,9 +72,12 @@ echo "==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须�
 # 契约：屏处于某态时，该态的**固定保留 testid** 必须出现在 SSR 出的 HTML 里。
 # 与降级粒度无关——分区级降级（如 /tasks 的 ③ 区）也必须挂保留名，
 # 否则该屏在矩阵里被判为漏做异常态，而「漏做异常态」正是已有原型最大的缺陷。
+# ⚠ 2026-08-02（#350）：/studio/prototype、/studio/interview 已于 2026-07-30 永久
+#   redirect() 到现行实现 /canvas、/itv（见两个 studio/* page.tsx 的头注）。
+#   纯 redirect 页面结构上渲染不出任何 testid，脚本改测现行路由，覆盖不变。
 SCREENS="login join consent group chat projects projects/demo/canvas projects/demo/files \
-tasks brain admin admin/model admin/mcp admin/members studio/prototype \
-studio/interview studio/survey studio/research"
+tasks brain admin admin/model admin/mcp admin/members canvas \
+itv studio/survey studio/research"
 matrix_fail=0
 for scr in $SCREENS; do
   for st in loading empty invalid dep-failed denied success; do
