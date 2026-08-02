@@ -201,6 +201,17 @@ want "no table is readable by the runtime role without either a tenant key or a 
 probe_exists=$(psql_owner -c "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='rls_probe';")
 want "rls_probe exists (assertion 8: the evidence table is a kernel asset)" "1" "$probe_exists"
 
+# issue #342: F124's catalog-scanning archive-freeze installer ran before F46 created
+# retention_policies/deletion_receipts, so a fresh database never got those two tables'
+# freeze policies -- migrate:check's replay accidentally papered over the gap (replay runs
+# every file again against an already-fully-migrated database, so by the time F124 replays
+# the later tables already exist). This assertion is what catches the NEXT instance of the
+# same slip on a genuinely fresh apply, not just on the replay path production never takes.
+# It reads kernel_project_archive_coverage_gaps() -- issue #342's own single source of truth
+# for "which tables need the freeze", not a second list maintained here.
+archive_gaps=$(psql_owner -c "SELECT count(*) FROM kernel_project_archive_coverage_gaps();")
+want "no table missing its project-archive freeze policy (issue #342)" "0" "$archive_gaps"
+
 echo
 echo "== 5-7: cross-tenant reads as app_rw, no application-level filter =="
 # `set -e` is disabled around this on purpose: if the assertions fail we still want to
