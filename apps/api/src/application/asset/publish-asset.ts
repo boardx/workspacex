@@ -43,6 +43,15 @@
  *
  * ⚠ `mode: "staged"`（灰度）语义待 Q-3：本用例接受该参数但**不基于它做任何分支**，
  * 直接发布与灰度发布走同一条发布逻辑——定义两者的差异就是替人类裁 Q-3。
+ *
+ * ## `reviewClocks`（F138 加，`uc-23-6` R3 状态机的起点）
+ *
+ * 发布成功后，本函数把新算出的 `reviewDueAt` 连同 `state: "active"` 写进
+ * `ReviewClockRepository` -- 这是 F138 的 `ReviewClock` 记录唯一的诞生处（发布之前不存在
+ * 一个可到期的时钟）。`reviewClocks` 是**可选依赖**：既有的三个 F137 验证套件
+ * （`publish-*.test.ts`）构造 deps 时不携带它也仍然编译通过、行为不变 -- 这不是把
+ * 「写时钟」做成可有可无，而是不强迫已经合入的测试跟着这次改动重写它们的 deps 字面量。
+ * 真正跑起来的组合根（`kernel.module.ts`）总是提供它。
  */
 import { assetGovernance as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -53,7 +62,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { Clock } from "../auth/ports";
 import type { IdentityRepository } from "../identity/ports";
 import type { ProvenanceWriter } from "../provenance/ports";
-import type { AssetGateStatusPort, AssetGovernanceRepository } from "./ports";
+import type { AssetGateStatusPort, AssetGovernanceRepository, ReviewClockRepository } from "./ports";
 import { AssetOrgScopeDeniedError } from "./get-asset-directory";
 import { GovernanceIncompleteError } from "./set-asset-governance";
 
@@ -81,6 +90,8 @@ export interface PublishAssetDeps {
   readonly gates: AssetGateStatusPort;
   readonly provenance: ProvenanceWriter;
   readonly clock: Clock;
+  /** F138 -- see file header. Optional so existing F137 deps literals keep compiling. */
+  readonly reviewClocks?: ReviewClockRepository;
 }
 
 export interface PublishAssetInput {
@@ -146,6 +157,21 @@ export async function publishAsset(
       publishedAt,
       reviewDueAt,
     },
+  });
+
+  // F138: (re-)publishing (re)starts the review clock -- `active`, freshly derived `reviewDueAt`,
+  // no pending/downgrade markers. This is the ONLY place a `ReviewClockRecord` first comes into
+  // existence; `review-asset.ts` (T3) and `scan-review-clocks.ts` (T1) both operate on records
+  // that started life here.
+  await deps.reviewClocks?.save({
+    assetKind: input.assetKind,
+    assetId: input.assetId,
+    state: "active",
+    publishedAt,
+    reviewDueAt,
+    downgradeDueAt: null,
+    lastReviewedAt: null,
+    lastReviewedBy: null,
   });
 
   return { publishedAt, publishedBy: input.userId, reviewDueAt, auditEventId };

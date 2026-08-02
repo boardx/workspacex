@@ -11,6 +11,7 @@
  */
 import type { z } from "zod";
 import type { AssetKind as AssetKindSchema } from "@repo/contracts/asset-governance";
+import type { ReviewClockRecord } from "../../domain/asset/asset-review-clock";
 
 export type AssetKind = z.infer<typeof AssetKindSchema>;
 
@@ -92,3 +93,25 @@ export interface AssetGateStatusPort {
 }
 
 export const ASSET_GATE_STATUS_PORT = Symbol("AssetGateStatusPort");
+
+/**
+ * `ReviewClockRepository` -- F138's seam for the `uc-23-6` review clock (`ReviewClockRecord`,
+ * `domain/asset/asset-review-clock.ts`).
+ *
+ * 🔴 **F139 (scan-based downgrade) and F140 (visibility write path + orphaned-asset handoff)
+ * both read/write through this SAME port.** `listActive` is intentionally not scoped to "due
+ * ones only" -- it hands back every `active`-state clock so F139's scan can decide, using the
+ * domain's `isReviewDue` predicate, without this port needing to know what "due" means for a
+ * second, wider sweep (e.g. a future re-check across `pending-review` records too). Do not
+ * narrow this to `listDue(nowIso)` without checking whether F139 already depends on the wider
+ * shape.
+ */
+export interface ReviewClockRepository {
+  /** `null` = no clock has ever been recorded for this (kind, assetId) -- i.e. never published. */
+  get(assetKind: AssetKind, assetId: string): Promise<ReviewClockRecord | null>;
+  save(record: ReviewClockRecord): Promise<void>;
+  /** Every clock currently in `active` state, across all assets in scope for this repository. */
+  listActive(): Promise<readonly ReviewClockRecord[]>;
+}
+
+export const REVIEW_CLOCK_REPOSITORY = Symbol("ReviewClockRepository");

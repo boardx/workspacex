@@ -1,0 +1,92 @@
+F138 -- 复核三态状态机：到期自动转「待复核」，仍可用但调用时会提示 (uc-23-6 R3, issue #329)
+Verified: 2026-08-02T04:04:59Z
+
+============================================================
+$ pnpm --filter @repo/contracts run test
+============================================================
+> @repo/contracts@0.0.0 test /private/tmp/f138-worktree/packages/contracts
+> vitest run
+
+ RUN  v2.1.9 /private/tmp/f138-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 2ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 61ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 6ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 7ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 30ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Duration  457ms
+
+Exit code: 0
+
+============================================================
+$ pnpm --filter api run typecheck
+============================================================
+Pre-existing, unrelated failures only: `packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts`
+(missing DOM lib types -- `CanvasRenderingContext2D`, `Element`, `SVGElement`, `document`).
+Confirmed pre-existing by re-running the identical command against `origin/main` with this
+feature's changes stashed out: byte-identical error list, same file/line numbers, same count
+(124 errors), zero of which reference any file touched by this feature (`apps/api/src/domain/asset/
+asset-review-clock.ts`, `apps/api/src/application/asset/{ports,publish-asset,review-asset,
+get-review-clock,scan-review-clocks}.ts`, `apps/api/src/infrastructure/asset/
+in-memory-review-clock-repository.ts`, `apps/api/src/interface/controllers/
+asset-governance.controller.ts`, `apps/api/src/kernel.module.ts`). This feature introduces zero
+new typecheck errors.
+Exit code (raw tsc pipeline): 2 (pre-existing, out of scope for this feature)
+
+============================================================
+$ pnpm --filter api exec vitest run tests/asset/review-clock-state-machine.test.ts
+============================================================
+ RUN  v2.1.9 /private/tmp/f138-worktree/apps/api
+
+ ✓ tests/asset/review-clock-state-machine.test.ts (14 tests) 3ms
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 到期时间已过 + active -> 到期 (isReviewDue = true)
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 尚未到期 -> 不到期
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 已经是 pending-review 的记录再跑一次 T1 -> 不再触发（不是二次转态）
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 已经是 downgraded 的记录不会被 T1 拉回 pending-review
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 到期转态只改 state，其余字段（publishedAt/reviewDueAt）原样保留
+   ✓ domain: isReviewDue / transitionToPendingReview (T1) > 未到期时转态是 no-op（返回同一份记录）
+   ✓ domain: applyReview (T3 -- 复核 ⇒ 计时重置) > 复核后状态回生效，reviewDueAt 从复核时间起算（不是原 publishedAt）
+   ✓ domain: applyReview (T3 -- 复核 ⇒ 计时重置) > 从 active 直接复核（到期前主动复核，A1）同样重置计时
+   ✓ application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判定） > 零调用的到期资产也会被扫描转态（没人读过它，扫描仍生效）
+   ✓ application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判定） > 未到期的资产不受影响
+   ✓ application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判定） > 扫描时间戳始终可观测，即使没有任何转态发生
+   ✓ application: ReviewAsset -- T3 端到端（org 成员 + editableBy 门 + 计时重置） > 负责人复核 -> 状态回生效 + reviewDueAt 重置 + 返回一条复核记录
+   ✓ application: ReviewAsset -- T3 端到端（org 成员 + editableBy 门 + 计时重置） > 不在 editableBy / 不是负责人 -> ASSET_NOT_EDITABLE，计时不被重置
+   ✓ application: ReviewAsset -- T3 端到端（org 成员 + editableBy 门 + 计时重置） > `conclusion` 是开放字符串，取值不做任何校验/分支（AG2）
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Duration  203ms
+
+Exit code: 0
+
+============================================================
+$ pnpm --filter api exec vitest run tests/asset/review-pending-still-usable.test.ts
+============================================================
+ RUN  v2.1.9 /private/tmp/f138-worktree/apps/api
+
+ ✓ tests/asset/review-pending-still-usable.test.ts (5 tests) 6ms
+   ✓ uc-23-6 R7 规则 2: 待复核资产仍可用 -- 目录浏览不受影响 > GetAssetDirectory 对 pending-review 资产返回与 active 资产完全相同的目录
+   ✓ uc-23-6 R7 规则 2: 待复核资产仍可用 -- 目录浏览不受影响 > ReadAssetFile 对 pending-review 资产仍能读到完整文件内容（不停用、不空响应）
+   ✓ uc-23-6 R7 规则 3: 调用时会提示 -- GetReviewClock 是调用方拿到提示信号的地方 > GetReviewClock 报告 pending-review，供调用方在读取路径旁展示提示
+   ✓ uc-23-6 R7 规则 3: 调用时会提示 -- GetReviewClock 是调用方拿到提示信号的地方 > 从未发布过的资产 -> 合成一个 active/全 null 的时钟，不是 404
+   ✓ uc-23-6 R7 规则 3: 调用时会提示 -- GetReviewClock 是调用方拿到提示信号的地方 > downgraded 状态与 pending-review 不同 -- 本反证只覆盖 pending-review，不断言 downgraded 的可用性（F139/F140 territory）
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+
+Exit code: 0
+
+============================================================
+$ pnpm --filter api exec vitest run tests/asset/  (regression check -- all pre-existing asset tests still pass)
+============================================================
+ Test Files  14 passed (14)
+      Tests  94 passed (94)
+
+Exit code: 0
