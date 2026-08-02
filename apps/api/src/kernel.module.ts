@@ -234,8 +234,17 @@ import { ProjectController } from "./interface/controllers/project.controller";
 // F141 (asset-governance bundle): the asset directory's two READ routes (`GetAssetDirectory` /
 // `ReadAssetFile`). Scope is 2/6 AssetKinds (skill / agent, AG4) -- see the fixture repository's
 // header for why phase-1 has no persisted file store to back this yet.
-import { ASSET_FILE_REPOSITORY, ASSET_GATE_STATUS_PORT, ASSET_GOVERNANCE_REPOSITORY, REVIEW_CLOCK_REPOSITORY } from "./application/asset/ports";
+import {
+  ASSET_FILE_REPOSITORY,
+  ASSET_GATE_STATUS_PORT,
+  ASSET_GOVERNANCE_REPOSITORY,
+  ASSET_RUNTIME_LOADER_PORT,
+  REVIEW_CLOCK_REPOSITORY,
+} from "./application/asset/ports";
 import { FixtureAssetFileRepository } from "./infrastructure/asset/fixture-asset-file-repository";
+// F143: I-6's runtime-load seam -- see `application/asset/ports.ts`'s `AssetRuntimeLoaderPort`
+// header for why this delegates straight to the same `AssetFileRepository`.
+import { DirectoryBackedAssetRuntimeLoader } from "./infrastructure/asset/directory-backed-asset-runtime-loader";
 import { AssetDirectoryController } from "./interface/controllers/asset-directory.controller";
 // F134 (asset-governance bundle): the six-kind-uniform governance config screen (`uc-23-4` R3) --
 // `GetAssetGovernance` / `SetAssetGovernance`. No persisted store exists yet for this shape
@@ -573,6 +582,13 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     // header. Shared by PublishAsset (writes the initial clock), ReviewAsset, GetReviewClock,
     // and ScanReviewClocks.
     { provide: REVIEW_CLOCK_REPOSITORY, useFactory: () => new InMemoryReviewClockRepository() },
+    // F143: delegates to the SAME `AssetFileRepository` instance -- see the class header for
+    // why this is I-6's actual fix, not a shortcut.
+    {
+      provide: ASSET_RUNTIME_LOADER_PORT,
+      useFactory: (assets: FixtureAssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
+      inject: [ASSET_FILE_REPOSITORY],
+    },
     // F124：独立 provider，见 `pg-project-archive-repository.ts` 文件头。
     {
       provide: PROJECT_ARCHIVE_REPOSITORY,

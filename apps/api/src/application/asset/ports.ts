@@ -30,6 +30,11 @@ export interface AssetFileContentRecord {
   readonly body: string;
 }
 
+/** `RenameAssetFile` (F143)'s successful outcome -- the content record plus its new path. */
+export interface AssetRenamedFileRecord extends AssetFileContentRecord {
+  readonly path: string;
+}
+
 export interface AssetFileRepository {
   /** `null` = this (kind, assetId) has no directory -- unknown asset, or a kind out of scope. */
   getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null>;
@@ -42,6 +47,20 @@ export interface AssetFileRepository {
    * feature's scope).
    */
   writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null>;
+  /**
+   * `DeleteAssetFile` (F143) -- removes `path` from the directory, returning the deleted path.
+   * `null` = unknown (kind, assetId), or no such path. **This port never sees the root file**:
+   * the use case rejects `path === rootFile` with `ROOT_FILE_UNDELETABLE` before calling here
+   * (`uc-23-3` I-7) -- the port has no opinion of its own on which path is the root.
+   */
+  deleteFile(assetKind: AssetKind, assetId: string, path: string): Promise<string | null>;
+  /**
+   * `RenameAssetFile` (F143) -- moves `from` to `to`, returning the record at its new path.
+   * `null` = unknown (kind, assetId), or `from` does not exist. **Never sees the root file
+   * as `from`** -- same gate as `deleteFile`, checked by the use case (renaming the root is
+   * defined as equivalent to deleting it, per the contract's own note on `renameAssetFile`).
+   */
+  renameFile(assetKind: AssetKind, assetId: string, from: string, to: string): Promise<AssetRenamedFileRecord | null>;
 }
 
 export const ASSET_FILE_REPOSITORY = Symbol("AssetFileRepository");
@@ -115,3 +134,25 @@ export interface ReviewClockRepository {
 }
 
 export const REVIEW_CLOCK_REPOSITORY = Symbol("ReviewClockRepository");
+
+/**
+ * `AssetRuntimeLoaderPort` -- F143's seam for domain I-6 (`uc-23-3` R7 rule 1 / R12-11):
+ * "目录结构就是发布出去的结构" -- **there is no separate packaging step**. What runtime
+ * loads for a published asset must be answerable from the SAME kind of question
+ * `GetAssetDirectory` answers, not a second store that could silently drift from it.
+ *
+ * ⚠ **This is why the phase-1 implementation
+ * (`infrastructure/asset/directory-backed-asset-runtime-loader.ts`) delegates straight to
+ * `AssetFileRepository.getDirectory`** -- that is not a shortcut, it is the fix the rule
+ * demands: an implementation where the loaded set and the directory listing are read from
+ * one place cannot drift, because there is only one place. A future real runtime (one that
+ * actually executes a skill/agent) must still answer this same question from whatever it
+ * loads bytes from -- and `domain/asset/runtime-load-set.ts`'s comparison function is what
+ * catches it if that future implementation's answer ever stops matching the directory.
+ */
+export interface AssetRuntimeLoaderPort {
+  /** `null` = same collapsed not-found outcome as `AssetFileRepository.getDirectory`. */
+  loadedFilePaths(assetKind: AssetKind, assetId: string): Promise<readonly string[] | null>;
+}
+
+export const ASSET_RUNTIME_LOADER_PORT = Symbol("AssetRuntimeLoaderPort");
