@@ -103,54 +103,88 @@ function sizeOf(body: string): number {
 
 export class FixtureAssetFileRepository implements AssetFileRepository {
   /**
-   * F142's write-back store. Keyed by `assetKind:assetId:path`, so a write against one
-   * `assetId` never bleeds into another instance of the same fixture tree -- even though
-   * `getDirectory`/`readFile` serve the SAME fixed file list to any `assetId` of a matching
-   * kind (see the class header), a save must only be visible to the (kind, assetId) it was
-   * made against. `null` value entries are never stored -- an override is only ever a body
-   * that replaced the original fixture text.
+   * The per-(kind, assetId) LIVE file list, `path -> body`. Lazily cloned from the base
+   * fixture tree (`SKILL_FILES` / `AGENT_FILES`) the first time any instance is touched, so a
+   * write/delete/rename against one `assetId` never bleeds into another instance of the same
+   * fixture tree -- but from then on THIS map is the single source of truth for both
+   * `getDirectory` and `readFile` (F143's I-6: directory listing ＝ what a runtime loader
+   * reading through this same repository would load -- true by construction, one store, not
+   * two kept in sync by convention). A `Map`'s insertion order is preserved, so the base
+   * tree's original order (asserted by `asset-directory-tree.test.ts`) survives untouched as
+   * long as no delete/rename has touched those paths.
    */
-  private readonly overrides = new Map<string, string>();
+  private readonly instances = new Map<string, Map<string, string>>();
 
-  private overrideKey(assetKind: AssetKind, assetId: string, path: string): string {
-    return `${assetKind}:${assetId}:${path}`;
+  private instanceKey(assetKind: AssetKind, assetId: string): string {
+    return `${assetKind}:${assetId}`;
   }
 
-  private filesFor(assetKind: AssetKind): readonly FixtureFile[] | null {
+  private baseFilesFor(assetKind: AssetKind): readonly FixtureFile[] | null {
     if (assetKind === "skill") return SKILL_FILES;
     if (assetKind === "agent") return AGENT_FILES;
     // AG4: model / mcp / canvas-template / blueprint are not (yet) known to be directory-shaped.
     return null;
   }
 
-  private bodyFor(assetKind: AssetKind, assetId: string, file: FixtureFile): string {
-    return this.overrides.get(this.overrideKey(assetKind, assetId, file.path)) ?? file.body;
+  /** `null` = kind out of scope (AG4). Lazily materializes the live map on first touch. */
+  private liveFiles(assetKind: AssetKind, assetId: string): Map<string, string> | null {
+    const base = this.baseFilesFor(assetKind);
+    if (base === null) return null;
+    const key = this.instanceKey(assetKind, assetId);
+    let map = this.instances.get(key);
+    if (map === undefined) {
+      map = new Map(base.map((f) => [f.path, f.body]));
+      this.instances.set(key, map);
+    }
+    return map;
   }
 
   async getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null> {
-    const files = this.filesFor(assetKind);
-    if (files === null) return null;
+    const base = this.baseFilesFor(assetKind);
+    const files = this.liveFiles(assetKind, assetId);
+    if (base === null || files === null) return null;
     return {
-      rootFile: files[0]!.path,
-      entries: files.map((f) => ({ path: f.path, sizeBytes: sizeOf(this.bodyFor(assetKind, assetId, f)) })),
+      // The root file's path is a constant of the fixture tree, never mutated by this
+      // repository (the use-case layer rejects any delete/rename of it before calling here).
+      rootFile: base[0]!.path,
+      entries: [...files.entries()].map(([path, body]) => ({ path, sizeBytes: sizeOf(body) })),
     };
   }
 
   async readFile(assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null> {
-    const files = this.filesFor(assetKind);
+    const files = this.liveFiles(assetKind, assetId);
     if (files === null) return null;
-    const file = files.find((f) => f.path === path);
-    if (file === undefined) return null;
-    const body = this.bodyFor(assetKind, assetId, file);
+    const body = files.get(path);
+    if (body === undefined) return null;
     return { sizeBytes: sizeOf(body), body };
   }
 
   async writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null> {
-    const files = this.filesFor(assetKind);
-    if (files === null) return null;
-    const file = files.find((f) => f.path === path);
-    if (file === undefined) return null;
-    this.overrides.set(this.overrideKey(assetKind, assetId, path), body);
+    const files = this.liveFiles(assetKind, assetId);
+    if (files === null || !files.has(path)) return null;
+    files.set(path, body);
     return { sizeBytes: sizeOf(body), body };
+  }
+
+  async deleteFile(assetKind: AssetKind, assetId: string, path: string): Promise<string | null> {
+    const files = this.liveFiles(assetKind, assetId);
+    if (files === null || !files.has(path)) return null;
+    files.delete(path);
+    return path;
+  }
+
+  async renameFile(
+    assetKind: AssetKind,
+    assetId: string,
+    from: string,
+    to: string,
+  ): Promise<{ path: string; sizeBytes: number; body: string } | null> {
+    const files = this.liveFiles(assetKind, assetId);
+    if (files === null) return null;
+    const body = files.get(from);
+    if (body === undefined) return null;
+    files.delete(from);
+    files.set(to, body);
+    return { path: to, sizeBytes: sizeOf(body), body };
   }
 }
