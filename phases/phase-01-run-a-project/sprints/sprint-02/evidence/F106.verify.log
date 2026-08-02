@@ -1,0 +1,64 @@
+# F106 verification evidence
+
+Date: 2026-08-02
+Branch: worker/w3-canvas5-01-F106
+
+## 1. pnpm --filter api exec vitest run tests/canvas/whitespace-rules-warn-not-block.test.ts
+
+```
+ RUN  v2.1.9 /private/tmp/f106-worktree/apps/api
+
+ ✓ tests/canvas/whitespace-rules-warn-not-block.test.ts (10 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+```
+(Run jointly with test 2 below in one vitest invocation — both files pass, exit code 0.)
+
+## 2. pnpm --filter api exec vitest run tests/canvas/ava-badge-atomic-rollback.test.ts
+
+```
+ ✓ tests/canvas/ava-badge-atomic-rollback.test.ts (5 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  07:51:55
+   Duration  194ms (transform 37ms, setup 0ms, collect 43ms, tests 5ms, environment 0ms, prepare 63ms)
+```
+
+## 3. grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas
+
+Exit code 0. Matches (component pre-existing, from earlier canvas work):
+
+```
+apps/web/components/canvas/canvas-right-panel.tsx:97:              <Button variant="ghost" size="xs" onClick={() => setRollbackConfirm(true)} data-testid="canvas-ai-rollback">
+apps/web/components/canvas/canvas-right-panel.tsx:101:              <span className="flex items-center gap-1" data-testid="canvas-ai-rollback-confirm">
+apps/web/components/canvas/canvas-right-panel.tsx:103:                <Button variant="destructive" size="xs" onClick={() => setRollbackConfirm(false)} data-testid="canvas-ai-rollback-submit">确认</Button>
+apps/web/components/canvas/canvas-right-panel.tsx:104:                <Button variant="ghost" size="xs" onClick={() => setRollbackConfirm(false)} data-testid="canvas-ai-rollback-cancel">取消</Button>
+```
+
+## Regression check
+
+`pnpm --filter api exec vitest run tests/canvas` — full canvas suite, 15 test files / 191 tests, all passing
+(no regressions introduced by the two new domain files).
+
+## Notes / judgment calls
+
+- Implementation is pure-function only (`validateWhitespaceRules`, `applyAiRound`,
+  `rollbackAiRound`, `isAvaAuthored`, `hashContent`) per issue #291 guidance
+  ("留白校验器是纯函数（Node 单测），回滚是事务性写"). No Postgres-backed wiring was
+  added in this pass — the UI (`canvas-ai-changes`/`canvas-ai-rollback`/
+  `canvas-ai-mode-toggle`) already existed prior to this feature (per issue notes)
+  and is unmodified.
+- Dependencies F103 and F93 are listed `in_progress`/not-ready in feature_list.json.
+  This feature's contract surface (`SectionDef`/`WhitespaceWarning` from
+  `packages/contracts/src/canvas.ts`) does not require F103's finalized markdown
+  serialization format; the markdown sticky/citation notation used by
+  `validateWhitespaceRules` is explicitly documented in the file header as a
+  transitional notation pending F103, not a redefinition of its contract.
+- `tsc --noEmit -p .` on `apps/api` fails, but only on pre-existing
+  `packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts` DOM-lib errors
+  unrelated to this diff (confirmed present on `origin/main` HEAD before any F106
+  change was applied).
+- `apps/api/tests/contract-single-source.test.ts` passes — no contract types are
+  redefined in the backend.
