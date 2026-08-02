@@ -260,13 +260,13 @@ export class AssetGovernanceController {
   }
 
   /**
-   * `ScanReviewClocks` (F138 -- T1 half only, `uc-23-6` R3 步骤 1 / R9). See
-   * `application/asset/scan-review-clocks.ts`'s header: this endpoint's `downgraded` output is
-   * always `[]` today -- the 30-day sweep (T2) is F139's territory.
+   * `ScanReviewClocks` (F138 T1 + F139 T2, `uc-23-6` R3 步骤 1/3 / R9). See
+   * `application/asset/scan-review-clocks.ts`'s header: this endpoint now performs both sweeps
+   * (到期转 `待复核` + 30 天无人复核转 `降级`), still through the one function/route.
    */
   @Post("/review-clocks/scan")
   async scan(@Body() body: unknown): Promise<ScanReviewClocksResult> {
     const input = SCAN_REVIEW_CLOCKS_SCHEMA.parse({ now: (body as { now?: unknown })?.now });
-    return scanReviewClocks({ reviewClocks: this.reviewClocks }, { now: input.now });
+    return scanReviewClocks({ reviewClocks: this.reviewClocks, governance: this.governance }, { now: input.now });
   }
 }

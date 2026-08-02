@@ -30,6 +30,9 @@ class InMemoryReviewClocks implements ReviewClockRepository {
   async listActive() {
     return [...this.store.values()].filter((r) => r.state === "active");
   }
+  async listPendingReview() {
+    return [...this.store.values()].filter((r) => r.state === "pending-review");
+  }
 }
 
 class InMemoryGovernanceRepo implements AssetGovernanceRepository {
@@ -80,12 +83,14 @@ describe("domain: isReviewDue / transitionToPendingReview (T1)", () => {
     expect(isReviewDue(downgraded, "2026-08-01T00:00:00.000Z")).toBe(false);
   });
 
-  it("到期转态只改 state，其余字段（publishedAt/reviewDueAt）原样保留", () => {
+  it("到期转态只改 state 与 downgradeDueAt（F139 起算 30 天窗口），publishedAt/reviewDueAt 原样保留", () => {
     const updated = transitionToPendingReview(clockAt(), "2026-08-01T00:00:00.000Z");
     expect(updated.state).toBe("pending-review");
     expect(updated.publishedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(updated.reviewDueAt).toBe("2026-07-01T00:00:00.000Z");
-    expect(updated.downgradeDueAt).toBeNull();
+    // F139: downgradeDueAt is now populated at the moment of the T1 transition itself (30 days
+    // from `nowIso`, not from `reviewDueAt`) -- see `asset-review-clock.ts`'s F139 header.
+    expect(updated.downgradeDueAt).toBe("2026-08-31T00:00:00.000Z");
   });
 
   it("未到期时转态是 no-op（返回同一份记录）", () => {
@@ -118,7 +123,7 @@ describe("application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判�
     const repo = new InMemoryReviewClocks();
     await repo.save(clockAt({ assetId: "never-read" }));
 
-    const result = await scanReviewClocks({ reviewClocks: repo }, { now: "2026-08-01T00:00:00.000Z" });
+    const result = await scanReviewClocks({ reviewClocks: repo, governance: new InMemoryGovernanceRepo() }, { now: "2026-08-01T00:00:00.000Z" });
 
     expect(result.transitionedToPending).toEqual([{ assetKind: "skill", assetId: "never-read" }]);
     expect(result.downgraded).toEqual([]); // F139's territory -- not this feature's scope
@@ -132,7 +137,7 @@ describe("application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判�
     const repo = new InMemoryReviewClocks();
     await repo.save(clockAt({ assetId: "not-due", reviewDueAt: "2099-01-01T00:00:00.000Z" }));
 
-    const result = await scanReviewClocks({ reviewClocks: repo }, { now: "2026-08-01T00:00:00.000Z" });
+    const result = await scanReviewClocks({ reviewClocks: repo, governance: new InMemoryGovernanceRepo() }, { now: "2026-08-01T00:00:00.000Z" });
 
     expect(result.transitionedToPending).toEqual([]);
     const after = await repo.get("skill", "not-due");
@@ -141,7 +146,7 @@ describe("application: ScanReviewClocks -- T1 主动扫描（R9 反证惰性判�
 
   it("扫描时间戳始终可观测，即使没有任何转态发生", async () => {
     const repo = new InMemoryReviewClocks();
-    const result = await scanReviewClocks({ reviewClocks: repo }, { now: "2026-09-01T00:00:00.000Z" });
+    const result = await scanReviewClocks({ reviewClocks: repo, governance: new InMemoryGovernanceRepo() }, { now: "2026-09-01T00:00:00.000Z" });
     expect(result.lastScanAt).toBe("2026-09-01T00:00:00.000Z");
   });
 });

@@ -105,6 +105,15 @@ export const ASSET_GATE_STATUS_PORT = Symbol("AssetGateStatusPort");
  * second, wider sweep (e.g. a future re-check across `pending-review` records too). Do not
  * narrow this to `listDue(nowIso)` without checking whether F139 already depends on the wider
  * shape.
+ *
+ * 🔴 **F139 adds `listPendingReview`** for its own sweep (T2, `pending-review -> downgraded`).
+ * `listActive` structurally cannot serve T2: by the time a clock is `pending-review`, T1 has
+ * already moved it OUT of the `active` set `listActive` returns, so a scan that only called
+ * `listActive` would never see it again -- exactly the "second read that quietly can't reach
+ * the records it needs" shape this port's own history (see `listActive`'s comment above) warns
+ * against repeating. Same reasoning as `listActive`: hands back every `pending-review` clock,
+ * not just ones already past `downgradeDueAt` -- the domain's `isDowngradeDue` predicate decides
+ * "due" so this port does not have to.
  */
 export interface ReviewClockRepository {
   /** `null` = no clock has ever been recorded for this (kind, assetId) -- i.e. never published. */
@@ -112,6 +121,8 @@ export interface ReviewClockRepository {
   save(record: ReviewClockRecord): Promise<void>;
   /** Every clock currently in `active` state, across all assets in scope for this repository. */
   listActive(): Promise<readonly ReviewClockRecord[]>;
+  /** Every clock currently in `pending-review` state -- F139's T2 sweep input. */
+  listPendingReview(): Promise<readonly ReviewClockRecord[]>;
 }
 
 export const REVIEW_CLOCK_REPOSITORY = Symbol("ReviewClockRepository");

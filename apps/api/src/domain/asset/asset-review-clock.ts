@@ -119,7 +119,64 @@ export function isReviewDue(record: ReviewClockRecord, nowIso: string): boolean 
  */
 export function transitionToPendingReview(record: ReviewClockRecord, nowIso: string): ReviewClockRecord {
   if (!isReviewDue(record, nowIso)) return record;
-  return { ...record, state: "pending-review", downgradeDueAt: null };
+  return { ...record, state: "pending-review", downgradeDueAt: deriveDowngradeDueAt(nowIso) };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════
+ * F139 -- `uc-23-6` R3 状态机②（`pending-review -> downgraded`, T2; R7 规则 4/7; R9 主动扫描；
+ * R12 验收线索 4/5/8/10）
+ *
+ * 🔴 **The "30" lives in exactly one place: `PENDING_REVIEW_DOWNGRADE_GRACE_DAYS` below.**
+ * `uc-23-4`/`ReviewCycle`'s own header and this file's own header (see top) are explicit that
+ * the 30-day number belongs here, not there -- R12 验收线索 12 asks for a single grep hit
+ * across the repo for this literal; this constant is that one hit.
+ *
+ * `deriveDowngradeDueAt` is called from `transitionToPendingReview` above at the moment a clock
+ * actually enters `pending-review` (not lazily, not from `reviewDueAt` -- a scan that runs late
+ * would otherwise silently shrink the 30-day grace window). This keeps the "when did the 30-day
+ * countdown start" answer anchored to the one instant the state machine records it: the T1
+ * transition itself.
+ */
+const PENDING_REVIEW_DOWNGRADE_GRACE_DAYS = 30;
+
+function deriveDowngradeDueAt(pendingSinceIso: string): string {
+  const due = new Date(pendingSinceIso);
+  due.setUTCDate(due.getUTCDate() + PENDING_REVIEW_DOWNGRADE_GRACE_DAYS);
+  return due.toISOString();
+}
+
+/**
+ * T2 predicate (`uc-23-6` R2 触发条件 T2 / R7 规则 4): true only when the clock is still
+ * `pending-review` and its `downgradeDueAt` has arrived. Mirrors `isReviewDue`'s shape on
+ * purpose -- same "only fires from the state this transition owns" guard, so a `downgraded`
+ * record is never re-swept and an `active` record (never having gone through T1) cannot be
+ * downgraded out of turn.
+ */
+export function isDowngradeDue(record: ReviewClockRecord, nowIso: string): boolean {
+  if (record.state !== "pending-review") return false;
+  if (record.downgradeDueAt === null) return false;
+  return record.downgradeDueAt <= nowIso;
+}
+
+/**
+ * T2 transition (`uc-23-6` R3 步骤 3 / R7 规则 4/7): `pending-review -> downgraded`.
+ *
+ * 🔴 **Clock-only.** This function does not touch visibility -- the actual "collapse to
+ * owner-only" write goes through `writeAssetGovernanceVisibility` (I-14's single write path),
+ * a separate call the use case layer (`scan-review-clocks.ts`) makes alongside saving this
+ * transition's result. Mixing the two here would give the clock's pure domain function a side
+ * effect on a completely different aggregate (`AssetGovernanceRecord`), which is exactly the
+ * kind of second-write-path risk I-14 exists to rule out.
+ *
+ * `downgradeDueAt` clears back to `null` on entering `downgraded` -- the contract's own comment
+ * on `ReviewClock.downgradeDueAt` ("只在 `pending-review` 上有意义") holds after this
+ * transition too; a stale downgrade deadline sitting on an already-downgraded record would be a
+ * second, dead definition of "when" for a transition that already happened (R7 规则 7:
+ * "降级不是删除"，but it is also not a countdown that keeps ticking after it fires).
+ */
+export function transitionToDowngraded(record: ReviewClockRecord, nowIso: string): ReviewClockRecord {
+  if (!isDowngradeDue(record, nowIso)) return record;
+  return { ...record, state: "downgraded", downgradeDueAt: null };
 }
 
 /**
