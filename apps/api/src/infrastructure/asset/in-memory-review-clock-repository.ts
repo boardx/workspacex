@@ -29,4 +29,8 @@ export class InMemoryReviewClockRepository implements ReviewClockRepository {
   async listActive(): Promise<readonly ReviewClockRecord[]> {
     return [...this.store.values()].filter((r) => r.state === "active");
   }
+
+  async listPendingReview(): Promise<readonly ReviewClockRecord[]> {
+    return [...this.store.values()].filter((r) => r.state === "pending-review");
+  }
 }

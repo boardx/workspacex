@@ -33,6 +33,9 @@ class InMemoryReviewClocks implements ReviewClockRepository {
   async listActive() {
     return [...this.store.values()].filter((r) => r.state === "active");
   }
+  async listPendingReview() {
+    return [...this.store.values()].filter((r) => r.state === "pending-review");
+  }
 }
 
 const orgId = toOrgId("org-1");

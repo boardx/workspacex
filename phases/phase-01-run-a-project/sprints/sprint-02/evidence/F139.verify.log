@@ -1,0 +1,117 @@
+=== F139 verification evidence (2026-08-02T04:45:27Z) ===
+
+--- pnpm --filter @repo/contracts run test ---
+
+> @repo/contracts@0.0.0 test /private/tmp/f139-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f139-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 2ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 2ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 61ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 5ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 9ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 3ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 28ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  12:45:27
+   Duration  473ms (transform 600ms, setup 0ms, collect 1.32s, tests 114ms, environment 1ms, prepare 438ms)
+
+
+--- pnpm --filter api exec vitest run tests/asset/review-scan-zero-call-asset-downgraded.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f139-worktree/apps/api
+
+ ✓ tests/asset/review-scan-zero-call-asset-downgraded.test.ts (4 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:45:28
+   Duration  164ms (transform 27ms, setup 0ms, collect 24ms, tests 2ms, environment 0ms, prepare 33ms)
+
+
+--- pnpm --filter api exec vitest run tests/asset/review-scan-last-scan-observable.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f139-worktree/apps/api
+
+ ✓ tests/asset/review-scan-last-scan-observable.test.ts (3 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  12:45:29
+   Duration  158ms (transform 23ms, setup 0ms, collect 17ms, tests 2ms, environment 0ms, prepare 36ms)
+
+
+--- pnpm --filter api exec vitest run tests/asset (full asset regression, incl. F138 tests updated for F139) ---
+
+ RUN  v2.1.9 /private/tmp/f139-worktree/apps/api
+
+ ✓ tests/asset/review-scan-zero-call-asset-downgraded.test.ts (4 tests) 4ms
+ ✓ tests/asset/visibility-single-write-path.test.ts (5 tests) 3ms
+ ✓ tests/asset/preflight-items-have-source-ref.test.ts (5 tests) 2ms
+ ✓ tests/asset/asset-directory-tree.test.ts (12 tests) 2ms
+ ✓ tests/asset/publish-three-independent-blockers.test.ts (4 tests) 4ms
+ ✓ tests/asset/visibility-whole-org-requires-cosign.test.ts (6 tests) 2ms
+ ✓ tests/asset/review-pending-still-usable.test.ts (5 tests) 5ms
+ ✓ tests/asset/review-clock-state-machine.test.ts (14 tests) 5ms
+ ✓ tests/asset/asset-not-editable-readonly.test.ts (6 tests) 4ms
+ ✓ tests/asset/review-scan-last-scan-observable.test.ts (3 tests) 3ms
+ ✓ tests/asset/publish-audit-event.test.ts (2 tests) 4ms
+ ✓ tests/asset/asset-file-badge-fallback.test.ts (7 tests) 2ms
+ ✓ tests/asset/governance-uniform-across-six-kinds.test.ts (9 tests) 7ms
+ ✓ tests/asset/governance-incomplete-four-fields.test.ts (8 tests) 5ms
+ ✓ tests/asset/publish-review-due-derivation.test.ts (3 tests) 3ms
+ ✓ tests/asset/asset-file-write-frontmatter-invalid.test.ts (8 tests) 4ms
+
+ Test Files  16 passed (16)
+      Tests  101 passed (101)
+   Start at  12:45:29
+   Duration  456ms (transform 283ms, setup 0ms, collect 702ms, tests 59ms, environment 1ms, prepare 701ms)
+
+
+--- pnpm --filter api exec vitest run (full suite; kernel/mode-upgrade-no-downgrade, kernel/reference-eligibility-gate, kernel/context-pack-pinned-replay fail with pre-existing Postgres trigger error "record new has no field step_id" -- confirmed present on origin/main before this branch's changes via git stash, per issue #74 Postgres flakiness) ---
+ ❯ PgBindingRepository.raiseMode src/infrastructure/artifact/pg-binding-repository.ts:112:5
+ ❯ Module.upgradeBinding src/application/artifact/upgrade-binding.ts:142:3
+ ❯ tests/kernel/reference-eligibility-gate.test.ts:238:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/145]⎯
+
+ FAIL  tests/project/workshop-only-machinery-fk-denied.test.ts > F128 workshop-only-machinery-fk-denied > 反证：user_insight 容器下插 groups —— 被复合外键拒绝（23503），不是应用层报错
+AssertionError: expected 'NO_CODE:Error: Connection terminated …' to be '23503' // Object.is equality
+
+Expected: "23503"
+Received: "NO_CODE:Error: Connection terminated unexpectedly"
+
+ ❯ tests/project/workshop-only-machinery-fk-denied.test.ts:123:20
+    121|         ),
+    122|       );
+    123|       expect(code).toBe("23503");
+       |                    ^
+    124|     },
+    125|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/145]⎯
+
+ Test Files  36 failed | 369 passed (405)
+      Tests  99 failed | 4020 passed | 82 skipped | 2 todo (4203)
+   Start at  12:45:30
+   Duration  59.75s (transform 5.23s, setup 0ms, collect 48.80s, tests 389.54s, environment 1.36s, prepare 21.12s)
+
+undefined
+/private/tmp/f139-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run
+
+--- lint: node scripts/lint-error-leak.mjs / lint-permission-paths.mjs / lint-arch-deps.mjs / lint-naming-single-source.mjs ---
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+scanned=34
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=669 tenant-tables=85 allowlisted=32
+✅ lint-arch-deps: 667 files, all dependencies point inward
+scanned=667
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
