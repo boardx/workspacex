@@ -293,6 +293,33 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
   `resolve-review-pending.ts` 失去写审计这一步（接受/拒绝仍会执行，只是 R8「处置意见
   都会写入审计」的承诺重新落空）。
 
+### 追加（2026-08-02，F46 · files，issue #285）——**Proposed，需人类追认**
+
+`ProvenanceEventType` 再补 **2** 个成员，同一意图（不发明第二种处理）：
+
+| 成员 | 代谁补 | 出处 |
+|---|---|---|
+| `legal-hold-applied` | F46 · `files` | `uc-22-4` R3.d 点 15「legal hold 的施加与解除**只有合规负责人**可操作，全程留痕」；`applyLegalHold.out.holdId/appliedBy/appliedAt` |
+| `legal-hold-released` | F46 · `files` | 同上；`releaseLegalHold` 自己的注释「解除比施加更需要问责」 |
+
+- target 用已有的 `artifact`：`applyLegalHold`/`releaseLegalHold` 的输入是 `artifactId`，
+  与 `deletion-requested`/`bound`/`unbound` 同一挂法。
+- 与 `deletion-requested`（F45）分开，不合并：那是发起删除本身，这是对一个对象施加/
+  解除法定留存的豁免——两件事在时间上常常紧邻（先 hold 后来 release 再 delete），
+  合并会让「这份材料现在是不是处于法定留存」需要解析 `detail` 才能回答，
+  `queryProvenance` 无此能力。
+- `legal_holds` 表本身已经有 `applied_by`/`applied_at`/`released_by`/`released_at`
+  四列（F45 迁移），这两个 provenance 类型是**同一份事实在审计流水账里的第二个视角**
+  （"这件事发生在时间线上第几步"），不是重复记录同一个决定——与
+  `deletion_tasks.requested_by/requested_at` 之于 `deletion-requested` 同一先例。
+- `provenance_events_type_check` 随本次 F46 迁移一并追加这两个值；
+  `provenance-enum-single-source.test.ts` 的双向断言动态读取契约与 CHECK，
+  覆盖新成员无需改那个测试文件本身。
+- 否决时的回退：撤销契约里这两行 + 迁移里对应的 CHECK 追加 +
+  `apply-legal-hold.ts`/`release-legal-hold.ts` 失去写 `provenance_events` 这一步
+  （施加/解除仍会执行并落 `legal_holds` 表，只是 R3.d「全程留痕」在
+  `provenance_events` 这一侧的承诺重新落空——`legal_holds` 表自身的四列仍在）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |

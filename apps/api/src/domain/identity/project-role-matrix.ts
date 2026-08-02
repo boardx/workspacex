@@ -55,6 +55,21 @@ export const PROJECT_ACTIONS = [
    */
   "artifact.requestDeletion", // 发起删除 / 预览删除影响面（F45）
   /**
+   * F46（files 束 · uc-22-4 `listTrashQueue`/`retryCascade`/`revokeDeletion`/
+   * `applyLegalHold`/`releaseLegalHold`）：「调用者是合规负责人」的具体形状。
+   * ⚠ `usecases.md` 五个操作的 `pre` 都写着「合规负责人」，四值项目角色枚举里没有这个
+   * 名字，且它与 `identity.OrgRole` 里的 `compliance`（组织角色）不是同一层——
+   * 见 `files.KNOWN_CONTRACT_GAPS.FS9`（本文件不发明第五个项目角色）。这里按
+   * `artifact.requestDeletion` 已经取的先例（facilitator = 项目负责人 = 本文件头一行
+   * 「controls the room」的定性）做**同一处延伸**，不是对 FS9 的裁决：facilitator 是
+   * 今天唯一在四值枚举里、语义上离"对项目内容负最终责任"最近的角色，且待删除队列本来
+   * 就要求"发起删除"与"处置删除任务"是同一批人能看到的两个视角（一个人申请了删除、
+   * 另一个人才能管理这个队列，在没有第五个角色的世界里无法同时成立而不产生死锁）。
+   * FS9 裁决落地（若引入第五个项目角色）时，应把这个动作从 facilitator 移到新角色，
+   * 而不是另建一条不经过本矩阵的判定。
+   */
+  "artifact.complianceOps", // 待删除队列 / legal hold 施加解除 / 重试级联 / 撤销删除（F46）
+  /**
    * F125（project 束 · UC-P9 `addProjectMember`/`changeProjectRole`/`removeProjectMember`）：
    * 「谁能加人/改角色/移除人」的项目层那一半。UC-00.3 R1 把「引导师」列为本用例的 actor
    * 之一（「控场者」），且 R3 步骤 1 的措辞是「授予者操作」——没有一份已签核的 UC 把这个
@@ -90,7 +105,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
-    "artifact.requestDeletion",
+    "artifact.requestDeletion", "artifact.complianceOps",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
   ],
   // Runs their own group. No room control: they cannot advance the stage for everyone.

@@ -1,0 +1,152 @@
+# F46 -- 待删除队列（合规角色）+ legal hold 施加/解除 + 留存参数（O-01 五参数，项目级覆盖）+
+# 物理删除 worker + 回执（N-18/N-19）
+
+# Environment note: this worker had NO Docker/Postgres available (`docker` daemon socket
+# unreachable) -- per issue #74's dispensation, all four required verification commands
+# below are PURE (in-memory fakes for the API tests, `@testing-library/react` for the UI
+# test), not Postgres-backed. Real PostgreSQL implementations were still written
+# (`apps/api/src/infrastructure/files/pg-*.ts`, migration
+# `20260802000000_f46_trash_queue_legalhold_retention.sql`) but exercised only by
+# `apps/api` `tsc --noEmit` here, not by a live database.
+
+$ pnpm --filter api exec vitest run tests/files/trash-queue-legalhold.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/trash-queue-legalhold.test.ts (11 tests) 3ms
+   F46 · applyLegalHold / releaseLegalHold
+     ✓ facilitator (合规负责人 stand-in, FS9) can apply a hold; the hold is then reported active
+     ✓ member (non-facilitator) is refused PROJECT_ROLE_INSUFFICIENT -- FS9's stand-in still gates non-compliance callers
+     ✓ applying a hold on an artifact that already has an active one is refused
+     ✓ unknown artifact -> ARTIFACT_NOT_FOUND
+     ✓ release: 解除比施加更需要问责 -- releasing writes its OWN provenance event, distinct from applying's
+     ✓ release with no active hold is refused, not silently a no-op
+     ✓ member cannot release a hold either
+   F46 · listTrashQueue -- compliance-only visibility
+     ✓ facilitator (合规负责人 stand-in) sees every task when status is unfiltered
+     ✓ status filter narrows the list -- e.g. only 'partial-failure' (the most dangerous state, N-17)
+     ✓ a project member (not facilitator) cannot see the trash queue at all -- E6/R5's 'only compliance sees this'
+     ✓ a caller with no project role at all gets NO_PROJECT_ROLE, not PROJECT_ROLE_INSUFFICIENT
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+
+
+$ pnpm --filter api exec vitest run tests/files/retention-param-single-source.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/retention-param-single-source.test.ts (35 tests) 4ms
+   F46 · retention params resolve from injected values, never a literal (18 tests, day-value table 1/7/45/365/4000)
+   F46 · material retention expiry / reminder are pure date arithmetic over an injected param (10 tests)
+   F46 · no day-count literal in domain/files/retention-policy.ts's resolution logic (1 test: no bare 180/30/1095 in code, comments stripped first)
+
+ Test Files  1 passed (1)
+      Tests  35 passed (35)
+
+
+$ pnpm --filter api exec vitest run tests/files/physical-delete-receipt.test.ts
+[exit 0]
+
+ RUN  v2.1.9 apps/api
+
+ ✓ tests/files/physical-delete-receipt.test.ts (19 tests) 4ms
+   F46 · domain/files/physical-delete.ts pure rules (10 tests: eligibility, legal-hold precedence, N-17 ceiling, overdue, N-19 uncoverableStatement)
+   F46 · runPhysicalDeletion worker (5 tests: purge+mark-done+receipt, legal-hold skip, purge-failure skip, not-yet-due skip, exported-out-of-org disclosure)
+   F46 · getDeletionReceipt joins the stored receipt with F45's cascade coverage (3 tests)
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+
+
+$ pnpm --filter web exec vitest run tests/ui/files-trash-queue.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 apps/web
+
+ ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 81ms
+   待删除队列：合规负责人视图（files-trash-queue）
+     ✓ canView=false: 拒绝态，仅合规负责人可见的说明，不渲染任何任务卡片
+     ✓ canView=true: 渲染队列容器与全部任务卡片（四个 mock 任务：正常/超时/legal hold/部分失败）
+     ✓ 每个任务卡片渲染五步流程（files-trash-steps），恰好五个 files-trash-step 条目
+     ✓ legal hold 任务：显示 files-trash-legalhold 徽标，且提供「解除 legal hold」而非「撤销删除」
+     ✓ 解除 legal hold 后：按钮消失，替换为「已解除」状态提示，且 toast 记下留痕说明
+     ✓ 非 legal-hold 任务：提供「撤销删除（宽限期内）」而不是 legal hold 按钮
+     ✓ 超时任务：显示 files-trash-overdue 升级徽标（E4/R5：合规负责人对超时任务有升级权）
+     ✓ 🔴 部分失败任务：显示 files-trash-partial 说明 + 徽标 + 重试入口，不显示为已完成
+     ✓ 回执弹层：部分失败任务打开回执显示「尚未出正式回执」
+     ✓ 回执弹层（非部分失败任务）：显示覆盖范围（原件+全部版本+全部派生物）说明，并可补发
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+
+
+# Supporting checks (not the four required commands, but load-bearing for this feature):
+
+$ pnpm --filter contracts run typecheck
+[exit 0] -- clean, no errors.
+
+$ pnpm --filter api run typecheck
+[exit 2 -- but the ONLY errors are 126 pre-existing `packages/fabric-markdown/**` errors
+ (missing DOM lib types in that package's own tsconfig, F100/ADR-100, unrelated to files/
+ identity/provenance). Confirmed pre-existing by `git stash` + re-running typecheck against
+ unmodified origin/main HEAD in this same worktree: identical 126 errors, all in
+ fabric-markdown, zero in any file this feature touches. This feature's own new/changed
+ files (domain/files/*, application/files/*, infrastructure/files/*,
+ infrastructure/storage/*, packages/contracts/src/{files,provenance}.ts,
+ domain/identity/project-role-matrix.ts) contribute ZERO typecheck errors.]
+
+$ pnpm --filter web run typecheck
+[exit 0] -- clean, no errors.
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=628 tenant-tables=85 allowlisted=32
+(5 new allowlist entries added for this feature's Postgres-write infra files -- see
+ `apps/api/scripts/lint-permission-paths.mjs`'s ALLOWLIST for each entry's justification.
+ 27 -> 32, well under the 2026-08-01 coordinator ceiling of 40; the ceiling itself was NOT
+ bumped.)
+
+$ node apps/api/scripts/lint-error-leak.mjs
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+
+$ node apps/api/scripts/lint-no-builtin-capabilities.mjs
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+
+$ node apps/api/scripts/lint-design-facet-single-source.mjs
+✅ lint-design-facet-single-source: the definition table has one source
+
+$ npx tsx apps/api/scripts/gen-design-facet-catalog.ts --check
+✅ design-facet catalog is in sync with the definition table
+
+$ npx tsx apps/api/scripts/gen-agenda-tier-catalog.ts --check
+✅ agenda tier catalog is in sync with the definition table
+
+$ node apps/api/scripts/lint-skill-context-api-only.mjs
+✅ lint-skill-context-api-only: 49 个文件，skill 取数只经 Context API（I-25）
+
+$ node apps/api/scripts/lint-naming-single-source.mjs
+✅ lint-naming-single-source: 0 处败选名
+
+$ node .harness/scripts/lint-arch-deps.mjs apps/api/src
+✅ lint-arch-deps: 626 files, all dependencies point inward
+
+# NOT run (Postgres unavailable in this environment, per issue #74 dispensation):
+#   - tests/kernel/permission-propagation-six-paths.test.ts (Postgres-backed; the new
+#     `artifact.complianceOps` project action and the 5 new lint-permission-paths allowlist
+#     entries above are the two things this feature could plausibly have moved in that
+#     file, and both were checked by direct means instead: the allowlist script itself, and
+#     `tests/kernel/rbac-role-matrix.test.ts`'s non-DB assertions were inspected by reading,
+#     since even that file's `beforeAll` requires Postgres to boot).
+#   - apps/api/tests/files/provenance-enum-single-source.test.ts (Postgres-backed; the two
+#     new `legal-hold-applied`/`legal-hold-released` provenance types were added to BOTH
+#     sides this test reconciles -- packages/contracts/src/provenance.ts's enum AND
+#     migration 20260802000000's CHECK constraint, carrying forward every prior member up
+#     to and including 20260801230000_f137's list -- by direct inspection, matching the
+#     ADR-101 addendum's own instructions).
+#   - The real Postgres infrastructure classes (`pg-legal-hold-write-repository.ts`,
+#     `pg-trash-queue-repository.ts`, `pg-retry-revoke-repository.ts`,
+#     `pg-retention-policy-repository.ts`, `pg-physical-delete-repository.ts`) are typecheck-
+#     clean but were not exercised against a live database in this environment.
