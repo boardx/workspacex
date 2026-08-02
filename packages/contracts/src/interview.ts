@@ -89,8 +89,16 @@ export const ConsentKey = z.enum(["record", "transcript", "ai_analysis", "attrib
 /** 建议来源。⚠ `human_observer` 的私密建议**不经 AI 加工原样呈现**并标出提出人 */
 export const SuggestionOrigin = z.enum(["ai", "human_observer"]);
 
-/** 对建议的处置 */
-export const SuggestionOutcome = z.enum(["adopt", "edit-adopt", "dismiss"]);
+/**
+ * `origin: "ai"` 建议的三个子类（F91，uc-6-4 R3 步骤6）。⚠ **不与 `SuggestionOrigin` 重复声明
+ * 同一件事**——`origin` 答的是「谁产出的」（ai / human_observer），这里答的是「这条 ai 建议
+ * 属于哪一类」；`origin: "human_observer"` 时本字段恒 `null`（观察员私密建议不再细分子类）。
+ */
+export const AiSuggestionKind = z.enum(["followup", "clarify", "counter_example"]);
+
+/** 对建议的处置。⚠ 四出口 `[使用][编辑后用][稍后][忽略]` 语义各不相同（uc-6-4 R3 步骤6）：
+ * `later` **留在待办不消失**，`dismiss` **留痕并回流 agent 改进**——两者不可合并成一个值。 */
+export const SuggestionOutcome = z.enum(["adopt", "edit-adopt", "later", "dismiss"]);
 
 /** 撤回发起方。`staff-assisted` = 代其发起并留痕 */
 export const WithdrawalOrigin = z.enum(["portal", "staff-assisted"]);
@@ -293,12 +301,25 @@ export const SevenSwitches = z.object({
   showAiSuggestionsToSubjects: z.boolean(),
 }).strict();
 
-/** 副驾驶建议。⚠ 无来源时间码 ⇒ **生成端拒绝落库**（I-5），所以 `sourceTimecode` 非空 */
+/**
+ * 副驾驶建议（F91，uc-6-4 R3 步骤6）。
+ * ⚠ **I-5**：`sourceSegmentId` + `sourceTimecode` 均非空 ⇒ **生成端拒绝落库**——无来源
+ *   不落库不是「界面不显示」，是生成端在写入之前就拒绝这次写入。
+ * ⚠ `reason`（理由）与来源一样是硬约束（notes 原文「每条建议无来源不得给出」），非空。
+ * ⚠ `rqId`/`priority` 只有 `aiSuggestionKind: "followup"` 才可能非 null——澄清/反例/观察员
+ *   私密建议不绑定 RQ、不分优先级，这不是遗漏，是这三类本身没有这个维度。
+ */
 export const CopilotSuggestion = z.object({
   suggestionId: z.string(),
   origin: SuggestionOrigin,
+  /** 见 `AiSuggestionKind` 头注：`origin: "human_observer"` 时恒 `null`。 */
+  aiSuggestionKind: AiSuggestionKind.nullable(),
   text: z.string(),
-  sourceTimecode: z.string(),
+  reason: z.string().min(1),
+  sourceSegmentId: z.string().min(1),
+  sourceTimecode: z.string().min(1),
+  rqId: z.string().nullable(),
+  priority: z.enum(["high", "normal"]).nullable(),
   /** `human_observer` 时非空并标出提出人；该来源**不经 AI 加工原样呈现** */
   proposedBy: z.string().nullable(),
 }).strict();
