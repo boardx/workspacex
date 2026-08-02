@@ -101,15 +101,23 @@ export async function issueDownloadUrl(
 }
 
 /**
- * ⚠ The real controller (`files-export.controller.ts`) hardcodes
- * `{ artifactIds: null, treeNodeId: null }` on its request parse -- its own header states body
- * parsing is not wired for this route yet. So a real `createExportJob` call always exports the
- * WHOLE project; any client-side file selection is decorative until that lands. Reported in the
- * PR rather than silently building a selection UI that does not do what it appears to do.
+ * `artifactIds === null` (or an empty selection) means "export everything visible" -- the same
+ * ruling `application/files/export-artifacts.ts`'s `createExportJob` documents for `both null`,
+ * and the one the browser's top-level export button (no per-row selection) already implied
+ * before this feature added row checkboxes. A non-empty `artifactIds` scopes the export to
+ * exactly that set; `treeNodeId` is left null here -- no caller in this app selects by tree node.
  */
-export async function createExportJob(projectId: string): Promise<CreateExportJobOut> {
+export async function createExportJob(
+  projectId: string,
+  artifactIds: readonly string[] | null = null,
+): Promise<CreateExportJobOut> {
   return apiRequest<CreateExportJobOut>(`/projects/${encodeURIComponent(projectId)}/export-jobs`, {
     method: "POST",
+    body: {
+      projectId,
+      artifactIds: artifactIds !== null && artifactIds.length > 0 ? artifactIds : null,
+      treeNodeId: null,
+    },
   });
 }
 

@@ -11,10 +11,12 @@
  * download machinery. Stated here rather than discovered as a 404 later.
  */
 import {
-  BadRequestException, Controller, ForbiddenException, Get, Inject, Param, Post,
+  BadRequestException, Body, Controller, ForbiddenException, Get, Inject, Param, Post,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { files as C } from "@repo/contracts";
+import type { z } from "zod";
+import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import {
   createExportJob,
   getExportJob,
@@ -47,6 +49,8 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 
 export const CREATE_EXPORT_JOB_SCHEMA = C.operations.createExportJob.in;
 export const GET_EXPORT_JOB_SCHEMA = C.operations.getExportJob.in;
+
+type CreateExportJobBody = z.infer<typeof CREATE_EXPORT_JOB_SCHEMA>;
 
 @Controller()
 export class FilesExportController {
@@ -81,15 +85,18 @@ export class FilesExportController {
   async create(
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(CREATE_EXPORT_JOB_SCHEMA)) body: CreateExportJobBody,
   ): Promise<CreateExportJobResult> {
     assertPrincipal(principal);
-    // ⚠ Body parsing is intentionally minimal: NestJS's default body parser is not wired for
-    // this route in the same way the browser's `?filters=` query param is (see
-    // `files-browser.controller.ts`), and this feature's three verification tests exercise
-    // `application/files/export-artifacts.ts` directly rather than through HTTP. Reported
-    // rather than silently assumed complete: a real client-facing body reader is left for the
-    // feature that wires an end-to-end request for this route.
-    const input = CREATE_EXPORT_JOB_SCHEMA.parse({ projectId, artifactIds: null, treeNodeId: null });
+    // Same discipline as `advance`/`bind`-style routes elsewhere in this controller set: the
+    // route param is the resource, the body is what the contract validates, and a mismatch
+    // between the two is rejected rather than silently resolved by picking one -- otherwise the
+    // audit trail (`provenance.append` below) could record a different project than the one the
+    // caller thought they were exporting.
+    if (body.projectId !== projectId) {
+      throw new BadRequestException("project_id_mismatch");
+    }
+    const input = CREATE_EXPORT_JOB_SCHEMA.parse(body);
     return this.mapErrors(() =>
       createExportJob(this.deps, {
         userId: principal.userId,

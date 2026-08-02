@@ -25,11 +25,18 @@
  *   - Preview / single-file download: `previewArtifactVersion` / `issueDownloadUrl` need a
  *     `versionId`, and neither `listProjectArtifacts` nor `getArtifactTree` returns one (see
  *     `lib/live-files.ts` header). Shown as an explicit notice, not a blank pane.
- *   - Per-file export selection: `createExportJob`'s real controller hardcodes
- *     `artifactIds: null` (its own header says request-body parsing isn't wired yet), so this
- *     view's export button always exports the WHOLE project and says so.
  *   - trash-queue / review-panel: no controller backs `resolveReviewPending` or any
  *     deletion/legal-hold route yet (F46/F39 territory per the issue) -- left on mock.
+ *
+ * ## Export selection (F364)
+ *
+ * Each row has a checkbox (`live-files-row-checkbox`) feeding a `selectedIds` set. Zero selected
+ * is treated the same as this view's original all-rows export: `createExportJob` is called with
+ * `artifactIds: null`, matching `application/files/export-artifacts.ts`'s own documented ruling
+ * ("both null -> whole visible tree") and this button's pre-F364 behaviour when there was no
+ * selection state at all. A non-empty selection scopes the export to exactly those artifact ids;
+ * the button label and toast both say which mode ran, so "I picked 2 files but got the whole
+ * project" is never silently possible.
  */
 import * as React from "react";
 import { FileWarning, FolderTree, RefreshCw, FileArchive, Pencil } from "lucide-react";
@@ -58,6 +65,16 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
   const [renaming, setRenaming] = React.useState(false);
   const [renameValue, setRenameValue] = React.useState("");
   const [exportBusy, setExportBusy] = React.useState(false);
+  const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
+
+  function toggleSelected(artifactId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(artifactId)) next.delete(artifactId);
+      else next.add(artifactId);
+      return next;
+    });
+  }
 
   const load = React.useCallback(async () => {
     setBusy(true);
@@ -96,9 +113,11 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
 
   async function handleExport() {
     setExportBusy(true);
+    const artifactIds = selectedIds.size > 0 ? [...selectedIds] : null;
     try {
-      const job = await createExportJob(projectId);
-      onToast(`已提交导出（整个项目，jobId=${job.jobId}，状态：${job.status}）`);
+      const job = await createExportJob(projectId, artifactIds);
+      const scope = artifactIds === null ? "整个项目" : `所选 ${artifactIds.length} 项`;
+      onToast(`已提交导出（${scope}，jobId=${job.jobId}，状态：${job.status}）`);
       // 轮询直至完成/失败，最多 10 次 —— 这里只是把状态显示出来，不做无限重试。
       for (let i = 0; i < 10 && job.status !== "done" && job.status !== "failed"; i++) {
         await new Promise((r) => setTimeout(r, 1000));
@@ -158,7 +177,12 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
             {nodes === null ? "" : `${nodes.length} 份文件（真实 Postgres 数据，项目 ${projectId}）`}
           </p>
           <Button size="sm" variant="outline" onClick={() => void handleExport()} disabled={exportBusy} data-testid="live-files-export">
-            <FileArchive aria-hidden className="h-3.5 w-3.5" /> {exportBusy ? "导出中…" : "导出整个项目为 zip"}
+            <FileArchive aria-hidden className="h-3.5 w-3.5" />
+            {exportBusy
+              ? "导出中…"
+              : selectedIds.size > 0
+                ? `导出所选 ${selectedIds.size} 项为 zip`
+                : "导出整个项目为 zip"}
           </Button>
         </div>
 
@@ -177,6 +201,20 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
             <table className="w-full min-w-[42rem] border-collapse text-12" data-testid="live-files-list">
               <thead>
                 <tr className="border-b border-border text-left text-11 text-muted-foreground">
+                  <th className="px-2 py-2 font-medium">
+                    <input
+                      type="checkbox"
+                      aria-label="全选"
+                      data-testid="live-files-select-all"
+                      checked={nodes.length > 0 && selectedIds.size === nodes.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < nodes.length;
+                      }}
+                      onChange={(e) =>
+                        setSelectedIds(e.target.checked ? new Set(nodes.map((n) => n.artifactId)) : new Set())
+                      }
+                    />
+                  </th>
                   <th className="px-2 py-2 font-medium">名称</th>
                   <th className="px-2 py-2 font-medium">来源类型</th>
                   <th className="px-2 py-2 font-medium">大小</th>
@@ -197,6 +235,15 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
                       (selected?.artifactId === n.artifactId ? "bg-muted" : "hover:bg-panel")
                     }
                   >
+                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`选中 ${n.name} 用于导出`}
+                        data-testid="live-files-row-checkbox"
+                        checked={selectedIds.has(n.artifactId)}
+                        onChange={() => toggleSelected(n.artifactId)}
+                      />
+                    </td>
                     <td className="max-w-[16rem] px-2 py-1.5">
                       <span className="truncate font-medium" title={n.name}>{n.name}</span>
                       {n.confidential && <span className="ml-1.5 inline-block align-middle"><ConfidentialBadge /></span>}
