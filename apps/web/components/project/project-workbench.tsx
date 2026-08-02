@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import { ChevronLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import {
   ROLE_BADGE_TONE, PROJECT_HEADER, PROJECT_ROLE_LABEL, PROJECT_ROLES, PROJECT_TABS,
   ORG_DISABLED_BANNER, type ProjectTab, type ProjectRole,
 } from "@/lib/mock/project";
+import { getStoredSessionToken, ApiError } from "@/lib/api-client";
+import { findProject, type ProjectListItem } from "@/lib/live-projects";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
 import { TabResults } from "./tab-results";
@@ -47,7 +50,7 @@ import { TabSettings } from "./tab-settings";
  * ⚠ 组织停用（`?orgState=disabled`）时全项目只读：显示只读原因条，不隐藏内容（uc-00-1 V12）。
  */
 export function ProjectWorkbench({
-  identity, uiState, tab, view, sub, orgDisabled = false, qs, projectId, projectName,
+  identity, uiState, tab, view, sub, orgDisabled = false, qs, projectId,
 }: {
   identity: Identity;
   uiState: UiState;
@@ -58,16 +61,59 @@ export function ProjectWorkbench({
   qs: { org?: string };
   /**
    * 真实项目标识（F317：路由从静态 `/project` 迁到 `/projects/[projectId]` 后，
-   * 由页面层传入 `params.projectId`）。只用于跳转「工作面」子屏（canvas/files）与顶部标题；
-   * 其余各 tab 的内容仍是单一 mock 场景（`PROJECT_HEADER` 等），**不按项目区分**——
-   * 与 `canvas`/`files` 页面同型的已知 mock 债，不在本次范围内补齐。
+   * 由页面层传入 `params.projectId`）。用于跳转「工作面」子屏（canvas/files）、
+   * 以及（F353）拉取真实项目基本信息；其余各 tab 的内容仍是单一 mock 场景
+   * （`PROJECT_HEADER` 等），**不按项目区分**——与 `canvas`/`files` 页面同型的
+   * 已知 mock 债，不在本次范围内补齐。
    */
   projectId?: string;
-  projectName?: string;
 }) {
   const canWrite = ROLE_CAN_WRITE[view] && !orgDisabled;
   const stageControl = ROLE_STAGE_CONTROL[view] && !orgDisabled;
   const isObserver = view === "observer";
+
+  /**
+   * F353 —— 真实项目基本信息（id/name/kind/status/readOnlyReason）。
+   *
+   * 需要 `orgId` 才能查（契约没有「按 id 直接读单个项目」的已挂路由，见
+   * `lib/live-projects.ts` `findProject` 头注）。没有 `qs.org` 或没登录时
+   * 保持 `null`——`TabOverview`/页头据此显示诚实的「暂无真实数据」而不是空转。
+   */
+  const [liveProject, setLiveProject] = React.useState<ProjectListItem | null>(null);
+  const [liveLoading, setLiveLoading] = React.useState(false);
+  const [liveError, setLiveError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!projectId || !qs.org) {
+      setLiveProject(null);
+      setLiveError(null);
+      return;
+    }
+    const token = getStoredSessionToken();
+    if (!token) {
+      setLiveProject(null);
+      setLiveError(null);
+      return;
+    }
+    let cancelled = false;
+    setLiveLoading(true);
+    setLiveError(null);
+    findProject(qs.org, projectId)
+      .then((p) => {
+        if (!cancelled) setLiveProject(p);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setLiveError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLiveLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, qs.org]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
@@ -94,7 +140,7 @@ export function ProjectWorkbench({
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className="text-14 font-medium" data-testid="project-title">{projectName ?? PROJECT_HEADER.name}</div>
+              <div className="text-14 font-medium" data-testid="project-title">{liveProject?.name ?? PROJECT_HEADER.name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="text-11 text-muted-foreground">
                   {PROJECT_HEADER.org} · {PROJECT_HEADER.duration} · {PROJECT_HEADER.groupCount}
@@ -224,7 +270,7 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id)}
+              {renderTab(tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id, liveProject, liveLoading, liveError)}
             </StateShell>
           </main>
         </div>
@@ -233,9 +279,28 @@ export function ProjectWorkbench({
   );
 }
 
-function renderTab(tab: ProjectTab, view: ProjectRole, _sub: string | null, orgDisabled: boolean, projectId: string) {
+function renderTab(
+  tab: ProjectTab,
+  view: ProjectRole,
+  _sub: string | null,
+  orgDisabled: boolean,
+  projectId: string,
+  liveProject: ProjectListItem | null,
+  liveLoading: boolean,
+  liveError: string | null,
+) {
   switch (tab) {
-    case "overview": return <TabOverview view={view} readOnly={orgDisabled} projectId={projectId} />;
+    case "overview":
+      return (
+        <TabOverview
+          view={view}
+          readOnly={orgDisabled}
+          projectId={projectId}
+          liveProject={liveProject}
+          liveLoading={liveLoading}
+          liveError={liveError}
+        />
+      );
     case "research": return <TabResearch view={view} readOnly={orgDisabled} />;
     case "prep": return <TabPrep view={view} readOnly={orgDisabled} />;
     case "live": return <TabLive view={view} readOnly={orgDisabled} />;
