@@ -215,6 +215,31 @@ export const ProvenanceEventType = z.enum([
   "review-accepted",
   "review-rejected",
 
+  /**
+   * 🔴 F46（files 束，本轮新增，**沿用 ADR-101 的先例，Proposed，需人类追认**）。
+   *
+   * `requirements/22-files/uc-22-4-版本-派生物与删除传播.md` R3.d 点 15 逐字：
+   * 「legal hold 的施加与解除**只有合规负责人**可操作，**全程留痕**」；
+   * `files.ts` 的 `applyLegalHold`/`releaseLegalHold` 注释同义（「解除比施加更需要问责」）。
+   * 最接近的既有成员都不是它：`deletion-requested`（F45）是发起删除本身，不是对某个
+   * 对象施加/解除法定留存的豁免；`capability-added`/`capability-disabled` 是能力清单的
+   * 启停，与「这份材料现在处于法定留存」是两件不相干的事。拿它们顶包会让「谁在什么
+   * 时候把什么对象放进/放出法定留存」与其它毫不相干的事件混进同一个类型——ADR-101
+   * 开篇的道理照旧适用。两个成员分开（`-applied`/`-released`），不合并成一个
+   * `legal-hold-changed` + `detail.op`：与 ADR-101 决策 A「线程三值不合并」同一个理由——
+   * 「查全部当前仍处于法定留存的对象」需要按类型筛，`queryProvenance` 无法解析
+   * `detail` 做筛选。
+   *
+   * ⚠ 与 ADR-101 一样：本次改动**先落地、后补 ADR 追认**（见 `docs/adr/
+   * ADR-101-provenance-event-type-missing-members.md` 的追加记录）。若人类否决，
+   * 回退步骤同形：撤销这两行 + 迁移里对应的 CHECK 追加 + `apply-legal-hold.ts`/
+   * `release-legal-hold.ts` 失去写审计这一步（施加/解除仍会执行并落 `legal_holds` 表，
+   * 只是 R3.d「全程留痕」在 `provenance_events` 这一侧的承诺重新落空——`legal_holds`
+   * 表本身仍记录 `applied_by`/`applied_at`/`released_by`/`released_at`，不是完全无痕）。
+   */
+  "legal-hold-applied",
+  "legal-hold-released",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);

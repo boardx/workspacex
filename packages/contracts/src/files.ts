@@ -27,6 +27,8 @@
 import { z } from "zod";
 import { ArtifactError, IngestionStatus, DerivedKind, AnchorKind } from "./artifact";
 import { PermissionReason } from "./identity";
+import { AUTH_POLICY } from "./auth";
+import { WITHDRAWAL_SLA_MS } from "./org-admin";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
@@ -379,6 +381,28 @@ export const RetentionParams = z
     backupDays: z.number().int().positive(),
   })
   .strict();
+
+/**
+ * F46 -- the org-wide fallback `getRetentionPolicy`/`setRetentionPolicy` (application layer)
+ * resolve to when a project has not overridden a field. This is NOT a second declaration of
+ * O-01's numbers: `materialDays` and `trashGraceDays` are computed FROM the two single
+ * sources that already exist (`auth.AUTH_POLICY.orgRetentionDays` / `org-admin.
+ * WITHDRAWAL_SLA_MS.physicalDelete`) rather than restating "180" / "30" as fresh literals --
+ * this is exactly the gate `KNOWN_CONTRACT_GAPS.FS7` says is missing today, closed by
+ * construction instead of by a lint rule that could drift from either side.
+ *
+ * `derivedDays`/`logDays`/`backupDays` have no prior single source anywhere in the codebase
+ * (05-rec's own `retention.ts` is a materials-domain resolver with test-supplied parameters,
+ * not a numeric default) -- their values here (O-01's 留痕 180 / 审计 1095) are this bundle's
+ * first and only declaration, matching the requirements doc's five figures.
+ */
+export const DEFAULT_RETENTION_PARAMS: z.infer<typeof RetentionParams> = {
+  materialDays: AUTH_POLICY.orgRetentionDays,
+  derivedDays: AUTH_POLICY.orgRetentionDays,
+  logDays: AUTH_POLICY.orgRetentionDays,
+  trashGraceDays: WITHDRAWAL_SLA_MS.physicalDelete / (24 * 60 * 60_000),
+  backupDays: 1095,
+};
 
 /* ─────────────────────────── 操作 ─────────────────────────── */
 

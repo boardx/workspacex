@@ -21,10 +21,10 @@
  * object-lock -- configuration, not code. Stating this here rather than letting the passing
  * `putOnce` test imply the invariant is discharged.
  */
-import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname } from "node:path";
 import { ObjectExistsError, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
+import { resolveObjectPath } from "./object-store-path";
 
 export class FsObjectStore implements ObjectStore {
   /** `mime` is stored beside the object; the filesystem has no metadata slot for it. */
@@ -70,21 +70,12 @@ export class FsObjectStore implements ObjectStore {
   }
 
   /**
-   * Map a storage key to a path under the root.
-   *
-   * Keys are built from ids, so `../` should never appear -- but "should never" is not a
-   * property, and a key is the one part of this model that carries caller-supplied text
-   * (the org id). The hash suffix keeps the mapping injective after the traversal check
-   * flattens nothing: two distinct keys cannot collide on one path.
+   * Map a storage key to a path under the root. Delegates to `resolveObjectPath` (extracted
+   * for F46's `FsPhysicalPurge`, which must resolve the identical path for the identical key
+   * -- see that module's header) -- behavior is byte-for-byte what this method did inline
+   * before the extraction.
    */
   private pathFor(key: string): string {
-    const safe = key.split("/").filter((p) => p !== "" && p !== "." && p !== "..");
-    const digest = createHash("sha256").update(key).digest("hex").slice(0, 12);
-    const path = resolve(join(this.root, ...safe, `_${digest}`));
-    const rootResolved = resolve(this.root);
-    if (path !== rootResolved && !path.startsWith(rootResolved + sep)) {
-      throw new ObjectStoreUnavailableError("refusing a key that escapes the store root");
-    }
-    return path;
+    return resolveObjectPath(this.root, key);
   }
 }
