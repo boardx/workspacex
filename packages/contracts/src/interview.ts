@@ -67,6 +67,18 @@ export const OutlineSectionStatus = z.enum(["done", "deferred"]);
 export const RqCoverageValue = z.enum(["covered", "partial", "uncovered"]);
 
 /**
+ * 证据矩阵格子取值（**五取值**，uc-6-5 R3 step4 / AC4）——`强 / 弱 / 未提及 / 附和 / 反例`。
+ * ⚠ `appeasement`（附和）与 `counterexample`（反例）是文档此前完全没有、且语义关键的
+ *   两个取值：前者**不计入强度合计**（AC5，从众风险/非独立证据），后者**不可被合并主题、
+ *   拆分主题或调整证据权重抹掉**（AC4/E4，`COUNTEREXAMPLE_WOULD_VANISH` 的守护对象）。
+ *   五取值必须**两两不同**且在界面上有五种可辨识视觉——`appeasement`/`counterexample`
+ *   不能长得像 `weak`（R8）。
+ */
+export const EvidenceStrength = z.enum([
+  "strong", "weak", "not-mentioned", "appeasement", "counterexample",
+]);
+
+/**
  * 同意书四位。**⚠ 与 `recording` 束的三项授权矩阵不是同一个东西**：
  * 那边是 `record | transcript | ai_analysis`（采集侧的门禁），
  * 这边多一位 `attribution`（署名）——它管的是引述怎么写，不管采不采。
@@ -333,6 +345,9 @@ export const EvidenceMatrix = z.object({
     cells: z.array(z.object({
       subjectId: z.string(),
       quoteIds: z.array(z.string()),
+      /** ⚠ 五取值本值（AC4）。`counterexample` 字段与 `strength === "counterexample"` 必须同义——
+       *  两处声明会漂移，见 `computeCellStrength`（domain 层）把两者绑定为同一次计算的两个视图。 */
+      strength: EvidenceStrength,
       /** ⚠ **唯一反例**是 `COUNTEREXAMPLE_WOULD_VANISH` 的守护对象 */
       counterexample: z.boolean(),
     }).strict()),
