@@ -468,9 +468,9 @@
         "F24"
       ],
       "points": 4,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-tpl11",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/interview-object-table-structure.test.ts"
@@ -513,9 +513,9 @@
         "F26"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-tpl12",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/matrix-cell-to-todo-sync.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/stage-status-drives-three-views.test.ts"
@@ -859,9 +859,9 @@
         "F41"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-ingest7",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/synthesized-evidence-policy.test.ts",
         "pnpm --filter api exec vitest run tests/files/generated-primary-only-zero-recall.test.ts",
@@ -882,9 +882,9 @@
         "F41"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-ingest8",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/zero-object-missing-file.test.ts",
         "pnpm --filter api exec vitest run tests/files/materialize-failure-visible.test.ts",
@@ -1995,8 +1995,8 @@
         "F93"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w4-itv15",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/speaking-time-private-nudge-dual-signal.test.ts",
         "pnpm --filter api exec vitest run tests/itv/copilot-not-delivered-to-interviewee.test.ts",
@@ -2017,8 +2017,8 @@
         "F90"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w4-itv16",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/rq-coverage-values-human-only.test.ts",
         "grep -rq 'data-testid=.itv-coverage-summary' apps/web/components/interview"
@@ -2084,8 +2084,8 @@
         "F94"
       ],
       "points": 3,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w4-itv17",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/virtual-source-server-isolation.test.ts",
         "pnpm --filter api exec vitest run tests/itv/generality-claim-independent-le5.test.ts"
@@ -2355,8 +2355,8 @@
         "F106"
       ],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "w4-canvas6",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/backflow-source-chain-unbroken.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/only-lead-confirmed-writeback.test.ts"
@@ -3114,9 +3114,9 @@
         "F137"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-asset8",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api run typecheck",
@@ -3138,9 +3138,9 @@
         "F138"
       ],
       "points": 6,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-asset9",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/review-scan-zero-call-asset-downgraded.test.ts",
@@ -3162,9 +3162,9 @@
         "F135"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-asset10",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/downgrade-visibility-four-surfaces.test.ts",
@@ -3236,9 +3236,9 @@
         "F137"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "w4-asset11",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/asset/root-file-undeletable.test.ts",
