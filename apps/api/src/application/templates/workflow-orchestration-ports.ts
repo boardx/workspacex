@@ -57,3 +57,50 @@ export interface OrgTemplateCreatePort {
     readonly matrix: readonly MatrixCellLike[];
   }): Promise<{ readonly workflowTemplateId: string }>;
 }
+
+/* ═══════════════════════ F27：矩阵格 → 待办同步的端口 ═══════════════════════ */
+
+/**
+ * 「这一格（环节 × 角色）此刻该由谁负责」——跨束边（人员归属属 identity/11-board，
+ * 不属 `templates` 束）。⚠ 与 `MatrixTaskPublisherPort` 的 `executorAgentId`
+ * 结构性分离，理由同 `skill/ports.ts` `RoleAssigneePort` 头注：D-39「负责人恒为人」
+ * 要求两者来自互不相交的两个来源，糊不到一起去。
+ */
+export interface MatrixRoleAssigneePort {
+  assigneeOf(input: {
+    readonly projectId: string;
+    readonly agendaSegmentId: string;
+    readonly roleKey: string;
+  }): Promise<{ readonly principalId: string } | null>;
+}
+
+/**
+ * 矩阵格 ↔ 待办卡的发布/移除端口（I-23：可追溯的一一对应）。
+ *
+ * ⚠ `upsertForCell` 必须按 `(projectId, cellId)` 做**键控 upsert**——重复以相同
+ *   `cellId` 调用必须落到同一张待办卡（幂等，不产生重复卡），这是契约「重复触发
+ *   同步不产生重复卡」在这个端口形状下的落点，不是应用层自己去查重。
+ * ⚠ `removeForCell` 必须幂等：对没有已同步待办的 `cellId` 调用等同 no-op（返回
+ *   `removed: false`），不得抛错——「格子从未同步过就被删」是正常路径（例如格子
+ *   从未填过内容就被移除）。
+ */
+export interface MatrixTaskPublisherPort {
+  upsertForCell(input: {
+    readonly projectId: string;
+    readonly cellId: string;
+    readonly agendaSegmentId: string;
+    readonly roleKey: string;
+    readonly content: string;
+    /** ⚠ D-39：只能来自 `MatrixRoleAssigneePort`。 */
+    readonly assigneePrincipalId: string;
+    readonly executorAgentId: string | null;
+  }): Promise<
+    | { readonly ok: true; readonly todoId: string; readonly created: boolean }
+    | { readonly ok: false }
+  >;
+
+  removeForCell(
+    projectId: string,
+    cellId: string,
+  ): Promise<{ readonly ok: true; readonly removed: boolean } | { readonly ok: false }>;
+}
