@@ -2,7 +2,6 @@ import { ProjectWorkbench } from "@/components/project/project-workbench";
 import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveProjectTab } from "@/lib/mock/project";
-import { MOCK_PROJECTS } from "@/lib/mock/projects";
 
 /**
  * 项目主页 `/projects/[projectId]` —— project 束现行落点（2026-08-02，issue #317 收敛）。
@@ -20,9 +19,17 @@ import { MOCK_PROJECTS } from "@/lib/mock/projects";
  *     `现场大屏尚未建` 的显式禁用状态原样保留，不静默丢弃；
  *   · 静态 `/project` 退役为 `redirect("/projects")` 桩。
  *
- * ⚠ 与 `canvas`/`files` 子路由同型的已知 mock 债：`params.projectId` 目前只驱动
- *   页头标题与工作面跳转链接，六个 tab 内部的具体内容仍是单一 mock 场景
- *   （`lib/mock/project.ts` 的 `PROJECT_HEADER` 等），不因不同项目 id 而不同。
+ * ⚠ 与 `canvas`/`files` 子路由同型的已知 mock 债：六个 tab 里除「概览」的项目基本
+ *   信息块外，内部的具体内容仍是单一 mock 场景（`lib/mock/project.ts` 的
+ *   `PROJECT_HEADER` 等），不因不同项目 id 而不同——这次（F353）只接「概览」。
+ *
+ * ⚠ F353：项目名称/kind/status/只读原因改由 `ProjectWorkbench` 内部真实拉取
+ *   （`GET /projects?orgId=`，按 id 在 member/managed 两段里找），不再用
+ *   `MOCK_PROJECTS.find(...)` 编。真实拉取需要 `orgId`——契约没有「按 id 直接读
+ *   单个项目」的已挂路由（`getProjectOverview` 在契约与应用层都有，但控制器从未
+ *   挂那个 `@Get`，见 `lib/live-projects.ts` `findProject` 头注的缺口报告），
+ *   所以这里退化成从 `?org=` 读（`/projects` 列表页的「进入项目」链接会带上它）。
+ *   没有 `?org=` 或未登录时，工作台照旧显示 mock 头像信息，不假装有真实数据。
  */
 export default function ProjectHomePage({
   params, searchParams,
@@ -36,7 +43,6 @@ export default function ProjectHomePage({
   const sub = typeof searchParams.sub === "string" ? searchParams.sub : null;
   const orgDisabled = process.env.NODE_ENV !== "production" && searchParams.orgState === "disabled";
   const identity = mockIdentity(searchParams.org ?? "org-yuanyang", view);
-  const project = MOCK_PROJECTS.find((p) => p.id === params.projectId);
 
   return (
     <ProjectWorkbench
@@ -48,7 +54,6 @@ export default function ProjectHomePage({
       orgDisabled={orgDisabled}
       qs={{ org: searchParams.org }}
       projectId={params.projectId}
-      projectName={project?.name}
     />
   );
 }

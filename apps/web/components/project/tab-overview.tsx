@@ -8,6 +8,7 @@ import {
   OVERVIEW_STATUS, CURRENT_SEGMENT, OVERVIEW_TODOS, ACTIVITY_FEED, PROJECT_HEADER,
   PROJECT_SURFACES, ROLE_CAN_WRITE, PROJECT_ROLE_LABEL, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
+import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem } from "@/lib/live-projects";
 
 /**
  * 概览（净新）—— 原型 isWsOver 的转译。
@@ -17,15 +18,67 @@ import {
  *
  * ⚠ 「工作面」清单（F317 折入，见 `lib/mock/project.ts` `PROJECT_SURFACES` 头注）
  *   不随观察者裁剪消失——它只是一排跳转入口，目标屏各自的权限判定在各自屏内做。
+ *
+ * ⚠ F353：概览新增一块「项目基本信息」，接的是真实 `GET /projects`（按 id 在
+ *   member/managed 两段里找，见 `lib/live-projects.ts` `findProject`）。其余板块
+ *   （问题标题、现场状态条、当前环节、待办、动态）仍是 mock——这次范围只覆盖
+ *   「项目基本信息」，其余板块背后是完全不同的契约束（现场/待办/研究），本次不动。
  */
 export function TabOverview({
-  view, readOnly = false, projectId,
-}: { view: ProjectRole; readOnly?: boolean; projectId: string }) {
+  view, readOnly = false, projectId, liveProject = null, liveLoading = false, liveError = null,
+}: {
+  view: ProjectRole;
+  readOnly?: boolean;
+  projectId: string;
+  /** F353：真实项目基本信息；`null` = 未登录 / 没有 `?org=` / 还没查到，不是「查询失败」 */
+  liveProject?: ProjectListItem | null;
+  liveLoading?: boolean;
+  liveError?: string | null;
+}) {
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6" data-testid="project-overview">
-      {/* 项目在研究的问题 */}
+      {/* F353：项目基本信息（真实数据） */}
+      <section
+        data-testid="project-overview-live-info"
+        className="flex flex-col gap-1.5 rounded-lg border border-border bg-panel px-3.5 py-2.5"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">
+            项目基本信息 · 真实数据
+          </span>
+          {liveLoading ? (
+            <span className="text-10 text-muted-foreground" data-testid="project-overview-live-loading">
+              加载中…
+            </span>
+          ) : null}
+        </div>
+        {liveError !== null ? (
+          <p className="text-11 text-destructive" data-testid="project-overview-live-error">
+            读取失败：{liveError}
+          </p>
+        ) : liveProject !== null ? (
+          <div className="flex flex-wrap items-center gap-2 text-12" data-testid="project-overview-live-name">
+            <span className="font-medium">{liveProject.name}</span>
+            <Badge tone="outline">{PROJECT_KIND_LABEL[liveProject.kind]}</Badge>
+            <Badge tone={liveProject.status === "active" ? "primary" : "outline"}>
+              {PROJECT_STATUS_LABEL[liveProject.status]}
+            </Badge>
+            {liveProject.readOnlyReason !== null ? (
+              <Badge tone="outline" data-testid="project-overview-live-readonly">
+                只读 · {liveProject.readOnlyReason === "archived" ? "已归档" : "组织已停用"}
+              </Badge>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-11 text-muted-foreground" data-testid="project-overview-live-empty">
+            暂无真实数据——请先在「项目」列表页登录并进入本项目（需要 URL 带上 <code>?org=</code>）。
+          </p>
+        )}
+      </section>
+
+      {/* 项目在研究的问题（mock，非本次范围）*/}
       <header className="flex flex-col gap-2">
         <h2 className="max-w-2xl text-18 font-semibold leading-snug" data-testid="project-overview-question">
           {PROJECT_HEADER.question}
