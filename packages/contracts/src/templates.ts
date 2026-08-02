@@ -60,8 +60,17 @@ export const SessionLanguage = z.enum(["zh", "en", "bilingual"]);
  */
 export const ModelLane = z.enum(["onsite", "postSession", "confidential"]);
 
-/** 分组状态**三值封闭**（I-14 / V7）：第四态一律 `INVALID_GROUP_STATUS` */
-export const GroupStatus = z.enum(["未开始", "进行中", "已完成"]);
+/**
+ * 分组状态**三值封闭**（I-14 / V7）：第四态一律 `INVALID_GROUP_STATUS`。
+ *
+ * ⚠ **F25 修正**：本枚举此前取值为 `["未开始","进行中","已完成"]`——与 `domain.md` I-14
+ *   的权威定义（`{录音就绪, 缺 N 人, 需介入}` / `{recording-ready, short-n, needs-intervention}`）
+ *   不一致,是同一事实两处声明又漂移了一次（`AGENTS.md` 已警告的第六次）。`apps/web/lib/mock/tpl.ts`
+ *   的 `GroupReadinessView` 才是与原型逐字对应的取值,本枚举据此改回与 domain.md / 原型一致,
+ *   不是新增一个维度——`Group.status` 本来就只应该有一份口径。未见任何后端消费方依赖旧的
+ *   中文字面值（`GroupStatus` 在本次修正前从未被 `apps/api` 引用）。
+ */
+export const GroupStatus = z.enum(["recording-ready", "short-n", "needs-intervention"]);
 
 /** 蓝本可见性。⚠ 与 MCP 的授权范围**不是同一维度，禁止合并成同一字段**（uc-0-3 R7 / I-27） */
 export const BlueprintVisibility = z.enum(["org-wide", "team-only"]);
@@ -330,15 +339,32 @@ export const Group = z
   })
   .strict();
 
-/** 观察/访谈对象表的一行（六列） */
+/**
+ * 观察/访谈对象表的一行（六列：对象/部门角色/联系方式/背景与要问什么/方式/状态）。
+ *
+ * ⚠ **F25 修正**：本 schema 此前是 `{subjectId, name, role, org, contact, note}`——
+ *   六列里缺了「方式」「状态」两列，多了原型没有的 `org`，与 `uc-2-2` R8 / V9 逐字要求的
+ *   六列名字对不上（同一事实两处声明又漂移了一次）。`apps/web/lib/mock/tpl.ts` 的
+ *   `InterviewSubject` 视图类型（`name/role/contact/focus/method/status`）与原型逐字一致,
+ *   本 schema 据此改正。未见任何后端消费方依赖旧字段（本次修正前从未被 `apps/api` 引用）；
+ *   本类型与 `interview` 束（06-itv）自己的 `Subject` 实体是两个不同的东西——那边是预约/
+ *   转写回流的完整领域实体，这里只是筹备页表格的一行结构（本 feature 只落结构与填写）。
+ */
 export const InterviewSubject = z
   .object({
     subjectId: z.string(),
+    /** 对象 */
     name: z.string(),
+    /** 部门角色 */
     role: z.string(),
-    org: z.string(),
+    /** 联系方式 */
     contact: z.string(),
-    note: z.string(),
+    /** 背景与要问什么 */
+    focus: z.string(),
+    /** 方式 */
+    method: z.string(),
+    /** 状态 */
+    status: z.string(),
   })
   .strict();
 
