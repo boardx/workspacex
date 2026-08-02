@@ -29,6 +29,7 @@ export default function ProjectFilesPage({
       uiState={uiState}
       screen={screen}
       qs={{ as: searchParams.as, org: searchParams.org }}
+      projectId={params.projectId}
     />
   );
 }
