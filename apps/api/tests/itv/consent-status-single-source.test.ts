@@ -134,13 +134,24 @@ describe("F97 — 同意书状态单一来源", () => {
     }
   });
 
-  it("同意书事实只存在一张表里（不是访谈侧一份、项目侧再造一份）", async () => {
+  it("「当前同意状态」事实只存在一张表里（不是访谈侧一份、项目侧再造一份）", async () => {
     const tables = await asOwner((s) =>
       s.query<{ table_name: string }>(
         `SELECT table_name FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name LIKE '%consent%'`,
+          WHERE table_schema = 'public' AND table_name LIKE '%consent%'
+          ORDER BY table_name`,
       ),
     );
-    expect(tables.rows.map((r) => r.table_name)).toEqual(["interview_consent_submissions"]);
+    // F86/#356 新增 `interview_consent_snapshots`：**不是**第二份「当前同意状态」，
+    // 是完全不同的一件事——受访者签署当下、告知内容（render_params）与当时勾选的
+    // 四个位的一次性快照（append-only，事后不可回溯改写，见 consent-token-ports.ts
+    // `ConsentSnapshotRepository` 头部注释）。`Subject.consentStatus`（本文件其余用例
+    // 断言的那个「状态」）仍然只从 `interview_consent_submissions` 派生，
+    // 从未读过 `interview_consent_snapshots` 一个字节——这条断言就是把「多了一张表」
+    // 与「多了一份状态事实」分开验证，不是把后者当成前者的例外放过去。
+    expect(tables.rows.map((r) => r.table_name)).toEqual([
+      "interview_consent_snapshots",
+      "interview_consent_submissions",
+    ]);
   });
 });
