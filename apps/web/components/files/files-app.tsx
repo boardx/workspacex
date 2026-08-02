@@ -26,6 +26,8 @@ import { ReviewPanel } from "./review-panel";
 import { VersionDrawer } from "./version-drawer";
 import { DeleteDialog } from "./delete-dialog";
 import { TrashQueue } from "./trash-queue";
+import { LiveFilesBrowser } from "./live-files-browser";
+import { getStoredSessionToken } from "@/lib/api-client";
 
 type Overlay = "none" | "upload" | "ingestion" | "versions" | "delete";
 const OVERLAY_SCREENS: FilesScreen[] = ["upload", "ingestion", "versions", "delete"];
@@ -34,18 +36,33 @@ const OVERLAY_SCREENS: FilesScreen[] = ["upload", "ingestion", "versions", "dele
  * 项目文件浏览器编排 —— 用已确认的三栏骨架 AppShell（左树 / 中列表 / 右预览）。
  * `screen`/`state`/`as` 走 URL 做预览切换；屏内选择、勾选、抽屉开合走本地状态。
  * 视角切换（引导师/组长/组员/观察者）是**预览手段**，真实权限在服务端 RLS。
+ *
+ * ⚠ F354：浏览器主屏（`screen === "browser"`）在检测到 `localStorage` 里有真实会话
+ * token 时（走 F122 `/project/live` 建立的同一份登录），改渲染 `LiveFilesBrowser`——
+ * 真实 `listProjectArtifacts` / `getArtifactTree` 数据，不是 `FILES` mock。没有 token
+ * 时保持原有 mock 预览屏不变（本页至今没有自己的登录表单，见 `LiveFilesBrowser` 文件头）。
+ * `upload`/`ingestion`/`review`/`versions`/`delete`/`trash` 各屏仍是 mock——它们背后的
+ * 契约操作（`uploadArtifact`/`resolveReviewPending`/`listVersions`/删除级联等）目前都没有
+ * 对应的真实 controller，接了也是假装。
  */
 export function FilesApp({
-  identity, previewRole, uiState, screen, qs,
+  identity, previewRole, uiState, screen, qs, projectId,
 }: {
   identity: Identity;
   previewRole: ProjectRole | null;
   uiState: UiState;
   screen: FilesScreen;
   qs: { as?: string; org?: string };
+  projectId?: string;
 }) {
   const mode: "browser" | "review" | "trash" =
     screen === "review" ? "review" : screen === "trash" ? "trash" : "browser";
+
+  const [hasSession, setHasSession] = React.useState(false);
+  React.useEffect(() => {
+    setHasSession(getStoredSessionToken() !== null);
+  }, []);
+  const liveMode = mode === "browser" && hasSession && projectId !== undefined;
 
   const [selSource, setSelSource] = React.useState<string | null>(null);
   const [selSeg, setSelSeg] = React.useState<string | null>(null);
@@ -89,15 +106,17 @@ export function FilesApp({
       identity={identity}
       previewRole={previewRole}
       left={
-        <FilesTree
-          selectedSource={selSource}
-          selectedSeg={selSeg}
-          onSelect={(src, seg) => { setSelSource(src); setSelSeg(seg); }}
-          onUpload={() => setOverlay("upload")}
-        />
+        liveMode ? undefined : (
+          <FilesTree
+            selectedSource={selSource}
+            selectedSeg={selSeg}
+            onSelect={(src, seg) => { setSelSource(src); setSelSeg(seg); }}
+            onUpload={() => setOverlay("upload")}
+          />
+        )
       }
       right={
-        mode === "browser"
+        mode === "browser" && !liveMode
           ? <FilePreview file={selected} depFailed={depFailed} onOpenVersions={() => selected && openVersions(selected)} onDelete={() => setOverlay("delete")} />
           : undefined
       }
@@ -112,6 +131,8 @@ export function FilesApp({
           </div>
         ) : mode === "review" ? (
           <ReviewPanel />
+        ) : liveMode ? (
+          <LiveFilesBrowser projectId={projectId!} onToast={setToast} />
         ) : (
           <BrowserMode
             files={files}
