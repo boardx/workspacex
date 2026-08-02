@@ -45,3 +45,107 @@ export function deriveReviewDueAt(publishedAt: string, reviewCycle: ReviewCycleV
   due.setUTCMonth(due.getUTCMonth() + months);
   return due.toISOString();
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════
+ * F138 -- `uc-23-6` R3 状态机（① 计时器 + 到期转 `待复核`；R7 规则 1/2/3；R12 验收线索 1/2/7）
+ *
+ * 🔴 **This is the shared shape F139 (30-day scan-based downgrade) and F140 (visibility write
+ * path + orphaned-asset handoff) build on next.** It is kept deliberately narrow: everything
+ * here is the `active <-> pending-review` half of the three-state machine (`ReviewClockState`
+ * in `@repo/contracts/asset-governance`). The `pending-review -> downgraded` transition (the
+ * "30 天" number, AG3/Q-7) is NOT implemented here and this file never writes that literal --
+ * that is F139's territory by design, per the contract's own `KNOWN_CONTRACT_GAPS.AG3` warning
+ * ("谁先写谁就是本仓第九次同一事实两处声明").
+ *
+ * Exports for F139/F140 to reuse:
+ *   - `ReviewClockRecord` -- the persisted shape (mirrors the contract's `ReviewClock`, minus
+ *     zod wrapping) that any repository/port dealing with review clocks should key off.
+ *   - `isReviewDue(record, nowIso)` -- pure T1 predicate (`active` && `reviewDueAt <= now`).
+ *     F139's scan can reuse this unchanged for the first half of its sweep.
+ *   - `transitionToPendingReview(record, nowIso)` -- pure T1 transition. Leaves
+ *     `downgradeDueAt: null` on purpose: this file does not decide when a `pending-review`
+ *     record becomes overdue for downgrade -- F139 is expected to either derive that from
+ *     `reviewDueAt` at scan time, or to populate `downgradeDueAt` at the moment it needs the
+ *     30-day answer, once Q-7 is settled. Do not backfill a `+ 30 days` computation into this
+ *     transition without re-reading AG3 first.
+ *   - `applyReview(record, reviewedBy, reviewedAtIso, reviewCycle)` -- pure T3 transition
+ *     (`uc-23-6` R3 步骤 4 / R6 "复核 ⇒ 计时重置"). Always returns to `active` with a freshly
+ *     derived `reviewDueAt` (via `deriveReviewDueAt` above, so the two "reviewDueAt" derivations
+ *     in this bundle are the SAME function, not a second declaration) and clears
+ *     `downgradeDueAt` regardless of which state it was called from (R3's diagram shows `复核`
+ *     arrows leaving both `待复核` and, per E2/E4, possibly `downgraded` -- this function does
+ *     not gate on the current state because R7 rule 8 has no defined `conclusion` semantics to
+ *     gate on; it only asserts "review happened ⇒ clock resets", which is all R7 rule 8 lets
+ *     anyone assert today).
+ */
+export type ReviewClockStateValue = "active" | "pending-review" | "downgraded";
+
+/** Mirrors `@repo/contracts/asset-governance`'s `ReviewClock` shape (kept dependency-free here). */
+export interface ReviewClockRecord {
+  readonly assetKind: string;
+  readonly assetId: string;
+  readonly state: ReviewClockStateValue;
+  readonly publishedAt: string | null;
+  readonly reviewDueAt: string | null;
+  /** null unless `state === "pending-review"` (F139/Q-7 territory -- see file header). */
+  readonly downgradeDueAt: string | null;
+  readonly lastReviewedAt: string | null;
+  readonly lastReviewedBy: string | null;
+}
+
+/**
+ * T1 predicate (`uc-23-6` R2 触发条件 T1): true only when the clock is still `active` and its
+ * `reviewDueAt` has arrived. A record already in `pending-review` or `downgraded` is never
+ * "due" again by this function -- re-triggering T1 on a record that already transitioned is
+ * exactly the kind of second write path R7 rule 6/Q-7 warns against.
+ */
+export function isReviewDue(record: ReviewClockRecord, nowIso: string): boolean {
+  if (record.state !== "active") return false;
+  if (record.reviewDueAt === null) return false;
+  return record.reviewDueAt <= nowIso;
+}
+
+/**
+ * T1 transition (`uc-23-6` R3 步骤 1 / R7 规则 1/2/3): `active -> pending-review`.
+ *
+ * 🔴 **Deliberately does not disable, unbind, or otherwise remove the asset from anything.**
+ * The only field this function changes is `state` (and clearing `downgradeDueAt`, F139's to
+ * populate). `publishedAt`, `reviewDueAt`, `lastReviewedAt`, `lastReviewedBy` all pass through
+ * untouched -- there is nothing in R7 rule 1/2 that says the expiry moment erases when the
+ * asset was published or last reviewed, and a caller (e.g. a "调用时提示" surface) may want
+ * exactly those fields to phrase the prompt ("已过期" needs `reviewDueAt` to still be there
+ * after the transition). If the record is not actually due yet, this is a no-op (returns the
+ * input unchanged) -- callers should not need to re-check `isReviewDue` themselves.
+ */
+export function transitionToPendingReview(record: ReviewClockRecord, nowIso: string): ReviewClockRecord {
+  if (!isReviewDue(record, nowIso)) return record;
+  return { ...record, state: "pending-review", downgradeDueAt: null };
+}
+
+/**
+ * T3 transition (`uc-23-6` R3 步骤 4 / R6 "复核 ⇒ 计时重置"): review happened -> back to
+ * `active`, clock restarts from `reviewedAtIso`.
+ *
+ * `conclusion` is intentionally NOT a parameter here -- `asset-governance.ts`'s
+ * `KNOWN_CONTRACT_GAPS.AG2` already registers "`ReviewAsset.conclusion` 的取值集合无依据":
+ * this domain function only encodes "复核发生过 ⇒ 计时重置" (R7 rule 8's one settled half),
+ * not any branch on what the review concluded. The caller
+ * (`application/asset/review-asset.ts`) is free to persist the open-string `conclusion`
+ * alongside the audit trail; it never reaches this function because no transition here
+ * depends on its value.
+ */
+export function applyReview(
+  record: ReviewClockRecord,
+  reviewedBy: string,
+  reviewedAtIso: string,
+  reviewCycle: ReviewCycleValue,
+): ReviewClockRecord {
+  return {
+    ...record,
+    state: "active",
+    reviewDueAt: deriveReviewDueAt(reviewedAtIso, reviewCycle),
+    downgradeDueAt: null,
+    lastReviewedAt: reviewedAtIso,
+    lastReviewedBy: reviewedBy,
+  };
+}

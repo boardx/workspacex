@@ -30,11 +30,16 @@ import {
   type PublishAssetResult,
 } from "../../application/asset/publish-asset";
 import { AssetNotFoundError, AssetOrgScopeDeniedError } from "../../application/asset/get-asset-directory";
+import { getReviewClock, type GetReviewClockResult } from "../../application/asset/get-review-clock";
+import { reviewAsset, type ReviewAssetResult } from "../../application/asset/review-asset";
+import { scanReviewClocks, type ScanReviewClocksResult } from "../../application/asset/scan-review-clocks";
 import {
   ASSET_GATE_STATUS_PORT,
   ASSET_GOVERNANCE_REPOSITORY,
+  REVIEW_CLOCK_REPOSITORY,
   type AssetGateStatusPort,
   type AssetGovernanceRepository,
+  type ReviewClockRepository,
 } from "../../application/asset/ports";
 import { CLOCK, type Clock } from "../../application/auth/ports";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
@@ -48,6 +53,9 @@ export const GET_ASSET_GOVERNANCE_SCHEMA = C.operations.getAssetGovernance.in;
 export const SET_ASSET_GOVERNANCE_SCHEMA = C.operations.setAssetGovernance.in;
 export const RUN_PREFLIGHT_CHECKS_SCHEMA = C.operations.runPreflightChecks.in;
 export const PUBLISH_ASSET_SCHEMA = C.operations.publishAsset.in;
+export const GET_REVIEW_CLOCK_SCHEMA = C.operations.getReviewClock.in;
+export const REVIEW_ASSET_SCHEMA = C.operations.reviewAsset.in;
+export const SCAN_REVIEW_CLOCKS_SCHEMA = C.operations.scanReviewClocks.in;
 
 @Controller()
 export class AssetGovernanceController {
@@ -57,6 +65,7 @@ export class AssetGovernanceController {
     @Inject(ASSET_GATE_STATUS_PORT) private readonly gates: AssetGateStatusPort,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(REVIEW_CLOCK_REPOSITORY) private readonly reviewClocks: ReviewClockRepository,
   ) {}
 
   @Get("/assets/:assetKind/:assetId/governance")
@@ -160,7 +169,14 @@ export class AssetGovernanceController {
     const input = PUBLISH_ASSET_SCHEMA.parse({ assetKind, assetId, mode: (body as { mode?: unknown })?.mode });
     try {
       return await publishAsset(
-        { repo: this.repo, governance: this.governance, gates: this.gates, provenance: this.provenance, clock: this.clock },
+        {
+          repo: this.repo,
+          governance: this.governance,
+          gates: this.gates,
+          provenance: this.provenance,
+          clock: this.clock,
+          reviewClocks: this.reviewClocks,
+        },
         {
           userId: principal.userId,
           orgId: toOrgId(principal.orgId),
@@ -182,5 +198,75 @@ export class AssetGovernanceController {
       }
       throw e;
     }
+  }
+
+  /**
+   * `GetReviewClock` (F138) -- `uc-23-6` 消费面. See
+   * `application/asset/get-review-clock.ts` for the derivation; this method is protocol
+   * adaptation only.
+   */
+  @Get("/assets/:assetKind/:assetId/review-clock")
+  async getClock(
+    @CurrentPrincipal() principal: Principal,
+    @Param("assetKind") assetKind: string,
+    @Param("assetId") assetId: string,
+  ): Promise<GetReviewClockResult> {
+    assertPrincipal(principal);
+    const input = GET_REVIEW_CLOCK_SCHEMA.parse({ assetKind, assetId });
+    try {
+      return await getReviewClock(
+        { repo: this.repo, reviewClocks: this.reviewClocks },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), assetKind: input.assetKind, assetId: input.assetId },
+      );
+    } catch (e) {
+      if (e instanceof AssetOrgScopeDeniedError) throw new NotFoundException();
+      throw e;
+    }
+  }
+
+  /**
+   * `ReviewAsset` (F138) -- `uc-23-6` R3 步骤 4 / R6 "复核 ⇒ 计时重置". See
+   * `application/asset/review-asset.ts` for the state-machine transition (T3); this method is
+   * protocol adaptation only.
+   */
+  @Post("/assets/:assetKind/:assetId/review")
+  async review(
+    @CurrentPrincipal() principal: Principal,
+    @Param("assetKind") assetKind: string,
+    @Param("assetId") assetId: string,
+    @Body() body: unknown,
+  ): Promise<ReviewAssetResult> {
+    assertPrincipal(principal);
+    const b = body as { conclusion?: unknown; at?: unknown };
+    const input = REVIEW_ASSET_SCHEMA.parse({ assetKind, assetId, conclusion: b?.conclusion, at: b?.at });
+    try {
+      return await reviewAsset(
+        { repo: this.repo, governance: this.governance, reviewClocks: this.reviewClocks, clock: this.clock },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          assetKind: input.assetKind,
+          assetId: input.assetId,
+          conclusion: input.conclusion,
+        },
+      );
+    } catch (e) {
+      if (e instanceof AssetOrgScopeDeniedError) throw new NotFoundException();
+      if (e instanceof AssetNotEditableError) {
+        throw new UnprocessableEntityException({ reasonCode: "ASSET_NOT_EDITABLE" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * `ScanReviewClocks` (F138 -- T1 half only, `uc-23-6` R3 步骤 1 / R9). See
+   * `application/asset/scan-review-clocks.ts`'s header: this endpoint's `downgraded` output is
+   * always `[]` today -- the 30-day sweep (T2) is F139's territory.
+   */
+  @Post("/review-clocks/scan")
+  async scan(@Body() body: unknown): Promise<ScanReviewClocksResult> {
+    const input = SCAN_REVIEW_CLOCKS_SCHEMA.parse({ now: (body as { now?: unknown })?.now });
+    return scanReviewClocks({ reviewClocks: this.reviewClocks }, { now: input.now });
   }
 }
