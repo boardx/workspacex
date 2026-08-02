@@ -2,7 +2,7 @@
   "//": "跨屏可达性门控（lint-nav-reachability.mjs）的唯一配置源。别处不许再抄一份。",
   "//1": "病史：ADR-023 的签核材料（十一束的 v2 屏）全部只能敲 URL 进——导航连的是另一套更旧的骨架屏。三个独立 agent 各自撞上，却**没有任何门控**能发现（旧门控只验单屏七态，不验跨屏可达）。这道门控就是补这个盲区。",
   "//2": "bundleRoutes：每个契约束的**现行入口路由**（导航必须能直接到它）。键集合必须与 ui-material-map.json 声明的束集合**逐个相等**（门控判定①），否则新增束忘了配路由 = 静默漏检。",
-  "//3": "为什么 project 的路由是 /projects 而不是 /project：/projects 是列表主入口（导航项「项目」指向它），/project 工作台从列表卡片进（1 跳）。断言束的**入口**在导航里即可。",
+  "//3": "为什么 project 的路由是 /projects：/projects 是列表主入口（导航项「项目」指向它），六 tab 工作台从列表卡片「进入项目」进 /projects/[projectId]（1 跳）。断言束的**入口**在导航里即可。⚠ 2026-08-02（issue #317）：工作台曾短暂挂在静态 /project（无 id），现已收敛回 /projects/[projectId]，/project 退役为 redirect(\"/projects\") 桩。",
   "//4": "为什么 files 的路由带具体 id /projects/demo/files：文件浏览器挂在项目下，导航项 FILES_NAV 用 demo 项目做入口（真实实现按当前项目拼）。",
   "//5": "allowRoutes：导航里**故意存在、但不属于 phase-01 任何束**的路由——它们是别的能力域/阶段（问卷→phase-02 12-survey、大脑→phase-03 14-brain、任务→phase-02 11-board）或组织治理总览（后台）。反向判定放行它们；**不在此列且不是束路由的导航项 = 红**（多半是又冒出来的旧骨架屏，如 /studio/interview /studio/prototype）。⚠ 2026-07-30：**研究已从本列移出**，改为 bundleRoutes 的 research（第 12 束）——D-20 早已裁定研究 Studio 立项，是 phase-01 的束，不是「别的阶段」。见 phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md。",
   "//5c": "2026-07-31（ui-prototyper）：research 现行路由改为 /research —— 研究 Studio 的 UI 先行原型（UC-24.1…24.5）已建在顶层 /research，navigation.ts 的「研究」一级导航已重指到它、ucRefs 换成 24-research 五份。这条绿从此是**真的**（束路由渲染的就是束的屏）。⚠ Q-2（阻塞级·未裁）的最终 IA 归并——Context Pack 是迁进研究详情的一个标签（方案 A），还是两个「研究」并列（方案 C）——仍待人类；Context Pack 页面暂留在 /studio/research 直达（已不在导航里）。见 ui-preview/research/README.md 与 OPEN-QUESTIONS.md Q-2。",

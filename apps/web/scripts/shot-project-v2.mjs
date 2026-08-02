@@ -1,6 +1,8 @@
 // 截图生成器 —— project 域 v2（project-v2）。
-// 覆盖：项目列表（增删改查）、Layout B 工作台（7 tab × 七态 × 四视角）、
-//       新建项目向导、组织停用只读、Layout A 项目主页（待裁决）。
+// 覆盖：项目列表（增删改查）、六 tab 工作台（7 tab × 七态 × 四视角）、
+//       新建项目向导、组织停用只读、概览 tab 里折入的工作面清单。
+// ⚠ 2026-08-02（issue #317）：工作台已从静态 `/project` 迁到 `/projects/[projectId]`
+//   （见 project-workbench.tsx 头注「路由收敛」）。本脚本用 demo 项目 id `p1` 拍。
 // 用法：BASE=http://localhost:3131 OUT=/abs/path node scripts/shot-project-v2.mjs
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
@@ -26,20 +28,20 @@ const TAB_PREFIX = {
 /** [file, url, rootSel, interaction?] */
 const SHOTS = [];
 
-// ── Layout B 工作台：每 tab 七态（facilitator）+ 三视角（default 态）──────────
+// ── 六 tab 工作台（/projects/p1）：每 tab 七态（facilitator）+ 三视角（default 态）──
 for (const [tab, prefix] of Object.entries(TAB_PREFIX)) {
   for (const st of STATES) {
     const q = new URLSearchParams();
     if (tab !== "overview") q.set("tab", tab);
     if (st !== "default") q.set("state", st);
     const qs = q.toString();
-    SHOTS.push([`${prefix}-${st}.png`, `/project${qs ? "?" + qs : ""}`, '[data-testid="project-workbench"]']);
+    SHOTS.push([`${prefix}-${st}.png`, `/projects/p1${qs ? "?" + qs : ""}`, '[data-testid="project-workbench"]']);
   }
   for (const v of VIEWS) {
     const q = new URLSearchParams();
     if (tab !== "overview") q.set("tab", tab);
     q.set("as", v);
-    SHOTS.push([`${prefix}-${v}.png`, `/project?${q.toString()}`, '[data-testid="project-workbench"]']);
+    SHOTS.push([`${prefix}-${v}.png`, `/projects/p1?${q.toString()}`, '[data-testid="project-workbench"]']);
   }
 }
 
@@ -67,12 +69,12 @@ SHOTS.push([
   async (p) => { await p.click('[data-testid="project-new-scratch-scratch"]'); await p.waitForTimeout(200); },
 ]);
 
-// ── 组织停用只读（/project?orgState=disabled）──────────────────────────────
-SHOTS.push(["uc-00-1-orgdisabled-overview.png", "/project?orgState=disabled", '[data-testid="project-org-disabled-banner"]']);
-SHOTS.push(["uc-00-1-orgdisabled-results.png", "/project?orgState=disabled&tab=results", '[data-testid="project-org-disabled-banner"]']);
-SHOTS.push(["uc-00-1-orgdisabled-observer.png", "/project?orgState=disabled&as=observer", '[data-testid="project-org-disabled-banner"]']);
+// ── 组织停用只读（/projects/p1?orgState=disabled）──────────────────────────
+SHOTS.push(["uc-00-1-orgdisabled-overview.png", "/projects/p1?orgState=disabled", '[data-testid="project-org-disabled-banner"]']);
+SHOTS.push(["uc-00-1-orgdisabled-results.png", "/projects/p1?orgState=disabled&tab=results", '[data-testid="project-org-disabled-banner"]']);
+SHOTS.push(["uc-00-1-orgdisabled-observer.png", "/projects/p1?orgState=disabled&as=observer", '[data-testid="project-org-disabled-banner"]']);
 
-// ── Layout A 项目主页（/projects/p1）：两版并存·待裁决 ─────────────────────
+// ── 工作面清单（现折入概览 tab，/projects/p1，overview 默认态即可见）─────────
 SHOTS.push(["uc-00-2-projecthome-default.png", "/projects/p1", '[data-testid="project-home-surfaces"]']);
 SHOTS.push(["uc-00-2-projecthome-observer.png", "/projects/p1?as=observer", '[data-testid="project-home-surfaces"]']);
 
