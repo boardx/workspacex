@@ -7,8 +7,8 @@ $ pnpm --filter api exec vitest run tests/capability/model/selectable-set-equals
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  12:40:52
-   Duration  350ms (transform 147ms, setup 0ms, collect 193ms, tests 2ms, environment 0ms, prepare 29ms)
+   Start at  22:50:57
+   Duration  346ms (transform 148ms, setup 0ms, collect 192ms, tests 2ms, environment 0ms, prepare 33ms)
 
 
 
@@ -21,8 +21,8 @@ $ pnpm --filter api exec vitest run tests/capability/model/disable-cascade-dep-f
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  12:40:53
-   Duration  342ms (transform 143ms, setup 0ms, collect 188ms, tests 2ms, environment 0ms, prepare 34ms)
+   Start at  22:50:58
+   Duration  345ms (transform 146ms, setup 0ms, collect 192ms, tests 2ms, environment 0ms, prepare 28ms)
 
 
 
@@ -35,8 +35,8 @@ $ pnpm --filter api exec vitest run tests/capability/model/disable-choice-interr
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  12:40:53
-   Duration  342ms (transform 144ms, setup 0ms, collect 187ms, tests 2ms, environment 0ms, prepare 37ms)
+   Start at  22:50:58
+   Duration  334ms (transform 142ms, setup 0ms, collect 186ms, tests 2ms, environment 0ms, prepare 34ms)
 
 
 
@@ -89,4 +89,4 @@ $ bash apps/web/scripts/verify-ui-states.sh
 
 ❌ UI 状态门控失败
 
-[harness-verify v1 sha256=8a2b76219ff2d3b420cb3c0c23d286ba0a8e1381e863dc3cd80c3379d9710a3c commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:41:30.238Z]
+[harness-verify v1 sha256=4afeff04f5ab1f4e43b19f7e2fd62f1be0736f7eb4413f48d66e4719a13d9eda commit=f91910287898eeb3bf45cee7393a5a00af23db5f at=2026-08-02T14:51:15.485Z]
