@@ -1,0 +1,47 @@
+=== F95 verification: 2026-08-02T03:51:59Z ===
+
+--- vitest run tests/itv/virtual-source-server-isolation.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f95-worktree/apps/api
+
+ ✓ tests/itv/virtual-source-server-isolation.test.ts (9 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  11:52:00
+   Duration  369ms (transform 148ms, setup 0ms, collect 194ms, tests 3ms, environment 0ms, prepare 43ms)
+
+
+--- vitest run tests/itv/generality-claim-independent-le5.test.ts ---
+
+ RUN  v2.1.9 /private/tmp/f95-worktree/apps/api
+
+ ✓ tests/itv/generality-claim-independent-le5.test.ts (12 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  11:52:00
+   Duration  363ms (transform 149ms, setup 0ms, collect 193ms, tests 2ms, environment 0ms, prepare 33ms)
+
+
+--- lint (apps/api) ---
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+scanned=950 violations=0 debt=78 migrations=64
+· [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+· [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+· [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+· [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+· [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+· [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+· [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+✅ lint-design-facet-single-source: the definition table has one source
+scanned=1380 violations=0 debt=8 keys=15 groups=5
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 49 个文件，skill 取数只经 Context API（I-25）
+scanned=49 violations=0
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4
+✅ lint-arch-deps: 656 files, all dependencies point inward
+scanned=656

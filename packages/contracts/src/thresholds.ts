@@ -249,6 +249,25 @@ export const THRESHOLDS = {
       "（采信原型，是 O-36 八项中唯一有原型依据的一项）」",
   } satisfies ResolvedThreshold<number>,
 
+  /* ── O-16（F95 / uc-6-5 R3）：普遍性断言触发线 + 跨组织聚合最小样本量
+   * （**全仓单一门槛**——契约与 usecases.md 明写「本束只引用不重新声明」，
+   * 这两个数字只能在这里出现一次）──────────────────────────────────── */
+  generalizationClaimMinIndependentSubjects: {
+    known: true,
+    value: 5,
+    rule:
+      "触发「普遍性断言」写作约束的独立受访者数下限；计数口径 = distinct(subjectId)，" +
+      "同一人多次发言只算 1，`附和·非独立证据` 与 `sourceKind=virtual` 均不计入；" +
+      "低于此数时阻断并给出实际人数 + 「部分受访者提到」改写建议",
+    source: "requirements/06-itv/uc-6-5-访谈回流成洞察.md R3 step6「[已裁决 O-16]」/ D-16",
+  } satisfies ResolvedThreshold<number>,
+  crossOrgAggregationMinSample: {
+    known: true,
+    value: 8,
+    rule: "跨组织不可逆聚合的最小样本量；低于此数的分组标「不可推断」，全仓不存在第二个聚合门槛值",
+    source: "requirements/06-itv/uc-6-5-访谈回流成洞察.md R3「[已裁决 O-16]」/ D-16 / X-7",
+  } satisfies ResolvedThreshold<number>,
+
   /* ── N-1：法定留存清单（外部输入缺口，最硬的一条）──────────────── */
   legalHoldCategories: {
     known: false,
