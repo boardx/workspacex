@@ -14,7 +14,7 @@ import {
   ORG_DISABLED_BANNER, type ProjectTab, type ProjectRole,
 } from "@/lib/mock/project";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
-import { findProject, type ProjectListItem } from "@/lib/live-projects";
+import { findProject, getProjectOverview, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
 import { TabResults } from "./tab-results";
@@ -114,6 +114,49 @@ export function ProjectWorkbench({
       cancelled = true;
     };
   }, [projectId, qs.org]);
+
+  /**
+   * F362 —— 概览 tab 专用的真实 overview（`currentAgendaSegment`/`roleCounts`/
+   * `backflow`/`blueprint`）。只在「概览」tab 激活时拉取，且不需要 `qs.org`
+   * （`getProjectOverview` 的 `orgId` 在服务端取自 principal）——与上面
+   * `findProject` 那次拉取（供项目头 name/kind/status/readOnlyReason 用）是
+   * 两次独立的请求，范围各自成立，互不替代。
+   */
+  const [liveOverview, setLiveOverview] = React.useState<ProjectOverview | null>(null);
+  const [liveOverviewLoading, setLiveOverviewLoading] = React.useState(false);
+  const [liveOverviewError, setLiveOverviewError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "overview") {
+      setLiveOverview(null);
+      setLiveOverviewError(null);
+      return;
+    }
+    const token = getStoredSessionToken();
+    if (!token) {
+      setLiveOverview(null);
+      setLiveOverviewError(null);
+      return;
+    }
+    let cancelled = false;
+    setLiveOverviewLoading(true);
+    setLiveOverviewError(null);
+    getProjectOverview(projectId)
+      .then((o) => {
+        if (!cancelled) setLiveOverview(o);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setLiveOverviewError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLiveOverviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, tab]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
@@ -270,7 +313,11 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id, liveProject, liveLoading, liveError)}
+              {renderTab(
+                tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id,
+                liveProject, liveLoading, liveError,
+                liveOverview, liveOverviewLoading, liveOverviewError,
+              )}
             </StateShell>
           </main>
         </div>
@@ -288,6 +335,9 @@ function renderTab(
   liveProject: ProjectListItem | null,
   liveLoading: boolean,
   liveError: string | null,
+  liveOverview: ProjectOverview | null,
+  liveOverviewLoading: boolean,
+  liveOverviewError: string | null,
 ) {
   switch (tab) {
     case "overview":
@@ -299,6 +349,9 @@ function renderTab(
           liveProject={liveProject}
           liveLoading={liveLoading}
           liveError={liveError}
+          liveOverview={liveOverview}
+          liveOverviewLoading={liveOverviewLoading}
+          liveOverviewError={liveOverviewError}
         />
       );
     case "research": return <TabResearch view={view} readOnly={orgDisabled} />;

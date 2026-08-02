@@ -29,20 +29,33 @@ export async function listProjects(orgId: string): Promise<ListProjectsOut> {
 /**
  * F353 —— 按 id 找一个项目的真实基本信息。
  *
- * ⚠ 契约里**有** `getProjectOverview`（`GET /projects/:projectId/overview`），但
- * `apps/api/src/interface/controllers/project.controller.ts` 只挂了 `create`/`list`
- * 两个方法——那条路由从未被控制器实现过（应用层 `get-project-overview.ts` 与
- * PG 仓库都在，唯独没有对应的 `@Get` 方法）。这是一个后端缺口，不是本次前端集成
- * 该顺手补的东西（issue #353：不新增路由）——已在 PR 描述里报告。
+ * 用已经真实挂了的 `listProjects` 复用两段列表，在 member/managed 里按 id 查——
+ * 能拿到的字段就是 `ProjectListItem` 那五个（id/name/kind/status/readOnlyReason）。
+ * `readOnlyReason` 是 `getProjectOverview` 不返回的字段（白名单四件里没有它），
+ * 只需要粗粒度身份 + 只读原因的场景（工作台顶部项目头）继续用它。
  *
- * 因此这里只能退而求其次：用已经真实挂了的 `listProjects` 复用两段列表，
- * 在 member/managed 里按 id 查——能拿到的字段就是 `ProjectListItem` 那五个
- * （id/name/kind/status/readOnlyReason），拿不到 `currentAgendaSegment`/`roleCounts`/
- * `backflow`/`blueprint` 这些只有 `getProjectOverview` 才有的东西。
+ * ⚠ 需要更完整的概览（`currentAgendaSegment`/`roleCounts`/`backflow`/`blueprint`）
+ *   请用下面的 `getProjectOverview`——控制器的 `@Get` 路由其实早已由 F123 挂好
+ *   （`project.controller.ts` 的 `overview()`），此前这里的注释误以为它没挂，
+ *   已在 issue #362 更正。
  */
 export async function findProject(orgId: string, projectId: string): Promise<ProjectListItem | null> {
   const out = await listProjects(orgId);
   return out.member.find((p) => p.id === projectId) ?? out.managed.find((p) => p.id === projectId) ?? null;
+}
+
+export type ProjectOverview = z.infer<typeof project.operations.getProjectOverview.out>;
+
+/**
+ * F362 —— 真实 `GET /projects/:projectId/overview`。不需要 `orgId`：契约
+ * `getProjectOverview.in` 只收 `{ projectId }`，`orgId` 在服务端取自
+ * `principal.orgId`（同 `advance`/`archive` 几条路由的形状）。
+ */
+export async function getProjectOverview(projectId: string): Promise<ProjectOverview> {
+  return apiRequest<ProjectOverview>(
+    project.operations.getProjectOverview.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "GET" },
+  );
 }
 
 export const PROJECT_KIND_LABEL: Record<z.infer<typeof project.ProjectKind>, string> = {
