@@ -1,0 +1,63 @@
+F25 —— 分组编排 + 观察/访谈对象表结构
+issue: https://github.com/boardx/workspacex/issues/322
+branch: worker/w4-tpl11-01-F25
+date: 2026-08-02
+
+$ pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts
+ RUN  v2.1.9 /private/tmp/f25-worktree/apps/api
+
+ ✓ tests/tpl/grouping-three-states.test.ts (13 tests) 17ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+
+$ pnpm --filter api exec vitest run tests/tpl/interview-object-table-structure.test.ts
+ RUN  v2.1.9 /private/tmp/f25-worktree/apps/api
+
+ ✓ tests/tpl/interview-object-table-structure.test.ts (11 tests) 8ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+
+---
+
+Additional regression checks run locally (not part of the two required verification
+commands above, kept as supporting evidence):
+
+$ pnpm --filter api exec vitest run tests/tpl
+ Test Files  34 passed (34)
+      Tests  334 passed (334)
+
+$ pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+
+$ pnpm --filter api exec vitest run tests/contract-single-source.test.ts
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+$ pnpm --filter api run lint
+✅ lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+✅ lint-design-facet-single-source / gen-design-facet-catalog --check /
+✅ gen-agenda-tier-catalog --check / lint-skill-context-api-only /
+✅ lint-naming-single-source / lint-arch-deps
+(all pre-existing "debt" entries unchanged; zero new violations)
+
+$ pnpm --filter @repo/contracts exec tsc --noEmit -p .
+(clean, no errors)
+
+Notes:
+- `pnpm --filter api exec tsc --noEmit -p .` surfaces pre-existing, unrelated errors in
+  `packages/fabric-markdown` (canvas/SVG DOM lib typing) that predate this branch and are
+  not touched by F25's files; none of the reported errors reference `templates`, `grouping`,
+  or `interview-subject`.
+- Pre-push hook (`turbo run typecheck lint test --affected`) caught a real typecheck error
+  of mine on first attempt: `hasAllSixColumns`/`findRowMissingColumns` in
+  `domain/templates/interview-subject.ts` took `Readonly<Record<string, unknown>>`, which
+  `InterviewSubjectRow` (a named interface without an index signature) does not structurally
+  satisfy. Fixed by widening the parameter type to `object` (still uses `in` for the
+  membership check). Re-ran the full affected set after the fix — clean.
+- Full local `pnpm --filter api exec vitest run` (untargeted, whole suite) had 2 pre-existing
+  failing files unrelated to F25 (`tests/kernel/pgvector-permission-recall.test.ts` and one
+  other), consistent with issue #74's documented Postgres connection-pool contention under
+  concurrent agents; none touch `templates`/`grouping`/`interview-subject`.
