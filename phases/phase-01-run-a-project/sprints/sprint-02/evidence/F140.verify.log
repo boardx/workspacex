@@ -1,0 +1,117 @@
+# F140 verification evidence
+Date: 2026-08-02T05:46:01Z
+
+## pnpm --filter @repo/contracts run test
+> @repo/contracts@0.0.0 test /private/tmp/f140-worktree/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/f140-worktree/packages/contracts
+
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 2ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 3ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 64ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 6ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 8ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 2ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 3ms
+ ✓ tests/contract-shape.test.ts (77 tests) 30ms
+
+ Test Files  8 passed (8)
+      Tests  166 passed (166)
+   Start at  13:46:01
+   Duration  510ms (transform 639ms, setup 0ms, collect 1.40s, tests 118ms, environment 1ms, prepare 488ms)
+
+
+## pnpm --filter api exec vitest run tests/asset/downgrade-visibility-four-surfaces.test.ts
+
+ RUN  v2.1.9 /private/tmp/f140-worktree/apps/api
+
+ ✓ tests/asset/downgrade-visibility-four-surfaces.test.ts (1 test) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:46:02
+   Duration  184ms (transform 22ms, setup 0ms, collect 24ms, tests 2ms, environment 0ms, prepare 30ms)
+
+
+## pnpm --filter api exec vitest run tests/asset/downgrade-owner-missing.test.ts
+
+ RUN  v2.1.9 /private/tmp/f140-worktree/apps/api
+
+ ✓ tests/asset/downgrade-owner-missing.test.ts (5 tests) 1ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  13:46:02
+   Duration  177ms (transform 22ms, setup 0ms, collect 14ms, tests 1ms, environment 0ms, prepare 45ms)
+
+
+## apps/api/scripts/verify-rls.sh
+  + 20260801190000_f114_chat_artifact_landings.sql
+  + 20260801190000_f128_non_workshop_member_tables.sql
+  + 20260801190000_f37_idempotent_ingest_and_adapters.sql
+  + 20260801190000_f93_segment_speaker_subject.sql
+  + 20260801200000_f127_temporary_grants_table.sql
+  + 20260801210000_f45_deletion_cascade.sql
+  + 20260801220000_f39_review_pending_provenance.sql
+  + 20260801230000_f137_publish_asset_audit.sql
+  + 20260802000000_f46_trash_queue_legalhold_retention.sql
+  + 20260802050000_i342_project_archive_coverage_fix.sql
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
+  ✓ audit is not idle: 85 tenant tables classified ok (floor 46)
+  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+  ✓ no table missing its project-archive freeze policy (issue #342) (= 0)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
+
+## full tests/asset regression
+
+ RUN  v2.1.9 /private/tmp/f140-worktree/apps/api
+
+ ✓ tests/asset/downgrade-owner-missing.test.ts (5 tests) 2ms
+ ✓ tests/asset/review-scan-zero-call-asset-downgraded.test.ts (4 tests) 2ms
+ ✓ tests/asset/downgrade-visibility-four-surfaces.test.ts (1 test) 3ms
+ ✓ tests/asset/preflight-items-have-source-ref.test.ts (5 tests) 3ms
+ ✓ tests/asset/publish-three-independent-blockers.test.ts (4 tests) 3ms
+ ✓ tests/asset/visibility-whole-org-requires-cosign.test.ts (6 tests) 4ms
+ ✓ tests/asset/visibility-single-write-path.test.ts (5 tests) 6ms
+ ✓ tests/asset/review-clock-state-machine.test.ts (14 tests) 4ms
+ ✓ tests/asset/review-pending-still-usable.test.ts (5 tests) 4ms
+ ✓ tests/asset/asset-directory-tree.test.ts (12 tests) 6ms
+ ✓ tests/asset/review-scan-last-scan-observable.test.ts (3 tests) 4ms
+ ✓ tests/asset/publish-audit-event.test.ts (2 tests) 5ms
+ ✓ tests/asset/governance-incomplete-four-fields.test.ts (8 tests) 4ms
+ ✓ tests/asset/governance-uniform-across-six-kinds.test.ts (9 tests) 9ms
+ ✓ tests/asset/publish-review-due-derivation.test.ts (3 tests) 2ms
+ ✓ tests/asset/asset-not-editable-readonly.test.ts (6 tests) 4ms
+ ✓ tests/asset/asset-file-write-frontmatter-invalid.test.ts (8 tests) 8ms
+ ✓ tests/asset/asset-file-badge-fallback.test.ts (7 tests) 6ms
+
+ Test Files  18 passed (18)
+      Tests  107 passed (107)
+   Start at  13:46:05
+   Duration  573ms (transform 366ms, setup 0ms, collect 935ms, tests 77ms, environment 1ms, prepare 999ms)
+
+
+## lint-permission-paths / lint-error-leak / lint-naming-single-source
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=682 tenant-tables=85 allowlisted=32
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+scanned=34
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+scanned-roots=4

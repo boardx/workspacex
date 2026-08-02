@@ -526,6 +526,33 @@ export const operations = {
     err: ["ORG_SCOPE_DENIED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
+  /**
+   * `GetAssetOrphanStatus` —— F140 (`uc-23-6` R7 规则 7 + E1 的表达面，domain I-14)。
+   *
+   * 🔴 **只表达 E1 这个态，不裁决兜底接管人**（E1 `[待确认]`，见 `uc-23-6` 本文）。
+   *   `orphaned: true` 且 `code: "ASSET_DOWNGRADED_OWNER_MISSING"` ⟺ 该资产已降级
+   *   （`ReviewClock.state = "downgraded"`）且其 `ownerId` 的账号已停用——此时「仅负责人可见」
+   *   实质上等于「谁都不可见」（R7 规则 7 的反面）。`takeoverEntryPoint: true` 只是「界面应展示
+   *   一个接管入口」这一个布尔事实，**不是**一段可执行的接管流程——接管规则本身待人类裁决。
+   * ⚠ `orphaned: false` 覆盖两种情况：资产未降级，或已降级但负责人账号仍在——两者都不需要
+   *   界面做任何特殊处理，合并成一个假值不会丢失信息（真正需要区分「降级」与「未降级」的
+   *   地方是 `getReviewClock.clock.state`，本操作不重复那份判定）。
+   */
+  getAssetOrphanStatus: {
+    method: "GET",
+    path: "/assets/:assetKind/:assetId/orphan-status",
+    in: z.object({ assetKind: AssetKind, assetId: z.string() }).strict(),
+    out: z
+      .object({
+        orphaned: z.boolean(),
+        code: z.literal("ASSET_DOWNGRADED_OWNER_MISSING").nullable(),
+        /** ⚠ 只声明入口应可见，不实现入口背后的接管流程（E1 `[待确认]`） */
+        takeoverEntryPoint: z.boolean(),
+      })
+      .strict(),
+    err: ["ORG_SCOPE_DENIED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
   /* ══ uc-23-3 · 资产目录的浏览与编辑 ═══════════════════════ */
 
   /**

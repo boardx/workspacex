@@ -167,3 +167,21 @@ export interface AssetRuntimeLoaderPort {
 }
 
 export const ASSET_RUNTIME_LOADER_PORT = Symbol("AssetRuntimeLoaderPort");
+
+/**
+ * `AssetOwnerStatusPort` -- F140's seam for `uc-23-6` E1 ("负责人离职 / 账号停用").
+ *
+ * 🔴 **This answers exactly one question and invents nothing else.** E1's own text says the
+ * fallback takeover person is `[待确认]` -- there is no ruling on WHO takes over an orphaned
+ * asset, only on the fact that it needs to be surfaced (`ASSET_DOWNGRADED_OWNER_MISSING` +
+ * a takeover entry point). This port lets `getAssetOrphanStatus` ask "is this owner's account
+ * deactivated" without that use case reaching into `identity`'s membership machinery itself
+ * (which has no "deactivated" concept today -- see `always-active-asset-owner-status.ts`'s own
+ * header for why the phase-1 stand-in always answers "no").
+ */
+export interface AssetOwnerStatusPort {
+  /** `true` = the owner's org account has been deactivated (uc-23-6 E1). */
+  isOwnerDeactivated(ownerId: string): Promise<boolean>;
+}
+
+export const ASSET_OWNER_STATUS_PORT = Symbol("AssetOwnerStatusPort");
