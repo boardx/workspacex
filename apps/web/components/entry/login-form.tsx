@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry";
+import { login } from "@/lib/auth";
+import { ApiError, storeSessionToken } from "@/lib/api-client";
 
 /**
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
@@ -22,6 +24,9 @@ export function LoginForm({ state }: { state: UiState }) {
   const router = useRouter();
   const [showPwd, setShowPwd] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [email, setEmail] = React.useState(state === "invalid" ? LOGIN_BRAND.sampleEmail : "");
+  const [password, setPassword] = React.useState(state === "invalid" ? "••••••••" : "");
+  const [loginError, setLoginError] = React.useState<string | null>(null);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
   const [createOrg, setCreateOrg] = React.useState(false);
@@ -170,7 +175,8 @@ export function LoginForm({ state }: { state: UiState }) {
           id="login-email"
           type="email"
           placeholder={LOGIN_BRAND.sampleEmail}
-          defaultValue={state === "invalid" ? LOGIN_BRAND.sampleEmail : undefined}
+          value={email}
+          onChange={(e) => setEmail(e.currentTarget.value)}
           data-testid="login-email"
         />
       </div>
@@ -191,7 +197,8 @@ export function LoginForm({ state }: { state: UiState }) {
             id="login-password"
             type={showPwd ? "text" : "password"}
             placeholder="至少 12 位"
-            defaultValue={state === "invalid" ? "••••••••" : undefined}
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
             className="pr-14"
             data-testid="login-password"
           />
@@ -213,16 +220,34 @@ export function LoginForm({ state }: { state: UiState }) {
         size="lg"
         data-testid="login-submit"
         disabled={submitting}
-        onClick={() => {
-          // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
-          // ⚠ 这是 mock 跳转：真实实现要先建会话、再由服务端决定落地页
-          //   （有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目）。
+        onClick={async () => {
           setSubmitting(true);
-          router.push("/projects");
+          setLoginError(null);
+          try {
+            const out = await login(email, password);
+            storeSessionToken(out.sessionToken);
+            // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
+            // ⚠ 落地页仍是 `/projects`（原型屏，mock 数据）：真实实现要由服务端决定
+            //   落地页（有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目），
+            //   这不在本次 issue #355 范围内——本次只接通「登录本身」这一段。
+            router.push("/projects");
+          } catch (e) {
+            setLoginError(
+              e instanceof ApiError && e.reasonCode !== null
+                ? "邮箱或密码不正确"
+                : "登录服务暂时不可用，请稍后重试",
+            );
+            setSubmitting(false);
+          }
         }}
       >
         {submitting ? "正在进入…" : "登录"}
       </Button>
+      {loginError !== null ? (
+        <p data-testid="login-error" className="text-12 text-destructive">
+          {loginError}
+        </p>
+      ) : null}
 
       {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled 标 later）───────── */}
       <div className="flex items-center gap-3 py-0.5">
