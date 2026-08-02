@@ -469,7 +469,7 @@
       ],
       "points": 4,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-tpl11",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts",
@@ -514,7 +514,7 @@
       ],
       "points": 2,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-tpl12",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/matrix-cell-to-todo-sync.test.ts",
@@ -860,7 +860,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-ingest7",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/synthesized-evidence-policy.test.ts",
@@ -883,7 +883,7 @@
       ],
       "points": 3,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-ingest8",
       "verification": [
         "pnpm --filter api exec vitest run tests/files/zero-object-missing-file.test.ts",
@@ -2006,7 +2006,8 @@
       "notes": "依据 [原型]+O-36。界面已建（itv-copilot/itv-followups/itv-followups-denied）。触发需同时满足连续时长（默认 240 秒可配）与他人举手/未答两信号，不能只看时长；每条建议无来源不得给出。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F92",
@@ -2027,7 +2028,8 @@
       "notes": "依据 [原型]。界面已建（itv-coverage-summary）。「不适用本人」是关键第四取值，与「尚未覆盖」在下游统计上必须区分；覆盖态只能由人写入（服务端拒绝 AI 写）。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F93",
@@ -2094,7 +2096,8 @@
       "notes": "依据 D-25 + 裁决 O-16（触发线=独立受访者 5 人，计数口径=独立受访者人数：同一人多次算 1，附和与虚拟不计入；跨组织聚合最小样本量=8，全仓单一门槛）。虚拟隔离必须服务端强制，不只是视觉标记。",
       "priority": 1,
       "area": "itv",
-      "capability": "CAP-API"
+      "capability": "CAP-API",
+      "sprint": "02"
     },
     {
       "id": "F96",
@@ -2365,7 +2368,8 @@
       "notes": "依据 [原型]（两端已探明）但画布→图谱的回流动作本身属原型确认缺失（中间无汇入入口）、[批量确认]属原型待补，故 needs_ui_signoff。UC-7.4 为 P1（迭代 5 收尾）。节点三态映射 claims.status（accepted/contested/proposed），互斥=contested 支持与反驳边并存。\n【跨分片依赖待确认】09-kg: ontology_objects/edges + claims/claim_evidence；14-brain: 组织大脑写回",
       "priority": 2,
       "area": "canvas",
-      "capability": "CAP-WEB"
+      "capability": "CAP-WEB",
+      "sprint": "02"
     },
     {
       "id": "F108",
@@ -3115,7 +3119,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-asset8",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3139,7 +3143,7 @@
       ],
       "points": 6,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-asset9",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3163,7 +3167,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-asset10",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3237,7 +3241,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "02",
       "owner": "w4-asset11",
       "verification": [
         "pnpm --filter @repo/contracts run test",
