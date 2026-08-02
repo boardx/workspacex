@@ -350,3 +350,32 @@ export class SubjectNotGroupedError extends Error {
     super(`SUBJECT_NOT_GROUPED: ${subjectId}`);
   }
 }
+
+/* ─────────────────────────── F92：RQ 五态覆盖度（uc-6-4 R3 步骤7，只有人能写） ─────────────────────────── */
+
+/**
+ * RQ 覆盖态恒**只能由人写**——与 F90 的 `AiWriteForbiddenError` 同一枚契约码
+ * `AI_WRITE_FORBIDDEN`、同一立场：「目标覆盖 · 由你确认」是原型栏目标题原文，
+ * AI 只能提示，不能写。判定同样不看请求体自称，只看调用方判定的
+ * `viewerActorKind`（见 `set-rq-coverage-status.ts` 头注）。
+ */
+export class RqCoverageAiWriteForbiddenError extends Error {
+  readonly code = "AI_WRITE_FORBIDDEN" as const;
+  constructor(readonly rqId: string) {
+    super(`AI_WRITE_FORBIDDEN: rq ${rqId} coverage can only be written by a human`);
+  }
+}
+
+/**
+ * 引用的 `rqId` 不在这场访谈的 RQ 清单里（并发场景：RQ 清单被重新生成替换）。
+ * ⚠ 与 `OutlineSectionConcurrentModificationError` 同一立场：不静默套错 RQ。
+ */
+export class RqCoverageConcurrentModificationError extends Error {
+  readonly code = "CONCURRENT_MODIFICATION" as const;
+  constructor(
+    readonly interviewId: string,
+    readonly rqId: string,
+  ) {
+    super(`CONCURRENT_MODIFICATION: rq ${rqId} no longer exists for interview ${interviewId}`);
+  }
+}

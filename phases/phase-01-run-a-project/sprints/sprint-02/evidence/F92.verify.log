@@ -1,0 +1,40 @@
+F92 —— 研究问题(RQ)五态覆盖度（由你确认）+ 结束汇总
+issue #327, uc-6-4 R3 步骤7 / AC1 / AC2
+
+$ pnpm --filter api exec vitest run tests/itv/rq-coverage-values-human-only.test.ts
+
+ RUN  v2.1.9 /private/tmp/f92-worktree/apps/api
+
+ ✓ tests/itv/rq-coverage-values-human-only.test.ts (11 tests) 18ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  11:55:56
+   Duration  994ms (transform 181ms, setup 0ms, collect 188ms, tests 18ms, environment 0ms, prepare 171ms)
+
+Exit code: 0
+
+$ grep -rq 'data-testid=.itv-coverage-summary' apps/web/components/interview
+Exit code: 0
+(match: apps/web/components/interview/interview-outline.tsx:28:
+  <span className="text-10 text-muted-foreground" data-testid="itv-coverage-summary">)
+
+--- Supplementary checks (not in issue's minimal verification list, run for due diligence) ---
+
+$ pnpm --filter api exec tsc --noEmit
+Only pre-existing, unrelated failures in packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts
+(confirmed present on origin/main baseline before this change too, via `git stash`).
+No new type errors introduced by this feature's files.
+
+$ pnpm --filter api exec vitest run tests/itv
+Test Files  2 failed | 37 passed (39)
+     Tests  9 failed | 295 passed (304)
+The 2 failing files are tests/itv/scope-nullable-project-projection.test.ts — Postgres-dependent
+(foreign key / unique constraint errors against a local Postgres fixture), unrelated to F92 and
+consistent with issue #74's documented local Postgres flakiness. This feature's own test file
+(rq-coverage-values-human-only.test.ts) is fully isolated (in-memory fake, no Postgres) and passes
+in both the targeted run above and inside this full-suite run.
+
+$ pnpm --filter api exec vitest run tests/itv/ai-cannot-write-outline-status.test.ts
+ ✓ tests/itv/ai-cannot-write-outline-status.test.ts (7 tests) — F90 regression check, still passing
+   after adding the RqCoverageValue 4th enum value and new error classes.
