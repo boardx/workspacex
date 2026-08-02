@@ -33,6 +33,7 @@
  */
 import { computeContentHash, verifyContentHash, versionContentHash } from "../../domain/artifact/content-hash";
 import { storageKey } from "../../domain/artifact/materialization";
+import { strictestConfidential } from "../../domain/files/generated-visibility";
 import {
   requiredSourceFiles,
   SEVEN_SOURCE_FILE_PLAN,
@@ -64,6 +65,21 @@ export interface MaterializeSourceInput {
   readonly actorId: string;
   /** D-03a: the only environment-binding field a materialized file may carry. */
   readonly agendaSegmentId?: string | null;
+  /**
+   * F42/R7 "架构第五节": what the caller itself asked for. For a `generated` artifact this is
+   * NOT the final word -- see `sourceConfidentialFlags` below and `strictestConfidential`.
+   * Defaults to `false`, same as every pre-F42 caller of `materializeArtifact`.
+   */
+  readonly confidential?: boolean;
+  /**
+   * F42: the `confidential` flag of every source material a `generated` artifact was
+   * assembled from (e.g. each document a summary read). Ignored for every other
+   * `sourceType` -- only `generated` content can "launder" a confidential source into a
+   * looser one, because only it produces genuinely new content out of several inputs.
+   * `strictestConfidential` ORs these against `confidential` above; no caller-supplied value
+   * can loosen the result once any source here is confidential.
+   */
+  readonly sourceConfidentialFlags?: readonly boolean[];
   /** File name (as named by `SEVEN_SOURCE_FILE_PLAN[sourceType]`) to bytes. */
   readonly parts: Readonly<Record<string, Uint8Array>>;
 }
@@ -114,6 +130,13 @@ export async function materializeSource(
 
   const artifactSource = SOURCE_TYPE_ARTIFACT_SOURCE_TAG[input.sourceType];
   const artifactId = ids.next("art");
+  // F42: only `generated` content can launder a confidential source into a looser result --
+  // every other sourceType materializes its OWN business object's bytes and has no "sources it
+  // was assembled from" distinct from itself, so `sourceConfidentialFlags` only applies here.
+  const effectiveConfidential =
+    input.sourceType === "generated"
+      ? strictestConfidential(input.confidential ?? false, (input.sourceConfidentialFlags ?? []).map((c) => ({ confidential: c })))
+      : (input.confidential ?? false);
   await repo.createArtifact({
     id: artifactId,
     orgId: input.orgId,
@@ -122,6 +145,7 @@ export async function materializeSource(
     title: `${input.sourceType}:${input.sourceRef}`,
     createdBy: input.actorId,
     synthesized: input.sourceType === "generated",
+    confidential: effectiveConfidential,
     agendaSegmentId: input.agendaSegmentId,
   });
 

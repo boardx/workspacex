@@ -41,6 +41,8 @@
 import { contextPack as CP, omissionReason as OR } from "@repo/contracts";
 import type { z } from "zod";
 import { applyConsentPrefilter } from "../../domain/context-pack/consent-prefilter";
+import { coerceEvidencePolicy, type EvidencePolicy } from "../../domain/context-pack/coerce-evidence-policy";
+import { applyEvidencePolicyFilter } from "../../domain/context-pack/evidence-policy-filter";
 import type { Omission } from "../../domain/context-pack/pack-structure";
 import type { OrgId } from "../../domain/org-id";
 import {
@@ -110,6 +112,12 @@ export interface RetrievalOutcome {
    * `declinedSpeakerSubjectIds` was empty or matched nothing.
    */
   readonly consentExcludedSubjectIds: readonly string[];
+  /**
+   * F42: the policy actually enforced THIS run, after server-side coercion -- never the raw
+   * caller value. Exposed so a caller (or a test) can confirm what was applied without
+   * re-deriving it, the same way `consentExcludedSubjectIds` exposes O-05's decision.
+   */
+  readonly evidencePolicyEnforced: EvidencePolicy;
 }
 
 export interface RetrieveInput {
@@ -134,6 +142,13 @@ export interface RetrieveInput {
    * no interview context at all (e.g. a non-interview project) simply omits it.
    */
   readonly declinedSpeakerSubjectIds?: ReadonlySet<string>;
+  /**
+   * F42/R7: the caller's `QueryContext.evidencePolicy`, taken as `unknown` and NEVER trusted
+   * directly -- see `coerceEvidencePolicy`'s header for why a value that merely type-checks
+   * as a string is not the same thing as a validated enum member. Omitted callers get the
+   * fail-closed default (`"primary-only"`), not the loosest reading.
+   */
+  readonly evidencePolicyRaw?: unknown;
 }
 
 export interface RetrieveDeps extends AuthorizeDeps {
@@ -223,7 +238,7 @@ export async function retrieveCandidates(
 
   const omissions: Omission[] = [];
   const explained = new Set<string>();
-  const omit = (ref: string, reason: "unauthorized" | "withdrawn"): void => {
+  const omit = (ref: string, reason: "unauthorized" | "withdrawn" | "out-of-scope"): void => {
     // Deduplicated by ref: a document withheld in three channels is one thing the user did not
     // get, and three identical rows in the discard list is a worse answer to "why", not a
     // better one.
@@ -283,6 +298,26 @@ export async function retrieveCandidates(
     omit(c.segmentId, "unauthorized");
   }
 
+  /* ── F42/R7: evidence-policy front-filter ──────────────────────────────────────────────
+   *
+   * Same position as the consent prefilter immediately above, and for the same reason: after
+   * disclosure (the judgement it applies to is real), before fusion (so a synthesized segment
+   * excluded here can never be ranked, reranked, budgeted, or become an item). The raw caller
+   * value is coerced ONCE, here, through `coerceEvidencePolicy` -- everything downstream
+   * (including `evidencePolicyEnforced` on the outcome) uses the coerced value, never the raw
+   * one, so a forged value cannot reach any decision point unfiltered (R12 V5 ③).
+   */
+  const evidencePolicy = coerceEvidencePolicy(input.evidencePolicyRaw);
+  const evidenceFilter = applyEvidencePolicyFilter([...byId.values()], evidencePolicy);
+  const evidenceExcluded = new Set(evidenceFilter.excluded.map((c) => c.segmentId));
+  for (const c of evidenceFilter.excluded) {
+    byId.delete(c.segmentId);
+    // `out-of-scope`, not `unauthorized` -- see `evidence-policy-filter.ts`'s header for why
+    // this is a statement about what kind of evidence the query accepts, not about who is
+    // asking.
+    omit(c.segmentId, "out-of-scope");
+  }
+
   /* ── fusion ─────────────────────────────────────────────────────────────────────────── */
 
   const rankings: ChannelRanking[] = outcomes.map((o) => ({
@@ -290,7 +325,10 @@ export async function retrieveCandidates(
     weight: o.planned.weight,
     ids: o.visible
       .map((v) => v.payload)
-      .filter((r) => !revoked.has(r.segmentId) && !consentExcluded.has(r.segmentId))
+      .filter(
+        (r) =>
+          !revoked.has(r.segmentId) && !consentExcluded.has(r.segmentId) && !evidenceExcluded.has(r.segmentId),
+      )
       .sort((a, b) => b.channelScore - a.channelScore || (a.segmentId < b.segmentId ? -1 : 1))
       .map((r) => r.segmentId),
   }));
@@ -355,8 +393,12 @@ export async function retrieveCandidates(
   for (const o of outcomes) {
     hitCounts.set(
       o.planned.channel,
-      o.visible.filter((v) => !revoked.has(v.payload.segmentId) && !consentExcluded.has(v.payload.segmentId))
-        .length,
+      o.visible.filter(
+        (v) =>
+          !revoked.has(v.payload.segmentId) &&
+          !consentExcluded.has(v.payload.segmentId) &&
+          !evidenceExcluded.has(v.payload.segmentId),
+      ).length,
     );
   }
 
@@ -371,5 +413,6 @@ export async function retrieveCandidates(
     omissions,
     confidentialCount: ranked.filter((r) => r.row.confidential).length,
     consentExcludedSubjectIds: consentPrefilter.excludedSubjectIds,
+    evidencePolicyEnforced: evidencePolicy,
   };
 }

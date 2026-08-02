@@ -1,0 +1,68 @@
+F42 -- synthesized 标记与 evidencePolicy 服务端强制（生成内容不伪装成一手证据）
+Verification date: 2026-08-02
+Branch: worker/w4-ingest7-01-F42
+
+## Commands (per issue #324)
+
+$ pnpm --filter api exec vitest run tests/files/synthesized-evidence-policy.test.ts
+$ pnpm --filter api exec vitest run tests/files/generated-primary-only-zero-recall.test.ts
+$ pnpm --filter api exec vitest run tests/files/intersection-strictest-visibility.test.ts
+
+## Combined run output
+
+ RUN  v2.1.9 /private/tmp/f42-worktree/apps/api
+
+ ✓ tests/files/intersection-strictest-visibility.test.ts (4 tests) 5ms
+ ✓ tests/files/synthesized-evidence-policy.test.ts (3 tests) 94ms
+ ✓ tests/files/generated-primary-only-zero-recall.test.ts (4 tests) 2088ms
+   ✓ F42 evidencePolicy server-side enforcement -- real retrieval pipeline > ① primary-only: the generated segment is absent from ranked candidates -- zero recall, not downweighted 433ms
+   ✓ F42 evidencePolicy server-side enforcement -- real retrieval pipeline > ② all: the generated segment IS present, and its sourceType is its synthesized tag 424ms
+   ✓ F42 evidencePolicy server-side enforcement -- real retrieval pipeline > ③ tampered/forged evidencePolicy value is enforced at the STRICTEST reading, never the loosest 428ms
+   ✓ F42 evidencePolicy server-side enforcement -- real retrieval pipeline > counter-proof: an absent evidencePolicy (caller omitted it) also fails closed to primary-only, not to the loosest reading 452ms
+
+ Test Files  3 passed (3)
+      Tests  11 passed (11)
+   Start at  12:25:47
+   Duration  4.08s (transform 1.08s, setup 0ms, collect 1.83s, tests 2.19s, environment 1ms, prepare 491ms)
+
+## Regression check (not part of the gated verification, run for confidence)
+
+$ pnpm --filter api exec vitest run tests/files --no-file-parallelism
+ Test Files  43 passed (43)
+      Tests  369 passed (369)
+(full apps/api/tests/files suite green, including the three new F42 files above)
+
+$ pnpm --filter api run typecheck
+(clean for all apps/api sources touched by this feature; pre-existing unrelated errors in
+packages/fabric-markdown -- present on origin/main before this branch, confirmed via
+`git stash` diff against main -- are untouched by this change)
+
+## What was implemented
+
+1. `apps/api/src/domain/context-pack/coerce-evidence-policy.ts` -- server-side coercion of
+   `QueryContext.evidencePolicy` against the SAME contract enum (`packages/contracts` `EvidencePolicy`),
+   failing closed to `"primary-only"` (the strictest reading) on anything that does not parse --
+   including a forged/tampered client value. Never trusts a raw string as the branded enum.
+2. `apps/api/src/domain/context-pack/evidence-policy-filter.ts` -- the front-filter that excludes
+   `sourceType === "ai-generated"` (== synthesized, by the DB's own
+   `artifacts_ai_is_synthesized` invariant, migration 0006) candidates when the coerced policy is
+   `"primary-only"`. Same placement (after disclosure, before fusion) as F93's consent prefilter,
+   and for the identical reason.
+3. `apps/api/src/application/retrieval/retrieve-candidates.ts` -- wired the above into the real
+   five-channel retrieval pipeline: accepts `evidencePolicyRaw: unknown`, coerces it once, excludes
+   synthesized candidates under `"primary-only"` (traced as an `out-of-scope` omission -- a
+   statement about what evidence the query accepts, not about who is asking, so `unauthorized`
+   would misdescribe it), and exposes what was actually enforced as `evidencePolicyEnforced` on
+   the outcome.
+4. `apps/api/src/domain/files/generated-visibility.ts` -- `strictestConfidential`: a `generated`
+   artifact's effective `confidential` flag is the OR of what the caller asked for and every
+   source it was assembled from (uc-22-3 R7 「架构第五节」/ R12 V7), so a summarizer cannot
+   launder a confidential source into a looser result.
+5. `apps/api/src/application/files/materialize-source.ts` -- `MaterializeSourceInput` gained
+   optional `confidential`/`sourceConfidentialFlags`; for `sourceType === "generated"` the stored
+   `confidential` is `strictestConfidential(...)`, never the caller's raw value alone. Every other
+   sourceType is unaffected (only generated content can "launder" a source).
+
+No changes to `packages/contracts` -- `synthesized` is derived from the existing
+`sourceType === "ai-generated"` fact (already on `CandidateRow`/`ContextItem`), not a new field,
+per the repo's "same fact, one place" discipline.
