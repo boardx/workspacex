@@ -306,3 +306,34 @@ export class AiWriteForbiddenError extends Error {
     super(`AI_WRITE_FORBIDDEN: section ${sectionId} status can only be written by a human`);
   }
 }
+
+/* ─────────────────────────── F99：AI 按表预约 + 转写自动回流到本组（uc-6-7 R3 步骤 5/8）─────────────────────────── */
+
+/**
+ * agent 主体试图直接外发预约邀请（D-28：外发邮件恒 R3）。
+ *
+ * ⚠ 判定发生在应用层最开头、任何仓储调用之前——`sendBookingInvite` 一读到
+ * `actorKind !== "human"` 就抛这个,不先取草稿再判断。这保证「agent 试图外发」
+ * 这条路径在 `OutboundGateway` 上永远是零调用,而不是「调用了但被上游拦下」。
+ */
+export class OutboundRequiresHumanError extends Error {
+  readonly code = "OUTBOUND_REQUIRES_HUMAN" as const;
+  constructor(readonly draftId: string) {
+    super(`OUTBOUND_REQUIRES_HUMAN: ${draftId}`);
+  }
+}
+
+/** 引用的预约草稿不存在（不是本 feature 断言目标，契约错误枚举也没有专门码，如实报告为缺口）。 */
+export class BookingDraftNotFoundError extends Error {
+  constructor(readonly draftId: string) {
+    super(`BOOKING_DRAFT_NOT_FOUND: ${draftId}`);
+  }
+}
+
+/** 未归组对象的转写回流 ⇒ 回流目标缺失（A1）。 */
+export class SubjectNotGroupedError extends Error {
+  readonly code = "SUBJECT_NOT_GROUPED" as const;
+  constructor(readonly subjectId: string) {
+    super(`SUBJECT_NOT_GROUPED: ${subjectId}`);
+  }
+}

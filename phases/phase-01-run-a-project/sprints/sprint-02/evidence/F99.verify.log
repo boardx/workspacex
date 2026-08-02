@@ -1,0 +1,146 @@
+== F99 verification ==
+Command: pnpm --filter api exec vitest run tests/itv/appointment-draft-no-auto-send.test.ts tests/itv/transcript-backflow-to-group-consent-scoped.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/f99-worktree/apps/api
+
+ ✓ tests/itv/transcript-backflow-to-group-consent-scoped.test.ts (5 tests) 2ms
+ ✓ tests/itv/appointment-draft-no-auto-send.test.ts (3 tests) 6ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  08:01:55
+   Duration  213ms (transform 50ms, setup 0ms, collect 63ms, tests 8ms, environment 0ms, prepare 74ms)
+
+
+== typecheck (no new errors vs baseline main; pre-existing packages/fabric-markdown DOM-lib errors unrelated to this diff) ==
+Command: pnpm --filter api exec tsc --noEmit -p .
+../../packages/fabric-markdown/src/diagrams/registry.ts(13,13): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/fabric-objects.ts(759,9): error TS2339: Property 'save' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(761,9): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(764,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(765,42): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(772,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(773,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(774,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(775,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(776,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(777,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(779,11): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(780,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(781,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(782,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(783,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(784,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(785,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(786,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(788,13): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(789,26): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(792,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(809,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(810,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(811,11): error TS2339: Property 'bezierCurveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(812,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(819,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(856,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(857,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(859,11): error TS2339: Property 'quadraticCurveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(861,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(863,9): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(885,9): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(906,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(907,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(913,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(914,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(915,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(916,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(917,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(918,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(919,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(920,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(921,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(929,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(930,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(931,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(932,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(933,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(934,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(935,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(936,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(937,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(938,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(943,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(944,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(945,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(946,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(947,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(948,9): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(949,9): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(953,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(954,9): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(955,9): error TS2339: Property 'textAlign' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(956,9): error TS2339: Property 'textBaseline' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(957,25): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(959,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(960,9): error TS2339: Property 'fillRect' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(961,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/fabric-objects.ts(962,9): error TS2339: Property 'fillText' does not exist on type 'CanvasRenderingContext2D'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(48,24): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(79,29): error TS2304: Cannot find name 'SVGGraphicsElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(82,28): error TS2304: Cannot find name 'SVGGraphicsElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(116,46): error TS2304: Cannot find name 'SVGElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(116,59): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(119,20): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(123,38): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(130,23): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(131,36): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(132,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(133,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(134,39): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(182,49): error TS2304: Cannot find name 'SVGElement'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(182,62): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(185,15): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(186,36): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(187,11): error TS18046: 'child' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(198,38): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(204,15): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(205,15): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(452,36): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(455,31): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(457,20): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(459,9): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(460,14): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(461,14): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(461,73): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(466,21): error TS18046: 'path' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(646,40): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(648,31): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(650,35): error TS18046: 'g' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(651,28): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(652,28): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(653,32): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(654,33): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(665,12): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(819,50): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(831,26): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(832,27): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(833,27): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(841,10): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(842,18): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(844,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(845,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(846,30): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(847,31): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(863,26): error TS18046: 'line' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(869,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(870,26): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(871,30): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(872,31): error TS18046: 'rect' is of type 'unknown'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(880,68): error TS2304: Cannot find name 'Element'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(1018,21): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+../../packages/fabric-markdown/src/mermaid-parser.ts(1022,3): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
+undefined
+/private/tmp/f99-worktree/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit -p .
+diff vs baseline tsc:
+(empty diff = identical to baseline, i.e. no new errors introduced)
