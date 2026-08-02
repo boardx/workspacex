@@ -1,0 +1,59 @@
+# F107 verification evidence
+
+Date: 2026-08-02
+Branch: worker/w4-canvas6-01-F107
+
+## 1. pnpm --filter api exec vitest run tests/canvas/backflow-source-chain-unbroken.test.ts
+
+```
+ RUN  v2.1.9 /private/tmp/f107-worktree/apps/api
+
+ ✓ tests/canvas/backflow-source-chain-unbroken.test.ts (16 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  11:52:06
+   Duration  181ms (transform 22ms, setup 0ms, collect 17ms, tests 2ms, environment 0ms, prepare 42ms)
+```
+Exit code: 0
+
+## 2. pnpm --filter api exec vitest run tests/canvas/only-lead-confirmed-writeback.test.ts
+
+```
+ RUN  v2.1.9 /private/tmp/f107-worktree/apps/api
+
+ ✓ tests/canvas/only-lead-confirmed-writeback.test.ts (9 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  11:52:10
+   Duration  431ms (transform 31ms, setup 0ms, collect 35ms, tests 4ms, environment 0ms, prepare 85ms)
+```
+Exit code: 0
+
+## Notes
+
+- Both required verification commands pass with exit code 0 (25 tests total).
+- `tsc --noEmit -p .` on `apps/api` was also run; it surfaces pre-existing,
+  unrelated DOM-lib type errors in `packages/fabric-markdown/src/{fabric-objects,mermaid-parser}.ts`
+  (missing `lib: dom` — present on `origin/main` before this change, confirmed via
+  `git status --short` showing only the 3 new files this feature adds). No error
+  references `backflow.ts` or the two new test files.
+- No ESLint config exists for `apps/api` (`ESLint couldn't find a configuration file`),
+  so lint was not run — this matches the state of the rest of the package (not a gap
+  introduced by this feature).
+- Implementation: `apps/api/src/domain/canvas/backflow.ts` (231 lines, pure-function
+  domain layer, no I/O — same style as F106's `whitespace-rules.ts` / `ai-round-rollback.ts`).
+  Covers I-28 (source-chain-unbroken gate), I-29 (server-side NODE_NOT_CONFIRMED gate,
+  independent of front-end button state), I-30 (mutual-exclusion → both sides marked
+  `contested`, neither edge dropped, no auto-pick), and I-31 (no coordinates in the
+  merge/writeback shapes) from `phases/phase-01-run-a-project/contracts/canvas/domain.md`.
+- Cross-bundle dependency honesty (per feature_list.json notes "跨分片依赖待确认"):
+  09-kg's `ontology_objects`/`ontology_edges` tables and 14-brain's org-brain writeback
+  storage do not exist in this repo as of this change (no repository/table code found).
+  This implementation therefore stays at the pure-judgment layer (the part `usecases.md`
+  actually specifies and that F107's own verification commands exercise) and does not
+  fabricate a shadow persistence layer for those two dependencies. The `needs_ui_signoff`
+  flag on this issue (canvas→KG backflow entry point + `[批量确认]` batch UI are
+  prototype-incomplete) is likewise left unaddressed at the UI layer — no UI/signoff
+  was invented; this is a domain/application-logic-only feature this round.
