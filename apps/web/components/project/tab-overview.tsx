@@ -8,7 +8,13 @@ import {
   OVERVIEW_STATUS, CURRENT_SEGMENT, OVERVIEW_TODOS, ACTIVITY_FEED, PROJECT_HEADER,
   PROJECT_SURFACES, ROLE_CAN_WRITE, PROJECT_ROLE_LABEL, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
-import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem } from "@/lib/live-projects";
+import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
+
+const BACKFLOW_BADGE_LABEL: Record<ProjectOverview["backflow"][number]["badge"], string> = {
+  draft: "草稿",
+  live: "实时 · 随源变动",
+  pinned: "已定版",
+};
 
 /**
  * 概览（净新）—— 原型 isWsOver 的转译。
@@ -23,9 +29,16 @@ import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem } from "
  *   member/managed 两段里找，见 `lib/live-projects.ts` `findProject`）。其余板块
  *   （问题标题、现场状态条、当前环节、待办、动态）仍是 mock——这次范围只覆盖
  *   「项目基本信息」，其余板块背后是完全不同的契约束（现场/待办/研究），本次不动。
+ *
+ * ⚠ F362：新增一块「真实概览」，接的是真实 `GET /projects/:projectId/overview`
+ *   （控制器路由由 F123 挂好，前端此前一直误以为它没挂，见 `lib/live-projects.ts`
+ *   `getProjectOverview` 头注）。只加这一块，白名单四件（当前议程环节 / 四类角色
+ *   人数 / 回流列表 / 蓝本名与版本）照契约原样呈现，不新造第五件；上面 F353 那块
+ *   「项目基本信息」与下面的 mock 板块都不动。
  */
 export function TabOverview({
   view, readOnly = false, projectId, liveProject = null, liveLoading = false, liveError = null,
+  liveOverview = null, liveOverviewLoading = false, liveOverviewError = null,
 }: {
   view: ProjectRole;
   readOnly?: boolean;
@@ -34,6 +47,10 @@ export function TabOverview({
   liveProject?: ProjectListItem | null;
   liveLoading?: boolean;
   liveError?: string | null;
+  /** F362：真实概览白名单四件；`null` = 未登录 / 还没查到，不是「查询失败」 */
+  liveOverview?: ProjectOverview | null;
+  liveOverviewLoading?: boolean;
+  liveOverviewError?: string | null;
 }) {
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
@@ -74,6 +91,73 @@ export function TabOverview({
         ) : (
           <p className="text-11 text-muted-foreground" data-testid="project-overview-live-empty">
             暂无真实数据——请先在「项目」列表页登录并进入本项目（需要 URL 带上 <code>?org=</code>）。
+          </p>
+        )}
+      </section>
+
+      {/* F362：真实概览白名单四件（当前议程环节 · 四类角色人数 · 回流列表 · 蓝本名与版本） */}
+      <section
+        data-testid="project-overview-live-overview"
+        className="flex flex-col gap-2 rounded-lg border border-border bg-panel px-3.5 py-2.5"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">
+            概览 · 真实数据
+          </span>
+          {liveOverviewLoading ? (
+            <span className="text-10 text-muted-foreground" data-testid="project-overview-live-overview-loading">
+              加载中…
+            </span>
+          ) : null}
+        </div>
+        {liveOverviewError !== null ? (
+          <p className="text-11 text-destructive" data-testid="project-overview-live-overview-error">
+            读取失败：{liveOverviewError}
+          </p>
+        ) : liveOverview !== null ? (
+          <div className="flex flex-col gap-2 text-12" data-testid="project-overview-live-overview-body">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">当前议程环节</span>
+              {liveOverview.currentAgendaSegment !== null ? (
+                <span data-testid="project-overview-live-agenda-segment">
+                  {liveOverview.currentAgendaSegment.title} · {liveOverview.currentAgendaSegment.state}
+                </span>
+              ) : (
+                <span className="text-muted-foreground" data-testid="project-overview-live-agenda-segment-empty">无</span>
+              )}
+            </div>
+            {liveOverview.roleCounts !== null ? (
+              <div className="flex flex-wrap items-center gap-3" data-testid="project-overview-live-role-counts">
+                <span>引导师 {liveOverview.roleCounts.facilitator}</span>
+                <span>组长 {liveOverview.roleCounts.groupLead}</span>
+                <span>组员 {liveOverview.roleCounts.member}</span>
+                <span>观察者 {liveOverview.roleCounts.observer}</span>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">回流</span>
+              {liveOverview.backflow.length === 0 ? (
+                <span className="text-muted-foreground" data-testid="project-overview-live-backflow-empty">暂无</span>
+              ) : (
+                <span data-testid="project-overview-live-backflow-count">
+                  {liveOverview.backflow.length} 条 · {liveOverview.backflow.map((b) => BACKFLOW_BADGE_LABEL[b.badge]).join("、")}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">蓝本</span>
+              {liveOverview.blueprint !== null ? (
+                <span data-testid="project-overview-live-blueprint">
+                  {liveOverview.blueprint.name} · v{liveOverview.blueprint.version}
+                </span>
+              ) : (
+                <span className="text-muted-foreground" data-testid="project-overview-live-blueprint-empty">空白新建</span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-11 text-muted-foreground" data-testid="project-overview-live-overview-empty">
+            暂无真实数据——请先登录。
           </p>
         )}
       </section>
