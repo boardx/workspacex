@@ -468,14 +468,14 @@
         "F24"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-tpl11",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/interview-object-table-structure.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F25.verify.log @ 2026-08-02T14:49:35.855Z",
       "notes": "依据：分组区与观察/访谈对象表为[原型]（proto-05 可立即 sign-off），代码未建，needs_ui_signoff=true。组状态恒三态不得自造第四态（V7）；AI 均衡分组/建议人选是建议需人确认（V8）。V9 对象表结构断言。是 UC-2.2 拆分第 6、7 项。\n【跨分片依赖待确认】06-itv: 访谈对象的实际预约、提纲生成、转写回流本组"
     },
     {
@@ -513,14 +513,14 @@
         "F26"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-tpl12",
       "verification": [
         "pnpm --filter api exec vitest run tests/tpl/matrix-cell-to-todo-sync.test.ts",
         "pnpm --filter api exec vitest run tests/tpl/stage-status-drives-three-views.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F27.verify.log @ 2026-08-02T14:49:55.228Z",
       "notes": "依据：「编排一次，三套视图与待办自动生成」为[原型]硬规则（跨模块契约）。⚠ 21 点是把矩阵计入 UC-2.2 的口径；矩阵与 UC-3.2/UC-11.2/UC-1.4 重叠，requirement-author 应确保三处不重复实现同一份矩阵与同步逻辑（否则两套职责表）。D-39 负责人恒为人。核心是 API 契约（V9b/V9c），可独立验证，needs_ui_signoff=false，但矩阵编辑 UI 依赖 T53（已标 signoff）。是 UC-2.2 拆分第 10、11 项。\n【跨分片依赖待确认】11-board: 待办卡来源徽标、格ID↔卡ID 映射、联动、幂等（本用例最重跨模块契约）；01-auth: UC-1.4 四视角首屏驱动（T04）；06-现场协作: 议程环节状态机"
     },
     {
@@ -859,7 +859,7 @@
         "F41"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-ingest7",
       "verification": [
@@ -867,7 +867,7 @@
         "pnpm --filter api exec vitest run tests/files/generated-primary-only-zero-recall.test.ts",
         "pnpm --filter api exec vitest run tests/files/intersection-strictest-visibility.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F42.verify.log @ 2026-08-02T14:50:36.990Z",
       "notes": "依据：[设计]🔴（架构第三/四/五节 + D-25 + 16-persona，同一条约束两端）。R11 要求横切 feature：synthesized 标记与 evidencePolicy 服务端强制，D-25 落地点需跨模块验收。V5（🔴 服务端强制，篡改 evidencePolicy 仍按最严）/V7（权限最严）。必须服务端强制不只是视觉标记，纯 API，needs_ui_signoff=false。是 UC-22.3 横切第 2 项。\n【跨分片依赖待确认】16-persona: 数字专家产出走 generated+synthesized 服务端强制不进决策依据（D-25）；phase-00: Context Pack/QueryContext evidencePolicy（F02）"
     },
     {
@@ -882,7 +882,7 @@
         "F41"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-ingest8",
       "verification": [
@@ -890,7 +890,7 @@
         "pnpm --filter api exec vitest run tests/files/materialize-failure-visible.test.ts",
         "pnpm --filter api exec vitest run tests/files/provenance-required-for-ready.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F43.verify.log @ 2026-08-02T14:50:57.321Z",
       "notes": "依据：[设计]🔴（架构 file-first 总闸）。R11 要求「零个业务对象缺文件」单独成 feature（file-first 的总闸）。UI 是 T70 文件浏览器 + 业务对象侧「已入库N个文件」角标（对话右栏「材料 12」现成落点，已建成）。V1（总闸缺文件数为0）/V6（溯源完整，缺 model 停 REVIEW_PENDING）/V9（物化失败可见）/V10（幂等）。needs_ui_signoff=false（浏览器已建成）。是 UC-22.3 第 3 项。"
     },
     {
@@ -1995,14 +1995,14 @@
         "F93"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w4-itv15",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/speaking-time-private-nudge-dual-signal.test.ts",
         "pnpm --filter api exec vitest run tests/itv/copilot-not-delivered-to-interviewee.test.ts",
         "grep -rq 'data-testid=.itv-copilot' apps/web/components/interview"
       ],
-      "evidence": "",
+      "evidence": "evidence/F91.verify.log @ 2026-08-02T14:51:36.655Z",
       "notes": "依据 [原型]+O-36。界面已建（itv-copilot/itv-followups/itv-followups-denied）。触发需同时满足连续时长（默认 240 秒可配）与他人举手/未答两信号，不能只看时长；每条建议无来源不得给出。",
       "priority": 1,
       "area": "itv",
@@ -2018,13 +2018,13 @@
         "F90"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w4-itv16",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/rq-coverage-values-human-only.test.ts",
         "grep -rq 'data-testid=.itv-coverage-summary' apps/web/components/interview"
       ],
-      "evidence": "",
+      "evidence": "evidence/F92.verify.log @ 2026-08-02T14:51:57.174Z",
       "notes": "依据 [原型]。界面已建（itv-coverage-summary）。「不适用本人」是关键第四取值，与「尚未覆盖」在下游统计上必须区分；覆盖态只能由人写入（服务端拒绝 AI 写）。",
       "priority": 1,
       "area": "itv",
@@ -2086,13 +2086,13 @@
         "F94"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w4-itv17",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/virtual-source-server-isolation.test.ts",
         "pnpm --filter api exec vitest run tests/itv/generality-claim-independent-le5.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F95.verify.log @ 2026-08-02T14:52:18.915Z",
       "notes": "依据 D-25 + 裁决 O-16（触发线=独立受访者 5 人，计数口径=独立受访者人数：同一人多次算 1，附和与虚拟不计入；跨组织聚合最小样本量=8，全仓单一门槛）。虚拟隔离必须服务端强制，不只是视觉标记。",
       "priority": 1,
       "area": "itv",
@@ -2358,13 +2358,13 @@
         "F106"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "w4-canvas6",
       "verification": [
         "pnpm --filter api exec vitest run tests/canvas/backflow-source-chain-unbroken.test.ts",
         "pnpm --filter api exec vitest run tests/canvas/only-lead-confirmed-writeback.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F107.verify.log @ 2026-08-02T14:35:50.960Z",
       "notes": "依据 [原型]（两端已探明）但画布→图谱的回流动作本身属原型确认缺失（中间无汇入入口）、[批量确认]属原型待补，故 needs_ui_signoff。UC-7.4 为 P1（迭代 5 收尾）。节点三态映射 claims.status（accepted/contested/proposed），互斥=contested 支持与反驳边并存。\n【跨分片依赖待确认】09-kg: ontology_objects/edges + claims/claim_evidence；14-brain: 组织大脑写回",
       "priority": 2,
       "area": "canvas",
@@ -2690,7 +2690,7 @@
         "F118"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w3-project3",
       "verification": [
@@ -2700,7 +2700,7 @@
         "pnpm --filter api run migrate:check",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F121.verify.log @ 2026-08-02T14:32:51.034Z",
       "notes": "依据：D-03a（字段名全局权威）+ Q-3 B 裁 ①「改名对齐」——三个败选名一并判负。落 I-P20 / V14。\n🔴 这是**修订已签核束**（phase-00 artifact + identity）：波及的真实文件清单与出现次数见 contracts/project/MIGRATION-IMPACT.md 第二节。改名是签核动作不是实现动作，开工前须确认该束签核人已点头。\n⚠ 门控的判定必须抽成纯函数再测，反证是「喂一个故意植入败选名的字符串，断言返回失败」——否则一个「什么都没扫到」的 grep 也全绿（本仓九次全绿空转的同一形状）。\n⚠ **不改错误码字面量**：STEP_CLOSED / STEP_REJECTS_ARTIFACT_TYPE 不随之改成 SEGMENT_*。Q-3 的裁决文本只提到字段名与动作词，改码属另一次修订，已登记为 MIGRATION-IMPACT.md 第二节的待确认边界。\n【跨阶段依赖】phase-00: F01（动作词闭集 project-role-matrix.ts）、F06（artifact_bindings.step_id）",
       "priority": 1,
       "area": "project",
@@ -2768,7 +2768,7 @@
         "F116"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-project2",
       "verification": [
@@ -2780,7 +2780,7 @@
         "apps/api/scripts/verify-rls.sh",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F124.verify.log @ 2026-08-02T14:33:24.986Z",
       "notes": "依据：Q-5 裁 B（两态，archived = 只读，归档不删除任何内容）+ U-2 四条全采（⑴ 可逆 ⑵ 有 active 环节时拒绝归档 ⑶ 能引用（仍受 I-14 只能引 pinned）⑷ Context Pack 默认不召回、可显式请求）+ Q-9（不提供删除项目）。落 I-P38 / I-P39 / I-P40。\n⚠ 冻结做在 PG RESTRICTIVE 策略里（照 F22 组织冻结的已 passing 形状），不是应用层 if；应用层的 PROJECT_ARCHIVED 是它的投影，不是第二处判定。\n⚠ I-P38 的三条断言缺一不可：拒写 + **读仍可用**（只断言拒写时，一个「归档即 404」的实现也全绿）+ 不产生任何删除。\n⚠ 不照抄组织冻结的不可逆形状：组织冻结罕见、代价由组织承担；项目归档是日常动作，不可逆代价大得多（U-2⑴ 逐字）。解归档权限同归档者，不新造角色。\n🔴 U-2⑵「有 active 环节时拒绝归档」已裁，但**它的失败码在裁决里故意没有名字**，usecases.md §3.2 的新增码清单里也没有 ⇒ 契约面表达不了这个已裁定的失败，见 packages/contracts/src/project.ts KNOWN_CONTRACT_GAPS.P7。开工前需要人类补一个码名，否则这条只能落成一个没有码的 400。\n⚠ U-2⑷ 是**修订 phase-00 已签核的 context-pack 契约**（QueryContext 加显式开关，context-pack/domain.md:33），签核动作不是实现动作。\n⚠ deleteProject 的交付物是一条断言它不存在的测试（已落在 packages/contracts/tests/no-forbidden-routes.test.ts），反证是断言禁止清单非空且含既有条目。\n【跨阶段依赖】phase-00: F22 组织生命周期（策略形状可复用）、artifact I-11（快照不可删改降）、context-pack（U-2⑷ 需重新签核）",
       "priority": 1,
       "area": "project",
@@ -2875,7 +2875,7 @@
         "F125"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w2-project8",
       "verification": [
@@ -2887,7 +2887,7 @@
         "apps/api/scripts/verify-rls.sh",
         "pnpm --filter @repo/contracts run test"
       ],
-      "evidence": "",
+      "evidence": "evidence/F128.verify.log @ 2026-08-02T14:33:57.952Z",
       "notes": "依据：U-1 裁 B（各自一张成员表 research_project_members / user_insight_members，role ∈ {owner, collaborator}）+ U-7 裁 A（分组与 project_memberships 在非工作坊容器下都禁，判据靠 kind 复合外键下沉到数据库）+ 人类 2026-07-30 逐字收窄（「在访谈里是没有这几种角色的，引导师、组长什么的是不必要的」）。落 I-P6 / I-P37。\n⚠ 两档**不复用**工作坊四角色——共表或复用就是把四角色重新拉回研究项目的射程，且会逼 I-P6 的闭集断言放宽（U-1 候选 C/D 被否的理由）。\n⚠「拥有者 / 协作者」两个词原型里没有逐字出现，是 U-1 候选 B 对「负责人 + 其余可进来的人」的最小命名，人类已勾选采纳。\n⚠ 禁止判据必须是外键冲突而不是应用层报错：groups 与 project_memberships 各加 kind 常量列 CHECK + FOREIGN KEY (project_id, kind) REFERENCES projects(id, kind)，与 F116 的子表同一手法（强依赖 U-9 裁 A）。两张既有表加列并回填，属迁移动作。\n⚠ 三张子表与两张新成员表不在 F22 冻结策略的写死表清单里（0014:165-184），需一并补进去。\n🔴 契约面现在只有枚举没有操作：usecases.md UC-P9 仍写着「另两类 → U-1 待裁，本文不写」（写在裁决之前，没回头更新），见 KNOWN_CONTRACT_GAPS.P2。开操作 = 签核后新增，需要人类重新签核。不补的后果：apps/web/lib/mock/itv.ts:26 已自造三档视角并自注「待迁入 packages/contracts」，第二份事实源正在长出来。\n【跨阶段依赖】phase-00: F02 RLS（两张新成员表须各带 org_id 自动入网）、F22 组织冻结策略表清单",
       "priority": 1,
       "area": "project",
@@ -3118,7 +3118,7 @@
         "F137"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-asset8",
       "verification": [
@@ -3127,7 +3127,7 @@
         "pnpm --filter api exec vitest run tests/asset/review-clock-state-machine.test.ts",
         "pnpm --filter api exec vitest run tests/asset/review-pending-still-usable.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F138.verify.log @ 2026-08-02T14:34:24.215Z",
       "notes": "依据：`uc-23-6` R3 状态机 + R7 规则 1/2/3（本 UC 是这些规则的**唯一文字定义处**）。原型逐字：「到期后自动转『待复核』，仍可用但调用时会提示；30 天无人复核则降级为仅负责人可见。」\n🔴 **「仍可用」是必须反向断言的一条**：只断言「到期后状态变了」，一个把待复核实现成**停用**的实现也会全绿——而那把规则从「提醒」变成了「断供」。⇒ 必须断言待复核资产**仍能被调用**、**仍在检索范围内**，且**调用时带提示**。\n🔴 **`ReviewAsset` 的 `conclusion` 取值集合无依据**（R7 规则 8，本束最大空白：「复核」这个动作具体做什么，原型 0 命中）。契约把它写成开放字符串**不发明枚举**；本 feature 同样只做「复核发生过 ⇒ 计时重置」，**不实现任何结论分支**。见 AG2。\n⚠ 计时规则的**定义处待 Q-7**——本条是消费面，实现里不落 30 这个数。",
       "priority": 1,
       "area": "asset",
@@ -3142,7 +3142,7 @@
         "F138"
       ],
       "points": 6,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-asset9",
       "verification": [
@@ -3150,7 +3150,7 @@
         "pnpm --filter api exec vitest run tests/asset/review-scan-zero-call-asset-downgraded.test.ts",
         "pnpm --filter api exec vitest run tests/asset/review-scan-last-scan-observable.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F139.verify.log @ 2026-08-02T14:34:45.379Z",
       "notes": "依据：domain I-15（**零调用**的到期资产也会被降级）+ usecases.md `ScanReviewClocks`。\n🔴 **端口的名字本身是契约**：`Scan…`（主动）而不是 `EvaluateOnRead…`（惰性）。惰性判定会让「30 天无人复核」对**无人调用的资产永不触发**——而那正是最该降级的那一批。\n🔴 **反证用例是本条的主证据**：造一个从未被调用的到期资产，跑扫描，断言它被降级。没有这一条，一个纯惰性的实现在所有「读一下就降级了」的用例下全绿。\n⚠ 「最近一次扫描时间」必须**可观测**（`lastScanAt` 在响应里，不是一条日志）：扫描停摆时它变旧，而不是静默——静默的定时任务挂掉是没人会发现的那种故障。\n⚠ 与 MCP 的 14 天隔离期是两套还是一套计时器 → **Q-6 未裁**（推荐串行：隔离期 → 首次复核 → 常规周期）。采纳可能触发 `agent-runtime` 重签。本条**不实现串行**。",
       "priority": 1,
       "area": "asset",
@@ -3166,7 +3166,7 @@
         "F135"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-asset10",
       "verification": [
@@ -3175,7 +3175,7 @@
         "pnpm --filter api exec vitest run tests/asset/downgrade-owner-missing.test.ts",
         "apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "",
+      "evidence": "evidence/F140.verify.log @ 2026-08-02T14:35:08.315Z",
       "notes": "依据：domain I-12 / I-14 + `uc-23-6` R7 规则 7（降级**不是删除**：资产仍存在、负责人仍可见、可恢复）+ E1。\n⚠ **四个入口各断言 0 命中**（列表 / 搜索 / 绑定面板 / Context Pack），且直读返回 **404 非 403**——与 `skills` I-14 同形，**复用同一判定函数**，不写第二份。\n⚠ 降级必须调用与 F135 同一个可见性写入函数（I-14），断言「无第二条写入路径」。\n🔴 **`uc-23-6` E1 的洞**：降级终态但 `ownerId` 已停用 ⇒ 这份资产**谁都看不见**。兜底接管人 `[待确认]` ⇒ 本条只把这个态**表达出来**（`ASSET_DOWNGRADED_OWNER_MISSING` + 接管入口），**不发明接管规则**。\n⚠ 恢复路径（E4）`[待确认]`，本条不做。",
       "priority": 1,
       "area": "asset",
@@ -3240,7 +3240,7 @@
         "F137"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "w4-asset11",
       "verification": [
@@ -3248,7 +3248,7 @@
         "pnpm --filter api exec vitest run tests/asset/root-file-undeletable.test.ts",
         "pnpm --filter api exec vitest run tests/asset/runtime-loadset-equals-directory.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F143.verify.log @ 2026-08-02T14:35:28.997Z",
       "notes": "依据：domain I-7（根文件不可删）+ I-6（发布后运行时装载的文件集合 ＝ `GetAssetDirectory` 返回的集合，**双向相等**）。\n🔴 **I-6 必须双向断言**：单向（「装载的都在列表里」）在一个「列表多显示了几个文件」的实现上也是绿的——而那意味着你在编辑器里改的文件**运行时根本不读**，改完没生效却查不出原因。反过来的单向则漏掉「运行时偷读了列表外的文件」。\n⚠ 改根文件名等价于删根文件 ⇒ 同样拒绝（契约里 `renameAssetFile.err` 含 `ROOT_FILE_UNDELETABLE`）。\n⚠ `rootFile` 由 `AssetKind` 决定；本条随 F141 只覆盖 skill / agent 两类（AG4）。",
       "priority": 1,
       "area": "asset",
