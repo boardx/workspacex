@@ -1,0 +1,87 @@
+F41 -- 七类来源物化为文件（固定文件清单契约）
+Verification date: 2026-08-02
+Branch: worker/w3-ingest6-01-F41
+
+## Commands (per issue #284)
+
+$ pnpm --filter api exec vitest run tests/files/materialize-seven-sources.test.ts
+$ pnpm --filter api exec vitest run tests/files/conversation-file-granularity.test.ts
+$ pnpm --filter api exec vitest run tests/files/canvas-mermaid-roundtrip.test.ts
+
+## Combined run output
+
+ RUN  v2.1.9 /private/tmp/f41-worktree/apps/api
+
+ ✓ tests/files/canvas-mermaid-roundtrip.test.ts (5 tests) 3ms
+ ✓ tests/files/conversation-file-granularity.test.ts (3 tests) 3ms
+ ✓ tests/files/materialize-seven-sources.test.ts (10 tests) 4ms
+
+ Test Files  3 passed (3)
+      Tests  18 passed (18)
+   Start at  08:06:06
+   Duration  200ms (transform 54ms, setup 0ms, collect 111ms, tests 10ms, environment 0ms, prepare 107ms)
+
+Exit code: 0 (all three commands individually verified exit 0 as well).
+
+## Additional checks run
+
+- `pnpm --filter api exec tsc --noEmit -p .` -- zero errors outside pre-existing,
+  unrelated `packages/fabric-markdown` errors (baseline failure, confirmed present on
+  origin/main before this branch's changes; not touched by this feature).
+- `pnpm --filter api exec vitest run tests/contract-single-source.test.ts` -- 4 passed.
+  No new backend file redefines a `@repo/contracts` type name.
+- `node apps/api/scripts/lint-naming-single-source.mjs` -- 0 败选名, scanned-roots=4.
+- `pnpm --filter api exec vitest run tests/files/ tests/rec/` -- 38 files / 392 tests
+  passed, 21 files failed. Every failing file requires a local Postgres
+  (`docker compose ... up -d postgres`) which is unavailable in this environment (no
+  Docker daemon) -- pre-existing, unrelated to this feature (issue #74's documented
+  constraint: skip Postgres-dependent tests locally, typecheck + pure tests only).
+  `tests/rec/file-first-materialization.test.ts` (F73, read but not modified by this
+  feature) is fully green, confirming no regression to the recording/workshop
+  materialization path this feature builds alongside.
+
+## What was implemented
+
+- `apps/api/src/domain/files/seven-source-plan.ts` -- uc-22-3 R3 step 2's seven-row file
+  contract table, keyed by F40's `MaterializationSourceType` (survey / conversation /
+  interview / workshop / research / canvas / generated), plus the `ArtifactSource` tag
+  each source's rows are written under (documented workaround for `workshop`/`canvas`,
+  which have no member of their own in the SIGNED `ArtifactSource` enum -- see
+  `packages/contracts/src/files.ts`'s own `FS1` note; the workaround mirrors F73's
+  precedent of reusing `"interview"` for workshop rather than amending a signed contract).
+- `apps/api/src/application/files/materialize-source.ts` -- the generic per-source
+  materializer: one artifact + one version per `(sourceType, sourceRef)` call, same
+  write-once / read-back-and-verify discipline as F04's `materializeArtifact` and F73's
+  `materializeSessionFiles`, over the SAME `ArtifactRepository`/`ObjectStore` ports (no
+  second storage path).
+- `apps/api/src/domain/files/build-conversation-file.ts` -- assembles a conversation's
+  messages into ONE `messages.jsonl` (R3's field list, snake_case on disk), proving the
+  file-grain contract (V2): 50 messages -> 1 file, 50 lines.
+- `apps/api/src/domain/files/canvas-mermaid.ts` -- minimal mermaid flowchart parse/render
+  (3 node shapes: rectangle/rounded/diamond) + a structured-JSON layout snapshot builder,
+  for D-08's round-trip assertion (V4).
+- Three new test files (`tests/files/materialize-seven-sources.test.ts`,
+  `tests/files/conversation-file-granularity.test.ts`,
+  `tests/files/canvas-mermaid-roundtrip.test.ts`) -- pure vitest, in-memory
+  `FakeArtifactRepository`/`FakeObjectStore` (reused from `tests/support/artifact-fakes.ts`,
+  F73's own fakes), no Postgres dependency.
+
+## Judgment calls / known gaps (see PR description for full detail)
+
+1. `research` source's file names (`snapshot.html` + `citations.json`) are this feature's
+   OWN table, distinct from the already-shipped `research-run` `ArtifactSource`'s existing
+   plan (`run.json` + `citations.jsonl` in `domain/artifact/materialization.ts`). Not
+   reconciled here -- changing a shipped feature's file names is that feature's own
+   migration, not this one's.
+2. `workshop`'s whiteboard photo is modelled as a single optional `whiteboard.jpg`; a real
+   workshop may produce N photos. Out of this feature's 3-verification-command scope.
+3. `sourceRef` is carried in the artifact `title` (`` `${sourceType}:${sourceRef}` ``), not
+   a real `artifacts.source_ref` column -- no such column exists yet in the schema, and
+   F73 already established the same workaround for its own session id. A real
+   `GET /projects/:id/artifacts?source_ref=...` endpoint (V1's literal wording) is
+   follow-up infra work, not built by this feature (which stays at the same "pure
+   application logic over ports, no Postgres store yet" level F40 shipped at).
+4. `canvas`/`workshop` reusing `"prototype-run"`/`"interview"` as their `ArtifactSource`
+   tag is a documented workaround pending the FS1 signoff dispute already flagged in
+   `packages/contracts/src/files.ts` (SIGNED `ArtifactSource` has 7 values; UC-22.3's own
+   table needs `workshop` and `canvas` besides). This feature does not resolve FS1.
