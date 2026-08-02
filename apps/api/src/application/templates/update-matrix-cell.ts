@@ -6,17 +6,23 @@
  *   未知值一律 `UNKNOWN_ROLE_KEY`，这道判断先于任何存储层调用。
  * ⚠ 「绑定」列（`canvasTemplateId` / `skillIds`）与 UC-3.2（`skills` 束）读写**同一份数据**
  *   （I-25）——本用例只负责把这次改动落到 `OrchestrationRepository`，不新建第二份存储。
- * ⚠ `syncedTaskIds` 恒为空数组——矩阵格 → 待办的同步是 **F27** 的交付物
- *   （`syncMatrixToTasks`，跨模块契约 I-23）。本用例不在这里提前实现它，给一个非空但
- *   虚构的返回只会制造「格子已同步」的假象；`TASK_SYNC_FAILED` 因此在本文件里也
- *   永不被抛出——F27 落地后若把同步接进来，才需要那个分支。
+ * ⚠ `syncedTaskIds`（F27 接入后）—— `deps.taskSync` 未提供时仍恒为空数组，行为不变
+ *   （向后兼容尚未接线的调用方/测试）；提供时调用 `syncMatrixToTasks` 只同步**这一格**
+ *   （`cellIds: [input.cellId]`），成功后把 `created`/`updated` 汇总进 `syncedTaskIds`。
+ *   `TASK_SYNC_FAILED` 在提供了 `taskSync` 时会真的被抛出（同步失败必须可见并可重试，
+ *   见 `syncMatrixToTasks` 契约头注 E3），未提供时这条分支仍不可达。
  */
 import { templates } from "@repo/contracts";
 import type { z } from "zod";
 import { isOrchestrationRoleKey } from "../../domain/templates/workflow-orchestration";
 import type { ProjectRole } from "../../domain/identity/roles";
 import { canWriteOrchestration } from "./orchestration-write-guard";
-import type { OrchestrationRepository } from "./workflow-orchestration-ports";
+import { syncMatrixToTasks, SyncMatrixToTasksError } from "./sync-matrix-to-tasks";
+import type {
+  MatrixRoleAssigneePort,
+  MatrixTaskPublisherPort,
+  OrchestrationRepository,
+} from "./workflow-orchestration-ports";
 
 export type UpdateMatrixCellOutput = z.infer<typeof templates.operations.updateMatrixCell.out>;
 export type UpdateMatrixCellErrorCode = z.infer<typeof templates.TemplateError>;
@@ -44,6 +50,15 @@ export interface UpdateMatrixCellInput {
 
 export interface UpdateMatrixCellDeps {
   readonly orchestrations: OrchestrationRepository;
+  /**
+   * F27 接线点。⚠ **可选**——未提供时保持 F26 落地时的既有行为
+   * （`syncedTaskIds` 恒为空数组，`TASK_SYNC_FAILED` 不可达），不强迫尚未接线的
+   * 调用方（例如既有测试）一起改。
+   */
+  readonly taskSync?: {
+    readonly assignees: MatrixRoleAssigneePort;
+    readonly tasks: MatrixTaskPublisherPort;
+  };
 }
 
 export async function updateMatrixCell(
@@ -75,6 +90,26 @@ export async function updateMatrixCell(
 
   if (!result.ok) throw new UpdateMatrixCellError("VERSION_CHANGED");
 
-  // 见文件头：矩阵格 → 待办同步是 F27 的交付物，本用例恒返回空集。
-  return { cellId: input.cellId, syncedTaskIds: [] };
+  // 见文件头：`deps.taskSync` 未提供时保持 F26 落地时的既有行为。
+  if (deps.taskSync === undefined) {
+    return { cellId: input.cellId, syncedTaskIds: [] };
+  }
+
+  let syncResult;
+  try {
+    syncResult = await syncMatrixToTasks(
+      { orchestrations: deps.orchestrations, ...deps.taskSync },
+      { projectId: input.projectId, cellIds: [input.cellId] },
+    );
+  } catch (e) {
+    if (e instanceof SyncMatrixToTasksError) {
+      throw new UpdateMatrixCellError(e.reasonCode);
+    }
+    throw e;
+  }
+
+  return {
+    cellId: input.cellId,
+    syncedTaskIds: [...syncResult.created, ...syncResult.updated],
+  };
 }
