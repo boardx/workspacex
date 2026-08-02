@@ -123,16 +123,27 @@ export class InMemoryPortalTokenRepository implements PortalTokenRepository {
 
 export class InMemoryConsentSnapshotRepository implements ConsentSnapshotRepository {
   private readonly bySnapshotId = new Map<string, ConsentSnapshotRow>();
+  // F96：按 (interviewId, subjectId) 找到最早落盘的那一份——门户回看用的是原始快照，
+  // 不是最近一次；同一受访者只会有一份 submitConsent 产出的原始快照。
+  private readonly bySubject = new Map<string, string>();
 
   async save(input: ConsentSnapshotInput): Promise<ConsentSnapshotRow> {
     const row: ConsentSnapshotRow = { ...input };
     this.bySnapshotId.set(input.snapshotId, row);
+    const key = `${input.interviewId}:${input.subjectId}`;
+    if (!this.bySubject.has(key)) this.bySubject.set(key, input.snapshotId);
     return row;
   }
 
   /** 测试直读，绕过用例层，用来断言"存储里到底存的是什么"（同 `consent-render-fakes.ts` 的 `peek` 纪律）。 */
   peek(snapshotId: string): ConsentSnapshotRow | undefined {
     return this.bySnapshotId.get(snapshotId);
+  }
+
+  async findBySubject(interviewId: string, subjectId: string): Promise<ConsentSnapshotRow | null> {
+    const snapshotId = this.bySubject.get(`${interviewId}:${subjectId}`);
+    if (snapshotId === undefined) return null;
+    return this.bySnapshotId.get(snapshotId) ?? null;
   }
 }
 

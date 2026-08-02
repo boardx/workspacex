@@ -271,6 +271,19 @@ export class TemplateDraftNotConfirmedError extends Error {
   }
 }
 
+/* ─────────────────────────── F96：受访者自助门户（uc-6-6 R3 能力二） ─────────────────────────── */
+
+/**
+ * 文字稿副本生成失败（E5）。⚠ **可重试，不静默失败**——受访者收到这个错误后
+ * 界面必须给出「重试」出口，不能只是转圈然后什么都不发生。
+ */
+export class CopyGenerationFailedError extends Error {
+  readonly code = "COPY_GENERATION_FAILED" as const;
+  constructor() {
+    super("COPY_GENERATION_FAILED");
+  }
+}
+
 /* ─────────────────────────── F88：开始访谈的硬门禁（uc-6-3 R3 步骤7 / AC2） ─────────────────────────── */
 
 /**

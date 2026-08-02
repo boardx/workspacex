@@ -111,6 +111,31 @@ export function newConsentSubmissionId(): string {
  *
  * ⚠ 四项的顺序与措辞逐字取自 uc-6-3 R3 第 3 步，不是这里新拟的文案。
  */
+/**
+ * F96 —— 把「当初告知你的是什么」渲染成一段可展示的纯文本，供自助门户回看。
+ *
+ * ⚠ 入参 `params`/`bits` 必须是**已落盘的快照字段**（`ConsentSnapshotRow.renderParams`/
+ *   `.bits`），不是当下重新查询的项目参数——这样即使项目的材料保留期之后被改掉，
+ *   这段文本依然是「当时」那一份，不会跟着漂移（AC5）。本函数本身是纯计算，
+ *   不做任何 I/O，「不漂移」这条不变量由调用方传入冻结数据来保证，不是本函数保证的。
+ */
+export function renderConsentSnapshotText(
+  params: ConsentRenderParams,
+  bits: Record<(typeof CONSENT_ITEM_COPY)[number]["key"], boolean>,
+): string {
+  const lines = CONSENT_ITEM_COPY.map((item) => {
+    const granted = bits[item.key];
+    return `${granted ? "☑" : "☐"} ${item.label}${granted ? "" : `——${item.optOutConsequence}`}`;
+  });
+  return [
+    `材料保留期：${params.retentionDays} 天`,
+    `数据控制方：${params.dataController}`,
+    `联系人：${params.contactName}`,
+    `合规邮箱：${params.complianceEmail}`,
+    ...lines,
+  ].join("\n");
+}
+
 export const CONSENT_ITEM_COPY = [
   {
     key: "record" as const,
