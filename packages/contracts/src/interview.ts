@@ -63,8 +63,16 @@ export const OutlineStatus = z.enum(["pending_confirm", "confirmed"]);
 /** 提纲段落完成态。⚠ **只有人能写**（I-6，`origin: ai` 一律 `AI_WRITE_FORBIDDEN`） */
 export const OutlineSectionStatus = z.enum(["done", "deferred"]);
 
-/** 研究问题覆盖度。同样**只有人能写** */
-export const RqCoverageValue = z.enum(["covered", "partial", "uncovered"]);
+/**
+ * 研究问题覆盖度（F92，uc-6-4 R3 步骤7 / AC1）。同样**只有人能写**。
+ *
+ * ⚠ **四取值，`not_applicable` 是独立第四态，不是 `uncovered` 的别名**：
+ *   `not_applicable`（不适用本人）＝「这个 RQ 本就不该问这位受访者」，
+ *   `uncovered`（尚未覆盖）＝「该问、还没问到」——两者在 UC-6.5 证据矩阵的
+ *   下游解读完全不同（前者不计入"未覆盖"统计，见 A2）。合并这两个值会让
+ *   "未覆盖" 的计数把"不适用"也算进去，产出失真的覆盖率。
+ */
+export const RqCoverageValue = z.enum(["covered", "partial", "uncovered", "not_applicable"]);
 
 /**
  * 证据矩阵格子取值（**五取值**，uc-6-5 R3 step4 / AC4）——`强 / 弱 / 未提及 / 附和 / 反例`。
