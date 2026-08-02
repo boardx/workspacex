@@ -1,33 +1,43 @@
-$ pnpm --filter api exec vitest run tests/canvas/whitespace-rules-warn-not-block.test.ts
+$ pnpm --filter api exec vitest run tests/auth/four-viewpoint-button-diff.test.ts
 [exit 0]
 
  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
- ✓ tests/canvas/whitespace-rules-warn-not-block.test.ts (10 tests) 3ms
+ ✓ tests/auth/four-viewpoint-button-diff.test.ts (8 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  12:37:01
+   Duration  380ms (transform 161ms, setup 0ms, collect 199ms, tests 2ms, environment 0ms, prepare 49ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/auth/overprivilege-fields-absent.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+
+ ✓ tests/auth/overprivilege-fields-absent.test.ts (7 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  12:37:02
+   Duration  204ms (transform 28ms, setup 0ms, collect 29ms, tests 2ms, environment 0ms, prepare 33ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/auth/preview-mode-no-write.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+
+ ✓ tests/auth/preview-mode-no-write.test.ts (10 tests) 3ms
 
  Test Files  1 passed (1)
       Tests  10 passed (10)
-   Start at  11:34:50
-   Duration  175ms (transform 19ms, setup 0ms, collect 17ms, tests 3ms, environment 0ms, prepare 29ms)
+   Start at  12:37:02
+   Duration  182ms (transform 33ms, setup 0ms, collect 35ms, tests 3ms, environment 0ms, prepare 29ms)
 
-
-
-$ pnpm --filter api exec vitest run tests/canvas/ava-badge-atomic-rollback.test.ts
-[exit 0]
-
- RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
-
- ✓ tests/canvas/ava-badge-atomic-rollback.test.ts (5 tests) 2ms
-
- Test Files  1 passed (1)
-      Tests  5 passed (5)
-   Start at  11:34:51
-   Duration  166ms (transform 21ms, setup 0ms, collect 15ms, tests 2ms, environment 0ms, prepare 39ms)
-
-
-
-$ grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas
-[exit 0]
 
 
 
@@ -104,112 +114,30 @@ $ grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas
 
  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt
 
- ✓ .harness/scripts/lib/adr-id.test.ts (18 tests) 4ms
- ✓ .harness/scripts/lint-verification-can-fail.test.ts (22 tests) 13ms
- ✓ .harness/scripts/lint-nav-reachability.test.ts (9 tests) 37ms
- ✓ .harness/scripts/lint-third-artifact.test.ts (17 tests) 35ms
- ✓ .harness/scripts/lint-ui-material.test.ts (14 tests) 59ms
- ✓ .harness/scripts/lib/spec-ref.test.ts (12 tests) 17ms
- ✓ .harness/scripts/sync-github.test.ts (11 tests) 7ms
- ✓ .harness/scripts/lib/evidence-fingerprint.test.ts (6 tests) 149ms
+ ✓ .harness/scripts/lib/adr-id.test.ts (18 tests) 3ms
+ ✓ .harness/scripts/lint-verification-can-fail.test.ts (22 tests) 24ms
+ ✓ .harness/scripts/lint-third-artifact.test.ts (17 tests) 41ms
+ ✓ .harness/scripts/lint-nav-reachability.test.ts (9 tests) 40ms
+ ✓ .harness/scripts/lint-ui-material.test.ts (14 tests) 55ms
+ ✓ .harness/scripts/sync-github.test.ts (11 tests) 8ms
+ ✓ .harness/scripts/lib/spec-ref.test.ts (12 tests) 20ms
+ ✓ .harness/scripts/lib/evidence-fingerprint.test.ts (6 tests) 118ms
  ✓ .harness/scripts/lib/roadmap.test.ts (1 test) 1ms
- ✓ .harness/scripts/lib/design-signoff.test.ts (47 tests) 161ms
+ ✓ .harness/scripts/lib/design-signoff.test.ts (47 tests) 168ms
 
  Test Files  10 passed (10)
       Tests  157 passed (157)
-   Start at  11:35:10
-   Duration  461ms (transform 371ms, setup 0ms, collect 713ms, tests 483ms, environment 1ms, prepare 529ms)
+   Start at  12:37:23
+   Duration  462ms (transform 374ms, setup 0ms, collect 762ms, tests 479ms, environment 1ms, prepare 490ms)
 
 
    • Packages in scope: @repo/api, @repo/contracts, @repo/coord-protocol, @repo/fabric-markdown, web
    • Running typecheck, lint, test in 5 packages
    • Remote caching disabled, using shared worktree cache
 
-@repo/coord-protocol:typecheck: cache hit, replaying logs 35138b89af6c1be1
-@repo/fabric-markdown:lint: cache hit, replaying logs b428e3e7c600bb9d
-@repo/fabric-markdown:test: cache hit, replaying logs 3014b442a5fece4d
-@repo/fabric-markdown:typecheck: cache hit, replaying logs 83e39dd9c48fd080
-@repo/fabric-markdown:build: cache hit, replaying logs f9167c5af77b4a24
-@repo/fabric-markdown:typecheck: 
-@repo/fabric-markdown:typecheck: > @repo/fabric-markdown@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/fabric-markdown
-@repo/fabric-markdown:typecheck: > tsc --noEmit
 @repo/contracts:lint: cache hit, replaying logs d354fdfdf87145a7
-@repo/fabric-markdown:lint: 
-@repo/fabric-markdown:lint: > @repo/fabric-markdown@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
-@repo/fabric-markdown:lint: > echo '(fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)'
-@repo/fabric-markdown:lint: 
-@repo/fabric-markdown:lint: (fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)
-@repo/fabric-markdown:build: 
-@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/fabric-markdown
-@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
-@repo/fabric-markdown:build: 
-@repo/fabric-markdown:test: 
-@repo/fabric-markdown:test: > @repo/fabric-markdown@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
-@repo/fabric-markdown:test: > vitest run
-@repo/fabric-markdown:test: 
-@repo/fabric-markdown:test: 
-@repo/fabric-markdown:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
-@repo/fabric-markdown:test: 
-@repo/fabric-markdown:test:  ✓ tests/persona.test.ts (10 tests) 4ms
-@repo/fabric-markdown:test:  ✓ tests/usecase.test.ts (12 tests) 6ms
-@repo/coord-protocol:lint: cache hit, replaying logs 67aef1da5448a8e2
-@repo/fabric-markdown:typecheck: 
-@repo/fabric-markdown:test:  ✓ tests/templates-story.test.ts (14 tests) 6ms
-@repo/fabric-markdown:test:  ✓ tests/diagrams-graph.test.ts (28 tests) 14ms
-@repo/fabric-markdown:test:  ✓ tests/diagrams-chart.test.ts (22 tests) 12ms
-@repo/fabric-markdown:test:  ✓ tests/diagrams-time.test.ts (18 tests) 14ms
-@repo/fabric-markdown:test:  ✓ tests/roundtrip-guard.test.ts (34 tests) 21ms
-@repo/fabric-markdown:test:  ✓ tests/mermaid-serializer.test.ts (18 tests) 24ms
-@repo/fabric-markdown:test:  ✓ tests/state-sequence-serializer.test.ts (17 tests) 19ms
-@repo/fabric-markdown:test:  ✓ tests/templates-strategy.test.ts (16 tests) 7ms
-@repo/fabric-markdown:test:  ✓ tests/markdown.test.ts (7 tests) 4ms
-@repo/fabric-markdown:test:  ✓ tests/templates-user.test.ts (16 tests) 8ms
-@repo/fabric-markdown:test:  ✓ tests/class-relation.test.ts (5 tests) 1ms
-@repo/fabric-markdown:test:  ✓ tests/geometry.test.ts (5 tests) 12ms
-@repo/fabric-markdown:test: 
-@repo/fabric-markdown:test:  Test Files  14 passed (14)
-@repo/fabric-markdown:test:       Tests  222 passed (222)
-@repo/fabric-markdown:test:    Start at  11:48:30
-@repo/fabric-markdown:test:    Duration  11.20s (transform 554ms, setup 0ms, collect 2.09s, tests 152ms, environment 93.13s, prepare 876ms)
-@repo/fabric-markdown:test: 
-@repo/contracts:lint: 
-@repo/contracts:typecheck: cache hit, replaying logs d05bfc768aacdd71
-@repo/coord-protocol:typecheck: 
-@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/coord-protocol
-@repo/coord-protocol:typecheck: > tsc --noEmit
-@repo/coord-protocol:typecheck: 
-@repo/contracts:lint: > @repo/contracts@0.0.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/packages/contracts
-@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
-@repo/contracts:lint: 
-@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
-@repo/coord-protocol:lint: 
-@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
-@repo/coord-protocol:lint: > echo 'lint: ok'
-@repo/coord-protocol:lint: 
-@repo/coord-protocol:lint: lint: ok
-@repo/contracts:typecheck: 
-@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/packages/contracts
-@repo/contracts:typecheck: > tsc --noEmit
-@repo/contracts:typecheck: 
-@repo/coord-protocol:test: cache hit, replaying logs 4cd0d1402cad77b7
 @repo/contracts:test: cache hit, replaying logs 6b2ceb34e2c0580b
 @repo/contracts:test: 
-@repo/coord-protocol:test: 
-@repo/api:typecheck: cache hit, replaying logs fa81cc0ca06fdd57
-@repo/coord-protocol:test: > @repo/coord-protocol@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
-@repo/coord-protocol:test: > vitest run
-@repo/coord-protocol:test: 
-@repo/coord-protocol:test: 
-@repo/coord-protocol:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
-@repo/coord-protocol:test: 
-@repo/coord-protocol:test:  ✓ test/protocol.test.ts (19 tests) 61ms
-@repo/coord-protocol:test:  ✓ test/client.test.ts (20 tests) 42ms
-@repo/coord-protocol:test: 
-@repo/coord-protocol:test:  Test Files  2 passed (2)
-@repo/coord-protocol:test:       Tests  39 passed (39)
-@repo/coord-protocol:test:    Start at  07:47:20
-@repo/coord-protocol:test:    Duration  5.93s (transform 1.27s, setup 0ms, collect 1.75s, tests 103ms, environment 8ms, prepare 1.90s)
-@repo/coord-protocol:test: 
 @repo/contracts:test: > @repo/contracts@0.0.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/packages/contracts
 @repo/contracts:test: > vitest run
 @repo/contracts:test: 
@@ -223,6 +151,7 @@ $ grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas
 @repo/contracts:test:  ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 7ms
 @repo/contracts:test:  ✓ tests/no-forbidden-routes.test.ts (15 tests) 4ms
 @repo/contracts:test:  ✓ tests/out-schemas-strict.test.ts (2 tests) 5ms
+@repo/contracts:lint: 
 @repo/contracts:test:  ✓ tests/contract-shape.test.ts (77 tests) 128ms
 @repo/contracts:test: 
 @repo/contracts:test:  Test Files  8 passed (8)
@@ -230,12 +159,88 @@ $ grep -rq 'data-testid=.canvas-ai-rollback' apps/web/components/canvas
 @repo/contracts:test:    Start at  11:08:55
 @repo/contracts:test:    Duration  1.86s (transform 2.08s, setup 0ms, collect 5.20s, tests 284ms, environment 9ms, prepare 2.48s)
 @repo/contracts:test: 
-@repo/api:typecheck: 
-@repo/api:typecheck: > @repo/api@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
-@repo/api:lint: cache hit, replaying logs 0a2bab9214dae377
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/contracts:typecheck: cache hit, replaying logs d05bfc768aacdd71
+@repo/coord-protocol:typecheck: cache hit, replaying logs 35138b89af6c1be1
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/coord-protocol
+@repo/coord-protocol:typecheck: > tsc --noEmit
+@repo/coord-protocol:typecheck: 
+@repo/fabric-markdown:lint: cache hit, replaying logs b428e3e7c600bb9d
+@repo/fabric-markdown:lint: 
+@repo/fabric-markdown:lint: > @repo/fabric-markdown@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
+@repo/fabric-markdown:lint: > echo '(fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)'
+@repo/fabric-markdown:lint: 
+@repo/fabric-markdown:lint: (fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/coord-protocol:test: cache hit, replaying logs 4cd0d1402cad77b7
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: > @repo/coord-protocol@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
+@repo/coord-protocol:test: > vitest run
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  ✓ test/protocol.test.ts (19 tests) 61ms
+@repo/fabric-markdown:test: cache hit, replaying logs 3014b442a5fece4d
+@repo/coord-protocol:test:  ✓ test/client.test.ts (20 tests) 42ms
+@repo/coord-protocol:test: 
+@repo/coord-protocol:test:  Test Files  2 passed (2)
+@repo/coord-protocol:test:       Tests  39 passed (39)
+@repo/coord-protocol:test:    Start at  07:47:20
+@repo/coord-protocol:test:    Duration  5.93s (transform 1.27s, setup 0ms, collect 1.75s, tests 103ms, environment 8ms, prepare 1.90s)
+@repo/coord-protocol:test: 
+@repo/coord-protocol:lint: cache hit, replaying logs 67aef1da5448a8e2
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a50fd5dcbf90c9d1b/packages/coord-protocol
+@repo/coord-protocol:lint: > echo 'lint: ok'
+@repo/fabric-markdown:test: 
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: lint: ok
+@repo/fabric-markdown:typecheck: cache hit, replaying logs 83e39dd9c48fd080
+@repo/fabric-markdown:test: > @repo/fabric-markdown@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
+@repo/fabric-markdown:test: > vitest run
+@repo/fabric-markdown:test: 
+@repo/fabric-markdown:test: 
+@repo/fabric-markdown:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-af97cca96f8a77bd0/packages/fabric-markdown
+@repo/fabric-markdown:test: 
+@repo/fabric-markdown:test:  ✓ tests/persona.test.ts (10 tests) 4ms
+@repo/fabric-markdown:test:  ✓ tests/usecase.test.ts (12 tests) 6ms
+@repo/fabric-markdown:test:  ✓ tests/templates-story.test.ts (14 tests) 6ms
+@repo/fabric-markdown:test:  ✓ tests/diagrams-graph.test.ts (28 tests) 14ms
+@repo/fabric-markdown:test:  ✓ tests/diagrams-chart.test.ts (22 tests) 12ms
+@repo/fabric-markdown:test:  ✓ tests/diagrams-time.test.ts (18 tests) 14ms
+@repo/fabric-markdown:test:  ✓ tests/roundtrip-guard.test.ts (34 tests) 21ms
+@repo/fabric-markdown:test:  ✓ tests/mermaid-serializer.test.ts (18 tests) 24ms
+@repo/fabric-markdown:typecheck: 
+@repo/fabric-markdown:typecheck: > @repo/fabric-markdown@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/fabric-markdown
+@repo/fabric-markdown:test:  ✓ tests/state-sequence-serializer.test.ts (17 tests) 19ms
+@repo/fabric-markdown:test:  ✓ tests/templates-strategy.test.ts (16 tests) 7ms
+@repo/fabric-markdown:test:  ✓ tests/markdown.test.ts (7 tests) 4ms
+@repo/fabric-markdown:test:  ✓ tests/templates-user.test.ts (16 tests) 8ms
+@repo/fabric-markdown:test:  ✓ tests/class-relation.test.ts (5 tests) 1ms
+@repo/fabric-markdown:test:  ✓ tests/geometry.test.ts (5 tests) 12ms
+@repo/fabric-markdown:test: 
+@repo/fabric-markdown:test:  Test Files  14 passed (14)
+@repo/fabric-markdown:test:       Tests  222 passed (222)
+@repo/fabric-markdown:test:    Start at  11:48:30
+@repo/fabric-markdown:test:    Duration  11.20s (transform 554ms, setup 0ms, collect 2.09s, tests 152ms, environment 93.13s, prepare 876ms)
+@repo/fabric-markdown:test: 
+@repo/fabric-markdown:typecheck: > tsc --noEmit
+@repo/fabric-markdown:typecheck: 
+@repo/fabric-markdown:build: cache hit, replaying logs f9167c5af77b4a24
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a169f89e8af96875d/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
 @repo/api:test: cache hit, replaying logs 0e90c0c449d5aa5f
-@repo/api:typecheck: > tsc --noEmit
-@repo/api:typecheck: 
+web:lint: cache hit, replaying logs 73d52fa041d64630
 web:typecheck: cache hit, replaying logs 2c819ccd4d254f1b
 @repo/api:test: 
 @repo/api:test: > @repo/api@0.0.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
@@ -247,7 +252,6 @@ web:typecheck: cache hit, replaying logs 2c819ccd4d254f1b
 @repo/api:test:  ✓ tests/kernel/omissions-auditable.test.ts (30 tests) 6742ms
 @repo/api:test:    ✓ 端到端：一次装配里，被挡下的每一条都说得出为什么 > 越权的一条落 unauthorized（合规、始终可见），定位不到的一条落 unlocatable 322ms
 @repo/api:test:    ✓ 端到端：一次装配里，被挡下的每一条都说得出为什么 > 有权限的人拿得到那一条 —— 上面那条不是「什么都挡」 316ms
-web:lint: cache hit, replaying logs 73d52fa041d64630
 @repo/api:test:    ✓ 端到端：一次装配里，被挡下的每一条都说得出为什么 > 反证：漏掉任何一条解释，装配当场失败并指名道姓 329ms
 @repo/api:test:  ✓ tests/kernel/context-pack-pinned-replay.test.ts (16 tests) 8649ms
 @repo/api:test:    ✓ PinContextPack：随固定快照固化（I-7） > 固化之后改上游材料，重取这份快照的 contentHash 与 items 都不变 398ms
@@ -260,135 +264,39 @@ web:lint: cache hit, replaying logs 73d52fa041d64630
 @repo/api:test:  ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 11237ms
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"8927e8c7-e809-4678-9238-ba5818fe2344","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ChatController.mutate (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:409:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
 @repo/api:test:  ✓ tests/kernel/confidential-local-model-routing.test.ts (14 tests) 4239ms
-@repo/api:test:    ✓ ResolvePackModelConstraint 委托给 identity（X-5） > 含机密条目 ⇒ localOnly，source 是 promise（D-U1，不是策略） 484ms
-@repo/api:test:    ✓ 机密性判定同时看记录下来的和现在的 > 装配之后才被标为机密的材料，仍然把这轮关进本地 307ms
-@repo/api:test:    ✓ V9：含机密时，可选模型里没有云端项 > 含机密 ⇒ 只剩 loopback 的那一个；不含机密 ⇒ 四个都在 367ms
-@repo/api:test:  ✓ tests/capability/model/admission-test-gate.test.ts (36 tests) 14ms
-@repo/api:test:  ✓ tests/capability/model/credential-never-echoed.test.ts (22 tests) 71ms
-@repo/api:test:  ✓ tests/capability/skill/instance-override-no-writeback.test.ts (22 tests) 21ms
-web:typecheck: 
-web:typecheck: > web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
-web:typecheck: > tsc --noEmit
-web:typecheck: 
-@repo/api:test: {"level":"error","msg":"http exception","traceId":"a45cf6cf-c3b1-4798-b8aa-3280caa26bb0","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at EvidenceWithdrawalController.withdraw (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/evidence-withdrawal.controller.ts:100:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-@repo/api:lint: 
-@repo/api:lint: > @repo/api@0.0.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
-@repo/api:test: {"level":"error","msg":"http exception","traceId":"dfd4184a-7403-434f-a567-ac110269922f","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at EvidenceWithdrawalController.withdraw (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/evidence-withdrawal.controller.ts:100:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-@repo/api:test:  ✓ tests/kernel/audit-backflow-searchable.test.ts (15 tests) 12162ms
-@repo/api:test:    ✓ V7: every pin and every bind is retrievable > a bind writes `bound`, an upgrade writes `pinned`, and the mode is in the record 392ms
-@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
-@repo/api:lint: 
-@repo/api:lint: ✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
-@repo/api:lint: scanned=34
-@repo/api:lint: ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
-web:test: cache hit, replaying logs 44bfb7fd4b38f2e5
-@repo/api:lint: scanned=656 tenant-tables=85 allowlisted=32
-@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:222  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/asset-governance.ts:385  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `templates` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `templates` with 6 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `templates` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `skills` with 6 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `templates` with 3 entries
-@repo/api:test:    ✓ V7: every pin and every bind is retrievable > by ARTIFACT: two artifacts, and the filter returns one of them 311ms
-@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `skills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
 web:lint: 
+@repo/api:test:    ✓ ResolvePackModelConstraint 委托给 identity（X-5） > 含机密条目 ⇒ localOnly，source 是 promise（D-U1，不是策略） 484ms
 web:lint: > web@0.1.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
 web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
 web:lint: 
 web:lint: ✔ No ESLint warnings or errors
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:375  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:510  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:565  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:774  list-shaped constant `skills` with 6 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:779  list-shaped constant `skills` with 4 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/interview-studio.ts:426  built-in capability entry `Echo`
-web:test: 
+web:lint: 
+web:typecheck: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+@repo/api:test:    ✓ 机密性判定同时看记录下来的和现在的 > 装配之后才被标为机密的材料，仍然把这轮关进本地 307ms
+web:test: cache hit, replaying logs 44bfb7fd4b38f2e5
+@repo/api:test:    ✓ V9：含机密时，可选模型里没有云端项 > 含机密 ⇒ 只剩 loopback 的那一个；不含机密 ⇒ 四个都在 367ms
+@repo/api:test:  ✓ tests/capability/model/admission-test-gate.test.ts (36 tests) 14ms
+@repo/api:test:  ✓ tests/capability/model/credential-never-echoed.test.ts (22 tests) 71ms
+@repo/api:test:  ✓ tests/capability/skill/instance-override-no-writeback.test.ts (22 tests) 21ms
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"a45cf6cf-c3b1-4798-b8aa-3280caa26bb0","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at EvidenceWithdrawalController.withdraw (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/evidence-withdrawal.controller.ts:100:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"dfd4184a-7403-434f-a567-ac110269922f","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at EvidenceWithdrawalController.withdraw (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/evidence-withdrawal.controller.ts:100:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:typecheck: cache hit, replaying logs fa81cc0ca06fdd57
+@repo/api:test:  ✓ tests/kernel/audit-backflow-searchable.test.ts (15 tests) 12162ms
+@repo/api:test:    ✓ V7: every pin and every bind is retrievable > a bind writes `bound`, an upgrade writes `pinned`, and the mode is in the record 392ms
+web:typecheck: > web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+@repo/api:test:    ✓ V7: every pin and every bind is retrievable > by ARTIFACT: two artifacts, and the filter returns one of them 311ms
 @repo/api:test:    ✓ V7: every pin and every bind is retrievable > by TIME: a window that starts after the first event excludes it 309ms
 @repo/api:test:    ✓ E5: withdrawing evidence annotates and notifies, and never touches the snapshot > the citing bindings are the annotated references, and live bindings are not 318ms
 @repo/api:test:    ✓ E5: withdrawing evidence annotates and notifies, and never touches the snapshot > over HTTP: the route answers with the contract's three fields 325ms
-@repo/api:lint: · [debt] apps/web/lib/mock/project.ts:254  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
-@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Ava`
-web:test: > web@0.1.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
 @repo/api:test:  ✓ tests/kernel/binding-three-modes.test.ts (14 tests) 12468ms
-@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:392  built-in capability entry `Ava`
 @repo/api:test:    ✓ the three modes are the contract's three modes > artifact_bindings.mode enumerates exactly BindingMode 444ms
-web:lint: 
 @repo/api:test:    ✓ the three modes are the contract's three modes > closedness, not the count: an undeclared mode is refused by BOTH the schema and the table 453ms
-web:lint: ✅ lint-design：全部通过（扫描 app components lib）
 @repo/api:test:    ✓ I-8: pinned means frozen to a version, and only pinned does > the IFF is enforced by the table in both directions 499ms
 @repo/api:test:    ✓ I-8: pinned means frozen to a version, and only pinned does > a binding cannot pin another artifact's version 901ms
 @repo/api:test:    ✓ draft: private to its author, on nobody's project side > the row exists and names its author, and NO requester sees it in the list 697ms
-@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:393  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
-@repo/api:lint: · [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
-@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
-web:test: > vitest run
-web:test: 
-web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
-web:test: 
-@repo/api:lint: ✅ lint-no-builtin-capabilities: no built-in capability list in product code
-@repo/api:lint: scanned=948 violations=0 debt=78 migrations=64
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
 @repo/api:test:    ✓ draft: private to its author, on nobody's project side > counter-proof: the SAME binding appears the moment it stops being a draft 505ms
 @repo/api:test:    ✓ draft: private to its author, on nobody's project side > the exclusion rule is a predicate, and it is the one the list uses 398ms
 @repo/api:test:    ✓ live follows the source, pinned does not -- asserted against the same move > after a new version is pinned, the live entry moved to v2 and the pinned entry is still v1 544ms
@@ -403,36 +311,31 @@ web:test:
 @repo/api:test:    ✓ all five channels are wired to something real > each channel returns at least one row on its own terms 396ms
 @repo/api:test:    ✓ all five channels are wired to something real > counter-proof: with the corpus emptied, every channel returns nothing 400ms
 @repo/api:test:    ✓ all five channels are wired to something real > the graph channel gives every hit the same score -- a fixed bonus, never a verdict 596ms
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
-@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
-@repo/api:lint: · [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
 @repo/api:test:    ✓ all five channels are wired to something real > graph traversal stops at depth 2 -- an uncapped walk is graph-first by accident 629ms
 @repo/api:test:    ✓ permission travels with the recall, on the registered paths (X-1 / R7) > someone outside the owning team gets the open row and an `unauthorized` omission 303ms
 @repo/api:test:    ✓ permission travels with the recall, on the registered paths (X-1 / R7) > each candidate's decision id comes from a judgement made for THIS requester (I-11) 378ms
 @repo/api:test:    ✓ permission travels with the recall, on the registered paths (X-1 / R7) > another tenant's rows are invisible even with the same segment ids in play 357ms
+web:test: 
+web:test: > web@0.1.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
+web:test: > vitest run
+web:test: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 @repo/api:test:  ✓ tests/files/artifacts-list-rls.test.ts (14 tests) 1284ms
 @repo/api:test:  ✓ tests/project/create-project-atomic-two-rows.test.ts (10 tests) 1555ms
-web:test:  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
-web:test: 
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"b5a40a2d-8efb-4774-a13f-fb6997b67dd8","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at ArtifactReferenceController.reference (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/artifact-reference.controller.ts:112:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"78dcec4b-1b72-4f4f-9785-8b9002d3da5a","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at ChatController.mutate (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:411:51)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:test: {"level":"error","msg":"http exception","traceId":"4fb6efd2-827d-47ef-b45b-a3b81bcf5202","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at ArtifactReferenceController.reference (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/artifact-reference.controller.ts:106:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+web:test: 
+web:test:  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/web
+web:test: 
 web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 6ms
 web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (131 tests) 20ms
 web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 8ms
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
 web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 206ms
-@repo/api:lint: ✅ lint-design-facet-single-source: the definition table has one source
-@repo/api:lint: scanned=1376 violations=0 debt=8 keys=15 groups=5
-@repo/api:test: {"level":"error","msg":"http exception","traceId":"4fb6efd2-827d-47ef-b45b-a3b81bcf5202","detail":{"name":"NotFoundException","message":"not_found","stack":"NotFoundException: not_found\n    at ArtifactReferenceController.reference (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/artifact-reference.controller.ts:106:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-@repo/api:lint: ✅ design-facet catalog is in sync with the definition table
-@repo/api:lint: ✅ agenda tier catalog is in sync with the definition table
-@repo/api:lint: ✅ lint-skill-context-api-only: 49 个文件，skill 取数只经 Context API（I-25）
-@repo/api:lint: scanned=49 violations=0
-@repo/api:lint: ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
-@repo/api:lint: scanned-roots=4
-@repo/api:lint: ✅ lint-arch-deps: 654 files, all dependencies point inward
-@repo/api:lint: scanned=654
 web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 161ms
 web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 70ms
 web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 440ms
@@ -489,6 +392,7 @@ web:test:
 @repo/api:test:  ✓ tests/files/preview-five-types.test.ts (14 tests) 1717ms
 @repo/api:test:    ✓ the endpoint, end to end > returns the contract shape for every corpus entry, and the contract rejects drift 327ms
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"0bffe1cf-1b33-4618-bc48-0d57cee69e72","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.mutate (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:402:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:lint: cache hit, replaying logs 0a2bab9214dae377
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"7b123212-84df-4c90-99d7-97c059d20b7a","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.mutate (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:402:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
 @repo/api:test:  ✓ tests/chat/thread-badge-single-source.test.ts (19 tests) 15948ms
 @repo/api:test:    ✓ I-13 徽标同源：线程卡的 N 与消息头的 N 取自同一处 > 列表的 review-pending 徽标与详情里带该徽标的消息数由同一个函数决定 510ms
@@ -554,10 +458,116 @@ web:test:
 @repo/api:test:    ✓ 投影 ②：project_id 非空 ⇒ 再并上该项目成员（是并集，不是替换） > 创建者即使不是项目成员也仍看得见 —— 并集的另一半 335ms
 @repo/api:test:    ✓ V1：「某项目」与「不属于任何项目」两次的集合不相交，且计数可复现 > counts 是真人 / 虚拟两个独立字段，且统计的是过滤后的集合（D-25 / V5） 323ms
 @repo/api:test:    ✓ 同一条规则的两次声明必须对撞得上（canRead ⟺ VISIBILITY_PREDICATE） > 六个 (访谈, 看的人) 组合上，纯函数判定与数据库返回逐条一致 310ms
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=34
+@repo/api:lint: ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+@repo/api:lint: scanned=656 tenant-tables=85 allowlisted=32
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:222  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/asset-governance.ts:385  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `templates` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:285  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:286  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"cf73e551-f826-49b7-aa36-7d45565cb69f","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.thread (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:291:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:375  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"ca2a52be-57c9-42b6-93bd-6b5aea8e08e5","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.thread (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:291:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
 @repo/api:test:  ✓ tests/itv/scope-server-side-filter-no-leak.test.ts (9 tests) 2700ms
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"4f5d4e06-6747-4ccb-90f2-a11519e0fb26","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.thread (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:291:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:510  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:565  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:774  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:779  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/interview-studio.ts:426  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/project.ts:254  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:392  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:393  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+@repo/api:lint: ✅ lint-no-builtin-capabilities: no built-in capability list in product code
+@repo/api:lint: scanned=948 violations=0 debt=78 migrations=64
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:528  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:544  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:546  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+@repo/api:lint: · [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
+@repo/api:lint: ✅ lint-design-facet-single-source: the definition table has one source
+@repo/api:lint: scanned=1376 violations=0 debt=8 keys=15 groups=5
+@repo/api:lint: ✅ design-facet catalog is in sync with the definition table
+@repo/api:lint: ✅ agenda tier catalog is in sync with the definition table
+@repo/api:lint: ✅ lint-skill-context-api-only: 49 个文件，skill 取数只经 Context API（I-25）
+@repo/api:lint: scanned=49 violations=0
+@repo/api:lint: ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+@repo/api:lint: scanned-roots=4
+@repo/api:lint: ✅ lint-arch-deps: 654 files, all dependencies point inward
+@repo/api:lint: scanned=654
 @repo/api:test: {"level":"error","msg":"http exception","traceId":"0689075e-627d-447a-a3b0-afcfe28badb1","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatController.thread (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/src/interface/controllers/chat.controller.ts:291:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
 @repo/api:test:  ✓ tests/kernel/snapshot-concurrent-single-version.test.ts (10 tests) 1292ms
 @repo/api:test:  ✓ tests/kernel/citation-integrity.test.ts (17 tests) 11ms
@@ -1427,8 +1437,8 @@ web:test:
 
  Tasks:    16 successful, 16 total
 Cached:    16 cached, 16 total
-  Time:    52ms >>> FULL TURBO
+  Time:    58ms >>> FULL TURBO
 
 • turbo 2.10.5
 
-[harness-verify v1 sha256=6c7c91806787ad64bd8ac0e07bda194155469b189566137f48c192db0a87175d commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T03:35:11.492Z]
+[harness-verify v1 sha256=3b0ee42a7191d07afc9901a1e5e310dae43f985b2aecf8b3c0bb2e61eeaea44d commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:37:23.944Z]

@@ -116,31 +116,17 @@ scanned-roots=4
 scanned=654
 
 
-$ pnpm --filter api exec vitest run tests/project/non-workshop-member-tables.test.ts
+$ pnpm --filter api exec vitest run tests/project/naming-single-source-gate.test.ts
 [exit 0]
 
  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
- ✓ tests/project/non-workshop-member-tables.test.ts (11 tests) 1309ms
+ ✓ tests/project/naming-single-source-gate.test.ts (10 tests) 137ms
 
  Test Files  1 passed (1)
-      Tests  11 passed (11)
-   Start at  12:42:00
-   Duration  2.12s (transform 363ms, setup 0ms, collect 498ms, tests 1.31s, environment 0ms, prepare 60ms)
-
-
-
-$ pnpm --filter api exec vitest run tests/project/workshop-only-machinery-fk-denied.test.ts
-[exit 0]
-
- RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
-
- ✓ tests/project/workshop-only-machinery-fk-denied.test.ts (7 tests) 636ms
-
- Test Files  1 passed (1)
-      Tests  7 passed (7)
-   Start at  12:42:03
-   Duration  1.02s (transform 56ms, setup 0ms, collect 82ms, tests 636ms, environment 0ms, prepare 84ms)
+      Tests  10 passed (10)
+   Start at  12:41:35
+   Duration  302ms (transform 19ms, setup 0ms, collect 14ms, tests 137ms, environment 0ms, prepare 43ms)
 
 
 
@@ -164,4 +150,4 @@ $ pnpm --filter api run migrate:check
 Exit status 1
  Container workspacex-kernel-postgres-1 Running 
 
-[harness-verify v1 sha256=2019c21f63cbdd74dc81175d5c6ddf0ee829d7004703d2a570fdaa3994cf5ab6 commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:42:09.170Z]
+[harness-verify v1 sha256=4229d8a0e76a300da81ba5d0c101efd47c64bbfeab75c8131fc121e04f177fb4 commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:41:38.197Z]
