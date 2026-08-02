@@ -43,20 +43,24 @@ export interface ProjectContext {
  * ⚠ `/studio/research` 的归属是有争议的（可挂项目也可独立发起），当前按「独立」处理。
  *   已列入 sign-off 待确认清单，见 `ui-preview/README.md`。
  *
- * ── 2026-07-30 接线修正 ──
- * `/project`（Layout B 项目工作台，project 束现行屏）此前落 null → 顶栏恒显
+ * ── 2026-07-30 接线修正（2026-08-02 更新，issue #317）──
+ * `/project`（Layout B 项目工作台，project 束当时的现行屏）此前落 null → 顶栏恒显
  * 「不在项目上下文·项目角色不适用」，**与满屏项目内容 + 工作台自带的四视角切换器直接矛盾**
- * （三个 agent 独立指出）。这里补上它的项目上下文，矛盾消除。
+ * （三个 agent 独立指出）。当时的处置是给 `/project` 补一条隐式项目上下文表项。
  * ⚠ 顶栏因此会出现项目条，但**不会**再出一个视角切换器——工作台自带一个，
  *   顶栏的预览切换器由 `hideRoleSwitcher` 让位（见 `app-shell.tsx` / `top-bar.tsx`）：
  *   **角色切换的唯一来源 = 各域内容区自带的切换器**，顶栏只显示上下文标签。
  * 旧 `/studio/interview` 已退役重定向到 `/itv`，故从本表移除。
+ *
+ * ── 2026-08-02 再次接线：工作台迁到 `/projects/[projectId]`（issue #317）──
+ * 工作台不再挂在静态 `/project`（已退役为 `redirect("/projects")`），改挂
+ * `/projects/[projectId]`——那条路由本就被上面第 1 条规则（`/projects/<id>/...`）
+ * 覆盖，能拿到真实 `<id>` 而不是写死的 `kickoff`。因此 `/project` 这条隐式表项
+ * 现在是死的（该路径永远重定向，从不渲染），一并移除，不留悬空映射。
  */
 const IMPLICIT_PROJECT_ROUTES: Record<string, ProjectContext> = {
   "/chat": { id: "demo", name: "欧洲市场进入" },
   "/studio/survey": { id: "demo", name: "欧洲市场进入" },
-  // project 束 · Layout B 工作台（顶层路由 /project）。名称对齐工作台二级头显示的项目。
-  "/project": { id: "kickoff", name: "欧洲进入策略 Kickoff" },
 };
 
 /** mock 项目名查表；真实实现从服务端取 */

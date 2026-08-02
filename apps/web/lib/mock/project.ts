@@ -30,10 +30,54 @@
  *   `apps/api/tests/kernel/no-builtin-capability-lists.test.ts` 的 DECLARED_MOCK_DEBT。
  *   组件层不得出现这些字面量，一律从本文件 import。
  */
+import type { LucideIcon } from "lucide-react";
+import {
+  MessagesSquare, LayoutTemplate, FileText, Mic, ClipboardList, ListTodo, Presentation,
+} from "lucide-react";
 import { PROJECT_ROLE_LABEL, PROJECT_ROLES, type ProjectRole } from "@/lib/identity";
 
 export { PROJECT_ROLE_LABEL, PROJECT_ROLES };
 export type { ProjectRole };
+
+/* ─────────────────────── 工作面清单（Layout A 吸收进 Layout B 概览，见 F317） ─────────────────────── */
+
+/**
+ * 项目内的工作面（原 `/projects/[projectId]` 枢纽页 `SURFACES`，2026-08-02 F317 折入工作台概览 tab）。
+ *
+ * ⚠ 这份清单**不是**契约 `ui.md` A-0 的最终答案本身——A-0（Layout A vs Layout B）
+ *   在 `ui.md`/`ui-preview/project-v2/README.md` 第四节仍登记着「待人类裁决」。
+ *   本次处置（issue #317，人类在 issue 里直接拍板）：Layout B（阶段式 tab）为落点，
+ *   Layout A 的内容（这份工作面清单）**折入 Layout B 的「概览」tab**而不是整体作废——
+ *   避免静默丢弃「现场大屏尚未建」这条诚实信息（AGENTS.md「看起来能跑不算完成」）。
+ *   `testid` 前缀刻意保留 `project-home-*`（而不是改成 `project-overview-*`），因为
+ *   `contracts/project/coverage.md` V1/缺口10 逐字点名 `project-home-surfaces` 作为前端消费点——
+ *   改名会让那份已签字的覆盖表指向一个不存在的 testid。
+ *
+ * `href: null` = 尚未建的屏，渲染成显式禁用而不是死按钮。
+ */
+export interface ProjectSurface {
+  key: string;
+  label: string;
+  desc: string;
+  icon: LucideIcon;
+  /** 以 `/` 开头 = 绝对路径；否则相对当前项目（`/projects/<id>/<href>`）*/
+  href: string | null;
+  /** 未建时说明原因，让人知道是缺口不是 bug */
+  pending?: string;
+}
+
+export const PROJECT_SURFACES: ProjectSurface[] = [
+  { key: "chat", label: "对话", desc: "人与 AI 团队在同一条线程上推进；批准卡在这里等你拍板", icon: MessagesSquare, href: "/chat" },
+  { key: "canvas", label: "推演画布", desc: "各组画布、结构性冲突裁决、AI 落笔与回退", icon: LayoutTemplate, href: "canvas" },
+  { key: "files", label: "项目文件", desc: "上传原件与系统产出物同处一棵树；删除有级联影响面", icon: FileText, href: "files" },
+  { key: "interview", label: "访谈现场", desc: "实时转录、说话人指派、引述打点", icon: Mic, href: "/studio/interview" },
+  { key: "survey", label: "问卷与投票", desc: "设计、回收、交叉切分、现场 60 秒投票", icon: ClipboardList, href: "/studio/survey" },
+  { key: "tasks", label: "任务", desc: "人和 AI 共用同一种任务对象，责任人始终是人", icon: ListTodo, href: "/tasks" },
+  {
+    key: "stage", label: "现场大屏", desc: "投屏用的主持视图：环节倒计时、各组进度、广播",
+    icon: Presentation, href: null, pending: "尚未建（原型档案第十节「主持台」为移动端形态，桌面大屏未抽取）",
+  },
+];
 
 /* ─────────────────────── 预览维度：标签页（= 工作台的「屏」） ─────────────────────── */
 

@@ -1,19 +1,26 @@
 "use client";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SectionTitle, StatChip, MetaSep, ObserverNotice } from "./parts";
 import {
   OVERVIEW_STATUS, CURRENT_SEGMENT, OVERVIEW_TODOS, ACTIVITY_FEED, PROJECT_HEADER,
-  ROLE_CAN_WRITE, PROJECT_ROLE_LABEL, observerHidden, type ProjectRole,
+  PROJECT_SURFACES, ROLE_CAN_WRITE, PROJECT_ROLE_LABEL, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
 
 /**
  * 概览（净新）—— 原型 isWsOver 的转译。
- * 项目在研究的问题 + 现场状态条 + 当前环节（三角色分工卡）+ 待办预览 + 最新动态。
+ * 项目在研究的问题 + 现场状态条 + 当前环节（三角色分工卡）+ 待办预览 + 最新动态 + 工作面清单。
  * ⚠ 用「就绪检查 3/3」而非「准备度 %」：后者口径 uc-2-2 已登记 [待确认]，不在本域编分母。
  * ⚠ 观察者显著更少：当前环节分工、待办、动态属**内部协作视图**，整块消失（不是变灰）。
+ *
+ * ⚠ 「工作面」清单（F317 折入，见 `lib/mock/project.ts` `PROJECT_SURFACES` 头注）
+ *   不随观察者裁剪消失——它只是一排跳转入口，目标屏各自的权限判定在各自屏内做。
  */
-export function TabOverview({ view, readOnly = false }: { view: ProjectRole; readOnly?: boolean }) {
+export function TabOverview({
+  view, readOnly = false, projectId,
+}: { view: ProjectRole; readOnly?: boolean; projectId: string }) {
   const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
   const isObserver = observerHidden(view);
   return (
@@ -124,6 +131,51 @@ export function TabOverview({ view, readOnly = false }: { view: ProjectRole; rea
           </div>
         </>
       )}
+
+      {/* 工作面（F317 折入：原 `/projects/[projectId]` 枢纽页内容，现挂在概览尾部）*/}
+      <section className="flex flex-col gap-2" data-testid="project-home-surfaces">
+        <SectionTitle>工作面</SectionTitle>
+        <ul className="flex flex-col gap-1.5">
+          {PROJECT_SURFACES.map((s) => {
+            const href = s.href
+              ? s.href.startsWith("/") ? s.href : `/projects/${projectId}/${s.href}`
+              : null;
+            const body = (
+              <>
+                <s.icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="w-20 shrink-0 text-13 font-medium">{s.label}</span>
+                <span className="min-w-0 flex-1 truncate text-11 text-muted-foreground">
+                  {s.pending ?? s.desc}
+                </span>
+                {s.pending && <Badge tone="outline">未建</Badge>}
+              </>
+            );
+            return (
+              <li key={s.key}>
+                {href ? (
+                  <Link
+                    href={href}
+                    data-testid={`project-home-surface-${s.key}`}
+                    className="flex items-center gap-3 rounded-md border border-border-subtle bg-panel px-3 py-2 transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  // 尚未建的屏：显式禁用 + 写明原因。静默无反应是缺陷；显式禁用是设计。
+                  <div
+                    data-testid={`project-home-surface-${s.key}`}
+                    aria-disabled="true"
+                    title={s.pending}
+                    className="flex cursor-not-allowed items-center gap-3 rounded-md border border-dashed border-border bg-disabled px-3 py-2 text-disabled-foreground"
+                  >
+                    {body}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }

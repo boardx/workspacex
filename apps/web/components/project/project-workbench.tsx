@@ -27,7 +27,17 @@ import { TabSettings } from "./tab-settings";
  *   → 本工作台，顶部是**阶段式** tab（isWsOver@15221492 / isWsRov@15277095 /
  *   isWsScope@15348094 / isWsAgenda@15368783 / isWsDuring@15401543 / isWsAfter@15500356 /
  *   isWsTodo@15530664 + isSetup）。这是静态原型里项目空间的**权威**布局。
- *   另有 Layout A（`/projects/[projectId]` 工作面清单）见 README 第六节「两版并存·待裁决」。
+ *
+ * ── 路由收敛（2026-08-02，issue #317）──────────────────────────────────
+ * 原 Layout A（`/projects/[projectId]` 工作面清单）与本工作台（当时挂在静态 `/project`，
+ * 无 `[projectId]` 参数）曾是「两版并存·待裁决」（`ui.md` A-0，见 ui-preview/project-v2/README.md
+ * 第四节）。列表卡片「进入项目」实际链接的是 `/projects/${id}`，从未接到过 `/project`——
+ * 与已修过的 `/studio/interview`→`/itv`、`/studio/prototype`→`/canvas` 同一类漂移。
+ * 处置：本工作台迁到 `/projects/[projectId]`（唯一落点），按 `params.projectId` 接收
+ * `projectId`/`projectName`；Layout A 的工作面清单折入「概览」tab（见 `tab-overview.tsx`
+ * `PROJECT_SURFACES`），不静默丢弃「现场大屏尚未建」这条诚实信息。静态 `/project` 退役为
+ * `redirect("/projects")` 桩。A-0 本身仍是设计签核材料里登记的待裁决项，这次处置是
+ * issue #317（人类直接拍板）的落地，不是 agent 自行改签核状态。
  *
  * 复用已确认的三栏骨架 AppShell（图标栏 + 组织切换顶栏）；工作台自身提供第二级
  * 项目头（‹全部项目 + 项目名 + 三类人 + Facilitator(AI)）、视角切换器、主标签、视角说明条。
@@ -37,7 +47,7 @@ import { TabSettings } from "./tab-settings";
  * ⚠ 组织停用（`?orgState=disabled`）时全项目只读：显示只读原因条，不隐藏内容（uc-00-1 V12）。
  */
 export function ProjectWorkbench({
-  identity, uiState, tab, view, sub, orgDisabled = false, qs,
+  identity, uiState, tab, view, sub, orgDisabled = false, qs, projectId, projectName,
 }: {
   identity: Identity;
   uiState: UiState;
@@ -46,6 +56,14 @@ export function ProjectWorkbench({
   sub: string | null;
   orgDisabled?: boolean;
   qs: { org?: string };
+  /**
+   * 真实项目标识（F317：路由从静态 `/project` 迁到 `/projects/[projectId]` 后，
+   * 由页面层传入 `params.projectId`）。只用于跳转「工作面」子屏（canvas/files）与顶部标题；
+   * 其余各 tab 的内容仍是单一 mock 场景（`PROJECT_HEADER` 等），**不按项目区分**——
+   * 与 `canvas`/`files` 页面同型的已知 mock 债，不在本次范围内补齐。
+   */
+  projectId?: string;
+  projectName?: string;
 }) {
   const canWrite = ROLE_CAN_WRITE[view] && !orgDisabled;
   const stageControl = ROLE_STAGE_CONTROL[view] && !orgDisabled;
@@ -76,7 +94,7 @@ export function ProjectWorkbench({
               <a href="/projects"><ChevronLeft aria-hidden className="h-3.5 w-3.5" />全部项目</a>
             </Button>
             <div className="min-w-0 flex-1">
-              <div className="text-14 font-medium" data-testid="project-title">{PROJECT_HEADER.name}</div>
+              <div className="text-14 font-medium" data-testid="project-title">{projectName ?? PROJECT_HEADER.name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="text-11 text-muted-foreground">
                   {PROJECT_HEADER.org} · {PROJECT_HEADER.duration} · {PROJECT_HEADER.groupCount}
@@ -206,7 +224,7 @@ export function ProjectWorkbench({
               }}
               successMessage="已发布 · 绑定 v2，审计已留痕"
             >
-              {renderTab(tab, view, sub, orgDisabled)}
+              {renderTab(tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id)}
             </StateShell>
           </main>
         </div>
@@ -215,9 +233,9 @@ export function ProjectWorkbench({
   );
 }
 
-function renderTab(tab: ProjectTab, view: ProjectRole, _sub: string | null, orgDisabled: boolean) {
+function renderTab(tab: ProjectTab, view: ProjectRole, _sub: string | null, orgDisabled: boolean, projectId: string) {
   switch (tab) {
-    case "overview": return <TabOverview view={view} readOnly={orgDisabled} />;
+    case "overview": return <TabOverview view={view} readOnly={orgDisabled} projectId={projectId} />;
     case "research": return <TabResearch view={view} readOnly={orgDisabled} />;
     case "prep": return <TabPrep view={view} readOnly={orgDisabled} />;
     case "live": return <TabLive view={view} readOnly={orgDisabled} />;
