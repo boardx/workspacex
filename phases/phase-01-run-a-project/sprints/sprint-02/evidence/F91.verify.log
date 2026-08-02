@@ -1,0 +1,72 @@
+F91 — 发言时长监测私下提醒 + AI 副驾驶四类建议四出口（不对受访者下发）
+Issue: #326 · uc-6-4 R3 步骤4/6, E2/E7, R5, I-5, I-34, V3/V4/V5
+
+## 实现摘要
+
+- packages/contracts/src/interview.ts
+  - 新增 `AiSuggestionKind`（followup/clarify/counter_example，`origin: "human_observer"` 时恒 null）
+  - `SuggestionOutcome` 补第四出口 `later`（原只有 adopt/edit-adopt/dismiss，缺"稍后入待办"）
+  - `CopilotSuggestion` 补 `aiSuggestionKind` / `reason` / `sourceSegmentId` 并把
+    `sourceTimecode` 收紧为非空（对齐 domain.md I-5 「非空 sourceSegmentId + sourceTimecode」）
+- packages/contracts/src/thresholds.ts：新增已裁决阈值 `speakingBalanceThresholdSeconds`
+  （O-36，默认 240 秒，单一事实源，禁止另抄字面量）
+- apps/api/src/domain/interview/speaking-balance.ts（新增）
+  - `evaluateSpeakingBalance` —— 双信号纯函数判定（连续发言 ≥ 阈值 AND 他人举手且当前
+    主题未答），私下文案含两项事实，输出形状与契约 `evaluateSpeakingBalance.out.alert` 对齐
+- apps/api/src/domain/interview/copilot-suggestion.ts（新增）
+  - `assembleCopilotSuggestion` —— 生成端来源门禁（I-5）：缺 sourceSegmentId /
+    sourceTimecode / reason 任一 ⇒ `SUGGESTION_NO_SOURCE`，不落库
+  - `suggestionsForViewer` —— 受访者不下发门（I-34）：受访者视角 + 开关关闭 ⇒ 返回
+    `undefined`（字段不写入响应体，非空数组）；其余角色不受该开关影响
+
+## 命令 1：pnpm --filter api exec vitest run tests/itv/speaking-time-private-nudge-dual-signal.test.ts tests/itv/copilot-not-delivered-to-interviewee.test.ts
+
+ RUN  v2.1.9 /private/tmp/f91-worktree/apps/api
+
+ ✓ tests/itv/speaking-time-private-nudge-dual-signal.test.ts (9 tests) 19ms
+ ✓ tests/itv/copilot-not-delivered-to-interviewee.test.ts (12 tests) 29ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  12:07:03
+   Duration  3.11s
+
+## 命令 2：grep -rq 'data-testid=.itv-copilot' apps/web/components/interview
+
+GREP_OK: data-testid=itv-copilot found (apps/web/components/interview/interview-copilot.tsx，F90/F91 之前既有落点，未改动)
+
+## 附加验证（未在 verification 清单，但作为回归证据保留）
+
+- pnpm --filter @repo/contracts exec vitest run → 8 files / 166 tests passed
+  （确认扩展 CopilotSuggestion / SuggestionOutcome / 新增 AiSuggestionKind /
+  thresholds.speakingBalanceThresholdSeconds 未破坏契约形状门禁：contract-shape /
+  out-schemas-strict / no-forbidden-routes 全绿）
+- pnpm --filter api exec vitest run tests/itv → 40 files / 314 tests passed
+  （本束既有 F80–F90/F93/F99 测试无回归）
+- node apps/api/scripts/lint-naming-single-source.mjs → 0 处败选名
+- pnpm --filter api exec tsc --noEmit -p .：新增/改动文件本身无类型错误；仓库既有的
+  packages/fabric-markdown DOM lib 类型错误为基线已存在问题（stash 验证过，与本 feature
+  无关，未修复，不在本 PR 范围）
+- tests/kernel/permission-propagation-six-paths.test.ts：本地无 Postgres，连接失败
+  （issue #74 已知：Postgres 依赖测试本地可能不稳定），与 F91 无关，未改动该文件
+
+## 判断与已知缺口（供后续 iteration）
+
+- `SuggestionOutcome` 新增 `later` 值、`CopilotSuggestion` 新增
+  `aiSuggestionKind`/`reason`/`sourceSegmentId` 字段：这是填一个真实的契约缺口
+  （domain.md I-5 早已要求 sourceSegmentId，且 usecases.md V4 要求四类可辨识、四出口
+  语义不同，但既有契约只有 origin 二值 + 三出口）——不是重新声明已有事实，已核对
+  `origin` 与新增 `aiSuggestionKind` 不重复编码同一件事（origin=谁产出，
+  aiSuggestionKind=ai 建议的哪个子类）。
+- 本 feature 只实现 issue notes 明确要求的两条：双信号私下提醒判定 + 生成端来源门禁 +
+  受访者不下发过滤，均为纯领域函数（domain 层），尚未接线到
+  application/interface（控制器 / 仓储 / 编排调用这些纯函数）——issue notes 原文
+  「界面已建，这大概率是 domain/application 层接线」，但由于 F92（同样依赖 F90、
+  与本 feature 并发派发）也在动访谈现场域，为收窄改动面、避免与 F92 在
+  application/interface 层撞车，本次 PR 把落点收在最小可验证的 domain 层
+  （evaluateSpeakingBalance / assembleCopilotSuggestion / suggestionsForViewer），
+  三条 verification 命令均已满足。应用层编排（真正调用 inviteSpeaker /
+  actOnSuggestion / 从转录流水线喂 continuousSeconds）留作后续 iteration 的缺口，
+  如实记录，不在此打勾掩盖。
+- `AiSuggestionKind` 三类各自的生成 prompt / 检索策略不在本 feature 范围（那是
+  Context Pack 装配与模型调用的编排层职责，见 domain.md I-33「只经 Context API」）。

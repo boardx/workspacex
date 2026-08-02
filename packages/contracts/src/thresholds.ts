@@ -80,6 +80,20 @@ export const THRESHOLDS = {
       "原型「被丢弃 · 14 条低相关，相关度低于 0.45」",
   } satisfies ResolvedThreshold<RelevanceThresholdValue>,
 
+  /* ── O-36：发言时长私下提醒阈值（**已裁决**，故 known: true；F91，uc-6-4 R3 步骤4）──── */
+  speakingBalanceThresholdSeconds: {
+    known: true,
+    value: 240,
+    rule:
+      "私下提醒需**同时**满足「连续发言 ≥ 本阈值」与「他人举手/未答」两个信号，" +
+      "只满足时长而无人举手/未答时**不触发**——防止在受访者正常长叙述时反复打断研究员" +
+      "（对照后台反馈「FC Facilitator·打断时机过早 👎9」的教训）。本阈值是**项目级可配置**的" +
+      "默认值，代码中不得另抄一份字面量 `240`。",
+    source:
+      "requirements/06-itv/uc-6-4-现场记录与-ai-副驾驶.md R3 步骤4/R10「已裁决 O-36」" +
+      "（原型示例「连续 4 分 20 秒」的整数化，默认 240 秒且可配，研究方法负责人可上调）",
+  } satisfies ResolvedThreshold<number>,
+
   /* ── N-2：召回质量基线 ────────────────────────────────────────── */
   vectorRecallBaseline: {
     known: false,
