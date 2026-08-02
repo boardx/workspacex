@@ -219,6 +219,36 @@ export const THRESHOLDS = {
     source: "原型 16,683,800 逐字「第三方源默认进入 14 天隔离期」",
   } satisfies ResolvedThreshold<number>,
 
+  /* ── F60（UC-4.4 / O-36 第 3 项）：额度异常判据 —— 相对均值倍数 + 观察窗口 ──── */
+  agentQuotaAnomalyMultiplier: {
+    known: true,
+    value: 10,
+    rule:
+      "单人单日调用量达 24 小时滚动窗口均值的本倍数以上即判额度异常并自动限速；" +
+      "判据是**相对均值的倍数**而非绝对阈值——代码中不得另抄一份字面量 `10`",
+    source:
+      "requirements/04-agent/uc-4-4-agent-行为审计.md R4/R10「裁决（O-36 第 3 项）：" +
+      "10 倍 / 24 小时滚动窗口」",
+  } satisfies ResolvedThreshold<number>,
+  agentQuotaAnomalyWindowHours: {
+    known: true,
+    value: 24,
+    rule: "额度异常判据的观察窗口（滚动窗口，非自然日）；与 `agentQuotaAnomalyMultiplier` 成对使用",
+    source: "requirements/04-agent/uc-4-4-agent-行为审计.md R10「裁决（O-36 第 3 项）：10 倍 / 24 小时滚动窗口」",
+  } satisfies ResolvedThreshold<number>,
+
+  /* ── F60（UC-4.4 / O-36 第 4 项）：agent 互调深度上限（**唯一有原型依据的一项**）── */
+  agentCallChainMaxDepth: {
+    known: true,
+    value: 2,
+    rule:
+      "agent 互调调用链深度上限；深度 3 在第 3 层被终止并留痕（防止 agent 互调递归）。" +
+      "代码中不得另抄一份字面量 `2`",
+    source:
+      "requirements/04-agent/uc-4-4-agent-行为审计.md R10「裁决（O-36 第 4 项）：深度上限 ＝ 2" +
+      "（采信原型，是 O-36 八项中唯一有原型依据的一项）」",
+  } satisfies ResolvedThreshold<number>,
+
   /* ── N-1：法定留存清单（外部输入缺口，最硬的一条）──────────────── */
   legalHoldCategories: {
     known: false,
