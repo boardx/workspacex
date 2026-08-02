@@ -1,40 +1,21 @@
-F124 —— archiveProject / unarchiveProject：两态只读（PG RESTRICTIVE）+ 归档四连带 + 无删除接口断言
-验证证据 —— 生成于隔离 worktree /tmp/f124-worktree（分支 worker/w2-project2-01-F124）
-基线：origin/main @ 4aec199
+$ pnpm --filter api run typecheck
+[exit 0]
 
-================================================================================
-结论摘要
-================================================================================
-- typecheck / lint / 两条新增 vitest 文件 / verify-rls.sh / @repo/contracts test 全部通过（exit 0）。
-- migrate:check 失败（exit 1），但已实测确认这是**基线（未修改的 origin/main @ 4aec199）上
-  同样复现的预先存在的缺陷**，与 F124 无关——根因是 F121 迁移
-  (20260731161729_f121_agenda_segment_naming.sql) 对 artifact_bindings.step_id 做了
-  不可逆的 RENAME COLUMN，而 0008-f06-binding-modes.sql 里 CREATE OR REPLACE FUNCTION
-  binding_mode_monotonic 仍字面引用 step_id；migrate:check 的强制重放（force:true，不重置库）
-  在同一个库上第二次跑 0008 时,列已被 F121（第一遍时执行）改名，重建触发器函数时
-  "column step_id does not exist"。复现方法与验证见下方 §5。已作为独立 issue 建议报告，
-  不在本 feature 范围内代为修复（AGENTS.md「范围纪律：只动当前 feature 涉及的代码」）。
-
-================================================================================
-§1 pnpm --filter api run typecheck
-================================================================================
-
-> @repo/api@0.0.0 typecheck /private/tmp/f124-worktree/apps/api
+> @repo/api@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 > tsc --noEmit
 
-typecheck exit=0
 
-================================================================================
-§2 pnpm --filter api run lint
-================================================================================
 
-> @repo/api@0.0.0 lint /private/tmp/f124-worktree/apps/api
-> node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+$ pnpm --filter api run lint
+[exit 0]
 
-✅ lint-error-leak: 30 files in the interface layer, no error detail reaches a response
-scanned=30
+> @repo/api@0.0.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+> node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+
+✅ lint-error-leak: 34 files in the interface layer, no error detail reaches a response
+scanned=34
 ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
-scanned=343 tenant-tables=60 allowlisted=16
+scanned=656 tenant-tables=85 allowlisted=32
 · [debt] apps/web/lib/mock/admin.ts:219  built-in capability entry `Ava`
 · [debt] apps/web/lib/mock/admin.ts:220  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/admin.ts:221  built-in capability entry `Echo`
@@ -74,7 +55,7 @@ scanned=343 tenant-tables=60 allowlisted=16
 · [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
 · [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
 · [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
-· [debt] apps/web/lib/mock/asset-governance.ts:339  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/asset-governance.ts:385  built-in capability entry `Ava`
 · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `templates` with 3 entries
 · [debt] apps/web/lib/mock/canvas.ts:283  list-shaped constant `skills` with 3 entries
 · [debt] apps/web/lib/mock/canvas.ts:284  list-shaped constant `templates` with 6 entries
@@ -102,19 +83,19 @@ scanned=343 tenant-tables=60 allowlisted=16
 · [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `skills` with 5 entries
 · [debt] apps/web/lib/mock/chat.ts:790  list-shaped constant `skills` with 4 entries
 · [debt] apps/web/lib/mock/chat.ts:826  list-shaped constant `presetSkills` with 3 entries
-· [debt] apps/web/lib/mock/interview-studio.ts:425  built-in capability entry `Echo`
-· [debt] apps/web/lib/mock/project.ts:210  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/interview-studio.ts:426  built-in capability entry `Echo`
+· [debt] apps/web/lib/mock/project.ts:254  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/rec.ts:325  built-in capability entry `Ava`
-· [debt] apps/web/lib/mock/rec.ts:389  built-in capability entry `Ava`
-· [debt] apps/web/lib/mock/rec.ts:390  built-in capability entry `Ava`
-· [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Scout`
+· [debt] apps/web/lib/mock/rec.ts:391  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:392  built-in capability entry `Ava`
+· [debt] apps/web/lib/mock/rec.ts:393  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
 · [debt] apps/web/lib/mock/skill.ts:639  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/tasks.ts:158  built-in capability entry `Ledger`
 · [debt] apps/web/lib/mock/tasks.ts:168  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
 ✅ lint-no-builtin-capabilities: no built-in capability list in product code
-scanned=633 violations=0 debt=78 migrations=44
+scanned=948 violations=0 debt=78 migrations=64
 · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (15 distinct keys)
 · [debt] apps/web/lib/mock/tpl.ts:516  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
 · [debt] apps/web/lib/mock/tpl.ts:520  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
@@ -124,200 +105,63 @@ scanned=633 violations=0 debt=78 migrations=44
 · [debt] apps/web/lib/mock/tpl.ts:548  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
 · [debt] apps/web/components/tpl/designer-panels.tsx:709  second design-facet definition table spread over multiple lines (13 distinct keys)
 ✅ lint-design-facet-single-source: the definition table has one source
-scanned=843 violations=0 debt=8 keys=15 groups=5
+scanned=1376 violations=0 debt=8 keys=15 groups=5
 ✅ design-facet catalog is in sync with the definition table
-✅ lint-skill-context-api-only: 19 个文件，skill 取数只经 Context API（I-25）
-scanned=19 violations=0
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 49 个文件，skill 取数只经 Context API（I-25）
+scanned=49 violations=0
 ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
 scanned-roots=4
-✅ lint-arch-deps: 341 files, all dependencies point inward
-scanned=341
-lint exit=0
+✅ lint-arch-deps: 654 files, all dependencies point inward
+scanned=654
 
-================================================================================
-§3 pnpm --filter api exec vitest run tests/project/archive-readonly-and-readable.test.ts
-================================================================================
 
- RUN  v2.1.9 /private/tmp/f124-worktree/apps/api
+$ pnpm --filter api exec vitest run tests/project/archive-readonly-and-readable.test.ts
+[exit 0]
 
- ✓ tests/project/archive-readonly-and-readable.test.ts (5 tests) 792ms
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+
+ ✓ tests/project/archive-readonly-and-readable.test.ts (5 tests) 613ms
 
  Test Files  1 passed (1)
       Tests  5 passed (5)
-   Start at  05:23:15
-   Duration  1.17s (transform 62ms, setup 0ms, collect 93ms, tests 792ms, environment 0ms, prepare 49ms)
+   Start at  12:41:43
+   Duration  847ms (transform 48ms, setup 0ms, collect 49ms, tests 613ms, environment 0ms, prepare 45ms)
 
-exit=0
 
-================================================================================
-§4 pnpm --filter api exec vitest run tests/project/archive-four-consequences.test.ts
-================================================================================
 
- RUN  v2.1.9 /private/tmp/f124-worktree/apps/api
+$ pnpm --filter api exec vitest run tests/project/archive-four-consequences.test.ts
+[exit 0]
 
- ✓ tests/project/archive-four-consequences.test.ts (7 tests | 2 skipped) 931ms
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
+
+ ✓ tests/project/archive-four-consequences.test.ts (7 tests | 2 skipped) 856ms
 
  Test Files  1 passed (1)
       Tests  5 passed | 2 todo (7)
-   Start at  05:23:16
-   Duration  1.28s (transform 56ms, setup 0ms, collect 86ms, tests 931ms, environment 0ms, prepare 42ms)
+   Start at  12:41:44
+   Duration  1.20s (transform 63ms, setup 0ms, collect 95ms, tests 856ms, environment 1ms, prepare 113ms)
 
-exit=0
 
-================================================================================
-§5 pnpm --filter api run migrate:check —— 失败，已实测确认是基线预先存在的缺陷
-================================================================================
---- 本分支（含 F124 迁移）上的失败输出 ---
 
-> @repo/api@0.0.0 migrate:check /private/tmp/f124-worktree/apps/api
+$ pnpm --filter api run migrate:check
+[exit 1]
+
+> @repo/api@0.0.0 migrate:check /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 > ./scripts/verify-migrations.sh
 
+  applied 64 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✗ schema digest identical after replay -- c3c38dbff23f vs 160e5cfd6ef4
+      only after : policy retention_policies.retention_policies_project_archived_del USING(((project_id IS NULL) OR kernel_project_is_writable(project_id))) CHECK(null)
+      only after : policy retention_policies.retention_policies_project_archived_ins USING(null) CHECK(((project_id IS NULL) OR kernel_project_is_writable(project_id)))
+      only after : policy retention_policies.retention_policies_project_archived_upd USING(null) CHECK(((project_id IS NULL) OR kernel_project_is_writable(project_id)))
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api/migrations/)
+❌ migrate:check: 1 failure(s). Do not work around this by rebuilding the database -- production will not offer that option.
+/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 migrate:check: `./scripts/verify-migrations.sh`
+Exit status 1
  Container workspacex-kernel-postgres-1 Running 
-  applied 44 migration(s) to an empty database
-/private/tmp/f124-worktree/apps/api/src/infrastructure/db/migrator.ts:109
-          throw new Error(`migration ${name} failed: ${msg}`);
-                ^
 
-Error: migration 0008-f06-binding-modes.sql failed: column "step_id" does not exist
-    at migrate (/private/tmp/f124-worktree/apps/api/src/infrastructure/db/migrator.ts:109:17)
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async <anonymous> (/private/tmp/f124-worktree/apps/api/scripts/migrate-check.ts:30:16)
-
-Node.js v22.23.1
- ELIFECYCLE  Command failed with exit code 1.
-exit=1
-
---- 复现步骤：在未修改的 origin/main @ 4aec199 单独 worktree 上跑同一条命令，同样失败 ---
-$ git worktree add /tmp/f124-check origin/main
-$ cd /tmp/f124-check && pnpm install --frozen-lockfile && pnpm --filter @repo/fabric-markdown run build
-$ cd apps/api && WORKSPACEX_DB=wsx_f124check pnpm run migrate:check
-输出（节选）：
-  applied 43 migration(s) to an empty database
-  Error: migration 0008-f06-binding-modes.sql failed: column "step_id" does not exist
-
-根因：F121 迁移 20260731161729_f121_agenda_segment_naming.sql 对
-artifact_bindings.step_id 做 RENAME COLUMN → agenda_segment_id（不可逆）；
-0008-f06-binding-modes.sql 的 CREATE OR REPLACE FUNCTION binding_mode_monotonic
-仍字面引用 NEW.step_id/OLD.step_id。migrate:check 的 force 重放在同一个已迁移库上
-（不重置）按顺序再跑一遍全部文件：0008 第二次执行到这段 CREATE OR REPLACE FUNCTION 时，
-该列已被同一趟重放中先跑过的 F121 改名，触发器函数编译失败。
-此缺陷与 F124 的新迁移无关（F124 的迁移在 0008 之后、且不触碰 artifact_bindings/
-step_id/agenda_segment_id），已作为独立缺陷在 PR/issue 中报告，不在本 feature 范围内代修。
-
-================================================================================
-§6 apps/api/scripts/verify-rls.sh
-================================================================================
-== bringing up postgres, resetting to an empty database ==
- Container workspacex-kernel-postgres-1 Running 
-== applying migrations as the owner ==
-applied 44 migration(s), skipped 0
-  + 0001-kernel-roles.sql
-  + 0002-rls-probe.sql
-  + 0003-identity.sql
-  + 0004-f02-tenant-isolation-audit.sql
-  + 0005-f03-admin-boundary.sql
-  + 0006-f04-artifact-model.sql
-  + 0007-f05-snapshot-immutability.sql
-  + 0008-f06-binding-modes.sql
-  + 0008-f15-capability-listings.sql
-  + 0009-f10-retrieval-index.sql
-  + 0010-auth-credentials-sessions.sql
-  + 0011-f19-auth-registration.sql
-  + 0012-f07-downstream-references.sql
-  + 0013-f08-provenance-audit.sql
-  + 0014-f22-org-lifecycle.sql
-  + 0015-f16-personal-local-org.sql
-  + 0016-f13-context-pack-persistence.sql
-  + 0017-f17-local-export.sql
-  + 0018-f116-project-supertype-subtypes.sql
-  + 0019-f48-model-pool.sql
-  + 0020-f80-interview-scope.sql
-  + 0021-f108-chat-visibility.sql
-  + 0022-f10-org-member-invites.sql
-  + 0023-f31-files-browser.sql
-  + 0025-f15-project-invite-links.sql
-  + 0026-f117-create-project-idempotency.sql
-  + 0027-f32-download-grants.sql
-  + 0029-f109-thread-list.sql
-  + 0030-f81-interview-step-attachments.sql
-  + 0031-f49-admission-tests.sql
-  + 0032-f110-ai-team-panel.sql
-  + 20260731085758_f11_admin_invite_dual_review.sql
-  + 20260731085808_f118_agenda_segments_table.sql
-  + 20260731090052_f16_revoke_access_timing.sql
-  + 20260731090952_f12_group_link_auto_enroll.sql
-  + 20260731153640_f73_recording_file_first.sql
-  + 20260731153916_f13_guestless_entry_edge_cases.sql
-  + 20260731160433_f74_speaker_assignment_backfill.sql
-  + 20260731161729_f121_agenda_segment_naming.sql
-  + 20260731165010_f72_pii_masking_phone_encryption.sql
-  + 20260731165140_f14_interviewee_phone_withdrawal.sql
-  + 20260731170006_f115_preset_conversation_distribution.sql
-  + 20260731170746_f111_chat_citations.sql
-  + 20260801120000_f124_project_archive_readonly.sql
-
-== 1-4: role and table properties ==
-  ✓ app_rw owns no table (= 0)
-  ✓ app_rw does not have BYPASSRLS (= f)
-  ✓ app_rw cannot run DDL in public (= f)
-  ✓ every RLS-enabled table is FORCEd (= 0)
-  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
-  ✓ audit is not idle: 60 tenant tables classified ok (floor 46)
-  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
-  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
-
-== 5-7: cross-tenant reads as app_rw, no application-level filter ==
-  ✓ 5. as org-a, zero rows belong to org-b
-  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
-  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
-  ✓    (fixture sanity) org-a sees exactly its own two rows
-RLS-ASSERT-OK
-
-✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
-exit=0
-
-================================================================================
-§7 pnpm --filter @repo/contracts run test
-================================================================================
-
-> @repo/contracts@0.0.0 test /private/tmp/f124-worktree/packages/contracts
-> vitest run
-
-
- RUN  v2.1.9 /private/tmp/f124-worktree/packages/contracts
-
- ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 5ms
- ✓ tests/pending-thresholds.test.ts (7 tests) 84ms
- ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 4ms
- ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 6ms
- ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 11ms
- ✓ tests/out-schemas-strict.test.ts (2 tests) 5ms
- ✓ tests/no-forbidden-routes.test.ts (15 tests) 6ms
- ✓ tests/contract-shape.test.ts (77 tests) 79ms
-
- Test Files  8 passed (8)
-      Tests  166 passed (166)
-   Start at  05:23:24
-   Duration  1.19s (transform 1.04s, setup 0ms, collect 2.92s, tests 200ms, environment 2ms, prepare 1.34s)
-
-exit=0
-
-================================================================================
-§8 补充：回归确认——整个 tests/project/ 目录 + F22 的 tests/auth/org-disabled-readonly.test.ts
-================================================================================
-F124 的迁移给 workshops/research_projects/user_insights 新增了第二组 RESTRICTIVE 策略，
-与已 passing 的 F122/F116 测试夹具、F22 的策略计数断言存在潜在耦合，逐一跑过确认未破坏：
-
---- WORKSPACEX_DB=wsx_f124 pnpm exec vitest run tests/project/ ---
-22 files passed (150 tests passed, 2 todo)
-  发现并修复两处因 F124 新增策略而需要联动更新的既有测试（均已在本 PR 一并修正，
-  理由写在各自文件内的注释里）：
-  1. tests/project/list-projects-readonly-visible.test.ts 的 createProjectRow 夹具：
-     直接以 status='archived' 一步建 workshops 行，会被 F124 的 INSERT 冻结拒绝——
-     改为先以 active 建两行，再 UPDATE 成目标状态（生产路径本就是这个顺序）。
-  2. tests/project/subtype-exclusive-1to1.test.ts 断言三张子类型表"恰好 3 条" RESTRICTIVE
-     策略——F124 落地后每张表变成 6 条（F22 的 3 条 + F124 的 3 条），改为按策略名前缀
-     分别断言两组"各自恰好 3 条"，而不是笼统地把期望值改成 6。
-
---- WORKSPACEX_DB=wsx_f124 pnpm exec vitest run tests/auth/org-disabled-readonly.test.ts ---
-16 tests passed —— F22 的组织冻结（含其 catalog 覆盖面审计）未受影响。
+[harness-verify v1 sha256=9e6bb31effafc3350b02f7ba27f271a630c87ac96d41412ac088418929ac3b2d commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:41:49.327Z]

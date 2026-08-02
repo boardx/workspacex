@@ -1,42 +1,42 @@
 $ pnpm --filter api exec vitest run tests/files/empty-and-dependency-failed.test.ts
 [exit 0]
 
- RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
- ✓ tests/files/empty-and-dependency-failed.test.ts (7 tests) 760ms
+ ✓ tests/files/empty-and-dependency-failed.test.ts (7 tests) 357ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  06:07:00
-   Duration  1.34s (transform 253ms, setup 0ms, collect 365ms, tests 760ms, environment 0ms, prepare 43ms)
+   Start at  12:40:14
+   Duration  829ms (transform 195ms, setup 0ms, collect 271ms, tests 357ms, environment 0ms, prepare 49ms)
 
 
 
 $ pnpm --filter api exec vitest run tests/files/no-access-equals-not-exist.test.ts
 [exit 0]
 
- RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
- ✓ tests/files/no-access-equals-not-exist.test.ts (4 tests) 412ms
+ ✓ tests/files/no-access-equals-not-exist.test.ts (4 tests) 278ms
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  06:07:02
-   Duration  1.32s (transform 382ms, setup 0ms, collect 649ms, tests 412ms, environment 0ms, prepare 37ms)
+   Start at  12:40:15
+   Duration  771ms (transform 170ms, setup 0ms, collect 348ms, tests 278ms, environment 0ms, prepare 30ms)
 
 
 
 $ pnpm --filter api exec vitest run tests/files/rename-is-contract.test.ts
 [exit 0]
 
- RUN  v2.1.9 /private/tmp/f34-worktree/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
- ✓ tests/files/rename-is-contract.test.ts (12 tests) 1223ms
+ ✓ tests/files/rename-is-contract.test.ts (12 tests) 437ms
 
  Test Files  1 passed (1)
       Tests  12 passed (12)
-   Start at  06:07:04
-   Duration  1.95s (transform 307ms, setup 0ms, collect 480ms, tests 1.22s, environment 0ms, prepare 35ms)
+   Start at  12:40:16
+   Duration  805ms (transform 156ms, setup 0ms, collect 212ms, tests 437ms, environment 0ms, prepare 33ms)
 
 
 
@@ -89,4 +89,4 @@ $ bash apps/web/scripts/verify-ui-states.sh
 
 ❌ UI 状态门控失败
 
-[harness-verify v1 sha256=1211cef5afd51a2be2d3bf53a4a1c97b2e131ad577f26c8ae7864bb87cbc0327 commit=aae4c05404730f6423303c96bcde3289edb0ff98 at=2026-07-31T22:08:03.482Z]
+[harness-verify v1 sha256=a52ed49e14b9029239258d92a4b7f79acf6cff2a2875a608593ffbfc31051553 commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:40:52.313Z]

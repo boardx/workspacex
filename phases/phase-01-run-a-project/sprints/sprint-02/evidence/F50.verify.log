@@ -1,42 +1,42 @@
 $ pnpm --filter api exec vitest run tests/capability/model/selectable-set-equals-enabled.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
  ✓ tests/capability/model/selectable-set-equals-enabled.test.ts (11 tests) 2ms
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  22:47:05
-   Duration  345ms (transform 144ms, setup 0ms, collect 191ms, tests 2ms, environment 0ms, prepare 34ms)
+   Start at  12:40:52
+   Duration  350ms (transform 147ms, setup 0ms, collect 193ms, tests 2ms, environment 0ms, prepare 29ms)
 
 
 
 $ pnpm --filter api exec vitest run tests/capability/model/disable-cascade-dep-failed.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
  ✓ tests/capability/model/disable-cascade-dep-failed.test.ts (11 tests) 2ms
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  22:47:06
-   Duration  345ms (transform 144ms, setup 0ms, collect 190ms, tests 2ms, environment 0ms, prepare 37ms)
+   Start at  12:40:53
+   Duration  342ms (transform 143ms, setup 0ms, collect 188ms, tests 2ms, environment 0ms, prepare 34ms)
 
 
 
 $ pnpm --filter api exec vitest run tests/capability/model/disable-choice-interrupt-or-finish.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/a2e2f843-3180-488a-905f-a8d6890cc024/scratchpad/verify-wt/apps/api
 
  ✓ tests/capability/model/disable-choice-interrupt-or-finish.test.ts (8 tests) 2ms
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  22:47:06
-   Duration  344ms (transform 141ms, setup 0ms, collect 183ms, tests 2ms, environment 0ms, prepare 31ms)
+   Start at  12:40:53
+   Duration  342ms (transform 144ms, setup 0ms, collect 187ms, tests 2ms, environment 0ms, prepare 37ms)
 
 
 
@@ -89,4 +89,4 @@ $ bash apps/web/scripts/verify-ui-states.sh
 
 ❌ UI 状态门控失败
 
-[harness-verify v1 sha256=bf4d6e65abd6664783c77ee2ccb710734871aef10e726131754329bd519c28d5 commit=d00690f65eabd7cd82c4eb3c7dbd879f4805d330 at=2026-07-31T14:47:32.024Z]
+[harness-verify v1 sha256=8a2b76219ff2d3b420cb3c0c23d286ba0a8e1381e863dc3cd80c3379d9710a3c commit=00324a044d43b3cda728e95fb59c381b189fe895 at=2026-08-02T04:41:30.238Z]
