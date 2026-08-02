@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry";
+import { ApiError, storeSessionToken } from "@/lib/api-client";
+import { login } from "@/lib/auth-client";
 
 /**
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
@@ -27,6 +29,43 @@ export function LoginForm({ state }: { state: UiState }) {
   const [createOrg, setCreateOrg] = React.useState(false);
   const [inviteCode, setInviteCode] = React.useState("");
   const [orgRequested, setOrgRequested] = React.useState(false);
+
+  // F355：真实提交状态。邮箱/密码之前是不受控输入（纯原型，从不读值）——
+  // 真实登录必须读到用户填的值,所以这里补上受控 state。
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  // ⚠ 只在 `state === "default"`（即没有 `?state=` 强制预览态）时才打真实请求。
+  //   六个预览态（loading/empty/invalid/dep-failed/denied/success）的职责是**演示
+  //   固定 UI**，供七态签核用，不应该被一次真实网络请求的实际结果反过来驱动——
+  //   那样 `?state=invalid` 在后端恰好也返回失败时才「像话」，等后端行为一变，
+  //   签核用的固定预览态就悄悄失真了。防枚举文案（"邮箱或密码不正确"）与这里的
+  //   真实错误分开渲染，见下方 `apiError`。
+  const [apiError, setApiError] = React.useState<string | null>(null);
+
+  async function handleRealSubmit() {
+    if (submitting) return;
+    setApiError(null);
+    setSubmitting(true);
+    try {
+      const out = await login(email, password);
+      storeSessionToken(out.sessionToken);
+      // `/projects` 还是原型页（展示字段无出处，见 `project/live/page.tsx` 文件头）。
+      // 目前仓库里唯一真实数据驱动的落地页是 `/project/live`（F122）——
+      // 登录成功后跳到那里，而不是跳进一个 mock 屏、假装刚才的登录有意义。
+      router.push("/project/live");
+    } catch (e) {
+      // 防枚举：不区分邮箱不存在 / 密码错误 / 账号锁定的具体原因，同 `auth.controller.ts`
+      // 的 `AuthError` 处置——所有 401 原因码在这里折成同一句话。
+      if (e instanceof ApiError) {
+        setApiError(
+          e.status === 401 ? "邮箱或密码不正确" : (e.reasonCode ?? `请求失败（${e.status}）`),
+        );
+      } else {
+        setApiError("网络或服务暂时不可用，请重试");
+      }
+      setSubmitting(false);
+    }
+  }
 
   if (createOrg) {
     // 邀请码长度从契约取（AUTH_POLICY.inviteCodeLength），去掉空格后计数。
@@ -170,7 +209,8 @@ export function LoginForm({ state }: { state: UiState }) {
           id="login-email"
           type="email"
           placeholder={LOGIN_BRAND.sampleEmail}
-          defaultValue={state === "invalid" ? LOGIN_BRAND.sampleEmail : undefined}
+          value={state === "invalid" ? LOGIN_BRAND.sampleEmail : email}
+          onChange={(e) => setEmail(e.currentTarget.value)}
           data-testid="login-email"
         />
       </div>
@@ -191,7 +231,8 @@ export function LoginForm({ state }: { state: UiState }) {
             id="login-password"
             type={showPwd ? "text" : "password"}
             placeholder="至少 12 位"
-            defaultValue={state === "invalid" ? "••••••••" : undefined}
+            value={state === "invalid" ? "••••••••" : password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
             className="pr-14"
             data-testid="login-password"
           />
@@ -214,15 +255,23 @@ export function LoginForm({ state }: { state: UiState }) {
         data-testid="login-submit"
         disabled={submitting}
         onClick={() => {
-          // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
-          // ⚠ 这是 mock 跳转：真实实现要先建会话、再由服务端决定落地页
-          //   （有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目）。
+          if (state === "default") {
+            void handleRealSubmit();
+            return;
+          }
+          // 六个预览态：保持原样的 mock 跳转，只是为了在 sign-off 时能演示
+          // 「提交后会离开这个屏」这一个动作，不代表真实登录发生过。
           setSubmitting(true);
           router.push("/projects");
         }}
       >
         {submitting ? "正在进入…" : "登录"}
       </Button>
+      {apiError !== null ? (
+        <p role="alert" data-testid="login-api-error" className="text-12 text-destructive">
+          {apiError}
+        </p>
+      ) : null}
 
       {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled 标 later）───────── */}
       <div className="flex items-center gap-3 py-0.5">

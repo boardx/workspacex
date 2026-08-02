@@ -4,22 +4,17 @@
  * 类型全部从 `@repo/contracts` 推导，不重新声明——同一份形状两处声明正是本仓
  * AGENTS.md 点名的事故模式（设计 token / 字号档位 / …）。
  */
-import { auth, project } from "@repo/contracts";
+import { project } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
+// F355：`login()` 搬到 `lib/auth-client.ts`，`(entry)/login` 与本页共用同一份
+// 真实登录函数，不再各自维护一份「登录」的含义。这里重新导出，保持既有导入路径不碎。
+import { login, type LoginOut } from "./auth-client";
 
 export type ProjectListItem = z.infer<typeof project.ProjectListItem>;
 export type ListProjectsOut = z.infer<typeof project.operations.listProjects.out>;
 export type CreateProjectOut = z.infer<typeof project.operations.createProject.out>;
-export type LoginOut = z.infer<typeof auth.operations.login.out>;
-
-export async function login(email: string, password: string): Promise<LoginOut> {
-  return apiRequest<LoginOut>(auth.operations.login.path, {
-    method: "POST",
-    body: { email, password },
-    sessionToken: null, // 登录本身不带 token
-  });
-}
+export { login, type LoginOut };
 
 export async function listProjects(orgId: string): Promise<ListProjectsOut> {
   return apiRequest<ListProjectsOut>(project.operations.listProjects.path, {
