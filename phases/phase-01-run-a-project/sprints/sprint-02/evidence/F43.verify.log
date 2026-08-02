@@ -1,0 +1,37 @@
+F43 -- 零个业务对象缺文件（file-first 总闸）+ 物化失败可见 + 溯源完整拒 READY
+Issue: https://github.com/boardx/workspacex/issues/325
+Date: 2026-08-02
+Branch: worker/w4-ingest8-01-F43
+
+Command 1: pnpm --filter api exec vitest run tests/files/zero-object-missing-file.test.ts
+Command 2: pnpm --filter api exec vitest run tests/files/materialize-failure-visible.test.ts
+Command 3: pnpm --filter api exec vitest run tests/files/provenance-required-for-ready.test.ts
+(run together below; each also passes standalone)
+
+
+ RUN  v2.1.9 /private/tmp/f43-worktree/apps/api
+
+ ✓ tests/files/provenance-required-for-ready.test.ts (5 tests) 7ms
+ ✓ tests/files/materialize-failure-visible.test.ts (3 tests) 7ms
+ ✓ tests/files/zero-object-missing-file.test.ts (2 tests) 7ms
+
+ Test Files  3 passed (3)
+      Tests  10 passed (10)
+   Start at  12:04:22
+   Duration  396ms (transform 125ms, setup 0ms, collect 339ms, tests 21ms, environment 0ms, prepare 263ms)
+
+
+Regression check: pnpm --filter api exec vitest run tests/files
+  -> 43 files passed (368 tests), no regressions (includes the 3 new F43 files above).
+
+Typecheck: pnpm --filter api typecheck
+  -> only pre-existing, unrelated errors in packages/fabric-markdown/src/{fabric-objects,mermaid-parser,diagrams/registry}.ts
+     (present on origin/main before this branch; not touched by F43). Zero errors in any file
+     this feature added or modified.
+
+Lint: node scripts/lint-naming-single-source.mjs -> 0 处败选名。
+
+Note: apps/api/tests/kernel/rbac-role-matrix.test.ts fails locally against Postgres
+(duplicate key / FK violations seeding fixture orgs) -- pre-existing local-Postgres flakiness
+per issue #74, unrelated to F43 (F43 ships no Postgres-backed code; its tests run entirely
+against in-memory fakes, matching F41's own pattern).
