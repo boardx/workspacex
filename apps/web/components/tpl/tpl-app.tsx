@@ -41,7 +41,9 @@ export function TplApp({
     const as = o.as ?? qs.as; if (as) p.set("as", as);
     if (qs.org) p.set("org", qs.org);
     const st = o.state ?? uiState; if (st && st !== "default") p.set("state", st);
-    const sc = o.screen ?? screen; if (sc && sc !== "designer") p.set("screen", sc);
+    // 裸参数省略的是"默认屏"："list"（F318：默认落地屏已从 designer 改为 list），
+    // 不再是 "designer"——否则预览态"屏"切换器点「蓝本设计器」会因省略参数被误判成 list。
+    const sc = o.screen ?? screen; if (sc && sc !== "list") p.set("screen", sc);
     const s = p.toString();
     return s ? `?${s}` : "?";
   };
@@ -91,11 +93,13 @@ function TplNav({ screen, href }: { screen: TplScreen; href: (o: { screen: strin
                 key={s}
                 asChild
                 size="sm"
-                variant={s === screen ? "primary" : "ghost"}
+                // "designer" 走真实挂载点 /tpl/designer（F18），不是本原型内的屏切换——
+                // 原型态 DesignerScreen 与真实设计器不是一回事，导航不能再指向原型（F318）。
+                variant={s === "designer" ? "ghost" : s === screen ? "primary" : "ghost"}
                 className="justify-start"
                 data-testid="tpl-nav-item"
               >
-                <a href={href({ screen: s })}>
+                <a href={s === "designer" ? "/tpl/designer" : href({ screen: s })}>
                   {TPL_SCREEN_LABEL[s]}
                   <Badge tone="outline" className="ml-auto">{TPL_SCREEN_UC[s]}</Badge>
                 </a>

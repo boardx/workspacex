@@ -722,5 +722,7 @@ export const TPL_SCREEN_UC: Record<TplScreen, string> = {
 };
 export function resolveTplScreen(raw: string | string[] | undefined): TplScreen {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return TPL_SCREENS.includes(v as TplScreen) ? (v as TplScreen) : "designer";
+  // 默认落地屏是列表，不是设计器（F318）：/tpl 裸路径此前默认渲染原型态设计器，
+  // 与真实挂载点 /tpl/designer 撞名却不是一回事，误导用户以为进的是真实设计器。
+  return TPL_SCREENS.includes(v as TplScreen) ? (v as TplScreen) : "list";
 }

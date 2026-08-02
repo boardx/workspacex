@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { Pencil, Copy, Trash2, Archive, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,7 +127,12 @@ function BlueprintRowCard({
       )}
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="xs" variant="outline" onClick={() => onToast(`进入蓝本设计器：${row.name}`)} data-testid="tpl-row-edit"><Pencil aria-hidden className="h-3 w-3" /> 编辑设计</Button>
+        {/* 真实挂载点 /tpl/designer（F18），不是本原型内的 ?screen=designer 屏（F318：全仓零引用曾是漂移根因）。
+            F18 当前未按蓝本 id 参数化（design-facet-catalog 只接了一套目录），故先全量指向同一入口，
+            忠实反映现状；等真实每蓝本路由落地再补 id。*/}
+        <Button size="xs" variant="outline" asChild data-testid="tpl-row-edit">
+          <Link href="/tpl/designer"><Pencil aria-hidden className="h-3 w-3" /> 编辑设计</Link>
+        </Button>
         <Button size="xs" variant="outline" onClick={() => onToast(`已复制「${row.name}」为独立新蓝本草稿`)} data-testid="tpl-row-copy"><Copy aria-hidden className="h-3 w-3" /> 复制</Button>
         {/* 引用计数门控：被套用过 → [归档]；从未套用 → [删除]（O-18①）*/}
         {row.appliedByProject
