@@ -128,6 +128,13 @@ export interface ConsentSnapshotRow extends ConsentSnapshotInput {}
 
 export interface ConsentSnapshotRepository {
   save(input: ConsentSnapshotInput): Promise<ConsentSnapshotRow>;
+  /**
+   * F96 —— 自助门户回看「当初告知你的是什么」需要按受访者取回**原始**（第一份）快照。
+   * ⚠ 与门户之后的同意位变更历史是两个不同的东西：这里找的是 `submitConsent` 那一次
+   *   落盘的行，不随后续 `updateConsentFromPortal` 的历史版本改变（AC5）。
+   *   一个 `(interviewId, subjectId)` 组合恒对应一份原始快照。
+   */
+  findBySubject(interviewId: string, subjectId: string): Promise<ConsentSnapshotRow | null>;
 }
 
 export const CONSENT_SNAPSHOT_REPOSITORY = Symbol("ConsentSnapshotRepository");
