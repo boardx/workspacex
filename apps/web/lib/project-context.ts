@@ -59,7 +59,6 @@ export interface ProjectContext {
  * 现在是死的（该路径永远重定向，从不渲染），一并移除，不留悬空映射。
  */
 const IMPLICIT_PROJECT_ROUTES: Record<string, ProjectContext> = {
-  "/chat": { id: "demo", name: "欧洲市场进入" },
   "/studio/survey": { id: "demo", name: "欧洲市场进入" },
 };
 

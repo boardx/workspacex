@@ -25,4 +25,15 @@ describe("Wave 1 authenticated routes", () => {
     expect(source).not.toContain("projects-org-id");
     expect(source).toContain("useSession");
   });
+
+  it("formal chat delegates to the read-only live screen without a demo project or mock fallback", () => {
+    const page = readFileSync(resolve(process.cwd(), "app/chat/page.tsx"), "utf8");
+    const projectContext = readFileSync(resolve(process.cwd(), "lib/project-context.ts"), "utf8");
+    expect(page).toContain("ChatReadScreen");
+    expect(page).not.toContain("ChatMain");
+    expect(page).not.toContain("ChatLeftPanel");
+    expect(page).not.toContain("ChatRightPanel");
+    expect(page).not.toContain("@/lib/mock/chat");
+    expect(projectContext).not.toMatch(/"\/chat"\s*:\s*\{\s*id:\s*"demo"/);
+  });
 });
