@@ -28,8 +28,7 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
 | `GET …/claims?resource_id=` | 查单个资源的活跃租约 | 查询失败要**可观测**，不许静默当"无租约" |
 | `GET …/claims` | 列全部活跃租约（看板用） | |
 | `GET …/time` | 权威时钟 + 周期 id（如 `2026-07-18T06Z`） | 公开只读；全队时间判断的唯一来源（ADR-014） |
-| `POST …/events` | 追加协调事件（叙述层：cycle-plan/cycle-result/andon/task-*…） | 类型清单见 types.ts `EVENT_TYPES`；append-only |
-| `GET …/events?since=` | 拉事件流 | |
+| `GET …/events?since=` | 拉内部协调事件流 | agent API 只读；事件由 claims/tasks/andon 等受控动作产生 |
 | `POST …/tasks` | 派工（仅 coordinator 层 token） | note ≤2000；deadline 必须合法 ISO（脏值直接 400，不静默） |
 | `GET …/tasks?assignee=` | 收件箱（自己）；`assignee=*` 列全队（仅 coordinator） | |
 | `POST …/tasks/:id/ack·done·recall` | 状态流转 pending→acked→done / →recalled | **状态前置判定必须与写入原子**（条件 UPDATE / DO 串行），409 报真实当前状态 |
@@ -42,6 +41,9 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
 4. **部署走 CD**：协调权威绝不手动部署（上游两个分支手动 deploy 互相覆盖、
    线上收件箱静默消失的事故是这条的出处）；冒烟脚本要带**漂移探针**
   （关键端点存在性断言：如 POST /tasks 无 token 应 401 而非 404）。
+
+`cycle-plan` / `cycle-result` 属于人类可读叙述层，写入全仓唯一、带
+`coordination:work-cycle` label 的 GitHub issue 评论；不要直接 `POST /events`。
 
 ## 接入方（agent 侧）怎么用
 

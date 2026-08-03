@@ -122,7 +122,7 @@ curl -s -H "Authorization: Bearer $COORD_API_TOKEN" \
   "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/tasks?assignee=$COORD_AGENT_ID&status=pending" | jq '.tasks'
 curl -s -X POST -H "Authorization: Bearer $COORD_API_TOKEN" \
   "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/tasks/<id>/ack" # 认领确认（然后照第 4 步 lock/claim）
-# 交付完成后：POST /tasks/<id>/done
+# 交付完成后：POST /tasks/<id>/complete
 ```
 
 轮询实现随你的 runtime：Claude Code 用 /loop 或 Monitor，Codex 用其等价物，
@@ -170,17 +170,21 @@ pnpm harness verify --sprint <阶段>/<sprint>   # 必须用 --sprint 模式
 
 ## 第 7 步 — 周期汇报（每 3 小时）
 
-节拍：UTC 00/03/06/09/12/15/18/21。每周期两条事件，发到 coord-gateway（不是
-GitHub 评论）：
+节拍：UTC 00/03/06/09/12/15/18/21。每周期在全仓唯一、带
+`coordination:work-cycle` label 的 GitHub issue 发 `cycle-plan` / `cycle-result` 评论；
+这是叙述总线，不写 coord-gateway（Gateway 的 `/events` 目前是只读查询面）：
 
 ```bash
-# 进周期：承诺 1-3 件本周期可验证完成的事
-curl -s -X POST -H "Authorization: Bearer $COORD_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/events" \
-  -d '{"type":"cycle-plan","resource_id":"<你在做的资源>","summary":"<承诺内容>"}'
-# 出周期：真完成的 / 没完成的 + 原因
-#   type 换成 cycle-result；阻塞升级用 andon（仅 coordinator kind 可发）
+WORK_CYCLE_ISSUE=$(gh issue list --repo "$COORD_REPO" --state open \
+  --label coordination:work-cycle --json number --jq '.[0].number')
+
+# 进周期：正文格式见 work-cycle-proposal.md；承诺 1-3 件可验证完成的事
+gh issue comment "$WORK_CYCLE_ISSUE" --repo "$COORD_REPO" \
+  --body $'cycle-plan cycle:<UTC起始时刻> by:<你的身份id>\ncommit: <本周期承诺>\ncarry: <上周期滚入>\nblocked: <阻塞或 none>'
+
+# 出周期：只写有 merge/verify 证据的完成项
+gh issue comment "$WORK_CYCLE_ISSUE" --repo "$COORD_REPO" \
+  --body $'cycle-result cycle:<UTC起始时刻> by:<你的身份id>\ndone: <已完成 + 证据>\nmiss: <未完成 + 原因>\nflow: <PR 开出到合并时长>'
 ```
 
 唯一硬指标是 **flow time**（你的 PR 从开出到合并的中位时长）。查全队状态：
