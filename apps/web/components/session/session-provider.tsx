@@ -17,6 +17,7 @@ import {
 } from "@/lib/session-api";
 
 export const SESSION_STORAGE_KEY = "wsx.session";
+export const SESSION_COMMIT_STORAGE_KEY = "wsx.sessionCommit";
 
 export type SessionStatus = "loading" | "anonymous" | "authenticated" | "dependency-failed";
 
@@ -54,26 +55,41 @@ function toIdentity(userId: string, resolved: ResolvedIdentity): Identity {
   };
 }
 
+function createSessionRevision(): string {
+  return window.crypto.randomUUID();
+}
+
 function persistSession(session: SessionInfo): void {
+  const revision = createSessionRevision();
   window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
-    version: 1,
+    version: 2,
+    revision,
     userId: session.userId,
     orgs: session.orgIds,
     currentOrgId: session.currentOrgId,
     expiresAt: session.expiresAt,
   }));
   storeSessionToken(session.sessionToken);
+  // Commit last so another tab never hydrates metadata against a bearer from a
+  // different write. Storage events for the preceding writes remain fail-closed.
+  window.localStorage.setItem(SESSION_COMMIT_STORAGE_KEY, revision);
 }
 
 function clearSession(): void {
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
   clearStoredSessionToken();
+  window.localStorage.removeItem(SESSION_COMMIT_STORAGE_KEY);
 }
 
-function readSession(): SessionInfo | null {
+type SessionRead =
+  | { readonly kind: "ready"; readonly session: SessionInfo }
+  | { readonly kind: "absent" | "invalid" | "pending" };
+
+function readSession(): SessionRead {
   const sessionToken = getStoredSessionToken();
   const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!sessionToken || !raw) return null;
+  if (!sessionToken && !raw) return { kind: "absent" };
+  if (!sessionToken || !raw) return { kind: "pending" };
   try {
     const value = JSON.parse(raw) as Record<string, unknown>;
     const userId = value.userId;
@@ -81,14 +97,24 @@ function readSession(): SessionInfo | null {
     const currentOrgId = value.currentOrgId;
     const expiresAt = value.expiresAt;
     if (
-      value.version !== 1 || typeof userId !== "string" ||
+      (value.version !== 1 && value.version !== 2) || typeof userId !== "string" ||
       !Array.isArray(orgIds) || !orgIds.every((id) => typeof id === "string") ||
       typeof currentOrgId !== "string" || !orgIds.includes(currentOrgId) ||
       typeof expiresAt !== "string" || Date.parse(expiresAt) <= Date.now()
-    ) return null;
-    return { sessionToken, userId, orgIds, currentOrgId, expiresAt };
+    ) return { kind: "invalid" };
+    if (value.version === 2) {
+      const revision = value.revision;
+      if (typeof revision !== "string" || revision.length === 0) return { kind: "invalid" };
+      if (window.localStorage.getItem(SESSION_COMMIT_STORAGE_KEY) !== revision) {
+        return { kind: "pending" };
+      }
+    }
+    return {
+      kind: "ready",
+      session: { sessionToken, userId, orgIds, currentOrgId, expiresAt },
+    };
   } catch {
-    return null;
+    return { kind: "invalid" };
   }
 }
 
@@ -142,21 +168,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [handleFailure]);
 
   React.useEffect(() => {
-    const reconcileStorage = () => {
+    const reconcileStorage = (allowPending: boolean) => {
       const generation = ++generationRef.current;
-      const stored = readSession();
+      const result = readSession();
       setIdentity(null);
       setError(null);
-      if (!stored) {
+      if (result.kind === "pending" && allowPending) {
+        setSession(null);
+        setStatus("loading");
+        return;
+      }
+      if (result.kind !== "ready") {
         clearSession();
         setSession(null);
         setStatus("anonymous");
         return;
       }
       // Fail closed while the replacement bearer is validated against /identity/me.
-      setSession(stored);
+      setSession(result.session);
       setStatus("loading");
-      void hydrateAtGeneration(stored, generation).catch(() => undefined);
+      void hydrateAtGeneration(result.session, generation).catch(() => undefined);
     };
 
     const onStorage = (event: StorageEvent) => {
@@ -164,18 +195,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (
         event.key !== null &&
         event.key !== SESSION_STORAGE_KEY &&
-        event.key !== SESSION_TOKEN_STORAGE_KEY
+        event.key !== SESSION_TOKEN_STORAGE_KEY &&
+        event.key !== SESSION_COMMIT_STORAGE_KEY
       ) return;
-      reconcileStorage();
+      if (event.newValue === null) {
+        becomeAnonymous(true);
+        return;
+      }
+      reconcileStorage(true);
     };
 
-    reconcileStorage();
+    reconcileStorage(false);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener("storage", onStorage);
       generationRef.current += 1;
     };
-  }, [hydrateAtGeneration]);
+  }, [becomeAnonymous, hydrateAtGeneration]);
 
   const startSession = React.useCallback(async (login: LoginOut) => {
     const generation = ++generationRef.current;

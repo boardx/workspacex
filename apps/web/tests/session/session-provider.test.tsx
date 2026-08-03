@@ -11,6 +11,7 @@ const { resolveIdentity, switchCurrentOrganization } = vi.hoisted(() => ({
 vi.mock("@/lib/session-api", () => ({ resolveIdentity, switchCurrentOrganization }));
 
 import {
+  SESSION_COMMIT_STORAGE_KEY,
   SESSION_STORAGE_KEY,
   SessionProvider,
   useSession,
@@ -94,10 +95,22 @@ describe("SessionProvider", () => {
     fireEvent.click(screen.getByTestId("sign-in"));
     await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("One"));
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe("token-one");
+    const persisted = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY) ?? "null") as {
+      version?: number;
+      revision?: string;
+    } | null;
+    expect(persisted?.version).toBe(2);
+    expect(persisted?.revision).toBeTruthy();
+    expect(window.localStorage.getItem(SESSION_COMMIT_STORAGE_KEY)).toBe(persisted?.revision);
 
     fireEvent.click(screen.getByTestId("switch"));
     await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("Two"));
     expect(switchCurrentOrganization).toHaveBeenCalledWith("org-two", "token-one");
+    const switched = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY) ?? "null") as {
+      revision?: string;
+    } | null;
+    expect(switched?.revision).not.toBe(persisted?.revision);
+    expect(window.localStorage.getItem(SESSION_COMMIT_STORAGE_KEY)).toBe(switched?.revision);
 
     fireEvent.click(screen.getByTestId("logout"));
     expect(screen.getByTestId("status")).toHaveTextContent("anonymous");
@@ -176,6 +189,76 @@ describe("SessionProvider", () => {
       expect(screen.getByTestId("org")).toHaveTextContent("Two");
     },
   );
+
+  it("does not destroy a new cross-tab session when metadata arrives before its token", async () => {
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);
+    render(<SessionProvider><Probe /></SessionProvider>);
+    await screen.findByText("anonymous");
+
+    const metadata = storedSession();
+    window.localStorage.setItem(SESSION_STORAGE_KEY, metadata);
+    dispatchStorage(SESSION_STORAGE_KEY, null, metadata);
+
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBe(metadata);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("loading"));
+
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, LOGIN.sessionToken);
+    dispatchStorage(SESSION_TOKEN_STORAGE_KEY, null, LOGIN.sessionToken);
+
+    await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("One"));
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBe(metadata);
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(LOGIN.sessionToken);
+  });
+
+  it("does not destroy a non-empty cross-tab token while its metadata is pending", async () => {
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);
+    render(<SessionProvider><Probe /></SessionProvider>);
+    await screen.findByText("anonymous");
+
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, LOGIN.sessionToken);
+    dispatchStorage(SESSION_TOKEN_STORAGE_KEY, null, LOGIN.sessionToken);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("loading"));
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(LOGIN.sessionToken);
+
+    const metadata = storedSession();
+    window.localStorage.setItem(SESSION_STORAGE_KEY, metadata);
+    dispatchStorage(SESSION_STORAGE_KEY, null, metadata);
+
+    await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("One"));
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBe(metadata);
+    expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe(LOGIN.sessionToken);
+  });
+
+  it("hydrates a versioned cross-tab session only after its ordered commit arrives", async () => {
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE);
+    render(<SessionProvider><Probe /></SessionProvider>);
+    await screen.findByText("anonymous");
+
+    const revision = "revision-one";
+    const metadata = JSON.stringify({
+      version: 2,
+      revision,
+      userId: LOGIN.userId,
+      orgs: LOGIN.orgs,
+      currentOrgId: "org-one",
+      expiresAt: LOGIN.expiresAt,
+    });
+    window.localStorage.setItem(SESSION_STORAGE_KEY, metadata);
+    dispatchStorage(SESSION_STORAGE_KEY, null, metadata);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("loading"));
+    expect(resolveIdentity).not.toHaveBeenCalled();
+
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, LOGIN.sessionToken);
+    dispatchStorage(SESSION_TOKEN_STORAGE_KEY, null, LOGIN.sessionToken);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("loading"));
+    expect(resolveIdentity).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(SESSION_STORAGE_KEY)).toBe(metadata);
+
+    window.localStorage.setItem(SESSION_COMMIT_STORAGE_KEY, revision);
+    dispatchStorage(SESSION_COMMIT_STORAGE_KEY, null, revision);
+    await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("One"));
+    expect(resolveIdentity).toHaveBeenCalledWith("org-one", LOGIN.sessionToken);
+  });
 
   it("a new session invalidates an older in-flight hydrate", async () => {
     const oldHydrate = deferred<typeof IDENTITY_TWO>();
