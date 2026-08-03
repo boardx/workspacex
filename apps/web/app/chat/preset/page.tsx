@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 import { ChatLeftPanel } from "@/components/chat/chat-left-panel";
 import { PresetDispatch } from "@/components/chat/preset-dispatch";
 
@@ -20,13 +20,12 @@ export default function ChatPresetPage({
 }: { searchParams: { state?: string; as?: string; org?: string } }) {
   const state = resolvePreviewState(searchParams.state);
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
   // 组员 / 观察者看消费端（点开即用）；引导师 / 组长看下发端。写操作仅引导师。
   const consumerView = previewRole === "member" || previewRole === "observer";
   const readOnly = previewRole !== "facilitator";
 
   return (
-    <AppShell identity={identity} previewRole={previewRole} left={<ChatLeftPanel />}>
+    <AppShell previewRole={previewRole} left={<ChatLeftPanel />}>
       <div className="flex h-full flex-col">
         <div className="shrink-0 border-b border-border-subtle bg-panel px-4 py-1.5">
           <div className="flex flex-wrap items-center gap-2">

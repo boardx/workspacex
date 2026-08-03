@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry";
-import { login } from "@/lib/auth";
-import { ApiError, storeSessionToken } from "@/lib/api-client";
+import { isLoginRejected, login } from "@/lib/auth";
+import { useSession } from "@/components/session/session-provider";
 
 /**
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
@@ -22,6 +22,7 @@ import { ApiError, storeSessionToken } from "@/lib/api-client";
  */
 export function LoginForm({ state }: { state: UiState }) {
   const router = useRouter();
+  const session = useSession();
   const [showPwd, setShowPwd] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [email, setEmail] = React.useState(state === "invalid" ? LOGIN_BRAND.sampleEmail : "");
@@ -225,7 +226,7 @@ export function LoginForm({ state }: { state: UiState }) {
           setLoginError(null);
           try {
             const out = await login(email, password);
-            storeSessionToken(out.sessionToken);
+            await session.startSession(out);
             // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
             // ⚠ 落地页仍是 `/projects`（原型屏，mock 数据）：真实实现要由服务端决定
             //   落地页（有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目），
@@ -233,7 +234,7 @@ export function LoginForm({ state }: { state: UiState }) {
             router.push("/projects");
           } catch (e) {
             setLoginError(
-              e instanceof ApiError && e.reasonCode !== null
+              isLoginRejected(e)
                 ? "邮箱或密码不正确"
                 : "登录服务暂时不可用，请稍后重试",
             );

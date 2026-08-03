@@ -1,5 +1,6 @@
 "use client";
-import { Building2, ChevronDown, FolderKanban, Lock, ShieldCheck } from "lucide-react";
+import * as React from "react";
+import { Building2, ChevronDown, FolderKanban, Lock, LogOut, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
   MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
@@ -29,9 +30,17 @@ import { Button } from "@/components/ui/button";
  *   顶栏此时仍显示项目上下文标签（项目名·角色），只是不再出第二个切换器。
  */
 export function TopBar({
-  identity, previewRole, hideRoleSwitcher,
-}: { identity: Identity; previewRole: ProjectRole | null; hideRoleSwitcher?: boolean }) {
+  identity, previewRole, hideRoleSwitcher, organizations, onSwitchOrganization, onLogout,
+}: {
+  identity: Identity;
+  previewRole: ProjectRole | null;
+  hideRoleSwitcher?: boolean;
+  organizations?: ReadonlyArray<{ id: string; label: string }>;
+  onSwitchOrganization?: (orgId: string) => Promise<void>;
+  onLogout?: () => void;
+}) {
   const pathname = usePathname();
+  const [switching, setSwitching] = React.useState(false);
   const project = resolveProjectContext(pathname);
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;
@@ -62,8 +71,16 @@ export function TopBar({
           <select
             id="org-switcher"
             data-testid="org-switcher"
-            defaultValue={identity.org.id}
+            value={identity.org.id}
+            disabled={switching}
             onChange={(e) => {
+              if (onSwitchOrganization) {
+                setSwitching(true);
+                void onSwitchOrganization(e.target.value)
+                  .catch(() => undefined)
+                  .finally(() => setSwitching(false));
+                return;
+              }
               // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
               const url = new URL(window.location.href);
               url.searchParams.set("org", e.target.value);
@@ -72,11 +89,13 @@ export function TopBar({
             }}
             className="h-7 appearance-none rounded-md border border-border bg-card pl-2 pr-6 text-12 font-medium text-card-foreground transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {MOCK_ORGS.map((o) => (
-              <option key={o.id} value={o.id}>
-                {isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name}
-              </option>
-            ))}
+            {organizations
+              ? organizations.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)
+              : MOCK_ORGS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name}
+                </option>
+              ))}
           </select>
           <ChevronDown aria-hidden className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         </div>
@@ -151,6 +170,13 @@ export function TopBar({
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在项目上下文中 · 项目角色不适用
         </p>
+      )}
+
+      {onLogout && (
+        <Button size="xs" variant="ghost" data-testid="session-logout" onClick={onLogout}>
+          <LogOut aria-hidden className="h-3 w-3" />
+          退出
+        </Button>
       )}
     </header>
   );
