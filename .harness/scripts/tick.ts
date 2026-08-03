@@ -5,14 +5,15 @@
 // 各算各的。教训与 ADR-012 同款：**能机械化的纪律，绝不交给记性**。
 //
 // 一条命令做完一个 loop 该做的四件事，任何 runtime 都能在自己的循环里调它：
-//   1. 读权威时钟（coord-service GET /time）——现在几点、当前哪个周期、还剩多久
+//   1. 读权威时钟（coord-gateway GET /api/coord/time）——现在几点、当前哪个周期、还剩多久
 //   2. 报本地时钟漂移（>60s 告警：你按错误时间协调会误判租约新鲜度/周期边界）
 //   3. 续自己的租约（acquire-or-renew，避免静默过期）
 //   4. 拉任务收件箱（有 pending 就提示 ack）
-// 输出是给人/agent 读的行动清单，退出码 0（tick 本身不是门控）；--json 供脚本消费。
-import { req } from "./lib/args";
+// 输出是给人/agent 读的行动清单；正常退出 0，权威缺失/不可达退出非 0；--json 供脚本消费。
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
+import { createCoordClientFromEnv } from "@repo/coord-protocol/client";
+import { errDetail } from "./lib/coord-client";
 
 const DRIFT_WARN_SECONDS = 60;
 
@@ -45,20 +46,22 @@ function fmtRemaining(seconds: number): string {
 export async function tick(args: Args): Promise<void> {
   const sessionId = args.opts["session"] ?? env("COORD_AGENT_ID");
   const asJson = args.flags["json"] === true;
-  const baseUrl = env("COORD_SERVICE_URL");
-  const token = env("COORD_SERVICE_TOKEN");
+  const baseUrl = env("COORD_GATEWAY_URL")?.replace(/\/+$/, "");
+  const token = env("COORD_API_TOKEN");
+  const repo = env("COORD_REPO");
 
   if (!baseUrl) {
-    log.err("COORD_SERVICE_URL 未配置——tick 需要权威时钟（ADR-014）。见 agent-bootstrap.md 第 3 步。");
+    log.err("COORD_GATEWAY_URL 未配置——tick 需要权威时钟（ADR-014/ADR-017）。见 agent-bootstrap.md 第 3 步。");
     process.exitCode = 1;
     return;
   }
 
   // ── 1. 权威时钟 ────────────────────────────────────────────────────────────
   const localBefore = Date.now();
-  const time = await fetchJson<TimePayload>(`${baseUrl}/time`);
+  const timeUrl = `${baseUrl}/api/coord/time`;
+  const time = await fetchJson<TimePayload>(timeUrl);
   if (!time) {
-    log.err(`[clock] 读不到权威时钟（${baseUrl}/time）——协调权威联系不上时不要按本地时钟硬猜，先排查网络/服务。`);
+    log.err(`[clock] 读不到权威时钟（${timeUrl}）——协调权威联系不上时不要按本地时钟硬猜，先排查网络/服务。`);
     process.exitCode = 1;
     return;
   }
@@ -86,44 +89,66 @@ export async function tick(args: Args): Promise<void> {
     out["drift_warning"] = true;
   }
 
-  if (!token || !sessionId) {
-    if (!asJson) {
-      log.info("[lease/inbox] 跳过：未配置 COORD_SERVICE_TOKEN 或未给 --session/COORD_AGENT_ID（只读时钟模式）。");
-    }
+  const client = createCoordClientFromEnv();
+  if (!token || !repo || !sessionId || !client) {
+    log.err(
+      "[lease/inbox] COORD_API_TOKEN/COORD_REPO/COORD_AGENT_ID（或 --session）未完整配置——" +
+        "tick 不能跳过权威续约与收件箱。旧 COORD_SERVICE_* 已退役（ADR-017）。"
+    );
+    out["authority_configured"] = false;
     if (asJson) console.log(JSON.stringify(out, null, 2));
+    process.exitCode = 1;
     return;
   }
 
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
   // ── 3. 续租约（acquire-or-renew，防静默过期）─────────────────────────────
-  const roleResource = `role:${sessionId}`;
-  const claims = await fetchJson<{ claims: Array<{ id: number; resource_id: string; agent_id: string; last_heartbeat_at: string; ttl_seconds: number }> }>(
-    `${baseUrl}/claims?resource_id=${encodeURIComponent(roleResource)}&status=in_progress`,
-    { headers: authHeaders }
-  );
-  const mine = claims?.claims?.[0];
-  if (mine) {
-    const hb = await fetchJson<unknown>(`${baseUrl}/claims/${mine.id}/heartbeat`, { method: "POST", headers: authHeaders, body: "{}" });
-    const ageMin = (Date.parse(time.now) - Date.parse(mine.last_heartbeat_at)) / 60000;
-    if (hb) {
-      if (!asJson) log.ok(`[lease] 已续约 ${roleResource}（续约前心跳 ${ageMin.toFixed(1)} 分钟前，ttl ${mine.ttl_seconds}s）`);
-      out["lease"] = { resource_id: roleResource, renewed: true };
-    } else {
-      log.err(`[lease] 续约失败（claim ${mine.id}）——可能已被 sweeper 回收或不是你的 token。重新 acquire。`);
-      out["lease"] = { resource_id: roleResource, renewed: false };
-    }
+  const claims = await client.listActiveClaims();
+  if (claims.kind === "error") {
+    log.err(`[lease] 查询 coord-gateway 权威租约失败（${errDetail(claims)}）——问不到不等于空闲。`);
+    out["lease"] = { renewed: false, error: errDetail(claims) };
+    process.exitCode = 1;
   } else {
-    if (!asJson) log.info(`[lease] ${roleResource} 无活跃租约——如你正在履职，跑 lock-acquire / module-lock-acquire 认领。`);
-    out["lease"] = { resource_id: roleResource, renewed: false, absent: true };
+    const mine = claims.leases.filter((lease) => lease.agent_id === sessionId);
+    if (mine.length === 0) {
+      if (!asJson) log.info(`[lease] agent=${sessionId} 无活跃租约——如你正在履职，先运行对应的 lock-acquire/claim。`);
+      out["lease"] = { agent_id: sessionId, renewed: false, absent: true };
+    } else {
+      const renewed: Array<{ resource_id: string; lease_id: string; renewed: boolean; error?: string }> = [];
+      for (const lease of mine) {
+        const ageMin = (Date.parse(time.now) - Date.parse(lease.last_heartbeat_at)) / 60000;
+        const hb = await client.heartbeat(lease.lease_id);
+        if (hb.kind === "ok") {
+          if (!asJson)
+            log.ok(
+              `[lease] 已续约 ${lease.resource_id}（lease ${lease.lease_id}；续约前心跳 ${ageMin.toFixed(1)} 分钟前，ttl ${lease.ttl_seconds}s）`
+            );
+          renewed.push({ resource_id: lease.resource_id, lease_id: lease.lease_id, renewed: true });
+        } else {
+          const detail = hb.kind === "gone" ? `租约已终态（${hb.leaseStatus ?? "released/expired"}）` : errDetail(hb);
+          log.err(`[lease] 续约失败（${lease.resource_id} / ${lease.lease_id}：${detail}）——重新认领。`);
+          renewed.push({ resource_id: lease.resource_id, lease_id: lease.lease_id, renewed: false, error: detail });
+          process.exitCode = 1;
+        }
+      }
+      out["lease"] = { agent_id: sessionId, renewed: renewed.every((item) => item.renewed), leases: renewed };
+    }
   }
 
   // ── 4. 任务收件箱（#594 平台中立派工）────────────────────────────────────
   const inbox = await fetchJson<{ tasks: Array<{ id: number; issue: number; priority: string; note: string | null }> }>(
-    `${baseUrl}/tasks?status=pending`,
+    `${baseUrl}/api/coord/repos/${repo}/tasks?assignee=${encodeURIComponent(sessionId)}&status=pending`,
     { headers: authHeaders }
   );
-  const pending = inbox?.tasks ?? [];
+  if (!inbox || !Array.isArray(inbox.tasks)) {
+    log.err("[inbox] 读取 coord-gateway 任务收件箱失败——不能把不可达伪装成空收件箱。");
+    out["pending_tasks"] = null;
+    process.exitCode = 1;
+    if (asJson) console.log(JSON.stringify(out, null, 2));
+    return;
+  }
+  const pending = inbox.tasks;
   out["pending_tasks"] = pending;
   if (!asJson) {
     if (pending.length === 0) {
@@ -132,7 +157,10 @@ export async function tick(args: Args): Promise<void> {
       log.info(`[inbox] ${pending.length} 个待接任务——ack 后开工：`);
       for (const t of pending) {
         log.info(`  · task ${t.id} → issue #${t.issue}（${t.priority}）${t.note ? ` — ${t.note}` : ""}`);
-        log.info(`    ack: curl -s -X POST -H "Authorization: Bearer $COORD_SERVICE_TOKEN" "$COORD_SERVICE_URL/tasks/${t.id}/ack"`);
+        log.info(
+          `    ack: curl -s -X POST -H "Authorization: Bearer $COORD_API_TOKEN" ` +
+            `"${baseUrl}/api/coord/repos/${repo}/tasks/${t.id}/ack"`
+        );
       }
     }
   }
