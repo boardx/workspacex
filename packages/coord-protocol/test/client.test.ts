@@ -58,7 +58,7 @@ function client(responses: Array<{ status: number; body?: unknown } | Error>, ag
   const c = createCoordClient({
     gatewayUrl: "https://gw.example/",
     token: "tok-secret",
-    repo: "acme/demo-repo",
+    repo: "boardx/workspacex",
     agentId,
     fetchImpl: impl,
   });
@@ -70,7 +70,7 @@ describe("createCoordClient / claim", () => {
     const { c, captured } = client([{ status: 201, body: lease() }], "wrk-1");
     const out = await c.claim("role:coord-main", "coordinator-role", 21600);
     expect(out).toEqual({ kind: "acquired", lease: lease() });
-    expect(captured[0]!.url).toBe("https://gw.example/api/coord/repos/acme/demo-repo/claims");
+    expect(captured[0]!.url).toBe("https://gw.example/api/coord/repos/boardx/workspacex/claims");
     expect(captured[0]!.method).toBe("POST");
     expect(captured[0]!.headers["authorization"]).toBe("Bearer tok-secret");
     expect(captured[0]!.body).toEqual({

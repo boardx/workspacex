@@ -1,0 +1,66 @@
+// 应用层（F06）：把引擎产出的调用描述真正发到 GitHub REST。
+// 单条失败会被计数并继续尝试整批其余调用；上层看到 failed>0 时不推进游标，
+// 下一 tick 重放该事件批，避免事件驱动动作永久漏投。
+import type { GithubCall } from "./engine";
+
+export interface ApplyOptions {
+  owner: string;
+  repo: string;
+  token: string; // installation token（github-app.ts 产出）
+  calls: GithubCall[];
+  fetchImpl?: typeof fetch;
+  apiBase?: string;
+}
+
+export interface ApplyResult {
+  applied: number;
+  failed: number;
+}
+
+export async function applyCalls(opts: ApplyOptions): Promise<ApplyResult> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const apiBase = opts.apiBase ?? "https://api.github.com";
+  const repoBase = `${apiBase}/repos/${opts.owner}/${opts.repo}`;
+  let applied = 0;
+  let failed = 0;
+
+  for (const call of opts.calls) {
+    let url: string;
+    let body: Record<string, unknown>;
+    if (call.kind === "commit_status") {
+      url = `${repoBase}/statuses/${call.sha}`;
+      body = { state: call.state, context: call.context, description: call.description };
+    } else if (call.kind === "check_run") {
+      url = `${repoBase}/check-runs`;
+      body = {
+        name: call.name,
+        head_sha: call.head_sha,
+        status: "completed",
+        conclusion: call.conclusion,
+        output: { title: call.title, summary: call.summary },
+      };
+    } else {
+      // issue_comment（p30/F09 意图消息双写）
+      url = `${repoBase}/issues/${call.issue_number}/comments`;
+      body = { body: call.body };
+    }
+    try {
+      const res = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${opts.token}`,
+          accept: "application/vnd.github+json",
+          "content-type": "application/json",
+          "user-agent": "coord-projection",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`github_api_${res.status}`);
+      applied++;
+    } catch (e) {
+      failed++;
+      console.error(`[coord-projection] apply 失败（继续整批）: POST ${url}`, e);
+    }
+  }
+  return { applied, failed };
+}
