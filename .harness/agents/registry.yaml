@@ -4,9 +4,9 @@
 version: 1
 
 developers:
-  # - email: you@example.com
-  #   github: your-login
-  #   role: maintainer
+  - email: 2325074+usamshen@users.noreply.github.com
+    github: usamshen
+    role: maintainer
 
 agents:
   # ── 主协调者（唯一，合并权归它）─────────────────────────────
@@ -17,6 +17,19 @@ agents:
     areas: ["*"]
     responsibilities:
       - 全队编排/merge 队列/review 门禁（SOP 见 coordinator-sop.md）
+
+  # ── 控制平面架构协调者（无合并权）────────────────────────────
+  - id: coord-architecture
+    active: true
+    kind: architecture-coordinator
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [harness, docs, adr, agent-protocol]
+    reports_to: coord-main
+    responsibilities:
+      - Harness 与控制平面架构审计
+      - Agent 协作协议和 ADR 维护
+      - 控制平面文档与实现漂移治理
 
   # ── 模块协调者示例（按模块清单增删；无合并权，PR 全绿后转交 coord-main）──
   # - id: coord-<模块名>
