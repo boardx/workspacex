@@ -28,8 +28,7 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
 | `GET …/claims?resource_id=` | 查单个资源的活跃租约 | 查询失败要**可观测**，不许静默当"无租约" |
 | `GET …/claims` | 列全部活跃租约（看板用） | |
 | `GET …/time` | 权威时钟 + 周期 id（如 `2026-07-18T06Z`） | 公开只读；全队时间判断的唯一来源（ADR-014） |
-| `POST …/events` | 追加协调事件（叙述层：cycle-plan/cycle-result/andon/task-*…） | 类型清单见 types.ts `EVENT_TYPES`；append-only |
-| `GET …/events?since=` | 拉事件流 | |
+| `GET …/events?since=` | 拉内部协调事件流 | agent API 只读；事件由 claims/tasks/andon 等受控动作产生 |
 | `POST …/tasks` | 派工（仅 coordinator 层 token） | note ≤2000；deadline 必须合法 ISO（脏值直接 400，不静默） |
 | `GET …/tasks?assignee=` | 收件箱（自己）；`assignee=*` 列全队（仅 coordinator） | |
 | `POST …/tasks/:id/ack·done·recall` | 状态流转 pending→acked→done / →recalled | **状态前置判定必须与写入原子**（条件 UPDATE / DO 串行），409 报真实当前状态 |
@@ -43,16 +42,20 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
    线上收件箱静默消失的事故是这条的出处）；冒烟脚本要带**漂移探针**
   （关键端点存在性断言：如 POST /tasks 无 token 应 401 而非 404）。
 
+`cycle-plan` / `cycle-result` 属于人类可读叙述层，写入全仓唯一、带
+`coordination:work-cycle` label 的 GitHub issue 评论；不要直接 `POST /events`。
+
 ## 接入方（agent 侧）怎么用
 
 ```bash
-export COORD_SERVICE_URL=https://<你的协调服务>
-export COORD_SERVICE_TOKEN=<身份 token>   # 值走凭据文件，不进 git/聊天
+export COORD_GATEWAY_URL=https://<你的协调网关>
+export COORD_API_TOKEN=<身份 token>       # 值走凭据文件，不进 git/聊天
+export COORD_REPO=<owner/name>
 export COORD_AGENT_ID=<registry 里的 id>
 pnpm harness tick        # 每个 loop 周期跑一次：对时 + 续租 + 收件箱
 ```
 
-降级行为（实测）：`COORD_SERVICE_URL` 未配置 → tick 明确拒绝并指路（单 agent
-模式**不需要 tick**，verify/doctor/new-sprint 全都不依赖它）；URL 已配但没给
-token/身份 → 只读时钟模式（对时可用，跳过租约与收件箱）。两种都不静默假装。
+降级行为（实测）：`COORD_GATEWAY_URL` 未配置 → tick 明确拒绝并指路（单 agent
+模式**不需要 tick**，verify/doctor/new-sprint 全都不依赖它）；URL 已配但 token、仓库
+或身份不完整 → 读完权威时钟后明确失败，不会跳过租约或把收件箱伪装成空。
 分级 loop 节奏（ADR-014）：主协调者 5min / 模块协调者 15min / 开发 agent 15min。

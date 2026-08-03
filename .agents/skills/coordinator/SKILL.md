@@ -23,7 +23,7 @@ description: >
 ### Step 1 — 唯一性握手（防双 coordinator）
 
 **唯一性由协调服务裁定**（协议契约见 `docs/coordination-protocol.md`），需要
-`COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 凭据（没有就先找人类领取，无凭据无法
+`COORD_GATEWAY_URL`/`COORD_API_TOKEN`/`COORD_REPO` 凭据（没有就先找人类领取，无凭据无法
 担任 coordinator；未接入协调服务时不能当 coordinator——这个角色的存在意义就是
 跨会话唯一性，没有权威裁定就没有唯一性可言）：
 ```bash
