@@ -1,0 +1,123 @@
+# deploy-coord-gateway.yml — coord-platform 网关 CD（ADR-017 / p29-F03）。
+# 唯一部署入口 = main 合并后自动部署（沿用 deploy-coord-service 的
+# "消灭手动部署 last-write-wins" 原则，andon #272/#290 根因）。
+#
+# secrets（一次性人工设置，之后 CD 不管）：
+#   wrangler secret put GITHUB_WEBHOOK_SECRET --name workspacex-coord-gateway
+#   wrangler secret put COORD_API_TOKEN --name workspacex-coord-gateway
+# 变更遵守 env 原子纪律（先 put 新值再合代码）。缺 secret 时 Worker fail-closed
+# 返回 503，不会静默放行。
+name: deploy-coord-gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # 覆盖 apps/coord-gateway/package.json 的全部 @repo/coord-* 依赖——只改依赖包
+      # 不改 gateway 本体的 PR 合并后必须照样自动部署，否则修复会静默不生效
+      # （#787 事故：coord-directory 的 schema 迁移修复合并后一度没有自动部署，
+      # 生产端 500 在人工 workflow_dispatch 之前一直没解除）。
+      - "apps/coord-gateway/**"
+      - "packages/coord-brain/**"
+      - "packages/coord-directory/**"
+      - "packages/coord-projection/**"
+      - "packages/coord-protocol/**"
+      - "packages/coord-repohub/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: workspacex-deploy-coord-gateway
+  cancel-in-progress: false # 排队执行，不中途取消
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      COORD_GATEWAY_URL: ${{ vars.COORD_GATEWAY_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node (read .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @repo/coord-gateway...
+
+      - name: Typecheck + test (gate before touching prod)
+        run: |
+          pnpm --filter @repo/coord-protocol test
+          pnpm --filter @repo/coord-brain typecheck
+          pnpm --filter @repo/coord-brain test
+          pnpm --filter @repo/coord-directory typecheck
+          pnpm --filter @repo/coord-directory test
+          pnpm --filter @repo/coord-projection typecheck
+          pnpm --filter @repo/coord-projection test
+          pnpm --filter @repo/coord-repohub typecheck
+          pnpm --filter @repo/coord-repohub test
+          pnpm --filter @repo/coord-gateway typecheck
+          pnpm --filter @repo/coord-gateway test
+
+      - name: Ensure queues exist (idempotent, incl. DLQ #712)
+        working-directory: apps/coord-gateway
+        run: |
+          pnpm exec wrangler queues create workspacex-coord-webhook-events || true
+          pnpm exec wrangler queues create workspacex-coord-webhook-dlq || true
+
+      - name: Deploy Worker (from main only)
+        working-directory: apps/coord-gateway
+        run: pnpm exec wrangler deploy
+
+      - name: Public smoke check
+        run: |
+          if [ -z "$COORD_GATEWAY_URL" ]; then
+            echo "::error::Repository variable COORD_GATEWAY_URL is required for the deployed gateway smoke check"
+            exit 1
+          fi
+          base="${COORD_GATEWAY_URL%/}"
+
+          # 带退避的重试（#714）：新 Worker 首次部署后 workers.dev 路由到各边缘
+          # PoP 是最终一致的，smoke 立即打可能命中未加载新 Worker 的 PoP 返回
+          # 边缘 404（#710 事件）。5 次尝试、间隔 5/10/20/30/30s，总窗口 ≥95s
+          # 覆盖路由传播；真正的路由 bug 每次都失败，重试耗尽后仍然红。
+          retry_with_backoff() {
+            desc="$1"; shift
+            for delay in 5 10 20 30 30; do
+              if "$@"; then return 0; fi
+              echo "smoke [$desc] not passing yet; retrying in ${delay}s (route propagation window, #714)"
+              sleep "$delay"
+            done
+            return 1
+          }
+
+          check_healthz() {
+            h=$(curl -s -m 20 "$base/api/coord/healthz")
+            echo "GET /api/coord/healthz -> $h"
+            echo "$h" | grep -q '"ok":true' \
+              && echo "$h" | grep -q '"webhook_configured":true' \
+              && echo "$h" | grep -q '"api_configured":true' \
+              && echo "$h" | grep -q '"admin_configured":true' \
+              && echo "$h" | grep -q '"github_app_configured":true'
+          }
+
+          # required secrets 已由 Wrangler 门控；未带签名的 webhook 必须明确返回 401。
+          check_unsigned_webhook_rejected() {
+            s=$(curl -s -o /dev/null -w '%{http_code}' -m 20 -X POST "$base/api/coord/webhooks/github" -d '{}')
+            echo "POST /webhooks/github (unsigned) -> $s"
+            [ "$s" = "401" ]
+          }
+
+          retry_with_backoff "healthz ok" check_healthz \
+            || { echo "::error::healthz not ok (after retries)"; exit 1; }
+          retry_with_backoff "unsigned webhook rejected" check_unsigned_webhook_rejected \
+            || { echo "::error::unsigned webhook not rejected (last status $s, after retries)"; exit 1; }

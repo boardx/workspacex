@@ -79,7 +79,7 @@ export interface CoordClient {
 }
 
 export interface CoordClientOptions {
-  /** coord-gateway 基址，如 https://<你的协调网关>.workers.dev（不含路径） */
+  /** coord-gateway 基址，如 https://workspacex-coord-gateway.<account>.workers.dev（不含路径） */
   gatewayUrl: string;
   /** bearer：按仓 scoped token（推荐，agent 身份由网关按 DO 在册记录强绑定/注入，
    *  #721）或 ops 万能钥匙 COORD_API_TOKEN。 */
