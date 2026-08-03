@@ -12,7 +12,7 @@
 // 输出是给人/agent 读的行动清单；正常退出 0，权威缺失/不可达退出非 0；--json 供脚本消费。
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
-import { createCoordClientFromEnv } from "@repo/coord-protocol/client";
+import { createCoordClient } from "@repo/coord-protocol/client";
 import { errDetail } from "./lib/coord-client";
 
 const DRIFT_WARN_SECONDS = 60;
@@ -89,8 +89,7 @@ export async function tick(args: Args): Promise<void> {
     out["drift_warning"] = true;
   }
 
-  const client = createCoordClientFromEnv();
-  if (!token || !repo || !sessionId || !client) {
+  if (!token || !repo || !sessionId) {
     log.err(
       "[lease/inbox] COORD_API_TOKEN/COORD_REPO/COORD_AGENT_ID（或 --session）未完整配置——" +
         "tick 不能跳过权威续约与收件箱。旧 COORD_SERVICE_* 已退役（ADR-017）。"
@@ -100,6 +99,19 @@ export async function tick(args: Args): Promise<void> {
     process.exitCode = 1;
     return;
   }
+
+  // `--session` is the command's authority for agent identity. Passing it explicitly
+  // prevents a stale COORD_AGENT_ID from producing token_agent_mismatch/403, and is
+  // required when an ops token performs owner-checked heartbeat calls.
+  const fetchWithTimeout: typeof fetch = (input, init) =>
+    fetch(input, { ...init, signal: AbortSignal.timeout(8000) });
+  const client = createCoordClient({
+    gatewayUrl: baseUrl,
+    token,
+    repo,
+    agentId: sessionId,
+    fetchImpl: fetchWithTimeout,
+  });
 
   const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 

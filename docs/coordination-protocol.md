@@ -46,13 +46,14 @@ Node 与 edge runtime 都能跑）。本文档是给实现方/接入方的人话
 ## 接入方（agent 侧）怎么用
 
 ```bash
-export COORD_SERVICE_URL=https://<你的协调服务>
-export COORD_SERVICE_TOKEN=<身份 token>   # 值走凭据文件，不进 git/聊天
+export COORD_GATEWAY_URL=https://<你的协调网关>
+export COORD_API_TOKEN=<身份 token>       # 值走凭据文件，不进 git/聊天
+export COORD_REPO=<owner/name>
 export COORD_AGENT_ID=<registry 里的 id>
 pnpm harness tick        # 每个 loop 周期跑一次：对时 + 续租 + 收件箱
 ```
 
-降级行为（实测）：`COORD_SERVICE_URL` 未配置 → tick 明确拒绝并指路（单 agent
-模式**不需要 tick**，verify/doctor/new-sprint 全都不依赖它）；URL 已配但没给
-token/身份 → 只读时钟模式（对时可用，跳过租约与收件箱）。两种都不静默假装。
+降级行为（实测）：`COORD_GATEWAY_URL` 未配置 → tick 明确拒绝并指路（单 agent
+模式**不需要 tick**，verify/doctor/new-sprint 全都不依赖它）；URL 已配但 token、仓库
+或身份不完整 → 读完权威时钟后明确失败，不会跳过租约或把收件箱伪装成空。
 分级 loop 节奏（ADR-014）：主协调者 5min / 模块协调者 15min / 开发 agent 15min。

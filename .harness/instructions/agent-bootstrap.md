@@ -6,7 +6,7 @@
 >
 > 人类侧的对应文档是 `human-developer-onboarding.md`（讲组织模型和为什么）；
 > 本文只讲**你现在要按顺序做什么**。规则的权威出处：ADR-009（协调权威在
-> coord-service）、ADR-010（组织模型）、ADR-011（身份注册）。
+> coord-gateway）、ADR-010（组织模型）、ADR-011（身份注册）。
 
 ## 你需要先从人类那里拿到的东西
 
@@ -16,7 +16,7 @@
    `coord-<模块>.<role>-<n>`（你是某个 coordinator 的子 agent）。这个 id 必须
    已经在 `.harness/agents/registry.yaml` 里有条目——没有就让人类先走注册
    （见 human-developer-onboarding.md §3 第 1 步），你不能自封身份。
-2. **coord-service 凭据文件路径**：默认 `.harness/state/.cache/coord-credentials.json`
+2. **coord-gateway 凭据文件路径**：默认 `.harness/state/.cache/coord-credentials.json`
    （gitignored）。人类只应该告诉你**路径**，绝不应该在聊天里贴 token 明文——
    如果他贴了，提醒他这个 token 已泄露、需要去 Cloudflare 轮换。
 3. **你负责的范围**：哪个模块 / 哪些 feature（`phases/<phase>/feature_list.json`
@@ -48,11 +48,15 @@
 ## 第 3 步 — 接上协调平面（没有这步 = 你不存在）
 
 ```bash
-export COORD_SERVICE_URL=https://<你的协调服务>.workers.dev
-export COORD_SERVICE_TOKEN=$(jq -r '.tokens["<你的身份id>"]' .harness/state/.cache/coord-credentials.json)
+export COORD_GATEWAY_URL=https://<你的协调网关>.workers.dev
+export COORD_API_TOKEN=$(jq -r '.tokens["<你的身份id>"]' .harness/state/.cache/coord-credentials.json)
+export COORD_REPO=<owner/name>
+export COORD_AGENT_ID=<你的身份id>
 
-# 验证凭据可用（公开只读端点不验 token；写操作才验）：
-curl -s "$COORD_SERVICE_URL/status" | jq '.active_claims | length'
+# 验证网关与仓库租约端点可用：
+curl -s "$COORD_GATEWAY_URL/api/coord/time" | jq '.cycle.id'
+curl -s -H "Authorization: Bearer $COORD_API_TOKEN" \
+  "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/claims" | jq '.leases | length'
 ```
 
 然后认领你的租约：
@@ -70,13 +74,13 @@ pnpm harness lock-acquire --session <你的身份id>
   自愈信号，恢复后重新 acquire 即可；但**不要**调大 ttl 或替别人代跑心跳。
 - token 任何时候不进 git / PR / issue / 聊天 / 命令行明文（只用 `$(jq ...)` 读取）。
 
-**完成标志**：`curl -s $COORD_SERVICE_URL/status` 的 active_claims 里能看到你的
+**完成标志**：仓库 claims 端点的 leases 里能看到你的
 租约；人类在 <你的门户域名>/portal 的"实时协调"里也能看到你。
 
 ## 第 3.5 步 — 挂上你的 loop（ADR-014 统一时钟 + 分级 loop 纪律）
 
 **每个 agent 必须有 loop，且必须用统一时钟**——不是可选项。协调决策（租约还新鲜吗、
-当前哪个周期、还剩多久）一律以 coord-service 的权威时钟为准，**不信本机 `date`**
+当前哪个周期、还剩多久）一律以 coord-gateway 的权威时钟为准，**不信本机 `date`**
 （机器时钟一漂就误判；真实事故：coord-architecture 租约静默过期 8 小时）。
 
 每个 loop 只需跑**一条命令**，它把该做的四件事做完：
@@ -108,14 +112,16 @@ cron 也行——契约只规定**节奏 + 跑 tick**，不绑任何私有通道
 
 ### 旧版说明（收件箱轮询细节，tick 已包含）
 
-coordinator 派工写进 coord-service 的 tasks 表（你的收件箱），**不依赖任何 runtime
+coordinator 派工写进 coord-gateway 的 tasks 表（你的收件箱），**不依赖任何 runtime
 私有通道**（Claude Code 的 session message 只是可选加速器，Codex/自研 agent 没有它
 也一样收到活）。你的义务：**周期 ≤15 分钟**轮询自己的收件箱：
 
 ```bash
 # 有 pending 任务 → ack 确认 → 按 task.issue 读 GitHub 规格 → 认领开工
-curl -s -H "Authorization: Bearer $COORD_SERVICE_TOKEN"   "$COORD_SERVICE_URL/tasks?status=pending" | jq '.tasks'
-curl -s -X POST -H "Authorization: Bearer $COORD_SERVICE_TOKEN"   "$COORD_SERVICE_URL/tasks/<id>/ack"          # 认领确认（然后照第 4 步 lock/claim）
+curl -s -H "Authorization: Bearer $COORD_API_TOKEN" \
+  "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/tasks?assignee=$COORD_AGENT_ID&status=pending" | jq '.tasks'
+curl -s -X POST -H "Authorization: Bearer $COORD_API_TOKEN" \
+  "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/tasks/<id>/ack" # 认领确认（然后照第 4 步 lock/claim）
 # 交付完成后：POST /tasks/<id>/done
 ```
 
@@ -164,13 +170,14 @@ pnpm harness verify --sprint <阶段>/<sprint>   # 必须用 --sprint 模式
 
 ## 第 7 步 — 周期汇报（每 3 小时）
 
-节拍：UTC 00/03/06/09/12/15/18/21。每周期两条事件，发到 coord-service（不是
+节拍：UTC 00/03/06/09/12/15/18/21。每周期两条事件，发到 coord-gateway（不是
 GitHub 评论）：
 
 ```bash
 # 进周期：承诺 1-3 件本周期可验证完成的事
-curl -s -X POST -H "Authorization: Bearer $COORD_SERVICE_TOKEN" \
-  -H "Content-Type: application/json" "$COORD_SERVICE_URL/events" \
+curl -s -X POST -H "Authorization: Bearer $COORD_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  "$COORD_GATEWAY_URL/api/coord/repos/$COORD_REPO/events" \
   -d '{"type":"cycle-plan","resource_id":"<你在做的资源>","summary":"<承诺内容>"}'
 # 出周期：真完成的 / 没完成的 + 原因
 #   type 换成 cycle-result；阻塞升级用 andon（仅 coordinator kind 可发）

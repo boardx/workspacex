@@ -48,7 +48,7 @@ pnpm harness tick --session coord-<你的模块>
 ### Step 2 — 唯一性握手（同模块防双协调）
 
 **唯一性由协调服务的 `module:<name>` 租约裁定**（协议契约见
-`docs/coordination-protocol.md`），需要 `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN`
+`docs/coordination-protocol.md`），需要 `COORD_GATEWAY_URL`/`COORD_API_TOKEN`/`COORD_REPO`
 凭据（没有就先找人类或 coord-main 领取，无凭据无法担任 module-coordinator）：
 ```bash
 pnpm harness module-lock-status --module <name>   # 权威状态：谁持有、心跳多久前
