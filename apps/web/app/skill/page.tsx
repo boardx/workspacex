@@ -1,5 +1,4 @@
 import { SkillApp } from "@/components/skill/skill-app";
-import { mockIdentity } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveSkillScreen, resolveSkillView, viewToProjectRole } from "@/lib/mock/skill";
 
@@ -20,12 +19,11 @@ export default function SkillPage({
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveSkillView(searchParams.as);
   const projectRole = viewToProjectRole(view);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", projectRole);
   const screen = resolveSkillScreen(searchParams.screen);
 
   return (
     <SkillApp
-      identity={identity}
+      previewRole={projectRole}
       uiState={uiState}
       screen={screen}
       view={view}

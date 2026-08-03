@@ -1,10 +1,15 @@
+"use client";
+
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
 import { AmbientBar } from "./ambient-bar";
 import { MobileTabs } from "./mobile-tabs";
 import type { Identity, ProjectRole } from "@/lib/identity";
 import { cn } from "@/lib/utils";
+import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
+import { Button } from "@/components/ui/button";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -24,7 +29,8 @@ import { cn } from "@/lib/utils";
 export function AppShell({
   identity, previewRole, left, right, children, hideRoleSwitcher,
 }: {
-  identity: Identity;
+  /** Legacy prototype screens may still provide an explicit projection; authenticated routes omit it. */
+  identity?: Identity;
   previewRole: ProjectRole | null;
   left?: React.ReactNode;
   right?: React.ReactNode;
@@ -32,13 +38,118 @@ export function AppShell({
   /** 本页自带角色/视角切换器时置 true，顶栏让位不再出第二套 */
   hideRoleSwitcher?: boolean;
 }) {
+  const session = useOptionalSession();
+  if (identity) {
+    return (
+      <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher}>
+        {children}
+      </ShellChrome>
+    );
+  }
+  if (!session) throw new Error("Authenticated AppShell requires SessionProvider");
+  return (
+    <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher}>
+      {children}
+    </SessionAppShell>
+  );
+}
+
+function SessionAppShell({
+  session, previewRole, left, right, children, hideRoleSwitcher,
+}: {
+  session: SessionContextValue;
+  previewRole: ProjectRole | null;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  hideRoleSwitcher?: boolean;
+}) {
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (session.status === "anonymous") router.replace("/login");
+  }, [router, session.status]);
+
+  if (session.status === "loading" || session.status === "anonymous") {
+    return <SessionState testId="session-loading">正在确认登录状态…</SessionState>;
+  }
+  if (session.status === "dependency-failed" || !session.identity || !session.session) {
+    return (
+      <SessionState testId="session-dependency-failed">
+        <p>身份服务暂时不可用，登录状态已保留。</p>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => void session.retry()}>重试</Button>
+          <Button size="sm" variant="ghost" onClick={() => { session.logout(); router.replace("/login"); }}>
+            退出登录
+          </Button>
+        </div>
+      </SessionState>
+    );
+  }
+
+  const organizations = session.session.orgIds.map((id) => ({
+    id,
+    label: id === session.identity!.org.id ? session.identity!.org.name : id,
+  }));
+
+  return (
+    <ShellChrome
+      identity={session.identity}
+      previewRole={previewRole}
+      left={left}
+      right={right}
+      hideRoleSwitcher={hideRoleSwitcher}
+      organizations={organizations}
+      onSwitchOrganization={async (orgId) => {
+        await session.switchOrganization(orgId);
+        router.replace("/projects");
+      }}
+      onLogout={() => {
+        session.logout();
+        router.replace("/login");
+      }}
+    >
+      {children}
+    </ShellChrome>
+  );
+}
+
+function SessionState({ testId, children }: { testId: string; children: React.ReactNode }) {
+  return (
+    <div data-testid={testId} className="flex h-dvh items-center justify-center bg-background p-6 text-13 text-muted-foreground">
+      <div className="flex flex-col items-center gap-3">{children}</div>
+    </div>
+  );
+}
+
+function ShellChrome({
+  identity, previewRole, left, right, children, hideRoleSwitcher,
+  organizations, onSwitchOrganization, onLogout,
+}: {
+  identity: Identity;
+  previewRole: ProjectRole | null;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  hideRoleSwitcher?: boolean;
+  organizations?: ReadonlyArray<{ id: string; label: string }>;
+  onSwitchOrganization?: (orgId: string) => Promise<void>;
+  onLogout?: () => void;
+}) {
   return (
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
       <div className="hidden md:flex">
         <IconRail avatarInitial={identity.displayName.slice(0, 1)} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar identity={identity} previewRole={previewRole} hideRoleSwitcher={hideRoleSwitcher} />
+        <TopBar
+          identity={identity}
+          previewRole={previewRole}
+          hideRoleSwitcher={hideRoleSwitcher}
+          organizations={organizations}
+          onSwitchOrganization={onSwitchOrganization}
+          onLogout={onLogout}
+        />
         <div className="flex min-h-0 flex-1">
           {left && (
             <aside

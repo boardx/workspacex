@@ -109,7 +109,7 @@ describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它"
       jsonResponse({ sessionToken: "tok-x", userId: "u-x", orgs: [ORG], expiresAt: new Date().toISOString() }),
     );
     fetchMock.mockImplementationOnce(async () =>
-      jsonResponse({ statusCode: 503, message: { reasonCode: "AUTH_SERVICE_UNAVAILABLE" } }, 503),
+      jsonResponse({ error: "service_unavailable", reasonCode: "AUTH_SERVICE_UNAVAILABLE", traceId: "trace-list" }, 503),
     );
 
     render(<ProjectLivePage />);

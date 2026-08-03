@@ -7,7 +7,7 @@
  */
 import { auth } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest } from "./api-client";
 
 export type LoginOut = z.infer<typeof auth.operations.login.out>;
 
@@ -17,4 +17,9 @@ export async function login(email: string, password: string): Promise<LoginOut> 
     body: { email, password },
     sessionToken: null, // 登录本身不带 token
   });
+}
+
+/** Keeps the authentication failure policy next to the signed auth contract, not in UI code. */
+export function isLoginRejected(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "INVALID_CREDENTIAL";
 }

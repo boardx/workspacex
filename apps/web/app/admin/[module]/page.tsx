@@ -11,7 +11,7 @@ import { MembersScreen } from "@/components/admin/members-screen";
 import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { LocalOrgScreen } from "@/components/admin/local-org-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 import type { AdminModuleKey } from "@/lib/mock/admin";
 
 /**
@@ -47,11 +47,9 @@ export default function AdminModulePage({
 
   const state = resolvePreviewState(searchParams.state);
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
 
   return (
     <AppShell
-      identity={identity}
       previewRole={previewRole}
       left={<AdminNav active={params.module as AdminModuleKey} />}
     >
