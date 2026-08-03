@@ -1,17 +1,18 @@
 # Issue #74 uncached final init evidence
 
-- commit: `d7b00697`
+- commit: `e11cff8b`
 - command: `TURBO_FORCE=true ./init.sh`
 - result: GREEN
 - raw output retention: none (only the non-sensitive verification lines below are retained)
 
 ```text
-[test-isolation] id=run-msdqee33-49836fb7-d5fcaaaa926c db=wsx_d5fcaaaa926c743ff043 compose=wsx-d5fcaaaa926c743ff043 pg=20770 redis=25770
-@repo/api:test: cache bypass, force executing c06c119803a5c085
-@repo/api:test: [db-isolation] db=wsx_d5fcaaaa926c743ff043 capacity=100 current=6 required=32
+  ✓ pre-push hook（受影响模块轻量门控，对齐 CI 快速迭代策略）
+[test-isolation] id=run-msdqpaat-0749330f-39cdab20496f db=wsx_39cdab20496fbfbbf14b compose=wsx-39cdab20496fbfbbf14b pg=20000 redis=25000
+@repo/api:test: cache bypass, force executing 27d9a75252c87eb2
+@repo/api:test: [db-isolation] db=wsx_39cdab20496fbfbbf14b capacity=100 current=6 required=32
 @repo/api:test:  Test Files  420 passed (420)
 @repo/api:test:       Tests  4305 passed | 2 todo (4307)
-@repo/api:test: [db-isolation] db=wsx_d5fcaaaa926c743ff043 peak_connections=15
+@repo/api:test: [db-isolation] db=wsx_39cdab20496fbfbbf14b peak_connections=16
  Tasks:    36 successful, 36 total
 ==> 基础验证通过。
 ```
