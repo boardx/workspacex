@@ -274,8 +274,10 @@ export function TabOverview({
         <SectionTitle>工作面</SectionTitle>
         <ul className="flex flex-col gap-1.5">
           {PROJECT_SURFACES.map((s) => {
-            const href = s.href
-              ? s.href.startsWith("/") ? s.href : `/projects/${projectId}/${s.href}`
+            const href = s.key === "chat"
+              ? `/chat?projectId=${encodeURIComponent(projectId)}`
+              : s.href
+                ? s.href.startsWith("/") ? s.href : `/projects/${projectId}/${s.href}`
               : null;
             const body = (
               <>

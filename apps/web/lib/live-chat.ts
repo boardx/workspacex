@@ -11,10 +11,10 @@
  * 里对应的路由全部落到这两个仓储或共享的 `ProvenanceWriter`/`ProvenanceReader`
  * （`provenance_events`，`identity`/`artifact` 束共用的同一张审计表）上——不是
  * fixture。本文件只封装这些：
- *   · listThreads / getThread / mutateThread（线程列表/详情/新建-改名-删除）
+ *   · listThreads / getThread / getAgentPanel / mutateThread（线程列表/详情/只读 roster/新建-改名-删除）
  *   · upsertPreset / dispatchPreset / startPresetInstance / getPresetUsage（预设三件套）
  *
- * ⚠ 契约里还有 `getThreadMessagesFile`、`getAgentPanel`、`updateAgentRoster`、
+ * ⚠ 契约里还有 `getThreadMessagesFile`、`updateAgentRoster`、
  *   `expandToolCallChain`、`locateCitation`、`adminAuditRead`、approval-request/
  *   background-task/artifact 几条——同样是真实 Postgres/Provenance 支撑，
  *   但不在本次「核心聊天路径」范围内，故未封装，见 issue #368 的核实报告。
@@ -31,6 +31,7 @@ import { apiRequest } from "./api-client";
 export type ThreadCard = z.infer<typeof chat.ThreadCard>;
 export type ListThreadsOut = z.infer<typeof chat.operations.listThreads.out>;
 export type GetThreadOut = z.infer<typeof chat.operations.getThread.out>;
+export type GetAgentPanelOut = z.infer<typeof chat.operations.getAgentPanel.out>;
 export type MutateThreadOut = z.infer<typeof chat.operations.mutateThread.out>;
 export type UpsertPresetOut = z.infer<typeof chat.operations.upsertPreset.out>;
 export type DispatchPresetOut = z.infer<typeof chat.operations.dispatchPreset.out>;
@@ -40,6 +41,7 @@ export type GetPresetUsageOut = z.infer<typeof chat.operations.getPresetUsage.ou
 export async function listThreads(
   projectId: string,
   opts: { includeArchived?: boolean; filter?: "all" | "project" | "my-agents" } = {},
+  sessionToken?: string,
 ): Promise<ListThreadsOut> {
   return apiRequest<ListThreadsOut>(
     chat.operations.listThreads.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -49,14 +51,30 @@ export async function listThreads(
         includeArchived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
         filter: opts.filter,
       },
+      sessionToken,
     },
   );
 }
 
-export async function getThread(threadId: string, projectId: string): Promise<GetThreadOut> {
+export async function getThread(
+  threadId: string,
+  projectId: string,
+  sessionToken?: string,
+): Promise<GetThreadOut> {
   return apiRequest<GetThreadOut>(
     chat.operations.getThread.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "GET", query: { projectId } },
+    { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
+export async function getAgentPanel(
+  threadId: string,
+  projectId: string,
+  sessionToken?: string,
+): Promise<GetAgentPanelOut> {
+  return apiRequest<GetAgentPanelOut>(
+    chat.operations.getAgentPanel.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "GET", query: { projectId }, sessionToken },
   );
 }
 

@@ -38,4 +38,12 @@ describe("F353 project-overview：项目基本信息块只显示真实数据", (
     expect(screen.getByTestId("project-overview-live-error")).toHaveTextContent("AUTH_SERVICE_UNAVAILABLE");
     expect(screen.queryByTestId("project-overview-live-empty")).not.toBeInTheDocument();
   });
+
+  it("project workbench passes its real project id into the Chat surface", () => {
+    render(<TabOverview view="facilitator" projectId="project-route-real" />);
+    expect(screen.getByTestId("project-home-surface-chat")).toHaveAttribute(
+      "href",
+      "/chat?projectId=project-route-real",
+    );
+  });
 });

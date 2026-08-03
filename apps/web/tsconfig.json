@@ -38,7 +38,8 @@
     ".next-ui-gate/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
     ".next-tpl-preview/types/**/*.ts",
-    ".next-oa/types/**/*.ts"
+    ".next-oa/types/**/*.ts",
+    ".next-chat-read-e2e/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
