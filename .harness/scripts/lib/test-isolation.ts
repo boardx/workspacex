@@ -38,9 +38,9 @@ export function assertDatabaseCapacity(capacity: DatabaseCapacity): void {
   }
 }
 
-function safeId(value: string): string {
+function safeId(value: string, hash: string): string {
   const cleaned = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return (cleaned || "run").slice(0, 40);
+  return `${(cleaned || "run").slice(0, 27)}-${hash.slice(0, 12)}`;
 }
 
 function digest(worktreePath: string, isolationId: string): string {
@@ -52,8 +52,10 @@ function portFrom(hash: string, offset: number): string {
 }
 
 export function deriveTestIsolation(options: Required<IsolationOptions>): TestIsolationEnv {
-  const isolationId = safeId(options.isolationId);
-  const hash = digest(options.worktreePath, isolationId);
+  // Hash the caller's original id before making it safe for resource names. Otherwise
+  // distinct ids such as `feature/74` and `feature-74` collapse onto the same resources.
+  const hash = digest(options.worktreePath, options.isolationId);
+  const isolationId = safeId(options.isolationId, hash);
   const resource = hash.slice(0, 20);
   const db = `wsx_${resource}`;
 

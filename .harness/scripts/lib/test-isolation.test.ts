@@ -1,9 +1,29 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { assertDatabaseCapacity, deriveTestIsolation, ensureTestIsolation } from "./test-isolation";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
+
+function turboApiTestHash(env: Record<string, string>): string {
+  const result = spawnSync(
+    "pnpm",
+    ["exec", "turbo", "run", "test", "--filter=@repo/api", "--dry=json"],
+    {
+      cwd: ROOT,
+      env: { ...process.env, TURBO_TELEMETRY_DISABLED: "1", ...env },
+      encoding: "utf8",
+    },
+  );
+  if (result.status !== 0) throw new Error(`turbo dry run failed: ${result.stderr}`);
+  const dryRun = JSON.parse(result.stdout) as {
+    tasks: Array<{ package: string; task: string; hash: string }>;
+  };
+  const task = dryRun.tasks.find((entry) => entry.package === "@repo/api" && entry.task === "test");
+  if (!task) throw new Error("turbo dry run did not include @repo/api#test");
+  return task.hash;
+}
 
 describe("test isolation contract (#74)", () => {
   it("reuses every derived resource for the same explicit isolation id", () => {
@@ -32,6 +52,22 @@ describe("test isolation contract (#74)", () => {
     }
   });
 
+  it("does not collide when distinct raw ids normalize to the same safe prefix", () => {
+    const slash = deriveTestIsolation({ isolationId: "feature/74", worktreePath: "/tmp/worktree-a" });
+    const dash = deriveTestIsolation({ isolationId: "feature-74", worktreePath: "/tmp/worktree-a" });
+
+    for (const key of [
+      "WORKSPACEX_ISOLATION_ID",
+      "WORKSPACEX_DB",
+      "COMPOSE_PROJECT_NAME",
+      "PGPORT",
+      "REDIS_PORT",
+      "REDIS_PREFIX",
+    ] as const) {
+      expect(slash[key]).not.toBe(dash[key]);
+    }
+  });
+
   it("generates safe PostgreSQL names and non-overlapping valid port bands", () => {
     const env = deriveTestIsolation({
       isolationId: "Feature/74: spaces and punctuation!".repeat(8),
@@ -51,10 +87,15 @@ describe("test isolation contract (#74)", () => {
       { WORKSPACEX_ISOLATION_ID: "parent-run" },
       { worktreePath: "/tmp/worktree-a" },
     );
+    const inheritedAgain = ensureTestIsolation(
+      { WORKSPACEX_ISOLATION_ID: "parent-run" },
+      { worktreePath: "/tmp/worktree-a" },
+    );
     const freshA = ensureTestIsolation({}, { worktreePath: "/tmp/worktree-a" });
     const freshB = ensureTestIsolation({}, { worktreePath: "/tmp/worktree-a" });
 
-    expect(inherited.WORKSPACEX_ISOLATION_ID).toBe("parent-run");
+    expect(inheritedAgain).toEqual(inherited);
+    expect(inherited.WORKSPACEX_ISOLATION_ID).toMatch(/^parent-run-[a-f0-9]{12}$/);
     expect(freshA.WORKSPACEX_ISOLATION_ID).not.toBe(freshB.WORKSPACEX_ISOLATION_ID);
   });
 
@@ -72,6 +113,40 @@ describe("test isolation contract (#74)", () => {
     const config = readFileSync(resolve(ROOT, "apps/api/vitest.config.ts"), "utf8");
     expect(config).toMatch(/maxWorkers:\s*4/);
     expect(config).not.toMatch(/threads:\s*\{[\s\S]*maxThreads/);
+  });
+
+  it("hashes isolation inputs into Turbo's test cache key", () => {
+    const config = readFileSync(resolve(ROOT, "turbo.json"), "utf8");
+    const testTask = config.match(/"test"\s*:\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+
+    expect(testTask).toContain('"env"');
+    for (const name of [
+      "WORKSPACEX_ISOLATION_ID",
+      "WORKSPACEX_DB",
+      "PGDATABASE",
+      "PGPORT",
+      "REDIS_PORT",
+      "REDIS_PREFIX",
+      "COMPOSE_PROJECT_NAME",
+    ]) {
+      expect(testTask).toContain(`"${name}"`);
+    }
+
+    const baseline = deriveTestIsolation({ isolationId: "turbo-cache-a", worktreePath: ROOT });
+    const baselineHash = turboApiTestHash(baseline);
+    expect(turboApiTestHash(baseline)).toBe(baselineHash);
+    for (const name of [
+      "WORKSPACEX_DB",
+      "PGDATABASE",
+      "PGPORT",
+      "REDIS_PORT",
+      "REDIS_PREFIX",
+      "MINIO_PORT",
+      "MINIO_CONSOLE_PORT",
+      "COMPOSE_PROJECT_NAME",
+    ] as const) {
+      expect(turboApiTestHash({ ...baseline, [name]: `${baseline[name]}-changed` })).not.toBe(baselineHash);
+    }
   });
 
   it("fails fast when PostgreSQL cannot satisfy the declared connection budget", () => {

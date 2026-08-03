@@ -15,12 +15,41 @@ IDS=(
 )
 PROJECTS=()
 OVERALL=0
+TEMP_LOGS=()
+
+make_raw_log() {
+  local round="$1"
+  # BSD and GNU mktemp both require the X run to terminate the template.
+  mktemp "${TMPDIR:-/tmp}/issue74-round-${round}.XXXXXX"
+}
+
+check_tempfiles() {
+  local first second
+  first="$(make_raw_log self-test)"
+  second="$(make_raw_log self-test)"
+  if [ "${first}" = "${second}" ] || [ ! -f "${first}" ] || [ ! -f "${second}" ]; then
+    rm -f -- "${first}" "${second}"
+    echo "portable tempfile check failed" >&2
+    return 1
+  fi
+  printf 'portable tempfile check passed: %s != %s\n' "$(basename "${first}")" "$(basename "${second}")"
+  rm -f -- "${first}" "${second}"
+}
+
+if [ "${1:-}" = "--check-tempfiles" ]; then
+  check_tempfiles
+  exit 0
+fi
 
 cleanup() {
-  local project
+  local project raw_log
   for project in "${PROJECTS[@]:-}"; do
     [ -n "${project}" ] || continue
     docker compose -f "${COMPOSE_FILE}" -p "${project}" down -v >/dev/null 2>&1 || true
+  done
+  for raw_log in "${TEMP_LOGS[@]:-}"; do
+    [ -n "${raw_log}" ] || continue
+    rm -f -- "${raw_log}"
   done
 }
 trap cleanup EXIT
@@ -33,14 +62,15 @@ trap cleanup EXIT
   echo "- command: \`pnpm --filter @repo/api run test:stability\`"
   echo "- policy: five complete runs; no failed-test retry; rounds 2 and 3 reuse one isolation id/database"
   echo
-  echo "| round | isolation id | database | compose project | result | peak connections | failure set | raw log sha256 |"
-  echo "|---:|---|---|---|---|---:|---|---|"
+  echo "| round | isolation id | database | compose project | result | peak connections | failure set |"
+  echo "|---:|---|---|---|---|---:|---|"
 } > "${EVIDENCE}"
 
 for index in 0 1 2 3 4; do
   round=$((index + 1))
   isolation_id="${IDS[$index]}"
-  raw_log="$(mktemp "${TMPDIR:-/tmp}/issue74-round-${round}.XXXXXX.txt")"
+  raw_log="$(make_raw_log "${round}")"
+  TEMP_LOGS+=("${raw_log}")
 
   set +e
   (
@@ -61,11 +91,10 @@ for index in 0 1 2 3 4; do
   [ -n "${failures}" ] || failures="none"
   [ -n "${peak}" ] || peak="n/a"
   [ -n "${summary}" ] || summary="exit ${code} before Vitest summary"
-  digest="$(shasum -a 256 "${raw_log}" | awk '{print $1}')"
   PROJECTS+=("${project}")
 
-  printf '| %s | `%s` | `%s` | `%s` | %s | %s | %s | `%s` |\n' \
-    "${round}" "${isolation_id}" "${database}" "${project}" "${summary}" "${peak}" "${failures}" "${digest}" \
+  printf '| %s | `%s` | `%s` | `%s` | %s | %s | %s |\n' \
+    "${round}" "${isolation_id}" "${database}" "${project}" "${summary}" "${peak}" "${failures}" \
     >> "${EVIDENCE}"
 
   if [ "${code}" -ne 0 ]; then OVERALL=1; fi
