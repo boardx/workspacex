@@ -21,8 +21,26 @@ import {
 import {
   ScreenHead, BackstageGate, VerdictBadge, Meter, FileTree, CodeView, DangerConfirm, Panel,
 } from "./ag-shared";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { getAssetDirectory, readAssetFile, type AssetDirectory } from "@/lib/asset-directory";
+import type { FileNode } from "@/lib/mock/asset-governance";
 
 type ScreenProps = { state: UiState; view: AgView };
+
+/** 契约 `AssetFileBadge` → 现有 `FileTree` 图标档位。JS/SH 目前 fixture 未命中，落到 md。 */
+const BADGE_TO_KIND: Record<string, FileNode["kind"]> = {
+  MD: "md", PY: "py", JSON: "json", YAML: "yaml", JS: "md", SH: "md", CSV: "json", JSONL: "json",
+};
+
+function formatBytes(n: number): string {
+  return n < 1024 ? `${n}B` : `${(n / 1024).toFixed(1)}k`;
+}
+
+function describeAssetError(e: unknown): string {
+  if (e instanceof ApiError) return e.reasonCode ?? `HTTP ${e.status}`;
+  if (e instanceof Error) return e.message;
+  return "未知错误";
+}
 
 /** 统一包壳：先做后台投影门（member），再套七态 StateShell。 */
 function Wrap({
@@ -521,12 +539,72 @@ function Editor({
   state: UiState;
   view: AgView;
 }) {
-  const tree = kind === "skill" ? AG_SKILL_TREE : AG_AGENT_TREE;
+  const mockTree = kind === "skill" ? AG_SKILL_TREE : AG_AGENT_TREE;
   const main = kind === "skill" ? AG_SKILL_MAIN : AG_AGENT_MAIN;
-  const [sel, setSel] = React.useState(tree[0]!.path);
+  const [sel, setSel] = React.useState(mockTree[0]!.path);
   const [tab, setTab] = React.useState<"edit" | "preview">("edit");
   const label = kind === "skill" ? "Skill" : "Agent";
   const uc = kind === "skill" ? "④ Skill 编辑器" : "⑤ Agent 编辑器";
+
+  // ── F367：真实 GetAssetDirectory / ReadAssetFile（`asset-directory.controller.ts`）。
+  // 只在本地已有 F122 登录写入的 session token 时才打真实接口——本页面没有自己的登录 UI，
+  // 未登录时保持原有 mock 展示（不是网络失败，是从没发起请求）。
+  // ⚠ 文件字节仍来自 `FixtureAssetFileRepository`：真实的是 HTTP 路由 + 组织成员校验，
+  // 不是文件内容本身按 assetId 各异——见 `lib/asset-directory.ts` 顶部长注。
+  const [liveDir, setLiveDir] = React.useState<AssetDirectory | null>(null);
+  const [liveError, setLiveError] = React.useState<string | null>(null);
+  const isLive = liveDir !== null;
+
+  React.useEffect(() => {
+    setLiveDir(null);
+    setLiveError(null);
+    const token = getStoredSessionToken();
+    if (!token) return;
+    let cancelled = false;
+    getAssetDirectory(kind, main.slug)
+      .then((dir) => {
+        if (!cancelled) setLiveDir(dir);
+      })
+      .catch((e) => {
+        if (!cancelled) setLiveError(describeAssetError(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, main.slug]);
+
+  const tree: FileNode[] = liveDir
+    ? liveDir.files.map((f) => ({
+        path: f.path,
+        size: formatBytes(f.sizeBytes),
+        kind: BADGE_TO_KIND[f.badge] ?? "md",
+      }))
+    : mockTree;
+
+  const [liveBody, setLiveBody] = React.useState<string | null>(null);
+  const [fileBusy, setFileBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    setLiveBody(null);
+    if (!isLive) return;
+    let cancelled = false;
+    setFileBusy(true);
+    readAssetFile(kind, main.slug, sel)
+      .then((f) => {
+        if (!cancelled) setLiveBody(f.body);
+      })
+      .catch((e) => {
+        if (!cancelled) setLiveError(describeAssetError(e));
+      })
+      .finally(() => {
+        if (!cancelled) setFileBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, kind, main.slug, sel]);
+
   return (
     <Wrap view={view} what={`${label} 编辑器`} state={state} empty={`这个 ${label} 目录还是空的`}
       invalid={{ frontmatter: "SKILL.md 的 frontmatter 缺 name/description——保存前必须补齐" }}
@@ -566,6 +644,19 @@ function Editor({
           左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
         </ScreenHead>
 
+        <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
+          {isLive ? (
+            <Badge tone="primary" className="font-mono text-9">真实数据 · GetAssetDirectory</Badge>
+          ) : (
+            <Badge tone="outline" className="font-mono text-9">
+              {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
+            </Badge>
+          )}
+          {liveError && (
+            <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[200px_1fr]">
           <Panel testid={`ag-${kind}-filepane`} className="h-fit">
             <FileTree files={tree} selected={sel} onSelect={setSel} testidPrefix={`ag-${kind}`} />
@@ -576,7 +667,15 @@ function Editor({
               <Button size="xs" variant={tab === "preview" ? "primary" : "ghost"} onClick={() => setTab("preview")} data-testid={`ag-${kind}-tab-preview`}>预览</Button>
               <span className="ml-auto font-mono text-9 text-muted-foreground">{main.footer}</span>
             </div>
-            {sel === tree[0]!.path ? (
+            {isLive ? (
+              fileBusy ? (
+                <Panel testid={`ag-${kind}-code-loading`}>
+                  <p className="text-10 text-muted-foreground">读取中…</p>
+                </Panel>
+              ) : (
+                <CodeView body={liveBody ?? ""} testid={`ag-${kind}-code`} />
+              )
+            ) : sel === mockTree[0]!.path ? (
               <CodeView body={main.body} testid={`ag-${kind}-code`} />
             ) : (
               <Panel testid={`ag-${kind}-otherfile`}>
