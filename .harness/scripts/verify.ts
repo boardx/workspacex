@@ -21,8 +21,12 @@ import { req } from "./lib/args";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
+import { ensureTestIsolation } from "./lib/test-isolation";
 
 export function verify(args: Args): void {
+  // One verify invocation owns one isolation scope. Every feature command and the final
+  // base gate inherit the same DB/Redis/compose namespace from this single helper.
+  Object.assign(process.env, ensureTestIsolation(process.env));
   const cfg = loadHarnessConfig();
 
   // --sprint NN/MM  或  --phase NN --feature F01

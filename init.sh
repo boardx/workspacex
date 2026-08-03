@@ -4,7 +4,7 @@
 set -euo pipefail
 
 INSTALL_CMD="pnpm install"
-VERIFY_CMD="pnpm -w run verify:base"   # 基础验证:类型检查 + lint + 单测
+VERIFY_CMD="pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm -w run verify:base:raw"   # 基础验证:类型检查 + lint + 单测
 START_CMD=""   # 模板无应用层；接入你的 app 后改成真实启动命令（如 pnpm -w run dev）
 
 echo "==> 工作目录: $(pwd)"
@@ -94,7 +94,7 @@ if [ -n "${BASE_SHA}" ]; then
     fi
   done
   export TURBO_SCM_BASE="${BASE_SHA}"
-  if ! pnpm turbo run typecheck lint test --affected; then
+  if ! pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm turbo run typecheck lint test --affected; then
     echo "✗ [harness] 受影响模块验证失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
     exit 1
   fi
