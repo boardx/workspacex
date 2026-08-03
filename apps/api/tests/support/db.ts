@@ -12,7 +12,10 @@ import { migrate } from "../../src/infrastructure/db/migrator";
 import { appConfig, migrationConfig } from "../../src/infrastructure/db/pg-config";
 
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url));
-const COMPOSE = ["compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p", "workspacex-kernel"];
+const COMPOSE = [
+  "compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p",
+  process.env.COMPOSE_PROJECT_NAME ?? "workspacex-kernel",
+];
 
 /**
  * The database name comes from WORKSPACEX_DB, so parallel workers do not share one.

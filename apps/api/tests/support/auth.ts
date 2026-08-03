@@ -14,7 +14,10 @@ import { normalizeEmail } from "../../src/domain/auth/email";
 import { asOwner } from "./db";
 
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url));
-const COMPOSE = ["compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p", "workspacex-kernel"];
+const COMPOSE = [
+  "compose", "-f", `${API_DIR}/docker-compose.dev.yml`, "-p",
+  process.env.COMPOSE_PROJECT_NAME ?? "workspacex-kernel",
+];
 
 function redisReady(): boolean {
   try {
