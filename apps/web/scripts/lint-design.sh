@@ -91,7 +91,7 @@ if [ -z "$ALLOWED" ]; then
   VIOLATIONS=$((VIOLATIONS + 1))
 else
   BAD=$(scan '\btext-[0-9]+\b' | grep -vE "text-($ALLOWED)\b" || true)
-  report "§1.2" "字号档位不在 lib/font-scale.ts 白名单内（当前允许：$ALLOWED）" "$BAD"
+  report "§1.2" "字号档位不在 lib/font-scale.ts 白名单内（当前允许：${ALLOWED}）" "$BAD"
 fi
 
 # ── §1.2 字号清单副本 ───────────────────────────────────────────────────────
