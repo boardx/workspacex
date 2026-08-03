@@ -15,8 +15,9 @@ eval "${INSTALL_CMD}"
 echo "==> 安装 git hooks"
 # 总是覆盖安装（保证 hook 升级生效；内容幂等）。
 install_pre_commit_hook() {
-  local hook_path=".git/hooks/pre-commit"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/pre-commit)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (pre-commit): 三道防线
@@ -59,8 +60,9 @@ HOOK
 # e2e 每 3 小时）+ feature 转 passing 前的 pnpm harness verify / verify:full 承担。
 # 跳过用 git push --no-verify；push 前想跑全量：pnpm -w run verify:full。
 install_pre_push_hook() {
-  local hook_path=".git/hooks/pre-push"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/pre-push)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (pre-push): 轻量门控（受影响模块 typecheck/lint/test，对齐 CI）
@@ -115,8 +117,9 @@ HOOK
 # branch -f 让另一个恰好检出同一分支的并发会话无声丢失 commit。worktree 内天然隔离，
 # 不受影响。临时放行：ALLOW_HISTORY_REWRITE=1 <原命令>。
 install_reference_transaction_hook() {
-  local hook_path=".git/hooks/reference-transaction"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/reference-transaction)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (reference-transaction): 见 ADR-005
@@ -153,12 +156,12 @@ HOOK
   echo "  ✓ reference-transaction hook（共享主 checkout 非快进更新防护，ADR-005）"
 }
 
-if [ -d ".git" ]; then
+if git rev-parse --git-dir >/dev/null 2>&1; then
   install_pre_commit_hook
   install_pre_push_hook
   install_reference_transaction_hook
 else
-  echo "  ! 不在 git 仓库根目录，跳过 hook 安装"
+  echo "  ! 不在 git 仓库中，跳过 hook 安装"
 fi
 
 echo "==> 生成 subagent（从 .harness/agents/*.yaml → .claude/agents + .codex/agents）"

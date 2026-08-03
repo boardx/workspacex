@@ -105,6 +105,8 @@ describe("test isolation contract (#74)", () => {
     const packageJson = readFileSync(resolve(ROOT, "package.json"), "utf8");
 
     expect(init).toContain("with-test-isolation");
+    expect(init).toContain("git rev-parse --git-path hooks/pre-push");
+    expect(init).not.toContain('if [ -d ".git" ]');
     expect(verify).toContain("ensureTestIsolation");
     expect(packageJson).toContain("with-test-isolation");
   });
