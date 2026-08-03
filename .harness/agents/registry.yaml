@@ -21,7 +21,7 @@ agents:
   # ── 控制平面架构协调者（无合并权）────────────────────────────
   - id: coord-architecture
     active: true
-    kind: module-coordinator
+    kind: architecture-coordinator
     model: configured-default
     owner: 2325074+usamshen@users.noreply.github.com
     areas: [harness, docs, adr, agent-protocol]
