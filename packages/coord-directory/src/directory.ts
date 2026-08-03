@@ -26,6 +26,15 @@ export type MembershipRole = (typeof MEMBERSHIP_ROLES)[number];
 export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended", "rejected"] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
+export const AGENT_KINDS = [
+  "coordinator",
+  "architecture-coordinator",
+  "module-coordinator",
+  "worker",
+  "reviewer",
+] as const;
+export type AgentKind = (typeof AGENT_KINDS)[number];
+
 // 状态机唯一出口：pending→active（approve）/ pending→rejected（reject，终态，p30/F06）
 // →suspended（suspend，仅 active）→active（reinstate，仅 suspended）。
 // 其余一律非法（pending→suspended、重复 approve、对 rejected 再 approve、active→reinstate……）→ 409。
@@ -107,6 +116,9 @@ interface AgentRow {
   owner_engineer_id: string;
   parent_agent_id: string | null;
   capabilities: string;
+  kind: string;
+  areas: string;
+  reports_to_agent_id: string | null;
   last_heartbeat_at: string | null;
   lifecycle: string;
   created_at: string;
@@ -161,8 +173,10 @@ function actorOf(o: Obj | null): string {
 function jsonField(o: Obj | null, key: string, fallback: unknown): string | Response {
   const v = o?.[key];
   if (v === undefined || v === null) return JSON.stringify(fallback);
-  if (key === "modules" || key === "capabilities") {
+  if (key === "modules" || key === "capabilities" || key === "areas") {
     if (!Array.isArray(v)) return json(422, { error: `invalid_${key}`, details: [`${key} 必须是数组`] });
+    if (key === "areas" && v.some((item) => typeof item !== "string" || item.length === 0))
+      return json(422, { error: "invalid_areas", details: ["areas 每项必须是非空字符串"] });
   } else if (!isObj(v)) {
     return json(422, { error: `invalid_${key}`, details: [`${key} 必须是对象`] });
   }
@@ -179,6 +193,9 @@ function jsonField(o: Obj | null, key: string, fallback: unknown): string | Resp
  *  这类回归测试能直接复用同一份真实语句，而不是在测试里手抄一份容易漂移的副本。 */
 export const SCHEMA_MIGRATIONS = [
   `ALTER TABLE agents ADD COLUMN lifecycle TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE agents ADD COLUMN kind TEXT NOT NULL DEFAULT 'worker'`,
+  `ALTER TABLE agents ADD COLUMN areas TEXT NOT NULL DEFAULT '[]'`,
+  `ALTER TABLE agents ADD COLUMN reports_to_agent_id TEXT`,
   `ALTER TABLE memberships ADD COLUMN modules TEXT NOT NULL DEFAULT '[]'`,
   `ALTER TABLE memberships ADD COLUMN intro TEXT NOT NULL DEFAULT ''`,
   `ALTER TABLE memberships ADD COLUMN onboarding_issue_url TEXT`,
@@ -570,6 +587,17 @@ export class PlatformDirectory extends DurableObject {
 
     const capabilities = jsonField(b, "capabilities", []);
     if (capabilities instanceof Response) return capabilities;
+    const kind = str(b, "kind") ?? "worker";
+    if (!(AGENT_KINDS as readonly string[]).includes(kind))
+      return json(422, { error: "invalid_agent_kind", details: [`kind 必须是 ${AGENT_KINDS.join(" | ")} 之一`] });
+    const areas = jsonField(b, "areas", []);
+    if (areas instanceof Response) return areas;
+    const reportsToId = str(b, "reports_to") ?? null;
+    const reportsTo = reportsToId
+      ? [...this.sql.exec<AgentRow>(`SELECT * FROM agents WHERE agent_id=?`, reportsToId)][0]
+      : undefined;
+    if (reportsToId && !reportsTo)
+      return json(404, { error: "reports_to_agent_not_found", reports_to: reportsToId });
 
     const dup = [...this.sql.exec(
       `SELECT agent_id FROM agents WHERE owner_engineer_id=? AND name=?`, owner.engineer_id, name,
@@ -579,12 +607,19 @@ export class PlatformDirectory extends DurableObject {
 
     const now = iso(Date.now());
     const row = [...this.sql.exec<AgentRow>(
-      `INSERT INTO agents (agent_id,name,owner_engineer_id,parent_agent_id,capabilities,last_heartbeat_at,created_at,updated_at)
-       VALUES (?,?,?,?,?,NULL,?,?) RETURNING *`,
-      `agt_${ulid()}`, name, owner.engineer_id, parent?.agent_id ?? null, capabilities, now, now,
+      `INSERT INTO agents (agent_id,name,owner_engineer_id,parent_agent_id,capabilities,kind,areas,reports_to_agent_id,last_heartbeat_at,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,NULL,?,?) RETURNING *`,
+      `agt_${ulid()}`, name, owner.engineer_id, parent?.agent_id ?? null, capabilities,
+      kind, areas, reportsToId, now, now,
     )][0]!;
     this.emit("directory.agent.enrolled", `agent:@${owner.handle}/${name}`, actorOf(b), {
-      agent_id: row.agent_id, owner: owner.handle, name, parent_agent_id: parent?.agent_id ?? null,
+      agent_id: row.agent_id,
+      owner: owner.handle,
+      name,
+      parent_agent_id: parent?.agent_id ?? null,
+      kind,
+      areas: JSON.parse(areas),
+      reports_to_agent_id: reportsTo?.agent_id ?? null,
     });
     return json(201, { agent: this.toAgent(row) });
   }
@@ -697,6 +732,9 @@ export class PlatformDirectory extends DurableObject {
     const parent = r.parent_agent_id
       ? [...this.sql.exec<AgentRow>(`SELECT agent_id, name FROM agents WHERE agent_id=?`, r.parent_agent_id)][0]
       : undefined;
+    const reportsTo = r.reports_to_agent_id
+      ? [...this.sql.exec<AgentRow>(`SELECT agent_id, name FROM agents WHERE agent_id=?`, r.reports_to_agent_id)][0]
+      : undefined;
     const projects = [...this.sql.exec<{ slug: string }>(
       `SELECT p.slug FROM enrollments en JOIN projects p ON p.project_id = en.project_id
        WHERE en.agent_id=? AND en.status='active' ORDER BY p.slug`, r.agent_id,
@@ -709,9 +747,13 @@ export class PlatformDirectory extends DurableObject {
       // 这个字段，不能用 handle：两者是独立字段，可以不相等，见 p30/F06 #798 同款教训）。
       owner: owner ? { engineer_id: owner.engineer_id, handle: owner.handle, github_login: owner.github_login } : null,
       parent: parent ? { agent_id: parent["agent_id"], name: parent["name"] } : null, // parent 是谁
+      kind: r.kind ?? "worker",
+      areas: JSON.parse(r.areas ?? "[]"),
+      reports_to: reportsTo ? { agent_id: reportsTo["agent_id"], name: reportsTo["name"] } : null,
       projects, // 哪个项目的（active enrollment 的项目 slug）
       capabilities: JSON.parse(r.capabilities),
       lifecycle: r.lifecycle ?? "active", // active | paused | retired（p30/F07）
+      active: (r.lifecycle ?? "active") === "active",
       last_heartbeat_at: r.last_heartbeat_at,
       created_at: r.created_at,
       updated_at: r.updated_at,

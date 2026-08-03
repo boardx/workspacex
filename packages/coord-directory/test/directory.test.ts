@@ -622,7 +622,15 @@ describe("老表结构迁移自愈（#787：CREATE TABLE IF NOT EXISTS 不会补
     const dropped = dropBody["dropped"] as string[];
     const failed = dropBody["failed"] as string[];
     expect(dropped).toEqual(
-      expect.arrayContaining(["memberships.modules", "memberships.intro", "memberships.onboarding_issue_url", "agents.lifecycle"]),
+      expect.arrayContaining([
+        "memberships.modules",
+        "memberships.intro",
+        "memberships.onboarding_issue_url",
+        "agents.lifecycle",
+        "agents.kind",
+        "agents.areas",
+        "agents.reports_to_agent_id",
+      ]),
     );
     // 一个都不该失败——如果某列 DROP 静默失败，测试后面还是会"看起来复现了 #787"，
     // 但那是巧合而不是真的构造出了老表形状，会掩盖 drop 本身失效的问题。
@@ -651,6 +659,20 @@ describe("老表结构迁移自愈（#787：CREATE TABLE IF NOT EXISTS 不会补
     expect(m["modules"]).toEqual(["collab"]);
     expect(m["intro"]).toBe("回归测试");
     expect(m["onboarding_issue_url"]).toBe("https://github.com/x/y/issues/1");
+
+    const coordinator = (await j(await post("/directory/agents", {
+      owner: s.handle, name: "mig-coordinator", kind: "coordinator", areas: ["*"],
+    })))["agent"] as Obj;
+    const worker = (await j(await post("/directory/agents", {
+      owner: s.handle,
+      name: "mig-worker",
+      kind: "worker",
+      areas: ["harness"],
+      reports_to: coordinator["agent_id"],
+    })))["agent"] as Obj;
+    expect(worker["kind"]).toBe("worker");
+    expect(worker["areas"]).toEqual(["harness"]);
+    expect((worker["reports_to"] as Obj)["agent_id"]).toBe(coordinator["agent_id"]);
   });
 
   it("补跑 migrate() 本身幂等——已迁移过的表再跑一遍不报错、不影响正常写入", async () => {
