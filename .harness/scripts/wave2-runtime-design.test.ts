@@ -23,20 +23,24 @@ describe("Wave 2 runtime design packet", () => {
     expect(contract).toContain("## 1. Registration email confirmation");
     expect(contract).toContain("## 2. Chat write and pagination");
     expect(contract).toContain("## 3. Skills persistence and explicit import");
-    expect(contract).toContain("## 4. Minimal no-tool AgentRun");
-    expect(contract).toContain("## 5. Idempotent Chat writeback");
-    expect(contract).toContain("## 6. UI delta");
-    expect(contract).toContain("## 7. End-to-end dependency order");
+    expect(contract).toContain("## 4. Agent persistence and explicit import");
+    expect(contract).toContain("## 5. Minimal no-tool AgentRun");
+    expect(contract).toContain("## 6. Idempotent Chat writeback");
+    expect(contract).toContain("## 7. UI delta");
+    expect(contract).toContain("## 8. End-to-end dependency order");
   });
 
   it("mechanically preserves the no-built-in and polling-first boundaries", () => {
     const contract = read("contract.md");
 
     expect(contract).toContain("POST /admin/skills/starter-pack-imports");
+    expect(contract).toContain("POST /admin/agents/starter-pack-imports");
     expect(contract).toContain("MUST NOT seed built-in skills");
+    expect(contract).toContain("MUST NOT seed built-in Agents");
     expect(contract).toContain("Polling is the Wave 2 transport");
     expect(contract).toContain("POST /auth/email-verifications/confirm");
     expect(contract).toContain("POST /chat/threads/:threadId/messages");
+    expect(contract).toContain("`agentId` is required");
     expect(contract).toContain("GET /agent-runs/:runId");
   });
 
@@ -46,6 +50,7 @@ describe("Wave 2 runtime design packet", () => {
     expect(verification).toContain("email-verification-public.test.ts");
     expect(verification).toContain("message-write-roundtrip.test.ts");
     expect(verification).toContain("explicit-starter-import.test.ts");
+    expect(verification).toContain("explicit-agent-import.test.ts");
     expect(verification).toContain("no-tool-run-writeback.test.ts");
     expect(verification).toContain("wave2-runtime.spec.ts");
     expect(verification).toContain("pnpm verify:full --journey wave2-runtime");

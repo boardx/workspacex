@@ -16,8 +16,9 @@ Agent/Skill/model inputs, execute one model call without tools, and persist the
 reply back to Chat.
 
 The decision is to use durable database state, transactional outboxes where an
-external side effect is involved, explicit administrator import for starter
-Skills, one model provider with no fallback, and polling for run progress.
+external side effect is involved, separate explicit administrator imports for
+starter Skills and Agents, one model provider with no fallback, and polling for
+run progress.
 SSE, MCP/tools, approvals, recovery orchestration, multi-provider fallback, and
 automatic starter content are out of scope.
 
@@ -71,10 +72,15 @@ full journey must use the configured real transport or its staging sink.
 {
   "clientMessageId": "client-generated UUID",
   "text": "non-empty user text",
-  "agentId": "optional selected agent ID",
-  "skillVersionIds": ["optional explicit immutable version IDs"]
+  "agentId": "required selected repository Agent ID"
 }
 ```
+
+`agentId` is required in Wave 2. This operation always means "persist and run";
+there is no agent-less variant. Missing/empty `agentId`, an unknown Agent, or an
+Agent without an authorized published version returns `422` before writing either
+a Chat message or an AgentRun. Plain human-only notes require a future, distinct
+operation rather than an ambiguous response shape.
 
 Authorization is repository-scoped and thread-scoped. The idempotency identity
 is `(threadId, actorId, clientMessageId)`. An identical retry returns the same
@@ -83,7 +89,9 @@ human message and `agentRunId`; a changed payload returns
 application transaction or a transactional command/outbox with equivalent
 atomicity. A successful request returns `202` with the durable human message,
 created `agentRunId`, and `runStatus: "queued"`; it never fabricates an inline
-assistant reply.
+assistant reply. At acceptance the server resolves the Agent's published immutable
+version, including its ordered Skill version IDs and fixed model, and records that
+exact snapshot on the run. Clients cannot override Skill/model versions here.
 
 ### Stable list
 
@@ -129,14 +137,52 @@ an authorized administrator invokes the explicit import operation. Tests may
 create fixtures only inside isolated test databases and must not share that path
 with production bootstrap.
 
-## 4. Minimal no-tool AgentRun
+## 4. Agent persistence and explicit import
+
+### Model
+
+- `agents`: repository-owned logical identity, stable name, status, creator, and
+  timestamps.
+- `agent_versions`: immutable version identity, Agent ID, instruction/config
+  digest, ordered `skillVersionIds`, fixed `modelProvider` and `modelId`, empty
+  Wave 2 tool policy, creator, and created time.
+- `agent_starter_pack_imports`: pack ID/version/digest, idempotency key,
+  administrator, import time, result IDs, and failure status.
+
+Publishing appends a version; it never mutates a prior version. An Agent has at
+most one published head, selected atomically, but existing runs keep their stored
+version ID. Resolving `agentId` for Chat requires repository visibility, enabled
+status, and a published version whose referenced Skill versions exist and are
+authorized in the same repository.
+
+### Separate explicit Agent import
+
+`POST /admin/agents/starter-pack-imports` accepts `{ packId, packVersion,
+idempotencyKey }` and requires an administrator principal. This is deliberately
+separate from `POST /admin/skills/starter-pack-imports`: import Skills first,
+then Agents whose signed manifest references concrete imported Skill version IDs
+and digests. Missing/mismatched Skill versions fail the entire Agent import.
+
+The Agent pack signature/digests are verified before one all-or-nothing
+transaction creates Agent definitions, immutable versions, published heads, and
+provenance. Identical retries return the original result. Name/content conflicts
+fail visibly and never overwrite user-created Agents.
+
+Runtime startup, migrations, bootstrap, fixtures, project enrollment, and first
+login **MUST NOT seed built-in Agents**. A repository has no common Agents until
+an authorized administrator explicitly imports an Agent pack. Test fixtures stay
+inside isolated test databases and cannot reuse production bootstrap paths.
+
+## 5. Minimal no-tool AgentRun
 
 ### Acceptance and snapshot
 
-The Chat write application creates a run with immutable `agentVersionId`, ordered
-`skillVersionIds`, `modelProvider`, `modelId`, `threadId`, and `inputMessageId`.
-The server resolves and authorizes these inputs at acceptance. Wave 2 permits one
-configured provider and does not fall back to another provider/model.
+The Chat write application resolves the required `agentId` through the durable
+Agent repository created by #417, then creates a run with immutable
+`agentVersionId`, ordered `skillVersionIds`, `modelProvider`, `modelId`,
+`threadId`, and `inputMessageId`. The server authorizes every referenced version
+at acceptance. Wave 2 permits one configured provider and does not fall back to
+another provider/model.
 
 The run status machine is:
 
@@ -154,7 +200,7 @@ or secondary model provider participates in this slice. Polling is the Wave 2 tr
 terminal error, and `resultMessageId` once durable. Clients use bounded backoff
 and stop at a terminal status.
 
-## 5. Idempotent Chat writeback
+## 6. Idempotent Chat writeback
 
 After the sole model call succeeds, the executor stores the model output and
 enters `writeback_pending`. The Chat writeback operation atomically inserts one
@@ -167,7 +213,7 @@ a synthetic success message. Exhaustion produces `failed` with
 `CHAT_WRITEBACK_FAILED`; the human message remains visible and the UI offers an
 explicit retry that creates a new run linked to the same input message.
 
-## 6. UI delta
+## 7. UI delta
 
 These are proposed test IDs for implementation; they do not claim that the live
 UI already provides the behavior.
@@ -179,34 +225,38 @@ UI already provides the behavior.
 | `/chat/live` | durable compose/send, paged messages, run polling/failure/retry | `chat-live-composer`, `chat-live-composer-input`, `chat-live-composer-send`, `chat-live-message-list`, `chat-live-run-status`, `chat-live-run-retry` |
 | `/skill/live` | honest empty state, version/file view, mounts | `skill-live-empty`, `skill-live-version`, `skill-live-files`, `skill-live-mounts` |
 | `/admin/skills` | explicit import confirmation, progress, conflict/result | `skill-starter-import`, `skill-starter-import-confirm`, `skill-starter-import-result` |
+| `/admin/agents` | honest empty state; separate Agent pack import after Skills; dependency/conflict/result | `agent-live-empty`, `agent-starter-import`, `agent-starter-import-confirm`, `agent-starter-import-result` |
 
 AgentRun has no top-level Wave 2 screen. Its progress and terminal result are
 embedded in Chat. UI must not show a successful reply until it can read the
 durable assistant message.
 
-## 7. End-to-end dependency order
+## 8. End-to-end dependency order
 
 1. Human signs this delta packet.
 2. #411 email confirmation and mail outbox may proceed independently.
 3. #415 Chat persistence/write/pagination and #412 Skills persistence/import may
    proceed in parallel after signoff.
-4. #414 minimal AgentRun depends on #415 and #412.
-5. #413 Chat writeback depends on #414 and #415.
-6. The existing verify:full work in #387 integrates all completed children and
+4. #417 Agent persistence/import depends on #412 because Agent pack manifests
+   reference already imported immutable Skill versions.
+5. #414 minimal AgentRun depends on #415, #412, and #417.
+6. #413 Chat writeback depends on #414 and #415.
+7. The existing verify:full work in #387 integrates all completed children and
    is the release-readiness gate. Feature tests passing alone are not equivalent
    to end-to-end readiness.
 
 No child may infer approval from its predecessor's implementation; the pending
 human signoff is a shared prerequisite.
 
-## 8. Screen-to-repository responsibility matrix
+## 9. Screen-to-repository responsibility matrix
 
 | Slice | Screen | Web adapter | API/controller | Application | Repository/external boundary |
 | --- | --- | --- | --- | --- | --- |
 | Confirm email | `/auth/verify-email` | auth HTTP adapter | confirm/resend routes | confirm challenge, queue resend | challenge repo + mail outbox + mail transport worker |
 | Chat write/list | `/chat/live` | Chat HTTP adapter | POST/GET messages | authorize, dedupe, persist, enqueue run | message repo + run command/outbox |
 | Skill library | `/skill/live` | Skills HTTP adapter | Skill/version/file/mount routes | immutable publish and mount | Skill/version/file/mount repos + blob store |
-| Starter import | `/admin/skills` | admin Skills adapter | admin import route | authorize, verify pack, transact | import provenance + Skill repos |
+| Skill import | `/admin/skills` | admin Skills adapter | admin Skill import route | authorize, verify Skill pack, transact | Skill import provenance + Skill repos |
+| Agent catalog/import | `/admin/agents` | admin Agent adapter | Agent list/version + admin import routes | resolve published version; verify Agent pack after Skills | Agent/version/import repos + Skill version repo |
 | Run status | embedded Chat card | AgentRun polling adapter | GET run route | authorize and project steps | run/step repos |
 | Reply | embedded Chat stream | Chat polling adapter | GET messages | idempotent writeback | message + run repos in one transaction |
 

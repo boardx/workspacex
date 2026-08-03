@@ -14,15 +14,15 @@ Normative source: [contract.md](./contract.md).
 
 ## ① UI delta
 
-Review [contract.md §6](./contract.md#6-ui-delta).
+Review [contract.md §7](./contract.md#7-ui-delta).
 
 ## ② Use cases and dependency order
 
-Review [contract.md §§1–5 and §7](./contract.md#1-registration-email-confirmation).
+Review [contract.md §§1–6 and §8](./contract.md#1-registration-email-confirmation).
 
 ## ③ API and persistence contract
 
-Review [contract.md §§1–5 and §8](./contract.md#1-registration-email-confirmation).
+Review [contract.md §§1–6 and §9](./contract.md#1-registration-email-confirmation).
 
 ## Executable acceptance contract
 
