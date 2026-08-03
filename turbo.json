@@ -52,6 +52,7 @@
       // isolation scope must execute tests against its own database instead of replaying
       // output cached for another worktree/run.
       "env": [
+        "WORKSPACEX_ISOLATION_SEED",
         "WORKSPACEX_ISOLATION_ID",
         "WORKSPACEX_DB",
         "WORKSPACEX_DB_CONNECTION_BUDGET",

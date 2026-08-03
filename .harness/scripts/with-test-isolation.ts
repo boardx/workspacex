@@ -12,6 +12,20 @@ if (command.length === 0) {
 
 const isolation = ensureTestIsolation(process.env);
 const env = { ...process.env, ...isolation };
+const verifyOuterDb = process.env.WORKSPACEX_VERIFY_OUTER_DB;
+const verifyOuterCompose = process.env.WORKSPACEX_VERIFY_OUTER_COMPOSE;
+if (verifyOuterDb !== undefined || verifyOuterCompose !== undefined) {
+  const matched = verifyOuterDb === isolation.WORKSPACEX_DB &&
+    verifyOuterCompose === isolation.COMPOSE_PROJECT_NAME;
+  const message = `[harness-isolation] outer_db=${verifyOuterDb ?? "missing"} ` +
+    `inner_db=${isolation.WORKSPACEX_DB} outer_compose=${verifyOuterCompose ?? "missing"} ` +
+    `inner_compose=${isolation.COMPOSE_PROJECT_NAME} status=${matched ? "matched" : "mismatch"}`;
+  if (!matched) {
+    console.error(message);
+    process.exit(2);
+  }
+  console.log(message);
+}
 console.log(
   `[test-isolation] id=${isolation.WORKSPACEX_ISOLATION_ID} db=${isolation.WORKSPACEX_DB} ` +
   `compose=${isolation.COMPOSE_PROJECT_NAME} pg=${isolation.PGPORT} redis=${isolation.REDIS_PORT}`,

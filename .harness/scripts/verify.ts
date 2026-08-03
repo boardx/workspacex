@@ -26,7 +26,11 @@ import { ensureTestIsolation } from "./lib/test-isolation";
 export function verify(args: Args): void {
   // One verify invocation owns one isolation scope. Every feature command and the final
   // base gate inherit the same DB/Redis/compose namespace from this single helper.
-  Object.assign(process.env, ensureTestIsolation(process.env));
+  const isolation = ensureTestIsolation(process.env);
+  Object.assign(process.env, isolation, {
+    WORKSPACEX_VERIFY_OUTER_DB: isolation.WORKSPACEX_DB,
+    WORKSPACEX_VERIFY_OUTER_COMPOSE: isolation.COMPOSE_PROJECT_NAME,
+  });
   const cfg = loadHarnessConfig();
 
   // --sprint NN/MM  或  --phase NN --feature F01

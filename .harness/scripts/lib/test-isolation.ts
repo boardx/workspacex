@@ -6,6 +6,7 @@ export interface IsolationOptions {
 }
 
 export interface TestIsolationEnv extends Record<string, string> {
+  WORKSPACEX_ISOLATION_SEED: string;
   WORKSPACEX_ISOLATION_ID: string;
   WORKSPACEX_DB: string;
   PGDATABASE: string;
@@ -17,6 +18,26 @@ export interface TestIsolationEnv extends Record<string, string> {
   MINIO_CONSOLE_PORT: string;
   COMPOSE_PROJECT_NAME: string;
   WORKSPACEX_DB_CONNECTION_BUDGET: string;
+}
+
+const ISOLATION_ENV_KEYS = [
+  "WORKSPACEX_ISOLATION_SEED",
+  "WORKSPACEX_ISOLATION_ID",
+  "WORKSPACEX_DB",
+  "PGDATABASE",
+  "PGHOST",
+  "PGPORT",
+  "REDIS_PORT",
+  "REDIS_PREFIX",
+  "MINIO_PORT",
+  "MINIO_CONSOLE_PORT",
+  "COMPOSE_PROJECT_NAME",
+  "WORKSPACEX_DB_CONNECTION_BUDGET",
+] as const;
+
+function inheritedIsolation(env: NodeJS.ProcessEnv): TestIsolationEnv | null {
+  if (!ISOLATION_ENV_KEYS.every((key) => typeof env[key] === "string" && env[key]!.length > 0)) return null;
+  return Object.fromEntries(ISOLATION_ENV_KEYS.map((key) => [key, env[key]!])) as TestIsolationEnv;
 }
 
 export interface DatabaseCapacity {
@@ -60,6 +81,7 @@ export function deriveTestIsolation(options: Required<IsolationOptions>): TestIs
   const db = `wsx_${resource}`;
 
   return {
+    WORKSPACEX_ISOLATION_SEED: options.isolationId,
     WORKSPACEX_ISOLATION_ID: isolationId,
     WORKSPACEX_DB: db,
     PGDATABASE: db,
@@ -80,7 +102,9 @@ export function ensureTestIsolation(
   inherited: NodeJS.ProcessEnv,
   options: Pick<IsolationOptions, "worktreePath"> = {},
 ): TestIsolationEnv {
-  const isolationId = inherited.WORKSPACEX_ISOLATION_ID ??
+  const existing = inheritedIsolation(inherited);
+  if (existing) return existing;
+  const isolationId = inherited.WORKSPACEX_ISOLATION_SEED ?? inherited.WORKSPACEX_ISOLATION_ID ??
     `run-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   return deriveTestIsolation({
     isolationId,
