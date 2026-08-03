@@ -6,6 +6,7 @@ import {
   ApiError,
   clearStoredSessionToken,
   getStoredSessionToken,
+  SESSION_TOKEN_STORAGE_KEY,
   storeSessionToken,
 } from "@/lib/api-client";
 import type { Identity } from "@/lib/identity";
@@ -92,57 +93,98 @@ function readSession(): SessionInfo | null {
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const generationRef = React.useRef(0);
   const [status, setStatus] = React.useState<SessionStatus>("loading");
   const [session, setSession] = React.useState<SessionInfo | null>(null);
   const [identity, setIdentity] = React.useState<Identity | null>(null);
   const [error, setError] = React.useState<ApiError | Error | null>(null);
 
-  const logout = React.useCallback(() => {
-    clearSession();
+  const becomeAnonymous = React.useCallback((clearStorage: boolean) => {
+    generationRef.current += 1;
+    if (clearStorage) clearSession();
     setSession(null);
     setIdentity(null);
     setError(null);
     setStatus("anonymous");
   }, []);
 
-  const handleFailure = React.useCallback((failure: unknown) => {
+  const logout = React.useCallback(() => {
+    becomeAnonymous(true);
+  }, [becomeAnonymous]);
+
+  const handleFailure = React.useCallback((failure: unknown, generation: number) => {
+    if (generation !== generationRef.current) return;
     const normalized = failure instanceof Error ? failure : new Error("session_dependency_failed");
     if (normalized instanceof ApiError && normalized.status === 401) {
-      logout();
+      becomeAnonymous(true);
       return;
     }
     setIdentity(null);
     setError(normalized);
     setStatus("dependency-failed");
-  }, [logout]);
+  }, [becomeAnonymous]);
 
-  const hydrate = React.useCallback(async (next: SessionInfo) => {
+  const hydrateAtGeneration = React.useCallback(async (next: SessionInfo, generation: number) => {
+    if (generation !== generationRef.current) return false;
     setSession(next);
     setError(null);
     try {
       const resolved = await resolveIdentity(next.currentOrgId, next.sessionToken);
+      if (generation !== generationRef.current) return false;
       setIdentity(toIdentity(next.userId, resolved));
       setStatus("authenticated");
+      return true;
     } catch (failure) {
-      handleFailure(failure);
+      if (generation !== generationRef.current) return false;
+      handleFailure(failure, generation);
       throw failure;
     }
   }, [handleFailure]);
 
   React.useEffect(() => {
-    const stored = readSession();
-    if (!stored) {
-      clearSession();
-      setStatus("anonymous");
-      return;
-    }
-    void hydrate(stored).catch(() => undefined);
-  }, [hydrate]);
+    const reconcileStorage = () => {
+      const generation = ++generationRef.current;
+      const stored = readSession();
+      setIdentity(null);
+      setError(null);
+      if (!stored) {
+        clearSession();
+        setSession(null);
+        setStatus("anonymous");
+        return;
+      }
+      // Fail closed while the replacement bearer is validated against /identity/me.
+      setSession(stored);
+      setStatus("loading");
+      void hydrateAtGeneration(stored, generation).catch(() => undefined);
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== null && event.storageArea !== window.localStorage) return;
+      if (
+        event.key !== null &&
+        event.key !== SESSION_STORAGE_KEY &&
+        event.key !== SESSION_TOKEN_STORAGE_KEY
+      ) return;
+      reconcileStorage();
+    };
+
+    reconcileStorage();
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      generationRef.current += 1;
+    };
+  }, [hydrateAtGeneration]);
 
   const startSession = React.useCallback(async (login: LoginOut) => {
+    const generation = ++generationRef.current;
     const currentOrgId = login.orgs[0];
     if (!currentOrgId) {
       const failure = new Error("session_has_no_organization");
+      clearSession();
+      setSession(null);
+      setIdentity(null);
       setError(failure);
       setStatus("dependency-failed");
       throw failure;
@@ -155,29 +197,39 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       expiresAt: login.expiresAt,
     };
     persistSession(next);
-    await hydrate(next);
-  }, [hydrate]);
+    setIdentity(null);
+    setStatus("loading");
+    const applied = await hydrateAtGeneration(next, generation);
+    if (!applied) throw new Error("session_operation_superseded");
+  }, [hydrateAtGeneration]);
 
   const switchOrganization = React.useCallback(async (orgId: string) => {
     if (!session || !session.orgIds.includes(orgId) || orgId === session.currentOrgId) return;
+    const generation = ++generationRef.current;
     setError(null);
     try {
       const resolved = await switchCurrentOrganization(orgId, session.sessionToken);
+      if (generation !== generationRef.current) throw new Error("session_operation_superseded");
       const next = { ...session, currentOrgId: orgId };
       persistSession(next);
       setSession(next);
       setIdentity(toIdentity(next.userId, resolved));
       setStatus("authenticated");
     } catch (failure) {
-      handleFailure(failure);
+      if (generation !== generationRef.current) throw failure;
+      handleFailure(failure, generation);
       throw failure;
     }
   }, [handleFailure, session]);
 
   const retry = React.useCallback(async () => {
     if (!session) return;
-    await hydrate(session);
-  }, [hydrate, session]);
+    const generation = ++generationRef.current;
+    setIdentity(null);
+    setStatus("loading");
+    const applied = await hydrateAtGeneration(session, generation);
+    if (!applied) throw new Error("session_operation_superseded");
+  }, [hydrateAtGeneration, session]);
 
   const value = React.useMemo<SessionContextValue>(() => ({
     status, session, identity, error, startSession, switchOrganization, retry, logout,
