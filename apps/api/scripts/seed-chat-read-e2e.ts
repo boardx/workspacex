@@ -33,10 +33,44 @@ const PROJECT_ID = required("CHAT_E2E_PROJECT_ID");
 const THREAD_ID = required("CHAT_E2E_THREAD_ID");
 const EMAIL = required("CHAT_E2E_EMAIL");
 const AGENT_ID = required("CHAT_E2E_AGENT_ID");
+const AGENT_VERSION_ID = `${AGENT_ID}-version-1`;
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
   await client.query("DELETE FROM credentials WHERE user_id = $1 OR email = $2", [USER_ID, EMAIL]);
+  await client.query(`
+    CREATE SCHEMA IF NOT EXISTS chat_wave2_fixture;
+    CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agents (
+      id text PRIMARY KEY,
+      org_id text NOT NULL,
+      status text NOT NULL,
+      published_version_id text NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agent_versions (
+      id text PRIMARY KEY,
+      org_id text NOT NULL,
+      agent_id text NOT NULL REFERENCES chat_wave2_fixture.agents(id) ON DELETE CASCADE,
+      skill_version_ids jsonb NOT NULL,
+      model_provider text NOT NULL,
+      model_id text NOT NULL,
+      published_at timestamptz NULL
+    );
+    DO $$
+    DECLARE t text;
+    BEGIN
+      FOREACH t IN ARRAY ARRAY['agents', 'agent_versions'] LOOP
+        EXECUTE format('ALTER TABLE chat_wave2_fixture.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE chat_wave2_fixture.%I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS %I ON chat_wave2_fixture.%I', t || '_tenant', t);
+        EXECUTE format(
+          'CREATE POLICY %I ON chat_wave2_fixture.%I USING (org_id = current_setting(''app.current_org'', true)) WITH CHECK (org_id = current_setting(''app.current_org'', true))',
+          t || '_tenant', t
+        );
+        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON chat_wave2_fixture.%I TO app_rw', t);
+      END LOOP;
+      GRANT USAGE ON SCHEMA chat_wave2_fixture TO app_rw;
+    END $$;
+  `);
 });
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
@@ -62,7 +96,7 @@ await addChatThread({
   title: "Controlled fixture thread",
 });
 
-for (let index = 1; index <= 21; index += 1) {
+for (let index = 1; index <= 51; index += 1) {
   const suffix = String(index).padStart(2, "0");
   await addChatMessage({
     orgId: ORG_ID,
@@ -76,6 +110,19 @@ for (let index = 1; index <= 21; index += 1) {
 }
 
 await asApp(ORG_ID, async (client) => {
+  await client.query("DELETE FROM chat_wave2_fixture.agent_versions WHERE org_id=$1", [ORG_ID]);
+  await client.query("DELETE FROM chat_wave2_fixture.agents WHERE org_id=$1", [ORG_ID]);
+  await client.query(
+    `INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id)
+     VALUES ($1,$2,'enabled',$3)`,
+    [AGENT_ID, ORG_ID, AGENT_VERSION_ID],
+  );
+  await client.query(
+    `INSERT INTO chat_wave2_fixture.agent_versions
+       (id,org_id,agent_id,skill_version_ids,model_provider,model_id,published_at)
+     VALUES ($1,$2,$3,'[]'::jsonb,'dashscope','qwen-plus',now())`,
+    [AGENT_VERSION_ID, ORG_ID, AGENT_ID],
+  );
   await client.query(
     "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
     [ORG_ID, AGENT_ID, "CR", "Controlled Read Agent", "Read-only E2E roster fixture"],
@@ -87,5 +134,5 @@ await asApp(ORG_ID, async (client) => {
 });
 
 process.stdout.write(
-  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=21 roster=1\n`,
+  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1\n`,
 );

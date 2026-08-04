@@ -1,12 +1,15 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { ApiError } from "@/lib/api-client";
 
-const { replace, listThreads, getThread, getAgentPanel, sessionState } = vi.hoisted(() => ({
+const { replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, sessionState } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
   getThread: vi.fn(),
   getAgentPanel: vi.fn(),
+  listMessages: vi.fn(),
+  createMessage: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -32,9 +35,10 @@ vi.mock("@/components/shell/app-shell", () => ({
     children: React.ReactNode;
   }) => <div><aside>{left}</aside><main>{children}</main><aside>{right}</aside></div>,
 }));
-vi.mock("@/lib/live-chat", () => ({ listThreads, getThread, getAgentPanel }));
+vi.mock("@/lib/live-chat", () => ({ listThreads, getThread, getAgentPanel, listMessages, createMessage }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
+import { describeMessageFailure } from "@/components/chat/chat-live-message-panel";
 
 function message(index: number) {
   return {
@@ -47,6 +51,20 @@ function message(index: number) {
     citations: [],
     toolCallSummary: null,
     card: `真实消息 ${index}`,
+  };
+}
+
+function durableMessage(index: number, text = `真实消息 ${index}`) {
+  return {
+    id: `durable-message-${index}`,
+    authorKind: index % 2 === 0 ? "agent" : "human",
+    authorId: index % 2 === 0 ? "agent-real" : "user-real",
+    agentId: index % 2 === 0 ? "agent-real" : null,
+    text,
+    clientMessageId: index % 2 === 0 ? null : `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    agentRunId: index % 2 === 0 ? `run-${index}` : null,
+    replyToMessageId: null,
+    createdAt: `2026-08-04T00:00:${String(index).padStart(2, "0")}.000Z`,
   };
 }
 
@@ -117,6 +135,26 @@ describe("formal Chat read path", () => {
       rosterCount: 1,
       marketEntry: "/admin/agent",
     });
+    listMessages.mockResolvedValue({
+      messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+      nextCursor: "cursor-20",
+    });
+    createMessage.mockResolvedValue({
+      message: durableMessage(22, "新持久消息"),
+      agentRunId: "run-new",
+      runStatus: "queued",
+    });
+  });
+
+  it.each([
+    [401, "SESSION_EXPIRED", "登录已失效（HTTP 401）"],
+    [403, "NO_WRITE_ROLE", "没有写入权限（HTTP 403）"],
+    [404, "NOT_FOUND", "不存在或当前身份不可见（HTTP 404）"],
+    [409, "THREAD_ARCHIVED_READONLY", "状态冲突或已归档（HTTP 409）"],
+    [422, "AGENT_NOT_FOUND", "没有可用的已发布版本（HTTP 422）"],
+    [503, "AUTHZ_UNAVAILABLE", "没有降级到 mock"],
+  ])("keeps HTTP %i failure semantics explicit", (status, reasonCode, expected) => {
+    expect(describeMessageFailure(new ApiError(status, reasonCode, {}), "发送消息")).toContain(expected);
   });
 
   it("shows an honest missing-project state and performs no request", () => {
@@ -128,7 +166,13 @@ describe("formal Chat read path", () => {
     expect(screen.queryByTestId("chat-new-thread")).not.toBeInTheDocument();
   });
 
-  it("reads list, detail and roster with the provider bearer, then paginates returned messages", async () => {
+  it("reads list, detail, roster and the contract message page with the provider bearer", async () => {
+    listMessages
+      .mockResolvedValueOnce({
+        messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+        nextCursor: "cursor-20",
+      })
+      .mockResolvedValueOnce({ messages: [durableMessage(21)], nextCursor: null });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     expect(await screen.findByTestId("chat-thread-thread-real")).toHaveTextContent("真实线程");
@@ -138,17 +182,18 @@ describe("formal Chat read path", () => {
     expect(listThreads).toHaveBeenCalledWith("project-real", {}, "provider-bearer");
     expect(getThread).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
     expect(getAgentPanel).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
+    expect(listMessages).toHaveBeenCalledWith("thread-real", { cursor: undefined, limit: 50 }, "provider-bearer");
 
     const messages = screen.getByTestId("chat-message-list");
     expect(within(messages).getAllByTestId("chat-message-row")).toHaveLength(20);
     expect(within(messages).getByText("真实消息 1")).toBeInTheDocument();
     expect(within(messages).queryByText("真实消息 21")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("chat-messages-next"));
-    expect(within(messages).getByText("真实消息 21")).toBeInTheDocument();
-    expect(screen.getByTestId("chat-message-page-status")).toHaveTextContent("2 / 2");
+    fireEvent.click(screen.getByTestId("chat-messages-load-more"));
+    expect(await within(messages).findByText("真实消息 21")).toBeInTheDocument();
+    expect(listMessages).toHaveBeenLastCalledWith("thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer");
 
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByText(/发送|新建对话|AI 回复/)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "消息内容" })).toBeInTheDocument();
+    expect(screen.getByTestId("chat-message-submit")).toHaveTextContent("发送并排队");
   });
 
   it("renders the server empty list without sample threads", async () => {
@@ -167,6 +212,68 @@ describe("formal Chat read path", () => {
     expect(await screen.findByTestId("chat-thread-list-error")).toHaveTextContent("list unavailable");
     fireEvent.click(screen.getByTestId("chat-thread-list-retry"));
     await waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+  });
+
+  it("posts a client UUID to the selected Agent, then refreshes from GET without an inline reply", async () => {
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const composer = await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(within(composer).getByRole("textbox", { name: "消息内容" }), {
+      target: { value: "请持久保存这条消息" },
+    });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await waitFor(() => expect(createMessage).toHaveBeenCalledTimes(1));
+    const [threadId, input, token] = createMessage.mock.calls[0]!;
+    expect(threadId).toBe("thread-real");
+    expect(token).toBe("provider-bearer");
+    expect(input).toMatchObject({ text: "请持久保存这条消息", agentId: "agent-real" });
+    expect(input.clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-new");
+    expect(listMessages).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeInTheDocument();
+  });
+
+  it("keeps the same clientMessageId when a dependency failure is retried", async () => {
+    createMessage
+      .mockRejectedValueOnce(new ApiError(503, "AUTHZ_UNAVAILABLE", {}))
+      .mockResolvedValueOnce({
+        message: durableMessage(22, "重试成功"),
+        agentRunId: "run-retry",
+        runStatus: "queued",
+      });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "可重试消息" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    expect(await screen.findByTestId("chat-message-submit-error")).toHaveTextContent("依赖服务暂不可用");
+    fireEvent.click(screen.getByTestId("chat-message-submit-retry"));
+    await waitFor(() => expect(createMessage).toHaveBeenCalledTimes(2));
+    expect(createMessage.mock.calls[1]![1].clientMessageId).toBe(
+      createMessage.mock.calls[0]![1].clientMessageId,
+    );
+    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-retry");
+  });
+
+  it("renders a conflict explicitly and never fabricates a successful message", async () => {
+    createMessage.mockRejectedValueOnce(new ApiError(409, "IDEMPOTENCY_CONFLICT", {}));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "冲突消息" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    expect(await screen.findByTestId("chat-message-submit-error")).toHaveTextContent("HTTP 409");
+    expect(screen.getByTestId("chat-message-submit-error")).toHaveTextContent("未创建重复消息");
+    expect(screen.queryByTestId("chat-message-queued")).not.toBeInTheDocument();
   });
 
   it("hides the previous context synchronously while the replacement request is pending", async () => {
@@ -239,7 +346,7 @@ describe("formal Chat read path", () => {
         marketEntry: null,
       });
     });
-    expect(await screen.findByText("当前消息")).toBeInTheDocument();
-    expect(await screen.findByText("当前 Agent")).toBeInTheDocument();
+    expect(await screen.findByTestId("chat-thread-detail")).toHaveTextContent("thread-new");
+    expect(await screen.findAllByText("当前 Agent")).toHaveLength(2);
   });
 });

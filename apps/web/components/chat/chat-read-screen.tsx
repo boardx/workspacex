@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bot, ChevronLeft, ChevronRight, MessageSquare, RefreshCw, Users } from "lucide-react";
+import { MessageSquare, RefreshCw, Users } from "lucide-react";
+import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,6 @@ import {
   type ListThreadsOut,
   type ThreadCard,
 } from "@/lib/live-chat";
-
-const MESSAGE_PAGE_SIZE = 20;
 
 interface Sourced<T> {
   readonly key: string;
@@ -63,7 +62,6 @@ export function ChatReadScreen({
   const [rosterResult, setRosterResult] = React.useState<Sourced<GetAgentPanelOut> | null>(null);
   const [rosterLoadingKey, setRosterLoadingKey] = React.useState<string | null>(null);
   const [rosterFailure, setRosterFailure] = React.useState<Sourced<string> | null>(null);
-  const [messagePage, setMessagePage] = React.useState(0);
   const listGeneration = React.useRef(0);
   const detailGeneration = React.useRef(0);
 
@@ -116,7 +114,6 @@ export function ChatReadScreen({
     if (!projectId || !selectedThreadId || !bearer || !detailKey) return;
     const key = detailKey;
     const generation = ++detailGeneration.current;
-    setMessagePage(0);
     setDetailLoadingKey(key);
     setRosterLoadingKey(key);
     setDetailFailure(null);
@@ -203,10 +200,10 @@ export function ChatReadScreen({
         currentOrgId={currentOrgId}
         card={selectedCard}
         detail={detail}
+        bearer={bearer}
+        roster={roster}
         loading={detailLoading}
         error={detailError}
-        messagePage={messagePage}
-        onMessagePage={setMessagePage}
         onRetry={() => void loadSelectedThread()}
       />
     </AppShell>
@@ -281,28 +278,21 @@ function ThreadMeta({ card }: { card: ThreadCard }) {
 }
 
 function ThreadDetail({
-  projectId, currentOrgId, card, detail, loading, error, messagePage, onMessagePage, onRetry,
+  projectId, currentOrgId, card, detail, bearer, roster, loading, error, onRetry,
 }: {
   projectId: string;
   currentOrgId: string | null;
   card: ThreadCard | null;
   detail: GetThreadOut | null;
+  bearer: string | null;
+  roster: GetAgentPanelOut | null;
   loading: boolean;
   error: string | null;
-  messagePage: number;
-  onMessagePage: (page: number) => void;
   onRetry: () => void;
 }) {
   if (loading && detail === null) return <CenteredState>正在读取线程详情…</CenteredState>;
   if (error) return <ErrorState testId="chat-thread-detail-error" message={error} retryTestId="chat-thread-detail-retry" onRetry={onRetry} />;
   if (!detail) return <CenteredState>从左侧选择一条真实线程查看。</CenteredState>;
-
-  const pageCount = Math.max(1, Math.ceil(detail.messages.length / MESSAGE_PAGE_SIZE));
-  const safePage = Math.min(messagePage, pageCount - 1);
-  const pageMessages = detail.messages.slice(
-    safePage * MESSAGE_PAGE_SIZE,
-    (safePage + 1) * MESSAGE_PAGE_SIZE,
-  );
 
   return (
     <div className="flex h-full flex-col" data-testid="chat-thread-detail">
@@ -313,48 +303,17 @@ function ThreadDetail({
             项目 {projectId} · 组织 {currentOrgId ?? "未解析"} · 线程 {detail.thread.id}
           </p>
         </div>
-        <Badge tone="outline">只读</Badge>
+        <Badge tone="outline">真实消息</Badge>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {detail.messages.length === 0 ? (
-          <div className="grid min-h-40 place-items-center text-12 text-muted-foreground" data-testid="chat-message-list-empty">
-            这条线程还没有可展示的消息。
-          </div>
-        ) : (
-          <ol className="flex flex-col gap-3" data-testid="chat-message-list">
-            {pageMessages.map((message) => (
-              <li key={message.id} className="rounded-md border border-border-subtle bg-panel p-3" data-testid="chat-message-row">
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                  {message.authorKind === "agent" ? <Bot aria-hidden className="h-3 w-3" /> : <Users aria-hidden className="h-3 w-3" />}
-                  <span>{message.authorKind === "agent" ? message.agentId ?? "未命名 Agent" : "成员"}</span>
-                  {message.skill ? <Badge tone="ai">{message.skill}</Badge> : null}
-                  {message.badges.map((badge) => <Badge key={badge} tone="outline">{badge}</Badge>)}
-                </div>
-                <p className="whitespace-pre-wrap text-12 text-card-foreground">
-                  {message.card ?? "这条消息没有可展示正文。"}
-                </p>
-                {message.toolCallSummary ? <p className="mt-2 text-10 text-muted-foreground">工具：{message.toolCallSummary}</p> : null}
-                {message.citations.length > 0 ? <p className="mt-2 text-10 text-muted-foreground">引用 {message.citations.length} 条</p> : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-      {detail.messages.length > MESSAGE_PAGE_SIZE ? (
-        <footer className="flex items-center justify-between border-t border-border px-4 py-2">
-          <span className="text-10 text-muted-foreground">API 返回 {detail.messages.length} 条 · 本地分页展示</span>
-          <div className="flex items-center gap-2">
-            <Button size="xs" variant="outline" data-testid="chat-messages-prev" disabled={safePage === 0} onClick={() => onMessagePage(safePage - 1)}>
-              <ChevronLeft aria-hidden className="h-3 w-3" />上一页
-            </Button>
-            <span className="font-mono text-10" data-testid="chat-message-page-status">{safePage + 1} / {pageCount}</span>
-            <Button size="xs" variant="outline" data-testid="chat-messages-next" disabled={safePage >= pageCount - 1} onClick={() => onMessagePage(safePage + 1)}>
-              下一页<ChevronRight aria-hidden className="h-3 w-3" />
-            </Button>
-          </div>
-        </footer>
-      ) : null}
+      {bearer ? (
+        <ChatLiveMessagePanel
+          threadId={detail.thread.id}
+          bearer={bearer}
+          agents={roster?.agents ?? null}
+          archived={detail.thread.archived}
+        />
+      ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>
   );
 }
