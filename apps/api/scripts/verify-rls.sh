@@ -206,7 +206,18 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   ⚠ #457 / #459 与本 PR 并行，两者都可能再加租户表。若合流时这一行出现文本冲突：
 #     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
 #     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
-OK_TABLES_FLOOR=96
+#
+# ⚠ 96 -> 97 是 #414（迁移 20260805100000）在**全新迁移库上实测**的：
+#   `WORKSPACEX_DB=wsx_414_rls bash scripts/verify-rls.sh` 报 `ok = 97`。
+#   #414 只加一张表 `agent_run_steps`（AgentRun 的 append-only 步骤日志），带 org_id ⇒ ok；
+#   它另外给 `agent_runs` 加了四列，加列对这个数的贡献是 0。
+#   这次「96 + 1 = 97」算术恰好对上，**这不构成可以推算的理由**——上面 #463 那段记的是
+#   这一行刚刚被发现空转了整整一个波次（松量 48）。数字仍然是量出来的，算术只是事后核对。
+#
+#   ⚠ #414 与 #459 / #465 同批，合并顺序是 #459 → #465 → #414，本 PR 排最后。
+#     若 rebase 时这一行出现文本冲突：照 F81 / F109 / #463 几段写过的做法——
+#     **冲突整个丢掉，在合流后的库上从空库重跑一次**，不要挑一个数字留下，也不要相加。
+OK_TABLES_FLOOR=97
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

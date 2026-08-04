@@ -1,0 +1,249 @@
+/**
+ * PostgreSQL implementation of the #414 run store.
+ *
+ * ## The claim is the exactly-once guarantee
+ *
+ * `claimQueued` is one `withTenant` call, i.e. one transaction, containing
+ * `SELECT ... FOR UPDATE SKIP LOCKED` and the `queued -> running` UPDATE. Two executors
+ * racing the same run cannot both leave `queued`, so the one model call cannot be made
+ * twice. Same shape, same reason, as `pg-ingestion-repository`'s `claimNext`.
+ *
+ * ## There is deliberately no cross-tenant claim
+ *
+ * `agent_runs` has RLS FORCEd, and a query with no tenant context does not error -- it
+ * sees zero rows, which reads as "nothing to do" forever. A process serving many orgs
+ * calls `claimQueued` once per org, exactly as `pg-ingestion-repository`'s header says.
+ *
+ * ## `resultMessageId` is PROJECTED, never stored twice
+ *
+ * The durable run/assistant-message link is `chat_messages.agent_run_id` with its unique
+ * index (#415's migration). This file reads it through a LEFT JOIN. A `result_message_id`
+ * column on `agent_runs` would be a second copy of one fact, and this repository has drifted
+ * that way five times before.
+ */
+import { randomUUID } from "node:crypto";
+import type { DatabasePort } from "../../application/ports/database.port";
+import type { OrgId } from "../../domain/org-id";
+import { guard, type Guarded } from "../../application/security/permission-filter";
+import type {
+  AgentRunStore, AppendedRunStep, ClaimOutcome, PinnedSkillContent, RunFailureCode,
+  RunLifecycleStatus, RunLocator, RunProjection,
+} from "../../application/agent-run/ports";
+
+interface ClaimRow {
+  id: string; thread_id: string; project_id: string; input_message_id: string;
+  input_text: string; agent_id: string; agent_version_id: string; instructions: string;
+  skill_version_ids: unknown; model_provider: string; model_id: string;
+}
+
+interface RunRow {
+  id: string; thread_id: string; project_id: string; input_message_id: string;
+  agent_id: string; agent_version_id: string; skill_version_ids: unknown;
+  model_provider: string; model_id: string; status: string; error_code: string | null;
+  result_message_id: string | null; created_at: Date;
+}
+
+interface StepRow {
+  kind: string; status: string; started_at: Date; ended_at: Date;
+  input_digest: string | null; output_digest: string | null; failure_code: string | null;
+}
+
+interface ClaimDetailRow {
+  id: string; project_id: string; input_text: string; instructions: string;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
+}
+
+export class PgAgentRunRepository implements AgentRunStore {
+  constructor(private readonly db: DatabasePort) {}
+
+  claimQueued(orgId: OrgId, limit: number): Promise<readonly ClaimOutcome[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const claimed = await s.query<ClaimRow>(
+        `UPDATE agent_runs r
+            SET status='running', started_at=now()
+          WHERE r.org_id=$1
+            AND r.id IN (
+              SELECT id FROM agent_runs
+               WHERE org_id=$1 AND status='queued'
+               ORDER BY created_at, id
+               LIMIT $2
+               FOR UPDATE SKIP LOCKED
+            )
+        RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
+                  r.skill_version_ids, r.model_provider, r.model_id`,
+        [orgId, limit],
+      );
+      if (claimed.rows.length === 0) return [];
+      // The claim's RETURNING cannot join, so the immutable trimmings (the thread's
+      // project, the human text, the pinned version's instructions) are read after it --
+      // all three are immutable for the life of the run, so reading them a statement
+      // later cannot observe a different value than the claim did.
+      const ids = claimed.rows.map((row) => row.id);
+      const detail = await s.query<ClaimDetailRow>(
+        `SELECT r.id, t.project_id, m.body AS input_text, v.instructions
+           FROM agent_runs r
+           JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
+           JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
+           JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id
+          WHERE r.org_id=$1 AND r.id = ANY($2::text[])`,
+        [orgId, ids],
+      );
+      const byId = new Map(detail.rows.map((row) => [row.id, row]));
+      const runs: ClaimOutcome[] = [];
+      for (const row of claimed.rows) {
+        const extra = byId.get(row.id);
+        // A claimed run whose pinned Agent version, thread or input message is no longer
+        // readable has nothing to execute. It is REPORTED, not skipped: the claim above
+        // already moved it out of `queued`, so skipping would strand it in `running`.
+        if (extra === undefined) {
+          runs.push({ kind: "unresolvable", runId: row.id });
+          continue;
+        }
+        runs.push({ kind: "executable", run: {
+          runId: row.id,
+          threadId: row.thread_id,
+          projectId: extra.project_id,
+          inputMessageId: row.input_message_id,
+          inputText: extra.input_text,
+          agentId: row.agent_id,
+          agentVersionId: row.agent_version_id,
+          instructions: extra.instructions,
+          skillVersionIds: toStringArray(row.skill_version_ids),
+          modelProvider: row.model_provider,
+          modelId: row.model_id,
+        } });
+      }
+      return runs;
+    });
+  }
+
+  readPinnedSkills(
+    orgId: OrgId,
+    versionIds: readonly string[],
+  ): Promise<readonly PinnedSkillContent[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      if (versionIds.length === 0) return [];
+      const result = await s.query<{ version_id: string; content: Buffer }>(
+        `SELECT f.version_id, f.content
+           FROM skill_version_files f
+           JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
+          WHERE f.org_id=$1 AND f.version_id = ANY($2::text[])
+            AND f.path='SKILL.md' AND v.published`,
+        [orgId, versionIds],
+      );
+      const byVersion = new Map(
+        result.rows.map((row) => [row.version_id, row.content.toString("utf8")]),
+      );
+      // In the ORDER THE SNAPSHOT PINNED, and missing entries are omitted rather than
+      // substituted -- the caller compares lengths and fails the run.
+      return versionIds
+        .filter((id) => byVersion.has(id))
+        .map((id) => ({ versionId: id, content: byVersion.get(id)! }));
+    });
+  }
+
+  async appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,
+            input_digest,output_digest,failure_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11)`,
+        [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
+          step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode],
+      );
+    });
+  }
+
+  async storeOutputAwaitingWriteback(
+    orgId: OrgId,
+    runId: string,
+    output: { readonly text: string },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `UPDATE agent_runs SET status='writeback_pending', model_output=$3
+          WHERE org_id=$1 AND id=$2 AND status='running'`,
+        [orgId, runId, output.text],
+      );
+    });
+  }
+
+  async failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `UPDATE agent_runs SET status='failed', error_code=$3, ended_at=now()
+          WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed')`,
+        [orgId, runId, code],
+      );
+    });
+  }
+
+  findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ thread_id: string; project_id: string }>(
+        `SELECT r.thread_id, t.project_id
+           FROM agent_runs r JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      const row = result.rows[0];
+      return row ? { threadId: row.thread_id, projectId: row.project_id } : null;
+    });
+  }
+
+  async readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null> {
+    const found = await this.db.withTenant(orgId, async (s) => {
+      const run = await s.query<RunRow>(
+        `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
+                r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
+                r.status, r.error_code, r.created_at, reply.id AS result_message_id
+           FROM agent_runs r
+           JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
+           LEFT JOIN chat_messages reply
+             ON reply.agent_run_id=r.id AND reply.org_id=r.org_id AND reply.author_kind='agent'
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      const row = run.rows[0];
+      if (row === undefined) return null;
+      const steps = await s.query<StepRow>(
+        `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code
+           FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq, started_at`,
+        [orgId, runId],
+      );
+      return { row, steps: steps.rows };
+    });
+    if (found === null) return null;
+    const projection: RunProjection = {
+      runId: found.row.id,
+      threadId: found.row.thread_id,
+      inputMessageId: found.row.input_message_id,
+      agentId: found.row.agent_id,
+      agentVersionId: found.row.agent_version_id,
+      skillVersionIds: toStringArray(found.row.skill_version_ids),
+      modelProvider: found.row.model_provider,
+      modelId: found.row.model_id,
+      status: found.row.status as RunLifecycleStatus,
+      error: found.row.error_code as RunFailureCode | null,
+      resultMessageId: found.row.result_message_id,
+      steps: found.steps.map((step) => ({
+        kind: step.kind as AppendedRunStep["kind"],
+        status: step.status as AppendedRunStep["status"],
+        startedAt: step.started_at.toISOString(),
+        endedAt: step.ended_at.toISOString(),
+        inputDigest: step.input_digest,
+        outputDigest: step.output_digest,
+        failureCode: step.failure_code as RunFailureCode | null,
+      })),
+      createdAt: found.row.created_at.toISOString(),
+    };
+    // The thread's project is the object the Chat decision is made against (see
+    // `resolve-visibility.ts`), so it is the ref this projection travels under.
+    return guard({ kind: "project", id: found.row.project_id }, projection);
+  }
+}
