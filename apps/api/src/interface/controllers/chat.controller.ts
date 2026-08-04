@@ -156,6 +156,9 @@ import {
   MessageThreadArchivedError,
   MessageThreadNotVisibleError,
 } from "../../application/chat/message-roundtrip";
+import {
+  AGENT_RUN_EXECUTOR, type AgentRunExecutorPort,
+} from "../../application/agent-run/ports";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
@@ -246,6 +249,10 @@ export class ChatController {
     @Inject(ARTIFACT_LANDING_REPOSITORY) private readonly landings: ArtifactLandingRepository,
     @Inject(CHAT_MESSAGE_COMMAND_REPOSITORY) private readonly messageCommands: ChatMessageCommandRepository,
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
+    // #414. 受理之后触发这个租户的执行；**不等待**——见 `agent-run-executor.ts` 文件头：
+    // §2 规定本请求返回 202 + `runStatus: "queued"`，绝不内联回复，所以模型慢或挂
+    // 都不许把这条写入拖慢或拖挂。
+    @Inject(AGENT_RUN_EXECUTOR) private readonly agentRuns: AgentRunExecutorPort,
   ) {}
 
   private get deps() {
@@ -363,6 +370,7 @@ export class ChatController {
         clientMessageId: parsed.data.clientMessageId, text: parsed.data.text,
         agentId: parsed.data.agentId,
       });
+      this.agentRuns.kick(toOrgId(principal.orgId));
       return {
         message: {
           id: accepted.id, authorKind: "human" as const, authorId: accepted.authorId,

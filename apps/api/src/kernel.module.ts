@@ -16,7 +16,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT } from "./application/ports/database.port";
-import { LOGGER_PORT } from "./application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
 import { appConfig } from "./infrastructure/db/pg-config";
@@ -174,6 +174,18 @@ import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-l
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
 import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
 import { ChatController } from "./interface/controllers/chat.controller";
+// #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
+// 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
+import {
+  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT,
+  type AgentRunStore, type ModelCallPort,
+} from "./application/agent-run/ports";
+import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import {
+  ConfiguredModelProvider, readModelProviderConfig,
+} from "./infrastructure/agent-run/configured-model-provider";
+import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { AgentRunController } from "./interface/controllers/agent-run.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
@@ -365,6 +377,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     AssetGovernanceController,
     CanvasTemplateController,
     RecordingController,
+    AgentRunController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -600,6 +613,25 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
           : undefined,
       ),
       inject: [DATABASE_PORT],
+    },
+    // #414. 三个 provider，职责各一：run 状态与 append-only 步骤的持久化、
+    // **唯一**已配置 provider 的模型调用、以及受理后触发执行的执行器。
+    {
+      provide: AGENT_RUN_STORE,
+      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
+      // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
+      provide: MODEL_CALL_PORT,
+      useFactory: () => new ConfiguredModelProvider(readModelProviderConfig()),
+    },
+    {
+      provide: AGENT_RUN_EXECUTOR,
+      useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
+        new AgentRunExecutor(runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0"),
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
     // 与线程/消息的读写路径没有共享逻辑，合并只会让一个文件同时长两组不相关的方法。
