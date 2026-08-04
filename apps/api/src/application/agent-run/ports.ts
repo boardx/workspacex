@@ -95,6 +95,23 @@ export interface RunLocator {
   readonly projectId: string;
 }
 
+/**
+ * A run whose model output is stored and whose Chat writeback has not committed yet (§6).
+ *
+ * `text` is the output #414 stored on the run, not a fresh completion: a retry must write
+ * back the answer the single model call produced, never call the provider again. That is
+ * why this carries the text instead of enough context to regenerate it.
+ */
+export interface PendingWriteback {
+  readonly runId: string;
+  readonly threadId: string;
+  readonly inputMessageId: string;
+  readonly agentId: string;
+  readonly text: string;
+  /** Attempts already spent from the bounded budget. */
+  readonly attempts: number;
+}
+
 export interface AgentRunStore {
   /**
    * Atomically move up to `limit` of this tenant's `queued` runs to `running` and return
@@ -126,6 +143,47 @@ export interface AgentRunStore {
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
   failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void>;
+
+  /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
+  claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;
+
+  /**
+   * The §6 transaction: insert the ONE assistant message, append the `chat_writeback` step,
+   * and move the run to `succeeded` -- all or nothing.
+   *
+   * Returns the message id, which on a retry is the EXISTING row's: the unique
+   * `agent_run_id` index is what makes the second attempt a no-op rather than a second
+   * reply. There is no separate "did it already exist" flag, because no caller may behave
+   * differently -- an implementation that can tell the two apart is one that can be made to
+   * write a second message.
+   */
+  commitWriteback(
+    orgId: OrgId,
+    input: {
+      readonly runId: string;
+      readonly threadId: string;
+      readonly inputMessageId: string;
+      readonly agentId: string;
+      readonly text: string;
+      readonly startedAt: string;
+      readonly endedAt: string;
+      readonly outputDigest: string;
+    },
+  ): Promise<{ readonly messageId: string }>;
+
+  /**
+   * Spend one attempt from the bounded budget and report the new total.
+   *
+   * Its own transaction: the attempt that failed rolled back, so an increment written
+   * inside it would be lost and the run would retry without bound.
+   */
+  recordWritebackAttempt(orgId: OrgId, runId: string): Promise<number>;
+
+  /** The failed `chat_writeback` step written once, when the budget is exhausted. */
+  appendWritebackFailure(
+    orgId: OrgId,
+    input: { readonly runId: string; readonly startedAt: string; readonly endedAt: string },
+  ): Promise<void>;
 
   findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null>;
 
