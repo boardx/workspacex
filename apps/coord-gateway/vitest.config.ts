@@ -4,7 +4,8 @@ export default defineWorkersConfig({
   test: {
     poolOptions: {
       workers: {
-        // 同 coord-repohub：SQLite DO 与 isolatedStorage 不兼容
+        // SQLite DO 与 isolatedStorage 不兼容。scripts/run-tests.mjs 为每个测试文件
+        // 启动独立 workerd 进程；singleWorker 只约束该进程内的单个文件（#403）。
         isolatedStorage: false,
         singleWorker: true,
         wrangler: { configPath: "./wrangler.toml" },
