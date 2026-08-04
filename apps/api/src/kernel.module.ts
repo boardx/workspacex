@@ -294,6 +294,18 @@ import { InMemoryReviewClockRepository } from "./infrastructure/asset/in-memory-
 import { AlwaysPassingAssetGateStatus } from "./infrastructure/asset/always-passing-asset-gate-status";
 import { AlwaysActiveAssetOwnerStatus } from "./infrastructure/asset/always-active-asset-owner-status";
 import { AssetGovernanceController } from "./interface/controllers/asset-governance.controller";
+// #463 (canvas bundle): the template registry's HTTP boundary. `domain/canvas/` has existed
+// since F100/F101 with 18 green test files; nothing served it, and no table stored a
+// template. This is the application + interface + storage half.
+// ⚠ No `CANVAS_TEMPLATE_DRAFT_*` provider: the signed contract has no create operation
+//   (see `application/canvas/template-ports.ts`). A binding for a capability that does not
+//   exist is how the next person concludes it merely has not been called yet.
+import {
+  CANVAS_TEMPLATE_REPOSITORY,
+  type CanvasTemplateRepository,
+} from "./application/canvas/template-ports";
+import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
+import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
 
 @Module({
   controllers: [
@@ -325,6 +337,7 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     ProjectController,
     AssetDirectoryController,
     AssetGovernanceController,
+    CanvasTemplateController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -707,6 +720,14 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: TEMPORARY_GRANT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgTemporaryGrantRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #463：canvas 模板注册表。独立 provider，读写的是 `canvas_templates` 与
+    // `canvas_template_bindings` 两张新表，与任何既有仓储没有共享的读写路径。
+    {
+      provide: CANVAS_TEMPLATE_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasTemplateRepository =>
+        new PgCanvasTemplateRepository(db),
       inject: [DATABASE_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
