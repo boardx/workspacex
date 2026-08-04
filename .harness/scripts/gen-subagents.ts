@@ -22,7 +22,20 @@ interface AgentSpec {
   rubric_ref?: string;
 }
 
+interface PersistentRoleSpec {
+  name: string;
+  description: string;
+  role: "persistent-project-role";
+  kind: string;
+  areas: string[];
+  reports_to: string | null;
+  merge_authority: boolean;
+  dispatch_authority: boolean;
+  developer_instructions: string;
+}
+
 const AGENTS_DIR = join(HARNESS_DIR, "agents");
+const ROLES_DIR = join(AGENTS_DIR, "roles");
 const CLAUDE_AGENTS_DIR = join(REPO_ROOT, ".claude", "agents");
 const CODEX_AGENTS_DIR = join(REPO_ROOT, ".codex", "agents");
 
@@ -101,6 +114,66 @@ function generateCodexToml(spec: AgentSpec): string {
   return lines.join("\n") + "\n";
 }
 
+function assertPersistentRoleSpec(file: string, value: unknown): asserts value is PersistentRoleSpec {
+  if (!value || typeof value !== "object") throw new Error(`${file} 不是对象`);
+  const spec = value as Partial<PersistentRoleSpec> & Record<string, unknown>;
+  if (
+    typeof spec.name !== "string" || spec.name === "" ||
+    typeof spec.description !== "string" || spec.description.trim() === "" ||
+    spec.role !== "persistent-project-role" ||
+    typeof spec.kind !== "string" || spec.kind === "" ||
+    !Array.isArray(spec.areas) || !spec.areas.every((area) => typeof area === "string" && area !== "") ||
+    !(spec.reports_to === null || typeof spec.reports_to === "string") ||
+    typeof spec.merge_authority !== "boolean" ||
+    typeof spec.dispatch_authority !== "boolean" ||
+    typeof spec.developer_instructions !== "string" || spec.developer_instructions.trim() === ""
+  ) {
+    throw new Error(`${file} 不符合 persistent role schema`);
+  }
+  for (const forbidden of ["model", "claude_model", "codex_model", "directory_agent_id", "token", "private_key"]) {
+    if (Object.hasOwn(spec, forbidden)) throw new Error(`${file} 禁止字段 ${forbidden}`);
+  }
+  if (spec.developer_instructions.includes('"""')) {
+    throw new Error(`${file} developer_instructions 不能包含 TOML 三引号`);
+  }
+}
+
+function persistentRoleInstructions(spec: PersistentRoleSpec): string {
+  const authority = [
+    spec.merge_authority ? "你是唯一允许合并 PR 的稳定角色。" : "你不得合并 PR。",
+    spec.dispatch_authority ? "你可以派发正式协调任务。" : "你不得派发正式协调任务。",
+  ].join(" ");
+  const reporting = spec.reports_to === null ? "无上级角色" : `向 ${spec.reports_to} 汇报`;
+  return [
+    `稳定角色：${spec.name}；kind：${spec.kind}；areas：${spec.areas.join(", ")}；${reporting}。`,
+    authority,
+    spec.developer_instructions.trim(),
+  ].join("\n\n");
+}
+
+export function generatePersistentClaudeMd(spec: PersistentRoleSpec): string {
+  const frontmatter = [
+    "---",
+    `name: ${spec.name}`,
+    `description: ${spec.description.trim().replace(/\n/g, " ")}`,
+    "---",
+  ].join("\n");
+  return `${frontmatter}\n\n${persistentRoleInstructions(spec)}\n`;
+}
+
+export function generatePersistentCodexToml(spec: PersistentRoleSpec): string {
+  return [
+    `name = "${spec.name}"`,
+    `description = """`,
+    spec.description.trim(),
+    `"""`,
+    `developer_instructions = """`,
+    persistentRoleInstructions(spec),
+    `"""`,
+    ``,
+  ].join("\n");
+}
+
 export function genSubagents(_args: Args): void {
   if (!existsSync(AGENTS_DIR)) {
     log.info(`找不到 ${AGENTS_DIR}，跳过（无 agent 规格文件）`);
@@ -138,7 +211,28 @@ export function genSubagents(_args: Args): void {
     generated++;
   }
 
-  log.info(`\n共生成 ${generated} 个 subagent（每个 2 种格式）`);
+  if (existsSync(ROLES_DIR)) {
+    const roleFiles = readdirSync(ROLES_DIR).filter((file) => file.endsWith(".yaml")).sort();
+    for (const file of roleFiles) {
+      const raw = readFileSync(join(ROLES_DIR, file), "utf8");
+      const parsed: unknown = parse(raw);
+      assertPersistentRoleSpec(file, parsed);
+      if (file !== `${parsed.name}.yaml`) {
+        throw new Error(`${file} 的文件名必须与 name=${parsed.name} 一致`);
+      }
+
+      const claudePath = join(CLAUDE_AGENTS_DIR, `${parsed.name}.md`);
+      writeFileSync(claudePath, generatePersistentClaudeMd(parsed), "utf8");
+      log.ok(`Claude role: ${claudePath}`);
+
+      const codexPath = join(CODEX_AGENTS_DIR, `${parsed.name}.toml`);
+      writeFileSync(codexPath, generatePersistentCodexToml(parsed), "utf8");
+      log.ok(`Codex role:  ${codexPath}`);
+      generated++;
+    }
+  }
+
+  log.info(`\n共生成 ${generated} 个 agent（每个 2 种格式）`);
   log.info(`  Claude: ${CLAUDE_AGENTS_DIR}`);
   log.info(`  Codex:  ${CODEX_AGENTS_DIR}`);
 }
