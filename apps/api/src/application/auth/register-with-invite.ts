@@ -46,6 +46,8 @@ export interface RegisterOutput {
   readonly userId: string;
   readonly orgId: string;
   readonly verificationDelivery: "queued";
+  /** HTTP adapter stores this in an HttpOnly cookie; it is never part of the JSON contract. */
+  readonly pendingIdentityProof: string;
 }
 
 export async function registerWithInvite(
@@ -103,5 +105,6 @@ export async function registerWithInvite(
     // the verification row committed alongside everything else, so the claim is backed by
     // a durable outbox write rather than by provider acceptance.
     verificationDelivery: "queued",
+    pendingIdentityProof: deps.verificationTokens.pendingProofForChallenge(challengeId),
   };
 }

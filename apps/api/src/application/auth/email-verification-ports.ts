@@ -13,12 +13,13 @@ export interface EmailVerificationRepository {
   confirmDigest(digest: string, now: Date): Promise<VerificationConfirmation>;
   requestResend(input: {
     email: string;
+    proofChallengeId: string | null;
     challengeId: string;
     tokenDigest: string;
     outboxId: string;
     expiresAt: Date;
     now: Date;
-  }): Promise<void>;
+  }): Promise<boolean>;
   claimDue(now: Date): Promise<MailOutboxMessage | null>;
   markDelivered(id: string, providerMessageId: string, at: Date): Promise<void>;
   markFailed(input: {
@@ -34,6 +35,8 @@ export interface EmailVerificationTokenCodec {
   newChallengeId(): string;
   tokenForChallenge(challengeId: string): string;
   digest(token: string): string;
+  pendingProofForChallenge(challengeId: string): string;
+  challengeIdFromPendingProof(proof: string): string | null;
 }
 
 export interface VerificationMailTransport {

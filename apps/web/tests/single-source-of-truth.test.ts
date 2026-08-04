@@ -81,11 +81,11 @@ describe("认证策略数值单一事实源", () => {
    * 而失败的检查，第一次误报就会被人删掉，之后真正的副本回来了也没人拦。
    * ⇒ 改成断言真正要守的性质：长度判断从契约取值，不是字面量。
    */
-  it("登录页组件的邀请码长度判断取自契约，不是字面量 14", () => {
-    const loginForm = readFileSync(new URL("../components/entry/login-form.tsx", import.meta.url), "utf8");
-    expect(loginForm).toMatch(/codeLen === AUTH_POLICY\.inviteCodeLength/);
+  it("真实注册页的邀请码长度判断取自契约，不是字面量 14", () => {
+    const registration = readFileSync(new URL("../components/entry/registration.tsx", import.meta.url), "utf8");
+    expect(registration).toMatch(/minLength={C\.AUTH_POLICY\.inviteCodeLength}/);
     // 手抄的迹象：直接拿字面量比长度
-    expect(loginForm).not.toMatch(/codeLen\s*===\s*14/);
+    expect(registration).not.toMatch(/minLength={14}/);
   });
 });
 

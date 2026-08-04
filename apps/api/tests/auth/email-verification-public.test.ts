@@ -27,32 +27,41 @@ let base: string;
 let codeIndex = 0;
 const users: string[] = [];
 
-async function post(path: string, body: unknown) {
+async function postRaw(path: string, body: unknown, cookie?: string) {
   const response = await fetch(`${base}${path}`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST",
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify(body),
   });
-  return { status: response.status, body: await response.json() as Record<string, unknown> };
+  return { response, body: await response.json() as Record<string, unknown> };
+}
+
+async function post(path: string, body: unknown, cookie?: string) {
+  const { response, body: responseBody } = await postRaw(path, body, cookie);
+  return { status: response.status, body: responseBody };
 }
 
 async function register(local: string) {
   const code = codes[codeIndex++]!;
   await issueInviteCode(code);
-  const response = await post("/auth/register", {
+  const { response, body } = await postRaw("/auth/register", {
     code, email: `${local}@${EMAIL_DOMAIN}`, password: PASSWORD, displayName: local, orgName: "I411 Co",
   });
-  expect(response.status, JSON.stringify(response.body)).toBe(201);
-  users.push(response.body.userId as string);
+  expect(response.status, JSON.stringify(body)).toBe(201);
+  users.push(body.userId as string);
   const row = await asOwner(async (client) => (await client.query<{
     id: string; token_digest: string; expires_at: Date; outbox_id: string;
   }>(
     `SELECT c.id, c.token_digest, c.expires_at, o.id AS outbox_id
        FROM email_verification_challenges c JOIN mail_outbox o ON o.challenge_id = c.id
-      WHERE c.user_id = $1`, [response.body.userId],
+      WHERE c.user_id = $1`, [body.userId],
   )).rows[0]!);
   return {
-    userId: response.body.userId as string,
-    orgId: response.body.orgId as string,
-    verificationDelivery: response.body.verificationDelivery as string,
+    userId: body.userId as string,
+    orgId: body.orgId as string,
+    verificationDelivery: body.verificationDelivery as string,
+    setCookie: response.headers.get("set-cookie") ?? "",
+    pendingCookie: response.headers.get("set-cookie")?.split(";", 1)[0] ?? "",
     email: `${local}@${EMAIL_DOMAIN}`,
     row,
     raw: tokens.tokenForChallenge(row.id),
@@ -94,6 +103,9 @@ describe("signed public email-verification contract", () => {
     const before = Date.now();
     const registration = await register("digest");
     expect(registration.verificationDelivery).toBe("queued");
+    expect(registration.setCookie).toContain("HttpOnly");
+    expect(registration.setCookie).toContain("SameSite=Lax");
+    expect(registration.setCookie).not.toContain(registration.raw);
     expect(registration.row.token_digest).toBe(tokens.digest(registration.raw));
     expect(registration.row.token_digest).not.toBe(registration.raw);
     expect(registration.row.expires_at.getTime()).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000 - 2_000);
@@ -153,8 +165,8 @@ describe("signed public email-verification contract", () => {
       [registration.row.id],
     ));
     const concurrent = await Promise.all([
-      post("/auth/email-verifications/resend", { email: registration.email.toUpperCase() }),
-      post("/auth/email-verifications/resend", { email: registration.email }),
+      post("/auth/email-verifications/resend", { email: registration.email.toUpperCase() }, registration.pendingCookie),
+      post("/auth/email-verifications/resend", { email: registration.email }, registration.pendingCookie),
     ]);
     expect(concurrent[0]).toEqual(concurrent[1]);
     const count = await asOwner(async (client) => Number((await client.query<{ n: string }>(
@@ -162,6 +174,124 @@ describe("signed public email-verification contract", () => {
       [registration.userId],
     )).rows[0]!.n));
     expect(count).toBe(2);
+  });
+
+  it("requires pending identity proof and supersedes old links without reporting false completion", async () => {
+    const registration = await register("supersede");
+    expect(registration.pendingCookie).toMatch(/^wsx.pendingVerification=/);
+    await asOwner((client) => client.query(
+      `UPDATE email_verification_challenges SET created_at = now() - interval '61 seconds' WHERE id = $1`,
+      [registration.row.id],
+    ));
+
+    await post("/auth/email-verifications/resend", { email: registration.email }, registration.pendingCookie);
+    const oldLink = await post("/auth/email-verifications/confirm", { token: registration.raw });
+    expect(oldLink.status).toBe(400);
+    expect(oldLink.body.reasonCode).toBe("VERIFICATION_LINK_INVALID");
+    expect((await readCredentialByEmail(registration.email))?.email_verified_at).toBeNull();
+    const state = await asOwner(async (client) => (await client.query<{
+      superseded_at: Date | null; outbox_status: string; live_count: string;
+    }>(
+      `SELECT old.superseded_at, o.status AS outbox_status,
+              (SELECT count(*)::text FROM email_verification_challenges live
+                WHERE live.user_id = old.user_id AND live.consumed_at IS NULL
+                  AND live.superseded_at IS NULL) AS live_count
+         FROM email_verification_challenges old JOIN mail_outbox o ON o.challenge_id = old.id
+        WHERE old.id = $1`,
+      [registration.row.id],
+    )).rows[0]!);
+    expect(state.superseded_at).not.toBeNull();
+    expect(state.outbox_status).toBe("cancelled");
+    expect(state.live_count).toBe("1");
+  });
+
+  it("does not rotate another pending identity when the proof and email do not match", async () => {
+    const owner = await register("proof-owner");
+    const target = await register("proof-target");
+    await asOwner((client) => client.query(
+      `UPDATE email_verification_challenges SET created_at = now() - interval '61 seconds' WHERE id = ANY($1)`,
+      [[owner.row.id, target.row.id]],
+    ));
+    await post("/auth/email-verifications/resend", { email: target.email }, owner.pendingCookie);
+    expect(await post(
+      "/auth/email-verifications/resend",
+      { email: target.email },
+      "wsx.pendingVerification=%",
+    )).toEqual({ status: 201, body: { verificationDelivery: "queued" } });
+    const targetCount = await asOwner(async (client) => Number((await client.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM email_verification_challenges WHERE user_id = $1`, [target.userId],
+    )).rows[0]!.n));
+    expect(targetCount).toBe(1);
+  });
+
+  it("allows five actual resends per 24h, not four because registration was counted", async () => {
+    const registration = await register("daily-limit");
+    let cookie = registration.pendingCookie;
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      await asOwner((client) => client.query(
+        `UPDATE email_verification_challenges SET created_at = now() - interval '61 seconds'
+          WHERE user_id = $1 AND consumed_at IS NULL AND superseded_at IS NULL`,
+        [registration.userId],
+      ));
+      const { response } = await postRaw(
+        "/auth/email-verifications/resend", { email: registration.email }, cookie,
+      );
+      const rotated = response.headers.get("set-cookie")?.split(";", 1)[0];
+      if (rotated) cookie = rotated;
+      const resendCount = await asOwner(async (client) => Number((await client.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM email_verification_challenges
+          WHERE user_id = $1 AND issuance_kind = 'resend'`, [registration.userId],
+      )).rows[0]!.n));
+      expect(resendCount).toBe(Math.min(attempt, 5));
+    }
+  });
+
+  it("serializes confirm against a resend blocked after proof validation", async () => {
+    const registration = await register("confirm-resend-race");
+    await asOwner((client) => client.query(
+      `UPDATE email_verification_challenges SET created_at = now() - interval '61 seconds' WHERE id = $1`,
+      [registration.row.id],
+    ));
+    let unlock!: () => void;
+    let locked!: () => void;
+    const unlockGate = new Promise<void>((resolve) => { unlock = resolve; });
+    const lockReady = new Promise<void>((resolve) => { locked = resolve; });
+    const blocker = db.withoutTenant(async (session) => {
+      await session.query(`SELECT id FROM mail_outbox WHERE id = $1 FOR UPDATE`, [registration.row.outbox_id]);
+      locked();
+      await unlockGate;
+    });
+    await lockReady;
+    const resend = post(
+      "/auth/email-verifications/resend", { email: registration.email }, registration.pendingCookie,
+    );
+    let released = false;
+    const release = () => {
+      if (!released) unlock();
+      released = true;
+    };
+    try {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const waiting = await asOwner(async (client) => Number((await client.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'
+              AND query LIKE '%challenge_superseded%'`,
+        )).rows[0]!.n));
+        if (waiting > 0) break;
+        if (attempt === 99) throw new Error("resend did not reach the deterministic outbox lock");
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      const confirm = post("/auth/email-verifications/confirm", { token: registration.raw });
+      release();
+      const [resendResult, confirmResult] = await Promise.all([resend, confirm]);
+      expect(resendResult).toEqual({ status: 201, body: { verificationDelivery: "queued" } });
+      expect(confirmResult.status).toBe(400);
+      expect(confirmResult.body.reasonCode).toBe("VERIFICATION_LINK_INVALID");
+      expect((await readCredentialByEmail(registration.email))?.email_verified_at).toBeNull();
+    } finally {
+      release();
+      await blocker;
+    }
   });
 });
 
@@ -210,6 +340,31 @@ describe("transactional outbox delivery", () => {
     expect(deliver).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels an expired challenge instead of delivering a dead link", async () => {
+    const registration = await register("expired-outbox");
+    await asOwner(async (client) => {
+      await client.query(
+        `UPDATE email_verification_challenges SET expires_at = '1999-12-31T23:59:59Z' WHERE id = $1`,
+        [registration.row.id],
+      );
+      await client.query(
+        `UPDATE mail_outbox SET next_attempt_at = '2000-01-01T00:00:00Z' WHERE id = $1`,
+        [registration.row.outbox_id],
+      );
+    });
+    const repo = new PgEmailVerificationRepository(db);
+    const deliver = vi.fn();
+    expect(await deliverOneVerificationMail({
+      now: new Date("2000-01-01T00:00:01Z"),
+      appPublicUrl: "https://app.example.test", repo, tokens, transport: { deliver },
+    })).toBe("idle");
+    expect(deliver).not.toHaveBeenCalled();
+    const status = await asOwner(async (client) => (await client.query<{ status: string }>(
+      `SELECT status FROM mail_outbox WHERE id = $1`, [registration.row.outbox_id],
+    )).rows[0]!.status);
+    expect(status).toBe("cancelled");
+  });
+
   it("records a redacted retryable category and schedules the same outbox identity", async () => {
     const registration = await register("retry");
     await prioritizeOutbox(registration.row.outbox_id);
@@ -233,9 +388,12 @@ describe("transactional outbox delivery", () => {
 });
 
 describe("Cloudflare Email Service REST adapter", () => {
-  it("uses the account endpoint, bearer auth and a stable outbox Message-ID", async () => {
+  it("uses the account endpoint, an allowed trace header, and records Cloudflare's Message-ID", async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      result: { delivered: [], permanent_bounces: [], queued: ["person@example.test"] },
+      result: {
+        delivered: [], permanent_bounces: [], queued: ["person@example.test"],
+        message_id: "<cloudflare-generated@example.com>",
+      },
     }), {
       status: 200, headers: { "content-type": "application/json" },
     }));
@@ -244,26 +402,29 @@ describe("Cloudflare Email Service REST adapter", () => {
       apiToken: "scoped-email-sending-edit-token",
       mailFrom: "verify@example.test",
       appPublicUrl: "https://app.example.test",
-      previewEnabled: false,
+      previewDisabledAttested: true,
       workerEnabled: true,
+      requestTimeoutMs: 10_000,
     }, request);
     await expect(transport.deliver({
       outboxId: "outbox-1", to: "person@example.test",
       verificationUrl: "https://app.example.test/auth/verify-email?token=sensitive",
-    })).resolves.toEqual({ providerMessageId: "<outbox-1@workspacex.invalid>" });
+    })).resolves.toEqual({ providerMessageId: "<cloudflare-generated@example.com>" });
     const [url, init] = request.mock.calls[0]! as [string, RequestInit];
     expect(url).toBe("https://api.cloudflare.com/client/v4/accounts/account-1/email/sending/send");
     expect(init.headers).toMatchObject({ authorization: "Bearer scoped-email-sending-edit-token" });
     const body = JSON.parse(init.body as string) as { to: string; text: string; headers: Record<string, string> };
     expect(body.to).toBe("person@example.test");
     expect(body.text).toContain("/auth/verify-email?token=sensitive");
-    expect(body.headers["Message-ID"]).toBe("<outbox-1@workspacex.invalid>");
+    expect(body.headers["Message-ID"]).toBeUndefined();
+    expect(body.headers["X-WorkspaceX-Outbox-ID"]).toBe("outbox-1");
   });
 
   it("classifies retryable provider errors without recording response bodies", async () => {
     const transport = new CloudflareEmailTransport({
       accountId: "account-1", apiToken: "scoped-token", mailFrom: "verify@example.test",
-      appPublicUrl: "https://app.example.test", previewEnabled: false, workerEnabled: true,
+      appPublicUrl: "https://app.example.test", previewDisabledAttested: true, workerEnabled: true,
+      requestTimeoutMs: 10_000,
     }, vi.fn().mockResolvedValue(new Response("provider-secret-detail", { status: 503 })));
     const error = await transport.deliver({
       outboxId: "outbox-2", to: "person@example.test", verificationUrl: "https://example.test/verify",
@@ -272,6 +433,21 @@ describe("Cloudflare Email Service REST adapter", () => {
     if (!(error instanceof MailTransportError)) throw new Error("expected MailTransportError");
     expect(error).toMatchObject({ category: "provider_http_503", retryable: true });
     expect(error.message).not.toContain("provider-secret-detail");
+  });
+
+  it("times out even after response headers arrive when the provider body never finishes", async () => {
+    const request = vi.fn().mockResolvedValue(new Response(new ReadableStream({ start() {} }), {
+      status: 200, headers: { "content-type": "application/json" },
+    }));
+    const transport = new CloudflareEmailTransport({
+      accountId: "account-1", apiToken: "scoped-token", mailFrom: "verify@example.test",
+      appPublicUrl: "https://app.example.test", previewDisabledAttested: true, workerEnabled: true,
+      requestTimeoutMs: 5,
+    }, request);
+    const error = await transport.deliver({
+      outboxId: "outbox-timeout", to: "person@example.test", verificationUrl: "https://example.test/verify",
+    }).catch((caught) => caught as MailTransportError);
+    expect(error).toMatchObject({ category: "timeout", retryable: true });
   });
 
   it("fails closed on missing production credentials and production Preview", () => {
@@ -288,7 +464,23 @@ describe("Cloudflare Email Service REST adapter", () => {
       CLOUDFLARE_EMAIL_API_TOKEN: "t",
       MAIL_FROM: "verify@example.test",
       APP_PUBLIC_URL: "https://app.example.test",
+    })).toThrow(/Preview.*attestation/);
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "t",
+      MAIL_FROM: "verify@example.test",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    })).not.toThrow();
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "t",
+      MAIL_FROM: "verify@example.test",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
       CLOUDFLARE_EMAIL_PREVIEW: "true",
-    })).toThrow(/Preview/);
+    })).toThrow(/Preview.*attestation/);
   });
 });

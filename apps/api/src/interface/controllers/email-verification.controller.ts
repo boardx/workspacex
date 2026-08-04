@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Inject, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Inject, Post, Req, Res } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
 import { CLOCK, type Clock } from "../../application/auth/ports";
 import {
@@ -10,6 +10,7 @@ import {
 import { confirmEmailVerification, resendEmailVerification } from "../../application/auth/email-verification";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
+import { pendingVerificationSetCookie, readPendingVerificationCookie } from "../pending-verification-cookie";
 
 @Controller()
 export class EmailVerificationController {
@@ -33,9 +34,22 @@ export class EmailVerificationController {
 
   @Public()
   @Post("/auth/email-verifications/resend")
-  resend(@Body(new ZodBodyPipe(C.operations.resendEmailVerification.in)) body: { email: string }) {
-    return resendEmailVerification({
-      email: body.email, now: this.clock.now(), repo: this.repo, tokens: this.tokens,
+  async resend(
+    @Body(new ZodBodyPipe(C.operations.resendEmailVerification.in)) body: { email: string },
+    @Req() request: { headers: { cookie?: string } },
+    @Res({ passthrough: true }) response: { setHeader(name: string, value: string): void },
+  ) {
+    const result = await resendEmailVerification({
+      email: body.email,
+      pendingIdentityProof: readPendingVerificationCookie(request.headers.cookie),
+      now: this.clock.now(), repo: this.repo, tokens: this.tokens,
     });
+    if (result.pendingIdentityProof) {
+      response.setHeader("Set-Cookie", pendingVerificationSetCookie(
+        result.pendingIdentityProof,
+        process.env.NODE_ENV === "production",
+      ));
+    }
+    return { verificationDelivery: result.verificationDelivery };
   }
 }

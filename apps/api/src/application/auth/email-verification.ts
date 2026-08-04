@@ -17,21 +17,27 @@ export async function confirmEmailVerification(input: {
 
 export async function resendEmailVerification(input: {
   email: string;
+  pendingIdentityProof: string | null;
   now: Date;
   repo: EmailVerificationRepository;
   tokens: EmailVerificationTokenCodec;
-}): Promise<{ verificationDelivery: "queued" }> {
+}): Promise<{ verificationDelivery: "queued"; pendingIdentityProof?: string }> {
   const challengeId = input.tokens.newChallengeId();
   const raw = input.tokens.tokenForChallenge(challengeId);
-  await input.repo.requestResend({
+  const issued = await input.repo.requestResend({
     email: normalizeEmail(input.email),
+    proofChallengeId: input.pendingIdentityProof
+      ? input.tokens.challengeIdFromPendingProof(input.pendingIdentityProof)
+      : null,
     challengeId,
     tokenDigest: input.tokens.digest(raw),
     outboxId: `verify-${challengeId}`,
     expiresAt: new Date(input.now.getTime() + EMAIL_VERIFICATION_TTL_MS),
     now: input.now,
   });
-  return { verificationDelivery: "queued" };
+  return issued
+    ? { verificationDelivery: "queued", pendingIdentityProof: input.tokens.pendingProofForChallenge(challengeId) }
+    : { verificationDelivery: "queued" };
 }
 
 export async function deliverOneVerificationMail(input: {

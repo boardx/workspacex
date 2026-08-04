@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { EmailVerificationTokenCodec } from "../../application/auth/email-verification-ports";
 
 export class HmacEmailVerificationTokenCodec implements EmailVerificationTokenCodec {
@@ -13,11 +13,28 @@ export class HmacEmailVerificationTokenCodec implements EmailVerificationTokenCo
   }
 
   tokenForChallenge(challengeId: string): string {
-    return createHmac("sha256", this.secret).update(challengeId).digest("hex");
+    return this.hmac(`verification-token:${challengeId}`);
   }
 
   digest(token: string): string {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  pendingProofForChallenge(challengeId: string): string {
+    return `${challengeId}.${this.hmac(`pending-identity:${challengeId}`)}`;
+  }
+
+  challengeIdFromPendingProof(proof: string): string | null {
+    const [challengeId, signature, extra] = proof.split(".");
+    if (extra !== undefined || !challengeId?.match(/^[0-9a-f]{64}$/) || !signature?.match(/^[0-9a-f]{64}$/)) {
+      return null;
+    }
+    const expected = this.hmac(`pending-identity:${challengeId}`);
+    return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expected, "hex")) ? challengeId : null;
+  }
+
+  private hmac(value: string): string {
+    return createHmac("sha256", this.secret).update(value).digest("hex");
   }
 
 }

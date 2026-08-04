@@ -1,6 +1,6 @@
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
@@ -10,9 +10,76 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
 });
 
 import { EmailVerification } from "@/components/entry/email-verification";
+import { Registration } from "@/components/entry/registration";
 
 beforeEach(() => {
   apiRequest.mockReset();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("registration verification queue", () => {
+  function fillRegistration() {
+    fireEvent.change(screen.getByLabelText("14 位邀请码"), { target: { value: "ABCD1234EFGH56" } });
+    fireEvent.change(screen.getByLabelText("组织名称"), { target: { value: "Example Org" } });
+    fireEvent.change(screen.getByLabelText("你的姓名"), { target: { value: "Lin" } });
+    fireEvent.change(screen.getByLabelText("工作邮箱"), { target: { value: "lin@example.test" } });
+    fireEvent.change(screen.getByLabelText("密码（至少 12 位）"), { target: { value: "correct-horse-battery-staple" } });
+  }
+
+  it("submits the signed registration API, then exposes queued and rate-limited resend states", async () => {
+    vi.useFakeTimers();
+    apiRequest
+      .mockResolvedValueOnce({ userId: "user-1", orgId: "org-1", verificationDelivery: "queued" })
+      .mockResolvedValueOnce({ verificationDelivery: "queued" });
+    render(<Registration />);
+    fillRegistration();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "创建组织" }));
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("registration-verification-queued")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenNthCalledWith(1, "/auth/register", expect.objectContaining({
+      method: "POST", sessionToken: null, body: expect.objectContaining({ email: "lin@example.test" }),
+    }));
+    expect(screen.getByTestId("registration-verification-resend")).toBeDisabled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(screen.getByTestId("registration-verification-resend")).not.toBeDisabled();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("registration-verification-resend"));
+      await Promise.resolve();
+    });
+    expect(screen.getByText("新邮件已排队，请检查收件箱。")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenNthCalledWith(2, "/auth/email-verifications/resend", {
+      method: "POST", sessionToken: null, body: { email: "lin@example.test" },
+    });
+    expect(screen.getByTestId("registration-verification-resend")).toBeDisabled();
+    expect(screen.getByTestId("registration-verification-resend")).toHaveTextContent("60 秒后");
+    vi.useRealTimers();
+  });
+
+  it("keeps resend retryable when the queue endpoint is unavailable", async () => {
+    vi.useFakeTimers();
+    apiRequest
+      .mockResolvedValueOnce({ userId: "user-1", orgId: "org-1", verificationDelivery: "queued" })
+      .mockRejectedValueOnce(new Error("offline"));
+    render(<Registration />);
+    fillRegistration();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "创建组织" }));
+      await Promise.resolve();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("registration-verification-resend"));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("暂时无法重新发送");
+    expect(screen.getByTestId("registration-verification-resend")).not.toBeDisabled();
+    vi.useRealTimers();
+  });
 });
 
 describe("public verification landing", () => {

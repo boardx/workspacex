@@ -50,6 +50,7 @@ export const AUTH_POLICY = {
   sessionDays: 30,
   passwordMinLen: 12,
   resetLinkHours: 1,
+  verificationLinkHours: 24,
   lockAfterFails: 5,
   lockWindowMinutes: 15,
   lockDurationMinutes: 15,

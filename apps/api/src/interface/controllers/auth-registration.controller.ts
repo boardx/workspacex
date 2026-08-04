@@ -23,6 +23,7 @@ import {
   Controller,
   Inject,
   Post,
+  Res,
 } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
 import { registerWithInvite } from "../../application/auth/register-with-invite";
@@ -44,6 +45,7 @@ import {
 } from "../../application/auth/email-verification-ports";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
+import { pendingVerificationSetCookie } from "../pending-verification-cookie";
 
 /** Exported so `contract-single-source.test.ts` can assert reference identity with the contract. */
 export const REGISTER_SCHEMA = C.operations.redeemInviteAndCreateOrg.in;
@@ -107,9 +109,12 @@ export class AuthRegistrationController {
    */
   @Public()
   @Post("/auth/register")
-  async register(@Body(new ZodBodyPipe(REGISTER_SCHEMA)) body: RegisterBody) {
+  async register(
+    @Body(new ZodBodyPipe(REGISTER_SCHEMA)) body: RegisterBody,
+    @Res({ passthrough: true }) response: { setHeader(name: string, value: string): void },
+  ) {
     try {
-      return await registerWithInvite(
+      const result = await registerWithInvite(
         { repo: this.repo, hasher: this.hasher, verificationTokens: this.verificationTokens },
         {
           code: body.code,
@@ -119,6 +124,12 @@ export class AuthRegistrationController {
           orgName: body.orgName,
         },
       );
+      response.setHeader("Set-Cookie", pendingVerificationSetCookie(
+        result.pendingIdentityProof,
+        process.env.NODE_ENV === "production",
+      ));
+      const { pendingIdentityProof: _proof, ...contractOutput } = result;
+      return contractOutput;
     } catch (e) {
       // ⚠ Nothing from the exception reaches the response except `reasonCode`, which
       // `all-exceptions.filter.ts` re-parses against the closed `AuthReason` enum before

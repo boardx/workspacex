@@ -16,13 +16,25 @@ account Email Sending REST API。适配器只接受显式的 `CLOUDFLARE_ACCOUNT
 token 仅授予 Email Sending: Edit。测试注入 fake transport，不调用真实服务。
 
 验证 bearer 由服务端 secret 和随机 challenge id 派生；库中 challenge 表只保存 bearer
-digest，outbox 只保存 challenge id、收件人与模板。worker 投递时才重建链接。每个 outbox id
-产生稳定 Message-ID；数据库 claim/完成状态保证并发 worker 只处理一份，失败按分类记录并重试。
-生产配置强制 Email Preview 关闭。
+digest，outbox 只保存 challenge id、收件人与模板。worker 投递时才重建链接。每次调用携带稳定
+`X-WorkspaceX-Outbox-ID` 供追踪（Cloudflare 禁止客户端设置其平台控制的 `Message-ID`），成功后
+保存 Cloudflare 返回的真实 `result.message_id`。数据库 claim/完成状态保证已确认成功的 outbox
+不会重投，失败按分类记录并重试；请求有硬超时，避免单实例队列永久停摆。
+
+Email Preview 是 Cloudflare sending subdomain 的服务端状态，而最小权限 Email Sending: Edit token
+不扩大到 zone 配置读取。部署者必须先在 Cloudflare 侧核验 `preview_enabled=false`，再显式提供
+`CLOUDFLARE_EMAIL_PREVIEW_DISABLED=true` 作为可审计 attestation；生产缺此声明即拒绝启动。
+应用不声称自行切换或远程读取 Preview 状态。
 
 ## 后果
 - 注册提交与邮件供应商故障解耦，失败可观测、可重试；认证与数据仍留在 Node/PostgreSQL。
 - REST adapter 是窄 egress seam，凭据可以最小授权且测试无需网络。
 - 相比 Worker binding，多一次 HTTP 跳转并需维护轮询 worker；相比事务内发送，换来一致的
-  outbox 语义。Cloudflare 不提供业务级 exactly-once 承诺，因此稳定 Message-ID 与 outbox
-  identity 只能把重放做成幂等请求；网络超时后的供应商侧最终去重仍依赖其邮件管线。
+  outbox 语义。Cloudflare REST 没有业务级 exactly-once / idempotency-key 承诺，因此 outbox
+  identity 能防止已确认成功后的本地重复处理，却不能消除「供应商已接收但响应超时」这一
+  不可判定窗口；稳定 X-header 仅提供跨系统追踪，不被误写成供应商去重保证。
+
+## 参考
+- [Cloudflare Email Service REST API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/)
+- [Cloudflare Email headers](https://developers.cloudflare.com/email-service/reference/headers/)
+- [Cloudflare Email Sending subdomain state](https://developers.cloudflare.com/api/resources/email_sending/)
