@@ -58,6 +58,18 @@ agents:
     responsibilities:
       - 恢复本地 PostgreSQL 与基础验证的可重复性
 
+  # ── auth 模块协调者（无合并权；PR 全绿后转交 coord-main）──────────
+  - id: coord-agent-auth
+    active: true
+    kind: module-coordinator
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [auth, identity, session]
+    reports_to: coord-main
+    responsibilities:
+      - 在 auth/identity/session 范围内分派、初审与返工裁决
+      - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
+
   - id: dev-auth
     directory_agent_id: agt_01KZ4MJNA25N94TC8M22FTKHZ4
     active: true
@@ -65,6 +77,9 @@ agents:
     model: configured-default
     owner: 2325074+usamshen@users.noreply.github.com
     areas: [auth, identity, session]
+    # ⚠ 仍挂在 coord-main 下：把它改挂到 coord-agent-auth 会撞 #407 的扁平拓扑
+    # 不变量（registry-integration-team.test.ts:36 断言四个 worker 均 reports_to
+    # coord-main）。改拓扑需要人类裁决并单独修订该不变量，不在本 PR 范围内。
     reports_to: coord-main
     responsibilities:
       - 接通已签核的认证与当前组织真实运行时路径
