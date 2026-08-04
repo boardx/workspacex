@@ -2,18 +2,17 @@ import Link from "next/link";
 import { AppShell } from "@/components/shell/app-shell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 import { NAV_SEGMENTS, FILES_NAV } from "@/lib/navigation";
 
 export default function HomePage({
   searchParams,
-}: { searchParams: { as?: string; org?: string } }) {
+}: { searchParams: { as?: string } }) {
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
   const entries = [...NAV_SEGMENTS.flatMap((s) => s.items), FILES_NAV];
 
   return (
-    <AppShell identity={identity} previewRole={previewRole}>
+    <AppShell previewRole={previewRole}>
       <div className="mx-auto flex max-w-4xl flex-col gap-6 p-8">
         <header className="flex flex-col gap-1.5">
           <h1 className="text-24 font-semibold tracking-tight">前端内核已就绪</h1>

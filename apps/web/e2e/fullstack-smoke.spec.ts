@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
+test("anonymous root fails closed to login without rendering the product shell", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByTestId("login-form")).toBeVisible();
+  await expect(page.getByTestId("app-shell")).toHaveCount(0);
+  await expect(page.getByText("前端内核已就绪")).toHaveCount(0);
+});
+
 test("real login reaches the PG-seeded sentinel through project and Files product entries", async ({ page }) => {
   const seen = new Set<string>();
   const failures: string[] = [];
@@ -40,6 +49,12 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 
+  await page.goto("/");
+  await expect(page.getByTestId("app-shell")).toBeVisible();
+  await expect(page.getByTestId("org-switcher")).toHaveValue(FULLSTACK_E2E.orgId);
+  await expect(page.getByTestId("session-logout")).toBeVisible();
+
+  await page.goto("/projects");
   await expect(page.getByTestId(`projects-card-${FULLSTACK_E2E.projectId}-enter`)).toBeVisible();
   await page.getByTestId(`projects-card-${FULLSTACK_E2E.projectId}-enter`).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${FULLSTACK_E2E.projectId}`));

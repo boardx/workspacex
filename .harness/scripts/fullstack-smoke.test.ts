@@ -102,7 +102,9 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(spec).toContain("projects-card-${FULLSTACK_E2E.projectId}-enter");
     expect(spec).toContain("project-home-surface-files");
     expect(spec).toContain("FULLSTACK_E2E.sentinelFile");
-    expect(spec.match(/page\.goto\(/g)).toHaveLength(1);
+    expect(spec.match(/page\.goto\("\/login"\)/g)).toHaveLength(1);
+    expect(spec.match(/page\.goto\("\/"\)/g)).toHaveLength(2);
+    expect(spec.match(/page\.goto\("\/projects"\)/g)).toHaveLength(1);
     for (const key of ["login", "identity", "projects", "overview", "artifacts"]) {
       expect(spec).toContain(`${key}:`);
     }
