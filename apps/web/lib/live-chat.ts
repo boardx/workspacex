@@ -4,7 +4,7 @@
  * 与 `lib/live-projects.ts`（F122）同一个纪律：类型全部从 `@repo/contracts` 推导，
  * 不重新声明；一律经 `apiRequest`，不各自 `fetch`。
  *
- * ## 只封装了「已确认有真实 Postgres 支撑」的用例（issue #368 的核实结论）
+ * ## 只封装了「已确认有真实 Postgres 支撑」的用例
  *
  * `apps/api/src/kernel.module.ts` 里 `CHAT_REPOSITORY`（`PgChatRepository`）与
  * `CHAT_PRESET_REPOSITORY`（`PgChatPresetRepository`）都是真实绑定，`chat.controller.ts`
@@ -13,16 +13,15 @@
  * fixture。本文件只封装这些：
  *   · listThreads / getThread / getAgentPanel / mutateThread（线程列表/详情/只读 roster/新建-改名-删除）
  *   · upsertPreset / dispatchPreset / startPresetInstance / getPresetUsage（预设三件套）
+ *   · listMessages / createMessage（Wave 2 durable message + queued AgentRun acceptance）
  *
  * ⚠ 契约里还有 `getThreadMessagesFile`、`updateAgentRoster`、
  *   `expandToolCallChain`、`locateCitation`、`adminAuditRead`、approval-request/
  *   background-task/artifact 几条——同样是真实 Postgres/Provenance 支撑，
  *   但不在本次「核心聊天路径」范围内，故未封装，见 issue #368 的核实报告。
  *
- * ⚠ **没有「发消息」端口**：契约与控制器里都不存在任何
- *   `POST /chat/threads/:threadId/messages` 之类的写端口——`getThread.out.messages`
- *   只读，消息正文走 file-first 管线（`messages.jsonl`，见 `get-thread-messages-file.ts`
- *   头部注释），不是这里能补的「一个小仓储」级别的缺口，故本文件不假装有发消息 API。
+ * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
+ * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
  */
 import { chat } from "@repo/contracts";
 import type { z } from "zod";
@@ -37,6 +36,10 @@ export type UpsertPresetOut = z.infer<typeof chat.operations.upsertPreset.out>;
 export type DispatchPresetOut = z.infer<typeof chat.operations.dispatchPreset.out>;
 export type StartPresetInstanceOut = z.infer<typeof chat.operations.startPresetInstance.out>;
 export type GetPresetUsageOut = z.infer<typeof chat.operations.getPresetUsage.out>;
+export type DurableMessage = z.infer<typeof chat.DurableMessage>;
+export type ListMessagesOut = z.infer<typeof chat.operations.listMessages.out>;
+export type CreateMessageOut = z.infer<typeof chat.operations.createMessage.out>;
+export type CreateMessageInput = Omit<z.input<typeof chat.operations.createMessage.in>, "threadId">;
 
 export async function listThreads(
   projectId: string,
@@ -75,6 +78,39 @@ export async function getAgentPanel(
   return apiRequest<GetAgentPanelOut>(
     chat.operations.getAgentPanel.path.replace(":threadId", encodeURIComponent(threadId)),
     { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
+export async function listMessages(
+  threadId: string,
+  opts: { cursor?: string; limit?: number } = {},
+  sessionToken?: string,
+): Promise<ListMessagesOut> {
+  return apiRequest<ListMessagesOut>(
+    chat.operations.listMessages.path.replace(":threadId", encodeURIComponent(threadId)),
+    {
+      method: "GET",
+      query: {
+        cursor: opts.cursor,
+        limit: opts.limit === undefined ? undefined : String(opts.limit),
+      },
+      sessionToken,
+    },
+  );
+}
+
+export async function createMessage(
+  threadId: string,
+  input: CreateMessageInput,
+  sessionToken?: string,
+): Promise<CreateMessageOut> {
+  return apiRequest<CreateMessageOut>(
+    chat.operations.createMessage.path.replace(":threadId", encodeURIComponent(threadId)),
+    {
+      method: "POST",
+      body: input,
+      sessionToken,
+    },
   );
 }
 

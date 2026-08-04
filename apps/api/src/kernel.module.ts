@@ -152,6 +152,14 @@ import {
 import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
 import { ARTIFACT_LANDING_REPOSITORY } from "./application/chat/artifact-landing-ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
+import {
+  CHAT_MESSAGE_COMMAND_REPOSITORY,
+  PUBLISHED_AGENT_READER,
+} from "./application/chat/message-command-ports";
+import {
+  PgChatMessageCommandRepository,
+  PgPublishedAgentReader,
+} from "./infrastructure/chat/pg-chat-message-command-repository";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
@@ -519,6 +527,21 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: CHAT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: CHAT_MESSAGE_COMMAND_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgChatMessageCommandRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PUBLISHED_AGENT_READER,
+      useFactory: (db: DatabasePort) => new PgPublishedAgentReader(
+        db,
+        process.env.KERNEL_ALLOW_TEST_PRINCIPAL === "1"
+          ? process.env.KERNEL_AGENT_CATALOG_SCHEMA
+          : undefined,
+      ),
       inject: [DATABASE_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
