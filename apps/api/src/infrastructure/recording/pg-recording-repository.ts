@@ -29,6 +29,7 @@
  * another.
  */
 import { randomUUID } from "node:crypto";
+import { recording as C } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { RetentionPolicyRepository } from "../../application/files/retention-policy-ports";
 import type { OrgId } from "../../domain/org-id";
@@ -350,9 +351,17 @@ function consentReader(s: TenantSession, orgId: OrgId): ConsentMatrixReader {
         [orgId, sourceRefId, [...participantIds]],
       );
       const granted = new Map(r.rows.map((row) => [row.participant_id, Number(row.granted)]));
-      // Three items, all `granted`, for EVERY participant. A missing row counts as 0, which
-      // is how "never asked" stays distinguishable from "said yes".
-      return participantIds.some((p) => (granted.get(p) ?? 0) < 3);
+      // EVERY item `granted`, for EVERY participant. A missing row counts as 0, which is how
+      // "never asked" stays distinguishable from "said yes".
+      //
+      // ⚠ The required count is read off the CONTRACT's enum, never written as a literal.
+      //   The first draft said `< 3`, which is the item split copied into a second place
+      //   wearing a number's clothes: the day `RecordingConsentItem` gains a fourth member
+      //   (X-7's three-vs-four question is still open — see `application/recording/ports.ts`),
+      //   a literal 3 would keep opening the gate on a matrix that is only three-quarters
+      //   answered, and nothing would report it.
+      const requiredItems = C.RecordingConsentItem.options.length;
+      return participantIds.some((p) => (granted.get(p) ?? 0) < requiredItems);
     },
   };
 }
