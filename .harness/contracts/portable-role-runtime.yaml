@@ -1,0 +1,121 @@
+version: 1
+status: proposed-design
+owner_issue: 436
+
+canonical_sources:
+  role_behavior:
+    path_glob: .harness/agents/roles/*.yaml
+    generated_surfaces:
+      claude_code: .claude/agents/<stable-role-id>.md
+      codex: .codex/agents/<stable-role-id>.toml
+  runtime_role:
+    system: PlatformDirectory
+    prerequisite_issue: 396
+    prerequisite_pr: 402
+  runtime_actor:
+    field: directory_agent_id
+    format: immutable-directory-ulid
+
+stable_roles:
+  - id: coord-main
+    kind: coordinator
+    merge_authority: true
+    dispatch_authority: true
+  - id: coord-architecture
+    kind: coordinator
+    merge_authority: false
+    dispatch_authority: true
+  - id: dev-chat-e2e
+    kind: worker
+    merge_authority: false
+    dispatch_authority: false
+  - id: dev-ai-runtime
+    kind: worker
+    merge_authority: false
+    dispatch_authority: false
+  - id: rev-feature
+    kind: reviewer
+    merge_authority: false
+    dispatch_authority: false
+  - id: rev-e2e
+    kind: reviewer
+    merge_authority: false
+    dispatch_authority: false
+
+human_launch:
+  claude_code:
+    generated_format: markdown-yaml-frontmatter
+    project_path: .claude/agents/<stable-role-id>.md
+    command: claude --agent <stable-role-id>
+  codex:
+    generated_format: toml-top-level-agent-fields
+    project_path: .codex/agents/<stable-role-id>.toml
+    action: open the project in Codex App or CLI and explicitly ask it to use <stable-role-id>
+
+identity_resolution:
+  input: stable-role-id
+  directory_match_count: exactly-one-active
+  validate_fields: [kind, areas, reports_to]
+  authenticated_identity_endpoint: scoped-whoami
+  output_environment: COORD_AGENT_ID
+  output_value: directory-agent-ulid
+  fail_closed_on:
+    - no-active-directory-match
+    - multiple-active-directory-matches
+    - role-projection-mismatch
+    - retired-or-invalid-agent
+    - credential-mode-not-0600
+    - token-directory-agent-mismatch
+
+credentials:
+  cache_path: .harness/state/.cache/coord-credentials.json
+  required_mode: "0600"
+  input_channels: [interactive-prompt, stdin]
+  forbidden_channels: [argv, logs, tracked-files, generated-surfaces]
+  write_protocol: temp-file-chmod-0600-atomic-rename
+  migration: preserve-valid-token-rotate-only-on-verification-failure
+
+session_protocol:
+  actor: directory-agent-ulid
+  ordered_steps:
+    - acquire-role-lease
+    - poll-private-inbox
+    - ack-task
+    - acquire-issue-lease
+    - heartbeat-role-and-issue-leases
+    - write-handoff
+    - release-issue-lease
+    - release-role-lease
+  leases:
+    role: role:<stable-role-id>
+    issue: issue:<github-issue-number>
+  handoff_minimum_characters: 10
+  lost_lease_behavior: stop-writes-and-fail-closed
+
+tracked_secret_policy:
+  allowed_runtime_ids_in_role_specs: false
+  allowed_credentials_in_role_specs: false
+  allowed_credentials_in_generated_surfaces: false
+  credential_cache_must_be_gitignored: true
+
+implementation_dag:
+  - issue: 441
+    depends_on: [436]
+    deliverable: portable-generated-role-surfaces
+  - issue: 442
+    depends_on: [436, 396]
+    deliverable: scoped-identity-verification-endpoint
+  - issue: 443
+    depends_on: [441, 442, 396]
+    deliverable: stable-role-resolver-and-credential-bootstrap
+  - issue: 445
+    depends_on: [443]
+    deliverable: persistent-role-session-loop
+  - issue: 444
+    depends_on: [441, 443, 445]
+    deliverable: secret-and-authority-drift-ci-gates
+  - issue: 446
+    depends_on: [441, 442, 443, 444, 445]
+    deliverable: dual-tool-dev-chat-e2e-acceptance
+
+excluded_coordination_tasks: [44]
