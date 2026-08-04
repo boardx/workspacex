@@ -26,11 +26,13 @@ describe("Wave 2 runtime design packet", () => {
       expect(confirmedBy).toBeUndefined();
       expect(confirmedAt).toBeUndefined();
       expect(signoff).toContain("Pending.");
+      expect(signoff).not.toContain("Confirmed by `");
     } else {
       expect(confirmedBy?.trim()).toBeTruthy();
       expect(confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
       expect(Number.isNaN(Date.parse(confirmedAt!))).toBe(false);
       expect(signoff).toContain(`Confirmed by \`${confirmedBy}\` at \`${confirmedAt}\`.`);
+      expect(signoff).not.toContain("Pending.");
     }
     expect(signoff).toContain("[contract.md](./contract.md)");
     expect(contract).toContain("## 1. Registration email confirmation");
