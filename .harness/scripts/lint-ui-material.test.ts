@@ -266,6 +266,33 @@ describe("显式同 phase 束复用", () => {
     expect(errors.join("\n")).toContain("[复用目标非 concrete]");
   });
 
+  it("合法 reuse + 无关 plain mapping 用 ../ 跨 phase 读图 => 整体 fail closed", () => {
+    writeValidTarget(["a.png"]);
+    uiFor(PHASE, REUSER, reuseUi(REUSER, TARGET, TARGET_DIR, ["a.png"]));
+
+    const outsidePhase = "phase-other";
+    const outsideDir = "ui-preview/outside";
+    shotsFor(outsidePhase, outsideDir, ["leak.png"]);
+    uiFor(
+      PHASE,
+      "unsafe-plain",
+      uiMdFor("unsafe-plain", "ignored-by-bare-ref", ["leak.png"])
+        .replace("ignored-by-bare-ref/leak.png", "leak.png"),
+    );
+
+    const map = {
+      [PHASE]: {
+        [TARGET]: TARGET_DIR,
+        [REUSER]: { reuse_bundle: TARGET },
+        "unsafe-plain": `../${outsidePhase}/${outsideDir}`,
+      },
+    };
+    const { errors, rows } = run(writeMap(map));
+    expect(errors.join("\n")).toContain("[目录映射越界]");
+    expect(errors.join("\n")).toContain("unsafe-plain");
+    expect(rows.some((row: { label: string }) => row.label === `${PHASE}/unsafe-plain`)).toBe(false);
+  });
+
   it("复用 ui.md 显式写了其他 phase 的截图路径 => fail closed", () => {
     writeValidTarget(["a.png"]);
     const body = reuseUi(REUSER, TARGET, TARGET_DIR, ["a.png"])

@@ -134,6 +134,12 @@ function isConcreteScreenshotDir(value) {
   return segments.length > 1 && segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
+function isPhaseContainedScreenshotDir(root, phase, value) {
+  if (!isConcreteScreenshotDir(value)) return false;
+  const phaseRoot = resolve(root, "phases", phase);
+  return resolve(phaseRoot, value).startsWith(`${phaseRoot}${sep}`);
+}
+
 /** 解析复用束 ui.md 中人可见、可机检的固定声明。 */
 export function extractReuseStatement(body) {
   const match = /^\s*>\s*\*{0,2}UI material reuse:\s*no new screen\s*;\s*reuse_bundle:\s*`([A-Za-z0-9][A-Za-z0-9_-]*)`\.\*{0,2}\s*$/im.exec(body);
@@ -369,6 +375,13 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
       continue;
     }
     if (typeof mapping === "string") {
+      if (!isPhaseContainedScreenshotDir(root, phase, mapping)) {
+        errors.push(
+          `[目录映射越界] ${label} 的 concrete 映射必须是当前 phase 内的 ui-preview/<目录>：${JSON.stringify(mapping)}。\n` +
+          `    禁止 ../、绝对路径、反斜杠与跨 phase 目录；检测到 structured reuse 时，所有 plain mapping 也会 fail closed。`,
+        );
+        continue;
+      }
       concrete.push({ ...target, label, declaredDir: mapping });
       continue;
     }
@@ -418,7 +431,7 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
       }
       continue;
     }
-    if (!isConcreteScreenshotDir(targetMapping)) {
+    if (!isPhaseContainedScreenshotDir(root, phase, targetMapping)) {
       errors.push(`[复用目标非 concrete] ${label} 的目标 ${targetLabel} 没有安全的 concrete ui-preview/<目录> 映射。`);
       continue;
     }
