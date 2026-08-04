@@ -301,17 +301,30 @@ function segmentStore(s: TenantSession, orgId: OrgId, ids: IdGenerator): Segment
       );
       return { segmentId };
     },
-    async ofTrack(trackId) {
-      const r = await s.query<SegmentRow>(
-        `SELECT ${select} FROM recording_segments
-          WHERE track_id = $1 AND org_id = $2 ORDER BY ordinal`,
-        [trackId, orgId],
+    /**
+     * ⚠ Unimplementable here, and that is the invariant working rather than a gap.
+     *
+     * `TranscribedSegment` is branded with a symbol only `transcription-core.ts` can write
+     * (F69), so a row read back out of PostgreSQL is NOT one and cannot be made into one —
+     * the first draft of this method cast its way past the brand and
+     * `tests/rec/multi-track-no-crosstalk.test.ts`'s cast scan caught it, which is exactly
+     * what that scan is for. (That scan reads the whole file, comments included — so this
+     * note deliberately does not spell the offending expression out, for the same reason
+     * `lint-error-leak.mjs` exempts comments: a gate that fires on its own documentation
+     * gets muted.) Casting would have handed callers a value carrying a promise
+     * ("this came out of the one transcription core") that reading a table cannot keep.
+     *
+     * Nothing loses a capability: `ofTrack` exists for F69's cross-track isolation
+     * assertion, which runs against `tests/support/rec-fakes.ts`, and none of the four
+     * routes calls it. Reading segments back for production goes through `ofSession`, whose
+     * return type says honestly that it is stored data. Throwing rather than returning `[]`
+     * because an empty array here would read as "this track said nothing".
+     */
+    async ofTrack(): Promise<readonly TranscribedSegment[]> {
+      throw new Error(
+        "ofTrack has no PostgreSQL implementation: a stored row is not a TranscribedSegment " +
+          "(F69's brand). Use ofSession, which returns stored segments as such.",
       );
-      // `TranscribedSegment` is unforgeable outside `transcription-core.ts` by design (F69),
-      // so a row read back cannot BE one. This port is used only by F69's cross-track
-      // isolation assertion, which reads the fields; the cast is confined to this line and
-      // never widens `append`, which is where the invariant actually lives.
-      return r.rows.map((row) => toLine(row) as unknown as TranscribedSegment);
     },
     async ofSession(sessionId) {
       const r = await s.query<SegmentRow>(

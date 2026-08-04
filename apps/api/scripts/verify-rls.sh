@@ -213,6 +213,11 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   `recording_sessions` / `recording_tracks` / `recording_segments` /
 #   `recording_consent_cells` / `recording_operation_idempotency`。
 #
+#   ⚠ **量了两次，第二次才是这一行的值**：第一次在分支基点 035b8407 上量得 101；
+#     随后 rebase 到含 #486 / #476 / #471 的 main 上，用**另一个全新库名**
+#     （`wsx_rec465rls2`）从空库重跑，仍是 101。第二次不是「确认一下」，是因为
+#     上面 F81 / F109 两段写死了「合流会让前一次测量作废」——碰巧数字没变，
+#     不等于前一次测量还有效。
 #   ⚠ 「96 + 我加的 5 = 101」这次算术又恰好对上，而这**仍然不构成**可以推算的理由——
 #     上面 F49 / F109 两段各记过一次算术对上，紧接着 F10/F108 差 2、F15 差 1，
 #     两次都是往少了算，而少算的结果恰好是静默失效（比较是 `-ge`，floor 少 1 永远不会红）。
