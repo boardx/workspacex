@@ -85,8 +85,23 @@ async function expectStatus(fetchImpl, url, expected, init = {}) {
  * protected coord-gateway proxy, and a complete OAuth state/callback failure path without
  * authorizing a real GitHub user.
  */
-export async function smokeProduction({ fetchImpl = fetch }) {
-  await expectStatus(fetchImpl, `${CUSTOM_ORIGIN}/`, 302);
+export async function smokeProduction({ fetchImpl = fetch, accessTeamDomain }) {
+  const configuredAccess = new URL(accessTeamDomain);
+  if (configuredAccess.protocol !== "https:") {
+    throw new Error("configured Cloudflare Access team domain must use HTTPS");
+  }
+  const expectedAccessOrigin = configuredAccess.origin;
+  const expectedAccessPath = `/cdn-cgi/access/login/${new URL(CUSTOM_ORIGIN).hostname}`;
+  const access = await expectStatus(fetchImpl, `${CUSTOM_ORIGIN}/`, 302);
+  const accessLocation = access.headers.get("location");
+  if (!accessLocation) throw new Error("Cloudflare Access redirect is missing Location");
+  const accessLogin = new URL(accessLocation, CUSTOM_ORIGIN);
+  if (
+    accessLogin.origin !== expectedAccessOrigin ||
+    accessLogin.pathname !== expectedAccessPath
+  ) {
+    throw new Error("redirect does not match the configured Cloudflare Access login boundary");
+  }
   await expectStatus(fetchImpl, `${PAGES_ORIGIN}/api/portal/pulse`, 401);
 
   const login = await expectStatus(
@@ -116,8 +131,10 @@ export async function smokeProduction({ fetchImpl = fetch }) {
     headers: { cookie },
   });
   const body = await responseJson(callbackResponse);
-  if (body?.error !== "oauth_failed" || body?.reason !== "code_exchange_failed") {
-    throw new Error("OAuth callback did not reach the fail-closed code exchange boundary");
+  if (body?.error !== "oauth_failed" || body?.reason !== "bad_verification_code") {
+    throw new Error(
+      `OAuth callback must prove bad_verification_code with valid client credentials; got ${String(body?.reason ?? "unknown")}`,
+    );
   }
 }
 
@@ -130,6 +147,7 @@ export async function runPagesCutover({
 } = {}) {
   const accountId = required(env, "CLOUDFLARE_ACCOUNT_ID");
   const token = required(env, "CLOUDFLARE_API_TOKEN");
+  const accessTeamDomain = required(env, "CF_ACCESS_TEAM_DOMAIN");
   required(env, "GITHUB_SHA");
 
   const previousDeploymentId = await listKnownGoodProduction({ accountId, token, fetchImpl });
@@ -137,7 +155,7 @@ export async function runPagesCutover({
 
   try {
     await deploy({ env });
-    await smoke({ fetchImpl });
+    await smoke({ fetchImpl, accessTeamDomain });
     logger.info("DevPortal production cutover and OAuth smoke passed.");
   } catch (cutoverError) {
     logger.error(`Production cutover failed: ${cutoverError.message}`);
@@ -148,7 +166,7 @@ export async function runPagesCutover({
         deploymentId: previousDeploymentId,
         fetchImpl,
       });
-      await smoke({ fetchImpl });
+      await smoke({ fetchImpl, accessTeamDomain });
     } catch (rollbackError) {
       throw new Error(`production cutover failed and rollback failed: ${rollbackError.message}`, {
         cause: cutoverError,

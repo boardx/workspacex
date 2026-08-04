@@ -8,6 +8,7 @@ import {
 const env = {
   CLOUDFLARE_ACCOUNT_ID: "account-id",
   CLOUDFLARE_API_TOKEN: "secret-token",
+  CF_ACCESS_TEAM_DOMAIN: "https://boardx.cloudflareaccess.com",
   GITHUB_SHA: "0123456789abcdef",
 };
 
@@ -121,12 +122,78 @@ describe("DevPortal production cutover (#450)", () => {
     ).rejects.toThrow("rollback failed");
   });
 
-  it("exercises Access, protected API, OAuth login state, and fail-closed callback", async () => {
+  it.each([
+    "https://access.example/cdn-cgi/access/login/develop.boardx.us",
+    "https://boardx.cloudflareaccess.com/cdn-cgi/access/login/other.example",
+  ])("rejects an arbitrary 302 outside the configured Access application: %s", async (location) => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(null, { status: 302, headers: { location } }),
+    );
+
+    await expect(
+      smokeProduction({
+        fetchImpl,
+        accessTeamDomain: "https://boardx.cloudflareaccess.com",
+      }),
+    ).rejects.toThrow("Cloudflare Access");
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it.each(["incorrect_client_credentials", "client_credentials_missing"])(
+    "rejects OAuth callback credential failure: %s",
+    async (reason) => {
+      const stateCookie = "devportal_oauth_state=signed-state; Path=/api/coord/oauth";
+      const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.hostname === "develop.boardx.us") {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location:
+                "https://boardx.cloudflareaccess.com/cdn-cgi/access/login/develop.boardx.us",
+            },
+          });
+        }
+        if (url.pathname === "/api/portal/pulse") {
+          return jsonResponse({ error: "unauthorized" }, 401);
+        }
+        if (url.pathname.endsWith("/login")) {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location:
+                "https://github.com/login/oauth/authorize?client_id=configured-client&state=nonce-123",
+              "set-cookie": stateCookie,
+            },
+          });
+        }
+        if (url.pathname.endsWith("/callback")) {
+          return jsonResponse({ error: "oauth_failed", reason }, 401);
+        }
+        throw new Error(`unexpected smoke URL: ${url}`);
+      });
+
+      await expect(
+        smokeProduction({
+          fetchImpl,
+          accessTeamDomain: "https://boardx.cloudflareaccess.com",
+        }),
+      ).rejects.toThrow("bad_verification_code");
+    },
+  );
+
+  it("exercises configured Access, protected API, OAuth login state, and classified callback", async () => {
     const stateCookie = "devportal_oauth_state=signed-state; Path=/api/coord/oauth";
     const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(String(input));
       if (url.hostname === "develop.boardx.us") {
-        return new Response(null, { status: 302, headers: { location: "https://access.example/" } });
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location:
+              "https://boardx.cloudflareaccess.com/cdn-cgi/access/login/develop.boardx.us",
+          },
+        });
       }
       if (url.pathname === "/api/portal/pulse") {
         return jsonResponse({ error: "unauthorized" }, 401);
@@ -145,12 +212,17 @@ describe("DevPortal production cutover (#450)", () => {
         expect(new Headers(init?.headers).get("cookie")).toBe(
           "devportal_oauth_state=signed-state",
         );
-        return jsonResponse({ error: "oauth_failed", reason: "code_exchange_failed" }, 401);
+        return jsonResponse({ error: "oauth_failed", reason: "bad_verification_code" }, 401);
       }
       throw new Error(`unexpected smoke URL: ${url}`);
     });
 
-    await expect(smokeProduction({ fetchImpl })).resolves.toBeUndefined();
+    await expect(
+      smokeProduction({
+        fetchImpl,
+        accessTeamDomain: "https://boardx.cloudflareaccess.com",
+      }),
+    ).resolves.toBeUndefined();
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 });

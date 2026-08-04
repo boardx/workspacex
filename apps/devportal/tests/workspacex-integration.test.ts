@@ -61,5 +61,9 @@ describe("WorkSpaceX DevPortal deployment boundary (#450)", () => {
     expect(deployWorkflow).toContain("node scripts/pages-cutover.mjs");
     expect(deployWorkflow).not.toContain("pnpm exec wrangler pages deploy");
     expect(deployWorkflow).not.toContain("name: Public smoke check");
+    const wranglerTeamDomain = wrangler.match(/^CF_ACCESS_TEAM_DOMAIN\s*=\s*"([^"]+)"/m)?.[1];
+    const workflowTeamDomain = deployWorkflow.match(/^\s*CF_ACCESS_TEAM_DOMAIN:\s*(\S+)\s*$/m)?.[1];
+    expect(wranglerTeamDomain).toBe("https://boardx.cloudflareaccess.com");
+    expect(workflowTeamDomain).toBe(wranglerTeamDomain);
   });
 });

@@ -41,8 +41,9 @@ export async function GET(request: Request): Promise<Response> {
   const state = await verifyState(stateCookie);
   if (!state || state.nonce !== stateParam) return deny("state_mismatch");
 
-  const user = await exchangeCodeForUser(code);
-  if (!user) return deny("code_exchange_failed");
+  const exchange = await exchangeCodeForUser(code);
+  if (!exchange.ok) return deny(exchange.reason);
+  const user = exchange.user;
 
   const session = await signSession({
     login: user.login,

@@ -83,20 +83,44 @@ export interface GitHubOAuthUser {
   avatarUrl: string | null;
 }
 
-/** code → access token → GitHub 用户。任一步失败 → null（调用方按 401 处理）。 */
-export async function exchangeCodeForUser(code: string): Promise<GitHubOAuthUser | null> {
+export type GitHubOAuthFailureReason =
+  | "client_credentials_missing"
+  | "incorrect_client_credentials"
+  | "bad_verification_code"
+  | "redirect_uri_mismatch"
+  | "unverified_user_email"
+  | "token_exchange_failed"
+  | "user_fetch_failed";
+
+export type GitHubOAuthExchangeResult =
+  | { ok: true; user: GitHubOAuthUser }
+  | { ok: false; reason: GitHubOAuthFailureReason };
+
+const TOKEN_FAILURES = new Set<GitHubOAuthFailureReason>([
+  "incorrect_client_credentials",
+  "bad_verification_code",
+  "redirect_uri_mismatch",
+  "unverified_user_email",
+]);
+
+/** code → access token → GitHub 用户；失败保留 GitHub 官方错误类别供生产门禁判定。 */
+export async function exchangeCodeForUser(code: string): Promise<GitHubOAuthExchangeResult> {
   const clientId = process.env["GITHUB_OAUTH_CLIENT_ID"];
   const clientSecret = process.env["GITHUB_OAUTH_CLIENT_SECRET"];
-  if (!clientId || !clientSecret) return null;
+  if (!clientId || !clientSecret) return { ok: false, reason: "client_credentials_missing" };
   try {
     const tokenRes = await fetch(GITHUB_TOKEN_URL, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
     });
-    if (!tokenRes.ok) return null;
-    const tokenBody = (await tokenRes.json()) as { access_token?: string };
-    if (!tokenBody.access_token) return null;
+    const tokenBody = (await tokenRes.json()) as { access_token?: string; error?: string };
+    if (!tokenRes.ok || !tokenBody.access_token) {
+      const reason = TOKEN_FAILURES.has(tokenBody.error as GitHubOAuthFailureReason)
+        ? (tokenBody.error as GitHubOAuthFailureReason)
+        : "token_exchange_failed";
+      return { ok: false, reason };
+    }
     const userRes = await fetch(GITHUB_USER_URL, {
       headers: {
         authorization: `Bearer ${tokenBody.access_token}`,
@@ -104,21 +128,24 @@ export async function exchangeCodeForUser(code: string): Promise<GitHubOAuthUser
         "user-agent": "boardx-devportal",
       },
     });
-    if (!userRes.ok) return null;
+    if (!userRes.ok) return { ok: false, reason: "user_fetch_failed" };
     const u = (await userRes.json()) as {
       login?: string;
       name?: string | null;
       email?: string | null;
       avatar_url?: string | null;
     };
-    if (!u.login) return null;
+    if (!u.login) return { ok: false, reason: "user_fetch_failed" };
     return {
-      login: u.login,
-      name: u.name ?? null,
-      email: u.email ?? null,
-      avatarUrl: u.avatar_url ?? null,
+      ok: true,
+      user: {
+        login: u.login,
+        name: u.name ?? null,
+        email: u.email ?? null,
+        avatarUrl: u.avatar_url ?? null,
+      },
     };
   } catch {
-    return null;
+    return { ok: false, reason: "token_exchange_failed" };
   }
 }
