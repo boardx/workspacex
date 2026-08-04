@@ -116,7 +116,17 @@ test.describe("核心闭环八步", () => {
     await page.goto("/admin/agent");
     // 只断言「这条路径是活的」——完整的增/停用/403 三件套由
     // `capability-mutate-smoke.spec.ts` 覆盖，这里不重复它，只证明它在闭环里可达。
-    await expect(page.getByTestId("capability-catalog")).toBeVisible();
+    //
+    // ⚠ testid 的来源，**实测得来的，不是凭印象写的**：
+    //   `capability-catalog-screen.tsx:122` 渲染 ``data-testid={`${prefix}-catalog`}``，
+    //   同文件 :51 有 ``const prefix = `admin-${kind}` ``，而 `agent-screen.tsx:8` 传
+    //   `kind="agent"` ⇒ 真值是 `admin-agent-catalog`。
+    //   它与 `capability-mutate-smoke.spec.ts:52 / :99 / :124` 用的是**同一个** testid。
+    //
+    // 这里原本写的是 `capability-catalog` —— 一个仓库里根本不存在的名字，于是这条
+    // 「✅ 已交付」的断言从写下那天起就恒红。教训写在这儿而不是 commit message 里：
+    // **断言一个 testid 存在之前，先实测它存在**；抄 spec 时连断言一起抄，别只抄登录函数。
+    await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
   });
 
   /* ── 步骤 3：新增 Skill ───────────────────────────────────────────────── */
@@ -175,9 +185,16 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("chat-thread-title-submit").click();
 
     // 「刷新后仍在」是这条唯一能区分「写进了库」与「写进了 React state」的断言。
-    await expect(page.getByText(title)).toBeVisible();
+    //
+    // ⚠ 断言**限定在会话列表里**，不是 `page.getByText(title)` 满页找。
+    //   满页找的写法实测撞 strict mode：新建成功后标题同时出现在列表项
+    //   （`chat-thread-<id>`）与详情页的 `<h1>` 上，两个命中直接判失败——
+    //   会话明明建出来了，报出来却像是没建成。
+    //   收窄到列表**更严**，不是放宽：闭环真正要的就是「它在那份持久化的列表里」。
+    const threadList = page.getByTestId("chat-read-thread-list");
+    await expect(threadList.getByText(title)).toBeVisible();
     await page.reload();
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(threadList.getByText(title)).toBeVisible();
   });
 
   test.fail("[#462] 步骤 6b：在会话里发一条消息并刷新后仍在", async ({ page }) => {
