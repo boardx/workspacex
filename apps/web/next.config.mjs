@@ -17,6 +17,10 @@ export default {
     return [
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
+      // #458：Agent 目录的读与写。`/capabilities` 自己是 GET 列表，`/capabilities/mutate`
+      // 是写——两条都要写出来，`:path*` 匹配不到没有后缀的那一条。
+      { source: `${prefix}/capabilities`, destination: `${apiOrigin}/capabilities` },
+      { source: `${prefix}/capabilities/:path*`, destination: `${apiOrigin}/capabilities/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute
