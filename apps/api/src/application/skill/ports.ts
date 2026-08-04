@@ -79,7 +79,90 @@ export interface SkillDraftStorePort {
     readonly contract: DeclarativeContract;
     readonly source: string;
     readonly submitterId: string;
+    /** 契约 `createSkillDraft.in.visibility`。⚠ 与「审核状态」是两个独立字段，不互相推导 */
+    readonly visibility: "org-wide" | "team-only";
+    /** `visibility = team-only` 时必须非空——DB 侧 `skill_contracts_team_only_needs_team` 同判 */
+    readonly ownerTeamId: string | null;
+    /** 契约 `createSkillDraft.in.modelRef`。落在版本行上，见迁移里的理由 */
+    readonly modelRef: string;
   }): Promise<{ readonly skillId: string; readonly versionId: string }>;
+}
+
+/**
+ * #459 —— `listSkills` / `getSkillDetail` 的**读模型**。
+ *
+ * ## 为什么新加一个端口，而不是让既有用例返回这些字段
+ *
+ * `list-skills.ts` 返回 `{skillId, visibility, ownerTeamId}`——它是**可见性过滤**用例，
+ * 那三个字段正是过滤判定要用的东西，不是给界面看的。`get-skill-detail.ts` 更彻底：
+ * 它**只回答「能不能看」**，刻意不返回 skill 本体（文件头写着理由——判定与取数分离，
+ * 判定失败时调用方结构上无法先把数据取出来）。
+ *
+ * ⇒ 契约的 `SkillListItem`（七字段）与 `getSkillDetail.out` 需要**第二个**取数通路。
+ *   把它加进那两个用例会把「过滤判定」和「渲染取数」重新粘在一起，正是那两个文件
+ *   花注释解释要避免的形状。所以：过滤判定仍归它们，本端口只负责取数。
+ *
+ * ## ⚠ 本端口**只有读方法**
+ *
+ * 同 F63 三端口、F66 版本链端口的既定纪律：方法名集合就是结构性证据。
+ * 这里没有任何写方法 —— 要让一条读路径顺手改状态，得先给这个接口加一个方法，
+ * 那是一次会被 review 看见的改动。写路径只有 `SkillDraftStorePort`（建）与
+ * `SkillStatusStorePort`（迁移状态）两个。
+ */
+export interface SkillContractReadPort {
+  /**
+   * 一个组织下全部声明式契约 skill 的目录行。
+   * ⚠ **不做可见性过滤**——过滤统一由 `listSkills` 用例调 `filterVisibleSkills` 做，
+   *   基础设施层重复判定一次就是同一事实的第二份声明（`list-skills.ts` 文件头逐字）。
+   */
+  listAll(orgId: string): Promise<readonly SkillContractRow[]>;
+  /** ⚠ 返回 `null` 只表示「不存在」；「存在但范围外」由 `checkSkillVisible` 判，两者由调用方折成同一个 404 */
+  loadDetail(skillId: string): Promise<SkillContractDetail | null>;
+  /**
+   * 该 skill **此刻**的真实状态。
+   *
+   * ⚠ 这个方法是为修 `disable-skill.ts` 而加的：那里原本硬编码 `from: "已启用"`，
+   *   于是停用一个 `草稿` 会被状态机判成合法边并持久化一次**非法状态迁移**。
+   *   状态机的 `from` 必须来自库，不能来自调用方的假设。
+   */
+  statusOf(skillId: string): Promise<SkillLifecycleStatus | null>;
+}
+
+/** `SkillContractReadPort.listAll` 的行。字段与契约 `SkillListItem` 一一对应。 */
+export interface SkillContractRow {
+  readonly skillId: string;
+  readonly name: string;
+  readonly duty: string;
+  readonly source: SkillOriginTag;
+  readonly status: SkillLifecycleStatus;
+  readonly visibility: "org-wide" | "team-only";
+  readonly ownerTeamId: string | null;
+  readonly currentVersionId: string | null;
+}
+
+/** `getSkillDetail` 的取数结果。⚠ `contract` 取的是**最新版本**的声明正文。 */
+export interface SkillContractDetail {
+  readonly row: SkillContractRow;
+  readonly contract: DeclarativeContract;
+}
+
+/**
+ * 状态迁移的**唯一落库面**。
+ *
+ * ⚠ 只有 `applyTransition` 一个方法，且它**同时带 `from` 和 `to`**：
+ *   实现方按 `WHERE status = from` 更新，所以「读到的状态」与「写下去时的状态」
+ *   不一致时这次更新影响 0 行，而不是覆盖掉别人刚写的状态。
+ *   一个只收 `to` 的 `setStatus(skillId, status)` 会让并发的两次停用/恢复互相顶替，
+ *   而且**没有任何地方能看出来**——那正是 `SKILLS_FORBIDDEN_ROUTES` 想堵的形状
+ *   在存储层的等价物。
+ */
+export interface SkillStatusStorePort {
+  applyTransition(input: {
+    readonly skillId: string;
+    readonly from: SkillLifecycleStatus;
+    readonly to: SkillLifecycleStatus;
+    readonly archived: boolean;
+  }): Promise<{ readonly changed: boolean }>;
 }
 
 /**
@@ -422,4 +505,65 @@ export interface ImprovementProposalStorePort {
     readonly machineGenerated: true;
     readonly humanEdits: number;
   }): Promise<void>;
+}
+
+/* ═══════════════════ DI 令牌（#459）═══════════════════ */
+
+/**
+ * 令牌与端口同处 application 层：composition root（`kernel.module.ts`）与
+ * `interface` 层 import 它，而 `infrastructure` 只实现接口、不拥有令牌
+ * （依赖倒置——同 `DATABASE_PORT` 的既定放法）。
+ *
+ * ⚠ 只有**一个**令牌，尽管上面是五个端口：它们由同一个请求级仓储实现，
+ *   而那个仓储必须绑定租户才能构造（见 `ScopedPgSkillContractRepository`）。
+ *   给每个端口发一个令牌会让 controller 拿到五个**各自未绑定租户**的对象，
+ *   那正是要结构性排除掉的东西。
+ */
+export const SKILL_CONTRACT_REPOSITORY = Symbol("SkillContractRepository");
+
+/** `SubmitterGrantsPort` 的令牌。实现见 `infrastructure/skill/skill-gate-adapters.ts`。 */
+export const SKILL_SUBMITTER_GRANTS = Symbol("SkillSubmitterGrants");
+
+/** `SecurityAuditPort` 的令牌。同上。 */
+export const SKILL_SECURITY_AUDIT = Symbol("SkillSecurityAudit");
+
+/**
+ * 请求级仓储的**工厂端口**（#459）。
+ *
+ * ⚠ `interface` 层只认这个类型，**不 import `infrastructure/`**：
+ *   `lint-arch-deps` 逐字禁止那个方向，而它禁得对——controller 一旦知道
+ *   `PgSkillContractRepository` 这个名字，「换一个实现」就变成了改 controller。
+ *
+ * ⚠ 工厂只有 `forOrg` 一个方法：**拿不到一个「没有租户的仓储」**。
+ *   契约里按 id 直取的操作入参没有 `orgId`，租户只能来自已认证的 principal，
+ *   所以「未绑定租户的仓储」这个东西根本不该存在。
+ */
+export interface SkillContractRepositoryFactory {
+  forOrg(orgId: string): SkillContractRepository;
+}
+
+/** 一个请求内、已绑定租户的仓储：五个端口的交集。 */
+export type SkillContractRepository = SkillDraftStorePort &
+  SkillContractReadPort &
+  SkillStatusStorePort &
+  SkillVisibilityScopePort &
+  ReferenceSnapshotStorePort;
+
+/**
+ * 组织内 skill 重名。
+ *
+ * 定义在 application 层而不是 infrastructure，是为了让 controller 能 `catch` 它
+ * 而不必 import `infrastructure/`（同上，`lint-arch-deps`）。
+ *
+ * ⚠ **契约缺口（已上报）**：`createSkillDraft.err` 里没有表达「重名」的码，
+ *   而 coord-main 裁决「一个 skill 目录」⇒ 必须投影进 `capability_listings`，
+ *   那张表的 `UNIQUE (org_id, kind, name)` 让重名在结构上不可表示。
+ *   处置是 fail closed 且可观察（409 + 明确 message），**不**复用一个语义不符的
+ *   契约错误码——复用会让这个缺口从此看不见。
+ */
+export class SkillNameConflictError extends Error {
+  constructor(readonly skillName: string) {
+    super(`该组织内已存在同名 skill：${skillName}`);
+    this.name = "SkillNameConflictError";
+  }
 }

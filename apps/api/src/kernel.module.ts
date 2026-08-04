@@ -186,6 +186,16 @@ import {
 } from "./infrastructure/agent-run/configured-model-provider";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
+// #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
+// ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
+import {
+  SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS,
+} from "./application/skill/ports";
+import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
+import {
+  FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
+} from "./infrastructure/skill/skill-gate-adapters";
+import { SkillController } from "./interface/controllers/skill.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
@@ -378,6 +388,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CanvasTemplateController,
     RecordingController,
     AgentRunController,
+    SkillController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -811,6 +822,23 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     //   this provider exists to guarantee is that an unconfigured deployment refuses to
     //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
     { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
+    // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
+    // repository cannot be constructed without a tenant, so there is no "untenanted skill
+    // repository" object for a forgetful caller to reach for.
+    {
+      provide: SKILL_CONTRACT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillContractRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #459: both of these stand in for data sources that do not exist anywhere in the repo
+    // yet (submitter data-scope grants; a durable security-audit table). Neither fails open
+    // -- see the reasoning in `infrastructure/skill/skill-gate-adapters.ts`.
+    { provide: SKILL_SUBMITTER_GRANTS, useFactory: () => new FailClosedSubmitterGrants() },
+    {
+      provide: SKILL_SECURITY_AUDIT,
+      useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
+      inject: [LOGGER_PORT],
+    },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },
