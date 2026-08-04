@@ -58,8 +58,16 @@ function card(id: string, title: string) {
   };
 }
 
+/**
+ * #489：写权改由 **`listThreads.capabilities`**（项目级）下发，不再取自 `getThread`。
+ * `list()` 默认带写权；要观察者视角就用 `listAs(OBSERVER, …)`。
+ */
 function list(...cards: ReturnType<typeof card>[]) {
-  return { groups: [{ label: "今天", cards }] };
+  return listAs(WRITER, ...cards);
+}
+
+function listAs(capabilities: string[], ...cards: ReturnType<typeof card>[]) {
+  return { groups: cards.length > 0 ? [{ label: "今天", cards }] : [], capabilities };
 }
 
 function detail(threadId: string, version: number, capabilities: string[]) {
@@ -102,7 +110,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
   });
 
   it("服务端没下发 thread.mutate 时，写入口整块不渲染", async () => {
-    getThread.mockResolvedValue(detail("thread-a", 3, OBSERVER));
+    listThreads.mockResolvedValue(listAs(OBSERVER, card("thread-a", "线程 A")));
     renderScreen();
     await screen.findByTestId("chat-read-thread-list");
     await waitFor(() => expect(getThread).toHaveBeenCalled());
@@ -112,10 +120,36 @@ describe("#460 会话增删改接入正式 /chat", () => {
 
   // 反证保护：坏实现「有 composer.send 就给写入口」在这条用例下必须红。
   it("有 composer.send 但没有 thread.mutate 时，写入口仍然不渲染", async () => {
-    getThread.mockResolvedValue(detail("thread-a", 3, ["thread.read", "composer.send"]));
+    listThreads.mockResolvedValue(listAs(["thread.read", "composer.send"], card("thread-a", "线程 A")));
     renderScreen();
-    await waitFor(() => expect(getThread).toHaveBeenCalled());
+    await waitFor(() => expect(listThreads).toHaveBeenCalled());
     expect(screen.queryByTestId("chat-thread-actions")).toBeNull();
+  });
+
+  /* ── #489：这条是那条真实死路的回归护栏 ──────────────────────────────────
+   * 症状：新注册的管理员进到一个**零会话**的项目，`getThread` 永远不会被调用，
+   * 于是（在 #489 之前）前端拿不到任何写权依据，「新建」按钮不渲染，
+   * 「注册 → 登录 → Chat 新增」死在第三步。
+   * 断言必须落在「零会话」这个前提上——有会话时旧实现也能过。 */
+  it("零会话的项目里仍然渲染「新建」，并且 getThread 一次都没被调用（#489）", async () => {
+    listThreads.mockResolvedValue(listAs(WRITER));   // groups: []
+    renderScreen(null);
+
+    await screen.findByTestId("chat-thread-create");
+    expect(screen.getByTestId("chat-thread-actions")).toBeTruthy();
+    // 前提证明：这条路径上详情端口根本没被调用过，所以写权不可能来自它。
+    expect(getThread).not.toHaveBeenCalled();
+    // 空态是真实空态，不许凭空造示例会话。
+    expect(screen.getByTestId("chat-thread-list-empty")).toBeTruthy();
+  });
+
+  it("零会话 + 观察者：写入口仍然不渲染（否则上一条会退化成「零会话就放行」）", async () => {
+    listThreads.mockResolvedValue(listAs(OBSERVER));
+    renderScreen(null);
+
+    await screen.findByTestId("chat-thread-list-empty");
+    expect(screen.queryByTestId("chat-thread-actions")).toBeNull();
+    expect(screen.queryByTestId("chat-thread-create")).toBeNull();
   });
 
   it("新建走真实 API，并从服务端重读的列表里选中新会话", async () => {

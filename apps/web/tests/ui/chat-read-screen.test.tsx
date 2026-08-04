@@ -82,6 +82,9 @@ function threadList(id: string, title: string) {
         visibilityScope: "plenary",
       }],
     }],
+    // #489：`listThreads.out` 现在必带项目级 capabilities——它是写入口渲染的唯一依据。
+    // 这里只给读能力：本文件测的是读路径，写入口的用例在 chat-thread-crud.test.tsx。
+    capabilities: ["thread.read"],
   };
 }
 
@@ -197,7 +200,7 @@ describe("formal Chat read path", () => {
   });
 
   it("renders the server empty list without sample threads", async () => {
-    listThreads.mockResolvedValueOnce({ groups: [] });
+    listThreads.mockResolvedValueOnce({ groups: [], capabilities: ["thread.read"] });
     render(<ChatReadScreen projectId="empty-project" initialThreadId={null} />);
 
     expect(await screen.findByTestId("chat-thread-list-empty")).toHaveTextContent("还没有可见对话");

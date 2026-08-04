@@ -29,10 +29,15 @@ import {
  * 也不在前端按角色重算——契约 `chat.mutateThread` 要求两侧都验收：按钮不渲染
  * **且**接口拒绝（`packages/contracts/src/chat.ts:408`）。
  *
- * ⚠ 已知缺口（#460 上报 coord-main）：能力标记只随 `getThread` 下发，
- * `listThreads.out` 里没有 capabilities。⇒ **空项目（一条会话都没有）时前端拿不到
- * 任何写权依据，因此不渲染「新建」**。这不是本 issue 偷懒，是契约面缺一块；
- * 补它属于新契约面，按授权宪章层级 2 归 coord-main 裁决，不在这里私自发明。
+ * 能力**取自 `listThreads`**（#489），不取自 `getThread`。原因是一条实测死路：
+ * `getThread` 只在选中某条线程时才调用，**零会话的项目里它一次都不会被调用** ⇒
+ * 拿不到任何写权依据 ⇒「新建」不渲染 ⇒ **新注册的管理员永远建不出第一条会话**，
+ * 「注册 → 登录 → Chat 新增」死在第三步。#460 交付时这个缺口被命名并上报，
+ * #489 由服务端在 `listThreads.out` 也下发同一份 `capabilitiesFor` 结果补上。
+ *
+ * ⚠ 两个端口下发的是**同一个事实源**（服务端 `capabilitiesFor`），不是两套判定。
+ * 前端只读一处（列表），不做并集、不做回退到 `getThread`——两处读会让
+ * 「哪个说了算」重新成为问题。
  */
 const THREAD_MUTATE_CAPABILITY = "thread.mutate";
 
@@ -195,7 +200,9 @@ export function ChatReadScreen({
   }, [bearer, initialThreadId, projectId, router, sourceKey]);
 
   const selectedVersion = detail?.thread.version ?? null;
-  const canMutate = detail?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
+  // 取自列表而不是详情：零会话时 `detail` 恒为 null，而「能不能建第一条会话」
+  // 恰恰要在零会话时回答（#489）。
+  const canMutate = threads?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
 
   const handleCreate = React.useCallback((title: string) => {
     if (!projectId) return;
