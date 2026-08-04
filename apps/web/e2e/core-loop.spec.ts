@@ -20,23 +20,41 @@
  * 每个 `test.fail()` 的标题里都带着**阻塞它的 issue 号**。跑一次这个文件，
  * 就知道八步里哪几步真的通了、卡在谁身上。
  *
- * ## ⚠ 步骤 1 的前提：核心闭环必须从**空库**开始（本文件当前做不到）
+ * ## 步骤 1 的前提：核心闭环必须从**空库**开始（已解决，不再是 `test.fail`）
  *
- * 「注册**第一个**用户」这件事，一旦种子脚本跑过就再也验不了 —— 库里已经有用户了。
- * 而本文件按 #492 的要求挂在 `playwright.fullstack-smoke.config.ts` 上，
- * 那套 `webServer` 的启动命令里**写死了** `seed-fullstack-smoke.ts`（见该 config
- * 的 webServer[0].command）。同一次 run 里的三个 spec 共用同一套 webServer 与同一个库，
- * 因此**无法**让其中一个 spec 拿到未种子化的库。
+ * 「注册**第一个**用户」这件事，一旦种子脚本跑过就再也验不了 —— `credentials` 非空时
+ * `isFirstUserBootstrapAvailable()` 永久返回 false。而本文件挂在
+ * `playwright.fullstack-smoke.config.ts` 上，那套 `webServer` 的启动命令里**写死了**
+ * `seed-fullstack-smoke.ts`，且 `webServer` 是 **config 级**而非 project 级 ——
+ * 「让某个 project 不跑 seed」在那一层做不到。
  *
- * ⇒ 步骤 1 在这里被如实标成 `test.fail()`，阻塞原因是**基础设施**而不是产品功能，
- *   已上报 coord-main（「不新建 config」与「独立空库」两条要求在当前结构下不可兼得）。
- *   **它前面那条「零用户」的前提断言保留着**，因为它正是使这条 fail 有意义的东西：
- *   哪天库真的空了，这条会变成 "expected to fail but passed"，把人叫回来。
+ * 解法不是新建 config，而是用 Playwright 的 **project `dependencies` 排顺序**：
+ *
+ *     seeded  ──▶  core-loop-reset  ──▶  core-loop-empty-db
+ *   （吃种子的 spec，       （清库）        （只有下面带 @empty-db 的步骤 1）
+ *    含本文件其余各步）
+ *
+ * 清库排在所有吃种子的 spec **之后**，所以 #387 / #458 / 步骤 2·5·6a 谁也不受影响。
+ * 三个 project 都住在同一个 config、同一套 webServer、同一个 docker 栈、同一个 CI job 里。
+ *
+ * ## ⚠ 反证（#492 硬性验收，也是本仓的规矩：写完门控立刻造反证）
+ *
+ *     CORE_LOOP_COUNTERPROOF=1 pnpm run verify:fullstack-smoke
+ *
+ * 该开关让清库脚本清完之后**故意再种回一个用户**。步骤 1 必须因此变红。
+ * 它若还绿，说明这条断言验的不是「第一个」，而是「恰好没人注册过」—— 从第一天起空转。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { EMPTY_DB_TAG, readDatabaseStat } from "./core-loop-fixture";
 
-const API = "/__fullstack_api";
+/** 步骤 1 注册出来的那一位。带时间戳没有意义：库是空的，它必须是**唯一**一个。 */
+const FIRST_USER = {
+  orgName: "闭环验收组织",
+  displayName: "闭环管理员",
+  email: "core-loop-first@example.test",
+  password: "CoreLoop-first-492!",
+} as const;
 
 /** 与 `capability-mutate-smoke.spec.ts` 同一条登录路径，不另起一套。 */
 async function loginAs(page: Page, email: string, password: string) {
@@ -54,29 +72,42 @@ async function loginAsAdmin(page: Page) {
 test.describe("核心闭环八步", () => {
   /* ── 步骤 1：注册第一个用户 → 自动成为管理员 ─────────────────────────── */
 
-  test.fail(
-    "[#492-基础设施 / #469] 步骤 1：空库注册第一个用户并自动成为管理员",
-    async ({ page }) => {
-      // 前提断言：这一步的全部意义在于「**第一个**」。库里已经有用户时，
-      // 它验的就不是这件事了 —— 所以前提先断言，而不是跳过。
-      const users = await page.request.get(`${API}/healthz`);
-      expect(users.ok(), "API 必须可达才谈得上注册").toBe(true);
+  // 标签把这一条分流到清库之后的 `core-loop-empty-db` project，本文件其余各步留在
+  // 吃种子的 `seeded` project。一个文件、两个 project —— 不为一条用例新开一个 spec 文件。
+  test(`${EMPTY_DB_TAG} 步骤 1：空库注册第一个用户并自动成为管理员`, async ({ page }) => {
+    // ── 前提：库里**零用户**。这一步的全部意义在于「**第一个**」───────────────
+    //
+    // 这条断言不是装饰。少了它，本条用例在一个早有用户的库上**照样可能绿**——
+    // 那时它验的是「有人能注册」，不是「第一个用户自动成为管理员」。
+    // 反证见文件头：`CORE_LOOP_COUNTERPROOF=1` 会种回一个用户，这里必须红。
+    const before = readDatabaseStat(FIRST_USER.email);
+    expect(before.credentials, "注册前库里必须零用户，否则验的不是「第一个」").toBe(0);
+    expect(before.bootstrapConsumed, "一次性 bootstrap 标记必须未被消费，否则门是关的").toBe(false);
 
-      await page.goto("/login");
-      await page.getByTestId("login-create-org").click();
-      await page.getByTestId("login-org-name").fill("闭环验收组织");
-      await page.getByTestId("login-admin-name").fill("闭环管理员");
-      await page.getByTestId("login-create-email").fill("core-loop-first@example.com");
-      await page.getByTestId("login-create-password").fill("CoreLoop!2026");
-      await page.getByTestId("login-create-org-submit").click();
+    await page.goto("/login");
+    await page.getByTestId("login-create-org").click();
+    // 邀请码**留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
+    await page.getByTestId("login-org-name").fill(FIRST_USER.orgName);
+    await page.getByTestId("login-admin-name").fill(FIRST_USER.displayName);
+    await page.getByTestId("login-create-email").fill(FIRST_USER.email);
+    await page.getByTestId("login-create-password").fill(FIRST_USER.password);
+    await page.getByTestId("login-create-org-submit").click();
 
-      // 「自动成为管理员」= 注册完**直接就是登录态**，且能进管理面。
-      // `bootstrap-first-user.ts` 直接置位 emailVerifiedAt，所以这一步不依赖邮件投递。
-      await expect(page).toHaveURL(/\/projects$/);
-      await page.goto("/admin/agent");
-      await expect(page.getByTestId("capability-catalog")).toBeVisible();
-    },
-  );
+    // 「自动成为管理员」的第一半：注册完**直接就是登录态**，不必收邮件。
+    // `bootstrap-first-user.ts` 直接置位 `emailVerifiedAt`，所以这一步不依赖邮件投递。
+    await expect(page).toHaveURL(/\/projects$/);
+
+    // 第二半：**库里**确实是管理员。只看 UI 会把「前端乐观渲染」也当成通过。
+    //
+    // 只查 `kind='organization'` 的组织：bootstrap 还会顺手建一个 personal-local 组织
+    // 并把人放进去当 admin（见 `insertPersonalLocalOrg`），那条恒真，
+    // 拿它当证据等于把断言写成空转。
+    const after = readDatabaseStat(FIRST_USER.email);
+    expect(after.credentials, "注册后全库应当**只有**这一个账号").toBe(1);
+    expect(after.orgRoles, "第一个用户在正式组织里必须是 admin").toEqual(["admin"]);
+    expect(after.orgNames, "而且是表单里填的那个组织，不是别处冒出来的").toEqual([FIRST_USER.orgName]);
+    expect(after.bootstrapConsumed, "一次性门必须就此关闭，不许再有第二个 seed admin").toBe(true);
+  });
 
   /* ── 步骤 2：新增 Agent（已交付，#458 / PR #478）───────────────────────── */
 
