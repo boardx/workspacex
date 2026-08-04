@@ -64,6 +64,10 @@ describe("#407 minimal integration team registry projection", () => {
       const entry = registry.agents.find((candidate) => candidate.id === id);
       expect(entry, id).toMatchObject({ kind: "worker", owner });
       expect(typeof entry?.active, `${id} 的 active 必须是布尔值`).toBe("boolean");
+      // 第五版（复核提出的 HoleB）：覆盖检查写作 `for (const area of child.areas ?? [])`，
+      // 在**空 areas** 上零迭代 ⇒ 真空通过。实测：删掉 dev-chat-e2e 的 areas 再挂到
+      // coord-agent-auth（auth 本不覆盖 chat）下 → 7 passed。这条堵死「靠删 areas 绕过覆盖」。
+      expect(entry?.areas?.length, `${id} 的 areas 不能为空——空 areas 会让覆盖检查真空通过`).toBeGreaterThan(0);
       expect(entry?.directory_agent_id, id).toMatch(/^agt_[0-9A-Z]+$/);
       expect(entry?.required_for, id).toBeUndefined();
       expect(entry?.emits, id).toBeUndefined();
