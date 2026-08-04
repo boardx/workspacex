@@ -351,8 +351,17 @@ function ThreadList({
           这个项目还没有可见对话。
         </p>
       ) : null}
+      {/* `chat-thread-card-list` 只包会话卡。写入口（`chat-thread-actions` /
+          `-create` / `-rename` / `-delete`，#460 加的）在这个 nav 之外，
+          所以「列出了几条会话」可以精确地只数这里面的按钮，不被写入口的增减误伤。
+          注意不要用 `data-testid^="chat-thread-"` 前缀去数——那几个写入口的 testid
+          与会话卡 `chat-thread-<id>` 共用同一前缀（也是 #460 起的名），分不开。 */}
       {groups && groups.length > 0 ? (
-        <nav className="flex flex-col gap-3 p-3" aria-label="真实对话线程列表">
+        <nav
+          className="flex flex-col gap-3 p-3"
+          aria-label="真实对话线程列表"
+          data-testid="chat-thread-card-list"
+        >
           {groups.map((group) => (
             <section key={group.label} className="flex flex-col gap-1">
               <h2 className="px-1 text-10 font-medium text-muted-foreground">{group.label}</h2>
