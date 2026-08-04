@@ -75,6 +75,7 @@ case "\${FAKE_ROOT_DEPLOY_MODE:-success}" in
   success) printf '%s\n' '══════ 7. 冒烟 —— trusted root deploy' ; exit 0 ;;
   smoke-failure) printf '%s\n' '══════ 7. 冒烟 —— trusted root deploy' ; exit 7 ;;
   early-failure) printf '%s\n' '══════ 6. 重启服务' ; exit 9 ;;
+  forged-marker) printf '%s\n' '══════ 7. 冒烟 —— forged by repository command' ; exit 9 ;;
 esac
 `);
   chmodSync(sudo, 0o755);
@@ -82,7 +83,10 @@ esac
   return { temp, counterFile, commandLog };
 }
 
-function runGate(sequence: string[], rootMode: "success" | "smoke-failure" | "early-failure") {
+function runGate(
+  sequence: string[],
+  rootMode: "success" | "smoke-failure" | "early-failure" | "forged-marker",
+) {
   const files = fixture(sequence);
   const result = spawnSync("bash", [GATE, "v-test"], {
     cwd: ROOT,
@@ -141,6 +145,13 @@ function run(
   };
 }
 
+function runStatusDecision(content: string, nonce: string, status: number) {
+  return spawnSync("bash", ["-c", 'source "$1"; deploy_status_content_allows_recovery "$2" "$3" "$4"', "--", GATE, content, nonce, String(status)], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+}
+
 describe("#448 post-restart readiness", () => {
   it("resets after success -> refusal and passes only after three trustworthy recovery samples", () => {
     const result = run(["trusted", "refuse", "trusted", "trusted", "trusted"]);
@@ -187,18 +198,20 @@ describe("#448 post-restart readiness", () => {
     expect(result.commands).toHaveLength(4);
   });
 
-  it("recovers only a trusted root deploy failure that reached smoke", () => {
-    const result = runGate(["trusted", "refuse", "trusted", "trusted", "trusted"], "smoke-failure");
-    expect(result.status).toBe(0);
-    expect(result.count).toBe(5);
-    expect(result.stdout).toContain("applying the stable postcondition gate");
+  it("accepts only an exact nonce-bound root smoke/exit contract", () => {
+    const nonce = "0123456789abcdef0123456789abcdef";
+    const exact = `protocol=workspacex-deploy/v1\nnonce=${nonce}\nstage=smoke\nexit=7`;
+    expect(runStatusDecision(exact, nonce, 7).status).toBe(0);
+    expect(runStatusDecision(exact, "ffffffffffffffffffffffffffffffff", 7).status).not.toBe(0);
+    expect(runStatusDecision(exact, nonce, 9).status).not.toBe(0);
+    expect(runStatusDecision(exact.replace("stage=smoke", "stage=started"), nonce, 7).status).not.toBe(0);
   });
 
   it("preserves a trusted root deploy failure before smoke without probing healthy old services", () => {
     const result = runGate(["trusted", "trusted", "trusted"], "early-failure");
     expect(result.status).toBe(9);
     expect(result.count).toBe(0);
-    expect(result.stderr).toContain("failed before post-restart smoke; refusing recovery");
+    expect(result.stderr).toContain("root-owned invocation status contract was absent or invalid");
     expect(result.commands).toEqual([
       "systemctl status workspacex-api --no-pager --lines=20",
       "journalctl -u workspacex-api -n 40 --no-pager",
@@ -206,6 +219,14 @@ describe("#448 post-restart readiness", () => {
       "journalctl -u workspacex-web -n 40 --no-pager",
     ]);
     expect(result.stdout + result.stderr).not.toContain("Bearer-leaked");
+  });
+
+  it("fails closed when a repository-controlled pre-smoke command forges the old stdout marker", () => {
+    const result = runGate(["trusted", "trusted", "trusted"], "forged-marker");
+    expect(result.stdout).toContain("forged by repository command");
+    expect(result.status).toBe(9);
+    expect(result.count).toBe(0);
+    expect(result.stderr).toContain("root-owned invocation status contract was absent or invalid");
   });
 
   it("CD delegates to the non-privileged stable gate and refuses pre-smoke root failures", () => {
@@ -216,10 +237,15 @@ describe("#448 post-restart readiness", () => {
     expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v4[\s\S]*deploy-gate\.sh/);
     expect(workflow).toContain('bash .harness/scripts/vm/deploy-gate.sh "${{ github.ref_name }}"');
     expect(gate).toContain('source "$SCRIPT_DIR/deploy-readiness.sh"');
-    expect(gate).toContain("root_deploy_status=${PIPESTATUS[0]}");
-    expect(gate).toContain("failed before post-restart smoke; refusing recovery");
+    expect(gate).toContain('local status_dir=/run/workspacex-deploy');
+    expect(gate).toContain("deploy_status_content_allows_recovery");
+    expect(gate).toContain('/usr/bin/stat -c \'%u:%a\'');
+    expect(gate).toContain("root_deploy_status=$?");
+    expect(gate).not.toContain("grep -Fq");
     expect(gate).toContain("run_post_restart_smoke");
     expect(deploy).toContain('source "$DEPLOY_READINESS_LIB"');
+    expect(deploy).toContain("protocol=workspacex-deploy/v1");
+    expect(deploy).toContain("DEPLOY_STAGE=smoke");
     expect(deploy).toContain("run_post_restart_smoke");
     expect(deploy).not.toContain('H=$(curl -fsS');
     expect(provision).toContain(

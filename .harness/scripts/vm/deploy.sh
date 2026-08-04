@@ -19,6 +19,44 @@ ENV_FILE=${ENV_FILE:-/opt/workspacex/deploy.env}
 RUN_AS=${RUN_AS:-workspacex}
 REF=${1:-origin/main}
 DEPLOY_READINESS_LIB=${DEPLOY_READINESS_LIB:-/usr/local/lib/workspacex-deploy-readiness.sh}
+DEPLOY_STATUS_NONCE=""
+DEPLOY_STAGE=started
+
+if (($# > 1)); then
+  [[ $# -eq 3 && "$2" == "--status-nonce" && "$3" =~ ^[0-9a-f]{32}$ ]] || {
+    echo "usage: workspacex-deploy [git-ref] [--status-nonce <32-hex>]" >&2
+    exit 2
+  }
+  DEPLOY_STATUS_NONCE=$3
+fi
+
+write_deploy_status() {
+  local exit_code=$1
+  local status_dir=/run/workspacex-deploy
+  local status_file="${status_dir}/${DEPLOY_STATUS_NONCE}.status"
+  local temp_file="${status_file}.tmp.$$"
+
+  [[ -n "$DEPLOY_STATUS_NONCE" ]] || return 0
+  install -d -o root -g root -m 0755 "$status_dir"
+  find "$status_dir" -type f -name '*.status' -mmin +60 -delete
+  (umask 022; printf 'protocol=workspacex-deploy/v1\nnonce=%s\nstage=%s\nexit=%s\n' \
+    "$DEPLOY_STATUS_NONCE" "$DEPLOY_STAGE" "$exit_code" > "$temp_file")
+  chown root:root "$temp_file"
+  chmod 0644 "$temp_file"
+  mv -f "$temp_file" "$status_file"
+}
+
+finish_deploy_status() {
+  local exit_code=$?
+  trap - EXIT
+  write_deploy_status "$exit_code" || true
+  exit "$exit_code"
+}
+
+if [[ -n "$DEPLOY_STATUS_NONCE" ]]; then
+  write_deploy_status 0
+  trap finish_deploy_status EXIT
+fi
 
 step() { printf '\n══════ %s ══════\n' "$1"; }
 
@@ -78,6 +116,8 @@ step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 # 只测 200 的冒烟会在「RLS 没生效但服务活着」时全绿，而那正是最该被拦下的状态。
 # 单次成功不代表重启已稳定：成功后的进程仍可能退出或拒绝连接。root deploy 与
 # CD wrapper 复用同一个 helper，要求连续可信样本，并在终态失败时给出有界脱敏诊断。
+DEPLOY_STAGE=smoke
+write_deploy_status 0
 run_post_restart_smoke
 
 printf '\n✅ 部署完成：%s\n' "$(sudo -u "$RUN_AS" git log --oneline -1)"
