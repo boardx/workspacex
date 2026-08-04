@@ -20,6 +20,16 @@ describe("authenticated routes", () => {
     expect(source).not.toMatch(/<AppShell[\s\S]*?identity=/);
   });
 
+  it("keeps the root server response fail-closed and delegates an existing session from login", () => {
+    const root = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
+    const login = readFileSync(resolve(process.cwd(), "app/(entry)/login/page.tsx"), "utf8");
+
+    expect(root).toContain('redirect("/login")');
+    expect(root).not.toContain("AppShell");
+    expect(root).not.toContain("前端内核已就绪");
+    expect(login).toContain("LoginSessionGate");
+  });
+
   it("projects no longer asks the signed-in user to type an org id or log in twice", () => {
     const source = readFileSync(resolve(process.cwd(), "components/projects/projects-screen.tsx"), "utf8");
     expect(source).not.toContain("projects-login-card");
