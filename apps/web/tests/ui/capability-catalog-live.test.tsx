@@ -9,12 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
-const sessionState = vi.hoisted(() => ({ currentOrgId: "org-live-406" }));
+const sessionState = vi.hoisted(() => ({ currentOrgId: "org-live-406", orgRole: "consultant" }));
 
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
     session: { currentOrgId: sessionState.currentOrgId },
-    identity: { org: { id: sessionState.currentOrgId, name: "真实组织" } },
+    identity: {
+      org: { id: sessionState.currentOrgId, name: "真实组织" },
+      orgRole: sessionState.orgRole,
+    },
   }),
 }));
 
@@ -47,6 +50,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe("#406 Agent / Skill 真实组织能力目录", () => {
   beforeEach(() => {
     sessionState.currentOrgId = "org-live-406";
+    sessionState.orgRole = "consultant";
     window.localStorage.clear();
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-live-406");
   });
@@ -156,7 +160,7 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
     expect(await screen.findByText("新组织 Agent")).toBeInTheDocument();
   });
 
-  it("真实空数组保持诚实空态：不 seed、不 fallback、不暴露导入/创建/mutate/AgentRun", async () => {
+  it("真实空数组保持诚实空态：非管理员不 seed、不 fallback、不暴露导入/创建/mutate/AgentRun", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       expect(url.pathname).toBe("/capabilities");

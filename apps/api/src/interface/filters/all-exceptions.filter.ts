@@ -20,7 +20,17 @@ import {
   HttpStatus,
   Inject,
 } from "@nestjs/common";
-import { artifact, auth, chat, files, identity, interview, orgAdmin, project } from "@repo/contracts";
+import {
+  artifact,
+  auth,
+  chat,
+  files,
+  identity,
+  interview,
+  orgAdmin,
+  project,
+  wave2Runtime,
+} from "@repo/contracts";
 import type { Response } from "express";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
@@ -217,6 +227,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    */
   const filesError = files.FilesError.safeParse(raw);
   if (filesError.success) return { reasonCode: filesError.data };
+
+  const skillStarterImport = wave2Runtime.SkillStarterImportError.safeParse(raw);
+  if (skillStarterImport.success) return { reasonCode: skillStarterImport.data };
 
   /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。

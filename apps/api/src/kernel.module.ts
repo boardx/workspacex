@@ -85,6 +85,13 @@ import {
 } from "./application/identity/capability-ports";
 import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-repository";
 import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
+import {
+  SKILL_STARTER_IMPORT_REPOSITORY,
+  SKILL_STARTER_PACK_SOURCE,
+} from "./application/skill-import/ports";
+import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
+import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -280,6 +287,7 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     IdentityController,
     ProvenanceController,
     CapabilityController,
+    SkillStarterImportController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -348,6 +356,17 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: CAPABILITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCapabilityRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Wave 2 #412. No default root and no embedded pack list: deployment explicitly
+    // configures the verified pack source, while an unset source resolves no packs.
+    {
+      provide: SKILL_STARTER_PACK_SOURCE,
+      useFactory: () => new FileSkillStarterPackSource(process.env.SKILL_STARTER_PACK_ROOT),
+    },
+    {
+      provide: SKILL_STARTER_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every

@@ -181,6 +181,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/files/pg-physical-delete-repository.ts",
     "F46's physical-delete worker (`run-physical-deletion.ts`) is a SYSTEM PROCESS, not a viewer-facing read -- same category `pg-consent-gate-reader.ts`'s entry above describes: there is no requester to judge, because nobody is asking to SEE anything; the worker is enumerating tasks past their grace period and purging object-store bytes. Every SELECT here (`artifact_versions`/`derived_representations` object keys+hashes, `deletion_tasks` candidates) feeds ONLY the purge operation and the receipt this feature writes (`deletion_receipts`) -- `getDeletionReceipt` (the viewer-facing read of the RESULT) is a separate, already-authorized-upstream path (`get-deletion-receipt.ts`) that does not touch this file. `markPhysicallyDeleted` only flips the caller's own task's status/receipt_id, the same 'write echoing an already-decided action' shape the retry/revoke entry above describes.",
   ],
+  [
+    "src/infrastructure/skill/pg-skill-starter-import-repository.ts",
+    "#412 explicit starter-pack import: `import-skill-starter-pack.ts` proves current-org admin membership BEFORE any source/repository call. This repository then performs one administrator-requested write transaction, conflict checks, failed-attempt provenance, and exact idempotency replay to that same administrator; it never exposes Skill file bytes through a read endpoint. A content `guard()` would ask the wrong question before the imported capability exists. ⚠ Valid ONLY while the use case keeps the admin check first, the repository stays tenant-session scoped and names only the five import/catalog persistence tables, and its result remains IDs plus pack provenance. `tests/skills/explicit-starter-import.test.ts` mechanically asserts those constraints as well as HTTP 403/no-write behavior. If those assertions are removed, this entry must go too.",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */
