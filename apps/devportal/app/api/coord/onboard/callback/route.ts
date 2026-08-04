@@ -1,5 +1,5 @@
 // GET /api/coord/onboard/callback?installation_id=&setup_action=&state=
-// — GitHub App 安装流回调（p30-F05，UC-01）。该 URL 需在 GitHub App（4328933）的
+// — GitHub App 安装流回调（p30-F05，UC-01）。该 URL 需在 GitHub App（4470270 workspacex-coordinator）的
 // 「Setup URL」侧注册（同 F02 OAuth callback 的手工登记方式）。
 //
 // 不是 OAuth code exchange（没有 code）——只需核对 query.state 与安装前签发的

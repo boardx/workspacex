@@ -1,4 +1,4 @@
-// GitHub OAuth code flow 辅助（p30-F02）。GitHub App（App 4328933）的 OAuth 凭据：
+// GitHub OAuth code flow 辅助（p30-F02）。GitHub App（App 4470270 workspacex-coordinator）的 OAuth 凭据：
 //   GITHUB_OAUTH_CLIENT_ID      非敏感，wrangler.toml [vars]
 //   GITHUB_OAUTH_CLIENT_SECRET  Pages 加密 secret（env 原子纪律：先 put 再合并）
 // callback URL 已在 GitHub App 侧注册为

@@ -5,7 +5,7 @@
 // 诚实原则：本 feature 不做 OAuth 与自动发 token（ADR-011 P2/P3）——提交申请按钮 disabled
 // 并注明原因，不伪造"已提交成功"；凭据步骤如实描述人工发放现状。
 import { portalFetch } from "@/lib/portal-fetch";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +39,33 @@ const MODULES = [
   "studio", "survey", "credits-billing", "admin", "auth-identity", "platform", "harness",
 ];
 
-const REPO = "boardx/boardx-dev-template";
+// 2026-08-04（#479）：gateway URL 与仓库名曾经在这里硬编码，且两份都是从旧模板仓
+// 抄来的错值——门户因此教人 `export COORD_REPO=boardx/boardx-dev-template`、
+// `export COORD_GATEWAY_URL=https://coord-gateway…`（一个没有本仓数据的网关）。
+// 现在唯一来源是 wrangler.toml 的 [vars]，经 /api/portal/coord-config 读出。
+// 取不到时不给默认值——默认值正是那次事故的成因，宁可显式告诉人"未配置"。
 
 
 export function JoinTab() {
+  const [coordConfig, setCoordConfig] = useState<{
+    coordGatewayUrl: string | null;
+    repo: string | null;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await portalFetch("/api/portal/coord-config");
+      if (!res || cancelled) return;
+      const body = (await res.json()) as { coordGatewayUrl: string | null; repo: string | null };
+      setCoordConfig(body);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const repo = coordConfig?.repo ?? null;
+  const gatewayUrl = coordConfig?.coordGatewayUrl ?? null;
+
   const [step, setStep] = useState(1);
   const [module, setModule] = useState<string | null>(null);
   const [resp, setResp] = useState("");
@@ -70,7 +93,8 @@ export function JoinTab() {
       "",
       "审批 SLA：通常 < 1 个工作周期（3h）。参考：ADR-010 / ADR-011 / human-developer-onboarding.md",
     ].join("\n");
-    const url = `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+    if (!repo) return; // 未配置就不开一个指向错仓库的 issue
+    const url = `https://github.com/${repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
     window.open(url, "_blank", "noopener");
   }
 
@@ -116,14 +140,16 @@ export function JoinTab() {
     }
   }
 
-  const GATEWAY_URL = "https://coord-gateway.boardx.workers.dev";
-
   function mintedLines(m: { token: string }): string[] {
     // ADR-017 割接：只有按仓 scoped token 一种形态（旧 COORD_SERVICE_* 已退役）。
+    // 配置未就绪时如实说明，绝不填一个"看起来像那么回事"的默认值让人照抄。
+    if (!gatewayUrl || !repo) {
+      return ["# 协作面配置未就绪（COORD_GATEWAY_URL / GITHUB_REPO 未配置），请联系仓库维护者", `export COORD_API_TOKEN=${m.token}`];
+    }
     return [
-      `export COORD_GATEWAY_URL=${GATEWAY_URL}`,
+      `export COORD_GATEWAY_URL=${gatewayUrl}`,
       `export COORD_API_TOKEN=${m.token}`,
-      `export COORD_REPO=${REPO}`,
+      `export COORD_REPO=${repo}`,
     ];
   }
 

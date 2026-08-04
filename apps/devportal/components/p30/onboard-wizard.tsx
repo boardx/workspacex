@@ -1,6 +1,6 @@
 "use client";
 // /onboard 项目接入向导 —— 接真（p30/F05，UC-01，发起人 = repo admin 视角）。
-// 三步：① 真实「跳转 GitHub 安装」（GitHub App 4328933）→ ② repo 列表 = 该 installation
+// 三步：① 真实「跳转 GitHub 安装」（GitHub App 4470270 workspacex-coordinator）→ ② repo 列表 = 该 installation
 // 真实仓库，admin 徽章按 GitHub collaborator permission 真实判定 → ③ 自动体检由后端
 // 逐项真实检测（webhook 连通 / issues·PR 镜像种子 / CODEOWNERS·CONTRIBUTING / 分支保护，
 // 警告不阻塞）→ 完成：项目写入目录 DO 成为租户，「进入工作区」落 /p/:slug/settings。

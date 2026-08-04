@@ -1,5 +1,5 @@
 // GET /api/coord/oauth/github/callback?code=…&state=… — GitHub OAuth 回调。
-// 该 URL 已在 GitHub App（4328933）侧注册；state 双向核对（query ↔ HMAC cookie）
+// 该 URL 需在 GitHub App（4470270 workspacex-coordinator）侧注册；state 双向核对（query ↔ HMAC cookie）
 // 防 CSRF/授权码注入；成功 → 签发 session cookie 并 302 回 return_to（白名单化）。
 import {
   clearStateCookieHeader,
