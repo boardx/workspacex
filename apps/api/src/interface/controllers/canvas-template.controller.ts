@@ -1,5 +1,6 @@
 /**
- * canvas 模板注册表的六条路由（#463 五条 + #496 一条）。协议适配，判断全在 `application`。
+ * canvas 模板注册表的七条路由（#463 五条 + #493 一条 + #496 一条）。
+ * 协议适配，判断全在 `application`。
  *
  *   POST /canvas/templates                     🟡 造一行（#496，**该契约面待人类补签**）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
@@ -7,6 +8,10 @@
  *   POST /canvas/templates/:key/trial          第二段
  *   POST /canvas/templates/:key/archive        O-10 归档（confirmed=false 为预检）
  *   POST /canvas/templates/:key/restore        恢复
+ *   POST /canvas/agenda-segments/:id/template-bindings   环节绑定（#493，F102）
+ *
+ * ⚠ 上面这张表是**手写**的，会与真实路由漂移：#493 加了第六条却没更新它，本次 merge 时
+ *   补上（那不是 #496 的改动，是顺手修一处会误导下一个人的注释）。
  *
  * ## 🟡 `POST /canvas/templates` 是 #496 的 design-delta，尚未签核
  *
@@ -51,7 +56,13 @@ import {
 import { canvas as C } from "@repo/contracts";
 import type { z } from "zod";
 import { archiveTemplate } from "../../application/canvas/archive-template";
+import { bindTemplateToSegment } from "../../application/canvas/bind-template-to-segment";
 import { createTemplate } from "../../application/canvas/create-template";
+import {
+  CanvasSegmentBindingExistsError,
+  CanvasSegmentNotFoundError,
+} from "../../application/canvas/segment-binding-errors";
+import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import {
   CanvasError,
   CanvasIllegalTransitionError,
@@ -84,12 +95,14 @@ export const PUBLISH_CANVAS_TEMPLATE_SCHEMA = C.operations.publishTemplate.in;
 export const TRIAL_CANVAS_TEMPLATE_SCHEMA = C.operations.trialTemplate.in;
 export const ARCHIVE_CANVAS_TEMPLATE_SCHEMA = C.operations.archiveTemplate.in;
 export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
+export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
 type RestoreBody = z.infer<typeof C.operations.restoreTemplate.in>;
+type BindBody = z.infer<typeof C.operations.bindTemplateToSegment.in>;
 
 /** 只认两个字面量，其余原样下传给 zod 拒绝 —— 见文件头。 */
 function queryBoolean(raw: string | undefined): unknown {
@@ -105,6 +118,7 @@ export class CanvasTemplateController {
     @Inject(CANVAS_TEMPLATE_REPOSITORY) private readonly templates: CanvasTemplateRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
+    @Inject(ID_FACTORY) private readonly ids: IdFactory,
   ) {}
 
   /**
@@ -287,6 +301,49 @@ export class CanvasTemplateController {
     );
   }
 
+  /**
+   * #493 —— 把模板绑到议程环节。**这是本控制器唯一会创建一行的路由**，所以它也是唯一
+   * 没有那条「200 不是 201」注释的：另外四条是状态转移，它不是。
+   *
+   * ⚠ 仍然回 200 而不是 201：契约的 `out` 是 `{bindingId, templateKey, boundTemplateVersion}`，
+   *   没有 `Location`／资源自描述，201 会承诺一个本操作没有提供的东西。
+   *
+   * ⚠ 判定不在这里。控制器只做协议适配 + 一次路径/body 一致性检查。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/canvas/agenda-segments/:agendaSegmentId/template-bindings")
+  async bindTemplate(
+    @Param("agendaSegmentId") agendaSegmentId: string,
+    @Body(new ZodBodyPipe(BIND_CANVAS_TEMPLATE_SCHEMA)) body: BindBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    // 同 `assertKeyMatches` 的理由：两者不一致时 400，不静默挑一个。
+    if (agendaSegmentId !== body.agendaSegmentId) {
+      throw new BadRequestException("agenda_segment_id_mismatch");
+    }
+    return this.run(async () =>
+      C.operations.bindTemplateToSegment.out.parse(
+        await bindTemplateToSegment(
+          {
+            auth: { repo: this.identity, ids: this.decisions },
+            templates: this.templates,
+            // ⚠ 复用 `ID_FACTORY` 而不是在用例里 `randomUUID()`：id 要可预测才断言得了，
+            //   同 `application/artifact/ports.ts` 的 `IdFactory` 文件头。
+            newBindingId: () => this.ids.next("cvbind"),
+          },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            agendaSegmentId: body.agendaSegmentId,
+            templateKey: body.templateKey,
+            templateVersion: body.templateVersion,
+          },
+        ),
+      ),
+    );
+  }
+
   private assertKeyMatches(pathKey: string, bodyKey: string): void {
     if (pathKey !== bodyKey) throw new BadRequestException("template_key_mismatch");
   }
@@ -323,6 +380,14 @@ export class CanvasTemplateController {
       }
       if (e instanceof CanvasIllegalTransitionError) {
         throw new BadRequestException("illegal_template_transition");
+      }
+      // #493：两条都是**裸**状态码，不带 reasonCode —— 契约的
+      // `bindTemplateToSegment.err` 里没有它们的码，见 `segment-binding-errors.ts` 文件头。
+      if (e instanceof CanvasSegmentNotFoundError) {
+        throw new NotFoundException("agenda_segment_not_found");
+      }
+      if (e instanceof CanvasSegmentBindingExistsError) {
+        throw new ConflictException("segment_template_binding_exists");
       }
       throw e;
     }

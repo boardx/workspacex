@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
 import { FULLSTACK_E2E } from "./e2e/fullstack-smoke-fixture";
 
 function required(name: string): string {
@@ -36,11 +37,45 @@ const fixtureEnv = {
 export default defineConfig({
   testDir: "./e2e",
   // #458 的写路径门控单独成文件（原因见该文件头），与 #387 共用同一套 webServer 与同一个库。
-  // #496 的画布模板新建同理：核心闭环第 4 步，含一条**常驻反证**用例。
-  testMatch: [
-    "fullstack-smoke.spec.ts",
-    "capability-mutate-smoke.spec.ts",
-    "canvas-template-create-smoke.spec.ts",
+  // #492 的 `core-loop.spec.ts` 是核心闭环八步的验收规格**兼进度板**：未实现的步骤用
+  // `test.fail()` 显式红着，不许 skip —— skip 会制造「闭环已通」的错觉。
+  //
+  // ⚠ 三个 project，一套 webServer，一个 docker 栈，一个 CI job。
+  //   `webServer` 是 **config 级**的，它的启动命令里写死了 `seed-fullstack-smoke.ts`；
+  //   而 #492 步骤 1 要验「注册**第一个**用户」，需要一个**零用户**的库。
+  //   project 级能各自带 setup 与依赖，所以顺序由 `dependencies` 排，而不是另开一个 config：
+  //
+  //       seeded  ──▶  core-loop-reset  ──▶  core-loop-empty-db
+  //     （吃种子的全部 spec）   （清库）        （只有 @empty-db 那一条）
+  //
+  //   清库在所有吃种子的 spec 之后才发生，因此 #387 / #458 / 步骤 2·5·6a 不受影响。
+  //   反证复现：`CORE_LOOP_COUNTERPROOF=1 pnpm run verify:fullstack-smoke`（步骤 1 必红）。
+  //
+  // ⚠ #496 的 `canvas-template-create-smoke.spec.ts` 必须排在 **`seeded`** 里：它要用
+  //   种子里的组织管理员登录。排进 `core-loop-empty-db` 会跑在 `core-loop-reset` 清过的
+  //   库上，那时连账号都没有 —— 它会红，但**不是因为对的原因**。
+  projects: [
+    {
+      name: "seeded",
+      testMatch: [
+        "fullstack-smoke.spec.ts",
+        "capability-mutate-smoke.spec.ts",
+        "canvas-template-create-smoke.spec.ts",
+        "core-loop.spec.ts",
+      ],
+      grepInvert: EMPTY_DB_TAG_RE,
+    },
+    {
+      name: "core-loop-reset",
+      testMatch: ["core-loop-reset.setup.ts"],
+      dependencies: ["seeded"],
+    },
+    {
+      name: "core-loop-empty-db",
+      testMatch: ["core-loop.spec.ts"],
+      grep: EMPTY_DB_TAG_RE,
+      dependencies: ["core-loop-reset"],
+    },
   ],
   fullyParallel: false,
   retries: 0,

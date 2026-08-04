@@ -206,26 +206,30 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   ⚠ #457 / #459 与本 PR 并行，两者都可能再加租户表。若合流时这一行出现文本冲突：
 #     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
 #     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
-# ⚠ 96 -> 101 是 #465（迁移 20260805100000）在**全新空库上实测**的：
-#   `WORKSPACEX_DB=wsx_rec465rls bash scripts/verify-rls.sh` 报
-#   `audit is not idle: 101 tenant tables classified ok`。
-#   本 PR 加五张表，五张都带 `org_id` ⇒ 五张都判 `ok`：
-#   `recording_sessions` / `recording_tracks` / `recording_segments` /
-#   `recording_consent_cells` / `recording_operation_idempotency`。
 #
-#   ⚠ **量了两次，第二次才是这一行的值**：第一次在分支基点 035b8407 上量得 101；
-#     随后 rebase 到含 #486 / #476 / #471 的 main 上，用**另一个全新库名**
-#     （`wsx_rec465rls2`）从空库重跑，仍是 101。第二次不是「确认一下」，是因为
-#     上面 F81 / F109 两段写死了「合流会让前一次测量作废」——碰巧数字没变，
-#     不等于前一次测量还有效。
-#   ⚠ 「96 + 我加的 5 = 101」这次算术又恰好对上，而这**仍然不构成**可以推算的理由——
-#     上面 F49 / F109 两段各记过一次算术对上，紧接着 F10/F108 差 2、F15 差 1，
-#     两次都是往少了算，而少算的结果恰好是静默失效（比较是 `-ge`，floor 少 1 永远不会红）。
-#     算术对上只说明这一轮没有 exempt 表，不说明下一轮也没有。
-#   ⚠ #459（skill controller）与 #414（agent-runtime）与本 PR 并行，两者都可能再加租户表。
-#     合流时这一行若出现文本冲突：照上面 F81 / F109 两段的做法——**冲突整个丢掉，
-#     在合流后的库上从空库重跑一次**，不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
-OK_TABLES_FLOOR=101
+# ⚠ 这一行是 #465（PR #500）与 #414（PR #499）合流后**重新实测**的，两边的数字都已作废。
+#   合流前：#465 在自己树上实测 101（96 -> 101，加五张 recording 表）；
+#           #414 在自己树上实测 97（96 -> 97，加一张 `agent_run_steps`）。
+#   **两个数都是真的，对的是各自当时那棵树**，而它们不能叠。
+#   「101 + 1 = 102」是算术，不是测量——F49 / F117 / F81 三次栽的就是这一步，
+#   而且三次都是往少了算；少算的结果恰好是这个 ratchet 静默失效（比较是 `-ge`，
+#   floor 少 1 永远不会红）。所以本次按上面 F81 / F109 两段写死的做法处理：
+#   **合并冲突整个丢掉，在合流后的树上用一个全新库名从空库重跑一次。**
+#
+#   实测记录：
+#     · 测量时 `origin/main` = 9e1063d0（**已含 #465 / PR #500**，其迁移 20260805100000）
+#     · 被测树 = 该 main 与 #414 的真 merge（#414 迁移 20260805110000，两者不冲突）
+#     · 库名 = `wsx_414_465_merged_rls`（全新库名，从空库重放全部 73 个迁移）
+#     · 实测值 = `ok = 102`
+#
+#   ⚠ 「101 + 1 = 102」这次算术恰好对上，**这仍然不构成可以推算的理由**。
+#     上面 F49 / F109 / #465 三段各记过一次「算术对上」，而 F10/F108 差 2、F15 差 1、
+#     #463 差 48——差的方向永远是往少了算。算术对上只说明这一轮没有表被判成 exempt，
+#     不说明下一轮也没有。**它是事后核对，不是测量的替代品。**
+#
+#   ⚠ #459（skill controller）仍在并行，它可能再加租户表。合流时这一行若再出现文本冲突：
+#     同样**冲突整个丢掉、从空库重跑**，不要挑一个数字留下，也不要把两边的增量相加。
+OK_TABLES_FLOOR=102
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

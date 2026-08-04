@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
@@ -78,6 +79,17 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
           input.snapshot.modelProvider, input.snapshot.modelId],
+      );
+      // #414 delta §5: `accepted` is the run's first append-only step, and acceptance is
+      // where it happens -- inside this same transaction. Writing it later, when the
+      // executor claims the run, would leave a queued run showing an empty step list and
+      // make "accepted" a claim about a moment nothing recorded.
+      await s.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,input_digest)
+         VALUES ($1,$2,$3,1,'accepted','succeeded',$4::timestamptz,$4::timestamptz,$5)`,
+        [randomUUID(), orgId, input.runId, inserted.rows[0]!.created_at.toISOString(),
+          createHash("sha256").update(input.text).digest("hex")],
       );
       return {
         kind: "created",
