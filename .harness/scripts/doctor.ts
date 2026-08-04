@@ -14,15 +14,53 @@ import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { auditSignoff } from "./lib/design-signoff";
+import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
+import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
 
 interface Finding {
-  level: "FAIL" | "WARN";
+  level: "FAIL" | "WARN" | "INFO";
   phase: string;
   msg: string;
+}
+
+/** Phase runtime/E2E readiness is a separate state machine. Feature counts are
+ * inputs to its transition gate, never a derived readiness result (#392). */
+function checkPhaseReadiness(phaseId: string, findings: Finding[]): void {
+  let state;
+  try {
+    state = loadPhaseReadiness(phaseId);
+  } catch (error) {
+    findings.push({ level: "FAIL", phase: phaseId, msg: `runtime/E2E readiness：${(error as Error).message}` });
+    return;
+  }
+  const features = loadFeatureList(phaseId).features;
+  const proofs: EvidenceProof[] = [];
+  if (state.status === "ready") {
+    for (const kind of ["runtime", "e2e"] as const satisfies readonly ReadinessEvidenceKind[]) {
+      const ref = state.evidence[kind];
+      if (!ref) continue;
+      const loaded = loadReferencedEvidenceProof(ref, { phase: phaseId, kind });
+      if (!loaded.ok) {
+        findings.push({ level: "FAIL", phase: phaseId, msg: `runtime/E2E readiness：${loaded.error}` });
+        continue;
+      }
+      proofs.push(loaded.proof);
+    }
+  }
+  const audit = auditPhaseReadiness(state, features, proofs);
+  for (const msg of audit.fails) findings.push({ level: "FAIL", phase: phaseId, msg: `runtime/E2E readiness：${msg}` });
+  for (const msg of audit.warns) findings.push({ level: "WARN", phase: phaseId, msg: `runtime/E2E readiness：${msg}` });
+  if (audit.status === "ready" && audit.fails.length === 0) {
+    findings.push({
+      level: "INFO",
+      phase: phaseId,
+      msg: `runtime/E2E READY @ ${state.target_commit!.slice(0, 8)}（独立证据门已通过；非 passing 数量推断）`,
+    });
+  }
 }
 
 /** evidence 字段的合规形态：`evidence/<Fxx>.verify.log @ <ISO时间>`（verify --sprint 产出） */
@@ -372,12 +410,15 @@ export function doctor(args: Args): void {
     checkRoadmapDrift(id, findings);
     checkOrphanInProgress(id, findings);
     checkSignoffChain(id, findings);
+    checkPhaseReadiness(id, findings);
   }
 
   const fails = findings.filter((f) => f.level === "FAIL");
   const warns = findings.filter((f) => f.level === "WARN");
+  const infos = findings.filter((f) => f.level === "INFO");
   for (const f of fails) log.err(`[${f.phase}] ${f.msg}`);
   for (const f of warns) log.info(`⚠ [${f.phase}] ${f.msg}`);
+  for (const f of infos) log.info(`· [${f.phase}] ${f.msg}`);
   log.info(`doctor：体检 ${phaseIds.length} 个 phase — ${fails.length} FAIL / ${warns.length} WARN`);
   if (fails.length) {
     log.err("审计链存在断裂。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。");
@@ -385,7 +426,8 @@ export function doctor(args: Args): void {
   } else {
     log.ok(
       "审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，" +
-        "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内。",
+        "派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；" +
+        "phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。",
     );
   }
 }
