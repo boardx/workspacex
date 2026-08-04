@@ -127,6 +127,13 @@ describe("#441 portable persistent role generator", () => {
         value: { ...spec, secret: "fake-review-canary" },
       },
       {
+        label: "review credential_cache field",
+        value: {
+          ...spec,
+          credential_cache: ".harness/state/.cache/coord-credentials.json",
+        },
+      },
+      {
         label: "nested credential cache field",
         value: {
           ...spec,
