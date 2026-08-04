@@ -1,5 +1,7 @@
 ---
-status: pending
+status: confirmed
+confirmed_by: "yanbin shen"
+confirmed_at: "2026-08-04T10:41:05+08:00"
 bundle: wave2-runtime
 scope: registration-confirmation-chat-write-skills-runtime-agent-run
 ---
@@ -30,4 +32,7 @@ Review [verification.md](./verification.md).
 
 ## Human decision
 
-Pending. Agents must not edit this section to claim approval.
+Confirmed by `yanbin shen` at `2026-08-04T10:41:05+08:00`.
+
+The human reviewer confirmed the UI delta, use cases and dependency order,
+API and persistence contract, and executable acceptance contract in this packet.
