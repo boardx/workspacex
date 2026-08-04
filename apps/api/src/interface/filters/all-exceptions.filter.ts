@@ -30,6 +30,7 @@ import {
   interview,
   orgAdmin,
   project,
+  recording,
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
@@ -289,7 +290,34 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   前者收到的是 403 而不是 404，后者收到的是 404 而不是别的组织的存在性。
    */
   const canvasError = canvas.CanvasError.safeParse(raw);
-  return canvasError.success ? { reasonCode: canvasError.data } : {};
+  if (canvasError.success) return { reasonCode: canvasError.data };
+
+  /**
+   * #465: `recording.RecordingError`，第十一个闭集枚举 —— 同一个 bug 第七次发生。
+   *
+   * ⚠ 「第十一」是**数调用点数出来的**，不是把上一条的「第十」加一：
+   *   本改动前 `grep -c "^  const .*safeParse(raw);"` 报 10，本条是第 11 个。
+   *   上面 F32 / F109 / #463 三段各自记过一次「裸 grep 会多报，因为注释里也提到了它」，
+   *   这里照它们的方法重数了一遍。
+   *
+   * 录音会话生命周期的四个操作声明了 `CONSENT_NOT_COMPLETED` / `RETENTION_POLICY_MISSING` /
+   * `SESSION_ENDED` / `SESSION_NOT_ENDED` / `MIC_NOT_GRANTED` / `ANCHOR_MISSING` …，
+   * 它们不属于上面任何一个枚举 —— 前十次 safeParse 全部失败，调用方收到光秃秃的
+   * `{"error":"conflict"}`。状态码对，原因没了，而这几件事的出口彼此毫无关系：
+   *   · `CONSENT_NOT_COMPLETED` 去催授权，**且要能说出是谁的哪一项**；
+   *   · `RETENTION_POLICY_MISSING` 去配置项目留存期，跟授权没有一点关系；
+   *   · `SESSION_ENDED` 这场已经结束了，重试多少次都一样；
+   *   · `MIC_NOT_GRANTED` 是这一路本来就没在录，不是权限不够。
+   * 把它们都渲染成一个 409，界面只能说「操作失败」。
+   *
+   * ⚠ 与 `chat.NOT_VISIBLE` / `ARTIFACT_NOT_FOUND` 那两条刻意不走这条路的相反，
+   *   `recording.controller.ts` 的跨租户路径抛的是 `SESSION_NOT_FOUND`，而它与
+   *   「这个 id 根本不存在」返回的是同一个码 —— 因为在那条路径上二者本来就是同一件事：
+   *   会话查询在租户事务里做，别的租户的行读不出来，所以不存在探测面。反证在
+   *   `tests/rec/recording-http-session-lifecycle.test.ts` 的「另一个租户不能推分段」上。
+   */
+  const recordingError = recording.RecordingError.safeParse(raw);
+  return recordingError.success ? { reasonCode: recordingError.data } : {};
 }
 
 /**

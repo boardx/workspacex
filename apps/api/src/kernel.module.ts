@@ -318,6 +318,32 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #465 (recording bundle): the session lifecycle's HTTP boundary. `domain/recording/` (10
+// files) and `application/recording/` (11 files) have existed since F69-F79 and NOTHING
+// served them -- from outside the process the whole capability was zero. This wires the four
+// routes the contract's capture lifecycle needs, plus the persistence F69 deliberately
+// deferred (migration `20260805100000_i465_recording_capture_persistence.sql`).
+// ⚠ `RETENTION_POLICY_REPOSITORY` (F46) is bound here for the first time: recording's
+//   `RetentionResolver` reads it rather than a table of its own, because
+//   `application/recording/retention-ports.ts` is explicit that a second store for "how many
+//   days" defeats the one invariant the retention feature exists to keep.
+import {
+  RECORDING_ID_GENERATOR,
+  RECORDING_UNIT_OF_WORK,
+  TRANSCRIPTION_POLICY_PROVIDER,
+} from "./application/recording/session-lifecycle-ports";
+import {
+  RETENTION_POLICY_REPOSITORY,
+  type RetentionPolicyRepository,
+} from "./application/files/retention-policy-ports";
+import { PgRetentionPolicyRepository } from "./infrastructure/files/pg-retention-policy-repository";
+import {
+  PgRecordingUnitOfWork,
+  UuidRecordingIdGenerator,
+} from "./infrastructure/recording/pg-recording-repository";
+import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
+import { RecordingController } from "./interface/controllers/recording.controller";
+import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 
 @Module({
   controllers: [
@@ -350,6 +376,7 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    RecordingController,
     AgentRunController,
   ],
   providers: [
@@ -762,6 +789,28 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
         new PgCanvasTemplateRepository(db),
       inject: [DATABASE_PORT],
     },
+    // #465: recording session lifecycle.
+    {
+      provide: RETENTION_POLICY_REPOSITORY,
+      useFactory: (db: DatabasePort): RetentionPolicyRepository =>
+        new PgRetentionPolicyRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: RECORDING_ID_GENERATOR, useFactory: () => new UuidRecordingIdGenerator() },
+    {
+      provide: RECORDING_UNIT_OF_WORK,
+      useFactory: (
+        db: DatabasePort,
+        policies: RetentionPolicyRepository,
+        ids: RecordingIdGenerator,
+      ) => new PgRecordingUnitOfWork(db, policies, ids),
+      inject: [DATABASE_PORT, RETENTION_POLICY_REPOSITORY, RECORDING_ID_GENERATOR],
+    },
+    // ⚠ Constructing the provider does NOT read the environment; `policy()` does, per call.
+    //   Reading it here would freeze whatever the process started with, and the one thing
+    //   this provider exists to guarantee is that an unconfigured deployment refuses to
+    //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
+    { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.
     { provide: APP_GUARD, useClass: PrincipalGuard },
