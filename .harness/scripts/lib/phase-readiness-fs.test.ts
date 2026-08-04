@@ -15,6 +15,7 @@ import {
   type EvidencePathContext,
 } from "./phase-readiness-fs";
 import { evaluateReadyTransition, type EvidenceProof } from "./phase-readiness";
+import { phaseReadiness, type PhaseReadinessDependencies } from "../phase-readiness";
 
 const PHASE = "01";
 const COMMIT_A = "a".repeat(40);
@@ -107,6 +108,52 @@ describe("phase readiness evidence filesystem gate", () => {
     const result = loadEvidenceProof(repoPath(fixture, manifestPath), { phase: PHASE, kind: "runtime" }, fixture.context);
 
     expect(result).toEqual({ ok: false, error: expect.stringContaining("must not be a symbolic link") });
+    expectControlBytes(fixture, before);
+  });
+
+  it("the CLI fail-closes a manifest symlink before calling its state writer", () => {
+    const fixture = makeFixture();
+    const artifact = join(fixture.evidenceDir, "runtime.log");
+    writeFileSync(artifact, "runtime passed\n");
+    const outside = join(tmpdir(), `runtime-cli-manifest-${Date.now()}.json`);
+    writeFileSync(outside, manifest("runtime", repoPath(fixture, artifact), COMMIT_B));
+    const manifestPath = join(fixture.evidenceDir, "runtime.json");
+    symlinkSync(outside, manifestPath);
+    commitAll(fixture);
+    const before = controlBytes(fixture);
+    let saveCalls = 0;
+    const dependencies: PhaseReadinessDependencies = {
+      now: () => new Date("2026-08-04T00:01:00.000Z"),
+      fail: (message) => { throw new Error(message); },
+      loadCurrent: () => ({
+        schema_version: 1,
+        phase: PHASE,
+        status: "not_ready",
+        reason: "runtime/E2E evidence has not been accepted",
+        assessed_at: null,
+        assessed_by: null,
+        target_commit: null,
+        evidence: { runtime: null, e2e: null },
+      }),
+      save: () => { saveCalls += 1; },
+      validateTarget: () => null,
+      loadProof: (path, expected) => loadEvidenceProof(path, expected, fixture.context),
+      loadFeatures: () => [{ id: "F01", status: "passing" }],
+    };
+
+    expect(() => phaseReadiness({
+      _: [],
+      flags: {},
+      opts: {
+        phase: PHASE,
+        to: "ready",
+        actor: "coord-architecture",
+        "target-commit": COMMIT_B,
+        "runtime-evidence": repoPath(fixture, manifestPath),
+        "e2e-evidence": "not-reached.json",
+      },
+    }, dependencies)).toThrow("must not be a symbolic link");
+    expect(saveCalls).toBe(0);
     expectControlBytes(fixture, before);
   });
 
