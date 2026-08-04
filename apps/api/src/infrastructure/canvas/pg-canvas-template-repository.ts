@@ -188,19 +188,24 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
   }
 
   /**
-   * ⚠ `count(DISTINCT agenda_segment_id)`，不是 `count(*)`：契约问的是「有 N 个**议程环节**
-   *   仍绑定此模板」。一个环节最多绑两个模板（I-6），所以两者今天恰好相等；
-   *   写成 `count(*)` 的那天，一个环节的两条绑定会被数成两个环节。
+   * ⚠ `DISTINCT`，不是裸 SELECT：契约问的是「有 N 个**议程环节**仍绑定此模板」。
+   *   一个环节最多绑两个模板（I-6），所以去不去重今天恰好同值；不去重的那天，
+   *   一个环节的两条绑定会被数成两个环节。
    */
-  async countBoundSegments(orgId: OrgId, key: string, version: number): Promise<number> {
+  async listBoundSegmentIds(
+    orgId: OrgId,
+    key: string,
+    version: number,
+  ): Promise<readonly string[]> {
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ n: string }>(
-        `SELECT count(DISTINCT agenda_segment_id)::text AS n
+      const r = await s.query<{ agenda_segment_id: string }>(
+        `SELECT DISTINCT agenda_segment_id
            FROM canvas_template_bindings
-          WHERE org_id = $1 AND template_key = $2 AND template_version = $3`,
+          WHERE org_id = $1 AND template_key = $2 AND template_version = $3
+          ORDER BY agenda_segment_id`,
         [orgId, key, version],
       );
-      return Number(r.rows[0]?.n ?? 0);
+      return r.rows.map((row) => row.agenda_segment_id);
     });
   }
 }

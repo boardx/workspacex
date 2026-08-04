@@ -109,8 +109,16 @@ export interface CanvasTemplateRepository {
     next: TemplateVersionState,
   ): Promise<void>;
 
-  /** 仍绑定着这个版本的议程环节数。契约要求它是**真实计数**，返回 0 与不返回是两回事。 */
-  countBoundSegments(orgId: OrgId, key: string, version: number): Promise<number>;
+  /**
+   * 仍绑定着这个版本的议程环节 **id 列表**。契约要求 `stillBoundSegmentCount` 是真实计数，
+   * 返回 0 与不返回是两回事。
+   *
+   * ⚠ 返回 id 而不是一个数：数它的是 `domain/canvas/template-lifecycle.ts` 的
+   *   `previewArchiveImpact(boundAgendaSegmentIds)`，它收的就是 id 列表。端口若只回一个数，
+   *   用例就得**造一个等长的假数组**去喂那个函数——一段除了满足签名之外不表示任何东西的
+   *   数据，而它长得和真数据一模一样。让端口回真东西，假数据就没有存在的位置。
+   */
+  listBoundSegmentIds(orgId: OrgId, key: string, version: number): Promise<readonly string[]>;
 }
 
 export const CANVAS_TEMPLATE_REPOSITORY = Symbol("CanvasTemplateRepository");

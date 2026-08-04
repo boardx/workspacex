@@ -55,15 +55,14 @@ export async function archiveTemplate(
   const next = transition(current.state, "archive");
   if (!next.ok) throw new CanvasIllegalTransitionError(next.reason);
 
-  const boundSegmentIds = await deps.templates.countBoundSegments(
+  const boundSegmentIds = await deps.templates.listBoundSegmentIds(
     input.orgId,
     input.key,
     input.version,
   );
-  // `previewArchiveImpact` 收的是 id 列表而不是一个数，所以这里补一个等长的占位数组。
-  // 之所以仍然过它而不是直接返回 `boundSegmentIds`：这个字段的形状（叫什么、是不是
-  // 可缺省）由那个 domain 函数单点决定，绕过去就是把它声明在第二处。
-  const impact = previewArchiveImpact(Array.from({ length: boundSegmentIds }, (_, i) => String(i)));
+  // 过 domain 而不是直接 `boundSegmentIds.length`：这个字段叫什么、可不可缺省，由那个
+  // 函数单点决定，绕过去就是把它声明在第二处。
+  const impact = previewArchiveImpact(boundSegmentIds);
 
   if (input.confirmed) {
     await deps.templates.setState(input.orgId, input.key, input.version, next.next);
