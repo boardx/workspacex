@@ -29,6 +29,59 @@
 2. **review 在途**：调起 >15min 未回的 reviewer agent 是否还活着，死了重派。
 3. **分派补给**：有空闲 worker 且存在 `status:ready-for-dev` ∩ 依赖全绿 ∩ 与在途 PR 无同文件热点 → 分派（认领双写：`harness claim` + label）。
 
+### PR 状态机（L0/L1/L2 共用的唯一判定，2026-08-04 起，#451）
+
+> 上面 L0/L1 的散文描述回答"看什么"，但"看完算什么状态"此前全靠会话临场记性——
+> 结果就是同一个 PR 在不同会话手里得出不同结论（review 锚在旧 SHA 却被当成有效、
+> required check 是 `SKIPPED` 被读成绿、Draft 被排进合并队列）。现在判定是**纯函数**：
+>
+> ```bash
+> pnpm harness pr-queue                      # 全部 open PR 的状态（只读）
+> pnpm harness pr-queue --pr 451 --json      # 单个 PR，机器可解析
+> pnpm harness pr-queue --post-merge 451     # 合并后收尾核验
+> ```
+>
+> **枚举的唯一事实源是 `.harness/scripts/lib/pr-queue.ts` 的 `PR_QUEUE_STATES`**，
+> 下表由 `lib/pr-queue.test.ts` 机械比对（多一个、少一个、顺序不同都当场红）。
+> 要改状态机，改那个文件，不要在这里另写一份。
+
+| 状态 | 含义 | 谁该动 |
+|---|---|---|
+| `MERGE_BLOCKED` | 门禁本身出了问题：verdict 自相矛盾、required check 是 `SKIPPED`/`NEUTRAL`/`CANCELLED`（门空转）、`mergeStateStatus` 为 `DIRTY`/`BLOCKED`/`UNKNOWN`、缺 `Closes #N`、作者自审、verdict 没有当前 head SHA 的独立 approve 背书 | coord-main（不是 worker） |
+| `WAITING_WORKER` | Draft，或 `BEHIND` 需要 rebase | worker |
+| `CHANGES_REQUIRED` | 带 `review:changes`，或当前 head 上有 CHANGES_REQUESTED，或 required check `FAILURE`/`TIMED_OUT` | worker |
+| `WAITING_CI` | required check 还没有结论；**或一条 required check 都拿不到**（问不到不等于绿） | 等，超时按 Deadline 表分诊 |
+| `WAITING_REVIEW` | 没有 `review:*-ok`，或 head 漂移后需要重派 exact-SHA review | coord-main 派 reviewer |
+| `READY_TO_MERGE` | 全部机械门禁绿 | 见下方"两种执行模式" |
+
+判定优先级即上表顺序（第一个命中的决定状态），但 `reasons` 会列出**全部**命中项——
+修好一条才发现还有三条是最浪费一个周期的事。
+
+**"必需 check" 在 GitHub 侧并不存在，是我们自己声明的。** 本仓 `main` 没有开 branch
+protection（`gh api repos/boardx/workspacex/branches/main/protection` 返回 404
+`Branch not protected`），`statusCheckRollup` 把条件跳过的 job 和真门禁混在一起返回。
+必需清单因此声明在 `REQUIRED_CHECKS`（`lib/pr-queue.ts`，当前 = `verify` /
+`fullstack-smoke` / `e2e-full`），并由测试对着 `harness-verify.yml` 的 job id 核对，
+防改名后门禁静默失效。语义：**声明过的 check 必须出现且真绿**（没出现 = `WAITING_CI`，
+不是"没有就算了"）；未声明的 check 只有 `FAILURE` 才计入，`SKIPPED`/`NEUTRAL` 视为
+条件未命中。要增删必需门禁，改那个常量，别在别处再写一份。
+
+**两种执行模式（fail-closed）**：
+
+- **人类在场的 coord-main**：`pnpm harness pr-queue --pr N --attended`，状态为
+  `READY_TO_MERGE` 时才给出合并授权，并打印人类执行的 `gh pr merge` 命令。
+- **无人值守 heartbeat**（`/loop` 定时唤醒）：**一律不授权合并**，哪怕状态是
+  `READY_TO_MERGE`——只推进到该状态并汇报，等人类醒来（铁律 12）。`--attended`
+  必须显式给出，缺省、拼错、环境变量说了别的一律按无人值守处理。
+
+**合并动作本身永远不在脚本里执行**：`pr-queue` 是只读的，它给结论和命令，不点合并。
+这不是保守，是 `loop-design-principles.md`「破坏性动作永远在 loop 之外」的直接落地。
+
+**合并后收尾**（`--post-merge N`）核验四件事，缺一即非 0 退出：PR 确实 merged、
+merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**（不信 API
+措辞，铁律 4）、每个 `Closes #N` 的 issue 已 CLOSED、相关 CD/健康检查已进入监控
+（查不到按未进入处理，需 `--deployment-tracked` 显式声明）。
+
 ### L2 全局层（~15min）
 1. **lease/deadline 巡检**：按下方"Deadline 与分级补救"表逐项检查，触发即执行对应 tier 动作（不止 worker lease，还包括 changes-requested 停滞、review 未派、CI 卡住等）。
 2. **漂移巡检**：抽查 label 与事实一致性——`review:*-ok` 是否都有对应 reviewer 产出记录（评论）；有无非 coordinator 编排的 verdict label（出现即摘除并留言，见"verdict 权威"）。
