@@ -119,6 +119,48 @@ export interface CanvasTemplateRepository {
    *   数据，而它长得和真数据一模一样。让端口回真东西，假数据就没有存在的位置。
    */
   listBoundSegmentIds(orgId: OrgId, key: string, version: number): Promise<readonly string[]>;
+
+  /* ─────────────────── #493：`bindTemplateToSegment` 的写入面 ─────────────────── */
+
+  /**
+   * 这个议程环节属于哪个工作坊；环节不存在（或不在本组织）⇒ `null`。
+   *
+   * ⚠ 回的是 `workshopId` 而不是一个布尔「存在吗」：`canvas_template_bindings` 的复合外键
+   *   是 `(agenda_segment_id, workshop_id, org_id)`，插入时**必须**带上工作坊。让调用方
+   *   从别处再查一次 workshop，就有了两条各自决定「这个环节属于谁」的路径，而插入用的那条
+   *   与鉴权用的那条一旦分叉，权限就是对着另一个项目判的。
+   * ⚠ 它同时是鉴权的输入：`authorize` 判的是**工作坊项目**上的项目角色，判据必须与写入
+   *   落点来自同一次查询。
+   */
+  findSegmentWorkshopId(orgId: OrgId, agendaSegmentId: string): Promise<string | null>;
+
+  /** 该议程环节现有的模板绑定。I-6 的上限由 `domain/canvas/segment-binding.ts` 数，不在这里判。 */
+  listSegmentBindings(orgId: OrgId, agendaSegmentId: string): Promise<readonly SegmentBindingRow[]>;
+
+  /**
+   * 写入一条绑定。
+   *
+   * ⚠ 返回 `"conflict"` 而不是抛：同一环节重复绑同一个 key 由**唯一约束**
+   *   `canvas_template_bindings_segment_key_uniq` 判定，不是先 `SELECT` 再决定要不要写——
+   *   先查后写在并发下就是两条都插进去（同 `advance-agenda-segment.ts` 那条
+   *   `SEGMENT_ALREADY_ACTIVE` 由部分唯一索引产生、应用层只翻译的纪律）。
+   */
+  insertSegmentBinding(cmd: {
+    readonly orgId: OrgId;
+    readonly bindingId: string;
+    readonly agendaSegmentId: string;
+    readonly workshopId: string;
+    readonly templateKey: string;
+    readonly templateVersion: number;
+  }): Promise<"inserted" | "conflict">;
+}
+
+/** 一行绑定。字段名对齐 `domain/canvas/segment-binding.ts` 的 `SegmentTemplateBinding`。 */
+export interface SegmentBindingRow {
+  readonly bindingId: string;
+  readonly agendaSegmentId: string;
+  readonly templateKey: string;
+  readonly boundTemplateVersion: number;
 }
 
 export const CANVAS_TEMPLATE_REPOSITORY = Symbol("CanvasTemplateRepository");

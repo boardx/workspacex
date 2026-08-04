@@ -29,6 +29,7 @@ import type {
   GuardedCanvasTemplate,
   ListCanvasTemplatesQuery,
   PublishOutcome,
+  SegmentBindingRow,
 } from "../../application/canvas/template-ports";
 import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/template-lifecycle";
 import type { VisibilityScope } from "../../domain/identity/roles";
@@ -206,6 +207,73 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         [orgId, key, version],
       );
       return r.rows.map((row) => row.agenda_segment_id);
+    });
+  }
+
+  /* ─────────────────── #493：`bindTemplateToSegment` 的写入面 ─────────────────── */
+
+  async findSegmentWorkshopId(orgId: OrgId, agendaSegmentId: string): Promise<string | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ workshop_id: string }>(
+        `SELECT workshop_id FROM agenda_segments WHERE org_id = $1 AND id = $2`,
+        [orgId, agendaSegmentId],
+      );
+      return r.rows[0]?.workshop_id ?? null;
+    });
+  }
+
+  async listSegmentBindings(
+    orgId: OrgId,
+    agendaSegmentId: string,
+  ): Promise<readonly SegmentBindingRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string; template_key: string; template_version: number }>(
+        `SELECT id, template_key, template_version
+           FROM canvas_template_bindings
+          WHERE org_id = $1 AND agenda_segment_id = $2
+          ORDER BY template_key`,
+        [orgId, agendaSegmentId],
+      );
+      return r.rows.map((row) => ({
+        bindingId: row.id,
+        agendaSegmentId,
+        templateKey: row.template_key,
+        boundTemplateVersion: row.template_version,
+      }));
+    });
+  }
+
+  /**
+   * ⚠ `ON CONFLICT ... DO NOTHING` + `RETURNING`，**不是**先 `SELECT` 再决定要不要插。
+   *   先查后写在并发下两条都会进去，而唯一约束
+   *   `canvas_template_bindings_segment_key_uniq` 本来就会挡住第二条——让数据库判，
+   *   应用层只翻译结果（同 `advance-agenda-segment.ts` 对 `SEGMENT_ALREADY_ACTIVE` 的纪律）。
+   *
+   * ⚠ 冲突目标写成约束名而不是列清单：列清单写错一列，`ON CONFLICT` 就落到另一个
+   *   （或没有）索引上，插入会在并发下开始真的抛 23505 而不是安静返回零行——
+   *   两种行为在单线程测试里完全同形。
+   */
+  async insertSegmentBinding(cmd: {
+    readonly orgId: OrgId;
+    readonly bindingId: string;
+    readonly agendaSegmentId: string;
+    readonly workshopId: string;
+    readonly templateKey: string;
+    readonly templateVersion: number;
+  }): Promise<"inserted" | "conflict"> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const r = await s.query<{ id: string }>(
+        `INSERT INTO canvas_template_bindings
+           (id, org_id, agenda_segment_id, workshop_id, template_key, template_version)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT ON CONSTRAINT canvas_template_bindings_segment_key_uniq DO NOTHING
+         RETURNING id`,
+        [
+          cmd.bindingId, cmd.orgId, cmd.agendaSegmentId, cmd.workshopId,
+          cmd.templateKey, cmd.templateVersion,
+        ],
+      );
+      return r.rows.length === 1 ? "inserted" : "conflict";
     });
   }
 }
