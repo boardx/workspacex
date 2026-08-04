@@ -97,6 +97,8 @@ export const AuthReason = z.enum([
   "EMAIL_TAKEN",
   /** Redis / 认证依赖不可用。⚠ **一律拒绝，不得降级放行**（同 identity 的同名码） */
   "AUTH_SERVICE_UNAVAILABLE",
+  /** 数据库已有任意账号；首用户无邀请码入口从此永久关闭。 */
+  "BOOTSTRAP_UNAVAILABLE",
 
   /* ── F22 追加。⚠ 只许追加，不许改写上面的成员 ────────────────────────── */
 
@@ -369,6 +371,27 @@ export const operations = {
      * F19 的处理与登记见 `KNOWN_CONTRACT_GAPS.C3`——**没有自己发明一个码**。
      */
     err: ["INVITE_CODE_INVALID", "EMAIL_TAKEN"] as const,
+  },
+
+  /**
+   * 冷启动唯一入口。它与邀请注册刻意分开：只有整个 credentials 表为空时可成功，
+   * 且该判断与建号在同一数据库事务内串行化。首人即完成邮箱验证并可立即登录。
+   */
+  bootstrapFirstUser: {
+    method: "POST",
+    path: "/auth/bootstrap",
+    in: z.object({
+      email: z.string().email(),
+      password: PasswordPolicy,
+      displayName: z.string().min(1),
+      orgName: z.string().min(1),
+    }),
+    out: z.object({
+      userId: z.string(),
+      orgId: z.string(),
+      emailVerified: z.literal(true),
+    }).strict(),
+    err: ["BOOTSTRAP_UNAVAILABLE", "EMAIL_TAKEN"] as const,
   },
 
   /* ── F22 段 ──────────────────────────────────────────────────────────

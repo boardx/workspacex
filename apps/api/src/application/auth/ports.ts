@@ -292,7 +292,35 @@ export type RedeemAndCreateOrgResult =
   | { readonly ok: true; readonly userId: string; readonly orgId: OrgId }
   | { readonly ok: false; readonly reason: "invite-code-invalid" | "email-taken" };
 
+export interface BootstrapFirstUserInput {
+  readonly email: string;
+  readonly displayName: string;
+  readonly passwordHash: string;
+  readonly userId: string;
+  readonly orgId: OrgId;
+  readonly orgName: string;
+  readonly emailVerifiedAt: Date;
+}
+
+export type BootstrapFirstUserResult =
+  | { readonly ok: true; readonly userId: string; readonly orgId: OrgId }
+  | { readonly ok: false; readonly reason: "bootstrap-unavailable" | "email-taken" };
+
 export interface RegistrationRepository {
+  /**
+   * Cheap global preflight for the public endpoint. This is only a CPU guard: the
+   * transactional `bootstrapFirstUser` check remains authoritative for concurrent callers.
+   */
+  isFirstUserBootstrapAvailable(): Promise<boolean>;
+
+  /**
+   * Creates the database's only invite-free account and durably consumes the one-shot gate.
+   * The repository must serialize the global check, marker and every write in one
+   * transaction; a process-local mutex is insufficient when more than one API instance is
+   * running.
+   */
+  bootstrapFirstUser(input: BootstrapFirstUserInput): Promise<BootstrapFirstUserResult>;
+
   /**
    * ⚠ **One call because it is one transaction** (I-4). Do not "helpfully" split this.
    *

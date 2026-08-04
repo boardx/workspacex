@@ -53,6 +53,16 @@ export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeem
 /** redeemInviteAndCreateOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const redeemInviteAndCreateOrgErrors = ["INVITE_CODE_INVALID","EMAIL_TAKEN"] as const;
 
+/** bootstrapFirstUser 的成功响应样例（由契约生成） */
+export const bootstrapFirstUserMock: z.infer<typeof auth.operations.bootstrapFirstUser.out> = {
+  "userId": "userId-1",
+  "orgId": "orgId-1",
+  "emailVerified": true
+};
+
+/** bootstrapFirstUser 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const bootstrapFirstUserErrors = ["BOOTSTRAP_UNAVAILABLE","EMAIL_TAKEN"] as const;
+
 /** switchOrgAtLogin 的成功响应样例（由契约生成） */
 export const switchOrgAtLoginMock: z.infer<typeof auth.operations.switchOrgAtLogin.out> = {
   "org": {

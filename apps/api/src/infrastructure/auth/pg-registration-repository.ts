@@ -47,6 +47,8 @@ import {
   newLocalOrgId,
 } from "../identity/pg-identity-repository";
 import type {
+  BootstrapFirstUserInput,
+  BootstrapFirstUserResult,
   JoinNewOrgInput,
   JoinNewOrgResult,
   RedeemAndCreateOrgInput,
@@ -65,7 +67,7 @@ import type {
  * only way out of a transaction that must not commit is to throw.
  */
 class Rollback extends Error {
-  constructor(readonly reason: "invite-code-invalid" | "email-taken") {
+  constructor(readonly reason: "invite-code-invalid" | "email-taken" | "bootstrap-unavailable") {
     super(reason);
   }
 }
@@ -97,6 +99,76 @@ function uniqueViolationConstraint(e: unknown): string | null {
 export class PgRegistrationRepository implements RegistrationRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  async isFirstUserBootstrapAvailable(): Promise<boolean> {
+    return this.db.withoutTenant(async (s) => {
+      const state = await s.query<{ available: boolean }>(
+        `SELECT NOT EXISTS (SELECT 1 FROM auth_bootstrap_state WHERE singleton = true)
+             AND NOT EXISTS (SELECT 1 FROM credentials) AS available`,
+      );
+      return state.rows[0]?.available === true;
+    });
+  }
+
+  async bootstrapFirstUser(input: BootstrapFirstUserInput): Promise<BootstrapFirstUserResult> {
+    try {
+      await this.db.withTenant(input.orgId, (s) => this.writeBootstrap(s, input));
+      return { ok: true, userId: input.userId, orgId: input.orgId };
+    } catch (e) {
+      if (e instanceof Rollback) {
+        if (e.reason === "invite-code-invalid") throw e;
+        return { ok: false, reason: e.reason };
+      }
+      throw e;
+    }
+  }
+
+  private async writeBootstrap(s: TenantSession, input: BootstrapFirstUserInput): Promise<void> {
+    // A transaction-scoped PostgreSQL lock, not an in-process mutex: every API replica
+    // competes for the same gate, and the lock is released automatically on rollback.
+    await s.query("SELECT pg_advisory_xact_lock(hashtextextended('workspacex.auth.bootstrap-first-user', 0))");
+    const existing = await s.query<{ consumed: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM auth_bootstrap_state WHERE singleton = true)
+           OR EXISTS (SELECT 1 FROM credentials) AS consumed`,
+    );
+    if (existing.rows[0]?.consumed !== false) throw new Rollback("bootstrap-unavailable");
+
+    // The durable marker is independent of credentials on purpose: account cleanup must
+    // never reopen the seed-admin path. It rolls back with every other bootstrap write.
+    await s.query(
+      "INSERT INTO auth_bootstrap_state (singleton, consumed_at) VALUES (true, $1)",
+      [input.emailVerifiedAt],
+    );
+
+    try {
+      await s.query(
+        `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [input.userId, input.email, input.displayName, input.passwordHash, input.emailVerifiedAt],
+      );
+    } catch (e) {
+      if (uniqueViolationConstraint(e) === "credentials_email_uniq") throw new Rollback("email-taken");
+      throw e;
+    }
+
+    await s.query(`INSERT INTO organizations (id, name, kind) VALUES ($1, $2, 'organization')`, [
+      input.orgId,
+      input.orgName,
+    ]);
+    await s.query(
+      `INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)`,
+      [input.userId, input.orgId],
+    );
+
+    const localOrgId = newLocalOrgId();
+    await s.query("SELECT set_config('app.current_org', $1, true)", [localOrgId]);
+    await insertPersonalLocalOrg(s, {
+      orgId: localOrgId,
+      userId: input.userId,
+      displayName: input.displayName,
+    });
+    await s.query("SELECT set_config('app.current_org', $1, true)", [input.orgId]);
+  }
+
   async redeemAndCreateOrg(input: RedeemAndCreateOrgInput): Promise<RedeemAndCreateOrgResult> {
     try {
       // The tenant context is the organization being CREATED. `organizations` and
@@ -106,7 +178,10 @@ export class PgRegistrationRepository implements RegistrationRepository {
       await this.db.withTenant(input.orgId, (s) => this.writeAll(s, input));
       return { ok: true, userId: input.userId, orgId: input.orgId };
     } catch (e) {
-      if (e instanceof Rollback) return { ok: false, reason: e.reason };
+      if (e instanceof Rollback) {
+        if (e.reason === "bootstrap-unavailable") throw e;
+        return { ok: false, reason: e.reason };
+      }
       throw e;
     }
   }
