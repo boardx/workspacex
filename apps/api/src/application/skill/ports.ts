@@ -14,6 +14,7 @@
  *   没有 pg / 向量库客户端。**契约上唯一 ＋ 结构上唯一**，两条都要：
  *   只有前者时，加一行 `import pg` 就能绕过。
  */
+import type { Guarded } from "../security/permission-filter";
 import type { DataScopeKey } from "../../domain/skill/data-scope";
 import type { SecurityScanResult } from "../../domain/skill/security-gate";
 import type { DeclarativeContract } from "../../domain/skill/declarative-contract";
@@ -111,13 +112,14 @@ export interface SkillDraftStorePort {
  */
 export interface SkillContractReadPort {
   /**
-   * 一个组织下全部声明式契约 skill 的目录行。
-   * ⚠ **不做可见性过滤**——过滤统一由 `listSkills` 用例调 `filterVisibleSkills` 做，
-   *   基础设施层重复判定一次就是同一事实的第二份声明（`list-skills.ts` 文件头逐字）。
+   * 一个组织下全部声明式契约 skill 的目录行，**每行都是 `Guarded`**。
+   * ⚠ **不做可见性过滤**——过滤统一由 `listSkills` 用例做，基础设施层重复判定
+   *   一次就是同一事实的第二份声明（`list-skills.ts` 文件头逐字）。
+   *   仓储只负责「把内容包起来，让人拿不到未经判定的载荷」。
    */
-  listAll(orgId: string): Promise<readonly SkillContractRow[]>;
-  /** ⚠ 返回 `null` 只表示「不存在」；「存在但范围外」由 `checkSkillVisible` 判，两者由调用方折成同一个 404 */
-  loadDetail(skillId: string): Promise<SkillContractDetail | null>;
+  listAll(orgId: string): Promise<readonly GuardedSkillContract[]>;
+  /** ⚠ 返回 `null` 只表示「不存在」；「存在但范围外」由 `discloseDecided` 判成 `Withheld`，两者由调用方折成同一个 404 */
+  loadDetail(skillId: string): Promise<GuardedSkillContractDetail | null>;
   /**
    * 该 skill **此刻**的真实状态。
    *
@@ -144,6 +146,40 @@ export interface SkillContractRow {
 export interface SkillContractDetail {
   readonly row: SkillContractRow;
   readonly contract: DeclarativeContract;
+}
+
+/**
+ * 判定一次可见性所需的**最小事实**。
+ *
+ * ⚠ 刻意放在 `Guarded` **外面**：判定函数需要 `scope` / `ownerTeamId` 作输入，
+ *   而 `Guarded` 的载荷在判定之前是取不出来的——两者都放进去会变成
+ *   「要先拿到载荷才能判断能不能拿载荷」。同 `identity/capability-ports.ts`
+ *   的 `GuardedCapability.facts` 一模一样的分法，不另发明一种。
+ *
+ * ⚠ 这两个字段**本身不是租户内容**：它们是「这一行对谁可见」的元数据，
+ *   泄露它们不等于泄露 skill 的名字/职责/契约正文——那些都在载荷里。
+ */
+export interface SkillVisibilityFacts {
+  readonly scope: "org-wide" | "team-only";
+  readonly ownerTeamId: string | null;
+}
+
+/**
+ * 目录行的**受保护**形态。
+ *
+ * ⚠ 载荷只能经 `discloseDecided(row, decision)` 取出——「忘了判定」因此是一个
+ *   **类型错误**，不是一次疏漏（`permission-filter.ts` 的设计意图）。
+ *   这正是 `lint-permission-paths` 要求的那条正门：R7「权限沿数据路径传播」。
+ */
+export interface GuardedSkillContract {
+  readonly facts: SkillVisibilityFacts;
+  readonly row: Guarded<SkillContractRow>;
+}
+
+/** 同上，详情版。 */
+export interface GuardedSkillContractDetail {
+  readonly facts: SkillVisibilityFacts;
+  readonly detail: Guarded<SkillContractDetail>;
 }
 
 /**

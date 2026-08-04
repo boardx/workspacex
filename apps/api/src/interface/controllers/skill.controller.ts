@@ -42,8 +42,10 @@ import type { Response } from "express";
 import { skills as C } from "@repo/contracts";
 import { createSkillDraft } from "../../application/skill/create-skill-draft";
 import { listSkills } from "../../application/skill/list-skills";
-import { checkSkillVisible } from "../../application/skill/get-skill-detail";
 import { disableSkill } from "../../application/skill/disable-skill";
+import { decideCapabilityVisibility } from "../../domain/identity/capability-listing";
+import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
+import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/identity/ports";
 import {
   SKILL_CONTRACT_REPOSITORY,
   SKILL_SECURITY_AUDIT,
@@ -118,6 +120,7 @@ export class SkillController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(SKILL_SUBMITTER_GRANTS) private readonly grants: SubmitterGrantsPort,
     @Inject(SKILL_SECURITY_AUDIT) private readonly audit: SecurityAuditPort,
+    @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
   ) {}
 
   /* ─────────────────────── POST /skills ─────────────────────── */
@@ -196,19 +199,21 @@ export class SkillController {
       principal.userId,
       toOrgId(principal.orgId),
     );
-    const all = await repository.listAll(input.orgId);
-    const byId = new Map(all.map((row) => [row.skillId, row]));
 
-    // 可见性过滤只走 `list-skills.ts` 那一条判定（I-14：四入口共用同一份）。
+    // 可见性判定只走 `list-skills.ts` 那一条（I-14：四入口共用同一份），而它
+    // 现在产出的是 `PermissionDecision`，载荷只能经 `discloseDecided` 取出。
     // 本 controller **不自己写过滤**——那就是同一事实的第二份声明。
     const visible = await listSkills(
-      { orgId: input.orgId, entry: input.entry, requesterTeamId: membership?.teamId ?? null },
-      { catalog: { listAll: async () => all } },
+      {
+        orgId: input.orgId,
+        entry: input.entry,
+        requesterTeamId: membership?.teamId ?? null,
+        orgRole: membership?.orgRole ?? null,
+      },
+      { catalog: repository, nextDecisionId: () => this.ids.next() },
     );
 
     const items = visible.items
-      .map((entry) => byId.get(entry.skillId))
-      .filter((row): row is SkillContractRow => row !== undefined)
       .filter((row) => input.source === null || row.source === input.source)
       .filter((row) => input.status === null || row.status === input.status)
       .filter((row) => input.visibility === null || row.visibility === input.visibility)
@@ -230,16 +235,23 @@ export class SkillController {
       toOrgId(principal.orgId),
     );
 
-    // ⚠ 先判可见性，再取数。`checkSkillVisible` 把「不存在」与「存在但范围外」
-    //   折成同一个 `SKILL_NOT_FOUND`（404 而非 403，I-14：范围外不返回其存在性）。
-    const allowed = await checkSkillVisible(
-      { skillId, requesterTeamId: membership?.teamId ?? null },
-      { scope: repository },
-    );
-    if (!allowed.visible) throw new NotFoundException({ reasonCode: allowed.code });
+    const guarded = await repository.loadDetail(skillId);
+    if (guarded === null) throw new NotFoundException({ reasonCode: "SKILL_NOT_FOUND" });
 
-    const detail = await repository.loadDetail(skillId);
-    if (detail === null) throw new NotFoundException({ reasonCode: "SKILL_NOT_FOUND" });
+    // ⚠ 「不存在」与「存在但范围外」折成**同一个** 404（I-14：范围外不返回其存在性）。
+    //   载荷在判定之前取不出来——忘了判定是类型错误，不是疏漏。
+    const disclosed = discloseDecided(
+      guarded.detail,
+      decideCapabilityVisibility({
+        decisionId: this.ids.next(),
+        orgRole: membership?.orgRole ?? null,
+        requesterTeamId: membership?.teamId ?? null,
+        scope: guarded.facts.scope,
+        ownerTeamId: guarded.facts.ownerTeamId,
+      }),
+    );
+    if (!isDisclosed(disclosed)) throw new NotFoundException({ reasonCode: "SKILL_NOT_FOUND" });
+    const detail = disclosed.payload;
 
     return C.operations.getSkillDetail.out.parse({
       skill: toListItem(detail.row),

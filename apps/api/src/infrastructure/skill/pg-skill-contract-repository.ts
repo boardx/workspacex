@@ -20,8 +20,11 @@ import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
 import { isSkillStatus } from "../../domain/skill/skill-status";
 import type { SkillOriginTag } from "../../domain/skill/source-tag";
 import type { ReferenceSnapshot } from "../../domain/skill/reference-enumeration";
+import { guard } from "../../application/security/permission-filter";
 import {
   SkillNameConflictError,
+  type GuardedSkillContract,
+  type GuardedSkillContractDetail,
   type ReferenceSnapshotStorePort,
   type SkillContractDetail,
   type SkillContractReadPort,
@@ -75,6 +78,23 @@ function toRow(row: SkillContractDbRow): SkillContractRow {
 }
 
 const ROW_COLUMNS = "id, name, duty, source, status, visibility, owner_team_id, current_version_id";
+
+/**
+ * 把一行包成 `Guarded`，`ref.kind` 恒为 `"capability"`。
+ *
+ * ⚠ **不是** `"project"` / `"artifact"` / `"segment"`：那三种走 `acl_bindings`，
+ *   而一个 skill 的可见范围是**它自己行上的一列**（同 F15 的 capability listing）。
+ *   传错门道不会静默放行——`permission-filter.ts` 的 `toAclRef` 对
+ *   `kind === "capability"` **直接抛错**，逼调用方改用
+ *   `decideCapabilityVisibility` + `discloseDecided`。
+ *   这正是 coord-main 裁决要的那条正门。
+ */
+function toGuarded(row: SkillContractRow): GuardedSkillContract {
+  return {
+    facts: { scope: row.visibility, ownerTeamId: row.ownerTeamId },
+    row: guard({ kind: "capability", id: row.skillId }, row),
+  };
+}
 
 /**
  * 请求级作用域的仓储。
@@ -188,13 +208,13 @@ export class ScopedPgSkillContractRepository
 
   /* ─────────────────────── 读（SkillContractReadPort）─────────────────────── */
 
-  async listAll(orgId: string): Promise<readonly SkillContractRow[]> {
+  async listAll(orgId: string): Promise<readonly GuardedSkillContract[]> {
     return this.db.withTenant(toOrgId(orgId), async (s) => {
       const result = await s.query<SkillContractDbRow>(
         `SELECT ${ROW_COLUMNS} FROM skill_contracts WHERE org_id = $1 ORDER BY created_at DESC, id`,
         [orgId],
       );
-      return result.rows.map(toRow);
+      return result.rows.map((raw) => toGuarded(toRow(raw)));
     });
   }
 
@@ -204,7 +224,7 @@ export class ScopedPgSkillContractRepository
    *   不是 nullable —— 「刚建好的草稿看不到自己刚写的契约正文」会是一个用户当场能撞见的洞。
    *   `currentVersionId` 字段仍然如实返回 null：**能看到正文**与**有生效版本**是两件事。
    */
-  async loadDetail(skillId: string): Promise<SkillContractDetail | null> {
+  async loadDetail(skillId: string): Promise<GuardedSkillContractDetail | null> {
     const orgId = await this.orgOf(skillId);
     if (orgId === null) return null;
 
@@ -235,8 +255,9 @@ export class ScopedPgSkillContractRepository
       const v = version.rows[0];
       if (v === undefined) return null;
 
-      return {
-        row: toRow(row),
+      const mapped = toRow(row);
+      const detail: SkillContractDetail = {
+        row: mapped,
         contract: {
           promptTemplate: v.prompt_template,
           inputSchema: v.input_schema,
@@ -245,6 +266,10 @@ export class ScopedPgSkillContractRepository
           readsRawTranscript: v.reads_raw_transcript,
           fallbackDeclaration: v.fallback_declaration,
         },
+      };
+      return {
+        facts: { scope: mapped.visibility, ownerTeamId: mapped.ownerTeamId },
+        detail: guard({ kind: "capability", id: mapped.skillId }, detail),
       };
     });
   }
@@ -308,7 +333,9 @@ export class ScopedPgSkillContractRepository
   ): Promise<{ readonly visibility: "org-wide" | "team-only"; readonly ownerTeamId: string | null } | null> {
     const detail = await this.loadDetail(skillId);
     if (detail === null) return null;
-    return { visibility: detail.row.visibility, ownerTeamId: detail.row.ownerTeamId };
+    // ⚠ 读 `facts` 而不是拆 `Guarded` 的载荷：可见性范围本身就是判定的**输入**，
+    //   不是被判定保护的内容（见 `SkillVisibilityFacts` 的注释）。
+    return { visibility: detail.facts.scope, ownerTeamId: detail.facts.ownerTeamId };
   }
 
   /* ────────────── 引用清单快照（ReferenceSnapshotStorePort）────────────── */
