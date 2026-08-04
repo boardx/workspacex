@@ -13,7 +13,7 @@
  *   「组织层拒的」与「项目层拒的」这两种回答本身就能反推出资源存在。
  */
 import {
-  Body, ConflictException, Controller, ForbiddenException, Get, GoneException, HttpCode,
+  BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, GoneException, HttpCode,
   HttpStatus, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -140,6 +140,22 @@ import {
 } from "../../application/chat/check-downstream-eligibility";
 import { listThreadArtifacts } from "../../application/chat/list-thread-artifacts";
 import type { LandingModeName } from "../../domain/chat/artifact-landing";
+import {
+  CHAT_MESSAGE_COMMAND_REPOSITORY,
+  PUBLISHED_AGENT_READER,
+  type ChatMessageCommandRepository,
+  type PublishedAgentReader,
+} from "../../application/chat/message-command-ports";
+import {
+  acceptHumanMessage,
+  AgentNotPublishedError,
+  InvalidMessageCursorError,
+  listMessagePage,
+  MessageIdempotencyConflictError,
+  MessageNoWriteRoleError,
+  MessageThreadArchivedError,
+  MessageThreadNotVisibleError,
+} from "../../application/chat/message-roundtrip";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
@@ -211,6 +227,7 @@ type CheckDownstreamEligibilityBody = {
   artifactId: string;
   purpose: ChatDownstreamPurposeName;
 };
+type CreateMessageBody = { clientMessageId?: string; text?: string; agentId?: string };
 
 @Controller()
 export class ChatController {
@@ -227,10 +244,16 @@ export class ChatController {
     @Inject(CHAT_PRESET_REPOSITORY) private readonly chatPresets: ChatPresetRepository,
     @Inject(APPROVAL_MODEL_REGISTRY_READER) private readonly modelRegistry: ApprovalModelRegistryReader,
     @Inject(ARTIFACT_LANDING_REPOSITORY) private readonly landings: ArtifactLandingRepository,
+    @Inject(CHAT_MESSAGE_COMMAND_REPOSITORY) private readonly messageCommands: ChatMessageCommandRepository,
+    @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
   ) {}
 
   private get deps() {
     return { repo: this.repo, ids: this.ids, chat: this.chat };
+  }
+
+  private get messageDeps() {
+    return { ...this.deps, commands: this.messageCommands, publishedAgents: this.publishedAgents };
   }
 
   /**
@@ -289,6 +312,76 @@ export class ChatController {
     } catch (e) {
       // 不可见与不存在同一个出口，且**不带任何 body**：带了 reasonCode 就分得出来了。
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /** Wave 2 stable keyset page. The limit is capped, not rejected, at 100. */
+  @Get("/chat/threads/:threadId/messages")
+  async messages(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") rawLimit?: string,
+  ) {
+    assertPrincipal(principal);
+    const parsedLimit = rawLimit === undefined ? undefined : Number(rawLimit);
+    if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
+      throw new BadRequestException("limit_invalid");
+    }
+    try {
+      return await listMessagePage(this.messageDeps, {
+        userId: principal.userId, orgId: toOrgId(principal.orgId), threadId, cursor,
+        limit: parsedLimit,
+      });
+    } catch (e) {
+      if (e instanceof MessageThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof InvalidMessageCursorError) throw new BadRequestException("cursor_invalid");
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /** Wave 2 acceptance only: durable human message + queued run, never model execution. */
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post("/chat/threads/:threadId/messages")
+  async createMessage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Body() body: CreateMessageBody,
+  ) {
+    assertPrincipal(principal);
+    if (typeof body.agentId !== "string" || body.agentId.trim() === "") {
+      throw new UnprocessableEntityException("AGENT_NOT_FOUND");
+    }
+    const parsed = C.operations.createMessage.in.safeParse({ ...body, threadId });
+    if (!parsed.success) throw new UnprocessableEntityException("MESSAGE_INVALID");
+    try {
+      const accepted = await acceptHumanMessage(this.messageDeps, {
+        userId: principal.userId, orgId: toOrgId(principal.orgId), threadId,
+        clientMessageId: parsed.data.clientMessageId, text: parsed.data.text,
+        agentId: parsed.data.agentId,
+      });
+      return {
+        message: {
+          id: accepted.id, authorKind: "human" as const, authorId: accepted.authorId,
+          agentId: null, text: accepted.text, clientMessageId: accepted.clientMessageId,
+          agentRunId: null, replyToMessageId: null, createdAt: accepted.createdAt,
+        },
+        agentRunId: accepted.agentRunId,
+        runStatus: accepted.runStatus,
+      };
+    } catch (e) {
+      if (e instanceof MessageThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof MessageNoWriteRoleError) throw new ForbiddenException("NO_WRITE_ROLE");
+      if (e instanceof MessageThreadArchivedError) {
+        throw new ConflictException({ reasonCode: "THREAD_ARCHIVED_READONLY" });
+      }
+      if (e instanceof AgentNotPublishedError) throw new UnprocessableEntityException("AGENT_NOT_FOUND");
+      if (e instanceof MessageIdempotencyConflictError) {
+        throw new ConflictException({ reasonCode: "IDEMPOTENCY_CONFLICT" });
+      }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }

@@ -51,6 +51,19 @@ export const ThreadPhase = z.enum(["onsite", "research"]);
 /** 消息作者类别 */
 export const AuthorKind = z.enum(["human", "agent"]);
 
+/** Wave 2 durable message projection. Legacy pre-Wave-2 rows may lack linkage fields. */
+export const DurableMessage = z.object({
+  id: z.string(),
+  authorKind: AuthorKind,
+  authorId: z.string(),
+  agentId: z.string().nullable(),
+  text: z.string(),
+  clientMessageId: z.string().uuid().nullable(),
+  agentRunId: z.string().nullable(),
+  replyToMessageId: z.string().nullable(),
+  createdAt: z.string().datetime(),
+}).strict();
+
 /** 消息徽标。⚠ **标在发生它的那条消息上**，不折叠进别处（AC5 / 原型状态 4.5） */
 export const MessageBadge = z.enum(["degraded", "review-pending"]);
 
@@ -121,6 +134,7 @@ export const ChatError = z.enum([
   "AUDIT_QUERY_UNAVAILABLE",
   "INVALID_GRANT_SCOPE",
   "VERSION_CHANGED",
+  "IDEMPOTENCY_CONFLICT",
   "TITLE_INVALID",
   "FILE_NOT_MATERIALIZED",
   "STORAGE_UNAVAILABLE",
@@ -502,12 +516,29 @@ export const operations = {
     in: z.object({
       threadId: z.string(),
       cursor: z.string().optional(),
-      limit: z.number().int().positive(),
+      limit: z.number().int().positive().max(100).optional(),
     }).strict(),
     out: z.object({
-      messages: z.array(Message), nextCursor: z.string().nullable(),
+      messages: z.array(DurableMessage), nextCursor: z.string().nullable(),
     }).strict(),
     err: ["NOT_VISIBLE", "AUTHZ_UNAVAILABLE"] as const,
+  },
+
+  /** Wave 2: persist the human message and queued run; never return a synthetic reply. */
+  createMessage: {
+    method: "POST", path: "/chat/threads/:threadId/messages",
+    in: z.object({
+      threadId: z.string(),
+      clientMessageId: z.string().uuid(),
+      text: z.string().trim().min(1),
+      agentId: z.string().trim().min(1),
+    }).strict(),
+    out: z.object({
+      message: DurableMessage,
+      agentRunId: z.string(),
+      runStatus: z.literal("queued"),
+    }).strict(),
+    err: ["NOT_VISIBLE", "NO_WRITE_ROLE", "AGENT_NOT_FOUND", "IDEMPOTENCY_CONFLICT"] as const,
   },
 
   /**
