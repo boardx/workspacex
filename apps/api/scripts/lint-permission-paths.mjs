@@ -185,6 +185,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/skill/pg-skill-starter-import-repository.ts",
     "#412 explicit starter-pack import: `import-skill-starter-pack.ts` proves current-org admin membership BEFORE any source/repository call. This repository then performs one administrator-requested write transaction, conflict checks, failed-attempt provenance, and exact idempotency replay to that same administrator; it never exposes Skill file bytes through a read endpoint. A content `guard()` would ask the wrong question before the imported capability exists. ⚠ Valid ONLY while the use case keeps the admin check first, the repository stays tenant-session scoped and names only the five import/catalog persistence tables, and its result remains IDs plus pack provenance. `tests/skills/explicit-starter-import.test.ts` mechanically asserts those constraints as well as HTTP 403/no-write behavior. If those assertions are removed, this entry must go too.",
   ],
+  [
+    "src/infrastructure/agent/pg-agent-starter-import-repository.ts",
+    "#417 explicit Agent import: `import-agent-starter-pack.ts` proves current-org admin membership before every pack/repository call. The repository then performs one administrator-requested write transaction, validates tenant-owned immutable Skill dependencies, records failed provenance, and replays only IDs plus pack provenance to that same administrator. `tests/agents/explicit-agent-import.test.ts` mechanically locks the authorization order, tenant-session boundary, table scope, no-write rejection, and cross-tenant failure. Valid only while those assertions remain.",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */

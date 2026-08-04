@@ -231,6 +231,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   const skillStarterImport = wave2Runtime.SkillStarterImportError.safeParse(raw);
   if (skillStarterImport.success) return { reasonCode: skillStarterImport.data };
 
+  const agentStarterImport = wave2Runtime.AgentStarterImportError.safeParse(raw);
+  if (agentStarterImport.success) return { reasonCode: agentStarterImport.data };
+
   /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。
    *
