@@ -128,6 +128,9 @@ harness 是控制平面：管理"工作如何被定义、执行、验证、审�
 - **feature 三元组**：user_visible_behavior（人话说清行为）+ verification（可执行
   命令，先于实现写下）+ evidence（verify 自动写入）。三者缺一不是 feature。
 - **verify 与 doctor 分离**：翻状态的门和查门的人是两套代码，不能互相背书。
+- **feature passing 与 phase runtime/E2E readiness 分离**：passing 只证明逐 feature
+  完成契约；phase 只有在全部 feature passing 且独立 runtime/E2E evidence 经显式门控
+  接受后才是 ready。`doctor` 展示并复核这个独立状态，绝不按 passing 数量推断。
 - **会话生命周期**：开工读 progress/handoff/active-features → 干活 → 收尾过
   clean-state 清单 + 写 handoff。上下文蒸发被仓库文件接住。
 - **多 agent 时**：registry.yaml 定身份与权力，租约管互斥，tick 管对时与收件箱，

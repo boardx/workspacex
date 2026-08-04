@@ -25,6 +25,7 @@
 | ADR-023 | unified-signoff | 签核统一为三件（UI / 用例 / API 契约）、一处签（束级 `design-signoff.md`）；束↔feature 映射改结构化 `covers:`；一致性复核须声明 `covers_bundles:`；签核文件受 CODEOWNERS+CI 保护；签核门从 `new-sprint` 扩到 `claim`/`doctor`。**扩展并收敛 ADR-003 与 ADR-020** |
 | ADR-101 | provenance-event-type-missing-members | 共享 `provenance` 的**两个**封闭枚举各缺成员，四个束（`files`/`interview`/`project`/`chat`）各撞一次且**四种处理方式**；一次补齐 8 个事件类型 + 2 个 target kind，双向机械门控。**并把只补枚举补不完的 target 维度洞（`projectId` 只活在不可筛的 `detail` 里）列成三条出路，不替人裁。** ⚠ Proposed，触碰已签核的 phase-00 束，**需人类追认**；否决的回退动作写在正文 |
 | ADR-100 | fabric-markdown-vendoring-and-version-lock | `fabric-markdown` 源码并入 `packages/`（本仓从此是 owner）；`fabric` / `mermaid` 锁**确切版本**而非 caret；19 个模板 `key` 冻结、`displayName` 单点在契约层；上游回流规程。**项目实现层第一条** |
+| ADR-102 | phase-runtime-readiness | feature passing 与 phase runtime/E2E readiness 分离；ready 只由双 evidence 显式门控，doctor 独立复核。**Proposed** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线

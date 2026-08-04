@@ -81,6 +81,7 @@ export function newPhase(args: Args): void {
   writeFileSync(join(reqDir, "00-overview.md"), renderTemplateFile("requirements.template.md", vars));
 
   writeFileSync(join(dir, "feature_list.json"), renderTemplateFile("feature_list.template.json", vars));
+  writeFileSync(join(dir, "runtime-readiness.json"), renderTemplateFile("runtime-readiness.template.json", vars));
   writeFileSync(join(dir, "progress.md"), renderTemplateFile("progress.template.md", vars));
   writeFileSync(
     join(dir, "AGENTS.md"),

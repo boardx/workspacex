@@ -15,6 +15,7 @@ import { cycleReport } from "./cycle-report";
 import { tick } from "./tick";
 import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
+import { phaseReadiness } from "./phase-readiness";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
     case "sweep-docker":    sweepDocker(args); break;
     case "dep-graph":      depGraph(args); break;
     case "doctor":         doctor(args); break;
+    case "phase-readiness": phaseReadiness(args); break;
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -67,6 +69,9 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sweep-docker [--apply]                    # 巡检孤儿 docker compose 栈（ADR-007）；--apply 实际清理");
       log.info("  pnpm harness dep-graph                                 # 生成 .harness/state/dep-graph.md 依赖图快照");
       log.info("  pnpm harness doctor [--phase NN]                       # 审计链体检：passing 证据真实性 + 派生视图一致性（ADR-012）");
+      log.info("  pnpm harness phase-readiness --phase NN                # 查看独立 runtime/E2E readiness");
+      log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
+      log.info("  pnpm harness phase-readiness --phase NN --to not_ready --actor <id> --reason <text>");
       log.info("  pnpm harness cycle-report                              # C-cycle 周期健康表（只读，见 work-cycle-proposal.md）");
       log.info("  pnpm harness tick [--session <id>] [--json]            # 每个 loop 跑这条：权威时钟+漂移告警+续租约+收件箱（ADR-014）");
       log.info("  pnpm harness lock-status");

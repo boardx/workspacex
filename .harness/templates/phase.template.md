@@ -23,5 +23,7 @@ sprint 通过 `feature.sprint` 字段领取功能;`active-features.json` 是脚�
 
 ## 退出条件(Definition of Done for this Phase)
 - `feature_list.json` 中本阶段所有 feature 均为 `passing`。
+- `runtime-readiness.json` 经 `pnpm harness phase-readiness` 的独立门禁转为 `ready`；
+  feature passing 数量本身不能推出 runtime/E2E ready。
 - `.harness/state/quality-document.md` 相关领域评级未下降。
 - 阶段 `progress.md` 已收尾,无未记录的半成品。
