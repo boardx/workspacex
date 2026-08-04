@@ -25,7 +25,7 @@
 
 ### L1 队列层（~5min 或每次事件处理完顺手做）
 1. **合并队列**：`status:approved` ∩ CI 绿 ∩ 分支 up-to-date → 按约定顺序合并（动共享文件多的最后合），置 `status:merged`、关 issue、跑 `pnpm harness verify`。
-   **热点文件额外一步**：如果待合并 PR 改动的文件，同一批次里还有其它 PR 刚合并过同一文件——"up-to-date"（git 层面无文本冲突，GitHub 显示 mergeable）不代表"合并后仍能编译"：两个 PR 各自在同一文件不同位置插入同名声明/重复逻辑，文本上完全不冲突，语义上会炸（先例：PR #415 与 #417 各自独立给 `board-canvas.tsx` 声明 `itemsRef`，两边 CI 各自绿、mergeable 各自为真，合并后 main 上 `TS2451` 重复声明，靠 hotfix #427 收场，见下方"事故分诊速查"）。本仓库因套餐限制没有 GitHub 的 merge queue（合并前对最新 base 重新跑 CI）可用，兜底只能是社会性约定：**热点文件的 PR 合并前，本地把当前 main 实际 merge 一次，重新跑一遍受影响包的 typecheck，绿了再合**，不要只看 GitHub 界面的 mergeable 状态。
+   **热点文件额外一步**：如果待合并 PR 改动的文件，同一批次里还有其它 PR 刚合并过同一文件——"up-to-date"（git 层面无文本冲突，GitHub 显示 mergeable）不代表"合并后仍能编译"：两个 PR 各自在同一文件不同位置插入同名声明/重复逻辑，文本上完全不冲突，语义上会炸（先例：**上游 BoardX 仓库**里两个 PR 各自独立给同一个画布组件声明 `itemsRef`，两边 CI 各自绿、mergeable 各自为真，合并后 main 上 `TS2451` 重复声明，靠一次 hotfix 收场，见下方"事故分诊速查"）。本仓库因套餐限制没有 GitHub 的 merge queue（合并前对最新 base 重新跑 CI）可用，兜底只能是社会性约定：**热点文件的 PR 合并前，本地把当前 main 实际 merge 一次，重新跑一遍受影响包的 typecheck，绿了再合**，不要只看 GitHub 界面的 mergeable 状态。
 2. **review 在途**：调起 >15min 未回的 reviewer agent 是否还活着，死了重派。
 3. **分派补给**：有空闲 worker 且存在 `status:ready-for-dev` ∩ 依赖全绿 ∩ 与在途 PR 无同文件热点 → 分派（认领双写：`harness claim` + label）。
 
@@ -197,6 +197,30 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    自己会话里用户的原话，coordinator 不代劳判断、不代跑 push，如实记录卡点后继续
    处理别的。
 
+## ⚠ 关于本文引用的「先例」（2026-08-04 更正）
+
+本文与 `work-cycle-proposal.md` 的多条先例来自 **上游 BoardX 仓库**——本仓由
+`d26ef8cc init: agentic-harness-template——从 BoardX 上游抽取的工程过程模板`
+建立，抽取时把事故叙述一并搬了过来。
+
+**两个后果，都已经真实发生过**：
+
+1. **文件名不存在于本仓。** `board-canvas.tsx` 全仓零命中，且
+   `git log --all --diff-filter=A -- '*board-canvas*'` 为空——**它从未被加入过本仓版本库**
+   （只在 `phases/requirements-backup/` 有几份同名的 markdown 原型分析）。
+   2026-08-04 coord-main 把它写进了授权宪章的热点清单、并抄进三份派工 prompt，
+   **三个 agent 被要求提防一个不存在的文件，真正的热点因此没有被提防。**
+2. **PR 号会撞。** 原文的 `#415` / `#417` / `#427` 是**上游的**编号，而本仓这三个号是
+   完全不同的东西（#415 消息持久化与游标分页、#417 不可变 Agent 版本、
+   #427 Wave 2 邮箱验证）。**照着引用会指向毫不相干的 PR。**
+
+⇒ **引用本文任何「先例」之前，先确认它在本仓存在**：文件用
+`git log --all --diff-filter=A -- '<路径>'` 验，PR 号用 `gh pr view <n>` 验。
+教训本身仍然成立（两个 PR 各自 mergeable、合并后语义冲突），**只有指名的对象不成立**。
+
+本仓当前真实的 canvas 热点（按行数）：`components/canvas/template-admin.tsx`(408)、
+`template-editor.tsx`(352)、`canvas-stage.tsx`(281)。
+
 ## 事故分诊速查（来自实战）
 - CI 秒级失败 + steps 空 → 账单/runner，非代码（2026-07-04 账单事故）。
 - evidence 指针存在但文件不在 git 树 → 假 passing（PR #310/#311/#312 三连）。
@@ -209,7 +233,7 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
   → 见 ADR-005；发现即用 `git reflog` 定位恢复，之后确认该分支已 push 到 origin。
 - 两个 PR 各自 mergeable（无文本冲突）、合并后语义冲突（同文件不同位置重复声明同名
   变量）导致 main typecheck 红（2026-07-07：PR #415 与 #417 各自给
-  `board-canvas.tsx` 声明 `itemsRef`，hotfix #427 收场）→ 见上方 L1"合并队列"热点
+  同一个画布组件声明 `itemsRef`，一次 hotfix 收场）→ 见上方 L1"合并队列"热点
   文件额外一步；发现 main 红，先看是不是这类连带影响（rebase 到修复后的 main 重跑
   即可，不是自己代码的问题），不要盲目排查自己 PR。
 
