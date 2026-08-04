@@ -13,12 +13,25 @@ function read(name: string): string {
 }
 
 describe("Wave 2 runtime design packet", () => {
-  it("keeps human signoff pending and stores normative decisions once", () => {
+  it("requires complete human metadata after signoff and stores normative decisions once", () => {
     const signoff = read("design-signoff.md");
     const contract = read("contract.md");
 
-    expect(signoff).toMatch(/^status: pending$/m);
-    expect(signoff).not.toMatch(/^confirmed_(by|at):/m);
+    const status = signoff.match(/^status: (pending|confirmed)$/m)?.[1];
+    const confirmedBy = signoff.match(/^confirmed_by: ["']?(.+?)["']?$/m)?.[1];
+    const confirmedAt = signoff.match(/^confirmed_at: ["']?(.+?)["']?$/m)?.[1];
+
+    expect(status).toBeDefined();
+    if (status === "pending") {
+      expect(confirmedBy).toBeUndefined();
+      expect(confirmedAt).toBeUndefined();
+      expect(signoff).toContain("Pending.");
+    } else {
+      expect(confirmedBy?.trim()).toBeTruthy();
+      expect(confirmedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+      expect(Number.isNaN(Date.parse(confirmedAt!))).toBe(false);
+      expect(signoff).toContain(`Confirmed by \`${confirmedBy}\` at \`${confirmedAt}\`.`);
+    }
     expect(signoff).toContain("[contract.md](./contract.md)");
     expect(contract).toContain("## 1. Registration email confirmation");
     expect(contract).toContain("## 2. Chat write and pagination");
