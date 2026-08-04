@@ -10,6 +10,10 @@ import type { z } from "zod";
 import { ApiError, apiRequest } from "./api-client";
 
 export type LoginOut = z.infer<typeof auth.operations.login.out>;
+export type BootstrapFirstUserIn = z.infer<typeof auth.operations.bootstrapFirstUser.in>;
+export type BootstrapFirstUserOut = z.infer<typeof auth.operations.bootstrapFirstUser.out>;
+export type RegisterWithInviteIn = z.infer<typeof auth.operations.redeemInviteAndCreateOrg.in>;
+export type RegisterWithInviteOut = z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out>;
 
 export async function login(email: string, password: string): Promise<LoginOut> {
   return apiRequest<LoginOut>(auth.operations.login.path, {
@@ -17,6 +21,30 @@ export async function login(email: string, password: string): Promise<LoginOut> 
     body: { email, password },
     sessionToken: null, // 登录本身不带 token
   });
+}
+
+export async function bootstrapFirstUser(input: BootstrapFirstUserIn): Promise<BootstrapFirstUserOut> {
+  return apiRequest<BootstrapFirstUserOut>(auth.operations.bootstrapFirstUser.path, {
+    method: "POST",
+    body: input,
+    sessionToken: null,
+  });
+}
+
+export async function registerWithInvite(input: RegisterWithInviteIn): Promise<RegisterWithInviteOut> {
+  return apiRequest<RegisterWithInviteOut>(auth.operations.redeemInviteAndCreateOrg.path, {
+    method: "POST",
+    body: input,
+    sessionToken: null,
+  });
+}
+
+export function isBootstrapUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "BOOTSTRAP_UNAVAILABLE";
+}
+
+export function isRegistrationEmailTaken(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "EMAIL_TAKEN";
 }
 
 /** Keeps the authentication failure policy next to the signed auth contract, not in UI code. */
