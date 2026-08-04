@@ -12,6 +12,9 @@ canonical_sources:
     system: PlatformDirectory
     prerequisite_issue: 396
     prerequisite_pr: 402
+    kind_enum_source: packages/coord-directory/src/directory.ts#AGENT_KINDS
+    checked_projection: .harness/agents/registry.yaml
+    stable_role_binding_owner: PlatformDirectory enrollment
   runtime_actor:
     field: directory_agent_id
     format: immutable-directory-ulid
@@ -22,7 +25,7 @@ stable_roles:
     merge_authority: true
     dispatch_authority: true
   - id: coord-architecture
-    kind: coordinator
+    kind: architecture-coordinator
     merge_authority: false
     dispatch_authority: true
   - id: dev-chat-e2e
@@ -53,7 +56,16 @@ human_launch:
     action: open the project in Codex App or CLI and explicitly ask it to use <stable-role-id>
 
 identity_resolution:
-  input: stable-role-id
+  input: [project-slug, stable-role-id]
+  canonical_lookup:
+    directory_record: active-enrollment-role-binding
+    mapping: (project_id, stable_role_id)->agent_id
+    uniqueness_boundary: one-active-agent-per-project-and-stable-role
+    mutable_agent_name_is_identity_input: false
+    owner_is_audit_attribute_not_lookup_key: true
+    same_role_different_projects: allowed
+    same_project_same_role_different_owners: rejected
+    agent_rename_preserves_binding: true
   directory_match_count: exactly-one-active
   validate_fields: [kind, areas, reports_to]
   authenticated_identity_endpoint: scoped-whoami
@@ -68,12 +80,29 @@ identity_resolution:
     - token-directory-agent-mismatch
 
 credentials:
-  cache_path: .harness/state/.cache/coord-credentials.json
-  required_mode: "0600"
+  legacy_migration_source: .harness/state/.cache/coord-credentials.json
+  metadata_cache_path: .harness/state/.cache/coord-credential-refs/<stable-role-id>.json
+  metadata_cache_required_mode: "0600"
+  secret_store: os-credential-broker
+  secret_store_key: (project-slug, stable-role-id, directory-agent-ulid)
+  launcher_trust_boundary: outside-agent-process
+  process_delivery: selected-role-only
+  agent_secret_enumeration: denied
+  agent_legacy_cache_access: denied
+  cross_role_secret_request: denied-with-human-or-broker-auth
   input_channels: [interactive-prompt, stdin]
   forbidden_channels: [argv, logs, tracked-files, generated-surfaces]
-  write_protocol: temp-file-chmod-0600-atomic-rename
-  migration: preserve-valid-token-rotate-only-on-verification-failure
+  metadata_write_protocol: temp-file-chmod-0600-atomic-rename
+  migration: import-through-trusted-launcher-preserve-valid-token-then-remove-plaintext-tokens
+
+model_session_policy:
+  owner: tool-or-session-configuration
+  role_spec_forbidden_fields: [model, claude_model, codex_model]
+  generated_role_pins_model: false
+  default_behavior: inherit-tool-session-model
+  overrides_may_change: [model, reasoning-effort, sandbox-mode]
+  overrides_must_not_change: [stable-role-id, directory-agent-ulid, kind, areas, reports-to, authority]
+  identity_impact: none
 
 session_protocol:
   actor: directory-agent-ulid
@@ -97,6 +126,7 @@ tracked_secret_policy:
   allowed_credentials_in_role_specs: false
   allowed_credentials_in_generated_surfaces: false
   credential_cache_must_be_gitignored: true
+  legacy_multi_role_plaintext_cache_is_runtime_input: false
 
 implementation_dag:
   - issue: 441

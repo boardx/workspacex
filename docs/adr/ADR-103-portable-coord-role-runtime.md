@@ -28,7 +28,7 @@ Directory 或 runtime role schema 会制造双事实源。
 
 1. `.harness/agents/roles/<stable-role-id>.yaml` 是**行为与权限**的唯一规格源；生成
    Claude Code 与 Codex 两种工具表面。规格和生成物不得含 token、私钥或 Directory
-   ULID。
+   ULID，也不得固定 model；model、推理强度和 sandbox 是独立的工具/会话策略。
 2. PlatformDirectory 是**运行时角色与生命周期**的唯一事实源。复用并修复 PR #402，
    本 ADR 不增加第二套 Directory schema/API。
 3. Directory ULID 是 inbox、ACK、claim、heartbeat、release 和审计的唯一 actor id。
@@ -36,14 +36,26 @@ Directory 或 runtime role schema 会制造双事实源。
 
 ### 2. 启动时 fail closed 解析
 
-launcher 以稳定角色名查询 Directory，要求恰好一个 active 结果，并核对
-`kind`、`areas`、`reports_to`。随后读取 gitignored 的本机凭证缓存，要求文件模式
-`0600`，通过只读 scoped-identity endpoint 验证 token 确实属于解析出的 ULID。
+launcher 以 `(Directory project_id, stable_role_id)` 查询 Directory-owned enrollment
+role binding，要求恰好一个 active 结果，并核对 `kind`、`areas`、`reports_to`。
+`stable_role_id` 是 enrollment 的不可变角色槽，不是可改名的 `agent.name`：同一项目
+同一角色跨 owner 仍只能绑定一个 active agent；不同项目可以复用角色名；agent rename
+不改变 binding 或 ULID。`coord-architecture.kind` 必须直接使用 Directory 的
+`architecture-coordinator`，不做第二套归一化。
 
-零个或多个匹配、角色字段漂移、retired identity、错误文件权限、token/ULID 不匹配都
-必须停止。token 只可从交互提示或 stdin 输入；不得走 argv、日志、生成文件或 Git。
-缓存更新必须以临时文件 + `chmod 0600` + 原子 rename 完成。有效旧凭证迁移时保留，
-只有验证失败才轮换。
+零个或多个 binding、角色字段漂移、retired identity、错误文件权限、token/ULID 不匹配
+都必须停止。token 只可从交互提示或 stdin 输入；不得走 argv、日志、生成文件或 Git。
+
+`0600` 只防其他 OS 用户，不能隔离同一用户下的不同 agent。因此旧的多角色 plaintext
+cache 只允许由 agent 进程外的可信 launcher 作一次迁移输入。token 进入 OS credential
+broker/keychain，键为 `(project, stable_role, ULID)`；agent 只能得到本次 selected role
+的进程级注入，不能枚举、读取旧 cache 或请求其他角色。磁盘只留每角色 token reference /
+hash metadata（`0600`、临时文件 + chmod + 原子 rename）。有效 token 保留，验证失败才
+轮换；明文迁移成功后从旧 cache 移除。
+
+model 不属于 role identity。role YAML 和生成表面默认继承工具/会话 model，model、
+reasoning effort、sandbox 的改变不得改变 stable role、Directory ULID、kind、areas、
+reports_to 或 authority。
 
 ### 3. 两层租约与同一生命周期
 
@@ -62,8 +74,8 @@ launcher 以稳定角色名查询 Directory，要求恰好一个 active 结果�
 `#441 → #443`，最后由 `#444` 把 secret、生成漂移和 authority drift 接入 CI。
 
 - #441：中立 YAML → 当前 Claude Code / Codex 格式。
-- #442：scoped identity 自检 endpoint。
-- #443：稳定角色解析、0600 缓存与原子迁移。
+- #442：Directory-owned project role binding + scoped identity 自检 endpoint。
+- #443：稳定角色解析、broker selected-role 注入、0600 metadata 与原子迁移。
 - #445：inbox / ACK / 双租约 / heartbeat / handoff loop。
 - #444：无秘密、无 ULID、唯一 merge/dispatch 权限门禁。
 - #446：人类分别从 Claude Code 与 Codex 启动 `dev-chat-e2e` 的双端验收。

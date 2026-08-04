@@ -5,8 +5,10 @@
 
 ## 人类看到的稳定入口
 
-人类只选择稳定角色名，例如 `coord-architecture` 或 `dev-chat-e2e`。工具配置由同一份
-`.harness/agents/roles/<role>.yaml` 生成；Directory ULID 与 token 不出现在这些文件。
+人类在当前 Directory project 下只选择稳定角色名，例如 `coord-architecture` 或
+`dev-chat-e2e`。工具配置由同一份 `.harness/agents/roles/<role>.yaml` 生成；Directory
+ULID 与 token 不出现在这些文件。
+model 也不属于角色规格：默认继承本次工具/会话配置，更换 model 不会换身份或权限。
 
 ### Claude Code
 
@@ -34,9 +36,9 @@ Codex 的项目 agent 位于 `.codex/agents/*.toml`；文件顶层字段至少�
 ## 运行时顺序
 
 ```text
-stable role
-  → Directory 恰好一个 active match
-  → 0600 本机缓存 + scoped whoami 验证
+project + stable role
+  → Directory enrollment role binding 恰好一个 active match
+  → launcher 从 OS credential broker 只取 selected role + scoped whoami 验证
   → COORD_AGENT_ID = Directory ULID
   → role lease
   → private inbox(ULID) → ACK
@@ -47,13 +49,19 @@ stable role
 禁止用稳定角色名调用 private inbox/ACK/claim；这些动作只认 Directory ULID。禁止在
 输出中显示 token。第二个同角色会话必须在 role lease 处失败，不能旁路继续。
 
-## 旧缓存原子迁移
+## 旧缓存原子迁移与同用户隔离
 
-1. 检查 `.harness/state/.cache/coord-credentials.json` 已被 Git 忽略且权限为 `0600`。
-2. 从 Directory 解析每个稳定角色的唯一 active ULID；不从 registry 猜测缺失 ULID。
-3. 用 scoped whoami 验证旧 token 与 ULID。匹配则保留 token，只更新映射结构。
-4. 写到同目录临时文件，设置 `0600`，fsync 后原子 rename。验证失败才要求重新输入。
-5. dry-run 不打印 token，只允许显示稳定角色、ULID 的脱敏摘要和验证状态。
+1. 旧 `.harness/state/.cache/coord-credentials.json` 即使是 `0600`，也不能暴露给同一 OS
+   用户下的 agent；它只可由 agent sandbox 外的可信 launcher 读取一次。
+2. 以 `(project_id, stable_role_id)` 从 Directory enrollment binding 解析唯一 active
+   ULID；不以 mutable `agent.name` 或 registry 猜测。
+3. 用 scoped whoami 验证旧 token 与 ULID。匹配则写入 OS credential broker/keychain，
+   键包含 project、stable role、ULID；验证失败才要求重新输入。
+4. 磁盘只写每角色的非秘密 reference/hash metadata，模式 `0600`，使用临时文件、fsync、
+   chmod 和原子 rename；成功后从旧 cache 移除明文 token。
+5. launcher 只把 selected role token 注入本次进程。agent 无权枚举 broker、读旧 cache、
+   或请求其他角色；`dev-*`/`rev-*` 的可见凭据集合绝不能含 `coord-main`。
+6. dry-run 不打印 token，只允许显示项目、稳定角色、ULID 的脱敏摘要和验证状态。
 
 ## 分阶段执行
 
@@ -61,8 +69,8 @@ stable role
 |---|---:|---|
 | 0 | #396 / PR #402 | 修复并合并 PlatformDirectory runtime role SSOT |
 | 1 | #441 | 中立 YAML 生成 Claude Code / Codex 当前格式 |
-| 2 | #442 | scoped identity 自检 endpoint |
-| 3 | #443 | role resolver、0600 bootstrap、原子迁移 |
+| 2 | #442 | Directory project-role binding + scoped identity 自检 endpoint |
+| 3 | #443 | role resolver、broker selected-role 注入、0600 metadata、原子迁移 |
 | 4 | #445 | inbox / ACK / 双租约 / handoff loop |
 | 5 | #444 | secret、ULID、生成漂移、权限漂移 CI 门禁 |
 | 6 | #446 | `dev-chat-e2e` 双工具验收；使用 coord-main 明确派发的测试任务 |
