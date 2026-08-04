@@ -29,15 +29,20 @@ async function main(): Promise<void> {
   }
 
   let cleaned = false;
-  function cleanup(): void {
-    if (cleaned || process.env.WORKSPACEX_KEEP_TEST_STACK === "1") return;
+  function cleanup(): string | null {
+    if (cleaned || process.env.WORKSPACEX_KEEP_TEST_STACK === "1") return null;
     cleaned = true;
     const composeFile = fileURLToPath(new URL("../../apps/api/docker-compose.dev.yml", import.meta.url));
-    spawnSync(
+    const cleanupResult = spawnSync(
       "docker",
       ["compose", "-f", composeFile, "-p", isolation.COMPOSE_PROJECT_NAME, "down", "-v"],
       { env, stdio: "ignore" },
     );
+    if (cleanupResult.error) return cleanupResult.error.message;
+    if (cleanupResult.status !== 0) {
+      return `docker compose down -v exited ${cleanupResult.status ?? "without a status"}`;
+    }
+    return null;
   }
 
   const child = spawn(command[0]!, command.slice(1), { env, stdio: "inherit" });
@@ -56,7 +61,8 @@ async function main(): Promise<void> {
     child.once("error", (error) => resolve({ code: null, error }));
     child.once("exit", (code) => resolve({ code, error: null }));
   });
-  cleanup();
+  const cleanupError = cleanup();
+  if (cleanupError) console.error(`[test-isolation] cleanup failed: ${cleanupError}`);
   if (result.error) {
     console.error(`[test-isolation] failed to start ${command[0]}: ${result.error.message}`);
     process.exit(1);
@@ -65,7 +71,8 @@ async function main(): Promise<void> {
     const signalExit = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 }[receivedSignal];
     process.exit(signalExit);
   }
-  process.exit(result.code ?? 1);
+  if (result.code !== 0) process.exit(result.code ?? 1);
+  process.exit(cleanupError ? 1 : 0);
 }
 
 void main().catch((error: unknown) => {

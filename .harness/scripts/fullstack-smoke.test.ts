@@ -8,6 +8,60 @@ import { deriveTestIsolation } from "./lib/test-isolation";
 const ROOT = resolve(import.meta.dirname, "../..");
 const read = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
 
+async function runWrapper(options: {
+  childExit?: number;
+  dockerExit?: number;
+  signal?: "SIGINT" | "SIGTERM";
+}) {
+  const temp = mkdtempSync(join(tmpdir(), "fullstack-cleanup-"));
+  const log = join(temp, "docker.log");
+  const fakeDocker = join(temp, "docker");
+  writeFileSync(
+    fakeDocker,
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\nexit ${options.dockerExit ?? 0}\n`,
+  );
+  chmodSync(fakeDocker, 0o755);
+  const isolation = deriveTestIsolation({ isolationId: `cleanup-${Math.random()}`, worktreePath: ROOT });
+  const childScript = options.signal
+    ? "setInterval(() => {}, 1000)"
+    : `process.exit(${options.childExit ?? 0})`;
+  const child = spawn(process.execPath, [
+    "--import", "tsx", ".harness/scripts/with-test-isolation.ts", "--",
+    process.execPath, "-e", childScript,
+  ], {
+    cwd: ROOT,
+    env: { ...process.env, ...isolation, PATH: `${temp}:${process.env.PATH ?? ""}` },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", (chunk) => { stdout += String(chunk); });
+  child.stderr?.on("data", (chunk) => { stderr += String(chunk); });
+  const exit = new Promise<number | null>((resolveExit) => child.once("exit", resolveExit));
+  try {
+    if (options.signal) {
+      await new Promise<void>((resolveReady, reject) => {
+        const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 5_000);
+        child.stdout?.on("data", (chunk) => {
+          if (!String(chunk).includes("[test-isolation]")) return;
+          clearTimeout(timeout);
+          resolveReady();
+        });
+      });
+      child.kill(options.signal);
+    }
+    const code = await exit;
+    const calls = readFileSync(log, "utf8").trim().split("\n");
+    return { code, stdout, stderr, calls, isolation };
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function expectedCleanup(composeProject: string): string {
+  return `compose -f ${resolve(ROOT, "apps/api/docker-compose.dev.yml")} -p ${composeProject} down -v`;
+}
+
 describe("#387 trusted full-stack gate contract", () => {
   it("derives browser and API ports inside the same #74 isolation scope", () => {
     const a = deriveTestIsolation({ isolationId: "fullstack-a", worktreePath: ROOT });
@@ -82,39 +136,26 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(read(".harness/scripts/verify-readiness-evidence.ts")).toContain("manifest.commit !== target");
   });
 
-  it("SIGTERM runs exactly one down -v for only the inherited compose project", async () => {
-    const temp = mkdtempSync(join(tmpdir(), "fullstack-cleanup-"));
-    try {
-      const log = join(temp, "docker.log");
-      const fakeDocker = join(temp, "docker");
-      writeFileSync(fakeDocker, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\n`);
-      chmodSync(fakeDocker, 0o755);
-      const isolation = deriveTestIsolation({ isolationId: "sigterm-proof", worktreePath: ROOT });
-      const child = spawn(process.execPath, [
-        "--import", "tsx", ".harness/scripts/with-test-isolation.ts", "--",
-        process.execPath, "-e", "setInterval(() => {}, 1000)",
-      ], {
-        cwd: ROOT,
-        env: { ...process.env, ...isolation, PATH: `${temp}:${process.env.PATH ?? ""}` },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      await new Promise((resolveReady, reject) => {
-        const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 5_000);
-        child.stdout.on("data", (chunk) => {
-          if (!String(chunk).includes("[test-isolation]")) return;
-          clearTimeout(timeout);
-          resolveReady(undefined);
-        });
-      });
-      child.kill("SIGTERM");
-      const code = await new Promise<number | null>((resolveExit) => child.once("exit", resolveExit));
-      expect(code).toBe(143);
-      const calls = readFileSync(log, "utf8").trim().split("\n");
-      expect(calls).toEqual([
-        `compose -f ${resolve(ROOT, "apps/api/docker-compose.dev.yml")} -p ${isolation.COMPOSE_PROJECT_NAME} down -v`,
-      ]);
-    } finally {
-      rmSync(temp, { recursive: true, force: true });
-    }
+  it.each([
+    ["successful child", { childExit: 0 }, 0],
+    ["failed child", { childExit: 7 }, 7],
+    ["SIGTERM", { signal: "SIGTERM" as const }, 143],
+  ])("%s runs one successful scoped down -v and preserves the child outcome", async (_name, options, expected) => {
+    const result = await runWrapper(options);
+    expect(result.code).toBe(expected);
+    expect(result.stderr).not.toContain("cleanup failed");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
+  });
+
+  it.each([
+    ["successful child", { childExit: 0, dockerExit: 42 }, 1],
+    ["failed child", { childExit: 7, dockerExit: 42 }, 7],
+    ["SIGINT", { signal: "SIGINT" as const, dockerExit: 42 }, 130],
+    ["SIGTERM", { signal: "SIGTERM" as const, dockerExit: 42 }, 143],
+  ])("%s fails closed when its only scoped down -v fails", async (_name, options, expected) => {
+    const result = await runWrapper(options);
+    expect(result.code).toBe(expected);
+    expect(result.stderr).toContain("cleanup failed: docker compose down -v exited 42");
+    expect(result.calls).toEqual([expectedCleanup(result.isolation.COMPOSE_PROJECT_NAME)]);
   });
 });
