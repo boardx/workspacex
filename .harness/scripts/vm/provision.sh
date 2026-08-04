@@ -224,6 +224,7 @@ systemctl enable workspacex-api workspacex-web >/dev/null
 echo "两个 unit 已写入并 enable（不在这里 start——首次内容还没部署，交给 deploy.sh）"
 
 step "7. /usr/local/bin/workspacex-deploy（root 拥有的副本，仓库里那份不可信）"
+install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/workspacex-deploy-readiness.sh
 install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy
 echo "已装 $(sha256sum /usr/local/bin/workspacex-deploy | cut -d' ' -f1)"
 

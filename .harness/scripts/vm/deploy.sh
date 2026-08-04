@@ -18,10 +18,52 @@ APP_DIR=${APP_DIR:-/opt/workspacex/app}
 ENV_FILE=${ENV_FILE:-/opt/workspacex/deploy.env}
 RUN_AS=${RUN_AS:-workspacex}
 REF=${1:-origin/main}
+DEPLOY_READINESS_LIB=${DEPLOY_READINESS_LIB:-/usr/local/lib/workspacex-deploy-readiness.sh}
+DEPLOY_STATUS_NONCE=""
+DEPLOY_STAGE=started
+
+if (($# > 1)); then
+  [[ $# -eq 3 && "$2" == "--status-nonce" && "$3" =~ ^[0-9a-f]{32}$ ]] || {
+    echo "usage: workspacex-deploy [git-ref] [--status-nonce <32-hex>]" >&2
+    exit 2
+  }
+  DEPLOY_STATUS_NONCE=$3
+fi
+
+write_deploy_status() {
+  local exit_code=$1
+  local status_dir=/run/workspacex-deploy
+  local status_file="${status_dir}/${DEPLOY_STATUS_NONCE}.status"
+  local temp_file="${status_file}.tmp.$$"
+
+  [[ -n "$DEPLOY_STATUS_NONCE" ]] || return 0
+  install -d -o root -g root -m 0755 "$status_dir"
+  find "$status_dir" -type f -name '*.status' -mmin +60 -delete
+  (umask 022; printf 'protocol=workspacex-deploy/v1\nnonce=%s\nstage=%s\nexit=%s\n' \
+    "$DEPLOY_STATUS_NONCE" "$DEPLOY_STAGE" "$exit_code" > "$temp_file")
+  chown root:root "$temp_file"
+  chmod 0644 "$temp_file"
+  mv -f "$temp_file" "$status_file"
+}
+
+finish_deploy_status() {
+  local exit_code=$?
+  trap - EXIT
+  write_deploy_status "$exit_code" || true
+  exit "$exit_code"
+}
+
+if [[ -n "$DEPLOY_STATUS_NONCE" ]]; then
+  write_deploy_status 0
+  trap finish_deploy_status EXIT
+fi
 
 step() { printf '\n══════ %s ══════\n' "$1"; }
 
 [ -f "$ENV_FILE" ] || { echo "缺 $ENV_FILE（0600，含部署凭据）"; exit 1; }
+[ -r "$DEPLOY_READINESS_LIB" ] || { echo "缺 root-owned readiness helper: $DEPLOY_READINESS_LIB"; exit 1; }
+# shellcheck disable=SC1090
+source "$DEPLOY_READINESS_LIB"
 # shellcheck disable=SC2046
 export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 
@@ -72,32 +114,10 @@ echo "  workspacex-api / workspacex-web active"
 
 step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 # 只测 200 的冒烟会在「RLS 没生效但服务活着」时全绿，而那正是最该被拦下的状态。
-#
-# 固定 sleep 3 曾经导致冒烟假红（2026-08-01 实测两次）：systemd 报 active 的那一刻，
-# tsx 才刚 fork 出 esbuild 子进程做首次编译，端口还没绑；冷启动（首次跑这份代码、
-# 没有任何进程/文件缓存热度）量级是 4~5 秒，远比这条重启路径平时快得多的热态更慢。
-# 用「轮询直到端口应答或超时」而不是加大固定 sleep——加大值只是把同一个赌注下得
-# 更大，轮询才是真的不赌。
-for _ in $(seq 1 20); do
-  curl -fsS -o /dev/null "http://127.0.0.1:${APP_API_PORT:-3200}/healthz" 2>/dev/null && break
-  sleep 1
-done
-H=$(curl -fsS "http://127.0.0.1:${APP_API_PORT:-3200}/healthz")
-echo "  $H"
-echo "$H" | grep -q '"trustworthy":true'  || { echo "✗ 内核自检不可信"; exit 1; }
-echo "$H" | grep -q '"rlsForced":true'    || { echo "✗ 有表未 FORCE RLS"; exit 1; }
-echo "$H" | grep -q '"appRoleIsOwner":false' || { echo "✗ 应用角色是表 owner —— RLS 写了但没生效"; exit 1; }
-# Next.js 生产启动同样有冷启动量级，同一个理由，同一个轮询而不是加大固定等待。
-for _ in $(seq 1 20); do
-  curl -fsS -o /dev/null "http://127.0.0.1:${APP_WEB_PORT:-3100}/" 2>/dev/null && break
-  sleep 1
-done
-curl -fsS -o /dev/null "http://127.0.0.1:${APP_WEB_PORT:-3100}/" || { echo "✗ 前端无响应"; exit 1; }
-
-# 门控探针不该对外可达。这条是反向断言：它绿不代表功能好，它红代表暴露了不该暴露的面。
-if curl -fsS -o /dev/null "https://${PUBLIC_DOMAIN:-devapp.boardx.us}/kernel/probe/identity-session" 2>/dev/null; then
-  echo "✗ /kernel/probe/* 从公网可达 —— 那是门控的被测面，不是对外 API"; exit 1
-fi
-echo "  ✓ 探针面未对外暴露"
+# 单次成功不代表重启已稳定：成功后的进程仍可能退出或拒绝连接。root deploy 与
+# CD wrapper 复用同一个 helper，要求连续可信样本，并在终态失败时给出有界脱敏诊断。
+DEPLOY_STAGE=smoke
+write_deploy_status 0
+run_post_restart_smoke
 
 printf '\n✅ 部署完成：%s\n' "$(sudo -u "$RUN_AS" git log --oneline -1)"
