@@ -99,9 +99,9 @@ export async function registerWithInvite(
   return {
     userId: result.userId,
     orgId: result.orgId,
-    // Literal `true`, matching the contract. The repository only reaches this point when
+    // Literal `queued`, matching the contract. The repository only reaches this point when
     // the verification row committed alongside everything else, so the claim is backed by
-    // a durable write rather than by a hope that SMTP worked.
+    // a durable outbox write rather than by provider acceptance.
     verificationDelivery: "queued",
   };
 }
