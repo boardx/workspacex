@@ -26,6 +26,8 @@ import type {
   CanvasTemplateListing,
   CanvasTemplateRepository,
   CanvasTemplateVersionFacts,
+  CreateTemplateOutcome,
+  CreatedCanvasTemplate,
   GuardedCanvasTemplate,
   ListCanvasTemplatesQuery,
   PublishOutcome,
@@ -47,6 +49,23 @@ interface TemplateSqlRow {
   underlying_type: string;
   sections: unknown;
   usage_count: string;
+}
+
+/**
+ * `INSERT` 里写死的字面量回来时必须还是它自己。契约那三个 `z.literal(...)` 是承诺，
+ * 这里是承诺的产地 —— 在产地校验，出问题时错误指向这一行 SQL 而不是响应边界。
+ */
+function assertLiteral<T extends string | number | boolean>(
+  actual: unknown,
+  expected: T,
+  column: string,
+): T {
+  if (actual !== expected) {
+    throw new Error(
+      `canvas_templates.${column} 应为 ${JSON.stringify(expected)}，实为 ${JSON.stringify(actual)}`,
+    );
+  }
+  return expected;
 }
 
 export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
@@ -72,6 +91,90 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         [query.orgId, [...query.statuses]],
       );
       return r.rows.map((row) => this.toGuarded(row));
+    });
+  }
+
+  /**
+   * 铸一行新的 `draft` v1（#496）。
+   *
+   * ## 占用判定与写入是**同一条语句**
+   *
+   * `INSERT ... SELECT ... WHERE NOT EXISTS (同 key 的任何版本)`，再叠一层
+   * `ON CONFLICT (org_id, key, version) DO NOTHING`。两层各挡一种失效：
+   *
+   * · `NOT EXISTS` 挡的是「这个 key 已经有别的版本」——主键管不到它（主键含 version，
+   *   已有 v2 时插 v1 完全合法），而那会让同一个 key 长出两条互不相干的谱系。
+   * · `ON CONFLICT` 挡的是**并发**：READ COMMITTED 下两个事务的 `NOT EXISTS` 可以同时
+   *   为真，此时先提交的那个让后者撞主键。没有这一层，后者会抛 23505 一路冒到 500，
+   *   而调用方得到的是「服务器错误」而不是「key 被占了」。
+   *
+   * 两条路径都收敛成**零行返回** ⇒ `{created: false, reason: "key-taken"}`。
+   * 用例因此不需要分辨是哪一种，也不该分辨：对调用方而言那是同一件事。
+   *
+   * ## `RETURNING` 回的是**库里那一行**
+   *
+   * 不是把入参原样组装成响应。`status` / `version` / `builtin` 是这条 SQL 写死的字面量，
+   * 让它们从 RETURNING 回来，「服务端说了算」这件事就由库来兑现而不是由一段拼装代码兑现。
+   */
+  async create(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly displayName: string;
+    readonly underlyingType: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+    readonly ownerTeamId: string | null;
+  }): Promise<CreateTemplateOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const r = await s.query<{
+        key: string;
+        version: number;
+        display_name: string;
+        status: string;
+        builtin: boolean;
+        visibility: VisibilityScope;
+        underlying_type: string;
+        sections: unknown;
+      }>(
+        `INSERT INTO canvas_templates
+           (org_id, key, version, display_name, status, archived_from, builtin,
+            visibility, owner_team_id, underlying_type, sections)
+         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb
+          WHERE NOT EXISTS (
+            SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
+          )
+         ON CONFLICT (org_id, key, version) DO NOTHING
+         RETURNING key, version, display_name, status, builtin, visibility,
+                   underlying_type, sections`,
+        [
+          cmd.orgId,
+          cmd.key,
+          cmd.displayName,
+          cmd.visibility,
+          cmd.ownerTeamId,
+          cmd.underlyingType,
+          JSON.stringify(cmd.sections),
+        ],
+      );
+      const row = r.rows[0];
+      if (row === undefined) return { created: false, reason: "key-taken" };
+      return {
+        created: true,
+        template: {
+          key: row.key,
+          displayName: row.display_name,
+          // ⚠ 断言而不是转型：这三栏是上面 SQL 写死的字面量，回来的值与契约的
+          //   `z.literal(...)` 对不上时，是 SQL 被人改过 —— 那要在这里当场炸，
+          //   而不是靠控制器出门时的 `out.parse` 去发现（那时已经查不到是哪一行 SQL）。
+          version: assertLiteral(row.version, 1, "version"),
+          status: assertLiteral(row.status, "draft", "status"),
+          builtin: assertLiteral(row.builtin, false, "builtin"),
+          visibility: row.visibility,
+          underlyingType: row.underlying_type,
+          // jsonb 回来的是已解析的 JS 值；形状由契约在控制器出门时二次校验（`.strict()`）。
+          sections: row.sections as CreatedCanvasTemplate["sections"],
+        },
+      };
     });
   }
 

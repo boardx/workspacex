@@ -37,4 +37,17 @@ export const FULLSTACK_E2E = {
   memberUserId: `user-fullstack-member-${scope}`,
   /** 新建出来的 Agent 名字。带 scope，避免与并发隔离出来的其它库互相看见。 */
   agentName: `FULLSTACK_AGENT_${scope}`,
+
+  /**
+   * 🟡 #496：核心闭环第 4 步「新增可视化模板」在浏览器里真的建出来的那一个。
+   *
+   * ⚠ key 只用 `[a-z0-9-]`：它进 URL（`/canvas/templates/:key/publish`），
+   *   而 scope 已经被上面那个 `replace` 洗过一遍，这里不再洗第二遍。
+   * ⚠ 反证用的 key 与正例**不同**：同一个 key 会撞上 `TEMPLATE_KEY_CONFLICT`，
+   *   于是反证那条会因为「409」而红——红了，但**不是因为对的原因**。
+   */
+  canvasTemplateKey: `tpl-496-${scope}`.toLowerCase(),
+  canvasTemplateName: `FULLSTACK_TEMPLATE_${scope}`,
+  canvasTemplateCounterproofKey: `tpl-496-cp-${scope}`.toLowerCase(),
+  canvasTemplateCounterproofName: `FULLSTACK_TEMPLATE_CP_${scope}`,
 } as const;

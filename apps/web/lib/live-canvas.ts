@@ -13,12 +13,25 @@
  * （`ApiError` 直抛，不吞）。吞掉 403 再返回空数组，会让「被拒绝」和「一个模板都没有」
  * 在类型上无法区分，而界面正要把这两者显示成不同的东西。
  *
- * ## 后端**没有**给的东西（缺口，已在 issue #464 报出，不在这里发明）
+ * ## 🟡 `createTemplate` 于 #496 补上，**该契约面待人类补签**
  *
- * · **创建 / 编辑模板**：签核过的 `canvas.ts` 契约里根本没有创建操作，
- *   `publishTemplate.in` 是 `{key, version, visibility}`——它读一行已存在的，不造一行。
- *   所以「新增模板 → 保存 → 刷新仍在」这条闭环目前**做不出来**，
- *   `template-editor` 屏因此仍是 mock 原型。
+ * #464 时这里逐字写着「契约里根本没有创建操作 ⇒ 新增模板 → 保存 → 刷新仍在这条闭环
+ * 做不出来」。#496 把 `createTemplate` 作为 design-delta 加进契约（coord-main 代裁「先做」
+ * + 登记待补签，见 `packages/contracts/src/canvas.ts` 该操作的文件头），本文件随之补上
+ * `createCanvasTemplate`。人类若推翻 #496，它与调用它的界面一并回退。
+ *
+ * ⚠ 新建出来的是**草稿**，不是「建完就能用」。要能用还得走 `publishCanvasTemplate`——
+ *   前端不代替服务端做这一步，也不在界面上把两者画成一个动作。
+ *
+ * ## 后端**仍然没有**给的东西（缺口，已报出，不在这里发明）
+ *
+ * · **编辑模板 / 开新版**：契约里仍然没有 update，也没有「基于既有模板开 v2」，
+ *   所以 `createTemplate.out.version` 是 `z.literal(1)`。`template-editor` 那一屏
+ *   （分区结构、设计对话、版本历史、回滚）因此**仍是 mock 原型**——它要的是改，不是建。
+ *   登记在 `canvas.KNOWN_CONTRACT_GAPS.C_CANVAS_8`。
+ * · **`ownerTeamId`**：`visibility: "team-only"` 需要「归哪个团队」，契约没有这一栏。
+ *   服务端取创建者自己的团队；创建者无团队时那一行对**所有人不可见**（fail-closed）。
+ *   前端**不**替它挑一个团队，也不把这个后果藏起来——界面上如实提示。
  * · **mermaid 白名单**：契约里有 `setMermaidWhitelist`，但 #463 的 controller
  *   没有挂这条路由。原先模板库屏底部那块白名单开关是纯 mock（点了不落库），
  *   已随本次去 mock 一并撤下，而不是留一块「点了像是生效了」的假开关。
@@ -34,6 +47,9 @@ export type CanvasTemplate = ListTemplatesOut["templates"][number];
 export type ListTemplatesFilter = NonNullable<
   z.infer<typeof canvas.operations.listTemplates.in>["filter"]
 >;
+export type CreateTemplateIn = z.infer<typeof canvas.operations.createTemplate.in>;
+export type CreateTemplateOut = z.infer<typeof canvas.operations.createTemplate.out>;
+export type TemplateSection = CreateTemplateOut["sections"][number];
 export type ArchiveTemplateOut = z.infer<typeof canvas.operations.archiveTemplate.out>;
 export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplate.out>;
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
@@ -55,6 +71,9 @@ export const TEMPLATE_VISIBILITY_LABEL: Record<TemplateVisibility, string> = {
 /** `filter` 档位也来自契约的 enum，不在界面里另列一份。 */
 export const TEMPLATE_FILTERS = canvas.operations.listTemplates.in.shape.filter.unwrap().options;
 
+/** 可见范围档位同理：来自契约的 enum，新建表单不另列一份。 */
+export const TEMPLATE_VISIBILITY_OPTIONS = canvas.TemplateVisibility.options;
+
 function templatePath(op: { path: string }, key: string): string {
   return op.path.replace(":key", encodeURIComponent(key));
 }
@@ -75,6 +94,29 @@ export async function listCanvasTemplates(input: {
       orgId: input.orgId,
       filter: input.filter,
       forBinding: input.forBinding === undefined ? undefined : String(input.forBinding),
+    },
+  });
+}
+
+/**
+ * 🟡 #496，**该契约面待人类补签**（见文件头）。
+ *
+ * 造出来的是**草稿**：服务端恒回 `status: "draft"` / `version: 1` / `builtin: false`，
+ * 三者都不由这里传。⚠ 不要在这里顺手接一个「建完就发布」的复合动作——那会把已签核的
+ * 三段发布流程在前端合成一步，而服务端那三段还在原地，两边对同一件事有了两种说法。
+ *
+ * 冲突（key 已被占用）是 409 + `reasonCode: "TEMPLATE_KEY_CONFLICT"`，原样抛给调用方：
+ * 这里不把它翻译成「保存失败」，界面要把它显示成一件用户能自己解决的事。
+ */
+export async function createCanvasTemplate(input: CreateTemplateIn): Promise<CreateTemplateOut> {
+  return apiRequest<CreateTemplateOut>(canvas.operations.createTemplate.path, {
+    method: "POST",
+    body: {
+      key: input.key,
+      displayName: input.displayName,
+      underlyingType: input.underlyingType,
+      sections: input.sections,
+      visibility: input.visibility,
     },
   });
 }

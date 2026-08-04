@@ -21,6 +21,11 @@ export default {
       // 是写——两条都要写出来，`:path*` 匹配不到没有后缀的那一条。
       { source: `${prefix}/capabilities`, destination: `${apiOrigin}/capabilities` },
       { source: `${prefix}/capabilities/:path*`, destination: `${apiOrigin}/capabilities/:path*` },
+      // #496：画布模板注册表的读与写。`/canvas/templates` 自己既是 GET 列表也是
+      // POST 新建（两个方法一条路径），`:path*` 匹配不到没有后缀的那一条 ——
+      // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
+      { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
+      { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute

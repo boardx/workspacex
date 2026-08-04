@@ -126,7 +126,11 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
 
   it("真实端点路径从契约取，不手抄；全仓只有一个 canvas 模板出口", () => {
     const client = readFileSync(resolve(ROOT, "lib/live-canvas.ts"), "utf8");
-    for (const op of ["listTemplates", "publishTemplate", "trialTemplate", "archiveTemplate", "restoreTemplate"]) {
+    // `createTemplate` 是 #496 补上的第六个（该契约面待人类补签）。
+    for (const op of [
+      "createTemplate", "listTemplates", "publishTemplate", "trialTemplate",
+      "archiveTemplate", "restoreTemplate",
+    ]) {
       expect(client).toContain(`canvas.operations.${op}`);
     }
     // 路径一律来自契约对象：整份文件里不许出现任何手抄的 `/canvas/...` 字面量。
@@ -157,8 +161,68 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
       "components/canvas/knowledge-backflow.tsx -> lib/mock/canvas.ts",
       // UC-7.1 F102 环节绑定：后端无 bindTemplateToSegment 路由
       "components/canvas/segment-binding.tsx -> lib/mock/canvas.ts",
-      // UC-7.1 F100 模板编辑器：**契约里根本没有创建/更新模板的操作**，见 lib/live-canvas.ts 文件头
+      // UC-7.1 F100 模板编辑器：**契约里仍然没有更新模板 / 开新版的操作**（C_CANVAS_8 ②）。
+      // #496 补的是「建」，这一屏要的是「改」——它的设计对话、分区重排、版本历史与回滚
+      // 一条后端路由都没有，所以仍是 mock 原型。新建入口在 template-admin 那一屏，
+      // 它已经打真实端点（见上面第二条断言：那棵树里零 mock 边）。
       "components/canvas/template-editor.tsx -> lib/mock/canvas.ts",
     ]);
   });
+
+  /**
+   * 🟡 #496：新建这条**写**路径必须真的落在契约声明的端点上。
+   *
+   * ⚠ 与「没有 mock 边」是两件事：一个屏可以既不引 `lib/mock`，又把创建请求打到一个
+   *   手抄的字面量路径上——那正是 issue 明令禁止的「造出第二个事实源」。
+   */
+  it("#496 新建走的是契约声明的 createTemplate 端点，且全仓只有一个出口", () => {
+    const client = readFileSync(resolve(ROOT, "lib/live-canvas.ts"), "utf8");
+    expect(client).toContain("canvas.operations.createTemplate.path");
+
+    const callers = walk(TEMPLATE_ADMIN).visited
+      .filter((f) => readFileSync(resolve(ROOT, f), "utf8").includes("createTemplate.path"));
+    expect(callers).toEqual(["lib/live-canvas.ts"]);
+
+    // 模板库屏确实调到了那个出口——否则上面两条可能只是在描述一个没人用的函数。
+    const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
+    expect(admin).toContain("createCanvasTemplate(");
+  });
+
+  /**
+   * 🟡 #496：**新建不许顺手发布**。服务端是两步（造一行 `draft` → `publishTemplate`），
+   * 界面把它们合成一步，就是在前端把已签核的三段发布流程抹掉一段。
+   *
+   * ⚠ 断言取的是 `create` 这一个函数的**函数体**，不是「两个名字在文件里离得远不远」。
+   *   后者会因为顶部的 import 把两个名字排在一起而恒红（第一版就是这么写的，它红了），
+   *   而一个恒红/恒绿的正则正是本仓九次「全绿但空转」里最常见的那一种。
+   */
+  it("#496 新建不顺手发布：create 的函数体里没有 publishCanvasTemplate", () => {
+    const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
+    const body = functionBody(admin, "async function create(");
+    // 反空转：切出来的必须真的是那个函数体（它里面必须有创建调用），否则下面那条恒绿。
+    expect(body).toContain("createCanvasTemplate(");
+    expect(body).not.toContain("publishCanvasTemplate");
+
+    // 正样本：同一台切割器切 `publish` 时**必须**切到 publish 调用 ——
+    // 证明它不是对任何输入都返回一段不含目标字符串的文本。
+    const publishBody = functionBody(admin, "async function publish(");
+    expect(publishBody).toContain("publishCanvasTemplate(");
+  });
 });
+
+/** 从 `marker` 起按大括号配平切出一个函数体。切不出来就抛，不返回空串（空串会让断言恒绿）。 */
+function functionBody(source: string, marker: string): string {
+  const start = source.indexOf(marker);
+  if (start < 0) throw new Error(`找不到 ${marker} —— 断言会空转`);
+  const open = source.indexOf("{", start);
+  if (open < 0) throw new Error(`${marker} 之后没有 { —— 断言会空转`);
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, i + 1);
+    }
+  }
+  throw new Error(`${marker} 的大括号没有配平 —— 断言会空转`);
+}

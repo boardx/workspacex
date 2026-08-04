@@ -50,10 +50,19 @@ export default defineConfig({
   //
   //   清库在所有吃种子的 spec 之后才发生，因此 #387 / #458 / 步骤 2·5·6a 不受影响。
   //   反证复现：`CORE_LOOP_COUNTERPROOF=1 pnpm run verify:fullstack-smoke`（步骤 1 必红）。
+  //
+  // ⚠ #496 的 `canvas-template-create-smoke.spec.ts` 必须排在 **`seeded`** 里：它要用
+  //   种子里的组织管理员登录。排进 `core-loop-empty-db` 会跑在 `core-loop-reset` 清过的
+  //   库上，那时连账号都没有 —— 它会红，但**不是因为对的原因**。
   projects: [
     {
       name: "seeded",
-      testMatch: ["fullstack-smoke.spec.ts", "capability-mutate-smoke.spec.ts", "core-loop.spec.ts"],
+      testMatch: [
+        "fullstack-smoke.spec.ts",
+        "capability-mutate-smoke.spec.ts",
+        "canvas-template-create-smoke.spec.ts",
+        "core-loop.spec.ts",
+      ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
     {

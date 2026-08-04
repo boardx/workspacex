@@ -1,19 +1,27 @@
 /**
- * canvas 模板注册表的五条路由（#463）。协议适配，判断全在 `application`。
+ * canvas 模板注册表的七条路由（#463 五条 + #493 一条 + #496 一条）。
+ * 协议适配，判断全在 `application`。
  *
+ *   POST /canvas/templates                     🟡 造一行（#496，**该契约面待人类补签**）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
  *   POST /canvas/templates/:key/publish        三段发布流程第三段（I-4）
  *   POST /canvas/templates/:key/trial          第二段
  *   POST /canvas/templates/:key/archive        O-10 归档（confirmed=false 为预检）
  *   POST /canvas/templates/:key/restore        恢复
+ *   POST /canvas/agenda-segments/:id/template-bindings   环节绑定（#493，F102）
  *
- * ## 🔴 这里**没有**创建模板的路由，而那不是遗漏
+ * ⚠ 上面这张表是**手写**的，会与真实路由漂移：#493 加了第六条却没更新它，本次 merge 时
+ *   补上（那不是 #496 的改动，是顺手修一处会误导下一个人的注释）。
  *
- * 签核过的 `canvas.ts` 契约里没有创建操作：`publishTemplate.in` 是
- * `{key, version, visibility}`，不带 `displayName` / `sections` / `underlyingType`，
- * 且其 `err` 含 `TEMPLATE_NOT_FOUND` —— 它读一行已存在的，不造一行。#463 的范围描述里
- * 写了「创建」，但契约是单一事实源且已签核，所以缺口报上去，不在这里发明一条
- * `POST /canvas/templates`。见 `application/canvas/template-ports.ts` 的文件头。
+ * ## 🟡 `POST /canvas/templates` 是 #496 的 design-delta，尚未签核
+ *
+ * #463 时这段注释逐字写着「这里**没有**创建模板的路由，而那不是遗漏」——当时属实：签核过的
+ * 契约里没有创建操作，于是核心闭环「新增可视化模板」这一步交付不出来。#496 由 coord-main
+ * 在人类不在场时代裁「先做」并登记**待补签**，契约与本路由随之落地。人类回来后要么补签、
+ * 要么推翻并回退。理由与边界见 `packages/contracts/src/canvas.ts` 的 `createTemplate` 文件头。
+ *
+ * ⚠ 这条路由**不是** upsert：它只造 `draft`，发布仍然只能走 `/publish`。把 publish 改成
+ *   「不存在就创建」会让 `TEMPLATE_NOT_FOUND` 不可达，是契约自己点名要避免的形状。
  *
  * ## GET 也过契约校验
  *
@@ -49,6 +57,7 @@ import { canvas as C } from "@repo/contracts";
 import type { z } from "zod";
 import { archiveTemplate } from "../../application/canvas/archive-template";
 import { bindTemplateToSegment } from "../../application/canvas/bind-template-to-segment";
+import { createTemplate } from "../../application/canvas/create-template";
 import {
   CanvasSegmentBindingExistsError,
   CanvasSegmentNotFoundError,
@@ -80,6 +89,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 /** 导出，供 `contract-single-source.test.ts` 断言与契约是**同一个对象**而非长得像。 */
+export const CREATE_CANVAS_TEMPLATE_SCHEMA = C.operations.createTemplate.in;
 export const LIST_CANVAS_TEMPLATES_SCHEMA = C.operations.listTemplates.in;
 export const PUBLISH_CANVAS_TEMPLATE_SCHEMA = C.operations.publishTemplate.in;
 export const TRIAL_CANVAS_TEMPLATE_SCHEMA = C.operations.trialTemplate.in;
@@ -87,6 +97,7 @@ export const ARCHIVE_CANVAS_TEMPLATE_SCHEMA = C.operations.archiveTemplate.in;
 export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
 export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
 
+type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
@@ -109,6 +120,44 @@ export class CanvasTemplateController {
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
   ) {}
+
+  /**
+   * 🟡 #496，**待人类补签**。
+   *
+   * ⚠ **201，而不是下面四条的 200**，且这个差别是有意义的：那四条是状态转移，没有任何
+   *   资源被创建（它们的 `@HttpCode(200)` 注释逐字这么写，并附了一句「这个束里真正会创建行的
+   *   操作在契约里根本不存在」——#496 之后那句不再成立，所以本条是 Nest 对 POST 的缺省 201，
+   *   不加 `@HttpCode`）。一条真的造出资源的路由回 200，等于把「新建」与「改状态」在协议层
+   *   抹平，而调用方**看得见**这个差别。
+   *
+   * ⚠ 组织取自会话主体，**不从请求体读**——契约 `createTemplate.in` 里没有 `orgId`，
+   *   且它是 `.strict()`，所以塞一个进来是 400 而不是被悄悄用上。
+   */
+  @Post("/canvas/templates")
+  async create(
+    @Body(new ZodBodyPipe(CREATE_CANVAS_TEMPLATE_SCHEMA)) body: CreateBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    return this.run(async () =>
+      // 出门也过契约的 `.strict()`：没有这一句，服务端可以发出一个契约没描述的响应体
+      // 而所有门控保持绿色（`contract-response.test.ts` 存在的原因）。
+      C.operations.createTemplate.out.parse(
+        await createTemplate(
+          { identity: this.identity, templates: this.templates },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            displayName: body.displayName,
+            underlyingType: body.underlyingType,
+            sections: body.sections,
+            visibility: body.visibility,
+          },
+        ),
+      ),
+    );
+  }
 
   @Get("/canvas/templates")
   async list(
@@ -312,6 +361,11 @@ export class CanvasTemplateController {
       if (e instanceof CanvasError) {
         if (e.reasonCode === "TEMPLATE_NOT_FOUND") {
           throw new NotFoundException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "TEMPLATE_KEY_CONFLICT") {
+          // 409 而不是 403：key 被占用不是一次权限裁定。带 reasonCode——与下面那个裸 409
+          // 不同，这个码**在 `createTemplate.err` 里**，所以前端按它分支是契约允许的。
+          throw new ConflictException({ reasonCode: e.reasonCode });
         }
         if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
           // 503 而不是 403：判定服务不可用不是一个裁定。

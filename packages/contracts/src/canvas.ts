@@ -251,6 +251,94 @@ export const operations = {
   /* ── 一、模板注册表与发布（F100 F101）───────────────────────────── */
 
   /**
+   * ## 🟡 本操作**尚未经人类签核**（#496），状态：**待补签**
+   *
+   * 2026-08-04，人类不在场，coord-main 依其授权原文「我离开的情况下你不要等我的决定」
+   * 代为裁决**先做**，并同时把本操作**登记为待补签**：issue #496 就是这条 design-delta
+   * 的记录。人类回来后要么在束级 `design-signoff.md` 第 ③ 节补签，要么**推翻并回退**
+   * 本操作及其全部实现。
+   *
+   * ⚠ 在补签之前，**不得**把它当作已签核事实去继续扩展（例如据此再造 updateTemplate /
+   *   newVersion）。签核状态只由人类在 `design-signoff.md` 里改，**agent 不动那个文件**
+   *   （授权宪章层级 3）。这段注释是那个状态在代码里的**可见形态**，不是签核本身。
+   *
+   * ---
+   *
+   * createTemplate —— 三段发布流程**之前**的那一段：把一行造出来。
+   *
+   * ## 为什么它必须存在
+   *
+   * 其余五个注册表操作（list / publish / trial / archive / restore）**全部**作用于一个
+   * 已经存在的 `:key`，而 `publishTemplate.in` 是 `{key, version, visibility}`——不带
+   * `displayName` / `sections` / `underlyingType`，且 `err` 含 `TEMPLATE_NOT_FOUND`：
+   * 它读一行、改状态，**不造一行**。于是「新增可视化模板」这一步在本契约下
+   * **无论怎么实现都交付不了**，模板只能靠 SQL 种进去（见
+   * `apps/api/tests/canvas/template-lifecycle-http.test.ts` 的文件头）。
+   *
+   * ## 新建即 `draft`，**不绕开**既有发布流程
+   *
+   * `out.status` 是 `z.literal("draft")`：新建出来的模板还不能用，必须再走
+   * `publishTemplate`（可选先 `trialTemplate`）。`publishTemplate` 的注释自陈是
+   * 「三段发布流程的第三段」，本操作补的正是第一段——它**加**一段，不**替**任何一段。
+   *
+   * ⚠ 因此**不得**把 `publishTemplate` 改造成「不存在就创建」的 upsert：那会让
+   *   `publishTemplate.err` 里的 `TEMPLATE_NOT_FOUND` 变成**不可达**，而本文件
+   *   `KNOWN_CONTRACT_GAPS.C_CANVAS_3` 逐字写着「不可达的错误码正是门控空转的形状」。
+   *
+   * ## `TEMPLATE_KEY_CONFLICT` 在本操作之前是**不可达的**
+   *
+   * 它自 canvas 束落地起就在 `CanvasError` 闭集里（第 156 行），却**不出现在任何一个
+   * 操作的 `err` 里**——全仓仅此一处提及。也就是说本束一直带着一个自己点名要避免的东西。
+   * 本操作是它唯一的产生方：`key` 在本组织已被占用 ⇒ `TEMPLATE_KEY_CONFLICT`。
+   *
+   * ## `out.version` 是 `z.literal(1)`，而不是一个正整数
+   *
+   * 本操作只会铸出 v1。铸 v2 需要的是「基于既有模板开新版」——那是另一个操作，
+   * 契约里**没有**，本次也**不发明**（缺口如实报在 #496，不用一个宽类型把它盖住）。
+   * 写成 `z.number().int().positive()` 会让「这个端口能造任意版本」看起来成立，
+   * 而实现永远只回 1，这正是响应体与契约悄悄分家的方式。
+   * ⇒ 哪天真要支持开新版，`z.literal(1)` 会当场逼出一次契约改动，而那**本来就该**
+   *   是一次契约改动。
+   *
+   * ## `in` 里为什么没有 `orgId`
+   *
+   * 与其余四个写操作一致：组织取自会话主体（principal），不由请求体自报。
+   * `listTemplates` 的 `orgId` 在 query 上是读路径的既有形状，两者不对齐是既有事实，
+   * 不在本操作里顺手改别人的入参。
+   *
+   * ## `ownerTeamId` 的缺口（C_CANVAS_8）
+   *
+   * `visibility: "team-only"` 需要「归哪个团队」，而契约里**没有**这一栏——与
+   * `listTemplates.out` / `publishTemplate.in` 的同一处缺口逐字同型。实现取创建者自己的
+   * 团队；创建者无团队时该行对**所有人**不可见（fail-closed，见迁移文件头）。
+   * 这是缺口的**后果**，如实登记在 `KNOWN_CONTRACT_GAPS.C_CANVAS_8`，不发明一个字段。
+   */
+  createTemplate: {
+    method: "POST", path: "/canvas/templates",
+    in: z.object({
+      key: z.string().min(1),
+      displayName: z.string().min(1),
+      underlyingType: z.string().min(1),
+      sections: z.array(SectionDef),
+      visibility: TemplateVisibility,
+    }).strict(),
+    out: z.object({
+      key: z.string(),
+      displayName: z.string(),
+      /** 只铸 v1 —— 见上方「为什么是 z.literal(1)」。 */
+      version: z.literal(1),
+      /** 新建即草稿：必须再经 `publishTemplate` 才可用。 */
+      status: z.literal("draft"),
+      /** 组织自建的模板永远不是内置的。内置清单的权威是 `BUILTIN_CANVAS_TEMPLATES`。 */
+      builtin: z.literal(false),
+      visibility: TemplateVisibility,
+      underlyingType: z.string(),
+      sections: z.array(SectionDef),
+    }).strict(),
+    err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
    * listTemplates —— 后台模板库 / 绑定选择器**共用一个端口**。
    * ⚠ `forBinding: true` 时**必须过滤掉 `draft` 与 `archived`**（I-5）。
    *   共用端口正是为了避免「后台一份过滤、绑定面板另一份过滤」的第二处声明。
@@ -989,4 +1077,22 @@ export const KNOWN_CONTRACT_GAPS = {
    * 前端也要认两个码。收敛需人类裁一个名字，两侧一起改。
    */
   C_CANVAS_7: "mid-flight authorization revocation is named AUTHORIZATION_REVOKED here but PERMISSION_REVOKED_MIDWAY in context-pack/recording; same meaning, two names, no compile-time tie",
+
+  /**
+   * 🟡 **`createTemplate` 本身待人类补签（#496），且它带出两个次级缺口。**
+   *
+   * ① **没有 `ownerTeamId`。** `visibility: "team-only"` 要求「归哪个团队」，而本束的
+   *    `listTemplates.out` / `publishTemplate.in` / `createTemplate.in` 三处都没有这一栏
+   *    （与 `identity` 束 `CapabilityListing` 的同一处缺口逐字同型）。实现取创建者自己的
+   *    团队；**创建者无团队时该行对所有人不可见**（fail-closed，见 canvas 模板注册表迁移
+   *    的文件头）。这是缺口的后果，不是一个可以靠默认值糊过去的实现细节。
+   *
+   * ② **没有「基于既有模板开新版」。** 因此 `createTemplate.out.version` 是
+   *    `z.literal(1)`——本操作只铸 v1。v2 只能由一个本契约尚不存在的操作产生，
+   *    在它被签核之前，「改模板」这件事在产品上做不出来。
+   *
+   * ⚠ 补签时这两条要一起裁：签了 `createTemplate` 却不裁 ①，会得到一个
+   *   「建完就看不见」的 team-only 模板。
+   */
+  C_CANVAS_8: "createTemplate is pending human sign-off (#496); it also exposes two sub-gaps: no ownerTeamId for team-only visibility (fail-closed to invisible), and no operation to mint a version beyond v1",
 } as const;

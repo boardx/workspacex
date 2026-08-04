@@ -142,13 +142,42 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 4：新增可视化模板 ───────────────────────────────────────────── */
 
-  test.fail("[#464 契约缺口] 步骤 4：新增 canvas 模板 → 刷新仍在", async ({ page }) => {
+  // ✅ #496 交付后**翻正成真断言**（PR #508）。原文是
+  // `test.fail("[#464 契约缺口] …")`：当时属实——canvas 注册表契约的五个操作是
+  // list/publish/trial/archive/restore，`publishTemplate` 读一行已存在的、不造一行，
+  // 契约里根本没有「创建模板」。#496 补上 `createTemplate`（🟡 该契约面**待人类补签**），
+  // 这一步才真的可交付。
+  //
+  // ⚠ 顺带修掉原文里的**第二个**红因：它断言 `/admin/canvasadmin` 上有一个
+  //   `canvas-template-create` —— 那个 testid **在任何组件里都不存在**
+  //   （`grep -rn canvas-template-create apps/web/{components,app,lib,e2e}` 只命中这一行；
+  //   正样本 `tpladmin-create` 同法命中真实组件），与本文件步骤 2 那段 `capability-catalog`
+  //   教训**同型**。只补契约不修它，这一步会继续红，而且是**红错原因**。
+  //
+  // 真实入口在**模板库屏**而不是后台屏，这是 #496 的刻意取舍：后台
+  // `/admin/canvasadmin` 只做清单与去向，两处各放一个新建按钮 = 两个写入口。
+  // testid 来源实测：`components/canvas/template-admin.tsx` 的 `tpladmin-create`
+  // 与 `tpladmin-row-<key>-<version>`，与 `canvas-template-create-smoke.spec.ts` 同一批。
+  test("步骤 4：新增 canvas 模板 → 刷新仍在（#496 / PR #508 交付）", async ({ page }) => {
+    // ⚠ key 与 `canvas-template-create-smoke.spec.ts` 用的**不同**：同 project 同一个库，
+    //   撞 key 会拿到 409 TEMPLATE_KEY_CONFLICT，这一步就红在一个与闭环无关的原因上。
+    const key = "core-loop-492-tpl";
+    const name = "闭环验收模板";
+
     await loginAsAdmin(page);
-    await page.goto("/admin/canvasadmin");
-    // 实测：canvas 注册表契约的五个操作是 list/publish/trial/archive/restore，
-    // `publishTemplate` **读一行已存在的，不造一行** ⇒ 契约里根本没有「创建模板」。
-    // #464 交付了「能看」，「能建」需要新契约面（已上报 coord-main）。
-    await expect(page.getByTestId("canvas-template-create")).toBeVisible();
+    await page.goto("/canvas?screen=template-admin");
+    await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+
+    await page.getByTestId("tpladmin-create").click();
+    await page.getByTestId("tpladmin-create-key").fill(key);
+    await page.getByTestId("tpladmin-create-name").fill(name);
+    await page.getByTestId("tpladmin-create-submit").click();
+
+    await expect(page.getByTestId(`tpladmin-row-${key}-1`)).toContainText(name);
+
+    // 「刷新仍在」才是这一步的全部意义：重新加载页面区分「写进了库」与「写进了 React state」。
+    await page.reload();
+    await expect(page.getByTestId(`tpladmin-row-${key}-1`)).toContainText(name);
   });
 
   /* ── 步骤 5：登录已有用户（已交付，#387）──────────────────────────────── */

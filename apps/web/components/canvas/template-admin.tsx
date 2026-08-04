@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw,
+  LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, X,
 } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
@@ -10,14 +10,19 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import {
   archiveCanvasTemplate,
+  createCanvasTemplate,
   listCanvasTemplates,
+  publishCanvasTemplate,
   restoreCanvasTemplate,
   TEMPLATE_FILTERS,
   TEMPLATE_STATUS_LABEL,
   TEMPLATE_VISIBILITY_LABEL,
+  TEMPLATE_VISIBILITY_OPTIONS,
   type CanvasTemplate,
   type ListTemplatesFilter,
+  type TemplateSection,
   type TemplateStatus,
+  type TemplateVisibility,
 } from "@/lib/live-canvas";
 
 /**
@@ -33,12 +38,27 @@ import {
  *   报错是后端说的还是 URL 说的。
  * · **mermaid 白名单开关**：契约有 `setMermaidWhitelist`，但 #463 的 controller
  *   没有挂这条路由。一块点了不落库的开关比没有它更糟——它看起来生效了。缺口已报。
- * · **「新建画布模板」按钮**：签核过的契约里**没有任何创建操作**
- *   （`publishTemplate.in` 是 `{key,version,visibility}`，读一行已存在的，不造一行）。
- *   留一个只弹 toast 的按钮，就是在假装闭环成立。缺口已报，见 `lib/live-canvas.ts` 文件头。
- * · **发布 / 试跑按钮**：`publish` 要 `visibility`、`trial` 要一个 `projectId`，
- *   这一屏两者都没有真实来源（项目选择器属 F102，后端也没有该路由）。
- *   接一半会得到一个「点了报 400」的按钮。归档 / 恢复不需要额外输入，因此真接。
+ * · **mermaid 白名单开关** 同上，缺口已报。
+ * · **试跑按钮**：`trialTemplate` 要一个 `projectId`，这一屏没有真实来源
+ *   （项目选择器属 F102，后端也没有该路由）。接一半会得到一个「点了报 400」的按钮。
+ *
+ * ## 🟡 #496 补回来的两个入口
+ *
+ * · **「新建模板」**：#464 时这里逐字写着「契约里没有任何创建操作，留一个只弹 toast 的
+ *   按钮就是在假装闭环成立」。#496 把 `createTemplate` 作为 design-delta 加进契约
+ *   （**待人类补签**，见 `lib/live-canvas.ts` 与契约的文件头），于是这个按钮打的是真实端点。
+ *   ⚠ 建出来的是**草稿**，界面上必须显示成草稿——把「建完」画成「能用了」，
+ *     就是在前端把已签核的三段发布流程抹掉一段。
+ * · **「发布」**：`publishTemplate.in` 要的 `visibility` 现在有真实来源了——
+ *   **就是那一行自己的 `visibility`**（`listTemplates.out` 里逐字有这一栏）。
+ *   #464 说它「没有真实来源」，那时属实：屏上一行草稿都不可能存在，因为没人建得出来。
+ *   ⚠ 仍然**不做**「新建即发布」的复合按钮：服务端是两步，界面就是两步。
+ *
+ * ## 仍然没有「编辑」
+ *
+ * 契约里没有 update，也没有「开新版」，所以 `createTemplate.out.version` 是 `z.literal(1)`。
+ * 分区结构只能在**新建时**定，之后改不了。这是缺口（C_CANVAS_8 ②）的后果，如实写在界面上，
+ * 不用一个「保存」按钮假装它能改。
  *
  * ⚠ `previewRole === "observer"` 时不挂写入口，那是**降噪不是权限**：
  *   真正的拒绝在服务端（`ROLE_INSUFFICIENT` → 403），失败信封原样回显。
@@ -83,6 +103,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
   const [archiving, setArchiving] = React.useState<ArchivePreflight | null>(null);
+  const [creating, setCreating] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -103,6 +124,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 
   React.useEffect(() => {
     setArchiving(null);
+    setCreating(false);
     setActionError(null);
     setNotice(null);
     void load();
@@ -142,6 +164,52 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
     }
   }
 
+  /**
+   * 🟡 #496。建完**不**自动发布，也不自动跳到别的屏——只重新读一次列表，
+   * 让那一行以「草稿」的样子出现在它真实的位置上。
+   *
+   * ⚠ 成功之后必须 `await load()` 而不是把新行插进本地 state：插进去的那一行
+   *   看起来与真的一模一样，而「它到底进没进库」正是这条闭环唯一要证明的事。
+   */
+  async function create(draft: NewTemplateDraft) {
+    setActionError(null);
+    setNotice(null);
+    const out = await createCanvasTemplate({
+      key: draft.key.trim(),
+      displayName: draft.displayName.trim(),
+      underlyingType: draft.underlyingType.trim(),
+      sections: draft.sections,
+      visibility: draft.visibility,
+    });
+    setCreating(false);
+    setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
+    await load();
+  }
+
+  /**
+   * 🟡 #496。`visibility` 取**那一行自己的**，不是界面上另挑一个：
+   * 让用户在发布时二选一，等于给同一个事实开了第二个入口，而那一栏本来就在行上。
+   */
+  async function publish(row: CanvasTemplate) {
+    setActionError(null);
+    setNotice(null);
+    try {
+      const out = await publishCanvasTemplate({
+        key: row.key,
+        version: row.version,
+        visibility: row.visibility,
+      });
+      const archived = out.archivedVersions.length;
+      setNotice(
+        `已发布 ${row.displayName} v${row.version}` +
+        (archived > 0 ? ` · 同 key 的 ${archived} 个旧版已自动归档` : ""),
+      );
+      await load();
+    } catch (error) {
+      setActionError(describeError(error));
+    }
+  }
+
   async function restore(row: CanvasTemplate) {
     setActionError(null);
     setNotice(null);
@@ -164,15 +232,22 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
             {visibleState.status === "ready" && ` · 当前筛选下 ${rows.length} 个`}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void load()}
-          disabled={visibleState.status === "loading"}
-          data-testid="tpladmin-refresh"
-        >
-          <RefreshCw aria-hidden className="h-3.5 w-3.5" /> 刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          {!readOnly && (
+            <Button size="sm" variant="primary" onClick={() => { setCreating(true); setActionError(null); }} data-testid="tpladmin-create">
+              <Plus aria-hidden className="h-3.5 w-3.5" /> 新建模板
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void load()}
+            disabled={visibleState.status === "loading"}
+            data-testid="tpladmin-refresh"
+          >
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" /> 刷新
+          </Button>
+        </div>
       </header>
 
       {notice && (
@@ -237,8 +312,8 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border p-6" data-testid="tpladmin-empty">
             <p className="text-13 font-medium">当前筛选下没有画布模板</p>
             <p className="text-11 text-muted-foreground">
-              这是本组织在服务端的真实结果。模板的创建入口尚未在已签契约里存在（见 issue #464），
-              因此这里不会出现任何示例模板。
+              这是本组织在服务端的真实结果 —— 这里不会出现任何示例模板。
+              用右上角的「新建模板」建一个草稿，再发布它。
             </p>
           </div>
         )}
@@ -279,7 +354,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                       </td>
                       <td className="px-3 py-2 text-11 tabular-nums">{t.usageCount}</td>
                       <td className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} />
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} />
                       </td>
                     </tr>
                   ))}
@@ -302,13 +377,17 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                   <span className="font-mono text-10 text-muted-foreground">
                     {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
                   </span>
-                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} />
+                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} />
                 </div>
               ))}
             </div>
           )
         )}
       </div>
+
+      {creating && (
+        <CreateDialog onClose={() => setCreating(false)} onSubmit={create} />
+      )}
 
       {archiving && (
         <ArchiveDialog
@@ -322,15 +401,27 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 }
 
 /**
- * 状态机的行操作。**只挂后端真接得上的两个**（归档 / 恢复）——
- * 发布与试跑缺真实输入源，见文件头。
+ * 状态机的行操作。**只挂后端真接得上的三个**（发布 / 归档 / 恢复）——试跑仍缺
+ * `projectId` 的真实来源，见文件头。
  */
 function RowActions({
-  row, readOnly, onArchive, onRestore,
-}: { row: CanvasTemplate; readOnly: boolean; onArchive: () => void; onRestore: () => void }) {
+  row, readOnly, onArchive, onRestore, onPublish,
+}: {
+  row: CanvasTemplate;
+  readOnly: boolean;
+  onArchive: () => void;
+  onRestore: () => void;
+  onPublish: () => void;
+}) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
+      {(row.status === "draft" || row.status === "trial") && (
+        // 🟡 #496：`visibility` 取这一行自己的那一栏，不在这里让用户再挑一次。
+        <Button size="xs" variant="primary" data-testid={`tpladmin-publish-${row.key}-${row.version}`} onClick={onPublish}>
+          <Rocket aria-hidden className="h-3 w-3" /> 发布（{TEMPLATE_VISIBILITY_LABEL[row.visibility]}）
+        </Button>
+      )}
       {row.status === "published" && (
         <Button size="xs" variant="ghost" className="text-destructive" data-testid={`tpladmin-archive-${row.key}-${row.version}`} onClick={onArchive}>
           <Archive aria-hidden className="h-3 w-3" /> 归档
@@ -341,16 +432,195 @@ function RowActions({
           <RotateCcw aria-hidden className="h-3 w-3" /> 恢复
         </Button>
       )}
-      {(row.status === "draft" || row.status === "trial") && (
-        <span className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`tpladmin-nopublish-${row.key}-${row.version}`}>
-          <Rocket aria-hidden className="h-3 w-3" /> 发布 / 试跑入口待补（缺可见范围与试跑项目的真实来源）
+      {row.status === "draft" && (
+        <span className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`tpladmin-notrial-${row.key}-${row.version}`}>
+          试跑入口待补（缺试跑项目的真实来源）
         </span>
       )}
-      {row.status === "published" && (
-        <span className="flex items-center gap-1 text-10 text-muted-foreground">
-          <Pencil aria-hidden className="h-3 w-3" /> 编辑入口待补（契约无更新操作）
-        </span>
-      )}
+      <span className="flex items-center gap-1 text-10 text-muted-foreground">
+        <Pencil aria-hidden className="h-3 w-3" /> 编辑入口待补（契约无更新操作，分区只能在新建时定）
+      </span>
+    </div>
+  );
+}
+
+/** 新建表单的本地草稿。契约 `createTemplate.in` 的五栏，一一对应。 */
+interface NewTemplateDraft {
+  readonly key: string;
+  readonly displayName: string;
+  readonly underlyingType: string;
+  readonly visibility: TemplateVisibility;
+  /** 契约 `createTemplate.in.sections` 是可变数组，端到端保持同一个类型，不在这里收紧。 */
+  readonly sections: TemplateSection[];
+}
+
+/**
+ * 🟡 #496 新建模板对话框。
+ *
+ * ## 分区**只能在这里定**
+ *
+ * 契约里没有 update，也没有「开新版」（C_CANVAS_8 ②），所以一个模板的分区结构此后改不了。
+ * 这句话直接写在表单上，而不是等用户建完去找那个不存在的编辑按钮。
+ *
+ * ## 失败原样回显
+ *
+ * key 被占用是 409 + `TEMPLATE_KEY_CONFLICT`，界面把它显示成「这个 key 已被占用」——
+ * 一件用户改一下就能解决的事，不是「保存失败」。⚠ 不在前端预先查一遍 key 是否可用：
+ * 那是第二份判据，且它与真实写入之间永远有一个窗口。
+ */
+function CreateDialog({
+  onClose, onSubmit,
+}: { onClose: () => void; onSubmit: (draft: NewTemplateDraft) => Promise<void> }) {
+  const [key, setKey] = React.useState("");
+  const [displayName, setDisplayName] = React.useState("");
+  const [underlyingType, setUnderlyingType] = React.useState("canvas");
+  const [visibility, setVisibility] = React.useState<TemplateVisibility>("org-wide");
+  const [sectionNames, setSectionNames] = React.useState<readonly string[]>([""]);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // 提交所需的最小集，与契约的 `.min(1)` 对齐 —— 但**不**在这里重述一份校验规则：
+  // 真正的裁决在服务端，这里只是不让一个必然 400 的请求白跑一趟。
+  const canSubmit = key.trim().length > 0 && displayName.trim().length > 0
+    && underlyingType.trim().length > 0 && !submitting;
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit({
+        key,
+        displayName,
+        underlyingType,
+        visibility,
+        // 空名字的分区不提交：它不是一个分区，是一行没填的输入框。
+        sections: sectionNames
+          .map((name, i) => ({ name: name.trim(), order: i }))
+          .filter((s) => s.name.length > 0)
+          .map((s, i) => ({
+            sectionId: `s${i + 1}`,
+            name: s.name,
+            order: i,
+            required: false,
+            // 契约的 `capacity` 可空，且「留白规则对 null 容量断言不出来」是已登记的
+            // 待定项（D-a）。这里如实传 null，而不是替它挑一个上限。
+            capacity: null,
+          })),
+      });
+    } catch (e) {
+      setError(describeCreateError(e));
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-title"
+      data-testid="tpladmin-create-dialog"
+    >
+      <div className="flex w-full max-w-lg flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
+        <div className="flex items-start justify-between gap-2">
+          <h2 id="create-title" className="text-14 font-semibold">新建画布模板</h2>
+          <Button size="icon" variant="ghost" aria-label="关闭" onClick={onClose} data-testid="tpladmin-create-close">
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <p className="rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-create-draft-note">
+          建出来的是 <strong className="text-background-foreground">草稿</strong>，要被议程环节使用还得再点一次「发布」。
+          分区结构<strong className="text-background-foreground">只能在这里定</strong> —— 契约里还没有修改模板的操作。
+        </p>
+
+        <label className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">模板 key（组织内唯一，之后不可改）</span>
+          <input
+            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            data-testid="tpladmin-create-key"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">显示名</span>
+          <input
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-12"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            data-testid="tpladmin-create-name"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">底层类型（契约未约束取值，如实开放）</span>
+          <input
+            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
+            value={underlyingType}
+            onChange={(e) => setUnderlyingType(e.target.value)}
+            data-testid="tpladmin-create-underlying-type"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">可见范围</span>
+          <select
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-12"
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as TemplateVisibility)}
+            data-testid="tpladmin-create-visibility"
+          >
+            {TEMPLATE_VISIBILITY_OPTIONS.map((v) => (
+              <option key={v} value={v}>{TEMPLATE_VISIBILITY_LABEL[v]}</option>
+            ))}
+          </select>
+          {visibility === "team-only" && (
+            // C_CANVAS_8 ①：契约没有 `ownerTeamId`，服务端取创建者自己的团队。
+            // 后果如实说，不在这里挑一个团队替用户决定。
+            <span className="text-10 text-warning" data-testid="tpladmin-create-teamonly-note">
+              归属团队取你自己的团队（契约里没有这一栏）。你若不属于任何团队，这个模板将对所有人不可见。
+            </span>
+          )}
+        </label>
+
+        <div className="flex flex-col gap-1" data-testid="tpladmin-create-sections">
+          <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区）</span>
+          {sectionNames.map((name, i) => (
+            <input
+              key={i}
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-12"
+              placeholder={`分区 ${i + 1}`}
+              value={name}
+              onChange={(e) => setSectionNames(sectionNames.map((n, j) => (j === i ? e.target.value : n)))}
+              data-testid={`tpladmin-create-section-${i}`}
+            />
+          ))}
+          <Button
+            size="xs"
+            variant="outline"
+            className="self-start"
+            onClick={() => setSectionNames([...sectionNames, ""])}
+            data-testid="tpladmin-create-add-section"
+          >
+            <Plus aria-hidden className="h-3 w-3" /> 加一个分区
+          </Button>
+        </div>
+
+        {error && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-11 text-destructive" role="alert" data-testid="tpladmin-create-error">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onClose} data-testid="tpladmin-create-cancel">取消</Button>
+          <Button size="sm" variant="primary" disabled={!canSubmit} onClick={() => void submit()} data-testid="tpladmin-create-submit">
+            {submitting ? "正在新建…" : "新建草稿"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -398,6 +668,20 @@ function ArchiveDialog({
 function describeSections(t: CanvasTemplate): string {
   if (t.sections.length === 0) return "无分区";
   return `${t.sections.length} 分区 · ${t.sections.map((s) => s.name).join(" / ")}`;
+}
+
+/**
+ * 新建失败的两种意思差别很大，所以只把**契约里 `createTemplate.err` 有的那个码**
+ * 翻成一句人话，其余仍旧原样回显。
+ *
+ * ⚠ 这里**只认** `TEMPLATE_KEY_CONFLICT`：给别的码也各编一句友好文案，等于在前端造了一份
+ *   错误语义的副本，而它与契约之间没有任何东西会红。回显 `reasonCode` 至少永远是真的。
+ */
+function describeCreateError(error: unknown): string {
+  if (error instanceof ApiError && error.reasonCode === "TEMPLATE_KEY_CONFLICT") {
+    return "这个 key 在本组织已被占用，换一个（服务端 TEMPLATE_KEY_CONFLICT · HTTP 409）";
+  }
+  return describeError(error);
 }
 
 /** 后端真实信封原样回显：`reasonCode` + HTTP 状态，不糊成一句「加载失败」。 */
