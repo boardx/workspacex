@@ -16,6 +16,7 @@ import { tick } from "./tick";
 import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { phaseReadiness } from "./phase-readiness";
+import { prQueue } from "./pr-queue";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
     case "dep-graph":      depGraph(args); break;
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
+    case "pr-queue":       prQueue(args); break;
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -73,6 +75,8 @@ async function main(): Promise<void> {
       log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
       log.info("  pnpm harness phase-readiness --phase NN --to not_ready --actor <id> --reason <text>");
       log.info("  pnpm harness cycle-report                              # C-cycle 周期健康表（只读，见 work-cycle-proposal.md）");
+      log.info("  pnpm harness pr-queue [--pr N] [--json] [--attended]    # PR 队列状态机（只读，#451）；无 --attended 一律不授权合并");
+      log.info("  pnpm harness pr-queue --post-merge N [--deployment-tracked]  # 合并后收尾核验：merged + commit 在 main + issue 已关闭");
       log.info("  pnpm harness tick [--session <id>] [--json]            # 每个 loop 跑这条：权威时钟+漂移告警+续租约+收件箱（ADR-014）");
       log.info("  pnpm harness lock-status");
       log.info("  pnpm harness lock-acquire   --session <id> [--force] [--note <text>]");
