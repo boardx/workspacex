@@ -12,6 +12,7 @@ import {
   type CapabilityKind,
   type CapabilityListing,
 } from "@/lib/live-capabilities";
+import { SkillStarterImportPanel } from "./skill-starter-import-panel";
 
 const PAGE_SIZE = 10;
 
@@ -38,20 +39,27 @@ export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
   const generation = React.useRef(0);
+  const currentSourceKey = React.useRef(sourceKey);
+  currentSourceKey.current = sourceKey;
   const [page, setPage] = React.useState(0);
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
 
   const load = React.useCallback(async () => {
+    // A completion from a panel belonging to the previous organization must not become
+    // the newest generation and suppress the current organization's real request.
+    if (currentSourceKey.current !== sourceKey) return false;
     const request = ++generation.current;
     setState({ sourceKey, status: "loading" });
     try {
       const rows = await listCapabilities(orgId, kind);
-      if (request !== generation.current) return;
+      if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
       setPage(0);
       setState({ sourceKey, status: "ready", rows });
+      return true;
     } catch (error) {
-      if (request !== generation.current) return;
+      if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
       setState({ sourceKey, status: "error", message: describeError(error) });
+      return false;
     }
   }, [kind, orgId, sourceKey]);
 
@@ -102,6 +110,10 @@ export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
           这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。
         </p>
       </div>
+
+      {kind === "skill" && identity?.orgRole === "admin" ? (
+        <SkillStarterImportPanel key={sourceKey} onImported={load} />
+      ) : null}
 
       {visibleState.status === "loading" ? (
         <div
