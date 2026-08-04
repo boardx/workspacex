@@ -23,11 +23,14 @@ describe("authenticated routes", () => {
   it("keeps the root server response fail-closed and delegates an existing session from login", () => {
     const root = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
     const login = readFileSync(resolve(process.cwd(), "app/(entry)/login/page.tsx"), "utf8");
+    const middleware = readFileSync(resolve(process.cwd(), "middleware.ts"), "utf8");
 
     expect(root).toContain('redirect("/login")');
     expect(root).not.toContain("AppShell");
     expect(root).not.toContain("前端内核已就绪");
     expect(login).toContain("LoginSessionGate");
+    expect(middleware).toContain('matcher: ["/"]');
+    expect(middleware).toContain('NextResponse.redirect(new URL("/login", request.url), 307)');
   });
 
   it("projects no longer asks the signed-in user to type an org id or log in twice", () => {

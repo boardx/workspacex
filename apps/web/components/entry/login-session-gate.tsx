@@ -12,7 +12,7 @@ export function LoginSessionGate({ children }: { children: React.ReactNode }) {
     if (status === "authenticated") router.replace("/projects");
   }, [router, status]);
 
-  if (status === "loading" || status === "authenticated") {
+  if (status === "authenticated") {
     return (
       <div
         aria-live="polite"

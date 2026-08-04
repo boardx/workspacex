@@ -16,10 +16,10 @@ describe("LoginSessionGate", () => {
     status = "loading";
   });
 
-  it("does not expose the login form while the stored session is still hydrating", () => {
+  it("server-renders the login form while hydration is pending so no-JS users are not stranded", () => {
     render(<LoginSessionGate><div>login form</div></LoginSessionGate>);
 
-    expect(screen.queryByText("login form")).not.toBeInTheDocument();
+    expect(screen.getByText("login form")).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 
