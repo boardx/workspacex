@@ -77,6 +77,16 @@ export interface SegmentStore {
  * `domain.md` X-7 says in as many words 「本束不得自己拆」 while `ui.md` S-09 records that the
  * prototype split it anyway. So this port asks one question — *is any cell still pending?* —
  * and the answer comes from whoever owns the matrix. Nothing here enumerates the items.
+ *
+ * ⚠ 2026-08-04 coord-main 裁决（issue #465 / PR #500）：**存储表不算第二份事实**——
+ *   X-7 管的是「授权项**定义**」（「必须读同一份授权项定义，不得自己拆」），不是
+ *   「提交记录存哪张表」，所以 `recording_consent_cells` 可以存在，它的项来自已签核契约的
+ *   `RecordingConsentItem`（一处定义，机械对账见
+ *   `tests/rec/recording-consent-single-source.test.ts`）。
+ *   **⚠ 上面那段没有过时，不许删、也不许改成「已解决」**：X-7 的三项（recording 契约）
+ *   vs 四项（`interview_consent_submissions` 的四个布尔列）之争**仍未裁**，是产品语义问题，
+ *   需要人类。裁决只回答了「表能不能建」，没有回答「到底几项」。
+ *   把这段注释改成「已解决」，正是本仓 2026-08-05 一天里发现四处的那种**会说谎的注释**。
  */
 export interface ConsentGate {
   /** True ⇒ `startRecording` must refuse. Equivalent to `getConsentMatrix.blocksStart`. */

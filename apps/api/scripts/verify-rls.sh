@@ -206,7 +206,26 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   ⚠ #457 / #459 与本 PR 并行，两者都可能再加租户表。若合流时这一行出现文本冲突：
 #     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
 #     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
-OK_TABLES_FLOOR=96
+# ⚠ 96 -> 101 是 #465（迁移 20260805100000）在**全新空库上实测**的：
+#   `WORKSPACEX_DB=wsx_rec465rls bash scripts/verify-rls.sh` 报
+#   `audit is not idle: 101 tenant tables classified ok`。
+#   本 PR 加五张表，五张都带 `org_id` ⇒ 五张都判 `ok`：
+#   `recording_sessions` / `recording_tracks` / `recording_segments` /
+#   `recording_consent_cells` / `recording_operation_idempotency`。
+#
+#   ⚠ **量了两次，第二次才是这一行的值**：第一次在分支基点 035b8407 上量得 101；
+#     随后 rebase 到含 #486 / #476 / #471 的 main 上，用**另一个全新库名**
+#     （`wsx_rec465rls2`）从空库重跑，仍是 101。第二次不是「确认一下」，是因为
+#     上面 F81 / F109 两段写死了「合流会让前一次测量作废」——碰巧数字没变，
+#     不等于前一次测量还有效。
+#   ⚠ 「96 + 我加的 5 = 101」这次算术又恰好对上，而这**仍然不构成**可以推算的理由——
+#     上面 F49 / F109 两段各记过一次算术对上，紧接着 F10/F108 差 2、F15 差 1，
+#     两次都是往少了算，而少算的结果恰好是静默失效（比较是 `-ge`，floor 少 1 永远不会红）。
+#     算术对上只说明这一轮没有 exempt 表，不说明下一轮也没有。
+#   ⚠ #459（skill controller）与 #414（agent-runtime）与本 PR 并行，两者都可能再加租户表。
+#     合流时这一行若出现文本冲突：照上面 F81 / F109 两段的做法——**冲突整个丢掉，
+#     在合流后的库上从空库重跑一次**，不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
+OK_TABLES_FLOOR=101
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
