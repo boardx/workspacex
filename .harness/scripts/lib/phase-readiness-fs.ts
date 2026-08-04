@@ -1,15 +1,21 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { findPhaseDir, REPO_ROOT } from "./paths";
 import {
   parseEvidenceManifest,
   parsePhaseReadiness,
+  type EvidenceRef,
   type EvidenceProof,
   type PhaseReadiness,
   type ReadinessEvidenceKind,
 } from "./phase-readiness";
+
+export interface EvidencePathContext {
+  repoRoot: string;
+  phaseEvidenceDir: string;
+}
 
 export function phaseReadinessPath(phaseId: string): string {
   return join(findPhaseDir(phaseId), "runtime-readiness.json");
@@ -33,41 +39,77 @@ export function savePhaseReadiness(state: PhaseReadiness): void {
   writeFileSync(phaseReadinessPath(state.phase), JSON.stringify(state, null, 2) + "\n", "utf8");
 }
 
-function safeRepoPath(input: string): { absolute: string; relative: string } | null {
-  if (!input || isAbsolute(input) || input.includes("\\")) return null;
-  const absolute = resolve(REPO_ROOT, input);
-  if (absolute !== REPO_ROOT && !absolute.startsWith(REPO_ROOT + sep)) return null;
-  const rel = relative(REPO_ROOT, absolute).replaceAll("\\", "/");
-  return rel.startsWith("../") ? null : { absolute, relative: rel };
+function isWithin(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(root + sep);
 }
 
-function committedAndClean(path: string): string | null {
+function defaultEvidenceContext(phase: string): EvidencePathContext {
+  return { repoRoot: REPO_ROOT, phaseEvidenceDir: join(findPhaseDir(phase), "evidence") };
+}
+
+function safeEvidencePath(
+  input: string,
+  context: EvidencePathContext,
+): { ok: true; absolute: string; relative: string } | { ok: false; error: string } {
+  if (!input || isAbsolute(input) || input.includes("\\"))
+    return { ok: false, error: `path must be repository-relative: ${input}` };
+  const repoRoot = resolve(context.repoRoot);
+  const phaseEvidenceDir = resolve(context.phaseEvidenceDir);
+  const absolute = resolve(repoRoot, input);
+  const rel = relative(repoRoot, absolute).replaceAll("\\", "/");
+  if (!isWithin(repoRoot, absolute) || rel.startsWith("../"))
+    return { ok: false, error: `path escapes repository: ${input}` };
+  if (!isWithin(phaseEvidenceDir, absolute) || absolute === phaseEvidenceDir)
+    return { ok: false, error: `path is outside the phase evidence directory: ${rel}` };
+  let metadata;
   try {
-    execFileSync("git", ["cat-file", "-e", `HEAD:${path}`], { cwd: REPO_ROOT, stdio: "ignore" });
-    execFileSync("git", ["diff", "--quiet", "HEAD", "--", path], { cwd: REPO_ROOT, stdio: "ignore" });
+    metadata = lstatSync(absolute);
+  } catch {
+    return { ok: false, error: `file is missing: ${rel}` };
+  }
+  if (metadata.isSymbolicLink()) return { ok: false, error: `file must not be a symbolic link: ${rel}` };
+  if (!metadata.isFile() || metadata.size === 0) return { ok: false, error: `file is missing or empty: ${rel}` };
+  try {
+    const repoReal = realpathSync(repoRoot);
+    // Resolve the phase directory but intentionally not its evidence child. If
+    // evidence/ itself is a symlink, the candidate's real path cannot be under
+    // this nominal allowed directory and is rejected.
+    const allowedReal = join(realpathSync(dirname(phaseEvidenceDir)), basename(phaseEvidenceDir));
+    const candidateReal = realpathSync(absolute);
+    if (!isWithin(repoReal, candidateReal))
+      return { ok: false, error: `real path escapes repository: ${rel}` };
+    if (!isWithin(allowedReal, candidateReal) || candidateReal === allowedReal)
+      return { ok: false, error: `real path is outside the phase evidence directory: ${rel}` };
+  } catch {
+    return { ok: false, error: `real path cannot be validated: ${rel}` };
+  }
+  return { ok: true, absolute, relative: rel };
+}
+
+function committedAndClean(path: string, repoRoot: string): string | null {
+  try {
+    execFileSync("git", ["cat-file", "-e", `HEAD:${path}`], { cwd: repoRoot, stdio: "ignore" });
+    execFileSync("git", ["diff", "--quiet", "HEAD", "--", path], { cwd: repoRoot, stdio: "ignore" });
     return null;
   } catch {
     return `${path} must be committed at HEAD and unchanged`;
   }
 }
 
-function validateArtifact(path: string): string | null {
-  const safe = safeRepoPath(path);
-  if (!safe) return `artifact path is unsafe: ${path}`;
-  if (!existsSync(safe.absolute) || !statSync(safe.absolute).isFile() || statSync(safe.absolute).size === 0)
-    return `artifact is missing or empty: ${safe.relative}`;
-  return committedAndClean(safe.relative);
+function validateArtifact(path: string, context: EvidencePathContext): string | null {
+  const safe = safeEvidencePath(path, context);
+  if (!safe.ok) return `artifact ${safe.error}`;
+  return committedAndClean(safe.relative, context.repoRoot);
 }
 
 export function loadEvidenceProof(
   inputPath: string,
   expected: { phase: string; kind: ReadinessEvidenceKind },
+  context: EvidencePathContext = defaultEvidenceContext(expected.phase),
 ): { ok: true; proof: EvidenceProof } | { ok: false; error: string } {
-  const safe = safeRepoPath(inputPath);
-  if (!safe) return { ok: false, error: `${expected.kind} evidence path is unsafe` };
-  if (!existsSync(safe.absolute) || !statSync(safe.absolute).isFile() || statSync(safe.absolute).size === 0)
-    return { ok: false, error: `${expected.kind} evidence is missing or empty: ${safe.relative}` };
-  const committedError = committedAndClean(safe.relative);
+  const safe = safeEvidencePath(inputPath, context);
+  if (!safe.ok) return { ok: false, error: `${expected.kind} evidence ${safe.error}` };
+  const committedError = committedAndClean(safe.relative, context.repoRoot);
   if (committedError) return { ok: false, error: committedError };
   const bytes = readFileSync(safe.absolute);
   let raw: unknown;
@@ -79,7 +121,7 @@ export function loadEvidenceProof(
   const parsed = parseEvidenceManifest(raw, expected);
   if (!parsed.ok) return { ok: false, error: `${expected.kind} evidence schema invalid: ${parsed.errors.join("; ")}` };
   for (const artifact of parsed.value.artifacts) {
-    const error = validateArtifact(artifact);
+    const error = validateArtifact(artifact, context);
     if (error) return { ok: false, error: `${expected.kind} evidence ${error}` };
   }
   return {
@@ -90,6 +132,22 @@ export function loadEvidenceProof(
       manifest: parsed.value,
     },
   };
+}
+
+export function loadReferencedEvidenceProof(
+  ref: EvidenceRef,
+  expected: { phase: string; kind: ReadinessEvidenceKind },
+  context: EvidencePathContext = defaultEvidenceContext(expected.phase),
+): { ok: true; proof: EvidenceProof } | { ok: false; error: string } {
+  const loaded = loadEvidenceProof(ref.path, expected, context);
+  if (!loaded.ok) return loaded;
+  if (loaded.proof.sha256 !== ref.sha256) {
+    return {
+      ok: false,
+      error: `${expected.kind} evidence hash drift (recorded ${ref.sha256.slice(0, 8)} / actual ${loaded.proof.sha256.slice(0, 8)})`,
+    };
+  }
+  return loaded;
 }
 
 export function validateTargetCommit(commit: string): string | null {

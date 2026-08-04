@@ -15,7 +15,7 @@ import { resolveSpecRef } from "./lib/spec-ref";
 import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { auditSignoff } from "./lib/design-signoff";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
-import { loadEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
+import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -43,17 +43,9 @@ function checkPhaseReadiness(phaseId: string, findings: Finding[]): void {
     for (const kind of ["runtime", "e2e"] as const satisfies readonly ReadinessEvidenceKind[]) {
       const ref = state.evidence[kind];
       if (!ref) continue;
-      const loaded = loadEvidenceProof(ref.path, { phase: phaseId, kind });
+      const loaded = loadReferencedEvidenceProof(ref, { phase: phaseId, kind });
       if (!loaded.ok) {
         findings.push({ level: "FAIL", phase: phaseId, msg: `runtime/E2E readiness：${loaded.error}` });
-        continue;
-      }
-      if (loaded.proof.sha256 !== ref.sha256) {
-        findings.push({
-          level: "FAIL",
-          phase: phaseId,
-          msg: `runtime/E2E readiness：${kind} evidence hash drift（recorded ${ref.sha256.slice(0, 8)} / actual ${loaded.proof.sha256.slice(0, 8)}）`,
-        });
         continue;
       }
       proofs.push(loaded.proof);
