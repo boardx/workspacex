@@ -77,10 +77,10 @@ agents:
     model: configured-default
     owner: 2325074+usamshen@users.noreply.github.com
     areas: [auth, identity, session]
-    # ⚠ 仍挂在 coord-main 下：把它改挂到 coord-agent-auth 会撞 #407 的扁平拓扑
-    # 不变量（registry-integration-team.test.ts:36 断言四个 worker 均 reports_to
-    # coord-main）。改拓扑需要人类裁决并单独修订该不变量，不在本 PR 范围内。
-    reports_to: coord-main
+    # 2026-08-04 人类裁决：正式改挂到 auth 模块协调者下。合并权仍唯一归
+    # coord-main —— coord-agent-auth 是 module-coordinator，无合并权，
+    # 汇报链 dev-auth → coord-agent-auth → coord-main 由门控机械断言。
+    reports_to: coord-agent-auth
     responsibilities:
       - 接通已签核的认证与当前组织真实运行时路径
 
