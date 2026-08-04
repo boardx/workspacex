@@ -8,7 +8,7 @@
 // query.state === cookie 里签的 nonce，同 OAuth state 核对逻辑，故直接复用 verifyState。
 //
 // GITHUB_APP_SLUG（非敏感 var，wrangler.toml [vars]）：App 的公开 slug（不是数字 ID
-// 4328933，也不是 OAuth client id）——安装链接格式 https://github.com/apps/<slug>/installations/new。
+// 4470270，也不是 OAuth client id）——安装链接格式 https://github.com/apps/<slug>/installations/new。
 import { randomNonce, sanitizeReturnTo, signState, verifyState } from "./oauth";
 
 export const INSTALL_STATE_COOKIE = "devportal_install_state";
