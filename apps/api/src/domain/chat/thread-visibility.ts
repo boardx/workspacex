@@ -261,8 +261,17 @@ export function decideAdminAuditRead(input: {
 /**
  * 写能力标记的全集。observer 的响应体里**一个都不能出现**。
  *
- * 逐条对应 uc-8-5 / I-5 点名的那五样：输入区 / 批准卡 / [改派] / [全屏编辑] / [停止录音]。
+ * 前五条逐条对应 uc-8-5 / I-5 点名的那五样：输入区 / 批准卡 / [改派] / [全屏编辑] / [停止录音]。
  * 用常量而不是字面量散在各处，是为了让「一个都不能出现」可以写成一句断言。
+ *
+ * `thread.mutate`（#460）是第六条：会话的新建 / 改名 / 删除。它必须是**独立的一条**，
+ * 不能让前端拿 `composer.send` 当代理去推断——「能发消息」与「能删掉整条会话」是两件事，
+ * 今天恰好同为非观察者才有，不代表以后是。本文件 :104 的注释已经就「两件事混成一个布尔，
+ * 就再也分不出看得见但不能写」立过一次规矩，这里沿用它。
+ *
+ * ⚠ 契约 `chat.mutateThread`（`packages/contracts/src/chat.ts:408`）要求**两侧都验收**：
+ * 按钮不渲染 **且** 接口拒绝。服务端拒绝早已存在（`mutate-thread.ts` 的 `NO_WRITE_ROLE`），
+ * 这条能力补的是「按钮不渲染」那一侧的诚实依据 —— 前端据此不渲染，而不是渲染后禁用。
  */
 export const CHAT_WRITE_CAPABILITIES = [
   "composer.send",      // 输入区
@@ -270,6 +279,7 @@ export const CHAT_WRITE_CAPABILITIES = [
   "reassign",           // [改派]
   "fullscreen-edit",    // [全屏编辑]
   "recording.stop",     // [停止录音]
+  "thread.mutate",      // 新建 / 改名 / 删除会话（#460）
 ] as const;
 
 /** 读能力。观察者拿到的是这一份的子集。 */
