@@ -34,7 +34,7 @@
 import { chat as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
-import { observerMayReadMessage } from "../../domain/chat/thread-visibility";
+import { capabilitiesFor, observerMayReadMessage } from "../../domain/chat/thread-visibility";
 import {
   threadAgentSummary,
   threadBadgeState,
@@ -71,6 +71,17 @@ export async function listThreads(
     includeArchived,
   });
 
+  // 项目级能力（#489）。**不能**从下面那个循环里取——循环体是逐线程判权，
+  // 零会话时它一次都不跑，而「能不能建第一条会话」恰恰要在零会话时回答。
+  // 事实源仍是 `capabilitiesFor`，与 `getThread` 逐字同一个函数；这里只是换了个
+  // 读端口再下发一次，没有第二套判定。
+  const membership = await deps.repo.findProjectMembership(
+    input.userId,
+    input.projectId,
+    input.orgId,
+  );
+  const capabilities = capabilitiesFor(membership?.projectRole ?? null);
+
   const now = deps.clock.now();
   const byLabel = new Map<string, ThreadCard[]>();
 
@@ -98,7 +109,8 @@ export async function listThreads(
   }
 
   // 空态：**`groups: []`**，不生成示例线程（契约 `listThreads` 注释 / V4）。
-  if (byLabel.size === 0) return { groups: [] };
+  // ⚠ 但 `capabilities` 照常下发——空态恰恰是它唯一能被读到的时刻（#489）。
+  if (byLabel.size === 0) return { groups: [], capabilities };
 
   // 组标题常驻（R8）：有内容时两组都在，空组也在——否则「今天没有对话」会与
   // 「今天这一组没被实现」在界面上无法区分。
@@ -109,6 +121,7 @@ export async function listThreads(
         a.lastActivityAt < b.lastActivityAt ? 1 : -1,
       ),
     })),
+    capabilities,
   };
 }
 
