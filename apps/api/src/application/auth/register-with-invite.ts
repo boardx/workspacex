@@ -19,16 +19,17 @@ import { auth as A } from "@repo/contracts";
 import {
   newOrgId,
   newUserId,
-  newVerificationToken,
   normalizeEmail,
 } from "../../domain/auth/registration";
 import { EMAIL_VERIFICATION_TTL_MS } from "../../domain/auth/email-verification";
 import { EmailTakenError, InviteCodeInvalidError } from "./errors";
 import type { PasswordHasher, RegistrationRepository } from "./ports";
+import type { EmailVerificationTokenCodec } from "./email-verification-ports";
 
 export interface RegisterDeps {
   readonly repo: RegistrationRepository;
   readonly hasher: PasswordHasher;
+  readonly verificationTokens: EmailVerificationTokenCodec;
   /** Injected so expiry is assertable without waiting 24 hours. */
   readonly now?: () => Date;
 }
@@ -44,7 +45,7 @@ export interface RegisterInput {
 export interface RegisterOutput {
   readonly userId: string;
   readonly orgId: string;
-  readonly emailVerificationSent: true;
+  readonly verificationDelivery: "queued";
 }
 
 export async function registerWithInvite(
@@ -74,6 +75,8 @@ export async function registerWithInvite(
     throw new Error("password hasher produced a hash that violates invariant I-2");
   }
 
+  const challengeId = deps.verificationTokens.newChallengeId();
+  const verificationToken = deps.verificationTokens.tokenForChallenge(challengeId);
   const result = await deps.repo.redeemAndCreateOrg({
     code: input.code,
     email: normalizeEmail(input.email),
@@ -82,7 +85,9 @@ export async function registerWithInvite(
     userId: newUserId(),
     orgId: newOrgId(),
     orgName: input.orgName,
-    verificationToken: newVerificationToken(),
+    verificationChallengeId: challengeId,
+    verificationTokenDigest: deps.verificationTokens.digest(verificationToken),
+    verificationOutboxId: `verify-${challengeId}`,
     verificationExpiresAt: new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MS),
   });
 
@@ -97,6 +102,6 @@ export async function registerWithInvite(
     // Literal `true`, matching the contract. The repository only reaches this point when
     // the verification row committed alongside everything else, so the claim is backed by
     // a durable write rather than by a hope that SMTP worked.
-    emailVerificationSent: true,
+    verificationDelivery: "queued",
   };
 }

@@ -38,6 +38,10 @@ import {
   type PasswordHasher,
   type RegistrationRepository,
 } from "../../application/auth/ports";
+import {
+  EMAIL_VERIFICATION_TOKEN_CODEC,
+  type EmailVerificationTokenCodec,
+} from "../../application/auth/email-verification-ports";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
@@ -60,6 +64,7 @@ export class AuthRegistrationController {
   constructor(
     @Inject(REGISTRATION_REPOSITORY) private readonly repo: RegistrationRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
+    @Inject(EMAIL_VERIFICATION_TOKEN_CODEC) private readonly verificationTokens: EmailVerificationTokenCodec,
   ) {}
 
   @Public()
@@ -105,7 +110,7 @@ export class AuthRegistrationController {
   async register(@Body(new ZodBodyPipe(REGISTER_SCHEMA)) body: RegisterBody) {
     try {
       return await registerWithInvite(
-        { repo: this.repo, hasher: this.hasher },
+        { repo: this.repo, hasher: this.hasher, verificationTokens: this.verificationTokens },
         {
           code: body.code,
           email: body.email,

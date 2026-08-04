@@ -100,7 +100,7 @@ describe("the route is reachable WITHOUT authentication, and only this route is"
 });
 
 describe("success: the response conforms to the contract", () => {
-  it("201 with { userId, orgId, emailVerificationSent: true }", async () => {
+  it("201 with a durable queued delivery status", async () => {
     await issueInviteCode(codes.ok);
     const r = await post(registration(codes.ok, "conform", "Ocean Consulting"));
     expect(r.status).toBe(201);
@@ -108,7 +108,7 @@ describe("success: the response conforms to the contract", () => {
 
     const parsed = C.operations.redeemInviteAndCreateOrg.out.safeParse(r.body);
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(r.body)).toBeNull();
-    expect(r.body.emailVerificationSent).toBe(true);
+    expect(r.body.verificationDelivery).toBe("queued");
   });
 
   it("the response carries NO organization content and no credential material", async () => {
@@ -119,7 +119,7 @@ describe("success: the response conforms to the contract", () => {
     // The org's NAME is tenant content. The caller supplied it, so echoing it is harmless
     // today -- and that is exactly how a response grows a field the contract does not
     // describe. `out` has three keys; the body must have three keys.
-    expect(Object.keys(r.body).sort()).toEqual(["emailVerificationSent", "orgId", "userId"]);
+    expect(Object.keys(r.body).sort()).toEqual(["orgId", "userId", "verificationDelivery"]);
     const asText = JSON.stringify(r.body);
     expect(asText).not.toContain("Ocean Consulting");
     expect(asText).not.toContain(PASSWORD);
@@ -250,11 +250,11 @@ describe("the assertions above are not vacuous", () => {
     // the literal really is a literal -- `false` must not pass, or "silently not sent"
     // becomes expressible again
     expect(
-      out.safeParse({ userId: "u", orgId: "o", emailVerificationSent: false }).success,
+      out.safeParse({ userId: "u", orgId: "o", verificationDelivery: "sent" }).success,
     ).toBe(false);
     // wrong types
     expect(
-      out.safeParse({ userId: 1, orgId: "o", emailVerificationSent: true }).success,
+      out.safeParse({ userId: 1, orgId: "o", verificationDelivery: "queued" }).success,
     ).toBe(false);
     /**
      * ⚠ An EXTRA field must fail too, and it only does because this `out` is `.strict()`.
@@ -269,13 +269,13 @@ describe("the assertions above are not vacuous", () => {
      * `KNOWN_CONTRACT_GAPS.C7`.
      */
     expect(
-      out.safeParse({ userId: "u", orgId: "o", emailVerificationSent: true, orgName: "leak" })
+      out.safeParse({ userId: "u", orgId: "o", verificationDelivery: "queued", orgName: "leak" })
         .success,
       "the out schema accepts undeclared fields -- hard rule 6 is blind to response drift here",
     ).toBe(false);
     // ...and the shape that DOES conform, so the schema is not simply rejecting everything
     expect(
-      out.safeParse({ userId: "u", orgId: "o", emailVerificationSent: true }).success,
+      out.safeParse({ userId: "u", orgId: "o", verificationDelivery: "queued" }).success,
     ).toBe(true);
   });
 
