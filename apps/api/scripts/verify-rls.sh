@@ -207,16 +207,29 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
 #     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
 #
-# ⚠ 96 -> 97 是 #414（迁移 20260805100000）在**全新迁移库上实测**的：
-#   `WORKSPACEX_DB=wsx_414_rls bash scripts/verify-rls.sh` 报 `ok = 97`。
-#   #414 只加一张表 `agent_run_steps`（AgentRun 的 append-only 步骤日志），带 org_id ⇒ ok；
+# ⚠ 96 -> 97 是 #414（迁移 20260805110000）在**全新迁移库上实测**的，量了两次：
+#     · 第一次（分支从 035b8407 拉出时）：`WORKSPACEX_DB=wsx_414_rls` 报 `ok = 97`
+#     · 第二次（merge origin/main = bf1c974b 之后，**本行采用**）：
+#       `WORKSPACEX_DB=wsx_414_rls_merged bash scripts/verify-rls.sh` 报 `ok = 97`
+#   两次同值，因为这五个 commit（#486/#476/#471/#494/#490）一张租户表都没加。
+#   #414 自己只加一张表 `agent_run_steps`（AgentRun 的 append-only 步骤日志），带 org_id ⇒ ok；
 #   它另外给 `agent_runs` 加了四列，加列对这个数的贡献是 0。
-#   这次「96 + 1 = 97」算术恰好对上，**这不构成可以推算的理由**——上面 #463 那段记的是
+#   「96 + 1 = 97」算术恰好对上，**这不构成可以推算的理由**——上面 #463 那段记的是
 #   这一行刚刚被发现空转了整整一个波次（松量 48）。数字仍然是量出来的，算术只是事后核对。
 #
-#   ⚠ #414 与 #459 / #465 同批，合并顺序是 #459 → #465 → #414，本 PR 排最后。
+# ⚠⚠ **本行是一次尚未完成的测量，下一个碰它的人必须重跑。**
+#   coord-chat-e2e 的裁决是「rebase 到含 #465 的 main 之后从空库重测」，而写下本行时
+#   **#465（PR #500）还没有合入 main**（`gh pr view 500` = OPEN，`origin/main` 的最大
+#   迁移号仍是 20260805030000）。所以 97 是**不含 #465 的那棵树**上的真值，不是裁决
+#   要求的那个数。#465 在它自己的树上实测的是 **101**（96 → 101）。两个数都是真的，
+#   对的是各自当时那棵树——这正是 F49 / F117 / F81 三次踩过的形态。
+#
+#   ⇒ #465 合入之后（或 #459 合入之后），这一行**必须**用一个全新库名从空库重跑一次，
+#     把实测值填进来。**不许照抄 97、不许照抄 101、不许把两边的增量相加**——
+#     「101 + 我加的几张」在算术里永远想不起别人漏掉的表，而少算的结果恰好是
+#     这个 ratchet 静默失效（比较是 `-ge`，floor 少 1 永远不会红）。
 #     若 rebase 时这一行出现文本冲突：照 F81 / F109 / #463 几段写过的做法——
-#     **冲突整个丢掉，在合流后的库上从空库重跑一次**，不要挑一个数字留下，也不要相加。
+#     **冲突整个丢掉，在合流后的库上从空库重跑一次**，不要挑一个数字留下。
 OK_TABLES_FLOOR=97
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
