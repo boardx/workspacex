@@ -23,6 +23,7 @@ import {
 import {
   artifact,
   auth,
+  canvas,
   chat,
   files,
   identity,
@@ -261,7 +262,34 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   `messages-jsonl-file-granularity.test.ts` 的两条「逐字节相同」断言上。
    */
   const chatError = chat.ChatError.safeParse(raw);
-  return chatError.success ? { reasonCode: chatError.data } : {};
+  if (chatError.success) return { reasonCode: chatError.data };
+
+  /**
+   * #463: `canvas.CanvasError`，第十个闭集枚举 —— 同一个 bug 第六次发生。
+   *
+   * ⚠ 「第十」是**数调用点数出来的**，不是把上一条的「第九」加一：
+   *   `grep -c "^  const .*safeParse(raw);"` 在本改动前报 9，本条是第 10 个。
+   *   上面 F32 与 F109 两段各自记过一次「裸 grep 会多报，因为注释里也提到了它」，
+   *   这里照它们的方法重数了一遍。
+   *
+   * `canvas.ts` 的五个注册表操作声明了 `TEMPLATE_NOT_FOUND` / `ROLE_INSUFFICIENT` /
+   * `BUILTIN_TEMPLATE_UNDELETABLE` / `NO_PROJECT_ROLE` / `DEPENDENCY_UNAVAILABLE`，
+   * 而它们不属于上面任何一个枚举 —— 于是前九次 safeParse 全部失败，调用方收到光秃秃的
+   * `{"error":"forbidden"}`。状态码对，原因没了，而这几件事的出口互不相同：
+   *   · `ROLE_INSUFFICIENT` 去找管理员；
+   *   · `BUILTIN_TEMPLATE_UNDELETABLE` **找谁都没用**，19 个内置模板本来就不可归档；
+   *   · `NO_PROJECT_ROLE` 是「你根本不在这个组织」。
+   * 把前两个都渲染成同一个 403，用户会去要一个不存在的权限。
+   *
+   * ⚠ `TEMPLATE_NOT_FOUND` **走这条路是安全的**，与 `chat.NOT_VISIBLE` / `ARTIFACT_NOT_FOUND`
+   *   那两条刻意不走的不同：`canvas-template.controller.ts` 里权限判定在存在性查询**之前**
+   *   （见 `publish-template.ts` 的那条注释），所以一个无权者永远拿不到 404 与 403 的
+   *   差别，这个码只可能出现在一个已经被授权的管理员眼前。反证在
+   *   `template-lifecycle-http.test.ts` 的「普通成员发布」与「租户隔离」两条断言上：
+   *   前者收到的是 403 而不是 404，后者收到的是 404 而不是别的组织的存在性。
+   */
+  const canvasError = canvas.CanvasError.safeParse(raw);
+  return canvasError.success ? { reasonCode: canvasError.data } : {};
 }
 
 /**

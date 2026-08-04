@@ -190,7 +190,23 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   ⚠ 「44 + 我加的 2 = 46」这次算术又恰好对上，**连续第二次**（F49 那段记的是第一次）。
 #     这**仍然不构成**可以推算的理由：算术对上只说明这一轮没有 exempt 表。
 #     F10/F108 那次差 2、F15 那次差 1，两次都是往少了算，而少算的结果恰好是静默失效。
-OK_TABLES_FLOOR=46
+# ⚠ 46 -> 96 是 #463（迁移 20260805030000）在**全新迁移库上实测**的：
+#   `WORKSPACEX_DB=wsx_463rls bash scripts/verify-rls.sh` 报 `ok = 96`。
+#   #463 只加了两张表（`canvas_templates` / `canvas_template_bindings`，两张都带 org_id ⇒ ok）。
+#
+#   ⚠ **「46 + 我加的 2 = 48」，而实测是 96。差的 48 张全部是别人的。**
+#     这一行上一次被抬是 F109，之后 wave-0 / wave-1 / wave-2 一路合入了几十张租户表，
+#     **没有任何一个 feature 抬过它**。也就是说，本文件上面那几段反复警告的
+#     「留了 N 张表的松量正是这个检查失效的方式」，在这半个月里的实际值是 **N = 48**：
+#     这半个月里任何一张新表被误判成 `exempt` 而不是 `ok`，这个 ratchet 都不会红
+#     （比较是 `-ge`，96 - 48 = 48 的余量吃得下任何一次误判）。
+#     ⇒ 本次不是「把 46 加 2」，是把这一行**重新对齐到实测值**。它顺带记下一件事：
+#       这个 ratchet 事实上空转了整整一个波次，而空转的样子与正常绿是完全一样的。
+#
+#   ⚠ #457 / #459 与本 PR 并行，两者都可能再加租户表。若合流时这一行出现文本冲突：
+#     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
+#     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
+OK_TABLES_FLOOR=96
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption
