@@ -13,7 +13,13 @@
 在 `apps/api` 保留 PostgreSQL transactional outbox，由独立 outbox worker 调用 Cloudflare
 account Email Sending REST API。适配器只接受显式的 `CLOUDFLARE_ACCOUNT_ID`、
 `CLOUDFLARE_EMAIL_API_TOKEN`、`MAIL_FROM` 与 `APP_PUBLIC_URL`；生产缺任一配置即拒绝启动，
-token 仅授予 Email Sending: Edit。测试注入 fake transport，不调用真实服务。
+token 仅授予 Email Sending: Edit。迁移期间，非生产环境在专用 token 未配置时可回退到现有
+`CLOUDFLARE_API_TOKEN`，但只要两者同时存在就优先专用 token；生产不接受通用 token 回退，
+部署前必须换成最小权限的 `CLOUDFLARE_EMAIL_API_TOKEN`。测试注入 fake transport，不调用真实服务。
+
+当前已启用的发送域是 `mail.boardx.us`，公开 MX/SPF/DKIM/DMARC 已生效；发件人为
+`no-reply@mail.boardx.us`，return path 为 `cf-bounce.mail.boardx.us`。这些是部署配置事实，
+不改变适配器的 API 语义，也不把 token 写入仓库。
 
 验证 bearer 由服务端 secret 和随机 challenge id 派生；库中 challenge 表只保存 bearer
 digest，outbox 只保存 challenge id、收件人与模板。worker 投递时才重建链接。每次调用携带稳定
@@ -21,10 +27,10 @@ digest，outbox 只保存 challenge id、收件人与模板。worker 投递时�
 保存 Cloudflare 返回的真实 `result.message_id`。数据库 claim/完成状态保证已确认成功的 outbox
 不会重投，失败按分类记录并重试；请求有硬超时，避免单实例队列永久停摆。
 
-Email Preview 是 Cloudflare sending subdomain 的服务端状态，而最小权限 Email Sending: Edit token
-不扩大到 zone 配置读取。部署者必须先在 Cloudflare 侧核验 `preview_enabled=false`，再显式提供
-`CLOUDFLARE_EMAIL_PREVIEW_DISABLED=true` 作为可审计 attestation；生产缺此声明即拒绝启动。
-应用不声称自行切换或远程读取 Preview 状态。
+Email Preview 是 Cloudflare sending subdomain 的服务端状态，目前 provider 侧仍为 enabled，且
+官方 API 没有更新该设置的端点。部署者必须在 Dashboard 中关闭 Preview，核验
+`preview_enabled=false` 后才能提供 `CLOUDFLARE_EMAIL_PREVIEW_DISABLED=true` 作为可审计
+attestation；生产缺此声明即拒绝启动。应用不声称自行切换或远程读取 Preview 状态。
 
 ## 后果
 - 注册提交与邮件供应商故障解耦，失败可观测、可重试；认证与数据仍留在 Node/PostgreSQL。

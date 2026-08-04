@@ -13,9 +13,11 @@ export interface CloudflareEmailConfig {
 export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): CloudflareEmailConfig {
   const production = env.NODE_ENV === "production";
   const previewDisabledAttested = env.CLOUDFLARE_EMAIL_PREVIEW_DISABLED === "true";
+  const emailApiToken = env.CLOUDFLARE_EMAIL_API_TOKEN ?? "";
+  const migrationApiToken = production ? "" : (env.CLOUDFLARE_API_TOKEN ?? "");
   const values = {
     accountId: env.CLOUDFLARE_ACCOUNT_ID ?? "",
-    apiToken: env.CLOUDFLARE_EMAIL_API_TOKEN ?? "",
+    apiToken: emailApiToken.length > 0 ? emailApiToken : migrationApiToken,
     mailFrom: env.MAIL_FROM ?? "",
     appPublicUrl: env.APP_PUBLIC_URL ?? (production ? "" : "http://localhost:3000"),
   };

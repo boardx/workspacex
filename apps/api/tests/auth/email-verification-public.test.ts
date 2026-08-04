@@ -388,6 +388,32 @@ describe("transactional outbox delivery", () => {
 });
 
 describe("Cloudflare Email Service REST adapter", () => {
+  it("prefers the least-privilege email token over the migration fallback", () => {
+    const config = cloudflareEmailConfig({
+      NODE_ENV: "development",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "email-sending-edit-token",
+      CLOUDFLARE_API_TOKEN: "legacy-broad-token",
+      MAIL_FROM: "no-reply@mail.boardx.us",
+      APP_PUBLIC_URL: "https://app.example.test",
+    });
+    expect(config.apiToken).toBe("email-sending-edit-token");
+  });
+
+  it.each(["development", "staging"])(
+    "allows the legacy Cloudflare token only as a %s migration fallback",
+    (nodeEnv) => {
+      const config = cloudflareEmailConfig({
+        NODE_ENV: nodeEnv,
+        CLOUDFLARE_ACCOUNT_ID: "a",
+        CLOUDFLARE_API_TOKEN: "legacy-broad-token",
+        MAIL_FROM: "no-reply@mail.boardx.us",
+        APP_PUBLIC_URL: "https://app.example.test",
+      });
+      expect(config.apiToken).toBe("legacy-broad-token");
+    },
+  );
+
   it("uses the account endpoint, an allowed trace header, and records Cloudflare's Message-ID", async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       result: {
@@ -452,6 +478,14 @@ describe("Cloudflare Email Service REST adapter", () => {
 
   it("fails closed on missing production credentials and production Preview", () => {
     expect(() => cloudflareEmailConfig({ NODE_ENV: "production" })).toThrow(/incomplete/);
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_API_TOKEN: "legacy-broad-token",
+      MAIL_FROM: "no-reply@mail.boardx.us",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    })).toThrow(/incomplete/);
     expect(() => cloudflareEmailConfig({
       NODE_ENV: "production",
       CLOUDFLARE_ACCOUNT_ID: "a",
