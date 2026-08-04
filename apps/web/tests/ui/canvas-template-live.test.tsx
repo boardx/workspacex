@@ -255,3 +255,166 @@ describe("#464 后台画布模板屏（/admin/canvasadmin）只投影真实响�
     expect(screen.queryByTestId("admin-canvasadmin-empty")).toBeNull();
   });
 });
+
+/**
+ * 🟡 #496 —— 新建模板这条**写**路径。该契约面待人类补签，见
+ * `packages/contracts/src/canvas.ts` 的 `createTemplate` 文件头。
+ *
+ * 三件事在这里被证明：
+ *  ① 请求真的发到了契约声明的 `POST /canvas/templates`，请求体是契约 `in` 的五栏；
+ *  ② 建完**不**自动发布 —— 界面上不许出现「新建即可用」；
+ *  ③ 建完重新拉表，而不是把新行插进本地 state（那种实现刷新后就消失）。
+ *
+ * ⚠ 组件测试证不了「刷新后仍在」：这里的「刷新」只是再调一次 fetch mock。
+ *   那一条只有真浏览器 + 真 PostgreSQL 才算数，在 `e2e/canvas-template-create-smoke.spec.ts`。
+ */
+describe("#496 新建画布模板（待补签的契约面）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-496";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-496");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("提交打的是 POST /canvas/templates，请求体正好是契约 in 的五栏", async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST") {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({
+          key: "swot", displayName: "SWOT 分析", version: 1, status: "draft",
+          builtin: false, visibility: "org-wide", underlyingType: "canvas",
+          sections: [{ sectionId: "s1", name: "优势", order: 0, required: false, capacity: null }],
+        }, 201);
+      }
+      listCalls += 1;
+      // 第二次拉表时那一行已经在服务端了 —— 界面显示的是**重新读到的**结果。
+      return jsonResponse({
+        templates: listCalls === 1
+          ? []
+          : [template({ key: "swot", displayName: "SWOT 分析", version: 1, status: "draft", builtin: false, usageCount: 0 })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "SWOT 分析" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-section-0"), { target: { value: "优势" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.path).toBe("/canvas/templates");
+    // 逐字相等而不是 toMatchObject：多一栏也要红 —— 契约的 in 是 `.strict()`，
+    // 前端多发一栏在服务端是 400，而 toMatchObject 看不见多出来的那一栏。
+    expect(posts[0]!.body).toEqual({
+      key: "swot",
+      displayName: "SWOT 分析",
+      underlyingType: "canvas",
+      visibility: "org-wide",
+      sections: [{ sectionId: "s1", name: "优势", order: 0, required: false, capacity: null }],
+    });
+
+    // ② 只发了这一个 POST：建完没有顺手 publish。
+    expect(posts.map((p) => p.path)).toEqual(["/canvas/templates"]);
+    // ③ 重新拉了表，且新行以**草稿**出现（不是「已发布」）。
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    expect(within(screen.getByTestId("tpladmin-row-swot-1")).getByText("草稿")).toBeInTheDocument();
+    expect(listCalls).toBeGreaterThan(1);
+  });
+
+  it("空名字的分区不提交 —— 一行没填的输入框不是一个分区", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "blank", displayName: "空模板", version: 1, status: "draft", builtin: false,
+          visibility: "org-wide", underlyingType: "canvas", sections: [],
+        }, 201);
+      }
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "blank" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "空模板" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.sections).toEqual([]);
+  });
+
+  it("key 冲突回显成一件用户能自己解决的事，且对话框不关", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") return jsonResponse({ reasonCode: "TEMPLATE_KEY_CONFLICT" }, 409);
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "persona" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "撞名" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+
+    const error = await screen.findByTestId("tpladmin-create-error");
+    expect(error.textContent).toContain("已被占用");
+    expect(error.textContent).toContain("TEMPLATE_KEY_CONFLICT"); // 真实码仍然可见
+    // 对话框留着：用户改个 key 就能重试，不必从头再填一遍。
+    expect(screen.getByTestId("tpladmin-create-dialog")).toBeInTheDocument();
+  });
+
+  it("发布用的是那一行自己的 visibility，不在界面上让人再挑一次", async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST") {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
+      }
+      return jsonResponse({
+        templates: [template({
+          key: "swot", displayName: "SWOT 分析", version: 1, status: "draft",
+          builtin: false, visibility: "team-only", usageCount: 0,
+        })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-publish-swot-1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-publish-swot-1"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.path).toBe("/canvas/templates/swot/publish");
+    expect(posts[0]!.body).toEqual({ key: "swot", version: 1, visibility: "team-only" });
+  });
+
+  it("已发布的行没有发布按钮 —— 状态机不由界面重述一遍", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-publish-persona-3")).toBeNull();
+    expect(screen.getByTestId("tpladmin-archive-persona-3")).toBeInTheDocument();
+  });
+
+  it("观察者视角不挂新建入口（降噪，不是权限 —— 真正的拒绝在服务端）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+    render(<TemplateAdmin previewRole="observer" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-create")).toBeNull();
+  });
+});

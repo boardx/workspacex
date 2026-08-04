@@ -36,7 +36,12 @@ const fixtureEnv = {
 export default defineConfig({
   testDir: "./e2e",
   // #458 的写路径门控单独成文件（原因见该文件头），与 #387 共用同一套 webServer 与同一个库。
-  testMatch: ["fullstack-smoke.spec.ts", "capability-mutate-smoke.spec.ts"],
+  // #496 的画布模板新建同理：核心闭环第 4 步，含一条**常驻反证**用例。
+  testMatch: [
+    "fullstack-smoke.spec.ts",
+    "capability-mutate-smoke.spec.ts",
+    "canvas-template-create-smoke.spec.ts",
+  ],
   fullyParallel: false,
   retries: 0,
   reporter: process.env.CI

@@ -138,7 +138,8 @@ export function CanvasTemplateScreen() {
         <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border p-6" data-testid="admin-canvasadmin-empty">
           <p className="text-13 font-medium">本组织还没有画布模板</p>
           <p className="text-11 text-muted-foreground">
-            这是服务端的真实结果。模板的创建入口尚未在已签契约里存在（见 issue #464），此处不显示任何示例模板。
+            这是服务端的真实结果，此处不显示任何示例模板。新建入口在模板库那一屏（下方链接），
+            后台这一项只做清单与去向 —— 不在两处各放一个创建按钮。
           </p>
         </div>
       )}
