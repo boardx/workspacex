@@ -262,6 +262,51 @@ const assistantRowsFor = (runId: string) => asApp(ORG, (c) => c.query<AssistantR
  * `queued -> running` claim serialises the model call, so racing ticks would be racing the
  * claim (which #414 already proves) instead of racing the writeback.
  */
+/**
+ * Model output that this file's injected trigger refuses to store as a Chat message.
+ *
+ * ⚠ This exists because the FIRST version of the two writeback-failure tests below injected
+ * the failure with `REVOKE INSERT ON chat_messages FROM app_rw`, and that was a real defect
+ * in this test file, not a stylistic problem. A privilege is DATABASE-WIDE, vitest runs test
+ * files four at a time against ONE Postgres (`vitest.config.ts` -> `maxWorkers: 4`), and
+ * every other file's fixtures insert `chat_messages`. It took `thread-badge-single-source`
+ * down in CI, non-deterministically, depending purely on which file happened to be seeding
+ * during the revoke window.
+ *
+ * Measured, not reasoned: with the revoke applied, `INSERT INTO chat_messages` for
+ * `org-f109badge` -- another file's org, nothing to do with this one -- fails with
+ * "permission denied for table chat_messages", while the identical insert succeeds a moment
+ * before. That is the whole bug.
+ *
+ * The replacement is scoped two ways at once: the trigger fires only for THIS file's org AND
+ * only for a body carrying this sentinel prefix, so no other file can observe it even while
+ * it is installed. Its DDL runs twice per file (beforeAll/afterAll) rather than twice per
+ * test, so it also stops taking a table-level lock in the middle of a parallel run.
+ */
+const INJECT = "WAVE2-INJECT-WRITEBACK-FAILURE::";
+
+async function installWritebackFailureInjector(): Promise<void> {
+  await asOwner((c) => c.query(`
+    CREATE OR REPLACE FUNCTION wave2_test_break_writeback() RETURNS trigger AS $fn$
+    BEGIN
+      IF NEW.org_id = '${ORG}' AND NEW.body LIKE '${INJECT}%' THEN
+        RAISE EXCEPTION 'injected writeback failure for %', NEW.agent_run_id;
+      END IF;
+      RETURN NEW;
+    END;
+    $fn$ LANGUAGE plpgsql;
+    DROP TRIGGER IF EXISTS wave2_test_break_writeback_trg ON chat_messages;
+    CREATE TRIGGER wave2_test_break_writeback_trg BEFORE INSERT ON chat_messages
+      FOR EACH ROW EXECUTE FUNCTION wave2_test_break_writeback();
+  `));
+}
+
+async function removeWritebackFailureInjector(): Promise<void> {
+  await asOwner((c) => c.query(
+    "DROP TRIGGER IF EXISTS wave2_test_break_writeback_trg ON chat_messages",
+  ));
+}
+
 async function forceWritebackPending(runId: string, text: string): Promise<void> {
   await asApp(ORG, async (c) => {
     await c.query("UPDATE agent_runs SET status='running' WHERE id=$1", [runId]);
@@ -289,9 +334,13 @@ beforeAll(async () => {
   await app.listen(0);
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
+  // Installed once per file, after the migrations it depends on. Scoped to this org and
+  // this sentinel body, so a parallel worker cannot see it -- see `INJECT`.
+  await installWritebackFailureInjector();
 }, 180_000);
 
 afterAll(async () => {
+  await removeWritebackFailureInjector();
   await app?.close();
   await new Promise<void>((resolve) => providerServer.close(() => resolve()));
 });
@@ -863,36 +912,32 @@ describe("the Chat writeback is exactly-once and terminal only after it commits"
    * A failing writeback must not be terminal on the first try (§6: "the run stays
    * non-terminal for bounded retry"), and must never invent a reply.
    *
-   * The failure is injected by REVOKING the insert privilege the writeback needs, which is
-   * a real infrastructure failure at the real seam rather than a stubbed rejection.
+   * The failure is a real refusal from the database at the real seam -- the INSERT inside
+   * `commitWriteback` throws -- rather than a stubbed rejection at a port boundary. See
+   * `INJECT` above for why it is scoped to this org and this body instead of a privilege.
    */
   it("stays non-terminal for bounded retry, then fails with CHAT_WRITEBACK_FAILED", async () => {
     const { agentRunId, messageId } = await postMessage("Writeback will fail");
-    await forceWritebackPending(agentRunId, "this must never reach the thread");
+    await forceWritebackPending(agentRunId, `${INJECT}this must never reach the thread`);
 
-    await asOwner((c) => c.query("REVOKE INSERT ON chat_messages FROM app_rw"));
-    try {
-      await tick();
-      const afterOne = await readRun(agentRunId);
-      expect(afterOne.status, "one failed attempt must not be terminal").toBe("writeback_pending");
-      expect(afterOne.error).toBeNull();
+    await tick();
+    const afterOne = await readRun(agentRunId);
+    expect(afterOne.status, "one failed attempt must not be terminal").toBe("writeback_pending");
+    expect(afterOne.error).toBeNull();
 
-      // Exhaust the bounded budget.
-      await tick();
-      await tick();
-      await tick();
+    // Exhaust the bounded budget.
+    await tick();
+    await tick();
+    await tick();
 
-      const exhausted = await readRun(agentRunId);
-      expect(exhausted.status).toBe("failed");
-      expect(exhausted.error).toBe("CHAT_WRITEBACK_FAILED");
-      const step = exhausted.steps.find((s) => s.kind === "chat_writeback")!;
-      expect(step.status).toBe("failed");
-      expect(step.failureCode).toBe("CHAT_WRITEBACK_FAILED");
-      // Never a synthetic success message, and the human's message is still there.
-      expect(await assistantRowsFor(agentRunId)).toHaveLength(0);
-    } finally {
-      await asOwner((c) => c.query("GRANT INSERT ON chat_messages TO app_rw"));
-    }
+    const exhausted = await readRun(agentRunId);
+    expect(exhausted.status).toBe("failed");
+    expect(exhausted.error).toBe("CHAT_WRITEBACK_FAILED");
+    const step = exhausted.steps.find((s) => s.kind === "chat_writeback")!;
+    expect(step.status).toBe("failed");
+    expect(step.failureCode).toBe("CHAT_WRITEBACK_FAILED");
+    // Never a synthetic success message, and the human's message is still there.
+    expect(await assistantRowsFor(agentRunId)).toHaveLength(0);
 
     const human = await asApp(ORG, (c) => c.query<{ id: string }>(
       "SELECT id FROM chat_messages WHERE id=$1", [messageId],
@@ -902,18 +947,13 @@ describe("the Chat writeback is exactly-once and terminal only after it commits"
 
   it("leaks nothing about the writeback failure through the client-facing read", async () => {
     const { agentRunId } = await postMessage("Redacted writeback failure");
-    await forceWritebackPending(agentRunId, "secret-body-sk-DO-NOT-LEAK");
+    await forceWritebackPending(agentRunId, `${INJECT}secret-body-sk-DO-NOT-LEAK`);
 
-    await asOwner((c) => c.query("REVOKE INSERT ON chat_messages FROM app_rw"));
-    try {
-      for (let i = 0; i < 4; i++) await tick();
-    } finally {
-      await asOwner((c) => c.query("GRANT INSERT ON chat_messages TO app_rw"));
-    }
+    for (let i = 0; i < 4; i++) await tick();
 
     const text = await (await getRun(agentRunId)).text();
-    for (const leak of ["secret-body-sk-DO-NOT-LEAK", "permission denied", "chat_messages",
-      "app_rw", "at Object.", "node:internal", "PostgresError"]) {
+    for (const leak of ["secret-body-sk-DO-NOT-LEAK", "injected writeback failure",
+      "chat_messages", "app_rw", "at Object.", "node:internal", "PostgresError"]) {
       expect(text, `redaction leak: ${leak}`).not.toContain(leak);
     }
     // Non-vacuity for the loop above, exactly as the #414 redaction test does it.
