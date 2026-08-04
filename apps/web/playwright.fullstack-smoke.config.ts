@@ -54,7 +54,7 @@ export default defineConfig({
       env: { ...process.env, ...fixtureEnv, PORT: apiPort },
     },
     {
-      command: `next dev -p ${webPort}`,
+      command: `next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,

@@ -1,9 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
-test("anonymous root fails closed to login without rendering the product shell", async ({ page }) => {
-  await page.goto("/");
+test("anonymous root fails closed in production HTML, RSC, and no-JS navigation", async ({ page, request, browser }) => {
+  const htmlResponse = await request.get("/", { maxRedirects: 0 });
+  const htmlBody = await htmlResponse.text();
+  expect(htmlResponse.status()).toBe(307);
+  expect(htmlResponse.headers().location).toBe("/login");
+  expect(htmlBody).not.toContain("前端内核已就绪");
+  expect(htmlBody).not.toContain("home-kitchen-sink-link");
 
+  // Middleware must redirect the RSC request before a static route can emit a
+  // body-only NEXT_REDIRECT record with no usable Location header.
+  const rscResponse = await request.get("/", { headers: { RSC: "1" }, maxRedirects: 0 });
+  const rscBody = await rscResponse.text();
+  expect(rscResponse.status()).toBe(307);
+  expect(rscResponse.headers().location).toBe("/login");
+  expect(rscBody).not.toContain("前端内核已就绪");
+  expect(rscBody).not.toContain("home-kitchen-sink-link");
+
+  const noJsContext = await browser.newContext({ javaScriptEnabled: false });
+  const noJsPage = await noJsContext.newPage();
+  const noJsResponse = await noJsPage.goto("/");
+  expect(noJsResponse?.status()).toBe(200);
+  await expect(noJsPage).toHaveURL(/\/login$/);
+  await expect(noJsPage.getByTestId("login-form")).toBeVisible();
+  await expect(noJsPage.getByText("前端内核已就绪")).toHaveCount(0);
+  await noJsContext.close();
+
+  await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByTestId("login-form")).toBeVisible();
   await expect(page.getByTestId("app-shell")).toHaveCount(0);
@@ -35,9 +59,17 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
       }
     }
   });
-  page.on("requestfailed", (request) => failures.push(
-    `requestfailed ${request.method()} ${request.url()}: ${request.failure()?.errorText}`,
-  ));
+  page.on("requestfailed", (request) => {
+    const error = request.failure()?.errorText;
+    const url = new URL(request.url());
+    // Root -> login and the hydrated-session login -> projects handoff can
+    // intentionally cancel the superseded login document or an RSC prefetch.
+    if (
+      error === "net::ERR_ABORTED" &&
+      (url.pathname === "/login" || url.searchParams.has("_rsc"))
+    ) return;
+    failures.push(`requestfailed ${request.method()} ${request.url()}: ${error}`);
+  });
   page.on("console", (message) => {
     if (message.type() === "error") failures.push(`console error: ${message.text()}`);
   });
@@ -50,6 +82,7 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await expect(page).toHaveURL(/\/projects$/);
 
   await page.goto("/");
+  await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByTestId("app-shell")).toBeVisible();
   await expect(page.getByTestId("org-switcher")).toHaveValue(FULLSTACK_E2E.orgId);
   await expect(page.getByTestId("session-logout")).toBeVisible();

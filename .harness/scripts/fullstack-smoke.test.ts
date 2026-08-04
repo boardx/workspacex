@@ -90,6 +90,8 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(config).toContain("WORKSPACEX_API_PORT");
     expect(config).toContain("WORKSPACEX_WEB_PORT");
     expect(config).toContain("reuseExistingServer: false");
+    expect(config).toContain("next build && next start");
+    expect(config).not.toContain("next dev");
 
     const next = read("apps/web/next.config.mjs");
     for (const path of ["/auth/", "/identity/", "/chat/", "/projects/", "/artifacts/"]) {
@@ -99,6 +101,9 @@ describe("#387 trusted full-stack gate contract", () => {
 
   it("walks the real Files entry and asserts every required 2xx response", () => {
     const spec = read("apps/web/e2e/fullstack-smoke.spec.ts");
+    expect(spec).toContain("javaScriptEnabled: false");
+    expect(spec).toContain('headers: { RSC: "1" }');
+    expect(spec).toContain("headers().location");
     expect(spec).toContain("projects-card-${FULLSTACK_E2E.projectId}-enter");
     expect(spec).toContain("project-home-surface-files");
     expect(spec).toContain("FULLSTACK_E2E.sentinelFile");
