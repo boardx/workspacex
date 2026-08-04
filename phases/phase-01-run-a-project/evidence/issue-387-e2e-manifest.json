@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "kind": "e2e",
+  "command": "TURBO_FORCE=true pnpm run verify:full",
+  "exit_code": 0,
+  "commit": "0eaff3caf87b31c915fd20a11e8cdd0ef17b5a32",
+  "recorded_at": "2026-08-04T01:48:42.071Z",
+  "artifacts": [
+    "phases/phase-01-run-a-project/evidence/issue-387-e2e.log"
+  ]
+}

@@ -1,0 +1,16 @@
+issue=387
+target_commit=0eaff3ca
+command=pnpm run verify:fullstack-smoke
+exit_code=0
+database=wsx_0518023c781de823d664
+compose=wsx-0518023c781de823d664
+postgres_port=24516
+redis_port=29516
+response_set=auth/login,identity/me,projects,overview,artifacts,artifact-tree
+response_status=all_2xx
+navigation=login->projects-card->overview->files
+sentinel=FULLSTACK_SENTINEL_yr-9b15bf33-0518023c781d.md
+sentinel_count=1
+console_errors=0
+request_failures=0
+cleanup=compose_down_v_exact_scope
