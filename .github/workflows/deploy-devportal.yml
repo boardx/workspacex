@@ -24,8 +24,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-devportal
-  cancel-in-progress: true # 静态构建可安全取消，只保最新
+  # PR 只取消同一 PR 的旧验证；main 发布共享固定 ref group、排队且永不互相取消。
+  group: deploy-devportal-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -89,21 +90,10 @@ jobs:
           pnpm build
           pnpm exec next-on-pages
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy, production smoke, and automatic rollback
         working-directory: apps/devportal
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          pnpm exec wrangler pages deploy .vercel/output/static \
-            --project-name devportal --branch main --commit-hash "${{ github.sha }}"
-
-      - name: Public smoke check
-        run: |
-          # develop.boardx.us 应 302 到 Access 登录（门禁在前）；pages.dev 直连 API 应 401
-          code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 https://develop.boardx.us/)
-          echo "develop.boardx.us -> $code"
-          [ "$code" = "302" ] || { echo "::error::expected 302 (Access), got $code"; exit 1; }
-          api=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "https://devportal-4mx.pages.dev/api/portal/pulse")
-          echo "pages.dev API -> $api"
-          [ "$api" = "401" ] || { echo "::error::expected 401 on direct pages.dev API, got $api"; exit 1; }
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/pages-cutover.mjs

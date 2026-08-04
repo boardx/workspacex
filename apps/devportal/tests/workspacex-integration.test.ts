@@ -12,6 +12,7 @@ const deployWorkflow = readFileSync(
   path.join(repoRoot, ".github/workflows/deploy-devportal.yml"),
   "utf8",
 );
+const cutoverScript = readFileSync(path.join(appRoot, "scripts/pages-cutover.mjs"), "utf8");
 
 describe("WorkSpaceX DevPortal deployment boundary (#450)", () => {
   it("targets the WorkSpaceX gateway and repository", () => {
@@ -39,8 +40,26 @@ describe("WorkSpaceX DevPortal deployment boundary (#450)", () => {
   it("validates pull requests and deploys only WorkSpaceX main to the existing Pages project", () => {
     expect(deployWorkflow).toContain("pull_request:");
     expect(deployWorkflow).toContain("github.event_name == 'push'");
-    expect(deployWorkflow).toContain("--project-name devportal");
-    expect(deployWorkflow).toContain("https://develop.boardx.us/");
-    expect(deployWorkflow).toContain("https://devportal-4mx.pages.dev/api/portal/pulse");
+    expect(cutoverScript).toContain('const PROJECT = "devportal"');
+    expect(cutoverScript).toContain('const CUSTOM_ORIGIN = "https://develop.boardx.us"');
+    expect(cutoverScript).toContain(
+      'const PAGES_ORIGIN = "https://devportal-4mx.pages.dev"',
+    );
+  });
+
+  it("keeps pull-request cancellation isolated from serialized production deploys", () => {
+    expect(deployWorkflow).toContain("github.event_name");
+    expect(deployWorkflow).toContain("github.event.pull_request.number");
+    expect(deployWorkflow).toContain("github.ref");
+    expect(deployWorkflow).toMatch(
+      /cancel-in-progress:\s*\$\{\{\s*github\.event_name\s*==\s*'pull_request'\s*\}\}/,
+    );
+    expect(deployWorkflow).not.toMatch(/cancel-in-progress:\s*true/);
+  });
+
+  it("runs deployment and production smoke through the rollback-aware cutover", () => {
+    expect(deployWorkflow).toContain("node scripts/pages-cutover.mjs");
+    expect(deployWorkflow).not.toContain("pnpm exec wrangler pages deploy");
+    expect(deployWorkflow).not.toContain("name: Public smoke check");
   });
 });
