@@ -126,31 +126,82 @@ jobs:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
         run: pnpm turbo run typecheck lint test --affected
 
-  # 每小时的门卫：看 main 在过去 1 小时内是否有新 commit（新 PR 合并即产生）。
-  # 有 → 触发 fullstack-smoke；没有 → 本小时静默跳过，不浪费 runner。
-  check-new-merges:
-    if: github.event_name == 'schedule' && github.event.schedule == '0 * * * *'
+  fullstack-smoke:
+    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.check.outputs.changed }}
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: main 过去 1 小时内是否有新 commit
-        id: check
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute trusted full-stack smoke
+        shell: bash
         run: |
-          head_ts=$(git log -1 --format=%ct)
-          now=$(date +%s)
-          if [ $((now - head_ts)) -lt 3600 ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "✓ main 有新合并（HEAD 距今 $((now - head_ts))s），触发全栈烟测"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "○ main 过去 1 小时无新合并，跳过"
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set +e
+          pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
+              --phase 01 --kind runtime --commit "$GITHUB_SHA" \
+              --command "pnpm run verify:fullstack-smoke" \
+              --log phases/phase-01-run-a-project/evidence/ci/runtime.log \
+              --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
           fi
+          exit "$status"
+      - name: Upload runtime evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-01-fullstack-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
 
-  # 全栈运行时回归：pg/redis 服务 + curl 断言，真测运行时行为。
-  # 不随每个 PR/push 跑；每小时定时检查，main 有新合并才执行。
-  # fullstack-smoke（应用级冒烟）在模板中省略——它必然依赖你的具体应用栈
-  # （数据库/端口/首页断言）。参考模式：起最小服务 → curl 首页断言关键字 →
-  # 失败上传日志 artifact。BoardX 的完整实例见上游仓 harness-verify.yml。
+  e2e-full:
+    if: github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute uncached trusted full gate
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set +e
+          TURBO_FORCE=true pnpm run verify:full 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
+              --phase 01 --kind e2e --commit "$GITHUB_SHA" \
+              --command "TURBO_FORCE=true pnpm run verify:full" \
+              --log phases/phase-01-run-a-project/evidence/ci/e2e.log \
+              --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
+          fi
+          exit "$status"
+      - name: Upload E2E evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-01-e2e-full-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error

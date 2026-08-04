@@ -198,7 +198,7 @@ function ProjectRealCard({ project, orgId }: { project: ProjectListItem; orgId: 
           </div>
           <div>
             <Button asChild variant="primary" size="sm">
-              <Link href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</Link>
+              <a href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</a>
             </Button>
           </div>
         </CardContent>
