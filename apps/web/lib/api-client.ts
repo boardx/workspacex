@@ -68,7 +68,11 @@ export interface ApiRequestOptions {
 }
 
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {
-  const url = new URL(path, apiBaseUrl());
+  // Full-stack browser gates keep browser traffic same-origin through an explicit proxy
+  // prefix. The default is empty, so production URLs retain their signed controller paths.
+  const prefix = (process.env.NEXT_PUBLIC_API_PATH_PREFIX ?? "").replace(/\/$/, "");
+  const requestPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(`${prefix}${requestPath}`, apiBaseUrl());
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined) url.searchParams.set(k, v);

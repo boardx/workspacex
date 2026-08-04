@@ -1,6 +1,5 @@
 "use client";
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowLeft, KeyRound } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -21,7 +20,6 @@ import { useSession } from "@/components/session/session-provider";
  * - `[创建组织]`（R8「原型待补」）同样补出：需 14 位邀请码的建组面板。
  */
 export function LoginForm({ state }: { state: UiState }) {
-  const router = useRouter();
   const session = useSession();
   const [showPwd, setShowPwd] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -228,10 +226,9 @@ export function LoginForm({ state }: { state: UiState }) {
             const out = await login(email, password);
             await session.startSession(out);
             // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
-            // ⚠ 落地页仍是 `/projects`（原型屏，mock 数据）：真实实现要由服务端决定
-            //   落地页（有待办 → 任务；被邀请进某场进行中的项目 → 直接进那个项目），
-            //   这不在本次 issue #355 范围内——本次只接通「登录本身」这一段。
-            router.push("/projects");
+            // Use a document navigation after the session's atomic localStorage commit.
+            // It prevents a stale RSC prefetch from racing the new bearer/current-org pair.
+            window.location.assign("/projects");
           } catch (e) {
             setLoginError(
               isLoginRejected(e)

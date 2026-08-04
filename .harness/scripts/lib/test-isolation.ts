@@ -16,6 +16,8 @@ export interface TestIsolationEnv extends Record<string, string> {
   REDIS_PREFIX: string;
   MINIO_PORT: string;
   MINIO_CONSOLE_PORT: string;
+  WORKSPACEX_API_PORT: string;
+  WORKSPACEX_WEB_PORT: string;
   COMPOSE_PROJECT_NAME: string;
   WORKSPACEX_DB_CONNECTION_BUDGET: string;
 }
@@ -31,6 +33,8 @@ const ISOLATION_ENV_KEYS = [
   "REDIS_PREFIX",
   "MINIO_PORT",
   "MINIO_CONSOLE_PORT",
+  "WORKSPACEX_API_PORT",
+  "WORKSPACEX_WEB_PORT",
   "COMPOSE_PROJECT_NAME",
   "WORKSPACEX_DB_CONNECTION_BUDGET",
 ] as const;
@@ -91,6 +95,8 @@ export function deriveTestIsolation(options: Required<IsolationOptions>): TestIs
     REDIS_PREFIX: `wsx:${isolationId}:`,
     MINIO_PORT: portFrom(hash, 30_000),
     MINIO_CONSOLE_PORT: portFrom(hash, 35_000),
+    WORKSPACEX_API_PORT: portFrom(hash, 40_000),
+    WORKSPACEX_WEB_PORT: portFrom(hash, 45_000),
     COMPOSE_PROJECT_NAME: `wsx-${resource}`,
     // Four Vitest workers, each allowed a five-connection application pool, plus
     // migrations/fixtures/monitoring headroom. The global setup enforces this budget.

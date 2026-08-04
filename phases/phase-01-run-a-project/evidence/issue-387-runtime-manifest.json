@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "phase": "01",
+  "kind": "runtime",
+  "command": "pnpm run verify:fullstack-smoke",
+  "exit_code": 0,
+  "commit": "0eaff3caf87b31c915fd20a11e8cdd0ef17b5a32",
+  "recorded_at": "2026-08-04T01:48:41.998Z",
+  "artifacts": [
+    "phases/phase-01-run-a-project/evidence/issue-387-runtime.log"
+  ]
+}

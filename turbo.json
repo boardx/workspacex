@@ -26,6 +26,10 @@
     "REDIS_HOST",
     "REDIS_PORT",
     "REDIS_PREFIX",
+    "MINIO_PORT",
+    "MINIO_CONSOLE_PORT",
+    "WORKSPACEX_API_PORT",
+    "WORKSPACEX_WEB_PORT",
     "KERNEL_ALLOW_TEST_PRINCIPAL",
     "KERNEL_QUIET"
   ],
@@ -63,6 +67,8 @@
         "REDIS_PREFIX",
         "MINIO_PORT",
         "MINIO_CONSOLE_PORT",
+        "WORKSPACEX_API_PORT",
+        "WORKSPACEX_WEB_PORT",
         "COMPOSE_PROJECT_NAME"
       ]
     },

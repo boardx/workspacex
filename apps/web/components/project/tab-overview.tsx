@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -292,13 +291,13 @@ export function TabOverview({
             return (
               <li key={s.key}>
                 {href ? (
-                  <Link
+                  <a
                     href={href}
                     data-testid={`project-home-surface-${s.key}`}
                     className="flex items-center gap-3 rounded-md border border-border-subtle bg-panel px-3 py-2 transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {body}
-                  </Link>
+                  </a>
                 ) : (
                   // 尚未建的屏：显式禁用 + 写明原因。静默无反应是缺陷；显式禁用是设计。
                   <div

@@ -1,0 +1,15 @@
+issue=387
+target_commit=0eaff3ca
+command=TURBO_FORCE=true pnpm run verify:full
+exit_code=0
+database=wsx_0ab9163f516c6358cd1c
+compose=wsx-0ab9163f516c6358cd1c
+postgres_port=22015
+redis_port=27015
+database_peak_connections=16
+harness=203_passed
+api=420_files,4305_passed,2_todo
+turbo=36_of_36_successful,0_cached
+playwright=1_of_1_passed
+failure_set=empty
+cleanup=compose_down_v_exact_scope
