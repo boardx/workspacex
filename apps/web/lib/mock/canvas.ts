@@ -12,27 +12,12 @@
 
 /* ══════════════════════════════ 屏切换（预览手段） ══════════════════════════════ */
 
-export type CanvasScreen =
-  | "template-admin" // UC-7.1 后台画布模板库 + 发布状态机 + mermaid 白名单（F101）
-  | "template-editor" // UC-7.1 后台画布模板【编辑器】v2 重画：设计对话 / fabric.js⇄Markdown 双向同步 / 分区属性含每区 AI 权限 / 版本历史 / 使用填充率（F100/F101）
-  | "segment-binding" // UC-7.1 议程环节绑定模板与 skill（F102）
-  | "editor" // UC-7.3 组内协作编辑画布（F103/F104/F105）—— 复用既有编辑器组件
-  | "ai-draft" // UC-7.2 AI 起草留白规则（F106）
-  | "backflow"; // UC-7.4 画布回流知识图谱（F107）
-
-export const CANVAS_SCREENS: { id: CanvasScreen; label: string; uc: string }[] = [
-  { id: "template-admin", label: "画布模板库", uc: "UC-7.1 · F101" },
-  { id: "template-editor", label: "模板编辑器", uc: "UC-7.1 · F100/F101" },
-  { id: "segment-binding", label: "环节绑定", uc: "UC-7.1 · F102" },
-  { id: "editor", label: "画布编辑器", uc: "UC-7.3 · F103-105" },
-  { id: "ai-draft", label: "AI 起草留白", uc: "UC-7.2 · F106" },
-  { id: "backflow", label: "回流知识图谱", uc: "UC-7.4 · F107" },
-];
-
-export function resolveCanvasScreen(raw: string | string[] | undefined): CanvasScreen {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  return CANVAS_SCREENS.some((s) => s.id === v) ? (v as CanvasScreen) : "template-admin";
-}
+/**
+ * ⚠ 屏注册表（屏 id 联合类型、屏清单、URL 解析函数）已于 #464 搬到
+ * `apps/web/lib/canvas-screens.ts`：它是路由导航，不是 mock 数据，留在这里会让
+ * 「/canvas 这条路由不吃 mock」永远无法机械断言。**搬走，不是复制**——这里不再留副本，
+ * 由 `tests/session/canvas-template-routes-no-mock.test.ts` 钉住不许长回来。
+ */
 
 /**
  * 「环节」命名已由 Q-3 B① 裁定并在 F121 完成改名对齐：全仓单源为
