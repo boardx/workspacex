@@ -47,6 +47,15 @@ jobs:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
+          # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。浅克隆没有 origin/main 这个
+          # ref，也没有足够历史 —— 于是**每一个** passing feature 都被判成「还不在 main 上」。
+          # 实测：tag v0.1.8-staging 的 gates 报 164 FAIL，而 164 = 22(phase00) + 142(phase01)
+          # = 恰好是全部 passing 数；同一份代码本地 `doctor --strict` 是 0 FAIL。
+          # 后果不是「多一条红」——deploy job 的条件是 needs: gates，所以 **tag 触发的部署
+          # 从来就不可能成功**，devapp 因此长期落后 main 且无人发现（见 #483 / #499）。
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -112,6 +121,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
+          # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。浅克隆没有 origin/main 这个
+          # ref，也没有足够历史 —— 于是**每一个** passing feature 都被判成「还不在 main 上」。
+          # 实测：tag v0.1.8-staging 的 gates 报 164 FAIL，而 164 = 22(phase00) + 142(phase01)
+          # = 恰好是全部 passing 数；同一份代码本地 `doctor --strict` 是 0 FAIL。
+          # 后果不是「多一条红」——deploy job 的条件是 needs: gates，所以 **tag 触发的部署
+          # 从来就不可能成功**，devapp 因此长期落后 main 且无人发现（见 #483 / #499）。
+          fetch-depth: 0
 
       - name: 部署并冒烟
         # 走 /usr/local/bin 的副本，不是仓库里那份——sudoers 只许这一条路径。
