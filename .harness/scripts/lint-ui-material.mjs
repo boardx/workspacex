@@ -22,6 +22,11 @@
  *   ④ 目录不存在 / 目录里 0 张 png ⇒ 失败，不是「0/0 全绿」。
  *      「空集使断言平凡为真」是本仓栽过的形状，这里显式堵掉。
  *
+ * 同 phase 复用：不引入新界面的束可在 map 中显式声明
+ * `{ "reuse_bundle": "<bundle>" }`。目标必须是拥有 concrete 目录且自身完整通过
+ * 双向门禁的同 phase 束；复用束仍须完整引用该目录的精确截图集。
+ * self/missing/cycle/chained/跨 phase/越出目标目录一律 fail closed。
+ *
  * 缺口条目怎么写：`⚠ 未产出：…` 的缺口是**文字**，不是链接。写成 `xxx.png` 会被
  * 当成死链报出来——正确写法是去掉 `.png` 后缀，用文字描述该缺哪张。
  *
@@ -29,7 +34,7 @@
  *       不带参数 = 扫 phases/ 下全部带 ui.md 的契约束。
  */
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, relative } from "node:path";
+import { join, dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -119,7 +124,23 @@ function findUiMds(phasesRoot = PHASES) {
   return found;
 }
 
-export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
+function isReuseMapping(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isConcreteScreenshotDir(value) {
+  if (typeof value !== "string" || !value.startsWith("ui-preview/") || value.includes("\\")) return false;
+  const segments = value.split("/");
+  return segments.length > 1 && segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
+/** 解析复用束 ui.md 中人可见、可机检的固定声明。 */
+export function extractReuseStatement(body) {
+  const match = /^\s*>\s*\*{0,2}UI material reuse:\s*no new screen\s*;\s*reuse_bundle:\s*`([A-Za-z0-9][A-Za-z0-9_-]*)`\.\*{0,2}\s*$/im.exec(body);
+  return match?.[1] ?? null;
+}
+
+function lintUiMaterialLegacy({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
   const errors = [];
   const rows = [];
   const map = JSON.parse(readFileSync(mapFile, "utf8"));
@@ -227,6 +248,198 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
     });
   }
 
+  return { errors, rows };
+}
+
+function lintResolvedBundle({ root, phase, label, ui, declaredDir, reuseBundle = null }) {
+  const errors = [];
+  const absDir = join(root, "phases", phase, declaredDir);
+  if (!existsSync(absDir) || !statSync(absDir).isDirectory()) {
+    errors.push(
+      `[目录缺失] ${label} 声明的截图目录不存在：phases/${phase}/${declaredDir}\n` +
+      `    要么目录改名了，要么截图还没产出。这里不当成 0/0 通过。`,
+    );
+    return { errors, row: null };
+  }
+  const actual = listPngs(absDir);
+  if (actual.length === 0) {
+    errors.push(`[目录为空] ${label} 的截图目录 phases/${phase}/${declaredDir} 里一张 png 都没有。`);
+    return { errors, row: null };
+  }
+
+  const body = readFileSync(ui, "utf8");
+  if (reuseBundle !== null && extractReuseStatement(body) !== reuseBundle) {
+    errors.push(
+      `[缺复用声明] ${label}/ui.md 必须显式写明不引入新界面，并点名与 map 一致的目标束。\n` +
+      `    固定格式：> **UI material reuse: no new screen; reuse_bundle: \`${reuseBundle}\`.**`,
+    );
+  }
+
+  const referenced = new Map();
+  for (const { raw, line } of extractRefs(body)) {
+    if (reuseBundle !== null) {
+      const explicitPhase = /(?:^|\/)phases\/([^/]+)\/ui-preview\//.exec(raw.replace(/^\.\//, ""));
+      if (explicitPhase && explicitPhase[1] !== phase) {
+        errors.push(`[跨阶段路径] ${label}/ui.md:${line} 引用了其他 phase 的截图路径：${raw}`);
+        continue;
+      }
+    }
+    const rel = normalizeRef(raw, declaredDir);
+    const abs = resolve(root, "phases", phase, rel);
+    if (reuseBundle !== null && !abs.startsWith(`${resolve(absDir)}${sep}`)) {
+      errors.push(
+        `[跨目录] ${label}/ui.md:${line} 引用了解析目标目录之外的截图：${rel}\n` +
+        `    包含 ../ 的伪前缀也不例外；允许的唯一目录是 ${declaredDir}。`,
+      );
+      continue;
+    }
+    if (!existsSync(abs)) {
+      errors.push(
+        `[死链] ${label}/ui.md:${line} 引用了不存在的截图：${rel}\n` +
+        `    原文：${raw}\n` +
+        `    改成 phases/${phase}/${declaredDir}/ 下真实文件；若是未产出缺口，去掉 .png 后缀改成文字。`,
+      );
+      continue;
+    }
+    if (!rel.startsWith(`${declaredDir}/`)) {
+      errors.push(
+        `[跨目录] ${label}/ui.md:${line} 引用了解析目标目录之外的截图：${rel}\n` +
+        `    允许的唯一目录是 ${declaredDir}（见 ${MAP_REL}）。`,
+      );
+      continue;
+    }
+    const base = rel.slice(declaredDir.length + 1);
+    if (!referenced.has(base)) referenced.set(base, line);
+  }
+
+  const orphans = actual.filter((file) => !referenced.has(file));
+  for (const file of orphans) {
+    errors.push(`[未被引用] ${label}: phases/${phase}/${declaredDir}/${file} 实存，但 ui.md 一次都没引用它。`);
+  }
+  const { declaredN, declaredM } = extractSelfCheck(body);
+  if (declaredN === null || declaredM === null) {
+    errors.push(`[缺自检行] ${label}/ui.md 头 20 行里找不到「本文件引用 N 张截图，目录下实际 M 张」自检。`);
+  } else if (declaredN !== referenced.size || declaredM !== actual.length) {
+    errors.push(
+      `[自检行过时] ${label}/ui.md 顶部写着「引用 ${declaredN} 张 / 实际 ${declaredM} 张」，` +
+      `实测是「引用 ${referenced.size} 张 / 实际 ${actual.length} 张」。`,
+    );
+  }
+  return {
+    errors,
+    row: {
+      label,
+      dir: declaredDir,
+      referenced: referenced.size,
+      actual: actual.length,
+      orphans: orphans.length,
+      ...(reuseBundle === null ? {} : { reusedFrom: reuseBundle }),
+    },
+  };
+}
+
+export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
+  const map = JSON.parse(readFileSync(mapFile, "utf8"));
+  let targets = findUiMds(phasesRoot ?? join(root, "phases"));
+  if (only.length) targets = targets.filter((target) => only.includes(target.phase));
+
+  // 没有复用声明时完全走旧路径，保证既有 string mapping 行为不变。
+  const hasStructuredMapping = targets.some(({ phase, bundle }) => {
+    const mapping = map[phase]?.[bundle];
+    return mapping !== undefined && typeof mapping !== "string";
+  });
+  if (!hasStructuredMapping) return lintUiMaterialLegacy({ root, mapFile, phasesRoot, only });
+
+  const errors = [];
+  const rows = [];
+  if (targets.length === 0) {
+    errors.push(`没有找到任何 phases/<phase>/contracts/<束>/ui.md —— 门禁无对象可查，视为失败（空集不许平凡为真）`);
+    return { errors, rows };
+  }
+  const targetByLabel = new Map(targets.map((target) => [`${target.phase}/${target.bundle}`, target]));
+  const concrete = [];
+  const reused = [];
+
+  for (const target of targets) {
+    const { phase, bundle } = target;
+    const label = `${phase}/${bundle}`;
+    const mapping = map[phase]?.[bundle];
+    if (!mapping) {
+      errors.push(`[未声明] ${label}/ui.md 存在，但 ${MAP_REL} 里没有声明它的截图目录或复用目标。`);
+      continue;
+    }
+    if (typeof mapping === "string") {
+      concrete.push({ ...target, label, declaredDir: mapping });
+      continue;
+    }
+    if (!isReuseMapping(mapping)) {
+      errors.push(`[复用声明非法] ${label} 的映射必须是目录字符串，或仅含 { "reuse_bundle": "<bundle>" } 的对象。`);
+      continue;
+    }
+    const keys = Object.keys(mapping);
+    const reuseBundle = mapping.reuse_bundle;
+    if (keys.length !== 1 || keys[0] !== "reuse_bundle" || typeof reuseBundle !== "string" || reuseBundle.length === 0) {
+      errors.push(`[复用声明非法] ${label} 只能声明 { "reuse_bundle": "<同 phase 束名>" }，不允许额外字段或空目标。`);
+      continue;
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(reuseBundle)) {
+      errors.push(`[跨阶段复用] ${label} 的 reuse_bundle=${JSON.stringify(reuseBundle)} 不是同 phase 的单一束名；禁止 phase/目录/绝对路径与 ..。`);
+      continue;
+    }
+    if (reuseBundle === bundle) {
+      errors.push(`[复用自身] ${label} 不能 reuse_bundle 自己。`);
+      continue;
+    }
+
+    const targetLabel = `${phase}/${reuseBundle}`;
+    const targetMapping = map[phase]?.[reuseBundle];
+    if (!targetMapping || !targetByLabel.has(targetLabel)) {
+      errors.push(`[复用目标缺失] ${label} 的目标 ${targetLabel}/ui.md 或映射不存在。`);
+      continue;
+    }
+    if (isReuseMapping(targetMapping)) {
+      const seen = new Set([bundle]);
+      let cursor = reuseBundle;
+      let cycle = false;
+      while (typeof cursor === "string") {
+        if (seen.has(cursor)) {
+          cycle = true;
+          break;
+        }
+        seen.add(cursor);
+        const cursorMapping = map[phase]?.[cursor];
+        if (!isReuseMapping(cursorMapping)) break;
+        cursor = cursorMapping.reuse_bundle;
+      }
+      if (cycle) {
+        errors.push(`[复用循环] ${label} 的复用链形成循环：${[...seen, cursor].join(" -> ")}。`);
+      } else {
+        errors.push(`[复用链] ${label} 指向了复用束 ${reuseBundle}；请扁平化到最终 concrete 目标。`);
+      }
+      continue;
+    }
+    if (!isConcreteScreenshotDir(targetMapping)) {
+      errors.push(`[复用目标非 concrete] ${label} 的目标 ${targetLabel} 没有安全的 concrete ui-preview/<目录> 映射。`);
+      continue;
+    }
+    reused.push({ ...target, label, declaredDir: targetMapping, reuseBundle, targetLabel });
+  }
+
+  const concreteResults = new Map();
+  for (const descriptor of concrete) {
+    const result = lintResolvedBundle({ root, ...descriptor });
+    errors.push(...result.errors);
+    if (result.row) rows.push(result.row);
+    concreteResults.set(descriptor.label, result.errors.length === 0);
+  }
+  for (const descriptor of reused) {
+    if (concreteResults.get(descriptor.targetLabel) !== true) {
+      errors.push(`[复用目标未通过] ${descriptor.label} 不能复用 ${descriptor.targetLabel}；目标束必须先独立通过完整双向材料门禁。`);
+    }
+    const result = lintResolvedBundle({ root, ...descriptor });
+    errors.push(...result.errors);
+    if (result.row) rows.push(result.row);
+  }
   return { errors, rows };
 }
 
