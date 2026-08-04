@@ -31,6 +31,7 @@ import {
   orgAdmin,
   project,
   recording,
+  skills,
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
@@ -235,6 +236,22 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
 
   const agentStarterImport = wave2Runtime.AgentStarterImportError.safeParse(raw);
   if (agentStarterImport.success) return { reasonCode: agentStarterImport.data };
+
+  /**
+   * #459：`skills.SkillError` —— 声明式契约 skill 的失败面。
+   *
+   * ⚠ 加进这个白名单是**必需的**，不是顺手：本文件是允许列表，没登记的
+   *   `reasonCode` 会被**静默丢掉**，于是 controller 抛的
+   *   `DATA_SCOPE_EXCEEDS_SUBMITTER` / `REFERENCES_NOT_ENUMERATED` 到了前端
+   *   只剩一个光秃秃的状态码，界面没法按项给「申请授权」入口——而
+   *   「说得出理由」是 F61 的验收判据之一，不是调试信息。
+   *
+   * ⚠ 仍然只放**闭集里的值**过去：这道 `safeParse` 就是防枚举探测的那道门，
+   *   任何自造的字符串（例如重名冲突那个缺口用的码）在这里过不去，
+   *   于是它不会变成一个可探测的存在性预言机。
+   */
+  const skillError = skills.SkillError.safeParse(raw);
+  if (skillError.success) return { reasonCode: skillError.data };
 
   /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。

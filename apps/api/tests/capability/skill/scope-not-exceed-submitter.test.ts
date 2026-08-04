@@ -116,6 +116,10 @@ describe("越权 ⇒ 不入库、不进待审核队列（E1 / V6：行为，不�
         duty: "核对财务口径",
         contract: validContract({ dataScope: ["project:notes", "org:finance"] }),
         entry: "admin-new",
+        // #459：契约 `createSkillDraft.in` 必填，此前用例层把它们丢了。
+        visibility: "org-wide",
+        ownerTeamId: null,
+        modelRef: "model-default",
       },
       { grants: grantsOf("project:notes"), store, audit: collectAudit() },
     );
@@ -139,6 +143,10 @@ describe("越权 ⇒ 不入库、不进待审核队列（E1 / V6：行为，不�
         duty: "从原始转写提炼要点",
         contract: validContract({ readsRawTranscript: true }),
         entry: "admin-new",
+        // #459：契约 `createSkillDraft.in` 必填，此前用例层把它们丢了。
+        visibility: "org-wide",
+        ownerTeamId: null,
+        modelRef: "model-default",
       },
       { grants: grantsOf("project:notes"), store, audit: collectAudit() },
     );

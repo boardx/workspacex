@@ -229,7 +229,20 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #
 #   ⚠ #459（skill controller）仍在并行，它可能再加租户表。合流时这一行若再出现文本冲突：
 #     同样**冲突整个丢掉、从空库重跑**，不要挑一个数字留下，也不要把两边的增量相加。
-OK_TABLES_FLOOR=102
+#
+#   #459 实测记录（2026-08-05，本次抬到 105）：
+#     · 起始 `origin/main` = fc0e1270（实测 `git rev-parse origin/main`，不是照抄 notes）
+#     · **基线**：先在**未含本分支改动**的树上、用全新库名 `wsx_459_base` 从空库重放
+#       74 个迁移中的 73 个（不含本分支的迁移），实测 `ok = 102` —— 与上面那次一致，
+#       这是核对，不是推算的来源。
+#     · **新值**：在本分支树上、用另一个全新库名 `wsx_459_rls2` 从空库重放全部 74 个，
+#       实测 `ok = 105`。
+#     · 本分支新增的租户表恰好三张：`skill_contracts` / `skill_contract_versions` /
+#       `skill_contract_reference_snapshots`（迁移 20260805140000）。
+#
+#   ⚠ 「102 + 3 = 105」这次又对上了，**仍然不构成可以推算的理由**——上面已经记了三次
+#     「算术对上」。两个数各自都是从空库量出来的，加法只是事后核对。
+OK_TABLES_FLOOR=105
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

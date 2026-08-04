@@ -13,6 +13,7 @@ import type { z } from "zod";
 import { skills } from "@repo/contracts";
 import { advanceSkillStatus, type AdvanceSkillStatusResult } from "./advance-skill-status";
 import { isReferenceSnapshotFresh } from "../../domain/skill/reference-enumeration";
+import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
 import type { SecurityAuditPort } from "./ports";
 import type { ReferenceSnapshotStorePort } from "./ports";
 
@@ -26,6 +27,16 @@ export interface DisableSkillInput {
   readonly mode: DisableMode;
   readonly archive: boolean;
   readonly replacementSkillId: string | null;
+  /**
+   * 该 skill **此刻**在库里的状态（#459 修复）。
+   *
+   * ⚠ 这个字段在 2026-08-05 之前不存在，本函数把状态机的 `from` **硬编码成 `已启用`**。
+   *   后果不是「错误码不准」：拿它去停用一个 `草稿`，状态机会认为这是合法的
+   *   `已启用 → 已停用`，于是任何接在后面的 repository 都会**持久化一次非法状态迁移**
+   *   （库里凭空多出一个从未过门禁、却已经历过「停用」的 skill）。
+   *   状态机的 `from` 只能来自库（`SkillContractReadPort.statusOf`），不能来自调用方的假设。
+   */
+  readonly currentStatus: SkillLifecycleStatus;
 }
 
 type AdvanceFailure = Extract<AdvanceSkillStatusResult, { readonly ok: false }>;
@@ -47,7 +58,7 @@ export async function disableSkill(
     {
       skillId: input.skillId,
       principalId: input.principalId,
-      from: "已启用",
+      from: input.currentStatus,
       to: "已停用",
       // 停用不是门禁事件：这条边（已启用 → 已停用）本就允许，不需要门禁状态。
       gates: { scan: null, methodologyReview: null, acknowledgedRiskItemIds: [] },

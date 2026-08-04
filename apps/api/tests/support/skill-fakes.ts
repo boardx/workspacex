@@ -36,6 +36,8 @@ import type {
 } from "../../src/application/skill/ports";
 import type { ReviewerFunctionValue } from "../../src/domain/skill/review-authorization";
 import type { SkillCatalogEntry, SkillCatalogPort } from "../../src/application/skill/list-skills";
+import { guard } from "../../src/application/security/permission-filter";
+import type { GuardedSkillContract } from "../../src/application/skill/ports";
 import type { DeclarativeContract } from "../../src/domain/skill/declarative-contract";
 import type { PromotionLink } from "../../src/domain/skill/promotion-link";
 import type { SkillVersionSnapshot } from "../../src/domain/skill/version-chain";
@@ -347,9 +349,31 @@ export function threadMountStore(
 
 /* ═══════════════════ F62：双重门禁人员维度 / 四入口可见性 / 满意度 ═══════════════════ */
 
-/** 四入口共用的目录替身。⚠ 只读整份目录，团队过滤统一在用例里做（I-14）。 */
+/**
+ * 四入口共用的目录替身。⚠ 只读整份目录，团队过滤统一在用例里做（I-14）。
+ *
+ * ⚠ #459 起返回 `Guarded`：`listSkills` 的载荷只能经 `discloseDecided` 取出。
+ *   替身也走同一条正门——一个直接吐裸行的替身会让用例在测试里
+ *   走一条生产上不存在的路径，那种绿是假的。
+ */
 export function skillCatalog(...entries: SkillCatalogEntry[]): SkillCatalogPort {
-  return { async listAll() { return entries; } };
+  const guarded: GuardedSkillContract[] = entries.map((e) => ({
+    facts: { scope: e.visibility, ownerTeamId: e.ownerTeamId },
+    row: guard(
+      { kind: "capability", id: e.skillId },
+      {
+        skillId: e.skillId,
+        name: e.skillId,
+        duty: "",
+        source: "自建" as const,
+        status: "已启用" as const,
+        visibility: e.visibility,
+        ownerTeamId: e.ownerTeamId,
+        currentVersionId: null,
+      },
+    ),
+  }));
+  return { async listAll() { return guarded; } };
 }
 
 /**

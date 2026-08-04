@@ -35,6 +35,11 @@ const base = {
   name: "MECE 假设拆解",
   duty: "把议题拆成互斥且穷尽的分支",
   contract: validContract(),
+  // #459：契约 `createSkillDraft.in` 里 `visibility` / `modelRef` 是必填的，
+  // 而此前用例层把它们丢了（于是 `SkillListItem.visibility` 无处可取）。
+  visibility: "org-wide",
+  ownerTeamId: null,
+  modelRef: "model-default",
 } as const;
 
 describe("按入口打标（I-11）", () => {
