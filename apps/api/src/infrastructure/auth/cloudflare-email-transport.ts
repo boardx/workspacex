@@ -45,12 +45,8 @@ export class MailTransportError extends Error {
   }
 }
 
-function isValidProviderMessageId(value: unknown): value is string {
-  return typeof value === "string"
-    && value.length > 0
-    && value.length <= 998
-    && value.trim() === value
-    && !/[\r\n\0]/u.test(value);
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 export class CloudflareEmailTransport implements VerificationMailTransport {
@@ -102,18 +98,25 @@ export class CloudflareEmailTransport implements VerificationMailTransport {
         success?: boolean;
         result?: {
           delivered?: string[];
-          message_id?: string;
           permanent_bounces?: string[];
           queued?: string[];
         };
       };
-      if (body.result?.permanent_bounces?.includes(input.to)) {
-        throw new MailTransportError("provider_permanent_bounce", false);
-      }
-      if (body.success !== true || !isValidProviderMessageId(body.result?.message_id)) {
+      if (body.success !== true || !body.result || !isStringArray(body.result.permanent_bounces)) {
         throw new MailTransportError("provider_invalid_response", true);
       }
-      return { providerMessageId: body.result.message_id };
+      if (body.result.permanent_bounces.includes(input.to)) {
+        throw new MailTransportError("provider_permanent_bounce", false);
+      }
+      if (!isStringArray(body.result.delivered) || !isStringArray(body.result.queued)) {
+        throw new MailTransportError("provider_invalid_response", true);
+      }
+      const matchingOutcomes = [...body.result.delivered, ...body.result.queued]
+        .filter((recipient) => recipient === input.to).length;
+      if (matchingOutcomes !== 1) {
+        throw new MailTransportError("provider_invalid_response", true);
+      }
+      return {};
     };
     try {
       return await Promise.race([operation(), timedOut]);

@@ -153,7 +153,7 @@ export class PgEmailVerificationRepository implements EmailVerificationRepositor
     });
   }
 
-  async markDelivered(id: string, providerMessageId: string, at: Date): Promise<void> {
+  async markDelivered(id: string, providerMessageId: string | null, at: Date): Promise<void> {
     await this.db.withoutTenant((s) => s.query(
       `UPDATE mail_outbox SET status = 'delivered', delivered_at = $2,
          provider_message_id = $3, failure_category = NULL

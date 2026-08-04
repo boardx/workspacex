@@ -21,7 +21,7 @@ export interface EmailVerificationRepository {
     now: Date;
   }): Promise<boolean>;
   claimDue(now: Date): Promise<MailOutboxMessage | null>;
-  markDelivered(id: string, providerMessageId: string, at: Date): Promise<void>;
+  markDelivered(id: string, providerMessageId: string | null, at: Date): Promise<void>;
   markFailed(input: {
     id: string;
     at: Date;
@@ -44,7 +44,7 @@ export interface VerificationMailTransport {
     outboxId: string;
     to: string;
     verificationUrl: string;
-  }): Promise<{ providerMessageId: string }>;
+  }): Promise<{ providerMessageId?: string }>;
 }
 
 export const EMAIL_VERIFICATION_REPOSITORY = Symbol("EmailVerificationRepository");

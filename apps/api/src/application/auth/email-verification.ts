@@ -58,7 +58,7 @@ export async function deliverOneVerificationMail(input: {
       to: message.recipient,
       verificationUrl: url.toString(),
     });
-    await input.repo.markDelivered(message.id, delivered.providerMessageId, input.now);
+    await input.repo.markDelivered(message.id, delivered.providerMessageId ?? null, input.now);
     return "delivered";
   } catch (error) {
     const failure = error as { category?: string; retryable?: boolean };

@@ -23,10 +23,11 @@ token 仅授予 Email Sending: Edit。迁移期间，非生产环境在专用 to
 
 验证 bearer 由服务端 secret 和随机 challenge id 派生；库中 challenge 表只保存 bearer
 digest，outbox 只保存 challenge id、收件人与模板。worker 投递时才重建链接。每次调用携带稳定
-`X-WorkspaceX-Outbox-ID` 供追踪（Cloudflare 禁止客户端设置其平台控制的 `Message-ID`），成功后
-保存 Cloudflare 返回的真实 `result.message_id`。HTTP 成功、响应 `success=true`、合法
-`result.message_id` 且收件人未出现在 `permanent_bounces` 即视为供应商已接受；`delivered` / `queued`
-数组为空不否定接受结果。数据库 claim/完成状态保证已确认成功的 outbox 不会重投，永久退信进入
+`X-WorkspaceX-Outbox-ID` 供追踪（Cloudflare 禁止客户端设置其平台控制的 `Message-ID`）。REST API
+不承诺返回 provider message ID，因此该存储字段允许为空。HTTP 成功、响应 `success=true`，且目标收件人
+恰好出现在官方 `result.delivered` 或 `result.queued` 的一个位置时，视为供应商已投递/接受排队；目标收件人
+出现在 `permanent_bounces` 时优先进入永久失败，缺失或矛盾 outcome 则 fail closed。数据库 claim/完成状态
+保证已确认成功的 outbox 不会重投，永久退信进入
 不可重试终态，其余失败按分类记录并重试；请求有硬超时，避免单实例队列永久停摆。
 
 Email Preview 是 Cloudflare sending subdomain 的服务端状态，目前 provider 侧仍为 enabled，且
