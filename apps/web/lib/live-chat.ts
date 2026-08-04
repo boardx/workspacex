@@ -12,13 +12,18 @@
  * （`provenance_events`，`identity`/`artifact` 束共用的同一张审计表）上——不是
  * fixture。本文件只封装这些：
  *   · listThreads / getThread / getAgentPanel / mutateThread（线程列表/详情/只读 roster/新建-改名-删除）
+ *   · updateAgentRoster（线程 agent 编制的增删，#467）
  *   · upsertPreset / dispatchPreset / startPresetInstance / getPresetUsage（预设三件套）
  *   · listMessages / createMessage（Wave 2 durable message + queued AgentRun acceptance）
  *
- * ⚠ 契约里还有 `getThreadMessagesFile`、`updateAgentRoster`、
- *   `expandToolCallChain`、`locateCitation`、`adminAuditRead`、approval-request/
- *   background-task/artifact 几条——同样是真实 Postgres/Provenance 支撑，
- *   但不在本次「核心聊天路径」范围内，故未封装，见 issue #368 的核实报告。
+ * ⚠ 契约里还有 `getThreadMessagesFile`、`expandToolCallChain`、`locateCitation`、
+ *   `adminAuditRead`、approval-request/background-task/artifact 几条——同样是真实
+ *   Postgres/Provenance 支撑，但不在本次「核心聊天路径」范围内，故未封装，
+ *   见 issue #368 的核实报告。
+ *
+ * ⚠ `updateAgentRoster` 曾**逐字写在上面那条「未封装」清单里**，#467 把它接上了，
+ *   于是把它从清单移到已封装那一栏。留着旧措辞就会变成一句会说谎的注释——
+ *   本仓已因此类注释踩过多次，注释与代码同属一次改动，不是可选项。
  *
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
@@ -40,6 +45,12 @@ export type DurableMessage = z.infer<typeof chat.DurableMessage>;
 export type ListMessagesOut = z.infer<typeof chat.operations.listMessages.out>;
 export type CreateMessageOut = z.infer<typeof chat.operations.createMessage.out>;
 export type CreateMessageInput = Omit<z.input<typeof chat.operations.createMessage.in>, "threadId">;
+export type UpdateAgentRosterOut = z.infer<typeof chat.operations.updateAgentRoster.out>;
+/** `threadId` 由入参单独给（要拼进路径），其余字段照契约原样透传。 */
+export type UpdateAgentRosterInput = Omit<
+  z.input<typeof chat.operations.updateAgentRoster.in>,
+  "threadId"
+>;
 
 export async function listThreads(
   projectId: string,
@@ -78,6 +89,38 @@ export async function getAgentPanel(
   return apiRequest<GetAgentPanelOut>(
     chat.operations.getAgentPanel.path.replace(":threadId", encodeURIComponent(threadId)),
     { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
+/**
+ * 改本线程的 agent 编制（#467）。
+ *
+ * ⚠ `projectId` 走 **query**、其余走 **body**：控制器把它读作 `@Query`
+ *   （`apps/api/src/interface/controllers/chat.controller.ts:590`），而 body 过
+ *   契约的 `.strict()`——把 `projectId` 塞进 body 会被拒。与 `getAgentPanel`
+ *   同一个落法，不是本函数特有的怪癖。
+ *
+ * ⚠ **调用方要自己维护 `expectedRosterVersion`**：全契约只有本端口的**出参**带
+ *   `rosterVersion`（`packages/contracts/src/chat.ts:509`），**没有任何读端口下发它**
+ *   （`getAgentPanel.out` 同文件 :477 里没有）。⇒ 只能从 `chat_threads.roster_version`
+ *   的 DDL 默认值 0 起步、再用每次响应返回的值推进。这是**已上报的契约缺口**，
+ *   不是这里可以自己发明一个字段补上的东西；并发冲突照契约回 409 `VERSION_CHANGED`，
+ *   由调用方如实呈现，**不得静默重试**（「部分成功即整体拒绝」）。
+ */
+export async function updateAgentRoster(
+  threadId: string,
+  projectId: string,
+  input: UpdateAgentRosterInput,
+  sessionToken?: string,
+): Promise<UpdateAgentRosterOut> {
+  return apiRequest<UpdateAgentRosterOut>(
+    chat.operations.updateAgentRoster.path.replace(":threadId", encodeURIComponent(threadId)),
+    {
+      method: "POST",
+      query: { projectId },
+      body: { threadId, ...input },
+      sessionToken,
+    },
   );
 }
 

@@ -39,6 +39,7 @@ export default defineConfig({
         CHAT_E2E_PROJECT_ID: CHAT_READ_E2E.projectId,
         CHAT_E2E_THREAD_ID: CHAT_READ_E2E.threadId,
         CHAT_E2E_AGENT_ID: CHAT_READ_E2E.agentId,
+        CHAT_E2E_CATALOG_ONLY_AGENT_ID: CHAT_READ_E2E.catalogOnlyAgentId,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",
