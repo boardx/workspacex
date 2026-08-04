@@ -323,6 +323,41 @@ describe("transactional outbox delivery", () => {
     expect(deliver).toHaveBeenCalledTimes(1);
   });
 
+  it("does not redeliver after Cloudflare accepts an empty-recipient-groups response", async () => {
+    const registration = await register("cloudflare-accepted");
+    await prioritizeOutbox(registration.row.outbox_id);
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      errors: [],
+      messages: [],
+      result: {
+        delivered: [],
+        permanent_bounces: [],
+        queued: [],
+        message_id: "<redacted-cloudflare-message-id@mail.boardx.us>",
+      },
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const transport = new CloudflareEmailTransport({
+      accountId: "account-1",
+      apiToken: "scoped-email-sending-edit-token",
+      mailFrom: "no-reply@mail.boardx.us",
+      appPublicUrl: "https://app.example.test",
+      previewDisabledAttested: true,
+      workerEnabled: true,
+      requestTimeoutMs: 10_000,
+    }, request);
+    const repo = new PgEmailVerificationRepository(db);
+    const now = new Date("2000-01-01T00:00:01Z");
+
+    expect(await deliverOneVerificationMail({
+      now, appPublicUrl: "https://app.example.test", repo, tokens, transport,
+    })).toBe("delivered");
+    expect(await deliverOneVerificationMail({
+      now, appPublicUrl: "https://app.example.test", repo, tokens, transport,
+    })).toBe("idle");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it("recovers a stale delivering claim after a worker crash", async () => {
     const registration = await register("stale");
     const now = new Date(Date.now() + 1_000);
@@ -416,9 +451,12 @@ describe("Cloudflare Email Service REST adapter", () => {
 
   it("uses the account endpoint, an allowed trace header, and records Cloudflare's Message-ID", async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      errors: [],
+      messages: [],
       result: {
-        delivered: [], permanent_bounces: [], queued: ["person@example.test"],
-        message_id: "<cloudflare-generated@example.com>",
+        delivered: [], permanent_bounces: [], queued: [],
+        message_id: "<redacted-cloudflare-message-id@mail.boardx.us>",
       },
     }), {
       status: 200, headers: { "content-type": "application/json" },
@@ -435,7 +473,7 @@ describe("Cloudflare Email Service REST adapter", () => {
     await expect(transport.deliver({
       outboxId: "outbox-1", to: "person@example.test",
       verificationUrl: "https://app.example.test/auth/verify-email?token=sensitive",
-    })).resolves.toEqual({ providerMessageId: "<cloudflare-generated@example.com>" });
+    })).resolves.toEqual({ providerMessageId: "<redacted-cloudflare-message-id@mail.boardx.us>" });
     const [url, init] = request.mock.calls[0]! as [string, RequestInit];
     expect(url).toBe("https://api.cloudflare.com/client/v4/accounts/account-1/email/sending/send");
     expect(init.headers).toMatchObject({ authorization: "Bearer scoped-email-sending-edit-token" });
@@ -444,6 +482,60 @@ describe("Cloudflare Email Service REST adapter", () => {
     expect(body.text).toContain("/auth/verify-email?token=sensitive");
     expect(body.headers["Message-ID"]).toBeUndefined();
     expect(body.headers["X-WorkspaceX-Outbox-ID"]).toBe("outbox-1");
+  });
+
+  it("treats a permanent bounce as terminal", async () => {
+    const transport = new CloudflareEmailTransport({
+      accountId: "account-1", apiToken: "scoped-token", mailFrom: "verify@example.test",
+      appPublicUrl: "https://app.example.test", previewDisabledAttested: true, workerEnabled: true,
+      requestTimeoutMs: 10_000,
+    }, vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      result: {
+        delivered: [], queued: [], permanent_bounces: ["person@example.test"],
+        message_id: "<redacted-bounce-id@mail.boardx.us>",
+      },
+    }), { status: 200 })));
+    const error = await transport.deliver({
+      outboxId: "outbox-bounce", to: "person@example.test", verificationUrl: "https://example.test/verify",
+    }).catch((caught) => caught as MailTransportError);
+    expect(error).toMatchObject({ category: "provider_permanent_bounce", retryable: false });
+  });
+
+  it.each([undefined, "", "   ", "bad\nmessage-id"])(
+    "fails closed on an invalid provider Message-ID %#",
+    async (messageId) => {
+      const transport = new CloudflareEmailTransport({
+        accountId: "account-1", apiToken: "scoped-token", mailFrom: "verify@example.test",
+        appPublicUrl: "https://app.example.test", previewDisabledAttested: true, workerEnabled: true,
+        requestTimeoutMs: 10_000,
+      }, vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        success: true,
+        result: { delivered: [], queued: [], permanent_bounces: [], message_id: messageId },
+      }), { status: 200 })));
+      const error = await transport.deliver({
+        outboxId: "outbox-invalid", to: "person@example.test", verificationUrl: "https://example.test/verify",
+      }).catch((caught) => caught as MailTransportError);
+      expect(error).toMatchObject({ category: "provider_invalid_response", retryable: true });
+    },
+  );
+
+  it("fails closed when the provider body does not report success", async () => {
+    const transport = new CloudflareEmailTransport({
+      accountId: "account-1", apiToken: "scoped-token", mailFrom: "verify@example.test",
+      appPublicUrl: "https://app.example.test", previewDisabledAttested: true, workerEnabled: true,
+      requestTimeoutMs: 10_000,
+    }, vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: false,
+      result: {
+        delivered: [], queued: [], permanent_bounces: [],
+        message_id: "<redacted-cloudflare-message-id@mail.boardx.us>",
+      },
+    }), { status: 200 })));
+    const error = await transport.deliver({
+      outboxId: "outbox-unsuccessful", to: "person@example.test", verificationUrl: "https://example.test/verify",
+    }).catch((caught) => caught as MailTransportError);
+    expect(error).toMatchObject({ category: "provider_invalid_response", retryable: true });
   });
 
   it("classifies retryable provider errors without recording response bodies", async () => {

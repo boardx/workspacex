@@ -45,6 +45,14 @@ export class MailTransportError extends Error {
   }
 }
 
+function isValidProviderMessageId(value: unknown): value is string {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 998
+    && value.trim() === value
+    && !/[\r\n\0]/u.test(value);
+}
+
 export class CloudflareEmailTransport implements VerificationMailTransport {
   constructor(
     private readonly config: CloudflareEmailConfig,
@@ -91,6 +99,7 @@ export class CloudflareEmailTransport implements VerificationMailTransport {
         throw new MailTransportError(`provider_http_${response.status}`, response.status === 429 || response.status >= 500);
       }
       const body = await response.json().catch(() => ({})) as {
+        success?: boolean;
         result?: {
           delivered?: string[];
           message_id?: string;
@@ -101,8 +110,7 @@ export class CloudflareEmailTransport implements VerificationMailTransport {
       if (body.result?.permanent_bounces?.includes(input.to)) {
         throw new MailTransportError("provider_permanent_bounce", false);
       }
-      if ((!body.result?.delivered?.includes(input.to) && !body.result?.queued?.includes(input.to))
-        || !body.result.message_id) {
+      if (body.success !== true || !isValidProviderMessageId(body.result?.message_id)) {
         throw new MailTransportError("provider_invalid_response", true);
       }
       return { providerMessageId: body.result.message_id };
