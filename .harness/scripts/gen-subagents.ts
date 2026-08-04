@@ -34,6 +34,48 @@ interface PersistentRoleSpec {
   developer_instructions: string;
 }
 
+const PERSISTENT_ROLE_KEYS = [
+  "areas",
+  "description",
+  "developer_instructions",
+  "dispatch_authority",
+  "kind",
+  "merge_authority",
+  "name",
+  "reports_to",
+  "role",
+] as const;
+
+const FORBIDDEN_RUNTIME_VALUE_PATTERNS: ReadonlyArray<{
+  readonly label: string;
+  readonly pattern: RegExp;
+}> = [
+  { label: "Directory ULID", pattern: /\bagt_[0-9A-HJKMNP-TV-Z]{26}\b/ },
+  {
+    label: "credential cache path",
+    pattern: /(?:^|[\\/])(?:\.harness[\\/]state[\\/]\.cache[\\/])?coord-credentials\.json\b/i,
+  },
+  {
+    label: "credential cache path",
+    pattern: /(?:^|[\\/])[^\s"']*\.cache[\\/][^\s"']*credential[^\s"']*\.json\b/i,
+  },
+  { label: "private key material", pattern: /-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----/ },
+  { label: "bearer credential", pattern: /\bBearer\s+[A-Za-z0-9._~+/-]{8,}={0,2}\b/i },
+  {
+    label: "token credential",
+    pattern: /\b(?:sk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_-]{8,}\b/i,
+  },
+  {
+    label: "assigned credential material",
+    pattern:
+      /(?:^|[\s,;])(?:secret|password|passphrase|token|credentials?|private[_ -]?key|api[_ -]?key)\s*[:=]\s*(?!\s*(?:none|null|redacted|\[redacted\])\b)\S+/i,
+  },
+  {
+    label: "model selection",
+    pattern: /(?:^|[\s,;])(?:model|model[_ -]?id|model[_ -]?provider)\s*[:=]\s*\S+/i,
+  },
+];
+
 const AGENTS_DIR = join(HARNESS_DIR, "agents");
 const ROLES_DIR = join(AGENTS_DIR, "roles");
 const CLAUDE_AGENTS_DIR = join(REPO_ROOT, ".claude", "agents");
@@ -114,9 +156,82 @@ function generateCodexToml(spec: AgentSpec): string {
   return lines.join("\n") + "\n";
 }
 
+function normalizedSensitiveKey(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+}
+
+function forbiddenRuntimeKey(key: string): boolean {
+  const normalized = normalizedSensitiveKey(key);
+  const segments = normalized.split("_");
+  if (segments.some((segment) => [
+    "secret",
+    "secrets",
+    "password",
+    "passwords",
+    "passphrase",
+    "token",
+    "tokens",
+    "credential",
+    "credentials",
+  ].includes(segment))) return true;
+  return [
+    "api_key",
+    "private_key",
+    "client_secret",
+    "access_key",
+    "credential_cache",
+    "credentials_cache",
+    "directory_agent_id",
+    "claude_model",
+    "codex_model",
+  ].some((fragment) => normalized.includes(fragment));
+}
+
+function assertNoForbiddenRuntimeMaterial(
+  file: string,
+  value: unknown,
+  path = "$",
+  visited = new WeakSet<object>(),
+): void {
+  if (typeof value === "string") {
+    for (const forbidden of FORBIDDEN_RUNTIME_VALUE_PATTERNS) {
+      if (forbidden.pattern.test(value)) {
+        throw new Error(`${file} 的 ${path} 含禁止的 ${forbidden.label}`);
+      }
+    }
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  if (visited.has(value)) return;
+  visited.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) =>
+      assertNoForbiddenRuntimeMaterial(file, entry, `${path}[${index}]`, visited));
+    return;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+    if (forbiddenRuntimeKey(key)) {
+      throw new Error(`${file} 的 ${childPath} 是禁止的敏感字段`);
+    }
+    assertNoForbiddenRuntimeMaterial(file, entry, childPath, visited);
+  }
+}
+
 function assertPersistentRoleSpec(file: string, value: unknown): asserts value is PersistentRoleSpec {
   if (!value || typeof value !== "object") throw new Error(`${file} 不是对象`);
+  assertNoForbiddenRuntimeMaterial(file, value);
   const spec = value as Partial<PersistentRoleSpec> & Record<string, unknown>;
+  const unknownKeys = Object.keys(spec).filter(
+    (key) => !(PERSISTENT_ROLE_KEYS as readonly string[]).includes(key),
+  );
+  if (unknownKeys.length > 0) {
+    throw new Error(`${file} 含未声明字段：${unknownKeys.sort().join(", ")}`);
+  }
   if (
     typeof spec.name !== "string" || spec.name === "" ||
     typeof spec.description !== "string" || spec.description.trim() === "" ||
@@ -129,9 +244,6 @@ function assertPersistentRoleSpec(file: string, value: unknown): asserts value i
     typeof spec.developer_instructions !== "string" || spec.developer_instructions.trim() === ""
   ) {
     throw new Error(`${file} 不符合 persistent role schema`);
-  }
-  for (const forbidden of ["model", "claude_model", "codex_model", "directory_agent_id", "token", "private_key"]) {
-    if (Object.hasOwn(spec, forbidden)) throw new Error(`${file} 禁止字段 ${forbidden}`);
   }
   if (spec.developer_instructions.includes('"""')) {
     throw new Error(`${file} developer_instructions 不能包含 TOML 三引号`);
@@ -152,6 +264,7 @@ function persistentRoleInstructions(spec: PersistentRoleSpec): string {
 }
 
 export function generatePersistentClaudeMd(spec: PersistentRoleSpec): string {
+  assertPersistentRoleSpec("persistent role", spec);
   const frontmatter = [
     "---",
     `name: ${spec.name}`,
@@ -162,6 +275,7 @@ export function generatePersistentClaudeMd(spec: PersistentRoleSpec): string {
 }
 
 export function generatePersistentCodexToml(spec: PersistentRoleSpec): string {
+  assertPersistentRoleSpec("persistent role", spec);
   return [
     `name = "${spec.name}"`,
     `description = """`,

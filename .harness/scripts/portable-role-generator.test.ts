@@ -112,6 +112,94 @@ describe("#441 portable persistent role generator", () => {
     }
   });
 
+  it("fails closed on unknown fields and recursive secret or credential material", () => {
+    const { spec } = readRole("dev-chat-e2e");
+    const aliasedCredential = {
+      credentialCache: ".harness/state/.cache/coord-credentials.json",
+    };
+    const canaries: ReadonlyArray<{ readonly label: string; readonly value: unknown }> = [
+      {
+        label: "ordinary unknown field",
+        value: { ...spec, notes: "fake-review-canary" },
+      },
+      {
+        label: "review secret field",
+        value: { ...spec, secret: "fake-review-canary" },
+      },
+      {
+        label: "nested credential cache field",
+        value: {
+          ...spec,
+          metadata: {
+            credential_cache: ".harness/state/.cache/coord-credentials.json",
+          },
+        },
+      },
+      {
+        label: "nested camelCase alias reused by two branches",
+        value: {
+          ...spec,
+          metadata: {
+            primary: aliasedCredential,
+            alias: aliasedCredential,
+          },
+        },
+      },
+      {
+        label: "YAML anchor alias containing a credential-cache key",
+        value: parse(`
+name: dev-chat-e2e
+description: Review canary only
+role: persistent-project-role
+kind: worker
+areas: [chat, e2e]
+reports_to: coord-main
+merge_authority: false
+dispatch_authority: false
+developer_instructions: Safe review canary
+metadata: &credential_alias
+  credential-cache: .harness/state/.cache/coord-credentials.json
+metadata_alias: *credential_alias
+`),
+      },
+      {
+        label: "hyphenated token alias",
+        value: {
+          ...spec,
+          metadata: { "api-token": "fake-review-canary" },
+        },
+      },
+      {
+        label: "credential cache path inside an allowed string",
+        value: {
+          ...spec,
+          developer_instructions:
+            `${spec.developer_instructions}\nRead .harness/state/.cache/coord-credentials.json.`,
+        },
+      },
+      {
+        label: "password assignment inside an allowed string",
+        value: {
+          ...spec,
+          developer_instructions: `${spec.developer_instructions}\npassword=fake-review-canary`,
+        },
+      },
+      {
+        label: "private key assignment alias inside an allowed string",
+        value: {
+          ...spec,
+          developer_instructions: `${spec.developer_instructions}\nprivate-key=fake-review-canary`,
+        },
+      },
+    ];
+
+    for (const canary of canaries) {
+      const invalid = canary.value as PersistentRoleSpec;
+      expect(() => generatePersistentClaudeMd(invalid), canary.label).toThrow();
+      expect(() => generatePersistentCodexToml(invalid), canary.label).toThrow();
+    }
+  });
+
   it("preserves all eight bounded subagents beside the new persistent role surfaces", () => {
     const claudeNames = new Set(readdirSync(claudeDir).filter((file) => file.endsWith(".md")));
     const codexNames = new Set(readdirSync(codexDir).filter((file) => file.endsWith(".toml")));
