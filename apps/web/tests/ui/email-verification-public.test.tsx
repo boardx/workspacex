@@ -3,7 +3,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
-const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
+const { apiRequest, startSession } = vi.hoisted(() => ({ apiRequest: vi.fn(), startSession: vi.fn() }));
+// Registration 现在承担 bootstrap（空邀请码建首位管理员），因此依赖会话上下文。
+// 真实运行时 SessionProvider 由 app/layout.tsx 的 Providers 全局挂载；
+// 这里的用例只渲染组件，所以按 bootstrap-first-admin.test.tsx 的同一方式打桩。
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ startSession }) }));
 vi.mock("@/lib/api-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api-client")>();
   return { ...actual, apiRequest };
@@ -22,7 +26,9 @@ afterEach(() => {
 
 describe("registration verification queue", () => {
   function fillRegistration() {
-    fireEvent.change(screen.getByLabelText("14 位邀请码"), { target: { value: "ABCD1234EFGH56" } });
+    // 标签随 bootstrap 合并改为「邀请码（首位管理员请留空）」——本用例走的是**有码**分支，
+    // 填满 14 位；空码分支的覆盖在 bootstrap-first-admin.test.tsx。
+    fireEvent.change(screen.getByLabelText("邀请码（首位管理员请留空）"), { target: { value: "ABCD1234EFGH56" } });
     fireEvent.change(screen.getByLabelText("组织名称"), { target: { value: "Example Org" } });
     fireEvent.change(screen.getByLabelText("你的姓名"), { target: { value: "Lin" } });
     fireEvent.change(screen.getByLabelText("工作邮箱"), { target: { value: "lin@example.test" } });
@@ -37,7 +43,7 @@ describe("registration verification queue", () => {
     render(<Registration />);
     fillRegistration();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "创建组织" }));
+      fireEvent.click(screen.getByTestId("registration-submit"));
       await Promise.resolve();
     });
     expect(screen.getByTestId("registration-verification-queued")).toBeInTheDocument();
@@ -68,7 +74,7 @@ describe("registration verification queue", () => {
     render(<Registration />);
     fillRegistration();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "创建组织" }));
+      fireEvent.click(screen.getByTestId("registration-submit"));
       await Promise.resolve();
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });

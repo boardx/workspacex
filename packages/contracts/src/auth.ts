@@ -390,6 +390,8 @@ export const operations = {
       emailVerified: z.literal(true),
     }).strict(),
     err: ["BOOTSTRAP_UNAVAILABLE", "EMAIL_TAKEN"] as const,
+  },
+
   confirmEmailVerification: {
     method: "POST", path: "/auth/email-verifications/confirm",
     in: z.object({ token: z.string().min(40) }).strict(),
