@@ -92,6 +92,13 @@ import {
 import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import {
+  AGENT_STARTER_IMPORT_REPOSITORY,
+  AGENT_STARTER_PACK_SOURCE,
+} from "./application/agent-import/ports";
+import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
+import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
+import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -296,6 +303,7 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     ProvenanceController,
     CapabilityController,
     SkillStarterImportController,
+    AgentStarterImportController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -375,6 +383,15 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_STARTER_PACK_SOURCE,
+      useFactory: () => new FileAgentStarterPackSource(process.env.AGENT_STARTER_PACK_ROOT),
+    },
+    {
+      provide: AGENT_STARTER_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentStarterImportRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every

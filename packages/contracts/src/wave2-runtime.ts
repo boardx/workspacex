@@ -56,6 +56,55 @@ export const SkillStarterImportResult = z.object({
   importedAt: z.string(),
 }).strict();
 
+export const AgentSkillVersionReference = z.object({
+  versionId: z.string().min(1).max(255),
+  digest: Sha256,
+}).strict();
+
+export const AgentStarterPackEntry = z.object({
+  stableName: StableName,
+  name: z.string().min(1).max(255),
+  semanticVersion: z.string().min(1).max(64),
+  instructions: z.string().min(1),
+  instructionDigest: Sha256,
+  skillVersions: z.array(AgentSkillVersionReference),
+  modelProvider: z.string().min(1).max(128),
+  modelId: z.string().min(1).max(255),
+  toolPolicy: z.array(z.never()).max(0),
+}).strict();
+
+export const UnsignedAgentStarterPack = z.object({
+  schemaVersion: z.literal(1),
+  packId: PackCoordinate,
+  packVersion: PackCoordinate,
+  agents: z.array(AgentStarterPackEntry).min(1),
+}).strict();
+
+export const AgentStarterPack = UnsignedAgentStarterPack.extend({
+  packDigest: Sha256,
+}).strict();
+
+export const AgentStarterImportError = z.enum([
+  "AGENT_STARTER_PACK_NOT_FOUND",
+  "AGENT_STARTER_PACK_INVALID",
+  "AGENT_STARTER_PACK_CONFLICT",
+  "AGENT_STARTER_IMPORT_IDEMPOTENCY_CONFLICT",
+  "AGENT_STARTER_IMPORT_ADMIN_REQUIRED",
+  "AGENT_STARTER_SKILL_VERSION_MISSING",
+  "AGENT_STARTER_SKILL_VERSION_MISMATCH",
+]);
+
+export const AgentStarterImportResult = z.object({
+  importId: z.string(),
+  packId: PackCoordinate,
+  packVersion: PackCoordinate,
+  packDigest: Sha256,
+  status: z.literal("succeeded"),
+  agentIds: z.array(z.string()),
+  versionIds: z.array(z.string()),
+  importedAt: z.string(),
+}).strict();
+
 export const operations = {
   importSkillStarterPack: {
     method: "POST",
@@ -67,5 +116,16 @@ export const operations = {
     }).strict(),
     out: SkillStarterImportResult,
     err: SkillStarterImportError.options,
+  },
+  importAgentStarterPack: {
+    method: "POST",
+    path: "/admin/agents/starter-pack-imports",
+    in: z.object({
+      packId: PackCoordinate,
+      packVersion: PackCoordinate,
+      idempotencyKey: z.string().min(1).max(255),
+    }).strict(),
+    out: AgentStarterImportResult,
+    err: AgentStarterImportError.options,
   },
 } as const;
