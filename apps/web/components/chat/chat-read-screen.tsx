@@ -18,6 +18,7 @@ import {
   getThread,
   listThreads,
   renameThread,
+  updateAgentRoster,
   type GetAgentPanelOut,
   type GetThreadOut,
   type ListThreadsOut,
@@ -236,6 +237,61 @@ export function ChatReadScreen({
     });
   }, [runMutation, selectedThreadId, selectedVersion]);
 
+  /* ── agent 编制的增删（#467）────────────────────────────────────────────────
+   * 与上面的会话增删改同一套纪律：**先等服务端返回，再重读服务端**，不做乐观更新。
+   *
+   * ⚠ 交付的是**编制关系**（`chat_thread_agents` 的增删），**不是**「agent 真的执行
+   *   并产生回复」——那是 #414 + #413。
+   *
+   * ⚠ `expectedRosterVersion` 只能由本地推进：**没有任何读端口下发 `rosterVersion`**
+   *   （契约里只有 `updateAgentRoster.out` 有它，`getAgentPanel.out` 没有）。起点取
+   *   `chat_threads.roster_version` 的 DDL 默认值 0，之后用每次响应返回的值推进。
+   *   这是已上报的契约缺口；在补上读侧之前，别人改过编制的线程上首次提交会拿到
+   *   409 `VERSION_CHANGED`——那时**如实报错**，不静默重试、不自动 +1 猜一个。 */
+  const [rosterVersion, setRosterVersion] = React.useState(0);
+  const [rosterPending, setRosterPending] = React.useState(false);
+  const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
+
+  // 换线程 ⇒ 版本号与错误都作废：把 A 线程的版本号发给 B 线程是一次静默的错写。
+  React.useEffect(() => {
+    setRosterVersion(0);
+    setRosterMutateFailure(null);
+  }, [detailKey]);
+
+  const runRosterMutation = React.useCallback(async (
+    change: { readonly add: readonly string[]; readonly remove: readonly string[] },
+  ) => {
+    if (!projectId || !selectedThreadId || !bearer) return;
+    setRosterPending(true);
+    setRosterMutateFailure(null);
+    try {
+      const result = await updateAgentRoster(
+        selectedThreadId,
+        projectId,
+        { add: [...change.add], remove: [...change.remove], expectedRosterVersion: rosterVersion },
+        bearer,
+      );
+      setRosterVersion(result.rosterVersion);
+      // 重读服务端：界面上的编制来自 `getAgentPanel`，不是把响应体直接画上去，
+      // 也不是本地拼一个。这条是「反映数据库里真实发生的事」的落点。
+      await loadSelectedThread();
+    } catch (failure) {
+      setRosterMutateFailure(describeMutateFailure(failure));
+    } finally {
+      setRosterPending(false);
+    }
+  }, [bearer, loadSelectedThread, projectId, rosterVersion, selectedThreadId]);
+
+  const handleRosterAdd = React.useCallback((agentId: string) => {
+    const trimmed = agentId.trim();
+    if (trimmed === "") return;
+    void runRosterMutation({ add: [trimmed], remove: [] });
+  }, [runRosterMutation]);
+
+  const handleRosterRemove = React.useCallback((agentId: string) => {
+    void runRosterMutation({ add: [], remove: [agentId] });
+  }, [runRosterMutation]);
+
   if (!projectId) {
     return (
       <AppShell previewRole={null}>
@@ -287,6 +343,11 @@ export function ChatReadScreen({
           loading={rosterLoading}
           error={rosterError}
           hasSelection={selectedThreadId !== null}
+          canMutate={canMutate}
+          pending={rosterPending}
+          mutateFailure={rosterMutateFailure}
+          onAdd={handleRosterAdd}
+          onRemove={handleRosterRemove}
           onRetry={() => void loadSelectedThread()}
         />
       )}
@@ -543,21 +604,70 @@ function ThreadDetail({
   );
 }
 
+/**
+ * ⚠ 写入口的渲染依据是 **`thread.mutate`**，因为契约里**没有** `roster.mutate` 这一档
+ *   （`CHAT_WRITE_CAPABILITIES` 恰六个，见 `apps/api/src/domain/chat/thread-visibility.ts:276`）。
+ *   服务端对编制的判定是 `role !== null && role !== "observer"`
+ *   （`application/chat/update-agent-roster.ts` 的 `NO_WRITE_ROLE` 分支），与
+ *   `thread.mutate` **同一个谓词** ⇒ 这里是**同源代理**，不是前端新造一份权限判断。
+ *   缺一档专用能力已上报；服务端始终是权威（越权提交由 403 拒绝，见 API 测试）。
+ */
 function RosterPanel({
-  roster, loading, error, hasSelection, onRetry,
+  roster, loading, error, hasSelection, canMutate, pending, mutateFailure, onAdd, onRemove, onRetry,
 }: {
   roster: GetAgentPanelOut | null;
   loading: boolean;
   error: string | null;
   hasSelection: boolean;
+  canMutate: boolean;
+  pending: boolean;
+  mutateFailure: string | null;
+  onAdd: (agentId: string) => void;
+  onRemove: (agentId: string) => void;
   onRetry: () => void;
 }) {
+  const [draft, setDraft] = React.useState("");
+  const writable = canMutate && hasSelection;
+
   return (
     <div className="flex flex-col" data-testid="chat-read-roster">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <Users aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium">Agent 编制（只读）</h2>
+        <h2 className="text-12 font-medium">Agent 编制{writable ? "" : "（只读）"}</h2>
       </div>
+      {writable ? (
+        <form
+          className="flex flex-col gap-2 border-b border-border-subtle p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onAdd(draft);
+            setDraft("");
+          }}
+        >
+          <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">
+            加入 agent（填组织 agent 目录里的 id）
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chat-roster-add-input"
+              data-testid="chat-roster-add-input"
+              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11"
+              placeholder="agent id"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={pending}
+            />
+            <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending}>
+              {pending ? "提交中…" : "加入"}
+            </Button>
+          </div>
+          {/* 「加入」按 id 而不是从下拉里选：契约里**没有**「列出本线程可加的 agent」
+              这个读端口，编一个候选列表就得先编一份它的出处。缺口已上报。 */}
+          {mutateFailure ? (
+            <p className="text-10 text-destructive" data-testid="chat-roster-mutate-error">{mutateFailure}</p>
+          ) : null}
+        </form>
+      ) : null}
       {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取编制。</p> : null}
       {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实编制…</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
@@ -574,6 +684,17 @@ function RosterPanel({
                   <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
                 </div>
                 <Badge tone={agent.presence === "present" ? "primary" : "neutral"}>{agent.presence}</Badge>
+                {writable ? (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    data-testid={`chat-roster-remove-${agent.id}`}
+                    disabled={pending}
+                    onClick={() => onRemove(agent.id)}
+                  >
+                    移出
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}
