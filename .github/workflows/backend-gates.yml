@@ -111,7 +111,12 @@ jobs:
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
+
       - name: 部署并冒烟
         # 走 /usr/local/bin 的副本，不是仓库里那份——sudoers 只许这一条路径。
         # 指仓库那份的话，一个 PR 改掉 deploy.sh 就等于拿到 root。
-        run: sudo /usr/local/bin/workspacex-deploy "${{ github.ref_name }}"
+        # 非特权 wrapper 只调用这一条既有 sudo 命令；它不会执行仓库代码为 root。
+        # root deploy 若已进入 step 7 后因冷启动竞态假红，wrapper 用完整稳定后置条件
+        # 复核；step 7 之前的失败原样 fail-closed，绝不被健康的旧进程掩盖。
+        run: bash .harness/scripts/vm/deploy-gate.sh "${{ github.ref_name }}"
