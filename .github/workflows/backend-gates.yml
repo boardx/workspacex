@@ -18,8 +18,11 @@
 name: backend-gates
 
 on:
+  # 2026-08-05 人类决定：**每个 PR 都发布一版到 devops，不再用 tag 触发**。
+  # 原来的 `tags: ["v*"]` 入口已删——保留它等于同一件事有两条触发路径，
+  # 而其中一条不再是任何人的工作习惯。
+  pull_request:
   push:
-    tags: ["v*"]
     branches: [main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
@@ -114,11 +117,25 @@ jobs:
 
   deploy:
     needs: gates
-    # 只有打标签才部署。标签是人的显式动作，这满足 architecture.md
-    # 「有 CD 的目标不手动部署」而又不至于每次 push 都动 staging。
-    if: startsWith(github.ref, 'refs/tags/v')
+    # 2026-08-05 起：每个 PR 都发布一版到 devops（人类决定，取代原来的
+    # 「只有打 v* 标签才部署」）。fork 的 PR **一律不部署**——这条不是从
+    # `needs: gates` 继承来的，必须在这里显式写出：self-hosted runner +
+    # `sudo /usr/local/bin/workspacex-deploy`，接受 fork 等于任何人提个 PR
+    # 就能在那台机器上以 root 跑代码。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 20
+    # devops 是**一台**机器，deploy.sh 会 `git reset --hard`。上面那条按
+    # github.ref 分组的 concurrency 只保证「同一个 ref 不并发」，两个不同的 PR
+    # 仍会同时往同一台机器上 reset。部署必须走独立的全局泳道，且排队不取消
+    # ——取消一个进行到一半的部署，机器会停在半部署状态。
+    concurrency:
+      group: backend-gates-deploy-devops
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,4 +154,7 @@ jobs:
         # 非特权 wrapper 只调用这一条既有 sudo 命令；它不会执行仓库代码为 root。
         # root deploy 若已进入 step 7 后因冷启动竞态假红，wrapper 用完整稳定后置条件
         # 复核；step 7 之前的失败原样 fail-closed，绝不被健康的旧进程掩盖。
-        run: bash .harness/scripts/vm/deploy-gate.sh "${{ github.ref_name }}"
+        # PR 用 head SHA、push 用本次 commit：deploy.sh 走
+        # `git fetch origin <ref>` + `git reset --hard <ref>`，SHA 是最精确、
+        # 无歧义的输入（标签名/分支名会随后续 push 漂移，部署的就不是被门控过的那份）。
+        run: bash .harness/scripts/vm/deploy-gate.sh "${{ github.event.pull_request.head.sha || github.sha }}"

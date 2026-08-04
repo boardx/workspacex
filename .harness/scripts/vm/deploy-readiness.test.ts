@@ -235,7 +235,21 @@ describe("#448 post-restart readiness", () => {
     const provision = readFileSync(PROVISION, "utf8");
     const workflow = readFileSync(WORKFLOW, "utf8");
     expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v4[\s\S]*deploy-gate\.sh/);
-    expect(workflow).toContain('bash .harness/scripts/vm/deploy-gate.sh "${{ github.ref_name }}"');
+    // #482：部署改成每个 PR 触发后，传给 gate 的 ref 从标签名换成了 head SHA。
+    // 本条断言的**意图**是「CD 必须经非特权 wrapper，而不是直接调特权路径」——
+    // 传什么 ref 是另一件事（由 backend-gates-deploy.test.ts 求值 if 表达式 + 断言
+    // 用的是 head SHA 把关）。原文把整行字面量钉死，于是换个参数就撞红，
+    // 而它想守的那条不变量其实毫发无损。改为只断言意图本身：
+    expect(workflow).toMatch(/bash \.harness\/scripts\/vm\/deploy-gate\.sh "\$\{\{[^}]+\}\}"/);
+    // 反面：CD 不得绕过 wrapper 直调特权部署或仓库里那份 deploy.sh。
+    // 只看**会被执行的行**——workflow 的注释里正当地解释了 /usr/local/bin 那条路径
+    // 为什么存在，把注释一起匹配会把一条正确的说明判成违规（第一版就是这么红的）。
+    const executable = workflow
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("#"))
+      .join("\n");
+    expect(executable).not.toContain("/usr/local/bin/workspacex-deploy");
+    expect(executable).not.toMatch(/bash \.harness\/scripts\/vm\/deploy\.sh/);
     expect(gate).toContain('source "$SCRIPT_DIR/deploy-readiness.sh"');
     expect(gate).toContain('local status_dir=/run/workspacex-deploy');
     expect(gate).toContain("deploy_status_content_allows_recovery");
