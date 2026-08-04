@@ -83,15 +83,37 @@ describe("#407 minimal integration team registry projection", () => {
       expect(parent, `${id} 的上级 "${parentId}" 必须是 registry 里真实存在的条目`).toBeDefined();
       expect(COORDINATOR_KINDS.has(parent!.kind), `${id} 的上级 "${parentId}" kind=${parent!.kind} 不是协调者`).toBe(true);
 
-      if (parent!.kind === "module-coordinator") {
+      // 2026-08-04 第二版（第一版被独立 reviewer Block）：覆盖检查原本写成
+      // `if (parent.kind === "module-coordinator")`，于是 architecture-coordinator
+      // 虽然 areas 有界（[harness, docs, adr, agent-protocol]）却完全不受约束。
+      // 实测反例：把 dev-chat-e2e（areas [chat, e2e]）挂到 coord-architecture ——
+      // 原断言红（reports_to !== "coord-main"），第一版新断言**绿** ⇒ 净变弱。
+      // 改为按 areas 本身判定：只有全域协调者（areas 含 "*"）才豁免覆盖检查，
+      // 与 kind 无关，杜绝「换个 kind 就漏防」。
+      const parentAreas = parent!.areas ?? [];
+      if (!parentAreas.includes("*")) {
         for (const area of entry!.areas ?? []) {
-          expect(parent!.areas ?? [], `${parentId} 的 areas 必须覆盖下属 ${id} 的 "${area}"`).toContain(area);
+          expect(parentAreas, `${parentId}（kind=${parent!.kind}）的 areas 必须覆盖下属 ${id} 的 "${area}"`).toContain(area);
         }
       }
 
       const chain = reportingChain(id);
       expect(chain.at(-1), `${id} 的汇报链必须收敛到 coord-main，实得 ${chain.join(" → ")}`).toBe("coord-main");
     }
+  });
+
+  /**
+   * reviewer 建议项，一并堵上：`reportingChain` 用 `seen` 截断环后取链尾，
+   * 对「**不含** coord-main 的环」会红（链尾非 coord-main），但对「**含**
+   * coord-main 的病态环」（有人把 coord-main.reports_to 指回某个 worker）
+   * 链尾恰好是 coord-main，会漏判为绿。原断言同样漏（它根本不校验 coord-main
+   * 自身），故不算本次回退，但顶点悬空是廉价且确定的检查，顺手做掉。
+   */
+  it("keeps the coordination vertex rootless so coord-main cannot be pulled into a cycle", () => {
+    const root = byId("coord-main");
+    expect(root, "coord-main 必须存在").toBeDefined();
+    expect(root!.kind, "coord-main 必须是顶层 coordinator").toBe("coordinator");
+    expect(root!.reports_to, "coord-main 是汇报链顶点，reports_to 必须为空").toBeUndefined();
   });
 
   it("keeps reviewers in the reviewer route and preserves one coordinator", () => {
