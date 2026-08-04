@@ -399,6 +399,19 @@ export const operations = {
         label: z.enum(["今天", "本周"]),
         cards: z.array(ThreadCard),
       }).strict()),
+      /**
+       * 项目级能力集合（#489）。与 `getThread.out.capabilities` **同一个事实源**
+       * ——服务端 `capabilitiesFor(projectRole)`——只是在这个读端口也下发一次。
+       *
+       * 为什么这里必须也有：`getThread` 只在**选中某条线程**时才被调用。项目
+       * **零会话**时它永远不会被调用 ⇒ 前端拿不到任何写权依据 ⇒「新建会话」按钮
+       * 不渲染 ⇒ **新注册的管理员永远建不出第一条会话**。实测死在「注册 → 登录 →
+       * Chat 新增」的第三步。
+       *
+       * ⚠ 前端**不得**按角色自行重算，也不得拿 `composer.send` 之类去推断
+       * `thread.mutate`——那会造出第二个事实源。本仓已因「同一事实声明在两处」漂移五次。
+       */
+      capabilities: z.array(z.string()),
     }).strict(),
     err: ["NOT_VISIBLE", "AUTHZ_UNAVAILABLE"] as const,
   },

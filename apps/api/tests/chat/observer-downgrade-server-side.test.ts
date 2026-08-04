@@ -138,6 +138,19 @@ describe("I-5: 写能力标记一个都不下发", () => {
     expect(body.capabilities).toContain("composer.send");
     expect(body.capabilities).toContain("approval.decide");
   });
+
+  // #460：会话增删改的按钮渲不渲染，前端只许看这一条，不许拿 composer.send 推断。
+  // 上面那条「观察者不含任何写能力」的循环已经覆盖了 thread.mutate 的否定侧；
+  // 这里补的是**肯定侧**——没有它，否定侧会在「谁都没有这条能力」时平凡为真。
+  it("非观察者的 capabilities 含 thread.mutate，组员也有（删会话不是批准动作）", async () => {
+    const facilitator = (await (await readThread("u-fac")).json()) as { capabilities: string[] };
+    expect(facilitator.capabilities).toContain("thread.mutate");
+
+    const member = (await (await readThread("u-mem")).json()) as { capabilities: string[] };
+    expect(member.capabilities).toContain("thread.mutate");
+    // 组员被单独摘掉的只有批准权；顺手把 thread.mutate 也摘掉是另一种坏实现。
+    expect(member.capabilities).not.toContain("approval.decide");
+  });
 });
 
 describe("右栏计数说的是真话（I-20）", () => {

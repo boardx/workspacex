@@ -1,81 +1,208 @@
 "use client";
 import * as React from "react";
 import {
-  LayoutGrid, List, Plus, Archive, RotateCcw, Rocket, FlaskConical, Pencil, AlertTriangle, Info,
+  LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw,
 } from "lucide-react";
-import { StateShell } from "@/components/state/state-shell";
-import type { UiState } from "@/lib/ui-state";
+import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api-client";
 import {
-  A0_TEMPLATES, ORG_TEMPLATES, MERMAID_WHITELIST, IGNORED_SYNTAX_COUNT, PUBLISH_FLOW_NOTE,
-  type CanvasTemplateRow, type PublishStatus, type WhitelistType,
-} from "@/lib/mock/canvas";
-
-const ALL_TEMPLATES = [...A0_TEMPLATES, ...ORG_TEMPLATES];
-
-const STATUS_TONE: Record<PublishStatus, "primary" | "neutral" | "warning" | "outline"> = {
-  已发布: "primary",
-  草稿: "warning",
-  试跑: "outline",
-  已归档: "neutral",
-};
-
-type Filter = "全部" | "已发布" | "草稿" | "已归档";
-const FILTERS: Filter[] = ["全部", "已发布", "草稿", "已归档"];
+  archiveCanvasTemplate,
+  listCanvasTemplates,
+  restoreCanvasTemplate,
+  TEMPLATE_FILTERS,
+  TEMPLATE_STATUS_LABEL,
+  TEMPLATE_VISIBILITY_LABEL,
+  type CanvasTemplate,
+  type ListTemplatesFilter,
+  type TemplateStatus,
+} from "@/lib/live-canvas";
 
 /**
- * UC-7.1 后台画布模板库 + 发布状态机 + mermaid 白名单（F101）
- * [原型] 后台管理 → 画布模板：列表/卡片视图、按状态筛选、三段发布流程、白名单 12 类 4 组。
- * 危险动作（归档）显式二次确认 + 影响面「有 N 个议程环节仍绑定此模板」（O-10 ③）。
+ * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
+ *
+ * #464 起这一屏只投影 `GET /canvas/templates` 的真实响应：browser → controller →
+ * `application/canvas/list-templates` → `PgCanvasTemplateRepository` → PostgreSQL。
+ *
+ * ## 这一屏**去掉**了什么，以及为什么不是「功能倒退」
+ *
+ * · **七态预览壳（StateShell）**：加载中 / 空 / 失败三态现在由真实请求决定。
+ *   一个能用 `?state=` 切出来的「失败态」和真实失败并存，会让人分不清屏上这句
+ *   报错是后端说的还是 URL 说的。
+ * · **mermaid 白名单开关**：契约有 `setMermaidWhitelist`，但 #463 的 controller
+ *   没有挂这条路由。一块点了不落库的开关比没有它更糟——它看起来生效了。缺口已报。
+ * · **「新建画布模板」按钮**：签核过的契约里**没有任何创建操作**
+ *   （`publishTemplate.in` 是 `{key,version,visibility}`，读一行已存在的，不造一行）。
+ *   留一个只弹 toast 的按钮，就是在假装闭环成立。缺口已报，见 `lib/live-canvas.ts` 文件头。
+ * · **发布 / 试跑按钮**：`publish` 要 `visibility`、`trial` 要一个 `projectId`，
+ *   这一屏两者都没有真实来源（项目选择器属 F102，后端也没有该路由）。
+ *   接一半会得到一个「点了报 400」的按钮。归档 / 恢复不需要额外输入，因此真接。
+ *
+ * ⚠ `previewRole === "observer"` 时不挂写入口，那是**降噪不是权限**：
+ *   真正的拒绝在服务端（`ROLE_INSUFFICIENT` → 403），失败信封原样回显。
  */
-export function TemplateAdmin({ state, previewRole }: { state: UiState; previewRole: ProjectRole | null }) {
-  const [filter, setFilter] = React.useState<Filter>("全部");
+
+const STATUS_TONE: Record<TemplateStatus, "primary" | "neutral" | "warning" | "outline"> = {
+  published: "primary",
+  draft: "warning",
+  trial: "outline",
+  archived: "neutral",
+};
+
+const FILTER_LABEL: Record<ListTemplatesFilter, string> = {
+  all: "全部",
+  published: "已发布",
+  draft: "草稿",
+  archived: "已归档",
+};
+
+type LoadState =
+  | { readonly sourceKey: string; readonly status: "loading" }
+  | { readonly sourceKey: string; readonly status: "error"; readonly message: string }
+  | { readonly sourceKey: string; readonly status: "ready"; readonly rows: readonly CanvasTemplate[] };
+
+/** 归档确认框的内容**全部**来自 `confirmed:false` 的真实预检，没有前端缺省值。 */
+interface ArchivePreflight {
+  readonly row: CanvasTemplate;
+  readonly stillBoundSegmentCount: number;
+}
+
+export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null }) {
+  const { session } = useSession();
+  if (!session) throw new Error("TemplateAdmin requires an authenticated session");
+  const orgId = session.currentOrgId;
+
+  const [filter, setFilter] = React.useState<ListTemplatesFilter>("all");
   const [view, setView] = React.useState<"list" | "card">("list");
-  const [archiving, setArchiving] = React.useState<CanvasTemplateRow | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
-  // 观察者只读：写操作（新建/发布/归档/白名单开关）不渲染
+  const sourceKey = `${orgId}:${filter}`;
+  const generation = React.useRef(0);
+  const currentSourceKey = React.useRef(sourceKey);
+  currentSourceKey.current = sourceKey;
+
+  const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
+  const [archiving, setArchiving] = React.useState<ArchivePreflight | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    if (currentSourceKey.current !== sourceKey) return;
+    const request = ++generation.current;
+    setState({ sourceKey, status: "loading" });
+    try {
+      const out = await listCanvasTemplates({ orgId, filter });
+      if (request !== generation.current || currentSourceKey.current !== sourceKey) return;
+      setState({ sourceKey, status: "ready", rows: out.templates });
+    } catch (error) {
+      if (request !== generation.current || currentSourceKey.current !== sourceKey) return;
+      // 失败**不得**退化成空列表：那会把「读不到」画成「一个模板都没有」。
+      setState({ sourceKey, status: "error", message: describeError(error) });
+    }
+  }, [filter, orgId, sourceKey]);
+
+  React.useEffect(() => {
+    setArchiving(null);
+    setActionError(null);
+    setNotice(null);
+    void load();
+    return () => {
+      generation.current += 1;
+    };
+  }, [load]);
+
+  // 换组织/换筛选时，渲染期就失效上一批行：effect 在 paint 之后跑，
+  // 只靠它会让新条件下短暂显示旧条件的结果。
+  const visibleState: LoadState = state.sourceKey === sourceKey ? state : { sourceKey, status: "loading" };
+  const rows = visibleState.status === "ready" ? visibleState.rows : [];
   const readOnly = previewRole === "observer";
 
-  const rows = ALL_TEMPLATES.filter((t) => filter === "全部" || t.status === filter);
-  const counts = {
-    total: ALL_TEMPLATES.length,
-    published: ALL_TEMPLATES.filter((t) => t.status === "已发布").length,
-    draft: ALL_TEMPLATES.filter((t) => t.status === "草稿" || t.status === "试跑").length,
-    archived: ALL_TEMPLATES.filter((t) => t.status === "已归档").length,
-  };
+  async function openArchive(row: CanvasTemplate) {
+    setActionError(null);
+    setNotice(null);
+    try {
+      const out = await archiveCanvasTemplate({ key: row.key, version: row.version, confirmed: false });
+      setArchiving({ row, stillBoundSegmentCount: out.stillBoundSegmentCount });
+    } catch (error) {
+      // 预检失败就**不开**确认框：一个数字来路不明的确认框比没有确认框更危险。
+      setArchiving(null);
+      setActionError(describeError(error));
+    }
+  }
+
+  async function confirmArchive(preflight: ArchivePreflight) {
+    setActionError(null);
+    try {
+      await archiveCanvasTemplate({ key: preflight.row.key, version: preflight.row.version, confirmed: true });
+      setArchiving(null);
+      setNotice(`已归档 ${preflight.row.displayName} v${preflight.row.version}`);
+      await load();
+    } catch (error) {
+      setActionError(describeError(error));
+    }
+  }
+
+  async function restore(row: CanvasTemplate) {
+    setActionError(null);
+    setNotice(null);
+    try {
+      const out = await restoreCanvasTemplate({ key: row.key, version: row.version });
+      setNotice(`已恢复 ${row.displayName} v${row.version} → ${TEMPLATE_STATUS_LABEL[out.status]}`);
+      await load();
+    } catch (error) {
+      setActionError(describeError(error));
+    }
+  }
 
   return (
     <div className="flex h-full flex-col" data-testid="tpladmin-root">
-      {/* 标题区 */}
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-3">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-14 font-semibold tracking-tight">画布模板库</h1>
           <p className="text-11 text-muted-foreground">
-            {counts.total} 个 · {counts.published} 已发布 · {counts.draft} 草稿/试跑 · {counts.archived} 已归档
+            组织 {orgId}
+            {visibleState.status === "ready" && ` · 当前筛选下 ${rows.length} 个`}
           </p>
         </div>
-        {!readOnly && (
-          <Button size="sm" variant="primary" data-testid="tpladmin-new" onClick={() => setToast("新建：和 AI 聊出分区结构（原型待补 · 对话面板未渲染）")}>
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建画布模板
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void load()}
+          disabled={visibleState.status === "loading"}
+          data-testid="tpladmin-refresh"
+        >
+          <RefreshCw aria-hidden className="h-3.5 w-3.5" /> 刷新
+        </Button>
       </header>
 
-      {toast && (
-        <p className="border-b border-border bg-muted px-4 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-toast">
-          {toast}
+      {notice && (
+        <p className="border-b border-border bg-muted px-4 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-notice">
+          {notice}
+        </p>
+      )}
+      {actionError && (
+        <p
+          className="border-b border-destructive/40 bg-destructive/5 px-4 py-1.5 text-11 text-destructive"
+          data-testid="tpladmin-action-error"
+          role="alert"
+        >
+          操作被服务端拒绝：{actionError}
         </p>
       )}
 
-      {/* 筛选 + 视图切换 */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle bg-panel px-4 py-2">
         <div className="flex items-center gap-1" role="tablist" aria-label="按状态筛选">
-          {FILTERS.map((f) => (
-            <Button key={f} size="xs" variant={filter === f ? "primary" : "ghost"} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} data-testid={`tpladmin-filter-${f}`}>
-              {f}
+          {TEMPLATE_FILTERS.map((f) => (
+            <Button
+              key={f}
+              size="xs"
+              variant={filter === f ? "primary" : "ghost"}
+              role="tab"
+              aria-selected={filter === f}
+              onClick={() => setFilter(f)}
+              data-testid={`tpladmin-filter-${f}`}
+            >
+              {FILTER_LABEL[f]}
             </Button>
           ))}
         </div>
@@ -90,150 +217,173 @@ export function TemplateAdmin({ state, previewRole }: { state: UiState; previewR
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <StateShell
-          state={state}
-          skeletonRows={6}
-          emptyHint="模板库为空——从「＋ 新建画布模板」和 AI 聊出第一张分区结构，或复制现成模板改。"
-          errors={{ publish: "未指定试跑项目，无法进入「试跑」态（请先选一个项目）" }}
-          depFailure={{ what: "模板注册表服务不可用，已显示最近一次成功加载的清单；发布/归档暂不可用", retry: () => location.reload() }}
-          denial={{ layer: "organization", reason: "后台模板库仅组织管理员可管理，你的角色只能在画布里使用已发布模板" }}
-          successMessage="已发布 persona v4，旧版 v3 自动归档；已建实例仍记着各自的版本，未被改动"
-        >
-          <div className="flex flex-col gap-4">
-            {/* 三段发布流程说明（把「无阻断」这条产品判断显式画出来）*/}
-            <p className="flex items-start gap-1.5 rounded-md border border-border-subtle bg-muted px-3 py-2 text-11 text-muted-foreground" data-testid="tpladmin-flow-note">
-              <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {PUBLISH_FLOW_NOTE}
-            </p>
+        {visibleState.status === "loading" && (
+          <p className="text-12 text-muted-foreground" data-testid="tpladmin-loading">正在读取模板注册表…</p>
+        )}
 
-            {view === "list" ? (
-              <div className="overflow-hidden rounded-lg border border-border" data-testid="tpladmin-table">
-                <table className="w-full text-left text-12">
-                  <thead className="bg-panel text-11 text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 font-medium">模板</th>
-                      <th className="px-3 py-2 font-medium">状态</th>
-                      <th className="hidden px-3 py-2 font-medium lg:table-cell">结构摘要</th>
-                      <th className="px-3 py-2 font-medium">key vN</th>
-                      <th className="hidden px-3 py-2 font-medium md:table-cell">类型 · 可见性</th>
-                      <th className="px-3 py-2 font-medium">被 N 场</th>
-                      <th className="px-3 py-2 font-medium">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((t, i) => (
-                      <tr key={`${t.key}-${t.version}-${i}`} className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted" data-testid={`tpladmin-row-${t.key}-${t.version}`}>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{t.cnName}</span>
-                            {t.builtin && <span className="text-9 text-muted-foreground">内置 · 不可删</span>}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{t.status}</Badge></td>
-                        <td className="hidden px-3 py-2 text-11 text-muted-foreground lg:table-cell">{t.structure}</td>
-                        <td className="px-3 py-2">
-                          <span className="font-mono text-11">{t.key} {t.version}</span>
-                          {t.displayName !== t.key && (
-                            <span className="ml-1 text-9 text-muted-foreground" title="展示名与程序 key 不同（O-09）">显示: {t.displayName}</span>
-                          )}
-                        </td>
-                        <td className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">{t.kind} · {t.visibility}</td>
-                        <td className="px-3 py-2 text-11 tabular-nums">{t.usedBy}</td>
-                        <td className="px-3 py-2">
-                          <RowActions row={t} readOnly={readOnly} onArchive={() => setArchiving(t)} onToast={setToast} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
-                {rows.map((t, i) => (
-                  <div key={`${t.key}-${t.version}-${i}`} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow duration-200 hover:shadow-md" data-testid={`tpladmin-card-${t.key}-${t.version}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-13 font-medium">{t.cnName}</span>
-                      <Badge tone={STATUS_TONE[t.status]}>{t.status}</Badge>
-                    </div>
-                    <span className="text-11 text-muted-foreground">{t.structure}</span>
-                    <span className="font-mono text-10 text-muted-foreground">{t.key} {t.version} · {t.kind} · 被 {t.usedBy} 场</span>
-                    <RowActions row={t} readOnly={readOnly} onArchive={() => setArchiving(t)} onToast={setToast} />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* mermaid 白名单 12 类 · 4 组 × 3 */}
-            <WhitelistPanel readOnly={readOnly} />
+        {visibleState.status === "error" && (
+          <div
+            className="flex flex-col items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+            data-testid="tpladmin-error"
+            role="alert"
+          >
+            <p className="text-13 font-medium text-destructive">读取模板注册表失败</p>
+            <p className="font-mono text-11 text-destructive">{visibleState.message}</p>
+            <Button size="xs" variant="outline" onClick={() => void load()} data-testid="tpladmin-retry">重试</Button>
           </div>
-        </StateShell>
+        )}
+
+        {visibleState.status === "ready" && rows.length === 0 && (
+          <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border p-6" data-testid="tpladmin-empty">
+            <p className="text-13 font-medium">当前筛选下没有画布模板</p>
+            <p className="text-11 text-muted-foreground">
+              这是本组织在服务端的真实结果。模板的创建入口尚未在已签契约里存在（见 issue #464），
+              因此这里不会出现任何示例模板。
+            </p>
+          </div>
+        )}
+
+        {visibleState.status === "ready" && rows.length > 0 && (
+          view === "list" ? (
+            <div className="overflow-hidden rounded-lg border border-border" data-testid="tpladmin-table">
+              <table className="w-full text-left text-12">
+                <thead className="bg-panel text-11 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">模板</th>
+                    <th className="px-3 py-2 font-medium">状态</th>
+                    <th className="hidden px-3 py-2 font-medium lg:table-cell">分区</th>
+                    <th className="px-3 py-2 font-medium">key vN</th>
+                    <th className="hidden px-3 py-2 font-medium md:table-cell">类型 · 可见性</th>
+                    <th className="px-3 py-2 font-medium">被 N 场</th>
+                    <th className="px-3 py-2 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((t) => (
+                    <tr
+                      key={`${t.key}-${t.version}`}
+                      className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted"
+                      data-testid={`tpladmin-row-${t.key}-${t.version}`}
+                    >
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{t.displayName}</span>
+                          {t.builtin && <span className="text-9 text-muted-foreground">内置 · 不可删</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge></td>
+                      <td className="hidden px-3 py-2 text-11 text-muted-foreground lg:table-cell">{describeSections(t)}</td>
+                      <td className="px-3 py-2"><span className="font-mono text-11">{t.key} v{t.version}</span></td>
+                      <td className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">
+                        {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
+                      </td>
+                      <td className="px-3 py-2 text-11 tabular-nums">{t.usageCount}</td>
+                      <td className="px-3 py-2">
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
+              {rows.map((t) => (
+                <div
+                  key={`${t.key}-${t.version}`}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                  data-testid={`tpladmin-card-${t.key}-${t.version}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-13 font-medium">{t.displayName}</span>
+                    <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
+                  </div>
+                  <span className="text-11 text-muted-foreground">{describeSections(t)}</span>
+                  <span className="font-mono text-10 text-muted-foreground">
+                    {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
+                  </span>
+                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} />
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </div>
 
-      {archiving && <ArchiveDialog row={archiving} onClose={() => setArchiving(null)} onConfirm={() => { setToast(`已归档 ${archiving.cnName}——从绑定选择器消失，但已绑定环节现场仍能实例化（O-10）`); setArchiving(null); }} />}
+      {archiving && (
+        <ArchiveDialog
+          preflight={archiving}
+          onClose={() => setArchiving(null)}
+          onConfirm={() => void confirmArchive(archiving)}
+        />
+      )}
     </div>
   );
 }
 
-/** 发布状态机的行操作：不同状态给不同动作，危险动作（归档）与主操作分离 */
-function RowActions({ row, readOnly, onArchive, onToast }: { row: CanvasTemplateRow; readOnly: boolean; onArchive: () => void; onToast: (s: string) => void }) {
+/**
+ * 状态机的行操作。**只挂后端真接得上的两个**（归档 / 恢复）——
+ * 发布与试跑缺真实输入源，见文件头。
+ */
+function RowActions({
+  row, readOnly, onArchive, onRestore,
+}: { row: CanvasTemplate; readOnly: boolean; onArchive: () => void; onRestore: () => void }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {row.status === "草稿" && (
-        <>
-          <Button size="xs" variant="primary" data-testid={`tpladmin-publish-${row.key}`} onClick={() => onToast("发布：草稿行 [发布][试跑] 并列，无阻断（未试跑不得发布属原型确认缺失）")}>
-            <Rocket aria-hidden className="h-3 w-3" /> 发布
-          </Button>
-          <Button size="xs" variant="outline" data-testid={`tpladmin-trial-${row.key}`} onClick={() => onToast("试跑：需选定唯一一个项目（选择器原型待补）")}>
-            <FlaskConical aria-hidden className="h-3 w-3" /> 试跑
-          </Button>
-        </>
-      )}
-      {row.status === "试跑" && (
-        <Button size="xs" variant="primary" data-testid={`tpladmin-publish-${row.key}`} onClick={() => onToast("发布 → 全员可绑定；发布新版本时旧版自动归档")}>
-          <Rocket aria-hidden className="h-3 w-3" /> 发布
+      {row.status === "published" && (
+        <Button size="xs" variant="ghost" className="text-destructive" data-testid={`tpladmin-archive-${row.key}-${row.version}`} onClick={onArchive}>
+          <Archive aria-hidden className="h-3 w-3" /> 归档
         </Button>
       )}
-      {row.status === "已发布" && (
-        <>
-          <Button size="xs" variant="ghost" data-testid={`tpladmin-edit-${row.key}`} onClick={() => onToast("编辑：打开 TemplateSpec 检查器（原型待补）")}>
-            <Pencil aria-hidden className="h-3 w-3" /> 编辑
-          </Button>
-          <Button size="xs" variant="ghost" className="text-destructive" data-testid={`tpladmin-archive-${row.key}`} onClick={onArchive}>
-            <Archive aria-hidden className="h-3 w-3" /> 归档
-          </Button>
-        </>
-      )}
-      {row.status === "已归档" && (
-        <Button size="xs" variant="outline" data-testid={`tpladmin-restore-${row.key}`} onClick={() => onToast(`已恢复 ${row.cnName}——重新出现在绑定选择器中`)}>
+      {row.status === "archived" && (
+        <Button size="xs" variant="outline" data-testid={`tpladmin-restore-${row.key}-${row.version}`} onClick={onRestore}>
           <RotateCcw aria-hidden className="h-3 w-3" /> 恢复
         </Button>
+      )}
+      {(row.status === "draft" || row.status === "trial") && (
+        <span className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`tpladmin-nopublish-${row.key}-${row.version}`}>
+          <Rocket aria-hidden className="h-3 w-3" /> 发布 / 试跑入口待补（缺可见范围与试跑项目的真实来源）
+        </span>
+      )}
+      {row.status === "published" && (
+        <span className="flex items-center gap-1 text-10 text-muted-foreground">
+          <Pencil aria-hidden className="h-3 w-3" /> 编辑入口待补（契约无更新操作）
+        </span>
       )}
     </div>
   );
 }
 
-/** 归档二次确认 + 影响面（O-10 ③：有 N 个议程环节仍绑定此模板）*/
-function ArchiveDialog({ row, onClose, onConfirm }: { row: CanvasTemplateRow; onClose: () => void; onConfirm: () => void }) {
-  const bound = row.boundSegments ?? 0;
+/** 归档二次确认。影响面那个数来自本次预检，**不是**一个前端缺省值（O-10 ③）。 */
+function ArchiveDialog({
+  preflight, onClose, onConfirm,
+}: { preflight: ArchivePreflight; onClose: () => void; onConfirm: () => void }) {
+  const { row, stillBoundSegmentCount } = preflight;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="archive-title" data-testid="tpladmin-archive-dialog">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="archive-title"
+      data-testid="tpladmin-archive-dialog"
+    >
       <div className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
         <div className="flex items-start gap-2">
           <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
           <div className="flex flex-col gap-1">
-            <h2 id="archive-title" className="text-14 font-semibold">归档「{row.cnName}」？</h2>
+            <h2 id="archive-title" className="text-14 font-semibold">归档「{row.displayName} v{row.version}」？</h2>
             <p className="text-12 text-muted-foreground">
               归档后它<strong className="text-background-foreground">从绑定选择器消失、不能再新增绑定</strong>；
               但<strong className="text-background-foreground">已建实例不被改动</strong>，
-              已绑定该模板的议程环节现场触发时仍能成功实例化（固化归档时版本，O-10）。
+              已绑定该模板的议程环节现场触发时仍能成功实例化（O-10）。
             </p>
           </div>
         </div>
         <div className="rounded-md border border-warning/40 bg-warning/5 p-2.5" data-testid="tpladmin-archive-impact">
-          <p className="text-12 font-medium">影响范围</p>
+          <p className="text-12 font-medium">影响范围（服务端预检结果）</p>
           <p className="text-11 text-muted-foreground">
-            有 <strong className="text-background-foreground tabular-nums">{bound}</strong> 个议程环节仍绑定此模板 · 被 {row.usedBy} 场使用
+            有 <strong className="text-background-foreground tabular-nums">{stillBoundSegmentCount}</strong> 个议程环节仍绑定此模板 · 被 {row.usageCount} 场使用
           </p>
         </div>
         <div className="flex items-center justify-end gap-2">
@@ -245,49 +395,14 @@ function ArchiveDialog({ row, onClose, onConfirm }: { row: CanvasTemplateRow; on
   );
 }
 
-/** mermaid 白名单开关区（[原型] 12 类分 4 组、每组 3 个；只关渲染不关书写）*/
-function WhitelistPanel({ readOnly }: { readOnly: boolean }) {
-  const [groups, setGroups] = React.useState(MERMAID_WHITELIST);
-  const toggle = (gi: number, ki: number) => {
-    if (readOnly) return;
-    setGroups((prev) => prev.map((g, i) => (i === gi ? g.map((t, j) => (j === ki ? { ...t, on: !t.on } : t)) : g)));
-  };
-  const offCount = groups.flat().filter((t) => !t.on).length;
+function describeSections(t: CanvasTemplate): string {
+  if (t.sections.length === 0) return "无分区";
+  return `${t.sections.length} 分区 · ${t.sections.map((s) => s.name).join(" / ")}`;
+}
 
-  return (
-    <section className="flex flex-col gap-2" data-testid="tpladmin-whitelist">
-      <div className="flex items-center justify-between">
-        <h2 className="text-13 font-semibold">mermaid 图表类型白名单</h2>
-        {offCount > 0 && <Badge tone="warning" data-testid="tpladmin-ignored-count">有 {IGNORED_SYNTAX_COUNT} 条语法被忽略</Badge>}
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {groups.map((g, gi) => (
-          <div key={gi} className="flex flex-col gap-1.5 rounded-md border border-border bg-card p-2.5">
-            {g.map((t, ki) => (
-              <button
-                key={t.key}
-                type="button"
-                disabled={readOnly}
-                onClick={() => toggle(gi, ki)}
-                aria-pressed={t.on}
-                data-testid={`tpladmin-whitelist-${t.key}`}
-                className={cn(
-                  "flex items-center justify-between rounded-md border px-2 py-1.5 font-mono text-11 transition-colors duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                  "disabled:bg-disabled disabled:text-disabled-foreground",
-                  t.on ? "border-primary/40 bg-accent text-accent-foreground" : "border-border-subtle bg-muted text-muted-foreground",
-                )}
-              >
-                {t.label}
-                <span className="text-9">{t.on ? "开" : "关"}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-      <p className="text-10 text-muted-foreground">
-        关掉的类型顾问仍可在文档里写，只是不会渲染成画布对象——画布顶部会提示「有 N 条语法被忽略」，源码原样保留。
-      </p>
-    </section>
-  );
+/** 后端真实信封原样回显：`reasonCode` + HTTP 状态，不糊成一句「加载失败」。 */
+function describeError(error: unknown): string {
+  if (error instanceof ApiError) return `${error.reasonCode ?? "无 reasonCode"}（HTTP ${error.status}）`;
+  if (error instanceof Error) return error.message;
+  return "未知错误";
 }

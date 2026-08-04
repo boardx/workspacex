@@ -12,14 +12,34 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
 import {
+  createThread,
+  deleteThread,
   getAgentPanel,
   getThread,
   listThreads,
+  renameThread,
   type GetAgentPanelOut,
   type GetThreadOut,
   type ListThreadsOut,
   type ThreadCard,
 } from "@/lib/live-chat";
+
+/**
+ * 会话增删改的写权只认**服务端下发的能力标记**，不从 `composer.send` 推断、
+ * 也不在前端按角色重算——契约 `chat.mutateThread` 要求两侧都验收：按钮不渲染
+ * **且**接口拒绝（`packages/contracts/src/chat.ts:408`）。
+ *
+ * 能力**取自 `listThreads`**（#489），不取自 `getThread`。原因是一条实测死路：
+ * `getThread` 只在选中某条线程时才调用，**零会话的项目里它一次都不会被调用** ⇒
+ * 拿不到任何写权依据 ⇒「新建」不渲染 ⇒ **新注册的管理员永远建不出第一条会话**，
+ * 「注册 → 登录 → Chat 新增」死在第三步。#460 交付时这个缺口被命名并上报，
+ * #489 由服务端在 `listThreads.out` 也下发同一份 `capabilitiesFor` 结果补上。
+ *
+ * ⚠ 两个端口下发的是**同一个事实源**（服务端 `capabilitiesFor`），不是两套判定。
+ * 前端只读一处（列表），不做并集、不做回退到 `getThread`——两处读会让
+ * 「哪个说了算」重新成为问题。
+ */
+const THREAD_MUTATE_CAPABILITY = "thread.mutate";
 
 interface Sourced<T> {
   readonly key: string;
@@ -146,6 +166,76 @@ export function ChatReadScreen({
     };
   }, [loadSelectedThread, selectedThreadId]);
 
+  /* ── 会话增删改（#460）──────────────────────────────────────────────────────
+   * 三条都**先等服务端返回，再从服务端重新读列表**——不做乐观更新。乐观更新会
+   * 在服务端拒绝（NO_WRITE_ROLE / VERSION_CHANGED）时先给用户一个假的成功画面，
+   * 而这条路径的整个意义就是「界面反映的是数据库里真实发生的事」。 */
+  const [mutatePending, setMutatePending] = React.useState<"create" | "rename" | "delete" | null>(null);
+  const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
+
+  const runMutation = React.useCallback(async (
+    op: "create" | "rename" | "delete",
+    action: () => Promise<string | null>,
+  ) => {
+    if (!sourceKey || !projectId || !bearer) return;
+    setMutatePending(op);
+    setMutateFailure(null);
+    try {
+      const preferred = await action();
+      // 重读列表，并**从服务端返回的列表里**解析选中态。删除后不能沿用路由上的
+      // thread 参数——它指向刚被删掉的那条；「删完选中态正确回退」是本 issue 的验收项。
+      const refreshed = await listThreads(projectId, {}, bearer);
+      const cards = refreshed.groups.flatMap((group) => group.cards);
+      const resolved = preferred && cards.some((card) => card.id === preferred)
+        ? preferred
+        : (cards[0]?.id ?? null);
+      setThreadResult({ key: sourceKey, value: refreshed });
+      setSelection({ sourceKey, routeThreadId: initialThreadId, threadId: resolved });
+      if (resolved) router.replace(chatHref(projectId, resolved));
+    } catch (failure) {
+      setMutateFailure(describeMutateFailure(failure));
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, initialThreadId, projectId, router, sourceKey]);
+
+  const selectedVersion = detail?.thread.version ?? null;
+  // 取自列表而不是详情：零会话时 `detail` 恒为 null，而「能不能建第一条会话」
+  // 恰恰要在零会话时回答（#489）。
+  const canMutate = threads?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
+
+  const handleCreate = React.useCallback((title: string) => {
+    if (!projectId) return;
+    void runMutation("create", async () => {
+      const result = await createThread({
+        projectId,
+        groupId: null,
+        title,
+        // 新建默认走全体可见；更细的可见范围是会话设置的事，不在本 issue。
+        visibilityScope: "plenary",
+      });
+      return result.threadId;
+    });
+  }, [projectId, runMutation]);
+
+  const handleRename = React.useCallback((title: string) => {
+    if (!selectedThreadId || selectedVersion === null) return;
+    void runMutation("rename", async () => {
+      await renameThread(selectedThreadId, title, selectedVersion);
+      return selectedThreadId;
+    });
+  }, [runMutation, selectedThreadId, selectedVersion]);
+
+  const handleDelete = React.useCallback((reason: string) => {
+    if (!selectedThreadId || selectedVersion === null) return;
+    const removed = selectedThreadId;
+    void runMutation("delete", async () => {
+      await deleteThread(removed, selectedVersion, reason);
+      // 删完的选中态：交给 loadThreads 从服务端返回的第一条兜底，不在本地猜。
+      return null;
+    });
+  }, [runMutation, selectedThreadId, selectedVersion]);
+
   if (!projectId) {
     return (
       <AppShell previewRole={null}>
@@ -176,6 +266,12 @@ export function ChatReadScreen({
           loading={listLoading}
           error={listError}
           selectedThreadId={selectedThreadId}
+          canMutate={canMutate}
+          mutatePending={mutatePending}
+          mutateFailure={mutateFailure}
+          onCreate={handleCreate}
+          onRename={handleRename}
+          onDelete={handleDelete}
           onRetry={() => void loadThreads()}
           onSelect={(threadId) => {
             if (sourceKey) {
@@ -211,13 +307,21 @@ export function ChatReadScreen({
 }
 
 function ThreadList({
-  projectId, groups, loading, error, selectedThreadId, onRetry, onSelect,
+  projectId, groups, loading, error, selectedThreadId,
+  canMutate, mutatePending, mutateFailure, onCreate, onRename, onDelete,
+  onRetry, onSelect,
 }: {
   projectId: string;
   groups: ListThreadsOut["groups"] | null;
   loading: boolean;
   error: string | null;
   selectedThreadId: string | null;
+  canMutate: boolean;
+  mutatePending: "create" | "rename" | "delete" | null;
+  mutateFailure: string | null;
+  onCreate: (title: string) => void;
+  onRename: (title: string) => void;
+  onDelete: (reason: string) => void;
   onRetry: () => void;
   onSelect: (threadId: string) => void;
 }) {
@@ -227,6 +331,16 @@ function ThreadList({
         <span className="text-10 uppercase tracking-wide text-muted-foreground">项目对话</span>
         <span className="truncate font-mono text-11" data-testid="chat-project-id">{projectId}</span>
       </div>
+      {canMutate ? (
+        <ThreadActions
+          selectedThreadId={selectedThreadId}
+          pending={mutatePending}
+          failure={mutateFailure}
+          onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
+        />
+      ) : null}
       <Separator />
       {loading && groups === null ? <p className="p-3 text-12 text-muted-foreground">正在加载真实线程…</p> : null}
       {error ? (
@@ -263,6 +377,108 @@ function ThreadList({
           ))}
         </nav>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * 会话增删改入口。**只在服务端下发了 `thread.mutate` 时才渲染**（调用方已判），
+ * 而不是渲染后禁用——「在集合里但标了 disabled」等于把授权判定交给客户端执行。
+ */
+function ThreadActions({
+  selectedThreadId, pending, failure, onCreate, onRename, onDelete,
+}: {
+  selectedThreadId: string | null;
+  pending: "create" | "rename" | "delete" | null;
+  failure: string | null;
+  onCreate: (title: string) => void;
+  onRename: (title: string) => void;
+  onDelete: (reason: string) => void;
+}) {
+  const [form, setForm] = React.useState<"create" | "rename" | "delete" | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const busy = pending !== null;
+  const hasSelection = selectedThreadId !== null;
+
+  function open(next: "create" | "rename" | "delete") {
+    setForm(next);
+    setDraft("");
+  }
+
+  return (
+    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-actions">
+      <div className="flex flex-wrap gap-1">
+        <Button size="xs" variant="outline" data-testid="chat-thread-create" disabled={busy} onClick={() => open("create")}>
+          新建会话
+        </Button>
+        <Button size="xs" variant="outline" data-testid="chat-thread-rename" disabled={busy || !hasSelection} onClick={() => open("rename")}>
+          改名
+        </Button>
+        <Button size="xs" variant="outline" data-testid="chat-thread-delete" disabled={busy || !hasSelection} onClick={() => open("delete")}>
+          删除
+        </Button>
+      </div>
+
+      {form === "create" || form === "rename" ? (
+        <form
+          data-testid={form === "create" ? "chat-thread-create-form" : "chat-thread-rename-form"}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const title = draft.trim();
+            if (!title) return;
+            if (form === "create") onCreate(title); else onRename(title);
+            setForm(null);
+          }}
+          className="flex flex-col gap-1"
+        >
+          <input
+            aria-label={form === "create" ? "新会话标题" : "新的会话标题"}
+            data-testid="chat-thread-title-input"
+            className="rounded-md border border-border-subtle px-2 py-1 text-12"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <div className="flex gap-1">
+            <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || draft.trim() === ""}>
+              确认
+            </Button>
+            <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
+          </div>
+        </form>
+      ) : null}
+
+      {/* 删除要二次确认：它是可追溯动作，服务端会写审计并返回 impactScope。 */}
+      {form === "delete" ? (
+        <form
+          data-testid="chat-thread-delete-confirm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const reason = draft.trim();
+            if (!reason) return;
+            onDelete(reason);
+            setForm(null);
+          }}
+          className="flex flex-col gap-1"
+        >
+          <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
+          <input
+            aria-label="删除原因"
+            data-testid="chat-thread-delete-reason"
+            className="rounded-md border border-border-subtle px-2 py-1 text-12"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <div className="flex gap-1">
+            <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || draft.trim() === ""}>
+              确认删除
+            </Button>
+            <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
+          </div>
+        </form>
+      ) : null}
+
+      {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+      {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
     </div>
   );
 }
@@ -388,6 +604,21 @@ function describeFailure(failure: unknown): string {
     return `${failure.reasonCode ?? "读取失败"}（HTTP ${failure.status}）`;
   }
   return failure instanceof Error ? failure.message : "读取失败，请稍后重试。";
+}
+
+/**
+ * 写操作的失败文案。**回显服务端的 reasonCode**，不把所有失败糊成一句「操作失败」——
+ * `VERSION_CHANGED`（别人先改了）与 `NO_WRITE_ROLE`（你没权限）是用户要区分对待的两件事。
+ */
+function describeMutateFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    if (failure.reasonCode === "NO_WRITE_ROLE") return "当前身份没有会话写权限（NO_WRITE_ROLE）。";
+    if (failure.reasonCode === "VERSION_CHANGED") return "这条会话已被其他人修改（VERSION_CHANGED），请刷新后重试。";
+    if (failure.reasonCode === "TITLE_INVALID") return "标题不合法（TITLE_INVALID）。";
+    if (failure.reasonCode === "THREAD_ARCHIVED_READONLY") return "会话已归档，只读（THREAD_ARCHIVED_READONLY）。";
+    return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+  }
+  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
 }
 
 function chatHref(projectId: string, threadId: string): string {
