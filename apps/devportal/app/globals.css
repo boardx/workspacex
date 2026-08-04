@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DevPortal 设计系统 token —— 暖深色主题（权威视觉源：
+   phases/phase-p30-devportal-platform/requirements/design/DevPortal-Platform.dc.html）。
+   单一事实来源：改主题改这里，不在组件里硬编码颜色。见 .harness/instructions/uiux-standards.md
+   与 ADR-013（对比度单源门控：scripts/check-token-contrast.mjs 机械把关）。
+
+   色板对照（设计稿 hex → 语义 token）：
+   #171310 页面底        → --background
+   #1c1712 卡片/侧栏面   → --card / --surface-1 / --popover
+   #221c16 嵌套卡        → --muted / --surface-2 / --disabled
+   #2a2118 次级按钮/hover→ --secondary / --accent / --surface-3
+   #f3ece0 主文          → --foreground
+   #c9bda9 次级按钮文字  → --secondary-foreground
+   #a89880 弱文          → --muted-foreground（设计稿 #8f8271 在 #2a2118 上仅 4.2:1，
+                            按 ADR-013 提亮到 #a89880 保 AA，全面 ≥5.6:1）
+   #ff8659 主强调橙      → --primary / --ring（链接色走 text-primary）
+   #f0b429 琥珀强调      → --accent-amber（项目/coord 高亮）
+   #7dd3c0 teal          → --success（心跳/正向/🤖 agent 系）
+   #e0665a 警示红        → --destructive
+   rgba(255,244,230,.07) → --border（不透明近似 #2b251c）
+   三色体系（N6，chip 底色）：👤 human → 长春花蓝系（设计稿 #9db1ff 系唯一冷蓝）、
+   🤖 agent → teal #7dd3c0 系、项目 → 琥珀 #f0b429 系。 */
+@layer base {
+  :root {
+    /* ── 暖深中性面 ─────────────────────────────────────── */
+    --background: 26 18% 7.6%;        /* #171310 页面底 */
+    --foreground: 38 44% 91.6%;       /* #f3ece0 主文 */
+    --card: 30 22% 9%;                /* #1c1712 卡面 */
+    --card-foreground: 38 44% 91.6%;
+    --popover: 30 22% 9%;
+    --popover-foreground: 38 44% 91.6%;
+    --primary: 16 100% 67.5%;         /* #ff8659 主强调橙 */
+    --primary-foreground: 30 22% 9%;  /* #1c1712，7.5:1 */
+    --secondary: 30 27% 12.9%;        /* #2a2118 次级按钮面 */
+    --secondary-foreground: 38 23% 72.5%; /* #c9bda9，8.5:1 */
+    --muted: 30 21% 11%;              /* #221c16 骨架/嵌套面 */
+    --muted-foreground: 36 19% 58%;   /* #a89880 弱文，最深面上 5.6:1 */
+    --accent: 30 27% 12.9%;           /* #2a2118 hover 面 */
+    --accent-foreground: 38 44% 91.6%;
+    --destructive: 5 68% 61.6%;       /* #e0665a 警示红 */
+    --destructive-foreground: 0 0% 100%; /* 3.4:1（状态色 ≥3 线，同 apps/web 取舍） */
+    --success: 167 49% 65.9%;         /* #7dd3c0 teal */
+    --success-foreground: 164 29% 10%; /* #12211d，9.5:1 */
+    --border: 36 21% 13.9%;           /* ≈rgba(255,244,230,.07) over #171310 */
+    --input: 36 21% 18.8%;            /* #3a3226 表单边框略强 */
+    --ring: 16 100% 67.5%;            /* 焦点环 = 主强调橙 */
+    --radius: 0.5rem;                 /* 8px；卡片走 rounded-10/12 档 */
+
+    /* ── 扩展面档 ───────────────────────────────────────── */
+    --surface-1: 30 22% 9%;           /* #1c1712 */
+    --surface-2: 30 21% 11%;          /* #221c16 */
+    --surface-3: 30 27% 12.9%;        /* #2a2118 */
+    --border-strong: 36 21% 18.8%;    /* #3a3226 强边框/滚动条 */
+    --placeholder: 36 15% 54%;        /* 占位文字（各面 ≥4.9:1） */
+    --surface-darkest: 36 16% 6.1%;   /* #12100d 最深面 */
+    --surface-dark: 42 33% 12%;       /* 琥珀调深面（晨报/叙事卡，对齐设计稿琥珀渐变卡底） */
+    --surface-dark-2: 36 21% 18.8%;   /* #3a3226 */
+    --surface-dark-foreground: 38 44% 91.6%;
+
+    /* ── 强调琥珀（项目/coord 高亮，text-accent-amber / bg-accent-amber）── */
+    --accent-amber: 42 87% 55%;       /* #f0b429 */
+    --accent-amber-foreground: 30 22% 9%; /* 9.5:1 */
+
+    /* ── 三色体系柔彩底（chip/soft 底，上面文字一律 text-foreground）── */
+    --tag-blue: 228 32% 26%;          /* 👤 human：长春花蓝系深底 */
+    --tag-purple: 169 28% 20%;        /* 🤖 agent：teal 系深底（#7dd3c0 系） */
+    --tag-green: 42 45% 17%;          /* 项目：琥珀系深底（#f0b429 系） */
+    --tag-pink: 9 40% 22%;            /* 警示红系深底 */
+    --tag-yellow: 40 70% 20%;         /* ✋ 举手/警告：琥珀黄深底（略亮于项目底以区分） */
+
+    /* ── 禁用态 token 对（≥4.5，禁止 disabled:opacity-*，见 uiux-standards §1.1）── */
+    --disabled: 30 21% 11%;           /* #221c16 */
+    --disabled-foreground: 36 19% 58%; /* #a89880 = 6.0:1 */
+  }
+
+  /* 门户为暖深色单主题：.dark 与 :root 同值，防止历史 class 切换出现双主题漂移。 */
+  .dark {
+    --background: 26 18% 7.6%;
+    --foreground: 38 44% 91.6%;
+    --card: 30 22% 9%;
+    --card-foreground: 38 44% 91.6%;
+    --popover: 30 22% 9%;
+    --popover-foreground: 38 44% 91.6%;
+    --primary: 16 100% 67.5%;
+    --primary-foreground: 30 22% 9%;
+    --secondary: 30 27% 12.9%;
+    --secondary-foreground: 38 23% 72.5%;
+    --muted: 30 21% 11%;
+    --muted-foreground: 36 19% 58%;
+    --accent: 30 27% 12.9%;
+    --accent-foreground: 38 44% 91.6%;
+    --destructive: 5 68% 61.6%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 167 49% 65.9%;
+    --success-foreground: 164 29% 10%;
+    --border: 36 21% 13.9%;
+    --input: 36 21% 18.8%;
+    --ring: 16 100% 67.5%;
+
+    --surface-1: 30 22% 9%;
+    --surface-2: 30 21% 11%;
+    --surface-3: 30 27% 12.9%;
+    --border-strong: 36 21% 18.8%;
+    --placeholder: 36 15% 54%;
+    --surface-darkest: 36 16% 6.1%;
+    --surface-dark: 42 33% 12%;
+    --surface-dark-2: 36 21% 18.8%;
+    --surface-dark-foreground: 38 44% 91.6%;
+
+    --accent-amber: 42 87% 55%;
+    --accent-amber-foreground: 30 22% 9%;
+
+    --tag-blue: 228 32% 26%;
+    --tag-purple: 169 28% 20%;
+    --tag-green: 42 45% 17%;
+    --tag-pink: 9 40% 22%;
+    --tag-yellow: 40 70% 20%;
+
+    --disabled: 30 21% 11%;
+    --disabled-foreground: 36 19% 58%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* 滚动条质感（对齐设计稿：细、暖棕 thumb） */
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  /* 品牌渐变方块（侧栏 logo / 招募页项目块），色值只在 token 层出现 */
+  .dp-brand-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-amber)));
+  }
+}
+
+/* 入场动画（设计稿 fadeIn/slideUp）；类由 tailwind.config.ts animation 映射。
+   prefers-reduced-motion 下整体禁用（含骨架 pulse 之外的入场位移）。 */
+@keyframes dp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dp-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up {
+    animation: none !important;
+  }
+}
