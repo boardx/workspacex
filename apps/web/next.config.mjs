@@ -26,6 +26,13 @@ export default {
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
+      // #520：Skill 目录的读与写。`/skills` 自己既是 GET 列表也是 POST 建草稿，
+      // `/skills/:id` 与 `/skills/:id/disable` 走 `:path*` ——
+      // **这是同一个坑的第三次**（前两次就写在上面 `/capabilities` 与
+      // `/canvas/templates` 的注释里）。缺了裸路径那一条，`/skill` 前端会静默打到
+      // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
+      { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
+      { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute

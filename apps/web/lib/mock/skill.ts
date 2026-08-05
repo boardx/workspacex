@@ -23,8 +23,18 @@
 
 /* ─────────────────────────── 屏 / 视角 / 状态 ─────────────────────────── */
 
+/**
+ * ⚠ #520 起 `library` **不再是原型屏**：它渲染接真实后端的 `SkillCatalogLive`
+ * （`components/skill/skill-catalog-live.tsx`，零 mock 依赖）。七屏原型里原来的
+ * 那一屏搬到了 `library-prototype`，并在左栏标着「原型 · mock」。
+ *
+ * 这样做而不是删掉原型：它是签核第 ① 件的材料，另外六屏的后端还没有 HTTP 边界，
+ * 删掉等于把已签核的设计从仓库里抹掉。剩下的 mock 边逐条钉在
+ * `tests/session/skill-create-route-no-mock.test.ts` 的债务台账里。
+ */
 export const SKILL_SCREENS = [
   "library",
+  "library-prototype",
   "tryrun",
   "binding",
   "temp",
@@ -35,7 +45,8 @@ export const SKILL_SCREENS = [
 export type SkillScreen = (typeof SKILL_SCREENS)[number];
 
 export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
-  library: "Skill 库与双门禁",
+  library: "Skill 库（真实数据）",
+  "library-prototype": "Skill 库与双门禁（原型 · mock）",
   tryrun: "试跑 · 场景×校验×回归",
   binding: "绑定到环节与角色",
   temp: "对话里临时加减",
@@ -45,7 +56,8 @@ export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
 };
 
 export const SKILL_SCREEN_UC: Record<SkillScreen, string> = {
-  library: "UC-3.1 · F61/F62",
+  library: "UC-3.1 · F61 · 接真实 API",
+  "library-prototype": "UC-3.1 · F61/F62 · 原型",
   tryrun: "UC-3.1 R? · 试跑整屏",
   binding: "UC-3.2 · F63/F64",
   temp: "UC-3.3 · F65",

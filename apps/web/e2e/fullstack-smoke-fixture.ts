@@ -50,4 +50,14 @@ export const FULLSTACK_E2E = {
   canvasTemplateName: `FULLSTACK_TEMPLATE_${scope}`,
   canvasTemplateCounterproofKey: `tpl-496-cp-${scope}`.toLowerCase(),
   canvasTemplateCounterproofName: `FULLSTACK_TEMPLATE_CP_${scope}`,
+
+  /**
+   * #520：核心闭环第 3 步「新增 Skill」在浏览器里真的建出来的那一个。
+   *
+   * ⚠ 反证用的名字与正例**不同**：`createSkillDraft` 撞名会被
+   *   `skill.controller.ts:353 rejectNameConflict` 判 409，于是反证那条会红——
+   *   红了，但**不是因为对的原因**（#496 在同一处踩过，原文见上面那段）。
+   */
+  skillName: `FULLSTACK_SKILL_${scope}`,
+  skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 } as const;
