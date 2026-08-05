@@ -1,5 +1,7 @@
 ---
-status: proposed
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-05T11:20:00+08:00"
 bundle: realtime-asr
 scope: browser-capture-server-proxied-realtime-asr-into-chat
 ---
