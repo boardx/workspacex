@@ -11,6 +11,7 @@ import { migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { DATABASE_PORT } from "../../src/application/ports/database.port";
 import type { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { ensureRedis } from "../support/auth";
+import { dropDatabaseAfterDraining } from "../support/drop-database";
 
 process.env.KERNEL_QUIET = "1";
 
@@ -72,7 +73,10 @@ afterAll(async () => {
   await databasePort?.close();
   const admin = await adminClient();
   try {
-    await admin.query(`DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`);
+    // #487：曾经是 `DROP DATABASE … WITH (FORCE)`。FORCE 会给残留连接发 FATAL 57P01，
+    // 那条 FATAL 会以运行期错误冒进 vitest —— 4352 个测试全过、零断言失败，job 却红，
+    // 且错误里没有任何「是谁没关连接」的信息。改为先排空、残留则指名道姓。
+    await dropDatabaseAfterDraining(admin, DATABASE);
   } finally {
     await admin.end();
     if (ORIGINAL_DATABASE === undefined) delete process.env.PGDATABASE;
