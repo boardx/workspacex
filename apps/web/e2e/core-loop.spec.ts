@@ -226,11 +226,79 @@ test.describe("核心闭环八步", () => {
     await expect(threadList.getByText(title)).toBeVisible();
   });
 
+  /**
+   * ⚠ 这一条原本**锚在死代码上**，红了，但**红错了原因**。由 coord-chat-e2e 在 #492 写入，此处收口。
+   *
+   * 原文断言 `chat-composer-input`。实测该 testid **只定义在**
+   * `apps/web/components/chat/composer.tsx:47`，而那条组件链**路由走不到**：
+   * `composer.tsx` 的唯一引用者是 `components/chat/chat-main.tsx:11`，而 `chat-main.tsx`
+   * 在 `apps/web` 里**零引用者**（`grep -rn chat-main apps` 只命中它自身的 `data-testid`
+   * 与一条测试注释）。⇒ 它恒红的原因是「断言够不到那个元素」，不是「发消息没做」。
+   * （`composer.tsx` 本身**不许删**：它被 `phases/phase-01-run-a-project/contracts/chat/ui.md:69`
+   *   登记为已签核原型屏材料，删它是签核动作 —— #529 已正确拒绝。）
+   *
+   * 这不是从 import 图推断出来的，是**实测**的：临时探针在本夹具默认状态下
+   * （登录 → `/chat?projectId=…` → 新建线程）同时量了两个锚点，结果
+   * `chat-message-input=visible`、`chat-composer-input=0` —— 旧锚点整页零命中。
+   *
+   * ## 真实锚点（写进断言前逐个在源码里定位，并实测走得到）
+   *   · `chat-message-input`   components/chat/chat-live-message-panel.tsx:202
+   *   · `chat-message-submit`  components/chat/chat-live-message-panel.tsx:213
+   *   · `chat-agent-select`    components/chat/chat-live-message-panel.tsx:191
+   *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`
+   *   （`chat-read-screen.tsx:7` 引入、:606 渲染；线程未指定时自动选中 `cards[0]`，见 :192）。
+   *   发消息本身**早已端到端交付**（#429），证据见 `apps/web/e2e/chat-read.spec.ts`：
+   *   填内容 → 提交 → 202 → `page.reload()` → 消息仍在。
+   *
+   * ## 为什么它**仍然**是 `test.fail`（实测，不是推断）
+   *
+   * 换上真锚点后实跑：`chat-message-input` **可见且能填**（这两步过了）——
+   * 光这一点就证明旧锚点错在哪。红点前移到了**提交那一步**：
+   *
+   *     expect(chat-message-submit).toBeEnabled()  →  Received: disabled
+   *
+   * 原因已在同一次实跑里单独钉过（诊断断言 `chat-roster-empty` 可见、
+   * `chat-agent-select` 含「没有可选 Agent」**双双通过**，失败严格落在下一行）：
+   * 提交键的 disabled 条件是 `archived || submitting || text.trim() === "" || selectedAgentId === ""`
+   * （`chat-live-message-panel.tsx:214`）。此处线程是本用例新建的，**编制为空**，
+   * 于是 `chat-agent-select` 只有「没有可选 Agent」、`selectedAgentId === ""` ⇒ 提交键禁用。
+   * `seed-fullstack-smoke.ts` 里 chat/thread/agent **零命中**，本夹具不种线程也不种编制；
+   * `capability-mutate-smoke.spec.ts` 建出的那个 Agent 随后被它自己停用了。
+   * ⇒ 闭环缺的是「新建会话里有一个可挂的 Agent」这一段，**不是发消息的写端口**。
+   *
+   * ⚠ 上面那两条诊断断言**故意没有留在用例里**：它们断言的是**当前的坏状态**，
+   *   留着会让「编制能挂上了」这件事发生时用例**继续红**，`test.fail` 继续绿，
+   *   缺口从此再也不会自动浮出来 —— 那正是这块进度板要避免的失效模式。
+   *   现在的形态是：缺口一旦补上，整条用例通过 ⇒ Playwright 报
+   *   "expected to fail but passed" ⇒ 逼下一个人回来把它翻正。
+   */
   test.fail("[#462] 步骤 6b：在会话里发一条消息并刷新后仍在", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    // 发消息的后端与契约在 #429 已交付并合入，composer 的正式接线归 #462。
-    await expect(page.getByTestId("chat-composer-input")).toBeVisible();
+
+    // 自己建线程，不蹭 6a 留下的那条：单独 grep 跑这一条时项目里可能一条线程都没有，
+    // 蹭上一条用例的残留会让它在全量跑绿、单跑红。
+    await page.getByTestId("chat-thread-create").click();
+    const title = `闭环发消息 ${Date.now()}`;
+    await page.getByTestId("chat-thread-title-input").fill(title);
+    await page.getByTestId("chat-thread-title-submit").click();
+    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+
+    const text = `闭环消息 ${Date.now()}`;
+    // 实测这两步**通过**——真锚点够得到，旧锚点够不到。
+    await expect(page.getByTestId("chat-message-input")).toBeVisible();
+    await page.getByTestId("chat-message-input").fill(text);
+    // ⬇ 实测红在这一行：新建会话编制为空 ⇒ 没有可选 Agent ⇒ 提交键 disabled。
+    await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
+
+    const responsePromise = page.waitForResponse((response) => (
+      response.request().method() === "POST" && /\/chat\/threads\/[^/]+\/messages$/.test(response.url())
+    ));
+    await page.getByTestId("chat-message-submit").click();
+    expect((await responsePromise).status()).toBe(202);
+
+    await page.reload();
+    await expect(page.getByTestId("chat-message-list")).toContainText(text);
   });
 
   /* ── 步骤 7：实时录音在 chat 上 ───────────────────────────────────────── */
