@@ -83,6 +83,13 @@ export default {
       // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
+      // #595 Line A：`POST /agents/:agentId/trial-run`。`AgentTrialRunController` 是
+      // `@Controller()`（空前缀），路径是裸的 `/agents/:agentId/trial-run` ——
+      // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。这一族目前永远带后缀
+      // （`/agents/:agentId/trial-run`），没有裸 `/agents` 的操作，所以只写 `:path*`——
+      // 与 `/recording`、`/threads` 那条注释同一个判断依据：一旦将来加一条裸
+      // `GET /agents`，要记得在这里补第二条，别指望 `:path*` 替它兜底。
+      { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute
         ? `${apiOrigin}/__broken/projects/:projectId/artifacts`

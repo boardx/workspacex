@@ -165,10 +165,10 @@ export class PgPublishedAgentReader implements PublishedAgentReader {
       if (!tables.rows[0]?.ready) return null;
       const result = await s.query<{
         agent_id: string; agent_version_id: string; skill_version_ids: unknown;
-        model_provider: string; model_id: string;
+        model_provider: string; model_id: string; instructions: string;
       }>(
         `SELECT a.id AS agent_id, v.id AS agent_version_id, v.skill_version_ids,
-                v.model_provider, v.model_id
+                v.model_provider, v.model_id, v.instructions
            FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
              ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id
           WHERE a.org_id=$1 AND a.id=$2 AND a.status='enabled' AND v.published_at IS NOT NULL`,
@@ -181,6 +181,7 @@ export class PgPublishedAgentReader implements PublishedAgentReader {
         agentId: row.agent_id, agentVersionId: row.agent_version_id,
         skillVersionIds: row.skill_version_ids as string[],
         modelProvider: row.model_provider, modelId: row.model_id,
+        instructions: row.instructions,
       };
     });
   }

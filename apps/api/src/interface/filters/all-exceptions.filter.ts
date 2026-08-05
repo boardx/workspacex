@@ -361,6 +361,12 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   `DEPENDENCY_UNAVAILABLE`、`VERSION_CHANGED`）：契约里 `NOT_ORG_ADMIN` 的注释逐字写着
    *   「判定属 `org-admin` 束，此处透传」，所以前面的 parse 先赢是契约要的结果，
    *   不是一次要去掉的碰撞。
+   *
+   * #595 Line A 补一笔同一枚举的第二个受益方：`trialRunAgent.err` 的 `AGENT_DEPENDENCY_FAILED`
+   * 在这段登记之前同样会被静默丢弃（`ROLE_INSUFFICIENT` 因为也在 `identity.PermissionReason`
+   * 里而先一步通过，掩盖了 `AGENT_DEPENDENCY_FAILED` 那一半），由
+   * `trial-run-agent.test.ts` 的断言实测发现——不是新缺口，是同一段登记原本就该覆盖到的
+   * 另一个操作。
    */
   const agentRuntimeError = agentRuntime.AgentRuntimeError.safeParse(raw);
   return agentRuntimeError.success ? { reasonCode: agentRuntimeError.data } : {};
