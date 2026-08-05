@@ -33,6 +33,26 @@ export default {
       // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      /**
+       * #595：`/admin/*` —— 后台管理面（`/admin/skills/url-imports`、
+       * `/admin/skills/starter-pack-imports`、`/admin/agents/starter-pack-imports` …）。
+       *
+       * ⚠ 这一条是**接 controller 时才发现必须补的**，发现方式值得记下来：
+       *   `admin` 原本整个前缀都躺在 `rewrite-coverage-allowlist.json` 的棘轮名单里，
+       *   ⇒ 门是**绿的**，而那个绿的含义是「这条缺口是已登记的历史债」，
+       *   **不是**「前端够得到」。⇒ 新写的 `/admin/skills/url-imports` 从浏览器打过去
+       *   会被 Next 自己接住返回 404 HTML，前端 `JSON.parse` 报
+       *   `Unexpected token '<'`，看起来完全像「后端没实现」。
+       *
+       * ⚠ 这直接卡住 #595 的验收第 4 条（导入后能在 `/chat` 里选中并调用）——
+       *   段 3 的前端根本发不出这个请求。所以补 rewrite 不是顺手整理，是前置条件。
+       *
+       * ⚠ 没有配裸 `${prefix}/admin`：本仓当前**没有任何 controller 注册裸 `/admin`**
+       *   （实测六个方法装饰器 `@Get("/admin")` … 零命中）。
+       *   ⛔ 哪天有人加了一条裸 `/admin`，必须同时在这里补裸路径那一条——
+       *   `:path*` 匹配不到没有后缀的那一条，这个坑本文件上面已经栽过三次。
+       */
+      { source: `${prefix}/admin/:path*`, destination: `${apiOrigin}/admin/:path*` },
       // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。
       // `SkillReviewController` 是 `@Controller()`（空前缀），所以路径是**裸的**
       // `/skill-versions/...`，**不在 `/skills/` 下面** —— 上面那条 `/skills/:path*`

@@ -238,6 +238,29 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   if (agentStarterImport.success) return { reasonCode: agentStarterImport.data };
 
   /**
+   * #595: `wave2Runtime.SkillUrlImportError` —— **同一个 bug 又发生了一次**，
+   * 而这次是在接 controller 的当天现场撞见的，不是事后被人报上来的。
+   *
+   * 实测：`/admin/skills/url-imports` 第一次跑起来时，六条负样本断言全部收到
+   * `reasonCode: undefined`。⇒ 本文件是**允许列表**，没登记的码被**静默丢掉**，
+   * 调用方只剩一个光秃秃的 `{"error":"forbidden"}` / `{"error":"unprocessable"}`。
+   *
+   * ⚠ 状态码对、原因没了，在这条路由上尤其糟：本枚举里同时住着**两类**含义完全不同的失败——
+   *   · 「你传错了」（`IMPORT_URL_MALFORMED`、`IMPORT_CONTENT_INVALID`）；
+   *   · 「**服务端替你做了一次安全判定并拒绝了**」（`IMPORT_URL_HOST_NOT_PUBLIC`、
+   *     `IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG`、`IMPORT_URL_CREDENTIALS_FORBIDDEN`）。
+   *   压成同一个 422，管理员无法分辨「我的链接打错了」和「这个地址被 SSRF 门拦了」，
+   *   而后者是一条**值得他去查一下**的信号。
+   *
+   * ⚠ 仍然只放闭集里的值过去：`SkillUrlImportError` 是 `@repo/contracts` 里的封闭枚举，
+   *   在这里对着那个枚举 parse，枚举之外的任何字符串都过不来。
+   * ⚠ 该枚举本身仍标注**未签核**（ADR-023，草案登记在 #595）。签核改码名时改契约那一处，
+   *   本行会跟着编译走。
+   */
+  const skillUrlImport = wave2Runtime.SkillUrlImportError.safeParse(raw);
+  if (skillUrlImport.success) return { reasonCode: skillUrlImport.data };
+
+  /**
    * #459：`skills.SkillError` —— 声明式契约 skill 的失败面。
    *
    * ⚠ 加进这个白名单是**必需的**，不是顺手：本文件是允许列表，没登记的

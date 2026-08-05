@@ -35,6 +35,32 @@ import { PgSkillUrlImportRepository } from "../../src/infrastructure/skill/pg-sk
 
 const SRC = fileURLToPath(new URL("../../src", import.meta.url));
 
+/**
+ * 把**不构成装配**的三类文本剔掉，再去找裸的标识符。
+ *
+ * ⚠ 接 controller 时实测撞到三处误报，全都不是「第二处装配」：
+ *   ① `composeImportSkillFromUrlDeps` **包含** `ImportSkillFromUrlDeps` 这个子串
+ *      —— 于是**调用**装配器（`kernel.module.ts` 该做的事）被判成自己装配；
+ *   ② `ImportSkillFromUrlDepsFactory` 同理 —— controller 注入的**工厂类型**被误判，
+ *      而 controller 恰恰是因为不许自己装配才只拿这个类型的；
+ *   ③ **注释里提到** `fetchImportSource` 也算命中 —— 本文件想钉住的是代码干了什么，
+ *      不是谁在注释里引用了谁。
+ *
+ * ⚠ 剔除是**为了让门说真话，不是为了让门放行**：剔完之后，裸的
+ *   `ImportSkillFromUrlDeps` / `fetchImportSource` 仍然一命中就红。
+ *   下面有一条装置自检专门守着这件事——因为「为了消误报而顺手把真违规也抹掉」
+ *   会让这条断言变成永远绿，而永远绿的门就是本 issue 反复撞到的空转。
+ */
+function stripNonAssemblyText(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "") // 块注释
+    .replace(/\/\/[^\n]*/g, "") // 行注释
+    .split("composeImportSkillFromUrlDeps")
+    .join("<composer>")
+    .split("ImportSkillFromUrlDepsFactory")
+    .join("<factoryType>");
+}
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -78,7 +104,7 @@ describe("生产装配绑的必须是带两道门的那个取回器", () => {
   it("src/ 下只有 url-import-composition.ts 组装 ImportSkillFromUrlDeps", () => {
     const offenders = walk(SRC).filter((file) => {
       if (file.endsWith("url-import-composition.ts")) return false;
-      const source = readFileSync(file, "utf8");
+      const source = stripNonAssemblyText(readFileSync(file, "utf8"));
       // 装配的判据：同时出现 fetch 端口名与用例 deps 类型 / 或直接引用取回器实现。
       return (
         source.includes("ImportSkillFromUrlDeps") ||
@@ -92,6 +118,53 @@ describe("生产装配绑的必须是带两道门的那个取回器", () => {
       // 取回器实现自身。
       "infrastructure/skill/http-import-fetcher.ts",
     ]);
+  });
+
+  /**
+   * 装置自检：`stripComposerName` **没有把真正的违规也一起抹掉**。
+   *
+   * ⚠ 这条必须存在。为了消掉一个误报而做的字符串剔除，最容易的失败模式就是
+   *   顺手把真违规也剔掉了——那样上面那条断言会**永远绿**，
+   *   而「永远绿的门」正是本 issue 反复撞到的东西。
+   */
+  it("装置自检：剔除之后，裸的 deps 类型名与取回器名仍然会被判为违规", () => {
+    // 真违规必须活下来。
+    expect(stripNonAssemblyText("const d: ImportSkillFromUrlDeps = {…}")).toContain(
+      "ImportSkillFromUrlDeps",
+    );
+    expect(stripNonAssemblyText("const f = fetchImportSource;")).toContain("fetchImportSource");
+    // 三类误报必须被剔干净。
+    expect(stripNonAssemblyText("composeImportSkillFromUrlDeps({…})")).not.toContain(
+      "ImportSkillFromUrlDeps",
+    );
+    expect(stripNonAssemblyText("let x: ImportSkillFromUrlDepsFactory;")).not.toContain(
+      "ImportSkillFromUrlDeps",
+    );
+    expect(stripNonAssemblyText("/* 注释里提到 fetchImportSource */")).not.toContain(
+      "fetchImportSource",
+    );
+    expect(stripNonAssemblyText("// 注释里提到 fetchImportSource")).not.toContain(
+      "fetchImportSource",
+    );
+  });
+
+  /**
+   * 「装配只有一处」的另一半：**接进 DI 的也只有一处**。
+   *
+   * ⚠ 装配函数正确、却根本没被接进容器，是一个上面所有断言都盖不住的失效——
+   *   那时 controller 拿到的是别的东西，而本文件仍然全绿。
+   *   `url-import-http-route.test.ts` 从真实容器解析 token 核对同一性；
+   *   这里补的是它的静态对偶：**谁**有资格调用装配器。
+   */
+  it("src/ 下只有 kernel.module.ts 调用装配器（组合根是唯一接线点）", () => {
+    const callers = walk(SRC).filter((file) => {
+      if (file.endsWith("url-import-composition.ts")) return false;
+      const source = readFileSync(file, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/[^\n]*/g, "");
+      return source.includes("composeImportSkillFromUrlDeps");
+    });
+    expect(callers.map((f) => f.slice(SRC.length + 1))).toEqual(["kernel.module.ts"]);
   });
 
   /** 装置自检：扫描器真的在扫文件，不是恒返回空集。 */

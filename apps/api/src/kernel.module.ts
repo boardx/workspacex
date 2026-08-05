@@ -55,6 +55,7 @@ import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
   SESSION_STORE,
+  type IdentityRepository,
 } from "./application/identity/ports";
 import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
 import {
@@ -92,6 +93,9 @@ import {
 import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
+import { composeImportSkillFromUrlDeps } from "./infrastructure/skill/url-import-composition";
+import { IMPORT_SKILL_FROM_URL_DEPS_FACTORY } from "./application/skill-import/import-skill-from-url";
 import {
   AGENT_STARTER_IMPORT_REPOSITORY,
   AGENT_STARTER_PACK_SOURCE,
@@ -396,6 +400,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     ProvenanceController,
     CapabilityController,
     SkillStarterImportController,
+    SkillUrlImportController,
     AgentStarterImportController,
     LocalOrgController,
     LocalExportController,
@@ -484,6 +489,29 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       provide: SKILL_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
       inject: [DATABASE_PORT],
+    },
+    /**
+     * #595 URL 导入的 deps 工厂 —— **生产到底把什么绑给了 controller**。
+     *
+     * ⚠ 这里出现 `composeImportSkillFromUrlDeps` 是**刻意的且唯一的**：装配本身仍然只在
+     *   `infrastructure/skill/url-import-composition.ts` 里发生，本处只是把它接上 DI。
+     *   controller 不能自己 import 它——实测 `lint-arch-deps` 会红
+     *   （interface 层不许 import infrastructure 层），那条洋葱约束不绕。
+     *
+     * ⚠ 返回**工厂**而不是现成的 deps：`localOnlyOrg` 逐请求变化，而 provider 是单例。
+     *   固化它 = 让一个组织的出站策略泄漏给另一个组织，且**不会有任何东西报错**。
+     *
+     * ⚠ 这一层 lambda **不破坏同一性断言**：它把 `localOnlyOrg` 透传给装配函数，
+     *   装配出来的 `deps.fetch` 仍然是 `fetchImportSource` 这个函数对象本身。
+     *   `url-import-binding-guard.test.ts` 会**从真实 Nest 容器里解析这个 token** 并核对，
+     *   ⇒ 钉住的是「生产绑了谁」，不是「代码看起来在调用谁」（反证⑮ 的教训）。
+     */
+    {
+      provide: IMPORT_SKILL_FROM_URL_DEPS_FACTORY,
+      useFactory: (db: DatabasePort, identities: IdentityRepository) =>
+        (input: { readonly localOnlyOrg: boolean }) =>
+          composeImportSkillFromUrlDeps({ db, identities, localOnlyOrg: input.localOnlyOrg }),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
     },
     {
       provide: AGENT_STARTER_PACK_SOURCE,
