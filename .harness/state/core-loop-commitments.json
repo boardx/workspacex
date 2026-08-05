@@ -2,10 +2,38 @@
   "_": "每条 core-loop issue 的承诺完成时间。coord-main 维护；过了时间还没关闭的，看板会打 OVERDUE。",
   "_tz": "Asia/Shanghai",
   "generated_by": "coord-main",
-  "goal": "八步核心闭环已 12/12 全绿（22 passed 实跑）。Sprint-2 三小时目标：① 把今天踩的坑变成会红的机械门（防复发）；② 补上用户真会撞到的产品缺口；③ 打通「每个 PR 自动部署」。",
-  "scope_rule": "只做带 sprint-2 标签的 issue。其余 out-of-scope 一律不占工时。",
+  "goal": "八步核心闭环已 12/12 全绿（22 passed 实跑）。Sprint-2 三小时目标：① 把今天踩的坑变成会红的机械门（防复发）；② 补上用户真会撞到的产品缺口；③ 打通「每个 PR 自动部署」。2026-08-06 追加：人类实测 devapp 发现 4 个新 P0/P1 UI/产品 bug（#593-#596），优先级高于其余 sprint-2 排队项。",
+  "scope_rule": "只做带 sprint-2 标签的 issue，以及 2026-08-06 新增的 #593-#596（core-loop 标签，优先级最高）。其余 out-of-scope 一律不占工时。",
   "coordinator_target": "2026-08-05T22:45:00+08:00",
   "commitments": {
+    "594": {
+      "due": "2026-08-06T15:30:00+08:00",
+      "step": "chat",
+      "blocked_by": null,
+      "note": "实测：/chat 无 projectId 时强制拦截「请先选择项目」，用户无法在无项目情况下发起对话",
+      "next": "owner: coord-chat-e2e。允许 thread 不挂靠项目（projectId 可选/隐式默认工作区，二选一并写清楚取舍）。若触及契约按 ADR-023 登记待签核，不要绕过。"
+    },
+    "593": {
+      "due": "2026-08-06T16:00:00+08:00",
+      "step": "nav",
+      "blocked_by": null,
+      "note": "实测：侧边栏把蓝本/画布/技能放在顶层跟对话平级，成员也在顶层 —— 与 UI prototype 不符",
+      "next": "owner: coord-chat-e2e。蓝本/画布/技能收进后台分组；成员移进项目详情页内部。严格对照 UI prototype，不自创信息架构。"
+    },
+    "595": {
+      "due": "2026-08-06T18:00:00+08:00",
+      "step": "agent-skill-admin",
+      "blocked_by": null,
+      "note": "实测：Skill 后台管理面只有名称/可见范围两个字段，缺导入(URL/文件)、目录浏览、代码编辑、后台测试 —— 用户原话：只有这里走通了才能在 chat 里调用 agent/skill",
+      "next": "owner: coord-chat-e2e + dev-ai-runtime 协作。工作量最大，先落地「导入+编辑+后台测试」最小集合，目录浏览可延后但要在 issue 里明说。涉及新契约操作按 ADR-023 登记待签核。"
+    },
+    "596": {
+      "due": "2026-08-06T15:30:00+08:00",
+      "step": "auth",
+      "blocked_by": null,
+      "note": "实测：组织切换器显示内部 org id（org-2e5de17f74b8731f 等），不是用户注册时填的组织名称",
+      "next": "owner: coord-agent-auth。确认是 bootstrap 没存 name 还是前端读错字段，对应修正。"
+    },
     "552": {
       "due": "2026-08-05T21:00:00+08:00",
       "step": "skills",
