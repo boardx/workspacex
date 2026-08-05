@@ -47,7 +47,16 @@ export type ImportSourceRefusalCode =
   /** 目标地址不在公网（loopback / 私网 / link-local / 云元数据 / 组播 / 保留段） */
   | "IMPORT_URL_HOST_NOT_PUBLIC"
   /** personal-local 组织：出站承诺（I-9）不允许任何 URL 导入 */
-  | "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG";
+  | "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG"
+  /* ── 以下由取回层 `infrastructure/skill/http-import-fetcher.ts` 抛出 ── */
+  /** 响应体超过 `MAX_BYTES`：导入的是 skill 定义，不是数据集 */
+  | "IMPORT_PAYLOAD_TOO_LARGE"
+  /** 重定向跳数超过 `MAX_REDIRECTS` */
+  | "IMPORT_TOO_MANY_REDIRECTS"
+  /** 超过 `TIMEOUT_MS` 仍未取回 */
+  | "IMPORT_FETCH_TIMEOUT"
+  /** 取回到了，但不是 200 */
+  | "IMPORT_FETCH_FAILED";
 
 export class ImportSourceRefusedError extends Error {
   constructor(readonly code: ImportSourceRefusalCode) {
@@ -122,9 +131,20 @@ function expandIpv6(host: string): Ipv6Groups | null {
 /**
  * 判定一个**字面量地址**是否属于公网。
  *
- * ⚠ IPv4-mapped / IPv4-compatible / NAT64 必须**拆开看内层 IPv4**：
- *   `::ffff:127.0.0.1` 经 WHATWG URL 规范化后长成 `::ffff:7f00:1`，
- *   一个只比对字符串的实现会当它是陌生的公网 IPv6 放行。
+ * ## ⚠ 实测知识：读代码想不到，只有跑一遍才撞得见
+ *
+ * WHATWG URL（`new URL()`）会把 IPv4 的各种混淆写法**规范化成点分四段**——
+ * 实测 `2130706433`、`0x7f000001`、`017700000001`、`127.1`、`127.0.0.1.`
+ * 的 `hostname` 全部是 `127.0.0.1`。所以这些写法不需要单独处理。
+ *
+ * **但 IPv4-mapped IPv6 不一样**：实测 `http://[::ffff:127.0.0.1]/` 的 `hostname`
+ * 是 **`[::ffff:7f00:1]`**——点分四段被折成了**十六进制组**。
+ * ⇒ 一个「比对 `::ffff:127.` 前缀」或任何只看字符串的实现，会把它当成
+ *   一个陌生的公网 IPv6 **放行**，而它其实是 loopback。
+ *   同理 `[::ffff:a9fe:a9fe]` 就是 `169.254.169.254`（云元数据）。
+ *
+ * 所以 IPv4-mapped / IPv4-compatible / NAT64 一律**拆出内层 IPv4 再判**，
+ * 而不是在字符串层面做任何前缀匹配。
  */
 export function classifyAddress(rawHost: string): AddressClass {
   const host = rawHost.replace(/^\[|\]$/g, "").toLowerCase();
