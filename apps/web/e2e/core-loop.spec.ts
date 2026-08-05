@@ -50,6 +50,11 @@ import {
   EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat,
 } from "./core-loop-fixture";
 
+/** 把一个字面量安全地放进正则。前缀里有 `[` `]`，不转义会变成字符类。 */
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** 步骤 1 注册出来的那一位。带时间戳没有意义：库是空的，它必须是**唯一**一个。 */
 const FIRST_USER = {
   orgName: "闭环验收组织",
@@ -447,12 +452,127 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 7：实时录音在 chat 上 ───────────────────────────────────────── */
 
-  test.fail("[#465 + #466] 步骤 7：会话内录音 → 停止 → 转录归属该会话且刷新仍在", async ({ page }) => {
+  /**
+   * #466 —— 翻正。原文只断言 `chat-recording-start` 可见，那只能证明「画了一个按钮」，
+   * 一个 `<button data-testid="chat-recording-start" />` 就能让它绿。
+   *
+   * 现在断言的是**真实往返**：
+   *
+   *     浏览器真实采音（`getUserMedia` + Chrome 假音频设备，**没有打桩**）
+   *       → PCM16/16k/单声道
+   *       → `WS /recording/sessions/:id/asr-stream`（本仓第一条流式面）
+   *       → 服务端代理到已配置的 ASR 上游
+   *       → 服务端调**既有** `ingestSegment` 落库
+   *       → `asr.final` 回浏览器
+   *       → 停止后 `GET …/segments` 重读
+   *       → **刷新页面**，再 `GET` 一次，转录仍在
+   *
+   * ## 锚点在写断言前逐个在源码里定位过
+   *   · `chat-live-recording-start` / `-stop` / `-status`  components/chat/chat-recording-panel.tsx
+   *   · `chat-live-transcript`                              同上（容器）
+   *   · `chat-live-transcript-partial`                      同上（中间结果，**不落库**）
+   *
+   * ⚠ 锚点用 `chat-live-*` 而**不是**原文那个 `chat-recording-start`：已签核的
+   *   `design-deltas/realtime-asr/contract.md` §5 逐字指定了 `chat-live-recording-*`，
+   *   而契约是权威。原文那个名字从未有实现引用过，改它不破坏任何东西 ——
+   *   留着两套名字才是本仓点名的那个反模式。
+   *
+   * ## 断言的是「转录里有真实字节数」，不是「转录非空」
+   *
+   * 回环上游回的是 `<前缀> <它真实收到的 PCM 字节数>`。所以这条断言同时钉死了
+   * **音频真的从浏览器流到了服务端**。只断 `前缀` 在的话，一个「前端自己合成一段
+   * 文字」的实现照样绿；只断「有文字」的话，连桩都不用打。
+   *
+   * ## 反证开关：三档，各自钉死**不同**的一行（红线 2）
+   *
+   *   · `drop-persist` —— WS 面的落库调用整个失败（`ingestSegment` 500）。
+   *     红在「转录出现」那一句：`asr.final` 永远不会发出来，因为它在落库之后才发。
+   *   · `noop-persist` —— 落库**假装成功**：照常回 `asr.final`、`GET /segments`
+   *     照常 200，但一行都不落库。前面每一步全部照常通过，红点精确落在
+   *     **刷新之后**那一句。这才是真正考验「写进 PostgreSQL 而不是写进 React state」
+   *     的那一刀（同步骤 6a `noop-write`、8a 的落法）。
+   *   · `no-asr-provider` —— 上游没配置。必须红在「转录出现」之前，且界面上
+   *     `chat-live-recording-error` 说出「未配置转写」——**诚实降级**，不是静默失败。
+   */
+  test("[#466] 步骤 7：会话内录音 → 停止 → 转录归属该会话且刷新仍在", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+
+    const counterproof = process.env.CORE_LOOP_COUNTERPROOF_7;
+    if (counterproof === "drop-persist" || counterproof === "noop-persist") {
+      // ⚠ 拦的是 **API 进程内部**那一条落库调用够不着的东西 —— 浏览器打不到它。
+      //   所以这两档由 `WORKSPACEX_COUNTERPROOF_INGEST` 下发给 API 进程本身，
+      //   见 `apps/api/src/interface/recording/segment-ingestion.ts` 的开关。
+      //   这里只断言「开关确实开着」，避免有人把开关名改了而反证悄悄变成空转。
+      expect(
+        process.env.WORKSPACEX_COUNTERPROOF_INGEST,
+        "反证必须下发给 API 进程；浏览器侧拦不住服务端内部的落库调用",
+      ).toBe(counterproof);
+    }
+
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    // 实测：`MediaRecorder` / `getUserMedia` 在 apps/web 下**零命中**（#466 未开工），
-    // recording controller 也尚未暴露（#465 在飞）。
-    await expect(page.getByTestId("chat-recording-start")).toBeVisible();
+    const threadList = page.getByTestId("chat-read-thread-list");
+    // 种子里那条**已完成录音授权**的线程。为什么它必须预置（而 6a/8a 的线程是现场建的），
+    // 理由写在 `fullstack-smoke-fixture.ts`：契约里没有写授权格子的操作，
+    // 而授权按 `source_ref_id` 存 —— 现场新建的线程 id 在种子跑的时候还不存在。
+    await expect(threadList.getByText(FULLSTACK_E2E.recordingThreadTitle)).toBeVisible();
+    await threadList.getByText(FULLSTACK_E2E.recordingThreadTitle).click();
+
+    // ── 先钉住坏状态确实存在 ────────────────────────────────────────────────
+    // 录之前这条线程必须**没有**转录。少了这一句，下面「转录出现了」就可能
+    // 一直是真的（比如种子里塞了一条），而「录音是否真的生效」再也测不出来。
+    const status = page.getByTestId("chat-live-recording-status");
+    await expect(status).toHaveAttribute("data-phase", "idle");
+    await expect(page.getByTestId("chat-live-transcript-empty")).toBeVisible();
+    // 停止键在没开始录之前必须是**禁用**的 —— 同上，这是「开始真的起了作用」的对照组。
+    await expect(page.getByTestId("chat-live-recording-stop")).toBeDisabled();
+
+    // ── 开始录音：真实 getUserMedia + Chrome 假音频设备，没有任何打桩 ───────
+    await page.getByTestId("chat-live-recording-start").click();
+
+    if (counterproof === "no-asr-provider") {
+      // 上游没配置 ⇒ **诚实降级**：界面说人话，且**根本进不了 recording 态**。
+      // 实测红点就落在这里（比 drop-persist 早一整段），这正是「红得对」的样子：
+      // 三档反证各自红在**不同**的一行。
+      await expect(page.getByTestId("chat-live-recording-error"))
+        .toContainText("尚未配置转写服务", { timeout: 30_000 });
+      await expect(status).toHaveAttribute("data-phase", "failed");
+      return;
+    }
+
+    await expect(status).toHaveAttribute("data-phase", "recording", { timeout: 30_000 });
+    await expect(page.getByTestId("chat-live-recording-stop")).toBeEnabled();
+
+    // 让假音频设备真的产出若干帧。`ScriptProcessor` 每 4096 采样回调一次，
+    // 44.1kHz 下约 93ms —— 2 秒足够攒出上游能识别成一段的音频量。
+    // ⚠ 这不是「等一等碰碰运气」：下面断言的是**上游收到的字节数 > 0**，
+    //   等不够的话它会红在「转录出现」，而不是红成一条偶发的 flake。
+    await page.waitForTimeout(2_000);
+
+    await page.getByTestId("chat-live-recording-stop").click();
+
+    // ── 转录出现，且带着上游真实收到的 PCM 字节数 ───────────────────────────
+    const transcript = page.getByTestId("chat-live-transcript");
+    await expect(transcript).toContainText(FULLSTACK_E2E.asrTranscriptPrefix, { timeout: 30_000 });
+    // 字节数 > 0 ⇒ 音频真的从浏览器流到了服务端。`\s0$` 会匹配「收到 0 字节」，
+    // 所以这里要的是**非零**的那个形状。
+    await expect(transcript).toHaveText(
+      new RegExp(`${escapeRegExp(FULLSTACK_E2E.asrTranscriptPrefix)}\\s+[1-9]\\d*`),
+    );
+    // 中间结果（`asr.partial`）**不落库**，收尾后必须已经清掉 ——
+    // 它留在界面上会让下面「刷新后仍在」有可能被一段没写库的文字满足。
+    await expect(page.getByTestId("chat-live-transcript-partial")).toHaveCount(0);
+
+    const recorded = (await transcript.textContent())?.trim() ?? "";
+    expect(recorded).not.toBe("");
+
+    // ── 刷新后仍在：唯一能区分「写进 PostgreSQL」与「写进 React state」的断言 ──
+    //
+    // 刷新会把整棵 React 树连同所有 state 丢掉。刷新之后界面上还有这段文字，
+    // 只可能是因为 `GET /recording/sessions/:id/segments` 从 PostgreSQL 里读回来了它。
+    await page.reload();
+    await threadList.getByText(FULLSTACK_E2E.recordingThreadTitle).click();
+    await expect(page.getByTestId("chat-live-transcript"))
+      .toContainText(FULLSTACK_E2E.asrTranscriptPrefix, { timeout: 30_000 });
   });
 
   /* ── 步骤 8：使用 skill / 使用 agent / 使用可视化模板 ─────────────────── */

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare, RefreshCw, Users } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
@@ -64,6 +65,7 @@ export function ChatReadScreen({
   const router = useRouter();
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
+  const userId = session?.userId ?? null;
   const currentOrgId = session?.currentOrgId ?? null;
   const sourceKey = projectId && bearer && currentOrgId
     ? `${projectId}\u0000${currentOrgId}\u0000${bearer}`
@@ -369,6 +371,7 @@ export function ChatReadScreen({
       <ThreadDetail
         projectId={projectId}
         currentOrgId={currentOrgId}
+        userId={userId}
         card={selectedCard}
         detail={detail}
         bearer={bearer}
@@ -578,10 +581,11 @@ function ThreadMeta({ card }: { card: ThreadCard }) {
 }
 
 function ThreadDetail({
-  projectId, currentOrgId, card, detail, bearer, roster, loading, error, onRetry,
+  projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
 }: {
   projectId: string;
   currentOrgId: string | null;
+  userId: string | null;
   card: ThreadCard | null;
   detail: GetThreadOut | null;
   bearer: string | null;
@@ -606,6 +610,20 @@ function ThreadDetail({
         <Badge tone="outline">真实消息</Badge>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
       </header>
+      {/*
+        #466 步骤 7：会话内录音。放在 skill 挂载之上、消息面板之上 ——
+        它是这条会话的采集入口，与「这场对话说了什么」同级，
+        不是消息流里的一条。`userId` 是 `trackPlan` 的 participant：
+        录的是谁的音轨，服务端据此判定授权矩阵，不能省。
+      */}
+      {bearer && userId ? (
+        <ChatRecordingPanel
+          threadId={detail.thread.id}
+          projectId={projectId}
+          userId={userId}
+          bearer={bearer}
+        />
+      ) : null}
       {bearer && currentOrgId ? (
         <ChatSkillMountPanel
           threadId={detail.thread.id}
