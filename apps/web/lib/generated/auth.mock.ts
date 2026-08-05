@@ -62,6 +62,7 @@ export const bootstrapFirstUserMock: z.infer<typeof auth.operations.bootstrapFir
 
 /** bootstrapFirstUser 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const bootstrapFirstUserErrors = ["BOOTSTRAP_UNAVAILABLE","EMAIL_TAKEN"] as const;
+
 /** confirmEmailVerification 的成功响应样例（由契约生成） */
 export const confirmEmailVerificationMock: z.infer<typeof auth.operations.confirmEmailVerification.out> = {
   "status": "completed"
