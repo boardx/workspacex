@@ -52,9 +52,9 @@ const steps = [...spec.matchAll(/^\s*(test(?:\.fail)?)\(\s*[`"](.+?)[`"]/gm)]
 const green = steps.filter((s) => s.green).length;
 
 /* ── 2. issue 与 owner ─────────────────────────────────────────────── */
-const open = gh(["issue", "list", "--state", "open", "--label", "core-loop", "--limit", "100",
+const open = gh(["issue", "list", "--state", "open", "--label", "sprint-2", "--limit", "100",
   "--json", "number,title,labels"]) ?? [];
-const closed = gh(["issue", "list", "--state", "closed", "--label", "core-loop", "--limit", "200",
+const closed = gh(["issue", "list", "--state", "closed", "--label", "sprint-2", "--limit", "200",
   "--json", "number"]) ?? [];
 
 /* ── PR 等待时长（人类 2026-08-05：「一旦提交了 PR 必须马上合并，要避免等待」）──

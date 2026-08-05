@@ -2,37 +2,86 @@
   "_": "每条 core-loop issue 的承诺完成时间。coord-main 维护；过了时间还没关闭的，看板会打 OVERDUE。",
   "_tz": "Asia/Shanghai",
   "generated_by": "coord-main",
-  "goal": "人类八步核心闭环端到端可走查：注册首个管理员 → 新增 agent/skill/模板 → 登录 → chat 增删聊 → 实时录音 → 使用 skill/agent/模板",
-  "scope_rule": "只做带 core-loop 标签的 issue。out-of-scope 的一律不占工时，八步全绿后再谈。",
-  "coordinator_target": "2026-08-05T17:00:00+08:00",
+  "goal": "八步核心闭环已 12/12 全绿（22 passed 实跑）。Sprint-2 三小时目标：① 把今天踩的坑变成会红的机械门（防复发）；② 补上用户真会撞到的产品缺口；③ 打通「每个 PR 自动部署」。",
+  "scope_rule": "只做带 sprint-2 标签的 issue。其余 out-of-scope 一律不占工时。",
+  "coordinator_target": "2026-08-05T22:45:00+08:00",
   "commitments": {
-    "466": {
-      "due": "2026-08-05T16:00:00+08:00",
-      "step": "7",
-      "blocked_by": null,
-      "note": "#550 已合（lib/live-recording.ts），但**没有 UI 入口** —— chat-recording-start 在 components/app/lib 里零命中",
-      "next": "补录音 UI 入口并接进 chat：开始 → 停止 → 转录归属该会话 → 刷新仍在。翻正 test.fail，造反证（摘掉转录写入必须变红，且要红在 reload 之后）。"
-    },
-    "493": {
-      "due": "2026-08-05T16:30:00+08:00",
-      "step": "8c",
-      "blocked_by": null,
-      "note": "「能建能看」已通，缺「能用」；仍未收到进展消息",
-      "next": "在项目/会话里真正使用一个 canvas 模板 → 翻正步骤 8c。动 controller 前先核 next.config.mjs 的两条 rewrite（这个坑今天已第五次）。"
-    },
     "552": {
-      "due": "2026-08-05T16:30:00+08:00",
-      "step": "—",
+      "due": "2026-08-05T21:00:00+08:00",
+      "step": "skills",
       "blocked_by": null,
-      "note": "实现在人类另起的会话 claude/zen-sutherland-628bc0，尚未开 PR；coord-agent-auth 只做协调与初审",
-      "next": "到 16:30 仍无 PR，就在 #552 上贴带明确时限的通牒。不阻塞进度板。"
+      "note": "用户新建的 skill **自己用不了** —— 8a 挂的是种子 skill。advance/review/release 三个用例在 interface 层引用数全是 0",
+      "next": "给 reviewSkillVersion 补 HTTP 边界（**不是** enable 路由，契约明令禁止）+ 第二评审人（I-5/V14 不许简化）。e2e：建草稿→提交评审→第二身份审批→已启用→会话内挂上它。"
+    },
+    "532": {
+      "due": "2026-08-05T22:00:00+08:00",
+      "step": "skills",
+      "blocked_by": null,
+      "note": "POST /skills 与 /skills/:id/disable 疑似缺成员资格授权层",
+      "next": "先证明它是不是真缺（写一条越权用例看它过不过），再决定补哪一层。**别先改代码** —— 今天已有两次「修了一个不存在的问题」。"
+    },
+    "514": {
+      "due": "2026-08-05T22:30:00+08:00",
+      "step": "skills",
+      "blocked_by": null,
+      "note": "ENTRY_TO_SOURCE 产出契约三值枚举外的「画布」「社区」⇒ 经这两个入口创建的 skill 会在 out.parse 抛",
+      "next": "⚠ 不许把那两个值悄悄映射成三值之一（那是拿能过换说谎）。要么扩契约枚举（走 design-delta 待补签），要么让那两个入口显式不可用并说明。"
+    },
+    "547": {
+      "due": "2026-08-05T21:00:00+08:00",
+      "step": "auth",
+      "blocked_by": null,
+      "note": "登录页只有「创建组织」一条新用户入口；被邀请加入已有组织的人（F10）在这页找不到任何指引",
+      "next": "补「我有邀请码」入口。⚠ 按钮行为本身没说谎（同事务建 user+org+owner），缺的是**第二条路径的可见性**。"
+    },
+    "363": {
+      "due": "2026-08-05T22:00:00+08:00",
+      "step": "auth",
+      "blocked_by": null,
+      "note": "组织成员/邀请缺列表读接口 ⇒ F11 两份 mock 名单没法收敛",
+      "next": "补读接口 + 前端去 mock。收敛后要有一条断言证明两份名单来自同一个源。"
+    },
+    "548": {
+      "due": "2026-08-05T22:30:00+08:00",
+      "step": "model",
+      "blocked_by": null,
+      "note": "模型注册表只差 controller 一层 —— 凭据没有任何合法入口",
+      "next": "补 controller。⚠ 动 controller 前先核 next.config.mjs 的两条 rewrite（裸 + :path*）——这个坑今天已第五次。"
+    },
+    "539": {
+      "due": "2026-08-05T21:00:00+08:00",
+      "step": "gate",
+      "blocked_by": null,
+      "note": "rewrites 与 controller 前缀的成对关系没有门控 —— **今天同型事故四次**（/capabilities、/canvas/templates、/skills、/agent-runs）",
+      "next": "扫 @Controller/@Get/@Post 的顶层路径段 vs next.config.mjs 的 source 集合，差集非空即红。必须覆盖①空前缀 controller（第 4 次栽在这）②裸路径与 :path* 成对。反证：删任意一条现有 rewrite 必须红。"
+    },
+    "538": {
+      "due": "2026-08-05T22:00:00+08:00",
+      "step": "gate",
+      "blocked_by": null,
+      "note": "未隔离的测试跑法只会在 10 分钟后产出幻影失败 —— 今天咬掉一整轮",
+      "next": "db-global-setup.ts:55 已经知道库名，缺的只是一句拒绝。约 10 行。⚠ 反证必须确认它**红在 setup 阶段而不是某条用例上**。"
+    },
+    "482": {
+      "due": "2026-08-05T22:30:00+08:00",
+      "step": "cd",
+      "blocked_by": null,
+      "note": "每个 PR 都部署到 devops，取消 tag 触发。部署链六层今天全部解开，这条才有意义",
+      "next": "PR #488 已在飞。核它红因是否已随 main 转绿而消失，绿了就交我合。"
+    },
+    "483": {
+      "due": "2026-08-05T22:45:00+08:00",
+      "step": "cd",
+      "blocked_by": null,
+      "note": "CD 缺漂移探针 —— main 与线上的窗口期无人看守。今天 devapp 落后 main 一整天而所有门控都说正常",
+      "next": "部署后断言线上真的是这个 SHA。⚠ 反证：故意部署一个旧 SHA，探针必须红。"
     },
     "470": {
-      "due": "2026-08-05T17:00:00+08:00",
+      "due": "2026-08-05T22:45:00+08:00",
       "step": "—",
-      "blocked_by": "human:readiness-helper",
-      "note": "epic：11/12 真绿，只剩步骤 7。main 已全绿（backend-gates 在 3054f19d 转绿）",
-      "next": "部署链第六层（readiness helper）解开后，PR/push 即自动部署（#488），devapp 上的 localhost:3200 随之消失"
+      "blocked_by": null,
+      "note": "✅ 八步 12/12 全绿，全量实跑 22 passed。epic 转为 sprint-2 的总协调",
+      "next": "盯 devapp 部署链首次成功；三条线的 PR 到点就合，别让全绿的 PR 等人。"
     }
   },
   "human_blockers": [
@@ -59,7 +108,10 @@
       "title": "devapp 缺 /usr/local/lib/workspacex-deploy-readiness.sh",
       "why": "换上当前版本的 deploy.sh 之后才暴露：它需要一个配套的 root-owned helper（deploy.sh:21 的 DEPLOY_READINESS_LIB），VM 上没有 ⇒ deploy job 在第一步就 `缺 root-owned readiness helper` 退出。这是部署链的第六层，前五层今天已解。",
       "cmd": "git show origin/main:.harness/scripts/vm/deploy-readiness.sh > /tmp/r.sh && scp -i .harness/config/devapp.pem /tmp/r.sh root@47.77.215.155:/tmp/r.sh && ssh -i .harness/config/devapp.pem root@47.77.215.155 'install -o root -g root -m 0755 /tmp/r.sh /usr/local/lib/workspacex-deploy-readiness.sh'   # 期望 sha256 ca41ea0c…",
-      "blocks": "deploy job 仍然失败 ⇒ devapp 上那个 localhost:3200 的报错不会消失（#545 的修复是构建期内联，必须成功部署一次才生效）"
+      "blocks": "deploy job 仍然失败 ⇒ devapp 上那个 localhost:3200 的报错不会消失（#545 的修复是构建期内联，必须成功部署一次才生效）",
+      "resolved_at": "2026-08-05T19:42:00+08:00",
+      "resolved_by": "coord-main（SSH 恢复后自己装的）",
+      "evidence": "/usr/local/lib/workspacex-deploy-readiness.sh sha256=ca41ea0c…（与 origin/main 的 deploy-readiness.sh 一致），bash -n 通过"
     }
   ]
 }
