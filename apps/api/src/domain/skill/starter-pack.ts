@@ -22,7 +22,16 @@ function decodeBase64(value: string): Buffer {
   return decoded;
 }
 
-function normalizedPath(path: string): string {
+/**
+ * skill 包内文件路径的**唯一**规范化/防穿越入口。
+ *
+ * ⚠ #595 导出它，是为了让「URL 导入 / 文件上传 / 后台编辑」复用**同一份**判定，
+ *   而不是各写一遍。DB 侧 `skill_version_files` 上还有一条同义 CHECK 兜底
+ *   （`20260804031000_wave2_skill_starter_import.sql`）——那是第二道**机械**门，
+ *   不是第二份定义：两者一旦分叉，DB 会拒掉应用层放行的行，而不是反过来。
+ *   要改规则请改这里，并同步那条 CHECK。
+ */
+export function normalizedPath(path: string): string {
   if (path.includes("\\") || path.startsWith("/") || path.includes("\0")) {
     throw new InvalidSkillStarterPackError();
   }
