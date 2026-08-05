@@ -20,20 +20,36 @@ import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
 import { isSkillStatus } from "../../domain/skill/skill-status";
 import type { SkillOriginTag } from "../../domain/skill/source-tag";
 import type { ReferenceSnapshot } from "../../domain/skill/reference-enumeration";
+import type { RiskItem, SecurityScanResult } from "../../domain/skill/security-gate";
+import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
 import { guard } from "../../application/security/permission-filter";
 import {
   SkillNameConflictError,
   type GuardedSkillContract,
   type GuardedSkillContractDetail,
+  type MethodologyReviewStorePort,
   type ReferenceSnapshotStorePort,
+  type ReviewerFunctionPort,
+  type SecurityScanStorePort,
   type SkillContractDetail,
   type SkillContractReadPort,
   type SkillContractRepositoryFactory,
   type SkillContractRow,
   type SkillDraftStorePort,
   type SkillStatusStorePort,
+  type SkillVersionForReview,
+  type SkillVersionLifecyclePort,
   type SkillVisibilityScopePort,
 } from "../../application/skill/ports";
+
+/**
+ * 契约 `SkillVersionState` 的五个取值。⚠ 类型守卫而不是 `as`，理由同 `toRow` 里的
+ * `isSkillStatus`：库里的 CHECK 与本域今天一致，但一次迁移就能让它们分岔。
+ */
+const VERSION_STATES = ["草稿", "待审核", "已生效", "已归档", "待上线"] as const;
+function isVersionState(v: string): v is SkillVersionForReview["state"] {
+  return (VERSION_STATES as readonly string[]).includes(v);
+}
 
 /** 唯一约束冲突。23505 = unique_violation。 */
 function isUniqueViolation(error: unknown): boolean {
@@ -113,7 +129,12 @@ export class ScopedPgSkillContractRepository
     SkillContractReadPort,
     SkillStatusStorePort,
     SkillVisibilityScopePort,
-    ReferenceSnapshotStorePort
+    ReferenceSnapshotStorePort,
+    // #552：门禁两道的落库面 ＋ 版本生命周期 ＋ 评审职能解析。同一组表、同一个租户事务。
+    SecurityScanStorePort,
+    MethodologyReviewStorePort,
+    SkillVersionLifecyclePort,
+    ReviewerFunctionPort
 {
   constructor(
     private readonly db: DatabasePort,
@@ -401,7 +422,274 @@ export class ScopedPgSkillContractRepository
     });
   }
 
+  /* ────────── #552 门禁第一道：安全扫描（SecurityScanStorePort）────────── */
+
+  async saveScan(input: {
+    readonly scanId: string;
+    readonly skillId: string;
+    readonly versionId: string;
+    readonly result: SecurityScanResult;
+    readonly scannedBy: string;
+  }): Promise<void> {
+    const { orgId } = this;
+    await this.db.withTenant(toOrgId(orgId), async (s) => {
+      await s.query(
+        `INSERT INTO skill_contract_security_scans
+           (id, org_id, skill_id, version_id, verdict, findings, scanned_by)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7)`,
+        [
+          input.scanId,
+          orgId,
+          input.skillId,
+          input.versionId,
+          input.result.verdict,
+          JSON.stringify(input.result.findings),
+          input.scannedBy,
+        ],
+      );
+    });
+  }
+
+  /**
+   * ⚠ **最新一条**，不是「有没有一条 pass 的」。重扫之后旧结论作废，
+   *   而一个 `EXISTS (… verdict='pass')` 的查询会让「先扫一份干净的、再改坏内容重扫」
+   *   永远读到那条旧的 pass —— 那正是门禁被绕过的形状。
+   */
+  async latestScan(versionId: string): Promise<SecurityScanResult | null> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ verdict: string; findings: unknown }>(
+        `SELECT verdict, findings
+           FROM skill_contract_security_scans
+          WHERE org_id = $1 AND version_id = $2
+          ORDER BY scanned_at DESC, id
+          LIMIT 1`,
+        [orgId, versionId],
+      );
+      const row = result.rows[0];
+      if (row === undefined) return null;
+      if (
+        row.verdict !== "pass" &&
+        row.verdict !== "risk-pending-confirm" &&
+        row.verdict !== "reject"
+      ) {
+        throw new Error(`skill_contract_security_scans.verdict 非法：${row.verdict}`);
+      }
+      return {
+        verdict: row.verdict,
+        findings: Array.isArray(row.findings) ? (row.findings as RiskItem[]) : [],
+      };
+    });
+  }
+
+  /* ────────── #552 门禁第二道：人工审核（MethodologyReviewStorePort）────────── */
+
+  async saveReview(input: {
+    readonly reviewRecordId: string;
+    readonly skillId: string;
+    readonly versionId: string;
+    readonly submitterId: string;
+    readonly reviewerId: string;
+    readonly decision: "approve" | "reject";
+    readonly reason: string;
+    readonly riskAcks: readonly string[];
+  }): Promise<void> {
+    const { orgId } = this;
+    await this.db.withTenant(toOrgId(orgId), async (s) => {
+      await s.query(
+        `INSERT INTO skill_contract_reviews
+           (id, org_id, skill_id, version_id, submitter_id, reviewer_id, decision, reason, risk_acks)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
+        [
+          input.reviewRecordId,
+          orgId,
+          input.skillId,
+          input.versionId,
+          input.submitterId,
+          input.reviewerId,
+          input.decision,
+          input.reason,
+          JSON.stringify([...input.riskAcks]),
+        ],
+      );
+    });
+  }
+
+  async latestReview(
+    versionId: string,
+  ): Promise<{ readonly approved: boolean; readonly reviewRecordId: string } | null> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ id: string; decision: string }>(
+        `SELECT id, decision
+           FROM skill_contract_reviews
+          WHERE org_id = $1 AND version_id = $2
+          ORDER BY reviewed_at DESC, id
+          LIMIT 1`,
+        [orgId, versionId],
+      );
+      const row = result.rows[0];
+      if (row === undefined) return null;
+      return { approved: row.decision === "approve", reviewRecordId: row.id };
+    });
+  }
+
+  /* ────────── #552 版本生命周期（SkillVersionLifecyclePort）────────── */
+
+  async loadVersionForReview(versionId: string): Promise<SkillVersionForReview | null> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{
+        id: string;
+        skill_id: string;
+        version_number: number;
+        state: string;
+        created_by: string;
+        prompt_template: string;
+        input_schema: string;
+        output_schema: string;
+        data_scope: unknown;
+        reads_raw_transcript: boolean;
+        fallback_declaration: string;
+      }>(
+        `SELECT id, skill_id, version_number, state, created_by, prompt_template, input_schema,
+                output_schema, data_scope, reads_raw_transcript, fallback_declaration
+           FROM skill_contract_versions
+          WHERE org_id = $1 AND id = $2`,
+        [orgId, versionId],
+      );
+      const row = result.rows[0];
+      if (row === undefined) return null;
+      if (!isVersionState(row.state)) {
+        throw new Error(`skill_contract_versions.state 非法：${row.state}（versionId=${versionId}）`);
+      }
+      return {
+        versionId: row.id,
+        skillId: row.skill_id,
+        versionNumber: row.version_number,
+        state: row.state,
+        // ⚠ 提交人来自**版本行**，不来自请求体。`review-skill-version.ts` 逐字：
+        //   「来自版本记录，不是入参可篡改的字段」——否则报一个别人的 id 就能绕过自审拦截。
+        submitterId: row.created_by,
+        contract: {
+          promptTemplate: row.prompt_template,
+          inputSchema: row.input_schema,
+          outputSchema: row.output_schema,
+          dataScope: Array.isArray(row.data_scope) ? (row.data_scope as string[]) : [],
+          readsRawTranscript: row.reads_raw_transcript,
+          fallbackDeclaration: row.fallback_declaration,
+        },
+      };
+    });
+  }
+
+  async markVersionSubmitted(versionId: string): Promise<{ readonly changed: boolean }> {
+    return this.moveVersionState(versionId, "草稿", "待审核");
+  }
+
+  async returnVersionToDraft(versionId: string): Promise<{ readonly changed: boolean }> {
+    return this.moveVersionState(versionId, "待审核", "草稿");
+  }
+
+  /**
+   * approve 落库：版本置 `已生效` **并且**把该 skill 的当前生效版本指向它。
+   *
+   * ⚠ 两条 UPDATE 在**同一个** `withTenant`（即同一个事务）里。分成两次调用会产生一个
+   *   「已生效但不是当前版本」的中间态，而挂载正是在那一刻读 `current_version_id`：
+   *   `skill-mount.controller.ts` 对 `currentVersionId === null` 折成 `SKILL_NOT_FOUND`，
+   *   于是一个刚刚被批准的 skill 会以「不存在」的样子挂不上去。
+   */
+  async releaseVersion(versionId: string): Promise<{ readonly changed: boolean }> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const updated = await s.query<{ skill_id: string }>(
+        `UPDATE skill_contract_versions
+            SET state = '已生效'
+          WHERE org_id = $1 AND id = $2 AND state = '待审核'
+        RETURNING skill_id`,
+        [orgId, versionId],
+      );
+      const skillId = updated.rows[0]?.skill_id;
+      if (skillId === undefined) return { changed: false };
+
+      await s.query(
+        `UPDATE skill_contracts
+            SET current_version_id = $3, updated_at = now()
+          WHERE org_id = $1 AND id = $2`,
+        [orgId, skillId, versionId],
+      );
+      return { changed: true };
+    });
+  }
+
+  /* ────────── #552 评审职能（ReviewerFunctionPort）────────── */
+
+  async functionOf(principalId: string): Promise<ReviewerFunctionValue | null> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ reviewer_function: string }>(
+        `SELECT reviewer_function FROM skill_reviewer_functions
+          WHERE org_id = $1 AND principal_id = $2`,
+        [orgId, principalId],
+      );
+      const value = result.rows[0]?.reviewer_function;
+      if (value === undefined) return null;
+      if (value !== "methodology-reviewer" && value !== "security-reviewer") {
+        throw new Error(`skill_reviewer_functions.reviewer_function 非法：${value}`);
+      }
+      return value;
+    });
+  }
+
+  /**
+   * ⚠ 只问「**存不存在**至少一名」，不列名单：`NO_SECOND_REVIEWER` 的判据只需要这一个
+   *   布尔值（`ports.ts` 逐字），而一份名单会让调用方顺手把它显示出来 ——
+   *   「谁能审我」在组织里不是给提交人看的信息。
+   */
+  async anotherMethodologyReviewerExists(
+    orgId: string,
+    excludePrincipalId: string,
+  ): Promise<boolean> {
+    if (orgId !== this.orgId) {
+      throw new Error(
+        `anotherMethodologyReviewerExists 的 orgId(${orgId}) 与本次请求的租户(${this.orgId}) 不一致`,
+      );
+    }
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ one: number }>(
+        `SELECT 1 AS one FROM skill_reviewer_functions
+          WHERE org_id = $1 AND principal_id <> $2 AND reviewer_function = 'methodology-reviewer'
+          LIMIT 1`,
+        [orgId, excludePrincipalId],
+      );
+      return result.rows.length > 0;
+    });
+  }
+
   /* ─────────────────────────── 内部 ─────────────────────────── */
+
+  /**
+   * 版本状态迁移。⚠ `WHERE state = $from` —— 与 `applyTransition` 同一条乐观并发纪律：
+   *   读到的状态与写下去时的状态不一致时影响 0 行，而不是覆盖别人刚写的状态。
+   */
+  private async moveVersionState(
+    versionId: string,
+    from: string,
+    to: string,
+  ): Promise<{ readonly changed: boolean }> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const updated = await s.query<{ id: string }>(
+        `UPDATE skill_contract_versions
+            SET state = $4
+          WHERE org_id = $1 AND id = $2 AND state = $3
+        RETURNING id`,
+        [orgId, versionId, from, to],
+      );
+      return { changed: updated.rows.length > 0 };
+    });
+  }
+
 
   /**
    * 「这个 id 在**本租户**里存在吗」。

@@ -218,6 +218,10 @@ import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
 } from "./infrastructure/skill/skill-gate-adapters";
 import { SkillController } from "./interface/controllers/skill.controller";
+// #552：双重门禁的 HTTP 边界（安全扫描 / 提交评审 / 人工审核 approve·reject）。
+// ⚠ 补的是**评审**这条边界，**不是**启用路由：`SKILLS_FORBIDDEN_ROUTES` 仍然禁止
+//   `POST /skills/:skillId/enable`，`已启用` 只能由 approve 分支产生。见该 controller 文件头。
+import { SkillReviewController } from "./interface/controllers/skill-review.controller";
 // #467 / #509：对话内临时挂载 skill 的存储与 HTTP 边界（F65）。
 // ⚠ 三条路径全部来自契约的 `operations`；`resolveMountedSkills` / `listMountableSkills`
 //   刻意**不接**——它们要读的蓝本编排今天没有适配器，接出来只会是恒失败的假入口。
@@ -419,6 +423,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     RecordingController,
     AgentRunController,
     SkillController,
+    SkillReviewController,
     SkillMountController,
   ],
   providers: [
