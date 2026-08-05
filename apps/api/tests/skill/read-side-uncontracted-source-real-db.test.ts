@@ -53,13 +53,16 @@ const UNCONTRACTED = SKILL_SOURCES.find(
 const CONTRACTED = C.SkillSource.options[0];
 
 /**
- * 只在**独占库**下运行 —— 见文件头。默认库名（`workspacex`）下一律跳过。
- * ⚠ 判据是「有没有显式换库」，不是「库存不存在」：后者在共享库上恒真，等于没有闸。
+ * 只在**独占库**下运行 —— 见文件头。
+ *
+ * ⚠ 2026-08-06 事故：原判据是「不等于默认库名」，而 CI 的 gates job 给每次跑
+ * 分配一个独有库名（例如 `wsx_ci_<runid>`），那也「不等于 workspacex」——于是
+ * 这条本该「只在本地显式独占库下跑」的门被 CI 误判为满足，在共享的 CI 库上
+ * 执行了 `DROP CONSTRAINT` 并插入了不合法的 fixture 行（见下），把 `gates`
+ * 打红、挡住了整条部署链。⇒ 改成白名单：只认文档里写死的那一个库名，
+ * 「库存不存在」不再算数——那在任何 CI 环境下都恒真，等于没有闸。
  */
-const EXCLUSIVE_DB =
-  typeof process.env.WORKSPACEX_DB === "string" &&
-  process.env.WORKSPACEX_DB !== "" &&
-  process.env.WORKSPACEX_DB !== "workspacex";
+const EXCLUSIVE_DB = process.env.WORKSPACEX_DB === "wsx_i580";
 const SHOULD_SKIP = !EXCLUSIVE_DB || UNCONTRACTED === undefined;
 
 let app: NestExpressApplication;
@@ -92,8 +95,11 @@ async function insertBypassingCheck(skillId: string, source: string): Promise<vo
          (id, org_id, skill_id, version_number, state, prompt_template, input_schema,
           output_schema, data_scope, reads_raw_transcript, fallback_declaration,
           model_ref, content_hash, created_by)
-       VALUES ($1,$2,$3,1,'草稿','p','{}','{}','[]'::jsonb,false,'f','model-default','h',$4)`,
-      [`${skillId}-v1`, ORG, skillId, ACTOR],
+       VALUES ($1,$2,$3,1,'草稿','p','{}','{}','[]'::jsonb,false,'f','model-default',$4,$5)`,
+      // content_hash 有 CHECK (content_hash ~ '^[a-f0-9]{64}$')
+      // （0006-f04-artifact-model.sql:99）——写死的 'h' 过不了这条，
+      // 这份 fixture 第一次真跑到专属库上就会撞见。换成合法的 64 位 hex 占位。
+      [`${skillId}-v1`, ORG, skillId, "0".repeat(64), ACTOR],
     ),
   );
   await asOwner(async (c) => {
