@@ -564,6 +564,21 @@ export const SKILL_SUBMITTER_GRANTS = Symbol("SkillSubmitterGrants");
 export const SKILL_SECURITY_AUDIT = Symbol("SkillSecurityAudit");
 
 /**
+ * `ThreadMountStorePort` 的**工厂**令牌（#467）。实现见
+ * `infrastructure/skill/pg-thread-mount-store.ts`。
+ *
+ * ⚠ 与 `SKILL_CONTRACT_REPOSITORY` 出于同一个理由发的是工厂而不是端口本身：
+ *   租户只能来自已认证的 principal（契约的 `mountSkillToThread.in` 里没有 `orgId`），
+ *   所以「未绑定租户的挂载仓储」这个东西不该存在。
+ */
+export const THREAD_MOUNT_STORE = Symbol("ThreadMountStore");
+
+/** 已绑定租户的线程挂载仓储工厂。 */
+export interface ThreadMountStoreFactory {
+  forOrg(orgId: string): ThreadMountStorePort;
+}
+
+/**
  * 请求级仓储的**工厂端口**（#459）。
  *
  * ⚠ `interface` 层只认这个类型，**不 import `infrastructure/`**：

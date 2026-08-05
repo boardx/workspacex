@@ -267,12 +267,50 @@ function issueMarker(phaseId: string, featureId: string): string {
 
 interface GhIssue { number: number; state: string; body: string }
 
-/** 一次拉全部 issue（含已关闭），避免逐 feature 查询把 API 打爆 */
+/**
+ * 一次拉全部 issue（含已关闭），避免逐 feature 查询把 API 打爆。
+ *
+ * ## ⚠ 2026-08-05：这里原本写死 `--limit 300`，而它在仓库长到 302 个 issue 那天开始说谎
+ *
+ * `gh issue list` 按**编号从新到旧**返回。上限 300 意味着**最老的那几个被悄悄丢掉** ——
+ * 而 phase-00 的 feature 恰恰对应最早那批 issue（F14 是 `#1`）。
+ *
+ * 后果不是「少查了几条」，是 **doctor 报「F14 已领入 sprint 但 GitHub 上没有对应 issue」
+ * 并把审计链判为断裂**。同一份代码 05:25 还绿、05:28 就红，中间没有任何相关改动 ——
+ * 那一刻只是新开的 issue 把 `#1` 挤出了窗口。main 因此连红四次，而每一条红都指向
+ * 一个**并不存在**的审计链断裂。
+ *
+ * ## 修法不是「换一个更大的数字」
+ *
+ * 任何固定上限都会在某一天再次静默截断，而且下一次同样没有人看得出来 ——
+ * 上一次它伪装成「F14 缺 issue」，下一次会伪装成别的东西。
+ *
+ * ⇒ **把截断本身变成一个会报错的事件**：请求一个远高于现实规模的上限，
+ *   并断言返回条数没有触到它。触到了就说明还是被截了，此时**宁可返回 null
+ *   降级为 WARN，也不要拿一份残缺清单去判「这个 feature 没有 issue」** ——
+ *   用不完整的数据做否定性判断，正是本仓一整天在抓的那种「红得不对」。
+ */
+const ISSUE_PAGE_LIMIT = 5000;
+
 function loadIssues(): GhIssue[] | null {
-  const r = sh(`gh issue list --state all --limit 300 --json number,state,body`, REPO_ROOT);
+  const r = sh(
+    `gh issue list --state all --limit ${ISSUE_PAGE_LIMIT} --json number,state,body`,
+    REPO_ROOT,
+  );
   if (r.code !== 0) return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
   try {
-    return JSON.parse(r.stdout) as GhIssue[];
+    const rows = JSON.parse(r.stdout) as GhIssue[];
+    if (rows.length >= ISSUE_PAGE_LIMIT) {
+      // 触顶 ⇒ 可能被截断 ⇒ 这份清单不足以支撑「某个 feature 没有 issue」这种否定性判断。
+      // 走 stdout：doctor 其余的 ✗/⚠ 都在这条流上，另开一条会让它在 CI 日志里
+      // 与上下文脱节，也让「跳过了这项检查」这件事更难被看见。
+      process.stdout.write(
+        `⚠ [doctor] issue 清单可能被截断（返回 ${rows.length} 条，上限 ${ISSUE_PAGE_LIMIT}）——` +
+        `本次跳过「开发任务必须在 issue 上可见」的检查，而不是用残缺清单误判。\n`,
+      );
+      return null;
+    }
+    return rows;
   } catch {
     return null;
   }

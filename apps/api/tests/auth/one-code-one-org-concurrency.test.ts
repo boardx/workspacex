@@ -26,6 +26,7 @@ import pg from "pg";
 import { InviteCodeInvalidError } from "../../src/application/auth/errors";
 import { registerWithInvite } from "../../src/application/auth/register-with-invite";
 import { PgRegistrationRepository } from "../../src/infrastructure/auth/pg-registration-repository";
+import { HmacEmailVerificationTokenCodec } from "../../src/infrastructure/auth/email-verification-token-codec";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { newOrgId, newUserId, newVerificationToken } from "../../src/domain/auth/registration";
@@ -42,6 +43,7 @@ import {
 } from "../support/auth-db";
 
 const EMAIL_DOMAIN = "f19race.test";
+const verificationTokens = new HmacEmailVerificationTokenCodec("test-email-verification-secret-at-least-32-bytes");
 const BARRIER_CODE = makeCode("RACEBARRIER");
 const BAD_SHAPE_CODE = makeCode("RACEBADSHAP");
 /** One per round, so a round never inherits the previous round's spent code. */
@@ -248,7 +250,9 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
             userId: c.userId,
             orgId: c.orgId,
             orgName: `Contested Org ${round}`,
-            verificationToken: newVerificationToken(),
+            verificationChallengeId: newVerificationToken(),
+            verificationTokenDigest: verificationTokens.digest(newVerificationToken()),
+            verificationOutboxId: `outbox-${c.userId}`,
             verificationExpiresAt: new Date(Date.now() + 3600_000),
           }),
         ),
@@ -325,7 +329,7 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
     const settled = await Promise.allSettled(
       ["ua", "ub"].map((who) =>
         registerWithInvite(
-          { repo, hasher },
+          { repo, hasher, verificationTokens },
           {
             code,
             email: `${who}@${EMAIL_DOMAIN}`,

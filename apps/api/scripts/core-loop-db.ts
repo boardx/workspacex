@@ -60,6 +60,110 @@ interface CoreLoopDbStat {
   readonly orgNames: readonly string[];
 }
 
+/**
+ * #435 步骤 8b 的库侧证据。
+ *
+ * ## 为什么必须数库，而不是数「成功了几次」
+ *
+ * 「恰好一条回复」的反面不是「一次也没成功」，而是**成功了但写了两条**。
+ * 只断言「出现了一条 agent 回复」或「run succeeded」，在一个每次重试都追加一行的
+ * 坏实现下**照样全绿**（本仓 #19 就是这么踩的）。所以这里取的是**最终条数**。
+ *
+ * ## 为什么不在 `apps/web/e2e/**` 里直连 PG
+ *
+ * 同 `core-loop-fixture.ts` 文件头：schema、角色划分、RLS 策略都住在 `apps/api`，
+ * 在 web 侧另起一个 pg 客户端等于把这些事实抄第二份。
+ */
+interface CoreLoopRunStat {
+  /** `agent_runs.status` 的原值；run 不存在时为 null。 */
+  readonly runStatus: string | null;
+  readonly runError: string | null;
+  /** **这一条就是 exactly-once 的证据**：挂在该 run 上的 agent 消息条数。 */
+  readonly assistantMessages: number;
+  /** 回复正文，用来证明它确实出自被显式选中的那个 provider，而不是前端合成的。 */
+  readonly assistantTexts: readonly string[];
+  /** 每条回复回指的 human 消息，证明 `replyToMessageId` 链是接上的。 */
+  readonly replyToMessageIds: readonly string[];
+  /** 该 run 所属线程里的消息总数。用来抓「回复写对了但顺手多插了别的行」。 */
+  readonly threadMessages: number;
+}
+
+async function runStat(runId: string): Promise<CoreLoopRunStat> {
+  return asOwner(async (client) => {
+    const run = await client.query<{ status: string; error_code: string | null; thread_id: string }>(
+      "SELECT status, error_code, thread_id FROM agent_runs WHERE id = $1",
+      [runId],
+    );
+    const found = run.rows[0];
+    const replies = await client.query<{ body: string; reply_to_message_id: string | null }>(
+      `SELECT body, reply_to_message_id FROM chat_messages
+        WHERE agent_run_id = $1 AND author_kind = 'agent'
+        ORDER BY id`,
+      [runId],
+    );
+    const threadMessages = found === undefined ? 0 : Number((await client.query<{ n: string }>(
+      "SELECT count(*) AS n FROM chat_messages WHERE thread_id = $1",
+      [found.thread_id],
+    )).rows[0]?.n ?? "0");
+    return {
+      runStatus: found?.status ?? null,
+      runError: found?.error_code ?? null,
+      assistantMessages: replies.rowCount ?? 0,
+      assistantTexts: replies.rows.map((r) => r.body),
+      replyToMessageIds: replies.rows.map((r) => r.reply_to_message_id ?? ""),
+      threadMessages,
+    };
+  });
+}
+
+/**
+ * ⚠ #435 的**反证装置**：把「恰好一条」故意变成两条。
+ *
+ * 承载 exactly-once 的是那条唯一索引：
+ *   `chat_messages_agent_run_idx ON chat_messages (org_id, agent_run_id)
+ *      WHERE author_kind='agent' AND agent_run_id IS NOT NULL`
+ *   （`migrations/20260804060000_wave2_chat_message_acceptance.sql:16-18`）
+ *
+ * 所以反证必须**先把索引摘掉**再插第二条 —— 索引还在的话 Postgres 会直接拒绝，
+ * 那证明的是「库拦得住」，却证明不了「**断言**抓得住」。而后者才是这次要验的东西：
+ * 一条抓不住重复的断言，在索引哪天被人误删时会安静地放行。
+ *
+ * 这只跑在 `CORE_LOOP_COUNTERPROOF_8B=1` 下，且改的是**用完即弃的隔离库**
+ * （每个 worker 有自己的 `WORKSPACEX_DB`，跑完 `docker compose down -v` 整个销毁）。
+ * 它**不**碰产品代码，也不改迁移文件。
+ */
+async function counterproofDuplicateReply(runId: string): Promise<void> {
+  await asOwner(async (client) => {
+    const existing = await client.query<{
+      org_id: string; thread_id: string; author_id: string; agent_id: string | null;
+      body: string; reply_to_message_id: string | null;
+    }>(
+      `SELECT org_id, thread_id, author_id, agent_id, body, reply_to_message_id
+         FROM chat_messages WHERE agent_run_id = $1 AND author_kind = 'agent'`,
+      [runId],
+    );
+    const row = existing.rows[0];
+    if (row === undefined) {
+      throw new Error(
+        `COUNTERPROOF 8b: run ${runId} 上没有任何 agent 回复，无法制造重复。` +
+        "这说明红点在写回**之前**就发生了 —— 那不是本反证要验的东西。",
+      );
+    }
+    await client.query("DROP INDEX IF EXISTS chat_messages_agent_run_idx");
+    await client.query(
+      `INSERT INTO chat_messages
+         (id,org_id,thread_id,author_kind,author_id,agent_id,body,agent_run_id,reply_to_message_id)
+       VALUES (gen_random_uuid()::text,$1,$2,'agent',$3,$4,$5,$6,$7)`,
+      [row.org_id, row.thread_id, row.author_id, row.agent_id,
+        `${row.body} [COUNTERPROOF DUPLICATE]`, runId, row.reply_to_message_id],
+    );
+  });
+  process.stdout.write(
+    `[core-loop-db] COUNTERPROOF 8b: 已摘掉 chat_messages_agent_run_idx 并给 run ${runId} ` +
+    "插入第二条回复，步骤 8b 的 exactly-once 断言必须变红\n",
+  );
+}
+
 async function reset(): Promise<void> {
   ensureDatabase();
   await migrateOnce();
@@ -118,6 +222,16 @@ if (command === "reset") {
   process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(after)}\n`);
 } else if (command === "stat") {
   process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(await stat(process.argv[3] ?? ""))}\n`);
+} else if (command === "run-stat") {
+  ensureDatabase();
+  process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(await runStat(process.argv[3] ?? ""))}\n`);
+} else if (command === "counterproof-duplicate-reply") {
+  ensureDatabase();
+  await counterproofDuplicateReply(process.argv[3] ?? "");
+  process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(await runStat(process.argv[3] ?? ""))}\n`);
 } else {
-  throw new Error(`usage: core-loop-db.ts <reset|stat> [email]; got ${JSON.stringify(command)}`);
+  throw new Error(
+    "usage: core-loop-db.ts <reset|stat|run-stat|counterproof-duplicate-reply> [email|runId]; " +
+    `got ${JSON.stringify(command)}`,
+  );
 }

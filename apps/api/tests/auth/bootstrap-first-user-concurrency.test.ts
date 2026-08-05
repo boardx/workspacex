@@ -11,6 +11,7 @@ import { migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { DATABASE_PORT } from "../../src/application/ports/database.port";
 import type { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { ensureRedis } from "../support/auth";
+import { dropDatabaseAfterDraining } from "../support/drop-database";
 
 process.env.KERNEL_QUIET = "1";
 
@@ -72,7 +73,10 @@ afterAll(async () => {
   await databasePort?.close();
   const admin = await adminClient();
   try {
-    await admin.query(`DROP DATABASE IF EXISTS ${DATABASE} WITH (FORCE)`);
+    // #487：曾经是 `DROP DATABASE … WITH (FORCE)`。FORCE 会给残留连接发 FATAL 57P01，
+    // 那条 FATAL 会以运行期错误冒进 vitest —— 4352 个测试全过、零断言失败，job 却红，
+    // 且错误里没有任何「是谁没关连接」的信息。改为先排空、残留则指名道姓。
+    await dropDatabaseAfterDraining(admin, DATABASE);
   } finally {
     await admin.end();
     if (ORIGINAL_DATABASE === undefined) delete process.env.PGDATABASE;
@@ -102,7 +106,12 @@ describe("global first-user bootstrap", () => {
       const memberships = await owner.query(
         "SELECT user_id, org_id, org_role FROM org_memberships",
       );
-      const verification = await owner.query("SELECT count(*)::int AS n FROM email_verification_tokens");
+      // #411 用 email_verification_challenges 取代了 email_verification_tokens
+      // （20260804030000_i411_email_verification_outbox.sql 建新表并 DROP 旧表）。
+      // 断言的**意图不变**：bootstrap 的首位管理员当场即已验证，不该签发任何挑战。
+      // 顺带一并断言不该有排队的验证邮件——首位管理员收到验证信本身就是缺陷。
+      const verification = await owner.query("SELECT count(*)::int AS n FROM email_verification_challenges");
+      const queuedMail = await owner.query("SELECT count(*)::int AS n FROM mail_outbox");
       const bootstrapState = await owner.query(
         "SELECT consumed_at FROM auth_bootstrap_state WHERE singleton = true",
       );
@@ -118,6 +127,7 @@ describe("global first-user bootstrap", () => {
         org_role: "admin",
       }));
       expect(verification.rows[0].n).toBe(0);
+      expect(queuedMail.rows[0].n).toBe(0);
       expect(bootstrapState.rows).toHaveLength(1);
       expect(bootstrapState.rows[0].consumed_at).not.toBeNull();
     } finally {

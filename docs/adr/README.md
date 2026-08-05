@@ -27,6 +27,7 @@
 | ADR-100 | fabric-markdown-vendoring-and-version-lock | `fabric-markdown` 源码并入 `packages/`（本仓从此是 owner）；`fabric` / `mermaid` 锁**确切版本**而非 caret；19 个模板 `key` 冻结、`displayName` 单点在契约层；上游回流规程。**项目实现层第一条** |
 | ADR-102 | phase-runtime-readiness | feature passing 与 phase runtime/E2E readiness 分离；ready 只由双 evidence 显式门控，doctor 独立复核。**Proposed** |
 | ADR-103 | portable-coord-role-runtime | 稳定角色规格单源生成 Claude Code/Codex 表面；PlatformDirectory 以 `(project, stable role)` binding 保持运行时角色 SSOT；broker 只注入所选角色凭据，model 与身份解耦，再以 ULID + 双租约完成 inbox/ACK/handoff。**Proposed；实现拆为 #441–#446，复用 #396/PR #402。** |
+| ADR-104 | Node/PostgreSQL transactional outbox 通过 Cloudflare REST 投递验证邮件 | Accepted |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线

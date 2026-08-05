@@ -102,8 +102,35 @@ docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "$
 echo "  app_rw 密码已对齐"
 
 step "5. 构建前端"
-sudo -u "$RUN_AS" env NODE_ENV=production pnpm --filter web run build >/dev/null
+# ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
+# 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。
+#
+# 2026-08-05 实测事故：本行原来只传 NODE_ENV，于是 `NEXT_PUBLIC_API_URL`
+# （provision.sh 写在 deploy.env 里的 `https://<domain>/api`）没进构建，
+# `api-client.ts` 落回缺省值 `http://localhost:3200`，线上前端把请求发到
+# **访问者自己电脑的 3200 端口**：
+#   POST http://localhost:3200/auth/bootstrap  net::ERR_CONNECTION_REFUSED
+# 后端与反向代理全程健康（外网 curl https://<domain>/api/auth/bootstrap 返 201），
+# 所以服务器日志里一条错误都没有——症状完全不像部署问题，人只会以为「服务坏了」。
+#
+# 第 3、4 步本来就是这么传的，唯独这一步漏了。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) NODE_ENV=production \
+  pnpm --filter web run build >/dev/null
 echo "  built"
+
+# 反证：构建产物里必须找得到真实 API 源，找不到就是又落回 localhost 缺省值了。
+# 这条断言便宜（一次 grep），但它拦的是一类「服务器全绿、用户全红」的故障。
+if [ -n "${NEXT_PUBLIC_API_URL:-}" ]; then
+  if ! grep -rqF "$NEXT_PUBLIC_API_URL" apps/web/.next/static 2>/dev/null; then
+    echo "✗ 构建产物里找不到 NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
+    echo "  ⇒ 前端会把请求发到 http://localhost:3200，线上必然 ERR_CONNECTION_REFUSED。"
+    exit 1
+  fi
+  echo "  NEXT_PUBLIC_API_URL 已内联进 bundle"
+else
+  echo "⚠ deploy.env 里没有 NEXT_PUBLIC_API_URL —— 前端将落回 http://localhost:3200 缺省值"
+  exit 1
+fi
 
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web

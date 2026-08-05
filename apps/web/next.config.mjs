@@ -26,7 +26,39 @@ export default {
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
+      // #520：Skill 目录的读与写。`/skills` 自己既是 GET 列表也是 POST 建草稿，
+      // `/skills/:id` 与 `/skills/:id/disable` 走 `:path*` ——
+      // **这是同一个坑的第三次**（前两次就写在上面 `/capabilities` 与
+      // `/canvas/templates` 的注释里）。缺了裸路径那一条，`/skill` 前端会静默打到
+      // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
+      { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
+      { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
+      // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
+      // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，
+      // 而是被 Next 自己接住返回 404 HTML，前端拿到 `Unexpected token '<'`，
+      // 表现成「后端没实现」而不是「路由没接」。
+      // recording 的路径永远带后缀（/sessions、/sessions/:id/segments …），
+      // 没有裸路径那一条，所以这里只需要 `:path*`。
+      { source: `${prefix}/recording/:path*`, destination: `${apiOrigin}/recording/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
+      // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
+      // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
+      // —— **不在 `/chat/` 下面**，与下面 `/agent-runs` 同一个形状。
+      // 裸 `/threads` 那一条今天没有任何操作命中，仍然写出来：这是 `/capabilities`、
+      // `/canvas/templates`、`/skills` 三次踩过的同一个坑，缺了它，将来有人加一条
+      // `GET /threads` 时会得到 Next 自己的 404 HTML 而不是 API 的响应。
+      { source: `${prefix}/threads`, destination: `${apiOrigin}/threads` },
+      { source: `${prefix}/threads/:path*`, destination: `${apiOrigin}/threads/:path*` },
+      // #435：AgentRun 的轮询读。**它不在 `/chat/` 下面** —— `AgentRunController` 是
+      // `@Controller()`（空前缀），路径就是裸的 `/agent-runs/:runId`
+      // （`apps/api/src/interface/controllers/agent-run.controller.ts:35`）。
+      //
+      // 漏了这一条的表现极具误导性：请求不会失败在网络层，而是被 Next 自己接住返回
+      // **404 的 HTML**，前端 `JSON.parse` 于是报 `Unexpected token '<', "<!DOCTYPE "`。
+      // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
+      // 实测就是这么红了一次（步骤 8b，2026-08-05）。
+      { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute
         ? `${apiOrigin}/__broken/projects/:projectId/artifacts`
