@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS agents (
   owner_engineer_id TEXT NOT NULL,           -- owner 必填：任何 agent 都属于一个人类
   parent_agent_id   TEXT,                    -- 可空；sub-agent 沿 parent 链追溯（锚 ULID）
   capabilities      TEXT NOT NULL,           -- JSON array：能力标签
+  kind              TEXT NOT NULL DEFAULT 'worker', -- 运行时角色：coordinator / architecture-coordinator / module-coordinator / worker / reviewer
+  areas             TEXT NOT NULL DEFAULT '[]',     -- JSON array：角色授权范围；["*"] 表示全仓
+  reports_to_agent_id TEXT,                  -- 组织汇报关系（锚不可变 agent ULID；与 sub-agent parent 语义独立）
   last_heartbeat_at TEXT,                    -- 心跳时间戳（enroll 后等首个心跳点亮，M2）
   created_at        TEXT NOT NULL,
   updated_at        TEXT NOT NULL

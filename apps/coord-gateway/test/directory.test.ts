@@ -79,7 +79,18 @@ describe("目录写面（仅 COORD_ADMIN_TOKEN）", () => {
     const mid = ((await m.json<Obj>())["membership"] as Obj)["membership_id"];
     const ap = await call("POST", `/directory/memberships/${mid}/transition`, "test-admin-token", { action: "approve" });
     expect(ap.status).toBe(200);
-    const a = await call("POST", "/directory/agents", "test-admin-token", { owner: "gw-eng", name: "gw-worker" });
+    const supervisor = await call("POST", "/directory/agents", "test-admin-token", {
+      owner: "gw-eng", name: "gw-coordinator", kind: "coordinator", areas: ["*"],
+    });
+    expect(supervisor.status).toBe(201);
+    const supervisorId = ((await supervisor.json<Obj>())["agent"] as Obj)["agent_id"];
+    const a = await call("POST", "/directory/agents", "test-admin-token", {
+      owner: "gw-eng",
+      name: "gw-worker",
+      kind: "architecture-coordinator",
+      areas: ["harness", "docs", "adr", "agent-protocol"],
+      reports_to: supervisorId,
+    });
     expect(a.status).toBe(201);
     const agentId = ((await a.json<Obj>())["agent"] as Obj)["agent_id"];
     const en = await call("POST", "/directory/enrollments", "test-admin-token", {
@@ -93,6 +104,10 @@ describe("目录写面（仅 COORD_ADMIN_TOKEN）", () => {
     expect((row["owner"] as Obj)["handle"]).toBe("gw-eng");
     expect(row["projects"]).toEqual(["gw-proj"]);
     expect(row["parent"]).toBeNull();
+    expect(row["kind"]).toBe("architecture-coordinator");
+    expect(row["areas"]).toEqual(["harness", "docs", "adr", "agent-protocol"]);
+    expect((row["reports_to"] as Obj)["agent_id"]).toBe(supervisorId);
+    expect(row["active"]).toBe(true);
   });
 
   it("写路径对普通 ops token / scoped token / 无 token 一律 401", async () => {

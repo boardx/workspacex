@@ -240,6 +240,60 @@ describe("Agent：owner 必填 + D6 命名空间", () => {
     expect((await post("/directory/agents", { owner: s2.handle, name: "twin" })).status).toBe(201);
   });
 
+  it("runtime role SSOT：kind/areas/reports_to 持久化，active 由 lifecycle 派生", async () => {
+    const s = await seed("role1");
+    const coordinator = (await j(await post("/directory/agents", {
+      owner: s.handle,
+      name: "coord-main",
+      kind: "coordinator",
+      areas: ["*"],
+    })))["agent"] as Obj;
+    const architecture = (await j(await post("/directory/agents", {
+      owner: s.handle,
+      name: "coord-architecture",
+      kind: "architecture-coordinator",
+      areas: ["harness", "docs", "adr", "agent-protocol"],
+      reports_to: coordinator["agent_id"],
+    })))["agent"] as Obj;
+
+    expect(architecture["kind"]).toBe("architecture-coordinator");
+    expect(architecture["areas"]).toEqual(["harness", "docs", "adr", "agent-protocol"]);
+    expect(architecture["reports_to"]).toEqual({
+      agent_id: coordinator["agent_id"],
+      name: "coord-main",
+    });
+    expect(architecture["active"]).toBe(true);
+
+    const id = architecture["agent_id"] as string;
+    const paused = await post(`/directory/agents/${id}/lifecycle`, { action: "pause" });
+    expect(((await j(paused))["agent"] as Obj)["active"]).toBe(false);
+    const reread = ((await j(await get(`/directory/agents/${id}`)))["agent"]) as Obj;
+    expect(reread["kind"]).toBe("architecture-coordinator");
+    expect(reread["areas"]).toEqual(["harness", "docs", "adr", "agent-protocol"]);
+    expect(reread["reports_to"]).toEqual({
+      agent_id: coordinator["agent_id"],
+      name: "coord-main",
+    });
+    expect(reread["active"]).toBe(false);
+  });
+
+  it("runtime role SSOT 非法投影 fail closed", async () => {
+    const s = await seed("role2");
+    expect((await post("/directory/agents", {
+      owner: s.handle, name: "bad-kind", kind: "root", areas: ["*"],
+    })).status).toBe(422);
+    expect((await post("/directory/agents", {
+      owner: s.handle, name: "bad-areas", kind: "worker", areas: "harness",
+    })).status).toBe(422);
+    expect((await post("/directory/agents", {
+      owner: s.handle,
+      name: "bad-reports-to",
+      kind: "worker",
+      areas: ["harness"],
+      reports_to: "agt_00000000000000000000000000",
+    })).status).toBe(404);
+  });
+
   it("sub-agent 点号命名沿 parent 追溯：合法延伸 201；顶级带点 422；错误前缀 422；跨 owner parent 422", async () => {
     const s = await seed("d3");
     const other = await seed("d3b");
@@ -568,7 +622,15 @@ describe("老表结构迁移自愈（#787：CREATE TABLE IF NOT EXISTS 不会补
     const dropped = dropBody["dropped"] as string[];
     const failed = dropBody["failed"] as string[];
     expect(dropped).toEqual(
-      expect.arrayContaining(["memberships.modules", "memberships.intro", "memberships.onboarding_issue_url", "agents.lifecycle"]),
+      expect.arrayContaining([
+        "memberships.modules",
+        "memberships.intro",
+        "memberships.onboarding_issue_url",
+        "agents.lifecycle",
+        "agents.kind",
+        "agents.areas",
+        "agents.reports_to_agent_id",
+      ]),
     );
     // 一个都不该失败——如果某列 DROP 静默失败，测试后面还是会"看起来复现了 #787"，
     // 但那是巧合而不是真的构造出了老表形状，会掩盖 drop 本身失效的问题。
@@ -597,6 +659,20 @@ describe("老表结构迁移自愈（#787：CREATE TABLE IF NOT EXISTS 不会补
     expect(m["modules"]).toEqual(["collab"]);
     expect(m["intro"]).toBe("回归测试");
     expect(m["onboarding_issue_url"]).toBe("https://github.com/x/y/issues/1");
+
+    const coordinator = (await j(await post("/directory/agents", {
+      owner: s.handle, name: "mig-coordinator", kind: "coordinator", areas: ["*"],
+    })))["agent"] as Obj;
+    const worker = (await j(await post("/directory/agents", {
+      owner: s.handle,
+      name: "mig-worker",
+      kind: "worker",
+      areas: ["harness"],
+      reports_to: coordinator["agent_id"],
+    })))["agent"] as Obj;
+    expect(worker["kind"]).toBe("worker");
+    expect(worker["areas"]).toEqual(["harness"]);
+    expect((worker["reports_to"] as Obj)["agent_id"]).toBe(coordinator["agent_id"]);
   });
 
   it("补跑 migrate() 本身幂等——已迁移过的表再跑一遍不报错、不影响正常写入", async () => {
