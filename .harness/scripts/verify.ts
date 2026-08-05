@@ -21,12 +21,15 @@ import { req } from "./lib/args";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
-import { ensureTestIsolation } from "./lib/test-isolation";
+import { ensureReservedTestIsolation } from "./lib/test-isolation";
 
-export function verify(args: Args): void {
+export async function verify(args: Args): Promise<void> {
   // One verify invocation owns one isolation scope. Every feature command and the final
   // base gate inherit the same DB/Redis/compose namespace from this single helper.
-  const isolation = ensureTestIsolation(process.env);
+  // #468：同 with-test-isolation —— 端口向 OS 预留，起子命令前释放。
+  const reservation = await ensureReservedTestIsolation(process.env);
+  const isolation = reservation.env;
+  await reservation.release();
   Object.assign(process.env, isolation, {
     WORKSPACEX_VERIFY_OUTER_DB: isolation.WORKSPACEX_DB,
     WORKSPACEX_VERIFY_OUTER_COMPOSE: isolation.COMPOSE_PROJECT_NAME,
