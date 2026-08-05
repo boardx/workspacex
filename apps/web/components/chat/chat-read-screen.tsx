@@ -221,22 +221,25 @@ export function ChatReadScreen({
   }, [projectId, runMutation]);
 
   const handleRename = React.useCallback((title: string) => {
-    if (!selectedThreadId || selectedVersion === null) return;
+    // ⚠ `projectId` 也进守卫：后端 `mutateExisting` 把 `projectId === null`
+    //   映射成裸 404（#541），少传它得到的不是「参数缺失」而是「线程不存在」。
+    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
     void runMutation("rename", async () => {
-      await renameThread(selectedThreadId, title, selectedVersion);
+      await renameThread(selectedThreadId, projectId, title, selectedVersion);
       return selectedThreadId;
     });
-  }, [runMutation, selectedThreadId, selectedVersion]);
+  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
 
   const handleDelete = React.useCallback((reason: string) => {
-    if (!selectedThreadId || selectedVersion === null) return;
+    /** `projectId` 同 `handleRename`（#541）。 */
+    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
     const removed = selectedThreadId;
     void runMutation("delete", async () => {
-      await deleteThread(removed, selectedVersion, reason);
+      await deleteThread(removed, projectId, selectedVersion, reason);
       // 删完的选中态：交给 loadThreads 从服务端返回的第一条兜底，不在本地猜。
       return null;
     });
-  }, [runMutation, selectedThreadId, selectedVersion]);
+  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
 
   /* ── agent 编制的增删（#467）────────────────────────────────────────────────
    * 与上面的会话增删改同一套纪律：**先等服务端返回，再重读服务端**，不做乐观更新。
