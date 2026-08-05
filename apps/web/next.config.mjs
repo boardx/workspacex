@@ -33,6 +33,14 @@ export default {
       // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
+      // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
+      // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，
+      // 而是被 Next 自己接住返回 404 HTML，前端拿到 `Unexpected token '<'`，
+      // 表现成「后端没实现」而不是「路由没接」。
+      // recording 的路径永远带后缀（/sessions、/sessions/:id/segments …），
+      // 没有裸路径那一条，所以这里只需要 `:path*`。
+      { source: `${prefix}/recording/:path*`, destination: `${apiOrigin}/recording/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
       // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
