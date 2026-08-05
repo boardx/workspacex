@@ -116,7 +116,11 @@ describe("test isolation contract (#74)", () => {
     expect(init).toContain("with-test-isolation");
     expect(init).toContain("git rev-parse --git-path hooks/pre-push");
     expect(init).not.toContain('if [ -d ".git" ]');
-    expect(verify).toContain("ensureTestIsolation");
+    // #468：入口从 ensureTestIsolation 换成 ensureReservedTestIsolation（端口改为
+    // 向 OS 预留）。本条断言的意图是「verify 必须经共用的隔离 helper，而不是自己
+    // 拼一套 env」——钉死具体函数名会让一次正当的改名撞红，而意图毫发无损。
+    expect(verify).toMatch(/ensure(Reserved)?TestIsolation/);
+    expect(verify).toContain('from "./lib/test-isolation"');
     expect(verify).toContain("WORKSPACEX_VERIFY_OUTER_DB");
     expect(verify).toContain("WORKSPACEX_VERIFY_OUTER_COMPOSE");
     expect(packageJson).toContain("with-test-isolation");

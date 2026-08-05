@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { ensureTestIsolation } from "./lib/test-isolation";
+import { ensureReservedTestIsolation } from "./lib/test-isolation";
 
 async function main(): Promise<void> {
   const separator = process.argv.indexOf("--");
@@ -11,7 +11,9 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const isolation = ensureTestIsolation(process.env);
+  // #468：端口不再靠哈希猜，而是真的向 OS 预留（探到即持有），起栈前才释放。
+  const reservation = await ensureReservedTestIsolation(process.env);
+  const isolation = reservation.env;
   const env = { ...process.env, ...isolation };
   const verifyOuterDb = process.env.WORKSPACEX_VERIFY_OUTER_DB;
   const verifyOuterCompose = process.env.WORKSPACEX_VERIFY_OUTER_COMPOSE;
@@ -45,6 +47,8 @@ async function main(): Promise<void> {
     return null;
   }
 
+  // 占位监听必须在起栈**之前**释放，否则 docker bind 会撞上我们自己。
+  await reservation.release();
   const child = spawn(command[0]!, command.slice(1), { env, stdio: "inherit" });
   let receivedSignal: NodeJS.Signals | null = null;
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
