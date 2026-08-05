@@ -16,7 +16,7 @@
 | 返工 | #406 四轮 review、#433 两轮、#437 一轮打回——多数返工原因是"没对着最新 main 验证" | 每轮 2-10h |
 | 库存积压 | stale 分支越放越难合（#422/#425 放一天后 CONFLICTING，解决成本上升） | 小时级 |
 | 无效动作 | 状态轮询靠人肉 15 分钟 tick 逐个查；同一问题（双状态标签）反复手工修 | 分钟级但高频 |
-| 系统性缺陷 | 热点文件(board-canvas.tsx)三次合并碰撞,两次打挂/差点打挂 main | 每次 1-3h 修复 |
+| 系统性缺陷 | 热点文件（**上游 BoardX** 的画布组件，非本仓文件——见 coordinator-sop.md 的更正）三次合并碰撞,两次打挂/差点打挂 main | 每次 1-3h 修复 |
 
 结论：提速的关键是**把等待压掉**——让每件在制品在每个周期内都必须"动一下"，动不了就立刻处理（接管/降级/明确搁置），绝不静默滞留。
 
@@ -70,7 +70,7 @@ coord-main 汇总成一条全局 cycle-report 发 #323：全仓 done/miss、当�
 | 低风险 PR（纯文档/元数据/gate-only）| review+merge ≤ 30 分钟 | coord-main 直接快速核验合并，不派 subagent |
 
 ### 热点文件协作规约（消除今天最大的返工来源）
-- `.harness/state/hotspots.md` 维护一个热点文件清单（当前：`board-canvas.tsx`、
+- `.harness/state/hotspots.md` 维护一个热点文件清单（当前：`components/canvas/template-admin.tsx`、`template-editor.tsx`、`canvas-stage.tsx`、
   `rooms/[id]/members/page.tsx`、`.harness/state/PROGRESS.md`）。
 - 动热点文件的 PR，在 cycle-plan 里必须申报；同周期两个 PR 申报同一热点 → coord-main
   排序，后者等前者合并后 rebase 再提。

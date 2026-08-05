@@ -275,7 +275,9 @@ export interface RedeemAndCreateOrgInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly orgName: string;
-  readonly verificationToken: string;
+  readonly verificationChallengeId: string;
+  readonly verificationTokenDigest: string;
+  readonly verificationOutboxId: string;
   readonly verificationExpiresAt: Date;
 }
 
@@ -329,19 +331,6 @@ export interface RegistrationRepository {
    * Any failure rolls all of it back.
    */
   redeemAndCreateOrg(input: RedeemAndCreateOrgInput): Promise<RedeemAndCreateOrgResult>;
-
-  /**
-   * Flip `credentials.email_verified_at`, consuming the token.
-   *
-   * ⚠ Also one call, for a smaller version of the same reason: consuming the token and
-   * marking the address verified must not be separable, or a crash between them produces
-   * a spent token and an unverified account -- which, with no resend operation in the
-   * contract, is an account that can never log in.
-   *
-   * Returns null when the token is unusable (absent / expired / already consumed) -- one
-   * outcome for three causes, see `domain/auth/email-verification.ts`.
-   */
-  confirmEmailVerification(token: string, now: Date): Promise<{ userId: string } | null>;
 
   /**
    * F22 / O-12: an EXISTING account spends a NEW code and gets a SECOND organization.

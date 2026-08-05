@@ -3,13 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
-const { replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, sessionState } = vi.hoisted(() => ({
+const {
+  replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
+  sessionState,
+} = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
   getThread: vi.fn(),
   getAgentPanel: vi.fn(),
   listMessages: vi.fn(),
   createMessage: vi.fn(),
+  getAgentRun: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -36,6 +40,17 @@ vi.mock("@/components/shell/app-shell", () => ({
   }) => <div><aside>{left}</aside><main>{children}</main><aside>{right}</aside></div>,
 }));
 vi.mock("@/lib/live-chat", () => ({ listThreads, getThread, getAgentPanel, listMessages, createMessage }));
+/**
+ * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
+ *
+ * 那个函数持有「哪些状态算终态」这条事实（`lib/agent-run.ts` 的 `TERMINAL_STATUSES`，
+ * 与契约状态机同源）。把它一起 mock 掉，本文件就会在一份自己编的终态定义上跑 ——
+ * 真实定义哪天改了它照样绿。只 mock 网络边界，不 mock 被测逻辑。
+ */
+vi.mock("@/lib/agent-run", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/agent-run")>()),
+  getAgentRun,
+}));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
 import { describeMessageFailure } from "@/components/chat/chat-live-message-panel";
@@ -51,6 +66,25 @@ function message(index: number) {
     citations: [],
     toolCallSummary: null,
     card: `真实消息 ${index}`,
+  };
+}
+
+/** #435：`GET /agent-runs/:runId` 的响应形状，字段照 `wave2-runtime.ts:182-198`。 */
+function agentRunView(status: string, resultMessageId: string | null, error: string | null = null) {
+  return {
+    runId: "run-new",
+    threadId: "thread-real",
+    inputMessageId: "durable-message-21",
+    agentId: "agent-real",
+    agentVersionId: "agent-real-v1",
+    skillVersionIds: [],
+    modelProvider: "test-provider",
+    modelId: "test-model",
+    status,
+    error,
+    resultMessageId,
+    steps: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
   };
 }
 
@@ -147,6 +181,7 @@ describe("formal Chat read path", () => {
       agentRunId: "run-new",
       runStatus: "queued",
     });
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
   });
 
   it.each([
@@ -235,8 +270,82 @@ describe("formal Chat read path", () => {
     expect(input).toMatchObject({ text: "请持久保存这条消息", agentId: "agent-real" });
     expect(input.clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-new");
-    expect(listMessages).toHaveBeenCalledTimes(2);
+    // 三次 GET，一次都不是多余的（#435 之前是两次）：
+    //   ① 进入线程时的首屏；② 202 之后立刻重读，让 human 消息马上出现；
+    //   ③ run 到终态之后重读，让 #413 写回的那条**持久**回复出现。
+    // ③ 是 #435 补的。少了它，助手回复要等用户手动刷新才看得见 —— run 明明成功了，
+    // 界面却停在「已排队」，这正是步骤 8b 在界面上交付不了的那个缺口。
+    await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(3));
+    // 而且新增的这次仍然是**从服务端读**，不是把回复合成到本地列表里。
+    expect(createMessage).toHaveBeenCalledTimes(1);
     expect(screen.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeInTheDocument();
+  });
+
+  /**
+   * #435 —— AgentRun 的可见状态。
+   *
+   * 这三条盯的是同一件事的三个面：状态**来自服务端**、轮询**在终态停下**、
+   * 读不到时**不编一个状态出来**。少了它们，`chat-live-agent-run-status` 会退化成
+   * 一个「只要发过消息就常亮」的装饰物 —— 那正是它要取代的 `chat-message-queued`。
+   */
+  it("推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断", async () => {
+    getAgentRun
+      .mockResolvedValueOnce(agentRunView("queued", null))
+      .mockResolvedValueOnce(agentRunView("running", null))
+      .mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const status = await screen.findByTestId("chat-live-agent-run-status");
+    expect(status).toHaveAttribute("data-run-id", "run-new");
+    await waitFor(
+      () => expect(status).toHaveAttribute("data-run-status", "succeeded"),
+      { timeout: 10_000 },
+    );
+    // 写回提交之后才有的字段。它非空 = 回复真的落库了，不是界面自己宣布成功。
+    expect(status).toHaveAttribute("data-result-message-id", "durable-message-22");
+    // 终态之后**必须停**。多轮询一次不致命，但「永不停止」会在真实环境里
+    // 变成一条打不完的请求 —— 而单测是唯一能便宜地钉住这件事的地方。
+    const callsAtTerminal = getAgentRun.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(getAgentRun.mock.calls.length).toBe(callsAtTerminal);
+  }, 15_000);
+
+  it("run 失败时如实显示 failed 与错误码，不合成回复", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("failed", null, "MODEL_CALL_FAILED"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会失败的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const status = await screen.findByTestId("chat-live-agent-run-status");
+    await waitFor(() => expect(status).toHaveAttribute("data-run-status", "failed"));
+    expect(status).toHaveTextContent("MODEL_CALL_FAILED");
+    expect(status).not.toHaveAttribute("data-result-message-id");
+  });
+
+  it("读不到 run 时报读取失败，而不是渲染一个猜出来的状态", async () => {
+    getAgentRun.mockRejectedValue(new ApiError(404, "AGENT_RUN_NOT_VISIBLE", {}));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "读不到的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const status = await screen.findByTestId("chat-live-agent-run-status");
+    await waitFor(() => expect(status).toHaveTextContent("读取 AgentRun 状态失败"));
+    // 「读不到 run」与「run 失败了」是两件事。混起来就是在界面上撒谎。
+    expect(status).not.toHaveAttribute("data-run-status");
   });
 
   it("keeps the same clientMessageId when a dependency failure is retried", async () => {

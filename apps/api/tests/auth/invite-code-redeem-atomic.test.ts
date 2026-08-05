@@ -19,6 +19,7 @@ import { registerWithInvite } from "../../src/application/auth/register-with-inv
 import { EmailTakenError, InviteCodeInvalidError } from "../../src/application/auth/errors";
 import { BcryptPasswordHasher } from "../../src/infrastructure/auth/bcrypt-password-hasher";
 import { PgRegistrationRepository } from "../../src/infrastructure/auth/pg-registration-repository";
+import { HmacEmailVerificationTokenCodec } from "../../src/infrastructure/auth/email-verification-token-codec";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { newOrgId, newUserId } from "../../src/domain/auth/registration";
@@ -52,13 +53,14 @@ let db: PgDatabase;
 let repo: PgRegistrationRepository;
 /** Real bcrypt, real cost. A fake hasher here would make the test cheap and I-2 unproven. */
 const hasher = new BcryptPasswordHasher();
+const verificationTokens = new HmacEmailVerificationTokenCodec("test-email-verification-secret-at-least-32-bytes");
 
 /** Every user id this file creates, so cleanup can find the random org ids. */
 const created: string[] = [];
 
 async function register(code: string, local: string, orgName = "Acme") {
   const out = await registerWithInvite(
-    { repo, hasher },
+    { repo, hasher, verificationTokens },
     {
       code,
       email: `${local}@${EMAIL_DOMAIN}`,
@@ -115,7 +117,7 @@ describe("the happy path writes all four things, and writes them as the app role
     expect(tokens).toHaveLength(1);
     expect(tokens[0]!.email).toBe(`founder@${EMAIL_DOMAIN}`);
     expect(tokens[0]!.consumed_at).toBeNull();
-    // ⚠ Still in the outbox. `emailVerificationSent: true` means "durably enqueued", and
+    // Still in the outbox: `verificationDelivery: queued` means durably enqueued, and
     // this assertion is what keeps that claim honest -- there is no relay in phase-00, and
     // a test that asserted `delivered_at` non-null would be asserting a fiction.
     expect(tokens[0]!.delivered_at).toBeNull();
@@ -127,13 +129,13 @@ describe("the happy path writes all four things, and writes them as the app role
     expect(code!.created_org_id).toBe(out.orgId);
 
     // The contract's literal.
-    expect(out.emailVerificationSent).toBe(true);
+    expect(out.verificationDelivery).toBe("queued");
   });
 
   it("normalizes the email, so `Founder@...` and `founder@...` are one account", async () => {
     await issueInviteCode(codes.happy);
     const out = await registerWithInvite(
-      { repo, hasher },
+      { repo, hasher, verificationTokens },
       {
         code: codes.happy,
         email: `  MiXeD@${EMAIL_DOMAIN}  `,
@@ -179,7 +181,9 @@ describe("every failure leaves NO half organization (I-4)", () => {
       userId,
       orgId,
       orgName: "Rolled Back Co",
-      verificationToken: `tok-${userId}`,
+      verificationChallengeId: `challenge-${userId}`,
+      verificationTokenDigest: verificationTokens.digest(`tok-${userId}`),
+      verificationOutboxId: `outbox-${userId}`,
       verificationExpiresAt: new Date(Date.now() + 3600_000),
     });
     created.push(userId);
@@ -203,7 +207,7 @@ describe("every failure leaves NO half organization (I-4)", () => {
     ).toEqual([]);
     const tokens = await asOwner(async (c) => {
       const r = await c.query<{ n: string }>(
-        `SELECT count(*)::text AS n FROM email_verification_tokens WHERE user_id = $1`,
+        `SELECT count(*)::text AS n FROM email_verification_challenges WHERE user_id = $1`,
         [a.userId],
       );
       return Number(r.rows[0]!.n);

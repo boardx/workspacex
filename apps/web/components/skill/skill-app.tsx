@@ -10,6 +10,7 @@ import {
   SKILL_SCREENS, SKILL_SCREEN_LABEL, SKILL_SCREEN_UC, SKILL_VIEWS,
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
+import { SkillCatalogLive } from "./skill-catalog-live";
 import { SkillLibrary } from "./skill-library";
 import { SkillTryRun } from "./skill-tryrun";
 import { SkillBinding } from "./skill-binding";
@@ -53,7 +54,15 @@ export function SkillApp({
       <div className="flex h-full min-h-0 flex-col">
         <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {screen === "library" && <SkillLibrary state={uiState} view={view} />}
+          {/*
+            #520：默认屏接真实后端（`SkillController`）。它「不吃」`uiState` / `view`——
+            （这里用「」而不是 Markdown 加粗：多行 JSX 注释的续行 lint-design 认不出，
+            见 `scripts/lint-design.sh` 里 strip_comments 的已知局限。）
+            那两个是原型的预览手段，真实的加载/失败/空态由后端响应决定，真实权限在服务端。
+            七屏原型仍可达，见下面的 `library-prototype`。
+          */}
+          {screen === "library" && <SkillCatalogLive />}
+          {screen === "library-prototype" && <SkillLibrary state={uiState} view={view} />}
           {screen === "tryrun" && <SkillTryRun state={uiState} view={view} />}
           {screen === "binding" && <SkillBinding state={uiState} view={view} />}
           {screen === "temp" && <SkillTempMount state={uiState} view={view} />}
@@ -106,7 +115,8 @@ function LeftNav({
 
 function RightRail({ screen }: { screen: SkillScreen }) {
   const notes: Record<SkillScreen, { title: string; body: string }> = {
-    library: { title: "双重门禁", body: "安全扫描（自动）与方法论审核（人工）是两道独立门禁，两职能不合并、均由组织管理员指派、不得自审自批。" },
+    library: { title: "只画后端给得出的东西", body: "本屏接真实 API（#520）：只有创建草稿、列表、详情三条路径有 HTTP 边界。没有发布、试跑、审核入口——它们的用例还没有边界，摆出来就是骗人的按钮。" },
+    "library-prototype": { title: "双重门禁", body: "安全扫描（自动）与方法论审核（人工）是两道独立门禁，两职能不合并、均由组织管理员指派、不得自审自批。" },
     tryrun: { title: "试跑不落库", body: "试跑用当前未发布的契约跑，不影响线上；自动校验（结构/证据/越权/写库）与回归用例都不需要沙箱（D-06 挡不住），是对契约输出的断言。" },
     binding: { title: "两级继承", body: "后台模板级默认值 → 项目实例级可覆盖、不回写；沉淀回组织只有一条显式路径 [另存为组织模板]。" },
     temp: { title: "作用域", body: "临时挂载只对当前这条对话生效，不改蓝本；组员默认不可自加（服务端拒）。" },

@@ -21,7 +21,10 @@ function repoWith(
     isFirstUserBootstrapAvailable: vi.fn().mockResolvedValue(available),
     bootstrapFirstUser: vi.fn().mockResolvedValue(result),
     redeemAndCreateOrg: vi.fn(),
-    confirmEmailVerification: vi.fn(),
+    // #411 把 confirmEmailVerification 从 RegistrationRepository 移到了专用的
+    // EmailVerificationRepository（见 email-verification-ports.ts）——注册仓储不再承担
+    // 验证态的读写。这里跟着收窄，不是删覆盖：该行为的测试在
+    // email-verification-public.test.ts。
     joinExistingUserToNewOrg: vi.fn(),
   };
 }

@@ -21,6 +21,7 @@
  *   可区分是**结构性的**（来自哪个端口/集合），不是靠一个 `source: "temp"` 标签字段
  *   （同 `binding-slot.ts` 「刻意没有 label 字段」的落法）。
  */
+import { createHash } from "node:crypto";
 import { skills } from "@repo/contracts";
 import type { z } from "zod";
 import type { DeliverRole } from "./binding-slot";
@@ -74,6 +75,25 @@ export function unmountOne(
 /** 当前仍生效的挂载（未摘除的那些）。 */
 export function activeMounts(mounts: readonly ThreadSkillMount[]): readonly ThreadSkillMount[] {
   return mounts.filter((m) => m.removedAt === null);
+}
+
+/**
+ * 挂载列表的指纹 —— 契约 `mountSkillToThread.in.expectedVersion` 的取值（#467）。
+ *
+ * ⚠ 覆盖面是**整份列表，含已摘除的那些**：摘掉一条也算「列表变了」。
+ *   只对 `activeMounts` 求指纹会让「A 摘了 s1、B 同时挂上 s1」这一对并发
+ *   算出同一个指纹 ⇒ 静默覆盖，正是 E5/V8 要挡的形状。
+ * ⚠ 输入先按 `mountId` 排序：存储层的返回顺序不是契约的一部分，
+ *   让它决定指纹会让「同一份列表读两次得到两个版本号」这种假冲突出现。
+ * ⚠ 空列表有一个**确定的、非空的**指纹（sha256 of ""），不是 `""`：
+ *   `""` 会与「调用方没填」在字符串层面撞上，而契约那边 `expectedVersion` 是必填的。
+ */
+export function mountListFingerprint(mounts: readonly ThreadSkillMount[]): string {
+  const canonical = [...mounts]
+    .sort((a, b) => (a.mountId < b.mountId ? -1 : a.mountId > b.mountId ? 1 : 0))
+    .map((m) => `${m.mountId}:${m.skillId}:${m.versionId}:${m.removedAt ?? ""}`)
+    .join("\n");
+  return createHash("sha256").update(canonical).digest("hex");
 }
 
 /* ─────────────────────── 历史消息角标：与挂载列表结构性不相交 ─────────────────────── */

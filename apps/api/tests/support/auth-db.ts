@@ -80,7 +80,8 @@ export async function readCredentialByEmail(email: string): Promise<CredentialRo
 }
 
 export interface VerificationRow {
-  token: string;
+  id: string;
+  token_digest: string;
   user_id: string;
   email: string;
   expires_at: Date;
@@ -91,7 +92,11 @@ export interface VerificationRow {
 export async function readVerificationTokens(userId: string): Promise<VerificationRow[]> {
   return asOwner(async (c) => {
     const r = await c.query<VerificationRow>(
-      `SELECT * FROM email_verification_tokens WHERE user_id = $1 ORDER BY enqueued_at`,
+      `SELECT c.id, c.token_digest, c.user_id, o.recipient AS email, c.expires_at,
+              c.consumed_at, o.delivered_at
+         FROM email_verification_challenges c
+         JOIN mail_outbox o ON o.challenge_id = c.id
+        WHERE c.user_id = $1 ORDER BY c.created_at`,
       [userId],
     );
     return r.rows;

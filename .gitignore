@@ -66,3 +66,12 @@ test-results/
 # VM 上的 runner environment file 里），但含部署形态，仍然不进仓库。
 # 模板见 .harness/config/local.env.example
 .harness/config/local.env
+
+# 私钥/证书一律不进仓库（VM SSH key、GitHub App 私钥、Cloudflare secrets 等）。
+# ⚠ 这条 2026-08-05 之前一整天只活在某个工作区的未提交改动里，被一次
+# `rebase --autostash` 卷走后才发现 —— 未提交的保护规则不是保护规则。
+# 实际躺在这里的：.harness/config/devapp.pem（VM_SSH_KEY_PATH 指向它）。
+*.pem
+*.key
+*.p12
+*.pfx

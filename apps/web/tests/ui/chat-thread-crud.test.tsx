@@ -180,7 +180,13 @@ describe("#460 会话增删改接入正式 /chat", () => {
     fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "改过的名字" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
 
-    await waitFor(() => expect(renameThread).toHaveBeenCalledWith("thread-a", "改过的名字", 7));
+    // ⚠ 第二个实参是 `projectId`。#541 之前这里是 `null`，而后端 `mutateExisting`
+    //   把 `projectId === null` 映射成**裸 404**（I-3：不可见与不存在同一个出口）——
+    //   于是改名与删除在界面上从来没成功过，而这条测试当时是绿的：
+    //   **它钉住的是那个坏调用形状本身**。断言里写死 "project-real" 就是为了
+    //   让「又退回 null」这件事在这里当场变红。
+    await waitFor(() =>
+      expect(renameThread).toHaveBeenCalledWith("thread-a", "project-real", "改过的名字", 7));
   });
 
   it("删除要二次确认与原因，删完选中态回退到服务端剩下的第一条", async () => {
@@ -197,7 +203,8 @@ describe("#460 会话增删改接入正式 /chat", () => {
     fireEvent.change(screen.getByTestId("chat-thread-delete-reason"), { target: { value: "重复会话" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
-    await waitFor(() => expect(deleteThread).toHaveBeenCalledWith("thread-a", 3, "重复会话"));
+    await waitFor(() =>
+      expect(deleteThread).toHaveBeenCalledWith("thread-a", "project-real", 3, "重复会话"));
     await waitFor(() => expect(screen.queryByTestId("chat-thread-thread-a")).toBeNull());
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat?projectId=project-real&thread=thread-b"));
   });

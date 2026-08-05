@@ -47,7 +47,7 @@ export const validateSessionErrors = ["SESSION_EXPIRED","SESSION_REVOKED","AUTH_
 export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out> = {
   "userId": "userId-1",
   "orgId": "orgId-1",
-  "emailVerificationSent": true
+  "verificationDelivery": "queued"
 };
 
 /** redeemInviteAndCreateOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
@@ -62,6 +62,19 @@ export const bootstrapFirstUserMock: z.infer<typeof auth.operations.bootstrapFir
 
 /** bootstrapFirstUser 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const bootstrapFirstUserErrors = ["BOOTSTRAP_UNAVAILABLE","EMAIL_TAKEN"] as const;
+
+/** confirmEmailVerification 的成功响应样例（由契约生成） */
+export const confirmEmailVerificationMock: z.infer<typeof auth.operations.confirmEmailVerification.out> = {
+  "status": "completed"
+};
+
+/** confirmEmailVerification 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const confirmEmailVerificationErrors = ["VERIFICATION_LINK_INVALID"] as const;
+
+/** resendEmailVerification 的成功响应样例（由契约生成） */
+export const resendEmailVerificationMock: z.infer<typeof auth.operations.resendEmailVerification.out> = {
+  "verificationDelivery": "queued"
+};
 
 /** switchOrgAtLogin 的成功响应样例（由契约生成） */
 export const switchOrgAtLoginMock: z.infer<typeof auth.operations.switchOrgAtLogin.out> = {

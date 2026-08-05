@@ -74,16 +74,15 @@ async function onboard(code: string, email: string, orgName: string) {
   expect(reg.status, await reg.clone().text()).toBe(201);
   const { userId, orgId } = (await reg.json()) as { userId: string; orgId: string };
 
-  // 邮箱验证：契约里没有对应操作（KNOWN_CONTRACT_GAPS.C1），application 层有实现。
-  const [token] = await readVerificationTokens(userId);
-  const { PgRegistrationRepository } = await import(
-    "../../src/infrastructure/auth/pg-registration-repository"
+  const [challenge] = await readVerificationTokens(userId);
+  const { HmacEmailVerificationTokenCodec, emailVerificationSecret } = await import(
+    "../../src/infrastructure/auth/email-verification-token-codec"
   );
-  const { PgDatabase } = await import("../../src/infrastructure/db/pg-database");
-  const { appConfig } = await import("../../src/infrastructure/db/pg-config");
-  const db = new PgDatabase(appConfig());
-  await new PgRegistrationRepository(db).confirmEmailVerification(token!.token, new Date());
-  await db.close?.();
+  const codec = new HmacEmailVerificationTokenCodec(emailVerificationSecret());
+  const confirmed = await post("/auth/email-verifications/confirm", {
+    token: codec.tokenForChallenge(challenge!.id),
+  });
+  expect(confirmed.status, await confirmed.clone().text()).toBe(201);
 
   const res = await post("/auth/login", { email, password: PASSWORD });
   expect(res.status, await res.clone().text()).toBe(200);
