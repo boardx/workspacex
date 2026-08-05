@@ -4,7 +4,8 @@ phase: "01"
 covers: [F100, F101, F102, F103, F104, F105, F106, F107]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
-confirmed_at: "2026-07-30T16:40:49+08:00"
+confirmed_at: "2026-07-31T16:40:49+08:00"
+scope_note: "本次签核范围含 createTemplate"   # 人类 2026-07-31 手写；agent 只补了 key，原话未改
 ---
 
 # 契约束 `canvas` 设计签核
