@@ -61,7 +61,14 @@ export type ImportSkillFromUrlFailure =
   /** 组织内已有同名 skill */
   | "IMPORT_NAME_CONFLICT"
   /** 同一 idempotencyKey 曾用不同输入提交过 */
-  | "IMPORT_IDEMPOTENCY_CONFLICT";
+  | "IMPORT_IDEMPOTENCY_CONFLICT"
+  /**
+   * 调用者不是本组织 admin。
+   *
+   * ⚠ 与 `import-skill-starter-pack.ts:38-39` 同一条门槛（`orgRole === "admin"`）。
+   *   两条导入路径**通向同一批表**，门槛不同就等于开了条矮的。
+   */
+  | "IMPORT_NOT_ORG_ADMIN";
 
 export class ImportSkillFromUrlError extends Error {
   constructor(readonly code: ImportSkillFromUrlFailure) {

@@ -37,6 +37,9 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 const ORG = "org-i595-url-import";
 const ACTOR = "u-i595-importer";
 
+/** 真库这条链只验持久化，授权用替身固定为 admin；授权本身的门在单测里证。 */
+const ADMIN: any = { findOrgMembership: async () => ({ orgRole: "admin" }) };
+
 let server: https.Server;
 let port = 0;
 let handler: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void;
@@ -126,7 +129,7 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
         name: "url-imported-skill",
         idempotencyKey: "i595-key-ok",
       },
-      { fetch: fetcher(true), repository, policy: { localOnlyOrg: false } },
+      { identities: ADMIN, fetch: fetcher(true), repository, policy: { localOnlyOrg: false } },
     );
 
     const stored = await readBack(result.versionId);
@@ -153,11 +156,13 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
       idempotencyKey: "i595-key-idem",
     };
     const first = await importSkillFromUrl(input, {
+      identities: ADMIN,
       fetch: fetcher(true),
       repository,
       policy: { localOnlyOrg: false },
     });
     const second = await importSkillFromUrl(input, {
+      identities: ADMIN,
       fetch: fetcher(true),
       repository,
       policy: { localOnlyOrg: false },
@@ -195,7 +200,7 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
           name: "should-never-exist",
           idempotencyKey: "i595-key-ssrf",
         },
-        { fetch: fetcher(false), repository, policy: { localOnlyOrg: false } },
+        { identities: ADMIN, fetch: fetcher(false), repository, policy: { localOnlyOrg: false } },
       ),
     ).rejects.toThrow();
 

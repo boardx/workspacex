@@ -21,6 +21,8 @@
  * 所以这件事本身有独立的反证（见 `import-skill-from-url.test.ts` 反证⑦）。
  */
 import { normalizedPath, sha256 } from "../../domain/skill/starter-pack";
+import type { IdentityRepository } from "../identity/ports";
+import { toOrgId } from "../../domain/org-id";
 import type { ImportUrlPolicy } from "../../domain/skill/import-source";
 import {
   ImportSkillFromUrlError,
@@ -72,6 +74,8 @@ export const SKILL_URL_IMPORT_REPOSITORY = Symbol("SkillUrlImportRepository");
 export const IMPORT_SOURCE_FETCHER = Symbol("ImportSourceFetcher");
 
 export interface ImportSkillFromUrlDeps {
+  /** 授权来源。⚠ 与 starter-pack 导入同一条门槛，见下方 admin 检查。 */
+  readonly identities: IdentityRepository;
   readonly fetch: ImportSourceFetcher;
   readonly repository: SkillUrlImportRepository;
   readonly policy: ImportUrlPolicy;
@@ -98,6 +102,24 @@ export async function importSkillFromUrl(
   input: ImportSkillFromUrlInput,
   deps: ImportSkillFromUrlDeps,
 ): Promise<ImportSkillFromUrlResult> {
+  /**
+   * ⚠⚠ **授权门，必须是这条用例做的第一件事。**
+   *
+   * 与 `import-skill-starter-pack.ts:38-39` 逐字对齐（`orgRole === "admin"`）：
+   * 两条导入路径**通向同一批表**（`skills`/`skill_versions`/`skill_version_files`），
+   * 门槛不同就等于在同一扇门旁边开了条矮的。
+   *
+   * ⚠ 放在**取回之前**：否则一个非 admin 也能让服务端替他发出站请求，
+   *   那本身就是可被利用的能力（SSRF 探测器），即使最终不落库。
+   *
+   * ⚠ 这条门是 `lint-permission-paths` 对本链路仓储的正当性依据。
+   *   ⛔ 删掉它 ⇒ 那个门控**应当重新变红**，不要去白名单里补一条。
+   */
+  const membership = await deps.identities.findOrgMembership(input.actorId, toOrgId(input.orgId));
+  if (!membership || membership.orgRole !== "admin") {
+    throw new ImportSkillFromUrlError("IMPORT_NOT_ORG_ADMIN");
+  }
+
   const replay = await deps.repository.findByIdempotencyKey({
     orgId: input.orgId,
     idempotencyKey: input.idempotencyKey,

@@ -39,6 +39,14 @@ import type { ImportSkillFromUrlResult } from "../../src/application/skill-impor
 
 const OPEN = { localOnlyOrg: false };
 
+/** 只实现被用到的那一个方法；其余成员用不到就不假装实现。 */
+function identities(orgRole: string | null): any {
+  return {
+    findOrgMembership: async () => (orgRole === null ? null : { orgRole }),
+  };
+}
+const ADMIN = identities("admin");
+
 /** 记录落库调用——「被拒」必须意味着**一行都没写**。 */
 class RecordingRepository implements SkillUrlImportRepository {
   readonly persisted: Parameters<SkillUrlImportRepository["persist"]>[0][] = [];
@@ -95,8 +103,8 @@ afterAll(async () => {
 });
 
 const baseInput = {
-  orgId: "org_1",
-  actorId: "user_1",
+  orgId: "org-i595-unit",
+  actorId: "user-1",
   name: "my-skill",
   idempotencyKey: "key-1",
   sourceUrl: "",
@@ -113,7 +121,7 @@ describe("用例确实走取回层：拒绝一路冒泡，且一行都不落库"
     try {
       await importSkillFromUrl(
         { ...baseInput, sourceUrl: "https://metadata.example/SKILL.md" },
-        { fetch: realFetcherResolvingTo("169.254.169.254"), repository, policy: OPEN },
+        { identities: ADMIN, fetch: realFetcherResolvingTo("169.254.169.254"), repository, policy: OPEN },
       );
     } catch (error) {
       thrown = error;
@@ -132,6 +140,7 @@ describe("用例确实走取回层：拒绝一路冒泡，且一行都不落库"
       importSkillFromUrl(
         { ...baseInput, sourceUrl: "https://example.com/SKILL.md" },
         {
+          identities: ADMIN,
           fetch: realFetcherResolvingTo("1.1.1.1"),
           repository,
           policy: { localOnlyOrg: true },
@@ -146,7 +155,7 @@ describe("用例确实走取回层：拒绝一路冒泡，且一行都不落库"
     await expect(
       importSkillFromUrl(
         { ...baseInput, sourceUrl: "http://example.com/SKILL.md" },
-        { fetch: realFetcherResolvingTo("1.1.1.1"), repository, policy: OPEN },
+        { identities: ADMIN, fetch: realFetcherResolvingTo("1.1.1.1"), repository, policy: OPEN },
       ),
     ).rejects.toBeInstanceOf(ImportSourceRefusedError);
     expect(repository.persisted).toHaveLength(0);
@@ -162,7 +171,7 @@ describe("正样本：门放行时，导入真的完成", () => {
     const repository = new RecordingRepository();
     const result = await importSkillFromUrl(
       { ...baseInput, sourceUrl: `https://allowed.example:${port}/SKILL.md` },
-      { fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
+      { identities: ADMIN, fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
     );
     expect(repository.persisted).toHaveLength(1);
     expect(result.filePaths).toEqual(["SKILL.md"]);
@@ -184,7 +193,7 @@ describe("正样本：门放行时，导入真的完成", () => {
     await expect(
       importSkillFromUrl(
         { ...baseInput, sourceUrl: `https://allowed.example:${port}/%2e%2e%2fetc%2fpasswd` },
-        { fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
+        { identities: ADMIN, fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
       ),
     ).rejects.toBeInstanceOf(ImportSkillFromUrlError);
     expect(repository.persisted).toHaveLength(0);
@@ -199,7 +208,7 @@ describe("正样本：门放行时，导入真的完成", () => {
     await expect(
       importSkillFromUrl(
         { ...baseInput, sourceUrl: `https://allowed.example:${port}/SKILL.md` },
-        { fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
+        { identities: ADMIN, fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
       ),
     ).rejects.toBeInstanceOf(ImportSkillFromUrlError);
     expect(repository.persisted).toHaveLength(0);
@@ -211,6 +220,7 @@ describe("正样本：门放行时，导入真的完成", () => {
     const result = await importSkillFromUrl(
       { ...baseInput, sourceUrl: `https://allowed.example:${port}/SKILL.md` },
       {
+        identities: ADMIN,
         fetch: (async (...args) => {
           fetched = true;
           return realFetcherResolvingTo("127.0.0.1", true)(...args);
@@ -231,5 +241,63 @@ describe("正样本：门放行时，导入真的完成", () => {
     expect(result.skillId).toBe("sk_prev");
     expect(fetched).toBe(false); // 回放不该再打网络
     expect(repository.persisted).toHaveLength(0);
+  });
+});
+
+describe("授权门：非 admin 一律拒，且什么都不留下", () => {
+  /**
+   * ⚠ 断言到**具体错误码**，不是「抛了个错」；并断言**取回从未发生**——
+   *   否则一个非 admin 也能让服务端替他发出站请求（SSRF 探测器），即使最终不落库。
+   */
+  it("非 admin ⇒ IMPORT_NOT_ORG_ADMIN，且既没取回也没落库", async () => {
+    const repository = new RecordingRepository();
+    let fetched = false;
+    let thrown: unknown;
+    try {
+      await importSkillFromUrl(
+        { ...baseInput, sourceUrl: "https://example.com/SKILL.md" },
+        {
+          identities: identities("member"),
+          fetch: (async () => {
+            fetched = true;
+            throw new Error("unreachable");
+          }) as unknown as ImportSourceFetcher,
+          repository,
+          policy: OPEN,
+        },
+      );
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(ImportSkillFromUrlError);
+    expect((thrown as ImportSkillFromUrlError).code).toBe("IMPORT_NOT_ORG_ADMIN");
+    expect(fetched).toBe(false); // 授权在取回之前
+    expect(repository.persisted).toHaveLength(0); // 什么都没留下
+  });
+
+  it("完全不是成员（membership 为 null）⇒ 同样被拒", async () => {
+    const repository = new RecordingRepository();
+    await expect(
+      importSkillFromUrl(
+        { ...baseInput, sourceUrl: "https://example.com/SKILL.md" },
+        { identities: identities(null), fetch: realFetcherResolvingTo("1.1.1.1"), repository, policy: OPEN },
+      ),
+    ).rejects.toBeInstanceOf(ImportSkillFromUrlError);
+    expect(repository.persisted).toHaveLength(0);
+  });
+
+  /** 正样本：admin 走**同一条路径**必须成功——否则「恒拒」也会让上面两条全绿。 */
+  it("正样本：admin 走同一路径导入成功", async () => {
+    handler = (_req, res) => {
+      res.writeHead(200, { "content-type": "text/markdown" });
+      res.end("# ok\n");
+    };
+    const repository = new RecordingRepository();
+    const result = await importSkillFromUrl(
+      { ...baseInput, sourceUrl: `https://allowed.example:${port}/SKILL.md` },
+      { identities: ADMIN, fetch: realFetcherResolvingTo("127.0.0.1", true), repository, policy: OPEN },
+    );
+    expect(repository.persisted).toHaveLength(1);
+    expect(result.filePaths).toEqual(["SKILL.md"]);
   });
 });
