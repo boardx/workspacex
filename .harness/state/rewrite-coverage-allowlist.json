@@ -1,0 +1,24 @@
+{
+  "_readme": [
+    "#539 棘轮名单：截至 2026-08-05 已经存在、前端够不到的 controller 前缀。",
+    "规则：这个数组只能变短。补上 rewrite 之后必须把对应条目删掉——",
+    "lint-rewrite-coverage 会把「已经不缺了却还留在名单里」的条目报成陈旧并变红，",
+    "因为留着一条已补好的豁免，等于给未来的回归留一扇没人看守的门。",
+    "为什么不是全绿门：13 条今天补不完，写个全绿门只会被放宽到能过为止——那就是又造一个空转的门。",
+    "棘轮今天就能合，且从今天起，任何新增的不接线路由都会当场红。"
+  ],
+  "prefixes": [
+    "admin",
+    "assets",
+    "downloads",
+    "healthz",
+    "interviews",
+    "kernel",
+    "me",
+    "org-invites",
+    "organizations",
+    "provenance",
+    "review-clocks",
+    "workshops"
+  ]
+}
