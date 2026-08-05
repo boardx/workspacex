@@ -269,7 +269,7 @@ test.describe("核心闭环八步", () => {
   //
   // 所以这里用 `test.fail()` 而不是把它写进 6a：缺口要**可见、有名字、
   // 修好之后会自动报 "expected to fail but passed" 逼人回来翻正**。
-  test.fail("[#541] 步骤 6c：会话改名 → 删除，刷新后状态一致", async ({ page }) => {
+  test("步骤 6c：会话改名 → 删除，刷新后状态一致（#541 交付）", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 

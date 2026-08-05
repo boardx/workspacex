@@ -186,8 +186,28 @@ export async function createThread(input: CreateThreadInput): Promise<MutateThre
   });
 }
 
+/**
+ * ⚠ `projectId` 是**必传**的，尽管契约把它声明成 `.nullable()`。
+ *
+ * 后端 `mutate-thread.ts:145` 的 `mutateExisting` 一进来就是：
+ *
+ *     if (threadId === null || projectId === null || expectedVersion === null)
+ *       throw new ThreadNotVisibleError();      // ← 裸 404，不带 reasonCode
+ *
+ * 而那个错误按 I-3 被映射成**裸 404**（「不可见」与「不存在」必须同一个出口，
+ * 否则改名接口就成了存在性探测器）。
+ *
+ * ⇒ 少传一个 `projectId`，得到的不是「参数缺失」而是「这条线程不存在」。
+ *   #541 就是这么来的：`create` 传了 `input.projectId` 所以一直是通的，
+ *   `rename` / `delete` 写死 `null` ⇒ **改名和删除在界面上从来没成功过**，
+ *   而人类八步里逐字要求「Chat 功能，新增，**删除**，聊天」。
+ *
+ * ⚠ 契约把它写成 `.nullable()` 与实现「rename/delete 必须有」不一致，
+ *   已登记为 out-of-scope 跟进项。**这里不靠注释防守，靠传对值。**
+ */
 export async function renameThread(
   threadId: string,
+  projectId: string,
   title: string,
   expectedVersion: number,
 ): Promise<MutateThreadOut> {
@@ -195,7 +215,7 @@ export async function renameThread(
     method: "POST",
     body: {
       op: "rename",
-      projectId: null,
+      projectId,
       threadId,
       groupId: null,
       title,
@@ -206,8 +226,10 @@ export async function renameThread(
   });
 }
 
+/** `projectId` 必传，理由同 `renameThread`（#541）。 */
 export async function deleteThread(
   threadId: string,
+  projectId: string,
   expectedVersion: number,
   reason: string,
 ): Promise<MutateThreadOut> {
@@ -215,7 +237,7 @@ export async function deleteThread(
     method: "POST",
     body: {
       op: "delete",
-      projectId: null,
+      projectId,
       threadId,
       groupId: null,
       title: null,
