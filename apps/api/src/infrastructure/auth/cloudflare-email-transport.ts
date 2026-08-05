@@ -38,6 +38,65 @@ export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): Clo
   };
 }
 
+/**
+ * 与 `cloudflareEmailConfig` 同一套校验，但**推迟到第一次真正用到配置时才跑**。
+ *
+ * ## 为什么需要它
+ *
+ * `cloudflareEmailConfig()` 在生产模式下缺任何一项就抛。它被直接用作 Nest 的
+ * provider 工厂（`kernel.module.ts:641`），于是**整个 API 在 DI 阶段就起不来** ——
+ * 哪怕这次部署根本不发一封信。
+ *
+ * 2026-08-05 实测的后果：核心闭环第 1 步走的是 bootstrap（`emailVerifiedAt`
+ * 直接置位，**不发邮件**），而 API 因为一个用不到的子系统没配好而拒绝启动；
+ * 运行时门控 G7 也因此红了一整轮，报出来只有一句 `child exited with 1`。
+ *
+ * ⇒ **校验本身没错，错的是它发生的时刻。** 一个可选子系统的配置缺失，
+ *   应该在「有人真要发信」时炸，而不是在「进程要不要活着」时炸。
+ *
+ * ## 为什么用 Proxy 而不是把所有消费者改成收一个 thunk
+ *
+ * 消费者拿到的仍然是 `CloudflareEmailConfig`，类型与既有代码完全一致 ——
+ * 改签名会波及 transport、outbox worker 与它们的测试，而那些测试断言的是
+ * **投递语义**，不该为了一次启动时机的调整被搅动。
+ *
+ * ⚠ 校验**一次都没被削弱**：`cloudflareEmailConfig` 原样保留并继续抛，
+ *   `email-verification-public.test.ts:592` 那三条「生产缺配置必须抛」照旧绿。
+ *   变的只是「什么时候问它」。
+ */
+export function lazyCloudflareEmailConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): CloudflareEmailConfig {
+  let resolved: CloudflareEmailConfig | null = null;
+  const get = (): CloudflareEmailConfig => (resolved ??= cloudflareEmailConfig(env));
+
+  /**
+   * ⚠ 只有**真正的配置键**才触发解析。
+   *
+   * Nest 在 DI 期间会探测注入值的属性（`then`、`constructor`、各种 symbol ——
+   * 实测栈顶就是 `Injector.instantiateClass`）。一个「读什么都解析」的 Proxy
+   * 会被这些探测**当场引爆**，于是「延后到用时」根本没延后 ——
+   * 第一版就是这么写的，症状与改之前一模一样：进程照旧起不来。
+   *
+   * ⇒ 键名集合写死。多一个字段就得在这里加一行 —— 这是刻意的：
+   *   它让「谁在读这份配置」保持可见，而不是靠一个包罗万象的拦截器蒙混过去。
+   */
+  const KEYS = new Set<string | symbol>([
+    "accountId", "apiToken", "mailFrom", "appPublicUrl",
+    "previewDisabledAttested", "workerEnabled", "requestTimeoutMs",
+  ]);
+  return new Proxy({} as CloudflareEmailConfig, {
+    get: (_t, prop) =>
+      KEYS.has(prop) ? get()[prop as keyof CloudflareEmailConfig] : undefined,
+    has: (_t, prop) => KEYS.has(prop),
+    ownKeys: () => [...KEYS] as (string | symbol)[],
+    getOwnPropertyDescriptor: (_t, prop) =>
+      KEYS.has(prop)
+        ? { configurable: true, enumerable: true, get: () => get()[prop as keyof CloudflareEmailConfig] }
+        : undefined,
+  });
+}
+
 export class MailTransportError extends Error {
   constructor(readonly category: string, readonly retryable: boolean) {
     super(category);
