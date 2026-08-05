@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
+import { currentOrganizationLabel } from "@/lib/org-display";
 import {
   createSkillDraft,
   getSkillDetail,
@@ -109,7 +110,8 @@ export function SkillCatalogLive() {
     );
   }
 
-  return <Catalog orgId={orgId} orgName={identity?.org.name ?? orgId} />;
+  // #596：身份未就绪时给加载态文案，不把 orgId 当组织名传下去（下游还单独渲染了组织 ID）。
+  return <Catalog orgId={orgId} orgName={currentOrganizationLabel(identity?.org.name)} />;
 }
 
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {

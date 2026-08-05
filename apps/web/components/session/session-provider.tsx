@@ -10,6 +10,7 @@ import {
   storeSessionToken,
 } from "@/lib/api-client";
 import type { Identity } from "@/lib/identity";
+import type { OrganizationSummary } from "@/lib/org-display";
 import {
   resolveIdentity,
   switchCurrentOrganization,
@@ -33,6 +34,19 @@ export interface SessionContextValue {
   readonly status: SessionStatus;
   readonly session: SessionInfo | null;
   readonly identity: Identity | null;
+  /**
+   * 本会话所属的**全部**组织及其真实名称（#596）。
+   *
+   * ## 为什么名字要在这里补，而不是从 login 拿
+   * `login` 契约的 out 只有 `orgs: string[]`（一串 id，见 `contracts/auth.ts`），
+   * `resolveIdentity` 一次只回**一个**组织。于是前端手上只有 id，
+   * 切换器过去就直接把 id 画出来了。
+   *
+   * 这里的做法是**逐个调用已签核的 `GET /identity/me?orgId=`**——不新增契约操作
+   * （新增要走 ADR-023 人类签核）。代价是 N 次请求（N = 所属组织数，通常 1~2），
+   * 收益是切换器上再也不会出现裸 ID。
+   */
+  readonly organizations: readonly OrganizationSummary[];
   readonly error: ApiError | Error | null;
   startSession(login: LoginOut): Promise<void>;
   switchOrganization(orgId: string): Promise<void>;
@@ -124,6 +138,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<SessionInfo | null>(null);
   const [identity, setIdentity] = React.useState<Identity | null>(null);
   const [error, setError] = React.useState<ApiError | Error | null>(null);
+  /**
+   * 已解析的组织名字典（#596）。`string` = 真名；`null` = 解析失败；缺键 = 还没查。
+   *
+   * ⚠ 同时留一份 `ref`：解析副作用要读「哪些还没查」，把 state 放进 effect 依赖会自激成
+   * 死循环。ref 是那次读取的唯一入口，`setOrgNames` 与 ref 永远同批更新。
+   */
+  const orgNamesRef = React.useRef<Record<string, string | null>>({});
+  const [orgNames, setOrgNames] = React.useState<Record<string, string | null>>({});
+
+  const mergeOrgNames = React.useCallback((entries: ReadonlyArray<readonly [string, string | null]>) => {
+    const next = { ...orgNamesRef.current };
+    let changed = false;
+    for (const [id, name] of entries) {
+      if (id in next && next[id] === name) continue;
+      next[id] = name;
+      changed = true;
+    }
+    if (!changed) return;
+    orgNamesRef.current = next;
+    setOrgNames(next);
+  }, []);
 
   const becomeAnonymous = React.useCallback((clearStorage: boolean) => {
     generationRef.current += 1;
@@ -131,6 +166,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setIdentity(null);
     setError(null);
+    // 换人登录不得继承上一位用户看到过的组织名。
+    orgNamesRef.current = {};
+    setOrgNames({});
     setStatus("anonymous");
   }, []);
 
@@ -213,6 +251,46 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [becomeAnonymous, hydrateAtGeneration]);
 
+  /**
+   * #596 ①：当前组织的名字已经在 `identity` 里了，直接收进字典 —— 不为它再发一次请求。
+   *
+   * ⚠ 这个 effect 必须**声明在下面那个补齐 effect 之前**：同一次提交里 React 按声明顺序
+   * 跑 effect，于是补齐那一步看到的字典里已经有当前组织，不会重复 GET。
+   */
+  React.useEffect(() => {
+    if (!identity) return;
+    mergeOrgNames([[identity.org.id, identity.org.name]]);
+  }, [identity, mergeOrgNames]);
+
+  /**
+   * #596 ②：把**其余**组织的名字补齐。
+   *
+   * 只在 `authenticated` 之后跑：此时 bearer 已经被 `/identity/me` 验过一次，
+   * 不会在会话本身还没确定时先打出 N 个注定 401 的请求。
+   *
+   * 单个组织查失败**不**升级成整个会话的失败态（记成 `null` → 界面显示「暂不可用」）：
+   * 「切换器里有一个组织读不到名字」不该把用户从一个能用的应用里踢出去。
+   */
+  React.useEffect(() => {
+    if (status !== "authenticated" || !session) return;
+    const pending = session.orgIds.filter((id) => !(id in orgNamesRef.current));
+    if (pending.length === 0) return;
+    const token = session.sessionToken;
+    let cancelled = false;
+    void Promise.all(pending.map(async (id): Promise<readonly [string, string | null]> => {
+      try {
+        const resolved = await resolveIdentity(id, token);
+        return [id, resolved.org.name];
+      } catch {
+        return [id, null];
+      }
+    })).then((entries) => {
+      if (cancelled) return;
+      mergeOrgNames(entries);
+    });
+    return () => { cancelled = true; };
+  }, [mergeOrgNames, session, status]);
+
   const startSession = React.useCallback(async (login: LoginOut) => {
     const generation = ++generationRef.current;
     const currentOrgId = login.orgs[0];
@@ -267,9 +345,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!applied) throw new Error("session_operation_superseded");
   }, [hydrateAtGeneration, session]);
 
+  const organizations = React.useMemo<readonly OrganizationSummary[]>(() => {
+    if (!session) return [];
+    return session.orgIds.map((id) => {
+      const name = orgNames[id];
+      if (typeof name === "string") return { id, name, nameStatus: "ready" as const };
+      // 键存在但为 null = 查过且失败；键不存在 = 还没查回来。两者的界面文案不同。
+      return { id, name: null, nameStatus: id in orgNames ? ("unavailable" as const) : ("loading" as const) };
+    });
+  }, [orgNames, session]);
+
   const value = React.useMemo<SessionContextValue>(() => ({
-    status, session, identity, error, startSession, switchOrganization, retry, logout,
-  }), [error, identity, logout, retry, session, startSession, status, switchOrganization]);
+    status, session, identity, organizations, error,
+    startSession, switchOrganization, retry, logout,
+  }), [error, identity, logout, organizations, retry, session, startSession, status, switchOrganization]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

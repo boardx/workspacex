@@ -7,6 +7,7 @@ import { TopBar } from "./top-bar";
 import { AmbientBar } from "./ambient-bar";
 import { MobileTabs } from "./mobile-tabs";
 import type { Identity, ProjectRole } from "@/lib/identity";
+import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -87,10 +88,10 @@ function SessionAppShell({
     );
   }
 
-  const organizations = session.session.orgIds.map((id) => ({
-    id,
-    label: id === session.identity!.org.id ? session.identity!.org.name : id,
-  }));
+  // #596：名字由 SessionProvider 逐个组织解析（见 `SessionContextValue.organizations`）。
+  // 这里**只做投影，不再自己拼 label** —— 旧写法是 `id === 当前组织 ? name : id`，
+  // 等于宣布「除当前组织外，一律拿裸 ID 冒充名称」。
+  const organizations = session.organizations.map((org) => ({ id: org.id, label: organizationLabel(org) }));
 
   return (
     <ShellChrome
