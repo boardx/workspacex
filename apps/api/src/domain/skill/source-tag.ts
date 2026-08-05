@@ -26,6 +26,8 @@
  *   前者说「将来它会长这样」，后者说「将来再说」。这是 D09 问句的一半。
  */
 
+import { skills as C } from "@repo/contracts";
+
 /** 五个来源取值（domain.md `Skill.source`）。 */
 export const SKILL_SOURCES = ["CC", "自建", "画布", "社区", "晋升生成"] as const;
 
@@ -65,6 +67,37 @@ const ENTRY_TO_SOURCE: Readonly<Record<SkillCreationEntry, SkillOriginTag>> = {
   "community-import": "社区",
   promotion: "晋升生成",
 };
+
+/* ────────────── #514：入口打出的标能不能过契约出参 ────────────── */
+
+/**
+ * 该入口打出的来源标记，**契约的 `SkillSource` 收不收**（#514）。
+ *
+ * 背景：`assignSourceByEntry` 按 domain.md 打五档，而 `createSkillDraft.out.source`
+ * 是三值枚举。走 `canvas` 入口创建成功的 skill，其返回体**过不了自己那条契约的出参校验**
+ * ——用例说 ok，契约说非法。这在 #459 交付时未被命中，仅仅因为路由把 `entry` 写死成
+ * `admin-new`；下一个把画布入口接上的人会原地引爆它。
+ *
+ * ⚠ **不映射**：把 `画布` 折成 `自建` 能让校验过，但那之后没有任何人能从代码看出
+ *   「画布沉淀与后台手建是否同一件事」这个问句**从未被回答过**（coord-main 裁决：
+ *   那是拿「能过」换「说谎」）。所以这里只回答「能不能过」，**不改**任何取值。
+ *
+ * ⚠ 判据从 `C.SkillSource` **推导**，不硬编码入口名单：D09 一旦被人裁成五档，
+ *   本判据自然全真、门自然放开；而新增一个映射到第六个取值的入口会自动被挡住。
+ *   同一事实（契约合法取值）只声明在契约里一处。
+ */
+export function entrySourceWithinContract(entry: SkillCreationEntry): boolean {
+  return (C.SkillSource.options as readonly string[]).includes(assignSourceByEntry(entry));
+}
+
+/** 契约收不下该入口时的拒绝理由。**指名 D09**，不给一句泛泛的「不可用」。 */
+export function uncontractedSourceReason(entry: SkillCreationEntry): string {
+  return (
+    `入口「${entry}」按 domain.md 打的来源标记是「${assignSourceByEntry(entry)}」，` +
+    `而契约 SkillSource 只收 ${C.SkillSource.options.join(" / ")}（D09 未裁：三档还是五档）。` +
+    `该入口的 source 语义未经人类签核，fail-closed —— 不静默映射成契约内的取值（#514）。`
+  );
+}
 
 /**
  * phase-1：社区导入入口**置灰**（D-06 / `DECISION-Q0` 表格「外部社区导入 → phase-2」）。
