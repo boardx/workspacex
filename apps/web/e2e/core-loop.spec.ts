@@ -216,7 +216,7 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 6：Chat 新增 / 删除 / 聊天 ──────────────────────────────────── */
 
-  test("步骤 6a：会话新建 → 改名 → 删除，刷新后状态一致（#476 已交付）", async ({ page }) => {
+  test("步骤 6a：会话新建 → 刷新后仍在（#476 已交付；改名/删除见 6c）", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
@@ -241,6 +241,79 @@ test.describe("核心闭环八步", () => {
     await expect(threadList.getByText(title)).toBeVisible();
     await page.reload();
     await expect(threadList.getByText(title)).toBeVisible();
+  });
+
+  /* ── 步骤 6c：会话改名 → 删除 ─────────────────────────────────────────── */
+
+  // 🔴 这一条是从上面 6a 里**分出来**的，因为 6a 的标题一直写着
+  //   「新建 → **改名 → 删除**」而用例体只建、不改、不删 —— 标题在说谎。
+  //
+  // 这是本文件第六条同类缺陷，且是**新子类**：
+  //   · 前五条是**锚点错** —— 会红，只是红得不对，至少还会红；
+  //   · 这一条是**标题错** —— 它**一直是绿的**，于是「Chat 的删除路径」
+  //     在人类八步里被逐字要求过（「Chat 功能，新增，**删除**，聊天」），
+  //     却从未被任何断言碰过。**假绿比假红危险**，这就是为什么。
+  //
+  // 补上之后实跑，抓到的是一个真缺陷（#541，实测 SHA 7e22d3df）：
+  //
+  //   REQ  POST /chat/threads/mutate
+  //   BODY {"op":"rename","threadId":"thr-a8322675-…","expectedVersion":0,…}
+  //   RES  404  {"error":"not_found"}
+  //
+  // ⚠ 逐条排除过「是不是测试写错了」：
+  //   · 不是路由缺失 —— `@Post("/chat/threads/mutate")` 在，`/chat/:path*` 也覆盖它；
+  //   · **`op:"create"` 走同一个 URL、同一个方法，是通的**（上面 6a 就是证据）；
+  //   · 不是前端守卫静默 return —— 请求真发出去了，`expectedVersion` 也带上了；
+  //   · 不是线程不存在 —— 那个 id 是上一步刚建的，列表与详情都渲染出来了；
+  //   · 不是竞态 —— 加「等 chat-thread-detail 可见」再改名，结果一模一样。
+  //
+  // 所以这里用 `test.fail()` 而不是把它写进 6a：缺口要**可见、有名字、
+  // 修好之后会自动报 "expected to fail but passed" 逼人回来翻正**。
+  test.fail("[#541] 步骤 6c：会话改名 → 删除，刷新后状态一致", async ({ page }) => {
+    await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
+
+    const threadList = page.getByTestId("chat-read-thread-list");
+    const title = `闭环改删 ${Date.now()}`;
+    await page.getByTestId("chat-thread-create").click();
+    await page.getByTestId("chat-thread-title-input").fill(title);
+    await page.getByTestId("chat-thread-title-submit").click();
+
+    // 改名与删除的入口都要 `hasSelection`（`chat-read-screen.tsx:494/497`），
+    // 所以先点中那张卡。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
+    // 因此按标题在 `chat-thread-card-list` 内点 —— 那个容器**只包会话卡**，
+    // 不含写入口，正是为这种定位准备的（见该组件注释）。
+    const cardList = page.getByTestId("chat-thread-card-list");
+    await cardList.getByText(title).click();
+    await expect(page.getByTestId("chat-thread-detail")).toBeVisible();
+
+    // ⚠ 新标题**刻意不包含原标题**。写成 `${title} 改名后` 的话，
+    //   下面「旧名字消失」那条会因子串匹配恒假 —— 一个会自己骗自己的断言。
+    const renamed = `闭环改名 ${Date.now()}`;
+    await page.getByTestId("chat-thread-rename").click();
+    await page.getByTestId("chat-thread-title-input").fill(renamed);
+    await page.getByTestId("chat-thread-title-submit").click();
+
+    await expect(cardList.getByText(renamed)).toBeVisible();
+    await page.reload();
+    await expect(cardList.getByText(renamed)).toBeVisible();
+    // 只断言新名字出现是不够的：「新建了第二条而不是改名」的坏实现照样全绿。
+    await expect(threadList.getByText(title)).toHaveCount(0);
+
+    // ── 删除 ──────────────────────────────────────────────────────────
+    await cardList.getByText(renamed).click();
+    await page.getByTestId("chat-thread-delete").click();
+    // 删除是可追溯动作，服务端要写审计 ⇒ 原因必填。
+    // 这条守的是「删除不能无理由发生」：摘掉它，一个把 reason 改成可选的回退
+    // 不会有任何测试变红。
+    await expect(page.getByTestId("chat-thread-delete-submit")).toBeDisabled();
+    await page.getByTestId("chat-thread-delete-reason").fill("闭环验收：走一遍删除路径");
+    await page.getByTestId("chat-thread-delete-submit").click();
+
+    // 刷新后仍然没有，才能区分「从库里删了」与「只从 React state 里删了」。
+    await expect(threadList.getByText(renamed)).toHaveCount(0);
+    await page.reload();
+    await expect(threadList.getByText(renamed)).toHaveCount(0);
   });
 
   /**
