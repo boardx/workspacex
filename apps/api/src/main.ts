@@ -22,6 +22,25 @@ import {
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
     logger: process.env.KERNEL_QUIET === "1" ? false : ["error", "warn"],
+    /**
+     * #548 —— Nest 的默认值是 `abortOnError: true`，而那个 `abort` 是字面意义的
+     * `process.abort()`（`@nestjs/core/nest-factory.js:118`）：**进程原地消失，不打印
+     * 任何异常信息**。
+     *
+     * ⚠ 这不是理论上的顾虑，是实测账单。#548 给 `kernel.module` 加了一个会在缺
+     *   `MODEL_CREDENTIAL_KEY` 时抛错的 provider 工厂；于是每一个 `createApp()` 的测试
+     *   文件都在 `NestFactory.create` 里 `process.abort()`，vitest 侧看到的全部证据是
+     *   64 条 `Error: Worker exited unexpectedly`（tinypool 的 onUnexpectedExit），
+     *   **一个字都不提是哪个 provider、缺哪个变量**。CI 上表现为「跑了 5 分钟后
+     *   @repo/api#test exited (1)，0 个断言失败」——一个查起来极贵的形态。
+     *
+     * `false` 之后：初始化异常被 rethrow 给调用方。启动**仍然失败**（这是 cipher
+     *   要的语义，见 `aes-credential-cipher.ts` 文件头），只是带着消息和栈失败：
+     *   进程入口这里是一个 unhandled rejection（非零退出 + 完整报错），
+     *   测试里是一条能 `await expect(...).rejects` 的普通异常。
+     *   反证见 `tests/capability/model/kernel-boot-fails-loudly.test.ts`。
+     */
+    abortOnError: false,
   });
   // Must sit outermost, ahead of the Guard: rejected requests need a traceId too
   // (see middleware/trace.ts).

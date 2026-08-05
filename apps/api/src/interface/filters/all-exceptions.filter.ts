@@ -21,6 +21,7 @@ import {
   Inject,
 } from "@nestjs/common";
 import {
+  agentRuntime,
   artifact,
   auth,
   canvas,
@@ -334,7 +335,35 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   `tests/rec/recording-http-session-lifecycle.test.ts` 的「另一个租户不能推分段」上。
    */
   const recordingError = recording.RecordingError.safeParse(raw);
-  return recordingError.success ? { reasonCode: recordingError.data } : {};
+  if (recordingError.success) return { reasonCode: recordingError.data };
+
+  /**
+   * #548: `agentRuntime.AgentRuntimeError`, the FIFTEENTH closed enum —— **同一个 bug 又一次**。
+   *
+   * ⚠ 「第十五」是实测数出来的，不是沿用写这段话时的序号：
+   *   `grep -c "^  const .*safeParse(raw);"` 在加本段之前 = 14。前面几段各自记过
+   *   「序号要重新数」，因为并行开发把它改过好几次；这里照做。
+   *
+   * `COMPLIANCE_ATTR_UNKNOWN` 声明在 `registerModel.err` 里，却不属于上面任何一个枚举，
+   * 于是十四次 safeParse 全部失败，调用方收到一个光秃秃的
+   * `{"error":"bad_request","traceId":"…"}`。状态码对，原因没了——而 uc-20-1 要求
+   * 「必须指出卡在哪一项」：管理员提交了一批合规属性，被告知「请求有误」却不知道是哪个值
+   * 越出了组织词表，这道门就退化成一个谜。
+   *
+   * ⚠ 这不是实测出来的猜测：`tests/capability/model/register-model-e2e.test.ts` 的
+   *   ⑤ 先红在这里，才有了这一段。少了它，那条用例拿不到码。
+   *
+   * ⚠ 同前十四条一样的限制：`AgentRuntimeError` 是 `@repo/contracts` 里的封闭枚举
+   *   （它自己的文件头声明「每一个成员都在下方某个操作的 `err` 里出现」），
+   *   在这里对着那个枚举 parse，枚举之外的任何字符串都过不来。
+   *
+   * ⚠ 与 `identity.PermissionReason` / `orgAdmin` **有意重叠**（`NOT_ORG_ADMIN`、
+   *   `DEPENDENCY_UNAVAILABLE`、`VERSION_CHANGED`）：契约里 `NOT_ORG_ADMIN` 的注释逐字写着
+   *   「判定属 `org-admin` 束，此处透传」，所以前面的 parse 先赢是契约要的结果，
+   *   不是一次要去掉的碰撞。
+   */
+  const agentRuntimeError = agentRuntime.AgentRuntimeError.safeParse(raw);
+  return agentRuntimeError.success ? { reasonCode: agentRuntimeError.data } : {};
 }
 
 /**

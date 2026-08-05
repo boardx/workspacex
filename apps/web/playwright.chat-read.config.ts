@@ -58,6 +58,11 @@ export default defineConfig({
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",
         KERNEL_AGENT_CATALOG_SCHEMA: "chat_wave2_fixture",
+        // #548：不供这一条，API 进程起不来（`credentialCipherFromEnv()` 抛错 ⇒
+        // `NestFactory.create` 整个失败），与 chat 无关的这条链会以
+        // 「webServer was not able to start」整体红掉。缺 key 是启动失败而不是静默降级，
+        // 见 `aes-credential-cipher.ts` 文件头；每个起 API 进程的地方都得供一个。
+        MODEL_CREDENTIAL_KEY: "chat-read-credential-key-not-a-secret",
       },
     },
     {

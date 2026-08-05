@@ -14,7 +14,23 @@ export default defineConfig({
      * The symptom is the worst kind: nothing errors. Two workers simply share fixtures,
      * and assertions pass or fail according to who ran what a second earlier.
      */
-    env: { PGDATABASE: process.env.WORKSPACEX_DB ?? "workspacex" },
+    env: {
+      PGDATABASE: process.env.WORKSPACEX_DB ?? "workspacex",
+      /**
+       * #548: the API process refuses to boot without this (see
+       * `infrastructure/model/aes-credential-cipher.ts` -- a development fallback for an
+       * encryption key is a production deployment that seals every customer's credentials
+       * under a constant living in the git history). Every test file that calls
+       * `createApp()` therefore needs one, and that is ~64 files, so it belongs HERE
+       * rather than as a `process.env.X ??=` line repeated in each of them.
+       *
+       * ⚠ Not "the same fact in two places" with the playwright configs' own copies: an
+       *   encryption key is per-environment BY DESIGN, and its VALUE is supposed to
+       *   differ. What must never fork is the REQUIREMENT, and that is declared in
+       *   exactly one place -- the cipher.
+       */
+      MODEL_CREDENTIAL_KEY: "vitest-key-548-not-a-production-secret",
+    },
     // The gate tests shell out to node and boot a Nest app; the default 5s is too tight.
     testTimeout: 60_000,
     /**

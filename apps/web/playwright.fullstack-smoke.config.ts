@@ -146,6 +146,17 @@ const modelProviderEnv = {
   KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
   // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
   KERNEL_MODEL_API_KEY: "fullstack-smoke-loopback-key-not-a-secret",
+  /**
+   * #548 —— 与上面几条不同：这条**不是**为了让某个用例跑通，而是 API 进程**根本起不来**。
+   *
+   * `MODEL_CREDENTIAL_KEY` 缺失时 `credentialCipherFromEnv()` 抛错，`NestFactory.create`
+   * 整个失败 —— 实测症状就是本 job 的
+   * `[WebServer] Error: missing env var MODEL_CREDENTIAL_KEY` +
+   * `Process from config.webServer was not able to start`，一条用例都没跑到。
+   * 缺 key 是启动失败而不是静默降级，这是 `aes-credential-cipher.ts` 文件头写死的取舍；
+   * 因此**每一个起 API 进程的地方**都得供一个，本文件是其中之一。
+   */
+  MODEL_CREDENTIAL_KEY: "fullstack-smoke-credential-key-not-a-secret",
 };
 
 export default defineConfig({

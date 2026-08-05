@@ -359,6 +359,22 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
+// `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
+// 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
+// 本次补齐 `registerModel` 那条链的四个实现并接出一条路由；其余九条各缺自己的端口实现，
+// 理由逐条写在 `model.controller.ts` 文件头。
+import {
+  COMPLIANCE_VOCABULARY_READER,
+  MODEL_CREDENTIAL_CIPHER,
+  MODEL_POOL_CLOCK,
+  MODEL_POOL_REPOSITORY,
+} from "./application/model/ports";
+import { PgModelPoolRepository } from "./infrastructure/model/pg-model-pool-repository";
+import { OrgComplianceVocabulary } from "./infrastructure/model/org-compliance-vocabulary";
+import { SystemModelPoolClock } from "./infrastructure/model/system-model-pool-clock";
+import { credentialCipherFromEnv } from "./infrastructure/model/aes-credential-cipher";
+import { ModelController } from "./interface/controllers/model.controller";
 // #465 (recording bundle): the session lifecycle's HTTP boundary. `domain/recording/` (10
 // files) and `application/recording/` (11 files) have existed since F69-F79 and NOTHING
 // served them -- from outside the process the whole capability was zero. This wires the four
@@ -425,6 +441,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     SkillController,
     SkillReviewController,
     SkillMountController,
+    ModelController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -445,6 +462,19 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
       inject: [DATABASE_PORT],
     },
+    /* ── #548 模型池 ───────────────────────────────────────────────────────── */
+    {
+      provide: MODEL_POOL_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgModelPoolRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: COMPLIANCE_VOCABULARY_READER, useFactory: () => new OrgComplianceVocabulary() },
+    { provide: MODEL_POOL_CLOCK, useFactory: () => new SystemModelPoolClock() },
+    // ⚠ `useFactory`（惰性）而不是 `useValue`：`credentialCipherFromEnv` 在缺
+    // `MODEL_CREDENTIAL_KEY` 时抛错，而 `useValue` 会在**模块被 import 时**求值——
+    // 于是每一个只是 import 了 kernel.module 的测试都会在收集阶段炸掉，与本条无关。
+    // 惰性之后，缺 key 只影响真正要用它的那次注入，且仍然是启动失败而不是静默降级。
+    { provide: MODEL_CREDENTIAL_CIPHER, useFactory: () => credentialCipherFromEnv() },
     {
       provide: CONTENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgContentRepository(db),
