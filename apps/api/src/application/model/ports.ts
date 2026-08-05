@@ -86,7 +86,6 @@ export const MODEL_POOL_REPOSITORY = Symbol("ModelPoolRepository");
 export const MODEL_CREDENTIAL_CIPHER = Symbol("ModelCredentialCipher");
 export const COMPLIANCE_VOCABULARY_READER = Symbol("ComplianceVocabularyReader");
 export const MODEL_POOL_CLOCK = Symbol("ModelPoolClock");
-export const ADMISSION_TEST_REPOSITORY = Symbol("AdmissionTestRepository");
 
 export type { ModelStatus };
 

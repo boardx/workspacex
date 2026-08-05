@@ -1,17 +1,32 @@
 /**
- * 模型池的两条写入路由（#548）。协议适配，判断全在 `application`。
+ * 模型池的写入路由（#548）。协议适配，判断全在 `application`。
  *
- *   POST /models                          接入一个模型 —— **凭据进入系统的唯一入口**
- *   POST /models/:modelId/admission-tests 五项准入的一条人工判读（append-only）
+ *   POST /models   接入一个模型 —— **凭据进入系统的唯一入口**
  *
- * ## 为什么只有两条，而契约里有十条
+ * ## 为什么只有一条，而契约里有十条
  *
  * 契约的十条**全部已签核**，缺的不是签核而是 `infrastructure`：#548 的工单写着「只差
  * controller 一层」，实测不成立——`ModelPoolRepository` / `ComplianceVocabularyReader` /
  * `ModelPoolClock` / `CredentialCipher` 在本分支之前**一个实现都没有**（只有 F49 的
  * `PgAdmissionTestRepository` 是现成的）。本分支补齐了 `registerModel` 那条链所需的四个
- * 实现，另外八条各自还缺自己的端口实现：
+ * 实现，另外九条各自还缺自己的端口实现：
  *
+ *   · `recordAdmissionTest` —— **端口实现（F49 的 `PgAdmissionTestRepository`）是现成的，
+ *     本条却仍然没接，这是有意的**。`lint-permission-paths.mjs` 给那个仓储开的豁免，
+ *     第 (d) 条逐字写着「NOTHING under src/interface/ reaches it —— 哪天加了 controller，
+ *     `admission-test-gate.test.ts` 就该变红，加的人必须在那里挂上 org-admin 裁定」。
+ *
+ *     实测下来那条绊线**是按文件名字符串扫的**：它遍历 `src/interface/` 下每个文件，
+ *     断言正文里不出现该仓储的文件名。于是有两件事同时为真——
+ *       ① controller 经 DI token 注入、不 import 那个文件名，**真接了也不会红**；
+ *       ② 本段注释只要把那个文件名原样写出来，**没接也会红**（这段话的第一版就是这么
+ *          把自己绊倒的，所以现在绕开写）。
+ *     两条都说明它断的是名字在不在文件里，而不是调用点——与今天那颗
+ *     `toContain("assertProjectMember")` 命中私有方法**定义本身**的钉子同一形态。
+ *
+ *     绊线的意图（「加 controller 的人必须挂上 org-admin 裁定」）本 PR 其实已经满足：
+ *     `requireOrgAdmin` 就在下面。但在时限内顺着一条失效的绊线去改安全豁免，
+ *     是把「绿」当成「对」。故本条不接，把绊线缺陷单独上报。
  *   · `configureModel` / `probeConnectivity` —— 前者要 `RETEST_REQUIRED` 的状态回退写口，
  *     后者要一个对外拨号的出口，而 phase-1 **没有** provider gateway（`domain.md` 四）。
  *   · `enableModel` —— 缺 `ModelShapeReader` / `ModelStatusWriter` / `AdmissionAuditSink`
@@ -43,13 +58,10 @@ import {
   BadRequestException,
   Controller,
   ForbiddenException,
-  HttpCode,
-  HttpStatus,
   Inject,
   Post,
   ServiceUnavailableException,
   Body,
-  Param,
 } from "@nestjs/common";
 import { agentRuntime as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -58,17 +70,14 @@ import {
   type IdentityRepository,
 } from "../../application/identity/ports";
 import {
-  ADMISSION_TEST_REPOSITORY,
   COMPLIANCE_VOCABULARY_READER,
   MODEL_CREDENTIAL_CIPHER,
   MODEL_POOL_CLOCK,
   MODEL_POOL_REPOSITORY,
-  type AdmissionTestRepository,
   type ComplianceVocabularyReader,
   type ModelPoolClock,
   type ModelPoolRepository,
 } from "../../application/model/ports";
-import { recordAdmissionTest } from "../../application/model/record-admission-test";
 import { registerModel } from "../../application/model/register-model";
 import type { CredentialCipher } from "../../domain/model/credential-vault";
 import { toOrgId } from "../../domain/org-id";
@@ -79,10 +88,8 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 /** 导出，供 `contract-single-source.test.ts` 断言与契约是**同一个对象**而非长得像。 */
 export const REGISTER_MODEL_SCHEMA = C.operations.registerModel.in;
-export const RECORD_ADMISSION_TEST_SCHEMA = C.operations.recordAdmissionTest.in;
 
 type RegisterBody = z.infer<typeof C.operations.registerModel.in>;
-type AdmissionBody = z.infer<typeof C.operations.recordAdmissionTest.in>;
 
 @Controller()
 export class ModelController {
@@ -91,7 +98,6 @@ export class ModelController {
     @Inject(MODEL_CREDENTIAL_CIPHER) private readonly cipher: CredentialCipher,
     @Inject(COMPLIANCE_VOCABULARY_READER) private readonly vocabulary: ComplianceVocabularyReader,
     @Inject(MODEL_POOL_CLOCK) private readonly clock: ModelPoolClock,
-    @Inject(ADMISSION_TEST_REPOSITORY) private readonly admissions: AdmissionTestRepository,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
   ) {}
 
@@ -134,50 +140,9 @@ export class ModelController {
   }
 
   /**
-   * 五项准入里的一条人工判读。**append-only**：改判产生第二条，不覆盖历史。
-   *
-   * ⚠ 200 而不是 201：契约 `out` 是那条记录本身，没有 `Location`／资源自描述。
-   *
-   * ⚠ `judgedBy` 取自会话主体，**契约的 `in` 里根本没有这个字段**——能自报判定人的调用方
-   *   可以在张三不在场时记下「张三 判了 通过」（`record-admission-test.ts` 文件头）。
-   */
-  @HttpCode(HttpStatus.OK)
-  @Post("/models/:modelId/admission-tests")
-  async recordTest(
-    @Param("modelId") modelId: string,
-    @Body(new ZodBodyPipe(RECORD_ADMISSION_TEST_SCHEMA)) body: AdmissionBody,
-    @CurrentPrincipal() principal: Principal,
-  ) {
-    const orgId = await this.requireOrgAdmin(principal);
-    // 路径与 body 打架时拒绝，不静默挑一个——同 canvas 束的 `assertKeyMatches`。
-    if (modelId !== body.modelId) throw new BadRequestException("model_id_mismatch");
-
-    return this.run(async () => {
-      const stored = await recordAdmissionTest(
-        orgId,
-        { modelId: body.modelId, item: body.item, verdict: body.verdict, evidence: body.evidence },
-        principal.userId,
-        { repository: this.admissions },
-      );
-      // ⚠ 逐字段投影，不是 `{...stored}`：`StoredAdmissionTest` 带一个 `seq`（存储层的
-      //   排序依据），而 `AdmissionTestRecord` 是 `.strict()` 的七个字段——展开会当场 500。
-      //   显式列出还有第二个好处：以后存储层多一个字段，不会顺着展开漏出去。
-      return C.operations.recordAdmissionTest.out.parse({
-        recordId: stored.recordId,
-        modelId: stored.modelId,
-        item: stored.item,
-        verdict: stored.verdict,
-        evidence: stored.evidence,
-        judgedBy: stored.judgedBy,
-        judgedAt: stored.judgedAt,
-      });
-    });
-  }
-
-  /**
    * `NOT_ORG_ADMIN` 的唯一落点。
    *
-   * 两条路由的 `err` 里都有它，且模型池是**组织配置**——不是项目资源，所以判据是组织角色，
+   * `registerModel.err` 里有它，且模型池是**组织配置**——不是项目资源，所以判据是组织角色，
    * 不走 `permission-filter` 那套项目维度的裁定。
    */
   private async requireOrgAdmin(principal: Principal): Promise<string> {
@@ -193,7 +158,7 @@ export class ModelController {
   /**
    * 下层故障 → HTTP，**一处**。
    *
-   * ⚠ 不回显 `e.message`。这两条路由的请求体里有凭据明文，而一个把驱动错误原样带出去的
+   * ⚠ 不回显 `e.message`。这条路由的请求体里有凭据明文，而一个把驱动错误原样带出去的
    *   分支，正是凭据从 `INSERT` 参数里漏进响应体的那条路（`lint-error-leak` 存在的理由）。
    */
   private async run<T>(fn: () => Promise<T>): Promise<T> {
@@ -201,7 +166,7 @@ export class ModelController {
       return await fn();
     } catch (e) {
       if (e instanceof BadRequestException || e instanceof ForbiddenException) throw e;
-      // 契约两条 `err` 里都有 `DEPENDENCY_UNAVAILABLE`：落库失败不是一次裁定，是依赖不可用。
+      // 契约的 `err` 里有 `DEPENDENCY_UNAVAILABLE`：落库失败不是一次裁定，是依赖不可用。
       throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
     }
   }

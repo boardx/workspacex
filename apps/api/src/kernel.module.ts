@@ -362,17 +362,15 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
-// 本次补齐 `registerModel` 那条链的四个实现并接出两条路由；其余八条各缺自己的端口实现，
+// 本次补齐 `registerModel` 那条链的四个实现并接出一条路由；其余九条各缺自己的端口实现，
 // 理由逐条写在 `model.controller.ts` 文件头。
 import {
-  ADMISSION_TEST_REPOSITORY,
   COMPLIANCE_VOCABULARY_READER,
   MODEL_CREDENTIAL_CIPHER,
   MODEL_POOL_CLOCK,
   MODEL_POOL_REPOSITORY,
 } from "./application/model/ports";
 import { PgModelPoolRepository } from "./infrastructure/model/pg-model-pool-repository";
-import { PgAdmissionTestRepository } from "./infrastructure/model/pg-admission-test-repository";
 import { OrgComplianceVocabulary } from "./infrastructure/model/org-compliance-vocabulary";
 import { SystemModelPoolClock } from "./infrastructure/model/system-model-pool-clock";
 import { credentialCipherFromEnv } from "./infrastructure/model/aes-credential-cipher";
@@ -468,11 +466,6 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: MODEL_POOL_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgModelPoolRepository(db),
-      inject: [DATABASE_PORT],
-    },
-    {
-      provide: ADMISSION_TEST_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgAdmissionTestRepository(db),
       inject: [DATABASE_PORT],
     },
     { provide: COMPLIANCE_VOCABULARY_READER, useFactory: () => new OrgComplianceVocabulary() },
