@@ -269,7 +269,7 @@ test.describe("核心闭环八步", () => {
   //
   // 所以这里用 `test.fail()` 而不是把它写进 6a：缺口要**可见、有名字、
   // 修好之后会自动报 "expected to fail but passed" 逼人回来翻正**。
-  test.fail("[#541] 步骤 6c：会话改名 → 删除，刷新后状态一致", async ({ page }) => {
+  test("步骤 6c：会话改名 → 删除，刷新后状态一致（#541 交付）", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
@@ -331,63 +331,117 @@ test.describe("核心闭环八步", () => {
    * （登录 → `/chat?projectId=…` → 新建线程）同时量了两个锚点，结果
    * `chat-message-input=visible`、`chat-composer-input=0` —— 旧锚点整页零命中。
    *
-   * ## 真实锚点（写进断言前逐个在源码里定位，并实测走得到）
-   *   · `chat-message-input`   components/chat/chat-live-message-panel.tsx:202
-   *   · `chat-message-submit`  components/chat/chat-live-message-panel.tsx:213
-   *   · `chat-agent-select`    components/chat/chat-live-message-panel.tsx:191
-   *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`
-   *   （`chat-read-screen.tsx:7` 引入、:606 渲染；线程未指定时自动选中 `cards[0]`，见 :192）。
-   *   发消息本身**早已端到端交付**（#429），证据见 `apps/web/e2e/chat-read.spec.ts`：
-   *   填内容 → 提交 → 202 → `page.reload()` → 消息仍在。
+   * ## 真实锚点（写进断言前逐个在源码里重新定位，并实测走得到）
+   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:316
+   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:327
+   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:305
+   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:672
+   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:679
+   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:698
+   *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`。
+   *   编制表单在 `writable` 分支下**无条件渲染**（chat-read-screen.tsx:657-686，
+   *   不在任何折叠面板里）—— 本文件此前栽过「锚点存在但默认折叠够不到」的跟头，
+   *   所以这一条是单独确认过的，不是看见 testid 就写。
    *
-   * ## 为什么它**仍然**是 `test.fail`（实测，不是推断）
+   * ## 翻正（2026-08-05）：阻塞解除的**真正来源**是 #435，不是 #467/#546
    *
-   * 换上真锚点后实跑：`chat-message-input` **可见且能填**（这两步过了）——
-   * 光这一点就证明旧锚点错在哪。红点前移到了**提交那一步**：
+   * 上一版注释判定的红因是对的：提交键 disabled 条件是
+   * `archived || submitting || text.trim() === "" || selectedAgentId === ""`
+   * （`chat-live-message-panel.tsx:214`，现 :215 的 `submit()` 守卫同条件），
+   * 新建线程编制为空 ⇒ `selectedAgentId === ""` ⇒ 键禁用。缺的是
+   * 「新建会话里有一个可挂的 Agent」。
    *
-   *     expect(chat-message-submit).toBeEnabled()  →  Received: disabled
+   * 但补上这一段的**不是** skill 挂载（#467 / PR #546）—— 那条链走
+   * `/threads/:id/skill-mounts`，跟 `selectedAgentId` 无关，挂满 skill 提交键照样禁用。
+   * 真正补上的是 #435（PR #537）落地的**线程级编制写路径**
+   * `POST /chat/threads/:threadId/agents`（packages/contracts/src/chat.ts:527），
+   * 界面入口即上面那两个 `chat-roster-add-*` 锚点。步骤 8b 自 #537 起就一直在用它跑绿，
+   * 也就是说 6b 的阻塞其实**在 #537 合入那天就已经解除了**，只是没人回来翻正。
    *
-   * 原因已在同一次实跑里单独钉过（诊断断言 `chat-roster-empty` 可见、
-   * `chat-agent-select` 含「没有可选 Agent」**双双通过**，失败严格落在下一行）：
-   * 提交键的 disabled 条件是 `archived || submitting || text.trim() === "" || selectedAgentId === ""`
-   * （`chat-live-message-panel.tsx:214`）。此处线程是本用例新建的，**编制为空**，
-   * 于是 `chat-agent-select` 只有「没有可选 Agent」、`selectedAgentId === ""` ⇒ 提交键禁用。
-   * `seed-fullstack-smoke.ts` 里 chat/thread/agent **零命中**，本夹具不种线程也不种编制；
-   * `capability-mutate-smoke.spec.ts` 建出的那个 Agent 随后被它自己停用了。
-   * ⇒ 闭环缺的是「新建会话里有一个可挂的 Agent」这一段，**不是发消息的写端口**。
+   * ⚠ 这里是走**界面**把 agent 加进编制，不是给夹具偷种一条 roster 行。
+   *   真实用户也必须先给会话配一个 agent 才能开口，这就是那条产品路径；
+   *   预种编制会让用例在「新建会话根本发不出消息」时照样绿 —— 那是假绿。
+   *   夹具只种到 `org_agents` / `agents`（agent 在**组织目录**里存在），
+   *   线程编制一行都不种（见 `fullstack-smoke-fixture.ts`，与 8b 同一约定）。
    *
-   * ⚠ 上面那两条诊断断言**故意没有留在用例里**：它们断言的是**当前的坏状态**，
-   *   留着会让「编制能挂上了」这件事发生时用例**继续红**，`test.fail` 继续绿，
-   *   缺口从此再也不会自动浮出来 —— 那正是这块进度板要避免的失效模式。
-   *   现在的形态是：缺口一旦补上，整条用例通过 ⇒ Playwright 报
-   *   "expected to fail but passed" ⇒ 逼下一个人回来把它翻正。
+   * ## 与步骤 8b 的分工（两条都留着，不是重复）
+   *   8b 测的是 **agent 执行**：run 推进到 succeeded、库里**恰好一条**回复。
+   *   6b 测的是 **human 消息本身的持久化**：POST 拿到 202、`reload()` 后正文仍在。
+   *   8b 会因为 runtime 侧任何问题而红；6b 只依赖写端口 + 读端口，
+   *   留着它，「消息写进库了吗」这件事才有一条不受 runtime 影响的独立断言。
    */
-  test.fail("[#462] 步骤 6b：在会话里发一条消息并刷新后仍在", async ({ page }) => {
+  test("[#462] 步骤 6b：在会话里发一条消息并刷新后仍在", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
     // 自己建线程，不蹭 6a 留下的那条：单独 grep 跑这一条时项目里可能一条线程都没有，
     // 蹭上一条用例的残留会让它在全量跑绿、单跑红。
+    const threadList = page.getByTestId("chat-read-thread-list");
     await page.getByTestId("chat-thread-create").click();
     const title = `闭环发消息 ${Date.now()}`;
     await page.getByTestId("chat-thread-title-input").fill(title);
     await page.getByTestId("chat-thread-title-submit").click();
-    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+    await expect(threadList.getByText(title)).toBeVisible();
+    await threadList.getByText(title).click();
+
+    // ── 先钉住坏状态确实存在 ────────────────────────────────────────────────
+    // 新建线程编制为空 ⇒ 提交键必须是**禁用**的。这一句不是装饰：没有它，
+    // 下面那句 `toBeEnabled()` 就可能一直是真的（比如有人把 disabled 条件删了），
+    // 而「加 agent」这一步是否真的起了作用就再也测不出来。
+    await expect(page.getByTestId("chat-roster-empty")).toBeVisible();
+    await expect(page.getByTestId("chat-message-submit")).toBeDisabled();
+
+    // ── 走界面把 agent 加进本线程编制（真实用户路径） ───────────────────────
+    await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-roster-add-submit").click();
+    await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
     const text = `闭环消息 ${Date.now()}`;
-    // 实测这两步**通过**——真锚点够得到，旧锚点够不到。
     await expect(page.getByTestId("chat-message-input")).toBeVisible();
+    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-message-input").fill(text);
-    // ⬇ 实测红在这一行：新建会话编制为空 ⇒ 没有可选 Agent ⇒ 提交键 disabled。
+    // 编制补上之后这一行才转绿——它是「阻塞已解除」这件事的断言本体。
     await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
 
+    // ⚠ 不要用 `$` 收尾：发消息的 URL 带 `?projectId=…`（同 8a 挂载踩过的坑），
+    //   锚死结尾会永不匹配，表现为「等响应超时」而不是「功能没做」。
+    //   契约路径 `POST /chat/threads/:threadId/messages`，packages/contracts/src/chat.ts:568。
+    /* ── 反证开关：两档，各自钉死**不同**的一行 ────────────────────────────
+     *
+     * 一条用例「摘掉后端就变红」还不够，必须问「它是不是因为**对的原因**红的」。
+     * 本条有两个独立断言，各配一档反证；实测红点落在哪一行都记在下面。
+     *
+     *   · `drop-write` —— 写端口坏掉（500）。红在 :426 的 `toBe(202)`：
+     *       `expect(received).toBe(expected) … Received: 500`
+     *     证明「202」不是摆设。但它**红得太早**，够不到刷新那一步 ⇒ 单靠它
+     *     无法排除「消息只进了 React state」，所以才有下面这一档。
+     *
+     *   · `noop-write` —— 写端口**假装成功**：照常返回 202，但一个字节都不落库。
+     *     前面所有断言（编制、提交键 enabled、202）**全部照常通过**，红点精确落在
+     *     :431 刷新之后的 `toContainText`：`element(s) not found`。
+     *     这才是真正考验「写进 PostgreSQL 而不是写进 React state」的那一刀 ——
+     *     红在刷新**之后**，而不是刷新之前。
+     */
+    const counterproof = process.env.CORE_LOOP_COUNTERPROOF_6B;
+    if (counterproof === "noop-write" || counterproof === "drop-write") {
+      await page.route(/\/chat\/threads\/[^/]+\/messages(\?|$)/, async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        await route.fulfill({
+          status: counterproof === "noop-write" ? 202 : 500,
+          contentType: "application/json",
+          body: "{}",
+        });
+      });
+    }
     const responsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST" && /\/chat\/threads\/[^/]+\/messages$/.test(response.url())
+      response.request().method() === "POST" && /\/chat\/threads\/[^/]+\/messages(\?|$)/.test(response.url())
     ));
     await page.getByTestId("chat-message-submit").click();
     expect((await responsePromise).status()).toBe(202);
 
+    // ── 刷新后仍在：唯一能区分「写进 PostgreSQL」与「写进 React state」的断言 ──
     await page.reload();
+    await threadList.getByText(title).click();
     await expect(page.getByTestId("chat-message-list")).toContainText(text);
   });
 
@@ -403,10 +457,68 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 8：使用 skill / 使用 agent / 使用可视化模板 ─────────────────── */
 
-  test.fail("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
+  /**
+   * #467 / #509 —— 翻正。原文只断言按钮可见，那只能证明「画了一个按钮」。
+   *
+   * 现在断言的是**真实往返**：挂载走 `POST /threads/:id/skill-mounts`（201）、
+   * 卸载走 `DELETE /threads/:id/skill-mounts/:mountId`（200），两次都对着网络响应断言，
+   * 中间**刷新一次页面**——刷新后仍在，是唯一能区分「写进了 PostgreSQL」与
+   * 「写进了 React state」的断言（同步骤 6a 的落法）。
+   *
+   * ## 锚点在写断言前逐个在源码里定位过
+   *   · `chat-skill-mount`                     components/chat/chat-skill-mount-panel.tsx（开选择器）
+   *   · `chat-skill-mount-option-<skillId>`    同上（池里的一项）
+   *   · `chat-skill-mounted-<skillId>`         同上（已挂载的角标）
+   *   · `chat-skill-unmount-<skillId>`         同上（卸载）
+   *   · `chat-skill-mount-empty`               同上（真实空态）
+   *
+   * ⚠ 被挂的那个 skill 由夹具种成「已启用」，理由见 `fullstack-smoke-fixture.ts`：
+   *   这套系统里目前不存在任何**产品路径**能把 skill 变成「已启用」（已上报）。
+   *   夹具种的是前置条件，挂载/卸载本身一行都没种。
+   */
+  test("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    await expect(page.getByTestId("chat-skill-mount")).toBeVisible();
+
+    // 自己建线程，不蹭别的用例留下的那条（单跑时项目里可能一条都没有）。
+    await page.getByTestId("chat-thread-create").click();
+    const title = `闭环挂 skill ${Date.now()}`;
+    await page.getByTestId("chat-thread-title-input").fill(title);
+    await page.getByTestId("chat-thread-title-submit").click();
+    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+
+    const skillId = FULLSTACK_E2E.mountableSkillId;
+    // 新建的线程什么都没挂——先钉住这个真实空态，否则下面的「挂上了」可能一直就是真的。
+    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+
+    /* ── 挂载：POST 必须 201，且界面出现该 skill 的角标 ── */
+    await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+    await page.getByTestId("chat-skill-mount").click();
+    const mountResponse = page.waitForResponse((response) => (
+      // ⚠ 不要用 `$` 收尾：挂载的 URL 带 `?projectId=…`（角色解析走 query，
+      //   见 `skill-mount.controller.ts` 的 `requireProjectId`），锚死结尾会永不匹配。
+      response.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(response.url())
+    ));
+    await page.getByTestId(`chat-skill-mount-option-${skillId}`).click();
+    expect((await mountResponse).status()).toBe(201);
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
+
+    /* ── 生效：刷新后仍在（区分 PostgreSQL 与 React state） ── */
+    await page.reload();
+    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
+
+    /* ── 卸载：DELETE 必须 200，且刷新后不再出现 ── */
+    const unmountResponse = page.waitForResponse((response) => (
+      response.request().method() === "DELETE" && /\/threads\/[^/]+\/skill-mounts\/[^/?]+(\?|$)/.test(response.url())
+    ));
+    await page.getByTestId(`chat-skill-unmount-${skillId}`).click();
+    expect((await unmountResponse).status()).toBe(200);
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toHaveCount(0);
+
+    await page.reload();
+    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
   });
 
   test("步骤 8b：会话内的 agent **真的执行**并产生**恰好一条**回复（#435 交付）", async ({ page }) => {

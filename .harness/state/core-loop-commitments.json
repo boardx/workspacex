@@ -1,0 +1,54 @@
+{
+  "_": "每条 core-loop issue 的承诺完成时间。coord-main 维护；过了时间还没关闭的，看板会打 OVERDUE。",
+  "_tz": "Asia/Shanghai",
+  "generated_by": "coord-main",
+  "goal": "人类八步核心闭环端到端可走查：注册首个管理员 → 新增 agent/skill/模板 → 登录 → chat 增删聊 → 实时录音 → 使用 skill/agent/模板",
+  "scope_rule": "只做带 core-loop 标签的 issue。out-of-scope 的一律不占工时，八步全绿后再谈。",
+  "coordinator_target": "2026-08-05T17:00:00+08:00",
+  "commitments": {
+    "466": {
+      "due": "2026-08-05T16:00:00+08:00",
+      "step": "7",
+      "blocked_by": null,
+      "note": "#550 已合（lib/live-recording.ts），但**没有 UI 入口** —— chat-recording-start 在 components/app/lib 里零命中",
+      "next": "补录音 UI 入口并接进 chat：开始 → 停止 → 转录归属该会话 → 刷新仍在。翻正 test.fail，造反证（摘掉转录写入必须变红，且要红在 reload 之后）。"
+    },
+    "493": {
+      "due": "2026-08-05T16:30:00+08:00",
+      "step": "8c",
+      "blocked_by": null,
+      "note": "「能建能看」已通，缺「能用」；仍未收到进展消息",
+      "next": "在项目/会话里真正使用一个 canvas 模板 → 翻正步骤 8c。动 controller 前先核 next.config.mjs 的两条 rewrite（这个坑今天已第五次）。"
+    },
+    "552": {
+      "due": "2026-08-05T16:30:00+08:00",
+      "step": "—",
+      "blocked_by": null,
+      "note": "实现在人类另起的会话 claude/zen-sutherland-628bc0，尚未开 PR；coord-agent-auth 只做协调与初审",
+      "next": "到 16:30 仍无 PR，就在 #552 上贴带明确时限的通牒。不阻塞进度板。"
+    },
+    "470": {
+      "due": "2026-08-05T17:00:00+08:00",
+      "step": "—",
+      "blocked_by": "human:deploy",
+      "note": "epic：八步全绿 + 看板维护。10/12 真绿，只剩步骤 7 与 8c",
+      "next": "两红全绿后打 tag 上线 —— 但那要先等人类换掉 devapp 的部署脚本。"
+    }
+  },
+  "human_blockers": [
+    {
+      "id": "deploy",
+      "title": "devapp 部署脚本要用 root 换一次",
+      "why": "v0.1.5→v0.1.11 共 7 个 tag 部署全败。冒烟在 systemctl restart 后 3 秒就打过去，服务还在启动；仓库里的恢复路径要求 root 拥有的 /usr/local/bin/workspacex-deploy 写 nonce 状态文件，而 VM 上那份早于该契约（2026-08-04 随 #456 才进仓库）⇒ 恢复永远不生效。",
+      "cmd": "sudo install -o root -g root -m 0755 /opt/workspacex/app/.harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy",
+      "blocks": "八步全绿也只存在于 CI 里，你在 devapp 上走查不了"
+    },
+    {
+      "id": "bootstrap",
+      "title": "线上「首位管理员」名额被探测账号占了，需你决定怎么复位",
+      "why": "coord-agent-auth 为诊断人类那次「创建服务暂时不可用」，直接对线上发了合法注册并 201 成功，消耗掉一次性 bootstrap 名额。⚠ 光删那个账号没用：门的判据是 auth_bootstrap_state 为空 **且** credentials 整表为空，迁移注释逐字写明这是故意不可逆的。所以要么清库（脚本见下），要么改用探测账号当管理员。",
+      "cmd": "cd /opt/workspacex/app && pnpm --filter @repo/api exec tsx apps/api/scripts/core-loop-db.ts reset",
+      "blocks": "你本人建不了账号，八步第 1 步对你堵死"
+    }
+  ]
+}

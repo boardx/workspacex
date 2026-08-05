@@ -26,6 +26,7 @@
 import { skills } from "@repo/contracts";
 import type { z } from "zod";
 import type { SkillErrorCode } from "./declarative-contract";
+import type { ProjectRole } from "../identity/roles";
 
 /**
  * 槽类型。**从契约派生，不重写**（ADR-020）——
@@ -48,6 +49,36 @@ export const BINDING_SLOT_KINDS: readonly BindingSlotKind[] = skills.SlotKind.op
  */
 export const DELIVER_ROLES = ["引导师", "组长", "组员", "全场共用"] as const;
 export type DeliverRole = (typeof DELIVER_ROLES)[number];
+
+/**
+ * 落库的 `project_memberships.project_role` → 下发角色（#467）。**一个落点。**
+ *
+ * skills 束的判定（`isSelfMountAllowed` 等）说的是「引导师 / 组长 / 组员」，
+ * 而身份束落库的是 `facilitator / groupLead / member / observer`
+ * （`domain/auth/invite-link.ts` 的 `IDENTITY_CHOICE_TO_PROJECT_ROLE`）。
+ * 两套词汇必须在**恰好一处**相遇，否则第二个用例接进来时会各写一份 switch，
+ * 而漂移方向是「有人给 skills 侧加了角色、没改另一处」——越权判断就此静默错位。
+ *
+ * ⚠ `observer` → `null` 而不是映射到「组员」：观察者**不是**下发角色里的任何一个。
+ *   把它折进组员会让「他只是来看的」与「他是这场的组员」在权限判定里不可区分。
+ *   `null` 交给调用方 —— 它落进 `mountSkillToThread` 的 `role: string` 时不会
+ *   通过 `isDeliverRole`，于是照 V4 走「拒绝 + 写安全审计」，这正是要的行为。
+ *
+ * ⚠ 写成 `satisfies Record<ProjectRole, …>` 而不是 `switch`：`ProjectRole` 加一个
+ *   取值时这里**编译期**就红（缺键），而 `switch` 的 default 会让新角色安静地
+ *   落到某个下发角色上。
+ */
+export const PROJECT_ROLE_TO_DELIVER_ROLE = {
+  facilitator: "引导师",
+  groupLead: "组长",
+  member: "组员",
+  observer: null,
+} as const satisfies Record<ProjectRole, DeliverRole | null>;
+
+/** `null` = 该项目角色不对应任何下发角色（observer），或调用方压根不在这个项目里。 */
+export function deliverRoleOfProjectRole(role: ProjectRole | null): DeliverRole | null {
+  return role === null ? null : PROJECT_ROLE_TO_DELIVER_ROLE[role];
+}
 
 /**
  * 触发方式（UC-3.2 R3 步骤 6，对应画布左栏 `[运行]` / `[已开]` / 无按钮）。

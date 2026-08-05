@@ -1,0 +1,59 @@
+# devapp 能力探针 —— **只读**，用来回答「coord-main 在那台机器上到底能做什么」。
+#
+# 背景：devapp 同时是 self-hosted runner `devapp-x64`。人类 2026-08-05 指示
+# 「跳过我，不要等我，你自己要有能力解决，我只是给你做配置好权限」。
+# 要自己解，先得知道边界在哪 —— 而边界只能实测，不能猜。
+#
+# ⚠ 本工作流**不写任何东西**：没有 install / rm / psql 写操作 / systemctl。
+#   它只回答四个问题，每个都附带正样本以证明探针本身有效。
+name: devapp-probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 5
+    steps:
+      - name: 我是谁、能 sudo 什么
+        shell: bash
+        run: |
+          echo "── whoami ──"; id
+          echo "── sudo -l（这决定我能不能换那个部署脚本）──"
+          sudo -n -l 2>&1 || echo "(sudo -l 不可用)"
+
+      - name: 应用目录的属主与可写性
+        shell: bash
+        run: |
+          echo "── /opt/workspacex ──"
+          ls -ld /opt/workspacex /opt/workspacex/app 2>&1 || true
+          echo "── 我能不能写 app 目录 ──"
+          [ -w /opt/workspacex/app ] && echo "可写" || echo "不可写"
+          echo "── deploy.env 在哪、能不能读 ──"
+          ls -l /opt/workspacex/deploy.env /etc/workspacex/deploy.env 2>&1 || true
+
+      - name: 两份 deploy 脚本差在哪（只 diff，不覆盖）
+        shell: bash
+        run: |
+          echo "── root 副本 ──"
+          ls -l /usr/local/bin/workspacex-deploy 2>&1 || echo "(不存在)"
+          sudo -n sha256sum /usr/local/bin/workspacex-deploy 2>&1 || \
+            sha256sum /usr/local/bin/workspacex-deploy 2>&1 || echo "(读不到)"
+          echo "── 仓库版 ──"
+          sha256sum /opt/workspacex/app/.harness/scripts/vm/deploy.sh 2>&1 || echo "(读不到)"
+          echo "── 关键差异：root 副本里有没有 nonce 契约与 ENV_FILE 传递 ──"
+          for pat in 'status-nonce' 'workspacex-deploy/v1' 'ENV_FILE'; do
+            n=$(grep -c "$pat" /usr/local/bin/workspacex-deploy 2>/dev/null || echo "读不到")
+            echo "  $pat -> $n"
+          done
+
+      - name: 生产库可达性（只数行，不改任何数据）
+        shell: bash
+        run: |
+          set +e
+          # 正样本先跑：证明 psql 与连接参数本身是通的，否则「0 行」说明不了任何事
+          PSQL="psql -h 127.0.0.1 -p 55433 -U postgres -d workspacex -tAc"
+          echo "── 正样本 SELECT 1 ──"; $PSQL "SELECT 1" 2>&1 | head -3
+          echo "── credentials 行数 ──"; $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
+          echo "── auth_bootstrap_state 行数 ──"; $PSQL "SELECT count(*) FROM auth_bootstrap_state" 2>&1 | head -3

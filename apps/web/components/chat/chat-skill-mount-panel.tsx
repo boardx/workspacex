@@ -1,0 +1,231 @@
+"use client";
+
+import * as React from "react";
+import { Plus, RefreshCw, Wrench, X } from "lucide-react";
+import {
+  listThreadMounts,
+  mountSkills,
+  unmountSkill,
+  type ThreadSkillMount,
+} from "@/lib/live-skill-mount";
+import { listSkills, type SkillListItem } from "@/lib/live-skill";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { describeMessageFailure } from "./chat-live-message-panel";
+
+/**
+ * #467 / #509 —— 会话内挂载 / 卸载 skill（F65）。
+ *
+ * 这个组件是 `/chat` 上第一条**真实**的 skill 路径：读 `GET /threads/:id/skill-deviations`、
+ * 写 `POST /threads/:id/skill-mounts`、`DELETE /threads/:id/skill-mounts/:mountId`，
+ * 三条都落到 `thread_skill_mounts`。
+ *
+ * ⚠ **不引用 `@/lib/mock/skill`**。原型里的 `components/skill/skill-temp-mount.tsx`
+ *   用 `CHAT_MOUNT` / `TEMP_PICKER` 两份静态常量演示同一块界面，那是签核材料
+ *   （`contracts/skills/ui.md`），**不许删**、也**不许**被这条活路径引用——
+ *   一个引了 mock 的活路径会让「挂载真的生效了吗」这条断言永远绿。
+ *
+ * ## 可选池为什么是 `GET /skills` 而不是 `listMountableSkills`
+ *
+ * 契约的 `listMountableSkills` 要下发 `boundBySegment`（本议程环节已绑定的），
+ * 那要读蓝本编排，而 `ProjectOrchestrationStorePort` 今天没有适配器。接出来
+ * 只能给一个恒为空的字段配一句解释。所以这里复用**已经存在且真实**的
+ * `listSkills`，并按 `已启用` 过滤——服务端 `mountSkillToThread` 对非
+ * `已启用` 一律 `SKILL_NOT_ENABLED`，前端这道过滤是**呈现**（不给用户摆一个
+ * 点了必然失败的选项），不是权限判断的第二份副本。
+ *
+ * ## 界面不藏入口，也不复述权限
+ *
+ * 「谁能挂载」由服务端裁决（组员/组长一律 `MEMBER_CANNOT_SELF_MOUNT` + 写安全审计）。
+ * 这里**不**按角色隐藏按钮：隐藏会让「界面没显示」被误读成「权限生效了」，
+ * 而真正的越权是直调接口——那条路必须、且只能由服务端挡。被拒时如实显示原因。
+ */
+export function ChatSkillMountPanel({
+  threadId,
+  projectId,
+  orgId,
+  bearer,
+}: {
+  threadId: string;
+  projectId: string;
+  orgId: string;
+  bearer: string;
+}) {
+  const [mounts, setMounts] = React.useState<readonly ThreadSkillMount[]>([]);
+  /**
+   * ⚠ 服务端下发的乐观锁版本号，**不在客户端拼**（契约 `listThreadDeviations.out.version`）。
+   *   `null` = 还没读到 ⇒ **不提交**。用「读不到就传空串」兜底等于关掉乐观锁，
+   *   而关掉之后两个人同时改同一条对话的挂载列表会静默互相覆盖（E5/V8）。
+   */
+  const [version, setVersion] = React.useState<string | null>(null);
+  const [pool, setPool] = React.useState<readonly SkillListItem[]>([]);
+  const [picking, setPicking] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [pending, setPending] = React.useState(false);
+  const [failure, setFailure] = React.useState<string | null>(null);
+  const generation = React.useRef(0);
+
+  const reload = React.useCallback(async () => {
+    const requestGeneration = ++generation.current;
+    setLoading(true);
+    setFailure(null);
+    try {
+      const view = await listThreadMounts(threadId, projectId, bearer);
+      if (generation.current !== requestGeneration) return;
+      setMounts(view.temporary);
+      setVersion(view.version);
+    } catch (error) {
+      if (generation.current !== requestGeneration) return;
+      setFailure(describeMessageFailure(error, "读取本对话已挂载的 skill"));
+    } finally {
+      if (generation.current === requestGeneration) setLoading(false);
+    }
+  }, [bearer, projectId, threadId]);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const openPicker = async () => {
+    setPicking(true);
+    setFailure(null);
+    try {
+      const items = await listSkills(orgId);
+      setPool(items.filter((item) => item.status === "已启用"));
+    } catch (error) {
+      setFailure(describeMessageFailure(error, "读取可挂载的 skill"));
+    }
+  };
+
+  const mount = async (skillId: string) => {
+    if (version === null || pending) return;
+    setPending(true);
+    setFailure(null);
+    try {
+      await mountSkills(threadId, projectId, { skillIds: [skillId], expectedVersion: version }, bearer);
+      setPicking(false);
+      // 重读而不是把 POST 的回包拼进本地列表：版本号必须跟着一起更新，
+      // 否则下一次挂载会拿着旧指纹去撞 409。
+      await reload();
+    } catch (error) {
+      setFailure(describeMessageFailure(error, "挂载 skill"));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const unmount = async (mountId: string) => {
+    if (pending) return;
+    setPending(true);
+    setFailure(null);
+    try {
+      await unmountSkill(threadId, mountId, projectId, bearer);
+      await reload();
+    } catch (error) {
+      setFailure(describeMessageFailure(error, "卸载 skill"));
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <section
+      className="flex flex-col gap-2 border-b border-border px-4 py-2"
+      data-testid="chat-skill-mount-panel"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-11 text-muted-foreground">
+          <Wrench aria-hidden className="h-3 w-3" />本对话的 skill
+        </span>
+
+        {loading ? (
+          <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-loading">
+            正在读取…
+          </span>
+        ) : mounts.length === 0 ? (
+          // ⚠ 真实空态。这里**不**塞任何示例 skill（契约 A1/V10）。
+          <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-empty">
+            还没有挂载任何 skill
+          </span>
+        ) : (
+          mounts.map((entry) => (
+            <span
+              key={entry.mountId}
+              className="inline-flex items-center gap-1"
+              data-testid={`chat-skill-mounted-${entry.skillId}`}
+            >
+              <Badge tone="outline">{entry.skillId}</Badge>
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={pending}
+                data-testid={`chat-skill-unmount-${entry.skillId}`}
+                onClick={() => void unmount(entry.mountId)}
+              >
+                <X aria-hidden className="h-3 w-3" />卸载
+              </Button>
+            </span>
+          ))
+        )}
+
+        <Button
+          size="xs"
+          variant="outline"
+          className="ml-auto"
+          /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
+          disabled={pending || version === null}
+          data-testid="chat-skill-mount"
+          onClick={() => void openPicker()}
+        >
+          <Plus aria-hidden className="h-3 w-3" />加 skill
+        </Button>
+      </div>
+
+      {picking ? (
+        <div
+          className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
+          data-testid="chat-skill-mount-picker"
+        >
+          {pool.length === 0 ? (
+            <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
+              本组织没有「已启用」的 skill 可挂载。
+            </span>
+          ) : (
+            pool.map((item) => (
+              <Button
+                key={item.skillId}
+                size="xs"
+                variant="outline"
+                disabled={pending}
+                data-testid={`chat-skill-mount-option-${item.skillId}`}
+                onClick={() => void mount(item.skillId)}
+              >
+                {item.name}
+              </Button>
+            ))
+          )}
+          <Button
+            size="xs"
+            variant="ghost"
+            data-testid="chat-skill-mount-cancel"
+            onClick={() => setPicking(false)}
+          >
+            取消
+          </Button>
+        </div>
+      ) : null}
+
+      {failure ? (
+        <div
+          className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+          data-testid="chat-skill-mount-failure"
+        >
+          <p className="text-11 text-destructive">{failure}</p>
+          <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => void reload()}>
+            <RefreshCw aria-hidden className="h-3 w-3" />重试
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
