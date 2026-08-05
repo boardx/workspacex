@@ -205,7 +205,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明）。新建出来的是
         <strong className="text-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
         再由<strong className="text-foreground">另一位</strong>方法论审核人批准 —— 打开「查看契约」
-        里的门禁面板走这两步。这里**没有**「启用」按钮：没有第二个评审人，就没有「已启用」。
+        里的门禁面板走这两步。这里<strong className="text-foreground">没有</strong>「启用」按钮：
+        没有第二个评审人，就没有「已启用」。
       </p>
 
       {creating ? (

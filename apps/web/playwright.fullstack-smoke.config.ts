@@ -37,15 +37,24 @@ const apiPgPort = process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? "1
 const breakController = process.env.FULLSTACK_E2E_MODE === "broken-controller-route" ? "artifacts" : "";
 const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required("COMPOSE_PROJECT_NAME")}"`;
 /**
- * web 那一格的启动窗口。**默认一字未改（120s）**，只是可以被覆盖。
+ * API 与 web 两格的启动窗口。**默认一字未改（120s）**，只是可以被覆盖。
  *
- * 它的命令是 `next build && next start`，而 `next/font/google` 在**没有外网**的机器上
- * 会对每个字体分片重试三次才放弃 —— 构建照样成功，只是慢。实测本地一次冷构建
- * 3m24s，于是这一格必然超时，表现成「web 起不来」而不是「构建慢」。
- * CI 有外网、构建落在 120s 内，所以**默认值不动**：为一台慢机器放宽全队的门控，
- * 等于把一条会红的信号调成不会红。要在慢机器上跑就显式覆盖它。
+ * 两格都会在一台**忙碌或断网**的开发机上超过 120s，而两次失败长得一模一样
+ * （`Timed out waiting 120000ms from config.webServer`，不说是哪一格），
+ * 于是都会被读成「服务起不来」而不是「这台机器慢」：
+ *   · web  —— 命令是 `next build && next start`，`next/font/google` 在没有外网时
+ *     对每个字体分片重试三次才放弃（构建照样成功，只是慢）。实测冷构建 3m24s。
+ *   · api  —— 命令以 `docker compose up -d --wait` 打头，机器上并存几十个隔离栈时
+ *     healthcheck 迟迟不转绿。实测本机同时有 38 个容器，这一格拿不到 120s 内的启动。
+ *
+ * CI 有外网、栈是干净的，两格都落在 120s 内，所以**默认值不动**：
+ * 为一台慢机器放宽全队的门控，等于把一条会红的信号调成不会红。
+ * 要在慢机器上跑就显式覆盖它。
+ *
+ * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
+ *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const webServerTimeoutMs = Number(process.env.FULLSTACK_E2E_WEB_TIMEOUT_MS ?? 120_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 120_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -251,7 +260,9 @@ export default defineConfig({
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
-      timeout: process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : 120_000,
+      // ⚠ `database-unavailable` 反证要的就是**快速失败**，给它长窗口只会让反证等满。
+      timeout:
+        process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv,
@@ -277,8 +288,8 @@ export default defineConfig({
     {
       command: `next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
-      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_WEB_TIMEOUT_MS` 才不同。见上方定义。
-      timeout: webServerTimeoutMs,
+      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
+      timeout: serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
         ...process.env,
