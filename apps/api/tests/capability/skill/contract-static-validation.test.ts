@@ -116,6 +116,10 @@ describe("③ 校验失败 ⇒ 不入库（行为，不是文案）", () => {
         duty: "把议题拆成互斥且穷尽的分支",
         contract: validContract({ fallbackDeclaration: "" }),
         entry: "admin-new",
+        // #459：契约 `createSkillDraft.in` 必填，此前用例层把它们丢了。
+        visibility: "org-wide",
+        ownerTeamId: null,
+        modelRef: "model-default",
       },
       { grants: grantsOf("project:notes"), store, audit: collectAudit() },
     );
@@ -138,6 +142,10 @@ describe("③ 校验失败 ⇒ 不入库（行为，不是文案）", () => {
         duty: "把议题拆成互斥且穷尽的分支",
         contract: validContract(),
         entry: "admin-new",
+        // #459：契约 `createSkillDraft.in` 必填，此前用例层把它们丢了。
+        visibility: "org-wide",
+        ownerTeamId: null,
+        modelRef: "model-default",
       },
       { grants: grantsOf("project:notes"), store, audit: collectAudit() },
     );

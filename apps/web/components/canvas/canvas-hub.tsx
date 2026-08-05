@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import type { Identity, ProjectRole } from "@/lib/identity";
+import type { ProjectRole } from "@/lib/identity";
 import { PROJECT_ROLE_LABEL, PROJECT_ROLES } from "@/lib/identity";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
-import { CANVAS_SCREENS, type CanvasScreen } from "@/lib/mock/canvas";
+import { CANVAS_SCREENS, type CanvasScreen } from "@/lib/canvas-screens";
 import { TemplateAdmin } from "./template-admin";
 import { TemplateEditor } from "./template-editor";
 import { SegmentBinding } from "./segment-binding";
@@ -25,9 +25,8 @@ import { CanvasRightPanel } from "./canvas-right-panel";
  * ⚠ 视角切换是**预览手段，不是权限实现**：真实权限在服务端（NestJS Guard + RLS）。
  */
 export function CanvasHub({
-  identity, previewRole, uiState, screen, initialConflict,
+  previewRole, uiState, screen, initialConflict,
 }: {
-  identity: Identity;
   previewRole: ProjectRole | null;
   uiState: UiState;
   screen: CanvasScreen;
@@ -38,7 +37,6 @@ export function CanvasHub({
 
   return (
     <AppShell
-      identity={identity}
       previewRole={previewRole}
       left={isEditor ? <CanvasLeftPanel /> : undefined}
       right={isEditor ? <CanvasRightPanel /> : undefined}
@@ -46,7 +44,7 @@ export function CanvasHub({
       <div className="flex h-full flex-col">
         <PreviewControlBar screen={screen} state={uiState} role={previewRole} />
         <div className="min-h-0 flex-1">
-          {screen === "template-admin" && <TemplateAdmin state={uiState} previewRole={previewRole} />}
+          {screen === "template-admin" && <TemplateAdmin previewRole={previewRole} />}
           {screen === "template-editor" && <TemplateEditor state={uiState} previewRole={previewRole} />}
           {screen === "segment-binding" && <SegmentBinding state={uiState} previewRole={previewRole} />}
           {screen === "ai-draft" && <AiDraftPanel state={uiState} previewRole={previewRole} />}

@@ -784,7 +784,20 @@ export const operations = {
     err: ["SKILL_VERSION_CHANGED", "PERMISSION_REVOKED"] as const,
   },
 
-  /** 复盘（AC1）：本场临时挂载 vs 绑定的差异 */
+  /**
+   * 复盘（AC1）：本场临时挂载 vs 绑定的差异
+   *
+   * ## 🟡 `version` 于 #467 补上，**该字段所在契约面待人类补签**
+   *
+   * `mountSkillToThread.in.expectedVersion` 是**必填**的乐观锁版本号，而在此之前
+   * **没有任何操作产出过它** —— 也就是说，照签核后的契约原样实现，任何调用方都
+   * 无法合法地发起第一次挂载。这与 #513 在 `chat.getAgentPanel` 上遇到的是**同一型**
+   * 缺口（写端口带版本号、读端口没有 ⇒ 刷新一次页面就无从填起），处置照同一个先例：
+   * 把服务端**本来就能算出**的同一个值在读端口下发一次，不新增用户可见语义、
+   * 不另起 design-delta，并**登记为待人类补签**。
+   * 人类回来后要么补签、要么要求改形状。**没有任何 `design-signoff.md` 被改动**
+   * ——签核是人的动作，agent 不得代做。
+   */
   listThreadDeviations: {
     method: "GET",
     path: "/threads/:threadId/skill-deviations",
@@ -794,6 +807,15 @@ export const operations = {
         temporary: z.array(ThreadSkillMount),
         addedVsBinding: z.array(z.string()),
         removedVsBinding: z.array(z.string()),
+        /**
+         * 🟡 #467，**待人类补签**（见本操作文件头）。
+         *
+         * 本线程挂载列表的乐观锁版本号，**与 `mountSkillToThread.in.expectedVersion`
+         * 是同一个概念、同一个事实源**（服务端对该线程挂载列表求出的指纹），
+         * 不是第二个版本号。⚠ 调用方**不得自行拼一个**：口径变一次两侧就各算各的，
+         * 而不匹配会表现成「随机 409」——那是最难查的一类故障。
+         */
+        version: z.string(),
       })
       .strict(),
     err: ["PERMISSION_REVOKED"] as const,

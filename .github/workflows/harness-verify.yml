@@ -2,7 +2,8 @@
 # 快速迭代策略（2026-07）：
 #   - PR/push 只做轻量门控：受影响模块的 typecheck/lint/test（turbo --affected）+ 生成物漂移检查。
 #   - 全栈烟测(fullstack-smoke)：每小时检查 main 是否有新合并的 PR，有才跑一次。
-#   - 全量浏览器 e2e(e2e-full)：每 3 小时定时回归一次。
+#   - 全量浏览器 e2e(e2e-full)：**不在 PR 上跑**（2026-08-05 人类指令：提高速度）。
+#     它在 tag 发布、main push、每 3 小时定时、以及手动触发时跑。
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
 
 name: harness-verify
@@ -11,6 +12,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
+    tags: ["v*"]
   schedule:
     # 每小时检查 main 是否有新合并（新 PR 落地即产生新 commit），有则跑全栈烟测。
     - cron: "0 * * * *"
@@ -112,6 +115,19 @@ jobs:
       - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
         run: node .harness/scripts/lint-nav-reachability.mjs
 
+      # 不存在「写了但没人跑」的 e2e spec（#512）。
+      # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
+      # 有 `playwright.chat-read.config.ts`，但零个 npm script / CI job 调它。
+      # 同一次审计还捞出 `responsive.spec.ts`（唯一引用它的是一条 feature verification
+      # 命令，而那条命令不在 CI 里，且其 feature 已 passing ⇒ 永不再跑），
+      # 而 phase-01 有四份 ui-preview/README 正以「它有断言」为由省略响应式截图。
+      # 放在 PR 门控而不是 e2e-full 的理由：它只读 config/scripts/workflow 并跑
+      # `playwright --list`（不起 webServer、不需要浏览器），秒级；而它要挡的失效
+      # ——新加一条 spec 却忘了接进 testMatch——恰恰发生在加那条 spec 的 PR 里。
+      # turbo --affected 覆盖不到：.harness/ 与 .github/ 都不是 workspace 包。
+      - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
+        run: node .harness/scripts/lint-spec-gate-coverage.mjs
+
       # harness 自己的测试（含上面那道门控的反证套件）。
       # 2026-07-30 发现：.harness/scripts/**.test.ts 共 100+ 条断言，**CI 里一条都没跑过** ——
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
@@ -167,7 +183,20 @@ jobs:
           if-no-files-found: error
 
   e2e-full:
-    if: github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *'
+    # 2026-08-05 人类指令：「只有 tag 发布的时候才做，PR 的时候先不做，以提高速度」。
+    #
+    # ⚠ 摘掉的是**这一个** job，不是 PR 的门控。PR 上仍然跑：
+    #   · `verify`          —— 受影响模块的 typecheck/lint/test + 全部 harness 门控；
+    #   · `fullstack-smoke` —— 真浏览器 + 真 docker 栈，**含 `core-loop.spec.ts`**，
+    #                          也就是人类八步的那块活进度板。
+    #   ⇒ 「八步有没有退化」在每个 PR 上照旧会红。这里省掉的是那 35 分钟的全量回归。
+    #
+    # ⚠ 代价要说清楚：**PR 上不再跑全量单测**（4500+ 条）。一个只被 e2e-full 覆盖的
+    #   回归，现在最早在 tag 发布或下一个 3 小时定时才会暴露，而不是在 PR 上。
+    #   这是刻意换来的速度，不是疏忽 —— 谁要改回去，改这一行即可。
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -196,6 +225,26 @@ jobs:
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
           exit "$status"
+      # Chat 读写链路（#405 的 spec，#512 把它接进门控）。
+      #
+      # ⚠ 为什么是**本 job 里的一步**，而不是新 job、也不是塞进 `verify:full`：
+      #   · 新 job → 全仓只有一台自建 runner，多一个 job 就是多一份排队，硬瓶颈。
+      #   · 塞进 `verify:full:raw` → `verify:full` 整条链共用**一个**隔离作用域，而
+      #     chat-read 的 webServer 启动链里有 `createdb "$WORKSPACEX_DB"`；库已被
+      #     fullstack-smoke 那一段建过 ⇒ createdb 非零退出 ⇒ `&&` 链断在这里，
+      #     红的原因会是「库已存在」而不是「Chat 坏了」。所以它要**自己的**隔离作用域，
+      #     由 `pnpm run verify:chat-read`（自带 with-test-isolation 外壳）提供。
+      #   · 合进 playwright.fullstack-smoke.config.ts 的 project 也做不到：chat-read 要求
+      #     API 进程带 `KERNEL_ALLOW_TEST_PRINCIPAL=1` + `KERNEL_AGENT_CATALOG_SCHEMA=
+      #     chat_wave2_fixture` 启动（apps/api/src/kernel.module.ts:610-613 在**合成时**读一次），
+      #     而 webServer 是 config 级的 ⇒ 打开它就等于把整轮 smoke 的 PUBLISHED_AGENT_READER
+      #     全部改指 fixture schema，包括 #492 的八步闭环——那是人类交付验收的唯一机械依据。
+      #
+      # `if: always()` 让它不被上一步的红吞掉：两条链路各自的红都要能被看见。
+      - name: Execute Chat read/write journey (own isolation scope)
+        if: always()
+        run: pnpm run verify:chat-read
+
       - name: Upload E2E evidence (success or failure)
         if: always()
         uses: actions/upload-artifact@v4

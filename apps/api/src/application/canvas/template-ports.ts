@@ -12,14 +12,21 @@
  *   `ownerTeamId` 只在 facts 里、永不进响应体——与 `CapabilityListing` 的缺口同型
  *   （已记在 `capability-ports.ts` 文件头），同样是报出来而不是发明一个字段。
  *
- * ## 这里没有什么
+ * ## `create()` 于 #496 补上，**该契约面待人类补签**
  *
- * **没有 `create()`。** 签核过的 `canvas.ts` 契约里没有任何一个创建模板的操作：五个
- * 注册表操作是 list / publish / trial / archive / restore，而 `publishTemplate.in` 是
- * `{key, version, visibility}`——不带 `displayName` / `sections` / `underlyingType`，
- * 且它的 `err` 里有 `TEMPLATE_NOT_FOUND`，说明它读一行已存在的、而不是造一行。
+ * #463 时这里逐字写着「没有 `create()`」，因为签核过的契约里没有任何创建操作。#496 把
+ * `createTemplate` 作为 design-delta 加进契约（coord-main 代裁「先做」+ 登记待补签，
+ * 见 `packages/contracts/src/canvas.ts` 该操作的文件头），端口随之补上。
+ *
+ * ⚠ 人类若推翻 #496，`create()` 与它的实现一并回退——它不是一个「反正已经有了」的既成事实。
+ *
+ * ## 这里仍然没有什么
+ *
+ * **没有 `update()` / `createVersion()`。** 契约里仍然没有「改模板」或「基于既有模板开新版」
+ * 的操作，所以 `create()` 只铸 v1（契约 `createTemplate.out.version` 是 `z.literal(1)`）。
  * 给一个契约里不存在的能力先留个端口，下一个人会以为它只是还没被调用（同
- * `application/project/ports.ts` 里不留 `grantProjectRole` 的理由）。缺口报在 #463。
+ * `application/project/ports.ts` 里不留 `grantProjectRole` 的理由）。缺口登记在
+ * `KNOWN_CONTRACT_GAPS.C_CANVAS_8`。
  *
  * **没有 `delete()`。** 归档是置位（O-10），迁移也没有 GRANT DELETE。
  */
@@ -72,6 +79,24 @@ export interface ListCanvasTemplatesQuery {
   readonly statuses: readonly TemplateStatus[];
 }
 
+/**
+ * 一行**刚被造出来**的模板，逐字派生自契约 —— 不在这里重述一遍字段。
+ *
+ * ⚠ 与 `CanvasTemplateListing` 不是同一个类型，也**不该**合并：列表行有 `usageCount`
+ *   （一次 `COUNT(*)`），新建行没有——它的绑定数恒为 0，但「恒为 0」与「数过是 0」
+ *   在类型上同形，而契约那句「usageCount 必须真实统计」正是要防这种同形。
+ *   契约给这两个操作的 out 就是两个形状，端口照抄它，不自作主张收敛。
+ */
+export type CreatedCanvasTemplate = z.infer<typeof canvas.operations.createTemplate.out>;
+
+/**
+ * `create()` 的结果。**不用 `null` 表示冲突**：`findVersion()` 里 null 的含义是「没找到」，
+ * 同一个仓储上两个方法的 null 表示两件不同的事，是下一个人读错它的方式。
+ */
+export type CreateTemplateOutcome =
+  | { readonly created: true; readonly template: CreatedCanvasTemplate }
+  | { readonly created: false; readonly reason: "key-taken" };
+
 export interface PublishOutcome {
   /** 本次发布顺带归档掉的同 key 旧版（I-4 前半）。 */
   readonly archivedVersions: readonly { readonly key: string; readonly version: number }[];
@@ -80,6 +105,32 @@ export interface PublishOutcome {
 export interface CanvasTemplateRepository {
   /** `usageCount` 由仓储现查 `COUNT(*)` 得出 —— 库里没有可写的计数列，见迁移文件头。 */
   list(query: ListCanvasTemplatesQuery): Promise<readonly GuardedCanvasTemplate[]>;
+
+  /**
+   * 铸一行新的 `draft` 模板（#496）。key 在本组织已被**任何版本**占用时不写、回
+   * `{created: false}`。
+   *
+   * ⚠ **占用判定必须与写入在同一条语句里**，不是用例先 `findVersion` 再 `create`。
+   *   查完到写入之间是一个窗口，两个并发请求会双双通过检查；而这种失败只在真并发下出现，
+   *   所有顺序执行的测试照样全绿。原子性属实现，所以边界在这一个方法里——同 `publish()`
+   *   那条「一个方法 = 一个事务边界」的理由。
+   *
+   * ⚠ 判据是 **key**，不是 `(key, version)`：同一个 key 的两个版本是一条谱系上的两点，
+   *   而本方法只铸 v1。只看 `(key, 1)` 会让「已有 v2、又建出一个不相干的 v1」成为可能。
+   */
+  create(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly displayName: string;
+    readonly underlyingType: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+    /**
+     * `team-only` 归哪个团队。契约的 `createTemplate.in` **没有**这一栏（C_CANVAS_8 ①），
+     * 由用例填创建者自己的团队；创建者无团队时为 null，那一行对所有人不可见（fail-closed）。
+     */
+    readonly ownerTeamId: string | null;
+  }): Promise<CreateTemplateOutcome>;
 
   findVersion(
     orgId: OrgId,

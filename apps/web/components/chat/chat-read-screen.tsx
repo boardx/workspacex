@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare, RefreshCw, Users } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ import {
   getThread,
   listThreads,
   renameThread,
+  updateAgentRoster,
   type GetAgentPanelOut,
   type GetThreadOut,
   type ListThreadsOut,
@@ -29,10 +31,15 @@ import {
  * 也不在前端按角色重算——契约 `chat.mutateThread` 要求两侧都验收：按钮不渲染
  * **且**接口拒绝（`packages/contracts/src/chat.ts:408`）。
  *
- * ⚠ 已知缺口（#460 上报 coord-main）：能力标记只随 `getThread` 下发，
- * `listThreads.out` 里没有 capabilities。⇒ **空项目（一条会话都没有）时前端拿不到
- * 任何写权依据，因此不渲染「新建」**。这不是本 issue 偷懒，是契约面缺一块；
- * 补它属于新契约面，按授权宪章层级 2 归 coord-main 裁决，不在这里私自发明。
+ * 能力**取自 `listThreads`**（#489），不取自 `getThread`。原因是一条实测死路：
+ * `getThread` 只在选中某条线程时才调用，**零会话的项目里它一次都不会被调用** ⇒
+ * 拿不到任何写权依据 ⇒「新建」不渲染 ⇒ **新注册的管理员永远建不出第一条会话**，
+ * 「注册 → 登录 → Chat 新增」死在第三步。#460 交付时这个缺口被命名并上报，
+ * #489 由服务端在 `listThreads.out` 也下发同一份 `capabilitiesFor` 结果补上。
+ *
+ * ⚠ 两个端口下发的是**同一个事实源**（服务端 `capabilitiesFor`），不是两套判定。
+ * 前端只读一处（列表），不做并集、不做回退到 `getThread`——两处读会让
+ * 「哪个说了算」重新成为问题。
  */
 const THREAD_MUTATE_CAPABILITY = "thread.mutate";
 
@@ -195,7 +202,9 @@ export function ChatReadScreen({
   }, [bearer, initialThreadId, projectId, router, sourceKey]);
 
   const selectedVersion = detail?.thread.version ?? null;
-  const canMutate = detail?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
+  // 取自列表而不是详情：零会话时 `detail` 恒为 null，而「能不能建第一条会话」
+  // 恰恰要在零会话时回答（#489）。
+  const canMutate = threads?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
 
   const handleCreate = React.useCallback((title: string) => {
     if (!projectId) return;
@@ -212,22 +221,90 @@ export function ChatReadScreen({
   }, [projectId, runMutation]);
 
   const handleRename = React.useCallback((title: string) => {
-    if (!selectedThreadId || selectedVersion === null) return;
+    // ⚠ `projectId` 也进守卫：后端 `mutateExisting` 把 `projectId === null`
+    //   映射成裸 404（#541），少传它得到的不是「参数缺失」而是「线程不存在」。
+    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
     void runMutation("rename", async () => {
-      await renameThread(selectedThreadId, title, selectedVersion);
+      await renameThread(selectedThreadId, projectId, title, selectedVersion);
       return selectedThreadId;
     });
-  }, [runMutation, selectedThreadId, selectedVersion]);
+  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
 
   const handleDelete = React.useCallback((reason: string) => {
-    if (!selectedThreadId || selectedVersion === null) return;
+    /** `projectId` 同 `handleRename`（#541）。 */
+    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
     const removed = selectedThreadId;
     void runMutation("delete", async () => {
-      await deleteThread(removed, selectedVersion, reason);
+      await deleteThread(removed, projectId, selectedVersion, reason);
       // 删完的选中态：交给 loadThreads 从服务端返回的第一条兜底，不在本地猜。
       return null;
     });
-  }, [runMutation, selectedThreadId, selectedVersion]);
+  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
+
+  /* ── agent 编制的增删（#467）────────────────────────────────────────────────
+   * 与上面的会话增删改同一套纪律：**先等服务端返回，再重读服务端**，不做乐观更新。
+   *
+   * ⚠ 交付的是**编制关系**（`chat_thread_agents` 的增删），**不是**「agent 真的执行
+   *   并产生回复」——那是 #414 + #413。
+   *
+   * ⚠ `expectedRosterVersion` **只来自服务端的读端口**（#513）：
+   *   `getAgentPanel.out.rosterVersion`，即上面 `roster` 那份响应里的字段。
+   *   它与 `updateAgentRoster.out.rosterVersion` 是**同一个事实源**
+   *   （`chat_threads.roster_version`），所以这里**不存本地版本号**——存一份就是
+   *   第二个事实源，刷新之后必然与库里漂移（那正是 #513 修的病：#510 实测到
+   *   刷新后改编制必 409）。
+   *
+   * ⛔ **没有兜底**：`roster` 还没读回来（null）时**不提交**，而不是传 0 / -1 / 省略。
+   *   乐观锁的意义就是拒绝盲写，兜底等于把锁摘了。与上面 `handleRename` /
+   *   `handleDelete` 在 `selectedVersion === null` 时直接 `return` 同一手法。
+   *
+   * ⚠ 并发冲突（别人在你读完之后改了编制）仍会 409 `VERSION_CHANGED`——那时
+   *   **如实报错**，不静默重试、不自动 +1 猜一个。#513 修的是「读不到版本号」，
+   *   不是「让写永远成功」。 */
+  const rosterVersion = roster?.rosterVersion ?? null;
+  const [rosterPending, setRosterPending] = React.useState(false);
+  const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
+
+  // 换线程 ⇒ 上一条线程的错误提示作废。版本号不需要在这里清：它跟着 `roster`
+  // 走 `detailKey` 门（`rosterResult?.key === detailKey`），换线程时自动变 null。
+  React.useEffect(() => {
+    setRosterMutateFailure(null);
+  }, [detailKey]);
+
+  const runRosterMutation = React.useCallback(async (
+    change: { readonly add: readonly string[]; readonly remove: readonly string[] },
+  ) => {
+    // ⛔ 版本号读不回来就**不提交**（#513）——不传 0、不传 -1、不省略。
+    if (!projectId || !selectedThreadId || !bearer || rosterVersion === null) return;
+    setRosterPending(true);
+    setRosterMutateFailure(null);
+    try {
+      await updateAgentRoster(
+        selectedThreadId,
+        projectId,
+        { add: [...change.add], remove: [...change.remove], expectedRosterVersion: rosterVersion },
+        bearer,
+      );
+      // 重读服务端：界面上的编制**和下一次要用的版本号**都来自 `getAgentPanel`，
+      // 不是把写端口的响应体直接画上去，也不是本地拼一个。这条是「反映数据库里
+      // 真实发生的事」的落点，也是 #513 之后版本号只有一个事实源的落点。
+      await loadSelectedThread();
+    } catch (failure) {
+      setRosterMutateFailure(describeMutateFailure(failure));
+    } finally {
+      setRosterPending(false);
+    }
+  }, [bearer, loadSelectedThread, projectId, rosterVersion, selectedThreadId]);
+
+  const handleRosterAdd = React.useCallback((agentId: string) => {
+    const trimmed = agentId.trim();
+    if (trimmed === "") return;
+    void runRosterMutation({ add: [trimmed], remove: [] });
+  }, [runRosterMutation]);
+
+  const handleRosterRemove = React.useCallback((agentId: string) => {
+    void runRosterMutation({ add: [], remove: [agentId] });
+  }, [runRosterMutation]);
 
   if (!projectId) {
     return (
@@ -280,6 +357,11 @@ export function ChatReadScreen({
           loading={rosterLoading}
           error={rosterError}
           hasSelection={selectedThreadId !== null}
+          canMutate={canMutate}
+          pending={rosterPending}
+          mutateFailure={rosterMutateFailure}
+          onAdd={handleRosterAdd}
+          onRemove={handleRosterRemove}
           onRetry={() => void loadSelectedThread()}
         />
       )}
@@ -344,8 +426,17 @@ function ThreadList({
           这个项目还没有可见对话。
         </p>
       ) : null}
+      {/* `chat-thread-card-list` 只包会话卡。写入口（`chat-thread-actions` /
+          `-create` / `-rename` / `-delete`，#460 加的）在这个 nav 之外，
+          所以「列出了几条会话」可以精确地只数这里面的按钮，不被写入口的增减误伤。
+          注意不要用 `data-testid^="chat-thread-"` 前缀去数——那几个写入口的 testid
+          与会话卡 `chat-thread-<id>` 共用同一前缀（也是 #460 起的名），分不开。 */}
       {groups && groups.length > 0 ? (
-        <nav className="flex flex-col gap-3 p-3" aria-label="真实对话线程列表">
+        <nav
+          className="flex flex-col gap-3 p-3"
+          aria-label="真实对话线程列表"
+          data-testid="chat-thread-card-list"
+        >
           {groups.map((group) => (
             <section key={group.label} className="flex flex-col gap-1">
               <h2 className="px-1 text-10 font-medium text-muted-foreground">{group.label}</h2>
@@ -515,6 +606,14 @@ function ThreadDetail({
         <Badge tone="outline">真实消息</Badge>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
       </header>
+      {bearer && currentOrgId ? (
+        <ChatSkillMountPanel
+          threadId={detail.thread.id}
+          projectId={projectId}
+          orgId={currentOrgId}
+          bearer={bearer}
+        />
+      ) : null}
       {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
@@ -527,21 +626,70 @@ function ThreadDetail({
   );
 }
 
+/**
+ * ⚠ 写入口的渲染依据是 **`thread.mutate`**，因为契约里**没有** `roster.mutate` 这一档
+ *   （`CHAT_WRITE_CAPABILITIES` 恰六个，见 `apps/api/src/domain/chat/thread-visibility.ts:276`）。
+ *   服务端对编制的判定是 `role !== null && role !== "observer"`
+ *   （`application/chat/update-agent-roster.ts` 的 `NO_WRITE_ROLE` 分支），与
+ *   `thread.mutate` **同一个谓词** ⇒ 这里是**同源代理**，不是前端新造一份权限判断。
+ *   缺一档专用能力已上报；服务端始终是权威（越权提交由 403 拒绝，见 API 测试）。
+ */
 function RosterPanel({
-  roster, loading, error, hasSelection, onRetry,
+  roster, loading, error, hasSelection, canMutate, pending, mutateFailure, onAdd, onRemove, onRetry,
 }: {
   roster: GetAgentPanelOut | null;
   loading: boolean;
   error: string | null;
   hasSelection: boolean;
+  canMutate: boolean;
+  pending: boolean;
+  mutateFailure: string | null;
+  onAdd: (agentId: string) => void;
+  onRemove: (agentId: string) => void;
   onRetry: () => void;
 }) {
+  const [draft, setDraft] = React.useState("");
+  const writable = canMutate && hasSelection;
+
   return (
     <div className="flex flex-col" data-testid="chat-read-roster">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <Users aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium">Agent 编制（只读）</h2>
+        <h2 className="text-12 font-medium">Agent 编制{writable ? "" : "（只读）"}</h2>
       </div>
+      {writable ? (
+        <form
+          className="flex flex-col gap-2 border-b border-border-subtle p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onAdd(draft);
+            setDraft("");
+          }}
+        >
+          <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">
+            加入 agent（填组织 agent 目录里的 id）
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="chat-roster-add-input"
+              data-testid="chat-roster-add-input"
+              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11"
+              placeholder="agent id"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={pending}
+            />
+            <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending}>
+              {pending ? "提交中…" : "加入"}
+            </Button>
+          </div>
+          {/* 「加入」按 id 而不是从下拉里选：契约里**没有**「列出本线程可加的 agent」
+              这个读端口，编一个候选列表就得先编一份它的出处。缺口已上报。 */}
+          {mutateFailure ? (
+            <p className="text-10 text-destructive" data-testid="chat-roster-mutate-error">{mutateFailure}</p>
+          ) : null}
+        </form>
+      ) : null}
       {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取编制。</p> : null}
       {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实编制…</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
@@ -558,6 +706,17 @@ function RosterPanel({
                   <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
                 </div>
                 <Badge tone={agent.presence === "present" ? "primary" : "neutral"}>{agent.presence}</Badge>
+                {writable ? (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    data-testid={`chat-roster-remove-${agent.id}`}
+                    disabled={pending}
+                    onClick={() => onRemove(agent.id)}
+                  >
+                    移出
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}

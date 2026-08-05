@@ -17,6 +17,17 @@ import { addChatMessage, addChatThread } from "../support/chat-db";
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 process.env.KERNEL_AGENT_CATALOG_SCHEMA = "chat_wave2_fixture";
+/**
+ * #414 added an executor that acceptance kicks, so a run really does leave `queued`
+ * moments after this file's POSTs -- and this file's Agent catalog is a test-only schema
+ * the executor cannot read, so those runs terminate as `AGENT_VERSION_UNAVAILABLE`.
+ *
+ * Turning the kick off here rather than widening the assertion below to
+ * `queued|running|failed`: what #415 asserts is what ACCEPTANCE persisted, and a status
+ * matcher that accepts three values would no longer distinguish "the snapshot was written
+ * with status queued" from "something else wrote a status". Execution has its own file.
+ */
+process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
 
 const ORG = "org-wave2-chat-write";
 const PROJECT = "proj-wave2-chat-write";

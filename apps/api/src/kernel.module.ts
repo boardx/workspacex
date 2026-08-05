@@ -16,7 +16,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT } from "./application/ports/database.port";
-import { LOGGER_PORT } from "./application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
 import { appConfig } from "./infrastructure/db/pg-config";
@@ -124,6 +124,27 @@ import type { DatabasePort } from "./application/ports/database.port";
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
 import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
 import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
+import {
+  EMAIL_VERIFICATION_REPOSITORY,
+  EMAIL_VERIFICATION_TOKEN_CODEC,
+  VERIFICATION_MAIL_TRANSPORT,
+  type EmailVerificationRepository,
+} from "./application/auth/email-verification-ports";
+import { PgEmailVerificationRepository } from "./infrastructure/auth/pg-email-verification-repository";
+import {
+  CloudflareEmailTransport,
+  cloudflareEmailConfig,
+  type CloudflareEmailConfig,
+} from "./infrastructure/auth/cloudflare-email-transport";
+import {
+  CLOUDFLARE_EMAIL_CONFIG,
+  MailOutboxWorker,
+} from "./infrastructure/auth/mail-outbox-worker";
+import {
+  HmacEmailVerificationTokenCodec,
+  emailVerificationSecret,
+} from "./infrastructure/auth/email-verification-token-codec";
+import { EmailVerificationController } from "./interface/controllers/email-verification.controller";
 // F22 (auth bundle, continued): 多组织归属 + 组织停用只读降级。
 // ⚠ 冻结本身**不在这里**——它是迁移 0012 的 RESTRICTIVE 策略。这个 repository 只打标记。
 import { ORG_LIFECYCLE_REPOSITORY } from "./application/auth/ports";
@@ -174,6 +195,33 @@ import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-l
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
 import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
 import { ChatController } from "./interface/controllers/chat.controller";
+// #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
+// 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
+import {
+  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT,
+  type AgentRunStore, type ModelCallPort,
+} from "./application/agent-run/ports";
+import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import {
+  ConfiguredModelProvider, readModelProviderConfig,
+} from "./infrastructure/agent-run/configured-model-provider";
+import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { AgentRunController } from "./interface/controllers/agent-run.controller";
+// #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
+// ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
+import {
+  SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS, THREAD_MOUNT_STORE,
+} from "./application/skill/ports";
+import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
+import {
+  FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
+} from "./infrastructure/skill/skill-gate-adapters";
+import { SkillController } from "./interface/controllers/skill.controller";
+// #467 / #509：对话内临时挂载 skill 的存储与 HTTP 边界（F65）。
+// ⚠ 三条路径全部来自契约的 `operations`；`resolveMountedSkills` / `listMountableSkills`
+//   刻意**不接**——它们要读的蓝本编排今天没有适配器，接出来只会是恒失败的假入口。
+import { PgThreadMountStore } from "./infrastructure/skill/pg-thread-mount-store";
+import { SkillMountController } from "./interface/controllers/skill-mount.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
@@ -306,6 +354,32 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #465 (recording bundle): the session lifecycle's HTTP boundary. `domain/recording/` (10
+// files) and `application/recording/` (11 files) have existed since F69-F79 and NOTHING
+// served them -- from outside the process the whole capability was zero. This wires the four
+// routes the contract's capture lifecycle needs, plus the persistence F69 deliberately
+// deferred (migration `20260805100000_i465_recording_capture_persistence.sql`).
+// ⚠ `RETENTION_POLICY_REPOSITORY` (F46) is bound here for the first time: recording's
+//   `RetentionResolver` reads it rather than a table of its own, because
+//   `application/recording/retention-ports.ts` is explicit that a second store for "how many
+//   days" defeats the one invariant the retention feature exists to keep.
+import {
+  RECORDING_ID_GENERATOR,
+  RECORDING_UNIT_OF_WORK,
+  TRANSCRIPTION_POLICY_PROVIDER,
+} from "./application/recording/session-lifecycle-ports";
+import {
+  RETENTION_POLICY_REPOSITORY,
+  type RetentionPolicyRepository,
+} from "./application/files/retention-policy-ports";
+import { PgRetentionPolicyRepository } from "./infrastructure/files/pg-retention-policy-repository";
+import {
+  PgRecordingUnitOfWork,
+  UuidRecordingIdGenerator,
+} from "./infrastructure/recording/pg-recording-repository";
+import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
+import { RecordingController } from "./interface/controllers/recording.controller";
+import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 
 @Module({
   controllers: [
@@ -320,6 +394,7 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
     LocalExportController,
     ArtifactBindingController,
     AuthRegistrationController,
+    EmailVerificationController,
     AuthController,
     ArtifactReferenceController,
     EvidenceWithdrawalController,
@@ -338,6 +413,10 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    RecordingController,
+    AgentRunController,
+    SkillController,
+    SkillMountController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -550,6 +629,22 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
       useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
       inject: [DATABASE_PORT],
     },
+    {
+      provide: EMAIL_VERIFICATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgEmailVerificationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EMAIL_VERIFICATION_TOKEN_CODEC,
+      useFactory: () => new HmacEmailVerificationTokenCodec(emailVerificationSecret()),
+    },
+    { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => cloudflareEmailConfig() },
+    {
+      provide: VERIFICATION_MAIL_TRANSPORT,
+      useFactory: (config: CloudflareEmailConfig) => new CloudflareEmailTransport(config),
+      inject: [CLOUDFLARE_EMAIL_CONFIG],
+    },
+    MailOutboxWorker,
     // F22. ⚠ 没有 `purge` 之类的 provider：phase-00 里没有任何东西会在留存期届满后销毁数据
     // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
     // 会让下一个接管理界面的人以为它已经在跑了。
@@ -573,6 +668,25 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
           : undefined,
       ),
       inject: [DATABASE_PORT],
+    },
+    // #414. 三个 provider，职责各一：run 状态与 append-only 步骤的持久化、
+    // **唯一**已配置 provider 的模型调用、以及受理后触发执行的执行器。
+    {
+      provide: AGENT_RUN_STORE,
+      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
+      // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
+      provide: MODEL_CALL_PORT,
+      useFactory: () => new ConfiguredModelProvider(readModelProviderConfig()),
+    },
+    {
+      provide: AGENT_RUN_EXECUTOR,
+      useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
+        new AgentRunExecutor(runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0"),
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
     // 与线程/消息的读写路径没有共享逻辑，合并只会让一个文件同时长两组不相关的方法。
@@ -729,6 +843,52 @@ import { CanvasTemplateController } from "./interface/controllers/canvas-templat
       useFactory: (db: DatabasePort): CanvasTemplateRepository =>
         new PgCanvasTemplateRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #465: recording session lifecycle.
+    {
+      provide: RETENTION_POLICY_REPOSITORY,
+      useFactory: (db: DatabasePort): RetentionPolicyRepository =>
+        new PgRetentionPolicyRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: RECORDING_ID_GENERATOR, useFactory: () => new UuidRecordingIdGenerator() },
+    {
+      provide: RECORDING_UNIT_OF_WORK,
+      useFactory: (
+        db: DatabasePort,
+        policies: RetentionPolicyRepository,
+        ids: RecordingIdGenerator,
+      ) => new PgRecordingUnitOfWork(db, policies, ids),
+      inject: [DATABASE_PORT, RETENTION_POLICY_REPOSITORY, RECORDING_ID_GENERATOR],
+    },
+    // ⚠ Constructing the provider does NOT read the environment; `policy()` does, per call.
+    //   Reading it here would freeze whatever the process started with, and the one thing
+    //   this provider exists to guarantee is that an unconfigured deployment refuses to
+    //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
+    { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
+    // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
+    // repository cannot be constructed without a tenant, so there is no "untenanted skill
+    // repository" object for a forgetful caller to reach for.
+    {
+      provide: SKILL_CONTRACT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillContractRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #459: both of these stand in for data sources that do not exist anywhere in the repo
+    // yet (submitter data-scope grants; a durable security-audit table). Neither fails open
+    // -- see the reasoning in `infrastructure/skill/skill-gate-adapters.ts`.
+    { provide: SKILL_SUBMITTER_GRANTS, useFactory: () => new FailClosedSubmitterGrants() },
+    // #467: same factory shape and same reason as SKILL_CONTRACT_REPOSITORY above --
+    // a thread mount store that is not bound to a tenant must not be constructible.
+    {
+      provide: THREAD_MOUNT_STORE,
+      useFactory: (db: DatabasePort) => new PgThreadMountStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_SECURITY_AUDIT,
+      useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
+      inject: [LOGGER_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.

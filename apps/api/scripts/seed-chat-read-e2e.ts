@@ -34,6 +34,12 @@ const THREAD_ID = required("CHAT_E2E_THREAD_ID");
 const EMAIL = required("CHAT_E2E_EMAIL");
 const AGENT_ID = required("CHAT_E2E_AGENT_ID");
 const AGENT_VERSION_ID = `${AGENT_ID}-version-1`;
+/**
+ * #467：只进**组织 agent 目录**、不进本线程编制的第二个 agent。
+ * 「把一个 agent 加进会话」这条用例需要一个当前不在编制里、但服务端认可的 agent；
+ * 拿已在编制里的 `AGENT_ID` 去做，什么都不做的实现也会绿。
+ */
+const CATALOG_ONLY_AGENT_ID = required("CHAT_E2E_CATALOG_ONLY_AGENT_ID");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -127,6 +133,11 @@ await asApp(ORG_ID, async (client) => {
     "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
     [ORG_ID, AGENT_ID, "CR", "Controlled Read Agent", "Read-only E2E roster fixture"],
   );
+  // #467：进目录但**不**进 `chat_thread_agents`——它是「加进来」那条用例的素材。
+  await client.query(
+    "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
+    [ORG_ID, CATALOG_ONLY_AGENT_ID, "CO", "Catalog Only Agent", "Roster mount E2E fixture"],
+  );
   await client.query(
     "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
     [THREAD_ID, ORG_ID, AGENT_ID],
@@ -134,5 +145,5 @@ await asApp(ORG_ID, async (client) => {
 });
 
 process.stdout.write(
-  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1\n`,
+  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1\n`,
 );

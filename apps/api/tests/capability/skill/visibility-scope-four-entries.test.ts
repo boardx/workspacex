@@ -25,7 +25,7 @@ describe("四入口共用同一份可见性过滤（I-14）", () => {
   it("非 team-a 成员：四个入口对 team-a 的 skill 全部 0 命中，结果逐字相同", async () => {
     const results = await Promise.all(
       ENTRIES.map((entry) =>
-        listSkills({ orgId: "org-1", entry, requesterTeamId: "team-b" }, { catalog: CATALOG }),
+        listSkills({ orgId: "org-1", entry, requesterTeamId: "team-b", orgRole: "consultant" }, { catalog: CATALOG, nextDecisionId: () => "d" }),
       ),
     );
 
@@ -49,7 +49,7 @@ describe("四入口共用同一份可见性过滤（I-14）", () => {
   it("请求者不在任何团队（`null`）：四入口对两个 team-only skill 都不可见", async () => {
     const results = await Promise.all(
       ENTRIES.map((entry) =>
-        listSkills({ orgId: "org-1", entry, requesterTeamId: null }, { catalog: CATALOG }),
+        listSkills({ orgId: "org-1", entry, requesterTeamId: null, orgRole: "consultant" }, { catalog: CATALOG, nextDecisionId: () => "d" }),
       ),
     );
     for (const r of results) {

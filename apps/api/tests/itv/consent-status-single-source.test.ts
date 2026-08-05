@@ -149,9 +149,35 @@ describe("F97 — 同意书状态单一来源", () => {
     // 断言的那个「状态」）仍然只从 `interview_consent_submissions` 派生，
     // 从未读过 `interview_consent_snapshots` 一个字节——这条断言就是把「多了一张表」
     // 与「多了一份状态事实」分开验证，不是把后者当成前者的例外放过去。
+    //
+    // #465 新增 `recording_consent_cells`：与上面 F86 那条**同型**——多了一张表，
+    // 不是多了一份「当前同意状态」。理由逐条可核，请连同下面三条机械断言一起看：
+    //
+    //   · **不是同一件事**：它按 `source_ref_id`（工作坊 / 聊天线程 / 访谈**容器**）键，
+    //     不按 `(interview_session_id, subject_id)` 键。`interview_consent_submissions`
+    //     的两个外键硬绑 `interview_sessions` + `interview_subjects`（均 NOT NULL），
+    //     结构上表达不了工作坊在场者与聊天线程参与者——这不是「懒得复用」，
+    //     是复用不了。（#465 报上来时两边各自实测过一次。）
+    //   · **不产生第二个状态**：`Subject.consentStatus` 仍然只从
+    //     `interview_consent_submissions` 经 `deriveConsentStatus` 派生，从未读过这张表
+    //     一个字节。这一条不是声明：`tests/rec/recording-consent-single-source.test.ts`
+    //     从每个调用 `deriveConsentStatus` 的模块出发求 import 传递闭包，断言闭包里
+    //     没有任何模块碰 `recording_consent_cells`（写成图可达性而不是同文件字符串匹配，
+    //     因为「A 读表、B 调 derive」一跳就能绕开）。
+    //   · **不复制授权项定义**：X-7 管的是「授权项**定义**」不得自己拆，而这张表的项
+    //     来自已签核契约的 `RecordingConsentItem`；迁移里那条 `CHECK` 与该枚举的逐字
+    //     对账、以及代码侧不得写死项数（曾经的 `< 3`），同样在那个文件里机械断言。
+    //
+    // ⚠ 2026-08-04 coord-main 就 X-7 / XC-18 的裁决（issue #465 / PR #500）只回答了
+    //   「表能不能建」。**三项（recording 契约）vs 四项（本表四个布尔列）之争仍未裁**，
+    //   是产品语义问题，需要人类。谁来读这段，不要把它读成那件事已经解决了。
+    //
+    // ⚠ 这份清单每加一项，这条门控就松一分。加第四项之前请先问：新表是不是又一个
+    //   「按不同的键存同一件事」——F86 与 #465 两条都是先答完这个问题才进来的。
     expect(tables.rows.map((r) => r.table_name)).toEqual([
       "interview_consent_snapshots",
       "interview_consent_submissions",
+      "recording_consent_cells",
     ]);
   });
 });

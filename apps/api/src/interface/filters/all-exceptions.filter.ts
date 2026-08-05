@@ -30,6 +30,8 @@ import {
   interview,
   orgAdmin,
   project,
+  recording,
+  skills,
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
@@ -236,6 +238,22 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   if (agentStarterImport.success) return { reasonCode: agentStarterImport.data };
 
   /**
+   * #459：`skills.SkillError` —— 声明式契约 skill 的失败面。
+   *
+   * ⚠ 加进这个白名单是**必需的**，不是顺手：本文件是允许列表，没登记的
+   *   `reasonCode` 会被**静默丢掉**，于是 controller 抛的
+   *   `DATA_SCOPE_EXCEEDS_SUBMITTER` / `REFERENCES_NOT_ENUMERATED` 到了前端
+   *   只剩一个光秃秃的状态码，界面没法按项给「申请授权」入口——而
+   *   「说得出理由」是 F61 的验收判据之一，不是调试信息。
+   *
+   * ⚠ 仍然只放**闭集里的值**过去：这道 `safeParse` 就是防枚举探测的那道门，
+   *   任何自造的字符串（例如重名冲突那个缺口用的码）在这里过不去，
+   *   于是它不会变成一个可探测的存在性预言机。
+   */
+  const skillError = skills.SkillError.safeParse(raw);
+  if (skillError.success) return { reasonCode: skillError.data };
+
+  /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。
    *
    * ⚠ 「第九」是 **rebase 到同时含 F49 / F117 / F81 / F18 / F32 的 main 之后重新数的**
@@ -289,7 +307,34 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    *   前者收到的是 403 而不是 404，后者收到的是 404 而不是别的组织的存在性。
    */
   const canvasError = canvas.CanvasError.safeParse(raw);
-  return canvasError.success ? { reasonCode: canvasError.data } : {};
+  if (canvasError.success) return { reasonCode: canvasError.data };
+
+  /**
+   * #465: `recording.RecordingError`，第十一个闭集枚举 —— 同一个 bug 第七次发生。
+   *
+   * ⚠ 「第十一」是**数调用点数出来的**，不是把上一条的「第十」加一：
+   *   本改动前 `grep -c "^  const .*safeParse(raw);"` 报 10，本条是第 11 个。
+   *   上面 F32 / F109 / #463 三段各自记过一次「裸 grep 会多报，因为注释里也提到了它」，
+   *   这里照它们的方法重数了一遍。
+   *
+   * 录音会话生命周期的四个操作声明了 `CONSENT_NOT_COMPLETED` / `RETENTION_POLICY_MISSING` /
+   * `SESSION_ENDED` / `SESSION_NOT_ENDED` / `MIC_NOT_GRANTED` / `ANCHOR_MISSING` …，
+   * 它们不属于上面任何一个枚举 —— 前十次 safeParse 全部失败，调用方收到光秃秃的
+   * `{"error":"conflict"}`。状态码对，原因没了，而这几件事的出口彼此毫无关系：
+   *   · `CONSENT_NOT_COMPLETED` 去催授权，**且要能说出是谁的哪一项**；
+   *   · `RETENTION_POLICY_MISSING` 去配置项目留存期，跟授权没有一点关系；
+   *   · `SESSION_ENDED` 这场已经结束了，重试多少次都一样；
+   *   · `MIC_NOT_GRANTED` 是这一路本来就没在录，不是权限不够。
+   * 把它们都渲染成一个 409，界面只能说「操作失败」。
+   *
+   * ⚠ 与 `chat.NOT_VISIBLE` / `ARTIFACT_NOT_FOUND` 那两条刻意不走这条路的相反，
+   *   `recording.controller.ts` 的跨租户路径抛的是 `SESSION_NOT_FOUND`，而它与
+   *   「这个 id 根本不存在」返回的是同一个码 —— 因为在那条路径上二者本来就是同一件事：
+   *   会话查询在租户事务里做，别的租户的行读不出来，所以不存在探测面。反证在
+   *   `tests/rec/recording-http-session-lifecycle.test.ts` 的「另一个租户不能推分段」上。
+   */
+  const recordingError = recording.RecordingError.safeParse(raw);
+  return recordingError.success ? { reasonCode: recordingError.data } : {};
 }
 
 /**

@@ -140,6 +140,8 @@ describe("③ R7：无清单不得停用——referenceSnapshotId 必须是最�
         mode: "drain",
         archive: true,
         replacementSkillId: null,
+        // #459：本条在 R7 那道门就返回了，状态机根本走不到；字段是类型要求。
+        currentStatus: "已启用",
       },
       { snapshots, audit },
     );
@@ -174,6 +176,7 @@ describe("③ R7：无清单不得停用——referenceSnapshotId 必须是最�
         mode: "drain",
         archive: true,
         replacementSkillId: null,
+        currentStatus: "已启用",
       },
       { snapshots, audit },
     );
@@ -199,6 +202,10 @@ describe("③ R7：无清单不得停用——referenceSnapshotId 必须是最�
         mode: "drain",
         archive: true,
         replacementSkillId: null,
+        // #459：`from` 现在来自库，不再硬编码成 `已启用`。这条用例测的是
+        // 「清单最新 ⇒ R7 那道门放行」，所以它要的正是一个**本就可停用**的
+        // 状态；写死 `已启用` 在这里是**测试夹具**，不是被修掉的那个假设。
+        currentStatus: "已启用",
       },
       { snapshots, audit },
     );

@@ -206,7 +206,43 @@ ok_tables=$(psql_owner -c "SELECT count(*) FROM kernel_tenant_table_audit() WHER
 #   ⚠ #457 / #459 与本 PR 并行，两者都可能再加租户表。若合流时这一行出现文本冲突：
 #     照上面 F81 / F109 两段写过的做法——**冲突整个丢掉，在合流后的库上从空库重跑一次**，
 #     不要在 diff 里挑一个数字留下，也不要把两边的增量相加。
-OK_TABLES_FLOOR=96
+#
+# ⚠ 这一行是 #465（PR #500）与 #414（PR #499）合流后**重新实测**的，两边的数字都已作废。
+#   合流前：#465 在自己树上实测 101（96 -> 101，加五张 recording 表）；
+#           #414 在自己树上实测 97（96 -> 97，加一张 `agent_run_steps`）。
+#   **两个数都是真的，对的是各自当时那棵树**，而它们不能叠。
+#   「101 + 1 = 102」是算术，不是测量——F49 / F117 / F81 三次栽的就是这一步，
+#   而且三次都是往少了算；少算的结果恰好是这个 ratchet 静默失效（比较是 `-ge`，
+#   floor 少 1 永远不会红）。所以本次按上面 F81 / F109 两段写死的做法处理：
+#   **合并冲突整个丢掉，在合流后的树上用一个全新库名从空库重跑一次。**
+#
+#   实测记录：
+#     · 测量时 `origin/main` = 9e1063d0（**已含 #465 / PR #500**，其迁移 20260805100000）
+#     · 被测树 = 该 main 与 #414 的真 merge（#414 迁移 20260805110000，两者不冲突）
+#     · 库名 = `wsx_414_465_merged_rls`（全新库名，从空库重放全部 73 个迁移）
+#     · 实测值 = `ok = 102`
+#
+#   ⚠ 「101 + 1 = 102」这次算术恰好对上，**这仍然不构成可以推算的理由**。
+#     上面 F49 / F109 / #465 三段各记过一次「算术对上」，而 F10/F108 差 2、F15 差 1、
+#     #463 差 48——差的方向永远是往少了算。算术对上只说明这一轮没有表被判成 exempt，
+#     不说明下一轮也没有。**它是事后核对，不是测量的替代品。**
+#
+#   ⚠ #459（skill controller）仍在并行，它可能再加租户表。合流时这一行若再出现文本冲突：
+#     同样**冲突整个丢掉、从空库重跑**，不要挑一个数字留下，也不要把两边的增量相加。
+#
+#   #459 实测记录（2026-08-05，本次抬到 105）：
+#     · 起始 `origin/main` = fc0e1270（实测 `git rev-parse origin/main`，不是照抄 notes）
+#     · **基线**：先在**未含本分支改动**的树上、用全新库名 `wsx_459_base` 从空库重放
+#       74 个迁移中的 73 个（不含本分支的迁移），实测 `ok = 102` —— 与上面那次一致，
+#       这是核对，不是推算的来源。
+#     · **新值**：在本分支树上、用另一个全新库名 `wsx_459_rls2` 从空库重放全部 74 个，
+#       实测 `ok = 105`。
+#     · 本分支新增的租户表恰好三张：`skill_contracts` / `skill_contract_versions` /
+#       `skill_contract_reference_snapshots`（迁移 20260805140000）。
+#
+#   ⚠ 「102 + 3 = 105」这次又对上了，**仍然不构成可以推算的理由**——上面已经记了三次
+#     「算术对上」。两个数各自都是从空库量出来的，加法只是事后核对。
+OK_TABLES_FLOOR=105
 if [ "$ok_tables" -ge "$OK_TABLES_FLOOR" ]; then ok "audit is not idle: $ok_tables tenant tables classified ok (floor $OK_TABLES_FLOOR)"; else bad "audit found only $ok_tables tenant tables (floor $OK_TABLES_FLOOR) -- either it is not seeing the schema, or a new table was classified exempt instead of ok"; fi
 
 # Exemptions must be DECLARED on the table, and there must be few of them. An exemption

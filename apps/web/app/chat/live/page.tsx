@@ -15,8 +15,24 @@
  * 列线程、看线程详情（含消息，`getThread.out.messages` 是真实 SQL 查出来的）、
  * 建线程、预设三件套（编写/下发/开始实例/用量）。
  *
- * ⚠ **没有「发消息」输入框**：契约里没有这个写端口（见 `lib/live-chat.ts` 头部），
- *   这里如实留空、不假装能发消息。
+ * ⚠ **本页没有「发消息」输入框 —— 但这不是因为契约缺口。**
+ *
+ *   这里原先写着「契约里没有这个写端口」。那句话**现在是假的**，而且已经造成过实际
+ *   损害：有 coordinator 据它建了一个不必要的 design-delta issue、派了不必要的高优先级
+ *   任务、还重排了两条链的优先级。写端口一直都在，逐个定位过：
+ *     · 契约：      `chat.operations.createMessage`   packages/contracts/src/chat.ts:567
+ *     · 前端薄封装：`createMessage`                    apps/web/lib/live-chat.ts
+ *       （该文件头部**已经**把 `listMessages / createMessage` 列在「已封装」那一栏，
+ *         所以上面那句旧注释连它引用的出处都对不上了）
+ *     · 已交付的真实 UI：`chat-message-input` / `chat-message-submit`
+ *       apps/web/components/chat/chat-live-message-panel.tsx:202 / :213，
+ *       挂在 `/chat`（`ChatReadScreen` → `ChatLiveMessagePanel`）。
+ *     · 端到端证据：`apps/web/e2e/chat-read.spec.ts`
+ *       （填内容 → 提交 → 202 → `page.reload()` → 消息仍在）。
+ *
+ *   本页依然不提供输入框，那是**范围选择**而不是能力缺失：`/chat/live` 只用来证明
+ *   「真实 HTTP + 真实 Postgres」这条路径成立，发消息的正式界面在 `/chat` 上。
+ *   要发消息请去 `/chat`；**不要因为这里空着就断定契约缺了一块。**
  */
 import * as React from "react";
 import { Button } from "@/components/ui/button";
