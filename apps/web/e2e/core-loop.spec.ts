@@ -87,13 +87,18 @@ test.describe("核心闭环八步", () => {
     expect(before.bootstrapConsumed, "一次性 bootstrap 标记必须未被消费，否则门是关的").toBe(false);
 
     await page.goto("/login");
+    // 「创建组织」不再是登录页上的一个内联面板，而是整页跳到 `/auth/register`
+    // （`login-form.tsx` 里是 `window.location.assign`，不是 client-side 路由）。
+    // 所以必须等 URL 真的落到注册页，不能点完就直接 fill——否则会在旧页上找新锚点。
     await page.getByTestId("login-create-org").click();
-    // 邀请码**留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
-    await page.getByTestId("login-org-name").fill(FIRST_USER.orgName);
-    await page.getByTestId("login-admin-name").fill(FIRST_USER.displayName);
-    await page.getByTestId("login-create-email").fill(FIRST_USER.email);
-    await page.getByTestId("login-create-password").fill(FIRST_USER.password);
-    await page.getByTestId("login-create-org-submit").click();
+    await expect(page).toHaveURL(/\/auth\/register$/);
+
+    // 邀请码 `registration-code` **留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
+    await page.getByTestId("registration-org-name").fill(FIRST_USER.orgName);
+    await page.getByTestId("registration-display-name").fill(FIRST_USER.displayName);
+    await page.getByTestId("registration-email").fill(FIRST_USER.email);
+    await page.getByTestId("registration-password").fill(FIRST_USER.password);
+    await page.getByTestId("registration-submit").click();
 
     // 「自动成为管理员」的第一半：注册完**直接就是登录态**，不必收邮件。
     // `bootstrap-first-user.ts` 直接置位 `emailVerifiedAt`，所以这一步不依赖邮件投递。
@@ -133,12 +138,22 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 3：新增 Skill ───────────────────────────────────────────────── */
 
-  test.fail("[#459] 步骤 3：新增 Skill 草稿 → 列表可见 → 详情可读", async ({ page }) => {
+  // ✅ #520 交付后**翻正成真断言**。原文是 `test.fail("[#459] …")`：当时属实——31 个
+  // application 用例存在，但没有任何一张表能存下声明式契约 skill，也没有 SkillController。
+  // #518 补上后端（建草稿 / 列表 / 详情），#520 把 `/skill` 的默认屏接上去，这一步才真的通。
+  test("步骤 3：新增 Skill 草稿 → 列表可见 → 详情可读", async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto("/skill");
-    // #459 的实测结论：31 个 application 用例存在，但**没有任何一张表**能存下
-    // 声明式契约 skill（starter-import 表的 status CHECK 只有 enabled/disabled），
-    // 也没有 SkillController。所以这一步现在必然红。
+    // 与步骤 2 同一个分寸：这里只断言「这条路径是活的」——建草稿 / 刷新仍在 / 详情可读 /
+    // 真实空态 / 失败信封 / 反证，六件由 `skill-create-smoke.spec.ts` 覆盖，不在这里重复。
+    //
+    // ⚠ testid **实测得来的，不是凭印象写的**：
+    //   `components/skill/skill-catalog-live.tsx` 的 `data-testid="skill-catalog-live"`（根）
+    //   与 `data-testid="skill-create-open"`（新建入口）；提交按钮 `skill-create-submit`
+    //   在同文件的 `CreatePanel` 里，**只有展开面板后才存在** —— 所以要先点开。
+    //   本条原文直接断言 `skill-create-submit` 可见，那在任何实现下都red：面板是收起的。
+    await expect(page.getByTestId("skill-catalog-live")).toBeVisible();
+    await page.getByTestId("skill-create-open").click();
     await expect(page.getByTestId("skill-create-submit")).toBeVisible();
   });
 

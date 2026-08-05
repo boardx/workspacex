@@ -21,64 +21,17 @@
  * 去背别人的债。这个残留已在 issue #458 的评论里报给 coord，不在本 issue 范围内。
  * 这段话是**限制说明**，不是免责声明：下面第三条断言把「外壳只从 mock 拿类型」钉死，
  * 一旦有人从那里拿到运行时的值，它会红。
+ *
+ * ## 走图器本体已抽到 `./import-closure`（#520）
+ *
+ * 第二个调用方（`skill-create-route-no-mock.test.ts`）出现时，复制一份走图器就等于
+ * 让「不吃 mock」这条判定标准存在两个会各自演化的版本。所以它搬去了 `import-closure.ts`，
+ * 本文件的断言一字未改。
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-
-const ROOT = process.cwd();
-
-/** 只认静态 import/export-from：动态 `import()` 也一并抓，漏掉它等于留了一扇后门。 */
-const SPECIFIER = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
-
-function resolveModule(fromFile: string, specifier: string): string | null {
-  const base = specifier.startsWith("@/")
-    ? resolve(ROOT, specifier.slice(2))
-    : specifier.startsWith(".")
-      ? resolve(dirname(fromFile), specifier)
-      : null;
-  if (base === null) return null; // 裸包名：node_modules，不是本仓源码
-  for (const candidate of [
-    base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`,
-  ]) {
-    if (existsSync(candidate) && !candidate.endsWith("/")) {
-      try {
-        readFileSync(candidate, "utf8");
-        return candidate;
-      } catch {
-        // 目录本身：继续试带扩展名的候选
-      }
-    }
-  }
-  return null;
-}
-
-/** 从 entry 出发的传递闭包，返回 [被走到的模块, 命中的 mock 依赖边]。 */
-function walk(entry: string): { visited: string[]; mockEdges: string[] } {
-  const start = resolve(ROOT, entry);
-  expect(existsSync(start), `${entry} 不存在——入口写错了，断言会空转`).toBe(true);
-  const visited = new Set<string>();
-  const mockEdges: string[] = [];
-  const queue = [start];
-  while (queue.length > 0) {
-    const file = queue.pop()!;
-    if (visited.has(file)) continue;
-    visited.add(file);
-    const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(SPECIFIER)) {
-      const specifier = match[1] ?? match[2];
-      if (!specifier) continue;
-      const target = resolveModule(file, specifier);
-      if (target === null) continue;
-      if (relative(ROOT, target).startsWith("lib/mock/")) {
-        mockEdges.push(`${relative(ROOT, file)} -> ${relative(ROOT, target)}`);
-        continue;
-      }
-      queue.push(target);
-    }
-  }
-  return { visited: [...visited].map((f) => relative(ROOT, f)).sort(), mockEdges };
-}
+import { ROOT, walk } from "./import-closure";
 
 const AGENT_ENTRY = "components/admin/agent-screen.tsx";
 

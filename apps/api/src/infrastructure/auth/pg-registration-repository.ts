@@ -283,18 +283,21 @@ export class PgRegistrationRepository implements RegistrationRepository {
 
     // (5) Queue the verification email, in the same transaction.
     //
-    // This is what lets the contract's `emailVerificationSent: z.literal(true)` be honest:
+    // This is what lets the contract's `verificationDelivery: "queued"` be honest:
     // if this write fails, everything above rolls back and no account exists (UC-1.5 V6:
     // "不产生可用账号"). An SMTP call here could not do that -- its failure would arrive
     // after the commit, leaving an organization behind and a caller told nothing was sent.
     //
-    // ⚠ "Sent" therefore means "durably enqueued". The relay that drains
-    // `email_verification_tokens WHERE delivered_at IS NULL` does not exist in phase-00;
-    // that is reported, not implied.
+    // The bearer itself is never written: the digest and a non-secret challenge id are.
     await s.query(
-      `INSERT INTO email_verification_tokens (token, user_id, email, expires_at)
+      `INSERT INTO email_verification_challenges (id, token_digest, user_id, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [input.verificationToken, input.userId, input.email, input.verificationExpiresAt],
+      [input.verificationChallengeId, input.verificationTokenDigest, input.userId, input.verificationExpiresAt],
+    );
+    await s.query(
+      `INSERT INTO mail_outbox (id, challenge_id, template, recipient)
+       VALUES ($1, $2, 'email-verification', $3)`,
+      [input.verificationOutboxId, input.verificationChallengeId, input.email],
     );
   }
 
@@ -353,41 +356,4 @@ export class PgRegistrationRepository implements RegistrationRepository {
     }
   }
 
-  /**
-   * Consume a verification token and mark the address verified -- one statement, so the two
-   * cannot come apart.
-   *
-   * A CTE rather than two queries: `UPDATE ... WHERE consumed_at IS NULL` is the same
-   * conditional-write pattern as the redemption, for the same reason (two clicks on the
-   * same link must not both count), and chaining the credential update off its RETURNING
-   * means a crash cannot leave a spent token with an unverified account.
-   *
-   * ⚠ Runs `withoutTenant`: neither table carries `org_id`, and there is no organization in
-   * scope at verification time -- the user clicks a link from their mail client with no
-   * session. `withoutTenant`'s doc warns it reads zero rows for tenant tables (fail-closed);
-   * that warning is exactly why the credential tables are not tenant tables.
-   */
-  async confirmEmailVerification(token: string, now: Date): Promise<{ userId: string } | null> {
-    return this.db.withoutTenant(async (s) => {
-      const r = await s.query<{ user_id: string }>(
-        `WITH consumed AS (
-           UPDATE email_verification_tokens
-              SET consumed_at = $2
-            WHERE token = $1
-              AND consumed_at IS NULL
-              AND expires_at > $2
-            RETURNING user_id
-         )
-         UPDATE credentials c
-            SET email_verified_at = COALESCE(c.email_verified_at, $2)
-           FROM consumed
-          WHERE c.user_id = consumed.user_id
-          RETURNING c.user_id`,
-        [token, now],
-      );
-      // Zero rows covers absent, expired and already-consumed alike -- one outcome for
-      // three causes, deliberately (domain/auth/email-verification.ts).
-      return r.rows.length === 1 ? { userId: r.rows[0]!.user_id } : null;
-    });
-  }
 }

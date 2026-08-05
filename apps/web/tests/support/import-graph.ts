@@ -54,15 +54,27 @@ export interface ImportGraphWalk {
   readonly mockEdges: string[];
 }
 
-/** ⚠ 入口不存在时抛出，而不是返回空——空结果会让「没有 mock」变成一次空转。 */
-export function walkImports(entry: string): ImportGraphWalk {
-  const start = resolve(ROOT, entry);
-  if (!existsSync(start)) {
-    throw new Error(`走图入口不存在：${entry}——入口写错了，断言会空转`);
+/**
+ * ⚠ 入口不存在时抛出，而不是返回空——空结果会让「没有 mock」变成一次空转。
+ *
+ * 支持**多入口**（#462）：`app/**` 下有 40 个路由入口，逐个走一遍再求并集是 40 倍的
+ * 重复读盘；共享一个 `visited` 走一次即可。传数组时空数组同样抛出——「零入口」
+ * 得到的空闭包是最典型的空转。
+ */
+export function walkImports(entry: string | readonly string[]): ImportGraphWalk {
+  const entries = typeof entry === "string" ? [entry] : entry;
+  if (entries.length === 0) {
+    throw new Error("走图入口为空数组——零入口的闭包恒为空，断言会空转");
   }
+  const queue = entries.map((e) => {
+    const start = resolve(ROOT, e);
+    if (!existsSync(start)) {
+      throw new Error(`走图入口不存在：${e}——入口写错了，断言会空转`);
+    }
+    return start;
+  });
   const visited = new Set<string>();
   const mockEdges: string[] = [];
-  const queue = [start];
   while (queue.length > 0) {
     const file = queue.pop()!;
     if (visited.has(file)) continue;

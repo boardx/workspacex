@@ -97,6 +97,10 @@ export default defineConfig({
         "capability-mutate-smoke.spec.ts",
         "canvas-template-create-smoke.spec.ts",
         "core-loop.spec.ts",
+        // ⚠ #520 与 #496 同理，必须排在 `seeded` 里：它要用种子里的组织管理员登录。
+        //   排进 `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有——它会红，
+        //   但**不是因为对的原因**。
+        "skill-create-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

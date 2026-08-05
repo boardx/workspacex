@@ -50,6 +50,7 @@ export const AUTH_POLICY = {
   sessionDays: 30,
   passwordMinLen: 12,
   resetLinkHours: 1,
+  verificationLinkHours: 24,
   lockAfterFails: 5,
   lockWindowMinutes: 15,
   lockDurationMinutes: 15,
@@ -95,6 +96,7 @@ export const AuthReason = z.enum([
   /** 与 SESSION_EXPIRED 分开：用户需要分辨「被踢了」还是「太久没用」 */
   "SESSION_REVOKED",
   "EMAIL_TAKEN",
+  "VERIFICATION_LINK_INVALID",
   /** Redis / 认证依赖不可用。⚠ **一律拒绝，不得降级放行**（同 identity 的同名码） */
   "AUTH_SERVICE_UNAVAILABLE",
   /** 数据库已有任意账号；首用户无邀请码入口从此永久关闭。 */
@@ -361,15 +363,11 @@ export const operations = {
         userId: z.string(),
         /** [原型] 形如 `org_8f21`；⚠ 实际形态受 `domain/org-id.ts` 的 `OrgId` 约束，见 C5 */
         orgId: z.string(),
-        /** 恒 true —— 见上方长注。发不出去就不是这个响应 */
-        emailVerificationSent: z.literal(true),
+        /** 事务内可靠入队；不虚报供应商已接收。 */
+        verificationDelivery: z.literal("queued"),
       })
       .strict(),
-    /**
-     * ⚠ **穷举不全，且这是已知缺口不是疏漏**：UC-1.5 E4 / V6 要求
-     * 「邮件服务不可用时界面明确失败」，但这里没有对应的码。
-     * F19 的处理与登记见 `KNOWN_CONTRACT_GAPS.C3`——**没有自己发明一个码**。
-     */
+    /** 供应商故障不回滚注册；`queued` 只陈述事务内 outbox 已落盘。 */
     err: ["INVITE_CODE_INVALID", "EMAIL_TAKEN"] as const,
   },
 
@@ -392,6 +390,20 @@ export const operations = {
       emailVerified: z.literal(true),
     }).strict(),
     err: ["BOOTSTRAP_UNAVAILABLE", "EMAIL_TAKEN"] as const,
+  },
+
+  confirmEmailVerification: {
+    method: "POST", path: "/auth/email-verifications/confirm",
+    in: z.object({ token: z.string().min(40) }).strict(),
+    out: z.object({ status: z.literal("completed") }).strict(),
+    err: ["VERIFICATION_LINK_INVALID"] as const,
+  },
+
+  resendEmailVerification: {
+    method: "POST", path: "/auth/email-verifications/resend",
+    in: z.object({ email: z.string().email() }).strict(),
+    out: z.object({ verificationDelivery: z.literal("queued") }).strict(),
+    err: [] as const,
   },
 
   /* ── F22 段 ──────────────────────────────────────────────────────────
@@ -550,26 +562,8 @@ export const PasswordHashFormat = z
  * （`design-signoff.md` 的 status 只能由人类改，agent 不许动）。
  */
 export const KNOWN_CONTRACT_GAPS = {
-  /**
-   * **没有「完成邮箱验证」这个操作。**
-   *
-   * `Credential.emailVerifiedAt` 是契约字段，I-8 说未验证不能登录，V4 要求断言它——
-   * 但 usecases.md 的操作表里**没有任何操作能把 `emailVerifiedAt` 从 null 变成非 null**，
-   * coverage.md 第四节「无孤儿操作」的反向检查也没发现这个反方向的洞：
-   * 它查的是「有没有多余的操作」，查不出「有没有缺的操作」。
-   *
-   * 后果如果不补：**任何账号都永远无法登录**，而 F19 与 F20 各自的验收都能全绿——
-   * F19 断言「新账号未验证」通过，F20 断言「未验证账号被拒」也通过。
-   *
-   * F19 的处理：在 application 层实现了 `confirmEmailVerification`（域规则来自
-   * UC-1.5 R9 / O-28：24 小时、一次性），但**没有开 HTTP 路由、没有在此新增操作**——
-   * 那需要人类重新签核。
-   */
-  C1: "no ConfirmEmailVerification operation; emailVerifiedAt can never become non-null through contracted surface",
   /** `EMAIL_TAKEN` 出现在操作的 err 里，却不在 usecases.md 的 `AuthReason` 表里。本文件已补进枚举。 */
   C2: "EMAIL_TAKEN declared by the operation but absent from the AuthReason table in usecases.md",
-  /** UC-1.5 E4/V6「邮件服务不可用」没有失败码。F19 用「同事务入队」规避了这个失败面，见实现注释。 */
-  C3: "no failure code for mailer-unavailable, though UC-1.5 E4 and V6 both require it to be visible",
   /** O-28 的「必须查弱口令库」无法用 zod 表达，F19 未实现该检查。 */
   C4: "O-28 requires a weak-password dictionary check; not expressible here and not implemented",
   /**
