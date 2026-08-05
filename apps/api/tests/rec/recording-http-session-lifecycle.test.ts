@@ -288,6 +288,55 @@ describe("POST /recording/sessions .. /segments .. /end .. /materialize", () => 
     expect(await countRows(ORG, "recording_tracks")).toBe(0);
   });
 
+  it("refuses to start when only the three pre-#533 items are granted (3/4 is not consent)", async () => {
+    // #533 —— X-7/XC-18 的裁决落地后**唯一的行为差异**，所以它值一条自己的用例。
+    //
+    // ⚠ 这三项是**写死的字面量，不是 `C.RecordingConsentItem.options.slice(0,3)`**：
+    //   本用例要固定的是「2026-08-05 之前那套三项」这个历史事实。若改成从枚举派生，
+    //   哪天有人把 `attribution` 从枚举里删回去，这个 fixture 会跟着变成「全部授权」，
+    //   于是用例期望的 403 变成期望「全授权也拒绝」——它会红，但**红在错的原因上**，
+    //   而下一个人看到红只会把期望改成 200。写死才能让它红在判定上。
+    const LEGACY_THREE = ["record", "transcript", "ai_analysis"] as const;
+    const sourceRefId = "thread-rec533-partial";
+    await grantConsent(ORG, sourceRefId, P1);
+    await asApp(ORG, async (c) => {
+      for (const item of LEGACY_THREE) {
+        await c.query(
+          `INSERT INTO recording_consent_cells (org_id, source_ref_id, participant_id, item, state)
+           VALUES ($1,$2,$3,$4,'granted')
+           ON CONFLICT (org_id, source_ref_id, participant_id, item) DO UPDATE SET state = 'granted'`,
+          [ORG, sourceRefId, P2, item],
+        );
+      }
+    });
+    // P2 的 `attribution` 一行都没有——「没问过」不等于「同意被署名引述」。
+
+    const res = await post("/recording/sessions", USER, ORG, {
+      sourceType: "thread",
+      sourceRefId,
+      projectId: PROJECT,
+      trackPlan: [{ participantId: P1 }, { participantId: P2 }],
+      idempotencyKey: "start-533-partial",
+    });
+
+    expect(res.status).toBe(403);
+    expect(await reasonCodeOf(res)).toBe("CONSENT_NOT_COMPLETED");
+    expect(await countRows(ORG, "recording_sessions")).toBe(0);
+    expect(await countRows(ORG, "recording_tracks")).toBe(0);
+
+    // 正对照：同一个人补上第四项后必须放行。少了这一条，上面的 403 与
+    // 「这条路径根本起不来」不可分辨——那是空转断言的经典形状。
+    await grantConsent(ORG, sourceRefId, P2);
+    const ok = await post("/recording/sessions", USER, ORG, {
+      sourceType: "thread",
+      sourceRefId,
+      projectId: PROJECT,
+      trackPlan: [{ participantId: P1 }, { participantId: P2 }],
+      idempotencyKey: "start-533-complete",
+    });
+    expect(ok.status).toBe(201);
+  });
+
   it("refuses to start when a participant has no consent row at all (fail closed)", async () => {
     const sourceRefId = "thread-rec465-c";
     await grantConsent(ORG, sourceRefId, P1);

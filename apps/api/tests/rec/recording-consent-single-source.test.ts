@@ -19,6 +19,13 @@
  *   矩阵只答了四分之三时照常放行，而且没有任何东西会报。已改成读
  *   `RecordingConsentItem.options.length`，下面第三条断言把它钉住。
  *
+ * ⚠ **后记（2026-08-05，issue #533）：上面那句「一旦裁成四项」当天就发生了。**
+ *   coord-main 经人类授权裁成四项，`RecordingConsentItem` 成为 `consent-item.ts` 四项枚举的
+ *   别名，`blocksStart` 的基数自动跟到 4 —— 若当初留着字面 `3`，本裁决落地当天就会
+ *   **静默放行只答了 3/4 的同意**。这条门控守的东西比它当时看起来的更值钱。
+ *   跨束的「只有一处声明」由 `consent-items-single-source.test.ts` 守，本文件继续守
+ *   「SQL 那份不得不存在的拷贝」与「代码不写死项数」。
+ *
  * ## ② 不产生第二个「同意状态」（放行条件 3）
  *
  * 这才是「第二份事实」真正的风险面：两张表各自算出一个 `consentStatus`。
@@ -123,13 +130,29 @@ describe("录音同意矩阵不成为第二份事实", () => {
       asApp(ORG, (c) =>
         c.query(
           `INSERT INTO ${TABLE} (org_id, source_ref_id, participant_id, item, state)
-           VALUES ($1, 'src-x', 'p-x', 'attribution', 'granted')`,
+           VALUES ($1, 'src-x', 'p-x', 'sharing', 'granted')`,
           [ORG],
         ),
       ),
-      // `attribution` 不是随手挑的：它正是 interview 侧四位里多出来的那一位，
-      // 也就是 X-7 三项/四项之争的争点本身。本束若哪天悄悄跟着拆成四项，这条先红。
+      // ⚠ 这里原来插的是 `attribution`，因为当时它正是 X-7「三项 vs 四项」的争点，
+      //   插进去被拒 = 本束没有偷偷跟着拆成四项。**2026-08-05 裁决（#533）取了四项**，
+      //   `attribution` 现在是合法成员，那条断言随之失去意义，换成一个**不在枚举里的**
+      //   项名（`sharing`）。换的是样本，守的性质没变：CHECK 是活的，不是摆设。
     ).rejects.toThrow(/check constraint|violates/i);
+  });
+
+  it("① 裁决那一位真的进得去：`attribution` 被数据库接受", async () => {
+    // 上一条的正对照。少了它，「CHECK 拒绝 `sharing`」与「CHECK 把什么都拒了」
+    // 不可分辨 —— 而后者会让 #533 的行为变化（3/4 拒绝、4/4 放行）永远走不到放行分支。
+    await expect(
+      asApp(ORG, (c) =>
+        c.query(
+          `INSERT INTO ${TABLE} (org_id, source_ref_id, participant_id, item, state)
+           VALUES ($1, 'src-attr', 'p-attr', 'attribution', 'granted')`,
+          [ORG],
+        ),
+      ),
+    ).resolves.toBeDefined();
   });
 
   it("① 代码侧不写死项数：门禁读的是契约枚举的基数，不是字面量", () => {

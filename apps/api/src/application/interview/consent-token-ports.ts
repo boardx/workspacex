@@ -18,16 +18,18 @@
  * 是两个不同的类型，`issueSigningToken`/`issuePortalToken` 是两个不同的方法，
  * 没有一个「万能 token 表」的读写口子。
  */
+import type { z } from "zod";
+import type { ConsentBits, ConsentItemValue } from "@repo/contracts/consent-item";
 import type { ConsentRenderParams } from "../../domain/interview/consent-token";
 
-export type ConsentKeyValue = "record" | "transcript" | "ai_analysis" | "attribution";
+/**
+ * ⚠ **不在这里手写四项**（#533）：同意项的唯一事实源是
+ * `@repo/contracts` 的 `consent-item.ts`，本文件原来手抄了一份联合类型 + 一份
+ * 四字段接口，两份都不会因契约改名而报警。现改为派生。
+ */
+export type ConsentKeyValue = ConsentItemValue;
 
-export interface ConsentBitsValue {
-  readonly record: boolean;
-  readonly transcript: boolean;
-  readonly ai_analysis: boolean;
-  readonly attribution: boolean;
-}
+export type ConsentBitsValue = Readonly<z.infer<typeof ConsentBits>>;
 
 /* ─────────────────────────── 签署令牌 ─────────────────────────── */
 
