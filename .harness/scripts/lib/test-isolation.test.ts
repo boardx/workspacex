@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertDatabaseCapacity, deriveTestIsolation, ensureTestIsolation } from "./test-isolation";
+import { assertDatabaseCapacity, assertIsolatedDatabase, deriveTestIsolation, ensureTestIsolation } from "./test-isolation";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 
@@ -213,5 +213,47 @@ describe("test isolation contract (#74)", () => {
       currentConnections: 5,
       requiredConnections: 32,
     })).not.toThrow();
+  });
+});
+
+describe("#538 未隔离跑法当场失败", () => {
+  const hintNeedle = "with-test-isolation.ts";
+
+  it("没有 WORKSPACEX_DB —— 裸跑 turbo/vitest 的形态 —— 必须抛，且指出正确跑法", () => {
+    expect(() => assertIsolatedDatabase({ resolvedDatabase: "workspacex", env: {} }))
+      .toThrow(/未在隔离外壳里运行/);
+    try {
+      assertIsolatedDatabase({ resolvedDatabase: "workspacex", env: {} });
+    } catch (e) {
+      const message = (e as Error).message;
+      // 报错必须**可行动**：既说清连的是哪个库，也给出该怎么跑
+      expect(message).toContain("workspacex");
+      expect(message).toContain(hintNeedle);
+    }
+  });
+
+  it("有隔离环境、但实际连的不是它（有人覆盖了 PGDATABASE）—— 也必须抛", () => {
+    // 这比完全没隔离更危险：日志看起来是隔离的，落点却不是
+    expect(() => assertIsolatedDatabase({
+      resolvedDatabase: "workspacex",
+      env: { WORKSPACEX_DB: "wsx_abc123" } as NodeJS.ProcessEnv,
+    })).toThrow(/隔离环境与实际连接不一致/);
+  });
+
+  it("隔离环境一致时安静通过（否则上面两条是空转）", () => {
+    expect(() => assertIsolatedDatabase({
+      resolvedDatabase: "wsx_abc123",
+      env: { WORKSPACEX_DB: "wsx_abc123" } as NodeJS.ProcessEnv,
+    })).not.toThrow();
+  });
+
+  it("没有任何豁免开关 —— 能被环境变量关掉的隔离检查，第一次撞红就会被关掉", () => {
+    const source = readFileSync(resolve(ROOT, ".harness/scripts/lib/test-isolation.ts"), "utf8");
+    const fn = source.slice(source.indexOf("export function assertIsolatedDatabase"));
+    const body = fn.slice(0, fn.indexOf("\n}\n") + 1);
+    // 函数体内除了 WORKSPACEX_DB 之外不得读取任何 env（那就是一个开关）
+    const envReads = [...body.matchAll(/env\.([A-Z_]+)/g)].map((m) => m[1]);
+    expect([...new Set(envReads)]).toEqual(["WORKSPACEX_DB"]);
+    expect(body).not.toMatch(/SKIP|ALLOW|FORCE|BYPASS|DISABLE/i);
   });
 });

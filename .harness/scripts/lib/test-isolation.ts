@@ -51,6 +51,51 @@ export interface DatabaseCapacity {
   requiredConnections: number;
 }
 
+export interface IsolationGuardInput {
+  /** 测试进程实际会连的库名（`migrationConfig().database`） */
+  resolvedDatabase: string;
+  /** 进程环境。隔离外壳会把 WORKSPACEX_* 一整套注进来 */
+  env: NodeJS.ProcessEnv;
+}
+
+/**
+ * 未隔离跑法**当场失败**（#538）。
+ *
+ * 事故：有人照着派工模板跑裸 turbo ——
+ *   `TURBO_FORCE=1 pnpm turbo run test --filter=...`
+ * 于是 34 条测试失败，全是幻影：它们打到了**共享的 `workspacex` 库**，彼此踩踏。
+ * 唯一的线索是日志里一行 `db=workspacex`，而那行长得跟正常输出一模一样。
+ * 咬掉了一整轮。包进隔离外壳后同一批 440/440 全过。
+ *
+ * 为什么这道检查必须在 **global setup 的第一行**：红在某条用例上，等于把一个
+ * 「跑法错了」的清晰错误伪装成「某个业务断言挂了」——那正是那一轮被浪费掉的原因。
+ * 在 setup 阶段抛，vitest 会直接报 setup 失败、一条用例都不跑，错误无处可藏。
+ *
+ * **没有豁免开关。** 一个能被环境变量关掉的隔离检查，第一次撞红时就会被关掉。
+ */
+export function assertIsolatedDatabase(input: IsolationGuardInput): void {
+  const declared = input.env.WORKSPACEX_DB;
+  const hint =
+    "\n  正确跑法：pnpm exec tsx .harness/scripts/with-test-isolation.ts -- <你的命令>" +
+    "\n  （裸跑 turbo/vitest 会连上共享库，产生彼此踩踏的幻影失败——" +
+    "唯一线索只有一行 db=workspacex，看起来跟正常输出一模一样）";
+
+  if (!declared) {
+    throw new Error(
+      `[test-isolation] 未在隔离外壳里运行：环境里没有 WORKSPACEX_DB，` +
+        `本进程会连 "${input.resolvedDatabase}"。拒绝在共享库上跑测试。${hint}`,
+    );
+  }
+  if (declared !== input.resolvedDatabase) {
+    // 有隔离环境、但实际连的不是它——通常是别处覆盖了 PGDATABASE。
+    // 这比完全没隔离更危险：日志看起来是隔离的，落点却不是。
+    throw new Error(
+      `[test-isolation] 隔离环境与实际连接不一致：WORKSPACEX_DB="${declared}"，` +
+        `但本进程会连 "${input.resolvedDatabase}"。有人在中途覆盖了 PGDATABASE。${hint}`,
+    );
+  }
+}
+
 export function assertDatabaseCapacity(capacity: DatabaseCapacity): void {
   const available = capacity.maxConnections - capacity.reservedConnections - capacity.currentConnections;
   if (available < capacity.requiredConnections) {
