@@ -30,9 +30,9 @@
     "470": {
       "due": "2026-08-05T17:00:00+08:00",
       "step": "—",
-      "blocked_by": "human:deploy",
-      "note": "epic：八步全绿 + 看板维护。10/12 真绿，只剩步骤 7 与 8c",
-      "next": "两红全绿后打 tag 上线 —— 但那要先等人类换掉 devapp 的部署脚本。"
+      "blocked_by": "human:readiness-helper",
+      "note": "epic：11/12 真绿，只剩步骤 7。main 已全绿（backend-gates 在 3054f19d 转绿）",
+      "next": "部署链第六层（readiness helper）解开后，PR/push 即自动部署（#488），devapp 上的 localhost:3200 随之消失"
     }
   },
   "human_blockers": [
@@ -41,14 +41,25 @@
       "title": "devapp 部署脚本要用 root 换一次",
       "why": "v0.1.5→v0.1.11 共 7 个 tag 部署全败。冒烟在 systemctl restart 后 3 秒就打过去，服务还在启动；仓库里的恢复路径要求 root 拥有的 /usr/local/bin/workspacex-deploy 写 nonce 状态文件，而 VM 上那份早于该契约（2026-08-04 随 #456 才进仓库）⇒ 恢复永远不生效。",
       "cmd": "sudo install -o root -g root -m 0755 /opt/workspacex/app/.harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy",
-      "blocks": "八步全绿也只存在于 CI 里，你在 devapp 上走查不了"
+      "blocks": "八步全绿也只存在于 CI 里，你在 devapp 上走查不了",
+      "resolved_at": "2026-08-05T15:02:00+08:00",
+      "resolved_by": "coord-main（人类授权 SSH 后自己执行）",
+      "evidence": "/usr/local/bin/workspacex-deploy sha256=a630bd57…（与 origin/main 的 deploy.sh 一致），旧版备份 .bak；deploy.env 补齐 EMAIL_VERIFICATION_SECRET 与 5 个 Cloudflare 邮件键"
     },
     {
       "id": "bootstrap",
       "title": "线上「首位管理员」名额被探测账号占了，需你决定怎么复位",
       "why": "coord-agent-auth 为诊断人类那次「创建服务暂时不可用」，直接对线上发了合法注册并 201 成功，消耗掉一次性 bootstrap 名额。⚠ 光删那个账号没用：门的判据是 auth_bootstrap_state 为空 **且** credentials 整表为空，迁移注释逐字写明这是故意不可逆的。所以要么清库（脚本见下），要么改用探测账号当管理员。",
       "cmd": "cd /opt/workspacex/app && pnpm --filter @repo/api exec tsx apps/api/scripts/core-loop-db.ts reset",
-      "blocks": "你本人建不了账号，八步第 1 步对你堵死"
+      "blocks": "你本人建不了账号，八步第 1 步对你堵死",
+      "note_unverified": "⚠ coord-chat-e2e 转述人类说已解决，但我没实测过。SSH 当前不通，无法查 credentials 表。**转述不算证据**，保留为未解除直到能自己量。"
+    },
+    {
+      "id": "readiness-helper",
+      "title": "devapp 缺 /usr/local/lib/workspacex-deploy-readiness.sh",
+      "why": "换上当前版本的 deploy.sh 之后才暴露：它需要一个配套的 root-owned helper（deploy.sh:21 的 DEPLOY_READINESS_LIB），VM 上没有 ⇒ deploy job 在第一步就 `缺 root-owned readiness helper` 退出。这是部署链的第六层，前五层今天已解。",
+      "cmd": "git show origin/main:.harness/scripts/vm/deploy-readiness.sh > /tmp/r.sh && scp -i .harness/config/devapp.pem /tmp/r.sh root@47.77.215.155:/tmp/r.sh && ssh -i .harness/config/devapp.pem root@47.77.215.155 'install -o root -g root -m 0755 /tmp/r.sh /usr/local/lib/workspacex-deploy-readiness.sh'   # 期望 sha256 ca41ea0c…",
+      "blocks": "deploy job 仍然失败 ⇒ devapp 上那个 localhost:3200 的报错不会消失（#545 的修复是构建期内联，必须成功部署一次才生效）"
     }
   ]
 }

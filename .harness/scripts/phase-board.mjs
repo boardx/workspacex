@@ -119,10 +119,42 @@ rule();
  *   ② 有 issue 被别的 issue 挡着 —— 那条挡路的就是瓶颈；
  *   ③ 否则瓶颈是「谁手上的红步骤最多」。 */
 const red = steps.length - green;
-const blocked = open.filter((i) => cfg.commitments[String(i.number)]?.blocked_by);
+/**
+ * ⚠ `blocked_by: "human:deploy"` 同样是一句写死的话 —— 它指向 `human_blockers`
+ *   里的某个 id，而那条可能早已解除。不解引用就会出现「阻断项已解除、
+ *   却仍显示被它挡着」，与上面那条是**同一个病的第二处**。
+ */
+const blockerResolved = (ref) => {
+  if (typeof ref !== "string" || !ref.startsWith("human:")) return false;
+  const b = cfg.human_blockers.find((x) => x.id === ref.slice("human:".length));
+  return b === undefined || Boolean(b.resolved_at);
+};
+const blocked = open.filter((i) => {
+  const ref = cfg.commitments[String(i.number)]?.blocked_by;
+  return ref && !blockerResolved(ref);
+});
 let bottleneck, bottleneckWhy;
-if (cfg.human_blockers.length > 0) {
-  bottleneck = `人类阻断项 ${cfg.human_blockers.length} 条（见本页最下方）`;
+/**
+ * ⚠ 只算**未解除**的。
+ *
+ * 这一栏原本无条件渲染整个数组 —— 没有任何字段能表达「这条已经不成立了」。
+ * 于是它会永远打印同一个瓶颈，哪怕那件事早就做完。
+ *
+ * coord-chat-e2e 2026-08-05 指出这正是本看板自己犯了它要防的错：
+ * 进度板那一栏专门标着「数据源：core-loop.spec.ts，**不是谁的说法**」，
+ * 而这一栏恰恰是一份**只能新增、不能解除**的手写清单。
+ *
+ * 「配置存在 ≠ 有人跑它」「issue 关了 ≠ 步骤绿了」，这条是
+ * **「清单里有 ≠ 现在还成立」**。
+ *
+ * ⚠ 解除要留证据（`resolved_at` / `resolved_by` / `evidence`），
+ *   而且**不删条目** —— 删了就丢掉「它曾经阻断过、以及为什么」，
+ *   下次同类问题又要从头查一遍。
+ */
+const openBlockers = cfg.human_blockers.filter((b) => !b.resolved_at);
+const doneBlockers = cfg.human_blockers.filter((b) => b.resolved_at);
+if (openBlockers.length > 0) {
+  bottleneck = `人类阻断项 ${openBlockers.length} 条（见本页最下方）`;
   bottleneckWhy = "八步全绿也上不了线 —— 这两件只有人类做得了，且一条命令能解开两个";
 } else if (blocked.length > 0) {
   const b = cfg.commitments[String(blocked[0].number)].blocked_by;
@@ -162,7 +194,9 @@ for (const [owner, items] of [...byOwner].sort((a, b) => b[1].length - a[1].leng
     if (d.note) for (const l of wrap("· " + d.note, W - 14)) row("         " + l);
     // 「下一步」是这块看板对 owner 的全部要求：不写它，看板就只是一份状态陈列。
     if (d.next) for (const l of wrap("▶ 下一步：" + d.next, W - 14)) row("         " + l);
-    if (d.blockedBy) row(`         ⛔ 被 ${d.blockedBy} 挡着 —— 那条不动，这条做不了`);
+    if (d.blockedBy && !blockerResolved(d.blockedBy)) {
+      row(`         ⛔ 被 ${d.blockedBy} 挡着 —— 那条不动，这条做不了`);
+    }
   }
   row("");
 }
@@ -199,15 +233,23 @@ row(`coord-main 总目标   ${hhmm(cn(cfg.coordinator_target))}   ${ctLate ? "�
 row("  八步全绿 = 交付完成。在此之前 out-of-scope 的工作一律是抢工时。");
 rule();
 
-row("🔴 必须由你（人类）完成 —— 我做不了，做完之前八步全绿也上不了线");
+row(`🔴 必须由你（人类）完成 —— ${openBlockers.length} 条未解除` +
+    (doneBlockers.length ? ` · 另有 ${doneBlockers.length} 条已解除（见末行）` : ""));
 row("");
-cfg.human_blockers.forEach((b, n) => {
+if (openBlockers.length === 0) row("  （没有未解除的阻断项）");
+openBlockers.forEach((b, n) => {
   row(`  ${n + 1}. ${b.title}`);
   for (const l of wrap("为什么：" + b.why, W - 9)) row("     " + l);
   for (const l of wrap("挡住了：" + b.blocks, W - 9)) row("     " + l);
   row("     $ " + trunc(b.cmd, W - 12));
+  if (b.note_unverified) for (const l of wrap(b.note_unverified, W - 9)) row("     " + l);
   row("");
 });
+// 已解除的保留一行摘要：可追溯，但不再占据「当前瓶颈」。
+for (const b of doneBlockers) {
+  row(`  ✅ 已解除 ${hhmm(cn(b.resolved_at))}  ${trunc(b.title, 44)}`);
+  for (const l of wrap(`     由 ${b.resolved_by ?? "?"} · 证据：${b.evidence ?? "（无）"}`, W - 6)) row("  " + l);
+}
 bot();
 console.log();
 
