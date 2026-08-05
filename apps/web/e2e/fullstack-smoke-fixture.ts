@@ -62,6 +62,40 @@ export const FULLSTACK_E2E = {
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 
   /**
+   * 🟡 #493：核心闭环第 8c 步「**使用**一个 canvas 模板」的两个前置条件。
+   *
+   * ⚠ 种的是**前置条件**，绑定动作本身一行都不种（`canvas_template_bindings` 刻意为空）——
+   *   与 #467 种「已启用的 skill」、#435 种「可运行的 agent」完全同型。所以 8c 在
+   *   「绑定没生效」时照样红：`usageCount` 会停在 0。
+   *
+   * ① **一个 `published` 模板**。`bindTemplateToSegment` 的判定
+   *    （`domain/canvas/segment-binding.ts`）只接受 `published`，而闭环第 4 步建出来的是
+   *    **草稿**；发布它要 org admin，用它要项目引导师——两个身份刻意不是同一个人
+   *    （`bind-template-to-segment.ts` 文件头逐字写了为什么）。让 8c 自己切两次账号先发布，
+   *    等于把「使用模板」这条断言压在「发布模板」的成败上。
+   *    ⚠ **`team-only`（归 `fullstack` 团队），不是 `org-wide`** —— 与上面 #467 那条 skill
+   *      种子逐字同一个理由：`canvas-template-create-smoke.spec.ts:87` 断言**管理员**打开
+   *      模板库时 `tpladmin-empty` 可见，那是一条反空转断言，不许为了塞这条种子而放宽。
+   *      管理员不属于任何团队 ⇒ 这一行对他不可见；对本项目的引导师（team=fullstack）可见。
+   *      实测：先写成 `org-wide`，那条断言当场红。
+   *
+   * ② **一个 `active` 的议程环节**，绑定的落点。
+   *    ⚠ 与 #467 那条「没有任何产品路径能启用一个 skill」逐字同型的**真实缺口**：
+   *      `createAgendaSegment` 在契约里（`project.operations.createAgendaSegment`），
+   *      却**没有任何 controller 挂它**——全仓写 `agenda_segments` 的地方只有测试夹具。
+   *      ⇒ 今天没有任何产品路径造得出一个议程环节。缺口随 #493 上报；在它补上之前，
+   *      8c 能验的是「把模板用到环节上」这条链路本身，验不了「用户自己造出那个环节」。
+   *      **不得**为了绕开它去放宽 `bindTemplateToSegment` 的环节存在性判定。
+   *    ⚠ `active` 而不是 `pending`：`GET /projects/:id/overview` 只回**当前**环节
+   *      （`pg-project-overview-repository.ts` 逐字 `WHERE state = 'active'`），
+   *      那是界面上唯一有真实来源的环节。I-P44 的部分唯一索引允许每工作坊一条 active。
+   */
+  boundTemplateKey: `tpl-493-${scope}`.toLowerCase(),
+  boundTemplateName: `FULLSTACK_BINDABLE_TEMPLATE_${scope}`,
+  agendaSegmentId: `seg-493-${scope}`,
+  agendaSegmentTitle: `闭环 8c 环节`,
+
+  /**
    * 🟡 #467：核心闭环第 8a 步挂载的那个 skill，**必须是「已启用」的**。
    *
    * ⚠ 这里种的是「本组织有一个可用的 skill」这个**前置条件**，与 #435 种

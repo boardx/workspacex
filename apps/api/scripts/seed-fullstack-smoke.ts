@@ -36,6 +36,11 @@ const agentModelId = required("FULLSTACK_E2E_AGENT_MODEL_ID");
 /** #467: the one **enabled** Skill core-loop step 8a mounts. See the fixture for why it is seeded. */
 const mountableSkillId = required("FULLSTACK_E2E_MOUNTABLE_SKILL_ID");
 const mountableSkillName = required("FULLSTACK_E2E_MOUNTABLE_SKILL_NAME");
+/** #493: the one **published** template and the one **active** agenda segment step 8c uses. */
+const boundTemplateKey = required("FULLSTACK_E2E_BOUND_TEMPLATE_KEY");
+const boundTemplateName = required("FULLSTACK_E2E_BOUND_TEMPLATE_NAME");
+const agendaSegmentId = required("FULLSTACK_E2E_AGENDA_SEGMENT_ID");
+const agendaSegmentTitle = required("FULLSTACK_E2E_AGENDA_SEGMENT_TITLE");
 
 ensureDatabase();
 await migrateOnce();
@@ -275,6 +280,59 @@ await asOwner(async (client) => {
     `[fullstack-fixture] recording thread=${recordingThreadId} title=${recordingThreadTitle}\n`,
   );
 }
+
+/**
+ * 🟡 #493 —— 第 8c 步「**使用**一个 canvas 模板」的两个前置条件。
+ *
+ * 种的是前置条件，**绑定本身一行都不种**（`canvas_template_bindings` 保持空表）——
+ * 与上面 #435 / #467 同型。所以第 8c 步在「绑定没落库」时照样红：`usageCount` 停在 0。
+ *
+ * ① `published` 模板。绑定的判定只接受 `published`（`domain/canvas/segment-binding.ts`），
+ *    而闭环第 4 步在界面上建出来的是**草稿**，发布它要 org admin、用它要项目引导师——
+ *    两个身份刻意不是同一个人（`application/canvas/bind-template-to-segment.ts` 文件头）。
+ *    ⚠ `builtin=false` / `archived_from=NULL`：`canvas_templates_archived_from_shape`
+ *      要求非 archived 行的 `archived_from` 为空。
+ *    ⚠ **`team-only` 归 `fullstack` 团队，不是 `org-wide`**，理由与 #467 那条 skill 种子
+ *      逐字同型（见 `fullstack-smoke-fixture.ts` 里 `mountableSkillId` 的那段）：
+ *      `canvas-template-create-smoke.spec.ts:87` 断言**管理员**打开模板库时
+ *      `tpladmin-empty` 可见（「种子刻意没有预置任何模板行」）——那是一条**反空转**断言，
+ *      不许为了让本条种子进去而放宽它。管理员 `addOrgMember(…, "admin", null)` 不属于
+ *      任何团队，而 `decide()` 对 `team-only` 要求 `org.teamId === ownerTeamId`，且
+ *      管理员不是超级用户 ⇒ 这一行对他不可见，那条空态断言原样成立；对本项目的引导师
+ *      （team=fullstack）可见，第 8c 步用得上。实测：先写成 `org-wide`，那条断言当场红。
+ *
+ * ② `active` 议程环节。`GET /projects/:id/overview` 只回 `state='active'` 的那一条
+ *    （`pg-project-overview-repository.ts`），它是界面上唯一有真实来源的环节。
+ *    ⚠ 这里直接写库，因为**没有任何产品路径能造出一个议程环节**：契约有
+ *      `createAgendaSegment`，但全仓没有任何 controller 挂它（`project.controller.ts`
+ *      只有 `.../advance`）。这是随 #493 上报的真实缺口，与 #467 那条「没有产品路径
+ *      能启用 skill」同型，不是本脚本图省事。
+ */
+const boundTemplateTeamId = fixture.teams.fullstack;
+if (!boundTemplateTeamId) throw new Error("fixture.teams.fullstack is required for the #493 seed");
+await asApp(orgId, async (client) => {
+  await client.query(
+    `INSERT INTO canvas_templates
+       (org_id, key, version, display_name, status, archived_from, builtin,
+        visibility, owner_team_id, underlying_type, sections)
+     VALUES ($1,$2,1,$3,'published',NULL,false,'team-only',$5,'canvas',$4::jsonb)
+     ON CONFLICT (org_id, key, version) DO NOTHING`,
+    [
+      orgId, boundTemplateKey, boundTemplateName,
+      JSON.stringify([
+        { sectionId: "s1", name: "假设", order: 0, required: false, capacity: null },
+        { sectionId: "s2", name: "证据", order: 1, required: false, capacity: null },
+      ]),
+      boundTemplateTeamId,
+    ],
+  );
+  await client.query(
+    `INSERT INTO agenda_segments (id, org_id, workshop_id, ordinal, title, duration, state)
+     VALUES ($1,$2,$3,0,$4,45,'active')
+     ON CONFLICT (id) DO NOTHING`,
+    [agendaSegmentId, orgId, projectId, agendaSegmentTitle],
+  );
+});
 
 // ⚠ 刻意**没有**预置任何 capability_listings 行。#458 的浏览器门控要证的正是
 // 「界面新建出来的那一条真的落进了 PostgreSQL」——先塞一条进去，

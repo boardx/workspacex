@@ -134,6 +134,7 @@ import { PgEmailVerificationRepository } from "./infrastructure/auth/pg-email-ve
 import {
   CloudflareEmailTransport,
   cloudflareEmailConfig,
+  lazyCloudflareEmailConfig,
   type CloudflareEmailConfig,
 } from "./infrastructure/auth/cloudflare-email-transport";
 import {
@@ -640,7 +641,9 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       provide: EMAIL_VERIFICATION_TOKEN_CODEC,
       useFactory: () => new HmacEmailVerificationTokenCodec(emailVerificationSecret()),
     },
-    { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => cloudflareEmailConfig() },
+    // ⚠ lazy：配置校验推迟到**第一次真正用到**时。用 `cloudflareEmailConfig()`
+    //   会让整个 API 在 DI 阶段因为一个可能用不到的子系统而起不来（见该函数注释）。
+    { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => lazyCloudflareEmailConfig() },
     {
       provide: VERIFICATION_MAIL_TRANSPORT,
       useFactory: (config: CloudflareEmailConfig) => new CloudflareEmailTransport(config),

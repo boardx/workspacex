@@ -54,6 +54,10 @@ export type ArchiveTemplateOut = z.infer<typeof canvas.operations.archiveTemplat
 export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplate.out>;
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
 export type TrialTemplateOut = z.infer<typeof canvas.operations.trialTemplate.out>;
+/** #493：「使用一个模板」的返回。`boundTemplateVersion` 是**绑定那一刻**的版本，见用例文件头。 */
+export type BindTemplateToSegmentOut = z.infer<
+  typeof canvas.operations.bindTemplateToSegment.out
+>;
 
 /** 展示文案的单一事实源。状态枚举本身来自契约，这里只给它中文标签。 */
 export const TEMPLATE_STATUS_LABEL: Record<TemplateStatus, string> = {
@@ -167,4 +171,38 @@ export async function restoreCanvasTemplate(input: {
     method: "POST",
     body: { key: input.key, version: input.version },
   });
+}
+
+/**
+ * #493 —— 「**使用**一个模板」的写入面：把它绑到一个议程环节。
+ *
+ * 上面那几个操作动的都是模板注册表**自己**（谁有哪些模板、它们各处在哪一态）；这一个是
+ * 第一个把模板**用出去**的操作，也是 `usageCount` / `stillBoundSegmentCount` 两个契约字段的
+ * 唯一写入方（`canvas_template_bindings`，见迁移 20260805030000 的文件头）。
+ *
+ * ⚠ 路径占位符是 `:agendaSegmentId` 而不是 `:key`，所以**不复用** `templatePath`。
+ *   给它加一个「替换哪个占位符」的参数，等于让一个函数按调用点决定语义，而替错了
+ *   只表现为 404。两个占位符 = 两个替换点，各自只认自己那一个。
+ * ⚠ `agendaSegmentId` 路径与 body 都要给（契约 `in` 里有它）；两边不一致时服务端回 400
+ *   `agenda_segment_id_mismatch`。这里两处取自同一个变量，前端制造不出那种不一致。
+ * ⚠ 失败原样抛：`SEGMENT_TEMPLATE_LIMIT`（同一环节最多两个模板，I-6）与 `TEMPLATE_ARCHIVED`
+ *   是用户看得懂、也能自己处理的两件事，糊成一句「绑定失败」就丢掉了这个区别。
+ */
+export async function bindCanvasTemplateToSegment(input: {
+  readonly agendaSegmentId: string;
+  readonly templateKey: string;
+  readonly templateVersion: number;
+}): Promise<BindTemplateToSegmentOut> {
+  const op = canvas.operations.bindTemplateToSegment;
+  return apiRequest<BindTemplateToSegmentOut>(
+    op.path.replace(":agendaSegmentId", encodeURIComponent(input.agendaSegmentId)),
+    {
+      method: "POST",
+      body: {
+        agendaSegmentId: input.agendaSegmentId,
+        templateKey: input.templateKey,
+        templateVersion: input.templateVersion,
+      },
+    },
+  );
 }

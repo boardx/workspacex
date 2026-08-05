@@ -63,6 +63,12 @@ const fixtureEnv = {
   // #466：第 7 步录音用的线程 + 它的授权矩阵（为什么必须预置见 fixture）。
   FULLSTACK_E2E_RECORDING_THREAD_ID: FULLSTACK_E2E.recordingThreadId,
   FULLSTACK_E2E_RECORDING_THREAD_TITLE: FULLSTACK_E2E.recordingThreadTitle,
+  // #493：第 8c 步要**用**的那个模板（必须 published）与它的落点议程环节（必须 active）。
+  // 两者都只是前置条件，绑定行一条都不种——理由见 fixture 里的说明。
+  FULLSTACK_E2E_BOUND_TEMPLATE_KEY: FULLSTACK_E2E.boundTemplateKey,
+  FULLSTACK_E2E_BOUND_TEMPLATE_NAME: FULLSTACK_E2E.boundTemplateName,
+  FULLSTACK_E2E_AGENDA_SEGMENT_ID: FULLSTACK_E2E.agendaSegmentId,
+  FULLSTACK_E2E_AGENDA_SEGMENT_TITLE: FULLSTACK_E2E.agendaSegmentTitle,
 };
 
 /**
