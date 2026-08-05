@@ -81,7 +81,20 @@ const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinu
 const cn = (iso) => new Date(new Date(iso).toLocaleString("en-US", { timeZone: cfg._tz }));
 function dueOf(num) {
   const c = cfg.commitments[num];
-  if (!c) return { txt: "未承诺", late: false, note: "⚠ 没有承诺时间 —— 没有 deadline 的活会无限期漂着" };
+  // ⚠ `delta` 必须给值：调用方是 `pad(flag, 14)`，而 `pad`/`width` 会 `for (const ch of s)`，
+  // 传 undefined 直接抛 `s is not iterable` —— **整块看板在这一行断掉**。
+  // 2026-08-05 实测：#552 立起来时晚于本文件写就，`commitments["552"]` 不存在，
+  // 看板恰好死在它自己那一节（coord-agent-auth）。看板是每轮 loop 的起点，
+  // 它一崩，后面的 PR 队列与人类阻断项全都看不到 —— 而崩的原因只是「有人开了张新 issue」。
+  if (!c) {
+    return {
+      txt: "未承诺",
+      late: false,
+      delta: "无期限",
+      step: undefined,
+      note: "⚠ 没有承诺时间 —— 没有 deadline 的活会无限期漂着",
+    };
+  }
   const d = new Date(c.due);
   const late = NOW > d;
   const mins = Math.round(Math.abs(NOW - d) / 60000);
