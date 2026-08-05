@@ -44,6 +44,12 @@ export interface NavItem {
   icon: LucideIcon;
   /** 该入口对应哪些 UC —— 供 ui-prototyper 与 sign-off 时回溯 */
   ucRefs: string[];
+  /**
+   * **第二级**（原型 COLUMN 2「二级：对象列表 —— 线程、项目、后台模块」）。
+   * 有 children 的项：children **不占一级导航**，只在该项自己的屏里（后台左栏）出现。
+   * `IconRail` 只渲染 `NavSegment.items`，永不渲染 children —— 这是一级/二级的机械分界。
+   */
+  children?: NavItem[];
 }
 
 export interface NavSegment {
@@ -63,10 +69,10 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "编排",
     items: [
-      // 束: project（列表 /projects → 工作台 /project）
+      // 束: project（列表 /projects → 工作台 /projects/[projectId]）
       { key: "projects", label: "项目", href: "/projects", icon: FolderKanban, ucRefs: ["00-project/uc-0-2", "02-tpl/uc-2-2"] },
-      // 束: templates（蓝本设计器 / 套用 / 版本）——原型里蓝本属编排能力，此前无入口
-      { key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate, ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"] },
+      // ⚠ 蓝本已于 #593 移出本组 —— 原型的一级「编排」只有「项目」一项，
+      //   「项目蓝本」是**后台模块**（原型后台左栏 AI 能力组）。见文件底部 #593 长注。
     ],
   },
   {
@@ -97,18 +103,72 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "治理",
     items: [
-      { key: "admin", label: "后台", href: "/admin", icon: Settings2, ucRefs: ["17-gov/uc-17-1"] },
-      // 束: skills（Skill 库与市场 / 发布六道关 / 绑定）
-      { key: "skills", label: "技能", href: "/skill", icon: Puzzle, ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
-      // 束: agent-runtime（注册 agent → 选模型 → 挂 MCP 工具，三 area 合一）
-      { key: "agent-runtime", label: "智能体", href: "/preview/agent-runtime", icon: Bot, ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"] },
-      // 束: org-admin（参与者 / 邀请 / 配额）
-      { key: "org-admin", label: "成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"] },
-      // 束: asset-governance（外来资产导入与生命周期治理，第 11 束）
-      { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"] },
+      {
+        key: "admin",
+        label: "后台",
+        href: "/admin",
+        icon: Settings2,
+        ucRefs: ["17-gov/uc-17-1"],
+        /**
+         * **后台模块（二级）** —— 原型一级「治理」只有「后台」一项，
+         * 下面这五项在原型里全部是**后台左栏**的模块，不是一级导航项。见 #593 长注。
+         */
+        children: [
+          // 束: templates（蓝本设计器 / 套用 / 版本）→ 原型后台「项目蓝本」
+          { key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate, ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"] },
+          // 束: skills（Skill 库与市场 / 发布六道关 / 绑定）→ 原型后台「Skill 库与市场」
+          { key: "skills", label: "技能", href: "/skill", icon: Puzzle, ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+          // 束: agent-runtime（注册 agent → 选模型 → 挂 MCP 工具）→ 原型后台「Agent 管理」
+          { key: "agent-runtime", label: "智能体", href: "/preview/agent-runtime", icon: Bot, ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"] },
+          // 束: org-admin（参与者 / 邀请 / 配额）→ 原型后台「组织 · 成员与配额」
+          { key: "org-admin", label: "成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"] },
+          // 束: asset-governance（外来资产导入与生命周期治理，第 11 束）
+          // ⚠ 原型左栏与后台左栏**都没有**这一项（它是原型之后立的第 11 束）。
+          //   放这里的依据是**排除法**：原型一级「治理」只有「后台」，所以它不能是一级项；
+          //   它治理的正是后台「AI 能力」组那六种 AssetKind。若人类另有归属，改这一行即可。
+          { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"] },
+        ],
+      },
     ],
   },
 ];
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 2026-08-06 · issue #593 · 信息架构复位（一级 ↔ 二级）
+ *
+ * 病：一级导航里跟「对话」平级地挂着 蓝本 / 技能 / 智能体 / 成员 / 资产。
+ *     这些在原型里**全部是后台模块**，不是一级项。2026-07-30 那次「接线修正」为了让
+ *     十一束的现行屏可达，把它们直接塞进了一级——可达性修好了，信息架构被压平了。
+ *
+ * 权威（逐字取自 `phases/requirements/WorkspaceX Standalone.html`，两处互证）：
+ *   ① 图标栏（COLUMN 1 · 76px）的 innerText 序列：
+ *      对话 ｜编排: 项目 ｜STUDIO: 研究 访谈 问卷 原型 ｜能力: 大脑 任务 ｜治理: 后台
+ *      —— 一级**只有**这些，没有蓝本/技能/智能体/成员/资产。
+ *   ② 同文件的设计说明自述：「一级：四段语义 —— 编排|项目 · Studio|研究/访谈/问卷/原型 ·
+ *      能力|对话/大脑/任务 · 治理|后台。**画布从议程进，不占一级**」
+ *      「COLUMN 2 二级：对象列表 —— 线程、项目、**后台模块**」
+ *   ③ 原型「后台管理」屏的左栏模块清单：
+ *      数据总览 ｜AI 能力: Agent 管理 / Skill 库与市场 / 模型 / MCP 服务器 / 画布模板 /
+ *      **项目蓝本** ｜组织: **成员与配额** ｜反馈与迭代
+ *      —— 蓝本、技能、Agent、成员在原型里明明白白是**后台模块**。
+ *
+ * 修：一级「编排」收回只剩「项目」；一级「治理」收回只剩「后台」；
+ *     五项降为「后台」的 `children`，由后台左栏（`components/admin/admin-nav.tsx`）渲染。
+ *     它们的 href 仍然写在**本文件**里，所以 `lint-nav-reachability.mjs` 的正向可达
+ *     （束现行屏必须出现在 navigation.ts 的 href 里）依旧成立，无需改门控。
+ *
+ * ⚠ 与 issue #593 正文的一处**明确分歧，未按正文实现，留给人类裁**：
+ *   正文第 3 条要求把「成员」移进**项目详情页**内部。但原型把「成员与配额」放在
+ *   **后台 · 组织**组（依据 ③），而 `/org-admin/preview` 这一束正是**组织级**的
+ *   参与者/邀请/配额（UC-1.4），不是项目内协作者。项目内的角色/分组在原型里由
+ *   项目工作台的「项目筹备 → 定题与分组」承载，是另一件事。
+ *   按 issue 自己的第 4 条（「严格以 UI prototype 为准」），这里从原型；
+ *   把组织成员搬进项目详情页会是一个**新的信息架构决定**，不由 agent 做。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 「后台」项的二级模块（原型 COLUMN 2）—— 后台左栏从这里取，不抄第二份。 */
+export const ADMIN_SECOND_LEVEL: NavItem[] =
+  NAV_SEGMENTS.flatMap((s) => s.items).find((i) => i.key === "admin")?.children ?? [];
 
 /** 项目文件浏览器（22-files）—— file-first 原则的用户界面载体，挂在项目下 */
 export const FILES_NAV: NavItem = {
@@ -116,4 +176,11 @@ export const FILES_NAV: NavItem = {
   ucRefs: ["22-files/uc-22-1", "22-files/uc-22-2", "22-files/uc-22-3", "22-files/uc-22-4"],
 };
 
-export const ALL_NAV_ITEMS: NavItem[] = [...NAV_SEGMENTS.flatMap((s) => s.items), FILES_NAV];
+/** 一级 + 二级 + 文件入口的**扁平**清单（含 children，别再手抄第二份）。 */
+export const ALL_NAV_ITEMS: NavItem[] = [
+  ...NAV_SEGMENTS.flatMap((s) => s.items).flatMap((i) => [i, ...(i.children ?? [])]),
+  FILES_NAV,
+];
+
+/** 一级导航项（`IconRail` 画的就是它）—— 断言「某项不在一级」时用它，别用字符串搜页面。 */
+export const TOP_LEVEL_NAV_ITEMS: NavItem[] = NAV_SEGMENTS.flatMap((s) => s.items);

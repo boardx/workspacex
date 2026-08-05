@@ -4,7 +4,14 @@ import { usePathname } from "next/navigation";
 import { NAV_SEGMENTS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-/** 图标栏 —— 实测宽度 76px，底色 --rail，右侧一道 --border 分隔 */
+/**
+ * 图标栏 —— 实测宽度 76px，底色 --rail，右侧一道 --border 分隔。
+ *
+ * ⚠ 这里**只渲染 `NavSegment.items`（一级）**，永不渲染 `item.children`（二级）——
+ *   这是一级/二级的机械分界（issue #593）。二级由后台左栏 `components/admin/admin-nav.tsx`
+ *   渲染。想让某个入口回到一级，去 `lib/navigation.ts` 把它挪出 children，
+ *   不要在这里加一条渲染 children 的分支——那会让同一个入口在两处出现。
+ */
 export function IconRail({ avatarInitial }: { avatarInitial: string }) {
   const pathname = usePathname();
   return (
