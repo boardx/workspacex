@@ -279,7 +279,7 @@ export function ChatRecordingPanel({
       </div>
 
       {/*
-        状态锚点。它显示的是**阶段**，不是「有没有出错」——把两者揉进一句话，
+        状态锚点。它显示的是「阶段」，不是「有没有出错」——把两者揉进一句话，
         e2e 就只能断言「有文字」，而那种断言在功能全坏时照样绿。
       */}
       <p className="mt-2 text-11 text-muted-foreground" data-testid={TESTID.status} data-phase={phase}>
@@ -304,7 +304,7 @@ export function ChatRecordingPanel({
           </p>
         ))}
         {/*
-          中间结果单独一行且**带自己的 testid**：它不落库，绝不能与已落库的段落
+          中间结果单独一行且带自己的 testid：它不落库，绝不能与已落库的段落
           混在同一个断言里，否则「转录进了数据库」会被一段还没写库的文字满足。
         */}
         {partial !== "" ? (

@@ -612,9 +612,9 @@ function ThreadDetail({
       </header>
       {/*
         #466 步骤 7：会话内录音。放在 skill 挂载之上、消息面板之上 ——
-        它是这条会话的**采集入口**，与「这场对话说了什么」同级，
+        它是这条会话的采集入口，与「这场对话说了什么」同级，
         不是消息流里的一条。`userId` 是 `trackPlan` 的 participant：
-        录的是**谁**的音轨，服务端据此判定授权矩阵，不能省。
+        录的是谁的音轨，服务端据此判定授权矩阵，不能省。
       */}
       {bearer && userId ? (
         <ChatRecordingPanel
