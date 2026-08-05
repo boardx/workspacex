@@ -21,21 +21,27 @@
  * **socket 从未连上过测试服务器**（`connections === 0`）。只断言「抛错」的话，
  * 一个在解析前就乱抛的实现也会绿——那是今天本来就会绿的那种假门。
  *
- * ## ⚠ 本文件测不到的那一半（诚实边界）
+ * ## TLS：用 test-only 自签证书 fixture，⛔ 不给生产开开关
  *
- * 取回层强制 https，而仓库里没有任何测试用证书，`node` 也不自带证书生成。
- * ⇒ 需要**完成 TLS 握手**才能验的两条——**重定向逐跳过门**与**响应体上限**——
- *   在本文件里**没有端到端覆盖**，只有实现。它们列在 PR 的未验证项里，
- *   不要因为本文件绿就以为它们被证过了。
+ * 取回层**强制 https**，所以「重定向逐跳过门」与「响应体上限」需要完成 TLS 握手
+ * 才验得到。曾考虑把协议判定做成可注入——**否决**：那会在生产路径上造出一条
+ * 能把 https 强制关掉的缝，而**一道能被绕过的门比没有门更坏，因为它看起来有**。
+ *
+ * ⇒ 改用 `tests/support/tls/` 下的 test-only 自签证书（openssl 一次性生成并入库，
+ *   ⛔ 不进任何生产路径）。取回层不接受 `agent` 参数，所以信任关系建立在
+ *   `https.globalAgent.options.ca` 上，**并在 `afterAll` 还原**——
+ *   生产代码**一行未改**，没有任何「关掉 https」的开关被造出来。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
+import https from "node:https";
+import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import {
   ImportSourceRefusedError,
   assertResolvedAddressAllowed,
 } from "../../src/domain/skill/import-source";
-import { fetchImportSource, type ImportFetchSeams } from "../../src/infrastructure/skill/http-import-fetcher";
+import { MAX_BYTES, fetchImportSource, type ImportFetchSeams } from "../../src/infrastructure/skill/http-import-fetcher";
 
 const OPEN = { localOnlyOrg: false };
 
@@ -122,8 +128,8 @@ describe("接线：DNS 解析后的那道门确实在取回路径上", () => {
    *   ② 门放行时**连接真的会发生**（`connections > 0`）——证明上面两条的
    *      `connections === 0` 是门挡下来的，而不是这条路径本来就连不上。
    *
-   * ⚠ 断言止步于「socket 连上了」：再往后是 TLS 握手，而测试服务器是明文的。
-   *   完整取回的覆盖见上面「测不到的那一半」。
+   * ⚠ 本条断言止步于「socket 连上了」：这台服务器是**明文**的，再往后握手必失败。
+   *   「字节真的取回来了」由下面 TLS describe 里的正样本覆盖。
    */
   it("正样本：门放行 ⇒ 门被调用且连接真的发生（证明不是恒拒/恒不可达）", async () => {
     connections = 0;
@@ -156,5 +162,110 @@ describe("接线：DNS 解析后的那道门确实在取回路径上", () => {
     expect(refusalCodeOf(error)).toBe("IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG");
     expect(looked).toBe(false); // 连 DNS 都不该查
     expect(connections).toBe(0);
+  });
+});
+
+/**
+ * 需要完成 TLS 握手才验得到的两条。用 test-only 自签证书，⛔ 生产路径零改动。
+ */
+describe("TLS 之后才验得到的：重定向逐跳过门 + 响应体上限", () => {
+  let tls: https.Server;
+  let tlsPort = 0;
+  let tlsHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void;
+  let savedCa: unknown;
+
+  beforeAll(async () => {
+    const dir = new URL("../support/tls/", import.meta.url);
+    const cert = readFileSync(new URL("test-only.cert.pem", dir));
+    const key = readFileSync(new URL("test-only.key.pem", dir));
+    tls = https.createServer({ key, cert }, (req, res) => tlsHandler(req, res));
+    await new Promise<void>((resolve) => tls.listen(0, "127.0.0.1", resolve));
+    tlsPort = (tls.address() as AddressInfo).port;
+    // 只让**本测试进程**信任这份自签证书；afterAll 还原。
+    savedCa = https.globalAgent.options.ca;
+    https.globalAgent.options.ca = [cert];
+  });
+  afterAll(async () => {
+    https.globalAgent.options.ca = savedCa as never;
+    await new Promise<void>((resolve) => tls.close(() => resolve()));
+  });
+
+  /** 放行路径的完整正样本：字节真的取回来了。 */
+  it("正样本：完整取回（证明 TLS 装置本身是好的）", async () => {
+    tlsHandler = (_req, res) => {
+      res.writeHead(200, { "content-type": "text/markdown; charset=utf-8" });
+      res.end("# SKILL\n");
+    };
+    const fetched = await fetchImportSource(`https://allowed.example:${tlsPort}/skill.md`, OPEN, {
+      lookup: resolveTo("127.0.0.1"),
+      checkAddress: () => {},
+    });
+    expect(fetched.body.toString()).toBe("# SKILL\n");
+    expect(fetched.mediaType).toBe("text/markdown");
+  });
+
+  /**
+   * 重定向必须**每一跳重新过门**：`https://good` 可以 302 到 `169.254.169.254`。
+   * ⚠ 这一跳被**字面量门**拦下，用的是生产判定。
+   */
+  it("302 到云元数据地址 ⇒ 在第二跳被拒（每跳都过门）", async () => {
+    tlsHandler = (req, res) => {
+      if (req.url === "/skill.md") {
+        res.writeHead(302, { location: "https://169.254.169.254/latest/meta-data/" });
+        res.end();
+        return;
+      }
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("SECRET");
+    };
+    const error = await caught(() =>
+      fetchImportSource(`https://allowed.example:${tlsPort}/skill.md`, OPEN, {
+        lookup: resolveTo("127.0.0.1"),
+        checkAddress: () => {},
+      }),
+    );
+    expect(refusalCodeOf(error)).toBe("IMPORT_URL_HOST_NOT_PUBLIC");
+  });
+
+  it("302 到 http:// ⇒ 被拒（重定向不能把 https 降级掉）", async () => {
+    tlsHandler = (_req, res) => {
+      res.writeHead(302, { location: "http://allowed.example/plain" });
+      res.end();
+    };
+    const error = await caught(() =>
+      fetchImportSource(`https://allowed.example:${tlsPort}/skill.md`, OPEN, {
+        lookup: resolveTo("127.0.0.1"),
+        checkAddress: () => {},
+      }),
+    );
+    expect(refusalCodeOf(error)).toBe("IMPORT_URL_SCHEME_FORBIDDEN");
+  });
+
+  it("响应体超上限 ⇒ IMPORT_PAYLOAD_TOO_LARGE", async () => {
+    tlsHandler = (_req, res) => {
+      res.writeHead(200, { "content-type": "application/octet-stream" });
+      res.end(Buffer.alloc(MAX_BYTES + 4096));
+    };
+    const error = await caught(() =>
+      fetchImportSource(`https://big.example:${tlsPort}/big.bin`, OPEN, {
+        lookup: resolveTo("127.0.0.1"),
+        checkAddress: () => {},
+      }),
+    );
+    expect(refusalCodeOf(error)).toBe("IMPORT_PAYLOAD_TOO_LARGE");
+  });
+
+  it("重定向次数超上限 ⇒ IMPORT_TOO_MANY_REDIRECTS", async () => {
+    tlsHandler = (_req, res) => {
+      res.writeHead(302, { location: `https://allowed.example:${tlsPort}/loop` });
+      res.end();
+    };
+    const error = await caught(() =>
+      fetchImportSource(`https://allowed.example:${tlsPort}/loop`, OPEN, {
+        lookup: resolveTo("127.0.0.1"),
+        checkAddress: () => {},
+      }),
+    );
+    expect(refusalCodeOf(error)).toBe("IMPORT_TOO_MANY_REDIRECTS");
   });
 });
