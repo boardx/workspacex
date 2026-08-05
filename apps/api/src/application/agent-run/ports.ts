@@ -179,6 +179,22 @@ export interface AgentRunStore {
    */
   recordWritebackAttempt(orgId: OrgId, runId: string): Promise<number>;
 
+  /**
+   * Reopen an exhausted writeback for one more bounded budget (#519). Returns whether a run
+   * was actually reopened.
+   *
+   * A boolean rather than a throw, and the state test lives in the SQL rather than in the
+   * caller: "is this run retryable?" read in the application and acted on in a later
+   * statement is a race whose loser reopens a run that just succeeded. The predicate and the
+   * write are one statement, and the database's transition trigger refuses the move
+   * independently -- see `20260805190000_i519_agent_run_retry.sql`.
+   *
+   * It reopens to `writeback_pending`, NOT to `queued`: the model was already called once
+   * and its output is stored, so re-queueing would make a second provider call for one human
+   * message. What ran out was the writeback budget, so the writeback is what resumes.
+   */
+  reopenForWritebackRetry(orgId: OrgId, runId: string): Promise<boolean>;
+
   /** The failed `chat_writeback` step written once, when the budget is exhausted. */
   appendWritebackFailure(
     orgId: OrgId,

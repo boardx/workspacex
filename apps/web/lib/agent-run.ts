@@ -35,6 +35,12 @@ export type AgentRunStatus = z.infer<typeof wave2Runtime.AgentRunStatus>;
  *
  * ⚠ 轮询必须在这里停。把 `writeback_pending` 也当终态是错的：#413 的写回正是在
  * 那个状态下才发生，提前停轮询会让「恰好一条回复」在界面上永远不出现。
+ *
+ * ⚠ #519 之后 `failed` 仍然是**这一轮**轮询的终点，但不再是「这个 run 永远到此为止」：
+ * `CHAT_WRITEBACK_FAILED` 的 run 可以由人显式调 `retryAgentRun` 重开回
+ * `writeback_pending`。上面那句注释在 #519 之前为真、现在只在「不做任何人类动作」的
+ * 前提下为真。**本文件目前没有实现重试的客户端调用，UI 也没有入口** —— 见 PR #519
+ * 正文的「未验证 / 未做」清单，不要把这里的沉默读成「后端也没有」。
  */
 const TERMINAL_STATUSES: ReadonlySet<string> = new Set<AgentRunStatus>(["succeeded", "failed"]);
 

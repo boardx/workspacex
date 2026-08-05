@@ -1061,6 +1061,14 @@ describe("retrying a run whose writeback budget was exhausted (#519)", () => {
     expect(view.resultMessageId).toBeNull();
   });
 
+  /**
+   * ⚠ This one is GREEN TODAY WITHOUT #519 -- measured, not assumed (it passed in the run
+   * where the retry route did not exist). That is deliberate and it is NOT a filler
+   * assertion: it is a REGRESSION guard aimed at the future change #519 was told not to
+   * make. It goes red the day somebody makes retry work by relaxing the constraint, which is
+   * precisely the failure mode coord-main's ruling exists to prevent. Read it as a tripwire,
+   * not as evidence that this PR does anything.
+   */
   it("keeps the input-message uniqueness the reset exists to protect", async () => {
     const index = await asOwner((c) => c.query<{ def: string }>(
       `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
@@ -1200,5 +1208,13 @@ describe("retrying a run whose writeback budget was exhausted (#519)", () => {
     expect((await postRetry(randomUUID())).status).toBe(404);
     // And none of those refusals reopened anything.
     expect((await readRun(agentRunId)).status).toBe("failed");
+
+    // ⚠ NON-VACUITY, and it is not optional here. MEASURED: with the route not mounted at
+    // all, the three 404s above are still green -- Nest answers 404 for an unknown path, so
+    // "the refusal is a refusal" and "the endpoint does not exist" are indistinguishable
+    // from the outside. This line is what tells the two apart.
+    const permitted = await postRetry(agentRunId, ACTOR, ORG);
+    expect(permitted.status, "the same POST from a permitted actor must NOT be 404").toBe(200);
+    expect((await readRun(agentRunId)).status).toBe("writeback_pending");
   });
 });
