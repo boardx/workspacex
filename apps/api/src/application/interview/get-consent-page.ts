@@ -7,6 +7,7 @@
  * ⚠ 令牌无效的四种理由（不存在/过期/已撤销/已使用）在这里**合并**成一个
  *   `TOKEN_INVALID`（契约 E1：不泄露「这个链接以前是有效的」）。
  */
+import { CONSENT_ITEMS } from "@repo/contracts/consent-item";
 import { CONSENT_ITEM_COPY, newConsentSnapshotId } from "../../domain/interview/consent-token";
 import { TokenInvalidError } from "./errors";
 import type {
@@ -65,10 +66,12 @@ export async function getConsentPage(
 
   return {
     session: facts,
-    items: CONSENT_ITEM_COPY.map((i) => ({
-      key: i.key,
-      label: i.label,
-      optOutConsequence: i.optOutConsequence,
+    // 「恒四条，与 `ConsentKey` 一一对应」（契约 `getConsentPage.out`）——顺序与项数
+    // 都来自 `CONSENT_ITEMS`，本文件不再决定其中任何一样（#533）。
+    items: CONSENT_ITEMS.map((key) => ({
+      key,
+      label: CONSENT_ITEM_COPY[key].label,
+      optOutConsequence: CONSENT_ITEM_COPY[key].optOutConsequence,
     })),
     controller: {
       org: params.dataController,

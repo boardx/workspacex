@@ -21,6 +21,7 @@
  *   来自**该场访谈的材料保留期**（`ResearchPlanParams.retentionDays`），不是一个固定档位。
  */
 import { randomBytes } from "node:crypto";
+import { CONSENT_ITEMS, type ConsentItemValue } from "@repo/contracts/consent-item";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -121,10 +122,12 @@ export function newConsentSubmissionId(): string {
  */
 export function renderConsentSnapshotText(
   params: ConsentRenderParams,
-  bits: Record<(typeof CONSENT_ITEM_COPY)[number]["key"], boolean>,
+  bits: Record<ConsentItemValue, boolean>,
 ): string {
-  const lines = CONSENT_ITEM_COPY.map((item) => {
-    const granted = bits[item.key];
+  // 顺序由契约的 `CONSENT_ITEMS` 决定，不由本文件那张文案表的书写顺序决定（#533）。
+  const lines = CONSENT_ITEMS.map((key) => {
+    const item = CONSENT_ITEM_COPY[key];
+    const granted = bits[key];
     return `${granted ? "☑" : "☐"} ${item.label}${granted ? "" : `——${item.optOutConsequence}`}`;
   });
   return [
@@ -136,25 +139,30 @@ export function renderConsentSnapshotText(
   ].join("\n");
 }
 
-export const CONSENT_ITEM_COPY = [
-  {
-    key: "record" as const,
+/**
+ * ⚠ 键集**恰好**是 `CONSENT_ITEMS`（#533）：`Record<ConsentItemValue, …>` 让 tsc 在
+ *   少一项或多一项时直接编译不过。原来这里是一个带 `key: "..." as const` 的数组，
+ *   那是同意项的第五份手写副本，而对象/数组字面量逃得过文本扫描——所以这一类
+ *   靠类型系统兜底，不靠 `consent-items-single-source.test.ts` 的扫描。
+ */
+export const CONSENT_ITEM_COPY: Record<
+  ConsentItemValue,
+  { readonly label: string; readonly optOutConsequence: string }
+> = {
+  record: {
     label: "录音",
     optOutConsequence: "未勾选时不会为你录音。",
   },
-  {
-    key: "transcript" as const,
+  transcript: {
     label: "转成文字稿",
     optOutConsequence: "未勾选时不会为你的发言生成文字稿。",
   },
-  {
-    key: "ai_analysis" as const,
+  ai_analysis: {
     label: "交给 AI 做分析",
     optOutConsequence: "你已拒绝——你的话只会以原文引述出现，不参与任何自动归纳。",
   },
-  {
-    key: "attribution" as const,
+  attribution: {
     label: "在报告中署我的姓名与职务",
     optOutConsequence: "未勾选时一律写成「某物流园区运营总监」。",
   },
-] as const;
+};

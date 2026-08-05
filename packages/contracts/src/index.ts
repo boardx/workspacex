@@ -13,6 +13,7 @@ export * as orgAdmin from "./org-admin";
 export * as assetGovernance from "./asset-governance";
 export * as contextPack from "./context-pack";
 export * as omissionReason from "./omission-reason";
+export * as consentItem from "./consent-item";
 export * as filterAction from "./filter-action";
 export * as provenance from "./provenance";
 export * as thresholds from "./thresholds";

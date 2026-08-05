@@ -10,7 +10,8 @@
  * 领域不变量见 `phases/phase-01-run-a-project/contracts/recording/domain.md` 的 `I-n`。
  *
  * 核心不变量（本文件用形状去支撑，断言方式见 domain.md）：
- *   · **逐人 × 三项授权**（录音 / 转录 / AI 分析）：任一 `pending` ⇒ 开始录制不可用
+ *   · **逐人 × 四项授权**（录音 / 转录 / AI 分析 / 署名）：任一 `pending` ⇒ 开始录制不可用
+ *     ⚠ 2026-08-05 起是**四项**（裁决 #533，X-7/XC-18 收敛，见 `RecordingConsentItem`）；原文档写「三项」
  *     （`CONSENT_NOT_COMPLETED`，I-3 的接口投影）
  *   · 无 anchor 的转写段**拒绝入库**（I-1）；遮盖在**入库前**完成（I-20 / I-21）
  *   · `denied` 之后**不产生任何 Segment**；`paused` 在时间轴上**留缺口**，不拼接成连续假象（I-4 / I-5）
@@ -22,6 +23,7 @@ import { z } from "zod";
 import { PermissionReason } from "./identity";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
+import { ConsentItem } from "./consent-item";
 
 /* ─────────────────────────── 枚举（对应 domain.md）─────────────────────────── */
 
@@ -37,7 +39,7 @@ export const RecordingSourceType = z.enum(["workshop", "interview", "thread"]);
 export const MicState = z.enum(["granted", "denied", "paused"]);
 
 /**
- * 逐人 × 三项授权矩阵的**单元格状态**（uc-5-1 pre / 原型 P-12）。
+ * 逐人 × 四项授权矩阵的**单元格状态**（uc-5-1 pre / 原型 P-12）。
  *
  * ⚠ **`pending` 是一等取值，不是「还没查到」**：`startRecording` 的门禁判据正是
  *   「任一单元格为 `pending` ⇒ 拒绝」。把 pending 折叠进 `denied` 会让界面
@@ -45,8 +47,23 @@ export const MicState = z.enum(["granted", "denied", "paused"]);
  */
 export const ConsentItemState = z.enum(["granted", "denied", "pending"]);
 
-/** 三项授权。⚠ 与 `interview` 束受访者同意书的四位**不是同一个东西**：那里多一位 `attribution`（署名） */
-export const RecordingConsentItem = z.enum(["record", "transcript", "ai_analysis"]);
+/**
+ * 逐人授权矩阵的**项**。
+ *
+ * ⚠ **2026-08-05 coord-main 经人类授权裁决（issue #533）：X-7 / XC-18 由此收敛为一套四项。**
+ *   本束原本自己声明三项（`record | transcript | ai_analysis`），与 `interview` 束的
+ *   `ConsentKey` 四位前三项逐字相同、只少一位 `attribution`。裁决判定那是**遗漏**而非两套设计：
+ *   工作坊与聊天线程录音同样产出可引述的片段，同样需要知道在场者同不同意被署名引述；
+ *   少这一位意味着这个系统**记录不了工作坊参与者是否同意被引述**。
+ *   ⇒ 两处收敛为 `./consent-item` 一处定义，本名字现在是它的**别名**（同一个对象）。
+ *
+ * ⚠ **行为差异**：`blocksStart` 读的是 `.options.length`（issue #465 铺的路），
+ *   所以基数从 3 变 4 后，只答了 3/4 的矩阵**当场从放行变为拒绝**。
+ *
+ * ⚠ **人类可推翻本裁决并回退到三项**——回退时要连同 `consent-item.ts` 一起改，
+ *   不要在这里重新写一份三项的枚举。
+ */
+export const RecordingConsentItem = ConsentItem;
 
 /**
  * Segment 状态。
@@ -115,7 +132,7 @@ export const RecordingError = z.enum([
   /** 组织默认保留期缺失 ⇒ **拒绝开始，不用隐含常量兜底**（E5 / I-33） */
   "RETENTION_POLICY_MISSING",
   "SESSION_ALREADY_RECORDING",
-  /** 三项授权矩阵任一 `pending` ⇒ 该路不采集（原型 P-12） */
+  /** 四项授权矩阵任一 `pending` ⇒ 该路不采集（原型 P-12；项数恒随 `RecordingConsentItem`） */
   "CONSENT_NOT_COMPLETED",
   "SOURCE_REF_NOT_FOUND",
   "TRACK_NOT_FOUND",
@@ -208,7 +225,7 @@ export const RecordingError = z.enum([
 /* ─────────────────────────────── 实体 ─────────────────────────────── */
 
 /**
- * 逐人 × 三项的授权矩阵单元。
+ * 逐人 × 四项的授权矩阵单元。
  * ⚠ 这是 `startRecording` 门禁的**唯一判据来源**：矩阵里任一 `pending` ⇒ 拒绝开始。
  *   「前端把按钮置灰」不构成这条约束的实现。
  */
@@ -327,7 +344,7 @@ export const operations = {
 
   /**
    * startRecording —— 开始录制。
-   * ⚠ **本操作是三项授权矩阵的硬门禁**：任一在场者的任一项为 `pending`
+   * ⚠ **本操作是四项授权矩阵的硬门禁**：任一在场者的任一项为 `pending`
    *   ⇒ `CONSENT_NOT_COMPLETED`，那一路不采集。前端禁用而后端放行不算实现。
    * ⚠ 组织默认保留期缺失 ⇒ `RETENTION_POLICY_MISSING`，**不用隐含常量兜底**（E5）。
    */
@@ -359,7 +376,7 @@ export const operations = {
   },
 
   /**
-   * getConsentMatrix —— 逐人 × 三项授权矩阵（`startRecording` 门禁的可视化对手方）。
+   * getConsentMatrix —— 逐人 × 四项授权矩阵（`startRecording` 门禁的可视化对手方）。
    *
    * ⚠ **`usecases.md` 没有显式列出这个读端口**，但 `CONSENT_NOT_COMPLETED` 的界面出口
    *   （「谁的哪一项还没到」）没有它就无从渲染，只能靠前端自己拼——那就是第二份判据。

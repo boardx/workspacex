@@ -83,10 +83,21 @@ export interface SegmentStore {
  *   「提交记录存哪张表」，所以 `recording_consent_cells` 可以存在，它的项来自已签核契约的
  *   `RecordingConsentItem`（一处定义，机械对账见
  *   `tests/rec/recording-consent-single-source.test.ts`）。
- *   **⚠ 上面那段没有过时，不许删、也不许改成「已解决」**：X-7 的三项（recording 契约）
- *   vs 四项（`interview_consent_submissions` 的四个布尔列）之争**仍未裁**，是产品语义问题，
- *   需要人类。裁决只回答了「表能不能建」，没有回答「到底几项」。
- *   把这段注释改成「已解决」，正是本仓 2026-08-05 一天里发现四处的那种**会说谎的注释**。
+ *   **⚠ 上面第一段（"X-7 / XC-18 are unresolved … three vs four"）现在是历史记录，
+ *   保留是为了能看出裁过什么，不要删** —— 但它描述的状态**已于 2026-08-05 结束**，见下。
+ *
+ * ⚠ **2026-08-05 coord-main 经人类授权裁决（issue #533）：三项 / 四项之争已裁 —— 取四项。**
+ *   裁决内容逐字：`recording` 的三项是 `interview` 四位的**严格子集、逐字相同、只少一位
+ *   `attribution`**，那是**遗漏**的形状而非两套设计；且 `attribution`（能不能把某句话
+ *   署名归到某个人）在工作坊 / 线程录音里同样成立 —— 少这一位意味着系统当时
+ *   **记录不了工作坊参与者是否同意被引述**，那是真实的能力缺口，不是「简化」。
+ *   ⇒ 两个枚举收敛为 `packages/contracts/src/consent-item.ts` 的 `CONSENT_ITEMS`（四项），
+ *     `interview.ConsentKey` 与 `recording.RecordingConsentItem` 都是它的**别名**。
+ *   ⇒ 本端口的立场**没有变**：它仍然只问「有没有单元格还 pending」，仍然不枚举项。
+ *     变的只是矩阵的项数，而门禁读的是 `.options.length`（#465），所以基数自动跟到 4。
+ *   门控：`tests/rec/consent-items-single-source.test.ts`（同一性 + 只有一处声明）
+ *   ＋ `tests/rec/recording-consent-single-source.test.ts`（迁移 CHECK 逐字对账）。
+ *   ⚠ 人类可推翻本裁决并回退到三项 —— 回退请改 `consent-item.ts`，不要在两束里各写一份。
  */
 export interface ConsentGate {
   /** True ⇒ `startRecording` must refuse. Equivalent to `getConsentMatrix.blocksStart`. */

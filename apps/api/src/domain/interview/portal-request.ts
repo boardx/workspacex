@@ -15,6 +15,7 @@
  */
 import { WITHDRAWAL_SLA_MS } from "@repo/contracts/org-admin";
 import { interview } from "@repo/contracts";
+import { CONSENT_ITEMS } from "@repo/contracts/consent-item";
 import type { z } from "zod";
 import type { WithdrawalStepRecord } from "./withdrawal";
 
@@ -23,13 +24,13 @@ export type ConsentKeyValue = z.infer<typeof interview.ConsentKey>;
 /** 派生自契约的 `interview.ConsentBits`。 */
 export type ConsentBits = z.infer<typeof interview.ConsentBits>;
 
-/** 四位的固定顺序——`diffConsentBits`/`ALL_CONSENT_KEYS` 全仓只在这里声明一次。 */
-export const ALL_CONSENT_KEYS: readonly ConsentKeyValue[] = [
-  "record",
-  "transcript",
-  "ai_analysis",
-  "attribution",
-];
+/**
+ * 四位的固定顺序。
+ * ⚠ **不在这里另列一遍**（#533）：顺序本身属契约，唯一事实源是 `consent-item.ts` 的
+ *   `CONSENT_ITEMS`。原来这里写着「全仓只在这里声明一次」——那句话当时就是假的
+ *   （契约两处 + `consent-token-ports.ts` + 本处，共四份），现改为直接引用。
+ */
+export const ALL_CONSENT_KEYS: readonly ConsentKeyValue[] = CONSENT_ITEMS;
 
 export interface ConsentBitsDiff {
   /** true → false：即时生效并触发撤回（R7）。 */
