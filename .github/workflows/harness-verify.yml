@@ -2,7 +2,8 @@
 # 快速迭代策略（2026-07）：
 #   - PR/push 只做轻量门控：受影响模块的 typecheck/lint/test（turbo --affected）+ 生成物漂移检查。
 #   - 全栈烟测(fullstack-smoke)：每小时检查 main 是否有新合并的 PR，有才跑一次。
-#   - 全量浏览器 e2e(e2e-full)：每 3 小时定时回归一次。
+#   - 全量浏览器 e2e(e2e-full)：**不在 PR 上跑**（2026-08-05 人类指令：提高速度）。
+#     它在 tag 发布、main push、每 3 小时定时、以及手动触发时跑。
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
 
 name: harness-verify
@@ -11,6 +12,8 @@ on:
   pull_request:
   push:
     branches: [main]
+    # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
+    tags: ["v*"]
   schedule:
     # 每小时检查 main 是否有新合并（新 PR 落地即产生新 commit），有则跑全栈烟测。
     - cron: "0 * * * *"
@@ -180,7 +183,20 @@ jobs:
           if-no-files-found: error
 
   e2e-full:
-    if: github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *'
+    # 2026-08-05 人类指令：「只有 tag 发布的时候才做，PR 的时候先不做，以提高速度」。
+    #
+    # ⚠ 摘掉的是**这一个** job，不是 PR 的门控。PR 上仍然跑：
+    #   · `verify`          —— 受影响模块的 typecheck/lint/test + 全部 harness 门控；
+    #   · `fullstack-smoke` —— 真浏览器 + 真 docker 栈，**含 `core-loop.spec.ts`**，
+    #                          也就是人类八步的那块活进度板。
+    #   ⇒ 「八步有没有退化」在每个 PR 上照旧会红。这里省掉的是那 35 分钟的全量回归。
+    #
+    # ⚠ 代价要说清楚：**PR 上不再跑全量单测**（4500+ 条）。一个只被 e2e-full 覆盖的
+    #   回归，现在最早在 tag 发布或下一个 3 小时定时才会暴露，而不是在 PR 上。
+    #   这是刻意换来的速度，不是疏忽 —— 谁要改回去，改这一行即可。
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
