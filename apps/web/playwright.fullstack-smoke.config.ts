@@ -10,6 +10,17 @@ function required(name: string): string {
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
+/**
+ * #435 —— 确定性模型提供方的端口。
+ *
+ * ⚠ 不改 `.harness/scripts/lib/test-isolation.ts` 去多分配一个端口：那是**所有** worker
+ *   共用的隔离事实源，为一条用例动它，代价落在整支队伍身上。
+ *
+ * `webPort` 由隔离哈希落在 45000–50000 这一段且**每个隔离唯一**，因此 `+5000` 是一个
+ * 单射，落在 50000–55000 这一段无人认领的区间里 —— 不同隔离之间不会撞，
+ * 也不会撞上 pg/redis/minio/api/web 任何一段。
+ */
+const modelProviderPort = String(Number(webPort) + 5_000);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -32,6 +43,30 @@ const fixtureEnv = {
   FULLSTACK_E2E_MEMBER_EMAIL: FULLSTACK_E2E.memberEmail,
   FULLSTACK_E2E_MEMBER_PASSWORD: FULLSTACK_E2E.memberPassword,
   FULLSTACK_E2E_MEMBER_USER_ID: FULLSTACK_E2E.memberUserId,
+  // #435：种一个**真的跑得起来**的 Agent。provider/model 只有这一份字面量（见 fixture）。
+  FULLSTACK_E2E_AGENT_ID: FULLSTACK_E2E.agentId,
+  FULLSTACK_E2E_AGENT_NAME: FULLSTACK_E2E.agentDisplayName,
+  FULLSTACK_E2E_AGENT_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
+  FULLSTACK_E2E_AGENT_MODEL_ID: FULLSTACK_E2E.agentModelId,
+};
+
+/**
+ * #435 —— 显式选中的确定性模型提供方。**这不是 mock fallback。**
+ *
+ * `ConfiguredModelProvider` 只认 `KERNEL_MODEL_PROVIDER` 这一个名字，并且拒绝任何与 run
+ * 快照里 `model_provider` 不同的值（`configured-model-provider.ts:60-73`）——那里没有
+ * list、没有 map、没有 "default"，所以**不存在**「悄悄退回到它」的路径。被测的仍然是
+ * 真实适配器走真实 HTTP，只是上游是一个我们能预测其输出的进程；这与
+ * `apps/api/tests/agent-runtime/no-tool-run-writeback.test.ts:108-137` 是同一套做法。
+ *
+ * 不配它会怎样：run 以 `MODEL_PROVIDER_NOT_CONFIGURED` **诚实地失败**，
+ * 界面上 `chat-live-agent-run-status` 显示 failed，绝不会冒出一条编造的回复。
+ */
+const modelProviderEnv = {
+  KERNEL_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
+  KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
+  // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
+  KERNEL_MODEL_API_KEY: "fullstack-smoke-loopback-key-not-a-secret",
 };
 
 export default defineConfig({
@@ -93,6 +128,20 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: [
+    // #435：模型提供方排在 API 之前 —— API 启动时就把 provider 配置读死了
+    // （`readModelProviderConfig` 在组装期读一次，见 `configured-model-provider.ts:38-49`），
+    // 但真正的连接发生在 run 执行时，所以顺序上只要它先 ready 即可。
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-model-provider.ts",
+      url: `http://127.0.0.1:${modelProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_MODEL_PROVIDER_PORT: modelProviderPort,
+        LOOPBACK_MODEL_REPLY_PREFIX: FULLSTACK_E2E.agentReplyPrefix,
+      },
+    },
     {
       command: [
         `${compose} up -d --wait postgres redis minio`,
@@ -102,7 +151,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : 120_000,
       reuseExistingServer: false,
-      env: { ...process.env, ...fixtureEnv, PORT: apiPort },
+      env: { ...process.env, ...fixtureEnv, ...modelProviderEnv, PORT: apiPort },
     },
     {
       command: `next build && next start -p ${webPort}`,

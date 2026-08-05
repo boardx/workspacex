@@ -46,7 +46,9 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { EMPTY_DB_TAG, readDatabaseStat } from "./core-loop-fixture";
+import {
+  EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat,
+} from "./core-loop-fixture";
 
 /** 步骤 1 注册出来的那一位。带时间戳没有意义：库是空的，它必须是**唯一**一个。 */
 const FIRST_USER = {
@@ -266,13 +268,115 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId("chat-skill-mount")).toBeVisible();
   });
 
-  test.fail("[#414 + #413] 步骤 8b：会话内的 agent **真的执行**并产生一条回复", async ({ page }) => {
-    await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-    await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
+  test("步骤 8b：会话内的 agent **真的执行**并产生**恰好一条**回复（#435 交付）", async ({ page }) => {
     // ⚠ 这一步测的是**执行**，不是挂载关系。#467 交付之后
     // `capability-catalog-screen.tsx` 那句自陈「出现在目录中不代表已经具备可执行的
     // AgentRun 或 Skill 运行时」**依然成立** —— 别让一批全绿 PR 造成闭环已通的错觉。
-    await expect(page.getByTestId("chat-agent-run-status")).toBeVisible();
+    //
+    // ## 这条断言原本锚在虚空上（#435 的起因，同型第五次）
+    //
+    // 原文是 `page.getByTestId("chat-agent-run-status")`。实测：那个名字在整个
+    // `apps/web` 里**只出现在这一行**，也就是它在断言它自己。于是步骤 8b 从写下那天起
+    // 就恒红，而且红得**不是因为对的原因** —— #414 / #413 早已合入 main，后端是通的，
+    // 红的原因只是锚点不存在。前四次同型：`capability-catalog`（真名
+    // `admin-agent-catalog`）· `canvas-template-create`（真名 `tpladmin-create`）·
+    // `skill-create-submit`（存在但面板默认折叠）· `chat-composer-input`（只在死掉的
+    // `composer.tsx` 里）。五次里有三次表现为「红着」，所以进度板看起来一直在正常工作。
+    //
+    // 真锚点：`components/chat/chat-live-message-panel.tsx` 的 `AgentRunStatus`，
+    // testid `chat-live-agent-run-status`，跟随该组件既有的 `chat-live-*` 前缀。
+    //
+    // ## 为什么断言不止「status 可见」
+    //
+    // 「可见」太弱，会重蹈步骤 3 那种「绿了但没穿到后端」。这条走完整条链：
+    //   发一条带唯一标记的消息 → run 状态**由服务端**推进到终态 → 库里**恰好一条**回复
+    //   → 回复正文含该标记（证明模型真收到了它）→ 刷新后仍在（证明写进库不是写进 state）。
+    // ⚠ Playwright 的**默认单条超时是 30s**，而本条要等一次真实 run 走完
+    //   queued → running → writeback_pending → succeeded 外加轮询退避。
+    //   实测：`expect(...).toHaveAttribute(..., { timeout: 120_000 })` 里那个 120s
+    //   **不会**放宽用例总超时，用例仍在 30.2s 被判死 —— 报出来是
+    //   「data-run-status 是 null」，看着像功能没做，其实只是没等到。
+    test.setTimeout(180_000);
+    await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
+
+    // ── 一条本用例专属的线程 ───────────────────────────────────────────────
+    // 不复用步骤 6a 留下的那条：两条用例共用一条线程，消息计数就会互相干扰，
+    // 而那种干扰表现为间歇红，最后会被归因成「e2e 不稳」然后被人加重试掩盖过去。
+    const title = `闭环 8b 会话 ${Date.now()}`;
+    const threadList = page.getByTestId("chat-read-thread-list");
+    await expect(page.getByTestId("chat-thread-create")).toBeVisible();
+    await page.getByTestId("chat-thread-create").click();
+    await page.getByTestId("chat-thread-title-input").fill(title);
+    await page.getByTestId("chat-thread-title-submit").click();
+    await expect(threadList.getByText(title)).toBeVisible();
+    await threadList.getByText(title).click();
+
+    // ── 把**可运行的**那个 agent 挂进本线程的编制 ─────────────────────────
+    // 种子只种了 `org_agents`（可见）与 `agents`/`agent_versions`（可跑），线程级编制
+    // 刻意留给这里做 —— 线程是现场建的，预种不了，而这一步顺带证明编制写路径是活的。
+    await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-roster-add-submit").click();
+    await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
+
+    // ── 发一条带**唯一标记**的消息 ────────────────────────────────────────
+    // 标记的作用：回复正文里必须能找到它。找不到就说明回复不是这次 run 产出的
+    // （可能是上一次跑剩下的行，也可能是谁在前端合成的）。
+    const marker = `CORE_LOOP_8B_${Date.now()}`;
+    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-message-input").fill(marker);
+    await page.getByTestId("chat-message-submit").click();
+
+    // ── run 的状态由**服务端**推进到终态 ──────────────────────────────────
+    const status = page.getByTestId("chat-live-agent-run-status");
+    await expect(status).toBeVisible();
+    // `data-run-status` 直接来自 `GET /agent-runs/:runId` 的 `status`。断言 `succeeded`
+    // 而不是「非 queued」：`succeeded` 在库里被触发器保证「写回已提交」才可达
+    // （`20260805150000_i413_chat_writeback.sql:74-91`），它本身就是一句关于持久化的断言。
+    await expect(status).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
+    const runId = await status.getAttribute("data-run-id");
+    expect(runId, "run status 必须带上它在讲哪一次 run").toBeTruthy();
+    await expect(status).toHaveAttribute("data-result-message-id", /.+/);
+
+    // ── 库侧终局：**恰好一条**回复 ────────────────────────────────────────
+    //
+    // ⚠ 这里数的是**最终条数**，不是「成功了几次」。#19 的坑：只断言成功数，
+    //   一个「每次重试都追加一行」的坏实现会全绿。承载 exactly-once 的是唯一索引
+    //   `chat_messages_agent_run_idx`，反证正是把它摘掉（见下方开关）。
+    if (process.env.CORE_LOOP_COUNTERPROOF_8B === "1") {
+      // 反证插在这里，是刻意的：上面「status 可见 / run succeeded」几条**必须先绿**，
+      // 红点才会精确落在下面的 exactly-once 上。若红在更早的步骤，那就不是本反证
+      // 要验的东西 —— 今天六个 agent 各抓到过一次「红得不对」。
+      counterproofDuplicateReply(runId!);
+    }
+    const runStat = readRunStat(runId!);
+    expect(runStat.runStatus, "库里的 run 也必须是 succeeded，不只是界面上是").toBe("succeeded");
+    expect(runStat.runError).toBeNull();
+    expect(
+      runStat.assistantMessages,
+      "一次 run 必须**恰好**产生一条回复：0 = 没写回，≥2 = exactly-once 破了",
+    ).toBe(1);
+    expect(
+      runStat.assistantTexts[0],
+      "回复正文必须含本次发出的标记，否则它不是这次 run 产出的",
+    ).toContain(marker);
+    expect(
+      runStat.assistantTexts[0],
+      "而且必须出自被显式选中的那个 provider，不是任何人合成的",
+    ).toContain(FULLSTACK_E2E.agentReplyPrefix);
+    expect(runStat.replyToMessageIds[0], "回复必须回指它所答的那条 human 消息").toBeTruthy();
+    // human 一条 + agent 一条。多出来的行说明有人在写回之外又插了什么。
+    expect(runStat.threadMessages, "该线程里应当只有 human 与 agent 各一条").toBe(2);
+
+    // ── 读路径侧：刷新后仍在，且仍然只有一条 ──────────────────────────────
+    // 「刷新后仍在」是唯一能区分「写进了库」与「写进了 React state」的断言。
+    await page.reload();
+    await threadList.getByText(title).click();
+    const messageList = page.getByTestId("chat-message-list");
+    await expect(messageList).toContainText(marker);
+    await expect(
+      messageList.getByTestId("chat-message-row").filter({ hasText: FULLSTACK_E2E.agentReplyPrefix }),
+    ).toHaveCount(1);
   });
 
   test.fail("[#493] 步骤 8c：在项目/会话里真正**使用**一个 canvas 模板", async ({ page }) => {

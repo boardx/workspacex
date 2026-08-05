@@ -36,12 +36,24 @@ export interface CoreLoopDbStat {
   readonly orgNames: readonly string[];
 }
 
-function run(command: "reset" | "stat", email: string): CoreLoopDbStat {
+/** #435 步骤 8b 的库侧证据。字段语义见 `apps/api/scripts/core-loop-db.ts` 的同名接口。 */
+export interface CoreLoopRunStat {
+  readonly runStatus: string | null;
+  readonly runError: string | null;
+  readonly assistantMessages: number;
+  readonly assistantTexts: readonly string[];
+  readonly replyToMessageIds: readonly string[];
+  readonly threadMessages: number;
+}
+
+type Command = "reset" | "stat" | "run-stat" | "counterproof-duplicate-reply";
+
+function run<T>(command: Command, argument: string): T {
   let stdout: string;
   try {
     stdout = execFileSync(
       "pnpm",
-      ["--filter", "@repo/api", "exec", "tsx", "scripts/core-loop-db.ts", command, email],
+      ["--filter", "@repo/api", "exec", "tsx", "scripts/core-loop-db.ts", command, argument],
       { cwd: ROOT, encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "pipe"] },
     );
   } catch (e) {
@@ -50,11 +62,22 @@ function run(command: "reset" | "stat", email: string): CoreLoopDbStat {
   }
   const payload = new RegExp(`${MARKER}(.*)`).exec(stdout)?.[1];
   if (payload === undefined) throw new Error(`core-loop-db ${command} 没有产出可解析的库态:\n${stdout}`);
-  return JSON.parse(payload) as CoreLoopDbStat;
+  return JSON.parse(payload) as T;
 }
 
 /** 把库清成零用户，并把一次性 bootstrap 门重新打开。 */
-export const resetToEmptyDatabase = (): CoreLoopDbStat => run("reset", "");
+export const resetToEmptyDatabase = (): CoreLoopDbStat => run<CoreLoopDbStat>("reset", "");
 
 /** 读当前库态。`email` 用来查该账号在正式组织里的角色。 */
-export const readDatabaseStat = (email: string): CoreLoopDbStat => run("stat", email);
+export const readDatabaseStat = (email: string): CoreLoopDbStat => run<CoreLoopDbStat>("stat", email);
+
+/** #435：读某次 AgentRun 的库侧终局。**数最终条数**，不数成功次数。 */
+export const readRunStat = (runId: string): CoreLoopRunStat =>
+  run<CoreLoopRunStat>("run-stat", runId);
+
+/**
+ * ⚠ #435 反证：摘掉唯一索引并给该 run 插入第二条回复。
+ * 只在 `CORE_LOOP_COUNTERPROOF_8B=1` 下调用；步骤 8b 的 exactly-once 断言必须因此变红。
+ */
+export const counterproofDuplicateReply = (runId: string): CoreLoopRunStat =>
+  run<CoreLoopRunStat>("counterproof-duplicate-reply", runId);

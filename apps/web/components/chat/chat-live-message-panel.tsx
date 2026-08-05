@@ -10,14 +10,44 @@ import {
   type DurableMessage,
   type GetAgentPanelOut,
 } from "@/lib/live-chat";
+import {
+  getAgentRun,
+  isTerminalRunStatus,
+  type AgentRunStatus,
+  type AgentRunView,
+} from "@/lib/agent-run";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 const MESSAGE_PAGE_SIZE = 50;
 
+/**
+ * #435 —— AgentRun 轮询的有界退避。
+ *
+ * 契约把 Wave 2 的 run 传输定为**轮询**并要求「有界退避 + 终态停止」
+ * （`packages/contracts/src/wave2-runtime.ts:200-202`）。这三个常数就是那个「有界」：
+ * 起步 400ms，每次 ×1.5，封顶 3s，总时长封顶 90s。
+ *
+ * ⚠ 超时**不等于**失败。超时只说明「本页面在这段时间内没等到终态」，
+ * run 在服务端可能仍在跑。所以超时走 `timedOut` 分支显示「仍在进行」，
+ * **不**伪造一个 `failed` —— 那会让界面对用户说谎。
+ */
+const RUN_POLL_FIRST_DELAY_MS = 400;
+const RUN_POLL_BACKOFF = 1.5;
+const RUN_POLL_MAX_DELAY_MS = 3_000;
+const RUN_POLL_BUDGET_MS = 90_000;
+
 interface SubmissionAttempt extends CreateMessageInput {
   readonly threadId: string;
+}
+
+/** 轮询到的 run 观测值。`view` 为 null 表示「还没读到第一份服务端状态」。 */
+interface RunObservation {
+  readonly runId: string;
+  readonly view: AgentRunView | null;
+  readonly failure: string | null;
+  readonly timedOut: boolean;
 }
 
 export function ChatLiveMessagePanel({
@@ -43,6 +73,16 @@ export function ChatLiveMessagePanel({
   const [submitFailure, setSubmitFailure] = React.useState<string | null>(null);
   const [attempt, setAttempt] = React.useState<SubmissionAttempt | null>(null);
   const [queuedRun, setQueuedRun] = React.useState<{ id: string; messageId: string } | null>(null);
+  /**
+   * 轮询对象与上面那条 202 回显**刻意分成两个 state**。
+   *
+   * `queuedRun` 是草稿态的一部分：改一个字它就消失（`updateDraft`），
+   * 这条语义有测试钉着（`tests/ui/chat-read-screen.test.tsx:279`）。
+   * 但一次**已被接受**的 run 是服务端的持久事实，它不该因为用户开始敲下一句话就
+   * 停止轮询、从界面上蒸发。两者共用一个 state 就必然二选一，所以拆开。
+   */
+  const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
+  const [runObservation, setRunObservation] = React.useState<RunObservation | null>(null);
   const generation = React.useRef(0);
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
@@ -84,11 +124,82 @@ export function ChatLiveMessagePanel({
     setAttempt(null);
     setSubmitFailure(null);
     setQueuedRun(null);
+    setActiveRunId(null);
+    setRunObservation(null);
     void loadPage(null, true);
     return () => {
       generation.current += 1;
     };
   }, [loadPage, sourceKey]);
+
+  /**
+   * #435 —— 把 AgentRun 的**真实执行状态**读出来，让「agent 真的跑了」对用户可见。
+   *
+   * 在这条 effect 之前，界面上关于一次 run 的全部信息只有 `chat-message-queued`——
+   * 那只是 202 响应体的回显（`chat.controller.ts:377-387`），它在 run 还没开始执行、
+   * 甚至在 run 失败之后，都长得一模一样。换句话说：**旧界面无法区分「跑成功了」
+   * 与「压根没跑」**，闭环第 8 步在界面上交付不了。
+   *
+   * 这里唯一的事实源是 `GET /agent-runs/:runId`（`agent-run.controller.ts:35`）。
+   * 轮询到终态就停，然后**重读消息页**——助手回复是 #413 写回提交的持久行，
+   * 不是本地合成的（`pg-agent-run-repository.ts:216-266`）。
+   */
+  React.useEffect(() => {
+    const runId = activeRunId;
+    if (runId === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const deadline = Date.now() + RUN_POLL_BUDGET_MS;
+    setRunObservation({ runId, view: null, failure: null, timedOut: false });
+
+    const poll = async (delay: number): Promise<void> => {
+      if (cancelled) return;
+      let view: AgentRunView;
+      try {
+        view = await getAgentRun(runId, bearer);
+      } catch (failure) {
+        if (cancelled) return;
+        // 读失败就如实说读失败。**不**把它渲染成一个 run 状态——
+        // 「读不到 run」与「run 失败了」是两件事，混起来就是在界面上撒谎。
+        setRunObservation({
+          runId,
+          view: null,
+          failure: describeMessageFailure(failure, "读取 AgentRun 状态"),
+          timedOut: false,
+        });
+        // ⚠ 读失败**不终止轮询**（预算耗尽才停）。一次 503 或网络抖动就把状态永久冻在
+        //   「读取失败」上是错的：run 在服务端还跑着，界面却再也不会更新了。
+        //   实测见过这个形态 —— 缺了 `/agent-runs` 的 rewrite 时，首次轮询就失败并
+        //   就此停住，62 次断言重试读到的都是同一个冻住的 DOM。持续失败仍然会
+        //   一直显示失败文案，所以「如实报错」没有被削弱。
+        if (Date.now() >= deadline) return;
+        timer = setTimeout(
+          () => void poll(Math.min(delay * RUN_POLL_BACKOFF, RUN_POLL_MAX_DELAY_MS)),
+          delay,
+        );
+        return;
+      }
+      if (cancelled) return;
+      setRunObservation({ runId, view, failure: null, timedOut: false });
+      if (isTerminalRunStatus(view.status)) {
+        // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
+        // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
+        await loadPage(null, true);
+        return;
+      }
+      if (Date.now() >= deadline) {
+        setRunObservation({ runId, view, failure: null, timedOut: true });
+        return;
+      }
+      timer = setTimeout(() => void poll(Math.min(delay * RUN_POLL_BACKOFF, RUN_POLL_MAX_DELAY_MS)), delay);
+    };
+
+    timer = setTimeout(() => void poll(RUN_POLL_FIRST_DELAY_MS), 0);
+    return () => {
+      cancelled = true;
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [activeRunId, bearer, loadPage]);
 
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
@@ -116,6 +227,8 @@ export function ChatLiveMessagePanel({
     setSubmitting(true);
     setSubmitFailure(null);
     setQueuedRun(null);
+    setActiveRunId(null);
+    setRunObservation(null);
     try {
       const accepted = await createMessage(threadId, {
         clientMessageId: currentAttempt.clientMessageId,
@@ -123,6 +236,7 @@ export function ChatLiveMessagePanel({
         agentId: currentAttempt.agentId,
       }, bearer);
       setQueuedRun({ id: accepted.agentRunId, messageId: accepted.message.id });
+      setActiveRunId(accepted.agentRunId);
       setText("");
       setAttempt(null);
       await loadPage(null, true);
@@ -222,6 +336,7 @@ export function ChatLiveMessagePanel({
             消息已持久化，AgentRun 已排队（{queuedRun.id}）。
           </p>
         ) : null}
+        {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -230,6 +345,68 @@ export function ChatLiveMessagePanel({
       </div>
     </div>
   );
+}
+
+/**
+ * #435 —— AgentRun 的可见状态。**这是闭环第 8 步在界面上的唯一交付物。**
+ *
+ * ## 为什么 testid 叫 `chat-live-agent-run-status`
+ *
+ * 跟随本组件既有的 `chat-live-*` 前缀（本文件 :137 的 `chat-live-message-panel`），
+ * 不另造一套命名。`core-loop.spec.ts` 曾断言一个叫 `chat-agent-run-status` 的东西，
+ * 那个名字**在整个 `apps/web` 里从不存在** —— 于是步骤 8b 从写下那天起就恒红，
+ * 而且红得不是因为 agent 没跑，是因为断言锚在虚空上。同型事故这是第五次。
+ *
+ * ## 状态取自服务端，不取自本地推断
+ *
+ * `data-run-status` 直接来自 `GET /agent-runs/:runId` 的 `status` 字段，
+ * 是契约状态机的原值（`queued|running|writeback_pending|succeeded|failed`）。
+ * 断言方因此可以判「跑到终态了」，而不是判「前端以为它跑完了」。
+ *
+ * `data-result-message-id` 只在 #413 的写回事务提交后才非空
+ * （`wave2-runtime.ts:195` 原文：Non-null only once #413's writeback transaction has
+ * committed）。它是「恰好一条回复真的落库了」在 DOM 上的投影。
+ */
+function AgentRunStatus({ observation }: { observation: RunObservation }) {
+  const { runId, view, failure, timedOut } = observation;
+  const status: AgentRunStatus | null = view?.status ?? null;
+  return (
+    <div
+      className="mt-2 flex flex-wrap items-center gap-1.5 text-11"
+      data-testid="chat-live-agent-run-status"
+      data-run-id={runId}
+      // 读不到状态时**不填**这个属性，而不是填一个猜的值。
+      data-run-status={status ?? undefined}
+      data-result-message-id={view?.resultMessageId ?? undefined}
+      data-run-error={view?.error ?? undefined}
+    >
+      <Badge tone="outline">run {runId}</Badge>
+      {failure !== null ? <span className="text-destructive">{failure}</span> : null}
+      {failure === null && status === null ? (
+        <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>
+      ) : null}
+      {status !== null ? <span className={statusTone(status)}>{RUN_STATUS_TEXT[status]}</span> : null}
+      {view?.error ? <span className="text-destructive">（{view.error}）</span> : null}
+      {timedOut ? (
+        // 超时 ≠ 失败。run 可能还在服务端跑，界面只说自己没等到。
+        <span className="text-muted-foreground">本页面已停止轮询，运行可能仍在继续。</span>
+      ) : null}
+    </div>
+  );
+}
+
+const RUN_STATUS_TEXT: Record<AgentRunStatus, string> = {
+  queued: "已排队，等待执行",
+  running: "正在执行",
+  writeback_pending: "已产出，正在写回对话",
+  succeeded: "执行完成，回复已写入对话",
+  failed: "执行失败",
+};
+
+function statusTone(status: AgentRunStatus): string {
+  if (status === "failed") return "text-destructive";
+  if (status === "succeeded") return "text-primary";
+  return "text-muted-foreground";
 }
 
 function appendUnique(current: DurableMessage[], incoming: DurableMessage[]): DurableMessage[] {
