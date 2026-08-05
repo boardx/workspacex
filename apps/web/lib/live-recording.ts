@@ -35,7 +35,14 @@ export type RecordingFailure =
   /** 拿到了流但采音管线没起来 */
   | "capture-failed";
 
-export interface RecordingError {
+/**
+ * ⚠ 刻意**不叫** `RecordingError`：契约 `packages/contracts/src/recording.ts:104`
+ *   已经有一个同名的**错误码枚举**（`z.enum([...])`）。两者是不同的东西 ——
+ *   那个是「服务端回哪个码」，这个是「界面上显示什么」——
+ *   但重名会被 `lint-contract-source` 判成「前端重定义契约类型」（V10），
+ *   而那条门是对的：同名不同义比同名同义更容易骗到人。
+ */
+export interface LiveRecordingErrorDetail {
   kind: RecordingFailure;
   /** 给人看的中文说明；调用方直接渲染，不需要再翻译一次 */
   message: string;
@@ -46,7 +53,7 @@ export interface RecordingError {
 export class LiveRecordingError extends Error {
   readonly kind: RecordingFailure;
   readonly cause?: string;
-  constructor(detail: RecordingError) {
+  constructor(detail: LiveRecordingErrorDetail) {
     super(detail.message);
     this.name = "LiveRecordingError";
     this.kind = detail.kind;
@@ -60,7 +67,7 @@ export class LiveRecordingError extends Error {
  * 浏览器之间名字不完全一致，所以按**名字**判定而不是按 message 文本 ——
  * message 是本地化的，拿它做判据等于把判定绑在语言设置上。
  */
-export function classifyMediaError(error: unknown): RecordingError {
+export function classifyMediaError(error: unknown): LiveRecordingErrorDetail {
   const name = typeof error === "object" && error !== null && "name" in error
     ? String((error as { name: unknown }).name)
     : "";

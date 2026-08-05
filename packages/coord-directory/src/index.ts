@@ -8,9 +8,11 @@ import { PlatformDirectory } from "./directory";
 
 export { PlatformDirectory };
 export {
+  AGENT_KINDS,
   MEMBERSHIP_ROLES,
   MEMBERSHIP_STATUSES,
   PROJECT_VISIBILITIES,
+  type AgentKind,
   type MembershipRole,
   type MembershipStatus,
 } from "./directory";
