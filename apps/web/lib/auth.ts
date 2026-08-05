@@ -71,3 +71,43 @@ export function isRegistrationEmailTaken(error: unknown): boolean {
 export function isLoginRejected(error: unknown): boolean {
   return error instanceof ApiError && error.reasonCode === "INVALID_CREDENTIAL";
 }
+
+/**
+ * 字段级校验失败（HTTP 400 `validation_failed`）与"服务不可用"是**两回事**，
+ * 而它们此前在 UI 上长得一模一样——这条 helper 就是把它们分开。
+ *
+ * ## 为什么需要它
+ *
+ * `ZodBodyPipe` 校验失败时抛 `ContractValidationError`，`all-exceptions.filter.ts`
+ * 把它写成 `{ error: "validation_failed", traceId, fields: [{path, code}] }`
+ * ——**没有 `reasonCode`**。于是 `ApiError.reasonCode` 是 `null`，
+ * `isBootstrapUnavailable` / `isRegistrationEmailTaken` 全部返回 false，
+ * 界面掉进"创建服务暂时不可用，请稍后重试"的兜底文案。
+ *
+ * 真实后果（2026-08-05 实测）：人类在 devapp 上建首位管理员，密码不满足
+ * `AUTH_POLICY.passwordMinLen`，界面告诉他**服务坏了**。他没有任何理由去改密码，
+ * 只会重试到放弃——一个能改的输入错误被伪装成了不可抗力。
+ *
+ * ⚠ **这条不适用于 `INVITE_CODE_INVALID`**：那是 `reasonCode` 不是校验失败，
+ * 且服务端有意把它的四种成因抹平成同一个响应（不存在/已核销/过期/已撤销）。
+ * 前端仍然、也必须**不区分**——区分等于按命中率削减 14 位码的搜索空间。
+ */
+export interface ContractFieldIssue {
+  readonly path: string;
+  readonly code: string;
+}
+
+export function contractFieldIssues(error: unknown): readonly ContractFieldIssue[] | null {
+  if (!(error instanceof ApiError) || error.status !== 400) return null;
+  const raw = error.raw;
+  if (typeof raw !== "object" || raw === null) return null;
+  const envelope = raw as { error?: unknown; fields?: unknown };
+  if (envelope.error !== "validation_failed" || !Array.isArray(envelope.fields)) return null;
+  const issues = envelope.fields.filter(
+    (f): f is ContractFieldIssue =>
+      typeof f === "object" && f !== null
+      && typeof (f as ContractFieldIssue).path === "string"
+      && typeof (f as ContractFieldIssue).code === "string",
+  );
+  return issues.length > 0 ? issues : null;
+}
