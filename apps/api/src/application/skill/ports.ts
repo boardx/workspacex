@@ -291,7 +291,27 @@ export interface SkillVisibilityPort {
   visibleTo(input: {
     readonly skillId: string;
     readonly principalId: string;
-  }): Promise<{ readonly status: SkillLifecycleStatus; readonly currentVersionId: string } | null>;
+  }): Promise<{
+    readonly status: SkillLifecycleStatus;
+    /**
+     * ⚠ **nullable，而它必须是（#552）。**
+     *
+     * 这里原本是 `string`，于是 `skill-mount.controller.ts` 的适配把
+     * `currentVersionId === null` 折成了「不存在」（返回 `null` ⇒ `SKILL_NOT_FOUND`）。
+     * 那处注释当时写着「实践中这一支到不了——`已启用` 蕴含有生效版本」，
+     * **那句话当时为真**：#552 之前没有任何 skill 离得开草稿，所以能被挂载的只有
+     * 种子里那条已启用的。
+     *
+     * #552 让草稿真的能被用户拿去挂了，条件就变了：**未获批准的 skill 恒
+     * `currentVersionId === null`**，于是使用者挂自己那条待审核的 skill 会被告知
+     * 「这个 skill **不存在**」——而它明明就在他自己的目录里列着。
+     * 正确答案是 `SKILL_NOT_ENABLED`（「只有已启用的可挂载，它现在是待审核」）。
+     *
+     * ⇒ 端口如实返回 `null`，让 `mountSkillToThread` 先判 `status`、再要版本号。
+     *   「有没有生效版本」与「存不存在」是两件事，折成一件会让界面说假话。
+     */
+    readonly currentVersionId: string | null;
+  } | null>;
 }
 
 /* ═══════════════════ F64：编排一次三视图与待办 / 现场自动挂载 / 孤立绑定 ═══════════════════ */

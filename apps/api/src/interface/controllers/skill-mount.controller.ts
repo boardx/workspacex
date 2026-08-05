@@ -275,10 +275,20 @@ export class SkillMountController {
    * `SkillVisibilityPort` 的适配 —— 复用 `getSkillDetail` 那条**唯一**的可见性判定
    * （`decideCapabilityVisibility` + `discloseDecided`），不在这里新写一份过滤。
    *
-   * ⚠ `currentVersionId === null` 折成 `SKILL_NOT_FOUND`（返回 `null`）：一个没有
-   *   生效版本的 skill 挂上去，`ThreadSkillMount.versionId` 就没有真实取值可填。
-   *   编一个空串会让复盘时「当时挂的是哪一版」永久不可回答。
-   *   实践中这一支到不了——`已启用` 蕴含有生效版本——但它是编译期就得答的问题。
+   * ⚠ **`currentVersionId === null` 不再折成 `SKILL_NOT_FOUND`**（#552 修）。
+   *
+   *   这里原本写着「实践中这一支到不了——`已启用` 蕴含有生效版本」。
+   *   **那句话当时为真**：#552 之前没有任何产品路径能让一个 skill 离开草稿，
+   *   所以挂得上的只有种子里那条已启用的。#552 让用户真的能建、能提交、能被批准之后
+   *   条件就变了：**未获批准的 skill 恒 `currentVersionId === null`**，于是使用者去挂
+   *   自己那条待审核的 skill，会被告知「这个 skill **不存在**」—— 而它明明就列在
+   *   他自己的目录里。正确答案是 `SKILL_NOT_ENABLED`（「只有已启用的可挂载」）。
+   *
+   *   ⇒ 这里如实把 `null` 传下去，由 `mountSkillToThread` **先判 `status`、再取版本号**。
+   *     「有没有生效版本」与「存不存在」是两件事，折成一件会让界面说假话。
+   *     原来那条顾虑（编一个空串会让「当时挂的是哪一版」永久不可回答）仍然成立，
+   *     而它现在由用例里的 `SKILL_NOT_ENABLED` 早退分支保证：走到取 `versionId`
+   *     那一步时 `status` 必已是 `已启用`，而那蕴含版本非空。
    */
   private async visibilityPort(principal: Principal): Promise<SkillVisibilityPort> {
     const repository = this.repositories.forOrg(principal.orgId);
@@ -303,7 +313,7 @@ export class SkillMountController {
         );
         if (!isDisclosed(disclosed)) return null;
         const row = disclosed.payload.row;
-        if (row.currentVersionId === null) return null;
+        // ⚠ 版本为 null 时**不**返回 null：那会把「还没获批」说成「不存在」。见上方注释。
         return { status: row.status, currentVersionId: row.currentVersionId };
       },
     };

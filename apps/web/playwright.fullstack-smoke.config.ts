@@ -36,6 +36,16 @@ const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
 const apiPgPort = process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? "1" : required("PGPORT");
 const breakController = process.env.FULLSTACK_E2E_MODE === "broken-controller-route" ? "artifacts" : "";
 const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required("COMPOSE_PROJECT_NAME")}"`;
+/**
+ * web 那一格的启动窗口。**默认一字未改（120s）**，只是可以被覆盖。
+ *
+ * 它的命令是 `next build && next start`，而 `next/font/google` 在**没有外网**的机器上
+ * 会对每个字体分片重试三次才放弃 —— 构建照样成功，只是慢。实测本地一次冷构建
+ * 3m24s，于是这一格必然超时，表现成「web 起不来」而不是「构建慢」。
+ * CI 有外网、构建落在 120s 内，所以**默认值不动**：为一台慢机器放宽全队的门控，
+ * 等于把一条会红的信号调成不会红。要在慢机器上跑就显式覆盖它。
+ */
+const webServerTimeoutMs = Number(process.env.FULLSTACK_E2E_WEB_TIMEOUT_MS ?? 120_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -267,7 +277,8 @@ export default defineConfig({
     {
       command: `next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
-      timeout: 120_000,
+      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_WEB_TIMEOUT_MS` 才不同。见上方定义。
+      timeout: webServerTimeoutMs,
       reuseExistingServer: false,
       env: {
         ...process.env,
