@@ -528,6 +528,17 @@ test.describe("核心闭环八步", () => {
 
     // ── 开始录音：真实 getUserMedia + Chrome 假音频设备，没有任何打桩 ───────
     await page.getByTestId("chat-live-recording-start").click();
+
+    if (counterproof === "no-asr-provider") {
+      // 上游没配置 ⇒ **诚实降级**：界面说人话，且**根本进不了 recording 态**。
+      // 实测红点就落在这里（比 drop-persist 早一整段），这正是「红得对」的样子：
+      // 三档反证各自红在**不同**的一行。
+      await expect(page.getByTestId("chat-live-recording-error"))
+        .toContainText("尚未配置转写服务", { timeout: 30_000 });
+      await expect(status).toHaveAttribute("data-phase", "failed");
+      return;
+    }
+
     await expect(status).toHaveAttribute("data-phase", "recording", { timeout: 30_000 });
     await expect(page.getByTestId("chat-live-recording-stop")).toBeEnabled();
 
@@ -538,12 +549,6 @@ test.describe("核心闭环八步", () => {
     await page.waitForTimeout(2_000);
 
     await page.getByTestId("chat-live-recording-stop").click();
-
-    if (counterproof === "no-asr-provider") {
-      await expect(page.getByTestId("chat-live-recording-error"))
-        .toContainText("尚未配置转写服务");
-      return;
-    }
 
     // ── 转录出现，且带着上游真实收到的 PCM 字节数 ───────────────────────────
     const transcript = page.getByTestId("chat-live-transcript");
