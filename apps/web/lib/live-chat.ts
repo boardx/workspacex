@@ -100,11 +100,17 @@ export async function getAgentPanel(
  *   契约的 `.strict()`——把 `projectId` 塞进 body 会被拒。与 `getAgentPanel`
  *   同一个落法，不是本函数特有的怪癖。
  *
- * ⚠ **调用方要自己维护 `expectedRosterVersion`**：全契约只有本端口的**出参**带
- *   `rosterVersion`（`packages/contracts/src/chat.ts:509`），**没有任何读端口下发它**
- *   （`getAgentPanel.out` 同文件 :477 里没有）。⇒ 只能从 `chat_threads.roster_version`
- *   的 DDL 默认值 0 起步、再用每次响应返回的值推进。这是**已上报的契约缺口**，
- *   不是这里可以自己发明一个字段补上的东西；并发冲突照契约回 409 `VERSION_CHANGED`，
+ * ⚠ **`expectedRosterVersion` 来自读端口**（#513 起）：`getAgentPanel.out.rosterVersion`
+ *   （契约 `packages/contracts/src/chat.ts` 的 `getAgentPanel.out`）。它与本端口出参的
+ *   `rosterVersion` 是**同一个字段、同一个事实源**（`chat_threads.roster_version`），
+ *   🟡 **该契约面待人类补签**——见契约里 `getAgentPanel` 的文件头。
+ *
+ *   #513 之前只有本端口的**出参**带它，读端口没有 ⇒ 刷新一次页面就无从填起、
+ *   跨页面加载的编制变更必然 409（#510 实测撞上，并把现状钉成了 e2e 断言）。
+ *
+ * ⛔ 调用方**不得**用「读不到就传 0 / -1 / 省略」兜底：乐观锁的意义就是拒绝盲写。
+ *   读不到版本号时**不提交**（`components/chat/chat-read-screen.tsx` 的
+ *   `runRosterMutation` 就是这么做的）。真并发冲突照契约回 409 `VERSION_CHANGED`，
  *   由调用方如实呈现，**不得静默重试**（「部分成功即整体拒绝」）。
  */
 export async function updateAgentRoster(

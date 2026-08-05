@@ -88,7 +88,7 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
  * 本用例证明的是**编制关系落库**，**不是**「agent 真的执行并产生回复」（那是 #414 + #413）。
  * 加进编制的 agent 不会因此就能跑。
  */
-test("#467 mounting an agent into the thread roster survives a full page reload", async ({ page }) => {
+test("#467/#513 roster mount survives a reload, and the post-reload edit now succeeds", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
@@ -120,30 +120,43 @@ test("#467 mounting an agent into the thread roster survives a full page reload"
   // 原本就在编制里的那个没被误伤。
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toBeVisible();
 
-  /* ── 🔴 已知契约缺口，用测试钉住而不是用注释描述 ─────────────────────────
+  /* ── ✅ #513：这里曾经是一颗钉住契约缺口的 `toBe(409)`，现在翻正了 ──────────
    *
-   * **刷新之后再改编制会 409。** 原因不是实现偷懒：`expectedRosterVersion` 是必填的
-   * 乐观锁，而**全契约没有任何读端口下发 `rosterVersion`**——它只出现在
-   * `updateAgentRoster.out`（`packages/contracts/src/chat.ts:509`），
-   * `getAgentPanel.out`（同文件 :477）里没有。⇒ 刷新丢掉前端状态之后，客户端
-   * **无从得知当前版本号**，只能从 DDL 默认值 0 起步，而库里此刻已经是 1。
+   * **PR #510 当时的现状**：刷新之后再改编制必定 409。原因不是实现偷懒——
+   * `expectedRosterVersion` 是必填的乐观锁，而当时**没有任何读端口下发
+   * `rosterVersion`**（它只在 `updateAgentRoster.out` 里）。⇒ 刷新丢掉前端状态之后
+   * 客户端无从得知版本号。#510 没有发明字段、没有静默重试、没有猜 +1，而是把
+   * 现状钉成 `toBe(409)`，并写明「有人补上读侧版本号之后这条会变红，那正是提醒
+   * 更新它的时刻」。
    *
-   * 修它要给契约的读端口加字段，而 `packages/contracts/src/**` 只有人类能改
-   * （ADR-020），所以这里**不发明**、不静默重试、不猜 +1，而是把现状钉成断言：
-   * 有人补上读侧版本号之后这条会变红，那正是提醒更新它的时刻。
+   * **那一刻就是 #513。** `getAgentPanel.out` 现在下发 `rosterVersion`
+   * （🟡 该契约面**待人类补签**，见 `packages/contracts/src/chat.ts` 里
+   * `getAgentPanel` 的文件头；**没有任何 `design-signoff.md` 被改动**），前端从那份
+   * 响应里取版本号 ⇒ **上面那次 `page.reload()` 之后的这次「移出」现在应当成功**。
    *
-   * ⚠ 「移出」本身是好的——`tests/chat/agent-roster-mount-roundtrip.test.ts`
-   *   在真实 Postgres 上验了加→读→移出→读不到的完整往返。坏的只有**跨页面加载**
-   *   这一段。 */
-  const staleResponse = page.waitForResponse((response) => (
+   * ⚠ 这条断言的价值全在它**跨过了一次 `page.reload()`**：不刷新的话，写端口自己的
+   *   回声就够用了，#513 修的那段路根本不会被走到。
+   *
+   * ⛔ 「读不到就传 0」不是修法：那等于把乐观锁摘了。真并发冲突仍然回 409
+   *   ——那条由 `apps/api/tests/chat/agent-roster-version-read.test.ts` 的
+   *   「乐观锁没被摘掉」守着。 */
+  const removeResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
     && response.url().includes(`/chat/threads/${CHAT_READ_E2E.threadId}/agents`)
   ));
   await page.getByTestId(`chat-roster-remove-${CHAT_READ_E2E.catalogOnlyAgentId}`).click();
-  expect((await staleResponse).status(), "刷新后前端拿不到 rosterVersion ⇒ 乐观锁必然过期").toBe(409);
-  await expect(page.getByTestId("chat-roster-mutate-error")).toContainText("VERSION_CHANGED");
-  // 拒绝之后编制**没被改动**：服务端没有静默覆盖，界面也没假装删掉了。
-  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`)).toBeVisible();
+  expect(
+    (await removeResponse).status(),
+    "#513 补上读侧 rosterVersion 后，跨页面加载的编制变更从 409 变为成功",
+  ).toBe(200);
+  await expect(page.getByTestId("chat-roster-mutate-error")).toHaveCount(0);
+  // 真的移出了，并且**再刷新一次**它还是不在——落库了，不是界面上抹掉一行。
+  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
+  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`)).toHaveCount(0);
+  // 原本就在编制里的那个仍然没被误伤。
+  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toBeVisible();
 });
 
 test("formal Chat refuses to invent a project context", async ({ page }) => {

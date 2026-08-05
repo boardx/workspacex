@@ -470,6 +470,16 @@ export const operations = {
    * getAgentPanel —— 读 AI 团队面板。
    * ⚠ **依赖失败返回错误而不是空面板**——空面板会被读成「没有 agent」。
    * ⚠ 两个计数分离（I-18）：`presentCount`（在场）与 `rosterCount`（编制）不是一回事。
+   *
+   * ## 🟡 `rosterVersion` 于 #513 补上，**该字段所在契约面待人类补签**
+   *
+   * 2026-08-05 coord-main 在人类不在场时代裁「先做」并同时把它**登记为待补签**——
+   * 照 #496 `createTemplate` 的先例（见 `canvas.ts` 该操作的文件头）。判据与
+   * #489（`listThreads.out` 加 capabilities）**同型**：它不新增用户可见语义，只是把
+   * 服务端**早已持有**的同一个 `chat_threads.roster_version` 在读端口也下发一次，
+   * 按既有 `chat` 束的自然延伸处理，**不另起 design-delta**。
+   * 人类回来后要么补签、要么要求改形状。**没有任何 `design-signoff.md` 被改动**
+   * ——签核是人的动作，agent 不得代做。
    */
   getAgentPanel: {
     method: "GET", path: "/chat/threads/:threadId/agents",
@@ -486,6 +496,22 @@ export const operations = {
       presentCount: z.number().int().nonnegative(),
       rosterCount: z.number().int().nonnegative(),
       marketEntry: z.string().nullable(),
+      /**
+       * 🟡 #513，**待人类补签**（见本操作文件头）。
+       *
+       * 编制的乐观锁版本号，**与 `updateAgentRoster.out.rosterVersion`
+       * （本文件下方同名字段）是同一个字段、同一个事实源**——都投影
+       * `chat_threads.roster_version`，不是第二个版本号概念。
+       *
+       * 存在的理由：`updateAgentRoster.in.expectedRosterVersion` 是**必填**的乐观锁。
+       * 在 #513 之前它只由写端口的出参下发 ⇒ 客户端只有刚写过一次才知道版本号，
+       * **页面一刷新就无从填起**，跨页面加载的编制变更必然 409（PR #510 在 e2e 里
+       * 实测撞上并把现状钉成了断言）。
+       *
+       * ⛔ 调用方**不得**用「读不到就传 0 / -1 / 省略」兜底：乐观锁的意义就是拒绝
+       *   盲写，兜底等于把锁摘了。读不到版本号时**不提交**。
+       */
+      rosterVersion: z.number().int().nonnegative(),
     }).strict(),
     err: ["NOT_VISIBLE", "AGENT_REGISTRY_UNAVAILABLE"] as const,
   },
