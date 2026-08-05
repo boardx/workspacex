@@ -47,12 +47,29 @@ export default {
        * ⚠ 这直接卡住 #595 的验收第 4 条（导入后能在 `/chat` 里选中并调用）——
        *   段 3 的前端根本发不出这个请求。所以补 rewrite 不是顺手整理，是前置条件。
        *
-       * ⚠ 没有配裸 `${prefix}/admin`：本仓当前**没有任何 controller 注册裸 `/admin`**
-       *   （实测六个方法装饰器 `@Get("/admin")` … 零命中）。
-       *   ⛔ 哪天有人加了一条裸 `/admin`，必须同时在这里补裸路径那一条——
+       * 🔴 ⚠⚠ **这里必须逐条写 `/admin/skills` 与 `/admin/agents`，绝不能图省事写
+       *        `${prefix}/admin/:path*`。**
+       *
+       * 我第一版就是那么写的，实测发现它会**吃掉前端自己的页面**：
+       *   · `apps/web/app/admin/page.tsx` 与 `app/admin/[module]/page.tsx` 是**真实前端路由**
+       *     （`/admin/agent`、`/admin/skill`、`/admin/model`、`/admin/mcp`、`/admin/members` …，
+       *     `core-loop.spec.ts:128` 与 `capability-mutate-smoke.spec.ts:51` 都在 `page.goto` 它们）；
+       *   · `chat-read` 那套 e2e 的 `prefix` 是**空字符串**（只有 fullstack 那套才是
+       *     `/__fullstack_api`）⇒ `${prefix}/admin/:path*` 会变成裸的 `/admin/:path*`，
+       *     把上面那些**前端页面**整片代理到 API 去。
+       *
+       * ⚠ 之所以今天没炸，纯粹是**单复数不同**：前端是 `/admin/skill`、`/admin/agent`（单数），
+       *   API 是 `/admin/skills/…`、`/admin/agents/…`（复数）。这是一条**很细的区别**，
+       *   ⛔ 谁要加 `/admin` 下的新 API 路由，请先确认它不会撞上 `app/admin/[module]`
+       *   那个动态段，并在这里**逐条**加，而不是放宽成通配。
+       *
+       * ⚠ 没有配裸 `${prefix}/admin/skills`：本仓当前没有 controller 注册裸的
+       *   `/admin/skills`（只有 `/admin/skills/url-imports` 与
+       *   `/admin/skills/starter-pack-imports`）。⛔ 哪天有了，必须同时补裸路径那一条——
        *   `:path*` 匹配不到没有后缀的那一条，这个坑本文件上面已经栽过三次。
        */
-      { source: `${prefix}/admin/:path*`, destination: `${apiOrigin}/admin/:path*` },
+      { source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },
+      { source: `${prefix}/admin/agents/:path*`, destination: `${apiOrigin}/admin/agents/:path*` },
       // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。
       // `SkillReviewController` 是 `@Controller()`（空前缀），所以路径是**裸的**
       // `/skill-versions/...`，**不在 `/skills/` 下面** —— 上面那条 `/skills/:path*`
