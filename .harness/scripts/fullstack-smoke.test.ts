@@ -137,7 +137,11 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-smoke");
     expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:full");
-    expect(workflow.match(/if: always\(\)/g)).toHaveLength(2);
+    // 本条要的是「两个证据上传步骤在失败时也跑」。此前写成 `if: always()` 在全文里
+    // 恰好出现 2 次 —— 那是意图的代用品，而不是意图本身：#512 给 e2e-full 加了一个
+    // 独立信号步骤（Chat 链路，同样要 always()），代用品当场误报，而真正要守的两个
+    // 上传步骤一个都没动。改成把 always() 直接绑在 upload-artifact 上，比数数更严。
+    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v4/g)).toHaveLength(2);
     expect(workflow).toContain("phase-01-fullstack-smoke-evidence");
     expect(workflow).toContain("phase-01-e2e-full-evidence");
     expect(read(".harness/scripts/verify-readiness-evidence.ts")).toContain("manifest.commit !== target");
