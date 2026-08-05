@@ -80,8 +80,57 @@
       "due": "2026-08-05T22:45:00+08:00",
       "step": "—",
       "blocked_by": null,
-      "note": "✅ 八步 12/12 全绿，全量实跑 22 passed。epic 转为 sprint-2 的总协调",
-      "next": "盯 devapp 部署链首次成功；三条线的 PR 到点就合，别让全绿的 PR 等人。"
+      "note": "✅ 八步 12/12 全绿 · ✅ devapp 首次部署成功（v0.1.15，bundle 里 localhost:3200 零命中、/api/skills 401 = 路由通）",
+      "next": "盯三条线；全绿 PR 30 分钟内必合。人类现在可以在 devapp 上真的走一遍八步。"
+    },
+    "572": {
+      "due": "2026-08-05T22:00:00+08:00",
+      "step": "mcp",
+      "blocked_by": null,
+      "note": "MCP 契约有（agent-runtime.ts 8 条操作）、application 有（10 个用例）、**controller 零**。与今早 skills 同型，不需新契约面",
+      "next": "接 controller + 前端 + 步骤 9 真断言。⚠ 反证：把 tool-calls/authorize 的拒绝分支改成恒放行必须变红。review/isolate 本波次明确不做。"
+    },
+    "519": {
+      "due": "2026-08-05T22:30:00+08:00",
+      "step": "chat",
+      "blocked_by": null,
+      "note": "AgentRun 写回耗尽后的重试。已裁：改为「重置既有 run」而不是「新 run」——UNIQUE(org_id,input_message_id) 是不变量，不为措辞让步",
+      "next": "补重置端点。⚠ 不许放宽那个唯一索引。"
+    },
+    "533": {
+      "due": "2026-08-05T22:45:00+08:00",
+      "step": "recording",
+      "blocked_by": null,
+      "note": "X-7/XC-18 裁决落地：同意项收敛为一套四项，recording 补 attribution",
+      "next": "按人类已裁的四项收敛。⚠ 收敛后要有机械断言证明只剩一份定义。"
+    },
+    "517": {
+      "due": "2026-08-05T21:30:00+08:00",
+      "step": "audit",
+      "blocked_by": null,
+      "note": "phase-00 F14 假 passing —— verification 现在红着，而两道门都不会跑它",
+      "next": "要么修好它的 verification，要么把 F14 退回非 passing。⚠ 不许改 verification 去迁就现状 —— 那是把假 passing 洗白。"
+    },
+    "564": {
+      "due": "2026-08-05T22:45:00+08:00",
+      "step": "audit",
+      "blocked_by": null,
+      "note": "73% 契约无路由、16 个 controller 无契约 —— 门控与分层之间缺机械关系",
+      "next": "#539 的门刚合，它已覆盖 rewrites↔controller。本条做剩下那半：契约↔controller。先量真实数字再定门的形态。"
+    },
+    "475": {
+      "due": "2026-08-05T21:30:00+08:00",
+      "step": "coord",
+      "blocked_by": null,
+      "note": "coord-agent-auth 缺 canonical role 源与 Directory 身份（登记债）",
+      "next": "补上。⚠ 别打印任何 token 明文。"
+    },
+    "393": {
+      "due": "2026-08-05T22:45:00+08:00",
+      "step": "coord",
+      "blocked_by": null,
+      "note": "日常协调与审计要求 scoped principal",
+      "next": "接线。与 #475 同一条链，做完 #475 顺手。"
     }
   },
   "human_blockers": [
@@ -101,7 +150,10 @@
       "why": "coord-agent-auth 为诊断人类那次「创建服务暂时不可用」，直接对线上发了合法注册并 201 成功，消耗掉一次性 bootstrap 名额。⚠ 光删那个账号没用：门的判据是 auth_bootstrap_state 为空 **且** credentials 整表为空，迁移注释逐字写明这是故意不可逆的。所以要么清库（脚本见下），要么改用探测账号当管理员。",
       "cmd": "cd /opt/workspacex/app && pnpm --filter @repo/api exec tsx apps/api/scripts/core-loop-db.ts reset",
       "blocks": "你本人建不了账号，八步第 1 步对你堵死",
-      "note_unverified": "⚠ coord-chat-e2e 转述人类说已解决，但我没实测过。SSH 当前不通，无法查 credentials 表。**转述不算证据**，保留为未解除直到能自己量。"
+      "note_unverified": "⚠ coord-chat-e2e 转述人类说已解决，但我没实测过。SSH 当前不通，无法查 credentials 表。**转述不算证据**，保留为未解除直到能自己量。",
+      "resolved_at": "2026-08-05T20:05:00+08:00",
+      "resolved_by": "coord-main（实测，非转述）",
+      "evidence": "在 devapp 的 workspacex-postgres-1 容器里直查：credentials = 0 且 auth_bootstrap_state = 0 ⇒ isFirstUserBootstrapAvailable 的两个条件同时成立，门是开的。此前保留为未解除的理由是「有人转述人类说已解决但我没实测过」——现在量到了。"
     },
     {
       "id": "readiness-helper",
