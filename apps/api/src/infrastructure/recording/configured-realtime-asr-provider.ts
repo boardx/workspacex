@@ -1,0 +1,206 @@
+/**
+ * issue #466 —— 唯一的 ASR 适配器：一条到「realtime 转写」上游的 WebSocket。
+ *
+ * ## 为什么只有一个适配器，而不是「阿里云一个 + 测试一个」
+ *
+ * 本仓的红线是「不许静默 mock fallback」。#435 的 `ConfiguredModelProvider` 已经
+ * 给出过这个问题的答案，本文件逐条照抄那套结构性保证：
+ *
+ *   · **必须被显式选中。** 只认 `KERNEL_ASR_PROVIDER` 这一个名字，没有 list、
+ *     没有 map、没有 "default"，因此**不存在**「悄悄退回到某个提供方」的路径。
+ *   · **产品代码里只有这一个 `AsrProviderPort` 实现。** 被测的是**真实适配器**
+ *     走**真实 WebSocket**，只是 e2e 里上游换成一个输出可预测的进程
+ *     （`apps/api/scripts/loopback-asr-provider.ts`）。
+ *   · **它缺席时没人兜底。** 不配置 ⇒ `AsrNotConfiguredError` ⇒ 浏览器收到
+ *     `ASR_NOT_CONFIGURED` 并显示「未配置转写」，绝不会冒出一段编造的转录。
+ *
+ * ## 协议
+ *
+ * OpenAI realtime 形状（`input_audio_buffer.append` / `.commit` 上行，
+ * `conversation.item.input_audio_transcription.delta` / `.completed` 下行）——
+ * 这正是人类 2026-08-05 指定的 `qwen3-asr-flash-realtime` 所暴露的形状
+ * （`wss://…/api-ws/v1/realtime`，另需 `OpenAI-Beta: realtime=v1`）。
+ * 选它而不是自创一套，是为了让「指向阿里云」是一次**配置变更**而不是一次改代码。
+ *
+ * ⚠ **模型名不在本文件里**（contract.md §3，`no-hardcoded-model-list.test.ts` 是活门控）。
+ *   它从 `KERNEL_ASR_MODEL` 来。
+ * ⚠ **API key 永不下发浏览器**，也不出现在任何响应体或日志里 —— 这正是这条面
+ *   必须是服务端代理的全部理由。
+ */
+import { WebSocket } from "ws";
+import {
+  AsrNotConfiguredError,
+  type AsrAudioFormat,
+  type AsrProviderPort,
+  type AsrSession,
+  type AsrSessionHandlers,
+} from "../../application/recording/asr-ports";
+
+interface ProviderConfig {
+  readonly provider: string;
+  readonly baseUrl: string;
+  readonly apiKey: string;
+  readonly model: string;
+}
+
+/**
+ * 组装期读一次，之后不再读 —— 与 `ConfiguredModelProvider` 同一个做法：
+ * 运行中途改环境变量不该悄悄改变一台已经在跑的进程的行为。
+ */
+function readConfig(): ProviderConfig | null {
+  const provider = process.env.KERNEL_ASR_PROVIDER;
+  const baseUrl = process.env.KERNEL_ASR_BASE_URL;
+  const apiKey = process.env.KERNEL_ASR_API_KEY;
+  const model = process.env.KERNEL_ASR_MODEL;
+  if (!provider || !baseUrl || !apiKey || !model) return null;
+  return { provider, baseUrl, apiKey, model };
+}
+
+/**
+ * 上游故障 → 契约 `AsrStreamErrorReason` 的映射。
+ *
+ * ⚠ 契约里**没有** `UNKNOWN`。不认识的故障一律 `ASR_PROVIDER_UNAVAILABLE`，
+ *   原因留在服务端日志。这不是偷懒，是拒绝给客户端编一个它无法处理的语义。
+ */
+const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
+const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
+
+export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
+  private readonly config: ProviderConfig | null;
+
+  constructor(config: ProviderConfig | null = readConfig()) {
+    this.config = config;
+  }
+
+  isConfigured(): boolean {
+    return this.config !== null;
+  }
+
+  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat): Promise<AsrSession> {
+    const config = this.config;
+    if (config === null) {
+      throw new AsrNotConfiguredError(
+        "KERNEL_ASR_PROVIDER / KERNEL_ASR_BASE_URL / KERNEL_ASR_API_KEY / KERNEL_ASR_MODEL",
+      );
+    }
+
+    const socket = new WebSocket(config.baseUrl, {
+      headers: {
+        // 上游的鉴权。**这一行就是这条面必须是服务端代理的全部理由**：
+        // 浏览器直连等于把它发给每一个访客。
+        Authorization: `bearer ${config.apiKey}`,
+        "OpenAI-Beta": "realtime=v1",
+      },
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const onOpen = () => { cleanup(); resolve(); };
+      const onError = (e: Error) => { cleanup(); reject(e); };
+      const cleanup = () => {
+        socket.off("open", onOpen);
+        socket.off("error", onError);
+      };
+      socket.on("open", onOpen);
+      socket.on("error", onError);
+    });
+
+    // 会话参数：格式与模型都在这里一次性告诉上游。上游不接受这个格式时它回 `error`，
+    // 我们把它映射成 `AUDIO_FORMAT_REJECTED` —— 那是契约里有的码，界面能说人话。
+    socket.send(JSON.stringify({
+      type: "transcription_session.update",
+      session: {
+        input_audio_format: audio.encoding,
+        input_audio_sample_rate: audio.sampleRate,
+        input_audio_channels: audio.channels,
+        input_audio_transcription: { model: config.model },
+      },
+    }));
+
+    let closed = false;
+    let finalSeen = false;
+    let finishResolve: (() => void) | null = null;
+
+    socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
+      let event: { type?: unknown; delta?: unknown; transcript?: unknown; error?: unknown };
+      try {
+        event = JSON.parse(String(raw)) as typeof event;
+      } catch {
+        handlers.onError(PROVIDER_UNAVAILABLE, "upstream sent a frame that is not JSON");
+        return;
+      }
+      const type = typeof event.type === "string" ? event.type : "";
+      if (type === "conversation.item.input_audio_transcription.delta") {
+        handlers.onPartial({ text: String(event.delta ?? ""), confidence: null });
+        return;
+      }
+      if (type === "conversation.item.input_audio_transcription.completed") {
+        finalSeen = true;
+        const confidence = (event as { confidence?: unknown }).confidence;
+        handlers.onFinal({
+          text: String(event.transcript ?? ""),
+          confidence: typeof confidence === "number" ? confidence : null,
+        });
+        if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+        return;
+      }
+      if (type === "error") {
+        const message = JSON.stringify(event.error ?? {});
+        const reason = /format|sample.?rate|encoding/i.test(message)
+          ? AUDIO_FORMAT_REJECTED
+          : PROVIDER_UNAVAILABLE;
+        handlers.onError(reason, message);
+      }
+    });
+
+    socket.on("close", () => {
+      closed = true;
+      if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+      handlers.onClosed();
+    });
+    socket.on("error", (e: Error) => {
+      if (closed) return;
+      handlers.onError(PROVIDER_UNAVAILABLE, e.message);
+    });
+
+    return {
+      pushAudio(frame) {
+        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        socket.send(JSON.stringify({
+          type: "input_audio_buffer.append",
+          audio: Buffer.from(frame).toString("base64"),
+        }));
+      },
+      commit() {
+        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      },
+      async finish() {
+        if (closed || socket.readyState !== WebSocket.OPEN) return;
+        finalSeen = false;
+        socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+        // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
+        // 而那种丢失在界面上长得像「录音没生效」。
+        await new Promise<void>((resolve) => {
+          finishResolve = resolve;
+          setTimeout(() => {
+            if (finishResolve) { finishResolve = null; resolve(); }
+          }, FINISH_GRACE_MS);
+        });
+        if (!finalSeen && !closed) {
+          handlers.onError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
+        }
+        socket.close();
+      },
+      abort() {
+        closed = true;
+        socket.terminate();
+      },
+    };
+  }
+}
+
+/**
+ * 收尾等待上限。超过它就把「上游没在时限内给出最终结果」如实报出来，
+ * **不是**当成「用户什么都没说」。
+ */
+const FINISH_GRACE_MS = Number(process.env.KERNEL_ASR_FINISH_GRACE_MS ?? 15_000);

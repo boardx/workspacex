@@ -378,6 +378,8 @@ import {
   UuidRecordingIdGenerator,
 } from "./infrastructure/recording/pg-recording-repository";
 import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
+import { ASR_PROVIDER } from "./application/recording/asr-ports";
+import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 
@@ -866,6 +868,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     //   this provider exists to guarantee is that an unconfigured deployment refuses to
     //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
     { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
+    // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
+    // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
+    // never a silent fallback to some other provider. See the adapter's header for why
+    // that is a structural property here and not a promise.
+    { provide: ASR_PROVIDER, useFactory: () => new ConfiguredRealtimeAsrProvider() },
     // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
     // repository cannot be constructed without a tenant, so there is no "untenanted skill
     // repository" object for a forgetful caller to reach for.

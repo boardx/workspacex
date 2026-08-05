@@ -939,6 +939,120 @@ export const operations = {
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;
 
+/* ══════════════════ 二、实时 ASR 流式面（#466 步骤 7）══════════════════
+ *
+ * 设计签核：`phases/phase-01-run-a-project/design-deltas/realtime-asr/design-signoff.md`
+ * （人类 usamshen 于 2026-08-05 签核）。规范全文见同目录 `contract.md`。
+ *
+ * ## 为什么它不在 `operations` 里
+ *
+ * `operations` 的每一项都是 `{method, path, in, out, err}` —— 一次请求换一次响应。
+ * 一条 WS 面上跑的是**两个方向各自的帧序列**，`in`/`out` 装不下它：把它塞进去
+ * 只能靠挑一帧当 `in`、挑一帧当 `out`，那样契约就在撒谎。所以本束**另开一个导出**，
+ * 形状照实写成「路径 + 两个方向的帧 union」，而不是把流式面伪装成 RPC。
+ *
+ * ⚠ 它仍然是**契约**：帧的形状在这里定义一次，服务端与浏览器各自 `parse`，
+ *   没有第二份手写的帧类型（这正是 `lint-contract-source` V10 守的东西）。
+ *
+ * ## 为什么必须是服务端代理（不是浏览器直连）
+ *
+ * 上游实时 ASR 的鉴权是 `Authorization: bearer {API_KEY}`。浏览器直连 = 把 key
+ * 发给每一个访客。没有任何前端方案能规避这一点 —— 这条面不是便利，是必需品。
+ */
+
+/**
+ * `asr.error` 的原因全集。
+ *
+ * ⚠ **没有「未知错误」这一项，是刻意的。** 不认识的上游故障映射到
+ *   `ASR_PROVIDER_UNAVAILABLE` 并在服务端日志留原因，绝不向客户端编造语义 ——
+ *   一个 `UNKNOWN` 会立刻变成所有人的垃圾桶，然后界面上只剩「出错了」。
+ */
+export const AsrStreamErrorReason = z.enum([
+  /** 上游不可用 / 不认识的上游故障（服务端日志留原因） */
+  "ASR_PROVIDER_UNAVAILABLE",
+  /** 本组织没有配置 ASR 提供方 ⇒ 诚实降级，**不偷偷回退到别的提供方** */
+  "ASR_NOT_CONFIGURED",
+  "AUDIO_FORMAT_REJECTED",
+  /** 🔗 与 `RecordingError.SESSION_ENDED` 同码同义（编译期断言见文件末尾） */
+  "SESSION_ENDED",
+  /** D-U1：机密域 fail-closed，**不提供「确认后继续」的绕行开关** */
+  "CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR",
+  /** 🔗 与 `RecordingError.NO_PROJECT_ROLE` 同码同义 */
+  "NO_PROJECT_ROLE",
+]);
+
+/** 上游要求的音频格式（contract.md §1）。裸帧，不是容器封装。 */
+export const ASR_AUDIO_FORMAT = {
+  sampleRate: 16_000,
+  channels: 1,
+  encoding: "pcm16le",
+} as const;
+
+/**
+ * 客户端 → 服务端的 JSON 帧。二进制帧（PCM16）不在 union 里 —— 它没有 JSON 形状，
+ * 由 `ASR_AUDIO_FORMAT` 描述。
+ *
+ * ⚠ `asr.start` **必须是第一帧**：`idempotencyKeyPrefix` 决定后续每一段的幂等键，
+ *   服务端没有它就无法保证「重连重放不写第二条」。
+ */
+export const AsrClientFrame = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("asr.start"),
+    trackId: z.string(),
+    /** 幂等键前缀；每段的键是 `${prefix}-${序号}`，见 contract.md §2 */
+    idempotencyKeyPrefix: z.string(),
+  }).strict(),
+  z.object({ type: z.literal("asr.commit") }).strict(),
+  z.object({ type: z.literal("asr.finish") }).strict(),
+]);
+
+/**
+ * 服务端 → 客户端的 JSON 帧。
+ *
+ * ⚠ `asr.partial` **不落库**。`asr.final` 是**落库之后**才发出的 ——
+ *   `segmentId` 是 `ingestSegment` 返回的那一个，不是客户端能自己编的。
+ *   这个顺序是「界面上看见的转录 ⇒ PostgreSQL 里有那一行」的唯一保证。
+ */
+export const AsrServerFrame = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("asr.partial"), text: z.string() }).strict(),
+  z.object({
+    type: z.literal("asr.final"),
+    segmentId: z.string(),
+    text: z.string(),
+    lowConfidence: z.boolean(),
+  }).strict(),
+  z.object({ type: z.literal("asr.error"), reason: AsrStreamErrorReason }).strict(),
+  z.object({ type: z.literal("asr.finished") }).strict(),
+]);
+
+/**
+ * 流式操作表。今天只有一条 —— 本 delta 只授权 ASR 这一条面，
+ * 把 WS 推广到别的场景（chat 流式回复等）是另一次签核。
+ */
+export const streamOperations = {
+  /**
+   * streamAsr —— 浏览器把 PCM 推上来，服务端代理到 ASR 提供方，
+   * 最终文本由**服务端**调既有 `ingestSegment` 落库后回给浏览器。
+   *
+   * ⚠ 鉴权与 `ingestSegment` 是**同一条判定**（项目角色 + 会话可见性），
+   *   不新增授权口径；无权即在握手阶段拒绝，不建立连接。
+   * ⚠ 浏览器发不了 `Authorization` 头，所以 bearer 走 **`Sec-WebSocket-Protocol`**
+   *   子协议（`bearer.<token>`），**不走 query string** —— query 会进
+   *   access log、Referer 与浏览器历史，那是把会话令牌写进日志。
+   */
+  streamAsr: {
+    path: "/recording/sessions/:sessionId/asr-stream",
+    /** 子协议前缀。服务端与浏览器都从这里取，不各写一份字面量。 */
+    bearerSubprotocolPrefix: "bearer.",
+    audio: ASR_AUDIO_FORMAT,
+    client: AsrClientFrame,
+    server: AsrServerFrame,
+    err: AsrStreamErrorReason,
+  },
+} as const;
+
+export type StreamOperations = typeof streamOperations;
+
 /* ────────────── 跨束「同码同义」的编译期门控（硬要求 ②）────────────── */
 
 type PermissionReasonT = z.infer<typeof PermissionReason>;
@@ -965,6 +1079,18 @@ export const RECORDING_SHARED_WITH_CONTEXT_PACK = [
   "ANCHOR_MISSING",
   "PERMISSION_REVOKED_MIDWAY",
 ] as const satisfies readonly (ContextPackReasonT & RecordingErrorT)[];
+
+/**
+ * 流式面的失败码与 HTTP 面的失败码**同码同义**，由 `tsc` 守着。
+ *
+ * WS 面看起来自成一体，最容易长出「第二套错误码」——比如这边叫 `NO_ROLE`、
+ * 那边叫 `NO_PROJECT_ROLE`，两边都自洽，直到有人要在界面上统一渲染。
+ * 交集类型让任何一侧改名当场编译失败。
+ */
+export const ASR_STREAM_SHARED_WITH_RECORDING = [
+  "NO_PROJECT_ROLE",
+  "SESSION_ENDED",
+] as const satisfies readonly (z.infer<typeof AsrStreamErrorReason> & RecordingErrorT)[];
 
 /* ─────────────────────── 已知契约缺陷（如实登记）─────────────────────── */
 

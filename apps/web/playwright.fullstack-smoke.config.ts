@@ -21,6 +21,15 @@ const webPort = required("WORKSPACEX_WEB_PORT");
  * 也不会撞上 pg/redis/minio/api/web 任何一段。
  */
 const modelProviderPort = String(Number(webPort) + 5_000);
+/**
+ * #466 —— 确定性 ASR 上游的端口。
+ *
+ * 与上面的 `+5000` 同一条推理：`webPort` 落在 45000–50000 且每个隔离唯一，
+ * `+10000` 也是一个单射，落在 55000–60000 这段无人认领的区间里 ——
+ * 不同隔离之间不会撞，也不会撞上 pg/redis/minio/api/web/model-provider 任何一段。
+ * 同样**不去动** `.harness/scripts/lib/test-isolation.ts`：那是全队共用的隔离事实源。
+ */
+const asrProviderPort = String(Number(webPort) + 10_000);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -51,6 +60,34 @@ const fixtureEnv = {
   // #467：第 8a 步要挂的那个 skill。必须是「已启用」——理由见 fixture 里的说明。
   FULLSTACK_E2E_MOUNTABLE_SKILL_ID: FULLSTACK_E2E.mountableSkillId,
   FULLSTACK_E2E_MOUNTABLE_SKILL_NAME: FULLSTACK_E2E.mountableSkillName,
+  // #466：第 7 步录音用的线程 + 它的授权矩阵（为什么必须预置见 fixture）。
+  FULLSTACK_E2E_RECORDING_THREAD_ID: FULLSTACK_E2E.recordingThreadId,
+  FULLSTACK_E2E_RECORDING_THREAD_TITLE: FULLSTACK_E2E.recordingThreadTitle,
+};
+
+/**
+ * #466 —— 显式选中的确定性 ASR 上游。**这不是 mock fallback**，理由与
+ * `modelProviderEnv` 逐条同型（见 `configured-realtime-asr-provider.ts` 文件头）：
+ * `ConfiguredRealtimeAsrProvider` 只认这一组变量，没有 list、没有 map、没有 default。
+ *
+ * 不配它会怎样：WS 面以 `ASR_NOT_CONFIGURED` **诚实地失败**，界面上
+ * `chat-live-recording-error` 显示「本组织尚未配置转写服务」，
+ * 绝不会冒出一段编造的转录。
+ *
+ * ⚠ `KERNEL_ASR_MODEL` 是一个**配置值**，不是源码里的字面量 ——
+ *   contract.md §3 与 `no-hardcoded-model-list.test.ts` 都要求模型名不进源码。
+ */
+const asrProviderEnv = {
+  KERNEL_ASR_PROVIDER: "fullstack-loopback-asr",
+  KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
+  KERNEL_ASR_API_KEY: "fullstack-smoke-loopback-asr-key-not-a-secret",
+  KERNEL_ASR_MODEL: "loopback-transcribe",
+  // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
+  KERNEL_ASR_FINISH_GRACE_MS: "5000",
+  // `EnvTranscriptionPolicyProvider` 没配阈值就 503 拒绝入库（设计如此）。
+  // 回环上游回 0.97，阈值 0.5 ⇒ 不低置信度；这条也让「低置信度」有一个真实的判据，
+  // 而不是恒 false。
+  KERNEL_TRANSCRIPTION_LOW_CONFIDENCE_THRESHOLD: "0.5",
 };
 
 /**
@@ -127,6 +164,22 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     ...devices["Desktop Chrome"],
+    /**
+     * #466 —— 麦克风权限 + 假音频源。
+     *
+     * `--use-fake-device-for-media-stream` 给的是 Chrome 自己合成的一段音频
+     * （不是静音），所以 `getUserMedia` → `AudioContext` → PCM16 这条链路上跑的是
+     * **真实的浏览器采音代码**，只是设备是虚拟的。**没有**在任何地方打桩
+     * `MediaRecorder` / `getUserMedia`：那样就只是在测我们自己的桩。
+     *
+     * `--use-fake-ui-for-media-stream` 让权限提示自动允许 —— headless 里没有人能点它。
+     * `permissions: ["microphone"]` 是同一件事的 Playwright 侧表达，两个都留着：
+     * 前者管提示，后者管权限状态。
+     */
+    permissions: ["microphone"],
+    launchOptions: {
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+    },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
@@ -134,6 +187,18 @@ export default defineConfig({
     // #435：模型提供方排在 API 之前 —— API 启动时就把 provider 配置读死了
     // （`readModelProviderConfig` 在组装期读一次，见 `configured-model-provider.ts:38-49`），
     // 但真正的连接发生在 run 执行时，所以顺序上只要它先 ready 即可。
+    // #466：确定性 ASR 上游。与模型提供方同理，只要在 API 之前 ready 即可。
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-asr-provider.ts",
+      url: `http://127.0.0.1:${asrProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
+        LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
+      },
+    },
     {
       command: "pnpm --filter @repo/api exec tsx scripts/loopback-model-provider.ts",
       url: `http://127.0.0.1:${modelProviderPort}/healthz`,
@@ -154,7 +219,7 @@ export default defineConfig({
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : 120_000,
       reuseExistingServer: false,
-      env: { ...process.env, ...fixtureEnv, ...modelProviderEnv, PORT: apiPort },
+      env: { ...process.env, ...fixtureEnv, ...modelProviderEnv, ...asrProviderEnv, PORT: apiPort },
     },
     {
       command: `next build && next start -p ${webPort}`,
@@ -165,6 +230,10 @@ export default defineConfig({
         ...process.env,
         NEXT_PUBLIC_API_URL: `http://127.0.0.1:${webPort}`,
         NEXT_PUBLIC_API_PATH_PREFIX: "/__fullstack_api",
+        // #466：**WS 不能走 Next 的 rewrite** —— 那是 HTTP 代理，`Upgrade` 到那里就断了。
+        // 所以流式面直连 API 源。这不是绕过 CORS（WS 本来就不受 CORS 约束）：
+        // 能不能连由服务端握手判定，见 `apps/api/src/interface/ws/asr-stream.gateway.ts`。
+        NEXT_PUBLIC_API_WS_URL: `http://127.0.0.1:${apiPort}`,
         FULLSTACK_E2E_API_ORIGIN: apiOrigin,
         FULLSTACK_E2E_BREAK_CONTROLLER: breakController,
         NEXT_DIST_DIR: ".next-fullstack-e2e",

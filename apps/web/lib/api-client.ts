@@ -30,6 +30,31 @@ export function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 }
 
+/**
+ * #466 —— 流式面（WebSocket）的源地址。
+ *
+ * ## 为什么它是**独立的一条**配置，而不是从 `apiBaseUrl()` 推出来的
+ *
+ * HTTP 面在浏览器门控里刻意走 Next 的同源改写（`NEXT_PUBLIC_API_PATH_PREFIX`），
+ * 理由写在 `next.config.mjs`：把跨端口 CORS 配置扩张成产品运行时改动不划算。
+ * **但 Next 的 rewrite 不代理 WebSocket 升级** —— 它是 HTTP 代理，`Upgrade` 请求
+ * 到那里就断了。所以 WS 必须直连 API 源。
+ *
+ * 这不是「绕过 CORS」：WebSocket 本来就不受 CORS 约束，能不能连由**服务端**的握手
+ * 决定（bearer 子协议 + 项目角色，见 `apps/api/src/interface/ws/asr-stream.gateway.ts`）。
+ * 这里放开的是「浏览器允许去连」，而不是「服务端允许谁连」—— 后者一分没松。
+ *
+ * 缺省从 `apiBaseUrl()` 推（`http→ws`），单进程部署不需要多配一个变量；
+ * 只有「web 与 api 不同源」的部署（本仓的全栈门控正是）才需要显式配。
+ */
+export function apiWebSocketUrl(path: string): string {
+  const origin = process.env.NEXT_PUBLIC_API_WS_URL ?? apiBaseUrl();
+  const url = new URL(path.startsWith("/") ? path : `/${path}`, origin);
+  if (url.protocol === "https:") url.protocol = "wss:";
+  else if (url.protocol === "http:") url.protocol = "ws:";
+  return url.toString();
+}
+
 export const SESSION_TOKEN_STORAGE_KEY = "wsx.sessionToken";
 
 export function getStoredSessionToken(): string | null {

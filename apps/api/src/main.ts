@@ -9,6 +9,15 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { KernelModule } from "./kernel.module";
 import { traceMiddleware } from "./interface/middleware/trace";
+import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
+import { ASR_PROVIDER } from "./application/recording/asr-ports";
+import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
+import { IDENTITY_REPOSITORY } from "./application/identity/ports";
+import {
+  RECORDING_ID_GENERATOR,
+  RECORDING_UNIT_OF_WORK,
+  TRANSCRIPTION_POLICY_PROVIDER,
+} from "./application/recording/session-lifecycle-ports";
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -38,9 +47,37 @@ function isProcessEntry(): boolean {
   }
 }
 
+/**
+ * #466 —— the WS surface, attached to the SAME http server the controllers run on.
+ *
+ * ## Why it is wired here and not as a Nest "gateway"
+ *
+ * `@nestjs/websockets` would add a second HTTP-adjacent framework to the composition (and a
+ * second dependency, and a second lifecycle) for one route. `ws` with `noServer: true`
+ * hooked onto the Express server's `upgrade` event IS the whole mechanism, and it keeps the
+ * one thing that matters: the handshake authenticates through the same
+ * `PrincipalResolverPort` instance every HTTP request does, so there is no second answer to
+ * "who is this".
+ *
+ * ⚠ Attached after `listen()`, not inside `createApp()`: many kernel test files build an app
+ *   without ever listening, and hanging a socket server off a server that never binds leaves
+ *   a listener nobody closes.
+ */
+export function attachStreamingSurfaces(app: NestExpressApplication): void {
+  attachAsrGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    identities: app.get(IDENTITY_REPOSITORY),
+    uow: app.get(RECORDING_UNIT_OF_WORK),
+    policies: app.get(TRANSCRIPTION_POLICY_PROVIDER),
+    ids: app.get(RECORDING_ID_GENERATOR),
+    asr: app.get(ASR_PROVIDER),
+  });
+}
+
 if (isProcessEntry()) {
   const app = await createApp();
   const port = Number(process.env.PORT ?? 3200);
   await app.listen(port);
+  attachStreamingSurfaces(app);
   process.stdout.write(`api listening on ${port}\n`);
 }

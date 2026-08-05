@@ -196,6 +196,68 @@ await asOwner(async (client) => {
   });
 }
 
+/**
+ * 🟡 #466 —— 核心闭环第 7 步「会话内录音」的**两个前置条件**。
+ *
+ * ## ① 保留期（`retention_policies`）
+ *
+ * `startRecording` 在开始时就解析生效保留期，解析不出来一律
+ * `RETENTION_POLICY_MISSING` 并**拒绝开始** —— E5 的 fail-closed，
+ * `pg-recording-repository.ts` 的 `retentionResolver` 里写着「不发明常量」。
+ * 而 `resolvedFrom: "org"` 今天不可达（schema 里没有组织级天数，已登记为缺口），
+ * 所以唯一能让录音开始的路是给项目配一条 override。这是**配置**，不是绕过门禁：
+ * 门禁照常判定，只是这个项目确实有保留期。
+ *
+ * ## ② 授权矩阵（`recording_consent_cells`）—— ⚠ 这是一个真实缺口
+ *
+ * `blocksStart` 要求**每个在场者的每一项**都是 `granted`，缺行按 0 算。
+ * 而契约里**没有任何写授权格子的操作**（#465 的迁移文件头逐字写着这件事），
+ * 也就是说**这套系统今天不存在任何产品路径能让一个人完成录音授权**。
+ * 与 #467 的「没有产品路径能把 skill 变成已启用」是同型缺口，随 #466 上报。
+ *
+ * 于是第 7 步的形状被这个缺口决定了：
+ *
+ *   · **线程必须预置**（`FULLSTACK_E2E_RECORDING_THREAD_ID`）。授权格子按
+ *     `source_ref_id` 存，而用例现场新建的线程 id 在种子跑的时候还不存在 ——
+ *     没有第二种办法。
+ *   · **录音本身一行都不种。** `recording_sessions` / `recording_tracks` /
+ *     `recording_segments` 全部由用例现场走真实链路产生。所以「开始录音没生效」
+ *     「转录没落库」时第 7 步照样红。
+ *
+ * ⚠ **不得**为了省掉这段种子去放宽 `blocksStart` 的判定。那条门禁是
+ *   「任一在场者的任一项为 pending ⇒ 那一路不采集」的唯一落点。
+ */
+{
+  const recordingThreadId = required("FULLSTACK_E2E_RECORDING_THREAD_ID");
+  const recordingThreadTitle = required("FULLSTACK_E2E_RECORDING_THREAD_TITLE");
+  await asApp(orgId, async (client) => {
+    await client.query(
+      `INSERT INTO retention_policies (project_id, org_id, material_days, updated_by)
+       VALUES ($1,$2,180,$3)
+       ON CONFLICT (project_id) DO UPDATE SET material_days = EXCLUDED.material_days`,
+      [projectId, orgId, adminUserId],
+    );
+    await client.query(
+      `INSERT INTO chat_threads (id, org_id, project_id, visibility_scope, title, created_by)
+       VALUES ($1,$2,$3,'project',$4,$5)
+       ON CONFLICT (id) DO NOTHING`,
+      [recordingThreadId, orgId, projectId, recordingThreadTitle, userId],
+    );
+    // 三项授权全部 granted，只给**这一个** participant —— `trackPlan` 里也只有他。
+    // 项目里的另外两个账号刻意不给：`blocksStart` 只对**在场者**求全，
+    // 给所有人发一遍会让「只问在场的人」这条语义在种子里消失。
+    await client.query(
+      `INSERT INTO recording_consent_cells (org_id, source_ref_id, participant_id, item, state)
+       SELECT $1, $2, $3, item, 'granted' FROM unnest($4::text[]) AS item
+       ON CONFLICT (org_id, source_ref_id, participant_id, item) DO UPDATE SET state = 'granted'`,
+      [orgId, recordingThreadId, userId, ["record", "transcript", "ai_analysis"]],
+    );
+  });
+  process.stdout.write(
+    `[fullstack-fixture] recording thread=${recordingThreadId} title=${recordingThreadTitle}\n`,
+  );
+}
+
 // ⚠ 刻意**没有**预置任何 capability_listings 行。#458 的浏览器门控要证的正是
 // 「界面新建出来的那一条真的落进了 PostgreSQL」——先塞一条进去，
 // 那条断言就会在「新建根本没生效」时照样绿。

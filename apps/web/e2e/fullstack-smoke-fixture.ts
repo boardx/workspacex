@@ -118,4 +118,31 @@ export const FULLSTACK_E2E = {
   agentModelId: "loopback-echo",
   /** 回显前缀，与 `apps/api/scripts/loopback-model-provider.ts` 的 `REPLY_PREFIX` 同源。 */
   agentReplyPrefix: "[loopback]",
+
+  /**
+   * 🟡 #466：核心闭环第 7 步「会话内录音」用的那条线程。
+   *
+   * ⚠ **为什么它必须预置，而第 6a / 8a 步的线程是现场建的**：录音的授权矩阵
+   *   （`recording_consent_cells`）按 `source_ref_id` 存，而契约里**没有任何**
+   *   写授权格子的操作 —— 这套系统今天不存在任何产品路径能完成录音授权
+   *   （与 #467「没有路径能启用 skill」同型，已随 #466 上报）。现场新建的线程 id
+   *   在种子跑的时候还不存在，所以授权无从预置。⇒ 线程与授权只能一起种。
+   *
+   * ⚠ **录音本身一行都不种**：`recording_sessions` / `recording_tracks` /
+   *   `recording_segments` 全部由用例现场走真实链路产生。所以「开始录音没生效」
+   *   或「转录没落库」时第 7 步照样红 —— 种的是前置条件，不是被断言的东西。
+   */
+  recordingThreadId: `thread-466-${scope}`,
+  recordingThreadTitle: `FULLSTACK_RECORDING_THREAD_${scope}`,
+
+  /**
+   * 🟡 #466：确定性 ASR 上游回显的转录前缀。
+   *
+   * 与 `agentReplyPrefix` 同一条纪律：唯一事实源在这里，由
+   * `playwright.fullstack-smoke.config.ts` 同时下发给
+   * `apps/api/scripts/loopback-asr-provider.ts` 与断言方。那个进程回的是
+   * `<前缀> <真实收到的 PCM 字节数>` —— 字节数是**音频真的从浏览器流过来了**
+   * 的证据；少了它，断言在「前端自己合成一段文字」时照样绿。
+   */
+  asrTranscriptPrefix: "[loopback-asr]",
 } as const;

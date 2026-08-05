@@ -40,19 +40,20 @@
  *   503  a dependency this path refuses to proceed without (masking kernel, object store,
  *        an unconfigured transcription policy) — reject, never degrade
  */
-import { createHash } from "node:crypto";
 import {
   BadRequestException,
   Body,
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   Inject,
   NotFoundException,
   Param,
   Post,
+  Query,
   Res,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -60,10 +61,18 @@ import {
 import type { Response } from "express";
 import { recording as C } from "@repo/contracts";
 import {
-  ingestSegment,
   startRecording,
   type CaptureDeps,
 } from "../../application/recording/capture";
+import {
+  RecordingRefusal,
+  captureDepsWithoutPolicy,
+  ingestTranscriptSegment,
+  lookupIdempotent,
+  payloadDigest,
+  requireProjectRole,
+  type IngestSegmentBody,
+} from "../recording/segment-ingestion";
 import {
   endRecordingSession,
   materializeRecordingSession,
@@ -99,38 +108,8 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 type StartBody = typeof C.operations.startRecording.in._type;
-type IngestBody = typeof C.operations.ingestSegment.in._type;
 type EndBody = typeof C.operations.endRecording.in._type;
 type MaterializeBody = typeof C.operations.materializeRecordingArtifacts.in._type;
-
-/**
- * The idempotency fingerprint.
- *
- * Key order is normalised before hashing: two JSON bodies that differ only in the order
- * their fields were serialised are the SAME request, and treating them as a conflict would
- * make an ordinary client retry look like key reuse.
- */
-function payloadDigest(value: unknown): string {
-  const canonical = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(canonical);
-    if (v !== null && typeof v === "object") {
-      return Object.fromEntries(
-        Object.entries(v as Record<string, unknown>)
-          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-          .map(([k, val]) => [k, canonical(val)]),
-      );
-    }
-    return v;
-  };
-  return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
-}
-
-/** Raised inside a unit of work so the transaction rolls back before the response is built. */
-class RecordingRefusal extends Error {
-  constructor(readonly reason: RecordingErrorCode | "IDEMPOTENCY_KEY_CONFLICT") {
-    super("recording_refusal");
-  }
-}
 
 const CONFLICT: ReadonlySet<string> = new Set([
   "SESSION_ALREADY_RECORDING", "SESSION_ALREADY_ENDED", "SESSION_ENDED", "SESSION_NOT_ENDED",
@@ -179,8 +158,9 @@ export class RecordingController {
    * that the two share one answer, so an outsider cannot enumerate projects.
    */
   private async requireProjectRole(userId: string, orgId: OrgId, projectId: string): Promise<void> {
-    const membership = await this.identities.findProjectMembership(userId, projectId, orgId);
-    if (membership === null) throw new ForbiddenException({ reasonCode: "NO_PROJECT_ROLE" });
+    // Delegates: the same check runs on the WS surface (#466), and two copies of "who may
+    // touch this project" is exactly the shape `AGENTS.md` names.
+    await requireProjectRole(this.identities, userId, orgId, projectId);
   }
 
   /**
@@ -195,36 +175,12 @@ export class RecordingController {
     key: string,
     digest: string,
   ): Promise<T | undefined> {
-    const found = await stores.idempotency.lookup<T>(operation, key, digest);
-    if (found.kind === "conflict") throw new RecordingRefusal("IDEMPOTENCY_KEY_CONFLICT");
-    return found.kind === "replay" ? found.result : undefined;
+    return lookupIdempotent<T>(stores, operation, key, digest);
   }
 
-  /**
-   * `CaptureDeps` for a path that does not transcribe.
-   *
-   * `startRecording` never touches `policy`, but `CaptureDeps` requires the field. Handing
-   * it a stand-in that ANSWERS would be a second, unconfigured transcription policy hiding
-   * in the composition; handing it one that throws means the day something on this path
-   * starts transcribing, it stops loudly instead of masking with rules nobody chose.
-   */
+  /** See `interface/recording/segment-ingestion.ts` for why this stand-in throws. */
   private captureDepsWithoutPolicy(stores: RecordingStores): CaptureDeps {
-    return {
-      sessions: stores.sessions,
-      tracks: stores.tracks,
-      segments: stores.segments,
-      consent: { blocksStart: async () => true },
-      retention: stores.retention,
-      ids: this.ids,
-      policy: {
-        isLowConfidence() {
-          throw new Error("transcription policy is not available on this path");
-        },
-        mask() {
-          throw new Error("transcription policy is not available on this path");
-        },
-      },
-    };
+    return captureDepsWithoutPolicy(stores, this.ids);
   }
 
   @Post("/recording/sessions")
@@ -299,7 +255,7 @@ export class RecordingController {
   async ingest(
     @CurrentPrincipal() principal: Principal,
     @Param("sessionId") sessionId: string,
-    @Body(new ZodBodyPipe(C.operations.ingestSegment.in)) body: IngestBody,
+    @Body(new ZodBodyPipe(C.operations.ingestSegment.in)) body: IngestSegmentBody,
     @Res({ passthrough: true }) response: Response,
   ) {
     assertPrincipal(principal);
@@ -308,54 +264,16 @@ export class RecordingController {
     // record whose value depends on which conversation it is a record OF.
     if (body.sessionId !== sessionId) throw new BadRequestException("session_id_mismatch");
     const orgId = toOrgId(principal.orgId);
-    const digest = payloadDigest(body);
 
     try {
-      const outcome = await this.uow.withOrg(orgId, { userId: principal.userId }, async (stores) => {
-        const replayed = await this.idempotency<typeof C.operations.ingestSegment.out._type>(
-          stores, "ingestSegment", body.idempotencyKey, digest,
-        );
-        if (replayed !== undefined) return { created: false, result: replayed };
-
-        const session = await stores.sessions.lifecycleSession(sessionId);
-        if (session === undefined) throw new RecordingRefusal("SESSION_NOT_FOUND");
-        await this.requireProjectRole(principal.userId, orgId, session.projectId);
-
-        const deps: CaptureDeps = {
-          ...this.captureDepsWithoutPolicy(stores),
-          policy: this.policies.policy(),
-        };
-        const ingested = await ingestSegment(deps, {
-          sessionId,
-          trackId: body.trackId,
-          anchor: body.anchor,
-          rawText: body.rawText,
-          asrConfidence: body.asrConfidence,
-          diarization: body.diarization,
-          // ⚠ The contract has no `draft` field, and `transcribe()` needs one to tell
-          //   「正在识别」 (`partial`) from a settled segment (`final`). Ingesting as settled
-          //   is the choice that cannot fabricate: a `partial` segment is barred from
-          //   quotes, retrieval and AI summary (`checkCitability`), so defaulting to
-          //   `partial` would silently make every segment uncitable, while defaulting to
-          //   `final` is what a caller pushing a completed recognition result means. The
-          //   missing field is reported on issue #465.
-          draft: false,
-        });
-        if (!ingested.ok) throw new RecordingRefusal(ingested.reason);
-
-        const result = C.operations.ingestSegment.out.parse({
-          segmentId: ingested.segmentId,
-          status: ingested.segment.status,
-          speakerChannelId: ingested.segment.speakerChannelId,
-          lowConfidence: ingested.segment.lowConfidence,
-          text: ingested.segment.text,
-          piiFindings: ingested.segment.piiFindings,
-        });
-        await stores.idempotency.remember({
-          operation: "ingestSegment", key: body.idempotencyKey, payloadDigest: digest, result,
-        });
-        return { created: true, result };
-      });
+      // ⚠ The whole transaction lives in `interface/recording/segment-ingestion.ts`, and
+      //   the WS surface (#466) calls THAT, not this method. Two boundaries, one write
+      //   path — which is what `design-deltas/realtime-asr/contract.md` §2 requires in as
+      //   many words ("不新增第二条写路径").
+      const outcome = await ingestTranscriptSegment(
+        { uow: this.uow, identities: this.identities, policies: this.policies, ids: this.ids },
+        principal, orgId, sessionId, body,
+      );
       response.status(outcome.created ? HttpStatus.CREATED : HttpStatus.OK);
       return outcome.result;
     } catch (e) {
@@ -365,6 +283,78 @@ export class RecordingController {
         // unconfigured threshold may not be answered with `lowConfidence: false`.
         throw new ServiceUnavailableException({ reasonCode: "TRANSCRIPTION_POLICY_UNCONFIGURED" });
       }
+      throw e;
+    }
+  }
+
+  /**
+   * readTranscriptStream —— 读回本会话的转写段（契约 `readTranscriptStream`）。
+   *
+   * ## 为什么 #466 必须补上它
+   *
+   * #465 交付了四条**写**路由（start / ingest / end / materialize），一条读路由都没有。
+   * 没有读路由，「录完了，刷新页面转录还在不在」这件事在浏览器里**无从断言** ——
+   * 而那恰好是唯一能区分「写进了 PostgreSQL」与「写进了 React state」的断言
+   * （本仓步骤 6a、8a 都栽在同一处，注释还在 `core-loop.spec.ts` 里）。
+   * 所以这不是顺手加的端口，它是步骤 7 的验收线本身。
+   *
+   * ⚠ 契约的 `includeMasked` 是 `z.literal(true)`：本端口**不提供**未遮盖读取，
+   *   那条路只有 `revealPii`。所以这里不接受 `includeMasked=false`，
+   *   传了就是 400 —— 而不是悄悄当成 true。
+   *
+   * ⚠ `resolvedSpeaker` 恒 `null`：它由 `SpeakerAssignment` 解析而来（I-10），
+   *   而指派那张表在 #465 的迁移里**刻意没建**。返回 `null` 是契约里「未指派」
+   *   的正确表达（界面渲染「出处待补」），不是缺省值兜底。
+   *
+   * ⚠ `cursor` / `q` 今天不实现，且**不静默忽略**：传了就 422 `CURSOR_INVALID` /
+   *   400。一个悄悄无视分页参数的列表端口，会在数据超过一页时开始丢数据而没人发现。
+   */
+  @Get("/recording/sessions/:sessionId/segments")
+  async segments(
+    @CurrentPrincipal() principal: Principal,
+    @Param("sessionId") sessionId: string,
+    @Query("includeMasked") includeMasked: string | undefined,
+    @Query("cursor") cursor: string | undefined,
+    @Query("q") q: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    // The contract's input is `includeMasked: z.literal(true)` — a query string carries
+    // text, so "true" is the only spelling that parses to it.
+    if (includeMasked !== "true") {
+      throw new BadRequestException({ reasonCode: "INCLUDE_MASKED_MUST_BE_TRUE" });
+    }
+    if (cursor !== undefined) throw new UnprocessableEntityException({ reasonCode: "CURSOR_INVALID" });
+    if (q !== undefined) throw new BadRequestException({ reasonCode: "FULL_TEXT_SEARCH_NOT_IMPLEMENTED" });
+
+    const startedAt = Date.now();
+    try {
+      return await this.uow.withOrg(orgId, { userId: principal.userId }, async (stores) => {
+        const session = await stores.sessions.lifecycleSession(sessionId);
+        // Another tenant's session id is answered identically to a nonexistent one, so the
+        // endpoint is not an id oracle (same rule as the write routes above).
+        if (session === undefined) throw new RecordingRefusal("SESSION_NOT_FOUND");
+        await this.requireProjectRole(principal.userId, orgId, session.projectId);
+        const stored = await stores.segments.ofSession(sessionId);
+        return C.operations.readTranscriptStream.out.parse({
+          segments: stored.map((line) => ({
+            id: line.id,
+            sessionId: line.sessionId,
+            trackId: line.trackId,
+            anchor: line.anchor,
+            speakerChannelId: line.speakerChannelId,
+            resolvedSpeaker: null,
+            status: line.status,
+            lowConfidence: line.lowConfidence,
+            text: line.text,
+            piiFindings: line.piiFindings,
+          })),
+          nextCursor: null,
+          latencyMs: Math.max(0, Date.now() - startedAt),
+        });
+      });
+    } catch (e) {
+      if (e instanceof RecordingRefusal) refuse(e.reason);
       throw e;
     }
   }
