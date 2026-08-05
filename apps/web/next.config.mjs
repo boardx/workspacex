@@ -68,6 +68,21 @@ export default {
       { source: `${prefix}/artifact-versions/:path*`, destination: `${apiOrigin}/artifact-versions/:path*` },
       { source: `${prefix}/artifact-aliases/:path*`, destination: `${apiOrigin}/artifact-aliases/:path*` },
       { source: `${prefix}/export-jobs/:path*`, destination: `${apiOrigin}/export-jobs/:path*` },
+      // #363：组织管理面。`OrgInviteController` 与 `OrgAdminManagementController` 都是
+      // `@Controller()`（空前缀），完整路径写在方法上：`/organizations/:orgId/invites`、
+      // `…/invites/:inviteId/{review,resend,revoke}`、`…/teams`、`…/members/:userId/remove`。
+      //
+      // ⚠ 裸 `/organizations` 那一条今天没有任何操作命中，仍然写出来 —— 这是
+      //   `/capabilities`、`/canvas/templates`、`/skills` 三次踩过的同一个坑：
+      //   缺了它，将来有人加一条 `GET /organizations`（列组织）时拿到的是 Next 自己的
+      //   404 HTML，前端报 `Unexpected token '<'`，看起来像「后端没实现」。
+      //   `apps/web` 下**没有** `/organizations` 页面（`app/org-admin` 才是那个界面），
+      //   所以这两条改写不遮挡任何前端路由。
+      // ⚠ 补上之后必须把 `.harness/state/rewrite-coverage-allowlist.json` 里的
+      //   `organizations` 删掉：棘轮名单只能变短，留着一条已补好的豁免
+      //   等于给未来的回归留一扇没人看守的门（`lint-rewrite-coverage` 会报陈旧并变红）。
+      { source: `${prefix}/organizations`, destination: `${apiOrigin}/organizations` },
+      { source: `${prefix}/organizations/:path*`, destination: `${apiOrigin}/organizations/:path*` },
     ];
   },
 };

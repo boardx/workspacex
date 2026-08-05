@@ -120,6 +120,67 @@ export type ActivateOrgInviteResult =
    */
   | { readonly ok: false; readonly reason: "not-found" | "already-member" };
 
+/* ─────────────────── 重发 / 撤销（#363：契约里有、路由上没有） ─────────────────── */
+
+/**
+ * `ResendOrgInvite` 的仓储入参。
+ *
+ * ⚠ **令牌由用例生成、由仓储写入**——与 `ReviewOrgInviteInput` 逐字同一种分工，
+ *   理由也一样：签发策略（用哪个生成器、多长有效期）是用例的事，
+ *   而「作废旧的」与「写入新的」必须在同一次锁定里才成立（I-6）。
+ *
+ * ⚠ 限流的两个阈值**当参数传进来**，不在仓储里读 `AUTH_POLICY`。
+ *   仓储读策略常量 = 第二处策略声明点，而本仓已五次栽在这上面。
+ *   判定本身在仓储里做，因为它必须与写入同一次锁定：先查「冷却过了吗」再写，
+ *   两路并发都会看到「过了」，于是一次点击发出两枚令牌、旧的那枚被作废，
+ *   而两名管理员各自手上都是一条已经失效的链接。
+ */
+export interface ResendOrgInviteInput {
+  readonly orgId: OrgId;
+  readonly inviteId: string;
+  readonly now: Date;
+  readonly token: string;
+  readonly tokenExpiresAt: Date;
+  /** `AUTH_POLICY.resendCooldownSeconds`。 */
+  readonly cooldownSeconds: number;
+  /** `AUTH_POLICY.resendDailyMax`：同一条邀请 24 小时内最多签发几枚令牌。 */
+  readonly dailyMax: number;
+}
+
+export type ResendOrgInviteResult =
+  | { readonly ok: true; readonly newTokenIssued: true; readonly cooldownSec: number }
+  | {
+      readonly ok: false;
+      /**
+       * ⚠ 三个码，**不合并**：
+       *   `not-found`：本组织下没有这条邀请 id（**跨组织的 id 也落在这里**——
+       *     仓储在租户上下文里查，别人组织的那一行由 RLS 读不到，
+       *     于是「不存在」与「不是你的」由构造产生同一个结果，不靠调用方记得合并）。
+       *   `rate-limited`：冷却未过 或 24h 内已达 `dailyMax`。
+       *   `not-resendable`：邀请存在但当前状态不该有链接——
+       *     `awaiting-review`（I-3：复核前不签发）/ `revoked` / `used`。
+       */
+      readonly reason: "not-found" | "rate-limited" | "not-resendable";
+    };
+
+/** `RevokeOrgInvite` 的仓储入参。撤销不签发任何东西，所以没有 token 字段。 */
+export interface RevokeOrgInviteInput {
+  readonly orgId: OrgId;
+  readonly inviteId: string;
+  readonly actorId: string;
+  readonly now: Date;
+}
+
+export type RevokeOrgInviteResult =
+  | { readonly ok: true; readonly status: "revoked" }
+  /**
+   * ⚠ `already-used` 与 `not-found` 分开：一条已被激活的邀请**不能**被撤销回去
+   * （成员已经建好了，撤销邀请不会把他踢出组织——那是 `removeOrgMember` 的事），
+   * 而它与「这条邀请不存在」要调用者做的事完全不同。映射为 `VERSION_CHANGED`，
+   * 与 `reviewAdminInvite` 的 `already-decided` 同一处置。
+   */
+  | { readonly ok: false; readonly reason: "not-found" | "already-used" };
+
 export interface OrgInviteRepository {
   /**
    * ⚠ 幂等的判据是 **(orgId, email, orgRole, teamId) 四元组相同**，不是二元组。
@@ -144,6 +205,27 @@ export interface OrgInviteRepository {
    * 否则两名管理员同时批只生效一次（I-4 的并发半句）无法保证。
    */
   reviewAdminInvite(input: ReviewOrgInviteInput): Promise<ReviewOrgInviteResult>;
+
+  /**
+   * #363 / I-6：**重发 = 签发新令牌 + 作废旧令牌**，不是「把同一条链接再发一次」。
+   *
+   * 一次事务：锁定邀请行 → 判状态 → 判限流 → 作废旧令牌 → 写新令牌 + `sent_at`。
+   * 「作废旧的」不是可选步骤：`org_invite_tokens_live_uniq`（迁移 0022，部分唯一索引
+   * `WHERE consumed_at IS NULL`）就是为它建的——漏掉它的表现不是旧链接还能用，
+   * 是**新令牌插不进去**，重发直接 23505 失败。
+   */
+  resendOrgInvite(input: ResendOrgInviteInput): Promise<ResendOrgInviteResult>;
+
+  /**
+   * #363：撤销一条尚未被激活的邀请。**幂等**——重复撤销返回同一 `revoked`。
+   *
+   * 只改 `org_invites.status`，**不动 `org_invite_tokens`**：激活路径第 (3) 步
+   * 逐字要求 `status = 'pending'`（见 `pg-org-invite-repository.ts`），
+   * 所以状态一翻，手里那枚令牌当场作废，且失败模式与「令牌不存在」逐字节相同（V10）。
+   * 再去 consume 一遍令牌不会让任何一条链接更早失效，只会多一处必须与激活路径
+   * 保持一致的判断。
+   */
+  revokeOrgInvite(input: RevokeOrgInviteInput): Promise<RevokeOrgInviteResult>;
 }
 
 export const ORG_INVITE_REPOSITORY = Symbol("OrgInviteRepository");
