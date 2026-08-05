@@ -15,6 +15,7 @@ import {
   isRegistrationEmailTaken,
   login,
   registerWithInvite,
+  requestPasswordReset,
 } from "@/lib/auth";
 import { useSession } from "@/components/session/session-provider";
 
@@ -26,6 +27,14 @@ import { useSession } from "@/components/session/session-provider";
  * - `[忘记密码？]`（R8「原型待补」：按钮在、点了没屏）在此补出接线与后续屏。
  * - `[创建组织]` 进入真实 `/auth/register` 注册与邮箱验证排队流程。
  */
+
+/**
+ * 找回密码请求发不出去时的**唯一**文案。抽成常量不是为了复用，是为了让
+ * "再加一条别的文案"这个动作在代码里显眼——多一条按邮箱变化的文案，
+ * 就等于把枚举信道从界面这一侧重新开出来。
+ */
+const RESET_RETRY_COPY = "重置服务暂时不可用，请稍后重试";
+
 export function LoginForm({ state }: { state: UiState }) {
   const session = useSession();
   const [showPwd, setShowPwd] = React.useState(false);
@@ -35,6 +44,15 @@ export function LoginForm({ state }: { state: UiState }) {
   const [loginError, setLoginError] = React.useState<string | null>(null);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
+  const [resetEmail, setResetEmail] = React.useState("");
+  const [resetSubmitting, setResetSubmitting] = React.useState(false);
+  /**
+   * ⚠ 刻意是 `boolean` 而不是 `string | null`。存文案的字段迟早会被塞进
+   * 按响应变化的文案，而**能变化的文案就是信道**。后端对存在与不存在的邮箱
+   * 返回同一个 200，所以任何 reject 都只可能是传输层问题、与"这个邮箱是谁"无关；
+   * 一个布尔位配一条固定文案，既诚实又没有分叉的位置。
+   */
+  const [resetFailed, setResetFailed] = React.useState(false);
   if (forgot) {
     return (
       <div className="flex flex-col gap-4" data-testid="login-forgot-panel">
@@ -43,6 +61,7 @@ export function LoginForm({ state }: { state: UiState }) {
           onClick={() => {
             setForgot(false);
             setResetSent(false);
+            setResetFailed(false);
           }}
           data-testid="login-forgot-back"
           className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
@@ -74,17 +93,40 @@ export function LoginForm({ state }: { state: UiState }) {
                 id="login-reset-email"
                 type="email"
                 placeholder={LOGIN_BRAND.sampleEmail}
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.currentTarget.value)}
                 data-testid="login-forgot-email"
               />
             </div>
             <Button
               variant="primary"
               size="lg"
-              onClick={() => setResetSent(true)}
+              disabled={resetSubmitting}
+              onClick={async () => {
+                setResetSubmitting(true);
+                setResetFailed(false);
+                try {
+                  await requestPasswordReset(resetEmail);
+                  // ⚠ 这里**没有** `if (out.sent)` 之类的判断，也不该有：
+                  // 契约的 out 是 `{ sent: literal(true) }`，唯一的成功形状。
+                  // 只要请求 resolve 了就进同一个已发送态，无论邮箱是否注册。
+                  setResetSent(true);
+                } catch {
+                  // 不看 error 的 status / reasonCode——看了就有分叉的机会。
+                  setResetFailed(true);
+                } finally {
+                  setResetSubmitting(false);
+                }
+              }}
               data-testid="login-forgot-submit"
             >
-              发送重置链接
+              {resetSubmitting ? "正在发送…" : "发送重置链接"}
             </Button>
+            {resetFailed ? (
+              <p data-testid="login-forgot-error" className="text-12 text-destructive">
+                {RESET_RETRY_COPY}
+              </p>
+            ) : null}
             <p className="text-11 text-muted-foreground">
               重发冷却 60 秒 · 每日上限 5 次。
             </p>

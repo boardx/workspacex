@@ -6,6 +6,7 @@ import { auth as C } from "@repo/contracts";
 import { apiRequest } from "@/lib/api-client";
 import {
   bootstrapFirstUser,
+  contractFieldIssues,
   isBootstrapUnavailable,
   isRegistrationEmailTaken,
   login,
@@ -17,6 +18,30 @@ import { Label } from "@/components/ui/label";
 
 type RegisterInput = typeof C.operations.redeemInviteAndCreateOrg.in._input;
 type RegisterOutput = typeof C.operations.redeemInviteAndCreateOrg.out._output;
+
+/**
+ * 字段级 400 的**如实**回显。
+ *
+ * ⚠ 这不是锦上添花：不做这一层，`ZodBodyPipe` 的校验失败（无 `reasonCode`）会掉进
+ * 「创建服务暂时不可用」的兜底文案——把一个用户自己能改的输入错误伪装成不可抗力，
+ * 用户没有任何线索去改，只会重试到放弃（2026-08-05 在 devapp 上真实发生过一次）。
+ *
+ * 只翻译**字段位置**，不回显用户提交的值（后端也从不回传值，见 all-exceptions.filter.ts）。
+ */
+const FIELD_LABEL: Record<string, string> = {
+  password: `密码至少 ${C.AUTH_POLICY.passwordMinLen} 位`,
+  email: "邮箱格式不正确",
+  orgName: "组织名称不能为空",
+  displayName: "姓名不能为空",
+  code: `邀请码必须是 ${C.AUTH_POLICY.inviteCodeLength} 位，或完全留空`,
+};
+
+function fieldErrorMessage(error: unknown): string | null {
+  const issues = contractFieldIssues(error);
+  if (!issues) return null;
+  const labels = issues.map((i) => FIELD_LABEL[i.path] ?? `${i.path} 不符合要求`);
+  return `请检查：${[...new Set(labels)].join("；")}`;
+}
 
 export function Registration() {
   const session = useSession();
@@ -69,9 +94,10 @@ export function Registration() {
         // 而 409 EMAIL_TAKEN 反过来是**故意明确**的（UC-1.5 A2 要求引导用户去登录），
         // 不要为了「防枚举一致性」把它也做模糊——防枚举在 login / password-reset 上做。
         setFormError(
-          isRegistrationEmailTaken(e)
-            ? "该邮箱已注册，请返回登录后在组织内使用邀请码。"
-            : "邀请码无效，或注册暂时未完成，请检查信息后重试。",
+          fieldErrorMessage(e)
+            ?? (isRegistrationEmailTaken(e)
+              ? "该邮箱已注册，请返回登录后在组织内使用邀请码。"
+              : "邀请码无效，或注册暂时未完成，请检查信息后重试。"),
         );
       } finally {
         setSubmitting(false);
@@ -106,11 +132,12 @@ export function Registration() {
         // 不引入任何新的 API 语义。
       }
       setFormError(
-        isBootstrapUnavailable(e)
-          ? "已有管理员，请输入 14 位邀请码。"
-          : isRegistrationEmailTaken(e)
-            ? "该邮箱已注册，请返回登录。"
-            : "创建服务暂时不可用，请稍后重试。",
+        fieldErrorMessage(e)
+          ?? (isBootstrapUnavailable(e)
+            ? `已有管理员，请输入 ${C.AUTH_POLICY.inviteCodeLength} 位邀请码。`
+            : isRegistrationEmailTaken(e)
+              ? "该邮箱已注册，请返回登录。"
+              : "创建服务暂时不可用，请稍后重试。"),
       );
       setSubmitting(false);
     }
