@@ -62,6 +62,25 @@ function run(commitments: Record<string, unknown>): string {
   }
 }
 
+function runWithBlockers(blockers: unknown[]): string {
+  dir = mkdtempSync(join(tmpdir(), "board-"));
+  const gh = join(dir, "gh");
+  writeFileSync(gh, FAKE_GH);
+  chmodSync(gh, 0o755);
+  const original = readFileSync(STATE, "utf8");
+  const cfg = JSON.parse(original);
+  cfg.human_blockers = blockers;
+  try {
+    writeFileSync(STATE, JSON.stringify(cfg));
+    return execFileSync("node", [SCRIPT], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, BOARD_NOW: "2026-08-05T12:00:00+08:00" },
+    });
+  } finally {
+    writeFileSync(STATE, original);
+  }
+}
+
 describe("阶段看板", () => {
   it("承诺表里没有那张 issue 时仍然跑完整块板，不半途崩掉", () => {
     const out = run({});
@@ -76,5 +95,33 @@ describe("阶段看板", () => {
     const out = run({ "9999": { due: "2026-08-05T17:00:00+08:00", step: "—", note: "有承诺" } });
     expect(out).toContain("还剩");
     expect(out).not.toContain("未承诺");
+  });
+});
+
+describe("人类阻断项：清单里有 ≠ 现在还成立", () => {
+  /**
+   * 由 coord-chat-e2e 2026-08-05 报出：`human_blockers` 原本**没有任何字段**
+   * 能表达「这条已经不成立了」，于是看板会永远打印同一个瓶颈。
+   *
+   * ⚠ 它指出这正是本看板自己犯了它要防的错 —— 进度板那一栏专门标着
+   *   「数据源不是谁的说法」，而这一栏恰恰是一份只能新增、不能解除的手写清单。
+   *
+   * 两条不变量：**已解除的不再算瓶颈**，且**未解除的照旧算**（否则等于把这栏删了）。
+   */
+  const BLOCKER = {
+    id: "x", title: "假阻断", why: "反证用", cmd: "true", blocks: "反证用",
+  } as const;
+
+  it("已解除的阻断项不再进入「当前瓶颈」，但仍以一行摘要保留可追溯", () => {
+    const out = runWithBlockers([{ ...BLOCKER, resolved_at: "2026-08-05T10:00:00+08:00",
+      resolved_by: "反证", evidence: "反证" }]);
+    expect(out).not.toContain("🔻 当前瓶颈   人类阻断项");
+    expect(out).toContain("已解除");     // 保留记录，不是删掉
+    expect(out).toContain("假阻断");
+  });
+
+  it("反空转正样本：**未**解除的照旧算作当前瓶颈", () => {
+    const out = runWithBlockers([BLOCKER]);
+    expect(out).toContain("🔻 当前瓶颈   人类阻断项 1 条");
   });
 });
