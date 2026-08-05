@@ -131,12 +131,22 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 3：新增 Skill ───────────────────────────────────────────────── */
 
-  test.fail("[#459] 步骤 3：新增 Skill 草稿 → 列表可见 → 详情可读", async ({ page }) => {
+  // ✅ #520 交付后**翻正成真断言**。原文是 `test.fail("[#459] …")`：当时属实——31 个
+  // application 用例存在，但没有任何一张表能存下声明式契约 skill，也没有 SkillController。
+  // #518 补上后端（建草稿 / 列表 / 详情），#520 把 `/skill` 的默认屏接上去，这一步才真的通。
+  test("步骤 3：新增 Skill 草稿 → 列表可见 → 详情可读", async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto("/skill");
-    // #459 的实测结论：31 个 application 用例存在，但**没有任何一张表**能存下
-    // 声明式契约 skill（starter-import 表的 status CHECK 只有 enabled/disabled），
-    // 也没有 SkillController。所以这一步现在必然红。
+    // 与步骤 2 同一个分寸：这里只断言「这条路径是活的」——建草稿 / 刷新仍在 / 详情可读 /
+    // 真实空态 / 失败信封 / 反证，六件由 `skill-create-smoke.spec.ts` 覆盖，不在这里重复。
+    //
+    // ⚠ testid **实测得来的，不是凭印象写的**：
+    //   `components/skill/skill-catalog-live.tsx` 的 `data-testid="skill-catalog-live"`（根）
+    //   与 `data-testid="skill-create-open"`（新建入口）；提交按钮 `skill-create-submit`
+    //   在同文件的 `CreatePanel` 里，**只有展开面板后才存在** —— 所以要先点开。
+    //   本条原文直接断言 `skill-create-submit` 可见，那在任何实现下都red：面板是收起的。
+    await expect(page.getByTestId("skill-catalog-live")).toBeVisible();
+    await page.getByTestId("skill-create-open").click();
     await expect(page.getByTestId("skill-create-submit")).toBeVisible();
   });
 
