@@ -22,8 +22,10 @@ import {
 import { checkDataScopeWithinSubmitter, type DataScopeKey } from "../../domain/skill/data-scope";
 import {
   assignSourceByEntry,
+  entrySourceWithinContract,
   isCommunityEntryAvailable,
   rejectCallerSuppliedSource,
+  uncontractedSourceReason,
   type SkillCreationEntry,
   type SkillOriginTag,
 } from "../../domain/skill/source-tag";
@@ -118,6 +120,21 @@ export async function createSkillDraft(
       ok: false,
       code: "DEPENDENCY_UNAVAILABLE",
       reason: "外部社区导入 phase-1 不实现（D-06 / DECISION-Q0：留 phase-2），入口置灰",
+      issues: [],
+      exceeded: [],
+      enteredReviewQueue: false,
+    };
+  }
+
+  /* ①b #514：入口打出的来源标记契约收不下 ⇒ fail-closed，**不入库**。
+     顺序在社区门之后：`community-import` 两条都命中，而「phase-1 不实现」比
+     「D09 未裁」更具体，先到的那道门给的理由更有用。
+     ⚠ 不在这里把 `画布` 映射成契约内的取值——见 `entrySourceWithinContract` 的理由。 */
+  if (!entrySourceWithinContract(input.entry)) {
+    return {
+      ok: false,
+      code: "DEPENDENCY_UNAVAILABLE",
+      reason: uncontractedSourceReason(input.entry),
       issues: [],
       exceeded: [],
       enteredReviewQueue: false,
