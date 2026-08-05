@@ -97,7 +97,22 @@ function buildUrl(path: string, query?: Record<string, string | undefined>): str
   // prefix. The default is empty, so production URLs retain their signed controller paths.
   const prefix = (process.env.NEXT_PUBLIC_API_PATH_PREFIX ?? "").replace(/\/$/, "");
   const requestPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(`${prefix}${requestPath}`, apiBaseUrl());
+
+  // ⚠ 2026-08-05 事故：`new URL(absolutePath, base)` 会把 `base` 的路径段整个丢掉——
+  // 这是 URL 构造函数的规范行为，不是 bug，但它悄悄假设了「apiBaseUrl() 只是 origin，
+  // 所有路径都靠 prefix 拼」。provision.sh 曾把 NEXT_PUBLIC_API_URL 设成
+  // `https://devapp.boardx.us/api`（带路径）而没配 PATH_PREFIX，于是
+  // `new URL("/auth/bootstrap", "https://devapp.boardx.us/api")`
+  // 变成 `https://devapp.boardx.us/auth/bootstrap` —— `/api` 被整个吃掉，
+  // 线上注册页因此 404。
+  //
+  // ⇒ 不再依赖 URL 构造函数的 base 解析：手动拼接 origin + base 的路径段 + prefix +
+  // 请求路径。无论运维把路径放在 NEXT_PUBLIC_API_URL 里还是
+  // NEXT_PUBLIC_API_PATH_PREFIX 里，效果相同——这个函数不该对配置方式挑食。
+  const base = new URL(apiBaseUrl());
+  const basePath = base.pathname.replace(/\/$/, "");
+  const url = new URL(`${basePath}${prefix}${requestPath}`, base.origin);
+
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined) url.searchParams.set(k, v);

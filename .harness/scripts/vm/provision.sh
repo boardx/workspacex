@@ -133,7 +133,13 @@ S3_ACCESS_KEY_ID=$(gen)
 S3_SECRET_ACCESS_KEY=$(gen)
 APP_API_PORT=${APP_API_PORT}
 APP_WEB_PORT=${APP_WEB_PORT}
-NEXT_PUBLIC_API_URL=https://${PUBLIC_DOMAIN}/api
+# ⚠ 2026-08-05 事故：NEXT_PUBLIC_API_URL 曾经带路径（.../api），而
+# apps/web/lib/api-client.ts 的 buildUrl 用 `new URL(absolutePath, base)` 拼 URL——
+# 那个 API 会把 base 的路径段整个丢掉，于是线上请求全部打到了不带 /api 的路径，
+# 注册页 404。buildUrl 已经修成对两种写法都健壮，但这里仍然使用推荐写法
+# （origin-only + 显式 PATH_PREFIX），别再把路径揉进 URL 里。
+NEXT_PUBLIC_API_URL=https://${PUBLIC_DOMAIN}
+NEXT_PUBLIC_API_PATH_PREFIX=/api
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
 EOF
   chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
