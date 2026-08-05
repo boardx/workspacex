@@ -111,6 +111,14 @@ export interface AsrStreamHandle {
 export async function openAsrStream(
   sessionId: string,
   trackId: string,
+  /**
+   * 转录挂靠的那条消息。
+   *
+   * ⚠ 不是可选参数：`thread` 载体的段落**必须**锚在一条消息上（已签 recording 束
+   *   的 I-1）。给一个默认值等于让「锚点丢了」在编译期消失、到运行时才以
+   *   `ANCHOR_MISSING` 的形式出现 —— 实测就是这么红了一次。
+   */
+  messageId: string,
   handlers: AsrStreamHandlers,
   deps: { sessionToken?: string | null; capture?: () => Promise<CaptureHandle> } = {},
 ): Promise<AsrStreamHandle> {
@@ -150,6 +158,7 @@ export async function openAsrStream(
   socket.send(JSON.stringify({
     type: "asr.start",
     trackId,
+    messageId,
     // 幂等键前缀。带 sessionId 与时间戳：重连后重放同一段不会写第二条（contract.md §2）。
     idempotencyKeyPrefix: `asr-${sessionId}-${Date.now()}`,
   }));

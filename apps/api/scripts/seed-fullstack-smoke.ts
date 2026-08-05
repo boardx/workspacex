@@ -238,10 +238,28 @@ await asOwner(async (client) => {
       [projectId, orgId, adminUserId],
     );
     await client.query(
+      // `plenary` = 全场（项目内全员可见）。取自契约 `ChatVisibility`，
+      // 不是随手选：`member-private` / `group-shared` 会把这条线程的可见性
+      // 绑到组关系上，而第 7 步验的是录音，不该顺带引入一个组可见性变量。
       `INSERT INTO chat_threads (id, org_id, project_id, visibility_scope, title, created_by)
-       VALUES ($1,$2,$3,'project',$4,$5)
+       VALUES ($1,$2,$3,'plenary',$4,$5)
        ON CONFLICT (id) DO NOTHING`,
       [recordingThreadId, orgId, projectId, recordingThreadTitle, userId],
+    );
+    /**
+     * 一条消息 —— **转录的锚点**，不是装饰。
+     *
+     * 已签 recording 束的 I-1（`ANCHOR_RULES.thread === "message"`）要求
+     * `thread` 载体的段落必须锚在一条消息上，且不得携带时间码。没有消息的会话
+     * 因此**录不了**（`ANCHOR_MISSING`）—— 实测红过一次。
+     *
+     * ⚠ 种的仍然是**前置条件**：录音会话、音轨、转写段一行都不种。
+     */
+    await client.query(
+      `INSERT INTO chat_messages (id, org_id, thread_id, author_kind, author_id, body)
+       VALUES ($1,$2,$3,'human',$4,$5)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${recordingThreadId}-msg-1`, orgId, recordingThreadId, userId, "录音锚点消息"],
     );
     // 三项授权全部 granted，只给**这一个** participant —— `trackPlan` 里也只有他。
     // 项目里的另外两个账号刻意不给：`blocksStart` 只对**在场者**求全，

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { LiveRecordingError } from "@/lib/live-recording";
+import { listMessages } from "@/lib/live-chat";
 import {
   endThreadRecording,
   openAsrStream,
@@ -179,8 +180,35 @@ export function ChatRecordingPanel({
       return;
     }
 
+    /**
+     * 转录挂靠的锚点。
+     *
+     * ⚠ **`thread` 载体的段落必须锚在一条消息上**（已签 recording 束的 I-1，
+     *   `domain/recording/transcription-core.ts` 的 `ANCHOR_RULES`）：一段对话里的
+     *   转录，「它在哪儿」的答案是「在哪条消息旁边」。所以没有消息的会话**不能录** ——
+     *   这里如实拒绝并说明原因，而**不是**编一个锚点让它落库：编出来的锚点会让
+     *   「这段话出自哪儿」永远说不清，而那正是整个 recording 束存在的理由。
+     */
+    let anchorMessageId: string;
     try {
-      streamRef.current = await openAsrStream(started.sessionId, trackId, {
+      const listed = await listMessages(threadId, { limit: 1 }, bearer);
+      const latest = listed.messages[listed.messages.length - 1];
+      if (latest === undefined) {
+        failedRef.current = true;
+        setPhase("failed");
+        setFailure("本会话还没有任何消息，转录没有可挂靠的锚点。请先在会话里发一条消息。");
+        return;
+      }
+      anchorMessageId = latest.id;
+    } catch {
+      failedRef.current = true;
+      setPhase("failed");
+      setFailure("无法读取本会话的消息，转录没有可挂靠的锚点。请重试。");
+      return;
+    }
+
+    try {
+      streamRef.current = await openAsrStream(started.sessionId, trackId, anchorMessageId, {
         onPartial: (text) => setPartial(text),
         onFinal: () => { setPartial(""); },
         onError: (reason) => {

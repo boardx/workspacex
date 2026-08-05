@@ -84,10 +84,18 @@ const asrProviderEnv = {
   KERNEL_ASR_MODEL: "loopback-transcribe",
   // 收尾等待：本地回环是毫秒级的，15 秒的生产默认值只会让失败等满 15 秒。
   KERNEL_ASR_FINISH_GRACE_MS: "5000",
-  // `EnvTranscriptionPolicyProvider` 没配阈值就 503 拒绝入库（设计如此）。
-  // 回环上游回 0.97，阈值 0.5 ⇒ 不低置信度；这条也让「低置信度」有一个真实的判据，
-  // 而不是恒 false。
-  KERNEL_TRANSCRIPTION_LOW_CONFIDENCE_THRESHOLD: "0.5",
+  /**
+   * `EnvTranscriptionPolicyProvider` 没配阈值就**拒绝入库**（设计如此，D-1 未裁决，
+   * 该 bundle 不许自己挑一个数）。实测：不配它，第 7 步红在
+   * `ingest failed: RECORDING_LOW_CONFIDENCE_THRESHOLD is not set` —— 门是活的。
+   *
+   * ⚠ 变量名取自 `env-transcription-policy.ts` 的 `LOW_CONFIDENCE_THRESHOLD_ENV`，
+   *   不是猜的。第一版按 `KERNEL_` 前缀猜了一个，整条链路跑通但落库被拒。
+   *
+   * 回环上游回 0.97，阈值 0.5 ⇒ 判定为**不低置信度**。这让 `lowConfidence`
+   * 有一个真实判据，而不是恒 false。
+   */
+  RECORDING_LOW_CONFIDENCE_THRESHOLD: "0.5",
 };
 
 /**
@@ -219,7 +227,18 @@ export default defineConfig({
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : 120_000,
       reuseExistingServer: false,
-      env: { ...process.env, ...fixtureEnv, ...modelProviderEnv, ...asrProviderEnv, PORT: apiPort },
+      env: {
+        ...process.env, ...fixtureEnv, ...modelProviderEnv,
+        // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
+        // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。
+        ...(process.env.CORE_LOOP_COUNTERPROOF_7 === "no-asr-provider" ? {} : asrProviderEnv),
+        // #466 反证 `drop-persist` / `noop-persist`：开关下发给 API 进程本身
+        // （浏览器拦不住服务端内部的落库调用）。见 `interface/recording/segment-ingestion.ts`。
+        ...(process.env.WORKSPACEX_COUNTERPROOF_INGEST
+          ? { WORKSPACEX_COUNTERPROOF_INGEST: process.env.WORKSPACEX_COUNTERPROOF_INGEST }
+          : {}),
+        PORT: apiPort,
+      },
     },
     {
       command: `next build && next start -p ${webPort}`,

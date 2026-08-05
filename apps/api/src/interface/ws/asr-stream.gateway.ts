@@ -146,12 +146,26 @@ function serve(
   };
 
   let upstream: AsrSession | null = null;
+  /**
+   * `asr.start` 已收到、但到上游的连接还没握完手 —— 这中间到达的音频帧要**缓存**，
+   * 不能丢也不能当成错误。
+   *
+   * ⚠ 实测踩过：浏览器在 `asr.start` 之后**立刻**开始推帧（采音回调是自由运行的），
+   *   而 `deps.asr.open()` 是一次真实的网络握手。第一版把「upstream 还没好」
+   *   当成 `audio before asr.start` 报错，于是整条链在每次运行都红 ——
+   *   红了，但红的是一个不存在的错误。
+   *
+   * ⚠ 缓存**有上限**：上游一直连不上时，无界缓存会把内存吃光，而表现出来是
+   *   「服务器变慢」而不是「转写连不上」。到上限就如实报 `ASR_PROVIDER_UNAVAILABLE`。
+   */
+  let pendingAudio: Uint8Array[] | null = null;
+  let pendingBytes = 0;
   let trackId: string | null = null;
   let keyPrefix: string | null = null;
+  let messageId: string | null = null;
   let sequence = 0;
   /** 落库串行化：两段 final 同时进来会抢同一个序号，进而抢同一个幂等键。 */
   let writeChain: Promise<unknown> = Promise.resolve();
-  const startedAt = Date.now();
 
   const fail = (reason: AsrErrorReason, detail: string): void => {
     // detail 只进服务端日志。上游的错误文本可能带着我们不该转发的东西。
@@ -163,11 +177,11 @@ function serve(
   };
 
   const persist = (text: string, confidence: number | null): void => {
-    if (trackId === null || keyPrefix === null) return;
+    if (trackId === null || keyPrefix === null || messageId === null) return;
     const track = trackId;
     const prefix = keyPrefix;
+    const anchorMessageId = messageId;
     const ordinal = (sequence += 1);
-    const elapsed = Date.now() - startedAt;
     writeChain = writeChain.then(async () => {
       try {
         const outcome = await ingestTranscriptSegment(
@@ -176,10 +190,11 @@ function serve(
           {
             sessionId,
             trackId: track,
-            // 锚点用**挂断为止的墙钟毫秒**。这不是精确的音频时间轴（那需要上游回时间戳，
-            // 它今天不回），但它是单调的、可复现的，且 `ANCHOR_MISSING` 要的就是
-            // 「这段话在这场录音里的位置说得出来」。上游开始回时间戳时换掉它。
-            anchor: { startMs: Math.max(0, elapsed - 1), endMs: elapsed, messageId: null },
+            // ⚠ `thread` 载体的锚点是**消息**，不是时间码 —— 已签 recording 束的 I-1
+            //   （`ANCHOR_RULES.thread === "message"`），带上 startMs/endMs 会被判
+            //   `ANCHOR_OUT_OF_RANGE`。这不是本面的选择，是更早那条不变量的要求：
+            //   一段对话里的转录，「在哪儿」的答案是「在哪条消息旁边」。
+            anchor: { startMs: null, endMs: null, messageId: anchorMessageId },
             rawText: text,
             // 上游没给置信度时传 0 会**捏造一个低置信度**，传 1 会捏造一个高的。
             // 契约要求一个 number，所以这里传上游给的那个；没有就用策略层的中性值。
@@ -210,8 +225,14 @@ function serve(
 
   ws.on("message", (raw: Buffer, isBinary: boolean) => {
     if (isBinary) {
-      if (upstream === null) return fail("ASR_PROVIDER_UNAVAILABLE", "audio before asr.start");
-      upstream.pushAudio(raw);
+      if (upstream !== null) return upstream.pushAudio(raw);
+      // `asr.start` 还没来过 ⇒ 这是协议违规，如实拒绝。
+      if (pendingAudio === null) return fail("ASR_PROVIDER_UNAVAILABLE", "audio before asr.start");
+      pendingBytes += raw.byteLength;
+      if (pendingBytes > MAX_PENDING_AUDIO_BYTES) {
+        return fail("ASR_PROVIDER_UNAVAILABLE", "upstream did not connect before the audio buffer filled");
+      }
+      pendingAudio.push(new Uint8Array(raw));
       return;
     }
     const parsed = C.streamOperations.streamAsr.client.safeParse(safeJson(String(raw)));
@@ -222,6 +243,8 @@ function serve(
       if (upstream !== null) return fail("ASR_PROVIDER_UNAVAILABLE", "asr.start sent twice");
       trackId = frame.trackId;
       keyPrefix = frame.idempotencyKeyPrefix;
+      messageId = frame.messageId;
+      pendingAudio = [];
       void deps.asr.open({
         onPartial: (t) => send({ type: "asr.partial", text: t.text }),
         onFinal: (t) => { if (t.text.trim() !== "") persist(t.text, t.confidence); },
@@ -230,6 +253,11 @@ function serve(
         onError: (reason, detail) => fail(asErrorReason(reason), detail),
         onClosed: () => { /* 收尾由 asr.finish 驱动，这里不抢着关客户端连接 */ },
       }, C.streamOperations.streamAsr.audio).then((session) => {
+        // 先把握手期间攒下的帧按**原序**冲进去，再让后续帧直连 —— 顺序颠倒
+        // 会把一句话的开头挪到结尾，而识别结果看上去只是「有点怪」，很难归因。
+        for (const buffered of pendingAudio ?? []) session.pushAudio(buffered);
+        pendingAudio = null;
+        pendingBytes = 0;
         upstream = session;
       }).catch((e: unknown) => {
         if (e instanceof AsrNotConfiguredError) {
@@ -262,6 +290,12 @@ function serve(
 
   ws.on("close", () => { upstream?.abort(); upstream = null; });
 }
+
+/**
+ * 握手期音频缓存上限（约 30 秒的 16kHz PCM16）。超过它说明上游根本没连上，
+ * 继续攒只会把「转写连不上」变成「服务器内存被吃光」。
+ */
+const MAX_PENDING_AUDIO_BYTES = 16_000 * 2 * 30;
 
 function asErrorReason(reason: string): AsrErrorReason {
   const parsed = C.streamOperations.streamAsr.err.safeParse(reason);

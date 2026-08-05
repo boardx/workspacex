@@ -144,6 +144,29 @@ export async function requireProjectRole(
  *
  * @returns `created=false` 表示这是一次幂等重放，调用方据此答 200 而不是 201。
  */
+/**
+ * ⚠ **反证开关（红线 2）。** 本仓的规矩是「写完门控立刻造反证」，而反证必须能
+ *   分别钉死**不同的**断言，否则「红了」不等于「红得对」。
+ *
+ *   · `drop-persist` —— 落库整个失败。步骤 7 应当红在「转录出现」那一句：
+ *     `asr.final` 在落库之后才发，落不进去就永远不会有那一帧。
+ *   · `noop-persist` —— 落库**假装成功**：返回一个合法的结果，`asr.final` 照常发、
+ *     `GET /segments` 照常 200，但**一行都不写库**。前面每一步照常绿，
+ *     红点精确落在**刷新之后**那一句。这一刀专门用来排除「转录只活在 React state 里」。
+ *
+ *   它由 `WORKSPACEX_COUNTERPROOF_INGEST` 开启，**只在非 production 下生效** ——
+ *   与 `KERNEL_ALLOW_TEST_PRINCIPAL` 同一条纪律：一个能在生产被打开的开关，
+ *   迟早会在生产被打开。
+ *
+ * ⚠ 它刻意放在**这里**（唯一那条写路径上），而不是放在 WS 网关里：放网关里就只能
+ *   证明「网关那一段是活的」，证明不了 HTTP 与 WS 共用的是同一条落库。
+ */
+function counterproofMode(): "drop-persist" | "noop-persist" | null {
+  if (process.env.NODE_ENV === "production") return null;
+  const mode = process.env.WORKSPACEX_COUNTERPROOF_INGEST;
+  return mode === "drop-persist" || mode === "noop-persist" ? mode : null;
+}
+
 export async function ingestTranscriptSegment(
   deps: SegmentIngestionDeps,
   principal: { readonly userId: string },
@@ -151,6 +174,25 @@ export async function ingestTranscriptSegment(
   sessionId: string,
   body: IngestSegmentBody,
 ): Promise<{ created: boolean; result: IngestSegmentResult }> {
+  const counterproof = counterproofMode();
+  if (counterproof === "drop-persist") {
+    throw new Error("counterproof drop-persist: the ingest port is deliberately broken");
+  }
+  if (counterproof === "noop-persist") {
+    // HTTP 200 / `asr.final` 照常，但**一个字节都不落库**。
+    return {
+      created: true,
+      result: C.operations.ingestSegment.out.parse({
+        segmentId: `counterproof-noop-${body.idempotencyKey}`,
+        status: "final",
+        speakerChannelId: null,
+        lowConfidence: false,
+        text: body.rawText,
+        piiFindings: [],
+      }),
+    };
+  }
+
   const digest = payloadDigest(body);
   return deps.uow.withOrg(orgId, { userId: principal.userId }, async (stores) => {
     const replayed = await lookupIdempotent<IngestSegmentResult>(

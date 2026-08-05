@@ -1001,6 +1001,27 @@ export const AsrClientFrame = z.discriminatedUnion("type", [
     trackId: z.string(),
     /** 幂等键前缀；每段的键是 `${prefix}-${序号}`，见 contract.md §2 */
     idempotencyKeyPrefix: z.string(),
+    /**
+     * 🔴 **本字段是对已签核 delta §1 的一处增补，需人类补签。**（#466 实测发现）
+     *
+     * delta §1 把 `asr.start` 定为 `{type, trackId, idempotencyKeyPrefix}`，
+     * 而 §2 要求最终文本由服务端调**既有** `ingestSegment` 落库、会话是
+     * `sourceType: "thread"`。这两条**在实现上互相打架**，实测红在这里：
+     *
+     *     [asr] ... ASR_PROVIDER_UNAVAILABLE: ingest refused: ANCHOR_MISSING
+     *
+     * 因为已签核的 recording 束有一条更早的不变量（I-1，
+     * `domain/recording/transcription-core.ts` 的 `ANCHOR_RULES`）：
+     * **`thread` 载体的段落必须锚在一条消息上，且不得携带时间码。**
+     * 也就是说，`asr.start` 不带 messageId 时，thread 上的 ASR 段**永远落不了库**。
+     *
+     * delta 自己写着「若本包与既有束冲突，实现停下来，等人类签这份 delta」——
+     * 这里如实把冲突标出来并给出最小增补，**没有**改任何 `design-signoff.md` 的
+     * status（那是人的动作，ADR-023）。人类可选的两条路：
+     *   ① 认可本增补（thread 上的转录锚在它所伴随的那条消息上）；
+     *   ② 改判 `thread` 载体也用时间码锚点 —— 那要动已签的 recording 束 I-1。
+     */
+    messageId: z.string().min(1),
   }).strict(),
   z.object({ type: z.literal("asr.commit") }).strict(),
   z.object({ type: z.literal("asr.finish") }).strict(),
