@@ -5,11 +5,7 @@
  * 60s / 5 per day. UC-1.5 R9 says this policy is shared with UC-1.1's reset flow and
  * "不得各写一套" -- so the window is declared once, here, and both flows read it.
  *
- * ⚠ Resend throttling (60s / 5-per-day) is NOT implemented by F19 and is not silently
- * assumed either: there is no resend operation in the contract at all (see
- * KNOWN_CONTRACT_GAPS.C1 -- the contract has no way to consume a verification token,
- * let alone reissue one). Declaring the constants here without an enforcer would be the
- * worst of both: a number that looks enforced.
+ * Wave 2 enforces resend throttling at 60 seconds / 5 per rolling day in PostgreSQL.
  */
 
 /** O-28: 24 hours, one-time. */

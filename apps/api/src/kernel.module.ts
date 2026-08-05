@@ -124,6 +124,27 @@ import type { DatabasePort } from "./application/ports/database.port";
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
 import { PgRegistrationRepository } from "./infrastructure/auth/pg-registration-repository";
 import { AuthRegistrationController } from "./interface/controllers/auth-registration.controller";
+import {
+  EMAIL_VERIFICATION_REPOSITORY,
+  EMAIL_VERIFICATION_TOKEN_CODEC,
+  VERIFICATION_MAIL_TRANSPORT,
+  type EmailVerificationRepository,
+} from "./application/auth/email-verification-ports";
+import { PgEmailVerificationRepository } from "./infrastructure/auth/pg-email-verification-repository";
+import {
+  CloudflareEmailTransport,
+  cloudflareEmailConfig,
+  type CloudflareEmailConfig,
+} from "./infrastructure/auth/cloudflare-email-transport";
+import {
+  CLOUDFLARE_EMAIL_CONFIG,
+  MailOutboxWorker,
+} from "./infrastructure/auth/mail-outbox-worker";
+import {
+  HmacEmailVerificationTokenCodec,
+  emailVerificationSecret,
+} from "./infrastructure/auth/email-verification-token-codec";
+import { EmailVerificationController } from "./interface/controllers/email-verification.controller";
 // F22 (auth bundle, continued): 多组织归属 + 组织停用只读降级。
 // ⚠ 冻结本身**不在这里**——它是迁移 0012 的 RESTRICTIVE 策略。这个 repository 只打标记。
 import { ORG_LIFECYCLE_REPOSITORY } from "./application/auth/ports";
@@ -368,6 +389,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     LocalExportController,
     ArtifactBindingController,
     AuthRegistrationController,
+    EmailVerificationController,
     AuthController,
     ArtifactReferenceController,
     EvidenceWithdrawalController,
@@ -601,6 +623,22 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       useFactory: (db: DatabasePort) => new PgRegistrationRepository(db),
       inject: [DATABASE_PORT],
     },
+    {
+      provide: EMAIL_VERIFICATION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgEmailVerificationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: EMAIL_VERIFICATION_TOKEN_CODEC,
+      useFactory: () => new HmacEmailVerificationTokenCodec(emailVerificationSecret()),
+    },
+    { provide: CLOUDFLARE_EMAIL_CONFIG, useFactory: () => cloudflareEmailConfig() },
+    {
+      provide: VERIFICATION_MAIL_TRANSPORT,
+      useFactory: (config: CloudflareEmailConfig) => new CloudflareEmailTransport(config),
+      inject: [CLOUDFLARE_EMAIL_CONFIG],
+    },
+    MailOutboxWorker,
     // F22. ⚠ 没有 `purge` 之类的 provider：phase-00 里没有任何东西会在留存期届满后销毁数据
     // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
     // 会让下一个接管理界面的人以为它已经在跑了。

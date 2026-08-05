@@ -102,7 +102,12 @@ describe("global first-user bootstrap", () => {
       const memberships = await owner.query(
         "SELECT user_id, org_id, org_role FROM org_memberships",
       );
-      const verification = await owner.query("SELECT count(*)::int AS n FROM email_verification_tokens");
+      // #411 用 email_verification_challenges 取代了 email_verification_tokens
+      // （20260804030000_i411_email_verification_outbox.sql 建新表并 DROP 旧表）。
+      // 断言的**意图不变**：bootstrap 的首位管理员当场即已验证，不该签发任何挑战。
+      // 顺带一并断言不该有排队的验证邮件——首位管理员收到验证信本身就是缺陷。
+      const verification = await owner.query("SELECT count(*)::int AS n FROM email_verification_challenges");
+      const queuedMail = await owner.query("SELECT count(*)::int AS n FROM mail_outbox");
       const bootstrapState = await owner.query(
         "SELECT consumed_at FROM auth_bootstrap_state WHERE singleton = true",
       );
@@ -118,6 +123,7 @@ describe("global first-user bootstrap", () => {
         org_role: "admin",
       }));
       expect(verification.rows[0].n).toBe(0);
+      expect(queuedMail.rows[0].n).toBe(0);
       expect(bootstrapState.rows).toHaveLength(1);
       expect(bootstrapState.rows[0].consumed_at).not.toBeNull();
     } finally {

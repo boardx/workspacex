@@ -81,11 +81,15 @@ describe("认证策略数值单一事实源", () => {
    * 而失败的检查，第一次误报就会被人删掉，之后真正的副本回来了也没人拦。
    * ⇒ 改成断言真正要守的性质：长度判断从契约取值，不是字面量。
    */
-  it("登录页组件的邀请码长度判断取自契约，不是字面量 14", () => {
-    const loginForm = readFileSync(new URL("../components/entry/login-form.tsx", import.meta.url), "utf8");
-    expect(loginForm).toMatch(/codeLen === AUTH_POLICY\.inviteCodeLength/);
-    // 手抄的迹象：直接拿字面量比长度
-    expect(loginForm).not.toMatch(/codeLen\s*===\s*14/);
+  it("真实注册页的邀请码长度判断取自契约，不是字面量 14", () => {
+    const registration = readFileSync(new URL("../components/entry/registration.tsx", import.meta.url), "utf8");
+    // 2026-08-04：邀请码字段不再 `required`/`minLength`——**留空 = bootstrap 建首位管理员**
+    // （#452 的能力，人类裁决「创建组织统一到 /auth/register」后搬到本页）。所以长度判断
+    // 从 JSX 属性移到了提交禁用条件与计数回显里。**断言要守的性质没变**：长度取自契约。
+    expect(registration).toMatch(/C\.AUTH_POLICY\.inviteCodeLength/);
+    // 手抄的迹象：任何形式的字面量 14 比长度
+    expect(registration).not.toMatch(/minLength={14}/);
+    expect(registration).not.toMatch(/length\s*[!=]==?\s*14\b/);
   });
 });
 

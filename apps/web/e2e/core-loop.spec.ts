@@ -85,13 +85,18 @@ test.describe("核心闭环八步", () => {
     expect(before.bootstrapConsumed, "一次性 bootstrap 标记必须未被消费，否则门是关的").toBe(false);
 
     await page.goto("/login");
+    // 「创建组织」不再是登录页上的一个内联面板，而是整页跳到 `/auth/register`
+    // （`login-form.tsx` 里是 `window.location.assign`，不是 client-side 路由）。
+    // 所以必须等 URL 真的落到注册页，不能点完就直接 fill——否则会在旧页上找新锚点。
     await page.getByTestId("login-create-org").click();
-    // 邀请码**留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
-    await page.getByTestId("login-org-name").fill(FIRST_USER.orgName);
-    await page.getByTestId("login-admin-name").fill(FIRST_USER.displayName);
-    await page.getByTestId("login-create-email").fill(FIRST_USER.email);
-    await page.getByTestId("login-create-password").fill(FIRST_USER.password);
-    await page.getByTestId("login-create-org-submit").click();
+    await expect(page).toHaveURL(/\/auth\/register$/);
+
+    // 邀请码 `registration-code` **留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
+    await page.getByTestId("registration-org-name").fill(FIRST_USER.orgName);
+    await page.getByTestId("registration-display-name").fill(FIRST_USER.displayName);
+    await page.getByTestId("registration-email").fill(FIRST_USER.email);
+    await page.getByTestId("registration-password").fill(FIRST_USER.password);
+    await page.getByTestId("registration-submit").click();
 
     // 「自动成为管理员」的第一半：注册完**直接就是登录态**，不必收邮件。
     // `bootstrap-first-user.ts` 直接置位 `emailVerifiedAt`，所以这一步不依赖邮件投递。
