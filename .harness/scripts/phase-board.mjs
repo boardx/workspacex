@@ -56,6 +56,18 @@ const open = gh(["issue", "list", "--state", "open", "--label", "core-loop", "--
   "--json", "number,title,labels"]) ?? [];
 const closed = gh(["issue", "list", "--state", "closed", "--label", "core-loop", "--limit", "200",
   "--json", "number"]) ?? [];
+
+/* ── PR 等待时长（人类 2026-08-05：「一旦提交了 PR 必须马上合并，要避免等待」）──
+ *
+ * 等待是**免费的**，所以它会一直变长而没人报警：CI 早就绿了，PR 静静躺着，
+ * 而看板上那条 issue 仍显示「进行中」。本仓今天就这样晾过四个全绿的 PR。
+ *
+ * ⇒ 把「全绿之后还等了多久」变成一个会亮红的数字。SLA 是**从全绿算起**，
+ *   不是从开 PR 算起 —— 等 CI 不是浪费，等人才是。 */
+const prs = gh(["pr", "list", "--state", "open", "--limit", "50",
+  "--json", "number,title,createdAt,isDraft,statusCheckRollup,mergeStateStatus"]) ?? [];
+/** 全绿 PR 允许的最长等待（分钟）。超过就是有人在等人，不是在等机器。 */
+const MERGE_SLA_MIN = 30;
 const ownerOf = (i) => (i.labels.find((l) => l.name.startsWith("owner:"))?.name ?? "owner:未指派").slice(6);
 
 const byOwner = new Map();
@@ -115,6 +127,31 @@ for (const [owner, items] of [...byOwner].sort((a, b) => b[1].length - a[1].leng
     if (d.note) for (const l of wrap("· " + d.note, W - 14)) row("         " + l);
   }
   row("");
+}
+rule();
+
+/* ── PR 等待时长 ─────────────────────────────────────────── */
+row(`PR 队列   ${prs.length} 个 open      SLA：全绿后 ${MERGE_SLA_MIN} 分钟内必须合或说明为什么不合`);
+row("");
+if (prs.length === 0) row("  （空）");
+for (const pr of prs) {
+  const checks = pr.statusCheckRollup ?? [];
+  const bad = checks.filter((c) => c.conclusion === "FAILURE" || c.conclusion === "CANCELLED");
+  const pending = checks.filter((c) => (c.status ?? "") !== "COMPLETED" && !c.conclusion);
+  // 「全绿多久了」用最后一条检查的完成时刻，不是 PR 创建时刻：等 CI 不算等待。
+  const doneAt = checks.map((c) => c.completedAt).filter(Boolean).sort().at(-1);
+  const ageMin = Math.round((NOW - new Date(pr.createdAt)) / 60000);
+  let state, flag = "";
+  if (pr.isDraft) state = "DRAFT";
+  else if (bad.length) state = `红 ${bad.map((c) => c.name).join(",")}`;
+  else if (pending.length) state = `跑中 ${pending.length}`;
+  else {
+    const waited = doneAt ? Math.round((NOW - new Date(doneAt)) / 60000) : 0;
+    state = `全绿 已等 ${waited}m`;
+    if (waited > MERGE_SLA_MIN) flag = "  !! 超 SLA，为什么还没合";
+  }
+  row(`  #${String(pr.number).padEnd(4)} ${pad(state, 30)} 开了 ${ageMin}m${flag}`);
+  row(`        ${trunc(pr.title, 60)}`);
 }
 rule();
 
