@@ -114,9 +114,10 @@ export const AgentRunStatus = z.enum([
 /**
  * The four steps the delta enumerates in §5, verbatim.
  *
- * `chat_writeback` is listed because the contract lists it — #414 never emits one, and
- * `no-tool-run-writeback.test.ts` asserts that. It is here so #413 does not have to widen
- * a vocabulary while also implementing against it.
+ * `chat_writeback` was listed ahead of its implementation so #413 would not have to widen a
+ * vocabulary while implementing against it. Since #413 it is emitted for real — once per
+ * run, `succeeded` when the writeback transaction commits and `failed` with
+ * `CHAT_WRITEBACK_FAILED` when the bounded retry budget runs out.
  *
  * ⚠ This enum and `agent_run_steps_kind_check` in the migration are the same fact. They
  * are kept in one place the only way a zod enum and a SQL CHECK can be: a test reads the
@@ -131,9 +132,14 @@ export const AgentRunStepStatus = z.enum(["succeeded", "failed"]);
 /**
  * Stable, redacted terminal codes (§5: "a stable, redacted error code").
  *
- * Only codes #414 can actually produce are listed. `CHAT_WRITEBACK_FAILED` belongs to §6
- * and arrives with #413 — declaring an error nothing can emit would make the enum a wish
- * list rather than the set of things a client has to handle.
+ * Every code listed is one something can actually emit — declaring an error nothing can
+ * produce would make the enum a wish list rather than the set of things a client has to
+ * handle. `CHAT_WRITEBACK_FAILED` arrived with #413, the slice that can emit it.
+ *
+ * ⚠ This enum and `agent_runs_error_code_check` / `agent_run_steps_failure_code_check` in
+ * the migrations are the same fact, kept in one place the only way a zod enum and a SQL
+ * CHECK can be: `no-tool-run-writeback.test.ts` reads the constraint out of `pg_constraint`
+ * and asserts set equality with `.options`.
  */
 export const AgentRunError = z.enum([
   /** The run's snapshot names a provider this deployment has not configured. No fallback. */
@@ -151,6 +157,15 @@ export const AgentRunError = z.enum([
   "AGENT_VERSION_UNAVAILABLE",
   /** The one model call did not return usable content. Never a fabricated reply. */
   "MODEL_CALL_FAILED",
+  /**
+   * The bounded retry budget for the Chat writeback ran out (§6).
+   *
+   * The model output existed and may well have been good; what failed was making it
+   * durable in the thread. The run is terminal and NO assistant message exists — §6 forbids
+   * emitting a synthetic one — so the human's message stays visible and unanswered, and the
+   * retry is an explicit new run rather than a silent second attempt.
+   */
+  "CHAT_WRITEBACK_FAILED",
 ]);
 
 export const AgentRunStep = z.object({

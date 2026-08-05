@@ -1,5 +1,5 @@
 /**
- * The executor as the process runs it (#414).
+ * The executor as the process runs it (#414's model call, #413's Chat writeback).
  *
  * ## Why acceptance kicks it, instead of a timer scanning for work
  *
@@ -25,6 +25,7 @@ import type {
   AgentRunClock, AgentRunExecutorPort, AgentRunStore, ModelCallPort,
 } from "../../application/agent-run/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
+import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
@@ -44,18 +45,31 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly autostart: boolean,
   ) {}
 
-  tick(orgId: OrgId): Promise<number> {
-    return executeQueuedRuns({
-      runs: this.runs,
-      model: this.model,
-      clock: this.clock,
-      // Server-side only. The provider detail on the log line is precisely what must not
-      // travel to a client, which is why it exists here and nowhere else. A traceId is
-      // minted per line so an operator can correlate it with the run's terminal code.
-      log: (message, detail) => this.logger.error(message, {
-        traceId: randomUUID(), err: detail.detail ?? message, ...detail,
-      }),
+  /**
+   * Server-side only. The provider's and the database's own words go on the log line and
+   * nowhere near a response, which is why this exists here and not on the run. A traceId is
+   * minted per line so an operator can correlate it with the run's terminal code.
+   */
+  private readonly log = (message: string, detail: Record<string, unknown>): void => {
+    this.logger.error(message, {
+      traceId: randomUUID(), err: detail.detail ?? message, ...detail,
+    });
+  };
+
+  /**
+   * One bounded batch: execute what is queued, then write back what is pending.
+   *
+   * The writeback runs AFTER execution so a message accepted in this tick is answered in
+   * this tick, and it runs unconditionally so a run left `writeback_pending` by an earlier
+   * failure -- or by a process that died mid-tick -- is retried without needing its own
+   * reaper. One tick spends at most one attempt from §6's bounded budget.
+   */
+  async tick(orgId: OrgId): Promise<number> {
+    const executed = await executeQueuedRuns({
+      runs: this.runs, model: this.model, clock: this.clock, log: this.log,
     }, { orgId });
+    await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
+    return executed;
   }
 
   kick(orgId: OrgId): void {

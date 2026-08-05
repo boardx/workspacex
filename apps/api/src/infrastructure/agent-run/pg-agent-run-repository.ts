@@ -26,8 +26,8 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
-  AgentRunStore, AppendedRunStep, ClaimOutcome, PinnedSkillContent, RunFailureCode,
-  RunLifecycleStatus, RunLocator, RunProjection,
+  AgentRunStore, AppendedRunStep, ClaimOutcome, PendingWriteback, PinnedSkillContent,
+  RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -179,6 +179,117 @@ export class PgAgentRunRepository implements AgentRunStore {
         `UPDATE agent_runs SET status='failed', error_code=$3, ended_at=now()
           WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed')`,
         [orgId, runId, code],
+      );
+    });
+  }
+
+  claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      // No status change, so this is a SELECT rather than a claiming UPDATE: `succeeded` is
+      // not reachable until the message is durable, so there is no intermediate state to
+      // move the row into. Two executors picking the same run up is SAFE and tested --
+      // `chat_messages_agent_run_idx` decides which one writes the message, and the loser
+      // reads the winner's row back. Adding a lock here would be a second mechanism
+      // guarding the fact that index already guards.
+      const result = await s.query<{
+        id: string; thread_id: string; input_message_id: string;
+        agent_id: string; model_output: string; writeback_attempts: number;
+      }>(
+        `SELECT id, thread_id, input_message_id, agent_id, model_output, writeback_attempts
+           FROM agent_runs
+          WHERE org_id=$1 AND status='writeback_pending' AND model_output IS NOT NULL
+          ORDER BY created_at, id
+          LIMIT $2`,
+        [orgId, limit],
+      );
+      return result.rows.map((row) => ({
+        runId: row.id,
+        threadId: row.thread_id,
+        inputMessageId: row.input_message_id,
+        agentId: row.agent_id,
+        text: row.model_output,
+        attempts: row.writeback_attempts,
+      }));
+    });
+  }
+
+  commitWriteback(
+    orgId: OrgId,
+    input: {
+      readonly runId: string; readonly threadId: string; readonly inputMessageId: string;
+      readonly agentId: string; readonly text: string; readonly startedAt: string;
+      readonly endedAt: string; readonly outputDigest: string;
+    },
+  ): Promise<{ readonly messageId: string }> {
+    // ONE transaction: the message, the step and the terminal status commit together or
+    // not at all. §6 requires `succeeded` to be unreachable before the message is durable;
+    // doing the status update in a second transaction would open a window where a client
+    // polling `GET /agent-runs/:runId` is told to stop polling and then finds no reply.
+    return this.db.withTenant(orgId, async (s) => {
+      const inserted = await s.query<{ id: string }>(
+        `INSERT INTO chat_messages
+           (id,org_id,thread_id,author_kind,author_id,agent_id,body,
+            agent_run_id,reply_to_message_id)
+         VALUES ($1,$2,$3,'agent',$4,$4,$5,$6,$7)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [randomUUID(), orgId, input.threadId, input.agentId, input.text,
+          input.runId, input.inputMessageId],
+      );
+      // Empty RETURNING means the unique index rejected this attempt, i.e. a concurrent or
+      // earlier attempt already wrote the reply. §6: "a unique `agentRunId` constraint
+      // makes retry return the existing message" -- so read it, never insert a variant.
+      const messageId = inserted.rows[0]?.id ?? (await s.query<{ id: string }>(
+        `SELECT id FROM chat_messages
+          WHERE org_id=$1 AND agent_run_id=$2 AND author_kind='agent'`,
+        [orgId, input.runId],
+      )).rows[0]!.id;
+
+      await s.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,input_digest,output_digest)
+         VALUES ($1,$2,$3,4,'chat_writeback','succeeded',$4::timestamptz,$5::timestamptz,
+                 $6,$6)
+         ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
+        [randomUUID(), orgId, input.runId, input.startedAt, input.endedAt,
+          input.outputDigest],
+      );
+
+      // Guarded on the current status so the loser of a race is a no-op rather than an
+      // illegal `succeeded -> succeeded` write against the transition trigger.
+      await s.query(
+        `UPDATE agent_runs SET status='succeeded', ended_at=now()
+          WHERE org_id=$1 AND id=$2 AND status='writeback_pending'`,
+        [orgId, input.runId],
+      );
+      return { messageId };
+    });
+  }
+
+  async recordWritebackAttempt(orgId: OrgId, runId: string): Promise<number> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ writeback_attempts: number }>(
+        `UPDATE agent_runs SET writeback_attempts = writeback_attempts + 1
+          WHERE org_id=$1 AND id=$2 AND status='writeback_pending'
+        RETURNING writeback_attempts`,
+        [orgId, runId],
+      );
+      return result.rows[0]?.writeback_attempts ?? 0;
+    });
+  }
+
+  async appendWritebackFailure(
+    orgId: OrgId,
+    input: { readonly runId: string; readonly startedAt: string; readonly endedAt: string },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,failure_code)
+         VALUES ($1,$2,$3,4,'chat_writeback','failed',$4::timestamptz,$5::timestamptz,
+                 'CHAT_WRITEBACK_FAILED')
+         ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
+        [randomUUID(), orgId, input.runId, input.startedAt, input.endedAt],
       );
     });
   }
