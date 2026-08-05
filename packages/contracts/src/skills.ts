@@ -784,6 +784,49 @@ export const operations = {
     err: ["SKILL_VERSION_CHANGED", "PERMISSION_REVOKED"] as const,
   },
 
+  /**
+   * 读回**这条会话当前挂着哪些 skill**。
+   *
+   * ## ⚠ 为什么要新增它（2026-08-05，coord-main 代决，**待人类补签**）
+   *
+   * 本束原本有写没有读：`mountSkillToThread` 挂得上、`unmountSkillFromThread`
+   * 摘得掉，但**没有任何操作能回答「现在挂着什么」**——
+   *
+   * · `listMountableSkills` 的出参是 `boundBySegment`（议程环节绑定，只读）
+   *   ＋ `mountable`（**可选池**）。「可以挂什么」不是「已经挂了什么」。
+   * · `listThreadDeviations` 出的是**差异**（temporary / addedVsBinding /
+   *   removedVsBinding），它以「有一份挂载列表」为前提，不是那份列表本身。
+   * · application 层的 `resolve-mounted-skills` 入参是
+   *   `{projectId, agendaSegmentId}`、走 `orchestrations.load` —— 那是 F64
+   *   项目编排的自动挂载，**键空间与端口都不同**，不是本束的读侧。
+   *
+   * ⇒ 后果不是「少个便利接口」：**挂载完之后无法证明它挂上了**，
+   *   端到端的「刷新后仍在」结构上不可断言。核心闭环第 8 步
+   *   「会话内挂载一个 skill → 生效 → 卸载」因此无论怎么实现都交付不了。
+   *   这与 #496 的 `createTemplate` 缺口**同型**：契约缺一个操作，
+   *   而不是实现没写。
+   *
+   * ## 刻意的三个取舍
+   *
+   * ① **与 `mountSkillToThread` 同址异法**（`GET` vs `POST` 同一路径），
+   *    不另起 `/mounted-skills` 之类的第二命名空间——同一份事实只能有一个地址。
+   * ② 出参**复用** `ThreadSkillMount`，不新造一个「视图类型」。
+   *    写侧 `mountSkillToThread.out.mounts` 用的就是它，两边同形才能互相校对。
+   * ③ **只回 `removedAt === null` 的活动挂载**（domain `activeMounts`）。
+   *    摘除是打时间戳不是删行（I-19/V3），所以「活动」这层过滤必须有人做；
+   *    放在服务端做，前端才不会各自实现一遍这条规则。
+   *
+   * ⚠ `err` 里只有 `PERMISSION_REVOKED`：读一条自己看得见的会话的挂载列表，
+   *   没有「线程不存在」这一档——那会变成一个探测 threadId 是否存在的信道。
+   */
+  listThreadSkillMounts: {
+    method: "GET",
+    path: "/threads/:threadId/skill-mounts",
+    in: z.object({ threadId: z.string() }).strict(),
+    out: z.object({ mounts: z.array(ThreadSkillMount) }).strict(),
+    err: ["PERMISSION_REVOKED"] as const,
+  },
+
   /** 复盘（AC1）：本场临时挂载 vs 绑定的差异 */
   listThreadDeviations: {
     method: "GET",
