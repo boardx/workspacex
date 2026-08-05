@@ -972,3 +972,233 @@ describe("the Chat writeback is exactly-once and terminal only after it commits"
     expect(new Set(declared)).toEqual(new Set(W.AgentRunError.options));
   });
 });
+
+/* ═══════════ 9. retrying an exhausted writeback (#519, delta §6) ═══════════ */
+
+/**
+ * Wave 2 / #519 — retry after the writeback budget is exhausted.
+ *
+ * ## The one thing every assertion here exists to stop
+ *
+ * §6's prose says the human is offered "a NEW run associated with the same input message".
+ * `agent_runs` carries `UNIQUE (org_id, input_message_id)` (#415), so a second run for that
+ * message CANNOT EXIST. coord-main's ruling on #519: the constraint wins and the prose is
+ * amended — retry RESETS the existing run. So the load-bearing assertion in this section is
+ * `runsForInputMessage(...)` staying at ONE row with the SAME id, because the tempting wrong
+ * implementation (relax the unique index, insert a second run) would satisfy every other
+ * assertion below.
+ *
+ * ## Why the reset target is `writeback_pending` and not `queued`
+ *
+ * DELIBERATE DEVIATION from the issue's written direction, flagged in the PR as a decision
+ * for human sign-off. `queued` is the executor's claim state: `claimQueued` would pick the
+ * run up and make a SECOND model call for one human message. That contradicts §5's single
+ * call, and `writeback.ts`'s header ("a retry writes back the output the ONE model call
+ * already produced and stored... would make a writeback failure silently change the answer a
+ * human eventually reads"). What ran out was the WRITEBACK budget, so the writeback is what
+ * is retried. `expect(calls)` below is the mechanical guard on this: a reset to `queued`
+ * turns those assertions red.
+ *
+ * ## The step log is append-only, so a retry does not overwrite the failure
+ *
+ * The exhausted attempt's `chat_writeback` / `failed` step stays. The retry's attempt is a
+ * NEW step at a higher `seq`, keyed by the run's retry generation so that concurrent
+ * writeback attempts within one generation still collapse to one row.
+ */
+describe("retrying a run whose writeback budget was exhausted (#519)", () => {
+  /** Every run row that points at one input message. The count is the whole point. */
+  const runsForInputMessage = (messageId: string) =>
+    asApp(ORG, (c) => c.query<{ id: string; status: string; error_code: string | null }>(
+      `SELECT id, status, error_code FROM agent_runs WHERE input_message_id=$1 ORDER BY id`,
+      [messageId],
+    )).then((r) => r.rows);
+
+  const stepRows = (runId: string) =>
+    asApp(ORG, (c) => c.query<{ seq: number; kind: string; status: string }>(
+      `SELECT seq, kind, status FROM agent_run_steps WHERE run_id=$1 ORDER BY seq`,
+      [runId],
+    )).then((r) => r.rows);
+
+  const postRetry = (runId: string, user = ACTOR, org = ORG) =>
+    fetch(`${BASE}/agent-runs/${runId}/retries`, {
+      method: "POST", headers: principal(user, org),
+    });
+
+  /** Drive a fresh run all the way to `failed` / `CHAT_WRITEBACK_FAILED`. */
+  async function exhaust(text: string): Promise<{ agentRunId: string; messageId: string }> {
+    const posted = await postMessage(text);
+    await forceWritebackPending(posted.agentRunId, `${INJECT}${text}`);
+    for (let i = 0; i < 4; i++) await tick();
+    const run = await readRun(posted.agentRunId);
+    expect(run.status, "fixture precondition: the run must really be exhausted").toBe("failed");
+    expect(run.error).toBe("CHAT_WRITEBACK_FAILED");
+    expect(await assistantRowsFor(posted.agentRunId)).toHaveLength(0);
+    return posted;
+  }
+
+  it("resets the SAME run instead of creating a second one for the input message", async () => {
+    const { agentRunId, messageId } = await exhaust("retry me, do not clone me");
+
+    const response = await postRetry(agentRunId);
+    expect(response.status).toBe(200);
+    const parsed = W.AgentRunView.safeParse(await response.json());
+    expect(parsed.success ? null : parsed.error.issues).toBeNull();
+    const view = parsed.success ? parsed.data : null!;
+
+    // The ruling, asserted as a row count rather than as a status.
+    const rows = await runsForInputMessage(messageId);
+    expect(rows, "retry must reset one run, never insert a second for the same message")
+      .toHaveLength(1);
+    expect(rows[0]!.id).toBe(agentRunId);
+    expect(view.runId).toBe(agentRunId);
+    expect(view.inputMessageId).toBe(messageId);
+
+    // Reopened, with the terminal failure cleared so the run is not "failed but running".
+    expect(rows[0]!.status).toBe("writeback_pending");
+    expect(rows[0]!.error_code).toBeNull();
+    expect(view.status).toBe("writeback_pending");
+    expect(view.error).toBeNull();
+    expect(view.resultMessageId).toBeNull();
+  });
+
+  it("keeps the input-message uniqueness the reset exists to protect", async () => {
+    const index = await asOwner((c) => c.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+        WHERE conrelid='agent_runs'::regclass AND contype='u'
+          AND pg_get_constraintdef(oid) LIKE '%input_message_id%'`,
+    ));
+    expect(index.rows, "the constraint #519 refused to relax must still exist").toHaveLength(1);
+    expect(index.rows[0]!.def).toContain("org_id");
+    expect(index.rows[0]!.def).toContain("input_message_id");
+  });
+
+  it("writes the answer the ONE model call already produced, without calling the model again",
+    async () => {
+      // A real end-to-end run, so `model_output` is the stub's bytes rather than a fixture's.
+      replyWithText(`${INJECT}the answer that could not be written back`);
+      const posted = await postMessage("One call, two writeback generations");
+      await tick();
+      const failedFirst = await readRun(posted.agentRunId);
+      expect(failedFirst.status).toBe("writeback_pending");
+      await tick(); await tick(); await tick();
+      expect((await readRun(posted.agentRunId)).error).toBe("CHAT_WRITEBACK_FAILED");
+      expect(calls, "the failing writeback must not re-call the provider").toHaveLength(1);
+
+      expect((await postRetry(posted.agentRunId)).status).toBe(200);
+
+      // The operator fixed whatever was rejecting the insert; now the retry can commit.
+      await removeWritebackFailureInjector();
+      try {
+        await tick();
+      } finally {
+        await installWritebackFailureInjector();
+      }
+
+      const run = await readRun(posted.agentRunId);
+      expect(run.status).toBe("succeeded");
+      expect(run.error).toBeNull();
+      // THE deviation guard: a reset to `queued` would make this 2.
+      expect(calls, "retry must not make a second model call").toHaveLength(1);
+
+      const rows = await assistantRowsFor(posted.agentRunId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.body, "the reply must be the bytes the single call returned")
+        .toBe(`${INJECT}the answer that could not be written back`);
+      expect(rows[0]!.reply_to_message_id).toBe(posted.messageId);
+      expect(run.resultMessageId).toBe(rows[0]!.id);
+    });
+
+  it("appends the retry's writeback step instead of rewriting the failed one", async () => {
+    const { agentRunId } = await exhaust("append, do not overwrite");
+    const before = await stepRows(agentRunId);
+    expect(before.filter((s) => s.kind === "chat_writeback")).toEqual([
+      { seq: 4, kind: "chat_writeback", status: "failed" },
+    ]);
+
+    expect((await postRetry(agentRunId)).status).toBe(200);
+    await removeWritebackFailureInjector();
+    try {
+      await tick();
+    } finally {
+      await installWritebackFailureInjector();
+    }
+
+    const after = await stepRows(agentRunId);
+    expect(
+      after.filter((s) => s.kind === "chat_writeback"),
+      "the exhausted attempt stays on the record and the retry is a new step",
+    ).toEqual([
+      { seq: 4, kind: "chat_writeback", status: "failed" },
+      { seq: 5, kind: "chat_writeback", status: "succeeded" },
+    ]);
+    expect((await readRun(agentRunId)).status).toBe("succeeded");
+  });
+
+  it("collapses concurrent writeback attempts within one retry generation to one row",
+    async () => {
+      const { agentRunId } = await exhaust("race the retry");
+      expect((await postRetry(agentRunId)).status).toBe(200);
+
+      await removeWritebackFailureInjector();
+      try {
+        await Promise.all(Array.from({ length: 10 }, () => tick()));
+      } finally {
+        await installWritebackFailureInjector();
+      }
+
+      expect(await assistantRowsFor(agentRunId), "ten retry ticks, one reply").toHaveLength(1);
+      const writebacks = (await stepRows(agentRunId)).filter((s) => s.kind === "chat_writeback");
+      expect(writebacks, "ten retry ticks, one new step").toHaveLength(2);
+      expect((await readRun(agentRunId)).status).toBe("succeeded");
+    });
+
+  it("refuses to retry a run that did not exhaust its writeback budget", async () => {
+    // `succeeded` — the answer is already in the thread; a retry would be a second reply.
+    const done = await postMessage("Already answered");
+    await tick();
+    expect((await readRun(done.agentRunId)).status).toBe("succeeded");
+    expect((await postRetry(done.agentRunId)).status).toBe(409);
+    expect(await assistantRowsFor(done.agentRunId)).toHaveLength(1);
+
+    // `writeback_pending` — the bounded budget has not run out, nothing to reopen.
+    const pending = await postMessage("Still trying");
+    await forceWritebackPending(pending.agentRunId, `${INJECT}still trying`);
+    await tick();
+    expect((await readRun(pending.agentRunId)).status).toBe("writeback_pending");
+    expect((await postRetry(pending.agentRunId)).status).toBe(409);
+  });
+
+  it("refuses the reopening at the database, not only in the application", async () => {
+    const done = await postMessage("Terminal means terminal");
+    await tick();
+    expect((await readRun(done.agentRunId)).status).toBe("succeeded");
+
+    await asApp(ORG, async (c) => {
+      await expect(c.query(
+        `UPDATE agent_runs SET status='writeback_pending', writeback_attempts=0
+          WHERE id=$1`, [done.agentRunId],
+      )).rejects.toThrow();
+    });
+    expect((await readRun(done.agentRunId)).status).toBe("succeeded");
+
+    // Non-vacuity: the SAME statement shape, same role, on a run that IS retryable.
+    const { agentRunId } = await exhaust("this one may reopen");
+    await asApp(ORG, (c) => c.query(
+      `UPDATE agent_runs SET status='writeback_pending', error_code=NULL,
+              writeback_attempts=0, retry_count=retry_count+1, ended_at=NULL
+        WHERE id=$1`, [agentRunId],
+    ));
+    expect((await readRun(agentRunId)).status).toBe("writeback_pending");
+  });
+
+  it("answers 404 for a retry nobody in this thread may see", async () => {
+    const { agentRunId } = await exhaust("not yours to retry");
+    // Same org, no project membership; and another tenant entirely. Chat's I-3 rule: one
+    // refusal, so the endpoint cannot confirm which run ids exist.
+    expect((await postRetry(agentRunId, STRANGER, ORG)).status).toBe(404);
+    expect((await postRetry(agentRunId, OUTSIDER, OTHER_ORG)).status).toBe(404);
+    expect((await postRetry(randomUUID())).status).toBe(404);
+    // And none of those refusals reopened anything.
+    expect((await readRun(agentRunId)).status).toBe("failed");
+  });
+});
