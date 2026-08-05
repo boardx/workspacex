@@ -159,7 +159,78 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toBeVisible();
 });
 
-test("formal Chat refuses to invent a project context", async ({ page }) => {
+/**
+ * #594 —— 这条用例**被改，不被删**。
+ *
+ * ## 它原本叫什么、当初防的是什么
+ *
+ * 原标题：`formal Chat refuses to invent a project context`。
+ * 断言：无 `projectId` 进 `/chat` ⇒ 显示 `chat-missing-project-context`「请先选择项目」，
+ * 且页面上不出现 `demo` 字样。
+ *
+ * **它当初是对的。** 它防的是本仓反复出现的那一种事故：读端口没有真实上下文时，
+ * 界面**编一个**出来——渲染 mock / 示例数据，或者随便挑一个项目装作用户选了它。
+ * `apps/web/app/chat/page.tsx` 的注释逐字写着「不提供……任何 mock fallback」。
+ * 一旦编了，用户看到的对话内容与库里的东西无关，而**没有任何断言会因此变红**。
+ *
+ * ## 为什么预期变了
+ *
+ * #594（P0，人类在 devapp.boardx.us 实测）：Chat 是**独立入口**，
+ * 不应强制「先建项目才能对话」。⇒「无项目 ⇒ 死路一条」不再是可接受的终态。
+ *
+ * ## 新行为怎么**继续防住**原来那件事
+ *
+ * 「无项目也能用」≠「无项目时伪造一个项目」——这两者之差就是 #594 的全部难点。
+ * 所以拆成两条，各管一件：
+ *
+ *   · 第一条（**必须永远绿**）：不伪造。判据从「页面上没有 demo 字样」升级成
+ *     **一条网络断言**——无 projectId 时不得对 `/chat/projects/<任意>/threads` 发请求。
+ *     字符串匹配挡不住「挑了一个真实项目装作用户选了它」，网络断言挡得住：
+ *     那种实现必然要拿某个 projectId 去列会话。这条比原来**更严**，不是放宽。
+ *
+ *   · 第二条（`test.fail`，#594 的缺口）：无项目时应当有**可用的入口**。
+ *     现在它红着，而且红得有名字。翻正的那一刻由契约裁决决定，冲突清单见
+ *     `apps/api/tests/chat/projectless-thread-create-gap.test.ts` 文件头。
+ *
+ * ⚠ 不要把第二条改成「静默跳到某个项目」来让它变绿——那正是第一条要红的东西。
+ */
+test("#594：无项目上下文时，Chat 不伪造一个项目（这一条永远绿）", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  // 收集**真实发生的**列会话请求。原断言只看渲染结果，看不见「后台已经替用户
+  // 选好了一个项目」——而那才是「伪造上下文」最可能的落地形状。
+  const listedProjects: string[] = [];
+  page.on("request", (request) => {
+    const match = /\/chat\/projects\/([^/]+)\/threads/.exec(request.url());
+    if (match) listedProjects.push(match[1]!);
+  });
+
+  await page.goto("/chat");
+  await expect(page.getByTestId("chat-missing-project-context")).toBeVisible();
+
+  // 正样本配对：**同一条正则**在带 projectId 时必须命中，否则它可能从第一天起
+  // 就在验「这个正则永远匹配不到东西」（本仓九次「全绿但空转」的典型形状）。
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toBeVisible();
+
+  expect(
+    listedProjects,
+    "无 projectId 的那次访问不得列任何项目的会话；带 projectId 的那次必须且只能列夹具项目",
+  ).toEqual([CHAT_READ_E2E.projectId]);
+});
+
+/**
+ * #594 的缺口本体。**现在红着是对的**，见上面那段注释与
+ * `apps/api/tests/chat/projectless-thread-create-gap.test.ts`。
+ *
+ * `test.fail()` 而不是 `skip`：`skip` 是隐形的，而这条一旦被实现就会报
+ * "expected to fail but passed"，逼下一个人回来把它翻正（同 `core-loop.spec.ts` 的规矩）。
+ */
+test.fail("[#594] 无项目的用户直接进 /chat 就能开始一次对话", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
@@ -167,6 +238,6 @@ test("formal Chat refuses to invent a project context", async ({ page }) => {
   await expect(page).toHaveURL(/\/projects$/);
 
   await page.goto("/chat");
-  await expect(page.getByTestId("chat-missing-project-context")).toContainText("请先选择项目");
-  await expect(page.getByText("demo")).toHaveCount(0);
+  // 「能开始对话」的最小判据：写入口在。不是「页面没报错」——那太弱。
+  await expect(page.getByTestId("chat-thread-create")).toBeVisible();
 });

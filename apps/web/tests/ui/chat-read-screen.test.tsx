@@ -195,13 +195,33 @@ describe("formal Chat read path", () => {
     expect(describeMessageFailure(new ApiError(status, reasonCode, {}), "发送消息")).toContain(expected);
   });
 
-  it("shows an honest missing-project state and performs no request", () => {
-    render(<ChatReadScreen projectId={null} initialThreadId={null} />);
+  /**
+   * #594 —— **改，不删**。这一条守的是「不伪造项目上下文」，那件事**没有**因为
+   * #594 而不再重要：产品预期从「无项目就拦住」变成「无项目也能用」，
+   * 但「无项目时随便挑一个项目装作用户选了它」依旧是事故。两者之差就是 #594 的难点。
+   *
+   * ⚠ `expect(listThreads).not.toHaveBeenCalled()` 单独看是**可能空转的**：
+   *   若哪天 `listThreads` 的 mock 接错了名字，它在任何情况下都不会被调用，这条恒绿。
+   *   所以下面立刻配一个**正样本**：同一个 mock、同一次渲染路径，带上真实 projectId
+   *   之后它必须被调用、且带的正是那个 id。负样本 + 正样本一起才是一条断言。
+   *
+   * 「无项目时应当能开始对话」那一半是 #594 的缺口本体，**不在这里**——
+   * 它在 `apps/web/e2e/chat-read.spec.ts` 的 `test.fail("[#594] …")` 上，
+   * 契约冲突清单在 `apps/api/tests/chat/projectless-thread-create-gap.test.ts` 文件头。
+   */
+  it("#594: renders an honest missing-project state and invents no project context", async () => {
+    const { unmount } = render(<ChatReadScreen projectId={null} initialThreadId={null} />);
 
-    expect(screen.getByTestId("chat-missing-project-context")).toHaveTextContent("请先选择项目");
+    expect(screen.getByTestId("chat-missing-project-context")).toBeInTheDocument();
     expect(listThreads).not.toHaveBeenCalled();
     expect(screen.queryByTestId("chat-composer")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chat-new-thread")).not.toBeInTheDocument();
+    unmount();
+
+    // 正样本配对：证明上面那个 `not.toHaveBeenCalled` 不是「这个 mock 永远不会被调用」。
+    render(<ChatReadScreen projectId="project-real" initialThreadId={null} />);
+    await waitFor(() => expect(listThreads).toHaveBeenCalledTimes(1));
+    expect(listThreads.mock.calls[0]![0]).toBe("project-real");
   });
 
   it("reads list, detail, roster and the contract message page with the provider bearer", async () => {
