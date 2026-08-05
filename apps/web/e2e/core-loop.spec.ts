@@ -403,10 +403,68 @@ test.describe("核心闭环八步", () => {
 
   /* ── 步骤 8：使用 skill / 使用 agent / 使用可视化模板 ─────────────────── */
 
-  test.fail("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
+  /**
+   * #467 / #509 —— 翻正。原文只断言按钮可见，那只能证明「画了一个按钮」。
+   *
+   * 现在断言的是**真实往返**：挂载走 `POST /threads/:id/skill-mounts`（201）、
+   * 卸载走 `DELETE /threads/:id/skill-mounts/:mountId`（200），两次都对着网络响应断言，
+   * 中间**刷新一次页面**——刷新后仍在，是唯一能区分「写进了 PostgreSQL」与
+   * 「写进了 React state」的断言（同步骤 6a 的落法）。
+   *
+   * ## 锚点在写断言前逐个在源码里定位过
+   *   · `chat-skill-mount`                     components/chat/chat-skill-mount-panel.tsx（开选择器）
+   *   · `chat-skill-mount-option-<skillId>`    同上（池里的一项）
+   *   · `chat-skill-mounted-<skillId>`         同上（已挂载的角标）
+   *   · `chat-skill-unmount-<skillId>`         同上（卸载）
+   *   · `chat-skill-mount-empty`               同上（真实空态）
+   *
+   * ⚠ 被挂的那个 skill 由夹具种成「已启用」，理由见 `fullstack-smoke-fixture.ts`：
+   *   这套系统里目前不存在任何**产品路径**能把 skill 变成「已启用」（已上报）。
+   *   夹具种的是前置条件，挂载/卸载本身一行都没种。
+   */
+  test("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    await expect(page.getByTestId("chat-skill-mount")).toBeVisible();
+
+    // 自己建线程，不蹭别的用例留下的那条（单跑时项目里可能一条都没有）。
+    await page.getByTestId("chat-thread-create").click();
+    const title = `闭环挂 skill ${Date.now()}`;
+    await page.getByTestId("chat-thread-title-input").fill(title);
+    await page.getByTestId("chat-thread-title-submit").click();
+    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+
+    const skillId = FULLSTACK_E2E.mountableSkillId;
+    // 新建的线程什么都没挂——先钉住这个真实空态，否则下面的「挂上了」可能一直就是真的。
+    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+
+    /* ── 挂载：POST 必须 201，且界面出现该 skill 的角标 ── */
+    await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+    await page.getByTestId("chat-skill-mount").click();
+    const mountResponse = page.waitForResponse((response) => (
+      // ⚠ 不要用 `$` 收尾：挂载的 URL 带 `?projectId=…`（角色解析走 query，
+      //   见 `skill-mount.controller.ts` 的 `requireProjectId`），锚死结尾会永不匹配。
+      response.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(response.url())
+    ));
+    await page.getByTestId(`chat-skill-mount-option-${skillId}`).click();
+    expect((await mountResponse).status()).toBe(201);
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
+
+    /* ── 生效：刷新后仍在（区分 PostgreSQL 与 React state） ── */
+    await page.reload();
+    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
+
+    /* ── 卸载：DELETE 必须 200，且刷新后不再出现 ── */
+    const unmountResponse = page.waitForResponse((response) => (
+      response.request().method() === "DELETE" && /\/threads\/[^/]+\/skill-mounts\/[^/?]+(\?|$)/.test(response.url())
+    ));
+    await page.getByTestId(`chat-skill-unmount-${skillId}`).click();
+    expect((await unmountResponse).status()).toBe(200);
+    await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toHaveCount(0);
+
+    await page.reload();
+    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
   });
 
   test("步骤 8b：会话内的 agent **真的执行**并产生**恰好一条**回复（#435 交付）", async ({ page }) => {

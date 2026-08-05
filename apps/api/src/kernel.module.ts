@@ -210,13 +210,18 @@ import { AgentRunController } from "./interface/controllers/agent-run.controller
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
-  SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS,
+  SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS, THREAD_MOUNT_STORE,
 } from "./application/skill/ports";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
 } from "./infrastructure/skill/skill-gate-adapters";
 import { SkillController } from "./interface/controllers/skill.controller";
+// #467 / #509：对话内临时挂载 skill 的存储与 HTTP 边界（F65）。
+// ⚠ 三条路径全部来自契约的 `operations`；`resolveMountedSkills` / `listMountableSkills`
+//   刻意**不接**——它们要读的蓝本编排今天没有适配器，接出来只会是恒失败的假入口。
+import { PgThreadMountStore } from "./infrastructure/skill/pg-thread-mount-store";
+import { SkillMountController } from "./interface/controllers/skill-mount.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
@@ -411,6 +416,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     RecordingController,
     AgentRunController,
     SkillController,
+    SkillMountController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -872,6 +878,13 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     // yet (submitter data-scope grants; a durable security-audit table). Neither fails open
     // -- see the reasoning in `infrastructure/skill/skill-gate-adapters.ts`.
     { provide: SKILL_SUBMITTER_GRANTS, useFactory: () => new FailClosedSubmitterGrants() },
+    // #467: same factory shape and same reason as SKILL_CONTRACT_REPOSITORY above --
+    // a thread mount store that is not bound to a tenant must not be constructible.
+    {
+      provide: THREAD_MOUNT_STORE,
+      useFactory: (db: DatabasePort) => new PgThreadMountStore(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

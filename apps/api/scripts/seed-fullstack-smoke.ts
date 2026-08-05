@@ -33,6 +33,9 @@ const agentId = required("FULLSTACK_E2E_AGENT_ID");
 const agentDisplayName = required("FULLSTACK_E2E_AGENT_NAME");
 const agentModelProvider = required("FULLSTACK_E2E_AGENT_MODEL_PROVIDER");
 const agentModelId = required("FULLSTACK_E2E_AGENT_MODEL_ID");
+/** #467: the one **enabled** Skill core-loop step 8a mounts. See the fixture for why it is seeded. */
+const mountableSkillId = required("FULLSTACK_E2E_MOUNTABLE_SKILL_ID");
+const mountableSkillName = required("FULLSTACK_E2E_MOUNTABLE_SKILL_NAME");
 
 ensureDatabase();
 await migrateOnce();
@@ -133,6 +136,62 @@ await asOwner(async (client) => {
        VALUES ($1,$2,'CL',$3,'core-loop smoke')
        ON CONFLICT (org_id,agent_id) DO NOTHING`,
       [orgId, agentId, agentDisplayName],
+    );
+  });
+}
+
+/**
+ * #467 —— 第 8a 步要挂载的那个 **已启用** Skill。
+ *
+ * ⚠ 种的是**前置条件**（本组织有一个可挂载的 skill），与上面 #435 种 `agents` /
+ *   `org_agents` 完全同型。挂载与卸载这两个动作由用例现场做：`thread_skill_mounts`
+ *   **一行都不种**，所以「挂载没生效」时第 8a 步照样红。
+ *
+ * ⚠ 为什么不能让用例自己建：`skill.controller.ts` 逐字没有启用路由
+ *   （`SKILLS_FORBIDDEN_ROUTES` 禁 `POST /skills/:id/enable`），而 `草稿 → 已启用`
+ *   只能由 `reviewSkillVersion` 产生，那条用例**今天没有 HTTP 边界**。
+ *   ⇒ 目前不存在任何产品路径能造出一个「已启用」的 skill。这是已上报的真实缺口。
+ *
+ * ⚠ `current_version_id` **必须**指向下面那条版本行：`mountSkillToThread` 把它钉进
+ *   `ThreadSkillMount.versionId`，而 controller 对 `currentVersionId === null` 折成
+ *   `SKILL_NOT_FOUND`（挂上去就说不出「当时挂的是哪一版」）。
+ *
+ * ⚠ **`team-only` 归 `fullstack` 团队，不是 `org-wide`**，而这不是随手选的：
+ *   `skill-create-smoke.spec.ts:94` 逐字断言管理员打开目录时 `skill-catalog-empty`
+ *   可见（「种子没有预置声明式契约 skill，界面不生成示例」）——那是一条**反空转**
+ *   断言，不许为了让本条种子进去而放宽它。管理员是 `addOrgMember(…, "admin", null)`，
+ *   **不属于任何团队**，而 `decide()`（`domain/identity/permission-decision.ts:98`）
+ *   对 `team-only` 要求 `org.teamId === scope.ownerTeamId`，且**管理员不是超级用户**
+ *   （同文件 `ADMIN_NOT_SUPERUSER`）。⇒ 这条 skill 对管理员不可见，那条空态断言原样成立；
+ *   对本项目的引导师（team=fullstack）可见，第 8a 步挂得上。
+ *   两条断言各自考验的东西都没有被削弱，而且这条种子更贴近真实形态：
+ *   一个团队自己的 skill，而不是全组织广播的示例。
+ */
+{
+  const versionId = `${mountableSkillId}-v1`;
+  const mountableSkillTeamId = fixture.teams.fullstack;
+  if (!mountableSkillTeamId) throw new Error("fixture.teams.fullstack is required for #467 seed");
+  const { createHash } = await import("node:crypto");
+  const promptTemplate = "把讨论拆成 MECE 的假设树。";
+  const contentHash = createHash("sha256").update(promptTemplate).digest("hex");
+  await asApp(orgId, async (client) => {
+    await client.query(
+      `INSERT INTO skill_contracts
+         (id, org_id, name, duty, source, status, visibility, owner_team_id,
+          current_version_id, archived, created_by)
+       VALUES ($1,$2,$3,'把讨论拆成 MECE 的假设树','自建','已启用','team-only',$4,$5,false,$6)
+       ON CONFLICT (id) DO NOTHING`,
+      [mountableSkillId, orgId, mountableSkillName, mountableSkillTeamId, versionId, adminUserId],
+    );
+    await client.query(
+      `INSERT INTO skill_contract_versions
+         (id, org_id, skill_id, version_number, state, prompt_template, input_schema,
+          output_schema, data_scope, reads_raw_transcript, fallback_declaration,
+          model_ref, content_hash, created_by)
+       VALUES ($1,$2,$3,1,'已生效',$4,'{}','{}','[]'::jsonb,false,'不确定时明说不确定',
+               'fullstack-loopback/loopback-echo',$5,$6)
+       ON CONFLICT (id) DO NOTHING`,
+      [versionId, orgId, mountableSkillId, promptTemplate, contentHash, adminUserId],
     );
   });
 }
