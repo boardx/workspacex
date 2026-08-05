@@ -81,7 +81,8 @@ const hhmm = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinu
 const cn = (iso) => new Date(new Date(iso).toLocaleString("en-US", { timeZone: cfg._tz }));
 function dueOf(num) {
   const c = cfg.commitments[num];
-  if (!c) return { txt: "未承诺", late: false, note: "⚠ 没有承诺时间 —— 没有 deadline 的活会无限期漂着" };
+  if (!c) return { txt: "未承诺", late: false, delta: "无期限", step: "—", next: null, blockedBy: null,
+    note: "⚠ 没有承诺时间 —— 没有 deadline 的活会无限期漂着，也没人知道下一步该做什么" };
   const d = new Date(c.due);
   const late = NOW > d;
   const mins = Math.round(Math.abs(NOW - d) / 60000);
@@ -89,6 +90,8 @@ function dueOf(num) {
     txt: hhmm(cn(c.due)),
     late,
     note: c.note,
+    next: c.next ?? null,
+    blockedBy: c.blocked_by ?? null,
     step: c.step,
     delta: late ? `已超时 ${Math.floor(mins / 60)}h${mins % 60}m` : `还剩 ${Math.floor(mins / 60)}h${mins % 60}m`,
   };
@@ -103,6 +106,38 @@ for (const l of wrap(cfg.goal, W - 7)) row("  " + l);
 row("");
 row("范围");
 for (const l of wrap(cfg.scope_rule, W - 7)) row("  " + l);
+rule();
+
+/* ── 一句话结论 + 瓶颈 ────────────────────────────────────────
+ *
+ * 看板最容易变成「一堆真实数字，但没人知道该干嘴」。所以第一屏必须回答
+ * 三个问题：现在什么状态 / 卡在哪 / 谁的下一步是什么。
+ *
+ * ⚠ 瓶颈是**算出来的**，不是写死的一句话：写死的瓶颈会在情况变化后
+ *   继续言之凿凿，而那比没有更糟。判据按优先级：
+ *   ① 人类阻断项未解 —— 它挡的是「能不能上线」，比任何代码进度都靠前；
+ *   ② 有 issue 被别的 issue 挡着 —— 那条挡路的就是瓶颈；
+ *   ③ 否则瓶颈是「谁手上的红步骤最多」。 */
+const red = steps.length - green;
+const blocked = open.filter((i) => cfg.commitments[String(i.number)]?.blocked_by);
+let bottleneck, bottleneckWhy;
+if (cfg.human_blockers.length > 0) {
+  bottleneck = `人类阻断项 ${cfg.human_blockers.length} 条（见本页最下方）`;
+  bottleneckWhy = "八步全绿也上不了线 —— 这两件只有人类做得了，且一条命令能解开两个";
+} else if (blocked.length > 0) {
+  const b = cfg.commitments[String(blocked[0].number)].blocked_by;
+  bottleneck = `#${blocked[0].number} 被 ${b} 挡着`;
+  bottleneckWhy = "解开那一条，下游才动得了";
+} else {
+  const worst = [...byOwner].sort((a, b) => b[1].length - a[1].length)[0];
+  bottleneck = worst ? `${worst[0]}（手上 ${worst[1].length} 条）` : "无";
+  bottleneckWhy = "没有依赖阻塞，瓶颈就是最长的那条串行链";
+}
+
+row(`状态   ${green}/${steps.length} 步真绿 · ${red} 步红 · ${open.length} 个 issue 未关 · ${prs.length} 个 PR 未合`);
+row("");
+row(`🔻 当前瓶颈   ${bottleneck}`);
+for (const l of wrap(bottleneckWhy, W - 8)) row(`   ${l}`);
 rule();
 
 row(`进度板   ${green}/${steps.length} 步真绿      （数据源：core-loop.spec.ts，不是谁的说法）`);
@@ -125,6 +160,9 @@ for (const [owner, items] of [...byOwner].sort((a, b) => b[1].length - a[1].leng
     row(`   #${String(i.number).padEnd(4)} ${d.txt.padEnd(6)} ${pad(flag, 14)} 步骤 ${d.step ?? "—"}`);
     row(`         ${trunc(i.title, 62)}`);
     if (d.note) for (const l of wrap("· " + d.note, W - 14)) row("         " + l);
+    // 「下一步」是这块看板对 owner 的全部要求：不写它，看板就只是一份状态陈列。
+    if (d.next) for (const l of wrap("▶ 下一步：" + d.next, W - 14)) row("         " + l);
+    if (d.blockedBy) row(`         ⛔ 被 ${d.blockedBy} 挡着 —— 那条不动，这条做不了`);
   }
   row("");
 }
