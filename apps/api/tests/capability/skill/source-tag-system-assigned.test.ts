@@ -66,16 +66,21 @@ describe("按入口打标（I-11）", () => {
     expect(new Set(entries.map(assignSourceByEntry))).toEqual(new Set(SKILL_SOURCES));
   });
 
+  // ⚠ #514 改了取样入口：原来这里用 `canvas`，而 `canvas` 打出的 `画布` 过不了
+  //   `createSkillDraft.out` 的三值枚举，已在用例层 fail-closed（见
+  //   `entry-source-within-contract.test.ts`）。本条要证的是「落库的是系统打的标」，
+  //   与用哪个入口取样无关，所以换成 `admin-import` —— 它同样是「入参里没有 source、
+  //   而落库值由入口决定」的形状，且 `自建 ≠ admin-import` 使断言仍然有内容。
   it("落库时写进去的是系统打的标，不是调用方给的", async () => {
     const store = collectDraftStore();
     const r = await createSkillDraft(
-      { ...base, entry: "canvas" },
+      { ...base, entry: "admin-import" },
       { grants: grantsOf("project:notes"), store, audit: collectAudit() },
     );
     expect(r.ok, JSON.stringify(r)).toBe(true);
     if (!r.ok) return;
-    expect(r.source).toBe("画布");
-    expect(store.saved[0]?.source).toBe("画布");
+    expect(r.source).toBe("自建");
+    expect(store.saved[0]?.source).toBe("自建");
   });
 });
 

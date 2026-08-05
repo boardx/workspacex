@@ -18,7 +18,11 @@ import { toOrgId } from "../../domain/org-id";
 import type { DeclarativeContract } from "../../domain/skill/declarative-contract";
 import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
 import { isSkillStatus } from "../../domain/skill/skill-status";
-import type { SkillOriginTag } from "../../domain/skill/source-tag";
+import {
+  isSkillOriginTag,
+  storedSourceWithinContract,
+  uncontractedStoredSourceReason,
+} from "../../domain/skill/source-tag";
 import type { ReferenceSnapshot } from "../../domain/skill/reference-enumeration";
 import type { RiskItem, SecurityScanResult } from "../../domain/skill/security-gate";
 import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
@@ -68,11 +72,22 @@ interface SkillContractDbRow {
 }
 
 /**
- * DB 行 → 端口行。
+ * DB 行 → 端口行。**读侧的唯一收口**：`listAll` / `loadDetail` / `scopeOf` 都过这里。
  *
  * ⚠ `status` 过 `isSkillStatus` 这道类型守卫而不是 `as SkillLifecycleStatus`。
  *   库里的 CHECK 与本域的四态今天一致，但一次迁移就能让它们分岔，
  *   而 `as` 会让分岔在**渲染时**才被发现（或者根本不被发现）。
+ *
+ * ⚠ #580：`source` 此前是这里**唯一一个裸转型**的列（`row.source as SkillOriginTag`）。
+ *   #514 / PR #579 修的是写侧，读侧一行没动，于是库里若已躺着一行契约外的
+ *   `source`，它会一路无声地走到 `listSkills.out.parse()` 才炸成一个**匿名 ZodError**
+ *   （只说取值非法，不说是哪一行），而且**整份列表一起挂**。
+ *   两道守卫因此对称补上，理由与 `status` 完全一样：
+ *     ① `isSkillOriginTag`         —— 本域（domain.md 五档）认不认识；
+ *     ② `storedSourceWithinContract` —— 本域认识，但契约（三档）收不收（D09）。
+ *   ⚠ 两道都**不映射、不跳过**：把「画布」折成「自建」是拿「能过」换「说谎」
+ *     （#514 已明确否掉同型做法），悄悄跳过那一行则让脏数据永远不被发现。
+ *     fail-closed，且报错**指名 skillId 与取值**——运维拿着它才知道该修哪条数据。
  */
 function toRow(row: SkillContractDbRow): SkillContractRow {
   if (!isSkillStatus(row.status)) {
@@ -81,11 +96,17 @@ function toRow(row: SkillContractDbRow): SkillContractRow {
   if (row.visibility !== "org-wide" && row.visibility !== "team-only") {
     throw new Error(`skill_contracts.visibility 非法：${row.visibility}（skillId=${row.id}）`);
   }
+  if (!isSkillOriginTag(row.source)) {
+    throw new Error(`skill_contracts.source 存了本域不认识的来源取值：${row.source}（skillId=${row.id}）`);
+  }
+  if (!storedSourceWithinContract(row.source)) {
+    throw new Error(uncontractedStoredSourceReason(row.id, row.source));
+  }
   return {
     skillId: row.id,
     name: row.name,
     duty: row.duty,
-    source: row.source as SkillOriginTag,
+    source: row.source,
     status: row.status,
     visibility: row.visibility,
     ownerTeamId: row.owner_team_id,

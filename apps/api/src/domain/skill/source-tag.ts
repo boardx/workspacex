@@ -26,6 +26,8 @@
  *   前者说「将来它会长这样」，后者说「将来再说」。这是 D09 问句的一半。
  */
 
+import { skills as C } from "@repo/contracts";
+
 /** 五个来源取值（domain.md `Skill.source`）。 */
 export const SKILL_SOURCES = ["CC", "自建", "画布", "社区", "晋升生成"] as const;
 
@@ -65,6 +67,83 @@ const ENTRY_TO_SOURCE: Readonly<Record<SkillCreationEntry, SkillOriginTag>> = {
   "community-import": "社区",
   promotion: "晋升生成",
 };
+
+/* ────────────── #514：入口打出的标能不能过契约出参 ────────────── */
+
+/**
+ * 该入口打出的来源标记，**契约的 `SkillSource` 收不收**（#514）。
+ *
+ * 背景：`assignSourceByEntry` 按 domain.md 打五档，而 `createSkillDraft.out.source`
+ * 是三值枚举。走 `canvas` 入口创建成功的 skill，其返回体**过不了自己那条契约的出参校验**
+ * ——用例说 ok，契约说非法。这在 #459 交付时未被命中，仅仅因为路由把 `entry` 写死成
+ * `admin-new`；下一个把画布入口接上的人会原地引爆它。
+ *
+ * ⚠ **不映射**：把 `画布` 折成 `自建` 能让校验过，但那之后没有任何人能从代码看出
+ *   「画布沉淀与后台手建是否同一件事」这个问句**从未被回答过**（coord-main 裁决：
+ *   那是拿「能过」换「说谎」）。所以这里只回答「能不能过」，**不改**任何取值。
+ *
+ * ⚠ 判据从 `C.SkillSource` **推导**，不硬编码入口名单：D09 一旦被人裁成五档，
+ *   本判据自然全真、门自然放开；而新增一个映射到第六个取值的入口会自动被挡住。
+ *   同一事实（契约合法取值）只声明在契约里一处。
+ */
+export function entrySourceWithinContract(entry: SkillCreationEntry): boolean {
+  return (C.SkillSource.options as readonly string[]).includes(assignSourceByEntry(entry));
+}
+
+/** 契约收不下该入口时的拒绝理由。**指名 D09**，不给一句泛泛的「不可用」。 */
+export function uncontractedSourceReason(entry: SkillCreationEntry): string {
+  return (
+    `入口「${entry}」按 domain.md 打的来源标记是「${assignSourceByEntry(entry)}」，` +
+    `而契约 SkillSource 只收 ${C.SkillSource.options.join(" / ")}（D09 未裁：三档还是五档）。` +
+    `该入口的 source 语义未经人类签核，fail-closed —— 不静默映射成契约内的取值（#514）。`
+  );
+}
+
+/* ────────────── #580：**读侧**——库里已经躺着的那一行能不能过契约 ────────────── */
+
+/**
+ * 一个字符串是不是本域认识的来源取值（`domain.md` 五档）。
+ *
+ * ⚠ 与 `isSkillStatus` 同形、同理由：库里的取值来自**过去某一次**写入，
+ *   而本域的词表是**现在**的。两者一次迁移就能分岔，而 `as SkillOriginTag`
+ *   会让分岔在渲染时（或者根本不）被发现。
+ */
+export function isSkillOriginTag(v: unknown): v is SkillOriginTag {
+  return typeof v === "string" && (SKILL_SOURCES as readonly string[]).includes(v);
+}
+
+/**
+ * **库里存着的**这个来源取值，契约的 `SkillSource` 收不收（#580）。
+ *
+ * 与 `entrySourceWithinContract`（#514，写侧，问的是「入口」）成对：那一条挡的是
+ * 「将来会被写进来的」，这一条挡的是「已经躺在库里的」。#514 只修了写侧，而
+ * 「库里不可能有」今天成立的依据是 `skill.controller.ts` 把 `entry` 写死成
+ * `admin-new` —— 那是实现细节，不是约束。
+ *
+ * ⚠ 判据同样从 `C.SkillSource` **推导**：D09 一旦被裁成五档，这道门自然放开，
+ *   不需要有人记得回来改。同一事实只声明在契约里一处。
+ */
+export function storedSourceWithinContract(source: SkillOriginTag): boolean {
+  return (C.SkillSource.options as readonly string[]).includes(source);
+}
+
+/**
+ * 库里那一行的来源契约收不下时的报错正文。
+ *
+ * ⚠ 必须**指名 skillId 与取值**：契约的 `out` 是 `.strict()` 的，不加这道守卫时
+ *   同一行会在 `listSkills.out.parse()` 里炸成一个匿名 `ZodError`
+ *   （只说 "Invalid enum value"，不说是哪一行）——运维拿着它查不到该修哪条数据。
+ *
+ * ⚠ **不静默跳过那一行**，也**不放宽 `out` 的 strict 校验**：前者会让「库里有脏数据」
+ *   永远不被发现，后者是拿「能过」换「说谎」（#514 已明确否掉同型做法）。
+ */
+export function uncontractedStoredSourceReason(skillId: string, source: SkillOriginTag): string {
+  return (
+    `skill_contracts.source 存了契约收不下的取值「${source}」（skillId=${skillId}）：` +
+    `契约 SkillSource 只收 ${C.SkillSource.options.join(" / ")}（D09 未裁：三档还是五档）。` +
+    `读侧 fail-closed —— 不静默映射、不静默跳过该行（#580；写侧见 #514）。`
+  );
+}
 
 /**
  * phase-1：社区导入入口**置灰**（D-06 / `DECISION-Q0` 表格「外部社区导入 → phase-2」）。

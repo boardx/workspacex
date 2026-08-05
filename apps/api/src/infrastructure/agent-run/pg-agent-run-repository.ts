@@ -245,10 +245,17 @@ export class PgAgentRunRepository implements AgentRunStore {
         [orgId, input.runId],
       )).rows[0]!.id;
 
+      // `4 + retry_count` (#519), not a literal 4: the step log is append-only, so a retry's
+      // writeback cannot overwrite the exhausted attempt's `failed` step -- with a literal 4
+      // the ON CONFLICT below would silently DROP the success and leave a succeeded run whose
+      // only writeback step says it failed. Read from the run rather than MAX(seq)+1 so that
+      // concurrent attempts within ONE generation still collapse to a single row.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,input_digest,output_digest)
-         VALUES ($1,$2,$3,4,'chat_writeback','succeeded',$4::timestamptz,$5::timestamptz,
+         VALUES ($1,$2,$3,
+                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 'chat_writeback','succeeded',$4::timestamptz,$5::timestamptz,
                  $6,$6)
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
         [randomUUID(), orgId, input.runId, input.startedAt, input.endedAt,
@@ -283,14 +290,41 @@ export class PgAgentRunRepository implements AgentRunStore {
     input: { readonly runId: string; readonly startedAt: string; readonly endedAt: string },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      // Same generation-scoped seq as `commitWriteback` (#519), for the same reason: a second
+      // exhaustion after a retry is a NEW failed step, not an overwrite of the first.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,failure_code)
-         VALUES ($1,$2,$3,4,'chat_writeback','failed',$4::timestamptz,$5::timestamptz,
+         VALUES ($1,$2,$3,
+                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 'chat_writeback','failed',$4::timestamptz,$5::timestamptz,
                  'CHAT_WRITEBACK_FAILED')
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
         [randomUUID(), orgId, input.runId, input.startedAt, input.endedAt],
       );
+    });
+  }
+
+  /**
+   * #519's reopening, as ONE statement.
+   *
+   * The `WHERE` is the retryability predicate: only an exhausted CHAT writeback with its
+   * stored output still present. `model_output` is left untouched -- the retry writes back
+   * the answer the single model call produced, never a new one -- and the transition trigger
+   * refuses the move if any of that is violated, so this is not the only line holding it.
+   */
+  async reopenForWritebackRetry(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ id: string }>(
+        `UPDATE agent_runs
+            SET status='writeback_pending', error_code=NULL, writeback_attempts=0,
+                retry_count=retry_count+1, ended_at=NULL
+          WHERE org_id=$1 AND id=$2 AND status='failed'
+            AND error_code='CHAT_WRITEBACK_FAILED' AND model_output IS NOT NULL
+        RETURNING id`,
+        [orgId, runId],
+      );
+      return result.rows.length > 0;
     });
   }
 

@@ -44,6 +44,8 @@ import { createSkillDraft } from "../../application/skill/create-skill-draft";
 import { listSkills } from "../../application/skill/list-skills";
 import { disableSkill } from "../../application/skill/disable-skill";
 import { decideCapabilityVisibility } from "../../domain/identity/capability-listing";
+import { decide } from "../../domain/identity/permission-decision";
+import type { OrgMembershipRow } from "../../application/identity/ports";
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/identity/ports";
 import {
@@ -113,6 +115,16 @@ function toListItem(row: SkillContractRow) {
   };
 }
 
+/**
+ * 两条写路由被判定时记录的 action 串。
+ *
+ * skill 是组织级资产，没有项目上下文 ⇒ `decide()` 的项目层整层不适用（I-11），
+ * 于是它**不会**去查这两个串。传它们是为了让判定记录下「当时在试图做什么」——
+ * 一条 action 为空的判定，事后没人解释得了。同 `CAPABILITY_READ_ACTION` 的理由。
+ */
+const SKILL_CREATE_ACTION = "skill.create";
+const SKILL_DISABLE_ACTION = "skill.disable";
+
 @Controller()
 export class SkillController {
   constructor(
@@ -139,6 +151,9 @@ export class SkillController {
       principal.userId,
       toOrgId(principal.orgId),
     );
+    // ⚠ 必须排在 `createSkillDraft` **之前**：这道门的性质是「不入库」，
+    //   一个先建后拒的实现返回码看起来一样，库里却多了一行。
+    this.assertOrgMembership(membership, SKILL_CREATE_ACTION);
 
     const created = await this.rejectNameConflict(() =>
       createSkillDraft(
@@ -313,6 +328,15 @@ export class SkillController {
     assertPrincipal(principal);
     const repository = this.repositories.forOrg(principal.orgId);
 
+    // ⚠ 成员资格排在**存在性检查之前**（#532）：先 404 再判授权，会把
+    //   「这个 org 里有没有这条 skill」漏给已被移出组织的人（I-14 同判）。
+    //   也必须排在状态机之前——今天 R7 / `草稿 → 已停用` 必然拒绝，但那道拒绝
+    //   来自状态机而不是授权，评审路径一落地就没得兜了。
+    this.assertOrgMembership(
+      await this.identities.findOrgMembership(principal.userId, toOrgId(principal.orgId)),
+      SKILL_DISABLE_ACTION,
+    );
+
     // 状态机的 `from` 来自库，不来自调用方的假设（#459 修的就是这一处）。
     const currentStatus = await repository.statusOf(skillId);
     if (currentStatus === null) throw new NotFoundException({ reasonCode: "SKILL_NOT_FOUND" });
@@ -358,6 +382,47 @@ export class SkillController {
     if (orgId !== principal.orgId) {
       throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
     }
+  }
+
+  /**
+   * 组织**成员资格**门 —— 两条写路由（`POST /skills`、`POST /skills/:id/disable`）的准入。
+   *
+   * ## 为什么它必须单独存在（#532）
+   *
+   * `assertOwnTenant` 只比 `body.orgId === principal.orgId`——那是**租户**校验：
+   * 它答的是「你在说哪个组织」，不是「你还在不在这个组织里」。一个被移出组织、
+   * 但会话还在手上的人，两者是一致的，于是一路畅通。实测（#532 反证，PR 正文有输出）：
+   * 删掉 `org_memberships` 那行之后 `POST /skills` 返回 **201 + 真实 skillId**。
+   *
+   * `SubmitterGrantsPort` 也不是准入：它是**数据范围的上界**，`dataScope: []` 时恒过。
+   * `create` 里那次 `findOrgMembership` 此前只喂给 `ownerTeamId`——取到了 `null`
+   * 也只是让归属团队为空，从不导致拒绝。`disable` 则连取都没取。
+   *
+   * ## 为什么走 `decide()` 而不是在这里写 `membership === null`
+   *
+   * 那一行是三个字符，写在这里就是同一事实的第三份声明（读路径已经有
+   * `decideCapabilityVisibility` → `decide()` 这一条）。「不是本组织成员」这个判断
+   * 只应该有一处产出，且产出的必须是带 `reasonCode: NO_ORG_MEMBERSHIP` 的
+   * `PermissionDecision`，而不是一个裸 boolean——后者事后无法解释是哪一层关的门。
+   *
+   * `project: null`：skill 是组织级资产，没有项目上下文，项目层整层不适用（I-11）。
+   * `scope: org-wide`：这道门只判**成员资格**。写操作的可见性/归属团队判定是另一件事，
+   * 由各自的用例负责——把它们混进来会让这道门在 `team-only` 上悄悄放宽或收紧。
+   *
+   * ⚠ 对外统一 `PERMISSION_REVOKED`（403）。`NO_ORG_MEMBERSHIP` 是**内部**判定码，
+   *   两条路由的契约 `err` 闭集里都只有 `PERMISSION_REVOKED`
+   *   （`packages/contracts/src/skills.ts` createSkillDraft / disableSkill），
+   *   `all-exceptions.filter.ts` 的白名单也会把闭集外的码剥掉。
+   */
+  private assertOrgMembership(membership: OrgMembershipRow | null, action: string): void {
+    const decision = decide({
+      decisionId: this.ids.next(),
+      action,
+      org: { role: membership?.orgRole ?? null, teamId: membership?.teamId ?? null },
+      project: null,
+      scope: { scope: "org-wide", ownerTeamId: null },
+    });
+    if (!decision.allowed) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
   }
 
   /**
