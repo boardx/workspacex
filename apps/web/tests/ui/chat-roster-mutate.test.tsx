@@ -20,7 +20,17 @@ import { ApiError } from "@/lib/api-client";
  * ② **写入口只认服务端下发的能力标记**，不在前端按角色重算。
  * ③ 服务端拒绝时**不吞错**：把 reasonCode 如实显示出来。
  *
- * ## ⚠ 两个已知契约缺口（**报上来了，没有自己发明**）
+ * ## ✅ #513 已补上读侧版本号（本文件随之改）
+ *
+ * `getAgentPanel.out` 现在下发 `rosterVersion`（🟡 该契约面**待人类补签**，见
+ * `packages/contracts/src/chat.ts` 里 `getAgentPanel` 的文件头）。⇒ 前端**不再**维护
+ * 本地版本号：`expectedRosterVersion` 直接取自最近一次 `getAgentPanel` 的响应，
+ * 每次改动后重读服务端，版本号跟着推进。**只有一个事实源。**
+ *
+ * ⛔ 读不到版本号（面板还没回来 / 读失败）时**不提交** —— 不传 0、不传 -1、不省略。
+ *   下面「面板还没读回来时不提交」那条钉的就是它：兜底等于把乐观锁摘了。
+ *
+ * ## ⚠ 一个仍然存在的已知契约缺口（**报上来了，没有自己发明**）
  *
  * · **没有 `roster.mutate` 这个能力**。`CHAT_WRITE_CAPABILITIES`
  *   （`apps/api/src/domain/chat/thread-visibility.ts:276`）里只有六个，没有编制那一档。
@@ -28,11 +38,9 @@ import { ApiError } from "@/lib/api-client";
  *   （`application/chat/update-agent-roster.ts` 的 `NO_WRITE_ROLE` 分支），
  *   与 `thread.mutate` **同一个谓词**，所以这里用 `thread.mutate` 当渲染依据。
  *   它是**同源代理**，不是前端新造的判断；服务端仍是权威（API 测试断言 403）。
- * · **没有任何读端口下发 `rosterVersion`**。`getAgentPanel.out`（契约 :477）里没有它，
- *   全契约只有 `updateAgentRoster.out` 有（`packages/contracts/src/chat.ts:509`）。
- *   ⇒ 前端只能从 `chat_threads.roster_version` 的 DDL 默认值 0 起步、再用每次响应
- *   返回的版本号推进。并发冲突（409）**如实报错，不静默重试**——静默重试正是
- *   「部分成功即整体拒绝」要防的东西。
+ *
+ * 并发冲突（409）**如实报错，不静默重试**——静默重试正是「部分成功即整体拒绝」
+ * 要防的东西。#513 修的是「读不到版本号」，不是「让写永远成功」。
  */
 
 const {
@@ -101,7 +109,12 @@ function detail(capabilities: string[]) {
   };
 }
 
-function panel(agentIds: string[]) {
+/**
+ * #513：读端口现在下发 `rosterVersion`，所以 fixture 也要带它。
+ * 默认给一个**非 0** 的值——若给 0，一个「读不到就用 0 兜底」的坏实现会跟着变绿，
+ * 这条 fixture 本身就是反空转的一部分。
+ */
+function panel(agentIds: string[], rosterVersion = 5) {
   return {
     agents: agentIds.map((id) => ({
       id, abbr: id.slice(0, 2).toUpperCase(), name: `名字 ${id}`, duty: "职责", presence: "off" as const,
@@ -109,6 +122,7 @@ function panel(agentIds: string[]) {
     presentCount: 0,
     rosterCount: agentIds.length,
     marketEntry: null,
+    rosterVersion,
   };
 }
 
@@ -139,10 +153,11 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
 
     await waitFor(() => expect(updateAgentRoster).toHaveBeenCalledTimes(1));
+    // #513：版本号取自读端口那份响应（fixture 里是 5），**不是**本地 0 起步。
     expect(updateAgentRoster).toHaveBeenCalledWith(
       "thread-a",
       "project-real",
-      { add: ["agent-new"], remove: [], expectedRosterVersion: 0 },
+      { add: ["agent-new"], remove: [], expectedRosterVersion: 5 },
       "provider-bearer",
     );
 
@@ -152,39 +167,71 @@ describe("#467 会话内 agent 编制的增删接线", () => {
   });
 
   it("去掉一个 agent：remove 里是它，add 为空，并重读服务端", async () => {
-    getAgentPanel.mockResolvedValue(panel(["agent-old"]));
+    getAgentPanel.mockResolvedValue(panel(["agent-old"], 5));
     renderScreen();
     await screen.findByTestId("chat-roster-remove-agent-old");
 
-    getAgentPanel.mockResolvedValue(panel([]));
+    getAgentPanel.mockResolvedValue(panel([], 6));
     fireEvent.click(screen.getByTestId("chat-roster-remove-agent-old"));
 
     await waitFor(() => expect(updateAgentRoster).toHaveBeenCalledTimes(1));
     expect(updateAgentRoster).toHaveBeenCalledWith(
       "thread-a",
       "project-real",
-      { add: [], remove: ["agent-old"], expectedRosterVersion: 0 },
+      { add: [], remove: ["agent-old"], expectedRosterVersion: 5 },
       "provider-bearer",
     );
     await waitFor(() => expect(screen.queryByTestId("chat-roster-agent-agent-old")).toBeNull());
   });
 
-  it("连续两次改动：第二次带上服务端返回的新版本号，不是又发一次 0", async () => {
+  /**
+   * #513：版本号只有**一个**事实源 = 读端口。这条用两个**不同**的数字把它钉死：
+   * 写端口回一个诱饵 `999`，重读回来的是 `6`。第二次提交必须带 `6`。
+   * 带 `999` ⇒ 实现在信写端口的回声；带 `5` ⇒ 实现没重读；带 `0` ⇒ 实现在兜底。
+   * 三种坏法各自对应一个不同的数字，绿了才说明走的是那条对的路。
+   */
+  it("连续两次改动：第二次带上**重读到**的版本号，不是写端口的回声、也不是 0", async () => {
     renderScreen();
     await screen.findByTestId("chat-roster-add-input");
+    await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(1));
 
-    updateAgentRoster.mockResolvedValue({ rosterVersion: 7, agents: [], auditEventId: "p1" });
+    updateAgentRoster.mockResolvedValue({ rosterVersion: 999, agents: [], auditEventId: "p1" });
+    getAgentPanel.mockResolvedValue(panel([], 6));
+
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "a1" } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
     await waitFor(() => expect(updateAgentRoster).toHaveBeenCalledTimes(1));
+    expect(updateAgentRoster.mock.calls[0]![2]).toEqual({
+      add: ["a1"], remove: [], expectedRosterVersion: 5,
+    });
+    // 重读发生过——没有它，下面那条断言测的就不是「重读到的版本号」。
+    await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(2));
 
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "a2" } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
     await waitFor(() => expect(updateAgentRoster).toHaveBeenCalledTimes(2));
 
     expect(updateAgentRoster.mock.calls[1]![2]).toEqual({
-      add: ["a2"], remove: [], expectedRosterVersion: 7,
+      add: ["a2"], remove: [], expectedRosterVersion: 6,
     });
+  });
+
+  /**
+   * ⛔ 兜底禁令的落点：面板读失败 ⇒ 版本号未知 ⇒ **一个请求都不发**。
+   * 「读不到就传 0」的实现在这条下会红（它会发出去一次）。
+   */
+  it("面板读失败（版本号未知）：不提交编制变更，不用 0 兜底", async () => {
+    getAgentPanel.mockRejectedValue(new ApiError(503, "AGENT_REGISTRY_UNAVAILABLE", null));
+    renderScreen();
+
+    await waitFor(() => expect(getAgentPanel).toHaveBeenCalled());
+    await screen.findByTestId("chat-roster-add-input");
+
+    fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-x" } });
+    fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
+
+    await waitFor(() => expect(getAgentPanel).toHaveBeenCalled());
+    expect(updateAgentRoster).not.toHaveBeenCalled();
   });
 
   it("服务端没下发 thread.mutate：编制写入口整块不渲染，只读那份仍在", async () => {

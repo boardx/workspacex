@@ -8,6 +8,16 @@
  *
  * ⚠ **两个计数分离（I-18）**：这里不在本文件里再算一次 `presentCount`/`rosterCount`——
  *   唯一的算法在 `domain/chat/agent-presence.ts`，本文件只调用它。
+ *
+ * ## 🟡 `rosterVersion` 于 #513 补上，**该契约面待人类补签**
+ *
+ * `findAgentRoster` 一直就把 `chat_threads.roster_version` SELECT 出来了
+ * （`infrastructure/chat/pg-chat-repository.ts` 的 `findAgentRoster`，返回
+ * `AgentRosterState.rosterVersion`）——本文件此前只是**把它丢掉**。#513 只是不再丢。
+ * 所以这里**不做任何计算**：既不 +1、也不与写端口各算一份。写端口
+ * `updateAgentRoster.out.rosterVersion` 与这里读的是同一列。
+ * 详见契约 `getAgentPanel` 的文件头（待补签状态记在那里，
+ * **没有任何 `design-signoff.md` 被改动**）。
  */
 import type { z } from "zod";
 import { chat as C } from "@repo/contracts";
@@ -64,5 +74,8 @@ export async function getAgentPanel(
     presentCount,
     rosterCount,
     marketEntry: AGENT_MARKET_ENTRY,
+    // 🟡 #513（待人类补签）：原样转发仓储读到的 `chat_threads.roster_version`。
+    // 不重算、不 +1——见文件头。
+    rosterVersion: roster.rosterVersion,
   };
 }

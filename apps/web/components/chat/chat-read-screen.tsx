@@ -243,37 +243,47 @@ export function ChatReadScreen({
    * ⚠ 交付的是**编制关系**（`chat_thread_agents` 的增删），**不是**「agent 真的执行
    *   并产生回复」——那是 #414 + #413。
    *
-   * ⚠ `expectedRosterVersion` 只能由本地推进：**没有任何读端口下发 `rosterVersion`**
-   *   （契约里只有 `updateAgentRoster.out` 有它，`getAgentPanel.out` 没有）。起点取
-   *   `chat_threads.roster_version` 的 DDL 默认值 0，之后用每次响应返回的值推进。
-   *   这是已上报的契约缺口；在补上读侧之前，别人改过编制的线程上首次提交会拿到
-   *   409 `VERSION_CHANGED`——那时**如实报错**，不静默重试、不自动 +1 猜一个。 */
-  const [rosterVersion, setRosterVersion] = React.useState(0);
+   * ⚠ `expectedRosterVersion` **只来自服务端的读端口**（#513）：
+   *   `getAgentPanel.out.rosterVersion`，即上面 `roster` 那份响应里的字段。
+   *   它与 `updateAgentRoster.out.rosterVersion` 是**同一个事实源**
+   *   （`chat_threads.roster_version`），所以这里**不存本地版本号**——存一份就是
+   *   第二个事实源，刷新之后必然与库里漂移（那正是 #513 修的病：#510 实测到
+   *   刷新后改编制必 409）。
+   *
+   * ⛔ **没有兜底**：`roster` 还没读回来（null）时**不提交**，而不是传 0 / -1 / 省略。
+   *   乐观锁的意义就是拒绝盲写，兜底等于把锁摘了。与上面 `handleRename` /
+   *   `handleDelete` 在 `selectedVersion === null` 时直接 `return` 同一手法。
+   *
+   * ⚠ 并发冲突（别人在你读完之后改了编制）仍会 409 `VERSION_CHANGED`——那时
+   *   **如实报错**，不静默重试、不自动 +1 猜一个。#513 修的是「读不到版本号」，
+   *   不是「让写永远成功」。 */
+  const rosterVersion = roster?.rosterVersion ?? null;
   const [rosterPending, setRosterPending] = React.useState(false);
   const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
 
-  // 换线程 ⇒ 版本号与错误都作废：把 A 线程的版本号发给 B 线程是一次静默的错写。
+  // 换线程 ⇒ 上一条线程的错误提示作废。版本号不需要在这里清：它跟着 `roster`
+  // 走 `detailKey` 门（`rosterResult?.key === detailKey`），换线程时自动变 null。
   React.useEffect(() => {
-    setRosterVersion(0);
     setRosterMutateFailure(null);
   }, [detailKey]);
 
   const runRosterMutation = React.useCallback(async (
     change: { readonly add: readonly string[]; readonly remove: readonly string[] },
   ) => {
-    if (!projectId || !selectedThreadId || !bearer) return;
+    // ⛔ 版本号读不回来就**不提交**（#513）——不传 0、不传 -1、不省略。
+    if (!projectId || !selectedThreadId || !bearer || rosterVersion === null) return;
     setRosterPending(true);
     setRosterMutateFailure(null);
     try {
-      const result = await updateAgentRoster(
+      await updateAgentRoster(
         selectedThreadId,
         projectId,
         { add: [...change.add], remove: [...change.remove], expectedRosterVersion: rosterVersion },
         bearer,
       );
-      setRosterVersion(result.rosterVersion);
-      // 重读服务端：界面上的编制来自 `getAgentPanel`，不是把响应体直接画上去，
-      // 也不是本地拼一个。这条是「反映数据库里真实发生的事」的落点。
+      // 重读服务端：界面上的编制**和下一次要用的版本号**都来自 `getAgentPanel`，
+      // 不是把写端口的响应体直接画上去，也不是本地拼一个。这条是「反映数据库里
+      // 真实发生的事」的落点，也是 #513 之后版本号只有一个事实源的落点。
       await loadSelectedThread();
     } catch (failure) {
       setRosterMutateFailure(describeMutateFailure(failure));
