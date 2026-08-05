@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare, RefreshCw, Users } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -602,6 +603,14 @@ function ThreadDetail({
         <Badge tone="outline">真实消息</Badge>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
       </header>
+      {bearer && currentOrgId ? (
+        <ChatSkillMountPanel
+          threadId={detail.thread.id}
+          projectId={projectId}
+          orgId={currentOrgId}
+          bearer={bearer}
+        />
+      ) : null}
       {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}

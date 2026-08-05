@@ -62,6 +62,31 @@ export const FULLSTACK_E2E = {
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 
   /**
+   * 🟡 #467：核心闭环第 8a 步挂载的那个 skill，**必须是「已启用」的**。
+   *
+   * ⚠ 这里种的是「本组织有一个可用的 skill」这个**前置条件**，与 #435 种
+   *   `agents` / `org_agents` 完全同型 —— 挂载与卸载这两个动作本身由用例现场做，
+   *   一个都没有预置（`thread_skill_mounts` 刻意不种）。断言因此仍然会在
+   *   「挂载没生效」时红。
+   *
+   * ⚠ **为什么不能让用例自己把它建成「已启用」**：`skill.controller.ts` 逐字
+   *   没有启用路由（`SKILLS_FORBIDDEN_ROUTES` 禁止 `POST /skills/:id/enable`），
+   *   `草稿 → 已启用` 只能由 `reviewSkillVersion` 的 approve 分支产生，而那条用例
+   *   **今天没有 HTTP 边界**（#459 明确移出范围）。⇒ 这套系统里目前**不存在**
+   *   任何产品路径能把一个 skill 变成「已启用」。这是一个**真实缺口**，
+   *   已随 #467 上报；在它补上之前，第 8a 步能验的是挂载/卸载这条链路本身，
+   *   验不了「用户自己造出一个可挂载的 skill」。**不得**为了绕过它去放宽
+   *   `mountSkillToThread` 的 `SKILL_NOT_ENABLED` 判定。
+   *
+   * ⚠ 它是 **`team-only`（归 `fullstack` 团队）**，不是 `org-wide`：管理员不属于任何
+   *   团队，而管理员**不是**超级用户，所以 `skill-create-smoke.spec.ts:94` 那条
+   *   「管理员打开目录看到真实空态」的反空转断言原样成立。理由全文见
+   *   `apps/api/scripts/seed-fullstack-smoke.ts` 里同一段种子的注释。
+   */
+  mountableSkillId: `skill-467-${scope}`,
+  mountableSkillName: `FULLSTACK_MOUNTABLE_SKILL_${scope}`,
+
+  /**
    * 🟢 #435：核心闭环第 8b 步真正**跑得起来**的那个 Agent。
    *
    * ⚠ 「能跑」与「在编制面板里看得见」在本仓是**两个互不相交的世界**，

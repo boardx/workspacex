@@ -34,6 +34,14 @@ export default {
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
+      // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
+      // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
+      // —— **不在 `/chat/` 下面**，与下面 `/agent-runs` 同一个形状。
+      // 裸 `/threads` 那一条今天没有任何操作命中，仍然写出来：这是 `/capabilities`、
+      // `/canvas/templates`、`/skills` 三次踩过的同一个坑，缺了它，将来有人加一条
+      // `GET /threads` 时会得到 Next 自己的 404 HTML 而不是 API 的响应。
+      { source: `${prefix}/threads`, destination: `${apiOrigin}/threads` },
+      { source: `${prefix}/threads/:path*`, destination: `${apiOrigin}/threads/:path*` },
       // #435：AgentRun 的轮询读。**它不在 `/chat/` 下面** —— `AgentRunController` 是
       // `@Controller()`（空前缀），路径就是裸的 `/agent-runs/:runId`
       // （`apps/api/src/interface/controllers/agent-run.controller.ts:35`）。

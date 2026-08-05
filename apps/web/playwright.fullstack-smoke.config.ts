@@ -48,6 +48,9 @@ const fixtureEnv = {
   FULLSTACK_E2E_AGENT_NAME: FULLSTACK_E2E.agentDisplayName,
   FULLSTACK_E2E_AGENT_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
   FULLSTACK_E2E_AGENT_MODEL_ID: FULLSTACK_E2E.agentModelId,
+  // #467：第 8a 步要挂的那个 skill。必须是「已启用」——理由见 fixture 里的说明。
+  FULLSTACK_E2E_MOUNTABLE_SKILL_ID: FULLSTACK_E2E.mountableSkillId,
+  FULLSTACK_E2E_MOUNTABLE_SKILL_NAME: FULLSTACK_E2E.mountableSkillName,
 };
 
 /**
