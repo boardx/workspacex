@@ -32,9 +32,16 @@ import type {
  * 生产取回器。**必须**是 `http-import-fetcher.ts` 的 `fetchImportSource` 本身，
  * 因为两道门（字面量门 + DNS 解析后门）都长在它里面。
  *
- * ⚠ 这里刻意**不包一层 wrapper**：包一层就无法用**同一性**断言证明绑对了，
- *   而「结构上看起来在调用它」和「绑的就是它」是两件事——
- *   今晚已经三次证明后者才是能被验证的那件（反证 ④ / ⑦ / ⑭）。
+ * ⛔ **不要包一层 wrapper，哪怕它看起来更整洁。**
+ *
+ * 写成 `(u, p) => fetchImportSource(u, p)` 读起来更「规整」，但那一层会让
+ * `url-import-binding-guard.test.ts` 的**同一性**断言（`toBe`）写不出来，
+ * 只能退回到「结构上看起来在调用它」——而**「看起来在调用它」和「绑的就是它」
+ * 是两件事**：反证⑯ 实测过，包一层之后守卫当场红，正是因为它不再是同一个函数对象。
+ *
+ * ⚠ 这是**为了可断言性而约束实现写法**。下一个人若觉得 wrapper 更整洁而顺手加上，
+ *   同一性断言就会悄悄退化成结构断言，而**结构断言挡不住换实现**
+ *   （反证⑮：绑一个不校验的取回器，既有 42 条断言一条都不动）。
  */
 export const PRODUCTION_IMPORT_FETCHER: ImportSourceFetcher = fetchImportSource;
 
