@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
+import { currentOrganizationLabel } from "@/lib/org-display";
 import {
   listCanvasTemplates,
   TEMPLATE_STATUS_LABEL,
@@ -81,7 +82,8 @@ export function CanvasTemplateScreen() {
             <Building2 aria-hidden className="h-4 w-4" />
           </span>
           <div className="flex flex-col">
-            <span className="text-14 font-semibold">{identity?.org.name ?? orgId}</span>
+            {/* #596：身份未就绪时显示加载态，**不拿 orgId 冒充组织名** —— 下一行本来就单独列了组织 ID。 */}
+            <span className="text-14 font-semibold">{currentOrganizationLabel(identity?.org.name)}</span>
             <span className="font-mono text-10 text-muted-foreground">组织 ID {orgId}</span>
           </div>
           <Badge tone="outline">画布模板</Badge>
