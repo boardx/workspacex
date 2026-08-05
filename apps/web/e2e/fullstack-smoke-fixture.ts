@@ -50,4 +50,37 @@ export const FULLSTACK_E2E = {
   canvasTemplateName: `FULLSTACK_TEMPLATE_${scope}`,
   canvasTemplateCounterproofKey: `tpl-496-cp-${scope}`.toLowerCase(),
   canvasTemplateCounterproofName: `FULLSTACK_TEMPLATE_CP_${scope}`,
+
+  /**
+   * 🟢 #435：核心闭环第 8b 步真正**跑得起来**的那个 Agent。
+   *
+   * ⚠ 「能跑」与「在编制面板里看得见」在本仓是**两个互不相交的世界**，
+   *   种子必须两边都写，否则 8b 会以两种完全不同的方式失败：
+   *
+   *     可运行  ← `agents` + `agent_versions`（status='enabled'、published_at 非空）
+   *              ← `pg-chat-message-command-repository.ts:159-190` 只读这两张表；
+   *                缺了它 → `POST …/messages` 返回 422 `AGENT_NOT_FOUND`。
+   *     可选中  ← `org_agents`（+ 线程级 `chat_thread_agents`）
+   *              ← `pg-chat-repository.ts:343-361` 的编制面板只读这两张表；
+   *                缺了它 → 下拉框是「没有可选 Agent」，发送按钮恒灰。
+   *
+   *   两张网都不 JOIN 对方，所以「目录里有」既不蕴含「能跑」，也不蕴含「看得见」。
+   *   线程是用例现场新建的，`chat_thread_agents` 没法预种——由用例走
+   *   `chat-roster-add-*` 把它挂进编制，那一步同时也验证了 `updateAgentRoster` 的
+   *   `org_agents` 作用域检查（`pg-chat-repository.ts:396-402`）。
+   */
+  agentId: `agent-fullstack-${scope}`,
+  agentDisplayName: `FULLSTACK_RUNNABLE_AGENT_${scope}`,
+  /**
+   * ⚠ 这个字面量必须与 `playwright.fullstack-smoke.config.ts` 下发给 API 的
+   *   `KERNEL_MODEL_PROVIDER` **逐字相同**。`ConfiguredModelProvider` 拿 run 快照里
+   *   钉住的 `model_provider` 与配置值做**全等比较**，不等就
+   *   `MODEL_PROVIDER_NOT_CONFIGURED`（`configured-model-provider.ts:66-73`）——
+   *   那是设计如此，不是 bug：它保证了「没有第二个 provider 能悄悄接管一次 run」。
+   *   所以这里只留**一份**字面量，两边都从它取。
+   */
+  agentModelProvider: "fullstack-loopback",
+  agentModelId: "loopback-echo",
+  /** 回显前缀，与 `apps/api/scripts/loopback-model-provider.ts` 的 `REPLY_PREFIX` 同源。 */
+  agentReplyPrefix: "[loopback]",
 } as const;

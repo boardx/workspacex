@@ -27,6 +27,15 @@ export default {
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
+      // #435：AgentRun 的轮询读。**它不在 `/chat/` 下面** —— `AgentRunController` 是
+      // `@Controller()`（空前缀），路径就是裸的 `/agent-runs/:runId`
+      // （`apps/api/src/interface/controllers/agent-run.controller.ts:35`）。
+      //
+      // 漏了这一条的表现极具误导性：请求不会失败在网络层，而是被 Next 自己接住返回
+      // **404 的 HTML**，前端 `JSON.parse` 于是报 `Unexpected token '<', "<!DOCTYPE "`。
+      // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
+      // 实测就是这么红了一次（步骤 8b，2026-08-05）。
+      { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute
         ? `${apiOrigin}/__broken/projects/:projectId/artifacts`
