@@ -632,10 +632,72 @@ test.describe("核心闭环八步", () => {
     ).toHaveCount(1);
   });
 
-  test.fail("[#493] 步骤 8c：在项目/会话里真正**使用**一个 canvas 模板", async ({ page }) => {
-    await loginAsAdmin(page);
-    await page.goto("/canvas");
-    // 54 个 open issue 里模板相关只有「能建、能看」，「能用」在 #493 之前零覆盖。
-    await expect(page.getByTestId("canvas-template-apply")).toBeVisible();
+  /**
+   * #493 —— 翻正。原文是 `test.fail(...)` 且只断言 `canvas-template-apply` 可见，
+   * 那当时属实（那个 testid 在整个 `apps/web` 里只出现在它自己那一行，与步骤 2 / 4 / 8b
+   * 那三次「锚在虚空上」同型），但**即使它存在也不够**：一个静态按钮就能满足
+   * `toBeVisible()`，而 54 个 open issue 里模板这条线一直只有「能建、能看」。
+   *
+   * 现在断言的是**真实往返**：
+   *   点「使用」→ `POST /canvas/agenda-segments/:id/template-bindings` 回 200
+   *   → 「被 N 场」由 0 变 1（服务端现查的 `COUNT(*) FROM canvas_template_bindings`，
+   *      库里没有可写的计数列，见迁移 20260805030000）
+   *   → **刷新页面后仍是 1**（唯一能区分 PostgreSQL 与 React state 的断言，同 8a / 8b）
+   *
+   * ## 为什么登录的是引导师而不是管理员
+   *
+   * 「谁能改这个组织有哪些模板」判 org admin，「谁能**用**一个模板」判工作坊里的引导师
+   * ——两个判据，`application/canvas/bind-template-to-segment.ts` 的文件头逐字写了为什么。
+   * 种子里 `FULLSTACK_E2E.email` 是 sentinel 工作坊的 facilitator，admin 不是它的成员，
+   * 用 admin 跑这一步会拿到 403 `ROLE_INSUFFICIENT` —— 红，但不是因为对的原因。
+   *
+   * ## 前置条件由种子给，绑定动作一行都不种
+   *
+   * 已发布模板 + 一个 active 议程环节是种子种的（`canvas_template_bindings` 保持空表），
+   * 与 8a 的「已启用 skill」、8b 的「可运行 agent」同型；理由与那条**真实缺口**
+   * （今天没有任何产品路径造得出一个议程环节）写在 `fullstack-smoke-fixture.ts` 里。
+   *
+   * ## 锚点写断言前逐个在源码里定位过
+   *   · `tpladmin-root`                            components/canvas/template-admin.tsx
+   *   · `canvas-template-usage-<key>-<v>`          同上（「被 N 场」那一格）
+   *   · `canvas-template-use-<key>-<v>`            同上（只挂在 published 行上）
+   *   · `canvas-template-apply-project`            components/canvas/template-apply-dialog.tsx
+   *   · `canvas-template-apply-segment-<id>`       同上（服务端回的当前环节）
+   *   · `canvas-template-apply`                    同上（真正发出请求的那个按钮）
+   */
+  test("[#493] 步骤 8c：在项目里真正**使用**一个 canvas 模板（绑定落库，刷新仍在）", async ({ page }) => {
+    const key = FULLSTACK_E2E.boundTemplateKey;
+    const usage = page.getByTestId(`canvas-template-usage-${key}-1`);
+
+    // 引导师，不是管理员——理由见上面文件注。
+    await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    await page.goto("/canvas?screen=template-admin");
+    await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+
+    // 反空转：这一格现在必须是 **0**。少了它，下面「变成 1」可能从第一天起就是真的
+    // （种子若不慎种了一条绑定，或者 usageCount 是个前端常量，本条都会照样绿）。
+    await expect(usage).toHaveText("0");
+
+    await page.getByTestId(`canvas-template-use-${key}-1`).click();
+    await page.getByTestId("canvas-template-apply-project").selectOption(FULLSTACK_E2E.projectId);
+    // 环节是 `GET /projects/:id/overview` 回来的那一条，不是界面上编出来的。
+    await expect(page.getByTestId(`canvas-template-apply-segment-${FULLSTACK_E2E.agendaSegmentId}`))
+      .toContainText(FULLSTACK_E2E.agendaSegmentTitle);
+
+    /* ── 使用：POST 必须 200，且是打到 template-bindings 那条路由上 ── */
+    const bindResponse = page.waitForResponse((response) => (
+      response.request().method() === "POST"
+      && /\/canvas\/agenda-segments\/[^/]+\/template-bindings(\?|$)/.test(response.url())
+    ));
+    await page.getByTestId("canvas-template-apply").click();
+    expect((await bindResponse).status()).toBe(200);
+
+    /* ── 生效：服务端现查的计数变成 1 ── */
+    await expect(usage).toHaveText("1");
+
+    /* ── 刷新后仍在：区分 PostgreSQL 与 React state ── */
+    await page.reload();
+    await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+    await expect(usage).toHaveText("1");
   });
 });

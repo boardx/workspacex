@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, X,
+  LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, Play, X,
 } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
@@ -24,6 +24,7 @@ import {
   type TemplateStatus,
   type TemplateVisibility,
 } from "@/lib/live-canvas";
+import { TemplateApplyDialog } from "./template-apply-dialog";
 
 /**
  * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
@@ -53,6 +54,16 @@ import {
  *   **就是那一行自己的 `visibility`**（`listTemplates.out` 里逐字有这一栏）。
  *   #464 说它「没有真实来源」，那时属实：屏上一行草稿都不可能存在，因为没人建得出来。
  *   ⚠ 仍然**不做**「新建即发布」的复合按钮：服务端是两步，界面就是两步。
+ *
+ * ## 🟢 #493 补上的第三个入口：「使用」
+ *
+ * · **「使用」**：把一行 `published` 模板绑到某个工作坊当前进行中的议程环节
+ *   （`POST /canvas/agenda-segments/:id/template-bindings`，PR #505 落的边界）。
+ *   在它之前，这一屏上所有操作动的都是模板注册表**自己**，没有任何一条把模板用出去——
+ *   核心闭环第 8c 步「在项目里真正使用一个模板」因此零覆盖。
+ *   ⚠ 成功之后 `await load()` 重新读一次列表，让「被 N 场」那一格由服务端的
+ *     `COUNT(*)` 重新算出来；**不**在本地把它加一（同下面 `create` 的理由）。
+ *   对话框在 `template-apply-dialog.tsx`，环节的来源与缺口都写在它的文件头。
  *
  * ## 仍然没有「编辑」
  *
@@ -104,6 +115,8 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
   const [archiving, setArchiving] = React.useState<ArchivePreflight | null>(null);
   const [creating, setCreating] = React.useState(false);
+  /** #493：正在被「使用」的那一行。null = 对话框没开。 */
+  const [applying, setApplying] = React.useState<CanvasTemplate | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -125,6 +138,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   React.useEffect(() => {
     setArchiving(null);
     setCreating(false);
+    setApplying(null);
     setActionError(null);
     setNotice(null);
     void load();
@@ -208,6 +222,21 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
     } catch (error) {
       setActionError(describeError(error));
     }
+  }
+
+  /**
+   * #493 —— 「使用一个模板」成功之后。
+   *
+   * ⚠ `await load()` 而不是把 `usageCount` 在本地加一：那一行看起来与真的一模一样，
+   *   而「绑定到底进没进库」正是核心闭环第 8c 步唯一要证明的事（同 `create` 那段）。
+   *   界面上那个「被 N 场」是服务端现查的 `COUNT(*) FROM canvas_template_bindings`
+   *   （迁移 20260805030000：本表没有可写的计数列），所以它涨了 = 库里真多了一行。
+   */
+  async function applied(message: string) {
+    setApplying(null);
+    setActionError(null);
+    setNotice(message);
+    await load();
   }
 
   async function restore(row: CanvasTemplate) {
@@ -352,9 +381,15 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                       <td className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">
                         {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
                       </td>
-                      <td className="px-3 py-2 text-11 tabular-nums">{t.usageCount}</td>
+                      {/*
+                        #493：这一格是「模板被用了几次」的服务端事实——`usageCount` 是
+                        `COUNT(*) FROM canvas_template_bindings` 现查的（库里没有可写的计数列，
+                        见迁移 20260805030000 的文件头）。第 8c 步靠它区分「绑定进了 PostgreSQL」
+                        与「绑定只进了 React state」，所以它需要一个能被断言锚住的 testid。
+                      */}
+                      <td className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</td>
                       <td className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} />
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
                       </td>
                     </tr>
                   ))}
@@ -377,7 +412,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                   <span className="font-mono text-10 text-muted-foreground">
                     {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
                   </span>
-                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} />
+                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
                 </div>
               ))}
             </div>
@@ -387,6 +422,15 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 
       {creating && (
         <CreateDialog onClose={() => setCreating(false)} onSubmit={create} />
+      )}
+
+      {applying && (
+        <TemplateApplyDialog
+          template={applying}
+          orgId={orgId}
+          onClose={() => setApplying(null)}
+          onApplied={applied}
+        />
       )}
 
       {archiving && (
@@ -405,17 +449,30 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
  * `projectId` 的真实来源，见文件头。
  */
 function RowActions({
-  row, readOnly, onArchive, onRestore, onPublish,
+  row, readOnly, onArchive, onRestore, onPublish, onApply,
 }: {
   row: CanvasTemplate;
   readOnly: boolean;
   onArchive: () => void;
   onRestore: () => void;
   onPublish: () => void;
+  onApply: () => void;
 }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
+      {/*
+        #493：只有 published 挂「使用」入口。绑定的判定只接受 published
+        （`domain/canvas/segment-binding.ts`），给草稿也挂一个，点了必然拿到
+        `TEMPLATE_ARCHIVED` —— 一个恒定失败的按钮比没有这个按钮更糟。
+        ⚠ 这不是在前端复述那条判据：服务端仍然会拒（`TEMPLATE_ARCHIVED` 原样回显），
+          这里只是不给一个必然被拒的动作留入口，同 `CreateDialog` 的 `canSubmit`。
+      */}
+      {row.status === "published" && (
+        <Button size="xs" variant="primary" data-testid={`canvas-template-use-${row.key}-${row.version}`} onClick={onApply}>
+          <Play aria-hidden className="h-3 w-3" /> 使用
+        </Button>
+      )}
       {(row.status === "draft" || row.status === "trial") && (
         // 🟡 #496：`visibility` 取这一行自己的那一栏，不在这里让用户再挑一次。
         <Button size="xs" variant="primary" data-testid={`tpladmin-publish-${row.key}-${row.version}`} onClick={onPublish}>
