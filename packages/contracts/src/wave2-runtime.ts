@@ -162,8 +162,13 @@ export const AgentRunError = z.enum([
    *
    * The model output existed and may well have been good; what failed was making it
    * durable in the thread. The run is terminal and NO assistant message exists — §6 forbids
-   * emitting a synthetic one — so the human's message stays visible and unanswered, and the
-   * retry is an explicit new run rather than a silent second attempt.
+   * emitting a synthetic one — so the human's message stays visible and unanswered.
+   *
+   * ⚠ The sentence that used to end this comment — "the retry is an explicit new run rather
+   * than a silent second attempt" — was TRUE when #413 wrote it and became FALSE the moment
+   * #519 landed. Retry is `retryAgentRun`, which reopens THIS run; a second run for the same
+   * input message cannot exist (`UNIQUE (org_id, input_message_id)`, #415). Terminal here
+   * means "no further progress without an explicit human retry", not "unreachable forever".
    */
   "CHAT_WRITEBACK_FAILED",
 ]);
@@ -212,6 +217,49 @@ export const operations = {
      * too: a distinguishable 403 turns the endpoint into a run-id existence oracle.
      */
     err: ["AGENT_RUN_NOT_VISIBLE"] as const,
+  },
+  /**
+   * 🟡 `retryAgentRun` 于 #519 补上，**该契约面待人类补签**（照 #496 `createTemplate` 先例）。
+   *
+   * ## 为什么这个操作在契约里原本不存在
+   *
+   * §6 只写了「写回耗尽后给人类**一个关联同一条输入消息的新 run**」，没有写任何操作。
+   * 而 `agent_runs` 上 `UNIQUE (org_id, input_message_id)`（#415）让「第二个 run」结构上
+   * 不可能存在。coord-main 在 #519 上裁决：**约束赢，规格文本让步** —— 重试 = 把既有 run
+   * 重置回可写回状态，不是新建 run。本操作是这条裁决的契约面。
+   *
+   * ## 补签时必须一并裁的三件（不裁就会再漂一次）
+   *
+   * ① **§6 的措辞「新 run」要改**。签了本操作却不改 §6，规格与实现长期不一致。
+   * ② **重置目标是 `writeback_pending` 而不是 `queued`** —— 这是实现者对 #519 书面方向的
+   *    有意偏离。理由：`queued` 是执行器的认领态，重置到那里会让同一条人类消息触发**第二次
+   *    模型调用**，与 §5「恰好一次调用」以及 #413「重试写回的是那唯一一次调用已产出并存下的
+   *    答案」直接冲突。数据库触发器把这条钉死：重开时 `model_output` 必须与原值逐字相同。
+   * ③ **谁可以重试**。当前判据 = 能看见该 thread（与 `getAgentRun` 同一个决策）**且**在该
+   *    项目里不是 observer **且** thread 未归档 —— 即「能在这个 thread 里发言的人」。没有
+   *    单独的「重试」角色/权限位；如果人类认为重试应当收窄到消息作者或管理员，要在补签时说。
+   *
+   * `out` 是重开后的 `AgentRunView`（`status: "writeback_pending"`, `error: null`），
+   * 客户端照 §5 继续轮询到终态，不需要第二种传输。
+   */
+  retryAgentRun: {
+    method: "POST",
+    path: "/agent-runs/:runId/retries",
+    in: z.object({ runId: z.string().min(1) }).strict(),
+    out: AgentRunView,
+    err: [
+      /** 同 `getAgentRun`：不存在 / 不是你的租户 / 不是你能看的 thread，共用一个出口。 */
+      "AGENT_RUN_NOT_VISIBLE",
+      /** 能看见，但没有发言权（observer）或 thread 已归档。 */
+      "AGENT_RUN_RETRY_FORBIDDEN",
+      /**
+       * 这个 run 的状态不是「写回预算耗尽」。
+       *
+       * 只有 `failed` + `CHAT_WRITEBACK_FAILED` 可重开：`succeeded` 已经有回复在 thread 里，
+       * 重开等于制造第二条回复；其它失败码没有可写回的既存答案。
+       */
+      "AGENT_RUN_NOT_RETRYABLE",
+    ] as const,
   },
   importSkillStarterPack: {
     method: "POST",
