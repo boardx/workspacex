@@ -87,11 +87,27 @@ export async function mountSkillToThread(
     if (entry === null) {
       return { ok: false, code: "SKILL_NOT_FOUND", reason: "skill 不存在或不在可见性范围内" };
     }
+    // ⚠ **状态判在版本号之前，顺序本身是判据的一部分**（#552）。
+    //   未获批准的 skill 恒 `currentVersionId === null`。反过来先要版本号，一条
+    //   「待审核」的 skill 就会被说成「不存在」—— 而它明明列在使用者自己的目录里。
+    //   `SKILL_NOT_ENABLED` 告诉他「去走门禁」；`SKILL_NOT_FOUND` 只会让他以为自己看错了。
     if (entry.status !== "已启用") {
       return {
         ok: false,
         code: "SKILL_NOT_ENABLED",
         reason: `只有「已启用」的 skill 可临时挂载，该 skill 当前为 ${entry.status}`,
+      };
+    }
+    // 走到这里 `status` 必是 `已启用`，而那蕴含有生效版本（`releaseVersion` 在**同一个
+    // 事务**里置 `state='已生效'` 与 `current_version_id`）。仍然显式判一次而不是 `!`：
+    // 这条蕴含关系靠的是另一个文件里的事务边界，不是类型系统 —— 它哪天被拆成两次写入，
+    // 这里要以一个说得出口的失败告终，而不是把空版本号写进挂载记录。
+    if (entry.currentVersionId === null) {
+      return {
+        ok: false,
+        code: "SKILL_NOT_ENABLED",
+        reason:
+          "该 skill 标记为已启用却没有生效版本：挂载记录写不出「当时挂的是哪一版」，拒绝挂载（数据不一致）",
       };
     }
     const mounted: ThreadSkillMount = {

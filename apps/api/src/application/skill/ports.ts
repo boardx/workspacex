@@ -146,6 +146,20 @@ export interface SkillContractRow {
 export interface SkillContractDetail {
   readonly row: SkillContractRow;
   readonly contract: DeclarativeContract;
+  /**
+   * **本响应正文所属的那一版**（#552）。
+   *
+   * ⚠ 与 `row.currentVersionId`（＝**生效**版本，草稿期恒 null）**不是同一件事**，
+   *   这正是契约把 `currentVersionId` 同时放在 `getSkillDetail.out` 顶层与
+   *   `SkillListItem` 里面的原因：同一个事实声明两遍是本仓九次漂移的形状，
+   *   两个不同的事实各有一处才是它该有的读法。
+   *
+   * ⚠ 没有它，**评审这条链在界面上无法开始**：契约的三条门禁路径都挂在
+   *   `/skill-versions/:versionId/...` 上，而一个刚建好的草稿其 `生效版本` 是 null，
+   *   于是前端拿不到任何 versionId。这个字段是那条链唯一不违背 ADR-020
+   *   （不新增契约外路由）的取数口。**该读法已在 PR 里请签核人复看。**
+   */
+  readonly bodyVersionId: string;
 }
 
 /**
@@ -277,7 +291,27 @@ export interface SkillVisibilityPort {
   visibleTo(input: {
     readonly skillId: string;
     readonly principalId: string;
-  }): Promise<{ readonly status: SkillLifecycleStatus; readonly currentVersionId: string } | null>;
+  }): Promise<{
+    readonly status: SkillLifecycleStatus;
+    /**
+     * ⚠ **nullable，而它必须是（#552）。**
+     *
+     * 这里原本是 `string`，于是 `skill-mount.controller.ts` 的适配把
+     * `currentVersionId === null` 折成了「不存在」（返回 `null` ⇒ `SKILL_NOT_FOUND`）。
+     * 那处注释当时写着「实践中这一支到不了——`已启用` 蕴含有生效版本」，
+     * **那句话当时为真**：#552 之前没有任何 skill 离得开草稿，所以能被挂载的只有
+     * 种子里那条已启用的。
+     *
+     * #552 让草稿真的能被用户拿去挂了，条件就变了：**未获批准的 skill 恒
+     * `currentVersionId === null`**，于是使用者挂自己那条待审核的 skill 会被告知
+     * 「这个 skill **不存在**」——而它明明就在他自己的目录里列着。
+     * 正确答案是 `SKILL_NOT_ENABLED`（「只有已启用的可挂载，它现在是待审核」）。
+     *
+     * ⇒ 端口如实返回 `null`，让 `mountSkillToThread` 先判 `status`、再要版本号。
+     *   「有没有生效版本」与「存不存在」是两件事，折成一件会让界面说假话。
+     */
+    readonly currentVersionId: string | null;
+  } | null>;
 }
 
 /* ═══════════════════ F64：编排一次三视图与待办 / 现场自动挂载 / 孤立绑定 ═══════════════════ */
@@ -407,6 +441,89 @@ export interface ReviewerFunctionPort {
    *   刻意不做成「列出全部审核人」，列表本身对本次判定是多余信息。
    */
   anotherMethodologyReviewerExists(orgId: string, excludePrincipalId: string): Promise<boolean>;
+}
+
+/* ═══════════════════ #552：两道门禁的落库面 ═══════════════════ */
+
+/**
+ * 一个版本在**评审这件事上**需要知道的最小事实。
+ *
+ * ⚠ 里面有 `submitterId`，而它**不是**请求体里的字段：`review-skill-version.ts` 的入参注释
+ *   逐字写着「来自版本记录，不是入参可篡改的字段」。一个从请求体读提交人的实现，
+ *   会让 `SELF_REVIEW_FORBIDDEN` 变成一条报一个别人的 id 就能绕过的规则。
+ */
+export interface SkillVersionForReview {
+  readonly versionId: string;
+  readonly skillId: string;
+  readonly versionNumber: number;
+  readonly state: "草稿" | "待审核" | "已生效" | "已归档" | "待上线";
+  readonly submitterId: string;
+  readonly contract: DeclarativeContract;
+}
+
+/**
+ * 门禁第一道的落库面。
+ *
+ * ⚠ `saveScan` **不返回放行与否**，`latestScan` 也不做判定：放行与否是
+ *   `domain/skill/security-gate.ts` 的事，这里只负责让那个判定有真实输入。
+ * ⚠ **append-only**：没有 `update`，也没有 `clear`。重扫一版是新增一条记录，
+ *   于是「曾经被判拒、后来改好了」在数据上仍然看得见（I-3 的倒查要的正是这个）。
+ */
+export interface SecurityScanStorePort {
+  saveScan(input: {
+    readonly scanId: string;
+    readonly skillId: string;
+    readonly versionId: string;
+    readonly result: SecurityScanResult;
+    readonly scannedBy: string;
+  }): Promise<void>;
+  /** ⚠ `null` ＝ **从未扫过**，不是「扫过但没过」。两者必须可分辨（`security-gate.ts` 逐字）。 */
+  latestScan(versionId: string): Promise<SecurityScanResult | null>;
+}
+
+/**
+ * 门禁第二道（人工）的落库面。
+ *
+ * ⚠ 同样 append-only 且**没有任何方法能写 `Skill.status`**。这是
+ *   `SKILLS_FORBIDDEN_ROUTES` 在存储层的对应物：一条评审记录本身推不动状态机，
+ *   状态迁移只能走 `SkillStatusStorePort.applyTransition`（它带 `from`，做乐观并发）。
+ */
+export interface MethodologyReviewStorePort {
+  saveReview(input: {
+    readonly reviewRecordId: string;
+    readonly skillId: string;
+    readonly versionId: string;
+    readonly submitterId: string;
+    readonly reviewerId: string;
+    readonly decision: "approve" | "reject";
+    readonly reason: string;
+    readonly riskAcks: readonly string[];
+  }): Promise<void>;
+  /** I-3 的倒查：这一版有没有人工审核记录、结论是什么。`null` ＝ 还没有人审。 */
+  latestReview(
+    versionId: string,
+  ): Promise<{ readonly approved: boolean; readonly reviewRecordId: string } | null>;
+}
+
+/**
+ * 版本自身的生命周期（`SkillVersion.state`）。
+ *
+ * ⚠ 与 `Skill.status` 是**两个字段**，domain.md §2 逐字要求「不得互相推导」。
+ *   所以这里是一个独立端口，而不是给 `applyTransition` 多加一个参数——合进去的那一刻，
+ *   两个字段就只剩一次写入，第二天就没人分得清它们本来是两件事。
+ * ⚠ `releaseVersion` 同时置 `state = 已生效` 与该 skill 的 `current_version_id`：
+ *   一个「已生效但不是当前版本」的版本行会让挂载时 `ThreadSkillMount.versionId` 取不到值
+ *   （`skill-mount.controller.ts` 对 `currentVersionId === null` 折成 `SKILL_NOT_FOUND`）。
+ *   两者必须在同一个事务里动，所以是**一个**方法而不是两个。
+ */
+export interface SkillVersionLifecyclePort {
+  loadVersionForReview(versionId: string): Promise<SkillVersionForReview | null>;
+  /** 提交进人工门禁：版本 `草稿 → 待审核`。⚠ 带 `from`，同 `applyTransition` 的乐观并发。 */
+  markVersionSubmitted(versionId: string): Promise<{ readonly changed: boolean }>;
+  /** approve：版本 `待审核 → 已生效` ＋ 该 skill 的当前生效版本指向它。 */
+  releaseVersion(versionId: string): Promise<{ readonly changed: boolean }>;
+  /** reject：版本 `待审核 → 草稿`（`rejectedToDraftLosesDistinction()` 的代价在这条边上）。 */
+  returnVersionToDraft(versionId: string): Promise<{ readonly changed: boolean }>;
 }
 
 /**
@@ -593,12 +710,25 @@ export interface SkillContractRepositoryFactory {
   forOrg(orgId: string): SkillContractRepository;
 }
 
-/** 一个请求内、已绑定租户的仓储：五个端口的交集。 */
+/**
+ * 一个请求内、已绑定租户的仓储：九个端口的交集。
+ *
+ * ⚠ 后四个（#552）与前五个（#459）同处一个交集，理由与那五个逐字相同：它们读写的是
+ *   **同一组表、同一个租户事务**，而端口仍然分开——用例只拿得到自己声明的那个端口的方法，
+ *   「方法名集合就是结构性证据」那条纪律靠的是 application 层看到的类型。
+ * ⚠ `ReviewerFunctionPort` 也在这里，而它读的是 `skill_reviewer_functions`：
+ *   同一个租户会话，同一次请求。给它单发一个令牌会让 controller 拿到一个
+ *   **未绑定租户**的职能解析器——那是最难查的一类越权（见 `SkillContractRepositoryFactory`）。
+ */
 export type SkillContractRepository = SkillDraftStorePort &
   SkillContractReadPort &
   SkillStatusStorePort &
   SkillVisibilityScopePort &
-  ReferenceSnapshotStorePort;
+  ReferenceSnapshotStorePort &
+  SecurityScanStorePort &
+  MethodologyReviewStorePort &
+  SkillVersionLifecyclePort &
+  ReviewerFunctionPort;
 
 /**
  * 组织内 skill 重名。

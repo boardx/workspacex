@@ -36,6 +36,25 @@ const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
 const apiPgPort = process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? "1" : required("PGPORT");
 const breakController = process.env.FULLSTACK_E2E_MODE === "broken-controller-route" ? "artifacts" : "";
 const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required("COMPOSE_PROJECT_NAME")}"`;
+/**
+ * API 与 web 两格的启动窗口。**默认一字未改（120s）**，只是可以被覆盖。
+ *
+ * 两格都会在一台**忙碌或断网**的开发机上超过 120s，而两次失败长得一模一样
+ * （`Timed out waiting 120000ms from config.webServer`，不说是哪一格），
+ * 于是都会被读成「服务起不来」而不是「这台机器慢」：
+ *   · web  —— 命令是 `next build && next start`，`next/font/google` 在没有外网时
+ *     对每个字体分片重试三次才放弃（构建照样成功，只是慢）。实测冷构建 3m24s。
+ *   · api  —— 命令以 `docker compose up -d --wait` 打头，机器上并存几十个隔离栈时
+ *     healthcheck 迟迟不转绿。实测本机同时有 38 个容器，这一格拿不到 120s 内的启动。
+ *
+ * CI 有外网、栈是干净的，两格都落在 120s 内，所以**默认值不动**：
+ * 为一台慢机器放宽全队的门控，等于把一条会红的信号调成不会红。
+ * 要在慢机器上跑就显式覆盖它。
+ *
+ * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
+ *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
+ */
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 120_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -52,6 +71,12 @@ const fixtureEnv = {
   FULLSTACK_E2E_MEMBER_EMAIL: FULLSTACK_E2E.memberEmail,
   FULLSTACK_E2E_MEMBER_PASSWORD: FULLSTACK_E2E.memberPassword,
   FULLSTACK_E2E_MEMBER_USER_ID: FULLSTACK_E2E.memberUserId,
+  // #552：真的持 `security-reviewer` 职能的那位（两职能不合并，I-5/V14）。
+  // ⚠ 这三行属于 **`fixtureEnv`**（下发给 seed 脚本与 API 进程），不是 `modelProviderEnv`
+  //   之类别的对象 —— 合错对象时 tsc **不报错**，但 seed 读不到，表现成「种子没生效」。
+  FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL: FULLSTACK_E2E.securityReviewerEmail,
+  FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD: FULLSTACK_E2E.securityReviewerPassword,
+  FULLSTACK_E2E_SECURITY_REVIEWER_USER_ID: FULLSTACK_E2E.securityReviewerUserId,
   // #435：种一个**真的跑得起来**的 Agent。provider/model 只有这一份字面量（见 fixture）。
   FULLSTACK_E2E_AGENT_ID: FULLSTACK_E2E.agentId,
   FULLSTACK_E2E_AGENT_NAME: FULLSTACK_E2E.agentDisplayName,
@@ -155,6 +180,10 @@ export default defineConfig({
         //   排进 `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有——它会红，
         //   但**不是因为对的原因**。
         "skill-create-smoke.spec.ts",
+        // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /
+        //   安全评审人）以及 `skill_reviewer_functions` 里的职能指派。排进
+        //   `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有。
+        "skill-review-gate.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
@@ -231,7 +260,9 @@ export default defineConfig({
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
-      timeout: process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : 120_000,
+      // ⚠ `database-unavailable` 反证要的就是**快速失败**，给它长窗口只会让反证等满。
+      timeout:
+        process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? 20_000 : serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv,
@@ -243,13 +274,22 @@ export default defineConfig({
         ...(process.env.WORKSPACEX_COUNTERPROOF_INGEST
           ? { WORKSPACEX_COUNTERPROOF_INGEST: process.env.WORKSPACEX_COUNTERPROOF_INGEST }
           : {}),
+        // #552 反证 B：`skip-status-persist` —— 评审照常判定、评审记录照常写、
+        // HTTP 200 照常返回 `已启用`，但 `applyTransition` 一次都不调用。
+        // 开关下发给 **API 进程**（浏览器拦不住服务端内部的落库调用），
+        // 与上面 `WORKSPACEX_COUNTERPROOF_INGEST` 逐字同一个落法。
+        // 见 `interface/controllers/skill-review.controller.ts` 的 `skipsStatusPersist`。
+        ...(process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW
+          ? { WORKSPACEX_COUNTERPROOF_SKILL_REVIEW: process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW }
+          : {}),
         PORT: apiPort,
       },
     },
     {
       command: `next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
-      timeout: 120_000,
+      // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
+      timeout: serverStartTimeoutMs,
       reuseExistingServer: false,
       env: {
         ...process.env,

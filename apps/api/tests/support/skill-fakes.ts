@@ -173,7 +173,10 @@ export function orgTemplateStore(): OrgTemplateStoreSpy {
  * （＝ 不存在或不可见，I-14 的同一个出口）。
  */
 export function visibility(
-  table: Readonly<Record<string, { status: SkillLifecycleStatus; currentVersionId: string }>>,
+  // ⚠ `currentVersionId` 是 `string | null`（#552）：**未获批准的 skill 恒为 null**，
+  //   而那正是 `SKILL_NOT_ENABLED` 与 `SKILL_NOT_FOUND` 分岔的地方。写成 `string`
+  //   会让这个替身表达不出真实存在的那一半形态，测试于是只测得到通路那一支。
+  table: Readonly<Record<string, { status: SkillLifecycleStatus; currentVersionId: string | null }>>,
 ): SkillVisibilityPort {
   return {
     async visibleTo({ skillId }) {

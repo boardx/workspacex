@@ -33,6 +33,16 @@ export default {
       // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。
+      // `SkillReviewController` 是 `@Controller()`（空前缀），所以路径是**裸的**
+      // `/skill-versions/...`，**不在 `/skills/` 下面** —— 上面那条 `/skills/:path*`
+      // 匹配不到它。少这一条不会失败在网络层，而是被 Next 自己接住返回 404 HTML，
+      // 前端 `JSON.parse` 报 `Unexpected token '<'`，看起来像「后端没实现」。
+      // **这是同一个坑的第六次**（前五次是 /capabilities、/canvas/templates、/skills、
+      // /agent-runs、/recording，注释都还在上面）。裸 `/skill-versions` 今天没有任何
+      // 操作命中，仍然写出来 —— 这正是 `/threads` 那条留下的教训。
+      { source: `${prefix}/skill-versions`, destination: `${apiOrigin}/skill-versions` },
+      { source: `${prefix}/skill-versions/:path*`, destination: `${apiOrigin}/skill-versions/:path*` },
       // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
       // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
       // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，

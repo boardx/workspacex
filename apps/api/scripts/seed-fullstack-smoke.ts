@@ -28,6 +28,10 @@ const adminUserId = required("FULLSTACK_E2E_ADMIN_USER_ID");
 const memberEmail = required("FULLSTACK_E2E_MEMBER_EMAIL");
 const memberPassword = required("FULLSTACK_E2E_MEMBER_PASSWORD");
 const memberUserId = required("FULLSTACK_E2E_MEMBER_USER_ID");
+/** #552: a real `security-reviewer`. See the fixture for why none of the other three fits. */
+const securityReviewerEmail = required("FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL");
+const securityReviewerPassword = required("FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD");
+const securityReviewerUserId = required("FULLSTACK_E2E_SECURITY_REVIEWER_USER_ID");
 /** #435: the one agent core-loop step 8b actually RUNS. See the fixture for the two-worlds note. */
 const agentId = required("FULLSTACK_E2E_AGENT_ID");
 const agentDisplayName = required("FULLSTACK_E2E_AGENT_NAME");
@@ -48,7 +52,10 @@ await resetOrgs(orgId);
 await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
-    [[userId, adminUserId, memberUserId], [email, adminEmail, memberEmail]],
+    [
+      [userId, adminUserId, memberUserId, securityReviewerUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail],
+    ],
   );
 });
 const fixture = await seedOrg({ orgId, projectId, teamNames: ["fullstack"], groupNames: ["gate"] });
@@ -61,20 +68,60 @@ await addProjectMember(orgId, projectId, userId, "facilitator", null, true);
 
 await addOrgMember(orgId, adminUserId, "admin", null);
 await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ?? null);
+// #552: the security reviewer lives in the SAME team as the submitter, otherwise the
+// `team-only` Skill would be invisible to him and the assertion would go red on a 404
+// instead of on `REVIEWER_FUNCTION_MISMATCH` -- red, but not for the right reason.
+await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fullstack ?? null);
 
 const hasher = new BcryptPasswordHasher();
 const passwordHash = await hasher.hash(password);
 const adminPasswordHash = await hasher.hash(adminPassword);
 const memberPasswordHash = await hasher.hash(memberPassword);
+const securityReviewerPasswordHash = await hasher.hash(securityReviewerPassword);
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
-     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now())`,
+     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now())`,
     [
       userId, email, "Fullstack E2E", passwordHash,
       adminUserId, adminEmail, "Fullstack E2E admin", adminPasswordHash,
       memberUserId, memberEmail, "Fullstack E2E member", memberPasswordHash,
+      securityReviewerUserId, securityReviewerEmail, "Fullstack E2E security reviewer",
+      securityReviewerPasswordHash,
     ],
+  );
+});
+
+/**
+ * 🟢 #552 —— **谁能审**（`skill_reviewer_functions`，I-5）。
+ *
+ * ## 这里种的是前置条件，不是被断言的东西
+ *
+ * 与 #467 种一条**已启用的 skill** 恰好相反：那条当年必须种，因为不存在任何产品路径能
+ * 启用一个 skill；#552 补的就是那条路径，所以 `skill_contracts` 这里**一行都不种** ——
+ * 走完扫描 → 提交 → 批准是用例现场的事，种了就等于把结论预置掉。
+ *
+ * 「职能由组织管理员指派」（契约 `ReviewerFunction` 逐字：**不是自助申领**），而指派动作
+ * 属 identity/auth 域、本束不建那个操作。⇒ 在系统里它只能来自组织管理，用例造不出来，
+ * 只能种。这与 #493 种「已发布模板 ＋ active 环节」是同一类前置条件。
+ *
+ * ## ⚠ 提交人自己也是方法论审核人，这是刻意的
+ *
+ * 否则「自己审自己」会落在 `REVIEWER_FUNCTION_MISMATCH`（你根本没职能）上，而 I-4 要断言的
+ * 是 `SELF_REVIEW_FORBIDDEN`（你有职能，但不能审自己这一份）。两码分开正是 A4 的要求，
+ * 而种子决定了断言能不能碰到那条分支。
+ * ⚠ 同时存在**第二位**方法论审核人（member），所以自审落 `SELF_REVIEW_FORBIDDEN` 而不是
+ *   `NO_SECOND_REVIEWER` —— 后者是「组织配置问题」，不是本条要验的东西。
+ */
+await asApp(orgId, async (client) => {
+  await client.query(
+    `INSERT INTO skill_reviewer_functions (org_id, principal_id, reviewer_function, assigned_by)
+     VALUES ($1,$2,'methodology-reviewer',$5),
+            ($1,$3,'methodology-reviewer',$5),
+            ($1,$4,'security-reviewer',$5)
+     ON CONFLICT (org_id, principal_id)
+       DO UPDATE SET reviewer_function = EXCLUDED.reviewer_function`,
+    [orgId, userId, memberUserId, securityReviewerUserId, adminUserId],
   );
 });
 

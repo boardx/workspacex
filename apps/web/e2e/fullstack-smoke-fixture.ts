@@ -62,6 +62,44 @@ export const FULLSTACK_E2E = {
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 
   /**
+   * 🟢 #552：**用户自己造出一个「已启用」skill** 这条链路要用的东西。
+   *
+   * ## 为什么这里多了一个账号
+   *
+   * I-5/V14 要求两评审职能**不合并**：安全评审人调用 `reviewSkillVersion` 必须拿到
+   * `REVIEWER_FUNCTION_MISMATCH`。⇒ 这条断言需要一个**真的持有 `security-reviewer`
+   * 职能**的人，而现成三个账号都不合适：
+   *   · `email`（consultant，团队 fullstack）—— 本链路的**提交人**，种成方法论审核人，
+   *     好让「自己审自己」落在 `SELF_REVIEW_FORBIDDEN` 上而不是「你根本没职能」上；
+   *   · `memberEmail`（consultant，团队 fullstack）—— **第二位**方法论审核人，approve 的那位；
+   *   · `adminEmail`（admin，**不属于任何团队**）—— 看不见 `team-only` 的 skill，
+   *     用他做职能不匹配的断言会红在 404 上，**不是因为对的原因**。
+   * ⇒ 多种一个团队 fullstack 的 consultant，专门持 `security-reviewer`。
+   *
+   * ## ⚠ 这两条 skill 由用例**现场建**，一行都不种
+   *
+   * 与上面 `mountableSkillId`（#467 种的那条已启用 skill）**恰好相反**：那条必须种，
+   * 因为当时不存在任何产品路径能启用一个 skill —— 而 #552 补的就是那条路径。
+   * 在这里种一条已启用的，等于把被断言的东西预置掉。库里只种「谁能审」这个前置条件
+   * （`skill_reviewer_functions`），`skill_contracts` 一行都不种。
+   *
+   * ⚠ 建出来的是 **`team-only`（归 fullstack 团队）**，与 `mountableSkillId` 同一个理由：
+   *   `skill-create-smoke.spec.ts:94` 断言**管理员**打开目录看到真实空态，那是一条反空转
+   *   断言，不许为了本链路而放宽。管理员不属于任何团队 ⇒ 这两行对他都不可见。
+   */
+  securityReviewerEmail: `fullstack-secrev-${scope}@example.test`,
+  securityReviewerPassword: "Fullstack-E2E-secrev-552!",
+  securityReviewerUserId: `user-fullstack-secrev-${scope}`,
+  /** 走完整条门禁、最终被批准成「已启用」的那一个。 */
+  reviewedSkillName: `FULLSTACK_REVIEWED_SKILL_${scope}`,
+  /**
+   * 反证 C 用的那一个：**建出来就一直停在草稿**，从不提交、从不审核。
+   * ⚠ 名字与上面那个不同 —— 同名会撞 `SKILL_NAME_CONFLICT`（409），
+   *   于是反证会红，但**不是因为对的原因**（#496 / #520 都在这一处踩过）。
+   */
+  draftOnlySkillName: `FULLSTACK_DRAFT_ONLY_SKILL_${scope}`,
+
+  /**
    * 🟡 #493：核心闭环第 8c 步「**使用**一个 canvas 模板」的两个前置条件。
    *
    * ⚠ 种的是**前置条件**，绑定动作本身一行都不种（`canvas_template_bindings` 刻意为空）——

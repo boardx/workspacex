@@ -15,7 +15,11 @@ import {
   createSkillDraft,
   getSkillDetail,
   listSkills,
+  reviewSkillVersion,
+  runSecurityScan,
+  submitSkillForReview,
   type CreateSkillDraftIn,
+  type RunSecurityScanOut,
   type SkillDetail,
   type SkillListItem,
 } from "@/lib/live-skill";
@@ -199,9 +203,10 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
 
       <p className="text-12 text-muted-foreground">
         skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明）。新建出来的是
-        <strong className="text-foreground">草稿</strong>：安全扫描与方法论审核两道门禁本波次
-        还没有 HTTP 边界，所以这里没有任何一个把它置为「已启用」的入口 —— 没有第二个评审人，
-        就没有「已启用」。
+        <strong className="text-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
+        再由<strong className="text-foreground">另一位</strong>方法论审核人批准 —— 打开「查看契约」
+        里的门禁面板走这两步。这里<strong className="text-foreground">没有</strong>「启用」按钮：
+        没有第二个评审人，就没有「已启用」。
       </p>
 
       {creating ? (
@@ -297,7 +302,30 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         </p>
       ) : null}
 
-      {detail ? <DetailPanel detail={detail} onClose={() => setDetail(null)} /> : null}
+      {detail ? (
+        <DetailPanel
+          detail={detail}
+          onClose={() => setDetail(null)}
+          onStatusChanged={(skillId, status) => {
+            /**
+             * ⚠ **乐观更新，不重读服务端** —— 与创建那条（文件头第 ③ 条）同一个理由，
+             *   而这里更要紧：#552 的反证要打在**刷新**这个接缝上。把状态落库那一步
+             *   摘掉之后，界面收到的 200 与真实成功一模一样，这一行会照常显示成
+             *   「已启用」；只有 `page.reload()` 之后才露馅。
+             *   若这里改成「审核后立刻重读列表」，反证会红在刷新**之前**——
+             *   那样它考验的是「请求有没有到服务端」，根本没考验到落库。
+             */
+            setState((prev) =>
+              prev.orgId === orgId && prev.status === "ready"
+                ? {
+                    ...prev,
+                    rows: prev.rows.map((r) => (r.skillId === skillId ? { ...r, status } : r)),
+                  }
+                : prev,
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -514,7 +542,15 @@ function Field({
 
 /* ── 只读详情：`GET /skills/:skillId` 的返回，一字不添 ──────────────────── */
 
-function DetailPanel({ detail, onClose }: { detail: SkillDetail; onClose: () => void }) {
+function DetailPanel({
+  detail,
+  onClose,
+  onStatusChanged,
+}: {
+  detail: SkillDetail;
+  onClose: () => void;
+  onStatusChanged: (skillId: string, status: SkillListItem["status"]) => void;
+}) {
   const { skill, contract, gateResults } = detail;
   return (
     <Card data-testid="skill-detail-panel">
@@ -547,13 +583,208 @@ function DetailPanel({ detail, onClose }: { detail: SkillDetail; onClose: () => 
 
         {detail.latestTrialRun === null ? (
           <p data-testid="skill-detail-trialrun-empty" className="text-11 text-muted-foreground">
-            最近一次试跑：还没有跑过。这是真实空态，不是失败 —— 试跑用例本波次没有 HTTP 边界。
+            最近一次试跑：还没有跑过。这是真实空态，不是失败 —— 试跑用例仍然没有 HTTP 边界。
           </p>
         ) : (
           <Block label="最近一次试跑输出" body={detail.latestTrialRun.output} />
         )}
+
+        <GatePanel detail={detail} onStatusChanged={onStatusChanged} />
       </CardContent>
     </Card>
+  );
+}
+
+/* ── #552：双重门禁的操作面 ──────────────────────────────────────────── */
+
+/**
+ * 扫描 / 提交 / 审核三个动作。
+ *
+ * ## ⚠ 四个按钮**永远都在**，不按身份藏
+ *
+ * 「我是不是方法论审核人」是**服务端**的裁决（`skill_reviewer_functions` ＋
+ * `domain/skill/review-authorization.ts`）。在这里按身份把「批准」藏起来，
+ * 等于把 I-5 那条规则复述第二遍 —— 而它与服务端那份必然有一天不一致，
+ * 到那天界面会把一个仍然会被拒的操作显示成不可用，或者更糟，反过来。
+ * ⇒ 按钮一直在，越权点下去看到的是**后端真实的错误信封**
+ * （`REVIEWER_FUNCTION_MISMATCH（HTTP 403）`），那是使用者真正需要知道的事。
+ *
+ * ## ⚠ 这里没有「启用」按钮
+ *
+ * `已启用` 只由「批准」这一次调用在服务端产生。摆一个「启用」按钮就是
+ * `SKILLS_FORBIDDEN_ROUTES` 说的那条绕过路径在界面上的样子。
+ */
+function GatePanel({
+  detail,
+  onStatusChanged,
+}: {
+  detail: SkillDetail;
+  onStatusChanged: (skillId: string, status: SkillListItem["status"]) => void;
+}) {
+  /**
+   * ⚠ 取的是 `detail.currentVersionId`（**本响应正文所属的那一版**），
+   *   不是 `detail.skill.currentVersionId`（＝生效版本，草稿期恒 null）。
+   *   两者是两个不同的事实，服务端注释里写了为什么它们各占一处
+   *   （`skill.controller.ts` 的 `getSkillDetail` 分支）。
+   */
+  const versionId = detail.currentVersionId;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
+  const [scan, setScan] = React.useState<RunSecurityScanOut | null>(null);
+  const [reason, setReason] = React.useState("契约正文与数据范围声明已复核，符合方法论要求");
+  const [acked, setAcked] = React.useState<readonly string[]>([]);
+
+  async function act(what: string, run: () => Promise<string | null>) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const message = await run();
+      if (message !== null) setNotice(message);
+    } catch (caught) {
+      setError(`${what}被拒绝：${describeError(caught)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (versionId === null) {
+    // 契约允许它为 null；真出现时说明这个 skill 连一版声明都没有，那不是门禁能处理的事。
+    return (
+      <p data-testid="skill-gate-no-version" className="text-11 text-muted-foreground">
+        这个 skill 还没有任何版本，门禁无从开始。
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3" data-testid="skill-gate-panel">
+      <span className="text-10 uppercase tracking-wide text-muted-foreground">
+        双重门禁 · 版本 {versionId}
+      </span>
+      <p className="text-11 text-muted-foreground">
+        安全扫描（自动）与方法论审核（人工）是<strong className="text-foreground">并列</strong>的两道门，
+        不是「先提交再补扫描」。「已启用」只由另一位方法论审核人的批准产生 —— 这里没有、也不会有
+        「启用」按钮。
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={busy}
+          data-testid="skill-gate-scan"
+          onClick={() =>
+            void act("安全扫描", async () => {
+              const result = await runSecurityScan(versionId);
+              setScan(result);
+              return `安全扫描结论：${result.verdict}（风险项 ${result.findings.length} 条）`;
+            })
+          }
+        >
+          安全扫描
+        </Button>
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={busy}
+          data-testid="skill-gate-submit"
+          onClick={() =>
+            void act("提交评审", async () => {
+              // `expectedVersion` ＝ 调用方以为这一版此刻处于什么状态（乐观并发）。
+              // 草稿屏上它只可能是「草稿」；不匹配时服务端返回 SKILL_VERSION_CHANGED。
+              const out = await submitSkillForReview(versionId, "草稿");
+              onStatusChanged(detail.skill.skillId, out.status);
+              return `已提交人工门禁：${out.status}`;
+            })
+          }
+        >
+          提交评审
+        </Button>
+        <Button
+          size="xs"
+          variant="primary"
+          disabled={busy}
+          data-testid="skill-gate-approve"
+          onClick={() =>
+            void act("批准", async () => {
+              const out = await reviewSkillVersion({
+                versionId,
+                decision: "approve",
+                reason,
+                riskAcks: acked,
+              });
+              onStatusChanged(detail.skill.skillId, out.skillStatus);
+              return `方法论审核通过：${out.skillStatus}（评审记录 ${out.reviewRecordId}）`;
+            })
+          }
+        >
+          批准
+        </Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={busy}
+          data-testid="skill-gate-reject"
+          onClick={() =>
+            void act("退回", async () => {
+              const out = await reviewSkillVersion({
+                versionId,
+                decision: "reject",
+                reason,
+                riskAcks: acked,
+              });
+              onStatusChanged(detail.skill.skillId, out.skillStatus);
+              return `已退回：${out.skillStatus}`;
+            })
+          }
+        >
+          退回
+        </Button>
+      </div>
+
+      <Field id="skill-gate-reason" label="审核理由（留痕，必填）">
+        <Input
+          id="skill-gate-reason"
+          data-testid="skill-gate-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </Field>
+
+      {/* `risk-pending-confirm` 的风险项**逐条**确认；未确认满时服务端判 GATE_NOT_PASSED。 */}
+      {scan !== null && scan.findings.length > 0 ? (
+        <div className="flex flex-col gap-1.5" data-testid="skill-gate-findings">
+          {scan.findings.map((f) => (
+            <Checkbox
+              key={f.riskItemId}
+              data-testid="skill-gate-ack"
+              label={`${f.kind}：${f.detail}`}
+              checked={acked.includes(f.riskItemId)}
+              onChange={(e) =>
+                setAcked((prev) =>
+                  e.target.checked
+                    ? [...prev, f.riskItemId]
+                    : prev.filter((id) => id !== f.riskItemId),
+                )
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <p data-testid="skill-gate-notice" className="text-11 text-muted-foreground">
+          {notice}
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" data-testid="skill-gate-error" className="text-11 text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
