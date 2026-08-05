@@ -51,6 +51,19 @@ export const ThreadPhase = z.enum(["onsite", "research"]);
 /** 消息作者类别 */
 export const AuthorKind = z.enum(["human", "agent"]);
 
+/** Wave 2 durable message projection. Legacy pre-Wave-2 rows may lack linkage fields. */
+export const DurableMessage = z.object({
+  id: z.string(),
+  authorKind: AuthorKind,
+  authorId: z.string(),
+  agentId: z.string().nullable(),
+  text: z.string(),
+  clientMessageId: z.string().uuid().nullable(),
+  agentRunId: z.string().nullable(),
+  replyToMessageId: z.string().nullable(),
+  createdAt: z.string().datetime(),
+}).strict();
+
 /** 消息徽标。⚠ **标在发生它的那条消息上**，不折叠进别处（AC5 / 原型状态 4.5） */
 export const MessageBadge = z.enum(["degraded", "review-pending"]);
 
@@ -121,6 +134,7 @@ export const ChatError = z.enum([
   "AUDIT_QUERY_UNAVAILABLE",
   "INVALID_GRANT_SCOPE",
   "VERSION_CHANGED",
+  "IDEMPOTENCY_CONFLICT",
   "TITLE_INVALID",
   "FILE_NOT_MATERIALIZED",
   "STORAGE_UNAVAILABLE",
@@ -385,6 +399,19 @@ export const operations = {
         label: z.enum(["今天", "本周"]),
         cards: z.array(ThreadCard),
       }).strict()),
+      /**
+       * 项目级能力集合（#489）。与 `getThread.out.capabilities` **同一个事实源**
+       * ——服务端 `capabilitiesFor(projectRole)`——只是在这个读端口也下发一次。
+       *
+       * 为什么这里必须也有：`getThread` 只在**选中某条线程**时才被调用。项目
+       * **零会话**时它永远不会被调用 ⇒ 前端拿不到任何写权依据 ⇒「新建会话」按钮
+       * 不渲染 ⇒ **新注册的管理员永远建不出第一条会话**。实测死在「注册 → 登录 →
+       * Chat 新增」的第三步。
+       *
+       * ⚠ 前端**不得**按角色自行重算，也不得拿 `composer.send` 之类去推断
+       * `thread.mutate`——那会造出第二个事实源。本仓已因「同一事实声明在两处」漂移五次。
+       */
+      capabilities: z.array(z.string()),
     }).strict(),
     err: ["NOT_VISIBLE", "AUTHZ_UNAVAILABLE"] as const,
   },
@@ -443,6 +470,16 @@ export const operations = {
    * getAgentPanel —— 读 AI 团队面板。
    * ⚠ **依赖失败返回错误而不是空面板**——空面板会被读成「没有 agent」。
    * ⚠ 两个计数分离（I-18）：`presentCount`（在场）与 `rosterCount`（编制）不是一回事。
+   *
+   * ## 🟡 `rosterVersion` 于 #513 补上，**该字段所在契约面待人类补签**
+   *
+   * 2026-08-05 coord-main 在人类不在场时代裁「先做」并同时把它**登记为待补签**——
+   * 照 #496 `createTemplate` 的先例（见 `canvas.ts` 该操作的文件头）。判据与
+   * #489（`listThreads.out` 加 capabilities）**同型**：它不新增用户可见语义，只是把
+   * 服务端**早已持有**的同一个 `chat_threads.roster_version` 在读端口也下发一次，
+   * 按既有 `chat` 束的自然延伸处理，**不另起 design-delta**。
+   * 人类回来后要么补签、要么要求改形状。**没有任何 `design-signoff.md` 被改动**
+   * ——签核是人的动作，agent 不得代做。
    */
   getAgentPanel: {
     method: "GET", path: "/chat/threads/:threadId/agents",
@@ -459,6 +496,22 @@ export const operations = {
       presentCount: z.number().int().nonnegative(),
       rosterCount: z.number().int().nonnegative(),
       marketEntry: z.string().nullable(),
+      /**
+       * 🟡 #513，**待人类补签**（见本操作文件头）。
+       *
+       * 编制的乐观锁版本号，**与 `updateAgentRoster.out.rosterVersion`
+       * （本文件下方同名字段）是同一个字段、同一个事实源**——都投影
+       * `chat_threads.roster_version`，不是第二个版本号概念。
+       *
+       * 存在的理由：`updateAgentRoster.in.expectedRosterVersion` 是**必填**的乐观锁。
+       * 在 #513 之前它只由写端口的出参下发 ⇒ 客户端只有刚写过一次才知道版本号，
+       * **页面一刷新就无从填起**，跨页面加载的编制变更必然 409（PR #510 在 e2e 里
+       * 实测撞上并把现状钉成了断言）。
+       *
+       * ⛔ 调用方**不得**用「读不到就传 0 / -1 / 省略」兜底：乐观锁的意义就是拒绝
+       *   盲写，兜底等于把锁摘了。读不到版本号时**不提交**。
+       */
+      rosterVersion: z.number().int().nonnegative(),
     }).strict(),
     err: ["NOT_VISIBLE", "AGENT_REGISTRY_UNAVAILABLE"] as const,
   },
@@ -502,12 +555,29 @@ export const operations = {
     in: z.object({
       threadId: z.string(),
       cursor: z.string().optional(),
-      limit: z.number().int().positive(),
+      limit: z.number().int().positive().max(100).optional(),
     }).strict(),
     out: z.object({
-      messages: z.array(Message), nextCursor: z.string().nullable(),
+      messages: z.array(DurableMessage), nextCursor: z.string().nullable(),
     }).strict(),
     err: ["NOT_VISIBLE", "AUTHZ_UNAVAILABLE"] as const,
+  },
+
+  /** Wave 2: persist the human message and queued run; never return a synthetic reply. */
+  createMessage: {
+    method: "POST", path: "/chat/threads/:threadId/messages",
+    in: z.object({
+      threadId: z.string(),
+      clientMessageId: z.string().uuid(),
+      text: z.string().trim().min(1),
+      agentId: z.string().trim().min(1),
+    }).strict(),
+    out: z.object({
+      message: DurableMessage,
+      agentRunId: z.string(),
+      runStatus: z.literal("queued"),
+    }).strict(),
+    err: ["NOT_VISIBLE", "NO_WRITE_ROLE", "AGENT_NOT_FOUND", "IDEMPOTENCY_CONFLICT"] as const,
   },
 
   /**

@@ -26,6 +26,10 @@
     "REDIS_HOST",
     "REDIS_PORT",
     "REDIS_PREFIX",
+    "MINIO_PORT",
+    "MINIO_CONSOLE_PORT",
+    "WORKSPACEX_API_PORT",
+    "WORKSPACEX_WEB_PORT",
     "KERNEL_ALLOW_TEST_PRINCIPAL",
     "KERNEL_QUIET"
   ],
@@ -47,6 +51,25 @@
     "test": {
       "dependsOn": [
         "^build"
+      ],
+      // These values must be part of the task hash, not merely passed through. A fresh
+      // isolation scope must execute tests against its own database instead of replaying
+      // output cached for another worktree/run.
+      "env": [
+        "WORKSPACEX_ISOLATION_SEED",
+        "WORKSPACEX_ISOLATION_ID",
+        "WORKSPACEX_DB",
+        "WORKSPACEX_DB_CONNECTION_BUDGET",
+        "PGDATABASE",
+        "PGHOST",
+        "PGPORT",
+        "REDIS_PORT",
+        "REDIS_PREFIX",
+        "MINIO_PORT",
+        "MINIO_CONSOLE_PORT",
+        "WORKSPACEX_API_PORT",
+        "WORKSPACEX_WEB_PORT",
+        "COMPOSE_PROJECT_NAME"
       ]
     },
     "lint": {

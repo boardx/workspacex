@@ -15,6 +15,8 @@
  *   `team-only` skill 对非成员依旧不可见，与「是否过审」无关。
  */
 
+import { decideCapabilityVisibility } from "../identity/capability-listing";
+
 /** 两档可见性——与 `SkillListItem.visibility` 同值域（不重写枚举，运行期只接受这两个字符串）。 */
 export type SkillVisibilityScope = "org-wide" | "team-only";
 
@@ -27,18 +29,66 @@ export interface VisibilityCheckInput {
 }
 
 /**
+ * 本函数**不判断组织成员资格**，所以它给 `decide()` 的 org 层传 `null`。
+ *
+ * ⚠ 这不是「偷懒填个占位」：`decide()` 里 `scopePassed` 的计算**不依赖 `org.role`**
+ *   （见 `permission-decision.ts` 的 `decide`——`scopeLayer.passed` 只由 `scope` 与
+ *   `teamId` 决定）。而本函数读的正是 `scopeLayer.passed`。填一个假的 `"admin"`
+ *   会在语义上撒谎（声称判过成员资格），填 `null` 则如实表达「这一问不归我答」，
+ *   且对返回值没有任何影响。
+ *
+ * 成员资格由**另一条路**判：仓储按 `guard()` 出门、controller 用
+ * `decideCapabilityVisibility(...).allowed` 经 `discloseDecided()` 放行，那里
+ * `orgRole` 是从 `org_memberships` 真实读出来的。
+ */
+const ORG_MEMBERSHIP_NOT_JUDGED_HERE = null;
+
+/**
+ * 供 `decide()` 记录用的 decision id。
+ *
+ * ⚠ 本函数是**纯谓词**，它的返回值是 boolean，`decisionId` 不进任何响应，
+ *   所以这里用一个固定字符串而不是随机 id——随机 id 看起来像能关联到某次审计，
+ *   实际上关联不到任何东西（同 `skill-gate-adapters.ts` 里 traceId 那条哨兵的理由）。
+ *   需要可关联的决策时走的是 `discloseDecided()` 那条路，那里的 id 是真的。
+ */
+const SKILL_SCOPE_PREDICATE_DECISION_ID = "skill-visibility-scope-predicate";
+
+/**
  * 四入口共用的**唯一**可见性判定。
  *
- * · `org-wide` ⇒ 恒可见。
- * · `team-only` ⇒ 仅当 `requesterTeamId === ownerTeamId` 时可见——
- *   两者任一为 `null`（skill 未挂团队 / 请求者不在任何团队）都判**不可见**，
- *   而不是把 `null === null` 当作"都没有团队所以算同一个"：
- *   那会让一个配置错误（team-only 但没填 ownerTeamId）意外对所有无团队成员可见。
+ * ## ⚠ 实现已于 2026-08-05（#459）改为**委托**，函数体内不再自己比字段
+ *
+ * 改之前这里有三行比较（`org-wide` 恒真；`team-only` 比 `ownerTeamId` 与
+ * `requesterTeamId`），而 `domain/identity/capability-listing.ts` 的
+ * `decideCapabilityVisibility` 判的是**同样三个字段**。两份实现＝同一事实两处声明，
+ * 正是 AGENTS.md 点名、本仓已漂移五次的形状。
+ *
+ * coord-main 裁决 `decideCapabilityVisibility` 为单一事实源，三条理由：
+ *   ① **信息量单向可导**——`PermissionDecision` 能导出 boolean，boolean 导不回
+ *      `PermissionDecision`（丢了「为什么」）。单一事实源要选信息量大的那个。
+ *   ② **A 有机械门控（`lint-permission-paths`），B 没有**。选无门的当事实源
+ *      等于让有门的去迁就无门的——拿门换方便。
+ *   ③ 收敛后 I-14「四入口共用一个过滤器」仍成立，且那一个恰好是**带门的**。
+ *
+ * ⚠ 读的是 `scopeLayer.passed` 而**不是** `allowed`：`allowed` 还要求组织成员资格
+ *   （`org.role !== null`），而本函数的签名里根本没有 `orgRole`，判不了那一层。
+ *   用 `allowed` 会让每一次调用都因为 `NO_ORG_MEMBERSHIP` 返回 false，把整个
+ *   列表判空——那是一次"看起来收敛了、其实换了语义"的改动。
+ *
+ * 语义与改之前**逐点等价**（`visibility-scope-delegates.test.ts` 用穷举断言）：
+ *   · `org-wide` ⇒ `scopePassed` 恒真；
+ *   · `team-only` ⇒ `teamId !== null && teamId === ownerTeamId`，
+ *     两者任一为 null 都判不可见（不把 `null === null` 当同一个团队——
+ *     那会让一个配置错误意外对所有无团队成员可见）。
  */
 export function isSkillVisibleTo(input: VisibilityCheckInput): boolean {
-  if (input.visibility === "org-wide") return true;
-  if (input.ownerTeamId === null || input.requesterTeamId === null) return false;
-  return input.ownerTeamId === input.requesterTeamId;
+  return decideCapabilityVisibility({
+    decisionId: SKILL_SCOPE_PREDICATE_DECISION_ID,
+    orgRole: ORG_MEMBERSHIP_NOT_JUDGED_HERE,
+    requesterTeamId: input.requesterTeamId,
+    scope: input.visibility,
+    ownerTeamId: input.ownerTeamId,
+  }).scopeLayer.passed;
 }
 
 /**

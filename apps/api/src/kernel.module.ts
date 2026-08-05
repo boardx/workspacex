@@ -16,7 +16,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT } from "./application/ports/database.port";
-import { LOGGER_PORT } from "./application/ports/logger.port";
+import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
 import { appConfig } from "./infrastructure/db/pg-config";
@@ -85,6 +85,20 @@ import {
 } from "./application/identity/capability-ports";
 import { PgCapabilityRepository } from "./infrastructure/identity/pg-capability-repository";
 import { InMemoryInFlightCalls } from "./infrastructure/identity/in-memory-in-flight-calls";
+import {
+  SKILL_STARTER_IMPORT_REPOSITORY,
+  SKILL_STARTER_PACK_SOURCE,
+} from "./application/skill-import/ports";
+import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-starter-pack-source";
+import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
+import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
+import {
+  AGENT_STARTER_IMPORT_REPOSITORY,
+  AGENT_STARTER_PACK_SOURCE,
+} from "./application/agent-import/ports";
+import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
+import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
+import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -145,6 +159,14 @@ import {
 import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
 import { ARTIFACT_LANDING_REPOSITORY } from "./application/chat/artifact-landing-ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
+import {
+  CHAT_MESSAGE_COMMAND_REPOSITORY,
+  PUBLISHED_AGENT_READER,
+} from "./application/chat/message-command-ports";
+import {
+  PgChatMessageCommandRepository,
+  PgPublishedAgentReader,
+} from "./infrastructure/chat/pg-chat-message-command-repository";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
@@ -152,6 +174,28 @@ import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-l
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
 import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
 import { ChatController } from "./interface/controllers/chat.controller";
+// #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
+// 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
+import {
+  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT,
+  type AgentRunStore, type ModelCallPort,
+} from "./application/agent-run/ports";
+import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import {
+  ConfiguredModelProvider, readModelProviderConfig,
+} from "./infrastructure/agent-run/configured-model-provider";
+import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { AgentRunController } from "./interface/controllers/agent-run.controller";
+// #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
+// ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
+import {
+  SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS,
+} from "./application/skill/ports";
+import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
+import {
+  FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
+} from "./infrastructure/skill/skill-gate-adapters";
+import { SkillController } from "./interface/controllers/skill.controller";
 // F10（phase-01 / UC-1.6）：组织成员邀请与激活。
 // ⚠ 建在 phase-00 的 auth 地基上，不另起一套：credentials / org_memberships / 会话端口全部复用。
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
@@ -272,6 +316,44 @@ import { InMemoryReviewClockRepository } from "./infrastructure/asset/in-memory-
 import { AlwaysPassingAssetGateStatus } from "./infrastructure/asset/always-passing-asset-gate-status";
 import { AlwaysActiveAssetOwnerStatus } from "./infrastructure/asset/always-active-asset-owner-status";
 import { AssetGovernanceController } from "./interface/controllers/asset-governance.controller";
+// #463 (canvas bundle): the template registry's HTTP boundary. `domain/canvas/` has existed
+// since F100/F101 with 18 green test files; nothing served it, and no table stored a
+// template. This is the application + interface + storage half.
+// ⚠ No `CANVAS_TEMPLATE_DRAFT_*` provider: the signed contract has no create operation
+//   (see `application/canvas/template-ports.ts`). A binding for a capability that does not
+//   exist is how the next person concludes it merely has not been called yet.
+import {
+  CANVAS_TEMPLATE_REPOSITORY,
+  type CanvasTemplateRepository,
+} from "./application/canvas/template-ports";
+import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
+import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #465 (recording bundle): the session lifecycle's HTTP boundary. `domain/recording/` (10
+// files) and `application/recording/` (11 files) have existed since F69-F79 and NOTHING
+// served them -- from outside the process the whole capability was zero. This wires the four
+// routes the contract's capture lifecycle needs, plus the persistence F69 deliberately
+// deferred (migration `20260805100000_i465_recording_capture_persistence.sql`).
+// ⚠ `RETENTION_POLICY_REPOSITORY` (F46) is bound here for the first time: recording's
+//   `RetentionResolver` reads it rather than a table of its own, because
+//   `application/recording/retention-ports.ts` is explicit that a second store for "how many
+//   days" defeats the one invariant the retention feature exists to keep.
+import {
+  RECORDING_ID_GENERATOR,
+  RECORDING_UNIT_OF_WORK,
+  TRANSCRIPTION_POLICY_PROVIDER,
+} from "./application/recording/session-lifecycle-ports";
+import {
+  RETENTION_POLICY_REPOSITORY,
+  type RetentionPolicyRepository,
+} from "./application/files/retention-policy-ports";
+import { PgRetentionPolicyRepository } from "./infrastructure/files/pg-retention-policy-repository";
+import {
+  PgRecordingUnitOfWork,
+  UuidRecordingIdGenerator,
+} from "./infrastructure/recording/pg-recording-repository";
+import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
+import { RecordingController } from "./interface/controllers/recording.controller";
+import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 
 @Module({
   controllers: [
@@ -280,6 +362,8 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     IdentityController,
     ProvenanceController,
     CapabilityController,
+    SkillStarterImportController,
+    AgentStarterImportController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -301,6 +385,10 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     ProjectController,
     AssetDirectoryController,
     AssetGovernanceController,
+    CanvasTemplateController,
+    RecordingController,
+    AgentRunController,
+    SkillController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
@@ -348,6 +436,26 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
     {
       provide: CAPABILITY_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCapabilityRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // Wave 2 #412. No default root and no embedded pack list: deployment explicitly
+    // configures the verified pack source, while an unset source resolves no packs.
+    {
+      provide: SKILL_STARTER_PACK_SOURCE,
+      useFactory: () => new FileSkillStarterPackSource(process.env.SKILL_STARTER_PACK_ROOT),
+    },
+    {
+      provide: SKILL_STARTER_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_STARTER_PACK_SOURCE,
+      useFactory: () => new FileAgentStarterPackSource(process.env.AGENT_STARTER_PACK_ROOT),
+    },
+    {
+      provide: AGENT_STARTER_IMPORT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentStarterImportRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every
@@ -502,6 +610,40 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
       useFactory: (db: DatabasePort) => new PgChatRepository(db),
       inject: [DATABASE_PORT],
     },
+    {
+      provide: CHAT_MESSAGE_COMMAND_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgChatMessageCommandRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PUBLISHED_AGENT_READER,
+      useFactory: (db: DatabasePort) => new PgPublishedAgentReader(
+        db,
+        process.env.KERNEL_ALLOW_TEST_PRINCIPAL === "1"
+          ? process.env.KERNEL_AGENT_CATALOG_SCHEMA
+          : undefined,
+      ),
+      inject: [DATABASE_PORT],
+    },
+    // #414. 三个 provider，职责各一：run 状态与 append-only 步骤的持久化、
+    // **唯一**已配置 provider 的模型调用、以及受理后触发执行的执行器。
+    {
+      provide: AGENT_RUN_STORE,
+      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
+      // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
+      provide: MODEL_CALL_PORT,
+      useFactory: () => new ConfiguredModelProvider(readModelProviderConfig()),
+    },
+    {
+      provide: AGENT_RUN_EXECUTOR,
+      useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
+        new AgentRunExecutor(runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0"),
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
+    },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
     // 与线程/消息的读写路径没有共享逻辑，合并只会让一个文件同时长两组不相关的方法。
     {
@@ -649,6 +791,53 @@ import { AssetGovernanceController } from "./interface/controllers/asset-governa
       provide: TEMPORARY_GRANT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgTemporaryGrantRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #463：canvas 模板注册表。独立 provider，读写的是 `canvas_templates` 与
+    // `canvas_template_bindings` 两张新表，与任何既有仓储没有共享的读写路径。
+    {
+      provide: CANVAS_TEMPLATE_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasTemplateRepository =>
+        new PgCanvasTemplateRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #465: recording session lifecycle.
+    {
+      provide: RETENTION_POLICY_REPOSITORY,
+      useFactory: (db: DatabasePort): RetentionPolicyRepository =>
+        new PgRetentionPolicyRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    { provide: RECORDING_ID_GENERATOR, useFactory: () => new UuidRecordingIdGenerator() },
+    {
+      provide: RECORDING_UNIT_OF_WORK,
+      useFactory: (
+        db: DatabasePort,
+        policies: RetentionPolicyRepository,
+        ids: RecordingIdGenerator,
+      ) => new PgRecordingUnitOfWork(db, policies, ids),
+      inject: [DATABASE_PORT, RETENTION_POLICY_REPOSITORY, RECORDING_ID_GENERATOR],
+    },
+    // ⚠ Constructing the provider does NOT read the environment; `policy()` does, per call.
+    //   Reading it here would freeze whatever the process started with, and the one thing
+    //   this provider exists to guarantee is that an unconfigured deployment refuses to
+    //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
+    { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
+    // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
+    // repository cannot be constructed without a tenant, so there is no "untenanted skill
+    // repository" object for a forgetful caller to reach for.
+    {
+      provide: SKILL_CONTRACT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillContractRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #459: both of these stand in for data sources that do not exist anywhere in the repo
+    // yet (submitter data-scope grants; a durable security-audit table). Neither fails open
+    // -- see the reasoning in `infrastructure/skill/skill-gate-adapters.ts`.
+    { provide: SKILL_SUBMITTER_GRANTS, useFactory: () => new FailClosedSubmitterGrants() },
+    {
+      provide: SKILL_SECURITY_AUDIT,
+      useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
+      inject: [LOGGER_PORT],
     },
     // Guard registered GLOBALLY. Per-route mounting means one missed route is a silent
     // authorization hole, and nothing would ever report it.

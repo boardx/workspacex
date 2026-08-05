@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    globalSetup: ["tests/support/db-global-setup.ts"],
     /**
      * WORKSPACEX_DB is how parallel workers avoid dropping each other's database, and
      * `scripts/lib.sh` translates it into PGDATABASE for the shell gates. Vitest had no
@@ -46,11 +47,10 @@ export default defineConfig({
      * body flags it as "should verify first" and it had never actually been tried before now.
      * See #74 for the actual verification (repeated-run evidence), not this comment.
      */
-    poolOptions: {
-      threads: {
-        maxThreads: 4,
-        minThreads: 1,
-      },
-    },
+    // Vitest 2 defaults to the `forks` pool. The old poolOptions.threads limit therefore
+    // constrained a pool we never used and left the real fork count at available CPUs.
+    // `maxWorkers` applies to the active pool and keeps the PostgreSQL budget mechanical.
+    maxWorkers: 4,
+    minWorkers: 1,
   },
 });

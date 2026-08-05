@@ -1,17 +1,17 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Search, Plus, LogOut } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ApiError, clearStoredSessionToken, getStoredSessionToken, storeSessionToken } from "@/lib/api-client";
+import { Card, CardContent } from "@/components/ui/card";
+import { ApiError } from "@/lib/api-client";
+import { useSession } from "@/components/session/session-provider";
 import {
   PROJECT_KIND_LABEL,
   PROJECT_STATUS_LABEL,
   listProjects,
-  login,
   type ProjectListItem,
 } from "@/lib/live-projects";
 
@@ -27,20 +27,13 @@ import {
  * 不补一个「看起来算过的数」。原型的筛选（客户/内部/高优先级）同理去掉——
  * 契约里没有 `owner`/`priority` 这两个字段，没法筛。
  *
- * ⚠ 登录：本仓目前唯一真实鉴权入口仍是 `POST /auth/login`（`/project/live` 同款），
- * 这里内嵌同一形状的最小登录表单，而不是假装已经有一套登录页存在。
- *
- * ⚠ `orgId`：契约 `listProjects.in` 要求显式 `orgId`，而全仓还没有一处「当前组织」
- * 的真实来源（`lib/identity.ts` 的组织切换器是预览态 mock）。这里退化成一个手填框，
- * 与 `/project/live` 同型——即「已知的、诚实的缺口」，不是本次范围要解决的东西。
+ * `orgId` 来自根级 SessionProvider 已解析的真实 current-org，不再由用户手填，也不在
+ * 项目页内重复维护第二套登录状态。
  */
-export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
-  const [sessionToken, setSessionToken] = React.useState<string | null>(null);
-  const [orgId, setOrgId] = React.useState(initialOrgId);
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [loginError, setLoginError] = React.useState<string | null>(null);
-  const [loginBusy, setLoginBusy] = React.useState(false);
+export function ProjectsScreen() {
+  const { session } = useSession();
+  if (!session) throw new Error("ProjectsScreen requires an authenticated session");
+  const orgId = session.currentOrgId;
 
   const [segments, setSegments] = React.useState<{ member: ProjectListItem[]; managed: ProjectListItem[] } | null>(
     null,
@@ -49,11 +42,6 @@ export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
   const [listBusy, setListBusy] = React.useState(false);
 
   const [query, setQuery] = React.useState("");
-
-  // 页面加载时从 localStorage 恢复已登录状态——刷新页面不该要求重新登录（同 F122）。
-  React.useEffect(() => {
-    setSessionToken(getStoredSessionToken());
-  }, []);
 
   const refresh = React.useCallback(async (org: string) => {
     if (org === "") return;
@@ -70,38 +58,11 @@ export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
     }
   }, []);
 
-  // 已登录且已知组织 id（比如从 URL ?org= 带进来）时，进页面就自动拉一次。
+  // current-org changes only through the signed switch operation; each change reloads this list.
   React.useEffect(() => {
-    if (sessionToken !== null && orgId !== "") {
-      void refresh(orgId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken]);
-
-  async function handleLogin(ev: React.FormEvent) {
-    ev.preventDefault();
-    setLoginBusy(true);
-    setLoginError(null);
-    try {
-      const out = await login(email, password);
-      storeSessionToken(out.sessionToken);
-      setSessionToken(out.sessionToken);
-      const firstOrg = out.orgs[0];
-      if (firstOrg !== undefined && orgId === "") {
-        setOrgId(firstOrg);
-      }
-    } catch (e) {
-      setLoginError(describeError(e));
-    } finally {
-      setLoginBusy(false);
-    }
-  }
-
-  function handleLogout() {
-    clearStoredSessionToken();
-    setSessionToken(null);
     setSegments(null);
-  }
+    void refresh(orgId);
+  }, [orgId, refresh]);
 
   const filterByQuery = (items: ProjectListItem[]) =>
     query.trim() ? items.filter((p) => p.name.includes(query.trim())) : items;
@@ -115,60 +76,17 @@ export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
         </p>
       </header>
 
-      {sessionToken === null ? (
-        <Card data-testid="projects-login-card">
-          <CardHeader>
-            <CardTitle>登录</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="flex flex-col gap-2" onSubmit={handleLogin}>
-              <Input
-                data-testid="projects-login-email"
-                placeholder="邮箱"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <Input
-                data-testid="projects-login-password"
-                placeholder="密码"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Button data-testid="projects-login-submit" type="submit" disabled={loginBusy}>
-                {loginBusy ? "登录中…" : "登录"}
-              </Button>
-              {loginError !== null ? (
-                <p data-testid="projects-login-error" className="text-12 text-destructive">
-                  {loginError}
-                </p>
-              ) : null}
-            </form>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
+      <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Input
-                data-testid="projects-org-id"
-                placeholder="组织 id"
-                value={orgId}
-                onChange={(e) => setOrgId(e.target.value)}
-                className="h-8 w-40"
-              />
               <Button
                 size="sm"
                 variant="outline"
                 data-testid="projects-refresh"
                 onClick={() => refresh(orgId)}
-                disabled={orgId === "" || listBusy}
+                disabled={listBusy}
               >
                 {listBusy ? "加载中…" : "刷新"}
-              </Button>
-              <Button size="sm" variant="ghost" data-testid="projects-logout" onClick={handleLogout}>
-                <LogOut aria-hidden className="h-3.5 w-3.5" />
-                退出登录
               </Button>
             </div>
             <div className="flex items-center gap-2">
@@ -203,7 +121,7 @@ export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
               data-testid="projects-list-empty-state"
               className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
             >
-              {listBusy ? "加载中…" : "还没有加载列表——填组织 id 后点「刷新」。"}
+              {listBusy ? "加载中…" : "当前组织还没有项目。"}
             </div>
           ) : (
             <div className="flex flex-col gap-5">
@@ -222,7 +140,6 @@ export function ProjectsScreen({ initialOrgId }: { initialOrgId: string }) {
             </div>
           )}
         </>
-      )}
     </div>
   );
 }
@@ -281,7 +198,7 @@ function ProjectRealCard({ project, orgId }: { project: ProjectListItem; orgId: 
           </div>
           <div>
             <Button asChild variant="primary" size="sm">
-              <Link href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</Link>
+              <a href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</a>
             </Button>
           </div>
         </CardContent>

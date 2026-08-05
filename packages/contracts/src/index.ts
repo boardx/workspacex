@@ -25,5 +25,6 @@ export * as chat from "./chat";
 export * as agentRuntime from "./agent-runtime";
 export * as agentPrivateChat from "./agent-private-chat";
 export * as skills from "./skills";
+export * as wave2Runtime from "./wave2-runtime";
 export * as templates from "./templates";
 export * as research from "./research";

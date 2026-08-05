@@ -43,6 +43,19 @@ export interface CreateSkillDraftInput {
   /** ⚠ **入口**，不是「调用方声称的来源」 */
   readonly entry: SkillCreationEntry;
   /**
+   * 契约 `createSkillDraft.in.visibility` / `modelRef`（#459 补齐）。
+   *
+   * ⚠ 这两个字段在契约里是**必填**的，而本用例此前把它们丢掉了——于是
+   *   `SkillListItem.visibility` 无处可取，落库时只能猜一个默认值。
+   *   「契约要求的入参在实现里没有落点」是 ADR-020 要防的漂移方向，补齐而不是给默认值。
+   * ⚠ `visibility = team-only` 时 `ownerTeamId` 必须非空；DB 侧
+   *   `skill_contracts_team_only_needs_team` 同判，两道都要（应用层给得出好错误，
+   *   DB 那道保证绕过应用层也进不来）。
+   */
+  readonly visibility: "org-wide" | "team-only";
+  readonly ownerTeamId: string | null;
+  readonly modelRef: string;
+  /**
    * 未经契约解析的原始请求体。
    * 契约的 `createSkillDraft.in` 是 `.strict()` 的，所以解析后永远看不到 `source`——
    * 真实的写入尝试只在这一层可见（`source-tag.ts` 头部有完整理由）。
@@ -150,6 +163,9 @@ export async function createSkillDraft(
     contract: input.contract,
     source,
     submitterId: input.submitterId,
+    visibility: input.visibility,
+    ownerTeamId: input.ownerTeamId,
+    modelRef: input.modelRef,
   });
 
   return { ok: true, skillId: saved.skillId, versionId: saved.versionId, source, status: "草稿" };

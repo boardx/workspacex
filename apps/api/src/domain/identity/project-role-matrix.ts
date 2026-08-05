@@ -28,6 +28,17 @@ export const PROJECT_ACTIONS = [
   "agendaSegment.timer",          // 计时
   "agendaSegment.group",          // 分组
   "agendaSegment.bulkConfirm",    // 批量确认
+  /**
+   * #493 (canvas 束 · uc-7-2 `bindTemplateToSegment`)：把一个画布模板绑到某个议程环节。
+   * ⚠ `usecases.md` 的 `pre:` 逐字只有「引导师」一个角色，所以这一条**只**进 facilitator
+   *   行——与同一束的 `bindSkillToSegment` 注明的「组员不可自行加挂（uc-7-4 R7）」同一条
+   *   判据。它属于 `agendaSegment.*` 而不是 `content.*`：绑定改的是**环节的编排**，
+   *   与「贴便签」那一类现场参与不是同一件事，把它归进 content.* 就等于让组员也能改编排。
+   * ⚠ 归本矩阵、不另起一个 canvas 专用谓词：模板注册表的写操作（publish/archive…）判的是
+   *   org admin（`canMutateCapabilities`），而**用**一个模板判的是项目里的引导师——两件事
+   *   两个判据，但都必须落在已有的单一事实源上，不是第三份角色表。
+   */
+  "agendaSegment.bindTemplate",   // 绑定画布模板到环节（#493）
   /* groupLead row: "runs their own group" */
   "group.submitOutput",   // 提交本组产出
   "group.confirmNode",    // 确认本组节点
@@ -103,6 +114,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   // Controls the room; sees everything in it. Multiple instances allowed (O-03).
   facilitator: [
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
+    "agendaSegment.bindTemplate",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
     "artifact.requestDeletion", "artifact.complianceOps",

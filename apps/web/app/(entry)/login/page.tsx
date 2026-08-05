@@ -2,6 +2,7 @@ import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
 import { Avatar } from "@/components/ui/avatar";
 import { LoginForm } from "@/components/entry/login-form";
+import { LoginSessionGate } from "@/components/entry/login-session-gate";
 import { LOGIN_BRAND } from "@/lib/mock/entry";
 
 /**
@@ -16,7 +17,8 @@ export default function LoginPage({
   const state = resolvePreviewState(searchParams.state);
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-3 p-4">
+    <LoginSessionGate>
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-3 p-4">
       {/* dev 预览条：生产不渲染 */}
       <div className="flex flex-col gap-1">
         <StatePreviewSwitcher current={state} />
@@ -75,6 +77,7 @@ export default function LoginPage({
           </div>
         </aside>
       </div>
-    </div>
+      </div>
+    </LoginSessionGate>
   );
 }

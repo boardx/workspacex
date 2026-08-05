@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { ProjectsScreen } from "@/components/projects/projects-screen";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 
 /**
  * 项目列表（F353 —— 从 `lib/mock/projects.ts` 切到真实 `GET /projects`）。
@@ -16,11 +16,9 @@ export default function ProjectsPage({
   searchParams: { as?: string; org?: string };
 }) {
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
-
   return (
-    <AppShell identity={identity} previewRole={previewRole}>
-      <ProjectsScreen initialOrgId={searchParams.org ?? ""} />
+    <AppShell previewRole={previewRole}>
+      <ProjectsScreen />
     </AppShell>
   );
 }

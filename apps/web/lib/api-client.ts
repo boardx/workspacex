@@ -47,11 +47,7 @@ export function clearStoredSessionToken(): void {
   window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
 }
 
-/**
- * 后端失败信封的最小形状。控制器统一抛 `{ reasonCode }`（见
- * `apps/api/src/interface/controllers/project.controller.ts` 的 catch 分支），
- * Nest 的默认异常过滤器把它包进 `{ statusCode, message }`，`message` 就是那个对象。
- */
+/** 后端统一失败信封的客户端投影：`{ error, traceId, reasonCode? }`。 */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -72,7 +68,11 @@ export interface ApiRequestOptions {
 }
 
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {
-  const url = new URL(path, apiBaseUrl());
+  // Full-stack browser gates keep browser traffic same-origin through an explicit proxy
+  // prefix. The default is empty, so production URLs retain their signed controller paths.
+  const prefix = (process.env.NEXT_PUBLIC_API_PATH_PREFIX ?? "").replace(/\/$/, "");
+  const requestPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(`${prefix}${requestPath}`, apiBaseUrl());
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined) url.searchParams.set(k, v);
@@ -99,20 +99,15 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
   const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    const reasonCode =
-      json && typeof json === "object" && "message" in json
-        ? extractReasonCode((json as { message: unknown }).message)
-        : null;
+    const reasonCode = extractReasonCode(json);
     throw new ApiError(res.status, reasonCode, json);
   }
   return json as T;
 }
 
-/** Nest 的默认异常体是 `{ statusCode, message }`；`message` 可能是我们抛的
- *  `{ reasonCode }`，也可能是普通字符串（比如 `ContractValidationError`）。 */
-function extractReasonCode(message: unknown): string | null {
-  if (typeof message === "object" && message !== null && "reasonCode" in message) {
-    const v = (message as { reasonCode: unknown }).reasonCode;
+function extractReasonCode(envelope: unknown): string | null {
+  if (typeof envelope === "object" && envelope !== null && "reasonCode" in envelope) {
+    const v = (envelope as { reasonCode: unknown }).reasonCode;
     return typeof v === "string" ? v : null;
   }
   return null;

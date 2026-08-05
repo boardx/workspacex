@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
-import type { Identity } from "@/lib/identity";
+import type { ProjectRole } from "@/lib/identity";
 import {
   SKILL_SCREENS, SKILL_SCREEN_LABEL, SKILL_SCREEN_UC, SKILL_VIEWS,
   type SkillScreen, type SkillView,
@@ -26,9 +26,9 @@ import { SkillFeedback } from "./skill-feedback";
  * 后台的 worker（library 试跑、feedback 归因）/ 项目里的主持人（binding 三视角）。
  */
 export function SkillApp({
-  identity, uiState, screen, view, qs,
+  previewRole, uiState, screen, view, qs,
 }: {
-  identity: Identity;
+  previewRole: ProjectRole | null;
   uiState: UiState;
   screen: SkillScreen;
   view: SkillView;
@@ -46,8 +46,7 @@ export function SkillApp({
 
   return (
     <AppShell
-      identity={identity}
-      previewRole={identity.projectRole}
+      previewRole={previewRole}
       left={<LeftNav screen={screen} href={href} />}
       right={<RightRail screen={screen} />}
     >

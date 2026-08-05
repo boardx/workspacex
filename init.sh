@@ -4,7 +4,7 @@
 set -euo pipefail
 
 INSTALL_CMD="pnpm install"
-VERIFY_CMD="pnpm -w run verify:base"   # 基础验证:类型检查 + lint + 单测
+VERIFY_CMD="pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm -w run verify:base:raw"   # 基础验证:类型检查 + lint + 单测
 START_CMD=""   # 模板无应用层；接入你的 app 后改成真实启动命令（如 pnpm -w run dev）
 
 echo "==> 工作目录: $(pwd)"
@@ -15,8 +15,9 @@ eval "${INSTALL_CMD}"
 echo "==> 安装 git hooks"
 # 总是覆盖安装（保证 hook 升级生效；内容幂等）。
 install_pre_commit_hook() {
-  local hook_path=".git/hooks/pre-commit"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/pre-commit)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (pre-commit): 三道防线
@@ -59,8 +60,9 @@ HOOK
 # e2e 每 3 小时）+ feature 转 passing 前的 pnpm harness verify / verify:full 承担。
 # 跳过用 git push --no-verify；push 前想跑全量：pnpm -w run verify:full。
 install_pre_push_hook() {
-  local hook_path=".git/hooks/pre-push"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/pre-push)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (pre-push): 轻量门控（受影响模块 typecheck/lint/test，对齐 CI）
@@ -94,7 +96,7 @@ if [ -n "${BASE_SHA}" ]; then
     fi
   done
   export TURBO_SCM_BASE="${BASE_SHA}"
-  if ! pnpm turbo run typecheck lint test --affected; then
+  if ! pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm turbo run typecheck lint test --affected; then
     echo "✗ [harness] 受影响模块验证失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
     exit 1
   fi
@@ -115,8 +117,9 @@ HOOK
 # branch -f 让另一个恰好检出同一分支的并发会话无声丢失 commit。worktree 内天然隔离，
 # 不受影响。临时放行：ALLOW_HISTORY_REWRITE=1 <原命令>。
 install_reference_transaction_hook() {
-  local hook_path=".git/hooks/reference-transaction"
-  mkdir -p .git/hooks
+  local hook_path
+  hook_path="$(git rev-parse --git-path hooks/reference-transaction)"
+  mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
 # harness-hook (reference-transaction): 见 ADR-005
@@ -153,12 +156,12 @@ HOOK
   echo "  ✓ reference-transaction hook（共享主 checkout 非快进更新防护，ADR-005）"
 }
 
-if [ -d ".git" ]; then
+if git rev-parse --git-dir >/dev/null 2>&1; then
   install_pre_commit_hook
   install_pre_push_hook
   install_reference_transaction_hook
 else
-  echo "  ! 不在 git 仓库根目录，跳过 hook 安装"
+  echo "  ! 不在 git 仓库中，跳过 hook 安装"
 fi
 
 echo "==> 生成 subagent（从 .harness/agents/*.yaml → .claude/agents + .codex/agents）"

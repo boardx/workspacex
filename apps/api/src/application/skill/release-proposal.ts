@@ -3,7 +3,7 @@
  *
  * 与 `publish-new-version.ts`（F66）的关系：本文件只多做一件事——先问
  * `authorizeProposalRelease`「这份提案有没有被批准」，过了才转给 F66 的
- * `publishNewVersion` 走版本链本身的发布逻辑。**不重做**版本链的并发/归档判断。
+ * `releaseSkillVersion` 走版本链本身的发布逻辑。**不重做**版本链的并发/归档判断。
  *
  * ⚠ `PROPOSAL_NOT_REVIEWED`（绕过复核直接调用本入口）**写安全审计**——
  *   与 `advance-skill-status.ts` 的 `GATE_NOT_PASSED` 同一条纪律：
@@ -11,7 +11,7 @@
  */
 import { authorizeProposalRelease, type ProposalReleaseGateState } from "../../domain/skill/proposal-release-gate";
 import type { SkillErrorCode } from "../../domain/skill/declarative-contract";
-import { publishNewVersion, type PublishNewVersionResult } from "./publish-new-version";
+import { releaseSkillVersion, type ReleaseSkillVersionResult } from "./release-skill-version";
 import type { SecurityAuditPort, SkillVersionStorePort } from "./ports";
 
 export interface ReleaseProposalInput {
@@ -25,7 +25,7 @@ export interface ReleaseProposalInput {
 }
 
 export type ReleaseProposalResult =
-  | PublishNewVersionResult
+  | ReleaseSkillVersionResult
   | { readonly ok: false; readonly code: SkillErrorCode; readonly reason: string };
 
 export async function releaseProposal(
@@ -45,7 +45,7 @@ export async function releaseProposal(
     return { ok: false, code: verdict.code, reason: verdict.reason };
   }
 
-  return publishNewVersion(
+  return releaseSkillVersion(
     {
       skillId: input.skillId,
       versionId: input.versionId,

@@ -102,3 +102,11 @@ export class EmailTakenError extends Error {
     super("email_taken");
   }
 }
+
+/** The one-time, invite-free cold-start path has already been consumed. */
+export class BootstrapUnavailableError extends Error {
+  readonly reasonCode: AuthReasonCode = "BOOTSTRAP_UNAVAILABLE";
+  constructor() {
+    super("bootstrap_unavailable");
+  }
+}

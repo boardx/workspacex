@@ -96,7 +96,7 @@ phases/phase-00-shared-kernel/contracts/identity/
 > **引用的截图集合 == 对应 `ui-preview/<目录>/` 里实存的 png 集合**——
 > 双向、逐张、点名到具体路径/文件名。
 >
-> 三条写作约定，违反会红：
+> 四条写作约定，违反会红：
 > 1. **束↔截图目录的映射只声明在 `.harness/scripts/ui-material-map.json`**（唯一事实源）。
 >    四个束目录名与束名不同（`interview`→`itv-v2`、`recording`→`rec`、`skills`→`skill`、
 >    `templates`→`tpl`），所以门控**不猜同名**；新束不补映射 = 报「未声明」，不是静默跳过。
@@ -104,6 +104,12 @@ phases/phase-00-shared-kernel/contracts/identity/
 >    写成 `foo.png` 会被判为死链。正确写法：去掉 `.png` 后缀，用文字描述缺哪张。
 > 3. **顶部那行「本文件引用 N 张，目录实存 M 张」的自检必须存在，且数字被机械核对。**
 >    它是同一事实的第二份副本，不核对就一定漂移。
+> 4. **只有「不引入新界面」的束可显式复用同 phase 材料。** map 写
+>    `{ "reuse_bundle": "<束名>" }`；目标束必须是自有 concrete 目录且独立全绿的束。
+>    复用束 `ui.md` 顶部写
+>    `> **UI material reuse: no new screen; reuse_bundle: \`<束名>\`.**`，并对目标目录
+>    仍执行完整的双向集合相等。不复制截图；self/missing/cycle/chained/跨 phase/
+>    越出目标目录均 fail closed。
 >
 > ⚠ 别再手写 grep 去数截图：文件名含中文，`[a-z0-9-]+\.png` 那类正则会对每个束返回
 > **0 处命中**而看起来「全绿」——2026-07-30 已真实发生过一次，错数字还被上报了两次。

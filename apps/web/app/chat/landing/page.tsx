@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 import { ChatLeftPanel } from "@/components/chat/chat-left-panel";
 import { ChatRightPanel } from "@/components/chat/chat-right-panel";
 import { LandingPanel } from "@/components/chat/landing-panel";
@@ -17,12 +17,10 @@ export default function ChatLandingPage({
 }: { searchParams: { state?: string; as?: string; org?: string } }) {
   const state = resolvePreviewState(searchParams.state);
   const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
   const readOnly = previewRole === "observer";
 
   return (
     <AppShell
-      identity={identity}
       previewRole={previewRole}
       left={<ChatLeftPanel />}
       right={<ChatRightPanel state={state} />}

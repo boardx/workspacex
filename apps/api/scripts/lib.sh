@@ -3,10 +3,10 @@
 set -euo pipefail
 
 API_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE="docker compose -f ${API_DIR}/docker-compose.dev.yml -p workspacex-kernel"
+COMPOSE="docker compose -f ${API_DIR}/docker-compose.dev.yml -p ${COMPOSE_PROJECT_NAME:-workspacex-kernel}"
 
 export PGHOST=127.0.0.1
-export PGPORT=55432
+export PGPORT="${PGPORT:-55432}"
 export MIGRATION_DB_USER=postgres
 export MIGRATION_DB_PASSWORD=postgres_dev
 export APP_DB_USER=app_rw

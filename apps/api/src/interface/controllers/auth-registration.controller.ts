@@ -26,7 +26,12 @@ import {
 } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
 import { registerWithInvite } from "../../application/auth/register-with-invite";
-import { EmailTakenError, InviteCodeInvalidError } from "../../application/auth/errors";
+import { bootstrapFirstUser } from "../../application/auth/bootstrap-first-user";
+import {
+  BootstrapUnavailableError,
+  EmailTakenError,
+  InviteCodeInvalidError,
+} from "../../application/auth/errors";
 import {
   PASSWORD_HASHER,
   REGISTRATION_REPOSITORY,
@@ -38,6 +43,7 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 /** Exported so `contract-single-source.test.ts` can assert reference identity with the contract. */
 export const REGISTER_SCHEMA = C.operations.redeemInviteAndCreateOrg.in;
+export const BOOTSTRAP_SCHEMA = C.operations.bootstrapFirstUser.in;
 
 type RegisterBody = {
   code: string;
@@ -47,12 +53,30 @@ type RegisterBody = {
   orgName: string;
 };
 
+type BootstrapBody = Omit<RegisterBody, "code">;
+
 @Controller()
 export class AuthRegistrationController {
   constructor(
     @Inject(REGISTRATION_REPOSITORY) private readonly repo: RegistrationRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
   ) {}
+
+  @Public()
+  @Post("/auth/bootstrap")
+  async bootstrap(@Body(new ZodBodyPipe(BOOTSTRAP_SCHEMA)) body: BootstrapBody) {
+    try {
+      return await bootstrapFirstUser(
+        { repo: this.repo, hasher: this.hasher },
+        body,
+      );
+    } catch (e) {
+      if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
+        throw new ConflictException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
 
   /**
    * 201 (Nest's default for POST) -- a resource really is created here, two of them.

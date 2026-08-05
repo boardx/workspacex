@@ -1,0 +1,70 @@
+# wrangler.toml — devportal（develop.boardx.us）的 Pages 部署配置（issue #543）
+# 仓库即唯一事实来源：此前 nodejs_compat/vars 只存在于 Cloudflare dashboard，换环境
+# 无法复现部署——现在全部非敏感配置在此声明，`wrangler pages deploy` 自动读取。
+#
+# 部署（首次与日常步骤见同目录 README.md；日常由 CI deploy-devportal.yml 自动执行）：
+#   pnpm build && pnpm exec next-on-pages
+#   pnpm exec wrangler pages deploy .vercel/output/static --branch main
+#
+# 敏感值不在此文件（Pages 加密 secret，wrangler pages secret put 写入）：
+#   GITHUB_TOKEN        细粒度只读 PAT（数据源）
+#   COORD_GATEWAY_ADMIN_TOKEN  coord-gateway 的 COORD_ADMIN_TOKEN（F08 按仓 scoped
+#                       token 的 mint 特权），仅服务端持有，永不下发浏览器；
+#                       未配置时门户按钮置灰（fail-closed），配置遵守 env 原子纪律
+#   COORD_API_TOKEN     coord-gateway REST/WS 的 bearer（p29/F09）——服务端代理用它
+#                       向 gateway 换 60s 一次性 WS ticket，永不下发浏览器：
+#   pnpm exec wrangler pages secret put COORD_API_TOKEN --project-name devportal
+#   （env 原子纪律：先 put 此 secret，再合入引用它的代码——禁止先删后合/先合后补）
+# GITHUB_TOKEN（细粒度只读 PAT）是 Pages 加密 secret——
+#   pnpm exec wrangler pages secret put GITHUB_TOKEN --project-name devportal
+#   GITHUB_OAUTH_CLIENT_SECRET  GitHub App（4470270 workspacex-coordinator）的 OAuth
+#                       client secret（p30-F02）：
+#   pnpm exec wrangler pages secret put GITHUB_OAUTH_CLIENT_SECRET --project-name devportal
+#   SESSION_SECRET  OAuth session cookie 的 HMAC 密钥（≥32 字节随机串，p30-F02）：
+#   pnpm exec wrangler pages secret put SESSION_SECRET --project-name devportal
+#   （env 原子纪律：两个 secret 都先 put，再合入本 PR——先删后合/先合后补都会被 CD 踩中）
+#   GITHUB_WRITE_TOKEN（可选，p30-F06 UC-04 加入申请 onboarding issue 双写，N5）：
+#   细粒度**写**权限 PAT（GITHUB_TOKEN 是只读，开不了 issue）。未配置时不假装能工作——
+#   加入申请仍正常进 pending，只是不自动开/更新 onboarding issue（响应里如实标注
+#   onboarding_issue.configured=false）：
+#   pnpm exec wrangler pages secret put GITHUB_WRITE_TOKEN --project-name devportal
+name = "devportal"
+pages_build_output_dir = ".vercel/output/static"
+# ⚠️ 不要低于 2024-11-11：fetch 的 cache:"no-store" 选项要求该日期起的运行时，
+# 低于它所有带 cache 选项的出站 fetch 直接抛异常（2026-07-12 生产事故：#550 把
+# 日期写成 2024-11-01，devportal 全部数据源同时 unreachable）。
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# 非敏感运行时配置（协作平面数据源与门禁域；变更走 PR，部署即生效）
+# 2026-07-18 割接（p29-F10 stage-2，ADR-017）：旧 coord-service 通道已删——
+# COORD_SERVICE_URL 与加密 secret COORD_DISPATCH_TOKEN / COORD_BROKER_TOKEN 全部
+# 退役（Pages 项目侧的两个残留 secret 可由人类运维在 dashboard 删除，代码已不读）。
+# 协调面读写统一走 coord-gateway：COORD_GATEWAY_URL + GITHUB_REPO + 加密 secret
+# COORD_API_TOKEN（读面/WS ticket）与 COORD_GATEWAY_ADMIN_TOKEN（mint/派工管理面）。
+# F08：按仓 scoped token 的发放上游（coord-gateway；配合加密 secret COORD_GATEWAY_ADMIN_TOKEN）
+# p29/F09：coord-gateway 同时是 RepoHub WS 实时流 + stream-ticket 签发端。
+# 与 COORD_API_TOKEN（加密 secret，见上）配对；两者齐备后 /api/portal/coord-stream
+# 才返回 configured:true——缺任一即诚实降级为纯轮询，不是故障。
+COORD_GATEWAY_URL = "https://workspacex-coord-gateway.boardx.workers.dev"
+GITHUB_REPO = "boardx/workspacex"
+CF_ACCESS_TEAM_DOMAIN = "https://boardx.cloudflareaccess.com"
+# p30-F02（D3 阶段 2）：GitHub App OAuth 的 client id（非敏感；client secret 与
+# SESSION_SECRET 是 Pages 加密 secret，见文件头）。callback URL 需在 GitHub App 侧
+# 注册为 https://develop.boardx.us/api/coord/oauth/github/callback。
+# 2026-08-04（#479）：迁入本仓时这三个值整块沿用旧模板仓且全部是错的——client id
+# 指向查不到的 App 4328933、slug 是文件自己标注的占位值、gateway 指向已改名的旧
+# Worker。现改为真实的 workspacex-coordinator（App 4470270），gateway 对齐
+# apps/coord-gateway/wrangler.toml 的 name；一致性由
+# tests/workspacex-integration.test.ts 机械核对，不再靠人记得改。
+GITHUB_OAUTH_CLIENT_ID = "Iv23li04uGG7S4NH5Y8E"
+# p30-F05：GitHub App 的公开 slug（非敏感；不是数字 App ID 4470270，也不是 OAuth
+# client id）——安装链接 https://github.com/apps/<slug>/installations/new 用它拼出。
+# 「Setup URL」需在 GitHub App 设置里登记为
+#   https://develop.boardx.us/api/coord/onboard/callback
+GITHUB_APP_SLUG = "workspacex-coordinator"
+# CF_ACCESS_AUD：Access 应用的 audience tag（拿到后填上即启用 aud 严格校验，
+# 见 lib/access.ts——当前 API token 无 Access 读权限，从 dashboard 的
+# Zero Trust → Access → Applications → develop.boardx.us 应用详情可查）
+# CF_ACCESS_AUD = "<aud tag>"
