@@ -140,25 +140,27 @@ describe("normalizedPath 与 skill_version_files CHECK 的同义性（实测，�
   });
 
 /**
- * ⚠⚠ **已实测确认的分叉，尚未修复 —— 这是一条被登记的债，不是被接受的现状。**
+ * ⚠ **曾经的分叉，已修复（#595）。清单现在是空的，这本身就是断言。**
  *
- * 两条路径**应用层放行、DB 拒**：
- *   · `".."`  —— `normalizedPath` 的规则拒 `"."`、拒 `"../"` 开头，
- *                **但一个光秃秃的 `".."` 两条都不沾**，于是被放行。
- *   · `"a/"`  —— 结尾斜杠，`posix.normalize` 不改写它，于是被放行。
+ * 实测曾发现两条「应用层放行、DB 拒」：`".."`（既不等于 `"."` 也不以 `"../"` 开头）
+ * 与 `"a/"`（`posix.normalize` 不改写结尾斜杠）。方向在安全那一侧（DB 更严），
+ * 但 `normalizedPath` 是全仓路径判定的**单一事实源**，任何没有 DB 兜底的复用点
+ * 都会因此逃一级目录。⇒ 已按裁定**收紧应用层**（DB 那侧不动，它是对的）。
  *
- * **方向是安全的那一侧**（DB 更严 ⇒ 今天写不进库）。但危害不为零：
- * 我在 #595 段 1 里明确要求「路径判定一律复用 `normalizedPath`，不另起一套」，
- * ⇒ 任何**没有 DB CHECK 兜底**的复用点（文件系统路径、zip 解压目标、
- *   对象存储 key）都会因为这条放行而向上逃一级目录。
- *
- * ⛔ **本轮不修**：哪边是对的是设计决定，已回报 coordinator。
- * ⚠ 这个常量把债变成**机械**的：新增分叉会红，分叉被修好**也会红**
- *   （提醒来更新这里），两个方向都不会静悄悄地过去。
+ * ⚠ 这个常量**保持存在**：新增分叉会红，**清单与实测不符也会红**。
+ *   ⛔ 不要因为它现在是空的就删掉它——它为空正是「已修好」的机械证据。
  */
-const KNOWN_DIVERGENCES_DB_STRICTER: readonly string[] = ["..", "a/"];
+const KNOWN_DIVERGENCES_DB_STRICTER: readonly string[] = [];
 
-  it("逐条比对：两边判定必须一致（已知分叉除外，且已知分叉本身被锁住）", async () => {
+  /** 曾经的两条分叉，逐条钉死——防止收紧被回退。 */
+  it("回归：`..` 与 `a/` 现在两边都拒", async () => {
+    for (const path of ["..", "a/"]) {
+      expect(appLayerAccepts(path)).toBe(false);
+      expect(await dbAccepts(path)).toBe(false);
+    }
+  });
+
+  it("逐条比对：两边判定必须一致（已知分叉清单现为空）", async () => {
     const dbStricter: string[] = [];
     const dbLooser: string[] = [];
 

@@ -32,13 +32,31 @@ function decodeBase64(value: string): Buffer {
  *   要改规则请改这里，并同步那条 CHECK。
  */
 export function normalizedPath(path: string): string {
-  if (path.includes("\\") || path.startsWith("/") || path.includes("\0")) {
-    throw new InvalidSkillStarterPackError();
+  if (path.includes("\\") || path.includes("\0")) throw new InvalidSkillStarterPackError();
+
+  /**
+   * ⚠ 逐条对齐 DB 的 `skill_version_files_normal_path`，**不是各写各的**：
+   *   · `path ~ '^[^/\\]+(/[^/\\]+)*$'` ⇒ 段非空、无首尾斜杠、无 `//`；
+   *   · `path !~ '(^|/)\.{1,2}(/|$)'`   ⇒ 任何一段都不能是 `.` 或 `..`。
+   *
+   * 旧实现用「`posix.normalize` 改写过就拒 + 拒 `.` + 拒 `../` 开头」近似这套规则，
+   * **实测漏掉两条**（`skill-file-path-check-parity.test.ts`）：
+   *   · `".."` —— 既不等于 `"."`，也不以 `"../"` 开头，于是被放行；
+   *   · `"a/"` —— `posix.normalize` 不改写结尾斜杠，于是被放行。
+   * 两条都被 DB 拒掉，所以从没写进过库；但**这个函数是全仓路径判定的单一事实源**
+   * （#595 段 1 要求一律复用它），任何没有 DB 兜底的复用点都会因此逃一级目录。
+   * ⇒ 现在按段切，语义与 DB 一一对应，不再靠 `normalize` 的副作用近似。
+   */
+  const segments = path.split("/");
+  for (const segment of segments) {
+    if (segment === "" || segment === "." || segment === "..") {
+      throw new InvalidSkillStarterPackError();
+    }
   }
+
+  // 仍然拒绝任何 `normalize` 会改写的形状，作为上面逐段规则的冗余兜底。
   const normalized = posix.normalize(path);
-  if (normalized !== path || normalized === "." || normalized.startsWith("../")) {
-    throw new InvalidSkillStarterPackError();
-  }
+  if (normalized !== path) throw new InvalidSkillStarterPackError();
   return normalized;
 }
 
