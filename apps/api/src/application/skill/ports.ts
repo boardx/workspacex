@@ -146,6 +146,20 @@ export interface SkillContractRow {
 export interface SkillContractDetail {
   readonly row: SkillContractRow;
   readonly contract: DeclarativeContract;
+  /**
+   * **本响应正文所属的那一版**（#552）。
+   *
+   * ⚠ 与 `row.currentVersionId`（＝**生效**版本，草稿期恒 null）**不是同一件事**，
+   *   这正是契约把 `currentVersionId` 同时放在 `getSkillDetail.out` 顶层与
+   *   `SkillListItem` 里面的原因：同一个事实声明两遍是本仓九次漂移的形状，
+   *   两个不同的事实各有一处才是它该有的读法。
+   *
+   * ⚠ 没有它，**评审这条链在界面上无法开始**：契约的三条门禁路径都挂在
+   *   `/skill-versions/:versionId/...` 上，而一个刚建好的草稿其 `生效版本` 是 null，
+   *   于是前端拿不到任何 versionId。这个字段是那条链唯一不违背 ADR-020
+   *   （不新增契约外路由）的取数口。**该读法已在 PR 里请签核人复看。**
+   */
+  readonly bodyVersionId: string;
 }
 
 /**

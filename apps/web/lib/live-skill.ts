@@ -60,3 +60,83 @@ export async function getSkillDetail(skillId: string): Promise<SkillDetail> {
     { method: "GET" },
   );
 }
+
+/* ═════════════════ #552：双重门禁的三条路径 ═════════════════ */
+
+/**
+ * ## 这三个函数补的是什么
+ *
+ * 在 #552 之前，这套系统里**没有任何路径能把一个 skill 变成「已启用」**：
+ * `reviewSkillVersion` 有用例、有单测，interface 层引用数为 0。于是使用者
+ * 自己新建的 skill 永远停在草稿，而 `mountSkillToThread` 硬要求 `已启用` ——
+ * 「新建 skill」绿、「会话内挂载 skill」也绿，中间那条线是断的。
+ *
+ * ## ⚠ 这里**依然没有** `enableSkill`
+ *
+ * 契约的 `SKILLS_FORBIDDEN_ROUTES` 逐字禁止 `POST /skills/:skillId/enable`
+ * （「一条直达的启用路由**就是那条绕过路径本身**」）。本文件因此没有那个函数，
+ * 也没有任何一处直接写 `status: "已启用"`：那个状态只由 `reviewSkillVersion`
+ * 的 approve 分支在服务端产生，前端只是把结果显示出来。
+ *
+ * ## ⚠ 同样不做判断
+ *
+ * 没有「我是不是方法论审核人」的分支，也没有「不是就把按钮藏起来」。
+ * 两职能不合并（I-5/V14）是**服务端**的裁决：安全评审人调用审核会拿到
+ * `REVIEWER_FUNCTION_MISMATCH`。在客户端复述一份，就是给同一条规则留了
+ * 第二份会漂移的副本 —— 而这一条恰恰是 `SKILLS_FORBIDDEN_ROUTES` 要守的东西。
+ */
+
+export type RunSecurityScanOut = z.infer<typeof skills.operations.runSecurityScan.out>;
+export type SubmitSkillForReviewOut = z.infer<typeof skills.operations.submitSkillForReview.out>;
+export type ReviewSkillVersionOut = z.infer<typeof skills.operations.reviewSkillVersion.out>;
+export type ReviewDecision = z.infer<typeof skills.ReviewDecision>;
+
+/** 三条路径都是 `/skill-versions/:versionId/…`，占位符只有这一个。 */
+function versionPath(path: string, versionId: string): string {
+  return path.replace(":versionId", encodeURIComponent(versionId));
+}
+
+/** 门禁第一道（自动）。⚠ 判拒是 422 且**照样落库**——「扫过被拒」≠「从未扫过」。 */
+export async function runSecurityScan(versionId: string): Promise<RunSecurityScanOut> {
+  return apiRequest<RunSecurityScanOut>(
+    versionPath(skills.operations.runSecurityScan.path, versionId),
+    { method: "POST", body: { versionId } },
+  );
+}
+
+/**
+ * `草稿 → 待审核`。
+ *
+ * ⚠ `expectedVersion` 传的是调用方**上次看到的那个版本状态**（乐观并发）。
+ *   不传会让两次提交里的一次被静默吞掉（契约 `SKILL_VERSION_CHANGED` 就是为它准备的）。
+ */
+export async function submitSkillForReview(
+  versionId: string,
+  expectedVersion: string,
+): Promise<SubmitSkillForReviewOut> {
+  return apiRequest<SubmitSkillForReviewOut>(
+    versionPath(skills.operations.submitSkillForReview.path, versionId),
+    { method: "POST", body: { versionId, expectedVersion } },
+  );
+}
+
+/** 门禁第二道（人工）——**系统里唯一产生 `已启用` 的路径**。 */
+export async function reviewSkillVersion(input: {
+  readonly versionId: string;
+  readonly decision: ReviewDecision;
+  readonly reason: string;
+  readonly riskAcks: readonly string[];
+}): Promise<ReviewSkillVersionOut> {
+  return apiRequest<ReviewSkillVersionOut>(
+    versionPath(skills.operations.reviewSkillVersion.path, input.versionId),
+    {
+      method: "POST",
+      body: {
+        versionId: input.versionId,
+        decision: input.decision,
+        reason: input.reason,
+        riskAcks: [...input.riskAcks],
+      },
+    },
+  );
+}

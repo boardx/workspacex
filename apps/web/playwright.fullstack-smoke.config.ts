@@ -52,6 +52,12 @@ const fixtureEnv = {
   FULLSTACK_E2E_MEMBER_EMAIL: FULLSTACK_E2E.memberEmail,
   FULLSTACK_E2E_MEMBER_PASSWORD: FULLSTACK_E2E.memberPassword,
   FULLSTACK_E2E_MEMBER_USER_ID: FULLSTACK_E2E.memberUserId,
+  // #552：真的持 `security-reviewer` 职能的那位（两职能不合并，I-5/V14）。
+  // ⚠ 这三行属于 **`fixtureEnv`**（下发给 seed 脚本与 API 进程），不是 `modelProviderEnv`
+  //   之类别的对象 —— 合错对象时 tsc **不报错**，但 seed 读不到，表现成「种子没生效」。
+  FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL: FULLSTACK_E2E.securityReviewerEmail,
+  FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD: FULLSTACK_E2E.securityReviewerPassword,
+  FULLSTACK_E2E_SECURITY_REVIEWER_USER_ID: FULLSTACK_E2E.securityReviewerUserId,
   // #435：种一个**真的跑得起来**的 Agent。provider/model 只有这一份字面量（见 fixture）。
   FULLSTACK_E2E_AGENT_ID: FULLSTACK_E2E.agentId,
   FULLSTACK_E2E_AGENT_NAME: FULLSTACK_E2E.agentDisplayName,
@@ -155,6 +161,10 @@ export default defineConfig({
         //   排进 `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有——它会红，
         //   但**不是因为对的原因**。
         "skill-create-smoke.spec.ts",
+        // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /
+        //   安全评审人）以及 `skill_reviewer_functions` 里的职能指派。排进
+        //   `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有。
+        "skill-review-gate.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
@@ -242,6 +252,14 @@ export default defineConfig({
         // （浏览器拦不住服务端内部的落库调用）。见 `interface/recording/segment-ingestion.ts`。
         ...(process.env.WORKSPACEX_COUNTERPROOF_INGEST
           ? { WORKSPACEX_COUNTERPROOF_INGEST: process.env.WORKSPACEX_COUNTERPROOF_INGEST }
+          : {}),
+        // #552 反证 B：`skip-status-persist` —— 评审照常判定、评审记录照常写、
+        // HTTP 200 照常返回 `已启用`，但 `applyTransition` 一次都不调用。
+        // 开关下发给 **API 进程**（浏览器拦不住服务端内部的落库调用），
+        // 与上面 `WORKSPACEX_COUNTERPROOF_INGEST` 逐字同一个落法。
+        // 见 `interface/controllers/skill-review.controller.ts` 的 `skipsStatusPersist`。
+        ...(process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW
+          ? { WORKSPACEX_COUNTERPROOF_SKILL_REVIEW: process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW }
           : {}),
         PORT: apiPort,
       },

@@ -258,6 +258,7 @@ export class ScopedPgSkillContractRepository
       if (row === undefined) return null;
 
       const version = await s.query<{
+        id: string;
         prompt_template: string;
         input_schema: string;
         output_schema: string;
@@ -265,7 +266,7 @@ export class ScopedPgSkillContractRepository
         reads_raw_transcript: boolean;
         fallback_declaration: string;
       }>(
-        `SELECT prompt_template, input_schema, output_schema, data_scope,
+        `SELECT id, prompt_template, input_schema, output_schema, data_scope,
                 reads_raw_transcript, fallback_declaration
            FROM skill_contract_versions
           WHERE org_id = $1 AND skill_id = $2
@@ -279,6 +280,9 @@ export class ScopedPgSkillContractRepository
       const mapped = toRow(row);
       const detail: SkillContractDetail = {
         row: mapped,
+        // ⚠ 与上面那条 `ORDER BY version_number DESC LIMIT 1` 取的是**同一行**：
+        //   正文与它的 id 必须来自同一次查询，否则「这份正文是哪一版」会在并发发版时说错。
+        bodyVersionId: v.id,
         contract: {
           promptTemplate: v.prompt_template,
           inputSchema: v.input_schema,

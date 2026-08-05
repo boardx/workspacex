@@ -253,18 +253,37 @@ export class SkillController {
     if (!isDisclosed(disclosed)) throw new NotFoundException({ reasonCode: "SKILL_NOT_FOUND" });
     const detail = disclosed.payload;
 
+    // #552：两道门禁现在**有真实记录**（`skill_contract_security_scans` /
+    // `skill_contract_reviews`），所以下面不再硬编码 `null` / `false`。
+    const scan = await repository.latestScan(detail.bodyVersionId);
+    const review = await repository.latestReview(detail.bodyVersionId);
+
     return C.operations.getSkillDetail.out.parse({
       skill: toListItem(detail.row),
-      currentVersionId: detail.row.currentVersionId,
+      /**
+       * ⚠ **本响应正文所属的那一版**，不是 `skill.currentVersionId`（＝生效版本，草稿期 null）。
+       *
+       * 契约把 `currentVersionId` 同时放在这里和 `SkillListItem` 里；两处返回同一个值
+       * 就是本仓九次漂移的那个形状（同一事实声明两遍），而两个**不同的**事实各占一处
+       * 才讲得通。#459 自己的注释已经指出这份不一致：正文取的是最大版本号那一版，
+       * 而 `currentVersionId` 如实返回 null ——「能看到正文」与「有生效版本」是两件事。
+       *
+       * ⚠ 这条读法是 #552 让评审链在界面上**开得了头**的唯一取数口：三条门禁路径都挂在
+       *   `/skill-versions/:versionId/…`，草稿没有生效版本，前端否则拿不到任何 versionId。
+       *   新增一条契约外的「查最新版本 id」路由会违背 ADR-020。**已在 PR 里请签核人复看。**
+       */
+      currentVersionId: detail.bodyVersionId,
       contract: detail.contract,
       // ⚠ `null` 是**真实空态**（还没跑过），不是失败——契约 :501 逐字。
-      //   `runTrialRun` 不在 #459 范围内，所以今天恒为 null。
+      //   `runTrialRun` 仍然没有 HTTP 边界（不在 #552 范围内），所以今天恒为 null。
       latestTrialRun: null,
       gateResults: {
-        // 两道门禁（`runSecurityScan` / `reviewSkillVersion`）都不在 #459 范围内。
-        // `null` = 还没扫过；`false` = 方法论审核未通过。草稿本来就两道都没过。
-        securityScan: null,
-        methodologyReviewPassed: false,
+        // `null` = **从未扫过**，不是「扫过没过」——两者必须可分辨（`security-gate.ts` 逐字）。
+        securityScan: scan?.verdict ?? null,
+        // `false` 同时覆盖「还没人审」与「审了没过」：契约这里只有一个 boolean，
+        // 而**两者的区分活在 `skill_contract_reviews` 里**（有没有那一行）。
+        // 界面要区分时读的是那张表，不是把这个 boolean 掰成三态——那会变成第二份事实。
+        methodologyReviewPassed: review?.approved ?? false,
       },
       satisfaction: SATISFACTION_SAMPLE_INSUFFICIENT,
       promotionKnowledgeItemId: null,
