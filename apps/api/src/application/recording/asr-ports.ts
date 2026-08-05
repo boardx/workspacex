@@ -71,9 +71,18 @@ export interface AsrProviderPort {
 }
 
 export class AsrNotConfiguredError extends Error {
-  constructor(detail: string) {
-    super(`asr_not_configured: ${detail}`);
+  /**
+   * 缺了哪几个配置项。**独立字段，不是 `message`** —— `lint-error-leak.mjs` 对
+   * 接口层读 `err.message` 一律判泄漏，而那条门是对的：`message` 在这个仓里
+   * 惯常带着 SQL 片段与表名，边界层没法逐个甄别哪一个「其实是安全的」。
+   * 所以安全可外传的部分在这里有自己的名字，边界层读它，不读 `message`。
+   */
+  readonly configHint: string;
+
+  constructor(configHint: string) {
+    super(`asr_not_configured: ${configHint}`);
     this.name = "AsrNotConfiguredError";
+    this.configHint = configHint;
   }
 }
 

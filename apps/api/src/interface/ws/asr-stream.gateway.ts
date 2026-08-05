@@ -262,7 +262,9 @@ function serve(
       }).catch((e: unknown) => {
         if (e instanceof AsrNotConfiguredError) {
           // 诚实降级：界面显示「未配置转写」，**不是**静默失败、**不是**换个提供方。
-          return fail("ASR_NOT_CONFIGURED", e.message);
+          // ⚠ 读 `configHint` 而**不是** `e.message`：`lint-error-leak.mjs` 禁止
+          //   接口层读 `err.message`，因为它惯常带着 SQL 片段与表名。
+          return fail("ASR_NOT_CONFIGURED", e.configHint);
         }
         fail("ASR_PROVIDER_UNAVAILABLE", (e as Error).message);
       });
