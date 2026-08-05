@@ -189,6 +189,57 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
   });
 
   /**
+   * 🟢 #493：「**使用**一个模板」这条写路径同样必须落在契约声明的端点上，出口唯一。
+   *
+   * ⚠ 与「没有 mock 边」是两件事：一个屏可以既不引 `lib/mock`，又把绑定请求打到一个手抄的
+   *   `/canvas/agenda-segments/...` 字面量上——那正是本仓禁止的「第二个事实源」。手抄那一半
+   *   已被上面「整份 live-canvas 里不许出现 /canvas/ 字面量」挡住，这里补正向的一半。
+   */
+  it("#493 使用模板走契约声明的 bindTemplateToSegment 端点，且模板库屏真的调到了它", () => {
+    const client = readFileSync(resolve(ROOT, "lib/live-canvas.ts"), "utf8");
+    expect(client).toContain("canvas.operations.bindTemplateToSegment");
+
+    const tree = walk(TEMPLATE_ADMIN);
+    // 反空转：对话框必须真的在这棵树里，否则下面几条在描述一个没人渲染的组件。
+    expect(tree.visited).toContain("components/canvas/template-apply-dialog.tsx");
+    // ⚠ 判据是 `canvas.operations.bindTemplateToSegment` 而不是 `bindTemplateToSegment.path`：
+    //   实现里是 `const op = canvas.operations.bindTemplateToSegment;` 再 `op.path.replace(...)`，
+    //   按后者去数会命中 0 个文件 —— 一条恒红（改天有人「顺手修好」就变恒绿）的断言。
+    const callers = tree.visited
+      .filter((f) => readFileSync(resolve(ROOT, f), "utf8").includes("canvas.operations.bindTemplateToSegment"));
+    expect(callers).toEqual(["lib/live-canvas.ts"]);
+    // 而且路径确实是从契约对象上替换出来的，不是拼字符串。
+    expect(client).toContain("op.path.replace(\":agendaSegmentId\"");
+
+    const dialog = readFileSync(resolve(ROOT, "components/canvas/template-apply-dialog.tsx"), "utf8");
+    expect(dialog).toContain("bindCanvasTemplateToSegment(");
+    // 环节 id 来自 `GET /projects/:id/overview` 的真实响应，不是界面上一个输入框。
+    expect(dialog).toContain("getProjectOverview(");
+    expect(dialog).toContain("currentAgendaSegment");
+  });
+
+  /**
+   * 🟢 #493：**绑定成功之后必须重新读一次列表**，不许在本地把 `usageCount` 加一。
+   *
+   * `usageCount` 是服务端 `COUNT(*) FROM canvas_template_bindings` 现查出来的，核心闭环
+   * 第 8c 步靠它区分「写进了 PostgreSQL」与「写进了 React state」。前端自己加一，那条 e2e
+   * 断言就会在绑定根本没落库时照样绿 —— 本仓九次「全绿但空转」的又一种形态。
+   *
+   * ⚠ 切的是 `applied` 这**一个函数的函数体**，不是「两个名字在文件里离得远不远」
+   *   （理由与下面 #496 那条逐字相同）。
+   */
+  it("#493 使用成功后重新读列表：applied 的函数体里 await load()，且没碰 usageCount", () => {
+    const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
+    const body = functionBody(admin, "async function applied(");
+    expect(body).toContain("await load()");
+    expect(body).not.toContain("usageCount");
+
+    // 正样本：同一台切割器切 `create` 时切得到它自己的创建调用 —— 证明它不是对任何输入
+    // 都返回一段「刚好不含目标字符串」的文本。
+    expect(functionBody(admin, "async function create(")).toContain("createCanvasTemplate(");
+  });
+
+  /**
    * 🟡 #496：**新建不许顺手发布**。服务端是两步（造一行 `draft` → `publishTemplate`），
    * 界面把它们合成一步，就是在前端把已签核的三段发布流程抹掉一段。
    *
