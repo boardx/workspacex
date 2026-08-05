@@ -26,8 +26,10 @@ import { addOrgMember, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg 
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
-// 本条路由要密封凭据，cipher 从环境取 key（缺 key 是启动失败，不是静默降级）。
-process.env.MODEL_CREDENTIAL_KEY ??= "test-key-548-not-a-production-secret";
+// ⚠ `MODEL_CREDENTIAL_KEY` **不在这里设**，由 `vitest.config.ts` 的 `env` 统一下发。
+//   缺 key 是**整个 API 的启动失败**（见 cipher 文件头），因此每一个调 `createApp()` 的
+//   文件都需要它，不只是本文件。它曾经只在这里设过一次，代价是另外 63 个文件在
+//   `NestFactory.create` 里 `process.abort()`，日志上只剩「Worker exited unexpectedly」。
 
 const ORG = "org-548-pool";
 const ADMIN = "u-548-admin";
