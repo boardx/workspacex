@@ -54,8 +54,12 @@ import type {
   CreateOrgInviteInput,
   CreateOrgInviteResult,
   OrgInviteRepository,
+  ResendOrgInviteInput,
+  ResendOrgInviteResult,
   ReviewOrgInviteInput,
   ReviewOrgInviteResult,
+  RevokeOrgInviteInput,
+  RevokeOrgInviteResult,
 } from "../../application/auth/org-invite-ports";
 import { detectTamper, isSelfReview } from "../../domain/auth/org-invite";
 import { toOrgId, type OrgId } from "../../domain/org-id";
@@ -63,7 +67,16 @@ import { toOrgId, type OrgId } from "../../domain/org-id";
 /** 事务内抛、事务外接，唯一能让一个不该提交的事务不提交的办法。 */
 class Rollback extends Error {
   constructor(
-    readonly reason: "duplicate" | "already-member" | "not-found" | "quota-exhausted" | "self-review" | "already-decided",
+    readonly reason:
+      | "duplicate"
+      | "already-member"
+      | "not-found"
+      | "quota-exhausted"
+      | "self-review"
+      | "already-decided"
+      | "rate-limited"
+      | "not-resendable"
+      | "already-used",
   ) {
     super(reason);
   }
@@ -461,5 +474,136 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       );
     }
     return { ok: true, status: "pending", tokenIssued: true };
+  }
+
+  /* ─────────────────── 重发 / 撤销（#363 / I-6） ─────────────────── */
+
+  async resendOrgInvite(input: ResendOrgInviteInput): Promise<ResendOrgInviteResult> {
+    try {
+      return await this.db.withTenant(input.orgId, (s) => this.resendOne(s, input));
+    } catch (e) {
+      if (
+        e instanceof Rollback &&
+        (e.reason === "not-found" || e.reason === "rate-limited" || e.reason === "not-resendable")
+      ) {
+        return { ok: false, reason: e.reason };
+      }
+      throw e;
+    }
+  }
+
+  private async resendOne(s: TenantSession, input: ResendOrgInviteInput): Promise<ResendOrgInviteResult> {
+    // `FOR UPDATE`：状态判定、限流判定、作废旧令牌、写新令牌，四件必须在同一次锁定里。
+    //
+    // ⚠ 限流放在锁外的表现极具欺骗性：两名管理员同一秒各点一次「重发」，两路都读到
+    //   「冷却已过」，于是两枚新令牌各自作废对方，两个人手上都是一条已失效的链接，
+    //   而两次调用都返回 200。这不是理论——`create` 的配额锁定注释里记的是同一个形状。
+    //
+    // ⚠ 这里**不查 org_id**：`withTenant` 已经把 RLS 的 `app.current_org` 设好了，
+    //   别人组织的那一行由构造读不到 ⇒ 「不存在」与「不是你的」是同一个零行结果（V10）。
+    //   与 `reviewOne` 逐字同一处置。
+    const res = await s.query<{ id: string; status: string }>(
+      `SELECT id, status FROM org_invites WHERE id = $1 FOR UPDATE`,
+      [input.inviteId],
+    );
+    const row = res.rows[0];
+    if (row === undefined) throw new Rollback("not-found");
+
+    // 可重发的两种状态：
+    //   `pending`      正常的「链接发出去了但对方没点」。
+    //   `send-failed`  上一次投递失败——重发正是为它准备的动作。
+    // 其余三种一律拒：`awaiting-review`（I-3：复核前**不签发**，重发会绕过整条双人复核）、
+    // `revoked`、`used`。
+    if (row.status !== "pending" && row.status !== "send-failed") {
+      throw new Rollback("not-resendable");
+    }
+
+    // 限流。两条阈值都由调用方传进来（策略常量的单一事实源是 `AUTH_POLICY`），
+    // 判定在这里做，因为它必须与写入同一次锁定。
+    //
+    // ⚠ 计数的对象是 `org_invite_tokens` 的**历史行**，不是某个计数器列。
+    //   核销/作废都只打标记不删行（迁移 0022 的最后一句），所以这张表本身就是
+    //   「这条邀请一共签发过几枚令牌、分别什么时候」的账本——再加一个 resend_count 列
+    //   就是第二份事实源，而它与账本漂移时不会有任何报错。
+    const stats = await s.query<{ last_issued_at: Date | null; issued_24h: string }>(
+      `SELECT max(issued_at) AS last_issued_at,
+              count(*) FILTER (WHERE issued_at > $2)::text AS issued_24h
+         FROM org_invite_tokens
+        WHERE invite_id = $1`,
+      [row.id, new Date(input.now.getTime() - 24 * 60 * 60 * 1000)],
+    );
+    const last = stats.rows[0]?.last_issued_at ?? null;
+    const issued24h = Number(stats.rows[0]?.issued_24h ?? 0);
+
+    if (last !== null) {
+      const elapsedSec = (input.now.getTime() - new Date(last).getTime()) / 1000;
+      if (elapsedSec < input.cooldownSeconds) throw new Rollback("rate-limited");
+    }
+    if (issued24h >= input.dailyMax) throw new Rollback("rate-limited");
+
+    // I-6 上半句：**作废旧令牌**。不是可选步骤——`org_invite_tokens_live_uniq`
+    // （部分唯一索引 `WHERE consumed_at IS NULL`）就是为它建的，漏掉它的表现
+    // 不是「旧链接还能用」，是下面那条 INSERT 当场 23505。
+    //
+    // ⚠ 用 `consumed_at` 而不是新加一列 `invalidated_at`：迁移 0022 的文件头把这一列
+    //   定义成「非空 = 已核销」，并且逐字说明这条部分索引存在的理由就是重发。
+    //   「作废」与「被用掉」在**激活路径**上要产生的结果完全相同（那条链接不再能换到成员），
+    //   而区分这两者的账本是 `org_invites.used_at` / `used_by_user_id`——那两列只有
+    //   真正的激活会写。加第二列只会让「这条链接还能用吗」有两个可以互相矛盾的答案。
+    await s.query(
+      `UPDATE org_invite_tokens SET consumed_at = $2 WHERE invite_id = $1 AND consumed_at IS NULL`,
+      [row.id, input.now],
+    );
+
+    // I-6 下半句：签发新令牌。令牌值由用例生成（见 `resend-org-invite.ts`）。
+    await s.query(
+      `INSERT INTO org_invite_tokens (token, invite_id, org_id_hint, expires_at, issued_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [input.token, row.id, input.orgId, input.tokenExpiresAt, input.now],
+    );
+
+    // `send-failed` 重新回到 `pending`：链接又发出去了。`sent_at` 一并更新。
+    await s.query(`UPDATE org_invites SET status = 'pending', sent_at = $2 WHERE id = $1`, [
+      row.id,
+      input.now,
+    ]);
+
+    return { ok: true, newTokenIssued: true, cooldownSec: input.cooldownSeconds };
+  }
+
+  async revokeOrgInvite(input: RevokeOrgInviteInput): Promise<RevokeOrgInviteResult> {
+    try {
+      return await this.db.withTenant(input.orgId, (s) => this.revokeOne(s, input));
+    } catch (e) {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-used")) {
+        return { ok: false, reason: e.reason };
+      }
+      throw e;
+    }
+  }
+
+  private async revokeOne(s: TenantSession, input: RevokeOrgInviteInput): Promise<RevokeOrgInviteResult> {
+    // 同 `resendOne`：租户上下文已由 `withTenant` 设好，跨组织的 id 读到零行。
+    const res = await s.query<{ id: string; status: string }>(
+      `SELECT id, status FROM org_invites WHERE id = $1 FOR UPDATE`,
+      [input.inviteId],
+    );
+    const row = res.rows[0];
+    if (row === undefined) throw new Rollback("not-found");
+
+    // 幂等：已经是 revoked 就直接返回同一状态，**不再写一次**——重复撤销
+    // 不该刷新任何时间戳，否则「这条邀请是什么时候被撤的」每被问一次就变一次。
+    if (row.status === "revoked") return { ok: true, status: "revoked" };
+
+    // 已激活的邀请撤不回去：成员已经建好了，而把他踢出组织是 `removeOrgMember` 的事。
+    if (row.status === "used") throw new Rollback("already-used");
+
+    // ⚠ 只翻 status，不动 `org_invite_tokens`——理由见端口注释与
+    //   `activateAll` 第 (3) 步（它逐字要求 `status = 'pending'`）。
+    // ⚠ 不写 `reviewed_by`：撤销不是复核。迁移 20260731085758 那条
+    //   `reviewed_by <> invited_by` 的 CHECK 会让「发起人自己撤销自己发的邀请」
+    //   ——一个完全正常的动作——因为一条与它无关的约束而失败。
+    await s.query(`UPDATE org_invites SET status = 'revoked' WHERE id = $1`, [row.id]);
+    return { ok: true, status: "revoked" };
   }
 }
