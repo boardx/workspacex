@@ -43,6 +43,20 @@ export default {
       // 操作命中，仍然写出来 —— 这正是 `/threads` 那条留下的教训。
       { source: `${prefix}/skill-versions`, destination: `${apiOrigin}/skill-versions` },
       { source: `${prefix}/skill-versions/:path*`, destination: `${apiOrigin}/skill-versions/:path*` },
+      // #548：模型池。`/models` 裸路径是 POST 接入（**凭据进入系统的唯一入口**），
+      // `/models/:id/admission-tests` 走 `:path*` —— **同一个坑的第七次**（含上面
+      // `/skill-versions` 那条，这两条是同一天先后撞上的），前五次的注释就在本文件
+      // 上下：/capabilities、/canvas/templates、/skills、/agent-runs、/recording。
+      // 缺了裸路径那一条不会失败在网络层，而是被 Next 接住返回 404 **HTML**，
+      // 前端读到的是「后端没实现」，查起来极贵。
+      { source: `${prefix}/models`, destination: `${apiOrigin}/models` },
+      { source: `${prefix}/models/:path*`, destination: `${apiOrigin}/models/:path*` },
+      // `/model-calls` 的两条一并写下：`routeModelCall` / `assembleSystemPrompt` 尚未接线
+      // （见 `model.controller.ts` 文件头），但前缀在这里缺位正是上面那个坑的复现条件，
+      // 而 rewrite 指向一条不存在的后端路由只会得到后端自己的 404 JSON —— 那是**正确**
+      // 的失败形态，比 Next 的 404 HTML 好查。
+      { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
+      { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
       // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
       // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，

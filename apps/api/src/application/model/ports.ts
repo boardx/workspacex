@@ -74,6 +74,20 @@ export interface ModelPoolClock {
   newModelId(): string;
 }
 
+/* ═══════════════ DI tokens (#548) ═══════════════ */
+//
+// ⚠ Symbols only -- no port INTERFACE is declared below this line, and none may be. The
+// method list in `credential-never-echoed.test.ts` is exhaustive over this file, and its own
+// comment warns that moving new surface into a second ports file would keep it green while
+// widening what the layer can reach. Tokens carry no methods, so they are invisible to that
+// scan for the right reason rather than by evasion.
+
+export const MODEL_POOL_REPOSITORY = Symbol("ModelPoolRepository");
+export const MODEL_CREDENTIAL_CIPHER = Symbol("ModelCredentialCipher");
+export const COMPLIANCE_VOCABULARY_READER = Symbol("ComplianceVocabularyReader");
+export const MODEL_POOL_CLOCK = Symbol("ModelPoolClock");
+export const ADMISSION_TEST_REPOSITORY = Symbol("AdmissionTestRepository");
+
 export type { ModelStatus };
 
 /* ═══════════════ F49 · 五项准入判读（uc-20-1 R3 步骤 5, I-1 / I-7）═══════════════ */
