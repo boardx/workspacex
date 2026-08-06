@@ -32,7 +32,6 @@
  *   那条只在 `url-import-persists-real-db.test.ts`（用例层，DNS 打桩）证过。
  *   HTTP 层的真实下载**仍未验证**，已写进 PR 的未验证项清单。⛔ 别把这里的绿读成那件事。
  */
-import { readFileSync } from "node:fs";
 import https from "node:https";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -49,6 +48,7 @@ import {
 import { PgSkillUrlImportRepository } from "../../src/infrastructure/skill/pg-skill-url-import-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { testTlsMaterial } from "../support/tls";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -162,9 +162,9 @@ beforeAll(async () => {
    */
   await addOrgMember(LOCAL_ORG, LOCAL_OWNER, "admin", null);
 
-  const dir = new URL("../support/tls/", import.meta.url);
-  const cert = readFileSync(new URL("test-only.cert.pem", dir));
-  const key = readFileSync(new URL("test-only.key.pem", dir));
+  // ⚠ 当场生成，**不读入库文件**：`.gitignore` 有 `*.pem`，入库那条路走不通，
+  //   而「本地有、CI 没有」正是 PR #600 那次 CI 红的根因。见 `tests/support/tls.ts`。
+  const { cert, key } = testTlsMaterial();
   server = https.createServer({ key, cert }, (_req, res) => {
     res.writeHead(200, { "content-type": "text/markdown" });
     res.end("# Imported over HTTP\n");
