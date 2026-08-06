@@ -106,6 +106,9 @@ import { AgentStarterImportController } from "./interface/controllers/agent-star
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
 import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
 import { AgentSkillPinsController } from "./interface/controllers/agent-skill-pins.controller";
+import { SKILL_VERSION_EDIT_REPOSITORY } from "./application/skill/edit-skill-version-content";
+import { PgSkillVersionEditRepository } from "./infrastructure/skill/pg-skill-version-edit-repository";
+import { SkillVersionEditController } from "./interface/controllers/skill-version-edit.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -433,6 +436,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     SkillUrlImportController,
     AgentStarterImportController,
     AgentSkillPinsController,
+    SkillVersionEditController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -583,6 +587,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: AGENT_SKILL_PINS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_VERSION_EDIT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillVersionEditRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every
