@@ -1,20 +1,30 @@
-# backend-gates.yml —— 需要真 Docker + PostgreSQL 的那套门控，跑在自建 runner 上。
+# backend-gates.yml —— 需要真 Docker + PostgreSQL 的那套门控。
 #
-# 与 harness-verify.yml 分开的理由：那份跑在 GitHub 托管 runner 上，是**轻量**门控
-# （turbo --affected 的 typecheck/lint/test）。后端门控要起 PG 容器、跑 RLS 反证、
-# 起两个 Nest 进程做双向断言——托管 runner 上又慢又贵，且 `apps/api` 加进来之后
-# 那份 workflow 其实**从未跑过它的测试**（turbo 会命中 @repo/api，而它需要 docker）。
+# ⚠ 2026-08-06：`gates` 从自建 runner（`[self-hosted, linux, x64, workspacex]`）
+# 改回 GitHub 托管 `ubuntu-latest`。原头注写的理由是「托管 runner 上又慢又贵」——
+# 那句话在两个前提都不成立时写下的：① 本仓是**公开仓库**，GitHub 托管 runner 的
+# Linux 分钟数对公开仓库是**免费且不限量**的，不存在「贵」；② `harness-verify.yml`
+# 的 `fullstack-smoke` job 早就在 `ubuntu-latest` 上跑真实 docker-compose + Postgres
+# 起真栈（含 `core-loop.spec.ts` 的浏览器 E2E），本仓自己已经证明「托管 runner 跑不了
+# 真 docker」是假的。
+#
+# 唯一的真实原因是本文件自己 :39 那句——**自建 runner 上跑 fork PR 等于任何人一个
+# PR 就能在这台机器上执行任意命令**。但 `gates` 这个 job 不碰任何密钥、不碰生产机器
+# （起的是本地一次性 `workspacex-kernel` docker-compose 栈，`deploy` job 才碰真机），
+# 放到 GitHub 托管的一次性沙箱上跑，那条风险本来就不存在。
+#
+# ⇒ 只把不需要真机权限的 `gates` 挪走。`deploy` 仍然钉死在自建 runner
+# （`devapp-x64`）——它调用的 `/usr/local/bin/workspacex-deploy` 是那台机器上
+# root 拥有的路径，sudoers 只认那一条，挪不动。
+#
+# 挪走的直接收益：这台自建 runner 长期只有一台，`gates` 在每次 main push + 每个
+# PR 上都会跑，过去是全仓库唯一的排队瓶颈——所有 agent 的所有分支都在同一条队列
+# 里等同一台机器。挪到 GitHub 托管、并发不限于 1 之后，这条队列基本消失；
+# `deploy` 本身又短又不频繁（只在打 tag 时跑），单机足够。
 #
 # 触发：main 的每次推送 + 打标签 + 手动。
 # `local.env` 的 ANSWER_Q3 原填「打标签时跑」，2026-07-29 按 P-1 改为 main 上也跑：
-# 自建 runner 没有分钟数成本，而「只在打标签时跑」意味着问题在发版当天一次性爆出来。
-#
-# ⚠ 2026-08-01：`runs-on` 曾写 `arm64`，但 `local.env` 的 VM_ARCH 一直是 x86_64，
-# 且新开的替换机（旧机已释放）用 `uname -m` 实测也是 x86_64。两处早已不一致——
-# 之前的 self-hosted runner 就是照着这份错误标签注册的（`devapp-arm64`），所以
-# 「标签对得上」这件事本身不能证明标签是对的，只能证明两边抄的是同一个错。
-# 现在改成 `x64`，与 GitHub 官方架构标签 X64 对齐，且 runner 注册时的标签
-# 由实测 `uname -m` 决定，不再手填。
+# 托管 runner 分钟数不要钱，而「只在打标签时跑」意味着问题在发版当天一次性爆出来。
 name: backend-gates
 
 on:
@@ -24,21 +34,20 @@ on:
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
 
-# 同一时刻只跑一个：门控会 DROP DATABASE。并发跑两个 job 的隔离靠
-# WORKSPACEX_DB 已经做了，但排队更省心，也更容易读日志。
-# ⚠ 2026-08-01：旧 runner 主机已释放，新机是 devapp.boardx.us 上的一台干净空机
-# （无 docker、无 boardx 部署栈、无 /opt/boardx）——上面那句「这台机器上还跑着
-# 部署的那套栈」目前不成立，删掉避免误导。真部署到这台机器后再补回等价的话。
+# 同一 ref 内只跑一个：`gates` 会 DROP DATABASE，`WORKSPACEX_DB` 按 run id 分库已经
+# 做了隔离，但排队更省心，也更容易读日志。挪到托管 runner 后并发度不再受制于
+# 「只有一台机器」，这条 concurrency group 现在纯粹是同一 ref 内部的排队，不同 ref
+# （不同分支/PR）之间互不影响，各走各的托管 runner 实例。
 concurrency:
   group: backend-gates-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   gates:
-    runs-on: [self-hosted, linux, x64, workspacex]
-    # fork 的 PR 一律不上自建 runner（local.env ANSWER_Q2=no）。
-    # 自建 runner 跑的是被触发那份代码：接受 fork 等于任何人提个 PR 就能在这台机器上
-    # 执行任意命令。这里是显式的第二道——GitHub 的默认行为不该是唯一那道。
+    runs-on: ubuntu-latest
+    # fork 的 PR 一律不跑：即使托管 runner 是一次性沙箱、不碰密钥，也不该让任意
+    # fork 白嫖本仓的 Actions 分钟数（虽然公开仓库不计费，但作业数仍是资源）。
+    # 与 `deploy` 那半的「防止执行任意命令」是两个不同的理由，写法一样，动机不同。
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 30
     env:
