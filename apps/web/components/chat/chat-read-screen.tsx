@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
+import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
   createThread,
   deleteThread,
@@ -293,6 +294,43 @@ export function ChatReadScreen({
   const rosterVersion = roster?.rosterVersion ?? null;
   const [rosterPending, setRosterPending] = React.useState(false);
   const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
+
+  /* ── #619 —— roster 加入表单的候选来源（真选择器，不是自由文本框）───────────
+   * 之前这里是一个「填组织 agent 目录里的 id」的自由文本框，注释明写着契约里
+   * 没有「列出可加的 agent」这个读端口。#619 把 `org_agents` 收敛进了
+   * `capability_listings`（F15 早就落地的目录），于是 admin 目录页已经在用的
+   * `GET /capabilities?kind=agent` 就是那个缺失的读端口——不用新开一个契约操作，
+   * 只是把前端也接上去。候选按 `currentOrgId` 读取，`enabled=false` 的行不进候选
+   * （与 `chat_thread_agents` 的合法性触发器同一条件，见迁移
+   * `20260807000000_i619_agent_roster_capability_convergence.sql`），避免选出一个
+   * 提交必 500 的选项。 */
+  const [agentCatalogResult, setAgentCatalogResult] = React.useState<Sourced<CapabilityListing[]> | null>(null);
+  const [agentCatalogFailure, setAgentCatalogFailure] = React.useState<Sourced<string> | null>(null);
+  const agentCatalogKey = currentOrgId && bearer ? `${currentOrgId}\u0000${bearer}` : null;
+  const agentCatalog = agentCatalogResult?.key === agentCatalogKey ? agentCatalogResult.value : null;
+  const agentCatalogError = agentCatalogFailure?.key === agentCatalogKey ? agentCatalogFailure.value : null;
+
+  const loadAgentCatalog = React.useCallback(async () => {
+    if (!agentCatalogKey || !currentOrgId) return;
+    const key = agentCatalogKey;
+    try {
+      const result = await listCapabilities(currentOrgId, "agent");
+      setAgentCatalogResult({ key, value: result });
+      setAgentCatalogFailure(null);
+    } catch (failure) {
+      setAgentCatalogResult(null);
+      setAgentCatalogFailure({ key, value: describeFailure(failure) });
+    }
+  }, [agentCatalogKey, currentOrgId]);
+
+  React.useEffect(() => {
+    if (agentCatalogKey) void loadAgentCatalog();
+  }, [loadAgentCatalog, agentCatalogKey]);
+
+  const agentCandidates = React.useMemo(() => {
+    const mounted = new Set((roster?.agents ?? []).map((agent) => agent.id));
+    return (agentCatalog ?? []).filter((listing) => listing.enabled && !mounted.has(listing.id));
+  }, [agentCatalog, roster]);
 
   // 换线程 ⇒ 上一条线程的错误提示作废。版本号不需要在这里清：它跟着 `roster`
   // 走 `detailKey` 门（`rosterResult?.key === detailKey`），换线程时自动变 null。
@@ -839,7 +877,8 @@ function ThreadDetail({
  *   缺一档专用能力已上报；服务端始终是权威（越权提交由 403 拒绝，见 API 测试）。
  */
 function RosterPanel({
-  roster, loading, error, hasSelection, canMutate, pending, mutateFailure, onAdd, onRemove, onRetry,
+  roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
+  candidates, candidatesError, onAdd, onRemove, onRetry,
 }: {
   roster: GetAgentPanelOut | null;
   loading: boolean;
@@ -848,6 +887,8 @@ function RosterPanel({
   canMutate: boolean;
   pending: boolean;
   mutateFailure: string | null;
+  candidates: readonly CapabilityListing[];
+  candidatesError: string | null;
   onAdd: (agentId: string) => void;
   onRemove: (agentId: string) => void;
   onRetry: () => void;
@@ -856,6 +897,11 @@ function RosterPanel({
   const writable = canMutate && hasSelection;
 
   const [addOpen, setAddOpen] = React.useState(false);
+
+  // 换线程/候选列表变化时，之前选中的 id 可能已不再是合法候选（比如已被加进编制）。
+  React.useEffect(() => {
+    if (draft !== "" && !candidates.some((candidate) => candidate.id === draft)) setDraft("");
+  }, [candidates, draft]);
 
   return (
     <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-read-roster">
@@ -888,31 +934,46 @@ function RosterPanel({
           className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
           onSubmit={(event) => {
             event.preventDefault();
+            if (draft === "") return;
             onAdd(draft);
             setDraft("");
           }}
         >
           <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">
-            加入 agent（填组织 agent 目录里的 id）
+            加入 agent（选自组织 agent 目录）
           </label>
           <div className="flex items-center gap-2">
-            <input
+            <select
               id="chat-roster-add-input"
               data-testid="chat-roster-add-input"
               className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="agent id"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              disabled={pending}
-            />
-            <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending}>
+              disabled={pending || candidates.length === 0}
+            >
+              <option value="">
+                {candidates.length === 0 ? "组织 agent 目录里没有可加入的 agent" : "选择一个 agent…"}
+              </option>
+              {candidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}{candidate.abbr ? `（${candidate.abbr}）` : ""}
+                </option>
+              ))}
+            </select>
+            <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending || draft === ""}>
               {pending ? "提交中…" : "加入"}
             </Button>
           </div>
-          {/* 「加入」按 id 而不是从下拉里选：契约里**没有**「列出本线程可加的 agent」
-              这个读端口，编一个候选列表就得先编一份它的出处。缺口已上报。
-              ⚠ 原型的「从 Agent 市场加入」是同一个缺口的另一面：`marketEntry` 是
-              服务端下发的可空入口，下发了才渲染，不自己造一个死链。 */}
+          {/* #619：候选来自 `GET /capabilities?kind=agent`（`org_agents` 收敛进
+              `capability_listings` 之后，这就是"列出本线程可加的 agent"那个此前
+              缺失的读端口），不再是自由文本框。
+              ⚠ 原型的「从 Agent 市场加入」仍是另一个缺口：`marketEntry` 是服务端下发的
+              可空入口，下发了才渲染，不自己造一个死链。 */}
+          {candidatesError ? (
+            <p className="text-10 text-destructive" data-testid="chat-roster-candidates-error">
+              agent 目录读取失败：{candidatesError}
+            </p>
+          ) : null}
           {mutateFailure ? (
             <p className="text-10 text-destructive" data-testid="chat-roster-mutate-error">{mutateFailure}</p>
           ) : null}

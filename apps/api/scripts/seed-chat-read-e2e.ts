@@ -164,14 +164,21 @@ await asApp(ORG_ID, async (client) => {
       "Controlled Read E2E fixture agent; replies are produced by the deterministic loopback provider.",
     ],
   );
+  // #619：编制合法性判据已收敛到 `capability_listings`（kind='agent', enabled=true）——
+  // `chat_thread_agents` 的插入触发器直接查这张表，不再看 `org_agents`（迁移
+  // `20260807000000_i619_agent_roster_capability_convergence.sql`）。这里同时也是
+  // roster 选择器的真实读源（`GET /capabilities?kind=agent`），所以这两行同时
+  // 承担「合法性判据」与「界面下拉可选项」两个角色。
   await client.query(
-    "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
-    [ORG_ID, AGENT_ID, "CR", "Controlled Read Agent", "Read-only E2E roster fixture"],
+    `INSERT INTO capability_listings (id, org_id, kind, name, scope, enabled, abbr, duty)
+     VALUES ($1,$2,'agent','Controlled Read Agent','org-wide',true,$3,$4)`,
+    [AGENT_ID, ORG_ID, "CR", "Read-only E2E roster fixture"],
   );
   // #467：进目录但**不**进 `chat_thread_agents`——它是「加进来」那条用例的素材。
   await client.query(
-    "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
-    [ORG_ID, CATALOG_ONLY_AGENT_ID, "CO", "Catalog Only Agent", "Roster mount E2E fixture"],
+    `INSERT INTO capability_listings (id, org_id, kind, name, scope, enabled, abbr, duty)
+     VALUES ($1,$2,'agent','Catalog Only Agent','org-wide',true,$3,$4)`,
+    [CATALOG_ONLY_AGENT_ID, ORG_ID, "CO", "Roster mount E2E fixture"],
   );
   await client.query(
     "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
