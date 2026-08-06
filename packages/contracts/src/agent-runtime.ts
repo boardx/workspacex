@@ -732,6 +732,22 @@ export const AGENT_RUNTIME_FORBIDDEN_ROUTES = [
   },
 ] as const;
 
+/**
+ * #595 A2 —— `setAgentSkillPins.err` 的**独立枚举**（而不是内联 `as const`）。
+ *
+ * ⚠ 与 `updateAgentDefinition`/`mountSkill` 等本文件里的其它写操作不同，特意导出成
+ *   独立 `z.enum`：`all-exceptions.filter.ts` 是**允许列表**，未登记的 `reasonCode`
+ *   被静默丢掉——这条教训在 #595 段 2 现场撞过（同一个 bug 第八次），
+ *   独立导出是为了让 controller 与过滤器都能 `import` 同一份，不必手抄一遍值。
+ */
+export const AgentSkillPinsError = z.enum([
+  "ROLE_INSUFFICIENT",
+  "AGENT_NOT_FOUND",
+  "AGENT_NOT_PUBLISHED",
+  "VERSION_CHANGED",
+  "SKILL_VERSION_NOT_FOUND",
+]);
+
 /* ══════════════════════ 操作 ══════════════════════ */
 
 export const operations = {
@@ -1442,6 +1458,69 @@ export const operations = {
       "COMPOSITE_MEMBER_DISABLED",
       "AGENT_NOT_FOUND",
     ] as const,
+  },
+
+  /**
+   * #595 A2 —— **⚠⚠ 草案，尚未经人类签核**（ADR-023，登记在 issue #595）。
+   *
+   * ## 为什么不是 `mountSkill`
+   *
+   * 上面那条 `mountSkill` 名字和用途看起来撞了，**但形状对不上**：
+   * `SkillMount.skillVersion: z.number()` 对应的是 `skill_contract_versions.version_number`
+   * ——**模型 B**（声明式契约），而 #595 的产物全部落**模型 A**
+   * （`skills`/`skill_versions`，`semantic_label` 是 text，没有整数版本号）。
+   * `mountSkill` 本身也是**零实现**的契约（`agents/:agentId/skill-mounts` 路由
+   * 全仓无 controller）。⇒ 复用它意味着把模型 A 的产物硬塞进一个为模型 B 设计的
+   * 形状，或者反过来给模型 A 生造一个它没有的整数版本号——两条都是在**制造**
+   * A/B 收敛，而 #598 明令本轮不做。⇒ 新开一条，全程留在模型 A。
+   *
+   * ## 为什么是「整体替换」而不是「追加一个」
+   *
+   * `skillVersionIds` 在 `agent_versions` 上是**有序数组**（顺序即 system prompt
+   * 拼接顺序，见 `execute-run.ts` 的 `buildSystemPrompt`）。「追加」需要读出旧数组
+   * 再拼接，「整体替换」把这个决定交给调用方、契约本身不做隐式合并——
+   * 与 `mountSkillToThread` 的 `skillIds: string[]`（同样整体替换）同型。
+   *
+   * ## 为什么产出**新版本**而不是原地改
+   *
+   * `agent_versions` 上有 `agent_versions_immutable_trg`（DB 级，UPDATE/DELETE 一律拒），
+   * 与 `skill_versions` 的不可变触发器同一形状。⇒ pin 一次 = 发布一个新版本，
+   * 旧版本原样留存（审计可回看「这次调用当时挂的是哪个 skill 版本」）。
+   *
+   * ## 并发：`expectedVersion` 打 `agents.published_version_id`
+   *
+   * 与 `mountSkillToThread.expectedVersion` 同型：调用方带着自己看到的
+   * `published_version_id` 提交，服务端发现已经变了就拒（`VERSION_CHANGED`），
+   * ⛔ 不静默覆盖别人并发做的修改。
+   */
+  setAgentSkillPins: {
+    method: "POST",
+    path: "/admin/agents/:agentId/skill-pins",
+    in: z
+      .object({
+        agentId: z.string(),
+        /** 整体替换，非追加；见上方说明。⚠ 顺序即 system prompt 拼接顺序。 */
+        skillVersionIds: z.array(z.string()).min(1),
+        expectedVersion: z.string(),
+      })
+      .strict(),
+    out: z
+      .object({
+        agentId: z.string(),
+        /** 新产出的 agent 版本 id（原地改不存在，见上方说明） */
+        versionId: z.string(),
+        skillVersionIds: z.array(z.string()),
+      })
+      .strict(),
+    /**
+     * 取自 `AgentSkillPinsError.options`，不重复罗列——单一事实源同时喂
+     * controller 的分支判断与 `all-exceptions.filter.ts` 的白名单登记。
+     * （逐码含义：`ROLE_INSUFFICIENT` 同 #595 URL 导入/`mountSkill` 的 admin 门槛；
+     * `AGENT_NOT_PUBLISHED` = agent 存在但 `published_version_id IS NULL`；
+     * `VERSION_CHANGED` = `expectedVersion` 与当前 `published_version_id` 不一致；
+     * `SKILL_VERSION_NOT_FOUND` = `skillVersionIds` 里有条目在本组织不存在或未发布。）
+     */
+    err: AgentSkillPinsError.options,
   },
 
   /** skill 挂载（**必须到版本粒度**）。⚠ 前置：skill `已启用` 且可见性范围覆盖本 agent */
