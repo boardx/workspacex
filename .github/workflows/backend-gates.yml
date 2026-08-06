@@ -137,10 +137,16 @@ jobs:
   # → core-loop-reset → core-loop-empty-db），与 `seeded`（其余 5 个 spec）互不 dependencies，
   # `pnpm run verify:core-loop` 只会拉起这条链，不会捎带 `seeded`。
   #
-  # 不 `needs: gates`：两个 job 没有先后依赖，能并行就并行（跑多快取决于自建 runner 池
-  # 容量，不在本次改动范围内）。`deploy` 的前置条件两个都要。
+  # 不 `needs: gates`：两个 job 没有先后依赖，能并行就并行。
+  #
+  # ⚠ 2026-08-06 首次真跑就红：原来写的是 `[self-hosted, linux, x64, workspacex]`，
+  # 那台机器上的 CI 用户 `ghrunner` 没有免密 sudo——`playwright install --with-deps`
+  # 要装系统级依赖，第一步就是 `sudo apt-get`，直接 `sudo: I'm sorry ghrunner. I'm
+  # afraid I can't do that` 退出。这个 job 和 `gates`（见 #615）同一个论证：不碰
+  # devapp 真机、不碰密钥，只是起本地一次性 docker 栈 + 真 Chromium，`harness-verify.yml`
+  # 的 `fullstack-smoke` 早就在 `ubuntu-latest` 上跑通同一形状的浏览器 e2e——挪过去。
   e2e-core-loop:
-    runs-on: [self-hosted, linux, x64, workspacex]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
