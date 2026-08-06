@@ -139,6 +139,9 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     fireEvent.change(screen.getByTestId("admin-agent-create-name"), {
       target: { value: "结算助理" },
     });
+    // #619：kind="agent" 时 abbr/duty 必填（本地校验先于网络请求）。
+    fireEvent.change(screen.getByTestId("admin-agent-create-abbr"), { target: { value: "JS" } });
+    fireEvent.change(screen.getByTestId("admin-agent-create-duty"), { target: { value: "结算" } });
     fireEvent.click(screen.getByTestId("admin-agent-create-submit"));
 
     expect(await screen.findByTestId("admin-agent-row-agent-new")).toHaveTextContent("结算助理");
@@ -150,7 +153,7 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
       orgId: "org-458",
       kind: "agent",
       op: "add",
-      payload: { name: "结算助理", scope: "org-wide" },
+      payload: { name: "结算助理", scope: "org-wide", abbr: "JS", duty: "结算" },
     });
     // 二次读取存在，且发生在 mutate 之后。少了它，界面显示的就是 mutate 的回声。
     expect(listCalls(calls)).toHaveLength(2);
@@ -178,6 +181,9 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     fireEvent.change(screen.getByTestId("admin-agent-create-owner-team"), {
       target: { value: "team-energy" },
     });
+    // #619：kind="agent" 时 abbr/duty 必填。
+    fireEvent.change(screen.getByTestId("admin-agent-create-abbr"), { target: { value: "TD" } });
+    fireEvent.change(screen.getByTestId("admin-agent-create-duty"), { target: { value: "团队协作" } });
     fireEvent.click(screen.getByTestId("admin-agent-create-submit"));
 
     await screen.findByTestId("admin-agent-row-agent-team");
@@ -185,7 +191,10 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
       orgId: "org-458",
       kind: "agent",
       op: "add",
-      payload: { name: "团队助理", scope: "team-only", ownerTeamId: "team-energy" },
+      payload: {
+        name: "团队助理", scope: "team-only", ownerTeamId: "team-energy",
+        abbr: "TD", duty: "团队协作",
+      },
     });
   });
 
@@ -297,6 +306,10 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
 
     fireEvent.click(screen.getByTestId("admin-agent-create"));
     fireEvent.change(screen.getByTestId("admin-agent-create-name"), { target: { value: "越权" } });
+    // #619：kind="agent" 时 abbr/duty 必填——本测试要验的是服务端 403，
+    // 不填这两个字段会被本地校验拦下，请求根本发不出去，测不到服务端裁决。
+    fireEvent.change(screen.getByTestId("admin-agent-create-abbr"), { target: { value: "YQ" } });
+    fireEvent.change(screen.getByTestId("admin-agent-create-duty"), { target: { value: "越权测试" } });
     fireEvent.click(screen.getByTestId("admin-agent-create-submit"));
 
     expect(await screen.findByTestId("admin-agent-create-error")).toHaveTextContent(
