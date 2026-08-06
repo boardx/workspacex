@@ -25,7 +25,6 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import https from "node:https";
-import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { ImportSourceRefusedError, assertResolvedAddressAllowed } from "../../src/domain/skill/import-source";
 import { fetchImportSource, type ImportFetchSeams } from "../../src/infrastructure/skill/http-import-fetcher";
@@ -36,6 +35,7 @@ import type {
 } from "../../src/application/skill-import/import-skill-from-url";
 import { ImportSkillFromUrlError } from "../../src/application/skill-import/url-import-draft";
 import type { ImportSkillFromUrlResult } from "../../src/application/skill-import/url-import-draft";
+import { testTlsMaterial } from "../support/tls";
 
 const OPEN = { localOnlyOrg: false };
 
@@ -88,9 +88,9 @@ let handler: (req: import("node:http").IncomingMessage, res: import("node:http")
 let savedCa: unknown;
 
 beforeAll(async () => {
-  const dir = new URL("../support/tls/", import.meta.url);
-  const cert = readFileSync(new URL("test-only.cert.pem", dir));
-  const key = readFileSync(new URL("test-only.key.pem", dir));
+  // ⚠ 当场生成，**不读入库文件**：`.gitignore` 有 `*.pem`，入库那条路走不通，
+  //   而「本地有、CI 没有」正是 PR #600 那次 CI 红的根因。见 `tests/support/tls.ts`。
+  const { cert, key } = testTlsMaterial();
   server = https.createServer({ key, cert }, (req, res) => handler(req, res));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   port = (server.address() as AddressInfo).port;
