@@ -140,6 +140,29 @@ export interface AdvanceAgendaSegmentResult {
   readonly activatedNext: AgendaSegmentRow | null;
 }
 
+/** #627 `createAgendaSegment`（UC-P6）的写入命令。`id` 不在这里——仓储自己生成，同 `CreateProjectCommand` 的先例。 */
+export interface CreateAgendaSegmentCommand {
+  readonly orgId: OrgId;
+  readonly workshopId: string;
+  readonly agendaSegmentDefinitionId: string | null;
+  readonly ordinal: number;
+  readonly title: string;
+  readonly duration: number;
+}
+
+/**
+ * #627：三态结果，同 `member-ports.ts` 的 `AddMemberOutcome` 同一形状/同一理由——
+ * 「工作坊已归档」由 F124 的 RESTRICTIVE INSERT 策略拒写（`kernel_project_is_writable`，
+ * `42501`），「工作坊不存在」由复合外键拒写（`23503`）；仓储把两种驱动异常翻译成
+ * 判别式，调用方（application 层）不用去猜 Postgres 错误码。
+ */
+export type CreateAgendaSegmentOutcome =
+  | { readonly kind: "created"; readonly row: AgendaSegmentRow }
+  /** 工作坊不存在（`23503`）。同 `AddMemberOutcome.not-found` 的先例：不额外暴露存在性区别。 */
+  | { readonly kind: "not-found" }
+  /** 工作坊已归档（`42501`，F124 的 `agenda_segments_project_archived_ins` 策略）。 */
+  | { readonly kind: "archived" };
+
 export interface AgendaSegmentRepository {
   findById(orgId: OrgId, workshopId: string, segmentId: string): Promise<AgendaSegmentRow | null>;
 
@@ -151,6 +174,14 @@ export interface AgendaSegmentRepository {
    *   仓储只负责把驱动错误原样抛出，不在这里吞掉再自造一个语义。
    */
   advance(cmd: AdvanceAgendaSegmentCommand): Promise<AdvanceAgendaSegmentResult>;
+
+  /**
+   * #627：新建一条环节，初始 `state='pending'`。**不**先 `SELECT` 工作坊是否存在/是否
+   * 归档再决定要不要写——同 `advance` 头注「不在应用层再判一次」的同一条纪律，交给
+   * 数据库的外键与 F124 的 RESTRICTIVE 策略在同一条 `INSERT` 里判定，仓储只翻译驱动
+   * 异常。`id` 由仓储生成（`IdFactory`），同 `PgProjectRepository.create` 的先例。
+   */
+  create(cmd: CreateAgendaSegmentCommand): Promise<CreateAgendaSegmentOutcome>;
 }
 
 export const AGENDA_SEGMENT_REPOSITORY = Symbol("AgendaSegmentRepository");
