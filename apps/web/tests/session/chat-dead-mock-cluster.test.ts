@@ -132,11 +132,14 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     expect(importersOf("chat-main")).toEqual([]);
     // 正样本对照：同一台匹配器对活着的屏必须报出真实引用者，否则它对谁都返回空。
     // ⚠ #467 起有**两个**引用者：新加的 skill 挂载面板复用了本文件导出的
-    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。台账双向咬合，
-    //   所以这里如实列两个而不是放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
+    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。#594 起
+    //   有**三个**：`PersonalChatScreen`（个人对话，无项目）复用同一个消息面板，
+    //   不另起第二套发消息/看回复实现。台账双向咬合，所以这里如实列三个而不是
+    //   放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
     expect(importersOf("chat-live-message-panel")).toEqual([
       "components/chat/chat-read-screen.tsx",
       "components/chat/chat-skill-mount-panel.tsx",
+      "components/chat/personal-chat-screen.tsx",
     ]);
   });
 
