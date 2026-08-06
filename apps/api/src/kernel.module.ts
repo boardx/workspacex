@@ -103,6 +103,9 @@ import {
 import { FileAgentStarterPackSource } from "./infrastructure/agent/file-agent-starter-pack-source";
 import { PgAgentStarterImportRepository } from "./infrastructure/agent/pg-agent-starter-import-repository";
 import { AgentStarterImportController } from "./interface/controllers/agent-starter-import.controller";
+import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
+import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
+import { AgentSkillPinsController } from "./interface/controllers/agent-skill-pins.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -402,6 +405,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     SkillStarterImportController,
     SkillUrlImportController,
     AgentStarterImportController,
+    AgentSkillPinsController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -520,6 +524,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: AGENT_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_SKILL_PINS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every

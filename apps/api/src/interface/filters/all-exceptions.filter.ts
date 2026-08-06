@@ -21,6 +21,7 @@ import {
   Inject,
 } from "@nestjs/common";
 import {
+  agentRuntime,
   artifact,
   auth,
   canvas,
@@ -259,6 +260,17 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    */
   const skillUrlImport = wave2Runtime.SkillUrlImportError.safeParse(raw);
   if (skillUrlImport.success) return { reasonCode: skillUrlImport.data };
+
+  /**
+   * #595 A2: `agentRuntime.AgentSkillPinsError` —— 登记在接线的同一轮，不是事后补的，
+   * 因为上面那条 `SkillUrlImportError` 的教训（同一个 bug 第八次）就发生在这个分支的
+   * 上一段：写完 controller 才发现漏登记，六条负样本第一次跑全收到 `undefined`。
+   * ⇒ 这次在写 controller 时就把登记一并做了。
+   *
+   * ⚠ 该枚举本身仍标注**未签核**（ADR-023，草案登记在 #595）。
+   */
+  const agentSkillPins = agentRuntime.AgentSkillPinsError.safeParse(raw);
+  if (agentSkillPins.success) return { reasonCode: agentSkillPins.data };
 
   /**
    * #459：`skills.SkillError` —— 声明式契约 skill 的失败面。
