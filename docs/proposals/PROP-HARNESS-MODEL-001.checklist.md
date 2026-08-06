@@ -44,13 +44,13 @@
 
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
-| HMV2-006 | P0 | ⬜ 未开始 | TPL-REG-001 注册表 |
-| HMV2-007 | P0 | ⬜ 未开始 | Template Registry schema |
-| HMV2-008 | P0 | ⬜ 未开始 | Instance 公共元数据 schema |
-| HMV2-009 | P0 | ⬜ 未开始 | 原子 Template ID 分配器 |
-| HMV2-010 | P0 | ⬜ 未开始 | Instance ID 唯一性门控 |
-| HMV2-011 | P0 | ⬜ 未开始 | retired/deprecated 生命周期门控 |
-| HMV2-012 | P0 | ⬜ 未开始 | 模板引用完整性门控 |
+| HMV2-006 | P0 | 🔶 PR #634 待 review | TPL-REG-001 注册表——`.harness/templates/registry.yaml`，seed 全部 23 个模板类型 |
+| HMV2-007 | P0 | 🔶 PR #634 待 review | Template Registry schema——`.harness/scripts/lib/template-model.ts` |
+| HMV2-008 | P0 | 🔶 PR #634 待 review | Instance 公共元数据 schema——同上，`InstanceMetadata` |
+| HMV2-009 | P0 | 🔶 PR #634 待 review | 原子 Template ID 分配器——`template-id.ts` + `pnpm harness templates allocate` |
+| HMV2-010 | P0 | 🔶 PR #634 待 review | Instance ID 唯一性门控——`template-doctor.ts` `duplicateInstanceIds` |
+| HMV2-011 | P0 | 🔶 PR #634 待 review | retired/deprecated 生命周期门控——`retiredTemplateViolations` |
+| HMV2-012 | P0 | 🔶 PR #634 待 review | 模板引用完整性门控——未注册引用 + 版本不受支持 + 死链，均含活体反证 |
 
 ---
 
@@ -237,3 +237,9 @@
    之前启动，理由同上。
 
 要我现在开始 HMV2-006（Template Registry 骨架）吗？
+
+> **进展更新（2026-08-06）**：人类已确认"按照你的建议开始吧"。HMV2-006~012（Epic E1 全部）
+> 已实现、48 条单测 + 3 条活体反证全过，PR [#634](https://github.com/boardx/workspacex/pull/634)
+> 待独立 review（本会话无合并权限）。上表状态已同步为"🔶 PR #634 待 review"，merge 后再改
+> "✅ 完成"。下一步严格按上面第 2 条执行：**先**验收 E7 那 3 条脚本能否改读 E1 schema，
+> 再谈是否启动 E3/E4。
