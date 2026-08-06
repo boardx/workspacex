@@ -27,7 +27,8 @@
  * 才验得到。曾考虑把协议判定做成可注入——**否决**：那会在生产路径上造出一条
  * 能把 https 强制关掉的缝，而**一道能被绕过的门比没有门更坏，因为它看起来有**。
  *
- * ⇒ 改用 `tests/support/tls/` 下的 test-only 自签证书（openssl 一次性生成并入库，
+ * ⇒ 改用 test-only 自签证书（**每次运行当场用 openssl 生成**，见 `tests/support/tls.ts`；
+ *   ⚠ 曾写成「一次性生成并入库」，而 `.gitignore` 的 `*.pem` 让它根本没入过库 ⇒ CI 全红，
  *   ⛔ 不进任何生产路径）。取回层不接受 `agent` 参数，所以信任关系建立在
  *   `https.globalAgent.options.ca` 上，**并在 `afterAll` 还原**——
  *   生产代码**一行未改**，没有任何「关掉 https」的开关被造出来。
@@ -35,13 +36,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import https from "node:https";
-import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import {
   ImportSourceRefusedError,
   assertResolvedAddressAllowed,
 } from "../../src/domain/skill/import-source";
 import { MAX_BYTES, fetchImportSource, type ImportFetchSeams } from "../../src/infrastructure/skill/http-import-fetcher";
+import { testTlsMaterial } from "../support/tls";
 
 const OPEN = { localOnlyOrg: false };
 
@@ -175,9 +176,9 @@ describe("TLS 之后才验得到的：重定向逐跳过门 + 响应体上限", 
   let savedCa: unknown;
 
   beforeAll(async () => {
-    const dir = new URL("../support/tls/", import.meta.url);
-    const cert = readFileSync(new URL("test-only.cert.pem", dir));
-    const key = readFileSync(new URL("test-only.key.pem", dir));
+    // ⚠ 当场生成，**不读入库文件**：`.gitignore` 有 `*.pem`，入库那条路走不通，
+    //   而「本地有、CI 没有」正是 PR #600 那次 CI 红的根因。见 `tests/support/tls.ts`。
+    const { cert, key } = testTlsMaterial();
     tls = https.createServer({ key, cert }, (req, res) => tlsHandler(req, res));
     await new Promise<void>((resolve) => tls.listen(0, "127.0.0.1", resolve));
     tlsPort = (tls.address() as AddressInfo).port;
