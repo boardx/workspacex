@@ -122,10 +122,12 @@ export default {
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       // #595 Line A：`POST /agents/:agentId/trial-run`。`AgentTrialRunController` 是
       // `@Controller()`（空前缀），路径是裸的 `/agents/:agentId/trial-run` ——
-      // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。这一族目前永远带后缀
-      // （`/agents/:agentId/trial-run`），没有裸 `/agents` 的操作，所以只写 `:path*`——
-      // 与 `/recording`、`/threads` 那条注释同一个判断依据：一旦将来加一条裸
-      // `GET /agents`，要记得在这里补第二条，别指望 `:path*` 替它兜底。
+      // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。
+      // #617：这里就是上面那条注释预告的「将来加一条裸 `POST /agents`」——
+      // `createAgent`（`AgentController`）现在挂了裸的 `POST /agents`，
+      // `listAgents`（`GET /agents`，仍未接线）将来也落在同一条裸路径上。
+      // 补上裸路径这一条，不能只靠 `:path*` 兜底（同一个坑的第八次）。
+      { source: `${prefix}/agents`, destination: `${apiOrigin}/agents` },
       { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute
