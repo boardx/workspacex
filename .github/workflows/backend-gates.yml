@@ -20,7 +20,10 @@
 # 挪走的直接收益：这台自建 runner 长期只有一台，`gates` 在每次 main push + 每个
 # PR 上都会跑，过去是全仓库唯一的排队瓶颈——所有 agent 的所有分支都在同一条队列
 # 里等同一台机器。挪到 GitHub 托管、并发不限于 1 之后，这条队列基本消失；
-# `deploy` 本身又短又不频繁（只在打 tag 时跑），单机足够。
+# `deploy` 本身还是短的（一次几分钟），单机足够——即使 2026-08-06 起改成每次 main
+# push 都触发（不再等人工打 tag），也比 `gates` 频繁不到哪去：同一 ref 的
+# concurrency group 保证不会有两个 deploy 同时抢那台机器，最坏情况是排队等一轮，
+# 不是竞态。
 #
 # 触发：main 的每次推送 + 打标签 + 手动。
 # `local.env` 的 ANSWER_Q3 原填「打标签时跑」，2026-07-29 按 P-1 改为 main 上也跑：
@@ -177,9 +180,12 @@ jobs:
 
   deploy:
     needs: [gates, e2e-core-loop]
-    # 只有打标签才部署。标签是人的显式动作，这满足 architecture.md
-    # 「有 CD 的目标不手动部署」而又不至于每次 push 都动 staging。
-    if: startsWith(github.ref, 'refs/tags/v')
+    # ⚠ 2026-08-06：人类直接要求「消除人工打 tag 这一步」——merge 到 main 就该自动部署，
+    # 不再等人记得去打一个 tag。旧注释说「标签是人的显式动作，满足『有 CD 的目标不手动
+    # 部署』」——那句话本身没错，但「显式动作」现在改成了 merge 本身（PR review + merge
+    # 已经是人的显式动作），不需要再加一道「记得打 tag」。
+    # 打 tag 仍然可以触发部署（保留，给需要显式标记发布点的场景用），但不再是唯一路径。
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 20
     steps:
