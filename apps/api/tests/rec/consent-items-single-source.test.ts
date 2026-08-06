@@ -80,15 +80,15 @@ describe("同意项：一套四项，一处定义（#533 裁决）", () => {
   it("① 契约两束指向同一个对象，不是两份内容相同的声明", () => {
     // `toEqual` 在这里是不够的：两处各写一遍 `z.enum([...四项...])` 也能 toEqual 通过，
     // 而那正是裁决要消灭的形状。同一性（`toBe`）才能证明「只有一处定义」。
-    expect(recording.RecordingConsentItem).toBe(consentItem.ConsentItem);
-    expect(interview.ConsentKey).toBe(consentItem.ConsentItem);
+    expect(recording.RecordingConsentItem).toBe(consentItem.ConsentItemKey);
+    expect(interview.ConsentKey).toBe(consentItem.ConsentItemKey);
   });
 
   it("① 四项逐字就是裁决钉的那四项，顺序也一致", () => {
     expect([...consentItem.CONSENT_ITEMS]).toEqual([...RULED_FOUR]);
-    expect(consentItem.ConsentItem.options).toEqual([...RULED_FOUR]);
+    expect(consentItem.ConsentItemKey.options).toEqual([...RULED_FOUR]);
     // `attribution` 是本次裁决补进来的那一位，单独钉一次：它是整条裁决的行为差异所在。
-    expect(consentItem.ConsentItem.options).toContain("attribution");
+    expect(consentItem.ConsentItemKey.options).toContain("attribution");
   });
 
   it("② src/ 下除单一事实源外，没有第二处把同意项列成一张表", () => {
