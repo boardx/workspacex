@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Plus, Plug, Wrench, ShieldCheck, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
 import { AdminDrawer, ConfirmDialog, Toast, Field, KV } from "./panel";
 import { DisableDialog, type DisableMode } from "./disable-dialog";
@@ -37,6 +38,7 @@ export function McpScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="MCP"
       title="MCP 服务器"
+      noticeOverride={<NoBackendNotice />}
       intro="注册服务器、设定授权范围、默认隔离。新注册的服务器默认隔离、工具不可被调用，须经人工评审放行。工具随授权范围被 agent 白名单引用。"
       emptyHint="还没有注册任何 MCP 服务器"
       errors={{ endpoint: "工具发现失败：端点握手成功但未返回工具清单；服务器保持已隔离，不放行" }}
