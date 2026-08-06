@@ -3,6 +3,27 @@
  *
  * ADR-020：这一份生成四样东西（后端 DTO / 前端类型 / OpenAPI / mock），任何一样都不许手写第二份。
  *
+ * ## 🔴 2026-08-06 · #594 · 修订已签核束（人类本人直接推翻此前裁决，方案 A）
+ *
+ * 人类原话：「不需要新建项目也应该新建一个 chat，开始使用 skills 和 agent」，
+ * 二选一确认为方案 A（`projectId` 全链路可空），非方案 B（隐式默认项目）。
+ * coord-main 视为签核已完成——登记于本束 `MIGRATION-IMPACT.md`，未走另一轮
+ * design-delta 流程（人类本次直接确认视为等价，见该文件头注）。
+ *
+ * 本次改动的**全部**契约面变更：
+ *   · `resolveVisibility.in.projectId`：`z.string()` → `z.string().nullable()`
+ *   · `getThread.out.thread.projectId`：`z.string()` → `z.string().nullable()`
+ *   · 新增操作 `listPersonalThreads`（GET `/chat/threads`，path 上没有 `:projectId`
+ *     —— 既有 `listThreads` 的 path 是 `/chat/projects/:projectId/threads`，
+ *     `projectId` 在 URL 路径段上，天生表达不了「没有项目」，所以不是放宽
+ *     既有操作，是新增一条）
+ *   · `mutateThread.in.projectId` **不用改**——它从 F109 落地起就是
+ *     `z.string().nullable()`，只是实现单方面把 `null` 拒了（见 `MIGRATION-IMPACT.md`
+ *     「这条矛盾早就在契约里」一节）
+ *   · `ChatVisibility` 五值**不新增**：个人线程复用既有的 `private`
+ *     （原语义「研究阶段：仅创建者」延伸覆盖「无项目：仅创建者」——两者本来就是
+ *     同一句话，见下方枚举定义处的头注）
+ *
  * 覆盖 feature：F108–F115（phase-01，8 个）
  * 依据 UC：`uc-8-1`（线程生命周期）· `uc-8-2`（AI 团队 / 工具链 / 批准闸门）
  *         · `uc-8-3`（产出落地）· `uc-8-4`（预设对话）· `uc-8-5`（可见性判定）
@@ -36,13 +57,20 @@ import { ContextPackReason } from "./context-pack";
  *   这一个是**一条对话线程的归属范围**（这个线程属于谁的会话空间）。
  *   合并意味着「组员私聊」与「团队可见的材料」共用一个取值集合，
  *   于是任何一侧新增取值都会污染另一侧的判定——本仓已五次因「同一名字两处含义」漂移。
+ *
+ * ⚠ **2026-08-06（#594）：`private` 的语义扩大，不是新增第六个值。**
+ *   原文案「研究阶段：仅创建者」现在也覆盖「个人线程（无项目）：仅创建者」——
+ *   两者本来就是**同一条规则**（`actor.userId === thread.createdBy`，见
+ *   `apps/api/src/domain/chat/thread-visibility.ts` 的 `scopeAllows`/
+ *   `decidePersonalThreadRead`），只是触发它的场景从一种变成两种。
+ *   没有新增枚举值：五值封闭这条不变量原样成立。
  */
 export const ChatVisibility = z.enum([
   "member-private", // 组员私聊：本人 + 本组组长 + 引导师
   "group-shared",   // 本组共享：全组可见
   "plenary",        // 全场：项目内全员
   "team-visible",   // 团队可见：研究阶段，同（组织）团队可见
-  "private",        // 私有：研究阶段，仅创建者
+  "private",        // 私有：仅创建者（研究阶段的线程 / #594 起也含无项目的个人线程）
 ]);
 
 /** 线程阶段——决定右栏是否显示转录（uc-8-2 E1） */
@@ -288,7 +316,8 @@ export const operations = {
     method: "POST", path: "/chat/visibility/resolve",
     in: z.object({
       actorId: z.string(),
-      projectId: z.string(),
+      // 🔴 #594：`null` = 判定走个人线程分支（仅创建者可读），不是「没填」。
+      projectId: z.string().nullable(),
       threadId: z.string().nullable(),
       resourceKind: z.enum(["thread", "message", "transcript", "file"]),
     }).strict(),
@@ -317,7 +346,8 @@ export const operations = {
     out: z.object({
       thread: z.object({
         id: z.string(),
-        projectId: z.string(),
+        /** 🔴 #594：`null` = 个人线程，不挂靠任何项目。 */
+        projectId: z.string().nullable(),
         groupId: z.string().nullable(),
         visibilityScope: ChatVisibility,
         phase: ThreadPhase,
@@ -414,6 +444,30 @@ export const operations = {
       capabilities: z.array(z.string()),
     }).strict(),
     err: ["NOT_VISIBLE", "AUTHZ_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 🔴 #594 —— 个人线程（无项目）的列表。**新增操作，不是 `listThreads` 加可选参数**：
+   * `listThreads` 的 path 是 `/chat/projects/:projectId/threads`，`projectId` 在
+   * URL 路径段上，路径参数天生表达不了「没有项目」——给它加一个「projectId 可以是
+   * 某个哨兵字符串」的特例，等于在路由层发明一个新的隐式协议，比新增一个操作更贵。
+   *
+   * `capabilities` 恒下发且与调用者是否已有线程无关（同上面 `listThreads` 的 #489
+   * 理由：零线程时也要能建第一条）。
+   */
+  listPersonalThreads: {
+    method: "GET", path: "/chat/threads",
+    in: z.object({
+      includeArchived: z.boolean().optional(),
+    }).strict(),
+    out: z.object({
+      groups: z.array(z.object({
+        label: z.enum(["今天", "本周"]),
+        cards: z.array(ThreadCard),
+      }).strict()),
+      capabilities: z.array(z.string()),
+    }).strict(),
+    err: ["AUTHZ_UNAVAILABLE"] as const,
   },
 
   /**

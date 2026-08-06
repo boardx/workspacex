@@ -62,7 +62,8 @@ class RosterAgentMissingSignal extends Error {
 
 interface ThreadDbRow {
   id: string;
-  project_id: string;
+  /** 🔴 #594：`null` = 个人线程，不挂靠项目（`chat_threads.project_id` 已放宽为可空）。 */
+  project_id: string | null;
   group_id: string | null;
   visibility_scope: string;
   created_by: string;
@@ -120,14 +121,23 @@ export class PgChatRepository implements ChatRepository {
    * ref 取**项目**：线程不是 `acl_bindings` 的对象类型，它的组织层归属就是所在项目的。
    */
   async findMessages(orgId: OrgId, threadId: string): Promise<Guarded<ChatMessageRow[]> | null> {
-    const projectId = await this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ project_id: string }>(
+    /**
+     * 🔴 #594：**必须**分清「查无此行」与「查到了但 `project_id IS NULL`」——
+     * 后者从这次改动起是一个合法状态（个人线程），前者才是「线程不存在」。
+     * 改动前 `r.rows[0]?.project_id ?? null` 把两者叠成同一个 `null`，
+     * 这是一个真实的功能性 bug：每一条个人线程的消息都会被这一行误判成
+     * 「线程不存在」，创建者读自己的对话会拿到 404——不是越权读，是反过来的
+     * 「自己的东西读不到」，但同样是「一个 null 承担两种含义」这个老坑的新受害者。
+     */
+    const found = await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ project_id: string | null }>(
         "SELECT project_id FROM chat_threads WHERE id = $1 AND org_id = $2",
         [threadId, orgId],
       );
-      return r.rows[0]?.project_id ?? null;
+      return r.rows[0] === undefined ? { exists: false as const } : { exists: true as const, projectId: r.rows[0].project_id };
     });
-    if (projectId === null) return null;
+    if (!found.exists) return null;
+    const projectId = found.projectId;
     const rows = await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string;
@@ -159,7 +169,9 @@ export class PgChatRepository implements ChatRepository {
         createdAt: row.created_at.toISOString(),
       }));
     });
-    return guard({ kind: "project", id: projectId }, rows);
+    // ref 只是 Guarded 的描述性元数据（discloseDecided 不查它），个人线程用一个
+    // 恒无绑定行的合成 id，同 resolve-visibility.ts / pg-chat-message-command-repository.ts 的先例。
+    return guard({ kind: "project", id: projectId ?? `personal:${threadId}` }, rows);
   }
 
   /** COUNT，不是取回列表再数——正文不进内存才叫「只返计数」（I-8）。 */
@@ -202,6 +214,47 @@ export class PgChatRepository implements ChatRepository {
             AND ($3::boolean OR NOT t.archived)
           ORDER BY t.last_activity_at DESC, t.id`,
         [orgId, projectId, opts.includeArchived],
+      );
+      return r.rows.map((row) => ({
+        threadId: row.id,
+        projectId: row.project_id,
+        groupId: row.group_id,
+        visibilityScope: row.visibility_scope as ChatVisibilityScope,
+        createdBy: row.created_by,
+        archived: row.archived,
+        title: row.title,
+        agentPrivate: row.agent_private,
+        lastActivityAt: row.last_activity_at.toISOString(),
+        version: row.version,
+        transcribing: row.transcribing,
+      }));
+    });
+  }
+
+  /**
+   * 🔴 #594 —— 一个用户自己名下的候选个人线程。`WHERE project_id IS NULL AND
+   * created_by = $2` 是性能手段不是可见性判断，见 `ports.ts` 同名方法的头注。
+   */
+  async listPersonalThreads(
+    orgId: OrgId,
+    userId: string,
+    opts: { includeArchived: boolean },
+  ): Promise<readonly ThreadListRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<
+        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean }
+      >(
+        `SELECT t.id, t.project_id, t.group_id, t.visibility_scope, t.created_by, t.archived,
+                t.phase, t.title, t.agent_private, t.last_activity_at, t.version,
+                EXISTS (
+                  SELECT 1 FROM chat_transcript_sessions ts
+                   WHERE ts.thread_id = t.id AND ts.org_id = t.org_id AND ts.stopped_at IS NULL
+                ) AS transcribing
+           FROM chat_threads t
+          WHERE t.org_id = $1 AND t.project_id IS NULL AND t.created_by = $2
+            AND ($3::boolean OR NOT t.archived)
+          ORDER BY t.last_activity_at DESC, t.id`,
+        [orgId, userId, opts.includeArchived],
       );
       return r.rows.map((row) => ({
         threadId: row.id,

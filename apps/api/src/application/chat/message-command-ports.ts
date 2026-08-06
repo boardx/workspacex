@@ -56,17 +56,23 @@ export type AcceptMessageOutcome =
   | { readonly kind: "created" | "replay"; readonly accepted: AcceptedHumanMessage }
   | { readonly kind: "conflict" };
 
+/**
+ * 🔴 #594：三处 `projectId` 全部改成 `string | null`——`null` = 消息挂在一条
+ * 个人线程上。仓储实现只把它当一个可为空的过滤/落库字段用，**不做任何判权**
+ * （判权已经在 `message-roundtrip.ts` 调 `resolveVisibility` 那一步做完了，
+ * 见 `ports.ts` 文件头「正文只在判定通过后取」）。
+ */
 export interface ChatMessageCommandRepository {
   findAccepted(
     orgId: OrgId,
-    input: { projectId: string; threadId: string; actorId: string; clientMessageId: string },
+    input: { projectId: string | null; threadId: string; actorId: string; clientMessageId: string },
   ): Promise<Guarded<AcceptedHumanMessage | null>>;
 
   accept(
     orgId: OrgId,
     input: {
       threadId: string;
-      projectId: string;
+      projectId: string | null;
       actorId: string;
       clientMessageId: string;
       text: string;
@@ -81,7 +87,7 @@ export interface ChatMessageCommandRepository {
     orgId: OrgId,
     input: {
       threadId: string;
-      projectId: string;
+      projectId: string | null;
       after: { createdAt: string; messageId: string } | null;
       limit: number;
     },

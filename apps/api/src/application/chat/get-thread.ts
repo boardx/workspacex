@@ -26,7 +26,9 @@
 import { chat as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
-import { capabilitiesFor, observerMayReadMessage } from "../../domain/chat/thread-visibility";
+import {
+  capabilitiesFor, observerMayReadMessage, PERSONAL_THREAD_CAPABILITIES,
+} from "../../domain/chat/thread-visibility";
 import { messageBadges } from "../../domain/chat/thread-badges";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { ChatMessageRow, ChatRepository } from "./ports";
@@ -49,7 +51,11 @@ export interface GetThreadDeps extends ResolveVisibilityDeps {
 export interface GetThreadInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /**
+   * 🔴 #594：`null` = 走个人线程分支（不是「未提供」的占位）。
+   * 控制器把查询参数缺省时也映射成 `null`，见 `chat.controller.ts` 的 `thread()`。
+   */
+  readonly projectId: string | null;
   readonly threadId: string;
 }
 
@@ -97,7 +103,14 @@ export async function getThread(
     // 变成「响应里多了一个没人决定要公开的字段」（F03 personal-layer-summary 同理）。
     messages: visible.map(toMessage),
     rightTabs: rightTabs(visible),
-    capabilities: capabilitiesFor(actor.projectRole),
+    // 🔴 #594：个人线程（`thread.projectId === null`）不经 `capabilitiesFor`——
+    // 它按 `ProjectRole` 分派，个人线程的 `actor.projectRole` 恒为 `null`，
+    // 传进去只会拿到 `[]`（`capabilitiesFor(null)` 的既有语义是「无角色 = 无能力」，
+    // 这里的 `null` 却是「这个维度不适用」，两种 `null` 不该共用一个分支）。
+    // 能走到这一行说明 `resolveVisibility` 已经判过创建者身份，见 `resolvePersonalVisibility`。
+    capabilities: thread.projectId === null
+      ? [...PERSONAL_THREAD_CAPABILITIES]
+      : capabilitiesFor(actor.projectRole),
   };
 }
 

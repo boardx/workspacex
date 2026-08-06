@@ -146,7 +146,10 @@ async function createThread(
   input: MutateThreadInput,
 ): Promise<MutateThreadResult> {
   const projectId = input.projectId;
-  if (projectId === null) throw new ThreadNotVisibleError();
+  // 🔴 #594：`projectId === null` 不再一律拒绝——那一条改成了独立分支。
+  // 项目分支（下面 `if (projectId !== null)` 之后）**一个字没动**。
+  if (projectId === null) return createPersonalThread(deps, input);
+
   const title = normalizeTitle(input.title);
 
   // 观察者恒无写权。**接口拒绝**，不只是按钮不渲染（R7 / 服务端判权）——
@@ -182,35 +185,102 @@ async function createThread(
   return { threadId, version: 0, auditEventId, impactScope: null };
 }
 
+/**
+ * 🔴 #594 —— 个人线程的创建。**没有成员资格判定**：个人线程不属于任何项目，
+ * 「谁能建」这个问题的答案是「任何登录到这个组织的人」，与项目分支「必须持有
+ * 非观察者的项目角色」是两条不同的门（项目分支管的是「你在这场里是什么人」，
+ * 这里管的是「你有没有登录」，本来就该是不同的判据，不是漏判）。
+ *
+ * `groupId` 强制为 `null`：个人线程没有组的概念，即便调用方在请求体里塞了一个
+ * `groupId`（契约允许，因为它是给项目分支用的同一个字段），这里也不采信——
+ * 采信了会让一条不挂靠项目的线程带着一个指向某个项目分组的外键，
+ * `chat_threads.group_id` 的外键目标是 `groups(id)`，写一个不相关的组号
+ * 大概率直接撞 23503，但「大概率撞外键」不是「不可能悄悄写对」的证明，
+ * 这里在应用层就把这条路堵死。
+ *
+ * 默认可见范围复用 `private`（原语义「研究阶段：仅创建者」延伸覆盖「无项目：
+ * 仅创建者」——两者本来就是同一句话「仅创建者可读」，不新增第六个枚举值；
+ * 见 `packages/contracts/src/chat.ts` 的 `ChatVisibility` 头注与本束
+ * `MIGRATION-IMPACT.md`）。
+ */
+async function createPersonalThread(
+  deps: MutateThreadDeps,
+  input: MutateThreadInput,
+): Promise<MutateThreadResult> {
+  const title = normalizeTitle(input.title);
+  const threadId = deps.artifactIds.next("thr");
+  await deps.chat.createThread({
+    orgId: input.orgId,
+    threadId,
+    projectId: null,
+    groupId: null,
+    title,
+    visibilityScope: input.visibilityScope ?? "private",
+    createdBy: input.userId,
+  });
+
+  const auditEventId = await deps.provenance.append({
+    orgId: input.orgId,
+    type: CHAT_LIFECYCLE_AUDIT_TYPE.create,
+    actorId: input.userId,
+    target: { kind: "thread", id: threadId },
+    detail: { projectId: null, title },
+  });
+  return { threadId, version: 0, auditEventId, impactScope: null };
+}
+
 async function mutateExisting(
   deps: MutateThreadDeps,
   input: MutateThreadInput,
 ): Promise<MutateThreadResult> {
-  const { threadId, projectId, expectedVersion } = input;
-  if (threadId === null || projectId === null || expectedVersion === null) {
+  const { threadId, expectedVersion } = input;
+  // 🔴 #594：`projectId` 从这条恒拒的名单里移出——个人线程的改名/删除请求
+  // 里 `projectId` 本来就是 `null`（客户端没有项目可填，也不该被逼着编一个）。
+  // `resolveVisibility` 自己知道 `null` 意味着走哪条分支。
+  if (threadId === null || expectedVersion === null) {
     throw new ThreadNotVisibleError();
   }
 
   // 写路径的前置也是**同一个**可见性判定。不可见与不存在同一个出口（I-3）：
   // 「改不了」与「没有这个东西」若给出不同回答，改名接口就成了存在性探测器。
+  //
+  // ⚠ 传的是 `input.projectId`（调用方声称的），**不是** `resolveVisibility` 事后
+  // 查到的真实 `thread.projectId`——这正是 mismatch 门要检查的东西：调用方声称
+  // 「这是个人线程」（传 null）但线程其实挂着项目，`resolveVisibility` 的门①
+  // 会把它当不存在拒掉，而不是这里先"聪明地"补上真实 projectId 替调用方纠错。
   const outcome = await resolveVisibility(deps, {
     userId: input.userId,
     orgId: input.orgId,
-    projectId,
+    projectId: input.projectId,
     threadId,
   });
   if (outcome.kind !== "allow") throw new ThreadNotVisibleError();
 
-  // 归档线程只读：**全部写操作被拒**（I-15），改名/删除都在内。
+  // `outcome.thread.projectId` 才是这条线程**真实**挂靠的项目（或 null）——
+  // 从这里开始的审计 `detail.projectId` 都用它，不用 `input.projectId`。
+  const realProjectId = outcome.thread.projectId;
+
+  // 归档线程只读：**全部写操作被拒**（I-15），改名/删除都在内。项目线程与个人线程
+  // 共用这一条——个人线程今天没有归档入口能把 `archived` 置真，但判定本身不该
+  // 假设「个人线程永远不归档」，那是产品以后可能补的入口，不是这里的前提。
   if (outcome.thread.archived) {
-    await auditRefusal(deps, input, projectId, "THREAD_ARCHIVED_READONLY");
+    await auditRefusal(deps, input, realProjectId, "THREAD_ARCHIVED_READONLY");
     throw new ThreadArchivedReadonlyError();
   }
 
-  const role = outcome.actor.projectRole;
-  if (role === null || role === "observer") {
-    await auditRefusal(deps, input, projectId, "NO_WRITE_ROLE");
-    throw new NoWriteRoleError();
+  // 🔴 #594：项目线程走角色门（观察者/无角色恒拒）；个人线程**不查角色**——
+  // `resolveVisibility` 的个人分支已经把「非创建者」挡在 `outcome.kind !== "allow"`
+  // 那一步了，能走到这里的个人线程请求，调用者就是创建者，创建者对自己的线程
+  // 恒有写权。这不是漏了角色判定，是这条线程根本没有"角色"这个概念——
+  // 硬套项目分支的角色检查（`actor.projectRole === null ⇒ 拒`）会把创建者自己拒掉，
+  // 因为个人线程的 `actor.projectRole` 恒为 `null`（`resolvePersonalVisibility`
+  // 明确写死），那不是「无角色」，是「这个维度不适用」。
+  if (realProjectId !== null) {
+    const role = outcome.actor.projectRole;
+    if (role === null || role === "observer") {
+      await auditRefusal(deps, input, realProjectId, "NO_WRITE_ROLE");
+      throw new NoWriteRoleError();
+    }
   }
 
   if (input.op === "rename") {
@@ -222,7 +292,7 @@ async function mutateExisting(
       type: CHAT_LIFECYCLE_AUDIT_TYPE.rename,
       actorId: input.userId,
       target: { kind: "thread", id: threadId },
-      detail: { projectId, title, version },
+      detail: { projectId: realProjectId, title, version },
     });
     return { threadId, version, auditEventId, impactScope: null };
   }
@@ -238,7 +308,7 @@ async function mutateExisting(
     // ⚠ 线程行马上就没了，而事件仍指向它——这正是删除追溯要的：
     //   `provenance_events` 与 `chat_threads` 之间没有外键，事件不随对象消失。
     target: { kind: "thread", id: threadId },
-    detail: { projectId, reason: input.reason, messageCount, expectedVersion },
+    detail: { projectId: realProjectId, reason: input.reason, messageCount, expectedVersion },
   });
   return {
     threadId,
@@ -257,7 +327,16 @@ async function mutateExisting(
 async function auditRefusal(
   deps: MutateThreadDeps,
   input: MutateThreadInput,
-  projectId: string,
+  /**
+   * 🔴 #594：`string | null`。个人线程的拒绝事件（今天只有「已归档」这一档能到达
+   * 这里——个人线程没有角色门，见 `mutateExisting`）里 `projectId` 就是 `null`。
+   * ⚠ `input.threadId === null` 分支的 `target: {kind:"project", id: projectId}`
+   * 只在**被拒的 create** 上可达，而个人线程的 create 从不调用本函数（没有拒绝路径，
+   * 见 `createPersonalThread` 头注），所以那一支的 `projectId` 在实践中恒非空——
+   * 但类型层面仍是 `string | null`，`String(projectId)` 兜底而不是断言非空，
+   * 免得下一个新增的个人线程拒绝路径在这里悄悄崩溃。
+   */
+  projectId: string | null,
   reason: string,
 ): Promise<void> {
   await deps.provenance.append({
@@ -269,7 +348,7 @@ async function auditRefusal(
     //   否则「谁试过删它」和「谁删掉了它」在审计里落在两个不同的对象上。
     target:
       input.threadId === null
-        ? ({ kind: "project", id: projectId } as const)
+        ? ({ kind: "project", id: projectId ?? `personal:${input.userId}` } as const)
         : ({ kind: "thread", id: input.threadId } as const),
     detail: { chatOp: input.op, projectId, reason },
   });

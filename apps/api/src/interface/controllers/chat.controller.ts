@@ -51,6 +51,7 @@ import {
   SourceArtifactDeletedError,
 } from "../../application/chat/locate-citation";
 import { listThreads } from "../../application/chat/list-threads";
+import { listPersonalThreads } from "../../application/chat/list-personal-threads";
 import {
   mutateThread,
   NoWriteRoleError,
@@ -172,7 +173,7 @@ export const DECIDE_APPROVAL_SCHEMA = C.operations.decideApproval.in;
 export const LAND_AS_ARTIFACT_SCHEMA = C.operations.landAsArtifact.in;
 export const CHECK_DOWNSTREAM_ELIGIBILITY_SCHEMA = C.operations.checkDownstreamEligibility.in;
 
-type ResolveBody = { actorId: string; projectId: string; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
+type ResolveBody = { actorId: string; projectId: string | null; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
 type AdminAuditBody = { threadId: string; projectId: string; layer: "project" | "personal" };
 type MutateThreadBody = {
   op: "create" | "rename" | "delete";
@@ -301,14 +302,22 @@ export class ChatController {
     }
   }
 
-  /** 线程详情（含四视角投影）。观察者拿到的是**服务端已经删过**的那一份（I-5）。 */
+  /**
+   * 线程详情（含四视角投影）。观察者拿到的是**服务端已经删过**的那一份（I-5）。
+   *
+   * 🔴 #594：`projectId` 查询参数不再要求非空——NestJS 对缺省的 `@Query` 给的是
+   * `undefined`，这里显式折成 `null`（不是空字符串，空字符串会被当成一个真实的
+   * "projectId 是空串"的项目 id 传下去，那不是"没有项目"，是"项目 id 无效"，
+   * 两者对下游的判定分支是完全不同的输入）。
+   */
   @Get("/chat/threads/:threadId")
   async thread(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
-    @Query("projectId") projectId: string,
+    @Query("projectId") rawProjectId?: string,
   ) {
     assertPrincipal(principal);
+    const projectId = rawProjectId === undefined || rawProjectId === "" ? null : rawProjectId;
     try {
       return await getThread(this.deps, {
         userId: principal.userId,
@@ -451,6 +460,34 @@ export class ChatController {
           orgId: toOrgId(principal.orgId),
           projectId,
           filter: filter as "all" | "project" | "my-agents" | undefined,
+          includeArchived: includeArchived === "true",
+        },
+      );
+    } catch (e) {
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 🔴 #594 —— 个人线程（无项目）列表。⚠ 路由必须放在 `/chat/threads/:threadId`
+   * 之外的独立方法（不是同一个 `@Get` 上加可选参数）——`/chat/threads`（无 id 段）
+   * 与 `/chat/threads/:threadId`（有 id 段）是两个不同形状的路径，Nest 按段数区分，
+   * 不会互相吞掉，但共用一个处理函数会让「这次是列表请求还是详情请求」变成
+   * 靠猜参数形状分岔，比两个方法各管一段路径更容易在将来的改动里被弄混。
+   */
+  @Get("/chat/threads")
+  async personalThreads(
+    @CurrentPrincipal() principal: Principal,
+    @Query("includeArchived") includeArchived?: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await listPersonalThreads(
+        { ...this.deps, clock: this.clock },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
           includeArchived: includeArchived === "true",
         },
       );

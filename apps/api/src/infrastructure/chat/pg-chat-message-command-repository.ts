@@ -40,16 +40,18 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
 
   async findAccepted(
     orgId: OrgId,
-    input: { projectId: string; threadId: string; actorId: string; clientMessageId: string },
+    input: { projectId: string | null; threadId: string; actorId: string; clientMessageId: string },
   ) {
     const row = await this.db.withTenant(orgId, (s) => findAcceptedIn(s, orgId, input));
-    return guard({ kind: "project", id: input.projectId }, row);
+    // #594：ref 的 id 只是 Guarded 的描述性元数据（discloseDecided 不查它），
+    // 个人线程没有真实 projectId 时用一个恒无绑定行的合成 id，同 resolve-visibility.ts 的先例。
+    return guard({ kind: "project", id: input.projectId ?? `personal:${input.actorId}` }, row);
   }
 
   async accept(
     orgId: OrgId,
     input: {
-      projectId: string; threadId: string; actorId: string; clientMessageId: string; text: string;
+      projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
     },
   ) {
@@ -102,13 +104,13 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         },
       };
     });
-    return guard({ kind: "project", id: input.projectId }, outcome);
+    return guard({ kind: "project", id: input.projectId ?? `personal:${input.actorId}` }, outcome);
   }
 
   async page(
     orgId: OrgId,
     input: {
-      projectId: string; threadId: string;
+      projectId: string | null; threadId: string;
       after: { createdAt: string; messageId: string } | null; limit: number;
     },
   ) {
@@ -140,7 +142,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         })),
       };
     });
-    return guard({ kind: "project", id: input.projectId }, page);
+    return guard({ kind: "project", id: input.projectId ?? `personal:${input.threadId}` }, page);
   }
 }
 
