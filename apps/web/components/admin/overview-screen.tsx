@@ -2,6 +2,7 @@
 import * as React from "react";
 import { TrendingUp, TrendingDown, Minus, ShieldAlert, Download, FileBarChart, Link2, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, Toast } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function OverviewScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="总览"
       title="组织总览"
+      noticeOverride={<NoBackendNotice />}
       intro="本月消耗、活跃度与需要人处理的异常。异常不是「事后可查」，是「事中拦截」——这里是处置入口。"
       emptyHint="本月还没有活动记录"
       errors={{ report: "生成月度报告失败：审计导出服务返回 500，请稍后重试" }}

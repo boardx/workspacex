@@ -2,6 +2,7 @@
 import * as React from "react";
 import { EyeOff, ScrollText, FileClock, Gauge, UserPlus } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function MembersScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="成员配额"
       title="成员与配额"
+      noticeOverride={<NoBackendNotice />}
       intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。"
       emptyHint="组织里还没有成员"
       errors={{ quota: "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度" }}

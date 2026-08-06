@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AG_BLUEPRINTS, AG_PRODUCT_VALUES, blueprintProgressTone } from "@/lib/mock/asset-governance";
@@ -35,6 +36,7 @@ export function BlueprintScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="项目蓝本"
       title="项目蓝本"
+      noticeOverride={<NoBackendNotice />}
       intro="项目蓝本是六种 AI 能力资产之一，和 Agent / Skill 走同一套治理：谁能用、出问题谁负责、什么时候重新检查。这里是后台侧的清单与去向；环节骨架与三角色任务在蓝本设计器里改。"
       emptyHint="本组织还没有项目蓝本"
       depFailure="蓝本库读取失败，无法列出项目蓝本。"

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { LayoutList, Download, ThumbsDown, ArrowRight, GitPullRequestArrow, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, Toast } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="反馈"
       title="反馈与迭代"
+      noticeOverride={<NoBackendNotice />}
       intro="两类反馈：软件缺陷/需求进迭代看板；Agent/Skill 的问题由消息级评价聚合成改进建议，进开发 Agent → PR → 人工复核 → 灰度。每条反馈都有状态与去向。"
       emptyHint="本周还没有收到反馈"
       errors={{ push: "推送迭代看板失败：迭代看板连接超时，反馈已保留待重试" }}

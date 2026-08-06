@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
 import { DisableDialog, type DisableMode } from "./disable-dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export function ModelScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="模型"
       title="模型管理"
+      noticeOverride={<NoBackendNotice />}
       intro="只有测试通过的模型才会出现在 agent 与 skill 的模型选择里。phase-1 的五项准入测试改为人工判读并记录（不做自动化）。客户机密材料只走开源自托管。"
       emptyHint="模型池是空的，先接入一个模型"
       errors={{ endpoint: "接入失败：连通性测试超时，端点 3 次未响应；模型保持待测试，不进入可选池" }}
