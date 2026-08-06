@@ -6,7 +6,8 @@
  * 「谁能建」这条边只能靠读一遍 `create-project.ts` 才能确认——而它会被测的是
  * 「调用成功了吗」，不是「这条边长什么样」。
  *
- *   ① 谁能建      U-4 裁 A：只有组织角色 `lead`；`admin` 也不能
+ *   ① 谁能建      组织角色 `lead` 或 `admin`（2026-08-06 人类裁决 / #608，
+ *                 **覆盖** U-4 裁 A 原本的「只有 `lead`、`admin` 也不能」）
  *   ② kind 闭集   契约 `ProjectKind` 三值，与 DB CHECK 成员逐个相等
  *   ③ 幂等指纹    uc-00-1 E5 的字面意思：「同一次创建请求」= 同样的五元组
  *
@@ -35,14 +36,36 @@ export const PROJECT_KINDS = project.ProjectKind.options;
 export type ProjectKind = z.infer<typeof project.ProjectKind>;
 
 /**
- * **只有 `lead`**（U-4 裁 A，D-11「创建与管理项目」逐字）。
+ * **`lead` 或 `admin`**（人类裁决 2026-08-06，**覆盖 U-4 裁 A** 的「只有 `lead`」那一半；
+ * issue **#608**）。
  *
- * ⚠ `admin` 落在 false 上是这条裁决的**全部内容**，不是顺带：
- *   管理员的权是治理不是参与（D-18 同向）。写成 `role !== "consultant"` 之类的
- *   排除式，`admin` 就会静默地被放进来，而所有正向断言依旧全绿。
+ * ## 为什么覆盖
+ *
+ * U-4 裁 A 原本把 `admin` 排除在外，理由是「管理员的权是治理不是参与」（D-18 同向）。
+ * 那条推理没错，错的是它与**自助注册的唯一出口**互相锁死：
+ *   · `bootstrapFirstUser` 落库时 `org_role` 写死 `'admin'`
+ *     （`infrastructure/auth/pg-registration-repository.ts` 三处自助注册 INSERT 全部如此）；
+ *   · 全仓**没有任何** `UPDATE org_memberships` —— 改组织角色的写路径不存在。
+ * ⇒ 一个组织里的第一个人永远是 `admin`，永远变不成 `lead`，于是**永远建不了第一个项目**。
+ *   八步核心流程第 1 步产生的用户，在第 2 步就走不下去。
+ * 人类据此裁定：**admin 也能建项目**。
+ *
+ * ## ⚠ 这条裁决**只**覆盖「谁能建」，**没有**覆盖 Q-4②
+ *
+ * 建项目**依旧不授予创建者任何项目角色**——admin 建完之后与 lead 建完之后行为完全一致：
+ * `project_memberships` 里一行都没有，立刻判权拿到 `NO_PROJECT_ROLE`。
+ * 「让它能用起来」的最短路径恰恰是顺手发一个角色，那会同时废掉 Q-4② 与 D-18。
+ * ⇒ 护栏断言在 `tests/project/bootstrap-admin-can-create-project.test.ts` 的第三个 describe。
+ *
+ * ⚠ 仍然**不写成排除式**（`role !== "consultant"` 之类）：那样将来枚举加第五种角色时，
+ *   新角色会静默地被放进来，而所有正向断言依旧全绿。两个取值就逐个列两个。
+ *
+ * ⚠ **本函数还被归档/解归档复用**（`archive-project.ts` / `unarchive-project.ts`
+ *   「权限同归档者，不新造角色」）⇒ 本次放宽**连带**让 `admin` 能归档/解归档项目。
+ *   这是复用关系的直接后果，不是偷偷夹带；`unarchive-project.ts` 头注对此有一句说明。
  */
 export function canCreateProject(orgRole: OrgRole | null): boolean {
-  return orgRole === "lead";
+  return orgRole === "lead" || orgRole === "admin";
 }
 
 /**

@@ -66,10 +66,28 @@ export class ApplyBlueprintError extends Error {
 }
 
 /**
- * **只有 `lead`**（同 F17 `canCreateProject`）：套用蓝本新建项目就是新建项目，
- * `admin` 落在 false 上不是顺带——见 `create-project-rules.ts` 同名判断的头注。
- * ⚠ 有意不 import 该函数：`templates` 与 `project` 是两个独立契约束，各自的仓储/测试
- * 边界不应因为共享一行判断而产生跨束依赖；两处各自维护、逻辑巧合相同，改动各自评审。
+ * **只有 `lead`**。⚠ 有意不 import `canCreateProject`：`templates` 与 `project` 是两个
+ * 独立契约束，各自的仓储/测试边界不应因为共享一行判断而产生跨束依赖；两处各自维护、
+ * 改动各自评审。
+ *
+ * ## 🔴 2026-08-06 起两处**不再逻辑相同** —— 这是已知分歧，不是遗漏
+ *
+ * 人类裁决（#608）把 `project` 束的 `canCreateProject` 放宽为「`lead` 或 `admin`」，
+ * 理由是「组织里的第一个人永远是 `admin`，否则永远建不了第一个项目」。
+ * 而「套用蓝本新建项目**就是**新建项目」——同一个动作，本函数却仍然只放行 `lead`。
+ *
+ * ⚠ **本次没有跟着改**，因为：
+ *   ① 裁决原文只点名 `canCreateProject`（#608 要求第 1 条逐字），本束不在其范围内；
+ *   ② 本文件头注立的规矩正是「两处各自评审」——顺手同步就是替 `templates` 束的
+ *      签核人做了一个没人评审过的判断；
+ *   ③ 实测 `applyBlueprint` **尚未挂任何 controller 路由**（全仓 `apps/api/src/interface`
+ *      下零命中，正样本 `createProject` 同一把尺子有命中）⇒ 这条分歧**当前用户不可达**，
+ *      不构成 #608 要解的那个体验断点。
+ *
+ * ⇒ 已在 #608 的 PR 正文作为「需人裁的遗留分歧」列出。谁来接：把这里改成
+ *   `orgRole === "lead" || orgRole === "admin"` 是一行的事，但要走 `templates` 束的评审。
+ *   分歧本身由 `tests/tpl/apply-blueprint-admin-divergence.test.ts` 钉住——**那条测试锁的是
+ *   「今天是什么样」，不是「应该是什么样」**：分歧被消除时它会红，提醒来人删掉它。
  */
 export function canApplyBlueprint(orgRole: OrgRole | null): boolean {
   return orgRole === "lead";
