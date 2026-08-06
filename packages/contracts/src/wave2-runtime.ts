@@ -56,6 +56,50 @@ export const SkillStarterImportResult = z.object({
   importedAt: z.string(),
 }).strict();
 
+/* ────────────────── #595 URL 导入：⚠ 草案，**尚未经人类签核**（ADR-023） ──────────────────
+ *
+ * 草案已登记在 issue #595 的评论里，**还没有人签**。它落在这里而不是
+ * `apps/api/src/application/skill-import/url-import-draft.ts`，是被机械门控逼过来的：
+ * `tests/contract-single-source.test.ts` 逐行禁止 `apps/api/src` 出现
+ * `const X = z.object(`，理由是「同一个形状声明在两处」已经在本项目发生过两次。
+ *
+ * ⚠ 这与草案文件原本的意图（把形状关在一个文件里，好让签核改得动）**不冲突**：
+ *   形状仍然只有一份，只是那一份搬到了契约里。后端一律 `z.infer` 派生，
+ *   ⛔ 不重新声明任何字段名。
+ *
+ * ⚠ **本条目出现在 operations 里不代表它定稿了。** 签核可以改字段名、拆字段、
+ *   换错误码；改这一处即可，后端会跟着编译错误走。
+ */
+export const SkillUrlImportError = z.enum([
+  /* 用例层（`application/skill-import/url-import-draft.ts` 的 `ImportSkillFromUrlFailure`） */
+  "IMPORT_CONTENT_INVALID",
+  "IMPORT_NAME_CONFLICT",
+  "IMPORT_IDEMPOTENCY_CONFLICT",
+  "IMPORT_NOT_ORG_ADMIN",
+  /* 取回层（`domain/skill/import-source.ts` 的 `ImportSourceRefusalCode`）。
+   * ⚠ 这些码**必须**能从 HTTP 面看见：否则一个被 SSRF 门拦下的请求和一个内容为空的
+   *   请求会长得一模一样，调用方无法分辨「我被拒了」和「我传错了」。 */
+  "IMPORT_URL_MALFORMED",
+  "IMPORT_URL_SCHEME_FORBIDDEN",
+  "IMPORT_URL_CREDENTIALS_FORBIDDEN",
+  "IMPORT_URL_HOST_NOT_PUBLIC",
+  "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG",
+  "IMPORT_PAYLOAD_TOO_LARGE",
+  "IMPORT_TOO_MANY_REDIRECTS",
+  "IMPORT_FETCH_TIMEOUT",
+  "IMPORT_FETCH_FAILED",
+]);
+
+export const SkillUrlImportResult = z.object({
+  skillId: z.string(),
+  versionId: z.string(),
+  /** 落库的文件路径清单（已过 `normalizedPath`） */
+  filePaths: z.array(z.string()),
+  contentDigest: Sha256,
+  /** 该 `idempotencyKey` 之前已经导入过，本次未重复落库 */
+  replayed: z.boolean(),
+}).strict();
+
 export const AgentSkillVersionReference = z.object({
   versionId: z.string().min(1).max(255),
   digest: Sha256,
@@ -271,6 +315,20 @@ export const operations = {
     }).strict(),
     out: SkillStarterImportResult,
     err: SkillStarterImportError.options,
+  },
+  /** ⚠ 草案，未签核 —— 见上方 `SkillUrlImportResult` 处的说明。 */
+  importSkillFromUrl: {
+    method: "POST",
+    path: "/admin/skills/url-imports",
+    in: z.object({
+      /** 要导入的 https 地址；两道 SSRF 门都作用在它上面 */
+      sourceUrl: z.string().min(1).max(2048),
+      /** 导入后 skill 的显示名 */
+      name: z.string().min(1).max(255),
+      idempotencyKey: z.string().min(1).max(255),
+    }).strict(),
+    out: SkillUrlImportResult,
+    err: SkillUrlImportError.options,
   },
   importAgentStarterPack: {
     method: "POST",
