@@ -4,6 +4,7 @@ import {
   addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../tests/support/db";
 import { addBrowserArtifact } from "../tests/support/files-db";
+import { recording as C } from "@repo/contracts";
 
 if (process.env.FULLSTACK_E2E_FIXTURE !== "1") throw new Error("FULLSTACK_E2E_FIXTURE=1 is required");
 const required = (name: string): string => {
@@ -313,14 +314,25 @@ await asApp(orgId, async (client) => {
        ON CONFLICT (id) DO NOTHING`,
       [`${recordingThreadId}-msg-1`, orgId, recordingThreadId, userId, "录音锚点消息"],
     );
-    // 三项授权全部 granted，只给**这一个** participant —— `trackPlan` 里也只有他。
+    // 全部授权项 granted，只给**这一个** participant —— `trackPlan` 里也只有他。
     // 项目里的另外两个账号刻意不给：`blocksStart` 只对**在场者**求全，
     // 给所有人发一遍会让「只问在场的人」这条语义在种子里消失。
+    //
+    // ⚠ **2026-08-06，issue #533 CI 实测抓到（PR #585）：这里原来是字面量
+    //   `["record", "transcript", "ai_analysis"]`** —— #465 铺路时在 `blocksStart`
+    //   里堵住的那个「穿着数字外衣的枚举基数」，这份种子脚本没有同步：它是
+    //   `blocksStart` 判定的**上游数据**，不是判定本身，`recording-consent-single-source
+    //   .test.ts` 的扫描器和迁移 CHECK 对账都够不着它。
+    //   X-7/XC-18 裁成四项后，`blocksStart` 的基数自动跟到 4（这正是裁决要的行为），
+    //   而这份种子仍只种 3 项 ⇒ `fullstack-smoke` 第 7 步在 CI 上从 `data-phase="recording"`
+    //   变成 `data-phase="failed"`（`CONSENT_NOT_COMPLETED`，403）。
+    //   ⇒ 改为直接读 `C.RecordingConsentItem.options`：种子的项数**恒等于**契约当前的项数，
+    //   不会再因为裁决改变项数而重新漂移。
     await client.query(
       `INSERT INTO recording_consent_cells (org_id, source_ref_id, participant_id, item, state)
        SELECT $1, $2, $3, item, 'granted' FROM unnest($4::text[]) AS item
        ON CONFLICT (org_id, source_ref_id, participant_id, item) DO UPDATE SET state = 'granted'`,
-      [orgId, recordingThreadId, userId, ["record", "transcript", "ai_analysis"]],
+      [orgId, recordingThreadId, userId, [...C.RecordingConsentItem.options]],
     );
   });
   process.stdout.write(

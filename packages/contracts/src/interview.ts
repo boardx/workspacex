@@ -27,6 +27,7 @@
  * 访谈属**用户洞察**类容器，与工作坊**平级**（Q-12 裁 C）——不是工作坊的子流程。
  */
 import { z } from "zod";
+import { ConsentItemKey, ConsentBits as SharedConsentBits } from "./consent-item";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
 import { OmissionReasonSchema } from "./context-pack";
@@ -87,12 +88,15 @@ export const EvidenceStrength = z.enum([
 ]);
 
 /**
- * 同意书四位。**⚠ 与 `recording` 束的三项授权矩阵不是同一个东西**：
- * 那边是 `record | transcript | ai_analysis`（采集侧的门禁），
- * 这边多一位 `attribution`（署名）——它管的是引述怎么写，不管采不采。
- * 两者故意不合并，见 `KNOWN_CONTRACT_GAPS.C_ITV_2`。
+ * 同意书四位。
+ *
+ * ⚠ **2026-08-05 coord-main 经人类授权裁决（issue #533）：与 `recording` 束收敛为同一份。**
+ *   本处原本自己声明四位，`recording.RecordingConsentItem` 另外声明三项（少 `attribution`），
+ *   前三位逐字相同却互不知情。裁决判定那是遗漏，两处合并到 `./consent-item`：
+ *   本名字现在是 `ConsentItemKey` 的**别名**（同一个对象，不是内容相同的第二份声明）。
+ *   ⇒ 原先「两者故意不合并」的说法**已被推翻**，`KNOWN_CONTRACT_GAPS.C_ITV_2` 同步改为已裁。
  */
-export const ConsentKey = z.enum(["record", "transcript", "ai_analysis", "attribution"]);
+export const ConsentKey = ConsentItemKey;
 
 /** 建议来源。⚠ `human_observer` 的私密建议**不经 AI 加工原样呈现**并标出提出人 */
 export const SuggestionOrigin = z.enum(["ai", "human_observer"]);
@@ -287,13 +291,11 @@ export const ConsentItemCopy = z.object({
   optOutConsequence: z.string(),
 }).strict();
 
-/** 四位同意。⚠ **四位全 false 是合法完整结果**，不是失败态，访谈照常可进行 */
-export const ConsentBits = z.object({
-  record: z.boolean(),
-  transcript: z.boolean(),
-  ai_analysis: z.boolean(),
-  attribution: z.boolean(),
-}).strict();
+/**
+ * 四位同意。⚠ **四位全 false 是合法完整结果**，不是失败态，访谈照常可进行。
+ * ⚠ shape 不在这里手写——那会是同一份事实的第 N 份副本（#533）。见 `./consent-item`。
+ */
+export const ConsentBits = SharedConsentBits;
 
 /**
  * 本场七开关。⚠ 前六默认开、第七 `showAiSuggestionsToSubjects` **默认关**；
@@ -1622,20 +1624,19 @@ export const KNOWN_CONTRACT_GAPS = {
   C_ITV_1: "the last two stages of the main line (report template -> insight report) have NO use cases in usecases.md and no ports here; not invented",
 
   /**
-   * **同意位有两套：本束四位 vs `recording` 束三项。**
+   * **[已裁 —— 2026-08-05，coord-main 经人类授权，issue #533]**
    *
-   * · interview `ConsentKey`：`record | transcript | ai_analysis | **attribution**`
-   * · recording `RecordingConsentItem`：`record | transcript | ai_analysis`
+   * ⚠ 这条不删，保留是为了能看出**裁过什么**：原文记的是「同意位有两套：本束四位
+   * vs `recording` 束三项，前三位同名同义却是两份独立声明，改了名字谁也不报警」，
+   * 并断言「recording 不需要 `attribution`，这是合理的」。
    *
-   * 前三位同名同义，第四位 `attribution`（署名）只在访谈侧存在——它管的是
-   * 「引述里怎么称呼你」，不管采不采集，所以 recording 不需要它，这是合理的。
-   *
-   * **但两处是两份独立声明**：recording 改了三项里任何一个名字，
-   * 本束不会有任何东西报警。本束**没有 import 那个枚举**，因为
-   * `attribution` 装不进去，而 `ConsentKey.extend()` 这类写法 zod enum 不支持。
-   * ⇒ 收敛需要一个共享的 `consent-item.ts`（三项）+ 访谈侧的扩展位。是跨束改动。
+   * **裁决推翻了那句「合理」**：严格子集 + 逐字相同的三项 = 遗漏的形状，不是设计的形状；
+   * 且工作坊/线程录音同样产出可引述片段，同样需要问「能不能署名引述你」。
+   * ⇒ 两处收敛为 `./consent-item` 的 `CONSENT_ITEMS`（四项），
+   *   `ConsentKey` 与 `RecordingConsentItem` 都是它的别名；
+   *   门控见 `apps/api/tests/rec/consent-items-single-source.test.ts`。
    */
-  C_ITV_2: "consent bits declared twice: interview's 4 keys vs recording's 3 items; first three are the same fact with no gate between them",
+  C_ITV_2: "RESOLVED 2026-08-05 (#533): consent items converged to ONE four-member source (contracts/src/consent-item.ts); interview + recording are aliases of it",
 
   /**
    * **`[待定 D-6]`：`OUTLINE_INCOMPLETE` 是否阻断进现场，未裁。**
