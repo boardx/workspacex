@@ -40,11 +40,21 @@ export type ChatVisibilityScope = z.infer<typeof chat.ChatVisibility>;
 /** 五值封闭（I-1）。**取值来自契约，这里不重列**——重列就是第二份枚举。 */
 export const CHAT_VISIBILITY_SCOPES: readonly ChatVisibilityScope[] = chat.ChatVisibility.options;
 
-/** 判定要用到的线程属性。刻意不含 `title` / 正文——判定不需要，也就不该拿到。 */
+/**
+ * 判定要用到的线程属性。刻意不含 `title` / 正文——判定不需要，也就不该拿到。
+ *
+ * ⚠ 2026-08-06（#594，人类本人直接推翻此前裁决，方案 A）：`projectId` 从**恒非空**
+ *   放宽为**可空**。`null` = 「个人对话，不挂靠任何项目」——一种全新的、与下面
+ *   `decideThreadRead` 描述的两层交集**完全不同**的可见性形状：无组织团队范围、
+ *   无项目角色、无组、无观察者降级，**只有一条规则：仅创建者可读**（同 I-3「不存在
+ *   与无权同一出口」的精神，但判据比项目线程简单得多）。
+ *   这条规则不在 `decideThreadRead` 里实现——见下方 `decidePersonalThreadRead`，
+ *   两者刻意分开，理由见该函数头注。
+ */
 export interface ThreadFacts {
   readonly threadId: string;
-  readonly projectId: string;
-  /** null = 全场 / 研究阶段线程 */
+  readonly projectId: string | null;
+  /** null = 全场 / 研究阶段线程，或个人线程（个人线程恒无组） */
   readonly groupId: string | null;
   readonly visibilityScope: ChatVisibilityScope;
   readonly createdBy: string;
@@ -216,6 +226,69 @@ export function decideThreadRead(input: {
     observerProjection: actor.projectRole === "observer",
   };
 }
+
+/**
+ * 🔴 #594 —— 个人线程（`projectId === null`）的可见性判定。**独立于** `decideThreadRead`。
+ *
+ * ## 为什么不塞进两层交集，另起一个函数
+ *
+ * `decideThreadRead` 的每一条规则（跨组 I-6、私聊三方 I-7、观察者降级 I-5）都以
+ * 「这条线程有一个项目、这个人在那个项目里有个角色」为前提。个人线程没有项目，
+ * 也就没有项目角色、没有组——把 `projectId: null` 硬灌进 `scopeAllows` /
+ * `chatReadAction` 会得到一串 `actor.projectRole === null` 分支，**行为上凑巧等于
+ * 「仅创建者」**，但那是巧合，不是设计：下次有人往两层交集里加一条新规则，
+ * 完全可能忘记这条巧合还依赖这个分支保持现状。分开写，个人线程的规则**只有一句话**，
+ * 读这一个函数就能验完，不用先读懂整套四角色矩阵再确认它对 `null` 无害。
+ *
+ * ## 这条规则本身，且**这是权威判据**——不是 `resolve-visibility.ts` 早退判断的复述
+ *
+ * 仅创建者可读——不区分组织角色、不查团队、不查项目成员资格。理由：
+ * 个人对话是这个人自己的工作区，不是任何团队/项目资源，「你在组织里是谁」
+ * 不该影响「你能不能看自己的对话」，能影响的只有「你还在不在这个组织里」
+ * （那一层由调用方另外查一次组织成员资格，见 `resolve-visibility.ts`）。
+ *
+ * ⚠ `resolve-visibility.ts` 的 `resolvePersonalVisibility` 里也有一行
+ * `thread.createdBy !== userId` 的早退——那一行是**性能快捷方式**，不是
+ * 第二道独立防线。真正决定「非创建者读不到」的判据只有这一行
+ * `projectLayerAllowed = actorUserId === thread.createdBy`。反证时验证过：
+ * 只删调用方那行早退，`decision.allowed` 依旧由这里算出 false，测试全绿；
+ * 只删这一行（改成恒 true），调用方那行早退依旧拦下大多数请求，测试也全绿；
+ * **两处必须同时删掉**才会看见越权读的红（见 `resolve-visibility.ts` 头注、
+ * PR 正文的反证记录）。别把这一行删掉当成「反正上面拦过了」的次要判断。
+ */
+export function decidePersonalThreadRead(input: {
+  readonly thread: ThreadFacts;
+  readonly actorUserId: string;
+  readonly orgLayerAllowed: boolean;
+}): ChatVisibilityDecision {
+  const { thread, actorUserId, orgLayerAllowed } = input;
+  const projectLayerAllowed = actorUserId === thread.createdBy;
+  const allowed = orgLayerAllowed && projectLayerAllowed;
+  return {
+    allowed,
+    orgLayerAllowed,
+    projectLayerAllowed,
+    deniedLayer: allowed ? null : orgLayerAllowed ? "project" : "organization",
+    scope: thread.visibilityScope,
+    observerProjection: false, // 个人线程没有观察者这个概念
+  };
+}
+
+/**
+ * 个人线程的能力集合。**不经过** `capabilitiesFor`（它按 `ProjectRole` 分派，
+ * 个人线程没有项目角色，传 `null` 进去会拿到 `[]`——那会让「新用户无需建项目
+ * 就能发消息」这条 #594 的验收原文在能力集合这一步就断掉）。
+ *
+ * 创建者对自己的个人线程恒有全部读写能力；`approvalGate`/`reassign`/
+ * `recording.stop` 这三样是项目/工作坊现场概念（批准给谁、改派到哪个组、
+ * 停止哪个录音会话），个人线程没有对应的对象，**不下发**——不是禁用，是没有。
+ */
+export const PERSONAL_THREAD_CAPABILITIES: readonly string[] = [
+  "thread.read",
+  "artifact.readonly",
+  "composer.send",
+  "thread.mutate",
+];
 
 /**
  * 管理员审计读的判定（I-8 / O-04）—— 做成 `PermissionDecision`，不是一个布尔。

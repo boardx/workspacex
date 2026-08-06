@@ -60,7 +60,8 @@ export interface ThreadFileRecord {
 export interface NewThreadInput {
   readonly orgId: OrgId;
   readonly threadId: string;
-  readonly projectId: string;
+  /** 🔴 #594：`null` = 个人线程，不挂靠任何项目。 */
+  readonly projectId: string | null;
   readonly groupId: string | null;
   readonly title: string;
   readonly visibilityScope: string;
@@ -125,6 +126,21 @@ export interface ChatRepository {
   listProjectThreads(
     orgId: OrgId,
     projectId: string,
+    opts: { includeArchived: boolean },
+  ): Promise<readonly ThreadListRow[]>;
+
+  /**
+   * 🔴 #594 —— 一个用户自己名下的**候选**个人线程行（`project_id IS NULL AND
+   * created_by = userId`）。与 `listProjectThreads` 同一条纪律：**不做可见性过滤**，
+   * 过滤仍然逐条经 `resolveVisibility`（`application/chat/list-personal-threads.ts`）。
+   * 这里 WHERE 里的 `created_by = userId` 不是「过滤」，是缩小候选集合的**性能**手段
+   * ——个人线程本来就只有创建者能看，不查这一列会让每个用户在每次列表时把全组织
+   * 的个人线程都判一遍权，答案不会错但会很慢。真正决定「能不能看」的判断仍在
+   * `resolveVisibility` 里，不在这条 WHERE 里。
+   */
+  listPersonalThreads(
+    orgId: OrgId,
+    userId: string,
     opts: { includeArchived: boolean },
   ): Promise<readonly ThreadListRow[]>;
 
