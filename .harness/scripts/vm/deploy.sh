@@ -132,6 +132,19 @@ else
   exit 1
 fi
 
+step "5c. 校验必需 env var —— 一次性列全缺失项，重启服务之前"
+# #620：2026-08-06 同一天两次崩溃循环（MODEL_CREDENTIAL_KEY，之前是
+# EMAIL_VERIFICATION_SECRET），处理方式都是"重启崩溃→看日志→补一个变量→再重启"，
+# 一次只发现一个。这一步在 systemctl restart 之前把 createApp() 实际会读的每一个
+# 必需 env var 都探测一遍（不是手写清单——见 verify-required-env.ts 文件头），
+# 缺什么、缺几个，一次性列全；非 0 就在这里止步，不产生新的崩溃循环。
+if ! sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/verify-required-env.ts; then
+  echo "✗ 缺失/无效的必需 env var（见上方清单）—— 不重启服务，避免崩溃循环"
+  exit 1
+fi
+echo "  必需 env var 就绪"
+
 step "6. 重启服务"
 systemctl restart workspacex-api workspacex-web
 for s in workspacex-api workspacex-web; do
