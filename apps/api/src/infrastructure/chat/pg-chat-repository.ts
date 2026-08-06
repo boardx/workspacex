@@ -402,9 +402,19 @@ export class PgChatRepository implements ChatRepository {
       const rosterVersion = t.rows[0]?.roster_version;
       if (rosterVersion === undefined) return null;
       const rows = await s.query<AgentRosterDbRow>(
-        `SELECT ta.agent_id, oa.abbr, oa.name, oa.duty, ta.presence
+        /**
+         * #619：`org_agents` → `capability_listings`（`kind='agent'`）。
+         *
+         * ⚠ 故意**不**加 `AND cl.enabled = true`：这里是"编制里已经有谁"的读端口，
+         *   不是"能不能新增"的判断（那条判断在 `updateAgentRoster` 的 add 循环里，
+         *   见下方）。一个 agent 被管理员停用之后，**已经在编制里的成员资格不消失**——
+         *   同 R8「停用不隐藏，标注原因」的精神：这里虽然还没有"标注原因"的字段，
+         *   但至少不能让停用悄悄地把编制读丢一行，那会是比"没有原因"更糟的行为。
+         */
+        `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, ta.presence
            FROM chat_thread_agents ta
-           JOIN org_agents oa ON oa.org_id = ta.org_id AND oa.agent_id = ta.agent_id
+           JOIN capability_listings cl
+             ON cl.org_id = ta.org_id AND cl.id = ta.agent_id AND cl.kind = 'agent'
           WHERE ta.org_id = $1 AND ta.thread_id = $2
           ORDER BY ta.agent_id`,
         [orgId, threadId],
@@ -447,8 +457,18 @@ export class PgChatRepository implements ChatRepository {
         if (rosterVersion === undefined) return { kind: "version-changed" as const };
 
         for (const agentId of add) {
+          /**
+           * #619：`org_agents` → `capability_listings`（`kind='agent' AND enabled=true`）。
+           * ⚠ 这里**要**过滤 `enabled`——这是"能不能新增进编制"的判断，一个被管理员
+           *   停用的能力不应该还能被挑选加入新的线程（同一条道理：停用意味着
+           *   "现在起不可用于新用途"，而不仅仅是"界面上标一个原因")。
+           * 数据库这一侧还有 `chat_thread_agent_is_enabled_capability_trg`
+           *   （迁移 `20260807000000_i619_...sql`）做同一件事的兜底——这条应用层
+           *   查询是为了给出 `AGENT_OUT_OF_SCOPE` 这个更精确的错误码，触发器兜的是
+           *   "万一应用层这条被绕过"。
+           */
           const r = await s.query(
-            "SELECT 1 FROM org_agents WHERE org_id = $1 AND agent_id = $2",
+            "SELECT 1 FROM capability_listings WHERE org_id = $1 AND id = $2 AND kind = 'agent' AND enabled = true",
             [orgId, agentId],
           );
           if (r.rows.length === 0) throw new RosterOutOfScopeSignal(agentId);
@@ -476,10 +496,13 @@ export class PgChatRepository implements ChatRepository {
           );
         }
 
+        // #619：同 `findAgentRoster` 那条 JOIN，同一个理由（不加 `enabled` 过滤——
+        // 已在编制里的成员资格不因目录条目后来被停用而消失）。
         const rows = await s.query<AgentRosterDbRow>(
-          `SELECT ta.agent_id, oa.abbr, oa.name, oa.duty, ta.presence
+          `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, ta.presence
              FROM chat_thread_agents ta
-             JOIN org_agents oa ON oa.org_id = ta.org_id AND oa.agent_id = ta.agent_id
+             JOIN capability_listings cl
+               ON cl.org_id = ta.org_id AND cl.id = ta.agent_id AND cl.kind = 'agent'
             WHERE ta.org_id = $1 AND ta.thread_id = $2
             ORDER BY ta.agent_id`,
           [orgId, threadId],

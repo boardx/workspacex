@@ -88,7 +88,10 @@ const ADD_BODY = {
   orgId: ORG,
   kind: "agent" as const,
   op: "add" as const,
-  payload: { name: "越权新增的 Agent", scope: "org-wide" as const },
+  // #619: abbr/duty 必填（kind="agent"）。前三条测试在到达这条校验之前就已经被
+  // 401/403/404 拦下，这两个字段对它们不生效；放进共用 body 只是为了让最后那条
+  // "换成管理员就落地"的反证真的能落地。
+  payload: { name: "越权新增的 Agent", scope: "org-wide" as const, abbr: "YQ", duty: "test fixture agent" },
 };
 
 describe("#458 mutate 的服务端裁决", () => {

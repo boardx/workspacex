@@ -42,9 +42,12 @@ interface Row {
   owner_team_id: string | null;
   enabled: boolean;
   endpoint: string | null;
+  /** #619 */
+  abbr: string | null;
+  duty: string | null;
 }
 
-const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint";
+const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint, abbr, duty";
 
 function toGuarded(row: Row): GuardedCapability {
   const listing: CapabilityListing = {
@@ -55,6 +58,10 @@ function toGuarded(row: Row): GuardedCapability {
     scope: row.scope as VisibilityScope,
     enabled: row.enabled,
     endpoint: row.endpoint,
+    // #619: null for every kind but agent; the CHECK constraint guarantees non-null here
+    // for a `kind='agent'` row, so this is a straight passthrough, not a default.
+    abbr: row.abbr,
+    duty: row.duty,
     // Derived by `projectListingForOrg` in the use case, which is the only place that knows
     // the organization's kind. Null here rather than a guessed string: a reason invented at
     // the storage layer would be a second, unreconciled answer to "why is this row grey".
@@ -110,10 +117,14 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async insert(orgId: OrgId, input: CapabilityInsert): Promise<GuardedCapability> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, endpoint)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO capability_listings
+           (id, org_id, kind, name, scope, owner_team_id, endpoint, abbr, duty)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING ${COLUMNS}`,
-        [`cap-${randomUUID()}`, orgId, input.kind, input.name, input.scope, input.ownerTeamId, input.endpoint],
+        [
+          `cap-${randomUUID()}`, orgId, input.kind, input.name, input.scope,
+          input.ownerTeamId, input.endpoint, input.abbr, input.duty,
+        ],
       );
       const row = r.rows[0];
       // An INSERT ... RETURNING with no row means the write did not happen; handing back a

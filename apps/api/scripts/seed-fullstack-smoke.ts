@@ -184,11 +184,21 @@ await asApp(orgId, async (client) => {
       [agentVersionId, agentId, orgId],
     );
     // 编制面板的可见性来源。`abbr`/`duty` 非空即可，面板只把它们显示出来。
+    // ⚠ 保留（无害的遗留写入）——#619 起编制的合法性判据已改读 `capability_listings`
+    //   （见下一条 INSERT），这条不再被任何代码读取，留着只是不必要地动这个脚本。
     await client.query(
       `INSERT INTO org_agents (org_id,agent_id,abbr,name,duty)
        VALUES ($1,$2,'CL',$3,'core-loop smoke')
        ON CONFLICT (org_id,agent_id) DO NOTHING`,
       [orgId, agentId, agentDisplayName],
+    );
+    // #619：`chat_thread_agents` 的合法性判据（`AGENT_OUT_OF_SCOPE` + 建库触发器）
+    // 改读 `capability_listings（kind='agent', enabled=true）`——这条是真正生效的那条。
+    await client.query(
+      `INSERT INTO capability_listings (id,org_id,kind,name,scope,enabled,abbr,duty)
+       VALUES ($1,$2,'agent',$3,'org-wide',true,'CL','core-loop smoke')
+       ON CONFLICT (id) DO NOTHING`,
+      [agentId, orgId, agentDisplayName],
     );
   });
 }

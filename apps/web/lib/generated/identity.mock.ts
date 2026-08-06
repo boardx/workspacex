@@ -147,6 +147,8 @@ export const switchOrganizationMock: z.infer<typeof identity.operations.switchOr
       "scope": "org-wide",
       "enabled": false,
       "endpoint": null,
+      "abbr": null,
+      "duty": null,
       "disabledReason": null
     }
   ]
@@ -165,6 +167,8 @@ export const listCapabilitiesMock: z.infer<typeof identity.operations.listCapabi
     "scope": "org-wide",
     "enabled": false,
     "endpoint": null,
+    "abbr": null,
+    "duty": null,
     "disabledReason": null
   }
 ];
@@ -182,6 +186,8 @@ export const mutateCapabilityMock: z.infer<typeof identity.operations.mutateCapa
     "scope": "org-wide",
     "enabled": false,
     "endpoint": null,
+    "abbr": null,
+    "duty": null,
     "disabledReason": null
   },
   "provenanceEventId": "provenanceEventId-1",
