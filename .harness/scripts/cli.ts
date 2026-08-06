@@ -19,6 +19,7 @@ import { phaseReadiness } from "./phase-readiness";
 import { prQueue } from "./pr-queue";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
+import { graphCommand } from "./graph-command";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
     case "sweep-worktrees": sweepWorktrees(args); break;
     case "sweep-docker":    sweepDocker(args); break;
     case "dep-graph":      depGraph(args); break;
+    case "graph":          graphCommand(args); break;
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "pr-queue":       prQueue(args); break;
@@ -71,6 +73,8 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sweep-worktrees [--threshold-minutes N]   # 巡检未提交改动的 worker worktree（默认阈值 60）");
       log.info("  pnpm harness sweep-docker [--apply]                    # 巡检孤儿 docker compose 栈（ADR-007）；--apply 实际清理");
       log.info("  pnpm harness dep-graph                                 # 生成 .harness/state/dep-graph.md 依赖图快照");
+      log.info("  pnpm harness graph compile [--no-cache]               # 从权威源确定性编译 Graph Snapshot");
+      log.info("  pnpm harness graph validate [--no-cache]              # 校验类型、引用、端点与依赖环");
       log.info("  pnpm harness doctor [--phase NN]                       # 审计链体检：passing 证据真实性 + 派生视图一致性（ADR-012）");
       log.info("  pnpm harness phase-readiness --phase NN                # 查看独立 runtime/E2E readiness");
       log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
