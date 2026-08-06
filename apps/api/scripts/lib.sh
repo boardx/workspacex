@@ -24,6 +24,18 @@ export APP_DB_PASSWORD=app_rw_dev
 # migration 0001 takes an advisory lock for exactly that reason (see the note there).
 export PGDATABASE="${WORKSPACEX_DB:-workspacex}"
 
+# #548/#581: the API process refuses to boot without this (deliberately -- see
+# `infrastructure/model/aes-credential-cipher.ts`, a dev fallback for an encryption key is a
+# production deployment that seals every customer's credentials under a constant living in
+# git history). `apps/api/vitest.config.ts` already injects a placeholder for every test file
+# that calls `createApp()`, but that injection is vitest-only -- it never reaches a gate
+# script invoked directly via `tsx` (verify-runtime-gates.sh -> runtime-gate-assert.ts does
+# exactly that). 2026-08-06 实测：三道运行时门控在 CI 上因此红成
+# `missing env var MODEL_CREDENTIAL_KEY`，while every vitest-run test stayed green -- the gap
+# was the injection boundary, not the requirement. `:-` so a real deploy-time value (if this
+# script is ever sourced outside a gate) is not silently overridden.
+export MODEL_CREDENTIAL_KEY="${MODEL_CREDENTIAL_KEY:-gate-key-not-a-production-secret}"
+
 pg_up() {
   # Only postgres: the gates do not need MinIO or Redis, and starting them would make
   # a slow gate that people are tempted to skip (UC-0.6 R9).
