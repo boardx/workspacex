@@ -1,0 +1,9 @@
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = workspacex-test-only
+[ext]
+subjectAltName = DNS:allowed.example, DNS:redirect.example, DNS:big.example, DNS:metadata.example, DNS:rebind.example
+basicConstraints = critical, CA:TRUE
