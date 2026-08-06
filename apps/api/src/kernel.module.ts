@@ -856,10 +856,12 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     },
     // F119：独立 provider——见 `application/project/ports.ts` 里 `AgendaSegmentRepository`
     // 那条「故意不是 ProjectRepository 的第三个方法」的注释。
+    // #627：加了 create()，仓储需要 IdFactory 生成新环节的 id——同 `PROJECT_REPOSITORY`
+    // 那条「复用 ID_FACTORY 不新造一个」的理由（见其上方注释）。
     {
       provide: AGENDA_SEGMENT_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgAgendaSegmentRepository(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgAgendaSegmentRepository(db, ids),
+      inject: [DATABASE_PORT, ID_FACTORY],
     },
     // F123：独立 provider，见 `pg-project-overview-repository.ts` 文件头。
     {
