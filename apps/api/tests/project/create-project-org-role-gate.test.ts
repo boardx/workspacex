@@ -1,10 +1,18 @@
 /**
- * F117 ②⑤ —— **谁能建**（U-4 裁 A）与 **创建者不自动获角色**（Q-4②）。
+ * F117 ②⑤ —— **谁能建**（U-4 裁 A → **2026-08-06 人类裁决 / #608 覆盖**）与
+ * **创建者不自动获角色**（Q-4②，**未被覆盖**）。
  *
- * ## 这两条其实是同一条裁决的两端
+ * ## 🔴 #608：这两条**不再**是同一条裁决的两端
  *
- * `lead` 能建、`admin` 不能建，是因为管理员的权是**治理**不是**参与**（D-18 同向）。
- * 而 `lead` 建完之后**不会**自动获得项目角色，是因为 Q-4② 裁的正是
+ * 旧稿写的是：「`lead` 能建、`admin` 不能建，是因为管理员的权是治理不是参与（D-18 同向）」。
+ * 那半句今天**已经不成立**——`admin` 也能建了（#608：组织里的第一个人永远是 `admin`，
+ * 且没有任何 `UPDATE org_memberships` 能把他变成 `lead`，否则第一个项目永远建不出来）。
+ *
+ * ⚠ 但 **D-18 并没有被放弃，它换了一条边来守**：`admin`（和 `lead`）建完之后
+ *   **依旧不会**获得任何项目角色。「能创建」与「创建后拥有角色」是两件事，#608 只动前者。
+ * ⇒ 本文件最后一个 describe（Q-4②）因此**比改动前更重要**，不是历史包袱。
+ *
+ * 创建者建完之后**不会**自动获得项目角色，是因为 Q-4② 裁的正是
  * 「`lead` 对自建未加入的项目**持管理权、不持内容读取权**」——若创建即授角色，
  * 那条边的两端就不存在了，「管理员不是超级用户」随之破掉。
  *
@@ -13,7 +21,8 @@
  *
  * ## 每条都要有反向的那一半
  *
- *   · 只测「admin 被拒」⇒ 一个「谁都拒」的实现全绿  ⇒ 必须同时测 lead 能建
+ *   · 只测「consultant/compliance 被拒」⇒ 一个「谁都拒」的实现全绿 ⇒ 必须同时测 lead/admin 能建
+ *   · 只测「lead/admin 能建」⇒ 一个「谁都放行」的实现全绿 ⇒ 必须同时测另两种被拒
  *   · 只测「创建者判权被拒」⇒ 一个「谁都拒」的判权全绿 ⇒ 必须同时测有项目角色的人被放行
  *   · 只测「四种组织角色里只有 lead 通过」⇒ 枚举一旦加第五种，本条不会知道
  *     ⇒ 遍历的是契约的 `OrgRole.options`，并断言它恰好四个
@@ -91,8 +100,8 @@ beforeEach(async () => {
   }
 }, HOOK_TIMEOUT_MS);
 
-describe("U-4 裁 A：只有组织角色 `lead` 能创建", () => {
-  it("四种组织角色逐个试，恰好 `lead` 通过，其余一律 ORG_ROLE_INSUFFICIENT", async () => {
+describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种不能", () => {
+  it("四种组织角色逐个试，恰好 `lead` / `admin` 通过，其余一律 ORG_ROLE_INSUFFICIENT", async () => {
     // 非空转：遍历的是契约的闭集本身。加第五种角色，本条自动覆盖它。
     expect(IdentityContract.OrgRole.options.length).toBe(4);
 
@@ -102,9 +111,14 @@ describe("U-4 裁 A：只有组织角色 `lead` 能创建", () => {
     }
     expect(verdicts).toEqual({
       lead: "NO_ERROR",
-      // 🔴 `admin` 与其余角色**同码**。这一格是 U-4 裁 A 的全部内容：
-      //    管理员的权是治理不是参与。它写成 `NO_ERROR` 的那天，D-18 也就没了。
-      admin: "ORG_ROLE_INSUFFICIENT",
+      // 🔴 2026-08-06 人类裁决（#608）把这一格从 `ORG_ROLE_INSUFFICIENT` 翻成 `NO_ERROR`。
+      //    U-4 裁 A 原本的理由（管理员的权是治理不是参与，D-18 同向）没有被否定，
+      //    被否定的是它的**代价**：`bootstrapFirstUser` 只产 `admin`，且全仓没有任何
+      //    `UPDATE org_memberships`，于是第一个用户永远建不了第一个项目。
+      //    ⚠ D-18 由**另一条边**继续守：建完仍不授予项目角色（Q-4②，见本文件最后一个
+      //      describe，以及 `bootstrap-admin-can-create-project.test.ts` 的护栏）。
+      admin: "NO_ERROR",
+      // 反向的一半：不许退化成「谁都能建」。这两格红了，说明放宽放过头了。
       consultant: "ORG_ROLE_INSUFFICIENT",
       compliance: "ORG_ROLE_INSUFFICIENT",
     });
@@ -119,7 +133,10 @@ describe("U-4 裁 A：只有组织角色 `lead` 能创建", () => {
   });
 
   it("被拒之后**一行都没写**（拒绝不是「先建了再说」）", async () => {
-    await reasonOf(submit(userFor("admin")));
+    // ⚠ #608 之后这里必须用一个**仍被拒**的角色：原来写的是 `admin`，
+    //   而 admin 现在建得成，这条会静默地变成「建成功了，然后断言库里有 0 行」——
+    //   一条断言方向反了的红。改用 `consultant`（本次放宽未涉及）。
+    await reasonOf(submit(userFor("consultant")));
     const n = await asApp(ORG, async (c) =>
       Number((await c.query("SELECT count(*)::int AS n FROM projects WHERE org_id = $1", [ORG])).rows[0]!.n),
     );
@@ -127,8 +144,11 @@ describe("U-4 裁 A：只有组织角色 `lead` 能创建", () => {
   });
 
   it("纯判断那一层单独也说同一句话（domain 不依赖库）", () => {
-    expect(canCreateProject("lead")).toBe(true);
-    for (const role of IdentityContract.OrgRole.options.filter((r) => r !== "lead")) {
+    const ALLOWED = ["lead", "admin"] as const;
+    for (const role of ALLOWED) expect(canCreateProject(role), role).toBe(true);
+    // 遍历契约闭集取补集：加第五种角色时，它默认落在「必须为假」这一侧，
+    // 而不是悄悄被放行——这正是不写排除式判据的那条理由的测试面。
+    for (const role of IdentityContract.OrgRole.options.filter((r) => !(ALLOWED as readonly string[]).includes(r))) {
       expect(canCreateProject(role), role).toBe(false);
     }
     expect(canCreateProject(null)).toBe(false);
@@ -146,10 +166,14 @@ describe("INVALID_KIND：三值闭集之外直接拒", () => {
     }
   });
 
-  it("kind 判在角色之前：一个 admin 传非法 kind 得到的是 INVALID_KIND", async () => {
+  it("kind 判在角色之前：一个**会被角色判据拒掉**的人传非法 kind，拿到的仍是 INVALID_KIND", async () => {
     // 取舍写在 `create-project.ts`：非法 kind 与调用者是谁无关，
-    // 放在角色之后会让这个码只有 lead 才看得见——而任何调用方都可能传错。
-    expect(await reasonOf(submit(userFor("admin"), { kind: "delivery" }))).toBe("INVALID_KIND");
+    // 放在角色之后会让这个码只有能建项目的人才看得见——而任何调用方都可能传错。
+    //
+    // ⚠ #608 之前这里用的是 `admin`，因为当时 admin 会被角色判据拒掉。admin 现在能建了，
+    //   继续用它，这条就退化成「一个有权建的人传了非法 kind」——**顺序**这件事再也证不到，
+    //   而断言依旧全绿。换成 `consultant`（本次放宽未涉及，仍被拒）才保住原意。
+    expect(await reasonOf(submit(userFor("consultant"), { kind: "delivery" }))).toBe("INVALID_KIND");
   });
 });
 

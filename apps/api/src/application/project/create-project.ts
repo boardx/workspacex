@@ -82,7 +82,12 @@ export async function createProject(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  // 非成员与「成员但不是 lead」落在同一个码上，是因为契约的 `err` 里**没有**
+  // ⚠ 2026-08-06 人类裁决 / #608：判据已从「只有 `lead`」放宽为「`lead` 或 `admin`」
+  //   （覆盖 U-4 裁 A 的那一半）。**Q-4② 未被覆盖**——下面的 `repo.create` 依旧不写
+  //   任何 `project_memberships` 行，admin 建完之后与 lead 建完之后行为完全一致。
+  //   理由与护栏见 `domain/project/create-project-rules.ts` 的 `canCreateProject` 头注。
+  //
+  // 非成员与「成员但角色不够」落在同一个码上，是因为契约的 `err` 里**没有**
   // `NO_ORG_MEMBERSHIP`（`createProject.err` 恰好三个成员）。多报一个码 =
   // 让调用者能探测「这个组织里有没有我这个人」，而他本来连组织都进不去。
   if (!canCreateProject(orgRole?.orgRole ?? null)) {
