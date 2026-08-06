@@ -13,6 +13,8 @@ import {
   MODELS, MODEL_FILTERS, MODEL_STATUS_VIEW_LABEL, inFlightOf,
   type ModelFilterKey, type ModelRow,
 } from "@/lib/mock/admin";
+import { ApiError } from "@/lib/api-client";
+import { registerModelFromForm, type RegisterModelFormInput } from "@/lib/live-model";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 
@@ -111,29 +113,15 @@ export function ModelScreen({ state }: { state: UiState }) {
         )}
       </div>
 
-      {/* 接入模型 */}
+      {/* 接入模型 —— #548：唯一真实写路径，打 POST /models */}
       {addOpen && (
-        <AdminDrawer
-          testid="admin-model-panel"
-          title="接入模型"
-          subtitle="接入后置为待测试，通过五项判读才进可选池"
+        <AddModelDrawer
           onClose={() => setAddOpen(false)}
-          footer={
-            <>
-              <Button size="sm" variant="ghost" onClick={() => setAddOpen(false)} data-testid="admin-model-panel-cancel">取消</Button>
-              <Button size="sm" variant="primary" onClick={() => { setAddOpen(false); setToast("已接入模型（待测试），完成五项判读后可启用"); }} data-testid="admin-model-panel-save">接入（置待测试）</Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field id="admin-model-field-name" label="模型名" placeholder="如 qwen3-72b" />
-            <Field id="admin-model-field-endpoint" label="端点 / 权重路径" placeholder="https://… 或 自托管 · H100×4" />
-            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5">
-              <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <p className="text-11">只有自托管模型可承接客户机密材料；闭源 API 一律不路由机密。</p>
-            </div>
-          </div>
-        </AdminDrawer>
+          onRegistered={(res) => {
+            setAddOpen(false);
+            setToast(`已接入模型「${res.displayName}」（${res.status}）。下方列表仍是示例组织配置——契约暂无池子列表读接口（POOL_LISTING_GAP），刷新页面看不到这条真实记录，需另行签核后才能补上。`);
+          }}
+        />
       )}
 
       {/* 五项测试判读 */}
@@ -174,6 +162,200 @@ export function ModelScreen({ state }: { state: UiState }) {
 
       <Toast message={toast} testid="admin-model-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
+  );
+}
+
+type RegisterResult = { readonly displayName: string; readonly status: string };
+
+/**
+ * #548 —— 真实的「接入模型」表单。提交打真实 `POST /models`，凭据只在这一次进入系统
+ * （契约的 `out` 里没有它，服务端也不回显）。
+ *
+ * ⚠ 这里没有「刷新列表就能看到刚接入的这条」——契约没有池子列表读接口
+ * （`POOL_LISTING_GAP`，见 `apps/api/src/domain/model/registry.ts` 文件头），上面的
+ * 列表分组仍然读 `lib/mock/admin.ts` 的示例数据，本次改动没有（也不该）伪造一个假的
+ * 列表刷新来掩盖这个缺口。
+ */
+function AddModelDrawer({
+  onClose,
+  onRegistered,
+}: {
+  onClose: () => void;
+  onRegistered: (result: RegisterResult) => void;
+}) {
+  const [kind, setKind] = React.useState<RegisterModelFormInput["kind"]>("closed-api");
+  const [vendor, setVendor] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [endpoint, setEndpoint] = React.useState("");
+  const [apiKey, setApiKey] = React.useState("");
+  const [tags, setTags] = React.useState("");
+  const [contextWindow, setContextWindow] = React.useState("128000");
+  const [unitPrice, setUnitPrice] = React.useState("0");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const contextWindowNum = Number(contextWindow);
+  const unitPriceNum = Number(unitPrice);
+  const canSubmit =
+    name.trim().length > 0 &&
+    vendor.trim().length > 0 &&
+    Number.isInteger(contextWindowNum) &&
+    contextWindowNum > 0 &&
+    Number.isFinite(unitPriceNum) &&
+    unitPriceNum >= 0 &&
+    !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    const form: RegisterModelFormInput = {
+      kind,
+      vendor: vendor.trim(),
+      displayName: name.trim(),
+      capabilityTags: tags
+        .split(/[,，]/)
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0),
+      contextWindow: contextWindowNum,
+      unitPrice: unitPriceNum,
+      apiKey: apiKey.trim().length > 0 ? apiKey.trim() : null,
+      endpoint: endpoint.trim().length > 0 ? endpoint.trim() : null,
+    };
+    try {
+      const result = await registerModelFromForm(form);
+      onRegistered({ displayName: form.displayName, status: result.status });
+    } catch (e) {
+      const message =
+        e instanceof ApiError
+          ? `${e.reasonCode ?? `HTTP ${e.status}`}`
+          : e instanceof Error
+            ? e.message
+            : "未知错误";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AdminDrawer
+      testid="admin-model-panel"
+      title="接入模型"
+      subtitle="接入后置为待测试，通过五项判读才进可选池。凭据只在此刻进入系统，之后任何接口都不会回显。"
+      onClose={onClose}
+      footer={
+        <>
+          <Button size="sm" variant="ghost" onClick={onClose} disabled={submitting} data-testid="admin-model-panel-cancel">
+            取消
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => void submit()}
+            disabled={!canSubmit}
+            data-testid="admin-model-panel-save"
+          >
+            {submitting ? "接入中…" : "接入（置待测试）"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-1.5" data-testid="admin-model-field-kind">
+          <Button
+            size="xs"
+            variant={kind === "closed-api" ? "primary" : "outline"}
+            onClick={() => setKind("closed-api")}
+            disabled={submitting}
+            data-testid="admin-model-field-kind-closed-api"
+          >
+            闭源 API
+          </Button>
+          <Button
+            size="xs"
+            variant={kind === "self-hosted" ? "primary" : "outline"}
+            onClick={() => setKind("self-hosted")}
+            disabled={submitting}
+            data-testid="admin-model-field-kind-self-hosted"
+          >
+            开源自托管
+          </Button>
+        </div>
+        <Field
+          id="admin-model-field-name"
+          label="模型名"
+          placeholder="如 qwen3.7-plus"
+          value={name}
+          onChange={(e) => setName(e.currentTarget.value)}
+          disabled={submitting}
+        />
+        <Field
+          id="admin-model-field-vendor"
+          label="供应商"
+          placeholder="如 阿里云百炼 / 自托管 · H100×4"
+          value={vendor}
+          onChange={(e) => setVendor(e.currentTarget.value)}
+          disabled={submitting}
+        />
+        <Field
+          id="admin-model-field-endpoint"
+          label="端点 / 权重路径"
+          placeholder="https://… 或 自托管 · H100×4"
+          value={endpoint}
+          onChange={(e) => setEndpoint(e.currentTarget.value)}
+          disabled={submitting}
+        />
+        <Field
+          id="admin-model-field-api-key"
+          label="API Key（留空表示暂不配置）"
+          type="password"
+          placeholder="sk-…"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.currentTarget.value)}
+          disabled={submitting}
+          autoComplete="off"
+        />
+        <Field
+          id="admin-model-field-tags"
+          label="能力标签（逗号分隔）"
+          placeholder="如 推理, 工具, 长文"
+          value={tags}
+          onChange={(e) => setTags(e.currentTarget.value)}
+          disabled={submitting}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            id="admin-model-field-context"
+            label="上下文窗口（tokens）"
+            type="number"
+            min={1}
+            value={contextWindow}
+            onChange={(e) => setContextWindow(e.currentTarget.value)}
+            disabled={submitting}
+          />
+          <Field
+            id="admin-model-field-price"
+            label="单价（￥ / 1k tokens，未知填 0）"
+            type="number"
+            min={0}
+            step="0.001"
+            value={unitPrice}
+            onChange={(e) => setUnitPrice(e.currentTarget.value)}
+            disabled={submitting}
+          />
+        </div>
+        <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5">
+          <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-11">只有自托管模型可承接客户机密材料；闭源 API 一律不路由机密。</p>
+        </div>
+        {error && (
+          <p className="text-11 text-destructive" data-testid="admin-model-panel-error">
+            接入失败：{error}
+          </p>
+        )}
+      </div>
+    </AdminDrawer>
   );
 }
 
