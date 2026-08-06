@@ -17,6 +17,8 @@ import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { phaseReadiness } from "./phase-readiness";
 import { prQueue } from "./pr-queue";
+import { templatesAllocate } from "./templates-allocate";
+import { templatesDoctor } from "./templates-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 
@@ -45,6 +47,18 @@ async function main(): Promise<void> {
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "pr-queue":       prQueue(args); break;
+    case "templates": {
+      // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
+      // 与本文件其余命令的单词/连字符风格不同——刻意跟随 Proposal 原文，不改它的
+      // 目标 UX 来迁就仓库既有约定。子命令路由在这里做，判定逻辑仍在各自文件里。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { templatesDoctor(subArgs); break; }
+      if (sub === "allocate") { templatesAllocate(subArgs); break; }
+      log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -87,6 +101,9 @@ async function main(): Promise<void> {
       log.info("  pnpm harness module-lock-acquire   --module <name> --session <agent-id>");
       log.info("  pnpm harness module-lock-heartbeat --module <name> --session <agent-id>");
       log.info("  pnpm harness module-lock-release   --module <name> --session <agent-id>");
+      log.info("  pnpm harness templates doctor                          # PROP-HARNESS-MODEL-001 Epic E1：模板实例唯一性/生命周期/引用完整性体检");
+      log.info("  pnpm harness templates allocate --domain <3位大写域码> --name \"<name>\" [--owner <id>] [--authority <text>] [--consumers a,b]");
+      log.info("                             # 原子取号 + 登记进 registry.yaml（占号即登记，防撞号，同 new-adr 思路）");
       process.exit(cmd ? 1 : 0);
   }
 }
