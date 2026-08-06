@@ -159,14 +159,37 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toBeVisible();
 });
 
-test("formal Chat refuses to invent a project context", async ({ page }) => {
+/**
+ * 🔴 #594（人类本人直接推翻此前裁决，方案 A）：无 `projectId` 时**不再拒绝**——
+ * 走个人对话模式。这条用例原名"refuses to invent a project context"，原判据是
+ * "请先选择项目"的拦截空态。**判据反过来了，防的洞没变**：原来防的是"读端口没有
+ * 真实上下文时界面编一个项目出来"（mock 数据或悄悄挑一个真实项目装作用户选了它）；
+ * 现在防的是**同一个洞的新形状**——无 `projectId` 时**不得**悄悄向任何
+ * `/chat/projects/<任意 id>/threads` 发请求（那会是"编了一个项目"的铁证，
+ * 字符串匹配挡不住这类洞，网络断言才挡得住，同 #602 那次分析的思路）。
+ *
+ * 正样本：个人模式确实调用了它自己的端口 `/chat/threads`（无 `:projectId` 段）。
+ */
+test("formal Chat with no projectId goes personal, never invents a project context", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 
+  const personalThreadsRequest = page.waitForResponse((response) => (
+    response.request().method() === "GET" && /\/chat\/threads(\?|$)/.test(response.url())
+  ));
+  const inventedProjectRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/chat\/projects\/[^/]+\/threads/.test(request.url())) inventedProjectRequests.push(request.url());
+  });
+
   await page.goto("/chat");
-  await expect(page.getByTestId("chat-missing-project-context")).toContainText("请先选择项目");
+  // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见（"我的对话"）。
+  await expect(page.getByTestId("chat-read-thread-list")).toContainText("我的对话");
+  await expect((await personalThreadsRequest).status()).toBe(200);
+  // 防的洞的新形状：全程没有向任何伪造的项目路径发过请求。
+  expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);
   await expect(page.getByText("demo")).toHaveCount(0);
 });

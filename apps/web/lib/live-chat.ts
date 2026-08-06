@@ -70,15 +70,60 @@ export async function listThreads(
   );
 }
 
+/**
+ * 🔴 #594：`projectId: string | null`。`null` = 个人线程——查询参数**整个省略**，
+ * 不传字符串 `"null"`。控制器 `chat.controller.ts` 的 `thread()` 把缺省的
+ * `@Query("projectId")`（此时是 `undefined`）折成 `null` 再走个人分支；
+ * 传字符串 `"null"` 会被当成一个真实但无效的 projectId，得到的是完全不同的错误。
+ */
 export async function getThread(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   sessionToken?: string,
 ): Promise<GetThreadOut> {
   return apiRequest<GetThreadOut>(
     chat.operations.getThread.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
   );
+}
+
+/**
+ * 🔴 #594 —— 个人线程（无项目）列表。对应新契约操作 `listPersonalThreads`
+ * （`GET /chat/threads`，path 上没有 `:projectId` 段）。
+ */
+export async function listPersonalThreads(
+  opts: { includeArchived?: boolean } = {},
+  sessionToken?: string,
+): Promise<ListThreadsOut> {
+  return apiRequest<ListThreadsOut>(chat.operations.listPersonalThreads.path, {
+    method: "GET",
+    query: {
+      includeArchived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
+    },
+    sessionToken,
+  });
+}
+
+/**
+ * 🔴 #594 —— 建一条个人线程（`projectId: null`）。走同一个 `mutateThread` 端口，
+ * 只是 `projectId`/`groupId` 恒为 `null`——个人线程没有组的概念，见后端
+ * `mutate-thread.ts` 的 `createPersonalThread` 头注。默认可见范围复用 `private`
+ * （仅创建者可读，与个人线程的定义逐字相同）。
+ */
+export async function createPersonalThread(title: string): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: "create",
+      projectId: null,
+      threadId: null,
+      groupId: null,
+      title,
+      visibilityScope: "private",
+      expectedVersion: null,
+      reason: null,
+    },
+  });
 }
 
 export async function getAgentPanel(
