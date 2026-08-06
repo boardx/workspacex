@@ -73,10 +73,19 @@ protection（`gh api repos/boardx/workspacex/branches/main/protection` 返回 40
 `continue-on-error: true`，信息性、PR 上仍会跑但红了不拦；只改 `REQUIRED_CHECKS`
 不改 `continue-on-error` 会漏——`classifyPr` 对**未声明**的 check 仍然"红就是红"，见
 `pr-queue.ts` 注释）。真正挡发布的是 `backend-gates.yml` 的 `deploy` 前置条件
-（`needs: [gates, e2e-core-loop]`）：`e2e-core-loop` 只跑 `core-loop.spec.ts`（人类
-八步闭环的验收规格），不是全部浏览器 e2e——5 分钟合并→上线 SLA 等不起其余 spec，
-且它们的抖动之前拖累过核心闭环步骤 1 的判读（#631）。其余 5 个 fullstack-smoke spec
-继续在 PR 上跑（信息性）或按各自节奏跑，但**不阻塞合并也不阻塞发布**。
+（`needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop]`）：`e2e-core-loop`
+只跑 `core-loop.spec.ts`（人类八步闭环的验收规格），不是全部浏览器 e2e——5 分钟
+合并→上线 SLA 等不起其余 spec，且它们的抖动之前拖累过核心闭环步骤 1 的判读
+（#631）。其余 5 个 fullstack-smoke spec 继续在 PR 上跑（信息性）或按各自节奏跑，
+但**不阻塞合并也不阻塞发布**。
+
+**`gates` 从单个 job 拆成三个（2026-08-06，#633 SLA）**：`gates-fast`（typecheck/lint
++ doctor --strict + 契约单源/洋葱分层，不碰 Docker）/ `gates-test`（vitest 单测，
+实测占旧 `gates` 总耗时 76%，是最大单项）/ `gates-runtime`（RLS + 三道运行时门控 +
+迁移幂等，三者各自 `pg_up; pg_reset` 独立建库，本来就不依赖 vitest 或彼此的状态）。
+三个 job 都在 `ubuntu-latest`（#615 起）、互相没有 `needs`，托管 runner 并发不限于
+1，理论上能真正同时跑——这条拆分只有在 `gates` 已经挪出唯一那台自建 runner 之后
+才成立，挪之前拆了也只会排队+多付固定开销，见该 job 的注释。
 
 **两种执行模式（fail-closed）**：
 
