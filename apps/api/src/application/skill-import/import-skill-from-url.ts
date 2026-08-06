@@ -73,6 +73,29 @@ export interface SkillUrlImportRepository {
 export const SKILL_URL_IMPORT_REPOSITORY = Symbol("SkillUrlImportRepository");
 export const IMPORT_SOURCE_FETCHER = Symbol("ImportSourceFetcher");
 
+/**
+ * DI 边界：controller 拿到的**不是**装配好的 deps，而是一个**工厂**。
+ *
+ * ## 为什么必须是工厂而不是一个现成的 deps
+ *
+ * `policy.localOnlyOrg` 是**逐请求**的（取决于该请求所属组织的 `kind`），
+ * 而 provider 是**单例**。把 deps 做成单例 = 把第一个请求的组织类型
+ * 固化给所有后续请求 —— 一个普通组织的请求会带着上一个 personal-local 组织的
+ * 策略跑，或者反过来。⚠ 后者更糟：它**静默地**让本地组织的出站承诺（I-9）失效。
+ *
+ * ## 为什么 controller 不能自己 import 装配函数
+ *
+ * 实测：那样写 `lint-arch-deps` 当场红——
+ * 「interface layer imports infrastructure layer」。洋葱依赖方向是硬约束，
+ * ⛔ 不许为了少写一个 token 而绕过它。⇒ 装配留在 infrastructure，
+ * 由 `kernel.module.ts` 用这个 token 注进来，controller 只认这个**应用层**类型。
+ */
+export interface ImportSkillFromUrlDepsFactory {
+  (input: { readonly localOnlyOrg: boolean }): ImportSkillFromUrlDeps;
+}
+
+export const IMPORT_SKILL_FROM_URL_DEPS_FACTORY = Symbol("ImportSkillFromUrlDepsFactory");
+
 export interface ImportSkillFromUrlDeps {
   /** 授权来源。⚠ 与 starter-pack 导入同一条门槛，见下方 admin 检查。 */
   readonly identities: IdentityRepository;
