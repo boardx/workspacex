@@ -444,15 +444,27 @@ export async function addCapability(opts: {
    * having available at the fixture level.
    */
   endpoint?: string | null;
+  /**
+   * #619：`kind: "agent"` 时数据库 CHECK 要求非空（`capability_listings_agent_needs_abbr_duty`）。
+   * 缺省给一个测试安全的值，而不是要求每个既有调用点都改——这条 CHECK 测的是"agent
+   * 必须有这两个字段"，不是"这个具体测试关心 abbr/duty 长什么样"，所以对不关心这
+   * 两个字段的既有测试，缺省值就够了；真的要断言 abbr/duty 内容的测试自己传。
+   */
+  abbr?: string | null;
+  duty?: string | null;
 }): Promise<void> {
+  const isAgent = opts.kind === "agent";
   await asApp(opts.orgId, (c) =>
     c.query(
-      `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO capability_listings
+         (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint, abbr, duty)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         opts.id, opts.orgId, opts.kind, opts.name,
         opts.scope ?? "org-wide", opts.ownerTeamId ?? null, opts.enabled ?? true,
         opts.endpoint ?? null,
+        opts.abbr ?? (isAgent ? opts.name.slice(0, 2) : null),
+        opts.duty ?? (isAgent ? "test fixture agent" : null),
       ],
     ),
   );

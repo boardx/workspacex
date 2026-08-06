@@ -94,7 +94,8 @@ describe("V8: every change lands in provenance_events with before and after", ()
   it("add", async () => {
     const r = await mutateOk(ADMIN, {
       orgId: ORG, kind: "agent", op: "add",
-      payload: { name: "Bookkeeper", scope: "org-wide" },
+      // #619: kind="agent" 时 abbr/duty 必填。
+      payload: { name: "Bookkeeper", scope: "org-wide", abbr: "BK", duty: "记账与对账" },
     });
     const trail = await trailFor(r.listing.id);
     expect(trail).toHaveLength(1);
@@ -267,7 +268,8 @@ describe("the payload is validated even though the contract leaves it open", () 
 
   it("update cannot flip `enabled` -- that path exists so D-U5 cannot be walked around", async () => {
     const added = await mutateOk(ADMIN, {
-      orgId: ORG, kind: "agent", op: "add", payload: { name: "Keeper", scope: "org-wide" },
+      orgId: ORG, kind: "agent", op: "add",
+      payload: { name: "Keeper", scope: "org-wide", abbr: "KP", duty: "test fixture agent" },
     });
     // REJECTED, not silently ignored (changed 2026-07-29 when the contract's payload
     // schemas became `.strict()`).
@@ -302,11 +304,14 @@ describe("the payload is validated even though the contract leaves it open", () 
   it("...and the DATABASE refuses it too, which is the half that holds for every writer", async () => {
     // Counter-proof for the constraint itself. The schema check above is one edit away from
     // being removed; the CHECK is not, and it covers writers that never see the schema.
+    // #619: abbr/duty 补上非空值——本测试要验的是 team-only 那条 CHECK，不是 abbr/duty
+    // 那条（那条有它自己的反证，见 `capability-listings-agent-fields.test.ts`）。
+    // 缺了它们，两条 CHECK 都会被同一个 INSERT 撞上，谁先报错不是本测试关心的事。
     await expect(
       asApp(ORG, (c) =>
         c.query(
-          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id)
-           VALUES ('cap-halfway', $1, 'agent', 'Halfway', 'team-only', NULL)`,
+          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, abbr, duty)
+           VALUES ('cap-halfway', $1, 'agent', 'Halfway', 'team-only', NULL, 'HW', 'test fixture agent')`,
           [ORG],
         ),
       ),

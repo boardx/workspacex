@@ -66,19 +66,32 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
   const [name, setName] = React.useState("");
   const [scope, setScope] = React.useState<VisibilityScope>("org-wide");
   const [ownerTeamId, setOwnerTeamId] = React.useState("");
+  /**
+   * #619：`kind === "agent"` 时必填——服务端 `mutateCapability` 的 add 分支
+   * 与数据库 `capability_listings_agent_needs_abbr_duty` CHECK 都会拒绝空值，
+   * 这里本地先挡一次给出字段级提示，同 `ownerTeamId`/`team-only` 那条的分工：
+   * 真正的保证在服务端与数据库。
+   */
+  const [abbr, setAbbr] = React.useState("");
+  const [duty, setDuty] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isAgent = ctx.kind === "agent";
 
   const reset = () => {
     setName("");
     setScope("org-wide");
     setOwnerTeamId("");
+    setAbbr("");
+    setDuty("");
     setError(null);
   };
 
   const submit = async () => {
     const trimmedName = name.trim();
     const trimmedTeam = ownerTeamId.trim();
+    const trimmedAbbr = abbr.trim();
+    const trimmedDuty = duty.trim();
     if (!trimmedName) {
       setError("名称不能为空。");
       return;
@@ -90,6 +103,11 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
       setError("仅团队可见时必须指定拥有它的团队。");
       return;
     }
+    // #619：agent 目录条目缺 abbr/duty 会在服务端 400——本地先说清楚缺哪个字段。
+    if (isAgent && (!trimmedAbbr || !trimmedDuty)) {
+      setError("Agent 必须填写缩写与职责说明——AI 团队面板要求每个 agent 都说得出职责（I-17）。");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -97,6 +115,7 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
         name: trimmedName,
         scope,
         ...(scope === "team-only" ? { ownerTeamId: trimmedTeam } : {}),
+        ...(isAgent ? { abbr: trimmedAbbr, duty: trimmedDuty } : {}),
       });
       const refreshed = await ctx.onMutated(result);
       if (!refreshed) return;
@@ -169,6 +188,32 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
                 data-testid={`${ctx.prefix}-create-owner-team`}
               />
             </label>
+          ) : null}
+          {isAgent ? (
+            <>
+              <label className="flex flex-col gap-1 text-12">
+                <span>缩写</span>
+                <Input
+                  value={abbr}
+                  onChange={(e) => setAbbr(e.target.value)}
+                  disabled={busy}
+                  autoComplete="off"
+                  placeholder="团队面板徽标用，如 CS"
+                  data-testid={`${ctx.prefix}-create-abbr`}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-12 sm:col-span-2">
+                <span>职责说明</span>
+                <Input
+                  value={duty}
+                  onChange={(e) => setDuty(e.target.value)}
+                  disabled={busy}
+                  autoComplete="off"
+                  placeholder="这个 agent 是做什么的（I-17：不能为空）"
+                  data-testid={`${ctx.prefix}-create-duty`}
+                />
+              </label>
+            </>
           ) : null}
         </div>
 

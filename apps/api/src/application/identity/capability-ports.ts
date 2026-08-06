@@ -53,6 +53,10 @@ export interface CapabilityInsert {
   readonly scope: VisibilityScope;
   readonly ownerTeamId: string | null;
   readonly endpoint: string | null;
+  /** #619：`kind === "agent"` 时非空，其余 kind 恒 null。见契约 `CapabilityListing.abbr`。 */
+  readonly abbr: string | null;
+  /** #619：`kind === "agent"` 时非空，其余 kind 恒 null。见契约 `CapabilityListing.duty`。 */
+  readonly duty: string | null;
 }
 
 export interface CapabilityPatch {
