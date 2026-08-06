@@ -1,7 +1,12 @@
 # harness-verify.yml — CI 门控
 # 快速迭代策略（2026-07）：
 #   - PR/push 只做轻量门控：受影响模块的 typecheck/lint/test（turbo --affected）+ 生成物漂移检查。
-#   - 全栈烟测(fullstack-smoke)：每小时检查 main 是否有新合并的 PR，有才跑一次。
+#   - 全栈烟测(fullstack-smoke)：PR/push 都跑，但只跑 `seeded` project（5 个非 core-loop 的
+#     spec）。**信息性、不阻塞合并**（2026-08-06 人类裁决 #633：module verify 继续阻塞合并，
+#     浏览器 e2e 不再阻塞合并，只阻塞发布）——`continue-on-error: true` 见下方 job。
+#     `core-loop.spec.ts` 已移出本 job：它是唯一真正阻塞发布的 e2e spec，只在
+#     backend-gates.yml 的 `e2e-core-loop` job 里跑（deploy 的前置条件），
+#     理由与 5 分钟合并→上线 SLA 直接相关，见该 job 注释。
 #   - 全量浏览器 e2e(e2e-full)：**不在 PR 上跑**（2026-08-05 人类指令：提高速度）。
 #     它在 tag 发布、main push、每 3 小时定时、以及手动触发时跑。
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
@@ -146,6 +151,11 @@ jobs:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
+    # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
+    # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
+    # `e2e-core-loop`（deploy 前置条件）。
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -187,9 +197,11 @@ jobs:
     #
     # ⚠ 摘掉的是**这一个** job，不是 PR 的门控。PR 上仍然跑：
     #   · `verify`          —— 受影响模块的 typecheck/lint/test + 全部 harness 门控；
-    #   · `fullstack-smoke` —— 真浏览器 + 真 docker 栈，**含 `core-loop.spec.ts`**，
-    #                          也就是人类八步的那块活进度板。
-    #   ⇒ 「八步有没有退化」在每个 PR 上照旧会红。这里省掉的是那 35 分钟的全量回归。
+    #   · `fullstack-smoke` —— 真浏览器 + 真 docker 栈，`seeded` project（5 个非
+    #                          core-loop 的 spec），信息性、不阻塞（见该 job 注释）。
+    #   人类八步的进度板 `core-loop.spec.ts`（2026-08-06 起，#633）**不在** PR 上跑，
+    #   只在 backend-gates.yml 的 `e2e-core-loop` job 里跑，作为发布前置条件——
+    #   「八步有没有退化」现在是发布门，不是 PR 门。
     #
     # ⚠ 代价要说清楚：**PR 上不再跑全量单测**（4500+ 条）。一个只被 e2e-full 覆盖的
     #   回归，现在最早在 tag 发布或下一个 3 小时定时才会暴露，而不是在 PR 上。

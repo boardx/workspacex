@@ -88,7 +88,9 @@ status:blocked           旁路：外部障碍（缺 key/环境/上游未绿）�
    逐个用 `Agent` 调起（传 PR diff）；reviewer 通过打 `review:*-ok`，否则 `review:changes`。
 5. **门禁 + 合并**：当
    - 全部必需 `review:*-ok` 到齐，且
-   - CI 必需检查（`verify` + `fullstack-smoke`）绿，且
+   - CI 必需检查（权威清单见 `.harness/scripts/lib/pr-queue.ts` 的 `REQUIRED_CHECKS`；
+     2026-08-06 起 `fullstack-smoke` 已摘出——浏览器 e2e 不再阻塞合并，只阻塞发布，
+     见 #633）绿，且
    - PR 分支 up-to-date（否则要求 worker rebase）
    → coordinator `gh pr merge --squash`，置 `status:merged`，关 issue，
    跑 `pnpm harness verify` 把 feature 翻 `passing`。
@@ -125,15 +127,18 @@ reviewer.required_for 含 "*"   OR   reviewer.required_for ∩ {issue.area} ≠ 
 ## 5. review-before-merge 门禁
 
 理想是**服务端硬门禁**：main 分支保护 —— 必须 PR、必须 required checks
-（`verify`、`fullstack-smoke`）、必须分支 up-to-date、禁直推、必须 1 个 approve。
+（清单权威见 `.harness/scripts/lib/pr-queue.ts` 的 `REQUIRED_CHECKS`，不在本文重复
+一份——2026-08-06 起 `fullstack-smoke` 已摘出，见 #633）、必须分支 up-to-date、
+禁直推、必须 1 个 approve。
 
 > ⚠️ **当前套餐限制**：本仓是**私有仓 + GitHub 免费套餐**，经典分支保护与 rulesets
 > 均返回 403（"Upgrade to GitHub Pro or make this repository public"）。故服务端硬门禁
-> **暂不可用**。启用前置条件：仓库转 public / 升级 Pro(个人) 或 Team(org)。届时执行：
+> **暂不可用**。启用前置条件：仓库转 public / 升级 Pro(个人) 或 Team(org)。届时执行
+> （`contexts` 跟随 `REQUIRED_CHECKS` 现值，别抄一份写死的旧清单）：
 >
 > ```bash
 > gh api -X PUT repos/<owner>/<repo>/branches/main/protection --input - <<'JSON'
-> { "required_status_checks": { "strict": true, "contexts": ["verify","fullstack-smoke"] },
+> { "required_status_checks": { "strict": true, "contexts": ["verify","e2e-full"] },
 >   "enforce_admins": false,
 >   "required_pull_request_reviews": { "required_approving_review_count": 1 },
 >   "restrictions": null }
@@ -143,7 +148,7 @@ reviewer.required_for 含 "*"   OR   reviewer.required_for ∩ {issue.area} ≠ 
 **v0 现行门禁（无服务端强制时的兜底）**——由 **coordinator（v1）** 在合并动作前**程序化校验**：
 1. PR 正文含 `Closes #N`；
 2. 该 issue 的必需 `review:*-ok`（按 §3 路由）全部到齐；
-3. CI 的 `verify`、`fullstack-smoke` 为 success；
+3. CI 的必需 check（`REQUIRED_CHECKS`）为 success；
 4. 分支 up-to-date。
 缺任一 → coordinator **拒绝合并**，置 `status:changes-requested`。
 
