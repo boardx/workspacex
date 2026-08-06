@@ -7,6 +7,16 @@ export interface PublishedAgentSnapshot {
   readonly skillVersionIds: readonly string[];
   readonly modelProvider: string;
   readonly modelId: string;
+  /**
+   * The pinned version's system instructions.
+   *
+   * Added for `trialRunAgent` (agent-runtime bundle, #595 Line A), which needs the same
+   * "one published Agent version, resolved by id" fact this port already answers for the
+   * Chat acceptance path -- just with one more column read off the same row. The acceptance
+   * path (`pg-chat-message-command-repository.ts`'s `accept`) does not read this field; it
+   * only exists here so trial run does not open a second query path to `agent_versions`.
+   */
+  readonly instructions: string;
 }
 
 /** Consumer boundary implemented by the durable Agent catalog from #417. */

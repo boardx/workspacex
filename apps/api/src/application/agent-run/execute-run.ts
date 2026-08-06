@@ -44,8 +44,13 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
  * reading them back in database order would each silently discard part of what was pinned
  * -- ordering is a property of `skillVersionIds`, which is why it is an array in both the
  * `agent_versions` column and the run row.
+ *
+ * Exported so `trial-run-agent.ts` (#595 Line A) builds the identical prompt shape for a
+ * trial run instead of re-deriving "instructions then skills, joined by blank lines" a
+ * second time -- that phrase is the one place this project's answer to "what does an Agent
+ * actually see" lives, and a second copy is exactly the drift AGENTS.md calls out by name.
  */
-function buildSystemPrompt(
+export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly content: string }[],
 ): string {

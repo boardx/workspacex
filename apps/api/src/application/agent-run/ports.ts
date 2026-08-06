@@ -238,8 +238,16 @@ export interface ModelCallPort {
    * Throws `ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED")` when `modelProvider` is not
    * the one provider this deployment configured. It does not substitute the configured
    * one: answering with a model the Agent version does not name is the failure §5 forbids.
+   *
+   * `tokens` is OPTIONAL and reports whatever usage figure the provider's own response
+   * included (e.g. an OpenAI-compatible `usage.total_tokens`), never a locally computed
+   * estimate -- this codebase has no tokenizer, and a heuristic word/char count presented
+   * as "tokens" would be a fabricated measurement wearing a real one's name. Wave 2's own
+   * `AgentRunStep` never stored it and still doesn't; the field exists for callers that DO
+   * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
+   * reads as "not reported", not "confirmed zero".
    */
-  complete(input: ModelCallInput): Promise<{ readonly text: string }>;
+  complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }>;
 }
 
 export interface AgentRunClock {

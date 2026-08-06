@@ -208,6 +208,7 @@ import {
 } from "./infrastructure/agent-run/configured-model-provider";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
+import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
@@ -438,6 +439,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CanvasTemplateController,
     RecordingController,
     AgentRunController,
+    AgentTrialRunController,
     SkillController,
     SkillReviewController,
     SkillMountController,

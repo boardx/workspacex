@@ -60,6 +60,11 @@ async function createAgentFixtureTables(): Promise<void> {
         id text PRIMARY KEY,
         org_id text NOT NULL,
         agent_id text NOT NULL REFERENCES chat_wave2_fixture.agents(id) ON DELETE CASCADE,
+        -- #595 Line A: resolvePublished now also reads instructions (trialRunAgent needs
+        -- the same published-Agent fact this fixture already stands in for). NOT NULL
+        -- DEFAULT so this table's shape stays a strict subset of the production
+        -- agent_versions columns actually read by that query, never a superset it invents.
+        instructions text NOT NULL DEFAULT '',
         skill_version_ids jsonb NOT NULL,
         model_provider text NOT NULL,
         model_id text NOT NULL,

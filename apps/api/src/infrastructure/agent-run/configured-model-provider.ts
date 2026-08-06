@@ -50,12 +50,13 @@ export function readModelProviderConfig(
 
 interface CompletionResponse {
   choices?: { message?: { content?: unknown } }[];
+  usage?: { total_tokens?: unknown };
 }
 
 export class ConfiguredModelProvider implements ModelCallPort {
   constructor(private readonly config: ConfiguredModelProviderConfig) {}
 
-  async complete(input: ModelCallInput): Promise<{ readonly text: string }> {
+  async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -120,6 +121,12 @@ export class ConfiguredModelProvider implements ModelCallPort {
       // a fabricated reply, and the run would read as succeeded.
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content");
     }
-    return { text: content };
+    // Read straight off the wire response, never computed. Absent or non-numeric ⇒
+    // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
+    const reportedTokens = parsed.usage?.total_tokens;
+    const tokens = typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0
+      ? reportedTokens
+      : undefined;
+    return { text: content, tokens };
   }
 }
