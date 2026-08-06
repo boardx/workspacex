@@ -27,7 +27,7 @@
  * 访谈属**用户洞察**类容器，与工作坊**平级**（Q-12 裁 C）——不是工作坊的子流程。
  */
 import { z } from "zod";
-import { ConsentItem, ConsentBits as SharedConsentBits } from "./consent-item";
+import { ConsentItemKey, ConsentBits as SharedConsentBits } from "./consent-item";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
 import { OmissionReasonSchema } from "./context-pack";
@@ -93,10 +93,10 @@ export const EvidenceStrength = z.enum([
  * ⚠ **2026-08-05 coord-main 经人类授权裁决（issue #533）：与 `recording` 束收敛为同一份。**
  *   本处原本自己声明四位，`recording.RecordingConsentItem` 另外声明三项（少 `attribution`），
  *   前三位逐字相同却互不知情。裁决判定那是遗漏，两处合并到 `./consent-item`：
- *   本名字现在是 `ConsentItem` 的**别名**（同一个对象，不是内容相同的第二份声明）。
+ *   本名字现在是 `ConsentItemKey` 的**别名**（同一个对象，不是内容相同的第二份声明）。
  *   ⇒ 原先「两者故意不合并」的说法**已被推翻**，`KNOWN_CONTRACT_GAPS.C_ITV_2` 同步改为已裁。
  */
-export const ConsentKey = ConsentItem;
+export const ConsentKey = ConsentItemKey;
 
 /** 建议来源。⚠ `human_observer` 的私密建议**不经 AI 加工原样呈现**并标出提出人 */
 export const SuggestionOrigin = z.enum(["ai", "human_observer"]);

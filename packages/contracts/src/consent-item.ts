@@ -54,8 +54,16 @@ import { z } from "zod";
  */
 export const CONSENT_ITEMS = ["record", "transcript", "ai_analysis", "attribution"] as const;
 
-/** 封闭枚举形态。`interview.ConsentKey` 与 `recording.RecordingConsentItem` 都是它。 */
-export const ConsentItem = z.enum(CONSENT_ITEMS);
+/**
+ * 封闭枚举形态。`interview.ConsentKey` 与 `recording.RecordingConsentItem` 都是它。
+ *
+ * ⚠ **名字里的 `Key` 不是修饰，是防撞**：`apps/web/lib/mock/entry.ts` 已有一个
+ *   `interface ConsentItem`（同意书条目的**界面视图模型**：label / desc / defaultChecked），
+ *   与本枚举是两件事。若本枚举叫 `ConsentItem`，`lint-contract-source.mjs` 会判
+ *   「web 私自重定义契约类型」——实测会红（见 PR #585 正文）。
+ *   叫 `ConsentItemKey` 既避开撞名，也说清了它是**键**而不是条目本身。
+ */
+export const ConsentItemKey = z.enum(CONSENT_ITEMS);
 
 export type ConsentItemValue = (typeof CONSENT_ITEMS)[number];
 

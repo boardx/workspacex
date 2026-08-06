@@ -23,7 +23,7 @@ import { z } from "zod";
 import { PermissionReason } from "./identity";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
-import { ConsentItem } from "./consent-item";
+import { ConsentItemKey } from "./consent-item";
 
 /* ─────────────────────────── 枚举（对应 domain.md）─────────────────────────── */
 
@@ -63,7 +63,7 @@ export const ConsentItemState = z.enum(["granted", "denied", "pending"]);
  * ⚠ **人类可推翻本裁决并回退到三项**——回退时要连同 `consent-item.ts` 一起改，
  *   不要在这里重新写一份三项的枚举。
  */
-export const RecordingConsentItem = ConsentItem;
+export const RecordingConsentItem = ConsentItemKey;
 
 /**
  * Segment 状态。
