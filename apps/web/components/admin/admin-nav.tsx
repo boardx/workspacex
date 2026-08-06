@@ -4,7 +4,11 @@ import type { LucideIcon } from "lucide-react";
 import { ADMIN_NAV, ADMIN_NAV_COUNT_SOURCES, type AdminModuleKey } from "@/lib/mock/admin";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
 import { resolveAdminNavCounts, type AdminNavCountSource } from "@/lib/admin-nav-counts";
+import { ADMIN_SECOND_LEVEL } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
+
+/** 后台二级模块（从 navigation.ts 的「后台」children 取）的稳定 testid —— 供 e2e 锚定。 */
+export const adminSubNavTestId = (key: string) => `admin-sub-${key}`;
 
 const ICONS: Record<AdminModuleKey, LucideIcon> = {
   agent: Bot,
@@ -32,6 +36,20 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  * 逐项独立求值——某一类计数查询挂了，只有那一项显示「—」，其余项照常显示数字，
  * 左栏不会整个空掉。「—」与 `0` 在界面上是两件事，详见 `lib/admin-nav-counts.ts`
  * 顶部的长注：`0` 是「这类资产一个都没有」，「—」是「这个数现在取不到」。
+ *
+ * ## #593 —— 第三组「能力域 · 全生命周期」
+ *
+ * 原型（`phases/requirements/WorkspaceX Standalone.html`）的一级导航「治理」只有「后台」
+ * 一项；蓝本 / 技能 / 智能体 / 成员 / 资产在原型里是**后台模块**（COLUMN 2）。
+ * 2026-07-30 的接线修正为了让十一束现行屏可达，把它们直接塞进了一级——可达性修好了，
+ * 信息架构被压平了。这里把它们作为后台的**二级**渲染出来：**入口只此一处**，
+ * 一级导航里已经没有了，不是「界面上没有但 DOM 里还在」的僵尸。
+ * 清单的唯一事实源是 `lib/navigation.ts` 的 `ADMIN_SECOND_LEVEL`，这里不抄第二份。
+ *
+ * ⚠ 已知重复（**先前就有，本 PR 不裁**）：上面「AI 能力 / 组织」组的
+ *   Agent · Skill · 项目蓝本 · 成员配额 指向 `/admin/*` 那批**接了真实数据**的屏，
+ *   而第三组指向的是同名能力域的 UI 先行全生命周期屏（多为 mock）。
+ *   两者是同一件事的两套实现，归并需要人裁——本 PR 只把入口从一级收回后台。
  *
  * `countSources` 默认取生产数据源（`ADMIN_NAV_COUNT_SOURCES`）；测试用它注入
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
@@ -91,6 +109,29 @@ export function AdminNav({
           })}
         </div>
       ))}
+
+      {/* #593 后台二级模块 —— 说明见本文件头注「#593」一节。 */}
+      {ADMIN_SECOND_LEVEL.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
+            能力域 · 全生命周期
+          </span>
+          {ADMIN_SECOND_LEVEL.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                data-testid={adminSubNavTestId(item.key)}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground"
+              >
+                <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </nav>
   );
 }
