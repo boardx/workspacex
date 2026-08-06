@@ -12,15 +12,23 @@
 // 302 个 issue 那天最老的两条掉出窗口 ⇒ 误判审计链断裂，main 连红四次。
 // 任何固定上限都会再次触顶，所以这里的做法是**把截断变成会被看见的事件**——
 // 扫不全就大声说扫不全，不用不完整的数据做否定性判断。
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
+import { stringify } from "yaml";
 import { analyzeRewriteCoverage, staleAllowlistEntries } from "./lib/rewrite-coverage.ts";
+import { buildRewriteCoverageEvidence } from "./lib/rewrite-coverage-evidence.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CONTROLLERS = join(ROOT, "apps/api/src/interface/controllers");
 const NEXT_CONFIG = join(ROOT, "apps/web/next.config.mjs");
 const ALLOWLIST = join(ROOT, ".harness/state/rewrite-coverage-allowlist.json");
+// E1 验收（非 HMV2-066，见 lib/rewrite-coverage-evidence.ts 头部注释）：本次运行的判定结果同时落一份 TPL-EVD-001 实例，供
+// `pnpm harness templates doctor` 扫到、按 E1 的 InstanceMetadata schema 校验。
+// 不入库（.gitignore 里有注释解释理由，同 dep-graph.md 那条同一理由：
+// 提交一份会过期的快照只会误导，重跑一遍就是最新状态）。
+const EVIDENCE_INSTANCE = join(ROOT, ".harness/templates/instances/EVD-rewrite-coverage.yaml");
 
 function readControllers() {
   if (!existsSync(CONTROLLERS)) return [];
@@ -41,6 +49,31 @@ const input = {
 };
 
 const report = analyzeRewriteCoverage(input);
+// incomplete 时也算——"扫不全"本身是真实的运行结果，不算过后再决定要不要记。
+const stale = report.incomplete ? [] : staleAllowlistEntries(input);
+
+// E1 验收：不管本次判定结果如何（含 incomplete），都落一份 TPL-EVD-001 实例。
+// 失败就打印警告继续往下走——写证据失败不该掩盖判定本身的退出码。
+try {
+  mkdirSync(dirname(EVIDENCE_INSTANCE), { recursive: true });
+  let commit = null;
+  try {
+    commit = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
+  } catch {
+    // 拿不到就留 null（比如浅克隆/无 git），不因为这个让证据写入整体失败。
+  }
+  const evidence = buildRewriteCoverageEvidence({
+    report,
+    staleAllowlistEntries: stale,
+    allowlistSize: allowlist.length,
+    generatedBy: "lint-rewrite-coverage.mjs",
+    generatedAt: new Date().toISOString(),
+    commit,
+  });
+  writeFileSync(EVIDENCE_INSTANCE, stringify(evidence), "utf8");
+} catch (e) {
+  console.warn(`! [rewrite-coverage] 写 TPL-EVD-001 证据实例失败（不影响本次判定退出码）：${e.message}`);
+}
 
 if (report.incomplete) {
   console.warn(`! [rewrite-coverage] 扫不全，本次不判定：${report.incompleteReason}`);
@@ -62,7 +95,6 @@ if (report.gaps.length > 0) {
   }
 }
 
-const stale = staleAllowlistEntries(input);
 if (stale.length > 0) {
   failed = true;
   console.error(`✗ [rewrite-coverage] allowlist 有 ${stale.length} 条已经不缺了，请删掉：${stale.join(", ")}`);
