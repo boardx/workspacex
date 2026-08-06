@@ -216,6 +216,10 @@ import {
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
+// #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
+import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
+import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
@@ -449,6 +453,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     RecordingController,
     AgentRunController,
     AgentTrialRunController,
+    AgentController,
     SkillController,
     SkillReviewController,
     SkillMountController,
@@ -556,6 +561,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: AGENT_STARTER_IMPORT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentStarterImportRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: CREATE_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
       inject: [DATABASE_PORT],
     },
     {
