@@ -60,11 +60,23 @@
 **"必需 check" 在 GitHub 侧并不存在，是我们自己声明的。** 本仓 `main` 没有开 branch
 protection（`gh api repos/boardx/workspacex/branches/main/protection` 返回 404
 `Branch not protected`），`statusCheckRollup` 把条件跳过的 job 和真门禁混在一起返回。
-必需清单因此声明在 `REQUIRED_CHECKS`（`lib/pr-queue.ts`，当前 = `verify` /
-`fullstack-smoke` / `e2e-full`），并由测试对着 `harness-verify.yml` 的 job id 核对，
-防改名后门禁静默失效。语义：**声明过的 check 必须出现且真绿**（没出现 = `WAITING_CI`，
-不是"没有就算了"）；未声明的 check 只有 `FAILURE` 才计入，`SKIPPED`/`NEUTRAL` 视为
-条件未命中。要增删必需门禁，改那个常量，别在别处再写一份。
+必需清单因此声明在 `REQUIRED_CHECKS`（`.harness/scripts/lib/pr-queue.ts`，**具体清单
+本文不复述**——那是单一事实源，会随裁决增删，抄一份在这里必然漂移），并由测试对着
+`harness-verify.yml` 的 job id 核对，防改名后门禁静默失效。语义：**声明过的 check
+必须出现且真绿**（没出现 = `WAITING_CI`，不是"没有就算了"）；未声明的 check 只有
+`FAILURE` 才计入，`SKIPPED`/`NEUTRAL` 视为条件未命中。要增删必需门禁，改那个常量，
+别在别处再写一份。
+
+**合并门 ≠ 发布门（2026-08-06 起，#633 人类裁决）**：module 测试（`verify`）继续阻塞
+**合并**；浏览器 e2e（真 docker 栈 + 真浏览器）不再阻塞合并，只阻塞**发布**——
+`fullstack-smoke` 已从 `REQUIRED_CHECKS` 摘出（`harness-verify.yml` 里那个 job 同步加了
+`continue-on-error: true`，信息性、PR 上仍会跑但红了不拦；只改 `REQUIRED_CHECKS`
+不改 `continue-on-error` 会漏——`classifyPr` 对**未声明**的 check 仍然"红就是红"，见
+`pr-queue.ts` 注释）。真正挡发布的是 `backend-gates.yml` 的 `deploy` 前置条件
+（`needs: [gates, e2e-core-loop]`）：`e2e-core-loop` 只跑 `core-loop.spec.ts`（人类
+八步闭环的验收规格），不是全部浏览器 e2e——5 分钟合并→上线 SLA 等不起其余 spec，
+且它们的抖动之前拖累过核心闭环步骤 1 的判读（#631）。其余 5 个 fullstack-smoke spec
+继续在 PR 上跑（信息性）或按各自节奏跑，但**不阻塞合并也不阻塞发布**。
 
 **两种执行模式（fail-closed）**：
 

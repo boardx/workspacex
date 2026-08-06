@@ -180,28 +180,49 @@ export default defineConfig({
   //   种子里的组织管理员登录。排进 `core-loop-empty-db` 会跑在 `core-loop-reset` 清过的
   //   库上，那时连账号都没有 —— 它会红，但**不是因为对的原因**。
   projects: [
+    // #633（人类裁决 2026-08-06）：`core-loop.spec.ts` 是唯一接入发布门（backend-gates.yml
+    // `deploy` 前置条件）的 spec —— 5 分钟合并→上线 SLA 不允许再等另外 5 个 spec 跑完，
+    // #631 也报过「核心闭环步骤 1 被无关 spec 的抖动拖累」。因此它必须是**独立 project**，
+    // 不与下面 `seeded` 混在同一个 project 里跑（同一 project 内的文件共享调度顺序，
+    // 相当于隐式耦合）。核心闭环三个 project（本项 + reset + empty-db）与 `seeded`
+    // **互不 dependencies**：
+    //   · backend-gates.yml 的 `verify:core-loop` 只跑 `--project=core-loop-empty-db`，
+    //     Playwright 沿 dependencies 反解只会拉起 core-loop-seeded → core-loop-reset →
+    //     core-loop-empty-db 三个，`seeded` 完全不参与，这是速度的来源。
+    //   · harness-verify.yml 的 `verify:fullstack-smoke` 只跑 `--project=seeded`，信息性、
+    //     不阻塞合并（人类裁决：module verify 继续阻塞，浏览器 e2e 不再阻塞合并）。
+    // ⚠ 代价：两条 project 链不再共享「reset 前所有种子态 spec 必须先跑完」这条保证
+    //   （旧版靠 core-loop-reset dependencies: ["seeded"] 保证）。这个保证只有在**同一次
+    //   Playwright 调用里两条链都被选中**时才有意义——而现在两条链在 CI 里从来不会同时
+    //   被同一次调用选中（各自 `with-test-isolation` 独立起栈），本地如果手动不带
+    //   `--project` 跑全量，两条链间的相对顺序不再保证，可能出现「seeded 那 5 个 spec
+    //   跑在被 core-loop-reset 清过的库上」——如果需要本地全量回归，请用
+    //   `pnpm run verify:full`，它会依次、各自独立地跑 `seeded` 与 `core-loop`
+    //   （两次独立 with-test-isolation 起栈，见 package.json），不会互相踩。
     {
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
         "canvas-template-create-smoke.spec.ts",
-        "core-loop.spec.ts",
         // ⚠ #520 与 #496 同理，必须排在 `seeded` 里：它要用种子里的组织管理员登录。
-        //   排进 `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有——它会红，
-        //   但**不是因为对的原因**。
         "skill-create-smoke.spec.ts",
         // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /
-        //   安全评审人）以及 `skill_reviewer_functions` 里的职能指派。排进
-        //   `core-loop-empty-db` 会跑在清过的库上，那时连账号都没有。
+        //   安全评审人）以及 `skill_reviewer_functions` 里的职能指派。
         "skill-review-gate.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
     {
+      name: "core-loop-seeded",
+      testMatch: ["core-loop.spec.ts"],
+      grepInvert: EMPTY_DB_TAG_RE,
+    },
+    {
       name: "core-loop-reset",
       testMatch: ["core-loop-reset.setup.ts"],
-      dependencies: ["seeded"],
+      // #633：改依赖 core-loop-seeded（不再是 seeded）—— 见上面 project 数组头部注释。
+      dependencies: ["core-loop-seeded"],
     },
     {
       name: "core-loop-empty-db",

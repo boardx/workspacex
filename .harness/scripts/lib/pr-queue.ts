@@ -98,8 +98,15 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  *
  * 语义：**声明了的 check 必须出现且必须真绿**（没出现 = WAITING_CI，不是"没有就算了"）；
  * 未声明的 check 只有 FAILURE 才计入（红就是红），SKIPPED/NEUTRAL 视为条件未命中。
+ *
+ * #633（人类裁决 2026-08-06）：`fullstack-smoke` 摘出这份清单——浏览器 e2e 不再阻塞
+ * 合并，只阻塞发布（backend-gates.yml 的 `e2e-core-loop` job，deploy 前置条件）。
+ * 光摘出清单不够：本函数对**未声明**的 check 仍然「红就是红」（见下方 FAILING_CONCLUSIONS
+ * 分支，不看 isRequired），所以 `harness-verify.yml` 的 `fullstack-smoke` job 同步加了
+ * `continue-on-error: true`——两处必须一起改，只改一处仍会在真失败时把 PR 判成
+ * CHANGES_REQUIRED，等于没摘。
  */
-export const REQUIRED_CHECKS = ["verify", "fullstack-smoke", "e2e-full"] as const;
+export const REQUIRED_CHECKS = ["verify", "e2e-full"] as const;
 
 function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;

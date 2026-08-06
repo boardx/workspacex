@@ -121,8 +121,62 @@ jobs:
           docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
             psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
 
+  # #633（人类裁决 2026-08-06）：module 测试（`gates`）继续阻塞合并/部署；浏览器 e2e
+  # 不再阻塞 PR 合并（见 harness-verify.yml 的 `fullstack-smoke` job），但**必须**阻塞
+  # 发布——"发布前必须经过 e2e" 在此之前完全不成立：fullstack-smoke 只在 harness-verify.yml
+  # （PR 触发）跑过，`deploy` 的前置条件只有 `gates`（单测/RLS/runtime gates），
+  # 从没跑过真浏览器 + 真 docker 栈的 core-loop.spec.ts 那套。
+  #
+  # 只接入 `core-loop.spec.ts`（不是全部 5+1 个 fullstack-smoke spec）——同一次裁决
+  # 紧接着收紧：5 分钟合并→上线 SLA 下等不起另外 5 个 spec，且 #631 报过「核心闭环
+  # 步骤 1 被无关 spec 的抖动拖累」。`core-loop.spec.ts` 已在
+  # `apps/web/playwright.fullstack-smoke.config.ts` 里拆成独立 project 链（core-loop-seeded
+  # → core-loop-reset → core-loop-empty-db），与 `seeded`（其余 5 个 spec）互不 dependencies，
+  # `pnpm run verify:core-loop` 只会拉起这条链，不会捎带 `seeded`。
+  #
+  # 不 `needs: gates`：两个 job 没有先后依赖，能并行就并行（跑多快取决于自建 runner 池
+  # 容量，不在本次改动范围内）。`deploy` 的前置条件两个都要。
+  e2e-core-loop:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: 核心闭环八步（唯一接入发布门的浏览器 e2e spec）
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set +e
+          pnpm run verify:core-loop 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/core-loop.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload core-loop evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-gates-core-loop-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/core-loop.log
+            apps/web/test-results/
+          if-no-files-found: error
+
   deploy:
-    needs: gates
+    needs: [gates, e2e-core-loop]
     # 只有打标签才部署。标签是人的显式动作，这满足 architecture.md
     # 「有 CD 的目标不手动部署」而又不至于每次 push 都动 staging。
     if: startsWith(github.ref, 'refs/tags/v')
