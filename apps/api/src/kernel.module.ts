@@ -218,6 +218,8 @@ import { AgentRunController } from "./interface/controllers/agent-run.controller
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
+import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
@@ -566,6 +568,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: CREATE_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ENSURE_DEFAULT_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDefaultAgentRepository(db),
       inject: [DATABASE_PORT],
     },
     {
