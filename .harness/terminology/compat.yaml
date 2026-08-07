@@ -1,0 +1,36 @@
+# compat.yaml — H3A-007 旧字段/对象 → 新字段/对象兼容映射。
+#
+# 唯一事实源是 PROP-HARNESS-AGENT-001.md §2.4"首批字段迁移"表。这份文件是
+# 那张表的机器可读投影，理由和 registry.yaml 头部一样：分歧以原文为准。
+#
+# 语义（§2.4 逐字）：
+#   - 旧字段只读，新 writer 只产生规范字段；
+#   - `stable_instance_id_unchanged: true` 的条目——稳定实例 ID 不随改名变化；
+#   - `strategy` 字段记录 §2.4 表格"兼容策略"列的原文，doctor（H3A-008）不对
+#     它做机器判定，只作为人类可读的迁移说明保留在同一处，不在别的文件重复写。
+
+mappings:
+  - old_field: module_id
+    new_field: domain_id
+    strategy: "旧字段只读；稳定值可暂时保留 MOD-*，新实例使用 DOM-*"
+    stable_instance_id_unchanged: false
+  - old_field: parent_agent_id
+    new_field: supervisor_agent_id
+    strategy: "读取双兼容，新写只用新字段"
+    stable_instance_id_unchanged: true
+  - old_field: work_event
+    new_field: workflow_event
+    strategy: "事件 kind 不变，只升级 envelope 名称"
+    stable_instance_id_unchanged: true
+  - old_field: "result/verdict"
+    new_field: "task_result/review_decision"
+    strategy: "拆分「产出事实」和「审查决定」"
+    stable_instance_id_unchanged: false
+  - old_field: context_pack
+    new_field: task_context_bundle
+    strategy: "selector 行为不变"
+    stable_instance_id_unchanged: true
+  - old_field: "graph_definition/run"
+    new_field: "workflow_definition/run"
+    strategy: "stable instance ID 不变"
+    stable_instance_id_unchanged: true

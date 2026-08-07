@@ -25,9 +25,9 @@
 | H3A-003 | P0 | ✅ 完成 | 当前协调流基线 | 001 | flow/WIP/review wait/重复 token 有基线 |
 | H3A-004 | P0 | ⬜ 未开始 | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |
 | H3A-005 | P0 | ✅ 完成 | 与 ADR-010/Graph/HMV2 职责交叉表 | 002 | 无重复 schema/authority |
-| H3A-006 | P0 | ⬜ 未开始 | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
-| H3A-007 | P0 | ⬜ 未开始 | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
-| H3A-008 | P0 | ⬜ 未开始 | 术语 doctor | 006–007 | 新增未登记同义词、歧义映射或新写旧字段会红 |
+| H3A-006 | P0 | 🔶 PR #672 待 review | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
+| H3A-007 | P0 | 🔶 PR #672 待 review | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
+| H3A-008 | P0 | 🔶 PR #672 待 review | 术语 doctor | 006–007 | 新增未登记同义词、歧义映射或新写旧字段会红——已实现同义词/映射歧义两项；「新写旧字段」需全仓扫描，如实标注未做 |
 | H3A-009 | P0 | ⬜ 未开始 | Graph authority/projection contract | 005–008 | Domain、Authorization、Workflow、Runtime、Telemetry writer/authority 明确且不可互相反写 |
 
 反证：新增一个 registry 自由角色、一个无 owner 模块、一个无消费者 Skill，分别产生稳定 finding。

@@ -19,6 +19,7 @@ import { phaseReadiness } from "./phase-readiness";
 import { prQueue } from "./pr-queue";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
+import { terminologyDoctor } from "./terminology-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -58,6 +59,17 @@ async function main(): Promise<void> {
       if (sub === "doctor") { templatesDoctor(subArgs); break; }
       if (sub === "allocate") { templatesAllocate(subArgs); break; }
       log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate`);
+      process.exitCode = 1;
+      break;
+    }
+    case "terminology": {
+      // H3A-006/007/008（PROP-HARNESS-AGENT-001）。跟 "templates" 同一 UX
+      // 风格：`pnpm harness terminology <sub>`，子命令路由在这里，判定逻辑
+      // 在各自文件里。目前只有一个子命令，先按同款结构留出扩展位。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { terminologyDoctor(subArgs); break; }
+      log.err(`未知子命令 "terminology ${sub ?? ""}"。可用：doctor`);
       process.exitCode = 1;
       break;
     }
@@ -108,6 +120,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness templates doctor                          # PROP-HARNESS-MODEL-001 Epic E1：模板实例唯一性/生命周期/引用完整性体检");
       log.info("  pnpm harness templates allocate --domain <3位大写域码> --name \"<name>\" [--owner <id>] [--authority <text>] [--consumers a,b]");
       log.info("                             # 原子取号 + 登记进 registry.yaml（占号即登记，防撞号，同 new-adr 思路）");
+      log.info("  pnpm harness terminology doctor                        # PROP-HARNESS-AGENT-001 H3A-006/007/008：术语注册表 + 兼容映射结构校验");
       process.exit(cmd ? 1 : 0);
   }
 }
