@@ -264,17 +264,42 @@ export function ChatLiveMessagePanel({
           </div>
         ) : null}
         {messages.length > 0 ? (
-          <ol className="flex flex-col gap-3" data-testid="chat-message-list">
-            {messages.map((message) => (
-              <li key={message.id} className="rounded-md border border-border-subtle bg-panel p-3" data-testid="chat-message-row" data-message-id={message.id}>
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                  {message.authorKind === "agent" ? <Bot aria-hidden className="h-3 w-3" /> : <UserRound aria-hidden className="h-3 w-3" />}
-                  <span>{message.authorKind === "agent" ? message.agentId ?? "Agent" : "成员"}</span>
-                  {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
-                </div>
-                <p className="whitespace-pre-wrap text-12 text-card-foreground">{message.text}</p>
-              </li>
-            ))}
+          <ol className="flex flex-col gap-4" data-testid="chat-message-list">
+            {messages.map((message) => {
+              const isAgent = message.authorKind === "agent";
+              return (
+                <li
+                  key={message.id}
+                  className={`flex items-start gap-2.5 ${isAgent ? "" : "flex-row-reverse"}`}
+                  data-testid="chat-message-row"
+                  data-message-id={message.id}
+                >
+                  <div
+                    aria-hidden
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                      isAgent ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isAgent ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
+                    <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                      <span className="font-medium">{isAgent ? message.agentId ?? "Agent" : "我"}</span>
+                      {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
+                    </div>
+                    <div
+                      className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
+                        isAgent
+                          ? "rounded-tl-sm bg-panel text-card-foreground"
+                          : "rounded-tr-sm bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         ) : null}
         {nextCursor ? (
@@ -303,7 +328,7 @@ export function ChatLiveMessagePanel({
           <select
             id="chat-agent-select"
             data-testid="chat-agent-select"
-            className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-12"
+            className="h-7 min-w-0 flex-1 rounded-full border border-input bg-card px-3 text-11"
             value={selectedAgentId}
             disabled={archived || submitting || agents === null || agents.length === 0}
             onChange={(event) => updateDraft({ agentId: event.target.value })}
@@ -312,24 +337,28 @@ export function ChatLiveMessagePanel({
             {agents?.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
           </select>
         </div>
-        <Textarea
-          data-testid="chat-message-input"
-          aria-label="消息内容"
-          placeholder="输入要持久保存并交给所选 Agent 的消息"
-          value={text}
-          disabled={archived || submitting}
-          onChange={(event) => updateDraft({ text: event.target.value })}
-        />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
-          <Button
-            size="sm"
-            data-testid="chat-message-submit"
-            disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
-            onClick={() => void submit()}
-          >
-            <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
-          </Button>
+        <div className="rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
+          <Textarea
+            data-testid="chat-message-input"
+            aria-label="消息内容"
+            placeholder="输入要持久保存并交给所选 Agent 的消息"
+            value={text}
+            disabled={archived || submitting}
+            onChange={(event) => updateDraft({ text: event.target.value })}
+            className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
+          />
+          <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
+            <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
+            <Button
+              size="sm"
+              className="rounded-full"
+              data-testid="chat-message-submit"
+              disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
+              onClick={() => void submit()}
+            >
+              <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
+            </Button>
+          </div>
         </div>
         {queuedRun ? (
           <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued">
