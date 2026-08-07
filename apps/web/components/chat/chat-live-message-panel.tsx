@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Bot, RefreshCw, Send, UserRound } from "lucide-react";
+import { Markdown } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
@@ -288,13 +290,20 @@ export function ChatLiveMessagePanel({
                       {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
                     </div>
                     <div
-                      className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
+                      className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
                           ? "rounded-tl-sm bg-panel text-card-foreground"
                           : "rounded-tr-sm bg-primary text-primary-foreground"
                       }`}
                     >
-                      {message.text}
+                      {isAgent ? (
+                        // CopilotKit 的 Markdown 渲染——agent 回复可能带代码块/列表/加粗，
+                        // 之前直接当纯文本 `whitespace-pre-wrap` 会把这些字面语法原样吐出来。
+                        // 只对 agent 消息用：用户自己打的文字没有 markdown 语义可渲染。
+                        <Markdown content={message.text} />
+                      ) : (
+                        <p className="whitespace-pre-wrap">{message.text}</p>
+                      )}
                     </div>
                   </div>
                 </li>
