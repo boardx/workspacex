@@ -1,9 +1,13 @@
 # PROP-HARNESS-AGENT-001 执行 Backlog
 
 > ⚠ #658 已关闭（内容已交付进本文档所在的 PR #659，见该 issue 最后一条评论）——
-> 它是"起草这份提案"的追踪 issue，不是"实施"的追踪 issue。截至 2026-08-07，
-> **没有任何开放 issue 追踪实施**；状态仍是 Proposed，H3A-001（人类签核）是
-> 唯一无依赖的起点，其余全部条目直接或间接依赖它。
+> 它是"起草这份提案"的追踪 issue，不是"实施"的追踪 issue。
+>
+> **H3A-001 已完成（2026-08-07，人类原话 "Yes"，无保留接受）**——状态从
+> Proposed 变为 Accepted，见 `PROP-HARNESS-AGENT-001.md` 文件头。本清单头部
+> 自己写着"每个 H3A 条目实施时必须独立 issue、独立分支、独立 PR"——与 V2
+> 那份"跳过逐条建 issue"的例外**不一样**，这条要求本身没有被人类推翻，所以
+> H3A-002~ 之后的实施仍需为每一条真的开 issue，不能沿用 V2 的口径。
 >
 > 每个 H3A 条目实施时必须独立 issue、独立分支、独立 PR；本清单不是批量修改授权。
 >
@@ -16,7 +20,7 @@
 
 | ID | P | 状态 | 交付物 | 依赖 | 完成契约 |
 |---|---|---|---|---|---|
-| H3A-001 | P0 | ⬜ 未开始 | Proposal 人类签核 | 无 | 状态变为 Accepted，目标/非目标明确 |
+| H3A-001 | P0 | ✅ 完成 | Proposal 人类签核 | 无 | 状态变为 Accepted，目标/非目标明确——2026-08-07 人类原话 "Yes"，无保留接受，见 PROP-HARNESS-AGENT-001.md 文件头 |
 | H3A-002 | P0 | ✅ 完成 | Role/Agent/Domain/Skill/Worker inventory（含旧名） | 001 | 每个现有对象有来源、writer、consumer、重复项和 legacy alias |
 | H3A-003 | P0 | ✅ 完成 | 当前协调流基线 | 001 | flow/WIP/review wait/重复 token 有基线 |
 | H3A-004 | P0 | ⬜ 未开始 | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |

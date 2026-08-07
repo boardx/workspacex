@@ -1,6 +1,8 @@
 # PROP-HARNESS-AGENT-001 — 分层多 Agent 编排与可执行图控制平面
 
-- 状态：Proposed
+- 状态：**Accepted**（2026-08-07，项目人类负责人在 coord-architecture 汇报 Epic E0
+  现场取值发现后原话答复"Yes"——针对本文件"1. Accept / Revise / No-Go on the
+  proposal itself (H3A-001)"这一问；未附带修订意见，视为无保留接受）
 - 日期：2026-08-07
 - Issue：#658
 - 决策者：项目人类负责人
