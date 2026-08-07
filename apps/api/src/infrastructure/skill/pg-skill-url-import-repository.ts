@@ -21,6 +21,16 @@
  * 因为第二处判定就是下一次分叉的来源——#595 刚实测到 `normalizedPath` 与 DB CHECK
  * 分叉过两条。DB 侧的 `skill_version_files_normal_path` CHECK 是**机械兜底**，
  * 不是第二份定义：两者一旦不同义，DB 拒掉应用层放行的行，而不是反过来。
+ *
+ * ## `capability_listings`（2026-08-07 补，人类实测："我在后台不能看到导入了的 skills"）
+ *
+ * 后台「Skill 目录」页（`/admin/skill`）读的是 `GET /capabilities?kind=skill`，那是
+ * `capability_listings` 表的投影——**不是** `GET /skills`（`skill_contracts`/`skills`
+ * 合并读那条，见 #689 的修复）。这里此前从未写这张表：URL 导入能建出一个真实可执行
+ * 的 skill（agent 运行时读的正是 `skills`/`skill_versions`），却在后台 UI 唯一读的
+ * 目录表里永远不存在一行——这才是那句人类原话背后的真实机制，`pg-skill-starter-import
+ * -repository.ts` 早就有这一行（"the same transaction so the UI can never see a Skill
+ * definition without its row"），URL 导入这条姊妹路径漏了同一步。
  */
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
@@ -137,6 +147,16 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
       }
       // 见文件头：唯一合法的发布路径。
       await session.query("SELECT wave2_publish_skill_version($1, $2)", [input.orgId, versionId]);
+
+      // 见文件头 2026-08-07 补注：同一事务里补上目录行——`pg-skill-starter-import
+      // -repository.ts` 早就有这一步，这是它的姊妹路径，此前漏写。UI 不可能看到
+      // 「有定义没目录行」，也不可能看到目录里有一行但其定义因故回滚。
+      await session.query(
+        `INSERT INTO capability_listings
+           (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
+         VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)`,
+        [skillId, input.orgId, input.name],
+      );
 
       await session.query(
         `INSERT INTO skill_url_imports

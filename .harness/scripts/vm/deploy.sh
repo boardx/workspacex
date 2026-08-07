@@ -137,6 +137,13 @@ step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-image-gen-agent.ts
 
+step "4f. URL 导入 skill 的 capability_listings 补种（2026-08-07 —— 人类实测"看不到导入的 skills"）"
+# `pg-skill-url-import-repository.ts` 在这次改动之前从未写 capability_listings（后台
+# 「Skill 目录」页唯一真读的那张表）——每一个在这次修复落地之前通过 URL 导入的 skill
+# 都缺这一行，backfill 一次性补齐。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-skill-capability-listings.ts
+
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
 # 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。
