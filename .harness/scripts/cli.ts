@@ -21,6 +21,7 @@ import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
 import { terminologyDoctor } from "./terminology-doctor";
 import { roleFreezeDoctor } from "./role-freeze-doctor";
+import { graphAuthorityDoctor } from "./graph-authority-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -84,6 +85,16 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "graph-authority": {
+      // H3A-009（PROP-HARNESS-AGENT-001）。同 "templates"/"terminology" 的
+      // 子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { graphAuthorityDoctor(subArgs); break; }
+      log.err(`未知子命令 "graph-authority ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -133,6 +144,7 @@ async function main(): Promise<void> {
       log.info("                             # 原子取号 + 登记进 registry.yaml（占号即登记，防撞号，同 new-adr 思路）");
       log.info("  pnpm harness terminology doctor                        # PROP-HARNESS-AGENT-001 H3A-006/007/008：术语注册表 + 兼容映射结构校验");
       log.info("  pnpm harness role-freeze doctor                        # PROP-HARNESS-AGENT-001 H3A-004：新增未登记角色 WARN（不阻断，历史仍可读）");
+      log.info("  pnpm harness graph-authority doctor                    # PROP-HARNESS-AGENT-001 H3A-009：已知投影路径不得被 Git 追踪");
       process.exit(cmd ? 1 : 0);
   }
 }
