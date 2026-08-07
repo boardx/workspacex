@@ -146,7 +146,9 @@ entries:
     name: Evidence Manifest
     status: active
     owner: coord-architecture
-    consumers: []
+    # HMV2-066：lint-rewrite-coverage.mjs 是第一个真实消费者（每次运行落一份
+    # TPL-EVD-001 实例到 .harness/templates/instances/，见该脚本）。
+    consumers: [lint-rewrite-coverage.mjs]
     authority: verify 创建
 
   - template_id: TPL-RDY-001

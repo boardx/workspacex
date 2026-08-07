@@ -243,3 +243,19 @@
 > 待独立 review（本会话无合并权限）。上表状态已同步为"🔶 PR #634 待 review"，merge 后再改
 > "✅ 完成"。下一步严格按上面第 2 条执行：**先**验收 E7 那 3 条脚本能否改读 E1 schema，
 > 再谈是否启动 E3/E4。
+>
+> **验收结果（2026-08-06，PR [#641](https://github.com/boardx/workspacex/pull/641)，
+> 叠在 #634 分支上、还没合，因为 #634 自己也还没合）**：
+> 挑的不是"把 HMV2-064/065/067 的判定逻辑改成读 schema"（那三条本身是 route↔rewrite
+> 完整性判定，不天然长得像"模板实例"，硬套会是那种"发现削足适履"的坏结果）。
+> 真正命中的是 **HMV2-066 点名要做但本身还没做**的那类收编：给 `TPL-EVD-001`
+> （Evidence Manifest）接第一个真实消费者——`lint-rewrite-coverage.mjs`
+> 每次运行后把判定结果包成一份 `InstanceMetadata` 实例落盘，`templates doctor`
+> 原样扫到、原样校验，**零改动**`analyzeRewriteCoverage`本身的判定逻辑。
+> 新增代码 <100 行 + 6 条单测 + 2 条活体反证（真实注入坏 template_id，一次触发
+> schema 校验、一次触发未注册引用，均命中预期 finding code）。
+> **结论：收编成本很低——E1 的 InstanceMetadata 形状对"机器生成的证据"这类场景
+> 直接成立，不需要改 schema。** HMV2-066 本身（contract→route 扫描改读
+> `TPL-CTR-001`）**仍未做**，规模明显更大（今天量出 429 操作/126 路由），留给
+> 下一轮；HMV2-064/065/067 维持"✅ 完成（脚本级）"不变——它们的判定逻辑没有
+> 理由被迫套进模板实例的形状。
