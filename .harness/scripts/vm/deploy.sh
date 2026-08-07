@@ -70,7 +70,19 @@ export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 step "1. 取代码"
 cd "$APP_DIR"
 sudo -u "$RUN_AS" git fetch --depth 50 origin "${REF#origin/}"
-sudo -u "$RUN_AS" git reset --hard "$REF" 2>/dev/null || sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
+# ⚠ 2026-08-07 事故：这里曾经是
+#   `git reset --hard "$REF" 2>/dev/null || git reset --hard FETCH_HEAD`。
+# 当 $REF 是一个裸分支名（"main"，#635 加的 push-to-main 自动部署路径就是这么传的）
+# 时，`git reset --hard main` **不会报错**——它成功重置到本地那份 `main` 分支指针，
+# 但那份指针从来没人更新过（只有 `git fetch` 写的 FETCH_HEAD 是新的），于是
+# `||` 后面的 FETCH_HEAD 分支永远不会被触发。表现是：CI 报 deploy 成功，
+# 冒烟也过，但服务器上跑的其实是几小时前的旧代码——直到有人拿真实浏览器去点，
+# 才会发现"代码明明改了，线上还是老样子"。
+#
+# ⇒ 不再尝试把 $REF 解释成一个本地能直接 reset 到的 ref。`git fetch origin <REF>`
+#   无论 REF 是分支名、tag 还是 SHA，执行完之后 FETCH_HEAD 永远精确指向刚刚
+#   fetch 到的那个提交——直接用它，不留一个"看起来成功但值不对"的中间状态。
+sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
 sudo -u "$RUN_AS" git log --oneline -1
 
 step "2. 依赖"
@@ -100,6 +112,15 @@ source <(grep -v '^#' "$ENV_FILE")
 docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
   -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
 echo "  app_rw 密码已对齐"
+
+step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认 agent）"
+# `ensureDefaultAgent` 只在组织**创建那一刻**触发（`/auth/bootstrap` 与 `/auth/register`
+# 各自的 controller 里）。#662 落地之前就存在的每一个组织永远不会自己补上——没有 cron，
+# 没有"首次聊天时顺便种一个"这种懒加载。这一步幂等（按 `agents.stable_name` 去重，脚本
+# 内部还先查一遍存在性），每次部署都跑，成本是一次全表扫描 + 至多几行 INSERT，换来的是
+# "已有组织的默认 agent 缺口"不需要人手动 SSH 上服务器补一次就能自愈。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-default-agents.ts
 
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，

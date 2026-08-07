@@ -29,6 +29,11 @@ import { auth as C } from "@repo/contracts";
 import { registerWithInvite } from "../../application/auth/register-with-invite";
 import { bootstrapFirstUser } from "../../application/auth/bootstrap-first-user";
 import {
+  ensureDefaultAgent,
+  ENSURE_DEFAULT_AGENT_REPOSITORY,
+  type EnsureDefaultAgentRepository,
+} from "../../application/agent/ensure-default-agent";
+import {
   BootstrapUnavailableError,
   EmailTakenError,
   InviteCodeInvalidError,
@@ -67,16 +72,24 @@ export class AuthRegistrationController {
     @Inject(REGISTRATION_REPOSITORY) private readonly repo: RegistrationRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(EMAIL_VERIFICATION_TOKEN_CODEC) private readonly verificationTokens: EmailVerificationTokenCodec,
+    @Inject(ENSURE_DEFAULT_AGENT_REPOSITORY) private readonly defaultAgents: EnsureDefaultAgentRepository,
   ) {}
 
   @Public()
   @Post("/auth/bootstrap")
   async bootstrap(@Body(new ZodBodyPipe(BOOTSTRAP_SCHEMA)) body: BootstrapBody) {
     try {
-      return await bootstrapFirstUser(
+      const result = await bootstrapFirstUser(
         { repo: this.repo, hasher: this.hasher },
         body,
       );
+      // 产品裁决（#661 之下）：新组织一落地就要有一个真实、已发布、可直接发消息的默认
+      // Agent，用户不需要先自己建/发布一个 agent 才能开始聊。故意在 bootstrap 事务
+      // 之外、bootstrap 成功之后调用——`ensureDefaultAgent` 幂等（按 stable_name 去重），
+      // 失败就让整个 `/auth/bootstrap` 请求失败并让调用方重试，而不是吞掉错误留一个
+      // "组织建成了但没有默认 agent"的半成品状态（不做静默 fallback）。
+      await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
+      return result;
     } catch (e) {
       if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
         throw new ConflictException({ reasonCode: e.reasonCode });
@@ -124,6 +137,15 @@ export class AuthRegistrationController {
           orgName: body.orgName,
         },
       );
+      // 同一条产品裁决（#662，见 `bootstrap()` 里那段注释）：这条路径同样"落地一个新
+      // 组织"（见本方法上方文档"a resource really is created here, two of them"），且是
+      // devapp 这类已有首位管理员的实例上，往后创建任何新组织的**唯一**可达路径——
+      // `bootstrap()` 那条是实例级仅一次的冷启动路径，用过就不能再用。故意在邮箱验证
+      // 完成**之前**调用：组织行已经真实落库（`registerWithInvite` 内部事务已提交），
+      // 这个新用户就是这个新组织唯一的成员和唯一的 admin，权限论证与 bootstrap 分支
+      // 完全一致（见 `ensure-default-agent.ts` 文件头）。同样不做静默 fallback——失败
+      // 就让整个 `/auth/register` 请求失败。
+      await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
       response.setHeader("Set-Cookie", pendingVerificationSetCookie(
         result.pendingIdentityProof,
         process.env.NODE_ENV === "production",

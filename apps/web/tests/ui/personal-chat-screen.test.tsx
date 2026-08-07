@@ -1,15 +1,16 @@
 import * as React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
 const {
-  replace, listPersonalThreads, getThread, createPersonalThread, sessionState,
+  replace, listPersonalThreads, getThread, createPersonalThread, listCapabilities, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listPersonalThreads: vi.fn(),
   getThread: vi.fn(),
   createPersonalThread: vi.fn(),
+  listCapabilities: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -29,13 +30,21 @@ vi.mock("@/components/shell/app-shell", () => ({
   ),
 }));
 vi.mock("@/lib/live-chat", () => ({ listPersonalThreads, getThread, createPersonalThread }));
+vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/components/chat/chat-live-message-panel", () => ({
-  ChatLiveMessagePanel: () => <div data-testid="stub-message-panel" />,
+  ChatLiveMessagePanel: ({ agents }: { agents: unknown }) => (
+    <div data-testid="stub-message-panel" data-agents={JSON.stringify(agents)} />
+  ),
 }));
 
 import { PersonalChatScreen } from "@/components/chat/personal-chat-screen";
 
 const EMPTY_LIST = { groups: [], capabilities: ["thread.mutate"] };
+
+beforeEach(() => {
+  listCapabilities.mockReset();
+  listCapabilities.mockResolvedValue([]);
+});
 
 describe("PersonalChatScreen — 主路径", () => {
   /**
@@ -129,5 +138,71 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
 
     await waitFor(() => expect(screen.queryByTestId("chat-thread-thr-user-a")).not.toBeInTheDocument());
     expect(await screen.findByTestId("chat-thread-thr-user-b")).toBeInTheDocument();
+  });
+});
+
+describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent id 这个即时阻塞）", () => {
+  const THREAD_LIST_WITH_ONE = {
+    groups: [{ label: "今天", cards: [{ id: "thr-1", title: "对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    capabilities: ["thread.mutate"],
+  };
+  const THREAD_DETAIL = {
+    thread: { id: "thr-1", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+    messages: [], rightTabs: [], capabilities: ["composer.send", "thread.mutate"],
+  };
+
+  /**
+   * 决定性的一条：不再要求用户手填 id。列表里真实存在的 agent 通过
+   * `listCapabilities(orgId, "agent")`（#458 已验证可用的读端口）读出来，
+   * 原样透传给 `ChatLiveMessagePanel` 的下拉，而不是拼一个假的单元素数组。
+   */
+  it("组织里有已发布 agent ⇒ 用 listCapabilities(orgId,'agent') 读出真实列表并透传给下拉，不再要求手填 id", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+    listCapabilities.mockResolvedValue([
+      { id: "agent-1", orgId: "org-current", kind: "agent", name: "客服助手", scope: "org", enabled: true, endpoint: null, disabledReason: null },
+      { id: "agent-2", orgId: "org-current", kind: "agent", name: "停用的", scope: "org", enabled: false, endpoint: null, disabledReason: "停用测试" },
+    ]);
+
+    render(<PersonalChatScreen initialThreadId="thr-1" />);
+
+    await waitFor(() => expect(listCapabilities).toHaveBeenCalledWith("org-current", "agent"));
+    const panel = await screen.findByTestId("stub-message-panel");
+    await waitFor(() => {
+      const agents = JSON.parse(panel.getAttribute("data-agents") ?? "null");
+      expect(agents).toEqual([{ id: "agent-1", abbr: "客服", name: "客服助手", duty: "组织已配置 Agent", presence: "present" }]);
+    });
+
+    // 手填 agent id 的文本框必须彻底消失。
+    expect(screen.queryByTestId("personal-chat-agent-id")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 硬性要求第 3 条：组织里一个 agent 都没有时不能死锁——必须显示清楚的提示，
+   * 而不是一个空白/无提示的"没有可选 Agent"就此卡死。
+   */
+  it("组织里一个 agent 都没有 ⇒ 显示明确提示引导去后台创建，不是空白卡死", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+    listCapabilities.mockResolvedValue([]);
+
+    render(<PersonalChatScreen initialThreadId="thr-1" />);
+
+    const hint = await screen.findByTestId("personal-chat-no-agents-hint");
+    expect(hint).toHaveTextContent("后台创建一个 Agent");
+    const link = hint.querySelector("a");
+    expect(link).toHaveAttribute("href", "/admin/agent");
+  });
+
+  it("listCapabilities 失败 ⇒ 展示诚实的错误态 + 重试按钮，不是假装没有 agent", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+    listCapabilities.mockRejectedValue(new ApiError(500, "INTERNAL", {}));
+
+    render(<PersonalChatScreen initialThreadId="thr-1" />);
+
+    const errorState = await screen.findByTestId("personal-chat-agent-list-error");
+    expect(errorState).toHaveTextContent("HTTP 500");
+    expect(screen.queryByTestId("personal-chat-no-agents-hint")).not.toBeInTheDocument();
   });
 });

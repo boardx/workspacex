@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
+import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
   createPersonalThread,
   getThread,
@@ -40,13 +41,15 @@ import {
  * 本轮不做；`getAgentPanel`/`updateAgentRoster` 本身没有改过，仍要求非空
  * `projectId`，个人线程走这条会直接 400/404，所以本组件压根不调用它们）。
  *
- * ## agentId 怎么来——一个如实暴露的既有缺口，不是本组件藏起来的
+ * ## agentId 怎么来——2026-08-07 从"手填"改成"真下拉"
  *
- * 本仓**没有任何已挂载的路由能列出组织的 agent 目录**（`GET /agents` 契约操作
- * `listAgents` 从未接控制器，`grep -rn '"/agents"' apps/api/src/interface`
- * 零命中——这是比 #594 更早的缺口，项目内会话的编制面板同样要求"填组织 agent
- * 目录里的 id"，不是下拉选择）。⇒ 本组件同样只能让用户**手填一个已知的 agent id**，
- * 不伪造一个"浏览目录"的假象。
+ * 上一版本这里写着"本仓没有任何已挂载的路由能列出组织的 agent 目录"，逼用户
+ * 手填一个 id——这是"新建了 chat 却发不出消息"投诉的直接病灶：用户根本不知道
+ * id 是什么。#458 已经把 `listCapabilities(orgId, "agent")`（组织能力目录读端口）
+ * 挂通并验证可用（见 `apps/web/lib/live-capabilities.ts`），本组件复用同一个
+ * 已验证的调用，把手填文本框换成真下拉。组织里一个 agent 都没有时（#617/#619
+ * 刚接通建 agent 写路径，很可能还没人建过）不能死锁：下拉禁用 + 一条指向
+ * `/admin/agent` 的明确提示，而不是空白的"没有可选 Agent"。
  */
 interface Sourced<T> {
   readonly key: string;
@@ -247,6 +250,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
         card={selectedCard}
         detail={detail}
         bearer={bearer}
+        orgId={currentOrgId}
         loading={detailLoading}
         error={detailError}
         onRetry={() => void loadSelectedThread()}
@@ -256,18 +260,17 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
 }
 
 function PersonalThreadDetail({
-  card, detail, bearer, loading, error, onRetry,
+  card, detail, bearer, orgId, loading, error, onRetry,
 }: {
   card: ThreadCard | null;
   detail: GetThreadOut | null;
   bearer: string | null;
+  orgId: string | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
 }) {
-  // 🔴 agentId 手填——本仓没有任何已挂载的「浏览组织 agent 目录」路由，
-  //   见本文件头注。发消息前必须先知道一个真实存在、已发布的 agent id。
-  const [agentIdDraft, setAgentIdDraft] = React.useState("");
+  const agentOptions = useOrgAgentOptions(orgId, bearer);
 
   if (!detail) {
     if (loading) return <CenteredState>正在读取线程详情…</CenteredState>;
@@ -291,10 +294,6 @@ function PersonalThreadDetail({
     );
   }
 
-  const agents: GetAgentPanelOut["agents"] | null = agentIdDraft.trim()
-    ? [{ id: agentIdDraft.trim(), abbr: agentIdDraft.trim().slice(0, 2).toUpperCase(), name: agentIdDraft.trim(), duty: "个人对话", presence: "present" }]
-    : null;
-
   return (
     <div className="flex h-full flex-col" data-testid="chat-thread-detail">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
@@ -304,29 +303,100 @@ function PersonalThreadDetail({
         </div>
         <Badge tone="outline">真实消息</Badge>
       </header>
-      <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2">
-        <label className="text-10 text-muted-foreground" htmlFor="personal-chat-agent-id">
-          Agent id（发消息前先填一个已发布的 agent id）
-        </label>
-        <input
-          id="personal-chat-agent-id"
-          data-testid="personal-chat-agent-id"
-          className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11"
-          value={agentIdDraft}
-          onChange={(event) => setAgentIdDraft(event.target.value)}
-          placeholder="agent id"
-        />
-      </div>
+      {agentOptions.status === "error" ? (
+        <div className="border-b border-border-subtle px-4 py-2">
+          <ErrorState
+            testId="personal-chat-agent-list-error"
+            message={`无法读取组织 Agent 目录：${agentOptions.message}`}
+            retryTestId="personal-chat-agent-list-retry"
+            onRetry={agentOptions.retry}
+          />
+        </div>
+      ) : null}
+      {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
+        <p
+          className="border-b border-border-subtle px-4 py-2 text-11 text-muted-foreground"
+          data-testid="personal-chat-no-agents-hint"
+        >
+          这个组织还没有可用的 Agent，先去
+          <a href="/admin/agent" className="mx-1 text-primary underline">
+            后台创建一个 Agent
+          </a>
+          才能发消息。
+        </p>
+      ) : null}
       {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
           bearer={bearer}
-          agents={agents}
+          agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>
   );
+}
+
+/**
+ * 组织 agent 下拉的数据源——复用 #458 已验证可用的 `listCapabilities(orgId, "agent")`，
+ * 把 `CapabilityListing`（能力目录的通用形状）投影成 `ChatLiveMessagePanel` 需要的
+ * `GetAgentPanelOut["agents"]` 形状。只取 `enabled` 的条目：被停用的 agent 不该出现在
+ * 「可以发消息给它」的下拉里。
+ */
+type AgentOptionsState =
+  | { readonly status: "loading" }
+  | { readonly status: "error"; readonly message: string; readonly retry: () => void }
+  | { readonly status: "ready"; readonly agents: GetAgentPanelOut["agents"] };
+
+function useOrgAgentOptions(orgId: string | null, bearer: string | null): AgentOptionsState {
+  const sourceKey = orgId && bearer ? `${orgId} ${bearer}` : null;
+  const [result, setResult] = React.useState<{ key: string; agents: GetAgentPanelOut["agents"] } | null>(null);
+  const [failure, setFailure] = React.useState<{ key: string; message: string } | null>(null);
+  const [loadingKey, setLoadingKey] = React.useState<string | null>(null);
+  const generation = React.useRef(0);
+
+  const load = React.useCallback(async () => {
+    if (!orgId || !bearer || !sourceKey) return;
+    const key = sourceKey;
+    const gen = ++generation.current;
+    setLoadingKey(key);
+    setFailure(null);
+    try {
+      const rows = await listCapabilities(orgId, "agent");
+      if (gen !== generation.current) return;
+      setResult({ key, agents: rows.filter((row) => row.enabled).map(toAgentOption) });
+    } catch (error) {
+      if (gen !== generation.current) return;
+      setResult(null);
+      setFailure({ key, message: describeFailure(error) });
+    } finally {
+      if (gen === generation.current) setLoadingKey(null);
+    }
+  }, [orgId, bearer, sourceKey]);
+
+  React.useEffect(() => {
+    if (sourceKey) void load();
+    return () => {
+      generation.current += 1;
+    };
+  }, [load, sourceKey]);
+
+  if (!sourceKey) return { status: "loading" };
+  if (failure?.key === sourceKey) return { status: "error", message: failure.message, retry: () => void load() };
+  if (result?.key === sourceKey) return { status: "ready", agents: result.agents };
+  return { status: "loading" };
+}
+
+function toAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][number] {
+  const trimmedName = row.name.trim();
+  const abbrSource = trimmedName || row.id;
+  return {
+    id: row.id,
+    abbr: abbrSource.slice(0, 2).toUpperCase(),
+    name: trimmedName || row.id,
+    duty: "组织已配置 Agent",
+    presence: "present",
+  };
 }
 
 function ThreadMeta({ card }: { card: ThreadCard }) {

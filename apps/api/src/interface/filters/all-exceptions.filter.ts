@@ -273,6 +273,16 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   if (agentSkillPins.success) return { reasonCode: agentSkillPins.data };
 
   /**
+   * #595 后台编辑最小闭环：`wave2Runtime.SkillVersionEditError` —— 登记在写
+   * controller 的同一轮，吸取上面 `SkillUrlImportError` 那条「第八次」的教训：
+   * 本文件是允许列表，没登记的 `reasonCode` 会被静默丢掉。
+   *
+   * ⚠ 该枚举本身仍标注**未签核**（ADR-023，草案登记在 #595）。
+   */
+  const skillVersionEdit = wave2Runtime.SkillVersionEditError.safeParse(raw);
+  if (skillVersionEdit.success) return { reasonCode: skillVersionEdit.data };
+
+  /**
    * #459：`skills.SkillError` —— 声明式契约 skill 的失败面。
    *
    * ⚠ 加进这个白名单是**必需的**，不是顺手：本文件是允许列表，没登记的

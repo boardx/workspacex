@@ -100,6 +100,32 @@ export const SkillUrlImportResult = z.object({
   replayed: z.boolean(),
 }).strict();
 
+/* ────────────────── #595 后台编辑 skill 内容：⚠ 草案，**尚未经人类签核**（ADR-023） ──────────────────
+ *
+ * coord-main 对 #595 的派工逐字写着「不要等签核，先落地导入+编辑+后台测试最小集合」，
+ * 与上面 `importSkillFromUrl` 草案同一条许可。目录浏览（列出多文件树）与文件上传本轮
+ * 不做——最小闭环只需要「编辑已导入 skill 唯一的根文件 `SKILL.md`」就能验证「编辑
+ * 落库 → pin 到 agent → 试跑真的读到新内容」这条链路，其余留给后续 issue（见 PR 正文）。
+ *
+ * ⚠ 同上一条草案：形状只在这一处声明，`apps/api/src` 一律 `z.infer` 派生，
+ *   不重新声明字段名（`tests/contract-single-source.test.ts` 机械禁止第二份副本）。
+ */
+export const SkillVersionEditError = z.enum([
+  "EDIT_NOT_ORG_ADMIN",
+  "EDIT_SKILL_NOT_FOUND",
+  /** 内容为空或全是空白字符——发布前必须有真实内容。 */
+  "EDIT_CONTENT_INVALID",
+]);
+
+export const SkillVersionEditResult = z.object({
+  skillId: z.string(),
+  /** 新产出的版本 id——编辑=不可变版本链再追加一环，从不原地改旧版本。 */
+  versionId: z.string(),
+  semanticLabel: z.string(),
+  contentDigest: Sha256,
+  createdAt: z.string(),
+}).strict();
+
 export const AgentSkillVersionReference = z.object({
   versionId: z.string().min(1).max(255),
   digest: Sha256,
@@ -340,5 +366,16 @@ export const operations = {
     }).strict(),
     out: AgentStarterImportResult,
     err: AgentStarterImportError.options,
+  },
+  /** ⚠ 草案，未签核 —— 见上方 `SkillVersionEditResult` 处的说明。 */
+  editSkillVersionContent: {
+    method: "POST",
+    path: "/admin/skills/:skillId/versions",
+    in: z.object({
+      /** 新的 `SKILL.md` 全文；发布后旧版本原样留存，不做 diff/patch。 */
+      content: z.string().min(1).max(1_000_000),
+    }).strict(),
+    out: SkillVersionEditResult,
+    err: SkillVersionEditError.options,
   },
 } as const;

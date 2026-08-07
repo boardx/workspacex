@@ -146,11 +146,17 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
   /**
    * 台账：**chat 各路由闭包里**残留的 mock 边（原型路由 `/chat/landing`、`/chat/preset`）。
    * 正式 `/chat` 与 `/chat/live` 各自贡献 0 条——上面已单独钉住 `/chat`。
+   *
+   * #654 新增 `/chat/copilotkit-preview`（阶段 1a 骨架，阶段 1b 接上真实 AG-UI SSE
+   * 桥接端点，人类直接指令，见 issue #654）：独立预览路由，只 import
+   * `@ag-ui/client`/`@ag-ui/core`/`lib/api-client`，不碰 `lib/mock/**`，贡献 0 条
+   * mock 边。
    */
-  it("如实钉住：chat 四条路由的闭包里残留的 mock 边正好是这几条", () => {
+  it("如实钉住：chat 五条路由的闭包里残留的 mock 边正好是这几条", () => {
     const chatRoutes = routeEntries().filter((f) => f.startsWith("app/chat/"));
-    // 反空转：四条路由都必须在场，少一条会让下面的边集合悄悄变小。
+    // 反空转：五条路由都必须在场，少一条会让下面的边集合悄悄变小。
     expect(chatRoutes.sort()).toEqual([
+      "app/chat/copilotkit-preview/page.tsx",
       "app/chat/landing/page.tsx",
       "app/chat/live/page.tsx",
       "app/chat/page.tsx",

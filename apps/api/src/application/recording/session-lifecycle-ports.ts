@@ -80,6 +80,22 @@ export interface ConsentMatrixReader {
    * session nobody has consented to is not a session with nothing to check.
    */
   blocksStart(sourceRefId: string, participantIds: readonly string[]): Promise<boolean>;
+
+  /**
+   * issue #652 — the write half `blocksStart` always assumed existed somewhere. It never
+   * did: `recording_consent_cells` had a reader and a schema but no writer anywhere in the
+   * process, which is why every real `startRecording` call refused with
+   * `CONSENT_NOT_COMPLETED` outside of CI's seed script. Upsert on the row's own primary key
+   * (`orgId, sourceRefId, participantId, item`) — one cell in, the stored `updatedAt` back,
+   * nothing else. See `contracts/recording.ts`'s `setConsentDecision` and
+   * `KNOWN_CONTRACT_GAPS.C_REC_6` for the shape's provenance and open question.
+   */
+  setCell(input: {
+    readonly sourceRefId: string;
+    readonly participantId: string;
+    readonly item: string;
+    readonly state: "granted" | "denied" | "pending";
+  }): Promise<{ readonly updatedAt: string }>;
 }
 
 export type RecordingOperationName =

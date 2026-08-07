@@ -106,6 +106,9 @@ import { AgentStarterImportController } from "./interface/controllers/agent-star
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
 import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
 import { AgentSkillPinsController } from "./interface/controllers/agent-skill-pins.controller";
+import { SKILL_VERSION_EDIT_REPOSITORY } from "./application/skill/edit-skill-version-content";
+import { PgSkillVersionEditRepository } from "./infrastructure/skill/pg-skill-version-edit-repository";
+import { SkillVersionEditController } from "./interface/controllers/skill-version-edit.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -215,9 +218,12 @@ import {
 } from "./infrastructure/agent-run/configured-model-provider";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
+import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
+import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
@@ -298,6 +304,10 @@ import { ObjectStoreIntegrityChecker } from "./infrastructure/files/object-store
 import { ARTIFACT_RENAME_REPOSITORY } from "./application/files/rename-ports";
 import { PgArtifactRenameRepository } from "./infrastructure/files/pg-artifact-rename-repository";
 import { FilesRenameController } from "./interface/controllers/files-rename.controller";
+// issue #652：F46 `getRetentionPolicy` / `setRetentionPolicy` 的 HTTP 边界。⚠ 没有新
+// provider —— 复用上面已经绑好的 `RETENTION_POLICY_REPOSITORY`（05-rec 的
+// `retentionResolver` 也在读同一个实例），本次只是给它接第一条从浏览器可达的路。
+import { FilesRetentionController } from "./interface/controllers/files-retention.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -427,6 +437,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     SkillUrlImportController,
     AgentStarterImportController,
     AgentSkillPinsController,
+    SkillVersionEditController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -445,6 +456,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     FilesDeliveryController,
     FilesExportController,
     FilesRenameController,
+    FilesRetentionController,
     DeviceSessionController,
     ProjectController,
     AssetDirectoryController,
@@ -452,6 +464,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CanvasTemplateController,
     RecordingController,
     AgentRunController,
+    CopilotkitAguiController,
     AgentTrialRunController,
     AgentController,
     SkillController,
@@ -569,8 +582,18 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       inject: [DATABASE_PORT],
     },
     {
+      provide: ENSURE_DEFAULT_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDefaultAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: AGENT_SKILL_PINS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_VERSION_EDIT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillVersionEditRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every
