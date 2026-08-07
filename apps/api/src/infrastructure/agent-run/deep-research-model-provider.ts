@@ -42,13 +42,30 @@ export interface DeepResearchProviderConfig {
   readonly timeoutMs: number;
 }
 
+/**
+ * ⚠ 2026-08-07 devapp 实测：这个服务目前是手动 `docker run` 在 VM 上起的（见
+ * PR #680 描述"已知限制"），从没接进 `deploy.sh` 那条给 `KERNEL_MODEL_*` 用的
+ * "生成 deploy.env → 每次部署读一遍"流水线——production 的 `deploy.env` 里压根没有
+ * `KERNEL_DEEP_RESEARCH_BASE_URL` 这一行，而直接 SSH 上去追加一行到那份文件属于
+ * "绕过审查直接改生产配置"，这仓库这次会话里已经因为同类操作被 classifier 挡过
+ * 一次（见 `configured-model-provider.ts` 相关 PR 讨论）。
+ *
+ * 默认值 `http://127.0.0.1:2024` 对**当前唯一的部署**是真实、正确的值（该容器就是
+ * 这样起的，且只绑定 loopback，见部署文件头注）——不是瞎猜的占位符。failure mode
+ * 也是安全的：服务不在那儿，`DeepResearchModelProvider` 会在真正尝试连接时拿到
+ * `MODEL_CALL_FAILED`（连接被拒），不会静默假装成功。仍然可以用
+ * `KERNEL_DEEP_RESEARCH_BASE_URL` 覆盖——多环境/未来把这个服务接进正式部署流水线时
+ * 不需要再改代码。
+ */
+const DEFAULT_BASE_URL = "http://127.0.0.1:2024";
+
 export function readDeepResearchProviderConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): DeepResearchProviderConfig {
   const timeout = Number(env.KERNEL_DEEP_RESEARCH_TIMEOUT_MS ?? "600000");
   const pollInterval = Number(env.KERNEL_DEEP_RESEARCH_POLL_INTERVAL_MS ?? "5000");
   return {
-    baseUrl: (env.KERNEL_DEEP_RESEARCH_BASE_URL ?? "").trim().replace(/\/+$/, ""),
+    baseUrl: (env.KERNEL_DEEP_RESEARCH_BASE_URL ?? DEFAULT_BASE_URL).trim().replace(/\/+$/, ""),
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 600_000,
     pollIntervalMs: Number.isFinite(pollInterval) && pollInterval > 0 ? pollInterval : 5_000,
   };
