@@ -250,13 +250,58 @@ export class ScopedPgSkillContractRepository
 
   /* ─────────────────────── 读（SkillContractReadPort）─────────────────────── */
 
+  /**
+   * ⚠ 2026-08-07 真实复现（人类实测报告："我在后台不能看到导入了的 skills"）：
+   * 这个方法此前只读 `skill_contracts`（声明式契约 skill 的表，#459）——`skill.controller.ts`
+   * 的 URL 导入路径（#595/#600）写的是完全不同的另一张表 `skills`/`skill_versions`
+   * （wave2 模型，运行时唯一真读的那套，见 `pg-default-agent-repository.ts` 同类注释）。
+   * 两套"skill"数据模型互不知道对方存在，是本仓 AGENTS.md 反复提醒的"同一事实声明在
+   * 两处"里最新一次——只是这次不是同一张表两份拷贝，是两张完全独立的表服务同一个
+   * "组织有哪些 skill"问题。
+   *
+   * 这里只合并**列表读**，不碰 `skill_contracts` 的草稿/审核/停用生命周期——那套五态
+   * 机器（`skill-status.ts`）对 wave2 skill 不适用（wave2 的双重门禁是它自己的，见
+   * `skill-review-gate.test.ts`），装作它们共用一套生命周期才是真正的数据漂移风险。
+   * 字段映射到既有 `SkillContractRow` 形状时，凡是 wave2 模型没有的概念，选**最接近的
+   * 既有取值**而不是发明新枚举值（发明新值要过 `isSkillOriginTag`/`isSkillStatus` 这两道
+   * 契约守卫，需要一次真正的契约变更，不是这次要解决的问题范围）：
+   *   · `source`："自建"——不是完全准确（真实来源是"URL 导入"），但契约的 `SkillSource`
+   *     三值里没有更贴切的选项，且语义上离"由这个组织的人显式添加"最近。
+   *   · `status`：wave2 skill 落库即 `status='enabled'`，唯一映射到 `"已启用"`。
+   *   · `visibility`：URL 导入不写 `capability_listings`（另一个已知缺口，见
+   *     backfill 系列 PR 的"已知限制"），没有可读的可见范围来源，取 `"org-wide"`——
+   *     与它们在 `GET /capabilities?kind=skill` 缺席的现状一致（那边同样没有可读来源）。
+   *   · `currentVersionId`：`agents` 表有 `published_version_id` 那一列，`skills` 表
+   *     没有——wave2 的"当前版本"是 `skill_versions.published=true` 里最新的一条。
+   */
   async listAll(orgId: string): Promise<readonly GuardedSkillContract[]> {
     return this.db.withTenant(toOrgId(orgId), async (s) => {
-      const result = await s.query<SkillContractDbRow>(
+      const contractRows = await s.query<SkillContractDbRow>(
         `SELECT ${ROW_COLUMNS} FROM skill_contracts WHERE org_id = $1 ORDER BY created_at DESC, id`,
         [orgId],
       );
-      return result.rows.map((raw) => toGuarded(toRow(raw)));
+      const wave2Rows = await s.query<{ id: string; name: string; current_version_id: string | null }>(
+        `SELECT sk.id, sk.name,
+                (SELECT sv.id FROM skill_versions sv
+                  WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
+                  ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
+           FROM skills sk
+          WHERE sk.org_id = $1 AND sk.status = 'enabled'
+          ORDER BY sk.created_at DESC, sk.id`,
+        [orgId],
+      );
+      const fromContracts = contractRows.rows.map((raw) => toGuarded(toRow(raw)));
+      const fromWave2 = wave2Rows.rows.map((raw) => toGuarded(toRow({
+        id: raw.id,
+        name: raw.name,
+        duty: "从外部 URL 导入的 skill（后台暂不支持在这里编辑详情，见 /admin/skills/:skillId/versions）",
+        source: "自建",
+        status: "已启用",
+        visibility: "org-wide",
+        owner_team_id: null,
+        current_version_id: raw.current_version_id,
+      })));
+      return [...fromContracts, ...fromWave2];
     });
   }
 
