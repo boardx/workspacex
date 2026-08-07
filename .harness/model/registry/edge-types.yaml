@@ -1,0 +1,20 @@
+schema_version: 1
+types:
+  - name: contains
+    allowed_pairs:
+      - from: Project
+        to: Phase
+      - from: Phase
+        to: Feature
+  - name: depends_on
+    allowed_pairs:
+      - from: Phase
+        to: Phase
+      - from: Feature
+        to: Feature
+      - from: Feature
+        to: ExternalReference
+  - name: verified_by
+    allowed_pairs:
+      - from: Feature
+        to: Verification

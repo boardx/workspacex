@@ -1,0 +1,12 @@
+schema_version: 1
+types:
+  - name: Project
+    authority: .harness/state/roadmap.yaml
+  - name: Phase
+    authority: .harness/state/roadmap.yaml
+  - name: Feature
+    authority: phases/*/feature_list.json
+  - name: Verification
+    authority: phases/*/feature_list.json
+  - name: ExternalReference
+    authority: phases/*/feature_list.json
