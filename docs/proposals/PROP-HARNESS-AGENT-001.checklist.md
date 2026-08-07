@@ -23,14 +23,21 @@
 | H3A-001 | P0 | ✅ 完成 | Proposal 人类签核 | 无 | 状态变为 Accepted，目标/非目标明确——2026-08-07 人类原话 "Yes"，无保留接受，见 PROP-HARNESS-AGENT-001.md 文件头 |
 | H3A-002 | P0 | ✅ 完成 | Role/Agent/Domain/Skill/Worker inventory（含旧名） | 001 | 每个现有对象有来源、writer、consumer、重复项和 legacy alias |
 | H3A-003 | P0 | ✅ 完成 | 当前协调流基线 | 001 | flow/WIP/review wait/重复 token 有基线 |
-| H3A-004 | P0 | 🔶 PR #675 待 review | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |
+| H3A-004 | P0 | ✅ 完成（PR #675） | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |
 | H3A-005 | P0 | ✅ 完成 | 与 ADR-010/Graph/HMV2 职责交叉表 | 002 | 无重复 schema/authority |
-| H3A-006 | P0 | 🔶 PR #672 待 review | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
-| H3A-007 | P0 | 🔶 PR #672 待 review | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
-| H3A-008 | P0 | 🔶 PR #672 待 review | 术语 doctor | 006–007 | 新增未登记同义词、歧义映射或新写旧字段会红——已实现同义词/映射歧义两项；「新写旧字段」需全仓扫描，如实标注未做 |
-| H3A-009 | P0 | 🔶 PR #679 待 review | Graph authority/projection contract | 005–008 | Domain、Authorization、Workflow、Runtime、Telemetry writer/authority 明确且不可互相反写——Workflow 类目如实标 UNKNOWN（Epic E3 未开工，尚无权威可言），Telemetry 类目如实标"不存在"（本仓无 OpenTelemetry），"投影不可反写"用机械检查覆盖已知 4 条路径 |
+| H3A-006 | P0 | ✅ 完成（PR #672） | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
+| H3A-007 | P0 | ✅ 完成（PR #672） | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
+| H3A-008 | P0 | ✅ 完成（PR #672，「新写旧字段」全仓扫描仍未做，如实保留） | 术语 doctor | 006–007 | 新增未登记同义词、歧义映射或新写旧字段会红——已实现同义词/映射歧义两项；「新写旧字段」需全仓扫描，如实标注未做 |
+| H3A-009 | P0 | ✅ 完成（PR #679） | Graph authority/projection contract | 005–008 | Domain、Authorization、Workflow、Runtime、Telemetry writer/authority 明确且不可互相反写——Workflow 类目如实标 UNKNOWN（Epic E3 未开工，尚无权威可言），Telemetry 类目如实标"不存在"（本仓无 OpenTelemetry），"投影不可反写"用机械检查覆盖已知 4 条路径 |
 
 反证：新增一个 registry 自由角色、一个无 owner 模块、一个无消费者 Skill，分别产生稳定 finding。
+
+> **Epic E0 状态（2026-08-07 现场核实）：H3A-001~009 九项全部 ✅ 完成，已合并**
+> （PR #668/#672/#675/#677[事故找回，非 backlog 项]/#679）。实测吞吐（不是估算）：
+> #668 开出到 #679 合并，总跨度 8.3h，交付 9 项 backlog / 4 条 backlog PR；同一批
+> PR 的平均 review-wait 2.5h（对照更早的 #634/#641/#642 批次，review-wait
+> 17~18.5h——同一晚上不同时段差 7 倍，说明**瓶颈是 review 可用性，不是实现吞吐**，
+> 这条直接影响下面 Epic E1~E9 的时间估算怎么读）。
 
 ## Epic E1 — Domain Registry 与 Domain Skill（原 Module / Module Skill）
 
