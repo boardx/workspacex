@@ -82,6 +82,9 @@ describe("#662 backfillDefaultAgents：补种 #662 之前就存在的组织", ()
     expect(first.candidateCount).toBe(1); // 只有 ORG_WITH_ADMIN 进了候选（有 admin 才行）
     expect(first.skippedNoAdmin).toBe(1); // ORG_NO_ADMIN 被如实跳过，不是被吞掉
     expect(first.created).toBe(1);
+    // 本文件默认没设 KERNEL_MODEL_PROVIDER——第二遍（provider-repair）应该如实跳过，
+    // 不是把 model_provider 悄悄改成空字符串。
+    expect(first.providerRepaired).toBe(0);
 
     const owner = new pg.Client(ownerConfig(DATABASE));
     await owner.connect();
@@ -116,5 +119,94 @@ describe("#662 backfillDefaultAgents：补种 #662 之前就存在的组织", ()
     const second = await backfillDefaultAgents();
     expect(second.candidateCount).toBe(0); // 已经不是候选了
     expect(second.created).toBe(0);
+  });
+
+  it("2026-08-07 devapp 真实复现：env 缺失时创建的默认 agent，事后补上 env 要能被追认修好", async () => {
+    // 复刻 devapp 事故的确切顺序：先在 KERNEL_MODEL_PROVIDER 完全未设置的情况下跑一遍
+    // （agent_versions.model_provider 落成 ''），再"事后"把 env 补上，第二遍必须把那一行
+    // 追认成真实可用的 provider——不是"下次创建的新组织才对"，而是"已经创建的这一个也
+    // 要被修好"，否则 devapp 上那个用户会永远卡在 MODEL_PROVIDER_NOT_CONFIGURED。
+    delete process.env.KERNEL_MODEL_PROVIDER;
+    delete process.env.KERNEL_MODEL_BASE_URL;
+    delete process.env.KERNEL_MODEL_API_KEY;
+    delete process.env.KERNEL_DEFAULT_AGENT_MODEL_ID;
+    const { backfillDefaultAgents } = await import("../../scripts/backfill-default-agents");
+
+    const ORG = "org-i662-provider-repair";
+    const ADMIN = "u-i662-provider-repair-admin";
+    const owner = new pg.Client(ownerConfig(DATABASE));
+    await owner.connect();
+    try {
+      await owner.query(
+        "INSERT INTO organizations (id, name, kind) VALUES ($1, '待修复 provider 的组织', 'organization')",
+        [ORG],
+      );
+      await owner.query(
+        "INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)",
+        [ADMIN, ORG],
+      );
+    } finally {
+      await owner.end();
+    }
+
+    try {
+      // ① env 缺失时跑一遍——落库的 model_provider 是空字符串。
+      const beforeEnv = await backfillDefaultAgents();
+      expect(beforeEnv.created).toBe(1);
+      expect(beforeEnv.providerRepaired).toBe(0); // provider 都还没配，没有"活的值"可修
+
+      const check1 = new pg.Client(ownerConfig(DATABASE));
+      await check1.connect();
+      try {
+        const r = await check1.query<{ model_provider: string }>(
+          `SELECT av.model_provider FROM agent_versions av
+             JOIN agents a ON a.id = av.agent_id AND a.published_version_id = av.id
+            WHERE a.org_id = $1 AND a.stable_name = 'default-assistant'`,
+          [ORG],
+        );
+        expect(r.rows[0]!.model_provider).toBe("");
+      } finally {
+        await check1.end();
+      }
+
+      // ② 事后把 env 补上，再跑一遍——不再创建新的，但要把①那一行追认修好。
+      // ⚠ 不断言 providerRepaired 的绝对值：这份测试和上一个 it() 共用同一个数据库
+      // （文件级 beforeAll 只建一次库），上一个 it() 造的 ORG_WITH_ADMIN 那一行同样带着
+      // 空 provider，这一遍会被一并修好——那是正确行为，不是本用例的失败。断言收窄到
+      // "至少修好了本用例自己的这一行"，用直接查库核实，而不是信一个会被平行状态污染
+      // 的聚合计数。
+      process.env.KERNEL_MODEL_PROVIDER = "dashscope";
+      process.env.KERNEL_MODEL_BASE_URL = "https://example-repair-test.invalid/v1";
+      process.env.KERNEL_MODEL_API_KEY = "sk-repair-test-do-not-echo";
+      process.env.KERNEL_DEFAULT_AGENT_MODEL_ID = "qwen-repair-test";
+
+      const afterEnv = await backfillDefaultAgents();
+      expect(afterEnv.created).toBe(0); // 组织已经有默认 agent 了，不重复创建
+      expect(afterEnv.providerRepaired).toBeGreaterThanOrEqual(1); // 至少修好了本用例这一行
+
+      const check2 = new pg.Client(ownerConfig(DATABASE));
+      await check2.connect();
+      try {
+        const r = await check2.query<{ model_provider: string; model_id: string }>(
+          `SELECT av.model_provider, av.model_id FROM agent_versions av
+             JOIN agents a ON a.id = av.agent_id AND a.published_version_id = av.id
+            WHERE a.org_id = $1 AND a.stable_name = 'default-assistant'`,
+          [ORG],
+        );
+        expect(r.rows[0]!.model_provider).toBe("dashscope");
+        expect(r.rows[0]!.model_id).toBe("qwen-repair-test");
+      } finally {
+        await check2.end();
+      }
+
+      // 幂等：provider 没变的情况下再跑一遍，不重复"修复"同一行。
+      const third = await backfillDefaultAgents();
+      expect(third.providerRepaired).toBe(0);
+    } finally {
+      delete process.env.KERNEL_MODEL_PROVIDER;
+      delete process.env.KERNEL_MODEL_BASE_URL;
+      delete process.env.KERNEL_MODEL_API_KEY;
+      delete process.env.KERNEL_DEFAULT_AGENT_MODEL_ID;
+    }
   });
 });
