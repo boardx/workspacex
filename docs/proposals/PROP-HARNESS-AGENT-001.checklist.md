@@ -28,7 +28,7 @@
 | H3A-006 | P0 | 🔶 PR #672 待 review | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
 | H3A-007 | P0 | 🔶 PR #672 待 review | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
 | H3A-008 | P0 | 🔶 PR #672 待 review | 术语 doctor | 006–007 | 新增未登记同义词、歧义映射或新写旧字段会红——已实现同义词/映射歧义两项；「新写旧字段」需全仓扫描，如实标注未做 |
-| H3A-009 | P0 | ⬜ 未开始 | Graph authority/projection contract | 005–008 | Domain、Authorization、Workflow、Runtime、Telemetry writer/authority 明确且不可互相反写 |
+| H3A-009 | P0 | 🔶 PR #679 待 review | Graph authority/projection contract | 005–008 | Domain、Authorization、Workflow、Runtime、Telemetry writer/authority 明确且不可互相反写——Workflow 类目如实标 UNKNOWN（Epic E3 未开工，尚无权威可言），Telemetry 类目如实标"不存在"（本仓无 OpenTelemetry），"投影不可反写"用机械检查覆盖已知 4 条路径 |
 
 反证：新增一个 registry 自由角色、一个无 owner 模块、一个无消费者 Skill，分别产生稳定 finding。
 
