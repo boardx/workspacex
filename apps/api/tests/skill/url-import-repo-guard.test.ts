@@ -36,13 +36,18 @@ const useCaseSource = readFileSync(USE_CASE, "utf8");
 
 /**
  * 本仓储**允许**命名的租户表。多一张就说明这个文件长出了新的读面，
- * 而白名单条目的正当性只覆盖当前这四张。
+ * 而白名单条目的正当性只覆盖当前这五张。
+ *
+ * `capability_listings`（2026-08-07 补）：同 `pg-skill-starter-import-repository.ts`
+ * 早就有的那一步——只 INSERT 调用者刚创建的 skill 自己的目录行，从不 SELECT，
+ * 不是新的读面，是补齐姊妹写路径漏掉的一步。
  */
 const ALLOWED_TABLES = new Set([
   "skills",
   "skill_versions",
   "skill_version_files",
   "skill_url_imports",
+  "capability_listings",
 ]);
 
 /** 从 SQL 里抠出 FROM / JOIN / INTO / UPDATE 后面的表名。 */
@@ -57,7 +62,7 @@ function tablesNamedIn(source: string): Set<string> {
 }
 
 describe("白名单条目的前提：仓储侧", () => {
-  it("只命名允许的四张租户表", () => {
+  it("只命名允许的五张租户表", () => {
     const unexpected = [...tablesNamedIn(repoSource)].filter((t) => !ALLOWED_TABLES.has(t));
     expect(unexpected).toEqual([]);
   });

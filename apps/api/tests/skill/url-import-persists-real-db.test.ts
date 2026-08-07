@@ -40,6 +40,31 @@ const ACTOR = "u-i595-importer";
 /** 真库这条链只验持久化，授权用替身固定为 admin；授权本身的门在单测里证。 */
 const ADMIN: any = { findOrgMembership: async () => ({ orgRole: "admin" }) };
 
+/**
+ * 2026-08-07 补：后台「Skill 目录」页读的是 `capability_listings`（`GET
+ * /capabilities?kind=skill`），不是 `skills`/`skill_versions` 本身——见
+ * `pg-skill-url-import-repository.ts` 文件头 2026-08-07 补注。这是那句人类实测
+ * "我在后台不能看到导入了的 skills" 的真实机制，本文件因此要断言这张表，不能只
+ * 断言运行时读的那三张。
+ */
+async function readCapabilityListing(orgId: string, name: string): Promise<{
+  readonly count: number;
+  readonly kind: string | null;
+  readonly enabled: boolean | null;
+}> {
+  return asApp(orgId, async (client) => {
+    const rows = await client.query(
+      `SELECT kind, enabled FROM capability_listings WHERE org_id = $1 AND name = $2`,
+      [orgId, name],
+    );
+    return {
+      count: rows.rows.length,
+      kind: rows.rows[0]?.kind ?? null,
+      enabled: rows.rows[0]?.enabled ?? null,
+    };
+  });
+}
+
 let server: https.Server;
 let port = 0;
 let handler: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void;
@@ -141,6 +166,12 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
     expect(stored.files[0]!.digest).toBe(result.contentDigest);
     // 发布只能由 wave2_publish_skill_version 完成——这条锁住那条路径真的走了。
     expect(stored.published).toBe(true);
+
+    // 后台「Skill 目录」页实际读的那张表——不是 skills/skill_versions 本身。
+    const listing = await readCapabilityListing(ORG, "url-imported-skill");
+    expect(listing.count).toBe(1);
+    expect(listing.kind).toBe("skill");
+    expect(listing.enabled).toBe(true);
   });
 
   it("同一幂等键重复导入 ⇒ 回放同一个版本，不产生第二行", async () => {
@@ -179,6 +210,11 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
       return rows.rows[0]?.n ?? -1;
     });
     expect(count).toBe(1);
+
+    // 回放不重复插目录行——`skillId` 是 `capability_listings.id`，回放路径根本
+    // 不会再次执行 INSERT（早在 `existing !== undefined` 分支就返回了）。
+    const listing = await readCapabilityListing(ORG, "idempotent-skill");
+    expect(listing.count).toBe(1);
   });
 
   /**
@@ -223,5 +259,9 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
     expect(after.named).toBe(0);
     expect(after.imports).toBe(0);
     expect(after.total).toBe(before); // 总数没变：没有留下任何半成品
+
+    // 拒绝路径压根不到达 capability_listings 那条 INSERT——同样什么都不留。
+    const listing = await readCapabilityListing(ORG, "should-never-exist");
+    expect(listing.count).toBe(0);
   });
 });
