@@ -215,6 +215,7 @@ import {
 } from "./infrastructure/agent-run/configured-model-provider";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
+import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
@@ -452,6 +453,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CanvasTemplateController,
     RecordingController,
     AgentRunController,
+    CopilotkitAguiController,
     AgentTrialRunController,
     AgentController,
     SkillController,
