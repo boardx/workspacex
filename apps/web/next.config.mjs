@@ -102,6 +102,12 @@ export default {
       // recording 的路径永远带后缀（/sessions、/sessions/:id/segments …），
       // 没有裸路径那一条，所以这里只需要 `:path*`。
       { source: `${prefix}/recording/:path*`, destination: `${apiOrigin}/recording/:path*` },
+      // issue #652：`FilesRetentionController` 是 `@Controller()`（空前缀），GET/PUT
+      // 都打同一个裸路径 `/retention-policy`（无子路径、无 `:path*` 可用）——
+      // 与上面 `/capabilities`、`/canvas/templates` 那几条同一个坑：不写这条，
+      // `startRecording` 前置的“配置保留期”从浏览器根本发不出请求，会被 Next 自己
+      // 接住返回 404 HTML，而不是 API 的 403/422。
+      { source: `${prefix}/retention-policy`, destination: `${apiOrigin}/retention-policy` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
       // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`

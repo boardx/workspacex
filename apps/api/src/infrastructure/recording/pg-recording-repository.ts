@@ -363,6 +363,29 @@ function consentReader(s: TenantSession, orgId: OrgId): ConsentMatrixReader {
       const requiredItems = C.RecordingConsentItem.options.length;
       return participantIds.some((p) => (granted.get(p) ?? 0) < requiredItems);
     },
+    // issue #652 — the write half. Upserts on the row's own primary key
+    // (org_id, source_ref_id, participant_id, item); the migration's CHECK constraints are
+    // the belt-and-braces layer under the contract's zod enums the controller already ran.
+    async setCell(input) {
+      const r = await s.query<{ updated_at: string }>(
+        `INSERT INTO recording_consent_cells
+           (org_id, source_ref_id, participant_id, item, state, updated_at)
+         VALUES ($1,$2,$3,$4,$5,now())
+         ON CONFLICT (org_id, source_ref_id, participant_id, item) DO UPDATE
+           SET state = excluded.state,
+               updated_at = excluded.updated_at
+         RETURNING updated_at`,
+        [orgId, input.sourceRefId, input.participantId, input.item, input.state],
+      );
+      const row = r.rows[0];
+      // The INSERT..ON CONFLICT above always returns exactly one row; this is here so a
+      // future refactor that breaks that guarantee fails loudly instead of returning
+      // `undefined.updated_at` and crashing somewhere less obvious.
+      if (row === undefined) {
+        throw new Error("recording_consent_cells upsert returned no row");
+      }
+      return { updatedAt: new Date(row.updated_at).toISOString() };
+    },
   };
 }
 

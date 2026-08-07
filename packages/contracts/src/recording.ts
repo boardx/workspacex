@@ -394,6 +394,45 @@ export const operations = {
   },
 
   /**
+   * setConsentDecision —— 写入矩阵单元（issue #652）。
+   *
+   * ⚠ **本操作是本束替产品缺口补的最小写形状，登记在 `KNOWN_CONTRACT_GAPS.C_REC_6`，
+   *   与 `getConsentMatrix`（`C_REC_1`）同一处理方式：`recording_consent_cells` 表自
+   *   #465 起就存在、且 `app_rw` 早已被 GRANT INSERT/UPDATE（迁移文件头逐字写着
+   *   「the contract has `getConsentMatrix`（读）和 `CONSENT_NOT_COMPLETED`（门），
+   *   却没有一个操作能写单元格」），但契约里从未补上那一个操作——结果是生产环境
+   *   零写入方，只有 CI 种子脚本能写这张表，真实用户点「开始录音」必卡
+   *   `CONSENT_NOT_COMPLETED`（issue #652 红线）。
+   * ⚠ 形状**逐字对应** `ConsentMatrixCell` 与迁移的主键（`org_id, source_ref_id,
+   *   participant_id, item`）——一次一格，没有发明批量语义。
+   * ⚠ 鉴权复用本束**每一条既有写路由同一个判据**：`NO_PROJECT_ROLE`
+   *   （`RecordingController.requireProjectRole`，与 `startRecording` 等四条一致）——
+   *   不新增第二套「谁能替谁点头」的模型；`startRecording` 本身也不区分
+   *   「谁在 trackPlan 里替谁规划了 track」，同一份权限模型覆盖到底。
+   * ⚠ **人类需确认**：这条路径目前允许任一有项目角色的人写任一 participantId 的决定
+   *   （包括代别人点头）。若产品要求「仅本人可提交自己的同意」，需要
+   *   participantId ↔ 登录身份的映射，而 05-rec 束目前没有这个映射（工作坊/线程的
+   *   参与者不保证是组织成员）——这是尚待裁决的缺口，不是本次实现选择忽略。
+   */
+  setConsentDecision: {
+    method: "POST", path: "/recording/consent/decisions",
+    in: z.object({
+      projectId: z.string(),
+      sourceRefId: z.string(),
+      participantId: z.string(),
+      item: RecordingConsentItem,
+      state: ConsentItemState,
+    }).strict(),
+    out: z.object({
+      participantId: z.string(),
+      item: RecordingConsentItem,
+      state: ConsentItemState,
+      updatedAt: z.string(),
+    }).strict(),
+    err: ["NO_PROJECT_ROLE"] as const,
+  },
+
+  /**
    * setMicState —— 设置本路麦克风状态。
    * ⚠ `denied` 之后**不得产生任何 Segment**（I-4）；`paused` **留缺口**、已产生的转写段
    *   **不回收**、重开后续接同一条转写（A2 / I-5）。**不得静默继续采集。**
@@ -1207,4 +1246,25 @@ export const KNOWN_CONTRACT_GAPS = {
    * 或 17-gov 的东西。⇒ 目前**没有任何束提供这条路径**，追溯调整在系统里无路可走。
    */
   C_REC_5: "the 'explicit change approval + notify subjects' flow for retroactive retention changes has no owning bundle",
+
+  /**
+   * **`setConsentDecision` 是本束替产品缺口补的最小写端口，与 `getConsentMatrix`
+   * （`C_REC_1`）同一处理方式：登记而非等一次全新签核。**
+   *
+   * issue #652 的诊断：`recording_consent_cells` 从 #465 起就存在，`app_rw` 也早被
+   * `GRANT INSERT, UPDATE`（迁移文件头自己写着「the contract has no operation that
+   * WRITES a cell」），但契约里一直没有那个操作 —— 结果是这张表在生产环境**零写入方**，
+   * 只有 CI 种子脚本能写，真实用户点「开始录音」必卡在 `CONSENT_NOT_COMPLETED`。
+   *
+   * 本次新增的形状（一次一格、鉴权复用本束既有 `NO_PROJECT_ROLE` 判据）是**推断**，
+   * 不是签核过的产品决策，尤其是下面这条：
+   *
+   * **谁能替谁点头，未定。** 当前实现允许任一有项目角色的人写任一 `participantId` 的
+   * 决定，与本束 `startRecording.trackPlan` 的既有权限模型一致（那条路径本身也不检查
+   * 「调用者是不是 trackPlan 里那些人」）。若产品要求「仅本人可提交同意」，需要
+   * `participantId` ↔ 登录身份的映射，而工作坊 / 线程的参与者不保证是组织成员，
+   * 05-rec 束目前没有这个映射。人类若认可当前「代填」模型，请把这条从缺口移除；
+   * 若不认可，需要新的鉴权设计（可能引入访客身份或参与者自证令牌），不是本次实现自选的。
+   */
+  C_REC_6: "setConsentDecision is a minimal inferred write port for the previously-unwritable recording_consent_cells table (issue #652); who may submit on whose behalf ('自己 vs 代填') is unresolved and currently defers to the bundle's existing project-role gate",
 } as const;
