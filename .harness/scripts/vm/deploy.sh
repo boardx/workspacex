@@ -70,7 +70,19 @@ export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 step "1. 取代码"
 cd "$APP_DIR"
 sudo -u "$RUN_AS" git fetch --depth 50 origin "${REF#origin/}"
-sudo -u "$RUN_AS" git reset --hard "$REF" 2>/dev/null || sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
+# ⚠ 2026-08-07 事故：这里曾经是
+#   `git reset --hard "$REF" 2>/dev/null || git reset --hard FETCH_HEAD`。
+# 当 $REF 是一个裸分支名（"main"，#635 加的 push-to-main 自动部署路径就是这么传的）
+# 时，`git reset --hard main` **不会报错**——它成功重置到本地那份 `main` 分支指针，
+# 但那份指针从来没人更新过（只有 `git fetch` 写的 FETCH_HEAD 是新的），于是
+# `||` 后面的 FETCH_HEAD 分支永远不会被触发。表现是：CI 报 deploy 成功，
+# 冒烟也过，但服务器上跑的其实是几小时前的旧代码——直到有人拿真实浏览器去点，
+# 才会发现"代码明明改了，线上还是老样子"。
+#
+# ⇒ 不再尝试把 $REF 解释成一个本地能直接 reset 到的 ref。`git fetch origin <REF>`
+#   无论 REF 是分支名、tag 还是 SHA，执行完之后 FETCH_HEAD 永远精确指向刚刚
+#   fetch 到的那个提交——直接用它，不留一个"看起来成功但值不对"的中间状态。
+sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
 sudo -u "$RUN_AS" git log --oneline -1
 
 step "2. 依赖"

@@ -29,6 +29,11 @@ import { auth as C } from "@repo/contracts";
 import { registerWithInvite } from "../../application/auth/register-with-invite";
 import { bootstrapFirstUser } from "../../application/auth/bootstrap-first-user";
 import {
+  ensureDefaultAgent,
+  ENSURE_DEFAULT_AGENT_REPOSITORY,
+  type EnsureDefaultAgentRepository,
+} from "../../application/agent/ensure-default-agent";
+import {
   BootstrapUnavailableError,
   EmailTakenError,
   InviteCodeInvalidError,
@@ -67,16 +72,24 @@ export class AuthRegistrationController {
     @Inject(REGISTRATION_REPOSITORY) private readonly repo: RegistrationRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(EMAIL_VERIFICATION_TOKEN_CODEC) private readonly verificationTokens: EmailVerificationTokenCodec,
+    @Inject(ENSURE_DEFAULT_AGENT_REPOSITORY) private readonly defaultAgents: EnsureDefaultAgentRepository,
   ) {}
 
   @Public()
   @Post("/auth/bootstrap")
   async bootstrap(@Body(new ZodBodyPipe(BOOTSTRAP_SCHEMA)) body: BootstrapBody) {
     try {
-      return await bootstrapFirstUser(
+      const result = await bootstrapFirstUser(
         { repo: this.repo, hasher: this.hasher },
         body,
       );
+      // 产品裁决（#661 之下）：新组织一落地就要有一个真实、已发布、可直接发消息的默认
+      // Agent，用户不需要先自己建/发布一个 agent 才能开始聊。故意在 bootstrap 事务
+      // 之外、bootstrap 成功之后调用——`ensureDefaultAgent` 幂等（按 stable_name 去重），
+      // 失败就让整个 `/auth/bootstrap` 请求失败并让调用方重试，而不是吞掉错误留一个
+      // "组织建成了但没有默认 agent"的半成品状态（不做静默 fallback）。
+      await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
+      return result;
     } catch (e) {
       if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
         throw new ConflictException({ reasonCode: e.reasonCode });

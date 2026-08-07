@@ -219,6 +219,8 @@ import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agu
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
+import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
@@ -299,6 +301,10 @@ import { ObjectStoreIntegrityChecker } from "./infrastructure/files/object-store
 import { ARTIFACT_RENAME_REPOSITORY } from "./application/files/rename-ports";
 import { PgArtifactRenameRepository } from "./infrastructure/files/pg-artifact-rename-repository";
 import { FilesRenameController } from "./interface/controllers/files-rename.controller";
+// issue #652：F46 `getRetentionPolicy` / `setRetentionPolicy` 的 HTTP 边界。⚠ 没有新
+// provider —— 复用上面已经绑好的 `RETENTION_POLICY_REPOSITORY`（05-rec 的
+// `retentionResolver` 也在读同一个实例），本次只是给它接第一条从浏览器可达的路。
+import { FilesRetentionController } from "./interface/controllers/files-retention.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -446,6 +452,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     FilesDeliveryController,
     FilesExportController,
     FilesRenameController,
+    FilesRetentionController,
     DeviceSessionController,
     ProjectController,
     AssetDirectoryController,
@@ -568,6 +575,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: CREATE_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ENSURE_DEFAULT_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDefaultAgentRepository(db),
       inject: [DATABASE_PORT],
     },
     {
