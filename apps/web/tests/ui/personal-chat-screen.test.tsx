@@ -1,5 +1,5 @@
 import * as React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
@@ -204,5 +204,84 @@ describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent
     const errorState = await screen.findByTestId("personal-chat-agent-list-error");
     expect(errorState).toHaveTextContent("HTTP 500");
     expect(screen.queryByTestId("personal-chat-no-agents-hint")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * 🔴 人类实测报告的真实 bug（2026-08-07）："chat的手机端 没法选择session list"。
+ * 根因：`AppShell` 的 `left` 栏 CSS 在 `<md` 断点整个 `hidden`，`/chat` 从没实现
+ * 文档承诺的"改用底部一级 tab"替代导航——会话列表在手机上完全不可达。
+ *
+ * 这里 mock `window.matchMedia` 模拟 `<768px`，断言组件真的切到了 list/detail
+ * 单栏模式：`AppShell` 收到的 `left` 变成 `undefined`（不再重复渲染同一份
+ * `data-testid`），会话列表内容改渲进 `main`；选中线程后 `main` 换成详情 +
+ * 一个可点的"返回列表"按钮，点了之后真的回到列表。
+ */
+function mockMatchMedia(matches: boolean) {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const mql = {
+    matches,
+    media: "(min-width: 768px)",
+    addEventListener: (_: "change", cb: (event: MediaQueryListEvent) => void) => { listeners.add(cb); },
+    removeEventListener: (_: "change", cb: (event: MediaQueryListEvent) => void) => { listeners.delete(cb); },
+  };
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue(mql));
+  return mql;
+}
+
+describe("PersonalChatScreen — 手机端会话列表可达性（2026-08-07 真实 bug 报告）", () => {
+  const THREAD_LIST_WITH_ONE = {
+    groups: [{ label: "今天", cards: [{ id: "thr-mobile-1", title: "手机对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    capabilities: ["thread.mutate"],
+  };
+  const THREAD_DETAIL = {
+    thread: { id: "thr-mobile-1", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+    messages: [], rightTabs: [], capabilities: ["composer.send", "thread.mutate"],
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("<768px 且未选中线程 ⇒ 会话列表渲进 main（不是消失在一个 CSS 隐藏的 aside 里）", async () => {
+    mockMatchMedia(false);
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+
+    render(<PersonalChatScreen initialThreadId={null} />);
+
+    // 真正能点到的那一份在 main 里，不是 aside 里那份看不见的。
+    const main = (await screen.findByTestId("chat-thread-thr-mobile-1")).closest("main");
+    expect(main).not.toBeNull();
+    // AppShell 没收到 left（mock 直接渲染 undefined，aside 应为空）——
+    // 避免同一个 testid 在 DOM 里出现两份。
+    expect(document.querySelector("aside")?.textContent ?? "").toBe("");
+  });
+
+  it("<768px 选中线程后 ⇒ 显示『返回列表』按钮，点击后回到列表且清空选中线程", async () => {
+    mockMatchMedia(false);
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+
+    render(<PersonalChatScreen initialThreadId="thr-mobile-1" />);
+
+    const back = await screen.findByTestId("chat-thread-back-mobile");
+    expect(back).toBeInTheDocument();
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(back);
+
+    expect(replace).toHaveBeenCalledWith("/chat");
+    // 回到列表：会话列表内容重新出现在 main 里。
+    expect(await screen.findByTestId("chat-thread-thr-mobile-1")).toBeInTheDocument();
+  });
+
+  it("≥768px（桌面）行为完全不变：不出现『返回列表』按钮，left 正常拿到列表", async () => {
+    mockMatchMedia(true);
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+
+    render(<PersonalChatScreen initialThreadId="thr-mobile-1" />);
+
+    await screen.findByTestId("chat-thread-detail");
+    expect(screen.queryByTestId("chat-thread-back-mobile")).not.toBeInTheDocument();
+    expect(document.querySelector("aside")?.textContent ?? "").not.toBe("");
   });
 });

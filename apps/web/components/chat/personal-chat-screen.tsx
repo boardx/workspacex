@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, RefreshCw } from "lucide-react";
+import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
@@ -168,11 +168,17 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const selectedCard = cards.find((card) => card.id === selectedThreadId) ?? null;
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
 
-  return (
-    <AppShell
-      previewRole={null}
-      left={(
-        <div className="flex flex-col" data-testid="chat-read-thread-list">
+  /**
+   * 手机端真实 bug（人类实测报告，2026-08-07）：`AppShell` 的 `left` 栏在 `<md` 断点
+   * 整个 `hidden`（见该组件头注"改用底部一级 tab"），但 `/chat` 从没实现那个替代
+   * 导航——手机上会话列表**完全不可达**，连"从左侧新建或选择"这句空态文案指向的
+   * 那个"左侧"都不存在。这里不改 `AppShell`（全站共用，牵动面太大），只在本组件
+   * 内做经典的 list/detail 手机响应式：没选中线程时把同一份列表内容也渲进主区域
+   * （`md:hidden`，桌面端已经在 `aside` 里看得到，不重复渲染），选中后给一个仅手机可见
+   * 的返回按钮清空选中态——桌面端两个分支的可见性完全不变。
+   */
+  const threadListPanel = (
+    <div className="flex flex-col" data-testid="chat-read-thread-list">
           <div className="flex flex-col gap-1 p-3">
             <span className="text-10 uppercase tracking-wide text-muted-foreground">我的对话</span>
             <span className="text-11 text-muted-foreground">不挂靠任何项目，仅自己可见</span>
@@ -243,24 +249,77 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
               ))}
             </nav>
           ) : null}
-        </div>
+    </div>
+  );
+
+  const isDesktop = useIsDesktop();
+  // `AppShell` 的 `aside`（`left` prop）本身就是 CSS `hidden md:block`——手机上它
+  // 不可见但仍在 DOM 里。桌面态才把同一份内容也交给它；手机态干脆不传，避免同一份
+  // `data-testid`（如 `chat-thread-${id}`）在 DOM 里出现两份，让 `getByTestId`
+  // 之类的唯一性查询在 jsdom（不跑 CSS 媒体查询，两份都"可见"）下直接炸掉。
+  const showThreadListInMain = selectedThreadId === null && !isDesktop;
+
+  return (
+    <AppShell previewRole={null} left={isDesktop ? threadListPanel : undefined}>
+      {showThreadListInMain ? (
+        threadListPanel
+      ) : selectedThreadId === null ? (
+        <PersonalThreadDetail
+          card={selectedCard}
+          detail={detail}
+          bearer={bearer}
+          orgId={currentOrgId}
+          loading={detailLoading}
+          error={detailError}
+          onRetry={() => void loadSelectedThread()}
+        />
+      ) : (
+        <PersonalThreadDetail
+          card={selectedCard}
+          detail={detail}
+          bearer={bearer}
+          orgId={currentOrgId}
+          loading={detailLoading}
+          error={detailError}
+          onRetry={() => void loadSelectedThread()}
+          onBackMobile={!isDesktop ? () => {
+            setSelectedThreadId(null);
+            router.replace("/chat");
+          } : undefined}
+        />
       )}
-    >
-      <PersonalThreadDetail
-        card={selectedCard}
-        detail={detail}
-        bearer={bearer}
-        orgId={currentOrgId}
-        loading={detailLoading}
-        error={detailError}
-        onRetry={() => void loadSelectedThread()}
-      />
     </AppShell>
   );
 }
 
+/**
+ * `AppShell` 的响应式断点是纯 CSS（`md:` = 768px），组件树里没有对应的 JS 状态可读。
+ * 这里需要 JS 层的"当前是不是桌面"来做条件渲染（同一份 testid 不能在 DOM 里出现
+ * 两份），所以补一个最小的 `matchMedia` hook——`md:` 断点值取自 Tailwind 默认
+ * `768px`，与 `app-shell.tsx` 用的同一个断点。
+ *
+ * SSR 安全：初始渲染（服务端 / 首次客户端渲染，`window` 还没有真实宽度可读）默认
+ * `true`（桌面态），与 `AppShell` 的 CSS 默认值一致（`hidden md:block`：不到
+ * `md` 才隐藏，`md` 以上默认显示）——避免首帧闪一下手机布局。
+ */
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = React.useState(true);
+  React.useEffect(() => {
+    // jsdom（组件测试环境）不实现 `matchMedia`——测试环境里没有真实视口，保持默认
+    // 桌面态即可，断言的是"手机态渲染出正确的那份 DOM 结构"，不是"jsdom 真的报出了
+    // 375px"，本来就得靠显式 mock 这个 hook，不是靠这里硬编一个 polyfill。
+    if (typeof window.matchMedia !== "function") return;
+    const mql = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mql.matches);
+    const onChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isDesktop;
+}
+
 function PersonalThreadDetail({
-  card, detail, bearer, orgId, loading, error, onRetry,
+  card, detail, bearer, orgId, loading, error, onRetry, onBackMobile,
 }: {
   card: ThreadCard | null;
   detail: GetThreadOut | null;
@@ -269,6 +328,8 @@ function PersonalThreadDetail({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** 仅手机（<md）渲染的"返回列表"按钮；桌面端左栏一直可见，不需要这个 */
+  onBackMobile?: () => void;
 }) {
   const agentOptions = useOrgAgentOptions(orgId, bearer);
 
@@ -297,6 +358,18 @@ function PersonalThreadDetail({
   return (
     <div className="flex h-full flex-col" data-testid="chat-thread-detail">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+        {onBackMobile ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="md:hidden"
+            data-testid="chat-thread-back-mobile"
+            aria-label="返回会话列表"
+            onClick={onBackMobile}
+          >
+            <ChevronLeft aria-hidden className="h-4 w-4" />
+          </Button>
+        ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-14 font-semibold">{card?.title ?? detail.thread.id}</h1>
           <p className="text-10 text-muted-foreground">个人对话 · 线程 {detail.thread.id}</p>
