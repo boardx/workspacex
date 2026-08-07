@@ -23,7 +23,7 @@
 | H3A-001 | P0 | ✅ 完成 | Proposal 人类签核 | 无 | 状态变为 Accepted，目标/非目标明确——2026-08-07 人类原话 "Yes"，无保留接受，见 PROP-HARNESS-AGENT-001.md 文件头 |
 | H3A-002 | P0 | ✅ 完成 | Role/Agent/Domain/Skill/Worker inventory（含旧名） | 001 | 每个现有对象有来源、writer、consumer、重复项和 legacy alias |
 | H3A-003 | P0 | ✅ 完成 | 当前协调流基线 | 001 | flow/WIP/review wait/重复 token 有基线 |
-| H3A-004 | P0 | ⬜ 未开始 | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |
+| H3A-004 | P0 | 🔶 PR #675 待 review | 旧自由角色新增冻结策略 | 002 | 新增未登记角色 WARN，历史仍可读 |
 | H3A-005 | P0 | ✅ 完成 | 与 ADR-010/Graph/HMV2 职责交叉表 | 002 | 无重复 schema/authority |
 | H3A-006 | P0 | 🔶 PR #672 待 review | 规范术语注册表 | 001 | 每个规范概念有唯一 Term ID、规范名、旧名和使用边界 |
 | H3A-007 | P0 | 🔶 PR #672 待 review | 旧名兼容映射 | 006 | 稳定 ID 不变；旧字段可读；新 writer 只产生规范字段 |
