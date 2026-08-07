@@ -122,6 +122,15 @@ step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-default-agents.ts
 
+step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 agent，2026-08-07）"
+# 同 4c 的理由，另一个 stable_name。这两步分开跑（不是同一个脚本里循环两个模板）是因为
+# 各自失败模式不同：默认 agent 缺配置会导致"能建但发消息 422"，deep-research agent
+# 缺配置（`KERNEL_DEEP_RESEARCH_BASE_URL` 没设）此时并不阻塞——落库本身不依赖那个服务
+# 是否可达，只在真的发一条消息时才会报错，且报错是诚实的 MODEL_PROVIDER_NOT_CONFIGURED，
+# 不是一个吞掉的静默失败。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
+
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
 # 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。

@@ -34,6 +34,11 @@ import {
   type EnsureDefaultAgentRepository,
 } from "../../application/agent/ensure-default-agent";
 import {
+  ensureDeepResearchAgent,
+  ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY,
+  type EnsureDeepResearchAgentRepository,
+} from "../../application/agent/ensure-deep-research-agent";
+import {
   BootstrapUnavailableError,
   EmailTakenError,
   InviteCodeInvalidError,
@@ -73,6 +78,7 @@ export class AuthRegistrationController {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(EMAIL_VERIFICATION_TOKEN_CODEC) private readonly verificationTokens: EmailVerificationTokenCodec,
     @Inject(ENSURE_DEFAULT_AGENT_REPOSITORY) private readonly defaultAgents: EnsureDefaultAgentRepository,
+    @Inject(ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY) private readonly deepResearchAgents: EnsureDeepResearchAgentRepository,
   ) {}
 
   @Public()
@@ -89,6 +95,9 @@ export class AuthRegistrationController {
       // 失败就让整个 `/auth/bootstrap` 请求失败并让调用方重试，而不是吞掉错误留一个
       // "组织建成了但没有默认 agent"的半成品状态（不做静默 fallback）。
       await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
+      // 同一条裁决延伸到 deep-research agent（2026-08-07）：新组织落地就该看到两个可
+      // 直接用的 agent，不是"通用助手能聊，deep research 还要自己去后台开一个"。
+      await ensureDeepResearchAgent({ repo: this.deepResearchAgents }, { orgId: result.orgId, actorId: result.userId });
       return result;
     } catch (e) {
       if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
@@ -146,6 +155,7 @@ export class AuthRegistrationController {
       // 完全一致（见 `ensure-default-agent.ts` 文件头）。同样不做静默 fallback——失败
       // 就让整个 `/auth/register` 请求失败。
       await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
+      await ensureDeepResearchAgent({ repo: this.deepResearchAgents }, { orgId: result.orgId, actorId: result.userId });
       response.setHeader("Set-Cookie", pendingVerificationSetCookie(
         result.pendingIdentityProof,
         process.env.NODE_ENV === "production",

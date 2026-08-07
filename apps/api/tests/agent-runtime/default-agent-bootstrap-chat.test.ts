@@ -127,13 +127,17 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
 
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
 
-    /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有一条 agent ── */
+    /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有"通用助手"这条 agent。
+     * 2026-08-07 起还会多一条"Deep Research"（同一条产品裁决延伸出的第二个系统
+     * agent，见 `ensure-deep-research-agent.ts`）——不断言总数为 1，断言的是本用例
+     * 关心的那一条真实存在且已发布，第二条系统 agent 的存在/内容是它自己文件的事。 */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });
     expect(caps.status).toBe(200);
     const listing = (await caps.json()) as { id: string; name: string; enabled: boolean }[];
-    expect(listing).toHaveLength(1);
-    expect(listing[0]!.enabled).toBe(true);
-    const agentId = listing[0]!.id;
+    const defaultAgent = listing.find((a) => a.name === "通用助手");
+    expect(defaultAgent).toBeDefined();
+    expect(defaultAgent!.enabled).toBe(true);
+    const agentId = defaultAgent!.id;
 
     /* ── ③ 建一个个人对话线程(前端 createPersonalThread 的真实调用形状)── */
     const threadRes = await fetch(`${base}/chat/threads/mutate`, {
