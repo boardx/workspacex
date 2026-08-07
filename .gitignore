@@ -13,6 +13,10 @@ dist/
 # dep-graph.md：pnpm harness dep-graph 每次运行都从 feature_list.json 重新生成，
 # 提交静态快照只会过期误导，重跑一遍就是最新状态
 .harness/state/dep-graph.md
+# 同一条理由：.harness/templates/instances/ 下是**机器生成**的 TPL-EVD-001 证据实例
+# （HMV2-066，每次 pnpm run lint:rewrite-coverage 都重写），不是人工撰写的模板实例
+# ——区别于 .harness/templates/examples/ 那份手写的 dogfood 说明文档，后者要入库。
+.harness/templates/instances/
 
 # Next.js / 全栈骨架
 .next/

@@ -146,7 +146,9 @@ entries:
     name: Evidence Manifest
     status: active
     owner: coord-architecture
-    consumers: []
+    # HMV2-066：lint-rewrite-coverage.mjs 是第一个真实消费者（每次运行落一份
+    # TPL-EVD-001 实例到 .harness/templates/instances/，见该脚本）。
+    consumers: [lint-rewrite-coverage.mjs]
     authority: verify 创建
 
   - template_id: TPL-RDY-001
@@ -204,3 +206,24 @@ entries:
     owner: coord-architecture
     consumers: []
     authority: 人工维护
+  - template_id: TPL-SKL-001
+    template_version: 1
+    name: Skill Activation Metadata
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护，SKILL.md frontmatter
+  - template_id: TPL-UIP-001
+    template_version: 1
+    name: UI Preview Index
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: ui-prototyper 生成，人工审阅
+  - template_id: TPL-DLT-001
+    template_version: 1
+    name: Design Delta Bundle
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护，仅人类可 confirm

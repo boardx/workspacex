@@ -33,9 +33,9 @@
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
 | HMV2-001 | P0 | ✅ 完成 | **裁定（2026-08-07，coord-architecture 按人类"你来决定使用最佳实践"授权裁定）：不需要单独 ADR**——本文件头的签核记录（"这个是一个解决思路"/"按照你的建议开始吧"）本身就是可读、可引用、带日期的决策记录，同 H3A-001（PROP-HARNESS-AGENT-001）刚示范的模式；另立 ADR 是重复声明同一签核事实，违反 AGENTS.md 单一事实源纪律 |
-| HMV2-002 | P0 | ⬜ 未开始 | 全仓模板 inventory，含隐形模板（散落的重复格式） |
-| HMV2-003 | P0 | ⬜ 未开始 | 冻结旧模板新增入口（WARN，不阻断） |
-| HMV2-004 | P0 | ⬜ 未开始 | 为现有模板分配永久编号 |
+| HMV2-002 | P0 | ✅ 完成 | 全仓模板 inventory：8 个候选（1 个 subagent 广度扫描，每个 ≥2 真实实例），3 个文件级、适合 E1 InstanceMetadata 模型（已转 HMV2-004 注册），5 个是嵌在别的文件/非文件制品里的重复结构，如实记录"现在的模型盖不到"、不强行注册（同 #641 的判断纪律）。见 `docs/proposals/PROP-HARNESS-MODEL-001-inventory.md`。PR #653（已合并，但内容一度从 main 消失——见 worker/coord-architecture-recover-641-653 的找回记录） |
+| HMV2-003 | P0 | ⬜ 未开始 | 冻结旧模板新增入口（WARN，不阻断）——留给下一个 PR，需要先定"新增入口"对分类 A 三个类型分别是什么可判定事件 |
+| HMV2-004 | P0 | ✅ 完成 | 为 HMV2-002 分类 A 的 3 个新发现类型分配永久编号：`TPL-SKL-001`（Skill Activation Metadata，17 实例）/`TPL-UIP-001`（UI Preview Index，21 实例）/`TPL-DLT-001`（Design Delta Bundle，2 实例）。用 `pnpm harness templates allocate` 分配，不是手改数组——dogfood E1 自己的分配器。PR #653（已合并，找回记录同上） |
 | HMV2-005 | P0 | ⬜ 未开始 | 迁移兼容策略与 rollback 规则 |
 
 ---
@@ -243,3 +243,19 @@
 > 待独立 review（本会话无合并权限）。上表状态已同步为"🔶 PR #634 待 review"，merge 后再改
 > "✅ 完成"。下一步严格按上面第 2 条执行：**先**验收 E7 那 3 条脚本能否改读 E1 schema，
 > 再谈是否启动 E3/E4。
+>
+> **验收结果（2026-08-06，PR [#641](https://github.com/boardx/workspacex/pull/641)，
+> 叠在 #634 分支上、还没合，因为 #634 自己也还没合）**：
+> 挑的不是"把 HMV2-064/065/067 的判定逻辑改成读 schema"（那三条本身是 route↔rewrite
+> 完整性判定，不天然长得像"模板实例"，硬套会是那种"发现削足适履"的坏结果）。
+> 真正命中的是 **HMV2-066 点名要做但本身还没做**的那类收编：给 `TPL-EVD-001`
+> （Evidence Manifest）接第一个真实消费者——`lint-rewrite-coverage.mjs`
+> 每次运行后把判定结果包成一份 `InstanceMetadata` 实例落盘，`templates doctor`
+> 原样扫到、原样校验，**零改动**`analyzeRewriteCoverage`本身的判定逻辑。
+> 新增代码 <100 行 + 6 条单测 + 2 条活体反证（真实注入坏 template_id，一次触发
+> schema 校验、一次触发未注册引用，均命中预期 finding code）。
+> **结论：收编成本很低——E1 的 InstanceMetadata 形状对"机器生成的证据"这类场景
+> 直接成立，不需要改 schema。** HMV2-066 本身（contract→route 扫描改读
+> `TPL-CTR-001`）**仍未做**，规模明显更大（今天量出 429 操作/126 路由），留给
+> 下一轮；HMV2-064/065/067 维持"✅ 完成（脚本级）"不变——它们的判定逻辑没有
+> 理由被迫套进模板实例的形状。
