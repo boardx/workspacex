@@ -39,12 +39,18 @@ export interface ConfiguredModelProviderConfig {
 export function readModelProviderConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ConfiguredModelProviderConfig {
-  const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "60000");
+  // ⚠ 2026-08-07 devapp 实测：默认 60s 在「一个 agent 挂了多个 skill（每个 skill 的
+  // SKILL.md 全文都拼进 system prompt）」时会真实超时——不是偶发，同一条较长的用户
+  // 请求连续两次都在 model_called 步骤精确卡在 60000ms 失败（MODEL_CALL_FAILED），
+  // 而一句"重试一次"这种短请求秒回。系统提示词越长，模型生成越慢，60s 对"多技能挂载
+  // 的默认 agent"这个真实场景不够用。180s 仍在 R9（>10s 转异步任务）判定之内的同步
+  // 路径可接受范围——这条超时挡的是"网络/模型真的挂了"，不是"提示词长+回复长"。
+  const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
     baseUrl: (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
-    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 60_000,
+    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
   };
 }
 
