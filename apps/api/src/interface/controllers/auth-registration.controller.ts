@@ -137,6 +137,15 @@ export class AuthRegistrationController {
           orgName: body.orgName,
         },
       );
+      // 同一条产品裁决（#662，见 `bootstrap()` 里那段注释）：这条路径同样"落地一个新
+      // 组织"（见本方法上方文档"a resource really is created here, two of them"），且是
+      // devapp 这类已有首位管理员的实例上，往后创建任何新组织的**唯一**可达路径——
+      // `bootstrap()` 那条是实例级仅一次的冷启动路径，用过就不能再用。故意在邮箱验证
+      // 完成**之前**调用：组织行已经真实落库（`registerWithInvite` 内部事务已提交），
+      // 这个新用户就是这个新组织唯一的成员和唯一的 admin，权限论证与 bootstrap 分支
+      // 完全一致（见 `ensure-default-agent.ts` 文件头）。同样不做静默 fallback——失败
+      // 就让整个 `/auth/register` 请求失败。
+      await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
       response.setHeader("Set-Cookie", pendingVerificationSetCookie(
         result.pendingIdentityProof,
         process.env.NODE_ENV === "production",

@@ -113,6 +113,15 @@ docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "$
   -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
 echo "  app_rw 密码已对齐"
 
+step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认 agent）"
+# `ensureDefaultAgent` 只在组织**创建那一刻**触发（`/auth/bootstrap` 与 `/auth/register`
+# 各自的 controller 里）。#662 落地之前就存在的每一个组织永远不会自己补上——没有 cron，
+# 没有"首次聊天时顺便种一个"这种懒加载。这一步幂等（按 `agents.stable_name` 去重，脚本
+# 内部还先查一遍存在性），每次部署都跑，成本是一次全表扫描 + 至多几行 INSERT，换来的是
+# "已有组织的默认 agent 缺口"不需要人手动 SSH 上服务器补一次就能自愈。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-default-agents.ts
+
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
 # 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。
