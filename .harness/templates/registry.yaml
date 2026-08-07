@@ -1,0 +1,206 @@
+# registry.yaml — TPL-REG-001 本体。PROP-HARNESS-MODEL-001 Epic E1（HMV2-006）。
+#
+# 这是全仓 23 种模板类型的唯一登记处。条目取自 Proposal §8 原文表格——那份表格
+# 已经把 23 个 template_id 定死了，这里不是重新编号，是把它从 Markdown 表格
+# 挪进机器可读、机器可校验的位置（P1：模型优先；P3：引用优于复制）。
+#
+# ⚠ owner/consumers/authority 三列是本次新增的字段（Proposal 表格原文没有这三列，
+# 只有"编号/模板/权威性质"）。owner 暂时统一填 coord-architecture（本 Epic 的
+# 建议负责人），consumers 暂时留空数组——这是诚实的"还没有人真的在消费这些模板"，
+# 不是遗漏。等 E3~E6 把各自的 renderer/gate 建出来，再把真实消费者填回来。
+#
+# 新增模板：pnpm harness templates allocate --domain <三位大写域码> --name "..."
+# 不要手改这个数组新增条目——分配器会做唯一性检查，手改绕过了这层保护。
+
+entries:
+  - template_id: TPL-REG-001
+    template_version: 1
+    name: Template Registry
+    status: active
+    owner: coord-architecture
+    consumers: [templates-doctor, templates-allocate]
+    authority: 人工维护
+
+  - template_id: TPL-PRJ-001
+    template_version: 1
+    name: Project Model
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-PHS-001
+    template_version: 1
+    name: Phase Model
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-REQ-001
+    template_version: 1
+    name: Requirement / Use Case
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-FTR-001
+    template_version: 1
+    name: Feature Model
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工 + 命令受控状态
+
+  - template_id: TPL-SPR-001
+    template_version: 1
+    name: Sprint Model
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-CTR-001
+    template_version: 1
+    name: Contract Bundle
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-SGN-001
+    template_version: 1
+    name: Design Signoff
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 仅人类维护
+
+  - template_id: TPL-COH-001
+    template_version: 1
+    name: Phase Coherence
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 仅人类维护
+
+  - template_id: TPL-INV-001
+    template_version: 1
+    name: Invariant
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-ADR-001
+    template_version: 1
+    name: ADR
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-ROL-001
+    template_version: 1
+    name: Agent Role
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-AGT-001
+    template_version: 1
+    name: Agent Registration
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
+
+  - template_id: TPL-TSK-001
+    template_version: 1
+    name: Task Assignment
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 系统创建
+
+  - template_id: TPL-EVT-001
+    template_version: 1
+    name: Work Event
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: agent/system 创建
+
+  - template_id: TPL-RVW-001
+    template_version: 1
+    name: Review Verdict
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: reviewer 创建
+
+  - template_id: TPL-EVD-001
+    template_version: 1
+    name: Evidence Manifest
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: verify 创建
+
+  - template_id: TPL-RDY-001
+    template_version: 1
+    name: Runtime Readiness
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 门控创建
+
+  - template_id: TPL-HOF-001
+    template_version: 1
+    name: Session Handoff
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 工具生成、agent 补增量
+
+  - template_id: TPL-CYP-001
+    template_version: 1
+    name: Cycle Plan
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: coordinator 创建
+
+  - template_id: TPL-CYR-001
+    template_version: 1
+    name: Cycle Result
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: coordinator 创建
+
+  - template_id: TPL-ISS-001
+    template_version: 1
+    name: GitHub Issue Projection
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 自动生成
+
+  - template_id: TPL-UIA-001
+    template_version: 1
+    name: UI/UX Audit
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: reviewer 创建
+
+  - template_id: TPL-MOD-001
+    template_version: 1
+    name: Module Knowledge
+    status: active
+    owner: coord-architecture
+    consumers: []
+    authority: 人工维护
