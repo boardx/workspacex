@@ -32,10 +32,10 @@
 
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
-| HMV2-001 | P0 | ⬜ 未开始 | 本 Proposal 尚未 ADR 化；按人类口径本条降级为"本文件即決策记录"，是否仍需正式 ADR 待人类确认 |
-| HMV2-002 | P0 | ⬜ 未开始 | 全仓模板 inventory，含隐形模板（散落的重复格式） |
-| HMV2-003 | P0 | ⬜ 未开始 | 冻结旧模板新增入口（WARN，不阻断） |
-| HMV2-004 | P0 | ⬜ 未开始 | 为现有模板分配永久编号 |
+| HMV2-001 | P0 | ⬜ 未开始 | 本 Proposal 尚未 ADR 化；按人类口径本条降级为"本文件即決策记录"，是否仍需正式 ADR 待人类确认——**仍未解决，未阻塞其余 E0 项** |
+| HMV2-002 | P0 | 🔶 PR [#653](https://github.com/boardx/workspacex/pull/653) 待 review | 全仓模板 inventory：8 个候选（1 个 subagent 广度扫描，每个 ≥2 真实实例），3 个文件级、适合 E1 InstanceMetadata 模型（已转 HMV2-004 注册），5 个是嵌在别的文件/非文件制品里的重复结构，如实记录"现在的模型盖不到"、不强行注册（同 #641 的判断纪律）。见 `docs/proposals/PROP-HARNESS-MODEL-001-inventory.md` |
+| HMV2-003 | P0 | ⬜ 未开始 | 冻结旧模板新增入口（WARN，不阻断）——留给下一个 PR，需要先定"新增入口"对分类 A 三个类型分别是什么可判定事件 |
+| HMV2-004 | P0 | 🔶 PR [#653](https://github.com/boardx/workspacex/pull/653) 待 review | 为 HMV2-002 分类 A 的 3 个新发现类型分配永久编号：`TPL-SKL-001`（Skill Activation Metadata，17 实例）/`TPL-UIP-001`（UI Preview Index，21 实例）/`TPL-DLT-001`（Design Delta Bundle，2 实例）。用 `pnpm harness templates allocate` 分配，不是手改数组——dogfood E1 自己的分配器 |
 | HMV2-005 | P0 | ⬜ 未开始 | 迁移兼容策略与 rollback 规则 |
 
 ---
