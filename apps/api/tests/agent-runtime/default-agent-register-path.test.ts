@@ -126,15 +126,18 @@ describe("#662 直接后续：/auth/register（邀请码建组织）同样给出
 
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
 
-    /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有一条 agent ── */
+    /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有"通用助手"这条 agent。
+     * 2026-08-07 起还会多一条"Deep Research"，同一条产品裁决延伸出的第二个系统 agent，
+     * 不断言总数，断言本用例关心的那一条真实存在且已发布。 */
     /* （邮箱验证是否已完成不影响服务端是否已经写好默认 agent——那一步紧跟在
      *  `registerWithInvite` 事务提交之后,与后续登录流程无关，见 controller 注释。） */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });
     expect(caps.status).toBe(200);
     const listing = (await caps.json()) as { id: string; name: string; enabled: boolean }[];
-    expect(listing).toHaveLength(1);
-    expect(listing[0]!.enabled).toBe(true);
-    const agentId = listing[0]!.id;
+    const defaultAgent = listing.find((a) => a.name === "通用助手");
+    expect(defaultAgent).toBeDefined();
+    expect(defaultAgent!.enabled).toBe(true);
+    const agentId = defaultAgent!.id;
 
     /* ── ③ 建一个个人对话线程 ── */
     const threadRes = await fetch(`${base}/chat/threads/mutate`, {
