@@ -13,10 +13,12 @@
 | ADR-003 | ui-first-signoff-gate | 有 UI 的阶段必须先做真实 UI 经人类确认（门控实际卡在 `new-sprint`，不卡 feature_list 生成；签核位置已被 **ADR-023** 收敛到束级） |
 | ADR-004 | issues-as-coordination-bus | 用 issue+label 做多 agent 协调总线（后由专用协调服务演进） |
 | ADR-005 | shared-checkout-isolation | 多 agent 共享 checkout 的 worktree 隔离纪律 |
+| ADR-009 | github-coordination-plane-retirement | GitHub issue/label 协调面退役，权威迁至 coord-service(D1)。**本地重建**（H3A-002 现场取值发现被 40+ 处引用但文件缺失后补），非上游原文，头部有完整来源引用 |
 | ADR-010 | agent-org-model | 多级 coordinator 组织模型 + 性能周期 |
 | ADR-011 | self-service-identity-registration | 开发者/agent 身份自助注册（人是一等实体） |
 | ADR-012 | audit-chain-hardening | 证据审计链：doctor 体检 + 假 passing 防线 |
 | ADR-014 | unified-clock-and-loop-discipline | 统一权威时钟 + 分级 loop 纪律 |
+| ADR-017 | coord-gateway-repohub-cutover | 协调权威载体从 coord-service(D1) 迁到 coord-gateway 的 RepoHub DO，协议语义不变。**本地重建**，同 ADR-009 |
 | ADR-018 | spec-ref-closed-loop | 每个 feature 必须能追溯到 requirements/ 下一个 story 章节，claim/verify/doctor 三道机械门 + GitHub 投影延伸闭环 |
 | ADR-019 | atomic-adr-numbering | ADR 编号原子取号（new-adr 命令），同款根因/修法源自 phase-id 撞号收口 |
 | ADR-020 | phase-design-signoff | UC+UI 之外，契约束也须经人类签核；洋葱架构依赖方向由脚本强制；mock 由契约生成。触发条件实为「该阶段有 `contracts/` 目录」而非 `has_ui`；签核件数已被 **ADR-023** 收敛为三件 |
@@ -32,8 +34,10 @@
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
   会到极限"——多数项目会先走到这一步再演进。
-- 编号空洞（002 旧序列、006-009、013、015-017）是上游 BoardX 的**项目实现层** ADR，
-  未随模板分发；完整清单见上游仓 `docs/adr/`。
+- 编号空洞（002 旧序列、006-008、013、015-016）是上游 BoardX 的**项目实现层** ADR，
+  未随模板分发；完整清单见上游仓 `docs/adr/`。**ADR-009/017 例外**——本仓 40+ 处
+  代码/文档把它们当既定决策反复引用，H3A-002 inventory（2026-08-07）现场发现文件
+  缺失后，从这些引用现场取值综合重建，标注为「本地重建」，不是上游原文。
 
 ## 写新 ADR
 1. 复制 `.harness/templates/adr.template.md` 为 `docs/adr/ADR-1xx-<slug>.md`。
