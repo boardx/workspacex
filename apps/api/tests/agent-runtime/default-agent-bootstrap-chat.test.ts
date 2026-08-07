@@ -34,6 +34,9 @@ import { dropDatabaseAfterDraining } from "../support/drop-database";
 
 process.env.KERNEL_QUIET = "1";
 process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
+// 与 model provider 同一条纪律（读一次,不能中途换）：test-principal 解析器也是组装期
+// 读 env,必须在 `createApp()` 之前就设好,不能等到某个 `it()` 里再设。
+process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
 const ORIGINAL_DATABASE = process.env.PGDATABASE;
 const DATABASE = `wsx_i661_default_agent_${process.pid}_${Date.now()}`;
@@ -123,7 +126,6 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
     expect(orgId).toBeTruthy();
 
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
-    process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
     /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有一条 agent ── */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });
@@ -143,11 +145,11 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
       }),
     });
     expect(threadRes.status).toBe(200);
-    const { thread } = (await threadRes.json()) as { thread: { id: string } };
+    const { threadId } = (await threadRes.json()) as { threadId: string };
 
     /* ── ④ 发消息给 capability 目录里选到的那个 agent(与前端 toAgentOption 同一条 id)── */
     capturedModelBodies = [];
-    const msgRes = await fetch(`${base}/chat/threads/${thread.id}/messages`, {
+    const msgRes = await fetch(`${base}/chat/threads/${threadId}/messages`, {
       method: "POST",
       headers: principal,
       body: JSON.stringify({ clientMessageId: randomUUID(), text: "你好,请介绍一下你自己", agentId }),
