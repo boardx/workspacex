@@ -219,6 +219,9 @@ import {
 import {
   DEEP_RESEARCH_PROVIDER_NAME, DeepResearchModelProvider, readDeepResearchProviderConfig,
 } from "./infrastructure/agent-run/deep-research-model-provider";
+import {
+  BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
+} from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
@@ -228,8 +231,10 @@ import { AgentTrialRunController } from "./interface/controllers/agent-trial-run
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
+import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
 import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
 import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
+import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
@@ -598,6 +603,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       inject: [DATABASE_PORT],
     },
     {
+      provide: ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgImageGenAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: AGENT_SKILL_PINS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
       inject: [DATABASE_PORT],
@@ -803,16 +813,17 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
       // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
       //
-      // 两个 provider 并存（2026-08-07 加入 open-deep-research）：`RoutingModelCallPort`
-      // 按 run 快照里 pin 的 `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"
-      // ——见该类头注，这是 `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景
-      // 下的延伸，不是放弃它。
+      // 三个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image）：
+      // `RoutingModelCallPort` 按 run 快照里 pin 的 `modelProvider` 字符串分派，不是
+      // "配一个、其它 fallback 过去"——见该类头注，这是 `ConfiguredModelProvider`
+      // "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
         return new RoutingModelCallPort(new Map<string, ModelCallPort>([
           [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
+          [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
         ]));
       },
     },

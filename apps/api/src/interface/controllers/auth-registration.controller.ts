@@ -39,6 +39,11 @@ import {
   type EnsureDeepResearchAgentRepository,
 } from "../../application/agent/ensure-deep-research-agent";
 import {
+  ensureImageGenAgent,
+  ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
+  type EnsureImageGenAgentRepository,
+} from "../../application/agent/ensure-image-gen-agent";
+import {
   BootstrapUnavailableError,
   EmailTakenError,
   InviteCodeInvalidError,
@@ -79,6 +84,7 @@ export class AuthRegistrationController {
     @Inject(EMAIL_VERIFICATION_TOKEN_CODEC) private readonly verificationTokens: EmailVerificationTokenCodec,
     @Inject(ENSURE_DEFAULT_AGENT_REPOSITORY) private readonly defaultAgents: EnsureDefaultAgentRepository,
     @Inject(ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY) private readonly deepResearchAgents: EnsureDeepResearchAgentRepository,
+    @Inject(ENSURE_IMAGE_GEN_AGENT_REPOSITORY) private readonly imageGenAgents: EnsureImageGenAgentRepository,
   ) {}
 
   @Public()
@@ -98,6 +104,9 @@ export class AuthRegistrationController {
       // 同一条裁决延伸到 deep-research agent（2026-08-07）：新组织落地就该看到两个可
       // 直接用的 agent，不是"通用助手能聊，deep research 还要自己去后台开一个"。
       await ensureDeepResearchAgent({ repo: this.deepResearchAgents }, { orgId: result.orgId, actorId: result.userId });
+      // 同一条裁决第三次延伸（2026-08-07）：图片生成 agent，人类原话"这里要可以直接看到
+      // 图片，不是只是文字"——新组织落地即有三个可直接用的系统 agent。
+      await ensureImageGenAgent({ repo: this.imageGenAgents }, { orgId: result.orgId, actorId: result.userId });
       return result;
     } catch (e) {
       if (e instanceof BootstrapUnavailableError || e instanceof EmailTakenError) {
@@ -156,6 +165,7 @@ export class AuthRegistrationController {
       // 就让整个 `/auth/register` 请求失败。
       await ensureDefaultAgent({ repo: this.defaultAgents }, { orgId: result.orgId, actorId: result.userId });
       await ensureDeepResearchAgent({ repo: this.deepResearchAgents }, { orgId: result.orgId, actorId: result.userId });
+      await ensureImageGenAgent({ repo: this.imageGenAgents }, { orgId: result.orgId, actorId: result.userId });
       response.setHeader("Set-Cookie", pendingVerificationSetCookie(
         result.pendingIdentityProof,
         process.env.NODE_ENV === "production",
