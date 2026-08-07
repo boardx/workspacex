@@ -684,7 +684,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // entry's own paragraph in `lint-permission-paths.mjs` for the argument (no caller to
     // gate against: the org bootstrapping its own default agent for itself, echoing back
     // only the id it just minted from a fixed system template, nothing disclosed to anyone).
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(41);
+    //
+    // ⚠ Raised 41 -> 42 by #595 (skill-version content edit): new entry is
+    // `infrastructure/skill/pg-skill-version-edit-repository.ts` -- see that entry's own
+    // paragraph in `lint-permission-paths.mjs` (admin decision made one layer up, in
+    // `edit-skill-version-content.ts`, before `deps.repository.persist` runs).
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(42);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
