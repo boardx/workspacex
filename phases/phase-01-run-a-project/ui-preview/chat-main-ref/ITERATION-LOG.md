@@ -66,3 +66,41 @@ D4 副行不再回落到裸 id，绑定改由 `data-thread-id` 证明。
   是否改判为「与 base SHA 对照无新增失败」**待人类裁决** —— 不自行放宽门控。
 
 _下面每轮追加一节：实测 SHA · rev-uiux 分数 · 转 1 的维度 · 仍 0 的维度与修法。_
+
+---
+
+### 第 2 轮（2026-08-08，实测 SHA `38b795f1` 的 UI 代码）—— rev-uiux 评分 **0/10**（硬门 H3 未过）
+
+分支已**重建到最新 main `2b066dec`**（原基 `daf1277a` 作废，见下）。本轮落地 D1-D4。
+
+**评分员判 H3 ❌ ⇒ 总分锁死 0**，理由成立：当时分支侧没有任何本 SHA 的 verify 运行证据，
+且**我在它评分期间往同一个 worktree 里提交了不相关的改动**（template-scan 修复），
+导致树上带着未提交内容 ⇒ 就地跑出的结果无法归因到那个 SHA。
+**这是我的方法错误：不能一边测量一边改树。** 与「拿旧树当 base」是同一类错误的第二次。
+
+诊断分（评分员明确标注不计入总分）：**1/10**，只有 D1 得分。
+
+#### H3 证据（补齐后，实测 SHA `5f9c4a7a`，干净树、串行、期间未改树）
+| | `verify:base` | `chat-read.spec.ts:4` |
+|---|---|---|
+| base `2b066dec` | —（base 侧本就绿） | `--retries=2` ⇒ **`1 flaky`**（首次红、重试绿） |
+| 分支 `5f9c4a7a` | **39/39 tasks，exit 0**（4865 API 测试） | 全量跑红、单独重跑首次即过；失败逐字同 base：`toHaveURL` 停在 `/login`、5s 超时 |
+
+⇒ **同一条用例、同一个根因、两侧都间歇** ⇒ 按 coord-main 裁决的「与 base 对照无新增失败」，
+H3 **满足**。（`verify:base` 能绿是因为本轮顺手修了 `templates doctor` 对嵌套 worktree 的
+误报，见 `5f9c4a7a` —— 那是独立的 harness 缺陷，不属于 #728。）
+
+#### 评分员分出的「数据缺 vs 代码缺」（这是下一轮的施工依据）
+- **纯代码缺、不需要新数据**：D5 —— `chat-live-message-panel.tsx:425` 直接印
+  `message.agentId`（截图上就是 `agent-chat-read-e2e`），而**同一份 `agents` 里就有 `name`**，
+  左栏已经正确显示「Controlled Read Agent」。时间、角色 chip、人类气泡配色同理。
+- **我自己的回归**：改名/删除移到线程列表下方后，正好落在空的「本周」分组标题下面，
+  读起来像该组里的一条会话。空分组判空 + 挪位置。
+- **数据缺**：线程 `badges` 与 `card.subtitle` 在 fixture 里是空的 ⇒ D3 徽标、D4 面包屑
+  **改代码也不会转 1**，得先补 `seed-chat-read-e2e.ts`。
+- **要先接契约**：D6（`expandToolCallChain`）、D9（五分页签）、D10（`ambient-bar`）。
+
+#### 评分员上报、需人类裁决
+评分卡开头把 `PersonalChatScreen` 写进适用范围，但十维判据逐字写「对照
+`chat-main-default.png`」。评分员**只按字面口径用 default 图判 D1，没有自行扩大判据**，
+把口径冲突上报了。⚠ `/chat` 无 projectId 正是人类在 devapp 上的默认落地屏。
