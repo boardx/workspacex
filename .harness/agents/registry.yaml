@@ -47,6 +47,15 @@ agents:
   #   areas: [<模块名>]
 
   # ── chat/agent/skills/canvas/recording 模块协调者（无合并权）────────
+  # ⚠ H3A-011 裁决（2026-08-08，人类）：本身份同时是 DOM-CHAT/DOM-CANVAS-DIAGRAM/
+  # DOM-E2E-RELEASE-READINESS 三个 Domain 的 owner，违反 H3A-022"一个 Role
+  # 绑定一个 Domain"的完成契约——人类裁决拆成下方三个独立 coordinator
+  # （coord-chat/coord-canvas/coord-e2e），三个 Domain 的 owner 已改指向它们
+  # （见 `.harness/domains/registry.yaml`）。本条目**保留不动**（真实活跃身份，
+  # 有在跑/历史分支用这个前缀命名，如实识别真在用的东西不能因为拆分决定就
+  # 静默改名/停用）——areas 里的 agent/skills（DOM-AGENT-SKILL-DIRECTORY，
+  # owner 仍为 null，另案待裁决）和 recording（今天没有任何 Domain 覆盖，
+  # 是尚未建 Domain 的已知空白）继续挂在这里，不受本次拆分影响。
   - id: coord-chat-e2e
     active: true
     kind: module-coordinator
@@ -56,6 +65,39 @@ agents:
     reports_to: coord-main
     responsibilities:
       - 在 chat/agent/skills/canvas/recording 范围内实现、初审与返工裁决
+
+  # ── H3A-011 拆分产物（2026-08-08）：DOM-CHAT 的独立协调者 ─────────────
+  - id: coord-chat
+    active: true
+    kind: module-coordinator
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [chat]
+    reports_to: coord-main
+    responsibilities:
+      - 在 chat（DOM-CHAT）范围内实现、初审与返工裁决
+
+  # ── H3A-011 拆分产物（2026-08-08）：DOM-CANVAS-DIAGRAM 的独立协调者 ────
+  - id: coord-canvas
+    active: true
+    kind: module-coordinator
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [canvas]
+    reports_to: coord-main
+    responsibilities:
+      - 在 canvas（DOM-CANVAS-DIAGRAM）范围内实现、初审与返工裁决
+
+  # ── H3A-011 拆分产物（2026-08-08）：DOM-E2E-RELEASE-READINESS 的独立协调者 ──
+  - id: coord-e2e
+    active: true
+    kind: module-coordinator
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [e2e, release-readiness]
+    reports_to: coord-main
+    responsibilities:
+      - 在 e2e/release-readiness（DOM-E2E-RELEASE-READINESS）范围内实现、初审与返工裁决
       - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
 
   # ── Phase 01 最小集成团队（Directory 运行时身份投影；均无合并权）──────
