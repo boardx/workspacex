@@ -27,6 +27,7 @@ import type {
   AssetFileRepository,
   AssetKind,
 } from "../../application/asset/ports";
+import type { OrgId } from "../../domain/org-id";
 
 interface FixtureFile {
   readonly path: string;
@@ -139,7 +140,13 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
     return map;
   }
 
-  async getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null> {
+  // ⚠ `orgId` is accepted (2026-08-09 / #785, see `ports.ts`'s header on why every method now
+  // takes it) but deliberately IGNORED here: this fixture serves the SAME canned tree to any
+  // caller regardless of tenant -- it was never claiming to be tenant-scoped, and adding a
+  // fake per-org filter to a fixture would just be a second, redundant place to get that
+  // filtering logic wrong. The real (Postgres) implementation is what actually enforces it.
+
+  async getDirectory(_orgId: OrgId, assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null> {
     const base = this.baseFilesFor(assetKind);
     const files = this.liveFiles(assetKind, assetId);
     if (base === null || files === null) return null;
@@ -151,7 +158,7 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
     };
   }
 
-  async readFile(assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null> {
+  async readFile(_orgId: OrgId, assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null> {
     const files = this.liveFiles(assetKind, assetId);
     if (files === null) return null;
     const body = files.get(path);
@@ -159,14 +166,14 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
     return { sizeBytes: sizeOf(body), body };
   }
 
-  async writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null> {
+  async writeFile(_orgId: OrgId, assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null> {
     const files = this.liveFiles(assetKind, assetId);
     if (files === null || !files.has(path)) return null;
     files.set(path, body);
     return { sizeBytes: sizeOf(body), body };
   }
 
-  async deleteFile(assetKind: AssetKind, assetId: string, path: string): Promise<string | null> {
+  async deleteFile(_orgId: OrgId, assetKind: AssetKind, assetId: string, path: string): Promise<string | null> {
     const files = this.liveFiles(assetKind, assetId);
     if (files === null || !files.has(path)) return null;
     files.delete(path);
@@ -174,6 +181,7 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
   }
 
   async renameFile(
+    _orgId: OrgId,
     assetKind: AssetKind,
     assetId: string,
     from: string,

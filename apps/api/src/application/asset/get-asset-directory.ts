@@ -54,7 +54,7 @@ export async function getAssetDirectory(
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new AssetOrgScopeDeniedError();
 
-  const record = await deps.assets.getDirectory(input.assetKind, input.assetId);
+  const record = await deps.assets.getDirectory(input.orgId, input.assetKind, input.assetId);
   if (record === null) throw new AssetNotFoundError();
 
   const built = buildAssetDirectory(record.rootFile, record.entries);

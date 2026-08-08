@@ -363,8 +363,12 @@ import {
   ASSET_OWNER_STATUS_PORT,
   ASSET_RUNTIME_LOADER_PORT,
   REVIEW_CLOCK_REPOSITORY,
+  type AssetFileRepository,
 } from "./application/asset/ports";
 import { FixtureAssetFileRepository } from "./infrastructure/asset/fixture-asset-file-repository";
+// #785: real Postgres backing for `skill`. Non-skill kinds (`agent` included, see its own
+// header -- #787) still delegate to the fixture above.
+import { PgAssetFileRepository } from "./infrastructure/asset/pg-asset-file-repository";
 // F143: I-6's runtime-load seam -- see `application/asset/ports.ts`'s `AssetRuntimeLoaderPort`
 // header for why this delegates straight to the same `AssetFileRepository`.
 import { DirectoryBackedAssetRuntimeLoader } from "./infrastructure/asset/directory-backed-asset-runtime-loader";
@@ -941,8 +945,15 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
-    // F141: fixture-backed (2/6 AssetKinds, AG4) -- see the class header for why.
-    { provide: ASSET_FILE_REPOSITORY, useFactory: () => new FixtureAssetFileRepository() },
+    // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
+    // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
+    // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
+    // class header for why `agent` stays fixture-backed for now (#787).
+    {
+      provide: ASSET_FILE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAssetFileRepository(db, new FixtureAssetFileRepository()),
+      inject: [DATABASE_PORT],
+    },
     // F134: in-memory (no persisted store across all six AssetKinds yet, AG1) -- see the
     // repository's class header for why.
     { provide: ASSET_GOVERNANCE_REPOSITORY, useFactory: () => new InMemoryAssetGovernanceRepository() },
@@ -957,7 +968,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     // why this is I-6's actual fix, not a shortcut.
     {
       provide: ASSET_RUNTIME_LOADER_PORT,
-      useFactory: (assets: FixtureAssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
+      useFactory: (assets: AssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
       inject: [ASSET_FILE_REPOSITORY],
     },
     // F140: no "deactivated account" signal exists in this org model yet -- see the class

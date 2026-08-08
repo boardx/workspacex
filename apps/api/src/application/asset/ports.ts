@@ -12,6 +12,7 @@
 import type { z } from "zod";
 import type { AssetKind as AssetKindSchema } from "@repo/contracts/asset-governance";
 import type { ReviewClockRecord } from "../../domain/asset/asset-review-clock";
+import type { OrgId } from "../../domain/org-id";
 
 export type AssetKind = z.infer<typeof AssetKindSchema>;
 
@@ -35,32 +36,49 @@ export interface AssetRenamedFileRecord extends AssetFileContentRecord {
   readonly path: string;
 }
 
+/**
+ * ⚠ **2026-08-09 / #785: `orgId` added as every method's first parameter.** Originally (F141)
+ * this port had NO tenant parameter at all -- harmless for the phase-1 fixture/in-memory
+ * backing, which serves the same canned tree to every `assetId` regardless of caller. It stops
+ * being harmless the moment a REAL Postgres-backed implementation exists: `skills` /
+ * `skill_versions` / `skill_version_files` are RLS-scoped tables (`org_id = current_setting
+ * ('app.current_org', true)`), and the app role has no `BYPASSRLS` (`pg-config.ts`'s own table:
+ * "NOT a table owner, no BYPASSRLS, no DDL"). Without `orgId` there is no legal way for a real
+ * repository to even ISSUE the query -- `db.withTenant` needs an org to scope the transaction
+ * to, and there is no cross-tenant "resolve org from a bare id" lookup available to the app
+ * role (by design; see `pg-config.ts`). Worse than "can't query": a lookup that tried to guess
+ * or bypass this would be a cross-tenant read/write hole, since nothing else in this call chain
+ * checks that the resolved asset actually belongs to the CALLER's org. Adding `orgId` here is
+ * not new ceremony -- it is this port catching up to the convention every other tenant-scoped
+ * repository in this kernel already follows (`orgId` first, e.g. `pg-agent-run-repository.ts`'s
+ * `claimQueued(orgId, ...)` / `appendStep(orgId, ...)`).
+ */
 export interface AssetFileRepository {
   /** `null` = this (kind, assetId) has no directory -- unknown asset, or a kind out of scope. */
-  getDirectory(assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null>;
+  getDirectory(orgId: OrgId, assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null>;
   /** `null` = the asset has no directory, or the directory has no such path. One outcome for both. */
-  readFile(assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null>;
+  readFile(orgId: OrgId, assetKind: AssetKind, assetId: string, path: string): Promise<AssetFileContentRecord | null>;
   /**
    * `WriteAssetFile` (F142) -- persists `body` at `path`, returning the new size. `null` is the
    * SAME collapsed outcome as `readFile`: unknown (kind, assetId), or the directory has no such
    * path -- this port does not create new paths (that's `CreateAssetFile`, out of this
    * feature's scope).
    */
-  writeFile(assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null>;
+  writeFile(orgId: OrgId, assetKind: AssetKind, assetId: string, path: string, body: string): Promise<AssetFileContentRecord | null>;
   /**
    * `DeleteAssetFile` (F143) -- removes `path` from the directory, returning the deleted path.
    * `null` = unknown (kind, assetId), or no such path. **This port never sees the root file**:
    * the use case rejects `path === rootFile` with `ROOT_FILE_UNDELETABLE` before calling here
    * (`uc-23-3` I-7) -- the port has no opinion of its own on which path is the root.
    */
-  deleteFile(assetKind: AssetKind, assetId: string, path: string): Promise<string | null>;
+  deleteFile(orgId: OrgId, assetKind: AssetKind, assetId: string, path: string): Promise<string | null>;
   /**
    * `RenameAssetFile` (F143) -- moves `from` to `to`, returning the record at its new path.
    * `null` = unknown (kind, assetId), or `from` does not exist. **Never sees the root file
    * as `from`** -- same gate as `deleteFile`, checked by the use case (renaming the root is
    * defined as equivalent to deleting it, per the contract's own note on `renameAssetFile`).
    */
-  renameFile(assetKind: AssetKind, assetId: string, from: string, to: string): Promise<AssetRenamedFileRecord | null>;
+  renameFile(orgId: OrgId, assetKind: AssetKind, assetId: string, from: string, to: string): Promise<AssetRenamedFileRecord | null>;
 }
 
 export const ASSET_FILE_REPOSITORY = Symbol("AssetFileRepository");
@@ -163,7 +181,7 @@ export const REVIEW_CLOCK_REPOSITORY = Symbol("ReviewClockRepository");
  */
 export interface AssetRuntimeLoaderPort {
   /** `null` = same collapsed not-found outcome as `AssetFileRepository.getDirectory`. */
-  loadedFilePaths(assetKind: AssetKind, assetId: string): Promise<readonly string[] | null>;
+  loadedFilePaths(orgId: OrgId, assetKind: AssetKind, assetId: string): Promise<readonly string[] | null>;
 }
 
 export const ASSET_RUNTIME_LOADER_PORT = Symbol("AssetRuntimeLoaderPort");

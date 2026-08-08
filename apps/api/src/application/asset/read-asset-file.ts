@@ -36,7 +36,7 @@ export async function readAssetFile(
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new AssetOrgScopeDeniedError();
 
-  const record = await deps.assets.readFile(input.assetKind, input.assetId, input.path);
+  const record = await deps.assets.readFile(input.orgId, input.assetKind, input.assetId, input.path);
   if (record === null) throw new AssetNotFoundError();
 
   return {
