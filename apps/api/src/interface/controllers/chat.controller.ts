@@ -133,6 +133,7 @@ import {
   MissingProvenanceBacklinkError,
   NoWriteRoleError as LandNoWriteRoleError,
 } from "../../application/chat/land-as-artifact";
+import { summarizePersonaFromThread } from "../../application/chat/summarize-persona-from-thread";
 import {
   ArtifactLandingNotFoundError,
   checkDownstreamEligibility,
@@ -171,6 +172,7 @@ export const START_PRESET_INSTANCE_SCHEMA = C.operations.startPresetInstance.in;
 export const CREATE_APPROVAL_REQUEST_SCHEMA = C.operations.createApprovalRequest.in;
 export const DECIDE_APPROVAL_SCHEMA = C.operations.decideApproval.in;
 export const LAND_AS_ARTIFACT_SCHEMA = C.operations.landAsArtifact.in;
+export const SUMMARIZE_PERSONA_SCHEMA = C.operations.summarizePersonaFromThread.in;
 export const CHECK_DOWNSTREAM_ELIGIBILITY_SCHEMA = C.operations.checkDownstreamEligibility.in;
 
 type ResolveBody = { actorId: string; projectId: string | null; threadId: string | null; resourceKind: "thread" | "message" | "transcript" | "file" };
@@ -226,6 +228,10 @@ type LandAsArtifactBody = {
   mode: LandingModeName;
   title: string;
   payloadRef: string;
+};
+type SummarizePersonaBody = {
+  threadId: string;
+  messageId: string;
 };
 type CheckDownstreamEligibilityBody = {
   artifactId: string;
@@ -1018,6 +1024,49 @@ export class ChatController {
       if (e instanceof CitationUnresolvableRequiresDraftError) {
         throw new UnprocessableEntityException({ reasonCode: "CITATION_UNRESOLVABLE_REQUIRES_DRAFT" });
       }
+      if (e instanceof LandMaterializationFailedError) {
+        throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
+      }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 把内置 canvas 模板 `persona` 接到 chat 里：扫描线程正文里已经真实写出的画像信息，
+   * 落地成一份 Artifact（`summarizePersonaFromThread`，🟡 待人类补签，见
+   * `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。状态码同 `landAsArtifactRoute`——本操作只是
+   * `landAsArtifact` 前面多一段「从线程正文里如实收敛出 title/payloadRef」，错误
+   * 出口是同一批。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/chat/threads/:threadId/persona-summary")
+  async summarizePersonaRoute(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Body(new ZodBodyPipe(SUMMARIZE_PERSONA_SCHEMA)) body: SummarizePersonaBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await summarizePersonaFromThread(
+        {
+          ...this.deps,
+          artifacts: this.artifacts,
+          store: this.store,
+          artifactIds: this.artifactIds,
+          landings: this.landings,
+          provenance: this.provenance,
+        },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          threadId: body.threadId ?? threadId,
+          messageId: body.messageId,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof LandNoWriteRoleError) throw new ForbiddenException({ reasonCode: "NO_WRITE_ROLE" });
       if (e instanceof LandMaterializationFailedError) {
         throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
       }

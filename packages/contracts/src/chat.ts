@@ -912,6 +912,47 @@ export const operations = {
   },
 
   /**
+   * summarizePersonaFromThread —— 🟡 **design-delta，待人类补签**（同 canvas 束
+   * `createTemplate` #496 的先例：coord-main 代裁「先做、登记待补签」，见
+   * `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。
+   *
+   * 把内置 canvas 模板 `persona`（`canvas.BUILTIN_CANVAS_TEMPLATES.persona`）「在 chat
+   * 里用起来」——扫描线程里已经真实写出的画像信息，落地成一份 Artifact。**机制委托**
+   * 同 `landAsArtifact`（D-38）：本操作只是在调用 `landAsArtifact` 之前，先把
+   * `title` / `payloadRef` 从线程正文里如实收敛出来，不新起一套落地机制。
+   *
+   * ⚠ **不编造**：字段/分区只在线程正文里出现过 `persona` 模板自己的文本语法
+   *   （`字段: 值` / `## 分区名` / `- 要点`，见 `@repo/fabric-markdown` 的
+   *   `parseTemplateText`）时才会被采纳；线程里一条都没有时，`sufficient: false`
+   *   且落地内容是明说「信息不足」的占位模板，不是虚构的画像。
+   * ⚠ mode 恒为 `draft`（`landAsArtifact.in` 的 `LandingMode` 三选一里最不需要
+   *   前置条件的一档）——这个操作产出的是「AI 从对话里读出来的草稿」，不是人已经
+   *   确认过的定论，定版留给使用者之后手动走 `landAsArtifact`。
+   */
+  summarizePersonaFromThread: {
+    method: "POST", path: "/chat/threads/:threadId/persona-summary",
+    in: z.object({
+      threadId: z.string(),
+      messageId: z.string(),
+    }).strict(),
+    out: z.object({
+      artifactId: z.string(),
+      versionId: z.string().nullable(),
+      contentHash: z.string().nullable(),
+      mode: LandingMode,
+      hasSource: z.boolean(),
+      /** 线程里有没有找到任何可辨认的画像信息——false 时落地内容是「信息不足」占位。 */
+      sufficient: z.boolean(),
+      provenanceBacklink: z.object({
+        conversationId: z.string(),
+        messageId: z.string(),
+        citations: z.array(Citation),
+      }).strict(),
+    }).strict(),
+    err: ["NOT_VISIBLE", "NO_WRITE_ROLE", "STORAGE_UNAVAILABLE"] as const,
+  },
+
+  /**
    * checkDownstreamEligibility —— 引用资格门。
    * ⚠ **这个门必须是 phase-00 `artifact.referenceForDownstream` 那一个**（I-34）——
    *   对话侧**不自己判「是不是快照」**。本端口是那个门的**投影**，不是第二道门。
@@ -1339,4 +1380,18 @@ export const KNOWN_CONTRACT_GAPS = {
    * 是一个已登记的简化，不是"同一个门"的完整落地。
    */
   C_CHAT_10: "landAsArtifact.in carries no agendaSegmentId, so UC-20/21 do not route through phase-00 bindToProjectStep/referenceForDownstream; mode-gating is reimplemented on chat's own landing table instead",
+
+  /**
+   * **`summarizePersonaFromThread` 本身待人类补签**（同 `createTemplate` #496 的先例）。
+   *
+   * 这是「canvas 模板要能在 chat 里被使用」这句人类原话落地时新起的一个操作，签核前
+   * 由 coord-main 代裁「先做」。人类回来后要么补签，要么推翻并回退本操作与它的实现
+   * （`apps/api/src/application/chat/summarize-persona-from-thread.ts`）。
+   *
+   * ⚠ 补签时一并裁：mode 是否应该开放 `live`/`pinned`（本操作目前恒 `draft`，理由见
+   *   操作自身注释）；`sufficient: false` 时是否应该改为直接拒绝（`err`）而不是落地
+   *   一份占位产物——当前选择「如实落地占位」是为了让「AI 尝试过、但线程里没有材料」
+   *   这件事本身留痕（同一份「不编造」的证据，比一个静默的 4xx 更看得见）。
+   */
+  C_CHAT_11: "summarizePersonaFromThread is pending human sign-off, following the createTemplate (#496) precedent; open questions are whether mode should ever be live/pinned and whether the insufficient-data case should reject instead of landing a placeholder",
 } as const;
