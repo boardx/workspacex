@@ -182,19 +182,24 @@ export const AgentRunStatus = z.enum([
 ]);
 
 /**
- * The four steps the delta enumerates in §5, verbatim.
+ * The four steps the delta enumerates in §5, verbatim, plus `tool_call` (#725 tool-calling
+ * loop).
  *
  * `chat_writeback` was listed ahead of its implementation so #413 would not have to widen a
  * vocabulary while implementing against it. Since #413 it is emitted for real — once per
  * run, `succeeded` when the writeback transaction commits and `failed` with
  * `CHAT_WRITEBACK_FAILED` when the bounded retry budget runs out.
  *
+ * `tool_call` is new: one per skill-as-tool invocation the orchestrator model requested,
+ * recorded BEFORE the loop's next round so a client polling mid-run sees each real
+ * invocation as it happens, not a summary reconstructed after the fact.
+ *
  * ⚠ This enum and `agent_run_steps_kind_check` in the migration are the same fact. They
  * are kept in one place the only way a zod enum and a SQL CHECK can be: a test reads the
  * constraint out of `pg_constraint` and asserts set equality with `.options`.
  */
 export const AgentRunStepKind = z.enum([
-  "accepted", "context_built", "model_called", "chat_writeback",
+  "accepted", "context_built", "model_called", "tool_call", "chat_writeback",
 ]);
 
 export const AgentRunStepStatus = z.enum(["succeeded", "failed"]);
@@ -241,6 +246,15 @@ export const AgentRunError = z.enum([
    * means "no further progress without an explicit human retry", not "unreachable forever".
    */
   "CHAT_WRITEBACK_FAILED",
+  /**
+   * The tool-calling loop (#725) ran `TOOL_LOOP_MAX_ROUNDS` rounds of "model asks for a
+   * tool → tool runs → result fed back" without the model ever returning a final answer.
+   * A bounded loop that stops is the honest outcome here — the alternative is a run that
+   * never terminates, which is the one thing §5's "no fallback, no retry" discipline is
+   * built to prevent from happening silently. No fabricated "here is my best guess" text
+   * is produced; the run fails, visibly, with this code.
+   */
+  "TOOL_LOOP_LIMIT_EXCEEDED",
 ]);
 
 export const AgentRunStep = z.object({
@@ -252,6 +266,16 @@ export const AgentRunStep = z.object({
   inputDigest: z.string().nullable(),
   outputDigest: z.string().nullable(),
   failureCode: AgentRunError.nullable(),
+  /**
+   * `tool_call` steps only (#725). NOT a digest: the whole point of a `tool_call` step is
+   * that a human watching the run can see WHICH skill it called, WITH WHAT, and WHAT CAME
+   * BACK — chat-ux-acceptance-criteria.md item 3 — so a hash is useless here. Truncated to
+   * a short summary (never the full skill body, which stays digest-only via
+   * `inputDigest`/`outputDigest` exactly as before). Always `null` for every other kind.
+   */
+  toolName: z.string().max(128).nullable(),
+  toolArgsSummary: z.string().max(1000).nullable(),
+  toolResultSummary: z.string().max(1000).nullable(),
 }).strict();
 
 export const AgentRunView = z.object({

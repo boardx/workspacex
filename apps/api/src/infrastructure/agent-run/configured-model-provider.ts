@@ -36,9 +36,18 @@
  * actually means here: default `0` reproduces every byte of pre-阶段2a behaviour, and
  * turning it on is a deliberate, separately-reviewable rollout step, not a side effect
  * of this PR merging.
+ *
+ * ## `tools`/tool calls (#725)
+ *
+ * `complete()` only. `input.tools` maps to the wire's `tools[].function.{name,description,
+ * parameters}` and is OMITTED (not sent as `[]`) when empty, so a run with no pinned
+ * Skills sends the exact pre-#725 body. A response's `message.tool_calls` is parsed back
+ * into `ToolCallRequest[]`; `content: null` alongside a non-empty `tool_calls` is treated
+ * as "the model chose to call a tool", not "no content" (see `complete()`'s own check).
+ * `completeStream` does NOT gain this -- see its own doc comment on `ModelCallPort` for why.
  */
 import type {
-  ModelCallInput, ModelCallPort,
+  ModelCallInput, ModelCallPort, ToolCallRequest,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 
@@ -81,18 +90,89 @@ export function readModelProviderConfig(
  * request shape, and a second inlined copy is exactly the kind of duplication this
  * repository's own discipline (AGENTS.md: "同一事实不得声明在两处") calls out by name.
  */
-function buildMessages(
-  input: ModelCallInput,
-): { readonly role: string; readonly content: string }[] {
+/** One OpenAI-compatible `messages[]` entry. `tool_calls`/`tool_call_id` only appear on the
+ * shapes that need them (assistant-with-tool-calls / tool-result respectively) -- an
+ * object type wide enough to cover every role rather than a union, because this is what
+ * gets `JSON.stringify`d straight into the request body and a union would need a cast at
+ * the call site for no behavioural benefit. */
+interface WireMessage {
+  readonly role: string;
+  readonly content: string | null;
+  readonly tool_calls?: readonly {
+    readonly id: string;
+    readonly type: "function";
+    readonly function: { readonly name: string; readonly arguments: string };
+  }[];
+  readonly tool_call_id?: string;
+}
+
+/**
+ * #709's system/history/user shape, extended by #725 with this run's tool-loop scratch
+ * state (`input.toolExchange`) appended AFTER the current turn -- exactly the OpenAI
+ * `tools` wire convention: an assistant message carrying `tool_calls`, followed by one
+ * `role: "tool"` message per call carrying that call's result, keyed by `tool_call_id`.
+ * Absent/empty `toolExchange` (every pre-#725 caller) reproduces the exact prior shape.
+ */
+function buildMessages(input: ModelCallInput): readonly WireMessage[] {
+  const exchange = (input.toolExchange ?? []).map((turn): WireMessage => (
+    turn.kind === "assistant_tool_calls"
+      ? {
+        role: "assistant",
+        content: null,
+        tool_calls: turn.toolCalls.map((call) => ({
+          id: call.id,
+          type: "function" as const,
+          function: { name: call.name, arguments: call.argumentsJson },
+        })),
+      }
+      : { role: "tool", content: turn.content, tool_call_id: turn.toolCallId }
+  ));
   return [
     { role: "system", content: input.system },
     ...(input.history ?? []).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: input.user },
+    ...exchange,
   ];
 }
 
+/** `ToolDefinition[]` (this codebase's port-facing shape) to the OpenAI-compatible wire
+ * shape (`tools[].function.{name,description,parameters}`) -- the mapping this adapter
+ * exists to own so nothing above it needs to know the wire format. */
+function buildToolsPayload(
+  tools: ModelCallInput["tools"],
+): { readonly type: "function"; readonly function: Record<string, unknown> }[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return tools.map((t) => ({
+    type: "function" as const,
+    function: { name: t.name, description: t.description, parameters: t.parametersSchema },
+  }));
+}
+
+interface WireToolCall {
+  id?: unknown;
+  function?: { name?: unknown; arguments?: unknown };
+}
+
+/** The wire response's `message.tool_calls`, filtered down to entries with the three
+ * fields this codebase actually needs -- a malformed entry (missing id/name) is DROPPED,
+ * not fatal to the whole response: the caller decides what "the model asked for a tool it
+ * did not name properly" means, this adapter only refuses to fabricate an id or a name. */
+function parseToolCalls(raw: unknown): readonly ToolCallRequest[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const calls: ToolCallRequest[] = [];
+  for (const entry of raw as WireToolCall[]) {
+    const id = entry.id;
+    const name = entry.function?.name;
+    const args = entry.function?.arguments;
+    if (typeof id === "string" && typeof name === "string" && typeof args === "string") {
+      calls.push({ id, name, argumentsJson: args });
+    }
+  }
+  return calls.length > 0 ? calls : undefined;
+}
+
 interface CompletionResponse {
-  choices?: { message?: { content?: unknown } }[];
+  choices?: { message?: { content?: unknown; tool_calls?: unknown } }[];
   usage?: { total_tokens?: unknown };
 }
 
@@ -124,7 +204,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
       : undefined;
   }
 
-  async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+  async complete(input: ModelCallInput): Promise<
+    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+  > {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -156,6 +238,10 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream: false,
           messages: buildMessages(input),
+          // #725: omitted entirely (not `[]`) when this run offers no tools, so a
+          // deployment's provider that rejects an empty `tools` array sees NO field at
+          // all -- exactly the pre-#725 request body for every run without pinned Skills.
+          ...(buildToolsPayload(input.tools) ? { tools: buildToolsPayload(input.tools) } : {}),
         }),
       });
     } catch {
@@ -180,10 +266,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
     } catch {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider response was not JSON");
     }
-    const content = parsed.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || content.trim() === "") {
-      // Fail rather than return "". A blank completion turned into an assistant message is
-      // a fabricated reply, and the run would read as succeeded.
+    const message = parsed.choices?.[0]?.message;
+    const toolCalls = parseToolCalls(message?.tool_calls);
+    const content = message?.content;
+    // #725: a tool-calling turn routinely carries `content: null` -- that is NOT "no
+    // content" when `toolCalls` says the model asked for a tool instead. The pre-#725
+    // failure (blank completion ⇒ fabricated reply) still applies whenever it did not.
+    if ((typeof content !== "string" || content.trim() === "") && toolCalls === undefined) {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content");
     }
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
@@ -192,7 +281,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const tokens = typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0
       ? reportedTokens
       : undefined;
-    return { text: content, tokens };
+    return { text: typeof content === "string" ? content : "", tokens, toolCalls };
   }
 
   /**
