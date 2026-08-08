@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare, RefreshCw, Users } from "lucide-react";
+import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
@@ -18,11 +19,13 @@ import {
   deleteThread,
   getAgentPanel,
   getThread,
+  listThreadArtifacts,
   listThreads,
   renameThread,
   updateAgentRoster,
   type GetAgentPanelOut,
   type GetThreadOut,
+  type ListThreadArtifactsOut,
   type ListThreadsOut,
   type ThreadCard,
 } from "@/lib/live-chat";
@@ -86,6 +89,11 @@ export function ChatReadScreen({
   const [rosterResult, setRosterResult] = React.useState<Sourced<GetAgentPanelOut> | null>(null);
   const [rosterLoadingKey, setRosterLoadingKey] = React.useState<string | null>(null);
   const [rosterFailure, setRosterFailure] = React.useState<Sourced<string> | null>(null);
+  // 十项 UX 缺口第 4/5 项（#708）—— 右栏「产物」列表，与 `roster` 同一套
+  // key/loading/failure 纪律，跟 `detail`/`roster` 一起在 `loadSelectedThread` 并发读取。
+  const [artifactsResult, setArtifactsResult] = React.useState<Sourced<ListThreadArtifactsOut> | null>(null);
+  const [artifactsLoadingKey, setArtifactsLoadingKey] = React.useState<string | null>(null);
+  const [artifactsFailure, setArtifactsFailure] = React.useState<Sourced<string> | null>(null);
   const listGeneration = React.useRef(0);
   const detailGeneration = React.useRef(0);
 
@@ -98,6 +106,9 @@ export function ChatReadScreen({
   const roster = rosterResult?.key === detailKey ? rosterResult.value : null;
   const rosterLoading = rosterLoadingKey === detailKey;
   const rosterError = rosterFailure?.key === detailKey ? rosterFailure.value : null;
+  const artifacts = artifactsResult?.key === detailKey ? artifactsResult.value : null;
+  const artifactsLoading = artifactsLoadingKey === detailKey;
+  const artifactsError = artifactsFailure?.key === detailKey ? artifactsFailure.value : null;
 
   const loadThreads = React.useCallback(async () => {
     if (!projectId || !bearer || !sourceKey) return;
@@ -140,11 +151,14 @@ export function ChatReadScreen({
     const generation = ++detailGeneration.current;
     setDetailLoadingKey(key);
     setRosterLoadingKey(key);
+    setArtifactsLoadingKey(key);
     setDetailFailure(null);
     setRosterFailure(null);
-    const [nextDetail, nextRoster] = await Promise.allSettled([
+    setArtifactsFailure(null);
+    const [nextDetail, nextRoster, nextArtifacts] = await Promise.allSettled([
       getThread(selectedThreadId, projectId, bearer),
       getAgentPanel(selectedThreadId, projectId, bearer),
+      listThreadArtifacts(selectedThreadId, projectId, bearer),
     ]);
     if (generation !== detailGeneration.current) return;
     if (nextDetail.status === "fulfilled") {
@@ -159,8 +173,15 @@ export function ChatReadScreen({
       setRosterResult(null);
       setRosterFailure({ key, value: describeFailure(nextRoster.reason) });
     }
+    if (nextArtifacts.status === "fulfilled") {
+      setArtifactsResult({ key, value: nextArtifacts.value });
+    } else {
+      setArtifactsResult(null);
+      setArtifactsFailure({ key, value: describeFailure(nextArtifacts.reason) });
+    }
     setDetailLoadingKey(null);
     setRosterLoadingKey(null);
+    setArtifactsLoadingKey(null);
   }, [bearer, detailKey, projectId, selectedThreadId]);
 
   React.useEffect(() => {
@@ -354,18 +375,28 @@ export function ChatReadScreen({
         />
       )}
       right={(
-        <RosterPanel
-          roster={roster}
-          loading={rosterLoading}
-          error={rosterError}
-          hasSelection={selectedThreadId !== null}
-          canMutate={canMutate}
-          pending={rosterPending}
-          mutateFailure={rosterMutateFailure}
-          onAdd={handleRosterAdd}
-          onRemove={handleRosterRemove}
-          onRetry={() => void loadSelectedThread()}
-        />
+        <div className="flex h-full flex-col">
+          <RosterPanel
+            roster={roster}
+            loading={rosterLoading}
+            error={rosterError}
+            hasSelection={selectedThreadId !== null}
+            canMutate={canMutate}
+            pending={rosterPending}
+            mutateFailure={rosterMutateFailure}
+            onAdd={handleRosterAdd}
+            onRemove={handleRosterRemove}
+            onRetry={() => void loadSelectedThread()}
+          />
+          <Separator />
+          <ChatArtifactsPanel
+            hasSelection={selectedThreadId !== null}
+            artifacts={artifacts}
+            loading={artifactsLoading}
+            error={artifactsError}
+            onRetry={() => void loadSelectedThread()}
+          />
+        </div>
       )}
     >
       <ThreadDetail
@@ -379,6 +410,7 @@ export function ChatReadScreen({
         loading={detailLoading}
         error={detailError}
         onRetry={() => void loadSelectedThread()}
+        onArtifactLanded={() => void loadSelectedThread()}
       />
     </AppShell>
   );
@@ -605,6 +637,7 @@ function ThreadMeta({ card }: { card: ThreadCard }) {
 
 function ThreadDetail({
   projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
+  onArtifactLanded,
 }: {
   projectId: string;
   currentOrgId: string | null;
@@ -616,6 +649,7 @@ function ThreadDetail({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  onArtifactLanded: () => void;
 }) {
   if (loading && detail === null) return <CenteredState>正在读取线程详情…</CenteredState>;
   if (error) return <ErrorState testId="chat-thread-detail-error" message={error} retryTestId="chat-thread-detail-retry" onRetry={onRetry} />;
@@ -662,6 +696,7 @@ function ThreadDetail({
           bearer={bearer}
           agents={roster?.agents ?? null}
           archived={detail.thread.archived}
+          onArtifactLanded={onArtifactLanded}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>
