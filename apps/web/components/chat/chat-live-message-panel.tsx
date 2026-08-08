@@ -1,10 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Bot, RefreshCw, Send, UserRound } from "lucide-react";
+import { Bot, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { Markdown } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
+  landAsArtifact,
   listMessages,
   type CreateMessageInput,
   type DurableMessage,
@@ -16,6 +19,8 @@ import {
   type AgentRunStatus,
   type AgentRunView,
 } from "@/lib/agent-run";
+import { openAgentRunStream } from "@/lib/agent-run-stream";
+import { useAsrDraft } from "@/lib/use-asr-draft";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,11 +60,18 @@ export function ChatLiveMessagePanel({
   bearer,
   agents,
   archived,
+  onArtifactLanded,
 }: {
   threadId: string;
   bearer: string;
   agents: GetAgentPanelOut["agents"] | null;
   archived: boolean;
+  /**
+   * 十项 UX 缺口第 5 项（issue #708）—— 某条消息成功落地为产物后的通知。
+   * 调用方（`chat-read-screen.tsx`）借此重读右栏「产物」列表——单一事实源仍是
+   * `listThreadArtifacts` 的服务端响应，这里不在本组件内维护第二份产物计数。
+   */
+  onArtifactLanded?: () => void;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -83,7 +95,39 @@ export function ChatLiveMessagePanel({
    */
   const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
   const [runObservation, setRunObservation] = React.useState<RunObservation | null>(null);
+  /**
+   * #654 阶段2d —— 逐 token 累积的草稿文本，与上面 `runObservation` 刻意分开维护。
+   *
+   * `runObservation` 仍然是唯一的权威状态源（来自 `GET /agent-runs/:runId` 轮询，
+   * 一个字节没改），驱动着已经有测试钉住的 `AgentRunStatus` 状态条。`streamingText`
+   * 只是一层纯展示的叠加：`KERNEL_MODEL_STREAM_ENABLED` 关闭（当前默认）或所选
+   * provider 不支持流式时，`GET /agent-runs/:runId/stream` 永远不会推来任何
+   * `delta` 事件，这里就永远是空串——退化到今天这个界面本来的样子，一个字节不多。
+   */
+  const [streamingText, setStreamingText] = React.useState("");
+  /**
+   * 十项 UX 缺口第 5 项（issue #708）—— 「落地为产物（草稿）」的按消息状态。
+   * ⚠ 只允许 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
+   *   而 citations 的写入路径目前不存在（见 `land-as-artifact.ts` 与本组件顶部
+   *   `landAsArtifact` 的引入注释），提供那两个选项会摆一个必炸的按钮。
+   */
+  const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
   const generation = React.useRef(0);
+  /**
+   * #726 —— 麦克风开始录音那一刻要读到"此刻输入框里的文字"作为追加基线，而
+   * `useSpeechTranscription` 的 `start()` 是一个稳定回调（不随每次按键重建），所以基线读取
+   * 必须走 ref 而不是闭包捕获的 `text`——否则会追加到"点击麦克风那一刻组件首次渲染时的
+   * text"，用户点麦克风前刚手打的内容就会被追加逻辑错误地忽略或覆盖。
+   */
+  const textRef = React.useRef(text);
+  textRef.current = text;
+  const speech = useAsrDraft({
+    getBaseText: () => textRef.current,
+    onTranscript: (fullText) => updateDraft({ text: fullText }),
+    sessionToken: bearer,
+  });
+  const speechStopRef = React.useRef(speech.stop);
+  speechStopRef.current = speech.stop;
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
     : agents?.[0]?.id ?? "";
@@ -129,6 +173,9 @@ export function ChatLiveMessagePanel({
     void loadPage(null, true);
     return () => {
       generation.current += 1;
+      // #726 —— 切换线程（sourceKey 变化）或组件卸载时，正在进行的语音录音必须停止，
+      // 否则用户切到另一个对话后，麦克风还在把语音写进已经不属于这个 draft 的地方。
+      speechStopRef.current();
     };
   }, [loadPage, sourceKey]);
 
@@ -201,6 +248,49 @@ export function ChatLiveMessagePanel({
     };
   }, [activeRunId, bearer, loadPage]);
 
+  /**
+   * #654 阶段2d —— 逐 token 追加。与上面的状态轮询是两个独立的 effect，各自
+   * `useEffect([activeRunId, ...])`，互不依赖：这条流断了（网络问题、服务端还没打开
+   * `KERNEL_MODEL_STREAM_ENABLED`）不影响上面状态条的权威轮询继续工作；上面的轮询
+   * 到终态后照旧 `loadPage(null, true)` 重读持久消息——那才是最终渲染的真源，
+   * 这里的 `streamingText` 只是等待持久化期间的观感，终态一到就清空（下面的
+   * `onEvent` 分支）。
+   */
+  React.useEffect(() => {
+    const runId = activeRunId;
+    setStreamingText("");
+    if (runId === null) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void openAgentRunStream(runId, (event) => {
+      if (cancelled) return;
+      if (event.type === "delta") {
+        setStreamingText((current) => current + event.text);
+      } else if (event.type === "final" || event.type === "timeout") {
+        // The persisted message list (via the status-poll effect's `loadPage`) is about
+        // to become the single source of truth for this reply -- keeping the streamed
+        // draft around after that would risk showing the SAME text twice for a moment.
+        setStreamingText("");
+      }
+    }, { sessionToken: bearer, signal: controller.signal }).catch(() => {
+      // Streaming is a progressive enhancement, not a requirement: `runObservation`'s own
+      // poll (above) is the authoritative status/result source regardless of whether this
+      // connection ever opens at all. A failure here is silently absorbed on purpose --
+      // surfacing it as a user-facing error would be reporting a problem with a purely
+      // cosmetic feature as if it were the send itself failing.
+      if (!cancelled) setStreamingText("");
+    });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [activeRunId, bearer]);
+
+  // 十项 UX 缺口第 6 项（issue #712）——规则驱动的建议后续操作。
+  const followUpSuggestions = computeFollowUpSuggestions(messages, archived);
+
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
     const nextAgentId = next.agentId ?? selectedAgentId;
@@ -247,6 +337,54 @@ export function ChatLiveMessagePanel({
     }
   };
 
+  const openLandForm = (message: DurableMessage) => {
+    setLandingState((current) => ({
+      ...current,
+      [message.id]: { status: "form", title: defaultArtifactTitle(message.text) },
+    }));
+  };
+
+  const updateLandTitle = (messageId: string, title: string) => {
+    setLandingState((current) => {
+      const existing = current[messageId];
+      if (!existing || existing.status !== "form") return current;
+      return { ...current, [messageId]: { ...existing, title } };
+    });
+  };
+
+  const cancelLand = (messageId: string) => {
+    setLandingState((current) => {
+      const rest = { ...current };
+      delete rest[messageId];
+      return rest;
+    });
+  };
+
+  const submitLand = async (message: DurableMessage) => {
+    const entry = landingState[message.id];
+    if (!entry || entry.status !== "form") return;
+    const title = entry.title.trim();
+    if (title === "") return;
+    setLandingState((current) => ({ ...current, [message.id]: { status: "submitting", title } }));
+    try {
+      const result = await landAsArtifact(
+        threadId,
+        { messageId: message.id, mode: "draft", title, payloadRef: message.text },
+        bearer,
+      );
+      setLandingState((current) => ({
+        ...current,
+        [message.id]: { status: "done", title, artifactId: result.artifactId },
+      }));
+      onArtifactLanded?.();
+    } catch (failure) {
+      setLandingState((current) => ({
+        ...current,
+        [message.id]: { status: "error", title, error: describeMessageFailure(failure, "落地为产物") },
+      }));
+    }
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -264,17 +402,83 @@ export function ChatLiveMessagePanel({
           </div>
         ) : null}
         {messages.length > 0 ? (
-          <ol className="flex flex-col gap-3" data-testid="chat-message-list">
-            {messages.map((message) => (
-              <li key={message.id} className="rounded-md border border-border-subtle bg-panel p-3" data-testid="chat-message-row" data-message-id={message.id}>
-                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                  {message.authorKind === "agent" ? <Bot aria-hidden className="h-3 w-3" /> : <UserRound aria-hidden className="h-3 w-3" />}
-                  <span>{message.authorKind === "agent" ? message.agentId ?? "Agent" : "成员"}</span>
-                  {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
+          <ol className="flex flex-col gap-4" data-testid="chat-message-list">
+            {messages.map((message) => {
+              const isAgent = message.authorKind === "agent";
+              return (
+                <li
+                  key={message.id}
+                  className={`flex items-start gap-2.5 ${isAgent ? "" : "flex-row-reverse"}`}
+                  data-testid="chat-message-row"
+                  data-message-id={message.id}
+                >
+                  <div
+                    aria-hidden
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                      isAgent ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isAgent ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
+                    <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                      <span className="font-medium">{isAgent ? message.agentId ?? "Agent" : "我"}</span>
+                      {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
+                    </div>
+                    <div
+                      className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
+                        isAgent
+                          ? "rounded-tl-sm bg-panel text-card-foreground"
+                          : "rounded-tr-sm bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {isAgent ? (
+                        // CopilotKit 的 Markdown 渲染——agent 回复可能带代码块/列表/加粗，
+                        // 之前直接当纯文本 `whitespace-pre-wrap` 会把这些字面语法原样吐出来。
+                        // 只对 agent 消息用：用户自己打的文字没有 markdown 语义可渲染。
+                        <Markdown content={message.text} />
+                      ) : (
+                        <p className="whitespace-pre-wrap">{message.text}</p>
+                      )}
+                    </div>
+                    <MessageLandingControls
+                      message={message}
+                      state={landingState[message.id]}
+                      onOpen={() => openLandForm(message)}
+                      onTitleChange={(title) => updateLandTitle(message.id, title)}
+                      onCancel={() => cancelLand(message.id)}
+                      onSubmit={() => void submitLand(message)}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+            {streamingText !== "" ? (
+              // #654 阶段2d —— 逐 token 追加的草稿气泡。刻意不是 `chat-message-row`
+              // 这个 testid：它不是一条持久消息（没有 `message.id`，刷新即消失），
+              // 断言脚本不该把它误认成 #413 写回的那一条。终态一到（上面的流式
+              // effect）它立刻清空，被 `loadPage` 重读出来的真正持久消息接管。
+              <li
+                className="flex items-start gap-2.5"
+                data-testid="chat-message-row-streaming"
+                data-run-id={activeRunId}
+              >
+                <div aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Bot className="h-3.5 w-3.5" />
                 </div>
-                <p className="whitespace-pre-wrap text-12 text-card-foreground">{message.text}</p>
+                <div className="flex max-w-[80%] flex-col gap-1 items-start">
+                  <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <span className="font-medium">Agent</span>
+                    <Badge tone="outline">正在生成…</Badge>
+                  </div>
+                  <div className="copilotkit-message-markdown rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
+                    {/* 同一个 CopilotKit Markdown 组件——流式草稿和落库后的最终消息
+                        渲染路径不该是两套，图片 markdown 语法在两边要一样生效。 */}
+                    <Markdown content={streamingText} />
+                  </div>
+                </div>
               </li>
-            ))}
+            ) : null}
           </ol>
         ) : null}
         {nextCursor ? (
@@ -303,7 +507,7 @@ export function ChatLiveMessagePanel({
           <select
             id="chat-agent-select"
             data-testid="chat-agent-select"
-            className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-12"
+            className="h-7 min-w-0 flex-1 rounded-full border border-input bg-card px-3 text-11"
             value={selectedAgentId}
             disabled={archived || submitting || agents === null || agents.length === 0}
             onChange={(event) => updateDraft({ agentId: event.target.value })}
@@ -312,25 +516,77 @@ export function ChatLiveMessagePanel({
             {agents?.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
           </select>
         </div>
-        <Textarea
-          data-testid="chat-message-input"
-          aria-label="消息内容"
-          placeholder="输入要持久保存并交给所选 Agent 的消息"
-          value={text}
-          disabled={archived || submitting}
-          onChange={(event) => updateDraft({ text: event.target.value })}
-        />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
-          <Button
-            size="sm"
-            data-testid="chat-message-submit"
-            disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
-            onClick={() => void submit()}
-          >
-            <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
-          </Button>
+        {followUpSuggestions.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
+            {followUpSuggestions.map((suggestion) => (
+              <Button
+                key={suggestion.id}
+                type="button"
+                size="xs"
+                variant="outline"
+                className="rounded-full"
+                data-testid={`chat-followup-suggestion-${suggestion.id}`}
+                disabled={submitting}
+                onClick={() => updateDraft({ text: suggestion.text })}
+              >
+                {suggestion.text}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        <div className="rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
+          <Textarea
+            data-testid="chat-message-input"
+            aria-label="消息内容"
+            placeholder="输入要持久保存并交给所选 Agent 的消息"
+            value={text}
+            disabled={archived || submitting}
+            onChange={(event) => updateDraft({ text: event.target.value })}
+            className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
+          />
+          <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
+            <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="icon"
+                variant={speech.listening ? "destructive" : "outline"}
+                className={`rounded-full ${speech.listening ? "animate-pulse" : ""}`}
+                data-testid="chat-mic-button"
+                data-mic-status={speech.status}
+                aria-pressed={speech.listening}
+                aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
+                title={speech.listening ? "停止语音输入" : "开始语音输入"}
+                disabled={archived || submitting}
+                onClick={() => (speech.listening ? speech.stop() : speech.start())}
+              >
+                <Mic aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full"
+                data-testid="chat-message-submit"
+                disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
+                onClick={() => void submit()}
+              >
+                <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
+              </Button>
+            </div>
+          </div>
         </div>
+        {speech.listening ? (
+          // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
+          // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
+          <p className="mt-2 flex items-center gap-1.5 text-11 text-destructive" data-testid="chat-mic-listening">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
+            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
+          </p>
+        ) : null}
+        {speech.error !== null ? (
+          <p className="mt-2 text-11 text-destructive" data-testid="chat-mic-error">
+            {speech.error}
+          </p>
+        ) : null}
         {queuedRun ? (
           <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued">
             消息已持久化，AgentRun 已排队（{queuedRun.id}）。
@@ -407,6 +663,137 @@ function statusTone(status: AgentRunStatus): string {
   if (status === "failed") return "text-destructive";
   if (status === "succeeded") return "text-primary";
   return "text-muted-foreground";
+}
+
+/** 十项 UX 缺口第 5 项——一条消息「落地为产物（草稿）」的本地 UI 状态机。 */
+type MessageLandingState =
+  | { readonly status: "form"; readonly title: string }
+  | { readonly status: "submitting"; readonly title: string }
+  | { readonly status: "done"; readonly title: string; readonly artifactId: string }
+  | { readonly status: "error"; readonly title: string; readonly error: string };
+
+function defaultArtifactTitle(text: string): string {
+  const firstLine = text.split("\n")[0]?.trim() ?? "";
+  return firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : (firstLine || "未命名产物");
+}
+
+/**
+ * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」控件。
+ * 真实调用 `landAsArtifact`（`POST /chat/threads/:threadId/artifacts`），只提供
+ * `mode: "draft"`——`live`/`pinned` 要求非空 citations，而 citations 写入路径目前
+ * 不存在，见本文件顶部 `landAsArtifact` 引入处的注释。
+ */
+function MessageLandingControls({
+  message, state, onOpen, onTitleChange, onCancel, onSubmit,
+}: {
+  message: DurableMessage;
+  state: MessageLandingState | undefined;
+  onOpen: () => void;
+  onTitleChange: (title: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  if (state === undefined) {
+    return (
+      <Button
+        size="xs"
+        variant="ghost"
+        className="self-start text-10 text-muted-foreground"
+        data-testid={`chat-land-artifact-open-${message.id}`}
+        onClick={onOpen}
+      >
+        落地为产物（草稿）
+      </Button>
+    );
+  }
+
+  if (state.status === "done") {
+    return (
+      <p className="text-10 text-primary" data-testid={`chat-land-artifact-done-${message.id}`}>
+        已落地为产物（草稿）：{state.title}
+      </p>
+    );
+  }
+
+  const busy = state.status === "submitting";
+  return (
+    <form
+      className="flex w-full max-w-xs flex-col gap-1 rounded-md border border-border-subtle bg-card p-2"
+      data-testid={`chat-land-artifact-form-${message.id}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="text-10 text-muted-foreground" htmlFor={`chat-land-artifact-title-${message.id}`}>
+        产物标题（草稿，落地后仍可在右栏「产物」看到）
+      </label>
+      <input
+        id={`chat-land-artifact-title-${message.id}`}
+        data-testid={`chat-land-artifact-title-${message.id}`}
+        className="h-7 rounded-md border border-input bg-transparent px-2 text-11"
+        value={state.title}
+        disabled={busy}
+        onChange={(event) => onTitleChange(event.target.value)}
+      />
+      <div className="flex items-center gap-1">
+        <Button
+          size="xs"
+          type="submit"
+          data-testid={`chat-land-artifact-submit-${message.id}`}
+          disabled={busy || state.title.trim() === ""}
+        >
+          {busy ? "落地中…" : "确认落地"}
+        </Button>
+        <Button size="xs" type="button" variant="outline" disabled={busy} onClick={onCancel}>
+          取消
+        </Button>
+      </div>
+      {state.status === "error" ? (
+        <p className="text-10 text-destructive" data-testid={`chat-land-artifact-error-${message.id}`}>
+          {state.error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/** 十项 UX 缺口第 6 项——建议 chip 的形状。`id` 只用于 `data-testid`/`key`，不是服务端概念。 */
+interface FollowUpSuggestion {
+  readonly id: string;
+  readonly text: string;
+}
+
+/**
+ * 规则驱动的「建议后续操作」（issue #712）。
+ *
+ * ⚠ 这**不是** AI 推荐——chat 后端没有任何建议引擎（调查见 issue #712），这里是
+ *   纯前端的确定性规则，判据只有「最新一条消息的作者类别」「消息总数」
+ *   「线程是否归档」三个已知量，不掺入任何模型调用。点击只**填充**输入框
+ *   （复用 `updateDraft`），不自动发送——用户仍需手动确认并点击发送。
+ *
+ * 规则（按优先级）：
+ *   1. 已归档 ⇒ 不建议（只读态，composer 本身已禁用）。
+ *   2. 零消息 ⇒ 建议一条通用开场白。
+ *   3. 最新一条来自 agent（刚回复完）⇒ 建议两条追问模板。
+ *   4. 最新一条来自人类（发完在等 run）⇒ 不建议——避免在等待态堆无意义的 UI。
+ */
+function computeFollowUpSuggestions(
+  messages: readonly DurableMessage[],
+  archived: boolean,
+): readonly FollowUpSuggestion[] {
+  if (archived) return [];
+  if (messages.length === 0) {
+    return [{ id: "opener", text: "简要说明一下这次想解决的问题" }];
+  }
+  const latest = messages[messages.length - 1]!;
+  if (latest.authorKind === "agent") {
+    return [
+      { id: "elaborate", text: "能否再详细说明一下？" },
+      { id: "summarize", text: "谢谢，请总结一下要点" },
+    ];
+  }
+  return [];
 }
 
 function appendUnique(current: DurableMessage[], incoming: DurableMessage[]): DurableMessage[] {

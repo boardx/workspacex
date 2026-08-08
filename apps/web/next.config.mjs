@@ -102,6 +102,12 @@ export default {
       // recording 的路径永远带后缀（/sessions、/sessions/:id/segments …），
       // 没有裸路径那一条，所以这里只需要 `:path*`。
       { source: `${prefix}/recording/:path*`, destination: `${apiOrigin}/recording/:path*` },
+      // issue #652：`FilesRetentionController` 是 `@Controller()`（空前缀），GET/PUT
+      // 都打同一个裸路径 `/retention-policy`（无子路径、无 `:path*` 可用）——
+      // 与上面 `/capabilities`、`/canvas/templates` 那几条同一个坑：不写这条，
+      // `startRecording` 前置的“配置保留期”从浏览器根本发不出请求，会被 Next 自己
+      // 接住返回 404 HTML，而不是 API 的 403/422。
+      { source: `${prefix}/retention-policy`, destination: `${apiOrigin}/retention-policy` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
       // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
@@ -120,12 +126,20 @@ export default {
       // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
+      // #654 阶段1b：AG-UI SSE 桥接端点。`CopilotkitAguiController` 是 `@Controller()`
+      // （空前缀），路径是裸的 `POST /copilotkit/agui` —— 与上面 `/agent-runs`、
+      // `/threads` 同一个形状、同一个坑（第九次）。`lint-rewrite-coverage` 已经把这条
+      // 标红（`.harness/scripts/lint-rewrite-coverage.mjs` 实测：不补这条，
+      // `init.sh` 基础验证本身就红），不是新引入的探测，是补一个已存在的真实缺口。
+      { source: `${prefix}/copilotkit/:path*`, destination: `${apiOrigin}/copilotkit/:path*` },
       // #595 Line A：`POST /agents/:agentId/trial-run`。`AgentTrialRunController` 是
       // `@Controller()`（空前缀），路径是裸的 `/agents/:agentId/trial-run` ——
-      // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。这一族目前永远带后缀
-      // （`/agents/:agentId/trial-run`），没有裸 `/agents` 的操作，所以只写 `:path*`——
-      // 与 `/recording`、`/threads` 那条注释同一个判断依据：一旦将来加一条裸
-      // `GET /agents`，要记得在这里补第二条，别指望 `:path*` 替它兜底。
+      // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。
+      // #617：这里就是上面那条注释预告的「将来加一条裸 `POST /agents`」——
+      // `createAgent`（`AgentController`）现在挂了裸的 `POST /agents`，
+      // `listAgents`（`GET /agents`，仍未接线）将来也落在同一条裸路径上。
+      // 补上裸路径这一条，不能只靠 `:path*` 兜底（同一个坑的第八次）。
+      { source: `${prefix}/agents`, destination: `${apiOrigin}/agents` },
       { source: `${prefix}/agents/:path*`, destination: `${apiOrigin}/agents/:path*` },
       { source: `${prefix}/projects`, destination: `${apiOrigin}/projects` },
       { source: `${prefix}/projects/:projectId/artifacts`, destination: brokenFilesRoute

@@ -17,15 +17,20 @@
  * （工作坊, active）这个键位时，② 十有八九会先撞上它，而那不是本操作想表达的冲突。
  *
  * ⚠ 没有 `findById` 的第二个实现、也没有第二处 `UPDATE agenda_segments`——本仓储是
- * 全仓唯一一处推进环节状态机的写点（同 F118 建表时的『唯一创建路径』纪律）。
+ * 全仓唯一一处推进环节状态机的写点（同 F118 建表时的『唯一创建路径』纪律）。这条
+ * claim 在 #627 加了 `create()`（一个 `INSERT`）之后依然成立——create 不推进任何
+ * 既有状态机，是开一台新的（初始 `pending`），跟这句话说的是两件事。
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
+import type { IdFactory } from "../../application/artifact/ports";
 import type {
   AdvanceAgendaSegmentCommand,
   AdvanceAgendaSegmentResult,
   AgendaSegmentRepository,
   AgendaSegmentRow,
+  CreateAgendaSegmentCommand,
+  CreateAgendaSegmentOutcome,
 } from "../../application/project/ports";
 
 interface SegmentRecord {
@@ -58,7 +63,11 @@ const SELECT_COLUMNS = `id, workshop_id, ordinal, title, duration, state, merged
        agenda_segment_definition_id, accepted_sources`;
 
 export class PgAgendaSegmentRepository implements AgendaSegmentRepository {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(
+    private readonly db: DatabasePort,
+    // #627：只有 create() 用它——advance() 从不生成新 id，改的是既有行。
+    private readonly ids: IdFactory,
+  ) {}
 
   async findById(orgId: OrgId, workshopId: string, segmentId: string): Promise<AgendaSegmentRow | null> {
     return this.db.withTenant(orgId, async (s) => {
@@ -112,6 +121,43 @@ export class PgAgendaSegmentRepository implements AgendaSegmentRepository {
       }
       return { segment, activatedNext: toRow(activatedRow) };
     });
+  }
+
+  /**
+   * #627：新建一条环节。`state` 不接受入参——恒 `'pending'`，与 F118 的
+   * `DEFAULT 'pending'` 是同一件事的两面（这里显式写出来，不依赖 DEFAULT 隐式生效，
+   * 免得下一次改列默认值时悄悄改了本操作的行为）。
+   *
+   * 不先查工作坊是否存在/是否归档——见 `ports.ts` `create()` 的文档。两种驱动异常：
+   *   `23503`（外键，`workshop_id`/`org_id` 复合外键指不到任何工作坊）→ `not-found`
+   *   `42501`（RLS，F124 `agenda_segments_project_archived_ins` 拒写）→ `archived`
+   * 其余异常原样冒泡——不在这里吞掉再自造一个语义（同 `advance()` 的纪律）。
+   */
+  async create(cmd: CreateAgendaSegmentCommand): Promise<CreateAgendaSegmentOutcome> {
+    const id = this.ids.next("seg");
+    try {
+      return await this.db.withTenant(cmd.orgId, async (s) => {
+        const inserted = await s.query<SegmentRecord>(
+          `INSERT INTO agenda_segments
+             (id, org_id, workshop_id, agenda_segment_definition_id, ordinal, title, duration, state)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+           RETURNING ${SELECT_COLUMNS}`,
+          [id, cmd.orgId, cmd.workshopId, cmd.agendaSegmentDefinitionId, cmd.ordinal, cmd.title, cmd.duration],
+        );
+        const row = inserted.rows[0];
+        if (row === undefined) {
+          // INSERT ... RETURNING 在没有冲突/策略拒绝时不可能返回 0 行——到这里说明
+          // 驱动层把拒绝表达成了空结果而不是异常，是本函数没预料到的第三种形状。
+          throw new Error(`agenda segment insert for workshop ${cmd.workshopId} returned no row`);
+        }
+        return { kind: "created", row: toRow(row) };
+      });
+    } catch (e) {
+      const code = (e as { code?: string } | null)?.code;
+      if (code === "23503") return { kind: "not-found" };
+      if (code === "42501") return { kind: "archived" };
+      throw e;
+    }
   }
 }
 

@@ -58,6 +58,7 @@ import { listProjects } from "../../application/project/list-projects";
 import { renderRoleView } from "../../application/project/render-role-view";
 import { previewAsRole } from "../../application/project/preview-as-role";
 import { advanceAgendaSegment } from "../../application/project/advance-agenda-segment";
+import { createAgendaSegment } from "../../application/project/create-agenda-segment";
 import {
   AgendaSegmentNotFoundError,
   MergeTargetRequiredError,
@@ -136,6 +137,10 @@ export const ADVANCE_AGENDA_SEGMENT_SCHEMA = C.operations.advanceAgendaSegment.i
 
 /** 直接取自契约的推断类型——`action` 因此是四值联合而不是裸 `string`（同 F119 domain 层）。 */
 type AdvanceBody = z.infer<typeof C.operations.advanceAgendaSegment.in>;
+
+/** #627，`createAgendaSegment` 的入参契约。 */
+export const CREATE_AGENDA_SEGMENT_SCHEMA = C.operations.createAgendaSegment.in;
+type CreateAgendaSegmentBody = z.infer<typeof C.operations.createAgendaSegment.in>;
 
 /** 同上，`getProjectOverview` 的入参契约（F123）。 */
 export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
@@ -393,6 +398,46 @@ export class ProjectController {
         // 里的映射（`artifact-binding.controller.ts:213`）。
         if (e.reasonCode === "SEGMENT_ALREADY_ACTIVE" || e.reasonCode === "SEGMENT_TERMINAL") {
           throw new ConflictException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * #627 UC-P6：新建一条环节。契约 `path` 与 `advance` 同前缀，`workshopId` 走路径
+   * 参数、其余字段走 body——`in.workshopId` 在契约里是必填的（`.strict()`），与
+   * `advance` 的「路径/body 双写、必须一致」不同形：这里只有路径一个来源，
+   * body 里的 `workshopId` 只是契约形状本身要求的回声字段，用路径值覆盖，不比对
+   * 后 400——同 `bindTemplateToSegment` 的路径参数优先处理方式，没有第二个来源
+   * 需要防「悄悄择一」。
+   */
+  @Post("/workshops/:workshopId/agenda-segments")
+  async createSegment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("workshopId") workshopId: string,
+    @Body(new ZodBodyPipe(CREATE_AGENDA_SEGMENT_SCHEMA)) body: CreateAgendaSegmentBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const segment = await createAgendaSegment(
+        { auth: { repo: this.identity, ids: this.decisions }, segments: this.segments },
+        {
+          userId: principal.userId,
+          orgId: principal.orgId,
+          workshopId,
+          agendaSegmentDefinitionId: body.agendaSegmentDefinitionId,
+          ordinal: body.ordinal,
+          title: body.title,
+          duration: body.duration,
+        },
+      );
+      return C.operations.createAgendaSegment.out.parse(segment);
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }

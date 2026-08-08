@@ -50,6 +50,13 @@ export interface NavItem {
    * `IconRail` 只渲染 `NavSegment.items`，永不渲染 children —— 这是一级/二级的机械分界。
    */
   children?: NavItem[];
+  /**
+   * #700 选项 1（人类裁决，见 issue #700 评论 5224610781）：本项默认屏仍是原型/mock，
+   * 尚未接真实后端，与「AI 能力」组同名能力域的正式屏不是一回事——`AdminNav` 据此渲染
+   * 「原型 · 待归并」标签，语气对齐 `NoBackendNotice`。不写 = 默认屏已接真实后端
+   * （目前只有 `skills` 是这样），不要连坐打标签。
+   */
+  isPrototype?: boolean;
 }
 
 export interface NavSegment {
@@ -115,18 +122,19 @@ export const NAV_SEGMENTS: NavSegment[] = [
          */
         children: [
           // 束: templates（蓝本设计器 / 套用 / 版本）→ 原型后台「项目蓝本」
-          { key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate, ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"] },
+          { key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate, ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"], isPrototype: true },
           // 束: skills（Skill 库与市场 / 发布六道关 / 绑定）→ 原型后台「Skill 库与市场」
+          // ⚠ 唯一默认屏已接真实后端的一项——不带 isPrototype，不与其余四项连坐。
           { key: "skills", label: "技能", href: "/skill", icon: Puzzle, ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
           // 束: agent-runtime（注册 agent → 选模型 → 挂 MCP 工具）→ 原型后台「Agent 管理」
-          { key: "agent-runtime", label: "智能体", href: "/preview/agent-runtime", icon: Bot, ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"] },
+          { key: "agent-runtime", label: "智能体", href: "/preview/agent-runtime", icon: Bot, ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"], isPrototype: true },
           // 束: org-admin（参与者 / 邀请 / 配额）→ 原型后台「组织 · 成员与配额」
-          { key: "org-admin", label: "成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"] },
+          { key: "org-admin", label: "成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"], isPrototype: true },
           // 束: asset-governance（外来资产导入与生命周期治理，第 11 束）
           // ⚠ 原型左栏与后台左栏**都没有**这一项（它是原型之后立的第 11 束）。
           //   放这里的依据是**排除法**：原型一级「治理」只有「后台」，所以它不能是一级项；
           //   它治理的正是后台「AI 能力」组那六种 AssetKind。若人类另有归属，改这一行即可。
-          { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"] },
+          { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"], isPrototype: true },
         ],
       },
     ],

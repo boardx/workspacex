@@ -19,11 +19,35 @@
  * ## The request shape
  *
  * OpenAI-compatible `/chat/completions`, which is what the providers this deployment
- * targets (and their self-hosted stand-ins) speak. `stream` is false: Wave 2's transport
- * for run progress is polling, and a streaming response would need somewhere to stream to.
+ * targets (and their self-hosted stand-ins) speak. `complete()` always sends `stream:
+ * false` -- that half of #654 阶段2a's own doc comment is still true for THIS method.
+ *
+ * ## `completeStream` is OFF by default (#654 阶段2a)
+ *
+ * `KERNEL_MODEL_STREAM_ENABLED` gates whether `this.completeStream` exists AT ALL, read
+ * once here at composition time same as everything else in this config. Measured, not
+ * assumed: turning this on unconditionally the moment the method existed broke 8 of
+ * `no-tool-run-writeback.test.ts`'s currently-passing assertions, because every call
+ * started sending `stream: true` and the existing stub server (and, by the same logic,
+ * any real deployment nobody has verified end-to-end yet) does not speak SSE back --
+ * `execute-run.ts` uses `deps.model.completeStream`'s mere PRESENCE to decide which path
+ * to take, so a provider that unconditionally defines the method changes the behaviour
+ * of every run through it, not just ones that opted in. The flag is what "opting in"
+ * actually means here: default `0` reproduces every byte of pre-阶段2a behaviour, and
+ * turning it on is a deliberate, separately-reviewable rollout step, not a side effect
+ * of this PR merging.
+ *
+ * ## `tools`/tool calls (#725)
+ *
+ * `complete()` only. `input.tools` maps to the wire's `tools[].function.{name,description,
+ * parameters}` and is OMITTED (not sent as `[]`) when empty, so a run with no pinned
+ * Skills sends the exact pre-#725 body. A response's `message.tool_calls` is parsed back
+ * into `ToolCallRequest[]`; `content: null` alongside a non-empty `tool_calls` is treated
+ * as "the model chose to call a tool", not "no content" (see `complete()`'s own check).
+ * `completeStream` does NOT gain this -- see its own doc comment on `ModelCallPort` for why.
  */
 import type {
-  ModelCallInput, ModelCallPort,
+  ModelCallInput, ModelCallPort, ToolCallRequest,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 
@@ -33,30 +57,156 @@ export interface ConfiguredModelProviderConfig {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly timeoutMs: number;
+  /** #654 阶段2a. Default `false` -- see this file's own header for why. */
+  readonly streamEnabled: boolean;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
 export function readModelProviderConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ConfiguredModelProviderConfig {
-  const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "60000");
+  // ⚠ 2026-08-07 devapp 实测：默认 60s 在「一个 agent 挂了多个 skill（每个 skill 的
+  // SKILL.md 全文都拼进 system prompt）」时会真实超时——不是偶发，同一条较长的用户
+  // 请求连续两次都在 model_called 步骤精确卡在 60000ms 失败（MODEL_CALL_FAILED），
+  // 而一句"重试一次"这种短请求秒回。系统提示词越长，模型生成越慢，60s 对"多技能挂载
+  // 的默认 agent"这个真实场景不够用。180s 仍在 R9（>10s 转异步任务）判定之内的同步
+  // 路径可接受范围——这条超时挡的是"网络/模型真的挂了"，不是"提示词长+回复长"。
+  const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
     baseUrl: (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
-    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 60_000,
+    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
+    streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
   };
 }
 
+/**
+ * #709 -- the OpenAI-compatible `messages` array, system first, then whatever prior turns
+ * `execute-run.ts` already trimmed to budget (`input.history ?? []` -- see `ModelCallInput`'s
+ * own doc comment for why this is `?? []` rather than a required field), then the current
+ * turn last. Shared by `complete()` and `streamImpl()` so the two request bodies cannot
+ * drift on how history gets spliced in -- they already share every other field of this
+ * request shape, and a second inlined copy is exactly the kind of duplication this
+ * repository's own discipline (AGENTS.md: "同一事实不得声明在两处") calls out by name.
+ */
+/** One OpenAI-compatible `messages[]` entry. `tool_calls`/`tool_call_id` only appear on the
+ * shapes that need them (assistant-with-tool-calls / tool-result respectively) -- an
+ * object type wide enough to cover every role rather than a union, because this is what
+ * gets `JSON.stringify`d straight into the request body and a union would need a cast at
+ * the call site for no behavioural benefit. */
+interface WireMessage {
+  readonly role: string;
+  readonly content: string | null;
+  readonly tool_calls?: readonly {
+    readonly id: string;
+    readonly type: "function";
+    readonly function: { readonly name: string; readonly arguments: string };
+  }[];
+  readonly tool_call_id?: string;
+}
+
+/**
+ * #709's system/history/user shape, extended by #725 with this run's tool-loop scratch
+ * state (`input.toolExchange`) appended AFTER the current turn -- exactly the OpenAI
+ * `tools` wire convention: an assistant message carrying `tool_calls`, followed by one
+ * `role: "tool"` message per call carrying that call's result, keyed by `tool_call_id`.
+ * Absent/empty `toolExchange` (every pre-#725 caller) reproduces the exact prior shape.
+ */
+function buildMessages(input: ModelCallInput): readonly WireMessage[] {
+  const exchange = (input.toolExchange ?? []).map((turn): WireMessage => (
+    turn.kind === "assistant_tool_calls"
+      ? {
+        role: "assistant",
+        content: null,
+        tool_calls: turn.toolCalls.map((call) => ({
+          id: call.id,
+          type: "function" as const,
+          function: { name: call.name, arguments: call.argumentsJson },
+        })),
+      }
+      : { role: "tool", content: turn.content, tool_call_id: turn.toolCallId }
+  ));
+  return [
+    { role: "system", content: input.system },
+    ...(input.history ?? []).map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: input.user },
+    ...exchange,
+  ];
+}
+
+/** `ToolDefinition[]` (this codebase's port-facing shape) to the OpenAI-compatible wire
+ * shape (`tools[].function.{name,description,parameters}`) -- the mapping this adapter
+ * exists to own so nothing above it needs to know the wire format. */
+function buildToolsPayload(
+  tools: ModelCallInput["tools"],
+): { readonly type: "function"; readonly function: Record<string, unknown> }[] | undefined {
+  if (!tools || tools.length === 0) return undefined;
+  return tools.map((t) => ({
+    type: "function" as const,
+    function: { name: t.name, description: t.description, parameters: t.parametersSchema },
+  }));
+}
+
+interface WireToolCall {
+  id?: unknown;
+  function?: { name?: unknown; arguments?: unknown };
+}
+
+/** The wire response's `message.tool_calls`, filtered down to entries with the three
+ * fields this codebase actually needs -- a malformed entry (missing id/name) is DROPPED,
+ * not fatal to the whole response: the caller decides what "the model asked for a tool it
+ * did not name properly" means, this adapter only refuses to fabricate an id or a name. */
+function parseToolCalls(raw: unknown): readonly ToolCallRequest[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const calls: ToolCallRequest[] = [];
+  for (const entry of raw as WireToolCall[]) {
+    const id = entry.id;
+    const name = entry.function?.name;
+    const args = entry.function?.arguments;
+    if (typeof id === "string" && typeof name === "string" && typeof args === "string") {
+      calls.push({ id, name, argumentsJson: args });
+    }
+  }
+  return calls.length > 0 ? calls : undefined;
+}
+
 interface CompletionResponse {
-  choices?: { message?: { content?: unknown } }[];
+  choices?: { message?: { content?: unknown; tool_calls?: unknown } }[];
+  usage?: { total_tokens?: unknown };
+}
+
+/** One OpenAI-compatible `chat.completion.chunk` SSE payload. */
+interface CompletionChunk {
+  choices?: { delta?: { content?: unknown }; finish_reason?: unknown }[];
   usage?: { total_tokens?: unknown };
 }
 
 export class ConfiguredModelProvider implements ModelCallPort {
-  constructor(private readonly config: ConfiguredModelProviderConfig) {}
+  private readonly config: ConfiguredModelProviderConfig;
 
-  async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+  /**
+   * Present ONLY when `config.streamEnabled` -- an explicit constructor-body assignment,
+   * not a class-field initializer, so there is no ambiguity about whether `this.config`
+   * is set before this decision runs. `execute-run.ts` treats the mere presence of this
+   * property as "this port can stream", so the ternary here IS the opt-in gate, not just
+   * an implementation detail.
+   */
+  readonly completeStream?: (
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ) => Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  constructor(config: ConfiguredModelProviderConfig) {
+    this.config = config;
+    this.completeStream = config.streamEnabled
+      ? (input, onDelta) => this.streamImpl(input, onDelta)
+      : undefined;
+  }
+
+  async complete(input: ModelCallInput): Promise<
+    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+  > {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -87,10 +237,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
         body: JSON.stringify({
           model: input.modelId,
           stream: false,
-          messages: [
-            { role: "system", content: input.system },
-            { role: "user", content: input.user },
-          ],
+          messages: buildMessages(input),
+          // #725: omitted entirely (not `[]`) when this run offers no tools, so a
+          // deployment's provider that rejects an empty `tools` array sees NO field at
+          // all -- exactly the pre-#725 request body for every run without pinned Skills.
+          ...(buildToolsPayload(input.tools) ? { tools: buildToolsPayload(input.tools) } : {}),
         }),
       });
     } catch {
@@ -115,10 +266,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
     } catch {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider response was not JSON");
     }
-    const content = parsed.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || content.trim() === "") {
-      // Fail rather than return "". A blank completion turned into an assistant message is
-      // a fabricated reply, and the run would read as succeeded.
+    const message = parsed.choices?.[0]?.message;
+    const toolCalls = parseToolCalls(message?.tool_calls);
+    const content = message?.content;
+    // #725: a tool-calling turn routinely carries `content: null` -- that is NOT "no
+    // content" when `toolCalls` says the model asked for a tool instead. The pre-#725
+    // failure (blank completion ⇒ fabricated reply) still applies whenever it did not.
+    if ((typeof content !== "string" || content.trim() === "") && toolCalls === undefined) {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no content");
     }
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
@@ -127,6 +281,120 @@ export class ConfiguredModelProvider implements ModelCallPort {
     const tokens = typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0
       ? reportedTokens
       : undefined;
-    return { text: content, tokens };
+    return { text: typeof content === "string" ? content : "", tokens, toolCalls };
+  }
+
+  /**
+   * #654 阶段2a — the streaming variant, only reachable via `this.completeStream` when
+   * `streamEnabled` (see constructor). Same request shape as `complete()`, `stream: true`
+   * instead of `false`, and the SSE body is decoded incrementally: each
+   * `chat.completion.chunk`'s `choices[0].delta.content` is handed to `onDelta` the moment
+   * it arrives, in order. The final `{ text, tokens }` is the concatenation of every
+   * fragment -- the SAME shape `complete()` returns, not a different contract.
+   *
+   * Whatever the provider says on failure NEVER reaches the caller here either: every
+   * error path collapses to the same enumerated `ModelCallError` codes `complete()` uses.
+   */
+  private async streamImpl(
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const { provider, baseUrl, apiKey, timeoutMs } = this.config;
+    if (provider === "" || baseUrl === "" || apiKey === "") {
+      throw new ModelCallError(
+        "MODEL_PROVIDER_NOT_CONFIGURED",
+        "no model provider is configured for this deployment",
+      );
+    }
+    if (input.modelProvider !== provider) {
+      throw new ModelCallError(
+        "MODEL_PROVIDER_NOT_CONFIGURED",
+        `run pinned provider "${input.modelProvider}", configured provider is "${provider}"`,
+      );
+    }
+
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        signal: abort.signal,
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: input.modelId,
+          stream: true,
+          messages: buildMessages(input),
+        }),
+      });
+    } catch {
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider transport failure");
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!response.ok) {
+      throw new ModelCallError(
+        "MODEL_CALL_FAILED",
+        `model provider responded with HTTP ${response.status}`,
+      );
+    }
+    if (response.body === null) {
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
+    }
+
+    let text = "";
+    let tokens: number | undefined;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line; a frame may still be incomplete at the
+        // end of `buffer` (the socket delivered a partial frame), so only fully-terminated
+        // ones are consumed here and the remainder stays for the next read.
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          boundary = buffer.indexOf("\n\n");
+          for (const line of frame.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue; // SSE comments/keep-alives: not data.
+            const payload = trimmed.slice("data:".length).trim();
+            if (payload === "[DONE]") continue;
+            let chunk: CompletionChunk;
+            try {
+              chunk = JSON.parse(payload) as CompletionChunk;
+            } catch {
+              // A malformed frame is a wire hiccup, not proof the whole call failed --
+              // `complete()` already treats "not JSON" as fatal for the ONE reply it gets;
+              // here one bad frame among dozens is not that same signal, so it is skipped.
+              continue;
+            }
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta !== "") {
+              text += delta;
+              await onDelta(delta);
+            }
+            const reportedTokens = chunk.usage?.total_tokens;
+            if (typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0) {
+              tokens = reportedTokens;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (e instanceof ModelCallError) throw e;
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure");
+    }
+
+    return { text, tokens };
   }
 }

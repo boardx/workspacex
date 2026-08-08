@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:wsx:harness:schema:graph-snapshot:1",
+  "title": "Harness Graph Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "graph_schema_version",
+    "source_revision",
+    "fingerprint",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "graph_schema_version": { "const": "1.0" },
+    "source_revision": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "pointer"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "pointer": { "type": "string" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "properties", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "properties": { "type": "object" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "from", "to", "properties", "source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^EDGE-[A-F0-9]{16}$" },
+        "type": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "to": { "type": "string", "minLength": 1 },
+        "properties": { "type": "object" },
+        "source": { "$ref": "#/$defs/source" }
+      }
+    }
+  }
+}

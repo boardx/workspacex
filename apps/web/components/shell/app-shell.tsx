@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
-import { AmbientBar } from "./ambient-bar";
 import { MobileTabs } from "./mobile-tabs";
 import type { Identity, ProjectRole } from "@/lib/identity";
 import { organizationLabel } from "@/lib/org-display";
@@ -14,7 +13,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
- *   图标栏 76px ｜ 左栏 272px ｜ 中栏 flex ｜ 右栏 300px ｜ 底部环境态条
+ *   图标栏 76px ｜ 左栏 272px ｜ 中栏 flex ｜ 右栏 300px
  * 这是**已确认的产品心智**，业务屏只填充三个栏位，不要另起布局（UC-0.4 R7）。
  *
  * 响应式（实测原型「同一信息架构，三栏折叠为三层」）：
@@ -26,6 +25,13 @@ import { Button } from "@/components/ui/button";
  * ⚠ `hideRoleSwitcher`（2026-07-30）：当**本页内容区自带角色/视角切换器**时置 true，
  *   顶栏就不再渲染它自己的预览切换器——避免「同一页两套角色切换系统」。
  *   角色切换的唯一来源 = 各域内容区自带的切换器；顶栏只负责组织切换 + 上下文标签。
+ *
+ * ⚠ 「底部环境态条」（`AmbientBar`，2026-07-30 起 `shell-ambient`）已于 #752 移除：
+ *   它曾是全局硬编码假数据（固定「28:14」/固定发言人/固定 agent 进度），与任何真实
+ *   会话/线程无关，在 admin/tpl/skill 等非现场屏也照样显示。真实的转录与进度状态
+ *   已经由线程内的 `chat-transcript-*` 卡片（`components/chat/**`）承载——那里才有
+ *   真实的 `recording`/`wave2Runtime` 数据可读。壳层这一级拿不到「当前是否有活跃
+ *   录音/agent run」的真实信号，所以不再在这一层渲染任何等价内容，也不留占位符。
  */
 export function AppShell({
   identity, previewRole, left, right, children, hideRoleSwitcher,
@@ -171,9 +177,6 @@ function ShellChrome({
               {right}
             </aside>
           )}
-        </div>
-        <div className="hidden md:block">
-          <AmbientBar />
         </div>
         <MobileTabs />
       </div>

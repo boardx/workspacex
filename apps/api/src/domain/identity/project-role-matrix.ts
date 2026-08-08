@@ -39,6 +39,19 @@ export const PROJECT_ACTIONS = [
    *   两个判据，但都必须落在已有的单一事实源上，不是第三份角色表。
    */
   "agendaSegment.bindTemplate",   // 绑定画布模板到环节（#493）
+  /**
+   * #627（`createAgendaSegment`，`usecases.md` UC-P6）：⚠ **这条不是转录，是类推**——
+   * 与本文件其余条目不同，UC-P6 的表格**没有「权限」行**（对照 UC-P7 有），signed-off
+   * 的用例文本对「谁能新建环节」本身沉默。没有行可转录时，本文件已有先例是延伸一个
+   * 已有惯例而不是发明一条新裁决（见下面 `content.renameFile` 那条注释——"不是对
+   * 『谁能』的裁决，是既有惯例的延伸"）。这里延伸的是同一个 `agendaSegment.*` 分组
+   * 已经确立的逻辑：`bindTemplate` 那条注释说"绑定改的是环节的编排"——新建一条环节
+   * 本身比"绑定到已有环节"更直接地属于编排,没有理由比它更宽松。⇒ 归 facilitator，
+   * 与该分组其余动作同一行。**这是实现者的类推,不是人类的裁决**——UC-P6 权限行的
+   * 空白本身仍然存在,如果人类核对后认为应该更宽（比如 groupLead 也能建）,这一行
+   * 需要改,而不是把类推误读成已经问过。
+   */
+  "agendaSegment.create",
   /* groupLead row: "runs their own group" */
   "group.submitOutput",   // 提交本组产出
   "group.confirmNode",    // 确认本组节点
@@ -114,7 +127,7 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
   // Controls the room; sees everything in it. Multiple instances allowed (O-03).
   facilitator: [
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
-    "agendaSegment.bindTemplate",
+    "agendaSegment.bindTemplate", "agendaSegment.create",
     "group.submitOutput", "group.confirmNode",
     "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
     "artifact.requestDeletion", "artifact.complianceOps",

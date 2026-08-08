@@ -15,7 +15,7 @@ import { ApiError } from "@/lib/api-client";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread, sessionState,
+  createThread, renameThread, deleteThread, listThreadArtifacts, landAsArtifact, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -26,6 +26,9 @@ const {
   createThread: vi.fn(),
   renameThread: vi.fn(),
   deleteThread: vi.fn(),
+  // 十项 UX 缺口第 4/5 项（#708）——本文件不测这两个端口，只需要默认解析值。
+  listThreadArtifacts: vi.fn(),
+  landAsArtifact: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -46,7 +49,7 @@ vi.mock("@/components/shell/app-shell", () => ({
 }));
 vi.mock("@/lib/live-chat", () => ({
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread,
+  createThread, renameThread, deleteThread, listThreadArtifacts, landAsArtifact,
 }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
@@ -107,6 +110,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
     getThread.mockResolvedValue(detail("thread-a", 3, WRITER));
     getAgentPanel.mockResolvedValue({ presentCount: 0, rosterCount: 0, agents: [] });
     listMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    listThreadArtifacts.mockResolvedValue({ items: [] });
   });
 
   it("服务端没下发 thread.mutate 时，写入口整块不渲染", async () => {

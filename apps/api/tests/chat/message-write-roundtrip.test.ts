@@ -13,6 +13,7 @@ import {
   seedOrg,
 } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
+import { createChatWave2FixtureSchema } from "../support/chat-wave2-fixture-schema";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -44,49 +45,13 @@ const headers = {
   "content-type": "application/json",
 };
 
+// #651: this used to inline its own copy of the `chat_wave2_fixture` schema, separate from
+// `scripts/seed-chat-read-e2e.ts`'s copy. The two drifted -- this one got the `instructions`
+// column when #595 Line A needed it, the other didn't -- and the untouched copy served real
+// message POSTs a `column v.instructions does not exist` 500 on `main`. Now there is exactly
+// one declaration (`tests/support/chat-wave2-fixture-schema.ts`) and both callers import it.
 async function createAgentFixtureTables(): Promise<void> {
-  await asOwner(async (c) => {
-    await c.query(`
-      CREATE SCHEMA IF NOT EXISTS chat_wave2_fixture;
-      CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agents (
-        id text PRIMARY KEY,
-        -- Test-only #417 boundary: no organization FK, so this fixture cannot masquerade as
-        -- a production tenant table or enter the freeze-policy catalog.
-        org_id text NOT NULL,
-        status text NOT NULL,
-        published_version_id text NULL
-      );
-      CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agent_versions (
-        id text PRIMARY KEY,
-        org_id text NOT NULL,
-        agent_id text NOT NULL REFERENCES chat_wave2_fixture.agents(id) ON DELETE CASCADE,
-        -- #595 Line A: resolvePublished now also reads instructions (trialRunAgent needs
-        -- the same published-Agent fact this fixture already stands in for). NOT NULL
-        -- DEFAULT so this table's shape stays a strict subset of the production
-        -- agent_versions columns actually read by that query, never a superset it invents.
-        instructions text NOT NULL DEFAULT '',
-        skill_version_ids jsonb NOT NULL,
-        model_provider text NOT NULL,
-        model_id text NOT NULL,
-        published_at timestamptz NULL
-      );
-      DO $$
-      DECLARE t text;
-      BEGIN
-        FOREACH t IN ARRAY ARRAY['agents', 'agent_versions'] LOOP
-          EXECUTE format('ALTER TABLE chat_wave2_fixture.%I ENABLE ROW LEVEL SECURITY', t);
-          EXECUTE format('ALTER TABLE chat_wave2_fixture.%I FORCE ROW LEVEL SECURITY', t);
-          EXECUTE format('DROP POLICY IF EXISTS %I ON chat_wave2_fixture.%I', t || '_tenant', t);
-          EXECUTE format(
-            'CREATE POLICY %I ON chat_wave2_fixture.%I USING (org_id = current_setting(''app.current_org'', true)) WITH CHECK (org_id = current_setting(''app.current_org'', true))',
-            t || '_tenant', t
-          );
-          EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON chat_wave2_fixture.%I TO app_rw', t);
-        END LOOP;
-        GRANT USAGE ON SCHEMA chat_wave2_fixture TO app_rw;
-      END $$;
-    `);
-  });
+  await asOwner((c) => createChatWave2FixtureSchema(c));
 }
 
 async function publishAgent(opts: { enabled?: boolean; published?: boolean } = {}): Promise<void> {

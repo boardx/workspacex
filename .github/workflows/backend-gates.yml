@@ -46,29 +46,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  gates:
+  # #633（人类新增硬 SLA，2026-08-06）：merge→devapp < 5 分钟。实测基线 8m45s，
+  # `gates` 单个 job 占 6m32s，其中 vitest 单测 4m58s（gates 总耗时 76%，最大单项）。
+  #
+  # ⚠ 三个 job 不是随便切的——切之前逐个确认了「不需要共享上一步留下的状态」：
+  #   `verify-rls.sh` / `verify-runtime-gates.sh` / `verify-migrations.sh`
+  #   （即 `migrate:check`）三个脚本**各自** `pg_up; pg_reset` 后重新跑迁移
+  #   （`lib.sh`），互不依赖 vitest 或彼此的库状态——本来就是从空库重新建的设计，
+  #   不是本次拆分才发现能拆。`doctor --strict` / 契约单源 / 洋葱分层三条不碰
+  #   Docker/Postgres（纯读 git + 文件）。⇒ 三组各自独立，可以放进不同 job、
+  #   不同的托管 runner 实例上真正同时跑，而不只是「看起来分开了」。
+  #
+  #   之前（PR #574 之前 e2e 那次）以为「拆 job」在这台仓库行不通，那时候
+  #   `gates` 还钉在唯一一台自建 runner 上（`devapp-x64`）——拆分只会排队、多付
+  #   几次 checkout+install 的固定开销，不会变快。#615 已经把 `gates` 挪到
+  #   `ubuntu-latest`（托管 runner，公开仓库并发不限于 1），这个前提今天不成立
+  #   了，拆分现在才真正有意义。
+  gates-fast:
     runs-on: ubuntu-latest
-    # fork 的 PR 一律不跑：即使托管 runner 是一次性沙箱、不碰密钥，也不该让任意
-    # fork 白嫖本仓的 Actions 分钟数（虽然公开仓库不计费，但作业数仍是资源）。
-    # 与 `deploy` 那半的「防止执行任意命令」是两个不同的理由，写法一样，动机不同。
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    timeout-minutes: 30
-    env:
-      # 每次运行一个独立数据库。门控会 DROP DATABASE，和部署那套栈
-      # （项目名 workspacex、端口 55433）必须够不着彼此。
-      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
-          # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。浅克隆没有 origin/main 这个
-          # ref，也没有足够历史 —— 于是**每一个** passing feature 都被判成「还不在 main 上」。
-          # 实测：tag v0.1.8-staging 的 gates 报 164 FAIL，而 164 = 22(phase00) + 142(phase01)
-          # = 恰好是全部 passing 数；同一份代码本地 `doctor --strict` 是 0 FAIL。
-          # 后果不是「多一条红」——deploy job 的条件是 needs: gates，所以 **tag 触发的部署
-          # 从来就不可能成功**，devapp 因此长期落后 main 且无人发现（见 #483 / #499）。
+          # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。见下方历史事故记录。
           fetch-depth: 0
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
       - name: Setup Node
@@ -76,27 +79,75 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
       - run: pnpm install --frozen-lockfile
 
       # #115: 裸 `pnpm --filter api run typecheck` 绕过 turbo.json 的
-      # `typecheck: { dependsOn: ["^build"] }`。@repo/fabric-markdown 的类型故意走
-      # dist/*.d.ts 而不是源码（源码引用 DOM 的 Element/CanvasRenderingContext2D，
-      # apps/api 的 tsconfig 只开 lib: ["ES2022"]——见该包 package.json 的 "//types"
-      # 注释）；dist/ 不存在时 exports.types 解析失败回落到源码，于是后端 tsc 直接去
-      # typecheck 一个浏览器库，炸得莫名其妙。`pnpm turbo run` 会先跑
-      # @repo/fabric-markdown#build，和 harness-verify.yml 里已经在用的调用形式一致。
+      # `typecheck: { dependsOn: ["^build"] }`——@repo/fabric-markdown 的类型故意走
+      # dist/*.d.ts，`pnpm turbo run` 会先跑它的 #build。
       - name: typecheck / lint
         run: pnpm turbo run typecheck lint --filter=@repo/api
 
+      # --strict：把「passing 的实现必须已合入 main」升为 FAIL。
+      # 实测：tag v0.1.8-staging 曾报 164 FAIL（=22 phase00+142 phase01，恰好全部
+      # passing 数）——浅克隆没有 origin/main 这个 ref，doctor 把每一条 passing
+      # 都判成「还不在 main 上」；deploy 的条件是 needs: gates，后果是 tag 触发的
+      # 部署从来就不可能成功（见 #483/#499）。本 job 已用 fetch-depth: 0 排除了它。
+      - name: 审计链体检（严格模式）
+        run: pnpm harness doctor --strict
+
+      - name: 契约单源 / 洋葱分层
+        run: |
+          node .harness/scripts/lint-contract-source.mjs
+          node .harness/scripts/lint-arch-deps.mjs apps/api/src
+
+  gates-test:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 20
+    env:
+      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_test
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
       # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。
-      # ⚠ 这不是竞态的修法——修法在 tests/support/db.ts 里（并行调用要能容忍抢输）。
-      #   只靠这一步「看起来」也能过，但任何直接跑 vitest 的人又会踩回去。
       - name: 起 postgres
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
 
       - name: 单元与集成测试（含 RLS、两层交集、契约响应校验）
         run: pnpm --filter api exec vitest run
+
+      - name: 清掉本次运行的数据库
+        if: always()
+        run: |
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
+            psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
+
+  gates-runtime:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 15
+    env:
+      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_runtime
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
       - name: RLS 强制隔离（反证：绕过应用层过滤跨租户读 0 行）
         run: apps/api/scripts/verify-rls.sh
@@ -107,18 +158,7 @@ jobs:
       - name: 迁移幂等（无视版本表强制重放）
         run: pnpm --filter api run migrate:check
 
-      # --strict：把「passing 的实现必须已合入 main」升为 FAIL。
-      # pre-push 时它只能是 WARN（那时还没合，本来就合不了），CI 才是它能被满足的时点。
-      - name: 审计链体检（严格模式）
-        run: pnpm harness doctor --strict
-
-      - name: 契约单源 / 洋葱分层
-        run: |
-          node .harness/scripts/lint-contract-source.mjs
-          node .harness/scripts/lint-arch-deps.mjs apps/api/src
-
       - name: 清掉本次运行的数据库
-        # always()：job 被取消时也要清，否则残留库会一直堆到撑爆磁盘。
         if: always()
         run: |
           docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
@@ -185,7 +225,7 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    needs: [gates, e2e-core-loop]
+    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop]
     # ⚠ 2026-08-06：人类直接要求「消除人工打 tag 这一步」——merge 到 main 就该自动部署，
     # 不再等人记得去打一个 tag。旧注释说「标签是人的显式动作，满足『有 CD 的目标不手动
     # 部署』」——那句话本身没错，但「显式动作」现在改成了 merge 本身（PR review + merge

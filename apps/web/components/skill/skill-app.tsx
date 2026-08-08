@@ -75,7 +75,19 @@ export function SkillApp({
   );
 }
 
-/* ── 左栏：本域六屏语义导航 ────────────────────────────────────────── */
+/* ── 左栏：生产可达导航 ──────────────────────────────────────────────
+ *
+ * issue #700：`library` 之外的六屏（library-prototype/tryrun/binding/temp/
+ * versioning/promotion/feedback）仍是纯 mock，未接后端，也没有任何 e2e 依赖
+ * 这六屏本身——只留 `library`（真实数据，见 #520）作为本域唯一的可点入口。
+ *
+ * ⚠ 只摘导航项，不摘屏：这六个组件、`resolveSkillScreen` 与 `?screen=` 直达
+ *   仍然保留——它们是 ADR-023 签核第 ① 件材料（见 lib/mock/skill.ts 顶部注释：
+ *   「删掉等于把已签核的设计从仓库里抹掉」），只是不再暴露成侧栏可点的入口。
+ *   开发态 `PreviewControls`（NODE_ENV !== production 才渲染）不受影响，
+ *   仍可切到全部七屏做预览/回归对照。
+ */
+const LEFT_NAV_SCREENS: readonly SkillScreen[] = ["library"];
 
 function LeftNav({
   screen, href,
@@ -87,7 +99,7 @@ function LeftNav({
     <nav className="flex flex-col gap-4 p-3" data-testid="skill-left-nav">
       <div className="flex flex-col gap-1.5">
         <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">Skill 能力包</span>
-        {SKILL_SCREENS.map((s) => (
+        {LEFT_NAV_SCREENS.map((s) => (
           <Button
             key={s}
             asChild

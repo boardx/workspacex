@@ -449,6 +449,78 @@ describe("executing a queued run", () => {
   });
 });
 
+/* ═══════════════════ multi-turn context (#709) ═══════════════════ */
+
+describe("a run sees the thread's prior turns, token-budget-aware", () => {
+  it("the SECOND message's model call includes the first turn's human text and reply", async () => {
+    replyWithText("first reply from the loopback provider");
+    const first = await postMessage("First message in the thread");
+    await tick();
+    expect(calls).toHaveLength(1);
+    // First turn has no prior history yet -- same shape as every single-turn test above.
+    expect(calls[0]!.body.messages!.filter((m) => m.role === "user")).toHaveLength(1);
+
+    replyWithText("second reply from the loopback provider");
+    const second = await postMessage("Second message, a follow-up");
+    await tick();
+    expect(calls).toHaveLength(2);
+
+    const secondCall = calls[1]!;
+    // The FIRST turn's human text and the assistant's reply to it are now both present,
+    // in chronological order, BEFORE the current turn's user message.
+    const roles = secondCall.body.messages!.map((m) => m.role);
+    expect(roles).toEqual(["system", "user", "assistant", "user"]);
+    expect(secondCall.body.messages![1]).toEqual(
+      { role: "user", content: "First message in the thread" },
+    );
+    expect(secondCall.body.messages![2]).toEqual(
+      { role: "assistant", content: "first reply from the loopback provider" },
+    );
+    expect(secondCall.body.messages![3]).toEqual(
+      { role: "user", content: "Second message, a follow-up" },
+    );
+
+    // And the run itself still succeeds end to end, exactly as the single-turn path does.
+    expect((await readRun(second.agentRunId)).status).toBe("succeeded");
+    expect((await readRun(first.agentRunId)).status).toBe("succeeded");
+  });
+
+  it("a THIRD message's history carries both prior turns, oldest first", async () => {
+    replyWithText("reply one");
+    await postMessage("Turn one");
+    await tick();
+    replyWithText("reply two");
+    await postMessage("Turn two");
+    await tick();
+    replyWithText("reply three");
+    await postMessage("Turn three");
+    await tick();
+
+    expect(calls).toHaveLength(3);
+    const thirdCall = calls[2]!;
+    // Only the roles/order matter here; the system message's exact bytes are the
+    // instructions+skills prompt already covered by "sends the pinned model..." above.
+    expect(thirdCall.body.messages!.map((m) => m.role)).toEqual(
+      ["system", "user", "assistant", "user", "assistant", "user"],
+    );
+    expect(thirdCall.body.messages!.slice(1).map((m) => `${m.role}:${m.content}`)).toEqual([
+      "user:Turn one",
+      "assistant:reply one",
+      "user:Turn two",
+      "assistant:reply two",
+      "user:Turn three",
+    ]);
+  });
+
+  it("a single-message thread's call is byte-identical to before #709 -- no empty history noise", async () => {
+    await postMessage("Only ever one message");
+    await tick();
+    const call = calls[0]!;
+    // Exactly system + user -- no stray history entries for a thread that has none yet.
+    expect(call.body.messages!.map((m) => m.role)).toEqual(["system", "user"]);
+  });
+});
+
 /* ═════════════ 2. the snapshot is pinned, proved against a MOVED head ═════════════ */
 
 describe("the run executes its acceptance snapshot, not the current head", () => {

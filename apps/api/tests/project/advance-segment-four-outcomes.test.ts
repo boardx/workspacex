@@ -15,6 +15,7 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgProvenanceRepository } from "../../src/infrastructure/provenance/pg-provenance-repository";
 import { PgAgendaSegmentRepository } from "../../src/infrastructure/project/pg-agenda-segment-repository";
+import { UuidIdFactory } from "../../src/infrastructure/artifact/uuid-id-factory";
 import { PgTemporaryGrantRepository } from "../../src/infrastructure/identity/pg-temporary-grant-repository";
 import {
   advanceAgendaSegment,
@@ -46,7 +47,7 @@ beforeAll(async () => {
   db = new PgDatabase(appConfig());
   deps = {
     auth: { repo: new PgIdentityRepository(db), ids: new SeqDecisionIds() },
-    segments: new PgAgendaSegmentRepository(db),
+    segments: new PgAgendaSegmentRepository(db, new UuidIdFactory()),
     provenance: new PgProvenanceRepository(db),
     // F127: real storage layer. This file's own four assertions never create a grant, so
     // `revokedTemporaryGrants` is expected to be 0 in every `it` here -- the "a grant tied

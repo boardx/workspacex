@@ -58,6 +58,15 @@ export interface ClaimedAgentRun {
 export interface PinnedSkillContent {
   readonly versionId: string;
   readonly content: string;
+  /**
+   * The Skill's stable, tool-name-shaped identifier (#725). Matches the contract's
+   * `StableName` pattern (`^[a-z0-9][a-z0-9-]*$`), a strict subset of what an OpenAI-style
+   * function name allows -- used AS the tool name a run's orchestrator model sees, so a
+   * skill's tool identity does not drift from the identity it already has everywhere else.
+   */
+  readonly stableName: string;
+  /** Display name, for the tool description a human/model reads -- never the tool name itself. */
+  readonly name: string;
 }
 
 export interface AppendedRunStep {
@@ -70,6 +79,38 @@ export interface AppendedRunStep {
   readonly inputDigest: string | null;
   readonly outputDigest: string | null;
   readonly failureCode: RunFailureCode | null;
+  /** `tool_call` steps only (#725) -- see `AgentRunStep`'s own doc comment for why these are
+   * short summaries rather than digests. `null` for every other step kind. */
+  readonly toolName: string | null;
+  readonly toolArgsSummary: string | null;
+  readonly toolResultSummary: string | null;
+  /** `tool_call` steps only (#731 follow-up) -- see `AgentRunStep.planningNote`'s own doc
+   * comment. `null` when the model called the tool with no accompanying explanation. */
+  readonly planningNote: string | null;
+}
+
+/**
+ * One token-level increment of a run's model output (#654 阶段2a).
+ *
+ * Deliberately NOT an `AppendedRunStep`/`RunStepKind` variant -- see the migration's own
+ * header (`20260808120000_i654_agent_run_deltas.sql`) for why the two shapes do not share
+ * a table: steps are four coarse, statused phases mirrored 1:1 with a contract enum;
+ * deltas are dozens-to-hundreds of plain text fragments with no status of their own. The
+ * run's `model_called` step still records success/failure exactly as before -- deltas are
+ * an ADDITIONAL, purely observational trail, never a second source of truth for whether
+ * the call succeeded.
+ */
+export interface AppendedRunDelta {
+  readonly runId: string;
+  readonly seq: number;
+  readonly text: string;
+}
+
+/** One delta read back, in `seq` order. */
+export interface RunDelta {
+  readonly seq: number;
+  readonly text: string;
+  readonly createdAt: string;
 }
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
@@ -134,11 +175,31 @@ export interface AgentRunStore {
 
   appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void>;
 
-  /** Store the sole model call's output and enter `writeback_pending` (§6's first step). */
+  /**
+   * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
+   * `seq` starting at 0 per run; the unique `(org_id, run_id, seq)` constraint is what
+   * makes a duplicate append (e.g. a retried write) a no-op collision rather than a second
+   * copy of the same fragment.
+   */
+  appendModelDelta(orgId: OrgId, delta: AppendedRunDelta): Promise<void>;
+
+  /** Deltas for one run, in `seq` order, strictly after `afterSeq` (`-1` = from the start). */
+  readModelDeltas(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly RunDelta[]>;
+
+  /**
+   * Store the model call's output and enter `writeback_pending` (§6's first step).
+   *
+   * `finalStepSeq` is the `seq` the caller recorded the terminal `model_called` step under
+   * (#725: no longer always `3` -- a tool-calling run's `model_called` step lands after
+   * however many `tool_call` steps the loop recorded). #413's writeback step and any #519
+   * retry are appended AFTER it (`finalStepSeq + 1 + retryCount`, computed in the SQL
+   * layer): the alternative, a hardcoded `4`, is exactly the number a tool-calling run's
+   * variable step count would silently collide with.
+   */
   storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string },
+    output: { readonly text: string; readonly finalStepSeq: number },
   ): Promise<void>;
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
@@ -204,13 +265,105 @@ export interface AgentRunStore {
   findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null>;
 
   readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null>;
+
+  /**
+   * Prior turns in this run's thread, strictly before `beforeMessageId`, in CHRONOLOGICAL
+   * order (oldest of the kept window first). Only the most recent `limit` are returned --
+   * the caller (`execute-run.ts`) applies its own character budget on top of this row cap,
+   * but the row cap exists so a very long thread never asks Postgres to sort/return
+   * thousands of rows just to throw most of them away one layer up (#709 multi-turn context).
+   *
+   * `beforeMessageId` must belong to the same thread; a message id from elsewhere yields an
+   * empty result rather than an error -- this is prior conversation context, not a fact the
+   * run's correctness depends on, so "found nothing" is a safe, quiet answer.
+   */
+  readThreadHistory(
+    orgId: OrgId,
+    threadId: string,
+    beforeMessageId: string,
+    limit: number,
+  ): Promise<readonly ThreadHistoryMessage[]>;
 }
+
+/**
+ * One prior turn, already collapsed from `chat_messages.author_kind` ("human"/"agent") to
+ * the `user`/`assistant` vocabulary every `ModelCallPort` implementation speaks -- the
+ * repository does that mapping once here, so it is not re-decided at each of the three
+ * provider implementations that read `ModelCallInput.history`.
+ */
+export interface ThreadHistoryMessage {
+  readonly role: "user" | "assistant";
+  readonly content: string;
+}
+
+/**
+ * One tool the orchestrator model may call (#725). One per pinned Skill -- see
+ * `tool-definitions.ts`'s own header for how a Skill becomes one of these.
+ *
+ * `parametersSchema` is a plain JSON Schema object (not a zod type): it crosses the wire
+ * verbatim as an OpenAI-compatible `tools[].function.parameters` value, and this codebase
+ * has no reason to validate it locally -- the provider is the one thing that reads it.
+ */
+export interface ToolDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly parametersSchema: Record<string, unknown>;
+}
+
+/** One tool call the model's response asked for. `argumentsJson` is the raw JSON text the
+ * provider returned -- never pre-parsed here, so a malformed-JSON tool call is a fact the
+ * EXECUTOR decides how to handle (see `tool-loop.ts`), not one this port silently repairs. */
+export interface ToolCallRequest {
+  readonly id: string;
+  readonly name: string;
+  readonly argumentsJson: string;
+}
+
+/**
+ * One prior turn of THIS run's tool-calling loop (#725), oldest first -- never persisted to
+ * `chat_messages`/thread history; it lives only for the duration of one run's loop and is
+ * rebuilt in memory each round from what `tool-loop.ts` has accumulated so far. Distinct
+ * from `ThreadHistoryMessage`: that is cross-run conversation context, this is intra-run
+ * "what has this loop already tried" scratch state.
+ */
+export type ToolExchangeTurn =
+  | { readonly kind: "assistant_tool_calls"; readonly toolCalls: readonly ToolCallRequest[] }
+  | {
+    readonly kind: "tool_result";
+    readonly toolCallId: string;
+    readonly name: string;
+    readonly content: string;
+  };
 
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
   readonly system: string;
   readonly user: string;
+  /**
+   * Prior turns of the SAME thread, oldest first, already trimmed to this deployment's
+   * token-budget policy (`execute-run.ts`'s `trimHistoryToBudget`) -- never the raw,
+   * unbounded thread. OPTIONAL and not `readonly []` by default: absent means "the caller
+   * has no notion of thread history for this call" (`trialRunAgent`'s scenario has no
+   * thread at all), and every `ModelCallPort` implementation that cares reads it as
+   * `input.history ?? []`, exactly the discipline `tokens` on the return type already
+   * uses for "not reported" vs "confirmed zero" (see that field's own comment below).
+   * A provider that has no notion of multi-turn context (`BailianImageProvider`'s single
+   * text-to-image prompt) is free to ignore the field entirely -- accepting-but-ignoring
+   * an unused input is not the same failure as silently dropping one it was asked to use.
+   */
+  readonly history?: readonly ThreadHistoryMessage[];
+  /**
+   * Tools the model MAY call this turn (#725). Absent/empty means "no tools offered" --
+   * every existing `ModelCallPort` implementation that predates #725 simply never sees
+   * this field populated, so nothing about their behaviour changes. A provider with no
+   * notion of tool-calling (`DeepResearchModelProvider`, `BailianImageProvider`) is free
+   * to ignore it, same discipline as `history`.
+   */
+  readonly tools?: readonly ToolDefinition[];
+  /** This run's tool-loop scratch state so far (#725), oldest first. Only meaningful
+   * together with `tools`; a provider that does not implement tool-calling ignores it. */
+  readonly toolExchange?: readonly ToolExchangeTurn[];
 }
 
 /**
@@ -247,7 +400,45 @@ export interface ModelCallPort {
    * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
    * reads as "not reported", not "confirmed zero".
    */
-  complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }>;
+  /**
+   * `toolCalls` is OPTIONAL (#725), populated only when `input.tools` was non-empty AND the
+   * provider's response asked to call one or more of them. When present, `text` MAY be
+   * empty -- an OpenAI-compatible provider routinely returns `content: null` on a
+   * tool-calling turn, and that is NOT "the provider returned no content" (the empty-text
+   * failure below still applies whenever `toolCalls` is absent/empty).
+   */
+  complete(input: ModelCallInput): Promise<
+    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+  >;
+
+  /**
+   * OPTIONAL streaming variant of `complete` (#654 阶段2a).
+   *
+   * A port that does not support token-level streaming simply does not implement this
+   * method -- `execute-run.ts` checks for its presence and falls back to `complete()`,
+   * so `RoutingModelCallPort`/`DeepResearchModelProvider`/`BailianImageProvider` need
+   * change nothing to keep working exactly as before. This is still "the single model
+   * call" §5 requires: `onDelta` is an observational side-channel for what streamed
+   * across the wire, and the returned `{ text, tokens }` is the SAME final answer
+   * `complete()` would have returned -- no fallback, no retry, no second call.
+   *
+   * `onDelta` fires once per provider-reported fragment, in order, BEFORE this promise
+   * resolves. A rejection from `onDelta` (e.g. the store append failed) propagates and
+   * fails the call exactly like a transport error would -- deltas are not "best effort".
+   *
+   * ⚠ #725: deliberately NOT extended with `toolCalls` here. `execute-run.ts`'s tool loop
+   * always calls `complete()` for a round that offers `tools` -- streaming a tool-calling
+   * turn (reassembling `delta.tool_calls[].function.arguments` fragments across chunks,
+   * index-addressed per the OpenAI wire format) is real additional surface this slice does
+   * not need: intermediate loop rounds are not shown to the user token-by-token today, only
+   * the final answer is, and that still streams exactly as before once the loop is done.
+   * Combining the two is a legitimate follow-up (see #725's PR description), not a gap this
+   * type silently papers over.
+   */
+  completeStream?(
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }>;
 }
 
 export interface AgentRunClock {

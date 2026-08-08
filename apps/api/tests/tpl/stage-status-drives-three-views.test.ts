@@ -19,6 +19,8 @@ import type {
   AgendaSegmentRow,
   AdvanceAgendaSegmentCommand,
   AdvanceAgendaSegmentResult,
+  CreateAgendaSegmentCommand,
+  CreateAgendaSegmentOutcome,
   OverviewAgendaSegment,
   OverviewRoleCounts,
   ProjectOverviewRepository,
@@ -132,6 +134,24 @@ class FakeAgendaSegmentRepository implements AgendaSegmentRepository {
       this.store.segments.set(activatedNext.id, activatedNext);
     }
     return { segment: updated, activatedNext };
+  }
+  // #627：本文件测的是 advance/getProjectOverview 那条链，不测 create——给个最小的
+  // 满足接口的实现（自增 id，永远 "created"），不复刻仓储的三态判定；那条判定已经
+  // 有它自己的测试（`create-agenda-segment.test.ts`）。
+  async create(cmd: CreateAgendaSegmentCommand): Promise<CreateAgendaSegmentOutcome> {
+    const row: AgendaSegmentRow = {
+      id: `seg-fake-${this.store.segments.size}`,
+      workshopId: cmd.workshopId,
+      ordinal: cmd.ordinal,
+      title: cmd.title,
+      duration: cmd.duration,
+      state: "pending",
+      mergedInto: null,
+      agendaSegmentDefinitionId: cmd.agendaSegmentDefinitionId,
+      acceptedSources: [],
+    };
+    this.store.segments.set(row.id, row);
+    return { kind: "created", row };
   }
 }
 

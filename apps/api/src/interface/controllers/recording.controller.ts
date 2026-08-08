@@ -64,6 +64,7 @@ import {
   startRecording,
   type CaptureDeps,
 } from "../../application/recording/capture";
+import { setConsentDecision } from "../../application/recording/consent-decision";
 import {
   RecordingRefusal,
   captureDepsWithoutPolicy,
@@ -110,6 +111,7 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 type StartBody = typeof C.operations.startRecording.in._type;
 type EndBody = typeof C.operations.endRecording.in._type;
 type MaterializeBody = typeof C.operations.materializeRecordingArtifacts.in._type;
+type SetConsentDecisionBody = typeof C.operations.setConsentDecision.in._type;
 
 const CONFLICT: ReadonlySet<string> = new Set([
   "SESSION_ALREADY_RECORDING", "SESSION_ALREADY_ENDED", "SESSION_ENDED", "SESSION_NOT_ENDED",
@@ -245,6 +247,47 @@ export class RecordingController {
       });
       response.status(outcome.created ? HttpStatus.CREATED : HttpStatus.OK);
       return outcome.result;
+    } catch (e) {
+      if (e instanceof RecordingRefusal) refuse(e.reason);
+      throw e;
+    }
+  }
+
+  /**
+   * setConsentDecision —— issue #652. Writes one cell of `recording_consent_cells`.
+   *
+   * ⚠ See `contracts/recording.ts`'s `setConsentDecision` doc and
+   * `KNOWN_CONTRACT_GAPS.C_REC_6` for why this route exists (production had ZERO writers for
+   * a table `startRecording`'s `CONSENT_NOT_COMPLETED` gate reads) and what is still
+   * unresolved (who may submit on whose behalf).
+   *
+   * Same authorization judgement as every other route in this controller: `NO_PROJECT_ROLE`
+   * from `requireProjectRole`, nothing narrower — consistent with `startRecording` itself not
+   * checking "is the caller one of the people in `trackPlan`".
+   */
+  @Post("/recording/consent/decisions")
+  async setConsentDecision(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(C.operations.setConsentDecision.in)) body: SetConsentDecisionBody,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+
+    try {
+      return await this.uow.withOrg(orgId, { userId: principal.userId }, async (stores) => {
+        await this.requireProjectRole(principal.userId, orgId, body.projectId);
+
+        const written = await setConsentDecision(
+          { consent: stores.consent },
+          {
+            sourceRefId: body.sourceRefId,
+            participantId: body.participantId,
+            item: body.item,
+            state: body.state,
+          },
+        );
+        return C.operations.setConsentDecision.out.parse(written);
+      });
     } catch (e) {
       if (e instanceof RecordingRefusal) refuse(e.reason);
       throw e;

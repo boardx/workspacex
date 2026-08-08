@@ -129,6 +129,9 @@ export async function trialRunAgent(
       modelId: snapshot.modelId,
       system,
       user: input.scenario,
+      // A trial run has no thread (file header: "试跑 ≠ 私聊") -- there is no prior
+      // conversation to include, so this is `[]`, not an omitted field left to default.
+      history: [],
     });
   } catch (e) {
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";

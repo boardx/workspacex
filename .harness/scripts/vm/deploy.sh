@@ -70,7 +70,19 @@ export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 step "1. 取代码"
 cd "$APP_DIR"
 sudo -u "$RUN_AS" git fetch --depth 50 origin "${REF#origin/}"
-sudo -u "$RUN_AS" git reset --hard "$REF" 2>/dev/null || sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
+# ⚠ 2026-08-07 事故：这里曾经是
+#   `git reset --hard "$REF" 2>/dev/null || git reset --hard FETCH_HEAD`。
+# 当 $REF 是一个裸分支名（"main"，#635 加的 push-to-main 自动部署路径就是这么传的）
+# 时，`git reset --hard main` **不会报错**——它成功重置到本地那份 `main` 分支指针，
+# 但那份指针从来没人更新过（只有 `git fetch` 写的 FETCH_HEAD 是新的），于是
+# `||` 后面的 FETCH_HEAD 分支永远不会被触发。表现是：CI 报 deploy 成功，
+# 冒烟也过，但服务器上跑的其实是几小时前的旧代码——直到有人拿真实浏览器去点，
+# 才会发现"代码明明改了，线上还是老样子"。
+#
+# ⇒ 不再尝试把 $REF 解释成一个本地能直接 reset 到的 ref。`git fetch origin <REF>`
+#   无论 REF 是分支名、tag 还是 SHA，执行完之后 FETCH_HEAD 永远精确指向刚刚
+#   fetch 到的那个提交——直接用它，不留一个"看起来成功但值不对"的中间状态。
+sudo -u "$RUN_AS" git reset --hard FETCH_HEAD
 sudo -u "$RUN_AS" git log --oneline -1
 
 step "2. 依赖"
@@ -100,6 +112,37 @@ source <(grep -v '^#' "$ENV_FILE")
 docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
   -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
 echo "  app_rw 密码已对齐"
+
+step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认 agent）"
+# `ensureDefaultAgent` 只在组织**创建那一刻**触发（`/auth/bootstrap` 与 `/auth/register`
+# 各自的 controller 里）。#662 落地之前就存在的每一个组织永远不会自己补上——没有 cron，
+# 没有"首次聊天时顺便种一个"这种懒加载。这一步幂等（按 `agents.stable_name` 去重，脚本
+# 内部还先查一遍存在性），每次部署都跑，成本是一次全表扫描 + 至多几行 INSERT，换来的是
+# "已有组织的默认 agent 缺口"不需要人手动 SSH 上服务器补一次就能自愈。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-default-agents.ts
+
+step "4d. deep-research agent 补种（同一条裁决延伸到第二个系统 agent，2026-08-07）"
+# 同 4c 的理由，另一个 stable_name。这两步分开跑（不是同一个脚本里循环两个模板）是因为
+# 各自失败模式不同：默认 agent 缺配置会导致"能建但发消息 422"，deep-research agent
+# 缺配置（`KERNEL_DEEP_RESEARCH_BASE_URL` 没设）此时并不阻塞——落库本身不依赖那个服务
+# 是否可达，只在真的发一条消息时才会报错，且报错是诚实的 MODEL_PROVIDER_NOT_CONFIGURED，
+# 不是一个吞掉的静默失败。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-deep-research-agent.ts
+
+step "4e. 图片生成 agent 补种（第三个系统 agent，2026-08-07 —— 人类指令"要能直接看到图片"）"
+# 同 4c/4d 的理由，第三个 stable_name。落库不依赖 DashScope 是否可达，只在真的发一条
+# 消息时才会报错（诚实的 MODEL_CALL_FAILED/MODEL_PROVIDER_NOT_CONFIGURED）。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-image-gen-agent.ts
+
+step "4f. URL 导入 skill 的 capability_listings 补种（2026-08-07 —— 人类实测"看不到导入的 skills"）"
+# `pg-skill-url-import-repository.ts` 在这次改动之前从未写 capability_listings（后台
+# 「Skill 目录」页唯一真读的那张表）——每一个在这次修复落地之前通过 URL 导入的 skill
+# 都缺这一行，backfill 一次性补齐。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-skill-capability-listings.ts
 
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，

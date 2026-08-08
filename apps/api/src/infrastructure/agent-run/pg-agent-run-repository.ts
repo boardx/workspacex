@@ -26,8 +26,9 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
-  AgentRunStore, AppendedRunStep, ClaimOutcome, PendingWriteback, PinnedSkillContent,
-  RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
+  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, PendingWriteback,
+  PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
+  ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -46,6 +47,8 @@ interface RunRow {
 interface StepRow {
   kind: string; status: string; started_at: Date; ended_at: Date;
   input_digest: string | null; output_digest: string | null; failure_code: string | null;
+  tool_name: string | null; tool_args_summary: string | null; tool_result_summary: string | null;
+  planning_note: string | null;
 }
 
 interface ClaimDetailRow {
@@ -127,22 +130,31 @@ export class PgAgentRunRepository implements AgentRunStore {
   ): Promise<readonly PinnedSkillContent[]> {
     return this.db.withTenant(orgId, async (s) => {
       if (versionIds.length === 0) return [];
-      const result = await s.query<{ version_id: string; content: Buffer }>(
-        `SELECT f.version_id, f.content
+      // #725: also read the Skill's `stable_name`/`name` -- the tool identity/description
+      // `tool-definitions.ts` builds from a pinned Skill. Same join shape as before, one
+      // more table (`skills`) for the two extra columns.
+      const result = await s.query<{
+        version_id: string; content: Buffer; stable_name: string; name: string;
+      }>(
+        `SELECT f.version_id, f.content, sk.stable_name, sk.name
            FROM skill_version_files f
            JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
+           JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
           WHERE f.org_id=$1 AND f.version_id = ANY($2::text[])
             AND f.path='SKILL.md' AND v.published`,
         [orgId, versionIds],
       );
       const byVersion = new Map(
-        result.rows.map((row) => [row.version_id, row.content.toString("utf8")]),
+        result.rows.map((row) => [
+          row.version_id,
+          { content: row.content.toString("utf8"), stableName: row.stable_name, name: row.name },
+        ]),
       );
       // In the ORDER THE SNAPSHOT PINNED, and missing entries are omitted rather than
       // substituted -- the caller compares lengths and fails the run.
       return versionIds
         .filter((id) => byVersion.has(id))
-        .map((id) => ({ versionId: id, content: byVersion.get(id)! }));
+        .map((id) => ({ versionId: id, ...byVersion.get(id)! }));
     });
   }
 
@@ -151,24 +163,52 @@ export class PgAgentRunRepository implements AgentRunStore {
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,
-            input_digest,output_digest,failure_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11)`,
+            input_digest,output_digest,failure_code,
+            tool_name,tool_args_summary,tool_result_summary,planning_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15)`,
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
-          step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode],
+          step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode,
+          step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote],
       );
+    });
+  }
+
+  async appendModelDelta(orgId: OrgId, delta: AppendedRunDelta): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO agent_run_deltas (id,org_id,run_id,seq,text)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
+        [randomUUID(), orgId, delta.runId, delta.seq, delta.text],
+      );
+    });
+  }
+
+  async readModelDeltas(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly RunDelta[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ seq: number; text: string; created_at: Date }>(
+        `SELECT seq, text, created_at FROM agent_run_deltas
+          WHERE org_id=$1 AND run_id=$2 AND seq > $3
+          ORDER BY seq ASC`,
+        [orgId, runId, afterSeq],
+      );
+      return rows.map((r) => ({ seq: r.seq, text: r.text, createdAt: r.created_at.toISOString() }));
     });
   }
 
   async storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string },
+    output: { readonly text: string; readonly finalStepSeq: number },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      // #725: `model_called_seq` travels with the run so `commitWriteback`/
+      // `appendWritebackFailure` can compute the writeback step's `seq` from the ACTUAL
+      // terminal step, not the pre-#725 assumption that it is always `3`.
       await s.query(
-        `UPDATE agent_runs SET status='writeback_pending', model_output=$3
+        `UPDATE agent_runs SET status='writeback_pending', model_output=$3, model_called_seq=$4
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, output.text],
+        [orgId, runId, output.text, output.finalStepSeq],
       );
     });
   }
@@ -245,16 +285,23 @@ export class PgAgentRunRepository implements AgentRunStore {
         [orgId, input.runId],
       )).rows[0]!.id;
 
-      // `4 + retry_count` (#519), not a literal 4: the step log is append-only, so a retry's
-      // writeback cannot overwrite the exhausted attempt's `failed` step -- with a literal 4
-      // the ON CONFLICT below would silently DROP the success and leave a succeeded run whose
-      // only writeback step says it failed. Read from the run rather than MAX(seq)+1 so that
-      // concurrent attempts within ONE generation still collapse to a single row.
+      // `model_called_seq + 1 + retry_count` (#725, generalizing #519's `4 + retry_count`):
+      // the step log is append-only, so a retry's writeback cannot overwrite the exhausted
+      // attempt's `failed` step -- with a fixed offset the ON CONFLICT below would silently
+      // DROP the success and leave a succeeded run whose only writeback step says it
+      // failed. `model_called_seq` (default `3`, #725's migration) is what makes this
+      // reproduce the exact old `4 + retry_count` numbers for every run whose terminal
+      // `model_called` step was never anything but `3` -- only a tool-calling run's larger
+      // stored value moves the writeback step's `seq` correspondingly. Still read from the
+      // run rather than MAX(seq)+1, for the same reason #519 chose that: concurrent
+      // attempts within ONE generation must compute the SAME target seq so they collapse
+      // to a single row instead of a live-changing MAX letting two land as different rows.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,input_digest,output_digest)
          VALUES ($1,$2,$3,
-                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 (SELECT model_called_seq + 1 + retry_count FROM agent_runs
+                   WHERE org_id=$2 AND id=$3),
                  'chat_writeback','succeeded',$4::timestamptz,$5::timestamptz,
                  $6,$6)
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
@@ -290,13 +337,15 @@ export class PgAgentRunRepository implements AgentRunStore {
     input: { readonly runId: string; readonly startedAt: string; readonly endedAt: string },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
-      // Same generation-scoped seq as `commitWriteback` (#519), for the same reason: a second
-      // exhaustion after a retry is a NEW failed step, not an overwrite of the first.
+      // Same generation-scoped seq as `commitWriteback` (#519, generalized by #725 -- see
+      // that query's own comment), for the same reason: a second exhaustion after a retry
+      // is a NEW failed step, not an overwrite of the first.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,failure_code)
          VALUES ($1,$2,$3,
-                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 (SELECT model_called_seq + 1 + retry_count FROM agent_runs
+                   WHERE org_id=$2 AND id=$3),
                  'chat_writeback','failed',$4::timestamptz,$5::timestamptz,
                  'CHAT_WRITEBACK_FAILED')
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
@@ -357,7 +406,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       const row = run.rows[0];
       if (row === undefined) return null;
       const steps = await s.query<StepRow>(
-        `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code
+        `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code,
+                tool_name,tool_args_summary,tool_result_summary,planning_note
            FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq, started_at`,
         [orgId, runId],
       );
@@ -384,11 +434,70 @@ export class PgAgentRunRepository implements AgentRunStore {
         inputDigest: step.input_digest,
         outputDigest: step.output_digest,
         failureCode: step.failure_code as RunFailureCode | null,
+        toolName: step.tool_name,
+        toolArgsSummary: step.tool_args_summary,
+        toolResultSummary: step.tool_result_summary,
+        planningNote: step.planning_note,
       })),
       createdAt: found.row.created_at.toISOString(),
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
     return guard({ kind: "project", id: found.row.project_id }, projection);
+  }
+
+  /**
+   * #709 multi-turn context. Row comparison `(created_at, id) < (created_at, id)` on the
+   * subquery, not a plain `created_at < $timestamp`: two messages inserted within the same
+   * clock tick (real under load, and routine in tests that insert fixtures back to back)
+   * would otherwise be ordered arbitrarily by Postgres and could let the CURRENT input
+   * message leak into its own history. `id` is a `randomUUID()` insertion-order tiebreaker
+   * nowhere else in this file, but it is the same tiebreaker `findMessages`/`claimQueued`'s
+   * sibling queries already use (`ORDER BY created_at, id`).
+   *
+   * The inner `ORDER BY ... DESC LIMIT $4` takes the MOST RECENT `limit` prior messages;
+   * the outer re-sort puts that window back into chronological order, which is the shape
+   * `execute-run.ts` needs (oldest of the kept window first) without asking Postgres to
+   * hand back an entire long-lived thread just to slice it in application code.
+   *
+   * A `beforeMessageId` that does not resolve (wrong thread, or simply not found) makes the
+   * subquery return no row, and `< NULL` is never true in SQL -- the outer query returns
+   * zero rows rather than throwing. That is the deliberate "found nothing" contract this
+   * method's own doc comment on `AgentRunStore` describes.
+   */
+  async readThreadHistory(
+    orgId: OrgId,
+    threadId: string,
+    beforeMessageId: string,
+    limit: number,
+  ): Promise<readonly ThreadHistoryMessage[]> {
+    if (limit <= 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ author_kind: string; body: string }>(
+        `SELECT author_kind, body FROM (
+           SELECT author_kind, body, created_at, id
+             FROM chat_messages
+            WHERE org_id=$1 AND thread_id=$2
+              AND (created_at, id) < (
+                SELECT created_at, id FROM chat_messages WHERE org_id=$1 AND id=$3
+              )
+            ORDER BY created_at DESC, id DESC
+            LIMIT $4
+         ) recent
+         ORDER BY created_at ASC, id ASC`,
+        [orgId, threadId, beforeMessageId, limit],
+      );
+      return result.rows
+        .map((row): ThreadHistoryMessage | null => {
+          if (row.author_kind === "human") return { role: "user", content: row.body };
+          if (row.author_kind === "agent") return { role: "assistant", content: row.body };
+          // No third `author_kind` exists in this schema today (see the CHECK on
+          // `chat_messages`); skipping rather than throwing keeps a future value from
+          // turning "read some history" into "fail the whole run" for an enhancement
+          // this run's correctness never depended on.
+          return null;
+        })
+        .filter((m): m is ThreadHistoryMessage => m !== null);
+    });
   }
 }

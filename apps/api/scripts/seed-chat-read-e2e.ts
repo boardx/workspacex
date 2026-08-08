@@ -15,6 +15,7 @@ import {
   seedOrg,
 } from "../tests/support/db";
 import { addChatMessage, addChatThread } from "../tests/support/chat-db";
+import { createChatWave2FixtureSchema } from "../tests/support/chat-wave2-fixture-schema";
 
 if (process.env.CHAT_E2E_FIXTURE !== "1") {
   throw new Error("CHAT_E2E_FIXTURE=1 is required");
@@ -44,39 +45,13 @@ const CATALOG_ONLY_AGENT_ID = required("CHAT_E2E_CATALOG_ONLY_AGENT_ID");
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
   await client.query("DELETE FROM credentials WHERE user_id = $1 OR email = $2", [USER_ID, EMAIL]);
-  await client.query(`
-    CREATE SCHEMA IF NOT EXISTS chat_wave2_fixture;
-    CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agents (
-      id text PRIMARY KEY,
-      org_id text NOT NULL,
-      status text NOT NULL,
-      published_version_id text NULL
-    );
-    CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agent_versions (
-      id text PRIMARY KEY,
-      org_id text NOT NULL,
-      agent_id text NOT NULL REFERENCES chat_wave2_fixture.agents(id) ON DELETE CASCADE,
-      skill_version_ids jsonb NOT NULL,
-      model_provider text NOT NULL,
-      model_id text NOT NULL,
-      published_at timestamptz NULL
-    );
-    DO $$
-    DECLARE t text;
-    BEGIN
-      FOREACH t IN ARRAY ARRAY['agents', 'agent_versions'] LOOP
-        EXECUTE format('ALTER TABLE chat_wave2_fixture.%I ENABLE ROW LEVEL SECURITY', t);
-        EXECUTE format('ALTER TABLE chat_wave2_fixture.%I FORCE ROW LEVEL SECURITY', t);
-        EXECUTE format('DROP POLICY IF EXISTS %I ON chat_wave2_fixture.%I', t || '_tenant', t);
-        EXECUTE format(
-          'CREATE POLICY %I ON chat_wave2_fixture.%I USING (org_id = current_setting(''app.current_org'', true)) WITH CHECK (org_id = current_setting(''app.current_org'', true))',
-          t || '_tenant', t
-        );
-        EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON chat_wave2_fixture.%I TO app_rw', t);
-      END LOOP;
-      GRANT USAGE ON SCHEMA chat_wave2_fixture TO app_rw;
-    END $$;
-  `);
+  // #651：this used to inline its own copy of the `chat_wave2_fixture` schema, which drifted
+  // from the equivalent copy in `message-write-roundtrip.test.ts` (that one got the
+  // `instructions` column when #595 Line A needed it; this one didn't). Every real message
+  // POST through this E2E fixture then hit `column v.instructions does not exist` and
+  // returned 500 instead of the contracted 202. Now there is exactly one declaration
+  // (`tests/support/chat-wave2-fixture-schema.ts`) and both callers import it.
+  await createChatWave2FixtureSchema(client);
 });
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
@@ -125,9 +100,9 @@ await asApp(ORG_ID, async (client) => {
   );
   await client.query(
     `INSERT INTO chat_wave2_fixture.agent_versions
-       (id,org_id,agent_id,skill_version_ids,model_provider,model_id,published_at)
-     VALUES ($1,$2,$3,'[]'::jsonb,'dashscope','qwen-plus',now())`,
-    [AGENT_VERSION_ID, ORG_ID, AGENT_ID],
+       (id,org_id,agent_id,skill_version_ids,model_provider,model_id,instructions,published_at)
+     VALUES ($1,$2,$3,'[]'::jsonb,'dashscope','qwen-plus',$4,now())`,
+    [AGENT_VERSION_ID, ORG_ID, AGENT_ID, "Controlled Read E2E fixture agent; no real model call is exercised."],
   );
   await client.query(
     "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",

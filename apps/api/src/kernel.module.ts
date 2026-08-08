@@ -106,6 +106,9 @@ import { AgentStarterImportController } from "./interface/controllers/agent-star
 import { AGENT_SKILL_PINS_REPOSITORY } from "./application/agent-skill-pins/set-agent-skill-pins";
 import { PgAgentSkillPinsRepository } from "./infrastructure/agent/pg-agent-skill-pins-repository";
 import { AgentSkillPinsController } from "./interface/controllers/agent-skill-pins.controller";
+import { SKILL_VERSION_EDIT_REPOSITORY } from "./application/skill/edit-skill-version-content";
+import { PgSkillVersionEditRepository } from "./infrastructure/skill/pg-skill-version-edit-repository";
+import { SkillVersionEditController } from "./interface/controllers/skill-version-edit.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -213,9 +216,27 @@ import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-re
 import {
   ConfiguredModelProvider, readModelProviderConfig,
 } from "./infrastructure/agent-run/configured-model-provider";
+import {
+  DEEP_RESEARCH_PROVIDER_NAME, DeepResearchModelProvider, readDeepResearchProviderConfig,
+} from "./infrastructure/agent-run/deep-research-model-provider";
+import {
+  BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
+} from "./infrastructure/agent-run/bailian-image-provider";
+import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
+import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
+// #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
+import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
+import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
+import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
+import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agent-repository";
+import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
+import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
+import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
+import { AgentController } from "./interface/controllers/agent.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
@@ -294,6 +315,10 @@ import { ObjectStoreIntegrityChecker } from "./infrastructure/files/object-store
 import { ARTIFACT_RENAME_REPOSITORY } from "./application/files/rename-ports";
 import { PgArtifactRenameRepository } from "./infrastructure/files/pg-artifact-rename-repository";
 import { FilesRenameController } from "./interface/controllers/files-rename.controller";
+// issue #652：F46 `getRetentionPolicy` / `setRetentionPolicy` 的 HTTP 边界。⚠ 没有新
+// provider —— 复用上面已经绑好的 `RETENTION_POLICY_REPOSITORY`（05-rec 的
+// `retentionResolver` 也在读同一个实例），本次只是给它接第一条从浏览器可达的路。
+import { FilesRetentionController } from "./interface/controllers/files-retention.controller";
 // F03：设置 → 设备与会话。会话存储与 phase-00 是同一个，未新增任何 provider。
 import { DeviceSessionController } from "./interface/controllers/device-session.controller";
 // F117（phase-01 project 束）：createProject —— 全仓唯一一条创建项目容器的路径。
@@ -423,6 +448,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     SkillUrlImportController,
     AgentStarterImportController,
     AgentSkillPinsController,
+    SkillVersionEditController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -441,6 +467,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     FilesDeliveryController,
     FilesExportController,
     FilesRenameController,
+    FilesRetentionController,
     DeviceSessionController,
     ProjectController,
     AssetDirectoryController,
@@ -448,7 +475,9 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CanvasTemplateController,
     RecordingController,
     AgentRunController,
+    CopilotkitAguiController,
     AgentTrialRunController,
+    AgentController,
     SkillController,
     SkillReviewController,
     SkillMountController,
@@ -559,8 +588,33 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       inject: [DATABASE_PORT],
     },
     {
+      provide: CREATE_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ENSURE_DEFAULT_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDefaultAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDeepResearchAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ENSURE_IMAGE_GEN_AGENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgImageGenAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
       provide: AGENT_SKILL_PINS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_VERSION_EDIT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillVersionEditRepository(db),
       inject: [DATABASE_PORT],
     },
     // Process-local, and honestly so: nothing in phase-00 starts a model call, so every
@@ -758,13 +812,31 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
       // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
+      //
+      // 三个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image）：
+      // `RoutingModelCallPort` 按 run 快照里 pin 的 `modelProvider` 字符串分派，不是
+      // "配一个、其它 fallback 过去"——见该类头注，这是 `ConfiguredModelProvider`
+      // "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
-      useFactory: () => new ConfiguredModelProvider(readModelProviderConfig()),
+      useFactory: () => {
+        const chatConfig = readModelProviderConfig();
+        return new RoutingModelCallPort(new Map<string, ModelCallPort>([
+          [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
+          [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
+          [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
+        ]));
+      },
     },
     {
       provide: AGENT_RUN_EXECUTOR,
       useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
-        new AgentRunExecutor(runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0"),
+        new AgentRunExecutor(
+          runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0",
+          // #725: gated exactly like `KERNEL_MODEL_STREAM_ENABLED` (see
+          // `ExecuteAgentRunDeps.toolCallingEnabled`'s own doc comment) -- default off
+          // reproduces every byte of pre-#725 behaviour for every existing deployment.
+          process.env.KERNEL_TOOL_CALLING_ENABLED === "1",
+        ),
       inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
@@ -856,10 +928,12 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     },
     // F119：独立 provider——见 `application/project/ports.ts` 里 `AgendaSegmentRepository`
     // 那条「故意不是 ProjectRepository 的第三个方法」的注释。
+    // #627：加了 create()，仓储需要 IdFactory 生成新环节的 id——同 `PROJECT_REPOSITORY`
+    // 那条「复用 ID_FACTORY 不新造一个」的理由（见其上方注释）。
     {
       provide: AGENDA_SEGMENT_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgAgendaSegmentRepository(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgAgendaSegmentRepository(db, ids),
+      inject: [DATABASE_PORT, ID_FACTORY],
     },
     // F123：独立 provider，见 `pg-project-overview-repository.ts` 文件头。
     {

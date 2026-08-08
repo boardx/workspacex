@@ -115,6 +115,12 @@ function fakeDb(source: string): DatabasePort {
       if (sql.includes("FROM skill_contracts")) {
         return { rows: [rowWith(source)] as unknown as R[] };
       }
+      // 2026-08-07 起 `listAll` 还会合并读一遍 wave2 的 `skills` 表（另一套 skill
+      // 数据模型，见 `pg-skill-contract-repository.ts` 该方法头注）——这份测试只关心
+      // `skill_contracts` 那一侧契约外 source 的报错行为，wave2 那侧回空即可。
+      if (sql.includes("FROM skills sk")) {
+        return { rows: [] as unknown as R[] };
+      }
       throw new Error(`替身没有准备这条 SQL：${sql}`);
     },
   };

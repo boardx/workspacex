@@ -100,6 +100,32 @@ export const SkillUrlImportResult = z.object({
   replayed: z.boolean(),
 }).strict();
 
+/* ────────────────── #595 后台编辑 skill 内容：⚠ 草案，**尚未经人类签核**（ADR-023） ──────────────────
+ *
+ * coord-main 对 #595 的派工逐字写着「不要等签核，先落地导入+编辑+后台测试最小集合」，
+ * 与上面 `importSkillFromUrl` 草案同一条许可。目录浏览（列出多文件树）与文件上传本轮
+ * 不做——最小闭环只需要「编辑已导入 skill 唯一的根文件 `SKILL.md`」就能验证「编辑
+ * 落库 → pin 到 agent → 试跑真的读到新内容」这条链路，其余留给后续 issue（见 PR 正文）。
+ *
+ * ⚠ 同上一条草案：形状只在这一处声明，`apps/api/src` 一律 `z.infer` 派生，
+ *   不重新声明字段名（`tests/contract-single-source.test.ts` 机械禁止第二份副本）。
+ */
+export const SkillVersionEditError = z.enum([
+  "EDIT_NOT_ORG_ADMIN",
+  "EDIT_SKILL_NOT_FOUND",
+  /** 内容为空或全是空白字符——发布前必须有真实内容。 */
+  "EDIT_CONTENT_INVALID",
+]);
+
+export const SkillVersionEditResult = z.object({
+  skillId: z.string(),
+  /** 新产出的版本 id——编辑=不可变版本链再追加一环，从不原地改旧版本。 */
+  versionId: z.string(),
+  semanticLabel: z.string(),
+  contentDigest: Sha256,
+  createdAt: z.string(),
+}).strict();
+
 export const AgentSkillVersionReference = z.object({
   versionId: z.string().min(1).max(255),
   digest: Sha256,
@@ -156,19 +182,24 @@ export const AgentRunStatus = z.enum([
 ]);
 
 /**
- * The four steps the delta enumerates in §5, verbatim.
+ * The four steps the delta enumerates in §5, verbatim, plus `tool_call` (#725 tool-calling
+ * loop).
  *
  * `chat_writeback` was listed ahead of its implementation so #413 would not have to widen a
  * vocabulary while implementing against it. Since #413 it is emitted for real — once per
  * run, `succeeded` when the writeback transaction commits and `failed` with
  * `CHAT_WRITEBACK_FAILED` when the bounded retry budget runs out.
  *
+ * `tool_call` is new: one per skill-as-tool invocation the orchestrator model requested,
+ * recorded BEFORE the loop's next round so a client polling mid-run sees each real
+ * invocation as it happens, not a summary reconstructed after the fact.
+ *
  * ⚠ This enum and `agent_run_steps_kind_check` in the migration are the same fact. They
  * are kept in one place the only way a zod enum and a SQL CHECK can be: a test reads the
  * constraint out of `pg_constraint` and asserts set equality with `.options`.
  */
 export const AgentRunStepKind = z.enum([
-  "accepted", "context_built", "model_called", "chat_writeback",
+  "accepted", "context_built", "model_called", "tool_call", "chat_writeback",
 ]);
 
 export const AgentRunStepStatus = z.enum(["succeeded", "failed"]);
@@ -215,6 +246,15 @@ export const AgentRunError = z.enum([
    * means "no further progress without an explicit human retry", not "unreachable forever".
    */
   "CHAT_WRITEBACK_FAILED",
+  /**
+   * The tool-calling loop (#725) ran `TOOL_LOOP_MAX_ROUNDS` rounds of "model asks for a
+   * tool → tool runs → result fed back" without the model ever returning a final answer.
+   * A bounded loop that stops is the honest outcome here — the alternative is a run that
+   * never terminates, which is the one thing §5's "no fallback, no retry" discipline is
+   * built to prevent from happening silently. No fabricated "here is my best guess" text
+   * is produced; the run fails, visibly, with this code.
+   */
+  "TOOL_LOOP_LIMIT_EXCEEDED",
 ]);
 
 export const AgentRunStep = z.object({
@@ -226,6 +266,26 @@ export const AgentRunStep = z.object({
   inputDigest: z.string().nullable(),
   outputDigest: z.string().nullable(),
   failureCode: AgentRunError.nullable(),
+  /**
+   * `tool_call` steps only (#725). NOT a digest: the whole point of a `tool_call` step is
+   * that a human watching the run can see WHICH skill it called, WITH WHAT, and WHAT CAME
+   * BACK — chat-ux-acceptance-criteria.md item 3 — so a hash is useless here. Truncated to
+   * a short summary (never the full skill body, which stays digest-only via
+   * `inputDigest`/`outputDigest` exactly as before). Always `null` for every other kind.
+   */
+  toolName: z.string().max(128).nullable(),
+  toolArgsSummary: z.string().max(1000).nullable(),
+  toolResultSummary: z.string().max(1000).nullable(),
+  /**
+   * `tool_call` steps only (#731 follow-up -- chat-ux-acceptance-criteria.md item 2:
+   * "可见的规划步骤"). The orchestrator model's own plain-language turn from the SAME
+   * response that requested this tool call, when the provider returned one alongside
+   * `tool_calls` (OpenAI-compatible providers may return `content` and `tool_calls`
+   * together on one message). `null` when the model called the tool without saying
+   * anything first -- this field is NEVER synthesized; an agent that skipped the
+   * explanation shows no explanation, rather than a fabricated one.
+   */
+  planningNote: z.string().max(1000).nullable(),
 }).strict();
 
 export const AgentRunView = z.object({
@@ -340,5 +400,16 @@ export const operations = {
     }).strict(),
     out: AgentStarterImportResult,
     err: AgentStarterImportError.options,
+  },
+  /** ⚠ 草案，未签核 —— 见上方 `SkillVersionEditResult` 处的说明。 */
+  editSkillVersionContent: {
+    method: "POST",
+    path: "/admin/skills/:skillId/versions",
+    in: z.object({
+      /** 新的 `SKILL.md` 全文；发布后旧版本原样留存，不做 diff/patch。 */
+      content: z.string().min(1).max(1_000_000),
+    }).strict(),
+    out: SkillVersionEditResult,
+    err: SkillVersionEditError.options,
   },
 } as const;

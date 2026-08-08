@@ -17,8 +17,18 @@ import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { phaseReadiness } from "./phase-readiness";
 import { prQueue } from "./pr-queue";
+import { templatesAllocate } from "./templates-allocate";
+import { templatesDoctor } from "./templates-doctor";
+import { terminologyDoctor } from "./terminology-doctor";
+import { roleFreezeDoctor } from "./role-freeze-doctor";
+import { graphAuthorityDoctor } from "./graph-authority-doctor";
+import { domainsDoctor } from "./domains-doctor";
+import { roleAuthorizationDoctor } from "./role-authorization-doctor";
+import { taskAssignmentDoctor } from "./task-assignment-doctor";
+import { workflowEventDoctor } from "./workflow-event-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
+import { graphCommand } from "./graph-command";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -42,9 +52,94 @@ async function main(): Promise<void> {
     case "sweep-worktrees": sweepWorktrees(args); break;
     case "sweep-docker":    sweepDocker(args); break;
     case "dep-graph":      depGraph(args); break;
+    case "graph":          graphCommand(args); break;
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "pr-queue":       prQueue(args); break;
+    case "templates": {
+      // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
+      // 与本文件其余命令的单词/连字符风格不同——刻意跟随 Proposal 原文，不改它的
+      // 目标 UX 来迁就仓库既有约定。子命令路由在这里做，判定逻辑仍在各自文件里。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { templatesDoctor(subArgs); break; }
+      if (sub === "allocate") { templatesAllocate(subArgs); break; }
+      log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate`);
+      process.exitCode = 1;
+      break;
+    }
+    case "terminology": {
+      // H3A-006/007/008（PROP-HARNESS-AGENT-001）。跟 "templates" 同一 UX
+      // 风格：`pnpm harness terminology <sub>`，子命令路由在这里，判定逻辑
+      // 在各自文件里。目前只有一个子命令，先按同款结构留出扩展位。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { terminologyDoctor(subArgs); break; }
+      log.err(`未知子命令 "terminology ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "role-freeze": {
+      // H3A-004（PROP-HARNESS-AGENT-001）。同 "templates"/"terminology" 的
+      // 子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { roleFreezeDoctor(subArgs); break; }
+      log.err(`未知子命令 "role-freeze ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "graph-authority": {
+      // H3A-009（PROP-HARNESS-AGENT-001）。同 "templates"/"terminology" 的
+      // 子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { graphAuthorityDoctor(subArgs); break; }
+      log.err(`未知子命令 "graph-authority ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "domains": {
+      // H3A-010/012/013/014/015（PROP-HARNESS-AGENT-001）。同 "templates"/"terminology"
+      // 的子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { domainsDoctor(subArgs); break; }
+      log.err(`未知子命令 "domains ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "role-authorization": {
+      // H3A-020/021/023/024/025/026/027/029（PROP-HARNESS-AGENT-001 Epic
+      // E2）。同 "templates"/"terminology"/"role-freeze" 的子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { roleAuthorizationDoctor(subArgs); break; }
+      log.err(`未知子命令 "role-authorization ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "task-assignment": {
+      // H3A-030（PROP-HARNESS-AGENT-001 Epic E3）。同 "domains"/"role-authorization"
+      // 的子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { taskAssignmentDoctor(subArgs); break; }
+      log.err(`未知子命令 "task-assignment ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
+    case "workflow-event": {
+      // H3A-033（PROP-HARNESS-AGENT-001 Epic E3）。独立于 "task-assignment"——
+      // Workflow Event 跟 Task Assignment 是两种不同的实例集合，同
+      // "domains"/"role-authorization" 两个独立命令的先例。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { workflowEventDoctor(subArgs); break; }
+      log.err(`未知子命令 "workflow-event ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -71,6 +166,8 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sweep-worktrees [--threshold-minutes N]   # 巡检未提交改动的 worker worktree（默认阈值 60）");
       log.info("  pnpm harness sweep-docker [--apply]                    # 巡检孤儿 docker compose 栈（ADR-007）；--apply 实际清理");
       log.info("  pnpm harness dep-graph                                 # 生成 .harness/state/dep-graph.md 依赖图快照");
+      log.info("  pnpm harness graph compile [--no-cache]               # 从权威源确定性编译 Graph Snapshot");
+      log.info("  pnpm harness graph validate [--no-cache]              # 校验类型、引用、端点与依赖环");
       log.info("  pnpm harness doctor [--phase NN]                       # 审计链体检：passing 证据真实性 + 派生视图一致性（ADR-012）");
       log.info("  pnpm harness phase-readiness --phase NN                # 查看独立 runtime/E2E readiness");
       log.info("  pnpm harness phase-readiness --phase NN --to ready --actor <id> --target-commit <sha> --runtime-evidence <json> --e2e-evidence <json>");
@@ -87,6 +184,16 @@ async function main(): Promise<void> {
       log.info("  pnpm harness module-lock-acquire   --module <name> --session <agent-id>");
       log.info("  pnpm harness module-lock-heartbeat --module <name> --session <agent-id>");
       log.info("  pnpm harness module-lock-release   --module <name> --session <agent-id>");
+      log.info("  pnpm harness templates doctor                          # PROP-HARNESS-MODEL-001 Epic E1：模板实例唯一性/生命周期/引用完整性体检");
+      log.info("  pnpm harness templates allocate --domain <3位大写域码> --name \"<name>\" [--owner <id>] [--authority <text>] [--consumers a,b]");
+      log.info("                             # 原子取号 + 登记进 registry.yaml（占号即登记，防撞号，同 new-adr 思路）");
+      log.info("  pnpm harness terminology doctor                        # PROP-HARNESS-AGENT-001 H3A-006/007/008：术语注册表 + 兼容映射结构校验");
+      log.info("  pnpm harness role-freeze doctor                        # PROP-HARNESS-AGENT-001 H3A-004：新增未登记角色 WARN（不阻断，历史仍可读）");
+      log.info("  pnpm harness graph-authority doctor                    # PROP-HARNESS-AGENT-001 H3A-009：已知投影路径不得被 Git 追踪");
+      log.info("  pnpm harness domains doctor                            # PROP-HARNESS-AGENT-001 H3A-010/012/013/014/015：Domain Registry + Domain Skill schema/gate 体检");
+      log.info("  pnpm harness role-authorization doctor                 # PROP-HARNESS-AGENT-001 H3A-020/021/023/024/025/026/027/029：分层授权模型体检");
+      log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030/031/032：Task Assignment schema + Root→Domain/Domain→Worker gate 体检（Epic E3）");
+      log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
       process.exit(cmd ? 1 : 0);
   }
 }

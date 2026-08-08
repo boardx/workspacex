@@ -132,22 +132,31 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     expect(importersOf("chat-main")).toEqual([]);
     // 正样本对照：同一台匹配器对活着的屏必须报出真实引用者，否则它对谁都返回空。
     // ⚠ #467 起有**两个**引用者：新加的 skill 挂载面板复用了本文件导出的
-    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。台账双向咬合，
-    //   所以这里如实列两个而不是放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
+    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。#594 起
+    //   有**三个**：`PersonalChatScreen`（个人对话，无项目）复用同一个消息面板，
+    //   不另起第二套发消息/看回复实现。台账双向咬合，所以这里如实列三个而不是
+    //   放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
     expect(importersOf("chat-live-message-panel")).toEqual([
       "components/chat/chat-read-screen.tsx",
       "components/chat/chat-skill-mount-panel.tsx",
+      "components/chat/personal-chat-screen.tsx",
     ]);
   });
 
   /**
    * 台账：**chat 各路由闭包里**残留的 mock 边（原型路由 `/chat/landing`、`/chat/preset`）。
    * 正式 `/chat` 与 `/chat/live` 各自贡献 0 条——上面已单独钉住 `/chat`。
+   *
+   * #654 新增 `/chat/copilotkit-preview`（阶段 1a 骨架，阶段 1b 接上真实 AG-UI SSE
+   * 桥接端点，人类直接指令，见 issue #654）：独立预览路由，只 import
+   * `@ag-ui/client`/`@ag-ui/core`/`lib/api-client`，不碰 `lib/mock/**`，贡献 0 条
+   * mock 边。
    */
-  it("如实钉住：chat 四条路由的闭包里残留的 mock 边正好是这几条", () => {
+  it("如实钉住：chat 五条路由的闭包里残留的 mock 边正好是这几条", () => {
     const chatRoutes = routeEntries().filter((f) => f.startsWith("app/chat/"));
-    // 反空转：四条路由都必须在场，少一条会让下面的边集合悄悄变小。
+    // 反空转：五条路由都必须在场，少一条会让下面的边集合悄悄变小。
     expect(chatRoutes.sort()).toEqual([
+      "app/chat/copilotkit-preview/page.tsx",
       "app/chat/landing/page.tsx",
       "app/chat/live/page.tsx",
       "app/chat/page.tsx",
