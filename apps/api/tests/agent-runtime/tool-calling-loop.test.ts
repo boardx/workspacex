@@ -139,7 +139,9 @@ describe("executeQueuedRuns — tool-calling loop (#725)", () => {
           const toolCalls: ToolCallRequest[] = [
             { id: "call-1", name: "beautiful-article", argumentsJson: '{"task":"写一段介绍"}' },
           ];
-          return { text: "", toolCalls };
+          // A provider MAY return plain-language content alongside `tool_calls` on the
+          // same message (chat-ux-acceptance-criteria.md item 2 -- "可见的规划步骤").
+          return { text: "我需要一段介绍文字，调用 beautiful-article 来生成它。", toolCalls };
         }
         if (input.system === SKILL.content) {
           // The NESTED skill-execution call: system is ONLY the skill body, never mixed
@@ -175,6 +177,7 @@ describe("executeQueuedRuns — tool-calling loop (#725)", () => {
     expect(toolStep.toolName).toBe("beautiful-article");
     expect(toolStep.toolArgsSummary).toContain("写一段介绍");
     expect(toolStep.toolResultSummary).toContain("技能真实产出的文章内容");
+    expect(toolStep.planningNote).toBe("我需要一段介绍文字，调用 beautiful-article 来生成它。");
     expect(toolStep.seq).toBe(3);
 
     const finalStep = store.steps.find((s) => s.kind === "model_called")!;
@@ -206,6 +209,9 @@ describe("executeQueuedRuns — tool-calling loop (#725)", () => {
     const toolStep = store.steps.find((s) => s.kind === "tool_call")!;
     expect(toolStep.status).toBe("failed");
     expect(toolStep.failureCode).toBe("MODEL_CALL_FAILED");
+    // The model called the tool with no accompanying plain-language text this round --
+    // `planningNote` stays null rather than being synthesized.
+    expect(toolStep.planningNote).toBeNull();
     expect(store.output).toEqual({ text: "已根据现有信息回答", finalStepSeq: 4 });
   });
 
