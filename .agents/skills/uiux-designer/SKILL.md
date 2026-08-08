@@ -23,21 +23,23 @@ description: >
 ## 核心设计与交互准则 (Tailwind & shadcn/ui 实践)
 
 ### 1. 极致美学与细节 (Wow-Factor & Theme Mapping)
-- **语义化配色**：严禁直接在 Tailwind 中使用硬编码颜色（如 `bg-[#ff0000]`）。必须使用 shadcn/ui 约定的 HSL 语义变量类：
-  - 背景与边框：`bg-background`、`bg-card`、`border-border`、`border-input`
-  - 前景与文本：`text-foreground`、`text-muted-foreground`、`text-primary-foreground`
-  - 核心行动点：`bg-primary`、`hover:bg-primary/90`、`bg-secondary`
+- **语义化配色、间距网格、字阶**：具体 token/类名清单**不在这里复制**——唯一权威是
+  [uiux-standards.md](.harness/instructions/uiux-standards.md)，`lint-design.sh` 机械
+  拦截违规写法。本 skill 只提醒方法论：拒绝硬编码颜色（如 `bg-[#ff0000]`）、拒绝魔数
+  任意值类（如 `p-[13px]`），一律走 uiux-standards.md 里定义的语义变量与间距刻度。
+  **不要凭记忆在这里默写具体类名**——已经出过 skill 里写的写法与 standards.md
+  规则直接冲突、被 lint 拦下的事故，两处各写一份必然早晚对不上。
 - **视觉纵深**：合理运用 `shadow-sm`、`shadow-md` 等 Tailwind 阴影类。在弹窗和浮层上，使用 `backdrop-blur-md bg-background/80` 创造现代的 Glassmorphism 质感。
-- **网格与排版**：
-  - 页面排版严格符合 Tailwind 的 Spacing Scale (如 `p-4`=16px, `p-6`=24px, `gap-4`=16px) 以对齐 8px 基础网格。禁止使用魔数和无意义的任意值类（如 `p-[13px]`）。
-  - 标题使用 `text-3xl font-bold tracking-tight text-foreground` 等拉开字阶与字重。
 
 ### 2. 交互状态的完整性
-在编写交互组件时，必须利用 Tailwind 的状态修饰符：
+在编写交互组件时，必须利用 Tailwind 的状态修饰符（**具体类名/是否允许 `disabled:opacity-*`
+以 [uiux-standards.md](.harness/instructions/uiux-standards.md) §1.1 为准**——本 skill 不
+复述，那条已经改过一次、被 `lint-design.sh` 机械拦截，写在这里只会再漂移一次）：
 - **悬停态 (Hover)**：使用 `hover:bg-accent hover:text-accent-foreground` 或微缩放 `hover:scale-[0.98] transition-all`。
 - **点击态 (Active)**：使用 `active:scale-95` 等微交互效果，让按钮感觉是“可按压的”。
 - **聚焦态 (Focus)**：必须提供显眼的 `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none` 以支持键盘导航。
-- **禁用态 (Disabled)**：使用 `disabled:pointer-events-none disabled:opacity-50`。
+- **禁用态 (Disabled)**：写法见 uiux-standards.md §1.1，**不要用 `disabled:opacity-*`**
+  （已被 `lint-design.sh` 拦截）。
 
 ### 3. 可用性与状态防御设计
 - **Shadcn 组件复用**：在编写页面之前，检查 `components/ui/` 下是否有现成的 UI 基础组件。如果没有，可以建议导入（如 `npx shadcn-ui@latest add [component]`）或自行基于 Radix + Tailwind 规范实现。
@@ -75,7 +77,8 @@ description: >
 3. 确保所有交互逻辑都带有平滑过渡：在主容器或交互元素上应用 `transition-all duration-200 ease-in-out`。
 
 ### 第三步：自审与走查 (Self-Audit)
-1. 在浏览器中本地渲染预览（使用 `browser_subagent` 或本地命令）。
+1. 在浏览器中本地渲染预览（用浏览器 MCP 工具或本地命令；界面先行阶段可复用
+   `.agents/skills/ui-prototyper`/`rev-uiux`）。
 2. 根据 [uiux_audit.template.md](.harness/templates/uiux_audit.template.md) 逐项自检（是否滥用 Tailwind 任意值、交互是否完整等）。
 3. 生成走查截图，编写报告并提交至 `evidence/` 目录归档。
 4. 归档后用 `git ls-tree HEAD -- <evidence路径>` 确认截图/报告真的进了 git 树

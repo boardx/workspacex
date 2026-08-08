@@ -38,7 +38,8 @@ cat .harness/rubrics/clean-state-checklist.md
    不是「继续做 F03」而是「跑 `pnpm harness verify --sprint 01/01 --feature F03`，若 X 则 Y」。
 4. **状态真实性**：feature 清单如实反映 passing / 未验证边界，**没有假 passing**。
 5. **无未记录的半成品**：任何「代码写了没验证」的中间态都要在 handoff 里写明。
-6. **证据文件在 git 树中（硬项，L1 三连事故）**：
+6. **证据文件在 git 树中（硬项，PR #310/#311/#312 事故——evidence 指向未入库文件，
+   等于指向空气，见 `.agents/skills/session-handoff` 的完整叙述）**：
 
 ```bash
 git ls-tree HEAD -- phases/**/evidence/

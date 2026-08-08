@@ -51,8 +51,9 @@ gh pr list --state open --json number,statusCheckRollup  # CI 与 review 缺口
 
 ### Step 4 — 挂监控 + loop（进入事件驱动，ADR-014）
 - L0：60s 轮询 issue label + PR checks 的**变化 diff**（有变化才动作）。
-- **L2：coord-main 的 loop = 5 分钟**（全队最紧——合并权独占在你，你的 loop 周期
-  直接决定全队 flow-time；实测 review 积压曾把 flow-time 推到 16.5h / 基线 1.8h）。
+- **L2：coord-main 的 loop 周期见 `coordinator-sop.md`（当前 5 分钟，以该文件为准，
+  本文不复述数字防止两处漂移）**——全队最紧，合并权独占在你，你的 loop 周期
+  直接决定全队 flow-time；实测 review 积压曾把 flow-time 推到 16.5h / 基线 1.8h。
   每个 loop 跑**一条命令**：
 
   ```bash

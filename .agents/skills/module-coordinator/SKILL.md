@@ -107,7 +107,8 @@ C-cycle 章节）**：每个 3h 周期（UTC 整点 00/03/06/…锚定）在专�
 `[coordination] work-cycle` issue 发 `cycle-plan`（周期开始 10 分钟内，承诺 1-3 件
 小批量可验证完成的事，没有就诚实写 none）与 `cycle-result`（done/miss/flow，可与
 下周期 plan 合并成一条）。动 hotspots.md 所列文件的 PR 必须在 cycle-plan 申报。
-自己 areas 的 WIP（同时 in_progress 的 feature）≤ 2。
+自己 areas 的 WIP 上限见 `coordinator-sop.md`「WIP 上限」条款（当前 ≤2，以该文件
+为准，不在本文重复数字）。
 
 ## 退位 / 抢占
 同顶层 coordinator：退位跑 `pnpm harness module-lock-release --module <name>
