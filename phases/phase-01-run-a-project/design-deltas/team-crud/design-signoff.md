@@ -1,5 +1,7 @@
 ---
-status: proposed
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-08T11:02:47Z"
 bundle: team-crud
 scope: team-create-rename-delete
 ---

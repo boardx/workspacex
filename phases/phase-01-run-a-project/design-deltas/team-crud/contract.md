@@ -32,18 +32,20 @@ $ grep -rln "createTeam\|renameTeam\|deleteTeam" apps/api/src apps/web   → 零
 ```ts
 // packages/contracts/src/org-admin.ts（团队与组织成员同域，追加不新建文件）
 
+/** ⚠ §4① 已签：仅组织 admin。今晚多处可见性判定依赖 team_id 语义稳定，权限收窄到 admin
+ *  能降低连带影响面；下一批如果要放开给 team lead 之类角色，是新的裁决，不是本 delta 隐式扩权。 */
 createTeam: {
   method: "POST", path: "/organizations/:orgId/teams",
   in: z.object({ name: z.string().min(1) }).strict(),
   out: z.object({ teamId: z.string(), name: z.string() }).strict(),
-  err: ["FORBIDDEN"] as const,
+  err: ["FORBIDDEN", "TEAM_NAME_CONFLICT"] as const,
 },
 
 renameTeam: {
   method: "PATCH", path: "/organizations/:orgId/teams/:teamId",
   in: z.object({ name: z.string().min(1) }).strict(),
   out: z.object({ teamId: z.string(), name: z.string() }).strict(),
-  err: ["FORBIDDEN", "TEAM_NOT_FOUND"] as const,
+  err: ["FORBIDDEN", "TEAM_NOT_FOUND", "TEAM_NAME_CONFLICT"] as const,
 },
 
 deleteTeam: {
@@ -73,23 +75,22 @@ listTeams: {
 
 ## 3. 边界与拒绝
 
-- 团队名**不做**跨组织唯一性要求（`teams.org_id` 已经是天然的隔离边界）；组织内是否要求
-  唯一见 §4③——如果要求，需要迁移加 `UNIQUE (org_id, name)` 约束。
+- 团队名**组织内要求唯一**（见 §4③），需要迁移加 `UNIQUE (org_id, name)` 约束；
+  冲突时 `createTeam`/`renameTeam` 返回 `TEAM_NAME_CONFLICT`。
 - 不在本契约里处理"移动团队到另一个组织"——`org_id` 视为团队创建后不可变。
 
-## 4. 需要你先拍板的三件
+## 4. 需要你先拍板的三件 —— 已签（2026-08-07，人类在会话中经 AskUserQuestion 逐条选定）
 
-**① 谁能建/改/删团队？**
-只有组织 admin，还是也允许更高层级角色？今晚多处可见性判定依赖 `team_id` 语义稳定，
-权限模型定错会连带影响那些已签核的判定，不是"随便定一个能跑就行"。
+**① 谁能建/改/删团队？→ 选了"仅组织 admin"。**
+下一批如果要放开给更高层级角色（如 team lead），是新的裁决，不是本 delta 隐式扩权。
 
-**② 删除非空团队怎么办？**
-`TEAM_NOT_EMPTY` 硬拒绝（要求先清空成员），还是级联把成员的 `team_id` 置空？
-**建议前者**（fail-closed，删除操作不该隐式改变成员归属），但这是产品决定。
+**② 删除非空团队怎么办？→ 采纳本文件自己的建议：`TEAM_NOT_EMPTY` 硬拒绝，不级联清空成员归属。**
+人类没有对这条给出不同意见，按 fail-closed 的建议落地。
 
-**③ 团队名在组织内是否要求唯一？**
-表结构目前没有唯一约束。要求唯一需要迁移加约束 + 决定冲突时的错误码
-（如 `TEAM_NAME_CONFLICT`）。
+**③ 团队名在组织内是否要求唯一？→ 要求唯一。**
+理由：允许重名会让"团队"标签页里的下拉/选择器出现无法区分的选项，是真实的产品可用性问题，
+不是边缘情况；迁移加 `UNIQUE (org_id, name)` 约束，冲突返回 `TEAM_NAME_CONFLICT`。
+这条工程判断人类未在本轮单独确认，若后续认为该走宽松策略，是一次新的、明确的改动，不是默认可逆。
 
 ## 5. 前端边界
 
