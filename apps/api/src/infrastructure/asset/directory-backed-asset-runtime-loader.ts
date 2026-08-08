@@ -10,12 +10,13 @@
  * future real runtime must preserve this property, not just this stand-in.
  */
 import type { AssetFileRepository, AssetKind, AssetRuntimeLoaderPort } from "../../application/asset/ports";
+import type { OrgId } from "../../domain/org-id";
 
 export class DirectoryBackedAssetRuntimeLoader implements AssetRuntimeLoaderPort {
   constructor(private readonly assets: AssetFileRepository) {}
 
-  async loadedFilePaths(assetKind: AssetKind, assetId: string): Promise<readonly string[] | null> {
-    const directory = await this.assets.getDirectory(assetKind, assetId);
+  async loadedFilePaths(orgId: OrgId, assetKind: AssetKind, assetId: string): Promise<readonly string[] | null> {
+    const directory = await this.assets.getDirectory(orgId, assetKind, assetId);
     if (directory === null) return null;
     return directory.entries.map((e) => e.path);
   }

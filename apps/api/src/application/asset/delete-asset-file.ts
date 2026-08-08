@@ -46,7 +46,7 @@ export async function deleteAssetFile(
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new AssetOrgScopeDeniedError();
 
-  const directory = await deps.assets.getDirectory(input.assetKind, input.assetId);
+  const directory = await deps.assets.getDirectory(input.orgId, input.assetKind, input.assetId);
   if (directory === null) throw new AssetNotFoundError();
 
   // I-7 -- checked before editableBy: not deletable by ANYONE, not even the owner.
@@ -61,7 +61,7 @@ export async function deleteAssetFile(
     throw new AssetNotEditableError();
   }
 
-  const deleted = await deps.assets.deleteFile(input.assetKind, input.assetId, input.path);
+  const deleted = await deps.assets.deleteFile(input.orgId, input.assetKind, input.assetId, input.path);
   if (deleted === null) throw new AssetNotFoundError();
 
   return { deleted };
