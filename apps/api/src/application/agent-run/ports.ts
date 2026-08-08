@@ -72,6 +72,30 @@ export interface AppendedRunStep {
   readonly failureCode: RunFailureCode | null;
 }
 
+/**
+ * One token-level increment of a run's model output (#654 阶段2a).
+ *
+ * Deliberately NOT an `AppendedRunStep`/`RunStepKind` variant -- see the migration's own
+ * header (`20260808120000_i654_agent_run_deltas.sql`) for why the two shapes do not share
+ * a table: steps are four coarse, statused phases mirrored 1:1 with a contract enum;
+ * deltas are dozens-to-hundreds of plain text fragments with no status of their own. The
+ * run's `model_called` step still records success/failure exactly as before -- deltas are
+ * an ADDITIONAL, purely observational trail, never a second source of truth for whether
+ * the call succeeded.
+ */
+export interface AppendedRunDelta {
+  readonly runId: string;
+  readonly seq: number;
+  readonly text: string;
+}
+
+/** One delta read back, in `seq` order. */
+export interface RunDelta {
+  readonly seq: number;
+  readonly text: string;
+  readonly createdAt: string;
+}
+
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
   readonly runId: string;
@@ -133,6 +157,17 @@ export interface AgentRunStore {
   ): Promise<readonly PinnedSkillContent[]>;
 
   appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void>;
+
+  /**
+   * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
+   * `seq` starting at 0 per run; the unique `(org_id, run_id, seq)` constraint is what
+   * makes a duplicate append (e.g. a retried write) a no-op collision rather than a second
+   * copy of the same fragment.
+   */
+  appendModelDelta(orgId: OrgId, delta: AppendedRunDelta): Promise<void>;
+
+  /** Deltas for one run, in `seq` order, strictly after `afterSeq` (`-1` = from the start). */
+  readModelDeltas(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly RunDelta[]>;
 
   /** Store the sole model call's output and enter `writeback_pending` (§6's first step). */
   storeOutputAwaitingWriteback(
@@ -248,6 +283,26 @@ export interface ModelCallPort {
    * reads as "not reported", not "confirmed zero".
    */
   complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  /**
+   * OPTIONAL streaming variant of `complete` (#654 阶段2a).
+   *
+   * A port that does not support token-level streaming simply does not implement this
+   * method -- `execute-run.ts` checks for its presence and falls back to `complete()`,
+   * so `RoutingModelCallPort`/`DeepResearchModelProvider`/`BailianImageProvider` need
+   * change nothing to keep working exactly as before. This is still "the single model
+   * call" §5 requires: `onDelta` is an observational side-channel for what streamed
+   * across the wire, and the returned `{ text, tokens }` is the SAME final answer
+   * `complete()` would have returned -- no fallback, no retry, no second call.
+   *
+   * `onDelta` fires once per provider-reported fragment, in order, BEFORE this promise
+   * resolves. A rejection from `onDelta` (e.g. the store append failed) propagates and
+   * fails the call exactly like a transport error would -- deltas are not "best effort".
+   */
+  completeStream?(
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }>;
 }
 
 export interface AgentRunClock {

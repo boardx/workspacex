@@ -127,12 +127,28 @@ async function executeClaimed(
   const modelStartedAt = deps.clock.now();
   let text: string;
   try {
-    const completion = await deps.model.complete({
-      modelProvider: run.modelProvider,
-      modelId: run.modelId,
-      system,
-      user: run.inputText,
-    });
+    // #654 阶段2a: when the configured port supports streaming, use it and persist each
+    // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
+    // the run's success/failure is still decided by the SAME accumulated-text checks
+    // below, exactly as the non-streaming path decides it. A port without `completeStream`
+    // falls back to the one-shot `complete()`, unchanged from before this delta.
+    let deltaSeq = 0;
+    const completion = deps.model.completeStream
+      ? await deps.model.completeStream(
+        { modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText },
+        async (delta) => {
+          if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
+          const seq = deltaSeq;
+          deltaSeq += 1;
+          await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
+        },
+      )
+      : await deps.model.complete({
+        modelProvider: run.modelProvider,
+        modelId: run.modelId,
+        system,
+        user: run.inputText,
+      });
     if (completion.text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
     }

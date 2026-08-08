@@ -19,8 +19,23 @@
  * ## The request shape
  *
  * OpenAI-compatible `/chat/completions`, which is what the providers this deployment
- * targets (and their self-hosted stand-ins) speak. `stream` is false: Wave 2's transport
- * for run progress is polling, and a streaming response would need somewhere to stream to.
+ * targets (and their self-hosted stand-ins) speak. `complete()` always sends `stream:
+ * false` -- that half of #654 阶段2a's own doc comment is still true for THIS method.
+ *
+ * ## `completeStream` is OFF by default (#654 阶段2a)
+ *
+ * `KERNEL_MODEL_STREAM_ENABLED` gates whether `this.completeStream` exists AT ALL, read
+ * once here at composition time same as everything else in this config. Measured, not
+ * assumed: turning this on unconditionally the moment the method existed broke 8 of
+ * `no-tool-run-writeback.test.ts`'s currently-passing assertions, because every call
+ * started sending `stream: true` and the existing stub server (and, by the same logic,
+ * any real deployment nobody has verified end-to-end yet) does not speak SSE back --
+ * `execute-run.ts` uses `deps.model.completeStream`'s mere PRESENCE to decide which path
+ * to take, so a provider that unconditionally defines the method changes the behaviour
+ * of every run through it, not just ones that opted in. The flag is what "opting in"
+ * actually means here: default `0` reproduces every byte of pre-阶段2a behaviour, and
+ * turning it on is a deliberate, separately-reviewable rollout step, not a side effect
+ * of this PR merging.
  */
 import type {
   ModelCallInput, ModelCallPort,
@@ -33,6 +48,8 @@ export interface ConfiguredModelProviderConfig {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly timeoutMs: number;
+  /** #654 阶段2a. Default `false` -- see this file's own header for why. */
+  readonly streamEnabled: boolean;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -51,6 +68,7 @@ export function readModelProviderConfig(
     baseUrl: (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
+    streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
   };
 }
 
@@ -59,8 +77,33 @@ interface CompletionResponse {
   usage?: { total_tokens?: unknown };
 }
 
+/** One OpenAI-compatible `chat.completion.chunk` SSE payload. */
+interface CompletionChunk {
+  choices?: { delta?: { content?: unknown }; finish_reason?: unknown }[];
+  usage?: { total_tokens?: unknown };
+}
+
 export class ConfiguredModelProvider implements ModelCallPort {
-  constructor(private readonly config: ConfiguredModelProviderConfig) {}
+  private readonly config: ConfiguredModelProviderConfig;
+
+  /**
+   * Present ONLY when `config.streamEnabled` -- an explicit constructor-body assignment,
+   * not a class-field initializer, so there is no ambiguity about whether `this.config`
+   * is set before this decision runs. `execute-run.ts` treats the mere presence of this
+   * property as "this port can stream", so the ternary here IS the opt-in gate, not just
+   * an implementation detail.
+   */
+  readonly completeStream?: (
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ) => Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  constructor(config: ConfiguredModelProviderConfig) {
+    this.config = config;
+    this.completeStream = config.streamEnabled
+      ? (input, onDelta) => this.streamImpl(input, onDelta)
+      : undefined;
+  }
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
@@ -134,5 +177,122 @@ export class ConfiguredModelProvider implements ModelCallPort {
       ? reportedTokens
       : undefined;
     return { text: content, tokens };
+  }
+
+  /**
+   * #654 阶段2a — the streaming variant, only reachable via `this.completeStream` when
+   * `streamEnabled` (see constructor). Same request shape as `complete()`, `stream: true`
+   * instead of `false`, and the SSE body is decoded incrementally: each
+   * `chat.completion.chunk`'s `choices[0].delta.content` is handed to `onDelta` the moment
+   * it arrives, in order. The final `{ text, tokens }` is the concatenation of every
+   * fragment -- the SAME shape `complete()` returns, not a different contract.
+   *
+   * Whatever the provider says on failure NEVER reaches the caller here either: every
+   * error path collapses to the same enumerated `ModelCallError` codes `complete()` uses.
+   */
+  private async streamImpl(
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const { provider, baseUrl, apiKey, timeoutMs } = this.config;
+    if (provider === "" || baseUrl === "" || apiKey === "") {
+      throw new ModelCallError(
+        "MODEL_PROVIDER_NOT_CONFIGURED",
+        "no model provider is configured for this deployment",
+      );
+    }
+    if (input.modelProvider !== provider) {
+      throw new ModelCallError(
+        "MODEL_PROVIDER_NOT_CONFIGURED",
+        `run pinned provider "${input.modelProvider}", configured provider is "${provider}"`,
+      );
+    }
+
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        signal: abort.signal,
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: input.modelId,
+          stream: true,
+          messages: [
+            { role: "system", content: input.system },
+            { role: "user", content: input.user },
+          ],
+        }),
+      });
+    } catch {
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider transport failure");
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!response.ok) {
+      throw new ModelCallError(
+        "MODEL_CALL_FAILED",
+        `model provider responded with HTTP ${response.status}`,
+      );
+    }
+    if (response.body === null) {
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
+    }
+
+    let text = "";
+    let tokens: number | undefined;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line; a frame may still be incomplete at the
+        // end of `buffer` (the socket delivered a partial frame), so only fully-terminated
+        // ones are consumed here and the remainder stays for the next read.
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          boundary = buffer.indexOf("\n\n");
+          for (const line of frame.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue; // SSE comments/keep-alives: not data.
+            const payload = trimmed.slice("data:".length).trim();
+            if (payload === "[DONE]") continue;
+            let chunk: CompletionChunk;
+            try {
+              chunk = JSON.parse(payload) as CompletionChunk;
+            } catch {
+              // A malformed frame is a wire hiccup, not proof the whole call failed --
+              // `complete()` already treats "not JSON" as fatal for the ONE reply it gets;
+              // here one bad frame among dozens is not that same signal, so it is skipped.
+              continue;
+            }
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (typeof delta === "string" && delta !== "") {
+              text += delta;
+              await onDelta(delta);
+            }
+            const reportedTokens = chunk.usage?.total_tokens;
+            if (typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0) {
+              tokens = reportedTokens;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (e instanceof ModelCallError) throw e;
+      throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure");
+    }
+
+    return { text, tokens };
   }
 }
