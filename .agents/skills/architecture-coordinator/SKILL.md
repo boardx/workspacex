@@ -15,8 +15,13 @@ description: >
 > ADR、registry.yaml 的 schema、`coordinator`/`module-coordinator` skill 本身。
 > 目标读者不只是当前这批 Claude Code 会话，而是**任何未来能接入的 agent**：
 > 不同厂商的模型、不同工具集、甚至开源社区贡献的自定义 agent。协作协议必须是
-> "读文档 + 按 GitHub issue/label 走"就能懂，不能依赖 Claude Code 私有机制
-> （跨会话消息、Claude 专属工具）作为协议本体——那些是加速手段，不是契约。
+> "读文档 + 走机械契约"就能懂，不能依赖 Claude Code 私有机制（跨会话消息、
+> Claude 专属工具）作为协议本体——那些是加速手段，不是契约。
+> ⚠ 2026-07-08（ADR-009）起：**认领/心跳/退位/唯一性的协调权威已整体迁至
+> coord-service（D1）**，不再是 GitHub issue/label；feature 规格与
+> `status:*` label 的单向只读投影（见 `.agents/skills/github-projector`）不受影响、仍然有效。
+> 下文提到"issue/label"的地方，指的是这条投影通道，不是协调锁本身——细则见
+> `.harness/instructions/multi-agent-coordination.md` 顶部说明。
 
 ## 何时使用
 - 人类让本会话"当 architecture/harness 架构负责人"。
@@ -40,14 +45,13 @@ description: >
 
 ## 启动仪式
 1. 读 `.harness/agents/registry.yaml` 确认自己是 `coord-architecture`。
-2. lease 机制同 module-coordinator（`coordination:lease:architecture`，已登记进
-   multi-agent-coordination.md §1.2）——可用 `pnpm harness module-lock-acquire
+2. **唯一性由协调服务裁定**（同 module-coordinator）：`pnpm harness module-lock-acquire
    --module architecture --session coord-architecture`（及对应的
-   `module-lock-heartbeat`/`module-lock-release`）代替手打 `gh issue comment`，
-   两者格式完全等价。但你巡检的不是 issue 队列，而是"文档 vs
-   实际协作事故"的落差——定期读 label 为 `coordination:lease` 的总协调 lease issue
-   （靠 label 定位，不要硬编码 issue 号）和各模块 coordinator 的报到评论，收集
-   "文档没说清楚导致的真实事故"作为待办输入。
+   `module-lock-heartbeat`/`module-lock-release`）是对 D1 的原子认领，是**唯一权威**——
+   旧的 `gh issue comment` lease 评论仪式已于 ADR-009（2026-07-08）退役，存量
+   lease issue 仅作历史记录保留，不再读写，两者**不是等价格式**。你巡检的不是
+   issue 队列，而是"文档 vs 实际协作事故"的落差——定期读各模块 coordinator 的
+   报到评论，收集"文档没说清楚导致的真实事故"作为待办输入。
 3. 向总协调会话报到，说明当前在迭代哪一块。
 
 ## 产出流程
@@ -64,8 +68,11 @@ description: >
 ## 面向跨平台/开源接入的具体设计原则
 - **身份可自描述**：registry.yaml 里每个 agent 条目只需要 id/kind/model/areas 这类
   平台无关字段；不要引入只有 Claude Code 才懂的字段。
-- **状态机是唯一真理**：任何 agent 只要能读写 GitHub issue/label/comment，就能
-  参与协作，不需要接入任何 Claude 专属 API。
+- **协调权威与只读投影分层**：认领/心跳/退位这类协调锁的权威在 coord-service（D1），
+  接入需要 `COORD_GATEWAY_URL`/`COORD_API_TOKEN` 凭据（ADR-009）；feature 规格、
+  `status:*` label 这类**只读投影**任何能读写 GitHub 的 agent 都能看懂，不需要
+  Claude 专属 API——但"能读 issue"不等于"能参与协调认领"，这两件事分开说清楚，
+  不要合成一句"issue/label 是协作总线"笼统带过。
 - **门禁与信任无关平台**：evidence 门控、review 路由规则对所有 agent 一视同仁，
   不因为"这是 Claude 生成的"就降低验证标准。
 - **新增 agent 类型的最小成本**：写清楚"一个新 agent 想加入,最少要读哪几份文档、

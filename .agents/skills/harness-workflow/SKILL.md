@@ -14,7 +14,11 @@ description: >
 
 ---
 
-## 开工三步（每个新会话必做）
+## 开工前置：角色判定与挂 loop（不可跳过，见 AGENTS.md「开工流程」Step 0）
+
+先判断自己是 coordinator / module-coordinator / worker 三者之一，挂上对应 loop
+（`pnpm harness tick` 三条路径都要跑，没有第四种"不挂 loop"的角色）——这一步在
+AGENTS.md 里明确标了"不可跳过"，本节只覆盖它之后 Step 1-3 的命令化落地：
 
 ```bash
 # Step 1: 初始化环境（依赖 + 基础验证）
@@ -41,7 +45,7 @@ cat phases/phase-<NN>-*/sprints/sprint-<MM>/active-features.json | jq '[.feature
 | 不要手改 `active-features.json` | 它是脚本派生的只读视图 |
 | 不要自己把 status 改成 passing | 只有 `pnpm harness verify` 能做这件事 |
 | status/owner/evidence 字段**严禁出现在你手写的 diff 里** | PR #310/#311/#312 三连事故：diff 里手改 status = review 直接阻断 |
-| 多 agent 并行时认领**双写** | `pnpm harness claim` + issue label 同时打；长任务定期用 lease 评论刷新认领，防止被判失联重派 |
+| 多 agent 并行时认领走 coord-service | `pnpm harness claim`（+ 需要唯一性时用 `module-lock-acquire`/`heartbeat`，见 ADR-009）；GitHub issue label 只是状态的只读投影，不是协调锁——"issue label 同时打 + lease 评论刷新"那套仪式已于 ADR-009（2026-07-08）退役，代码里也从没实现过双写 |
 
 ---
 

@@ -42,8 +42,11 @@ description: >
   （反例：两个 PR 并行改同一 `rooms/page.tsx`，后合者被迫返工。）
 - **合并顺序按"动共享 spec 多的最后合"**：并行 wave 收尾时，改共享测试/spec 文件
   最少的 PR 先合，动共享 spec 最多的最后合，把 rebase 冲突集中到一处。
-- **认领双写**：分派时 `harness claim` 与 issue label（`status:in-progress` + `agent:<id>`）
-  必须同时落，lease 靠评论定期刷新（见 multi-agent-coordination.md §4）。
+- **认领走 coord-service**：分派时用 `harness claim`（+ 需要跨会话唯一性时用
+  `module-lock-acquire`/`heartbeat`）落地认领——multi-agent-coordination.md §4 讲的
+  "issue label 双写 + lease 评论刷新"是 ADR-009（2026-07-08）之前的旧机制，该文件
+  顶部已标注"仅作历史记录保留"，不要照它当前有效的操作指令执行；issue label 只是
+  状态的只读投影。
 
 ---
 

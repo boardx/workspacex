@@ -33,17 +33,9 @@ pnpm harness verify --sprint <NN>/<MM>
 cat .harness/rubrics/clean-state-checklist.md
 ```
 
-逐项检查（不是快速扫一眼）：
-- [ ] `pnpm -w run dev` 路径仍然可用
-- [ ] `pnpm -w run verify:base` 通过
-- [ ] `progress.md` 已更新
-- [ ] `session-handoff.md` 已更新
-- [ ] 没有假 passing（每个 passing feature 都有 evidence 文件）
-- [ ] evidence 文件已入 git 树（`git ls-tree HEAD -- phases/**/evidence/` 实测非空，
-      不是仅存在于工作区/被 `.gitignore` 挡住）
-- [ ] 没有半成品（要么 passing，要么 in_progress 且有说明）
-- [ ] 同一时刻只有一个 feature 处于 in_progress
-- [ ] 关键运行输出已归档到 `evidence/`
+**逐项打勾，不要跳过任何一条——清单内容是权威，本文件不重复列举**（`.agents/skills/
+session-closer` 的"关闭动作清单"同样引用这份文件；两处各抄一份迟早对不上，
+已经发生过一次：rubric 后来加了 docker/worktree 两条，抄过来的副本没跟上）。
 
 ### Step 3：更新 progress.md
 

@@ -12,20 +12,28 @@ description: >
 
 ```
 代码平面（运行时）                控制平面（harness）       交付平面（phases）
-apps/orchestrator/             .harness/instructions/    phases/phase-NN/
-packages/agent-core/           .harness/scripts/         sprints/sprint-MM/
-packages/memory/               .harness/state/           feature_list.json
-packages/tools/                .harness/templates/       active-features.json
+apps/*、packages/*             .harness/instructions/    phases/phase-NN/
+（本仓实际的 agent/skill        .harness/scripts/         sprints/sprint-MM/
+ 运行时代码地图见               .harness/state/           feature_list.json
+ [[mod-agent-skill-runtime]]） .harness/templates/       active-features.json
 ```
 
 **规则**：代码平面的实现必须与 `.harness/instructions/architecture.md` 的不变量一致。
+
+> ⚠ 下面 plan/act/observe、工具注册、记忆层三节的代码示例是**通用参考模式（伪代码）**，
+> 不对应本仓任何真实存在的 npm 包——`packages/agent-core`、`packages/memory`、
+> `packages/tools`、`apps/orchestrator` 目前都不存在于本仓（实测 `ls apps/ packages/`）。
+> 照抄 import 会直接失败。要接本仓真实的 agent 运行时代码，去
+> `apps/api/src/application/{agent,agent-run,agent-skill-pins,agent-import,skill,skill-import,mcp,model,context-pack,provenance}`，
+> 代码地图与契约详见 `.agents/skills/mod-agent-skill-runtime/SKILL.md`。下面的模式仅供
+> 理解"这类系统一般怎么设计"，动手前先去读真实代码，不要直接照搬示例里的包名。
 
 ---
 
 ## plan → act → observe 循环
 
 ```typescript
-// 标准推理循环模式（来自 packages/agent-core）
+// 通用参考模式（伪代码，非本仓真实包——见上方警示）
 import { createSession, appendStep } from "@repo/agent-core";
 
 const session = createSession(task.id);
@@ -52,6 +60,7 @@ appendStep(session, "observe", `exit ${result.value.exitCode}: ${result.value.st
 ## 工具注册约定
 
 ```typescript
+// 通用参考模式（伪代码，非本仓真实包）
 // 正确方式：声明能做/不能做，登记权限
 export const myTool: Tool<Input, Output> = {
   manifest: {
@@ -93,6 +102,7 @@ registry.register(myTool);
 | feature 状态、sprint 状态 | feature_list.json（权威来源） | harness 管理，不用代码读写 |
 
 ```typescript
+// 通用参考模式（伪代码，非本仓真实包）
 import { createMemoryStack } from "@repo/memory";
 
 const memory = createMemoryStack(sprintDir);

@@ -14,6 +14,9 @@ description: >
 
 > 核心铁律：**单向投影。文件是唯一事实来源，GitHub 只读、可重建。**
 > 绝不从 GitHub 往回改 feature 状态。
+> ⚠ 注：认领/心跳/协调唯一性的权威已于 ADR-009（2026-07-08）迁至 coord-service（D1），
+> 本 skill 涉及的仅是 `status:*` label 这类只读投影，不是协调锁——不要把这里的
+> "GitHub 是权威"理解成"issue/label 也是协调认领的权威"，两者是分开的两件事。
 
 ---
 

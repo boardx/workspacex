@@ -3,7 +3,7 @@ name: requirement-author
 description: >
   激活条件：用户提到 需求、PRD、用户故事、功能定义、验收标准、把想法变成 feature、
   需求澄清、user_visible_behavior 等关键词时触发。
-  把模糊需求转成可验证的 feature 三元组（行为 + 可执行验证 + 证据位）。
+  把模糊需求转成可验证的 feature 四元组（spec_ref + 行为 + 可执行验证 + 证据位）。
 ---
 
 # Requirement Author Skill
@@ -62,9 +62,9 @@ description: >
 自己刚在 `requirements/*.md` 里用 `requirements.template.md`（2026-07-20 起 Use
 Case 格式，R1-R12）写下的那个章节——**这是你本人这一步的产出物，不是转述别处
 已有的东西**。写 feature 之前先确认对应章节已经落在 requirements 文件里，编不出
-spec_ref 说明需求还没写够，回头先补：**R3 主流程、R4 备选/异常流程、R5 权限与
-可见性**这三节不许跳过（尤其 R4 最容易被跳过，几乎所有"能跑但没想清楚边界"
-的返工都出在这里）。
+spec_ref 说明需求还没写够，回头先补——哪几节必填以 `requirements.template.md`
+为准，本文不重复定义，只提醒一句：**R4（备选/异常流程）最容易被跳过**，几乎
+所有"能跑但没想清楚边界"的返工都出在这里。
 机械门控（`.harness/scripts/lib/spec-ref.ts`）：`claim` 认领时、`verify` 门控 passing
 时都会重新解析 spec_ref——文件不存在 / 章节找不到，两处都拒绝，不是只在这一步查一次。
 
