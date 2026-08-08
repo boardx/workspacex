@@ -48,6 +48,7 @@ interface StepRow {
   kind: string; status: string; started_at: Date; ended_at: Date;
   input_digest: string | null; output_digest: string | null; failure_code: string | null;
   tool_name: string | null; tool_args_summary: string | null; tool_result_summary: string | null;
+  planning_note: string | null;
 }
 
 interface ClaimDetailRow {
@@ -163,11 +164,11 @@ export class PgAgentRunRepository implements AgentRunStore {
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,
             input_digest,output_digest,failure_code,
-            tool_name,tool_args_summary,tool_result_summary)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14)`,
+            tool_name,tool_args_summary,tool_result_summary,planning_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15)`,
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
           step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode,
-          step.toolName, step.toolArgsSummary, step.toolResultSummary],
+          step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote],
       );
     });
   }
@@ -406,7 +407,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       if (row === undefined) return null;
       const steps = await s.query<StepRow>(
         `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code,
-                tool_name,tool_args_summary,tool_result_summary
+                tool_name,tool_args_summary,tool_result_summary,planning_note
            FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq, started_at`,
         [orgId, runId],
       );
@@ -436,6 +437,7 @@ export class PgAgentRunRepository implements AgentRunStore {
         toolName: step.tool_name,
         toolArgsSummary: step.tool_args_summary,
         toolResultSummary: step.tool_result_summary,
+        planningNote: step.planning_note,
       })),
       createdAt: found.row.created_at.toISOString(),
     };
