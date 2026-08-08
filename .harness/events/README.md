@@ -14,8 +14,11 @@ Proposal（`PROP-HARNESS-AGENT-001.md` §10.4）定义了 `TPL-EVT-001` 的字�
   `.harness/scripts/lib/workflow-event-model.ts` 文件头部注释）。
 - Schema 校验：`.harness/scripts/lib/workflow-event-model.ts`
   （`validateWorkflowEvent`）。
+- Event stable ID 重复 / append-only（历史覆写）校验：
+  `.harness/scripts/lib/workflow-event-append-only-gate.ts`
+  （`checkDuplicateInstanceIds` / `checkAppendOnly`，H3A-034；git IO 在
+  `workflow-event-doctor.ts`）。
 - **本目录故意不做的事**（分给后续条目）：
-  - Event stable ID 是否重复、历史是否被覆写——H3A-034，尚未落地。
   - 12 行短文本 renderer——H3A-035，尚未落地。
   - `task_id` 指向的 Task Assignment 是否真实存在——跨表 gate，尚未落地。
 
