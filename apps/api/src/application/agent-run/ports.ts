@@ -239,6 +239,35 @@ export interface AgentRunStore {
   findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null>;
 
   readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null>;
+
+  /**
+   * Prior turns in this run's thread, strictly before `beforeMessageId`, in CHRONOLOGICAL
+   * order (oldest of the kept window first). Only the most recent `limit` are returned --
+   * the caller (`execute-run.ts`) applies its own character budget on top of this row cap,
+   * but the row cap exists so a very long thread never asks Postgres to sort/return
+   * thousands of rows just to throw most of them away one layer up (#709 multi-turn context).
+   *
+   * `beforeMessageId` must belong to the same thread; a message id from elsewhere yields an
+   * empty result rather than an error -- this is prior conversation context, not a fact the
+   * run's correctness depends on, so "found nothing" is a safe, quiet answer.
+   */
+  readThreadHistory(
+    orgId: OrgId,
+    threadId: string,
+    beforeMessageId: string,
+    limit: number,
+  ): Promise<readonly ThreadHistoryMessage[]>;
+}
+
+/**
+ * One prior turn, already collapsed from `chat_messages.author_kind` ("human"/"agent") to
+ * the `user`/`assistant` vocabulary every `ModelCallPort` implementation speaks -- the
+ * repository does that mapping once here, so it is not re-decided at each of the three
+ * provider implementations that read `ModelCallInput.history`.
+ */
+export interface ThreadHistoryMessage {
+  readonly role: "user" | "assistant";
+  readonly content: string;
 }
 
 export interface ModelCallInput {
@@ -246,6 +275,19 @@ export interface ModelCallInput {
   readonly modelId: string;
   readonly system: string;
   readonly user: string;
+  /**
+   * Prior turns of the SAME thread, oldest first, already trimmed to this deployment's
+   * token-budget policy (`execute-run.ts`'s `trimHistoryToBudget`) -- never the raw,
+   * unbounded thread. OPTIONAL and not `readonly []` by default: absent means "the caller
+   * has no notion of thread history for this call" (`trialRunAgent`'s scenario has no
+   * thread at all), and every `ModelCallPort` implementation that cares reads it as
+   * `input.history ?? []`, exactly the discipline `tokens` on the return type already
+   * uses for "not reported" vs "confirmed zero" (see that field's own comment below).
+   * A provider that has no notion of multi-turn context (`BailianImageProvider`'s single
+   * text-to-image prompt) is free to ignore the field entirely -- accepting-but-ignoring
+   * an unused input is not the same failure as silently dropping one it was asked to use.
+   */
+  readonly history?: readonly ThreadHistoryMessage[];
 }
 
 /**

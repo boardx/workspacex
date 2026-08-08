@@ -15,6 +15,7 @@ import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/applicati
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, ClaimedAgentRun, ModelCallInput,
   ModelCallPort, PinnedSkillContent, RunDelta, RunFailureCode, RunLocator, RunProjection,
+  ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import type { Guarded } from "../../src/application/security/permission-filter";
 
@@ -69,6 +70,9 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
     appendWritebackFailure: unused("appendWritebackFailure"),
     findLocator: async (): Promise<RunLocator | null> => null,
     readRun: async (): Promise<Guarded<RunProjection> | null> => null,
+    // #690: no thread history fixtures in this file -- these tests are about the
+    // streaming/delta timing, not about what gets read from a thread.
+    readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => [],
   };
 }
 

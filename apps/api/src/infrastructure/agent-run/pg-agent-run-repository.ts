@@ -28,6 +28,7 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, PendingWriteback,
   PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
+  ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -413,5 +414,60 @@ export class PgAgentRunRepository implements AgentRunStore {
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
     return guard({ kind: "project", id: found.row.project_id }, projection);
+  }
+
+  /**
+   * #709 multi-turn context. Row comparison `(created_at, id) < (created_at, id)` on the
+   * subquery, not a plain `created_at < $timestamp`: two messages inserted within the same
+   * clock tick (real under load, and routine in tests that insert fixtures back to back)
+   * would otherwise be ordered arbitrarily by Postgres and could let the CURRENT input
+   * message leak into its own history. `id` is a `randomUUID()` insertion-order tiebreaker
+   * nowhere else in this file, but it is the same tiebreaker `findMessages`/`claimQueued`'s
+   * sibling queries already use (`ORDER BY created_at, id`).
+   *
+   * The inner `ORDER BY ... DESC LIMIT $4` takes the MOST RECENT `limit` prior messages;
+   * the outer re-sort puts that window back into chronological order, which is the shape
+   * `execute-run.ts` needs (oldest of the kept window first) without asking Postgres to
+   * hand back an entire long-lived thread just to slice it in application code.
+   *
+   * A `beforeMessageId` that does not resolve (wrong thread, or simply not found) makes the
+   * subquery return no row, and `< NULL` is never true in SQL -- the outer query returns
+   * zero rows rather than throwing. That is the deliberate "found nothing" contract this
+   * method's own doc comment on `AgentRunStore` describes.
+   */
+  async readThreadHistory(
+    orgId: OrgId,
+    threadId: string,
+    beforeMessageId: string,
+    limit: number,
+  ): Promise<readonly ThreadHistoryMessage[]> {
+    if (limit <= 0) return [];
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ author_kind: string; body: string }>(
+        `SELECT author_kind, body FROM (
+           SELECT author_kind, body, created_at, id
+             FROM chat_messages
+            WHERE org_id=$1 AND thread_id=$2
+              AND (created_at, id) < (
+                SELECT created_at, id FROM chat_messages WHERE org_id=$1 AND id=$3
+              )
+            ORDER BY created_at DESC, id DESC
+            LIMIT $4
+         ) recent
+         ORDER BY created_at ASC, id ASC`,
+        [orgId, threadId, beforeMessageId, limit],
+      );
+      return result.rows
+        .map((row): ThreadHistoryMessage | null => {
+          if (row.author_kind === "human") return { role: "user", content: row.body };
+          if (row.author_kind === "agent") return { role: "assistant", content: row.body };
+          // No third `author_kind` exists in this schema today (see the CHECK on
+          // `chat_messages`); skipping rather than throwing keeps a future value from
+          // turning "read some history" into "fail the whole run" for an enhancement
+          // this run's correctness never depended on.
+          return null;
+        })
+        .filter((m): m is ThreadHistoryMessage => m !== null);
+    });
   }
 }

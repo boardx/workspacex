@@ -72,6 +72,25 @@ export function readModelProviderConfig(
   };
 }
 
+/**
+ * #709 -- the OpenAI-compatible `messages` array, system first, then whatever prior turns
+ * `execute-run.ts` already trimmed to budget (`input.history ?? []` -- see `ModelCallInput`'s
+ * own doc comment for why this is `?? []` rather than a required field), then the current
+ * turn last. Shared by `complete()` and `streamImpl()` so the two request bodies cannot
+ * drift on how history gets spliced in -- they already share every other field of this
+ * request shape, and a second inlined copy is exactly the kind of duplication this
+ * repository's own discipline (AGENTS.md: "同一事实不得声明在两处") calls out by name.
+ */
+function buildMessages(
+  input: ModelCallInput,
+): { readonly role: string; readonly content: string }[] {
+  return [
+    { role: "system", content: input.system },
+    ...(input.history ?? []).map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: input.user },
+  ];
+}
+
 interface CompletionResponse {
   choices?: { message?: { content?: unknown } }[];
   usage?: { total_tokens?: unknown };
@@ -136,10 +155,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         body: JSON.stringify({
           model: input.modelId,
           stream: false,
-          messages: [
-            { role: "system", content: input.system },
-            { role: "user", content: input.user },
-          ],
+          messages: buildMessages(input),
         }),
       });
     } catch {
@@ -222,10 +238,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
         body: JSON.stringify({
           model: input.modelId,
           stream: true,
-          messages: [
-            { role: "system", content: input.system },
-            { role: "user", content: input.user },
-          ],
+          messages: buildMessages(input),
         }),
       });
     } catch {
