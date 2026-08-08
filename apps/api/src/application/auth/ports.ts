@@ -33,6 +33,8 @@ export interface CredentialRow {
   readonly emailVerifiedAt: Date | null;
   /** #638 delta, iteration 1. `credentials.display_name` -- always set, never null. */
   readonly displayName: string;
+  /** #638 delta, iteration 2. `credentials.avatar_url` -- null until an avatar is set. */
+  readonly avatarUrl: string | null;
 }
 
 export interface CredentialRepository {
@@ -46,6 +48,16 @@ export interface CredentialRepository {
    * 返回更新后的行；`userId` 不存在时返回 null（理论上不该发生，调用方已认证）。
    */
   updateDisplayName(userId: string, displayName: string): Promise<CredentialRow | null>;
+
+  /**
+   * `updateOwnProfile`（#638 delta，迭代 2）—— 落 `uploadOwnAvatar` 签发的 artifact。
+   * `avatarArtifactId`/`avatarUrl` 均为 null 时清空头像回默认。
+   */
+  updateAvatar(
+    userId: string,
+    avatarArtifactId: string | null,
+    avatarUrl: string | null,
+  ): Promise<CredentialRow | null>;
 }
 
 export const CREDENTIAL_REPOSITORY = Symbol("CredentialRepository");
@@ -127,6 +139,21 @@ export interface SessionTokenStore {
    * ⚠ Marks, does not delete (I-7).
    */
   revokeAllForUser(userId: string, at: Date): Promise<number>;
+
+  /**
+   * `changeOwnPassword`（#638 delta，迭代 2）—— 与 `revokeAllForUser` **不是**同一方法
+   * 带一个可选排除参数：这里的调用前提是「保留发起这次改密请求的那一条会话」，
+   * 而 `revokeAllForUser`（密码重置）的前提是「连当前会话一起吊销」——两个不同的
+   * 威胁模型（见 identity 契约 `changeOwnPassword` 的文档注释），混成一个方法会让
+   * 「传不传 exceptSessionId」的隐含语义在某个调用点被用错。
+   *
+   * ⚠ 同 `revokeAllForUser`：标记而非删除（I-7），已吊销的不重复计数。
+   *
+   * @returns 被吊销的会话数（不含被排除的那一条），如实回传（`revokedSessionCount`
+   *          即使是 0 也要如实——不能为了"看起来有效果"而编数）。
+   */
+  revokeAllForUserExcept(userId: string, exceptSessionId: string, at: Date): Promise<number>;
+
   /** All sessions of a user, revoked ones included -- so I-7 ("still there, marked") is assertable. */
   listForUser(userId: string): Promise<readonly SessionRecord[]>;
 

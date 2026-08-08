@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BrainCircuit, ChevronRight, ImageOff, User } from "lucide-react";
+import {
+  AlertTriangle, BrainCircuit, CheckCircle2, ChevronRight, Clock, ImagePlus, KeyRound, User,
+} from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -11,18 +13,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
-import { updateOwnProfile } from "@/lib/live-identity";
+import {
+  changeOwnPassword, fetchAvatarObjectUrl, listOwnActivity, updateOwnProfile, uploadOwnAvatar,
+  type ListOwnActivityOut,
+} from "@/lib/live-identity";
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
- * `/profile` —— 个人资料页（#638 delta，迭代 1）。
- *
- * ## 本轮范围
- * 只做 `updateOwnProfile` 的 `displayName` 编辑。头像上传（`uploadOwnAvatar`）本轮
- * 不做——下面的头像区块是**禁用态占位**，不接受点击，标题说明"下一轮开放"，
- * 不是漏做了交互。
+ * `/profile` —— 个人资料页（#638 delta；迭代 1 只有改名，迭代 2 补头像上传、
+ * 改密码、活动记录三块）。
  */
 export function ProfileScreen() {
-  const { session, identity, updateDisplayName } = useSession();
+  const { session, identity, updateDisplayName, updateAvatarUrl } = useSession();
 
   return (
     <AppShell previewRole={null}>
@@ -52,10 +56,16 @@ export function ProfileScreen() {
         </Link>
 
         {identity && session ? (
-          <ProfileForm
-            initialDisplayName={identity.displayName}
-            onSaved={(displayName) => updateDisplayName(displayName)}
-          />
+          <>
+            <ProfileForm
+              initialDisplayName={identity.displayName}
+              avatarUrl={identity.avatarUrl}
+              onSavedName={(displayName) => updateDisplayName(displayName)}
+              onSavedAvatar={(avatarUrl) => updateAvatarUrl(avatarUrl)}
+            />
+            <PasswordSection />
+            <ActivitySection />
+          </>
         ) : (
           <div data-testid="loading" className="flex animate-pulse flex-col gap-3">
             <div className="h-14 rounded-lg bg-muted" />
@@ -68,13 +78,15 @@ export function ProfileScreen() {
   );
 }
 
+/* ═══════════════════════════ 头像 + 显示名 ═══════════════════════════ */
+
 function ProfileForm({
-  initialDisplayName,
-  onSaved,
+  initialDisplayName, avatarUrl, onSavedName, onSavedAvatar,
 }: {
   initialDisplayName: string;
-  /** Addendum A: 让保存链路接回真正会渲染显示名的地方（session identity），见文件头注释。 */
-  onSaved: (displayName: string) => void;
+  avatarUrl: string | null;
+  onSavedName: (displayName: string) => void;
+  onSavedAvatar: (avatarUrl: string | null) => void;
 }) {
   const [displayName, setDisplayName] = React.useState(initialDisplayName);
   const [savedName, setSavedName] = React.useState(initialDisplayName);
@@ -97,9 +109,7 @@ function ProfileForm({
       setSavedName(out.displayName);
       setDisplayName(out.displayName);
       setState("success");
-      // 反证 B 的核心链路：不是只有这张表单自己知道新名字，session 里的 identity 也跟着
-      // 刷新——侧栏头像首字母、任何读 identity.displayName 的地方，不用重登就能看到新值。
-      onSaved(out.displayName);
+      onSavedName(out.displayName);
     } catch (err) {
       setFailureMessage(describeFailure(err));
       setState("dep-failed");
@@ -108,25 +118,7 @@ function ProfileForm({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 头像区块 —— 禁用态占位（uploadOwnAvatar 本轮不做，见文件头注释） */}
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3" data-testid="profile-avatar-block">
-        <Avatar initials={savedName.slice(0, 1)} size="lg" />
-        <div className="flex flex-col gap-1">
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            disabled
-            data-testid="profile-avatar-upload"
-            aria-disabled="true"
-            title="头像上传下一轮开放"
-          >
-            <ImageOff aria-hidden className="h-3 w-3" />
-            更换头像
-          </Button>
-          <p className="text-10 text-muted-foreground">头像上传本轮暂未开放，下一轮迭代接入。</p>
-        </div>
-      </div>
+      <AvatarUpload avatarUrl={avatarUrl} displayName={savedName} onSaved={onSavedAvatar} />
 
       <form className="flex flex-col gap-4" onSubmit={handleSave} data-testid="profile-name-form">
         <StateShell
@@ -166,6 +158,349 @@ function ProfileForm({
       </form>
     </div>
   );
+}
+
+type AvatarUiState = "idle" | "uploading" | "error";
+
+function AvatarUpload({
+  avatarUrl, displayName, onSaved,
+}: { avatarUrl: string | null; displayName: string; onSaved: (avatarUrl: string | null) => void }) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [state, setState] = React.useState<AvatarUiState>("idle");
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  // 读回已保存的头像——`avatarUrl` 要求 Authorization 头，<img src> 做不到，
+  // 所以用 fetch 换成 Blob URL（见 `live-identity.ts` 的 `fetchAvatarObjectUrl`）。
+  React.useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    if (avatarUrl) {
+      fetchAvatarObjectUrl(avatarUrl)
+        .then((url) => {
+          if (cancelled) return;
+          objectUrl = url;
+          setPreviewUrl(url);
+        })
+        .catch(() => {
+          if (!cancelled) setErrorMessage("头像加载失败，稍后重试");
+        });
+    } else {
+      setPreviewUrl(null);
+    }
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [avatarUrl]);
+
+  async function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = ""; // 允许重复选同一个文件也能触发 onChange
+    if (!file) return;
+
+    setErrorMessage(null);
+
+    // 前端预检——体验优化，服务端会重做全部校验（真正的把关在那边）。
+    if (file.size > AVATAR_MAX_BYTES) {
+      setState("error");
+      setErrorMessage(`文件太大（${(file.size / 1024 / 1024).toFixed(1)}MB）——头像最大 5MB。`);
+      return;
+    }
+    if (!AVATAR_ALLOWED_TYPES.includes(file.type)) {
+      setState("error");
+      setErrorMessage(`不支持的文件类型（${file.type || "未知"}）——只支持 PNG / JPEG / WebP。`);
+      return;
+    }
+
+    setState("uploading");
+    try {
+      const uploaded = await uploadOwnAvatar(file);
+      const patched = await updateOwnProfile({ avatarArtifactId: uploaded.avatarArtifactId });
+      const objectUrl = await fetchAvatarObjectUrl(uploaded.avatarUrl);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return objectUrl;
+      });
+      onSaved(patched.avatarUrl);
+      setState("idle");
+    } catch (err) {
+      setState("error");
+      setErrorMessage(describeAvatarFailure(err));
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3" data-testid="profile-avatar-block">
+      <Avatar initials={displayName.slice(0, 1)} src={previewUrl} size="lg" />
+      <div className="flex flex-1 flex-col gap-1">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={AVATAR_ALLOWED_TYPES.join(",")}
+          className="hidden"
+          onChange={handleFileChosen}
+          data-testid="profile-avatar-file-input"
+        />
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          disabled={state === "uploading"}
+          onClick={() => fileInputRef.current?.click()}
+          data-testid="profile-avatar-upload"
+        >
+          <ImagePlus aria-hidden className="h-3 w-3" />
+          {state === "uploading" ? "上传中…" : "更换头像"}
+        </Button>
+        <p className="text-10 text-muted-foreground">PNG / JPEG / WebP，最大 5MB。</p>
+        {state === "error" && errorMessage ? (
+          <p role="alert" data-testid="profile-avatar-error" className="flex items-center gap-1 text-10 text-destructive">
+            <AlertTriangle aria-hidden className="h-3 w-3 shrink-0" />
+            {errorMessage}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function describeAvatarFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    if (failure.reasonCode === "FILE_TOO_LARGE") return "文件太大——头像最大 5MB。";
+    if (failure.reasonCode === "UNSUPPORTED_CONTENT_TYPE") return "文件类型不支持或与声明不符——只支持 PNG / JPEG / WebP。";
+    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
+    return `${failure.reasonCode ?? "上传失败"}（HTTP ${failure.status}）`;
+  }
+  return failure instanceof Error ? failure.message : "上传失败，请稍后重试。";
+}
+
+/* ═══════════════════════════ 改密码 ═══════════════════════════ */
+
+type PasswordUiState = "idle" | "submitting" | "invalid" | "error" | "success";
+
+function PasswordSection() {
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [state, setState] = React.useState<PasswordUiState>("idle");
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [revokedCount, setRevokedCount] = React.useState<number | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 12) {
+      setState("invalid");
+      setErrorMessage("新密码至少需要 12 个字符");
+      return;
+    }
+    setState("submitting");
+    setErrorMessage(null);
+    setRevokedCount(null);
+    try {
+      const out = await changeOwnPassword({ currentPassword, newPassword });
+      setState("success");
+      setRevokedCount(out.revokedSessionCount);
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (err) {
+      setState("error");
+      setErrorMessage(describePasswordFailure(err));
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4" data-testid="profile-password-section">
+      <div className="flex items-center gap-2">
+        <KeyRound aria-hidden className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-13 font-semibold">修改密码</h2>
+      </div>
+
+      <form className="flex flex-col gap-3" onSubmit={handleSubmit} data-testid="profile-password-form">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="current-password">当前密码</Label>
+          <Input
+            id="current-password"
+            type="password"
+            value={currentPassword}
+            disabled={state === "submitting"}
+            onChange={(e) => {
+              setCurrentPassword(e.currentTarget.value);
+              if (state !== "idle") setState("idle");
+            }}
+            data-testid="profile-current-password-input"
+            aria-invalid={state === "error"}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="new-password">新密码</Label>
+          <Input
+            id="new-password"
+            type="password"
+            value={newPassword}
+            disabled={state === "submitting"}
+            onChange={(e) => {
+              setNewPassword(e.currentTarget.value);
+              if (state !== "idle") setState("idle");
+            }}
+            data-testid="profile-new-password-input"
+            aria-invalid={state === "invalid"}
+          />
+          <p className="text-10 text-muted-foreground">至少 12 个字符，不能是常见弱密码。</p>
+        </div>
+
+        {state === "invalid" && errorMessage ? (
+          <p role="alert" data-testid="err-new-password" className="text-11 text-destructive">{errorMessage}</p>
+        ) : null}
+        {state === "error" && errorMessage ? (
+          <p role="alert" data-testid="profile-password-error" className="flex items-center gap-1.5 text-11 text-destructive">
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            {errorMessage}
+          </p>
+        ) : null}
+        {state === "success" ? (
+          <div
+            role="status"
+            data-testid="profile-password-success"
+            className="flex flex-col gap-1 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
+          >
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              密码已修改
+            </span>
+            {/* 硬约束：改密后"其它设备已登出"必须让用户看得见，不能是静默副作用。 */}
+            <span data-testid="profile-password-revoked-count">
+              {revokedCount !== null && revokedCount > 0
+                ? `已同时登出其它 ${revokedCount} 台设备/会话，本设备保持登录。`
+                : "本次没有其它设备在线，无需额外登出。"}
+            </span>
+          </div>
+        ) : null}
+
+        <div>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={state === "submitting" || currentPassword.length === 0 || newPassword.length === 0}
+            data-testid="profile-password-submit"
+          >
+            {state === "submitting" ? "修改中…" : "修改密码"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function describePasswordFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    if (failure.reasonCode === "CURRENT_PASSWORD_INVALID") return "当前密码不正确。";
+    if (failure.reasonCode === "PASSWORD_POLICY_VIOLATION") return "新密码强度不够（太短或是常见弱密码），换一个更强的。";
+    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
+    return `${failure.reasonCode ?? "修改失败"}（HTTP ${failure.status}）`;
+  }
+  return failure instanceof Error ? failure.message : "修改失败，请稍后重试。";
+}
+
+/* ═══════════════════════════ 活动记录 ═══════════════════════════ */
+
+function ActivitySection() {
+  const [state, setState] = React.useState<UiState>("loading");
+  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
+  const [out, setOut] = React.useState<ListOwnActivityOut | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setState("loading");
+    setFailureMessage(null);
+    try {
+      const result = await listOwnActivity({ cursor: null, limit: 20 });
+      setOut(result);
+      setState(result.events.length === 0 ? "empty" : "default");
+    } catch (err) {
+      setFailureMessage(describeActivityFailure(err));
+      setState("dep-failed");
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function loadMore() {
+    if (!out?.nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const more = await listOwnActivity({ cursor: out.nextCursor, limit: 20 });
+      setOut((prev) => (prev ? { events: [...prev.events, ...more.events], nextCursor: more.nextCursor } : more));
+    } catch {
+      // 加载更多失败不打断已展示的内容，只是这次没成功——不弹出全屏错误态。
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-4" data-testid="profile-activity-section">
+      <div className="flex items-center gap-2">
+        <Clock aria-hidden className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-13 font-semibold">活动记录</h2>
+      </div>
+
+      <StateShell
+        state={state}
+        emptyHint="还没有活动记录。"
+        depFailure={{ what: failureMessage ?? "活动记录服务暂时不可用", retry: load }}
+      >
+        <ul className="flex flex-col gap-2" data-testid="profile-activity-list">
+          {out?.events.map((event) => (
+            <li
+              key={event.eventId}
+              data-testid={`profile-activity-${event.eventId}`}
+              className="flex items-start justify-between gap-3 border-b border-border/60 pb-2 last:border-none last:pb-0"
+            >
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                <span className="truncate text-12">{event.summary}</span>
+                <span className="text-10 text-muted-foreground">{event.kind}</span>
+              </div>
+              <time className="shrink-0 text-10 text-muted-foreground" dateTime={event.occurredAt}>
+                {formatActivityTime(event.occurredAt)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      </StateShell>
+
+      {state === "default" && out?.nextCursor ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          disabled={loadingMore}
+          onClick={loadMore}
+          data-testid="profile-activity-load-more"
+        >
+          {loadingMore ? "加载中…" : "加载更多"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function formatActivityTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("zh-CN", { hour12: false });
+  } catch {
+    return iso;
+  }
+}
+
+function describeActivityFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
+    return `${failure.reasonCode ?? "加载失败"}（HTTP ${failure.status}）`;
+  }
+  return failure instanceof Error ? failure.message : "加载失败，请稍后重试。";
 }
 
 function describeFailure(failure: unknown): string {

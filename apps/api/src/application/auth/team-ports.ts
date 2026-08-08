@@ -70,6 +70,25 @@ export interface TeamRepository {
    * 这条是反证 C 的断言对象。
    */
   list(orgId: OrgId): Promise<readonly TeamListRow[]>;
+
+  /**
+   * `createTeam`（team-crud delta #639，迭代 2）—— 与 `create` **不是同一方法**：
+   * `create` 撞到 `teams_org_name_uniq` 时幂等重放（返回既有团队），这个方法撞到时
+   * **拒绝**（`{ ok: false, reason: "conflict" }`）。两个方法并存是因为两种语义都各自
+   * 签核过，见契约 `createTeam` 操作的文档注释。
+   */
+  createExclusive(orgId: OrgId, name: string): Promise<StrictMutateResult>;
+
+  /**
+   * `renameTeam`（team-crud delta #639，迭代 2）—— 同上，撞到同名**拒绝**而不是重放/覆盖。
+   */
+  renameExclusive(orgId: OrgId, teamId: string, name: string): Promise<StrictMutateResult>;
 }
+
+/** `createExclusive`/`renameExclusive` 的返回形状——"拒绝"是三选一，不是布尔。 */
+export type StrictMutateResult =
+  | { readonly ok: true; readonly team: TeamRow }
+  | { readonly ok: false; readonly reason: "conflict" }
+  | { readonly ok: false; readonly reason: "not-found" };
 
 export const TEAM_REPOSITORY = Symbol("TeamRepository");

@@ -61,6 +61,8 @@ export interface SessionContextValue {
    * reload / 重新登录时会走 `resolveIdentity` 的真实读路径，跟这条本地更新互相印证。
    */
   updateDisplayName(displayName: string): void;
+  /** #638 delta，迭代 2 —— 同 `updateDisplayName`，头像那一半（Addendum B）。 */
+  updateAvatarUrl(avatarUrl: string | null): void;
 }
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
@@ -72,6 +74,7 @@ function toIdentity(_userId: string, resolved: ResolvedIdentity): Identity {
     // at all and this fell back to the raw userId -- so a rename would "save" but every
     // place reading the display name (rail avatar initial, etc.) kept showing the old value.
     displayName: resolved.displayName,
+    avatarUrl: resolved.avatarUrl,
     org: resolved.org,
     orgRole: resolved.orgRole,
     projectRole: resolved.projectRole,
@@ -360,6 +363,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setIdentity((prev) => (prev ? { ...prev, displayName } : prev));
   }, []);
 
+  /**
+   * #638 delta，迭代 2 —— 同 `updateDisplayName` 的处置（Addendum B 的本地半边）：
+   * `uploadOwnAvatar`/`updateOwnProfile` 保存成功后立刻刷新 identity，不等下一次
+   * `resolveIdentity`，理由与 `updateDisplayName` 完全一致，见其上方注释。
+   */
+  const updateAvatarUrl = React.useCallback((avatarUrl: string | null) => {
+    setIdentity((prev) => (prev ? { ...prev, avatarUrl } : prev));
+  }, []);
+
   const organizations = React.useMemo<readonly OrganizationSummary[]>(() => {
     if (!session) return [];
     return session.orgIds.map((id) => {
@@ -372,10 +384,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<SessionContextValue>(() => ({
     status, session, identity, organizations, error,
-    startSession, switchOrganization, retry, logout, updateDisplayName,
+    startSession, switchOrganization, retry, logout, updateDisplayName, updateAvatarUrl,
   }), [
     error, identity, logout, organizations, retry, session, startSession, status,
-    switchOrganization, updateDisplayName,
+    switchOrganization, updateDisplayName, updateAvatarUrl,
   ]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

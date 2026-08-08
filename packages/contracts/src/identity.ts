@@ -17,6 +17,21 @@
  */
 import { z } from "zod";
 
+/**
+ * 与 `auth.ts` 的 `PasswordPolicy`（`z.string().min(AUTH_POLICY.passwordMinLen)`）
+ * 是**同一条规则**，但这里不 `import { PasswordPolicy } from "./auth"`——`auth.ts`
+ * 反过来 `import { Organization } from "./identity"`，两边互相 import 会成环：
+ * `gen-mock.ts`（`tsx` 直接执行 ESM，不像 `tsc --noEmit` 只做类型检查）踩到的是
+ * `ReferenceError: Cannot access 'PasswordPolicy' before initialization`——循环引用下
+ * 两个模块谁先执行到一半就会读到对方还没初始化完的绑定。
+ *
+ * 12 这个数字本身仍然只有一处**运行时事实源**：`auth.ts` 的 `AUTH_POLICY.passwordMinLen`。
+ * `changeOwnPassword` 的强度判定发生在服务端 `domain/auth/password-policy.ts` 的
+ * `checkPassword()`，那份代码读的正是 `AUTH_POLICY.passwordMinLen`——这里的 zod schema
+ * 只是请求体的**形状**校验（"至少要有内容"），真正的强度规则不会因为这份拷贝而漂移。
+ */
+const MIN_PASSWORD_LEN = 12;
+
 /* ─────────────────────── 枚举（与 domain.md 一一对应）─────────────────────── */
 
 /** 组织类型是**一等字段**，不是特例分支——两者共用同一张表与同一套 ACL/RLS（domain I-2/I-3） */
@@ -121,6 +136,28 @@ export const LocalOrgReason = z.enum([
 export const LocalExportReason = z.enum([
   "EXPORT_PREVIEW_REQUIRED",
   "EXPORT_DIRECTION_FORBIDDEN",
+]);
+
+/**
+ * 自助资料（#638 delta，迭代 2）三个新操作的失败面：`uploadOwnAvatar` /
+ * `updateOwnProfile`（迭代 2 新增的头像分支）/ `changeOwnPassword` 各自的 `err`。
+ *
+ * ⚠ 加它的理由与 `LocalExportReason`/`InterviewError`/`FilesError` 等历次**逐字相同**——
+ *   `all-exceptions.filter.ts` 是**允许列表**，没登记的 `reasonCode` 会被静默丢弃，
+ *   调用方只收到一个光秃秃的 `{"error":"forbidden"}` / `{"error":"bad_request"}`，状态码对、
+ *   原因没了。本轮真实 HTTP 实测踩到了这个坑（改密码故意传错密码，界面上只显示
+ *   "HTTP 403"，没有"当前密码不正确"那句话）——记录在这里而不是让下一个人再踩一次。
+ *
+ * `INVALID_INPUT` 是 `updateOwnProfile` 迭代 1 就有的码，之前也从未真正到达过响应体
+ * （同一个 bug，只是迭代 1 没有真实 HTTP 层测试戳穿它）；`AVATAR_ARTIFACT_NOT_OWNED` 同理。
+ */
+export const SelfServiceProfileError = z.enum([
+  "INVALID_INPUT",
+  "AVATAR_ARTIFACT_NOT_OWNED",
+  "FILE_TOO_LARGE",
+  "UNSUPPORTED_CONTENT_TYPE",
+  "CURRENT_PASSWORD_INVALID",
+  "PASSWORD_POLICY_VIOLATION",
 ]);
 
 /**
@@ -545,17 +582,52 @@ export const operations = {
       groupId: z.string().nullable(),
       /** 来自 credentials.display_name；这一列早就存在，只是从未被读出来过（Addendum A）。 */
       displayName: z.string(),
+      /**
+       * Addendum B（#638 delta，迭代 2，与 Addendum A 同一处置、同一理由）：
+       * `updateOwnProfile` 迭代 2 补了头像的真实写路径（`credentials.avatar_url`），
+       * 若不在这里补配套的读路径，会重演 Addendum A 修的同一类缺陷——刷新页面后
+       * 头像块读不到刚上传的新值。这条字段就是补那条读路径，未设置头像时为 null。
+       */
+      avatarUrl: z.string().nullable(),
     }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
   /**
-   * updateOwnProfile —— 自助改个人资料（#638 delta，迭代 1）
+   * uploadOwnAvatar —— 头像上传（#638 delta，迭代 2）
    *
-   * ⚠ 本轮只有 `displayName` 有真实可用的后端路径。`avatarArtifactId` 字段
-   *   按 delta §1 的最终形状先写进 zod（前端/契约层完整），但 `uploadOwnAvatar`
-   *   本轮不做——服务端收到非 null 的 `avatarArtifactId` 时不做头像落库，
-   *   仅原样透传占位处理，不在本轮伪造"头像已生效"的假象。见迭代说明。
+   * ⚠ 这条 `in` 只是**元数据**——文件名/大小/哈希/内容类型，跟 `uploadArtifact` 同一处置
+   *   （那条契约的 `files` 数组也不带字节）。真正的字节走同一个 HTTP 请求的
+   *   `multipart/form-data`：一个 `meta` 字段（JSON，须与这份 zod 校验一致）+ 一个
+   *   `file` 字段（二进制）。controller 层用 multer 解析，`meta` 字段照样过 zod，
+   *   不因为走了 multipart 就绕开契约校验。
+   * ⚠ 5MB 上限、三种 content-type 都在 zod 里，但服务端**必须对实际字节重新校验**
+   *   （体积、magic-byte 与声明的 contentType 一致）——声明的 `sizeBytes`/`contentType`
+   *   只是客户端的说法，不是真相来源，这与 `uploadArtifact` 头部「前端预检只是体验优化，
+   *   服务端必须完整重做全部校验」同一条纪律。
+   * ⚠ 对象存储先写、PG 元数据后写，失败不留幽灵对象——`materializeArtifact`/`FsObjectStore`
+   *   已经证明过这条顺序，这里复用同一个 `ObjectStore` 端口而不是另起一套。
+   */
+  uploadOwnAvatar: {
+    method: "POST", path: "/identity/me/avatar",
+    in: z.object({
+      filename: z.string().min(1),
+      sizeBytes: z.number().int().positive().max(5 * 1024 * 1024),
+      sha256: z.string(),
+      contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    }).strict(),
+    out: z.object({ avatarArtifactId: z.string(), avatarUrl: z.string() }).strict(),
+    err: ["FILE_TOO_LARGE", "UNSUPPORTED_CONTENT_TYPE"] as const,
+  },
+
+  /**
+   * updateOwnProfile —— 自助改个人资料（#638 delta；迭代 1 落 `displayName`，
+   * 迭代 2 补 `avatarArtifactId` 真实路径）
+   *
+   * 迭代 2：`avatarArtifactId` 非 null 时，服务端校验它是 `uploadOwnAvatar` 刚为
+   *   **当前用户**签发的那个 id（`user_avatars.user_id = 会话主体`），验过写
+   *   `credentials.avatar_artifact_id` + `avatar_url`；不属于当前用户 ⇒
+   *   `AVATAR_ARTIFACT_NOT_OWNED`。`null` 清空头像回默认。
    *
    * 不接受修改邮箱——邮箱是登录凭据的一部分，改邮箱是另一个更敏感的操作。
    */
@@ -563,12 +635,49 @@ export const operations = {
     method: "PATCH", path: "/identity/me",
     in: z.object({
       displayName: z.string().min(1).optional(),
-      /** null = 清空头像回默认；非 null 必须是 uploadOwnAvatar 刚返回的 avatarArtifactId。
-       *  ⚠ 迭代 1：uploadOwnAvatar 未实现，服务端对非 null 值一律拒绝为 INVALID_INPUT。 */
+      /** null = 清空头像回默认；非 null 必须是 uploadOwnAvatar 刚返回的 avatarArtifactId。 */
       avatarArtifactId: z.string().nullable().optional(),
     }).strict(),
     out: z.object({ displayName: z.string(), avatarUrl: z.string().nullable() }).strict(),
     err: ["INVALID_INPUT", "AVATAR_ARTIFACT_NOT_OWNED"] as const,
+  },
+
+  /**
+   * changeOwnPassword —— 已登录用户主动改密码（#638 delta，迭代 2）
+   *
+   * ⚠ 与未登录邮箱令牌那条 `completePasswordReset`（auth.ts）是**不同威胁模型**，
+   *   不共用实现：这里必须先验 `currentPassword` 才允许写新哈希——即使是已认证会话，
+   *   这是防会话劫持后静默改密的最后一道（delta §2）。
+   * ⚠ 成功后**必须**吊销除当前会话外的全部会话，`revokedSessionCount` 如实回传
+   *   （哪怕是 0）。这与 `completePasswordReset` 的"全部吊销含当前"是另一条不同的路径
+   *   （`SessionTokenStore.revokeAllForUserExcept`，不是 `revokeAllForUser`）。
+   */
+  changeOwnPassword: {
+    method: "POST", path: "/identity/me/password",
+    in: z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(MIN_PASSWORD_LEN),
+    }).strict(),
+    out: z.object({ changed: z.literal(true), revokedSessionCount: z.number().int().nonnegative() }).strict(),
+    err: ["CURRENT_PASSWORD_INVALID", "PASSWORD_POLICY_VIOLATION"] as const,
+  },
+
+  /**
+   * listOwnActivity —— 自助活动记录列表（#638 delta，迭代 2）
+   *
+   * 复用 `provenance_events`（索引 `provenance_events_actor_idx (org_id, actor_id, at DESC)`
+   * 已覆盖这个查询模式），按 `actor_id = 会话主体` 过滤，cursor 分页。
+   */
+  listOwnActivity: {
+    method: "GET", path: "/identity/me/activity",
+    in: z.object({ cursor: z.string().nullable(), limit: z.number().int().min(1).max(100) }).strict(),
+    out: z.object({
+      events: z.array(z.object({
+        eventId: z.string(), kind: z.string(), occurredAt: z.string(), summary: z.string(),
+      }).strict()),
+      nextCursor: z.string().nullable(),
+    }).strict(),
+    err: [] as const,
   },
 
   switchOrganization: {

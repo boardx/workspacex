@@ -141,6 +141,8 @@ export const SELF_HOSTED_SOURCE_LABEL: Record<"promise" | "policy", string> = {
 
 export interface Identity {
   displayName: string;
+  /** Addendum B（#638 delta，迭代 2）—— 同 `displayName` 的读路径处置，未设置头像时为 null。 */
+  avatarUrl: string | null;
   orgRole: OrgRole;
   org: Organization;
   /** 当前项目中的角色；不在项目上下文里时为 null */
@@ -164,6 +166,7 @@ export function mockIdentity(orgId: string, projectRole: ProjectRole | null): Id
   const org = MOCK_ORGS.find((o) => o.id === orgId) ?? MOCK_ORGS[0]!;
   return {
     displayName: "林可",
+    avatarUrl: null,
     // 本地组织里没有「上级」——自己就是唯一成员，无人可管
     orgRole: isLocalOrg(org) ? "admin" : "consultant",
     org,

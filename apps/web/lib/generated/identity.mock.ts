@@ -82,11 +82,21 @@ export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIden
   "teamId": null,
   "projectRole": null,
   "groupId": null,
-  "displayName": "displayName-1"
+  "displayName": "displayName-1",
+  "avatarUrl": null
 };
 
 /** resolveIdentity 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const resolveIdentityErrors = ["NO_ORG_MEMBERSHIP"] as const;
+
+/** uploadOwnAvatar 的成功响应样例（由契约生成） */
+export const uploadOwnAvatarMock: z.infer<typeof identity.operations.uploadOwnAvatar.out> = {
+  "avatarArtifactId": "avatarArtifactId-1",
+  "avatarUrl": "avatarUrl-1"
+};
+
+/** uploadOwnAvatar 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const uploadOwnAvatarErrors = ["FILE_TOO_LARGE","UNSUPPORTED_CONTENT_TYPE"] as const;
 
 /** updateOwnProfile 的成功响应样例（由契约生成） */
 export const updateOwnProfileMock: z.infer<typeof identity.operations.updateOwnProfile.out> = {
@@ -96,6 +106,28 @@ export const updateOwnProfileMock: z.infer<typeof identity.operations.updateOwnP
 
 /** updateOwnProfile 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const updateOwnProfileErrors = ["INVALID_INPUT","AVATAR_ARTIFACT_NOT_OWNED"] as const;
+
+/** changeOwnPassword 的成功响应样例（由契约生成） */
+export const changeOwnPasswordMock: z.infer<typeof identity.operations.changeOwnPassword.out> = {
+  "changed": true,
+  "revokedSessionCount": 1
+};
+
+/** changeOwnPassword 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const changeOwnPasswordErrors = ["CURRENT_PASSWORD_INVALID","PASSWORD_POLICY_VIOLATION"] as const;
+
+/** listOwnActivity 的成功响应样例（由契约生成） */
+export const listOwnActivityMock: z.infer<typeof identity.operations.listOwnActivity.out> = {
+  "events": [
+    {
+      "eventId": "eventId-1",
+      "kind": "kind-1",
+      "occurredAt": "occurredAt-1",
+      "summary": "summary-1"
+    }
+  ],
+  "nextCursor": null
+};
 
 /** switchOrganization 的成功响应样例（由契约生成） */
 export const switchOrganizationMock: z.infer<typeof identity.operations.switchOrganization.out> = {
