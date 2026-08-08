@@ -49,6 +49,9 @@ const AGENTS_DIR = join(REPO_ROOT, ".harness", "agents");
 const ROLES_DIR = join(AGENTS_DIR, "roles");
 const REGISTRY_PATH = join(AGENTS_DIR, "registry.yaml");
 
+// export：H3A-031/032（task-assignment-doctor.ts）复用同一份"读 6 个持久角色文件"
+// 逻辑，同 domains-doctor.ts 导出 DOMAIN_REGISTRY_PATH/readYaml/scanDomainSkillInstances
+// 给本文件复用的先例——不重复写一遍扫目录逻辑。
 export function readRoleFiles(): RawRoleFile[] {
   if (!existsSync(ROLES_DIR)) return [];
   return readdirSync(ROLES_DIR)
