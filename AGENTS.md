@@ -87,6 +87,8 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - `progress.md` 已更新,`session-handoff.md` 已写。
 - 功能清单真实反映 passing / 未验证边界(没有假 passing)。
 - 没有半成品处于未记录状态;下一轮无需人工修复即可继续。
+- **自己名下的 docker compose 栈已释放**（2026-08-08 实测事故：孤儿栈堆积→load 66→
+  Docker daemon 崩溃）——检查方式与硬性要求见 `.harness/instructions/agent-resource-cleanup-sop.md`。
 
 ## 按需深入(渐进式披露,需要时才读)
 - 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`
@@ -95,6 +97,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
 - **人类开发者带 agent 加入开发** → `.harness/instructions/human-developer-onboarding.md`（面向人类；enroll 步骤 + 启用 agent 的首条消息模板 + 三级 coordinator 层级 + 性能管理，见 ADR-010）
+- **Agent 资源释放 SOP（不遵守系统会崩，2026-08-08 真实事故）** → `.harness/instructions/agent-resource-cleanup-sop.md`
 - Agent 组织模型（多级 coordinator + 子 agent 注册 + 3h 性能周期 + 防断链）→ ADR-010
 - **模块活知识库（做某模块的活之前先读）** → `.agents/skills/mod-<模块名>/SKILL.md`（模块清单见 project/PROJECT.md；新模块复制 `mod-_template/`；经验回流规则见各文件末尾）
 - 编码规范 → `.harness/instructions/coding-standards.md`
