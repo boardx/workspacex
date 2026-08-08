@@ -421,15 +421,36 @@ export function ChatLiveMessagePanel({
                     {isAgent ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
                   </div>
                   <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
-                    <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                      <span className="font-medium">{isAgent ? message.agentId ?? "Agent" : "我"}</span>
-                      {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
+                    {/*
+                      #728 D5 —— 身份行照原型：名字 + 角色 chip + 时间。
+
+                      ⚠ 这里此前印的是 `message.agentId` 的原值（截图上就是
+                      `agent-chat-read-e2e`），而同一份 `agents` 里就有 `name` ——
+                      左栏编制早就正确显示「Controlled Read Agent」了。同一个 agent
+                      在一屏之内一处是人名、一处是裸 id，读的人无法确认它们是同一个。
+                      查不到就回落到 id 而不是糊成「Agent」：查不到通常意味着这个 agent
+                      已被移出编制，糊掉会让这件事不可见。
+
+                      ⚠ `run <id>` 不再常驻可视区（原型里没有这一档，且它是 40 位裸 id）。
+                      改挂 `data-run-id`，机器仍可断言，人眼不再被它占满一行。
+                    */}
+                    <div
+                      className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground"
+                      data-run-id={message.agentRunId ?? undefined}
+                    >
+                      <span className="font-medium text-card-foreground">
+                        {isAgent ? agentLabel(message.agentId, agents) : "我"}
+                      </span>
+                      {isAgent ? agentDuty(message.agentId, agents) : null}
+                      <span>{messageTime(message.createdAt)}</span>
                     </div>
                     <div
                       className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
                           ? "rounded-tl-sm bg-panel text-card-foreground"
-                          : "rounded-tr-sm bg-primary text-primary-foreground"
+                          // #728 D5：原型里人的气泡是**中性底**，不是实心品牌色。
+                          // 实心 primary 让用户自己说的每一句话都在抢视觉重量。
+                          : "rounded-tr-sm bg-muted text-card-foreground"
                       }`}
                     >
                       {isAgent ? (
@@ -601,6 +622,34 @@ export function ChatLiveMessagePanel({
       </div>
     </div>
   );
+}
+
+/**
+ * agent 的显示名。从编制（`getAgentPanel` 的结果）里查，查不到回落到 id。
+ * ⚠ 回落**不是**糊成「Agent」：查不到通常意味着它已被移出编制，糊掉会让这件事不可见。
+ */
+function agentLabel(agentId: string | null, agents: GetAgentPanelOut["agents"] | null): string {
+  if (agentId === null) return "Agent";
+  return agents?.find((a) => a.id === agentId)?.name ?? agentId;
+}
+
+/** agent 的角色 chip。编制里没有这个 agent 时不渲染 —— 不编一个角色出来。 */
+function agentDuty(
+  agentId: string | null,
+  agents: GetAgentPanelOut["agents"] | null,
+): React.ReactNode {
+  const duty = agentId === null ? undefined : agents?.find((a) => a.id === agentId)?.duty;
+  return duty ? <Badge tone="ai">{duty}</Badge> : null;
+}
+
+/**
+ * 「时:分」。⚠ 刻意不做「几分钟前」：那会让同一条消息在两次渲染间文字不同，
+ * 截图比对与快照测试都会因此抖动，换来的信息量为零。
+ */
+function messageTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
 /**

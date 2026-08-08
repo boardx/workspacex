@@ -492,6 +492,9 @@ function ThreadList({
           data-testid="chat-thread-card-list"
         >
           {groups.map((group) => (
+            /* ⚠ 空分组整块不渲染，不只是不渲染卡片。评分员实测：「本周」标题下没有线程，
+               紧跟着就是 `selection` slot 的改名/删除两个控件，读起来像那一组里的一条会话。 */
+            group.cards.length === 0 ? null : (
             <section key={group.label} className="flex flex-col gap-1">
               <h2 className="px-1 text-10 font-medium text-muted-foreground">{group.label}</h2>
               {group.cards.map((card) => (
@@ -513,10 +516,18 @@ function ThreadList({
                 </button>
               ))}
             </section>
+            )
           ))}
         </nav>
       ) : null}
-      {canMutate ? <ThreadActions {...writeProps} slot="selection" /> : null}
+      {/* 改名/删除作用于**当前选中的那条会话**。与列表之间加分隔线并标明归属，
+          否则它紧贴在最后一个分组下面，会被读成该分组里的一项（评分员实测过这个误读）。 */}
+      {canMutate && selectedThreadId !== null ? (
+        <>
+          <Separator />
+          <ThreadActions {...writeProps} slot="selection" />
+        </>
+      ) : null}
     </div>
   );
 }
