@@ -30,6 +30,16 @@ const OUT = resolve(process.env.CHAT_SHOTS_OUT ?? ".chat-shots");
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 375, height: 812 };
 
+/**
+ * ⚠ 取证不是门控，所以给足超时。默认 30s **不够**：这一条要冷编译 `/login`、`/chat`、
+ * `/chat?projectId=…` 三条路由，而 `next/font/google` 在没有外网时对每个字体分片
+ * 重试三次才放弃（构建照样成功，只是慢——实测日志里就是
+ * `Failed to download 'Noto Sans SC' from Google Fonts`）。
+ * 第一版用默认 30s，结果第一张抓到了、第二张就 `Test timeout of 30000ms exceeded`。
+ * 这与 #733 是同一个冷启动成本，只是那边表现成登录超时。
+ */
+test.setTimeout(300_000);
+
 test("capture chat main screen against the real stack", async ({ page }) => {
   mkdirSync(OUT, { recursive: true });
 
