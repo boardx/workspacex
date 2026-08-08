@@ -33,6 +33,7 @@ import {
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   HttpException,
   HttpStatus,
   Inject,
@@ -40,6 +41,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { orgAdmin as C } from "@repo/contracts";
+import { listTeams } from "../../application/auth/list-teams";
 import { mutateTeam, TeamInUseError } from "../../application/auth/mutate-team";
 import { removeOrgMember } from "../../application/auth/remove-org-member";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
@@ -168,6 +170,20 @@ export class OrgAdminManagementController {
     } catch (e) {
       throw toHttpException(e);
     }
+  }
+
+  /**
+   * `listTeams`（#639 delta，迭代 1）—— 只读，任何组织成员可调用。
+   *
+   * `requireAdminRole` 在这里只用来确认调用者是**本组织成员**（它不检查
+   * `orgRole === "admin"`，越权收窄只在 `mutateTeam` 的用例层做）——命名沿用既有方法，
+   * 语义与 `NO_ORG_MEMBERSHIP`-only 的契约 `err` 一致。
+   */
+  @Get("/organizations/:orgId/teams")
+  async list(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireAdminRole(principal, orgIdParam);
+    const out = await listTeams({ repo: this.teams }, { orgId });
+    return { teams: out.teams };
   }
 
   @Post("/organizations/:orgId/teams")

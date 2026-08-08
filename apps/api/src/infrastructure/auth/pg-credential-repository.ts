@@ -50,9 +50,9 @@ export class PgCredentialRepository implements CredentialRepository {
   async findByEmail(email: string): Promise<CredentialRow | null> {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{
-        user_id: string; email: string; password_hash: string; email_verified_at: Date | null;
+        user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
       }>(
-        "SELECT user_id, email, password_hash, email_verified_at FROM credentials WHERE email = $1",
+        "SELECT user_id, email, password_hash, email_verified_at, display_name FROM credentials WHERE email = $1",
         [email],
       );
       return toRow(r.rows[0]);
@@ -62,9 +62,9 @@ export class PgCredentialRepository implements CredentialRepository {
   async findByUserId(userId: string): Promise<CredentialRow | null> {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{
-        user_id: string; email: string; password_hash: string; email_verified_at: Date | null;
+        user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
       }>(
-        "SELECT user_id, email, password_hash, email_verified_at FROM credentials WHERE user_id = $1",
+        "SELECT user_id, email, password_hash, email_verified_at, display_name FROM credentials WHERE user_id = $1",
         [userId],
       );
       return toRow(r.rows[0]);
@@ -79,15 +79,37 @@ export class PgCredentialRepository implements CredentialRepository {
       ]),
     );
   }
+
+  /**
+   * `updateOwnProfile`（#638 delta，迭代 1）——改名就是改这一列，`credentials` 表没有
+   * 独立的 users 表（delta 背景实测）。`RETURNING` 整行，让调用方拿到与 `find*` 同形的
+   * `CredentialRow`，不必再多查一次。
+   */
+  async updateDisplayName(userId: string, displayName: string): Promise<CredentialRow | null> {
+    return this.db.withoutTenant(async (s) => {
+      const r = await s.query<{
+        user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
+      }>(
+        `UPDATE credentials SET display_name = $2, updated_at = now()
+          WHERE user_id = $1
+        RETURNING user_id, email, password_hash, email_verified_at, display_name`,
+        [userId, displayName],
+      );
+      return toRow(r.rows[0]);
+    });
+  }
 }
 
 function toRow(
-  row: { user_id: string; email: string; password_hash: string; email_verified_at: Date | null } | undefined,
+  row:
+    | { user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string }
+    | undefined,
 ): CredentialRow | null {
   if (!row) return null;
   return {
     userId: row.user_id,
     email: row.email,
+    displayName: row.display_name,
     passwordHash: row.password_hash,
     emailVerifiedAt: row.email_verified_at,
   };

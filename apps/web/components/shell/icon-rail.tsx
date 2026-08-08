@@ -60,12 +60,20 @@ export function IconRail({ avatarInitial }: { avatarInitial: string }) {
         </div>
       ))}
 
-      <div
-        data-testid="rail-avatar"
-        className="mt-auto flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground"
+      {/*
+        个人资料入口（#638 delta，迭代 1）—— 固定在左下角，rubric 硬性锚点。
+        原来是一个纯展示的 `<div data-testid="rail-avatar">`，现在是真链接；
+        `data-testid="rail-avatar"` 保留（既有测试可能锚定它），新增
+        `data-testid="rail-profile-menu"` 给本轮的入口断言用。
+      */}
+      <Link
+        href="/profile"
+        data-testid="rail-profile-menu"
+        aria-label="个人资料"
+        className="mt-auto flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-200 hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {avatarInitial}
-      </div>
+        <span data-testid="rail-avatar" aria-hidden>{avatarInitial}</span>
+      </Link>
     </nav>
   );
 }

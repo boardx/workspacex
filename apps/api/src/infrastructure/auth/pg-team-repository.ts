@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   MutateTeamResult,
+  TeamListRow,
   TeamOccupancyItem,
   TeamRepository,
 } from "../../application/auth/team-ports";
@@ -140,5 +141,25 @@ export class PgTeamRepository implements TeamRepository {
 
     await s.query(`DELETE FROM teams WHERE id = $1`, [teamId]);
     return { ok: true as const, team: null };
+  }
+
+  /**
+   * `listTeams`（#639 delta，迭代 1）。`memberCount` 是**真查询**
+   * （`COUNT(*) FROM org_memberships WHERE team_id = $1`），左连接聚合，不维护第二份计数列——
+   * 反证 C：造一个有成员的团队，这里必须回传非 0。
+   */
+  async list(orgId: OrgId): Promise<readonly TeamListRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const res = await s.query<{ id: string; name: string; member_count: string }>(
+        `SELECT t.id, t.name, COUNT(m.user_id)::text AS member_count
+           FROM teams t
+           LEFT JOIN org_memberships m ON m.org_id = t.org_id AND m.team_id = t.id
+          WHERE t.org_id = $1
+          GROUP BY t.id, t.name
+          ORDER BY t.name`,
+        [orgId],
+      );
+      return res.rows.map((r) => ({ teamId: r.id, name: r.name, memberCount: Number(r.member_count) }));
+    });
   }
 }
