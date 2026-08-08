@@ -138,17 +138,21 @@ function buildRootDomainGateContext(allTaskIds: ReadonlySet<string>): { ctx: Roo
 
 /**
  * H3A-032 三条 gate 需要"身份名 → LayeredRole"（areas/mergeAuthority/
- * dispatchAuthority）。今天只有 6 个持久角色文件（`.harness/agents/roles/`）
- * 校验出 LayeredRole——8 个扁平 subagent spec（H3A-023）没有 areas/authority
- * 字段，registry.yaml 的 worker 条目虽然有 `areas:`，但 RegistryIdentity
- * 类型（role-authorization.ts）今天只解析 id/kind/active，不解析 areas——
- * 同 H3A-025 checkAuthorityMonotonicity 的既有口径一致（那条也只用
- * LayeredRole 集合，不吃扁平 spec），不在这个 PR 里顺带扩大 RegistryIdentity
- * 的 schema。这意味着如果 assignee_role 指向一个只登记在 registry.yaml、
- * 没有持久角色文件的身份（如 dev-platform-baseline/dev-auth），H3A-032a 会
- * 把它当"未知身份"报 FAIL——如实标注这个已知边界，不是 gate 的 bug。
- * （`dev-ai-runtime`/`dev-chat-e2e` 有持久角色文件，会被正常解析，不落进
- * 这个边界。）
+ * dispatchAuthority）。今天只有 6 个持久角色文件（`.harness/agents/roles/`：
+ * coord-architecture/coord-main/dev-ai-runtime/dev-chat-e2e/rev-e2e/
+ * rev-feature）校验出 LayeredRole——8 个扁平 subagent spec（H3A-023）没有
+ * areas/authority 字段，registry.yaml 的 worker 条目虽然有 `areas:`，但
+ * RegistryIdentity 类型（role-authorization.ts）今天只解析 id/kind/active，
+ * 不解析 areas——同 H3A-025 checkAuthorityMonotonicity 的既有口径一致（那条
+ * 也只用 LayeredRole 集合，不吃扁平 spec），不在这个 PR 里顺带扩大
+ * RegistryIdentity 的 schema。这意味着如果 assignee_role 指向一个**只登记
+ * 在 registry.yaml、没有持久角色文件**的 worker（真实例子：`dev-platform-
+ * baseline`/`dev-auth`——这两个只出现在 registry.yaml 的 agents[]，没有
+ * `.harness/agents/roles/*.yaml` 文件），H3A-032a 会把它当"未知身份"报
+ * FAIL——如实标注这个已知边界，不是 gate 的 bug。（`dev-ai-runtime`/
+ * `dev-chat-e2e` 两个真实 worker 是有持久角色文件的，能被正常解析成
+ * LayeredRole，不落入这个边界——PR 描述里的反证正是用它们触发 AREA/
+ * AUTHORITY 分支，而不是 UNKNOWN-IDENTITY 分支。）
  */
 function buildRolesByName(): ReadonlyMap<string, LayeredRole> {
   const { roles } = validateRoleFiles(readRoleFiles());
@@ -208,10 +212,13 @@ export function taskAssignmentDoctor(_args: Args): void {
   const rootDomainFindings = checkRootToDomainAssignments(instances, ctx!);
   printGateFindings("H3A-031 Root→Domain gate", rootDomainFindings);
 
-  // H3A-032：Domain→Worker Task Assignment gate（三条，032a/032c 只对
-  // assigned_by 解析为 layer:domain_orchestrator 的实例生效，032b 是全局
-  // budget 结构自洽检查、不按 assigned_by 过滤——见 lib/domain-worker-
-  // task-assignment-gate.ts 文件头的范围边界说明）。
+  // H3A-032：Domain→Worker Task Assignment gate（三条，过滤范围不完全一致，
+  // 见 lib/domain-worker-task-assignment-gate.ts 文件头的范围边界说明）：
+  //   - 032a（不越领域）/032c（不越权限）只对 assigned_by 解析为
+  //     layer:domain_orchestrator 的实例生效——Root 直派是 H3A-031 的范围，
+  //     这两条不越界代它下判断。
+  //   - 032b（不越配额）不按 assigned_by 过滤，是纯 budget 数值的结构自洽
+  //     检查（全局生效，不管 assigned_by 是谁）。
   const rolesByName = buildRolesByName();
 
   const domainScopeFindings = checkDomainScope(instances, rolesByName);

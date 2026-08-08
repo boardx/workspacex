@@ -10,13 +10,19 @@
  *     `KIND_TO_LAYER` layer 派生、`LayeredRole`（areas/mergeAuthority/
  *     dispatchAuthority 都是它已经从既有字段派生好的规范视图）。
  *
- * 范围边界（跟 H3A-031 的分工）：这个模块只处理 assigned_by 解析出来
- * 是 layer:domain_orchestrator 的 Task Assignment——Root Orchestrator 直派
- * （layer:root_orchestrator）的校验是 H3A-031（Root→Domain gate，今天
- * `⬜ 未开始`）的事，本模块对那类 assignment 一律跳过，不越界替它下判断。
- * assigned_by 解析不到任何已知身份时同样跳过（既不能证明它是 Domain
- * Orchestrator，也不能证明它不是——按 H3A-031 尚未建成的现实，宁可跳过
- * 也不要对不确定的输入下 FAIL/WARN，那会是伪造判定）。
+ * 范围边界（跟 H3A-031 的分工）：三条 gate 的过滤范围不完全一致，分开说：
+ *   - `checkDomainScope`（032a）/`checkAssigneeAuthorityCeiling`（032c）只
+ *     处理 assigned_by 解析出来是 layer:domain_orchestrator 的 Task
+ *     Assignment——Root Orchestrator 直派（layer:root_orchestrator）的校验
+ *     是 H3A-031（Root→Domain gate，今天 `⬜ 未开始`）的事，这两条对那类
+ *     assignment 一律跳过，不越界替它下判断；assigned_by 解析不到任何已知
+ *     身份时同样跳过（既不能证明它是 Domain Orchestrator，也不能证明它
+ *     不是——按 H3A-031 尚未建成的现实，宁可跳过也不要对不确定的输入下
+ *     FAIL/WARN，那会是伪造判定）。
+ *   - `checkWorkerBudgetQuota`（032b）不按 assigned_by 过滤——它检查的是
+ *     budget 数值本身的结构自洽（是否符合 §10.3 默认约定、total_runs 是否
+ *     ≥ parallel_workers），跟"派工者是谁"无关，对全部实例生效，包括
+ *     assigned_by 是 root 或未知身份的情况。
  *
  * 身份解析的口径（读文件前先想清楚，不然会踩两个坑）：
  *   1. Proposal §10.3 原文 `assigned_by: <directory-main-agent-id>`——字面
