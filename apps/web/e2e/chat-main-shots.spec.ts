@@ -72,4 +72,34 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.setViewportSize(MOBILE);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await shoot("chat-main-mobile.png", "chat-thread-detail");
+
+  /**
+   * #728 P4/P5 —— rev-uiux 第 5 轮指出的证据缺口：「创建后自动选中」与「个人对话
+   * 375 档」两个状态从未被截图观测到，评分员因此判 0，**不是行为不存在，是没被看到**
+   * （P4/P5 报告原话）。这里把这两个状态实际走一遍并抓下来，不是新写功能。
+   */
+  await page.setViewportSize(DESKTOP);
+  await page.goto("/chat");
+  await page.getByTestId("chat-thread-create").click();
+  await page.getByTestId("chat-thread-title-input").fill("对话保真取证专用");
+  await page.getByTestId("chat-thread-title-submit").click();
+  // 创建走真实 mutateThread，成功后 `personal-chat-screen.tsx` 用 `router.replace`
+  // 把新线程 id 写进 URL —— 等它落地，而不是等固定时长再赌一把。
+  await page.waitForURL(/\/chat\?thread=/);
+  await shoot("chat-main-personal-created.png", "chat-thread-detail");
+
+  const createdThreadUrl = new URL(page.url());
+  const createdThreadId = createdThreadUrl.searchParams.get("thread");
+  if (!createdThreadId) throw new Error("创建后 URL 里没有 thread 参数，取证脚本本身的假设已经不成立");
+
+  // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
+  // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
+  await page.setViewportSize(MOBILE);
+  await page.goto("/chat");
+  await shoot("chat-main-personal-mobile-list.png", "chat-read-thread-list");
+
+  // 375 档·详情态：带 thread 参数直接进入详情，此时应看到「返回列表」按钮。
+  await page.goto(`/chat?thread=${createdThreadId}`);
+  await page.getByTestId("chat-thread-back-mobile").waitFor({ state: "visible", timeout: 30_000 });
+  await shoot("chat-main-personal-mobile-detail.png", "chat-thread-detail");
 });
