@@ -227,13 +227,27 @@ describe("GET /agent-runs/:runId/stream", () => {
     expect(status).toBe(404);
   }, 30_000);
 
-  it("a run already terminal by the time the connection opens gets one final event, no deltas replayed", async () => {
-    const { agentRunId } = await postMessage("Already done by the time we connect");
-    // Let the run actually finish before opening the stream at all.
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
-    const { status, events } = await getStream(agentRunId);
-    expect(status).toBe(200);
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ type: "final", status: "succeeded" });
-  }, 30_000);
+  it(
+    "a run already terminal by the time the connection opens still replays every delta, " +
+    "then one final event -- connecting late must not mean losing the text",
+    async () => {
+      const { agentRunId } = await postMessage("Already done by the time we connect");
+      // Let the run actually finish before opening the stream at all. This is deliberately
+      // the SAME shape as the race the 2026-08-08 fix closed: `readModelDeltas(afterSeq=-1)`
+      // returns every fragment committed so far regardless of whether the run is still
+      // `running` or already terminal when this connects -- there is no special "it was
+      // already done" case that skips reading them (there used to be one, and it is exactly
+      // what made this endpoint return zero deltas whenever a run finished faster than the
+      // network round trip to open the connection -- reliably reproducible on CI, where that
+      // race is easier to hit than on a fast local machine).
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      const { status, events } = await getStream(agentRunId);
+      expect(status).toBe(200);
+      expect(events.filter((e) => e.type === "delta").map((e) => e.text)).toEqual([
+        "Streamed ", "over ", "the ", "existing ", "thread.",
+      ]);
+      expect(events.at(-1)).toMatchObject({ type: "final", status: "succeeded" });
+    },
+    30_000,
+  );
 });

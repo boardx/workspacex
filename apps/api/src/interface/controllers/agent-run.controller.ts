@@ -87,9 +87,11 @@ export class AgentRunController {
     const orgId = toOrgId(principal.orgId);
     const deps = { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs };
 
-    let initial;
+    // Visibility-only: the projection itself is intentionally discarded (see the long
+    // comment below `write` for why the SSE loop below re-derives status from scratch
+    // instead of branching on what was true at this exact instant).
     try {
-      initial = await readAgentRun(deps, { userId: principal.userId, orgId, runId });
+      await readAgentRun(deps, { userId: principal.userId, orgId, runId });
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
@@ -106,16 +108,17 @@ export class AgentRunController {
       response.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
-    // Already terminal by the time the connection opened -- e.g. a client that reconnects
-    // after a network blip. Report it once and close; no poll loop needed.
-    if (initial.status === "succeeded" || initial.status === "failed") {
-      write(initial.status === "succeeded"
-        ? { type: "final", status: "succeeded", resultMessageId: initial.resultMessageId }
-        : { type: "final", status: "failed", error: initial.error });
-      response.end();
-      return;
-    }
-
+    // ⚠ 2026-08-08 —— 这里曾经有一条"`initial` 已经是终态就跳过 `streamAgentRunDeltas`，
+    // 直接吐一条 final 就关连接"的捷径分支，删掉了。它是一个真实的 bug，不是无害的
+    // 优化：`readModelDeltas(afterSeq=-1)` 这个查询的确定性保证是"返回目前为止已提交
+    // 的全部增量"——不管 run 是还在跑还是已经跑完，这条保证都成立。run 已经终态时，
+    // 这批增量恰好就是**全部**增量（模型调用阶段必然已经结束）。跳过它直接吐
+    // final，等于在"run 恰好在网络往返期间就跑完"的场景里（CI 上比本地更容易撞见：
+    // loopback provider 走完整个流程可能比 HTTP 请求本身的排队/调度还快）永远拿不到
+    // 一条 delta——`agent-run-stream-endpoint.test.ts` 的第一条用例实测撞到过。
+    // 现在两条路径（"连接时还在跑"、"连接时已经跑完"）统一交给
+    // `streamAgentRunDeltas` 处理：它的循环第一轮就会把目前已提交的全部增量读出来，
+    // 不需要区分"这是不是它的第一轮"。
     try {
       const outcome = await streamAgentRunDeltas(deps, {
         userId: principal.userId, orgId, runId,
