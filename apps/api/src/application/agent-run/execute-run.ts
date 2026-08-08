@@ -24,8 +24,61 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort, RunFailureCode, RunStepKind,
+  ThreadHistoryMessage,
 } from "./ports";
 import { ModelCallError } from "./ports";
+
+/**
+ * #709 -- token-budget-aware multi-turn context.
+ *
+ * `HISTORY_MAX_MESSAGES` bounds what `AgentRunStore.readThreadHistory` is even ASKED for
+ * (a row cap enforced in SQL, see that method's own comment). `HISTORY_MAX_CHARS` is the
+ * second, tighter bound applied here in application code: a deployment has no tokenizer
+ * (the `tokens` field on `ModelCallPort`'s return type says so explicitly), so this project
+ * has no honest way to count tokens -- inventing one would be exactly the "heuristic
+ * presented as a real measurement" `ModelCallPort.complete`'s own doc comment already
+ * rules out for usage reporting. A character budget is not "tokens" and is not labelled as
+ * one; it is a simple, conservative proxy good enough for the one thing this MVP needs:
+ * never let history grow without bound. ~4 chars/token is a common rough ratio for English
+ * and CJK-mixed text (CJK runs lower, closer to ~1.5-2 chars/token, which makes this budget
+ * MORE conservative for the CJK content that dominates this codebase's fixtures, not less)
+ * -- `HISTORY_MAX_CHARS` at 12,000 stays comfortably under the smallest realistic context
+ * window even under that denser encoding, while `HISTORY_MAX_MESSAGES` keeps a very long,
+ * short-message thread (e.g. quick back-and-forth) from turning into thousands of tiny
+ * history entries before the char budget even gets a chance to trim it.
+ */
+export const HISTORY_MAX_MESSAGES = 20;
+export const HISTORY_MAX_CHARS = 12_000;
+
+/**
+ * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
+ * fits `maxChars` of combined `content` length. `messages` is already oldest-first (what
+ * `readThreadHistory` returns); the result stays oldest-first so callers never have to
+ * re-sort before splicing it into a `role`-ordered messages array.
+ *
+ * A single message longer than `maxChars` on its own is kept whole rather than truncated
+ * mid-sentence -- cutting a stored message's text would make the model see words that were
+ * never actually said in that message, which is a subtly different failure from "this turn
+ * wasn't included at all". The budget is enforced by DROPPING turns, never by editing one.
+ */
+export function trimHistoryToBudget(
+  messages: readonly ThreadHistoryMessage[],
+  maxChars: number,
+): readonly ThreadHistoryMessage[] {
+  if (maxChars <= 0) return [];
+  let total = 0;
+  let firstKeptIndex = messages.length;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const next = total + messages[i]!.content.length;
+    // The oldest kept message is allowed to push the running total over budget by itself
+    // (see the doc comment: a single long message is kept whole, not truncated) -- but a
+    // SECOND message would not be added once the budget is already spent.
+    if (next > maxChars && total > 0) break;
+    total = next;
+    firstKeptIndex = i;
+  }
+  return messages.slice(firstKeptIndex);
+}
 
 export interface ExecuteAgentRunDeps {
   readonly runs: AgentRunStore;
@@ -123,6 +176,31 @@ async function executeClaimed(
     inputDigest: contextInput, outputDigest: systemDigest, failureCode: null,
   });
 
+  /*
+   * #709 -- prior turns of this thread, trimmed to the token-budget policy above.
+   *
+   * Deliberately OUTSIDE the `context_built` try/catch and never fails the run: unlike the
+   * pinned Skill content above (a fact the run's approved configuration depends on), thread
+   * history is dynamic conversation context, an enhancement over the pre-#709 single-turn
+   * behaviour, not a correctness requirement the acceptance snapshot pinned. A history-read
+   * failure degrading to "answer without prior context" (i.e. exactly today's behaviour) is
+   * a strictly safer failure mode than turning a working single-turn run into a failed one
+   * because of it -- especially since #709 ships behind no flag and must not be able to
+   * regress runs that never needed history in the first place.
+   */
+  let history: ReturnType<typeof trimHistoryToBudget> = [];
+  try {
+    const recent = await deps.runs.readThreadHistory(
+      orgId, run.threadId, run.inputMessageId, HISTORY_MAX_MESSAGES,
+    );
+    history = trimHistoryToBudget(recent, HISTORY_MAX_CHARS);
+  } catch (e) {
+    deps.log("agent run thread history read failed, continuing without it", {
+      runId: run.runId,
+      detail: e instanceof Error ? e.message : "unexpected thread history read failure",
+    });
+  }
+
   /* ── step: model_called -- exactly one, no fallback, no retry ── */
   const modelStartedAt = deps.clock.now();
   let text: string;
@@ -135,7 +213,10 @@ async function executeClaimed(
     let deltaSeq = 0;
     const completion = deps.model.completeStream
       ? await deps.model.completeStream(
-        { modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText },
+        {
+          modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
+          history,
+        },
         async (delta) => {
           if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
           const seq = deltaSeq;
@@ -148,6 +229,7 @@ async function executeClaimed(
         modelId: run.modelId,
         system,
         user: run.inputText,
+        history,
       });
     if (completion.text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
