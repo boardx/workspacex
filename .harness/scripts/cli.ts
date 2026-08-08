@@ -24,6 +24,7 @@ import { roleFreezeDoctor } from "./role-freeze-doctor";
 import { graphAuthorityDoctor } from "./graph-authority-doctor";
 import { domainsDoctor } from "./domains-doctor";
 import { roleAuthorizationDoctor } from "./role-authorization-doctor";
+import { taskAssignmentDoctor } from "./task-assignment-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -117,6 +118,16 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "task-assignment": {
+      // H3A-030（PROP-HARNESS-AGENT-001 Epic E3）。同 "domains"/"role-authorization"
+      // 的子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { taskAssignmentDoctor(subArgs); break; }
+      log.err(`未知子命令 "task-assignment ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -169,6 +180,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness graph-authority doctor                    # PROP-HARNESS-AGENT-001 H3A-009：已知投影路径不得被 Git 追踪");
       log.info("  pnpm harness domains doctor                            # PROP-HARNESS-AGENT-001 H3A-010/012/013/014/015：Domain Registry + Domain Skill schema/gate 体检");
       log.info("  pnpm harness role-authorization doctor                 # PROP-HARNESS-AGENT-001 H3A-020/021/023/024/025/026/027/029：分层授权模型体检");
+      log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030：Task Assignment schema 体检（Epic E3）");
       process.exit(cmd ? 1 : 0);
   }
 }
