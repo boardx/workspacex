@@ -10,6 +10,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { KernelModule } from "./kernel.module";
 import { traceMiddleware } from "./interface/middleware/trace";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
+import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 import { IDENTITY_REPOSITORY } from "./application/identity/ports";
@@ -89,6 +90,12 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
     uow: app.get(RECORDING_UNIT_OF_WORK),
     policies: app.get(TRANSCRIPTION_POLICY_PROVIDER),
     ids: app.get(RECORDING_ID_GENERATOR),
+    asr: app.get(ASR_PROVIDER),
+  });
+  // issue #726 —— composer 麦克风的草稿 ASR 面，复用同一个 `ASR_PROVIDER`，不落库。
+  // 见 `interface/ws/asr-draft.gateway.ts` 头注：为什么它不是给 streamAsr 加个可选 sessionId。
+  attachAsrDraftGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
     asr: app.get(ASR_PROVIDER),
   });
 }

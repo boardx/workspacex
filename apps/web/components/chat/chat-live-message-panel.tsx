@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, RefreshCw, Send, UserRound } from "lucide-react";
+import { Bot, Mic, RefreshCw, Send, UserRound } from "lucide-react";
 import { Markdown } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
@@ -20,6 +20,7 @@ import {
   type AgentRunView,
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
+import { useAsrDraft } from "@/lib/use-asr-draft";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -112,6 +113,21 @@ export function ChatLiveMessagePanel({
    */
   const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
   const generation = React.useRef(0);
+  /**
+   * #726 —— 麦克风开始录音那一刻要读到"此刻输入框里的文字"作为追加基线，而
+   * `useSpeechTranscription` 的 `start()` 是一个稳定回调（不随每次按键重建），所以基线读取
+   * 必须走 ref 而不是闭包捕获的 `text`——否则会追加到"点击麦克风那一刻组件首次渲染时的
+   * text"，用户点麦克风前刚手打的内容就会被追加逻辑错误地忽略或覆盖。
+   */
+  const textRef = React.useRef(text);
+  textRef.current = text;
+  const speech = useAsrDraft({
+    getBaseText: () => textRef.current,
+    onTranscript: (fullText) => updateDraft({ text: fullText }),
+    sessionToken: bearer,
+  });
+  const speechStopRef = React.useRef(speech.stop);
+  speechStopRef.current = speech.stop;
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
     : agents?.[0]?.id ?? "";
@@ -157,6 +173,9 @@ export function ChatLiveMessagePanel({
     void loadPage(null, true);
     return () => {
       generation.current += 1;
+      // #726 —— 切换线程（sourceKey 变化）或组件卸载时，正在进行的语音录音必须停止，
+      // 否则用户切到另一个对话后，麦克风还在把语音写进已经不属于这个 draft 的地方。
+      speechStopRef.current();
     };
   }, [loadPage, sourceKey]);
 
@@ -527,17 +546,47 @@ export function ChatLiveMessagePanel({
           />
           <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
             <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
-            <Button
-              size="sm"
-              className="rounded-full"
-              data-testid="chat-message-submit"
-              disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
-              onClick={() => void submit()}
-            >
-              <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="icon"
+                variant={speech.listening ? "destructive" : "outline"}
+                className={`rounded-full ${speech.listening ? "animate-pulse" : ""}`}
+                data-testid="chat-mic-button"
+                data-mic-status={speech.status}
+                aria-pressed={speech.listening}
+                aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
+                title={speech.listening ? "停止语音输入" : "开始语音输入"}
+                disabled={archived || submitting}
+                onClick={() => (speech.listening ? speech.stop() : speech.start())}
+              >
+                <Mic aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full"
+                data-testid="chat-message-submit"
+                disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
+                onClick={() => void submit()}
+              >
+                <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
+              </Button>
+            </div>
           </div>
         </div>
+        {speech.listening ? (
+          // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
+          // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
+          <p className="mt-2 flex items-center gap-1.5 text-11 text-destructive" data-testid="chat-mic-listening">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
+            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
+          </p>
+        ) : null}
+        {speech.error !== null ? (
+          <p className="mt-2 text-11 text-destructive" data-testid="chat-mic-error">
+            {speech.error}
+          </p>
+        ) : null}
         {queuedRun ? (
           <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued">
             消息已持久化，AgentRun 已排队（{queuedRun.id}）。
