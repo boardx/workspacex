@@ -25,6 +25,7 @@ import { graphAuthorityDoctor } from "./graph-authority-doctor";
 import { domainsDoctor } from "./domains-doctor";
 import { roleAuthorizationDoctor } from "./role-authorization-doctor";
 import { taskAssignmentDoctor } from "./task-assignment-doctor";
+import { workflowEventDoctor } from "./workflow-event-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -128,6 +129,17 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "workflow-event": {
+      // H3A-033（PROP-HARNESS-AGENT-001 Epic E3）。独立于 "task-assignment"——
+      // Workflow Event 跟 Task Assignment 是两种不同的实例集合，同
+      // "domains"/"role-authorization" 两个独立命令的先例。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { workflowEventDoctor(subArgs); break; }
+      log.err(`未知子命令 "workflow-event ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -181,6 +193,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness domains doctor                            # PROP-HARNESS-AGENT-001 H3A-010/012/013/014/015：Domain Registry + Domain Skill schema/gate 体检");
       log.info("  pnpm harness role-authorization doctor                 # PROP-HARNESS-AGENT-001 H3A-020/021/023/024/025/026/027/029：分层授权模型体检");
       log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030：Task Assignment schema 体检（Epic E3）");
+      log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
       process.exit(cmd ? 1 : 0);
   }
 }

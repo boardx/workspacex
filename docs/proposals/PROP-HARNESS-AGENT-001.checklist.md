@@ -78,7 +78,7 @@
 | H3A-030 | P0 | 🔶 PR #717 待 review（issue #716） | TPL-TSK-001 Task Assignment schema | 020–023 | objective/scope/acceptance/budget/authority hash 完整 |
 | H3A-031 | P0 | ⬜ 未开始 | Root→Domain Task Assignment gate | 030 | assignee domain/scope/skill/依赖有效 |
 | H3A-032 | P0 | ⬜ 未开始 | Domain→Worker Task Assignment gate | 030 | 不越领域、不越配额、不越权限 |
-| H3A-033 | P0 | ⬜ 未开始 | TPL-EVT-001 四类 Workflow Event envelope | 030 | Task Assignment/Progress/Blocker/Task Result 可解析 |
+| H3A-033 | P0 | 🔶 PR #721 待 review（issue #718） | TPL-EVT-001 四类 Workflow Event envelope | 030 | Task Assignment/Progress/Blocker/Task Result 可解析 |
 | H3A-034 | P0 | ⬜ 未开始 | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
 | H3A-035 | P0 | ⬜ 未开始 | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
 | H3A-036 | P0 | ⬜ 未开始 | TPL-RVW-001 Revision-bound Review Decision | 027、033 | revision、producer、reviewer、evidence 完整 |
