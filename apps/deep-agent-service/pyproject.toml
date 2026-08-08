@@ -1,0 +1,23 @@
+[project]
+name = "deep-agent-service"
+version = "0.1.0"
+description = "Thin wrapper: organization Skills exposed as dynamic deepagents tools, served via `langgraph dev` (#739, see #738 for the architecture investigation)."
+requires-python = ">=3.11"
+dependencies = [
+  "deepagents>=0.0.5",
+  "langchain-openai>=0.3.0",
+  "langgraph-cli[inmem]>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deep_agent_service"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
