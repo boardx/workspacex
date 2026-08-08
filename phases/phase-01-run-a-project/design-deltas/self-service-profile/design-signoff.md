@@ -48,9 +48,9 @@ confirmed_at: "<ISO8601 时间戳，如 2026-08-06T14:30:00+08:00>"
 Addendum A 是之后追加的、扩展一个已签核契约操作的字段，需要单独一次签）。
 
 ```yaml
-addendum_a_status: proposed
-addendum_a_confirmed_by: ""
-addendum_a_confirmed_at: ""
+addendum_a_status: confirmed
+addendum_a_confirmed_by: "usamshen"
+addendum_a_confirmed_at: "2026-08-08T22:30:00+08:00"
 ```
 
 怎么签：把 `addendum_a_status` 改成 `confirmed`，补上 `addendum_a_confirmed_by`/`addendum_a_confirmed_at`。
