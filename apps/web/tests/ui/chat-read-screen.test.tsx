@@ -246,6 +246,42 @@ describe("formal Chat read path", () => {
     expect(screen.getByTestId("chat-message-submit")).toHaveTextContent("发送并排队");
   });
 
+  /**
+   * 十项 UX 缺口第 9 项 —— 顶部实时状态 chip。
+   *
+   * 单一事实源：这个 chip 与 `RosterPanel` 里"在场 N · 编制 M"读的是**同一个**
+   * `getAgentPanel` 结果，不是第二次请求、不是本地重算的第二份计数——所以本用例
+   * 只断言两处数字相等，而不是分别校验两套独立逻辑。
+   */
+  it("顶部 chip 与花名册面板显示同一份在场/编制计数——同一次 getAgentPanel 请求，不是第二份事实", async () => {
+    getAgentPanel.mockResolvedValue({
+      agents: [
+        { id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", presence: "present" },
+        { id: "agent-second", abbr: "AS", name: "第二个 Agent", duty: "写作", presence: "away" },
+      ],
+      presentCount: 1,
+      rosterCount: 2,
+      marketEntry: "/admin/agent",
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const chip = await screen.findByTestId("chat-thread-live-status");
+    expect(chip).toHaveTextContent("1 个 agent 在场");
+    expect(chip).toHaveTextContent("编制 2");
+    expect(getAgentPanel).toHaveBeenCalledTimes(1); // chip 没有触发第二次读。
+
+    const rosterPanel = screen.getByTestId("chat-read-roster");
+    expect(rosterPanel).toHaveTextContent("在场 1");
+    expect(rosterPanel).toHaveTextContent("编制 2");
+  });
+
+  it("编制读取失败时，chip 不渲染猜测出来的数字（不伪造一个 0 个在场）", async () => {
+    getAgentPanel.mockRejectedValue(new Error("roster unavailable"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+    await screen.findByTestId("chat-roster-error");
+    expect(screen.queryByTestId("chat-thread-live-status")).not.toBeInTheDocument();
+  });
+
   it("renders the server empty list without sample threads", async () => {
     listThreads.mockResolvedValueOnce({ groups: [], capabilities: ["thread.read"] });
     render(<ChatReadScreen projectId="empty-project" initialThreadId={null} />);
