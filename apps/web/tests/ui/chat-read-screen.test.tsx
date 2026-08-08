@@ -475,7 +475,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     const composer = await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(within(composer).getByRole("textbox", { name: "消息内容" }), {
       target: { value: "请持久保存这条消息" },
     });
@@ -515,7 +515,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -540,7 +540,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会失败的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -563,7 +563,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "帮我生成一段介绍" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -589,7 +589,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会调用失败的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -607,7 +607,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "不用工具的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -640,7 +640,7 @@ describe("formal Chat read path", () => {
 
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "流式跑一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -673,7 +673,7 @@ describe("formal Chat read path", () => {
   it("默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子", async () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "普通一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -687,7 +687,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "读不到的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -709,7 +709,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "可重试消息" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -728,7 +728,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "冲突消息" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));

@@ -938,11 +938,20 @@ function RosterPanel({
                 data-testid={`chat-roster-agent-${agent.id}`}
               >
                 <Avatar initials={agent.abbr} tone="ai" size="sm" className="mt-0.5" />
+                {/*
+                  #728 D2 —— 名字与职责分两行，不再挤在同一个 `truncate` 里同归于尽。
+
+                  ⚠ 契约的 `agents[].duty`（`getAgentPanel.out`）是**唯一**一个描述性字段，
+                    原型这一区其实印了两件事：角色（「战略分析师」）+ 一句能力描述
+                    （「拆问题、标致命假设、给结论先行」）。我们的数据模型只有 `duty`
+                    这一个字段，没有第二个字段可用——**不编一句话出来凑第二行**，
+                    那会是伪造内容。这里如实只渲染 `duty` 一行，是否要拆分成
+                    「角色 + 能力描述」两个字段需要走 ADR-023 扩契约，已记入
+                    评分卡「需要人类裁决」。
+                */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-12">
-                    <span className="font-medium">{agent.name}</span>
-                    <span className="text-muted-foreground"> · {agent.duty}</span>
-                  </p>
+                  <p className="truncate text-12 font-medium">{agent.name}</p>
+                  <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
                 </div>
                 <span className={presenceTone(agent.presence)}>{PRESENCE_TEXT[agent.presence]}</span>
                 {writable ? (

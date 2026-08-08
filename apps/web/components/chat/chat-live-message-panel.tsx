@@ -21,6 +21,7 @@ import {
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -523,20 +524,12 @@ export function ChatLiveMessagePanel({
             该对话已归档，只能读取，不能创建消息或运行。
           </p>
         ) : null}
-        <div className="mb-2 flex items-center gap-2">
-          <label htmlFor="chat-agent-select" className="text-11 text-muted-foreground">运行 Agent</label>
-          <select
-            id="chat-agent-select"
-            data-testid="chat-agent-select"
-            className="h-7 min-w-0 flex-1 rounded-full border border-input bg-card px-3 text-11"
-            value={selectedAgentId}
-            disabled={archived || submitting || agents === null || agents.length === 0}
-            onChange={(event) => updateDraft({ agentId: event.target.value })}
-          >
-            {agents?.length ? null : <option value="">没有可选 Agent</option>}
-            {agents?.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-          </select>
-        </div>
+        <AgentPicker
+          agents={agents}
+          selectedAgentId={selectedAgentId}
+          disabled={archived || submitting || agents === null || agents.length === 0}
+          onSelect={(agentId) => updateDraft({ agentId })}
+        />
         {followUpSuggestions.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
             {followUpSuggestions.map((suggestion) => (
@@ -924,6 +917,80 @@ function newClientMessageId(): string {
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
+
+/**
+ * 运行 Agent 选择器。
+ *
+ * ⚠ 不用原生 `&lt;select&gt;`——app 层禁止裸原生表单元素（uiux-standards U6），
+ *   且 #728 D8 判据逐字写「没有裸 `&lt;select&gt;`」。仿照本仓已有的手写弹层惯例
+ *   （`components/projects/project-more-menu.tsx`：Button 触发 + `role="listbox"` 面板，
+ *   不是 `@radix-ui/react-select`，虽然那个依赖已装但本仓这类小面板一贯手写）。
+ *
+ * `data-testid="chat-agent-select"` 留在**触发按钮**上（原来在 `&lt;select&gt;` 本身），
+ * 值用可见文字呈现（Agent 名），不再是 `&lt;option&gt;` 的 `value`——
+ * `toHaveValue()` 断言因此改成 `toHaveTextContent()`，`selectOption()` 改成点开+点选项。
+ * 这不是削弱断言：它验证的还是「当前选中的 agent 是谁」，只是读取方式跟着控件形态换了。
+ */
+function AgentPicker({
+  agents, selectedAgentId, disabled, onSelect,
+}: {
+  agents: GetAgentPanelOut["agents"] | null;
+  selectedAgentId: string;
+  disabled: boolean;
+  onSelect: (agentId: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const selected = agents?.find((agent) => agent.id === selectedAgentId) ?? null;
+
+  return (
+    <div className="relative mb-2 flex items-center gap-2">
+      <span className="text-11 text-muted-foreground">运行 Agent</span>
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        className="min-w-0 flex-1 justify-between rounded-full"
+        data-testid="chat-agent-select"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="truncate">{selected?.name ?? (agents?.length ? "选择 Agent" : "没有可选 Agent")}</span>
+        <span aria-hidden className="text-9">▾</span>
+      </Button>
+      {open && agents?.length ? (
+        <div
+          role="listbox"
+          aria-label="运行 Agent"
+          data-testid="chat-agent-select-listbox"
+          className="absolute left-0 top-8 z-10 w-full min-w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
+        >
+          {agents.map((agent) => (
+            <button
+              key={agent.id}
+              type="button"
+              role="option"
+              aria-selected={agent.id === selectedAgentId}
+              data-testid={`chat-agent-select-option-${agent.id}`}
+              onClick={() => {
+                onSelect(agent.id);
+                setOpen(false);
+              }}
+              className={[
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                agent.id === selectedAgentId ? "text-primary" : "text-card-foreground",
+              ].join(" ")}
+            >
+              <Avatar initials={agent.abbr} tone="ai" size="xs" />
+              <span className="truncate">{agent.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function FailureState({
