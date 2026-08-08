@@ -107,6 +107,11 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
     response.request().method() === "POST"
     && response.url().includes(`/chat/threads/${CHAT_READ_E2E.threadId}/agents`)
   ));
+  // #728 D2：加入 agent 的输入框现在收在编制栏头的「编辑」后面（照原型：编制区常态只
+  // 显示谁在场，编辑是显式动作）。此前它常驻，等于永远挂着一个裸 agent id 输入框 ——
+  // 正是 #594 人类要求消灭的形态。
+  // ⚠ 断言一条没放宽：没有写权时「编辑」按钮本身不渲染，下面这行会如实红。
+  await page.getByTestId("chat-roster-edit").click();
   await page.getByTestId("chat-roster-add-input").fill(CHAT_READ_E2E.catalogOnlyAgentId);
   await page.getByTestId("chat-roster-add-submit").click();
   expect((await addResponse).status()).toBe(200);

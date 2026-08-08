@@ -3,7 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare, RefreshCw, Users } from "lucide-react";
+import {
+  MessageSquare, Pencil, Plus, RefreshCw, Share2, Store, Trash2, Users,
+} from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
@@ -354,8 +357,21 @@ export function ChatReadScreen({
       previewRole={null}
       left={(
         <ThreadList
-          projectId={projectId}
           groups={threads?.groups ?? null}
+          roster={(
+            <RosterPanel
+              roster={roster}
+              loading={rosterLoading}
+              error={rosterError}
+              hasSelection={selectedThreadId !== null}
+              canMutate={canMutate}
+              pending={rosterPending}
+              mutateFailure={rosterMutateFailure}
+              onAdd={handleRosterAdd}
+              onRemove={handleRosterRemove}
+              onRetry={() => void loadSelectedThread()}
+            />
+          )}
           loading={listLoading}
           error={listError}
           selectedThreadId={selectedThreadId}
@@ -374,29 +390,18 @@ export function ChatReadScreen({
           }}
         />
       )}
+      /* `right` 只放**这场对话的产出**（产物面板，#710 交付）。
+         原型的右栏正是这一类内容（转录/执行/洞察/产物/材料），产物面板是其中的「产物」。
+         ⚠ 编制（`RosterPanel`）已按 #728 D2 搬进左栏，这里不再渲染第二份 ——
+           两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。 */
       right={(
-        <div className="flex h-full flex-col">
-          <RosterPanel
-            roster={roster}
-            loading={rosterLoading}
-            error={rosterError}
-            hasSelection={selectedThreadId !== null}
-            canMutate={canMutate}
-            pending={rosterPending}
-            mutateFailure={rosterMutateFailure}
-            onAdd={handleRosterAdd}
-            onRemove={handleRosterRemove}
-            onRetry={() => void loadSelectedThread()}
-          />
-          <Separator />
-          <ChatArtifactsPanel
-            hasSelection={selectedThreadId !== null}
-            artifacts={artifacts}
-            loading={artifactsLoading}
-            error={artifactsError}
-            onRetry={() => void loadSelectedThread()}
-          />
-        </div>
+        <ChatArtifactsPanel
+          hasSelection={selectedThreadId !== null}
+          artifacts={artifacts}
+          loading={artifactsLoading}
+          error={artifactsError}
+          onRetry={() => void loadSelectedThread()}
+        />
       )}
     >
       <ThreadDetail
@@ -416,12 +421,24 @@ export function ChatReadScreen({
   );
 }
 
+/**
+ * 左栏 —— 栏头 + 新建入口 + **本线程的 AI 团队** + 线程列表，顺序照原型
+ * （`ui-preview/chat-main-ref/chat-main-default.png` 左栏自上而下）。
+ *
+ * ## 编制为什么从右栏搬到左栏（#728 D2）
+ * 原型的左栏是「谁在这条线程里 + 有哪些线程」，右栏是「这场对话产出了什么」
+ * （转录/执行/洞察/产物/材料）。此前实现把编制放在右栏，于是右栏既不是产出、
+ * 左栏也回答不了「谁在场」。搬动是**移动，不是复制** —— 编制在全仓仍只渲染一处，
+ * 否则就是「同一事实两处声明」（AGENTS.md 硬约束，本仓已五次因此漂移）。
+ *
+ * ⚠ `projectId` 不再印在栏头。裸 id 在原型里一次都不出现，它属于线程头部的
+ *   调试信息；`chat-project-id` 这个 testid 移到线程头部继续存在（有断言依赖它）。
+ */
 function ThreadList({
-  projectId, groups, loading, error, selectedThreadId,
+  groups, loading, error, selectedThreadId,
   canMutate, mutatePending, mutateFailure, onCreate, onRename, onDelete,
-  onRetry, onSelect,
+  onRetry, onSelect, roster,
 }: {
-  projectId: string;
   groups: ListThreadsOut["groups"] | null;
   loading: boolean;
   error: string | null;
@@ -434,23 +451,25 @@ function ThreadList({
   onDelete: (reason: string) => void;
   onRetry: () => void;
   onSelect: (threadId: string) => void;
+  roster: React.ReactNode;
 }) {
+  /* 表单状态提到这里：新建入口在栏头下、改名/删除在会话列表下方，两个渲染位共用同一份
+     `form`/`draft`，所以状态不能再住在 `ThreadActions` 内部（那会变成两份互不相干的状态）。 */
+  const [form, setForm] = React.useState<"create" | "rename" | "delete" | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const writeProps = {
+    selectedThreadId, pending: mutatePending, failure: mutateFailure,
+    onCreate, onRename, onDelete, form, draft, setForm, setDraft,
+  } as const;
+
   return (
     <div className="flex flex-col" data-testid="chat-read-thread-list">
-      <div className="flex flex-col gap-1 p-3">
-        <span className="text-10 uppercase tracking-wide text-muted-foreground">项目对话</span>
-        <span className="truncate font-mono text-11" data-testid="chat-project-id">{projectId}</span>
+      <div className="flex items-center justify-between gap-2 px-3 pt-3">
+        <h2 className="text-14 font-semibold">对话</h2>
+        <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
       </div>
-      {canMutate ? (
-        <ThreadActions
-          selectedThreadId={selectedThreadId}
-          pending={mutatePending}
-          failure={mutateFailure}
-          onCreate={onCreate}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
-      ) : null}
+      {canMutate ? <ThreadActions {...writeProps} slot="create" /> : null}
+      {roster}
       <Separator />
       {loading && groups === null ? <p className="p-3 text-12 text-muted-foreground">正在加载真实线程…</p> : null}
       {error ? (
@@ -475,7 +494,6 @@ function ThreadList({
           {groups.map((group) => (
             <section key={group.label} className="flex flex-col gap-1">
               <h2 className="px-1 text-10 font-medium text-muted-foreground">{group.label}</h2>
-              {group.cards.length === 0 ? <p className="px-1 text-10 text-muted-foreground">本组为空</p> : null}
               {group.cards.map((card) => (
                 <button
                   key={card.id}
@@ -484,8 +502,10 @@ function ThreadList({
                   aria-current={card.id === selectedThreadId ? "page" : undefined}
                   onClick={() => onSelect(card.id)}
                   className={[
-                    "flex flex-col gap-1 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted",
-                    card.id === selectedThreadId ? "bg-muted" : "",
+                    "flex flex-col gap-1 rounded-md border-l-2 px-2 py-2 text-left transition-colors hover:bg-muted",
+                    card.id === selectedThreadId
+                      ? "border-primary bg-muted"
+                      : "border-transparent",
                   ].join(" ")}
                 >
                   <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
@@ -496,6 +516,7 @@ function ThreadList({
           ))}
         </nav>
       ) : null}
+      {canMutate ? <ThreadActions {...writeProps} slot="selection" /> : null}
     </div>
   );
 }
@@ -505,7 +526,7 @@ function ThreadList({
  * 而不是渲染后禁用——「在集合里但标了 disabled」等于把授权判定交给客户端执行。
  */
 function ThreadActions({
-  selectedThreadId, pending, failure, onCreate, onRename, onDelete,
+  selectedThreadId, pending, failure, onCreate, onRename, onDelete, form, draft, setForm, setDraft, slot,
 }: {
   selectedThreadId: string | null;
   pending: "create" | "rename" | "delete" | null;
@@ -513,9 +534,13 @@ function ThreadActions({
   onCreate: (title: string) => void;
   onRename: (title: string) => void;
   onDelete: (reason: string) => void;
+  form: "create" | "rename" | "delete" | null;
+  draft: string;
+  setForm: (next: "create" | "rename" | "delete" | null) => void;
+  setDraft: (next: string) => void;
+  /** `create` = 栏头下的新建入口；`selection` = 会话列表下方、作用于选中项的次要动作 */
+  slot: "create" | "selection";
 }) {
-  const [form, setForm] = React.useState<"create" | "rename" | "delete" | null>(null);
-  const [draft, setDraft] = React.useState("");
   const busy = pending !== null;
   const hasSelection = selectedThreadId !== null;
 
@@ -524,80 +549,66 @@ function ThreadActions({
     setDraft("");
   }
 
-  return (
-    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-actions">
-      <div className="flex flex-wrap gap-1">
-        <Button size="xs" variant="outline" data-testid="chat-thread-create" disabled={busy} onClick={() => open("create")}>
-          新建会话
-        </Button>
-        <Button size="xs" variant="outline" data-testid="chat-thread-rename" disabled={busy || !hasSelection} onClick={() => open("rename")}>
-          改名
-        </Button>
-        <Button size="xs" variant="outline" data-testid="chat-thread-delete" disabled={busy || !hasSelection} onClick={() => open("delete")}>
-          删除
-        </Button>
+  /**
+   * 表单只跟着**触发它的那个 slot** 渲染，否则同一份表单会在左栏出现两次
+   * （两个 slot 各画一遍 ⇒ `chat-thread-title-input` 命中两个，断言会以
+   * 「found multiple elements」红掉，而不是以「找不到」红掉 —— 后者好认，前者容易
+   * 被读成 testid 写错）。
+   */
+  const ownsForm = slot === "create" ? form === "create" : form === "rename" || form === "delete";
+
+  if (slot === "selection") {
+    if (!hasSelection) return null;
+    return (
+      <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-selection-actions">
+        <div className="flex items-center gap-2">
+          <Button size="xs" variant="ghost" data-testid="chat-thread-rename" disabled={busy} onClick={() => open("rename")}>
+            <Pencil aria-hidden className="h-3 w-3" />改名
+          </Button>
+          <Button size="xs" variant="ghost" data-testid="chat-thread-delete" disabled={busy} onClick={() => open("delete")}>
+            <Trash2 aria-hidden className="h-3 w-3" />删除
+          </Button>
+        </div>
+        {ownsForm ? <ThreadWriteForm
+          form={form}
+          draft={draft}
+          busy={busy}
+          setForm={setForm}
+          setDraft={setDraft}
+          onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
+        /> : null}
+        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+        {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
       </div>
+    );
+  }
 
-      {form === "create" || form === "rename" ? (
-        <form
-          data-testid={form === "create" ? "chat-thread-create-form" : "chat-thread-rename-form"}
-          onSubmit={(event) => {
-            event.preventDefault();
-            const title = draft.trim();
-            if (!title) return;
-            if (form === "create") onCreate(title); else onRename(title);
-            setForm(null);
-          }}
-          className="flex flex-col gap-1"
-        >
-          <input
-            aria-label={form === "create" ? "新会话标题" : "新的会话标题"}
-            data-testid="chat-thread-title-input"
-            className="rounded-md border border-border-subtle px-2 py-1 text-12"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <div className="flex gap-1">
-            <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || draft.trim() === ""}>
-              确认
-            </Button>
-            <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
-          </div>
-        </form>
+  return (
+    <div className="flex flex-col gap-2 p-3" data-testid="chat-thread-actions">
+      {/* 原型里新建是一条全宽 primary（`+ 新建对话`），不是并排三个同权重的裸按钮：
+          三个 outline 按钮并排等于宣布「新建、改名、删除一样重要」。改名/删除降为
+          次要动作、跟着选中项走，渲染在会话列表下方的 `selection` slot 里。
+          ⚠ testid 一个不改——`chat-read.spec.ts` 与 `chat-thread-crud.test.tsx`
+          都锚在 create / rename / delete 这三个名字上。 */}
+      <Button className="w-full" size="sm" variant="primary" data-testid="chat-thread-create" disabled={busy} onClick={() => open("create")}>
+        <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
+      </Button>
+      {ownsForm ? (
+        <ThreadWriteForm
+          form={form}
+          draft={draft}
+          busy={busy}
+          setForm={setForm}
+          setDraft={setDraft}
+          onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
+        />
       ) : null}
-
-      {/* 删除要二次确认：它是可追溯动作，服务端会写审计并返回 impactScope。 */}
-      {form === "delete" ? (
-        <form
-          data-testid="chat-thread-delete-confirm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const reason = draft.trim();
-            if (!reason) return;
-            onDelete(reason);
-            setForm(null);
-          }}
-          className="flex flex-col gap-1"
-        >
-          <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
-          <input
-            aria-label="删除原因"
-            data-testid="chat-thread-delete-reason"
-            className="rounded-md border border-border-subtle px-2 py-1 text-12"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <div className="flex gap-1">
-            <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || draft.trim() === ""}>
-              确认删除
-            </Button>
-            <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
-          </div>
-        </form>
-      ) : null}
-
-      {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
-      {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
+      {busy && form === "create" ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+      {failure && !hasSelection ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
     </div>
   );
 }
@@ -625,14 +636,127 @@ function ThreadLiveStatusChip({ roster }: { roster: GetAgentPanelOut | null }) {
   );
 }
 
+
+/**
+ * 三个写操作共用的一份表单（新建 / 改名 / 删除确认）。
+ *
+ * 提出来是因为 `ThreadActions` 现在有两个渲染位（新建入口在栏头下、改名删除在列表下方），
+ * 而表单必须**只在触发它的那个位上出现一次** —— 两处各画一遍会让
+ * `chat-thread-title-input` 命中两个元素。
+ */
+function ThreadWriteForm({
+  form, draft, busy, setForm, setDraft, onCreate, onRename, onDelete,
+}: {
+  form: "create" | "rename" | "delete" | null;
+  draft: string;
+  busy: boolean;
+  setForm: (next: "create" | "rename" | "delete" | null) => void;
+  setDraft: (next: string) => void;
+  onCreate: (title: string) => void;
+  onRename: (title: string) => void;
+  onDelete: (reason: string) => void;
+}) {
+  if (form === "create" || form === "rename") {
+    return (
+      <form
+        data-testid={form === "create" ? "chat-thread-create-form" : "chat-thread-rename-form"}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const title = draft.trim();
+          if (!title) return;
+          if (form === "create") onCreate(title); else onRename(title);
+          setForm(null);
+        }}
+        className="flex flex-col gap-1"
+      >
+        <input
+          aria-label={form === "create" ? "新会话标题" : "新的会话标题"}
+          data-testid="chat-thread-title-input"
+          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <div className="flex gap-1">
+          <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || draft.trim() === ""}>
+            确认
+          </Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
+        </div>
+      </form>
+    );
+  }
+  /* 删除要二次确认：它是可追溯动作，服务端会写审计并返回 impactScope。 */
+  if (form === "delete") {
+    return (
+      <form
+        data-testid="chat-thread-delete-confirm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const reason = draft.trim();
+          if (!reason) return;
+          onDelete(reason);
+          setForm(null);
+        }}
+        className="flex flex-col gap-1"
+      >
+        <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
+        <input
+          aria-label="删除原因"
+          data-testid="chat-thread-delete-reason"
+          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <div className="flex gap-1">
+          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || draft.trim() === ""}>
+            确认删除
+          </Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setForm(null)}>取消</Button>
+        </div>
+      </form>
+    );
+  }
+  return null;
+}
+
+/**
+ * 会话卡副行 —— 照原型：**负责的 agent · 时间 · 状态徽标**。
+ *
+ * ⚠ 此前副行第一段印的是 `visibilityScope` 的**原始枚举值**（`plenary` / `private`…）。
+ *   原型副行里根本没有可见范围，有的是「Scout · 14:02 · 3 条待复核」。可见范围是
+ *   一个治理概念，塞在时间线列表里既占位又不可读。它改由 `VisibilityBadge`
+ *   在线程头部呈现（那里才是它的位置）。
+ * ⚠ 徽标枚举是封闭二值（`MessageBadge`），所以是穷举 Record 而不是直接印英文原值。
+ */
 function ThreadMeta({ card }: { card: ThreadCard }) {
   return (
     <span className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
-      <span>{card.visibilityScope}</span>
-      {card.agentSummary ? <span>· {card.agentSummary}</span> : null}
-      {card.badges.map((badge) => <Badge key={badge} tone="outline">{badge}</Badge>)}
+      {card.agentSummary ? <span className="truncate">{card.agentSummary}</span> : null}
+      <span>· {shortTime(card.lastActivityAt)}</span>
+      {card.badges.map((badge) => (
+        <Badge key={badge} tone={badge === "review-pending" ? "warning" : "outline"}>
+          {THREAD_BADGE_TEXT[badge]}
+        </Badge>
+      ))}
     </span>
   );
+}
+
+const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
+  degraded: "已降级",
+  "review-pending": "待复核",
+};
+
+/**
+ * 只取「时:分」。原型左栏印的是 `14:02` / `周三` 这种量级，不是完整 ISO 串。
+ * ⚠ 不做「几分钟前」这类相对时间：那会让同一条卡在两次渲染间文字不同，
+ *   截图比对与快照测试都会因此抖动，而它换来的信息量为零。
+ * 服务端下发的是 ISO 串；解析失败时原样返回，不静默显示成空。
+ */
+function shortTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
 function ThreadDetail({
@@ -656,15 +780,59 @@ function ThreadDetail({
   if (!detail) return <CenteredState>从左侧选择一条真实线程查看。</CenteredState>;
 
   return (
-    <div className="flex h-full flex-col" data-testid="chat-thread-detail">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+    /* `data-thread-id` 是**机器可读的绑定证据**：断言要能证明「详情面绑的是选中的那条线程」，
+       但这件事不该靠「把线程 id 印在副行上给用户看」来证明（那正是 #728 D4 要去掉的）。
+       同理 `data-project-id`。 */
+    <div
+      className="flex h-full flex-col"
+      data-testid="chat-thread-detail"
+      data-thread-id={detail.thread.id}
+      data-project-id={projectId}
+    >
+      {/*
+        线程头部照原型：标题 + 人类可读副行 + 成员头像串 + 团队 N + 分享 + 侧栏开关。
+
+        ⚠ 副行此前是「项目 <uuid> · 组织 <uuid> · 线程 <uuid>」三段裸 id —— 原型里
+          一个 id 都不出现，副行是「远洋新能源 / 欧洲市场进入 · 第 2 周 · 转录中」。
+          服务端已经下发了这一句：`ThreadCard.subtitle`。裸 id 不是删掉了，
+          是收进 `title` 属性与 `chat-project-id`（有引用，不能消失）里，
+          悬停仍可见，但不再占据副行。
+      */}
+      <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-14 font-semibold">{card?.title ?? detail.thread.id}</h1>
-          <p className="text-10 text-muted-foreground">
-            项目 {projectId} · 组织 {currentOrgId ?? "未解析"} · 线程 {detail.thread.id}
+          <p
+            className="truncate text-11 text-muted-foreground"
+            title={`项目 ${projectId} · 组织 ${currentOrgId ?? "未解析"} · 线程 ${detail.thread.id}`}
+          >
+            <span className="hidden" data-testid="chat-project-id">{projectId}</span>
+            {card?.subtitle?.trim() ?? ""}
           </p>
         </div>
-        <Badge tone="outline">真实消息</Badge>
+        {roster && roster.agents.length > 0 ? (
+          <span className="flex items-center -space-x-1.5" aria-hidden>
+            {roster.agents.slice(0, 4).map((agent) => (
+              <Avatar
+                key={agent.id}
+                initials={agent.abbr}
+                tone="ai"
+                size="sm"
+                className="ring-1 ring-background"
+              />
+            ))}
+          </span>
+        ) : null}
+        {/* 「团队 N」本轮只呈现编制人数，**不挂任何点击行为**。
+            原型里它会打开侧栏，但本轮没有自建侧栏（产物面板走 AppShell 的 `right` 槽），
+            给它挂一个什么都不做的 onClick 就是死控件。等 D9 真做侧栏分页签时再接上。 */}
+        <span className="inline-flex items-center gap-1 text-11 text-muted-foreground" data-testid="chat-thread-team">
+          <Users aria-hidden className="h-3 w-3" />团队 {roster?.rosterCount ?? 0}
+        </span>
+        {/* 分享是**真入口还没有**的那一档：契约里没有「分享线程」操作。按本仓纪律
+            宁可显式禁用并说明，也不放一个点了没反应的按钮（见 admin「未接入后端」标识）。*/}
+        <Button size="xs" variant="ghost" disabled title="分享尚未接入后端（契约里没有分享线程操作）">
+          <Share2 aria-hidden className="h-3 w-3" />分享
+        </Button>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
         <ThreadLiveStatusChip roster={roster} />
       </header>
@@ -728,15 +896,37 @@ function RosterPanel({
   const [draft, setDraft] = React.useState("");
   const writable = canMutate && hasSelection;
 
+  const [addOpen, setAddOpen] = React.useState(false);
+
   return (
-    <div className="flex flex-col" data-testid="chat-read-roster">
-      <div className="flex items-center gap-2 border-b border-border-subtle p-3">
-        <Users aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium">Agent 编制{writable ? "" : "（只读）"}</h2>
+    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-read-roster">
+      {/* 栏头照原型：「本线程的 AI 团队 · N」。⚠ N 用的是 `rosterCount`（编制），
+          在场数另写一行 —— 契约把两个计数刻意分离（I-18），糊成一个就说谎了。 */}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <h2 className="text-11 font-medium text-muted-foreground">
+          本线程的 AI 团队{roster ? ` · ${roster.rosterCount}` : ""}
+          {roster && roster.presentCount !== roster.rosterCount
+            ? ` · 在场 ${roster.presentCount}`
+            : ""}
+        </h2>
+        {writable ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            data-testid="chat-roster-edit"
+            aria-expanded={addOpen}
+            onClick={() => setAddOpen((open) => !open)}
+          >
+            编辑
+          </Button>
+        ) : (
+          <span className="text-10 text-muted-foreground">只读</span>
+        )}
       </div>
-      {writable ? (
+
+      {writable && addOpen ? (
         <form
-          className="flex flex-col gap-2 border-b border-border-subtle p-3"
+          className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
           onSubmit={(event) => {
             event.preventDefault();
             onAdd(draft);
@@ -750,7 +940,7 @@ function RosterPanel({
             <input
               id="chat-roster-add-input"
               data-testid="chat-roster-add-input"
-              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11"
+              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="agent id"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -761,32 +951,43 @@ function RosterPanel({
             </Button>
           </div>
           {/* 「加入」按 id 而不是从下拉里选：契约里**没有**「列出本线程可加的 agent」
-              这个读端口，编一个候选列表就得先编一份它的出处。缺口已上报。 */}
+              这个读端口，编一个候选列表就得先编一份它的出处。缺口已上报。
+              ⚠ 原型的「从 Agent 市场加入」是同一个缺口的另一面：`marketEntry` 是
+              服务端下发的可空入口，下发了才渲染，不自己造一个死链。 */}
           {mutateFailure ? (
             <p className="text-10 text-destructive" data-testid="chat-roster-mutate-error">{mutateFailure}</p>
           ) : null}
         </form>
       ) : null}
-      {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取编制。</p> : null}
-      {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实编制…</p> : null}
+
+      {!hasSelection ? <p className="text-11 text-muted-foreground">选择线程后读取编制。</p> : null}
+      {loading ? <p className="text-11 text-muted-foreground">正在读取真实编制…</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
+
       {roster ? (
-        <div className="flex flex-col gap-2 p-3">
-          <p className="text-10 text-muted-foreground">在场 {roster.presentCount} · 编制 {roster.rosterCount}</p>
-          {roster.agents.length === 0 ? <p className="text-12 text-muted-foreground" data-testid="chat-roster-empty">当前编制为空。</p> : null}
-          {roster.agents.map((agent) => (
-            <div key={agent.id} className="rounded-md border border-border-subtle p-2" data-testid={`chat-roster-agent-${agent.id}`}>
-              <div className="flex items-center gap-2">
-                <span className="grid h-6 w-6 place-items-center rounded-md bg-ai-tint text-10 font-medium text-ai-tint-foreground">{agent.abbr}</span>
+        <>
+          {roster.agents.length === 0 ? (
+            <p className="text-11 text-muted-foreground" data-testid="chat-roster-empty">当前编制为空。</p>
+          ) : null}
+          <ul className="flex flex-col">
+            {roster.agents.map((agent) => (
+              <li
+                key={agent.id}
+                className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"
+                data-testid={`chat-roster-agent-${agent.id}`}
+              >
+                <Avatar initials={agent.abbr} tone="ai" size="sm" className="mt-0.5" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-11 font-medium">{agent.name}</p>
-                  <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
+                  <p className="truncate text-12">
+                    <span className="font-medium">{agent.name}</span>
+                    <span className="text-muted-foreground"> · {agent.duty}</span>
+                  </p>
                 </div>
-                <Badge tone={agent.presence === "present" ? "primary" : "neutral"}>{agent.presence}</Badge>
+                <span className={presenceTone(agent.presence)}>{PRESENCE_TEXT[agent.presence]}</span>
                 {writable ? (
                   <Button
                     size="xs"
-                    variant="outline"
+                    variant="ghost"
                     data-testid={`chat-roster-remove-${agent.id}`}
                     disabled={pending}
                     onClick={() => onRemove(agent.id)}
@@ -794,13 +995,37 @@ function RosterPanel({
                     移出
                   </Button>
                 ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+          {roster.marketEntry ? (
+            <Button asChild size="xs" variant="outline" className="w-full">
+              <Link href={roster.marketEntry} data-testid="chat-roster-market-entry">
+                <Store aria-hidden className="h-3 w-3" />从 Agent 市场加入
+              </Link>
+            </Button>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
+}
+
+/**
+ * 在场态的中文投影。契约的 `AgentPresence` 是三值封闭枚举（I-17），
+ * 所以这里是**穷举的 Record 而不是带 default 的函数** —— 枚举加一档时 tsc 会红，
+ * 而不是静默显示成一个英文单词。原型上印的是「在场 / 跑批中 / 空闲」，
+ * 但契约三值是 present/away/off，语义并不一一对应：`away`≠「跑批中」。
+ * 这里按契约语义翻译，**不**为了对上原型字面而编一个原型才有的状态。
+ */
+const PRESENCE_TEXT: Record<GetAgentPanelOut["agents"][number]["presence"], string> = {
+  present: "在场",
+  away: "离开",
+  off: "离线",
+};
+
+function presenceTone(presence: GetAgentPanelOut["agents"][number]["presence"]): string {
+  return presence === "present" ? "text-10 text-primary" : "text-10 text-muted-foreground";
 }
 
 function ErrorState({

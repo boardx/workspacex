@@ -233,7 +233,9 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     expect(await screen.findByTestId("chat-thread-thread-real")).toHaveTextContent("真实线程");
-    expect(await screen.findByTestId("chat-thread-detail")).toHaveTextContent("thread-real");
+    // #728 D4：详情面副行不再把线程 id 印给用户看（评分卡要求人类可读面包屑）。
+    // 绑定关系改由 `data-thread-id` 证明 —— 机器可读，且不占用户的界面。
+    expect(await screen.findByTestId("chat-thread-detail")).toHaveAttribute("data-thread-id", "thread-real");
     expect(await screen.findByTestId("chat-roster-agent-agent-real")).toHaveTextContent("真实 Agent");
 
     expect(listThreads).toHaveBeenCalledWith("project-real", {}, "provider-bearer");
@@ -261,8 +263,12 @@ describe("formal Chat read path", () => {
   it("最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送", async () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    const suggestions = await screen.findByTestId("chat-followup-suggestions");
-    const elaborate = within(suggestions).getByTestId("chat-followup-suggestion-elaborate");
+    // ⚠ 等的是**那一条具体的建议**，不是容器。容器在消息还没读回来时就已经渲染了
+    // （那时算出来的是零消息态的 `opener`），`findByTestId("chat-followup-suggestions")`
+    // 会在第一帧就 resolve，随后同步 `getByTestId("...elaborate")` 必然扑空 ——
+    // 这条断言此前依赖的是渲染时序的巧合，#728 改了中栏结构就暴露了。
+    const elaborate = await screen.findByTestId("chat-followup-suggestion-elaborate");
+    const suggestions = screen.getByTestId("chat-followup-suggestions");
     expect(elaborate).toHaveTextContent("能否再详细说明一下？");
     expect(within(suggestions).getByTestId("chat-followup-suggestion-summarize")).toHaveTextContent("请总结一下要点");
 
@@ -321,9 +327,13 @@ describe("formal Chat read path", () => {
     expect(chip).toHaveTextContent("编制 2");
     expect(getAgentPanel).toHaveBeenCalledTimes(1); // chip 没有触发第二次读。
 
+    // #728 D2：编制搬进左栏后，计数印在编制区**栏头**上（照原型：`本线程的 AI 团队 · N`，
+    // N 是 rosterCount；在场数只在它与 rosterCount 不相等时附在后面）。
+    // 本用例的立意没有变——两处数字必须来自同一次 getAgentPanel（上面的
+    // `toHaveBeenCalledTimes(1)` 才是那条保证），这里只是跟着措辞改定位。
     const rosterPanel = screen.getByTestId("chat-read-roster");
+    expect(rosterPanel).toHaveTextContent("本线程的 AI 团队 · 2");
     expect(rosterPanel).toHaveTextContent("在场 1");
-    expect(rosterPanel).toHaveTextContent("编制 2");
   });
 
   /**
