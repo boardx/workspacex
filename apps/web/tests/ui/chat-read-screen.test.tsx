@@ -6,6 +6,7 @@ import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
+  listThreadArtifacts, landAsArtifact,
   openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -15,6 +16,9 @@ const {
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   getAgentRun: vi.fn(),
+  // 十项 UX 缺口第 4/5 项（#708）——右栏产物列表 + 消息内联落地为产物。
+  listThreadArtifacts: vi.fn(),
+  landAsArtifact: vi.fn(),
   // #654 阶段2d：默认永不 resolve/reject——这条流是纯装饰性的进度增强（组件自己的
   // effect 早有 `.catch()` 兜底），本文件盯的是 `getAgentRun` 那条权威轮询，不是它。
   // 让它是个挂起的 promise 而不是 `vi.fn().mockResolvedValue(undefined)`：立刻
@@ -49,7 +53,9 @@ vi.mock("@/components/shell/app-shell", () => ({
     children: React.ReactNode;
   }) => <div><aside>{left}</aside><main>{children}</main><aside>{right}</aside></div>,
 }));
-vi.mock("@/lib/live-chat", () => ({ listThreads, getThread, getAgentPanel, listMessages, createMessage }));
+vi.mock("@/lib/live-chat", () => ({
+  listThreads, getThread, getAgentPanel, listMessages, createMessage, listThreadArtifacts, landAsArtifact,
+}));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
  *
@@ -188,6 +194,7 @@ describe("formal Chat read path", () => {
       messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
       nextCursor: "cursor-20",
     });
+    listThreadArtifacts.mockResolvedValue({ items: [] });
     createMessage.mockResolvedValue({
       message: durableMessage(22, "新持久消息"),
       agentRunId: "run-new",
@@ -273,6 +280,89 @@ describe("formal Chat read path", () => {
     const rosterPanel = screen.getByTestId("chat-read-roster");
     expect(rosterPanel).toHaveTextContent("在场 1");
     expect(rosterPanel).toHaveTextContent("编制 2");
+  });
+
+  /**
+   * 十项 UX 缺口第 4 项（issue #708）—— 右栏「产物」列表真实渲染。
+   * 数据来自真实 `listThreadArtifacts`（与 `getThread`/`getAgentPanel` 同一批
+   * `Promise.allSettled`），不是本地凑出来的。
+   */
+  it("右栏「产物」面板渲染真实 listThreadArtifacts 结果，并带正确的 projectId/threadId", async () => {
+    listThreadArtifacts.mockResolvedValue({
+      items: [
+        {
+          artifactId: "artifact-real-1", title: "真实草稿产物", mode: "draft",
+          version: null, pinnedBy: null, pinnedAt: null, hasSource: false,
+        },
+      ],
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const panel = await screen.findByTestId("chat-artifacts-panel");
+    expect(panel).toHaveTextContent("产物（1）");
+    expect(panel).toHaveTextContent("真实草稿产物");
+    expect(panel).toHaveTextContent("草稿");
+    expect(listThreadArtifacts).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
+  });
+
+  it("右栏「产物」为空时显示真实空态，不编造示例产物", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [] });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("还没有落地的产物");
+  });
+
+  /**
+   * 十项 UX 缺口第 5 项（issue #708）—— 消息内联「落地为产物」端到端：
+   * 打开表单 → 填标题 → 提交 → 真实调用 `landAsArtifact`（`mode: "draft"`，
+   * `payloadRef` = 该消息的真实 `text`）→ 成功后触发右栏重读。
+   */
+  it("消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [] });
+    landAsArtifact.mockResolvedValue({
+      artifactId: "artifact-new-1",
+      versionId: null,
+      contentHash: null,
+      mode: "draft",
+      hasSource: false,
+      provenanceBacklink: { conversationId: "thread-real", messageId: "durable-message-2", citations: [] },
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const openButton = within(await screen.findByTestId("chat-message-list"))
+      .getAllByTestId(/^chat-land-artifact-open-/)[0]!;
+    fireEvent.click(openButton);
+
+    const messageId = openButton.getAttribute("data-testid")!.replace("chat-land-artifact-open-", "");
+    const titleInput = screen.getByTestId(`chat-land-artifact-title-${messageId}`);
+    fireEvent.change(titleInput, { target: { value: "手填的产物标题" } });
+    fireEvent.click(screen.getByTestId(`chat-land-artifact-submit-${messageId}`));
+
+    await waitFor(() => expect(landAsArtifact).toHaveBeenCalledTimes(1));
+    expect(landAsArtifact).toHaveBeenCalledWith(
+      "thread-real",
+      { messageId, mode: "draft", title: "手填的产物标题", payloadRef: expect.any(String) },
+      "provider-bearer",
+    );
+    expect(await screen.findByTestId(`chat-land-artifact-done-${messageId}`))
+      .toHaveTextContent("已落地为产物（草稿）：手填的产物标题");
+    // 成功后重新读取右栏产物列表——单一事实源仍是服务端 `listThreadArtifacts`。
+    await waitFor(() => expect(listThreadArtifacts).toHaveBeenCalledTimes(2));
+  });
+
+  it("落地为产物失败时如实报错，不假装成功", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [] });
+    landAsArtifact.mockRejectedValue(new ApiError(422, "MISSING_PROVENANCE_BACKLINK", {}));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const openButton = within(await screen.findByTestId("chat-message-list"))
+      .getAllByTestId(/^chat-land-artifact-open-/)[0]!;
+    fireEvent.click(openButton);
+    const messageId = openButton.getAttribute("data-testid")!.replace("chat-land-artifact-open-", "");
+    fireEvent.click(screen.getByTestId(`chat-land-artifact-submit-${messageId}`));
+
+    expect(await screen.findByTestId(`chat-land-artifact-error-${messageId}`))
+      .toHaveTextContent("没有可用的已发布版本（HTTP 422）");
   });
 
   it("编制读取失败时，chip 不渲染猜测出来的数字（不伪造一个 0 个在场）", async () => {

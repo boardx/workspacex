@@ -15,15 +15,17 @@
  *   · updateAgentRoster（线程 agent 编制的增删，#467）
  *   · upsertPreset / dispatchPreset / startPresetInstance / getPresetUsage（预设三件套）
  *   · listMessages / createMessage（Wave 2 durable message + queued AgentRun acceptance）
+ *   · listThreadArtifacts / landAsArtifact（右栏产物列表 + 落地为草稿产物，#708）
  *
  * ⚠ 契约里还有 `getThreadMessagesFile`、`expandToolCallChain`、`locateCitation`、
- *   `adminAuditRead`、approval-request/background-task/artifact 几条——同样是真实
+ *   `adminAuditRead`、approval-request/background-task 几条——同样是真实
  *   Postgres/Provenance 支撑，但不在本次「核心聊天路径」范围内，故未封装，
  *   见 issue #368 的核实报告。
  *
- * ⚠ `updateAgentRoster` 曾**逐字写在上面那条「未封装」清单里**，#467 把它接上了，
- *   于是把它从清单移到已封装那一栏。留着旧措辞就会变成一句会说谎的注释——
- *   本仓已因此类注释踩过多次，注释与代码同属一次改动，不是可选项。
+ * ⚠ `updateAgentRoster` / `listThreadArtifacts` / `landAsArtifact` 都曾**逐字写在
+ *   上面那条「未封装」清单里**（分别是 #467、#708 接上的），于是把它们从清单移到
+ *   已封装那一栏。留着旧措辞就会变成一句会说谎的注释——本仓已因此类注释踩过多次，
+ *   注释与代码同属一次改动，不是可选项。
  *
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
@@ -51,6 +53,16 @@ export type UpdateAgentRosterInput = Omit<
   z.input<typeof chat.operations.updateAgentRoster.in>,
   "threadId"
 >;
+/**
+ * 十项 UX 缺口第 4/5 项（issue #708）—— 产物落地。
+ * `chat_artifact_landings` 真实落库支撑，`GET/POST /chat/threads/:threadId/artifacts`
+ * 真实 Postgres 支撑（`apps/api/src/application/chat/list-thread-artifacts.ts` /
+ * `land-as-artifact.ts`），此前从未被 `apps/web` 调用过。
+ */
+export type ListThreadArtifactsOut = z.infer<typeof chat.operations.listThreadArtifacts.out>;
+export type LandAsArtifactOut = z.infer<typeof chat.operations.landAsArtifact.out>;
+/** `threadId` 由入参单独给（要拼进路径 + body 都要，控制器与契约要求一致），其余字段透传。 */
+export type LandAsArtifactInput = Omit<z.input<typeof chat.operations.landAsArtifact.in>, "threadId">;
 
 export async function listThreads(
   projectId: string,
@@ -169,6 +181,43 @@ export async function updateAgentRoster(
     {
       method: "POST",
       query: { projectId },
+      body: { threadId, ...input },
+      sessionToken,
+    },
+  );
+}
+
+/**
+ * 右栏「产物」列表（issue #708）——`GET /chat/threads/:threadId/artifacts`。
+ * 草稿仅创建者可见，其余 404（I-36，服务端已过滤，这里不重复判定）。
+ */
+export async function listThreadArtifacts(
+  threadId: string,
+  projectId: string,
+  sessionToken?: string,
+): Promise<ListThreadArtifactsOut> {
+  return apiRequest<ListThreadArtifactsOut>(
+    chat.operations.listThreadArtifacts.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
+/**
+ * 把一条消息落地为 Artifact（issue #708）——`POST /chat/threads/:threadId/artifacts`。
+ * ⚠ 调用方目前**只应该传 `mode: "draft"`**：`live`/`pinned` 要求消息挂有非空
+ * citations（I-33），而 citations 的写入路径目前不存在（`get-thread.ts` 的
+ * `toMessage()` 恒 `citations: []`），传 `live`/`pinned` 会 100% 命中
+ * `MISSING_PROVENANCE_BACKLINK`——这不是本函数的限制，是后端契约现状。
+ */
+export async function landAsArtifact(
+  threadId: string,
+  input: LandAsArtifactInput,
+  sessionToken?: string,
+): Promise<LandAsArtifactOut> {
+  return apiRequest<LandAsArtifactOut>(
+    chat.operations.landAsArtifact.path.replace(":threadId", encodeURIComponent(threadId)),
+    {
+      method: "POST",
       body: { threadId, ...input },
       sessionToken,
     },

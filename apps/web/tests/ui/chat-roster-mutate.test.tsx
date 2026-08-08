@@ -45,7 +45,8 @@ import { ApiError } from "@/lib/api-client";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread, updateAgentRoster, sessionState,
+  createThread, renameThread, deleteThread, updateAgentRoster,
+  listThreadArtifacts, landAsArtifact, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -57,6 +58,10 @@ const {
   renameThread: vi.fn(),
   deleteThread: vi.fn(),
   updateAgentRoster: vi.fn(),
+  // 十项 UX 缺口第 4/5 项（#708）——本文件不测这两个端口，只需要它们有默认解析值，
+  // 不然 `chat-read-screen.tsx` 顶层的 `Promise.allSettled` 会产生未处理的 rejection。
+  listThreadArtifacts: vi.fn(),
+  landAsArtifact: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -78,6 +83,7 @@ vi.mock("@/components/shell/app-shell", () => ({
 vi.mock("@/lib/live-chat", () => ({
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
   createThread, renameThread, deleteThread, updateAgentRoster,
+  listThreadArtifacts, landAsArtifact,
 }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
@@ -138,6 +144,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     getThread.mockResolvedValue(detail(WRITER));
     getAgentPanel.mockResolvedValue(panel([]));
     listMessages.mockResolvedValue({ messages: [], nextCursor: null });
+    listThreadArtifacts.mockResolvedValue({ items: [] });
     updateAgentRoster.mockResolvedValue({ rosterVersion: 1, agents: [], auditEventId: "prov-1" });
   });
 

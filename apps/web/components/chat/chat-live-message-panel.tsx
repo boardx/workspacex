@@ -7,6 +7,7 @@ import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
+  landAsArtifact,
   listMessages,
   type CreateMessageInput,
   type DurableMessage,
@@ -58,11 +59,18 @@ export function ChatLiveMessagePanel({
   bearer,
   agents,
   archived,
+  onArtifactLanded,
 }: {
   threadId: string;
   bearer: string;
   agents: GetAgentPanelOut["agents"] | null;
   archived: boolean;
+  /**
+   * 十项 UX 缺口第 5 项（issue #708）—— 某条消息成功落地为产物后的通知。
+   * 调用方（`chat-read-screen.tsx`）借此重读右栏「产物」列表——单一事实源仍是
+   * `listThreadArtifacts` 的服务端响应，这里不在本组件内维护第二份产物计数。
+   */
+  onArtifactLanded?: () => void;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -96,6 +104,13 @@ export function ChatLiveMessagePanel({
    * `delta` 事件，这里就永远是空串——退化到今天这个界面本来的样子，一个字节不多。
    */
   const [streamingText, setStreamingText] = React.useState("");
+  /**
+   * 十项 UX 缺口第 5 项（issue #708）—— 「落地为产物（草稿）」的按消息状态。
+   * ⚠ 只允许 `mode: "draft"`：`live`/`pinned` 要求消息挂有非空 citations（I-33），
+   *   而 citations 的写入路径目前不存在（见 `land-as-artifact.ts` 与本组件顶部
+   *   `landAsArtifact` 的引入注释），提供那两个选项会摆一个必炸的按钮。
+   */
+  const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
   const generation = React.useRef(0);
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
@@ -300,6 +315,54 @@ export function ChatLiveMessagePanel({
     }
   };
 
+  const openLandForm = (message: DurableMessage) => {
+    setLandingState((current) => ({
+      ...current,
+      [message.id]: { status: "form", title: defaultArtifactTitle(message.text) },
+    }));
+  };
+
+  const updateLandTitle = (messageId: string, title: string) => {
+    setLandingState((current) => {
+      const existing = current[messageId];
+      if (!existing || existing.status !== "form") return current;
+      return { ...current, [messageId]: { ...existing, title } };
+    });
+  };
+
+  const cancelLand = (messageId: string) => {
+    setLandingState((current) => {
+      const rest = { ...current };
+      delete rest[messageId];
+      return rest;
+    });
+  };
+
+  const submitLand = async (message: DurableMessage) => {
+    const entry = landingState[message.id];
+    if (!entry || entry.status !== "form") return;
+    const title = entry.title.trim();
+    if (title === "") return;
+    setLandingState((current) => ({ ...current, [message.id]: { status: "submitting", title } }));
+    try {
+      const result = await landAsArtifact(
+        threadId,
+        { messageId: message.id, mode: "draft", title, payloadRef: message.text },
+        bearer,
+      );
+      setLandingState((current) => ({
+        ...current,
+        [message.id]: { status: "done", title, artifactId: result.artifactId },
+      }));
+      onArtifactLanded?.();
+    } catch (failure) {
+      setLandingState((current) => ({
+        ...current,
+        [message.id]: { status: "error", title, error: describeMessageFailure(failure, "落地为产物") },
+      }));
+    }
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -356,6 +419,14 @@ export function ChatLiveMessagePanel({
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
                     </div>
+                    <MessageLandingControls
+                      message={message}
+                      state={landingState[message.id]}
+                      onOpen={() => openLandForm(message)}
+                      onTitleChange={(title) => updateLandTitle(message.id, title)}
+                      onCancel={() => cancelLand(message.id)}
+                      onSubmit={() => void submitLand(message)}
+                    />
                   </div>
                 </li>
               );
@@ -522,6 +593,99 @@ function statusTone(status: AgentRunStatus): string {
   if (status === "failed") return "text-destructive";
   if (status === "succeeded") return "text-primary";
   return "text-muted-foreground";
+}
+
+/** 十项 UX 缺口第 5 项——一条消息「落地为产物（草稿）」的本地 UI 状态机。 */
+type MessageLandingState =
+  | { readonly status: "form"; readonly title: string }
+  | { readonly status: "submitting"; readonly title: string }
+  | { readonly status: "done"; readonly title: string; readonly artifactId: string }
+  | { readonly status: "error"; readonly title: string; readonly error: string };
+
+function defaultArtifactTitle(text: string): string {
+  const firstLine = text.split("\n")[0]?.trim() ?? "";
+  return firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : (firstLine || "未命名产物");
+}
+
+/**
+ * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」控件。
+ * 真实调用 `landAsArtifact`（`POST /chat/threads/:threadId/artifacts`），只提供
+ * `mode: "draft"`——`live`/`pinned` 要求非空 citations，而 citations 写入路径目前
+ * 不存在，见本文件顶部 `landAsArtifact` 引入处的注释。
+ */
+function MessageLandingControls({
+  message, state, onOpen, onTitleChange, onCancel, onSubmit,
+}: {
+  message: DurableMessage;
+  state: MessageLandingState | undefined;
+  onOpen: () => void;
+  onTitleChange: (title: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  if (state === undefined) {
+    return (
+      <Button
+        size="xs"
+        variant="ghost"
+        className="self-start text-10 text-muted-foreground"
+        data-testid={`chat-land-artifact-open-${message.id}`}
+        onClick={onOpen}
+      >
+        落地为产物（草稿）
+      </Button>
+    );
+  }
+
+  if (state.status === "done") {
+    return (
+      <p className="text-10 text-primary" data-testid={`chat-land-artifact-done-${message.id}`}>
+        已落地为产物（草稿）：{state.title}
+      </p>
+    );
+  }
+
+  const busy = state.status === "submitting";
+  return (
+    <form
+      className="flex w-full max-w-xs flex-col gap-1 rounded-md border border-border-subtle bg-card p-2"
+      data-testid={`chat-land-artifact-form-${message.id}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="text-10 text-muted-foreground" htmlFor={`chat-land-artifact-title-${message.id}`}>
+        产物标题（草稿，落地后仍可在右栏「产物」看到）
+      </label>
+      <input
+        id={`chat-land-artifact-title-${message.id}`}
+        data-testid={`chat-land-artifact-title-${message.id}`}
+        className="h-7 rounded-md border border-input bg-transparent px-2 text-11"
+        value={state.title}
+        disabled={busy}
+        onChange={(event) => onTitleChange(event.target.value)}
+      />
+      <div className="flex items-center gap-1">
+        <Button
+          size="xs"
+          type="submit"
+          data-testid={`chat-land-artifact-submit-${message.id}`}
+          disabled={busy || state.title.trim() === ""}
+        >
+          {busy ? "落地中…" : "确认落地"}
+        </Button>
+        <Button size="xs" type="button" variant="outline" disabled={busy} onClick={onCancel}>
+          取消
+        </Button>
+      </div>
+      {state.status === "error" ? (
+        <p className="text-10 text-destructive" data-testid={`chat-land-artifact-error-${message.id}`}>
+          {state.error}
+        </p>
+      ) : null}
+    </form>
+  );
 }
 
 function appendUnique(current: DurableMessage[], incoming: DurableMessage[]): DurableMessage[] {
