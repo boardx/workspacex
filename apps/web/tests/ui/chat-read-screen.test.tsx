@@ -2,10 +2,11 @@ import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
+import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
-  sessionState,
+  openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -14,6 +15,15 @@ const {
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   getAgentRun: vi.fn(),
+  // #654 阶段2d：默认永不 resolve/reject——这条流是纯装饰性的进度增强（组件自己的
+  // effect 早有 `.catch()` 兜底），本文件盯的是 `getAgentRun` 那条权威轮询，不是它。
+  // 让它是个挂起的 promise 而不是 `vi.fn().mockResolvedValue(undefined)`：立刻
+  // resolve 会在每个用例里都真的跑一遍「流打开又关闭」的状态更新，制造与本文件断言
+  // 无关的 act() 警告噪音。
+  openAgentRunStream: vi.fn(
+    (_runId: string, _onEvent: (event: AgentRunStreamEvent) => void, _opts?: unknown) =>
+      new Promise<void>(() => {}),
+  ),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -51,6 +61,8 @@ vi.mock("@/lib/agent-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-run")>()),
   getAgentRun,
 }));
+/** #654 阶段2d：见上面 `openAgentRunStream` 的 hoisted 注释。 */
+vi.mock("@/lib/agent-run-stream", () => ({ openAgentRunStream }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
 import { describeMessageFailure } from "@/components/chat/chat-live-message-panel";
@@ -330,6 +342,72 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(status).toHaveAttribute("data-run-status", "failed"));
     expect(status).toHaveTextContent("MODEL_CALL_FAILED");
     expect(status).not.toHaveAttribute("data-result-message-id");
+  });
+
+  /**
+   * #654 阶段2d —— 逐 token 草稿气泡。三件事各一条断言：①增量真的逐字追加进同一个
+   * CopilotKit `Markdown` 渲染路径（不是纯文本）；②到达终态那一刻草稿立刻清空
+   * （持久消息列表接管，不会短暂重复显示）；③默认（本文件从不触发任何 delta 事件的
+   * 其它所有用例）从不渲染这个气泡——退化行为就是今天的样子，一个字节不多。
+   */
+  it("流式增量实时追加进草稿气泡，终态一到立刻清空，交给持久消息列表接管", async () => {
+    let capturedOnEvent: ((event: AgentRunStreamEvent) => void) | null = null;
+    openAgentRunStream.mockImplementation(
+      (_runId: string, onEvent: (event: AgentRunStreamEvent) => void) => {
+        capturedOnEvent = onEvent;
+        return new Promise<void>(() => {}); // 挂起——由测试手动喂事件，模拟真实连接不会自己关。
+      },
+    );
+    getAgentRun.mockResolvedValue(agentRunView("running", null));
+    listMessages
+      .mockResolvedValueOnce({
+        messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+        nextCursor: "cursor-20",
+      })
+      .mockResolvedValue({ messages: [durableMessage(22, "**已落库的最终回复**")], nextCursor: null });
+
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "流式跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await waitFor(() => expect(openAgentRunStream).toHaveBeenCalledWith(
+      "run-new", expect.any(Function), expect.objectContaining({ sessionToken: "provider-bearer" }),
+    ));
+    expect(capturedOnEvent).not.toBeNull();
+
+    act(() => { capturedOnEvent!({ type: "delta", text: "**部分" }); });
+    const draft = await screen.findByTestId("chat-message-row-streaming");
+    expect(draft).toHaveAttribute("data-run-id", "run-new");
+    expect(draft).toHaveTextContent("部分");
+
+    // 第二个增量把 markdown 语法拼完整——同一条 CopilotKit Markdown 渲染路径，
+    // 累积文本真的被当 markdown 解释（加粗），不是原样吐出字面 `**`。
+    act(() => { capturedOnEvent!({ type: "delta", text: "回复内容**" }); });
+    await waitFor(() => expect(screen.getByTestId("chat-message-row-streaming")).toHaveTextContent("部分回复内容"));
+    expect(screen.getByTestId("chat-message-row-streaming").querySelector("strong")).not.toBeNull();
+
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    act(() => {
+      capturedOnEvent!({ type: "final", status: "succeeded", resultMessageId: "durable-message-22" });
+    });
+
+    // 草稿立刻消失——不会和随后 `loadPage` 读回的持久消息同框重复一瞬间。
+    await waitFor(() => expect(screen.queryByTestId("chat-message-row-streaming")).not.toBeInTheDocument());
+  });
+
+  it("默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子", async () => {
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "普通一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await screen.findByTestId("chat-live-agent-run-status");
+    expect(screen.queryByTestId("chat-message-row-streaming")).not.toBeInTheDocument();
   });
 
   it("读不到 run 时报读取失败，而不是渲染一个猜出来的状态", async () => {

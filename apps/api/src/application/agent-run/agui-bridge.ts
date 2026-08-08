@@ -30,6 +30,23 @@
  * translation happens at the interface layer once this function already has the final
  * text. Phase 2 (token-level streaming) would replace the inside of this function, not
  * its callers' contract with the interface layer.
+ *
+ * ## #654 阶段2b -- `onDelta` is additive, the polling loop and the return contract do not change
+ *
+ * The loop still polls `readAgentRun` for the terminal status exactly as阶段1b left it.
+ * What 阶段2b adds is a SECOND poll, each iteration, of `readModelDeltas` -- forwarding any
+ * fragment not yet seen through the caller's optional `onDelta` BEFORE checking the run's
+ * status that same iteration. That ordering is load-bearing, not incidental:
+ * `execute-run.ts`'s `executeClaimed` only transitions a run out of `running` (into
+ * `writeback_pending`) AFTER `completeStream` has fully resolved, which is AFTER every
+ * delta for that call is already committed. So "read deltas, then read status" in the
+ * same iteration can never observe a terminal status with an unread delta still pending --
+ * there is no extra "catch-up" poll needed after the loop exits.
+ *
+ * When `onDelta` is omitted, OR when the run never streamed anything (streaming disabled,
+ * or the routed provider does not support it -- see `ports.ts`'s own `completeStream` doc),
+ * zero deltas are ever forwarded and this function's behaviour is byte-for-byte 阶段1b's:
+ * the caller falls back to relaying `outcome.text` as one chunk, exactly as before.
  */
 import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository, DecisionIdFactory } from "../../application/identity/ports";
@@ -76,6 +93,24 @@ export interface AguiBridgeInput {
   /** Test seam only -- production callers use the defaults. */
   readonly pollIntervalMs?: number;
   readonly maxPolls?: number;
+  /**
+   * #654 阶段2b. Fired ONCE, right after `acceptHumanMessage` + `kick` succeed and BEFORE
+   * the poll loop's first iteration -- i.e. exactly when there is a real, running Agent
+   * Run to report, never for a request that failed validation (bad agent id, thread not
+   * visible, …) before one existed. A caller emitting an AG-UI `RUN_STARTED` from this hook
+   * gets it in the right place: after the run genuinely started, but strictly before any
+   * `onDelta` fragment (the loop that calls `onDelta` cannot begin until this already ran).
+   */
+  readonly onStarted?: () => void;
+  /**
+   * #654 阶段2b. Fired, in `seq` order, for every model-output fragment observed while
+   * polling -- BEFORE this function returns, never after. Omit it to get 阶段1b's exact
+   * behaviour (see file head). Errors thrown by this callback propagate out of
+   * `runAguiBridgeTurn` exactly like a transport error would -- a caller that persists or
+   * forwards deltas downstream (e.g. writing them onto an SSE response) does not want a
+   * failed write silently swallowed here.
+   */
+  readonly onDelta?: (delta: string) => void;
 }
 
 export type AguiBridgeOutcome =
@@ -112,12 +147,23 @@ export async function runAguiBridgeTurn(
     clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
   });
   deps.executor.kick(input.orgId);
+  input.onStarted?.();
 
   const pollIntervalMs = input.pollIntervalMs ?? 400;
   const maxPolls = input.maxPolls ?? 75; // ~30s bound at the default interval.
   const runId = accepted.agentRunId;
+  let lastSeenDeltaSeq = -1;
 
   for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+    if (input.onDelta) {
+      // Read BEFORE checking status this same iteration -- see file head "ordering is
+      // load-bearing" for why a terminal status can never leave a delta unread here.
+      const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
+      for (const delta of deltas) {
+        input.onDelta(delta.text);
+        lastSeenDeltaSeq = delta.seq;
+      }
+    }
     const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
     if (projection.status === "succeeded") {
       if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();

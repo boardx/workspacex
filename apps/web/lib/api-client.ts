@@ -92,6 +92,17 @@ export interface ApiRequestOptions {
   readonly sessionToken?: string | null;
 }
 
+/**
+ * #654 阶段2d — exported for callers that need the resolved URL but NOT `apiRequest`'s
+ * "parse the whole body as one JSON envelope" behaviour, e.g. a `fetch` against an SSE
+ * endpoint (`agent-run-stream.ts`) that reads its response body incrementally instead.
+ * Same same-origin-proxy-prefix resolution as every other real API call in this app --
+ * this is not a second URL-building rule, it is this one made reusable.
+ */
+export function apiUrl(path: string, query?: Record<string, string | undefined>): string {
+  return buildUrl(path, query);
+}
+
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {
   // Full-stack browser gates keep browser traffic same-origin through an explicit proxy
   // prefix. The default is empty, so production URLs retain their signed controller paths.

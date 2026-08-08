@@ -1,16 +1,30 @@
 /**
- * `POST /copilotkit/agui` -- the AG-UI SSE bridge (#654 Phase 1b).
+ * `POST /copilotkit/agui` -- the AG-UI SSE bridge (#654 Phase 1b, streaming since 阶段2b).
  *
  * ## Scope, on purpose
  *
- * This wraps the EXISTING agent-run create+poll flow (`agui-bridge.ts`) and translates its
- * ONE final outcome into a short AG-UI event sequence over SSE. It is deliberately NOT
- * token-level streaming: `execute-run.ts` makes exactly one non-streaming model call per
- * run (Wave 2 §5), so there is no token stream to relay yet. Phase 2 is what replaces the
- * inside of `runAguiBridgeTurn` with something that CAN stream; this controller's contract
- * (one `RunAgentInput`-shaped POST body in, an AG-UI SSE event sequence out) does not need
- * to change for that.
+ * This wraps the EXISTING agent-run create+poll flow (`agui-bridge.ts`). Since 阶段2b it
+ * relays `runAguiBridgeTurn`'s `onDelta` callback as real `TEXT_MESSAGE_CONTENT` events
+ * WHILE the run is still in flight, not just its one final outcome -- when the underlying
+ * `ModelCallPort` streamed (`KERNEL_MODEL_STREAM_ENABLED=1` and the routed provider
+ * supports it, see `configured-model-provider.ts`). When it did not stream (the default,
+ * or a provider that cannot), zero deltas ever arrive and this controller falls straight
+ * back to 阶段1b's behaviour: one `TEXT_MESSAGE_CONTENT` carrying the whole final text.
+ * That fallback is not a special case in the code below -- it falls out of `sawAnyDelta`
+ * staying `false`.
  *
+ * ## `messageId` is minted HERE now, not read off the persisted Chat message
+ *
+ * 阶段1b used the writeback's real `chat_messages.id` as the AG-UI `messageId`, because it
+ * was only ever used once the run had already succeeded. Streaming deltas arrive WHILE the
+ * run is `running` -- long before that id exists -- so this controller now mints its own
+ * correlation id up front. AG-UI's `messageId` is a wire-level correlation id for `HttpAgent`
+ * to group `TEXT_MESSAGE_START`/`_CONTENT`/`_END` into one bubble; nothing in the AG-UI
+ * protocol requires it to equal any backend row id, and this app's own persisted message id
+ * is never looked up over this connection anyway (the controller only ever HAD it after
+ * `outcome.kind === "succeeded"`, i.e. too late to have used it for the first delta).
+ *
+
  * ## Event shapes
  *
  * Typed against `@ag-ui/core`'s `EventType` enum and event schemas directly (already a
@@ -156,25 +170,51 @@ export class CopilotkitAguiController {
     // always sends both; the fallback only covers a hand-rolled test/curl client.
     const clientThreadId = body.threadId ?? randomUUID();
     const clientRunId = body.runId ?? randomUUID();
+    // #654 阶段2b -- minted here, not read off the persisted Chat message. See file head.
+    const messageId = randomUUID();
+    let sawAnyDelta = false;
 
     try {
       const outcome = await runAguiBridgeTurn(this.deps, {
         userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text,
         clientMessageId: randomUUID(), threadId: null,
+        // Fires once the run genuinely exists -- see `agui-bridge.ts`'s own doc for why
+        // this, and not "before the call" or "after it resolves", is the right place:
+        // a request that fails validation before a run exists (bad agent id, …) never
+        // gets a RUN_STARTED at all, exactly like 阶段1b; a request that streams gets it
+        // before the first `onDelta`, never after (which would arrive out of order).
+        onStarted: () => write({ type: EventType.RUN_STARTED, threadId: clientThreadId, runId: clientRunId }),
+        onDelta: (delta) => {
+          if (!sawAnyDelta) {
+            sawAnyDelta = true;
+            write({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" });
+          }
+          write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta });
+        },
       });
-      write({ type: EventType.RUN_STARTED, threadId: clientThreadId, runId: clientRunId });
 
       if (outcome.kind === "succeeded") {
-        write({ type: EventType.TEXT_MESSAGE_START, messageId: outcome.messageId, role: "assistant" });
-        write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: outcome.messageId, delta: outcome.text });
-        write({ type: EventType.TEXT_MESSAGE_END, messageId: outcome.messageId });
+        if (sawAnyDelta) {
+          // Every fragment already went out via `onDelta` above -- resending
+          // `outcome.text` here would duplicate the assistant bubble's content.
+          write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        } else {
+          // 阶段1b's exact fallback: streaming was off, or the routed provider does not
+          // support it, so the whole answer arrives as one chunk instead of many.
+          write({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" });
+          write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: outcome.text });
+          write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        }
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else if (outcome.kind === "failed") {
+        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error });
       } else {
+        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: "AGENT_RUN_TIMEOUT", code: "AGENT_RUN_TIMEOUT" });
       }
     } catch (e) {
+      if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
       if (e instanceof MessageThreadNotVisibleError || e instanceof AgentRunNotVisibleError) {
         write({ type: EventType.RUN_ERROR, message: "THREAD_NOT_VISIBLE", code: "THREAD_NOT_VISIBLE" });
       } else if (e instanceof MessageNoWriteRoleError) {
