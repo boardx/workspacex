@@ -55,6 +55,43 @@ export function apiWebSocketUrl(path: string): string {
   return url.toString();
 }
 
+/**
+ * 2026-08-08 事故（#753）—— composer 麦克风（#726）与正式录音转写（#466）点了没反应，
+ * 根因是部署侧反代没有给这两条 WS 面开路由，`new WebSocket(...)` 建的连接因此永远卡在
+ * 握手阶段：既不 `open` 也不 `error`，两条面各自的 `openAsrDraftStream`/`openAsrStream`
+ * 里 `await new Promise((resolve, reject) => { socket.on("open"/"error", ...) })` 因此
+ * 永久 pending——`.then/.catch` 都不会跑，界面上什么都不会发生，与"点了没反应"一模一样。
+ *
+ * `error` 事件不是网络层失败的可靠信号（有些失败模式——反代把 Upgrade 请求路由去一个
+ * 不认识这条路径的 HTTP 服务器——两端都不会发一个 WS 层面的 `error` 帧，连接只是安静地
+ * 半开着）。所以握手阶段**必须**有一个客户端侧的超时兜底，不能只等 `open`/`error`。
+ *
+ * 两条 WS 面（`live-asr-draft.ts`、`live-asr.ts`）共用这一个 helper，不各写一份计时器逻辑。
+ */
+export const WS_HANDSHAKE_TIMEOUT_MS = 8_000;
+
+export function waitForSocketOpen(
+  socket: WebSocket,
+  onHandshakeFailed: () => Error,
+  timeoutMs: number = WS_HANDSHAKE_TIMEOUT_MS,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      // 超时视为握手失败的一种：把还半开着的连接关掉，不留一条没人再理会的 socket。
+      socket.close();
+      reject(new Error("ws_handshake_timeout"));
+    }, timeoutMs);
+    socket.addEventListener("open", () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+    socket.addEventListener("error", () => {
+      clearTimeout(timer);
+      reject(onHandshakeFailed());
+    }, { once: true });
+  });
+}
+
 export const SESSION_TOKEN_STORAGE_KEY = "wsx.sessionToken";
 
 export function getStoredSessionToken(): string | null {

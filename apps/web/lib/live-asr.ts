@@ -21,7 +21,7 @@
  */
 import { recording } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest, apiWebSocketUrl, getStoredSessionToken } from "./api-client";
+import { apiRequest, apiWebSocketUrl, getStoredSessionToken, waitForSocketOpen } from "./api-client";
 import { startCapture, type CaptureHandle } from "./live-recording";
 
 export type StartRecordingOut = z.infer<typeof recording.operations.startRecording.out>;
@@ -120,7 +120,11 @@ export async function openAsrStream(
    */
   messageId: string,
   handlers: AsrStreamHandlers,
-  deps: { sessionToken?: string | null; capture?: () => Promise<CaptureHandle> } = {},
+  deps: {
+    sessionToken?: string | null;
+    capture?: () => Promise<CaptureHandle>;
+    handshakeTimeoutMs?: number;
+  } = {},
 ): Promise<AsrStreamHandle> {
   const token = deps.sessionToken !== undefined ? deps.sessionToken : getStoredSessionToken();
   if (!token) throw new Error("a session token is required to open the ASR stream");
@@ -131,13 +135,17 @@ export async function openAsrStream(
   const socket = new WebSocket(url, [`${STREAM.bearerSubprotocolPrefix}${token}`]);
   socket.binaryType = "arraybuffer";
 
-  await new Promise<void>((resolve, reject) => {
-    socket.addEventListener("open", () => resolve(), { once: true });
+  // #753 —— 握手只等 open/error 不够：反代把这条 WS 面路由错的时候，连接会安静地
+  // 半开着，既不 open 也不 error，界面就会永远卡在"点了没反应"。加超时兜底，见
+  // `api-client.ts` 的 `waitForSocketOpen` 头注。
+  await waitForSocketOpen(
+    socket,
     // 握手被拒（401/403/404/409）在浏览器里只表现为一个无信息的 `error` 事件 ——
     // 这是浏览器的限制，不是我们省事。所以服务端把判定放在握手阶段，
     // 而界面把它说成「无法开始转写」，不编一个它并不知道的具体原因。
-    socket.addEventListener("error", () => reject(new Error("asr_stream_handshake_failed")), { once: true });
-  });
+    () => new Error("asr_stream_handshake_failed"),
+    deps.handshakeTimeoutMs,
+  );
 
   socket.addEventListener("message", (event) => {
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
