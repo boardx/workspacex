@@ -47,6 +47,8 @@ interface RunRow {
 interface StepRow {
   kind: string; status: string; started_at: Date; ended_at: Date;
   input_digest: string | null; output_digest: string | null; failure_code: string | null;
+  tool_name: string | null; tool_args_summary: string | null; tool_result_summary: string | null;
+  planning_note: string | null;
 }
 
 interface ClaimDetailRow {
@@ -128,22 +130,31 @@ export class PgAgentRunRepository implements AgentRunStore {
   ): Promise<readonly PinnedSkillContent[]> {
     return this.db.withTenant(orgId, async (s) => {
       if (versionIds.length === 0) return [];
-      const result = await s.query<{ version_id: string; content: Buffer }>(
-        `SELECT f.version_id, f.content
+      // #725: also read the Skill's `stable_name`/`name` -- the tool identity/description
+      // `tool-definitions.ts` builds from a pinned Skill. Same join shape as before, one
+      // more table (`skills`) for the two extra columns.
+      const result = await s.query<{
+        version_id: string; content: Buffer; stable_name: string; name: string;
+      }>(
+        `SELECT f.version_id, f.content, sk.stable_name, sk.name
            FROM skill_version_files f
            JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
+           JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
           WHERE f.org_id=$1 AND f.version_id = ANY($2::text[])
             AND f.path='SKILL.md' AND v.published`,
         [orgId, versionIds],
       );
       const byVersion = new Map(
-        result.rows.map((row) => [row.version_id, row.content.toString("utf8")]),
+        result.rows.map((row) => [
+          row.version_id,
+          { content: row.content.toString("utf8"), stableName: row.stable_name, name: row.name },
+        ]),
       );
       // In the ORDER THE SNAPSHOT PINNED, and missing entries are omitted rather than
       // substituted -- the caller compares lengths and fails the run.
       return versionIds
         .filter((id) => byVersion.has(id))
-        .map((id) => ({ versionId: id, content: byVersion.get(id)! }));
+        .map((id) => ({ versionId: id, ...byVersion.get(id)! }));
     });
   }
 
@@ -152,10 +163,12 @@ export class PgAgentRunRepository implements AgentRunStore {
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,
-            input_digest,output_digest,failure_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11)`,
+            input_digest,output_digest,failure_code,
+            tool_name,tool_args_summary,tool_result_summary,planning_note)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15)`,
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
-          step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode],
+          step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode,
+          step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote],
       );
     });
   }
@@ -186,13 +199,16 @@ export class PgAgentRunRepository implements AgentRunStore {
   async storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string },
+    output: { readonly text: string; readonly finalStepSeq: number },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      // #725: `model_called_seq` travels with the run so `commitWriteback`/
+      // `appendWritebackFailure` can compute the writeback step's `seq` from the ACTUAL
+      // terminal step, not the pre-#725 assumption that it is always `3`.
       await s.query(
-        `UPDATE agent_runs SET status='writeback_pending', model_output=$3
+        `UPDATE agent_runs SET status='writeback_pending', model_output=$3, model_called_seq=$4
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, output.text],
+        [orgId, runId, output.text, output.finalStepSeq],
       );
     });
   }
@@ -269,16 +285,23 @@ export class PgAgentRunRepository implements AgentRunStore {
         [orgId, input.runId],
       )).rows[0]!.id;
 
-      // `4 + retry_count` (#519), not a literal 4: the step log is append-only, so a retry's
-      // writeback cannot overwrite the exhausted attempt's `failed` step -- with a literal 4
-      // the ON CONFLICT below would silently DROP the success and leave a succeeded run whose
-      // only writeback step says it failed. Read from the run rather than MAX(seq)+1 so that
-      // concurrent attempts within ONE generation still collapse to a single row.
+      // `model_called_seq + 1 + retry_count` (#725, generalizing #519's `4 + retry_count`):
+      // the step log is append-only, so a retry's writeback cannot overwrite the exhausted
+      // attempt's `failed` step -- with a fixed offset the ON CONFLICT below would silently
+      // DROP the success and leave a succeeded run whose only writeback step says it
+      // failed. `model_called_seq` (default `3`, #725's migration) is what makes this
+      // reproduce the exact old `4 + retry_count` numbers for every run whose terminal
+      // `model_called` step was never anything but `3` -- only a tool-calling run's larger
+      // stored value moves the writeback step's `seq` correspondingly. Still read from the
+      // run rather than MAX(seq)+1, for the same reason #519 chose that: concurrent
+      // attempts within ONE generation must compute the SAME target seq so they collapse
+      // to a single row instead of a live-changing MAX letting two land as different rows.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,input_digest,output_digest)
          VALUES ($1,$2,$3,
-                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 (SELECT model_called_seq + 1 + retry_count FROM agent_runs
+                   WHERE org_id=$2 AND id=$3),
                  'chat_writeback','succeeded',$4::timestamptz,$5::timestamptz,
                  $6,$6)
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
@@ -314,13 +337,15 @@ export class PgAgentRunRepository implements AgentRunStore {
     input: { readonly runId: string; readonly startedAt: string; readonly endedAt: string },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
-      // Same generation-scoped seq as `commitWriteback` (#519), for the same reason: a second
-      // exhaustion after a retry is a NEW failed step, not an overwrite of the first.
+      // Same generation-scoped seq as `commitWriteback` (#519, generalized by #725 -- see
+      // that query's own comment), for the same reason: a second exhaustion after a retry
+      // is a NEW failed step, not an overwrite of the first.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,failure_code)
          VALUES ($1,$2,$3,
-                 (SELECT 4 + retry_count FROM agent_runs WHERE org_id=$2 AND id=$3),
+                 (SELECT model_called_seq + 1 + retry_count FROM agent_runs
+                   WHERE org_id=$2 AND id=$3),
                  'chat_writeback','failed',$4::timestamptz,$5::timestamptz,
                  'CHAT_WRITEBACK_FAILED')
          ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
@@ -381,7 +406,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       const row = run.rows[0];
       if (row === undefined) return null;
       const steps = await s.query<StepRow>(
-        `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code
+        `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code,
+                tool_name,tool_args_summary,tool_result_summary,planning_note
            FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq, started_at`,
         [orgId, runId],
       );
@@ -408,6 +434,10 @@ export class PgAgentRunRepository implements AgentRunStore {
         inputDigest: step.input_digest,
         outputDigest: step.output_digest,
         failureCode: step.failure_code as RunFailureCode | null,
+        toolName: step.tool_name,
+        toolArgsSummary: step.tool_args_summary,
+        toolResultSummary: step.tool_result_summary,
+        planningNote: step.planning_note,
       })),
       createdAt: found.row.created_at.toISOString(),
     };

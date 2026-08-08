@@ -58,6 +58,15 @@ export interface ClaimedAgentRun {
 export interface PinnedSkillContent {
   readonly versionId: string;
   readonly content: string;
+  /**
+   * The Skill's stable, tool-name-shaped identifier (#725). Matches the contract's
+   * `StableName` pattern (`^[a-z0-9][a-z0-9-]*$`), a strict subset of what an OpenAI-style
+   * function name allows -- used AS the tool name a run's orchestrator model sees, so a
+   * skill's tool identity does not drift from the identity it already has everywhere else.
+   */
+  readonly stableName: string;
+  /** Display name, for the tool description a human/model reads -- never the tool name itself. */
+  readonly name: string;
 }
 
 export interface AppendedRunStep {
@@ -70,6 +79,14 @@ export interface AppendedRunStep {
   readonly inputDigest: string | null;
   readonly outputDigest: string | null;
   readonly failureCode: RunFailureCode | null;
+  /** `tool_call` steps only (#725) -- see `AgentRunStep`'s own doc comment for why these are
+   * short summaries rather than digests. `null` for every other step kind. */
+  readonly toolName: string | null;
+  readonly toolArgsSummary: string | null;
+  readonly toolResultSummary: string | null;
+  /** `tool_call` steps only (#731 follow-up) -- see `AgentRunStep.planningNote`'s own doc
+   * comment. `null` when the model called the tool with no accompanying explanation. */
+  readonly planningNote: string | null;
 }
 
 /**
@@ -169,11 +186,20 @@ export interface AgentRunStore {
   /** Deltas for one run, in `seq` order, strictly after `afterSeq` (`-1` = from the start). */
   readModelDeltas(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly RunDelta[]>;
 
-  /** Store the sole model call's output and enter `writeback_pending` (§6's first step). */
+  /**
+   * Store the model call's output and enter `writeback_pending` (§6's first step).
+   *
+   * `finalStepSeq` is the `seq` the caller recorded the terminal `model_called` step under
+   * (#725: no longer always `3` -- a tool-calling run's `model_called` step lands after
+   * however many `tool_call` steps the loop recorded). #413's writeback step and any #519
+   * retry are appended AFTER it (`finalStepSeq + 1 + retryCount`, computed in the SQL
+   * layer): the alternative, a hardcoded `4`, is exactly the number a tool-calling run's
+   * variable step count would silently collide with.
+   */
   storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string },
+    output: { readonly text: string; readonly finalStepSeq: number },
   ): Promise<void>;
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
@@ -270,6 +296,45 @@ export interface ThreadHistoryMessage {
   readonly content: string;
 }
 
+/**
+ * One tool the orchestrator model may call (#725). One per pinned Skill -- see
+ * `tool-definitions.ts`'s own header for how a Skill becomes one of these.
+ *
+ * `parametersSchema` is a plain JSON Schema object (not a zod type): it crosses the wire
+ * verbatim as an OpenAI-compatible `tools[].function.parameters` value, and this codebase
+ * has no reason to validate it locally -- the provider is the one thing that reads it.
+ */
+export interface ToolDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly parametersSchema: Record<string, unknown>;
+}
+
+/** One tool call the model's response asked for. `argumentsJson` is the raw JSON text the
+ * provider returned -- never pre-parsed here, so a malformed-JSON tool call is a fact the
+ * EXECUTOR decides how to handle (see `tool-loop.ts`), not one this port silently repairs. */
+export interface ToolCallRequest {
+  readonly id: string;
+  readonly name: string;
+  readonly argumentsJson: string;
+}
+
+/**
+ * One prior turn of THIS run's tool-calling loop (#725), oldest first -- never persisted to
+ * `chat_messages`/thread history; it lives only for the duration of one run's loop and is
+ * rebuilt in memory each round from what `tool-loop.ts` has accumulated so far. Distinct
+ * from `ThreadHistoryMessage`: that is cross-run conversation context, this is intra-run
+ * "what has this loop already tried" scratch state.
+ */
+export type ToolExchangeTurn =
+  | { readonly kind: "assistant_tool_calls"; readonly toolCalls: readonly ToolCallRequest[] }
+  | {
+    readonly kind: "tool_result";
+    readonly toolCallId: string;
+    readonly name: string;
+    readonly content: string;
+  };
+
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
@@ -288,6 +353,17 @@ export interface ModelCallInput {
    * an unused input is not the same failure as silently dropping one it was asked to use.
    */
   readonly history?: readonly ThreadHistoryMessage[];
+  /**
+   * Tools the model MAY call this turn (#725). Absent/empty means "no tools offered" --
+   * every existing `ModelCallPort` implementation that predates #725 simply never sees
+   * this field populated, so nothing about their behaviour changes. A provider with no
+   * notion of tool-calling (`DeepResearchModelProvider`, `BailianImageProvider`) is free
+   * to ignore it, same discipline as `history`.
+   */
+  readonly tools?: readonly ToolDefinition[];
+  /** This run's tool-loop scratch state so far (#725), oldest first. Only meaningful
+   * together with `tools`; a provider that does not implement tool-calling ignores it. */
+  readonly toolExchange?: readonly ToolExchangeTurn[];
 }
 
 /**
@@ -324,7 +400,16 @@ export interface ModelCallPort {
    * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
    * reads as "not reported", not "confirmed zero".
    */
-  complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }>;
+  /**
+   * `toolCalls` is OPTIONAL (#725), populated only when `input.tools` was non-empty AND the
+   * provider's response asked to call one or more of them. When present, `text` MAY be
+   * empty -- an OpenAI-compatible provider routinely returns `content: null` on a
+   * tool-calling turn, and that is NOT "the provider returned no content" (the empty-text
+   * failure below still applies whenever `toolCalls` is absent/empty).
+   */
+  complete(input: ModelCallInput): Promise<
+    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+  >;
 
   /**
    * OPTIONAL streaming variant of `complete` (#654 阶段2a).
@@ -340,6 +425,15 @@ export interface ModelCallPort {
    * `onDelta` fires once per provider-reported fragment, in order, BEFORE this promise
    * resolves. A rejection from `onDelta` (e.g. the store append failed) propagates and
    * fails the call exactly like a transport error would -- deltas are not "best effort".
+   *
+   * ⚠ #725: deliberately NOT extended with `toolCalls` here. `execute-run.ts`'s tool loop
+   * always calls `complete()` for a round that offers `tools` -- streaming a tool-calling
+   * turn (reassembling `delta.tool_calls[].function.arguments` fragments across chunks,
+   * index-addressed per the OpenAI wire format) is real additional surface this slice does
+   * not need: intermediate loop rounds are not shown to the user token-by-token today, only
+   * the final answer is, and that still streams exactly as before once the loop is done.
+   * Combining the two is a legitimate follow-up (see #725's PR description), not a gap this
+   * type silently papers over.
    */
   completeStream?(
     input: ModelCallInput,

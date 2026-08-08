@@ -49,7 +49,10 @@ const AGENTS_DIR = join(REPO_ROOT, ".harness", "agents");
 const ROLES_DIR = join(AGENTS_DIR, "roles");
 const REGISTRY_PATH = join(AGENTS_DIR, "registry.yaml");
 
-function readRoleFiles(): RawRoleFile[] {
+// export：H3A-031/032（task-assignment-doctor.ts）复用同一份"读 6 个持久角色文件"
+// 逻辑，同 domains-doctor.ts 导出 DOMAIN_REGISTRY_PATH/readYaml/scanDomainSkillInstances
+// 给本文件复用的先例——不重复写一遍扫目录逻辑。
+export function readRoleFiles(): RawRoleFile[] {
   if (!existsSync(ROLES_DIR)) return [];
   return readdirSync(ROLES_DIR)
     .filter((f) => f.endsWith(".yaml"))
@@ -80,7 +83,7 @@ function readAgentSpecs(): RawAgentSpec[] {
     });
 }
 
-interface RegistryReadResult {
+export interface RegistryReadResult {
   agents: RegistryIdentity[];
   agentIds: Set<string>;
   reviewerIds: Set<string>;
@@ -88,7 +91,7 @@ interface RegistryReadResult {
 }
 
 /** 同 role-freeze-doctor.ts 的 IDENTITY_ARRAY_KEYS 教训：两个数组都要读，缺一个会把整组身份误判。 */
-function readRegistry(): RegistryReadResult {
+export function readRegistry(): RegistryReadResult {
   const empty: RegistryReadResult = { agents: [], agentIds: new Set(), reviewerIds: new Set(), error: null };
   if (!existsSync(REGISTRY_PATH)) {
     return { ...empty, error: `registry.yaml 不存在：${REGISTRY_PATH}` };
