@@ -269,6 +269,9 @@ export function ChatLiveMessagePanel({
     };
   }, [activeRunId, bearer]);
 
+  // 十项 UX 缺口第 6 项（issue #712）——规则驱动的建议后续操作。
+  const followUpSuggestions = computeFollowUpSuggestions(messages, archived);
+
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
     const nextAgentId = next.agentId ?? selectedAgentId;
@@ -494,6 +497,24 @@ export function ChatLiveMessagePanel({
             {agents?.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
           </select>
         </div>
+        {followUpSuggestions.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
+            {followUpSuggestions.map((suggestion) => (
+              <Button
+                key={suggestion.id}
+                type="button"
+                size="xs"
+                variant="outline"
+                className="rounded-full"
+                data-testid={`chat-followup-suggestion-${suggestion.id}`}
+                disabled={submitting}
+                onClick={() => updateDraft({ text: suggestion.text })}
+              >
+                {suggestion.text}
+              </Button>
+            ))}
+          </div>
+        ) : null}
         <div className="rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
           <Textarea
             data-testid="chat-message-input"
@@ -686,6 +707,44 @@ function MessageLandingControls({
       ) : null}
     </form>
   );
+}
+
+/** 十项 UX 缺口第 6 项——建议 chip 的形状。`id` 只用于 `data-testid`/`key`，不是服务端概念。 */
+interface FollowUpSuggestion {
+  readonly id: string;
+  readonly text: string;
+}
+
+/**
+ * 规则驱动的「建议后续操作」（issue #712）。
+ *
+ * ⚠ 这**不是** AI 推荐——chat 后端没有任何建议引擎（调查见 issue #712），这里是
+ *   纯前端的确定性规则，判据只有「最新一条消息的作者类别」「消息总数」
+ *   「线程是否归档」三个已知量，不掺入任何模型调用。点击只**填充**输入框
+ *   （复用 `updateDraft`），不自动发送——用户仍需手动确认并点击发送。
+ *
+ * 规则（按优先级）：
+ *   1. 已归档 ⇒ 不建议（只读态，composer 本身已禁用）。
+ *   2. 零消息 ⇒ 建议一条通用开场白。
+ *   3. 最新一条来自 agent（刚回复完）⇒ 建议两条追问模板。
+ *   4. 最新一条来自人类（发完在等 run）⇒ 不建议——避免在等待态堆无意义的 UI。
+ */
+function computeFollowUpSuggestions(
+  messages: readonly DurableMessage[],
+  archived: boolean,
+): readonly FollowUpSuggestion[] {
+  if (archived) return [];
+  if (messages.length === 0) {
+    return [{ id: "opener", text: "简要说明一下这次想解决的问题" }];
+  }
+  const latest = messages[messages.length - 1]!;
+  if (latest.authorKind === "agent") {
+    return [
+      { id: "elaborate", text: "能否再详细说明一下？" },
+      { id: "summarize", text: "谢谢，请总结一下要点" },
+    ];
+  }
+  return [];
 }
 
 function appendUnique(current: DurableMessage[], incoming: DurableMessage[]): DurableMessage[] {

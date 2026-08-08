@@ -254,6 +254,50 @@ describe("formal Chat read path", () => {
   });
 
   /**
+   * 十项 UX 缺口第 6 项（issue #712）—— 规则驱动的建议后续操作。
+   * 默认 fixture 的第 20 条（最新一条）是 agent 消息（`index % 2 === 0`），
+   * 所以规则「最新一条来自 agent ⇒ 建议两条追问模板」应该命中。
+   */
+  it("最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送", async () => {
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const suggestions = await screen.findByTestId("chat-followup-suggestions");
+    const elaborate = within(suggestions).getByTestId("chat-followup-suggestion-elaborate");
+    expect(elaborate).toHaveTextContent("能否再详细说明一下？");
+    expect(within(suggestions).getByTestId("chat-followup-suggestion-summarize")).toHaveTextContent("请总结一下要点");
+
+    fireEvent.click(elaborate);
+    expect(screen.getByRole("textbox", { name: "消息内容" })).toHaveValue("能否再详细说明一下？");
+    // 只是填充，不是自动发送——真实网络调用一次都不该发生。
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it("线程零消息时建议一条通用开场白", async () => {
+    listMessages.mockResolvedValueOnce({ messages: [], nextCursor: null });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+    const opener = await screen.findByTestId("chat-followup-suggestion-opener");
+    expect(opener).toHaveTextContent("简要说明一下这次想解决的问题");
+  });
+
+  it("最新一条消息来自人类（发完在等 run）时不建议任何操作", async () => {
+    listMessages.mockResolvedValueOnce({ messages: [durableMessage(1)], nextCursor: null });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+    await screen.findByText("真实消息 1");
+    expect(screen.queryByTestId("chat-followup-suggestions")).not.toBeInTheDocument();
+  });
+
+  it("已归档的线程不显示建议（composer 本身已是只读）", async () => {
+    getThread.mockResolvedValueOnce({
+      ...threadDetail,
+      thread: { ...threadDetail.thread, archived: true },
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer-archived");
+    expect(screen.queryByTestId("chat-followup-suggestions")).not.toBeInTheDocument();
+  });
+
+  /**
    * 十项 UX 缺口第 9 项 —— 顶部实时状态 chip。
    *
    * 单一事实源：这个 chip 与 `RosterPanel` 里"在场 N · 编制 M"读的是**同一个**
