@@ -1,6 +1,8 @@
-// role-authorization-doctor.ts — H3A-020/021/023/024/025/026/027/029 的仓库
-// 侧入口（PROP-HARNESS-AGENT-001 Epic E2；H3A-022 需要 H3A-010 的 Domain
-// Registry schema，H3A-028 是 P1，两条都不在这个命令里，留给之后的 PR）。
+// role-authorization-doctor.ts — H3A-020/021/022/023/024/025/026/027/029 的
+// 仓库侧入口（PROP-HARNESS-AGENT-001 Epic E2；H3A-028 是 P1，不在这个命令里，
+// 留给之后的 PR）。H3A-022 依赖 H3A-010 的 Domain Registry schema（已落地，
+// PR #687），复用 domains-doctor.ts 的 registry.yaml 读取 + Domain Skill 实例
+// 扫描，判定逻辑在 lib/domain-orchestrator-binding.ts。
 //
 // pnpm harness role-authorization doctor
 //
@@ -25,12 +27,21 @@ import {
   checkMergeSignoffGate,
   checkProducerVerifierSeparation,
   checkRootDirectL3Exception,
+  KIND_TO_LAYER,
   type RawRoleFile,
   type RawAgentSpec,
   type RegistryIdentity,
   type Finding,
   type LayeredRole,
 } from "./lib/role-authorization";
+import { validateDomainRegistry, type DomainRegistryEntry } from "./lib/domain-model";
+import {
+  checkDomainOwnerIdentity,
+  checkOneDomainPerOrchestrator,
+  checkOrchestratorRoleHasDomain,
+  checkActiveSkillBinding,
+} from "./lib/domain-orchestrator-binding";
+import { DOMAIN_REGISTRY_PATH, readYaml as readDomainYaml, scanDomainSkillInstances } from "./domains-doctor";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 
@@ -193,9 +204,52 @@ export function roleAuthorizationDoctor(_args: Args): void {
   allFindings.push(...directL3Findings);
   printFindings("H3A-029 Root 直派 L3 例外门", directL3Findings);
 
+  // H3A-022：Domain Orchestrator Role 绑定 Domain/active Skill（依赖 H3A-010/H3A-020，两条都已落地）。
+  const { parsed: domainRegRaw, error: domainRegErr } = readDomainYaml(DOMAIN_REGISTRY_PATH);
+  if (domainRegErr) {
+    log.err(`[role-authorization doctor] H3A-022 UNKNOWN —— .harness/domains/registry.yaml ${domainRegErr}，拒绝下判断`);
+    process.exitCode = 1;
+    return;
+  }
+  const domainRegResult = validateDomainRegistry(domainRegRaw);
+  if (!domainRegResult.ok) {
+    log.err(`[role-authorization doctor] H3A-022 UNKNOWN —— .harness/domains/registry.yaml 校验失败（应由 domains doctor 先修）`);
+    process.exitCode = 1;
+    return;
+  }
+  const domains: DomainRegistryEntry[] = domainRegResult.value!.entries;
+  const { instances: domainSkills } = scanDomainSkillInstances();
+
+  // "谁是 domain_orchestrator 层身份"要看两个来源的并集（见 domain-orchestrator-binding.ts 文件头注释①）：
+  // 持久角色文件（validRoles）+ registry.yaml agents[]（coord-chat-e2e/coord-agent-auth 只在这里登记）。
+  const orchestratorNames = new Set<string>([
+    ...validRoles.filter((r) => r.layer === "domain_orchestrator").map((r) => r.name),
+    ...agents.filter((a) => KIND_TO_LAYER[a.kind] === "domain_orchestrator").map((a) => a.id),
+  ]);
+  const allKnownIdentityNames = new Set<string>([
+    ...validRoles.map((r) => r.name),
+    ...agents.map((a) => a.id),
+    ...reviewerIds,
+  ]);
+
+  const domainOwnerFindings = checkDomainOwnerIdentity(domains, orchestratorNames, allKnownIdentityNames);
+  allFindings.push(...domainOwnerFindings);
+  printFindings("H3A-022a Domain owner 身份存在性 + orchestrator 层归属", domainOwnerFindings);
+
+  const oneDomainFindings = checkOneDomainPerOrchestrator(domains);
+  allFindings.push(...oneDomainFindings);
+  printFindings("H3A-022b 一个 orchestrator 一个 Domain", oneDomainFindings);
+
+  const orchestratorHasDomainFindings = checkOrchestratorRoleHasDomain(validRoles, domains);
+  allFindings.push(...orchestratorHasDomainFindings);
+  printFindings("H3A-022c 持久 domain_orchestrator 角色必须绑定 Domain", orchestratorHasDomainFindings);
+
+  const activeSkillFindings = checkActiveSkillBinding(domains, domainSkills);
+  allFindings.push(...activeSkillFindings);
+  printFindings("H3A-022d 一个 Domain 一个 active Skill", activeSkillFindings);
+
   log.info("");
   log.info("以下条款本命令如实未实现（不是遗漏，是今天没有输入数据可判定）：");
-  log.info("   · H3A-022（Domain Orchestrator Role 绑定 Domain/Skill）——依赖 H3A-010 Domain Registry schema，未落地");
   log.info("   · H3A-027 的完整 producer/verifier separation（同 actor 自产自签同一 artifact）——");
   log.info("     需要 Epic E3 的 Task Assignment/Review Decision 运行态数据，静态角色文件判不出");
   log.info("   · H3A-028（portable role generator 适配）——P1，本命令不覆盖");
