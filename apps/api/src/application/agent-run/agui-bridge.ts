@@ -154,10 +154,36 @@ export async function runAguiBridgeTurn(
   const runId = accepted.agentRunId;
   let lastSeenDeltaSeq = -1;
 
+  /**
+   * ⚠ 2026-08-08 CI 实测（不是本地——本地机器上 5/5 绿，CI 上稳定红，正是竞态的
+   * 典型指纹：窗口够窄时快机器几乎踩不中，调度更粗的环境几乎每次踩中）：
+   * 「读增量、读状态」在同一轮循环里是**两次独立的 await**，中间有一个真实的时间
+   * 窗口。`execute-run.ts` 保证的只是"增量的写入顺序早于 succeeded 的写入顺序"，
+   * 不保证"本轮读增量的那一刻"与"本轮读状态的那一刻"看到的是同一个快照——如果
+   * 最后一条增量恰好在这两次读之间才提交，这一轮的增量读就已经完成、不会重试，
+   * 而这一轮的状态读却已经能看到终态，于是最后一条增量被跳过、再也没有下一轮
+   * 循环去补读它。
+   *
+   * 修复：一旦观测到终态，在真正返回之前**再补读一次**增量（`flushRemainingDeltas`）。
+   * 终态本身不会消失（`agent_runs` 状态机没有"回退"），补读只会把恰好卡在两次读
+   * 之间的那一条追上，不会引入新的竞态。
+   */
+  const flushRemainingDeltas = async (): Promise<void> => {
+    if (!input.onDelta) return;
+    const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
+    for (const delta of deltas) {
+      input.onDelta(delta.text);
+      lastSeenDeltaSeq = delta.seq;
+    }
+  };
+
   for (let attempt = 0; attempt < maxPolls; attempt += 1) {
     if (input.onDelta) {
       // Read BEFORE checking status this same iteration -- see file head "ordering is
-      // load-bearing" for why a terminal status can never leave a delta unread here.
+      // load-bearing" for why a terminal status can never leave a delta MORE THAN ONE
+      // POLL INTERVAL stale here. (It does NOT, on its own, rule out losing the very
+      // last delta to the read-then-read race described above -- that is what the
+      // `flushRemainingDeltas()` calls below close.)
       const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
       for (const delta of deltas) {
         input.onDelta(delta.text);
@@ -166,6 +192,7 @@ export async function runAguiBridgeTurn(
     }
     const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
     if (projection.status === "succeeded") {
+      await flushRemainingDeltas();
       if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();
       const page = await listMessagePage(deps, {
         userId: input.userId, orgId: input.orgId, threadId, limit: 100,
@@ -175,6 +202,7 @@ export async function runAguiBridgeTurn(
       return { kind: "succeeded", threadId, runId, messageId: message.id, text: message.text };
     }
     if (projection.status === "failed") {
+      await flushRemainingDeltas();
       return { kind: "failed", threadId, runId, error: projection.error ?? "UNKNOWN" };
     }
     await sleep(pollIntervalMs);

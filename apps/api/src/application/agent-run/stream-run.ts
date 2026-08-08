@@ -67,6 +67,19 @@ export async function streamAgentRunDeltas(
   const maxPolls = input.maxPolls ?? 225;
   let lastSeenDeltaSeq = -1;
 
+  // ⚠ 2026-08-08 —— 与 `agui-bridge.ts` 的 `runAguiBridgeTurn` 同一个坑，同一个修法
+  // （那边先撞见的：CI 上稳定复现，本地 5/5 绿，竞态窗口够窄的机器几乎踩不中）。
+  // 「读增量、读状态」是两次独立的 await，中间的窗口里如果最后一条增量恰好落地，
+  // 这一轮的增量读已经完成不会重试，状态读却已经能看到终态——于是最后一条增量
+  // 丢失。终态到达后再补读一次，把这个窗口关上。
+  const flushRemainingDeltas = async (): Promise<void> => {
+    const deltas = await deps.runs.readModelDeltas(input.orgId, input.runId, lastSeenDeltaSeq);
+    for (const delta of deltas) {
+      input.onDelta(delta.text);
+      lastSeenDeltaSeq = delta.seq;
+    }
+  };
+
   for (let attempt = 0; attempt < maxPolls; attempt += 1) {
     const deltas = await deps.runs.readModelDeltas(input.orgId, input.runId, lastSeenDeltaSeq);
     for (const delta of deltas) {
@@ -77,9 +90,11 @@ export async function streamAgentRunDeltas(
       userId: input.userId, orgId: input.orgId, runId: input.runId,
     });
     if (projection.status === "succeeded") {
+      await flushRemainingDeltas();
       return { kind: "succeeded", resultMessageId: projection.resultMessageId };
     }
     if (projection.status === "failed") {
+      await flushRemainingDeltas();
       return { kind: "failed", error: projection.error };
     }
     await sleep(pollIntervalMs);
