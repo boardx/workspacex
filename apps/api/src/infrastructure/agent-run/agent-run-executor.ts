@@ -43,9 +43,6 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * durable state depends on it.
      */
     private readonly autostart: boolean,
-    /** #725, read once at composition (`KERNEL_TOOL_CALLING_ENABLED`) -- see
-     * `ExecuteAgentRunDeps.toolCallingEnabled`'s own doc comment for the rollout reasoning. */
-    private readonly toolCallingEnabled: boolean = false,
   ) {}
 
   /**
@@ -70,7 +67,6 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
   async tick(orgId: OrgId): Promise<number> {
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log,
-      toolCallingEnabled: this.toolCallingEnabled,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;
