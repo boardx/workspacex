@@ -830,7 +830,13 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: AGENT_RUN_EXECUTOR,
       useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
-        new AgentRunExecutor(runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0"),
+        new AgentRunExecutor(
+          runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0",
+          // #725: gated exactly like `KERNEL_MODEL_STREAM_ENABLED` (see
+          // `ExecuteAgentRunDeps.toolCallingEnabled`'s own doc comment) -- default off
+          // reproduces every byte of pre-#725 behaviour for every existing deployment.
+          process.env.KERNEL_TOOL_CALLING_ENABLED === "1",
+        ),
       inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，

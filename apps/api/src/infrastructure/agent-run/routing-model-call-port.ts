@@ -12,12 +12,22 @@
  * nobody registered here fails `MODEL_PROVIDER_NOT_CONFIGURED`, it does not fall through
  * to whichever port happens to be first.
  */
-import { ModelCallError, type ModelCallInput, type ModelCallPort } from "../../application/agent-run/ports";
+import {
+  ModelCallError, type ModelCallInput, type ModelCallPort, type ToolCallRequest,
+} from "../../application/agent-run/ports";
 
 export class RoutingModelCallPort implements ModelCallPort {
   constructor(private readonly ports: ReadonlyMap<string, ModelCallPort>) {}
 
-  async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+  /**
+   * #725: `toolCalls` passes through untouched, same as `input.tools`/`input.toolExchange`
+   * already did structurally -- routing decides WHICH port handles a call, never what that
+   * port returns. A routed-to port with no notion of tools (today: every registered one
+   * except the `dashscope` `ConfiguredModelProvider`) simply never populates it.
+   */
+  async complete(input: ModelCallInput): Promise<
+    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+  > {
     return this.resolve(input.modelProvider).complete(input);
   }
 
