@@ -1,24 +1,27 @@
-// task-assignment-doctor.ts — H3A-030/H3A-031（PROP-HARNESS-AGENT-001 Epic E3）
+// task-assignment-doctor.ts — H3A-030/031/032（PROP-HARNESS-AGENT-001 Epic E3）
 // 的仓库侧入口。
 //
 // pnpm harness task-assignment doctor
 //
-// 判定逻辑分两层，都是纯函数（喂 fixture 单测），本文件只做 IO：
+// 判定逻辑分三层，都是纯函数（喂 fixture 单测），本文件只做 IO：
 //   - H3A-030：单表 schema——扫 `.harness/tasks/*.yaml`（本 PR 建立的存放约定，
 //     见该目录的 README.md），挑出 template_id === "TPL-TSK-001" 的实例 →
 //     交给 validateTaskAssignment。
 //   - H3A-031：Root→Domain 跨表 gate（lib/task-assignment-root-domain-gate.ts）
 //     ——只对 schema 校验通过的实例跑，复用 role-authorization-doctor.ts 已经
 //     踩过坑修好的角色文件/registry 读取逻辑和 domains-doctor.ts 的 Domain
-//     Registry/Domain Skill 读取逻辑，不重新发明一遍（同 H3A-022 的先例：新检查
-//     并入既有 doctor 入口，不新开 CLI 子命令）。
-// 同 domains-doctor.ts 的分层方式：本文件只管"从哪读、输出成什么退出码"，
-// 不含判定逻辑本身。
+//     Registry/Domain Skill 读取逻辑，不重新发明一遍。
+//   - H3A-032：Domain→Worker 跨表 gate（lib/domain-worker-task-assignment-gate.ts）
+//     ——不越领域/不越配额/不越权限三条，同样只对 schema 校验通过的实例跑。
+// 同 H3A-022 的先例：新检查并入既有 doctor 入口，不新开 CLI 子命令。同
+// domains-doctor.ts 的分层方式：本文件只管"从哪读、输出成什么退出码"，不含
+// 判定逻辑本身。
 //
-// 今天预期扫到 0 份实例——Epic E3 在本 PR 之前完全未开工，这是仓库的真实状态，
-// 不是 bug（同 domains-doctor.ts 落地时 0 个 Domain Skill 实例的先例）。0 实例
-// 意味着 H3A-031 的跨表 gate 今天也不会产生任何 finding——这不是本条目没做事，
-// 是语料库为空时 gate 天然无事可判，同 role/domain doctor 落地时的先例一致。
+// 今天预期扫到 0 份实例——Epic E3 在 H3A-030 之前完全未开工，这是仓库的真实
+// 状态，不是 bug（同 domains-doctor.ts 落地时 0 个 Domain Skill 实例的先例）。
+// 0 实例意味着 H3A-031/032 的跨表 gate 今天都不会触发任何 finding——这是诚实
+// 的现状，不是 gate 没接上（各自 PR 描述里的真实反证会现场注入违规实例证明
+// gate 真的会红）。
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
@@ -28,8 +31,12 @@ import {
   checkRootToDomainAssignments,
   type RootDomainGateContext,
 } from "./lib/task-assignment-root-domain-gate";
-import { KIND_TO_LAYER, type Finding, type LayeredRole } from "./lib/role-authorization";
-import { validateRoleFiles } from "./lib/role-authorization";
+import { KIND_TO_LAYER, validateRoleFiles, type LayeredRole } from "./lib/role-authorization";
+import {
+  checkDomainScope,
+  checkWorkerBudgetQuota,
+  checkAssigneeAuthorityCeiling,
+} from "./lib/domain-worker-task-assignment-gate";
 import { readRoleFiles, readRegistry } from "./role-authorization-doctor";
 import { validateDomainRegistry, type DomainRegistryEntry } from "./lib/domain-model";
 import { DOMAIN_REGISTRY_PATH, readYaml as readDomainYaml, scanDomainSkillInstances } from "./domains-doctor";
@@ -129,19 +136,46 @@ function buildRootDomainGateContext(allTaskIds: ReadonlySet<string>): { ctx: Roo
   return { ctx, error: null };
 }
 
-function printGateFindings(findings: readonly Finding[]): void {
-  const fails = findings.filter((f) => f.severity === "FAIL");
-  const warns = findings.filter((f) => f.severity === "WARN");
+/**
+ * H3A-032 三条 gate 需要"身份名 → LayeredRole"（areas/mergeAuthority/
+ * dispatchAuthority）。今天只有 6 个持久角色文件（`.harness/agents/roles/`）
+ * 校验出 LayeredRole——8 个扁平 subagent spec（H3A-023）没有 areas/authority
+ * 字段，registry.yaml 的 worker 条目虽然有 `areas:`，但 RegistryIdentity
+ * 类型（role-authorization.ts）今天只解析 id/kind/active，不解析 areas——
+ * 同 H3A-025 checkAuthorityMonotonicity 的既有口径一致（那条也只用
+ * LayeredRole 集合，不吃扁平 spec），不在这个 PR 里顺带扩大 RegistryIdentity
+ * 的 schema。这意味着如果 assignee_role 指向一个只登记在 registry.yaml、
+ * 没有持久角色文件的身份（如 dev-platform-baseline/dev-auth），H3A-032a 会
+ * 把它当"未知身份"报 FAIL——如实标注这个已知边界，不是 gate 的 bug。
+ * （`dev-ai-runtime`/`dev-chat-e2e` 有持久角色文件，会被正常解析，不落进
+ * 这个边界。）
+ */
+function buildRolesByName(): ReadonlyMap<string, LayeredRole> {
+  const { roles } = validateRoleFiles(readRoleFiles());
+  return new Map(roles.map((r) => [r.name, r]));
+}
+
+/** 打印用的最小 finding 形状——H3A-031（`Finding`）和 H3A-032（`GateFinding`）字段结构相同，用一个通用签名避免额外的跨文件类型耦合。 */
+interface PrintableFinding {
+  code: string;
+  severity: "FAIL" | "WARN";
+  sourceFile: string;
+  message: string;
+}
+
+function printGateFindings(label: string, findings: readonly PrintableFinding[]): void {
   if (findings.length === 0) {
-    log.ok("[task-assignment doctor] H3A-031 Root→Domain gate：干净（0 份实例或全部通过）");
+    log.ok(`[task-assignment doctor] ${label}：干净`);
     return;
   }
+  const fails = findings.filter((f) => f.severity === "FAIL");
+  const warns = findings.filter((f) => f.severity === "WARN");
   if (fails.length > 0) {
-    log.err(`[task-assignment doctor] H3A-031 Root→Domain gate：${fails.length} 条 FAIL`);
+    log.err(`[task-assignment doctor] ${label}：${fails.length} 条 FAIL`);
     for (const f of fails) log.err(`   [${f.code}] ${f.sourceFile}: ${f.message}`);
   }
   if (warns.length > 0) {
-    log.warn(`[task-assignment doctor] H3A-031 Root→Domain gate：${warns.length} 条 WARN（不阻断）`);
+    log.warn(`[task-assignment doctor] ${label}：${warns.length} 条 WARN（不阻断）`);
     for (const f of warns) log.warn(`   [${f.code}] ${f.sourceFile}: ${f.message}`);
   }
 }
@@ -171,17 +205,41 @@ export function taskAssignmentDoctor(_args: Args): void {
     process.exitCode = 1;
     return;
   }
-  const gateFindings = checkRootToDomainAssignments(instances, ctx!);
-  printGateFindings(gateFindings);
+  const rootDomainFindings = checkRootToDomainAssignments(instances, ctx!);
+  printGateFindings("H3A-031 Root→Domain gate", rootDomainFindings);
+
+  // H3A-032：Domain→Worker Task Assignment gate（三条，032a/032c 只对
+  // assigned_by 解析为 layer:domain_orchestrator 的实例生效，032b 是全局
+  // budget 结构自洽检查、不按 assigned_by 过滤——见 lib/domain-worker-
+  // task-assignment-gate.ts 文件头的范围边界说明）。
+  const rolesByName = buildRolesByName();
+
+  const domainScopeFindings = checkDomainScope(instances, rolesByName);
+  printGateFindings("H3A-032a 不越领域（assignee layer + areas 子集）", domainScopeFindings);
+
+  const budgetFindings = checkWorkerBudgetQuota(instances);
+  printGateFindings("H3A-032b 不越配额（budget 数值 vs §10.3 默认约定，全局生效不按 assigned_by 过滤）", budgetFindings);
+
+  const authorityFindings = checkAssigneeAuthorityCeiling(instances, rolesByName);
+  printGateFindings("H3A-032c 不越权限（assignee authority ≤ assigned_by）", authorityFindings);
+
+  const gateFindings: PrintableFinding[] = [
+    ...rootDomainFindings,
+    ...domainScopeFindings,
+    ...budgetFindings,
+    ...authorityFindings,
+  ];
 
   log.info("");
   log.info("以下部分本命令如实标注为「本条目范围外」，不是遗漏：");
-  log.info("   · Domain→Worker 跨表 gate（不越领域/配额/权限）——H3A-032，尚未落地");
   log.info("   · scope 越权只做字面 area 名启发式匹配（scope.include vs Domain areas[]），不解析路径模式——");
   log.info("     Proposal 原文没有给出「越权」的机器可判定定义，见 lib/task-assignment-root-domain-gate.ts 文件头");
   log.info("   · skill_refs 归属核实依赖全仓 Domain Skill 实例语料库，今天 0 个真实实例（H3A-012 已确认）——");
   log.info("     查无实例时判 WARN「无法核实」，不是判定「已核实无误」");
-  log.info("   · dependencies 是否成环——本命令只查引用的 task_id 是否存在于语料库，不做环检测");
+  log.info("   · dependencies 是否成环——本命令只查引用的 task_id 是否存在于语料库，不做环检测（H3A-031/032 均不覆盖）");
+  log.info("   · assigned_by/assignee_role 按§10.2 原文应是 Directory ULID 运行时身份，本命令按已登记的稳定角色名/registry id 解析——" +
+    "见 lib/domain-worker-task-assignment-gate.ts 文件头注释①，若传入真实 ULID 会被当成未知身份（FAIL），而不是静默放行");
+  log.info("   · budget 是否有\"合理例外\"——schema 没有例外理由字段，本命令只能对超默认值的 max_parallel_workers 发 WARN，不能判定 FAIL/放行");
   log.info("   · authority_snapshot_hash 是否等于当前 Authorization Model 的真实哈希——运行态语义，本命令只检查非空字符串存在");
 
   const anyFail = gateFindings.some((f) => f.severity === "FAIL");

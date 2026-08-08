@@ -192,7 +192,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness graph-authority doctor                    # PROP-HARNESS-AGENT-001 H3A-009：已知投影路径不得被 Git 追踪");
       log.info("  pnpm harness domains doctor                            # PROP-HARNESS-AGENT-001 H3A-010/012/013/014/015：Domain Registry + Domain Skill schema/gate 体检");
       log.info("  pnpm harness role-authorization doctor                 # PROP-HARNESS-AGENT-001 H3A-020/021/023/024/025/026/027/029：分层授权模型体检");
-      log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030：Task Assignment schema 体检（Epic E3）");
+      log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030/031/032：Task Assignment schema + Root→Domain/Domain→Worker gate 体检（Epic E3）");
       log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
       process.exit(cmd ? 1 : 0);
   }
