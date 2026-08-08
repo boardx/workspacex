@@ -9,7 +9,6 @@ import {
 } from "@/components/chat/thread-list-shell";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
@@ -356,7 +355,14 @@ function PersonalThreadDetail({
   }
 
   return (
-    <div className="flex h-full flex-col" data-testid="chat-thread-detail">
+    /* #728 P10 —— 副行不再印裸线程 id。评分员实测抓到：`线程 thr-83dd0882-…` 这种
+       40 位 UUID 直接暴露给用户，375 档下甚至把头部撑成三行。同一件事在项目对话
+       侧已经修过一次（D4，`chat-read-screen.tsx` 的 `data-thread-id` 模式）——
+       这里补的是同一条纪律在个人对话侧的遗漏，不是新裁决。
+       绑定关系改由 `data-thread-id` 证明（测试要能核实「详情面绑的是选中的那条线程」，
+       但不该靠把 id 印给用户看来证明），可读副行退回到 `subtitle`（个人线程没有
+       subtitle 时才用「仅自己可见」这句静态说明，不回落到 id）。 */
+    <div className="flex h-full flex-col" data-testid="chat-thread-detail" data-thread-id={detail.thread.id}>
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         {onBackMobile ? (
           <Button
@@ -371,10 +377,11 @@ function PersonalThreadDetail({
           </Button>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-14 font-semibold">{card?.title ?? detail.thread.id}</h1>
-          <p className="text-10 text-muted-foreground">个人对话 · 线程 {detail.thread.id}</p>
+          <h1 className="truncate text-14 font-semibold">{card?.title ?? "个人对话"}</h1>
+          <p className="truncate text-10 text-muted-foreground">
+            {card?.subtitle?.trim() ? card.subtitle : "个人对话 · 仅自己可见"}
+          </p>
         </div>
-        <Badge tone="outline">真实消息</Badge>
       </header>
       {agentOptions.status === "error" ? (
         <div className="border-b border-border-subtle px-4 py-2">
