@@ -191,8 +191,12 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   });
 
   await page.goto("/chat");
-  // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见（"我的对话"）。
-  await expect(page.getByTestId("chat-read-thread-list")).toContainText("我的对话");
+  // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见。
+  // #728：栏头文案从「我的对话」改成「对话」（与项目对话共用同一个 `ThreadListHeader`，
+  // 人类裁决：个人对话复用项目对话的壳，不许存在第二套视觉实现）。断言改锚在
+  // 「不挂靠任何项目，仅自己可见」这句个人对话独有的说明文字上——它不会随共用组件
+  // 的文案调整而漂移，且专门证明的是「这是个人模式，不是项目模式」这件事本身。
+  await expect(page.getByTestId("chat-read-thread-list")).toContainText("不挂靠任何项目，仅自己可见");
   await expect((await personalThreadsRequest).status()).toBe(200);
   // 防的洞的新形状：全程没有向任何伪造的项目路径发过请求。
   expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);
