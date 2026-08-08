@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { Bot, CheckCircle2, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
 import { Markdown } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
@@ -614,6 +614,7 @@ export function ChatLiveMessagePanel({
           </p>
         ) : null}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
+        {runObservation?.view ? <AgentRunToolCallSteps steps={runObservation.view.steps} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -697,6 +698,71 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
         <span className="text-muted-foreground">本页面已停止轮询，运行可能仍在继续。</span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * #731 follow-up —— chat-ux-acceptance-criteria.md 第 2/3 项在界面上的交付物。
+ *
+ * ## 数据源：轮询里已经有的东西，不是新接口
+ *
+ * `runObservation.view.steps` 早就在 `GET /agent-runs/:runId` 的响应里（`lib/agent-run.ts`
+ * 的 `AgentRunView`），只是之前没人读它。这里只筛出 `kind === "tool_call"` 的条目并渲染
+ * ——不发起任何新请求，不在客户端合成任何字段。`toolArgsSummary`/`toolResultSummary`/
+ * `planningNote` 全部原样来自后端，为 `null` 就不渲染那一行，绝不用占位文案顶替。
+ *
+ * ## 为什么不做"正在调用中"的假动画
+ *
+ * 后端只在一次工具调用**真正完成**（成功或失败）之后才写入这条 step——调用期间没有
+ * 中间状态可读。伪造一个"正在调用…"的过渡态会是一句界面从未验证过的谎言；这里如实
+ * 只展示"已经发生的事"，`AgentRunStatus` 上方已有的"正在执行"整体状态负责传达"run
+ * 还没完"，两者不重复表达同一件事。
+ */
+function AgentRunToolCallSteps({ steps }: { steps: AgentRunView["steps"] }) {
+  const toolSteps = steps.filter((step) => step.kind === "tool_call");
+  if (toolSteps.length === 0) return null;
+  return (
+    <ol className="mt-1.5 flex flex-col gap-1.5" data-testid="chat-run-tool-call-steps">
+      {toolSteps.map((step, index) => {
+        const succeeded = step.status === "succeeded";
+        return (
+          <li
+            key={index}
+            className="rounded-md border border-border-subtle bg-card px-2 py-1.5 text-11"
+            data-testid={`chat-run-tool-call-step-${index}`}
+            data-tool-name={step.toolName ?? undefined}
+            data-tool-status={step.status}
+          >
+            {step.planningNote ? (
+              // 第 2 项——工具调用前的可见计划。真实来自模型同一轮回复里的文本，
+              // 模型没说就不显示（见组件自身 doc comment），不编一句话出来凑数。
+              <p className="mb-1 italic text-muted-foreground" data-testid={`chat-run-tool-call-plan-${index}`}>
+                {step.planningNote}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+              <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="font-medium">调用 {step.toolName ?? "未知工具"}</span>
+              {succeeded ? (
+                <Badge tone="primary"><CheckCircle2 aria-hidden className="h-2.5 w-2.5" />完成</Badge>
+              ) : (
+                <Badge tone="danger"><XCircle aria-hidden className="h-2.5 w-2.5" />失败</Badge>
+              )}
+            </div>
+            {step.toolArgsSummary ? (
+              <p className="mt-1 text-10 text-muted-foreground">
+                参数：{step.toolArgsSummary}
+              </p>
+            ) : null}
+            {step.toolResultSummary ? (
+              <p className={`mt-0.5 text-10 ${succeeded ? "text-card-foreground" : "text-destructive"}`}>
+                {succeeded ? "结果" : "失败原因"}：{step.toolResultSummary}
+              </p>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

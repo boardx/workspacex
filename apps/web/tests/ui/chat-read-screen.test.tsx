@@ -88,7 +88,12 @@ function message(index: number) {
 }
 
 /** #435：`GET /agent-runs/:runId` 的响应形状，字段照 `wave2-runtime.ts:182-198`。 */
-function agentRunView(status: string, resultMessageId: string | null, error: string | null = null) {
+function agentRunView(
+  status: string,
+  resultMessageId: string | null,
+  error: string | null = null,
+  steps: readonly Record<string, unknown>[] = [],
+) {
   return {
     runId: "run-new",
     threadId: "thread-real",
@@ -101,8 +106,30 @@ function agentRunView(status: string, resultMessageId: string | null, error: str
     status,
     error,
     resultMessageId,
-    steps: [],
+    steps,
     createdAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+/** #731 follow-up：一条 `tool_call` run step 的响应形状，字段照 `wave2-runtime.ts` 里
+ * `AgentRunStep` 新增的 `toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`。 */
+function toolCallStep(overrides: Partial<{
+  status: string; toolName: string | null; toolArgsSummary: string | null;
+  toolResultSummary: string | null; planningNote: string | null; failureCode: string | null;
+}> = {}) {
+  return {
+    kind: "tool_call",
+    status: "succeeded",
+    startedAt: "2026-01-01T00:00:01.000Z",
+    endedAt: "2026-01-01T00:00:02.000Z",
+    inputDigest: "a".repeat(64),
+    outputDigest: "b".repeat(64),
+    failureCode: null,
+    toolName: "beautiful-article",
+    toolArgsSummary: '{"task":"写一段介绍"}',
+    toolResultSummary: "技能真实产出的文章内容",
+    planningNote: "我需要一段介绍文字，调用 beautiful-article 来生成它。",
+    ...overrides,
   };
 }
 
@@ -522,6 +549,71 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(status).toHaveAttribute("data-run-status", "failed"));
     expect(status).toHaveTextContent("MODEL_CALL_FAILED");
     expect(status).not.toHaveAttribute("data-result-message-id");
+  });
+
+  /**
+   * #731 follow-up —— chat-ux-acceptance-criteria.md 第 2/3 项：`GET /agent-runs/:runId`
+   * 已经在 `steps` 里带了真实发生的 `tool_call` 步骤（工具名/参数摘要/结果摘要/计划文本），
+   * 界面必须把它们画出来，而不是只显示一条笼统的"正在执行"。
+   */
+  it("渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
+      toolCallStep(),
+    ]));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "帮我生成一段介绍" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    expect(step).toHaveAttribute("data-tool-name", "beautiful-article");
+    expect(step).toHaveAttribute("data-tool-status", "succeeded");
+    // 第 2 项——调用前的可见计划，真实来自后端 `planningNote`。
+    expect(screen.getByTestId("chat-run-tool-call-plan-0"))
+      .toHaveTextContent("我需要一段介绍文字，调用 beautiful-article 来生成它。");
+    expect(step).toHaveTextContent("调用 beautiful-article");
+    expect(step).toHaveTextContent("完成");
+    expect(step).toHaveTextContent("技能真实产出的文章内容");
+  });
+
+  it("工具调用失败：如实显示失败状态与失败原因，不假装成功", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
+      toolCallStep({
+        status: "failed", failureCode: "MODEL_CALL_FAILED", planningNote: null,
+        toolResultSummary: "未知工具「not-a-real-tool」：本次运行挂载的技能里没有这一个。",
+      }),
+    ]));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会调用失败的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    expect(step).toHaveAttribute("data-tool-status", "failed");
+    expect(step).toHaveTextContent("失败");
+    expect(step).toHaveTextContent("未知工具「not-a-real-tool」");
+    // 没有 planningNote 时不渲染计划行，不编一句话凑数。
+    expect(screen.queryByTestId("chat-run-tool-call-plan-0")).toBeNull();
+  });
+
+  it("没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "不用工具的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await screen.findByTestId("chat-live-agent-run-status");
+    expect(screen.queryByTestId("chat-run-tool-call-steps")).toBeNull();
   });
 
   /**
