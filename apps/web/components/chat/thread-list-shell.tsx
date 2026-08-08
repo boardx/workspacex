@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { ThreadCard } from "@/lib/live-chat";
 
 /**
@@ -92,4 +94,20 @@ export function shortTime(iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return iso;
   return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * 新建入口——**两屏共用**（人类 2026-08-08 裁决）。原型是一条全宽 primary
+ * 「＋ 新建对话」，点击才展开标题表单，不是常驻的裸输入框。
+ *
+ * ⚠ 此前个人对话是第二套实现：常驻输入框 + 灰色「新建会话」按钮，且按钮在标题为空时
+ *   **禁用**——空态引导文案明明写着「点上面「新建会话」开始第一次对话」，指向的却是一个
+ *   点不动的按钮（rev-uiux 第 3/4 轮各抓到一次）。两个问题根子相同：没有共用这个组件。
+ */
+export function NewThreadButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <Button className="w-full" size="sm" variant="primary" data-testid="chat-thread-create" disabled={disabled} onClick={onClick}>
+      <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
+    </Button>
+  );
 }

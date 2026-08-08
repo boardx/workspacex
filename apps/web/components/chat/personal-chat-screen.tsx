@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import {
-  ThreadCardButton, ThreadListHeader,
+  NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
@@ -147,8 +147,10 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const [createPending, setCreatePending] = React.useState(false);
   const [createFailure, setCreateFailure] = React.useState<string | null>(null);
   const [titleDraft, setTitleDraft] = React.useState("");
+  /** 表单默认收着，点「＋ 新建对话」才展开——与项目对话共用同一个触发按钮。 */
+  const [formOpen, setFormOpen] = React.useState(false);
 
-  const handleCreate = React.useCallback(async (title: string) => {
+  const handleCreate = React.useCallback(async (title: string | null) => {
     if (!sourceKey || !bearer) return;
     setCreatePending(true);
     setCreateFailure(null);
@@ -164,6 +166,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       setCreateFailure(describeFailure(failure));
     } finally {
       setCreatePending(false);
+      setFormOpen(false);
     }
   }, [bearer, router, sourceKey]);
 
@@ -188,32 +191,33 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           <ThreadListHeader />
           {canCreate ? (
             <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-actions">
-              <form
-                data-testid="chat-thread-create-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const title = titleDraft.trim();
-                  if (!title) return;
-                  void handleCreate(title);
-                  setTitleDraft("");
-                }}
-                className="flex flex-col gap-1"
-              >
-                <input
-                  aria-label="新会话标题"
-                  data-testid="chat-thread-title-input"
-                  className="rounded-md border border-border-subtle px-2 py-1 text-12"
-                  value={titleDraft}
-                  onChange={(event) => setTitleDraft(event.target.value)}
-                  placeholder="新对话的标题"
-                />
-                <Button
-                  size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit"
-                  disabled={createPending || titleDraft.trim() === ""}
+              <NewThreadButton onClick={() => setFormOpen((open) => !open)} disabled={createPending} />
+              {formOpen ? (
+                <form
+                  data-testid="chat-thread-create-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    // P3：标题可以留空——契约的 title 本就是 nullable，服务端在
+                    // null 时自己起默认名（见 lib/live-chat.ts 的 createPersonalThread）。
+                    // 空态引导文案指着这个按钮说「点这里开始」，它就不该在空标题下点不动。
+                    void handleCreate(titleDraft.trim() || null);
+                    setTitleDraft("");
+                  }}
+                  className="flex flex-col gap-1"
                 >
-                  {createPending ? "创建中…" : "新建会话"}
-                </Button>
-              </form>
+                  <input
+                    aria-label="新会话标题"
+                    data-testid="chat-thread-title-input"
+                    className="rounded-md border border-border-subtle px-2 py-1 text-12"
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    placeholder="新对话的标题（留空则自动命名）"
+                  />
+                  <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={createPending}>
+                    {createPending ? "创建中…" : "确认"}
+                  </Button>
+                </form>
+              ) : null}
               {createFailure ? (
                 <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{createFailure}</p>
               ) : null}
@@ -227,7 +231,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           ) : null}
           {!listLoading && !listError && cards.length === 0 ? (
             <p className="p-3 text-12 text-muted-foreground" data-testid="chat-thread-list-empty">
-              还没有个人对话，点上面「新建会话」开始第一次对话。
+              还没有个人对话，点上面「新建对话」开始第一次对话。
             </p>
           ) : null}
           {cards.length > 0 ? (

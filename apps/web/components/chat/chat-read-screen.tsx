@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, Pencil, Plus, RefreshCw, Share2, Store, Trash2, Users,
+  MessageSquare, Pencil, RefreshCw, Share2, Store, Trash2, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
-  ThreadCardButton, ThreadListHeader,
+  NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
@@ -593,9 +593,7 @@ function ThreadActions({
           次要动作、跟着选中项走，渲染在会话列表下方的 `selection` slot 里。
           ⚠ testid 一个不改——`chat-read.spec.ts` 与 `chat-thread-crud.test.tsx`
           都锚在 create / rename / delete 这三个名字上。 */}
-      <Button className="w-full" size="sm" variant="primary" data-testid="chat-thread-create" disabled={busy} onClick={() => open("create")}>
-        <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
-      </Button>
+<NewThreadButton onClick={() => open("create")} disabled={busy} />
       {ownsForm ? (
         <ThreadWriteForm
           form={form}
