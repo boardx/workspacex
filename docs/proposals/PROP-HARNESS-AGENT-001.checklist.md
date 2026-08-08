@@ -51,16 +51,16 @@
 
 | ID | P | 状态 | 交付物 | 依赖 | 完成契约 |
 |---|---|---|---|---|---|
-| H3A-020 | P0 | ⬜ 未开始 | TPL-ROL-001 分层扩展 | 005、007 | layer、domain、supervisor、dispatch、authority 可验证 |
-| H3A-021 | P0 | ⬜ 未开始 | Root Orchestrator Role 单例门 | 020 | 同项目两个 active Root 会红 |
+| H3A-020 | P0 | ✅ 完成（PR #686） | TPL-ROL-001 分层扩展 | 005、007 | layer、domain、supervisor、dispatch、authority 可验证 |
+| H3A-021 | P0 | ✅ 完成（PR #686） | Root Orchestrator Role 单例门 | 020 | 同项目两个 active Root 会红 |
 | H3A-022 | P0 | ⬜ 未开始 | Domain Orchestrator Role schema | 010、020 | 每个 Role 绑定一个 Domain 和一个 active Skill |
-| H3A-023 | P0 | ⬜ 未开始 | Specialist Worker Role schema | 020 | 单一职责、I/O、tools、write scope、stop 条件完整 |
-| H3A-024 | P0 | ⬜ 未开始 | 最大三层深度 gate | 020–023 | Specialist Worker 派生第四层会红 |
-| H3A-025 | P0 | ⬜ 未开始 | Role authority monotonicity gate | 020 | 子角色权限不能大于 supervisor/Task Assignment |
-| H3A-026 | P0 | ⬜ 未开始 | merge/signoff 权限 gate | 020 | 非 Root merge、任意 Agent 人类签核会红 |
-| H3A-027 | P0 | ⬜ 未开始 | producer/verifier separation policy | 023 | 同 actor 自产自签会红 |
+| H3A-023 | P0 | ✅ 完成（PR #686） | Specialist Worker Role schema | 020 | 单一职责、I/O、tools、write scope、stop 条件完整 |
+| H3A-024 | P0 | ✅ 完成（PR #686） | 最大三层深度 gate | 020–023 | Specialist Worker 派生第四层会红 |
+| H3A-025 | P0 | ✅ 完成（PR #686） | Role authority monotonicity gate | 020 | 子角色权限不能大于 supervisor/Task Assignment |
+| H3A-026 | P0 | ✅ 完成（PR #686） | merge/signoff 权限 gate | 020 | 非 Root merge、任意 Agent 人类签核会红 |
+| H3A-027 | P0 | ✅ 完成（PR #686） | producer/verifier separation policy | 023 | 同 actor 自产自签会红 |
 | H3A-028 | P1 | ⬜ 未开始 | 现有 portable role generator 适配 | 020–023 | Claude/Codex 从同一 Role model 生成且无漂移 |
-| H3A-029 | P0 | ⬜ 未开始 | Root 直派 L3 例外门 | 019、023 | 仅独立 review、恢复、迁移兼容；必须绑定 subject domain 和受限 scope |
+| H3A-029 | P0 | ✅ 完成（PR #686） | Root 直派 L3 例外门 | 019、023 | 仅独立 review、恢复、迁移兼容；必须绑定 subject domain 和受限 scope |
 
 反证：创建第四层、给 Domain merge 权、让 Skill 声明写权限、让 reviewer=producer，必须分别只红对应约束。
 
