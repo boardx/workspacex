@@ -77,7 +77,7 @@
 |---|---|---|---|---|---|
 | H3A-030 | P0 | ✅ 完成（PR #717） | TPL-TSK-001 Task Assignment schema | 020–023 | objective/scope/acceptance/budget/authority hash 完整 |
 | H3A-031 | P0 | ✅ 完成（PR #722） | Root→Domain Task Assignment gate | 030 | assignee domain/scope/skill/依赖有效 |
-| H3A-032 | P0 | 🔶 PR #723 待 review（issue #719） | Domain→Worker Task Assignment gate | 030 | 不越领域、不越配额、不越权限 |
+| H3A-032 | P0 | ✅ 完成（PR #723） | Domain→Worker Task Assignment gate | 030 | 不越领域、不越配额、不越权限 |
 | H3A-033 | P0 | ✅ 完成（PR #721） | TPL-EVT-001 四类 Workflow Event envelope | 030 | Task Assignment/Progress/Blocker/Task Result 可解析 |
 | H3A-034 | P0 | ⬜ 未开始 | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
 | H3A-035 | P0 | ⬜ 未开始 | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
@@ -85,6 +85,18 @@
 | H3A-037 | P0 | ⬜ 未开始 | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
 | H3A-038 | P1 | ⬜ 未开始 | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
 | H3A-039 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
+
+> **Epic E3 阶段状态（2026-08-08 现场核实）：H3A-030~033 四项 ✅ 完成，已合并**
+> （PR #717/#721/#722/#723）。030 是单人直接实现（issue #716 开出到 PR 合并
+> 仅 2 分钟——人类正好在线立即 review）；031/032/033 三项走并行派工（3 个
+> subagent 各自独立 worktree 同时开发），issue 从 09:10~09:12 陆续开出，最后
+> 一个 PR（#723）14:39 合并，总跨度 ~5.6h，其中真实实现时间（issue 开出到
+> PR 开出）三项都在 1~2h 内完成，**剩余 ~4h 是 review 等待**——与 Epic E0
+> 的结论一致（瓶颈是 review 可用性，不是实现吞吐）。#722/#723 在合并顺序上
+> 撞了预期内的"共享接缝文件"冲突（`task-assignment-doctor.ts` 等，三个 PR
+> 都在扩展同一个 doctor 入口）——不是逻辑冲突，是并行 PR 各自追加不同 gate
+> 函数调用，rebase 保留双方即可，已解决。
+> H3A-034~039（Event/Review Decision 相关）剩余 6 项未开始，038/039 是 P1。
 
 ## Epic E4 — Agent Runtime Instance、Dispatch 与回收
 
