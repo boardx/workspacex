@@ -335,6 +335,37 @@ export type ToolExchangeTurn =
     readonly content: string;
   };
 
+/**
+ * #742 -- one structured progress signal surfaced WHILE a run is still in flight, for a
+ * provider whose "how does it get smarter" mechanism is a REMOTE, multi-step planning loop
+ * rather than the in-process TS tool loop (#725) `execute-run.ts` otherwise runs. Today's
+ * only intended implementer is `DeepAgentModelProvider` (issue #740/#747, talking to
+ * `apps/deep-agent-service`'s `deepagents` graph, #739) -- see that file's own header
+ * (once it lands) for how a real LangGraph run's intermediate state maps to this shape.
+ *
+ * Deliberately reuses the EXACT fields `AppendedRunStep`'s `tool_call` kind already
+ * carries (`toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`, see that
+ * type's own doc comment) rather than inventing a second "what did a step look like"
+ * vocabulary -- the Chat UI (#730-#734) already knows how to render exactly this shape,
+ * so a provider that emits these needs ZERO frontend work to become visible.
+ *
+ * ⚠ #742 (investigation: issue #742's own comment thread) -- the mapping from a REAL
+ * `deepagents`/LangGraph run's actual wire shape to this event has not been verified
+ * end-to-end (no environment in this session could run Python ≥3.11, which `deepagents`
+ * requires). What IS verified: `execute-run.ts`'s handling of a stream of these events
+ * (recording each as a real `tool_call` step, in order, before the run's terminal state)
+ * against a fake `ModelCallPort` -- see `completeWithProgress`'s own doc comment and
+ * `execute-run-progress.test.ts`. This type and the plumbing around it are the "connect
+ * once the real service can be observed" layer the human asked for; they are not, on
+ * their own, proof `DeepAgentModelProvider` will populate them correctly.
+ */
+export interface ModelCallProgressEvent {
+  readonly toolName: string;
+  readonly toolArgsSummary: string | null;
+  readonly toolResultSummary: string | null;
+  readonly planningNote: string | null;
+}
+
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
@@ -451,6 +482,33 @@ export interface ModelCallPort {
   completeStream?(
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  /**
+   * #742 -- OPTIONAL, and MUTUALLY EXCLUSIVE with `completeStream` in practice (a provider
+   * implements one or the other, never both): for a provider whose run is a remote,
+   * multi-step planning loop rather than a single token stream, this is how it reports
+   * "something real happened" before the final answer is known. See
+   * `ModelCallProgressEvent`'s own doc comment for the shape and its unverified mapping to
+   * any real service.
+   *
+   * `execute-run.ts` checks for this method's presence BEFORE the TS tool loop / plain
+   * `complete()` branches -- a provider that implements it opts fully out of both of those,
+   * the same way implementing `completeStream` opts a provider into streaming instead of
+   * the plain call. `onProgress` fires once per event, in order, strictly BEFORE this
+   * promise resolves; a rejection propagates and fails the call, same discipline
+   * `completeStream`'s `onDelta` already established -- an event that failed to persist is
+   * not "best effort", it is a run whose recorded steps would otherwise silently
+   * under-report what happened.
+   *
+   * The returned `{ text, tokens }` is still the ONE final answer, same contract
+   * `completeStream` already keeps: `onProgress` is an observational side-channel for the
+   * steps taken to reach it, never a second source of truth for whether the call
+   * succeeded.
+   */
+  completeWithProgress?(
+    input: ModelCallInput,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }>;
 }
 
