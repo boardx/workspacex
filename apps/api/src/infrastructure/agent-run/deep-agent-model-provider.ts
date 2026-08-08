@@ -47,8 +47,30 @@
  * shape and whether a `deepagents`-built graph honours an extra system message the way this
  * file assumes (#739 could not install `deepagents` in its sandbox -- Python 3.9 vs. the
  * package's `>=3.11` requirement). First real run against a live service is outstanding.
+ *
+ * ## #783 -- `completeWithProgress`: reading the SAME poll loop's state mid-flight
+ *
+ * #742's investigation (issue #742 comment thread) concluded the only way to know whether
+ * `apps/deep-agent-service`'s intermediate state is observable is to look at a REAL run's
+ * `GET /threads/:id/state` while it is still `running` -- #739's environment could never
+ * install `deepagents` to produce one. #781 (LangGraph as the full chat orchestration
+ * layer) made that observation possible: the human verified #739's service manually on the
+ * VM with real `deepagents==0.7.5` and confirmed a run's `state` DOES already carry a
+ * `messages` array shaped like standard LangChain messages, growing as the graph's `task`/
+ * `call_skill` tool calls happen (an `AIMessage` with a non-empty `tool_calls` array,
+ * followed by a `ToolMessage` carrying that call's `tool_call_id` and result content) --
+ * this is the SAME `values.messages` shape `readFinalReply` already reads for the terminal
+ * answer, just observed WHILE `running` instead of only once at `success`.
+ *
+ * `completeWithProgress` therefore does not add a second polling loop: it is `complete()`'s
+ * OWN status-poll loop, with one extra read (`GET /threads/:id/state`) per iteration, same
+ * discipline `agui-bridge.ts`'s "read deltas, then read status, same iteration" already
+ * uses for `DeepResearchModelProvider`-adjacent streaming. `extractToolCallEvents` pairs
+ * each `AIMessage.tool_calls[]` entry with the `ToolMessage` that answers it (matched by
+ * `tool_call_id`) and reports the pair as ONE `ModelCallProgressEvent` only once both halves
+ * are present -- a call announced but not yet answered is not reported early as a guess.
  */
-import type { ModelCallInput, PinnedSkillContent } from "../../application/agent-run/ports";
+import type { ModelCallInput, ModelCallProgressEvent, PinnedSkillContent } from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
 
 export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
@@ -87,9 +109,25 @@ export function readDeepAgentProviderConfig(
   };
 }
 
+/** One LangChain `tool_calls[]` entry on an `AIMessage` -- `args` is whatever JSON object
+ * shape the model's tool call carried (`call_skill`'s `{skill_stable_name, task}`,
+ * `list_org_skills`'s `{}`), read here as `unknown` and `JSON.stringify`d for the summary,
+ * never parsed for meaning -- this file does not need to understand a tool's arguments,
+ * only report them. */
+interface WireToolCallRequest {
+  readonly id?: unknown;
+  readonly name?: unknown;
+  readonly args?: unknown;
+}
+
 interface ThreadMessage {
   readonly type?: string;
   readonly content?: unknown;
+  /** Present on an `AIMessage` that asked to call one or more tools (#783). */
+  readonly tool_calls?: readonly WireToolCallRequest[];
+  /** Present on a `ToolMessage` -- pairs it back to the `AIMessage.tool_calls[]` entry it
+   * answers (#783). */
+  readonly tool_call_id?: unknown;
 }
 
 interface RunStatusResponse {
@@ -98,6 +136,71 @@ interface RunStatusResponse {
 
 interface ThreadStateResponse {
   readonly values?: { readonly messages?: readonly ThreadMessage[] };
+}
+
+const PROGRESS_SUMMARY_MAX_CHARS = 500;
+
+/** Same truncation discipline `execute-run.ts`'s retired TS tool loop used for
+ * `AppendedRunStep.toolArgsSummary`/`toolResultSummary` (#725's `summarize`, see that
+ * function's own doc comment before #741 removed it) -- these are for on-run VISIBILITY,
+ * never a digest, so a long value is truncated rather than hashed or dropped. */
+function summarizeProgressText(text: string, maxChars = PROGRESS_SUMMARY_MAX_CHARS): string {
+  const trimmed = text.trim();
+  return trimmed.length > maxChars ? `${trimmed.slice(0, maxChars)}…` : trimmed;
+}
+
+/**
+ * Walk `messages` (the FULL array, fresh every call -- see this file's own header on why
+ * that is simpler and safe here) and pair every `AIMessage.tool_calls[]` entry with the
+ * `ToolMessage` that answers it, by `tool_call_id`. Returns one `ModelCallProgressEvent`
+ * per COMPLETE pair, in the order the answering `ToolMessage` appears -- a call announced
+ * but not yet answered is not reported (see file head: "not reported early as a guess").
+ *
+ * `alreadyEmitted` is the caller's running set of `tool_call_id`s already turned into an
+ * event on an earlier poll; this function neither reads nor mutates it beyond skipping
+ * ids already in it -- the caller owns when an id is added, so a rejected `onProgress`
+ * (see `ModelCallPort.completeWithProgress`'s own doc: "not best effort") does not leave
+ * an id marked emitted for an event that never actually made it out.
+ */
+function extractToolCallEvents(
+  messages: readonly ThreadMessage[],
+  alreadyEmitted: ReadonlySet<string>,
+): readonly { readonly id: string; readonly event: ModelCallProgressEvent }[] {
+  const pending = new Map<string, { readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null }>();
+  const found: { readonly id: string; readonly event: ModelCallProgressEvent }[] = [];
+
+  for (const message of messages) {
+    if (message.type === "ai" && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+      const planningNote = typeof message.content === "string" && message.content.trim() !== ""
+        ? summarizeProgressText(message.content)
+        : null;
+      for (const call of message.tool_calls) {
+        const id = typeof call.id === "string" ? call.id : null;
+        const name = typeof call.name === "string" ? call.name : null;
+        if (id === null || name === null || alreadyEmitted.has(id)) continue;
+        const argsSummary = call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args));
+        pending.set(id, { name, argsSummary, planningNote });
+      }
+      continue;
+    }
+    if (message.type === "tool" && typeof message.tool_call_id === "string") {
+      const id = message.tool_call_id;
+      const call = pending.get(id);
+      if (call === undefined || alreadyEmitted.has(id)) continue;
+      const resultSummary = typeof message.content === "string" && message.content.trim() !== ""
+        ? summarizeProgressText(message.content)
+        : null;
+      found.push({
+        id,
+        event: {
+          toolName: call.name, toolArgsSummary: call.argsSummary,
+          toolResultSummary: resultSummary, planningNote: call.planningNote,
+        },
+      });
+      pending.delete(id);
+    }
+  }
+  return found;
 }
 
 /** Wire shape for `config.configurable.org_skills` -- matches
@@ -119,6 +222,74 @@ export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+    await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
+    const text = await this.readFinalReply(baseUrl, threadId);
+    if (text.trim() === "") {
+      throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
+    }
+    return { text };
+  }
+
+  /**
+   * #783 -- same run, same poll loop as `complete()`, plus one extra state read per
+   * iteration to report tool-call progress AS IT HAPPENS. See this file's own header for
+   * why this is `complete()`'s loop with a read added, not a second implementation of it.
+   */
+  async completeWithProgress(
+    input: ModelCallInput,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+    const emitted = new Set<string>();
+
+    const emitNewEvents = async (): Promise<void> => {
+      const state = await this.readState(baseUrl, threadId);
+      const messages = state.values?.messages ?? [];
+      for (const { id, event } of extractToolCallEvents(messages, emitted)) {
+        // Marked emitted ONLY after `onProgress` resolves -- a rejection (the run store
+        // append failed, say) must not silently drop this event from a later poll's retry,
+        // same "not best effort" discipline `completeStream`'s `onDelta` already keeps.
+        await onProgress(event);
+        emitted.add(id);
+      }
+    };
+
+    while (true) {
+      await emitNewEvents();
+      const status = await this.readRunStatus(baseUrl, threadId, runId);
+      if (status === "success") break;
+      if (status === "error" || status === "timeout" || status === "interrupted") {
+        // One last read: a call that completed in the same instant the run turned terminal
+        // must not be lost because this loop stops polling the moment it sees the status.
+        await emitNewEvents();
+        throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
+      }
+      if (Date.now() >= deadline) {
+        await emitNewEvents();
+        throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run did not reach a terminal state within ${timeoutMs}ms`);
+      }
+      await sleep(pollIntervalMs);
+    }
+    // Same race this file's `#654 阶段2b` sibling (`agui-bridge.ts`) already documented and
+    // fixed once for deltas: the terminal status can be observed before the LAST tool-call
+    // pair's `ToolMessage` is reflected in the same poll's state read. One more read here
+    // closes it the identical way -- it never introduces a new race, only catches up.
+    await emitNewEvents();
+
+    const text = await this.readFinalReply(baseUrl, threadId);
+    if (text.trim() === "") {
+      throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
+    }
+    return { text };
+  }
+
+  /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create
+   * the thread and run, and hand back everything the poll loop needs. */
+  private async startRun(input: ModelCallInput): Promise<{
+    readonly baseUrl: string; readonly threadId: string; readonly runId: string;
+    readonly deadline: number; readonly pollIntervalMs: number; readonly timeoutMs: number;
+  }> {
     const { baseUrl, timeoutMs, pollIntervalMs } = this.config;
     if (baseUrl === "") {
       throw new ModelCallError(
@@ -134,15 +305,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
         `run pinned provider "${input.modelProvider}", this port only serves "${DEEP_AGENT_PROVIDER_NAME}"`,
       );
     }
-
     const deadline = Date.now() + timeoutMs;
-
     const threadId = await this.createThread(baseUrl);
     const runId = await this.createRun(baseUrl, threadId, input);
+    return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs };
+  }
 
+  /** `complete()`'s own poll-to-terminal loop, extracted so `completeWithProgress` can
+   * reuse the exact same termination logic without a second copy of it. */
+  private async pollToTerminal(
+    baseUrl: string, threadId: string, runId: string, deadline: number, pollIntervalMs: number, timeoutMs: number,
+  ): Promise<void> {
     while (true) {
       const status = await this.readRunStatus(baseUrl, threadId, runId);
-      if (status === "success") break;
+      if (status === "success") return;
       if (status === "error" || status === "timeout" || status === "interrupted") {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
       }
@@ -151,12 +327,6 @@ export class DeepAgentModelProvider implements ModelCallPort {
       }
       await sleep(pollIntervalMs);
     }
-
-    const text = await this.readFinalReply(baseUrl, threadId);
-    if (text.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
-    }
-    return { text };
   }
 
   private async createThread(baseUrl: string): Promise<string> {
@@ -198,13 +368,19 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return body.status ?? "unknown";
   }
 
-  private async readFinalReply(baseUrl: string, threadId: string): Promise<string> {
+  /** #783: extracted so `completeWithProgress`'s `emitNewEvents` can read the SAME endpoint
+   * mid-run instead of `readFinalReply` being the only caller. */
+  private async readState(baseUrl: string, threadId: string): Promise<ThreadStateResponse> {
     const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/state`, { method: "GET" });
     if (!response.ok) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent thread state read failed with HTTP ${response.status}`);
     }
-    const body = (await response.json()) as ThreadStateResponse;
-    const messages = body.values?.messages ?? [];
+    return (await response.json()) as ThreadStateResponse;
+  }
+
+  private async readFinalReply(baseUrl: string, threadId: string): Promise<string> {
+    const state = await this.readState(baseUrl, threadId);
+    const messages = state.values?.messages ?? [];
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const message = messages[i];
       if (message?.type === "ai" && typeof message.content === "string" && message.content.trim() !== "") {

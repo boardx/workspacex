@@ -23,6 +23,11 @@ let statusSequence: string[] = ["success"];
 let statusCallCount = 0;
 let stateResponse: unknown = { values: { messages: [] } };
 let threadCreateStatus = 200;
+/** #783 -- when set, `/state` returns the entry at index `min(stateCallCount, len-1)`
+ * instead of the static `stateResponse`, simulating a run whose `values.messages` grows
+ * across successive polls while `running`. */
+let stateSequence: unknown[] | null = null;
+let stateCallCount = 0;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -52,6 +57,11 @@ async function startServer(): Promise<void> {
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
+      if (stateSequence !== null) {
+        const body = stateSequence[Math.min(stateCallCount, stateSequence.length - 1)];
+        stateCallCount += 1;
+        return respond(res, 200, body);
+      }
       return respond(res, 200, stateResponse);
     }
     respond(res, 404, { error: "not_found" });
@@ -75,6 +85,8 @@ afterEach(() => {
   statusSequence = ["success"];
   statusCallCount = 0;
   stateResponse = { values: { messages: [{ type: "ai", content: "默认回复" }] } };
+  stateSequence = null;
+  stateCallCount = 0;
   threadCreateStatus = 200;
 });
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
@@ -197,5 +209,173 @@ describe("DeepAgentModelProvider.complete", () => {
       expect((e as ModelCallError).detail).not.toContain("127.0.0.1");
     }
     expect(threw).toBe(true);
+  });
+});
+
+describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
+  it("每一对 AIMessage.tool_calls / 匹配的 ToolMessage 一出现就报成一个 progress event，按序、终态答案不变", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["running", "running", "success"];
+    stateSequence = [
+      // poll #1: run just announced it will call list_org_skills, no result yet.
+      {
+        values: {
+          messages: [
+            { type: "human", content: "画一个架构图" },
+            {
+              type: "ai", content: "我先看看有哪些技能可用",
+              tool_calls: [{ id: "call-1", name: "list_org_skills", args: {} }],
+            },
+          ],
+        },
+      },
+      // poll #2: that call's result landed, AND a second call was announced.
+      {
+        values: {
+          messages: [
+            { type: "human", content: "画一个架构图" },
+            {
+              type: "ai", content: "我先看看有哪些技能可用",
+              tool_calls: [{ id: "call-1", name: "list_org_skills", args: {} }],
+            },
+            { type: "tool", tool_call_id: "call-1", content: "- diagram-maker：画图技能" },
+            {
+              type: "ai", content: "调用画图技能",
+              tool_calls: [{ id: "call-2", name: "call_skill", args: { skill_stable_name: "diagram-maker", task: "画架构图" } }],
+            },
+          ],
+        },
+      },
+      // poll #3 (terminal): the second call's result landed too.
+      {
+        values: {
+          messages: [
+            { type: "human", content: "画一个架构图" },
+            { type: "ai", content: "我先看看有哪些技能可用", tool_calls: [{ id: "call-1", name: "list_org_skills", args: {} }] },
+            { type: "tool", tool_call_id: "call-1", content: "- diagram-maker：画图技能" },
+            { type: "ai", content: "调用画图技能", tool_calls: [{ id: "call-2", name: "call_skill", args: { skill_stable_name: "diagram-maker", task: "画架构图" } }] },
+            { type: "tool", tool_call_id: "call-2", content: "已生成架构图。" },
+            { type: "ai", content: "已经帮你画好架构图了。" },
+          ],
+        },
+      },
+    ];
+
+    const events: unknown[] = [];
+    const result = await provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    );
+
+    expect(result.text).toBe("已经帮你画好架构图了。");
+    expect(events).toEqual([
+      {
+        toolName: "list_org_skills", toolArgsSummary: "{}",
+        toolResultSummary: "- diagram-maker：画图技能", planningNote: "我先看看有哪些技能可用",
+      },
+      {
+        toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
+        toolResultSummary: "已生成架构图。", planningNote: "调用画图技能",
+      },
+    ]);
+  });
+
+  it("一个宣布了但从未收到结果的调用不会被上报", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["success"];
+    stateSequence = [
+      {
+        values: {
+          messages: [
+            { type: "ai", content: "", tool_calls: [{ id: "call-orphan", name: "call_skill", args: {} }] },
+            { type: "ai", content: "算了，直接回答你。" },
+          ],
+        },
+      },
+    ];
+
+    const events: unknown[] = [];
+    const result = await provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    );
+
+    expect(events).toEqual([]);
+    expect(result.text).toBe("算了，直接回答你。");
+  });
+
+  it("同一个事件不会因为跨多次轮询重复读到而被上报两次", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["running", "running", "success"];
+    const completedPairState = {
+      values: {
+        messages: [
+          { type: "ai", content: "", tool_calls: [{ id: "call-1", name: "call_skill", args: {} }] },
+          { type: "tool", tool_call_id: "call-1", content: "结果" },
+          { type: "ai", content: "完成了。" },
+        ],
+      },
+    };
+    // The SAME completed pair is visible on every poll from the first one onward -- a
+    // provider whose state read simply lags status by one poll would still hit this.
+    stateSequence = [completedPairState, completedPairState, completedPairState];
+
+    const events: unknown[] = [];
+    await provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    );
+
+    expect(events).toHaveLength(1);
+  });
+
+  it("run 转 error 之前已经完成的调用仍然被上报（补读一次，不因为终态而丢失）", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["error"];
+    stateSequence = [
+      {
+        values: {
+          messages: [
+            { type: "ai", content: "", tool_calls: [{ id: "call-1", name: "call_skill", args: {} }] },
+            { type: "tool", tool_call_id: "call-1", content: "部分结果" },
+          ],
+        },
+      },
+    ];
+
+    const events: unknown[] = [];
+    await expect(provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    )).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+
+    expect(events).toHaveLength(1);
+    expect((events[0] as { toolResultSummary: string }).toolResultSummary).toBe("部分结果");
+  });
+
+  it("onProgress 拒绝会让整个调用失败，不是被吞掉——不是 best effort", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["success"];
+    stateSequence = [
+      {
+        values: {
+          messages: [
+            { type: "ai", content: "", tool_calls: [{ id: "call-1", name: "call_skill", args: {} }] },
+            { type: "tool", tool_call_id: "call-1", content: "结果" },
+            { type: "ai", content: "完成了。" },
+          ],
+        },
+      },
+    ];
+
+    await expect(provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async () => { throw new Error("run store append failed"); },
+    )).rejects.toThrow("run store append failed");
   });
 });
