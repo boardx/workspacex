@@ -126,6 +126,12 @@ export default {
       // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
+      // #654 阶段1b：AG-UI SSE 桥接端点。`CopilotkitAguiController` 是 `@Controller()`
+      // （空前缀），路径是裸的 `POST /copilotkit/agui` —— 与上面 `/agent-runs`、
+      // `/threads` 同一个形状、同一个坑（第九次）。`lint-rewrite-coverage` 已经把这条
+      // 标红（`.harness/scripts/lint-rewrite-coverage.mjs` 实测：不补这条，
+      // `init.sh` 基础验证本身就红），不是新引入的探测，是补一个已存在的真实缺口。
+      { source: `${prefix}/copilotkit/:path*`, destination: `${apiOrigin}/copilotkit/:path*` },
       // #595 Line A：`POST /agents/:agentId/trial-run`。`AgentTrialRunController` 是
       // `@Controller()`（空前缀），路径是裸的 `/agents/:agentId/trial-run` ——
       // 与上面 `/agent-runs` 同一个形状，同一个坑（第七次）。
