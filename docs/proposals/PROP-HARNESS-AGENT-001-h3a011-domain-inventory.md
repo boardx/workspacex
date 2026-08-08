@@ -116,3 +116,25 @@ registry.yaml`**——inventory 文档原句："`collaboration/realtime` 今天�
 在这三个问题被人类回答之前，`registry.yaml` 里 `DOM-AGENT-SKILL-DIRECTORY`
 的 `owner: null`、以及 `coord-chat-e2e` 同时是三个 Domain owner 这件事，
 都不应被视为最终事实。
+
+## 裁决记录（2026-08-08，人类）
+
+三个问题逐条拍板，非批量默认接受：
+
+1. **`coord-chat-e2e` 一人覆盖三个 Domain** → 拆分。新增 `coord-chat`/
+   `coord-canvas`/`coord-e2e` 三个独立 module-coordinator（见
+   `.harness/agents/registry.yaml`），`DOM-CHAT`/`DOM-CANVAS-DIAGRAM`/
+   `DOM-E2E-RELEASE-READINESS` 的 owner 已改指向对应新身份（见
+   `.harness/domains/registry.yaml`）。`coord-chat-e2e` 本身保留不动（真实
+   活跃身份，历史/在跑分支仍以它命名），只是不再是这三个 Domain 的 owner。
+2. **`DOM-AGENT-SKILL-DIRECTORY` 的 owner 冲突** → 暂缓，`owner: null` 维持
+   不变。不是遗漏，是明确"留到 H3A-018（Fabric.js/Mermaid Domain Skill）
+   真正用到这块边界时再定"，与问题 3 的"接受既定例外"不同——这个还没定，
+   是真悬而未决。
+3. **`DOM-PLATFORM`/`DOM-AI-RUNTIME` 无 coordinator 层** → 接受为既定例外，
+   不补协调者层（同 H3A-029 gate 已判 WARN 的"迁移期兼容"先例一致）。
+
+裁决落地后现场核实：`pnpm harness domains doctor`、`pnpm harness
+role-authorization doctor` 均 exit 0；H3A-022b（一个 orchestrator 一个
+Domain）从原本的 WARN 变为干净；剩余 WARN 精确对应上面裁决 2/3 的"暂缓"和
+"接受例外"，不多不少。

@@ -1,13 +1,33 @@
 # ADR 011: coord-service 成为唯一身份权威——GitHub 登录自助 onboarding，registry.yaml 降级为派生快照
 
-- 状态: Proposed（人类已拍板方向与两个关键岔路，2026-07-09；同日修订岔路一——
+- 状态: **Rejected（2026-08-08，人类裁决，PROP-HARNESS-AGENT-001 H3A-011 处理过程中一并决断）**
 - 适用层：方法论（可移植：随模板打包）
-  registry.yaml 不彻底退役，改为 D1 派生的只读快照同步回仓库，理由见决策 §1；
-  实现分阶段，未开工）
-- 日期: 2026-07-09
+- 日期: 2026-07-09（提出）/ 2026-08-08（拒绝）
 - 关联: 取代 ADR-004 中"registry.yaml 是 agent 身份来源"的定位；延续 ADR-009
   （coord-service 是协调权威）把**身份注册**也收进 coord-service；把 ADR-010 的
   "子 agent 必须登记进 coord-service"从手动责任升级为自助 API 的一部分。
+
+> ⚠ **拒绝理由（2026-08-08）**：本 ADR 提出时（2026-07-09）设想的权威载体是
+> "coord-service (D1)"——但 `docs/adr/ADR-009-github-coordination-plane-retirement.md`
+> （本会话早前的本地重建，见该文件）记录了 coord-service 这条协调面本身已经
+> 退役，被 `apps/coord-gateway` + `packages/coord-directory`（`PlatformDirectory`
+> DO）+ `packages/coord-repohub` 取代——本 ADR 设想的迁移目标今天已经不是同一个
+> 系统了，提案的具体路径（P1~P5）需要整体重新评估，不能直接照搬执行。
+>
+> 即便把"权威载体"换成今天真实存在的 `packages/coord-directory`（有代码、有
+> 测试、已在 `apps/coord-gateway` 生产接入，不是空想）——`.harness/agents/
+> registry.yaml` 里全部 6 个 `directory_agent_id` 今天都是 `active: false`
+> （2026-08-04 人类裁决："没有任何在跑的会话"）。把身份权威迁到一个今天 0 个
+> 真实活跃 instance 的系统上，此刻没有实际收益，只有"两处都要维护、迁移期间
+> 双重簿记"的真实成本——AGENTS.md 明确警告过的"同一事实声明在两处"漂移模式，
+> 本仓库已经因此漂移五次（设计 token/字号档位/丢弃原因枚举/撤回链 SLA/估点），
+> 不该在没有真实需求的情况下制造第六次。
+>
+> **裁决**：`registry.yaml` 继续保持人工维护为权威（AGENTS.md 现行做法：
+> "改动走 PR review"），不迁移到 D1/Directory 派生快照。P1（身份 API + export
+> 命令，零行为变化）本身风险很低，如果未来 Directory 真的积累出活跃 runtime
+> instance、且自助 onboarding 的真实摩擦成本上升到值得投入时，可以重新提案
+> （引用本 ADR 作为背景，不是从零开始），但不是现在。
 
 ## 背景
 

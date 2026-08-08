@@ -1,14 +1,22 @@
 # .harness/domains/registry.yaml — H3A-010/011 Domain Registry
 # （PROP-HARNESS-AGENT-001 Epic E1，见 docs/proposals/PROP-HARNESS-AGENT-001.md §8.1）
 #
-# ⚠ 这份清单是 H3A-011 的证据驱动草案，不是已签核事实源。完成契约原文
-# （checklist.md）："最终清单必须通过 inventory 从真实代码、Contract Bundle 和
-# ownership 推导，由人类签核，不能直接把本建议当作已接受注册表"——本文件确实
-# 是从真实证据推导的（见每条 entry 的 owner/areas/contracts 出处，方法论见
-# 同目录 PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md），但**尚未经过
-# 人类签核**。签核前，`owner: null` 的条目、文件头这条警告、以及 inventory
-# 文档里点名的"coord-chat-e2e 一人覆盖三个 Domain"结构性问题都不得被视为
-# 已解决。
+# ✅ H3A-011 已由人类裁决（2026-08-08，三条结构性问题逐条拍板，非批量默认接受）：
+#   1. **coord-chat-e2e 一人覆盖三个 Domain**（DOM-CHAT/DOM-CANVAS-DIAGRAM/
+#      DOM-E2E-RELEASE-READINESS）——裁决：拆分。新增 coord-chat/coord-canvas/
+#      coord-e2e 三个独立 module-coordinator（见 `.harness/agents/registry.yaml`），
+#      三个 Domain 的 owner 已改指向对应新身份。coord-chat-e2e 本身保留不动
+#      （真实活跃身份，历史/在跑分支仍以它命名），只是不再是这三个 Domain 的 owner。
+#   2. **DOM-PLATFORM/DOM-AI-RUNTIME 的 owner 是 worker 不是 coordinator**——
+#      裁决：接受为既定例外，不补协调者层（同 H3A-029 gate 已经判 WARN 的
+#      "迁移期兼容"先例一致，不是新问题、不需要新机制）。
+#   3. **DOM-AGENT-SKILL-DIRECTORY 的 owner 为 null**（coord-chat-e2e 与
+#      dev-ai-runtime 的边界真实冲突，registry.yaml 自身 agent/agents 单复数
+#      也未对齐）——裁决：暂缓，owner 继续为 null，留到 H3A-018（Fabric.js/
+#      Mermaid Domain Skill）真正需要用到这块边界时再定。
+#
+# 本文件历史上是"H3A-011 的证据驱动草案，尚未签核"——上面三条裁决落地后，
+# 该状态已解除，全部条目均反映人类已确认的裁决结果，不再是草案。
 #
 # owner 判定规则（详见 inventory 文档）：`.harness/agents/registry.yaml` 里
 # `kind: module-coordinator` 的身份才算"Domain 规划权威候选人"；`kind: worker`
@@ -23,8 +31,9 @@ entries:
   - domain_id: DOM-PLATFORM
     name: "Platform / 基础平台"
     # registry.yaml 里唯一声称 [platform, database, ci, baseline] 的身份是
-    # dev-platform-baseline（kind: worker）——没有专门的 coordinator，这本身
-    # 是 E0 inventory 结构问题 #2 的一个具体例子，不是本条目独有的歧义。
+    # dev-platform-baseline（kind: worker）——没有专门的 coordinator。
+    # H3A-011 人类裁决（2026-08-08）：接受为既定例外，不补协调者层（同
+    # H3A-029 gate 的"迁移期兼容"WARN 先例一致）。
     owner: dev-platform-baseline
     areas: [platform, database, ci, baseline]
     contracts: []
@@ -46,8 +55,10 @@ entries:
 
   - domain_id: DOM-CHAT
     name: "Chat / 对话"
-    # coord-chat-e2e 是唯一 kind: module-coordinator 且 areas 含 "chat" 的身份。
-    owner: coord-chat-e2e
+    # H3A-011 人类裁决（2026-08-08）：owner 从 coord-chat-e2e 拆分为独立的
+    # coord-chat（原因：coord-chat-e2e 同时是三个 Domain 的 owner，违反
+    # H3A-022"一个 Role 一个 Domain"）。见 `.harness/agents/registry.yaml`。
+    owner: coord-chat
     areas: [chat]
     contracts:
       - phases/phase-01-run-a-project/contracts/chat
@@ -56,8 +67,9 @@ entries:
 
   - domain_id: DOM-CANVAS-DIAGRAM
     name: "Canvas & Diagram / 画布与图表"
-    # 同 DOM-CHAT：coord-chat-e2e 是唯一 areas 含 "canvas" 的 module-coordinator。
-    owner: coord-chat-e2e
+    # H3A-011 人类裁决（2026-08-08）：owner 从 coord-chat-e2e 拆分为独立的
+    # coord-canvas（同 DOM-CHAT 的拆分理由）。
+    owner: coord-canvas
     areas: [canvas]
     contracts:
       - phases/phase-01-run-a-project/contracts/canvas
@@ -68,8 +80,9 @@ entries:
     name: "AI Runtime / AI 运行时"
     # dev-ai-runtime（kind: worker）是唯一 areas 含 "ai-runtime" 的身份——今天
     # 没有任何 module-coordinator 声称这个 area，这个 Domain 事实上没有
-    # coordinator 层，只有直接 reports_to coord-main 的 worker（E0 inventory
-    # 结构问题 #2 的另一个具体例子）。
+    # coordinator 层，只有直接 reports_to coord-main 的 worker。
+    # H3A-011 人类裁决（2026-08-08）：接受为既定例外，不补协调者层（同
+    # H3A-029 gate 的"迁移期兼容"WARN 先例一致）。
     owner: dev-ai-runtime
     areas: [ai-runtime]
     contracts:
@@ -84,8 +97,11 @@ entries:
     # 都声称这块边界，且不是"协调者+其下 worker"的正常分工（dev-ai-runtime
     # reports_to coord-main，不是 coord-chat-e2e）。额外发现：registry.yaml
     # 自己在 "agent"（coord-chat-e2e）和 "agents"（dev-ai-runtime）上单复数
-    # 不一致，不确定是否指同一个边界，还是命名当时就没对齐——这两件事本文件
-    # 都不替人类下判断。
+    # 不一致，不确定是否指同一个边界，还是命名当时就没对齐。
+    # H3A-011 人类裁决（2026-08-08）：暂缓，owner 继续为 null——不是遗漏，是
+    # 明确的"留到 H3A-018 真正用到这块边界时再定"，与 DOM-PLATFORM/
+    # DOM-AI-RUNTIME 那种"接受既定例外"不同（那两个已经定了不补协调者层；
+    # 这个还没定，是真悬而未决）。
     owner: null
     areas: [agents, skills]
     contracts:
@@ -105,11 +121,12 @@ entries:
 
   - domain_id: DOM-E2E-RELEASE-READINESS
     name: "E2E & Release Readiness / 端到端与发布就绪"
-    # coord-chat-e2e 是唯一 areas 含 "e2e" 的 module-coordinator，定为 owner。
-    # rev-e2e（kind: reviewer，areas=[e2e,release-readiness]，required_for 同）
-    # 是该 area 的必需独立评审角色，按 Proposal P6/G6 评审权与规划权本来就该
-    # 分离，不构成 owner 竞争——不要把这条误读成"两个身份争 owner"。
-    owner: coord-chat-e2e
+    # H3A-011 人类裁决（2026-08-08）：owner 从 coord-chat-e2e 拆分为独立的
+    # coord-e2e（同 DOM-CHAT 的拆分理由）。rev-e2e（kind: reviewer，
+    # areas=[e2e,release-readiness]，required_for 同）是该 area 的必需独立
+    # 评审角色，按 Proposal P6/G6 评审权与规划权本来就该分离，不构成 owner
+    # 竞争——不要把这条误读成"两个身份争 owner"。
+    owner: coord-e2e
     areas: [e2e, release-readiness]
     contracts: []
     verification: []
