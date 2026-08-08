@@ -18,6 +18,7 @@ import {
   type AgentRunStatus,
   type AgentRunView,
 } from "@/lib/agent-run";
+import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -85,6 +86,16 @@ export function ChatLiveMessagePanel({
    */
   const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
   const [runObservation, setRunObservation] = React.useState<RunObservation | null>(null);
+  /**
+   * #654 阶段2d —— 逐 token 累积的草稿文本，与上面 `runObservation` 刻意分开维护。
+   *
+   * `runObservation` 仍然是唯一的权威状态源（来自 `GET /agent-runs/:runId` 轮询，
+   * 一个字节没改），驱动着已经有测试钉住的 `AgentRunStatus` 状态条。`streamingText`
+   * 只是一层纯展示的叠加：`KERNEL_MODEL_STREAM_ENABLED` 关闭（当前默认）或所选
+   * provider 不支持流式时，`GET /agent-runs/:runId/stream` 永远不会推来任何
+   * `delta` 事件，这里就永远是空串——退化到今天这个界面本来的样子，一个字节不多。
+   */
+  const [streamingText, setStreamingText] = React.useState("");
   const generation = React.useRef(0);
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
@@ -203,6 +214,46 @@ export function ChatLiveMessagePanel({
     };
   }, [activeRunId, bearer, loadPage]);
 
+  /**
+   * #654 阶段2d —— 逐 token 追加。与上面的状态轮询是两个独立的 effect，各自
+   * `useEffect([activeRunId, ...])`，互不依赖：这条流断了（网络问题、服务端还没打开
+   * `KERNEL_MODEL_STREAM_ENABLED`）不影响上面状态条的权威轮询继续工作；上面的轮询
+   * 到终态后照旧 `loadPage(null, true)` 重读持久消息——那才是最终渲染的真源，
+   * 这里的 `streamingText` 只是等待持久化期间的观感，终态一到就清空（下面的
+   * `onEvent` 分支）。
+   */
+  React.useEffect(() => {
+    const runId = activeRunId;
+    setStreamingText("");
+    if (runId === null) return;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    void openAgentRunStream(runId, (event) => {
+      if (cancelled) return;
+      if (event.type === "delta") {
+        setStreamingText((current) => current + event.text);
+      } else if (event.type === "final" || event.type === "timeout") {
+        // The persisted message list (via the status-poll effect's `loadPage`) is about
+        // to become the single source of truth for this reply -- keeping the streamed
+        // draft around after that would risk showing the SAME text twice for a moment.
+        setStreamingText("");
+      }
+    }, { sessionToken: bearer, signal: controller.signal }).catch(() => {
+      // Streaming is a progressive enhancement, not a requirement: `runObservation`'s own
+      // poll (above) is the authoritative status/result source regardless of whether this
+      // connection ever opens at all. A failure here is silently absorbed on purpose --
+      // surfacing it as a user-facing error would be reporting a problem with a purely
+      // cosmetic feature as if it were the send itself failing.
+      if (!cancelled) setStreamingText("");
+    });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [activeRunId, bearer]);
+
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
     const nextAgentId = next.agentId ?? selectedAgentId;
@@ -309,6 +360,32 @@ export function ChatLiveMessagePanel({
                 </li>
               );
             })}
+            {streamingText !== "" ? (
+              // #654 阶段2d —— 逐 token 追加的草稿气泡。刻意不是 `chat-message-row`
+              // 这个 testid：它不是一条持久消息（没有 `message.id`，刷新即消失），
+              // 断言脚本不该把它误认成 #413 写回的那一条。终态一到（上面的流式
+              // effect）它立刻清空，被 `loadPage` 重读出来的真正持久消息接管。
+              <li
+                className="flex items-start gap-2.5"
+                data-testid="chat-message-row-streaming"
+                data-run-id={activeRunId}
+              >
+                <div aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Bot className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex max-w-[80%] flex-col gap-1 items-start">
+                  <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <span className="font-medium">Agent</span>
+                    <Badge tone="outline">正在生成…</Badge>
+                  </div>
+                  <div className="copilotkit-message-markdown rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
+                    {/* 同一个 CopilotKit Markdown 组件——流式草稿和落库后的最终消息
+                        渲染路径不该是两套，图片 markdown 语法在两边要一样生效。 */}
+                    <Markdown content={streamingText} />
+                  </div>
+                </div>
+              </li>
+            ) : null}
           </ol>
         ) : null}
         {nextCursor ? (
