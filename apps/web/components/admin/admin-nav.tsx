@@ -5,6 +5,7 @@ import { ADMIN_NAV, ADMIN_NAV_COUNT_SOURCES, type AdminModuleKey } from "@/lib/m
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
 import { resolveAdminNavCounts, type AdminNavCountSource } from "@/lib/admin-nav-counts";
 import { ADMIN_SECOND_LEVEL } from "@/lib/navigation";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 /** 后台二级模块（从 navigation.ts 的「后台」children 取）的稳定 testid —— 供 e2e 锚定。 */
@@ -50,6 +51,16 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  *   Agent · Skill · 项目蓝本 · 成员配额 指向 `/admin/*` 那批**接了真实数据**的屏，
  *   而第三组指向的是同名能力域的 UI 先行全生命周期屏（多为 mock）。
  *   两者是同一件事的两套实现，归并需要人裁——本 PR 只把入口从一级收回后台。
+ *
+ * ## #700 —— 「原型 · 待归并」标签（人类裁决选项 1）
+ *
+ * 上面这条「已知重复」曾经只写在注释里，用户在界面上看不出这组入口是原型。
+ * #700 issue #700#issuecomment-5224610781 人类选了选项 1：**不删这组入口**
+ * （删了会打红 `lint-nav-reachability.mjs`，也会让 ADR-023 签核材料不可达），
+ * 但要在 UI 上诚实标出「这是原型，不是跟『AI 能力』组重复的另一套正式功能」。
+ * 于是这里逐项渲染 `item.isPrototype`（唯一事实源见 `lib/navigation.ts` 的
+ * `ADMIN_SECOND_LEVEL`）驱动的 `Badge`——`skills`（已接真实后端）不带该字段，
+ * 不与其余四项连坐；语气对齐 `NoBackendNotice`「尚未接入真实后端」。
  *
  * `countSources` 默认取生产数据源（`ADMIN_NAV_COUNT_SOURCES`）；测试用它注入
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
@@ -127,6 +138,16 @@ export function AdminNav({
               >
                 <Icon aria-hidden className="h-4 w-4 shrink-0" />
                 <span className="flex-1 truncate">{item.label}</span>
+                {item.isPrototype && (
+                  <Badge
+                    tone="warning"
+                    data-testid={`${adminSubNavTestId(item.key)}-prototype-badge`}
+                    aria-label={`${item.label}：原型演示，尚未与「AI 能力」组的正式功能归并`}
+                    className="shrink-0"
+                  >
+                    原型 · 待归并
+                  </Badge>
+                )}
               </Link>
             );
           })}
