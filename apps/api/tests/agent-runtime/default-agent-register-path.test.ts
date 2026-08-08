@@ -13,6 +13,13 @@
  * 走的旅程:`/auth/register`(带真实邀请码)→ 邮箱验证 → 登录 → 不做任何 agent 管理
  * 操作直接读 capability 目录 → 发消息 → 真实执行成功。与 #661 那份证据同一强度,只是
  * 换了创建组织的那扇门。
+ *
+ * ## 2026-08-08 (#740) —— stub 换成 deepagents 的 LangGraph HTTP 形状
+ *
+ * 同 `default-agent-bootstrap-chat.test.ts` 头注：默认 agent 的 `model_provider` 换成
+ * `DeepAgentModelProvider` 之后，这份测试的 stub 也从 OpenAI 兼容 `/chat/completions`
+ * 换成 `deep-agent-model-provider.ts` 依赖的四个端点（create thread / create run / poll
+ * status / read state），理由同上，不重复。
  */
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -36,15 +43,17 @@ process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
 const ORIGINAL_DATABASE = process.env.PGDATABASE;
 const DATABASE = `wsx_i662_register_default_agent_${process.pid}_${Date.now()}`;
-const MODEL_PROVIDER = "wave2-loopback-i662-register";
+const THREAD_ID = `da-thread-i662-register-${randomUUID()}`;
+const RUN_ID = `da-run-i662-register-${randomUUID()}`;
+const FINAL_REPLY = "你好，我是本组织的通用助手，很高兴认识你。";
 const CODE = makeCode("I662REGDEFAULT");
 
 let app: NestExpressApplication;
 let databasePort: PgDatabase;
 let base = "";
-let modelServer: Server;
-let modelBase = "";
-let capturedModelBodies: unknown[] = [];
+let deepAgentServer: Server;
+let statusPollCount = 0;
+let capturedRunBodies: unknown[] = [];
 
 function ownerConfig(database: string) {
   return { ...migrationConfig(), database };
@@ -56,27 +65,55 @@ async function adminClient(database = "postgres") {
   return client;
 }
 
-async function startModelServer(): Promise<void> {
-  modelServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => {
-      try { capturedModelBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
-      catch { capturedModelBodies.push({}); }
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "ack" } }] }));
-    });
+/** 同 `default-agent-bootstrap-chat.test.ts` 的 stub——真实实现
+ * `deep-agent-model-provider.ts` 依赖的四个端点形状。 */
+async function startDeepAgentServer(): Promise<string> {
+  deepAgentServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const url = req.url ?? "";
+    const respond = (status: number, body: unknown) => {
+      res.writeHead(status, { "content-type": "application/json" });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method === "POST" && url === "/threads") {
+      return respond(200, { thread_id: THREAD_ID });
+    }
+    if (req.method === "POST" && url === `/threads/${THREAD_ID}/runs`) {
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", () => {
+        try { capturedRunBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+        catch { capturedRunBodies.push({}); }
+        respond(200, { run_id: RUN_ID });
+      });
+      return;
+    }
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}`) {
+      statusPollCount += 1;
+      const status = statusPollCount < 3 ? "running" : "success";
+      return respond(200, { status });
+    }
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/state`) {
+      return respond(200, {
+        values: {
+          messages: [
+            { type: "human", content: "你好,请介绍一下你自己" },
+            { type: "ai", content: FINAL_REPLY },
+          ],
+        },
+      });
+    }
+    respond(404, { error: "not_found" });
   });
-  await new Promise<void>((resolve) => modelServer.listen(0, "127.0.0.1", resolve));
-  modelBase = `http://127.0.0.1:${(modelServer.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => deepAgentServer.listen(0, "127.0.0.1", resolve));
+  return `http://127.0.0.1:${(deepAgentServer.address() as AddressInfo).port}`;
 }
 
 beforeAll(async () => {
   ensureRedis();
-  await startModelServer();
-  process.env.KERNEL_MODEL_PROVIDER = MODEL_PROVIDER;
-  process.env.KERNEL_MODEL_BASE_URL = modelBase;
-  process.env.KERNEL_MODEL_API_KEY = "sk-i662-register-e2e-do-not-echo";
+  const deepAgentBase = await startDeepAgentServer();
+  process.env.KERNEL_DEEP_AGENT_BASE_URL = deepAgentBase;
+  process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "50";
+  process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
 
   const admin = await adminClient();
   try { await admin.query(`CREATE DATABASE ${DATABASE}`); } finally { await admin.end(); }
@@ -95,7 +132,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await databasePort?.close();
-  await new Promise<void>((resolve) => modelServer.close(() => resolve()));
+  await new Promise<void>((resolve) => deepAgentServer.close(() => resolve()));
   const admin = await adminClient();
   try { await dropDatabaseAfterDraining(admin, DATABASE); }
   finally {
@@ -152,7 +189,7 @@ describe("#662 直接后续：/auth/register（邀请码建组织）同样给出
     const { threadId } = (await threadRes.json()) as { threadId: string };
 
     /* ── ④ 发消息给 capability 目录里选到的那个 agent ── */
-    capturedModelBodies = [];
+    capturedRunBodies = [];
     const msgRes = await fetch(`${base}/chat/threads/${threadId}/messages`, {
       method: "POST",
       headers: principal,
@@ -168,6 +205,13 @@ describe("#662 直接后续：/auth/register（邀请码建组织）同样给出
     const runRes = await fetch(`${base}/agent-runs/${agentRunId}`, { headers: principal });
     const run = (await runRes.json()) as { status: string };
     expect(run.status).toBe("succeeded");
-    expect(capturedModelBodies).toHaveLength(1);
+    expect(statusPollCount).toBeGreaterThanOrEqual(3);
+    expect(capturedRunBodies).toHaveLength(1);
+
+    /* ── ⑥ 最终回复真实写回了 chat 线程 ── */
+    const messagesRes = await fetch(`${base}/chat/threads/${threadId}/messages`, { headers: principal });
+    const { messages } = (await messagesRes.json()) as { messages: { authorKind: string; text: string }[] };
+    const reply = messages.find((m) => m.authorKind === "agent");
+    expect(reply?.text).toBe(FINAL_REPLY);
   });
 });

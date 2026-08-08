@@ -364,6 +364,19 @@ export interface ModelCallInput {
   /** This run's tool-loop scratch state so far (#725), oldest first. Only meaningful
    * together with `tools`; a provider that does not implement tool-calling ignores it. */
   readonly toolExchange?: readonly ToolExchangeTurn[];
+  /**
+   * The run's pinned Skills, structured (#740) -- the SAME list `readPinnedSkills` already
+   * resolved, passed through as-is. Exists for `DeepAgentModelProvider`: unlike the TS tool
+   * loop (#725, which turns each Skill into a `ToolDefinition` `execute-run.ts` itself
+   * calls), a `deepagents` run executes Skills INSIDE the remote LangGraph service (its
+   * `call_skill` tool, see `apps/deep-agent-service/src/deep_agent_service/tools.py`) --
+   * that service has no access to this deployment's database, so the Skill content has to
+   * arrive as data on the request instead. `DeepAgentModelProvider` forwards this verbatim
+   * into the LangGraph run's `config.configurable.org_skills`; every provider that predates
+   * #740 simply never reads this field, same "absent/unused is not a regression" discipline
+   * `tools` established for #725.
+   */
+  readonly skills?: readonly PinnedSkillContent[];
 }
 
 /**

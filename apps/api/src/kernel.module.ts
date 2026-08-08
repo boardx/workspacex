@@ -220,6 +220,9 @@ import {
   DEEP_RESEARCH_PROVIDER_NAME, DeepResearchModelProvider, readDeepResearchProviderConfig,
 } from "./infrastructure/agent-run/deep-research-model-provider";
 import {
+  DEEP_AGENT_PROVIDER_NAME, DeepAgentModelProvider, readDeepAgentProviderConfig,
+} from "./infrastructure/agent-run/deep-agent-model-provider";
+import {
   BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
@@ -813,16 +816,17 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
       // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
       //
-      // 三个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image）：
-      // `RoutingModelCallPort` 按 run 快照里 pin 的 `modelProvider` 字符串分派，不是
-      // "配一个、其它 fallback 过去"——见该类头注，这是 `ConfiguredModelProvider`
-      // "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
+      // 四个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image；
+      // 2026-08-08 加入 deep-agent，#740）：`RoutingModelCallPort` 按 run 快照里 pin 的
+      // `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"——见该类头注，这是
+      // `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
         return new RoutingModelCallPort(new Map<string, ModelCallPort>([
           [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
+          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
           [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
         ]));
       },

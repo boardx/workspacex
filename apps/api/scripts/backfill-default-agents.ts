@@ -22,23 +22,38 @@
  * 2026-08-07 devapp incident: this script ran on devapp BEFORE `KERNEL_MODEL_PROVIDER`/
  * `KERNEL_MODEL_BASE_URL`/`KERNEL_MODEL_API_KEY` were ever set on that deployment (a
  * separate, pre-existing gap -- this deployment had never had a real model provider
- * configured at all). `readModelProviderConfig()` returns `provider: ""` when unset, and
- * `PgDefaultAgentRepository.ensure()` bakes that value into the new row's
- * `agent_versions.model_provider` at creation time (see that file's own header). Once the
- * env was fixed, those two already-created rows still carried `""` forever -- the
- * first-pass `NOT EXISTS` check skips them because the row already exists, and nothing
- * else ever revisits `model_provider` after creation. Every run against them failed
- * `MODEL_PROVIDER_NOT_CONFIGURED` even though the deployment was, by then, correctly
- * configured. This second pass finds exactly that shape (a default-agent row whose stored
- * provider doesn't match the live one) and re-points it -- NOT by `UPDATE`ing the stale
- * `agent_versions` row. `agent_versions` is deliberately append-only for the application
- * role (`GRANT SELECT,INSERT ON agent_versions TO app_rw` -- no `UPDATE`, see
- * `wave2_agent_starter_import.sql`): versions are immutable once published, the same
- * invariant every other publish path in this codebase respects. So this INSERTs a fresh
- * version (bumped `semantic_label`) carrying the live provider and re-points
- * `agents.published_version_id` at it -- exactly the same two statements
+ * configured at all). `readModelProviderConfig()` returned `provider: ""` when unset, and
+ * the default-agent repository baked that value into the new row's
+ * `agent_versions.model_provider` at creation time. Once the env was fixed, those
+ * already-created rows still carried `""` forever -- the first-pass `NOT EXISTS` check
+ * skips them because the row already exists, and nothing else ever revisits
+ * `model_provider` after creation. This second pass finds exactly that shape (a
+ * default-agent row whose stored provider doesn't match the live target) and re-points it
+ * -- NOT by `UPDATE`ing the stale `agent_versions` row. `agent_versions` is deliberately
+ * append-only for the application role (`GRANT SELECT,INSERT ON agent_versions TO app_rw`
+ * -- no `UPDATE`, see `wave2_agent_starter_import.sql`): versions are immutable once
+ * published, the same invariant every other publish path in this codebase respects. So
+ * this INSERTs a fresh version (bumped `semantic_label`) carrying the live provider and
+ * re-points `agents.published_version_id` at it -- exactly the same two statements
  * `PgDefaultAgentRepository.ensure()` already runs to create the FIRST version, just run a
  * second time for a corrected one.
+ *
+ * ## 2026-08-08 (#740) -- the "live target" is now a constant, and this pass IS the migration
+ *
+ * `pg-default-agent-repository.ts`'s `resolveModel()` no longer reads `KERNEL_MODEL_PROVIDER`
+ * at all -- the default agent's `model_provider` is now the hardcoded constant
+ * `DEEP_AGENT_PROVIDER_NAME` (`"deep-agent"`, see that file's own header for the full
+ * decision). That makes the original "stale because env drifted" failure mode structurally
+ * impossible for anything CREATED after this change (the target can no longer be unset or
+ * wrong at creation time -- it is not read from anywhere). But this pass's SQL shape (find
+ * a published default-agent version whose `model_provider` doesn't match the target,
+ * republish one that does) is exactly the one-time migration every org that predates #740
+ * needs: their stored `model_provider` is whatever `KERNEL_MODEL_PROVIDER` happened to be
+ * at THEIR creation time (e.g. `"dashscope"`), not `"deep-agent"`. Reusing this pass rather
+ * than writing a second copy of "find stale default-agent versions, republish" is the same
+ * "one fact, one place" discipline AGENTS.md names by number (five prior drifts) --
+ * `repairStaleModelProvider` below no longer reads `readModelProviderConfig()` at all; its
+ * target is `DEEP_AGENT_PROVIDER_NAME`, unconditionally, every run.
  */
 import { randomUUID, createHash } from "node:crypto";
 import pg from "pg";
@@ -50,7 +65,7 @@ import {
   DEFAULT_AGENT_STABLE_NAME,
   DEFAULT_AGENT_INSTRUCTIONS,
 } from "../src/application/agent/ensure-default-agent";
-import { readModelProviderConfig } from "../src/infrastructure/agent-run/configured-model-provider";
+import { DEEP_AGENT_PROVIDER_NAME } from "../src/infrastructure/agent-run/deep-agent-model-provider";
 import { toOrgId } from "../src/domain/org-id";
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
@@ -125,11 +140,9 @@ export async function backfillDefaultAgents(): Promise<BackfillReport> {
  * default-agent row with a stale provider is a cross-tenant read, same as the first pass.
  */
 async function repairStaleModelProvider(db: PgDatabase): Promise<number> {
-  const { provider } = readModelProviderConfig();
-  if (provider === "") {
-    console.log("[backfill-default-agents] KERNEL_MODEL_PROVIDER unset -- skipping provider-repair pass");
-    return 0;
-  }
+  // #740: the target is now a hardcoded constant, never empty -- there is no "env unset,
+  // skip the pass" branch anymore (see this file's own header, "2026-08-08 (#740)" section).
+  const provider = DEEP_AGENT_PROVIDER_NAME;
   const modelId = (process.env.KERNEL_DEFAULT_AGENT_MODEL_ID ?? "").trim() || "default";
 
   const owner = new pg.Pool({ ...migrationConfig(), max: 2 });
