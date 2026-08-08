@@ -14,7 +14,7 @@
  */
 import { chat } from "@repo/contracts";
 import type { z } from "zod";
-import { apiWebSocketUrl, getStoredSessionToken } from "./api-client";
+import { apiWebSocketUrl, getStoredSessionToken, waitForSocketOpen } from "./api-client";
 import { startCapture, type CaptureHandle } from "./live-recording";
 
 export type AsrDraftErrorReason = z.infer<typeof chat.ChatAsrDraftErrorReason>;
@@ -44,7 +44,7 @@ export interface AsrDraftStreamHandle {
  */
 export async function openAsrDraftStream(
   handlers: AsrDraftStreamHandlers,
-  deps: { sessionToken?: string | null; capture?: () => Promise<CaptureHandle> } = {},
+  deps: { sessionToken?: string | null; capture?: () => Promise<CaptureHandle>; handshakeTimeoutMs?: number } = {},
 ): Promise<AsrDraftStreamHandle> {
   const token = deps.sessionToken !== undefined ? deps.sessionToken : getStoredSessionToken();
   if (!token) throw new Error("a session token is required to open the ASR draft stream");
@@ -55,10 +55,14 @@ export async function openAsrDraftStream(
   const socket = new WebSocket(url, [`${STREAM.bearerSubprotocolPrefix}${token}`]);
   socket.binaryType = "arraybuffer";
 
-  await new Promise<void>((resolve, reject) => {
-    socket.addEventListener("open", () => resolve(), { once: true });
-    socket.addEventListener("error", () => reject(new Error("asr_draft_stream_handshake_failed")), { once: true });
-  });
+  // #753 —— 握手只等 open/error 不够：反代把这条 WS 面路由错的时候，连接会安静地
+  // 半开着，既不 open 也不 error，界面就会永远卡在"点了没反应"。加超时兜底，见
+  // `api-client.ts` 的 `waitForSocketOpen` 头注。
+  await waitForSocketOpen(
+    socket,
+    () => new Error("asr_draft_stream_handshake_failed"),
+    deps.handshakeTimeoutMs,
+  );
 
   socket.addEventListener("message", (event) => {
     const parsed = STREAM.server.safeParse(safeJson(String(event.data)));
