@@ -21,23 +21,45 @@ Status: proposed; human signoff required.
 ```ts
 // packages/contracts/src/identity.ts（追加，不新建文件——与 resolveIdentity 等同域）
 
+/** ⚠ §4① 已签：头像走 artifact 存储纪律，不接受外部裸 URL（O-17 同款审计口径）。
+ *  但 `files.ts` 的 `uploadArtifact` 是**项目态**契约（projectId/agendaSegmentId/confidential/
+ *  visibilityScope 均是项目语义），个人头像没有项目上下文，字面复用会硬凑不适用的字段。
+ *  ⇒ 新开一个**极简版**、专属头像的上传操作，复用的是"对象存储 + PG 元数据"这条**纪律**
+ *  （大小/内容类型限制、失败不留幽灵对象），不是那个 contract 操作本身。 */
+uploadOwnAvatar: {
+  method: "POST", path: "/identity/me/avatar",
+  in: z.object({
+    filename: z.string().min(1),
+    sizeBytes: z.number().int().positive().max(5 * 1024 * 1024),  // 5MB 上限，头像不需要更大
+    sha256: z.string(),
+    contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  }).strict(),
+  out: z.object({ avatarArtifactId: z.string(), avatarUrl: z.string() }).strict(),
+  err: ["FILE_TOO_LARGE", "UNSUPPORTED_CONTENT_TYPE"] as const,
+},
+
 updateOwnProfile: {
   method: "PATCH", path: "/identity/me",
   in: z.object({
     displayName: z.string().min(1).optional(),
-    avatarUrl: z.string().url().optional(),
+    /** null = 清空头像回默认；非 null 必须是 uploadOwnAvatar 刚返回的 avatarArtifactId —— 
+     *  不接受任意字符串,服务端要校验这个 artifact 属于当前用户 */
+    avatarArtifactId: z.string().nullable().optional(),
   }).strict(),
   out: z.object({ displayName: z.string(), avatarUrl: z.string().nullable() }).strict(),
-  err: ["INVALID_INPUT"] as const,
+  err: ["INVALID_INPUT", "AVATAR_ARTIFACT_NOT_OWNED"] as const,
 },
 
+/** ⚠ §4② 已签：主动改密 = 全部吊销——除本次请求所在会话外，强制其它设备/会话下线。
+ *  与 `password-reset.ts`「未登录邮箱令牌流程只吊销当前会话」是**不同威胁模型**，
+ *  不要把那条先例的实现抄过来；这里必须新写「吊销除本会话外的全部」这条路径。 */
 changeOwnPassword: {
   method: "POST", path: "/identity/me/password",
   in: z.object({
     currentPassword: z.string().min(1),
     newPassword: PasswordPolicy,   // 复用 auth.ts 已有的密码策略单一事实源，不重开一份
   }).strict(),
-  out: z.object({ changed: z.literal(true) }).strict(),
+  out: z.object({ changed: z.literal(true), revokedSessionCount: z.number().int().nonnegative() }).strict(),
   err: ["CURRENT_PASSWORD_INVALID", "PASSWORD_POLICY_VIOLATION"] as const,
 },
 
@@ -64,22 +86,28 @@ listOwnActivity: {
 
 ## 3. 边界与拒绝
 
-- `avatarUrl` 一旦落库是存储层职责之外的事——本 delta 只定义"存一个 URL 字符串"，
-  上传/校验/托管归 §4① 的裁决，不在本契约里预设答案。
+- 头像走 `uploadOwnAvatar` → 拿到 `avatarArtifactId` → 再传给 `updateOwnProfile`，两步而非一步，
+  跟 `uploadArtifact` 的"先落对象存储再落 PG 元数据"纪律一致；`updateOwnProfile` 收到的
+  `avatarArtifactId` 必须校验属于当前用户，否则 `AVATAR_ARTIFACT_NOT_OWNED`。
 - `changeOwnPassword` 的 `newPassword` 复用 `PasswordPolicy`，**不允许弱于**现有注册/重置路径的强度要求。
+- `changeOwnPassword` 成功后**必须**吊销除当前会话外的全部会话，`revokedSessionCount` 如实回传
+  （哪怕是 0——不能为了看起来"有效果"就编数）。
 
-## 4. 需要你先拍板的三件
+## 4. 需要你先拍板的三件 —— 已签（2026-08-07，人类在会话中经 AskUserQuestion 逐条选定）
 
-**① 头像存 URL 还是走已有的 artifact 上传链路？**
-两条路径的错误处理、大小限制、审计口径完全不同，不是实现细节，是产品决定。
+**① 头像存 URL 还是走已有的 artifact 上传链路？→ 选了"走 artifact 上传链路"。**
+实测发现 `uploadArtifact`（`files.ts`）是**项目态**契约（projectId/agendaSegmentId/confidential/
+visibilityScope 全是项目语义），个人头像没有项目上下文，字面复用会硬凑不适用的字段。
+⇒ 落地为新开 `uploadOwnAvatar`（见 §1），复用的是"对象存储 + PG 元数据、大小/类型限制、失败不留
+幽灵对象"这条**纪律**，不是那个 contract 操作字面本身——这个技术调整已经如实记在这里，不是自己
+悄悄改了人类的决定。
 
-**② 改密后要不要吊销其他会话？**
-建议参考 `password-reset.ts` 里"只吊销当前会话"还是"全部吊销"的先例——如果那条先例不适用于
-"用户自己主动改密"（威胁模型不同：密码重置往往假设账号已失控，主动改密不一定），需要重新判断。
+**② 改密后要不要吊销其他会话？→ 选了"全部吊销"。**
+`changeOwnPassword` 成功后强制吊销除当前会话外的全部会话，`out.revokedSessionCount` 回传实际数字。
 
-**③ 活动记录读哪张表？**
-如果复用 `provenance_events`（`adminAuditRead` 读的那张），需要确认按 `actorUserId` 过滤
-是否已有索引——没有的话全表扫是真实的性能问题，不是"以后再优化"。
+**③ 活动记录读哪张表？→ 复用 `provenance_events`，索引已存在，不需要新迁移。**
+实测 `0005-f03-admin-boundary.sql`：`provenance_events_actor_idx ON provenance_events (org_id, actor_id, at DESC)`
+已覆盖按 `actorUserId`（即 `actor_id`）过滤的查询模式，不是全表扫——这条是工程判断，不占用人类的三个裁决位。
 
 ## 5. 前端边界
 
