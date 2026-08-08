@@ -23,7 +23,10 @@ import type { Args } from "./lib/args";
 const REGISTRY_PATH = join(REPO_ROOT, ".harness", "domains", "registry.yaml");
 const SKILLS_DIR = join(REPO_ROOT, ".agents", "skills");
 
-function readYaml(path: string): { parsed: unknown; error: string | null } {
+/** 供 role-authorization-doctor.ts（H3A-022）复用——不重新发明一遍 registry.yaml 路径/读取。 */
+export { REGISTRY_PATH as DOMAIN_REGISTRY_PATH };
+
+export function readYaml(path: string): { parsed: unknown; error: string | null } {
   if (!existsSync(path)) return { parsed: null, error: `文件不存在：${path}` };
   try {
     return { parsed: parse(readFileSync(path, "utf8")), error: null };
@@ -42,7 +45,8 @@ function extractFrontmatter(markdown: string): string | null {
  * "模板，勿直接激活"，不是一个真实实例）。今天预期扫到 0 份合规实例
  * （H3A-002 inventory 现场核实过），这不是本函数的 bug，是仓库的真实状态。
  */
-function scanDomainSkillInstances(): { instances: DomainSkillInstance[]; failures: { sourceFile: string; message: string }[] } {
+/** 供 role-authorization-doctor.ts（H3A-022）复用——不重新发明一遍 Domain Skill 实例扫描。 */
+export function scanDomainSkillInstances(): { instances: DomainSkillInstance[]; failures: { sourceFile: string; message: string }[] } {
   const instances: DomainSkillInstance[] = [];
   const failures: { sourceFile: string; message: string }[] = [];
   if (!existsSync(SKILLS_DIR)) return { instances, failures };
