@@ -22,7 +22,7 @@ const SCREENS = [
   "/", "/kitchen-sink",
   "/login", "/join", "/consent", "/group", "/session",
   "/chat", "/projects", "/projects/p1", "/projects/p1/canvas", "/projects/p1/files",
-  "/tasks", "/brain",
+  "/tasks", "/brain", "/profile", "/org-admin",
   "/admin", "/admin/agent", "/admin/skill", "/admin/model",
   "/admin/mcp", "/admin/members", "/admin/feedback",
   "/studio/prototype", "/studio/interview", "/studio/survey", "/studio/research",

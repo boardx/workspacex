@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ImageOff, User } from "lucide-react";
+import Link from "next/link";
+import { BrainCircuit, ChevronRight, ImageOff, User } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -30,6 +31,25 @@ export function ProfileScreen() {
           <User aria-hidden className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-16 font-semibold tracking-tight">个人资料</h1>
         </div>
+
+        {/*
+          Brain 入口（移动端导航收敛，#736 复核修复）—— 375px 下 IconRail 整体隐藏
+          （`hidden md:flex`），移动端「我」tab 现在指向 `/profile`（不再直达 `/brain`），
+          所以 `/brain` 需要一条从「我」这条线可达的路径；这张卡就是那条路径。
+          跟随本页现有卡片视觉（`border-border` + `bg-panel`），不另起风格。
+        */}
+        <Link
+          href="/brain"
+          data-testid="profile-brain-entry"
+          className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3 transition-all duration-200 hover:bg-muted"
+        >
+          <BrainCircuit aria-hidden className="h-5 w-5 text-muted-foreground" />
+          <div className="flex flex-1 flex-col">
+            <span className="text-13 font-medium">我的 Brain</span>
+            <span className="text-10 text-muted-foreground">组织记忆 / Context Pack</span>
+          </div>
+          <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
+        </Link>
 
         {identity && session ? (
           <ProfileForm initialDisplayName={identity.displayName} />
