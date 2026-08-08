@@ -1,6 +1,6 @@
-// domain-skill-gates.test.ts — H3A-013/014/015 的反证。纯函数，喂构造的输入。
+// domain-skill-gates.test.ts — H3A-013/014/015/016 的反证。纯函数，喂构造的输入。
 import { describe, expect, it } from "vitest";
-import { findActiveGateViolations, findDeadReferences, findFreshnessIssues } from "./domain-skill-gates";
+import { findActiveGateViolations, findDeadReferences, findFreshnessIssues, findUnprovenActivePromotions } from "./domain-skill-gates";
 import type { DomainRegistryEntry } from "./domain-model";
 import type { DomainSkillInstance } from "./domain-skill-model";
 
@@ -146,5 +146,69 @@ describe("findFreshnessIssues (H3A-015)", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]!.code).toBe("H3A015-MALFORMED-COMMIT");
     expect(findings[0]!.severity).toBe("FAIL");
+  });
+});
+
+describe("findUnprovenActivePromotions (H3A-016)", () => {
+  it("🔴 status active，authority_refs 四个数组全空、last_verified 全空 → FAIL", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    const findings = findUnprovenActivePromotions([s]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.code).toBe("H3A016-UNPROVEN-ACTIVE-PROMOTION");
+    expect(findings[0]!.severity).toBe("FAIL");
+    expect(findings[0]!.sourceFile).toBe(s.sourceFile);
+  });
+
+  it("status active，authority_refs.contracts 非空（其余仍空）→ 无 finding（有一类证据即不算无证据）", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: ["docs/x.md"], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status active，authority_refs 全空但 last_verified.commit 非空 → 无 finding", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: "abc1234", evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status active，authority_refs 全空、commit 为 null，但 evidence_refs 非空 → 无 finding", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: ["phases/02/sprint-01/evidence/x.log"] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status superseded，证据全空 → 无 finding（本 gate 只管 active）", () => {
+    const s = skill({
+      status: "superseded",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status retired，证据全空 → 无 finding（本 gate 只管 active）", () => {
+    const s = skill({
+      status: "retired",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("空实例列表 → 无 finding", () => {
+    expect(findUnprovenActivePromotions([])).toEqual([]);
   });
 });

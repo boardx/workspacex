@@ -1,4 +1,4 @@
-// domains-doctor.ts — H3A-010/012/013/014/015（PROP-HARNESS-AGENT-001 Epic E1）的仓库侧入口。
+// domains-doctor.ts — H3A-010/012/013/014/015/016（PROP-HARNESS-AGENT-001 Epic E1）的仓库侧入口。
 //
 // pnpm harness domains doctor
 //
@@ -7,7 +7,7 @@
 //   1. 读 .harness/domains/registry.yaml → 交给 validateDomainRegistry（H3A-010）
 //   2. 扫 .agents/skills/mod-*/SKILL.md 的 frontmatter，挑出 template_id ===
 //      "TPL-MOD-001" 的实例 → 交给 validateDomainSkillInstance（H3A-012）
-//   3. 把 registry + 实例交给三条跨表 gate（H3A-013/014/015）
+//   3. 把 registry + 实例交给四条跨表 gate（H3A-013/014/015/016）
 // 同 templates-doctor.ts/terminology-doctor.ts 的分层方式：本文件只管"从哪读、
 // 输出成什么退出码"，不含判定逻辑本身。
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -16,7 +16,13 @@ import { parse } from "yaml";
 import { REPO_ROOT } from "./lib/paths";
 import { validateDomainRegistry, type DomainRegistryEntry } from "./lib/domain-model";
 import { validateDomainSkillInstance, looksLikeDomainSkillInstance, type DomainSkillInstance } from "./lib/domain-skill-model";
-import { findActiveGateViolations, findDeadReferences, findFreshnessIssues, type GateFinding } from "./lib/domain-skill-gates";
+import {
+  findActiveGateViolations,
+  findDeadReferences,
+  findFreshnessIssues,
+  findUnprovenActivePromotions,
+  type GateFinding,
+} from "./lib/domain-skill-gates";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 
@@ -121,7 +127,8 @@ export function domainsDoctor(_args: Args): void {
   const activeGateFindings = findActiveGateViolations(domains, skills);
   const deadRefFindings = findDeadReferences(skills, (p) => existsSync(join(REPO_ROOT, p)));
   const freshnessFindings = findFreshnessIssues(skills);
-  const allGateFindings = [...activeGateFindings, ...deadRefFindings, ...freshnessFindings];
+  const unprovenPromotionFindings = findUnprovenActivePromotions(skills);
+  const allGateFindings = [...activeGateFindings, ...deadRefFindings, ...freshnessFindings, ...unprovenPromotionFindings];
 
   const failFindings = allGateFindings.filter((f) => f.severity === "FAIL");
   const warnFindings = allGateFindings.filter((f) => f.severity === "WARN");
@@ -129,7 +136,7 @@ export function domainsDoctor(_args: Args): void {
 
   log.info(`[domains doctor] ${skills.length} 份 Domain Skill 实例（H3A-012 schema 合规）`);
   if (allGateFindings.length > 0) {
-    log.info(`[domains doctor] Domain↔Skill gate（H3A-013/014/015）：${failFindings.length} FAIL / ${warnFindings.length} WARN`);
+    log.info(`[domains doctor] Domain↔Skill gate（H3A-013/014/015/016）：${failFindings.length} FAIL / ${warnFindings.length} WARN`);
     printFindings(allGateFindings);
   } else {
     log.ok(`[domains doctor] Domain↔Skill gate：无 finding`);
