@@ -53,7 +53,7 @@
 |---|---|---|---|---|---|
 | H3A-020 | P0 | ✅ 完成（PR #686） | TPL-ROL-001 分层扩展 | 005、007 | layer、domain、supervisor、dispatch、authority 可验证 |
 | H3A-021 | P0 | ✅ 完成（PR #686） | Root Orchestrator Role 单例门 | 020 | 同项目两个 active Root 会红 |
-| H3A-022 | P0 | 🔶 PR #待定 待 review（issue #696） | Domain Orchestrator Role schema | 010、020 | 每个 Role 绑定一个 Domain 和一个 active Skill |
+| H3A-022 | P0 | 🔶 PR #698 待 review（issue #696） | Domain Orchestrator Role schema | 010、020 | 每个 Role 绑定一个 Domain 和一个 active Skill |
 | H3A-023 | P0 | ✅ 完成（PR #686） | Specialist Worker Role schema | 020 | 单一职责、I/O、tools、write scope、stop 条件完整 |
 | H3A-024 | P0 | ✅ 完成（PR #686） | 最大三层深度 gate | 020–023 | Specialist Worker 派生第四层会红 |
 | H3A-025 | P0 | ✅ 完成（PR #686） | Role authority monotonicity gate | 020 | 子角色权限不能大于 supervisor/Task Assignment |
