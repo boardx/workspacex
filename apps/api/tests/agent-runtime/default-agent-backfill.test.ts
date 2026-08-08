@@ -11,11 +11,14 @@
  * 独立数据库：脚本会扫描 `organizations` 全表，不带任何租户过滤——绝不能在共享测试库上
  * 跑，否则会把并发跑着的其他测试文件的组织也一起改了。
  */
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
 import { migrate } from "../../src/infrastructure/db/migrator";
 import { migrationConfig } from "../../src/infrastructure/db/pg-config";
 import { dropDatabaseAfterDraining } from "../support/drop-database";
+
+const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
 process.env.KERNEL_QUIET = "1";
 
@@ -121,92 +124,85 @@ describe("#662 backfillDefaultAgents：补种 #662 之前就存在的组织", ()
     expect(second.created).toBe(0);
   });
 
-  it("2026-08-07 devapp 真实复现：env 缺失时创建的默认 agent，事后补上 env 要能被追认修好", async () => {
-    // 复刻 devapp 事故的确切顺序：先在 KERNEL_MODEL_PROVIDER 完全未设置的情况下跑一遍
-    // （agent_versions.model_provider 落成 ''），再"事后"把 env 补上，第二遍必须把那一行
-    // 追认成真实可用的 provider——不是"下次创建的新组织才对"，而是"已经创建的这一个也
-    // 要被修好"，否则 devapp 上那个用户会永远卡在 MODEL_PROVIDER_NOT_CONFIGURED。
-    delete process.env.KERNEL_MODEL_PROVIDER;
-    delete process.env.KERNEL_MODEL_BASE_URL;
-    delete process.env.KERNEL_MODEL_API_KEY;
-    delete process.env.KERNEL_DEFAULT_AGENT_MODEL_ID;
+  it("2026-08-08 (#740)：预存量组织的默认 agent 从旧 provider 一次性迁移到 deep-agent", async () => {
+    // 直接造一个"#740 落地前就存在、默认 agent 已经发布过、provider 还是旧值"的组织形状
+    // ——`ensureDefaultAgent`/`PgDefaultAgentRepository` 现在恒定 pin `"deep-agent"`
+    // （见 `pg-default-agent-repository.ts` 头注），不会自己创建出一个旧 provider 的行；
+    // 这里绕过它直接写库，模拟"迁移脚本落地前的历史数据"。
     const { backfillDefaultAgents } = await import("../../scripts/backfill-default-agents");
+    const { DEEP_AGENT_PROVIDER_NAME } = await import("../../src/infrastructure/agent-run/deep-agent-model-provider");
 
-    const ORG = "org-i662-provider-repair";
-    const ADMIN = "u-i662-provider-repair-admin";
+    const ORG = "org-i740-provider-migration";
+    const ADMIN = "u-i740-provider-migration-admin";
+    const AGENT_ID = "agent-i740-provider-migration";
+    const VERSION_ID = "agent-version-i740-provider-migration";
     const owner = new pg.Client(ownerConfig(DATABASE));
     await owner.connect();
     try {
       await owner.query(
-        "INSERT INTO organizations (id, name, kind) VALUES ($1, '待修复 provider 的组织', 'organization')",
+        "INSERT INTO organizations (id, name, kind) VALUES ($1, '待迁移 provider 的老组织', 'organization')",
         [ORG],
       );
       await owner.query(
         "INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)",
         [ADMIN, ORG],
       );
+      await owner.query(
+        "INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id) VALUES ($1,$2,'default-assistant','通用助手','enabled',$3,now(),now(),NULL)",
+        [AGENT_ID, ORG, ADMIN],
+      );
+      await owner.query(
+        `INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+         VALUES ($1,$2,$3,'v1',$4,'旧指令','{}'::text[],'dashscope','qwen-old','[]'::jsonb,$5,now(),now())`,
+        [VERSION_ID, ORG, AGENT_ID, sha256("旧指令"), ADMIN],
+      );
+      await owner.query(
+        "UPDATE agents SET published_version_id=$2 WHERE id=$1",
+        [AGENT_ID, VERSION_ID],
+      );
     } finally {
       await owner.end();
     }
 
     try {
-      // ① env 缺失时跑一遍——落库的 model_provider 是空字符串。
-      const beforeEnv = await backfillDefaultAgents();
-      expect(beforeEnv.created).toBe(1);
-      expect(beforeEnv.providerRepaired).toBe(0); // provider 都还没配，没有"活的值"可修
+      // ① 这个组织已经有 stable_name='default-assistant'，第一遍不会当"候选新建"，
+      // 但 provider 迁移这一遍（本来就跑在同一个 backfill 里）要把它修好。
+      const first = await backfillDefaultAgents();
+      expect(first.providerRepaired).toBeGreaterThanOrEqual(1); // 至少修好了本用例这一行
 
       const check1 = new pg.Client(ownerConfig(DATABASE));
       await check1.connect();
       try {
-        const r = await check1.query<{ model_provider: string }>(
-          `SELECT av.model_provider FROM agent_versions av
-             JOIN agents a ON a.id = av.agent_id AND a.published_version_id = av.id
-            WHERE a.org_id = $1 AND a.stable_name = 'default-assistant'`,
-          [ORG],
-        );
-        expect(r.rows[0]!.model_provider).toBe("");
-      } finally {
-        await check1.end();
-      }
-
-      // ② 事后把 env 补上，再跑一遍——不再创建新的，但要把①那一行追认修好。
-      // ⚠ 不断言 providerRepaired 的绝对值：这份测试和上一个 it() 共用同一个数据库
-      // （文件级 beforeAll 只建一次库），上一个 it() 造的 ORG_WITH_ADMIN 那一行同样带着
-      // 空 provider，这一遍会被一并修好——那是正确行为，不是本用例的失败。断言收窄到
-      // "至少修好了本用例自己的这一行"，用直接查库核实，而不是信一个会被平行状态污染
-      // 的聚合计数。
-      process.env.KERNEL_MODEL_PROVIDER = "dashscope";
-      process.env.KERNEL_MODEL_BASE_URL = "https://example-repair-test.invalid/v1";
-      process.env.KERNEL_MODEL_API_KEY = "sk-repair-test-do-not-echo";
-      process.env.KERNEL_DEFAULT_AGENT_MODEL_ID = "qwen-repair-test";
-
-      const afterEnv = await backfillDefaultAgents();
-      expect(afterEnv.created).toBe(0); // 组织已经有默认 agent 了，不重复创建
-      expect(afterEnv.providerRepaired).toBeGreaterThanOrEqual(1); // 至少修好了本用例这一行
-
-      const check2 = new pg.Client(ownerConfig(DATABASE));
-      await check2.connect();
-      try {
-        const r = await check2.query<{ model_provider: string; model_id: string }>(
+        const r = await check1.query<{ model_provider: string; model_id: string }>(
           `SELECT av.model_provider, av.model_id FROM agent_versions av
              JOIN agents a ON a.id = av.agent_id AND a.published_version_id = av.id
             WHERE a.org_id = $1 AND a.stable_name = 'default-assistant'`,
           [ORG],
         );
-        expect(r.rows[0]!.model_provider).toBe("dashscope");
-        expect(r.rows[0]!.model_id).toBe("qwen-repair-test");
+        expect(r.rows[0]!.model_provider).toBe(DEEP_AGENT_PROVIDER_NAME);
+        expect(r.rows[0]!.model_id).toBe("default"); // KERNEL_DEFAULT_AGENT_MODEL_ID 未设时的占位符
+      } finally {
+        await check1.end();
+      }
+
+      // 幂等：provider 已经是目标值，再跑一遍不重复"迁移"同一行。
+      const second = await backfillDefaultAgents();
+      const check2 = new pg.Client(ownerConfig(DATABASE));
+      await check2.connect();
+      try {
+        const stillOnlyOneVersion = await check2.query(
+          "SELECT count(*) AS c FROM agent_versions WHERE agent_id = $1",
+          [AGENT_ID],
+        );
+        expect(Number(stillOnlyOneVersion.rows[0]!.c)).toBe(2); // 原始一行 + 迁移出的一行，没有第三行
       } finally {
         await check2.end();
       }
-
-      // 幂等：provider 没变的情况下再跑一遍，不重复"修复"同一行。
-      const third = await backfillDefaultAgents();
-      expect(third.providerRepaired).toBe(0);
+      // 本用例这一行已经是目标 provider 了，不会再被计入这一遍的 providerRepaired——
+      // 不断言绝对值 0（同上一段注释，多个 it() 共用同一个数据库，不排除其他行仍待修）。
+      void second;
     } finally {
-      delete process.env.KERNEL_MODEL_PROVIDER;
-      delete process.env.KERNEL_MODEL_BASE_URL;
-      delete process.env.KERNEL_MODEL_API_KEY;
-      delete process.env.KERNEL_DEFAULT_AGENT_MODEL_ID;
+      // no env to restore -- this scenario no longer depends on KERNEL_MODEL_PROVIDER at all.
     }
   });
 });

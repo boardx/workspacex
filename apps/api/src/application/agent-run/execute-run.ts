@@ -312,6 +312,9 @@ async function executeToolLoop(
       history: input.history,
       tools: input.tools,
       toolExchange,
+      // #740: forwarded verbatim for `DeepAgentModelProvider` -- see `ModelCallInput.skills`'s
+      // own doc comment. Every provider that predates #740 ignores it, same as `tools`.
+      skills: input.skills,
     });
 
     if (!completion.toolCalls || completion.toolCalls.length === 0) {
@@ -480,7 +483,7 @@ async function executeClaimed(
         ? await deps.model.completeStream(
           {
             modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
-            history,
+            history, skills: toolSkills,
           },
           async (delta) => {
             if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
@@ -495,6 +498,9 @@ async function executeClaimed(
           system,
           user: run.inputText,
           history,
+          // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
+          // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.
+          skills: toolSkills,
         });
       if (completion.text.trim() === "") {
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
