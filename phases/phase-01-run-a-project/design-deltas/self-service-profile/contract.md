@@ -119,3 +119,26 @@ visibilityScope 全是项目语义），个人头像没有项目上下文，字�
 
 - 多组织**管理**（离开组织、转让所有权）——本包只做"查看"。
 - 改邮箱——邮箱是登录凭据，另一个 delta。
+
+## Addendum A（2026-08-08，迭代 1 独立 UIUX 复核后追加，需要单独签核）
+
+**发现**：迭代 1（PR #736）实现了 `updateOwnProfile` 的写路径（`displayName` 落库），但**没有对应
+的读路径**——`identity.ts` 里已签核的 `resolveIdentity`（登录/会话解析用的那个契约操作）不带
+`displayName` 字段，前端 `session-provider.tsx` 只能拿 `userId` 当显示名占位。结果是：用户改名、
+界面提示"已保存"、数据库也确实更新了，但**产品里所有读到"显示名"的地方都不会变**——这是
+rev-uiux 独立复核给出的最严重扣分项（评分 8/10，`saved` 反馈判定为"看起来有效果实际没有"）。
+
+**契约变更**（`packages/contracts/src/identity.ts`，扩展**已签核**的 `resolveIdentity`，不新建操作）：
+
+```ts
+resolveIdentity: {
+  // ...其余字段不变...
+  out: z.object({
+    // ...其余字段不变...
+    displayName: z.string(),   // 新增：来自 credentials.display_name；这一列已存在，只是从未被读出来过
+  }).strict(),
+},
+```
+
+**这条 Addendum 需要单独签核**——它扩展的是一个已经 `confirmed` 的契约操作，不是本包里那三条
+待签裁决的一部分，不能被"整包已签"覆盖过去。见 `design-signoff.md` 底部的独立签核块。

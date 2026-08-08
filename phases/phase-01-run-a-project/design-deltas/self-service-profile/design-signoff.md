@@ -39,3 +39,18 @@ confirmed_at: "<ISO8601 时间戳，如 2026-08-06T14:30:00+08:00>"
 
 签之前请先在 [contract.md §4](./contract.md#4-需要你先拍板的三件) 里对三个裁决点给出选择——
 那三条不是"批准/不批准"能回答的，签了 status 但没答那三条，实现方仍然卡在原地。
+
+---
+
+## Addendum A 独立签核（2026-08-08，见 [contract.md Addendum A](./contract.md#addendum-a2026-08-08迭代-1独立-uiux-复核后追加需要单独签核)）
+
+这一小节的签核**独立于上面的主 status**（主 status 已经是 `confirmed`，代表三条裁决点；
+Addendum A 是之后追加的、扩展一个已签核契约操作的字段，需要单独一次签）。
+
+```yaml
+addendum_a_status: proposed
+addendum_a_confirmed_by: ""
+addendum_a_confirmed_at: ""
+```
+
+怎么签：把 `addendum_a_status` 改成 `confirmed`，补上 `addendum_a_confirmed_by`/`addendum_a_confirmed_at`。
