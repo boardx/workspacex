@@ -30,6 +30,19 @@
  * `tool_call` step for that REAL nested `complete()` call before continuing, never a
  * fabricated "step" describing something that did not happen. A run with zero pinned
  * Skills takes the exact pre-#725 code path, unchanged.
+ *
+ * ## #742 -- a third branch, for a provider whose loop lives somewhere else entirely
+ *
+ * `#725`'s loop and `#742`'s `completeWithProgress` branch answer the same question --
+ * "how does this run get to call a tool more than once before answering" -- for two
+ * different EXECUTION LOCATIONS: in-process (#725) vs. a remote planning service the
+ * provider itself talks to (#742, e.g. `DeepAgentModelProvider`/`deepagents`, issue
+ * #740/#747). A provider never implements both; `deps.model.completeWithProgress`'s mere
+ * PRESENCE is the opt-in, checked BEFORE `tools.length > 0` below, same discipline
+ * `completeStream`'s presence already uses to opt a provider into streaming. Every
+ * `tool_call` step this branch records goes through the exact same `record()` helper and
+ * the exact same `AppendedRunStep` shape #725's loop already uses -- the Chat UI (#730-
+ * #734) needs no changes to render either source.
  */
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
@@ -462,7 +475,37 @@ async function executeClaimed(
   // the catch below -- see that function's own doc comment on `seqCursor`.
   const seqCursor = { value: 3 };
   try {
-    if (tools.length > 0) {
+    if (deps.model.completeWithProgress) {
+      // #742: a provider whose run is a remote, multi-step planning loop (today:
+      // `DeepAgentModelProvider`) reports intermediate steps as they happen -- checked
+      // BEFORE the TS tool loop below, so a provider that implements this opts fully out
+      // of that loop for this run rather than somehow running both. See
+      // `ModelCallPort.completeWithProgress`'s own doc comment for the contract.
+      const completion = await deps.model.completeWithProgress(
+        {
+          modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
+          history,
+        },
+        async (event) => {
+          const stepStartedAt = deps.clock.now();
+          await record(deps, orgId, {
+            runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
+            inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
+            outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
+            failureCode: null,
+            toolName: event.toolName,
+            toolArgsSummary: event.toolArgsSummary,
+            toolResultSummary: event.toolResultSummary,
+            planningNote: event.planningNote,
+          });
+          seqCursor.value += 1;
+        },
+      );
+      if (completion.text.trim() === "") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
+      }
+      text = completion.text;
+    } else if (tools.length > 0) {
       // #725: the tool-calling loop. Never streamed (see `ModelCallPort.completeStream`'s
       // own doc comment for why) and never mixed with the branch below for the same run.
       const loopResult = await executeToolLoop(deps, orgId, run, {
