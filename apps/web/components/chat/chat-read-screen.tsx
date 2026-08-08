@@ -570,6 +570,29 @@ function ThreadActions({
   );
 }
 
+/**
+ * 顶部实时状态 chip（十项 UX 缺口第 9 项）——"现在正在发生什么"的环境感知。
+ *
+ * ## 单一事实源：不是第二次请求，是同一份 `roster` 状态多渲染一处
+ *
+ * 数据来自 `ThreadDetail` 已经在 `RosterPanel` 里渲染过的同一个 `roster` prop
+ * （`GetAgentPanelOut`，`chat-read-screen.tsx` 顶层已经 `getAgentPanel` 读取过）。
+ * 这里不发第二次请求、不维护第二份计数逻辑——`presentCount`/`rosterCount` 本身
+ * 就是服务端算好的权威值（`chat.controller.ts` 的 `getAgentPanel`），两处渲染
+ * 读的是同一个对象，不会漂移成两个数字。
+ *
+ * `roster === null`（还没读到、或读取线程详情失败）时不渲染任何猜测出来的数字——
+ * 和 `RosterPanel` 自己「不确定就显示"—"」的纪律一致，不伪造一个"0 个 agent"。
+ */
+function ThreadLiveStatusChip({ roster }: { roster: GetAgentPanelOut | null }) {
+  if (roster === null) return null;
+  return (
+    <Badge tone={roster.presentCount > 0 ? "primary" : "neutral"} data-testid="chat-thread-live-status">
+      {roster.presentCount} 个 agent 在场 · 编制 {roster.rosterCount}
+    </Badge>
+  );
+}
+
 function ThreadMeta({ card }: { card: ThreadCard }) {
   return (
     <span className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
@@ -609,6 +632,7 @@ function ThreadDetail({
         </div>
         <Badge tone="outline">真实消息</Badge>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
+        <ThreadLiveStatusChip roster={roster} />
       </header>
       {/*
         #466 步骤 7：会话内录音。放在 skill 挂载之上、消息面板之上 ——
