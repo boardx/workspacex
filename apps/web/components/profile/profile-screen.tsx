@@ -22,7 +22,7 @@ import { updateOwnProfile } from "@/lib/live-identity";
  * 不是漏做了交互。
  */
 export function ProfileScreen() {
-  const { session, identity } = useSession();
+  const { session, identity, updateDisplayName } = useSession();
 
   return (
     <AppShell previewRole={null}>
@@ -52,7 +52,10 @@ export function ProfileScreen() {
         </Link>
 
         {identity && session ? (
-          <ProfileForm initialDisplayName={identity.displayName} />
+          <ProfileForm
+            initialDisplayName={identity.displayName}
+            onSaved={(displayName) => updateDisplayName(displayName)}
+          />
         ) : (
           <div data-testid="loading" className="flex animate-pulse flex-col gap-3">
             <div className="h-14 rounded-lg bg-muted" />
@@ -65,7 +68,14 @@ export function ProfileScreen() {
   );
 }
 
-function ProfileForm({ initialDisplayName }: { initialDisplayName: string }) {
+function ProfileForm({
+  initialDisplayName,
+  onSaved,
+}: {
+  initialDisplayName: string;
+  /** Addendum A: 让保存链路接回真正会渲染显示名的地方（session identity），见文件头注释。 */
+  onSaved: (displayName: string) => void;
+}) {
   const [displayName, setDisplayName] = React.useState(initialDisplayName);
   const [savedName, setSavedName] = React.useState(initialDisplayName);
   const [state, setState] = React.useState<UiState>("default");
@@ -87,6 +97,9 @@ function ProfileForm({ initialDisplayName }: { initialDisplayName: string }) {
       setSavedName(out.displayName);
       setDisplayName(out.displayName);
       setState("success");
+      // 反证 B 的核心链路：不是只有这张表单自己知道新名字，session 里的 identity 也跟着
+      // 刷新——侧栏头像首字母、任何读 identity.displayName 的地方，不用重登就能看到新值。
+      onSaved(out.displayName);
     } catch (err) {
       setFailureMessage(describeFailure(err));
       setState("dep-failed");

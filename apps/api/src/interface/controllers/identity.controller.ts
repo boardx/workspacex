@@ -217,7 +217,7 @@ export class IdentityController {
   ) {
     assertPrincipal(principal);
     try {
-      const r = await resolveIdentity(this.repo, {
+      const r = await resolveIdentity(this.repo, this.credentials, {
         userId: principal.userId,
         orgId: toOrgId(orgId),
         projectId,

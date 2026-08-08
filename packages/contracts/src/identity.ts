@@ -525,6 +525,15 @@ export const operations = {
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
+  /**
+   * ⚠ Addendum A（#638 迭代 1 独立 UIUX 复核后追加，2026-08-08 单独签核——见
+   *   `phases/phase-01-run-a-project/design-deltas/self-service-profile/contract.md`
+   *   「Addendum A」一节 + `design-signoff.md` 的 `addendum_a_status: confirmed`）：
+   *   `out.displayName` 是本次新增字段，来自 `credentials.display_name`。
+   *   在此之前 `updateOwnProfile` 只有写路径、没有配套读路径——改名后 `saved` 提示
+   *   出现了，但产品里所有读「显示名」的地方（session、侧栏头像首字母等）都读不到新值，
+   *   是假反馈。这条字段就是补那条读路径。
+   */
   resolveIdentity: {
     method: "GET", path: "/identity/me",
     in: z.object({ orgId: z.string(), projectId: z.string().optional() }).strict(),
@@ -534,6 +543,8 @@ export const operations = {
       teamId: z.string().nullable(),
       projectRole: ProjectRole.nullable(),
       groupId: z.string().nullable(),
+      /** 来自 credentials.display_name；这一列早就存在，只是从未被读出来过（Addendum A）。 */
+      displayName: z.string(),
     }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },

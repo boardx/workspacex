@@ -23,6 +23,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { CapabilityListing } from "../../domain/identity/capability-listing";
 import type { CapabilityRepository } from "./capability-ports";
 import { listCapabilities } from "./list-capabilities";
+import type { CredentialRepository } from "../auth/ports";
 
 /** One declaration, seen from two places -- see `errors.ts`. */
 export { NoOrgMembershipError } from "./errors";
@@ -89,11 +90,20 @@ export interface ResolvedIdentity {
   readonly teamId: string | null;
   readonly projectRole: string | null;
   readonly groupId: string | null;
+  /**
+   * Addendum A (#638 iteration 1, post-rev-uiux fix). Read from `credentials.display_name` --
+   * the column has existed since the base delta, but until this addendum nothing ever read it
+   * back out, so `updateOwnProfile`'s write had no matching read and the rename looked like it
+   * "took" (the `saved` toast fired) while every place that renders a display name kept
+   * showing the old value. This is that missing read path.
+   */
+  readonly displayName: string;
 }
 
 /** `ResolveIdentity` -- the two layers of the current identity (I-11 for the project half). */
 export async function resolveIdentity(
   repo: IdentityRepository,
+  credentials: CredentialRepository,
   input: { readonly userId: string; readonly orgId: OrgId; readonly projectId?: string },
 ): Promise<ResolvedIdentity> {
   const membership = await repo.findOrgMembership(input.userId, input.orgId);
@@ -106,6 +116,12 @@ export async function resolveIdentity(
       ? null
       : await repo.findProjectMembership(input.userId, input.projectId, input.orgId);
 
+  // The caller is already authenticated as this userId (CurrentPrincipal), so a missing
+  // credential row here is inconsistent data, not a legitimate "no display name" case --
+  // same posture as the membership/org null checks above.
+  const credential = await credentials.findByUserId(input.userId);
+  if (credential === null) throw new NoOrgMembershipError();
+
   return {
     // `team` belongs to the caller's membership, not the organization row -- fill it here,
     // where the membership is actually known.
@@ -115,5 +131,6 @@ export async function resolveIdentity(
     // Invariant I-11: no project context => null, not a default role.
     projectRole: project?.projectRole ?? null,
     groupId: project?.groupId ?? null,
+    displayName: credential.displayName,
   };
 }

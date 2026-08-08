@@ -52,15 +52,26 @@ export interface SessionContextValue {
   switchOrganization(orgId: string): Promise<void>;
   retry(): Promise<void>;
   logout(): void;
+  /**
+   * Addendum A（#638 迭代 1 复核修复）：`updateOwnProfile` 保存成功后，用它 PATCH 响应里
+   * 如实回传的 `displayName`（`update-own-profile.ts` 读的是 `UPDATE ... RETURNING` 之后的
+   * 那一行，不是拍脑袋的回显）本地立刻刷新 identity——不等下一次 `resolveIdentity`。
+   * 不用 `retry()`：那条路径会把 `identity` 先置 null 再重新拉，会让改名成功的界面在
+   * 保存成功的同一刻先闪一下 loading 骨架，反而看起来像刚保存的东西又丢了。
+   * reload / 重新登录时会走 `resolveIdentity` 的真实读路径，跟这条本地更新互相印证。
+   */
+  updateDisplayName(displayName: string): void;
 }
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
 
-function toIdentity(userId: string, resolved: ResolvedIdentity): Identity {
+function toIdentity(_userId: string, resolved: ResolvedIdentity): Identity {
   return {
-    // The signed contracts do not expose a display-name field. Use the real user id as the
-    // account label instead of inventing profile data.
-    displayName: userId,
+    // Addendum A (#638 迭代 1 复核修复): `resolveIdentity.out.displayName` now carries the
+    // real `credentials.display_name`. Before this, the contract had no display-name field
+    // at all and this fell back to the raw userId -- so a rename would "save" but every
+    // place reading the display name (rail avatar initial, etc.) kept showing the old value.
+    displayName: resolved.displayName,
     org: resolved.org,
     orgRole: resolved.orgRole,
     projectRole: resolved.projectRole,
@@ -345,6 +356,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!applied) throw new Error("session_operation_superseded");
   }, [hydrateAtGeneration, session]);
 
+  const updateDisplayName = React.useCallback((displayName: string) => {
+    setIdentity((prev) => (prev ? { ...prev, displayName } : prev));
+  }, []);
+
   const organizations = React.useMemo<readonly OrganizationSummary[]>(() => {
     if (!session) return [];
     return session.orgIds.map((id) => {
@@ -357,8 +372,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<SessionContextValue>(() => ({
     status, session, identity, organizations, error,
-    startSession, switchOrganization, retry, logout,
-  }), [error, identity, logout, organizations, retry, session, startSession, status, switchOrganization]);
+    startSession, switchOrganization, retry, logout, updateDisplayName,
+  }), [
+    error, identity, logout, organizations, retry, session, startSession, status,
+    switchOrganization, updateDisplayName,
+  ]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

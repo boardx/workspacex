@@ -23,6 +23,7 @@ describe("signed current-org flow", () => {
           teamId: null,
           projectRole: null,
           groupId: null,
+          displayName: "Two User",
         }), { status: 200 });
       }
       return new Response(null, { status: 404 });

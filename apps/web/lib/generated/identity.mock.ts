@@ -81,7 +81,8 @@ export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIden
   "orgRole": "admin",
   "teamId": null,
   "projectRole": null,
-  "groupId": null
+  "groupId": null,
+  "displayName": "displayName-1"
 };
 
 /** resolveIdentity 的失败模式全集——界面的异常态必须逐个覆盖 */
