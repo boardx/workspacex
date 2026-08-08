@@ -24,9 +24,20 @@ description: >
 - 鉴权守卫：`apps/api/src/interface/guards`、`apps/api/src/interface/middleware`
 
 ## 关键契约与不变量（改代码前必读）
-- <鉴权顺序：新端点必须逐行复用 `interface/guards` 里既有实现，禁止另起一套>
-- <会话/consent 的生命周期假设>
-- <公开面/未登录可达的页面与端点清单——任何改动过一遍未授权视角>
+- **鉴权顺序**：新端点必须逐行复用 `apps/api/src/interface/guards` 里既有实现，
+  禁止另起一套——这是全站唯一权威落点，其他模块（chat/canvas/research 等）的
+  鉴权判断也应该复用这里，不要在各自模块里重新实现一遍判断逻辑。
+- <会话/consent 的生命周期状态机——待核实，`apps/web/app/(entry)/{consent,session}`
+  是入口，具体状态流转看代码不要猜>
+- <公开面/未登录可达的页面与端点清单——待核实，任何改动过一遍未授权视角>
+
+## 架构知识
+这是全站鉴权的"上游"模块——[[mod-chat]]、[[mod-canvas-asset]]、
+[[mod-research-studio]] 等所有模块的权限判断理论上都应该收敛到这里的 guards，
+而不是各自维护一份判断逻辑（这正是本仓"单一事实源"原则在鉴权领域的应用）。
+外部参照：WorkOS/Clerk 这类身份产品把"组织×成员×角色"建模成独立于业务领域的
+一层，本仓 `org-admin` 的角色划分可以对照这个思路检查是否有跟具体业务模块
+耦合过深的地方。
 
 ## 关联阶段 / ADR / 文档
 `phases/`（按当前 sprint 的 active-features.json 定位相关 feature）

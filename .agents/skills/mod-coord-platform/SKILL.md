@@ -34,15 +34,26 @@ PlatformDirectory、机械决策引擎 CoordBrain、事件→GitHub status 的�
   里的"协调服务"一节）
 
 ## 关键契约与不变量（改代码前必读）
-- **协议单源**：Lease/Evidence/Events+Andon 的语义只能改 `packages/coord-protocol`，
-  其余四处消费方跟着改，不许各自诠释一套。
-- <RepoHub 的原子性假设——并发租约场景下不能破坏>
+- **协议单源**：Lease/Evidence/Events+Andon 的语义只能改
+  `packages/coord-protocol/src/{types.ts,validate.ts}`，其余四处消费方跟着改，
+  不许各自诠释一套。
+- ⚠ **已知文档缺口**：`coord-protocol/src/types.ts` 的注释自称规格权威在
+  `docs/coord-platform/protocol/`，但实测该目录**当前不存在**——协议的唯一
+  可信来源目前实际上就是 `types.ts`/`validate.ts` 本身。发现这个缺口的人
+  应该补一份该文档或改注释指向真实位置，不要假装文档存在去引用它。
+- <RepoHub 的原子性假设——并发租约场景下不能破坏，待核实具体实现>
 - <CoordBrain 必须保持零 IO 纯函数，任何 IO 需求都应下沉到调用方，不要在这个包里加>
 - <未接线协调服务时的降级路径：`pnpm harness tick` 只读时钟模式，改动不能破坏这条退路>
 
+## 架构知识
+这五个包（+ 网关）对应 Cloudflare Durable Objects 的两种典型用法：RepoHub 是
+「每个仓一个 DO 实例」（分片隔离，天然避免跨仓竞争），PlatformDirectory 是
+「全局一个 DO 单例」（平台级强一致视图）。改动前先想清楚自己动的这块契约
+属于哪一种拓扑，不要把单例语义误用到分片场景（或反过来）。
+
 ## 关联阶段 / ADR / 文档
-ADR-017（RepoHub）；`docs/coord-platform/protocol/`；`docs/coordination-protocol.md`；
-`.harness/instructions/multi-agent-coordination.md`；ADR-004、ADR-010
+ADR-017（RepoHub）；`docs/coordination-protocol.md`；
+`.harness/instructions/multi-agent-coordination.md`；ADR-004、ADR-009、ADR-010
 
 ## 模块 SOP
 1. 动手前：读本文件 + 上述协议文档；确认改动是否触及协议语义（触及则先改

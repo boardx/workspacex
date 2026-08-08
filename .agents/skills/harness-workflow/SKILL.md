@@ -134,3 +134,83 @@ cat .harness/state/PROGRESS.md
 > 无 node_modules 的 worktree 直接 push 会被 pre-push 拦。  
 > **防护**：纯文档/配置改动可 `git push --no-verify`（commit message 写明理由）；
 > 代码改动必须先 `pnpm install` 并本地跑过验证再推。
+
+---
+
+## 能力清单（这个 skill 让你具备的可执行动作）
+
+- 判断"现在该跑哪条 harness 命令"：开工三步 → 执行 → `verify` → 收尾，每一步对应
+  一条本文件已给出的命令，不用去翻 `.harness/scripts/cli.ts` 现查。
+- 识别"证据是不是真的"：不止看 `verify` 退出码，还要跑
+  `git ls-tree HEAD -- phases/**/evidence/` 实测文件在不在 git 树里（陷阱 4）。
+- 识别"这条 verify 命令是不是空跑"：子包 `package.json` 的脚本如果是
+  `echo TODO` 之类占位符，`verify:base` 会假绿（陷阱 1），开工前扫一眼目标子包的
+  `test`/`typecheck` 脚本内容。
+- 分清"哪些命令允许自己跑、哪些只能门控产出"：`verify` 能把状态推成
+  `passing`，但你不能手改 `status` 字段——这条界限之上还有一整条 harness 命令表
+  （`doctor`/`sync`/`claim`/`sweep-*`/`dep-graph`/`graph`/`phase-readiness`/
+  `pr-queue`/`tick`/`lock-*`/`module-lock-*`……），完整参数速查看
+  `pnpm harness`（不带子命令）的输出或 `.harness/scripts/cli.ts` 的 usage 块，
+  本文件不重复它们的参数细节，只讲你在日常开发循环里真正会用到的那几条。
+
+---
+
+## 架构知识：这个 skill 在 harness 工具链里的位置
+
+```
+requirement-author → feature_list.json（阶段权威）
+        │
+sprint-planner → new-sprint（把 feature 分配进 sprint，派生 active-features.json）
+        │
+   ★ 本 skill 覆盖的区间 ★
+        │
+   开发者/agent 实现 → verify（唯一门控，写 evidence + 翻 passing）
+        │
+        ├─→ github-projector → sync（单向投影到 GitHub）
+        └─→ harness-auditor / doctor（审计链体检，ADR-012）
+```
+
+- **输入**：`phases/<phase>/sprints/<sprint>/progress.md`、`session-handoff.md`、
+  `active-features.json`（只读派生视图）——这三个是本 skill 每次开工必读的状态面。
+- **产出**：`evidence/F<NN>.verify.log`（`verify` 写入）、更新后的 `progress.md`/
+  `session-handoff.md`（收尾时手写）。
+- **下游消费者**：`pnpm harness doctor` 读 evidence 目录核验"passing 是否有真凭据"；
+  `github-projector` 的 `sync` 读 `feature.status` 决定要不要关闭/打标 Issue；
+  coordinator 的 `pnpm harness tick`/`cycle-report` 读 `PROGRESS.md`/lease 状态
+  判断是否要重派。本 skill 自己不直接写这些下游文件，但它是它们数据的源头。
+
+---
+
+## 领域知识：为什么是"开工三步 + 单一验证门"这套设计
+
+**本仓教训优先于外部参照**——上面五条"陷阱"都是真实事故复盘，是这套流程存在的
+直接原因：没有第三步"只做一个 in_progress"，会撞见 PR #310/#311/#312 那种
+status 被 diff 夹带手改的事故；没有 evidence 实测，会撞见 evidence 指向空气
+（陷阱 4）。这套流程本质上是给"agent 自陈完成"加了一层不可绕过的机械验证，
+逻辑等价于 CI 的"只信退出码，不信自然语言描述"。
+
+**外部参照怎么支撑它**：
+- monorepo 任务编排的通用实践（如 Turborepo）强调"任务必须有真实的输入输出，
+  缓存正确性依赖任务内容不是空跑"——这与陷阱 1（`echo TODO` 假验证）是同一类
+  问题的不同表现形式：**编排系统只能验证"命令跑没跑"，验证不了"命令有没有
+  实际做事"，这道防线必须由任务作者自己保证**，本仓选择用文档纪律
+  （"不接受 echo 占位"）而非工具强制，是因为跨语言子包的"真实验证"没有统一
+  机器可判定标准。
+- pre-commit/pre-push hook 的通用实践建议"钩子要快、要能跳过特殊场景"（如
+  fresh checkout），本仓陷阱 5 的应对（纯文档改动允许 `--no-verify` + 说明理由）
+  与这个思路一致：钩子该挡的是"未验证的代码改动"，不该挡"没有 node_modules
+  但确实没碰代码"的场景，纪律写在 commit message 里保留可追溯性而不是放开口子。
+- 参考来源：[Turborepo 最佳实践与流水线设计](https://blog.nashtechglobal.com/monorepo-setup-with-turborepo-the-complete-guide-to-consistent-code-quality/)、
+  [Turborepo + Husky pre-push 性能实践](https://dev.to/pratiktalreja/keeping-branches-in-sync-in-a-monorepo-the-pre-push-hook-solution-3c0f)、
+  [monorepo git hooks 设置模式](https://fab1o.medium.com/how-to-setup-git-hooks-in-monorepo-1aed1e1ac8c2)。
+
+---
+
+## 迭代 / 知识回流机制
+
+- 撞到新陷阱（假绿、状态被绕过、evidence 造假的新花样）→ 在"经验教训"区
+  **追加**一条新陷阱，编号递增，不改写旧条目；引用具体 PR/issue 号。
+- 这是一条通用 SOP skill（不是模块知识库），不走 `mod-*` 的踩坑区格式，但同样
+  遵守 append-only：旧陷阱描述过时了也不删，标注"已被 XX 机制取代"。
+- 本 skill 的整体升级状态记录在 `.harness/state/skill-upgrade-backlog.md`
+  （批次 C），该文件是"哪些 skill 已深度升级"的单一事实源，不要在别处复述进度。
