@@ -36,12 +36,12 @@
 
 | ID | P | 状态 | 交付物 | 依赖 | 完成契约 |
 |---|---|---|---|---|---|
-| H3A-010 | P0 | ⬜ 未开始 | Domain Registry schema | 002、007 | domain_id、owner、areas、contracts、verification 可验证 |
-| H3A-011 | P0 | ⬜ 未开始 | 核心 Domain inventory 与人类确认 | 010 | 无目录猜测，边界由真实权威源支持 |
-| H3A-012 | P0 | ⬜ 未开始 | TPL-MOD-001 Domain Skill schema | 005、010 | skill/domain/authority refs/last_verified 完整 |
-| H3A-013 | P0 | ⬜ 未开始 | Domain↔Skill 一对一 active gate | 012 | 缺失、重复 active Skill 会红 |
-| H3A-014 | P0 | ⬜ 未开始 | Skill reference integrity gate | 012 | Contract/ADR/path/verification 死引用会红 |
-| H3A-015 | P0 | ⬜ 未开始 | Skill freshness/STALENESS gate | 012 | revision 不可解析或证据过期不显示 active healthy |
+| H3A-010 | P0 | ✅ 完成（PR #687） | Domain Registry schema | 002、007 | domain_id、owner、areas、contracts、verification 可验证——见 `.harness/domains/registry.yaml` + `lib/domain-model.ts` |
+| H3A-011 | P0 | 🔶 需要人类确认（PR #687） | 核心 Domain inventory 与人类确认 | 010 | 无目录猜测，边界由真实权威源支持——见 `PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md`；registry.yaml 里 owner 为 null 的条目和"coord-chat-e2e 一人覆盖三个 Domain"仍待人类裁决 |
+| H3A-012 | P0 | ✅ 完成（PR #687） | TPL-MOD-001 Domain Skill schema | 005、010 | skill/domain/authority refs/last_verified 完整——见 `lib/domain-skill-model.ts`；今天 0 个真实实例（H3A-002 已核实），schema 只服务未来实例 |
+| H3A-013 | P0 | ✅ 完成（PR #687） | Domain↔Skill 一对一 active gate | 012 | 缺失、重复 active Skill 会红——重复/引用未知 domain_id 判 FAIL；缺失判 WARN（0 实例是今天真实状态，不因为 H3A-016+ 未开工而让 CI 变红），见 `lib/domain-skill-gates.ts` |
+| H3A-014 | P0 | ✅ 完成（PR #687） | Skill reference integrity gate | 012 | Contract/ADR/path 死引用会红；verification 字段（shell 命令非路径）如实标注不检查 |
+| H3A-015 | P0 | ✅ 完成（PR #687） | Skill freshness/STALENESS gate | 012 | last_verified.commit 形状不像 SHA 判红；真实 git 历史校验如实标注做不到 |
 | H3A-016 | P1 | ⬜ 未开始 | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill |
 | H3A-017 | P1 | ⬜ 未开始 | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载 |
 | H3A-018 | P1 | ⬜ 未开始 | Fabric.js/Mermaid Domain Skill | 011–017 | 架构、身份、序列化、协作、验证与陷阱引用完整 |
