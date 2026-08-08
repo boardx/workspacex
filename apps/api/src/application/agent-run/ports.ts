@@ -297,44 +297,17 @@ export interface ThreadHistoryMessage {
 }
 
 /**
- * One tool the orchestrator model may call (#725). One per pinned Skill -- see
- * `tool-definitions.ts`'s own header for how a Skill becomes one of these.
- *
- * `parametersSchema` is a plain JSON Schema object (not a zod type): it crosses the wire
- * verbatim as an OpenAI-compatible `tools[].function.parameters` value, and this codebase
- * has no reason to validate it locally -- the provider is the one thing that reads it.
+ * #741 -- `ToolDefinition`/`ToolCallRequest`/`ToolExchangeTurn` (#725) retired along with
+ * the TS in-process tool loop they only existed to serve (see `execute-run.ts`'s own
+ * header for the replacement). They are gone from this file, not merely unused: nothing
+ * produces a `ToolDefinition` or reads a `ToolCallRequest` anymore, and AGENTS.md's own
+ * "same fact must not be declared in two places" discipline treats a type nobody
+ * populates as exactly the kind of look-alive-but-dead surface that rule exists to catch.
+ * `AppendedRunStep`'s `toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`
+ * fields (and the `tool_call` `RunStepKind`) are NOT part of this retirement -- those
+ * belong to the run-step persistence schema and the Chat UI that renders it (#730-#734),
+ * a broader, still-live surface this PR does not touch.
  */
-export interface ToolDefinition {
-  readonly name: string;
-  readonly description: string;
-  readonly parametersSchema: Record<string, unknown>;
-}
-
-/** One tool call the model's response asked for. `argumentsJson` is the raw JSON text the
- * provider returned -- never pre-parsed here, so a malformed-JSON tool call is a fact the
- * EXECUTOR decides how to handle (see `tool-loop.ts`), not one this port silently repairs. */
-export interface ToolCallRequest {
-  readonly id: string;
-  readonly name: string;
-  readonly argumentsJson: string;
-}
-
-/**
- * One prior turn of THIS run's tool-calling loop (#725), oldest first -- never persisted to
- * `chat_messages`/thread history; it lives only for the duration of one run's loop and is
- * rebuilt in memory each round from what `tool-loop.ts` has accumulated so far. Distinct
- * from `ThreadHistoryMessage`: that is cross-run conversation context, this is intra-run
- * "what has this loop already tried" scratch state.
- */
-export type ToolExchangeTurn =
-  | { readonly kind: "assistant_tool_calls"; readonly toolCalls: readonly ToolCallRequest[] }
-  | {
-    readonly kind: "tool_result";
-    readonly toolCallId: string;
-    readonly name: string;
-    readonly content: string;
-  };
-
 /**
  * #742 -- one structured progress signal surfaced WHILE a run is still in flight, for a
  * provider whose "how does it get smarter" mechanism is a REMOTE, multi-step planning loop
@@ -385,27 +358,14 @@ export interface ModelCallInput {
    */
   readonly history?: readonly ThreadHistoryMessage[];
   /**
-   * Tools the model MAY call this turn (#725). Absent/empty means "no tools offered" --
-   * every existing `ModelCallPort` implementation that predates #725 simply never sees
-   * this field populated, so nothing about their behaviour changes. A provider with no
-   * notion of tool-calling (`DeepResearchModelProvider`, `BailianImageProvider`) is free
-   * to ignore it, same discipline as `history`.
-   */
-  readonly tools?: readonly ToolDefinition[];
-  /** This run's tool-loop scratch state so far (#725), oldest first. Only meaningful
-   * together with `tools`; a provider that does not implement tool-calling ignores it. */
-  readonly toolExchange?: readonly ToolExchangeTurn[];
-  /**
    * The run's pinned Skills, structured (#740) -- the SAME list `readPinnedSkills` already
-   * resolved, passed through as-is. Exists for `DeepAgentModelProvider`: unlike the TS tool
-   * loop (#725, which turns each Skill into a `ToolDefinition` `execute-run.ts` itself
-   * calls), a `deepagents` run executes Skills INSIDE the remote LangGraph service (its
-   * `call_skill` tool, see `apps/deep-agent-service/src/deep_agent_service/tools.py`) --
-   * that service has no access to this deployment's database, so the Skill content has to
-   * arrive as data on the request instead. `DeepAgentModelProvider` forwards this verbatim
-   * into the LangGraph run's `config.configurable.org_skills`; every provider that predates
-   * #740 simply never reads this field, same "absent/unused is not a regression" discipline
-   * `tools` established for #725.
+   * resolved, passed through as-is. Exists for `DeepAgentModelProvider`: a `deepagents` run
+   * executes Skills INSIDE the remote LangGraph service (its `call_skill` tool, see
+   * `apps/deep-agent-service/src/deep_agent_service/tools.py`) -- that service has no
+   * access to this deployment's database, so the Skill content has to arrive as data on the
+   * request instead. `DeepAgentModelProvider` forwards this verbatim into the LangGraph
+   * run's `config.configurable.org_skills`; every provider that does not care simply never
+   * reads this field, same "absent/unused is not a regression" discipline `history` uses.
    */
   readonly skills?: readonly PinnedSkillContent[];
 }
@@ -444,15 +404,8 @@ export interface ModelCallPort {
    * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
    * reads as "not reported", not "confirmed zero".
    */
-  /**
-   * `toolCalls` is OPTIONAL (#725), populated only when `input.tools` was non-empty AND the
-   * provider's response asked to call one or more of them. When present, `text` MAY be
-   * empty -- an OpenAI-compatible provider routinely returns `content: null` on a
-   * tool-calling turn, and that is NOT "the provider returned no content" (the empty-text
-   * failure below still applies whenever `toolCalls` is absent/empty).
-   */
   complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+    { readonly text: string; readonly tokens?: number }
   >;
 
   /**
@@ -469,15 +422,6 @@ export interface ModelCallPort {
    * `onDelta` fires once per provider-reported fragment, in order, BEFORE this promise
    * resolves. A rejection from `onDelta` (e.g. the store append failed) propagates and
    * fails the call exactly like a transport error would -- deltas are not "best effort".
-   *
-   * ⚠ #725: deliberately NOT extended with `toolCalls` here. `execute-run.ts`'s tool loop
-   * always calls `complete()` for a round that offers `tools` -- streaming a tool-calling
-   * turn (reassembling `delta.tool_calls[].function.arguments` fragments across chunks,
-   * index-addressed per the OpenAI wire format) is real additional surface this slice does
-   * not need: intermediate loop rounds are not shown to the user token-by-token today, only
-   * the final answer is, and that still streams exactly as before once the loop is done.
-   * Combining the two is a legitimate follow-up (see #725's PR description), not a gap this
-   * type silently papers over.
    */
   completeStream?(
     input: ModelCallInput,
