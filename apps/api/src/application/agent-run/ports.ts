@@ -84,6 +84,9 @@ export interface AppendedRunStep {
   readonly toolName: string | null;
   readonly toolArgsSummary: string | null;
   readonly toolResultSummary: string | null;
+  /** `tool_call` steps only (#731 follow-up) -- see `AgentRunStep.planningNote`'s own doc
+   * comment. `null` when the model called the tool with no accompanying explanation. */
+  readonly planningNote: string | null;
 }
 
 /**

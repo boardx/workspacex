@@ -276,6 +276,16 @@ export const AgentRunStep = z.object({
   toolName: z.string().max(128).nullable(),
   toolArgsSummary: z.string().max(1000).nullable(),
   toolResultSummary: z.string().max(1000).nullable(),
+  /**
+   * `tool_call` steps only (#731 follow-up -- chat-ux-acceptance-criteria.md item 2:
+   * "可见的规划步骤"). The orchestrator model's own plain-language turn from the SAME
+   * response that requested this tool call, when the provider returned one alongside
+   * `tool_calls` (OpenAI-compatible providers may return `content` and `tool_calls`
+   * together on one message). `null` when the model called the tool without saying
+   * anything first -- this field is NEVER synthesized; an agent that skipped the
+   * explanation shows no explanation, rather than a fabricated one.
+   */
+  planningNote: z.string().max(1000).nullable(),
 }).strict();
 
 export const AgentRunView = z.object({

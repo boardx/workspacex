@@ -160,8 +160,10 @@ export function buildOrchestratorSystemPrompt(
     "以上内容里，每一份技能同时也是你可以调用的工具，工具名与它对应关系如下——调用" +
       "工具会让这份技能针对具体任务真正执行一次并返回结果，而不是让你凭已经看到的" +
       "技能说明直接编答案。收到任务后先想清楚要不要调用、调用哪一个，再决定直接回答" +
-      "还是调用工具；调用后请根据工具返回的真实结果继续，不要忽略它自说自话。可用" +
-      "工具：\n" + toolList,
+      "还是调用工具。**如果决定调用工具，请在发起调用的同一轮回复里，先用一句话讲" +
+      "清楚你打算做什么、为什么选这个工具（例如「我需要生成一张示意图，调用 XX 来" +
+      "画」），再发起调用——这句话会被用户看见，不要跳过它直接调用。**调用后请根据" +
+      "工具返回的真实结果继续，不要忽略它自说自话。可用工具：\n" + toolList,
   ].join("\n\n");
 }
 
@@ -173,6 +175,7 @@ async function record(
     runId: string; seq: number; kind: RunStepKind; startedAt: string;
     inputDigest: string | null; outputDigest: string | null; failureCode: RunFailureCode | null;
     toolName?: string | null; toolArgsSummary?: string | null; toolResultSummary?: string | null;
+    planningNote?: string | null;
   },
 ): Promise<void> {
   await deps.runs.appendStep(orgId, {
@@ -188,6 +191,7 @@ async function record(
     toolName: input.toolName ?? null,
     toolArgsSummary: input.toolArgsSummary ?? null,
     toolResultSummary: input.toolResultSummary ?? null,
+    planningNote: input.planningNote ?? null,
   });
 }
 
@@ -325,6 +329,14 @@ async function executeToolLoop(
       { kind: "assistant_tool_calls", toolCalls: completion.toolCalls },
     ];
 
+    // #731 follow-up (chat-ux-acceptance-criteria.md item 2, "可见的规划步骤"): the SAME
+    // response that requested these tool calls may also carry the model's own
+    // plain-language turn (OpenAI-compatible providers can return `content` alongside
+    // `tool_calls`; `ConfiguredModelProvider.complete()` already keeps it, see that
+    // method's own doc comment). Captured ONCE per round and attached to every tool_call
+    // step this round records -- never synthesized when the model said nothing.
+    const planningNote = completion.text.trim() !== "" ? summarize(completion.text) : null;
+
     for (const call of completion.toolCalls) {
       const stepStartedAt = deps.clock.now();
       const skill = byToolName.get(call.name);
@@ -346,6 +358,7 @@ async function executeToolLoop(
         toolName: call.name,
         toolArgsSummary: summarize(call.argumentsJson),
         toolResultSummary: summarize(resultText),
+        planningNote,
       });
       input.seqCursor.value += 1;
 
