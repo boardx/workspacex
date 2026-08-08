@@ -44,7 +44,7 @@
 | ID | P | 状态 | 交付物 | 依赖 | 完成契约 |
 |---|---|---|---|---|---|
 | H3A-010 | P0 | ✅ 完成（PR #687） | Domain Registry schema | 002、007 | domain_id、owner、areas、contracts、verification 可验证——见 `.harness/domains/registry.yaml` + `lib/domain-model.ts` |
-| H3A-011 | P0 | 🔶 PR #待定 待 review（issue #748） | 核心 Domain inventory 与人类确认 | 010 | 无目录猜测，边界由真实权威源支持——2026-08-08 人类逐条裁决：coord-chat-e2e 拆分为 coord-chat/coord-canvas/coord-e2e；DOM-AGENT-SKILL-DIRECTORY owner 暂缓维持 null；DOM-PLATFORM/DOM-AI-RUNTIME 接受既定例外。见 `PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md`"裁决记录"一节 |
+| H3A-011 | P0 | 🔶 PR #749 待 review（issue #748） | 核心 Domain inventory 与人类确认 | 010 | 无目录猜测，边界由真实权威源支持——2026-08-08 人类逐条裁决：coord-chat-e2e 拆分为 coord-chat/coord-canvas/coord-e2e；DOM-AGENT-SKILL-DIRECTORY owner 暂缓维持 null；DOM-PLATFORM/DOM-AI-RUNTIME 接受既定例外。见 `PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md`"裁决记录"一节 |
 | H3A-012 | P0 | ✅ 完成（PR #687） | TPL-MOD-001 Domain Skill schema | 005、010 | skill/domain/authority refs/last_verified 完整——见 `lib/domain-skill-model.ts`；今天 0 个真实实例（H3A-002 已核实），schema 只服务未来实例 |
 | H3A-013 | P0 | ✅ 完成（PR #687） | Domain↔Skill 一对一 active gate | 012 | 缺失、重复 active Skill 会红——重复/引用未知 domain_id 判 FAIL；缺失判 WARN（0 实例是今天真实状态，不因为 H3A-016+ 未开工而让 CI 变红），见 `lib/domain-skill-gates.ts` |
 | H3A-014 | P0 | ✅ 完成（PR #687） | Skill reference integrity gate | 012 | Contract/ADR/path 死引用会红；verification 字段（shell 命令非路径）如实标注不检查 |
