@@ -46,6 +46,7 @@ import { z } from "zod";
 import { PermissionReason, ProjectRole, VisibilityScope } from "./identity";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
+import { AsrStreamErrorReason as RecordingAsrStreamErrorReason } from "./recording";
 
 /* ─────────────────────────── 枚举（对应 domain.md）─────────────────────────── */
 
@@ -1077,6 +1078,95 @@ export const operations = {
 
 export type Operations = typeof operations;
 export type OperationName = keyof Operations;
+
+/* ────────────── issue #726：composer 麦克风的「草稿」ASR 流式面 ────────────── */
+
+/**
+ * `streamAsrDraft` —— composer 麦克风按钮的语音转录，**不落库**。
+ *
+ * 与 `recording.streamOperations.streamAsr`（issue #466）复用**同一个**服务端
+ * `AsrProviderPort`/`ConfiguredRealtimeAsrProvider`（同一份服务端代理、同一把阿里云 key、
+ * 同样"未配置就诚实报错"的纪律，见 `apps/api/src/application/recording/asr-ports.ts`），
+ * 但语义不同，因此**不是同一条面**：
+ *
+ *   · `streamAsr` 锚在一个已存在的 `recording_sessions` 行 + 一条消息，`asr.final`
+ *     由服务端调 `ingestTranscriptSegment` 落库后才回帧（`asr.final.segmentId` 是
+ *     数据库主键）——语义是"这场会话的正式转录记录"。
+ *   · `streamAsrDraft` 没有 sessionId、没有 messageId，用户此刻可能连消息都还没开始写。
+ *     转录结果只回给发起请求的浏览器，填进 composer 输入框，**不进任何持久化表**——
+ *     语义是"用语音代替打字"，草稿态，最终由用户手动编辑、手动点发送才成为一条真消息。
+ *
+ * 把两者合并成一条面（例如给 `streamAsr` 加"sessionId 可选"）会让"这段转录到底有没有
+ * 落库"变成一个只有调用参数能回答的隐式状态——那正是 contract.md §2 要求单一写路径想
+ * 避免的模糊态，这里选择拆成两条职责单一的面。
+ *
+ * ⚠ 与 `streamAsr` 相同：浏览器**永远不直连**上游 ASR（阿里云 key 只在服务端），
+ *   鉴权同样走 `Sec-WebSocket-Protocol` 子协议携带的 bearer（不走 query string）。
+ */
+
+/**
+ * 草稿 ASR 的 `asr.error` 原因——`recording.AsrStreamErrorReason` 的一个**真子集**。
+ *
+ * 刻意不包含 `SESSION_ENDED`／`NO_PROJECT_ROLE`／`CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR`：
+ * 那三个原因的前提是"存在一个 recording_sessions 行、一个项目、一次机密域判定"，
+ * 而草稿流没有这些概念——没有会话可以"已结束"，没有项目角色可以"没有"。
+ * 字符串字面量与 `recording.AsrStreamErrorReason` 里同名的三个**同码同义**
+ * （下方编译期断言钉住），不是巧合撞名。
+ */
+export const ChatAsrDraftErrorReason = z.enum([
+  "ASR_PROVIDER_UNAVAILABLE",
+  "ASR_NOT_CONFIGURED",
+  "AUDIO_FORMAT_REJECTED",
+]);
+
+/** 上游要求的音频格式——与 `recording.ASR_AUDIO_FORMAT` 数值相同（同一个上游、同一份契约）。 */
+export const CHAT_ASR_DRAFT_AUDIO_FORMAT = {
+  sampleRate: 16_000,
+  channels: 1,
+  encoding: "pcm16le",
+} as const;
+
+/** 客户端 → 服务端。没有 `trackId`/`messageId`/`idempotencyKeyPrefix`——草稿流不落库，不需要幂等键。 */
+export const ChatAsrDraftClientFrame = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("asr.start") }).strict(),
+  z.object({ type: z.literal("asr.finish") }).strict(),
+]);
+
+/** 服务端 → 客户端。`asr.final` 没有 `segmentId`——它不是任何数据库行的投影。 */
+export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("asr.partial"), text: z.string() }).strict(),
+  z.object({ type: z.literal("asr.final"), text: z.string() }).strict(),
+  z.object({ type: z.literal("asr.error"), reason: ChatAsrDraftErrorReason }).strict(),
+  z.object({ type: z.literal("asr.finished") }).strict(),
+]);
+
+export const streamOperations = {
+  streamAsrDraft: {
+    path: "/chat/asr-draft",
+    /** 与 `recording.streamOperations.streamAsr` 相同的前缀字面量——同一种鉴权机制。 */
+    bearerSubprotocolPrefix: "bearer.",
+    audio: CHAT_ASR_DRAFT_AUDIO_FORMAT,
+    client: ChatAsrDraftClientFrame,
+    server: ChatAsrDraftServerFrame,
+    err: ChatAsrDraftErrorReason,
+  },
+} as const;
+
+export type StreamOperations = typeof streamOperations;
+
+/**
+ * 机械钉住上面注释里那句「同码同义」——`ChatAsrDraftErrorReason` 的三个值必须真的是
+ * `recording.AsrStreamErrorReason` 里同名值的**同一件事**，不是撞名。任一侧改了字面量、
+ * 或两边对同一个字符串给出不同含义，这里就编译失败，而不是留到运行时才发现两条 ASR
+ * 面对同一个错误码的解释不一致。
+ */
+type RecordingAsrStreamErrorReasonT = z.infer<typeof RecordingAsrStreamErrorReason>;
+type ChatAsrDraftErrorReasonT = z.infer<typeof ChatAsrDraftErrorReason>;
+export const CHAT_ASR_DRAFT_SHARED_WITH_RECORDING_ASR = [
+  "ASR_PROVIDER_UNAVAILABLE",
+  "ASR_NOT_CONFIGURED",
+  "AUDIO_FORMAT_REJECTED",
+] as const satisfies readonly (RecordingAsrStreamErrorReasonT & ChatAsrDraftErrorReasonT)[];
 
 /* ────────────── 跨束「同码同义」的编译期门控（硬要求 ②）────────────── */
 
