@@ -62,6 +62,7 @@ function identityFor(orgId: string, name: string, kind: "organization" | "person
     teamId: null,
     projectRole: null,
     groupId: null,
+    displayName: "user-596",
   };
 }
 

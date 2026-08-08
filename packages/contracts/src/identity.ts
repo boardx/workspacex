@@ -525,6 +525,15 @@ export const operations = {
     err: ["NO_ORG_MEMBERSHIP"] as const,
   },
 
+  /**
+   * ⚠ Addendum A（#638 迭代 1 独立 UIUX 复核后追加，2026-08-08 单独签核——见
+   *   `phases/phase-01-run-a-project/design-deltas/self-service-profile/contract.md`
+   *   「Addendum A」一节 + `design-signoff.md` 的 `addendum_a_status: confirmed`）：
+   *   `out.displayName` 是本次新增字段，来自 `credentials.display_name`。
+   *   在此之前 `updateOwnProfile` 只有写路径、没有配套读路径——改名后 `saved` 提示
+   *   出现了，但产品里所有读「显示名」的地方（session、侧栏头像首字母等）都读不到新值，
+   *   是假反馈。这条字段就是补那条读路径。
+   */
   resolveIdentity: {
     method: "GET", path: "/identity/me",
     in: z.object({ orgId: z.string(), projectId: z.string().optional() }).strict(),
@@ -534,8 +543,32 @@ export const operations = {
       teamId: z.string().nullable(),
       projectRole: ProjectRole.nullable(),
       groupId: z.string().nullable(),
+      /** 来自 credentials.display_name；这一列早就存在，只是从未被读出来过（Addendum A）。 */
+      displayName: z.string(),
     }).strict(),
     err: ["NO_ORG_MEMBERSHIP"] as const,
+  },
+
+  /**
+   * updateOwnProfile —— 自助改个人资料（#638 delta，迭代 1）
+   *
+   * ⚠ 本轮只有 `displayName` 有真实可用的后端路径。`avatarArtifactId` 字段
+   *   按 delta §1 的最终形状先写进 zod（前端/契约层完整），但 `uploadOwnAvatar`
+   *   本轮不做——服务端收到非 null 的 `avatarArtifactId` 时不做头像落库，
+   *   仅原样透传占位处理，不在本轮伪造"头像已生效"的假象。见迭代说明。
+   *
+   * 不接受修改邮箱——邮箱是登录凭据的一部分，改邮箱是另一个更敏感的操作。
+   */
+  updateOwnProfile: {
+    method: "PATCH", path: "/identity/me",
+    in: z.object({
+      displayName: z.string().min(1).optional(),
+      /** null = 清空头像回默认；非 null 必须是 uploadOwnAvatar 刚返回的 avatarArtifactId。
+       *  ⚠ 迭代 1：uploadOwnAvatar 未实现，服务端对非 null 值一律拒绝为 INVALID_INPUT。 */
+      avatarArtifactId: z.string().nullable().optional(),
+    }).strict(),
+    out: z.object({ displayName: z.string(), avatarUrl: z.string().nullable() }).strict(),
+    err: ["INVALID_INPUT", "AVATAR_ARTIFACT_NOT_OWNED"] as const,
   },
 
   switchOrganization: {

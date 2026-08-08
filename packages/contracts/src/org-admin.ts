@@ -438,6 +438,28 @@ export const operations = {
   },
 
   /**
+   * `listTeams` —— 团队列表只读（#639 delta，迭代 1）
+   *
+   * ⚠ 本轮组织管理页"团队"标签页只需要**列表**，CRUD（`mutateTeam`）动作留空/禁用态，
+   *   迭代 2 再接前端。任何有组织成员资格的人都可以读列表——这是查看，不是管理动作，
+   *   不复用 `mutateTeam` 的 admin-only 授权收窄（见该 delta §4①，仅约束写操作）。
+   *
+   * `memberCount` **现查** `COUNT(*) FROM org_memberships WHERE team_id = $1`，
+   *   不额外维护计数列——避免引入第二份"团队人数"事实源（delta §2）。
+   */
+  listTeams: {
+    method: "GET",
+    path: "/organizations/:orgId/teams",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z.object({
+      teams: z.array(z.object({
+        teamId: z.string(), name: z.string(), memberCount: z.number().int().nonnegative(),
+      }).strict()),
+    }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
    * `RemoveOrgMember` —— 移除组织成员（O-29 ②）
    *
    * ⚠ **与 UC-17.2 的授权撤回结果相反，不得共用代码路径**：

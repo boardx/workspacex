@@ -81,11 +81,21 @@ export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIden
   "orgRole": "admin",
   "teamId": null,
   "projectRole": null,
-  "groupId": null
+  "groupId": null,
+  "displayName": "displayName-1"
 };
 
 /** resolveIdentity 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const resolveIdentityErrors = ["NO_ORG_MEMBERSHIP"] as const;
+
+/** updateOwnProfile 的成功响应样例（由契约生成） */
+export const updateOwnProfileMock: z.infer<typeof identity.operations.updateOwnProfile.out> = {
+  "displayName": "displayName-1",
+  "avatarUrl": null
+};
+
+/** updateOwnProfile 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const updateOwnProfileErrors = ["INVALID_INPUT","AVATAR_ARTIFACT_NOT_OWNED"] as const;
 
 /** switchOrganization 的成功响应样例（由契约生成） */
 export const switchOrganizationMock: z.infer<typeof identity.operations.switchOrganization.out> = {

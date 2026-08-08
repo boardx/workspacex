@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Building2, ChevronDown, FolderKanban, Lock, LogOut, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { Building2, ChevronDown, FolderKanban, Lock, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
   MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
@@ -99,6 +100,20 @@ export function TopBar({
           </select>
           <ChevronDown aria-hidden className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         </div>
+
+        {/*
+          组织管理入口（#639 delta，迭代 1）—— 固定在左上角，紧邻组织切换器，
+          rubric 硬性锚点。本轮只带出"团队"标签页的只读列表；CRUD 动作在页面内留空/禁用态。
+        */}
+        <Link
+          href="/org-admin"
+          data-testid="org-admin-entry"
+          aria-label="组织管理"
+          title="组织管理"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Settings aria-hidden className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       <div className="h-4 w-px shrink-0 bg-border" aria-hidden />

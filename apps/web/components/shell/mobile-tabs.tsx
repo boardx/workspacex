@@ -13,7 +13,7 @@ const TABS = [
   { key: "chat", label: "对话", href: "/chat", icon: MessagesSquare },
   { key: "projects", label: "项目", href: "/projects", icon: FolderKanban },
   { key: "tasks", label: "任务", href: "/tasks", icon: ListTodo },
-  { key: "me", label: "我", href: "/brain", icon: User },
+  { key: "me", label: "我", href: "/profile", icon: User },
 ];
 
 export function MobileTabs() {

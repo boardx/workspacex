@@ -30,6 +30,7 @@ const IDENTITY_ONE = {
   teamId: "team-one",
   projectRole: null,
   groupId: null,
+  displayName: "Ada One",
 };
 
 const IDENTITY_TWO = {
@@ -38,6 +39,7 @@ const IDENTITY_TWO = {
   teamId: null,
   projectRole: null,
   groupId: null,
+  displayName: "Bea Two",
 };
 
 function Probe() {
@@ -46,10 +48,12 @@ function Probe() {
     <div>
       <output data-testid="status">{session.status}</output>
       <output data-testid="org">{session.identity?.org.name ?? "none"}</output>
+      <output data-testid="display-name">{session.identity?.displayName ?? "none"}</output>
       <button data-testid="sign-in" onClick={() => void session.startSession(LOGIN)}>sign in</button>
       <button data-testid="switch" onClick={() => void session.switchOrganization("org-two").catch(() => undefined)}>switch</button>
       <button data-testid="logout" onClick={session.logout}>logout</button>
       <button data-testid="retry" onClick={() => void session.retry()}>retry</button>
+      <button data-testid="rename" onClick={() => session.updateDisplayName("New Name")}>rename</button>
     </div>
   );
 }
@@ -94,6 +98,7 @@ describe("SessionProvider", () => {
     expect(await screen.findByTestId("status")).toHaveTextContent("anonymous");
     fireEvent.click(screen.getByTestId("sign-in"));
     await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("One"));
+    expect(screen.getByTestId("display-name")).toHaveTextContent("Ada One");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBe("token-one");
     const persisted = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY) ?? "null") as {
       version?: number;
@@ -105,6 +110,7 @@ describe("SessionProvider", () => {
 
     fireEvent.click(screen.getByTestId("switch"));
     await waitFor(() => expect(screen.getByTestId("org")).toHaveTextContent("Two"));
+    expect(screen.getByTestId("display-name")).toHaveTextContent("Bea Two");
     expect(switchCurrentOrganization).toHaveBeenCalledWith("org-two", "token-one");
     const switched = JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY) ?? "null") as {
       revision?: string;
@@ -115,6 +121,27 @@ describe("SessionProvider", () => {
     fireEvent.click(screen.getByTestId("logout"));
     expect(screen.getByTestId("status")).toHaveTextContent("anonymous");
     expect(window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("updateDisplayName reflects a rename immediately, without waiting on the next resolveIdentity (Addendum A / 反证 B)", async () => {
+    resolveIdentity.mockResolvedValueOnce(IDENTITY_ONE).mockResolvedValue(IDENTITY_ONE);
+    render(<SessionProvider><Probe /></SessionProvider>);
+
+    fireEvent.click(screen.getByTestId("sign-in"));
+    await waitFor(() => expect(screen.getByTestId("display-name")).toHaveTextContent("Ada One"));
+    // LOGIN carries two orgs, so #596's "fill in the other org names" effect fires one more
+    // resolveIdentity call in the background -- let it settle before taking the baseline, so
+    // it is not mistaken for a call the rename itself triggered.
+    await waitFor(() => expect(resolveIdentity).toHaveBeenCalledTimes(2));
+    const callsBeforeRename = resolveIdentity.mock.calls.length;
+
+    // Simulates ProfileForm calling `session.updateDisplayName()` with the PATCH response's
+    // `out.displayName` right after a save -- no additional resolveIdentity call, and status
+    // must stay "authenticated" the whole time (no loading flash that would hide the save).
+    fireEvent.click(screen.getByTestId("rename"));
+    expect(screen.getByTestId("display-name")).toHaveTextContent("New Name");
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated");
+    expect(resolveIdentity).toHaveBeenCalledTimes(callsBeforeRename);
   });
 
   it("clears an invalid session on 401", async () => {

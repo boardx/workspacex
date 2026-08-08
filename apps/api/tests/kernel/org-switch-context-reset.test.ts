@@ -8,6 +8,7 @@ import {
   resetOrgs,
   seedOrg,
 } from "../support/db";
+import { seedCredential } from "../support/auth";
 import {
   AUTHORIZATION_CACHE,
   SESSION_STORE,
@@ -116,6 +117,9 @@ beforeEach(async () => {
   await addOrgMember(ORG_A, USER, "admin", fxA.teams.energy!);
   await addProjectMember(ORG_A, PROJ_A, USER, "facilitator", null);
   await addOrgMember(ORG_B, USER, "consultant", fxB.teams.platform!);
+  // Addendum A: `resolveIdentity` now reads `credentials.display_name`; without a credential
+  // row every `/identity/me` call in this file would 404 on the new lookup.
+  await seedCredential({ userId: USER, email: `${USER}@f638-switch.test`, password: "correct horse battery staple", displayName: "Multi Org User" });
   // Deliberately NO project membership in org B.
 });
 

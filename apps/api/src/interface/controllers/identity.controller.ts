@@ -5,8 +5,8 @@
  * copy (`lint-contract-source` enforces that, and it now scans this package).
  */
 import {
-  Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
-  NotFoundException, Post, Query,
+  BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
+  NotFoundException, Patch, Post, Query,
 } from "@nestjs/common";
 import { identity as C } from "@repo/contracts";
 import {
@@ -26,10 +26,12 @@ import {
 } from "../../application/identity/read-content";
 import { getPersonalLayerSummary } from "../../application/identity/personal-layer-summary";
 import { resolveModelConstraint } from "../../application/identity/resolve-model-constraint";
+import { UpdateOwnProfileError, updateOwnProfile } from "../../application/identity/update-own-profile";
 import {
   CAPABILITY_REPOSITORY,
   type CapabilityRepository,
 } from "../../application/identity/capability-ports";
+import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
 import {
   CONTENT_REPOSITORY,
   type ContentRepository,
@@ -60,11 +62,13 @@ export const AUTHORIZE_BATCH_SCHEMA = C.operations.authorizeBatch.in;
 export const SWITCH_ORG_SCHEMA = C.operations.switchOrganization.in;
 export const READ_CONTENT_SCHEMA = C.operations.readContent.in;
 export const MODEL_CONSTRAINT_SCHEMA = C.operations.resolveModelConstraint.in;
+export const UPDATE_OWN_PROFILE_SCHEMA = C.operations.updateOwnProfile.in;
 
 type AuthorizeBody = { orgId: string; projectId?: string; object: { kind: "project" | "artifact" | "segment"; id: string }; action: string };
 type AuthorizeBatchBody = { orgId: string; projectId?: string; objects: { kind: "project" | "artifact" | "segment"; id: string }[]; action: string };
 type ReadContentBody = { orgId: string; projectId: string; itemId: string; purpose: ReadPurpose };
 type ModelConstraintBody = { orgId: string; dataScope: { itemId: string; confidential: boolean }[] };
+type UpdateOwnProfileBody = { displayName?: string; avatarArtifactId?: string | null };
 
 @Controller()
 export class IdentityController {
@@ -76,6 +80,7 @@ export class IdentityController {
     @Inject(CONTENT_REPOSITORY) private readonly content: ContentRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(CAPABILITY_REPOSITORY) private readonly capabilities: CapabilityRepository,
+    @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
   ) {}
 
   private get deps(): AuthorizeDeps {
@@ -212,7 +217,7 @@ export class IdentityController {
   ) {
     assertPrincipal(principal);
     try {
-      const r = await resolveIdentity(this.repo, {
+      const r = await resolveIdentity(this.repo, this.credentials, {
         userId: principal.userId,
         orgId: toOrgId(orgId),
         projectId,
@@ -221,6 +226,32 @@ export class IdentityController {
     } catch (e) {
       // 404, not 403: a denial must not reveal whether the organization exists.
       if (e instanceof NoOrgMembershipError) throw new NotFoundException();
+      throw e;
+    }
+  }
+
+  /**
+   * `updateOwnProfile`（#638 delta，迭代 1）—— 目前只有 `displayName` 真的落库。
+   *
+   * `avatarArtifactId` 非 null 一律 400 `INVALID_INPUT`——`uploadOwnAvatar` 本轮
+   * 未实现，见 `application/identity/update-own-profile.ts` 头部注释。
+   */
+  @Patch("/identity/me")
+  async updateMe(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(UPDATE_OWN_PROFILE_SCHEMA)) body: UpdateOwnProfileBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateOwnProfile(
+        { credentials: this.credentials },
+        { userId: principal.userId, displayName: body.displayName, avatarArtifactId: body.avatarArtifactId },
+      );
+    } catch (e) {
+      if (e instanceof UpdateOwnProfileError) {
+        if (e.reasonCode === "AVATAR_ARTIFACT_NOT_OWNED") throw new ForbiddenException({ reasonCode: e.reasonCode });
+        throw new BadRequestException({ reasonCode: e.reasonCode });
+      }
       throw e;
     }
   }

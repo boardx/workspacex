@@ -21,6 +21,10 @@
  * 成员名单 / 邀请名单本身**没有真实数据源可读**，仍然只能来自
  * `lib/mock/admin.ts` 与 `lib/mock/org-admin.ts`——这不是没做，是后端还没有对应的
  * 读端点（见 PR 描述里的 gap 记录）。
+ *
+ * #639 delta 迭代 1：`listTeams` 补上——`GET /organizations/:orgId/teams` 现在有真
+ * controller 了（`org-admin-management.controller.ts`），是本文件第一个真实的**读**操作。
+ * 团队 CRUD 动作（create/rename/delete）迭代 2 再接前端，这里只加 `listTeams`。
  */
 import { identity, orgAdmin } from "@repo/contracts";
 import type { z } from "zod";
@@ -93,4 +97,10 @@ export async function mutateTeam(input: MutateTeamInput): Promise<MutateTeamOut>
     method: "POST",
     body: { orgId: input.orgId, op: input.op, teamId: input.teamId, name: input.name },
   });
+}
+
+export type ListTeamsOut = z.infer<typeof orgAdmin.operations.listTeams.out>;
+
+export async function listTeams(orgId: string): Promise<ListTeamsOut> {
+  return apiRequest<ListTeamsOut>(path(orgAdmin.operations.listTeams.path, { orgId }), { method: "GET" });
 }

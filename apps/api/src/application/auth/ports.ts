@@ -31,6 +31,8 @@ export interface CredentialRow {
   readonly email: string;
   readonly passwordHash: string;
   readonly emailVerifiedAt: Date | null;
+  /** #638 delta, iteration 1. `credentials.display_name` -- always set, never null. */
+  readonly displayName: string;
 }
 
 export interface CredentialRepository {
@@ -39,6 +41,11 @@ export interface CredentialRepository {
   findByUserId(userId: string): Promise<CredentialRow | null>;
   /** Replace the stored hash. Used by password reset; never by login. */
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
+  /**
+   * `updateOwnProfile`（#638 delta，迭代 1）—— 目前只有这一个可写字段。
+   * 返回更新后的行；`userId` 不存在时返回 null（理论上不该发生，调用方已认证）。
+   */
+  updateDisplayName(userId: string, displayName: string): Promise<CredentialRow | null>;
 }
 
 export const CREDENTIAL_REPOSITORY = Symbol("CredentialRepository");

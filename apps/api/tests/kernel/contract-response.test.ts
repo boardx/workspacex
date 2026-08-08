@@ -9,6 +9,7 @@ import {
   resetOrgs,
   seedOrg,
 } from "../support/db";
+import { seedCredential } from "../support/auth";
 
 /**
  * Responses are validated against the contract too -- not just requests.
@@ -67,6 +68,10 @@ beforeEach(async () => {
   fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, USER, "consultant", fx.teams.energy!);
   await addProjectMember(ORG, PROJECT, USER, "facilitator", null);
+  // Addendum A: `resolveIdentity` now reads `credentials.display_name`, so USER needs a real
+  // credential row -- the test-principal header (KERNEL_ALLOW_TEST_PRINCIPAL) bypasses login
+  // but not this read. ON CONFLICT keeps this idempotent across runs.
+  await seedCredential({ userId: USER, email: `${USER}@f638-resp.test`, password: "correct horse battery staple", displayName: "Resp Fixture" });
 });
 
 describe("every response conforms to the contract's `out` schema", () => {
@@ -136,6 +141,11 @@ describe("every response conforms to the contract's `out` schema", () => {
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(body)).toBeNull();
     // The field that was silently missing. Asserted by name so a future regression names itself.
     expect((body.org as { team: unknown }).team).toBe(fx.teams.energy);
+    // Addendum A (反证 A): read from `credentials.display_name`, not a placeholder. If the
+    // read step is removed, this fails (missing field => schema parse above already fails)
+    // AND this line would assert against a stale/absent value even if someone patched the
+    // schema to make displayName optional to dodge the parse failure.
+    expect(body.displayName).toBe("Resp Fixture");
   });
 
   it("GET /identity/me without project context -- projectRole is null (I-11)", async () => {

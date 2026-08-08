@@ -15,6 +15,11 @@ export interface TeamRow {
   readonly name: string;
 }
 
+/** `listTeams`（#639 delta，迭代 1）一行。`memberCount` 现查，不额外维护计数列。 */
+export interface TeamListRow extends TeamRow {
+  readonly memberCount: number;
+}
+
 /** 删除被阻断时的占用项。⚠ **不得为空数组**——空数组等于没说明原因（契约 `mutateTeam.out.blocked`）。 */
 export interface TeamOccupancyItem {
   readonly kind: string;
@@ -58,6 +63,13 @@ export interface TeamRepository {
    * `acl_bindings.owner_team_id` 指向它，一律阻断并**列出占用项**，**不做级联删除**。
    */
   delete(orgId: OrgId, teamId: string): Promise<MutateTeamResult>;
+
+  /**
+   * `list` —— 只读列表（#639 delta，迭代 1）。`memberCount` 必须是
+   * `COUNT(*) FROM org_memberships WHERE team_id = $1` 的真查询，不是硬编码 0——
+   * 这条是反证 C 的断言对象。
+   */
+  list(orgId: OrgId): Promise<readonly TeamListRow[]>;
 }
 
 export const TEAM_REPOSITORY = Symbol("TeamRepository");
