@@ -23,6 +23,37 @@ export default defineConfig({
   testMatch: "chat-read.spec.ts",
   fullyParallel: false,
   retries: 0,
+  /*
+   * #733 —— test 1（"formal Chat writes ..."）在 main 上不稳定，`POST /messages`
+   * 有时报 `Expected 202, Received 500`。
+   *
+   * 实测（本轮排查，4 次独立 `pnpm run verify:chat-read` + 2 次绕开浏览器的裸
+   * curl 回归）：`chat.controller.ts` → `acceptHumanMessage` → `PgChatMessageCommandRepository`
+   * 这条链路本身是好的 —— 直接对 API 打 curl、以及经由下面第二个 webServer（Next dev
+   * 的 rewrite 代理）打 curl，两条路径**各自独立复现了两次**，全部 202，从未见过一次
+   * 应用层的 500（应用层的每一条错误响应都必然带 `traceId`，见
+   * `apps/api/src/interface/filters/all-exceptions.filter.ts` 的 `@Catch()` 兜底 —— 一个不带
+   * `traceId` 的裸 `Internal Server Error` 纯文本响应，只可能来自 Next dev 的反向代理，不可能
+   * 来自这个应用）。#651/#661 已经修过一次这条链路真实的根因（`chat_wave2_fixture` 夹具表
+   * schema 漂移），那次修复至今没有被后续改动碰过。
+   *
+   * 4 次官方跑法里，1 一直是失败的那条（2、3 从未失败过），但**每次失败的具体表现都不一样**
+   * ——一次卡在 `page.goto('/chat?...')` 30s 超时，两次卡在登录后 `toHaveURL(/\/projects$/)`
+   * 5s 超时——这是「时序竞态」的指纹，不是「同一行代码每次都算出同一个错」的指纹。根因：
+   * `apps/web/app/layout.tsx` 引入了 `next/font/google`，本机/沙箱缺公网出口时 Next dev
+   * 对每个字体分片重试三次才放弃，把 `/login`、`/chat` 这两个路由的**首次**编译拖到 10–30s+
+   * （`playwright.fullstack-smoke.config.ts:41-47` 已经记录过同一件事，实测冷构建 3m24s，
+   * 结论是「CI 有公网、栈干净，落在默认窗口内，本地慢机器要显式覆盖」）。本 config 此前没抄那一份
+   * 覆盖，默认的 5s expect 超时因此比"首次编译"这件事本身还紧。最坏情形下（本轮复现过一次）
+   * API 进程在这个窗口内短暂不可达，Next dev 的 rewrite 代理会把连接失败渲染成一个**没有
+   * `traceId`、纯文本**的 `500 Internal Server Error` 直接转发给浏览器——这与
+   * `response.status()===500` 从 Playwright 侧看完全无法区分，但它不是这个应用抛出来的。
+   *
+   * 修法：给足首次编译 + 短暂不可达的窗口，而不是动 202 这个断言本身或删掉它——
+   * 3 次开着这两个超时的复现，3 次全绿（此前 4 次全部 1 fail / 2 pass）。
+   */
+  timeout: 120_000,
+  expect: { timeout: 30_000 },
   reporter: "list",
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
