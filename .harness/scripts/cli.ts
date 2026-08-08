@@ -26,6 +26,7 @@ import { domainsDoctor } from "./domains-doctor";
 import { roleAuthorizationDoctor } from "./role-authorization-doctor";
 import { taskAssignmentDoctor } from "./task-assignment-doctor";
 import { workflowEventDoctor } from "./workflow-event-doctor";
+import { reviewDecisionDoctor } from "./review-decision-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -140,6 +141,17 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "review-decision": {
+      // H3A-036（PROP-HARNESS-AGENT-001 Epic E3）。独立于 "task-assignment"/
+      // "workflow-event"——Review Decision 跟另外两种是不同的实例集合，同
+      // "domains"/"role-authorization" 两个独立命令的先例。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { reviewDecisionDoctor(subArgs); break; }
+      log.err(`未知子命令 "review-decision ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -194,6 +206,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness role-authorization doctor                 # PROP-HARNESS-AGENT-001 H3A-020/021/023/024/025/026/027/029：分层授权模型体检");
       log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030/031/032：Task Assignment schema + Root→Domain/Domain→Worker gate 体检（Epic E3）");
       log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
+      log.info("  pnpm harness review-decision doctor                    # PROP-HARNESS-AGENT-001 H3A-036：Review Decision schema + reviewer≠producer 体检（Epic E3）");
       process.exit(cmd ? 1 : 0);
   }
 }

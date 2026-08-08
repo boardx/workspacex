@@ -81,7 +81,7 @@
 | H3A-033 | P0 | ✅ 完成（PR #721） | TPL-EVT-001 四类 Workflow Event envelope | 030 | Task Assignment/Progress/Blocker/Task Result 可解析 |
 | H3A-034 | P0 | ⬜ 未开始 | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
 | H3A-035 | P0 | ⬜ 未开始 | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
-| H3A-036 | P0 | ⬜ 未开始 | TPL-RVW-001 Revision-bound Review Decision | 027、033 | revision、producer、reviewer、evidence 完整 |
+| H3A-036 | P0 | 🔶 PR #待定 待 review（issue #759） | TPL-RVW-001 Revision-bound Review Decision | 027、033 | revision、producer、reviewer、evidence 完整 |
 | H3A-037 | P0 | ⬜ 未开始 | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
 | H3A-038 | P1 | ⬜ 未开始 | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
 | H3A-039 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
