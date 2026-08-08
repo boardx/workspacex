@@ -7,6 +7,9 @@ import {
   MessageSquare, Pencil, Plus, RefreshCw, Share2, Store, Trash2, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import {
+  ThreadCardButton, ThreadListHeader,
+} from "@/components/chat/thread-list-shell";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
@@ -464,10 +467,7 @@ function ThreadList({
 
   return (
     <div className="flex flex-col" data-testid="chat-read-thread-list">
-      <div className="flex items-center justify-between gap-2 px-3 pt-3">
-        <h2 className="text-14 font-semibold">对话</h2>
-        <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
-      </div>
+      <ThreadListHeader />
       {canMutate ? <ThreadActions {...writeProps} slot="create" /> : null}
       {roster}
       <Separator />
@@ -498,22 +498,12 @@ function ThreadList({
             <section key={group.label} className="flex flex-col gap-1">
               <h2 className="px-1 text-10 font-medium text-muted-foreground">{group.label}</h2>
               {group.cards.map((card) => (
-                <button
+                <ThreadCardButton
                   key={card.id}
-                  type="button"
-                  data-testid={`chat-thread-${card.id}`}
-                  aria-current={card.id === selectedThreadId ? "page" : undefined}
-                  onClick={() => onSelect(card.id)}
-                  className={[
-                    "flex flex-col gap-1 rounded-md border-l-2 px-2 py-2 text-left transition-colors hover:bg-muted",
-                    card.id === selectedThreadId
-                      ? "border-primary bg-muted"
-                      : "border-transparent",
-                  ].join(" ")}
-                >
-                  <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
-                  <ThreadMeta card={card} />
-                </button>
+                  card={card}
+                  selected={card.id === selectedThreadId}
+                  onSelect={() => onSelect(card.id)}
+                />
               ))}
             </section>
             )
@@ -728,46 +718,6 @@ function ThreadWriteForm({
     );
   }
   return null;
-}
-
-/**
- * 会话卡副行 —— 照原型：**负责的 agent · 时间 · 状态徽标**。
- *
- * ⚠ 此前副行第一段印的是 `visibilityScope` 的**原始枚举值**（`plenary` / `private`…）。
- *   原型副行里根本没有可见范围，有的是「Scout · 14:02 · 3 条待复核」。可见范围是
- *   一个治理概念，塞在时间线列表里既占位又不可读。它改由 `VisibilityBadge`
- *   在线程头部呈现（那里才是它的位置）。
- * ⚠ 徽标枚举是封闭二值（`MessageBadge`），所以是穷举 Record 而不是直接印英文原值。
- */
-function ThreadMeta({ card }: { card: ThreadCard }) {
-  return (
-    <span className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
-      {card.agentSummary ? <span className="truncate">{card.agentSummary}</span> : null}
-      <span>· {shortTime(card.lastActivityAt)}</span>
-      {card.badges.map((badge) => (
-        <Badge key={badge} tone={badge === "review-pending" ? "warning" : "outline"}>
-          {THREAD_BADGE_TEXT[badge]}
-        </Badge>
-      ))}
-    </span>
-  );
-}
-
-const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
-  degraded: "已降级",
-  "review-pending": "待复核",
-};
-
-/**
- * 只取「时:分」。原型左栏印的是 `14:02` / `周三` 这种量级，不是完整 ISO 串。
- * ⚠ 不做「几分钟前」这类相对时间：那会让同一条卡在两次渲染间文字不同，
- *   截图比对与快照测试都会因此抖动，而它换来的信息量为零。
- * 服务端下发的是 ISO 串；解析失败时原样返回，不静默显示成空。
- */
-function shortTime(iso: string): string {
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return iso;
-  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
 function ThreadDetail({
