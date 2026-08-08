@@ -18,13 +18,36 @@ export class RoutingModelCallPort implements ModelCallPort {
   constructor(private readonly ports: ReadonlyMap<string, ModelCallPort>) {}
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
-    const port = this.ports.get(input.modelProvider);
+    return this.resolve(input.modelProvider).complete(input);
+  }
+
+  /**
+   * #654 阶段2a — ALWAYS defined on the router itself (unlike an individual port, where
+   * absence means "cannot stream"). The router's job is dispatch, and dispatch always
+   * succeeds; whether the ROUTED-TO port can stream is decided per-call, by checking that
+   * port's own `completeStream`. A provider that cannot stream (today:
+   * `open-deep-research`, image generation) falls back to `complete()` here -- `onDelta`
+   * simply never fires for it, and the returned text is identical to calling `complete()`
+   * directly. This keeps `execute-run.ts`'s presence check meaningful without the router
+   * having to mirror "does ANY registered port stream" at construction time.
+   */
+  async completeStream(
+    input: ModelCallInput,
+    onDelta: (delta: string) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const port = this.resolve(input.modelProvider);
+    if (port.completeStream) return port.completeStream(input, onDelta);
+    return port.complete(input);
+  }
+
+  private resolve(modelProvider: string): ModelCallPort {
+    const port = this.ports.get(modelProvider);
     if (!port) {
       throw new ModelCallError(
         "MODEL_PROVIDER_NOT_CONFIGURED",
-        `no ModelCallPort registered for provider "${input.modelProvider}"`,
+        `no ModelCallPort registered for provider "${modelProvider}"`,
       );
     }
-    return port.complete(input);
+    return port;
   }
 }

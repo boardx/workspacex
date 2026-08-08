@@ -26,8 +26,8 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
-  AgentRunStore, AppendedRunStep, ClaimOutcome, PendingWriteback, PinnedSkillContent,
-  RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
+  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, PendingWriteback,
+  PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -156,6 +156,29 @@ export class PgAgentRunRepository implements AgentRunStore {
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
           step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode],
       );
+    });
+  }
+
+  async appendModelDelta(orgId: OrgId, delta: AppendedRunDelta): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO agent_run_deltas (id,org_id,run_id,seq,text)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (org_id,run_id,seq) DO NOTHING`,
+        [randomUUID(), orgId, delta.runId, delta.seq, delta.text],
+      );
+    });
+  }
+
+  async readModelDeltas(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly RunDelta[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ seq: number; text: string; created_at: Date }>(
+        `SELECT seq, text, created_at FROM agent_run_deltas
+          WHERE org_id=$1 AND run_id=$2 AND seq > $3
+          ORDER BY seq ASC`,
+        [orgId, runId, afterSeq],
+      );
+      return rows.map((r) => ({ seq: r.seq, text: r.text, createdAt: r.created_at.toISOString() }));
     });
   }
 
