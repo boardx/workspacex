@@ -82,7 +82,7 @@ import {
 import {
   runAguiBridgeTurn, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
-  TitleInvalidError, AguiBridgeResultUnreadableError,
+  TitleInvalidError, AguiBridgeResultUnreadableError, type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
 
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
@@ -100,7 +100,23 @@ type AguiEvent =
   | { readonly type: EventType.TEXT_MESSAGE_CONTENT; readonly messageId: string; readonly delta: string }
   | { readonly type: EventType.TEXT_MESSAGE_END; readonly messageId: string }
   | { readonly type: EventType.RUN_FINISHED; readonly threadId: string; readonly runId: string }
-  | { readonly type: EventType.RUN_ERROR; readonly message: string; readonly code?: string };
+  | { readonly type: EventType.RUN_ERROR; readonly message: string; readonly code?: string }
+  // #789 -- native AG-UI tool-call visibility (chat-ux-acceptance-criteria.md items 2/3),
+  // field names read off `@ag-ui/core`'s zod schemas (`ToolCallStartEventSchema` etc.),
+  // not guessed, same discipline the file head already documents for the six event types
+  // above. Every `RunStepPublic` this controller receives is ALREADY COMPLETE by the time
+  // `onStep` fires (`agui-bridge.ts`'s own doc: steps are durable before a run can reach a
+  // terminal status) -- so a step becomes this whole sequence in one shot, never a partial
+  // "started, might still be running" state the client has to reconcile later.
+  | { readonly type: EventType.STEP_STARTED; readonly stepName: string }
+  | { readonly type: EventType.TOOL_CALL_START; readonly toolCallId: string; readonly toolCallName: string }
+  | { readonly type: EventType.TOOL_CALL_ARGS; readonly toolCallId: string; readonly delta: string }
+  | { readonly type: EventType.TOOL_CALL_END; readonly toolCallId: string }
+  | {
+    readonly type: EventType.TOOL_CALL_RESULT; readonly messageId: string; readonly toolCallId: string;
+    readonly content: string; readonly role: "tool";
+  }
+  | { readonly type: EventType.STEP_FINISHED; readonly stepName: string };
 
 function lastUserText(input: AguiRunInput): string | null {
   const messages = input.messages ?? [];
@@ -108,6 +124,56 @@ function lastUserText(input: AguiRunInput): string | null {
     if (messages[i]?.role === "user") return messages[i]!.content;
   }
   return null;
+}
+
+/**
+ * #789 -- one `RunStepPublic` (a REAL, already-executed `tool_call` step, see
+ * `agui-bridge.ts`'s own doc on `onStep`) becomes this fixed AG-UI event sequence:
+ *
+ *   STEP_STARTED(stepName)
+ *   → [ a small assistant text bubble carrying `planningNote`, IF the model said one --
+ *       chat-ux-acceptance-criteria.md item 2 ("可见的规划步骤") wants the model's OWN
+ *       words visible as readable text, not only encoded into a tool-call event a client
+ *       without custom rendering would silently drop ]
+ *   → TOOL_CALL_START → TOOL_CALL_ARGS (only if there IS an args summary; the schema's
+ *       `delta` is a required string, so this is skipped rather than sent as `""` when the
+ *       step never captured one) → TOOL_CALL_END
+ *   → TOOL_CALL_RESULT (content is the result summary, or a stock failure string when
+ *       `step.status === "failed"` -- chat-ux-acceptance-criteria.md item 7, "错误处理
+ *       透明度": a failed tool call must be visible AS a failure, not silently empty)
+ *   → STEP_FINISHED(stepName)
+ *
+ * `toolCallId`/planning-note `messageId` are minted fresh per step -- nothing downstream
+ * (this app's own persisted `chat_messages`/`agent_run_steps`) is looked up over these
+ * ids, same discipline the file head already documents for the main answer's `messageId`.
+ */
+function writeToolCallStep(write: (event: AguiEvent) => void, step: RunStepPublic): void {
+  const stepName = step.toolName ?? "未知工具";
+  write({ type: EventType.STEP_STARTED, stepName });
+
+  if (step.planningNote !== null && step.planningNote.trim() !== "") {
+    const planningMessageId = randomUUID();
+    write({ type: EventType.TEXT_MESSAGE_START, messageId: planningMessageId, role: "assistant" });
+    write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: planningMessageId, delta: step.planningNote });
+    write({ type: EventType.TEXT_MESSAGE_END, messageId: planningMessageId });
+  }
+
+  const toolCallId = randomUUID();
+  write({ type: EventType.TOOL_CALL_START, toolCallId, toolCallName: stepName });
+  if (step.toolArgsSummary !== null && step.toolArgsSummary !== "") {
+    write({ type: EventType.TOOL_CALL_ARGS, toolCallId, delta: step.toolArgsSummary });
+  }
+  write({ type: EventType.TOOL_CALL_END, toolCallId });
+
+  const resultContent = step.status === "failed"
+    ? (step.toolResultSummary ?? `技能「${stepName}」执行失败。`)
+    : (step.toolResultSummary ?? "");
+  write({
+    type: EventType.TOOL_CALL_RESULT, messageId: randomUUID(), toolCallId,
+    content: resultContent, role: "tool",
+  });
+
+  write({ type: EventType.STEP_FINISHED, stepName });
 }
 
 @Controller()
@@ -191,6 +257,11 @@ export class CopilotkitAguiController {
           }
           write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta });
         },
+        // #789 -- a tool_call step arrives ALREADY COMPLETE (see `AguiEvent`'s own comment
+        // above), so it becomes one full STEP_STARTED → [planning note text] →
+        // TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence per step, not a
+        // multi-poll partial state.
+        onStep: (step) => writeToolCallStep(write, step),
       });
 
       if (outcome.kind === "succeeded") {
