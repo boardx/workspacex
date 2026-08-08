@@ -2,6 +2,21 @@
 
 每次会话结束前逐项确认,确保下一轮无需人工修复即可开工:
 
+- [ ] **每个 agent/subagent 完成一件工作（PR 已开出/已合并）后立即回收自己占用的资源**
+  （2026-08-08 追加，事故背景：一次 3-worktree 并行派工 + 之前几轮遗留，
+  实测同一台机器上累积了 221 个 worktree，其中 192 个已经零改动纯属遗留、
+  外加十几个孤儿 docker compose 栈（postgres/redis）常驻，把 load average
+  打到 62.8（10 核机器），三个正常并行的 subagent 因此被"饥饿"，表现得像
+  卡死）——不是等会话结束才清，是**每完成一件事就清一次**：
+  - `git worktree remove <path>`（工作完成、PR 已开出后；不确定还需不需要
+    这个 worktree 时才保留，"可能还要用"不是保留理由，git 分支本身不会丢，
+    随时能重新 `git worktree add`）。
+  - `docker compose -f infra/docker-compose.yml down`（`verify:fullstack-smoke`
+    这类起了真实数据库的验证跑完就收，不留一份"待会可能还要测"的活库）。
+  - 协调者（coord-main/module-coordinator）派发多个并行 subagent 时，这条要
+    写进派发 prompt 里明确要求，不能假设 subagent 自己会想到；协调者自己
+    定期跑 `pnpm harness sweep-worktrees` / `pnpm harness sweep-docker` 巡检，
+    不要等 `uptime` 报警才想起来查。
 - [ ] 标准启动路径仍可用(`pnpm -w run dev`)。
 - [ ] 标准验证仍能跑(`pnpm -w run verify:base`)。
 - [ ] 进度日志已更新(对应 scope 的 `progress.md`)。

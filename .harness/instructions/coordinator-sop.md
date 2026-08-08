@@ -218,6 +218,21 @@ merge commit **用 `git merge-base --is-ancestor` 实测在 `origin/main` 上**�
    自己会话里用户的原话，coordinator 不代劳判断、不代跑 push，如实记录卡点后继续
    处理别的。
 
+13. **派发并行 subagent 时，每个 subagent 完成一件工作后必须自己回收资源
+   （2026-08-08 起）**：`git worktree remove <自己的 worktree>`、
+   `docker compose down` 起过的验证栈——工作完成（PR 已开出）就清，不是等会话
+   结束才清。这条要**写进派发 prompt 本身**，不能假设 subagent 自己会想到。
+   真实事故：一次 3-worktree 并行派工，加上之前几轮遗留，同一台机器上堆到
+   221 个 worktree（192 个已零改动纯属遗留）+ 十几个孤儿 docker 栈常驻，
+   load average 被打到 62.8（10 核机器），三个正常在跑的 subagent 因为资源
+   饥饿表现得像卡死——排查了半天才发现不是 subagent 自己的 bug，是并行度
+   叠加历史遗留资源没人回收。**这条是"自己清自己的"，跟铁律 8"破坏性批量清理
+   需要人类/coord-main 授权"不是一回事**——批量删别人可能还需要的 worktree/
+   容器仍然要走铁律 8 的审批，这条只管"我自己刚创建、刚用完的东西，我自己
+   收"，不需要额外审批，是每个 agent 对自己工作空间的基本卫生。协调者自己
+   也要定期主动跑 `pnpm harness sweep-worktrees` / `pnpm harness sweep-docker`
+   巡检（只读，不 `--apply`），不要等 `uptime` 报警才想起来查。
+
 ## ⚠ 关于本文引用的「先例」（2026-08-04 更正）
 
 本文与 `work-cycle-proposal.md` 的多条先例来自 **上游 BoardX 仓库**——本仓由
