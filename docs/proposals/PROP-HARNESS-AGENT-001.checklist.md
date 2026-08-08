@@ -52,7 +52,7 @@
 | H3A-016 | P1 | ⬜ 未开始 | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill |
 | H3A-017 | P1 | ⬜ 未开始 | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载 |
 | H3A-018 | P1 | ⬜ 未开始 | Fabric.js/Mermaid Domain Skill | 011–017 | 架构、身份、序列化、协作、验证与陷阱引用完整 |
-| H3A-019 | P0 | ⬜ 未开始 | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
+| H3A-019 | P0 | 🔶 PR #待定 待 review（issue #777） | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
 
 ## Epic E2 — 分层 Authorization Model（原三层 Role Graph）
 

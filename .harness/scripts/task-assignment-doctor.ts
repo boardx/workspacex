@@ -1,9 +1,9 @@
 // task-assignment-doctor.ts — H3A-030/031/032（PROP-HARNESS-AGENT-001 Epic E3）
-// 的仓库侧入口。
+// + H3A-019（Epic E1，Domain readiness gate）的仓库侧入口。
 //
 // pnpm harness task-assignment doctor
 //
-// 判定逻辑分三层，都是纯函数（喂 fixture 单测），本文件只做 IO：
+// 判定逻辑分四层，都是纯函数（喂 fixture 单测），本文件只做 IO：
 //   - H3A-030：单表 schema——扫 `.harness/tasks/*.yaml`（本 PR 建立的存放约定，
 //     见该目录的 README.md），挑出 template_id === "TPL-TSK-001" 的实例 →
 //     交给 validateTaskAssignment。
@@ -13,15 +13,19 @@
 //     Registry/Domain Skill 读取逻辑，不重新发明一遍。
 //   - H3A-032：Domain→Worker 跨表 gate（lib/domain-worker-task-assignment-gate.ts）
 //     ——不越领域/不越配额/不越权限三条，同样只对 schema 校验通过的实例跑。
+//   - H3A-019：Domain readiness gate（lib/domain-readiness-gate.ts）——
+//     assignee_role 解析到某个 Domain（owner === assignee_role，不限定
+//     assigned_by 是谁）时，检查该 Domain 的 Role/Skill/数据源是否就绪，
+//     未就绪的 Task Assignment 判 UNKNOWN（WARN）或 blocked（FAIL）。
 // 同 H3A-022 的先例：新检查并入既有 doctor 入口，不新开 CLI 子命令。同
 // domains-doctor.ts 的分层方式：本文件只管"从哪读、输出成什么退出码"，不含
 // 判定逻辑本身。
 //
 // 今天预期扫到 0 份实例——Epic E3 在 H3A-030 之前完全未开工，这是仓库的真实
 // 状态，不是 bug（同 domains-doctor.ts 落地时 0 个 Domain Skill 实例的先例）。
-// 0 实例意味着 H3A-031/032 的跨表 gate 今天都不会触发任何 finding——这是诚实
-// 的现状，不是 gate 没接上（各自 PR 描述里的真实反证会现场注入违规实例证明
-// gate 真的会红）。
+// 0 实例意味着 H3A-031/032/019 的跨表 gate 今天都不会触发任何 finding——这是
+// 诚实的现状，不是 gate 没接上（各自 PR 描述里的真实反证会现场注入违规实例
+// 证明 gate 真的会红）。
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
@@ -37,6 +41,11 @@ import {
   checkWorkerBudgetQuota,
   checkAssigneeAuthorityCeiling,
 } from "./lib/domain-worker-task-assignment-gate";
+import {
+  computeDomainReadiness,
+  buildReadinessMap,
+  checkTaskAssignmentReadiness,
+} from "./lib/domain-readiness-gate";
 import { readRoleFiles, readRegistry } from "./role-authorization-doctor";
 import { validateDomainRegistry, type DomainRegistryEntry } from "./lib/domain-model";
 import { DOMAIN_REGISTRY_PATH, readYaml as readDomainYaml, scanDomainSkillInstances } from "./domains-doctor";
@@ -212,6 +221,15 @@ export function taskAssignmentDoctor(_args: Args): void {
   const rootDomainFindings = checkRootToDomainAssignments(instances, ctx!);
   printGateFindings("H3A-031 Root→Domain gate", rootDomainFindings);
 
+  // H3A-019：Domain readiness gate（Epic E1）——跟 H3A-031/032 不同，不限定
+  // assigned_by 必须是谁；只要 assignee_role 是某个 Domain 的 owner，就检查
+  // 那个 Domain 是否就绪（readiness 是 Domain 自身的属性）。复用上面已经读好
+  // 的 domains/domainSkills/allKnownIdentityNames，不重新读一遍权威文件。
+  const domainReadiness = computeDomainReadiness(ctx!.domains, ctx!.domainSkills, ctx!.allKnownIdentityNames);
+  const readinessMap = buildReadinessMap(domainReadiness);
+  const readinessFindings = checkTaskAssignmentReadiness(instances, ctx!.domains, readinessMap);
+  printGateFindings("H3A-019 Domain readiness gate", readinessFindings);
+
   // H3A-032：Domain→Worker Task Assignment gate（三条，过滤范围不完全一致，
   // 见 lib/domain-worker-task-assignment-gate.ts 文件头的范围边界说明）：
   //   - 032a（不越领域）/032c（不越权限）只对 assigned_by 解析为
@@ -235,6 +253,7 @@ export function taskAssignmentDoctor(_args: Args): void {
     ...domainScopeFindings,
     ...budgetFindings,
     ...authorityFindings,
+    ...readinessFindings,
   ];
 
   log.info("");
@@ -248,6 +267,8 @@ export function taskAssignmentDoctor(_args: Args): void {
     "见 lib/domain-worker-task-assignment-gate.ts 文件头注释①，若传入真实 ULID 会被当成未知身份（FAIL），而不是静默放行");
   log.info("   · budget 是否有\"合理例外\"——schema 没有例外理由字段，本命令只能对超默认值的 max_parallel_workers 发 WARN，不能判定 FAIL/放行");
   log.info("   · authority_snapshot_hash 是否等于当前 Authorization Model 的真实哈希——运行态语义，本命令只检查非空字符串存在");
+  log.info("   · H3A-019「健康数据源」——Proposal §6.4 只写这四个字，没有给出机器可判定的精确定义，本命令的解释选择是" +
+    " contracts[]、verification[] 均为空数组才判「数据源缺失」，见 lib/domain-readiness-gate.ts 文件头注释③");
 
   const anyFail = gateFindings.some((f) => f.severity === "FAIL");
   process.exitCode = anyFail ? 1 : 0;
