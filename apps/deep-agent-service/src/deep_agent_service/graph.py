@@ -5,20 +5,22 @@ is also the `assistant_id` #740's `DeepAgentModelProvider` must submit runs agai
 same way `deep-research-model-provider.ts`'s `ASSISTANT_ID = "Deep Researcher"` matches
 `open_deep_research`'s own `langgraph.json`.
 
-⚠ NOT independently verified end-to-end in #739: this sandbox's Python is 3.9, `deepagents`
-requires `>=3.11` (confirmed via `pip install deepagents -v`, not a network/index issue --
-see PR description), so `from deepagents import create_deep_agent` below has never actually
-been imported or run here. `model.py` and `tools.py` (imported by this module) ARE covered
-by real unit tests using only `langchain-core`, which DOES install and run on this sandbox's
-Python -- see `tests/`. Whoever deploys this (VM, Python >=3.11) should treat first-run
-verification as still outstanding, not assumed from this PR's tests passing.
+2026-08-08 补：已在 VM 上用真实 Python 3.11 + `deepagents==0.7.5` + 真实模型凭据端到端
+验证过（coord-main 实测，不是猜测）——建线程 → 提交 run → agent 先说明"我先查看当前可用
+的技能列表" → 调用 `list_org_skills` → 调用 `call_skill` → 拿到真实结果 → 给出最终答案，
+全程真实模型响应。验证中发现并修复了这里的一个真实 bug：`langgraph dev` 用文件路径
+（`./src/deep_agent_service/graph.py:graph`）加载这个模块时是按文件路径 import，不是按
+包名 import，相对导入（`from .model import ...`）会报 `attempted relative import with
+no known parent package`——改成绝对导入（`from deep_agent_service.model import ...`）
+后验证通过。以此为准：这个模块内部的导入必须用绝对路径，不能用相对路径，即使
+`deep_agent_service` 本身是通过 `pip install -e .` 装好的包。
 """
 from __future__ import annotations
 
 from deepagents import create_deep_agent
 
-from .model import build_chat_model
-from .tools import build_tools
+from deep_agent_service.model import build_chat_model
+from deep_agent_service.tools import build_tools
 
 SYSTEM_PROMPT = (
     "你是本组织的通用助手（由 deepagents 驱动，系统预置）。收到任务后先想清楚要不要调用"
