@@ -13,22 +13,59 @@
  * to whichever port happens to be first.
  */
 import {
-  ModelCallError, type ModelCallInput, type ModelCallPort, type ToolCallRequest,
+  ModelCallError, type ModelCallInput, type ModelCallPort, type ModelCallProgressEvent,
 } from "../../application/agent-run/ports";
 
 export class RoutingModelCallPort implements ModelCallPort {
   constructor(private readonly ports: ReadonlyMap<string, ModelCallPort>) {}
 
-  /**
-   * #725: `toolCalls` passes through untouched, same as `input.tools`/`input.toolExchange`
-   * already did structurally -- routing decides WHICH port handles a call, never what that
-   * port returns. A routed-to port with no notion of tools (today: every registered one
-   * except the `dashscope` `ConfiguredModelProvider`) simply never populates it.
-   */
   async complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+    { readonly text: string; readonly tokens?: number }
   > {
     return this.resolve(input.modelProvider).complete(input);
+  }
+
+  /**
+   * 2026-08-09 hotfix (#798) -- before this method existed, `execute-run.ts`'s
+   * `deps.model.completeWithProgress` presence check saw the ROUTER (which never had this
+   * method), not the underlying `DeepAgentModelProvider` that actually implements it -- so
+   * no run ever took the progress-event branch in production, regardless of which provider
+   * it was pinned to. Every deep-agent run silently downgraded to plain `complete()`, and
+   * the AG-UI tool-call visibility this method exists to feed (#789) never fired outside
+   * unit tests that call `execute-run.ts` directly with a fake port.
+   *
+   * Unlike `completeStream` above, this is NOT unconditionally safe to expose: `complete
+   * WithProgress`'s mere presence make `execute-run.ts` skip its `completeStream` branch
+   * entirely (see that file's own header -- presence is a hard opt-in, checked FIRST). The
+   * chat provider (`ConfiguredModelProvider`, gated by `KERNEL_MODEL_STREAM_ENABLED`) has
+   * real token-level `completeStream` and no `completeWithProgress` -- if this router
+   * exposed `completeWithProgress` unconditionally, EVERY run would take this branch,
+   * including chat runs, silently discarding their real streaming deltas. `supportsProgress`
+   * below is `execute-run.ts`'s per-run gate: it calls this method only for a run whose
+   * PINNED provider itself implements `completeWithProgress`, so this delegation never has
+   * to fall back to anything -- a resolved port lacking the method here is a caller bug.
+   */
+  async completeWithProgress(
+    input: ModelCallInput,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+    const port = this.resolve(input.modelProvider);
+    if (!port.completeWithProgress) {
+      throw new ModelCallError(
+        "MODEL_CALL_FAILED",
+        `provider "${input.modelProvider}" does not implement completeWithProgress -- ` +
+          "caller must gate on supportsProgress(modelProvider) before calling this",
+      );
+    }
+    return port.completeWithProgress(input, onProgress);
+  }
+
+  /** Per-run capability query so `execute-run.ts` can decide the branch by what the run's
+   * OWN pinned provider supports, not by whether the router object itself has the method
+   * (the router always does, once any registered provider needs it -- see this class'
+   * `completeWithProgress` doc comment for why that would otherwise be unsafe). */
+  supportsProgress(modelProvider: string): boolean {
+    return this.ports.get(modelProvider)?.completeWithProgress !== undefined;
   }
 
   /**

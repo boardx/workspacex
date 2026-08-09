@@ -122,7 +122,7 @@ export async function listPersonalThreads(
  * `mutate-thread.ts` 的 `createPersonalThread` 头注。默认可见范围复用 `private`
  * （仅创建者可读，与个人线程的定义逐字相同）。
  */
-export async function createPersonalThread(title: string): Promise<MutateThreadOut> {
+export async function createPersonalThread(title: string | null): Promise<MutateThreadOut> {
   return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
     method: "POST",
     body: {
@@ -130,6 +130,9 @@ export async function createPersonalThread(title: string): Promise<MutateThreadO
       projectId: null,
       threadId: null,
       groupId: null,
+      // ⚠ 契约的 `title` 本就是 `z.string().nullable()`（服务端在 null 时自己起名）。
+      //   前端此前把入参类型收窄成 `string`，逼着调用方在客户端编一个默认标题；
+      //   现在如实透传 null，交给唯一的事实源决定默认名怎么起。
       title,
       visibilityScope: "private",
       expectedVersion: null,

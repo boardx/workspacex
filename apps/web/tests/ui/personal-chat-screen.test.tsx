@@ -81,7 +81,10 @@ describe("PersonalChatScreen — 主路径", () => {
     render(<PersonalChatScreen initialThreadId={null} />);
     await screen.findByTestId("chat-thread-list-empty");
 
+    // #728 P1/P3：新建表单默认收着，点「＋ 新建对话」（与项目对话共用同一个组件，
+    // testid `chat-thread-create`）才展开——不再是常驻输入框。
     const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
     fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "我的第一次对话" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
 
@@ -89,6 +92,32 @@ describe("PersonalChatScreen — 主路径", () => {
     await waitFor(() => expect(getThread).toHaveBeenCalledWith("thr-new", null, "provider-bearer"));
     expect(await screen.findByTestId("chat-thread-detail")).toBeInTheDocument();
     expect(await screen.findByTestId("stub-message-panel")).toBeInTheDocument();
+  });
+
+  it("P3：空标题也能新建——空态引导文案指着的按钮不能是禁用态", async () => {
+    listPersonalThreads.mockResolvedValueOnce(EMPTY_LIST).mockResolvedValueOnce({
+      groups: [{ label: "今天", cards: [{ id: "thr-blank", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      capabilities: ["thread.mutate"],
+    });
+    createPersonalThread.mockResolvedValue({ threadId: "thr-blank", version: 0, auditEventId: "ev-2", impactScope: null });
+    getThread.mockResolvedValue({
+      thread: { id: "thr-blank", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+      messages: [], rightTabs: [], capabilities: ["composer.send", "thread.mutate"],
+    });
+
+    render(<PersonalChatScreen initialThreadId={null} />);
+    await screen.findByTestId("chat-thread-list-empty");
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+    // 标题一个字都不打，直接点确认——提交按钮此刻必须不是 disabled。
+    const submit = screen.getByTestId("chat-thread-title-submit");
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+
+    // 空标题传 null，不是空字符串——由服务端起默认名，前端不编一个。
+    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledWith(null));
+    expect(await screen.findByTestId("chat-thread-detail")).toBeInTheDocument();
   });
 });
 

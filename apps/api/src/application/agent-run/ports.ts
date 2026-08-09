@@ -297,43 +297,47 @@ export interface ThreadHistoryMessage {
 }
 
 /**
- * One tool the orchestrator model may call (#725). One per pinned Skill -- see
- * `tool-definitions.ts`'s own header for how a Skill becomes one of these.
- *
- * `parametersSchema` is a plain JSON Schema object (not a zod type): it crosses the wire
- * verbatim as an OpenAI-compatible `tools[].function.parameters` value, and this codebase
- * has no reason to validate it locally -- the provider is the one thing that reads it.
+ * #741 -- `ToolDefinition`/`ToolCallRequest`/`ToolExchangeTurn` (#725) retired along with
+ * the TS in-process tool loop they only existed to serve (see `execute-run.ts`'s own
+ * header for the replacement). They are gone from this file, not merely unused: nothing
+ * produces a `ToolDefinition` or reads a `ToolCallRequest` anymore, and AGENTS.md's own
+ * "same fact must not be declared in two places" discipline treats a type nobody
+ * populates as exactly the kind of look-alive-but-dead surface that rule exists to catch.
+ * `AppendedRunStep`'s `toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`
+ * fields (and the `tool_call` `RunStepKind`) are NOT part of this retirement -- those
+ * belong to the run-step persistence schema and the Chat UI that renders it (#730-#734),
+ * a broader, still-live surface this PR does not touch.
  */
-export interface ToolDefinition {
-  readonly name: string;
-  readonly description: string;
-  readonly parametersSchema: Record<string, unknown>;
-}
-
-/** One tool call the model's response asked for. `argumentsJson` is the raw JSON text the
- * provider returned -- never pre-parsed here, so a malformed-JSON tool call is a fact the
- * EXECUTOR decides how to handle (see `tool-loop.ts`), not one this port silently repairs. */
-export interface ToolCallRequest {
-  readonly id: string;
-  readonly name: string;
-  readonly argumentsJson: string;
-}
-
 /**
- * One prior turn of THIS run's tool-calling loop (#725), oldest first -- never persisted to
- * `chat_messages`/thread history; it lives only for the duration of one run's loop and is
- * rebuilt in memory each round from what `tool-loop.ts` has accumulated so far. Distinct
- * from `ThreadHistoryMessage`: that is cross-run conversation context, this is intra-run
- * "what has this loop already tried" scratch state.
+ * #742 -- one structured progress signal surfaced WHILE a run is still in flight, for a
+ * provider whose "how does it get smarter" mechanism is a REMOTE, multi-step planning loop
+ * rather than the in-process TS tool loop (#725) `execute-run.ts` otherwise runs. Today's
+ * only intended implementer is `DeepAgentModelProvider` (issue #740/#747, talking to
+ * `apps/deep-agent-service`'s `deepagents` graph, #739) -- see that file's own header
+ * (once it lands) for how a real LangGraph run's intermediate state maps to this shape.
+ *
+ * Deliberately reuses the EXACT fields `AppendedRunStep`'s `tool_call` kind already
+ * carries (`toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`, see that
+ * type's own doc comment) rather than inventing a second "what did a step look like"
+ * vocabulary -- the Chat UI (#730-#734) already knows how to render exactly this shape,
+ * so a provider that emits these needs ZERO frontend work to become visible.
+ *
+ * ⚠ #742 (investigation: issue #742's own comment thread) -- the mapping from a REAL
+ * `deepagents`/LangGraph run's actual wire shape to this event has not been verified
+ * end-to-end (no environment in this session could run Python ≥3.11, which `deepagents`
+ * requires). What IS verified: `execute-run.ts`'s handling of a stream of these events
+ * (recording each as a real `tool_call` step, in order, before the run's terminal state)
+ * against a fake `ModelCallPort` -- see `completeWithProgress`'s own doc comment and
+ * `execute-run-progress.test.ts`. This type and the plumbing around it are the "connect
+ * once the real service can be observed" layer the human asked for; they are not, on
+ * their own, proof `DeepAgentModelProvider` will populate them correctly.
  */
-export type ToolExchangeTurn =
-  | { readonly kind: "assistant_tool_calls"; readonly toolCalls: readonly ToolCallRequest[] }
-  | {
-    readonly kind: "tool_result";
-    readonly toolCallId: string;
-    readonly name: string;
-    readonly content: string;
-  };
+export interface ModelCallProgressEvent {
+  readonly toolName: string;
+  readonly toolArgsSummary: string | null;
+  readonly toolResultSummary: string | null;
+  readonly planningNote: string | null;
+}
 
 export interface ModelCallInput {
   readonly modelProvider: string;
@@ -354,16 +358,16 @@ export interface ModelCallInput {
    */
   readonly history?: readonly ThreadHistoryMessage[];
   /**
-   * Tools the model MAY call this turn (#725). Absent/empty means "no tools offered" --
-   * every existing `ModelCallPort` implementation that predates #725 simply never sees
-   * this field populated, so nothing about their behaviour changes. A provider with no
-   * notion of tool-calling (`DeepResearchModelProvider`, `BailianImageProvider`) is free
-   * to ignore it, same discipline as `history`.
+   * The run's pinned Skills, structured (#740) -- the SAME list `readPinnedSkills` already
+   * resolved, passed through as-is. Exists for `DeepAgentModelProvider`: a `deepagents` run
+   * executes Skills INSIDE the remote LangGraph service (its `call_skill` tool, see
+   * `apps/deep-agent-service/src/deep_agent_service/tools.py`) -- that service has no
+   * access to this deployment's database, so the Skill content has to arrive as data on the
+   * request instead. `DeepAgentModelProvider` forwards this verbatim into the LangGraph
+   * run's `config.configurable.org_skills`; every provider that does not care simply never
+   * reads this field, same "absent/unused is not a regression" discipline `history` uses.
    */
-  readonly tools?: readonly ToolDefinition[];
-  /** This run's tool-loop scratch state so far (#725), oldest first. Only meaningful
-   * together with `tools`; a provider that does not implement tool-calling ignores it. */
-  readonly toolExchange?: readonly ToolExchangeTurn[];
+  readonly skills?: readonly PinnedSkillContent[];
 }
 
 /**
@@ -400,15 +404,8 @@ export interface ModelCallPort {
    * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
    * reads as "not reported", not "confirmed zero".
    */
-  /**
-   * `toolCalls` is OPTIONAL (#725), populated only when `input.tools` was non-empty AND the
-   * provider's response asked to call one or more of them. When present, `text` MAY be
-   * empty -- an OpenAI-compatible provider routinely returns `content: null` on a
-   * tool-calling turn, and that is NOT "the provider returned no content" (the empty-text
-   * failure below still applies whenever `toolCalls` is absent/empty).
-   */
   complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly toolCalls?: readonly ToolCallRequest[] }
+    { readonly text: string; readonly tokens?: number }
   >;
 
   /**
@@ -425,20 +422,53 @@ export interface ModelCallPort {
    * `onDelta` fires once per provider-reported fragment, in order, BEFORE this promise
    * resolves. A rejection from `onDelta` (e.g. the store append failed) propagates and
    * fails the call exactly like a transport error would -- deltas are not "best effort".
-   *
-   * ⚠ #725: deliberately NOT extended with `toolCalls` here. `execute-run.ts`'s tool loop
-   * always calls `complete()` for a round that offers `tools` -- streaming a tool-calling
-   * turn (reassembling `delta.tool_calls[].function.arguments` fragments across chunks,
-   * index-addressed per the OpenAI wire format) is real additional surface this slice does
-   * not need: intermediate loop rounds are not shown to the user token-by-token today, only
-   * the final answer is, and that still streams exactly as before once the loop is done.
-   * Combining the two is a legitimate follow-up (see #725's PR description), not a gap this
-   * type silently papers over.
    */
   completeStream?(
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  /**
+   * #742 -- OPTIONAL, and MUTUALLY EXCLUSIVE with `completeStream` in practice (a provider
+   * implements one or the other, never both): for a provider whose run is a remote,
+   * multi-step planning loop rather than a single token stream, this is how it reports
+   * "something real happened" before the final answer is known. See
+   * `ModelCallProgressEvent`'s own doc comment for the shape and its unverified mapping to
+   * any real service.
+   *
+   * `execute-run.ts` checks for this method's presence BEFORE the TS tool loop / plain
+   * `complete()` branches -- a provider that implements it opts fully out of both of those,
+   * the same way implementing `completeStream` opts a provider into streaming instead of
+   * the plain call. `onProgress` fires once per event, in order, strictly BEFORE this
+   * promise resolves; a rejection propagates and fails the call, same discipline
+   * `completeStream`'s `onDelta` already established -- an event that failed to persist is
+   * not "best effort", it is a run whose recorded steps would otherwise silently
+   * under-report what happened.
+   *
+   * The returned `{ text, tokens }` is still the ONE final answer, same contract
+   * `completeStream` already keeps: `onProgress` is an observational side-channel for the
+   * steps taken to reach it, never a second source of truth for whether the call
+   * succeeded.
+   */
+  completeWithProgress?(
+    input: ModelCallInput,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  /**
+   * 2026-08-09 hotfix (#798) -- OPTIONAL per-run capability query, only meaningful for a
+   * port that fronts MORE THAN ONE underlying provider (today: `RoutingModelCallPort`). A
+   * single-provider port's own `completeWithProgress` presence is already the accurate
+   * answer for every run it serves, so it has no reason to implement this -- `execute-run.ts`
+   * treats an absent `supportsProgress` as "presence of `completeWithProgress` alone
+   * decides it", the exact behaviour every existing single-provider port and test fake
+   * already has. A router-shaped port DOES need this: its own `completeWithProgress`
+   * method is present as soon as ANY registered provider needs it, but that presence says
+   * nothing about the specific provider a given run is pinned to -- see
+   * `RoutingModelCallPort.completeWithProgress`'s own doc comment for why conflating the
+   * two would silently break token streaming for providers that don't support progress.
+   */
+  supportsProgress?(modelProvider: string): boolean;
 }
 
 export interface AgentRunClock {

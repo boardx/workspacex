@@ -118,12 +118,13 @@ export const FULLSTACK_E2E = {
    *      实测：先写成 `org-wide`，那条断言当场红。
    *
    * ② **一个 `active` 的议程环节**，绑定的落点。
-   *    ⚠ 与 #467 那条「没有任何产品路径能启用一个 skill」逐字同型的**真实缺口**：
-   *      `createAgendaSegment` 在契约里（`project.operations.createAgendaSegment`），
-   *      却**没有任何 controller 挂它**——全仓写 `agenda_segments` 的地方只有测试夹具。
-   *      ⇒ 今天没有任何产品路径造得出一个议程环节。缺口随 #493 上报；在它补上之前，
-   *      8c 能验的是「把模板用到环节上」这条链路本身，验不了「用户自己造出那个环节」。
-   *      **不得**为了绕开它去放宽 `bindTemplateToSegment` 的环节存在性判定。
+   *    ✅ **缺口已补（#627 / PR #645，2026-08-06）**：`createAgendaSegment` 现在有真实
+   *      controller —— `POST /workshops/:workshopId/agenda-segments`
+   *      （`apps/api/src/interface/controllers/project.controller.ts`）。
+   *      ⇒ 用户**能**自己造出议程环节，这里预置只是为了让 8c 聚焦在「绑定」本身。
+   *      历史（保留以便读懂当初为什么要种）：#493 上报时全仓写 `agenda_segments`
+   *      的地方只有测试夹具，那时确实不存在任何产品路径。
+   *      **不得**为了绕开环节存在性判定去放宽 `bindTemplateToSegment`。
    *    ⚠ `active` 而不是 `pending`：`GET /projects/:id/overview` 只回**当前**环节
    *      （`pg-project-overview-repository.ts` 逐字 `WHERE state = 'active'`），
    *      那是界面上唯一有真实来源的环节。I-P44 的部分唯一索引允许每工作坊一条 active。
@@ -141,14 +142,17 @@ export const FULLSTACK_E2E = {
    *   一个都没有预置（`thread_skill_mounts` 刻意不种）。断言因此仍然会在
    *   「挂载没生效」时红。
    *
-   * ⚠ **为什么不能让用例自己把它建成「已启用」**：`skill.controller.ts` 逐字
-   *   没有启用路由（`SKILLS_FORBIDDEN_ROUTES` 禁止 `POST /skills/:id/enable`），
-   *   `草稿 → 已启用` 只能由 `reviewSkillVersion` 的 approve 分支产生，而那条用例
-   *   **今天没有 HTTP 边界**（#459 明确移出范围）。⇒ 这套系统里目前**不存在**
-   *   任何产品路径能把一个 skill 变成「已启用」。这是一个**真实缺口**，
-   *   已随 #467 上报；在它补上之前，第 8a 步能验的是挂载/卸载这条链路本身，
-   *   验不了「用户自己造出一个可挂载的 skill」。**不得**为了绕过它去放宽
-   *   `mountSkillToThread` 的 `SKILL_NOT_ENABLED` 判定。
+   * ⚠ **为什么这里仍然预置，而不是让用例自己走一遍**：`skill.controller.ts` 至今
+   *   没有、也不该有启用路由（`SKILLS_FORBIDDEN_ROUTES` 禁止 `POST /skills/:id/enable`）；
+   *   `草稿 → 已启用` 只能由 `reviewSkillVersion` 的 approve 分支产生。
+   *   ✅ **那条 HTTP 边界已经补上（#552 / PR #584，2026-08-05）**：
+   *   `POST /skill-versions/:versionId/review`
+   *   （`apps/api/src/interface/controllers/skill-review.controller.ts`），
+   *   且按 I-5/V14 需要**第二评审人**。⇒ 用户**能**自己把 skill 推到「已启用」。
+   *   这里继续预置的理由变成了成本：走完整评审要第二个身份，为 8a 一条用例引入
+   *   双身份编排不划算。**这不再是产品缺口**——真要验「用户自建 skill 可用」，
+   *   看 CLR track R 的 R8（`core-loop-readiness-standard.md`），别看这条注释。
+   *   **不得**为了绕过它去放宽 `mountSkillToThread` 的 `SKILL_NOT_ENABLED` 判定。
    *
    * ⚠ 它是 **`team-only`（归 `fullstack` 团队）**，不是 `org-wide`：管理员不属于任何
    *   团队，而管理员**不是**超级用户，所以 `skill-create-smoke.spec.ts:94` 那条
@@ -194,11 +198,13 @@ export const FULLSTACK_E2E = {
   /**
    * 🟡 #466：核心闭环第 7 步「会话内录音」用的那条线程。
    *
-   * ⚠ **为什么它必须预置，而第 6a / 8a 步的线程是现场建的**：录音的授权矩阵
-   *   （`recording_consent_cells`）按 `source_ref_id` 存，而契约里**没有任何**
-   *   写授权格子的操作 —— 这套系统今天不存在任何产品路径能完成录音授权
-   *   （与 #467「没有路径能启用 skill」同型，已随 #466 上报）。现场新建的线程 id
-   *   在种子跑的时候还不存在，所以授权无从预置。⇒ 线程与授权只能一起种。
+   * ⚠ **为什么它仍然预置，而第 6a / 8a 步的线程是现场建的**：录音的授权矩阵
+   *   （`recording_consent_cells`）按 `source_ref_id` 存，而现场新建的线程 id 在种子
+   *   跑的时候还不存在，所以授权无从预置 ⇒ 线程与授权只能一起种。
+   *   ✅ **「契约里没有任何写授权格子的操作」这句已经失效（#652）**：
+   *   `setConsentDecision`（`POST /recording/consent/decisions`）就是补给这张表的
+   *   写入口，登记在 `KNOWN_CONTRACT_GAPS.C_REC_6`（`packages/contracts/src/recording.ts`）。
+   *   ⇒ 这里预置的理由是**时序**（种子跑在线程创建之前），**不是产品缺口**。
    *
    * ⚠ **录音本身一行都不种**：`recording_sessions` / `recording_tracks` /
    *   `recording_segments` 全部由用例现场走真实链路产生。所以「开始录音没生效」

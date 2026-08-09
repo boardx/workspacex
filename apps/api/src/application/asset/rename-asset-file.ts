@@ -43,7 +43,7 @@ export async function renameAssetFile(
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new AssetOrgScopeDeniedError();
 
-  const directory = await deps.assets.getDirectory(input.assetKind, input.assetId);
+  const directory = await deps.assets.getDirectory(input.orgId, input.assetKind, input.assetId);
   if (directory === null) throw new AssetNotFoundError();
 
   // I-7 -- renaming the root file is treated as deleting it. Checked before editableBy, same
@@ -59,7 +59,7 @@ export async function renameAssetFile(
     throw new AssetNotEditableError();
   }
 
-  const renamed = await deps.assets.renameFile(input.assetKind, input.assetId, input.from, input.to);
+  const renamed = await deps.assets.renameFile(input.orgId, input.assetKind, input.assetId, input.from, input.to);
   if (renamed === null) throw new AssetNotFoundError();
 
   return {

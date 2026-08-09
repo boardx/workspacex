@@ -14,6 +14,17 @@
  *   → 驱动同一个生产执行器 `tick()`
  *   → `GET /agent-runs/:id` 断言 `succeeded`——不是"看起来能跑",是真的跑完一次。
  *
+ * ## 2026-08-08 (#740) —— 默认 agent 的执行侧从一次 chat completion 换成 deepagents
+ *
+ * 人类决定把默认 agent（"通用助手"）的 `model_provider` 从直连的 `ConfiguredModelProvider`
+ * 换成 `DeepAgentModelProvider`（见 #738 调查、`pg-default-agent-repository.ts` 头注）。
+ * 这份测试原本 stub 的是一个 OpenAI 兼容 `/chat/completions` 端点——那个协议已经不是
+ * 默认 agent走的路径了，继续 stub 它只会验证一个再也不会被调用的假设。改为 stub
+ * `deep-agent-model-provider.ts` 依赖的 LangGraph HTTP 形状（同
+ * `deep-research-agent-bootstrap-chat.test.ts` 已验证过的 stub 模式：
+ * `POST /threads`、`POST /threads/:id/runs`、`GET /threads/:id/runs/:runId`、
+ * `GET /threads/:id/state`，要求至少轮询两次才转终态，证明轮询循环真的被走过）。
+ *
  * 独立数据库(同 `bootstrap-first-user-concurrency.test.ts` 的理由:全局测试库的
  * bootstrap 名额早被消费掉了,这件事只能在一个全新库上证明)。
  */
@@ -40,14 +51,16 @@ process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 
 const ORIGINAL_DATABASE = process.env.PGDATABASE;
 const DATABASE = `wsx_i661_default_agent_${process.pid}_${Date.now()}`;
-const MODEL_PROVIDER = "wave2-loopback-i661";
+const THREAD_ID = `da-thread-${randomUUID()}`;
+const RUN_ID = `da-run-${randomUUID()}`;
+const FINAL_REPLY = "你好，我是本组织的通用助手，很高兴认识你。";
 
 let app: NestExpressApplication;
 let databasePort: PgDatabase;
 let base = "";
-let modelServer: Server;
-let modelBase = "";
-let capturedModelBodies: unknown[] = [];
+let deepAgentServer: Server;
+let statusPollCount = 0;
+let capturedRunBodies: unknown[] = [];
 
 function ownerConfig(database: string) {
   return { ...migrationConfig(), database };
@@ -59,27 +72,56 @@ async function adminClient(database = "postgres") {
   return client;
 }
 
-async function startModelServer(): Promise<void> {
-  modelServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => chunks.push(c));
-    req.on("end", () => {
-      try { capturedModelBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
-      catch { capturedModelBodies.push({}); }
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "ack" } }] }));
-    });
+/** 真实实现 `deep-agent-model-provider.ts` 依赖的四个端点形状（同
+ * `deep-research-agent-bootstrap-chat.test.ts` 的 stub 模式），不是随便回 200。 */
+async function startDeepAgentServer(): Promise<string> {
+  deepAgentServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const url = req.url ?? "";
+    const respond = (status: number, body: unknown) => {
+      res.writeHead(status, { "content-type": "application/json" });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method === "POST" && url === "/threads") {
+      return respond(200, { thread_id: THREAD_ID });
+    }
+    if (req.method === "POST" && url === `/threads/${THREAD_ID}/runs`) {
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", () => {
+        try { capturedRunBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+        catch { capturedRunBodies.push({}); }
+        respond(200, { run_id: RUN_ID });
+      });
+      return;
+    }
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}`) {
+      statusPollCount += 1;
+      // 前两次仍在跑，第三次才转终态——证明轮询循环本身被真实走过。
+      const status = statusPollCount < 3 ? "running" : "success";
+      return respond(200, { status });
+    }
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/state`) {
+      return respond(200, {
+        values: {
+          messages: [
+            { type: "human", content: "你好，请介绍一下你自己" },
+            { type: "ai", content: FINAL_REPLY },
+          ],
+        },
+      });
+    }
+    respond(404, { error: "not_found" });
   });
-  await new Promise<void>((resolve) => modelServer.listen(0, "127.0.0.1", resolve));
-  modelBase = `http://127.0.0.1:${(modelServer.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => deepAgentServer.listen(0, "127.0.0.1", resolve));
+  return `http://127.0.0.1:${(deepAgentServer.address() as AddressInfo).port}`;
 }
 
 beforeAll(async () => {
   ensureRedis();
-  await startModelServer();
-  process.env.KERNEL_MODEL_PROVIDER = MODEL_PROVIDER;
-  process.env.KERNEL_MODEL_BASE_URL = modelBase;
-  process.env.KERNEL_MODEL_API_KEY = "sk-i661-e2e-do-not-echo";
+  const deepAgentBase = await startDeepAgentServer();
+  process.env.KERNEL_DEEP_AGENT_BASE_URL = deepAgentBase;
+  process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "50";
+  process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
 
   const admin = await adminClient();
   try { await admin.query(`CREATE DATABASE ${DATABASE}`); } finally { await admin.end(); }
@@ -97,7 +139,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await databasePort?.close();
-  await new Promise<void>((resolve) => modelServer.close(() => resolve()));
+  await new Promise<void>((resolve) => deepAgentServer.close(() => resolve()));
   const admin = await adminClient();
   try { await dropDatabaseAfterDraining(admin, DATABASE); }
   finally {
@@ -107,8 +149,8 @@ afterAll(async () => {
   }
 }, 30_000);
 
-describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent", () => {
-  it("不做任何 agent 管理操作，直接进 chat → 能看到一个可用 agent → 发消息 → 真实执行成功", async () => {
+describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent（#740：执行侧是 deepagents）", () => {
+  it("不做任何 agent 管理操作，直接进 chat → 能看到一个可用 agent → 发消息 → 真实走完轮询 → 写回", async () => {
     /* ── ① 真实 HTTP 注册出第一个用户 + 第一个组织（没有任何 agent 相关前置动作）── */
     const bootstrap = await fetch(`${base}/auth/bootstrap`, {
       method: "POST",
@@ -128,9 +170,8 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
     const principal = { "x-kernel-test-principal": `${userId}:${orgId}`, "content-type": "application/json" };
 
     /* ── ② 不做任何 agent 管理操作,直接读能力目录——应当已经有"通用助手"这条 agent。
-     * 2026-08-07 起还会多一条"Deep Research"（同一条产品裁决延伸出的第二个系统
-     * agent，见 `ensure-deep-research-agent.ts`）——不断言总数为 1，断言的是本用例
-     * 关心的那一条真实存在且已发布，第二条系统 agent 的存在/内容是它自己文件的事。 */
+     * 2026-08-07 起还会多两条系统 agent（Deep Research / 图片生成）——不断言总数,
+     * 断言的是本用例关心的那一条真实存在且已发布。 */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });
     expect(caps.status).toBe(200);
     const listing = (await caps.json()) as { id: string; name: string; enabled: boolean }[];
@@ -152,7 +193,7 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
     const { threadId } = (await threadRes.json()) as { threadId: string };
 
     /* ── ④ 发消息给 capability 目录里选到的那个 agent(与前端 toAgentOption 同一条 id)── */
-    capturedModelBodies = [];
+    capturedRunBodies = [];
     const msgRes = await fetch(`${base}/chat/threads/${threadId}/messages`, {
       method: "POST",
       headers: principal,
@@ -168,6 +209,14 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
     const runRes = await fetch(`${base}/agent-runs/${agentRunId}`, { headers: principal });
     const run = (await runRes.json()) as { status: string };
     expect(run.status).toBe("succeeded");
-    expect(capturedModelBodies).toHaveLength(1);
+    // 轮询循环真的被走过，不是第一次查询就判定终态。
+    expect(statusPollCount).toBeGreaterThanOrEqual(3);
+    expect(capturedRunBodies).toHaveLength(1);
+
+    /* ── ⑥ 最终回复真实写回了 chat 线程 ── */
+    const messagesRes = await fetch(`${base}/chat/threads/${threadId}/messages`, { headers: principal });
+    const { messages } = (await messagesRes.json()) as { messages: { authorKind: string; text: string }[] };
+    const reply = messages.find((m) => m.authorKind === "agent");
+    expect(reply?.text).toBe(FINAL_REPLY);
   });
 });

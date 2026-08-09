@@ -111,6 +111,37 @@ export interface AguiBridgeInput {
    * failed write silently swallowed here.
    */
   readonly onDelta?: (delta: string) => void;
+  /**
+   * #789 -- fired, in `seq` order, for every `tool_call` step observed while polling
+   * (i.e. real progress: #742/#756's `ModelCallProgressEvent`s that `execute-run.ts`
+   * already turns into durable `AppendedRunStep` rows for #740/#788's
+   * `DeepAgentModelProvider.completeWithProgress`, AND the pre-existing #725 TS tool
+   * loop's steps -- this reads the SAME `RunProjection.steps` either mechanism appends
+   * to, so it needs no notion of which one produced a given step). Omit it to get the
+   * exact behaviour before this field existed.
+   *
+   * Unlike `onDelta`, this needs NO separate read and NO end-of-loop flush: `steps` comes
+   * off the SAME `readAgentRun` call this loop already makes every iteration to check
+   * `status`, and `execute-run.ts`'s writeback pipeline guarantees every `tool_call` step
+   * for a run is durable strictly BEFORE that run can reach `succeeded`/`failed` (the
+   * writeback transaction is a later, separate step -- see `AgentRunStore.commitWriteback`'s
+   * own doc). There is no read-then-read race here the way `onDelta`'s file-head comment
+   * describes for deltas, because there is only ONE read.
+   */
+  readonly onStep?: (step: RunStepPublic) => void;
+}
+
+/** The subset of a `tool_call` `AppendedRunStep` an AG-UI consumer needs -- `runId`/`seq`
+ * are already implicit in "this run, this poll's steps array", and every OTHER step kind
+ * (`context_built`/`model_called`/`chat_writeback`) is internal bookkeeping this bridge has
+ * never surfaced (see 阶段1b/2b: only `TEXT_MESSAGE_*`/`RUN_*` ever crossed the wire before
+ * this field), so `onStep` only ever fires for `kind === "tool_call"`. */
+export interface RunStepPublic {
+  readonly status: "succeeded" | "failed";
+  readonly toolName: string | null;
+  readonly toolArgsSummary: string | null;
+  readonly toolResultSummary: string | null;
+  readonly planningNote: string | null;
 }
 
 export type AguiBridgeOutcome =
@@ -153,6 +184,11 @@ export async function runAguiBridgeTurn(
   const maxPolls = input.maxPolls ?? 75; // ~30s bound at the default interval.
   const runId = accepted.agentRunId;
   let lastSeenDeltaSeq = -1;
+  // #789: `RunProjection.steps` is the run's FULL step list so far, oldest-first
+  // (`ORDER BY seq, started_at`, `pg-agent-run-repository.ts`'s `readRun`), append-only --
+  // a plain length cursor is enough to find "steps this poll hasn't reported yet" without
+  // needing each entry's own `seq` (which `RunProjection.steps`'s own type omits).
+  let reportedStepCount = 0;
 
   /**
    * ⚠ 2026-08-08 CI 实测（不是本地——本地机器上 5/5 绿，CI 上稳定红，正是竞态的
@@ -191,6 +227,15 @@ export async function runAguiBridgeTurn(
       }
     }
     const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
+    // #789: report BEFORE the terminal-status branches below -- a step that lands in the
+    // SAME poll a run turns terminal must still reach the caller before RUN_FINISHED/
+    // RUN_ERROR, same ordering discipline `onDelta` above already keeps for text.
+    if (input.onStep) {
+      for (const step of projection.steps.slice(reportedStepCount)) {
+        if (step.kind === "tool_call") input.onStep(step);
+      }
+      reportedStepCount = projection.steps.length;
+    }
     if (projection.status === "succeeded") {
       await flushRemainingDeltas();
       if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();

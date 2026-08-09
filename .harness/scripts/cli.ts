@@ -16,6 +16,7 @@ import { tick } from "./tick";
 import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { phaseReadiness } from "./phase-readiness";
+import { coreLoopReadiness } from "./core-loop-readiness-doctor";
 import { prQueue } from "./pr-queue";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
@@ -56,6 +57,7 @@ async function main(): Promise<void> {
     case "graph":          graphCommand(args); break;
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
+    case "readiness":      coreLoopReadiness(args); break;
     case "pr-queue":       prQueue(args); break;
     case "templates": {
       // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
@@ -207,6 +209,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030/031/032：Task Assignment schema + Root→Domain/Domain→Worker gate 体检（Epic E3）");
       log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
       log.info("  pnpm harness review-decision doctor                    # PROP-HARNESS-AGENT-001 H3A-036：Review Decision schema + reviewer≠producer 体检（Epic E3）");
+      log.info("  pnpm harness readiness [--strict]                      # #814 核心闭环就绪度 CLR = min(可达性, 体验均值) + 统一队列");
       process.exit(cmd ? 1 : 0);
   }
 }

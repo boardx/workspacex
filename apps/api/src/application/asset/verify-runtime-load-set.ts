@@ -6,6 +6,7 @@
  * itself) against real ports rather than only the pure domain function in isolation.
  */
 import { computeRuntimeLoadSetDiff, type RuntimeLoadSetDiff } from "../../domain/asset/runtime-load-set";
+import type { OrgId } from "../../domain/org-id";
 import type { AssetFileRepository, AssetKind, AssetRuntimeLoaderPort } from "./ports";
 
 export class AssetRuntimeLoadSetNotFoundError extends Error {
@@ -20,6 +21,7 @@ export interface VerifyRuntimeLoadSetDeps {
 }
 
 export interface VerifyRuntimeLoadSetInput {
+  readonly orgId: OrgId;
   readonly assetKind: AssetKind;
   readonly assetId: string;
 }
@@ -28,10 +30,10 @@ export async function verifyRuntimeLoadSet(
   deps: VerifyRuntimeLoadSetDeps,
   input: VerifyRuntimeLoadSetInput,
 ): Promise<RuntimeLoadSetDiff> {
-  const directory = await deps.assets.getDirectory(input.assetKind, input.assetId);
+  const directory = await deps.assets.getDirectory(input.orgId, input.assetKind, input.assetId);
   if (directory === null) throw new AssetRuntimeLoadSetNotFoundError();
 
-  const runtimePaths = await deps.runtime.loadedFilePaths(input.assetKind, input.assetId);
+  const runtimePaths = await deps.runtime.loadedFilePaths(input.orgId, input.assetKind, input.assetId);
   if (runtimePaths === null) throw new AssetRuntimeLoadSetNotFoundError();
 
   const directoryPaths = directory.entries.map((e) => e.path);

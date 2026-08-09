@@ -337,16 +337,26 @@ test.describe("核心闭环八步", () => {
    * `chat-message-input=visible`、`chat-composer-input=0` —— 旧锚点整页零命中。
    *
    * ## 真实锚点（写进断言前逐个在源码里重新定位，并实测走得到）
-   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:316
-   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:327
-   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:305
-   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:672
-   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:679
-   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:698
+   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:553
+   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:582
+   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:954
+   *     （#728 D8：不再是原生 `&lt;select&gt;`，是弹层触发按钮；选项在
+   *     `chat-agent-select-option-&lt;agentId&gt;`，需要先 `.click()` 打开再点选项）
+   *   · `chat-roster-edit`          components/chat/chat-read-screen.tsx:875
+   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:901
+   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:908
+   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:936
    *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`。
-   *   编制表单在 `writable` 分支下**无条件渲染**（chat-read-screen.tsx:657-686，
-   *   不在任何折叠面板里）—— 本文件此前栽过「锚点存在但默认折叠够不到」的跟头，
-   *   所以这一条是单独确认过的，不是看见 testid 就写。
+   *
+   *   ⚠ #728 回归（发现于 PR #837 合并后）：编制表单**曾经**无条件渲染在
+   *   `writable` 分支下（就是这段注释此前写的那样），#728 的一次主屏视觉重做给
+   *   `RosterPanel` 加了 `addOpen` 折叠态（默认 `false`），表单现在**折在
+   *   `chat-roster-edit` 这个「编辑」按钮后面**——恰好就是这段注释警告过的
+   *   「锚点存在但默认折叠够不到」那个坑，这次是真被踩中了：两处步骤
+   *   （6b/8b）直接 `.fill(chat-roster-add-input)`，元素还没渲染，
+   *   `locator.fill` 死等到 30s/180s 超时。修法是在 `.fill()` 前先点开
+   *   `chat-roster-edit`，不是撤回这个折叠态（那是本轮真实、有意的 UI 改动，
+   *   不是误删）。
    *
    * ## 翻正（2026-08-05）：阻塞解除的**真正来源**是 #435，不是 #467/#546
    *
@@ -397,13 +407,16 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId("chat-message-submit")).toBeDisabled();
 
     // ── 走界面把 agent 加进本线程编制（真实用户路径） ───────────────────────
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
     const text = `闭环消息 ${Date.now()}`;
     await expect(page.getByTestId("chat-message-input")).toBeVisible();
-    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-agent-select").click();
+    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
     await page.getByTestId("chat-message-input").fill(text);
     // 编制补上之后这一行才转绿——它是「阻塞已解除」这件事的断言本体。
     await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
@@ -593,7 +606,10 @@ test.describe("核心闭环八步", () => {
    *   · `chat-skill-mount-empty`               同上（真实空态）
    *
    * ⚠ 被挂的那个 skill 由夹具种成「已启用」，理由见 `fullstack-smoke-fixture.ts`：
-   *   这套系统里目前不存在任何**产品路径**能把 skill 变成「已启用」（已上报）。
+   *   ✅ 产品路径**已经存在**（#552 / PR #584：`POST /skill-versions/:versionId/review`），
+   *   这里继续预置纯粹是成本考量（完整评审需要第二评审人）。
+   *   ⇒ 本步验的是挂载/卸载链路，**不代表**「用户自建 skill 可用」这件事没做——
+   *   那一条由 CLR track R 的 R8 单独衡量（`core-loop-readiness-standard.md`）。
    *   夹具种的是前置条件，挂载/卸载本身一行都没种。
    */
   test("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
@@ -688,6 +704,8 @@ test.describe("核心闭环八步", () => {
     // ── 把**可运行的**那个 agent 挂进本线程的编制 ─────────────────────────
     // 种子只种了 `org_agents`（可见）与 `agents`/`agent_versions`（可跑），线程级编制
     // 刻意留给这里做 —— 线程是现场建的，预种不了，而这一步顺带证明编制写路径是活的。
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
@@ -696,7 +714,8 @@ test.describe("核心闭环八步", () => {
     // 标记的作用：回复正文里必须能找到它。找不到就说明回复不是这次 run 产出的
     // （可能是上一次跑剩下的行，也可能是谁在前端合成的）。
     const marker = `CORE_LOOP_8B_${Date.now()}`;
-    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-agent-select").click();
+    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
     await page.getByTestId("chat-message-input").fill(marker);
     await page.getByTestId("chat-message-submit").click();
 
@@ -774,8 +793,12 @@ test.describe("核心闭环八步", () => {
    * ## 前置条件由种子给，绑定动作一行都不种
    *
    * 已发布模板 + 一个 active 议程环节是种子种的（`canvas_template_bindings` 保持空表），
-   * 与 8a 的「已启用 skill」、8b 的「可运行 agent」同型；理由与那条**真实缺口**
-   * （今天没有任何产品路径造得出一个议程环节）写在 `fullstack-smoke-fixture.ts` 里。
+   * 与 8a 的「已启用 skill」、8b 的「可运行 agent」同型。
+   * ✅ 「今天没有任何产品路径造得出一个议程环节」这句**已经失效**（#627 / PR #645：
+   * `POST /workshops/:workshopId/agenda-segments`）——预置只是为了让本步聚焦在「绑定」。
+   * ⚠ 「种子种了前置」≠「用户走不到」。这两件事的区分由 CLR track R 单独衡量
+   * （`.harness/instructions/core-loop-readiness-standard.md`），不要再从本文件的
+   * 注释去推断可达性——2026-08-09 就是这么把三条早已修好的缺口误报成现状的（#823）。
    *
    * ## 锚点写断言前逐个在源码里定位过
    *   · `tpladmin-root`                            components/canvas/template-admin.tsx

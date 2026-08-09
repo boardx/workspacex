@@ -20,23 +20,37 @@
  * write it back would put a blank assistant message in a human's thread and mark the run
  * succeeded -- a fabricated reply with extra steps.
  *
- * ## #725 -- the tool-calling loop, and how it stays "almost nothing" too
+ * ## #725 shipped, then #741 retired it -- the TS in-process tool loop is gone
  *
- * A run whose pinned Skills produce at least one tool definition (`buildToolDefinitions`,
- * non-empty exactly when `skillVersionIds` is non-empty) goes through `executeToolLoop`
- * instead of the single call below. It still decides no model, resolves no head and
- * invents no reply -- it is bounded (`MAX_TOOL_LOOP_ROUNDS`), every round it fails closed
- * on the SAME `ModelCallError` discipline, and a round that calls a tool records a REAL
- * `tool_call` step for that REAL nested `complete()` call before continuing, never a
- * fabricated "step" describing something that did not happen. A run with zero pinned
- * Skills takes the exact pre-#725 code path, unchanged.
+ * #725 added `executeToolLoop`: a run whose pinned Skills produced a tool definition
+ * went through a bounded in-process loop (model asks for a tool → `executeSkillTool` makes
+ * a separate, focused `complete()` call → result fed back), gated behind
+ * `KERNEL_TOOL_CALLING_ENABLED` (default off, so it never actually ran in production).
+ * #740/#741 replace that whole mechanism with a DIFFERENT one: the general assistant's
+ * `model_provider` now points at `DeepAgentModelProvider` (`deep-agent-model-provider.ts`),
+ * which hands the run's pinned Skills to a REMOTE `deepagents`-based planning loop
+ * (`apps/deep-agent-service`) instead of running one in this process. AGENTS.md's own
+ * "same fact must not be declared in two places" discipline is why this file does not keep
+ * BOTH: a second, dormant "how does the general assistant use tools" implementation sitting
+ * next to the live one is exactly the drift that rule exists to prevent, flag or not.
+ *
+ * ## #742 -- the ONE remaining alternative branch, for a provider whose loop lives elsewhere
+ *
+ * `deps.model.completeWithProgress`'s mere PRESENCE is the opt-in (checked before the plain
+ * `complete()`/`completeStream()` branch below), same discipline `completeStream`'s
+ * presence already uses to opt a provider into streaming -- this is what
+ * `DeepAgentModelProvider` implements instead of the retired #725 loop. Every `tool_call`
+ * step this branch records goes through the exact same `record()` helper and the exact
+ * same `AppendedRunStep` shape #725's loop used to -- the Chat UI (#730-#734) needs no
+ * changes to render it. A provider with NEITHER `completeWithProgress` nor
+ * `completeStream` takes the single-call shape #725's own doc comment once called "the
+ * exact pre-#725 code path" -- now simply the plain path.
  */
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
-import { buildToolDefinitions, indexSkillsByToolName, type SkillForTool } from "./tool-definitions";
 import type {
-  AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort,
-  RunFailureCode, RunStepKind, ThreadHistoryMessage, ToolDefinition, ToolExchangeTurn,
+  AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort, PinnedSkillContent,
+  RunFailureCode, RunStepKind, ThreadHistoryMessage,
 } from "./ports";
 import { ModelCallError } from "./ports";
 
@@ -98,18 +112,6 @@ export interface ExecuteAgentRunDeps {
   readonly clock: AgentRunClock;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
-  /**
-   * #725, read once at composition time (`KERNEL_TOOL_CALLING_ENABLED`) -- same rollout
-   * discipline `ConfiguredModelProvider`'s own `streamEnabled` already established for
-   * #654 阶段2a, and for the identical reason: measured, not assumed. The tool loop always
-   * calls `complete()`, never `completeStream()` (see that method's own doc comment), so
-   * turning it on UNCONDITIONALLY the moment any Skill is pinned would silently take
-   * streaming away from every run that happens to have Skills pinned, whether or not this
-   * deployment has verified the new request/response shape end-to-end yet. Default
-   * `false`/absent reproduces every byte of pre-#725 behaviour: `tools` stays empty and
-   * every run takes the exact old code path regardless of what is pinned.
-   */
-  readonly toolCallingEnabled?: boolean;
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
@@ -132,39 +134,6 @@ export function buildSystemPrompt(
   skills: readonly { readonly versionId: string; readonly content: string }[],
 ): string {
   return [instructions, ...skills.map((s) => s.content)].join("\n\n");
-}
-
-/**
- * #725 -- `buildSystemPrompt`'s output PLUS an explicit tool-usage preamble, for a run
- * whose Skills became tools.
- *
- * Deliberately built ON TOP of `buildSystemPrompt`, never replacing it: the pinned Skills'
- * full content stays in the orchestrator's own prompt exactly as it did before #725 (the
- * pre-existing behavioural contract this project already signed off on --
- * `no-tool-run-writeback.test.ts`'s "sends the pinned model, the credential, and the
- * ordered Skill content" asserts the system prompt literally CONTAINS each Skill's body,
- * in pinned order, and #725 does not get to unilaterally amend that). What #725 ADDS is
- * the tool list and the instruction to actually invoke a tool rather than only reason from
- * memorized Skill text -- the orchestrator now has BOTH the content AND a way to trigger a
- * real, separate, focused execution of it and see the real result, which is the gap
- * chat-ux-acceptance-criteria.md items 2-4 describe.
- */
-export function buildOrchestratorSystemPrompt(
-  instructions: string,
-  skills: readonly { readonly versionId: string; readonly content: string }[],
-  tools: readonly ToolDefinition[],
-): string {
-  const toolList = tools.map((t) => `- ${t.name}：${t.description}`).join("\n");
-  return [
-    buildSystemPrompt(instructions, skills),
-    "以上内容里，每一份技能同时也是你可以调用的工具，工具名与它对应关系如下——调用" +
-      "工具会让这份技能针对具体任务真正执行一次并返回结果，而不是让你凭已经看到的" +
-      "技能说明直接编答案。收到任务后先想清楚要不要调用、调用哪一个，再决定直接回答" +
-      "还是调用工具。**如果决定调用工具，请在发起调用的同一轮回复里，先用一句话讲" +
-      "清楚你打算做什么、为什么选这个工具（例如「我需要生成一张示意图，调用 XX 来" +
-      "画」），再发起调用——这句话会被用户看见，不要跳过它直接调用。**调用后请根据" +
-      "工具返回的真实结果继续，不要忽略它自说自话。可用工具：\n" + toolList,
-  ].join("\n\n");
 }
 
 /** The one place a step becomes durable, so no path can record half of one. */
@@ -195,186 +164,6 @@ async function record(
   });
 }
 
-/**
- * Bounded per §"循环要有上限" -- 6 rounds of "model asks for tools → tools run → results fed
- * back" before the loop gives up rather than running forever. Each round is one
- * `complete()` call that may request zero, one or several tool calls; zero means the model
- * gave its final answer and the loop returns immediately, so a plain "answer without any
- * tool" run still costs exactly one round, same as before #725.
- */
-export const MAX_TOOL_LOOP_ROUNDS = 6;
-
-const SUMMARY_MAX_CHARS = 500;
-
-/** Truncated for on-run visibility (chat-ux-acceptance-criteria.md item 3), never the full
- * argument/result text -- see `AgentRunStep.toolArgsSummary`'s own doc comment for why this
- * is intentionally NOT a digest. */
-function summarize(text: string, maxChars = SUMMARY_MAX_CHARS): string {
-  const trimmed = text.trim();
-  return trimmed.length > maxChars ? `${trimmed.slice(0, maxChars)}…` : trimmed;
-}
-
-/**
- * Run one pinned Skill AS a tool (#725) -- a SEPARATE, focused `complete()` call whose
- * system prompt is only that Skill's content, never mixed with the orchestrator's other
- * pinned Skills or its own instructions. This is the "real execution" #725 exists to add:
- * before this, invoking a Skill was never anything more than the orchestrator reasoning
- * from its content already sitting in one shared mega-prompt -- no separate call, no
- * separate result, nothing an executor could point at as "this actually ran". `tool_call`
- * steps below are that missing, verifiable, separate execution.
- *
- * Never throws: a failure here becomes a result the ORCHESTRATOR model gets to see and
- * react to (retry differently, try another tool, apologize), the same way a human handing
- * off a subtask learns "that failed" instead of the whole effort silently vanishing.
- */
-async function executeSkillTool(
-  deps: ExecuteAgentRunDeps,
-  run: ClaimedAgentRun,
-  skill: SkillForTool,
-  task: string,
-): Promise<{ readonly resultText: string; readonly failureCode: RunFailureCode | null }> {
-  try {
-    const completion = await deps.model.complete({
-      modelProvider: run.modelProvider,
-      modelId: run.modelId,
-      system: skill.content,
-      user: task,
-    });
-    if (completion.text.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "skill tool call returned empty content");
-    }
-    return { resultText: completion.text, failureCode: null };
-  } catch (e) {
-    const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
-    deps.log("agent run tool call failed", {
-      runId: run.runId,
-      tool: skill.stableName,
-      code,
-      detail: e instanceof ModelCallError ? e.detail : "unexpected skill tool call failure",
-    });
-    return { resultText: `技能「${skill.name}」执行失败（${code}）。`, failureCode: code };
-  }
-}
-
-/** The `task` argument out of a tool call's raw JSON, tolerantly: a model that returns
- * malformed JSON or omits `task` still gets SOME text handed to the Skill (the raw
- * argument string) rather than the whole round failing outright -- the Skill call may
- * still fail on its own merits, but not because this layer refused to try. */
-function extractTaskArgument(argumentsJson: string): string {
-  try {
-    const parsed: unknown = JSON.parse(argumentsJson);
-    if (parsed !== null && typeof parsed === "object" && "task" in parsed) {
-      const task = (parsed as Record<string, unknown>).task;
-      if (typeof task === "string" && task.trim() !== "") return task;
-    }
-  } catch {
-    // Falls through to the raw text below -- see this function's own doc comment.
-  }
-  return argumentsJson;
-}
-
-/**
- * The bounded tool-calling loop (#725). Returns the final answer text.
- *
- * `seqCursor` is a MUTABLE holder, not a return value, precisely so the caller can still
- * read "how many steps did this loop actually record" after a THROW, not only on success --
- * see `AgentRunStore.storeOutputAwaitingWriteback`'s own doc comment for why the terminal
- * `model_called` step (recorded by the caller, success OR failure) must never land on a
- * `seq` a `tool_call` step already used. It starts at `seqCursor.value` and is advanced by
- * exactly one per recorded `tool_call` step, so whatever it holds when this function
- * returns OR throws is always the next unused `seq`.
- *
- * Throws `ModelCallError("TOOL_LOOP_LIMIT_EXCEEDED", …)` when `MAX_TOOL_LOOP_ROUNDS` rounds
- * pass without a final answer -- the caller fails the run exactly like any other
- * `ModelCallError`, never fabricating a "looks like a plan" reply instead.
- */
-async function executeToolLoop(
-  deps: ExecuteAgentRunDeps,
-  orgId: OrgId,
-  run: ClaimedAgentRun,
-  input: {
-    readonly system: string;
-    readonly history: readonly ThreadHistoryMessage[];
-    readonly skills: readonly SkillForTool[];
-    readonly tools: readonly ToolDefinition[];
-    readonly seqCursor: { value: number };
-  },
-): Promise<{ readonly text: string }> {
-  const byToolName = indexSkillsByToolName(input.skills);
-  let toolExchange: ToolExchangeTurn[] = [];
-
-  for (let round = 0; round < MAX_TOOL_LOOP_ROUNDS; round += 1) {
-    const completion = await deps.model.complete({
-      modelProvider: run.modelProvider,
-      modelId: run.modelId,
-      system: input.system,
-      user: run.inputText,
-      history: input.history,
-      tools: input.tools,
-      toolExchange,
-    });
-
-    if (!completion.toolCalls || completion.toolCalls.length === 0) {
-      if (completion.text.trim() === "") {
-        throw new ModelCallError(
-          "MODEL_CALL_FAILED",
-          "provider returned neither content nor a tool call",
-        );
-      }
-      return { text: completion.text };
-    }
-
-    toolExchange = [
-      ...toolExchange,
-      { kind: "assistant_tool_calls", toolCalls: completion.toolCalls },
-    ];
-
-    // #731 follow-up (chat-ux-acceptance-criteria.md item 2, "可见的规划步骤"): the SAME
-    // response that requested these tool calls may also carry the model's own
-    // plain-language turn (OpenAI-compatible providers can return `content` alongside
-    // `tool_calls`; `ConfiguredModelProvider.complete()` already keeps it, see that
-    // method's own doc comment). Captured ONCE per round and attached to every tool_call
-    // step this round records -- never synthesized when the model said nothing.
-    const planningNote = completion.text.trim() !== "" ? summarize(completion.text) : null;
-
-    for (const call of completion.toolCalls) {
-      const stepStartedAt = deps.clock.now();
-      const skill = byToolName.get(call.name);
-      const task = extractTaskArgument(call.argumentsJson);
-
-      const { resultText, failureCode } = skill === undefined
-        ? {
-          resultText:
-            `未知工具「${call.name}」：本次运行挂载的技能里没有这一个，`
-            + "换一个已列出的工具，或直接根据已有信息回答。",
-          failureCode: "MODEL_CALL_FAILED" as RunFailureCode,
-        }
-        : await executeSkillTool(deps, run, skill, task);
-
-      await record(deps, orgId, {
-        runId: run.runId, seq: input.seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
-        inputDigest: sha256(call.argumentsJson), outputDigest: sha256(resultText),
-        failureCode,
-        toolName: call.name,
-        toolArgsSummary: summarize(call.argumentsJson),
-        toolResultSummary: summarize(resultText),
-        planningNote,
-      });
-      input.seqCursor.value += 1;
-
-      toolExchange = [
-        ...toolExchange,
-        { kind: "tool_result", toolCallId: call.id, name: call.name, content: resultText },
-      ];
-    }
-  }
-
-  throw new ModelCallError(
-    "TOOL_LOOP_LIMIT_EXCEEDED",
-    `tool loop did not reach a final answer within ${MAX_TOOL_LOOP_ROUNDS} rounds`,
-  );
-}
-
 async function executeClaimed(
   deps: ExecuteAgentRunDeps,
   orgId: OrgId,
@@ -386,8 +175,10 @@ async function executeClaimed(
     JSON.stringify([run.agentVersionId, run.skillVersionIds, run.inputMessageId]),
   );
   let system: string;
-  let toolSkills: readonly SkillForTool[] = [];
-  let tools: readonly ToolDefinition[] = [];
+  // #740: hoisted out of the try block below so the model-call section can forward it as
+  // `ModelCallInput.skills` -- see that field's own doc comment for why `DeepAgentModelProvider`
+  // needs the structured list, not just the flattened text already baked into `system`.
+  let toolSkills: readonly PinnedSkillContent[] = [];
   try {
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
@@ -398,15 +189,12 @@ async function executeClaimed(
         `pinned ${run.skillVersionIds.length}, retrieved ${skills.length}`,
       );
     }
-    // #725: any pinned Skill turns this run into a tool-calling run. Zero pinned Skills
-    // (`tools.length === 0` below) takes the EXACT pre-#725 prompt/call shape -- see
-    // `buildOrchestratorSystemPrompt`'s own doc comment for what a non-empty `tools` adds
-    // on top of that same shape.
+    // #741: the TS tool-calling loop is retired -- every run now takes this ONE shape,
+    // regardless of how many Skills are pinned (see this file's own header). The general
+    // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
+    // service now (#740), not as a second branch here.
     toolSkills = skills;
-    tools = deps.toolCallingEnabled ? buildToolDefinitions(skills) : [];
-    system = tools.length > 0
-      ? buildOrchestratorSystemPrompt(run.instructions, skills, tools)
-      : buildSystemPrompt(run.instructions, skills);
+    system = buildSystemPrompt(run.instructions, skills);
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.
@@ -457,18 +245,53 @@ async function executeClaimed(
   /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
   const modelStartedAt = deps.clock.now();
   let text: string;
-  // #725: advanced by `executeToolLoop` as it records `tool_call` steps, so it holds the
-  // correct next `seq` for the terminal `model_called` step on BOTH the success path and
-  // the catch below -- see that function's own doc comment on `seqCursor`.
+  // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
+  // with that loop retired, `model_called` is always the third step (context_built is 2,
+  // the two preceding are the run's own acceptance steps), so this is a constant again.
   const seqCursor = { value: 3 };
   try {
-    if (tools.length > 0) {
-      // #725: the tool-calling loop. Never streamed (see `ModelCallPort.completeStream`'s
-      // own doc comment for why) and never mixed with the branch below for the same run.
-      const loopResult = await executeToolLoop(deps, orgId, run, {
-        system, history, skills: toolSkills, tools, seqCursor,
-      });
-      text = loopResult.text;
+    // #798: `completeWithProgress`'s presence alone used to be the gate, but a router-shaped
+    // port (`RoutingModelCallPort`) exposes that method as soon as ANY registered provider
+    // needs it -- not only for runs pinned to THAT provider. `supportsProgress`, when the
+    // port implements it, narrows the gate to this run's own pinned provider; a port that
+    // doesn't implement `supportsProgress` (every single-provider port and test fake) keeps
+    // the old behaviour exactly, since presence alone was always accurate for those.
+    // Bound so calling it below (unattached from `deps.model.completeWithProgress`'s own
+    // property access) still runs with the right `this` -- `RoutingModelCallPort`'s
+    // implementation calls `this.resolve(...)` internally.
+    const completeWithProgress = deps.model.completeWithProgress?.bind(deps.model);
+    const wantsProgress = completeWithProgress !== undefined
+      && (deps.model.supportsProgress ? deps.model.supportsProgress(run.modelProvider) : true);
+    if (wantsProgress && completeWithProgress) {
+      // #742: a provider whose run is a remote, multi-step planning loop (today:
+      // `DeepAgentModelProvider`) reports intermediate steps as they happen -- the ONE
+      // remaining alternative branch now that #741 retired the TS tool loop (see this
+      // file's own header). See `ModelCallPort.completeWithProgress`'s own doc comment
+      // for the contract.
+      const completion = await completeWithProgress(
+        {
+          modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
+          history,
+        },
+        async (event) => {
+          const stepStartedAt = deps.clock.now();
+          await record(deps, orgId, {
+            runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
+            inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
+            outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
+            failureCode: null,
+            toolName: event.toolName,
+            toolArgsSummary: event.toolArgsSummary,
+            toolResultSummary: event.toolResultSummary,
+            planningNote: event.planningNote,
+          });
+          seqCursor.value += 1;
+        },
+      );
+      if (completion.text.trim() === "") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
+      }
+      text = completion.text;
     } else {
       // #654 阶段2a: when the configured port supports streaming, use it and persist each
       // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
@@ -480,7 +303,7 @@ async function executeClaimed(
         ? await deps.model.completeStream(
           {
             modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
-            history,
+            history, skills: toolSkills,
           },
           async (delta) => {
             if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
@@ -495,6 +318,9 @@ async function executeClaimed(
           system,
           user: run.inputText,
           history,
+          // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
+          // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.
+          skills: toolSkills,
         });
       if (completion.text.trim() === "") {
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");

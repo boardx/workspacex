@@ -212,7 +212,16 @@ describe("#407 minimal integration team registry projection", () => {
     expect(new Set(all.flatMap((entry) => entry.directory_agent_id ?? [])).size).toBe(6);
   });
 
-  it("reuses exactly the eight neutral agent specs", () => {
+  /**
+   * 中立 agent 规格的**全集**必须逐字列在这里。
+   *
+   * 这条断言是「规格只写一次」的守门人：新增一份 `.harness/agents/*.yaml` 而不在此
+   * 登记就会红，于是没人能悄悄多开一个 agent 身份。#728 加 `rev-uiux.yaml`（UIUX
+   * 保真度评分员）时它如实红了一次 —— 门是活的。
+   *
+   * ⚠ 断言的是**相等**而不是包含：少一份也要红。改名/删除后忘了同步同样会被抓到。
+   */
+  it("reuses exactly the nine neutral agent specs", () => {
     const specs = readdirSync(join(REPO_ROOT, ".harness", "agents"))
       .filter((file) => file.endsWith(".yaml") && file !== "registry.yaml")
       .sort();
@@ -223,6 +232,7 @@ describe("#407 minimal integration team registry projection", () => {
       "feature-evaluator.yaml",
       "quality-auditor.yaml",
       "requirement-author.yaml",
+      "rev-uiux.yaml",
       "test-runner.yaml",
       "ui-prototyper.yaml",
     ]);

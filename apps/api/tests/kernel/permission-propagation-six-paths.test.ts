@@ -689,7 +689,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // `infrastructure/skill/pg-skill-version-edit-repository.ts` -- see that entry's own
     // paragraph in `lint-permission-paths.mjs` (admin decision made one layer up, in
     // `edit-skill-version-content.ts`, before `deps.repository.persist` runs).
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(42);
+    //
+    // ⚠ Raised 42 -> 43 by #785 (real Postgres backing for the `skill` asset-directory
+    // read/write/delete/rename repository, replacing the in-memory fixture): new entry is
+    // `infrastructure/asset/pg-asset-file-repository.ts` -- see that entry's own paragraph in
+    // `lint-permission-paths.mjs` (F141/F142/F143's OWN signed-off gate is org-membership
+    // only, checked by `findOrgMembership` in all five `application/asset/*.ts` use cases
+    // BEFORE this repository is ever reached; this PR changes only where `skill` bytes are
+    // stored, not who may ask for them).
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(43);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

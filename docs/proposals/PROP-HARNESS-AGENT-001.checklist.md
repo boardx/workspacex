@@ -49,10 +49,10 @@
 | H3A-013 | P0 | ✅ 完成（PR #687） | Domain↔Skill 一对一 active gate | 012 | 缺失、重复 active Skill 会红——重复/引用未知 domain_id 判 FAIL；缺失判 WARN（0 实例是今天真实状态，不因为 H3A-016+ 未开工而让 CI 变红），见 `lib/domain-skill-gates.ts` |
 | H3A-014 | P0 | ✅ 完成（PR #687） | Skill reference integrity gate | 012 | Contract/ADR/path 死引用会红；verification 字段（shell 命令非路径）如实标注不检查 |
 | H3A-015 | P0 | ✅ 完成（PR #687） | Skill freshness/STALENESS gate | 012 | last_verified.commit 形状不像 SHA 判红；真实 git 历史校验如实标注做不到 |
-| H3A-016 | P1 | ⬜ 未开始 | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill |
-| H3A-017 | P1 | ⬜ 未开始 | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载 |
+| H3A-016 | P1 | 🔶 PR #776 待 review（issue #769） | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill——`findUnprovenActivePromotions`（`lib/domain-skill-gates.ts`）：active 且 authority_refs 四类引用与 last_verified 全空判 FAIL；今天 0 实例不触发，已知状态非回归 |
+| H3A-017 | P1 | 🔶 PR #808 待 review（issue #804） | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载——`findEntrySizeIssues`（`lib/domain-skill-gates.ts`）：SKILL.md 入口 >150 行判 WARN（阈值取真实模块知识库样本最大值 76 行按一倍余量惯例翻倍）；今天 0 实例不触发；"reference 该放哪"无既有约定，如实只做行数一半 |
 | H3A-018 | P1 | ⬜ 未开始 | Fabric.js/Mermaid Domain Skill | 011–017 | 架构、身份、序列化、协作、验证与陷阱引用完整 |
-| H3A-019 | P0 | ⬜ 未开始 | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
+| H3A-019 | P0 | 🔶 PR #780 待 review（issue #777） | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
 
 ## Epic E2 — 分层 Authorization Model（原三层 Role Graph）
 
@@ -66,7 +66,7 @@
 | H3A-025 | P0 | ✅ 完成（PR #686） | Role authority monotonicity gate | 020 | 子角色权限不能大于 supervisor/Task Assignment |
 | H3A-026 | P0 | ✅ 完成（PR #686） | merge/signoff 权限 gate | 020 | 非 Root merge、任意 Agent 人类签核会红 |
 | H3A-027 | P0 | ✅ 完成（PR #686） | producer/verifier separation policy | 023 | 同 actor 自产自签会红 |
-| H3A-028 | P1 | ⬜ 未开始 | 现有 portable role generator 适配 | 020–023 | Claude/Codex 从同一 Role model 生成且无漂移 |
+| H3A-028 | P1 | 🔶 PR #807 待 review（issue #805） | 现有 portable role generator 适配 | 020–023 | Claude/Codex 从同一 Role model 生成且无漂移 |
 | H3A-029 | P0 | ✅ 完成（PR #686） | Root 直派 L3 例外门 | 019、023 | 仅独立 review、恢复、迁移兼容；必须绑定 subject domain 和受限 scope |
 
 反证：创建第四层、给 Domain merge 权、让 Skill 声明写权限、让 reviewer=producer，必须分别只红对应约束。
@@ -82,9 +82,9 @@
 | H3A-036 | P0 | 🔶 PR #764 待 review（issue #759） | TPL-RVW-001 Revision-bound Review Decision | 027、033 | revision、producer、reviewer、evidence 完整 |
 | H3A-035 | P0 | 🔶 PR #761 待 review（issue #758） | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
 | H3A-034 | P0 | 🔶 PR #760 待 review（issue #757） | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
-| H3A-037 | P0 | ⬜ 未开始 | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
-| H3A-038 | P1 | ⬜ 未开始 | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
-| H3A-039 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
+| H3A-037 | P0 | 🔶 PR #779 待 review（issue #774） | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
+| H3A-038 | P1 | ✅ 完成（PR #809） | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
+| H3A-039 | P1 | 🔶 PR #813 待 review（issue #810） | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
 
 > **Epic E3 阶段状态（2026-08-08 现场核实）：H3A-030~033 四项 ✅ 完成，已合并**
 > （PR #717/#721/#722/#723）。030 是单人直接实现（issue #716 开出到 PR 合并

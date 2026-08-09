@@ -220,6 +220,9 @@ import {
   DEEP_RESEARCH_PROVIDER_NAME, DeepResearchModelProvider, readDeepResearchProviderConfig,
 } from "./infrastructure/agent-run/deep-research-model-provider";
 import {
+  DEEP_AGENT_PROVIDER_NAME, DeepAgentModelProvider, readDeepAgentProviderConfig,
+} from "./infrastructure/agent-run/deep-agent-model-provider";
+import {
   BAILIAN_IMAGE_PROVIDER_NAME, BailianImageProvider, readBailianImageProviderConfig,
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
@@ -365,8 +368,12 @@ import {
   ASSET_OWNER_STATUS_PORT,
   ASSET_RUNTIME_LOADER_PORT,
   REVIEW_CLOCK_REPOSITORY,
+  type AssetFileRepository,
 } from "./application/asset/ports";
 import { FixtureAssetFileRepository } from "./infrastructure/asset/fixture-asset-file-repository";
+// #785: real Postgres backing for `skill`. Non-skill kinds (`agent` included, see its own
+// header -- #787) still delegate to the fixture above.
+import { PgAssetFileRepository } from "./infrastructure/asset/pg-asset-file-repository";
 // F143: I-6's runtime-load seam -- see `application/asset/ports.ts`'s `AssetRuntimeLoaderPort`
 // header for why this delegates straight to the same `AssetFileRepository`.
 import { DirectoryBackedAssetRuntimeLoader } from "./infrastructure/asset/directory-backed-asset-runtime-loader";
@@ -815,29 +822,29 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       // ⚠ 配置在合成时读一次。运行中改环境变量不得换掉某次 run 的 provider——
       // 那会让「快照固定」这句话依赖于进程当时的环境，而不是 run 行本身。
       //
-      // 三个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image）：
-      // `RoutingModelCallPort` 按 run 快照里 pin 的 `modelProvider` 字符串分派，不是
-      // "配一个、其它 fallback 过去"——见该类头注，这是 `ConfiguredModelProvider`
-      // "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
+      // 四个 provider 并存（2026-08-07 加入 open-deep-research + bailian-image；
+      // 2026-08-08 加入 deep-agent，#740）：`RoutingModelCallPort` 按 run 快照里 pin 的
+      // `modelProvider` 字符串分派，不是"配一个、其它 fallback 过去"——见该类头注，这是
+      // `ConfiguredModelProvider` "no fallback" 纪律在多 provider 场景下的延伸，不是放弃它。
       provide: MODEL_CALL_PORT,
       useFactory: () => {
         const chatConfig = readModelProviderConfig();
         return new RoutingModelCallPort(new Map<string, ModelCallPort>([
           [chatConfig.provider, new ConfiguredModelProvider(chatConfig)],
           [DEEP_RESEARCH_PROVIDER_NAME, new DeepResearchModelProvider(readDeepResearchProviderConfig())],
+          [DEEP_AGENT_PROVIDER_NAME, new DeepAgentModelProvider(readDeepAgentProviderConfig())],
           [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
         ]));
       },
     },
     {
       provide: AGENT_RUN_EXECUTOR,
+      // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
+      // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
+      // fourth argument at all.
       useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0",
-          // #725: gated exactly like `KERNEL_MODEL_STREAM_ENABLED` (see
-          // `ExecuteAgentRunDeps.toolCallingEnabled`'s own doc comment) -- default off
-          // reproduces every byte of pre-#725 behaviour for every existing deployment.
-          process.env.KERNEL_TOOL_CALLING_ENABLED === "1",
         ),
       inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
     },
@@ -949,8 +956,15 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       useFactory: (db: DatabasePort) => new PgProjectOverviewRepository(db),
       inject: [DATABASE_PORT],
     },
-    // F141: fixture-backed (2/6 AssetKinds, AG4) -- see the class header for why.
-    { provide: ASSET_FILE_REPOSITORY, useFactory: () => new FixtureAssetFileRepository() },
+    // F141 → #785: `skill` now reads/writes real Postgres (`skills`/`skill_versions`/
+    // `skill_version_files`, model A) via `PgAssetFileRepository`; every other kind (incl.
+    // `agent`, AG4) still delegates to the fixture -- see `pg-asset-file-repository.ts`'s
+    // class header for why `agent` stays fixture-backed for now (#787).
+    {
+      provide: ASSET_FILE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAssetFileRepository(db, new FixtureAssetFileRepository()),
+      inject: [DATABASE_PORT],
+    },
     // F134: in-memory (no persisted store across all six AssetKinds yet, AG1) -- see the
     // repository's class header for why.
     { provide: ASSET_GOVERNANCE_REPOSITORY, useFactory: () => new InMemoryAssetGovernanceRepository() },
@@ -965,7 +979,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     // why this is I-6's actual fix, not a shortcut.
     {
       provide: ASSET_RUNTIME_LOADER_PORT,
-      useFactory: (assets: FixtureAssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
+      useFactory: (assets: AssetFileRepository) => new DirectoryBackedAssetRuntimeLoader(assets),
       inject: [ASSET_FILE_REPOSITORY],
     },
     // F140: no "deactivated account" signal exists in this org model yet -- see the class

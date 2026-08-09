@@ -1,10 +1,10 @@
 /**
- * domain-skill-gates.ts —— H3A-013/014/015：三条跨表判定，全部纯函数。
+ * domain-skill-gates.ts —— H3A-013/014/015/016：四条跨表判定，全部纯函数。
  *
- * 三条判定共享同一个输入组合（Domain Registry 的 entries + Domain Skill 实例
- * 列表），但刻意分成三个独立函数而不是一个大函数：同 template-doctor.ts 里
- * "duplicate/unregistered/retired/dead-ref 各自一个函数" 的先例——每条判定的
- * 输入/输出语义不同，合并只会让人在改一条时误伤另一条。
+ * 四条判定共享同一个输入组合（Domain Registry 的 entries + Domain Skill 实例
+ * 列表，H3A-016 只需要后者），但刻意分成独立函数而不是一个大函数：同
+ * template-doctor.ts 里 "duplicate/unregistered/retired/dead-ref 各自一个函数"
+ * 的先例——每条判定的输入/输出语义不同，合并只会让人在改一条时误伤另一条。
  *
  * 严重度设计（这是本文件最容易被误读的地方，务必读完再改）：
  *
@@ -156,6 +156,126 @@ export function findFreshnessIssues(skills: readonly DomainSkillInstance[]): Gat
         sourceFile: skill.sourceFile,
         message: `Domain Skill "${skill.skill_id}" 的 last_verified.commit "${commit}" 不像一个合法 SHA` +
           `（应是 7~40 位十六进制字符）——本检查只验证形状，不验证该 commit 是否真的存在于 git 历史`,
+      });
+    }
+  }
+  return findings;
+}
+
+/* ═══════════════════════ H3A-016：Candidate Knowledge 晋升协议 gate ═══════════════════════ */
+
+/**
+ * Proposal §8.3「迭代知识晋升」原文：
+ *
+ *   Workflow Event / Issue 发现 → Candidate Knowledge → 复现或第二次复用
+ *     → Domain Reviewer 核验 → Skill PR + evidence → Domain Skill active knowledge
+ *
+ *   "一次调试叙述不会自动进入 Skill。"
+ *
+ * 原文没有给出机器可判定的精确阈值——"复现或第二次复用""Domain Reviewer 核验"
+ * 这些流程步骤本身不是本仓能核实的事实（无法从一份 YAML 静态判断"是否真的核验
+ * 过两次"）。以下阈值是本条目按原文精神做的**合理推断**，不是逐字规定：
+ *
+ *   status === "active" 且 authority_refs 四个数组（contracts/adrs/source_paths/
+ *   verification）同时全部为空 且 last_verified.commit === null 且
+ *   last_verified.evidence_refs 为空 → 判定为"无证据经验冒充 active Skill"，FAIL。
+ *
+ * 刻意取"四类证据全部同时缺席"而不是"任一类缺席"：只要 authority_refs 或
+ * last_verified 任何一处已经开始声明证据，就不属于"一次调试叙述"直接冒充 active
+ * ——那种"声明了但证据是否可信"的判定分别属于 H3A-014（引用是否死链）和
+ * H3A-015（commit 形状是否合法），不是本 gate 的职责。这条 gate 只挡最彻底的
+ * 那种：整个实例宣称 active，却没有任何一个证据字段被真正填过。
+ *
+ * 与 H3A-014 / H3A-015 的分工（互补不重复，务必分清楚）：
+ *   - H3A-014 查"已经填了的引用"是否指向仓库里真实存在的路径——死链检查。
+ *   - H3A-015 查 last_verified.commit 的形状是不是像一个合法 SHA——格式检查。
+ *   - H3A-016（本函数）查证据字段本身是不是空的——晋升门槛检查，不关心已声明
+ *     的证据是否真实存在或格式是否合法，那是前两条的事。
+ *
+ * 今天全仓 0 个真实 Domain Skill 实例（H3A-002 inventory 已确认，同 H3A-013/
+ * 014/015 的既有状态），本 gate 加入后不会在今天的仓库产生任何 finding——这是
+ * 已知状态，不是回归；只有未来真的有实例声明 active 却证据全空时才会触发。
+ */
+export function findUnprovenActivePromotions(skills: readonly DomainSkillInstance[]): GateFinding[] {
+  const findings: GateFinding[] = [];
+  for (const skill of skills) {
+    if (skill.status !== "active") continue;
+    const refs = skill.authority_refs;
+    const authorityAllEmpty =
+      refs.contracts.length === 0 &&
+      refs.adrs.length === 0 &&
+      refs.source_paths.length === 0 &&
+      refs.verification.length === 0;
+    const lastVerifiedEmpty = skill.last_verified.commit === null && skill.last_verified.evidence_refs.length === 0;
+    if (authorityAllEmpty && lastVerifiedEmpty) {
+      findings.push({
+        code: "H3A016-UNPROVEN-ACTIVE-PROMOTION",
+        severity: "FAIL",
+        sourceFile: skill.sourceFile,
+        message: `Domain Skill "${skill.skill_id}" 是 active 但 authority_refs 四个数组和 last_verified` +
+          `（commit/evidence_refs）全部为空——无证据经验不能进入 active Skill（Proposal §8.3 晋升协议）`,
+      });
+    }
+  }
+  return findings;
+}
+
+/* ═══════════════════════ H3A-017：Domain Skill 体积与渐进加载 gate ═══════════════════════ */
+
+/**
+ * 完成契约原文："SKILL 入口保持短，reference 按任务加载"——即 AGENTS.md 自己那句
+ * "这是目录页,不是百科全书"的同一条纪律，套用到 Domain Skill 的 SKILL.md 入口上。
+ *
+ * 阈值怎么定（同 role-authorization.ts `MAX_REASONABLE_TOOL_COUNT` 的"实测取一倍
+ * 余量"先例，不是拍脑袋）：
+ *
+ *   本仓库今天真实存在的 8 份"模块知识库" skill（`.agents/skills/mod-<name>/SKILL.md`，
+ *   AGENTS.md 称之为"模块活知识库"——概念上最贴近 Domain Skill，只是还没有挂
+ *   `template_id: TPL-MOD-001` frontmatter 变成正式实例）实测行数分布是 62～76 行
+ *   （`mod-_template` 脚手架本身 50 行，不计入，它是空壳不是内容样本）；而仓库里
+ *   另一类"全流程 SOP 型" skill（如 `coordinator`/`feature-implementer` 等）行数
+ *   普遍在 130～230 行——这类 skill 承担的是完整工作流程编排，不是 Domain Skill
+ *   要做的"目录页 + 按需加载细节"。
+ *
+ *   取真实模块知识库样本里观察到的最大值 76，按 role-authorization.ts 的"一倍余量"
+ *   惯例翻倍取整 → 150。150 给了模块知识库自然增长的空间（不会因为多写几条踩坑
+ *   经验就无端 WARN），但仍然显著低于"全流程 SOP 型" skill 的下限（130+），能筛出
+ *   那种把 SOP 全文、大段参考资料直接堆进入口文件、没有做渐进式披露的实例。
+ *
+ * 判 WARN 不判 FAIL：完成契约原文明确这是"预防性质"的门槛——今天全仓 0 个真实
+ * TPL-MOD-001 实例（H3A-002 inventory 已确认，同 H3A-013/014/015/016 的既有状态），
+ * 本 gate 加入后不会在今天的仓库产生任何 finding。即便未来出现第一个实例，"入口
+ * 文件偏长"本身也不是不可挽回的结构性问题（不像 H3A-013 的 duplicate、H3A-014 的
+ * 死引用那样是真实的不变量违反），FAIL 会在"渐进式披露"还没规范化之前误伤正常
+ * 迭代中的 Skill，WARN 足以提醒复核。
+ *
+ * 关于"reference 该放哪"——完成契约第 2 点要求的顺带检查（如实标注部分）：
+ * 全仓搜索 `.agents/skills/**`、`.harness/**`、`docs/**` 没有找到任何 `references/`
+ * 子目录、也没有任何既有 SKILL.md 用 `references/` 之类的路径写法指向拆分出去的
+ * 细节文件（H3A-016 完成时同样没有；这不是本条目漏搜，是这个约定今天确实不存在）。
+ * 完成契约原文允许"如果找不到明确的既有约定，如实标注这条检查做不到"——因此本文件
+ * 只实现行数上限一条判定，不做"体积超标是否配套 reference 目录"的检查。一旦仓库里
+ * 出现第一个明确的 reference 拆分约定（比如某条未来的 ADR 或先例文件确立了
+ * `references/` 目录结构），这条检查可以在那之后另开条目补上，不是本条目的范围。
+ */
+const MAX_REASONABLE_SKILL_ENTRY_LINES = 150;
+
+export function findEntrySizeIssues(
+  skills: readonly DomainSkillInstance[],
+  lineCounts: ReadonlyMap<string, number>,
+): GateFinding[] {
+  const findings: GateFinding[] = [];
+  for (const skill of skills) {
+    const lines = lineCounts.get(skill.sourceFile);
+    if (lines === undefined) continue; // 调用方没能读到文件内容——不假装知道行数，静默跳过
+    if (lines > MAX_REASONABLE_SKILL_ENTRY_LINES) {
+      findings.push({
+        code: "H3A017-SKILL-ENTRY-TOO-LONG",
+        severity: "WARN",
+        sourceFile: skill.sourceFile,
+        message:
+          `Domain Skill "${skill.skill_id}" 的入口文件 ${lines} 行（> ${MAX_REASONABLE_SKILL_ENTRY_LINES}）—— ` +
+          `SKILL 入口应保持精简，细节按任务拆到单独 reference 文件按需加载，不要全塞进入口文件`,
       });
     }
   }

@@ -19,6 +19,10 @@ import {
   AssetRuntimeLoadSetNotFoundError,
 } from "../../src/application/asset/verify-runtime-load-set";
 import type { AssetKind, AssetRuntimeLoaderPort } from "../../src/application/asset/ports";
+import { toOrgId, type OrgId } from "../../src/domain/org-id";
+
+/** Fixture repo ignores `orgId` (see its own header) -- any well-formed id is fine here. */
+const ORG = toOrgId("org-loadset-fixture");
 
 describe("computeRuntimeLoadSetDiff -- 纯函数，双向断言 (I-6)", () => {
   it("两个集合逐一相等 -> equal: true，两侧差集皆空", () => {
@@ -63,22 +67,22 @@ describe("verifyRuntimeLoadSet -- 接真实端口 (F141 的 fixture 仓储 + F14
   it("skill 资产：目录集合与运行时装载集合逐一相等（真实端口，非 mock 断言）", async () => {
     const assets = new FixtureAssetFileRepository();
     const runtime = new DirectoryBackedAssetRuntimeLoader(assets);
-    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { assetKind: "skill", assetId: "sk-1" });
+    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { orgId: ORG, assetKind: "skill", assetId: "sk-1" });
     expect(diff.equal).toBe(true);
   });
 
   it("agent 资产：同上", async () => {
     const assets = new FixtureAssetFileRepository();
     const runtime = new DirectoryBackedAssetRuntimeLoader(assets);
-    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { assetKind: "agent", assetId: "ag-1" });
+    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { orgId: ORG, assetKind: "agent", assetId: "ag-1" });
     expect(diff.equal).toBe(true);
   });
 
   it("编辑器里删除一个非根文件后，目录集合与运行时装载集合（同一份底层数据）仍然相等 -- 因为两者读的是同一个仓储，不是两份会漂移的拷贝", async () => {
     const assets = new FixtureAssetFileRepository();
     const runtime = new DirectoryBackedAssetRuntimeLoader(assets);
-    await assets.deleteFile("skill", "sk-1", "scripts/validate.py");
-    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { assetKind: "skill", assetId: "sk-1" });
+    await assets.deleteFile(ORG, "skill", "sk-1", "scripts/validate.py");
+    const diff = await verifyRuntimeLoadSet({ assets, runtime }, { orgId: ORG, assetKind: "skill", assetId: "sk-1" });
     expect(diff.equal).toBe(true);
     expect(diff.onlyInDirectory).toEqual([]);
     expect(diff.onlyInRuntime).toEqual([]);
@@ -88,7 +92,7 @@ describe("verifyRuntimeLoadSet -- 接真实端口 (F141 的 fixture 仓储 + F14
     const assets = new FixtureAssetFileRepository();
     const runtime = new DirectoryBackedAssetRuntimeLoader(assets);
     await expect(
-      verifyRuntimeLoadSet({ assets, runtime }, { assetKind: "model", assetId: "m-1" }),
+      verifyRuntimeLoadSet({ assets, runtime }, { orgId: ORG, assetKind: "model", assetId: "m-1" }),
     ).rejects.toBeInstanceOf(AssetRuntimeLoadSetNotFoundError);
   });
 
@@ -97,13 +101,13 @@ describe("verifyRuntimeLoadSet -- 接真实端口 (F141 的 fixture 仓储 + F14
     // 一个刻意「漏读」了一个文件的对抗性运行时端口 -- 模拟「运行时缓存了旧的文件列表，
     // 编辑器已经改了但运行时从没重新装载」这种 bug，而不是重用 DirectoryBackedAssetRuntimeLoader。
     const staleRuntime: AssetRuntimeLoaderPort = {
-      async loadedFilePaths(assetKind: AssetKind, assetId: string) {
-        const directory = await assets.getDirectory(assetKind, assetId);
+      async loadedFilePaths(orgId: OrgId, assetKind: AssetKind, assetId: string) {
+        const directory = await assets.getDirectory(orgId, assetKind, assetId);
         if (directory === null) return null;
         return directory.entries.map((e) => e.path).filter((p) => p !== "scripts/validate.py");
       },
     };
-    const diff = await verifyRuntimeLoadSet({ assets, runtime: staleRuntime }, { assetKind: "skill", assetId: "sk-1" });
+    const diff = await verifyRuntimeLoadSet({ assets, runtime: staleRuntime }, { orgId: ORG, assetKind: "skill", assetId: "sk-1" });
     expect(diff.equal).toBe(false);
     expect(diff.onlyInDirectory).toEqual(["scripts/validate.py"]);
     expect(diff.onlyInRuntime).toEqual([]);

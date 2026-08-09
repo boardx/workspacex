@@ -64,7 +64,7 @@ export async function writeAssetFile(
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   if (membership === null) throw new AssetOrgScopeDeniedError();
 
-  const directory = await deps.assets.getDirectory(input.assetKind, input.assetId);
+  const directory = await deps.assets.getDirectory(input.orgId, input.assetKind, input.assetId);
   if (directory === null) throw new AssetNotFoundError();
 
   // ① editableBy gate -- server-side, independent of whatever the UI renders (uc-23-3 E7).
@@ -83,7 +83,7 @@ export async function writeAssetFile(
     if (issues.length > 0) throw new AssetContractValidationFailedError(issues);
   }
 
-  const written = await deps.assets.writeFile(input.assetKind, input.assetId, input.path, input.body);
+  const written = await deps.assets.writeFile(input.orgId, input.assetKind, input.assetId, input.path, input.body);
   if (written === null) throw new AssetNotFoundError();
 
   return { sizeBytes: written.sizeBytes, dirty: true };

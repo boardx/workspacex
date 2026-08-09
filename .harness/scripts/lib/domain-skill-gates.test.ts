@@ -1,6 +1,12 @@
-// domain-skill-gates.test.ts — H3A-013/014/015 的反证。纯函数，喂构造的输入。
+// domain-skill-gates.test.ts — H3A-013/014/015/016/017 的反证。纯函数，喂构造的输入。
 import { describe, expect, it } from "vitest";
-import { findActiveGateViolations, findDeadReferences, findFreshnessIssues } from "./domain-skill-gates";
+import {
+  findActiveGateViolations,
+  findDeadReferences,
+  findFreshnessIssues,
+  findUnprovenActivePromotions,
+  findEntrySizeIssues,
+} from "./domain-skill-gates";
 import type { DomainRegistryEntry } from "./domain-model";
 import type { DomainSkillInstance } from "./domain-skill-model";
 
@@ -146,5 +152,124 @@ describe("findFreshnessIssues (H3A-015)", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]!.code).toBe("H3A015-MALFORMED-COMMIT");
     expect(findings[0]!.severity).toBe("FAIL");
+  });
+});
+
+describe("findUnprovenActivePromotions (H3A-016)", () => {
+  it("🔴 status active，authority_refs 四个数组全空、last_verified 全空 → FAIL", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    const findings = findUnprovenActivePromotions([s]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.code).toBe("H3A016-UNPROVEN-ACTIVE-PROMOTION");
+    expect(findings[0]!.severity).toBe("FAIL");
+    expect(findings[0]!.sourceFile).toBe(s.sourceFile);
+  });
+
+  it("status active，authority_refs.contracts 非空（其余仍空）→ 无 finding（有一类证据即不算无证据）", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: ["docs/x.md"], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status active，authority_refs 全空但 last_verified.commit 非空 → 无 finding", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: "abc1234", evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status active，authority_refs 全空、commit 为 null，但 evidence_refs 非空 → 无 finding", () => {
+    const s = skill({
+      status: "active",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: ["phases/02/sprint-01/evidence/x.log"] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status superseded，证据全空 → 无 finding（本 gate 只管 active）", () => {
+    const s = skill({
+      status: "superseded",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("status retired，证据全空 → 无 finding（本 gate 只管 active）", () => {
+    const s = skill({
+      status: "retired",
+      authority_refs: { contracts: [], adrs: [], source_paths: [], verification: [] },
+      last_verified: { commit: null, evidence_refs: [] },
+    });
+    expect(findUnprovenActivePromotions([s])).toEqual([]);
+  });
+
+  it("空实例列表 → 无 finding", () => {
+    expect(findUnprovenActivePromotions([])).toEqual([]);
+  });
+});
+
+describe("findEntrySizeIssues (H3A-017)", () => {
+  it("干净：150 行以内 → 无 finding", () => {
+    const s = skill();
+    const findings = findEntrySizeIssues([s], new Map([[s.sourceFile, 76]]));
+    expect(findings).toEqual([]);
+  });
+
+  it("边界：恰好 150 行 → 无 finding（阈值是 >150 才报，不是 ≥150）", () => {
+    const s = skill();
+    const findings = findEntrySizeIssues([s], new Map([[s.sourceFile, 150]]));
+    expect(findings).toEqual([]);
+  });
+
+  it("🔴 边界：151 行 → WARN", () => {
+    const s = skill();
+    const findings = findEntrySizeIssues([s], new Map([[s.sourceFile, 151]]));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.code).toBe("H3A017-SKILL-ENTRY-TOO-LONG");
+    expect(findings[0]!.severity).toBe("WARN");
+    expect(findings[0]!.sourceFile).toBe(s.sourceFile);
+  });
+
+  it("🔴 明显超标（比如把整份 SOP 塞进入口，230 行）→ WARN，不是 FAIL", () => {
+    const s = skill();
+    const findings = findEntrySizeIssues([s], new Map([[s.sourceFile, 230]]));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.severity).toBe("WARN");
+    expect(findings[0]!.message).toContain("230");
+    expect(findings[0]!.message).toContain("150");
+  });
+
+  it("lineCounts 里没有该 sourceFile 的条目（调用方读文件失败）→ 静默跳过，不报 finding", () => {
+    const s = skill();
+    expect(findEntrySizeIssues([s], new Map())).toEqual([]);
+  });
+
+  it("多个实例，只有超标的那个报 finding", () => {
+    const small = skill({ skill_id: "SKL-MOD-CANVAS-001", instance_id: "a", sourceFile: "a/SKILL.md" });
+    const big = skill({ skill_id: "SKL-MOD-CANVAS-002", instance_id: "b", sourceFile: "b/SKILL.md" });
+    const findings = findEntrySizeIssues(
+      [small, big],
+      new Map([
+        [small.sourceFile, 70],
+        [big.sourceFile, 300],
+      ]),
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.sourceFile).toBe("b/SKILL.md");
+  });
+
+  it("空实例列表 → 无 finding", () => {
+    expect(findEntrySizeIssues([], new Map())).toEqual([]);
   });
 });

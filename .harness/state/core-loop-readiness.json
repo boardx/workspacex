@@ -1,0 +1,112 @@
+{
+  "_": "CLR 分数记录，issue #814。判据不在这里——每条 track 的 authority 字段指向它的权威 rubric，本文件只存「谁、在哪个 SHA、用什么证据、量出了几分」。总分盘由 `pnpm harness readiness` 派生，禁止手写总分。",
+  "_who_may_edit": "只有该 track `allowed_scorers` 里的角色可以改自己那条的分数字段。实现者不得改自己被评的那条（G3 会当场红）。blocking_issues 由 coord-main 维护。",
+  "_gates": "G1 未评分记 0 / G2 评分后 watch 路径有改动即过期记 0 / G3 自评或非授权评分人记 0 / G4 无证据记 0。四道门的反证在 `.harness/scripts/lib/core-loop-readiness.test.ts`，每道都实测过「拆掉它测试会红」。",
+  "version": 1,
+  "tracks": {
+    "R": {
+      "name": "真实用户可达性",
+      "authority": ".harness/instructions/core-loop-readiness-standard.md#track-r-真实用户可达性",
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
+      "max": 10,
+      "score": null,
+      "scored_sha": null,
+      "scored_by": null,
+      "implemented_by": null,
+      "evidence": [],
+      "watch": [
+        "apps/web/e2e/**",
+        "apps/api/src/interface/**",
+        "apps/api/src/application/**",
+        "packages/contracts/src/**"
+      ],
+      "blocking_issues": [
+        660,
+        619,
+        624
+      ]
+    },
+    "B": {
+      "name": "行为体验（对标 Claude Code）",
+      "authority": ".harness/instructions/chat-ux-acceptance-criteria.md",
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
+      "max": 10,
+      "score": null,
+      "scored_sha": null,
+      "scored_by": null,
+      "implemented_by": null,
+      "evidence": [],
+      "watch": [
+        "apps/web/components/chat/**",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/agent-run-stream.ts",
+        "apps/api/src/application/agent-run/**",
+        "apps/api/src/infrastructure/agent-run/**"
+      ],
+      "blocking_issues": [
+        660,
+        619
+      ]
+    },
+    "V-D": {
+      "name": "项目对话主屏原型保真（ChatReadScreen）",
+      "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#十维每维-0-或-1-分没有-05",
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
+      "max": 10,
+      "score": 0,
+      "scored_sha": "575dcf0a9302aba445e1e3588e9a4427696651fd",
+      "scored_by": "rev-uiux",
+      "implemented_by": "dev-chat-e2e",
+      "evidence": [
+        "https://github.com/boardx/workspacex/issues/814#issuecomment-5230462786",
+        "https://github.com/boardx/workspacex/issues/728"
+      ],
+      "watch": [
+        "apps/web/components/chat/**",
+        "apps/web/app/chat/**"
+      ],
+      "blocking_issues": [
+        728
+      ]
+    },
+    "V-P": {
+      "name": "个人对话屏（PersonalChatScreen）",
+      "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#个人对话屏personalchatscreen十维",
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
+      "max": 10,
+      "score": 7,
+      "scored_sha": "97a90440a23afa0eac5418d47da1e407ce1bc6df",
+      "scored_by": "rev-uiux",
+      "implemented_by": "dev-chat-e2e",
+      "evidence": [
+        "https://github.com/boardx/workspacex/issues/728",
+        "apps/web/e2e/chat-main-shots.spec.ts",
+        "apps/web/components/chat/chat-live-message-panel.tsx",
+        "apps/web/components/chat/personal-chat-screen.tsx",
+        ".harness/rubrics/chat-main-fidelity-rubric.md",
+        "apps/api/scripts/loopback-deep-agent-provider.ts"
+      ],
+      "watch": [
+        "apps/web/components/chat/personal-chat-screen.tsx",
+        "apps/web/components/chat/thread-list-shell.tsx",
+        "apps/web/app/chat/**"
+      ],
+      "blocking_issues": [
+        728,
+        750
+      ]
+    }
+  },
+  "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。",
+  "_vd_vp_20260809": "V-D/V-P 在 origin/main 575dcf0a 上实测判 0（rev-uiux，非自评）。原因不是界面差，是评分器材不在 main 上：评分卡 chat-main-fidelity-rubric.md、取证命令 shots:chat-main / shots:chat-proto、参照图集 ui-preview/chat-main-ref/ 在 main 上全部不存在（git ls-tree 逐条可复现）⇒ 评分卡硬门 H2 不可满足 ⇒ 按其自身规则总分判 0，不进逐维打分。三者连同 35 个实现 commit 只在本地分支 worker/dev-chat-e2e-01-chat-main-fidelity-rebased（tip 38ca8fb3，无远端、无 PR）。#728 里 10 轮评分所依据的 SHA 全部不是 origin/main 的祖先。⚠ 两处更正：① 本条原记第 6 轮 d53c84ca，而 #728 实际已到第 10 轮（86addbb7，D=1/10 · P=5/10）——JSON 落后于 issue，派工任务书照抄了 JSON；② 原 evidence 锚点 #issuecomment-round6 是手写假锚点，打不开（真锚点为数字 id），而 G4 只查数组非空、不查链接可解析——这道门当前能被假证据通过，建议补校验并造反证。另建议加门：scored_sha 必须是 origin/main 的祖先。详见 #814 评论。",
+  "_correction_823": "track R 的 blocking_issues 曾含 #627/#552 —— 二者早已关闭且修复已合并（PR #645 / PR #584）。播种时把 core-loop.spec.ts 的注释当权威证据，而那些注释描述的是写它那一刻的世界。见 #823：判断产品路径是否存在，必须 grep 真实 controller/契约 + 核对 issue/PR 当前状态，不得以注释为准。"
+}
