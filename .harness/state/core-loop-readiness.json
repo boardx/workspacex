@@ -60,13 +60,14 @@
         "rev-uiux"
       ],
       "max": 10,
-      "score": 0,
-      "scored_sha": "575dcf0a9302aba445e1e3588e9a4427696651fd",
+      "score": 1,
+      "scored_sha": "6c48beeac7904eeefbf51038d60d13e6abf74bfe",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "https://github.com/boardx/workspacex/issues/814#issuecomment-5230462786",
-        "https://github.com/boardx/workspacex/issues/728"
+        "https://github.com/boardx/workspacex/issues/814#issuecomment-5231458612",
+        "apps/web/e2e/chat-main-shots.spec.ts",
+        ".harness/rubrics/chat-main-fidelity-rubric.md"
       ],
       "watch": [
         "apps/web/components/chat/**",
@@ -83,17 +84,14 @@
         "rev-uiux"
       ],
       "max": 10,
-      "score": 7,
-      "scored_sha": "97a90440a23afa0eac5418d47da1e407ce1bc6df",
+      "score": 9,
+      "scored_sha": "6c48beeac7904eeefbf51038d60d13e6abf74bfe",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "https://github.com/boardx/workspacex/issues/728",
+        "https://github.com/boardx/workspacex/issues/814#issuecomment-5231458612",
         "apps/web/e2e/chat-main-shots.spec.ts",
-        "apps/web/components/chat/chat-live-message-panel.tsx",
-        "apps/web/components/chat/personal-chat-screen.tsx",
-        ".harness/rubrics/chat-main-fidelity-rubric.md",
-        "apps/api/scripts/loopback-deep-agent-provider.ts"
+        ".harness/rubrics/chat-main-fidelity-rubric.md"
       ],
       "watch": [
         "apps/web/components/chat/personal-chat-screen.tsx",
@@ -107,6 +105,6 @@
     }
   },
   "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。",
-  "_vd_vp_20260809": "V-D/V-P 在 origin/main 575dcf0a 上实测判 0（rev-uiux，非自评）。原因不是界面差，是评分器材不在 main 上：评分卡 chat-main-fidelity-rubric.md、取证命令 shots:chat-main / shots:chat-proto、参照图集 ui-preview/chat-main-ref/ 在 main 上全部不存在（git ls-tree 逐条可复现）⇒ 评分卡硬门 H2 不可满足 ⇒ 按其自身规则总分判 0，不进逐维打分。三者连同 35 个实现 commit 只在本地分支 worker/dev-chat-e2e-01-chat-main-fidelity-rebased（tip 38ca8fb3，无远端、无 PR）。#728 里 10 轮评分所依据的 SHA 全部不是 origin/main 的祖先。⚠ 两处更正：① 本条原记第 6 轮 d53c84ca，而 #728 实际已到第 10 轮（86addbb7，D=1/10 · P=5/10）——JSON 落后于 issue，派工任务书照抄了 JSON；② 原 evidence 锚点 #issuecomment-round6 是手写假锚点，打不开（真锚点为数字 id），而 G4 只查数组非空、不查链接可解析——这道门当前能被假证据通过，建议补校验并造反证。另建议加门：scored_sha 必须是 origin/main 的祖先。详见 #814 评论。",
+  "_vd_vp_20260809": "V-D 1/10 · V-P 9/10 实测于 origin/main 6c48beea（rev-uiux，非自评），四道硬门 H1-H4 在 main 上首次全过：shots:chat-main 真栈跑通、verify:base 39/39 与 verify:chat-read 3 passed 均退出 0、9 张参照图 git log 全为 A 无 M。D 组仅 D1 得分（D2/D5 卡 #831 待实现的 role 字段；D3 徽标已实现但夹具无带徽标线程=取证缺口）；P 组 9/10 已达 #831 门槛，唯一失分的 P6 流式是 spec 等终态才截图、结构上拍不到，非功能缺失。此前记录 V-P=7@97a90440 在 squash 后不是 main 祖先，已被 G5 判 0，现以真实 main SHA 重评替换。详见 #814 评论。",
   "_correction_823": "track R 的 blocking_issues 曾含 #627/#552 —— 二者早已关闭且修复已合并（PR #645 / PR #584）。播种时把 core-loop.spec.ts 的注释当权威证据，而那些注释描述的是写它那一刻的世界。见 #823：判断产品路径是否存在，必须 grep 真实 controller/契约 + 核对 issue/PR 当前状态，不得以注释为准。"
 }
