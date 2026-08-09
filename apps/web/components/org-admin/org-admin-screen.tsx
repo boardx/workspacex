@@ -192,16 +192,22 @@ function CreateTeamForm({
           <p role="alert" data-testid="err-team-name" className="text-10 text-destructive">{fieldError}</p>
         ) : null}
       </div>
-      <Button
-        type="submit"
-        size="xs"
-        variant="outline"
-        disabled={submitting || name.trim().length === 0}
-        data-testid="org-admin-create-team"
-      >
-        <Plus aria-hidden className="h-3 w-3" />
-        {submitting ? "创建中…" : "新建团队"}
-      </Button>
+      {/* 外层 flex-col + 一行不可见占位，抵消左侧 Label 行占用的高度，让按钮与 Input 同一水平线
+          对齐（复核实测发现：加 Label 之前按钮和 Input 天然同行，加了 Label 之后 `items-start`
+          会把按钮顶到跟 Label 文字同一行，是本轮 a11y 修复顺带引入的视觉退化）。 */}
+      <div className="flex flex-col gap-1">
+        <span aria-hidden className="text-12 leading-none">&nbsp;</span>
+        <Button
+          type="submit"
+          size="xs"
+          variant="outline"
+          disabled={submitting || name.trim().length === 0}
+          data-testid="org-admin-create-team"
+        >
+          <Plus aria-hidden className="h-3 w-3" />
+          {submitting ? "创建中…" : "新建团队"}
+        </Button>
+      </div>
     </form>
   );
 }

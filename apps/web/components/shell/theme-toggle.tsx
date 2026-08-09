@@ -43,10 +43,13 @@ export function ThemeToggle({
         className,
       )}
     >
+      {/* 文案是「点了会发生什么」（动作），不是「现在是什么状态」——
+          复核实测过反过来的写法（当前浅色态显示"浅色模式"，点击却切到深色）会让人以为点击无效或
+          语义相反。当前深色 ⇒ 提供"切换到浅色"的动作；当前浅色 ⇒ 提供"切换到深色"的动作。 */}
       {current === "dark"
-        ? <Moon aria-hidden className="h-3.5 w-3.5" />
-        : <Sun aria-hidden className="h-3.5 w-3.5" />}
-      {current === "dark" ? "深色模式" : "浅色模式"}
+        ? <Sun aria-hidden className="h-3.5 w-3.5" />
+        : <Moon aria-hidden className="h-3.5 w-3.5" />}
+      {current === "dark" ? "切换到浅色模式" : "切换到深色模式"}
     </button>
   );
 }
