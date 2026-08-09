@@ -34,10 +34,11 @@
  * 把"问不到"当成"有问题"会让离线/无 token 环境恒红，那是空转不是门控。
  */
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { join } from "node:path";
 import type { Args } from "./lib/args";
 import { log } from "./lib/log";
-import { STATE_DIR } from "./lib/paths";
+import { REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { sh } from "./lib/sh";
 import {
   PASS_THRESHOLD,
@@ -51,6 +52,8 @@ export const READINESS_PATH = join(STATE_DIR, "core-loop-readiness.json");
 
 const DISCOUNT_TEXT: Record<string, string> = {
   NEVER_SCORED: "从未评分",
+  SHA_NOT_ON_MAIN: "评分 SHA 不是 origin/main 的祖先（评的不是这棵树）",
+  EVIDENCE_UNRESOLVABLE: "证据不可解析（路径不存在 / 锚点结构非法）",
   STALE: "分数已过期（评分后 watch 路径有改动）",
   SELF_SCORED: "自评（评分人 = 实现者）",
   SCORER_NOT_ALLOWED: "评分人无此 track 的评分权",
@@ -67,6 +70,22 @@ function changedSince(sha: string | null, watch: readonly string[]): readonly st
   // 与"查了确实没改"含义不同，混淆会让 G2 静默失效。
   if (r.code !== 0) return null;
   return r.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * G5：`sha` 是不是 `origin/main` 的祖先。`null` = 判不了（离线 / 没 fetch 过 / 未评分）——
+ * 与 `changedSince` 同一条 null 语义：问不到不等于有问题。
+ */
+function isAncestorOfMain(sha: string | null): boolean | null {
+  if (sha === null) return null;
+  if (sh("git rev-parse --verify origin/main").code !== 0) return null;
+  if (sh(`git cat-file -e ${sha}^{commit}`).code !== 0) return false; // 对象都不在本仓 ⇒ 肯定不是祖先
+  return sh(`git merge-base --is-ancestor ${sha} origin/main`).code === 0;
+}
+
+/** G6 的仓库内路径判定。只认仓库根下的相对路径，不跟随符号链接之外的花样。 */
+function repoPathExists(ref: string): boolean {
+  return existsSync(resolve(REPO_ROOT, ref));
 }
 
 export function coreLoopReadiness(args: Args): void {
@@ -87,11 +106,13 @@ export function coreLoopReadiness(args: Args): void {
   const state = raw as ReadinessState;
 
   const changedByTrack: Record<string, readonly string[] | null> = {};
+  const ancestryByTrack: Record<string, boolean | null> = {};
   for (const [id, t] of Object.entries(state.tracks)) {
     changedByTrack[id] = changedSince(t.scored_sha, t.watch);
+    ancestryByTrack[id] = isAncestorOfMain(t.scored_sha);
   }
 
-  const v = judgeReadiness(state, changedByTrack);
+  const v = judgeReadiness(state, changedByTrack, ancestryByTrack, repoPathExists);
   const head = sh("git rev-parse HEAD").stdout.trim();
 
   const verdict = v.passes ? `✅ 达标（门槛 ${PASS_THRESHOLD}）` : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;

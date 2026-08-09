@@ -17,6 +17,7 @@ import {
   PASS_THRESHOLD,
   judgeReadiness,
   judgeTrack,
+  isStructurallyResolvable,
   matchesAny,
   validateState,
   type ReadinessState,
@@ -159,6 +160,73 @@ describe("judgeReadiness：R 是天花板，不是加数", () => {
 
   it(`天花板 track 的 id 是导出的常量，改名只有一处（当前：${CEILING_TRACK}）`, () => {
     expect(CEILING_TRACK).toBe("R");
+  });
+});
+
+describe("G5 血统门：评的必须是 main 血统的树（rev-uiux 2026-08-09 提出）", () => {
+  it("反证：scored_sha 不是 origin/main 的祖先 ⇒ 记 0（#728 十轮评分的真实处境）", () => {
+    const v = judgeTrack("V-D", healthy(), [], false);
+    expect(v.discounts).toContain("SHA_NOT_ON_MAIN");
+    expect(v.effectiveScore).toBe(0);
+  });
+
+  it("是祖先 ⇒ 如实计入（门不能恒红）", () => {
+    expect(judgeTrack("V-D", healthy(), [], true).discounts).toEqual([]);
+  });
+
+  it("判不了（null，离线/没 fetch）⇒ 不判罚 —— 问不到不等于有问题", () => {
+    expect(judgeTrack("V-D", healthy(), [], null).discounts).toEqual([]);
+  });
+
+  it("G5 与 G2 是两件事：树对但改动过 ⇒ STALE；树不对 ⇒ SHA_NOT_ON_MAIN，可同时命中", () => {
+    const v = judgeTrack("V-D", healthy(), ["apps/web/x.tsx"], false);
+    expect(v.discounts).toEqual(expect.arrayContaining(["STALE", "SHA_NOT_ON_MAIN"]));
+  });
+});
+
+describe("G6 证据可解析门：抓住 coord-main 自己播下的假锚点", () => {
+  const yes = () => true;
+
+  it("反证：`#issuecomment-round6` —— 就是 2026-08-09 混进记录、且过了 G4 的那条假证据", () => {
+    expect(isStructurallyResolvable(
+      "https://github.com/boardx/workspacex/issues/728#issuecomment-round6", yes,
+    )).toBe(false);
+  });
+
+  it("真锚点（数字 id）通过", () => {
+    expect(isStructurallyResolvable(
+      "https://github.com/boardx/workspacex/issues/814#issuecomment-5230462786", yes,
+    )).toBe(true);
+  });
+
+  it("仓库内路径：存在则过，不存在则否", () => {
+    expect(isStructurallyResolvable("a/b.png", (r) => r === "a/b.png")).toBe(true);
+    expect(isStructurallyResolvable("a/missing.png", (r) => r === "a/b.png")).toBe(false);
+  });
+
+  it("没注入 exists（离线渲染）⇒ 路径不判罚，同 changedSince 的 null 语义", () => {
+    expect(isStructurallyResolvable("whatever/x.png", null)).toBe(true);
+  });
+
+  it("空串 / 纯空白不算证据", () => {
+    expect(isStructurallyResolvable("", yes)).toBe(false);
+    expect(isStructurallyResolvable("   ", yes)).toBe(false);
+  });
+
+  it("坏 URL 不过", () => {
+    expect(isStructurallyResolvable("http://[bad", yes)).toBe(false);
+  });
+
+  it("⚠ 刻意不做网络存活检查：一个格式合法但已 404 的 URL 仍然通过", () => {
+    // 记录这个已知边界——网络门会抖动，抖动的门迟早被 --no-verify 绕过（#504 先例）。
+    expect(isStructurallyResolvable("https://example.com/definitely-404", yes)).toBe(true);
+  });
+
+  it("整条 track：任一证据不可解析 ⇒ 该 track 记 0", () => {
+    const bad = healthy({ evidence: ["ok/path.png", "https://github.com/o/r/issues/1#issuecomment-abc"] });
+    const v = judgeTrack("V-D", bad, [], true, () => true);
+    expect(v.discounts).toContain("EVIDENCE_UNRESOLVABLE");
+    expect(v.effectiveScore).toBe(0);
   });
 });
 
