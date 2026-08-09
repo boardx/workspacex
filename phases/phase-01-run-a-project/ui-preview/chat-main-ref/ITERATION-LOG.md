@@ -546,3 +546,45 @@ score 7→8，scored_sha → `0f7f076b`，evidence 换成结构可解析的路�
    的教训重跑一次本地 `verify:core-loop` 确认不会重演 deploy 门回归
 2. 合并后 rebase、重新起独立评分确认 P6 转正，若 P 组到 9/10 即过门槛
 3. P7 仍需人类在两条路径（改契约 vs 改判据）间裁决，不阻塞 9 分门槛
+
+---
+
+### 第 14 轮（2026-08-09/10，实测 SHA `5a72973c`）—— rev-uiux 独立评分 **P 组 9/10，首次过人类 #831 定的 9 分门槛**
+
+本轮起因：#845 一次独立评分（SHA `6c48beea`）与第 13 轮记录的 8 分在
+`core-loop-readiness.json` 里出现冲突（同一 track 两条互相矛盾的分数）。
+按本仓一贯纪律，**冲突不由实现者自己挑一个赢家**——发起一次从零开始、
+不预设任何一边对错的独立重新评分，明确要求评分员自己去读契约源码判
+P7、自己重跑证据链，不得沿用任何一方旧结论。
+
+#### 结论：P = 9/10（P7 仍判 0，其余 P1-P6/P8-P10 = 1）
+评分员直接读 `packages/contracts/src/wave2-runtime.ts:205`
+（`AgentRunStepStatus = z.enum(["succeeded","failed"])`，无"运行中"态，
+`AgentRunStep.endedAt` 非空 `z.string()`）确认 P7 的"工具调用在途态"在
+当前契约下结构性不可能真实实现——不是实现遗漏，是契约不支持中间态，
+继续判 0，与前几轮一致。P1-P6、P8-P10 逐项复核通过，P6（PR #851 流式
+渲染）在本轮 SHA 上确认已生效。**9/10，首次达到 #831 门槛。**
+
+本轮同时把两条旧的冲突记录（第 13 轮的 8 分、#845 的 9 分）都**保留未删**，
+新增 `_vp_round14_authoritative_20260810` 说明本轮结果取代二者、以本轮
+为准——不是覆盖历史，是显式声明谁裁决了这次分歧。
+
+#### CLR 登记与合入 main
+`.harness/state/core-loop-readiness.json` 的 `tracks["V-P"]`：
+score → 9，scored_sha → `5a72973c`，commit `91d5b6cc` 推送至 PR #863，
+触发的 CI（`verify`/`fullstack-smoke`）全绿后，merge 前额外单独重跑一次
+`verify:core-loop`（13/13 通过，无回归，照 #837 教训不裸合），
+squash 合入 main（`49d92047`）。main 上 `harness-verify` 的 `e2e-full`
+job 随后报红，核实是 PR #827 遗留的 `mod-canvas-diagram` 
+`scope.project` schema 问题（与本次改动无关，`backend-gates`——真正
+的部署门——本身全绿），不是本轮引入的回归。
+
+#### P 组现状：9/10，剩 1 分（P7）等人类裁决
+`docs/proposals/PROP-CHAT-P7-INPROGRESS-STATUS-001.md` 给了两条路径：
+A）改共享契约（`AgentRunStepStatus` 加"运行中"态 + 处理
+`agent_run_steps_append_only_trg` 追加写触发器的冲突）做真实在途态；
+B）改判据接受当前"只展示终态"的设计。两条路径工作量/风险不同，需要
+人类选择，不阻塞 P 组已经过线的 9 分。
+
+D 组（项目对话）按用户明确指示暂停，本轮未复核，仍为 main 上记录的
+1/10。
