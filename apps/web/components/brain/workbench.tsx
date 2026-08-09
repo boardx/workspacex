@@ -6,14 +6,21 @@ import type { UiState } from "@/lib/ui-state";
 import { BrainOverview } from "./overview";
 import { PrivateLayer, OrgLayer } from "./layers";
 import { DecisionLedger } from "./decision-ledger";
+import { DecisionChainPanel } from "./decision-chain";
 import { ContextPackPanel } from "./context-pack";
-import { LEDGER_HEADER } from "@/lib/mock/brain";
+import { LEDGER_HEADER, CHAINS } from "@/lib/mock/brain";
 
+/**
+ * 标签文案 —— 原型左栏「层」分组第二个按钮主文案是「我的大脑」，「私有」只是其后缀的
+ * 9.5px 小字标注，不是主文案本身；此前 `private` 标签把「私有」当主文案，丢了「我的大脑」（issue #818 问题 4）。
+ * 「推演链与模板」是原型左栏「流动」分组第二项（`isBrChain`，徽标 3），此前整屏缺失（issue #818 问题 1）。
+ */
 const TABS = [
   { key: "overview", label: "三层关系总览" },
-  { key: "private", label: "私有" },
+  { key: "private", label: "我的大脑", suffix: "私有" },
   { key: "org", label: "组织大脑" },
   { key: "ledger", label: `决策台账 ${LEDGER_HEADER.awaitingSign}` },
+  { key: "chain", label: "推演链与模板", suffix: String(CHAINS.length) },
   { key: "context", label: "AI 读到了什么" },
 ] as const;
 
@@ -48,6 +55,7 @@ export function BrainWorkbench({ state }: { state: UiState }) {
             {TABS.map((t) => (
               <TabsTrigger key={t.key} value={t.key} data-testid={`brain-tab-${t.key}`}>
                 {t.label}
+                {"suffix" in t && t.suffix && <span className="text-10 text-muted-foreground">{t.suffix}</span>}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -56,6 +64,7 @@ export function BrainWorkbench({ state }: { state: UiState }) {
           <TabsContent value="private"><PrivateLayer /></TabsContent>
           <TabsContent value="org"><OrgLayer /></TabsContent>
           <TabsContent value="ledger"><DecisionLedger /></TabsContent>
+          <TabsContent value="chain"><DecisionChainPanel /></TabsContent>
           <TabsContent value="context"><ContextPackPanel /></TabsContent>
         </Tabs>
       </StateShell>
