@@ -26,4 +26,22 @@ export const CHAT_READ_E2E = {
   agentModelProvider: "chat-read-loopback",
   agentModelId: "loopback-echo",
   agentReplyPrefix: "[loopback]",
+  /**
+   * #728 P6/P7 —— 第二个 agent，专门走 `deep-agent` provider（真实的
+   * `DeepAgentModelProvider` 代码路径，上游换成 `loopback-deep-agent-provider.ts`
+   * 这个确定性替身，见那个脚本自己的头注）。取证要证明的是「计划句 + 工具调用步骤
+   * 真的渲染出来」，这条 provider 的产品实现（`execute-run.ts` 的
+   * `completeWithProgress` 分支、`extractToolCallEvents`）此前**从未被任何 e2e 走过**，
+   * 只有单元测试覆盖过 HTTP 客户端本身——本条 agent 是这条路径第一次被端到端跑通。
+   *
+   * `deepAgentModelProvider` 必须逐字等于 `DEEP_AGENT_PROVIDER_NAME`
+   * （`deep-agent-model-provider.ts` 导出的常量，值是 `"deep-agent"`）——它不是像
+   * 上面 `agentModelProvider` 那样的任意字符串，`RoutingModelCallPort` 按这个值
+   * 做**精确路由**（不是「碰巧配置成什么就是什么」，是这一个 provider 实现只服务
+   * 这一个固定名字）。
+   */
+  deepAgentId: "agent-chat-read-e2e-deep",
+  deepAgentDisplayName: "Deep Research Agent",
+  deepAgentModelProvider: "deep-agent",
+  deepAgentModelId: "deep-agent-loopback",
 } as const;

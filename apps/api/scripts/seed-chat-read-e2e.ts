@@ -51,6 +51,17 @@ const CATALOG_ONLY_AGENT_ID = required("CHAT_E2E_CATALOG_ONLY_AGENT_ID");
  */
 const AGENT_MODEL_PROVIDER = required("CHAT_E2E_AGENT_MODEL_PROVIDER");
 const AGENT_MODEL_ID = required("CHAT_E2E_AGENT_MODEL_ID");
+/**
+ * #728 P6/P7 —— 第二个 agent，走真实 `deep-agent` provider 代码路径（上游是
+ * `loopback-deep-agent-provider.ts` 这个确定性替身，不是本脚本里的第三套逻辑）。
+ * 见 `chat-read-fixture.ts` 里 `deepAgentModelProvider` 的头注：这个值不是任意
+ * 字符串，必须逐字等于 `DEEP_AGENT_PROVIDER_NAME`。
+ */
+const DEEP_AGENT_ID = required("CHAT_E2E_DEEP_AGENT_ID");
+const DEEP_AGENT_VERSION_ID = `${DEEP_AGENT_ID}-version-1`;
+const DEEP_AGENT_MODEL_PROVIDER = required("CHAT_E2E_DEEP_AGENT_MODEL_PROVIDER");
+const DEEP_AGENT_MODEL_ID = required("CHAT_E2E_DEEP_AGENT_MODEL_ID");
+const DEEP_AGENT_DISPLAY_NAME = required("CHAT_E2E_DEEP_AGENT_DISPLAY_NAME");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -166,6 +177,44 @@ await asApp(ORG_ID, async (client) => {
     "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
     [THREAD_ID, ORG_ID, AGENT_ID],
   );
+
+  // #728 P6/P7 —— 第二个 agent，同一套生产表 + 夹具表两处种法，唯一不同是
+  // model_provider 指向 deep-agent（真实工具调用可见代码路径的取证 agent）。
+  const deepAgentInstructions = "Chat read E2E deep-agent fixture agent. Plans, calls a tool, then answers.";
+  const deepAgentInstructionDigest = createHash("sha256").update(deepAgentInstructions).digest("hex");
+  await client.query(
+    `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+     VALUES ($1,$2,$1,$3,'enabled',$4,now(),now())
+     ON CONFLICT (id) DO UPDATE SET status='enabled'`,
+    [DEEP_AGENT_ID, ORG_ID, DEEP_AGENT_DISPLAY_NAME, USER_ID],
+  );
+  await client.query(
+    `INSERT INTO agent_versions
+       (id,org_id,agent_id,semantic_label,instruction_digest,instructions,
+        skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+     VALUES ($1,$2,$3,'1.0.0',$4,$5,'{}'::text[],$6,$7,'[]'::jsonb,$8,now(),now())
+     ON CONFLICT (id) DO NOTHING`,
+    [DEEP_AGENT_VERSION_ID, ORG_ID, DEEP_AGENT_ID, deepAgentInstructionDigest, deepAgentInstructions,
+      DEEP_AGENT_MODEL_PROVIDER, DEEP_AGENT_MODEL_ID, USER_ID],
+  );
+  await client.query(
+    "UPDATE agents SET published_version_id = $1 WHERE id = $2 AND org_id = $3",
+    [DEEP_AGENT_VERSION_ID, DEEP_AGENT_ID, ORG_ID],
+  );
+  await client.query(
+    `INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id)
+     VALUES ($1,$2,'enabled',$3)`,
+    [DEEP_AGENT_ID, ORG_ID, DEEP_AGENT_VERSION_ID],
+  );
+  await client.query(
+    `INSERT INTO chat_wave2_fixture.agent_versions
+       (id,org_id,agent_id,skill_version_ids,model_provider,model_id,instructions,published_at)
+     VALUES ($1,$2,$3,'[]'::jsonb,$4,$5,$6,now())`,
+    [
+      DEEP_AGENT_VERSION_ID, ORG_ID, DEEP_AGENT_ID, DEEP_AGENT_MODEL_PROVIDER, DEEP_AGENT_MODEL_ID,
+      deepAgentInstructions,
+    ],
+  );
 });
 
 /**
@@ -184,7 +233,16 @@ await addCapability({
   name: "Controlled Read Agent",
   enabled: true,
 });
+// #728 P6/P7 —— 同一条纪律，第二个 agent 也要进能力目录才会出现在个人对话的
+// agent 下拉里。
+await addCapability({
+  orgId: ORG_ID,
+  id: DEEP_AGENT_ID,
+  kind: "agent",
+  name: DEEP_AGENT_DISPLAY_NAME,
+  enabled: true,
+});
 
 process.stdout.write(
-  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1\n`,
+  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1\n`,
 );

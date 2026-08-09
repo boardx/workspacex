@@ -118,6 +118,28 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   );
   await shoot("chat-main-personal-reply.png", "chat-thread-detail");
 
+  /**
+   * #728 P6/P7 —— 上一条走的 loopback 回显 provider 天然不会规划、不会调工具（回显
+   * agent 结构上不可能产生这些）。评分员多轮指出 P6（流式）/P7（计划+工具调用可见）
+   * 卡住的根因是取证只跑过一条最顺的路径。这里换到走真实 `DeepAgentModelProvider`
+   * 代码路径的第二个 agent（上游是确定性替身 `loopback-deep-agent-provider.ts`，
+   * 不是凭空造的 UI），同一个线程里再发一条消息，抓下计划句 + 工具调用步骤。
+   */
+  await page.getByTestId("chat-agent-select").click();
+  await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.deepAgentId}`).click();
+  await page.getByTestId("chat-message-input").fill("请帮我查一下现在几点");
+  await page.getByTestId("chat-message-submit").click();
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
+      const status = el?.getAttribute("data-run-status");
+      return status === "succeeded" || status === "failed";
+    },
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("chat-run-tool-call-steps").waitFor({ state: "visible", timeout: 5_000 });
+  await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
+
   // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
   // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
   await page.setViewportSize(MOBILE);

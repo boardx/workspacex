@@ -24,6 +24,12 @@ const webPort = required("WORKSPACEX_WEB_PORT");
  * 任何一段。这个 config 此前没有第三个 webServer，这里是新增，不是复制。
  */
 const modelProviderPort = String(Number(webPort) + 5_000);
+/**
+ * #728 P6/P7 —— 第二个确定性替身的端口（`loopback-deep-agent-provider.ts`）。
+ * `+6000` 与上面 `modelProviderPort` 的 `+5000` 同一套单射逻辑，继续往后挪一段，
+ * 不会撞上 pg/redis/api/web/上一个 provider 任何一段。
+ */
+const deepAgentProviderPort = String(Number(webPort) + 6_000);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -86,6 +92,22 @@ export default defineConfig({
         LOOPBACK_MODEL_REPLY_PREFIX: CHAT_READ_E2E.agentReplyPrefix,
       },
     },
+    /**
+     * #728 P6/P7 —— `apps/deep-agent-service` 的确定性替身，见
+     * `scripts/loopback-deep-agent-provider.ts` 自己的头注：不是起真的 Python/
+     * LangGraph 服务，是在真实 `DeepAgentModelProvider` 代码路径上换一个可预测的
+     * HTTP 上游，走同一套「不是 mock fallback」纪律。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-deep-agent-provider.ts",
+      url: `http://127.0.0.1:${deepAgentProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
+      },
+    },
     {
       command: [
         "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
@@ -128,6 +150,15 @@ export default defineConfig({
         KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
         // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
         KERNEL_MODEL_API_KEY: "chat-read-loopback-key-not-a-secret",
+        // #728 P6/P7 —— 第二个 agent 的种子参数 + `RoutingModelCallPort` 里
+        // `DeepAgentModelProvider` 那一路的上游地址。不供 `KERNEL_DEEP_AGENT_BASE_URL`
+        // 时 `DeepAgentModelProvider` 会以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实失败
+        // （见该 provider 自己的 config 头注），这里让 chat-read 这条链路接上它。
+        CHAT_E2E_DEEP_AGENT_ID: CHAT_READ_E2E.deepAgentId,
+        CHAT_E2E_DEEP_AGENT_MODEL_PROVIDER: CHAT_READ_E2E.deepAgentModelProvider,
+        CHAT_E2E_DEEP_AGENT_MODEL_ID: CHAT_READ_E2E.deepAgentModelId,
+        CHAT_E2E_DEEP_AGENT_DISPLAY_NAME: CHAT_READ_E2E.deepAgentDisplayName,
+        KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
       },
     },
     {
