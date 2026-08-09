@@ -132,6 +132,20 @@ function panel(agentIds: string[], rosterVersion = 5) {
   };
 }
 
+/**
+ * 打开编制编辑器。
+ *
+ * #728 D2 起「加入 agent」的输入框收在左栏编制栏头的「编辑」后面（照原型：编制区常态
+ * 只显示谁在场，编辑是一个显式动作）。此前它常驻在右栏，等于永远挂着一个裸 agent id
+ * 输入框 —— 正是 #594 人类要求消灭的形态。
+ *
+ * ⚠ 这个 helper**不放宽任何断言**：写入口该不该渲染仍由 `thread.mutate` 决定，
+ *   没有写权时「编辑」按钮本身就不存在，getByTestId 会如实红。
+ */
+function openRosterEditor() {
+  fireEvent.click(screen.getByTestId("chat-roster-edit"));
+}
+
 function renderScreen() {
   return render(<ChatReadScreen projectId="project-real" initialThreadId="thread-a" />);
 }
@@ -150,7 +164,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
 
   it("加一个 agent：打真实端口，并在返回后重读服务端编制（不做乐观更新）", async () => {
     renderScreen();
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(1));
 
     // 加完之后服务端会回一份含该 agent 的编制——界面必须显示**重读到的**那份。
@@ -199,7 +214,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
    */
   it("连续两次改动：第二次带上**重读到**的版本号，不是写端口的回声、也不是 0", async () => {
     renderScreen();
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(1));
 
     updateAgentRoster.mockResolvedValue({ rosterVersion: 999, agents: [], auditEventId: "p1" });
@@ -232,7 +248,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     renderScreen();
 
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalled());
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
 
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-x" } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
@@ -266,7 +283,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
 
   it("服务端拒绝时如实显示 reasonCode，且不把 agent 画进编制里", async () => {
     renderScreen();
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
 
     updateAgentRoster.mockRejectedValue(new ApiError(422, "AGENT_OUT_OF_SCOPE", null));
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-alien" } });
@@ -278,7 +296,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
 
   it("并发冲突（409 VERSION_CHANGED）如实报错，不静默重试", async () => {
     renderScreen();
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
 
     updateAgentRoster.mockRejectedValue(new ApiError(409, "VERSION_CHANGED", null));
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-x" } });
@@ -291,7 +310,8 @@ describe("#467 会话内 agent 编制的增删接线", () => {
 
   it("空输入不发请求", async () => {
     renderScreen();
-    await screen.findByTestId("chat-roster-add-input");
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
 
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "   " } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));

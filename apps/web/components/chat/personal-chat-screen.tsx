@@ -4,9 +4,11 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import {
+  NewThreadButton, ThreadCardButton, ThreadListHeader,
+} from "@/components/chat/thread-list-shell";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
@@ -144,8 +146,10 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const [createPending, setCreatePending] = React.useState(false);
   const [createFailure, setCreateFailure] = React.useState<string | null>(null);
   const [titleDraft, setTitleDraft] = React.useState("");
+  /** 表单默认收着，点「＋ 新建对话」才展开——与项目对话共用同一个触发按钮。 */
+  const [formOpen, setFormOpen] = React.useState(false);
 
-  const handleCreate = React.useCallback(async (title: string) => {
+  const handleCreate = React.useCallback(async (title: string | null) => {
     if (!sourceKey || !bearer) return;
     setCreatePending(true);
     setCreateFailure(null);
@@ -161,6 +165,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       setCreateFailure(describeFailure(failure));
     } finally {
       setCreatePending(false);
+      setFormOpen(false);
     }
   }, [bearer, router, sourceKey]);
 
@@ -179,41 +184,43 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
    */
   const threadListPanel = (
     <div className="flex flex-col" data-testid="chat-read-thread-list">
-          <div className="flex flex-col gap-1 p-3">
-            <span className="text-10 uppercase tracking-wide text-muted-foreground">我的对话</span>
-            <span className="text-11 text-muted-foreground">不挂靠任何项目，仅自己可见</span>
-          </div>
+          {/* 与项目对话共用同一个栏头（人类 2026-08-08 裁决：个人对话复用项目对话的壳）。
+              「不挂靠任何项目，仅自己可见」这句移到新建区下面——它是这条路径的说明，
+              不该占据栏头那一行（原型栏头只有标题与快捷键）。 */}
+          <ThreadListHeader />
           {canCreate ? (
             <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-actions">
-              <form
-                data-testid="chat-thread-create-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const title = titleDraft.trim();
-                  if (!title) return;
-                  void handleCreate(title);
-                  setTitleDraft("");
-                }}
-                className="flex flex-col gap-1"
-              >
-                <input
-                  aria-label="新会话标题"
-                  data-testid="chat-thread-title-input"
-                  className="rounded-md border border-border-subtle px-2 py-1 text-12"
-                  value={titleDraft}
-                  onChange={(event) => setTitleDraft(event.target.value)}
-                  placeholder="新对话的标题"
-                />
-                <Button
-                  size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit"
-                  disabled={createPending || titleDraft.trim() === ""}
+              <NewThreadButton onClick={() => setFormOpen((open) => !open)} disabled={createPending} />
+              {formOpen ? (
+                <form
+                  data-testid="chat-thread-create-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    // P3：标题可以留空——契约的 title 本就是 nullable，服务端在
+                    // null 时自己起默认名（见 lib/live-chat.ts 的 createPersonalThread）。
+                    // 空态引导文案指着这个按钮说「点这里开始」，它就不该在空标题下点不动。
+                    void handleCreate(titleDraft.trim() || null);
+                    setTitleDraft("");
+                  }}
+                  className="flex flex-col gap-1"
                 >
-                  {createPending ? "创建中…" : "新建会话"}
-                </Button>
-              </form>
+                  <input
+                    aria-label="新会话标题"
+                    data-testid="chat-thread-title-input"
+                    className="rounded-md border border-border-subtle px-2 py-1 text-12"
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    placeholder="新对话的标题（留空则自动命名）"
+                  />
+                  <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={createPending}>
+                    {createPending ? "创建中…" : "确认"}
+                  </Button>
+                </form>
+              ) : null}
               {createFailure ? (
                 <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{createFailure}</p>
               ) : null}
+              <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
             </div>
           ) : null}
           <Separator />
@@ -223,29 +230,21 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           ) : null}
           {!listLoading && !listError && cards.length === 0 ? (
             <p className="p-3 text-12 text-muted-foreground" data-testid="chat-thread-list-empty">
-              还没有个人对话，点上面「新建会话」开始第一次对话。
+              还没有个人对话，点上面「新建对话」开始第一次对话。
             </p>
           ) : null}
           {cards.length > 0 ? (
             <nav className="flex flex-col gap-3 p-3" aria-label="个人对话线程列表" data-testid="chat-thread-card-list">
               {cards.map((card) => (
-                <button
+                <ThreadCardButton
                   key={card.id}
-                  type="button"
-                  data-testid={`chat-thread-${card.id}`}
-                  aria-current={card.id === selectedThreadId ? "page" : undefined}
-                  onClick={() => {
+                  card={card}
+                  selected={card.id === selectedThreadId}
+                  onSelect={() => {
                     setSelectedThreadId(card.id);
                     router.replace(personalChatHref(card.id));
                   }}
-                  className={[
-                    "flex flex-col gap-1 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted",
-                    card.id === selectedThreadId ? "bg-muted" : "",
-                  ].join(" ")}
-                >
-                  <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
-                  <ThreadMeta card={card} />
-                </button>
+                />
               ))}
             </nav>
           ) : null}
@@ -272,6 +271,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           loading={detailLoading}
           error={detailError}
           onRetry={() => void loadSelectedThread()}
+          onThreadSettled={() => void loadThreads()}
         />
       ) : (
         <PersonalThreadDetail
@@ -286,6 +286,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
             setSelectedThreadId(null);
             router.replace("/chat");
           } : undefined}
+          onThreadSettled={() => void loadThreads()}
         />
       )}
     </AppShell>
@@ -319,7 +320,7 @@ function useIsDesktop(): boolean {
 }
 
 function PersonalThreadDetail({
-  card, detail, bearer, orgId, loading, error, onRetry, onBackMobile,
+  card, detail, bearer, orgId, loading, error, onRetry, onBackMobile, onThreadSettled,
 }: {
   card: ThreadCard | null;
   detail: GetThreadOut | null;
@@ -330,6 +331,11 @@ function PersonalThreadDetail({
   onRetry: () => void;
   /** 仅手机（<md）渲染的"返回列表"按钮；桌面端左栏一直可见，不需要这个 */
   onBackMobile?: () => void;
+  /**
+   * #728 第 9 轮 P10 —— 透传给 `ChatLiveMessagePanel` 的 `onRunSettled`，见那边的注释。
+   * 由 `PersonalChatScreen` 传入自己的 `loadThreads`，本组件不持有左栏数据。
+   */
+  onThreadSettled?: () => void;
 }) {
   const agentOptions = useOrgAgentOptions(orgId, bearer);
 
@@ -356,7 +362,14 @@ function PersonalThreadDetail({
   }
 
   return (
-    <div className="flex h-full flex-col" data-testid="chat-thread-detail">
+    /* #728 P10 —— 副行不再印裸线程 id。评分员实测抓到：`线程 thr-83dd0882-…` 这种
+       40 位 UUID 直接暴露给用户，375 档下甚至把头部撑成三行。同一件事在项目对话
+       侧已经修过一次（D4，`chat-read-screen.tsx` 的 `data-thread-id` 模式）——
+       这里补的是同一条纪律在个人对话侧的遗漏，不是新裁决。
+       绑定关系改由 `data-thread-id` 证明（测试要能核实「详情面绑的是选中的那条线程」，
+       但不该靠把 id 印给用户看来证明），可读副行退回到 `subtitle`（个人线程没有
+       subtitle 时才用「仅自己可见」这句静态说明，不回落到 id）。 */
+    <div className="flex h-full flex-col" data-testid="chat-thread-detail" data-thread-id={detail.thread.id}>
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         {onBackMobile ? (
           <Button
@@ -371,10 +384,11 @@ function PersonalThreadDetail({
           </Button>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-14 font-semibold">{card?.title ?? detail.thread.id}</h1>
-          <p className="text-10 text-muted-foreground">个人对话 · 线程 {detail.thread.id}</p>
+          <h1 className="truncate text-14 font-semibold">{card?.title ?? "个人对话"}</h1>
+          <p className="truncate text-10 text-muted-foreground">
+            {card?.subtitle?.trim() ? card.subtitle : "个人对话 · 仅自己可见"}
+          </p>
         </div>
-        <Badge tone="outline">真实消息</Badge>
       </header>
       {agentOptions.status === "error" ? (
         <div className="border-b border-border-subtle px-4 py-2">
@@ -404,6 +418,7 @@ function PersonalThreadDetail({
           bearer={bearer}
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
+          onRunSettled={onThreadSettled}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>
@@ -470,16 +485,6 @@ function toAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][numbe
     duty: "组织已配置 Agent",
     presence: "present",
   };
-}
-
-function ThreadMeta({ card }: { card: ThreadCard }) {
-  return (
-    <span className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
-      <span>{card.visibilityScope}</span>
-      {card.agentSummary ? <span>· {card.agentSummary}</span> : null}
-      {card.badges.map((badge) => <Badge key={badge} tone="outline">{badge}</Badge>)}
-    </span>
-  );
 }
 
 function ErrorState({

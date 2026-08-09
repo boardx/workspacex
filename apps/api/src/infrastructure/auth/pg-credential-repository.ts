@@ -51,8 +51,9 @@ export class PgCredentialRepository implements CredentialRepository {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{
         user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
+        avatar_url: string | null;
       }>(
-        "SELECT user_id, email, password_hash, email_verified_at, display_name FROM credentials WHERE email = $1",
+        "SELECT user_id, email, password_hash, email_verified_at, display_name, avatar_url FROM credentials WHERE email = $1",
         [email],
       );
       return toRow(r.rows[0]);
@@ -63,8 +64,9 @@ export class PgCredentialRepository implements CredentialRepository {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{
         user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
+        avatar_url: string | null;
       }>(
-        "SELECT user_id, email, password_hash, email_verified_at, display_name FROM credentials WHERE user_id = $1",
+        "SELECT user_id, email, password_hash, email_verified_at, display_name, avatar_url FROM credentials WHERE user_id = $1",
         [userId],
       );
       return toRow(r.rows[0]);
@@ -89,11 +91,37 @@ export class PgCredentialRepository implements CredentialRepository {
     return this.db.withoutTenant(async (s) => {
       const r = await s.query<{
         user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
+        avatar_url: string | null;
       }>(
         `UPDATE credentials SET display_name = $2, updated_at = now()
           WHERE user_id = $1
-        RETURNING user_id, email, password_hash, email_verified_at, display_name`,
+        RETURNING user_id, email, password_hash, email_verified_at, display_name, avatar_url`,
         [userId, displayName],
+      );
+      return toRow(r.rows[0]);
+    });
+  }
+
+  /**
+   * `updateOwnProfile`（#638 delta，迭代 2）—— 落 `uploadOwnAvatar` 签发的 artifact。
+   * `avatarArtifactId`/`avatarUrl` 均传 null 时清空头像回默认（外键置空，不删
+   * `user_avatars` 那一行——对象存储里的字节仍然存在，只是不再被任何 credentials 指向，
+   * 与 F04 的"不做级联硬删除"同一处置）。
+   */
+  async updateAvatar(
+    userId: string,
+    avatarArtifactId: string | null,
+    avatarUrl: string | null,
+  ): Promise<CredentialRow | null> {
+    return this.db.withoutTenant(async (s) => {
+      const r = await s.query<{
+        user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string;
+        avatar_url: string | null;
+      }>(
+        `UPDATE credentials SET avatar_artifact_id = $2, avatar_url = $3, updated_at = now()
+          WHERE user_id = $1
+        RETURNING user_id, email, password_hash, email_verified_at, display_name, avatar_url`,
+        [userId, avatarArtifactId, avatarUrl],
       );
       return toRow(r.rows[0]);
     });
@@ -102,7 +130,10 @@ export class PgCredentialRepository implements CredentialRepository {
 
 function toRow(
   row:
-    | { user_id: string; email: string; password_hash: string; email_verified_at: Date | null; display_name: string }
+    | {
+        user_id: string; email: string; password_hash: string; email_verified_at: Date | null;
+        display_name: string; avatar_url: string | null;
+      }
     | undefined,
 ): CredentialRow | null {
   if (!row) return null;
@@ -112,6 +143,7 @@ function toRow(
     displayName: row.display_name,
     passwordHash: row.password_hash,
     emailVerifiedAt: row.email_verified_at,
+    avatarUrl: row.avatar_url,
   };
 }
 

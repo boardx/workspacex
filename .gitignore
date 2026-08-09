@@ -1,4 +1,9 @@
 node_modules/
+# ⚠ 不带斜杠的这条是必须的：`node_modules/` 只匹配**目录**，不匹配同名的**符号链接**。
+# 2026-08-09 实测事故：在 worktree 里用 `ln -s .../node_modules node_modules` 图省事，
+# `git add -A` 把那个符号链接提交了进去，CI 的 pnpm install 当场秒级失败
+# `ENOTDIR: not a directory, mkdir '.../node_modules'`（PR #842）。
+node_modules
 dist/
 .turbo/
 *.log
@@ -65,6 +70,12 @@ output/
 _fl-parts/
 playwright-report/
 test-results/
+# #728 的对话主屏取证图（`pnpm run shots:chat-main` 的产物）。每轮迭代都会重抓，
+# 属于过程物不是事实源；**通过 10 分门的那一组**才复制进
+# phases/…/ui-preview/chat-main-ref/ 留档。
+# ⚠ 刻意不放在 test-results/ 下 —— 那个目录被 Playwright 每次 run 清空。
+.chat-shots/
+
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与
 # VM 上的 runner environment file 里），但含部署形态，仍然不进仓库。

@@ -50,7 +50,7 @@
 | H3A-014 | P0 | ✅ 完成（PR #687） | Skill reference integrity gate | 012 | Contract/ADR/path 死引用会红；verification 字段（shell 命令非路径）如实标注不检查 |
 | H3A-015 | P0 | ✅ 完成（PR #687） | Skill freshness/STALENESS gate | 012 | last_verified.commit 形状不像 SHA 判红；真实 git 历史校验如实标注做不到 |
 | H3A-016 | P1 | 🔶 PR #776 待 review（issue #769） | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill——`findUnprovenActivePromotions`（`lib/domain-skill-gates.ts`）：active 且 authority_refs 四类引用与 last_verified 全空判 FAIL；今天 0 实例不触发，已知状态非回归 |
-| H3A-017 | P1 | ⬜ 未开始 | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载 |
+| H3A-017 | P1 | 🔶 PR #808 待 review（issue #804） | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载——`findEntrySizeIssues`（`lib/domain-skill-gates.ts`）：SKILL.md 入口 >150 行判 WARN（阈值取真实模块知识库样本最大值 76 行按一倍余量惯例翻倍）；今天 0 实例不触发；"reference 该放哪"无既有约定，如实只做行数一半 |
 | H3A-018 | P1 | ⬜ 未开始 | Fabric.js/Mermaid Domain Skill | 011–017 | 架构、身份、序列化、协作、验证与陷阱引用完整 |
 | H3A-019 | P0 | 🔶 PR #780 待 review（issue #777） | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
 
@@ -83,8 +83,8 @@
 | H3A-035 | P0 | 🔶 PR #761 待 review（issue #758） | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
 | H3A-034 | P0 | 🔶 PR #760 待 review（issue #757） | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
 | H3A-037 | P0 | 🔶 PR #779 待 review（issue #774） | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
-| H3A-038 | P1 | ⬜ 未开始 | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
-| H3A-039 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
+| H3A-038 | P1 | ✅ 完成（PR #809） | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
+| H3A-039 | P1 | 🔶 PR #813 待 review（issue #810） | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
 
 > **Epic E3 阶段状态（2026-08-08 现场核实）：H3A-030~033 四项 ✅ 完成，已合并**
 > （PR #717/#721/#722/#723）。030 是单人直接实现（issue #716 开出到 PR 合并

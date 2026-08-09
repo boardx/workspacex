@@ -67,6 +67,9 @@ export interface CredentialRow {
   display_name: string;
   password_hash: string;
   email_verified_at: Date | null;
+  /** #638 delta，迭代 2。 */
+  avatar_artifact_id: string | null;
+  avatar_url: string | null;
 }
 
 export async function readCredentialByEmail(email: string): Promise<CredentialRow | null> {

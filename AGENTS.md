@@ -40,6 +40,10 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
    先用 `module-coordinator` skill(挂 15 分钟 loop);都不是 → 你是 worker,
    loop 由 `agent-bootstrap.md` 第 3.5 步挂(15 分钟)。三条路径都跑
    `pnpm harness tick`,没有第四种"不挂 loop"的角色。
+0.5. **跑 `pnpm harness readiness` 看统一队列，从队列顶部取活**——它是"现在什么最该做"
+   的唯一权威（ADR/issue #814）。不在队列上的活不占工时；确有理由做队列外的活，
+   在对应 issue 里写一句为什么，不要默默做。判据与聚合规则见
+   `.harness/instructions/core-loop-readiness-standard.md`。
 1. 读当前 sprint 的 `progress.md` 和 `session-handoff.md`。
 2. 读当前 sprint 的 `active-features.json`(派生视图),找到唯一 `in_progress` 的 feature。
 3. 只做那一个 feature。做完用验证命令证明,再收尾。
@@ -62,6 +66,13 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
   `has_ui: true` 却没有 `contracts/` 的阶段**判失败**,不是放行。
   见 ADR-023(权威)、ADR-003 / ADR-020(决策档案);怎么做 →
   `.harness/instructions/contract-design.md`。
+- **静态痕迹 ≠ 动态事实**（2026-08-09 一天内栽四次,见 `.harness/instructions/static-trace-vs-live-fact.md`）:
+  worktree 存在 ≠ 拥有它的 agent 还活着;代码注释说"今天没有这条路径" ≠ 今天真没有;
+  分支上有文件 ≠ main 上有;评分记了 SHA ≠ 那个 SHA 在 main 的血统里。
+  **判断"现在是什么状况",要读会随状况改变的信号**(路由/契约实现、issue 与 PR 的当前状态、
+  `merge-base --is-ancestor`、心跳),不要读一个写下来就不会再变的痕迹。
+  痕迹写得越诚实越具体,读起来越像权威——这正是它骗人的方式。
+
   ⚠ **同一事实不得声明在两处**——本项目已五次因此漂移(设计 token / 字号档位 /
   丢弃原因枚举 / 撤回链 SLA / 估点)。凡出现第二份副本,一律收敛为单一事实源 + 机械门控。
 
@@ -103,6 +114,8 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - 编码规范 → `.harness/instructions/coding-standards.md`
 - UIUX 规范 → `.harness/instructions/uiux-standards.md`
 - 端到端验证标准 → `.harness/instructions/testing-standards.md`
+- **静态痕迹 ≠ 动态事实（一天栽四次的复盘 + 该读什么信号）** → `.harness/instructions/static-trace-vs-live-fact.md`
+- **统一衡量标准 CLR（"还差多少到 10 分"的唯一答案 + 所有 agent 的取活口）** → `.harness/instructions/core-loop-readiness-standard.md`（issue #814；`pnpm harness readiness`）
 - 可观测性约定 → `.harness/instructions/observability.md`
 - 阶段/局部规则 → 对应 `apps/*/AGENTS.md`、`phases/<phase>/AGENTS.md`
 - 模板的思想与最佳实践（为什么是这样）→ `docs/CONCEPTS.md`

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_SEGMENTS } from "@/lib/navigation";
+import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,8 +12,13 @@ import { cn } from "@/lib/utils";
  *   这是一级/二级的机械分界（issue #593）。二级由后台左栏 `components/admin/admin-nav.tsx`
  *   渲染。想让某个入口回到一级，去 `lib/navigation.ts` 把它挪出 children，
  *   不要在这里加一条渲染 children 的分支——那会让同一个入口在两处出现。
+ *
+ * ⚠ 左上角 `X` logo（2026-08-09 信息架构调整）：**唯一**的组织管理入口，`data-testid`
+ *   沿用 PR #736 建的 `org-admin-entry`（原来挂在顶栏一个独立的文字/图标链接上，现在挪
+ *   到这里——同一功能不许两个入口，顶栏那份已删）。原来点它回首页（`href="/"`），现在
+ *   首页导航不需要这个入口兼任，直接把它换成组织管理入口。
  */
-export function IconRail({ avatarInitial }: { avatarInitial: string }) {
+export function IconRail({ avatarInitial, onLogout }: { avatarInitial: string; onLogout?: () => void }) {
   const pathname = usePathname();
   return (
     <nav
@@ -21,10 +27,11 @@ export function IconRail({ avatarInitial }: { avatarInitial: string }) {
       className="flex w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5"
     >
       <Link
-        href="/"
-        data-testid="rail-home"
-        aria-label="回到首页"
-        className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-inverse text-14 font-semibold text-inverse-foreground transition-all duration-200 hover:bg-inverse/90"
+        href="/org-admin"
+        data-testid="org-admin-entry"
+        aria-label="组织管理"
+        title="组织管理"
+        className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-inverse text-14 font-semibold text-inverse-foreground transition-all duration-200 hover:bg-inverse/90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         X
       </Link>
@@ -61,19 +68,11 @@ export function IconRail({ avatarInitial }: { avatarInitial: string }) {
       ))}
 
       {/*
-        个人资料入口（#638 delta，迭代 1）—— 固定在左下角，rubric 硬性锚点。
-        原来是一个纯展示的 `<div data-testid="rail-avatar">`，现在是真链接；
-        `data-testid="rail-avatar"` 保留（既有测试可能锚定它），新增
-        `data-testid="rail-profile-menu"` 给本轮的入口断言用。
+        个人菜单入口（#638 delta 迭代 1 建、2026-08-09 改成下拉）—— 固定在左下角，
+        rubric 硬性锚点。`data-testid="rail-profile-menu"`/`"rail-avatar"` 沿用旧名，
+        既有测试可能锚定；下拉本体见 `personal-menu.tsx`。
       */}
-      <Link
-        href="/profile"
-        data-testid="rail-profile-menu"
-        aria-label="个人资料"
-        className="mt-auto flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-200 hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span data-testid="rail-avatar" aria-hidden>{avatarInitial}</span>
-      </Link>
+      <PersonalMenu avatarInitial={avatarInitial} onLogout={onLogout} />
     </nav>
   );
 }

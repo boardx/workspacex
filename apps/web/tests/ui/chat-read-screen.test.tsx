@@ -88,7 +88,12 @@ function message(index: number) {
 }
 
 /** #435：`GET /agent-runs/:runId` 的响应形状，字段照 `wave2-runtime.ts:182-198`。 */
-function agentRunView(status: string, resultMessageId: string | null, error: string | null = null) {
+function agentRunView(
+  status: string,
+  resultMessageId: string | null,
+  error: string | null = null,
+  steps: readonly Record<string, unknown>[] = [],
+) {
   return {
     runId: "run-new",
     threadId: "thread-real",
@@ -101,8 +106,30 @@ function agentRunView(status: string, resultMessageId: string | null, error: str
     status,
     error,
     resultMessageId,
-    steps: [],
+    steps,
     createdAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+/** #731 follow-up：一条 `tool_call` run step 的响应形状，字段照 `wave2-runtime.ts` 里
+ * `AgentRunStep` 新增的 `toolName`/`toolArgsSummary`/`toolResultSummary`/`planningNote`。 */
+function toolCallStep(overrides: Partial<{
+  status: string; toolName: string | null; toolArgsSummary: string | null;
+  toolResultSummary: string | null; planningNote: string | null; failureCode: string | null;
+}> = {}) {
+  return {
+    kind: "tool_call",
+    status: "succeeded",
+    startedAt: "2026-01-01T00:00:01.000Z",
+    endedAt: "2026-01-01T00:00:02.000Z",
+    inputDigest: "a".repeat(64),
+    outputDigest: "b".repeat(64),
+    failureCode: null,
+    toolName: "beautiful-article",
+    toolArgsSummary: '{"task":"写一段介绍"}',
+    toolResultSummary: "技能真实产出的文章内容",
+    planningNote: "我需要一段介绍文字，调用 beautiful-article 来生成它。",
+    ...overrides,
   };
 }
 
@@ -233,7 +260,9 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     expect(await screen.findByTestId("chat-thread-thread-real")).toHaveTextContent("真实线程");
-    expect(await screen.findByTestId("chat-thread-detail")).toHaveTextContent("thread-real");
+    // #728 D4：详情面副行不再把线程 id 印给用户看（评分卡要求人类可读面包屑）。
+    // 绑定关系改由 `data-thread-id` 证明 —— 机器可读，且不占用户的界面。
+    expect(await screen.findByTestId("chat-thread-detail")).toHaveAttribute("data-thread-id", "thread-real");
     expect(await screen.findByTestId("chat-roster-agent-agent-real")).toHaveTextContent("真实 Agent");
 
     expect(listThreads).toHaveBeenCalledWith("project-real", {}, "provider-bearer");
@@ -250,7 +279,10 @@ describe("formal Chat read path", () => {
     expect(listMessages).toHaveBeenLastCalledWith("thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer");
 
     expect(screen.getByRole("textbox", { name: "消息内容" })).toBeInTheDocument();
-    expect(screen.getByTestId("chat-message-submit")).toHaveTextContent("发送并排队");
+    // #728 —— 发送按钮改成图标化（Claude Code 风格紧凑输入区），文案不再是可见
+    // 文本，挪到了 aria-label/title 上——断言跟着挪，不是削弱它：这条仍然验证
+    // 「按钮此刻处于"可以发送"这句话所描述的状态」，只是读的属性变了。
+    expect(screen.getByTestId("chat-message-submit")).toHaveAttribute("aria-label", "发送并排队");
   });
 
   /**
@@ -261,8 +293,12 @@ describe("formal Chat read path", () => {
   it("最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送", async () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    const suggestions = await screen.findByTestId("chat-followup-suggestions");
-    const elaborate = within(suggestions).getByTestId("chat-followup-suggestion-elaborate");
+    // ⚠ 等的是**那一条具体的建议**，不是容器。容器在消息还没读回来时就已经渲染了
+    // （那时算出来的是零消息态的 `opener`），`findByTestId("chat-followup-suggestions")`
+    // 会在第一帧就 resolve，随后同步 `getByTestId("...elaborate")` 必然扑空 ——
+    // 这条断言此前依赖的是渲染时序的巧合，#728 改了中栏结构就暴露了。
+    const elaborate = await screen.findByTestId("chat-followup-suggestion-elaborate");
+    const suggestions = screen.getByTestId("chat-followup-suggestions");
     expect(elaborate).toHaveTextContent("能否再详细说明一下？");
     expect(within(suggestions).getByTestId("chat-followup-suggestion-summarize")).toHaveTextContent("请总结一下要点");
 
@@ -321,9 +357,13 @@ describe("formal Chat read path", () => {
     expect(chip).toHaveTextContent("编制 2");
     expect(getAgentPanel).toHaveBeenCalledTimes(1); // chip 没有触发第二次读。
 
+    // #728 D2：编制搬进左栏后，计数印在编制区**栏头**上（照原型：`本线程的 AI 团队 · N`，
+    // N 是 rosterCount；在场数只在它与 rosterCount 不相等时附在后面）。
+    // 本用例的立意没有变——两处数字必须来自同一次 getAgentPanel（上面的
+    // `toHaveBeenCalledTimes(1)` 才是那条保证），这里只是跟着措辞改定位。
     const rosterPanel = screen.getByTestId("chat-read-roster");
+    expect(rosterPanel).toHaveTextContent("本线程的 AI 团队 · 2");
     expect(rosterPanel).toHaveTextContent("在场 1");
-    expect(rosterPanel).toHaveTextContent("编制 2");
   });
 
   /**
@@ -438,7 +478,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     const composer = await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(within(composer).getByRole("textbox", { name: "消息内容" }), {
       target: { value: "请持久保存这条消息" },
     });
@@ -451,7 +491,9 @@ describe("formal Chat read path", () => {
     expect(token).toBe("provider-bearer");
     expect(input).toMatchObject({ text: "请持久保存这条消息", agentId: "agent-real" });
     expect(input.clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-new");
+    // #728 第 8 轮 P10 —— 裸 run id 不再印进人读文案，改断言 `data-run-id`（见
+    // chat-live-message-panel.tsx 同轮改动）。
+    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-new");
     // 三次 GET，一次都不是多余的（#435 之前是两次）：
     //   ① 进入线程时的首屏；② 202 之后立刻重读，让 human 消息马上出现；
     //   ③ run 到终态之后重读，让 #413 写回的那条**持久**回复出现。
@@ -460,7 +502,9 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(3));
     // 而且新增的这次仍然是**从服务端读**，不是把回复合成到本地列表里。
     expect(createMessage).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeInTheDocument();
+    expect(
+      screen.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -478,7 +522,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -503,7 +547,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会失败的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -512,6 +556,71 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(status).toHaveAttribute("data-run-status", "failed"));
     expect(status).toHaveTextContent("MODEL_CALL_FAILED");
     expect(status).not.toHaveAttribute("data-result-message-id");
+  });
+
+  /**
+   * #731 follow-up —— chat-ux-acceptance-criteria.md 第 2/3 项：`GET /agent-runs/:runId`
+   * 已经在 `steps` 里带了真实发生的 `tool_call` 步骤（工具名/参数摘要/结果摘要/计划文本），
+   * 界面必须把它们画出来，而不是只显示一条笼统的"正在执行"。
+   */
+  it("渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
+      toolCallStep(),
+    ]));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "帮我生成一段介绍" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    expect(step).toHaveAttribute("data-tool-name", "beautiful-article");
+    expect(step).toHaveAttribute("data-tool-status", "succeeded");
+    // 第 2 项——调用前的可见计划，真实来自后端 `planningNote`。
+    expect(screen.getByTestId("chat-run-tool-call-plan-0"))
+      .toHaveTextContent("我需要一段介绍文字，调用 beautiful-article 来生成它。");
+    expect(step).toHaveTextContent("调用 beautiful-article");
+    expect(step).toHaveTextContent("完成");
+    expect(step).toHaveTextContent("技能真实产出的文章内容");
+  });
+
+  it("工具调用失败：如实显示失败状态与失败原因，不假装成功", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
+      toolCallStep({
+        status: "failed", failureCode: "MODEL_CALL_FAILED", planningNote: null,
+        toolResultSummary: "未知工具「not-a-real-tool」：本次运行挂载的技能里没有这一个。",
+      }),
+    ]));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会调用失败的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    expect(step).toHaveAttribute("data-tool-status", "failed");
+    expect(step).toHaveTextContent("失败");
+    expect(step).toHaveTextContent("未知工具「not-a-real-tool」");
+    // 没有 planningNote 时不渲染计划行，不编一句话凑数。
+    expect(screen.queryByTestId("chat-run-tool-call-plan-0")).toBeNull();
+  });
+
+  it("没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生", async () => {
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "不用工具的一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await screen.findByTestId("chat-live-agent-run-status");
+    expect(screen.queryByTestId("chat-run-tool-call-steps")).toBeNull();
   });
 
   /**
@@ -538,7 +647,7 @@ describe("formal Chat read path", () => {
 
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "流式跑一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -571,7 +680,7 @@ describe("formal Chat read path", () => {
   it("默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子", async () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "普通一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -585,7 +694,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "读不到的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -607,7 +716,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "可重试消息" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
@@ -618,7 +727,7 @@ describe("formal Chat read path", () => {
     expect(createMessage.mock.calls[1]![1].clientMessageId).toBe(
       createMessage.mock.calls[0]![1].clientMessageId,
     );
-    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-retry");
+    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-retry");
   });
 
   it("renders a conflict explicitly and never fabricates a successful message", async () => {
@@ -626,7 +735,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
-    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveValue("agent-real"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "冲突消息" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));

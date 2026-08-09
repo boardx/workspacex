@@ -11,7 +11,7 @@
  * 本模型的实例）。支持两种载体：独立 `.yaml`/`.yml` 文件，或 Markdown 文件顶部的
  * YAML frontmatter（`---\n...\n---`）。
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
 import { validateInstanceMetadata, type InstanceMetadata, type ValidationIssue } from "./template-model";
@@ -21,10 +21,37 @@ const EXCLUDED_DIRS = new Set([
   "coverage", ".claude", ".wrangler",
 ]);
 
+/**
+ * 这个目录是不是一个**嵌套的 git worktree / 仓库**。
+ *
+ * 判据是 `.git` 存在（worktree 里它是一个写着 `gitdir: …` 的**文件**，独立 clone 里是目录），
+ * 与目录叫什么名字无关 —— 所以 `.worktrees/xxx`、`wt-review`、随手起的
+ * `/tmp` 之外的任何名字都能被认出来。
+ */
+function isNestedCheckout(dir: string): boolean {
+  return existsSync(join(dir, ".git"));
+}
+
 function walk(dir: string, out: string[]): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       if (EXCLUDED_DIRS.has(entry.name)) continue;
+      /*
+       * ⚠ 跳过嵌套 checkout。本仓的并行开发工作流（parallel-dev-workflow.md §5）
+       * 就是在仓库根下开 worktree（`.worktrees/*`、`wt-*`），而 worktree 是整棵树的
+       * 副本 ⇒ 每一份模板实例都会被数到两次 ⇒ 满屏 TPL-DUP-INSTANCE 假阳性，
+       * **`verify:base` 对任何正在并行开发的人都跑不绿**。
+       *
+       * 实测（2026-08-08，#728）：根下有 `wt-review/`、`wt-h3a-030/` 两个别的会话的
+       * worktree 时，`templates doctor` 报 2 条 TPL-DUP-INSTANCE，指的都是
+       * 「`.harness/templates/examples/EVT-hmv2-e1-001.yaml` 与它自己的副本重复」。
+       *
+       * 按名字加豁免（把 `.worktrees` 塞进 EXCLUDED_DIRS）挡不住随手起名的
+       * `wt-review`；按 `.git` 判定才是与命名无关的那条线。
+       * ⚠ 这**不会**放过真实的重复：同一棵树里两份不同文件用同一个 instance_id，
+       *   仍然照报不误（反证见 template-scan.test.ts）。
+       */
+      if (isNestedCheckout(join(dir, entry.name))) continue;
       walk(join(dir, entry.name), out);
       continue;
     }

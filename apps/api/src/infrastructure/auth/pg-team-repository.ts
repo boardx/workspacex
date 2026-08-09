@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   MutateTeamResult,
+  StrictMutateResult,
   TeamListRow,
   TeamOccupancyItem,
   TeamRepository,
@@ -160,6 +161,48 @@ export class PgTeamRepository implements TeamRepository {
         [orgId],
       );
       return res.rows.map((r) => ({ teamId: r.id, name: r.name, memberCount: Number(r.member_count) }));
+    });
+  }
+
+  /**
+   * `createExclusive`（team-crud delta #639，迭代 2）—— 同 `create`，但撞到
+   * `teams_org_name_uniq` 时**拒绝**，不做幂等重放。SAVEPOINT 用法与 `create` 相同的理由
+   * （见该方法注释：一次唯一键冲突会把整个事务置为 aborted）。
+   */
+  async createExclusive(orgId: OrgId, name: string): Promise<StrictMutateResult> {
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query("SAVEPOINT try_insert_team_exclusive");
+      const id = newTeamId();
+      try {
+        await s.query(`INSERT INTO teams (id, org_id, name) VALUES ($1, $2, $3)`, [id, orgId, name]);
+        return { ok: true as const, team: { teamId: id, name } };
+      } catch (e) {
+        await s.query("ROLLBACK TO SAVEPOINT try_insert_team_exclusive");
+        if (uniqueViolationConstraint(e) !== "teams_org_name_uniq") throw e;
+        return { ok: false as const, reason: "conflict" as const };
+      }
+    });
+  }
+
+  /**
+   * `renameExclusive`（team-crud delta #639，迭代 2）—— 同 `rename`，但撞到同名**拒绝**。
+   */
+  async renameExclusive(orgId: OrgId, teamId: string, name: string): Promise<StrictMutateResult> {
+    return this.db.withTenant(orgId, async (s) => {
+      await s.query("SAVEPOINT try_rename_team_exclusive");
+      try {
+        const res = await s.query<{ id: string; name: string }>(
+          `UPDATE teams SET name = $2 WHERE id = $1 AND org_id = $3 RETURNING id, name`,
+          [teamId, name, orgId],
+        );
+        const row = res.rows[0];
+        if (row === undefined) return { ok: false as const, reason: "not-found" as const };
+        return { ok: true as const, team: { teamId: row.id, name: row.name } };
+      } catch (e) {
+        await s.query("ROLLBACK TO SAVEPOINT try_rename_team_exclusive");
+        if (uniqueViolationConstraint(e) !== "teams_org_name_uniq") throw e;
+        return { ok: false as const, reason: "conflict" as const };
+      }
     });
   }
 }

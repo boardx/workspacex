@@ -1,13 +1,14 @@
 /**
- * `updateOwnProfile`（#638 delta，迭代 1）—— 自助改个人资料。
+ * `updateOwnProfile`（#638 delta；迭代 1 落 `displayName`，迭代 2 补 `avatarArtifactId`）
  *
- * ⚠ 本轮只有 `displayName` 有真实可用的路径。`avatarArtifactId` 非 null 时一律
- *   `INVALID_INPUT`——`uploadOwnAvatar` 本轮未实现，没有任何 artifact 能通过
- *   "属于当前用户"校验，接受它会制造一个看似生效、实则从未落库的假象。
+ * 迭代 2：`avatarArtifactId` 非 null 时，校验它是 `uploadOwnAvatar` 为**当前用户**签发的
+ * artifact（`AvatarRepository.findOwned`）——不属于当前用户 ⇒ `AVATAR_ARTIFACT_NOT_OWNED`，
+ * 不接受任意字符串。验过写 `credentials.avatar_artifact_id` + `avatar_url`。`null` 清空回默认。
  *
- * 不接受修改邮箱——邮箱是登录凭据的一部分（delta §2 逐字）。
+ * 不接受修改邮箱——邮箱是登录凭据的一部分，改邮箱是另一个更敏感的操作。
  */
 import type { CredentialRepository } from "../auth/ports";
+import type { AvatarRepository } from "./avatar-ports";
 
 export class UpdateOwnProfileError extends Error {
   constructor(readonly reasonCode: "INVALID_INPUT" | "AVATAR_ARTIFACT_NOT_OWNED") {
@@ -17,6 +18,7 @@ export class UpdateOwnProfileError extends Error {
 
 export interface UpdateOwnProfileDeps {
   readonly credentials: CredentialRepository;
+  readonly avatars: AvatarRepository;
 }
 
 export interface UpdateOwnProfileInput {
@@ -34,21 +36,35 @@ export async function updateOwnProfile(
   deps: UpdateOwnProfileDeps,
   input: UpdateOwnProfileInput,
 ): Promise<UpdateOwnProfileOutput> {
-  // 迭代 1：avatarArtifactId 字段已写进 zod（契约完整形状），但没有任何服务端路径
-  // 能验证它"属于当前用户"——uploadOwnAvatar 未实现，所以任何非 null 值都拒绝，
-  // 而不是悄悄忽略（悄悄忽略会让调用方以为头像已生效）。
-  if (input.avatarArtifactId !== undefined && input.avatarArtifactId !== null) {
-    throw new UpdateOwnProfileError("INVALID_INPUT");
-  }
-
-  if (input.displayName === undefined) {
+  if (input.displayName === undefined && input.avatarArtifactId === undefined) {
     // 两个可写字段都没给：没有可执行的更新。
     throw new UpdateOwnProfileError("INVALID_INPUT");
   }
 
-  const row = await deps.credentials.updateDisplayName(input.userId, input.displayName);
-  if (row === null) throw new UpdateOwnProfileError("INVALID_INPUT");
+  let latest: { displayName: string; avatarUrl: string | null } | null = null;
 
-  // 迭代 1：credentials 表没有头像列（delta 背景实测），avatarUrl 恒为 null。
-  return { displayName: row.displayName, avatarUrl: null };
+  if (input.displayName !== undefined) {
+    const row = await deps.credentials.updateDisplayName(input.userId, input.displayName);
+    if (row === null) throw new UpdateOwnProfileError("INVALID_INPUT");
+    latest = { displayName: row.displayName, avatarUrl: row.avatarUrl };
+  }
+
+  if (input.avatarArtifactId !== undefined) {
+    if (input.avatarArtifactId === null) {
+      const row = await deps.credentials.updateAvatar(input.userId, null, null);
+      if (row === null) throw new UpdateOwnProfileError("INVALID_INPUT");
+      latest = { displayName: row.displayName, avatarUrl: row.avatarUrl };
+    } else {
+      const owned = await deps.avatars.findOwned(input.avatarArtifactId, input.userId);
+      if (owned === null) throw new UpdateOwnProfileError("AVATAR_ARTIFACT_NOT_OWNED");
+      const avatarUrl = `/identity/me/avatar/${owned.artifactId}`;
+      const row = await deps.credentials.updateAvatar(input.userId, owned.artifactId, avatarUrl);
+      if (row === null) throw new UpdateOwnProfileError("INVALID_INPUT");
+      latest = { displayName: row.displayName, avatarUrl: row.avatarUrl };
+    }
+  }
+
+  // 理论不可达：至少一个分支执行过（前置校验已保证），latest 必被赋值。
+  if (latest === null) throw new UpdateOwnProfileError("INVALID_INPUT");
+  return latest;
 }

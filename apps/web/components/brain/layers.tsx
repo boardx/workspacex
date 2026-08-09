@@ -50,6 +50,19 @@ export function OrgLayer() {
           </div>
         ))}
       </div>
+
+      {/* 反例与教训 —— 另计，不在 604 生效条目内，仅以教训形态被召回（原型 isBrOrg「五类资产」第 5 类） */}
+      <div
+        key={ORG_LAYER.counterexamples.key}
+        data-testid={`brain-org-${ORG_LAYER.counterexamples.key}`}
+        className="flex items-center justify-between rounded-lg border border-border-subtle bg-panel p-3"
+      >
+        <div className="flex flex-col gap-0.5">
+          <span className="text-12 font-medium">{ORG_LAYER.counterexamples.label}</span>
+          <span className="text-10 text-muted-foreground">{ORG_LAYER.counterexamples.note}</span>
+        </div>
+        <Badge tone="outline">{ORG_LAYER.counterexamples.count} · 另计</Badge>
+      </div>
     </div>
   );
 }

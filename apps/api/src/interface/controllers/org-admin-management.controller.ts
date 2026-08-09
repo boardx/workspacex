@@ -1,14 +1,21 @@
 /**
- * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作。
- * 协议适配，判断全在 `application`。
+ * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作
+ * + team-crud delta（#639）迭代 2 的四条团队自助路由。协议适配，判断全在 `application`。
  *
  *   POST /organizations/:orgId/invites/:inviteId/review     另一名管理员批准/拒绝管理员邀请
  *   POST /organizations/:orgId/invites/:inviteId/resend     重发邀请（#363，I-6）
  *   POST /organizations/:orgId/invites/:inviteId/revoke     撤销邀请（#363）
- *   POST /organizations/:orgId/teams                        团队增/删/改
+ *   GET  /organizations/:orgId/teams                        团队列表只读（#639 迭代 1）
+ *   POST /organizations/:orgId/teams                        旧：团队增/删/改（`mutateTeam`，幂等重放语义）
+ *   POST /organizations/:orgId/teams/create                 新：建团队（`createTeam`，撞重名真拒绝）
+ *   PATCH /organizations/:orgId/teams/:teamId                新：改名（`renameTeam`，撞重名真拒绝）
+ *   POST /organizations/:orgId/teams/:teamId/delete          新：删除（`deleteTeam`，非空真拒绝）
  *   POST /organizations/:orgId/members/:userId/remove       移除组织成员
  *
- * 五条路由都受 Guard 保护（无 `@Public()`），且都要求调用者在**本组织**的角色——
+ * `mutateTeam` 与 `createTeam`/`renameTeam`/`deleteTeam` 为什么并存而不是二选一合并，
+ * 见 `org-admin.ts` 里 `createTeam` 操作的文档注释。
+ *
+ * 全部路由都受 Guard 保护（无 `@Public()`），且都要求调用者在**本组织**的角色——
  * 与 `org-invite.controller.ts` 同一处置：从库里读 `actorOrgRole`，不从请求体读。
  *
  * ## #363：resend / revoke 的防枚举靠的是**判定顺序**，不是错误码长得像
@@ -50,6 +57,9 @@ import type { Request, Response } from "express";
 import { orgAdmin as C } from "@repo/contracts";
 import { listTeams } from "../../application/auth/list-teams";
 import { mutateTeam, TeamInUseError } from "../../application/auth/mutate-team";
+import { createTeam } from "../../application/auth/create-team";
+import { renameTeam } from "../../application/auth/rename-team";
+import { deleteTeam } from "../../application/auth/delete-team";
 import { removeOrgMember } from "../../application/auth/remove-org-member";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
 import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
@@ -82,6 +92,9 @@ export const REVIEW_ADMIN_INVITE_SCHEMA = C.operations.reviewAdminInvite.in;
 export const RESEND_ORG_INVITE_SCHEMA = C.operations.resendOrgInvite.in;
 export const REVOKE_ORG_INVITE_SCHEMA = C.operations.revokeOrgInvite.in;
 export const MUTATE_TEAM_SCHEMA = C.operations.mutateTeam.in;
+export const CREATE_TEAM_SCHEMA = C.operations.createTeam.in;
+export const RENAME_TEAM_SCHEMA = C.operations.renameTeam.in;
+export const DELETE_TEAM_SCHEMA = C.operations.deleteTeam.in;
 export const REMOVE_ORG_MEMBER_SCHEMA = C.operations.removeOrgMember.in;
 /** org-profile-membership delta（#363 收拢）。同上，导出以证明是同一个对象。 */
 export const UPDATE_ORGANIZATION_SCHEMA = C.operations.updateOrganization.in;
@@ -235,6 +248,66 @@ export class OrgAdminManagementController {
       if (e instanceof TeamInUseError) {
         throw new ConflictException({ reasonCode: e.reasonCode, blocked: e.occupancy });
       }
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * `createTeam`（team-crud delta #639，迭代 2）—— `POST .../teams/create`, not the same
+   * literal path as `mutateTeam` above. The delta's draft originally reused
+   * `POST /organizations/:orgId/teams`; that collided with `tests/contract-shape.test.ts`'s
+   * mechanical "no two operations share a method+path" gate (both within `org-admin` and
+   * across every bundle), caught by running it for real rather than left for the next
+   * person. See `org-admin.ts`'s `createTeam` doc comment for the full account.
+   */
+  @Post("/organizations/:orgId/teams/create")
+  async create(
+    @Param("orgId") orgIdParam: string,
+    @Body(new ZodBodyPipe(CREATE_TEAM_SCHEMA)) body: { name: string },
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      return await createTeam({ repo: this.teams }, { orgId, actorOrgRole: orgRole, name: body.name });
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  @Patch("/organizations/:orgId/teams/:teamId")
+  async patchTeam(
+    @Param("orgId") orgIdParam: string,
+    @Param("teamId") teamIdParam: string,
+    @Body(new ZodBodyPipe(RENAME_TEAM_SCHEMA)) body: { name: string },
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      return await renameTeam(
+        { repo: this.teams },
+        { orgId, actorOrgRole: orgRole, teamId: teamIdParam, name: body.name },
+      );
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * ⚠ `POST .../delete`，不是 `DELETE`——`no-forbidden-routes.test.ts` 的
+   * `^DELETE\s+\/organizations` 门禁会连带挡住这条，见 `deleteTeam` 契约操作的文档注释
+   * （与 `removeOrgMember` 当年撞到同一堵墙的处置一致）。
+   */
+  @Post("/organizations/:orgId/teams/:teamId/delete")
+  async deleteTeamRoute(
+    @Param("orgId") orgIdParam: string,
+    @Param("teamId") teamIdParam: string,
+    @Body(new ZodBodyPipe(DELETE_TEAM_SCHEMA)) _body: Record<string, never>,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      return await deleteTeam({ repo: this.teams }, { orgId, actorOrgRole: orgRole, teamId: teamIdParam });
+    } catch (e) {
       throw toHttpException(e);
     }
   }
@@ -420,7 +493,7 @@ export class OrgAdminManagementController {
  */
 function toHttpException(e: unknown) {
   if (e instanceof OrgAdminError) {
-    if (e.reasonCode === "PROJECT_ROLE_INSUFFICIENT") {
+    if (e.reasonCode === "PROJECT_ROLE_INSUFFICIENT" || e.reasonCode === "FORBIDDEN") {
       return new ForbiddenException({ reasonCode: e.reasonCode });
     }
     // #363：`RATE_LIMITED` 是这一族里第二个不该被折进 409 的码。
@@ -437,6 +510,12 @@ function toHttpException(e: unknown) {
     }
     if (e.reasonCode === "UNSUPPORTED_CONTENT_TYPE") {
       return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+    // team-crud delta（#639）迭代 2：指向的团队不存在 —— 404，不是 409。
+    // `mutateTeam` 没有专属码时借用 `VERSION_CHANGED`（走 409）；这三条新操作有专属码，
+    // 用它本来的语义即可，不必也折进 409。
+    if (e.reasonCode === "TEAM_NOT_FOUND") {
+      return new NotFoundException({ reasonCode: e.reasonCode });
     }
     return new ConflictException({ reasonCode: e.reasonCode });
   }

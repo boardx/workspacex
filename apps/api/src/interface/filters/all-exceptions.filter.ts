@@ -152,6 +152,17 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   if (localExport.success) return { reasonCode: localExport.data };
 
   /**
+   * #638 delta，迭代 2：`identity.SelfServiceProfileError` —— 同一个 bug 又发生了一次。
+   *
+   * `uploadOwnAvatar`/`updateOwnProfile`/`changeOwnPassword` 的失败码
+   * （`CURRENT_PASSWORD_INVALID`、`FILE_TOO_LARGE`、…）不属于上面任何一个枚举，于是
+   * 两次 safeParse 全部失败，调用方收到一个光秃秃的 `{"error":"forbidden"}` ——
+   * 本机真实 HTTP 实测踩到的坑，见该枚举的文档注释。
+   */
+  const selfServiceProfile = identity.SelfServiceProfileError.safeParse(raw);
+  if (selfServiceProfile.success) return { reasonCode: selfServiceProfile.data };
+
+  /**
    * F80: `interview.InterviewError`, the fifth closed enum —— 加它的理由与上一条**逐字相同**，
    * 而且是同一个 bug 又发生了一次。
    *

@@ -1,7 +1,6 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
-import { Building2, ChevronDown, FolderKanban, Lock, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Building2, ChevronDown, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
   MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
@@ -29,16 +28,20 @@ import { Button } from "@/components/ui/button";
  *   当本页内容区自带一个（如项目工作台的四视角切换器、问卷的 view-switcher）时，
  *   顶栏这个预览切换器**让位不渲染**，避免「同一页两套角色切换系统」。
  *   顶栏此时仍显示项目上下文标签（项目名·角色），只是不再出第二个切换器。
+ *
+ * ⚠ 组织管理入口 / 退出按钮（2026-08-09 信息架构调整）：**都已从顶栏挪走**。
+ *   组织管理入口并入左上角 `X` logo（见 `icon-rail.tsx` 的 org-admin 锚点）；
+ *   退出并入左下角个人菜单（见 `personal-menu.tsx` 的 logout 菜单项）。
+ *   顶栏不再单独持有这两者——同一功能不许两个入口。
  */
 export function TopBar({
-  identity, previewRole, hideRoleSwitcher, organizations, onSwitchOrganization, onLogout,
+  identity, previewRole, hideRoleSwitcher, organizations, onSwitchOrganization,
 }: {
   identity: Identity;
   previewRole: ProjectRole | null;
   hideRoleSwitcher?: boolean;
   organizations?: ReadonlyArray<{ id: string; label: string }>;
   onSwitchOrganization?: (orgId: string) => Promise<void>;
-  onLogout?: () => void;
 }) {
   const pathname = usePathname();
   const [switching, setSwitching] = React.useState(false);
@@ -100,20 +103,6 @@ export function TopBar({
           </select>
           <ChevronDown aria-hidden className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         </div>
-
-        {/*
-          组织管理入口（#639 delta，迭代 1）—— 固定在左上角，紧邻组织切换器，
-          rubric 硬性锚点。本轮只带出"团队"标签页的只读列表；CRUD 动作在页面内留空/禁用态。
-        */}
-        <Link
-          href="/org-admin"
-          data-testid="org-admin-entry"
-          aria-label="组织管理"
-          title="组织管理"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Settings aria-hidden className="h-3.5 w-3.5" />
-        </Link>
       </div>
 
       <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
@@ -187,12 +176,6 @@ export function TopBar({
         </p>
       )}
 
-      {onLogout && (
-        <Button size="xs" variant="ghost" data-testid="session-logout" onClick={onLogout}>
-          <LogOut aria-hidden className="h-3 w-3" />
-          退出
-        </Button>
-      )}
     </header>
   );
 }
