@@ -625,7 +625,11 @@ export function ChatLiveMessagePanel({
                 type="button"
                 size="icon"
                 variant={speech.listening ? "destructive" : "outline"}
-                className={`rounded-full ${speech.listening ? "animate-pulse" : ""}`}
+                // 人类反馈（devapp 实测）：麦克风按钮录音中整体闪烁（`animate-pulse` 让
+                // 按钮本体+图标反复淡入淡出）体验差。录音态已经靠实心红底
+                // （`variant="destructive"`）+ 下方 `chat-mic-listening` 那颗小红点
+                // 表达"正在录音"，按钮本身不需要再动——去掉闪烁，按钮保持稳定的实心红。
+                className="rounded-full"
                 data-testid="chat-mic-button"
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
