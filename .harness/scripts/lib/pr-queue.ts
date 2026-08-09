@@ -106,7 +106,22 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * `continue-on-error: true`——两处必须一起改，只改一处仍会在真失败时把 PR 判成
  * CHANGES_REQUIRED，等于没摘。
  */
-export const REQUIRED_CHECKS = ["verify", "e2e-full"] as const;
+/**
+ * 2026-08-09（#848）：`e2e-full` 从这份清单摘出。
+ *
+ * 它自 2026-08-05 起就带着 `if: github.event_name != 'pull_request'`——**被明确排除在 PR
+ * 之外**（当时人类指令：「只有 tag 发布的时候才做，PR 的时候先不做，以提高速度」），
+ * 而清单没有跟着改。后果：`classifyPr` 对**已声明**的 check 要求「出现且真绿」，
+ * `SKIPPED` 视为未通过 ⇒ **此后每一个 PR 都被判 MERGE_BLOCKED，整整五天**。
+ *
+ * 于是所有人（含 coord-main）绕过 `pnpm harness pr-queue`，直接 `gh pr merge`——
+ * 这是「空转的门」的**反面版本**：不是恒绿没用，是**恒红被绕过**。恒红的门比没有门更糟，
+ * 因为它同时消耗信任并训练所有人跳过它。
+ *
+ * ⚠ 现在挡发布的 e2e 是 `backend-gates.yml` 的 `e2e-core-loop`（deploy 前置条件），
+ * 不在这份 **PR 合并门**清单里——两者是不同的门，别再合并进来。
+ */
+export const REQUIRED_CHECKS = ["verify"] as const;
 
 function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;

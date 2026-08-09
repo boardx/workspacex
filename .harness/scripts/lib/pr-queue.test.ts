@@ -237,6 +237,26 @@ describe("#451 文档与代码共用同一份状态枚举", () => {
     for (const name of REQUIRED_CHECKS) expect(jobIds, name).toContain(name);
   });
 
+  it("#848 反证：REQUIRED_CHECKS 里的 job 不得被 `if` 排除在 pull_request 之外——存在 ≠ 会跑", () => {
+    // 上一条只验「job id 存在」。`e2e-full` 就是**存在但永不在 PR 上跑**（它带
+    // `if: github.event_name != 'pull_request'`），于是它被声明为必需之后，
+    // 每个 PR 都恒判 MERGE_BLOCKED 长达五天，所有人转而绕过 pr-queue 直接合。
+    // 静态存在是痕迹，「这次 PR 上会不会真的跑」才是事实——见
+    // `.harness/instructions/static-trace-vs-live-fact.md`。
+    const wf = readFileSync(join(REPO_ROOT, ".github", "workflows", "harness-verify.yml"), "utf8");
+    const jobsBlock = wf.slice(wf.indexOf("\njobs:"));
+    for (const name of REQUIRED_CHECKS) {
+      const start = jobsBlock.indexOf(`\n  ${name}:`);
+      expect(start, `job ${name} 应存在`).toBeGreaterThan(-1);
+      const rest = jobsBlock.slice(start + 1);
+      const next = rest.search(/\n {2}[a-z0-9][a-z0-9-]*:\n/);
+      const body = next === -1 ? rest : rest.slice(0, next);
+      // 必需门禁不得把 pull_request 排除掉——那等于声明了一个在 PR 上永不产出结论的门
+      expect(body, `${name} 的 if 条件把 pull_request 排除了，它不可能在 PR 上变绿`)
+        .not.toMatch(/github\.event_name\s*!=\s*'pull_request'/);
+    }
+  });
+
   it("SOP 明确写出无人值守不得合并，且指向本模块而不是另起一套判定", () => {
     expect(sop).toContain("pnpm harness pr-queue");
     expect(sop).toContain(".harness/scripts/lib/pr-queue.ts");
