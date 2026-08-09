@@ -75,6 +75,53 @@ confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于�
 > `packages/contracts/src/thresholds.ts` 的 `projectAiDefault*`（`known: false`，**取值即抛错**），
 > 界面显示「默认值未裁」。**这一条也需你裁默认值。**
 
+> # ⚠⚠ 第二处「签核之后新增、**尚未签核**」的东西 —— #660 自助发布边（2026-08-09）
+>
+> **签核字段一个都没动**（`status` / `confirmed_by` / `confirmed_at` 保持原值）。
+> 与上面那块同一形状：**这是登记，不是签核**。
+>
+> ## 新增了什么
+>
+> 契约操作 `selfPublishToollessAgent`（`POST /agents/:agentId/self-publish`），
+> 以及三个只服务它的错误码（`AGENT_NOT_DRAFT` / `AGENT_NOT_TOOLLESS` /
+> `AGENT_VISIBILITY_UNSUPPORTED`）。登记在 `KNOWN_CONTRACT_GAPS.AR11`。
+>
+> ## 为什么非做不可（实测，不是推断）
+>
+> 已签核的发布路径对一个**刚注册的独人组织**是**结构性不可通过**的：
+>
+> | 门 | 出处 | 独人组织能不能过 |
+> |---|---|---|
+> | 工具白名单非空 | I-28 | ❌ 全仓**没有任何路由**能配白名单（`setToolWhitelist` 零实现） |
+> | 审核人 ≠ 提交人、且是方法论审核人 | O-21 | ❌ 组织里只有他一个人；且**指派评审职能这件事全仓没有任何契约操作**（skill 侧的 `skill_reviewer_functions` 只有种子脚本写过） |
+>
+> 实测后果：自建 agent 在 chat 里发消息**恒 422**，即 CLR track R 的 **R9 恒为 0**
+> （见证与验收都在 `apps/api/tests/agent-runtime/create-agent-publish-path.test.ts`）。
+>
+> ## 这条边**没有**动 I-28 / O-21
+>
+> 它是一条**另设的、受门控的** `草稿 → 运行中` 边，只对
+> `toolWhitelist = []` **且** `skillMounts = []` 的 agent 开放。论据：
+> **双人评审审的是「这个 agent 被授予了什么能力」；没有能力面 ⇒ 没有评审对象。**
+>
+> ⚠ 它与 `AgentRuntimeError.SELF_REVIEW_FORBIDDEN` 头注逐字禁止的
+> 「组织内无第二人时**降级放行**」**不是同一件事**：那条禁的是「有东西要审、却因为
+> 凑不齐人而放行」；这条说的是「压根没有东西要审」。**这个区分正是要你裁的东西。**
+> 有能力面的 agent 仍然只有双人路径一条路（`AGENT_NOT_TOOLLESS`），
+> `submitAgentForReview` / `decideAgentPublish` 两条路由**至今仍是 404**，本次没有接。
+>
+> ## 需你裁一条
+>
+> **「零工具零 skill 的自建 agent，可由创建者自助发布」——接受还是不接受？**
+>
+> · **接受** ⇒ 把它正式写进 UC-4.1 R3（作为步骤 9/10 之外的一条分支），
+>   并把 `agent_versions` 的「发布路径」从权宜的 `semantic_label='自助发布-v1'`
+>   升级成一个显式列（细节见 `pg-self-publish-agent-repository.ts` 头注）。
+> · **不接受** ⇒ 删除该操作、三个错误码、`domain/agent/self-publish.ts`、
+>   其仓储与两份测试，并把 `lint-permission-paths` 的白名单上限从 44 退回 43。
+>   届时 R9 的诚实答案是：**在补齐 `setToolWhitelist` + 选模型 + 评审职能指派
+>   三条路径、且组织里有第二个人之前，它不可能为 1。**
+
 覆盖 feature：**F48–F60 + F129–F131**（16 件 / 67 点）—— 派生视图，权威是上面 frontmatter 的 `covers:`
 依据 UC（**九份**）：
 

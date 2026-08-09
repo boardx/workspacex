@@ -716,7 +716,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // keyed by the authenticated caller's own `principal_id`, i.e. "what function do I hold",
     // never a roster). Premises enforced by `tests/agent-runtime/agent-publish-repo-guard.test.ts`.
     // ⚠ 本条与 #363 是同一轮里各自 +1 的两条，不是重复：两个条目、两个仓储、两份前提测试。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(45);
+    //
+    // ⚠ Raised 45 -> 46 by #660 (the toolless self-publish edge, signed off as candidate A of
+    // the `agent-instructions` delta): new entry is
+    // `infrastructure/agent/pg-self-publish-agent-repository.ts` -- see that entry's own
+    // paragraph in `lint-permission-paths.mjs` (org-admin decision made one layer up, in
+    // `self-publish-toolless-agent.ts`, before both repository calls; the two reads feed the
+    // domain gate and a `FOR UPDATE` row lock, and neither reaches a response).
+    // ⚠ 本条与上面那条 #856 的是同一个 issue 下**两条互补的路径**各自 +1，不是重复：
+    // 有能力面的 agent 走双人评审（`pg-agent-publish-repository.ts`），无能力面的走自助
+    // （本条）。两个条目、两个仓储、两份前提测试。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(46);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

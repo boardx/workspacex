@@ -41,6 +41,19 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
  * agent 落地时抽的）——这里只提供模板，避免和 `pg-deep-research-agent-repository.ts`
  * 各写一份互相漂移的 SQL。
  */
+/**
+ * ⚠ #660 起，这个解析被**用户自助发布的 agent**（`pg-self-publish-agent-repository.ts`）
+ * 复用：一个零工具零 skill 的自建 agent，其执行路径与 `通用助手` **完全相同**
+ * （同一个 `deepagents` 服务、同一把 key），所以它 pin 的 provider/model 是**同一个事实**，
+ * 必须只有一处声明。第二次写 `DEEP_AGENT_PROVIDER_NAME + KERNEL_DEFAULT_AGENT_MODEL_ID`
+ * 就是本仓已经踩过五次的漂移形状——而漂移的后果是：默认 agent 能跑、自建 agent
+ * pin 到一个不存在的 provider，且只有真的发消息才发现。
+ */
+export function resolveDeepAgentModel(): { readonly provider: string; readonly modelId: string } {
+  const modelId = (process.env.KERNEL_DEFAULT_AGENT_MODEL_ID ?? "").trim() || "default";
+  return { provider: DEEP_AGENT_PROVIDER_NAME, modelId };
+}
+
 const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: DEFAULT_AGENT_STABLE_NAME,
   name: DEFAULT_AGENT_NAME,
@@ -48,10 +61,7 @@ const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
   duty: "通用对话与任务协助，新组织的默认可聊 agent",
   instructions: DEFAULT_AGENT_INSTRUCTIONS,
   lockKey: 660,
-  resolveModel: () => {
-    const modelId = (process.env.KERNEL_DEFAULT_AGENT_MODEL_ID ?? "").trim() || "default";
-    return { provider: DEEP_AGENT_PROVIDER_NAME, modelId };
-  },
+  resolveModel: resolveDeepAgentModel,
 };
 
 export class PgDefaultAgentRepository implements EnsureDefaultAgentRepository {

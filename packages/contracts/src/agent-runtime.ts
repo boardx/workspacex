@@ -461,6 +461,33 @@ export const AgentRuntimeError = z.enum([
    * ⚠ `平台组` 的判据 **[待裁]** → `KNOWN_CONTRACT_GAPS.AR3`。
    */
   "MCP_SERVER_IN_QUARANTINE",
+
+  /* ── ⑦ ⚠⚠ 草案（#660，尚未经人类签核）→ `KNOWN_CONTRACT_GAPS.AR11` ─── */
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`（见该操作的头注）。
+   * 目标 agent 不在 `草稿` 态。自助发布**只**是 `草稿 → 运行中` 的一条边；
+   * 已进 `待审核` 的 agent 已经踏上评审路径，**不得**用自助发布抄近道绕过
+   * `decideAgentPublish`——那正好就是 I-28/O-21 要防的那件事。
+   */
+  "AGENT_NOT_DRAFT",
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`。
+   * agent 已经有工具白名单条目或 skill 挂载 ⇒ **它有可被评审的能力面**，
+   * 必须走完整的 `submitAgentForReview` → `decideAgentPublish` 双人路径。
+   * ⚠ 这条码存在的唯一意义，是让「无能力面」这个豁免前提**在服务端被强制**，
+   *   而不是靠调用方自觉。它红了不是用户做错了事，是这个 agent 不该走这条路。
+   */
+  "AGENT_NOT_TOOLLESS",
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`。
+   * agent 的 `visibility` 是 `仅某组`，而**没有任何地方记录过是哪个组**——
+   * `createAgent.in` 收 `visibility` 却不收 team，`capability_listings` 的
+   * `capability_listings_team_only_needs_team` 又要求 `team-only` 必须带
+   * `owner_team_id`。⇒ 这条边**无法诚实地把它登记进能力目录**。
+   * ⚠ 落成一个明确的拒绝，而**不是**"退而求其次写成 `org-wide`"——
+   *   后者是把一个本应受限的 agent 悄悄开放给全组织，正是 I-28 一族要防的形状。
+   */
+  "AGENT_VISIBILITY_UNSUPPORTED",
 ]);
 
 type AgentRuntimeErrorT = z.infer<typeof AgentRuntimeError>;
@@ -1691,6 +1718,63 @@ export const operations = {
   },
 
   /**
+   * #660 ——「**无能力面自助发布**」。**⚠⚠ 草案，尚未经人类签核**
+   * （ADR-023，登记在 issue #660 与 `KNOWN_CONTRACT_GAPS.AR11`）。
+   * 同 `setAgentSkillPins`（#595 A2）的处理：草案操作可以先落地并被门控，
+   * 但**不得**被当成已裁决的事实引用。
+   *
+   * ## 它补的洞
+   *
+   * `createAgent` 落 `草稿`，而 `草稿 → 运行中` 的唯一出口是
+   * `submitAgentForReview` → `decideAgentPublish`。那条路径要求
+   * ① 工具白名单非空（I-28）② 审核人是**另一个**方法论审核人（O-21）。
+   * 于是**一个刚注册的独人组织，其自建 agent 结构性地永远发不出去**——
+   * 实测就是 chat 里选中它发消息恒 **422**（`create-agent-publish-path.test.ts`）。
+   *
+   * ## 豁免的**唯一**理由，以及它为什么不是「降级放行」
+   *
+   * 双人评审审的是**这个 agent 被授予了什么能力**：工具白名单（第 ② 层）与
+   * skill 挂载。一个 `toolWhitelist = []` **且** `skillMounts = []` 的 agent
+   * 没有任何可被授予的能力面——它只能用与系统预置 `通用助手` 完全相同的执行
+   * 路径说话。**没有能力面 ⇒ 评审没有对象**，这与 `SELF_REVIEW_FORBIDDEN` 头注
+   * 逐字禁止的「组织内无第二人时降级放行」是两件事：那条禁的是**有东西要审、
+   * 却因为凑不齐人而放行**；这条说的是**压根没有东西要审**。
+   *
+   * ⚠ 因此本操作**不碰** `submitAgentForReview` / `decideAgentPublish` 的任何一道门，
+   *   也不引入 `NO_SECOND_REVIEWER` 之类的"独人组织特例"。有能力面的 agent
+   *   仍然只有双人路径一条路（`AGENT_NOT_TOOLLESS`）。
+   *
+   * ⚠ **单向性**：本操作是 `草稿 → 运行中` 的一条边，不是「发布态」的旁路开关。
+   *   一个已自助发布的 agent 事后要加工具/skill，仍须走完整评审——
+   *   这一条由 `setToolWhitelist` / `mountSkill` 各自的门负责，不在这里第二次声明。
+   *
+   * ⚠ **审计可分辨**：这样发布出来的版本必须能与走完双人评审发布的版本区分开，
+   *   否则「这一版当时是怎么发出去的」在 UC-4.4 里答不出来。
+   */
+  selfPublishToollessAgent: {
+    method: "POST",
+    path: "/agents/:agentId/self-publish",
+    in: z.object({ agentId: z.string() }).strict(),
+    out: z
+      .object({
+        agentId: z.string(),
+        publishState: AgentPublishState,
+        /** 新铸的不可变版本快照（I-31 / O-22⑤）——`resolvePublished` 就靠它。 */
+        agentVersionId: z.string(),
+        /** ⚠ 恒为 `自助发布`：审计里这一版与双人评审发出的版本必须可分辨。 */
+        publishRoute: z.literal("自助发布"),
+      })
+      .strict(),
+    err: [
+      "ROLE_INSUFFICIENT",
+      "AGENT_NOT_FOUND",
+      "AGENT_NOT_DRAFT",
+      "AGENT_NOT_TOOLLESS",
+      "AGENT_VISIBILITY_UNSUPPORTED",
+    ] as const,
+  },
+
+  /**
    * UC-4.1 R3 步骤 8：`[试跑]`。
    * ⚠ 试跑**不写入正式记录**，产生的调用**单独标记为 `试跑`**、不计入项目审计的正式事件流，
    *   **但仍需留痕**（A5）——所以 `ToolCallRecord.runState` 有 `试跑` 这一档。
@@ -2495,4 +2579,21 @@ export const KNOWN_CONTRACT_GAPS = {
    * 本文件**不发明这个码**（发明一个码等于替签核人做决定，同 AR7 的理由）。
    */
   AR11: "neither submitAgentForReview.err nor decideAgentPublish.err can express a wrong-precedent-state refusal (duplicate submit, or approving a 草稿); the server can only answer HTTP 409 with no reasonCode until a code is signed off",
+  /**
+   * **`selfPublishToollessAgent` —— 已按候选 A 签核，本条只记「它为什么存在」。**
+   *
+   * 已签核的双人发布路径（I-28 + O-21）对一个**刚注册的独人组织**是**结构性不可通过**的：
+   * 白名单要非空（而 `setToolWhitelist` 至今零实现）、审核人要是另一个人（而组织里只有他
+   * 一个，且指派评审职能没有任何契约操作）。实测后果不是"体验差"，是自建 agent 发消息恒 422
+   * ——即 CLR track R 的 **R9 恒为 0**。
+   *
+   * 本条边按「无能力面 ⇒ 无评审对象」放行，并**不改动** I-28 / O-21 的任何一道门：
+   * 有工具或有 skill 挂载的 agent 仍然只有 `submitAgentForReview` → `decideAgentPublish`
+   * 一条路（`AGENT_NOT_TOOLLESS`）。
+   *
+   * ⚠ 仍然留在本登记表里的**真缺口**：`agent_versions` 没有「发布路径」这一列，
+   *   「这一版当时是怎么发出去的」目前靠 `semantic_label` 前缀承载（权宜，见
+   *   `pg-self-publish-agent-repository.ts` 头注）。正式化需要加一列显式的 `publish_route`。
+   */
+  AR12: "agent_versions has no explicit publish_route column, so 'how was this version published' (two-person review vs selfPublishToollessAgent) is carried by a semantic_label prefix as a stopgap; formalising it needs a real column",
 } as const;

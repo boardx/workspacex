@@ -21,6 +21,9 @@ import { apiRequest } from "./api-client";
 
 export type AgentVisibility = z.infer<typeof agentRuntime.operations.createAgent.in>["visibility"];
 export type CreateAgentResult = z.infer<typeof agentRuntime.operations.createAgent.out>;
+export type SelfPublishResult = z.infer<
+  typeof agentRuntime.operations.selfPublishToollessAgent.out
+>;
 
 export async function createAgentFromScratch(input: {
   readonly name: string;
@@ -39,4 +42,18 @@ export async function createAgentFromScratch(input: {
       source: "self",
     },
   });
+}
+
+/**
+ * #660 —— 「无能力面自助发布」。**⚠⚠ 草案边，尚未经人类签核**
+ * （`KNOWN_CONTRACT_GAPS.AR11`）。
+ *
+ * ⚠ 路径里的 `:agentId` 用 `replace` 从契约的 `path` 上换，而不是手写
+ * `` `/agents/${id}/self-publish` `` —— ADR-020：路径是契约的，不在前端第二次声明。
+ */
+export async function selfPublishAgent(agentId: string): Promise<SelfPublishResult> {
+  return apiRequest<SelfPublishResult>(
+    agentRuntime.operations.selfPublishToollessAgent.path.replace(":agentId", encodeURIComponent(agentId)),
+    { method: "POST", body: { agentId } },
+  );
 }

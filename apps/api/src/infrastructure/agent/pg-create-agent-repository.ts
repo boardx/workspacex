@@ -18,7 +18,14 @@ import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
 import type { CreateAgentRepository } from "../../application/agent/create-agent";
 
-interface AgentDefinitionRow {
+/**
+ * ⚠ #660 起，行→定义的映射被 `pg-self-publish-agent-repository.ts` 复用（`export`）。
+ * 复用而不是各写一份，是因为「哪些列为 NULL 就说明这一行不是 `createAgent` 建的」
+ * 这条判据（见下方 `toDefinition`）是**同一个事实**：自助发布同样只对
+ * `createAgent` 建出来的行有意义，一个 starter-import 行也拿不到 `toolWhitelist`
+ * 这些列，若两处各判一次，迟早一处会把 NULL 当成"空白名单"而放行。
+ */
+export interface AgentDefinitionRow {
   readonly id: string;
   readonly org_id: string;
   readonly name: string;
@@ -35,7 +42,12 @@ interface AgentDefinitionRow {
   readonly degrade_policy: string | null;
 }
 
-function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
+export const AGENT_DEFINITION_COLUMNS =
+  `id, org_id, name, initials, role, visibility, clone_from, source,
+   publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
+   degrade_policy`;
+
+export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
   // A row this repository did not create (e.g. an agent-starter-import row, which never
   // fills these columns) is not a valid clone source: it has no visibility/source/publish
   // state to build a definition from. Treating it as "not found" rather than throwing keeps
@@ -86,9 +98,7 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
   async findForClone(orgId: string, agentId: string): Promise<AgentDefinition | null> {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
       const found = await session.query<AgentDefinitionRow>(
-        `SELECT id, org_id, name, initials, role, visibility, clone_from, source,
-                publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
-                degrade_policy
+        `SELECT ${AGENT_DEFINITION_COLUMNS}
            FROM agents
           WHERE id = $1 AND org_id = $2`,
         [agentId, orgId],

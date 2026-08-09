@@ -22,7 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
-import { createAgentFromScratch, type AgentVisibility, type CreateAgentResult } from "@/lib/agent-definition";
+import {
+  createAgentFromScratch,
+  selfPublishAgent,
+  type AgentVisibility,
+  type CreateAgentResult,
+} from "@/lib/agent-definition";
 
 const SELECT_CLASS =
   "h-8 w-full appearance-none rounded-md border border-input bg-card px-2.5 text-13 " +
@@ -45,6 +50,10 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<CreateAgentResult | null>(null);
+  /* #660：发布这一步的独立状态——它与"创建"是两次请求，失败面也不同。 */
+  const [publishing, setPublishing] = React.useState(false);
+  const [publishError, setPublishError] = React.useState<string | null>(null);
+  const [published, setPublished] = React.useState(false);
 
   const reset = () => {
     setName("");
@@ -72,12 +81,38 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
         visibility,
       });
       setCreated(result);
+      setPublished(false);
+      setPublishError(null);
       setOpen(false);
       reset();
     } catch (e) {
       setError(describeError(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * #660 —— 发布。**⚠⚠ 走的是尚未签核的草案边**（`selfPublishToollessAgent`）。
+   *
+   * ⚠ 与创建同一条纪律：没有乐观更新。`setPublished(true)` 只在请求**真的成功之后**
+   * 才发生——一个"点了就变绿"的按钮会把 422 说成成功，而 #660 的整个症状就是
+   * "界面看起来好了、发消息还是 422"。
+   *
+   * ⚠ 失败原样显示 `reasonCode`（`AGENT_NOT_TOOLLESS` / `AGENT_VISIBILITY_UNSUPPORTED`
+   * 等），不翻译成"发布失败，请重试"——后者会让「这个 agent 有工具所以必须走评审」
+   * 这个真实原因消失。
+   */
+  const publish = async (agentId: string) => {
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await selfPublishAgent(agentId);
+      setPublished(true);
+    } catch (e) {
+      setPublishError(describeError(e));
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -97,10 +132,30 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
           新建 Agent
         </Button>
         {created ? (
-          <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
-            已建成草稿 agent {created.agentId}（{created.publishState}，工具白名单为空，需先配置才能提交发布）。
-            本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
-          </p>
+          <div className="flex flex-col items-end gap-1.5">
+            <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
+              {published
+                ? `已发布 agent ${created.agentId}（运行中）。现在可以在会话的 agent 下拉里选中它并发消息。`
+                : `已建成草稿 agent ${created.agentId}（${created.publishState}）。草稿发不出消息——需要发布之后才能在会话里选用。`}
+              {" "}
+              本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
+            </p>
+            {published ? null : (
+              <Button
+                size="sm"
+                onClick={() => void publish(created.agentId)}
+                disabled={publishing}
+                data-testid={`${prefix}-publish`}
+              >
+                {publishing ? "发布中…" : "发布"}
+              </Button>
+            )}
+            {publishError ? (
+              <p data-testid={`${prefix}-publish-error`} className="text-12 text-destructive">
+                {publishError}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );
@@ -111,8 +166,9 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
       <CardHeader>
         <CardTitle>新建 Agent</CardTitle>
         <CardDescription>
-          从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;），
-          需要先配置工具白名单才能提交发布。
+          从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。
+          建成后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；
+          之后若要给它配工具，就必须走完整的双人评审。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
