@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
-import { ApiError, apiBaseUrl } from "@/lib/api-client";
+import { ApiError, apiBaseUrl, getStoredSessionToken } from "@/lib/api-client";
 import { ORG_ROLE_LABEL } from "@/lib/identity";
 import {
   listTeams, listOrgMembers, listOrgInvites, updateOrganization, uploadOrgAvatar,
@@ -331,14 +331,66 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
 
 const DESCRIPTION_MAX = 500;
 
+/**
+ * 组织头像走**受鉴权**的 `GET /organizations/:orgId/avatar-file/:id`（`@CurrentPrincipal`
+ * 门控，见 controller 文件头注释）——裸 `<img src>` 发不出 `Authorization` 头，直接指向
+ * 这条路由会永远拿到 401、图裂掉（D9 实测：curl 不带 Authorization → 401；带 → 200）。
+ * 与本仓其余真实请求同一条纪律（`api-client.ts`：Bearer token 不是 cookie）——手动
+ * `fetch` 带上头，拉 blob，`URL.createObjectURL()` 出一个本地 blob URL 再喂给 `<img>`。
+ */
+function useAuthedImageSrc(url: string | null): { src: string | null; failed: boolean } {
+  const [src, setSrc] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!url) {
+      setSrc(null);
+      setFailed(false);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setFailed(false);
+    (async () => {
+      try {
+        // 鉴权是 Bearer token，不是 cookie（同 `api-client.ts` 文件头那条纪律）——
+        // 不需要 `credentials: "include"`，`Authorization` 头本身就带着身份。
+        const token = getStoredSessionToken();
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) throw new Error(`http_${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      } catch {
+        if (!cancelled) {
+          setSrc(null);
+          setFailed(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  return { src, failed };
+}
+
 function OrgProfileTab({ orgId }: { orgId: string }) {
+  const { updateOrgName } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [profile, setProfile] = React.useState<UpdateOrganizationOut | null>(null);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [invalidFields, setInvalidFields] = React.useState<Record<string, string>>({});
   const [avatarUploading, setAvatarUploading] = React.useState(false);
   const [avatarError, setAvatarError] = React.useState<string | null>(null);
+  const [avatarSavedNotice, setAvatarSavedNotice] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const load = React.useCallback(async () => {
@@ -370,11 +422,13 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (trimmed.length === 0) {
-      setState("invalid");
-      return;
-    }
-    if (description.length > DESCRIPTION_MAX) {
+    // D4：只收当次真正违反的字段——不是无条件把两条校验文案都传给 StateShell，
+    // 否则简介明明合规也会跟着弹出「简介不能超过 500 字」（实测：44/500 字也弹）。
+    const violations: Record<string, string> = {};
+    if (trimmed.length === 0) violations.name = "组织名称不能为空";
+    if (description.length > DESCRIPTION_MAX) violations.description = `简介不能超过 ${DESCRIPTION_MAX} 字`;
+    if (Object.keys(violations).length > 0) {
+      setInvalidFields(violations);
       setState("invalid");
       return;
     }
@@ -386,6 +440,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       setName(out.name);
       setDescription(out.description ?? "");
       setState("success");
+      // #728 D 类：改名成功后顶栏切换器要跟着刷新，不是等下一次整页 reload 才同步
+      // （同一份 session-provider 机制：`updateDisplayName` 改自己姓名时的先例）。
+      updateOrgName(orgId, out.name);
     } catch (err) {
       setFailureMessage(describeFailure(err, "组织不存在", "当前身份无权编辑组织资料"));
       setState("dep-failed");
@@ -397,11 +454,16 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     e.currentTarget.value = "";
     if (!file) return;
     setAvatarError(null);
+    setAvatarSavedNotice(false);
     setAvatarUploading(true);
     try {
       const uploaded = await uploadOrgAvatar({ orgId, file });
       const out = await updateOrganization({ orgId, avatarArtifactId: uploaded.orgAvatarArtifactId });
       setProfile(out);
+      // D5：图片本身要靠鉴权 fetch 异步拉回来才显示（见 `useAuthedImageSrc`），中间那段
+      // 时间用户不该完全没反馈——补一条显式的成功提示，2.5s 后自动收起。
+      setAvatarSavedNotice(true);
+      window.setTimeout(() => setAvatarSavedNotice(false), 2500);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError("图片超过 5MB 上限，服务端已拒绝，未上传。");
@@ -415,14 +477,15 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     }
   }
 
-  const avatarSrc = profile?.avatarUrl ? `${apiBaseUrl()}${profile.avatarUrl}` : null;
+  const avatarUrl = profile?.avatarUrl ? `${apiBaseUrl()}${profile.avatarUrl}` : null;
+  const { src: avatarSrc } = useAuthedImageSrc(avatarUrl);
 
   return (
     <div className="flex flex-col gap-6 pt-3">
       <StateShell
         state={state}
         skeletonRows={4}
-        errors={{ name: "组织名称不能为空", description: `简介不能超过 ${DESCRIPTION_MAX} 字` }}
+        errors={invalidFields}
         depFailure={{ what: failureMessage ?? "组织资料服务暂时不可用", retry: load }}
         denial={{ layer: "organization", reason: "组织资料编辑仅组织管理员可进；你在本组织不是管理员。" }}
         successMessage="已保存"
@@ -461,6 +524,11 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
                 {avatarUploading ? "上传中…" : "更换头像"}
               </Button>
               <p className="text-10 text-muted-foreground">PNG / JPEG / WebP，最大 5MB。</p>
+              {avatarSavedNotice && (
+                <p role="status" data-testid="org-admin-avatar-saved" className="text-10 text-success">
+                  已上传
+                </p>
+              )}
               {avatarError && (
                 <p role="alert" data-testid="org-admin-avatar-error" className="text-10 text-destructive">
                   {avatarError}

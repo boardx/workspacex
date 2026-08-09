@@ -61,6 +61,14 @@ export interface SessionContextValue {
    * reload / 重新登录时会走 `resolveIdentity` 的真实读路径，跟这条本地更新互相印证。
    */
   updateDisplayName(displayName: string): void;
+  /**
+   * 组织资料页保存成功后，用响应里如实回传的 `name` 本地立刻刷新——同
+   * `updateDisplayName` 的道理：不等下一次 `resolveIdentity`/`retry()`，否则顶栏
+   * 切换器和当前组织标题会在保存成功的那一刻仍然显示旧名，要刷新整页才同步
+   * （同一个事实两处显示不一致）。同时更新 `organizations` 字典（切换器用它）
+   * 和 `identity.org.name`（页面标题类展示用它），两处都是这份名字的读点。
+   */
+  updateOrgName(orgId: string, name: string): void;
 }
 
 const SessionContext = React.createContext<SessionContextValue | null>(null);
@@ -360,6 +368,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setIdentity((prev) => (prev ? { ...prev, displayName } : prev));
   }, []);
 
+  const updateOrgName = React.useCallback((orgId: string, name: string) => {
+    mergeOrgNames([[orgId, name]]);
+    setIdentity((prev) => (prev && prev.org.id === orgId ? { ...prev, org: { ...prev.org, name } } : prev));
+  }, [mergeOrgNames]);
+
   const organizations = React.useMemo<readonly OrganizationSummary[]>(() => {
     if (!session) return [];
     return session.orgIds.map((id) => {
@@ -372,10 +385,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<SessionContextValue>(() => ({
     status, session, identity, organizations, error,
-    startSession, switchOrganization, retry, logout, updateDisplayName,
+    startSession, switchOrganization, retry, logout, updateDisplayName, updateOrgName,
   }), [
     error, identity, logout, organizations, retry, session, startSession, status,
-    switchOrganization, updateDisplayName,
+    switchOrganization, updateDisplayName, updateOrgName,
   ]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

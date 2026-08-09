@@ -74,11 +74,21 @@ export class PgOrgProfileRepository implements OrgProfileRepository {
         email: string;
         status: string;
         invited_by: string;
+        invited_by_display_name: string | null;
         created_at: Date;
         latest_token_expires_at: Date | null;
       }>(
-        `SELECT oi.id, oi.email, oi.status, oi.invited_by, oi.created_at, t.expires_at AS latest_token_expires_at
+        /**
+         * 2026-08-09 复核（D 类，可用性）：`invited_by` 原样是 `oi.invited_by`（裸
+         * user id）——邀请列表每一行渲染出「由 u-a3f86b... 邀请」，同 `app-shell.tsx`
+         * 注释批评过的那类写法。JOIN `credentials` 换成真实姓名，同 `listMembers`
+         * 已有的先例（`c.display_name`）。LEFT JOIN 而非 JOIN：邀请人账号理论上可能
+         * 已不在 `credentials` 里（本仓无级联删除保证），此时退回裸 id 好过整行消失。
+         */
+        `SELECT oi.id, oi.email, oi.status, oi.invited_by, c.display_name AS invited_by_display_name,
+                oi.created_at, t.expires_at AS latest_token_expires_at
            FROM org_invites oi
+           LEFT JOIN credentials c ON c.user_id = oi.invited_by
            LEFT JOIN LATERAL (
              SELECT expires_at FROM org_invite_tokens
               WHERE invite_id = oi.id
@@ -93,7 +103,7 @@ export class PgOrgProfileRepository implements OrgProfileRepository {
         inviteId: r.id,
         email: r.email,
         status: r.status,
-        invitedBy: r.invited_by,
+        invitedBy: r.invited_by_display_name ?? r.invited_by,
         // OA11 ④：从未签发过令牌的邀请（如 awaiting-review）没有 org_invite_tokens 行，
         // 取 created_at + 既有的 7 天域常量作估计值，不新造第二份有效期数字。
         expiresAt: (

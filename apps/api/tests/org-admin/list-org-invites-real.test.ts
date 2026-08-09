@@ -86,7 +86,12 @@ describe("listOrgInvites", () => {
 
     const liveRow = out.invites.find((i) => i.inviteId === live.inviteId);
     const revokedRow = out.invites.find((i) => i.inviteId === toRevoke.inviteId);
-    expect(liveRow).toMatchObject({ email: "live@i363.test", status: "pending", invitedBy: ADMIN });
+    // 2026-08-09 复核（D 类）：`invitedBy` 现在是邀请人的真实姓名（join `credentials.
+    // display_name`），不是裸 user id——`app-shell.tsx` 已经在注释里批评过「拿裸 ID
+    // 冒充名称」那类写法，`listOrgInvites` 之前正是这个反例（`06-invites-admin.png`
+    // 每一行都写着「由 u-a3f86b... 邀请」）。这里用 `seedAdmin()` 里 `addCredential`
+    // 写入的真实姓名 "Admin" 断言，不是 ADMIN 这个 user id 常量。
+    expect(liveRow).toMatchObject({ email: "live@i363.test", status: "pending", invitedBy: "Admin" });
     expect(revokedRow?.status).toBe("revoked");
     expect(typeof liveRow?.expiresAt).toBe("string");
   });

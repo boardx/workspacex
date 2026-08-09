@@ -22,6 +22,12 @@ export interface OrgInviteListRow {
   readonly inviteId: string;
   readonly email: string;
   readonly status: string;
+  /**
+   * 邀请人的真实姓名（`credentials.display_name`），不是裸 user id——
+   * 契约字段仍叫 `invitedBy: string`（不新增字段，最小侵入），但值经过 join。
+   * 兜底：邀请人账号在 `credentials` 里查不到时（无级联删除保证）退回裸 id，
+   * 好过整行从列表消失。
+   */
   readonly invitedBy: string;
   readonly expiresAt: string;
 }

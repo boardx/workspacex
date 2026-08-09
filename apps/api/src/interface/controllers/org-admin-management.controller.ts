@@ -335,6 +335,23 @@ export class OrgAdminManagementController {
       contentType,
     });
     if (!parsed.success) {
+      /**
+       * D4（2026-08-09 复核）：`sizeBytes`/`contentType` 的元数据校验发生在
+       * `readRawBody`/用例的真实字节校验**之前**——一个超过 5MB 的声明值会在这里
+       * 被 zod 拦下，落成一个裸 400 `{ fields: [...] }`，用例里 `OrgAdminError
+       * ("FILE_TOO_LARGE")` 那条分支根本没机会跑，前端对应的 `FILE_TOO_LARGE`
+       * 文案分支因此变成死代码，用户只看到「上传失败：400」。
+       *
+       * ⇒ 元数据层判定出的「太大/格式不对」，走同一条 `toHttpException` 改写成
+       * 用例真实拒绝时会给的那个响应形状（reasonCode + 413/415），而不是自成一套
+       * 没有 reasonCode 的 400——同一个业务失败只应该有一种响应形状，不分「元数据
+       * 层截住的」和「用例层截住的」两种。其余字段的校验失败（`filename`/`sha256`/
+       * `orgId` 缺失或不合法）不是这两个已知业务码能表达的情况，维持原样 400。
+       */
+      const sizeTooBig = parsed.error.issues.some((i) => i.path.join(".") === "sizeBytes");
+      if (sizeTooBig) throw toHttpException(new OrgAdminError("FILE_TOO_LARGE"));
+      const badContentType = parsed.error.issues.some((i) => i.path.join(".") === "contentType");
+      if (badContentType) throw toHttpException(new OrgAdminError("UNSUPPORTED_CONTENT_TYPE"));
       throw new HttpException(
         { fields: parsed.error.issues.map((i) => ({ path: i.path.join(".") || "(root)", code: i.code })) },
         HttpStatus.BAD_REQUEST,
@@ -363,8 +380,22 @@ export class OrgAdminManagementController {
 
   /**
    * 头像字节服务。**不是契约操作**——`uploadOrgAvatar`/`updateOrganization` 返回的
-   * `avatarUrl` 指向这条路由，供 `<img>` 直接引用。任何组织成员可读（与查看头像
-   * 本身的敏感度一致，同 `listOrgMembers` 的开放程度）。
+   * `avatarUrl` 指向这条路由。
+   *
+   * ⚠ 2026-08-09 复核核实过一次「注释说任何成员可读，代码却调用 requireAdminRole，
+   * 是不是不一致」——不是。`requireAdminRole` 这个方法名具误导性：它只在调用方
+   * 读了返回值里的 `orgRole` 并自己拿去判断时才构成"仅 admin"（`uploadAvatar`/
+   * `updateOrganization` 都是这么用的）；这里和 `listOrgMembers`（`orgId` 之外的
+   * `orgRole` 未被使用）一样，只借它做**membership** 校验——非本组织成员会拿到
+   * `NO_ORG_MEMBERSHIP` 403，本组织的非 admin 成员能读到。这与 contract.md §2
+   * 的原则一致（listOrgMembers/listOrgInvites 一类"看到组织里有什么"不是敏感操作，
+   * 比它更敏感的操作才收紧到 admin）——头像展示的敏感度不高于成员名单，理应同一
+   * 开放程度，任何组织成员可读是这里**故意**的行为，不是漏改。
+   *
+   * 真正的门是 Guard 本身：未鉴权（拿不出合法 `Authorization: Bearer` 的调用）会在
+   * 到达这个方法之前就被拒——裸 `<img src>` 发不出这个头，是 D9 那个 401/裂图的
+   * 根因，前端侧的修法见 `apps/web/components/org-admin/org-admin-screen.tsx` 的
+   * `useAuthedImageSrc`。
    */
   @Get("/organizations/:orgId/avatar-file/:avatarArtifactId")
   @Header("Cache-Control", "private, max-age=300")
