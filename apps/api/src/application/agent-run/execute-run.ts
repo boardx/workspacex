@@ -250,13 +250,25 @@ async function executeClaimed(
   // the two preceding are the run's own acceptance steps), so this is a constant again.
   const seqCursor = { value: 3 };
   try {
-    if (deps.model.completeWithProgress) {
+    // #798: `completeWithProgress`'s presence alone used to be the gate, but a router-shaped
+    // port (`RoutingModelCallPort`) exposes that method as soon as ANY registered provider
+    // needs it -- not only for runs pinned to THAT provider. `supportsProgress`, when the
+    // port implements it, narrows the gate to this run's own pinned provider; a port that
+    // doesn't implement `supportsProgress` (every single-provider port and test fake) keeps
+    // the old behaviour exactly, since presence alone was always accurate for those.
+    // Bound so calling it below (unattached from `deps.model.completeWithProgress`'s own
+    // property access) still runs with the right `this` -- `RoutingModelCallPort`'s
+    // implementation calls `this.resolve(...)` internally.
+    const completeWithProgress = deps.model.completeWithProgress?.bind(deps.model);
+    const wantsProgress = completeWithProgress !== undefined
+      && (deps.model.supportsProgress ? deps.model.supportsProgress(run.modelProvider) : true);
+    if (wantsProgress && completeWithProgress) {
       // #742: a provider whose run is a remote, multi-step planning loop (today:
       // `DeepAgentModelProvider`) reports intermediate steps as they happen -- the ONE
       // remaining alternative branch now that #741 retired the TS tool loop (see this
       // file's own header). See `ModelCallPort.completeWithProgress`'s own doc comment
       // for the contract.
-      const completion = await deps.model.completeWithProgress(
+      const completion = await completeWithProgress(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
           history,
