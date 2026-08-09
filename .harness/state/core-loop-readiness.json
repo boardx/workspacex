@@ -11,11 +11,30 @@
         "rev-e2e"
       ],
       "max": 10,
-      "score": null,
-      "scored_sha": null,
-      "scored_by": null,
-      "implemented_by": null,
-      "evidence": [],
+      "score": 6,
+      "scored_sha": "83a8040ab531462f7344aef5dc6bebfa8d2bda71",
+      "scored_by": "rev-e2e",
+      "implemented_by": "dev-chat-e2e",
+      "evidence": [
+        "https://github.com/boardx/workspacex/issues/814#issuecomment-5231837538",
+        "apps/web/e2e/core-loop.spec.ts",
+        "apps/web/e2e/core-loop-reset.setup.ts",
+        "apps/web/playwright.fullstack-smoke.config.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/app/project/live/page.tsx",
+        "apps/web/components/entry/consent-form.tsx",
+        "apps/api/src/interface/controllers/recording.controller.ts",
+        "apps/api/scripts/seed-fullstack-smoke.ts",
+        "apps/api/tests/skill/skill-review-gate.test.ts",
+        "apps/api/src/interface/controllers/skill-review.controller.ts",
+        "packages/contracts/src/agent-runtime.ts",
+        "apps/api/src/interface/controllers/project.controller.ts",
+        "apps/web/e2e/fullstack-smoke-fixture.ts",
+        "https://github.com/boardx/workspacex/issues/852",
+        "https://github.com/boardx/workspacex/issues/853",
+        "https://github.com/boardx/workspacex/issues/854",
+        "https://github.com/boardx/workspacex/issues/660"
+      ],
       "watch": [
         "apps/web/e2e/**",
         "apps/api/src/interface/**",
@@ -104,6 +123,9 @@
       ]
     }
   },
+  "_rev_e2e_track_r_20260809": "track R = 6/10，实测 origin/main `83a8040a`（rev-e2e，非自评）。取证方法按 #823 纪律逐维执行：以 grep 真实 controller / 契约 / **产品调用方** + `gh issue view` 核对 issue 当前状态为准，**未采用任何代码注释作为证据**——本轮实测确认注释两个方向都会骗人：既滞后于修复（旧文本说缺口还在），也滞后于遗留缺口（PR #825 把 fullstack-smoke-fixture.ts:121 改成「✅ 缺口已补」，而那只补了后端、界面零调用方）。R1-R6=1：`pnpm run verify:core-loop` 13 passed (55.9s)，R1 的空库硬证据是 core-loop-reset 打印的 {credentials:0,bootstrapConsumed:false}；注意 `core-loop-empty-db` 这个 project **只跑步骤 1**，R2-R10 由静态勘探判定。R7/R8/R10=0 **不是因为后端没做**，三条后端都已合并（#652 / #552+PR584 / #627+PR645），而是**界面那一半没人接**：R7 consent-form.tsx 仍 import @/lib/mock/entry 且 apps/web 零 setConsentDecision 调用方；R8 全仓 `INSERT INTO skill_reviewer_functions` 只有种子(seed-fullstack-smoke.ts)与单测两处，无任何任命路径 ⇒ 新组织 functionOf() 恒 null ⇒ skill 永远批不到「已启用」；R10 `createAgendaSegment` 在 apps/web 源码里唯一命中是 fixture 里的一句注释。R9=0：publish-decision 仅存在于 packages/contracts/src/agent-runtime.ts，apps/api/src 与 apps/web 零实现，#660 OPEN。三条同型于既有 #592「后端是真的，前端零生产路由」。详见 #814 评论。",
+  "_track_b_unscored_20260809": "track B 本轮**未评分**（G1 记 0），不是评了 0 分。原因：`chat-ux-acceptance-criteria.md` 的打分纪律逐字要求「必须用真实浏览器实际操作一遍，不能只看代码 diff」，而 devapp 需要登录，评分人（agent）被安全规则禁止代替人类把密码输入登录表单——该限制不因账号是测试账号、或密码已在指令中给出而解除。已用真实浏览器确认 https://devapp.boardx.us 停在登录页（未登录态）。解锁只需人类在浏览器里完成一次登录，rev-e2e 即可接着走完十项（重点验 PR #799 工具调用进度、PR #806 dashscope ASR；第 5 项还需麦克风权限，拿不到则照实记 0）。在那之前按标准照实记 0——不看代码 diff 硬给分，正是这份判据禁止的事。",
+  "_rev_e2e_blocking_issues_request_20260809": "rev-e2e 本轮新登记三条真实缺口 #854(R7) / #852(R8) / #853(R10)，均为「后端已补、界面零调用方」。按本文件约定 blocking_issues 由 coord-main 维护，故**未自行写入**该字段，在此登记请求：建议 tracks.R.blocking_issues 补入 854 / 852 / 853，否则它们不会出现在统一队列上，也就没有人会去做。",
   "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。",
   "_vd_vp_20260809": "V-D 1/10 · V-P 9/10 实测于 origin/main 6c48beea（rev-uiux，非自评），四道硬门 H1-H4 在 main 上首次全过：shots:chat-main 真栈跑通、verify:base 39/39 与 verify:chat-read 3 passed 均退出 0、9 张参照图 git log 全为 A 无 M。D 组仅 D1 得分（D2/D5 卡 #831 待实现的 role 字段；D3 徽标已实现但夹具无带徽标线程=取证缺口）；P 组 9/10 已达 #831 门槛，唯一失分的 P6 流式是 spec 等终态才截图、结构上拍不到，非功能缺失。此前记录 V-P=7@97a90440 在 squash 后不是 main 祖先，已被 G5 判 0，现以真实 main SHA 重评替换。详见 #814 评论。",
   "_correction_823": "track R 的 blocking_issues 曾含 #627/#552 —— 二者早已关闭且修复已合并（PR #645 / PR #584）。播种时把 core-loop.spec.ts 的注释当权威证据，而那些注释描述的是写它那一刻的世界。见 #823：判断产品路径是否存在，必须 grep 真实 controller/契约 + 核对 issue/PR 当前状态，不得以注释为准。"
