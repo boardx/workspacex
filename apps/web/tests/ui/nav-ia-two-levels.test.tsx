@@ -10,6 +10,9 @@
  *
  * §2 是反证套件：把改动还原（把 templates 放回一级「编排」）判定**必须红且点名**。
  *   没有 §2，§1 可能只是在恒真判定上空转。
+ *
+ * 2026-08-09（issue #801）追加第六项 `canvas`（画布）：人类核对确认画布同样判定为
+ * 后台二级模块，不占 STUDIO 一级——复用本文件已有的 `diffNavIa` 机械判定，不新起一份。
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -20,8 +23,11 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
 
 afterEach(() => cleanup());
 
-/** 原型判定为「后台模块」的五项（依据见 navigation.ts 底部 #593 长注 ①②③）。 */
-const MUST_BE_UNDER_ADMIN = ["templates", "skills", "agent-runtime", "org-admin", "asset-governance"];
+/**
+ * 判定为「后台模块」的六项（前五项依据见 navigation.ts 底部 #593 长注 ①②③；
+ * 第六项 `canvas` 依据见同文件顶部 2026-08-09 追记 / issue #801）。
+ */
+const MUST_BE_UNDER_ADMIN = ["templates", "skills", "agent-runtime", "org-admin", "asset-governance", "canvas"];
 
 /* ══════════════════ §1 真实结构断言 ══════════════════ */
 
