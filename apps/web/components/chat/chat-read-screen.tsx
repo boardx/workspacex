@@ -795,20 +795,6 @@ function ThreadDetail({
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
         <ThreadLiveStatusChip roster={roster} />
       </header>
-      {/*
-        #466 步骤 7：会话内录音。放在 skill 挂载之上、消息面板之上 ——
-        它是这条会话的采集入口，与「这场对话说了什么」同级，
-        不是消息流里的一条。`userId` 是 `trackPlan` 的 participant：
-        录的是谁的音轨，服务端据此判定授权矩阵，不能省。
-      */}
-      {bearer && userId ? (
-        <ChatRecordingPanel
-          threadId={detail.thread.id}
-          projectId={projectId}
-          userId={userId}
-          bearer={bearer}
-        />
-      ) : null}
       {bearer && currentOrgId ? (
         <ChatSkillMountPanel
           threadId={detail.thread.id}
@@ -824,6 +810,20 @@ function ThreadDetail({
           agents={roster?.agents ?? null}
           archived={detail.thread.archived}
           onArtifactLanded={onArtifactLanded}
+          /*
+            #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
+            「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是
+            `trackPlan` 的 participant：录的是谁的音轨，服务端据此判定
+            授权矩阵，不能省——这条纪律没有变，只是挂载点换了。
+          */
+          aboveComposer={bearer && userId ? (
+            <ChatRecordingPanel
+              threadId={detail.thread.id}
+              projectId={projectId}
+              userId={userId}
+              bearer={bearer}
+            />
+          ) : null}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>

@@ -62,6 +62,7 @@ export function ChatLiveMessagePanel({
   agents,
   archived,
   onArtifactLanded,
+  aboveComposer,
 }: {
   threadId: string;
   bearer: string;
@@ -73,6 +74,17 @@ export function ChatLiveMessagePanel({
    * `listThreadArtifacts` 的服务端响应，这里不在本组件内维护第二份产物计数。
    */
   onArtifactLanded?: () => void;
+  /**
+   * #728 D10 —— 「进行中」状态卡（录音/agent 跑批）的挂载点，紧贴在输入框
+   * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
+   *
+   * ⚠ 这是纯粹的**位置**改动，不是把 `ChatRecordingPanel` 重写成条件渲染：
+   *   `core-loop.spec.ts:533`（发布门）直接点 `chat-live-recording-start`，
+   *   说明录音面板必须**始终挂载、始终可点**——把它做成「只在录音中才出现」
+   *   会让这个发布门的用例在页面刚加载时就点不到那个按钮。组件本身、
+   *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
+   */
+  aboveComposer?: React.ReactNode;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -524,6 +536,7 @@ export function ChatLiveMessagePanel({
         ) : null}
       </div>
 
+      {aboveComposer}
       <div className="border-t border-border p-3" data-testid="chat-composer">
         {archived ? (
           <p className="mb-2 text-12 text-muted-foreground" data-testid="chat-composer-archived">
