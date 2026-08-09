@@ -39,8 +39,7 @@ apps/*、packages/*             .harness/instructions/    phases/phase-NN/
   权威）。
 
 > ⚠ 下面 plan/act/observe、工具注册、记忆层三节的代码示例是**通用参考模式（伪代码）**，
-> 不对应本仓任何真实存在的 npm 包——`packages/agent-core`、`packages/memory`、
-> `packages/tools`、`apps/orchestrator` 目前都不存在于本仓（实测 `ls apps/ packages/`）。
+> 不对应本仓任何真实存在的 npm 包——`packages/agent-core`、`packages/memory`、`packages/tools`、`apps/orchestrator` 目前都不存在于本仓（实测 `ls apps/ packages/`）。<!-- skill-doctor:ignore：这四个包名是刻意举的反例，标注它们不存在正是这段话的重点 -->
 > 照抄 import 会直接失败。要接本仓真实的 agent 运行时代码，去
 > `apps/api/src/application/{agent,agent-run,agent-skill-pins,agent-import,skill,skill-import,mcp,model,context-pack,provenance}`，
 > 代码地图与契约详见 `.agents/skills/mod-agent-skill-runtime/SKILL.md`。下面的模式仅供

@@ -28,6 +28,7 @@ import { roleAuthorizationDoctor } from "./role-authorization-doctor";
 import { taskAssignmentDoctor } from "./task-assignment-doctor";
 import { workflowEventDoctor } from "./workflow-event-doctor";
 import { reviewDecisionDoctor } from "./review-decision-doctor";
+import { skillsDoctor } from "./skills-doctor";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -154,6 +155,16 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       break;
     }
+    case "skills": {
+      // skill 深度升级 backlog 第 2 轮：把"可维护性"最弱这条自评结论落成机械检查。
+      // 同 "templates"/"terminology" 的子命令路由风格。
+      const sub = args._[0];
+      const subArgs = { ...args, _: args._.slice(1) };
+      if (sub === "doctor") { skillsDoctor(subArgs); break; }
+      log.err(`未知子命令 "skills ${sub ?? ""}"。可用：doctor`);
+      process.exitCode = 1;
+      break;
+    }
     case "cycle-report":   await cycleReport(args); break;
     case "tick":           await tick(args); break;
     case "lock-status":    await lockStatus(args); break;
@@ -209,6 +220,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness task-assignment doctor                    # PROP-HARNESS-AGENT-001 H3A-030/031/032：Task Assignment schema + Root→Domain/Domain→Worker gate 体检（Epic E3）");
       log.info("  pnpm harness workflow-event doctor                     # PROP-HARNESS-AGENT-001 H3A-033：Workflow Event envelope schema 体检（Epic E3）");
       log.info("  pnpm harness review-decision doctor                    # PROP-HARNESS-AGENT-001 H3A-036：Review Decision schema + reviewer≠producer 体检（Epic E3）");
+      log.info("  pnpm harness skills doctor                             # skill 深度升级 backlog 第 2 轮：检查 SKILL.md 引用的仓库路径是否仍然存在");
       log.info("  pnpm harness readiness [--strict]                      # #814 核心闭环就绪度 CLR = min(可达性, 体验均值) + 统一队列");
       process.exit(cmd ? 1 : 0);
   }

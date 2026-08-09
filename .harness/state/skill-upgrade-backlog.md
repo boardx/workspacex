@@ -196,3 +196,24 @@
   （SOP 2 / 能力清单 2 / 架构知识 2 / 领域知识 2 / 可维护性 1.2，因补了
   VENDOR.md 同步义务这一具体机械动作而非纯叙事）。批次共同最弱维度仍是
   **可维护性**，与前四批结论一致。
+
+- 第 2 轮 / 2026-08-09 / 全部 24 个 skill / 针对第 1 轮共同打出的最低分维度
+  "可维护性"（新增知识性内容只靠软性回流约定，没有机械新鲜度检查）做了一次
+  真正的机械化：新增 `pnpm harness skills doctor`（`.harness/scripts/skills-doctor.ts`
+  + 纯函数判定逻辑 `.harness/scripts/lib/skill-doctor-model.ts`，13 条单测），
+  扫描全部 SKILL.md 里反引号包住的仓库路径引用（含花括号列表的笛卡尔积展开），
+  核实是否仍然存在。首次运行揪出 25 条失效引用，逐条排查后分两类处理：
+  4 处是本仓从未存在过的教学用反例包名（`packages/agent-core` 等，标注
+  `skill-doctor:ignore` 保留，因为"指出它不存在"正是那段话的重点）+ 1 处是
+  coord-protocol 已知文档缺口（同样标注 ignore）+ 18 处是模板占位符
+  （`phases/<phase>/...` 这类，改进提取器直接过滤，不需要逐条标注）；
+  剩余 2 处是真实内容漂移（`mod-research-studio` 代码地图把 research/templates
+  按统一三层描述，实测 research 只有 domain 层、templates 没有 infrastructure
+  层）+ 1 处历史路径过期（`module-coordinator` 提到的一个具体页面路径已随
+  重构不存在，改写为不依赖具体路径的通用描述）+ 1 处路径写错位置
+  （`harness-auditor` 把 `feature_list.json` 错放进 `.harness/state/`，实际
+  权威在 `phases/<phase>/`）——这 4 处才是"可维护性"薄弱这个自评结论的真实
+  证据，现在已修正且有回归检查兜底。最终 `skills doctor` 对 25 个 skill、
+  151 条路径引用跑绿（exit 0）。`pnpm harness skills doctor` 未覆盖"引用内容
+  是否仍然准确"（只查路径存在性）与"PR 号/commit hash 是否仍有效"，如实标注
+  在命令输出里，留给未来需要时再机械化。

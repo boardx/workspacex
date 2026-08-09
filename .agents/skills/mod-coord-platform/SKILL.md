@@ -29,7 +29,8 @@ PlatformDirectory、机械决策引擎 CoordBrain、事件→GitHub status 的�
   派工 / PR 超时催办 / stale 租约回收 / andon 冻结；零 IO，输入=状态快照）
 - 反向投影：`packages/coord-projection`（事件流 → GitHub check/status）
 - 协议原语：`packages/coord-protocol`（Lease/Evidence/Events+Andon 的类型与运行时校验，
-  参考实现，规格见 `docs/coord-platform/protocol/`）
+  参考实现；代码注释自称规格权威在一个实测不存在的目录——见下方"已知文档
+  缺口"，目前 `types.ts`/`validate.ts` 本身才是唯一可信来源）
 - 客户端契约：`docs/coordination-protocol.md`（另见 `.harness/instructions/project/PROJECT.md`
   里的"协调服务"一节）
 
@@ -38,9 +39,10 @@ PlatformDirectory、机械决策引擎 CoordBrain、事件→GitHub status 的�
   `packages/coord-protocol/src/{types.ts,validate.ts}`，其余四处消费方跟着改，
   不许各自诠释一套。
 - ⚠ **已知文档缺口**：`coord-protocol/src/types.ts` 的注释自称规格权威在
-  `docs/coord-platform/protocol/`，但实测该目录**当前不存在**——协议的唯一
-  可信来源目前实际上就是 `types.ts`/`validate.ts` 本身。发现这个缺口的人
-  应该补一份该文档或改注释指向真实位置，不要假装文档存在去引用它。
+  `docs/coord-platform/protocol/`<!-- skill-doctor:ignore：这里就是在指出这个路径不存在，不是声称它存在 -->，
+  但实测该目录**当前不存在**——协议的唯一可信来源目前实际上就是
+  `types.ts`/`validate.ts` 本身。发现这个缺口的人应该补一份该文档或改注释
+  指向真实位置，不要假装文档存在去引用它。
 - <RepoHub 的原子性假设——并发租约场景下不能破坏，待核实具体实现>
 - <CoordBrain 必须保持零 IO 纯函数，任何 IO 需求都应下沉到调用方，不要在这个包里加>
 - <未接线协调服务时的降级路径：`pnpm harness tick` 只读时钟模式，改动不能破坏这条退路>
