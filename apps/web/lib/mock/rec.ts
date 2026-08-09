@@ -78,18 +78,44 @@ export function resolveCarrier(raw: string | string[] | undefined): Carrier {
  * 预览视角（UC-5.1/5.2 R5 列了多角色，每个都要能预览）。
  * ⚠ 视角切换是**预览手段**，真实权限在服务端（NestJS Guard + PostgreSQL RLS）。
  * 「受访者」是场景身份（UC-6.3 一次性令牌），此处作预览视角，只看自己的授权与撤回。
+ *
+ * ⚠ 视角**词表按载体切换**（原型证据：访谈区 15,957,673 起「主持人/联合主持/观察员/受访者」，
+ * `引导师`/`组长` 全文首现都在工作坊区 15,186,246）。v1 把工作坊四角色词表套用到全部载体，
+ * 导致「访谈现场 × 引导师」这种原型里不存在的组合，且与同屏「项目角色不适用」badge 自相矛盾。
+ * id 空间保持不变（`canWriteRec`/`isReadOnlyRec` 等权限判断按 id，不按 label）；
+ * 变的只是**展示词表**——同一个 id 在不同载体下显示不同名字。
  */
 export type RecView = "facilitator" | "groupLead" | "member" | "observer" | "interviewee";
-export const REC_VIEWS: { id: RecView; label: string; note: string }[] = [
-  { id: "facilitator", label: "引导师", note: "可发起、指派、标引述、确认 AI 打点" },
-  { id: "groupLead", label: "组长", note: "被授权范围内参与，看与自身角色相关结果" },
-  { id: "member", label: "组员", note: "参与本组，看本组转录；跨组不可见" },
-  { id: "observer", label: "观察者", note: "仅已发布且授权允许时只读脱敏结果" },
-  { id: "interviewee", label: "受访者", note: "只看自己的授权与撤回，看不到项目内部材料" },
-];
+const REC_VIEW_IDS: RecView[] = ["facilitator", "groupLead", "member", "observer", "interviewee"];
+
+export const REC_VIEWS_BY_CARRIER: Record<Carrier, { id: RecView; label: string; note: string }[]> = {
+  workshop: [
+    { id: "facilitator", label: "引导师", note: "可发起、指派、标引述、确认 AI 打点" },
+    { id: "groupLead", label: "组长", note: "被授权范围内参与，看与自身角色相关结果" },
+    { id: "member", label: "组员", note: "参与本组，看本组转录；跨组不可见" },
+    { id: "observer", label: "观察者", note: "仅已发布且授权允许时只读脱敏结果" },
+  ],
+  interview: [
+    { id: "facilitator", label: "主持人", note: "可发起、指派、标引述、确认 AI 打点" },
+    { id: "groupLead", label: "联合主持", note: "被授权范围内参与，协助主持人推进访谈" },
+    { id: "observer", label: "观察员", note: "仅已发布且授权允许时只读脱敏结果" },
+    { id: "interviewee", label: "受访者", note: "只看自己的授权与撤回，看不到项目内部材料" },
+  ],
+  thread: [
+    { id: "facilitator", label: "引导师", note: "可发起、指派、标引述、确认 AI 打点" },
+    { id: "groupLead", label: "组长", note: "被授权范围内参与，看与自身角色相关结果" },
+    { id: "member", label: "组员", note: "参与本组，看本组转录；跨组不可见" },
+    { id: "observer", label: "观察者", note: "仅已发布且授权允许时只读脱敏结果" },
+  ],
+};
 export function resolveRecView(raw: string | string[] | undefined): RecView {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return REC_VIEWS.some((r) => r.id === v) ? (v as RecView) : "facilitator";
+  return REC_VIEW_IDS.includes(v as RecView) ? (v as RecView) : "facilitator";
+}
+/** 展示词表按载体取；未收录该 id（如 interview 载体下取 member）时回退到该载体首位视角的 label。 */
+export function recViewLabel(id: RecView, carrier: Carrier): { label: string; note: string } {
+  const list = REC_VIEWS_BY_CARRIER[carrier];
+  return list.find((r) => r.id === id) ?? list[0] ?? { label: "", note: "" };
 }
 export function canWriteRec(v: RecView): boolean {
   return v === "facilitator";
@@ -481,6 +507,34 @@ export const CONSENT_RENDER = {
   /** 渲染变量缺失时不得发出授权链接（E6）*/
   requiredVars: ["材料保留期", "数据控制方", "联系人", "合规邮箱"],
 };
+
+/**
+ * 受访者同意 · 四项自选（原型 16392000–16398000「外部受访者·同意与撤回」）。
+ *
+ * v1 缺失点：受访者视角只渲染了 `liveTemplate` 这一句录音授权，四项自选、署名项全部塌没了。
+ * 与 `rec-prep.tsx` 的逐人×三项授权矩阵同源——这里是**受访者自己那一侧**看到的同一份授权
+ * （示例沿用同一位受访者 Weber：拒绝 AI 分析、拒绝实名），不是另建一套判断口径。
+ * ⚠ 撤回后果不在此文件里另写一份——单一事实源是 `lib/withdrawal-flow.ts`（见该文件头注）。
+ */
+export type ConsentItemId = "record" | "transcript" | "aiAnalysis" | "realname";
+export function consentItemsFor(days: number): {
+  id: ConsentItemId; label: string; desc: string; granted: boolean;
+}[] {
+  return [
+    { id: "record", label: "录音", desc: `只在这场访谈中录，${days} 天后自动删除。`, granted: true },
+    { id: "transcript", label: "转成文字稿", desc: "你可以要一份自己的副本。", granted: true },
+    {
+      id: "aiAnalysis", label: "交给 AI 做分析",
+      desc: "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+      granted: false,
+    },
+    {
+      id: "realname", label: "在报告中署我的姓名与职务",
+      desc: "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+      granted: false,
+    },
+  ];
+}
 
 export function formatBytes(n: number): string {
   if (n === 0) return "生成中";

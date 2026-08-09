@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  ShieldX, FileClock, Ban, Lock, AlertTriangle, ScrollText, Trash2, Check, ArrowLeft, Info,
+  ShieldX, FileClock, Ban, Lock, AlertTriangle, ScrollText, Trash2, Check, ArrowLeft, Info, Undo2, FileWarning, UserCog,
 } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -13,9 +13,11 @@ import { Toggle } from "@/components/ui/toggle";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
-  RETENTION_PARAM, MATERIALS, CONSENT_RENDER, formatBytes, isReadOnlyRec, canWriteRec,
+  RETENTION_PARAM, MATERIALS, CONSENT_RENDER, consentItemsFor, formatBytes, isReadOnlyRec, canWriteRec,
   type RecView, type MaterialRow,
 } from "@/lib/mock/rec";
+// ⚠ 撤回五步 SLA 单一事实源——不在此文件另写一份（`lib/withdrawal-flow.ts` 头注有收敛记录）。
+import { WITHDRAWAL_FLOW, WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
 
 const SOURCE_LABEL: Record<MaterialRow["source"], string> = {
   interview: "访谈", workshop: "工作坊", conversation: "对话线程",
@@ -196,15 +198,42 @@ function MaterialRowView({ m, canWrite }: { m: MaterialRow; canWrite: boolean })
   );
 }
 
-/* ── 受访者视角：只看自己的授权告知 ─────────────────────────────── */
+/* ── 受访者视角：只看自己的授权告知（原型 16392000「外部受访者·同意与撤回」）───── */
 
 function IntervieweeConsentView({ eff }: { eff: number }) {
+  const items = consentItemsFor(eff);
+  const [withdrawing, setWithdrawing] = React.useState(false);
+
   return (
     <div className="flex flex-col gap-4 p-4" data-testid="rec-interviewee-consent">
       <header className="flex flex-col gap-1">
         <h1 className="text-18 font-semibold tracking-tight">你的授权告知</h1>
-        <p className="text-11 text-muted-foreground">你只能看到自己的授权与告知文案，看不到项目内部材料或其他受访者的数据。</p>
+        <p className="text-11 text-muted-foreground">
+          被记录的人，自己也要有一块屏。你只能看到自己的授权与告知文案，看不到项目内部材料或其他受访者的数据。
+        </p>
       </header>
+
+      {/* 四项自选 —— 与准备室逐人×三项授权矩阵同源（录音/转录/AI 分析）+ 署名项 */}
+      <div className="flex flex-col gap-2" data-testid="rec-interviewee-consent-items">
+        <p className="text-12 font-semibold">你已授权的项目（按项分别决定，不强制全场统一）</p>
+        {items.map((it) => (
+          <div
+            key={it.id}
+            data-testid={`rec-interviewee-consent-item-${it.id}`}
+            className={cn("rounded-md border p-3", it.granted ? "border-border-subtle bg-card" : "border-warning/30 bg-warning/5")}
+          >
+            <Checkbox
+              checked={it.granted}
+              disabled
+              onChange={() => {}}
+              data-testid={`rec-interviewee-consent-check-${it.id}`}
+              label={<span className="flex items-center gap-2">{it.label}{!it.granted && <Badge tone="warning">你已拒绝</Badge>}</span>}
+              description={it.desc}
+            />
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-col gap-1.5 rounded-md border border-border bg-muted p-3">
         <p className="text-12 font-medium">录音授权（当前项目文案）</p>
         <p className="text-11 text-muted-foreground" data-testid="rec-interviewee-consent-text">{CONSENT_RENDER.liveTemplate(eff)}</p>
@@ -214,6 +243,43 @@ function IntervieweeConsentView({ eff }: { eff: number }) {
         <p className="text-10 text-muted-foreground">{CONSENT_RENDER.submittedSnapshot.text}</p>
         <p className="text-9 text-muted-foreground">提交于 {CONSENT_RENDER.submittedSnapshot.submittedAt}；即便项目后来改了保留期，你当时看到的告知不变。</p>
       </div>
+
+      {/* 撤回之后会发生什么 —— 五步，单一事实源 lib/withdrawal-flow.ts */}
+      <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3" data-testid="rec-interviewee-withdraw">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-12 font-semibold">撤回之后会发生什么</p>
+          <span className="text-10 text-muted-foreground">{WITHDRAWAL_SLA_SUMMARY.sentence}</span>
+        </div>
+        {!withdrawing ? (
+          <Button size="sm" variant="outline" className="self-start" onClick={() => setWithdrawing(true)} data-testid="rec-interviewee-withdraw-open">
+            <Undo2 aria-hidden className="h-3.5 w-3.5" /> 查看撤回会发生什么
+          </Button>
+        ) : (
+          <ol className="flex flex-col gap-1.5" data-testid="rec-interviewee-withdraw-flow">
+            {WITHDRAWAL_FLOW.map((s) => (
+              <li
+                key={s.no}
+                data-testid={`rec-interviewee-withdraw-step-${s.no}`}
+                className={cn(
+                  "flex items-start gap-2.5 rounded-md border p-2.5",
+                  s.emphasis === "evidence" ? "border-warning/40 bg-warning/5"
+                    : s.emphasis === "human" ? "border-ai/30 bg-ai-tint"
+                      : "border-border-subtle bg-card",
+                )}
+              >
+                <span className="font-mono text-11 font-semibold text-muted-foreground">{s.no}</span>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  <span className="text-11">{s.step}</span>
+                  {s.emphasis === "evidence" && <Badge tone="warning"><FileWarning aria-hidden className="h-3 w-3" /> 标记不删除</Badge>}
+                  {s.emphasis === "human" && <Badge tone="ai"><UserCog aria-hidden className="h-3 w-3" /> 通知拍板人复核</Badge>}
+                </div>
+                <span className="shrink-0 text-10 text-muted-foreground">{s.sla}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
       <p className="text-10 text-muted-foreground">
         数据控制方：{RETENTION_PARAM.dataController} · 联系人 {RETENTION_PARAM.contact} · 合规邮箱 {RETENTION_PARAM.complianceEmail}
       </p>

@@ -8,7 +8,7 @@ import type { UiState } from "@/lib/ui-state";
 import type { Identity } from "@/lib/identity";
 import {
   REC_SCREENS, REC_SCREEN_LABEL, REC_SCREEN_UC, CARRIERS, CARRIER_LABEL,
-  REC_VIEWS, RIGHT_TABS,
+  REC_VIEWS_BY_CARRIER, RIGHT_TABS,
   type RecScreen, type Carrier, type RecView,
 } from "@/lib/mock/rec";
 import { RightRailNav } from "./right-rail";
@@ -155,8 +155,10 @@ function PreviewControls({
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1">
-        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">视角</span>
-        {REC_VIEWS.map((r) => (
+        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">
+          视角 · {CARRIER_LABEL[carrier]}词表
+        </span>
+        {REC_VIEWS_BY_CARRIER[carrier].map((r) => (
           <Button key={r.id} asChild size="xs" variant={currentAs === r.id ? "primary" : "ghost"} data-testid="rec-role-switch">
             <a href={href({ as: r.id })} title={r.note}>{r.label}</a>
           </Button>
