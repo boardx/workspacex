@@ -2,6 +2,7 @@
 import * as React from "react";
 import {
   Users, UserX, Send, QrCode, ClipboardList, BarChart3, Vote, Timer, ShieldCheck, Check, Copy,
+  FileWarning, AlertTriangle, Plus,
 } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -12,13 +13,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   SURVEY_QUESTIONS, QUESTION_TYPE_LABEL, RECOVERY, missingRoster, CROSS_SEGMENTS,
   MIN_INFERABLE_N, SURVEY_CONCLUSIONS, LIVE_VOTE, SURVEY_SESSION,
+  REPORT_TEMPLATE, mappedQuestions, qualityGateBlockers,
   canWriteSurvey, type SurveyView, type SurveyOption,
 } from "@/lib/mock/survey";
 
+/**
+ * 问卷工作台 · 三标签 `问卷设计 ｜ 报告模板 ｜ 回收与分析`（UC-12.1 R8，原型字节 16,193,522 起）
+ * + 本页额外的「现场投票」演示标签（见 UC-12.4 R7.1 的 IA 注记，`lib/mock/survey.ts` 顶部）。
+ */
 export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyView }) {
   const canWrite = canWriteSurvey(view);
   const missing = missingRoster();
   const pct = Math.round((RECOVERY.submitted / RECOVERY.rosterTotal) * 100);
+  const blockers = qualityGateBlockers();
 
   const [editing, setEditing] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
@@ -36,36 +43,58 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
   };
 
   const body = (
-    <Tabs defaultValue="recovery" className="flex flex-col gap-3" data-testid="survey-tabs">
+    <Tabs defaultValue="design" className="flex flex-col gap-3" data-testid="survey-tabs">
       <TabsList>
-        <TabsTrigger value="design" data-testid="survey-tab-design"><ClipboardList aria-hidden className="h-3.5 w-3.5" /> 设计</TabsTrigger>
-        <TabsTrigger value="recovery" data-testid="survey-tab-recovery"><Users aria-hidden className="h-3.5 w-3.5" /> 回收</TabsTrigger>
-        <TabsTrigger value="analysis" data-testid="survey-tab-analysis"><BarChart3 aria-hidden className="h-3.5 w-3.5" /> 分析</TabsTrigger>
+        <TabsTrigger value="design" data-testid="survey-tab-design"><ClipboardList aria-hidden className="h-3.5 w-3.5" /> 问卷设计</TabsTrigger>
+        <TabsTrigger value="report" data-testid="survey-tab-report"><FileWarning aria-hidden className="h-3.5 w-3.5" /> 报告模板{blockers.length > 0 && <Badge tone="warning" className="ml-1">{blockers.length}</Badge>}</TabsTrigger>
+        <TabsTrigger value="recovery" data-testid="survey-tab-recovery"><Users aria-hidden className="h-3.5 w-3.5" /> 回收与分析</TabsTrigger>
         <TabsTrigger value="vote" data-testid="survey-tab-vote"><Vote aria-hidden className="h-3.5 w-3.5" /> 现场投票</TabsTrigger>
       </TabsList>
 
-      {/* ── 设计：题目与逻辑（题型齐全）───────────────────────── */}
+      {/* ── 问卷设计：题干 + → 报告章节 映射标注 + 诱导性表述提示（UC-12.1 R7.5/R7.6）── */}
       <TabsContent value="design" className="flex flex-col gap-2" data-testid="survey-panel-design">
-        <p className="text-11 text-muted-foreground">题目与逻辑。单选 / 多选 / 五点量表 / 开放题，必填与跳转逻辑持续可见。</p>
-        {SURVEY_QUESTIONS.map((q) => (
-          <div key={q.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2.5" data-testid={`survey-design-${q.id}`}>
-            <div className="flex items-center gap-1.5">
-              <Badge tone="outline">{QUESTION_TYPE_LABEL[q.type]}</Badge>
-              <span className="text-12 font-medium">Q{q.no}</span>
+        <p className="text-11 text-muted-foreground">
+          题目 · {SURVEY_QUESTIONS.length}。每道题都带 <code>→ 报告章节</code> 映射；未映射的题标「未映射」，
+          诱导性表述在编辑期就地提示（发布期变为阻断，见「报告模板」标签）。
+        </p>
+        {SURVEY_QUESTIONS.map((q) => {
+          const section = REPORT_TEMPLATE.sections.find((s) => s.id === q.reportSectionId);
+          return (
+            <div key={q.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card p-2.5" data-testid={`survey-design-${q.id}`}>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge tone="outline">{QUESTION_TYPE_LABEL[q.type]}</Badge>
+                <span className="text-12 font-medium">Q{q.no}</span>
+                {section ? (
+                  <Badge tone="primary" data-testid={`survey-design-mapped-${q.id}`}>→ {section.label}</Badge>
+                ) : (
+                  <Badge tone="warning" data-testid={`survey-design-unmapped-${q.id}`}>未映射</Badge>
+                )}
+                {q.leadingIssue && (
+                  <Badge tone="danger" data-testid={`survey-design-leading-${q.id}`}>
+                    <AlertTriangle aria-hidden className="h-2.5 w-2.5" /> 诱导性表述
+                  </Badge>
+                )}
+              </div>
+              <p className="text-12">{q.text}</p>
+              {q.leadingIssue && (
+                <p className="text-10 text-destructive">{q.leadingIssue}</p>
+              )}
+              {q.options && (
+                <ul className="flex flex-col gap-0.5 pt-0.5">
+                  {q.options.map((o, i) => (
+                    <li key={i} className="text-10 text-muted-foreground">· {o.label}</li>
+                  ))}
+                </ul>
+              )}
+              {q.type === "open" && <p className="text-10 text-muted-foreground">开放题 · 自由文本，回收后抽样脱敏展示</p>}
             </div>
-            <p className="text-12">{q.text}</p>
-            {q.options && (
-              <ul className="flex flex-col gap-0.5 pt-0.5">
-                {q.options.map((o, i) => (
-                  <li key={i} className="text-10 text-muted-foreground">· {o.label}</li>
-                ))}
-              </ul>
-            )}
-            {q.type === "open" && <p className="text-10 text-muted-foreground">开放题 · 自由文本，回收后抽样脱敏展示</p>}
-          </div>
-        ))}
+          );
+        })}
         {canWrite && !editing && (
           <Button size="sm" variant="outline" className="self-start" onClick={() => setEditing(true)} data-testid="survey-design-edit">编辑题目与逻辑…</Button>
+        )}
+        {canWrite && (
+          <Button size="sm" variant="ghost" className="self-start" data-testid="survey-ai-add-question">叫 AI 帮我补充题目 →</Button>
         )}
         {canWrite && editing && (
           <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-accent p-3" data-testid="survey-design-editor">
@@ -86,12 +115,62 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
         )}
       </TabsContent>
 
-      {/* ── 回收：进度 9/12 + 名单（缺谁一目了然）─────────────── */}
+      {/* ── 报告模板：质量门禁双阻断 + 章节 ↔ 题目映射（UC-12.1 R7.5 / UC-12.2 R7.1 头号硬约束）── */}
+      <TabsContent value="report" className="flex flex-col gap-3" data-testid="survey-panel-report">
+        <div className="rounded-md border border-border bg-panel p-3">
+          <p className="text-12 font-medium">报告模板 · {REPORT_TEMPLATE.name}</p>
+          <p className="text-10 text-muted-foreground">
+            每个问卷发布前必须映射到一个报告模板 —— 没映射完的题不能发布。
+          </p>
+        </div>
+
+        {blockers.length > 0 ? (
+          <div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5" data-testid="survey-quality-gate">
+            <span className="text-11 font-semibold text-destructive">质量门禁 {blockers.length} 阻断 —— 修完才能发布</span>
+            <ul className="flex flex-col gap-0.5">
+              {blockers.map((b, i) => (
+                <li key={i} className="text-10 text-destructive" data-testid={`survey-gate-blocker-${i}`}>
+                  {b.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="rounded-md border border-primary/30 bg-accent p-2.5 text-11" data-testid="survey-quality-gate-clear">
+            质量门禁已清空，可发布。
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-11 font-medium">报告章节</span>
+          {REPORT_TEMPLATE.sections.map((sec) => {
+            const mapped = mappedQuestions(sec.id);
+            return (
+              <div key={sec.id} className="flex items-center justify-between rounded-md border border-border-subtle bg-card px-2.5 py-2" data-testid={`survey-report-section-${sec.id}`}>
+                <span className="text-11 font-medium">{sec.label}</span>
+                {mapped.length > 0 ? (
+                  <span className="text-10 text-primary">映射 {mapped.map((q) => `Q${q.no}`).join(" / ")}</span>
+                ) : (
+                  <Badge tone="danger" data-testid={`survey-report-gap-${sec.id}`}>{sec.missingField ?? "缺供料题目"}</Badge>
+                )}
+              </div>
+            );
+          })}
+          {canWrite && (
+            <Button size="xs" variant="outline" className="self-start" data-testid="survey-report-add-section">
+              <Plus aria-hidden className="h-3 w-3" /> 新增报告章节（会立刻新增一个待供料的阻断项）
+            </Button>
+          )}
+        </div>
+      </TabsContent>
+
+      {/* ── 回收与分析：进度 + 名单 + 原始分布 + 交叉切分 + AI 候选结论 ─────
+          （UC-12.1 R8：原型工作台第三个标签是「回收与分析」单一标签，不是两个）── */}
       <TabsContent value="recovery" className="flex flex-col gap-3" data-testid="survey-panel-recovery">
         <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3">
           <div className="flex items-center justify-between">
             <span className="text-13 font-semibold" data-testid="survey-recovery-count">
-              已回收 {RECOVERY.submitted}/{RECOVERY.rosterTotal}
+              回收中 · {RECOVERY.submitted} / {RECOVERY.rosterTotal}
             </span>
             <span className="text-11 text-muted-foreground">完成率 {pct}%</span>
           </div>
@@ -110,7 +189,7 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
                   {copied ? "已复制链接" : "分组链接 / 二维码"}
                 </Button>
                 <Button size="xs" variant="primary" data-testid="survey-remind" disabled={missing.length === 0}>
-                  <Send aria-hidden className="h-3 w-3" /> 按名单催填（缺 {missing.length}）
+                  <Send aria-hidden className="h-3 w-3" /> 催未交的 {missing.length} 人
                 </Button>
               </div>
               {copied && (
@@ -144,10 +223,7 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
             ))}
           </ul>
         </div>
-      </TabsContent>
 
-      {/* ── 分析：原始分布 + 交叉切分 + AI 候选结论 ────────────── */}
-      <TabsContent value="analysis" className="flex flex-col gap-3" data-testid="survey-panel-analysis">
         <div className="flex flex-col gap-2">
           <span className="text-11 font-medium">原始分布（结论点回这里）</span>
           {SURVEY_QUESTIONS.filter((q) => q.options).map((q) => (
@@ -215,6 +291,10 @@ export function SurveyWorkspace({ state, view }: { state: UiState; view: SurveyV
 
       {/* ── 现场投票：60 秒倒计时 + 分布 + 未投的人 ─────────────── */}
       <TabsContent value="vote" className="flex flex-col gap-3" data-testid="survey-panel-vote">
+        <p className="text-10 text-muted-foreground" data-testid="survey-vote-ia-note">
+          原型里现场投票的发起入口在项目「主持台 · 知识图谱派发」（`VT 全场投票` 卡片），
+          不是问卷工作台的独立功能；此处仅演示投票结果与问卷共享的匿名口径和分布组件。
+        </p>
         <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3">
           <div className="flex items-center justify-between">
             <span className="text-11 text-muted-foreground">从当前假设一键生成</span>

@@ -1,8 +1,16 @@
 /**
- * Studio · 问卷 的 mock 数据（UC-12.1 设计 / 12.2 发放回收 / 12.3 交叉分析 / 12.4 现场投票）
+ * Studio · 问卷 的 mock 数据（UC-12.1 新建问卷与模板 / 12.2 发放与回收 / 12.3 交叉分析 / 12.4 现场投票）
  *
- * ⚠ 纯数据模块，不带 `"use client"`。密度参照原型：回收进度 9/12、题型齐全、
- *    交叉分析含「样本量 < 8 不可推断」（UC-12.3 E1）。问卷结论进证据链后同样要可定位。
+ * ⚠ 纯数据模块，不带 `"use client"`。
+ *
+ * 保真度基线（2026-08-09 审计，`phases/requirements/12-survey` UC 文档已逐条标注字节偏移）：
+ * - 问卷状态**恰为四态**：`草稿 → 待发出 → 回收中 → 已截止`（UC-12.1 R7.2，原型列表筛选行
+ *   「全部 4 / 草稿 1 / 回收中 1 / 已截止 2」与四条实例逐个可证）。此前实现用的
+ *   `draft/collecting/analyzed/delivered` 不是这四态，已改正。
+ * - 问卷工作台**三个标签**：`问卷设计 ｜ 报告模板 ｜ 回收与分析`（原型字节 16,193,522 起）。
+ *   `报告模板` 标签是**质量门禁双阻断**（UC-12.2 R7.1）的载体：
+ *   题目侧 `→ 报告章节` 映射 + 章节侧供料/缺口，此前实现完全没有这一屏，已补齐。
+ * - 每份问卷带 **匿名 / 实名** 属性（创建后不可改，UC-12.1 R7.3），列表行常驻显示。
  */
 
 /* ── 视角（UC-12.2 R5）──────────────────────────────────────────── */
@@ -21,28 +29,90 @@ export function canWriteSurvey(view: SurveyView): boolean {
   return view === "researcher";
 }
 
-/* ── 问卷列表（左栏）─────────────────────────────────────────── */
-export type SurveyStatus = "draft" | "collecting" | "analyzed" | "delivered";
+/* ── 范围与标签（UC-12.1 R7.4：与研究/访谈/原型三个 Studio 共用同一套口径）──── */
+export type SurveyScope = "project" | "unassigned";
+export const SURVEY_SCOPES: { id: SurveyScope; label: string }[] = [
+  { id: "project", label: "本项目" },
+  { id: "unassigned", label: "不属于任何项目" },
+];
+
+export type SurveyTag = "all" | "client" | "internal" | "priority" | "archived";
+export const SURVEY_TAGS: { id: SurveyTag; label: string }[] = [
+  { id: "all", label: "全部标签" },
+  { id: "client", label: "客户" },
+  { id: "internal", label: "内部" },
+  { id: "priority", label: "高优先级" },
+  { id: "archived", label: "已归档" },
+];
+
+/* ── 问卷列表（左栏）── UC-12.1 R7.2：状态恰为四态，各态动作互斥 ──────── */
+export type SurveyStatus = "draft" | "pending_send" | "collecting" | "closed";
 export const SURVEY_STATUS_LABEL: Record<SurveyStatus, string> = {
-  draft: "草稿", collecting: "回收中", analyzed: "已分析", delivered: "已交付",
+  draft: "草稿", pending_send: "待发出", collecting: "回收中", closed: "已截止",
 };
+/** 各态唯一允许的主动作（UC-12.1 R7.2 表；服务端裁决，前端只呈现）*/
+export const SURVEY_STATUS_ACTION: Record<SurveyStatus, string> = {
+  draft: "继续编辑", pending_send: "改触发时机", collecting: "催未交的 N 人", closed: "复制为新问卷",
+};
+
+export type SurveyAnonymity = "匿名" | "实名";
 
 export interface SurveyListItem {
   id: string;
   title: string;
   status: SurveyStatus;
+  anonymity: SurveyAnonymity;
+  questionCount: number;
+  scope: SurveyScope;
+  tags: SurveyTag[];
+  /** 回收中/已截止：`34/48` 这类回收进度行 */
+  recovery?: { submitted: number; total: number; medianDuration?: string; insights?: number; dueDate?: string };
+  /** 待发出：触发时机说明（UC-12.2 R7.2）*/
+  triggerNote?: string;
+  /** 发出人/来源摘要 */
   meta: string;
   version: string;
 }
 
 export const SURVEY_LIST: SurveyListItem[] = [
-  { id: "sv-1", title: "采购决策链诊断问卷", status: "collecting", meta: "回收 9/12 · 3 组发放", version: "v4" },
-  { id: "sv-2", title: "储能方案偏好摸底", status: "analyzed", meta: "回收 41/45 · 3 条结论入库", version: "v2" },
-  { id: "sv-3", title: "现场收敛 · 路径投票", status: "draft", meta: "停在「题目与逻辑」", version: "v1（草稿）" },
-  { id: "sv-4", title: "客户满意度回访", status: "delivered", meta: "已交付 · 结论 5 · 被引用 8 次", version: "v3" },
+  {
+    id: "sv-1", title: "采购决策链诊断问卷", status: "collecting",
+    anonymity: "匿名", questionCount: 12, scope: "project", tags: ["client"],
+    recovery: { submitted: 9, total: 12, medianDuration: "6 分 40 秒", insights: 3, dueDate: "本周五" },
+    meta: "3 组发放 · 项目经理发出", version: "v4",
+  },
+  {
+    id: "sv-5", title: "会后反馈 · 现场节奏与产出", status: "pending_send",
+    anonymity: "实名", questionCount: 6, scope: "project", tags: ["internal"],
+    triggerNote: "绑定在环节 7 结束后触发，题目已定，尚未发出。预计 12 人 · 由 Echo 汇总",
+    meta: "会后自动发出", version: "v1",
+  },
+  {
+    id: "sv-3", title: "现场收敛 · 路径投票前摸底", status: "draft",
+    anonymity: "实名", questionCount: 5, scope: "project", tags: ["internal", "priority"],
+    meta: "停在「题目与逻辑」· 报告模板未绑定完整", version: "v1（草稿）",
+  },
+  {
+    id: "sv-2", title: "储能方案偏好摸底", status: "closed",
+    anonymity: "匿名", questionCount: 9, scope: "project", tags: ["client", "archived"],
+    recovery: { submitted: 41, total: 45, insights: 3 },
+    meta: "3 条洞察已入库", version: "v2",
+  },
+  {
+    id: "sv-4", title: "客户满意度回访", status: "closed",
+    anonymity: "实名", questionCount: 8, scope: "unassigned", tags: ["client", "archived"],
+    recovery: { submitted: 38, total: 40, insights: 5 },
+    meta: "已截止 · 报告已交付 · 结论被引用 8 次", version: "v3",
+  },
 ];
 
-/* ── 题目与结果汇总（12.1 / 12.2）──────────────────────────────── */
+export function surveyStatusCounts(): Record<SurveyStatus, number> {
+  const counts: Record<SurveyStatus, number> = { draft: 0, pending_send: 0, collecting: 0, closed: 0 };
+  for (const s of SURVEY_LIST) counts[s.status] += 1;
+  return counts;
+}
+
+/* ── 题目与结果汇总（12.1）──────────────────────────────────────── */
 export type QuestionType = "single" | "multi" | "scale" | "open";
 export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   single: "单选", multi: "多选", scale: "五点量表", open: "开放题",
@@ -61,11 +131,15 @@ export interface SurveyQuestion {
   scaleAvg?: number;
   /** 开放题抽样回答（脱敏）*/
   openSamples?: string[];
+  /** UC-12.1 R7.5：题目侧一等字段——供料的报告章节；null = 未映射（孤儿题，阻断项）*/
+  reportSectionId: string | null;
+  /** UC-12.1 R7.6 / UC-12.2 R7.1 阻断一：诱导性表述编辑期检测 */
+  leadingIssue?: string;
 }
 
 export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   {
-    id: "q-1", no: 1, type: "single", sampleN: 9,
+    id: "q-1", no: 1, type: "single", sampleN: 9, reportSectionId: "sec-blocker",
     text: "贵司储能采购推进中最大的障碍是？",
     options: [
       { label: "收益无人兜底 / 责任归属不清", count: 5 },
@@ -75,7 +149,7 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     ],
   },
   {
-    id: "q-2", no: 2, type: "multi", sampleN: 9,
+    id: "q-2", no: 2, type: "multi", sampleN: 9, reportSectionId: "sec-decision",
     text: "签约前必须解决的事项（可多选）？",
     options: [
       { label: "收益保底条款", count: 7 },
@@ -86,8 +160,9 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     ],
   },
   {
-    id: "q-3", no: 3, type: "scale", sampleN: 9, scaleAvg: 4.3,
-    text: "「本地落地案例」对说服董事会的重要程度（1–5）",
+    id: "q-3", no: 3, type: "scale", sampleN: 9, scaleAvg: 4.3, reportSectionId: null,
+    text: "「本地落地案例」对说服董事会来说是不是显然最重要的一环（1–5）？",
+    leadingIssue: "诱导性表述：题干预设了「显然最重要」，会引导受访者选高分，需改写为中性措辞",
     options: [
       { label: "1 · 不重要", count: 0 },
       { label: "2", count: 0 },
@@ -97,7 +172,7 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     ],
   },
   {
-    id: "q-4", no: 4, type: "open", sampleN: 9,
+    id: "q-4", no: 4, type: "open", sampleN: 9, reportSectionId: null,
     text: "关于采购，你最担心的一件事是什么？",
     openSamples: [
       "签完之后收益不达标，没人负责。",
@@ -107,6 +182,48 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
     ],
   },
 ];
+
+/* ── 报告模板 ↔ 题目双向映射（UC-12.1 R7.5 本用例核心结构 / UC-12.2 R7.1 头号硬约束）──
+ * 原型硬规则原文（字节 16,186,516 起）：
+ *   「每个问卷发布前必须映射到一个报告模板 —— 没映射完的题不能发布。」
+ * 章节侧未供料显示缺口（原型实例「按规模分群差异　缺分群字段」）。
+ */
+export interface ReportSection {
+  id: string;
+  label: string;
+  /** 未供料时的缺口描述；有供料题目时为空 */
+  missingField?: string;
+}
+
+export const REPORT_TEMPLATE = {
+  name: "客户体验诊断",
+  sections: [
+    { id: "sec-blocker", label: "阻碍分布" },
+    { id: "sec-decision", label: "决策链与否决点" },
+    { id: "sec-segment", label: "按规模分群差异", missingField: "缺分群字段" },
+  ] satisfies ReportSection[],
+};
+
+export function mappedQuestions(sectionId: string): SurveyQuestion[] {
+  return SURVEY_QUESTIONS.filter((q) => q.reportSectionId === sectionId);
+}
+
+/** 质量门禁双阻断（UC-12.2 R7.1）：阻断一 = 诱导性表述；阻断二 = 双向映射未完成（孤儿题 + 缺料章节）*/
+export function qualityGateBlockers(): { type: "leading_question" | "mapping_incomplete"; side?: "question" | "section"; label: string }[] {
+  const blockers: { type: "leading_question" | "mapping_incomplete"; side?: "question" | "section"; label: string }[] = [];
+  for (const q of SURVEY_QUESTIONS) {
+    if (q.leadingIssue) blockers.push({ type: "leading_question", label: `Q${q.no} 诱导性表述` });
+  }
+  for (const q of SURVEY_QUESTIONS) {
+    if (q.reportSectionId === null) blockers.push({ type: "mapping_incomplete", side: "question", label: `Q${q.no} 未映射到报告章节` });
+  }
+  for (const sec of REPORT_TEMPLATE.sections) {
+    if (mappedQuestions(sec.id).length === 0) {
+      blockers.push({ type: "mapping_incomplete", side: "section", label: `报告『${sec.label}』${sec.missingField ?? "缺供料题目"}` });
+    }
+  }
+  return blockers;
+}
 
 /* ── 回收进度与名单（12.2 AC1：回收数与名单能对上，缺谁一目了然）───── */
 export interface RosterEntry {
@@ -178,7 +295,13 @@ export const SURVEY_CONCLUSIONS: SurveyConclusion[] = [
   { id: "c-3", text: "法务口 100% 选「条款看不懂」，但 n=3 < 8，标为不可推断，仅作定性线索。", questionId: "q-1", sampleN: 3, machine: true, confirmed: false },
 ];
 
-/* ── 现场快速投票（12.4：60 秒倒计时；未投的人在哪个模块忙）─────── */
+/* ── 现场快速投票（12.4：60 秒倒计时；未投的人在哪个模块忙）─────────────
+ * ⚠ IA 提醒（UC-12.4 R7.1）：原型里现场投票是**主持台知识图谱派发链路**的一个工作类型
+ *   （`VT 全场投票` 卡片，与 DR/IT/UX/LG 并列，字节 15,295,586 一带），不是问卷工作台里的
+ *   一个独立标签。当前作为问卷工作台第 4 个标签展示，是为了在问卷模块内演示投票结果与
+ *   问卷体系共享的匿名口径与分布组件；真正的发起入口应落在主持台的图谱派发卡片上
+ *   （该链路不在本模块范围，见 2026-08-09 审计记录）。
+ */
 export const LIVE_VOTE = {
   fromHypothesis: "路径 B：先小规模试点、验证收益再放量",
   question: "是否采用「先试点后放量」作为主推路径？",
