@@ -219,3 +219,65 @@ export function findUnprovenActivePromotions(skills: readonly DomainSkillInstanc
   }
   return findings;
 }
+
+/* ═══════════════════════ H3A-017：Domain Skill 体积与渐进加载 gate ═══════════════════════ */
+
+/**
+ * 完成契约原文："SKILL 入口保持短，reference 按任务加载"——即 AGENTS.md 自己那句
+ * "这是目录页,不是百科全书"的同一条纪律，套用到 Domain Skill 的 SKILL.md 入口上。
+ *
+ * 阈值怎么定（同 role-authorization.ts `MAX_REASONABLE_TOOL_COUNT` 的"实测取一倍
+ * 余量"先例，不是拍脑袋）：
+ *
+ *   本仓库今天真实存在的 8 份"模块知识库" skill（`.agents/skills/mod-<name>/SKILL.md`，
+ *   AGENTS.md 称之为"模块活知识库"——概念上最贴近 Domain Skill，只是还没有挂
+ *   `template_id: TPL-MOD-001` frontmatter 变成正式实例）实测行数分布是 62～76 行
+ *   （`mod-_template` 脚手架本身 50 行，不计入，它是空壳不是内容样本）；而仓库里
+ *   另一类"全流程 SOP 型" skill（如 `coordinator`/`feature-implementer` 等）行数
+ *   普遍在 130～230 行——这类 skill 承担的是完整工作流程编排，不是 Domain Skill
+ *   要做的"目录页 + 按需加载细节"。
+ *
+ *   取真实模块知识库样本里观察到的最大值 76，按 role-authorization.ts 的"一倍余量"
+ *   惯例翻倍取整 → 150。150 给了模块知识库自然增长的空间（不会因为多写几条踩坑
+ *   经验就无端 WARN），但仍然显著低于"全流程 SOP 型" skill 的下限（130+），能筛出
+ *   那种把 SOP 全文、大段参考资料直接堆进入口文件、没有做渐进式披露的实例。
+ *
+ * 判 WARN 不判 FAIL：完成契约原文明确这是"预防性质"的门槛——今天全仓 0 个真实
+ * TPL-MOD-001 实例（H3A-002 inventory 已确认，同 H3A-013/014/015/016 的既有状态），
+ * 本 gate 加入后不会在今天的仓库产生任何 finding。即便未来出现第一个实例，"入口
+ * 文件偏长"本身也不是不可挽回的结构性问题（不像 H3A-013 的 duplicate、H3A-014 的
+ * 死引用那样是真实的不变量违反），FAIL 会在"渐进式披露"还没规范化之前误伤正常
+ * 迭代中的 Skill，WARN 足以提醒复核。
+ *
+ * 关于"reference 该放哪"——完成契约第 2 点要求的顺带检查（如实标注部分）：
+ * 全仓搜索 `.agents/skills/**`、`.harness/**`、`docs/**` 没有找到任何 `references/`
+ * 子目录、也没有任何既有 SKILL.md 用 `references/` 之类的路径写法指向拆分出去的
+ * 细节文件（H3A-016 完成时同样没有；这不是本条目漏搜，是这个约定今天确实不存在）。
+ * 完成契约原文允许"如果找不到明确的既有约定，如实标注这条检查做不到"——因此本文件
+ * 只实现行数上限一条判定，不做"体积超标是否配套 reference 目录"的检查。一旦仓库里
+ * 出现第一个明确的 reference 拆分约定（比如某条未来的 ADR 或先例文件确立了
+ * `references/` 目录结构），这条检查可以在那之后另开条目补上，不是本条目的范围。
+ */
+const MAX_REASONABLE_SKILL_ENTRY_LINES = 150;
+
+export function findEntrySizeIssues(
+  skills: readonly DomainSkillInstance[],
+  lineCounts: ReadonlyMap<string, number>,
+): GateFinding[] {
+  const findings: GateFinding[] = [];
+  for (const skill of skills) {
+    const lines = lineCounts.get(skill.sourceFile);
+    if (lines === undefined) continue; // 调用方没能读到文件内容——不假装知道行数，静默跳过
+    if (lines > MAX_REASONABLE_SKILL_ENTRY_LINES) {
+      findings.push({
+        code: "H3A017-SKILL-ENTRY-TOO-LONG",
+        severity: "WARN",
+        sourceFile: skill.sourceFile,
+        message:
+          `Domain Skill "${skill.skill_id}" 的入口文件 ${lines} 行（> ${MAX_REASONABLE_SKILL_ENTRY_LINES}）—— ` +
+          `SKILL 入口应保持精简，细节按任务拆到单独 reference 文件按需加载，不要全塞进入口文件`,
+      });
+    }
+  }
+  return findings;
+}
