@@ -697,7 +697,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // only, checked by `findOrgMembership` in all five `application/asset/*.ts` use cases
     // BEFORE this repository is ever reached; this PR changes only where `skill` bytes are
     // stored, not who may ask for them).
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(43);
+    //
+    // ⚠ Raised 43 -> 44 by #363 (org-profile-membership delta: listOrgMembers/listOrgInvites/
+    // updateOrganization/uploadOrgAvatar): new entry is
+    // `infrastructure/auth/pg-org-profile-repository.ts` -- see that entry's own paragraph in
+    // `lint-permission-paths.mjs`. Org membership roster (listMembers/readAvatarBytes) is
+    // gated by org-membership-only, checked one layer up in the controller
+    // (`requireAdminRole`, which despite its name only confirms membership); admin-only reads/
+    // writes (listInvites/updateOrganization/storeAvatar) are gated by `actorOrgRole !== "admin"`
+    // in the use case, BEFORE this repository is ever reached -- same shape as #785's entry.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(44);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
