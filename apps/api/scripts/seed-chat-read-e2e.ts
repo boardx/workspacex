@@ -15,6 +15,7 @@ import {
   seedOrg,
 } from "../tests/support/db";
 import { addChatMessage, addChatThread } from "../tests/support/chat-db";
+import { addCapability } from "../tests/support/db";
 import { createChatWave2FixtureSchema } from "../tests/support/chat-wave2-fixture-schema";
 
 if (process.env.CHAT_E2E_FIXTURE !== "1") {
@@ -41,6 +42,15 @@ const AGENT_VERSION_ID = `${AGENT_ID}-version-1`;
  * 拿已在编制里的 `AGENT_ID` 去做，什么都不做的实现也会绿。
  */
 const CATALOG_ONLY_AGENT_ID = required("CHAT_E2E_CATALOG_ONLY_AGENT_ID");
+/**
+ * #728 P6/P7 —— 与 `apps/web/e2e/chat-read-fixture.ts` 的 `agentModelProvider`/
+ * `agentModelId` 是**同一份事实**，两头都从环境变量读，不各自写一份字面量。
+ * `playwright.chat-read.config.ts` 下发这两个变量给本脚本，也下发
+ * `KERNEL_MODEL_PROVIDER` 给 API 进程——三处对齐，run 才不会撞上
+ * `MODEL_PROVIDER_NOT_CONFIGURED`。
+ */
+const AGENT_MODEL_PROVIDER = required("CHAT_E2E_AGENT_MODEL_PROVIDER");
+const AGENT_MODEL_ID = required("CHAT_E2E_AGENT_MODEL_ID");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -93,6 +103,42 @@ for (let index = 1; index <= 51; index += 1) {
 await asApp(ORG_ID, async (client) => {
   await client.query("DELETE FROM chat_wave2_fixture.agent_versions WHERE org_id=$1", [ORG_ID]);
   await client.query("DELETE FROM chat_wave2_fixture.agents WHERE org_id=$1", [ORG_ID]);
+  /**
+   * #728 P6/P7 —— `chat_wave2_fixture.agents/agent_versions`（下面紧跟着的两条 INSERT）
+   * 只服务**消息接受时**的目录查找（`KERNEL_AGENT_CATALOG_SCHEMA=chat_wave2_fixture`
+   * 把那条查询重定向到这个夹具 schema）。**执行**时 `claimQueued` 联的是**生产表**
+   * `agent_versions`（`pg-agent-run-repository.ts:90`：`JOIN agent_versions v ON
+   * v.id=r.agent_version_id`），不是这个夹具 schema——两张表分别服务两个不同阶段，
+   * 只种一张会让 run 卡在 `AGENT_VERSION_UNAVAILABLE`（"unresolvable" claim outcome）。
+   * 这条是本轮实测撞出来的：第一版只种了 chat_wave2_fixture，run 稳定推进到
+   * failed/AGENT_VERSION_UNAVAILABLE，从未到过 succeeded。
+   *
+   * 生产表的列形状与 `seed-fullstack-smoke.ts:167-190` 逐字同构（stable_name /
+   * semantic_label / instruction_digest / tool_policy），照抄那份已验证成功的模式，
+   * 不是另起一套。
+   */
+  const instructions = "Chat read E2E fixture agent. Echo back what you are given.";
+  const { createHash } = await import("node:crypto");
+  const instructionDigest = createHash("sha256").update(instructions).digest("hex");
+  await client.query(
+    `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+     VALUES ($1,$2,$1,$3,'enabled',$4,now(),now())
+     ON CONFLICT (id) DO UPDATE SET status='enabled'`,
+    [AGENT_ID, ORG_ID, "Controlled Read Agent", USER_ID],
+  );
+  await client.query(
+    `INSERT INTO agent_versions
+       (id,org_id,agent_id,semantic_label,instruction_digest,instructions,
+        skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+     VALUES ($1,$2,$3,'1.0.0',$4,$5,'{}'::text[],$6,$7,'[]'::jsonb,$8,now(),now())
+     ON CONFLICT (id) DO NOTHING`,
+    [AGENT_VERSION_ID, ORG_ID, AGENT_ID, instructionDigest, instructions,
+      AGENT_MODEL_PROVIDER, AGENT_MODEL_ID, USER_ID],
+  );
+  await client.query(
+    "UPDATE agents SET published_version_id = $1 WHERE id = $2 AND org_id = $3",
+    [AGENT_VERSION_ID, AGENT_ID, ORG_ID],
+  );
   await client.query(
     `INSERT INTO chat_wave2_fixture.agents (id,org_id,status,published_version_id)
      VALUES ($1,$2,'enabled',$3)`,
@@ -101,8 +147,11 @@ await asApp(ORG_ID, async (client) => {
   await client.query(
     `INSERT INTO chat_wave2_fixture.agent_versions
        (id,org_id,agent_id,skill_version_ids,model_provider,model_id,instructions,published_at)
-     VALUES ($1,$2,$3,'[]'::jsonb,'dashscope','qwen-plus',$4,now())`,
-    [AGENT_VERSION_ID, ORG_ID, AGENT_ID, "Controlled Read E2E fixture agent; no real model call is exercised."],
+     VALUES ($1,$2,$3,'[]'::jsonb,$4,$5,$6,now())`,
+    [
+      AGENT_VERSION_ID, ORG_ID, AGENT_ID, AGENT_MODEL_PROVIDER, AGENT_MODEL_ID,
+      "Controlled Read E2E fixture agent; replies are produced by the deterministic loopback provider.",
+    ],
   );
   await client.query(
     "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
@@ -117,6 +166,23 @@ await asApp(ORG_ID, async (client) => {
     "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
     [THREAD_ID, ORG_ID, AGENT_ID],
   );
+});
+
+/**
+ * #728 —— 个人对话的 agent 下拉走的是**组织能力目录**（`listCapabilities(orgId, "agent")`，
+ * `personal-chat-screen.tsx:445`），不是 `org_agents`（项目线程编制走的那张表）。
+ * 此前这里没有对应的 `capability_listings` 行，个人对话屏永远显示「这个组织还没有
+ * 可用的 Agent」——不是渲染代码缺失，是这个 fixture 从没让它有过可选的 agent。
+ *
+ * id 复用上面已经在 `chat_wave2_fixture.agents/agent_versions` 里配好、真的可执行的
+ * `AGENT_ID`，不新造一个只挂名字的假 agent。
+ */
+await addCapability({
+  orgId: ORG_ID,
+  id: AGENT_ID,
+  kind: "agent",
+  name: "Controlled Read Agent",
+  enabled: true,
 });
 
 process.stdout.write(

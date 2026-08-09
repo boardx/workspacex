@@ -13,4 +13,17 @@ export const CHAT_READ_E2E = {
    * 一开始就在编制里，拿它做加入用例的话，一个什么都没做的实现也会绿。
    */
   catalogOnlyAgentId: "agent-chat-read-e2e-catalog-only",
+  /**
+   * #728 P6/P7 —— 确定性模型提供方的标识对（`agent_versions.model_provider`/`model_id`
+   * 与 `KERNEL_MODEL_PROVIDER` 两头共用同一份字面量）。命名跟随
+   * `fullstack-smoke-fixture.ts` 的 `agentModelProvider`/`agentModelId`/`agentReplyPrefix`
+   * 同一套惯例，取自 chat-read 自己的隔离端口段，不与它撞名。
+   *
+   * ⚠ 两个字符串是任意值——`ConfiguredModelProvider` 只比对「run 快照里存的
+   * model_provider」与「进程启动时 KERNEL_MODEL_PROVIDER」是否一致，不查真实
+   * provider 注册表，所以这里不需要是 dashscope/openai 之类的真名字。
+   */
+  agentModelProvider: "chat-read-loopback",
+  agentModelId: "loopback-echo",
+  agentReplyPrefix: "[loopback]",
 } as const;

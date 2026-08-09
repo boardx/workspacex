@@ -17,6 +17,13 @@ function required(name: string): string {
 
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
+/**
+ * #728 P6/P7 —— 确定性模型提供方的端口。同一条推理见
+ * `playwright.fullstack-smoke.config.ts` 的 `modelProviderPort`：`webPort` 落在
+ * #74 隔离外壳分配的一段且每个隔离唯一，`+5000` 是单射，不会撞上 pg/redis/api/web
+ * 任何一段。这个 config 此前没有第三个 webServer，这里是新增，不是复制。
+ */
+const modelProviderPort = String(Number(webPort) + 5_000);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -62,6 +69,23 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: [
+    /**
+     * #728 P6/P7 —— 确定性模型提供方，排在 API 之前：API 启动时就把 provider 配置
+     * 读死了（`readModelProviderConfig` 组装期读一次），真正的连接发生在 run 执行时，
+     * 顺序上只要它先 ready 即可。与 `playwright.fullstack-smoke.config.ts` 同一支脚本
+     * （`scripts/loopback-model-provider.ts`），不是新写的第二份实现。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-model-provider.ts",
+      url: `http://127.0.0.1:${modelProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_MODEL_PROVIDER_PORT: modelProviderPort,
+        LOOPBACK_MODEL_REPLY_PREFIX: CHAT_READ_E2E.agentReplyPrefix,
+      },
+    },
     {
       command: [
         "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
@@ -94,6 +118,16 @@ export default defineConfig({
         // 「webServer was not able to start」整体红掉。缺 key 是启动失败而不是静默降级，
         // 见 `aes-credential-cipher.ts` 文件头；每个起 API 进程的地方都得供一个。
         MODEL_CREDENTIAL_KEY: "chat-read-credential-key-not-a-secret",
+        // #728 P6/P7 —— 三处对齐里的第二处（第一处是种子脚本的
+        // CHAT_E2E_AGENT_MODEL_PROVIDER/_ID，第三处是下面这两行）。不配它，run 会以
+        // MODEL_PROVIDER_NOT_CONFIGURED 诚实失败——这正是 #435 记录过的设计，
+        // 不是本次改动引入的新行为，这里只是让 chat-read 这条链路也接上它。
+        CHAT_E2E_AGENT_MODEL_PROVIDER: CHAT_READ_E2E.agentModelProvider,
+        CHAT_E2E_AGENT_MODEL_ID: CHAT_READ_E2E.agentModelId,
+        KERNEL_MODEL_PROVIDER: CHAT_READ_E2E.agentModelProvider,
+        KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
+        // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
+        KERNEL_MODEL_API_KEY: "chat-read-loopback-key-not-a-secret",
       },
     },
     {

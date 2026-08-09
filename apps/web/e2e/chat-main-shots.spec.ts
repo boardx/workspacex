@@ -92,6 +92,32 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   const createdThreadId = createdThreadUrl.searchParams.get("thread");
   if (!createdThreadId) throw new Error("创建后 URL 里没有 thread 参数，取证脚本本身的假设已经不成立");
 
+  /**
+   * #728 P6/P7 —— 个人对话上一轮止步于「零线程空态」，评分员因此把 P6-P9 全判 0：
+   * 「不是代码没写，是没有一次真实的发送-回复被观测到」。这里真的发一条消息、
+   * 真的等服务端跑完，不是伪造一条已完成的假消息。
+   *
+   * `KERNEL_MODEL_PROVIDER` 由 `playwright.chat-read.config.ts` 接了确定性回环
+   * 模型（与 `fullstack-smoke` 同一支 `scripts/loopback-model-provider.ts`），
+   * run 会真的推进到终态，不会卡在 `MODEL_PROVIDER_NOT_CONFIGURED`。
+   */
+  await page.getByTestId("chat-agent-select").click();
+  await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`).click();
+  const probeText = "对话保真取证：请回显这句话";
+  await page.getByTestId("chat-message-input").fill(probeText);
+  await page.getByTestId("chat-message-submit").click();
+  // run 状态由服务端推进，`data-run-status` 直接取自 `GET /agent-runs/:id` 的
+  // 契约状态机原值——终态是 `succeeded`/`failed` 二选一，不猜测哪个先到。
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
+      const status = el?.getAttribute("data-run-status");
+      return status === "succeeded" || status === "failed";
+    },
+    { timeout: 60_000 },
+  );
+  await shoot("chat-main-personal-reply.png", "chat-thread-detail");
+
   // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
   // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
   await page.setViewportSize(MOBILE);
