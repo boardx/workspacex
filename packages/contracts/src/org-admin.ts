@@ -158,6 +158,14 @@ export const OrgAdminError = z.enum([
   "PARTIAL_DELIVERY",
   /** 目标处于撤回/待删除队列中。⚠ 撤回中的对象**不得被新引用** */
   "WITHDRAWAL_IN_PROGRESS",
+
+  /* ── ③ org-profile-membership delta（#363 收拢 + 组织资料编辑）──────────── */
+  /** `uploadOrgAvatar`：服务端重新算出的实际字节数超限（不信任客户端声明的 `sizeBytes`）。 */
+  "FILE_TOO_LARGE",
+  /** `uploadOrgAvatar`：magic-byte 嗅探结果与声明的 `contentType` 不一致，或不在白名单内。 */
+  "UNSUPPORTED_CONTENT_TYPE",
+  /** `updateOrganization`：`avatarArtifactId` 不是这个组织通过 `uploadOrgAvatar` 产出的。 */
+  "AVATAR_ARTIFACT_NOT_OWNED",
 ]);
 
 type OrgAdminErrorT = z.infer<typeof OrgAdminError>;
@@ -555,6 +563,133 @@ export const operations = {
       })
       .strict(),
     err: ["PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ══ 一.五、组织资料 + 成员/邀请列表读（#363 delta，org-profile-membership）════ */
+
+  /**
+   * `listOrgMembers` —— 成员列表只读（delta §2：任何组织成员可读，不限 admin）。
+   *
+   * ⚠ delta §4① 的裁决落在这里：与 `listTeams` 同一处置——「看到组织里有谁」不是
+   *   敏感操作，比它更敏感的操作（改角色、移除成员）本来就已经有 admin 限制。
+   * ⚠ `err` 用 `NO_ORG_MEMBERSHIP`（非成员）而不是 delta 草案里写的泛化 `FORBIDDEN`——
+   *   本束目前没有字面量 `FORBIDDEN` 这个码，`NO_ORG_MEMBERSHIP` 是同语义的既有码
+   *   （`listTeams.err` 的先例）；见文件头「同一事实不得声明在两处」。
+   */
+  listOrgMembers: {
+    method: "GET",
+    path: "/organizations/:orgId/members",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        members: z.array(
+          z
+            .object({
+              userId: z.string(),
+              displayName: z.string(),
+              email: z.string(),
+              orgRole: OrgRole,
+              teamId: z.string().nullable(),
+              joinedAt: z.string(),
+              status: z.enum(["active", "suspended"]),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `listOrgInvites` —— 邀请列表只读（delta §2：**仅组织 admin**，与成员列表权限不同）。
+   *
+   * ⚠ delta §4① 逐字：「未接受的邀请邮箱是否该让所有成员看到」——裁决收紧为仅
+   *   admin，与 `listOrgMembers` **不共用同一条授权判定**（用例层各自判一次）。
+   * ⚠ `err` 同上一条的映射理由：`PROJECT_ROLE_INSUFFICIENT` 是「是成员但不是 admin」
+   *   的既有码（`mutateTeam.err` 的先例），`NO_ORG_MEMBERSHIP` 是「根本不是成员」。
+   */
+  listOrgInvites: {
+    method: "GET",
+    path: "/organizations/:orgId/invites",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        invites: z.array(
+          z
+            .object({
+              inviteId: z.string(),
+              email: z.string(),
+              status: OrgInviteStatus,
+              invitedBy: z.string(),
+              expiresAt: z.string(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `uploadOrgAvatar` —— 组织头像上传的**第一步**（delta §1 ⚠②：同 `uploadOwnAvatar` 的
+   * 纪律——对象存储 + PG 元数据，服务端重新做 magic-byte 嗅探，不信任客户端声明的
+   * `contentType`/`sizeBytes`）。仅落对象存储与一张归属登记表，**不写 `organizations`
+   * 行本身**——真正生效要靠第二步 `updateOrganization` 带着这里返回的
+   * `orgAvatarArtifactId` 提交（与 `identity.updateOwnProfile` 的两步形状一致）。
+   *
+   * ⚠ 契约的 `in` 只有声明的元数据，**没有字节字段**——zod 只能验证 JSON 请求体，
+   *   图片字节走请求的原始二进制体（`Content-Type` = 声明的 `contentType`），
+   *   元数据经查询串传入后按本 schema 校验。这是一处记录在案的裁定（同
+   *   `KNOWN_CONTRACT_GAPS` 的既有先例，如 F04 对 `saveDraft` 的处理），不是绕过——
+   *   controller 侧的实现与理由见 `apps/api/src/interface/controllers/
+   *   org-admin-management.controller.ts` 的 `uploadAvatar` 方法。
+   */
+  uploadOrgAvatar: {
+    method: "POST",
+    path: "/organizations/:orgId/avatar",
+    in: z
+      .object({
+        orgId: z.string(),
+        filename: z.string().min(1),
+        sizeBytes: z
+          .number()
+          .int()
+          .positive()
+          .max(5 * 1024 * 1024),
+        sha256: z.string(),
+        contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+      })
+      .strict(),
+    out: z.object({ orgAvatarArtifactId: z.string(), avatarUrl: z.string() }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "FILE_TOO_LARGE", "UNSUPPORTED_CONTENT_TYPE"] as const,
+  },
+
+  /**
+   * `updateOrganization` —— 组织资料编辑（名称/简介/头像提交），**仅组织 admin**
+   * （delta §2，与 team-crud 先例一致）。
+   *
+   * ⚠ 简介**纯文本**（delta §4②裁决），前端不做 markdown 渲染，服务端也不做任何
+   *   HTML/markdown 转换——存什么就是什么，长度上限 500 由 schema 断言。
+   */
+  updateOrganization: {
+    method: "PATCH",
+    path: "/organizations/:orgId",
+    in: z
+      .object({
+        orgId: z.string(),
+        name: z.string().min(1).optional(),
+        description: z.string().max(500).optional(),
+        avatarArtifactId: z.string().nullable().optional(),
+      })
+      .strict(),
+    out: z
+      .object({
+        name: z.string(),
+        description: z.string().nullable(),
+        avatarUrl: z.string().nullable(),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "AVATAR_ARTIFACT_NOT_OWNED"] as const,
   },
 
   /* ══ 二、项目邀请链接（UC-1.3）══════════════════════════════ */
@@ -1260,4 +1395,28 @@ export const KNOWN_CONTRACT_GAPS = {
    * 三条都需要人裁专属码/字段时才能真正关闭；agent 不在这里替人选边。
    */
   OA10: "F11: three 'contract has no dedicated code/field' gaps hit during implementation — (1) removeOrgMember's self-removal precondition reuses PROJECT_ROLE_INSUFFICIENT for lack of a dedicated code; (2) removeOrgMember/mutateTeam declare VERSION_CHANGED but their `in` carries no version token, so the implementation maps 'target vanished under concurrency' to it for mutateTeam's rename/delete and leaves it unreached on removeOrgMember (repeat removal is idempotent replay, not a version conflict); (3) removeOrgMember.out.pendingTasks is always [] because phase-01 has no task system yet, same treatment as inviteOrgMember.quotaReserved (F10) and revokeInviteLinks.onsiteSessions (F15)",
+  /**
+   * **org-profile-membership delta（#363）落地时撞到的四处裁定，逐条记录。**
+   *
+   * ① delta §1 草案的 `err` 写的是泛化 `FORBIDDEN`——本束里从未存在过这个字面量。
+   *    `listOrgMembers`/`listOrgInvites`/`uploadOrgAvatar`/`updateOrganization` 全部
+   *    改用既有码：非成员 `NO_ORG_MEMBERSHIP`（`listTeams` 先例），是成员但权限不够
+   *    `PROJECT_ROLE_INSUFFICIENT`（`mutateTeam` 先例）——不新造第二套授权错误语义。
+   * ② `uploadOrgAvatar.in` 只有声明的元数据（filename/sizeBytes/sha256/contentType），
+   *    **没有字节字段**——zod 只验证 JSON 请求体，图片字节走请求的原始二进制体，
+   *    元数据经查询串传入后按同一 schema 校验（controller 侧 `uploadAvatar` 方法有实现
+   *    与理由）。这是记录在案的裁定，不是「以后再补」。
+   * ③ `listOrgMembers.out` 要求 `joinedAt`/`status`，但 `org_memberships`（0003）当时
+   *    没有这两列。迁移新增 `joined_at`（回填为迁移执行时刻，早于本次迁移的真实入会
+   *    时间不可考——诚实缺口，不是精确值）；`status` 恒为 `"active"`——这张表目前没有
+   *    「停用但保留记录」的概念（`removeOrgMember` 是硬删除该行），`"suspended"` 是
+   *    契约里**当前没有任何路径能产生**的保留值，同 `TEMPLATE_SWITCH_FORBIDDEN_AFTER_START`
+   *    的处置（T10）。
+   * ④ `listOrgInvites.out.expiresAt` 非空，但 `org_invites` 表本身没有过期时间列——
+   *    时效活在 `org_invite_tokens.expires_at`。实现取该邀请**最近一枚令牌**的
+   *    `expires_at`；一枚令牌都未签发过的邀请（如 `awaiting-review`）取
+   *    `created_at + ORG_INVITE_LINK_VALIDITY_MS`（domain/auth/org-invite.ts 的既有
+   *    常量，OA3 已裁定为单一事实源）作为估计值，不新造第二份有效期数字。
+   */
+  OA11: "org-profile-membership delta (#363): (1) contract.md's draft used a literal 'FORBIDDEN' that never existed in this bundle's error vocabulary — implemented as NO_ORG_MEMBERSHIP (non-member, listTeams precedent) / PROJECT_ROLE_INSUFFICIENT (member but insufficient role, mutateTeam precedent); (2) uploadOrgAvatar.in carries metadata only, no bytes field — zod validates JSON only, image bytes travel as the request's raw binary body, metadata arrives via query string validated against the same schema; (3) listOrgMembers.out needs joinedAt/status but org_memberships (0003) had neither — migration adds joined_at backfilled to migration-run time (true historical join time is unrecoverable, an honest gap not a precise value), status is always 'active' since this table has no 'deactivated but recorded' concept (removeOrgMember hard-deletes the row) — 'suspended' is a reserved value with no reachable path today, same treatment as TEMPLATE_SWITCH_FORBIDDEN_AFTER_START (T10); (4) listOrgInvites.out.expiresAt is required but org_invites has no expiry column — implementation reads the invite's most recent org_invite_tokens.expires_at, falling back to created_at + ORG_INVITE_LINK_VALIDITY_MS (OA3's already-ruled single source) for invites that never had a token issued",
 } as const;

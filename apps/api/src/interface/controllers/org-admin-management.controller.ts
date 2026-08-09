@@ -41,6 +41,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   HttpException,
   HttpStatus,
   Inject,
@@ -48,7 +49,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
+  Req,
+  Res,
 } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { orgAdmin as C } from "@repo/contracts";
 import { listTeams } from "../../application/auth/list-teams";
 import { mutateTeam, TeamInUseError } from "../../application/auth/mutate-team";
@@ -59,6 +64,10 @@ import { removeOrgMember } from "../../application/auth/remove-org-member";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
 import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
 import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
+import { listOrgMembers } from "../../application/auth/list-org-members";
+import { listOrgInvites } from "../../application/auth/list-org-invites";
+import { updateOrganization } from "../../application/auth/update-organization";
+import { uploadOrgAvatar } from "../../application/auth/upload-org-avatar";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
 import {
   ORG_INVITE_REPOSITORY,
@@ -66,6 +75,7 @@ import {
 } from "../../application/auth/org-invite-ports";
 import { ORG_MEMBER_REPOSITORY, type OrgMemberRepository } from "../../application/auth/org-member-ports";
 import { TEAM_REPOSITORY, type TeamRepository } from "../../application/auth/team-ports";
+import { ORG_PROFILE_REPOSITORY, type OrgProfileRepository } from "../../application/auth/org-profile-ports";
 import { SESSION_TOKEN_STORE, type SessionTokenStore } from "../../application/auth/ports";
 import {
   IDENTITY_REPOSITORY,
@@ -86,6 +96,9 @@ export const CREATE_TEAM_SCHEMA = C.operations.createTeam.in;
 export const RENAME_TEAM_SCHEMA = C.operations.renameTeam.in;
 export const DELETE_TEAM_SCHEMA = C.operations.deleteTeam.in;
 export const REMOVE_ORG_MEMBER_SCHEMA = C.operations.removeOrgMember.in;
+/** org-profile-membership delta（#363 收拢）。同上，导出以证明是同一个对象。 */
+export const UPDATE_ORGANIZATION_SCHEMA = C.operations.updateOrganization.in;
+export const UPLOAD_ORG_AVATAR_SCHEMA = C.operations.uploadOrgAvatar.in;
 
 type ReviewBody = { orgId: string; inviteId: string; decision: "approve" | "reject"; reason: string | null };
 type InviteRefBody = { orgId: string; inviteId: string };
@@ -96,6 +109,22 @@ type MutateTeamBody = {
   name: string | null;
 };
 type RemoveMemberBody = { orgId: string; userId: string };
+type UpdateOrganizationBody = {
+  orgId: string;
+  name?: string;
+  description?: string;
+  avatarArtifactId?: string | null;
+};
+
+/** 读整个请求体的原始字节。`uploadOrgAvatar` 的图片字节走这条路，见契约文件头的两步说明。 */
+function readRawBody(req: Request): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
 
 @Controller()
 export class OrgAdminManagementController {
@@ -103,6 +132,7 @@ export class OrgAdminManagementController {
     @Inject(ORG_INVITE_REPOSITORY) private readonly invites: OrgInviteRepository,
     @Inject(TEAM_REPOSITORY) private readonly teams: TeamRepository,
     @Inject(ORG_MEMBER_REPOSITORY) private readonly members: OrgMemberRepository,
+    @Inject(ORG_PROFILE_REPOSITORY) private readonly profiles: OrgProfileRepository,
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
   ) {}
@@ -300,6 +330,160 @@ export class OrgAdminManagementController {
       throw toHttpException(e);
     }
   }
+
+  /**
+   * `listOrgMembers`（#363 delta）—— 只读，任何组织成员可调用。同 `list`（listTeams）
+   * 一样，`requireAdminRole` 这里只用来确认成员资格。
+   */
+  @Get("/organizations/:orgId/members")
+  async listMembers(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireAdminRole(principal, orgIdParam);
+    const out = await listOrgMembers({ repo: this.profiles }, { orgId });
+    return { members: out.members };
+  }
+
+  /** `listOrgInvites`（#363 delta）—— **仅组织 admin**，与 `listMembers` 不共用授权判定。 */
+  @Get("/organizations/:orgId/invites")
+  async listInvites(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const out = await listOrgInvites({ repo: this.profiles }, { orgId, actorOrgRole: orgRole });
+      return { invites: out.invites };
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /** `updateOrganization`（#363 delta）—— 组织资料编辑，**仅组织 admin**。 */
+  @Patch("/organizations/:orgId")
+  async updateProfile(
+    @Param("orgId") orgIdParam: string,
+    @Body(new ZodBodyPipe(UPDATE_ORGANIZATION_SCHEMA)) body: UpdateOrganizationBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const out = await updateOrganization(
+        { repo: this.profiles },
+        {
+          orgId,
+          actorOrgRole: orgRole,
+          name: body.name,
+          description: body.description,
+          avatarArtifactId: body.avatarArtifactId,
+        },
+      );
+      return out;
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * `uploadOrgAvatar`（#363 delta）—— 组织头像上传第一步，**仅组织 admin**。
+   *
+   * ⚠ 契约的 `in` 只有声明的元数据，没有字节字段（org-admin.ts 文件头 + `KNOWN_CONTRACT_
+   *   GAPS.OA11` ②已记录这处裁定）：元数据经查询串传入并按契约 schema 校验，
+   *   图片的原始字节是这次 POST 请求体本身——不复用 `ZodBodyPipe`（它假设 JSON body），
+   *   而是手动读原始流（`readRawBody`），因为本仓没有 multer/`FileInterceptor` 依赖，
+   *   加一个新依赖不是这条 delta 该做的决定。
+   */
+  @Post("/organizations/:orgId/avatar")
+  async uploadAvatar(
+    @Param("orgId") orgIdParam: string,
+    @Query("filename") filename: string | undefined,
+    @Query("sizeBytes") sizeBytesParam: string | undefined,
+    @Query("sha256") sha256: string | undefined,
+    @Query("contentType") contentType: string | undefined,
+    @Req() req: Request,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+
+    const parsed = UPLOAD_ORG_AVATAR_SCHEMA.safeParse({
+      orgId: orgIdParam,
+      filename,
+      sizeBytes: Number(sizeBytesParam),
+      sha256,
+      contentType,
+    });
+    if (!parsed.success) {
+      /**
+       * D4（2026-08-09 复核）：`sizeBytes`/`contentType` 的元数据校验发生在
+       * `readRawBody`/用例的真实字节校验**之前**——一个超过 5MB 的声明值会在这里
+       * 被 zod 拦下，落成一个裸 400 `{ fields: [...] }`，用例里 `OrgAdminError
+       * ("FILE_TOO_LARGE")` 那条分支根本没机会跑，前端对应的 `FILE_TOO_LARGE`
+       * 文案分支因此变成死代码，用户只看到「上传失败：400」。
+       *
+       * ⇒ 元数据层判定出的「太大/格式不对」，走同一条 `toHttpException` 改写成
+       * 用例真实拒绝时会给的那个响应形状（reasonCode + 413/415），而不是自成一套
+       * 没有 reasonCode 的 400——同一个业务失败只应该有一种响应形状，不分「元数据
+       * 层截住的」和「用例层截住的」两种。其余字段的校验失败（`filename`/`sha256`/
+       * `orgId` 缺失或不合法）不是这两个已知业务码能表达的情况，维持原样 400。
+       */
+      const sizeTooBig = parsed.error.issues.some((i) => i.path.join(".") === "sizeBytes");
+      if (sizeTooBig) throw toHttpException(new OrgAdminError("FILE_TOO_LARGE"));
+      const badContentType = parsed.error.issues.some((i) => i.path.join(".") === "contentType");
+      if (badContentType) throw toHttpException(new OrgAdminError("UNSUPPORTED_CONTENT_TYPE"));
+      throw new HttpException(
+        { fields: parsed.error.issues.map((i) => ({ path: i.path.join(".") || "(root)", code: i.code })) },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const bytes = new Uint8Array(await readRawBody(req));
+    try {
+      const out = await uploadOrgAvatar(
+        { repo: this.profiles },
+        {
+          orgId,
+          actorId: principal.userId,
+          actorOrgRole: orgRole,
+          bytes,
+          declaredSizeBytes: parsed.data.sizeBytes,
+          declaredContentType: parsed.data.contentType,
+          declaredSha256: parsed.data.sha256,
+        },
+      );
+      return out;
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * 头像字节服务。**不是契约操作**——`uploadOrgAvatar`/`updateOrganization` 返回的
+   * `avatarUrl` 指向这条路由。
+   *
+   * ⚠ 2026-08-09 复核核实过一次「注释说任何成员可读，代码却调用 requireAdminRole，
+   * 是不是不一致」——不是。`requireAdminRole` 这个方法名具误导性：它只在调用方
+   * 读了返回值里的 `orgRole` 并自己拿去判断时才构成"仅 admin"（`uploadAvatar`/
+   * `updateOrganization` 都是这么用的）；这里和 `listOrgMembers`（`orgId` 之外的
+   * `orgRole` 未被使用）一样，只借它做**membership** 校验——非本组织成员会拿到
+   * `NO_ORG_MEMBERSHIP` 403，本组织的非 admin 成员能读到。这与 contract.md §2
+   * 的原则一致（listOrgMembers/listOrgInvites 一类"看到组织里有什么"不是敏感操作，
+   * 比它更敏感的操作才收紧到 admin）——头像展示的敏感度不高于成员名单，理应同一
+   * 开放程度，任何组织成员可读是这里**故意**的行为，不是漏改。
+   *
+   * 真正的门是 Guard 本身：未鉴权（拿不出合法 `Authorization: Bearer` 的调用）会在
+   * 到达这个方法之前就被拒——裸 `<img src>` 发不出这个头，是 D9 那个 401/裂图的
+   * 根因，前端侧的修法见 `apps/web/components/org-admin/org-admin-screen.tsx` 的
+   * `useAuthedImageSrc`。
+   */
+  @Get("/organizations/:orgId/avatar-file/:avatarArtifactId")
+  @Header("Cache-Control", "private, max-age=300")
+  async avatarFile(
+    @Param("orgId") orgIdParam: string,
+    @Param("avatarArtifactId") avatarArtifactId: string,
+    @CurrentPrincipal() principal: Principal,
+    @Res() res: Response,
+  ) {
+    const { orgId } = await this.requireAdminRole(principal, orgIdParam);
+    const found = await this.profiles.readAvatarBytes(orgId, avatarArtifactId);
+    if (found === null) throw new NotFoundException();
+    res.setHeader("Content-Type", found.contentType);
+    res.send(Buffer.from(found.bytes));
+  }
 }
 
 /**
@@ -318,6 +502,14 @@ function toHttpException(e: unknown) {
     // ⚠ 它只出现在 `resendOrgInvite.err` 里，所以这一行影响不到本文件其余四条路由。
     if (e.reasonCode === "RATE_LIMITED") {
       return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+    // #363：`uploadOrgAvatar` 的两个服务端拒绝码同样不该折进 409——它们不是「状态已变」，
+    // 是「这个请求本身不合法」，413/415 让客户端一眼看出该改的是文件本身，不是重试。
+    if (e.reasonCode === "FILE_TOO_LARGE") {
+      return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.PAYLOAD_TOO_LARGE);
+    }
+    if (e.reasonCode === "UNSUPPORTED_CONTENT_TYPE") {
+      return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
     // team-crud delta（#639）迭代 2：指向的团队不存在 —— 404，不是 409。
     // `mutateTeam` 没有专属码时借用 `VERSION_CHANGED`（走 409）；这三条新操作有专属码，

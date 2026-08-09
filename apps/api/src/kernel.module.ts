@@ -273,6 +273,11 @@ import { PgAvatarRepository } from "./infrastructure/auth/pg-avatar-repository";
 import { PgTeamRepository } from "./infrastructure/auth/pg-team-repository";
 import { ORG_MEMBER_REPOSITORY } from "./application/auth/org-member-ports";
 import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repository";
+// org-profile-membership delta（#363 收拢）：成员/邀请列表读 + 组织资料编辑。
+// ⚠ 复用 OBJECT_STORE（F04 既有 provider）而不是新起一套对象存储绑定——头像字节与
+//   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
+import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
+import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
 import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -920,6 +925,12 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       provide: ORG_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // org-profile-membership delta（#363）。
+    {
+      provide: ORG_PROFILE_REPOSITORY,
+      useFactory: (db: DatabasePort, store: ObjectStore) => new PgOrgProfileRepository(db, store),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
     {

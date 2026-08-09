@@ -193,7 +193,12 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
   return json as T;
 }
 
-function extractReasonCode(envelope: unknown): string | null {
+/**
+ * #363 delta：导出——`live-org-admin.ts` 的 `uploadOrgAvatar` 走一次手写 `fetch`
+ * （契约的 `in` 只有元数据，字节走原始请求体，不能套 `apiRequest` 的「body 即 JSON」
+ * 假设），但失败信封的解析规则只应该有一份，不是抄一份新的。
+ */
+export function extractReasonCode(envelope: unknown): string | null {
   if (typeof envelope === "object" && envelope !== null && "reasonCode" in envelope) {
     const v = (envelope as { reasonCode: unknown }).reasonCode;
     return typeof v === "string" ? v : null;

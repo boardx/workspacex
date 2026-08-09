@@ -25,10 +25,18 @@
  * #639 delta 迭代 1：`listTeams` 补上——`GET /organizations/:orgId/teams` 现在有真
  * controller 了（`org-admin-management.controller.ts`），是本文件第一个真实的**读**操作。
  * 团队 CRUD 动作（create/rename/delete）迭代 2 再接前端，这里只加 `listTeams`。
+ *
+ * #363 收拢（org-profile-membership delta）：补 `listOrgMembers` / `listOrgInvites` /
+ * `updateOrganization` / `uploadOrgAvatar` 四个真实操作——`listOrgMembers`/`listOrgInvites`
+ * 是这份文件第一次读到「成员是谁」「邀请到哪了」的真实数据，此前只有 mock。
+ *
+ * `uploadOrgAvatar` 不走 `apiRequest`（它假设 JSON body）：契约的 `in` 只有声明的元数据
+ * （见 `org-admin.ts` 里 `uploadOrgAvatar` 的文件头注释），图片字节走请求的原始二进制体，
+ * 元数据经查询串传入，所以这里手写一次 `fetch`，复用 `apiUrl`/`getStoredSessionToken`。
  */
 import { identity, orgAdmin } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
 export type InviteOrgMemberOut = z.infer<typeof orgAdmin.operations.inviteOrgMember.out>;
 export type ReviewAdminInviteOut = z.infer<typeof orgAdmin.operations.reviewAdminInvite.out>;
@@ -132,4 +140,90 @@ export async function deleteTeam(orgId: string, teamId: string): Promise<DeleteT
     path(orgAdmin.operations.deleteTeam.path, { orgId, teamId }),
     { method: "POST", body: {} },
   );
+}
+
+/* ═══════════════════ #363 收拢：成员/邀请列表读 + 组织资料编辑 ═══════════════════ */
+
+export type ListOrgMembersOut = z.infer<typeof orgAdmin.operations.listOrgMembers.out>;
+
+/** 任何组织成员可读（delta §2）。`GET /organizations/:orgId/members`。 */
+export async function listOrgMembers(orgId: string): Promise<ListOrgMembersOut> {
+  return apiRequest<ListOrgMembersOut>(path(orgAdmin.operations.listOrgMembers.path, { orgId }), { method: "GET" });
+}
+
+export type ListOrgInvitesOut = z.infer<typeof orgAdmin.operations.listOrgInvites.out>;
+
+/** 仅组织 admin 可读（delta §2，权限比 listOrgMembers 更紧）。`GET /organizations/:orgId/invites`。 */
+export async function listOrgInvites(orgId: string): Promise<ListOrgInvitesOut> {
+  return apiRequest<ListOrgInvitesOut>(path(orgAdmin.operations.listOrgInvites.path, { orgId }), { method: "GET" });
+}
+
+export type UpdateOrganizationOut = z.infer<typeof orgAdmin.operations.updateOrganization.out>;
+
+export interface UpdateOrganizationInput {
+  readonly orgId: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly avatarArtifactId?: string | null;
+}
+
+/** 仅组织 admin（delta §2）。`PATCH /organizations/:orgId`。 */
+export async function updateOrganization(input: UpdateOrganizationInput): Promise<UpdateOrganizationOut> {
+  return apiRequest<UpdateOrganizationOut>(path(orgAdmin.operations.updateOrganization.path, { orgId: input.orgId }), {
+    method: "PATCH",
+    body: {
+      orgId: input.orgId,
+      name: input.name,
+      description: input.description,
+      avatarArtifactId: input.avatarArtifactId,
+    },
+  });
+}
+
+export type UploadOrgAvatarOut = z.infer<typeof orgAdmin.operations.uploadOrgAvatar.out>;
+
+export interface UploadOrgAvatarInput {
+  readonly orgId: string;
+  readonly file: File;
+}
+
+/**
+ * 仅组织 admin（delta §2）。`POST /organizations/:orgId/avatar`——契约的 `in` 只有
+ * 声明的元数据（filename/sizeBytes/sha256/contentType），走查询串；图片字节是这次
+ * POST 的原始请求体。服务端会重新做 magic-byte 嗅探，不信任这里声明的 `contentType`
+ * （见 `apps/api/src/application/auth/upload-org-avatar.ts`）——这里声明的值只是
+ *「客户端认为是什么」，被拒绝时错误码来自服务端的真实校验。
+ */
+export async function uploadOrgAvatar(input: UploadOrgAvatarInput): Promise<UploadOrgAvatarOut> {
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  const sha256 = await sha256Hex(bytes);
+  const contentType = input.file.type;
+
+  const url = apiUrl(path(orgAdmin.operations.uploadOrgAvatar.path, { orgId: input.orgId }), {
+    filename: input.file.name,
+    sizeBytes: String(bytes.byteLength),
+    sha256,
+    contentType,
+  });
+
+  const token = getStoredSessionToken();
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (contentType) headers["Content-Type"] = contentType;
+
+  const res = await fetch(url, { method: "POST", headers, credentials: "include", body: bytes });
+  const text = await res.text();
+  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+  if (!res.ok) throw new ApiError(res.status, extractReasonCode(json), json);
+  return json as UploadOrgAvatarOut;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  // `crypto.subtle.digest` 的 TS lib 类型要求 `ArrayBuffer`-backed view，而
+  // `input.file.arrayBuffer()` 返回的 `Uint8Array` 在某些 lib 版本下推成
+  // `ArrayBufferLike`（含 `SharedArrayBuffer`）。拷贝一份新 `Uint8Array` 即可满足类型，
+  // 运行时行为不变（`bytes` 本来就不是共享内存）。
+  const copy = new Uint8Array(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", copy);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }

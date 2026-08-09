@@ -55,6 +55,13 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
    * `internal_error`: a correct status paired with a body claiming the server broke.
    */
   410: "gone",
+  /**
+   * #363 delta: `uploadOrgAvatar`'s two server-side rejection codes, same reasoning as
+   * 410 above -- without entries here a correct 413/415 would render `internal_error`,
+   * a body claiming the server broke over a request the server correctly refused.
+   */
+  413: "payload_too_large",
+  415: "unsupported_media_type",
   422: "unprocessable",
   503: "dependency_unavailable",
 };

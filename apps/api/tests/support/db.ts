@@ -270,6 +270,28 @@ export async function seedOrg(opts: {
   return { orgId, teams, projectId, groups };
 }
 
+/**
+ * #363 delta：`listOrgMembers` 需要真实的 `email`/`displayName`——两者住在 `credentials`，
+ * 不是 `org_memberships`。`credentials` 不是租户表（`withoutTenant` 写入，同
+ * `pg-credential-repository.ts` 的既有处置），密码哈希用一个满足
+ * `credentials_hash_is_slow` CHECK 形状的占位值（bcrypt 前缀 + 任意内容，正则不锚定
+ * 结尾），这里从不做真实登录。
+ */
+export async function addCredential(userId: string, email: string, displayName: string): Promise<void> {
+  const c = new pg.Client(migrationConfig());
+  await c.connect();
+  try {
+    await c.query(
+      `INSERT INTO credentials (user_id, email, password_hash, display_name, email_verified_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId, email, `$2b$12$${"a".repeat(53)}`, displayName],
+    );
+  } finally {
+    await c.end();
+  }
+}
+
 export async function addOrgMember(orgId: string, userId: string, orgRole: string, teamId: string | null): Promise<void> {
   await asApp(orgId, (c) =>
     c.query("INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, $3, $4)", [
