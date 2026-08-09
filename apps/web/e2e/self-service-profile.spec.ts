@@ -70,7 +70,7 @@ test.describe.serial("用户个人资料自助服务 + 组织团队管理", () =
     await expect(page.getByTestId("profile-activity-section")).toBeVisible();
     const activityItems = page.getByTestId("profile-activity-list").locator("li");
     await expect(activityItems).not.toHaveCount(0);
-    await expect(activityItems.first()).toContainText("profile-renamed");
+    await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
 
     /* ── 2. 改密码：正确当前密码 + 符合策略的新密码 ──────────────────────── */
     await page.getByTestId("profile-current-password-input").fill(SELF_SERVICE_PROFILE_E2E.adminPassword);

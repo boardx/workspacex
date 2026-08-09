@@ -258,7 +258,9 @@ describe("listOwnActivity（#638 delta，迭代 2；迭代 4 补写路径后回�
     expect(renameEvent).toBeDefined();
     expect(renameEvent!.eventId).toBeTruthy();
     expect(new Date(renameEvent!.occurredAt).toString()).not.toBe("Invalid Date");
-    expect(renameEvent!.summary).toContain("profile-renamed");
+    // 迭代 4 修复：summary 是人话文案（带上改后的显示名），不是裸枚举值 `profile-renamed`。
+    expect(renameEvent!.summary).toContain("活动记录反证专用名字");
+    expect(renameEvent!.summary).not.toContain("profile-renamed");
   }, 60_000);
 
   it("反证的另一半：全新用户没有任何活动记录时返回空列表，不是别人的数据", async () => {

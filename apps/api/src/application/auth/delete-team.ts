@@ -5,8 +5,12 @@
  * `not-found → TEAM_NOT_FOUND`（旧 `mutateTeam` 把 not-found 映射到 `VERSION_CHANGED`，
  * 是那条操作没有专属码时的权宜；这条操作签了专属码，直接用）。
  *
- * 迭代 4：成功后写一条 `team-deleted`（target = 该团队，`team` kind，id = `teamId`——行已被
- * 删除，`detail` 里没有名字可带，只记住"这个 id 曾经是一个团队、在此刻被删了"）。
+ * 迭代 4：成功后写一条 `team-deleted`（target = 该团队，`team` kind，id = `teamId`）。
+ *
+ * 迭代 4 修复（独立复核抓到的可用性缺陷）：`detail.name` 补上团队名——`TeamRepository.delete`
+ * 在行被删除前已经查过一次该团队（占用校验要用），把 name 顺路带出来，不需要再多一次查询；
+ * 活动记录要能显示「删除了团队"XX"」而不是裸 `team:<uuid>`，这个名字必须在这里落进
+ * provenance，删除之后这一行就再也查不到了。
  */
 import type { OrgId } from "../../domain/org-id";
 import { OrgAdminError } from "./org-invite-errors";
@@ -38,7 +42,7 @@ export async function deleteTeam(deps: DeleteTeamDeps, input: DeleteTeamInput): 
     type: "team-deleted",
     actorId: input.actorId,
     target: { kind: "team", id: input.teamId },
-    detail: {},
+    detail: { name: result.team?.name ?? null },
   });
 
   return { deleted: true };

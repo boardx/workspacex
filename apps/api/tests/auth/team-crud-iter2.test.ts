@@ -216,8 +216,8 @@ describe("deleteTeam（#639 delta，迭代 2）", () => {
     expect(res.status).toBe(201);
 
     const events = await asOwner((c) =>
-      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string }>(
-        `SELECT type, actor_id, target_kind, target_id FROM provenance_events
+      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string; detail: { name?: string } }>(
+        `SELECT type, actor_id, target_kind, target_id, detail FROM provenance_events
           WHERE org_id = $1 AND target_kind = 'team' AND target_id = $2`,
         [ORG, createdBody.teamId],
       ),
@@ -225,6 +225,10 @@ describe("deleteTeam（#639 delta，迭代 2）", () => {
     // team-created（创建时）+ team-deleted（本次删除）——恰好两条，不是伪造的占位数据。
     expect(events.rows).toHaveLength(2);
     expect(events.rows.map((r) => r.type).sort()).toEqual(["team-created", "team-deleted"]);
+    // 迭代 4 修复：team-deleted 的 detail.name 必须带上被删团队的名字——行已被删除，
+    // 之后再也查不到，只能靠删除前写进 provenance 的这份留存。
+    const deletedEvent = events.rows.find((r) => r.type === "team-deleted");
+    expect(deletedEvent?.detail.name).toBe("epsilon-team");
     for (const row of events.rows) {
       expect(row.actor_id).toBe(ADMIN);
     }
