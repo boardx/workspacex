@@ -40,6 +40,7 @@ import { log } from "./lib/log";
 import { STATE_DIR } from "./lib/paths";
 import { sh } from "./lib/sh";
 import {
+  PASS_THRESHOLD,
   judgeReadiness,
   validateState,
   type ReadinessState,
@@ -93,7 +94,8 @@ export function coreLoopReadiness(args: Args): void {
   const v = judgeReadiness(state, changedByTrack);
   const head = sh("git rev-parse HEAD").stdout.trim();
 
-  log.step(`核心闭环就绪度 CLR = ${v.clr} / 10   （实测 HEAD: ${head.slice(0, 12)}）`);
+  const verdict = v.passes ? `✅ 达标（门槛 ${PASS_THRESHOLD}）` : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;
+  log.step(`核心闭环就绪度 CLR = ${v.clr} / 10   ${verdict}   （实测 HEAD: ${head.slice(0, 12)}）`);
   log.info(`   公式：min( 可达性 ${v.reachability} , 体验均值 ${v.experienceMean} )`);
   log.info(`   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。`);
   log.info("");
@@ -153,6 +155,8 @@ export function findClosedQueueIssues(queue: readonly number[]): number[] | null
   if (closed.size === 0) return null; // 一条都没查到，更像是查询失败而不是仓库零关闭 issue
   return queue.filter((n) => closed.has(n));
 }
+
+function round1(n: number): number { return Math.round(n * 10) / 10; }
 
 function fmtDiscounts(t: TrackVerdict): string {
   if (t.discounts.length === 0) return "如实计入";
