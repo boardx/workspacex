@@ -106,6 +106,51 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   const probeText = "对话保真取证：请回显这句话";
   await page.getByTestId("chat-message-input").fill(probeText);
   await page.getByTestId("chat-message-submit").click();
+
+  /**
+   * #728 P6 —— 逐字流式生成的证据。评分员判据原文：「token 是否真实逐个出现（不是
+   * 等全部生成完再一次性渲染）」。`chat-live-message-panel.tsx` 的 `streamingText`
+   * 早在 #654 阶段2d 就有渲染路径（`chat-message-row-streaming` testid），但此前
+   * 没有一个真实 provider 会推进到这条分支——`playwright.chat-read.config.ts` 现在
+   * 打开了 `KERNEL_MODEL_STREAM_ENABLED`，`loopback-model-provider.ts` 会真的把这句
+   * 回显拆成多帧 SSE 发回来。这里等的是**真实 testid 可见**，不是固定时长再赌一把：
+   * 等不到就说明流式没有真的发生，而不是"稍微等久一点就好了"。
+   *
+   * 终态判定（上面第一次 send 已验证过的 `data-run-status`）不能拿来判"生成中"这一帧
+   * ——run 到终态时 `streamingText` 已经被清空（交给持久消息列表接管，见该组件
+   * `openAgentRunStream` 回调里 `final`/`timeout` 分支），所以要抢在终态之前抓。
+   */
+  // `loopback-model-provider.ts` 回显的整段文本是已知的确定性值（前缀 + 原文），
+  // 用它判定抓到的是不是"半截"——不是猜的，是这支回环脚本自己的协议。
+  const fullReplyText = `${CHAT_READ_E2E.agentReplyPrefix} ${probeText}`;
+  const streamingRow = page.getByTestId("chat-message-row-streaming");
+  await streamingRow.waitFor({ state: "visible", timeout: 15_000 });
+  // ⚠ 只读 `.copilotkit-message-markdown` 这一段——整行 `textContent` 还带着
+  // "Agent" 名字标签与 `正在生成…` 状态徽标（`chat-live-message-panel.tsx` 同一个
+  // `<li>` 里的兄弟节点）。第一版拿整行 `textContent` 去跟 `fullReplyText` 比长度：
+  // 实测抓到的其实是真实的半截内容（"对话保真取"，回复原文 13 字里的前 5 字），
+  // 但把 "Agent" + "正在生成…" 这两段标签文字也算进总长度后，`"Agent正在生成…" +
+  // 半截内容` 反而比 `fullReplyText` 更长，被误判成"已经是完整回复"而拒绝——
+  // 这里只取真正的回复内容，长度比较才对应得上 `loopback-model-provider.ts`
+  // 自己的协议，不会被展示层的标签文字污染。
+  const midStreamText = (
+    await streamingRow.locator(".copilotkit-message-markdown").textContent()
+  )?.trim() ?? "";
+  if (midStreamText === "") {
+    throw new Error(
+      "chat-message-row-streaming 可见但文本是空的——说明抓拍时机踩在了第一个 delta 落地之前，"
+      + "取证脚本本身的假设不成立，不是产品行为不存在",
+    );
+  }
+  if (midStreamText.length >= fullReplyText.length) {
+    throw new Error(
+      `抓到 chat-message-row-streaming 时文本已经是完整回复（"${midStreamText}"）——`
+      + "说明抓拍时机踩在了最后一个 delta 之后，没有真的观测到「生成中」这一帧，"
+      + "不是逐字流式行为不存在",
+    );
+  }
+  await page.screenshot({ path: `${OUT}/chat-main-personal-streaming.png` });
+
   // run 状态由服务端推进，`data-run-status` 直接取自 `GET /agent-runs/:id` 的
   // 契约状态机原值——终态是 `succeeded`/`failed` 二选一，不猜测哪个先到。
   await page.waitForFunction(

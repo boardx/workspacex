@@ -184,6 +184,13 @@ export default defineConfig({
         KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
         // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
         KERNEL_MODEL_API_KEY: "chat-read-loopback-key-not-a-secret",
+        // #728 P6 —— 打开 `ConfiguredModelProvider.completeStream`（默认关闭，见该文件
+        // 自己的头注）。`execute-run.ts` 用它的**存在性**决定走流式分支，`loopback-model-
+        // provider.ts` 现在会照实读请求体里的 `stream` 字段回 SSE（见那支脚本自己的
+        // #728 P6 头注）——这条链路此前从未真实产生过流式证据，只有 fixture 里的
+        // `completeStream`（P7 用的 `DeepAgentModelProvider.completeWithProgress`）分支
+        // 走过。`fullstack-smoke` 的 API 进程不设这个变量，行为不变。
+        KERNEL_MODEL_STREAM_ENABLED: "1",
         // #728 P6/P7 —— 第二个 agent 的种子参数 + `RoutingModelCallPort` 里
         // `DeepAgentModelProvider` 那一路的上游地址。不供 `KERNEL_DEEP_AGENT_BASE_URL`
         // 时 `DeepAgentModelProvider` 会以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实失败
