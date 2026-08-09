@@ -227,21 +227,21 @@ await asApp(ORG_ID, async (client) => {
 /**
  * #728 —— 个人对话的 agent 下拉走的是**组织能力目录**（`listCapabilities(orgId, "agent")`，
  * `personal-chat-screen.tsx:445`），不是 `org_agents`（项目线程编制走的那张表）。
- * 此前这里没有对应的 `capability_listings` 行，个人对话屏永远显示「这个组织还没有
- * 可用的 Agent」——不是渲染代码缺失，是这个 fixture 从没让它有过可选的 agent。
  *
- * id 复用上面已经在 `chat_wave2_fixture.agents/agent_versions` 里配好、真的可执行的
- * `AGENT_ID`，不新造一个只挂名字的假 agent。
+ * ⚠ `AGENT_ID` **不在这里再种一次**——PR #650（#619 编制收敛）把上面 `asApp` 块里
+ * 原来写 `org_agents` 的那两行改成了直接写 `capability_listings`（`id=AGENT_ID`,
+ * `kind='agent'`, `enabled=true`），这行本来是那次改动之前、`capability_listings`
+ * 还没有这行数据时补的。两处现在写同一个主键，`capability_listings_pkey` 撞车——
+ * 实测复现：`pnpm run verify:chat-read` 在 API webServer 启动阶段就崩，
+ * `duplicate key value violates unique constraint "capability_listings_pkey"`，
+ * 两次干净重跑（不同 with-test-isolation 隔离 DB）都在同一行复现，确认不是
+ * 负载/环境假阴性。PR #650 那次插入本身已经带上个人对话下拉需要的
+ * `enabled=true`，这里的调用纯属多余，删掉，不是"两边都保留、改成 upsert"——
+ * 同一件事只该有一个写点。
+ *
+ * `DEEP_AGENT_ID` 这个第二个 agent 是本 issue（#728 P6/P7）独有的，PR #650
+ * 没有它的等价写入，保留。
  */
-await addCapability({
-  orgId: ORG_ID,
-  id: AGENT_ID,
-  kind: "agent",
-  name: "Controlled Read Agent",
-  enabled: true,
-});
-// #728 P6/P7 —— 同一条纪律，第二个 agent 也要进能力目录才会出现在个人对话的
-// agent 下拉里。
 await addCapability({
   orgId: ORG_ID,
   id: DEEP_AGENT_ID,
