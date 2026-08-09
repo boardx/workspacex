@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { Bot, CheckCircle2, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
 import { Markdown } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +62,8 @@ export function ChatLiveMessagePanel({
   agents,
   archived,
   onArtifactLanded,
+  onRunSettled,
+  aboveComposer,
 }: {
   threadId: string;
   bearer: string;
@@ -72,6 +75,26 @@ export function ChatLiveMessagePanel({
    * `listThreadArtifacts` 的服务端响应，这里不在本组件内维护第二份产物计数。
    */
   onArtifactLanded?: () => void;
+  /**
+   * #728 第 9 轮 rev-uiux 抓到：agent 回复写回后，左栏会话卡的「N 个 agent」
+   * （`ThreadMeta`，单一事实源见 `thread-badges.ts` 的 `threadAgentSummary`）
+   * 没有跟着刷新——评分员截到过同一帧里「0 个 agent」和刚说完话的 agent 回复
+   * 同屏出现，判定为「同屏自相矛盾」。跟 `onArtifactLanded` 是同一类问题、同一种
+   * 解法：本组件不在本地维护第二份 agent 计数，只在 run 到终态时通知调用方
+   * 去重读服务端权威列表。
+   */
+  onRunSettled?: () => void;
+  /**
+   * #728 D10 —— 「进行中」状态卡（录音/agent 跑批）的挂载点，紧贴在输入框
+   * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
+   *
+   * ⚠ 这是纯粹的**位置**改动，不是把 `ChatRecordingPanel` 重写成条件渲染：
+   *   `core-loop.spec.ts:533`（发布门）直接点 `chat-live-recording-start`，
+   *   说明录音面板必须**始终挂载、始终可点**——把它做成「只在录音中才出现」
+   *   会让这个发布门的用例在页面刚加载时就点不到那个按钮。组件本身、
+   *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
+   */
+  aboveComposer?: React.ReactNode;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -128,6 +151,11 @@ export function ChatLiveMessagePanel({
   });
   const speechStopRef = React.useRef(speech.stop);
   speechStopRef.current = speech.stop;
+  // run 到终态时通知调用方重读线程列表；用 ref 是因为轮询 effect 的依赖数组里
+  // 不该因为父组件每次渲染传入新的箭头函数就重启轮询（同 `loadPage` 那条 effect
+  // 已有的顾虑，见下面 `[activeRunId, bearer, loadPage]`）。
+  const onRunSettledRef = React.useRef(onRunSettled);
+  onRunSettledRef.current = onRunSettled;
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
     : agents?.[0]?.id ?? "";
@@ -232,6 +260,13 @@ export function ChatLiveMessagePanel({
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
         await loadPage(null, true);
+        // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
+        // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
+        // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
+        // 回复已写入对话」两行绿字同屏——界面同时声称这个 run 既在排队又已完成，
+        // 是自相矛盾，不是两条独立信息。
+        setQueuedRun(null);
+        onRunSettledRef.current?.();
         return;
       }
       if (Date.now() >= deadline) {
@@ -290,6 +325,12 @@ export function ChatLiveMessagePanel({
 
   // 十项 UX 缺口第 6 项（issue #712）——规则驱动的建议后续操作。
   const followUpSuggestions = computeFollowUpSuggestions(messages, archived);
+  /**
+   * #728 P10 —— 与 `AgentPicker`/提交按钮判「没有可选 Agent」用同一个事实
+   * （`agents` 已加载完成且为空数组），不是另起一条判断。追问建议 chip 与麦克风
+   * 按钮据此收起/禁用——「点了却送不出去」的假按钮就是从这里长出来的。
+   */
+  const noAgentToRunWith = agents !== null && agents.length === 0;
 
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
@@ -421,15 +462,36 @@ export function ChatLiveMessagePanel({
                     {isAgent ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
                   </div>
                   <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
-                    <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                      <span className="font-medium">{isAgent ? message.agentId ?? "Agent" : "我"}</span>
-                      {message.agentRunId ? <Badge tone="outline">run {message.agentRunId}</Badge> : null}
+                    {/*
+                      #728 D5 —— 身份行照原型：名字 + 角色 chip + 时间。
+
+                      ⚠ 这里此前印的是 `message.agentId` 的原值（截图上就是
+                      `agent-chat-read-e2e`），而同一份 `agents` 里就有 `name` ——
+                      左栏编制早就正确显示「Controlled Read Agent」了。同一个 agent
+                      在一屏之内一处是人名、一处是裸 id，读的人无法确认它们是同一个。
+                      查不到就回落到 id 而不是糊成「Agent」：查不到通常意味着这个 agent
+                      已被移出编制，糊掉会让这件事不可见。
+
+                      ⚠ `run <id>` 不再常驻可视区（原型里没有这一档，且它是 40 位裸 id）。
+                      改挂 `data-run-id`，机器仍可断言，人眼不再被它占满一行。
+                    */}
+                    <div
+                      className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground"
+                      data-run-id={message.agentRunId ?? undefined}
+                    >
+                      <span className="font-medium text-card-foreground">
+                        {isAgent ? agentLabel(message.agentId, agents) : "我"}
+                      </span>
+                      {isAgent ? agentDuty(message.agentId, agents) : null}
+                      <span>{messageTime(message.createdAt)}</span>
                     </div>
                     <div
                       className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
                           ? "rounded-tl-sm bg-panel text-card-foreground"
-                          : "rounded-tr-sm bg-primary text-primary-foreground"
+                          // #728 D5：原型里人的气泡是**中性底**，不是实心品牌色。
+                          // 实心 primary 让用户自己说的每一句话都在抢视觉重量。
+                          : "rounded-tr-sm bg-muted text-card-foreground"
                       }`}
                     >
                       {isAgent ? (
@@ -496,27 +558,24 @@ export function ChatLiveMessagePanel({
         ) : null}
       </div>
 
+      {aboveComposer}
       <div className="border-t border-border p-3" data-testid="chat-composer">
         {archived ? (
           <p className="mb-2 text-12 text-muted-foreground" data-testid="chat-composer-archived">
             该对话已归档，只能读取，不能创建消息或运行。
           </p>
         ) : null}
-        <div className="mb-2 flex items-center gap-2">
-          <label htmlFor="chat-agent-select" className="text-11 text-muted-foreground">运行 Agent</label>
-          <select
-            id="chat-agent-select"
-            data-testid="chat-agent-select"
-            className="h-7 min-w-0 flex-1 rounded-full border border-input bg-card px-3 text-11"
-            value={selectedAgentId}
-            disabled={archived || submitting || agents === null || agents.length === 0}
-            onChange={(event) => updateDraft({ agentId: event.target.value })}
-          >
-            {agents?.length ? null : <option value="">没有可选 Agent</option>}
-            {agents?.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-          </select>
-        </div>
-        {followUpSuggestions.length > 0 ? (
+        {/*
+          #728 P10 —— 无 agent 可选时，整个composer 的「发送类」控件（追问建议 / 麦克风）
+          此前只看 `archived`/`submitting`，不看「有没有 agent 可以发」，于是在
+          「没有可选 Agent」的线程上仍摆着一排看起来能点的按钮——点了却送不出去
+          （提交按钮是唯一正确处理了这个状态的控件：`selectedAgentId === ""` 时禁用）。
+          评分卡第 10 项点名的「假按钮」正是这个。
+
+          `noAgentToRunWith` 与提交按钮用的是同一个事实（`agents` 为空数组），
+          不是另起一条判断——两处判据不一致才是真正的风险。
+        */}
+        {followUpSuggestions.length > 0 && !noAgentToRunWith ? (
           <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
             {followUpSuggestions.map((suggestion) => (
               <Button
@@ -544,8 +603,23 @@ export function ChatLiveMessagePanel({
             onChange={(event) => updateDraft({ text: event.target.value })}
             className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
           />
+          {/*
+            #728 —— 人类指示（Claude Code 参照）：加 skill / 选 Agent 都收进和麦克风
+            同一行、靠左；发送按钮只留图标。默认要有一个 agent，不需要用户手动选——
+            这条已经在 `selectedAgentId` 的推导里满足（`agents?.[0]?.id`），本次
+            只是把选择器从独立一行搬下来、做紧凑，不改选择逻辑本身。
+
+            个人对话没有「加 skill」（`ChatSkillMountPanel` 只在项目对话侧挂载，
+            人类这轮明确说项目对话先不做）——这里先只放 Agent 选择器，skill 入口
+            留给项目对话那一轮再接进来，不在两边都不存在的东西上造一个空位。
+          */}
           <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
-            <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
+            <AgentPicker
+              agents={agents}
+              selectedAgentId={selectedAgentId}
+              disabled={archived || submitting || agents === null || agents.length === 0}
+              onSelect={(agentId) => updateDraft({ agentId })}
+            />
             <div className="flex items-center gap-1.5">
               <Button
                 type="button"
@@ -556,23 +630,37 @@ export function ChatLiveMessagePanel({
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
                 aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
-                title={speech.listening ? "停止语音输入" : "开始语音输入"}
-                disabled={archived || submitting}
+                title={noAgentToRunWith ? "没有可选 Agent，暂时无法发送消息" : (speech.listening ? "停止语音输入" : "开始语音输入")}
+                disabled={archived || submitting || noAgentToRunWith}
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
               >
                 <Mic aria-hidden className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="sm"
+                type="button"
+                size="icon"
                 className="rounded-full"
                 data-testid="chat-message-submit"
+                aria-label={submitting ? "发送中" : "发送并排队"}
+                title={submitting ? "发送中…" : "发送并排队"}
                 disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >
-                <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
+                <Send aria-hidden className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
+          {/*
+            #728 第 8 轮 P10 —— 原文案「不会合成即时 AI 回复」在个人对话已经能收到
+            真实 AI 回复的今天是假的（P6/P7 的取证截图里正上方就摆着一条真实回复，
+            两句话字面矛盾）。改成描述真正的行为约束：回复是服务端跑完真实 run 后
+            写回的持久消息，不是前端本地伪造/拼出来的——这条约束仍然成立，只是
+            换一种不自相矛盾的说法。`tests/ui/chat-read-screen.test.tsx:500` 与
+            `e2e/chat-read.spec.ts:61` 两处断言已同步改成新文案，不是删掉旧断言。
+          */}
+          <p className="px-1.5 pb-0.5 text-10 text-muted-foreground">
+            只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。
+          </p>
         </div>
         {speech.listening ? (
           // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
@@ -588,11 +676,14 @@ export function ChatLiveMessagePanel({
           </p>
         ) : null}
         {queuedRun ? (
-          <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued">
-            消息已持久化，AgentRun 已排队（{queuedRun.id}）。
+          // #728 第 8 轮 P10 —— 裸 40 位 id 不再印进人读文案，`data-run-id`（下方
+          // AgentRunStatus）已经把它挂在 DOM 上供机器断言，人眼不需要看两遍同一个 id。
+          <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued" data-run-id={queuedRun.id}>
+            消息已持久化，AgentRun 已排队。
           </p>
         ) : null}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
+        {runObservation?.view ? <AgentRunToolCallSteps steps={runObservation.view.steps} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -601,6 +692,34 @@ export function ChatLiveMessagePanel({
       </div>
     </div>
   );
+}
+
+/**
+ * agent 的显示名。从编制（`getAgentPanel` 的结果）里查，查不到回落到 id。
+ * ⚠ 回落**不是**糊成「Agent」：查不到通常意味着它已被移出编制，糊掉会让这件事不可见。
+ */
+function agentLabel(agentId: string | null, agents: GetAgentPanelOut["agents"] | null): string {
+  if (agentId === null) return "Agent";
+  return agents?.find((a) => a.id === agentId)?.name ?? agentId;
+}
+
+/** agent 的角色 chip。编制里没有这个 agent 时不渲染 —— 不编一个角色出来。 */
+function agentDuty(
+  agentId: string | null,
+  agents: GetAgentPanelOut["agents"] | null,
+): React.ReactNode {
+  const duty = agentId === null ? undefined : agents?.find((a) => a.id === agentId)?.duty;
+  return duty ? <Badge tone="ai">{duty}</Badge> : null;
+}
+
+/**
+ * 「时:分」。⚠ 刻意不做「几分钟前」：那会让同一条消息在两次渲染间文字不同，
+ * 截图比对与快照测试都会因此抖动，换来的信息量为零。
+ */
+function messageTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
 /**
@@ -636,7 +755,6 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
       data-result-message-id={view?.resultMessageId ?? undefined}
       data-run-error={view?.error ?? undefined}
     >
-      <Badge tone="outline">run {runId}</Badge>
       {failure !== null ? <span className="text-destructive">{failure}</span> : null}
       {failure === null && status === null ? (
         <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>
@@ -648,6 +766,71 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
         <span className="text-muted-foreground">本页面已停止轮询，运行可能仍在继续。</span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * #731 follow-up —— chat-ux-acceptance-criteria.md 第 2/3 项在界面上的交付物。
+ *
+ * ## 数据源：轮询里已经有的东西，不是新接口
+ *
+ * `runObservation.view.steps` 早就在 `GET /agent-runs/:runId` 的响应里（`lib/agent-run.ts`
+ * 的 `AgentRunView`），只是之前没人读它。这里只筛出 `kind === "tool_call"` 的条目并渲染
+ * ——不发起任何新请求，不在客户端合成任何字段。`toolArgsSummary`/`toolResultSummary`/
+ * `planningNote` 全部原样来自后端，为 `null` 就不渲染那一行，绝不用占位文案顶替。
+ *
+ * ## 为什么不做"正在调用中"的假动画
+ *
+ * 后端只在一次工具调用**真正完成**（成功或失败）之后才写入这条 step——调用期间没有
+ * 中间状态可读。伪造一个"正在调用…"的过渡态会是一句界面从未验证过的谎言；这里如实
+ * 只展示"已经发生的事"，`AgentRunStatus` 上方已有的"正在执行"整体状态负责传达"run
+ * 还没完"，两者不重复表达同一件事。
+ */
+function AgentRunToolCallSteps({ steps }: { steps: AgentRunView["steps"] }) {
+  const toolSteps = steps.filter((step) => step.kind === "tool_call");
+  if (toolSteps.length === 0) return null;
+  return (
+    <ol className="mt-1.5 flex flex-col gap-1.5" data-testid="chat-run-tool-call-steps">
+      {toolSteps.map((step, index) => {
+        const succeeded = step.status === "succeeded";
+        return (
+          <li
+            key={index}
+            className="rounded-md border border-border-subtle bg-card px-2 py-1.5 text-11"
+            data-testid={`chat-run-tool-call-step-${index}`}
+            data-tool-name={step.toolName ?? undefined}
+            data-tool-status={step.status}
+          >
+            {step.planningNote ? (
+              // 第 2 项——工具调用前的可见计划。真实来自模型同一轮回复里的文本，
+              // 模型没说就不显示（见组件自身 doc comment），不编一句话出来凑数。
+              <p className="mb-1 italic text-muted-foreground" data-testid={`chat-run-tool-call-plan-${index}`}>
+                {step.planningNote}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+              <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="font-medium">调用 {step.toolName ?? "未知工具"}</span>
+              {succeeded ? (
+                <Badge tone="primary"><CheckCircle2 aria-hidden className="h-2.5 w-2.5" />完成</Badge>
+              ) : (
+                <Badge tone="danger"><XCircle aria-hidden className="h-2.5 w-2.5" />失败</Badge>
+              )}
+            </div>
+            {step.toolArgsSummary ? (
+              <p className="mt-1 text-10 text-muted-foreground">
+                参数：{step.toolArgsSummary}
+              </p>
+            ) : null}
+            {step.toolResultSummary ? (
+              <p className={`mt-0.5 text-10 ${succeeded ? "text-card-foreground" : "text-destructive"}`}>
+                {succeeded ? "结果" : "失败原因"}：{step.toolResultSummary}
+              </p>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -809,6 +992,88 @@ function newClientMessageId(): string {
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
   return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
+
+/**
+ * 运行 Agent 选择器。
+ *
+ * ⚠ 不用原生 `&lt;select&gt;`——app 层禁止裸原生表单元素（uiux-standards U6），
+ *   且 #728 D8 判据逐字写「没有裸 `&lt;select&gt;`」。仿照本仓已有的手写弹层惯例
+ *   （`components/projects/project-more-menu.tsx`：Button 触发 + `role="listbox"` 面板，
+ *   不是 `@radix-ui/react-select`，虽然那个依赖已装但本仓这类小面板一贯手写）。
+ *
+ * `data-testid="chat-agent-select"` 留在**触发按钮**上（原来在 `&lt;select&gt;` 本身），
+ * 值用可见文字呈现（Agent 名），不再是 `&lt;option&gt;` 的 `value`——
+ * `toHaveValue()` 断言因此改成 `toHaveTextContent()`，`selectOption()` 改成点开+点选项。
+ * 这不是削弱断言：它验证的还是「当前选中的 agent 是谁」，只是读取方式跟着控件形态换了。
+ */
+function AgentPicker({
+  agents, selectedAgentId, disabled, onSelect,
+}: {
+  agents: GetAgentPanelOut["agents"] | null;
+  selectedAgentId: string;
+  disabled: boolean;
+  onSelect: (agentId: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const selected = agents?.find((agent) => agent.id === selectedAgentId) ?? null;
+
+  return (
+    /*
+      #728 —— 紧凑化：从「运行 Agent [长按钮撑满一行]」改成 Claude Code 那种
+      左下角小触发器（头像/缩写 + 名字，不再有单独的标签行）。默认已经选中
+      `agents[0]`（见调用方 `selectedAgentId` 的推导），用户多数时候不需要点开它，
+      所以给它的视觉权重降到跟麦克风、发送同一级，而不是占一整行。
+    */
+    <div className="relative flex items-center">
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        className="max-w-40 justify-start gap-1.5 rounded-full px-2"
+        data-testid="chat-agent-select"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="运行 Agent"
+        title={selected ? `运行 Agent：${selected.name}` : "运行 Agent"}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {selected ? <Avatar initials={selected.abbr} tone="ai" size="xs" /> : null}
+        <span className="truncate text-11">{selected?.name ?? (agents?.length ? "选择 Agent" : "没有可选 Agent")}</span>
+        <span aria-hidden className="text-9 text-muted-foreground">▾</span>
+      </Button>
+      {open && agents?.length ? (
+        <div
+          role="listbox"
+          aria-label="运行 Agent"
+          data-testid="chat-agent-select-listbox"
+          className="absolute bottom-8 left-0 z-10 w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
+        >
+          {agents.map((agent) => (
+            <button
+              key={agent.id}
+              type="button"
+              role="option"
+              aria-selected={agent.id === selectedAgentId}
+              data-testid={`chat-agent-select-option-${agent.id}`}
+              onClick={() => {
+                onSelect(agent.id);
+                setOpen(false);
+              }}
+              className={[
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                agent.id === selectedAgentId ? "text-primary" : "text-card-foreground",
+              ].join(" ")}
+            >
+              <Avatar initials={agent.abbr} tone="ai" size="xs" />
+              <span className="truncate">{agent.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function FailureState({

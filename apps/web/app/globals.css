@@ -198,4 +198,22 @@
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  /*
+    #728 第 9 轮 rev-uiux 发现：`@copilotkit/react-ui/styles.css`（在
+    chat-live-message-panel.tsx 里全局引入）自带 `.copilotKitParagraph { font-size: 1rem }`，
+    盖过了消息气泡容器上的 `text-12`——人的气泡是纯文本 `<p>`（走 Tailwind 的 text-12，
+    12px），agent 的气泡走 CopilotKit 的 `<Markdown>` 组件、内部 `<p>` 套着
+    `.copilotKitParagraph`，实际渲染成 16px。同一条对话流两种字号，正是评分卡第 10 项
+    点名的"风格孤岛"。
+
+    ⚠ 这里**不**新写一个字号数值：`text-12` 是 `lib/font-scale.ts`（唯一事实源）已经
+    生成的 Tailwind 工具类，直接复用它盖掉第三方样式，字号档位改动时这里跟着改，不会
+    变成第二份需要人肉对齐的副本。选择器锚定 `chat-live-message-panel.tsx` 里两处气泡
+    容器都有的 `.copilotkit-message-markdown` 标记类，不影响本仓其他引用 CopilotKit
+    markdown 渲染的地方（如果将来出现）。
+  */
+  .copilotkit-message-markdown .copilotKitParagraph {
+    @apply text-12;
+  }
 }

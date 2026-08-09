@@ -58,7 +58,9 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await page.getByTestId("chat-messages-load-more").click();
   await expect(page.getByTestId("chat-message-list")).toContainText("Browser durable message");
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
-  await expect(page.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeVisible();
+  await expect(
+    page.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
@@ -107,6 +109,11 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
     response.request().method() === "POST"
     && response.url().includes(`/chat/threads/${CHAT_READ_E2E.threadId}/agents`)
   ));
+  // #728 D2：加入 agent 的输入框现在收在编制栏头的「编辑」后面（照原型：编制区常态只
+  // 显示谁在场，编辑是显式动作）。此前它常驻，等于永远挂着一个裸 agent id 输入框 ——
+  // 正是 #594 人类要求消灭的形态。
+  // ⚠ 断言一条没放宽：没有写权时「编辑」按钮本身不渲染，下面这行会如实红。
+  await page.getByTestId("chat-roster-edit").click();
   await page.getByTestId("chat-roster-add-input").fill(CHAT_READ_E2E.catalogOnlyAgentId);
   await page.getByTestId("chat-roster-add-submit").click();
   expect((await addResponse).status()).toBe(200);
@@ -186,8 +193,12 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   });
 
   await page.goto("/chat");
-  // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见（"我的对话"）。
-  await expect(page.getByTestId("chat-read-thread-list")).toContainText("我的对话");
+  // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见。
+  // #728：栏头文案从「我的对话」改成「对话」（与项目对话共用同一个 `ThreadListHeader`，
+  // 人类裁决：个人对话复用项目对话的壳，不许存在第二套视觉实现）。断言改锚在
+  // 「不挂靠任何项目，仅自己可见」这句个人对话独有的说明文字上——它不会随共用组件
+  // 的文案调整而漂移，且专门证明的是「这是个人模式，不是项目模式」这件事本身。
+  await expect(page.getByTestId("chat-read-thread-list")).toContainText("不挂靠任何项目，仅自己可见");
   await expect((await personalThreadsRequest).status()).toBe(200);
   // 防的洞的新形状：全程没有向任何伪造的项目路径发过请求。
   expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);

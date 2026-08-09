@@ -337,9 +337,11 @@ test.describe("核心闭环八步", () => {
    * `chat-message-input=visible`、`chat-composer-input=0` —— 旧锚点整页零命中。
    *
    * ## 真实锚点（写进断言前逐个在源码里重新定位，并实测走得到）
-   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:316
-   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:327
-   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:305
+   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:553
+   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:582
+   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:954
+   *     （#728 D8：不再是原生 `&lt;select&gt;`，是弹层触发按钮；选项在
+   *     `chat-agent-select-option-&lt;agentId&gt;`，需要先 `.click()` 打开再点选项）
    *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:672
    *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:679
    *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:698
@@ -403,7 +405,8 @@ test.describe("核心闭环八步", () => {
 
     const text = `闭环消息 ${Date.now()}`;
     await expect(page.getByTestId("chat-message-input")).toBeVisible();
-    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-agent-select").click();
+    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
     await page.getByTestId("chat-message-input").fill(text);
     // 编制补上之后这一行才转绿——它是「阻塞已解除」这件事的断言本体。
     await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
@@ -699,7 +702,8 @@ test.describe("核心闭环八步", () => {
     // 标记的作用：回复正文里必须能找到它。找不到就说明回复不是这次 run 产出的
     // （可能是上一次跑剩下的行，也可能是谁在前端合成的）。
     const marker = `CORE_LOOP_8B_${Date.now()}`;
-    await page.getByTestId("chat-agent-select").selectOption(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-agent-select").click();
+    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
     await page.getByTestId("chat-message-input").fill(marker);
     await page.getByTestId("chat-message-submit").click();
 

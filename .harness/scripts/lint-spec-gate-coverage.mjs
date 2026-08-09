@@ -70,6 +70,19 @@ const EXEMPTIONS = [
       "都以「`responsive.spec.ts` 有断言」为由省略了响应式截图，而那条断言其实不会再跑。" +
       "跟踪：#512 的 PR 正文已把此项上报 coord-chat-e2e，待其开 follow-up issue。",
   },
+  {
+    spec: "apps/web/e2e/chat-main-shots.spec.ts",
+    reason:
+      "#728 —— 它**不是规格，是取证工具**：整个文件里没有一条 expect，只把 `/chat` 主屏抓成 png " +
+      "供 rev-uiux 按 .harness/rubrics/chat-main-fidelity-rubric.md 逐张比对原型参照图。" +
+      "接进门控没有意义：没有断言的 spec 在 CI 里永远绿，等于给流水线加一条不会红的耗时步骤 —— " +
+      "而本仓的纪律正好相反（『没有脚本的规范条目视为未落地』的反面是『不会红的门控不是门控』）。" +
+      "它由 `pnpm run shots:chat-main`（package.json）显式调用，复用 " +
+      "playwright.chat-read.config.ts 的整栈，所以不存在『第二份栈定义』。" +
+      "⚠ 保真度本身**有**门控，只是门在人和 rev-uiux 那边：10/10 是 #728 推 main 的放行条件。" +
+      "若哪天把保真度做成机械比对（像素/结构 diff），那条新 spec 要接进 CI，" +
+      "并把本条豁免删掉。",
+  },
 ];
 
 /** 拿 workspace 包名 → 目录 的映射，用于解析 `pnpm --filter <name>`。 */
