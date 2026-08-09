@@ -48,6 +48,11 @@ import {
  *    「请求有没有到服务端」，根本没考验到持久化。理由同样写在那个 spec 的文件头。
  *    ⚠ 乐观插进去的内容不是编的：名称/职责/可见性是使用者刚填的，
  *      `skillId`/`status`/`source` 来自服务端 201 的响应体。
+ *    ⚠ #861：乐观行**单独存一处**（`pending`），不直接塞进 `state.rows`。原来那句
+ *      `prev.status === "ready" ? 插入 : prev` 在「首屏列表还在飞」的窗口里会把这一行
+ *      **静默丢掉**，随后到达的 GET 再把 state 覆盖成纯服务端结果 —— 使用者看到的是
+ *      「提示说建好了，列表里没有」。它在 CI 上表现成 `skill-create-smoke.spec.ts:212`
+ *      的间歇失败（stub 出来的 201 零延迟，最容易撞进这个窗口）。清除规则见 `pending`。
  *
  * ## 本屏**没有**的入口
  *
@@ -114,11 +119,27 @@ export function SkillCatalogLive() {
   return <Catalog orgId={orgId} orgName={currentOrganizationLabel(identity?.org.name)} />;
 }
 
+/**
+ * 一行「已经创建成功、但还没被任何一次服务端读取确认过」的乐观插入。
+ *
+ * `afterRequest` ＝ 插入时**已经发出**的最后一次读取的编号。清除规则只有一条：
+ * **编号更大的读取**（＝创建之后才发起的那些）才能抹掉它。
+ *   · 创建**之前**就在飞的那次（编号相等）不能 —— 它的响应早于这次创建，
+ *     里面不可能有这一行，用它覆盖等于用过期事实否定刚发生的事。这就是 #861 的 bug。
+ *   · 刷新按钮 / `page.reload()` 触发的读取编号更大 ⇒ 照常抹掉。#520 的反证
+ *     「没落库的那行刷新后就没了」靠的正是这一条，两条一起才是完整的行为。
+ */
+interface PendingRow {
+  readonly afterRequest: number;
+  readonly row: SkillListItem;
+}
+
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const generation = React.useRef(0);
   const currentOrgId = React.useRef(orgId);
   currentOrgId.current = orgId;
   const [state, setState] = React.useState<LoadState>({ orgId, status: "loading" });
+  const [pending, setPending] = React.useState<readonly PendingRow[]>([]);
   const [creating, setCreating] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [detail, setDetail] = React.useState<SkillDetail | null>(null);
@@ -133,6 +154,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       // 换组织后到达的旧响应不得覆盖新组织的真实请求（同 `capability-catalog-screen.tsx`）。
       if (request !== generation.current || currentOrgId.current !== orgId) return;
       setState({ orgId, status: "ready", rows });
+      // 这次读取**发起于**编号 `request`：它只对更早的乐观行有发言权（见 `PendingRow`）。
+      setPending((prev) => prev.filter((p) => p.afterRequest >= request));
     } catch (error) {
       if (request !== generation.current || currentOrgId.current !== orgId) return;
       setState({ orgId, status: "error", message: describeError(error) });
@@ -145,6 +168,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     setNotice(null);
     setDetail(null);
     setDetailError(null);
+    // 乐观行同理作废：它说的是另一个组织里刚发生的事。
+    setPending([]);
     void load();
     return () => {
       generation.current += 1;
@@ -154,7 +179,16 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   // 渲染期就按组织收口：effect 在 paint 之后才跑，只靠它会让新组织短暂继承旧组织的行。
   const visibleState: LoadState =
     state.orgId === orgId ? state : { orgId, status: "loading" };
-  const rows = visibleState.status === "ready" ? visibleState.rows : [];
+  const serverRows = visibleState.status === "ready" ? visibleState.rows : [];
+  /**
+   * 服务端结果 ＋ 尚未被确认的乐观行。同一个 `skillId` 以**服务端那份**为准 ——
+   * 真实创建的那一行被下一次读取带回来时，这里换成服务端的版本，而不是并排两行。
+   */
+  const confirmedIds = new Set(serverRows.map((r) => r.skillId));
+  const rows: readonly SkillListItem[] = [
+    ...pending.filter((p) => !confirmedIds.has(p.row.skillId)).map((p) => p.row),
+    ...serverRows,
+  ];
 
   async function openDetail(skillId: string) {
     setDetailError(null);
@@ -217,11 +251,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           onCancel={() => setCreating(false)}
           onCreated={(row, message) => {
             // ⚠ 乐观插入，**不重读**。理由见文件头第 ③ 条。
-            setState((prev) =>
-              prev.orgId === orgId && prev.status === "ready"
-                ? { ...prev, rows: [row, ...prev.rows] }
-                : prev,
-            );
+            // ⚠ 不看当前是不是 `ready`：首屏还在加载时也照样插得进去（#861）。
+            setPending((prev) => [{ afterRequest: generation.current, row }, ...prev]);
             setNotice(message);
             setCreating(false);
           }}
@@ -263,7 +294,13 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
         </div>
       ) : null}
 
-      {visibleState.status === "ready" && rows.length > 0 ? (
+      {/**
+       * ⚠ 条件是 `rows.length > 0`，**不是** `status === "ready" && …`（#861）：
+       *   首屏还在飞的时候刚建出来的那一行也得看得见，否则「提示说建好了、列表里没有」
+       *   这个状态会一直挂到 GET 回来为止。加载态那一格照常显示 —— 两件事都是真的：
+       *   这一行确实建出来了，整份列表确实还在读。
+       */}
+      {rows.length > 0 ? (
         <div className="flex flex-col gap-2" data-testid="skill-catalog-list">
           {rows.map((row) => (
             <Card key={row.skillId}>
@@ -324,6 +361,13 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
                     rows: prev.rows.map((r) => (r.skillId === skillId ? { ...r, status } : r)),
                   }
                 : prev,
+            );
+            // 刚建出来、还没被任何一次读取确认的那一行也在这里 —— 漏掉它，
+            // 「建完直接走门禁」这条路径上状态徽标会停在「草稿」不动。
+            setPending((prev) =>
+              prev.map((p) =>
+                p.row.skillId === skillId ? { ...p, row: { ...p.row, status } } : p,
+              ),
             );
           }}
         />
