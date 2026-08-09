@@ -21,6 +21,8 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
 const IMAGE_GEN_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: IMAGE_GEN_AGENT_STABLE_NAME,
   name: IMAGE_GEN_AGENT_NAME,
+  abbr: "图片",
+  duty: "根据文字描述生成图片",
   instructions: IMAGE_GEN_AGENT_INSTRUCTIONS,
   lockKey: 662,
   resolveModel: () => ({ provider: IMAGE_GEN_AGENT_PROVIDER, modelId: IMAGE_GEN_AGENT_MODEL_ID }),

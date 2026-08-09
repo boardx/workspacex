@@ -44,6 +44,8 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
 const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: DEFAULT_AGENT_STABLE_NAME,
   name: DEFAULT_AGENT_NAME,
+  abbr: "通用",
+  duty: "通用对话与任务协助，新组织的默认可聊 agent",
   instructions: DEFAULT_AGENT_INSTRUCTIONS,
   lockKey: 660,
   resolveModel: () => {
