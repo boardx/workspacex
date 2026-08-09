@@ -240,6 +240,46 @@ export const ProvenanceEventType = z.enum([
   "legal-hold-applied",
   "legal-hold-released",
 
+  /**
+   * 🔴 #638 迭代 4（identity 束自助资料，ADR-101 追加，Proposed，需人类追认）。
+   *
+   * `self-service-profile` delta 已签核的 `contract.md` §2 逐字要求
+   * `updateOwnProfile`/`changeOwnPassword` 的写路径可被 `listOwnActivity` 读到——但
+   * 独立复核实测（PR #797）发现六条写路径全部没有调用 `provenance.append`，
+   * `provenance_events` 表 `count = 0`，`verification.md` 因此记了一条「已知缺口」。
+   * 补齐时枚举里没有能表达「改了自己的显示名/头像/密码」的成员：`role-changed` 是组织
+   * /项目角色变更，`capability-updated` 是能力清单配置，`human-edited` 是内容草稿编辑——
+   * 三个都不是「用户自助改了自己账户的这个字段」，拿它们顶包会让"谁改了自己的资料"与
+   * 其它毫不相干的事件混进同一个类型，ADR-101 开篇的道理照旧适用。
+   *
+   * 三个分开（不合并成 `profile-changed` + `detail.op`）：与决策 A「线程三值不合并」
+   * 同一个理由——`listOwnActivity` 展示的活动记录要按类型给出人可读的动作描述
+   * （"改了显示名" vs "换了头像" vs "改了密码"是三件读者关心的不同事），合并后
+   * `summarize()` 需要解析 `detail` 才能分辨，`queryProvenance` 的筛选面也一样筛不了。
+   * 命名沿用「对象-过去分词」构词法，`avatar-changed`/`password-changed` 与
+   * `role-changed`/`team-changed` 同形；`profile-renamed` 与 `thread-renamed` 同形。
+   */
+  "profile-renamed",
+  "avatar-changed",
+  "password-changed",
+
+  /**
+   * 🔴 #638 迭代 4（org-admin 束团队自助 CRUD，ADR-101 追加，同一意图）。
+   *
+   * `team-crud` delta（#639）已落地的 `createTeam`/`renameTeam`/`deleteTeam`
+   * （`apps/api/src/application/auth/{create,rename,delete}-team.ts`）三条写路径同样
+   * 没有写审计——`mutateTeam`（F11）也没有，但那条不在本次补齐范围内（本次只补
+   * #638 指派单点名的六条）。最接近的既有成员 `team-changed` 已经被 `update-agent-
+   * roster.ts` 借去表示"对话线程的 agent 编制变更"（该文件头自己标红"已知不贴切的
+   * 顶替"），团队实体的创建/改名/删除若也塞进 `team-changed` + `detail.op`，"查全部
+   * 被删除的团队"就需要解析 `detail`，`queryProvenance` 无此能力——与 ADR-101 决策 A
+   * 「线程三值不合并」同一个理由，三个分开。命名照抄 `thread-created`/`thread-renamed`/
+   * `thread-deleted` 的构词法。
+   */
+  "team-created",
+  "team-renamed",
+  "team-deleted",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);
@@ -287,6 +327,26 @@ export const ProvenanceTargetKind = z.enum([
    * `asset-published` 的长注，同一纪律：走 ADR。
    */
   "asset",
+  /**
+   * 🔴 #638 迭代 4（identity 束自助资料）补入，同一根：`updateOwnProfile`/
+   * `changeOwnPassword` 改的是调用者自己的 `credentials` 行，不属于任何既有 kind——
+   * `membership` 是组织/项目成员关系（复合 id），不是账户本身；`organization` 是组织
+   * 实体。迁移 `20260809100000_i638_i639_...sql` 自己的注释也用了这个词：
+   * 「an avatar belongs to the ACCOUNT (credentials.user_id)…它先于且跨越组织存在
+   * （O-12），没有 org_id 列可以按组织限定」——沿用同一措辞，不发明新词。
+   * 见 `ProvenanceEventType` 里 `profile-renamed`/`avatar-changed`/`password-changed`
+   * 的长注，同一纪律：走 ADR。
+   */
+  "account",
+  /**
+   * 🔴 #638 迭代 4（org-admin 束团队 CRUD）补入，同一根：`createTeam`/`renameTeam`/
+   * `deleteTeam` 的目标是团队实体本身，不是某个用户与团队的从属关系——`membership`
+   * 已经被项目成员关系占用（`add-project-member.ts` 等，复合 `projectId:userId` id），
+   * 拿它顶包会让"团队本身被删了"与"某人被移出了项目"混进同一个 target kind。
+   * 见 `ProvenanceEventType` 里 `team-created`/`team-renamed`/`team-deleted` 的长注，
+   * 同一纪律：走 ADR。
+   */
+  "team",
 ]);
 
 export type ProvenanceTargetKindT = z.infer<typeof ProvenanceTargetKind>;

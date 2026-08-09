@@ -110,6 +110,19 @@ describe("changeOwnPassword（#638 delta，迭代 2）", () => {
     // 新密码真的生效了。
     const fresh = await loginAs(EMAIL, NEW_PASSWORD);
     expect(await stillWorks(fresh)).toBe(true);
+
+    // 反证（#638 迭代 4）：改密成功写一条 password-changed provenance 行，actor 是本人，
+    // target 是本人的账户，`detail` 里没有任何密码字节（只记 revokedSessionCount）。
+    const events = await asOwner((c) =>
+      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string; detail: { revokedSessionCount: number } }>(
+        `SELECT type, actor_id, target_kind, target_id, detail FROM provenance_events
+          WHERE org_id = $1 AND type = 'password-changed' AND actor_id = $2`,
+        [ORG, USER],
+      ),
+    );
+    expect(events.rows).toHaveLength(1);
+    expect(events.rows[0]).toMatchObject({ type: "password-changed", actor_id: USER, target_kind: "account", target_id: USER });
+    expect(events.rows[0]!.detail).toEqual({ revokedSessionCount: 1 });
   }, 120_000);
 
   it("当前密码错误时拒绝，且不吊销任何会话", async () => {
@@ -128,6 +141,15 @@ describe("changeOwnPassword（#638 delta，迭代 2）", () => {
     expect(((await res.json()) as { reasonCode: string }).reasonCode).toBe("CURRENT_PASSWORD_INVALID");
     expect(await stillWorks(current)).toBe(true);
     expect(await stillWorks(other)).toBe(true);
+
+    // 被拒绝的改密尝试不写 password-changed（没有发生的事不该留下"发生过"的痕迹）。
+    const events = await asOwner((c) =>
+      c.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM provenance_events WHERE org_id = $1 AND type = 'password-changed' AND actor_id = $2`,
+        [ORG, USER],
+      ),
+    );
+    expect(events.rows[0]!.n).toBe(0);
   }, 60_000);
 });
 
@@ -180,6 +202,20 @@ describe("uploadOwnAvatar（#638 delta，迭代 2）", () => {
     const patched = (await patchRes.json()) as { avatarUrl: string | null };
     expect(patched.avatarUrl).toBe(uploaded.avatarUrl);
 
+    // 反证（#638 迭代 4）：`updateOwnProfile` 落地头像那一刻写一条 avatar-changed（不是
+    // `uploadOwnAvatar` 那一步——上传只是把字节放进对象存储，真正"改了我的头像"是这次
+    // PATCH）。target 是本人账户，`detail.avatarArtifactId` 对得上刚上传的那个 id。
+    const events = await asOwner((c) =>
+      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string; detail: { avatarArtifactId: string; cleared: boolean } }>(
+        `SELECT type, actor_id, target_kind, target_id, detail FROM provenance_events
+          WHERE org_id = $1 AND type = 'avatar-changed' AND actor_id = $2`,
+        [ORG, USER],
+      ),
+    );
+    expect(events.rows).toHaveLength(1);
+    expect(events.rows[0]).toMatchObject({ type: "avatar-changed", actor_id: USER, target_kind: "account", target_id: USER });
+    expect(events.rows[0]!.detail).toEqual({ avatarArtifactId: uploaded.avatarArtifactId, cleared: false });
+
     // resolveIdentity 也要读到——`session-provider.tsx` 靠这条读回来渲染。
     const meRes = await fetch(`${BASE}/identity/me?orgId=${ORG}`, { headers: { authorization: `Bearer ${token}` } });
     expect(meRes.status).toBe(200);
@@ -196,26 +232,33 @@ describe("uploadOwnAvatar（#638 delta，迭代 2）", () => {
   }, 60_000);
 });
 
-describe("listOwnActivity（#638 delta，迭代 2）", () => {
-  it("反证：真查询结果，不是硬编码——先造一条真实事件，再断言能读到", async () => {
+describe("listOwnActivity（#638 delta，迭代 2；迭代 4 补写路径后回填的非空断言）", () => {
+  it("反证：改名后活动记录真的非空，且内容对得上——不是硬编码/mock（六条写路径补齐 provenance 前，这里 count 恒为 0）", async () => {
     const token = await loginAs(EMAIL, OLD_PASSWORD);
-    // 改名会写一条 provenance_events（role-changed 族之外，走 identity 束既有的写路径）。
-    await fetch(`${BASE}/identity/me`, {
+    // 迭代 4 之前 `updateOwnProfile` 不写 provenance，这条断言会失败——现在 `profile-renamed`
+    // 落库了，`listOwnActivity` 应该读得到。
+    const patchRes = await fetch(`${BASE}/identity/me`, {
       method: "PATCH",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify({ displayName: "活动记录反证专用名字" }),
     });
-    // updateOwnProfile 本身不写 provenance——用一个确定会写审计事件的动作：切组织。
-    // 若组织只有一个，退回改名验证"读的是不是真数据"这条属性（即便没有真实事件，
-    // 也必须不是硬编码的固定 3 条）。
+    expect(patchRes.status).toBe(200);
+
     const res = await fetch(`${BASE}/identity/me/activity?limit=20&cursor=`, {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { events: unknown[]; nextCursor: string | null };
+    const body = (await res.json()) as {
+      events: { eventId: string; kind: string; occurredAt: string; summary: string }[];
+      nextCursor: string | null;
+    };
     expect(Array.isArray(body.events)).toBe(true);
-    // 不断言具体条数为某个写死的数字——断言的是"这是一次真查询"：换一个从未有过活动的
-    // 新用户，必须是空列表，而不是同一批硬编码数据。
+    expect(body.events.length).toBeGreaterThan(0);
+    const renameEvent = body.events.find((e) => e.kind === "profile-renamed");
+    expect(renameEvent).toBeDefined();
+    expect(renameEvent!.eventId).toBeTruthy();
+    expect(new Date(renameEvent!.occurredAt).toString()).not.toBe("Invalid Date");
+    expect(renameEvent!.summary).toContain("profile-renamed");
   }, 60_000);
 
   it("反证的另一半：全新用户没有任何活动记录时返回空列表，不是别人的数据", async () => {

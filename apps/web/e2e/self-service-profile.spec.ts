@@ -6,12 +6,13 @@
  * 链路一节不许省：Chromium → Next 同源代理 → NestJS 控制器 → application 用例
  * → repository → PostgreSQL，走真实登录、真实密码、真实 team CRUD——不是 mock。
  *
- * ## 范围边界（人类已裁决，写在这里免得下一个人以为漏了）
+ * ## 活动记录非空断言（迭代 4，#638，回填 PR #797 独立复核撤回的那条）
  *
- * 六条写路径（改名/换头像/改密码/团队增删改）目前都没有写 `provenance` 记录，
- * `/profile` 的活动记录面板永远为空——这是**已知的、故意撤回**的验收条件，不是本
- * 文件的疏漏。本文件**不**断言活动记录非空，也**不**顺手补 provenance 落库
- * （那是下一个 delta 的范围）。
+ * 六条写路径此前都没有写 `provenance` 记录，`/profile` 的活动记录面板永远为空——
+ * 那一版的 e2e 因此**故意撤回**了"活动记录非空"这条断言（写在
+ * `verification.md` 的"已知缺口"一节）。本轮六条写路径已补齐 `provenance.append`
+ * （见 `packages/contracts/src/provenance.ts` 与 ADR-101 的 #638 追加记录），本文件把
+ * 这条断言加回来：改名后 `profile-activity-list` 至少能看到一条真实记录。
  *
  * ## 为什么单独一个 org、一套 webServer（`playwright.self-service-profile.config.ts`）
  *
@@ -64,6 +65,12 @@ test.describe.serial("用户个人资料自助服务 + 组织团队管理", () =
 
     await page.reload();
     await expect(page.getByTestId("profile-display-name-input")).toHaveValue(newDisplayName);
+
+    /* ── 1b. 活动记录非空：改名写的 provenance 事件真的能读回来（迭代 4） ───── */
+    await expect(page.getByTestId("profile-activity-section")).toBeVisible();
+    const activityItems = page.getByTestId("profile-activity-list").locator("li");
+    await expect(activityItems).not.toHaveCount(0);
+    await expect(activityItems.first()).toContainText("profile-renamed");
 
     /* ── 2. 改密码：正确当前密码 + 符合策略的新密码 ──────────────────────── */
     await page.getByTestId("profile-current-password-input").fill(SELF_SERVICE_PROFILE_E2E.adminPassword);

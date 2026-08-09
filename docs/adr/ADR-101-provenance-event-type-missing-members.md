@@ -320,6 +320,50 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
   （施加/解除仍会执行并落 `legal_holds` 表，只是 R3.d「全程留痕」在
   `provenance_events` 这一侧的承诺重新落空——`legal_holds` 表自身的四列仍在）。
 
+### 追加（2026-08-09，#638 迭代 4 · identity 自助资料 + org-admin 团队 CRUD，issue #638）——**Proposed，需人类追认**
+
+独立复核（PR #797）实测：`self-service-profile` delta 已签核的六条写路径（改名/换头像/
+改密码/建团队/改名团队/删团队）成功后一条都没有调用 `provenance.append`，
+`provenance_events` 表 `count = 0`——`listOwnActivity`（已签核、已实现的读路径）因此永远
+读到空列表。`verification.md` 当时记为「已知缺口，切到下一个 delta」，本次是那个 delta。
+
+`ProvenanceEventType` 再补 **6** 个成员，`ProvenanceTargetKind` 再补 **2** 个成员，
+同一意图（第 N 个撞上的人被带到这里，不发明第二种处理）：
+
+| 枚举 | 成员 | 代谁补 | 出处 |
+|---|---|---|---|
+| `ProvenanceEventType` | `profile-renamed` | identity · `updateOwnProfile` | `self-service-profile/contract.md` §2「`updateOwnProfile`：读会话主体 `userId`，`UPDATE credentials SET display_name=…`」 |
+| `ProvenanceEventType` | `avatar-changed` | identity · `updateOwnProfile`（`avatarArtifactId` 分支） | 同上 §1 `uploadOwnAvatar`/`updateOwnProfile` 两步流程的文档注释 |
+| `ProvenanceEventType` | `password-changed` | identity · `changeOwnPassword` | 同上 §1 `changeOwnPassword` 的文档注释（登录态改密，吊销除当前会话外的全部会话） |
+| `ProvenanceEventType` | `team-created` | org-admin · `createTeam` | `team-crud` delta（#639）已落地的 `create-team.ts` |
+| `ProvenanceEventType` | `team-renamed` | org-admin · `renameTeam` | 同上 `rename-team.ts` |
+| `ProvenanceEventType` | `team-deleted` | org-admin · `deleteTeam` | 同上 `delete-team.ts` |
+| `ProvenanceTargetKind` | `account` | identity 三条 | 调用者自己的 `credentials` 行——不是 `membership`（那是复合 id 的成员关系），也不是 `organization`（组织实体）；措辞借用 `20260809100000_i638_i639_...sql` 自己的注释「an avatar belongs to the ACCOUNT」 |
+| `ProvenanceTargetKind` | `team` | org-admin 三条 | 团队实体本身——不是 `membership`（那已经被项目成员关系占用） |
+
+- 六个事件类型分开、不合并成 `profile-changed`/`team-changed` + `detail.op`：与决策 A
+  「线程三值不合并」同一个理由——`listOwnActivity` 的活动记录要按类型给出可读的动作
+  描述（"改了显示名"/"换了头像"/"改了密码"是三件读者关心的不同事），合并后
+  `summarize()` 与 `queryProvenance` 都需要解析 `detail` 才能分辨，筛选面上没有那个
+  能力。`team-created`/`team-renamed`/`team-deleted` 与 `thread-created`/`thread-
+  renamed`/`thread-deleted` 同一先例。
+- `team-changed`（已有成员）不动：它已经被 `update-agent-roster.ts` 借去表示"对话
+  线程的 agent 编制变更"（该文件头自己标红"已知不贴切的顶替"），本次新增的三个
+  `team-*` 成员是团队实体 CRUD，与那条借用互不冲突、也不回填修正它——那是另一个
+  feature 的已知缺口，不在本次授权范围内。
+- `mutateTeam`（F11 的团队增删改）**不在本次补齐范围**：#638 指派单点名的是
+  `createTeam`/`renameTeam`/`deleteTeam` 这三条 team-crud delta（#639）新增的路径，
+  `mutateTeam` 是并存的旧路径，同样没有写审计，留给下一个撞上它的人。
+- `provenance_events_type_check`/`provenance_events_target_kind_check` 随
+  `20260809150000_i638_activity_log_provenance.sql` 一并追加这八个值；
+  `provenance-enum-single-source.test.ts` 的双向断言动态读取契约与 CHECK，
+  覆盖新成员无需改那个测试文件本身。
+- 否决时的回退：撤销契约里这八行 + 迁移里对应的两条 CHECK 追加 +
+  `update-own-profile.ts`/`change-own-password.ts`/`create-team.ts`/`rename-team.ts`/
+  `delete-team.ts` 失去写 `provenance_events` 这一步（六条操作本身仍会执行，只是
+  `listOwnActivity` 重新读到空列表，`self-service-profile/verification.md` 的
+  「已知缺口」条目需要恢复）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |
