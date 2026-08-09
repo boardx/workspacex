@@ -342,13 +342,21 @@ test.describe("核心闭环八步", () => {
    *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:954
    *     （#728 D8：不再是原生 `&lt;select&gt;`，是弹层触发按钮；选项在
    *     `chat-agent-select-option-&lt;agentId&gt;`，需要先 `.click()` 打开再点选项）
-   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:672
-   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:679
-   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:698
+   *   · `chat-roster-edit`          components/chat/chat-read-screen.tsx:875
+   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:901
+   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:908
+   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:936
    *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`。
-   *   编制表单在 `writable` 分支下**无条件渲染**（chat-read-screen.tsx:657-686，
-   *   不在任何折叠面板里）—— 本文件此前栽过「锚点存在但默认折叠够不到」的跟头，
-   *   所以这一条是单独确认过的，不是看见 testid 就写。
+   *
+   *   ⚠ #728 回归（发现于 PR #837 合并后）：编制表单**曾经**无条件渲染在
+   *   `writable` 分支下（就是这段注释此前写的那样），#728 的一次主屏视觉重做给
+   *   `RosterPanel` 加了 `addOpen` 折叠态（默认 `false`），表单现在**折在
+   *   `chat-roster-edit` 这个「编辑」按钮后面**——恰好就是这段注释警告过的
+   *   「锚点存在但默认折叠够不到」那个坑，这次是真被踩中了：两处步骤
+   *   （6b/8b）直接 `.fill(chat-roster-add-input)`，元素还没渲染，
+   *   `locator.fill` 死等到 30s/180s 超时。修法是在 `.fill()` 前先点开
+   *   `chat-roster-edit`，不是撤回这个折叠态（那是本轮真实、有意的 UI 改动，
+   *   不是误删）。
    *
    * ## 翻正（2026-08-05）：阻塞解除的**真正来源**是 #435，不是 #467/#546
    *
@@ -399,6 +407,8 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId("chat-message-submit")).toBeDisabled();
 
     // ── 走界面把 agent 加进本线程编制（真实用户路径） ───────────────────────
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
@@ -694,6 +704,8 @@ test.describe("核心闭环八步", () => {
     // ── 把**可运行的**那个 agent 挂进本线程的编制 ─────────────────────────
     // 种子只种了 `org_agents`（可见）与 `agents`/`agent_versions`（可跑），线程级编制
     // 刻意留给这里做 —— 线程是现场建的，预种不了，而这一步顺带证明编制写路径是活的。
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
