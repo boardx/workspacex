@@ -24,8 +24,41 @@
  * 浏览器 → API → PostgreSQL（human message）→ 执行器 → 本进程 → 写回 → PostgreSQL
  * → 浏览器重读。少了回显，断言就只能判「有一条 agent 消息」，
  * 而那种断言在「回复是前端合成的」时候照样绿。
+ *
+ * ## #728 P6 —— `stream: true` 走 SSE，不是新开关，是照抄请求里已经有的字段
+ *
+ * `ConfiguredModelProvider.streamImpl`（`configured-model-provider.ts`）只在
+ * `KERNEL_MODEL_STREAM_ENABLED=1` 时存在，且它发出的每一次请求体里 `stream` 字段
+ * 如实反映这一点——`complete()` 永远 `stream: false`，`streamImpl()` 永远
+ * `stream: true`。这条协议本身已经是「显式选中」的信号，不需要在这支脚本上
+ * 再叠一个独立的 `LOOPBACK_*_ENABLED` 环境变量去复述同一件事（那样反而是
+ * AGENTS.md 点名的「同一事实声明在两处」）。`fullstack-smoke` 用的 API 进程从不
+ * 设置 `KERNEL_MODEL_STREAM_ENABLED`，`this.completeStream` 在那条链路上根本不
+ * 存在，请求体永远是 `stream: false`——本次改动前的行为一字节不变；只有
+ * `playwright.chat-read.config.ts` 显式打开该开关后，这里才会真的看到
+ * `stream: true` 并切到 SSE 分支。
+ *
+ * 回复内容按小段切片、段间插入短延迟（`STREAM_CHUNK_DELAY_MS`），不是一次性
+ * 整段吐出后再包一层 SSE 外壳——那样虽然协议形状对，但 `streamingText` 在浏览器
+ * 里几乎不会有非空的可观测窗口（本地/CI 都可能在一次事件循环内就把整段收完），
+ * e2e 取证也就抓不到「生成中」这一帧。分片方式与
+ * `loopback-deep-agent-provider.ts` 用两次状态轮询让真实轮询循环真的转一圈
+ * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
 import { createServer } from "node:http";
+
+/**
+ * 每个 SSE delta 的字符数上限，与段间延迟。4 字符/120ms 在一句十几到几十字的回显
+ * 消息上，能稳定切出 5~10 帧、总时长 0.5~1s+，给足 Playwright 一个可靠等到
+ * `chat-message-row-streaming` 非空、再抓一帧的窗口——切得更细、等得更久，
+ * 都是为了不让这个窗口窄到需要"赌时序"才能撞见。
+ */
+const STREAM_CHUNK_SIZE = 4;
+const STREAM_CHUNK_DELAY_MS = 120;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const port = Number(process.env.LOOPBACK_MODEL_PROVIDER_PORT ?? "");
 if (!Number.isInteger(port) || port <= 0) {
@@ -56,6 +89,35 @@ function readBody(stream: NodeJS.ReadableStream): Promise<string> {
 
 interface CompletionRequest {
   readonly messages?: { readonly role?: string; readonly content?: unknown }[];
+  readonly stream?: unknown;
+}
+
+/**
+ * `ConfiguredModelProvider.streamImpl` 解码的是逐个 `data: {...}\n\n` 帧，字段形状
+ * 是 OpenAI 兼容的 `chat.completion.chunk`（`choices[0].delta.content`）——与
+ * `configured-model-provider.ts` 里 `CompletionChunk` 那个接口逐字对齐,不是猜的。
+ */
+async function writeStreamResponse(
+  res: import("node:http").ServerResponse,
+  fullText: string,
+): Promise<void> {
+  res.writeHead(200, {
+    "content-type": "text/event-stream",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive",
+  });
+  const write = (chunk: Record<string, unknown>): void => {
+    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  };
+  for (let i = 0; i < fullText.length; i += STREAM_CHUNK_SIZE) {
+    const delta = fullText.slice(i, i + STREAM_CHUNK_SIZE);
+    write({ choices: [{ delta: { content: delta } }] });
+    // 最后一段之后不用再等——没有下一帧要拉开窗口了。
+    if (i + STREAM_CHUNK_SIZE < fullText.length) await sleep(STREAM_CHUNK_DELAY_MS);
+  }
+  write({ choices: [{ delta: {}, finish_reason: "stop" }] });
+  res.write("data: [DONE]\n\n");
+  res.end();
 }
 
 const server = createServer((req, res) => {
@@ -68,7 +130,7 @@ const server = createServer((req, res) => {
     res.writeHead(404).end();
     return;
   }
-  void readBody(req).then((raw) => {
+  void readBody(req).then(async (raw) => {
     let parsed: CompletionRequest;
     try {
       parsed = JSON.parse(raw) as CompletionRequest;
@@ -79,9 +141,14 @@ const server = createServer((req, res) => {
     }
     const user = parsed.messages?.find((message) => message.role === "user")?.content;
     const echoed = typeof user === "string" ? user : "";
+    const fullText = `${REPLY_PREFIX} ${echoed}`;
+    if (parsed.stream === true) {
+      await writeStreamResponse(res, fullText);
+      return;
+    }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({
-      choices: [{ message: { role: "assistant", content: `${REPLY_PREFIX} ${echoed}` } }],
+      choices: [{ message: { role: "assistant", content: fullText } }],
     }));
   });
 });
