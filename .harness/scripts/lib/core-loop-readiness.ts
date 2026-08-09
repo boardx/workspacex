@@ -101,6 +101,8 @@ export interface ReadinessState {
 export type DiscountReason =
   | "NEVER_SCORED"
   | "STALE"
+  | "SHA_NOT_ON_MAIN"
+  | "EVIDENCE_UNRESOLVABLE"
   | "SELF_SCORED"
   | "SCORER_NOT_ALLOWED"
   | "NO_EVIDENCE"
@@ -166,6 +168,8 @@ export function judgeTrack(
   id: string,
   record: TrackRecord,
   changedSince: readonly string[] | null,
+  shaIsAncestorOfMain: boolean | null = null,
+  evidenceExists: ((ref: string) => boolean) | null = null,
 ): TrackVerdict {
   const discounts: DiscountReason[] = [];
 
@@ -185,6 +189,15 @@ export function judgeTrack(
     if (changedSince !== null && changedSince.length > 0 && matchesAny(changedSince, record.watch)) {
       discounts.push("STALE");
     }
+    // G5（#814 后续，rev-uiux 2026-08-09 提出）：评的必须是 main 血统的树。
+    // G2 只管"评分之后有没有改动"，管不了"评的根本不是这棵树"——#728 十轮评分的 SHA
+    // 无一是 origin/main 的祖先，而当时没有任何门为此变红。`null` = 查不到，不判罚。
+    if (shaIsAncestorOfMain === false) discounts.push("SHA_NOT_ON_MAIN");
+    // G6：证据必须**结构上可解析**。原先 G4 只查数组非空，于是一条手写的假锚点
+    // （`#issuecomment-round6`，真锚点是数字 id）照样过门——那是 coord-main 自己播下的。
+    if (record.evidence.some((e) => !isStructurallyResolvable(e, evidenceExists))) {
+      discounts.push("EVIDENCE_UNRESOLVABLE");
+    }
   }
 
   return {
@@ -195,6 +208,37 @@ export function judgeTrack(
     discounts,
     blockingIssues: record.blocking_issues,
   };
+}
+
+/**
+ * 证据是否**结构上**可解析。
+ *
+ * ⚠ 刻意**不做网络存活检查**：那会让门在离线/限流时抖动，而抖动的门迟早被 `--no-verify`
+ * 绕过（本仓 #504 已有先例）。结构校验离线、确定、零误报，而且足以抓住真实事故——
+ * 2026-08-09 混进记录的 `…/issues/728#issuecomment-round6` 就是**结构非法**的：
+ * GitHub 的评论锚点恒为 `#issuecomment-<数字>`。
+ *
+ * 三类证据各自的判据：
+ *   · 仓库内路径（无 scheme）→ 必须真的存在（由调用方注入 `exists`，纯函数不碰 fs）
+ *   · GitHub 评论 URL       → 锚点必须是 `#issuecomment-<数字>`
+ *   · 其它 URL              → 至少要能被 `new URL()` 解析
+ */
+export function isStructurallyResolvable(
+  ref: string,
+  exists: ((ref: string) => boolean) | null,
+): boolean {
+  const trimmed = ref.trim();
+  if (trimmed === "") return false;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    // 仓库内路径。调用方没注入 exists（离线渲染）时不判罚——同 changedSince 的 null 语义。
+    return exists === null ? true : exists(trimmed);
+  }
+  let url: URL;
+  try { url = new URL(trimmed); } catch { return false; }
+  if (url.hash !== "" && /issuecomment/i.test(url.hash)) {
+    return /^#issuecomment-\d+$/.test(url.hash);
+  }
+  return true;
 }
 
 /** 极小的 glob：只支持 `**` 与 `*`，够本仓的 watch 表达且不引依赖。 */
@@ -225,10 +269,15 @@ function globToRegExp(glob: string): RegExp {
 export function judgeReadiness(
   state: ReadinessState,
   changedSinceByTrack: Readonly<Record<string, readonly string[] | null>> = {},
+  ancestryByTrack: Readonly<Record<string, boolean | null>> = {},
+  evidenceExists: ((ref: string) => boolean) | null = null,
 ): ReadinessVerdict {
   const ids = Object.keys(state.tracks);
   const tracks = ids.map((id) =>
-    judgeTrack(id, state.tracks[id]!, changedSinceByTrack[id] ?? null),
+    judgeTrack(
+      id, state.tracks[id]!, changedSinceByTrack[id] ?? null,
+      ancestryByTrack[id] ?? null, evidenceExists,
+    ),
   );
 
   const ceiling = tracks.find((t) => t.id === CEILING_TRACK);
