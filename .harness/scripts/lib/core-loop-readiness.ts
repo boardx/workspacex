@@ -117,14 +117,22 @@ export interface TrackVerdict {
   readonly effectiveScore: number;
   /** 全部命中的扣分原因（不是只报第一条——修好一条才发现还有三条最浪费周期， */
   /** 同 `pr-queue.ts` 的 `reasons` 设计）。 */
+  /** 分数有效但已过期（方案 A）：计入 `clr`，但阻断 `passes`。 */
+  readonly isStale: boolean;
   readonly discounts: readonly DiscountReason[];
   readonly blockingIssues: readonly number[];
 }
 
 export interface ReadinessVerdict {
-  /** `clr >= PASS_THRESHOLD`。判定写在这里而不是让每个调用方自己比大小——
-   *  门槛只有一处定义，改它不会漏掉某个渲染分支。 */
+  /**
+   * 达标 ⟺ `clr >= PASS_THRESHOLD` **且没有任何一条 track 的分数是过期的**（方案 A）。
+   *
+   * 两个条件缺一不可：分数够高但其中一条已过期，只能说"上次量的时候够高"，不能说"现在达标"。
+   * 这是把严格性从 `clr` 挪到这里——`clr` 负责**有信息量**，`passes` 负责**不说谎**。
+   */
   readonly passes: boolean;
+  /** 有几条 track 的分数已过期（`passes` 为 false 的常见原因，渲染时要显式说出来）。 */
+  readonly staleCount: number;
   /** 天花板 track（R）的实际得分。 */
   readonly reachability: number;
   /** 其余三条 track 的均值。 */
@@ -200,11 +208,29 @@ export function judgeTrack(
     }
   }
 
+  // 人类 2026-08-09 裁决（方案 A）：**只有 `STALE` 是信息性的，其余全部清零。**
+  //
+  // 为什么单独放过 STALE：它是六种扣分里**唯一一种「测量本身有效、只是稍旧」**的情况——
+  // 分数真的量过 main 上真实存在的一棵树，只是那之后 watch 路径又动了。其余五种都是
+  // 「这个测量不成立」（没量过 / 自评 / 越权 / 无证据 / 越界 / 量的根本不是 main 那棵树）。
+  //
+  // 触发这次改动的实测：track R 在 `29f587b3` 上量出 6/10，方法扎实（跑了不吃种子的空库链），
+  // 但同一天 main 前进后 R 的 watch 路径动了 24 个文件 ⇒ 旧规则下它计入 0，**看板恒为 0**。
+  // 根因是**一轮评分要几小时，main 每几分钟就动一次**——这是节奏差，不是分数造假。
+  //
+  // ⚠ 严格性没有放松，只是挪了位置：`clr` 变得有信息量（3.3 而不是 0），
+  // 而**「达标」判定（`passes`）要求所有 track 都新鲜**，一条过期就不算达标。见 `judgeReadiness`。
+  //
+  // 不这么改的代价很具体：看板恒 0 ⇒ 所有人开始忽略它。今天刚修完一个「恒红被绕过五天」
+  // 的门（#849 `e2e-full`），不该立刻再造一个。
+  const invalidating = discounts.filter((d) => d !== "STALE");
   return {
     id,
     name: record.name,
     rawScore: record.score,
-    effectiveScore: discounts.length === 0 ? (record.score ?? 0) : 0,
+    effectiveScore: invalidating.length === 0 ? (record.score ?? 0) : 0,
+    /** 分数有效但已过期——计入 `clr`，但阻断 `passes`。 */
+    isStale: discounts.includes("STALE"),
     discounts,
     blockingIssues: record.blocking_issues,
   };
@@ -292,9 +318,12 @@ export function judgeReadiness(
     : others.reduce((sum, t) => sum + t.effectiveScore, 0) / others.length;
 
   const clr = Math.min(ceiling.effectiveScore, experienceMean);
+  const staleCount = tracks.filter((t) => t.isStale).length;
 
   return {
-    passes: round1(clr) >= PASS_THRESHOLD,
+    // 方案 A：分数够高**且**没有一条过期，才算达标。前者由 clr 保证，后者在这里。
+    passes: round1(clr) >= PASS_THRESHOLD && staleCount === 0,
+    staleCount,
     reachability: ceiling.effectiveScore,
     experienceMean: round1(experienceMean),
     clr: round1(clr),

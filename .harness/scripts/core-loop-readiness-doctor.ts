@@ -115,10 +115,20 @@ export function coreLoopReadiness(args: Args): void {
   const v = judgeReadiness(state, changedByTrack, ancestryByTrack, repoPathExists);
   const head = sh("git rev-parse HEAD").stdout.trim();
 
-  const verdict = v.passes ? `✅ 达标（门槛 ${PASS_THRESHOLD}）` : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;
+  // 方案 A：分数够高但有过期时，必须**说清楚是因为过期才不算达标**——
+  // 否则「CLR 9.2 · 未达标」看起来像门坏了，读的人会去怀疑工具而不是去重评。
+  const verdict = v.passes
+    ? `✅ 达标（门槛 ${PASS_THRESHOLD}）`
+    : v.clr >= PASS_THRESHOLD
+      ? `⚠ 分数够但不算达标：${v.staleCount} 条 track 已过期，需在当前 HEAD 重评`
+      : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;
   log.step(`核心闭环就绪度 CLR = ${v.clr} / 10   ${verdict}   （实测 HEAD: ${head.slice(0, 12)}）`);
   log.info(`   公式：min( 可达性 ${v.reachability} , 体验均值 ${v.experienceMean} )`);
   log.info(`   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。`);
+  if (v.staleCount > 0 && !v.passes) {
+    log.info(`   ⚠ ${v.staleCount} 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），`);
+    log.info(`      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。`);
+  }
   log.info("");
   log.info("| track | 记录分 | 计入分 | 为什么 |");
   log.info("|---|---|---|---|");
