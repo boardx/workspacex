@@ -106,6 +106,10 @@ export default defineConfig({
         ...process.env,
         LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: CHAT_READ_E2E.asrTranscriptPrefix,
+        // #728 P8 —— 打开 loopback-asr-provider.ts 新增的 delta 事件（默认关闭，
+        // fullstack-smoke.config.ts 没有下发这个变量，不受影响，见那个脚本自己的
+        // 头注）。只有这个 config 需要证明「转录过程中文字实时更新」。
+        LOOPBACK_ASR_EMIT_DELTA: "1",
       },
     },
     /**

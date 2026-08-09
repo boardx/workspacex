@@ -104,13 +104,17 @@
       ],
       "max": 10,
       "score": 9,
-      "scored_sha": "6c48beeac7904eeefbf51038d60d13e6abf74bfe",
+      "scored_sha": "5a72973c0358c7469e24b348523b9fd395ea2b41",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "https://github.com/boardx/workspacex/issues/814#issuecomment-5231458612",
+        "https://github.com/boardx/workspacex/issues/814",
+        ".harness/rubrics/chat-main-fidelity-rubric.md",
+        ".harness/instructions/chat-ux-acceptance-criteria.md",
         "apps/web/e2e/chat-main-shots.spec.ts",
-        ".harness/rubrics/chat-main-fidelity-rubric.md"
+        "apps/web/components/chat/chat-live-message-panel.tsx",
+        "packages/contracts/src/wave2-runtime.ts",
+        "phases/phase-01-run-a-project/ui-preview/chat-main-ref/ITERATION-LOG.md"
       ],
       "watch": [
         "apps/web/components/chat/personal-chat-screen.tsx",
@@ -128,5 +132,8 @@
   "_rev_e2e_blocking_issues_request_20260809": "rev-e2e 本轮新登记三条真实缺口 #854(R7) / #852(R8) / #853(R10)，均为「后端已补、界面零调用方」。按本文件约定 blocking_issues 由 coord-main 维护，故**未自行写入**该字段，在此登记请求：建议 tracks.R.blocking_issues 补入 854 / 852 / 853，否则它们不会出现在统一队列上，也就没有人会去做。",
   "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。",
   "_vd_vp_20260809": "V-D 1/10 · V-P 9/10 实测于 origin/main 6c48beea（rev-uiux，非自评），四道硬门 H1-H4 在 main 上首次全过：shots:chat-main 真栈跑通、verify:base 39/39 与 verify:chat-read 3 passed 均退出 0、9 张参照图 git log 全为 A 无 M。D 组仅 D1 得分（D2/D5 卡 #831 待实现的 role 字段；D3 徽标已实现但夹具无带徽标线程=取证缺口）；P 组 9/10 已达 #831 门槛，唯一失分的 P6 流式是 spec 等终态才截图、结构上拍不到，非功能缺失。此前记录 V-P=7@97a90440 在 squash 后不是 main 祖先，已被 G5 判 0，现以真实 main SHA 重评替换。详见 #814 评论。",
-  "_correction_823": "track R 的 blocking_issues 曾含 #627/#552 —— 二者早已关闭且修复已合并（PR #645 / PR #584）。播种时把 core-loop.spec.ts 的注释当权威证据，而那些注释描述的是写它那一刻的世界。见 #823：判断产品路径是否存在，必须 grep 真实 controller/契约 + 核对 issue/PR 当前状态，不得以注释为准。"
+  "_correction_823": "track R 的 blocking_issues 曾含 #627/#552 —— 二者早已关闭且修复已合并（PR #645 / PR #584）。播种时把 core-loop.spec.ts 的注释当权威证据，而那些注释描述的是写它那一刻的世界。见 #823：判断产品路径是否存在，必须 grep 真实 controller/契约 + 核对 issue/PR 当前状态，不得以注释为准。",
+  "_vp_round13_20260809": "V-P 第 13 轮：rev-uiux 在 0f7f076b 上实测 P=8/10（P1-P5=1，P6=0 流式 token 逐个出现未取到证据，P7=0 缺工具调用「正在调用中」在途态，P8=1 本轮转正——loopback-asr-provider.ts 新增 LOOPBACK_ASR_EMIT_DELTA 后，chat-main-personal-mic-partial.png 抓到「录音仍在进行（麦克风红色激活 + 正在听提示）且输入框已有部分转录」，字节数 35664…→68356 逐帧增长；P9/P10=1）。评分员独立重跑 shots:chat-main 复现全部 12 帧（非沿用实现者产物）。硬门 H1-H4 全过：verify:chat-read 3/3 绿；verify:base 第一次因 tests/auth/login-enumeration-guard.test.ts 的负载敏感计时断言（ratio 2.9 vs 阈值 2，与 chat 无关）红，机器空闲后重跑 509 文件全绿。达到人类 #831 的 P≥9 门槛前还差 P6/P7 两维。",
+  "_vp_score_conflict_20260809": "⚠ 上面两条注记对 P7 的判定互相矛盾，未自行调和：`_vd_vp_20260809`（SHA 6c48beea，rev-uiux）判 P=9/10 且明确写「P6 流式是 spec 等终态才截图、结构上拍不到，非功能缺失」（未点名 P7 失分，暗示 P7 已得分）；`_vp_round13_20260809`（SHA 0f7f076b，rev-uiux，晚于 6c48beea）判 P=8/10、明确写「P7=0 缺工具调用『正在调用中』在途态」。两次都是独立评分（非自评），字段冲突不由实现者（dev-chat-e2e）裁决取舍——按 G3 纪律我不改分数字段，只如实记录矛盾。当前 `tracks.V-P` 的 score/scored_sha/evidence 字段保留冲突解决前的 HEAD 值（6c48beea/9），**这不代表 9 分已确认**，需要下一轮独立评分在本次 rebase 后的完整 SHA（含 PR #851 P6 流式 + P8 delta 事件 + 麦克风闪烁修复）上重新出一次权威分数，覆盖掉这两条都作废。",
+  "_vp_round14_authoritative_20260810": "第 14 轮 rev-uiux 独立评分（实测 SHA 5a72973c0358c7469e24b348523b9fd395ea2b41，工作树干净）。**这一轮是完全独立的重新看图评分，不是在两条旧注记之间选一条**：评分员未参考任何历史分数，逐张打开 apps/web/.chat-shots/ 全部 14 张产品截图与 phases/phase-01-run-a-project/ui-preview/chat-main-ref/ 参照图，并自行 grep 契约与渲染源码复核。结论 V-P = 9/10：P1-P6、P8-P10 = 1，P7 = 0。P7 失分理由（自行复核，非转录）：packages/contracts/src/wave2-runtime.ts:205 的 AgentRunStepStatus = z.enum([\"succeeded\",\"failed\"]) 只有两个终态取值，apps/web/components/chat/chat-live-message-panel.tsx:793 AgentRunToolCallSteps 因此只能渲染「完成/失败」，chat-main-personal-tool-call.png 输入区下方的工具调用块只有计划句 + 完成态，缺 chat-ux-acceptance-criteria.md 第 3 项要求的「正在调用 XX」在途态（原型 chat-main-default.png 的工具调用块里有「运行中」一行）。P6 本轮转正：chat-main-personal-streaming.png 抓到半截文本「[loopback] 对话保真取」+「正在生成…」徽标，取证脚本 apps/web/e2e/chat-main-shots.spec.ts:145 有硬断言拒绝「已是完整回复」的帧。P8 本轮独立复核仍为 1：mic-listening/mic-partial/mic-transcribed 三帧输入框依次为 19110 / 40950 / 76440，前两帧同时可见红色麦克风激活态与「正在听……实时转录中」，证明是录音过程中的多次真实更新。⚖ **旧注记 `_vd_vp_20260809`（记 9 分，SHA 6c48beea）与 `_vp_round13_20260809`（记 8 分，SHA 0f7f076b）记录的分数一律作废，权威结论以本条为准**；两条旧注记保留作历史记录，不得再被引用为当前分数。`_vp_score_conflict_20260809` 记录的冲突至此关闭。硬门：H1 ✅ / H2 ✅（截图 00:49 产出，晚于 HEAD 提交时间 00:42，来自 playwright.chat-shots.config.ts 的真栈）/ H4 ✅（参照图与原型 html 相对 origin/main 零改动，chat-main-ref/ 下只有 ITERATION-LOG.md 追加了历史记录）；H3 见下：`pnpm run verify:chat-read` 绿（3 passed）、`pnpm run verify:core-loop` 绿（13 passed）、`pnpm exec vitest run --dir .harness` 绿（777）、turbo typecheck/lint/test 绿（@repo/api 4959 passed，需带 with-test-isolation）；`pnpm run verify:base` 整体退出码 1，红在两条与 chat 无关、origin/main 上同样红的 pre-existing 项：lint:templates-doctor 的 .agents/skills/mod-canvas-diagram/SKILL.md scope.project 类型错（最后改动来自已合入 main 的 #827）与 lint:readiness --strict 的「#619 已 CLOSED 仍留在 blocking_issues」。按判据字面 verify:base 未绿，评分员如实记录并把「是否据此判 H3 不过」列为需人类裁决项，本条分数按 H3 通过登记。剩余 1 分只差 P7，需人类在两条路径间裁决：扩 AgentRunStepStatus 枚举加在途态（改契约，走 ADR-023），或把「在途态」从第 3 项判据中移除（改判据，只有人能改）。 📌 登记后 `harness readiness` 对本条仍显示计入 0，唯一原因是 G5：5a72973c 还在 worker 分支上、不是 origin/main 的祖先（G1/G3/G4/G6 均已过——证据路径全部可解析）。#728 的 PR 合入 main 后这 9 分自动计入，不需要再评一次。"
 }
