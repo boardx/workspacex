@@ -26,9 +26,22 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
   这是 API 契约的唯一权威，改字段先改这里，不要在 controller 里另起一套
 
 ## 关键契约与不变量（改代码前必读）
-- <agent/skill 的权限与鉴权顺序：新端点必须逐行复用哪个既有实现，禁止另起一套>
-- <契约变更的兼容性要求：`packages/contracts` 改动影响面覆盖 web+api，谁改谁核对双端>
-- <公开面/未登录可达的 agent/skill 相关端点清单>
+- **MCP 鉴权是分层的**：`apps/api/src/application/mcp/authorize-layer1.ts` +
+  `authorize-agent-discovery.ts` 是两个独立的授权层——新增 MCP 相关端点前先确认
+  自己该接哪一层，不要绕过两层直接在 controller 里写权限判断。
+- **契约字段权威在 `packages/contracts/src`**：`agent-runtime.ts`、
+  `agent-private-chat.ts`、`context-pack.ts`、`provenance.ts` 是这几个领域的
+  schema 单源；改字段先改这里，`apps/api` 与 `apps/web` 都从这里导入类型，
+  不要在某一端本地声明一份形状相近但独立维护的类型。
+- <公开面/未登录可达的 agent/skill 相关端点清单——待核实>
+
+## 架构知识
+这是本仓 agent/skill 运行时的**真实代码地图**，和 `.agents/skills/agentic-development`
+是分工关系：那个 skill 讲"这类系统一般怎么设计"（通用模式教学），这个 skill
+讲"本仓具体怎么实现"（地图层）——写代码前的顺序永远是先读通用模式建立心智模型，
+再落到这里的真实文件。外部参照：MCP（Model Context Protocol）把"工具/skill
+注册与授权"作为协议的核心关切，本仓的两层 MCP 授权设计可以对照 MCP 规范里
+"哪些能力需要显式 grant"的原则做审查。
 
 ## 关联阶段 / ADR / 文档
 `phases/`（按当前 sprint 的 active-features.json 定位相关 feature）；

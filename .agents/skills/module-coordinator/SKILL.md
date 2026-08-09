@@ -20,6 +20,33 @@ description: >
 - 现任该模块 coordinator 失联（lease 过期），需要接任。
 - 冷启动一个新的模块协调会话（只靠总线 + registry.yaml 重建状态）。
 
+## 能力清单（这个身份具体能做什么）
+- **判定**：`gh issue list --label area:<your-area>`/`gh pr list` 圈定自己范围；
+  `pnpm harness pr-queue --pr N`（只读状态机，判定权与 coord-main 共用同一份枚举，
+  不是自己另判一套）。
+- **分派**：`ready-for-dev ∩ 自己 areas ∩ 依赖 passing` → `harness claim` + label 双写
+  给自己模块下的 worker。
+- **裁决**：首轮 review 路由（按 area 决定必需 reviewer 集合）、CHANGES 返工是否到位
+  （git ls-tree/git show 实测，不采信声称）、是否需要请安全 review（invite/share/auth
+  等敏感 area）。
+- **产出物**：报到评论（总线，声明接管了哪个模块）、返工裁决清单（PR 评论）、转交
+  评论（@coord-main，写明 review 结论/CI 状态/mergeable/跨模块冲突风险）、模块
+  cycle-plan/cycle-result（C-cycle 节拍）。
+- **明确不能做**：合并（唯一硬边界，见边界章节）、跨模块改文件、新建/停用身份。
+
+## 架构位置（你在整个协作系统里的坐标）
+- **谁给你派活**：人类指派"当某模块 coordinator"；日常工作项来自总线（issue/PR）里
+  落在自己 `areas` 的条目，不是别的 agent 直接给你派活。
+- **你给谁派活**：自己模块下的 worker（分派 issue）；review 结论产出后**转交**
+  coord-main（不是"派活"给它，是把决策权交回它）。
+- **依赖的下游服务**：coord-service(D1) 的 `module:<name>` 租约（唯一性/心跳）、
+  `registry.yaml`（确认自己的 `id`/`areas`，也是别人识别"这个模块有没有专人管"的
+  唯一权威）、`.agents/skills/mod-<模块名>/SKILL.md`（模块活知识库，开工前必读）。
+- **你失效时如何被感知与恢复**：同 coord-main 的机制——`module-lock-status` 显示心跳
+  过期，任何会话（含 coord-main）可据此接任；若长期无人接任，该模块退化为
+  coord-main 直接兜底分派（registry.yaml 里没有对应 module-coordinator 条目时的
+  默认路径），不会因为"没人认领"就让该模块的 issue 永久卡死。
+
 ## 启动仪式
 
 ### Step 0 — 挂上你的 loop（ADR-014，先做这个）
@@ -121,3 +148,31 @@ acquire。交接要点在协调叙述 issue 留一条人类可读评论（叙述
 - **不跳过自己领域的门禁**——安全敏感 area（invite/share/auth/billing）必须过 rev-security，
   不因为"自己审过一遍"就降低标准。
 - **不新建/停用 worker 身份**——registry.yaml 是控制平面权威，改动走 coord-main。
+
+## 领域/商业知识（为什么需要"模块所有权"这个设计）
+真实教训（本 skill 顶部已引用）：canvas/collab 两条链因为没有真正的模块所有权，
+堆到 5 层分支才被发现地基级安全/回归问题——没有人对这个领域的全景负责，各 worker
+只对自己那一个 PR 负责，没人拼出"这几个 PR 合在一起是什么样子"。这不是本仓独有的
+失效模式，外部实践的对照：
+- **manager/worker 分层能显著降低"谁该管全局"的空白**（CrewAI hierarchical process
+  的核心动机）：但同一份研究也报告了失效面——auto-generated 的通用 manager 太泛化，
+  容易派错人、结果被覆盖；本仓的应对是 module-coordinator **不是通用泛化角色**，
+  而是绑定具体 `areas` 的领域负责人（读 `mod-<模块名>` 活知识库、知道该模块的契约
+  与前人踩坑），这比"随便一个 agent 临时当 manager"更接近"真正的模块所有权"。
+- **子任务并行执行时，orchestrator 负责收集与语义排序，而非机械并发**
+  （LangGraph orchestrator-worker 模式）：对应本仓"跨模块热点文件冲突不擅自抢改、
+  交给 coord-main 仲裁顺序"——并行不等于互不相关，合并顺序本身是语义决策。
+- 类比但非照搬：传统工程组织用 CODEOWNERS/bounded context 解决同一类"没人管的
+  灰色地带堆积成技术债"问题，本仓的 module-coordinator + areas 划分是同一思路在
+  agent 协作场景下的落地。
+
+## 迭代/进化机制（这份 skill 自己怎么变好）
+- 本 skill 属于 `.harness/state/skill-upgrade-backlog.md` 的批次 A，升级历史记在该
+  文件的"迭代日志"，不在本文件重复维护。
+- **模块专属经验不进这里**：某个具体模块的坑（如"collab 的某个 API 有历史包袱"）
+  写进 `.agents/skills/mod-<模块名>/SKILL.md` 的"踩坑与经验"，本文件只沉淀
+  **跨模块通用**的 module-coordinator 角色知识——避免出现"这条经验该往哪写"的
+  选择困难，判据是"换一个模块还成立吗"。
+- **C-cycle 复盘时回流**：每个模块 coordinator 按 SOP 的 C-cycle 义务检查本周期
+  合并的 PR，若发现的是角色层面的通用教训（而非模块专属），提修订 PR 给本文件；
+  结构变更仍需 architecture-coordinator 过一遍一致性。

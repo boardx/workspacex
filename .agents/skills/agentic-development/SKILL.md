@@ -20,6 +20,24 @@ apps/*、packages/*             .harness/instructions/    phases/phase-NN/
 
 **规则**：代码平面的实现必须与 `.harness/instructions/architecture.md` 的不变量一致。
 
+## 架构知识：本 skill 和 mod-agent-skill-runtime 的分工
+
+两者不是同一件事的两份拷贝，是**教学层**和**地图层**的分工，谁往哪写有明确边界：
+
+- **本 skill（`agentic-development`）= 通用模式教学**：讲"agentic 系统一般怎么
+  设计"——plan/act/observe 循环、工具注册的形状、记忆分层的取舍、可观测性
+  要求。下面的代码示例是**伪代码参照**，帮助理解设计意图，不承诺对应本仓任何
+  真实文件路径或导出符号。
+- **`mod-agent-skill-runtime` = 本仓真实代码地图**：告诉你 `apps/api/src/
+  application/{agent,agent-run,agent-skill-pins,agent-import,skill,skill-import,
+  mcp,model,context-pack,provenance}` 里具体哪个文件做什么、真实契约与不变量、
+  真实踩过的坑。
+- **写代码前的顺序永远是**：先读本 skill 理解"这类系统一般长什么样"（如果是
+  第一次碰 agent 运行时代码），再读 `mod-agent-skill-runtime` 落到本仓真实
+  实现——不要跳过第二步直接照抄本文件的伪代码 import，也不要把本仓的实现细节
+  搬来复述在本文件里（那会制造第二份事实副本，`mod-agent-skill-runtime` 才是
+  权威）。
+
 > ⚠ 下面 plan/act/observe、工具注册、记忆层三节的代码示例是**通用参考模式（伪代码）**，
 > 不对应本仓任何真实存在的 npm 包——`packages/agent-core`、`packages/memory`、
 > `packages/tools`、`apps/orchestrator` 目前都不存在于本仓（实测 `ls apps/ packages/`）。
@@ -179,3 +197,34 @@ job 数秒即挂、steps 为空、annotation 写明 billing/payment 之类，是
 □ 写单元测试（包括错误路径）
 □ 在 feature_list 中对应 feature 的 verification 里用真实工具断言
 ```
+
+---
+
+## 外部参照点（开源实践对照，落成可执行建议）
+
+这三条不是理论堆砌，每条都直接对应上面某个约定该怎么落地时的具体判断标准：
+
+1. **LangGraph 的 graph/state 模式 vs 本仓的 plan/act/observe 循环**——
+   LangGraph 把推理循环建模成显式的有向图（node=计算单元，edge=控制流，跨节点
+   共享一份 state），而不是一个隐式的 while 循环。可执行的借鉴：给 plan/act/
+   observe 的每一步都要能回答"下一步是哪个 edge、依据 state 里的什么字段"，
+   而不是把分支逻辑散落在 if/else 里——本 skill 上面"失败时先看 steps 数组做
+   归因"这条正是这个思路的简化版：steps 数组就是这条隐式图的执行轨迹，出问题
+   先看轨迹在哪个节点断的，不要直接改代码猜。
+2. **LangGraph 的 ReAct（Reason→Act→Observe）vs Plan-and-Execute 两种循环**——
+   ReAct 适合边界清晰的单步工具任务（查库、算一个值），Plan-and-Execute
+   适合需要先出多步计划再执行的大任务。可执行的借鉴：新任务落地前先判断它是
+   哪一种形状——如果每一步都依赖上一步的实际结果（无法预先规划全部步骤），
+   用 ReAct 式的循环（做一步、看结果、决定下一步）；如果步骤可以预先枚举，
+   先出计划再逐条执行、失败只重跑那一条，不要整个任务重来。
+3. **Claude Agent SDK 的最小权限模型**——工具集合通过显式 allow/deny 声明
+   （`allowed_tools`/`disallowed_tools`），运行时还有一层 `canUseTool` 回调
+   做逐次判断；六种权限模式里最严格的是"不在预批准列表里的一律拒绝"
+   （deny-by-default），而不是"默认允许、事后审计"。对照本 skill 上面
+   "工具注册约定"里的 `permissions`/`cannotDo` 双字段设计：`permissions` 对应
+   allow-list，`cannotDo` 是本仓在此之上加的显式否定声明——两者都服务同一个
+   目标，新工具默认什么都不能做，动手前必须显式声明能做什么，而不是先实现
+   功能再补权限声明。
+   参照：[LangGraph architecture](https://medium.com/@shuv.sdr/langgraph-architecture-and-design-280c365aaf2c)、
+   [LangChain: Plan-and-Execute agents](https://www.langchain.com/blog/planning-agents)、
+   [Claude Agent SDK: Configure permissions](https://code.claude.com/docs/en/agent-sdk/permissions)。

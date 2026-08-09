@@ -25,12 +25,26 @@ chat 领域逻辑；不含 agent/skill 的运行时决策逻辑（那部分见 [
 - 共享壳文案/UI 规范：见 `.harness/instructions/uiux-standards.md`
 
 ## 关键契约与不变量（改代码前必读）
-- <不能破坏的行为契约，每条都应有出处（ADR/PR/事故）>
-- <消息行结构、工具调用渲染的既有约定——改动前先看最近相关 PR>
-- <公开面/未登录可达的聊天页面清单——任何改动过一遍未授权视角>
+- **工具调用可见性**：`apps/web/components/chat/ai-message.tsx`、
+  `chat-live-message-panel.tsx` 是渲染工具调用状态的入口（源自 #728/#732 的
+  「工具调用可见性渲染」改动，见提交 `d9561e71`）——新增消息类型/工具调用态
+  优先扩展这两个组件既有的状态结构，不要另起一套渲染路径。
+- **消息行结构演进历史**：近期几次改动（`ad07baf0`「D8/D2 裸原生 select 换手写
+  选择器；编制行拆两行」、`99a1448e`「JSX 注释 markdown 加粗改纯文本」）都是
+  lint-design 门控逼出来的修复——改消息行 UI 前先跑一遍 `lint-design.sh`，
+  不要凭直觉写 className。
+- <公开面/未登录可达的聊天页面清单——待核实，改动前先自己走一遍未授权视角>
+
+## 架构知识
+chat 是消费端：真正的 agent/skill 执行决策在 [[mod-agent-skill-runtime]]，
+chat 只负责把执行状态（含工具调用）渲染出来、把用户输入送进去；两者共享
+`packages/contracts` 里的消息/工具调用 schema。外部参照：Vercel AI SDK 的
+`useChat` 用统一的 `parts` 数组承载文本/工具调用/附件等异构消息片段，本仓
+`ai-message.tsx` 的状态结构可以对照这个思路检查是否有遗漏的消息片段类型。
 
 ## 关联阶段 / ADR / 文档
-`phases/`（按当前 sprint 的 active-features.json 定位相关 feature）
+`phases/`（按当前 sprint 的 active-features.json 定位相关 feature）；
+近期改动见 issue #728、#732
 
 ## 模块 SOP
 1. 动手前：读本文件 + 对应 feature 的 `user_visible_behavior`/`verification`；跑

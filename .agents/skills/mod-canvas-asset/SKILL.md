@@ -25,9 +25,19 @@ description: >
   改动前确认是否该改上游而不是本仓）
 
 ## 关键契约与不变量（改代码前必读）
-- <资产治理的权限模型——谁能看/改/删哪类资产>
-- <画布产出物与 artifact 存储的一致性假设>
-- <公开面/未登录可达的画布/资产相关端点清单>
+- <资产治理的权限模型——谁能看/改/删哪类资产，待核实具体实现>
+- **画布数据经 fabric-markdown 转换链路**：`packages/fabric-markdown` 是
+  Markdown⇄mermaid⇄DiagramModel⇄fabric 的 vendored fork（ADR-100），画布的
+  中间表示（IR）权威在这个包，不要在 `apps/web/app/canvas` 里另外发明一套
+  图形数据结构——改上游行为前先看 `VENDOR.md` 判断该改这里还是改上游。
+- <公开面/未登录可达的画布/资产相关端点清单——待核实>
+
+## 架构知识
+白板类产品的通用做法（外部参照：tldraw、Excalidraw）是把"图形元素模型"和
+"渲染/交互层"分开，模型层可独立序列化、跨端复用。本仓 fabric-markdown 的
+`DiagramModel` 就是这个模型层的角色——它连接的不只是画布 UI，还有 Markdown/
+mermaid 这类文本表示，这是本仓的差异化设计（多数开源白板不做文本⇄图形互转），
+改动画布数据结构时要考虑这条互转链路是否还成立。
 
 ## 关联阶段 / ADR / 文档
 `docs/adr/ADR-100-fabric-markdown.md`；`phases/`（按当前 sprint 的

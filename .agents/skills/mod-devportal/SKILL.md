@@ -25,8 +25,19 @@ develop.boardx.us 的协作平面：面向工程师/agent 的项目页、个人�
 - 迁移背景：源码/CI/CD 唯一维护仓为本仓（自 #450 起），见 `apps/devportal/README.md`
 
 ## 关键契约与不变量（改代码前必读）
-- <门户对 coord-platform 状态的只读假设——不应绕过 [[mod-coord-platform]] 直接写状态>
-- <公开面/未登录可达的门户页面清单——任何改动过一遍未授权视角>
+- **只读窗口，不是权威**：`api/coord`/`api/p30` 这两个 BFF 路由是
+  [[mod-coord-platform]] 状态的转发/聚合层，不应该绕过 coord-platform 的
+  DO/协议直接写协调状态——发现门户需要"改状态"而不只是"看状态"时，说明
+  这个能力该加在 coord-platform 那边，不该加在门户 BFF 里。
+- <公开面/未登录可达的门户页面清单——待核实，任何改动过一遍未授权视角>
+
+## 架构知识
+开发者门户类产品的常见架构（外部参照：Backstage）是"软件目录 + 插件化门户"，
+插件各自拥有数据源，门户只做聚合展示。本仓 devportal 目前是非插件化的单体
+路由结构（`portal`/`projects`/`platform` 直接对应固定页面，不是可插拔的插件
+注册表）——如果未来要接入更多协调平面之外的数据源，值得对照 Backstage 的
+插件模式评估是否要往插件化方向演进；现状下新增页面就是新增路由，不需要
+先搭插件框架。
 
 ## 关联阶段 / ADR / 文档
 `phases/`（按当前 sprint 的 active-features.json 定位相关 feature）；

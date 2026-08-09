@@ -25,9 +25,17 @@ description: >
   `apps/api/src/{infrastructure,domain}/{interview,recording,retrieval,templates}`）
 
 ## 关键契约与不变量（改代码前必读）
-- <录制/访谈涉及的隐私与留存策略——改动前先确认现有约束>
-- <检索排序逻辑的既有假设>
-- <公开面/未登录可达的研究/访谈相关端点清单>
+- <录制/访谈涉及的隐私与留存策略——待核实具体实现，改动前先在
+  `apps/api/src/{application,domain}/recording` 里确认现有约束，不要假设>
+- <检索排序逻辑的既有假设——待核实>
+- <公开面/未登录可达的研究/访谈相关端点清单——待核实>
+
+## 架构知识
+研究工作流的产品形态接近"访谈转录 → 标签/洞察沉淀 → 检索复用"这条链路（外部
+参照：Dovetail、Grain 这类用户研究工具把"转录"和"洞察库"分成两个可独立复用的
+层）；本仓对应的是 `recording`（原始素材）→`interview`（结构化产物）→
+`retrieval`（跨会话检索）三个领域的分工，改动前先想清楚自己的改动落在哪一层，
+不要在 `interview` 里直接操作 `recording` 的存储细节。
 
 ## 关联阶段 / ADR / 文档
 `phases/`（按当前 sprint 的 active-features.json 定位相关 feature）

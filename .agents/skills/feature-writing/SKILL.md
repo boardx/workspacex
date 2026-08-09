@@ -8,6 +8,20 @@ description: >
 
 # Feature Writing Skill
 
+## 能力清单（这个 skill 让你具体能做什么）
+
+- 用「4-8 小时人工等效」这把尺，判断一条候选 feature 该拆还是该合。
+- 按「垂直切片」而非「技术层横切」的方式划定 feature 边界，确保每个 feature
+  都交付一次用户可见的完整价值（见下方领域知识①）。
+- 用出口类型分级表（HTTP > 行为输出 > 文件内容 > 存在检查）挑 verification 的
+  优先级，拒绝「无断言检查」类命令进清单。
+- 识别 6 种常见反模式（表见下），在写 feature 或 review 他人 feature 时对照检查。
+- 用「共享文件热点」标注 notes，供 sprint-planner 判断哪些 feature 必须串行。
+- 判断一条 feature 是否该配「flag 分类」标签（release/experiment/ops/permission/
+  kill-switch，见下方领域知识②）辅助风险与并行判断。
+
+---
+
 ## Feature 的黄金粒度
 
 **一个 feature = 一次 agent 会话能完成并验证的工作单元**
@@ -122,6 +136,63 @@ test -f AGENTS.md && test -x init.sh
 
 ---
 
+## 架构知识：这一环在全链路里的位置
+
+```
+requirement-author（写 spec_ref + 草稿四元组）
+        │  遵守本 skill 的粒度/字段/反模式规范
+        ▼
+feature_list.json（唯一权威）
+        │
+        ├──▶ verification-writer（打磨 verification 的可执行性/防假阳性）
+        ├──▶ sprint-planner（读 notes 的热点标注判 parallel-safe，读 priority 排期）
+        ├──▶ feature-implementer（读 user_visible_behavior 决定实现范围）
+        └──▶ pnpm harness verify（执行 verification，门控 status → passing）
+```
+
+- **上游**：requirement-author 产出的候选 feature 草稿；本 skill 是它必须遵守的
+  「写作规范」，不是独立产出环节。
+- **下游**：`area` 字段决定代码平面归属，`notes` 里的热点标注是 sprint-planner
+  判断并行安全的**唯一**依据（同热点必须串行，见 L11 事故 #301/#299）。
+  `spec_ref` 缺失或指向不存在的章节，会在 `claim`/`verify` 两处被
+  `spec-ref.ts` 机械拒绝——这条规则的权威定义在 requirement-author skill 与
+  `spec-ref.ts` 本身，本 skill 只负责提醒字段必填，不复述解析规则。
+- **机械门控**：`validate-fl`（feature_list 结构校验）、`pnpm harness verify`
+  （执行 verification）、`pnpm harness doctor`（审计 evidence 真实性与派生视图
+  一致性）都会在不同阶段重新触碰这里定义的字段。
+
+---
+
+## 领域/商业知识：为什么这样设计
+
+**①为什么按「垂直切片」而不是技术层横切分 feature**：外部开源实践
+（vertical slicing：一个 feature 应该贯穿 UI → API → 数据层交付一次完整的
+用户可见价值，而不是「先写后端」「再写前端」这种按技术层横切的拆法）与本仓
+`user_visible_behavior` 字段的设计目标完全一致——它要求描述的是**可观察结果**，
+而横切出来的「纯后端」feature 往往写不出真正的用户可观察行为（只能写"接口能
+调通"这种弱断言，正是反模式表里第一条"只检查文件存在"的同源问题）。写 feature
+时优先问："这个 feature 单独合并，用户/下一个 feature 能看到什么变化？"
+答不出来，大概率是切错了层。
+
+**②feature flag 五分类法对 notes 热点标注的启发**：开源 feature flag 实践把
+flag 分成 release/experiment/ops/permission/kill-switch 五类，健康代码库控制在
+20-30 个活跃 flag 以内——核心思想是「每个可变更单元都要能说清自己是什么类型的
+变更，否则数量一旦失控就没人能判断风险」。本仓没有运行时 flag 系统，但同样的
+风险信号可以类比用在 feature 粒度上：写 feature 时问一句"这是新增能力
+（≈release）、迁移/清理（≈ops）、权限调整（≈permission）还是高风险开关类
+（≈kill-switch）"，风险类和权限类 feature 应该在 notes 里更详细地写清共享文件
+热点与回滚方式，因为它们最容易在并行开发时和别的 feature 打架。
+
+**verification 分级为什么优先高层出口（呼应 Testing Trophy）**：本表的分级
+逻辑（HTTP/行为输出 > 文件内容 > 存在检查 > 无断言）与 Kent C. Dodds 提出的
+Testing Trophy 思想一致——越接近用户可观察的出口，断言的 ROI 越高、越不容易
+产生假阳性；纯粹检查内部实现细节（文件是否存在、函数是否被调用过）容易在
+代码重构后误报通过或误报失败。verification-writer skill 有更详细的防假阳性
+手法，本表只负责在写 feature 阶段就把断言层级选对，别留到验证阶段才发现
+选错了断言对象。
+
+---
+
 ## 分批填写建议（新项目启动时）
 
 1. **第一批**：先写 3-5 个最高优先级 feature（知道这些必须做）
@@ -129,3 +200,21 @@ test -f AGENTS.md && test -x init.sh
 3. **迭代补充**：每个 sprint 结束后再补下一批 feature
 
 不要一次写完所有 feature——需求会变，过早细化是浪费。
+
+---
+
+## 迭代/进化机制：这个 skill 本身怎么变好
+
+- **反模式表是 append-only 的事故沉淀点**：谁在写 feature 或 review 时踩到新的
+  反模式（verification 看似合格实则假阳性、粒度判断失误导致会话中途交接失败等），
+  在「常见反模式」表里追加一行，标注出处（issue/PR/postmortem），不要只在当次
+  对话里口头提醒。
+- **粒度经验值会漂移**：「4-8 小时」是经验值，不是物理常数——如果连续几个 sprint
+  发现某类 feature 系统性偏大或偏小，回来更新这个数字并说明依据（哪几个
+  feature、偏差多少），不要让经验值和实际脱节却没人改。
+- **外部参照更新**：vertical slicing / feature flag 分类法 / Testing Trophy 是
+  本 skill 现有设计依据；如果外部实践演化出更贴合本仓机械门控的说法，替换时
+  同样走「新增一条 + 保留旧条追加删除线」的 append-only 记录方式。
+
+<空，升级开始后追加>
+
