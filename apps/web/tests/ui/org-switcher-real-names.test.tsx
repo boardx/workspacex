@@ -15,6 +15,14 @@
  * 只把网络边界（`@/lib/session-api`）换成 mock；断言全部落在
  * `getByTestId("org-switcher")` 渲染出的 `<option>` 文本上。
  *
+ * ## 等待形状：一次 `findBy*` 等挂载，之后只用**同步**回调的 `waitFor`（2026-08-09）
+ * 本文件曾在高负载下随机抛 `Error: Timed out in waitFor.`，把**任何人**的 push 挡下来
+ * （pre-push 跑 `--affected`，动了 web 就带上它）。根因不是「机器慢、不稳」，是
+ * `waitFor(async () => … await findByTestId …)` 这个嵌套：两个 1000ms 预算抢同一段
+ * 墙钟，且外层在内层挂起期间**停止重查**、`lastError` 为空 —— 详见 `switcherOptions` 上方。
+ * 修法是去掉嵌套 + 让重试回调足够便宜，不是加超时、加重试：本仓 e2e fixture 注释里
+ * 点名过「间歇失败最后被归因成『不稳』然后加重试掩盖过去」，这里不重蹈。
+ *
  * ## 三条反证（对应工单要求 A / B / C）
  *   A 把修复摘掉（`label: … : id`）⇒ 用例 1 必红。
  *   B 红落在「第二个组织显示真名」那一步，之前「当前组织显示真名」仍绿 —— 用例 1 的
@@ -88,9 +96,26 @@ function renderShell() {
   );
 }
 
-/** 切换器里逐个 `<option>` 的可见文本 —— 用户真正读到的东西。 */
-async function switcherOptions(): Promise<string[]> {
-  const select = await screen.findByTestId("org-switcher");
+/**
+ * 切换器里逐个 `<option>` 的可见文本 —— 用户真正读到的东西。
+ *
+ * ⚠ **同步**，而且刻意用最便宜的两步：`getByTestId`（属性选择器）+ `querySelectorAll`。
+ * 它要在 `waitFor` 的回调里被反复调用，回调本身的成本就是这次 flake 的关键变量。
+ *
+ * 反面教材（2026-08-09 实测记录，别再走一遍）：
+ *   ① 原写法 `async` + 内部 `await screen.findByTestId(…)`，调用点套在
+ *      `waitFor(async () => …)` 里 —— `waitFor` 明令禁止的嵌套异步查询。
+ *      `wait-for.js` 的 `checkCallback()` 第一行是 `if (promiseStatus === 'pending') return;`：
+ *      内层 `findBy*`（自带 1000ms 预算）挂起期间外层**完全停止重查**，`lastError`
+ *      始终为 undefined，于是外层到点抛出**没有任何诊断信息的**
+ *      `Error: Timed out in waitFor.` —— 正是挡住所有人 push 的那条。
+ *   ② 第一版修法改成 `findByRole("option", { name })`，**实测更糟**：40 burner 稳态
+ *      负载下 6 轮里红 5 轮，而原写法 6 轮全绿。`byRole` 每次重试都要重算整棵
+ *      可及性树并求每个节点的 accessible name，查询本身就把 1000ms 预算吃光了。
+ *      教训：`waitFor` 回调必须**便宜**，`byRole` 在热重试路径上不是免费的语义糖。
+ */
+function switcherOptions(): string[] {
+  const select = screen.getByTestId("org-switcher");
   return Array.from(select.querySelectorAll("option")).map((o) => o.textContent ?? "");
 }
 
@@ -115,17 +140,18 @@ describe("#596 组织切换器显示真实组织名", () => {
 
     renderShell();
 
+    // 先等挂载：**唯一**一次异步查询，之后的等待全是同步回调。
+    await screen.findByTestId("org-switcher");
+
     // ── B：这一条在「摘掉修复」时仍必须绿 —— 当前组织的名字本来就拿得到 ──
-    await waitFor(async () =>
-      expect(await switcherOptions()).toContain(CURRENT_ORG.name));
+    await waitFor(() => expect(switcherOptions()).toContain(CURRENT_ORG.name));
 
     // ── A/B 的靶心：**非当前组织**过去在这里显示成 `org-local-…` ──
-    await waitFor(async () =>
-      expect(await switcherOptions()).toEqual([CURRENT_ORG.name, OTHER_ORG.name]));
+    await waitFor(() =>
+      expect(switcherOptions()).toEqual([CURRENT_ORG.name, OTHER_ORG.name]));
 
     // 兜底：切换器整块可见文本里不得出现内部 ID 的任何片段。
-    const switcher = await screen.findByTestId("org-switcher");
-    expect(switcher.textContent).not.toContain("org-");
+    expect(screen.getByTestId("org-switcher").textContent).not.toContain("org-");
   });
 
   it("C：另一个组织的名字还没回来时显示加载态，不拿 ID 顶替", async () => {
@@ -137,9 +163,10 @@ describe("#596 组织切换器显示真实组织名", () => {
 
     renderShell();
 
-    await waitFor(async () =>
-      expect(await switcherOptions()).toEqual([CURRENT_ORG.name, ORG_NAME_PENDING_LABEL]));
-    const switcher = await screen.findByTestId("org-switcher");
+    await screen.findByTestId("org-switcher");
+    await waitFor(() =>
+      expect(switcherOptions()).toEqual([CURRENT_ORG.name, ORG_NAME_PENDING_LABEL]));
+    const switcher = screen.getByTestId("org-switcher");
     expect(switcher.textContent).not.toContain(OTHER_ORG.id);
     expect(switcher.textContent).not.toContain("org-");
   });
@@ -152,8 +179,9 @@ describe("#596 组织切换器显示真实组织名", () => {
 
     renderShell();
 
-    await waitFor(async () =>
-      expect(await switcherOptions()).toEqual([CURRENT_ORG.name, ORG_NAME_UNAVAILABLE_LABEL]));
+    await screen.findByTestId("org-switcher");
+    await waitFor(() =>
+      expect(switcherOptions()).toEqual([CURRENT_ORG.name, ORG_NAME_UNAVAILABLE_LABEL]));
     // 会话本身仍然可用：一个组织读不到名字，不该把人踢出应用。
     expect(screen.getByTestId("app-shell")).toBeTruthy();
     expect(screen.queryByTestId("session-dependency-failed")).toBeNull();
