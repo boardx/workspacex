@@ -18,6 +18,17 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
 export interface SystemAgentTemplate {
   readonly stableName: string;
   readonly name: string;
+  /**
+   * roster 展示用的缩写与职责（#619 收敛后 `capability_listings` 的
+   * `capability_listings_agent_needs_abbr_duty` CHECK 强制 `kind='agent'` 两者非空）。
+   *
+   * ⚠ 这两列**不是可选装饰**：F110 的 I-17（domain.md）要求"每个 agent 必须有非空
+   * duty"。系统预置 agent 与人建的 agent 走同一张目录表、同一条 roster 选择器，
+   * 所以它们同样要回答"这个 agent 是干什么的"——不给默认值、不在 SQL 里兜底，
+   * 缺了就让模板作者显式补上。
+   */
+  readonly abbr: string;
+  readonly duty: string;
   readonly instructions: string;
   /** 幂等锁的 key——必须跟 `stableName` 一一对应且互不相同，否则两个模板会互相排队。 */
   readonly lockKey: number;
@@ -67,8 +78,8 @@ export async function ensureSystemAgent(
       [agentId, input.orgId, versionId, nowIso],
     );
     await s.query(
-      "INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint) VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL)",
-      [agentId, input.orgId, template.name],
+      "INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL)",
+      [agentId, input.orgId, template.name, template.abbr, template.duty],
     );
     return { agentId, created: true };
   });

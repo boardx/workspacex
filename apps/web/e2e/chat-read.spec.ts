@@ -113,8 +113,10 @@ test("#467/#513 roster mount survives a reload, and the post-reload edit now suc
   // 显示谁在场，编辑是显式动作）。此前它常驻，等于永远挂着一个裸 agent id 输入框 ——
   // 正是 #594 人类要求消灭的形态。
   // ⚠ 断言一条没放宽：没有写权时「编辑」按钮本身不渲染，下面这行会如实红。
+  // #619 叠加：点开之后那个字段是**选择器**（选自组织 agent 目录），所以是 selectOption
+  // 而不是 fill —— 两件事都要成立：藏在编辑动作后面 ∧ 不是裸文本框。
   await page.getByTestId("chat-roster-edit").click();
-  await page.getByTestId("chat-roster-add-input").fill(CHAT_READ_E2E.catalogOnlyAgentId);
+  await page.getByTestId("chat-roster-add-input").selectOption(CHAT_READ_E2E.catalogOnlyAgentId);
   await page.getByTestId("chat-roster-add-submit").click();
   expect((await addResponse).status()).toBe(200);
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`)).toBeVisible();

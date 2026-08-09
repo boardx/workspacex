@@ -21,6 +21,8 @@ import { ensureSystemAgent, type SystemAgentTemplate } from "./pg-system-agent-r
 const DEEP_RESEARCH_AGENT_TEMPLATE: SystemAgentTemplate = {
   stableName: DEEP_RESEARCH_AGENT_STABLE_NAME,
   name: DEEP_RESEARCH_AGENT_NAME,
+  abbr: "DR",
+  duty: "多轮深度检索与调研综述",
   instructions: DEEP_RESEARCH_AGENT_INSTRUCTIONS,
   lockKey: 661,
   resolveModel: () => ({ provider: DEEP_RESEARCH_AGENT_PROVIDER, modelId: DEEP_RESEARCH_AGENT_MODEL_ID }),

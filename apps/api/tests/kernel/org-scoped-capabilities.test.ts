@@ -222,7 +222,8 @@ describe("hard rule 6: F15's routes return what the contract describes", () => {
       headers: { ...authFor(BOTH, ORG_A), "content-type": "application/json" },
       body: JSON.stringify({
         orgId: ORG_A, kind: "agent", op: "add",
-        payload: { name: "Bookkeeper", scope: "org-wide" },
+        // #619: kind="agent" 时 abbr/duty 是必填字段（CapabilityPayloadError 否则）。
+        payload: { name: "Bookkeeper", scope: "org-wide", abbr: "BK", duty: "记账与对账" },
       }),
     }).then((r) => r.json());
     const parsed = C.operations.mutateCapability.out.safeParse(body);

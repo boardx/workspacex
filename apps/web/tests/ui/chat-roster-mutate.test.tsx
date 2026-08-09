@@ -45,7 +45,7 @@ import { ApiError } from "@/lib/api-client";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread, updateAgentRoster,
+  createThread, renameThread, deleteThread, updateAgentRoster, listCapabilities,
   listThreadArtifacts, landAsArtifact, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -58,6 +58,7 @@ const {
   renameThread: vi.fn(),
   deleteThread: vi.fn(),
   updateAgentRoster: vi.fn(),
+  listCapabilities: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——本文件不测这两个端口，只需要它们有默认解析值，
   // 不然 `chat-read-screen.tsx` 顶层的 `Promise.allSettled` 会产生未处理的 rejection。
   listThreadArtifacts: vi.fn(),
@@ -85,6 +86,10 @@ vi.mock("@/lib/live-chat", () => ({
   createThread, renameThread, deleteThread, updateAgentRoster,
   listThreadArtifacts, landAsArtifact,
 }));
+// #619：加入表单的候选来自这个真实读端口（`GET /capabilities?kind=agent`），
+// 不再是自由文本框——每条用例要选的 id 必须先出现在这份候选列表里，
+// 否则 `<select>` 里根本没有那个 `<option>`，同真实浏览器行为一致。
+vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
 
@@ -146,6 +151,24 @@ function openRosterEditor() {
   fireEvent.click(screen.getByTestId("chat-roster-edit"));
 }
 
+/**
+ * #619：`GET /capabilities?kind=agent` 的候选 fixture。真实 `CapabilityListing`
+ * 形状（`packages/contracts/src/identity.ts`），每条用例要选的 id 必须先在这里。
+ *
+ * ⚠ 与 #728 D2 叠加而不是二选一：编制编辑器**打开之后**里面那个字段才是选择器。
+ *   「藏在编辑动作后面」（#728）与「不是裸文本框」（#619）是两件事，都要成立。
+ */
+function agentListing(id: string) {
+  return {
+    id, orgId: "org-current", kind: "agent" as const, name: `目录 ${id}`, scope: "org-wide" as const,
+    enabled: true, endpoint: null, abbr: id.slice(0, 2).toUpperCase(), duty: "目录职责", disabledReason: null,
+  };
+}
+
+const ALL_TEST_CANDIDATES = [
+  "agent-new", "a1", "a2", "agent-x", "agent-alien",
+].map(agentListing);
+
 function renderScreen() {
   return render(<ChatReadScreen projectId="project-real" initialThreadId="thread-a" />);
 }
@@ -160,6 +183,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     listMessages.mockResolvedValue({ messages: [], nextCursor: null });
     listThreadArtifacts.mockResolvedValue({ items: [] });
     updateAgentRoster.mockResolvedValue({ rosterVersion: 1, agents: [], auditEventId: "prov-1" });
+    listCapabilities.mockResolvedValue(ALL_TEST_CANDIDATES);
   });
 
   it("加一个 agent：打真实端口，并在返回后重读服务端编制（不做乐观更新）", async () => {
@@ -167,6 +191,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("chat-roster-add-input")).toContainHTML("agent-new"));
 
     // 加完之后服务端会回一份含该 agent 的编制——界面必须显示**重读到的**那份。
     getAgentPanel.mockResolvedValue(panel(["agent-new"]));
@@ -217,6 +242,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("chat-roster-add-input")).toContainHTML("a1"));
 
     updateAgentRoster.mockResolvedValue({ rosterVersion: 999, agents: [], auditEventId: "p1" });
     getAgentPanel.mockResolvedValue(panel([], 6));
@@ -250,6 +276,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalled());
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
+    await waitFor(() => expect(screen.getByTestId("chat-roster-add-input")).toContainHTML("agent-x"));
 
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-x" } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
@@ -285,6 +312,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     renderScreen();
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
+    await waitFor(() => expect(screen.getByTestId("chat-roster-add-input")).toContainHTML("agent-alien"));
 
     updateAgentRoster.mockRejectedValue(new ApiError(422, "AGENT_OUT_OF_SCOPE", null));
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-alien" } });
@@ -298,6 +326,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     renderScreen();
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
+    await waitFor(() => expect(screen.getByTestId("chat-roster-add-input")).toContainHTML("agent-x"));
 
     updateAgentRoster.mockRejectedValue(new ApiError(409, "VERSION_CHANGED", null));
     fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "agent-x" } });
@@ -308,15 +337,34 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     expect(updateAgentRoster).toHaveBeenCalledTimes(1);
   });
 
-  it("空输入不发请求", async () => {
+  // #619：选择器把「空输入」变成「没选中任何候选（占位选项）」——提交按钮本身
+  // 也因此禁用（`draft === ""`），这条钉的是「没选就点提交也不发请求」这个兜底，
+  // 不再是「打了空白字符串」（select 天然不存在这种状态）。
+  it("没选中任何候选就提交：不发请求", async () => {
     renderScreen();
     await screen.findByTestId("chat-roster-edit");
     openRosterEditor();
 
-    fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "   " } });
+    fireEvent.change(screen.getByTestId("chat-roster-add-input"), { target: { value: "" } });
     fireEvent.click(screen.getByTestId("chat-roster-add-submit"));
 
     await waitFor(() => expect(getAgentPanel).toHaveBeenCalled());
+    expect(updateAgentRoster).not.toHaveBeenCalled();
+  });
+
+  it("目录读取失败：候选区显示错误，写入口仍在但没有候选可选", async () => {
+    listCapabilities.mockRejectedValue(new ApiError(503, "CAPABILITY_CATALOG_UNAVAILABLE", null));
+    renderScreen();
+    // #728 D2：写入口折在「编辑」后面，先点开才有候选区可看。
+    // ⚠ 这条断言的重点没变：目录读失败时**写入口仍在**（只是没有候选可选），
+    //   而不是整个编制编辑器消失——所以这里断言的是 add-input 存在 + 错误文案出现。
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
+    await screen.findByTestId("chat-roster-add-input");
+
+    expect(await screen.findByTestId("chat-roster-candidates-error")).toHaveTextContent(
+      "CAPABILITY_CATALOG_UNAVAILABLE",
+    );
     expect(updateAgentRoster).not.toHaveBeenCalled();
   });
 });

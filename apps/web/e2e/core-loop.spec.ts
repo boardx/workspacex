@@ -407,9 +407,10 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId("chat-message-submit")).toBeDisabled();
 
     // ── 走界面把 agent 加进本线程编制（真实用户路径） ───────────────────────
-    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可选。
+    // #619：点开后那个字段是选择器（候选来自 `GET /capabilities?kind=agent`）。
     await page.getByTestId("chat-roster-edit").click();
-    await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
@@ -704,9 +705,10 @@ test.describe("核心闭环八步", () => {
     // ── 把**可运行的**那个 agent 挂进本线程的编制 ─────────────────────────
     // 种子只种了 `org_agents`（可见）与 `agents`/`agent_versions`（可跑），线程级编制
     // 刻意留给这里做 —— 线程是现场建的，预种不了，而这一步顺带证明编制写路径是活的。
-    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可填。
+    // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可选。
+    // #619：点开后那个字段是选择器（候选来自 `GET /capabilities?kind=agent`）。
     await page.getByTestId("chat-roster-edit").click();
-    await page.getByTestId("chat-roster-add-input").fill(FULLSTACK_E2E.agentId);
+    await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 

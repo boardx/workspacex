@@ -169,6 +169,20 @@ export async function mutateCapability(
 
   if (op === "add") {
     const p = parse(AddPayload, input.payload);
+    /**
+     * #619：`kind === "agent"` 需要 `abbr`/`duty` 非空——这条判断 `AddPayload` 自己
+     * 做不了（`kind` 不在 payload 里，是它的兄弟字段，见契约那边的注释）。
+     *
+     * ⚠ 用 `CapabilityPayloadError`（与 `parse()` 抛出的是**同一种**错误），
+     *   不是发明一个新错误类型：调用方（controller）已经知道怎么把这种错误
+     *   转成字段级 400，不需要为这一条额外分支再教它一次。
+     */
+    if (kind === "agent") {
+      const fields: { path: string; code: string }[] = [];
+      if (!p.abbr || p.abbr.trim().length === 0) fields.push({ path: "abbr", code: "too_small" });
+      if (!p.duty || p.duty.trim().length === 0) fields.push({ path: "duty", code: "too_small" });
+      if (fields.length > 0) throw new CapabilityPayloadError(fields);
+    }
     const row = await capabilities.insert(orgId, {
       kind,
       name: p.name,
@@ -178,6 +192,10 @@ export async function mutateCapability(
       // but a loopback endpoint -- the admin gets a constraint violation rather than a row
       // that would have made the promise quietly untrue.
       endpoint: p.endpoint ?? null,
+      // #619：其余 kind 恒 null——即便 payload 里意外带了值也不落库，防止
+      // 一个与 agent 无关的能力条目背上两个对它没有意义的字段。
+      abbr: kind === "agent" ? (p.abbr ?? null) : null,
+      duty: kind === "agent" ? (p.duty ?? null) : null,
     });
     const listing = open(row, deps, membership);
     const provenanceEventId = await provenance.append({

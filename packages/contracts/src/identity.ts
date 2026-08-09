@@ -367,6 +367,31 @@ export const CapabilityListing = z.object({
    */
   endpoint: z.string().nullable(),
   /**
+   * #619 —— **agent 目录第三次收敛的落点**。同 `endpoint` 一样的修订理由：
+   * 缺了它，一件此前假设已完成的事（"能不能把这个 agent 挂进某个 thread 的编制"）
+   * 无法回答。
+   *
+   * ## 为什么在 `capability_listings` 而不是 `org_agents`
+   *
+   * `org_agents`/`chat_thread_agents` 那套（0032-f110-ai-team-panel.sql）文件头
+   * 逐字写着自己是"占位目录"，等的是"phase-00 F15"——F15 就是 `capability_listings`
+   * 本身。它早就落地了，只是没人接上去（issue #619 的勘探结论）。这两个字段就是
+   * 那次"接上去"：**收敛 = agent 目录只剩一份，不是新造一份**。
+   *
+   * `abbr`/`duty` **只对 `kind === "agent"` 有意义**——`null` 表示这条能力
+   * 不是 agent（同 `endpoint` 的 null 语义），或者是 agent 但尚未补全
+   * （数据库 CHECK `capability_listings_agent_needs_abbr_duty` 挡住后一种情况，
+   * 见迁移 `20260807000000_i619_agent_roster_capability_convergence.sql`）。
+   *
+   * ⚠ **为什么补字段，不是读端降级**：`domain/chat/agent-presence.ts` 的
+   * `assertAgentPanelInvariants` 明文写着"抛错而不是静默补一个占位字符串——
+   * 数据本不该长成这样，让它安静地变成'（无职责）'只会把这个问题从
+   * '看得见的 500'变成'看不见的界面缺陷'"。在 write 端就要求这两个字段，
+   * 比在 read 端编一个假 duty 更符合这条已经写明的纪律。
+   */
+  abbr: z.string().nullable(),
+  duty: z.string().nullable(),
+  /**
    * 为什么这一行是灰的 —— F15 记录的缺陷②，同样在 F16 变成阻塞。
    *
    * ⚠ **派生值，不落库**：它是 `enabled=false` 或本地组织承诺的**后果**，
@@ -406,6 +431,18 @@ export const CapabilityAddPayload = z
      * 应用层无从绕过。
      */
     endpoint: z.string().nullable().optional(),
+    /**
+     * #619：`kind === "agent"` 时必填（非空）。见 `CapabilityListing.abbr`/`.duty`
+     * 的注释——为什么在这里要求，不在读端降级。
+     *
+     * ⚠ 这两个字段**不在这份 schema 里对 `kind` 做条件校验**：`kind` 是
+     * `mutateCapability.in` 的兄弟字段，不在 `payload` 里，这份 schema 看不见它
+     * （与上面 `ownerTeamId` 依赖 `scope` 不同——`scope` 就在这份 payload 里）。
+     * ⇒ "kind==='agent' 时必填" 的校验放在应用层（`mutate-capability.ts`），
+     * 那里 `input.kind` 是可见的。这里只声明字段存在、类型是什么。
+     */
+    abbr: z.string().min(1).nullable().optional(),
+    duty: z.string().min(1).nullable().optional(),
   })
   /**
    * 与 `acl_bindings_team_only_needs_team` 同一条规则,同一个理由:

@@ -41,7 +41,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { z } from "zod";
 import { chat as C } from "@repo/contracts";
 import {
-  addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
+  addCapability, addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 import { addChatThread } from "../support/chat-db";
 
@@ -127,14 +127,13 @@ beforeEach(async () => {
     orgId: ORG, id: THREAD, projectId: PROJECT,
     visibilityScope: "plenary", createdBy: FACILITATOR, phase: "research", title: "编制版本号",
   });
-  await asApp(ORG, async (c) => {
-    for (const [id, abbr] of [[AGENT_A, "AA"], [AGENT_B, "BB"]]) {
-      await c.query(
-        "INSERT INTO org_agents (org_id, agent_id, abbr, name, duty) VALUES ($1,$2,$3,$4,$5)",
-        [ORG, id, abbr, `名字 ${id}`, "职责非空（I-17）"],
-      );
-    }
-  });
+  /**
+   * #619：组织 agent 目录不再是 `org_agents`（0032 的占位目录），
+   * `add` 的越范围判定读的是 `capability_listings（kind='agent', enabled=true）`。
+   */
+  for (const [id, abbr] of [[AGENT_A, "AA"], [AGENT_B, "BB"]] as const) {
+    await addCapability({ orgId: ORG, id, kind: "agent", name: `名字 ${id}`, abbr, duty: "职责非空（I-17）" });
+  }
 });
 
 describe("#513 getAgentPanel 下发 rosterVersion（真实 Postgres）", () => {
