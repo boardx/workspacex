@@ -66,7 +66,7 @@
 | H3A-025 | P0 | ✅ 完成（PR #686） | Role authority monotonicity gate | 020 | 子角色权限不能大于 supervisor/Task Assignment |
 | H3A-026 | P0 | ✅ 完成（PR #686） | merge/signoff 权限 gate | 020 | 非 Root merge、任意 Agent 人类签核会红 |
 | H3A-027 | P0 | ✅ 完成（PR #686） | producer/verifier separation policy | 023 | 同 actor 自产自签会红 |
-| H3A-028 | P1 | 🔶 PR #待定 待 review（issue #805） | 现有 portable role generator 适配 | 020–023 | Claude/Codex 从同一 Role model 生成且无漂移 |
+| H3A-028 | P1 | 🔶 PR #807 待 review（issue #805） | 现有 portable role generator 适配 | 020–023 | Claude/Codex 从同一 Role model 生成且无漂移 |
 | H3A-029 | P0 | ✅ 完成（PR #686） | Root 直派 L3 例外门 | 019、023 | 仅独立 review、恢复、迁移兼容；必须绑定 subject domain 和受限 scope |
 
 反证：创建第四层、给 Domain merge 权、让 Skill 声明写权限、让 reviewer=producer，必须分别只红对应约束。
