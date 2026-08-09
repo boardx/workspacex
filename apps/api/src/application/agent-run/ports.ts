@@ -454,6 +454,21 @@ export interface ModelCallPort {
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }>;
+
+  /**
+   * 2026-08-09 hotfix (#798) -- OPTIONAL per-run capability query, only meaningful for a
+   * port that fronts MORE THAN ONE underlying provider (today: `RoutingModelCallPort`). A
+   * single-provider port's own `completeWithProgress` presence is already the accurate
+   * answer for every run it serves, so it has no reason to implement this -- `execute-run.ts`
+   * treats an absent `supportsProgress` as "presence of `completeWithProgress` alone
+   * decides it", the exact behaviour every existing single-provider port and test fake
+   * already has. A router-shaped port DOES need this: its own `completeWithProgress`
+   * method is present as soon as ANY registered provider needs it, but that presence says
+   * nothing about the specific provider a given run is pinned to -- see
+   * `RoutingModelCallPort.completeWithProgress`'s own doc comment for why conflating the
+   * two would silently break token streaming for providers that don't support progress.
+   */
+  supportsProgress?(modelProvider: string): boolean;
 }
 
 export interface AgentRunClock {
