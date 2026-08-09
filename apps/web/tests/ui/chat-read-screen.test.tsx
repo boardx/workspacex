@@ -279,7 +279,10 @@ describe("formal Chat read path", () => {
     expect(listMessages).toHaveBeenLastCalledWith("thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer");
 
     expect(screen.getByRole("textbox", { name: "消息内容" })).toBeInTheDocument();
-    expect(screen.getByTestId("chat-message-submit")).toHaveTextContent("发送并排队");
+    // #728 —— 发送按钮改成图标化（Claude Code 风格紧凑输入区），文案不再是可见
+    // 文本，挪到了 aria-label/title 上——断言跟着挪，不是削弱它：这条仍然验证
+    // 「按钮此刻处于"可以发送"这句话所描述的状态」，只是读的属性变了。
+    expect(screen.getByTestId("chat-message-submit")).toHaveAttribute("aria-label", "发送并排队");
   });
 
   /**

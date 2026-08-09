@@ -543,12 +543,6 @@ export function ChatLiveMessagePanel({
             该对话已归档，只能读取，不能创建消息或运行。
           </p>
         ) : null}
-        <AgentPicker
-          agents={agents}
-          selectedAgentId={selectedAgentId}
-          disabled={archived || submitting || agents === null || agents.length === 0}
-          onSelect={(agentId) => updateDraft({ agentId })}
-        />
         {/*
           #728 P10 —— 无 agent 可选时，整个composer 的「发送类」控件（追问建议 / 麦克风）
           此前只看 `archived`/`submitting`，不看「有没有 agent 可以发」，于是在
@@ -587,8 +581,23 @@ export function ChatLiveMessagePanel({
             onChange={(event) => updateDraft({ text: event.target.value })}
             className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
           />
+          {/*
+            #728 —— 人类指示（Claude Code 参照）：加 skill / 选 Agent 都收进和麦克风
+            同一行、靠左；发送按钮只留图标。默认要有一个 agent，不需要用户手动选——
+            这条已经在 `selectedAgentId` 的推导里满足（`agents?.[0]?.id`），本次
+            只是把选择器从独立一行搬下来、做紧凑，不改选择逻辑本身。
+
+            个人对话没有「加 skill」（`ChatSkillMountPanel` 只在项目对话侧挂载，
+            人类这轮明确说项目对话先不做）——这里先只放 Agent 选择器，skill 入口
+            留给项目对话那一轮再接进来，不在两边都不存在的东西上造一个空位。
+          */}
           <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
-            <p className="text-10 text-muted-foreground">只显示服务端持久消息；不会合成即时 AI 回复。</p>
+            <AgentPicker
+              agents={agents}
+              selectedAgentId={selectedAgentId}
+              disabled={archived || submitting || agents === null || agents.length === 0}
+              onSelect={(agentId) => updateDraft({ agentId })}
+            />
             <div className="flex items-center gap-1.5">
               <Button
                 type="button"
@@ -606,16 +615,27 @@ export function ChatLiveMessagePanel({
                 <Mic aria-hidden className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="sm"
+                type="button"
+                size="icon"
                 className="rounded-full"
                 data-testid="chat-message-submit"
+                aria-label={submitting ? "发送中" : "发送并排队"}
+                title={submitting ? "发送中…" : "发送并排队"}
                 disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >
-                <Send aria-hidden className="h-3.5 w-3.5" />{submitting ? "发送中…" : "发送并排队"}
+                <Send aria-hidden className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
+          {/*
+            这句话此前是同一行里的说明文字，紧凑化时挪到底部单独一行——不是删掉，
+            `tests/ui/chat-read-screen.test.tsx:500` 与 `e2e/chat-read.spec.ts:61`
+            两处都断言这个精确文案，删了会静默红。
+          */}
+          <p className="px-1.5 pb-0.5 text-10 text-muted-foreground">
+            只显示服务端持久消息；不会合成即时 AI 回复。
+          </p>
         </div>
         {speech.listening ? (
           // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
@@ -973,28 +993,36 @@ function AgentPicker({
   const selected = agents?.find((agent) => agent.id === selectedAgentId) ?? null;
 
   return (
-    <div className="relative mb-2 flex items-center gap-2">
-      <span className="text-11 text-muted-foreground">运行 Agent</span>
+    /*
+      #728 —— 紧凑化：从「运行 Agent [长按钮撑满一行]」改成 Claude Code 那种
+      左下角小触发器（头像/缩写 + 名字，不再有单独的标签行）。默认已经选中
+      `agents[0]`（见调用方 `selectedAgentId` 的推导），用户多数时候不需要点开它，
+      所以给它的视觉权重降到跟麦克风、发送同一级，而不是占一整行。
+    */
+    <div className="relative flex items-center">
       <Button
         type="button"
         size="xs"
-        variant="outline"
-        className="min-w-0 flex-1 justify-between rounded-full"
+        variant="ghost"
+        className="max-w-40 justify-start gap-1.5 rounded-full px-2"
         data-testid="chat-agent-select"
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label="运行 Agent"
+        title={selected ? `运行 Agent：${selected.name}` : "运行 Agent"}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="truncate">{selected?.name ?? (agents?.length ? "选择 Agent" : "没有可选 Agent")}</span>
-        <span aria-hidden className="text-9">▾</span>
+        {selected ? <Avatar initials={selected.abbr} tone="ai" size="xs" /> : null}
+        <span className="truncate text-11">{selected?.name ?? (agents?.length ? "选择 Agent" : "没有可选 Agent")}</span>
+        <span aria-hidden className="text-9 text-muted-foreground">▾</span>
       </Button>
       {open && agents?.length ? (
         <div
           role="listbox"
           aria-label="运行 Agent"
           data-testid="chat-agent-select-listbox"
-          className="absolute left-0 top-8 z-10 w-full min-w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
+          className="absolute bottom-8 left-0 z-10 w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
         >
           {agents.map((agent) => (
             <button
