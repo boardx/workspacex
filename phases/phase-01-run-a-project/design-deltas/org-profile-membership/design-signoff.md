@@ -1,7 +1,9 @@
 ---
-status: proposed
+status: confirmed
 bundle: org-profile-membership
 scope: org-profile-edit-plus-member-invite-list-read
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-09T13:XX:00+08:00"
 ---
 
 # 组织资料编辑 + 成员/邀请列表读 —— 设计签核
