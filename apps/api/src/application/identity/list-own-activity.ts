@@ -72,8 +72,12 @@ function summarize(e: ProvenanceEventRecord): string {
       const displayName = typeof detail.displayName === "string" ? detail.displayName : null;
       return displayName ? `显示名改为"${displayName}"` : "修改了显示名";
     }
-    case "avatar-changed":
-      return "更换了头像";
+    case "avatar-changed": {
+      // `update-own-profile.ts` 的 null 分支（清除头像）与非 null 分支（设置/更换头像）共用
+      // 同一个 event type，靠 `detail.cleared` 区分——不读它俩就永远显示"更换了头像"，
+      // 用户清除头像后活动记录会撒谎说"更换"（复核第二轮实测发现，见 PR #860 讨论）。
+      return detail.cleared === true ? "清除了头像" : "更换了头像";
+    }
     case "password-changed":
       return "修改了密码";
     case "team-created": {
