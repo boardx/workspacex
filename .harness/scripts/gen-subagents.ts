@@ -9,6 +9,7 @@ import { parse } from "yaml";
 import { HARNESS_DIR, REPO_ROOT } from "./lib/paths";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
+import { KIND_TO_LAYER, checkSpecialistWorkerSpecs, type RawAgentSpec } from "./lib/role-authorization";
 
 interface AgentSpec {
   name: string;
@@ -248,6 +249,37 @@ function assertPersistentRoleSpec(file: string, value: unknown): asserts value i
   if (spec.developer_instructions.includes('"""')) {
     throw new Error(`${file} developer_instructions 不能包含 TOML 三引号`);
   }
+  // H3A-020/H3A-028：kind 必须能派生出 layer——role-authorization-doctor.ts
+  // 已经拿同一个 KIND_TO_LAYER 表对这 6 个文件判 FAIL/PASS；生成器如果不接
+  // 同一张表，就可能为一个 doctor 判无效的 Role model 照常产出 Claude/Codex
+  // 双格式文件（两条流水线各自校验、互不感知的漂移面）。这里拒绝生成，不
+  // 悄悄放行、也不重新发明一张映射表。
+  if (typeof spec.kind === "string" && spec.kind !== "" && !(spec.kind in KIND_TO_LAYER)) {
+    throw new Error(
+      `${file} 的 kind "${spec.kind}" 不在 H3A-020 layer 映射表 ` +
+        `[${Object.keys(KIND_TO_LAYER).join(", ")}] 里，无法派生 layer，拒绝生成`,
+    );
+  }
+}
+
+/**
+ * H3A-023/H3A-028：扁平 subagent spec 生成前的 Specialist Worker schema
+ * 校验——复用 role-authorization.ts 的 `checkSpecialistWorkerSpecs`（同一份
+ * 判定逻辑喂给 role-authorization doctor 和这里，不重新写一遍）。FAIL 严重
+ * 度（缺 `role` 字段）阻断生成；WARN 严重度（`tools` 缺失/过多）只打印警告，
+ * 同 doctor 的 severity 语义保持一致，不把 WARN 升级成阻断。
+ */
+export function assertSpecialistWorkerSpec(file: string, spec: RawAgentSpec): void {
+  const findings = checkSpecialistWorkerSpecs([spec]);
+  const fails = findings.filter((f) => f.severity === "FAIL");
+  if (fails.length > 0) {
+    throw new Error(
+      `${file} 不符合 H3A-023 Specialist Worker schema：${fails.map((f) => f.message).join("；")}`,
+    );
+  }
+  for (const w of findings.filter((f) => f.severity === "WARN")) {
+    log.warn(`[gen-subagents] ${w.sourceFile}: ${w.message}`);
+  }
 }
 
 function persistentRoleInstructions(spec: PersistentRoleSpec): string {
@@ -311,6 +343,7 @@ export function genSubagents(_args: Args): void {
       log.warn(`${file} 缺少 name 字段，跳过`);
       continue;
     }
+    assertSpecialistWorkerSpec(file, { sourceFile: file, name: spec.name, role: spec.role, tools: spec.tools });
 
     // 生成 Claude md
     const claudePath = join(CLAUDE_AGENTS_DIR, `${spec.name}.md`);

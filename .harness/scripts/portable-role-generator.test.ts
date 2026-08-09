@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { generatePersistentClaudeMd, generatePersistentCodexToml } from "./gen-subagents";
+import { generatePersistentClaudeMd, generatePersistentCodexToml, assertSpecialistWorkerSpec } from "./gen-subagents";
+import { KIND_TO_LAYER } from "./lib/role-authorization";
 import { REPO_ROOT } from "./lib/paths";
 
 const ROLE_IDS = [
@@ -244,5 +245,60 @@ metadata_alias: *credential_alias
         expect(combinedPrompt).toContain("不得派发");
       }
     }
+  });
+
+  // H3A-028：generator 必须接 H3A-020 的 KIND_TO_LAYER 表，不能各自校验、互不
+  // 感知——这条对全部 6 个真实持久角色文件跑一遍，确认它们的 kind 今天全部能
+  // 派生出 layer（生成器和 role-authorization doctor 看到同一个结论）。
+  it("H3A-028: every real persistent role kind derives a layer through the same KIND_TO_LAYER table", () => {
+    for (const roleId of ROLE_IDS) {
+      const { spec } = readRole(roleId);
+      expect(spec.kind in KIND_TO_LAYER, `${roleId} kind="${spec.kind}"`).toBe(true);
+    }
+  });
+
+  // H3A-028 反证：构造一个曾经会静默通过 gen-subagents（只检查 kind 非空
+  // 字符串）、但 role-authorization doctor 会判 H3A020-INVALID-ROLE-FIELD FAIL
+  // 的角色文件——kind 打错、映射不到任何 layer。修复前这个 spec 能正常生成出
+  // Claude/Codex 双格式文件；修复后两个生成函数都必须拒绝。
+  it("H3A-028 counterexample: rejects a persistent role whose kind cannot derive a layer", () => {
+    const { spec } = readRole("dev-chat-e2e");
+    const drifted = { ...spec, kind: "coordinatoor" }; // 打错的 kind，不在 KIND_TO_LAYER 里
+    expect(() => generatePersistentClaudeMd(drifted)).toThrow(/无法派生 layer/);
+    expect(() => generatePersistentCodexToml(drifted)).toThrow(/无法派生 layer/);
+  });
+
+  // H3A-028/H3A-023 反证：扁平 subagent spec 缺 `role` 字段（H3A023-MISSING-
+  // ROLE-FIELD，FAIL 严重度）今天在 gen-subagents 里完全没有对应校验——只检查
+  // `name`。这条确认接入 checkSpecialistWorkerSpecs 之后，生成前会挡住它，
+  // 而不是照常产出一份 role-authorization doctor 会判 FAIL 的 subagent。
+  it("H3A-028 counterexample: rejects a flat subagent spec missing the H3A-023 role field", () => {
+    expect(() =>
+      assertSpecialistWorkerSpec("fake.yaml", {
+        sourceFile: "fake.yaml",
+        name: "fake-worker",
+        role: undefined,
+        tools: ["read_files"],
+      }),
+    ).toThrow(/H3A-023/);
+  });
+
+  it("H3A-028: accepts a well-formed flat subagent spec and only warns (not blocks) on missing tools", () => {
+    expect(() =>
+      assertSpecialistWorkerSpec("fake.yaml", {
+        sourceFile: "fake.yaml",
+        name: "fake-worker",
+        role: "fake-worker",
+        tools: ["read_files"],
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertSpecialistWorkerSpec("fake.yaml", {
+        sourceFile: "fake.yaml",
+        name: "fake-worker",
+        role: "fake-worker",
+        tools: [],
+      }),
+    ).not.toThrow();
   });
 });
