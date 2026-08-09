@@ -271,6 +271,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           loading={detailLoading}
           error={detailError}
           onRetry={() => void loadSelectedThread()}
+          onThreadSettled={() => void loadThreads()}
         />
       ) : (
         <PersonalThreadDetail
@@ -285,6 +286,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
             setSelectedThreadId(null);
             router.replace("/chat");
           } : undefined}
+          onThreadSettled={() => void loadThreads()}
         />
       )}
     </AppShell>
@@ -318,7 +320,7 @@ function useIsDesktop(): boolean {
 }
 
 function PersonalThreadDetail({
-  card, detail, bearer, orgId, loading, error, onRetry, onBackMobile,
+  card, detail, bearer, orgId, loading, error, onRetry, onBackMobile, onThreadSettled,
 }: {
   card: ThreadCard | null;
   detail: GetThreadOut | null;
@@ -329,6 +331,11 @@ function PersonalThreadDetail({
   onRetry: () => void;
   /** 仅手机（<md）渲染的"返回列表"按钮；桌面端左栏一直可见，不需要这个 */
   onBackMobile?: () => void;
+  /**
+   * #728 第 9 轮 P10 —— 透传给 `ChatLiveMessagePanel` 的 `onRunSettled`，见那边的注释。
+   * 由 `PersonalChatScreen` 传入自己的 `loadThreads`，本组件不持有左栏数据。
+   */
+  onThreadSettled?: () => void;
 }) {
   const agentOptions = useOrgAgentOptions(orgId, bearer);
 
@@ -411,6 +418,7 @@ function PersonalThreadDetail({
           bearer={bearer}
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
+          onRunSettled={onThreadSettled}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
     </div>

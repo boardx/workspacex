@@ -62,6 +62,7 @@ export function ChatLiveMessagePanel({
   agents,
   archived,
   onArtifactLanded,
+  onRunSettled,
   aboveComposer,
 }: {
   threadId: string;
@@ -74,6 +75,15 @@ export function ChatLiveMessagePanel({
    * `listThreadArtifacts` 的服务端响应，这里不在本组件内维护第二份产物计数。
    */
   onArtifactLanded?: () => void;
+  /**
+   * #728 第 9 轮 rev-uiux 抓到：agent 回复写回后，左栏会话卡的「N 个 agent」
+   * （`ThreadMeta`，单一事实源见 `thread-badges.ts` 的 `threadAgentSummary`）
+   * 没有跟着刷新——评分员截到过同一帧里「0 个 agent」和刚说完话的 agent 回复
+   * 同屏出现，判定为「同屏自相矛盾」。跟 `onArtifactLanded` 是同一类问题、同一种
+   * 解法：本组件不在本地维护第二份 agent 计数，只在 run 到终态时通知调用方
+   * 去重读服务端权威列表。
+   */
+  onRunSettled?: () => void;
   /**
    * #728 D10 —— 「进行中」状态卡（录音/agent 跑批）的挂载点，紧贴在输入框
    * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
@@ -141,6 +151,11 @@ export function ChatLiveMessagePanel({
   });
   const speechStopRef = React.useRef(speech.stop);
   speechStopRef.current = speech.stop;
+  // run 到终态时通知调用方重读线程列表；用 ref 是因为轮询 effect 的依赖数组里
+  // 不该因为父组件每次渲染传入新的箭头函数就重启轮询（同 `loadPage` 那条 effect
+  // 已有的顾虑，见下面 `[activeRunId, bearer, loadPage]`）。
+  const onRunSettledRef = React.useRef(onRunSettled);
+  onRunSettledRef.current = onRunSettled;
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
     : agents?.[0]?.id ?? "";
@@ -245,6 +260,7 @@ export function ChatLiveMessagePanel({
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
         await loadPage(null, true);
+        onRunSettledRef.current?.();
         return;
       }
       if (Date.now() >= deadline) {
