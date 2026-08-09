@@ -17,6 +17,13 @@ import {
  * 间距规律：同组项 51px 一档，分组标签在其首项上方 25px。
  * ⚠ 这是**已确认的产品心智**，五段分组与顺序不动（UC-0.4 R4 A1）。
  *
+ * ⚠ 2026-08-09 更新（issue #801）：上面 y=377「原型」一格与本节末尾「治理」小节的
+ *   权威引用互相矛盾——原型设计说明逐字写着「画布从议程进，不占一级」（见下方 #593 小节
+ *   第②条）。人类此次裁决以设计说明为准：**画布（canvas）从 STUDIO 移出**，作为「后台」
+ *   的 children 渲染（与蓝本/技能/智能体/成员/资产同级），不再是一级导航项。
+ *   上面 y=377 那行是历史测量记录，不删是为了留痕，实现请看 `NAV_SEGMENTS` 里 STUDIO
+ *   segment 已不含 canvas、admin.children 已新增 canvas 条目。
+ *
  * ────────────────────────────────────────────────────────────────────────────
  * 2026-07-30 接线修正（ADR-023 签核材料必须活在产品里）：
  *   病：十一个契约束（ui-material-map.json 声明）的**现行 v2 屏**全部只能敲 URL 进——
@@ -96,8 +103,9 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // 束: recording —— 现场录音转写，此前只能敲 /rec
       { key: "recording", label: "录音", href: "/rec", icon: AudioLines, ucRefs: ["05-rec/uc-5-1", "05-rec/uc-5-2"] },
       { key: "survey", label: "问卷", href: "/studio/survey", icon: ClipboardList, ucRefs: ["12-survey/uc-12-1"] },
-      // 束: canvas —— 旧「原型」骨架屏（单栏 825px）退役，重指到三栏推演画布 /canvas
-      { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
+      // 束: canvas —— 2026-08-09 人类裁决：移出一级，见下方「治理 → 后台 children」处的 canvas 条目。
+      //   本文件自己的权威注释早已记录矛盾：measured 序列把「原型」摆在 STUDIO 一级，
+      //   但同一份原型的设计说明逐字写着「画布从议程进，不占一级」。这次以后者为准。
     ],
   },
   {
@@ -135,6 +143,10 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   放这里的依据是**排除法**：原型一级「治理」只有「后台」，所以它不能是一级项；
           //   它治理的正是后台「AI 能力」组那六种 AssetKind。若人类另有归属，改这一行即可。
           { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"], isPrototype: true },
+          // 束: canvas（推演画布）—— 2026-08-09 人类裁决（issue #801）：从一级 STUDIO 移入此处。
+          //   label/icon/href/ucRefs 原样带过来，未改任何逻辑；不带 isPrototype——
+          //   /canvas 是真实接线的三栏推演画布，不是待归并的 mock 屏，不与上面四项连坐。
+          { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
         ],
       },
     ],
