@@ -593,7 +593,10 @@ test.describe("核心闭环八步", () => {
    *   · `chat-skill-mount-empty`               同上（真实空态）
    *
    * ⚠ 被挂的那个 skill 由夹具种成「已启用」，理由见 `fullstack-smoke-fixture.ts`：
-   *   这套系统里目前不存在任何**产品路径**能把 skill 变成「已启用」（已上报）。
+   *   ✅ 产品路径**已经存在**（#552 / PR #584：`POST /skill-versions/:versionId/review`），
+   *   这里继续预置纯粹是成本考量（完整评审需要第二评审人）。
+   *   ⇒ 本步验的是挂载/卸载链路，**不代表**「用户自建 skill 可用」这件事没做——
+   *   那一条由 CLR track R 的 R8 单独衡量（`core-loop-readiness-standard.md`）。
    *   夹具种的是前置条件，挂载/卸载本身一行都没种。
    */
   test("[#467] 步骤 8a：会话内挂载一个 skill → 生效 → 卸载", async ({ page }) => {
@@ -774,8 +777,12 @@ test.describe("核心闭环八步", () => {
    * ## 前置条件由种子给，绑定动作一行都不种
    *
    * 已发布模板 + 一个 active 议程环节是种子种的（`canvas_template_bindings` 保持空表），
-   * 与 8a 的「已启用 skill」、8b 的「可运行 agent」同型；理由与那条**真实缺口**
-   * （今天没有任何产品路径造得出一个议程环节）写在 `fullstack-smoke-fixture.ts` 里。
+   * 与 8a 的「已启用 skill」、8b 的「可运行 agent」同型。
+   * ✅ 「今天没有任何产品路径造得出一个议程环节」这句**已经失效**（#627 / PR #645：
+   * `POST /workshops/:workshopId/agenda-segments`）——预置只是为了让本步聚焦在「绑定」。
+   * ⚠ 「种子种了前置」≠「用户走不到」。这两件事的区分由 CLR track R 单独衡量
+   * （`.harness/instructions/core-loop-readiness-standard.md`），不要再从本文件的
+   * 注释去推断可达性——2026-08-09 就是这么把三条早已修好的缺口误报成现状的（#823）。
    *
    * ## 锚点写断言前逐个在源码里定位过
    *   · `tpladmin-root`                            components/canvas/template-admin.tsx
