@@ -83,7 +83,7 @@
 | H3A-035 | P0 | 🔶 PR #761 待 review（issue #758） | 12 行短文本 renderer | 033 | 普通事件默认不超过 12 行 |
 | H3A-034 | P0 | 🔶 PR #760 待 review（issue #757） | Event stable ID 与 append-only gate | 033 | 重复 ID、历史覆写会红 |
 | H3A-037 | P0 | 🔶 PR #779 待 review（issue #774） | Review Decision stale gate | 036 | head/artifact 改变后旧 decision 自动失效 |
-| H3A-038 | P1 | ⬜ 未开始 | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
+| H3A-038 | P1 | 🔶 PR #809 待 review（issue #803） | Task Context Bundle selector | 030、033 | 不含 supervisor private reasoning 和无关日志 |
 | H3A-039 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 | 033–037 | Board 可可靠解析最新事件，不猜标题 |
 
 > **Epic E3 阶段状态（2026-08-08 现场核实）：H3A-030~033 四项 ✅ 完成，已合并**
