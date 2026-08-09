@@ -26,6 +26,22 @@
  *   它从 `KERNEL_ASR_MODEL` 来。
  * ⚠ **API key 永不下发浏览器**，也不出现在任何响应体或日志里 —— 这正是这条面
  *   必须是服务端代理的全部理由。
+ *
+ * ## 2026-08-09 hotfix（#802）—— 上面这段协议描述曾经只是"应该长这样"的假设，
+ * 从未拿真实的 `qwen3-asr-flash-realtime` 端点验证过，实际形状有三处不一样：
+ *
+ *   1. **模型必须在连接时以 `?model=` 查询参数传入**，不能只靠连接后的
+ *      `session.update` 设置——不带它时 dashscope 用一个这个账号没有权限的默认
+ *      模型初始化会话，连接会在处理任何客户端消息之前就被 `1007 Model not found`
+ *      关闭。
+ *   2. 消息类型是 **`session.update`**，不是 `transcription_session.update`
+ *      （发错类型会被 `error` 帧原样拒绝，`type` 字段不认得这个值）。
+ *   3. `input_audio_format` 只认字面量 **`"pcm"`**——`AsrAudioFormat.encoding`
+ *      （`"pcm16le"`）描述的是我们自己线路上的字节格式，不是这个上游字段的取值
+ *      词表，两者刻意不共享同一个字符串。采样率字段名是顶层 `sample_rate`，
+ *      不是 `input_audio_sample_rate`。
+ *
+ * 这条 bug 完全静默了 7 天以上没有任何日志——见 `onClosed` 的说明。
  */
 import { WebSocket } from "ws";
 import {
@@ -84,7 +100,11 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       );
     }
 
-    const socket = new WebSocket(config.baseUrl, {
+    // #802 —— 模型必须在连接时就以查询参数传入：dashscope 在收到任何客户端消息之前，
+    // 就已经用这个参数（缺省时用一个这个账号未必有权限的默认模型）初始化了会话，
+    // 之后再用 `session.update` 改模型已经太晚——连接可能已经因为默认模型不可用被关闭。
+    const url = `${config.baseUrl}?model=${encodeURIComponent(config.model)}`;
+    const socket = new WebSocket(url, {
       headers: {
         // 上游的鉴权。**这一行就是这条面必须是服务端代理的全部理由**：
         // 浏览器直连等于把它发给每一个访客。
@@ -104,14 +124,17 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       socket.on("error", onError);
     });
 
-    // 会话参数：格式与模型都在这里一次性告诉上游。上游不接受这个格式时它回 `error`，
-    // 我们把它映射成 `AUDIO_FORMAT_REJECTED` —— 那是契约里有的码，界面能说人话。
+    // #802 —— 会话参数确认：模型已经在连接 URL 里定了（见上），这里只是把音频格式
+    // 告诉上游。上游不接受这个格式时它回 `error`，我们把它映射成
+    // `AUDIO_FORMAT_REJECTED` —— 那是契约里有的码，界面能说人话。
+    // `audio.encoding`（`"pcm16le"`）是我们自己线路上的字节格式描述符，不是
+    // `input_audio_format` 的取值词表——这个字段只认字面量 `"pcm"`，字段名也是顶层
+    // `sample_rate`，不是 `input_audio_sample_rate`（均已用真实端点验证，见本文件头注）。
     socket.send(JSON.stringify({
-      type: "transcription_session.update",
+      type: "session.update",
       session: {
-        input_audio_format: audio.encoding,
-        input_audio_sample_rate: audio.sampleRate,
-        input_audio_channels: audio.channels,
+        input_audio_format: "pcm",
+        sample_rate: audio.sampleRate,
         input_audio_transcription: { model: config.model },
       },
     }));
@@ -119,13 +142,30 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     let closed = false;
     let finalSeen = false;
     let finishResolve: (() => void) | null = null;
+    // #802 —— the actual root cause the wrong protocol fields could hide behind for 7+
+    // days undetected: `finish()`/`abort()` are the only CALLER-INITIATED ways this
+    // socket is expected to close. Any other close (upstream rejected the model, upstream
+    // crashed, network dropped) must be reported as a failure -- silently treating it the
+    // same as a clean finish is exactly how a broken upstream protocol produced zero error
+    // frames, zero log lines, and a composer stuck at "listening" forever until the user
+    // gave up and clicked stop, at which point `finish()` no-ops on an already-closed
+    // socket and the gateway happily sends `asr.finished` for a session that transcribed
+    // nothing. `errorReported` avoids double-reporting when an explicit `error` frame (or
+    // the `ws` `error` event) already told the caller why, right before the `close` event
+    // that always follows it.
+    let finishRequested = false;
+    let errorReported = false;
+    const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED, detail: string): void => {
+      errorReported = true;
+      handlers.onError(reason, detail);
+    };
 
     socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
       let event: { type?: unknown; delta?: unknown; transcript?: unknown; error?: unknown };
       try {
         event = JSON.parse(String(raw)) as typeof event;
       } catch {
-        handlers.onError(PROVIDER_UNAVAILABLE, "upstream sent a frame that is not JSON");
+        reportError(PROVIDER_UNAVAILABLE, "upstream sent a frame that is not JSON");
         return;
       }
       const type = typeof event.type === "string" ? event.type : "";
@@ -148,18 +188,21 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         const reason = /format|sample.?rate|encoding/i.test(message)
           ? AUDIO_FORMAT_REJECTED
           : PROVIDER_UNAVAILABLE;
-        handlers.onError(reason, message);
+        reportError(reason, message);
       }
     });
 
-    socket.on("close", () => {
+    socket.on("close", (code: number, reasonBuf: Buffer) => {
       closed = true;
       if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+      if (!finishRequested && !errorReported) {
+        reportError(PROVIDER_UNAVAILABLE, `upstream closed unexpectedly (code=${code}): ${reasonBuf.toString() || "no reason given"}`);
+      }
       handlers.onClosed();
     });
     socket.on("error", (e: Error) => {
       if (closed) return;
-      handlers.onError(PROVIDER_UNAVAILABLE, e.message);
+      reportError(PROVIDER_UNAVAILABLE, e.message);
     });
 
     return {
@@ -175,6 +218,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
       },
       async finish() {
+        finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) return;
         finalSeen = false;
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
@@ -187,11 +231,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           }, FINISH_GRACE_MS);
         });
         if (!finalSeen && !closed) {
-          handlers.onError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
+          reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();
       },
       abort() {
+        finishRequested = true;
         closed = true;
         socket.terminate();
       },

@@ -47,7 +47,20 @@ const server = createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  // #802 hotfix -- this loopback used to accept `transcription_session.update` and never
+  // checked `?model=`, matching the SAME wrong assumptions `ConfiguredRealtimeAsrProvider`
+  // had at the time -- so this smoke test stayed green while the real dashscope endpoint
+  // rejected the exact same frames. Mirroring the real protocol here (verified directly
+  // against the real endpoint, see that file's own header) is what makes this loopback
+  // able to catch a protocol-shape regression instead of only proving "the adapter talks
+  // to *a* WebSocket server", which it always did.
+  const model = new URL(req.url ?? "", "http://loopback").searchParams.get("model");
+  if (!model) {
+    ws.send(JSON.stringify({ type: "error", error: { message: "missing required ?model= query param" } }));
+    ws.close();
+    return;
+  }
   let bytes = 0;
   let sessionReady = false;
 
@@ -66,9 +79,9 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    if (event.type === "transcription_session.update") {
+    if (event.type === "session.update") {
       sessionReady = true;
-      ws.send(JSON.stringify({ type: "transcription_session.updated" }));
+      ws.send(JSON.stringify({ type: "session.updated" }));
       return;
     }
     if (event.type === "input_audio_buffer.append") {
