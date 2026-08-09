@@ -260,6 +260,12 @@ export function ChatLiveMessagePanel({
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
         await loadPage(null, true);
+        // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
+        // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
+        // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
+        // 回复已写入对话」两行绿字同屏——界面同时声称这个 run 既在排队又已完成，
+        // 是自相矛盾，不是两条独立信息。
+        setQueuedRun(null);
         onRunSettledRef.current?.();
         return;
       }
