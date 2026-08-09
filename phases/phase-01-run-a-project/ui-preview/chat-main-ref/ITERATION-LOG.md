@@ -257,3 +257,48 @@ project/skill/agent-runtime 六个不相关领域）——诊断为 turbo 39-way
 #### 需要人类裁决（评分员本轮重申，未变）
 - D9 三个假标签 vs chat-ux-acceptance-criteria.md 第一条的冲突
 - D6/D7 是否允许为取证专门造带工具调用/产物的 fixture 数据
+
+---
+
+### 第 8 轮（2026-08-09，实测 SHA `e6cf8ff7`）—— rev-uiux 评分 **D 组 1/10（未复核，沿用）· P 组 5/10（与第 7 轮持平）**
+
+人类明确指示「项目对话先不做，先把个人对话做到十分」，本轮起 D 组不再深挖新证据，
+评分员照实登记沿用第 7 轮分数；P 组是本轮重点复核对象。
+
+#### 两道门
+`verify:base` 39/39；`verify:chat-read` 3/3（第一次因 Docker `all predefined address
+pools have been fully subnetted` 失败——`docker network prune -f` 清掉 22 个孤儿网络后，
+第二次又撞上 `ERR_NETWORK_IO_SUSPENDED`/120s 超时——两次都是同机其他 worktree 并发
+verify:base 造成的负载型假阴性（uptime 从 58 降到 21 后第三次干净通过，43.6s，
+无重叠失败集），不是代码回归。取证脚本 `pnpm run shots:chat-main` 重新产出 7 张
+带真时间戳的截图。
+
+#### 本轮改动没有把任何一维从 0 翻正
+P6/P7 补的「真实发送→等待 succeeded→截图」证据链，证明的其实是 P4 已经过的
+「消息真的发出去了」，不是 P6 要的**逐字流式**、也不是 P7 要的**计划句+工具调用
+明细**——回复内容是 `[loopback] 对话保真取证：请回显这句话`，回环占位一次性
+贴出整段文字，没有生成中指示器；且 agent 回复里没有「思考了 X 秒·N 步」「工具调用」
+这类明细，对照原型同位置有三行调用记录，差距是"有/无"不是"像不像"。
+
+Claude Code 风格紧凑输入区改版本身没有破坏 P1（未回退裸 select，机械 grep 零命中），
+但把状态区暴露得更显眼，导致 P10 扣分变重，**新增/复发三处硬伤**：
+1. 裸 40 位 UUID 又印回屏幕两处（`run {runId}` outline 徽标 + 排队文案），
+   与 `chat-live-message-panel.tsx:453` 注释自己写的口径矛盾——这是同一类问题
+   （第 6 轮修过的头部裸 UUID）换了个位置复发。
+2. 文案自相矛盾：「不会合成即时 AI 回复」正上方就摆着一条真实 AI 回复。
+3. agent 计数口径不一致：会话卡「0 个 agent」vs composer 已预选运行的 agent。
+
+P8（语音实时转录）、P9（失败态）本轮**零截图覆盖**——不是功能不存在，是取证缺口，
+按评分卡纪律取证缺口等价不得分。
+
+#### 下一轮计划（已排序，按"快且独立"优先）
+1. 删 `run {runId}` 裸徽标（`chat-live-message-panel.tsx:731`），只留 `data-run-id`
+2. 改「不会合成即时 AI 回复」文案 + 同步改 `tests/ui/chat-read-screen.test.tsx:500`、
+   `e2e/chat-read.spec.ts:61` 两处断言
+3. 统一 agent 计数数据源（`thread-list-shell.tsx` 的 `ThreadMeta` vs composer 的 `agents`）
+4. 补一张语音转录中截图（P8）
+5. 补一张失败态截图（P9）
+6. 消息流加真实流式占位渲染 + 换成真会调 skill 的 agent，让工具调用步骤真的出现（P6/P7，
+   工作量最大，放最后）
+
+1-3 目标：P10 转正。4-5 各自独立、成本较低。6 最后啃。

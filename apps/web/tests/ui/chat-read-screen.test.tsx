@@ -491,7 +491,9 @@ describe("formal Chat read path", () => {
     expect(token).toBe("provider-bearer");
     expect(input).toMatchObject({ text: "请持久保存这条消息", agentId: "agent-real" });
     expect(input.clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-new");
+    // #728 第 8 轮 P10 —— 裸 run id 不再印进人读文案，改断言 `data-run-id`（见
+    // chat-live-message-panel.tsx 同轮改动）。
+    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-new");
     // 三次 GET，一次都不是多余的（#435 之前是两次）：
     //   ① 进入线程时的首屏；② 202 之后立刻重读，让 human 消息马上出现；
     //   ③ run 到终态之后重读，让 #413 写回的那条**持久**回复出现。
@@ -500,7 +502,9 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(3));
     // 而且新增的这次仍然是**从服务端读**，不是把回复合成到本地列表里。
     expect(createMessage).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeInTheDocument();
+    expect(
+      screen.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -723,7 +727,7 @@ describe("formal Chat read path", () => {
     expect(createMessage.mock.calls[1]![1].clientMessageId).toBe(
       createMessage.mock.calls[0]![1].clientMessageId,
     );
-    expect(await screen.findByTestId("chat-message-queued")).toHaveTextContent("run-retry");
+    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-retry");
   });
 
   it("renders a conflict explicitly and never fabricates a successful message", async () => {

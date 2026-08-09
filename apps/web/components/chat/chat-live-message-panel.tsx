@@ -629,12 +629,15 @@ export function ChatLiveMessagePanel({
             </div>
           </div>
           {/*
-            这句话此前是同一行里的说明文字，紧凑化时挪到底部单独一行——不是删掉，
-            `tests/ui/chat-read-screen.test.tsx:500` 与 `e2e/chat-read.spec.ts:61`
-            两处都断言这个精确文案，删了会静默红。
+            #728 第 8 轮 P10 —— 原文案「不会合成即时 AI 回复」在个人对话已经能收到
+            真实 AI 回复的今天是假的（P6/P7 的取证截图里正上方就摆着一条真实回复，
+            两句话字面矛盾）。改成描述真正的行为约束：回复是服务端跑完真实 run 后
+            写回的持久消息，不是前端本地伪造/拼出来的——这条约束仍然成立，只是
+            换一种不自相矛盾的说法。`tests/ui/chat-read-screen.test.tsx:500` 与
+            `e2e/chat-read.spec.ts:61` 两处断言已同步改成新文案，不是删掉旧断言。
           */}
           <p className="px-1.5 pb-0.5 text-10 text-muted-foreground">
-            只显示服务端持久消息；不会合成即时 AI 回复。
+            只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。
           </p>
         </div>
         {speech.listening ? (
@@ -651,8 +654,10 @@ export function ChatLiveMessagePanel({
           </p>
         ) : null}
         {queuedRun ? (
-          <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued">
-            消息已持久化，AgentRun 已排队（{queuedRun.id}）。
+          // #728 第 8 轮 P10 —— 裸 40 位 id 不再印进人读文案，`data-run-id`（下方
+          // AgentRunStatus）已经把它挂在 DOM 上供机器断言，人眼不需要看两遍同一个 id。
+          <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued" data-run-id={queuedRun.id}>
+            消息已持久化，AgentRun 已排队。
           </p>
         ) : null}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
@@ -728,7 +733,6 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
       data-result-message-id={view?.resultMessageId ?? undefined}
       data-run-error={view?.error ?? undefined}
     >
-      <Badge tone="outline">run {runId}</Badge>
       {failure !== null ? <span className="text-destructive">{failure}</span> : null}
       {failure === null && status === null ? (
         <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>

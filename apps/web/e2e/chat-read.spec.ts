@@ -58,7 +58,9 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await page.getByTestId("chat-messages-load-more").click();
   await expect(page.getByTestId("chat-message-list")).toContainText("Browser durable message");
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
-  await expect(page.getByText("只显示服务端持久消息；不会合成即时 AI 回复。")).toBeVisible();
+  await expect(
+    page.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
+  ).toBeVisible();
 
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
