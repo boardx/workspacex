@@ -186,24 +186,36 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
 
   /**
-   * #728 P8 —— 语音实时转录取证。评分员多轮指出：麦克风按钮"存在"不等于"按下去
-   * 有真实反馈"，之前 7 张截图里从来没有一张是语音态。这里真的点麦克风、真的走
-   * `getUserMedia`（`--use-fake-device-for-media-stream` 喂假音频源，采音代码是
-   * 真实浏览器代码，不是打桩）、真的过服务端代理 ASR WS，抓两帧：
+   * #728 P8 —— 语音实时转录取证。评分员第 12 轮指出：判据第 5 项逐字要求「转录
+   * 过程中用户能看到实时文字更新（不是录完一段才整体填入）」，上一轮两帧（听/停止后
+   * 落地）证明的是"停止后整段填入"，不满足。这轮给 `loopback-asr-provider.ts` 加了
+   * `LOOPBACK_ASR_EMIT_DELTA`（默认关闭，仅 `playwright.chat-read.config.ts` 打开，
+   * 不影响 `fullstack-smoke` 共用的同一支脚本，见那个文件自己的头注），真的走
+   * `getUserMedia`（`--use-fake-device-for-media-stream` 喂假音频源，采音代码是真实
+   * 浏览器代码，不是打桩）、真的过服务端代理 ASR WS，抓三帧：
    *   ① 「正在听……」进行中状态（`chat-mic-listening` 可见，转录还没落地）
-   *   ② 停止后转录文字真的写进了输入框（`loopback-asr-provider.ts` 只在
-   *      `input_audio_buffer.commit` 时回一次完整转录，没有逐字 delta——所以这里
-   *      拿到的是"停止后转录落地、可编辑"，不是"生成中逐字刷新"那一帧；上游要支持
-   *      后者需要改 `loopback-asr-provider.ts` 加 `.delta` 事件，但那支脚本被
-   *      `fullstack-smoke` 共用，改协议形状有跨 track 风险，本轮不动）。
+   *   ② **录音过程中**，转录文字已经出现在输入框里（这是本轮新增的一帧——证明的
+   *      正是"实时更新"，不是"停止后落地"）
+   *   ③ 停止后转录文字最终落地、可编辑
    */
   await page.getByTestId("chat-mic-button").click();
   await page.getByTestId("chat-mic-listening").waitFor({ state: "visible", timeout: 10_000 });
   await shoot("chat-main-personal-mic-listening.png", "chat-thread-detail");
 
-  // 给假音频源一点时间真的产出几个音频块（MediaRecorder 的 timeslice），
-  // 不然停止时 loopback 收到的字节数是 0，转录会诚实地回空字符串。
-  await page.waitForTimeout(1_500);
+  // #728 P8 —— 录音**仍在进行**时（还没点停止）就等到 delta 转录文字出现在输入框——
+  // 这一帧就是"实时更新"本身的证据，不是靠时序猜的。
+  await page.waitForFunction(
+    (prefix) => {
+      const el = document.querySelector('[data-testid="chat-message-input"]') as HTMLTextAreaElement | null;
+      return !!el && el.value.includes(prefix);
+    },
+    CHAT_READ_E2E.asrTranscriptPrefix,
+    { timeout: 15_000 },
+  );
+  await shoot("chat-main-personal-mic-partial.png", "chat-thread-detail");
+
+  // 再等一下让假音频源多产出几块，字节数继续增长，证明不是只有一帧就不动了。
+  await page.waitForTimeout(1_000);
   await page.getByTestId("chat-mic-button").click();
   await page.waitForFunction(
     (prefix) => {

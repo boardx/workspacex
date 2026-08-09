@@ -24,6 +24,22 @@
  *   `apps/web/e2e/fullstack-smoke-fixture.ts`，由 playwright config 同时下发给
  *   本进程与断言方。两头各写一份字面量的下场很具体：改了一头没改另一头，
  *   断言会**恒红**，而且红得像是「转录没落库」。
+ *
+ * ## #728 P8 —— `LOOPBACK_ASR_EMIT_DELTA`：新增能力，默认关闭
+ *
+ * `chat-read` 取证需要证明「转录过程中用户能看到实时文字更新」
+ * （`chat-ux-acceptance-criteria.md` 第 5 项逐字要求「不是录完一段才整体填入」）。
+ * 此前本进程只在 `input_audio_buffer.commit` 时回一次完整 `.completed`，没有任何
+ * `.delta` 事件——`ConfiguredRealtimeAsrProvider` 读 `conversation.item.
+ * input_audio_transcription.delta` 的 `delta` 字段转成 `asr.partial` 转发给浏览器
+ * （`configured-realtime-asr-provider.ts:172-173`），前端 `onTranscript` 早就支持
+ * 逐段写入（`use-asr-draft.ts`），只是上游从来没发过。
+ *
+ * 这条能力**默认关闭**（`LOOPBACK_ASR_EMIT_DELTA` 未设或非 `"1"` 时行为与改动前
+ * 逐字相同）——`fullstack-smoke.config.ts` 没有下发这个变量，它的
+ * `core-loop.spec.ts` 步骤 7 断言「转录出现在 commit 之后」和「partial 在收尾后
+ * 清空」两条都完全不受影响。只有 `chat-read` 这个 config 会显式打开它。是新增
+ * 事件类型，不是改已有事件的形状，向后兼容。
  */
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
@@ -34,6 +50,7 @@ if (!Number.isInteger(port) || port <= 0) {
 }
 const TRANSCRIPT_PREFIX = process.env.LOOPBACK_ASR_TRANSCRIPT_PREFIX;
 if (!TRANSCRIPT_PREFIX) throw new Error("LOOPBACK_ASR_TRANSCRIPT_PREFIX is required");
+const EMIT_DELTA = process.env.LOOPBACK_ASR_EMIT_DELTA === "1";
 
 const server = createServer((req, res) => {
   if (req.url === "/healthz") {
@@ -89,7 +106,17 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify({ type: "error", error: { message: "audio before session update" } }));
         return;
       }
-      bytes += Buffer.from(String(event.audio ?? ""), "base64").byteLength;
+      const chunkBytes = Buffer.from(String(event.audio ?? ""), "base64").byteLength;
+      bytes += chunkBytes;
+      // #728 P8 —— 每收到一块真实音频就回一次 delta，让「转录过程中文字在实时
+      // 更新」这件事变得可截图（不是等 commit 才一次性回）。同样带上真实累计字节数，
+      // 保持「回显收到了多少字节」这条反假绿纪律——`.completed` 那句的同一理由。
+      if (EMIT_DELTA && chunkBytes > 0) {
+        ws.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.delta",
+          delta: `${TRANSCRIPT_PREFIX} ${bytes}…`,
+        }));
+      }
       return;
     }
     if (event.type === "input_audio_buffer.commit") {
