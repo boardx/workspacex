@@ -18,6 +18,20 @@
  *
  *   · CLR = 0 是事实 ⇒ 不红（红了就会有人为了让 CI 绿而去改分数，那正是要防的）
  *   · 记录本身自相矛盾 ⇒ 红（它让 CLR 这个数字失去意义）
+ *
+ * ## 队列里的死条目也算"自相矛盾"（#823 的直接产物）
+ *
+ * 2026-08-09 当天，`blocking_issues` 里挂着 #627/#552 两个**早已关闭、修复早已合并**
+ * 的 issue，而它们是我照着 `core-loop.spec.ts` 的过期注释播下去的。后果不是"多两行
+ * 噪音"：统一队列是**所有 agent 的唯一取活口**，带死条目意味着有人会去做一件已经做完
+ * 的事，或者——实际发生的——评分员照着这份清单把早已修好的维度打成 0 分。
+ *
+ * 所以 `--strict` 多查一件事：**队列里出现已 CLOSED 的 issue 当场判红**。
+ * 这道门很窄（只查 `blocking_issues`，不查散文），但零误报、且正好卡住那个真实事故点。
+ * 它防不住 issue 正文/代码注释里的过期断言——那类需要人读，见 #823 写进标准的纪律。
+ *
+ * ⚠ 查 issue 状态要联网（`gh`）。拿不到结果时**跳过这道门并明说**，不判红——
+ * 把"问不到"当成"有问题"会让离线/无 token 环境恒红，那是空转不是门控。
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -112,8 +126,32 @@ export function coreLoopReadiness(args: Args): void {
       for (const t of structural) log.err(`  · ${t.id}：${fmtDiscounts(t)}`);
       process.exit(1);
     }
+    const dead = findClosedQueueIssues(v.queue);
+    if (dead === null) {
+      log.warn("跳过「队列死条目」检查：拿不到 issue 状态（gh 不可用/未登录/离线）——问不到不等于有问题");
+    } else if (dead.length > 0) {
+      log.info("");
+      log.err("统一队列里有已关闭的 issue —— 它会让 agent 去做已经做完的事（#823 真实事故）：");
+      for (const n of dead) log.err(`  · #${n} 已 CLOSED，请从对应 track 的 blocking_issues 移除`);
+      process.exit(1);
+    }
     log.ok("CLR 记录结构合法（分数高低不影响本检查的退出码）");
   }
+}
+
+/**
+ * 队列里哪些 issue 已经 CLOSED。返回 `null` 表示**查不到**（与"查了、没有死条目"
+ * 的空数组严格区分——同 `changedSince` 对 null/[] 的处理，混淆会让门静默失效）。
+ */
+export function findClosedQueueIssues(queue: readonly number[]): number[] | null {
+  if (queue.length === 0) return [];
+  const r = sh(`gh issue list --state closed --limit 200 --json number --jq '.[].number'`);
+  if (r.code !== 0) return null;
+  const closed = new Set(
+    r.stdout.split("\n").map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0),
+  );
+  if (closed.size === 0) return null; // 一条都没查到，更像是查询失败而不是仓库零关闭 issue
+  return queue.filter((n) => closed.has(n));
 }
 
 function fmtDiscounts(t: TrackVerdict): string {
