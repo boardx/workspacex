@@ -53,6 +53,15 @@ if (!Number.isInteger(port) || port <= 0) {
  */
 const PLANNING_NOTE = process.env.LOOPBACK_DEEP_AGENT_PLANNING_NOTE ?? "我需要先查一下当前时间，再回答这个问题。";
 const TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_TOOL_NAME ?? "lookup_time";
+/**
+ * #728 P9 —— 确定性失败触发词。用户消息**逐字等于**这个值时，本进程让 run 走到
+ * `error` 终态而不是 `success`，供取证脚本构造一次真实失败并截图——不是在前端
+ * 伪造一个失败态组件，是让这条真实的 `DeepAgentModelProvider.pollToTerminal` 轮询
+ * 循环真的读到 `error` 状态、真的抛 `ModelCallError`、真的让 `execute-run.ts` 把
+ * run 落成 `failed`。触发词从环境变量读，唯一事实源在
+ * `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentFailureTrigger`，两头不各写一份。
+ */
+const FAILURE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER;
 
 interface RunRecord {
   readonly userText: string;
@@ -123,8 +132,10 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
-    // 第一次答 pending 让真实轮询循环真的转一圈，第二次起终态——见头注。
-    sendJson(res, 200, { status: record.statusPolls >= 2 ? "success" : "pending" });
+    if (record.statusPolls < 2) { sendJson(res, 200, { status: "pending" }); return; }
+    // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
+    const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
+    sendJson(res, 200, { status });
     return;
   }
 

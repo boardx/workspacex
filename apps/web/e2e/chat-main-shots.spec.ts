@@ -140,6 +140,56 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.getByTestId("chat-run-tool-call-steps").waitFor({ state: "visible", timeout: 5_000 });
   await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
 
+  /**
+   * #728 P8 —— 语音实时转录取证。评分员多轮指出：麦克风按钮"存在"不等于"按下去
+   * 有真实反馈"，之前 7 张截图里从来没有一张是语音态。这里真的点麦克风、真的走
+   * `getUserMedia`（`--use-fake-device-for-media-stream` 喂假音频源，采音代码是
+   * 真实浏览器代码，不是打桩）、真的过服务端代理 ASR WS，抓两帧：
+   *   ① 「正在听……」进行中状态（`chat-mic-listening` 可见，转录还没落地）
+   *   ② 停止后转录文字真的写进了输入框（`loopback-asr-provider.ts` 只在
+   *      `input_audio_buffer.commit` 时回一次完整转录，没有逐字 delta——所以这里
+   *      拿到的是"停止后转录落地、可编辑"，不是"生成中逐字刷新"那一帧；上游要支持
+   *      后者需要改 `loopback-asr-provider.ts` 加 `.delta` 事件，但那支脚本被
+   *      `fullstack-smoke` 共用，改协议形状有跨 track 风险，本轮不动）。
+   */
+  await page.getByTestId("chat-mic-button").click();
+  await page.getByTestId("chat-mic-listening").waitFor({ state: "visible", timeout: 10_000 });
+  await shoot("chat-main-personal-mic-listening.png", "chat-thread-detail");
+
+  // 给假音频源一点时间真的产出几个音频块（MediaRecorder 的 timeslice），
+  // 不然停止时 loopback 收到的字节数是 0，转录会诚实地回空字符串。
+  await page.waitForTimeout(1_500);
+  await page.getByTestId("chat-mic-button").click();
+  await page.waitForFunction(
+    (prefix) => {
+      const el = document.querySelector('[data-testid="chat-message-input"]') as HTMLTextAreaElement | null;
+      return !!el && el.value.includes(prefix);
+    },
+    CHAT_READ_E2E.asrTranscriptPrefix,
+    { timeout: 15_000 },
+  );
+  await shoot("chat-main-personal-mic-transcribed.png", "chat-thread-detail");
+  // 转录进来的文字只是草稿，不是断言"已发送"——清空它，不让它污染后面步骤的输入框状态。
+  await page.getByTestId("chat-message-input").fill("");
+
+  /**
+   * #728 P9 —— 失败态取证。评分员多轮指出：8 张截图全是成功路径，没有一张证明
+   * 「失败时界面如实展示，不静默卡住」。这里发一条**逐字等于**
+   * `deepAgentFailureTrigger` 的消息——`loopback-deep-agent-provider.ts` 收到这句
+   * 话时会让真实的轮询循环读到 `error` 状态、真实抛出 `ModelCallError`，run 真的
+   * 落成 `failed`，不是前端拼一个假的失败卡片。
+   */
+  await page.getByTestId("chat-message-input").fill(CHAT_READ_E2E.deepAgentFailureTrigger);
+  await page.getByTestId("chat-message-submit").click();
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
+      return el?.getAttribute("data-run-status") === "failed";
+    },
+    { timeout: 60_000 },
+  );
+  await shoot("chat-main-personal-failure.png", "chat-thread-detail");
+
   // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
   // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
   await page.setViewportSize(MOBILE);

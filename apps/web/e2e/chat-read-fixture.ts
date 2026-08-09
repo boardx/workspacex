@@ -44,4 +44,16 @@ export const CHAT_READ_E2E = {
   deepAgentDisplayName: "Deep Research Agent",
   deepAgentModelProvider: "deep-agent",
   deepAgentModelId: "deep-agent-loopback",
+  /**
+   * #728 P9 —— 失败态取证。用户消息逐字等于这个值时，`loopback-deep-agent-provider.ts`
+   * 让 run 走到真实 `error` 终态，而不是本地伪造一个失败态组件。
+   */
+  deepAgentFailureTrigger: "取证：请让这次执行失败",
+  /**
+   * #728 P8 —— 麦克风实时转录取证。与 `fullstack-smoke-fixture.ts` 的
+   * `asrTranscriptPrefix` 同一套惯例：确定性上游回一个带前缀的转录文本，
+   * 断言方（这里是取证脚本自己，肉眼加截图）能确认转录确实来自这个进程，
+   * 不是编造的。
+   */
+  asrTranscriptPrefix: "[loopback-asr]",
 } as const;

@@ -30,6 +30,12 @@ const modelProviderPort = String(Number(webPort) + 5_000);
  * 不会撞上 pg/redis/api/web/上一个 provider 任何一段。
  */
 const deepAgentProviderPort = String(Number(webPort) + 6_000);
+/**
+ * #728 P8 —— 确定性 ASR 替身的端口（`loopback-asr-provider.ts`，与
+ * `playwright.fullstack-smoke.config.ts` 同一支脚本，不是新写的第二份实现）。
+ * `+10000` 抄那份 config 自己的偏移量，同一套单射逻辑。
+ */
+const asrProviderPort = String(Number(webPort) + 10_000);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -71,10 +77,37 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     ...devices["Desktop Chrome"],
+    /**
+     * #728 P8 —— 麦克风权限 + 假音频源，逐字抄
+     * `playwright.fullstack-smoke.config.ts` 同一段（`--use-fake-device-for-media-stream`
+     * 给真实浏览器采音代码喂一段 Chrome 合成音频，`--use-fake-ui-for-media-stream`
+     * 让权限提示自动允许，`permissions: ["microphone"]` 是同一件事的 Playwright 侧
+     * 表达）。这个 config 此前没有这两行，取证脚本点麦克风会卡在浏览器权限弹层上。
+     */
+    permissions: ["microphone"],
+    launchOptions: {
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+    },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
   webServer: [
+    /**
+     * #728 P8 —— 确定性 ASR 上游，排在 API 之前：与模型提供方同理，只要在 API
+     * 之前 ready 即可。与 `playwright.fullstack-smoke.config.ts` 同一支脚本
+     * （`scripts/loopback-asr-provider.ts`），不是新写的第二份实现。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-asr-provider.ts",
+      url: `http://127.0.0.1:${asrProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
+        LOOPBACK_ASR_TRANSCRIPT_PREFIX: CHAT_READ_E2E.asrTranscriptPrefix,
+      },
+    },
     /**
      * #728 P6/P7 —— 确定性模型提供方，排在 API 之前：API 启动时就把 provider 配置
      * 读死了（`readModelProviderConfig` 组装期读一次），真正的连接发生在 run 执行时，
@@ -106,6 +139,7 @@ export default defineConfig({
       env: {
         ...process.env,
         LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
+        LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
       },
     },
     {
@@ -159,6 +193,17 @@ export default defineConfig({
         CHAT_E2E_DEEP_AGENT_MODEL_ID: CHAT_READ_E2E.deepAgentModelId,
         CHAT_E2E_DEEP_AGENT_DISPLAY_NAME: CHAT_READ_E2E.deepAgentDisplayName,
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // #728 P8 —— 确定性 ASR 上游。不配它，WS 面以 `ASR_NOT_CONFIGURED` 诚实失败
+        // （`chat-live-recording-error` 显示「本组织尚未配置转写服务」），不会冒出
+        // 一段编造的转录。逐字抄 `playwright.fullstack-smoke.config.ts` 的
+        // `asrProviderEnv`，同一套变量名（取自 `configured-realtime-asr-provider.ts`
+        // / `env-transcription-policy.ts`，不是猜的）。
+        KERNEL_ASR_PROVIDER: "chat-read-loopback-asr",
+        KERNEL_ASR_BASE_URL: `ws://127.0.0.1:${asrProviderPort}`,
+        KERNEL_ASR_API_KEY: "chat-read-loopback-asr-key-not-a-secret",
+        KERNEL_ASR_MODEL: "loopback-transcribe",
+        KERNEL_ASR_FINISH_GRACE_MS: "5000",
+        RECORDING_LOW_CONFIDENCE_THRESHOLD: "0.5",
       },
     },
     {
