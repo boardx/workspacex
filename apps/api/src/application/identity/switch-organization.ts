@@ -98,6 +98,13 @@ export interface ResolvedIdentity {
    * showing the old value. This is that missing read path.
    */
   readonly displayName: string;
+  /**
+   * #638 delta，迭代 2——同 Addendum A 对 `displayName` 的处置：`updateOwnProfile` 现在有
+   * 真实的头像写路径（`avatarArtifactId` → `credentials.avatar_url`），如果不在这里补上
+   * 配套的读路径，会重现 Addendum A 修的同一类缺陷——"头像已上传"的提示出现了，但
+   * 界面所有读头像的地方（比如刷新页面后的头像块）都读不到新值。
+   */
+  readonly avatarUrl: string | null;
 }
 
 /** `ResolveIdentity` -- the two layers of the current identity (I-11 for the project half). */
@@ -132,5 +139,6 @@ export async function resolveIdentity(
     projectRole: project?.projectRole ?? null,
     groupId: project?.groupId ?? null,
     displayName: credential.displayName,
+    avatarUrl: credential.avatarUrl,
   };
 }

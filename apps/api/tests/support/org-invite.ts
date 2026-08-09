@@ -40,6 +40,9 @@ export function fakeSessions(): SessionTokenStore & { issued: SessionRecord[] } 
     },
     findByToken: async () => null,
     revokeAllForUser: async () => 0,
+    // #638 delta，迭代 2：同 `revokeAllForUser`，最小诚实实现（恒 0），本文件的断言
+    // 不关心改密码这条路径。
+    revokeAllForUserExcept: async () => 0,
     listForUser: async () => issued,
     setCurrentOrg: async () => true,
     // F03。这个 fake 只服务于「激活时签发了几条会话」这一类断言，

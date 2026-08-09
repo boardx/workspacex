@@ -112,6 +112,24 @@ export const OrgAdminError = z.enum([
   "QUOTA_EXHAUSTED",
   /** ⚠ 响应**必须列出占用项**；**不做级联删除**（I-7） */
   "TEAM_IN_USE",
+  /** team-crud delta（#639）迭代 2：`createTeam`/`renameTeam`/`deleteTeam` 越权（非 admin）。
+   *  与旧 `mutateTeam` 的 `PROJECT_ROLE_INSUFFICIENT` 是两个码——delta §4①把这三条新入口
+   *  的授权收窄单独签核，用自己的码而不是复用旧操作的，越权信息不因为共享同一张表而混同。 */
+  "FORBIDDEN",
+  /** team-crud delta（#639）迭代 2：`createTeam`/`renameTeam` 撞到组织内已存在的同名团队
+   *  （`teams_org_name_uniq`）。⚠ 与 `mutateTeam` 的"幂等重放"是刻意不同的语义，见该操作
+   *  的文档注释——这里必须**真的拒绝**，不是悄悄返回既有团队。 */
+  "TEAM_NAME_CONFLICT",
+  /** team-crud delta（#639）迭代 2：`renameTeam`/`deleteTeam` 指向的 `teamId` 不存在
+   *  （或已被并发删除）。旧 `mutateTeam` 把同一情形映射到 `VERSION_CHANGED`（该操作没有
+   *  专属码，见其仓储文档）；这三条新操作有专属码，直接给，不必再借用别的语义。 */
+  "TEAM_NOT_FOUND",
+  /** team-crud delta（#639）迭代 2：`deleteTeam` 撞到非空团队——硬拒绝，不级联清空成员归属
+   *  （delta §4②）。旧 `mutateTeam` 用 `TEAM_IN_USE` + 结构化 `blocked` 表达同一件事；这条
+   *  是这三个新操作的对应码，`out` 没有携带占用详情字段（`.strict()` 里没有），界面文案
+   *  直接说"先清空成员"即可，不需要逐项列出——两条不同的错误体形状是两次不同的签核决定，
+   *  不是同一件事写了两遍。 */
+  "TEAM_NOT_EMPTY",
   /** O-06：令牌是必需的不是装饰。去掉 `?t=` 直接访问被拒 */
   "LINK_TOKEN_REQUIRED",
   /** ⚠ 三码对**参与者**统一渲染为「找引导师重发」，不泄露项目/组是否存在（E1） */
@@ -457,6 +475,61 @@ export const operations = {
       }).strict()),
     }).strict(),
     err: ["NO_ORG_MEMBERSHIP", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `createTeam` / `renameTeam` / `deleteTeam` —— team-crud delta（#639），迭代 2。
+   *
+   * ## 为什么这三条与既有的 `mutateTeam`（F11 / O-29 ④）共存，而不是复用它
+   *
+   * `mutateTeam` 的 `create`/`rename` 分支是**幂等重放**语义（同名提交返回既有 team，
+   * 不拒绝——`pg-team-repository.ts` 的既定行为，`usecases.md` 原文如此）；这份 delta
+   * 经人类签核要的是**真拒绝**（`TEAM_NAME_CONFLICT`，见 delta §4③、反证 C）。两种语义
+   * 都是各自签核过的，谁也不该被静默改写：`mutateTeam` 保留给它既有的调用方（占用校验
+   * 用的 `TEAM_IN_USE` 携带 `blocked` 结构化占用项，这条本身也有价值，见下方 `deleteTeam`
+   * 复用它的说明），这三条是新签核的自助入口，服务组织管理页"团队"标签页。
+   *
+   * ## `createTeam` 为什么不是字面的 `POST /organizations/:orgId/teams`
+   *
+   * delta 文档最初把这条写成与 `mutateTeam` 完全相同的路径，实测直接撞上
+   * `tests/contract-shape.test.ts` 的两条机械门禁——「path 在束内唯一」与
+   * 「path 在所有束之间也不冲突」，两条都会红：契约层面就不允许两个操作声明相同的
+   * method+path，不只是 NestJS 路由表装不下。⇒ 改用 `POST .../teams/create`，与
+   * `deleteTeam` 的 `POST .../teams/:teamId/delete` 同一种"动作后缀"处置，不冲突、
+   * 也不需要在 controller 里按请求体形状做脆弱的分流。这是一次记录在案的技术判断，
+   * delta 文档那条路径描述已经不准确，以这里为准。
+   *
+   * ## `deleteTeam` 为什么不是 `DELETE`
+   *
+   * `no-forbidden-routes.test.ts` 有一条 `^DELETE\s+\/organizations` 的门禁（UC-0.5 I-2/I-3，
+   * 挡的是"删除组织本身"），这条正则没有再往下限定路径深度，字面上会连带挡住任何
+   * `DELETE /organizations/:orgId/...` 子路由——包括这条本该属于团队的删除。与
+   * `removeOrgMember` 当初撞见同一堵墙时的处置一致（该操作头部注释「路由是 POST …/remove
+   * 不是 DELETE」），这里同样改用 `POST .../delete`，而不是去放宽那条已确认的安全门禁。
+   */
+  createTeam: {
+    method: "POST",
+    path: "/organizations/:orgId/teams/create",
+    in: z.object({ name: z.string().min(1) }).strict(),
+    out: z.object({ teamId: z.string(), name: z.string() }).strict(),
+    err: ["FORBIDDEN", "TEAM_NAME_CONFLICT"] as const,
+  },
+
+  renameTeam: {
+    method: "PATCH",
+    path: "/organizations/:orgId/teams/:teamId",
+    in: z.object({ name: z.string().min(1) }).strict(),
+    out: z.object({ teamId: z.string(), name: z.string() }).strict(),
+    err: ["FORBIDDEN", "TEAM_NOT_FOUND", "TEAM_NAME_CONFLICT"] as const,
+  },
+
+  /** ⚠ 路由是 `POST .../delete`，不是 `DELETE`——见上方本节的长注。 */
+  deleteTeam: {
+    method: "POST",
+    path: "/organizations/:orgId/teams/:teamId/delete",
+    in: z.object({}).strict(),
+    out: z.object({ deleted: z.literal(true) }).strict(),
+    err: ["FORBIDDEN", "TEAM_NOT_FOUND", "TEAM_NOT_EMPTY"] as const,
   },
 
   /**

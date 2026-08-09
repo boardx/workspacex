@@ -104,3 +104,32 @@ export type ListTeamsOut = z.infer<typeof orgAdmin.operations.listTeams.out>;
 export async function listTeams(orgId: string): Promise<ListTeamsOut> {
   return apiRequest<ListTeamsOut>(path(orgAdmin.operations.listTeams.path, { orgId }), { method: "GET" });
 }
+
+/* ─────────────────────────── team-crud delta，迭代 2 ─────────────────────────── */
+
+export type CreateTeamOut = z.infer<typeof orgAdmin.operations.createTeam.out>;
+export type RenameTeamOut = z.infer<typeof orgAdmin.operations.renameTeam.out>;
+export type DeleteTeamOut = z.infer<typeof orgAdmin.operations.deleteTeam.out>;
+
+/** `POST .../teams/create`——与 `mutateTeam` 是不同的路由，见 `org-admin.ts` `createTeam` 的文档注释。 */
+export async function createTeam(orgId: string, name: string): Promise<CreateTeamOut> {
+  return apiRequest<CreateTeamOut>(path(orgAdmin.operations.createTeam.path, { orgId }), {
+    method: "POST",
+    body: { name },
+  });
+}
+
+export async function renameTeam(orgId: string, teamId: string, name: string): Promise<RenameTeamOut> {
+  return apiRequest<RenameTeamOut>(
+    path(orgAdmin.operations.renameTeam.path, { orgId, teamId }),
+    { method: "PATCH", body: { name } },
+  );
+}
+
+/** ⚠ 路由是 `POST .../delete`，不是 `DELETE`——见 `deleteTeam` 契约操作的文档注释。 */
+export async function deleteTeam(orgId: string, teamId: string): Promise<DeleteTeamOut> {
+  return apiRequest<DeleteTeamOut>(
+    path(orgAdmin.operations.deleteTeam.path, { orgId, teamId }),
+    { method: "POST", body: {} },
+  );
+}

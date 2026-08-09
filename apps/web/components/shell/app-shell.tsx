@@ -146,7 +146,7 @@ function ShellChrome({
   return (
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
       <div className="hidden md:flex">
-        <IconRail avatarInitial={identity.displayName.slice(0, 1)} />
+        <IconRail avatarInitial={identity.displayName.slice(0, 1)} onLogout={onLogout} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -155,7 +155,6 @@ function ShellChrome({
           hideRoleSwitcher={hideRoleSwitcher}
           organizations={organizations}
           onSwitchOrganization={onSwitchOrganization}
-          onLogout={onLogout}
         />
         <div className="flex min-h-0 flex-1">
           {left && (

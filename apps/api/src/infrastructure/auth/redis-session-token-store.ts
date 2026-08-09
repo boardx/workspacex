@@ -265,6 +265,32 @@ export class RedisSessionTokenStore implements SessionTokenStore {
   }
 
   /**
+   * `changeOwnPassword`（#638 delta，迭代 2）—— 同 `revokeAllForUser`，但跳过
+   * `exceptSessionId` 那一条。实现上就是 `revokeAllForUser` 的循环体多一个 `continue`
+   * 分支，两者刻意保持同一套标记/幂等/KEEPTTL 处置，避免两份几乎一样的逻辑各自漂移。
+   */
+  async revokeAllForUserExcept(userId: string, exceptSessionId: string, at: Date): Promise<number> {
+    await this.ready();
+    const index = userKey(this.cfg.keyPrefix, userId);
+    const keys = await this.redis.smembers(index);
+    let revoked = 0;
+    for (const key of keys) {
+      const raw = await this.redis.get(key);
+      if (raw === null) {
+        await this.redis.srem(index, key);
+        continue;
+      }
+      const s = parseStored(raw);
+      if (s.id === exceptSessionId) continue;
+      if (s.revokedAt !== null) continue;
+      s.revokedAt = at.getTime();
+      await this.redis.set(key, JSON.stringify(s), "KEEPTTL");
+      revoked += 1;
+    }
+    return revoked;
+  }
+
+  /**
    * F22: point THIS session at another organization.
    *
    * ⚠ `KEEPTTL`, exactly as in `revokeAllForUser`. Without it the `SET` resets the key to no

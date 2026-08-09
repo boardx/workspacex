@@ -5,9 +5,12 @@
  * copy (`lint-contract-source` enforces that, and it now scans this package).
  */
 import {
-  BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject,
-  NotFoundException, Patch, Post, Query,
+  BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers,
+  HttpCode, HttpStatus, Inject, NotFoundException, Param, Patch, Post, Query, Res,
+  UnprocessableEntityException, UploadedFile, UseInterceptors,
 } from "@nestjs/common";
+import type { Response } from "express";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { identity as C } from "@repo/contracts";
 import {
   authorize,
@@ -31,15 +34,23 @@ import {
   CAPABILITY_REPOSITORY,
   type CapabilityRepository,
 } from "../../application/identity/capability-ports";
-import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
+import {
+  CREDENTIAL_REPOSITORY, SESSION_TOKEN_STORE, PASSWORD_HASHER,
+  type CredentialRepository, type SessionTokenStore, type PasswordHasher,
+} from "../../application/auth/ports";
 import {
   CONTENT_REPOSITORY,
   type ContentRepository,
 } from "../../application/identity/content-ports";
 import {
-  PROVENANCE_WRITER,
-  type ProvenanceWriter,
+  PROVENANCE_WRITER, PROVENANCE_READER,
+  type ProvenanceWriter, type ProvenanceReader,
 } from "../../application/provenance/ports";
+import { AVATAR_REPOSITORY, type AvatarRepository } from "../../application/identity/avatar-ports";
+import { OBJECT_STORE, ObjectExistsError, type ObjectStore } from "../../application/artifact/ports";
+import { UploadOwnAvatarError, uploadOwnAvatar } from "../../application/identity/upload-own-avatar";
+import { ChangeOwnPasswordError, changeOwnPassword } from "../../application/identity/change-own-password";
+import { listOwnActivity } from "../../application/identity/list-own-activity";
 import {
   AUTHORIZATION_CACHE,
   DECISION_ID_FACTORY,
@@ -63,6 +74,9 @@ export const SWITCH_ORG_SCHEMA = C.operations.switchOrganization.in;
 export const READ_CONTENT_SCHEMA = C.operations.readContent.in;
 export const MODEL_CONSTRAINT_SCHEMA = C.operations.resolveModelConstraint.in;
 export const UPDATE_OWN_PROFILE_SCHEMA = C.operations.updateOwnProfile.in;
+export const UPLOAD_OWN_AVATAR_SCHEMA = C.operations.uploadOwnAvatar.in;
+export const CHANGE_OWN_PASSWORD_SCHEMA = C.operations.changeOwnPassword.in;
+export const LIST_OWN_ACTIVITY_SCHEMA = C.operations.listOwnActivity.in;
 
 type AuthorizeBody = { orgId: string; projectId?: string; object: { kind: "project" | "artifact" | "segment"; id: string }; action: string };
 type AuthorizeBatchBody = { orgId: string; projectId?: string; objects: { kind: "project" | "artifact" | "segment"; id: string }[]; action: string };
@@ -81,6 +95,11 @@ export class IdentityController {
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(CAPABILITY_REPOSITORY) private readonly capabilities: CapabilityRepository,
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
+    @Inject(SESSION_TOKEN_STORE) private readonly tokenStore: SessionTokenStore,
+    @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
+    @Inject(AVATAR_REPOSITORY) private readonly avatars: AvatarRepository,
+    @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    @Inject(PROVENANCE_READER) private readonly provenanceReader: ProvenanceReader,
   ) {}
 
   private get deps(): AuthorizeDeps {
@@ -244,7 +263,7 @@ export class IdentityController {
     assertPrincipal(principal);
     try {
       return await updateOwnProfile(
-        { credentials: this.credentials },
+        { credentials: this.credentials, avatars: this.avatars },
         { userId: principal.userId, displayName: body.displayName, avatarArtifactId: body.avatarArtifactId },
       );
     } catch (e) {
@@ -330,4 +349,164 @@ export class IdentityController {
       cachedDecisions: await this.cache.size(principal.userId),
     };
   }
+
+  /**
+   * `uploadOwnAvatar`（#638 delta，迭代 2）—— `multipart/form-data`：一个 `meta` 字段
+   * （JSON，须过 `UPLOAD_OWN_AVATAR_SCHEMA`）+ 一个 `file` 字段（二进制）。契约的 `in`
+   * 只描述 `meta` 那部分——见该操作的文档注释。用 memoryStorage 而不是落盘再读：头像上限
+   * 5MB，内存里转一手不是问题，也省一次多余的磁盘往返。
+   */
+  // ⚠ multer 的 `limits.fileSize` 故意设得比业务上限（5MB，见
+  // `upload-own-avatar.ts` 的 `AVATAR_SIZE_LIMIT_BYTES`）更宽松：这一层只是防
+  // 真正离谱的负载把内存打爆的兜底，`FILE_TOO_LARGE` 这个契约码的判定必须落在
+  // 服务端应用层（`uploadOwnAvatar`），因为那里才知道"5MB"这个数字、才能给出
+  // 契约里约定的 reasonCode——multer 撞线时抛的是没有 reasonCode 的 413，
+  // 客户端拿不到可展示的错误信息。
+  @Post("/identity/me/avatar")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 8 * 1024 * 1024 } }))
+  async uploadAvatar(
+    @CurrentPrincipal() principal: Principal,
+    @UploadedFile() file: { buffer: Buffer; size: number } | undefined,
+    @Body("meta") metaRaw: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    if (!file || !metaRaw) throw new BadRequestException({ reasonCode: "UNSUPPORTED_CONTENT_TYPE" });
+    let meta: unknown;
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch {
+      throw new BadRequestException({ reasonCode: "UNSUPPORTED_CONTENT_TYPE" });
+    }
+    const parsed = UPLOAD_OWN_AVATAR_SCHEMA.safeParse(meta);
+    if (!parsed.success) {
+      // `meta.sizeBytes` 本身超过契约的 `.max(5MB)` 时，zod 在这一步就先失败了——
+      // 服务端对**实际字节**的 `FILE_TOO_LARGE` 判断在 `uploadOwnAvatar()` 里，但那一步
+      // 根本走不到（`parsed.success` 已经是 false）。这里必须按失败字段分流，否则一个
+      // "meta 里的 sizeBytes 太大" 与"contentType 声明有问题"会被压成同一个
+      // `UNSUPPORTED_CONTENT_TYPE`——本机真实 HTTP 实测踩到过这个坑（发一个真的 5MB+
+      // 文件，界面上却显示"类型不支持"而不是"文件太大"）。
+      const hitsSizeField = parsed.error.issues.some((issue) => issue.path[0] === "sizeBytes");
+      throw new BadRequestException({ reasonCode: hitsSizeField ? "FILE_TOO_LARGE" : "UNSUPPORTED_CONTENT_TYPE" });
+    }
+
+    try {
+      return await uploadOwnAvatar(
+        { store: this.objectStore, avatars: this.avatars, credentials: this.credentials },
+        { userId: principal.userId, declaredContentType: parsed.data.contentType, bytes: new Uint8Array(file.buffer) },
+      );
+    } catch (e) {
+      if (e instanceof UploadOwnAvatarError) {
+        throw new BadRequestException({ reasonCode: e.reasonCode });
+      }
+      if (e instanceof ObjectExistsError) {
+        // 极小概率的 id 碰撞（`uploadOwnAvatar` 用 96 位随机 id）；重试即可，不是客户端的错。
+        throw new ConflictException({ reasonCode: "UNSUPPORTED_CONTENT_TYPE" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 头像字节的下载路由。**不在契约里**（同 `files-delivery.controller.ts` 的
+   * `GET /downloads/:token` 那条先例：`avatarUrl` 是一个 bare 字符串，没有配套的
+   * "redeem" 契约操作）——`uploadOwnAvatar.out.avatarUrl` 得指向某处，这里就是那个某处。
+   *
+   * ⚠ 任何已认证身份都能读，不额外做"是否本人"的所有权校验：头像和显示名一样是要在
+   * 产品里到处展示给别人看的东西（团队列表、@提及…），不是机密内容——所有权校验只发生
+   * 在**写**路径（`updateOwnProfile` 的 `AVATAR_ARTIFACT_NOT_OWNED`）。
+   */
+  @Get("/identity/me/avatar/:artifactId")
+  async downloadAvatar(
+    @CurrentPrincipal() principal: Principal,
+    @Param("artifactId") artifactId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    assertPrincipal(principal);
+    // `findAnyById`——已认证的任何人都能看（见上方文档注释），不限"是不是自己的"，
+    // 所以这里不能用只返回"属于该 userId"的 `findOwned`。
+    const row = await this.avatars.findAnyById(artifactId);
+    if (row === null) {
+      res.status(404).end();
+      return;
+    }
+    const bytes = await this.objectStore.get(row.objectKey);
+    if (bytes === null) {
+      res.status(404).end();
+      return;
+    }
+    // ⚠ `@Res()` 不带 `{ passthrough: true }`——本路由自己接管整个响应生命周期
+    // （`res.end(buffer)`），不让 Nest 的默认返回值处理再插一手把 `Buffer` 当成
+    // JSON 结构重新序列化（那条路径会把图片字节变成 `{"type":"Buffer","data":[...]}`
+    // 的文本，字节数完全对不上——本机实测踩过这个坑）。
+    res.set("Content-Type", row.contentType);
+    res.set("Cache-Control", "private, max-age=300");
+    res.status(200).end(Buffer.from(bytes));
+  }
+
+  /**
+   * `changeOwnPassword`（#638 delta，迭代 2）—— 成功后吊销除**当前会话**外的全部会话。
+   * "当前会话"从 `Authorization` 头重新解析——`Principal` 只有 `userId`/`orgId`，不带
+   * `sessionId`（见 ports.ts `revokeAllForUserExcept` 的文档注释），所以这里再查一次
+   * token store，而不是给 `Principal` 加一个全局都要背的字段。
+   */
+  @Post("/identity/me/password")
+  async changePassword(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(CHANGE_OWN_PASSWORD_SCHEMA)) body: { currentPassword: string; newPassword: string },
+    @Headers("authorization") authHeader: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    const token = bearerToken(authHeader);
+    const session = token ? await this.tokenStore.findByToken(token) : null;
+    if (!session) throw new ForbiddenException({ reasonCode: "CURRENT_PASSWORD_INVALID" });
+
+    try {
+      return await changeOwnPassword(
+        { credentials: this.credentials, hasher: this.hasher, sessions: this.tokenStore, clock: { now: () => new Date() } },
+        {
+          userId: principal.userId,
+          currentSessionId: session.id,
+          currentPassword: body.currentPassword,
+          newPassword: body.newPassword,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ChangeOwnPasswordError) {
+        if (e.reasonCode === "CURRENT_PASSWORD_INVALID") {
+          throw new ForbiddenException({ reasonCode: e.reasonCode });
+        }
+        throw new UnprocessableEntityException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /** `listOwnActivity`（#638 delta，迭代 2）—— cursor 分页，`err` 恒空（契约逐字）。 */
+  @Get("/identity/me/activity")
+  async ownActivity(
+    @CurrentPrincipal() principal: Principal,
+    @Query("cursor") cursor: string | undefined,
+    @Query("limit") limitRaw: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    const input = LIST_OWN_ACTIVITY_SCHEMA.parse({
+      cursor: cursor ?? null,
+      limit: limitRaw ? Number(limitRaw) : 20,
+    });
+    return await listOwnActivity(
+      { reader: this.provenanceReader },
+      { userId: principal.userId, orgId: toOrgId(principal.orgId), cursor: input.cursor, limit: input.limit },
+    );
+  }
+}
+
+/**
+ * `Authorization: Bearer <token>`——同 `session-token-principal-resolver.ts` 的同名函数，
+ * 这里不导入那份（它在 `infrastructure` 层，interface 不该反向依赖），是一次刻意的小重复：
+ * 两处都只有三行，值不回抽一个共享工具模块。
+ */
+function bearerToken(header: string | undefined): string | null {
+  if (!header) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return m?.[1] ?? null;
 }

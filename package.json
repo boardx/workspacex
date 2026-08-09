@@ -18,6 +18,8 @@
     "verify:core-loop:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=core-loop-empty-db",
     "verify:chat-read": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:chat-read:raw",
     "verify:chat-read:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts",
+    "verify:self-service-profile": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:self-service-profile:raw",
+    "verify:self-service-profile:raw": "pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts",
     "shots:chat-main": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-main:raw",
     "shots:chat-main:raw": "pnpm --filter web exec playwright test --config playwright.chat-shots.config.ts",
     "shots:chat-proto": "pnpm --filter web exec node scripts/shot-chat-prototype-ref.mjs",

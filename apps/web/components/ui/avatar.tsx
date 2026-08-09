@@ -24,11 +24,27 @@ const avatarVariants = cva(
 );
 
 export function Avatar({
-  initials, className, tone, size, ...props
-}: { initials: string } & React.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof avatarVariants>) {
+  initials, className, tone, size, src, ...props
+}: {
+  initials: string;
+  /**
+   * #638 delta，迭代 2：真实头像图片（Blob URL 或绝对地址）。可选——不传时保持原有
+   * 行为（缩写占位），向后兼容全部既有调用点。
+   */
+  src?: string | null;
+} & React.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof avatarVariants>) {
   return (
-    <span aria-hidden className={cn(avatarVariants({ tone, size }), className)} {...props}>
-      {initials}
+    <span
+      aria-hidden
+      className={cn(avatarVariants({ tone, size }), "overflow-hidden p-0", className)}
+      {...props}
+    >
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- Blob URL，不是可优化的静态资源
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        initials
+      )}
     </span>
   );
 }

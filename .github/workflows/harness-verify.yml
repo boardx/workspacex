@@ -257,6 +257,15 @@ jobs:
         if: always()
         run: pnpm run verify:chat-read
 
+      # 用户个人资料自助服务 + 组织团队管理（#638/#639）。同上一步同一个理由要**自己的**
+      # 隔离作用域：它的 webServer 链也带 `createdb`，共用 `verify:full` 的作用域会撞上
+      # 「库已存在」；而且这条 spec 会真的改掉登录密码（见
+      # `e2e/self-service-profile-fixture.ts` 文件头），不能跟任何共享种子账号的 spec
+      # 挤在同一个 org/DB 里跑。
+      - name: Execute self-service profile journey (own isolation scope)
+        if: always()
+        run: pnpm run verify:self-service-profile
+
       - name: Upload E2E evidence (success or failure)
         if: always()
         uses: actions/upload-artifact@v4

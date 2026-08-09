@@ -268,6 +268,8 @@ import { OrgInviteController } from "./interface/controllers/org-invite.controll
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
 import { TEAM_REPOSITORY } from "./application/auth/team-ports";
+import { AVATAR_REPOSITORY } from "./application/identity/avatar-ports";
+import { PgAvatarRepository } from "./infrastructure/auth/pg-avatar-repository";
 import { PgTeamRepository } from "./infrastructure/auth/pg-team-repository";
 import { ORG_MEMBER_REPOSITORY } from "./application/auth/org-member-ports";
 import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repository";
@@ -917,6 +919,12 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: ORG_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #638 delta，迭代 2：`uploadOwnAvatar`/`updateOwnProfile` 的头像元数据仓储。
+    {
+      provide: AVATAR_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAvatarRepository(db),
       inject: [DATABASE_PORT],
     },
     // F117。⚠ 复用 `ID_FACTORY` 而不是新造一个 id 工厂：容器 id 会出现在
