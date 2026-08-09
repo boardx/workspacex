@@ -1,4 +1,4 @@
-// domains-doctor.ts — H3A-010/012/013/014/015/016（PROP-HARNESS-AGENT-001 Epic E1）的仓库侧入口。
+// domains-doctor.ts — H3A-010/012/013/014/015/016/017（PROP-HARNESS-AGENT-001 Epic E1）的仓库侧入口。
 //
 // pnpm harness domains doctor
 //
@@ -6,8 +6,9 @@
 // lib/domain-skill-gates.ts（纯函数，喂 fixture 单测）。这里只做 IO：
 //   1. 读 .harness/domains/registry.yaml → 交给 validateDomainRegistry（H3A-010）
 //   2. 扫 .agents/skills/mod-*/SKILL.md 的 frontmatter，挑出 template_id ===
-//      "TPL-MOD-001" 的实例 → 交给 validateDomainSkillInstance（H3A-012）
-//   3. 把 registry + 实例交给四条跨表 gate（H3A-013/014/015/016）
+//      "TPL-MOD-001" 的实例 → 交给 validateDomainSkillInstance（H3A-012），
+//      顺手记下每份文件的行数（H3A-017 体积门要用）
+//   3. 把 registry + 实例交给五条跨表 gate（H3A-013/014/015/016/017）
 // 同 templates-doctor.ts/terminology-doctor.ts 的分层方式：本文件只管"从哪读、
 // 输出成什么退出码"，不含判定逻辑本身。
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -21,6 +22,7 @@ import {
   findDeadReferences,
   findFreshnessIssues,
   findUnprovenActivePromotions,
+  findEntrySizeIssues,
   type GateFinding,
 } from "./lib/domain-skill-gates";
 import { log } from "./lib/log";
@@ -52,10 +54,16 @@ function extractFrontmatter(markdown: string): string | null {
  * （H3A-002 inventory 现场核实过），这不是本函数的 bug，是仓库的真实状态。
  */
 /** 供 role-authorization-doctor.ts（H3A-022）复用——不重新发明一遍 Domain Skill 实例扫描。 */
-export function scanDomainSkillInstances(): { instances: DomainSkillInstance[]; failures: { sourceFile: string; message: string }[] } {
+export function scanDomainSkillInstances(): {
+  instances: DomainSkillInstance[];
+  failures: { sourceFile: string; message: string }[];
+  /** sourceFile（仓库相对路径）→ 该 SKILL.md 的行数，供 H3A-017 体积门使用。只收录扫描到的实例，不含 schema 校验失败的文件。 */
+  lineCounts: Map<string, number>;
+} {
   const instances: DomainSkillInstance[] = [];
   const failures: { sourceFile: string; message: string }[] = [];
-  if (!existsSync(SKILLS_DIR)) return { instances, failures };
+  const lineCounts = new Map<string, number>();
+  if (!existsSync(SKILLS_DIR)) return { instances, failures, lineCounts };
 
   const dirs = readdirSync(SKILLS_DIR, { withFileTypes: true })
     .filter((e) => e.isDirectory() && e.name.startsWith("mod-") && e.name !== "mod-_template")
@@ -81,12 +89,13 @@ export function scanDomainSkillInstances(): { instances: DomainSkillInstance[]; 
     const result = validateDomainSkillInstance(parsed, relPath);
     if (result.ok && result.value) {
       instances.push(result.value);
+      lineCounts.set(relPath, text.split("\n").length);
     } else {
       failures.push({ sourceFile: relPath, message: result.issues.map((i) => `${i.path}: ${i.message}`).join("；") });
     }
   }
 
-  return { instances, failures };
+  return { instances, failures, lineCounts };
 }
 
 function printFindings(findings: readonly GateFinding[]): void {
@@ -115,7 +124,7 @@ export function domainsDoctor(_args: Args): void {
   const domains: DomainRegistryEntry[] = regResult.value!.entries;
   log.ok(`[domains doctor] registry.yaml：${domains.length} 个 Domain，无重复 domain_id`);
 
-  const { instances: skills, failures } = scanDomainSkillInstances();
+  const { instances: skills, failures, lineCounts } = scanDomainSkillInstances();
   let failed = false;
 
   if (failures.length > 0) {
@@ -128,7 +137,14 @@ export function domainsDoctor(_args: Args): void {
   const deadRefFindings = findDeadReferences(skills, (p) => existsSync(join(REPO_ROOT, p)));
   const freshnessFindings = findFreshnessIssues(skills);
   const unprovenPromotionFindings = findUnprovenActivePromotions(skills);
-  const allGateFindings = [...activeGateFindings, ...deadRefFindings, ...freshnessFindings, ...unprovenPromotionFindings];
+  const entrySizeFindings = findEntrySizeIssues(skills, lineCounts);
+  const allGateFindings = [
+    ...activeGateFindings,
+    ...deadRefFindings,
+    ...freshnessFindings,
+    ...unprovenPromotionFindings,
+    ...entrySizeFindings,
+  ];
 
   const failFindings = allGateFindings.filter((f) => f.severity === "FAIL");
   const warnFindings = allGateFindings.filter((f) => f.severity === "WARN");
@@ -136,7 +152,7 @@ export function domainsDoctor(_args: Args): void {
 
   log.info(`[domains doctor] ${skills.length} 份 Domain Skill 实例（H3A-012 schema 合规）`);
   if (allGateFindings.length > 0) {
-    log.info(`[domains doctor] Domain↔Skill gate（H3A-013/014/015/016）：${failFindings.length} FAIL / ${warnFindings.length} WARN`);
+    log.info(`[domains doctor] Domain↔Skill gate（H3A-013/014/015/016/017）：${failFindings.length} FAIL / ${warnFindings.length} WARN`);
     printFindings(allGateFindings);
   } else {
     log.ok(`[domains doctor] Domain↔Skill gate：无 finding`);
@@ -148,6 +164,8 @@ export function domainsDoctor(_args: Args): void {
   log.info("     不检查 verification 字段（shell 命令，不是文件路径，不同性质的检查）");
   log.info("   · H3A-015 只检查 last_verified.commit 是否「像」一个 SHA（7~40 位十六进制），");
   log.info("     不通过 git 验证该 commit 是否真实存在于历史——那需要真实 git IO，本命令刻意只做形状检查");
+  log.info("   · H3A-017 只检查 SKILL.md 入口文件行数是否超过 150 行阈值，不检查体积超标的实例是否配套");
+  log.info("     reference 拆分目录——全仓今天没有任何既有的 reference 拆分约定可供比对，如实不做这一半");
   log.info("   · H3A-011（核心 Domain inventory）的边界裁决需要人类确认，本命令只校验 registry.yaml 的结构，");
   log.info("     不代表 registry.yaml 里的 owner/边界已经过人类签核——见 docs/proposals/PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md");
 
