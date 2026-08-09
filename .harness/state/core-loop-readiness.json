@@ -7,7 +7,9 @@
     "R": {
       "name": "真实用户可达性",
       "authority": ".harness/instructions/core-loop-readiness-standard.md#track-r-真实用户可达性",
-      "allowed_scorers": ["rev-e2e"],
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
       "max": 10,
       "score": null,
       "scored_sha": null,
@@ -20,12 +22,20 @@
         "apps/api/src/application/**",
         "packages/contracts/src/**"
       ],
-      "blocking_issues": [660, 619, 627, 552, 624]
+      "blocking_issues": [
+        660,
+        619,
+        627,
+        552,
+        624
+      ]
     },
     "B": {
       "name": "行为体验（对标 Claude Code）",
       "authority": ".harness/instructions/chat-ux-acceptance-criteria.md",
-      "allowed_scorers": ["rev-e2e"],
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
       "max": 10,
       "score": null,
       "scored_sha": null,
@@ -40,12 +50,17 @@
         "apps/api/src/application/agent-run/**",
         "apps/api/src/infrastructure/agent-run/**"
       ],
-      "blocking_issues": [714, 660, 619]
+      "blocking_issues": [
+        660,
+        619
+      ]
     },
     "V-D": {
       "name": "项目对话主屏原型保真（ChatReadScreen）",
       "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#十维每维-0-或-1-分没有-05",
-      "allowed_scorers": ["rev-uiux"],
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
       "max": 10,
       "score": 1,
       "scored_sha": "d53c84ca6b0210bbc25516da14c6c44090a84a24",
@@ -59,12 +74,16 @@
         "apps/web/components/chat/**",
         "apps/web/app/chat/**"
       ],
-      "blocking_issues": [728]
+      "blocking_issues": [
+        728
+      ]
     },
     "V-P": {
       "name": "个人对话屏（PersonalChatScreen）",
       "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#个人对话屏personalchatscreen十维",
-      "allowed_scorers": ["rev-uiux"],
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
       "max": 10,
       "score": 5,
       "scored_sha": "d53c84ca6b0210bbc25516da14c6c44090a84a24",
@@ -78,7 +97,11 @@
         "apps/web/components/chat/thread-list-shell.tsx",
         "apps/web/app/chat/**"
       ],
-      "blocking_issues": [728, 750]
+      "blocking_issues": [
+        728,
+        750
+      ]
     }
-  }
+  },
+  "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。"
 }
