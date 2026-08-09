@@ -355,6 +355,11 @@ describe("#467 会话内 agent 编制的增删接线", () => {
   it("目录读取失败：候选区显示错误，写入口仍在但没有候选可选", async () => {
     listCapabilities.mockRejectedValue(new ApiError(503, "CAPABILITY_CATALOG_UNAVAILABLE", null));
     renderScreen();
+    // #728 D2：写入口折在「编辑」后面，先点开才有候选区可看。
+    // ⚠ 这条断言的重点没变：目录读失败时**写入口仍在**（只是没有候选可选），
+    //   而不是整个编制编辑器消失——所以这里断言的是 add-input 存在 + 错误文案出现。
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
     await screen.findByTestId("chat-roster-add-input");
 
     expect(await screen.findByTestId("chat-roster-candidates-error")).toHaveTextContent(

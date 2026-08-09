@@ -408,6 +408,11 @@ export function ChatReadScreen({
               canMutate={canMutate}
               pending={rosterPending}
               mutateFailure={rosterMutateFailure}
+              // #619 × #728 D2：编制面板已被 #728 移到左栏，选择器的候选自然也要跟到这里。
+              // ⚠ 这两个 prop 必须跟着 `RosterPanel` 走——它在仓里只有**一个**渲染点，
+              //   rebase 时若把它们落在旧的右栏实例上，`candidates` 就是 undefined。
+              candidates={agentCandidates}
+              candidatesError={agentCatalogError}
               onAdd={handleRosterAdd}
               onRemove={handleRosterRemove}
               onRetry={() => void loadSelectedThread()}
