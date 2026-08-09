@@ -50,8 +50,24 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
 
   await page.goto("/admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
-  // 种子刻意没有预置 capability 行——空态是这条链路的真实起点。
-  await expect(page.getByTestId("admin-agent-empty")).toBeVisible();
+  /**
+   * ⚠ #619 起这里**不能**再断言「整个目录是空的」。
+   *
+   * 原断言是 `admin-agent-empty` 可见，注释写着「种子刻意没有预置 capability 行」。
+   * 那个前提在 #619 之后不再成立：roster 的合法性判据已从 `org_agents` 收敛到
+   * `capability_listings`，所以 `seed-fullstack-smoke.ts` **必须**给那个可运行的种子
+   * agent（`FULLSTACK_RUNNABLE_AGENT_*`）也插一行 listing，否则 `core-loop.spec.ts`
+   * 在编制选择器里根本选不到它。目录里有一行是**对的**，不是污染。
+   *
+   * 但这条断言**承担的职责必须保留**：它是反证——证明下面看到的那一行来自浏览器里的
+   * 「新增」动作，而不是种子本来就有的。所以把「全局空」换成「**待新建的这一个**不存在」，
+   * 反证强度不变（种子那行叫 `FULLSTACK_RUNNABLE_AGENT_*`，与这里要建的
+   * `FULLSTACK_AGENT_*` 是两个不同的名字，不会互相冒充）。
+   * ⛔ 不要改回 `admin-agent-empty`，也不要删掉这条——删了这个用例就变成
+   *    「目录里有一行」而不是「我建出了一行」。
+   */
+  await expect(page.getByTestId("admin-agent-list").getByText(FULLSTACK_E2E.agentName))
+    .toHaveCount(0);
 
   // ── 新增 ───────────────────────────────────────────────────────────────
   await page.getByTestId("admin-agent-create").click();
