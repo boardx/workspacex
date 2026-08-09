@@ -70,8 +70,15 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
     .toHaveCount(0);
 
   // ── 新增 ───────────────────────────────────────────────────────────────
+  // ⚠ #619 起 `kind='agent'` 的目录条目**必须**带非空 abbr/duty（前端字段级校验 +
+  //   服务端 400 + 数据库 `capability_listings_agent_needs_abbr_duty` CHECK，三层同一条规则）。
+  //   只填 name 会被前端挡在提交之前 ⇒ 压根不发请求 ⇒ 下面 `mutations` 是空数组、列表里
+  //   也不会出现这一行。`e54fb9a1` 当时只补了单测（`capability-catalog-mutate.test.tsx`）
+  //   的这两个输入，**漏了本文件这条真实浏览器路径**，于是 CI 上以 line 78 的形式暴露出来。
   await page.getByTestId("admin-agent-create").click();
   await page.getByTestId("admin-agent-create-name").fill(FULLSTACK_E2E.agentName);
+  await page.getByTestId("admin-agent-create-abbr").fill("FA");
+  await page.getByTestId("admin-agent-create-duty").fill("fullstack smoke 建出来的 agent");
   await page.getByTestId("admin-agent-create-submit").click();
 
   const row = page.getByTestId("admin-agent-list").getByText(FULLSTACK_E2E.agentName);
