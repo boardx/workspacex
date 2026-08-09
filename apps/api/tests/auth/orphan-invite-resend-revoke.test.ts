@@ -128,10 +128,11 @@ beforeAll(async () => {
   repo = new PgOrgInviteRepository(db);
   controller = new OrgAdminManagementController(
     repo,
-    // 本文件只调 resend / revoke 两条路由，其余三个端口不参与——给 null 而不是
+    // 本文件只调 resend / revoke 两条路由，其余四个端口不参与——给 null 而不是
     // 一个假件：假件会让「某天有人把 teams 的判断挪进 resend」这件事悄悄通过。
     null as never,
     null as never,
+    null as never, // #363：新增的 ORG_PROFILE_REPOSITORY，同样不参与
     null as never,
     new PgIdentityRepository(db),
   );
