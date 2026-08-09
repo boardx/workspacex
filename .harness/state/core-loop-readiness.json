@@ -1,0 +1,107 @@
+{
+  "_": "CLR 分数记录，issue #814。判据不在这里——每条 track 的 authority 字段指向它的权威 rubric，本文件只存「谁、在哪个 SHA、用什么证据、量出了几分」。总分盘由 `pnpm harness readiness` 派生，禁止手写总分。",
+  "_who_may_edit": "只有该 track `allowed_scorers` 里的角色可以改自己那条的分数字段。实现者不得改自己被评的那条（G3 会当场红）。blocking_issues 由 coord-main 维护。",
+  "_gates": "G1 未评分记 0 / G2 评分后 watch 路径有改动即过期记 0 / G3 自评或非授权评分人记 0 / G4 无证据记 0。四道门的反证在 `.harness/scripts/lib/core-loop-readiness.test.ts`，每道都实测过「拆掉它测试会红」。",
+  "version": 1,
+  "tracks": {
+    "R": {
+      "name": "真实用户可达性",
+      "authority": ".harness/instructions/core-loop-readiness-standard.md#track-r-真实用户可达性",
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
+      "max": 10,
+      "score": null,
+      "scored_sha": null,
+      "scored_by": null,
+      "implemented_by": null,
+      "evidence": [],
+      "watch": [
+        "apps/web/e2e/**",
+        "apps/api/src/interface/**",
+        "apps/api/src/application/**",
+        "packages/contracts/src/**"
+      ],
+      "blocking_issues": [
+        660,
+        619,
+        627,
+        552,
+        624
+      ]
+    },
+    "B": {
+      "name": "行为体验（对标 Claude Code）",
+      "authority": ".harness/instructions/chat-ux-acceptance-criteria.md",
+      "allowed_scorers": [
+        "rev-e2e"
+      ],
+      "max": 10,
+      "score": null,
+      "scored_sha": null,
+      "scored_by": null,
+      "implemented_by": null,
+      "evidence": [],
+      "watch": [
+        "apps/web/components/chat/**",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/agent-run-stream.ts",
+        "apps/api/src/application/agent-run/**",
+        "apps/api/src/infrastructure/agent-run/**"
+      ],
+      "blocking_issues": [
+        660,
+        619
+      ]
+    },
+    "V-D": {
+      "name": "项目对话主屏原型保真（ChatReadScreen）",
+      "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#十维每维-0-或-1-分没有-05",
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
+      "max": 10,
+      "score": 1,
+      "scored_sha": "d53c84ca6b0210bbc25516da14c6c44090a84a24",
+      "scored_by": "rev-uiux",
+      "implemented_by": "dev-chat-e2e",
+      "evidence": [
+        "https://github.com/boardx/workspacex/issues/728#issuecomment-round6",
+        "phases/phase-01-run-a-project/ui-preview/chat-main-ref/"
+      ],
+      "watch": [
+        "apps/web/components/chat/**",
+        "apps/web/app/chat/**"
+      ],
+      "blocking_issues": [
+        728
+      ]
+    },
+    "V-P": {
+      "name": "个人对话屏（PersonalChatScreen）",
+      "authority": ".harness/rubrics/chat-main-fidelity-rubric.md#个人对话屏personalchatscreen十维",
+      "allowed_scorers": [
+        "rev-uiux"
+      ],
+      "max": 10,
+      "score": 5,
+      "scored_sha": "d53c84ca6b0210bbc25516da14c6c44090a84a24",
+      "scored_by": "rev-uiux",
+      "implemented_by": "dev-chat-e2e",
+      "evidence": [
+        "https://github.com/boardx/workspacex/issues/728#issuecomment-round6"
+      ],
+      "watch": [
+        "apps/web/components/chat/personal-chat-screen.tsx",
+        "apps/web/components/chat/thread-list-shell.tsx",
+        "apps/web/app/chat/**"
+      ],
+      "blocking_issues": [
+        728,
+        750
+      ]
+    }
+  },
+  "_correction_20260809": "track B 曾错列 #714 为阻塞项。#714 的「第 7 项」属于 #654/#708/#712 那份十项清单，不是 chat-ux-acceptance-criteria.md 的第 7 项（那条是「错误处理透明度」）——两份十项清单编号撞车，播种时对错了号，已更正并在 #714 上留档。"
+}

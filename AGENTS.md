@@ -40,6 +40,10 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
    先用 `module-coordinator` skill(挂 15 分钟 loop);都不是 → 你是 worker,
    loop 由 `agent-bootstrap.md` 第 3.5 步挂(15 分钟)。三条路径都跑
    `pnpm harness tick`,没有第四种"不挂 loop"的角色。
+0.5. **跑 `pnpm harness readiness` 看统一队列，从队列顶部取活**——它是"现在什么最该做"
+   的唯一权威（ADR/issue #814）。不在队列上的活不占工时；确有理由做队列外的活，
+   在对应 issue 里写一句为什么，不要默默做。判据与聚合规则见
+   `.harness/instructions/core-loop-readiness-standard.md`。
 1. 读当前 sprint 的 `progress.md` 和 `session-handoff.md`。
 2. 读当前 sprint 的 `active-features.json`(派生视图),找到唯一 `in_progress` 的 feature。
 3. 只做那一个 feature。做完用验证命令证明,再收尾。
@@ -103,6 +107,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - 编码规范 → `.harness/instructions/coding-standards.md`
 - UIUX 规范 → `.harness/instructions/uiux-standards.md`
 - 端到端验证标准 → `.harness/instructions/testing-standards.md`
+- **统一衡量标准 CLR（"还差多少到 10 分"的唯一答案 + 所有 agent 的取活口）** → `.harness/instructions/core-loop-readiness-standard.md`（issue #814；`pnpm harness readiness`）
 - 可观测性约定 → `.harness/instructions/observability.md`
 - 阶段/局部规则 → 对应 `apps/*/AGENTS.md`、`phases/<phase>/AGENTS.md`
 - 模板的思想与最佳实践（为什么是这样）→ `docs/CONCEPTS.md`
