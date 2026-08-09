@@ -49,7 +49,7 @@
 | H3A-013 | P0 | ✅ 完成（PR #687） | Domain↔Skill 一对一 active gate | 012 | 缺失、重复 active Skill 会红——重复/引用未知 domain_id 判 FAIL；缺失判 WARN（0 实例是今天真实状态，不因为 H3A-016+ 未开工而让 CI 变红），见 `lib/domain-skill-gates.ts` |
 | H3A-014 | P0 | ✅ 完成（PR #687） | Skill reference integrity gate | 012 | Contract/ADR/path 死引用会红；verification 字段（shell 命令非路径）如实标注不检查 |
 | H3A-015 | P0 | ✅ 完成（PR #687） | Skill freshness/STALENESS gate | 012 | last_verified.commit 形状不像 SHA 判红；真实 git 历史校验如实标注做不到 |
-| H3A-016 | P1 | ⬜ 未开始 | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill |
+| H3A-016 | P1 | 🔶 PR #776 待 review（issue #769） | Candidate Knowledge 晋升协议 | 012 | 无证据经验不能进入 active Skill——`findUnprovenActivePromotions`（`lib/domain-skill-gates.ts`）：active 且 authority_refs 四类引用与 last_verified 全空判 FAIL；今天 0 实例不触发，已知状态非回归 |
 | H3A-017 | P1 | ⬜ 未开始 | Domain Skill 体积与渐进加载门 | 012 | SKILL 入口保持短，reference 按任务加载 |
 | H3A-018 | P1 | ⬜ 未开始 | Fabric.js/Mermaid Domain Skill | 011–017 | 架构、身份、序列化、协作、验证与陷阱引用完整 |
 | H3A-019 | P0 | ⬜ 未开始 | Domain readiness gate | 011–015 | Role/Skill/数据源缺失时 Task Assignment 保持 UNKNOWN/blocked |
