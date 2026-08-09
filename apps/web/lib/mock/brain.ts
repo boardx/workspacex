@@ -14,11 +14,17 @@ export const LAYER_COUNTS = {
   org: 604,
 };
 
-/** 节点类型分布（假设 318、证据 1,204 含反对 96、决策 42）*/
+/**
+ * 节点类型分布（原型 `showBrain` 左栏「节点类型」区，字节 16,227,163 起，五类顺序原样保留）：
+ * 问题/决策 42、假设 318、致命假设 61、证据 1,204（含反对 96）、方法/Skill 86。
+ * ⚠ 此前只画了三类（假设/证据/决策），漏了「致命假设」「方法/Skill」——已按原型补全（issue #818）。
+ */
 export const NODE_TYPES: { key: string; label: string; count: number; sub?: string }[] = [
+  { key: "decision", label: "问题 / 决策", count: 42 },
   { key: "hypothesis", label: "假设", count: 318 },
+  { key: "fatal-hypothesis", label: "致命假设", count: 61 },
   { key: "evidence", label: "证据", count: 1204, sub: "含反对 96" },
-  { key: "decision", label: "决策", count: 42 },
+  { key: "method-skill", label: "方法 / Skill", count: 86 },
 ];
 
 /** 立身之本的一条规则 —— 必须显著展示 */
@@ -36,15 +42,23 @@ export const PRIVATE_LAYER = {
   ],
 };
 
-/** 组织层条目类型（全员可见 · 每条都有有效期）*/
+/**
+ * 组织层条目类型（全员可见 · 每条都有有效期）。
+ * 原型 `isBrOrg` 分支「五类资产」网格（字节 16,290,357 起）：
+ * 被验证的方法 86 / 可复用判断 241 / 客户档案 38 / 行业事实 198 ——
+ * 前四类合计 604＝生效可检索；「反例与教训」41 **另计，不在 604 内**，仅以教训形态召回。
+ * ⚠ 此前四类数字（128/214/96/166）系摘要转述错误，且完全没有「反例与教训」类目——已按原型改正（issue #818）。
+ */
 export const ORG_LAYER = {
-  note: "全员可见 · 每条都有有效期。",
+  note: "全员可见 · 每条都有有效期。前四类合计 604 条＝生效可检索。",
   kinds: [
-    { key: "method", label: "被验证的方法", count: 128, ttl: "无固定到期 · 随复盘更新" },
-    { key: "judgment", label: "可复用判断", count: 214, ttl: "视资产类型" },
-    { key: "client", label: "客户档案", count: 96, ttl: "12 个月" },
-    { key: "industry", label: "行业事实", count: 166, ttl: "6 个月" },
+    { key: "method", label: "被验证的方法", count: 86, ttl: "无固定到期 · 随复盘更新" },
+    { key: "judgment", label: "可复用判断", count: 241, ttl: "视资产类型" },
+    { key: "client", label: "客户档案", count: 38, ttl: "12 个月" },
+    { key: "industry", label: "行业事实", count: 198, ttl: "6 个月" },
   ],
+  /** 反例与教训 —— 另计，不在 604 生效条目内，仅以教训形态被召回，不参与定题强度计算 */
+  counterexamples: { key: "counterexample", label: "反例与教训", count: 41, note: "另计 · 不在 604 内 · 仅以教训形态召回" },
 };
 
 /** 时效衰减 —— 到期转「待复核」，AI 引用时必须提示已过期。当前 14 条 */
@@ -358,3 +372,140 @@ export function reasoningChainFor(id: string, support: number, against: number):
     { id: `${id}-a`, side: "against", claim: `${against} 条反对证据（强制保留，不因结论成立而隐藏）`, source: "项目图谱 · 反对段" },
   ];
 }
+
+/* ─────────────────── 推演链与模板（UC-14.4 附属 · 原型 isBrChain 分支）───────────────────
+ *
+ * 原型左栏「流动」分组第二个按钮「推演链与模板」（字节 16,228,577，徽标数字 3）此前在
+ * `apps/web` 全仓 grep 命中 0——`isBrChain` 屏（16,311,110 起）整屏缺失。
+ * 屏含两个子视图：`isChGraph`（决策链图：证据/方法/判断/分支/建议/实验/决策 七类节点 +
+ * 已选节点详情 + 与模板的偏离对比）与 `isChTpl`（模板库：我的模板 3 + 组织模板 4）。
+ * 本次按内容结构补齐（issue #818 问题 1），图编辑器简化为结构化节点列表，
+ * 不复刻可拖拽 SVG 画布——后端图编辑能力不在本次「只改 UI 呈现」范围内。
+ */
+
+export type ChainNodeType = "evidence" | "counter-evidence" | "method" | "judgment" | "branch" | "suggestion" | "experiment" | "decision";
+
+export const CHAIN_NODE_TYPE_LABEL: Record<ChainNodeType, string> = {
+  evidence: "证据",
+  "counter-evidence": "反对证据",
+  method: "方法",
+  judgment: "判断",
+  branch: "分支条件",
+  suggestion: "建议",
+  experiment: "实验",
+  decision: "决策",
+};
+
+export interface ChainNode {
+  id: string;
+  type: ChainNodeType;
+  title: string;
+  /** 置信度 · 人工调整过则带说明 */
+  confidence?: string;
+  /** 入边说明（支持 N · 削弱 N）*/
+  inEdges?: string;
+  author?: string;
+  selected?: boolean;
+  /** AI 不可写入此节点（决策类硬约束）*/
+  aiWriteBlocked?: boolean;
+}
+
+export interface ChainChangeLogEntry {
+  id: string;
+  text: string;
+  ts: string;
+  actor: "人工" | "AI · 可回退";
+}
+
+export interface Chain {
+  id: string;
+  title: string;
+  nodes: ChainNode[];
+  /** 已选节点的改动记录（对应右侧详情面板）*/
+  changeLog: ChainChangeLogEntry[];
+  /** 与模板的关系：实例化自哪个模板 + 偏离处数 + 偏离说明 */
+  templateRelation: { templateTitle: string; templateOwner: "我的模板" | "组织模板"; deviations: string[] };
+}
+
+/** 三条推演链（原型工具条：进入模式决策链 / 资质风险验证链 / 定价策略推演 + ＋新建链）*/
+export const CHAINS: Chain[] = [
+  {
+    id: "chain-entry-mode",
+    title: "进入模式决策链",
+    nodes: [
+      { id: "n-ev-1", type: "evidence", title: "6 条并购判例：可走简化通道", confidence: "0.7" },
+      { id: "n-ev-2", type: "evidence", title: "监管年报：审批中位 11 个月", confidence: "0.9" },
+      { id: "n-ev-3", type: "counter-evidence", title: "一例交割后资质失效，延误 9 个月", confidence: "0.3" },
+      { id: "n-method-1", type: "method", title: "资质尽调清单 v3（12 项） · 组织层" },
+      { id: "n-judgment-1", type: "judgment", title: "资质可转让但需重新备案，净省 4–6 个月", confidence: "0.62 · 人工下调 0.1", inEdges: "支持 2 · 削弱 1", author: "Ava，林可编辑过", selected: true },
+      { id: "n-branch-1", type: "branch", title: "若尽调结论为「不可转」 · 人工加的" },
+      { id: "n-suggest-1", type: "suggestion", title: "收购路径可行，把重新备案写进交割条件 · 主方案" },
+      { id: "n-suggest-2", type: "suggestion", title: "转 EPC 合作，牺牲毛利换工期确定性 · 备选" },
+      { id: "n-exp-1", type: "experiment", title: "两周尽调：12 项清单逐条比对" },
+      { id: "n-decision-1", type: "decision", title: "两周内出尽调结论后再定路径 · 待周宁签字", aiWriteBlocked: true },
+    ],
+    changeLog: [
+      { id: "cl-1", text: "林可 手动加了「若为否」分支和备选建议", ts: "7/25 15:02", actor: "人工" },
+      { id: "cl-2", text: "Ava 把反对证据的权重从 0.5 降到 0.3，理由：来源为二手报道", ts: "7/25 14:48", actor: "AI · 可回退" },
+    ],
+    templateRelation: {
+      templateTitle: "进入模式决策 v2",
+      templateOwner: "我的模板",
+      deviations: ["多了一个分支条件", "少了一步竞品对照"],
+    },
+  },
+  {
+    id: "chain-qualification-risk",
+    title: "资质风险验证链",
+    nodes: [
+      { id: "n-q-ev-1", type: "evidence", title: "监管年报：牌照审批中位 11 个月", confidence: "0.8" },
+      { id: "n-q-method-1", type: "method", title: "监管风险验证 · 强制插入实验步" },
+      { id: "n-q-exp-1", type: "experiment", title: "跨部门合规访谈 · 覆盖三地监管口径" },
+      { id: "n-q-decision-1", type: "decision", title: "待补：实验结论未回填", aiWriteBlocked: true },
+    ],
+    changeLog: [],
+    templateRelation: { templateTitle: "监管风险验证", templateOwner: "我的模板", deviations: [] },
+  },
+  {
+    id: "chain-pricing-strategy",
+    title: "定价策略推演",
+    nodes: [
+      { id: "n-p-ev-1", type: "evidence", title: "电价历史曲线 2018–2020", confidence: "0.6" },
+      { id: "n-p-judgment-1", type: "judgment", title: "第一版商业模式画布不含收益保底", confidence: "0.55", inEdges: "支持 6 · 削弱 4" },
+      { id: "n-p-decision-1", type: "decision", title: "待验证 · 未签字", aiWriteBlocked: true },
+    ],
+    changeLog: [],
+    templateRelation: { templateTitle: "定价策略推演 v1", templateOwner: "组织模板", deviations: ["已归档版本，仅供查阅"] },
+  },
+];
+
+export interface ChainTemplate {
+  id: string;
+  title: string;
+  /** 5 段骨架的简短标签，用于渲染缩略节点条 */
+  skeleton: string[];
+  status?: "在用" | "待提名";
+  requirement: string;
+  appliedCount: number;
+  deviationNote?: string;
+}
+
+/** 我的模板 · 3（私有，改了不影响别人）*/
+export const TEMPLATES_MINE: ChainTemplate[] = [
+  { id: "tpl-mine-1", title: "进入模式决策 v2", skeleton: ["证据", "方法", "判断", "建议", "决策"], status: "在用", requirement: "适用：多路径战略选择。要求至少 1 条反对证据、1 个致命假设、决策必须人签字。", appliedCount: 3, deviationNote: "偏离 2 处" },
+  { id: "tpl-mine-2", title: "监管风险验证", skeleton: ["证据", "方法", "判断", "分支", "决策"], status: "待提名", requirement: "适用：涉牌照与合规的判断。强制插入一步「实验」，不允许直接从判断跳到决策。", appliedCount: 1 },
+];
+
+/** 组织模板 · 4（已晋升，全员可套用；改动要走晋升队列）*/
+export const TEMPLATES_ORG: { id: string; title: string; requirement: string; author: string; appliedCount: number; archived?: boolean }[] = [
+  { id: "tpl-org-1", title: "市场进入四步推演", requirement: "市场吸引力 → 模式可行性 → 执行前提 → 决策", author: "周宁", appliedCount: 11 },
+  { id: "tpl-org-2", title: "组织架构调整推演", requirement: "必须含一条「关键人反对」证据", author: "高琳", appliedCount: 6 },
+  { id: "tpl-org-3", title: "并购尽调推演", requirement: "判断与决策之间强制插入实验步", author: "组织", appliedCount: 4 },
+  { id: "tpl-org-4", title: "定价策略推演 v1", requirement: "已被 v2 取代，仅供查阅", author: "组织", appliedCount: 2, archived: true },
+];
+
+/** 模板库的两条设计规则说明 */
+export const TEMPLATE_RULES = {
+  scope: { title: "模板管什么、不管什么", body: "管结构与硬性要求（必须有反对证据、决策必须人签字）；不管结论。同一个模板在两个项目里可以推出相反的决策，这是对的。" },
+  deviation: { title: "偏离不是错误", body: "链可以随时脱离模板。系统只标出偏离在哪，让你决定是回填模板还是本项目特例——反复出现的偏离通常意味着模板该升版了。" },
+};
