@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CEILING_TRACK,
+  PASS_THRESHOLD,
   judgeReadiness,
   judgeTrack,
   matchesAny,
@@ -158,6 +159,50 @@ describe("judgeReadiness：R 是天花板，不是加数", () => {
 
   it(`天花板 track 的 id 是导出的常量，改名只有一处（当前：${CEILING_TRACK}）`, () => {
     expect(CEILING_TRACK).toBe("R");
+  });
+});
+
+describe("PASS_THRESHOLD：合格门槛 9（人类 2026-08-09 裁决 #831）", () => {
+  const state = (r: number, b: number, vd: number, vp: number): ReadinessState => ({
+    version: 1,
+    tracks: {
+      R: healthy({ score: r }), B: healthy({ score: b }),
+      "V-D": healthy({ score: vd }), "V-P": healthy({ score: vp }),
+    },
+  });
+
+  it("门槛是 9，不是 10 —— 常量是单一事实源，文档里那段话不是", () => {
+    expect(PASS_THRESHOLD).toBe(9);
+  });
+
+  it("CLR = 9 ⇒ 达标（边界值取到，不是 >9）", () => {
+    expect(judgeReadiness(state(9, 9, 9, 9), {}).passes).toBe(true);
+  });
+
+  it("反证：CLR = 8.9 ⇒ 不达标（差一点点也是不达标，不许四舍五入放过）", () => {
+    // mean(9,9,8.7)=8.9 ⇒ min(10, 8.9)=8.9
+    const v = judgeReadiness(state(10, 9, 9, 8.7), {});
+    expect(v.clr).toBe(8.9);
+    expect(v.passes).toBe(false);
+  });
+
+  it("反证：可达性封顶仍然生效 —— R=8 时体验全满也不达标", () => {
+    const v = judgeReadiness(state(8, 10, 10, 10), {});
+    expect(v.clr).toBe(8);
+    expect(v.passes).toBe(false); // 走不到的地方做得再好也不算达标
+  });
+
+  it("满分 10 当然达标（门槛降到 9 不代表 10 变成非法）", () => {
+    expect(judgeReadiness(state(10, 10, 10, 10), {}).passes).toBe(true);
+  });
+
+  it("一条 track 被门控判 0 ⇒ 直接不达标（G1-G4 与门槛是两层，不互相抵消）", () => {
+    const s = state(10, 10, 10, 10);
+    const broken: ReadinessState = {
+      ...s,
+      tracks: { ...s.tracks, B: healthy({ score: 10, evidence: [] }) }, // G4 无证据
+    };
+    expect(judgeReadiness(broken, {}).passes).toBe(false);
   });
 });
 

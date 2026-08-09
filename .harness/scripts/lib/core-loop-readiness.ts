@@ -120,6 +120,9 @@ export interface TrackVerdict {
 }
 
 export interface ReadinessVerdict {
+  /** `clr >= PASS_THRESHOLD`。判定写在这里而不是让每个调用方自己比大小——
+   *  门槛只有一处定义，改它不会漏掉某个渲染分支。 */
+  readonly passes: boolean;
   /** 天花板 track（R）的实际得分。 */
   readonly reachability: number;
   /** 其余三条 track 的均值。 */
@@ -133,6 +136,24 @@ export interface ReadinessVerdict {
 
 /** 天花板 track 的 id。写成常量而不是散在判断里，改的时候只有一处。 */
 export const CEILING_TRACK = "R";
+
+/**
+ * 合格门槛（人类 2026-08-09 裁决，#831）：**CLR ≥ 9 即达标，不再要求 = 10**。
+ *
+ * ## 为什么不是 10
+ *
+ * 原本的 10 分门在结构上不可达：`chat-main-fidelity-rubric.md` 的 D3/D4 各有一条子要求
+ * （线程「负责 agent」、面包屑「项目阶段/周次」）指向**产品域里根本不存在的概念**——
+ * 要满足它们得先做一次产品设计并建模，而它们服务的只是一行副行和一行面包屑。
+ *
+ * 同一次裁决里那两条子要求已从判据中移除，所以"满分"重新变得可达；门槛降到 9 是**额外**
+ * 留出的一分容错。两者叠加**不是双重放宽**：四条 track 每条都是 0/1 逐维判定 + 硬门
+ * H1-H4，要求四条同时 ≥9 依然很硬。
+ *
+ * ⚠ 一个**不可能达到**的满分比一个略低但可达的门槛更危险——所有人会默认"反正到不了"，
+ * 门就废了。这条推理写在这里，是为了让后来改动门槛的人知道它当初为什么不是 10。
+ */
+export const PASS_THRESHOLD = 9;
 
 /**
  * 判一条 track 的实际得分。
@@ -224,6 +245,7 @@ export function judgeReadiness(
   const clr = Math.min(ceiling.effectiveScore, experienceMean);
 
   return {
+    passes: round1(clr) >= PASS_THRESHOLD,
     reachability: ceiling.effectiveScore,
     experienceMean: round1(experienceMean),
     clr: round1(clr),
