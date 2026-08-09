@@ -291,6 +291,12 @@ export function ChatLiveMessagePanel({
 
   // 十项 UX 缺口第 6 项（issue #712）——规则驱动的建议后续操作。
   const followUpSuggestions = computeFollowUpSuggestions(messages, archived);
+  /**
+   * #728 P10 —— 与 `AgentPicker`/提交按钮判「没有可选 Agent」用同一个事实
+   * （`agents` 已加载完成且为空数组），不是另起一条判断。追问建议 chip 与麦克风
+   * 按钮据此收起/禁用——「点了却送不出去」的假按钮就是从这里长出来的。
+   */
+  const noAgentToRunWith = agents !== null && agents.length === 0;
 
   const updateDraft = (next: { text?: string; agentId?: string }) => {
     const nextText = next.text ?? text;
@@ -530,7 +536,17 @@ export function ChatLiveMessagePanel({
           disabled={archived || submitting || agents === null || agents.length === 0}
           onSelect={(agentId) => updateDraft({ agentId })}
         />
-        {followUpSuggestions.length > 0 ? (
+        {/*
+          #728 P10 —— 无 agent 可选时，整个composer 的「发送类」控件（追问建议 / 麦克风）
+          此前只看 `archived`/`submitting`，不看「有没有 agent 可以发」，于是在
+          「没有可选 Agent」的线程上仍摆着一排看起来能点的按钮——点了却送不出去
+          （提交按钮是唯一正确处理了这个状态的控件：`selectedAgentId === ""` 时禁用）。
+          评分卡第 10 项点名的「假按钮」正是这个。
+
+          `noAgentToRunWith` 与提交按钮用的是同一个事实（`agents` 为空数组），
+          不是另起一条判断——两处判据不一致才是真正的风险。
+        */}
+        {followUpSuggestions.length > 0 && !noAgentToRunWith ? (
           <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
             {followUpSuggestions.map((suggestion) => (
               <Button
@@ -570,8 +586,8 @@ export function ChatLiveMessagePanel({
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
                 aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
-                title={speech.listening ? "停止语音输入" : "开始语音输入"}
-                disabled={archived || submitting}
+                title={noAgentToRunWith ? "没有可选 Agent，暂时无法发送消息" : (speech.listening ? "停止语音输入" : "开始语音输入")}
+                disabled={archived || submitting || noAgentToRunWith}
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
               >
                 <Mic aria-hidden className="h-3.5 w-3.5" />
