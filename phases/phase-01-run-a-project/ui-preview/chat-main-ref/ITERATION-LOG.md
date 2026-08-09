@@ -385,3 +385,63 @@ AgentRun 已排队。」和「执行完成，回复已写入对话」——界�
 - H3 是否允许在同一 SHA 上重跑取绿，还是第一次红就判整轮 0 分
 - 全站共用顶栏「项目负责人」（组织角色标签）与「不在项目上下文中 · 项目角色
   不适用」同行显示，字面读起来矛盾（不是个人对话屏特有，评分员未据此扣分）
+
+---
+
+### 第 11 轮（2026-08-09，实测 SHA `38ca8fb3`，PR #837）—— rev-uiux 评分 **D 组 1/10（未复核，沿用，G2 过期计入 0）· P 组 6/10**
+
+本轮首次把分支推上远端并开出 PR #837（此前 19+ 个提交只存在本地，
+coord-main 巡检发现并要求立即推送，见 issue #728 与 PR #837 讨论）。
+
+#### P10 确认转正，P7 从「完全没有」变成「只差在途态一项」
+上一轮新增的「已排队/已完成」同屏矛盾已修好，评分员放大截图确认屏上只剩
+一行终态文案。P7（第 10 轮起做的第二个 deep-agent fixture）**代码路径被
+评分员独立核实为真**——渲染出自产品组件 `AgentRunToolCallSteps`（非本轮
+改动，来自更早的 #732 cherry-pick），数据出自 `execute-run.ts` 的
+`completeWithProgress` 分支真实调用 `DeepAgentModelProvider`，不是脚本
+拼的假图。但**仍判 0**：验收标准第 3 项要求「正在调用 XX」这个在途态
+可见，而 `AgentRunStepStatus` 契约目前是封闭的 `["succeeded","failed"]`
+二态，`deep-agent-model-provider.ts` 只在工具**结果**消息到达后才 emit
+事件——没有"调用中"这一档，也没有任何截图能证明运行途中屏上看得到
+在调哪个工具。
+
+P6/P8/P9 仍 0（原因不变：分别卡在 `completeWithProgress` 会跳过
+`completeStream`、麦克风取证未做、失败态取证未做）。
+
+#### H3 本轮又是"先红后绿"
+`verify:chat-read` 第一次 `ERR_ABORTED`+120s 超时（load 26-56），原地
+复跑 3 passed。评分员按"第二次绿"放行，但明确标注这是行使裁量、判据
+字面没有"允许复跑"这一条，请人类知悉。
+
+#### 本轮改动没有破坏 P1-P5/P10
+默认选中的 agent 仍是原来那个（第二个 agent 只在脚本显式点选后才出现），
+agent 计数随线程真实参与者变化（0→1→2，三张截图各自自洽），不是硬编码。
+
+#### CLR 登记
+评分员自己写入 `.harness/state/core-loop-readiness.json` 的
+`tracks["V-P"]`：score 6、scored_sha `38ca8fb3`、scored_by `rev-uiux`、
+evidence 六条。`pnpm harness readiness --strict` 确认结构合法。
+
+#### 下一轮计划（按评分员给的具体修法，优先级最高的排前面）
+1. **P7 转正**：`wave2-runtime.ts` 的 `AgentRunStepStatus` 扩为
+   `["running","succeeded","failed"]`；`deep-agent-model-provider.ts` 在
+   `pending.set()` 时就 emit 一次 `toolResultSummary: null` 的开始事件
+   （数据是真的轮询结果，不是假动画）；`execute-run.ts` 按同一 id 更新
+   而非追加；`chat-live-message-panel.tsx` 的完成/失败二元判断改三态，
+   否则把"运行中"画成红色"失败"。取证脚本在 run 处于 `running` 时
+   抓一张。
+2. **P6**：取证脚本加一条走 `completeStream` 的 provider，在生成途中
+   （文本非空且未终态）抓一张半截文本截图；注意不能复用带
+   `completeWithProgress` 的 agent（`wantsProgress` 优先级更高会跳过
+   `completeStream`）。
+3. **P8**：点麦克风走 `asr-draft.gateway.ts` 的服务端代理，抓「转录中」
+   「转录完成可编辑」两张，ASR 未配置时抓降级提示图。
+4. **P9**：给 `loopback-deep-agent-provider.ts` 加一条确定性失败路径，
+   抓失败态截图。
+
+#### 需要人类裁决（本轮新增）
+- 顶栏「项目负责人」（组织角色标签）与「不在项目上下文中 · 项目角色不
+  适用」同屏矛盾——评分员这轮重申，仍未裁决
+- 工具调用轨迹渲染在输入框下方（不是内联在对应消息里），判据文字未规定
+  位置，评分员未扣分但提请人类确认这个口径是否可接受
+- H3 是否允许同一 SHA 上重跑取绿（评分员再次标注这是自己行使的裁量）

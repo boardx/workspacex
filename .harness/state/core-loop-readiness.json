@@ -83,13 +83,17 @@
         "rev-uiux"
       ],
       "max": 10,
-      "score": 0,
-      "scored_sha": "575dcf0a9302aba445e1e3588e9a4427696651fd",
+      "score": 6,
+      "scored_sha": "38ca8fb3c696f22ca34826d448c814758d1e4a12",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "https://github.com/boardx/workspacex/issues/814#issuecomment-5230462786",
-        "https://github.com/boardx/workspacex/issues/728"
+        "https://github.com/boardx/workspacex/issues/728",
+        "apps/web/.chat-shots/ 第 11 轮真栈截图（chat-main-personal*.png，2026-08-09 15:55-15:56，含新增 chat-main-personal-tool-call.png）",
+        "第 11 轮 rev-uiux 独立评分（实测 SHA 38ca8fb3，工作树干净）：P1-P5=1，P6=0，P7=0，P8=0，P9=0，P10=1",
+        "P10 由 0 转 1：上一轮记 0 的「AgentRun 已排队」与「执行完成」同屏并存，在 chat-main-personal-reply.png / chat-main-personal-tool-call.png 底部逐像素确认已消失，只剩一行「执行完成，回复已写入对话」",
+        "P7 仍记 0（但已大幅推进）：chat-main-personal-tool-call.png 底部确认出现真实产品组件 AgentRunToolCallSteps 渲染的计划句「我需要先查一下当前时间，再回答这个问题。」+「调用 lookup_time · 完成」+ 参数 + 结果；残缺项是 chat-ux-acceptance-criteria.md 第 3 项枚举的「正在调用 XX」在途态——AgentRunStepStatus 契约只有 succeeded|failed，deep-agent-model-provider.ts:extractToolCallEvents 只在 tool 结果消息到达后才 emit，故在途态结构性不存在，也无任何截图证明运行中屏上看得到在调哪个工具",
+        "H3 实测：verify:base 退出码 0；verify:chat-read 第一次因 chat-read.spec.ts:4 的 page.goto 超 120s 失败（机器 load 26/50/56，10 核），同命令原地复跑 3 passed 退出码 0，判为机器争用下的时序假阴性，非本轮回归"
       ],
       "watch": [
         "apps/web/components/chat/personal-chat-screen.tsx",
