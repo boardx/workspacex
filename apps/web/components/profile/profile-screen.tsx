@@ -3,9 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, BrainCircuit, CheckCircle2, ChevronRight, Clock, ImagePlus, KeyRound, User,
+  AlertTriangle, BrainCircuit, CheckCircle2, ChevronRight, Clock, ImagePlus, KeyRound, LogOut, User,
 } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,14 +27,37 @@ const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
  * 改密码、活动记录三块）。
  */
 export function ProfileScreen() {
-  const { session, identity, updateDisplayName, updateAvatarUrl } = useSession();
+  const { session, identity, updateDisplayName, updateAvatarUrl, logout } = useSession();
 
   return (
     <AppShell previewRole={null}>
       <div className="mx-auto flex max-w-lg flex-col gap-6 p-6" data-testid="profile-screen">
-        <div className="flex items-center gap-2">
-          <User aria-hidden className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-16 font-semibold tracking-tight">个人资料</h1>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <User aria-hidden className="h-5 w-5 text-muted-foreground" />
+            <h1 className="text-16 font-semibold tracking-tight">个人资料</h1>
+          </div>
+
+          {/*
+            移动端专用（375px，2026-08-09 信息架构调整）—— 主题切换与退出现在只挂在桌面档
+            左下角个人菜单（`personal-menu.tsx`，`<md` 时 IconRail 整体隐藏，那份下拉不可达）。
+            这两个动作因此在移动端会彻底没有入口，除非在这里单独补一条：只在 `<md` 显示
+            （`md:hidden`），避免和桌面档的下拉在同一视口里出现「同一功能两个入口」。
+            移动端「我」tab 直达本页（路由跳转，不适合弹出个人菜单那种覆盖层交互），
+            所以选择把这两个动作前置到页面顶部，而不是也给底部 tab 加一层弹层。
+          */}
+          <div className="flex shrink-0 items-center gap-1 md:hidden" data-testid="profile-mobile-actions">
+            <ThemeToggle testId="profile-mobile-theme-toggle" role={undefined} className="w-auto" />
+            <Button
+              size="xs"
+              variant="ghost"
+              data-testid="profile-mobile-logout"
+              onClick={logout}
+            >
+              <LogOut aria-hidden className="h-3 w-3" />
+              退出
+            </Button>
+          </div>
         </div>
 
         {/*

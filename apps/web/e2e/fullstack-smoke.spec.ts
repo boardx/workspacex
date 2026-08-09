@@ -85,7 +85,10 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByTestId("app-shell")).toBeVisible();
   await expect(page.getByTestId("org-switcher")).toHaveValue(FULLSTACK_E2E.orgId);
-  await expect(page.getByTestId("session-logout")).toBeVisible();
+  // 退出已从顶栏挪进左下角个人菜单（2026-08-09 信息架构调整）——先展开菜单再断言。
+  await page.getByTestId("rail-profile-menu").click();
+  await expect(page.getByTestId("personal-menu-logout")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await page.goto("/projects");
   await expect(page.getByTestId(`projects-card-${FULLSTACK_E2E.projectId}-enter`)).toBeVisible();
