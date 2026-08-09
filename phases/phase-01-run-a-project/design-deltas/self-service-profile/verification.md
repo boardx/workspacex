@@ -31,4 +31,16 @@ pnpm --filter @repo/api test -- tests/identity/list-own-activity-scoped-to-self.
 pnpm --filter web exec playwright test e2e/self-service-profile.spec.ts
 ```
 
-覆盖：改姓名刷新后仍在 → 改密码后用新密码能登录、旧密码不能 → 活动记录列表非空且只含自己的事件。
+覆盖：改姓名刷新后仍在 → 改密码后用新密码能登录、旧密码不能。
+
+## 已知缺口，切到下一个 delta（2026-08-09，人类裁决，见 PR #797 独立复核）
+
+`listOwnActivity` 本身（读路径 + 授权 + 反证）在本轮范围内、必须实现且必须通过上面「实现门」
+的三条测试。**但**"活动记录列表非空"这条 e2e 断言被撤回——独立复核实测发现
+`updateOwnProfile`/`changeOwnPassword`/`uploadOwnAvatar`/`createTeam`/`renameTeam`/`deleteTeam`
+六条写路径都没有调用 `provenance.append`，活动记录面板因此永远为空，不是"读路径没做"，是
+"没有任何写路径产生它要读的数据"。
+
+⇒ 本轮验收**不要求**活动记录非空；六条写路径补 provenance 落库、并把这条 e2e 断言加回来，
+是**下一个 delta** 的范围，不在这份 verification.md 里预先声明具体形状（避免"规范写了没人排期"
+的重演——AGENTS.md 那条「没有脚本的规范条目视为未落地」）。
