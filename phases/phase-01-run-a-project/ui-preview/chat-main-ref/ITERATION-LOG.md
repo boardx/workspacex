@@ -302,3 +302,40 @@ P8（语音实时转录）、P9（失败态）本轮**零截图覆盖**——不
    工作量最大，放最后）
 
 1-3 目标：P10 转正。4-5 各自独立、成本较低。6 最后啃。
+
+---
+
+### 第 9 轮（2026-08-09，实测 SHA `7b11d47f`）—— rev-uiux 评分 **D 组 1/10（未复核，沿用）· P 组 5/10（与第 8 轮持平）**
+
+本轮做了上一轮计划的第 1、2 项（裸 run id 徽标、矛盾文案），第 3 项（agent 计数口径）
+查证代码后确认是 O-24 既有设计（`thread-badges.ts:142` `threadAgentSummary`——「N 个
+agent」统计的是**已发言过**的 agent 数，不是可选数，新线程 0 个是对的），不是 bug，
+**没有改**。评分员核过代码后采纳这个判断，未把它计入扣分。
+
+#### 两处真 bug 确认修好，但同一维度冒出一处新的
+评分员逐像素放大复核确认：`run {runId}` 裸 UUID 徽标消失、「不会合成即时 AI 回复」
+矛盾文案已改。但本轮才看清楚一处此前没注意到的问题：**人的气泡和 agent 的气泡字号不
+一样**——人走纯文本 `<p>`（`text-12`，12px），agent 走 CopilotKit 的 `<Markdown>`
+组件，内部 `<p>` 套着 `.copilotKitParagraph`，被 `@copilotkit/react-ui/styles.css`
+自带的 `font-size: 1rem`（16px）撑大，同一条对话流两种字号，正是评分卡第 10 项点名的
+「风格孤岛」。另外还抓到一处过期态：agent 回复写回后左栏「N 个 agent」没有跟着刷新，
+同一帧里「0 个 agent」和刚说完话的回复同屏——这不是口径问题（口径本身没错），是纯粹的
+缺一次重读。
+
+两道门本轮评分员自己重跑：`verify:base` 39/39，`verify:chat-read` 3 passed。
+
+#### 本轮已修（第 10 轮验证中）
+1. `apps/web/app/globals.css` 加 `.copilotkit-message-markdown .copilotKitParagraph
+   { @apply text-12; }`，复用 `lib/font-scale.ts` 已生成的 Tailwind 工具类覆盖第三方
+   样式，不新写一份字号数值。
+2. `ChatLiveMessagePanel` 加 `onRunSettled?: () => void`，run 到终态、`loadPage`
+   重读消息页后一并触发；`PersonalChatScreen` 经 `PersonalThreadDetail` 透传自己的
+   `loadThreads`。项目对话侧本轮未接入（人类指示项目对话先不做），只加了可选 prop，
+   不影响 D 组现状。
+
+731 单测全绿，lint（含 lint-design.sh）/typecheck 干净。
+
+#### 下一轮计划（不变，第 8 轮定的顺序）
+4. 补一张语音转录中截图（P8）
+5. 补一张失败态截图（P9）
+6. 消息流真流式渲染 + 换真会调 skill 的 agent（P6/P7，工作量最大）
