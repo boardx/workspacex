@@ -1,4 +1,9 @@
 node_modules/
+# ⚠ 不带斜杠的这条是必须的：`node_modules/` 只匹配**目录**，不匹配同名的**符号链接**。
+# 2026-08-09 实测事故：在 worktree 里用 `ln -s .../node_modules node_modules` 图省事，
+# `git add -A` 把那个符号链接提交了进去，CI 的 pnpm install 当场秒级失败
+# `ENOTDIR: not a directory, mkdir '.../node_modules'`（PR #842）。
+node_modules
 dist/
 .turbo/
 *.log
