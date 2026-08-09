@@ -30,6 +30,40 @@
 ALTER TABLE capability_listings ADD COLUMN IF NOT EXISTS abbr text;
 ALTER TABLE capability_listings ADD COLUMN IF NOT EXISTS duty text;
 
+/* ── 先回填既有行，再加约束（否则真实部署升级必炸）─────────────────────────────
+ *
+ * ⚠ 这一段是**反证出来的，不是想出来的**。原版本直接 ADD CONSTRAINT，全套测试却是绿的：
+ * 测试库都是从零建的，本文件（20260807000000）排在 i617（20260807030000）和一切
+ * 写 agent 的路径之前跑，**约束加上去时表是空的**，于是"能不能升级一个已经有 agent
+ * 的库"这个问题在测试里根本没被问过。实测复现（scratch 库 wsx_i619_up2）：
+ *   1. 摘掉本文件跑 migrate（= main 的既有部署形状）
+ *   2. 按 main 的 `ensureSystemAgent` 形状插一行无 abbr/duty 的 agent listing
+ *   3. 放回本文件跑 migrate ⇒
+ *      `migration ...i619... failed: check constraint
+ *       "capability_listings_agent_needs_abbr_duty" of relation
+ *       "capability_listings" is violated by some row`
+ * 每个跑过 #662/#691 的部署都有这样的行（每个 org 至少一个默认 agent），所以这不是
+ * 边角情况，是**升级必炸**。
+ *
+ * 回填取值的优先级，两条都用"已经存在的事实"，不发明数据：
+ *   ① `org_agents` 里有对应行 ⇒ 用它的 abbr/duty。这本来就是本次收敛的来源表，
+ *      它的 abbr/duty 正是 F110 面板一直在用的那份。
+ *   ② 没有对应行（agent 由 starter-pack / 系统预置建出来，从没进过 org_agents）⇒
+ *      用同一分支 `pg-agent-starter-import-repository.ts` 已在用的同一条派生规则
+ *      （abbr = 名字前两字大写，duty = 名字），保持一处规则一份写法。
+ */
+UPDATE capability_listings cl
+   SET abbr = COALESCE(NULLIF(trim(oa.abbr), ''), cl.abbr),
+       duty = COALESCE(NULLIF(trim(oa.duty), ''), cl.duty)
+  FROM org_agents oa
+ WHERE oa.agent_id = cl.id AND oa.org_id = cl.org_id AND cl.kind = 'agent';
+
+UPDATE capability_listings
+   SET abbr = COALESCE(NULLIF(trim(abbr), ''), upper(substring(trim(name) from 1 for 2))),
+       duty = COALESCE(NULLIF(trim(duty), ''), trim(name))
+ WHERE kind = 'agent'
+   AND (abbr IS NULL OR trim(abbr) = '' OR duty IS NULL OR trim(duty) = '');
+
 -- 与既有的 `capability_listings_team_only_needs_team` 同一条规则同一个理由：
 -- 「kind=agent 却没有 abbr/duty」不是更宽松的规则，是**无法回答**的规则——
 -- AI 团队面板的 I-17（domain.md）要求"每个 agent 必须有非空 duty"，写在这里的 CHECK
