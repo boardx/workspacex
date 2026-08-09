@@ -6,6 +6,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
@@ -174,7 +175,9 @@ function CreateTeamForm({
       data-testid="org-admin-create-team-form"
     >
       <div className="flex flex-1 flex-col gap-1">
+        <Label htmlFor="new-team-name">新团队名称</Label>
         <Input
+          id="new-team-name"
           value={name}
           onChange={(e) => {
             setName(e.currentTarget.value);
@@ -277,6 +280,7 @@ function TeamRow({
               }}
               disabled={busy}
               autoFocus
+              aria-label={`重命名团队 ${team.name}`}
               data-testid={`org-admin-team-${team.teamId}-rename-input`}
               aria-invalid={fieldError !== null}
             />
@@ -284,12 +288,17 @@ function TeamRow({
               <p role="alert" data-testid="err-team-name" className="text-10 text-destructive">{fieldError}</p>
             ) : null}
           </div>
-          <Button type="submit" size="xs" variant="primary" disabled={busy} data-testid={`org-admin-team-${team.teamId}-rename-confirm`}>
+          <Button
+            type="submit" size="xs" variant="primary" disabled={busy}
+            aria-label="确认改名"
+            data-testid={`org-admin-team-${team.teamId}-rename-confirm`}
+          >
             <Check aria-hidden className="h-3 w-3" />
           </Button>
           <Button
             type="button" size="xs" variant="ghost" disabled={busy}
             onClick={() => { setMode("view"); setName(team.name); setFieldError(null); }}
+            aria-label="取消改名"
             data-testid={`org-admin-team-${team.teamId}-rename-cancel`}
           >
             <X aria-hidden className="h-3 w-3" />
