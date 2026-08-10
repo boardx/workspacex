@@ -706,7 +706,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // (`requireAdminRole`, which despite its name only confirms membership); admin-only reads/
     // writes (listInvites/updateOrganization/storeAvatar) are gated by `actorOrgRole !== "admin"`
     // in the use case, BEFORE this repository is ever reached -- same shape as #785's entry.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(44);
+    //
+    // ⚠ Raised 44 -> 45 by #660 (agent publish state machine): new entry is
+    // `infrastructure/agent/pg-agent-publish-repository.ts` -- see that entry's own paragraph
+    // in `lint-permission-paths.mjs` (org-membership decided one layer up, in
+    // `application/agent/agent-publish.ts`, as BOTH use cases' FIRST action before any
+    // repository call; the `agents` row read never reaches a response -- the contract's `out`
+    // is a state + a boolean + a count + a null -- and the `skill_reviewer_functions` read is
+    // keyed by the authenticated caller's own `principal_id`, i.e. "what function do I hold",
+    // never a roster). Premises enforced by `tests/agent-runtime/agent-publish-repo-guard.test.ts`.
+    // ⚠ 本条与 #363 是同一轮里各自 +1 的两条，不是重复：两个条目、两个仓储、两份前提测试。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(45);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

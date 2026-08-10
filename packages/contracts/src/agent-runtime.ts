@@ -2485,4 +2485,14 @@ export const KNOWN_CONTRACT_GAPS = {
    * `null` 意为「本层未设置」，**不是** `false`。
    */
   AR10: "the three project-level AI switch defaults are deliberately absent; they live in thresholds.ts as known:false after the F58 fabricated-source retraction",
+  /**
+   * **「前驱状态不对」这个失败没有码**（#660 接线时实测发现）。
+   * `submitAgentForReview` 只能从 `草稿` 出发、`decideAgentPublish` 只能从 `待审核` 出发——
+   * 重复提交、或直接批准一个还没提交的草稿，**都必须拦**（否则 `草稿 → 运行中` 就出现了
+   * 一条绕过评审的边）。但两个操作的 `err` 数组里都没有能表达它的成员。
+   * ⇒ 服务端目前只能用 HTTP 409 表达，响应体**不带** `reasonCode`
+   *   （`all-exceptions.filter.ts` 只放行契约闭集枚举，自造的码会被丢弃——这是对的）。
+   * 本文件**不发明这个码**（发明一个码等于替签核人做决定，同 AR7 的理由）。
+   */
+  AR11: "neither submitAgentForReview.err nor decideAgentPublish.err can express a wrong-precedent-state refusal (duplicate submit, or approving a 草稿); the server can only answer HTTP 409 with no reasonCode until a code is signed off",
 } as const;

@@ -232,6 +232,8 @@ import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agu
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
+import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
+import { PgAgentPublishRepository, PgAgentReviewerFunctionPort } from "./infrastructure/agent/pg-agent-publish-repository";
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
@@ -240,6 +242,7 @@ import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-re
 import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
+import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
@@ -492,6 +495,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     CopilotkitAguiController,
     AgentTrialRunController,
     AgentController,
+    AgentPublishController,
     SkillController,
     SkillReviewController,
     SkillMountController,
@@ -604,6 +608,16 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: CREATE_AGENT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgCreateAgentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_PUBLISH_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgAgentPublishRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: AGENT_REVIEWER_FUNCTION_PORT,
+      useFactory: (db: DatabasePort) => new PgAgentReviewerFunctionPort(db),
       inject: [DATABASE_PORT],
     },
     {
