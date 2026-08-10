@@ -182,22 +182,59 @@ test("a rejected create shows the backend's real failure envelope (reasonCode + 
 test("counterproof: with the create request stubbed out in the browser, the skill does not survive a reload", async ({ page }) => {
   const NAME = FULLSTACK_E2E.skillCounterproofName;
 
-  let intercepted = 0;
-  await page.route(`**${CREATE_PATH}`, async (route: Route) => {
-    if (route.request().method() !== "POST") return route.fallback();
-    intercepted += 1;
-    // 契约 `createSkillDraft.out` 的合法形状，只是从来没有到过服务端。
-    await route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: "skill-counterproof-520",
-        versionId: "skillver-counterproof-520",
-        source: "自建",
-        status: "草稿",
-      }),
-    });
+  /**
+   * #861 —— 首屏列表**扣住不放**，直到创建请求真的发生。
+   *
+   * 这不是「让用例慢一点」，是把一个原本偶发的窗口变成**必然**的窗口。CI 上本条用例
+   * 间歇红在下面那句 `toContainText(NAME)`：提示出来了，列表里却没有那一行 ——
+   * 因为本屏的乐观插入曾经写成「只有列表已经 ready 才插得进去」，于是提交落在
+   * 「首屏 GET 还在飞」这段时间里时，那一行被静默丢掉，随后到达的响应再把
+   * state 覆盖成纯服务端结果。stub 出来的 201 零网络延迟，最容易撞进这个窗口。
+   *
+   * ⚠ 修法不是加重试、不是调大 timeout —— 多等一会儿那一行永远不会自己回来。
+   *   修的是本屏（`skill-catalog-live.tsx` 的 `pending`）：创建之前就已在飞的那次读取
+   *   不许否定一件在它之后发生的事；创建之后发起的读取（刷新 / 本用例下面的
+   *   `reload()`）照旧抹掉它 —— 所以本条反证的**红点没有被削弱一分**。
+   * ⚠ 扣的是「直到 POST 发生」，不是一个固定毫秒数：后者在快机器上会漏掉窗口，
+   *   于是这条门控会在最需要它的地方（快 CI）悄悄不再考验任何东西。
+   */
+  let releaseFirstList: () => void = () => {};
+  const firstListHeld = new Promise<void>((resolve) => {
+    releaseFirstList = resolve;
   });
+  let listRequests = 0;
+  let intercepted = 0;
+
+  // ⚠ 一个 handler 管两个方法，匹配器用**函数**而不是 glob：`GET /skills?orgId=…` 带查询串，
+  //   它与 `POST /skills` 能不能被同一个 glob 命中要看版本，两条 route 的先后与
+  //   `fallback()` 的走向也随之而变——那是一个会随依赖升级悄悄失效的假设。
+  //   按 pathname 判定则不依赖任何 glob 语义（详情 `GET /skills/:id` 的 pathname 不同，不受影响）。
+  await page.route(
+    (url: URL) => url.pathname === CREATE_PATH,
+    async (route: Route) => {
+      if (route.request().method() === "GET") {
+        listRequests += 1;
+        // 首屏那次扣住；`reload()` 之后那次照常放行——反证靠的就是它读回真实的库。
+        if (listRequests === 1) await firstListHeld;
+        return route.continue();
+      }
+      if (route.request().method() !== "POST") return route.continue();
+      intercepted += 1;
+      // 首屏列表在**创建之后**才回来：这正是 CI 上偶发命中的那个次序。
+      releaseFirstList();
+      // 契约 `createSkillDraft.out` 的合法形状，只是从来没有到过服务端。
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skillId: "skill-counterproof-520",
+          versionId: "skillver-counterproof-520",
+          source: "自建",
+          status: "草稿",
+        }),
+      });
+    },
+  );
 
   await loginAsAdmin(page);
   await openSkillCatalog(page);
@@ -205,6 +242,9 @@ test("counterproof: with the create request stubbed out in the browser, the skil
 
   // 拦截真的发生了——否则下面的「刷新后不在」可能只是因为这次根本没建。
   expect(intercepted).toBe(1);
+  // #861 的自检：首屏那次读取**确实**被扣在了创建之前（否则上面那段 route 就是个空转，
+  // 本用例又退回成「碰运气命中窗口」——它在 CI 上正是因此偶发红的）。
+  expect(listRequests).toBe(1);
 
   // ⚠ 反证自身的自检：界面一度显示成功，且那一行**确实出现在列表里**。
   //   有了这两条，下面的 `reload()` 才是本用例唯一变红的原因。
