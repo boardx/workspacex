@@ -53,12 +53,59 @@
 > 的深水区：这些版本我会**做完设计 + 落地不需签核的部分 + 把待签处准备好**，裁决问 coord-main，
 > 签核留人类。宁可 V9/V10 停在「设计 + 骨架 + 待签」，也不伪造签核或做假 UI。
 
-## 执行台账（逐轮回填）
+## 执行台账（2026-08-11 夜间自主开发，逐轮回填）
 
-| 版本 | issue | PR | 状态 | 证据 |
-|---|---|---|---|---|
-| V1 | — | — | 进行中 | — |
-| V2–V10 | — | — | 待办 | — |
+| 版本 | 改进 | issue | PR | 状态 | 证据 |
+|---|---|---|---|---|---|
+| V1 | 消息区自动跟随到底（贴底才跟，上滚不打断） | #888 | #892 | ✅ 已合入 main | verify:chat-read + 到底断言 |
+| V2 | ⌘↵ / Ctrl+↵ 发送 | #893 | #897 | ✅ 已合入 main | verify:chat-read 4/4 |
+| V3 | 逐条消息复制按钮 | #900 | #903 | ✅ 已合入 main | verify:chat-read + 剪贴板断言 |
+| V4 | 消息首载骨架屏 | #904 | #905 | ✅ 已合入 main | verify:chat-read 5/5 确定性骨架断言 |
+| V5 | jump-to-latest 悬浮按钮（原计划流式，见下改判） | #906 | #907 | ✅ 已合入 main | verify:chat-read 6/6 |
+| V6 | 思考折叠块「思考了 X 秒 · N 步」（run steps 真实派生） | #908 | #909 | ✅ 已合入 main | shots:chat-main + verify:chat-read 6/6 |
+| V7 | 输入区多行自动增高（原计划工具富化，见下改判） | #910 | #911 | ✅ 已合入 main | verify:chat-read 7/7 + verify:core-loop 13/13 |
+| V8 | context engine：滚动摘要 + token 预算（端口内侧） | — | 设计 #895 | 🟡 设计完成，实现待 coord-main 串行窗口 | `PROP-CHAT-CONTEXT-ENGINE-001.md` §3 |
+| V9 | 文件上传 / 附件 | — | 设计见下 §V9 | 🔴 需 design-signoff（人类离线） | 本文 §V9 设计 + 待签 |
+| V10 | context-pack/retrieval 接进 chat | — | 设计 #895 | 🔴 需 design-signoff（人类离线） | `PROP-CHAT-CONTEXT-ENGINE-001.md` §4 |
+
+### 计划中途的两次诚实改判（不谎报未验证能力）
+- **V5 原为「流式逐字」**：实测 main 无任何 config 开 `KERNEL_MODEL_STREAM_ENABLED`、
+  无 loopback 发 SSE delta ⇒ 本地真栈跑不出逐字流式，无法验证。为不谎报，V5 改交付
+  可验证的 jump-to-latest（同属「生成期控制感」目标）。**真 SSE 流式**需要①后端开
+  streaming 配置②loopback 加 delta 发射，二者都超出纯前端、且碰 #775 悬顶的编排层内部，
+  已发 coord-main 裁决是否补 loopback delta（未回）——列为 flagged 项。
+- **V7 原为「工具调用富化（token 计数/命中/复用）」**：需要后端给 `agent_run_steps`
+  加字段 = 契约变更 + design-signoff（人类夜间离线，签核不可得）。为不伪造签核，V7 改
+  交付可验证的输入区多行自动增高，工具富化转入 §V7' 设计待签。
+
+## §V7' 工具调用富化（设计，待签核）
+判据 D6 / 验收#3 要「命中/复用/token 计数」。现状 `AgentRunStep`（`wave2-runtime.ts:260`）
+只有 kind/status/时间/digest/toolName/toolArgsSummary/toolResultSummary/planningNote，
+**没有** token 用量、缓存命中/复用标记。要富化需：①契约 `AgentRunStep` 加
+`tokenUsage?/cacheHit?` 等字段②后端 `execute-run.ts` 的 `record()` 真实填充（provider
+自报值，本仓无本地估算，见 ports.ts:400）③前端渲染。①是契约单源变更走 ADR-020 + 束级
+design-signoff。**无真值不显示**（不编数字）。待人类签核 + coord-main 给 execute-run 窗口。
+
+## §V9 文件上传 / 附件（设计，待签核）
+现状：`chat_messages`（`0021-f108-chat-visibility.sql`）无附件列，composer 无上传 UI，
+无注入 `ModelCallInput` 的路径——三件套全缺。设计：
+1. **数据模型**：新表 `chat_message_attachments`（message_id FK / org_id / storage_ref /
+   mime / bytes / created_at）或 `chat_messages` 加 jsonb 附件列——**新 migration + 契约**。
+   复用已有的 files/interview 域的对象存储（`application/files/download-ports.ts` 那套），
+   不新造存储。
+2. **上传端点**：`POST /chat/threads/:threadId/messages` 扩展或独立
+   `POST .../attachments`（multipart）——**契约变更**。
+3. **composer UI**：📎 按钮 + 拖拽区 + 附件预览（纯前端，但依赖 1/2 的真实后端，
+   否则违反「无真实后端不做假 UI」硬规）。
+4. **注入上下文**：附件内容（文本/OCR/图片多模态）如何进 `ModelCallInput`——与 V8 的
+   `ContextAssemblyPort` 同一个组装窗口，且 `ModelCallPort` 契约不动（裁决 A 条件）。
+**全链需 design-signoff（人类）**：涉及新表、契约、存储、上下文注入四处。夜间只能到
+「设计 + 待签」，不伪造签核、不做无后端的假上传 UI。
+
+## 交付小结（夜间自主边界内）
+- **可自主落地的（纯前端 / 契约无关）：V1-V7 全部合入 main，各带真栈 e2e 证据。**
+- **需人类签核的：V8（部分，+coord-main 窗口）/ V9 / V10 + V5 真流式 + V7' 工具富化——
+  设计完成、待签处备好，绝不伪造签核、绝不做无后端假 UI。**
 
 ## 需要 coord-main 裁决的（夜间路由）
 1. **#775 采纳与否**：若 CopilotKit+LangGraph 全量替换 chat 编排层会被采纳，V5–V10 里动
