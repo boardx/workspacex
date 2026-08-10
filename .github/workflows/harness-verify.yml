@@ -145,6 +145,12 @@ jobs:
       - name: 受影响模块 typecheck/lint/test
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
+          # 这里声明 "workspacex" 是**诚实的**，不是绕门：GitHub 托管 runner 是独占的
+          # 一次性 VM，postgres 由 ensureDatabase() 在本 job 里现起，不存在与任何其它
+          # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
+          # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
+          WORKSPACEX_DB: workspacex
         run: pnpm turbo run typecheck lint test --affected
 
   fullstack-smoke:
