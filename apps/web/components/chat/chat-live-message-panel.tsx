@@ -386,6 +386,19 @@ export function ChatLiveMessagePanel({
     setQueuedRun(null);
   };
 
+  /**
+   * V2（PROP-CHAT-10ITER-001）—— ⌘↵ / Ctrl+↵ 发送，对标 Claude Code。
+   * 纯 Enter 保持换行（多行输入不被打断）；只有带 meta/ctrl 修饰的 Enter 才发送。
+   * `submit` 自身已守空文本/无 agent/归档/发送中四道门，这里只负责「拦下这次按键、
+   * 触发发送」，不重复判定。
+   */
+  const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      void submit();
+    }
+  };
+
   const submit = async () => {
     const normalizedText = text.trim();
     if (normalizedText === "" || selectedAgentId === "" || archived || submitting) return;
@@ -652,6 +665,7 @@ export function ChatLiveMessagePanel({
             value={text}
             disabled={archived || submitting}
             onChange={(event) => updateDraft({ text: event.target.value })}
+            onKeyDown={handleComposerKeyDown}
             className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
           />
           {/*
@@ -697,7 +711,7 @@ export function ChatLiveMessagePanel({
                 className="rounded-full"
                 data-testid="chat-message-submit"
                 aria-label={submitting ? "发送中" : "发送并排队"}
-                title={submitting ? "发送中…" : "发送并排队"}
+                title={submitting ? "发送中…" : "发送并排队（⌘↵ / Ctrl+↵）"}
                 disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >
