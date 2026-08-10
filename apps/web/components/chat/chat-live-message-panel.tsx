@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, Check, CheckCircle2, Copy, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
+import { ArrowDown, Bot, Check, CheckCircle2, Copy, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
 import { Markdown } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
@@ -158,11 +158,26 @@ export function ChatLiveMessagePanel({
   const scrollAreaRef = React.useRef<HTMLDivElement | null>(null);
   const atBottomRef = React.useRef(true);
   const BOTTOM_FOLLOW_THRESHOLD_PX = 80;
+  /**
+   * V5（PROP-CHAT-10ITER-001）—— jump-to-latest 悬浮按钮的显隐。V1 的 `atBottomRef`
+   * 是给「自动跟随判定」用的 ref（不触发渲染）；按钮显隐必须进 state 才能重渲染，
+   * 所以这里单独用一个 state，在同一个 onScroll 里一起更新。用户不在底部附近 ⇒ 显示。
+   */
+  const [showJumpToLatest, setShowJumpToLatest] = React.useState(false);
   const handleScrollAreaScroll = React.useCallback(() => {
     const el = scrollAreaRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    atBottomRef.current = distanceFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
+    const atBottom = distanceFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
+    atBottomRef.current = atBottom;
+    setShowJumpToLatest((current) => (current === !atBottom ? current : !atBottom));
+  }, []);
+  const scrollToLatest = React.useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    atBottomRef.current = true;
+    setShowJumpToLatest(false);
   }, []);
   /**
    * V3（PROP-CHAT-10ITER-001）—— 逐条消息复制。`copiedMessageId` 记住「刚复制的是哪条」，
@@ -505,7 +520,7 @@ export function ChatLiveMessagePanel({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
+    <div className="relative flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
       <div
         ref={scrollAreaRef}
         onScroll={handleScrollAreaScroll}
@@ -683,6 +698,29 @@ export function ChatLiveMessagePanel({
           </div>
         ) : null}
       </div>
+
+      {/*
+        V5（PROP-CHAT-10ITER-001）—— jump-to-latest 悬浮按钮。仅当用户上滚离开底部
+        （`showJumpToLatest`）时出现，绝对定位在消息区底部正中、输入区上方。点击平滑滚到底。
+        条件渲染而非 visibility 切换：不在底部时它才存在，避免常驻挡内容，也让 e2e 能用
+        存在性断言（`toHaveCount`）确定性验证显隐。
+      */}
+      {showJumpToLatest ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-24 flex justify-center">
+          <Button
+            size="xs"
+            variant="outline"
+            data-testid="chat-jump-to-latest"
+            aria-label="回到最新消息"
+            title="回到最新消息"
+            className="pointer-events-auto rounded-full shadow-md"
+            onClick={scrollToLatest}
+          >
+            <ArrowDown aria-hidden className="mr-1 h-3.5 w-3.5" />
+            回到最新
+          </Button>
+        </div>
+      ) : null}
 
       {aboveComposer}
       <div className="border-t border-border p-3" data-testid="chat-composer">

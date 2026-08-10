@@ -292,3 +292,28 @@ test("V4（PROP-CHAT-10ITER-001）loading skeleton shows while messages load, th
   await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
   await expect(page.getByTestId("chat-message-loading-skeleton")).toHaveCount(0);
 });
+
+test("V5（PROP-CHAT-10ITER-001）jump-to-latest button appears on scroll-up and returns to bottom", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+
+  // 夹具有几十条消息 ⇒ 消息区溢出可滚。程序化把 scrollTop 置 0 会触发 scroll 事件，
+  // 让「不在底部」判定成立、按钮出现。
+  await page.getByTestId("chat-message-scroll").evaluate((el) => { el.scrollTop = 0; });
+  await expect(page.getByTestId("chat-jump-to-latest")).toBeVisible();
+
+  await page.getByTestId("chat-jump-to-latest").click();
+  // 点击同步隐藏按钮（存在性断言，确定性）
+  await expect(page.getByTestId("chat-jump-to-latest")).toHaveCount(0);
+  // 平滑滚动落定后回到底部（poll 等动画收尾）
+  await expect
+    .poll(async () => page.getByTestId("chat-message-scroll")
+      .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+    .toBeLessThanOrEqual(80);
+});
