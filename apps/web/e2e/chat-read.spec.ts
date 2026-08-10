@@ -317,3 +317,26 @@ test("V5（PROP-CHAT-10ITER-001）jump-to-latest button appears on scroll-up and
       .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
     .toBeLessThanOrEqual(80);
 });
+
+test("V7（PROP-CHAT-10ITER-001）composer auto-grows with multi-line input, capped", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  const input = page.getByRole("textbox", { name: "消息内容" });
+  await expect(input).toBeVisible();
+
+  const heightOf = () => input.evaluate((el) => (el as HTMLTextAreaElement).offsetHeight);
+  await input.fill("single line");
+  const singleLine = await heightOf();
+
+  // 多行输入应把输入框撑高
+  await input.fill(Array.from({ length: 12 }, (_, i) => `line ${i}`).join("\n"));
+  const manyLines = await heightOf();
+  expect(manyLines).toBeGreaterThan(singleLine);
+  // 封顶：不超过上限（200px）+ 边框余量
+  expect(manyLines).toBeLessThanOrEqual(210);
+});

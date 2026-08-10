@@ -180,6 +180,20 @@ export function ChatLiveMessagePanel({
     setShowJumpToLatest(false);
   }, []);
   /**
+   * V7（PROP-CHAT-10ITER-001）—— 输入区随内容多行自动增高。每次 `text` 变化把高度
+   * 先归零再设成 `scrollHeight`（这样删字也会缩回），封顶 `COMPOSER_MAX_HEIGHT_PX`
+   * 之后转内部滚动。与 V2 的 ⌘↵ 多行发送配套：多行输入看得全。
+   */
+  const composerRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const COMPOSER_MAX_HEIGHT_PX = 200;
+  React.useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+    el.style.overflowY = el.scrollHeight > COMPOSER_MAX_HEIGHT_PX ? "auto" : "hidden";
+  }, [text]);
+  /**
    * V3（PROP-CHAT-10ITER-001）—— 逐条消息复制。`copiedMessageId` 记住「刚复制的是哪条」，
    * 2 秒后自动清空，让图标从对勾切回复制图标（短暂反馈，不常驻）。复制的是消息**纯文本**
    * （`message.text`），不是渲染后的 HTML——用户要的是原文（含代码/markdown 源）。
@@ -759,6 +773,7 @@ export function ChatLiveMessagePanel({
         ) : null}
         <div className="rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
           <Textarea
+            ref={composerRef}
             data-testid="chat-message-input"
             aria-label="消息内容"
             placeholder="输入要持久保存并交给所选 Agent 的消息"
