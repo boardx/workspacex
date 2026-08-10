@@ -2,6 +2,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ensureReservedTestIsolation } from "./lib/test-isolation";
+import { acquireStackSlot } from "./lib/stack-admission";
 
 async function main(): Promise<void> {
   const separator = process.argv.indexOf("--");
@@ -29,6 +30,14 @@ async function main(): Promise<void> {
     }
     console.log(message);
   }
+
+  // 并行度准入：起栈前排队，不是拒绝。机器 2026-08-05 曾到 4.08 倍超额认购
+  // （load 40.78 / 10 核），`docker ps` 超时 >2min，连 `uptime` 都 300 秒没返回。
+  // 拒绝会让 agent 以为自己写错了——今天就有人把饥饿归因成自己的代码。
+  const slot = await acquireStackSlot({
+    repoRoot: fileURLToPath(new URL("../..", import.meta.url)),
+    isolationId: isolation.WORKSPACEX_ISOLATION_ID,
+  });
 
   let cleaned = false;
   function cleanup(): string | null {
@@ -66,6 +75,7 @@ async function main(): Promise<void> {
     child.once("exit", (code) => resolve({ code, error: null }));
   });
   const cleanupError = cleanup();
+  slot.release();
   if (cleanupError) console.error(`[test-isolation] cleanup failed: ${cleanupError}`);
   if (result.error) {
     console.error(`[test-isolation] failed to start ${command[0]}: ${result.error.message}`);
