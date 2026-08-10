@@ -75,6 +75,7 @@ test-results/
 # phases/…/ui-preview/chat-main-ref/ 留档。
 # ⚠ 刻意不放在 test-results/ 下 —— 那个目录被 Playwright 每次 run 清空。
 .chat-shots/
+.chat-behavior/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与

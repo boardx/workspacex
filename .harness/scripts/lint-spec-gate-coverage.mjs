@@ -71,6 +71,17 @@ const EXEMPTIONS = [
       "跟踪：#512 的 PR 正文已把此项上报 coord-chat-e2e，待其开 follow-up issue。",
   },
   {
+    spec: "apps/web/e2e/chat-behavior-shots.spec.ts",
+    reason:
+      "#814 track B —— 同 chat-main-shots：**不是规格，是取证工具**，零 expect，只为 CLR 的 " +
+      "行为体验 track 抓证据（截图 + MANIFEST），由 `pnpm run shots:chat-behavior` 显式调用，" +
+      "复用 playwright.chat-read.config.ts 的整栈。判定由 rev-e2e 看证据做——脚本自己断言 " +
+      "『行为达标』等于实现者自评，正是 CLR 的 G3 要挡的。它存在的原因：评分员在 devapp 被登录 " +
+      "卡死六小时（agent 不代输密码），而判据允许本地预览环境，本地有零人工输入的种子账号登录链路。" +
+      "⚠ 已知边界写在文件头：本地栈无真实模型 provider，十项里 1/2/3/4/6 五项在本地取证不到，" +
+      "那五项仍需 devapp——不要因为这个脚本存在就以为 track B 全部可本地化。",
+  },
+  {
     spec: "apps/web/e2e/chat-main-shots.spec.ts",
     reason:
       "#728 —— 它**不是规格，是取证工具**：整个文件里没有一条 expect，只把 `/chat` 主屏抓成 png " +
