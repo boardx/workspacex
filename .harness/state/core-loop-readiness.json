@@ -43,7 +43,6 @@
       ],
       "blocking_issues": [
         660,
-        619,
         624
       ]
     },
@@ -68,8 +67,7 @@
         "apps/api/src/infrastructure/agent-run/**"
       ],
       "blocking_issues": [
-        660,
-        619
+        660
       ]
     },
     "V-D": {

@@ -14,6 +14,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
+import { DOMAIN_SKILL_TEMPLATE_ID } from "./domain-skill-model";
 import { validateInstanceMetadata, type InstanceMetadata, type ValidationIssue } from "./template-model";
 
 const EXCLUDED_DIRS = new Set([
@@ -99,6 +100,22 @@ export function scanForInstances(repoRoot: string): ScanResult {
       continue; // 不是合法 YAML，大概率不是我们的目标文件（比如带 Jinja 占位符的模板），静默跳过
     }
     if (!looksLikeInstance(parsed)) continue;
+
+    /*
+     * ⚠ TPL-MOD-001（Domain Skill）不归本扫描管。它有自己的一套 schema
+     * （domain-skill-model.ts —— 真实形状**没有** `scope` 字段，Domain Skill 属于
+     * 长期 Domain 不属于某个 phase）和自己的验证入口
+     * （`pnpm run lint:domains-doctor`，与本扫描一样都在 verify:base 链上）。
+     * 用这里的通用 InstanceMetadata schema（要求 `scope.project`）去校验它，
+     * 产生的正是 domain-skill-model.ts 文件头预言过的那种假阳性——
+     * 实测（2026-08-10，#728 round 15）：PR #827 合入的
+     * `.agents/skills/mod-canvas-diagram/SKILL.md` 被本扫描按通用 schema 判红
+     * （TPL-INSTANCE-SCHEMA-INVALID: scope.project 必须是字符串），把 verify:base
+     * 拖红了三天，而同一份文件在 domains-doctor 下是绿的。
+     * 跳过 ≠ 放过：schema 校验责任完整地落在 domains-doctor 那条门上，
+     * 这里只是不再用错误的尺子量第二遍（AGENTS.md：同一事实不得声明在两处）。
+     */
+    if ((parsed as Record<string, unknown>)["template_id"] === DOMAIN_SKILL_TEMPLATE_ID) continue;
 
     const result = validateInstanceMetadata(parsed, relPath);
     if (result.ok && result.value) {
