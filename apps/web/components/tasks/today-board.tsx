@@ -3,6 +3,7 @@ import * as React from "react";
 import { PlugZap } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import {
   JudgmentCardView,
@@ -18,6 +19,15 @@ import {
   TODAY_SUMMARY,
   TODAY_SUMMARY_LOW_SAMPLE,
 } from "@/lib/mock/tasks";
+
+/**
+ * 中栏内容头的分组切换：按行动方 / 按项目（预览手段，切换只改本地高亮）。
+ * 原型字节 15926918 / 15927141——两个按钮和标题、`＋ 新建任务` 同在 56px 顶条，不在左栏。
+ */
+const GROUPINGS = [
+  { key: "by-actor", label: "按行动方" },
+  { key: "by-project", label: "按项目" },
+] as const;
 
 /** 四语义分区骨架（固定存在、顺序固定、空区也渲染，D-29 硬约束）*/
 function Section({
@@ -75,15 +85,43 @@ export function TodayBoard({ state }: { state: UiState }) {
   const depFailed = state === "dep-failed";
   // dep-failed 走分区级降级：整屏仍渲染，仅 ③ 区显示依赖失败。其余六态走 StateShell。
   const shellState: UiState = depFailed ? "default" : state;
+  const [grouping, setGrouping] = React.useState<string>("by-actor");
 
   return (
     <div className="flex flex-col gap-5 p-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold tracking-tight">我的今天</h1>
-        <p className="text-12 text-muted-foreground">
-          最重要的是什么 · 下一步轮到谁 · 什么在等我判断。人和 AI 共用同一种任务对象，
-          <strong className="text-background-foreground">责任人始终是人</strong>。
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-20 font-semibold tracking-tight">我的今天</h1>
+          <p className="text-12 text-muted-foreground">
+            最重要的是什么 · 下一步轮到谁 · 什么在等我判断。
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-md border border-border-subtle bg-card p-0.5" data-testid="tasks-grouping-switch">
+            {GROUPINGS.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                onClick={() => setGrouping(g.key)}
+                data-testid={`tasks-grouping-${g.key}`}
+                className={cn(
+                  "rounded-sm px-2.5 py-1 text-11 font-medium transition-colors duration-200",
+                  grouping === g.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => window.alert("演示：任务创建流程")}
+            data-testid="tasks-new-task-header"
+          >
+            ＋ 新建任务
+          </Button>
+        </div>
       </header>
 
       <StateShell

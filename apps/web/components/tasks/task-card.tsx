@@ -96,17 +96,17 @@ export function JudgmentCardView({ card }: { card: JudgmentCard }) {
           {card.risk} · {card.statusWord}
         </Badge>
         <span className="inline-flex items-center gap-1 text-10 text-muted-foreground">
-          <Clock aria-hidden className="h-3 w-3" />
-          {card.waitedBy} · {card.waitedFor}
+          {card.waitedFor && <Clock aria-hidden className="h-3 w-3" />}
+          {card.waitedFor ? `${card.waitedBy} · ${card.waitedFor}` : card.waitedBy}
         </span>
-        <span className="ml-auto text-10 text-muted-foreground">{card.due}</span>
+        {card.due && <span className="ml-auto text-10 text-muted-foreground">{card.due}</span>}
       </div>
 
       <h3 className="text-13 font-medium">{card.title}</h3>
-      <p className="text-12 text-muted-foreground">{card.question}</p>
+      {card.question && <p className="text-12 text-muted-foreground">{card.question}</p>}
 
       {card.note && (
-        <p className="inline-flex items-start gap-1 text-11 text-warning">
+        <p className="inline-flex items-start gap-1 text-11 text-muted-foreground">
           <ShieldCheck aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
           {card.note}
         </p>
