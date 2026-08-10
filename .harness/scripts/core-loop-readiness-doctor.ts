@@ -52,7 +52,7 @@ export const READINESS_PATH = join(STATE_DIR, "core-loop-readiness.json");
 
 const DISCOUNT_TEXT: Record<string, string> = {
   NEVER_SCORED: "从未评分",
-  SHA_NOT_ON_MAIN: "评分 SHA 不是 origin/main 的祖先（评的不是这棵树）",
+  SHA_NOT_ON_MAIN: "评的不是 main 这棵树（既非 main 祖先，watch 路径上的树也与 main 不同）",
   EVIDENCE_UNRESOLVABLE: "证据不可解析（路径不存在 / 锚点结构非法）",
   STALE: "分数已过期（评分后 watch 路径有改动）",
   SELF_SCORED: "自评（评分人 = 实现者）",
@@ -73,14 +73,34 @@ function changedSince(sha: string | null, watch: readonly string[]): readonly st
 }
 
 /**
- * G5：`sha` 是不是 `origin/main` 的祖先。`null` = 判不了（离线 / 没 fetch 过 / 未评分）——
- * 与 `changedSince` 同一条 null 语义：问不到不等于有问题。
+ * G5：这个分数量的**是不是 main 这棵树**。`null` = 判不了（离线 / 没 fetch / 未评分）。
+ *
+ * ## 2026-08-09 修正：从「祖先关系」改为「祖先关系 **或** watch 路径上树相同」
+ *
+ * 原实现只判 `git merge-base --is-ancestor`。它是个**有损代理**，因为本仓用 **squash 合并**：
+ * 分支上的评分 commit 在 squash 后不会成为 main 的祖先，**即使产品树逐字节没变**。
+ *
+ * 实测到的假阴性（就是这一条促成本次修正）：V-P=9 评于 `5a72973c`（分支
+ * `worker/dev-chat-e2e-02-chat-main-fidelity`，其 PR 已 squash 合入）。它不是 main 祖先，
+ * 但它 watch 路径（`personal-chat-screen.tsx` / `thread-list-shell.tsx` / `app/chat`）
+ * 与 main **差异 0 个文件** ⇒ 那个 9 分**完全适用于 main**，却被判 0。
+ *
+ * 真正该问的问题不是「这个 commit 在不在 main 的血统里」，而是
+ * **「我量的那棵树，在我关心的路径上，跟 main 一样吗」**。血统只是它的一个充分条件。
+ *
+ * ⚠ 严格性不变：树**不同**时仍然判负——那才是「量的不是这棵树」。
+ * 一个含未合并改进的分支，watch 路径必然与 main 有差异，照样被拦。
  */
-function isAncestorOfMain(sha: string | null): boolean | null {
+function measuresMainTree(sha: string | null, watch: readonly string[]): boolean | null {
   if (sha === null) return null;
   if (sh("git rev-parse --verify origin/main").code !== 0) return null;
-  if (sh(`git cat-file -e ${sha}^{commit}`).code !== 0) return false; // 对象都不在本仓 ⇒ 肯定不是祖先
-  return sh(`git merge-base --is-ancestor ${sha} origin/main`).code === 0;
+  if (sh(`git cat-file -e ${sha}^{commit}`).code !== 0) return false; // 对象都不在本仓
+  if (sh(`git merge-base --is-ancestor ${sha} origin/main`).code === 0) return true;
+  // 不是祖先——再问一次真正的问题：watch 路径上的树是否与 main 相同（squash 场景）
+  const pathspec = watch.map((w) => `'${w}'`).join(" ");
+  const diff = sh(`git diff --name-only ${sha} origin/main -- ${pathspec}`);
+  if (diff.code !== 0) return null; // 问不到不等于有问题
+  return diff.stdout.trim() === "";
 }
 
 /** G6 的仓库内路径判定。只认仓库根下的相对路径，不跟随符号链接之外的花样。 */
@@ -109,16 +129,26 @@ export function coreLoopReadiness(args: Args): void {
   const ancestryByTrack: Record<string, boolean | null> = {};
   for (const [id, t] of Object.entries(state.tracks)) {
     changedByTrack[id] = changedSince(t.scored_sha, t.watch);
-    ancestryByTrack[id] = isAncestorOfMain(t.scored_sha);
+    ancestryByTrack[id] = measuresMainTree(t.scored_sha, t.watch);
   }
 
   const v = judgeReadiness(state, changedByTrack, ancestryByTrack, repoPathExists);
   const head = sh("git rev-parse HEAD").stdout.trim();
 
-  const verdict = v.passes ? `✅ 达标（门槛 ${PASS_THRESHOLD}）` : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;
+  // 方案 A：分数够高但有过期时，必须**说清楚是因为过期才不算达标**——
+  // 否则「CLR 9.2 · 未达标」看起来像门坏了，读的人会去怀疑工具而不是去重评。
+  const verdict = v.passes
+    ? `✅ 达标（门槛 ${PASS_THRESHOLD}）`
+    : v.clr >= PASS_THRESHOLD
+      ? `⚠ 分数够但不算达标：${v.staleCount} 条 track 已过期，需在当前 HEAD 重评`
+      : `未达标（门槛 ${PASS_THRESHOLD}，还差 ${round1(PASS_THRESHOLD - v.clr)}）`;
   log.step(`核心闭环就绪度 CLR = ${v.clr} / 10   ${verdict}   （实测 HEAD: ${head.slice(0, 12)}）`);
   log.info(`   公式：min( 可达性 ${v.reachability} , 体验均值 ${v.experienceMean} )`);
   log.info(`   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。`);
+  if (v.staleCount > 0 && !v.passes) {
+    log.info(`   ⚠ ${v.staleCount} 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），`);
+    log.info(`      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。`);
+  }
   log.info("");
   log.info("| track | 记录分 | 计入分 | 为什么 |");
   log.info("|---|---|---|---|");

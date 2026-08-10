@@ -61,10 +61,14 @@ describe("judgeTrack：四道门，每道一对（该红的红 / 不该红的不
   });
 
   // ── G2 过期分数记 0 ────────────────────────────────────────────────────
-  it("G2 反证：watch 命中的文件在评分后改过 ⇒ 过期 ⇒ 记 0", () => {
+  it("G2 反证：watch 命中的文件在评分后改过 ⇒ 判定为过期", () => {
+    // ⚠ 2026-08-09 方案 A 改了后果，没改**检出**：STALE 仍然要被检出（这条断言），
+    // 但它不再清零——分数计入 `clr`，改为阻断 `passes`。理由见 judgeTrack 里的长注释：
+    // 过期是六种扣分里唯一「测量有效、只是稍旧」的一种。清零的语义由下面那组用例守。
     const v = judgeTrack("B", healthy(), ["apps/web/components/chat/chat-read-screen.tsx"]);
     expect(v.discounts).toContain("STALE");
-    expect(v.effectiveScore).toBe(0);
+    expect(v.isStale).toBe(true);
+    expect(v.effectiveScore).toBe(8); // 如实计入，不再是 0
   });
 
   it("G2 不误伤：改的文件不在 watch 里 ⇒ 分数仍然有效", () => {
@@ -271,6 +275,71 @@ describe("PASS_THRESHOLD：合格门槛 9（人类 2026-08-09 裁决 #831）", (
       tracks: { ...s.tracks, B: healthy({ score: 10, evidence: [] }) }, // G4 无证据
     };
     expect(judgeReadiness(broken, {}).passes).toBe(false);
+  });
+});
+
+describe("方案 A：STALE 计入 clr 但阻断 passes（人类 2026-08-09 裁决）", () => {
+  const st = (over: Record<string, Partial<TrackRecord>> = {}): ReadinessState => ({
+    version: 1,
+    tracks: {
+      R: healthy({ score: 9, ...(over.R ?? {}) }),
+      B: healthy({ score: 9, ...(over.B ?? {}) }),
+      "V-D": healthy({ score: 9, ...(over["V-D"] ?? {}) }),
+      "V-P": healthy({ score: 9, ...(over["V-P"] ?? {}) }),
+    },
+  });
+
+  it("STALE 不再清零 —— 分数如实计入（这正是 track R 6/10 被旧规则吃掉的那个场景）", () => {
+    const v = judgeTrack("R", healthy({ score: 6 }), ["apps/web/components/chat/x.tsx"]);
+    expect(v.discounts).toContain("STALE");
+    expect(v.effectiveScore).toBe(6);   // ← 旧规则这里是 0
+    expect(v.isStale).toBe(true);
+  });
+
+  it("但它阻断达标：四条全 9 分、其中一条过期 ⇒ clr=9 却 passes=false", () => {
+    const v = judgeReadiness(st(), { R: ["apps/web/components/chat/x.tsx"] });
+    expect(v.clr).toBe(9);
+    expect(v.staleCount).toBe(1);
+    expect(v.passes).toBe(false);       // ← 严格性挪到这里，没有放松
+  });
+
+  it("全部新鲜且够分 ⇒ 真达标", () => {
+    const v = judgeReadiness(st(), {});
+    expect(v.clr).toBe(9);
+    expect(v.staleCount).toBe(0);
+    expect(v.passes).toBe(true);
+  });
+
+  it("其余五种扣分仍然清零 —— 只有 STALE 被特赦", () => {
+    expect(judgeTrack("R", healthy({ evidence: [] }), []).effectiveScore).toBe(0);
+    expect(judgeTrack("R", healthy({ scored_by: "rev-uiux" }), []).effectiveScore).toBe(0);
+    expect(judgeTrack("R", healthy({ implemented_by: "rev-e2e" }), []).effectiveScore).toBe(0);
+    expect(judgeTrack("R", healthy({ score: 11 }), []).effectiveScore).toBe(0);
+    expect(judgeTrack("R", healthy({ score: null, scored_sha: null, scored_by: null }), []).effectiveScore).toBe(0);
+    expect(judgeTrack("R", healthy(), [], false).effectiveScore).toBe(0); // SHA_NOT_ON_MAIN
+  });
+
+  it("过期 + 无效同时命中 ⇒ 仍然清零（特赦只对「单独过期」生效）", () => {
+    const v = judgeTrack("R", healthy({ evidence: [] }), ["apps/web/x.ts"]);
+    expect(v.isStale).toBe(true);
+    expect(v.effectiveScore).toBe(0);
+  });
+
+  it("真实场景回归：R=6 过期 · V-D=1 · V-P=9 · B 未评分 ⇒ clr=3.3 而不是 0", () => {
+    const real: ReadinessState = {
+      version: 1,
+      tracks: {
+        R: healthy({ score: 6 }),
+        B: healthy({ score: null, scored_sha: null, scored_by: null }),
+        "V-D": healthy({ score: 1 }),
+        "V-P": healthy({ score: 9 }),
+      },
+    };
+    const v = judgeReadiness(real, { R: ["apps/web/components/chat/x.tsx"] });
+    expect(v.reachability).toBe(6);              // 旧规则：0
+    expect(v.experienceMean).toBe(3.3);          // mean(0, 1, 9)
+    expect(v.clr).toBe(3.3);                     // 旧规则：0 —— 看板恒 0 的根源
+    expect(v.passes).toBe(false);
   });
 });
 
