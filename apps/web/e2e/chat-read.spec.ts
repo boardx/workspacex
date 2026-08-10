@@ -60,6 +60,16 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
 
   /**
+   * V1（PROP-CHAT-10ITER-001）—— 发消息后消息区自动跟随到底：滚动容器停在底部
+   * （scrollTop 到达 scrollHeight − clientHeight；内容不溢出时两值相等、断言仍成立，
+   * 这是「自动跟随生效、视口没被留在上方」的守卫。真正的溢出跟随由 shots 截图佐证）。
+   */
+  const distanceFromBottom = await page
+    .getByTestId("chat-message-scroll")
+    .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
+  expect(distanceFromBottom).toBeLessThanOrEqual(80);
+
+  /**
    * #728 round 16 P10 —— 「落地为产物」按钮改为按服务端下发的 `artifact.land`
    * 能力渲染（个人线程恒无该能力 ⇒ 不渲染，见 chat-main-shots.spec.ts 的
    * count=0 断言）。这条是另一半反证：夹具用户是 facilitator（写角色，

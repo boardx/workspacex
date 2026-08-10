@@ -148,6 +148,23 @@ export function ChatLiveMessagePanel({
   const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
   const generation = React.useRef(0);
   /**
+   * V1（PROP-CHAT-10ITER-001）—— 消息区自动跟随到底。
+   * `scrollAreaRef` 挂在滚动容器上；`atBottomRef` 记录「用户此刻是否贴着底部」。
+   * 只有贴底时新消息/流式 token 才把视口拽到底——用户上滚查看历史时，`atBottomRef`
+   * 变 false，跟随立即停手，不把人强行拉回底部（这正是「自动跟随」和「锁死到底」的区别）。
+   * 用 ref 不用 state：滚动位置每帧都在变，进 state 会引发无谓重渲染；跟随判定只在
+   * effect 里读一次，ref 足够。
+   */
+  const scrollAreaRef = React.useRef<HTMLDivElement | null>(null);
+  const atBottomRef = React.useRef(true);
+  const BOTTOM_FOLLOW_THRESHOLD_PX = 80;
+  const handleScrollAreaScroll = React.useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    atBottomRef.current = distanceFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
+  }, []);
+  /**
    * #726 —— 麦克风开始录音那一刻要读到"此刻输入框里的文字"作为追加基线，而
    * `useSpeechTranscription` 的 `start()` 是一个稳定回调（不随每次按键重建），所以基线读取
    * 必须走 ref 而不是闭包捕获的 `text`——否则会追加到"点击麦克风那一刻组件首次渲染时的
@@ -170,6 +187,22 @@ export function ChatLiveMessagePanel({
   const selectedAgentId = agents?.some((agent) => agent.id === agentId)
     ? agentId
     : agents?.[0]?.id ?? "";
+
+  /**
+   * V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。
+   * 依赖 `messages.length`（新持久消息）与 `streamingText`（逐 token 追加）两个信号；
+   * `atBottomRef` 为 false（用户上滚了）时什么都不做。用 `requestAnimationFrame`
+   * 等这一帧的 DOM 高度落定后再设 scrollTop，否则会滚到「加内容之前」的旧高度。
+   */
+  React.useEffect(() => {
+    if (!atBottomRef.current) return;
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [messages.length, streamingText]);
 
   const loadPage = React.useCallback(async (cursor: string | null, replace: boolean) => {
     const requestGeneration = ++generation.current;
@@ -439,7 +472,12 @@ export function ChatLiveMessagePanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div
+        ref={scrollAreaRef}
+        onScroll={handleScrollAreaScroll}
+        className="min-h-0 flex-1 overflow-y-auto p-4"
+        data-testid="chat-message-scroll"
+      >
         {loading ? <p className="text-12 text-muted-foreground">正在读取持久消息…</p> : null}
         {listFailure ? (
           <FailureState
