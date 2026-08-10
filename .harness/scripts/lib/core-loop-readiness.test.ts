@@ -221,6 +221,47 @@ describe("G6 证据可解析门：抓住 coord-main 自己播下的假锚点", (
     expect(isStructurallyResolvable("http://[bad", yes)).toBe(false);
   });
 
+  describe("结构化前缀（#867 评分员的格式，2026-08-10 起支持）", () => {
+    const yes = () => true;
+    it("sha: 完整 40 位 hex 通过；短的/非 hex 拦下（reflog 短 SHA 不算完整证据）", () => {
+      expect(isStructurallyResolvable("sha:" + "e2d1577157706e711ec752fafb2dd8795eaafa18", yes)).toBe(true);
+      expect(isStructurallyResolvable("sha:e2d15771", yes)).toBe(false);
+      expect(isStructurallyResolvable("sha:not-a-sha", yes)).toBe(false);
+    });
+    it("ci: 后面必须是可解析 URL", () => {
+      expect(isStructurallyResolvable("ci:https://github.com/o/r/actions/runs/31375704116", yes)).toBe(true);
+      expect(isStructurallyResolvable("ci:not a url", yes)).toBe(false);
+    });
+    it("spec:/src:/authority: 验路径部分存在，容忍 :行号 与 #锚 后缀", () => {
+      const ex = (r: string) => r === "apps/web/e2e/x.spec.ts" || r === "docs/a.md";
+      expect(isStructurallyResolvable("spec:apps/web/e2e/x.spec.ts", ex)).toBe(true);
+      expect(isStructurallyResolvable("src:apps/web/e2e/x.spec.ts:793-839 (AgentRunToolCallSteps)", ex)).toBe(true);
+      expect(isStructurallyResolvable("authority:docs/a.md#十项打分维度 item 3", ex)).toBe(true);
+      expect(isStructurallyResolvable("src:apps/missing.ts", ex)).toBe(false);
+    });
+    it("cmd: 非空即过——已知边界：验证不了命令真的跑过，挡编造靠 G3 与人的复核", () => {
+      expect(isStructurallyResolvable("cmd:pnpm run verify:base -> exit 1 (…)", yes)).toBe(true);
+      expect(isStructurallyResolvable("cmd:", yes)).toBe(false);
+    });
+    it("未知前缀放行——拒绝会对更好的新格式恒红，而恒红的门会被绕过（#849 教训）", () => {
+      expect(isStructurallyResolvable("trace:whatever-new-format", yes)).toBe(true);
+    });
+    it("回归：#867 的六类真实证据整条 track 不再被 G6 误杀", () => {
+      const v = judgeTrack("V-P", healthy({
+        score: 0,
+        evidence: [
+          "sha:e2d1577157706e711ec752fafb2dd8795eaafa18",
+          "cmd:pnpm run verify:base -> exit 1 (lint:templates-doctor …)",
+          "ci:https://github.com/boardx/workspacex/actions/runs/31375704116",
+          "spec:apps/web/e2e/chat-main-shots.spec.ts",
+          "src:apps/web/components/chat/chat-live-message-panel.tsx:793-839 (AgentRunToolCallSteps)",
+          "authority:.harness/rubrics/chat-main-fidelity-rubric.md#硬门",
+        ],
+      }), [], true, (r) => r.startsWith("apps/") || r.startsWith(".harness/"));
+      expect(v.discounts).not.toContain("EVIDENCE_UNRESOLVABLE");
+    });
+  });
+
   it("⚠ 刻意不做网络存活检查：一个格式合法但已 404 的 URL 仍然通过", () => {
     // 记录这个已知边界——网络门会抖动，抖动的门迟早被 --no-verify 绕过（#504 先例）。
     expect(isStructurallyResolvable("https://example.com/definitely-404", yes)).toBe(true);

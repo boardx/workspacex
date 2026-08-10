@@ -255,6 +255,41 @@ export function isStructurallyResolvable(
 ): boolean {
   const trimmed = ref.trim();
   if (trimmed === "") return false;
+
+  // ── 结构化前缀（2026-08-10 补）────────────────────────────────────────────
+  // rev-uiux 在 #867 用了 `sha:` / `cmd:` / `ci:` / `spec:` / `src:` / `authority:`
+  // 前缀记证据——**这比裸路径更好**（类别自明、能按类验证），初版 G6 却把 `sha:…`
+  // 误当仓库内路径判了不可解析（`sha:` 后没有 `//`，过不了 URL 正则）。
+  // 门的职责是挡「看起来像引用但打不开的假锚点」，不是挡更好的格式。
+  const prefixed = /^([a-z][a-z0-9-]*):(?!\/\/)(.*)$/i.exec(trimmed);
+  if (prefixed) {
+    const [, kind, rest] = prefixed as unknown as [string, string, string];
+    switch (kind.toLowerCase()) {
+      case "sha":
+        // 结构校验：完整 40 位十六进制。是否真在 main 血统里由 G5 管，不在这重复。
+        return /^[0-9a-f]{40}$/i.test(rest.trim());
+      case "ci":
+        // 后面必须是能解析的 URL
+        try { new URL(rest.trim()); return true; } catch { return false; }
+      case "spec":
+      case "src":
+      case "authority": {
+        // 仓库内路径，允许 `:行号`/`:行-行` 与 `#锚` 后缀；验证路径部分存在
+        const path = rest.trim().split("#")[0]!.replace(/:[0-9]+(?:-[0-9]+)?\s*(?:\(.*)?$/, "");
+        return exists === null ? true : exists(path.trim());
+      }
+      case "cmd":
+        // 自述性记录（命令 + 退出码），没有可解析的目标——非空即可。
+        // ⚠ 已知边界：它验证不了命令真的跑过。挡编造靠 G3（独立评分人）与人的复核，
+        //   不靠这里装一个假验证。
+        return rest.trim() !== "";
+      default:
+        // 未知前缀：放行。拒绝会重演这次的误伤（对更好的新格式恒红），而恒红的门
+        //   会被绕过（#849 的教训）。收紧前先把新前缀加进上面的 switch。
+        return true;
+    }
+  }
+
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
     // 仓库内路径。调用方没注入 exists（离线渲染）时不判罚——同 changedSince 的 null 语义。
     return exists === null ? true : exists(trimmed);
