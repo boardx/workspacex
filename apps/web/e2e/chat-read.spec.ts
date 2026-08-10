@@ -58,6 +58,15 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await page.getByTestId("chat-messages-load-more").click();
   await expect(page.getByTestId("chat-message-list")).toContainText("Browser durable message");
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
+
+  /**
+   * #728 round 16 P10 —— 「落地为产物」按钮改为按服务端下发的 `artifact.land`
+   * 能力渲染（个人线程恒无该能力 ⇒ 不渲染，见 chat-main-shots.spec.ts 的
+   * count=0 断言）。这条是另一半反证：夹具用户是 facilitator（写角色，
+   * `capabilitiesFor` 含 `artifact.land`），项目线程里按钮必须**还在**——
+   * 把「按能力渲染」写歪成「一律不渲染」时，这里当场红。
+   */
+  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]').first()).toBeVisible();
   await expect(
     page.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
   ).toBeVisible();

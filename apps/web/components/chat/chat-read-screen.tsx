@@ -852,6 +852,12 @@ function ThreadDetail({
           bearer={bearer}
           agents={roster?.agents ?? null}
           archived={detail.thread.archived}
+          /*
+            #728 round 16 P10 —— 落地按钮的渲染依据是服务端下发的能力
+            （`capabilitiesFor`：写角色含 `artifact.land`，观察者不含），
+            与 `thread.mutate`（#460）同一条「按钮不渲染 且 接口拒绝」规矩。
+          */
+          canLandArtifacts={detail.capabilities.includes("artifact.land")}
           onArtifactLanded={onArtifactLanded}
           /*
             #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到

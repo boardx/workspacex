@@ -108,7 +108,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("renders the mic button and shows a visible 'listening' state after the server-proxied stream opens", async () => {
     const stream = deferredStream();
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     const micButton = screen.getByTestId("chat-mic-button");
@@ -124,7 +124,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("fills the textbox in real time from asr.partial frames, then commits asr.final — not all-at-once after recording ends", async () => {
     const stream = deferredStream();
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("chat-mic-button"));
@@ -148,7 +148,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("appends onto text the user already typed, instead of overwriting it", async () => {
     const stream = deferredStream();
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     const input = screen.getByTestId("chat-message-input") as HTMLTextAreaElement;
@@ -162,7 +162,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("stops listening on a second click, leaves the transcript editable, and requires a manual send", async () => {
     const stream = deferredStream();
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     const micButton = screen.getByTestId("chat-mic-button");
@@ -188,7 +188,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("shows a clear, non-silent message when the browser has no capture/WebSocket support", async () => {
     stubCaptureSupport(false);
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("chat-mic-button"));
@@ -200,7 +200,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
     openAsrDraftStream.mockRejectedValue(
       new LiveRecordingError({ kind: "permission-denied", message: "麦克风权限被拒绝。请在浏览器地址栏的权限设置里允许本站使用麦克风后重试。" }),
     );
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("chat-mic-button"));
@@ -210,7 +210,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
   it("shows a clear, non-silent message when the server reports ASR_NOT_CONFIGURED", async () => {
     const stream = deferredStream();
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("chat-mic-button"));
@@ -221,7 +221,7 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
   });
 
   it("disables the mic button on an archived (read-only) thread", async () => {
-    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={true} />);
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={true} canLandArtifacts={false} />);
     await waitFor(() => expect(listMessages).toHaveBeenCalled());
 
     expect(screen.getByTestId("chat-mic-button")).toBeDisabled();

@@ -418,6 +418,15 @@ function PersonalThreadDetail({
           bearer={bearer}
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
+          /*
+            #728 round 16 P10 —— 个人线程的能力集合恒不含 `artifact.land`
+            （`PERSONAL_THREAD_CAPABILITIES` 只有 `artifact.readonly`，后端
+            `land-as-artifact.ts` 对无项目角色恒拒），这里从服务端下发的
+            `getThread.out.capabilities` 取值 ⇒ 恒 false ⇒ 落地按钮不渲染。
+            不写死 false：万一产品日后给个人线程开这个能力，改的是服务端
+            能力集合，这行自动跟上，前端不用再动。
+          */
+          canLandArtifacts={detail.capabilities.includes("artifact.land")}
           onRunSettled={onThreadSettled}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}

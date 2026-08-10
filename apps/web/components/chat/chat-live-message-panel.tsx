@@ -61,6 +61,7 @@ export function ChatLiveMessagePanel({
   bearer,
   agents,
   archived,
+  canLandArtifacts,
   onArtifactLanded,
   onRunSettled,
   aboveComposer,
@@ -69,6 +70,16 @@ export function ChatLiveMessagePanel({
   bearer: string;
   agents: GetAgentPanelOut["agents"] | null;
   archived: boolean;
+  /**
+   * #728 round 16 P10 —— 「落地为产物」按钮的渲染依据：服务端下发的
+   * `artifact.land` 能力（`thread-visibility.ts` 的 `CHAT_WRITE_CAPABILITIES`）。
+   * 个人线程恒无此能力（后端 `land-as-artifact.ts` 对 `projectRole` 为 null
+   * 恒抛 `NoWriteRoleError`），此前无条件渲染 = 个人对话里一枚点了必报错的
+   * 假按钮。刻意做成**必填** boolean：让每个调用方都被 typecheck 逼着从
+   * 服务端能力集合里取值，而不是漏传时静默回落到某个默认值。
+   * 规矩同 `thread.mutate`（#460）：不渲染，而不是渲染后禁用。
+   */
+  canLandArtifacts: boolean;
   /**
    * 十项 UX 缺口第 5 项（issue #708）—— 某条消息成功落地为产物后的通知。
    * 调用方（`chat-read-screen.tsx`）借此重读右栏「产物」列表——单一事实源仍是
@@ -503,14 +514,16 @@ export function ChatLiveMessagePanel({
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
                     </div>
-                    <MessageLandingControls
-                      message={message}
-                      state={landingState[message.id]}
-                      onOpen={() => openLandForm(message)}
-                      onTitleChange={(title) => updateLandTitle(message.id, title)}
-                      onCancel={() => cancelLand(message.id)}
-                      onSubmit={() => void submitLand(message)}
-                    />
+                    {canLandArtifacts ? (
+                      <MessageLandingControls
+                        message={message}
+                        state={landingState[message.id]}
+                        onOpen={() => openLandForm(message)}
+                        onTitleChange={(title) => updateLandTitle(message.id, title)}
+                        onCancel={() => cancelLand(message.id)}
+                        onSubmit={() => void submitLand(message)}
+                      />
+                    ) : null}
                   </div>
                 </li>
               );
