@@ -144,6 +144,37 @@ describe("反证② noValidate：中文校验真正执行，不再被浏览器�
   });
 });
 
+describe("反证②′ 邮箱校验与契约同源（第二轮复核缺陷 B：`a@` 曾能建出真实邀请）", () => {
+  // 上轮手写校验只有 `includes("@")`，比被 noValidate 关掉的原生校验还弱：`a@` 落库
+  // `org_invites`、占用配额。修法：复用 authContract.EmailAddress（z.string().email()），
+  // 不在前端手写第二份正则。zod 的判定拒绝无点域名，所以 `a@b` 也被拦——如实钉住。
+  it.each(["a@", "@b", "a@b", "not-an-email"])(
+    "提交「%s」→ 中文字段错误，inviteOrgMember 零调用",
+    async (bad) => {
+      await renderInvitesTab();
+      typeEmail(bad);
+      submit();
+
+      const err = await screen.findByTestId("err-invite-email");
+      expect(err).toHaveTextContent(`「${bad}」不是合法邮箱`);
+      expect(inviteOrgMember).not.toHaveBeenCalled();
+    },
+  );
+
+  it("合法邮箱 name@example.com 正常通过并发出请求", async () => {
+    inviteOrgMember.mockResolvedValueOnce({ status: "pending", quotaReserved: 1 });
+    await renderInvitesTab();
+    typeEmail("name@example.com");
+    submit();
+
+    await screen.findByTestId("org-admin-invite-banner");
+    expect(inviteOrgMember).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "name@example.com" }),
+    );
+    expect(screen.queryByTestId("err-invite-email")).toBeNull();
+  });
+});
+
 describe("反证③ 成功后整表复位：邮箱、角色、团队都回到默认值", () => {
   it("选了管理员 + 指定团队并成功提交后，角色回「顾问」、团队回「不分团队」、邮箱清空", async () => {
     inviteOrgMember.mockResolvedValueOnce({ status: "awaiting-review", quotaReserved: 1 });

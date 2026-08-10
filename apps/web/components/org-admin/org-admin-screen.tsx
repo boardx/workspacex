@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
+import { ActionBanner, useActionBanner } from "@/components/org-admin/action-banner";
 import { ApiError, apiBaseUrl, getStoredSessionToken } from "@/lib/api-client";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
@@ -155,7 +156,7 @@ function TeamsTab({ orgId }: { orgId: string }) {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListTeamsOut | null>(null);
-  const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const { banner, showSuccess, showError, reset } = useActionBanner(4000);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -174,12 +175,6 @@ function TeamsTab({ orgId }: { orgId: string }) {
     void load();
   }, [load]);
 
-  React.useEffect(() => {
-    if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 4000);
-    return () => clearTimeout(t);
-  }, [banner]);
-
   return (
     <div className="flex flex-col gap-3 pt-3">
       <div className="flex items-center justify-between gap-2">
@@ -191,25 +186,14 @@ function TeamsTab({ orgId }: { orgId: string }) {
       <CreateTeamForm
         orgId={orgId}
         onCreated={() => {
-          setBanner({ tone: "success", text: "已创建" });
+          showSuccess("已创建");
           void load();
         }}
-        onFailed={(msg) => setBanner({ tone: "error", text: msg })}
+        onFailed={showError}
+        onReset={reset}
       />
 
-      {banner ? (
-        <div
-          role={banner.tone === "error" ? "alert" : "status"}
-          data-testid="org-admin-team-banner"
-          className={
-            banner.tone === "success"
-              ? "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
-              : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
-          }
-        >
-          {banner.text}
-        </div>
-      ) : null}
+      <ActionBanner banner={banner} testid="org-admin-team-banner" />
 
       <StateShell
         state={state}
@@ -223,8 +207,9 @@ function TeamsTab({ orgId }: { orgId: string }) {
               orgId={orgId}
               team={team}
               onChanged={() => void load()}
-              onSuccess={(text) => setBanner({ tone: "success", text })}
-              onFailed={(text) => setBanner({ tone: "error", text })}
+              onSuccess={showSuccess}
+              onFailed={showError}
+              onReset={reset}
             />
           ))}
         </ul>
@@ -234,14 +219,22 @@ function TeamsTab({ orgId }: { orgId: string }) {
 }
 
 function CreateTeamForm({
-  orgId, onCreated, onFailed,
-}: { orgId: string; onCreated: () => void; onFailed: (msg: string) => void }) {
+  orgId, onCreated, onFailed, onReset,
+}: {
+  orgId: string;
+  onCreated: () => void;
+  onFailed: (msg: string) => void;
+  /** 提交动作开始时清父级 banner——纪律与反证见 `action-banner.tsx` 文件头。 */
+  onReset: () => void;
+}) {
   const [name, setName] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldError, setFieldError] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // 先清上一次的 banner：本次无论走字段错误还是网络，旧的绿色成功条都不许残留（同屏假绿）。
+    onReset();
     const trimmed = name.trim();
     if (trimmed.length === 0) {
       setFieldError("团队名不能为空");
@@ -309,13 +302,15 @@ function CreateTeamForm({
 }
 
 function TeamRow({
-  orgId, team, onChanged, onSuccess, onFailed,
+  orgId, team, onChanged, onSuccess, onFailed, onReset,
 }: {
   orgId: string;
   team: ListTeamsOut["teams"][number];
   onChanged: () => void;
   onSuccess: (text: string) => void;
   onFailed: (text: string) => void;
+  /** 改名提交动作开始时清父级 banner——纪律与反证见 `action-banner.tsx` 文件头。 */
+  onReset: () => void;
 }) {
   const [mode, setMode] = React.useState<"view" | "rename" | "confirm-delete">("view");
   const [name, setName] = React.useState(team.name);
@@ -324,6 +319,8 @@ function TeamRow({
 
   async function handleRename(e: React.FormEvent) {
     e.preventDefault();
+    // 先清上一次的 banner：改名失败若走字段错误分支，旧的绿色成功条不许残留（同屏假绿）。
+    onReset();
     const trimmed = name.trim();
     if (trimmed.length === 0) {
       setFieldError("团队名不能为空");
@@ -713,7 +710,9 @@ function InviteMemberForm({
       setFieldError("邮箱不能为空");
       return;
     }
-    if (!trimmed.includes("@")) {
+    // 与契约同一份邮箱判定（authContract.EmailAddress = z.string().email()）——不在前端手写
+    // 第二份正则。`a@`、`@b`、无点域名 `a@b` 都拦在这里，零请求发出。
+    if (!authContract.EmailAddress.safeParse(trimmed).success) {
       setFieldError(`「${trimmed}」不是合法邮箱`);
       return;
     }
@@ -979,7 +978,7 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOrgInvitesOut | null>(null);
-  const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const { banner, showSuccess, showError, reset } = useActionBanner(8000);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -1002,12 +1001,6 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
     void load();
   }, [load]);
 
-  React.useEffect(() => {
-    if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 8000);
-    return () => clearTimeout(t);
-  }, [banner]);
-
   return (
     <div className="flex flex-col gap-3 pt-3">
       <p className="text-11 text-muted-foreground">
@@ -1020,27 +1013,15 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
         <InviteMemberForm
           orgId={orgId}
           onSucceeded={(text) => {
-            setBanner({ tone: "success", text });
+            showSuccess(text);
             void load();
           }}
-          onFailed={(text) => setBanner({ tone: "error", text })}
-          onReset={() => setBanner(null)}
+          onFailed={showError}
+          onReset={reset}
         />
       )}
 
-      {banner ? (
-        <div
-          role={banner.tone === "error" ? "alert" : "status"}
-          data-testid="org-admin-invite-banner"
-          className={
-            banner.tone === "success"
-              ? "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
-              : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
-          }
-        >
-          {banner.text}
-        </div>
-      ) : null}
+      <ActionBanner banner={banner} testid="org-admin-invite-banner" />
 
       <StateShell
         state={state}
@@ -1055,8 +1036,8 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
               orgId={orgId}
               invite={inv}
               onChanged={() => void load()}
-              onSucceeded={(text) => setBanner({ tone: "success", text })}
-              onFailed={(text) => setBanner({ tone: "error", text })}
+              onSucceeded={showSuccess}
+              onFailed={showError}
             />
           ))}
         </ul>
