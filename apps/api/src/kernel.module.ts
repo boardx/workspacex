@@ -235,6 +235,7 @@ import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
 import { PgAgentPublishRepository, PgAgentReviewerFunctionPort } from "./infrastructure/agent/pg-agent-publish-repository";
 import { SELF_PUBLISH_AGENT_REPOSITORY } from "./application/agent/self-publish-toolless-agent";
+import { SET_AGENT_INSTRUCTIONS_REPOSITORY } from "./application/agent/set-agent-instructions";
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
@@ -242,6 +243,7 @@ import { PgDefaultAgentRepository } from "./infrastructure/agent/pg-default-agen
 import { PgDeepResearchAgentRepository } from "./infrastructure/agent/pg-deep-research-agent-repository";
 import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-agent-repository";
 import { PgSelfPublishAgentRepository } from "./infrastructure/agent/pg-self-publish-agent-repository";
+import { PgSetAgentInstructionsRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
@@ -620,6 +622,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: AGENT_REVIEWER_FUNCTION_PORT,
       useFactory: (db: DatabasePort) => new PgAgentReviewerFunctionPort(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SET_AGENT_INSTRUCTIONS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
       inject: [DATABASE_PORT],
     },
     {

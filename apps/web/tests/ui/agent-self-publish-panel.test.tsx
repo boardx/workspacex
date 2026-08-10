@@ -24,6 +24,8 @@ import { AgentDefinitionCreatePanel } from "@/components/admin/agent-definition-
 
 const PREFIX = "i660";
 const AGENT_ID = "agent-i660-ui";
+/** 用户自己写的可执行定义，与 name/role 无字面重叠——见下方 ④。 */
+const INSTRUCTIONS = "把讨论整理成带编号的要点，最后给下一步建议。";
 
 interface Recorded {
   readonly method: string;
@@ -52,6 +54,8 @@ function stubFetch(onPublish: () => Response) {
         201,
       );
     }
+    // #660 候选 A：建完立刻 PATCH 写可执行定义。
+    if (method === "PATCH") return jsonResponse({ agentId: AGENT_ID }, 200);
     return onPublish();
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -64,6 +68,9 @@ async function createDraft() {
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });
+  fireEvent.change(screen.getByTestId(`${PREFIX}-add-instructions`), {
+    target: { value: INSTRUCTIONS },
+  });
   fireEvent.click(screen.getByTestId(`${PREFIX}-add-submit`));
   await waitFor(() => expect(screen.getByTestId(`${PREFIX}-publish`)).toBeTruthy());
 }
@@ -109,6 +116,40 @@ describe("#660 后台面板：草稿建成后有一条发布入口", () => {
       .toBeTruthy();
     expect(publishCall?.method).toBe("POST");
     expect(publishCall?.body).toEqual({ agentId: AGENT_ID });
+  });
+
+  it("④ 可执行定义按契约 PATCH 上去，且发的是用户写的原文（不是 name/role 拼的）", async () => {
+    const calls = stubFetch(() =>
+      jsonResponse(
+        { agentId: AGENT_ID, publishState: "运行中", agentVersionId: "v1", publishRoute: "自助发布" },
+        201,
+      ),
+    );
+    await createDraft();
+
+    const patchPath = agentRuntime.operations.updateAgentDefinition.path.replace(":agentId", AGENT_ID);
+    const patch = calls.find((c) => c.method === "PATCH" && c.path === patchPath);
+    expect(patch, `PATCH 没打到契约路径；实际打过：${calls.map((c) => `${c.method} ${c.path}`).join(", ")}`)
+      .toBeTruthy();
+    const sent = (patch?.body as { patch?: { instructions?: string } } | null)?.patch?.instructions;
+    /* ⚠ 逐字相等：任何"用 name/role 兜底拼一段"的实现都会让这条红 ——
+     * 这是 2026-08-09 那道人类裁决在前端侧的机械化。 */
+    expect(sent).toBe(INSTRUCTIONS);
+    expect(sent).not.toContain("帮我整理会议纪要");
+  });
+
+  it("⑤ 没填可执行定义 ⇒ 前端当场拦下，且**不发任何请求**（不建一个发不出去的 agent）", async () => {
+    const calls = stubFetch(() => jsonResponse({}, 500));
+    render(<AgentDefinitionCreatePanel prefix={PREFIX} />);
+    fireEvent.click(screen.getByTestId(`${PREFIX}-add`));
+    fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
+    fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
+    fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });
+    fireEvent.click(screen.getByTestId(`${PREFIX}-add-submit`));
+
+    await waitFor(() => expect(screen.getByTestId(`${PREFIX}-add-error`)).toBeTruthy());
+    expect(screen.getByTestId(`${PREFIX}-add-error`).textContent).toContain("执行什么");
+    expect(calls, "校验没通过就不该发请求").toEqual([]);
   });
 
   it("② 服务端 422 ⇒ 界面**不得**显示已发布，且发布按钮仍在（没有乐观更新）", async () => {

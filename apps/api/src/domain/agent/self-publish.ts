@@ -33,14 +33,23 @@ export type SelfPublishGateResult =
       readonly reason:
         | "AGENT_NOT_DRAFT"
         | "AGENT_NOT_TOOLLESS"
-        | "AGENT_VISIBILITY_UNSUPPORTED";
+        | "AGENT_VISIBILITY_UNSUPPORTED"
+        | "AGENT_NO_EXECUTABLE_DEFINITION";
     };
 
-/** 自助发布只看 agent 自身的这四个字段——它刻意不接收任何"谁在调用"的信息。 */
+/** 自助发布只看 agent 自身的这五个字段——它刻意不接收任何"谁在调用"的信息。 */
 export type SelfPublishCandidate = Pick<
   AgentDefinition,
   "publishState" | "toolWhitelist" | "skillMounts" | "visibility"
->;
+> & {
+  /**
+   * #660 候选 A —— 用户自己写的可执行定义（`agents.instructions`）。
+   * `null` = 从没配过。⚠ 全空白字符串与 `null` 在这里**同等对待**：
+   * 「配了个空的」和「没配」对运行时是同一件事（拼不出有意义的系统提示词），
+   * 而把两者分开会诱导出一个"配了空串就算配过"的绕过口。
+   */
+  readonly instructions: string | null;
+};
 
 /**
  * `草稿 → 运行中`，当且仅当这个 agent **没有任何可被评审的能力面**。
@@ -74,6 +83,16 @@ export function checkToollessSelfPublish(
   //    **不**退化成 `org-wide`——那是把受限 agent 悄悄开放给全组织。
   if (agent.visibility !== "全组织可用") {
     return { ok: false, reason: "AGENT_VISIBILITY_UNSUPPORTED" };
+  }
+
+  // ④ 可执行定义：没有它就铸不出 `agent_versions` 行（那一列 NOT NULL），
+  //    发布出去也是一个发消息照样 422 的"已发布"——比拒绝更糟。
+  //    ⚠ 这里**不**用 `role`/`name` 兜底拼一段出来：`role` 是角色标签不是系统提示词，
+  //      运行时会真的照着执行。`design-deltas/agent-instructions/design-signoff.md`
+  //      逐字禁止过这条捷径（人类 2026-08-09 裁决），候选 A 给的是"加一个真字段"，
+  //      不是"用现有字段凑合"。
+  if ((agent.instructions ?? "").trim() === "") {
+    return { ok: false, reason: "AGENT_NO_EXECUTABLE_DEFINITION" };
   }
 
   return { ok: true, publishState: "运行中" };

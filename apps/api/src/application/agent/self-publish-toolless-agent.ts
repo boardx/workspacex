@@ -30,7 +30,8 @@ export type SelfPublishErrorCode =
   | "AGENT_NOT_FOUND"
   | "AGENT_NOT_DRAFT"
   | "AGENT_NOT_TOOLLESS"
-  | "AGENT_VISIBILITY_UNSUPPORTED";
+  | "AGENT_VISIBILITY_UNSUPPORTED"
+  | "AGENT_NO_EXECUTABLE_DEFINITION";
 
 export class SelfPublishAgentError extends Error {
   constructor(readonly code: SelfPublishErrorCode) {

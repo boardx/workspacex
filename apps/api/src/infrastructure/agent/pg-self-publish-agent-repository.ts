@@ -32,10 +32,15 @@
  *
  * ## `instructions` 从哪来
  *
- * `agent_versions.instructions` NOT NULL，而草稿 agent 没有"指令"这个字段——
- * `createAgent.in` 收的是 `name` / `role`（「我自己建的助手」这类）。这里用用户
- * **自己填的那两项**拼出系统提示词，不是编一段默认人格：拼出来的每一个字都来自
- * 用户输入，改了 `role` 再发一版就会变。⚠ 不是 mock，也不是静默兜底。
+ * **`agents.instructions`，用户自己写的那一段**（#660 候选 A，人类 2026-08-11 签核；
+ * 迁移 `20260811000000_i660_agent_instructions.sql`）。
+ *
+ * ⚠ 本文件**曾经**用 `name` + `role` 拼出一段系统提示词。那是错的，已删：
+ *   `design-deltas/agent-instructions/design-signoff.md` 逐字禁止过这条捷径
+ *   （人类 2026-08-09 裁决）——`role` 是「角色标签」不是「系统提示词」，
+ *   运行时会**真的照着它执行**，属于会产生错误行为且难察觉的漂移。
+ *   没有 instructions 的 agent 在 domain 门那一步就被
+ *   `AGENT_NO_EXECUTABLE_DEFINITION` 拒了，**不在这里兜底**。
  */
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
@@ -53,15 +58,6 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
 
 /** ⚠ 审计可分辨性靠这个前缀，见文件头注的权宜说明。 */
 export const SELF_PUBLISH_SEMANTIC_LABEL = "自助发布-v1";
-
-/**
- * 由用户自己填的 `name` / `role` 拼出系统提示词。
- * 导出是为了让测试断言"这一版的 instructions 确实来自用户输入"，
- * 而不是断言一个抄在测试里的字面量（那样两边会一起漂）。
- */
-export function selfPublishedInstructions(agent: Pick<AgentDefinition, "name" | "role">): string {
-  return `你是「${agent.name}」，${agent.role}。请友好、简洁、诚实地完成用户交给你的任务；遇到你不确定或做不到的事，直接说明，不要编造。`;
-}
 
 export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -101,7 +97,10 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
 
       const versionId = `agent-version-${randomUUID()}`;
       const nowIso = input.now.toISOString();
-      const instructions = selfPublishedInstructions(definition);
+      // 用户自己写的那一段，原样铸进版本。domain 门已经保证它非空白；
+      // 这里再判一次是为了让"仓储被单独调用"这条路径也不会写出空指令的版本。
+      const instructions = (definition.instructions ?? "").trim();
+      if (instructions === "") throw new Error("self_publish_agent_has_no_instructions");
       const { provider, modelId } = resolveDeepAgentModel();
 
       await session.query(
@@ -142,10 +141,18 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
       // ③ 能力目录。`id = agentId`（见文件头注）。`scope` 恒 `org-wide`：
       //    `仅某组` 在 domain 门那一步就已经被 `AGENT_VISIBILITY_UNSUPPORTED` 拒掉，
       //    所以这里不会、也不该出现 `team-only`。
+      //
+      // ⚠ `abbr` / `duty` 取自 agent 自己的 `initials` / `role`（#619 的
+      //    `capability_listings_agent_needs_abbr_duty` CHECK 要求两者非空）。
+      //    这**不是**被禁的那条捷径：被禁的是拿 `role` 当 `instructions`
+      //    （运行时真的照着执行的系统提示词）。这里 `role`「职责一句话」→ `duty`
+      //    「这个 agent 是干什么的」是**同一个语义**，是 roster 上给人看的标签，
+      //    与 `agent_versions.instructions` 各走各的，互不顶替。
+      //    同 `ensureSystemAgent` 那条 INSERT 的列与含义。
       await session.query(
-        `INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint)
-         VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL)`,
-        [input.agentId, input.orgId, definition.name],
+        `INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint)
+         VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL)`,
+        [input.agentId, input.orgId, definition.name, definition.initials, definition.role],
       );
 
       return { agentVersionId: versionId };

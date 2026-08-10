@@ -479,6 +479,14 @@ export const AgentRuntimeError = z.enum([
    */
   "AGENT_NOT_TOOLLESS",
   /**
+   * #660 —— agent 还没有**可执行定义**（`agents.instructions` 为 NULL 或全空白）。
+   * `agent_versions.instructions` 是 NOT NULL，没有它就铸不出可执行版本；
+   * 铸不出版本，发布出去的 agent 发消息仍然 422。
+   * ⚠ 明确拒绝，**不用 `role`/`name` 兜底拼一段出来** —— `role` 是角色标签不是系统提示词，
+   *   运行时会真的按它执行（`design-deltas/agent-instructions` 逐字禁止这条捷径）。
+   */
+  "AGENT_NO_EXECUTABLE_DEFINITION",
+  /**
    * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`。
    * agent 的 `visibility` 是 `仅某组`，而**没有任何地方记录过是哪个组**——
    * `createAgent.in` 收 `visibility` 却不收 team，`capability_listings` 的
@@ -1458,6 +1466,21 @@ export const operations = {
             requiresApproval: z.boolean().optional(),
             /** ⚠ 单个，不是数组——数组形状本身就会诱发 `MODEL_ID_MUST_BE_SINGLE` */
             modelId: z.string().optional(),
+            /**
+             * #660 —— 用户自建 agent 的**可执行定义**（系统提示词）。
+             * 出处：`design-deltas/agent-instructions/design-signoff.md`，人类 2026-08-11
+             * 选定**候选 A**。在它之前，浏览器里建出来的 agent 没有任何字段能承载
+             * 「这个 agent 到底执行什么」，于是 `agent_versions.instructions`（NOT NULL）
+             * 拼不出来 ⇒ 发布门全过也依然 422（#856 实测结论）。
+             *
+             * ⚠ **不是 `role`**。`role` 是「职责一句话」这种角色标签，给人看的；
+             *   `instructions` 是运行时**真的会照着执行**的那段文本。delta 逐字禁止过
+             *   用 `role`/`name` 硬凑 instructions —— 两个字段语义不同，不得互相顶替。
+             * ⚠ 上限 8000 字符，与 DB 的 `agents_instructions_length` CHECK 同一个数
+             *   （单一事实源在迁移里，这里是它的入口侧镜像）。
+             * ⚠ **不在 `out` 里回显**：正文可能很长，每次编辑都带一份是纯浪费。
+             */
+            instructions: z.string().min(1).max(8000).optional(),
             concurrencyLimit: z.number().int().positive().optional(),
             degradePolicy: DegradePolicy.optional(),
           })
@@ -1718,10 +1741,9 @@ export const operations = {
   },
 
   /**
-   * #660 ——「**无能力面自助发布**」。**⚠⚠ 草案，尚未经人类签核**
-   * （ADR-023，登记在 issue #660 与 `KNOWN_CONTRACT_GAPS.AR11`）。
-   * 同 `setAgentSkillPins`（#595 A2）的处理：草案操作可以先落地并被门控，
-   * 但**不得**被当成已裁决的事实引用。
+   * #660 ——「**无能力面自助发布**」。
+   * 人类 2026-08-11 已签核（`design-deltas/agent-instructions/design-signoff.md`
+   * 随候选 A 一并确认）；遗留的真缺口另记在 `KNOWN_CONTRACT_GAPS.AR12`。
    *
    * ## 它补的洞
    *
@@ -1750,6 +1772,14 @@ export const operations = {
    *
    * ⚠ **审计可分辨**：这样发布出来的版本必须能与走完双人评审发布的版本区分开，
    *   否则「这一版当时是怎么发出去的」在 UC-4.4 里答不出来。
+   *
+   * ⚠ **与 #856 的双人评审路径是互补关系，不是二选一**：
+   *   有能力面（有工具 / 有 skill 挂载）⇒ 只能走 `submitAgentForReview` →
+   *   `decideAgentPublish`；无能力面 ⇒ 走本操作。两条路径各自有仓储与前提测试。
+   *
+   * ⚠ **前置：agent 必须已有可执行定义**（`agents.instructions` 非空白）。
+   *   否则 `AGENT_NO_EXECUTABLE_DEFINITION` —— 发布一个没有指令的 agent，
+   *   拿到的是一条铸不出版本、发消息照样 422 的"已发布"，比拒绝更糟。
    */
   selfPublishToollessAgent: {
     method: "POST",
@@ -1771,6 +1801,7 @@ export const operations = {
       "AGENT_NOT_DRAFT",
       "AGENT_NOT_TOOLLESS",
       "AGENT_VISIBILITY_UNSUPPORTED",
+      "AGENT_NO_EXECUTABLE_DEFINITION",
     ] as const,
   },
 

@@ -17,6 +17,7 @@ export function agent(over: Partial<AgentDefinition> = {}): AgentDefinition {
     visibility: "全组织可用",
     cloneFrom: null,
     source: "self",
+    instructions: "你是测试夹具里的 agent。",
     publishState: "运行中",
     modelId: "mdl-local-1",
     skillMounts: [{ skillId: "skl-interview", skillVersion: 3 }],

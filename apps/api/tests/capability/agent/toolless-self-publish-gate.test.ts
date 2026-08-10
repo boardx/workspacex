@@ -25,6 +25,7 @@ function candidate(over: Partial<SelfPublishCandidate> = {}): SelfPublishCandida
     toolWhitelist: [],
     skillMounts: [],
     visibility: "全组织可用",
+    instructions: "你是我的会议纪要助手，帮我把讨论整理成要点。",
     ...over,
   };
 }
@@ -99,6 +100,36 @@ describe("#660 自助发布：它只是 草稿 → 运行中 的一条边", () =
       }),
     );
     expect(result).toEqual({ ok: false, reason: "AGENT_NOT_DRAFT" });
+  });
+});
+
+describe("#660 自助发布：没有可执行定义就不许发布（候选 A 的门）", () => {
+  it("instructions 为 null ⇒ AGENT_NO_EXECUTABLE_DEFINITION", () => {
+    expect(checkToollessSelfPublish(candidate({ instructions: null }))).toEqual({
+      ok: false,
+      reason: "AGENT_NO_EXECUTABLE_DEFINITION",
+    });
+  });
+
+  it("⚠ 全空白串与 null 同等对待——不给「配了个空的就算配过」留绕过口", () => {
+    for (const blank of ["", "   ", "\n\t "]) {
+      expect(checkToollessSelfPublish(candidate({ instructions: blank })), blank).toEqual({
+        ok: false,
+        reason: "AGENT_NO_EXECUTABLE_DEFINITION",
+      });
+    }
+  });
+
+  /**
+   * ⚠ 这条是**那道人类裁决的机械化**（`design-deltas/agent-instructions`，2026-08-09）：
+   * 「不得用 role / name 硬凑 instructions」。一个把 role 当兜底的实现会让本条变绿，
+   * 所以它必须红——判据只看 `instructions`，与 role 写没写、写了什么完全无关。
+   */
+  it("role 写得再详细也不能替代 instructions", () => {
+    const result = checkToollessSelfPublish(
+      candidate({ instructions: null, role: "帮我把每次讨论整理成带编号的要点清单" } as never),
+    );
+    expect(result).toEqual({ ok: false, reason: "AGENT_NO_EXECUTABLE_DEFINITION" });
   });
 });
 

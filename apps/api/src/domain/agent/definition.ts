@@ -38,6 +38,16 @@ export interface AgentDefinition {
   readonly initials: string;
   /** 职责一句话. */
   readonly role: string;
+  /**
+   * #660 候选 A —— 用户自己写的**可执行定义**（系统提示词），`null` = 尚未配置。
+   *
+   * ⚠ 与上面的 `role` **不是同一件事，不得互相顶替**：`role` 是给人看的角色标签，
+   *   `instructions` 是运行时真的照着执行的那段文本。
+   *   `design-deltas/agent-instructions/design-signoff.md` 逐字禁止用 `role` 硬凑它。
+   * ⚠ 它是 `agent_versions.instructions`（NOT NULL）的唯一来源：为 `null` 时
+   *   agent 铸不出可执行版本，发布被 `AGENT_NO_EXECUTABLE_DEFINITION` 拒。
+   */
+  readonly instructions: string | null;
   readonly visibility: AgentVisibility;
   /** null = built from scratch; non-null = 复制一个现成的 (I-30). */
   readonly cloneFrom: string | null;

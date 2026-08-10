@@ -54,6 +54,37 @@ describe("白名单条目的前提：仓储侧", () => {
   });
 });
 
+/**
+ * #660 —— 本文件**新增**了第二个仓储类 `PgSetAgentInstructionsRepository`
+ * （写 `agents.instructions`，候选 A）。它放在同一个文件里是刻意的：白名单条目按
+ * 文件登记，而它要讲的理由与 `PgCreateAgentRepository` 那条逐字相同。
+ * ⇒ 那条条目的前提从此**同时**覆盖两个类，所以这里补上第二个类的授权断言。
+ */
+describe("#660 白名单条目的前提：instructions 写路径的授权也在用例层、也在仓储调用之前", () => {
+  const setInstructionsUseCase = readFileSync(
+    new URL("../../src/application/agent/set-agent-instructions.ts", import.meta.url),
+    "utf8",
+  );
+
+  it("用例层有 admin 组织成员判定", () => {
+    expect(setInstructionsUseCase).toContain("findOrgMembership");
+    expect(setInstructionsUseCase).toContain('orgRole !== "admin"');
+    expect(setInstructionsUseCase).toContain('"ROLE_INSUFFICIENT"');
+  });
+
+  it("授权判定排在 deps.repository.setInstructions 调用之前", () => {
+    const authAt = setInstructionsUseCase.indexOf("findOrgMembership");
+    const writeAt = setInstructionsUseCase.indexOf("deps.repository.setInstructions(");
+    expect(authAt).toBeGreaterThan(-1);
+    expect(writeAt).toBeGreaterThan(-1);
+    expect(authAt).toBeLessThan(writeAt);
+  });
+
+  it("agent 不存在时不得静默成功——用例把 false 翻成 AGENT_NOT_FOUND", () => {
+    expect(setInstructionsUseCase).toContain('SetAgentInstructionsError("AGENT_NOT_FOUND")');
+  });
+});
+
 describe("白名单条目的前提：授权确实存在，且在仓储调用之前", () => {
   it("用例层有 admin 组织成员判定", () => {
     expect(useCaseSource).toContain("findOrgMembership");

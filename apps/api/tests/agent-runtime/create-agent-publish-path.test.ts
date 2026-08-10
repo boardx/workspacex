@@ -75,6 +75,8 @@ const DATABASE = `wsx_i660_agent_publish_${process.pid}_${Date.now()}`;
 const THREAD_ID = `da-thread-i660-${randomUUID()}`;
 const RUN_ID = `da-run-i660-${randomUUID()}`;
 const CODE = makeCode("I660AGENTPUBLISH");
+/** 用户自己写的可执行定义。刻意与 agent 的 name/role 毫无字面重叠，见下方断言。 */
+const INSTRUCTIONS = "把用户说的每一件事整理成带编号的要点，最后一行给出下一步建议。";
 
 let app: NestExpressApplication;
 let databasePort: PgDatabase;
@@ -253,6 +255,15 @@ async function waitForAgentReplies(threadId: string, atLeast: number): Promise<T
   }
 }
 
+/** #660 候选 A —— 用户自己写下这个 agent 执行什么（`PATCH /agents/:agentId`）。 */
+async function setInstructions(agentId: string, instructions: string): Promise<Response> {
+  return fetch(`${base}/agents/${agentId}`, {
+    method: "PATCH",
+    headers: principal,
+    body: JSON.stringify({ agentId, patch: { instructions }, expectedVersion: "" }),
+  });
+}
+
 async function selfPublish(agentId: string): Promise<Response> {
   return fetch(`${base}/agents/${agentId}/self-publish`, {
     method: "POST",
@@ -270,6 +281,15 @@ describe("#660 验收：自建 agent 发布后真的能在会话里拿到回复"
      * 是"发布"起的作用——可能这条链路本来就通。 */
     const before = await sendTo(agentId, threadId);
     expect(before.status, await before.clone().text()).toBe(422);
+
+    /* ⚠ 发布**之前**必须先写可执行定义。没有它 `agent_versions.instructions`（NOT NULL）
+     * 拼不出来——这正是 #856 接通发布状态机之后 422 依旧的根因。
+     * 先断言"没写指令就发布 = 422"，再写指令，再发布：三步都锚在真实 HTTP 上。 */
+    const tooEarly = await selfPublish(agentId);
+    expect(tooEarly.status, await tooEarly.clone().text()).toBe(422);
+
+    const wrote = await setInstructions(agentId, INSTRUCTIONS);
+    expect(wrote.status, await wrote.clone().text()).toBe(200);
 
     const published = await selfPublish(agentId);
     expect(published.status, await published.clone().text()).toBe(201);
@@ -299,9 +319,11 @@ describe("#660 验收：自建 agent 发布后真的能在会话里拿到回复"
     expect(after.row?.published_version_id).toBe(after.versions[0]?.id);
     expect(after.versions[0]?.id).toBe(body.agentVersionId);
     expect(after.versions[0]?.published_at).not.toBeNull();
-    /* 指令来自用户自己填的 name/role，不是一段编出来的默认人格。 */
-    expect(after.versions[0]?.instructions).toContain("我自己建的 agent 验收用");
-    expect(after.versions[0]?.instructions).toContain("我自己建的助手");
+    /* ⚠ 铸进版本的指令**逐字**等于用户自己写的那一段 —— 不是由 name/role 拼出来的。
+     * `design-deltas/agent-instructions` 逐字禁止那条捷径（人类 2026-08-09 裁决），
+     * 这条断言就是它的机械化：任何"兜底拼一段"的实现都会让它变红。 */
+    expect(after.versions[0]?.instructions).toBe(INSTRUCTIONS);
+    expect(after.versions[0]?.instructions).not.toContain("我自己建的助手");
 
     /* R9 的正题：在会话里发消息，拿到**恰好一条**回复。 */
     const sent = await sendTo(agentId, threadId);
@@ -342,6 +364,7 @@ describe("#660 验收：自建 agent 发布后真的能在会话里拿到回复"
 describe("#660 门控的反面：这条例外边不得成为 I-28 / O-21 的绕过路径", () => {
   it("已自助发布的 agent 再发一次 ⇒ 422 AGENT_NOT_DRAFT（不是幂等成功，也不是铸第二个版本）", async () => {
     const agentId = await createOwnAgent("我自己建的 agent 重复发布");
+    expect((await setInstructions(agentId, INSTRUCTIONS)).status).toBe(200);
     expect((await selfPublish(agentId)).status).toBe(201);
 
     const again = await selfPublish(agentId);
@@ -359,6 +382,8 @@ describe("#660 门控的反面：这条例外边不得成为 I-28 / O-21 的绕�
 
   it("有工具白名单的 agent 走这条边 ⇒ 422 AGENT_NOT_TOOLLESS，且**没有**被发布出去", async () => {
     const agentId = await createOwnAgent("我自己建的 agent 带工具");
+    /* 先写指令，好让下面那个 422 **只能**是"有工具"造成的，不是"没指令"。 */
+    expect((await setInstructions(agentId, INSTRUCTIONS)).status).toBe(200);
     /* ⚠ 直接写库造出"有能力面"的前态：`setToolWhitelist` 至今零实现（这正是
      * #660 收尾评论里如实上报的另一个缺口），所以这里没有产品路径可用。
      * 造前态用直写、断言用真实 HTTP —— 被验的是那道门，不是造数据的手段。 */
@@ -387,25 +412,39 @@ describe("#660 门控的反面：这条例外边不得成为 I-28 / O-21 的绕�
     expect(state?.published_version_id).toBeNull();
   });
 
-  it("双人评审路径（submit / publish-decision）**仍然**是 404 —— 本 feature 没有假装修好它", async () => {
-    const agentId = await createOwnAgent("我自己建的 agent 评审路径仍缺");
+  it("没写可执行定义就发布 ⇒ 422，且**没有**被发布出去（不是「先发了再说」）", async () => {
+    const agentId = await createOwnAgent("我自己建的 agent 没写指令");
+    const res = await selfPublish(agentId);
+    expect(res.status, await res.clone().text()).toBe(422);
+
+    const state = await databasePort.withTenant(toOrgId(orgId), async (s) => {
+      const a = await s.query<{ publish_state: string; published_version_id: string | null }>(
+        "SELECT publish_state, published_version_id FROM agents WHERE id=$1 AND org_id=$2",
+        [agentId, orgId],
+      );
+      return a.rows[0];
+    });
+    expect(state?.publish_state).toBe("草稿");
+    expect(state?.published_version_id).toBeNull();
+  });
+
+  it("双人评审路径（submit / publish-decision）已由 #856 接线，本条边**不是**它的替代品", async () => {
+    /* ⚠ 这条断言在见证阶段是「两条路由都是 404」。#856 合入后它们不再是 404 ——
+     * 断言随之翻转，而不是删掉：本 feature 与 #856 是**互补**关系
+     * （有能力面走双人评审、无能力面走自助），需要一条会红的东西钉住"两条都在"。 */
+    const agentId = await createOwnAgent("我自己建的 agent 评审路径并存");
     const submit = await fetch(`${base}/agents/${agentId}/submit`, {
       method: "POST",
       headers: principal,
       body: JSON.stringify({ agentId }),
     });
-    const decide = await fetch(`${base}/agents/${agentId}/publish-decision`, {
-      method: "POST",
-      headers: principal,
-      body: JSON.stringify({ agentId, decision: "批准发布", reason: null }),
-    });
-    /* 装置自检：一条确实不存在的邻近路径。它 404 才说明上面两条的 404 有意义。 */
+    /* 装置自检：一条确实不存在的邻近路径仍然 404 —— 否则"不是 404"不说明任何事。 */
     const bogus = await fetch(`${base}/agents/${agentId}/definitely-not-a-real-route`, {
       method: "POST",
       headers: principal,
       body: JSON.stringify({}),
     });
     expect(bogus.status).toBe(404);
-    expect([submit.status, decide.status]).toEqual([404, 404]);
+    expect(submit.status, "#856 已接线，submit 不该再是 404").not.toBe(404);
   });
 });
