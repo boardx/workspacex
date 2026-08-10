@@ -89,3 +89,75 @@ describe("#728 scanForInstances 跳过嵌套 checkout", () => {
     expect(new Set(found)).toEqual(new Set(["EVT-dup"]));
   });
 });
+
+/**
+ * #728 round 15 —— TPL-MOD-001（Domain Skill）实例不归通用扫描管。
+ *
+ * ## 这条门为什么存在
+ * domain-skill-model.ts 文件头早就预言过：用通用 InstanceMetadata schema
+ * （要求 `scope.project`）去校验 TPL-MOD-001（真实形状**没有** scope 字段）
+ * 会产生假阳性。实测它真的发生了——PR #827 合入
+ * `.agents/skills/mod-canvas-diagram/SKILL.md` 后，templates doctor 按通用
+ * schema 判它 TPL-INSTANCE-SCHEMA-INVALID，verify:base 连红三天，
+ * 还把 #728 round 15 的评分硬门 H3 拖成 0 分。
+ * 该文件的 schema 校验責任在 `lint:domains-doctor`（同在 verify:base 链上），
+ * 不在这里。
+ */
+describe("#728 scanForInstances 跳过 TPL-MOD-001（Domain Skill 有自己的验证门）", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "tpl-scan-mod-"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("TPL-MOD-001 的 SKILL.md（无 scope 字段）不再被通用 schema 判红", () => {
+    // 形状照 .agents/skills/mod-canvas-diagram/SKILL.md 的真实 frontmatter 写：
+    // 有 template_id + instance_id（所以会被 looksLikeInstance 认出来），
+    // 但没有 scope —— 修复前这份文件必进 validationFailures。
+    const dir = join(root, ".agents/skills/mod-canvas-diagram");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "SKILL.md"), [
+      "---",
+      "template_id: TPL-MOD-001",
+      "template_version: 1",
+      "instance_id: MODKNOW-canvas-diagram",
+      "skill_id: SKL-MOD-CANVAS-001",
+      "domain_id: DOM-CANVAS-DIAGRAM",
+      "status: active",
+      "---",
+      "",
+      "# 正文",
+      "",
+    ].join("\n"));
+
+    const scan = scanForInstances(root);
+    expect(scan.validationFailures).toEqual([]);
+    expect(scan.instances).toEqual([]);
+  });
+
+  /**
+   * ⛔ 反证：跳过必须**精确**到 TPL-MOD-001。别的模板实例缺 scope 依然要红——
+   * 拆掉上面那行 `template_id === DOMAIN_SKILL_TEMPLATE_ID` 的精确比较、
+   * 换成任何更宽的条件（比如按路径跳过 .agents/），这条会立刻抓到扫描面缩水。
+   */
+  it("非 TPL-MOD-001 的实例缺 scope 照样进 validationFailures（跳过不等于放过）", () => {
+    mkdirSync(join(root, ".harness/templates/examples"), { recursive: true });
+    writeFileSync(join(root, ".harness/templates/examples/EVT-broken.yaml"), [
+      "template_id: TPL-EVT-001",
+      "template_version: 1",
+      "instance_id: EVT-broken",
+      "status: active",
+      // 刻意缺 scope —— 与上面 TPL-MOD-001 用例唯一的实质差别是 template_id
+      "",
+    ].join("\n"));
+
+    const scan = scanForInstances(root);
+    expect(scan.instances).toEqual([]);
+    expect(scan.validationFailures).toHaveLength(1);
+    expect(scan.validationFailures[0]!.message).toContain("scope.project");
+  });
+});
