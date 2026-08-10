@@ -9,8 +9,9 @@
  * `org-invite-ports.ts` 确认过：后端目前**没有任何 GET 列表端点**——
  * `OrgMemberRepository` 只有 `remove()`，`OrgInviteRepository` 只有
  * `create()` / `activate()` / `reviewAdminInvite()`。没有 `list()`。
- * 契约里 `resendOrgInvite` / `revokeOrgInvite` 两个操作**存在但没有对应 controller
- * 路由**（`grep -rn "resendOrgInvite\|revokeOrgInvite" interface/controllers/` 命中为空）。
+ * （历史注，已过时：`resendOrgInvite` / `revokeOrgInvite` 当时没有 controller 路由；
+ * #363 已把两条接上——`org-admin-management.controller.ts` 的 resend / revoke——
+ * #638 迭代 5 在本文件末尾补齐对应封装。）
  *
  * 所以这里只封装四个确实能打通的写操作：
  *   - `inviteOrgMember`   邀请成员进组织
@@ -226,4 +227,30 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const copy = new Uint8Array(bytes);
   const digest = await crypto.subtle.digest("SHA-256", copy);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ═══════════════════ #638 迭代 5：邀请的重发 / 撤销 ═══════════════════ */
+
+export type ResendOrgInviteOut = z.infer<typeof orgAdmin.operations.resendOrgInvite.out>;
+export type RevokeOrgInviteOut = z.infer<typeof orgAdmin.operations.revokeOrgInvite.out>;
+
+/**
+ * `POST /organizations/:orgId/invites/:inviteId/resend`——重发 = 签发新令牌 + 作废旧令牌
+ * （I-6），不幂等，受 `AUTH_POLICY.resendCooldownSeconds` / `resendDailyMax` 限流
+ * （`RATE_LIMITED`）。可重发状态只有 `pending` / `send-failed`（后端
+ * `pg-org-invite-repository.ts` `resendOne` 的状态门）。
+ */
+export async function resendOrgInvite(orgId: string, inviteId: string): Promise<ResendOrgInviteOut> {
+  return apiRequest<ResendOrgInviteOut>(
+    path(orgAdmin.operations.resendOrgInvite.path, { orgId, inviteId }),
+    { method: "POST", body: { orgId, inviteId } },
+  );
+}
+
+/** `POST /organizations/:orgId/invites/:inviteId/revoke`——幂等；`used` 的邀请撤不了（`VERSION_CHANGED`）。 */
+export async function revokeOrgInvite(orgId: string, inviteId: string): Promise<RevokeOrgInviteOut> {
+  return apiRequest<RevokeOrgInviteOut>(
+    path(orgAdmin.operations.revokeOrgInvite.path, { orgId, inviteId }),
+    { method: "POST", body: { orgId, inviteId } },
+  );
 }

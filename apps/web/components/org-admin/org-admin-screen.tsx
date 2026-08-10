@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Camera, Check, Mail, Pencil, Plus, Settings, Trash2, UserCog, Users, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, Check, ChevronDown, Mail, Pencil, Plus, RotateCcw, Send, Settings, Trash2, UserCog, Users, X } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -13,10 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError, apiBaseUrl, getStoredSessionToken } from "@/lib/api-client";
-import { ORG_ROLE_LABEL } from "@/lib/identity";
+import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
+import { auth as authContract } from "@repo/contracts";
 import {
   createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
   updateOrganization, uploadOrgAvatar,
+  inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
   type ListTeamsOut, type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
 } from "@/lib/live-org-admin";
 
@@ -532,10 +534,441 @@ const INVITE_STATUS_LABEL: Record<string, string> = {
   "send-failed": "发送失败",
 };
 
+/**
+ * 邀请相关写操作的错误码 → 人话。撑开 `describeFailureFor` 覆盖不到的邀请专属语义
+ * （错误码全部来自契约 `inviteOrgMember`/`resendOrgInvite`/`revokeOrgInvite`/
+ * `reviewAdminInvite` 的 `err` 声明，不是这里发明的）。
+ */
+function describeInviteFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    switch (failure.reasonCode) {
+      case "INVITE_ALREADY_MEMBER":
+        return "该邮箱已是组织成员，无需邀请。";
+      case "INVITE_DUPLICATE":
+        return "该邮箱已有一条未完成的邀请（角色或团队与本次不同）。可在下方列表对它重发，或先撤销再按新角色重新邀请。";
+      case "QUOTA_EXHAUSTED":
+        return "组织成员配额已用尽，本次邀请未发出。请先释放名额（撤销未使用的邀请或移除成员）再试。";
+      case "MAIL_UNAVAILABLE":
+        return "邮件服务不可用：邀请已记录为「发送失败」，不会产生可用链接的假象。邮件服务恢复后可在列表里对它「重发」。";
+      case "RATE_LIMITED":
+        return `重发太频繁：每 ${authContract.AUTH_POLICY.resendCooldownSeconds} 秒最多一次、24 小时最多 ${authContract.AUTH_POLICY.resendDailyMax} 次。稍后再试。`;
+      case "INVITE_SELF_REVIEW_FORBIDDEN":
+        return "不能复核自己发起的邀请（双人复核），需要另一位管理员来批准或拒绝。";
+      case "VERSION_CHANGED":
+        return "邀请状态已发生变化（可能已被其他管理员处理、已使用或已撤销），列表已刷新。";
+      case "INVITE_NOT_FOUND":
+        return "邀请不存在或当前身份不可见。";
+      case "PROJECT_ROLE_INSUFFICIENT":
+        return "只有组织管理员能执行此操作（HTTP 403）。";
+      case "NO_ORG_MEMBERSHIP":
+        return "你不是该组织的成员（HTTP 403）。";
+    }
+    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
+    if (failure.status === 403) return "当前身份无权执行此操作（HTTP 403）。";
+    return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+  }
+  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
+}
+
+/**
+ * 弹层单选——同 `top-bar.tsx` 的 `OrgSwitcher` 模式（#860 把裸原生 select 换掉的
+ * 同一处置）：Button 触发 + role=listbox 弹层，外点/Escape 关闭。
+ */
+function PopoverSelect({
+  value, options, onSelect, disabled, testid, ariaLabel,
+}: {
+  value: string;
+  options: ReadonlyArray<{ id: string; label: string }>;
+  onSelect: (id: string) => void;
+  disabled?: boolean;
+  testid: string;
+  ariaLabel: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const currentLabel = options.find((o) => o.id === value)?.label ?? value;
+
+  React.useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        data-testid={testid}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${ariaLabel}，当前：${currentLabel}`}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal"
+      >
+        <span className="truncate">{currentLabel}</span>
+        <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </Button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={ariaLabel}
+          data-testid={`${testid}-listbox`}
+          className="absolute left-0 top-9 z-20 max-h-56 w-full min-w-40 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md"
+        >
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="option"
+              aria-selected={o.id === value}
+              data-testid={`${testid}-option-${o.id}`}
+              onClick={() => {
+                onSelect(o.id);
+                setOpen(false);
+              }}
+              className={[
+                "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                o.id === value ? "text-primary" : "text-popover-foreground",
+              ].join(" ")}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 团队下拉里「不分团队」的哨兵值——提交时映射为契约要求的空串（controller 把空串转 null）。 */
+const NO_TEAM = "";
+
+const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
+  ["consultant", "lead", "compliance", "admin"] as const
+).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
+
+function InviteMemberForm({
+  orgId, onSucceeded, onFailed,
+}: {
+  orgId: string;
+  onSucceeded: (text: string) => void;
+  onFailed: (text: string) => void;
+}) {
+  const [email, setEmail] = React.useState("");
+  const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
+  const [teamId, setTeamId] = React.useState<string>(NO_TEAM);
+  const [teams, setTeams] = React.useState<ListTeamsOut["teams"] | null>(null);
+  const [teamsFailed, setTeamsFailed] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [fieldError, setFieldError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await listTeams(orgId);
+        if (!cancelled) setTeams(result.teams);
+      } catch {
+        // 团队列表拉不到不阻塞邀请本身——降级为只能「不分团队」，并如实说明。
+        if (!cancelled) {
+          setTeams([]);
+          setTeamsFailed(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
+
+  const teamOptions = React.useMemo(
+    () => [
+      { id: NO_TEAM, label: "不分团队" },
+      ...(teams ?? []).map((t) => ({ id: t.teamId, label: t.name })),
+    ],
+    [teams],
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (trimmed.length === 0) {
+      setFieldError("邮箱不能为空");
+      return;
+    }
+    if (!trimmed.includes("@")) {
+      setFieldError(`「${trimmed}」不是合法邮箱`);
+      return;
+    }
+    setFieldError(null);
+    setSubmitting(true);
+    try {
+      const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId });
+      setEmail("");
+      if (out.status === "awaiting-review") {
+        onSucceeded(
+          `已受理对 ${trimmed} 的管理员邀请：进入双人复核（待复核），另一位管理员批准后才会签发激活链接。`,
+        );
+      } else if (out.quotaReserved === 0) {
+        onSucceeded(
+          `该邮箱此前已有相同的邀请，本次返回既有邀请（未新建、未重复扣配额）。需要新链接请在列表里「重发」。`,
+        );
+      } else {
+        onSucceeded(
+          `邀请已创建，激活令牌已签发（7 天有效）。注意：邮件投递通道尚未接通，且激活链接明文不经过管理界面（安全约束）——受邀人目前拿不到链接，获取方式待产品裁决。`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.reasonCode === "INVITE_ALREADY_MEMBER" || err.reasonCode === "INVITE_DUPLICATE")) {
+        setFieldError(describeInviteFailure(err));
+      } else {
+        onFailed(describeInviteFailure(err));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3"
+      onSubmit={handleSubmit}
+      data-testid="org-admin-invite-form"
+    >
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="flex min-w-52 flex-1 flex-col gap-1">
+          <Label htmlFor="org-admin-invite-email">受邀人邮箱</Label>
+          <Input
+            id="org-admin-invite-email"
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.currentTarget.value);
+              if (fieldError) setFieldError(null);
+            }}
+            placeholder="name@example.com"
+            disabled={submitting}
+            data-testid="org-admin-invite-email"
+            aria-invalid={fieldError !== null}
+          />
+          {fieldError ? (
+            <p role="alert" data-testid="err-invite-email" className="text-10 text-destructive">{fieldError}</p>
+          ) : null}
+        </div>
+        <div className="flex w-32 flex-col gap-1">
+          <Label id="org-admin-invite-role-label">组织角色</Label>
+          <PopoverSelect
+            value={orgRole}
+            options={ORG_ROLE_OPTIONS}
+            onSelect={(id) => setOrgRole(id as OrgRole)}
+            disabled={submitting}
+            testid="org-admin-invite-role"
+            ariaLabel="组织角色"
+          />
+        </div>
+        <div className="flex w-36 flex-col gap-1">
+          <Label id="org-admin-invite-team-label">团队</Label>
+          <PopoverSelect
+            value={teamId}
+            options={teamOptions}
+            onSelect={setTeamId}
+            disabled={submitting || teams === null}
+            testid="org-admin-invite-team"
+            ariaLabel="团队"
+          />
+        </div>
+      </div>
+
+      {teamsFailed && (
+        <p className="text-10 text-warning" data-testid="org-admin-invite-teams-degraded">
+          团队列表暂时拉不到，本次只能按「不分团队」邀请；需要指定团队请稍后重试。
+        </p>
+      )}
+      {orgRole === "admin" && (
+        <p className="text-10 text-muted-foreground" data-testid="org-admin-invite-dual-review-note">
+          邀请管理员需双人复核：提交后进入「待复核」，由另一位管理员批准后才签发激活链接（发起人不能自批）。
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-10 text-muted-foreground">
+          激活链接经邮件送达受邀人，链接明文不在此界面展示。邮件通道当前尚未接通——见邀请提交后的提示。
+        </p>
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          disabled={submitting || email.trim().length === 0}
+          data-testid="org-admin-invite-submit"
+        >
+          <Send aria-hidden className="h-3.5 w-3.5" />
+          {submitting ? "邀请中…" : "发出邀请"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function InviteRow({
+  orgId, invite, onChanged, onSucceeded, onFailed,
+}: {
+  orgId: string;
+  invite: ListOrgInvitesOut["invites"][number];
+  onChanged: () => void;
+  onSucceeded: (text: string) => void;
+  onFailed: (text: string) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [confirmingRevoke, setConfirmingRevoke] = React.useState(false);
+
+  // 状态门与后端一致（`pg-org-invite-repository.ts`）：
+  //   重发：pending / send-failed（awaiting-review 重发会绕过双人复核，后端拒）
+  //   撤销：revoked（幂等）与 used（人已进来）之外都可以；已翻状态的不给按钮
+  //   复核：仅 awaiting-review。列表不含发起人 id，自批由后端拒（映射成人话）。
+  const canResend = invite.status === "pending" || invite.status === "send-failed";
+  const canRevoke = invite.status === "pending" || invite.status === "awaiting-review" || invite.status === "send-failed";
+  const canReview = invite.status === "awaiting-review";
+
+  async function run(action: () => Promise<string>) {
+    setBusy(true);
+    try {
+      const text = await action();
+      onSucceeded(text);
+      onChanged();
+    } catch (err) {
+      onFailed(describeInviteFailure(err));
+      if (err instanceof ApiError && err.reasonCode === "VERSION_CHANGED") onChanged();
+    } finally {
+      setBusy(false);
+      setConfirmingRevoke(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 px-3 py-2" data-testid={`org-admin-invite-${invite.inviteId}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="truncate text-13 font-medium">{invite.email}</span>
+        <Badge tone={invite.status === "pending" ? "warning" : invite.status === "used" ? "primary" : invite.status === "revoked" ? "outline" : "danger"}>
+          {INVITE_STATUS_LABEL[invite.status] ?? invite.status}
+        </Badge>
+        <span className="text-10 text-muted-foreground">由 {invite.invitedBy} 邀请</span>
+        <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-invite-${invite.inviteId}-expires`}>
+          {new Date(invite.expiresAt).toLocaleDateString("zh-CN")} 到期
+        </span>
+        <div className="flex shrink-0 gap-1.5">
+          {canReview && (
+            <>
+              <Button
+                type="button" size="xs" variant="primary" disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
+                    return `已批准对 ${invite.email} 的管理员邀请，激活令牌已签发（7 天有效）。`;
+                  })
+                }
+                data-testid={`org-admin-invite-${invite.inviteId}-approve`}
+              >
+                <Check aria-hidden className="h-3 w-3" />
+                批准
+              </Button>
+              <Button
+                type="button" size="xs" variant="outline" disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "reject", reason: null });
+                    return `已拒绝对 ${invite.email} 的管理员邀请。`;
+                  })
+                }
+                data-testid={`org-admin-invite-${invite.inviteId}-reject`}
+              >
+                <X aria-hidden className="h-3 w-3" />
+                拒绝
+              </Button>
+            </>
+          )}
+          {canResend && (
+            <Button
+              type="button" size="xs" variant="ghost" disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  const out = await resendOrgInvite(orgId, invite.inviteId);
+                  return `已对 ${invite.email} 重发：新令牌已签发、旧链接当场作废（冷却 ${out.cooldownSec} 秒）。链接明文不经过界面，邮件通道未接通前受邀人暂收不到。`;
+                })
+              }
+              data-testid={`org-admin-invite-${invite.inviteId}-resend`}
+            >
+              <RotateCcw aria-hidden className="h-3 w-3" />
+              重发
+            </Button>
+          )}
+          {canRevoke && !confirmingRevoke && (
+            <Button
+              type="button" size="xs" variant="ghost" disabled={busy}
+              className="text-destructive"
+              onClick={() => setConfirmingRevoke(true)}
+              data-testid={`org-admin-invite-${invite.inviteId}-revoke`}
+            >
+              <Ban aria-hidden className="h-3 w-3" />
+              撤销
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {confirmingRevoke && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1.5"
+          data-testid={`org-admin-invite-${invite.inviteId}-revoke-confirm`}
+        >
+          <div className="flex items-center gap-1.5 text-11 text-destructive">
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            <span>确认撤销对 {invite.email} 的邀请？其激活链接将立即失效，且不会通知受邀人。</span>
+          </div>
+          <div className="flex shrink-0 gap-1.5">
+            <Button
+              type="button" size="xs" variant="destructive" disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  await revokeOrgInvite(orgId, invite.inviteId);
+                  return `已撤销对 ${invite.email} 的邀请，激活链接立即失效。`;
+                })
+              }
+              data-testid={`org-admin-invite-${invite.inviteId}-revoke-confirm-yes`}
+            >
+              {busy ? "撤销中…" : "确认撤销"}
+            </Button>
+            <Button
+              type="button" size="xs" variant="ghost" disabled={busy}
+              onClick={() => setConfirmingRevoke(false)}
+              data-testid={`org-admin-invite-${invite.inviteId}-revoke-confirm-no`}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOrgInvitesOut | null>(null);
+  const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -558,11 +991,45 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
     void load();
   }, [load]);
 
+  React.useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 8000);
+    return () => clearTimeout(t);
+  }, [banner]);
+
   return (
     <div className="flex flex-col gap-3 pt-3">
       <p className="text-11 text-muted-foreground">
         发出的邀请及其状态。仅组织管理员可查看——比成员名单更严格（未接受的邀请邮箱不对全体成员开放）。
       </p>
+
+      {/* 表单跟随标签页同一权限判定：非 admin 会在下方 StateShell 看到真实 403 的无权限态，
+          这里就不再渲染一个必然失败的表单（发起邀请后端仅 admin 可做）。 */}
+      {isAdmin && (
+        <InviteMemberForm
+          orgId={orgId}
+          onSucceeded={(text) => {
+            setBanner({ tone: "success", text });
+            void load();
+          }}
+          onFailed={(text) => setBanner({ tone: "error", text })}
+        />
+      )}
+
+      {banner ? (
+        <div
+          role={banner.tone === "error" ? "alert" : "status"}
+          data-testid="org-admin-invite-banner"
+          className={
+            banner.tone === "success"
+              ? "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
+              : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
+          }
+        >
+          {banner.text}
+        </div>
+      ) : null}
+
       <StateShell
         state={state}
         emptyHint="还没有发出过邀请。"
@@ -571,16 +1038,14 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
       >
         <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="org-admin-invite-list">
           {out?.invites.map((inv) => (
-            <li key={inv.inviteId} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid={`org-admin-invite-${inv.inviteId}`}>
-              <span className="truncate text-13 font-medium">{inv.email}</span>
-              <Badge tone={inv.status === "pending" ? "warning" : inv.status === "used" ? "primary" : inv.status === "revoked" ? "outline" : "danger"}>
-                {INVITE_STATUS_LABEL[inv.status] ?? inv.status}
-              </Badge>
-              <span className="text-10 text-muted-foreground">由 {inv.invitedBy} 邀请</span>
-              <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-invite-${inv.inviteId}-expires`}>
-                {new Date(inv.expiresAt).toLocaleDateString("zh-CN")} 到期
-              </span>
-            </li>
+            <InviteRow
+              key={inv.inviteId}
+              orgId={orgId}
+              invite={inv}
+              onChanged={() => void load()}
+              onSucceeded={(text) => setBanner({ tone: "success", text })}
+              onFailed={(text) => setBanner({ tone: "error", text })}
+            />
           ))}
         </ul>
       </StateShell>
