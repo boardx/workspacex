@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { ADMIN_NAV, ADMIN_NAV_COUNT_SOURCES, type AdminModuleKey } from "@/lib/mock/admin";
+import * as React from "react";
+import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { useLiveAdminNavCounts } from "@/lib/live-admin-nav-counts";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
 import { resolveAdminNavCounts, type AdminNavCountSource } from "@/lib/admin-nav-counts";
 import { ADMIN_SECOND_LEVEL } from "@/lib/navigation";
@@ -66,14 +71,30 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
  * 不需要 mock 整个模块。
  */
+/** 左栏全部项的 key，顺序与 `ADMIN_NAV` 一致。 */
+const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.key));
+
 export function AdminNav({
   active,
-  countSources = ADMIN_NAV_COUNT_SOURCES,
+  countSources,
 }: {
   active: AdminModuleKey;
+  /**
+   * #881：缺省**不再是** `lib/mock/admin.ts` 的静态 mock，而是当前组织的真实计数。
+   *
+   * 之前左栏写「Skill 11」而 Skill 目录页写「共 5 条」，就是因为这里默认吃 mock。
+   * 口径明确的两项（agent / skill）取真实 `GET /capabilities`，其余项口径「待 Q-11」
+   * 未裁决 ⇒ 一律「—」，**不编数字**（见 `lib/live-admin-nav-counts.ts` 头注）。
+   *
+   * 这个 prop 保留给测试注入（包括注入会抛错的来源做反证）。
+   */
   countSources?: Record<AdminModuleKey, AdminNavCountSource>;
 }) {
-  const counts = resolveAdminNavCounts(countSources);
+  // ⚠ `useOptionalSession` 而不是 `useSession`：本组件在若干测试里被裸渲染（无 Provider），
+  //   `useSession` 会直接抛。没有会话 ⇒ 拿不到 orgId ⇒ 计数「—」，这本身就是诚实的答案。
+  const session = useOptionalSession();
+  const liveSources = useLiveAdminNavCounts(session?.session?.currentOrgId ?? null, ALL_NAV_KEYS);
+  const counts = resolveAdminNavCounts(countSources ?? liveSources);
   return (
     <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
       <div className="flex flex-col gap-0.5 px-1">
@@ -108,6 +129,15 @@ export function AdminNav({
                 <span
                   data-testid={`${ADMIN_NAV_TESTID[item.key]}-count`}
                   aria-label={countUnavailable ? `${item.label} 计数暂不可用` : `${item.label} 共 ${count} 项`}
+                  /**
+                   * #881：告诉用户「—」是什么意思。
+                   *
+                   * 本 issue 把 agent/skill 接上真实计数后，其余项从"有一个 mock 数字"
+                   * 变成「—」——这是用户可见的变化，不解释就会被当成故障。
+                   * ⚠ 这句话只说**事实**（这一项还没接真实数据源），不承诺什么时候接，
+                   *   也不假装它是 0。
+                   */
+                  title={countUnavailable ? `${item.label}：尚未接入真实数据源，因此不显示数字（不是 0）` : undefined}
                   className={cn(
                     "shrink-0 text-11 tabular-nums",
                     countUnavailable ? "text-muted-foreground/60" : "text-muted-foreground",

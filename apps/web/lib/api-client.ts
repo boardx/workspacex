@@ -122,7 +122,13 @@ export class ApiError extends Error {
 }
 
 export interface ApiRequestOptions {
-  readonly method?: "GET" | "POST" | "PATCH" | "DELETE";
+  /**
+   * ⚠ `PUT` 是 #881 补的：契约 `assetGovernance.writeAssetFile` 用的就是 PUT
+   * （`@Put("/assets/:assetKind/:assetId/files/content")`），而此前这个联合类型里没有它
+   * ——不是有意排除，是在此之前没有调用方需要。方法名以**契约**为准，
+   * 不在这一层把 PUT 改写成 POST 去迁就类型。
+   */
+  readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly query?: Record<string, string | undefined>;
   readonly body?: unknown;
   /** 缺省读 `localStorage`；测试或需要显式传 token 的调用方可以覆盖。 */
