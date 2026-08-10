@@ -661,11 +661,13 @@ const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
 ).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
 
 function InviteMemberForm({
-  orgId, onSucceeded, onFailed,
+  orgId, onSucceeded, onFailed, onReset,
 }: {
   orgId: string;
   onSucceeded: (text: string) => void;
   onFailed: (text: string) => void;
+  /** 每次提交动作开始时调用——父级借此清掉上一次的 banner，避免旧成功条与新错误同屏（假绿）。 */
+  onReset: () => void;
 }) {
   const [email, setEmail] = React.useState("");
   const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
@@ -704,6 +706,8 @@ function InviteMemberForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // 先清上一次的 banner：无论本次是校验失败、字段级错误还是走网络，旧的绿色成功条都不许残留。
+    onReset();
     const trimmed = email.trim();
     if (trimmed.length === 0) {
       setFieldError("邮箱不能为空");
@@ -717,7 +721,10 @@ function InviteMemberForm({
     setSubmitting(true);
     try {
       const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId });
+      // 成功后整表复位：角色/团队若保留上次选择，连续邀请时会把上一位的「管理员」带给下一位。
       setEmail("");
+      setOrgRole("consultant");
+      setTeamId(NO_TEAM);
       if (out.status === "awaiting-review") {
         onSucceeded(
           `已受理对 ${trimmed} 的管理员邀请：进入双人复核（待复核），另一位管理员批准后才会签发激活链接。`,
@@ -746,6 +753,9 @@ function InviteMemberForm({
     <form
       className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3"
       onSubmit={handleSubmit}
+      // noValidate：关掉浏览器原生 constraint validation（英文气泡），让下方中文校验真正执行、
+      // 错误落进 err-invite-email（role="alert"）。
+      noValidate
       data-testid="org-admin-invite-form"
     >
       <div className="flex flex-wrap items-start gap-2">
@@ -805,7 +815,7 @@ function InviteMemberForm({
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
-          激活链接经邮件送达受邀人，链接明文不在此界面展示。邮件通道当前尚未接通——见邀请提交后的提示。
+          邮件通道接通后，激活链接将经邮件送达受邀人；当前通道尚未接通，且链接明文不在此界面展示——见邀请提交后的提示。
         </p>
         <Button
           type="submit"
@@ -861,7 +871,8 @@ function InviteRow({
     <li className="flex flex-col gap-2 px-3 py-2" data-testid={`org-admin-invite-${invite.inviteId}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="truncate text-13 font-medium">{invite.email}</span>
-        <Badge tone={invite.status === "pending" ? "warning" : invite.status === "used" ? "primary" : invite.status === "revoked" ? "outline" : "danger"}>
+        {/* 待复核是中性在途态，不是失败——用 neutral，与「待接受」(warning) 区分；danger 只留给 send-failed。 */}
+        <Badge tone={invite.status === "pending" ? "warning" : invite.status === "awaiting-review" ? "neutral" : invite.status === "used" ? "primary" : invite.status === "revoked" ? "outline" : "danger"}>
           {INVITE_STATUS_LABEL[invite.status] ?? invite.status}
         </Badge>
         <span className="text-10 text-muted-foreground">由 {invite.invitedBy} 邀请</span>
@@ -1013,6 +1024,7 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
             void load();
           }}
           onFailed={(text) => setBanner({ tone: "error", text })}
+          onReset={() => setBanner(null)}
         />
       )}
 
