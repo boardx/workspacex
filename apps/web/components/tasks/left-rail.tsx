@@ -2,18 +2,18 @@
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { TASK_VIEWS, RUN_CENTER } from "@/lib/mock/tasks";
 
-/** 左栏视图切换：按行动方 / 按项目（预览手段，切换只改本地高亮）*/
-const GROUPINGS = [
-  { key: "by-actor", label: "按行动方" },
-  { key: "by-project", label: "按项目" },
-] as const;
-
+/**
+ * 左栏（272px）—— 原型实测字节 15920518 起：
+ *   `任务` 标题 → `人和 AI 共用同一种任务对象` 副标题 → `＋ 新建任务`（黑底主按钮）→ 视图列表 → 运行中心。
+ * ⚠ `按行动方`/`按项目` 分组切换**不在左栏**——原型里那两个按钮在中栏内容头（56px 顶条），
+ *   随 `TodayBoard` 的页头一起渲染，这里不重复放。
+ */
 export function TasksLeftRail() {
-  const [grouping, setGrouping] = React.useState<string>("by-actor");
   // 视图选择：默认落在 primary 视图（我的今天）。切换是预览手段，改的是本地高亮。
   const [activeView, setActiveView] = React.useState<string>(
     TASK_VIEWS.find((v) => v.primary)?.key ?? TASK_VIEWS[0]?.key ?? "my-today",
@@ -21,21 +21,20 @@ export function TasksLeftRail() {
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <div className="flex items-center gap-1 rounded-md border border-border-subtle bg-card p-0.5" data-testid="tasks-grouping-switch">
-        {GROUPINGS.map((g) => (
-          <button
-            key={g.key}
-            type="button"
-            onClick={() => setGrouping(g.key)}
-            data-testid={`tasks-grouping-${g.key}`}
-            className={cn(
-              "flex-1 rounded-sm px-2 py-1 text-11 font-medium transition-colors duration-200",
-              grouping === g.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {g.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 pb-1" data-testid="tasks-left-heading">
+        <div>
+          <h1 className="text-13 font-semibold">任务</h1>
+          <p className="text-10 text-muted-foreground">人和 AI 共用同一种任务对象</p>
+        </div>
+        <Button
+          size="sm"
+          variant="primary"
+          className="w-full justify-center"
+          onClick={() => window.alert("演示：任务创建流程")}
+          data-testid="tasks-new-task-rail"
+        >
+          ＋ 新建任务
+        </Button>
       </div>
 
       <nav className="flex flex-col gap-0.5" data-testid="tasks-view-list">

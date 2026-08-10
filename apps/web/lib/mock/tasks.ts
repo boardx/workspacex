@@ -24,14 +24,15 @@ export interface JudgmentCard {
   risk: RiskLevel;
   /** 状态词：需批准 / 待验收 / 授权 */
   statusWord: string;
-  /** 谁停在这里 + 等了多久（R3 原型：Ledger 已暂停 · 等待 4 分钟） */
+  /** 谁停在这里 + 等了多久（R3/R2 原型逐字：Ledger 已暂停 · 等待 4 分钟）。
+   *  R1（授权）原型里这一行只有上下文描述、没有等待时长——留空。 */
   waitedBy: string;
-  waitedFor: string;
-  due: string;
+  waitedFor?: string;
+  due?: string;
   title: string;
-  /** 决策问句 / 验收说明 / 授权问句 */
-  question: string;
-  /** 一条附注：验收后才成为可引用证据 / 授权把权限加入权限包 …… */
+  /** 决策问句 / 验收说明 / 授权问句 —— 留空则只显示标题（R1 原型只有一行加粗文案）。 */
+  question?: string;
+  /** 一条附注（仅在原型确有对应文案时使用，不用于渲染重复文案）。 */
   note?: string;
   project: string;
   actions: string[];
@@ -80,19 +81,22 @@ export interface WaitingCard {
 
 export const JUDGMENT_CARDS: JudgmentCard[] = [
   {
+    // 原型字节 15928565 起，加粗标题就是这句决策问句本身——不是单独一条「问句」贴在标题下面。
+    // 「AI 停在这里，不会绕过你继续」是本区（等我判断）的**分区级**提示（见 today-board.tsx 的
+    // Section hint），不在单张卡片里重复。
     id: "jc-approve-path-b",
     risk: "R3",
     statusWord: "需批准",
     waitedBy: "Ledger 已暂停",
     waitedFor: "等待 4 分钟",
     due: "今天 18:00",
-    title: "路径 B 现金流模型 · 收益保底条款",
-    question: "路径 B 是否承诺「收益保底」？这会改变整张商业模式画布的成本结构。",
-    note: "AI 停在这里，不会绕过你继续。",
+    title: "路径 B 是否承诺「收益保底」？这会改变整张商业模式画布的成本结构",
     project: "远洋新能源 · 欧洲市场进入",
     actions: ["提供判断", "看依据"],
   },
   {
+    // 原型字节 15930015 起是同一句话，用「；」连接，两半同样是普通说明文字，
+    // 不是警示——之前拆成 question + 带 ShieldCheck 图标的 warning 提示是编的强调。
     id: "jc-review-tariff",
     risk: "R2",
     statusWord: "待验收",
@@ -100,21 +104,18 @@ export const JUDGMENT_CARDS: JudgmentCard[] = [
     waitedFor: "完成标准 3/3",
     due: "今天",
     title: "验收「德国工商储电价机制核查报告」",
-    question: "14 条结论，3 条低置信度已标出。",
-    note: "验收后才会成为可引用证据。",
+    question: "14 条结论，3 条低置信度已标出；验收后才会成为可引用证据",
     project: "远洋新能源 · 欧洲市场进入",
     actions: ["验收", "要求补证据", "看依据"],
   },
   {
+    // 原型里 R1 卡只有两行：小字上下文（本字段 waitedBy）+ 加粗问句（title）。
+    // 没有等待时长、没有到期时间——之前编的「等待 12 分钟」「今天」在原型里找不到依据，已去掉。
     id: "jc-authz-crm",
     risk: "R1",
     statusWord: "授权",
-    waitedBy: "Echo 请求读取",
-    waitedFor: "等待 12 分钟",
-    due: "今天",
-    title: "Echo 请求读取「客户 CRM」以核对联系人",
-    question: "是否把 CRM 读取权限加入这次任务的权限包？",
-    note: "授权只对本任务生效 · 逐次 · 限范围 · 限时（默认「本次任务内」）。",
+    waitedBy: "Echo 请求读取「客户 CRM」以核对联系人",
+    title: "是否把 CRM 读取权限加入这次任务的权限包？",
     project: "远洋新能源 · 客户尽调",
     actions: ["去授权", "看依据"],
   },
