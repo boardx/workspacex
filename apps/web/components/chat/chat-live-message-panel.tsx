@@ -955,9 +955,57 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
  * 只展示"已经发生的事"，`AgentRunStatus` 上方已有的"正在执行"整体状态负责传达"run
  * 还没完"，两者不重复表达同一件事。
  */
+/**
+ * V6（PROP-CHAT-10ITER-001）—— 从 run 的真实 steps 派生「思考了 X 秒 · N 步」。
+ * `AgentRunView.steps` 每步已带 `startedAt`/`endedAt`（契约既有字段，无需后端改动）：
+ * 步数 = 全部 step 数；耗时 = 最晚 `endedAt` − 最早 `startedAt`。解析失败/时间缺失
+ * 时返回 `seconds: null`，`summary` 只显示步数，绝不编一个耗时出来。
+ */
+function deriveThinkingSummary(steps: AgentRunView["steps"]): { seconds: number | null; stepCount: number } {
+  const stepCount = steps.length;
+  let minStart = Number.POSITIVE_INFINITY;
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  for (const step of steps) {
+    const start = Date.parse(step.startedAt);
+    const end = Date.parse(step.endedAt);
+    if (!Number.isNaN(start)) minStart = Math.min(minStart, start);
+    if (!Number.isNaN(end)) maxEnd = Math.max(maxEnd, end);
+  }
+  const spanValid = Number.isFinite(minStart) && Number.isFinite(maxEnd) && maxEnd >= minStart;
+  return { seconds: spanValid ? Math.round(((maxEnd - minStart) / 1000) * 10) / 10 : null, stepCount };
+}
+
 function AgentRunToolCallSteps({ steps }: { steps: AgentRunView["steps"] }) {
   const toolSteps = steps.filter((step) => step.kind === "tool_call");
-  if (toolSteps.length === 0) return null;
+  // V6 —— 只要 run 有任何 step 就展示思考折叠块，不再要求有工具调用才渲染。
+  if (steps.length === 0) return null;
+  const { seconds, stepCount } = deriveThinkingSummary(steps);
+  const summaryText = seconds !== null
+    ? `思考了 ${seconds} 秒 · ${stepCount} 步`
+    : `${stepCount} 步`;
+  return (
+    // ⚠ 默认 `open`：P7（round 17 的 10/10）判据要求工具调用的参数/终态**默认可见**。
+    // 折叠它会把 P7 依赖的可见性藏起来 ⇒ 回归。所以这里是「默认展开、可手动收起」，
+    // 不是「默认收起」——既加了 V6 的思考摘要，又不动 P7 已得的可见性。
+    <details open className="mt-1.5" data-testid="chat-run-thinking" data-step-count={stepCount}>
+      <summary
+        className="cursor-pointer list-none text-11 text-muted-foreground transition-colors hover:text-card-foreground"
+        data-testid="chat-run-thinking-summary"
+      >
+        {summaryText}
+      </summary>
+      {toolSteps.length === 0 ? (
+        <p className="mt-1.5 text-11 text-muted-foreground" data-testid="chat-run-thinking-no-tools">
+          本次没有工具调用，模型直接作答。
+        </p>
+      ) : (
+        <AgentRunToolCallStepList toolSteps={toolSteps} />
+      )}
+    </details>
+  );
+}
+
+function AgentRunToolCallStepList({ toolSteps }: { toolSteps: AgentRunView["steps"] }) {
   return (
     <ol className="mt-1.5 flex flex-col gap-1.5" data-testid="chat-run-tool-call-steps">
       {toolSteps.map((step, index) => {
