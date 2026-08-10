@@ -21,6 +21,8 @@
     "verify:self-service-profile": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:self-service-profile:raw",
     "verify:self-service-profile:raw": "pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts",
     "shots:chat-main": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-main:raw",
+    "shots:chat-behavior": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-behavior:raw",
+    "shots:chat-behavior:raw": "pnpm --filter web exec playwright test --config playwright.chat-behavior.config.ts",
     "shots:chat-main:raw": "pnpm --filter web exec playwright test --config playwright.chat-shots.config.ts",
     "shots:chat-proto": "pnpm --filter web exec node scripts/shot-chat-prototype-ref.mjs",
     "verify:fullstack-anti-vacuity": "pnpm exec tsx .harness/scripts/verify-fullstack-anti-vacuity.ts",
