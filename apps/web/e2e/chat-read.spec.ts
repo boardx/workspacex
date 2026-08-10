@@ -225,3 +225,33 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);
   await expect(page.getByText("demo")).toHaveCount(0);
 });
+
+test("V2（PROP-CHAT-10ITER-001）⌘↵ / Ctrl+↵ sends the composer message", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
+
+  const input = page.getByRole("textbox", { name: "消息内容" });
+  await expect(input).toBeVisible();
+  await input.fill("Sent via keyboard shortcut");
+
+  const responsePromise = page.waitForResponse((response) => (
+    response.request().method() === "POST" &&
+    response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/messages`)
+  ));
+  // 键盘按下修饰键 + Enter：不点发送按钮，验证 onKeyDown 分支真的触发发送。
+  // ControlOrMeta 让这条断言在 mac(⌘) 与 CI 的 linux(Ctrl) 上都成立。
+  await input.press("ControlOrMeta+Enter");
+  const response = await responsePromise;
+  expect(response.status()).toBe(202);
+  expect(response.request().postDataJSON()).toMatchObject({
+    text: "Sent via keyboard shortcut",
+    agentId: CHAT_READ_E2E.agentId,
+  });
+  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+});
