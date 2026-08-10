@@ -588,3 +588,74 @@ B）改判据接受当前"只展示终态"的设计。两条路径工作量/风�
 
 D 组（项目对话）按用户明确指示暂停，本轮未复核，仍为 main 上记录的
 1/10。
+
+---
+
+### 第 15 轮（2026-08-10，实测 SHA `e2d15771`）—— P7 按人类裁决转正，但 H3 硬门未过，P 组如实判回 **0/10**
+
+人类就 P7 裁决走**路径 B**（改判据不改契约，PR #866 合入 main：
+`chat-ux-acceptance-criteria.md` 第 3 项不再要求「正在调用中」在途态可见）。
+随后的独立评分确认 P7 在新判据下 = 1、P1-P6/P8-P10 复核无回归——**十维实质
+全满足**。但硬门 H3（`verify:base` 必须真绿）实测未过：红在
+`lint:templates-doctor` 误判 `mod-canvas-diagram/SKILL.md`（PR #827 canvas 线
+遗留，与 chat 无关，CI 同 SHA 同错误复现确认非本地假阴性）。评分员按判据字面
+「硬门不满足则总分直接判 0」如实登记 P = 0/10，**未自行豁免无关失败**。
+
+与 round 14 在同类问题上的处理（「按 H3 通过登记」）相反——两次独立评分结论
+冲突，实现者未选边，按「有疑问报保守数字」登记 0，并在
+`CHAT-728-PENDING-DECISIONS.md` 新增 **H3-b** 小节交人类裁决规则本身
+（无关既有失败算不算 H3 不过）。登记 PR #867。
+
+#### H3 挡分项的根因修复（PR #870 / issue #869，harness 线）
+根因不是 SKILL.md 缺字段，是**两把尺子量同一份文件**：通用扫描按
+`template_id`+`instance_id` 识别实例文档后一律用通用 schema（要求
+`scope.project`）校验，而 TPL-MOD-001 的真实形状刻意没有 scope
+（`domain-skill-model.ts` 文件头预言过这种假阳性），且已有自己的门
+`lint:domains-doctor`。修法：`template-scan.ts` 精确跳过
+`DOMAIN_SKILL_TEMPLATE_ID`，两条反证测试防扫描面缩水。顺带修掉
+`lint:readiness --strict` 的第二条无关红（#619 已 CLOSED 仍在
+blocking_issues）。合入后 `verify:base` 三天来首次全绿（39/39）。
+
+---
+
+### 第 16 轮（2026-08-10，实测 SHA `712855f8`）—— rev-uiux 独立评分 **P 组 9/10**，H1-H4 首次全部第一跑即绿；新发现 P10 假按钮
+
+#### 硬门：四道全过，无任何裁量
+评分员自己重跑全部取证：`verify:base` exit 0（39/39，load 2.93 起跑，
+**第一次跑就绿、未重跑**——H3-a 讨论的重跑裁量本轮根本没有发生）、
+`verify:chat-read` 3 passed、`shots:chat-main` 13 张真栈截图、参照图零改动。
+
+#### P7 正式转正（新判据下首次计分确认）
+`chat-main-personal-tool-call.png`：斜体计划句 + 「🔧 调用 lookup_time ⊘完成」
++ 参数摘要 + 结果摘要，按 2026-08-10 人类裁决后的第 3 项判据满足。
+
+#### P10 = 0（本轮新发现的真问题，不是回归）
+每条消息下的「落地为产物（草稿）」按钮**无条件渲染**，而个人线程后端恒拒：
+`PERSONAL_THREAD_CAPABILITIES` 只有 `artifact.readonly`（「不是禁用，是没有」），
+`resolve-visibility.ts` 对个人线程 `projectRole` 恒 null，
+`land-as-artifact.ts:134` 对 null/observer 恒抛 `NoWriteRoleError`——
+判据点名的「假按钮（点了报错）」。评分员自报未真实点击，结论来自三处源码行
+连锁；实现者本轮逐行复核确认属实。
+
+#### P10 修复（本轮实现，照 #460 thread.mutate 的既有规矩）
+- 服务端：`CHAT_WRITE_CAPABILITIES` 新增显式能力 `artifact.land`
+  （写角色下发；观察者/个人线程不下发；不拿 `composer.send` 当代理推断）。
+- 前端：`ChatLiveMessagePanel` 新增**必填** `canLandArtifacts` prop，
+  两个调用方都从服务端 `getThread.out.capabilities` 取值——必填是刻意的，
+  typecheck 实测抓到 8 处单测调用点漏传。
+- 反证两侧：`chat-main-shots.spec.ts` 断言个人线程按钮 count=0；
+  `chat-read.spec.ts` 断言 facilitator 项目线程按钮可见（防把「按能力渲染」
+  写歪成「一律不渲染」）。
+- 单测 `artifact-land-capability.test.ts` 钉死能力下发边界。
+- 验证：tsc/lint 绿、tests/chat 193 passed、verify:chat-read 3 passed、
+  shots:chat-main 1 passed（新断言在跑）、verify:core-loop 13 passed。
+
+#### 开放问题（不由实现者选边）
+- 个人对话要不要**真的**支持落地产物（评分员修法②，契约语义变更，ADR-023）
+  ——本轮修复只消灭「前端渲染 vs 后端恒拒」的不一致，产品问题留给人类。
+- H3-b（无关既有失败算不算 H3 不过）仍待裁决，本轮因 verify:base 真绿而
+  未被触发，但规则空洞还在。
+
+#### 下一轮
+P10 修复合入 main 后起 round 17 独立评分——若 P10 转正，P 组 **10/10**。
+D 组按用户指示仍暂停。

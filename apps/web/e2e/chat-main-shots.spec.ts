@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
@@ -161,6 +161,17 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     },
     { timeout: 60_000 },
   );
+  /**
+   * #728 round 16 P10 —— 个人对话里**不得出现**「落地为产物」按钮。
+   * 后端对个人线程恒拒（`land-as-artifact.ts` 的 `NoWriteRoleError`，个人线程
+   * `projectRole` 恒 null），此前前端无条件渲染 = 每条消息下一枚点了必报错的
+   * 假按钮，评分员据此判 P10 = 0。修法：按钮的渲染依据是服务端下发的
+   * `artifact.land` 能力（个人线程恒无）。此刻屏上已有用户消息 + agent 回复
+   * 至少两条——若按钮还在渲染，这里数出来就不是 0，会当场红。
+   * 项目侧「写角色看得见这枚按钮」的另一半反证在 chat-read.spec.ts。
+   */
+  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(0);
+
   await shoot("chat-main-personal-reply.png", "chat-thread-detail");
 
   /**

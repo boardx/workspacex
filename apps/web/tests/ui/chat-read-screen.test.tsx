@@ -193,7 +193,14 @@ const threadDetail = {
     { tab: "artifact", count: 0, failed: false },
     { tab: "material", count: 0, failed: false },
   ],
-  capabilities: [],
+  /*
+    #728 round 16 P10 —— 「落地为产物」按钮改为按 `getThread.out.capabilities`
+    里的 `artifact.land` 渲染（写角色下发，个人线程/观察者不下发）。本夹具
+    扮演的是**项目写角色**在读线程（下面两条落地用例点的就是这枚按钮），
+    所以要带上真实 `capabilitiesFor(写角色)` 会下发的这一条——之前的空数组
+    是该字段刚引入时的占位，那时还没有任何控件读它。
+  */
+  capabilities: ["artifact.land"],
 };
 
 function detailFor(threadId: string, body: string) {

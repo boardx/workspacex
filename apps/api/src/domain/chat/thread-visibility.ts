@@ -353,6 +353,21 @@ export const CHAT_WRITE_CAPABILITIES = [
   "fullscreen-edit",    // [全屏编辑]
   "recording.stop",     // [停止录音]
   "thread.mutate",      // 新建 / 改名 / 删除会话（#460）
+  /**
+   * 「落地为产物」（#728 round 16 P10）。服务端拒绝早已存在——
+   * `land-as-artifact.ts` 对 `projectRole` 为 null/observer 恒抛
+   * `NoWriteRoleError`，而个人线程的 `projectRole` 恒为 null
+   * （`resolve-visibility.ts`，「这个维度不适用」）——但前端此前**无条件**
+   * 渲染每条消息下的落地按钮，个人对话里那是一枚点了必报错的假按钮
+   * （评分员 round 16 按「界面上有假按钮」判 P10 = 0）。
+   * 照上面 `thread.mutate` 立过的同一条规矩补第二侧：**按钮不渲染 且 接口拒绝**，
+   * 前端据此不渲染，而不是渲染后禁用；也不许拿 `composer.send` 当代理推断
+   * （本文件 :104 与 :340 两处注释都立过「两件事混成一个布尔」的规矩）。
+   * `PERSONAL_THREAD_CAPABILITIES` 刻意**不含**这一条——个人线程的产物是
+   * `artifact.readonly`，「不是禁用，是没有」（见 :278 注释）。若产品日后
+   * 裁决个人对话也要能落地产物，那是契约语义变更（ADR-023），不是改这行。
+   */
+  "artifact.land",
 ] as const;
 
 /** 读能力。观察者拿到的是这一份的子集。 */
