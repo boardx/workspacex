@@ -194,6 +194,9 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     { timeout: 60_000 },
   );
   await page.getByTestId("chat-run-tool-call-steps").waitFor({ state: "visible", timeout: 5_000 });
+  // V6（PROP-CHAT-10ITER-001）—— 思考折叠块「思考了 X 秒 · N 步」从真实 run steps 派生。
+  // 默认 open（P7 的工具调用可见性不被折叠藏起来），summary 含步数。
+  await expect(page.getByTestId("chat-run-thinking-summary")).toContainText("步");
   await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
 
   /**
