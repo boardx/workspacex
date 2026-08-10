@@ -100,6 +100,20 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
     await shoot("b10-new-thread.png", "第10项 整体连贯性 / 第9项 控制感", "新建会话并自动选中后的状态");
   }
 
+  /* ── 选一个**能真正执行**的 agent（#876）───────────────────────────────
+   * ⚠ 第一轮取证没做这步，默认落在夹具里**故意不可运行**的 catalogOnly agent 上
+   *   （它只在 org 目录、不在编制，`chat-read-fixture.ts` 注释逐字写明），两次发送
+   *   全 422、六项证据全废——且截图看起来像「chat 全面坏了」。评分员特意没按面值
+   *   给分（#879），否则会把人力送去修一个没坏的东西。
+   * 选 deepAgentId：走真实 `DeepAgentModelProvider` 代码路径（上游是 loopback
+   *   假服务），是第 2/3 项「规划/工具调用可见」唯一能在本地取到证的路径。
+   * 照 `chat-main-shots.spec.ts:184-185` 的先例。 */
+  await step("选择可运行的 deep agent", async () => {
+    await page.getByTestId("chat-agent-select").click({ timeout: 15_000 });
+    await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.deepAgentId}`)
+      .click({ timeout: 15_000 });
+  });
+
   /* ── 发一条会触发工具调用的消息 ────────────────────────────────────── */
   const composer = page.getByTestId("chat-message-input");
   const send = page.getByTestId("chat-message-submit");
@@ -183,6 +197,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       "## 本脚本证明不了的事（请勿据此给分）",
       "- **第5项语音输入**：无头浏览器无真实麦克风，只拍到界面反馈，不构成「转录可用」的证据",
       "- **第7项错误处理**：不制造假错误——伪造的失败截图证明的是「我会造错误」，不是产品行为",
+      "- **第1/2/3/4/6项**：本轮走 deep-agent 的 **loopback 假上游**——能证明「界面把规划/工具调用/流式如实呈现」，**不能**证明真实模型的行为质量；后者仍需 devapp 取证",
     ].join("\n"),
     "utf8",
   );
