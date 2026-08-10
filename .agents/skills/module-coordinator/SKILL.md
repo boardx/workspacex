@@ -69,8 +69,10 @@ pnpm harness tick --session coord-<你的模块>
 
 读 `.harness/agents/registry.yaml` 里 `kind: module-coordinator` 的对应条目，确认自己的
 `id`（如 `coord-collab`）和 `areas`（如 `[collaboration]`）。只处理这些 area 的 issue/PR，
-不越界碰其他模块的文件——跨模块热点（如 `apps/web/app/(app)/rooms/[id]/members/page.tsx`
-同时被 room 和 invite 域碰）交给 coord-main 仲裁，不要自己抢着改。
+不越界碰其他模块的文件——跨模块热点（历史案例：曾有一个成员管理页同时被
+room 和 invite 两个域碰，具体路径已随后续重构变化，不在此复述一个会过期的
+路径；碰到类似"一个文件被两个域同时改"的情况）交给 coord-main 仲裁，不要
+自己抢着改。
 
 ### Step 2 — 唯一性握手（同模块防双协调）
 

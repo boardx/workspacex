@@ -36,9 +36,10 @@ description: >
   architecture-coordinator（据此决定要不要开 ADR 或修订协议文档）、人类（决定是否
   该给 harness"减脂"或"加固某个门"）。
 - **依赖的下游服务**：`pnpm harness verify`（承重测试的验证手段）、
-  `.harness/state/feature_list.json`/`active-features.json`（状态子系统的审计对象）、
-  `.harness/scripts/*`（脚本子系统的审计对象）。你本身**不依赖**协调服务（D1）——
-  审计的是控制平面本身的健康度，不是协调运行时状态。
+  `phases/<phase>/feature_list.json`（权威来源）与各 sprint 派生的
+  `active-features.json`（状态子系统的审计对象）、`.harness/scripts/*`
+  （脚本子系统的审计对象）。你本身**不依赖**协调服务（D1）——审计的是控制
+  平面本身的健康度，不是协调运行时状态。
 - **你失效时如何被感知**：本 skill 没有心跳/租约，"失效"体现为"该定期审计的模块
   长期没被审计"——这类失效不会自动告警，只能靠 architecture-coordinator 的职责
   意识或人类主动发起来兜底，本身是这个元层 skill 相对薄弱的一环（见下方迭代机制）。

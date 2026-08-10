@@ -20,9 +20,13 @@ description: >
 - 页面：`apps/web/app/research`、`apps/web/app/studio`
   （子路由：`research`/`prototype`/`interview`/`survey`）、
   `apps/web/app/tasks`、`apps/web/app/rec`、`apps/web/app/itv`（`itv/live`）
-- API 领域：`apps/api/src/application/{research,interview,recording,retrieval,templates}`
-  （`research` 领域模型在 `apps/api/src/domain/research`，其余对应
-  `apps/api/src/{infrastructure,domain}/{interview,recording,retrieval,templates}`）
+- API 领域（实测各层实际存在的目录，不是统一三层）：
+  - `research`：只有 `apps/api/src/domain/research`（没有独立的 application/
+    infrastructure 层，逻辑薄或挂在别的领域下，改动前先确认调用方在哪）
+  - `interview`/`recording`/`retrieval`：三层齐全，
+    `apps/api/src/{application,infrastructure,domain}/{interview,recording,retrieval}`
+  - `templates`：只有 application + domain 两层，
+    `apps/api/src/{application,domain}/templates`（没有 infrastructure 层）
 
 ## 关键契约与不变量（改代码前必读）
 - <录制/访谈涉及的隐私与留存策略——待核实具体实现，改动前先在
