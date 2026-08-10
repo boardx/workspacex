@@ -53,24 +53,24 @@
         "rev-e2e"
       ],
       "max": 10,
-      "score": 1,
-      "scored_sha": "4a1dce3e38d257d686be6dee2a19077aae323bdc",
+      "score": 6,
+      "scored_sha": "5da21fce257de0bd922488869e19afb64f65a2d6",
       "scored_by": "rev-e2e",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "sha:4a1dce3e38d257d686be6dee2a19077aae323bdc",
+        "sha:5da21fce257de0bd922488869e19afb64f65a2d6",
         "authority:.harness/instructions/chat-ux-acceptance-criteria.md",
-        "cmd:pnpm run shots:chat-behavior -> 1 passed (1.6m), 14 张证据 + MANIFEST",
-        "spec:apps/web/e2e/chat-behavior-shots.spec.ts (取证脚本，本轮发现缺陷见 #876)",
-        "spec:apps/web/e2e/chat-read-fixture.ts (夹具：agentId/deepAgentId 可运行，catalogOnlyAgentId 故意不可运行)",
-        "shot:apps/web/.chat-behavior/b7-error-surface.png (第7项得分：真实 422 红条 + 人读原因 + 重试按钮)",
-        "shot:apps/web/.chat-behavior/b4-final.png (两次发送均 422，线程零持久消息)",
-        "shot:apps/web/.chat-behavior/b6-multiturn.png (第二轮同样 422)",
-        "shot:apps/web/.chat-behavior/b5-mic.png (第5项：实时状态行 + 文字进 composer 可编辑，但内容是 loopback-asr 桩)",
-        "shot:apps/web/.chat-behavior/b9-before-send.png (选择器停在 Catalog Only Agent —— 422 的根因)",
-        "shot:apps/web/.chat-behavior/b10-entry.png (第10项：首屏真实空态，有「不在本地伪造」披露)",
+        "cmd:pnpm run shots:chat-behavior -> 1 passed (2.0m), 14 图 + MANIFEST (#876 修后重跑)",
+        "spec:apps/web/e2e/chat-behavior-shots.spec.ts (第112-113行显式选 deepAgentId，#876/PR880 修复)",
+        "shot:apps/web/.chat-behavior/b1-stream-01.png (第2项：执行前先说明「我需要先查一下当前时间」；第3项：调用 lookup_time+完成徽章+参数+结果；第9项：消息已持久化/AgentRun 已排队/正在执行)",
+        "shot:apps/web/.chat-behavior/b4-final.png (第9项：执行完成，回复已写入对话；回复含工具结果；agent 名+组织已配置徽章+时间戳)",
+        "shot:apps/web/.chat-behavior/b6-multiturn.png (第6项：两轮均持久化并渲染，但 echo 桩未引用前轮)",
+        "shot:apps/web/.chat-behavior/b5-mic.png (第5项：实时状态行+文字进 composer 可编辑，内容为 loopback-asr 桩)",
+        "shot:apps/web/.chat-behavior/b10-entry.png (第10项：首屏真实空态+「不在本地伪造」披露)",
+        "cmd:git diff --name-only 4a1dce3e 5da21fce -- <B 的 watch 六条> -> 空（B 产品面未变，故第7项 422 证据跨 SHA 仍成立）",
+        "https://github.com/boardx/workspacex/issues/814#issuecomment-5243535842",
         "https://github.com/boardx/workspacex/issues/876",
-        "https://github.com/boardx/workspacex/issues/660"
+        "https://github.com/boardx/workspacex/issues/877"
       ],
       "watch": [
         "apps/web/components/chat/**",
@@ -158,5 +158,6 @@
   "_vp_round16_20260810": "第 16 轮 rev-uiux 独立评分（实测 SHA 712855f8，工作树干净，PR #870 修掉 H3 的两条无关红之后）。硬门 H1-H4 **全部由评分员自己重跑取证通过**：verify:base exit 0（39/39 tasks，load 2.93 起跑，第一次跑就绿、未重跑）、verify:chat-read 3 passed、shots:chat-main 13 张真栈截图、参照图零改动。结论 **V-P = 9/10**：P1-P9 = 1（P7 在 2026-08-10 人类裁决后的新判据下转正——工具调用参数摘要+成功/失败终态均可见，不要求在途态），**P10 = 0（本轮新发现）**：每条消息下的「落地为产物（草稿）」按钮无条件渲染，而个人线程后端恒拒（PERSONAL_THREAD_CAPABILITIES 只有 artifact.readonly；resolve-visibility 对个人线程 projectRole 恒 null；land-as-artifact.ts:134 对 null/observer 恒抛 NoWriteRoleError）——判据点名的「假按钮（点了报错）」。评分员自报不确定性：未真实点击该按钮，结论来自三处源码行连锁+截图确认控件渲染。修法两条：①前端按服务端能力不渲染（与后端现行刻意设计一致）；②后端给个人线程开落地能力（契约语义变更，属 ADR-023，需人类裁决）。实现者随后按①修复（见 _vp_round16_p10_fix 注记），②作为产品问题留给人类。⚠ 本条分数登记后，P10 修复 commit 会改动 watch 路径（apps/web/components/chat/**），按 G2 规则该分数随修复合入即过期——这是如实预告，不是漏洞：修复后需 round 17 独立重评，届时若 P10 转正则 P 组 10/10。",
   "_vp_round16_p10_fix_20260810": "P10 修复（实现者 dev-chat-e2e，非评分）：照 thread.mutate（#460）在 thread-visibility.ts:340 立过的「按钮不渲染 且 接口拒绝」规矩补第二侧——CHAT_WRITE_CAPABILITIES 新增显式能力 artifact.land（写角色下发，观察者/个人线程不下发；不拿 composer.send 当代理推断，该文件 :104/:340 两处注释都立过此规矩）；ChatLiveMessagePanel 新增**必填** canLandArtifacts prop（typecheck 逼两个调用方都从服务端 getThread.out.capabilities 取值，实测抓到 8 处单测调用点漏传）；两侧反证：chat-main-shots.spec.ts 断言个人线程落地按钮 count=0，chat-read.spec.ts 断言 facilitator 项目线程按钮可见（防把「按能力渲染」写歪成「一律不渲染」）；单测 artifact-land-capability.test.ts 钉死能力下发边界（写角色含/观察者不含/个人集合不含）。验证：tsc/lint 绿，tests/chat 193 passed，verify:chat-read 3 passed，shots:chat-main 1 passed（两条新断言都在跑）、verify:core-loop 13 passed。个人对话要不要真的支持落地产物（评分员修法②）仍是开放产品问题，未替人类选边——本修复只消灭「点了必报错的假按钮」这个两边不一致。",
   "_vp_round17_10of10_20260810": "第 17 轮 rev-uiux 独立评分（实测 SHA 23416846，工作树评分前后各查一次均干净）。**V-P = 10/10，十维全过，P 组首次满分。**硬门 H1-H4 全部评分员自己重跑取证通过（verify:base 39/39 exit 0、verify:chat-read 3 passed、shots:chat-main 13 张真栈截图、参照 PNG 与原型 html 零改动）。P10 本轮转正：round 16 发现的「落地为产物」假按钮已按能力渲染修复，评分员四张个人屏截图确认按钮不再出现，且做了一次**真实点击取证**确认镜像侧未误伤——facilitator 在项目线程点落地按钮 → POST /artifacts 返回 200（artifactId art-899b10f1…）→ reload 后产物标题仍在（round 16 评分员自报『没点过按钮』的不确定性，本轮补上了）。评分员留下的非扣分观察，交人类/后续轮次：①个人线程列表把 groups flatMap 成一维、丢了项目侧的「今天/本周」分组标题（夹具只有一条线程看不出，P1 判据字面未覆盖，建议造跨天线程取证）；②顶栏「项目负责人」（组织角色）与「项目角色不适用」同屏的术语矛盾（全站 AppShell 问题，非 P 组十维，此前 CHAT-728-PENDING-DECISIONS.md 已列）；③落地按钮失败路径（chat-land-artifact-error-*）本轮未触发；④真实 provider（非 loopback 替身）下的流式/工具调用形态在评分视野之外。D 组本轮未评，按用户指示仍暂停。",
-  "_rev_e2e_queue_fix_20260810": "`--strict` 判红：统一队列首位 #660 已 CLOSED（2026-08-10T16:36Z，COMPLETED）而症状未变——#660 评论区实现方自己已指出「自建 agent 发消息仍 422，R9 仍是 0」并建议重开或另开，但无人执行。rev-e2e 独立复核（4a1dce3e 与最新 main b1a4ea8c 一致）：`grep -c instructions packages/contracts/src/agent-runtime.ts`=0、publish 路径零实现、delta `agent-instructions/design-signoff.md` 仍 `status: proposed`（三候选待人类签核，ADR-023 禁止 agent 自选）。故开 #877 作替代 tracker 并把 R/B 的 blocking_issues 里 660→877，让 #823 那道门恢复可用。blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排请直接覆盖。"
+  "_rev_e2e_queue_fix_20260810": "`--strict` 判红：统一队列首位 #660 已 CLOSED（2026-08-10T16:36Z，COMPLETED）而症状未变——#660 评论区实现方自己已指出「自建 agent 发消息仍 422，R9 仍是 0」并建议重开或另开，但无人执行。rev-e2e 独立复核（4a1dce3e 与最新 main b1a4ea8c 一致）：`grep -c instructions packages/contracts/src/agent-runtime.ts`=0、publish 路径零实现、delta `agent-instructions/design-signoff.md` 仍 `status: proposed`（三候选待人类签核，ADR-023 禁止 agent 自选）。故开 #877 作替代 tracker 并把 R/B 的 blocking_issues 里 660→877，让 #823 那道门恢复可用。blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排请直接覆盖。",
+  "_rev_e2e_track_b_round2_20260810": "track B 重评 = 6/10（此前 1/10），实测 origin/main `5da21fce`，#876 修好取证脚本后重跑（rev-e2e，非自评）。逐项：①流式 **0.5** ②规划 **1** ③工具调用 **1** ④多步 0 ⑤语音 0 ⑥多轮 0 ⑦错误处理 **1** ⑧呈现 **0.5** ⑨控制感 **1** ⑩连贯性 **1**。得分依据：②③⑨ 由 b1-stream-01 一张图同时坐实——执行前先渲染「我需要先查一下当前时间，再回答这个问题。」，随后 `调用 lookup_time ⊙完成` 带参数摘要与结果，run 状态由「消息已持久化，AgentRun 已排队」→「正在执行」→「执行完成，回复已写入对话」；⑦沿用上一轮真实 422 红条（HTTP 码+人读原因+重试按钮），已用 `git diff` 证明 B 的六条 watch 路径在 4a1dce3e..5da21fce 之间**零改动**，故跨 SHA 仍成立；⑩全链路跑通、空态诚实、有「不在本地伪造」披露、无假按钮。①给 0.5 是**取证到的真实行为**不是取证失败：发消息后立刻有反馈（判据前半满足），但六次连拍 streaming行 恒 false——deep-agent 走轮询+整段写入，**不走 token 流式**（判据后半不满足）。⑧给 0.5：纯文本/agent 名/徽章/时间戳/左右对齐均渲染正确无裸标记，但取证样本里**没有 markdown/代码块/图片**，该三项未被测到。④⑥ 判 0 是**判据性质决定的**：loopback 是脚本化 echo 桩，④要的「真的按步骤决定下一步」与⑥要的「记得前几轮」都属模型行为，桩恒调 lookup_time、且回复只 echo 本轮原话从不引用前轮 ⇒ 界面层已证、模型行为未证，按「不能因为看起来对就放宽」记 0，**非缺陷结论**，需 devapp 真实模型复评。MANIFEST 边界声明与本判定一致。"
 }
