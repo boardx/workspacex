@@ -99,6 +99,31 @@ DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了�
 已验证：typecheck/lint/761 单测干净，commit `31c8596f`）——这是两个独立问题，
 延迟这条卡在"需要真实环境验证"不影响闪烁那条先提交。
 
+## 五点五、2026-08-11 更新：两个开关都已备好，等真实环境各试一次
+
+### 开关 1（新代码，PR 已备）：`KERNEL_ASR_TURN_SILENCE_MS`
+`configured-realtime-asr-provider.ts` 现在支持这个环境变量：设成正整数（建议先试 `300`）
+才会在 `session.update` 里多发 `turn_detection: { type: "server_vad", silence_duration_ms: N }`
+一个字段；**不设 = 与之前逐字节相同**（有单测把这条默认锁死）。非法值忽略并留日志。
+上游若不认这个字段，会走既有 error→close 链路映射成清晰的界面降级提示，不会静默。
+
+### 开关 2（零代码，改环境变量就行）：换模型 `KERNEL_ASR_MODEL`
+人类问「是否有另外一种模式的实时转录」——**有，而且线索在本仓自己的模型清单里**
+（`apps/api/scripts/lib/aliyun-bailian-models.ts`，#548 人类 2026-08-06 现场取值）：
+
+| 清单里的 ASR 相关条目 | 标签 | 端点 |
+|---|---|---|
+| `qwen-audio-3.0-asr-flash-streaming` | ASR、**流式** | `wss://dashscope.aliyuncs.com/api-ws/v1/inference`（与现用同一 WS 端点族） |
+| `qwen-audio-3.0-asr-flash-filetrans` | ASR、文件转写 | compatible-mode（非实时，不适用） |
+| `qwen3.5-omni-plus-realtime` / `qwen-audio-3.0-realtime-plus` | 实时对话+ASR | 同 WS 端点（对话模型，杀鸡用牛刀） |
+
+当前代码**不写死模型**——`KERNEL_ASR_MODEL` 环境变量在连接 URL 的 `?model=` 里生效。
+仓库文档记录的现用值是 `qwen3-asr-flash-realtime`。如果 `qwen-audio-3.0-asr-flash-streaming`
+（名字里带 streaming，可能是更新一代、以连续出字为卖点的流式 ASR）与现用协议形状兼容，
+**换模型只需要改这一个环境变量重启，零代码改动**——这可能比调 turn_detection 更治本。
+
+⚠ 两个开关是否真的有效、协议是否兼容，都**只能在真实 devapp/DashScope 凭据下验证**（#802 前科）。
+
 ## 六、需要人类决定的
 
 - 是否有人能在 devapp 环境里手动验证一次 `turn_detection` 参数是否被 DashScope 接受、
