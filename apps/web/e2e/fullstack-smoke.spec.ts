@@ -84,7 +84,11 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await page.goto("/");
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByTestId("app-shell")).toBeVisible();
-  await expect(page.getByTestId("org-switcher")).toHaveValue(FULLSTACK_E2E.orgId);
+  // 2026-08-10 组织切换器从裸 <select> 换成手写选择器（Button 触发 + role="listbox"
+  // 面板），触发按钮以可见组织名呈现，不再是 <select> 的 value —— 断言随之从
+  // toHaveValue() 改 toHaveText()。种子脚本把组织名写成 `org ${orgId}`
+  // （见 apps/api/tests/support/db.ts 的 seedOrg），验证的还是「当前选中的组织是谁」。
+  await expect(page.getByTestId("org-switcher")).toHaveText(`org ${FULLSTACK_E2E.orgId}`);
   // 退出已从顶栏挪进左下角个人菜单（2026-08-09 信息架构调整）——先展开菜单再断言。
   await page.getByTestId("rail-profile-menu").click();
   await expect(page.getByTestId("personal-menu-logout")).toBeVisible();

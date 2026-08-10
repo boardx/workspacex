@@ -55,6 +55,11 @@ export function TopBar({
   const sh = selfHostedOnly(identity.org);
   // 顶栏是否出自己的预览切换器：在项目上下文里、开发态、且本页没有自带一套
   const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
+  // organizations 未传时回落到原型 mock 列表，标签规则与原来的 <option> 渲染保持一致
+  const effectiveOrganizations: ReadonlyArray<{ id: string; label: string }> = organizations
+    ?? MOCK_ORGS.map((o) => ({ id: o.id, label: isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name }));
+  const currentOrgLabel =
+    effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
 
   return (
     <header
@@ -70,39 +75,26 @@ export function TopBar({
         {local
           ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
           : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
-        <label htmlFor="org-switcher" className="sr-only">切换组织</label>
-        <div className="relative">
-          <select
-            id="org-switcher"
-            data-testid="org-switcher"
-            value={identity.org.id}
-            disabled={switching}
-            onChange={(e) => {
-              if (onSwitchOrganization) {
-                setSwitching(true);
-                void onSwitchOrganization(e.target.value)
-                  .catch(() => undefined)
-                  .finally(() => setSwitching(false));
-                return;
-              }
-              // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
-              const url = new URL(window.location.href);
-              url.searchParams.set("org", e.target.value);
-              ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
-              window.location.assign(url.toString());
-            }}
-            className="h-7 appearance-none rounded-md border border-border bg-card pl-2 pr-6 text-12 font-medium text-card-foreground transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {organizations
-              ? organizations.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)
-              : MOCK_ORGS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name}
-                </option>
-              ))}
-          </select>
-          <ChevronDown aria-hidden className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-        </div>
+        <OrgSwitcher
+          currentOrgId={identity.org.id}
+          currentOrgLabel={currentOrgLabel}
+          organizations={effectiveOrganizations}
+          disabled={switching}
+          onSelect={(orgId) => {
+            if (onSwitchOrganization) {
+              setSwitching(true);
+              void onSwitchOrganization(orgId)
+                .catch(() => undefined)
+                .finally(() => setSwitching(false));
+              return;
+            }
+            // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
+            const url = new URL(window.location.href);
+            url.searchParams.set("org", orgId);
+            ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
+            window.location.assign(url.toString());
+          }}
+        />
       </div>
 
       <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
@@ -177,5 +169,97 @@ export function TopBar({
       )}
 
     </header>
+  );
+}
+
+/**
+ * 组织切换器。
+ *
+ * ⚠ 不用原生 `<select>`——app 层禁止裸原生表单元素（uiux-standards U6），且独立复核在
+ *   #638/#639 两轮评分里都截图截到它跟全站 shadcn 观感断裂。仿照本仓已有的手写弹层惯例
+ *   （`components/projects/project-more-menu.tsx` / `components/shell/personal-menu.tsx`：
+ *   Button 触发 + `role="listbox"` 面板，不是已装但本仓这类小面板一贯不用的
+ *   `@radix-ui/react-select`）。
+ *
+ * `data-testid="org-switcher"` 留在**触发按钮**上（原来在 `<select>` 本身），值以可见
+ * 组织名呈现——断言随之从 `toHaveValue()` 改 `toHaveTextContent()`、从 `.selectOption()`
+ * 改 `.click()` 打开 + 点 `org-switcher-option-<orgId>`。这不是削弱断言：验证的还是
+ * 「当前选中的组织是谁」，只是控件形态换了读取方式跟着换。
+ */
+function OrgSwitcher({
+  currentOrgId, currentOrgLabel, organizations, disabled, onSelect,
+}: {
+  currentOrgId: string;
+  currentOrgLabel: string;
+  organizations: ReadonlyArray<{ id: string; label: string }>;
+  disabled: boolean;
+  onSelect: (orgId: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        data-testid="org-switcher"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`切换组织，当前：${currentOrgLabel}`}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="h-7 max-w-[10rem] justify-between gap-1 rounded-md pl-2 pr-1.5 text-12 font-medium"
+      >
+        <span className="truncate">{currentOrgLabel}</span>
+        <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </Button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="切换组织"
+          data-testid="org-switcher-listbox"
+          className="absolute left-0 top-8 z-20 min-w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
+        >
+          {organizations.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="option"
+              aria-selected={o.id === currentOrgId}
+              data-testid={`org-switcher-option-${o.id}`}
+              onClick={() => {
+                onSelect(o.id);
+                setOpen(false);
+              }}
+              className={[
+                "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                o.id === currentOrgId ? "text-primary" : "text-card-foreground",
+              ].join(" ")}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
