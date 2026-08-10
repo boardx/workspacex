@@ -153,8 +153,11 @@ export function coreLoopReadiness(args: Args): void {
   log.info("| track | 记录分 | 计入分 | 为什么 |");
   log.info("|---|---|---|---|");
   for (const t of v.tracks) {
+    // ⏸ 暂停态打印在取活者脸前，而不是埋在 JSON 里——「落在 JSON 里」和「落在盘面上」
+    // 对下一个 agent 是两件事（rev-uiux 2026-08-11）。只渲染，不参与计算。
+    const pausedNote = t.paused ? `；⏸ ${t.paused.reason}（${t.paused.by}，见 ${t.paused.source}）` : "";
     log.info(
-      `| ${t.id} ${t.name} | ${t.rawScore ?? "—"} | ${t.effectiveScore} | ${fmtDiscounts(t)} |`,
+      `| ${t.id} ${t.name} | ${t.rawScore ?? "—"} | ${t.effectiveScore} | ${fmtDiscounts(t)}${pausedNote} |`,
     );
   }
 
