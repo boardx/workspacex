@@ -22,7 +22,7 @@ import {
   ScreenHead, BackstageGate, VerdictBadge, Meter, FileTree, CodeView, DangerConfirm, Panel,
 } from "./ag-shared";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
-import { getAssetDirectory, readAssetFile, type AssetDirectory } from "@/lib/asset-directory";
+import { getAssetDirectory, readAssetFile, writeAssetFile, type AssetDirectory } from "@/lib/asset-directory";
 import type { FileNode } from "@/lib/mock/asset-governance";
 
 type ScreenProps = { state: UiState; view: AgView };
@@ -583,6 +583,14 @@ function Editor({
 
   const [liveBody, setLiveBody] = React.useState<string | null>(null);
   const [fileBusy, setFileBusy] = React.useState(false);
+  /**
+   * #881：编辑缓冲区。`liveBody` 是**服务端那一版**，`draft` 是用户正在改的那一版，
+   * 两者不等 ⇒ 真的有未保存改动。
+   * ⚠ 在此之前，界面上那句「有未保存改动」是**写死的**，永远显示——
+   *   一个恒真的状态指示等于没有指示，而且是假话。
+   */
+  const [draft, setDraft] = React.useState<string>("");
+  const dirty = isLive && liveBody !== null && draft !== liveBody;
 
   React.useEffect(() => {
     setLiveBody(null);
@@ -591,7 +599,7 @@ function Editor({
     setFileBusy(true);
     readAssetFile(kind, main.slug, sel)
       .then((f) => {
-        if (!cancelled) setLiveBody(f.body);
+        if (!cancelled) { setLiveBody(f.body); setDraft(f.body); }
       })
       .catch((e) => {
         if (!cancelled) setLiveError(describeAssetError(e));
@@ -616,9 +624,12 @@ function Editor({
             <span className="text-13 font-medium text-foreground">{main.name}</span>
             <Badge tone="outline" className="font-mono">{main.slug}</Badge>
             {"model" in main && <Badge tone="ai" className="font-mono">{(main as typeof AG_AGENT_MAIN).model}</Badge>}
-            <span className="inline-flex items-center gap-1 text-9 text-warning">
-              <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden /> 有未保存改动
-            </span>
+            {/* #881：只在**真的**有未保存改动时显示。此前这段是写死的，永远显示。 */}
+            {dirty ? (
+              <span className="inline-flex items-center gap-1 text-9 text-warning" data-testid={`ag-${kind}-dirty`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden /> 有未保存改动
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             <Button size="xs" variant="outline" className="gap-1" data-testid={`ag-${kind}-tryrun`}>
@@ -629,6 +640,16 @@ function Editor({
               trigger="保存并发布"
               danger={false}
               confirmLabel="确认发布新版本"
+              // ⚠ 只有真实数据态才接真实写入。mock 态**不接**——那样会对着一份假目录
+              //   发出真实写请求，写到一个并不是你在看的那个 skill 上。
+              disabled={!isLive || !dirty}
+              onConfirm={isLive ? async () => {
+                await writeAssetFile(kind, main.slug, sel, draft);
+                // 写成功后把「服务端那一版」推进到刚保存的内容 ⇒ dirty 归位。
+                // ⚠ 不重新 GET：服务端返回的就是它写下的字节，再读一次不会更真，
+                //   反而会把「保存成功」与「读成功」两件事绑在一起。
+                setLiveBody(draft);
+              } : undefined}
               impact={
                 <>
                   <span className="font-medium text-foreground">影响范围：发布 {main.name} 新版本</span>
@@ -673,7 +694,21 @@ function Editor({
                   <p className="text-10 text-muted-foreground">读取中…</p>
                 </Panel>
               ) : (
-                <CodeView body={liveBody ?? ""} testid={`ag-${kind}-code`} />
+                tab === "edit" ? (
+                  /**
+                   * #881：真实数据态下这里是**可编辑**的。此前是只读 `CodeView`，
+                   * 配一个不接任何写路径的「保存并发布」按钮——按钮在说谎。
+                   */
+                  <textarea
+                    data-testid={`ag-${kind}-code`}
+                    className="min-h-[320px] w-full rounded-lg border border-border bg-card p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={draft}
+                    spellCheck={false}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                ) : (
+                  <CodeView body={draft} testid={`ag-${kind}-code`} />
+                )
               )
             ) : sel === mockTree[0]!.path ? (
               <CodeView body={main.body} testid={`ag-${kind}-code`} />

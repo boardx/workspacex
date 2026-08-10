@@ -229,16 +229,28 @@ export function CodeView({ body, testid }: { body: string; testid?: string }) {
  *   再点确认才生效。此处是原型，确认只切本地态。
  */
 export function DangerConfirm({
-  trigger, impact, confirmLabel, danger = true, testid,
+  trigger, impact, confirmLabel, danger = true, testid, onConfirm, disabled = false,
 }: {
   trigger: string;
   impact: React.ReactNode;
   confirmLabel: string;
   danger?: boolean;
   testid: string;
+  /**
+   * #881：真正执行这个动作。
+   *
+   * ⚠ **不传 = 原型态**（点确认只在本地显示「已执行（原型态，仅本地）」）——
+   * 这是本文件其余调用点今天的状态，保持不变。传了 = 真的打接口，
+   * 成功/失败都如实显示，**失败时不显示「已执行」**。
+   * 之所以做成可选而不是必填：一次把十几个原型按钮都接上，等于把一个 PR 变成十个。
+   */
+  onConfirm?: () => Promise<void>;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [done, setDone] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [failure, setFailure] = React.useState<string | null>(null);
   return (
     <div className="flex flex-col gap-2" data-testid={testid}>
       <Button
@@ -266,8 +278,24 @@ export function DangerConfirm({
             <div className="flex flex-col gap-1 text-11 leading-relaxed text-foreground">{impact}</div>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" size="sm" variant={danger ? "destructive" : "primary"} onClick={() => setDone(true)} data-testid={`${testid}-confirm`}>
-              {confirmLabel}
+            <Button
+              type="button"
+              size="sm"
+              variant={danger ? "destructive" : "primary"}
+              disabled={busy || disabled}
+              onClick={() => {
+                if (onConfirm === undefined) { setDone(true); return; }
+                setBusy(true);
+                setFailure(null);
+                void onConfirm()
+                  // ⚠ 只有真的成功才置 done —— 失败仍显示「已执行」是本仓最忌讳的假成功。
+                  .then(() => { setDone(true); })
+                  .catch((e: unknown) => { setFailure(e instanceof Error ? e.message : String(e)); })
+                  .finally(() => { setBusy(false); });
+              }}
+              data-testid={`${testid}-confirm`}
+            >
+              {busy ? "提交中…" : confirmLabel}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)} data-testid={`${testid}-cancel`}>
               取消
@@ -275,9 +303,13 @@ export function DangerConfirm({
           </div>
         </div>
       )}
+      {failure !== null && (
+        <p className="text-11 text-destructive" data-testid={`${testid}-error`}>{failure}</p>
+      )}
       {done && (
         <p className="inline-flex items-center gap-1 text-11 text-success" data-testid={`${testid}-done`}>
-          已执行（原型态，仅本地）
+          {/* 接了真实动作就不能再自称「原型态」——那句话本身会变成假话。 */}
+          {onConfirm === undefined ? "已执行（原型态，仅本地）" : "已保存为新版本"}
         </p>
       )}
     </div>

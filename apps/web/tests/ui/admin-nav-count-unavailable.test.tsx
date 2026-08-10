@@ -30,9 +30,17 @@ const ALL_KEYS = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.key));
 
 /* ══════════════════ §1 正常路径 ══════════════════ */
 
+/**
+ * ⚠ #881 起 `AdminNav` 的**缺省**计数来源不再是 `ADMIN_NAV_COUNT_SOURCES`（静态 mock），
+ * 而是当前组织的真实计数（口径未裁决的项一律「—」）。
+ * 本节验的是「渲染出的数字 == 其来源求值结果」这条**装配**不变量，与来源是谁无关，
+ * 所以这里把健康来源**显式注入**——这既保持了原意，也让本节不再隐式依赖那个已经改掉的缺省值。
+ */
+const HEALTHY = ADMIN_NAV_COUNT_SOURCES;
+
 describe("§1 一切健康时：每一项显示真实数字", () => {
   it("渲染出的每一项计数，与其数据源当场求值的结果一致", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" countSources={HEALTHY} />);
     for (const key of ALL_KEYS) {
       const expected = ADMIN_NAV_COUNT_SOURCES[key]();
       const el = screen.getByTestId(`${ADMIN_NAV_TESTID[key]}-count`);
@@ -42,7 +50,7 @@ describe("§1 一切健康时：每一项显示真实数字", () => {
   });
 
   it("健康路径下不出现「—」——反证套件才应该看到它", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" countSources={HEALTHY} />);
     for (const key of ALL_KEYS) {
       expect(screen.getByTestId(`${ADMIN_NAV_TESTID[key]}-count`).textContent).not.toBe("—");
     }

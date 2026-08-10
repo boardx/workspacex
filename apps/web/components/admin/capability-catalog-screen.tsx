@@ -21,6 +21,7 @@ import {
   type MutateContext,
 } from "./capability-mutate";
 import { SkillStarterImportPanel } from "./skill-starter-import-panel";
+import { SkillUrlImportPanel } from "./skill-url-import-panel";
 
 const PAGE_SIZE = 10;
 
@@ -154,6 +155,16 @@ export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
 
       {kind === "skill" && canMutate ? (
         <SkillStarterImportPanel key={sourceKey} onImported={load} />
+      ) : null}
+
+      {/*
+        #881 F2：从 URL 导入。后端 `POST /admin/skills/url-imports`（#595）早就接好，
+        此前 `apps/web` 零调用，用户在后台只能导 starter pack。
+        ⚠ key 与上面那块必须不同（注意：不是可选项）——理由见下面那段注释：
+          同一 key 会让换组织时不重挂载，上一组织填了一半的输入会留在新组织的界面上。
+      */}
+      {kind === "skill" && canMutate ? (
+        <SkillUrlImportPanel key={`${sourceKey}:url-import`} onImported={load} />
       ) : null}
 
       {/*
