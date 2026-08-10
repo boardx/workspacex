@@ -512,7 +512,29 @@ export function ChatLiveMessagePanel({
         className="min-h-0 flex-1 overflow-y-auto p-4"
         data-testid="chat-message-scroll"
       >
-        {loading ? <p className="text-12 text-muted-foreground">正在读取持久消息…</p> : null}
+        {loading ? (
+          // V4（PROP-CHAT-10ITER-001）—— 消息首载骨架屏，替换原来的灰字「正在读取持久消息…」。
+          // 沿用全站 StateShell 的骨架样式（animate-pulse + bg-muted），但做成消息形状
+          // （头像圆 + 气泡条，交替左右）而不是通用矩形块，让加载态就预示了内容的排布。
+          <div
+            data-testid="chat-message-loading-skeleton"
+            className="flex animate-pulse flex-col gap-4"
+          >
+            {[0, 1, 2].map((i) => {
+              const isAgent = i % 2 === 0;
+              return (
+                <div key={i} className={`flex items-start gap-2.5 ${isAgent ? "" : "flex-row-reverse"}`}>
+                  <div className="h-7 w-7 shrink-0 rounded-full bg-muted" />
+                  <div className={`flex max-w-[80%] flex-col gap-1.5 ${isAgent ? "items-start" : "items-end"}`}>
+                    <div className="h-2.5 w-24 rounded bg-muted" />
+                    <div className="h-12 w-56 rounded-2xl bg-muted" />
+                  </div>
+                </div>
+              );
+            })}
+            <span className="sr-only">正在读取持久消息</span>
+          </div>
+        ) : null}
         {listFailure ? (
           <FailureState
             testId="chat-message-list-error"

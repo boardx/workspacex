@@ -268,3 +268,27 @@ test("V2（PROP-CHAT-10ITER-001）⌘↵ / Ctrl+↵ sends the composer message",
   });
   await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
 });
+
+test("V4（PROP-CHAT-10ITER-001）loading skeleton shows while messages load, then yields to real messages", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  // 把消息 GET 拖住 ~2s，让首载骨架屏必然在场（否则真实上游太快、骨架一闪而过、
+  // 断言会 racy）。延迟结束后放行，验证骨架被真实消息接管、不再残留。
+  await page.route(`**/chat/threads/${CHAT_READ_E2E.threadId}/messages*`, async (route) => {
+    if (route.request().method() === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+    await route.continue();
+  });
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  // 拖住的窗口内，骨架屏可见
+  await expect(page.getByTestId("chat-message-loading-skeleton")).toBeVisible();
+  // 放行后：骨架消失，真实消息到位
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  await expect(page.getByTestId("chat-message-loading-skeleton")).toHaveCount(0);
+});
