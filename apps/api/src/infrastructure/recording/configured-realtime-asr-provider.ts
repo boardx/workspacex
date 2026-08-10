@@ -57,6 +57,16 @@ interface ProviderConfig {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly model: string;
+  /**
+   * PROP-CHAT-ASR-LATENCY-001（人类实测反馈：转录延迟大）——`session.update` 里的
+   * `turn_detection.silence_duration_ms`（静音多久判一句话结束）。**默认不设 = 不发
+   * `turn_detection` 字段 = 与本改动之前逐字节相同的行为**。这是一个待真实端点验证的
+   * 实验开关：#802 的教训是凭协议文档猜字段名/取值、不经真实 dashscope 端点验证就
+   * 改上去，错误会静默存在 7+ 天——所以这个字段只能由能访问真实 devapp/凭据的人
+   * 打开并观察（上游会不会报错拒绝、延迟是否真的缩短），不进任何 e2e 默认配置。
+   * 可选：缺省与 null 同义（不发送）。
+   */
+  readonly turnDetectionSilenceMs?: number | null;
 }
 
 /**
@@ -69,7 +79,18 @@ function readConfig(): ProviderConfig | null {
   const apiKey = process.env.KERNEL_ASR_API_KEY;
   const model = process.env.KERNEL_ASR_MODEL;
   if (!provider || !baseUrl || !apiKey || !model) return null;
-  return { provider, baseUrl, apiKey, model };
+  const silenceRaw = process.env.KERNEL_ASR_TURN_SILENCE_MS;
+  // 非法值（非正整数）按未设置处理并留日志，不让一个 typo 把整条 ASR 面拖垮。
+  let turnDetectionSilenceMs: number | null = null;
+  if (silenceRaw !== undefined && silenceRaw !== "") {
+    const parsed = Number(silenceRaw);
+    if (Number.isInteger(parsed) && parsed > 0) {
+      turnDetectionSilenceMs = parsed;
+    } else {
+      console.warn(`[asr] KERNEL_ASR_TURN_SILENCE_MS=${JSON.stringify(silenceRaw)} 不是正整数，忽略（turn_detection 不发送）`);
+    }
+  }
+  return { provider, baseUrl, apiKey, model, turnDetectionSilenceMs };
 }
 
 /**
@@ -136,6 +157,19 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         input_audio_format: "pcm",
         sample_rate: audio.sampleRate,
         input_audio_transcription: { model: config.model },
+        // PROP-CHAT-ASR-LATENCY-001 —— 只在显式设置 KERNEL_ASR_TURN_SILENCE_MS 时
+        // 才多发这一个字段（未设置时本对象与之前逐字节相同）。字段名/取值是否被
+        // dashscope 端点接受**尚未经真实端点验证**（#802 前科），所以由真实环境的
+        // 人打开观察：上游若报错会走下面的 error→close 链路映射成
+        // AUDIO_FORMAT_REJECTED/PROVIDER_UNAVAILABLE，界面有清晰降级提示，不会静默。
+        ...(config.turnDetectionSilenceMs != null
+          ? {
+              turn_detection: {
+                type: "server_vad",
+                silence_duration_ms: config.turnDetectionSilenceMs,
+              },
+            }
+          : {}),
       },
     }));
 
