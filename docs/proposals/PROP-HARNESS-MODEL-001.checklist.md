@@ -11,7 +11,7 @@
 - `✅ 完成`（写 PR 链接 + 反证证据摘要，没有证据不许打勾）
 - `⏭️ 已有等价实现`（今天/近期已经用别的形式解决了同一个问题，需要在正式 Wave 里把它**收编**进模型，而不是重做）
 
-最后更新：2026-08-06，coord-architecture。
+最后更新：2026-08-11，dev-chat-e2e 会话对账（E1 合并状态 + H3A 等价实现收编标注）。
 
 ---
 
@@ -44,13 +44,13 @@
 
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
-| HMV2-006 | P0 | 🔶 PR #634 待 review | TPL-REG-001 注册表——`.harness/templates/registry.yaml`，seed 全部 23 个模板类型 |
-| HMV2-007 | P0 | 🔶 PR #634 待 review | Template Registry schema——`.harness/scripts/lib/template-model.ts` |
-| HMV2-008 | P0 | 🔶 PR #634 待 review | Instance 公共元数据 schema——同上，`InstanceMetadata` |
-| HMV2-009 | P0 | 🔶 PR #634 待 review | 原子 Template ID 分配器——`template-id.ts` + `pnpm harness templates allocate` |
-| HMV2-010 | P0 | 🔶 PR #634 待 review | Instance ID 唯一性门控——`template-doctor.ts` `duplicateInstanceIds` |
-| HMV2-011 | P0 | 🔶 PR #634 待 review | retired/deprecated 生命周期门控——`retiredTemplateViolations` |
-| HMV2-012 | P0 | 🔶 PR #634 待 review | 模板引用完整性门控——未注册引用 + 版本不受支持 + 死链，均含活体反证 |
+| HMV2-006 | P0 | ✅ 完成 | TPL-REG-001 注册表——`.harness/templates/registry.yaml`，seed 全部 23 个模板类型。PR #634 已合并（2026-08-07），其余六条同此 PR |
+| HMV2-007 | P0 | ✅ 完成 | Template Registry schema——`.harness/scripts/lib/template-model.ts` |
+| HMV2-008 | P0 | ✅ 完成 | Instance 公共元数据 schema——同上，`InstanceMetadata` |
+| HMV2-009 | P0 | ✅ 完成 | 原子 Template ID 分配器——`template-id.ts` + `pnpm harness templates allocate` |
+| HMV2-010 | P0 | ✅ 完成 | Instance ID 唯一性门控——`template-doctor.ts` `duplicateInstanceIds` |
+| HMV2-011 | P0 | ✅ 完成 | retired/deprecated 生命周期门控——`retiredTemplateViolations` |
+| HMV2-012 | P0 | ✅ 完成 | 模板引用完整性门控——未注册引用 + 版本不受支持 + 死链，均含活体反证 |
 
 ---
 
@@ -72,17 +72,17 @@
 
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
-| HMV2-020 | P0 | ⬜ 未开始 | TPL-ROL-001 Role schema |
-| HMV2-021 | P0 | ⬜ 未开始 | TPL-AGT-001 Registration schema |
-| HMV2-022 | P0 | ⬜ 未开始 | Claude/Codex role prompt generator |
-| HMV2-023 | P0 | ⬜ 未开始 | TPL-TSK-001 Task Assignment |
-| HMV2-024 | P0 | ⬜ 未开始 | TPL-EVT-001 Work Event |
-| HMV2-025 | P0 | ⬜ 未开始 | Work Event 短文本 renderer |
-| HMV2-026 | P0 | ⬜ 未开始 | TPL-RVW-001 Review Verdict |
+| HMV2-020 | P0 | ⏭️ 已有等价实现 | H3A-020~029 分层授权模型（PR #686）+ H3A-022 Role↔Domain 绑定（PR #698）已落 Role schema 与门控；收编=对齐 TPL-ROL-001 编号，不重做 |
+| HMV2-021 | P0 | ⏭️ 已有等价实现 | `.harness/agents/registry.yaml` + H3A-004 旧角色新增冻结 WARN（PR #675）已是注册权威+门控；收编同上 |
+| HMV2-022 | P0 | ⏭️ 已有等价实现 | 既有 `gen-subagents`（双工具生成）+ H3A-028 portable role generator 接层校验（PR #807） |
+| HMV2-023 | P0 | ⏭️ 已有等价实现 | H3A-030（PR #717）落了 TPL-TSK-001 schema+doctor；另有 H3A-031/032 两道派工 gate（PR #722/#723） |
+| HMV2-024 | P0 | ⏭️ 已有等价实现 | H3A-033（PR #721）落了 TPL-EVT-001 四类 envelope schema+doctor；H3A-034（PR #760）补 stable ID + append-only gate |
+| HMV2-025 | P0 | ⏭️ 已有等价实现 | H3A-035（PR #761）12 行短文本 renderer（`workflow-event-renderer.ts`） |
+| HMV2-026 | P0 | ⏭️ 已有等价实现 | H3A-036（PR #764）落了 TPL-RVW-001 schema+doctor；H3A-037（PR #779）补 stale gate |
 | HMV2-027 | P0 | ⏭️ 已有等价实现 | `pr-queue.ts`（PR #472/#574 系列）已做"verdict 锚定 exact SHA、head 漂移旧 verdict 失效"，未来收编进 TPL-RVW-001 schema |
 | HMV2-028 | P1 | ⬜ 未开始 | TPL-CYP-001 Cycle Plan |
 | HMV2-029 | P1 | ⬜ 未开始 | TPL-CYR-001 Cycle Result |
-| HMV2-030 | P1 | ⬜ 未开始 | GitHub 评论结构化投影 |
+| HMV2-030 | P1 | ⏭️ 已有等价实现 | H3A-039（PR #813）`workflow-event-github-projection.ts`，Board 可靠解析不猜标题 |
 
 ---
 
@@ -259,3 +259,33 @@
 > `TPL-CTR-001`）**仍未做**，规模明显更大（今天量出 429 操作/126 路由），留给
 > 下一轮；HMV2-064/065/067 维持"✅ 完成（脚本级）"不变——它们的判定逻辑没有
 > 理由被迫套进模板实例的形状。
+
+---
+
+## 现状对账（2026-08-11，实测 origin/main，非沿用 08-06 快照）
+
+```
+100 条总数
+  ✅ 完成            13 条（E0: 001/002/004；E1: 006~012 全部——PR #634/#653 已合并，
+                          #641 验收也已合并；E7: 064/065/067）
+  ⏭️ 已有等价实现    15 条（E3: 020/021/022/023/024/025/026/027/030 共 9 条——大部分由
+                          PROP-HARNESS-AGENT-001（H3A）系列 PR 落地，见各行备注；
+                          E4: 034/036；E5: 044/045；E6: 053；E7: 066）
+  🔶 进行中           1 条（HMV2-063，纪律层面）
+  ⬜ 未开始          71 条
+```
+
+**关键事实（对账发现）**：HMV2 Epic E3（Agent 通信模型）在本 checklist 未更新期间，
+被另一份提案 PROP-HARNESS-AGENT-001 的 H3A-030~039 系列**用 HMV2 规划的同一批
+模板编号（TPL-TSK-001/TPL-EVT-001/TPL-RVW-001）** 实现掉了——不是"类似的东西"，
+是字面同名 schema 的机械门控已合入 main（各行备注附 PR 号可核）。这不算重复建设
+（两份提案共享模板编号体系，H3A 是消费者），但 checklist 五天没对账导致快照
+一度显示"91 条未开始"。教训：动手前先对账，同"修 CI 红前先查有没有人在修"。
+
+**剩余真实缺口（按 §15 依赖序）**：
+1. **E2（HMV2-013~019）Renderer 与生成物治理**——typed renderer/占位符门/
+   generated drift gate 全部真未做，是 E4/E5/E6 一切"从模型生成视图"的地基。
+2. **E4/E5 交付模型与契约束 schema**（031~033/035/037~043/046~050）——bundle.yaml
+   三件套收敛是契约束人工内容降 60% 目标的关键。
+3. **E6 看板**（051~061 未覆盖项）+ **E8 试点**（070~077）→ 人类 Go/No-Go（HMV2-077）。
+4. **E9/E10 批量迁移与文档压缩**——Go/No-Go 之前禁止动（§15 不可并行约束）。
