@@ -89,6 +89,21 @@ export interface TrackRecord {
   readonly watch: readonly string[];
   /** 挡在这条 track 与满分之间的 issue 号，渲染成统一队列。 */
   readonly blocking_issues: readonly number[];
+  /**
+   * ⏸ 流程暂停态（可选）。**只渲染，不参与任何计算**——暂停是流程状态，不是评分事实，
+   * 让它影响 `effectiveScore` 会污染 CLR 的语义（rev-uiux 2026-08-11 建议，采纳）。
+   *
+   * 为什么需要它：2026-08-11 夜间发现「V-D 暂停」只活在会话叙述里，盘面上它长得和
+   * 「过期待评」一模一样——下一个评分员按盘面取活就会去重评。这是「静态痕迹 ≠ 动态
+   * 事实」的第六次同形状：一个没有机械痕迹的状态，对下一个 agent 不存在。
+   * 字段要求写清出处（谁裁的、原话在哪），使它自身可核查而不是又一条无主断言。
+   */
+  readonly paused?: {
+    readonly reason: string;
+    readonly by: string;
+    readonly at: string;
+    readonly source: string;
+  };
 }
 
 export interface ReadinessState {
@@ -119,6 +134,8 @@ export interface TrackVerdict {
   /** 同 `pr-queue.ts` 的 `reasons` 设计）。 */
   /** 分数有效但已过期（方案 A）：计入 `clr`，但阻断 `passes`。 */
   readonly isStale: boolean;
+  /** ⏸ 透传自 record.paused。只用于渲染，绝不影响 effectiveScore/clr/passes。 */
+  readonly paused: TrackRecord["paused"] | null;
   readonly discounts: readonly DiscountReason[];
   readonly blockingIssues: readonly number[];
 }
@@ -231,6 +248,7 @@ export function judgeTrack(
     effectiveScore: invalidating.length === 0 ? (record.score ?? 0) : 0,
     /** 分数有效但已过期——计入 `clr`，但阻断 `passes`。 */
     isStale: discounts.includes("STALE"),
+    paused: record.paused ?? null,
     discounts,
     blockingIssues: record.blocking_issues,
   };

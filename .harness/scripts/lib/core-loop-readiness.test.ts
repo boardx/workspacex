@@ -392,6 +392,40 @@ describe("方案 A：STALE 计入 clr 但阻断 passes（人类 2026-08-09 裁�
   });
 });
 
+describe("⏸ paused 字段：只渲染，不参与计算（rev-uiux 2026-08-11 建议）", () => {
+  const paused = { reason: "人类暂停中", by: "人类", at: "2026-08-11T00:00:00+08:00", source: "_ruling" };
+
+  it("paused 透传到 verdict，供盘面渲染", () => {
+    const v = judgeTrack("V-D", healthy({ paused }), []);
+    expect(v.paused).toEqual(paused);
+  });
+
+  it("反证：paused **绝不**影响分数——同分同过期态，有无 paused 结果逐字段一致", () => {
+    const withP = judgeTrack("V-D", healthy({ score: 1, paused }), ["apps/web/components/chat/x.tsx"]);
+    const without = judgeTrack("V-D", healthy({ score: 1 }), ["apps/web/components/chat/x.tsx"]);
+    expect(withP.effectiveScore).toBe(without.effectiveScore);
+    expect(withP.discounts).toEqual(without.discounts);
+    expect(withP.isStale).toBe(without.isStale);
+    // 暂停是流程状态不是评分事实，影响 effectiveScore 会污染 CLR 的语义
+  });
+
+  it("反证：paused 也不影响 passes/clr 聚合", () => {
+    const mk = (p?: typeof paused): ReadinessState => ({
+      version: 1,
+      tracks: {
+        R: healthy({ score: 9 }), B: healthy({ score: 9 }),
+        "V-D": healthy({ score: 9, ...(p ? { paused: p } : {}) }), "V-P": healthy({ score: 9 }),
+      },
+    });
+    expect(judgeReadiness(mk(paused), {}).clr).toBe(judgeReadiness(mk(), {}).clr);
+    expect(judgeReadiness(mk(paused), {}).passes).toBe(judgeReadiness(mk(), {}).passes);
+  });
+
+  it("没有 paused 时透传 null，渲染层不打 ⏸", () => {
+    expect(judgeTrack("B", healthy(), []).paused).toBeNull();
+  });
+});
+
 describe("matchesAny：glob 的两个真实坑", () => {
   it("`**` 跨目录，`*` 不跨——顺序处理错了 apps/** 就匹配不到深层文件", () => {
     expect(matchesAny(["apps/web/lib/chat/x.ts"], ["apps/**"])).toBe(true);
