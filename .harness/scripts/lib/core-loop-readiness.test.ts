@@ -232,12 +232,20 @@ describe("G6 证据可解析门：抓住 coord-main 自己播下的假锚点", (
       expect(isStructurallyResolvable("ci:https://github.com/o/r/actions/runs/31375704116", yes)).toBe(true);
       expect(isStructurallyResolvable("ci:not a url", yes)).toBe(false);
     });
-    it("spec:/src:/authority: 验路径部分存在，容忍 :行号 与 #锚 后缀", () => {
+    it("spec:/src:/authority: 验路径部分存在，容忍 :行号、#锚、尾随 (注记) 三种后缀", () => {
       const ex = (r: string) => r === "apps/web/e2e/x.spec.ts" || r === "docs/a.md";
       expect(isStructurallyResolvable("spec:apps/web/e2e/x.spec.ts", ex)).toBe(true);
       expect(isStructurallyResolvable("src:apps/web/e2e/x.spec.ts:793-839 (AgentRunToolCallSteps)", ex)).toBe(true);
       expect(isStructurallyResolvable("authority:docs/a.md#十项打分维度 item 3", ex)).toBe(true);
       expect(isStructurallyResolvable("src:apps/missing.ts", ex)).toBe(false);
+    });
+
+    it("回归（第二次误伤，2026-08-10）：不带行号、直接尾随 (注记) 的 authority: 也要能过", () => {
+      const ex = (r: string) => r === "docs/a.md";
+      // round 17 的真实证据形状：`authority:….md (含 2026-08-10 P7 路径B裁决)`
+      expect(isStructurallyResolvable("authority:docs/a.md (含 2026-08-10 P7 路径B裁决)", ex)).toBe(true);
+      // 注记不能变成放行万能钥匙：路径不存在时带注记照样拦
+      expect(isStructurallyResolvable("authority:docs/missing.md (whatever)", ex)).toBe(false);
     });
     it("cmd: 非空即过——已知边界：验证不了命令真的跑过，挡编造靠 G3 与人的复核", () => {
       expect(isStructurallyResolvable("cmd:pnpm run verify:base -> exit 1 (…)", yes)).toBe(true);

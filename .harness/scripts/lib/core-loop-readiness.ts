@@ -274,8 +274,14 @@ export function isStructurallyResolvable(
       case "spec":
       case "src":
       case "authority": {
-        // 仓库内路径，允许 `:行号`/`:行-行` 与 `#锚` 后缀；验证路径部分存在
-        const path = rest.trim().split("#")[0]!.replace(/:[0-9]+(?:-[0-9]+)?\s*(?:\(.*)?$/, "");
+        // 仓库内路径，允许三种后缀：`#锚`、`:行号`/`:行-行`、尾随 `(自由注记)`。
+        // ⚠ 第二次误伤（2026-08-10）修的就是注记：`authority:a.md (含 …裁决)` ——
+        //   带行号时旧正则顺带吃掉了 `(…)`，不带行号就清不掉。评分员在证据里带
+        //   人类可读注记是合理需求，清洗要独立处理它，不能靠行号正则捎带。
+        const path = rest.trim()
+          .split("#")[0]!
+          .replace(/\s*\([^)]*\)?\s*$/, "")
+          .replace(/:[0-9]+(?:-[0-9]+)?\s*$/, "");
         return exists === null ? true : exists(path.trim());
       }
       case "cmd":
