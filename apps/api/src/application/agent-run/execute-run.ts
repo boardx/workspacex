@@ -77,6 +77,13 @@ export const HISTORY_MAX_MESSAGES = 20;
 export const HISTORY_MAX_CHARS = 12_000;
 
 /**
+ * V8 —— 滚动摘要开关。**默认关**：不设或非 "1" 时 `assembleHistory` 不接 summarize，
+ * 历史组装与 #709 逐字节相同。设为 "1"（受控环境）才开启对被丢弃旧轮的摘要。
+ * 读一次（组装期），运行中途改环境变量不改已在跑的进程行为——同本文件其余配置的做法。
+ */
+export const HISTORY_SUMMARY_ENABLED = process.env.KERNEL_HISTORY_SUMMARY_ENABLED === "1";
+
+/**
  * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
  * fits `maxChars` of combined `content` length. `messages` is already oldest-first (what
  * `readThreadHistory` returns); the result stays oldest-first so callers never have to
@@ -104,6 +111,55 @@ export function trimHistoryToBudget(
     firstKeptIndex = i;
   }
   return messages.slice(firstKeptIndex);
+}
+
+/**
+ * V8（PROP-CHAT-CONTEXT-ENGINE-001 §3）—— 上下文引擎第一步：**滚动摘要**，端口内侧、
+ * `ModelCallPort` 契约一字节不动（coord-main 裁决 A 条件）。
+ *
+ * 现状缺口 G1：`trimHistoryToBudget` 把超预算的旧轮**整条丢弃**，长对话超 12k 字符后
+ * 「记得前几轮」必然掉线。本函数在丢弃之前，可选地把被丢掉的旧轮压成一段摘要，作为一条
+ * `assistant` 伪历史消息前置——这样近几轮原文保留、更旧的要点也不至于完全消失。
+ *
+ * ## 为什么默认关、opt-in
+ * `summarize` 为 `undefined` 时，本函数返回值与直接调 `trimHistoryToBudget` **逐字节相同**
+ * ——生产默认路径零行为变化、零风险（同 loopback 流式 / ASR turn_detection 的 opt-in 纪律）。
+ * 打开摘要要多一次模型调用（成本/时延变化），因此由部署显式开启、先在受控环境验证再上生产。
+ *
+ * ## 失败与预算
+ * - 摘要调用失败或返回空 ⇒ 静默退回 `trimHistoryToBudget` 的结果（不 fail run，与 #709
+ *   历史读取失败降级为单轮同一种保守失败模式）。绝不因为「摘要没成」把一次本可完成的
+ *   run 变失败。
+ * - 摘要 + 保留后缀仍受 `maxChars` 约束：拿到摘要后按「摘要长度」重新给后缀留预算，
+ *   保证总量不超预算，且**近几轮优先**（摘要挤不下时缩的是更旧的保留轮，不是最近的）。
+ * - 摘要只是 `role/content` 伪消息，`ModelCallInput` 与 `ModelCallPort` 形状不变。
+ */
+export async function assembleHistory(
+  recent: readonly ThreadHistoryMessage[],
+  maxChars: number,
+  summarize?: (dropped: readonly ThreadHistoryMessage[]) => Promise<string>,
+): Promise<readonly ThreadHistoryMessage[]> {
+  const kept = trimHistoryToBudget(recent, maxChars);
+  if (!summarize) return kept; // 默认路径：与既有行为逐字节相同
+  const droppedCount = recent.length - kept.length;
+  if (droppedCount <= 0) return kept; // 没丢任何轮 ⇒ 无需摘要
+  let summaryText: string;
+  try {
+    summaryText = (await summarize(recent.slice(0, droppedCount))).trim();
+  } catch {
+    return kept; // 摘要失败 ⇒ 退回丢弃行为，不 fail run
+  }
+  if (summaryText === "") return kept;
+  const summaryMessage: ThreadHistoryMessage = {
+    role: "assistant",
+    content: `[前 ${droppedCount} 轮对话摘要] ${summaryText}`,
+  };
+  // 近几轮**永远优先**：摘要是「有余量才加」的锦上添花，绝不为它挤掉任何最近保留的轮。
+  // 保留后缀已经贴着 `maxChars`，只有剩余预算容得下整条摘要时才前置；容不下就跳过摘要，
+  // 返回原样的近几轮（不截断摘要——截一半的摘要是没验证过的半句话，宁可不要）。
+  const keptChars = kept.reduce((sum, m) => sum + m.content.length, 0);
+  if (keptChars + summaryMessage.content.length > maxChars) return kept;
+  return [summaryMessage, ...kept];
 }
 
 export interface ExecuteAgentRunDeps {
@@ -229,12 +285,28 @@ async function executeClaimed(
    * because of it -- especially since #709 ships behind no flag and must not be able to
    * regress runs that never needed history in the first place.
    */
-  let history: ReturnType<typeof trimHistoryToBudget> = [];
+  let history: readonly ThreadHistoryMessage[] = [];
   try {
     const recent = await deps.runs.readThreadHistory(
       orgId, run.threadId, run.inputMessageId, HISTORY_MAX_MESSAGES,
     );
-    history = trimHistoryToBudget(recent, HISTORY_MAX_CHARS);
+    // V8 —— 开启摘要时，把被预算丢弃的旧轮压成一段摘要前置；关闭时（默认）
+    // `assembleHistory` 不接 summarize，返回值与 `trimHistoryToBudget` 逐字节相同。
+    // summarize 复用 `deps.model.complete`（ModelCallPort 契约不动），失败在
+    // `assembleHistory` 内部被吞并退回丢弃行为，不会把这次 run 拖失败。
+    const summarize = HISTORY_SUMMARY_ENABLED
+      ? async (dropped: readonly ThreadHistoryMessage[]): Promise<string> => {
+          const transcript = dropped.map((m) => `${m.role}: ${m.content}`).join("\n");
+          const completion = await deps.model.complete({
+            modelProvider: run.modelProvider,
+            modelId: run.modelId,
+            system: "你是对话历史摘要器。把下面这段较早的多轮对话压成简短要点，只保留后续对话可能需要回指的事实与结论，不要复述客套。用中文，尽量短。",
+            user: transcript,
+          });
+          return completion.text;
+        }
+      : undefined;
+    history = await assembleHistory(recent, HISTORY_MAX_CHARS, summarize);
   } catch (e) {
     deps.log("agent run thread history read failed, continuing without it", {
       runId: run.runId,
