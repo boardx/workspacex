@@ -29,7 +29,7 @@ env/secret 变更必须与部署原子（同 PR 或先加后删）。
 
 ## 模块清单（对应 .agents/skills/mod-*）
 mod-chat（聊天/对话） / mod-agent-skill-runtime（Agent/Skill 运行时与契约） /
-mod-research-studio（研究/访谈/录制/检索/模板） / mod-canvas-asset（画布/产出物/资产治理） /
+mod-research-studio（研究/访谈/录制/检索/模板） / mod-asset-artifact（产出物/资产治理；画布归官方 mod-canvas-diagram） /
 mod-org-identity（身份/鉴权/组织后台） / mod-coord-platform（RepoHub/Directory/Brain/
 Projection/Protocol/网关） / mod-devportal（开发者门户）
 （2026-08-09 定稿，边界对应 apps/api 的 domain 子目录与 packages/coord-* 的协议边界；

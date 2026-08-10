@@ -61,7 +61,7 @@
 | mod-chat | iterated | 聊天产品架构（消息流/工具调用可见性）OSS 参照（如 Vercel AI SDK、LobeChat） |
 | mod-agent-skill-runtime | iterated | Agent/Skill 运行时设计（对照 Claude Agent SDK、LangGraph） |
 | mod-research-studio | iterated | 用户研究工具产品知识（访谈/录制/检索的行业实践） |
-| mod-canvas-asset | iterated | 白板/画布产品架构（对照 tldraw、Excalidraw 等 OSS） |
+| mod-asset-artifact（原 mod-canvas-asset，2026-08-09 收窄让位官方 mod-canvas-diagram） | iterated | 白板/画布产品架构（对照 tldraw、Excalidraw 等 OSS） |
 
 ### 批次 F — 产品域知识库（二）+ Agentic 基础
 | skill | 状态 | 研究角度 |
