@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, CheckCircle2, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
+import { Bot, Check, CheckCircle2, Copy, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
 import { Markdown } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { ApiError } from "@/lib/api-client";
@@ -163,6 +163,27 @@ export function ChatLiveMessagePanel({
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     atBottomRef.current = distanceFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
+  }, []);
+  /**
+   * V3（PROP-CHAT-10ITER-001）—— 逐条消息复制。`copiedMessageId` 记住「刚复制的是哪条」，
+   * 2 秒后自动清空，让图标从对勾切回复制图标（短暂反馈，不常驻）。复制的是消息**纯文本**
+   * （`message.text`），不是渲染后的 HTML——用户要的是原文（含代码/markdown 源）。
+   */
+  const [copiedMessageId, setCopiedMessageId] = React.useState<string | null>(null);
+  const copyResetRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (copyResetRef.current) clearTimeout(copyResetRef.current);
+  }, []);
+  const handleCopyMessage = React.useCallback(async (message: DurableMessage) => {
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setCopiedMessageId(message.id);
+      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+      copyResetRef.current = setTimeout(() => setCopiedMessageId(null), 2_000);
+    } catch {
+      // 剪贴板不可用（无 https / 权限被拒）时静默——不弹错、不伪造成功态，
+      // 用户会发现没复制上而已，不给一个骗人的「已复制」。
+    }
   }, []);
   /**
    * #726 —— 麦克风开始录音那一刻要读到"此刻输入框里的文字"作为追加基线，而
@@ -511,7 +532,7 @@ export function ChatLiveMessagePanel({
               return (
                 <li
                   key={message.id}
-                  className={`flex items-start gap-2.5 ${isAgent ? "" : "flex-row-reverse"}`}
+                  className={`group flex items-start gap-2.5 ${isAgent ? "" : "flex-row-reverse"}`}
                   data-testid="chat-message-row"
                   data-message-id={message.id}
                 >
@@ -546,6 +567,25 @@ export function ChatLiveMessagePanel({
                       </span>
                       {isAgent ? agentDuty(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
+                      {/*
+                        V3 —— 逐条复制。hover 出现（`opacity-0 group-hover`），键盘聚焦时也
+                        显形（`focus-visible:opacity-100`）保证键盘可达；复制后 2 秒内显对勾。
+                      */}
+                      <button
+                        type="button"
+                        data-testid="chat-message-copy"
+                        data-message-id={message.id}
+                        aria-label="复制消息"
+                        title="复制消息"
+                        onClick={() => void handleCopyMessage(message)}
+                        className="ml-0.5 inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
+                      >
+                        {copiedMessageId === message.id ? (
+                          <Check aria-hidden className="h-3 w-3 text-primary" />
+                        ) : (
+                          <Copy aria-hidden className="h-3 w-3" />
+                        )}
+                      </button>
                     </div>
                     <div
                       className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
