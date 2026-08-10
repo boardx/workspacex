@@ -263,8 +263,13 @@ export class IdentityController {
     assertPrincipal(principal);
     try {
       return await updateOwnProfile(
-        { credentials: this.credentials, avatars: this.avatars },
-        { userId: principal.userId, displayName: body.displayName, avatarArtifactId: body.avatarArtifactId },
+        { credentials: this.credentials, avatars: this.avatars, provenance: this.provenance },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          displayName: body.displayName,
+          avatarArtifactId: body.avatarArtifactId,
+        },
       );
     } catch (e) {
       if (e instanceof UpdateOwnProfileError) {
@@ -462,9 +467,16 @@ export class IdentityController {
 
     try {
       return await changeOwnPassword(
-        { credentials: this.credentials, hasher: this.hasher, sessions: this.tokenStore, clock: { now: () => new Date() } },
+        {
+          credentials: this.credentials,
+          hasher: this.hasher,
+          sessions: this.tokenStore,
+          clock: { now: () => new Date() },
+          provenance: this.provenance,
+        },
         {
           userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
           currentSessionId: session.id,
           currentPassword: body.currentPassword,
           newPassword: body.newPassword,

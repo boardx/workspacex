@@ -48,6 +48,7 @@ beforeAll(async () => {
     repo,
     null as never,
     identity,
+    null as never,
   );
 }, HOOK_TIMEOUT_MS);
 

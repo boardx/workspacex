@@ -77,6 +77,7 @@ import { ORG_MEMBER_REPOSITORY, type OrgMemberRepository } from "../../applicati
 import { TEAM_REPOSITORY, type TeamRepository } from "../../application/auth/team-ports";
 import { ORG_PROFILE_REPOSITORY, type OrgProfileRepository } from "../../application/auth/org-profile-ports";
 import { SESSION_TOKEN_STORE, type SessionTokenStore } from "../../application/auth/ports";
+import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
 import {
   IDENTITY_REPOSITORY,
   type IdentityRepository,
@@ -135,6 +136,7 @@ export class OrgAdminManagementController {
     @Inject(ORG_PROFILE_REPOSITORY) private readonly profiles: OrgProfileRepository,
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -268,7 +270,10 @@ export class OrgAdminManagementController {
   ) {
     const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
     try {
-      return await createTeam({ repo: this.teams }, { orgId, actorOrgRole: orgRole, name: body.name });
+      return await createTeam(
+        { repo: this.teams, provenance: this.provenance },
+        { orgId, actorId: principal.userId, actorOrgRole: orgRole, name: body.name },
+      );
     } catch (e) {
       throw toHttpException(e);
     }
@@ -284,8 +289,8 @@ export class OrgAdminManagementController {
     const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
     try {
       return await renameTeam(
-        { repo: this.teams },
-        { orgId, actorOrgRole: orgRole, teamId: teamIdParam, name: body.name },
+        { repo: this.teams, provenance: this.provenance },
+        { orgId, actorId: principal.userId, actorOrgRole: orgRole, teamId: teamIdParam, name: body.name },
       );
     } catch (e) {
       throw toHttpException(e);
@@ -306,7 +311,10 @@ export class OrgAdminManagementController {
   ) {
     const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
     try {
-      return await deleteTeam({ repo: this.teams }, { orgId, actorOrgRole: orgRole, teamId: teamIdParam });
+      return await deleteTeam(
+        { repo: this.teams, provenance: this.provenance },
+        { orgId, actorId: principal.userId, actorOrgRole: orgRole, teamId: teamIdParam },
+      );
     } catch (e) {
       throw toHttpException(e);
     }

@@ -140,6 +140,27 @@ describe("createTeam / renameTeam（#639 delta，迭代 2）", () => {
     const row = await asOwner((c) => c.query("SELECT name FROM teams WHERE id = $1", [createdBody.teamId]));
     expect((row.rows[0] as { name: string }).name).toBe("gamma-2");
   }, 60_000);
+
+  it("反证（#638 迭代 4）：创建/改名各写一条独立的 provenance_events 行——actor/kind/target 都对得上", async () => {
+    const token = await loginAs(ADMIN_EMAIL, PASSWORD);
+    const created = await createTeamHttp(token, "delta-team");
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as { teamId: string; name: string };
+
+    const renamed = await renameTeamHttp(token, createdBody.teamId, "delta-team-renamed");
+    expect(renamed.status).toBe(200);
+
+    const events = await asOwner((c) =>
+      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string }>(
+        `SELECT type, actor_id, target_kind, target_id FROM provenance_events
+          WHERE org_id = $1 AND target_kind = 'team' AND target_id = $2 ORDER BY at ASC`,
+        [ORG, createdBody.teamId],
+      ),
+    );
+    expect(events.rows).toHaveLength(2);
+    expect(events.rows[0]).toMatchObject({ type: "team-created", actor_id: ADMIN, target_kind: "team", target_id: createdBody.teamId });
+    expect(events.rows[1]).toMatchObject({ type: "team-renamed", actor_id: ADMIN, target_kind: "team", target_id: createdBody.teamId });
+  }, 60_000);
 });
 
 describe("deleteTeam（#639 delta，迭代 2）", () => {
@@ -184,6 +205,44 @@ describe("deleteTeam（#639 delta，迭代 2）", () => {
     expect(notFound.status).toBe(404);
     const notFoundBody = (await notFound.json()) as { reasonCode: string };
     expect(notFoundBody.reasonCode).toBe("TEAM_NOT_FOUND");
+  }, 60_000);
+
+  it("反证（#638 迭代 4）：删除成功写一条 team-deleted，被拒绝的删除（非空/不存在）不写", async () => {
+    const token = await loginAs(ADMIN_EMAIL, PASSWORD);
+    const created = await createTeamHttp(token, "epsilon-team");
+    const createdBody = (await created.json()) as { teamId: string };
+
+    const res = await deleteTeamHttp(token, createdBody.teamId);
+    expect(res.status).toBe(201);
+
+    const events = await asOwner((c) =>
+      c.query<{ type: string; actor_id: string; target_kind: string; target_id: string; detail: { name?: string } }>(
+        `SELECT type, actor_id, target_kind, target_id, detail FROM provenance_events
+          WHERE org_id = $1 AND target_kind = 'team' AND target_id = $2`,
+        [ORG, createdBody.teamId],
+      ),
+    );
+    // team-created（创建时）+ team-deleted（本次删除）——恰好两条，不是伪造的占位数据。
+    expect(events.rows).toHaveLength(2);
+    expect(events.rows.map((r) => r.type).sort()).toEqual(["team-created", "team-deleted"]);
+    // 迭代 4 修复：team-deleted 的 detail.name 必须带上被删团队的名字——行已被删除，
+    // 之后再也查不到，只能靠删除前写进 provenance 的这份留存。
+    const deletedEvent = events.rows.find((r) => r.type === "team-deleted");
+    expect(deletedEvent?.detail.name).toBe("epsilon-team");
+    for (const row of events.rows) {
+      expect(row.actor_id).toBe(ADMIN);
+    }
+
+    // 被拒绝的删除（team-does-not-exist）不应该留下任何 provenance 行。
+    await deleteTeamHttp(token, "team-does-not-exist");
+    const rejectedEvents = await asOwner((c) =>
+      c.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM provenance_events
+          WHERE org_id = $1 AND target_kind = 'team' AND target_id = 'team-does-not-exist'`,
+        [ORG],
+      ),
+    );
+    expect(rejectedEvents.rows[0]!.n).toBe(0);
   }, 60_000);
 });
 

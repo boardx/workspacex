@@ -179,7 +179,10 @@ describe("delete — 占用校验（I-7）", () => {
       { repo },
       { orgId: toOrgId(ORG), actorOrgRole: "admin", op: "delete", teamId, name: null },
     );
-    expect(out.team).toBeNull();
+    // 迭代 4 修复：`delete` 现在把被删团队的 (id, name) 带回来（不再是 null）——
+    // `deleteTeam` 用例要用这个名字写进 provenance 的 `detail.name`，行删除之后就
+    // 再也查不到了，只能靠这次调用顺路带出。
+    expect(out.team).toEqual({ teamId, name: "empty-team" });
     expect(await teamRow(teamId)).toBeUndefined();
   });
 

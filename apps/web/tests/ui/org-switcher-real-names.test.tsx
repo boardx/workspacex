@@ -13,7 +13,13 @@
  * 本仓刚栽过一次「`toContain("assertProjectMember")` 命中的是方法定义本身，
  * 把调用注释掉照样全绿」。所以这里跑的是**真的 `SessionProvider` + 真的 `AppShell`**，
  * 只把网络边界（`@/lib/session-api`）换成 mock；断言全部落在
- * `getByTestId("org-switcher")` 渲染出的 `<option>` 文本上。
+ * `getByTestId("org-switcher")` 渲染出的选项文本上。
+ *
+ * ⚠ 2026-08-10：切换器从裸 `<select>` 换成手写选择器（Button 触发 + `role="listbox"`
+ *   面板，见 `components/shell/top-bar.tsx` 的 `OrgSwitcher`）。`data-testid="org-switcher"`
+ *   现在留在**触发按钮**上，只呈现「当前选中组织」这一个文本；其余组织的选项要点开
+ *   面板才会出现在 DOM 里。`switcherOptions()` 因此从直读 `<option>` 改成「按需点开
+ *   面板 + 读 `role="option"` 按钮文本」——验证的还是同一件事：面板里列出的组织名。
  *
  * ## 等待形状：一次 `findBy*` 等挂载，之后只用**同步**回调的 `waitFor`（2026-08-09）
  * 本文件曾在高负载下随机抛 `Error: Timed out in waitFor.`，把**任何人**的 push 挡下来
@@ -32,7 +38,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import {
   ORG_NAME_PENDING_LABEL,
@@ -97,10 +103,16 @@ function renderShell() {
 }
 
 /**
- * 切换器里逐个 `<option>` 的可见文本 —— 用户真正读到的东西。
+ * 面板里逐个 `role="option"` 按钮的可见文本 —— 用户点开切换器真正读到的东西。
  *
- * ⚠ **同步**，而且刻意用最便宜的两步：`getByTestId`（属性选择器）+ `querySelectorAll`。
- * 它要在 `waitFor` 的回调里被反复调用，回调本身的成本就是这次 flake 的关键变量。
+ * 2026-08-10：切换器换成手写选择器后，其余组织的选项要点开面板才进 DOM
+ * （见 `OrgSwitcher`），所以这里第一次调用会顺手 `fireEvent.click` 触发按钮
+ * 把面板打开；一旦 `aria-expanded="true"` 就不再重复点击（面板保持展开，
+ * 之后只读不点，不会把它点关）。
+ *
+ * ⚠ **同步**，而且刻意用最便宜的几步：`getByTestId`（属性选择器）+ `querySelectorAll` +
+ * 同步 `fireEvent.click`。它要在 `waitFor` 的回调里被反复调用，回调本身的成本就是
+ * 这次 flake 的关键变量。
  *
  * 反面教材（2026-08-09 实测记录，别再走一遍）：
  *   ① 原写法 `async` + 内部 `await screen.findByTestId(…)`，调用点套在
@@ -115,8 +127,10 @@ function renderShell() {
  *      教训：`waitFor` 回调必须**便宜**，`byRole` 在热重试路径上不是免费的语义糖。
  */
 function switcherOptions(): string[] {
-  const select = screen.getByTestId("org-switcher");
-  return Array.from(select.querySelectorAll("option")).map((o) => o.textContent ?? "");
+  const trigger = screen.getByTestId("org-switcher");
+  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+  const listbox = screen.getByTestId("org-switcher-listbox");
+  return Array.from(listbox.querySelectorAll('[role="option"]')).map((o) => o.textContent ?? "");
 }
 
 beforeEach(() => {

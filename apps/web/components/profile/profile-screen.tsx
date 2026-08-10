@@ -29,6 +29,14 @@ const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 export function ProfileScreen() {
   const { session, identity, updateDisplayName, updateAvatarUrl, logout } = useSession();
 
+  // 迭代 4 顺带修复（复核额外发现）：改名/换头像/改密码成功后，活动记录不会自己刷新——
+  // 用户看到的还是旧列表，要手动 reload 才看得到新条目。这几个动作都发生在本页、
+  // 都已经有各自的"成功"回调，加一个递增的 key 往下传给 `ActivitySection`，
+  // 让它的 `useEffect` 把这次成功也当一次"该重新拉一次列表"的信号，不需要引入
+  // 跨组件的状态管理。
+  const [activityRefreshKey, setActivityRefreshKey] = React.useState(0);
+  const bumpActivityRefresh = React.useCallback(() => setActivityRefreshKey((k) => k + 1), []);
+
   return (
     <AppShell previewRole={null}>
       <div className="mx-auto flex max-w-lg flex-col gap-6 p-6" data-testid="profile-screen">
@@ -84,11 +92,17 @@ export function ProfileScreen() {
             <ProfileForm
               initialDisplayName={identity.displayName}
               avatarUrl={identity.avatarUrl}
-              onSavedName={(displayName) => updateDisplayName(displayName)}
-              onSavedAvatar={(avatarUrl) => updateAvatarUrl(avatarUrl)}
+              onSavedName={(displayName) => {
+                updateDisplayName(displayName);
+                bumpActivityRefresh();
+              }}
+              onSavedAvatar={(avatarUrl) => {
+                updateAvatarUrl(avatarUrl);
+                bumpActivityRefresh();
+              }}
             />
-            <PasswordSection />
-            <ActivitySection />
+            <PasswordSection onChanged={bumpActivityRefresh} />
+            <ActivitySection refreshKey={activityRefreshKey} />
           </>
         ) : (
           <div data-testid="loading" className="flex animate-pulse flex-col gap-3">
@@ -303,7 +317,7 @@ function describeAvatarFailure(failure: unknown): string {
 
 type PasswordUiState = "idle" | "submitting" | "invalid" | "error" | "success";
 
-function PasswordSection() {
+function PasswordSection({ onChanged }: { onChanged: () => void }) {
   const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [state, setState] = React.useState<PasswordUiState>("idle");
@@ -326,6 +340,7 @@ function PasswordSection() {
       setRevokedCount(out.revokedSessionCount);
       setCurrentPassword("");
       setNewPassword("");
+      onChanged();
     } catch (err) {
       setState("error");
       setErrorMessage(describePasswordFailure(err));
@@ -428,7 +443,7 @@ function describePasswordFailure(failure: unknown): string {
 
 /* ═══════════════════════════ 活动记录 ═══════════════════════════ */
 
-function ActivitySection() {
+function ActivitySection({ refreshKey }: { refreshKey: number }) {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOwnActivityOut | null>(null);
@@ -447,9 +462,11 @@ function ActivitySection() {
     }
   }, []);
 
+  // `refreshKey` 变化（本页任一成功操作：改名/换头像/改密码）时重新拉一次列表——
+  // 不这样做的话，用户在同一页看到的活动记录永远是打开页面那一刻的旧快照。
   React.useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function loadMore() {
     if (!out?.nextCursor) return;
@@ -485,7 +502,6 @@ function ActivitySection() {
             >
               <div className="flex flex-col gap-0.5 overflow-hidden">
                 <span className="truncate text-12">{event.summary}</span>
-                <span className="text-10 text-muted-foreground">{event.kind}</span>
               </div>
               <time className="shrink-0 text-10 text-muted-foreground" dateTime={event.occurredAt}>
                 {formatActivityTime(event.occurredAt)}

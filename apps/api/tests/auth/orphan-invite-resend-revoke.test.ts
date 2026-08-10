@@ -135,6 +135,7 @@ beforeAll(async () => {
     null as never, // #363：新增的 ORG_PROFILE_REPOSITORY，同样不参与
     null as never,
     new PgIdentityRepository(db),
+    null as never, // #638 迭代 4：新增的 PROVENANCE_WRITER，同样不参与
   );
 }, HOOK_TIMEOUT_MS);
 

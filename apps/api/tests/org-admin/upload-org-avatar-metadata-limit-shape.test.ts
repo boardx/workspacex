@@ -37,6 +37,7 @@ function buildController(): OrgAdminManagementController {
     null as never,
     null as never,
     identity,
+    null as never,
   );
 }
 

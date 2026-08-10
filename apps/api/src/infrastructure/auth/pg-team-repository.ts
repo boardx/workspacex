@@ -141,7 +141,10 @@ export class PgTeamRepository implements TeamRepository {
     }
 
     await s.query(`DELETE FROM teams WHERE id = $1`, [teamId]);
-    return { ok: true as const, team: null };
+    // `team` 带上被删团队的（id, name）——调用方（`deleteTeam` 用例）需要拿名字写进
+    // provenance 的 `detail.name`，行已经删了之后就再也查不到了，只能用这次 `SELECT ...
+    // FOR UPDATE` 已经查出来的 `team` 带出去。
+    return { ok: true as const, team: { teamId: team.id, name: team.name } };
   }
 
   /**
