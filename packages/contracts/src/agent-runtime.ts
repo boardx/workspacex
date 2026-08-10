@@ -1742,8 +1742,12 @@ export const operations = {
 
   /**
    * #660 ——「**无能力面自助发布**」。
-   * 人类 2026-08-11 已签核（`design-deltas/agent-instructions/design-signoff.md`
-   * 随候选 A 一并确认）；遗留的真缺口另记在 `KNOWN_CONTRACT_GAPS.AR12`。
+   * **人类 2026-08-11 已裁决采纳**（原话「按推荐走」，经 coord-main 转述）。
+   * ⚠ 分寸：那是**会话里的口头裁决**；束级 `design-signoff.md` 里
+   *   「✍ 待人类签这一处」那张表**仍然空着**，等人自己填——口头裁决与文件签核
+   *   是两件事，agent 代填会让「谁签的」这条链断掉。
+   * 遗留的真缺口另记在 `KNOWN_CONTRACT_GAPS.AR12`（`agent_versions` 缺显式
+   * `publish_route` 列，现由 `semantic_label` 前缀权宜承载）。
    *
    * ## 它补的洞
    *
