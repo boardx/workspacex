@@ -31,6 +31,12 @@ export const SNAPSHOT_FROZEN_FIELDS = [
   "name",
   "initials",
   "role",
+  /**
+   * #660 —— **必须冻结**。它就是「这一版到底跑什么」本身；不冻结的话，UC-4.4 的
+   * 「当时跑的是哪一版」还能答出版本号，却答不出那一版的行为（作者事后改了指令，
+   * 历史 run 的解释就跟着变了）。同 `agent_versions.instructions` 一列不可变。
+   */
+  "instructions",
   "visibility",
   "modelId",
   "skillMounts",

@@ -1,7 +1,15 @@
 ---
-status: proposed
+status: confirmed
 bundle: agent-instructions
 scope: user-created-agent-executable-definition
+decision: A                      # ③ 的三个候选里选定 A（agents 加 instructions 列 + updateAgentDefinition.patch 加字段）
+confirmed_by: yanbin shen
+confirmed_at: 2026-08-11T00:00:00+08:00
+confirmed_via: >-
+  人类在 2026-08-11 的会话里逐字回复「design confirmed. and 3) choose A option」，
+  由 agent（dev-ai-runtime，#660）代为写入本 frontmatter。
+  ⚠ 这不是人类亲手敲进文件的签名 —— 记在这里是为了让「签核怎么来的」可追溯，
+  而不是让它看起来像一次本地提交。人类若认为记录有误，直接改本文件即可。
 ---
 
 # 用户自建 Agent 的「可执行定义」 —— 设计签核（#660 勘探产出）
@@ -75,3 +83,32 @@ confirmed_at: "<ISO8601 时间戳>"
 ```
 
 签之前请先在 ③ 的三个候选里选一个（或给出第四种）。
+
+
+---
+
+## 裁决结果（2026-08-11）—— 人类选定**候选 A**
+
+> 人类原话：「design confirmed. and 3) choose A option」
+
+⇒ **`agents` 表加 `instructions` 列；`updateAgentDefinition.in.patch` 加 `instructions` 字段。**
+
+### 落地记录（#660 / PR #859）
+
+| 件 | 落在哪 |
+|---|---|
+| 迁移 | `apps/api/migrations/20260811000000_i660_agent_instructions.sql`（可空 text + 8000 长度 CHECK） |
+| 契约 | `updateAgentDefinition.in.patch.instructions`；新错误码 `AGENT_NO_EXECUTABLE_DEFINITION` |
+| ① UI | 后台「新建 Agent」面板的多行指令编辑区（本文件 ① 原写「待定——取决于 ③ 的裁决」） |
+| ② 用例 | UC-4.1 R3 缺失的那一步（「它执行什么」是谁、在哪一步写进去）由 `updateAgentDefinition` 承担 |
+
+### ⚠ 三条刻意没做的事，留给下一个人
+
+1. **不回填存量行**。本文件正文那条禁令（不得用 `role`/`name` 硬凑 instructions）对回填同样成立 ——
+   存量自建 agent 仍然发不出去，直到作者自己写一段指令。**这是诚实的结果，不是遗漏。**
+2. **`agents.instructions` 改动不触发重新评审**。候选 A 的「代价」一栏点名问过这件事；
+   本轮按「不触发」实现，因为**改指令 ≠ 改权限面**（工具白名单/skill 挂载一个没动），
+   而重新评审的触发条件属于 O-21 的范围，改它要动已签核束。⚠ 若你认为改指令也该重新评审，
+   这是**下一次裁决**，不是本次的遗漏。
+3. **`instructions` 不进 `updateAgentDefinition.out`**。它是可能很长的正文，出参里回显一份
+   等于让每次编辑响应都带着全文；读取走 agent 详情读路径（该读路径本身尚未挂线，登记为已知缺口）。

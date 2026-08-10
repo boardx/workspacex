@@ -75,6 +75,90 @@ confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于�
 > `packages/contracts/src/thresholds.ts` 的 `projectAiDefault*`（`known: false`，**取值即抛错**），
 > 界面显示「默认值未裁」。**这一条也需你裁默认值。**
 
+> # 🟢 第二处「签核之后新增」的东西 —— #660 自助发布边（人类 2026-08-11 已裁决采纳）
+>
+> **frontmatter 的签核字段一个都没动**（`status` / `confirmed_by` / `confirmed_at`
+> 保持 2026-07-30 那次的原值）——那是**整束**的签核，不是这一条边的。
+> 本条边自己的签核位在本块**最末尾**「✍ 待人类签这一处」。
+>
+> **裁决**：人类 2026-08-11 原话「**按推荐走**」，即采纳下面这条区分——
+> 无能力面 ⇒ 无评审对象 ⇒ 例外边成立。门控按 agent 已实现的原样采纳，未加码。
+>
+> ## 新增了什么
+>
+> 契约操作 `selfPublishToollessAgent`（`POST /agents/:agentId/self-publish`），
+> 以及四个只服务它的错误码（`AGENT_NOT_DRAFT` / `AGENT_NOT_TOOLLESS` /
+> `AGENT_VISIBILITY_UNSUPPORTED` / `AGENT_NO_EXECUTABLE_DEFINITION`）。
+> ⚠ 遗留缺口登记在 `KNOWN_CONTRACT_GAPS.**AR12**`（不是 AR11——AR11 已被 #856
+> 的「前驱状态不对没有码」占用；同号不同事，本条已改号）。
+>
+> ## 为什么非做不可（实测，不是推断）
+>
+> 已签核的发布路径对一个**刚注册的独人组织**是**结构性不可通过**的：
+>
+> | 门 | 出处 | 独人组织能不能过 |
+> |---|---|---|
+> | 工具白名单非空 | I-28 | ❌ 全仓**没有任何路由**能配白名单（`setToolWhitelist` 零实现） |
+> | 审核人 ≠ 提交人、且是方法论审核人 | O-21 | ❌ 组织里只有他一个人；且**指派评审职能这件事全仓没有任何契约操作**（skill 侧的 `skill_reviewer_functions` 只有种子脚本写过） |
+>
+> 实测后果：自建 agent 在 chat 里发消息**恒 422**，即 CLR track R 的 **R9 恒为 0**
+> （见证与验收都在 `apps/api/tests/agent-runtime/create-agent-publish-path.test.ts`）。
+>
+> ## 这条边**没有**动 I-28 / O-21
+>
+> 它是一条**另设的、受门控的** `草稿 → 运行中` 边，只对
+> `toolWhitelist = []` **且** `skillMounts = []` 的 agent 开放。论据：
+> **双人评审审的是「这个 agent 被授予了什么能力」；没有能力面 ⇒ 没有评审对象。**
+>
+> ⚠ 它与 `AgentRuntimeError.SELF_REVIEW_FORBIDDEN` 头注逐字禁止的
+> 「组织内无第二人时**降级放行**」**不是同一件事**：那条禁的是「有东西要审、却因为
+> 凑不齐人而放行」；这条说的是「压根没有东西要审」。**这个区分正是要你裁的东西。**
+> 有能力面的 agent 仍然只有双人路径一条路（`AGENT_NOT_TOOLLESS`），
+> `submitAgentForReview` / `decideAgentPublish` 两条路由**至今仍是 404**，本次没有接。
+>
+> ## 需你裁一条
+>
+> **「零工具零 skill 的自建 agent，可由创建者自助发布」——接受还是不接受？**
+>
+> · **接受** ⇒ 把它正式写进 UC-4.1 R3（作为步骤 9/10 之外的一条分支），
+>   并把 `agent_versions` 的「发布路径」从权宜的 `semantic_label='自助发布-v1'`
+>   升级成一个显式列（细节见 `pg-self-publish-agent-repository.ts` 头注）。
+> · **不接受** ⇒ 删除该操作、四个错误码、`domain/agent/self-publish.ts`、
+>   其仓储与两份测试，并把 `lint-permission-paths` 的白名单上限从 46 退回 45。
+>   届时 R9 的诚实答案是：**在补齐 `setToolWhitelist` + 选模型 + 评审职能指派
+>   三条路径、且组织里有第二个人之前，它不可能为 1。**
+>
+> **⇒ 人类 2026-08-11 选了「接受」。** 后续正式化那一项（`agent_versions` 加显式
+> `publish_route` 列，替掉权宜的 `semantic_label` 前缀）**本轮没做**，已登记为 AR12。
+>
+> ## 与 #856 的关系：互补，不是二选一
+>
+> | agent 有没有能力面 | 走哪条 | 谁实现的 |
+> |---|---|---|
+> | 有工具白名单条目 **或** 有 skill 挂载 | `submitAgentForReview` → `decideAgentPublish`（双人评审） | #856 |
+> | 两者都空 | `selfPublishToollessAgent`（本条边） | #660 / PR #859 |
+>
+> 两条各有仓储、各有 `lint-permission-paths` 白名单条目、各有前提测试。
+> 有能力面的 agent 走本条边会被 `AGENT_NOT_TOOLLESS` 拒——**它不是评审的旁路**。
+>
+> ---
+>
+> ## ✍ 待人类签这一处
+>
+> 采纳本条边的签核，签在下面这张表里。⚠ **agent 不许填这三格**——
+> 与 frontmatter 的 `status` 同一条纪律（ADR-023）。
+>
+> | 字段 | 值 |
+> |---|---|
+> | `edge` | `selfPublishToollessAgent`（#660） |
+> | `decision` | ⬜ 采纳 / ⬜ 否决 |
+> | `confirmed_by` | ⬜ 待填 |
+> | `confirmed_at` | ⬜ 待填（ISO 8601） |
+>
+> ⚠ 记一句以免将来读错：人类 2026-08-11 在会话里已经口头裁决「按推荐走」
+> （由 coord-main 转述），**但这张表仍然空着**——口头裁决与文件签核是两件事，
+> agent 代填会让「谁签的」这条链断掉。这一格留给人自己动手。
+
 覆盖 feature：**F48–F60 + F129–F131**（16 件 / 67 点）—— 派生视图，权威是上面 frontmatter 的 `covers:`
 依据 UC（**九份**）：
 

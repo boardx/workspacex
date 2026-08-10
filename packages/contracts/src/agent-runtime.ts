@@ -461,6 +461,41 @@ export const AgentRuntimeError = z.enum([
    * ⚠ `平台组` 的判据 **[待裁]** → `KNOWN_CONTRACT_GAPS.AR3`。
    */
   "MCP_SERVER_IN_QUARANTINE",
+
+  /* ── ⑦ ⚠⚠ 草案（#660，尚未经人类签核）→ `KNOWN_CONTRACT_GAPS.AR11` ─── */
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`（见该操作的头注）。
+   * 目标 agent 不在 `草稿` 态。自助发布**只**是 `草稿 → 运行中` 的一条边；
+   * 已进 `待审核` 的 agent 已经踏上评审路径，**不得**用自助发布抄近道绕过
+   * `decideAgentPublish`——那正好就是 I-28/O-21 要防的那件事。
+   */
+  "AGENT_NOT_DRAFT",
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`。
+   * agent 已经有工具白名单条目或 skill 挂载 ⇒ **它有可被评审的能力面**，
+   * 必须走完整的 `submitAgentForReview` → `decideAgentPublish` 双人路径。
+   * ⚠ 这条码存在的唯一意义，是让「无能力面」这个豁免前提**在服务端被强制**，
+   *   而不是靠调用方自觉。它红了不是用户做错了事，是这个 agent 不该走这条路。
+   */
+  "AGENT_NOT_TOOLLESS",
+  /**
+   * #660 —— agent 还没有**可执行定义**（`agents.instructions` 为 NULL 或全空白）。
+   * `agent_versions.instructions` 是 NOT NULL，没有它就铸不出可执行版本；
+   * 铸不出版本，发布出去的 agent 发消息仍然 422。
+   * ⚠ 明确拒绝，**不用 `role`/`name` 兜底拼一段出来** —— `role` 是角色标签不是系统提示词，
+   *   运行时会真的按它执行（`design-deltas/agent-instructions` 逐字禁止这条捷径）。
+   */
+  "AGENT_NO_EXECUTABLE_DEFINITION",
+  /**
+   * ⚠⚠ **草案码**，只服务 `selfPublishToollessAgent`。
+   * agent 的 `visibility` 是 `仅某组`，而**没有任何地方记录过是哪个组**——
+   * `createAgent.in` 收 `visibility` 却不收 team，`capability_listings` 的
+   * `capability_listings_team_only_needs_team` 又要求 `team-only` 必须带
+   * `owner_team_id`。⇒ 这条边**无法诚实地把它登记进能力目录**。
+   * ⚠ 落成一个明确的拒绝，而**不是**"退而求其次写成 `org-wide`"——
+   *   后者是把一个本应受限的 agent 悄悄开放给全组织，正是 I-28 一族要防的形状。
+   */
+  "AGENT_VISIBILITY_UNSUPPORTED",
 ]);
 
 type AgentRuntimeErrorT = z.infer<typeof AgentRuntimeError>;
@@ -1431,6 +1466,21 @@ export const operations = {
             requiresApproval: z.boolean().optional(),
             /** ⚠ 单个，不是数组——数组形状本身就会诱发 `MODEL_ID_MUST_BE_SINGLE` */
             modelId: z.string().optional(),
+            /**
+             * #660 —— 用户自建 agent 的**可执行定义**（系统提示词）。
+             * 出处：`design-deltas/agent-instructions/design-signoff.md`，人类 2026-08-11
+             * 选定**候选 A**。在它之前，浏览器里建出来的 agent 没有任何字段能承载
+             * 「这个 agent 到底执行什么」，于是 `agent_versions.instructions`（NOT NULL）
+             * 拼不出来 ⇒ 发布门全过也依然 422（#856 实测结论）。
+             *
+             * ⚠ **不是 `role`**。`role` 是「职责一句话」这种角色标签，给人看的；
+             *   `instructions` 是运行时**真的会照着执行**的那段文本。delta 逐字禁止过
+             *   用 `role`/`name` 硬凑 instructions —— 两个字段语义不同，不得互相顶替。
+             * ⚠ 上限 8000 字符，与 DB 的 `agents_instructions_length` CHECK 同一个数
+             *   （单一事实源在迁移里，这里是它的入口侧镜像）。
+             * ⚠ **不在 `out` 里回显**：正文可能很长，每次编辑都带一份是纯浪费。
+             */
+            instructions: z.string().min(1).max(8000).optional(),
             concurrencyLimit: z.number().int().positive().optional(),
             degradePolicy: DegradePolicy.optional(),
           })
@@ -1687,6 +1737,75 @@ export const operations = {
       "METHODOLOGY_REVIEW_PENDING",
       "ELEVATION_UNDECIDED",
       "TOOL_WHITELIST_EMPTY",
+    ] as const,
+  },
+
+  /**
+   * #660 ——「**无能力面自助发布**」。
+   * **人类 2026-08-11 已裁决采纳**（原话「按推荐走」，经 coord-main 转述）。
+   * ⚠ 分寸：那是**会话里的口头裁决**；束级 `design-signoff.md` 里
+   *   「✍ 待人类签这一处」那张表**仍然空着**，等人自己填——口头裁决与文件签核
+   *   是两件事，agent 代填会让「谁签的」这条链断掉。
+   * 遗留的真缺口另记在 `KNOWN_CONTRACT_GAPS.AR12`（`agent_versions` 缺显式
+   * `publish_route` 列，现由 `semantic_label` 前缀权宜承载）。
+   *
+   * ## 它补的洞
+   *
+   * `createAgent` 落 `草稿`，而 `草稿 → 运行中` 的唯一出口是
+   * `submitAgentForReview` → `decideAgentPublish`。那条路径要求
+   * ① 工具白名单非空（I-28）② 审核人是**另一个**方法论审核人（O-21）。
+   * 于是**一个刚注册的独人组织，其自建 agent 结构性地永远发不出去**——
+   * 实测就是 chat 里选中它发消息恒 **422**（`create-agent-publish-path.test.ts`）。
+   *
+   * ## 豁免的**唯一**理由，以及它为什么不是「降级放行」
+   *
+   * 双人评审审的是**这个 agent 被授予了什么能力**：工具白名单（第 ② 层）与
+   * skill 挂载。一个 `toolWhitelist = []` **且** `skillMounts = []` 的 agent
+   * 没有任何可被授予的能力面——它只能用与系统预置 `通用助手` 完全相同的执行
+   * 路径说话。**没有能力面 ⇒ 评审没有对象**，这与 `SELF_REVIEW_FORBIDDEN` 头注
+   * 逐字禁止的「组织内无第二人时降级放行」是两件事：那条禁的是**有东西要审、
+   * 却因为凑不齐人而放行**；这条说的是**压根没有东西要审**。
+   *
+   * ⚠ 因此本操作**不碰** `submitAgentForReview` / `decideAgentPublish` 的任何一道门，
+   *   也不引入 `NO_SECOND_REVIEWER` 之类的"独人组织特例"。有能力面的 agent
+   *   仍然只有双人路径一条路（`AGENT_NOT_TOOLLESS`）。
+   *
+   * ⚠ **单向性**：本操作是 `草稿 → 运行中` 的一条边，不是「发布态」的旁路开关。
+   *   一个已自助发布的 agent 事后要加工具/skill，仍须走完整评审——
+   *   这一条由 `setToolWhitelist` / `mountSkill` 各自的门负责，不在这里第二次声明。
+   *
+   * ⚠ **审计可分辨**：这样发布出来的版本必须能与走完双人评审发布的版本区分开，
+   *   否则「这一版当时是怎么发出去的」在 UC-4.4 里答不出来。
+   *
+   * ⚠ **与 #856 的双人评审路径是互补关系，不是二选一**：
+   *   有能力面（有工具 / 有 skill 挂载）⇒ 只能走 `submitAgentForReview` →
+   *   `decideAgentPublish`；无能力面 ⇒ 走本操作。两条路径各自有仓储与前提测试。
+   *
+   * ⚠ **前置：agent 必须已有可执行定义**（`agents.instructions` 非空白）。
+   *   否则 `AGENT_NO_EXECUTABLE_DEFINITION` —— 发布一个没有指令的 agent，
+   *   拿到的是一条铸不出版本、发消息照样 422 的"已发布"，比拒绝更糟。
+   */
+  selfPublishToollessAgent: {
+    method: "POST",
+    path: "/agents/:agentId/self-publish",
+    in: z.object({ agentId: z.string() }).strict(),
+    out: z
+      .object({
+        agentId: z.string(),
+        publishState: AgentPublishState,
+        /** 新铸的不可变版本快照（I-31 / O-22⑤）——`resolvePublished` 就靠它。 */
+        agentVersionId: z.string(),
+        /** ⚠ 恒为 `自助发布`：审计里这一版与双人评审发出的版本必须可分辨。 */
+        publishRoute: z.literal("自助发布"),
+      })
+      .strict(),
+    err: [
+      "ROLE_INSUFFICIENT",
+      "AGENT_NOT_FOUND",
+      "AGENT_NOT_DRAFT",
+      "AGENT_NOT_TOOLLESS",
+      "AGENT_VISIBILITY_UNSUPPORTED",
+      "AGENT_NO_EXECUTABLE_DEFINITION",
     ] as const,
   },
 
@@ -2495,4 +2614,21 @@ export const KNOWN_CONTRACT_GAPS = {
    * 本文件**不发明这个码**（发明一个码等于替签核人做决定，同 AR7 的理由）。
    */
   AR11: "neither submitAgentForReview.err nor decideAgentPublish.err can express a wrong-precedent-state refusal (duplicate submit, or approving a 草稿); the server can only answer HTTP 409 with no reasonCode until a code is signed off",
+  /**
+   * **`selfPublishToollessAgent` —— 已按候选 A 签核，本条只记「它为什么存在」。**
+   *
+   * 已签核的双人发布路径（I-28 + O-21）对一个**刚注册的独人组织**是**结构性不可通过**的：
+   * 白名单要非空（而 `setToolWhitelist` 至今零实现）、审核人要是另一个人（而组织里只有他
+   * 一个，且指派评审职能没有任何契约操作）。实测后果不是"体验差"，是自建 agent 发消息恒 422
+   * ——即 CLR track R 的 **R9 恒为 0**。
+   *
+   * 本条边按「无能力面 ⇒ 无评审对象」放行，并**不改动** I-28 / O-21 的任何一道门：
+   * 有工具或有 skill 挂载的 agent 仍然只有 `submitAgentForReview` → `decideAgentPublish`
+   * 一条路（`AGENT_NOT_TOOLLESS`）。
+   *
+   * ⚠ 仍然留在本登记表里的**真缺口**：`agent_versions` 没有「发布路径」这一列，
+   *   「这一版当时是怎么发出去的」目前靠 `semantic_label` 前缀承载（权宜，见
+   *   `pg-self-publish-agent-repository.ts` 头注）。正式化需要加一列显式的 `publish_route`。
+   */
+  AR12: "agent_versions has no explicit publish_route column, so 'how was this version published' (two-person review vs selfPublishToollessAgent) is carried by a semantic_label prefix as a stopgap; formalising it needs a real column",
 } as const;

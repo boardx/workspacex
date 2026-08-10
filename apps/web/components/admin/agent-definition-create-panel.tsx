@@ -22,7 +22,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
-import { createAgentFromScratch, type AgentVisibility, type CreateAgentResult } from "@/lib/agent-definition";
+import {
+  createAgentFromScratch,
+  selfPublishAgent,
+  setAgentInstructions,
+  type AgentVisibility,
+  type CreateAgentResult,
+} from "@/lib/agent-definition";
+
+const TEXTAREA_CLASS =
+  "w-full rounded-md border border-input bg-card px-2.5 py-2 text-13 " +
+  "text-card-foreground transition-all duration-200 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+  "disabled:bg-disabled disabled:text-disabled-foreground";
 
 const SELECT_CLASS =
   "h-8 w-full appearance-none rounded-md border border-input bg-card px-2.5 text-13 " +
@@ -41,15 +53,26 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
   const [name, setName] = React.useState("");
   const [initials, setInitials] = React.useState("");
   const [role, setRole] = React.useState("");
+  /**
+   * #660 候选 A —— 可执行定义。**与「职责一句话」是两件事**：
+   * `role` 是给人看的标签，这段是 agent 运行时真的照着执行的系统提示词。
+   * 界面上分成两个输入框、文案点明区别，正是为了不让人以为填了 role 就够了。
+   */
+  const [instructions, setInstructions] = React.useState("");
   const [visibility, setVisibility] = React.useState<AgentVisibility>("全组织可用");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [created, setCreated] = React.useState<CreateAgentResult | null>(null);
+  /* #660：发布这一步的独立状态——它与"创建"是两次请求，失败面也不同。 */
+  const [publishing, setPublishing] = React.useState(false);
+  const [publishError, setPublishError] = React.useState<string | null>(null);
+  const [published, setPublished] = React.useState(false);
 
   const reset = () => {
     setName("");
     setInitials("");
     setRole("");
+    setInstructions("");
     setVisibility("全组织可用");
     setError(null);
   };
@@ -58,8 +81,15 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     const trimmedName = name.trim();
     const trimmedInitials = initials.trim();
     const trimmedRole = role.trim();
+    const trimmedInstructions = instructions.trim();
     if (!trimmedName || !trimmedInitials || !trimmedRole) {
       setError("名称、缩写角标、职责一句话均不能为空。");
+      return;
+    }
+    if (!trimmedInstructions) {
+      // ⚠ 前端拦一道只是降噪：服务端在发布时会用 AGENT_NO_EXECUTABLE_DEFINITION 再拦一次。
+      // 不写指令的 agent 建得出来，但发不出去——与其让人建完才发现，不如现在就说。
+      setError("「这个 Agent 执行什么」不能为空——没有它，agent 建出来也发布不了。");
       return;
     }
     setBusy(true);
@@ -71,13 +101,43 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
         role: trimmedRole,
         visibility,
       });
+      // ⚠ 两次请求：createAgent 不收 instructions（它是 updateAgentDefinition 的字段），
+      // 所以建完立刻把指令写进去。第二步失败时**不**把 created 置上——
+      // 否则界面会显示一个"建好了"的 agent，而它其实发布不了。
+      await setAgentInstructions(result.agentId, trimmedInstructions);
       setCreated(result);
+      setPublished(false);
+      setPublishError(null);
       setOpen(false);
       reset();
     } catch (e) {
       setError(describeError(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * #660 —— 发布。**⚠⚠ 走的是尚未签核的草案边**（`selfPublishToollessAgent`）。
+   *
+   * ⚠ 与创建同一条纪律：没有乐观更新。`setPublished(true)` 只在请求**真的成功之后**
+   * 才发生——一个"点了就变绿"的按钮会把 422 说成成功，而 #660 的整个症状就是
+   * "界面看起来好了、发消息还是 422"。
+   *
+   * ⚠ 失败原样显示 `reasonCode`（`AGENT_NOT_TOOLLESS` / `AGENT_VISIBILITY_UNSUPPORTED`
+   * 等），不翻译成"发布失败，请重试"——后者会让「这个 agent 有工具所以必须走评审」
+   * 这个真实原因消失。
+   */
+  const publish = async (agentId: string) => {
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      await selfPublishAgent(agentId);
+      setPublished(true);
+    } catch (e) {
+      setPublishError(describeError(e));
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -97,10 +157,30 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
           新建 Agent
         </Button>
         {created ? (
-          <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
-            已建成草稿 agent {created.agentId}（{created.publishState}，工具白名单为空，需先配置才能提交发布）。
-            本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
-          </p>
+          <div className="flex flex-col items-end gap-1.5">
+            <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
+              {published
+                ? `已发布 agent ${created.agentId}（运行中）。现在可以在会话的 agent 下拉里选中它并发消息。`
+                : `已建成草稿 agent ${created.agentId}（${created.publishState}）。草稿发不出消息——需要发布之后才能在会话里选用。`}
+              {" "}
+              本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
+            </p>
+            {published ? null : (
+              <Button
+                size="sm"
+                onClick={() => void publish(created.agentId)}
+                disabled={publishing}
+                data-testid={`${prefix}-publish`}
+              >
+                {publishing ? "发布中…" : "发布"}
+              </Button>
+            )}
+            {publishError ? (
+              <p data-testid={`${prefix}-publish-error`} className="text-12 text-destructive">
+                {publishError}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );
@@ -111,8 +191,9 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
       <CardHeader>
         <CardTitle>新建 Agent</CardTitle>
         <CardDescription>
-          从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;），
-          需要先配置工具白名单才能提交发布。
+          从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。
+          填好&ldquo;执行什么&rdquo;后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；
+          之后若要给它配工具，就必须走完整的双人评审。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -146,6 +227,22 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
               autoComplete="off"
               data-testid={`${prefix}-add-role`}
             />
+          </label>
+          <label className="flex flex-col gap-1 text-12 sm:col-span-2">
+            <span>这个 Agent 执行什么（系统提示词）</span>
+            <textarea
+              className={TEXTAREA_CLASS}
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              disabled={busy}
+              rows={5}
+              maxLength={8000}
+              placeholder="例：把用户说的每一件事整理成带编号的要点，最后一行给出下一步建议。"
+              data-testid={`${prefix}-add-instructions`}
+            />
+            <span className="text-11 text-muted-foreground">
+              ⚠ 与上面的「职责一句话」不同：那一句是给同事看的标签，这一段是 Agent 运行时真的照着执行的内容。
+            </span>
           </label>
           <label className="flex flex-col gap-1 text-12">
             <span>可见范围</span>

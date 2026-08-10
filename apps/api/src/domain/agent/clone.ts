@@ -34,6 +34,13 @@ export const CLONE_INHERITED_FIELDS = [
   "name",
   "initials",
   "role",
+  /**
+   * #660 —— 复制**继承**可执行定义。
+   * ⚠ 这与 I-30「复制不继承权限」不矛盾：I-30 管的是**权限面**（工具白名单），
+   *   而 instructions 是**行为**，和已经在继承的 `modelId`/`skillMounts` 同一类。
+   *   一个连指令都不继承的"复制"，复制出来的是个空壳，等于没复制。
+   */
+  "instructions",
   "visibility",
   "source",
   "modelId",

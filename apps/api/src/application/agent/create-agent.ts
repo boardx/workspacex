@@ -123,6 +123,13 @@ export async function createAgent(
       role: input.role,
       visibility: input.visibility,
       source: input.source,
+      /**
+       * #660 —— 从零新建时**没有**可执行定义：`createAgent.in` 不收 `instructions`
+       * （它是 `updateAgentDefinition` 的字段，同 `modelId` 一样）。落 `null` 表示
+       * 「还没配」，发布时会被 `AGENT_NO_EXECUTABLE_DEFINITION` 明确拒掉。
+       * ⚠ 不在这里用 `role` 兜一段出来——见 `domain/agent/self-publish.ts` 的④。
+       */
+      instructions: null,
       modelId: null,
       skillMounts: [],
       concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT,

@@ -21,6 +21,9 @@ import { apiRequest } from "./api-client";
 
 export type AgentVisibility = z.infer<typeof agentRuntime.operations.createAgent.in>["visibility"];
 export type CreateAgentResult = z.infer<typeof agentRuntime.operations.createAgent.out>;
+export type SelfPublishResult = z.infer<
+  typeof agentRuntime.operations.selfPublishToollessAgent.out
+>;
 
 export async function createAgentFromScratch(input: {
   readonly name: string;
@@ -39,4 +42,38 @@ export async function createAgentFromScratch(input: {
       source: "self",
     },
   });
+}
+
+/**
+ * #660 候选 A —— 写入 agent 的**可执行定义**（`PATCH /agents/:agentId`）。
+ *
+ * ⚠ 后端本轮**只**接线 `patch.instructions` 一个字段，其余字段返回 501
+ * （见 `set-agent-instructions.ts` 头注）。这里因此也只发这一个字段——
+ * 发一个后端会拒的字段等于制造一次必然失败。
+ * ⚠ `expectedVersion` 契约要求必填，但草稿 agent 的 `published_version_id` 恒为 NULL，
+ *   后端本轮不校验它（同上头注）。传空串是**如实**表达"没有版本可对"，
+ *   不是伪造一个版本号。
+ */
+export async function setAgentInstructions(
+  agentId: string,
+  instructions: string,
+): Promise<{ agentId: string }> {
+  return apiRequest<{ agentId: string }>(
+    agentRuntime.operations.updateAgentDefinition.path.replace(":agentId", encodeURIComponent(agentId)),
+    { method: "PATCH", body: { agentId, patch: { instructions }, expectedVersion: "" } },
+  );
+}
+
+/**
+ * #660 —— 「无能力面自助发布」。**⚠⚠ 草案边，尚未经人类签核**
+ * （`KNOWN_CONTRACT_GAPS.AR11`）。
+ *
+ * ⚠ 路径里的 `:agentId` 用 `replace` 从契约的 `path` 上换，而不是手写
+ * `` `/agents/${id}/self-publish` `` —— ADR-020：路径是契约的，不在前端第二次声明。
+ */
+export async function selfPublishAgent(agentId: string): Promise<SelfPublishResult> {
+  return apiRequest<SelfPublishResult>(
+    agentRuntime.operations.selfPublishToollessAgent.path.replace(":agentId", encodeURIComponent(agentId)),
+    { method: "POST", body: { agentId } },
+  );
 }
