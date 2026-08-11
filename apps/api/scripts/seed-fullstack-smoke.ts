@@ -29,6 +29,15 @@ const adminUserId = required("FULLSTACK_E2E_ADMIN_USER_ID");
 const memberEmail = required("FULLSTACK_E2E_MEMBER_EMAIL");
 const memberPassword = required("FULLSTACK_E2E_MEMBER_PASSWORD");
 const memberUserId = required("FULLSTACK_E2E_MEMBER_USER_ID");
+/**
+ * PJ-01 / #976: a real org `lead` -- the ONLY role allowed to create a project.
+ * Neither the consultant nor the admin fits: `admin` is explicitly barred from creating
+ * (contract U-4 ruled A, same direction as D-18 "an admin is not a superuser").
+ * See the fixture for why this is a fifth account instead of a promotion of an existing one.
+ */
+const leadEmail = required("FULLSTACK_E2E_LEAD_EMAIL");
+const leadPassword = required("FULLSTACK_E2E_LEAD_PASSWORD");
+const leadUserId = required("FULLSTACK_E2E_LEAD_USER_ID");
 /** #552: a real `security-reviewer`. See the fixture for why none of the other three fits. */
 const securityReviewerEmail = required("FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL");
 const securityReviewerPassword = required("FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD");
@@ -54,8 +63,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail],
     ],
   );
 });
@@ -68,6 +77,10 @@ await addOrgMember(orgId, userId, "consultant", fixture.teams.fullstack ?? null)
 await addProjectMember(orgId, projectId, userId, "facilitator", null, true);
 
 await addOrgMember(orgId, adminUserId, "admin", null);
+// PJ-01 / #976: the only role `createProject` accepts. No project membership is granted --
+// "creating does not grant a project role" is a ruled invariant (Q-4②), and seeding one
+// here would erase the very edge `project-create-smoke.spec.ts` walks over.
+await addOrgMember(orgId, leadUserId, "lead", null);
 await addOrgMember(orgId, memberUserId, "consultant", fixture.teams.fullstack ?? null);
 // #552: the security reviewer lives in the SAME team as the submitter, otherwise the
 // `team-only` Skill would be invisible to him and the assertion would go red on a 404
@@ -79,16 +92,19 @@ const passwordHash = await hasher.hash(password);
 const adminPasswordHash = await hasher.hash(adminPassword);
 const memberPasswordHash = await hasher.hash(memberPassword);
 const securityReviewerPasswordHash = await hasher.hash(securityReviewerPassword);
+const leadPasswordHash = await hasher.hash(leadPassword);
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
-     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now())`,
+     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now()),
+            ($17,$18,$19,$20,now())`,
     [
       userId, email, "Fullstack E2E", passwordHash,
       adminUserId, adminEmail, "Fullstack E2E admin", adminPasswordHash,
       memberUserId, memberEmail, "Fullstack E2E member", memberPasswordHash,
       securityReviewerUserId, securityReviewerEmail, "Fullstack E2E security reviewer",
       securityReviewerPasswordHash,
+      leadUserId, leadEmail, "Fullstack E2E lead", leadPasswordHash,
     ],
   );
 });

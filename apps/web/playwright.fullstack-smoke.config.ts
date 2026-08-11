@@ -72,6 +72,11 @@ const fixtureEnv = {
   FULLSTACK_E2E_MEMBER_EMAIL: FULLSTACK_E2E.memberEmail,
   FULLSTACK_E2E_MEMBER_PASSWORD: FULLSTACK_E2E.memberPassword,
   FULLSTACK_E2E_MEMBER_USER_ID: FULLSTACK_E2E.memberUserId,
+  // PJ-01 / #976：真的持组织角色 `lead` 的那位（新建项目唯一有权的角色；admin 不行，U-4）。
+  // ⚠ 这三行属 **`fixtureEnv`**（下发给 seed 脚本与 API 进程），合错对象 tsc 不报错但种子读不到。
+  FULLSTACK_E2E_LEAD_EMAIL: FULLSTACK_E2E.leadEmail,
+  FULLSTACK_E2E_LEAD_PASSWORD: FULLSTACK_E2E.leadPassword,
+  FULLSTACK_E2E_LEAD_USER_ID: FULLSTACK_E2E.leadUserId,
   // #552：真的持 `security-reviewer` 职能的那位（两职能不合并，I-5/V14）。
   // ⚠ 这三行属于 **`fixtureEnv`**（下发给 seed 脚本与 API 进程），不是 `modelProviderEnv`
   //   之类别的对象 —— 合错对象时 tsc **不报错**，但 seed 读不到，表现成「种子没生效」。
@@ -211,6 +216,9 @@ export default defineConfig({
         // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /
         //   安全评审人）以及 `skill_reviewer_functions` 里的职能指派。
         "skill-review-gate.spec.ts",
+        // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
+        //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
+        "project-create-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

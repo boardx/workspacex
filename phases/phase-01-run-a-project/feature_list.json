@@ -3570,6 +3570,28 @@
       "area": "chat",
       "capability": "CAP-API",
       "sprint": null
+    },
+    {
+      "id": "F158",
+      "title": "新建项目向导接通真实 createProject：空白新建路径端到端可提交",
+      "user_visible_behavior": "项目负责人打开 /project/new（project-new），在真实名称输入框（project-new-name）里填项目名（必填、trim），点创建（project-new-create）后向导按当前会话的 currentOrgId 发出一个契约形状的 POST /projects（orgId + name + kind:\"workshop\" + blueprintVersionId:null，带 Bearer 鉴权头），成功后跳到 /projects/<响应体返回的 id>?org=<orgId>；后端返回失败时就地显示 reasonCode（project-new-error）且创建按钮恢复可点，提交进行中不会发出第二个请求。蓝本九宫格整体禁用并显示 project-new-blueprint-unavailable 说明（蓝本后端零实现），契约收不到的四项（关联研究来源/时长档位/日期时间/参与人数）只读展示并挂 project-new-unpersisted-note 说明「本版不写入后端」。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F117"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/new-project-wizard.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "前端接线 feature：/project/new 向导从纯 mock 切到真实 POST /projects（依赖 F117 createProject 后端，同源 uc-00-1#R3 的一条创建路径 + 蓝本可选参数，空白新建 = blueprintVersionId:null）。本 feature 只覆盖 blueprintVersionId=null 的空白新建路径。蓝本九宫格如实标注为整体禁用（project-new-blueprint-unavailable），蓝本选择路径留待 PJ-12（依赖蓝本后端 PJ-10，本版零实现）。契约收不到的四项（关联研究来源/时长档位/日期时间/参与人数）只读展示 + project-new-unpersisted-note，本版不写入后端。改动文件：apps/web/components/project/new-project-flow.tsx、apps/web/app/project/new/page.tsx、apps/web/tests/ui/new-project-wizard.test.tsx。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
     }
   ]
 }
