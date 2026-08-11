@@ -31,6 +31,17 @@ export const ORG_ADMIN_SCREENS = [
 ] as const;
 export type OrgAdminScreen = (typeof ORG_ADMIN_SCREENS)[number];
 
+/**
+ * 组织级屏（PROTOTYPE-FIDELITY-AUDIT-2.md 问题 1 复核，2026-08-11）—— **单一事实源**。
+ *
+ * `members`（UC-1.6 成员与配额）/ `activate`（UC-1.6 激活落地页）/ `boundary`（UC-1.4
+ * 管理员边界）三屏是组织级：内容与「项目角色」（引导师/组长/组员/观察者）语义无关，
+ * 原型这一区通篇没有任何项目角色命中。`org-admin-app.tsx` 的「视角」预览行、
+ * `members-screen.tsx` 的权限门禁都从这张表判定是否该出现/该用哪层角色，
+ * 不要在两处分别写字面量列表——那正是本仓踩过五次的「同一事实两处声明」。
+ */
+export const ORG_ADMIN_ORG_LEVEL_SCREENS = new Set<OrgAdminScreen>(["members", "activate", "boundary"]);
+
 export const ORG_ADMIN_SCREEN_LABEL: Record<OrgAdminScreen, string> = {
   invites: "参与者与邀请",
   roster: "分组与签到",
@@ -333,6 +344,17 @@ export interface OrgMemberRow {
   status: MemberStatus;
   /** 待接受时的已发送天数 */
   sentDays?: number;
+  /**
+   * 客户方外部标记（PROTOTYPE-FIDELITY-AUDIT-2.md 问题 1 复核，2026-08-11）。
+   *
+   * 原型里「客户方」是一种看得见的身份（如「客户方 · 只读协作」），agent 早先把它
+   * 压平成纯 `consultant`（顾问），外部标记信息在界面上消失了。sign-off 需裁三选一：
+   * ①「客户方」升级为第五种组织角色 ②「顾问 + 外部标记」③纯项目侧观察者（不落组织层）。
+   * 在人类裁决前按更保守、影响面更小的②处理：**不改 `OrgRole` 契约**（那是数据库/API
+   * 的事），只在这个纯前端展示字段上加一个可选布尔位，界面加一个「客户方」标签。
+   * 若日后裁决是①，再把这个字段升级为契约枚举值，此处的 `true` 就是迁移种子。
+   */
+  external?: boolean;
 }
 
 /** 8 行样例（组织实际 48 人，顶部计数体现），覆盖五种邀请状态 */
@@ -340,7 +362,8 @@ export const ORG_MEMBERS: OrgMemberRow[] = [
   { id: "m-lk", name: "林可", role: "lead", team: "能源组", usedM: 2.9, limitM: 4.0, status: "active" },
   { id: "m-wt", name: "吴桐", role: "consultant", team: "能源组", usedM: 3.9, limitM: 4.0, status: "active" },
   { id: "m-gl", name: "高琳", role: "admin", team: "平台组", usedM: 1.8, limitM: 4.0, status: "active" },
-  { id: "m-zn", name: "周宁", role: "consultant", team: "平台组", usedM: 2.2, limitM: 4.0, status: "active" },
+  // 周宁：原型标注为「客户方 · 只读协作」——顾问 + 外部标记，见 OrgMemberRow.external 注释
+  { id: "m-zn", name: "周宁", role: "consultant", team: "平台组", usedM: 2.2, limitM: 4.0, status: "active", external: true },
   { id: "m-cm", name: "陈默", role: "consultant", team: "供应链组", usedM: 0, limitM: 2.0, status: "pending", sentDays: 2 },
   { id: "m-yq", name: "叶青", role: "consultant", team: "供应链组", usedM: 0, limitM: 2.0, status: "send-failed" },
   { id: "m-zh", name: "郑昊", role: "lead", team: "供应链组", usedM: 0, limitM: 3.0, status: "expired", sentDays: 9 },
