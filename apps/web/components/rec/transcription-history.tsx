@@ -15,6 +15,7 @@ import {
   type TranscriptionTag,
 } from "@/lib/mock/realtime-transcriptions";
 import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-transcription-dialog";
+import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspace";
 
 type ActiveTag = "全部标签" | TranscriptionTag;
 
@@ -24,6 +25,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [activeSession, setActiveSession] = React.useState<TranscriptionHistoryItem | null>(null);
 
   const visibleItems = React.useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -49,6 +51,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     };
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
+    setActiveSession(created);
+  }
+
+  if (activeSession) {
+    return <RealtimeTranscriptionWorkspace session={activeSession} onBack={() => setActiveSession(null)} />;
   }
 
   return (
@@ -105,7 +112,12 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
         </div>
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
-        <HistoryState uiState={uiState} items={visibleItems} onCreate={() => setCreateOpen(true)} />
+        <HistoryState
+          uiState={uiState}
+          items={visibleItems}
+          onCreate={() => setCreateOpen(true)}
+          onOpen={setActiveSession}
+        />
       </div>
 
       <CreateTranscriptionDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} />
@@ -114,11 +126,12 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 }
 
 function HistoryState({
-  uiState, items, onCreate,
+  uiState, items, onCreate, onOpen,
 }: {
   uiState: UiState;
   items: readonly TranscriptionHistoryItem[];
   onCreate: () => void;
+  onOpen: (item: TranscriptionHistoryItem) => void;
 }) {
   if (uiState === "loading") {
     return (
@@ -145,7 +158,7 @@ function HistoryState({
   }
   return (
     <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => <HistoryCard key={item.id} item={item} />)}
+      {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} />)}
       <button
         type="button"
         data-testid="rec-create-card"
@@ -160,7 +173,13 @@ function HistoryState({
   );
 }
 
-function HistoryCard({ item }: { item: TranscriptionHistoryItem }) {
+function HistoryCard({
+  item,
+  onOpen,
+}: {
+  item: TranscriptionHistoryItem;
+  onOpen: (item: TranscriptionHistoryItem) => void;
+}) {
   return (
     <Card data-testid={`rec-history-card-${item.id}`} className="flex min-h-64 flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex flex-col gap-4">
@@ -182,7 +201,14 @@ function HistoryCard({ item }: { item: TranscriptionHistoryItem }) {
       <div className="mt-5 flex items-end justify-between gap-3">
         <div className="flex flex-col gap-3">
           <span className="text-11 text-muted-foreground">{item.duration}&nbsp;&nbsp;·&nbsp;&nbsp;{item.updatedAt}</span>
-          <Button size="sm" variant={item.status === "recording" ? "primary" : "outline"}>{item.status === "recording" ? "进入转录" : "打开转录"}</Button>
+          <Button
+            data-testid={`rec-history-open-${item.id}`}
+            size="sm"
+            variant={item.status === "recording" ? "primary" : "outline"}
+            onClick={() => onOpen(item)}
+          >
+            {item.status === "recording" ? "进入转录" : "打开转录"}
+          </Button>
         </div>
         <Button size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button>
       </div>

@@ -7,6 +7,7 @@
 - 路由：`/rec`
 - 历史卡片页：[history.png](./history.png)
 - 新建转录弹窗（名称 + 标签）：[history-create-dialog.png](./history-create-dialog.png)
+- 转录工作台（移动端已完成态）：[live-workspace.png](./live-workspace.png)
 - 视觉对照与浏览器验证：仓库根目录 `design-qa.md`
 
 ## 关键可观测锚点
@@ -15,6 +16,8 @@
 - 筛选区：`rec-history-tag-<tag>`、`rec-history-search`、`rec-history-sort`
 - 创建入口：`rec-create-open`、`rec-create-card`
 - 创建弹窗：`rec-create-dialog`、`rec-create-name`、`rec-create-name-count`、`rec-create-tags`、`rec-create-tag-count`、`rec-create-cancel`、`rec-create-submit`
+- 转录工作台：`rec-live-workspace`、`rec-live-title`、`rec-live-status`、`rec-live-transcript`、`rec-live-analysis`、`rec-live-stop`、`rec-live-back`
+- 历史进入按钮：`rec-history-open-<sessionId>`
 - 边缘状态：`loading`、`rec-history-empty`、`rec-history-error`、`saved`
 
 ## 待人类确认
@@ -23,4 +26,3 @@
 2. 新建入口放在右上角，同时在卡片网格尾部保留虚线快捷卡片。
 3. 新建弹窗先收集名称与最多 5 个标签；提交后进入实时转录。
 4. UI 确认后再切正式契约束并补 `contracts/<bundle>/ui.md`，本阶段不自行发明束名或修改任何签核状态。
-

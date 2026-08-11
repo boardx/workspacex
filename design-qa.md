@@ -6,6 +6,7 @@
 
 - Source visual truth: `/Users/shenyangjun/.codex/generated_images/019fefa2-5f13-7a22-8b13-fb94b73ce1f2/exec-86ddbc89-cf37-4b2c-944b-5a98aebf08fd.png`
 - Implementation screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/history-create-dialog.png`
+- Workbench screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/live-workspace.png` (`539 × 930`, responsive completed state).
 - Route: `/rec`
 - State: history grid with the “新建转录” dialog open, name filled, two tags selected.
 - CSS viewport: `1488 × 1058`, `devicePixelRatio = 1`.
@@ -50,7 +51,9 @@ No actionable P0/P1/P2 mismatch remains.
 - Opened the create dialog from the top-right action.
 - Filled the transcription name.
 - Added two tags with Enter and verified counters.
-- Submitted the form; history cards changed from 11 to 12 and success feedback appeared.
+- Submitted the form; the newly created session immediately replaced the history page with its recording workspace.
+- Stopped the new session; the UI moved through “正在收尾” before “已完成”, and analysis actions stayed disabled until completion.
+- Returned to history and opened an existing card; the matching completed workspace appeared.
 - Filtered by “客户”; six cards remained.
 - Searched for a missing item; the guided empty state appeared.
 - Checked `375 × 812`, `768 × 900`, and `1280 × 720`; none produced horizontal overflow.
@@ -68,4 +71,3 @@ No actionable P0/P1/P2 mismatch remains.
 - [x] P1/P2 findings fixed and re-captured.
 - [x] Core interactions exercised in the real browser.
 - [x] Responsive overflow and console checked.
-
