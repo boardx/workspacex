@@ -4,6 +4,7 @@ import { ChevronRight, AlertTriangle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { MarkdownMessage } from "./markdown-message";
 import {
   TOOL_CALL_STATUS_LABEL,
   type ChatMessage,
@@ -20,6 +21,10 @@ type BadgeTone = "neutral" | "primary" | "ai" | "warning" | "danger" | "outline"
  * AI 发言（UC-8.2 R3 步骤 3/4/8）：消息头（agent · 角色 · skill · 思考摘要 · 角标）、
  * 正文、可展开的工具调用链、可定位的引用列表。
  * 交互（展开工具调用 / 展开引用）在此客户端组件内自持状态。
+ *
+ * VZ-01：正文改由 `MarkdownMessage` 渲染 —— 支持 markdown（标题/列表/加粗/
+ * 行内码/代码块/链接/表格）+ 内联 ```mermaid 图（白名单 12 种，越界/语法错落
+ * 诚实错误态）。旧的纯文本 `<p>{msg.text}</p>` 退役。
  */
 export function AiMessage({ msg }: { msg: AiMessage }) {
   return (
@@ -48,7 +53,7 @@ export function AiMessage({ msg }: { msg: AiMessage }) {
           ))}
         </header>
 
-        <p className="text-13 text-card-foreground">{msg.text}</p>
+        <MarkdownMessage text={msg.text} />
 
         {msg.tools && <ToolCalls log={msg.tools} />}
         {msg.citations && msg.citations.length > 0 && <CitationList citations={msg.citations} />}

@@ -260,6 +260,9 @@ importers:
       lucide-react:
         specifier: ^0.454.0
         version: 0.454.0(react@18.3.1)
+      mermaid:
+        specifier: 11.16.0
+        version: 11.16.0
       next:
         specifier: 14.2.15
         version: 14.2.15(@playwright/test@1.62.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -269,6 +272,15 @@ importers:
       react-dom:
         specifier: 18.3.1
         version: 18.3.1(react@18.3.1)
+      react-markdown:
+        specifier: ^9
+        version: 9.1.0(@types/react@18.3.31)(react@18.3.1)
+      rehype-sanitize:
+        specifier: ^6
+        version: 6.0.0
+      remark-gfm:
+        specifier: ^4
+        version: 4.0.1
       tailwind-merge:
         specifier: ^2.5.4
         version: 2.6.1
