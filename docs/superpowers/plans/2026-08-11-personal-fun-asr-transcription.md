@@ -1,6 +1,6 @@
 # 用户私有 Fun-ASR 实时转录实施计划
 
-> Issue：#945（设计父 issue）。交付拆成 F158/F159/F160，每个 feature 单独 issue、分支与 PR。  
+> Issue：#945（设计父 issue）。交付拆成 F164/F165/F166，每个 feature 单独 issue、分支与 PR。  
 > 执行约束：束级签核与阶段一致性复核通过前不得 claim 或写产品实现；每一步先写失败测试并观察 RED。
 
 ## 目标
@@ -26,8 +26,8 @@
 
 1. 人类核对 UI、用例、API 三节并修改新束 `design-signoff.md` 的签核状态。
 2. 人类更新阶段一致性复核，覆盖 `personal-realtime-transcription`，明确它与 `recording`、`auth`、额度和模型注册表的交叉约束。
-3. 运行 `pnpm harness sync --phase 01 --apply` 为 F158/F159/F160 建立独立 issue。
-4. 建立只包含 F158 的 sprint，claim 给 `coord-voice`；后续每个 feature 依次执行同样流程。
+3. 运行 `pnpm harness sync --phase 01 --apply` 为 F164/F165/F166 建立独立 issue。
+4. 建立只包含 F164 的 sprint，claim 给 `coord-voice`；后续每个 feature 依次执行同样流程。
 
 门禁验证：
 
@@ -37,7 +37,7 @@ pnpm exec tsx .harness/scripts/verify-uc-coverage.ts 01
 node .harness/scripts/lint-ui-material.mjs
 ```
 
-## Task 1（F158）：先定义共享契约
+## Task 1（F164）：先定义共享契约
 
 文件：
 
@@ -56,7 +56,7 @@ pnpm --filter @repo/contracts exec vitest run tests/personal-realtime-transcript
 pnpm --filter @repo/contracts run test
 ```
 
-## Task 2（F158）：用户私有元数据和兼容 migration
+## Task 2（F164）：用户私有元数据和兼容 migration
 
 文件：
 
@@ -79,7 +79,7 @@ GREEN：
 - 增加 owner 过滤的 repository port，不允许通用 `findById` 绕过 owner。
 - 保留 org RLS，并在 application/controller 层强制 owner；管理员不获得正文旁路。
 
-## Task 3（F158）：创建、历史、详情与多 capture API
+## Task 3（F164）：创建、历史、详情与多 capture API
 
 文件：
 
@@ -91,7 +91,7 @@ RED：create/list/read 真 HTTP 集成测试；停止后再次创建 capture，�
 
 GREEN：实现三个 HTTP 入口；list 使用游标分页并在 DB 中过滤 owner/query/tag/sort，不把全表拉到内存。
 
-## Task 4（F159）：一次性 ticket
+## Task 4（F165）：一次性 ticket
 
 文件：
 
@@ -104,7 +104,7 @@ RED：有效 ticket 只能消费一次；过期、跨 transcription、跨 captur
 
 GREEN：生成 256-bit 随机 ticket，只存 SHA-256 摘要；事务内 `UPDATE ... WHERE consumed_at IS NULL AND expires_at > now()` 原子消费；TTL 约 60 秒。
 
-## Task 5（F159）：Fun-ASR provider 状态机
+## Task 5（F165）：Fun-ASR provider 状态机
 
 文件：
 
@@ -122,7 +122,7 @@ GREEN：
 - 有界缓冲、启动/收尾 timeout、bufferedAmount 背压和幂等 close。
 - 不在源码建立模型枚举清单；模型值来自部署配置。
 
-## Task 6（F159）：BoardX WS、先落库后推送和用量
+## Task 6（F165）：BoardX WS、先落库后推送和用量
 
 文件：
 
@@ -139,7 +139,7 @@ RED：
 
 GREEN：ticket 握手替代长期 JWT WebSocket 身份；网关只调用既有 segment ingestion；capture 终态和模型用量同一幂等边界收口。
 
-## Task 7（F160）：BoardX 客户端与 AudioWorklet
+## Task 7（F166）：BoardX 客户端与 AudioWorklet
 
 文件：
 
@@ -153,7 +153,7 @@ RED：48k 双声道样本下混、降采样并编码 PCM16 little-endian；ready
 
 GREEN：AudioWorklet 管线与 BoardX 稳定事件客户端；不 import 阿里事件类型。
 
-## Task 8（F160）：历史页与创建弹窗去 mock
+## Task 8（F166）：历史页与创建弹窗去 mock
 
 文件：
 
@@ -168,7 +168,7 @@ RED：真实 API 加载、空态、失败、搜索/标签/排序；创建请求�
 
 GREEN：移除 `MOCK_TRANSCRIPTIONS` 的生产路径；server/client 身份沿用现有应用鉴权，不继续使用 `mockIdentity`。
 
-## Task 9（F160）：简化详情与 final/interim 状态
+## Task 9（F166）：简化详情与 final/interim 状态
 
 文件：
 
@@ -203,8 +203,8 @@ pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smok
 
 ## 交付顺序
 
-1. F158：契约、用户私有元数据与历史落库。
-2. F159：ticket、Fun-ASR、WS、用量。
-3. F160：AudioWorklet、真实 UI、E2E。
+1. F164：契约、用户私有元数据与历史落库。
+2. F165：ticket、Fun-ASR、WS、用量。
+3. F166：AudioWorklet、真实 UI、E2E。
 
 每项完成后分别 `harness verify`、提交证据、PR `Closes #<feature issue>` 并合入 main，再开始下一项。

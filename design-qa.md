@@ -4,7 +4,7 @@
 
 ## Comparison target
 
-- Source visual truth: `/Users/shenyangjun/.codex/generated_images/019fefa2-5f13-7a22-8b13-fb94b73ce1f2/exec-86ddbc89-cf37-4b2c-944b-5a98aebf08fd.png`
+- Source visual truth: user-provided reference image attached to issue #945.
 - Implementation screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/history-create-dialog.png`
 - Workbench screenshot: `phases/phase-01-run-a-project/ui-preview/realtime-transcription/live-workspace.png` (`539 × 930`, responsive completed state).
 - Route: `/rec`

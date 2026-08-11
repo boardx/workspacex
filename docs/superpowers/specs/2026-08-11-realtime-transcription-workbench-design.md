@@ -19,7 +19,7 @@
 
 视觉单一来源为用户选定的方案 3 截图：
 
-`/Users/shenyangjun/.codex/generated_images/019fefa2-5f13-7a22-8b13-fb94b73ce1f2/exec-86ddbc89-cf37-4b2c-944b-5a98aebf08fd.png`
+User-provided reference image attached to issue #945.
 
 - 使用 BoardX 现有全局图标导航，不保留旧 `/rec` 的第二级左栏和右侧轨道。
 - 主区域顶部展示面包屑、`历史转录 · N`、说明文字和右上角 `+ 新建转录`。

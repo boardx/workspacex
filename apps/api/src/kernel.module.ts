@@ -472,6 +472,8 @@ import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
+import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
+import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 
 @Module({
   controllers: [
@@ -1131,6 +1133,11 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     //   this provider exists to guarantee is that an unconfigured deployment refuses to
     //   ingest rather than silently flagging nothing (see `env-transcription-policy.ts`).
     { provide: TRANSCRIPTION_POLICY_PROVIDER, useFactory: () => new EnvTranscriptionPolicyProvider() },
+    {
+      provide: PERSONAL_TRANSCRIPTION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPersonalTranscriptionRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why

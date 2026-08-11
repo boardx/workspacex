@@ -1,0 +1,49 @@
+F164 verification evidence (sanitized)
+recorded_at=2026-08-12T00:37:00+08:00
+
+[FEATURE VERIFY]
+$ pnpm harness verify --sprint 01/03 --feature F164
+feature_commands_exit=0
+base_verify_exit=1
+
+PASS pnpm --filter @repo/contracts run test
+  Test Files 9 passed (9)
+  Tests 176 passed (176)
+
+PASS pnpm --filter api exec vitest run tests/recording/personal-transcription-owner-boundary.test.ts
+  Test Files 1 passed (1)
+  Tests 1 passed (1)
+
+PASS pnpm --filter api exec vitest run tests/recording/personal-transcription-persistence.test.ts
+  Test Files 1 passed (1)
+  Tests 1 passed (1)
+
+PASS pnpm --filter api exec vitest run tests/recording/personal-transcription-multi-capture.test.ts
+  Test Files 1 passed (1)
+  Tests 1 passed (1)
+
+[BASE VERIFY]
+$ pnpm -w run verify:base
+exit=1
+result=62 test files passed, 1 test file failed; 843 tests passed, 7 failed
+only_failure=.harness/scripts/fullstack-smoke.test.ts
+failure_shape=fixed 5000ms timeout / wrapper did not start under full-suite concurrency
+
+[ISOLATED COUNTEREVIDENCE — accepted by human in issue #945]
+$ pnpm exec vitest run .harness/scripts/fullstack-smoke.test.ts
+exit=0
+Test Files 1 passed (1)
+Tests 13 passed (13)
+Duration 4.61s
+
+[ADDITIONAL CHECKS]
+PASS pnpm --filter @repo/contracts typecheck
+PASS pnpm --filter api typecheck
+PASS node apps/api/scripts/lint-permission-paths.mjs
+PASS pnpm run lint:third-artifact
+PASS pnpm run lint:nav-reachability
+PASS git diff --check
+
+[BOUNDARY]
+F164 remains in_progress because harness requires base_verify_exit=0.
+No manual passing transition was performed. F165/F166 have not been claimed.

@@ -1,7 +1,7 @@
 ---
 bundle: personal-realtime-transcription
 phase: "01"
-covers: [F158, F159, F160]
+covers: [F164, F165, F166]
 status: confirmed
 confirmed_by: "qq13613030605"
 confirmed_at: "2026-08-11T23:45:00+08:00"
@@ -30,4 +30,4 @@ confirmed_at: "2026-08-11T23:45:00+08:00"
 
 ## 人类确认动作
 
-人类逐节确认后修改 frontmatter 的 `status/confirmed_by/confirmed_at`。agent 不得修改签核状态；阶段一致性复核还必须覆盖本束后，F158–F160 才能进入 sprint。
+人类逐节确认后修改 frontmatter 的 `status/confirmed_by/confirmed_at`。agent 不得修改签核状态；阶段一致性复核还必须覆盖本束后，F164–F166 才能进入 sprint。

@@ -3708,8 +3708,8 @@
       "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "coord-voice",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/recording/personal-transcription-owner-boundary.test.ts",
@@ -3721,7 +3721,7 @@
       "priority": 1,
       "area": "recording",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "03"
     },
     {
       "id": "F165",
