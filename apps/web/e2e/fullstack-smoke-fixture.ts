@@ -35,6 +35,30 @@ export const FULLSTACK_E2E = {
   memberEmail: `fullstack-member-${scope}@example.test`,
   memberPassword: "Fullstack-E2E-member-458!",
   memberUserId: `user-fullstack-member-${scope}`,
+
+  /**
+   * PJ-01 / #976：组织角色 `lead` 的那一位 —— **新建项目唯一有权的角色**。
+   *
+   * ⚠ 为什么必须是第五个账号，而不是复用上面任何一位：
+   *   · 上面那位 consultant 与 member 都不是 `lead`，`createProject` 对他们判
+   *     `ORG_ROLE_INSUFFICIENT`（契约 U-4）；
+   *   · admin **也不能建项目**（U-4 已裁 A，与 D-18「管理员不是超级用户」同向）。
+   *     把 admin 升成 lead 顺手用掉，等于把那条已裁决的边界从种子里抹掉，
+   *     而抹掉之后所有门控**照样全绿**——那正是本仓九次「全绿但空转」的形状。
+   *   · 并发登录会互相踢设备会话（见上面 member 那段），所以不与别的 spec 共用账号。
+   *
+   * 正因为 consultant 不是 lead，`project-create-smoke.spec.ts` 用他做**反证**：
+   * 同一个界面动作换成非 lead，必须在界面上看到 `ORG_ROLE_INSUFFICIENT`。
+   */
+  leadEmail: `fullstack-lead-${scope}@example.test`,
+  leadPassword: "Fullstack-E2E-lead-976!",
+  leadUserId: `user-fullstack-lead-${scope}`,
+  /**
+   * PJ-01 在浏览器里真的建出来的那个项目名。带 scope：并发隔离出来的其它库不会互相看见。
+   * ⚠ 与种子预置的 `projectName`（sentinel project）是两个不同的名字 —— 同名的话，
+   *   「列表里有这个项目」就分不清是我建出来的还是种子本来就有的。
+   */
+  createdProjectName: `PJ01_CREATED_PROJECT_${scope}`,
   /** 新建出来的 Agent 名字。带 scope，避免与并发隔离出来的其它库互相看见。 */
   agentName: `FULLSTACK_AGENT_${scope}`,
 
