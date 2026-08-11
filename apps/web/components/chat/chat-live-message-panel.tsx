@@ -254,15 +254,30 @@ export function ChatLiveMessagePanel({
     return () => cancelAnimationFrame(id);
   }, [messages.length, streamingText]);
 
-  const loadPage = React.useCallback(async (cursor: string | null, replace: boolean) => {
+  /**
+   * `mode`（#925 ② 修复整界面闪烁）：
+   * - `"replace"`：清空 + 骨架屏 + 重载。用于**换线程 / 错误重试**——那时确实没有可显示的
+   *   旧消息，先清空再显骨架是对的。
+   * - `"soft"`：**不清空、不显骨架**，后台重载完再原地替换。用于**发送后 / run 终态重读**——
+   *   人类实测「发送后整界面闪烁」的真因就是这两处以前也走 `"replace"`：每次发消息、每次收
+   *   回复，消息区都被 `setMessages([])` 清空 + `setLoading(true)` 弹骨架屏（V4 把它从灰字
+   *   变成了更显眼的脉动骨架，叠加刚开的流式，视觉上就是整块闪一下）。软重载保持旧消息
+   *   在场、拉到新的再无缝换上，不再闪。
+   * - `"append"`：加载更早的分页，追加去重。
+   */
+  const loadPage = React.useCallback(async (
+    cursor: string | null,
+    mode: "replace" | "soft" | "append",
+  ) => {
     const requestGeneration = ++generation.current;
-    if (replace) {
+    if (mode === "replace") {
       setMessages([]);
       setNextCursor(null);
       setLoading(true);
-    } else {
+    } else if (mode === "append") {
       setLoadingMore(true);
     }
+    // "soft"：什么都不清、不显骨架——旧消息继续显示，拉到结果再原地替换。
     setListFailure(null);
     try {
       const result = await listMessages(
@@ -271,11 +286,13 @@ export function ChatLiveMessagePanel({
         bearer,
       );
       if (generation.current !== requestGeneration) return;
-      setMessages((current) => replace ? result.messages : appendUnique(current, result.messages));
+      setMessages((current) => mode === "append" ? appendUnique(current, result.messages) : result.messages);
       setNextCursor(result.nextCursor);
     } catch (failure) {
       if (generation.current !== requestGeneration) return;
-      setListFailure(describeMessageFailure(failure, "读取消息"));
+      // 软重载失败不该把已经在显示的消息换成错误态（那更像倒退）——软模式静默保留旧消息，
+      // 只有 replace（本就没有旧消息可保）才把失败显给用户。
+      if (mode === "replace") setListFailure(describeMessageFailure(failure, "读取消息"));
     } finally {
       if (generation.current === requestGeneration) {
         setLoading(false);
@@ -292,7 +309,7 @@ export function ChatLiveMessagePanel({
     setQueuedRun(null);
     setActiveRunId(null);
     setRunObservation(null);
-    void loadPage(null, true);
+    void loadPage(null, "replace"); // 换线程：没有旧消息可保，清空+骨架是对的
     return () => {
       generation.current += 1;
       // #726 —— 切换线程（sourceKey 变化）或组件卸载时，正在进行的语音录音必须停止，
@@ -353,7 +370,7 @@ export function ChatLiveMessagePanel({
       if (isTerminalRunStatus(view.status)) {
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
-        await loadPage(null, true);
+        await loadPage(null, "soft"); // 终态重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
         // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
         // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
         // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
@@ -437,13 +454,13 @@ export function ChatLiveMessagePanel({
   };
 
   /**
-   * V2（PROP-CHAT-10ITER-001）—— ⌘↵ / Ctrl+↵ 发送，对标 Claude Code。
-   * 纯 Enter 保持换行（多行输入不被打断）；只有带 meta/ctrl 修饰的 Enter 才发送。
-   * `submit` 自身已守空文本/无 agent/归档/发送中四道门，这里只负责「拦下这次按键、
-   * 触发发送」，不重复判定。
+   * #925 ③（人类裁决，覆盖 V2 的 ⌘↵）—— **Enter 发送、Shift+Enter 换行**（Claude/ChatGPT 惯例）。
+   * ⚠ **必须挡输入法组字（IME composition）中的 Enter**：本仓是中文应用，用户打中文时按 Enter
+   * 是"确认候选词"，不是"发送"——`event.nativeEvent.isComposing` 为真时直接放行给输入法，
+   * 绝不能发送，否则每选一个词就误发一条。`submit` 自身已守空文本/无 agent/归档/发送中四门。
    */
   const handleComposerKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void submit();
     }
@@ -477,7 +494,16 @@ export function ChatLiveMessagePanel({
       setActiveRunId(accepted.agentRunId);
       setText("");
       setAttempt(null);
-      await loadPage(null, true);
+      await loadPage(null, "soft"); // 发送后重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
+      // #925 ③（人类裁决）—— 发送是显式意图，无条件滚到最新一条，**覆盖 V1「尊重上滚」**
+      // （用户之前上滚看历史，发送后也要拽回底部；对齐 Claude/ChatGPT）。置 atBottomRef=true
+      // 让后续流式/回复继续跟随；显式 rAF 滚一次保证这次立刻到底。
+      atBottomRef.current = true;
+      setShowJumpToLatest(false);
+      requestAnimationFrame(() => {
+        const el = scrollAreaRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
     } catch (failure) {
       setSubmitFailure(describeMessageFailure(failure, "发送消息"));
     } finally {
@@ -582,7 +608,7 @@ export function ChatLiveMessagePanel({
           <FailureState
             testId="chat-message-list-error"
             message={listFailure}
-            onRetry={() => void loadPage(null, true)}
+            onRetry={() => void loadPage(null, "replace")}
           />
         ) : null}
         {!loading && !listFailure && messages.length === 0 ? (
@@ -748,7 +774,7 @@ export function ChatLiveMessagePanel({
               variant="outline"
               data-testid="chat-messages-load-more"
               disabled={loadingMore}
-              onClick={() => void loadPage(nextCursor, false)}
+              onClick={() => void loadPage(nextCursor, "append")}
             >
               {loadingMore ? "正在加载…" : "加载更早之后的消息"}
             </Button>
@@ -869,7 +895,7 @@ export function ChatLiveMessagePanel({
                 className="rounded-full"
                 data-testid="chat-message-submit"
                 aria-label={submitting ? "发送中" : "发送并排队"}
-                title={submitting ? "发送中…" : "发送并排队（⌘↵ / Ctrl+↵）"}
+                title={submitting ? "发送中…" : "发送（Enter；Shift+Enter 换行）"}
                 disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >

@@ -239,7 +239,7 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   await expect(page.getByText("demo")).toHaveCount(0);
 });
 
-test("V2（PROP-CHAT-10ITER-001）⌘↵ / Ctrl+↵ sends the composer message", async ({ page }) => {
+test("#925 ③ Enter 发送、Shift+Enter 换行（覆盖 V2 的 ⌘↵）", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
@@ -251,22 +251,60 @@ test("V2（PROP-CHAT-10ITER-001）⌘↵ / Ctrl+↵ sends the composer message",
 
   const input = page.getByRole("textbox", { name: "消息内容" });
   await expect(input).toBeVisible();
-  await input.fill("Sent via keyboard shortcut");
 
+  // Shift+Enter：换行、不发送。填一行后按 Shift+Enter 再打字，断言输入框里有换行、且没触发 POST。
+  const noSendGuard: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/messages`)) {
+      noSendGuard.push(r.url());
+    }
+  });
+  await input.fill("line one");
+  await input.press("Shift+Enter");
+  await input.pressSequentially("line two");
+  await expect(input).toHaveValue("line one\nline two");
+  expect(noSendGuard, "Shift+Enter 不该发送").toHaveLength(0);
+
+  // Enter（无修饰）：发送。清空重填，按 Enter，验证真的触发 POST。
+  await input.fill("Sent with plain Enter");
   const responsePromise = page.waitForResponse((response) => (
     response.request().method() === "POST" &&
     response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/messages`)
   ));
-  // 键盘按下修饰键 + Enter：不点发送按钮，验证 onKeyDown 分支真的触发发送。
-  // ControlOrMeta 让这条断言在 mac(⌘) 与 CI 的 linux(Ctrl) 上都成立。
-  await input.press("ControlOrMeta+Enter");
+  await input.press("Enter");
   const response = await responsePromise;
   expect(response.status()).toBe(202);
   expect(response.request().postDataJSON()).toMatchObject({
-    text: "Sent via keyboard shortcut",
+    text: "Sent with plain Enter",
     agentId: CHAT_READ_E2E.agentId,
   });
   await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+});
+
+test("#925 ② 发送后不闪烁：软重读不清空消息、不弹加载骨架", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+
+  // 监听整个发送→重读期间，加载骨架屏一次都不该出现（以前发送走 replace 会清空+弹骨架=闪烁）。
+  let skeletonAppeared = false;
+  const poll = setInterval(async () => {
+    if (await page.getByTestId("chat-message-loading-skeleton").count() > 0) skeletonAppeared = true;
+  }, 50);
+
+  const input = page.getByRole("textbox", { name: "消息内容" });
+  await input.fill("no flicker please");
+  await input.press("Enter");
+  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+  // 发送后旧消息仍在场（没被清空过）
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  clearInterval(poll);
+  expect(skeletonAppeared, "发送后不该出现加载骨架（那是闪烁的来源）").toBe(false);
 });
 
 test("V4（PROP-CHAT-10ITER-001）loading skeleton shows while messages load, then yields to real messages", async ({ page }) => {
@@ -370,4 +408,32 @@ test("发送后 thinking 等待动画（非流式/deep-agent 情形）—— 提
 
   // run 到终态、真实回复由 loadPage 接管后，thinking 让位消失
   await expect(page.getByTestId("chat-message-row-thinking")).toHaveCount(0, { timeout: 30_000 });
+});
+
+test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送也拽回最新", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+
+  // 先上滚到顶（离开底部，V1 本会「尊重上滚」不自动跟随）
+  await page.getByTestId("chat-message-scroll").evaluate((el) => { el.scrollTop = 0; });
+  await expect(page.getByTestId("chat-jump-to-latest")).toBeVisible();
+
+  // 发送——显式意图，应无条件拽回底部（覆盖 V1 尊重上滚）
+  const input = page.getByRole("textbox", { name: "消息内容" });
+  await input.fill("scroll me back to bottom");
+  await input.press("Enter");
+  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+
+  // 发送后回到底部（distanceFromBottom<=80），jump-to-latest 按钮消失
+  await expect
+    .poll(async () => page.getByTestId("chat-message-scroll")
+      .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+    .toBeLessThanOrEqual(80);
+  await expect(page.getByTestId("chat-jump-to-latest")).toHaveCount(0);
 });
