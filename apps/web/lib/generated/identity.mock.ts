@@ -76,7 +76,8 @@ export const resolveIdentityMock: z.infer<typeof identity.operations.resolveIden
     "name": "name-1",
     "kind": "organization",
     "team": null,
-    "modelPolicy": "any"
+    "modelPolicy": "any",
+    "avatarUrl": null
   },
   "orgRole": "admin",
   "teamId": null,
@@ -136,7 +137,8 @@ export const switchOrganizationMock: z.infer<typeof identity.operations.switchOr
     "name": "name-1",
     "kind": "organization",
     "team": null,
-    "modelPolicy": "any"
+    "modelPolicy": "any",
+    "avatarUrl": null
   },
   "capabilities": [
     {
@@ -214,7 +216,8 @@ export const getLocalOrgMock: z.infer<typeof identity.operations.getLocalOrg.out
     "name": "name-1",
     "kind": "organization",
     "team": null,
-    "modelPolicy": "any"
+    "modelPolicy": "any",
+    "avatarUrl": null
   },
   "guarantees": [
     {

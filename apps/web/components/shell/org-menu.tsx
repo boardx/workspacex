@@ -31,13 +31,14 @@ import { cn } from "@/lib/utils";
  *   错误的身份；首字与左下角个人头像首字母同一套读法，用户已经会读。
  *   组织名彻底拿不到（极端时序）时才回落 `X`。
  *
- * ## 组织头像的读路径（契约现状，不发明新端点）
- * `resolveIdentity`（session 的身份来源）的 `Organization` 里**没有** avatarUrl 字段；
- * 唯一的读路径是 `updateOrganization({orgId})` 空补丁即读（见 `org-admin-screen.tsx`
- * 文件头：`sets.length === 0` 分支是纯 SELECT）。但这条操作**仅组织 admin** 可调
- * （err 含 `PROJECT_ROLE_INSUFFICIENT`）——所以只在 `orgRole === "admin"` 时尝试拉，
- * 非 admin 成员**不发一个注定 403 的请求**，直接用首字回落。给全员看组织头像需要
- * 契约加读字段（ADR-023 人类签核），本轮不越界。
+ * ## 组织头像的读路径（invite-link-and-reads delta ④ 之后）
+ * 首选 `identity.org.avatarUrl`——`resolveIdentity` 的 `Organization` 实体已带 avatarUrl
+ * （delta ④，全员可得）：登录即有、零额外请求、非 admin 也能显示真实组织头像。
+ * `updateOrganization({orgId})` 空补丁即读（admin-only，`sets.length === 0` 分支是纯
+ * SELECT）**保留为 `invalidateOrgAvatar` 之后的刷新通道**：admin 在组织资料页上传新头像
+ * 后，session 里的 identity 还是旧 URL（不重新 resolveIdentity），要靠这条不经 session
+ * 缓存的权威回读把左上角当场刷新——所以它不能退役，也只在失效后才被触发（非 admin
+ * 永远不打这条注定 403 的请求）。
  */
 
 /** orgId → avatarUrl（相对路径或 null）。失败不缓存——下次挂载重试；成功（含「没头像」）缓存，壳层每次导航不重复打请求。 */
@@ -54,8 +55,12 @@ export function invalidateOrgAvatar(orgId: string): void {
   orgAvatarListeners.forEach((l) => l());
 }
 
-function useOrgAvatarUrl(orgId: string, enabled: boolean): string | null {
-  const [url, setUrl] = React.useState<string | null>(() => (enabled ? orgAvatarCache.get(orgId) ?? null : null));
+function useOrgAvatarUrl(orgId: string, identityAvatarUrl: string | null, adminCanRefresh: boolean): string | null {
+  // override：`invalidateOrgAvatar` 之后经空补丁读拿到的比 session identity 更新的权威值
+  // （模块缓存里的条目）。undefined = 没有覆盖值，用 identity 里登录即得的那份。
+  const [override, setOverride] = React.useState<string | null | undefined>(() =>
+    orgAvatarCache.has(orgId) ? orgAvatarCache.get(orgId) ?? null : undefined,
+  );
   const [version, setVersion] = React.useState(0);
 
   React.useEffect(() => {
@@ -67,30 +72,34 @@ function useOrgAvatarUrl(orgId: string, enabled: boolean): string | null {
   }, []);
 
   React.useEffect(() => {
-    if (!enabled) {
-      setUrl(null);
+    if (orgAvatarCache.has(orgId)) {
+      setOverride(orgAvatarCache.get(orgId) ?? null);
       return;
     }
-    if (orgAvatarCache.has(orgId)) {
-      setUrl(orgAvatarCache.get(orgId) ?? null);
+    // 缓存没有条目 = 从未失效过（首次挂载）或刚被 `invalidateOrgAvatar` 清掉。
+    // 首次挂载不发请求——identity 里已经带了 avatarUrl（delta ④，零额外请求）；
+    // 只有失效过（version > 0，即上传过新头像）且当前身份能调 admin-only 空补丁读时，
+    // 才走刷新通道拿最新值。非 admin 不发注定 403 的请求，安静用 identity 旧值。
+    if (version === 0 || !adminCanRefresh) {
+      setOverride(undefined);
       return;
     }
     let cancelled = false;
     void updateOrganization({ orgId })
       .then((out) => {
         orgAvatarCache.set(orgId, out.avatarUrl);
-        if (!cancelled) setUrl(out.avatarUrl);
+        if (!cancelled) setOverride(out.avatarUrl);
       })
       .catch(() => {
-        // 拉不到头像不是错误态——安静回落到组织名首字，不打扰壳层。
-        if (!cancelled) setUrl(null);
+        // 拉不到头像不是错误态——安静回落（identity 值或组织名首字），不打扰壳层。
+        if (!cancelled) setOverride(undefined);
       });
     return () => {
       cancelled = true;
     };
-  }, [enabled, orgId, version]);
+  }, [adminCanRefresh, orgId, version]);
 
-  return url;
+  return override !== undefined ? override : identityAvatarUrl;
 }
 
 export function OrgMenu({
@@ -109,9 +118,10 @@ export function OrgMenu({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const session = useOptionalSession();
 
-  // 见文件头「组织头像的读路径」：只有真实 session 且当前身份是组织 admin 才尝试拉。
-  const canFetchAvatar = session?.status === "authenticated" && identity.orgRole === "admin";
-  const avatarUrl = useOrgAvatarUrl(identity.org.id, canFetchAvatar);
+  // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；
+  // admin-only 空补丁读只作为上传头像后（invalidateOrgAvatar）的刷新通道。
+  const adminCanRefresh = session?.status === "authenticated" && identity.orgRole === "admin";
+  const avatarUrl = useOrgAvatarUrl(identity.org.id, identity.org.avatarUrl, adminCanRefresh);
   // ⚠ 用 `apiUrl()` 拼，不许 `${apiBaseUrl()}${path}` 字符串拼接——后者会吃掉
   //   `NEXT_PUBLIC_API_PATH_PREFIX`（fullstack e2e 的同源代理前缀），实测 404。
   const { src: avatarSrc } = useAuthedImageSrc(avatarUrl ? apiUrl(avatarUrl) : null);

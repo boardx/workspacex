@@ -165,6 +165,14 @@ export default {
       //   等于给未来的回归留一扇没人看守的门（`lint-rewrite-coverage` 会报陈旧并变红）。
       { source: `${prefix}/organizations`, destination: `${apiOrigin}/organizations` },
       { source: `${prefix}/organizations/:path*`, destination: `${apiOrigin}/organizations/:path*` },
+      // invite-link-and-reads delta ①：激活落地页 `/auth/activate` 现在真的会打
+      // `POST /org-invites/activate`（此前该前缀只有 API、没有前端调用方，挂在
+      // #539 棘轮名单里）。补上改写并从 `.harness/state/rewrite-coverage-allowlist.json`
+      // 删掉 `org-invites`——棘轮只能变短。裸前缀一条同样写出来（同上
+      // `/organizations` 的第四次同坑说明）；`apps/web` 没有 `/org-invites` 页面，
+      // 不遮挡任何前端路由。
+      { source: `${prefix}/org-invites`, destination: `${apiOrigin}/org-invites` },
+      { source: `${prefix}/org-invites/:path*`, destination: `${apiOrigin}/org-invites/:path*` },
     ];
   },
 };

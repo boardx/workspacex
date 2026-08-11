@@ -42,7 +42,7 @@ export class FakeIdentityRepository implements IdentityRepository {
   private readonly projectRoles = new Map<string, ProjectRole>([[FACILITATOR, "facilitator"], [MEMBER, "member"]]);
 
   async findOrganization(): Promise<OrganizationRow | null> {
-    return { id: ORG, name: "f46 org", kind: "organization", team: null };
+    return { id: ORG, name: "f46 org", kind: "organization", team: null, avatarUrl: null };
   }
   async findOrgMembership(): Promise<OrgMembershipRow | null> {
     return { orgRole: "consultant", teamId: null };

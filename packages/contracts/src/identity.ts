@@ -307,6 +307,18 @@ export const Organization = z.object({
   kind: OrgKind,
   team: z.string().nullable(),
   modelPolicy: ModelPolicy.optional(),
+  /**
+   * 组织头像的受鉴权下载路径（`/organizations/:orgId/avatar-file/:artifactId`），
+   * 未设置头像时 null。
+   *
+   * invite-link-and-reads delta ④（coord-main 2026-08-11 裁决，与迭代 1 Addendum A 补
+   * `displayName`、迭代 2 Addendum B 补个人 `avatarUrl` **同一个模式**）：admin 在组织
+   * 资料页上传了头像，而此前唯一的读路径是 admin-only 的空补丁 `updateOrganization`——
+   * 非 admin 成员读不到，左上角组织菜单对他们永远回落首字。字节路由本来就允许全员读
+   * （见 `org-admin-management.controller.ts` `avatarFile` 的长注），缺的只是把 URL 告诉
+   * 非 admin 的那条读路径——加在这里，`resolveIdentity` / `switchOrganization` 全员可得。
+   */
+  avatarUrl: z.string().nullable(),
 }).strict();
 
 export const PermissionDecision = z.object({

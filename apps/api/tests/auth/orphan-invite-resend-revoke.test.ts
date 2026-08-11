@@ -16,10 +16,11 @@
  *   ⚠ 刻意**不**写 `expect(source).toContain("actorOrgRole")` 这一类断言——今天有一颗
  *     钉子正是这么写的，命中的是私有方法**定义本身**，把调用整行注释掉依然全绿。
  *
- * C（令牌绝不进响应体）：`NO TOKEN IN RESPONSE` 那个 it 把返回对象整个 JSON 化，
- *   再拿库里**真实存在的那枚令牌值**去搜——不是搜字段名 `token`（那样一个叫
- *   `activationLink` 的字段就能绕过去），是搜**值本身**。同时断言返回的 key 集合
- *   逐字等于契约 `out` 的 key 集合。
+ * C（令牌只在签发那一次响应里出现——2026-08-11 随 coord-main 裁决 A 反转）：
+ *   原断言是「resend 返回体不含令牌值」；裁决 A（invite-link-and-reads delta ①）把
+ *   它改成两半：**签发那一次**响应里的 `activationToken` 与库里在案的活令牌是同一枚
+ *   （正例），而**再查列表**（第二个管理员视角）搜不到那个值（「随时可再读」仍封死，
+ *   搜的是值本身不是字段名）。旧断言防的威胁没有被放松，只是把「一次」从 0 改成 1。
  *
  * B（红落在目标那一步之后）：每个 describe 里的断言按「先证明前提成立、再证明目标」
  *   排列——例如反证 A 的两个 it 都先 `expect(before).toBe(...)` 确认起始状态，
@@ -32,6 +33,7 @@ import { inviteOrgMember } from "../../src/application/auth/invite-org-member";
 import { activateOrgMember } from "../../src/application/auth/activate-org-member";
 import { OrgAdminError } from "../../src/application/auth/org-invite-errors";
 import { PgOrgInviteRepository } from "../../src/infrastructure/auth/pg-org-invite-repository";
+import { PgOrgProfileRepository } from "../../src/infrastructure/auth/pg-org-profile-repository";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -132,7 +134,9 @@ beforeAll(async () => {
     // 一个假件：假件会让「某天有人把 teams 的判断挪进 resend」这件事悄悄通过。
     null as never,
     null as never,
-    null as never, // #363：新增的 ORG_PROFILE_REPOSITORY，同样不参与
+    // #363 时不参与；2026-08-11 起参与——反证 C 的「随时可再读」半边要打真实的
+    // `listInvites`（对象存储不在这些用例的路径上，仍给 null）。
+    new PgOrgProfileRepository(db, null as never),
     null as never,
     new PgIdentityRepository(db),
     null as never, // #638 迭代 4：新增的 PROVENANCE_WRITER，同样不参与
@@ -390,10 +394,16 @@ describe("防枚举 —— 不存在的 id 与够不到的 id 不可区分", () 
   });
 });
 
-/* ═══════ 反证 C：令牌绝不进响应体 ═══════ */
+/* ═══════ 反证 C：令牌只在签发那一次响应里出现 ═══════ */
 
-describe("NO TOKEN IN RESPONSE 反证 C", () => {
-  it("resend 的返回体既不含令牌值，key 集合也逐字等于契约 out", async () => {
+/**
+ * 2026-08-11 改写（invite-link-and-reads delta ①，coord-main 裁决 A）：原断言是
+ * 「resend 返回体不含令牌值」，裁决把它反转为「**签发那一次**返回令牌，此外任何
+ * 可再读的地方都拿不到」。旧断言防的威胁（任何管理员随时可读他人链接）由下面
+ * 第二条守住：**再查列表拿不到 token**——那才是「随时可再读」的形状。
+ */
+describe("TOKEN ONLY ONCE 反证 C", () => {
+  it("resend 的返回体带 activationToken（正是库里那枚新令牌），key 集合逐字等于契约 out", async () => {
     const inviteId = await newInvite("echo@363.test");
     await ageTokens(inviteId, A.AUTH_POLICY.resendCooldownSeconds + 1);
 
@@ -401,9 +411,27 @@ describe("NO TOKEN IN RESPONSE 反证 C", () => {
     const token = await liveToken(inviteId);
     expect(token.length, "前提：库里确实有一枚可搜的令牌").toBeGreaterThan(20);
 
-    // 🔴 搜的是**值**，不是字段名 `token`——否则一个叫 `activationLink` 的字段就能绕过去。
-    expect(JSON.stringify(out)).not.toContain(token);
+    // 裁决 A 正例：响应里的令牌与库里在案的活令牌是同一枚——不是第二枚、不是旧的。
+    expect(out.activationToken).toBe(token);
     expect(Object.keys(out).sort()).toEqual(Object.keys(C.operations.resendOrgInvite.out.shape).sort());
+  });
+
+  it("「只此一次」的另一半：再查列表拿不到令牌值（任何管理员都不能事后把链接读出来）", async () => {
+    const inviteId = await newInvite("once@363.test");
+    await ageTokens(inviteId, A.AUTH_POLICY.resendCooldownSeconds + 1);
+    const out = await controller.resend(ORG, inviteId, { orgId: ORG, inviteId }, principal(ADMIN));
+    expect(out.activationToken.length, "前提：这次签发确实带出了令牌").toBeGreaterThan(20);
+
+    // 🔴 搜的是**值**，不是字段名——一个叫 `activationLink` 的字段也藏不住。
+    // 用第二个管理员查：正是旧注释担心的那个角色（「任何一个管理员把别人的链接读出来」）。
+    const listed = await controller.listInvites(ORG, principal(ADMIN_B));
+    expect(JSON.stringify(listed)).not.toContain(out.activationToken);
+    // 且每行的 key 集合逐字等于契约（`.strict()` 在协议层再守一遍）。
+    for (const row of listed.invites) {
+      expect(Object.keys(row).sort()).toEqual(
+        Object.keys(C.operations.listOrgInvites.out.shape.invites.element.shape).sort(),
+      );
+    }
   });
 
   it("revoke 的返回体同样只有契约那一个字段", async () => {

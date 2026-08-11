@@ -28,7 +28,7 @@
  */
 import { z } from "zod";
 import { OrgRole, PermissionReason, PermissionDecision, ProjectRole } from "./identity";
-import { AUTH_POLICY } from "./auth";
+import { AUTH_POLICY, EmailAddress } from "./auth";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
@@ -300,12 +300,14 @@ export const operations = {
    * ⚠ **`orgRole = "admin"` 时返回 `awaiting-review` 而不是 `pending`，且此时不签发 token**
    *   （I-3 / O-28 ⑥）：提权动作被单个被盗账号执行即等于整个组织沦陷。
    * ⚠ 幂等：同 `(orgId, email)` 重复提交返回既有 `inviteId`，**不新建行、不重复扣额度**。
+   * ⚠ `email` 是 `auth.EmailAddress`（invite-link-and-reads delta ③）：服务端权威校验，
+   *   `a@` 这类垃圾在契约层 400 拒绝、不落库——前端预检只是体验优化，不是防线。
    */
   inviteOrgMember: {
     method: "POST",
     path: "/organizations/:orgId/invites",
     in: z
-      .object({ orgId: z.string(), email: z.string().min(1), orgRole: OrgRole, teamId: z.string() })
+      .object({ orgId: z.string(), email: EmailAddress, orgRole: OrgRole, teamId: z.string() })
       .strict(),
     out: z
       .object({
@@ -315,6 +317,18 @@ export const operations = {
         quotaReserved: z.number().int().nonnegative(),
         /** ⚠ 恒为 false 当 `status = "awaiting-review"`——双人复核前不签发（I-3） */
         tokenIssued: z.boolean(),
+        /**
+         * 一次性激活令牌明文（invite-link-and-reads delta ①，coord-main 2026-08-11 裁决 A：
+         * 邮件通道未接通期间，链接由发起邀请的管理员**当面/自行转交**受邀人）。
+         *
+         * ⚠ **只在签发的这一次响应里出现**：`OrgInvite` 实体与 `listOrgInvites` 恒不含它，
+         *   幂等重放（`quotaReserved = 0`）与 `awaiting-review`（I-3）时为 null——
+         *   重放若把既有令牌再吐一次，等于任何管理员都能凭「再邀一次」读走别人的激活链接。
+         * ⚠ 这不与「token 不进响应体」的旧安全注释矛盾，是**取代**它：旧注释防的是
+         *   「任何管理员随时可读他人链接」（列表/重放路径，仍然封死）；能发起邀请的本来
+         *   就是 admin，把**他自己刚签发**的令牌回传给他一次，不扩大任何读面。
+         */
+        activationToken: z.string().nullable(),
       })
       .strict(),
     err: [
@@ -346,7 +360,21 @@ export const operations = {
         reason: z.string().nullable(),
       })
       .strict(),
-    out: z.object({ status: OrgInviteStatus, tokenIssued: z.boolean() }).strict(),
+    out: z.object({
+      status: OrgInviteStatus,
+      tokenIssued: z.boolean(),
+      /**
+       * 一次性激活令牌明文（invite-link-and-reads delta，coord-main 2026-08-11 D2 裁决 A：
+       * 批准即签发的那一次响应把令牌回传给**批准人**，由他当场转交受邀人——否则批准人
+       * 唯一的取链接路径是「重发」，会撞 60 秒冷却的死胡同）。
+       *
+       * ⚠ 语义与 `inviteOrgMember.out.activationToken` / `resendOrgInvite.out.activationToken`
+       *   **完全一致**（同一事实一种写法）：只在签发的这一次响应里出现；`reject` 与幂等
+       *   重放（重复 approve，`tokenIssued = false`）时为 null；`listOrgInvites`/`OrgInvite`
+       *   实体恒不含它；并发第二个复核者收到 `VERSION_CHANGED`，什么都拿不到。
+       */
+      activationToken: z.string().nullable(),
+    }).strict(),
     err: [
       "INVITE_SELF_REVIEW_FORBIDDEN",
       "PROJECT_ROLE_INSUFFICIENT",
@@ -366,7 +394,16 @@ export const operations = {
     method: "POST",
     path: "/organizations/:orgId/invites/:inviteId/resend",
     in: z.object({ orgId: z.string(), inviteId: z.string() }).strict(),
-    out: z.object({ newTokenIssued: z.boolean(), cooldownSec: z.number().int().nonnegative() }).strict(),
+    out: z.object({
+      newTokenIssued: z.boolean(),
+      cooldownSec: z.number().int().nonnegative(),
+      /**
+       * 新签发的一次性激活令牌明文（invite-link-and-reads delta ①，同 `inviteOrgMember.
+       * out.activationToken` 的裁决与约束）：只在**这一次**重发响应里出现，旧令牌已当场
+       * 作废（I-6），列表/重放拿不到它。走到成功分支即已签发，恒非空。
+       */
+      activationToken: z.string(),
+    }).strict(),
     err: [
       "RATE_LIMITED",
       "INVITE_NOT_FOUND",
@@ -620,7 +657,16 @@ export const operations = {
               inviteId: z.string(),
               email: z.string(),
               status: OrgInviteStatus,
+              /** 邀请人的展示名（经 `credentials.display_name` join，兜底裸 id）。 */
               invitedBy: z.string(),
+              /**
+               * 邀请人的裸 user id（invite-link-and-reads delta ②，coord-main 裁决）：
+               * 前端用它判断「当前用户是不是发起人」——是则**不渲染**批准/拒绝按钮
+               * （I-4 发起人不可自批），改显示「等待另一位管理员复核」，消灭那颗点了
+               * 必 403 的死按钮。`invitedBy` 是给人看的展示名，做不了这个判定
+               * （展示名可重名、可改），所以是新字段而不是改旧字段的语义。
+               */
+              invitedByUserId: z.string(),
               expiresAt: z.string(),
             })
             .strict(),

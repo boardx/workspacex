@@ -46,6 +46,12 @@ export interface ResendOrgInviteOutput {
   readonly newTokenIssued: boolean;
   /** 下一次可重发前还要等多少秒。 */
   readonly cooldownSec: number;
+  /**
+   * 新签发的令牌明文（invite-link-and-reads delta ①，coord-main 2026-08-11 裁决 A）。
+   * **只在这一次响应里出现**：旧令牌在同一事务里已作废（I-6），列表与重放都拿不到它。
+   * 调用方（admin）把它拼成激活链接转交受邀人，或者丢掉；不得回存。
+   */
+  readonly activationToken: string;
 }
 
 export async function resendOrgInvite(
@@ -61,11 +67,15 @@ export async function resendOrgInvite(
 
   const now = (deps.now ?? (() => new Date()))();
 
+  // 令牌在这里生成、写库后**由本次响应带出一次**（delta ①）——不是从库里读回来：
+  // 仓储的返回值里刻意没有 token 字段，可再读的地方一个也没有增加。
+  const token = newOrgInviteToken();
+
   const result = await deps.repo.resendOrgInvite({
     orgId: input.orgId,
     inviteId: input.inviteId,
     now,
-    token: newOrgInviteToken(),
+    token,
     tokenExpiresAt: new Date(now.getTime() + ORG_INVITE_LINK_VALIDITY_MS),
     cooldownSeconds: C.AUTH_POLICY.resendCooldownSeconds,
     dailyMax: C.AUTH_POLICY.resendDailyMax,
@@ -79,8 +89,12 @@ export async function resendOrgInvite(
     throw new OrgAdminError("VERSION_CHANGED");
   }
 
-  // ⚠ 令牌**不进返回值**。它在 `result` 里根本不存在——仓储返回的是
-  //   `{ newTokenIssued, cooldownSec }`，没有第三个字段可以顺手带出来。
-  //   契约的 `out` 同样是 `.strict()` 且不含它（`org-admin.ts:344`）。
-  return { newTokenIssued: result.newTokenIssued, cooldownSec: result.cooldownSec };
+  // ⚠ 裁决 A（invite-link-and-reads delta ①）改写了旧的「令牌不进返回值」：这一次
+  //   响应是令牌唯一一次离开签发路径——重发者本来就是刚触发签发的 admin，回传一次
+  //   不产生任何「随时可再读」的路径（仓储返回值依旧没有 token 字段，列表也没有）。
+  return {
+    newTokenIssued: result.newTokenIssued,
+    cooldownSec: result.cooldownSec,
+    activationToken: token,
+  };
 }

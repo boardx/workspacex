@@ -81,6 +81,11 @@ export async function exportOrganization(
       // （switch-organization.ts / resolveIdentity 里同样是在知道成员关系的地方填的）。
       team: membership?.teamId ?? null,
       modelPolicy: org.modelPolicy as "any" | "self-hosted-only",
+      // invite-link-and-reads delta ④ 给 `Organization` 实体加了 `avatarUrl`（服务左上角
+      // 组织菜单的读路径）。导出清单的 manifest 载荷里没有头像列，这里如实置 null——
+      // 导出关心的是表行数与生命周期；将来若导出也要带头像，应扩 `readExportManifest`
+      // 的载荷，而不是在这里手拼一个 URL（URL 单一拼装处见 pg-org-profile-repository.ts）。
+      avatarUrl: null,
     },
     lifecycle: {
       status: org.status,

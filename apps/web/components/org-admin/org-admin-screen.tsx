@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Ban, Camera, Check, ChevronDown, Mail, Pencil, Plus, RotateCcw, Send, Settings, Trash2, UserCog, Users, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, Pencil, Plus, RotateCcw, Send, Settings, Trash2, UserCog, Users, X } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,6 +15,8 @@ import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError, apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { invalidateOrgAvatar } from "@/components/shell/org-menu";
+import { contractFieldIssues } from "@/lib/auth";
+import { buildActivationLink } from "@/lib/activation-link";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import {
@@ -62,6 +64,11 @@ export function OrgAdminScreen() {
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
+  // 一次性激活链接（invite-link-and-reads delta ①）：state 挂在屏幕层而不是 InvitesTab 里——
+  // Tabs 切走会卸载标签页内容，挂在标签页内部时「切去成员再切回来」就把仅此一次的链接
+  // 静默销毁了（独立复核 D1，数据不可恢复类）。挂在这里让它在标签页切换间存活；
+  // 真正的销毁条件只有：用户点关闭、刷新/离开页面、被下一条链接覆盖。
+  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
 
   return (
     <AppShell previewRole={null}>
@@ -102,7 +109,11 @@ export function OrgAdminScreen() {
           </TabsContent>
 
           <TabsContent value="invites">
-            {orgId ? <InvitesTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
+            {orgId ? (
+              <InvitesTab orgId={orgId} isAdmin={isAdmin} oneTimeLink={oneTimeLink} onOneTimeLink={setOneTimeLink} />
+            ) : (
+              <LoadingSkeleton rows={3} />
+            )}
           </TabsContent>
 
           {isAdmin && (
@@ -655,6 +666,90 @@ function PopoverSelect({
   );
 }
 
+/** 一次性激活链接的展示载荷（invite-link-and-reads delta ①）。 */
+type OneTimeLink = {
+  readonly email: string;
+  readonly url: string;
+  /** invited = 新签发；resent = 重发（旧链接已作废）；approved = 双人复核批准后签发（D2 裁决 A）。 */
+  readonly kind: "invited" | "resent" | "approved";
+};
+
+/**
+ * 一次性激活链接展示块（coord-main 2026-08-11 裁决 A）。
+ *
+ * 四态：展示中（默认）/ 已复制反馈 / 复制失败降级（提示手动全选）/ 关闭后消失。
+ * ⚠ 链接**只在这一次响应里存在**——刷新列表、重新进页都拿不回来（服务端列表恒不含
+ *   token），所以文案必须把「只显示这一次」说死，关闭要二次意图（按钮文案本身承担）。
+ */
+function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismiss: () => void }) {
+  const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState((s) => (s === "copied" ? "idle" : s)), 2500);
+    } catch {
+      // 剪贴板权限被拒/非安全上下文：降级为选中文本，让用户手动 Cmd/Ctrl+C。
+      setCopyState("failed");
+      inputRef.current?.select();
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3"
+      data-testid="org-admin-invite-link-block"
+      role="region"
+      aria-label="一次性激活链接"
+    >
+      <p className="text-12 font-medium">
+        {link.kind === "resent"
+          ? `已对 ${link.email} 重发——新的激活链接：`
+          : link.kind === "approved"
+            ? `已批准——${link.email} 的激活链接：`
+            : `${link.email} 的激活链接：`}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <Input
+          ref={inputRef}
+          readOnly
+          value={link.url}
+          onFocus={(e) => e.currentTarget.select()}
+          className="h-8 flex-1 font-mono text-11"
+          aria-label="激活链接（只显示这一次）"
+          data-testid="org-admin-invite-link-url"
+        />
+        <Button type="button" size="xs" variant="primary" onClick={() => void copy()} data-testid="org-admin-invite-link-copy">
+          <Copy aria-hidden className="h-3 w-3" />
+          {copyState === "copied" ? "已复制" : "复制"}
+        </Button>
+      </div>
+      {copyState === "copied" && (
+        <p role="status" className="text-10 text-success" data-testid="org-admin-invite-link-copied">
+          已复制到剪贴板，请发给受邀人。
+        </p>
+      )}
+      {copyState === "failed" && (
+        <p role="alert" className="text-10 text-destructive" data-testid="org-admin-invite-link-copy-failed">
+          浏览器拒绝了自动复制——链接已全选，请按 Ctrl/Cmd+C 手动复制。
+        </p>
+      )}
+      <p className="text-10 text-warning" data-testid="org-admin-invite-link-once-note">
+        链接只显示这一次，请立即复制并转交受邀人（邮件通道尚未接通，送达由你完成）。
+        {link.kind === "resent" ? "旧链接已同时作废。" : ""}
+        点「关闭」、刷新或离开本页面后无法找回（切换上方标签页不会丢失），只能用「重发」生成新链接（旧链接将作废）。
+      </p>
+      <div>
+        <Button type="button" size="xs" variant="ghost" onClick={onDismiss} data-testid="org-admin-invite-link-dismiss">
+          我已转交，关闭
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** 团队下拉里「不分团队」的哨兵值——提交时映射为契约要求的空串（controller 把空串转 null）。 */
 const NO_TEAM = "";
 
@@ -662,12 +757,15 @@ const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
   ["consultant", "lead", "compliance", "admin"] as const
 ).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
 
-function InviteMemberForm({
-  orgId, onSucceeded, onFailed,
+// export 仅供 `tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉 noValidate（两次复发的 bug），别在别处 import。
+export function InviteMemberForm({
+  orgId, onSucceeded, onFailed, onLink,
 }: {
   orgId: string;
   onSucceeded: (text: string) => void;
   onFailed: (text: string) => void;
+  /** 签发成功且响应带一次性 token 时回调（invite-link-and-reads delta ①）。 */
+  onLink: (link: OneTimeLink) => void;
 }) {
   const [email, setEmail] = React.useState("");
   const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
@@ -725,16 +823,23 @@ function InviteMemberForm({
           `已受理对 ${trimmed} 的管理员邀请：进入双人复核（待复核），另一位管理员批准后才会签发激活链接。`,
         );
       } else if (out.quotaReserved === 0) {
+        // 幂等重放：服务端刻意不把既有令牌再吐一次（否则任何管理员都能凭「再邀一次」
+        // 读走别人的激活链接），所以这里也没有链接可展示。
         onSucceeded(
           `该邮箱此前已有相同的邀请，本次返回既有邀请（未新建、未重复扣配额）。需要新链接请在列表里「重发」。`,
         );
       } else {
-        onSucceeded(
-          `邀请已创建，激活令牌已签发（7 天有效）。注意：邮件投递通道尚未接通，且激活链接明文不经过管理界面（安全约束）——受邀人目前拿不到链接，获取方式待产品裁决。`,
-        );
+        onSucceeded(`邀请已创建，激活链接已签发（7 天有效）——见下方，只显示这一次。`);
+        if (out.activationToken !== null) {
+          onLink({ email: trimmed, url: buildActivationLink(out.activationToken, window.location.origin), kind: "invited" });
+        }
       }
     } catch (err) {
-      if (err instanceof ApiError && (err.reasonCode === "INVITE_ALREADY_MEMBER" || err.reasonCode === "INVITE_DUPLICATE")) {
+      // delta ③：契约层的邮箱 400（`ZodBodyPipe` validation_failed，path = email）
+      // 映射成能看懂的字段级文案，不掉进「操作失败（HTTP 400）」的兜底。
+      if (contractFieldIssues(err)?.some((i) => i.path === "email")) {
+        setFieldError(`「${trimmed}」不是合法邮箱（服务端校验拒绝，未创建邀请）。`);
+      } else if (err instanceof ApiError && (err.reasonCode === "INVITE_ALREADY_MEMBER" || err.reasonCode === "INVITE_DUPLICATE")) {
         setFieldError(describeInviteFailure(err));
       } else {
         onFailed(describeInviteFailure(err));
@@ -748,6 +853,11 @@ function InviteMemberForm({
     <form
       className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3"
       onSubmit={handleSubmit}
+      // noValidate：关掉浏览器原生 constraint validation（英文气泡），让本组件的中文预检
+      // 与服务端 `err-invite-email` 结构化文案真正执行、真正可见。
+      // ⚠ 这是 PR #896 修过又在重构中丢失而复发的 bug（独立复核第 4 条判 0）——
+      //   有 `apps/web/tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉住，别再删。
+      noValidate
       data-testid="org-admin-invite-form"
     >
       <div className="flex flex-wrap items-start gap-2">
@@ -807,7 +917,7 @@ function InviteMemberForm({
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
-          激活链接经邮件送达受邀人，链接明文不在此界面展示。邮件通道当前尚未接通——见邀请提交后的提示。
+          邮件通道尚未接通：邀请成功后，激活链接会在下方显示<strong>一次</strong>，由你复制并转交受邀人。
         </p>
         <Button
           type="submit"
@@ -825,13 +935,16 @@ function InviteMemberForm({
 }
 
 function InviteRow({
-  orgId, invite, onChanged, onSucceeded, onFailed,
+  orgId, invite, currentUserId, onChanged, onSucceeded, onFailed, onLink,
 }: {
   orgId: string;
   invite: ListOrgInvitesOut["invites"][number];
+  /** 当前登录用户 id——判「这条邀请是不是我发起的」（delta ②）。 */
+  currentUserId: string | null;
   onChanged: () => void;
   onSucceeded: (text: string) => void;
   onFailed: (text: string) => void;
+  onLink: (link: OneTimeLink) => void;
 }) {
   const [busy, setBusy] = React.useState(false);
   const [confirmingRevoke, setConfirmingRevoke] = React.useState(false);
@@ -839,10 +952,14 @@ function InviteRow({
   // 状态门与后端一致（`pg-org-invite-repository.ts`）：
   //   重发：pending / send-failed（awaiting-review 重发会绕过双人复核，后端拒）
   //   撤销：revoked（幂等）与 used（人已进来）之外都可以；已翻状态的不给按钮
-  //   复核：仅 awaiting-review。列表不含发起人 id，自批由后端拒（映射成人话）。
+  //   复核：仅 awaiting-review，且**发起人不渲染批准/拒绝**（delta ②，coord-main 裁决）：
+  //   I-4 自批必被后端 403，此前列表不含发起人 id、只能渲染一颗点了必失败的死按钮，
+  //   现在契约带 `invitedByUserId`，发起人视角直接换成等待说明。
   const canResend = invite.status === "pending" || invite.status === "send-failed";
   const canRevoke = invite.status === "pending" || invite.status === "awaiting-review" || invite.status === "send-failed";
-  const canReview = invite.status === "awaiting-review";
+  const isInitiator = currentUserId !== null && invite.invitedByUserId === currentUserId;
+  const canReview = invite.status === "awaiting-review" && !isInitiator;
+  const waitingPeerReview = invite.status === "awaiting-review" && isInitiator;
 
   async function run(action: () => Promise<string>) {
     setBusy(true);
@@ -870,15 +987,33 @@ function InviteRow({
         <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-invite-${invite.inviteId}-expires`}>
           {new Date(invite.expiresAt).toLocaleDateString("zh-CN")} 到期
         </span>
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {waitingPeerReview && (
+            <span
+              className="flex items-center gap-1 text-10 text-muted-foreground"
+              data-testid={`org-admin-invite-${invite.inviteId}-waiting-peer-review`}
+            >
+              <Hourglass aria-hidden className="h-3 w-3" />
+              你发起的邀请：等待另一位管理员复核（不能自批）
+            </span>
+          )}
           {canReview && (
             <>
               <Button
                 type="button" size="xs" variant="primary" disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
-                    return `已批准对 ${invite.email} 的管理员邀请，激活令牌已签发（7 天有效）。`;
+                    // D2 裁决 A：批准响应带一次性 activationToken（与 delta ① 同一语义），
+                    // 批准人当场拿到链接转交——不再逼他撞 60 秒重发冷却。
+                    const out = await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
+                    if (out.activationToken !== null) {
+                      onLink({
+                        email: invite.email,
+                        url: buildActivationLink(out.activationToken, window.location.origin),
+                        kind: "approved",
+                      });
+                    }
+                    return `已批准对 ${invite.email} 的管理员邀请，激活链接已签发（7 天有效）——见下方，只显示这一次。`;
                   })
                 }
                 data-testid={`org-admin-invite-${invite.inviteId}-approve`}
@@ -907,7 +1042,12 @@ function InviteRow({
               onClick={() =>
                 run(async () => {
                   const out = await resendOrgInvite(orgId, invite.inviteId);
-                  return `已对 ${invite.email} 重发：新令牌已签发、旧链接当场作废（冷却 ${out.cooldownSec} 秒）。链接明文不经过界面，邮件通道未接通前受邀人暂收不到。`;
+                  onLink({
+                    email: invite.email,
+                    url: buildActivationLink(out.activationToken, window.location.origin),
+                    kind: "resent",
+                  });
+                  return `已对 ${invite.email} 重发：新链接已签发（见下方，只显示这一次）、旧链接当场作废（冷却 ${out.cooldownSec} 秒）。`;
                 })
               }
               data-testid={`org-admin-invite-${invite.inviteId}-resend`}
@@ -966,7 +1106,20 @@ function InviteRow({
   );
 }
 
-function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
+function InvitesTab({
+  orgId, isAdmin, oneTimeLink, onOneTimeLink,
+}: {
+  orgId: string;
+  isAdmin: boolean;
+  /**
+   * 一次性激活链接（delta ①）：state 由 `OrgAdminScreen` 持有（见其注释：切标签页不销毁，
+   * 复核 D1）。只存在于内存里；换一条会覆盖上一条——上一条已经展示过它唯一的一次机会，
+   * 而同屏堆多条会诱导「回来再抄」的错误预期。
+   */
+  oneTimeLink: OneTimeLink | null;
+  onOneTimeLink: (link: OneTimeLink | null) => void;
+}) {
+  const { session } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOrgInvitesOut | null>(null);
@@ -1015,8 +1168,11 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
             void load();
           }}
           onFailed={(text) => setBanner({ tone: "error", text })}
+          onLink={onOneTimeLink}
         />
       )}
+
+      {oneTimeLink && <OneTimeActivationLink link={oneTimeLink} onDismiss={() => onOneTimeLink(null)} />}
 
       {banner ? (
         <div
@@ -1044,6 +1200,8 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
               key={inv.inviteId}
               orgId={orgId}
               invite={inv}
+              currentUserId={session?.userId ?? null}
+              onLink={onOneTimeLink}
               onChanged={() => void load()}
               onSucceeded={(text) => setBanner({ tone: "success", text })}
               onFailed={(text) => setBanner({ tone: "error", text })}
@@ -1086,6 +1244,12 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     setFailureMessage(null);
     try {
       // 无独立读端点，见本文件顶部注释：不带任何字段的 updateOrganization 是纯读。
+      //
+      // invite-link-and-reads delta ④ 之后，`resolveIdentity` 的 `org.avatarUrl` 已让
+      // 全员读得到组织头像——但这条空补丁读**不退役**：本标签页是 admin 编辑器，还要
+      // name/description（identity 那条只带头像），且它作为「刚上传完头像后的权威回读」
+      // 不经过 session 缓存，恰好是缓存失效后的刷新路径。两条读路径服务两种角色，
+      // 不是同一事实的第二份声明（URL 拼装的单一事实源在后端 avatarUrlFor）。
       const result = await updateOrganization({ orgId });
       setProfile(result);
       setName(result.name);

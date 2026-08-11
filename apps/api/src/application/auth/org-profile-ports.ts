@@ -29,6 +29,12 @@ export interface OrgInviteListRow {
    * 好过整行从列表消失。
    */
   readonly invitedBy: string;
+  /**
+   * 邀请人的裸 user id（invite-link-and-reads delta ②）。上面那条「不新增字段」的
+   * 旧注释自 coord-main 2026-08-11 裁决起不再成立：前端要判「当前用户是不是发起人」
+   * 来消灭发起人视角的「批准」死按钮（I-4 自批必 403），展示名做不了这个判定。
+   */
+  readonly invitedByUserId: string;
   readonly expiresAt: string;
 }
 
