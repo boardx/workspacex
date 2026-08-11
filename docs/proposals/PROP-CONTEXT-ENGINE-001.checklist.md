@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|
 | CE-010 | P0 | ⬜ 未开始 | `MinioObjectStore`（`ObjectStore` port 的第二个实现） | 无 | 复用 `fs-object-store.ts` 同一 port 接口；真实读写 MinIO（`docker-compose.dev.yml` 已有的 minio 服务）；write-once 语义靠 MinIO 版本化/object-lock 落实（不是应用层假装）；反证：并发两次 `putOnce` 同 key，一个成功一个报 `ObjectExistsError` |
 | CE-011 | P0 | ⬜ 未开始 | 生产环境对象存储配置切换（fs → MinIO） | CE-010 | 一个环境变量/配置开关切换实现，不改上层代码；现有 `fs-object-store.test.ts` 的契约测试对 MinIO 实现重跑一遍全绿 |
-| CE-012 | P0 | ⬜ 未开始 | 真实 PDF 解析（替换"字节当 UTF-8 文本"的 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（人类 2026-08-11 裁决「解析统一用 anydoc」；W1/#934 已过依赖评审），提取真实文本+页码锚点；反证：喂一份多页真实 PDF，`anchors.page` 字段对应真实页码，不是伪造的连续整数 |
+| CE-012 | P0 | ⬜ 未开始 | 真实 PDF 解析（替换"字节当 UTF-8 文本"的 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（人类 2026-08-11 裁决「解析统一用 anydoc」；W1/#934 已过依赖评审），提取真实文本+**heading 级锚点**；反证：喂真实多章节文档，anchor 对应真实 heading（非 PDF 走 `toDocument` 的 heading id；PDF 无 document-model 直出 markdown，锚到输出的 heading 行）。⚠ **具名缺口 GAP-CE-012-PAGE**：anydoc 类型面无任何 page 字段、PDF 无 `toDocument`，「页码锚点」anydoc 不支撑（F153 实测 2026-08-11，coord-main 据人类「解析统一用 anydoc」授权将反证降为 heading 级；页码维度待上游支持或另立专项，人类可推翻） |
 | CE-013 | P0 | ⬜ 未开始 | 真实 Office 解析（docx/pptx，替换 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（同 CE-012 的人类裁决，docx/pptx 同库），提取真实文本；`generatorModel` 字段如实写真实库名+版本，不再是 `"deterministic-document-parser"` |
 | CE-014 | P0 | ⬜ 未开始 | tesseract.js OCR 真实接入 | 无 | 真实识别一张含文字的真实图片，`derived_representations` 落真实识别文本 + 置信度；`generatorModel` 如实写 `tesseract.js@<version>`，不再是 `"stub-ocr-engine"` |
 | CE-015 | P0 | ⬜ 未开始 | FunASR 独立服务骨架（同 `apps/deep-agent-service` 部署模式） | CE-002 | `apps/asr-service`（Python，FunASR 官方 FastAPI 范式）；`apps/api` 摄取 adapter 通过 HTTP 调用；反证：喂一段真实音频，返回真实转录文本 + 时间码，`generatorModel` 如实写 FunASR 模型名+版本 |
@@ -39,7 +39,7 @@
 | CE-020 | P0 | ⬜ 未开始 | `context-pack.controller.ts`（生产 HTTP 端点） | 无（`retrieve-candidates.ts`/`rrf.ts`/`screening.ts` 已存在） | 真实 controller 调用既有五路检索+RRF+screening 管线，返回 `ContextPack`；反证：真实 HTTP 请求打进来，能拿到真实召回结果，不是 mock |
 | CE-021 | P0 | ⬜ 未开始 | chat/agent-run 接入 Context Pack（替换今天的"Skill pin 拼接"） | CE-020 | `execute-run.ts` 的上下文组装改为调用 CE-020，AI 回答真实基于检索到的 Segment，不再只是"最近 N 条历史 + Skill 正文" |
 | CE-022 | P1 | ⬜ 未开始 | pgvector ANN 索引（HNSW/IVFFlat） | 无（需先定 embedding 模型） | 选定生产 embedding 模型+维度后建索引；`pgvector-permission-recall.test.ts` 反过来断言索引存在且召回率达标（今天这条测试断言"不存在"，届时要改） |
-| CE-023 | P0 | ⬜ 未开始 | 端到端引用可定位性真实回归 | CE-020、CE-012~015 | 真实上传一份文件 → 真实提问 → AI 回答的引用能在真实前端打开到对应页码/时间码——首批完成门槛第①条从"单测证明逻辑对"升级为"真实生产验证" |
+| CE-023 | P0 | ⬜ 未开始 | 端到端引用可定位性真实回归 | CE-020、CE-012~015 | 真实上传一份文件 → 真实提问 → AI 回答的引用能在真实前端打开到**对应位置（heading/段落级；音视频=时间码）**——首批完成门槛第①条从"单测证明逻辑对"升级为"真实生产验证"。PDF 页码级定位继承 GAP-CE-012-PAGE 具名缺口，不算本条失败 |
 
 ## Epic CE-E3 — 知识与图谱补完（P3：Claim 生命周期 + 实体 + 审核 UI）
 
