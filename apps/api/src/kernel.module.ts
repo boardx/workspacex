@@ -223,10 +223,11 @@ import { ChatController } from "./interface/controllers/chat.controller";
 // #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
 // 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
 import {
-  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT,
-  type AgentRunStore, type ModelCallPort,
+  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT, TOKEN_USAGE_METER,
+  type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
 } from "./infrastructure/agent-run/configured-model-provider";
@@ -916,11 +917,20 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
       // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
       // fourth argument at all.
-      useFactory: (runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort) =>
+      useFactory: (
+        runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
+      ) =>
         new AgentRunExecutor(
-          runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0",
+          runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
         ),
-      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT],
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER],
+    },
+    // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
+    // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
+    {
+      provide: TOKEN_USAGE_METER,
+      useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
+      inject: [DATABASE_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，
     // 与线程/消息的读写路径没有共享逻辑，合并只会让一个文件同时长两组不相关的方法。

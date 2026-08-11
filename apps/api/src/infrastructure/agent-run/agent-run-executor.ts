@@ -22,7 +22,7 @@ import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import type {
-  AgentRunClock, AgentRunExecutorPort, AgentRunStore, ModelCallPort,
+  AgentRunClock, AgentRunExecutorPort, AgentRunStore, ModelCallPort, TokenUsageMeterPort,
 } from "../../application/agent-run/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
@@ -43,6 +43,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * durable state depends on it.
      */
     private readonly autostart: boolean,
+    /**
+     * F159 计量。可选参数而不是必填：既有的测试与非计费执行路径构造这个类时不必都改，
+     * 而生产合成（`kernel.module.ts`）必定注入——「有没有计量」因此是合成期的一个明确
+     * 选择，不是运行期的一个偶然。
+     */
+    private readonly usage?: TokenUsageMeterPort,
   ) {}
 
   /**
@@ -66,7 +72,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
    */
   async tick(orgId: OrgId): Promise<number> {
     const executed = await executeQueuedRuns({
-      runs: this.runs, model: this.model, clock: this.clock, log: this.log,
+      runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;

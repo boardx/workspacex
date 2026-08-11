@@ -27,7 +27,7 @@ const ORG = toOrgId("org-i970-attach");
 
 function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
   return {
-    runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-now",
+    runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-now", requesterUserId: "user-1",
     inputText: "附件是什么？", inputAttachments: [], agentId: "agent-1",
     agentVersionId: "agent-version-1", instructions: "你是通用助手", skillVersionIds: [],
     modelProvider: "test-provider", modelId: "test-model", ...overrides,
