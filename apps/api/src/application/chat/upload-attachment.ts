@@ -53,6 +53,9 @@ export interface AttachmentCommandRepository {
   insertAttachment(row: AttachmentRow): Promise<void>;
 }
 
+/** DI 令牌——与 `CHAT_MESSAGE_COMMAND_REPOSITORY` 同套，绑定在 kernel.module。 */
+export const CHAT_ATTACHMENT_COMMAND_REPOSITORY = Symbol("ChatAttachmentCommandRepository");
+
 export interface UploadAttachmentDeps extends ResolveVisibilityDeps {
   readonly attachments: AttachmentCommandRepository;
   readonly store: ObjectStore;

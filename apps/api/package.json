@@ -23,6 +23,7 @@
     "@repo/contracts": "workspace:*",
     "bcryptjs": "^3.0.2",
     "ioredis": "^5.4.1",
+    "multer": "2.2.0",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@repo/fabric-markdown": "workspace:*",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.10",
     "@types/ws": "^8.5.13",

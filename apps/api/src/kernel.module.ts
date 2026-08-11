@@ -201,6 +201,10 @@ import {
 } from "./infrastructure/chat/pg-chat-message-command-repository";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
+// #946 · V9-a F150：对话附件上传——独立仓储 + 独立控制器（不塞进 1130 行的 ChatController）。
+import { CHAT_ATTACHMENT_COMMAND_REPOSITORY } from "./application/chat/upload-attachment";
+import { PgChatAttachmentRepository } from "./infrastructure/chat/pg-chat-attachment-repository";
+import { ChatAttachmentController } from "./interface/controllers/chat-attachment.controller";
 // F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
 // 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
@@ -482,6 +486,7 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     OrgAdminScopeController,
     InterviewScopeController,
     ChatController,
+    ChatAttachmentController,
     OrgInviteController,
     OrgAdminManagementController,
     FilesBrowserController,
@@ -832,6 +837,14 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
     {
       provide: CHAT_MESSAGE_COMMAND_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatMessageCommandRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // #946 · V9-a F150：附件 pending 计数 + 落行。复用 OBJECT_STORE / ID_FACTORY / CLOCK
+      // （见 ChatAttachmentController 的注入），不新造对象存储或 id 工厂——与 land-as-artifact
+      // 同一套字节落地设施。
+      provide: CHAT_ATTACHMENT_COMMAND_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgChatAttachmentRepository(db),
       inject: [DATABASE_PORT],
     },
     {

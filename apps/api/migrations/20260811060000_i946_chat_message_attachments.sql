@@ -38,3 +38,18 @@ CREATE INDEX IF NOT EXISTS chat_message_attachments_thread_pending_idx
 -- 按消息回读附件（listMessages 的 attachments 投影）。
 CREATE INDEX IF NOT EXISTS chat_message_attachments_message_idx
   ON chat_message_attachments (message_id);
+
+-- 租户隔离（与 agent_runs / chat_messages 同一套）：应用角色只能看/写自己组织的行，
+-- 由 `DatabasePort.withTenant` 设的 `app.current_org` 会话变量圈定。无此段，app_rw 连
+-- 表都无权访问（permission denied），且缺 RLS 会让一个组织读到另一个组织的附件。
+ALTER TABLE chat_message_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_message_attachments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS chat_message_attachments_tenant ON chat_message_attachments;
+CREATE POLICY chat_message_attachments_tenant ON chat_message_attachments
+  USING (org_id = current_setting('app.current_org', true))
+  WITH CHECK (org_id = current_setting('app.current_org', true));
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON chat_message_attachments TO app_rw;
+
+-- 组织冻结策略（合规冻结时禁写），与其余租户表一致。
+SELECT kernel_apply_org_freeze_policies();
