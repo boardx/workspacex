@@ -16,7 +16,7 @@
 
 | ID | P | 状态 | 交付物 | 依赖 | 完成契约 |
 |---|---|---|---|---|---|
-| CE-000 | P0 | ⬜ 未开始 | 本提案人类 Accept/Revise/No-Go | 无 | 状态从 Proposed 变 Accepted，人类明确表态，无保留或带修订 |
+| CE-000 | P0 | ✅ 完成（2026-08-11） | 本提案人类 Accept/Revise/No-Go | 无 | 人类逐字「CE-000 接受，解析统一用 anydoc」——Accepted 带一处修订（CE-012/013 统一 anydoc），已写回提案头 |
 | CE-001 | P0 | ⬜ 未开始 | CE-030~032（Claim 生命周期；UI 条目为 CE-032）所属契约束的 `design-signoff.md` | CE-000 | 束内三节签核（UI/用例/API 契约）齐全，人类签字，不能 agent 自签；CE-030~032 共同引用这一处签核 |
 | CE-002 | P0 | ⬜ 未开始 | FunASR 独立服务的资源占用现场实测报告 | CE-000 | 真实起 FunASR 服务，记录模型加载时间、内存/CPU 占用、单次转录延迟，写进 issue evidence——不是查文档估算，是真跑一次 |
 
@@ -26,8 +26,8 @@
 |---|---|---|---|---|---|
 | CE-010 | P0 | ⬜ 未开始 | `MinioObjectStore`（`ObjectStore` port 的第二个实现） | 无 | 复用 `fs-object-store.ts` 同一 port 接口；真实读写 MinIO（`docker-compose.dev.yml` 已有的 minio 服务）；write-once 语义靠 MinIO 版本化/object-lock 落实（不是应用层假装）；反证：并发两次 `putOnce` 同 key，一个成功一个报 `ObjectExistsError` |
 | CE-011 | P0 | ⬜ 未开始 | 生产环境对象存储配置切换（fs → MinIO） | CE-010 | 一个环境变量/配置开关切换实现，不改上层代码；现有 `fs-object-store.test.ts` 的契约测试对 MinIO 实现重跑一遍全绿 |
-| CE-012 | P0 | ⬜ 未开始 | 真实 PDF 解析（替换"字节当 UTF-8 文本"的 stub） | 无 | 选一个真实 PDF 解析库（如 `pdf-parse`/`pdfjs-dist`），提取真实文本+页码锚点；反证：喂一份多页真实 PDF，`anchors.page` 字段对应真实页码，不是伪造的连续整数 |
-| CE-013 | P0 | ⬜ 未开始 | 真实 Office 解析（docx/pptx，替换 stub） | 无 | 选真实解析库（如 `mammoth` for docx），提取真实文本；`generatorModel` 字段如实写真实库名+版本，不再是 `"deterministic-document-parser"` |
+| CE-012 | P0 | ⬜ 未开始 | 真实 PDF 解析（替换"字节当 UTF-8 文本"的 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（人类 2026-08-11 裁决「解析统一用 anydoc」；W1/#934 已过依赖评审），提取真实文本+页码锚点；反证：喂一份多页真实 PDF，`anchors.page` 字段对应真实页码，不是伪造的连续整数 |
+| CE-013 | P0 | ⬜ 未开始 | 真实 Office 解析（docx/pptx，替换 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（同 CE-012 的人类裁决，docx/pptx 同库），提取真实文本；`generatorModel` 字段如实写真实库名+版本，不再是 `"deterministic-document-parser"` |
 | CE-014 | P0 | ⬜ 未开始 | tesseract.js OCR 真实接入 | 无 | 真实识别一张含文字的真实图片，`derived_representations` 落真实识别文本 + 置信度；`generatorModel` 如实写 `tesseract.js@<version>`，不再是 `"stub-ocr-engine"` |
 | CE-015 | P0 | ⬜ 未开始 | FunASR 独立服务骨架（同 `apps/deep-agent-service` 部署模式） | CE-002 | `apps/asr-service`（Python，FunASR 官方 FastAPI 范式）；`apps/api` 摄取 adapter 通过 HTTP 调用；反证：喂一段真实音频，返回真实转录文本 + 时间码，`generatorModel` 如实写 FunASR 模型名+版本 |
 | CE-016 | P1 | ⬜ 未开始 | 摄取幂等性在真实解析器下重新验证 | CE-012~015 | 既有 `idempotent-no-duplicate-segment.test.ts` 换真实解析器后重跑，确认幂等键（`content_hash+pipeline_version+parser_version`）在真实解析场景下仍然成立 |
