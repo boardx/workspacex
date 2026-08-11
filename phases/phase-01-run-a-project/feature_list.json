@@ -3592,6 +3592,114 @@
       "priority": 1,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F159",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-API",
+      "title": "token 计量单一写入点：模型调用是唯一产生用量事实的地方（成功/失败都记，append-only）",
+      "user_visible_behavior": "任何一次 agent run 的模型调用结束后，库里多出且只多出一条 token 用量事件（org/用户/模型/输入输出 token/成败）；调用失败也留一行（tokens=0、outcome=failed），不是「失败就没有用量」；这条流水只能追加，改写与删除被数据库拒绝。后台『成员与配额』『用量监控』两屏的一切数字都只从这条流水派生，产品里没有第二个写入口。",
+      "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": "02",
+      "owner": "dev-org-admin",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/auth/token-usage-single-write-path.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/token-usage-append-only.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[实测缺口]——2026-08-12 实测（SHA 54d9e340）全仓零 token 计量落库：agent_runs 有 model_provider/model_id 却无 token 列，configured-model-provider 已从上游 usage.total_tokens 解出 tokens 并经 complete()/completeStream() 返回，execute-run 拿到后丢弃。本 feature 只做「把已经拿到的数记下来」，不新增上游调用。⚠ 写入点唯一性是本 feature 的主张，反证测试断言除 execute-run 外没有第二处 INSERT。属 org-admin 束；新表 → 需 design-delta 补签（coord-main 2026-08-12 裁决第 2 条）。"
+    },
+    {
+      "id": "F160",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "成员 token 配额：组织额度 → 逐人分配，已分配/未分配/超支预警三卡与调整入口全部读真库",
+      "user_visible_behavior": "管理员在『成员与配额 · 成员配额』看到组织本月额度与已用百分比、已分配/未分配/超支预警(已用>85%)三张卡，以及每位成员的本月配额使用条与真实用量；点[调整]改某人额度，保存后列表与三张卡立即反映新值；把某人调到「逐人分配之和 > 组织额度」时保存被拒绝并说明还差多少，不是静默截断。页面上不再有『尚未接后端』提示。",
+      "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
+      "depends_on": [
+        "F159"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "02",
+      "owner": "dev-org-admin",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/auth/member-token-quota-allocation.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/member-token-quota-overallocation-rejected.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/admin-members-quota-live.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[已签核] org-admin 束 ①（ui.md 第 7 行 /admin/members，锚 admin-member-quota-<id> / -save / -cancel 已建成）+ [实测缺口] 数据全来自 lib/mock/admin.MEMBERS。⚠ 与 F11 的 seat_quota（人数配额、O-29⑤ 硬阻断）是两件不同的配额，不得合并到同一列：F11 管「还能邀几个人」，本 feature 管「每人每月几个 token」。⚠ 本轮不碰名册两副本（mock/admin.MEMBERS vs mock/org-admin.ORG_MEMBERS）收敛，属 F11 整并地盘（coord-main 2026-08-12 裁决第 4 条），本屏引用哪份须在代码里如实标注。新端点 → design-delta 补签。"
+    },
+    {
+      "id": "F161",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "用量监控真栈：四个统计窗口各自真聚合（换窗口换数），人×模型矩阵与模型分布由流水派生",
+      "user_visible_behavior": "管理员切换『最近 5 小时 / 今日 / 本周 / 本月』时四张概览卡、人×模型用量矩阵、按模型分布三块的数字都跟着变——每个窗口是一次真实聚合，不是同一份快照换个选中态；组织里没有任何模型调用时该屏显示空态而不是示例数字；矩阵每一格都能对上 token 计量流水里的原始事件。",
+      "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
+      "depends_on": [
+        "F159"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "02",
+      "owner": "dev-org-admin",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/auth/usage-window-aggregation.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/admin-usage-monitor-live.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[已签核] 束 ① 同屏三 tab（usage-monitor-tab.tsx 已建成，锚 admin-usage-tab / admin-usage-window-<w>）+ [实测缺口] 该文件自带注释逐字承认『窗口切换只影响本地展示态（无后端），mock 定死一份「本周」快照』。本 feature 就是消灭那句注释。新端点 → design-delta 补签。"
+    },
+    {
+      "id": "F162",
+      "priority": 2,
+      "area": "auth",
+      "capability": "CAP-API",
+      "title": "限额策略：五类范围规则落库 + 求值取最先触发 + 触发即写事件（喂给用量监控的『近期限额事件』）",
+      "user_visible_behavior": "管理员在『限额策略』tab 增删改规则，范围可选个人/角色/团队/Agent/模型；一次调用同时命中多条规则时按『最先触发的那条』生效并在事件里写明是哪条命中，不是笼统说超限；每次触发在『用量监控 · 近期限额事件』里出现一行真实记录，带时间、对象、命中规则与处置。",
+      "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
+      "depends_on": [
+        "F159"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "02",
+      "owner": "dev-org-admin",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/auth/limit-rule-crud.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/limit-rule-first-trigger-wins.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/admin-limit-policy-live.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型] limit-policy-tab.tsx + lib/mock/admin-limits.LIMIT_RULES（LimitScopeKind 五值）已建成界面。⚠ 『取最先触发』这条判据来自 phase-03 F14（异常检测三级阈值取最先触发）的同一语义——本 feature 只做组织额度侧的规则求值，不把 F14 的四类任务处置矩阵领进来（coord-main 2026-08-12 裁决第 1 条：不整条领 phase-03）。新表+新端点 → design-delta 补签。"
+    },
+    {
+      "id": "F163",
+      "priority": 2,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "『你作为管理员看不到什么』接既有真端点：个人层计数与项目层访问留痕不再是示例数据",
+      "user_visible_behavior": "边界区里每位成员的『私有条目 N 条 · 内容不可见』是从真库查出的计数，且该响应体里结构上没有内容字段；[看我的访问记录]打开的是当前管理员真实的项目层访问留痕（本月访问过几个项目也是真数）；组织里没人有私有条目时显示 0 而不是示例数字。整屏 NoBackendNotice 摘除。",
+      "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R7",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": "02",
+      "owner": "dev-org-admin",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/admin-members-boundary-live.test.tsx",
+        "pnpm --filter api exec vitest run tests/auth/admin-boundary-personal-counts-only.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[已签核 + 后端已 passing]——F06 已把 D-18 两侧做完并 passing（GET /identity/personal-layer/summary、admin-access-log 三条端点均在契约里）。本 feature **不新增任何后端**，只是把已经存在的真端点接到界面上，属纯接线。⚠ 这一条是 ui.md 第五节 K-10『管理员边界有两处载体各说各的』的收敛落点之一：本屏接真数后，/org-admin 预览屏的 boundary 原型应标注为已被产品屏取代。"
     }
   ]
 }

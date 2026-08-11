@@ -23,7 +23,7 @@ const ORG = toOrgId("org-i654-exec");
 
 function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
   return {
-    runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-1",
+    runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-1", requesterUserId: "user-1",
     inputText: "hello", inputAttachments: [], agentId: "agent-1", agentVersionId: "agent-version-1",
     instructions: "be helpful", skillVersionIds: [], modelProvider: "test-provider",
     modelId: "test-model", ...overrides,
