@@ -255,11 +255,26 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
 /* ───────────────────────────── 更新 ───────────────────────────── */
 
 export function CapabilityEditForm({
-  ctx, row, onClose,
+  ctx, row, onClose, extra,
 }: {
   ctx: MutateContext;
   row: CapabilityListing;
   onClose(): void;
+  /**
+   * #848 —— 挂在表单下方的、按 kind 定制的额外区块（目前只有 skill 目录用它挂
+   * 「内容（文件树 / 代码）」面板）。
+   *
+   * ⚠ 刻意做成**注入**而不是在这里直接 `import` skill 内容编辑器：那个编辑器复用的
+   * `AgSkillEditor`（`asset-governance/ag-screens.tsx`）为了保留 `/asset-governance`
+   * 原型路由的七态演示，传递性依赖 `lib/mock/asset-governance.ts`。本文件被
+   * `capability-catalog-screen.tsx` 同时用在 `/admin/agent` 与 `/admin/skill` 两条路由上，
+   * 而 `agent-admin-route-no-mock.test.ts`（#458）机械断言 `/admin/agent` 的整棵依赖树
+   * 不含任何 `lib/mock/**` 边——在这里静态 `import` 一次，哪怕只在 `kind === "skill"`
+   * 时才渲染，那条边在**依赖图**里也已经存在，会把 `/admin/agent` 一起拖下水
+   * （`walk()` 走的是 import 语句，不是运行时分支）。调用方（`skill-screen.tsx`）
+   * 自己决定要不要传，`agent-screen.tsx` 不传，图就干净。
+   */
+  extra?: React.ReactNode;
 }) {
   const [name, setName] = React.useState(row.name);
   const [scope, setScope] = React.useState<VisibilityScope>(row.scope);
@@ -354,6 +369,7 @@ export function CapabilityEditForm({
           {busy ? "保存中…" : "保存"}
         </Button>
       </div>
+      {extra}
     </div>
   );
 }

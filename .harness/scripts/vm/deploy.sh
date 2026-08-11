@@ -144,6 +144,27 @@ step "4f. URL 导入 skill 的 capability_listings 补种（2026-08-07 —— �
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
   pnpm --filter api exec tsx scripts/backfill-skill-capability-listings.ts
 
+step "4g. 对象存储根目录（2026-08-11 —— 头像/文件对象曾落在 /tmp/workspacex-objects，重启或 tmp 清理即丢）"
+# `object-store-root.ts`：WORKSPACEX_OBJECT_ROOT 未设时落回 tmpdir——那是开发默认值，
+# 文件头逐字写着「A deployment that leaves this unset and expects durability has
+# misconfigured itself」。devapp 从 provision 起就是这个误配状态。
+# 幂等：已有配置则只确保目录存在、属 ${RUN_AS} 可写。
+OBJECT_ROOT_DEFAULT=/opt/workspacex/objects
+if ! grep -q '^WORKSPACEX_OBJECT_ROOT=' "$ENV_FILE"; then
+  echo "WORKSPACEX_OBJECT_ROOT=${OBJECT_ROOT_DEFAULT}" >> "$ENV_FILE"
+  echo "  deploy.env 里没有 WORKSPACEX_OBJECT_ROOT，已写入默认值 ${OBJECT_ROOT_DEFAULT}"
+fi
+OBJECT_ROOT=$(grep '^WORKSPACEX_OBJECT_ROOT=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
+install -d -o "$RUN_AS" -g "$RUN_AS" "$OBJECT_ROOT"
+# 把误配时期已经落在 /tmp 的对象搬过来（-n 不覆盖：正式根目录里已有的对象是权威——
+# putOnce 语义下同 key 不会有第二个版本，搬运只补缺不改写）。
+if [ -d /tmp/workspacex-objects ]; then
+  cp -an /tmp/workspacex-objects/. "$OBJECT_ROOT"/ 2>/dev/null || true
+  chown -R "$RUN_AS":"$RUN_AS" "$OBJECT_ROOT"
+  echo "  已把 /tmp/workspacex-objects 的存量对象合并进 ${OBJECT_ROOT}（不覆盖既有）"
+fi
+echo "  对象存储根目录就绪：${OBJECT_ROOT}"
+
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
 # 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。

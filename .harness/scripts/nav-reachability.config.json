@@ -10,12 +10,15 @@
   "phase-01-run-a-project": {
     "bundleRoutes": {
       "chat": "/chat",
+      "chat-file-upload": "/chat",
+      "chat-context-engine": "/chat",
       "project": "/projects",
       "templates": "/tpl",
       "interview": "/itv",
       "recording": "/rec",
       "canvas": "/canvas",
       "skills": "/skill",
+  "curated-capability-packs": "/skill",
       "agent-runtime": "/preview/agent-runtime",
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",

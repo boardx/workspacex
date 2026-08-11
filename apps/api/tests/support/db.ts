@@ -202,9 +202,11 @@ export async function seedOrg(opts: {
   projectKind?: "workshop" | "research_project" | "user_insight";
   groupNames?: string[];
   /**
-   * F11: `organizations.seat_quota` (migration 20260731085758) defaults to 0 in
-   * production -- "unallocated" is the deliberate starting state (O-29 ⑤), not an
-   * oversight a fixture should paper over. But every fixture written BEFORE F11 calls
+   * F11: `organizations.seat_quota` (migration 20260731085758) defaulted to 0 in
+   * production; migration 20260811040000 raised the column default to 50 after the
+   * devapp incident where a freshly bootstrapped org could not invite anyone at all
+   * (counter-proof: tests/auth/new-org-default-quota.test.ts). Every fixture written
+   * BEFORE F11 calls
    * `inviteOrgMember` never having heard of a seat limit, and a column that starts at
    * 0 in production cannot also start at 0 here without breaking every one of them on
    * the day quota enforcement lands (`member-invite-activation.test.ts` did, verified).

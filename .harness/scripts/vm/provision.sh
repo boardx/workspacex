@@ -141,6 +141,10 @@ APP_WEB_PORT=${APP_WEB_PORT}
 NEXT_PUBLIC_API_URL=https://${PUBLIC_DOMAIN}
 NEXT_PUBLIC_API_PATH_PREFIX=/api
 PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
+# 2026-08-11：不设它时 object-store-root.ts 落回 /tmp（开发默认值），头像/文件对象
+# 重启或 tmp 清理即丢。deploy.sh 第 4g 步会兜底补写并建目录，这里写上是让新机器
+# 从第一天就不经过误配状态。
+WORKSPACEX_OBJECT_ROOT=/opt/workspacex/objects
 EOF
   chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
   chmod 600 "$ENV_FILE"

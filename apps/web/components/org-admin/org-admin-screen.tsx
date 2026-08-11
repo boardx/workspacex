@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
-import { ApiError, apiBaseUrl, getStoredSessionToken } from "@/lib/api-client";
+import { ApiError, apiUrl } from "@/lib/api-client";
+import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
+import { invalidateOrgAvatar } from "@/components/shell/org-menu";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import {
@@ -1060,54 +1062,11 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
 
 const DESCRIPTION_MAX = 500;
 
-/**
- * 组织头像走**受鉴权**的 `GET /organizations/:orgId/avatar-file/:id`（`@CurrentPrincipal`
- * 门控，见 controller 文件头注释）——裸 `<img src>` 发不出 `Authorization` 头，直接指向
- * 这条路由会永远拿到 401、图裂掉（D9 实测：curl 不带 Authorization → 401；带 → 200）。
- * 与本仓其余真实请求同一条纪律（`api-client.ts`：Bearer token 不是 cookie）——手动
- * `fetch` 带上头，拉 blob，`URL.createObjectURL()` 出一个本地 blob URL 再喂给 `<img>`。
+/*
+ * 组织头像的受鉴权拉取（原 useAuthedImageSrc）已提升到 `lib/use-authed-image-src.ts`
+ * 共享——左上角组织菜单（`components/shell/org-menu.tsx`）也要拉同一类受鉴权图片，
+ * 同一份实现不许出现第二份副本。理由与 D9 实测见该文件头注释。
  */
-function useAuthedImageSrc(url: string | null): { src: string | null; failed: boolean } {
-  const [src, setSrc] = React.useState<string | null>(null);
-  const [failed, setFailed] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!url) {
-      setSrc(null);
-      setFailed(false);
-      return;
-    }
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    setFailed(false);
-    (async () => {
-      try {
-        // 鉴权是 Bearer token，不是 cookie（同 `api-client.ts` 文件头那条纪律）——
-        // 不需要 `credentials: "include"`，`Authorization` 头本身就带着身份。
-        const token = getStoredSessionToken();
-        const res = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (!res.ok) throw new Error(`http_${res.status}`);
-        const blob = await res.blob();
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setSrc(objectUrl);
-      } catch {
-        if (!cancelled) {
-          setSrc(null);
-          setFailed(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [url]);
-
-  return { src, failed };
-}
 
 function OrgProfileTab({ orgId }: { orgId: string }) {
   const { updateOrgName } = useSession();
@@ -1189,6 +1148,9 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       const uploaded = await uploadOrgAvatar({ orgId, file });
       const out = await updateOrganization({ orgId, avatarArtifactId: uploaded.orgAvatarArtifactId });
       setProfile(out);
+      // 左上角组织菜单也显示这张头像（2026-08-11 信息架构调整）——同下面 updateOrgName
+      // 的道理：同一个事实两处显示，不许等整页 reload 才同步。
+      invalidateOrgAvatar(orgId);
       // D5：图片本身要靠鉴权 fetch 异步拉回来才显示（见 `useAuthedImageSrc`），中间那段
       // 时间用户不该完全没反馈——补一条显式的成功提示，2.5s 后自动收起。
       setAvatarSavedNotice(true);
@@ -1198,6 +1160,10 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError("图片超过 5MB 上限，服务端已拒绝，未上传。");
         else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError("文件内容与声明的图片格式不符（服务端按真实字节校验），未上传。");
         else setAvatarError(`上传失败：${err.reasonCode ?? err.status}`);
+      } else if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        // 2026-08-11 devapp 实测：请求可能永远不返回（见 live-org-admin.ts 的硬超时）。
+        // 超时必须给出明确反馈，不许停在「上传中…」。
+        setAvatarError("上传超时，请重试。");
       } else {
         setAvatarError("上传失败，请稍后重试。");
       }
@@ -1206,7 +1172,11 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
     }
   }
 
-  const avatarUrl = profile?.avatarUrl ? `${apiBaseUrl()}${profile.avatarUrl}` : null;
+  // ⚠ 2026-08-11 实测修复：原来写 `${apiBaseUrl()}${profile.avatarUrl}` 字符串拼接，
+  //   会吃掉 `NEXT_PUBLIC_API_PATH_PREFIX`（fullstack e2e 的同源代理前缀）——
+  //   avatar-file GET 打到没有前缀的路径上 404，头像在代理环境下永远显示回落态。
+  //   `apiUrl()` 是本仓唯一的 URL 拼接规则（api-client.ts #654 注释），跟着它走。
+  const avatarUrl = profile?.avatarUrl ? apiUrl(profile.avatarUrl) : null;
   const { src: avatarSrc } = useAuthedImageSrc(avatarUrl);
 
   return (

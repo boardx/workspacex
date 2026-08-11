@@ -533,14 +533,30 @@ export function AgGovernance({
 /* ─────────────────────────── ④/⑤ 编辑器（Skill / Agent 同构）─────────────────────────── */
 
 function Editor({
-  kind, state, view,
+  kind, state, view, assetId, assetLabel,
 }: {
   kind: "skill" | "agent";
   state: UiState;
   view: AgView;
+  /**
+   * #848：调用方（如 `/admin/skill` 的编辑入口）可以传一个**真实** `assetId`，
+   * 覆盖掉这个组件原本写死的 `main.slug`（该 prototype 常量对应固定的示例 skill，
+   * 与目录页里的真实记录八竿子打不着）。不传 = 与此前行为逐字一致（`/asset-governance`
+   * 原型路由继续用 `main.slug`），⇒ 向后兼容，不影响该路由已有的七态演示与既有测试。
+   *
+   * ⚠ 只对 `kind === "skill"` 有意义：`PgAssetFileRepository` 目前只把 `skill` 接到真实
+   * `skills`/`skill_versions`/`skill_version_files`（#785），`agent` 仍回退到
+   * `FixtureAssetFileRepository`（#787 未解决）——调用方不应该对 `agent` 传 `assetId`，
+   * 传了也只会打到同一份写死的 fixture 目录，不会变得更真。
+   */
+  assetId?: string;
+  /** 配 `assetId` 一起传：显示用的真实名称，覆盖 `main.name`。不传则回退 `main.name`。 */
+  assetLabel?: string;
 }) {
   const mockTree = kind === "skill" ? AG_SKILL_TREE : AG_AGENT_TREE;
   const main = kind === "skill" ? AG_SKILL_MAIN : AG_AGENT_MAIN;
+  const liveAssetId = assetId ?? main.slug;
+  const liveAssetLabel = assetLabel ?? main.name;
   const [sel, setSel] = React.useState(mockTree[0]!.path);
   const [tab, setTab] = React.useState<"edit" | "preview">("edit");
   const label = kind === "skill" ? "Skill" : "Agent";
@@ -549,8 +565,10 @@ function Editor({
   // ── F367：真实 GetAssetDirectory / ReadAssetFile（`asset-directory.controller.ts`）。
   // 只在本地已有 F122 登录写入的 session token 时才打真实接口——本页面没有自己的登录 UI，
   // 未登录时保持原有 mock 展示（不是网络失败，是从没发起请求）。
-  // ⚠ 文件字节仍来自 `FixtureAssetFileRepository`：真实的是 HTTP 路由 + 组织成员校验，
-  // 不是文件内容本身按 assetId 各异——见 `lib/asset-directory.ts` 顶部长注。
+  // ⚠ #848 之前这里写着「文件字节仍来自 FixtureAssetFileRepository」——那句话在 #785
+  //   之后只对 `agent` 仍成立：`kind === "skill"` 时，`PgAssetFileRepository` 已经把
+  //   `assetId` 解析成真实 `skills.id`，返回的是这个组织这个 skill 自己的
+  //   `skill_version_files`，不是随便传什么都返回同一份 fixture。
   const [liveDir, setLiveDir] = React.useState<AssetDirectory | null>(null);
   const [liveError, setLiveError] = React.useState<string | null>(null);
   const isLive = liveDir !== null;
@@ -561,7 +579,7 @@ function Editor({
     const token = getStoredSessionToken();
     if (!token) return;
     let cancelled = false;
-    getAssetDirectory(kind, main.slug)
+    getAssetDirectory(kind, liveAssetId)
       .then((dir) => {
         if (!cancelled) setLiveDir(dir);
       })
@@ -571,7 +589,7 @@ function Editor({
     return () => {
       cancelled = true;
     };
-  }, [kind, main.slug]);
+  }, [kind, liveAssetId]);
 
   const tree: FileNode[] = liveDir
     ? liveDir.files.map((f) => ({
@@ -597,7 +615,7 @@ function Editor({
     if (!isLive) return;
     let cancelled = false;
     setFileBusy(true);
-    readAssetFile(kind, main.slug, sel)
+    readAssetFile(kind, liveAssetId, sel)
       .then((f) => {
         if (!cancelled) { setLiveBody(f.body); setDraft(f.body); }
       })
@@ -611,7 +629,7 @@ function Editor({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, kind, main.slug, sel]);
+  }, [isLive, kind, liveAssetId, sel]);
 
   return (
     <Wrap view={view} what={`${label} 编辑器`} state={state} empty={`这个 ${label} 目录还是空的`}
@@ -621,8 +639,8 @@ function Editor({
         <div className="flex flex-wrap items-center justify-between gap-2" data-testid={`ag-${kind}-editor-top`}>
           <div className="flex items-center gap-2">
             <Button size="xs" variant="ghost" data-testid={`ag-${kind}-back`}>‹ {label} 列表</Button>
-            <span className="text-13 font-medium text-foreground">{main.name}</span>
-            <Badge tone="outline" className="font-mono">{main.slug}</Badge>
+            <span className="text-13 font-medium text-foreground">{liveAssetLabel}</span>
+            <Badge tone="outline" className="font-mono">{liveAssetId}</Badge>
             {"model" in main && <Badge tone="ai" className="font-mono">{(main as typeof AG_AGENT_MAIN).model}</Badge>}
             {/* #881：只在**真的**有未保存改动时显示。此前这段是写死的，永远显示。 */}
             {dirty ? (
@@ -644,7 +662,7 @@ function Editor({
               //   发出真实写请求，写到一个并不是你在看的那个 skill 上。
               disabled={!isLive || !dirty}
               onConfirm={isLive ? async () => {
-                await writeAssetFile(kind, main.slug, sel, draft);
+                await writeAssetFile(kind, liveAssetId, sel, draft);
                 // 写成功后把「服务端那一版」推进到刚保存的内容 ⇒ dirty 归位。
                 // ⚠ 不重新 GET：服务端返回的就是它写下的字节，再读一次不会更真，
                 //   反而会把「保存成功」与「读成功」两件事绑在一起。
@@ -652,7 +670,7 @@ function Editor({
               } : undefined}
               impact={
                 <>
-                  <span className="font-medium text-foreground">影响范围：发布 {main.name} 新版本</span>
+                  <span className="font-medium text-foreground">影响范围：发布 {liveAssetLabel} 新版本</span>
                   <span>· 已建实例锁定在旧版本、不因发新版漂移。</span>
                   <span>· 新绑定将使用新版本；发布需先过一次无阻断试跑。</span>
                 </>
@@ -727,8 +745,8 @@ function Editor({
   );
 }
 
-export function AgSkillEditor(p: ScreenProps) {
-  return <Editor kind="skill" state={p.state} view={p.view} />;
+export function AgSkillEditor(p: ScreenProps & { assetId?: string; assetLabel?: string }) {
+  return <Editor kind="skill" state={p.state} view={p.view} assetId={p.assetId} assetLabel={p.assetLabel} />;
 }
 export function AgAgentEditor(p: ScreenProps) {
   return <Editor kind="agent" state={p.state} view={p.view} />;

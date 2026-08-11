@@ -7,6 +7,9 @@ developers:
   - email: 2325074+usamshen@users.noreply.github.com
     github: usamshen
     role: maintainer
+  - email: 147526627+usersyj@users.noreply.github.com
+    github: usersyj
+    role: contributor
 
 agents:
   # ── 主协调者（唯一，合并权归它）─────────────────────────────
@@ -45,6 +48,17 @@ agents:
   #   kind: worker
   #   owner: you@example.com
   #   areas: [<模块名>]
+
+  # ── Studio 实时转录 worker（无分派、审批或合并权）──────────────
+  - id: dev-studio-asr
+    active: true
+    kind: worker
+    model: configured-default
+    owner: qq13613030605
+    areas: [studio, recording]
+    reports_to: coord-main
+    responsibilities:
+      - 实现 Studio 实时转录、阿里云 Fun-ASR、转录落库与 Skill 分析链路
 
   # ── chat/agent/skills/canvas/recording 模块协调者（无合并权）────────
   # ⚠ H3A-011 裁决（2026-08-08，人类）：本身份同时是 DOM-CHAT/DOM-CANVAS-DIAGRAM/
@@ -168,6 +182,59 @@ agents:
     reports_to: coord-main
     responsibilities:
       - 接通 Chat 已签核读路径并维护浏览器到数据库的集成证据
+
+  # ── 远程工程师（Codex）domain 团队（2026-08-11 人类指令注册；均无合并权）────
+  # 运行工具：Codex（规格单源在本 registry，`pnpm harness gen-subagents` 生成
+  # Codex 格式，行为不漂移——CI 门控）。owner 挂 developers 里已登记的远程工程师 usersyj。
+  # ⚠ directory_agent_id / token：registry 合并后走接入自助通道领取
+  # （ADR-011 P2），或由仓库所有者带外 mint 后经密码管理器/一次性链接交付；
+  # 明文 token 不进仓库、不进邮件（coord-directory 代码不变量：只存 hash 前缀）。
+  - id: coord-survey
+    active: true
+    kind: module-coordinator
+    model: codex
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [survey, questionnaire]
+    reports_to: coord-main
+    responsibilities:
+      - 问卷（survey）领域的分派、初审与返工裁决
+      - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
+
+  - id: coord-deep-research
+    active: true
+    kind: module-coordinator
+    model: codex
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [deep-research]
+    reports_to: coord-main
+    responsibilities:
+      - Deep Research 领域（open-deep-research 编排与研究产出链）的分派、初审与返工裁决
+      - 与既有 research 束 owner 的边界冲突交 coord-main 仲裁，不自行跨界
+      - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
+
+  - id: coord-user-research
+    active: true
+    kind: module-coordinator
+    model: codex
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [user-research]
+    reports_to: coord-main
+    responsibilities:
+      - 用户研究领域（访谈洞察消费侧）的分派、初审与返工裁决
+      - 与既有 interview / research 束 owner 的边界冲突交 coord-main 仲裁，不自行跨界
+      - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
+
+  - id: coord-voice
+    active: true
+    kind: module-coordinator
+    model: codex
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [voice, asr, tts]
+    reports_to: coord-main
+    responsibilities:
+      - 语音领域（ASR/TTS/实时语音链路）的分派、初审与返工裁决
+      - 与既有 recording 束 owner 的边界冲突交 coord-main 仲裁，不自行跨界
+      - 把全绿 PR 转交 coord-main 做最终合并（本角色无合并权）
 
 reviewers:
   # 必需 reviewer 路由：required_for 含 "*" 或与 issue 的 area 相交 → 必须出 verdict

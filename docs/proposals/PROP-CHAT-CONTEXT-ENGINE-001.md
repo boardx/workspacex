@@ -112,6 +112,33 @@ interface ContextAssemblyPort {
 - 我会把 4.1/4.2 做成**设计 + 可落地骨架 + 待签处**，裁决问 coord-main，签核等人类。
 - 个人对话不召回这条要有真栈 e2e 反证（无项目 ⇒ 零检索请求），防止「假注入」。
 
+### 4.4 分层历史：突破 `HISTORY_MAX_MESSAGES = 20` 硬上限（coord-main 2026-08-11 点名，必纳入 V10）
+
+⚠ **实测暴露的真问题**：`HISTORY_MAX_MESSAGES = 20` 是 SQL 行数上限——`readThreadHistory`
+**只会取回本轮之前最近 20 条**。所以人类担心的场景「做了 100 轮来回」里，**前 80 轮对模型
+直接不存在**，根本进不了组装窗口；V8 的滚动摘要也只在这 20 条 / 12k 字符预算内玩，压的是
+「近 20 轮里超预算的那几轮」，**够不到第 21 轮以前的任何东西**。context engine 真要「用上」，
+这个 20 条上限必须打破，否则长对话的「记得前几轮」在第 20 轮之后必然失效。
+
+**分层历史设计**（三层，越旧越压缩，共同喂给 `ContextAssemblyPort` 组装）：
+
+| 层 | 内容 | 来源 | 预算占比（示意） |
+|---|---|---|---|
+| L1 近端原文 | 最近 N 轮（如 N=12）逐字原文 | `readThreadHistory`（行数上限从 20 提到可配） | 大头，保证近端连贯 |
+| L2 中段滚动摘要 | 第 N 轮以前、直到某个更早边界的**滚动摘要**（V8 的摘要能力**沿时间轴前推**，不再只压近端超预算轮） | 摘要调用（复用 `ModelCallPort.complete`）+ 可缓存进新表（见 §3.4/§4.5） | 中等，保任务与结论要点 |
+| L3 检索召回 | 与本轮 query 相关的更早片段/项目知识 | **context-pack/retrieval 引擎**（§4.1/4.2 接线） | 小而精，按相关性召回，不按时间 |
+
+**关键洞察**：L2 + L3 正是 V8 摘要与 V10 检索的**汇合点**——「文件就是 context engine 的第一个
+大客户」（见 V9），上传的文件内容进的就是 L3（检索召回）这一层。三层的预算分配、L2 摘要的
+滚动缓存（避免每轮重算）、L3 的权限约束检索，都要在 V10 一并设计。
+
+**落地依赖**：
+- 提高/可配 `HISTORY_MAX_MESSAGES`（行数上限）——注意这会连带提高 `readThreadHistory` 的
+  SQL 取回量与后续组装成本，要和预算/摘要一起调，不能只把 20 改大。
+- L2 滚动摘要缓存需要落库（新表）→ 契约 → **design-signoff**。
+- L3 = §4.1/4.2 的 context-pack 接线 → **design-signoff**。
+- 全部在 `ContextAssemblyPort` 端口内侧，`ModelCallPort` 契约不动。
+
 ## 5. 分期与依赖
 
 ```
@@ -119,9 +146,11 @@ V8（本文 §3）：ContextAssemblyPort + 滚动摘要 + token 预算（端口�
   ├─ 3.1–3.3 可落地：改 execute-run.ts（取 coord-main 串行窗口）+ 真栈 e2e
   └─ 3.4 快照表：备签（新表/契约）
 
-V10（本文 §4）：把 context-pack/retrieval 接进 §3 的组装窗口
-  ├─ 依赖 V8 的 ContextAssemblyPort 已就位
-  └─ 跨域接线 + 契约：备签（人类 design-signoff）
+V10（本文 §4）：分层历史 = L1 近端原文 + L2 中段滚动摘要 + L3 context-pack 检索召回
+  ├─ 依赖 V8 的 ContextAssemblyPort + 摘要能力已就位
+  ├─ 打破 HISTORY_MAX_MESSAGES=20 硬上限（§4.4）——否则长对话第 20 轮以前对模型不存在
+  ├─ L2 滚动摘要缓存落库 + L3 context-pack 接线：跨域 + 契约 → 备签（人类 design-signoff）
+  └─ 文件上传（V9）的内容进 L3 检索层——文件是 context engine 的第一个大客户
 ```
 
 ## 6. 需要 coord-main / 人类的

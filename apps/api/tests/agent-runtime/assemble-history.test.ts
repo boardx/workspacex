@@ -62,6 +62,34 @@ describe("assembleHistory", () => {
     expect(out).toEqual(trimHistoryToBudget(history, 5));
   });
 
+  it("summarize 抛错时调用 onSummarizeError 观测回调（coord-main #913：静默退化必须可见）", async () => {
+    const history = [msg("user", "x".repeat(20)), msg("user", "y".repeat(5))];
+    const boom = new Error("model down");
+    const onSummarizeError = vi.fn();
+    const out = await assembleHistory(history, 5, async () => { throw boom; }, onSummarizeError);
+    expect(onSummarizeError).toHaveBeenCalledTimes(1);
+    expect(onSummarizeError).toHaveBeenCalledWith(boom);
+    // 观测归观测，结果仍是退回丢弃行为
+    expect(out).toEqual(trimHistoryToBudget(history, 5));
+  });
+
+  it("onSummarizeError 回调自身抛错也不影响退回 kept（观测不能反过来拖垮组装）", async () => {
+    const history = [msg("user", "x".repeat(20)), msg("user", "y".repeat(5))];
+    const out = await assembleHistory(
+      history, 5,
+      async () => { throw new Error("model down"); },
+      () => { throw new Error("logger blew up"); },
+    );
+    expect(out).toEqual(trimHistoryToBudget(history, 5));
+  });
+
+  it("summarize 成功时不调用 onSummarizeError", async () => {
+    const history = [msg("user", "旧".repeat(200)), msg("user", "r1"), msg("user", "r2")];
+    const onSummarizeError = vi.fn();
+    await assembleHistory(history, 20, async () => "旧事", onSummarizeError);
+    expect(onSummarizeError).not.toHaveBeenCalled();
+  });
+
   it("summarize 返回空串时不插伪消息，退回丢弃行为", async () => {
     const history = [msg("user", "x".repeat(20)), msg("user", "y".repeat(5))];
     const out = await assembleHistory(history, 5, async () => "   ");
