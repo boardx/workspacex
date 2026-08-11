@@ -150,10 +150,32 @@ export function withAttachmentNotice(
   attachments: readonly HistoryAttachmentMeta[] | undefined,
 ): string {
   if (!attachments || attachments.length === 0) return content;
-  const list = attachments.map((a) => `${a.filename}（${a.mime}）`).join("、");
-  const notice = `［附件：${list}。这些文件已随该消息上传，但其内容尚未进入你的上下文——`
-    + `你只知道它们存在，暂时还无法读取里面的内容。］`;
+  // 逐个附件按抽取状态渲染——一条消息里不同附件状态可能不同（有的抽好了、有的是图片、有的还在抽）。
+  const notice = attachments.map(renderAttachmentForModel).join("\n\n");
   return content.length > 0 ? `${content}\n\n${notice}` : notice;
+}
+
+/**
+ * V9-b（F153）—— 按抽取状态把单个附件渲染成模型能读到的一段：
+ *   - extracted   → 折进**抽取内容摘录**（模型真能读文件了）。
+ *   - unsupported → 明说抽不出文本（图片无文字层）。
+ *   - failed      → 明说提取失败。
+ *   - pending/缺省 → 明说内容正在提取、暂不可读（A 阶段的诚实兜底，也覆盖旧数据）。
+ */
+function renderAttachmentForModel(a: HistoryAttachmentMeta): string {
+  const head = `${a.filename}（${a.mime}）`;
+  switch (a.extractionStatus) {
+    case "extracted":
+      return a.extractedExcerpt && a.extractedExcerpt.length > 0
+        ? `［附件 ${head} 的内容如下：\n${a.extractedExcerpt}\n］`
+        : `［附件 ${head}：已解析，但未提取到文本内容。］`;
+    case "unsupported":
+      return `［附件 ${head}：无法提取文本内容（例如图片没有文字层）。你知道用户上传了它，但读不到里面的文字。］`;
+    case "failed":
+      return `［附件 ${head}：内容提取失败，无法读取其内容。］`;
+    default:
+      return `［附件 ${head}：内容正在提取中，暂时还读不到——你只知道用户上传了这个文件。］`;
+  }
 }
 
 export async function assembleHistory(

@@ -74,13 +74,29 @@ describe("withAttachmentNotice（纯函数）", () => {
     expect(withAttachmentNotice("你好", undefined)).toBe("你好");
   });
 
-  it("有附件 → 文件名 + MIME 都出现，且明说内容还读不了（诚实，不装作能读）", () => {
+  it("附件未抽取（pending/缺省）→ 文件名+MIME 出现，且诚实说内容还读不到（不装作能读）", () => {
     const out = withAttachmentNotice("附件是什么？", [png]);
     expect(out).toContain("架构图.png");
     expect(out).toContain("image/png");
-    expect(out).toContain("尚未进入你的上下文");
-    // 原文本仍在最前，提示追加在后。
+    expect(out).toContain("正在提取中"); // 未抽取时的诚实兜底
     expect(out.startsWith("附件是什么？")).toBe(true);
+  });
+
+  it("V9-b：extracted → 把抽取内容摘录折进上下文（模型真能读文件了）", () => {
+    const out = withAttachmentNotice("总结一下这份文件", [{
+      filename: "简历.pdf", mime: "application/pdf",
+      extractionStatus: "extracted", extractedExcerpt: "# 张三\n资深后端工程师，8 年经验。",
+    }]);
+    expect(out).toContain("简历.pdf");
+    expect(out).toContain("张三"); // 真内容进了上下文
+    expect(out).toContain("资深后端工程师");
+  });
+
+  it("V9-b：unsupported（图片）→ 明说抽不出文本；failed → 明说提取失败", () => {
+    const img = withAttachmentNotice("", [{ filename: "照片.png", mime: "image/png", extractionStatus: "unsupported" }]);
+    expect(img).toContain("无法提取文本内容");
+    const failed = withAttachmentNotice("", [{ filename: "坏了.pdf", mime: "application/pdf", extractionStatus: "failed" }]);
+    expect(failed).toContain("内容提取失败");
   });
 
   it("多附件用顿号连接；空正文时只有提示、无前导换行", () => {

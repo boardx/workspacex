@@ -48,6 +48,11 @@ ALTER TABLE chat_message_attachments
     CHECK (extraction_status IN ('pending', 'extracted', 'unsupported', 'failed'));
 ALTER TABLE chat_message_attachments
   ADD COLUMN IF NOT EXISTS extraction_error text;
+-- 抽取内容的**有界摘录**（首 N 字，N 见 domain EXTRACTED_EXCERPT_MAX_CHARS），直接进 agent
+-- 上下文——放 DB 而非每次运行去对象存储读全文，省掉 run 组装里的 N 次对象 I/O，也给上下文一个
+-- 硬预算。全文仍在对象存储（extracted_ref），留给将来 CE 的 L3 按相关性召回（不整篇塞）。
+ALTER TABLE chat_message_attachments
+  ADD COLUMN IF NOT EXISTS extracted_excerpt text;
 
 DO $$
 BEGIN

@@ -77,16 +77,37 @@ describe("readThreadHistory —— 附件元数据聚合（真库反证）", () 
 
     // m1、m2、m3 三轮（trigger 不含），oldest-first。
     expect(history.map((h) => h.content)).toEqual(["看看这两个文件", "收到，看完了", "再看这个"]);
-    // m1 带回两个附件，顺序按 created_at,id。
+    // m1 带回两个附件，顺序按 created_at,id。未抽取 ⇒ extraction_status 默认 'pending'、
+    // excerpt 为 NULL（省略）——V9-b 的 SQL 顺带把抽取状态聚合回来。
     expect(history[0]!.attachments).toEqual([
-      { filename: "简历.pdf", mime: "application/pdf" },
-      { filename: "作品.png", mime: "image/png" },
+      { filename: "简历.pdf", mime: "application/pdf", extractionStatus: "pending" },
+      { filename: "作品.png", mime: "image/png", extractionStatus: "pending" },
     ]);
     // agent 轮没有附件 → 不挂 attachments 字段（保持「空/缺省=没有附件」）。
     expect(history[1]!.attachments).toBeUndefined();
     // m3 带回一个。
     expect(history[2]!.attachments).toEqual([
-      { filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+      { filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extractionStatus: "pending" },
+    ]);
+  });
+
+  it("V9-b：已抽取的附件 → history 带回 extractionStatus='extracted' + extractedExcerpt（内容进上下文）", async () => {
+    await addChatMessage({ orgId: ORG, id: "e1", threadId: THREAD, body: "看这份简历", authorId: ACTOR });
+    await asApp(ORG, (c) =>
+      c.query(
+        `INSERT INTO chat_message_attachments
+           (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes,
+            extracted_ref, extracted_excerpt, extraction_status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'extracted')`,
+        ["att-ex", ORG, THREAD, "e1", `chat-attachments/${ORG}/att-ex`, "简历.pdf",
+          "application/pdf", 2048, `chat-attachments-extracted/${ORG}/att-ex.md`, "# 张三\n资深后端工程师"],
+      ),
+    );
+    await addChatMessage({ orgId: ORG, id: "e9-trigger", threadId: THREAD, body: "总结", authorId: ACTOR });
+
+    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "e9-trigger", 10);
+    expect(history[0]!.attachments).toEqual([
+      { filename: "简历.pdf", mime: "application/pdf", extractionStatus: "extracted", extractedExcerpt: "# 张三\n资深后端工程师" },
     ]);
   });
 

@@ -76,13 +76,13 @@ export class PgAttachmentExtractionRepository implements AttachmentExtractionSto
     });
   }
 
-  async recordExtracted(orgId: OrgId, attachmentId: string, extractedRef: string): Promise<void> {
+  async recordExtracted(orgId: OrgId, attachmentId: string, extractedRef: string, excerpt: string): Promise<void> {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         `UPDATE chat_message_attachments
-            SET extracted_ref = $3, extraction_status = 'extracted', extraction_error = NULL
+            SET extracted_ref = $3, extracted_excerpt = $4, extraction_status = 'extracted', extraction_error = NULL
           WHERE org_id = $1 AND id = $2`,
-        [orgId, attachmentId, extractedRef],
+        [orgId, attachmentId, extractedRef, excerpt],
       ),
     );
   }

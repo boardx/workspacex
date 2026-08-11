@@ -41,8 +41,11 @@ export interface AttachmentExtractionStore {
   /** 读附件的抽取输入（字节引用 + MIME）。附件已删 → null。 */
   readAttachment(orgId: OrgId, attachmentId: string): Promise<AttachmentForExtraction | null>;
 
-  /** 记「已抽出」：extracted_ref 指向 markdown 对象，extraction_status='extracted'。 */
-  recordExtracted(orgId: OrgId, attachmentId: string, extractedRef: string): Promise<void>;
+  /**
+   * 记「已抽出」：`extractedRef` 指向对象存储里的**全文** markdown，`excerpt` 是进上下文的**有界摘录**
+   * （domain `boundedExcerpt`），extraction_status='extracted'。
+   */
+  recordExtracted(orgId: OrgId, attachmentId: string, extractedRef: string, excerpt: string): Promise<void>;
 
   /** 记「抽不出文本」（图片等）：extraction_status='unsupported'，非错误，extracted_ref 保持 NULL。 */
   recordUnsupported(orgId: OrgId, attachmentId: string): Promise<void>;

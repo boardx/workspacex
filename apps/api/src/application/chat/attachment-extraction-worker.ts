@@ -16,7 +16,7 @@
  *     `markJobFailed`（job 留着，靠 staleness 窗口重新认领），直到 MAX_ATTEMPTS。
  */
 import type { OrgId } from "../../domain/org-id";
-import { planExtraction } from "../../domain/chat/attachment-extraction";
+import { planExtraction, boundedExcerpt } from "../../domain/chat/attachment-extraction";
 import type { ObjectStore } from "../artifact/ports";
 import { ObjectExistsError } from "../artifact/ports";
 import type { AttachmentToMarkdownPort } from "./attachment-to-markdown.port";
@@ -123,7 +123,7 @@ async function processJob(
     // 已落——重放，落到下面记状态 + 删 job。
   }
 
-  await deps.extraction.recordExtracted(orgId, job.attachmentId, extractedRef);
+  await deps.extraction.recordExtracted(orgId, job.attachmentId, extractedRef, boundedExcerpt(markdown));
   await deps.extraction.complete(orgId, job.jobId);
   return "extracted";
 }

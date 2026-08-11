@@ -18,6 +18,19 @@
 /** anydoc 的 `Format` 取值（字符串字面量——NAPI const enum 运行时被内联，传字符串即可）。 */
 export type AnydocFormat = "pdf" | "docx" | "xlsx" | "pptx" | "csv";
 
+/**
+ * 单个附件进上下文的抽取内容**字符上限**。~4000 字 ≈ 1000 token，给每个附件一个硬预算，
+ * 避免一份大文档把整条对话的上下文挤爆。超出即截断并留一行明示（不静默丢尾）。全文另存对象
+ * 存储，将来 CE 的 L3 按相关性召回，不受此上限约束。
+ */
+export const EXTRACTED_EXCERPT_MAX_CHARS = 4000;
+
+/** 把抽取出的 markdown 收成进上下文的有界摘录：超上限就截断 + 明示截断，不静默丢尾。 */
+export function boundedExcerpt(markdown: string): string {
+  if (markdown.length <= EXTRACTED_EXCERPT_MAX_CHARS) return markdown;
+  return `${markdown.slice(0, EXTRACTED_EXCERPT_MAX_CHARS)}\n…（内容较长，此处仅为前 ${EXTRACTED_EXCERPT_MAX_CHARS} 字摘录）`;
+}
+
 export type ExtractionPlan =
   | { readonly kind: "convert"; readonly format: AnydocFormat }
   | { readonly kind: "passthrough" }
