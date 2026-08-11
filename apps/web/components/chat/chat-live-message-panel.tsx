@@ -21,6 +21,7 @@ import {
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,10 +239,14 @@ export function ChatLiveMessagePanel({
    */
   const textRef = React.useRef(text);
   textRef.current = text;
+  // realtime-asr 增补 A（contract.md §7）：输入设备（麦克风）选择。选中的 deviceId
+  // 交给 useAsrDraft，由采音层在开始录音那一刻使用；空闲换设备下次点开始即生效。
+  const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
     getBaseText: () => textRef.current,
     onTranscript: (fullText) => updateDraft({ text: fullText }),
     sessionToken: bearer,
+    deviceId: micDevices.selectedDeviceId ?? undefined,
   });
   const speechStopRef = React.useRef(speech.stop);
   speechStopRef.current = speech.stop;
@@ -911,6 +916,17 @@ export function ChatLiveMessagePanel({
               <ChatAttachmentButton ctl={attach} disabled={archived || submitting} />
             </div>
             <div className="flex items-center gap-1.5">
+              {/*
+                realtime-asr 增补 A（contract.md §7）：麦克风设备下拉，紧挨麦克风按钮。
+                录音中禁用——切设备要重起采音管线，不在本增补范围（§7.4 只排除了
+                hold-to-record，切设备的中途重连同样留给后续），录音中就先锁住。
+              */}
+              <MicDevicePicker
+                devices={micDevices.devices}
+                selectedDeviceId={micDevices.selectedDeviceId}
+                disabled={archived || submitting || speech.listening}
+                onSelect={micDevices.select}
+              />
               <Button
                 type="button"
                 size="icon"
@@ -1353,6 +1369,103 @@ function newClientMessageId(): string {
  * `toHaveValue()` 断言因此改成 `toHaveTextContent()`，`selectOption()` 改成点开+点选项。
  * 这不是削弱断言：它验证的还是「当前选中的 agent 是谁」，只是读取方式跟着控件形态换了。
  */
+/**
+ * realtime-asr 增补 A（contract.md §7）：composer 麦克风的输入设备下拉。
+ *
+ * 仿 `AgentPicker` 的手搓 listbox（本仓没有下拉基元库）。三条诚实约束（§7.3）：
+ *  - 未授权 → label 为空 → 显示占位「麦克风 N（授权后显示名称）」，不空白也不编名；
+ *  - 「系统默认」永远是第一项、选中态由 `selectedDeviceId === null` 表示；
+ *  - 选中项打勾（`Check`）。热插拔刷新与记忆在 `useAudioInputDevices` 里，这里只渲染。
+ */
+function MicDevicePicker({
+  devices, selectedDeviceId, disabled, onSelect,
+}: {
+  devices: readonly { readonly deviceId: string; readonly label: string }[];
+  selectedDeviceId: string | null;
+  disabled: boolean;
+  onSelect: (deviceId: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const labelFor = (deviceId: string, label: string, index: number): string =>
+    label !== "" ? label : `麦克风 ${index + 1}（授权后显示名称）`;
+  const selected = devices.find((device) => device.deviceId === selectedDeviceId) ?? null;
+  const triggerText = selectedDeviceId === null
+    ? "系统默认麦克风"
+    : (selected ? labelFor(selected.deviceId, selected.label, devices.indexOf(selected)) : "系统默认麦克风");
+
+  return (
+    <div className="relative flex items-center">
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        className="max-w-40 justify-start gap-1.5 rounded-full px-2"
+        data-testid="chat-mic-device-select"
+        data-selected-device={selectedDeviceId ?? ""}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="选择麦克风"
+        title={`麦克风：${triggerText}`}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Mic aria-hidden className="h-3 w-3 text-muted-foreground" />
+        <span className="truncate text-11">{triggerText}</span>
+        <span aria-hidden className="text-9 text-muted-foreground">▾</span>
+      </Button>
+      {open ? (
+        <div
+          role="listbox"
+          aria-label="选择麦克风"
+          data-testid="chat-mic-device-listbox"
+          className="absolute bottom-8 left-0 z-10 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
+        >
+          {/* 「系统默认」恒为第一项：不选具体设备就跟随系统，这是 deviceId=null 的语义。 */}
+          <button
+            type="button"
+            role="option"
+            aria-selected={selectedDeviceId === null}
+            data-testid="chat-mic-device-option-default"
+            onClick={() => { onSelect(null); setOpen(false); }}
+            className={[
+              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+              selectedDeviceId === null ? "text-primary" : "text-card-foreground",
+            ].join(" ")}
+          >
+            <Check aria-hidden className={["h-3 w-3 shrink-0", selectedDeviceId === null ? "opacity-100" : "opacity-0"].join(" ")} />
+            <span className="truncate">系统默认麦克风</span>
+          </button>
+          {devices.length === 0 ? (
+            <p className="px-2 py-1.5 text-11 text-muted-foreground" data-testid="chat-mic-device-empty">
+              未检测到其它输入设备。授权麦克风后会显示设备名。
+            </p>
+          ) : null}
+          {devices.map((device, index) => {
+            const isSelected = device.deviceId === selectedDeviceId;
+            return (
+              <button
+                key={device.deviceId}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                data-testid={`chat-mic-device-option-${device.deviceId}`}
+                onClick={() => { onSelect(device.deviceId); setOpen(false); }}
+                className={[
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                  isSelected ? "text-primary" : "text-card-foreground",
+                ].join(" ")}
+              >
+                <Check aria-hidden className={["h-3 w-3 shrink-0", isSelected ? "opacity-100" : "opacity-0"].join(" ")} />
+                <span className="truncate">{labelFor(device.deviceId, device.label, index)}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AgentPicker({
   agents, selectedAgentId, disabled, onSelect,
 }: {

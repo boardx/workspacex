@@ -8,6 +8,7 @@ import {
   LiveRecordingError,
   TARGET_SAMPLE_RATE,
   classifyMediaError,
+  enumerateInputDevices,
   startCapture,
   toPcm16,
 } from "@/lib/live-recording";
@@ -16,6 +17,20 @@ function domError(name: string): Error {
   const error = new Error(`mock ${name}`);
   error.name = name;
   return error;
+}
+
+/** 让 startCapture 走通成功路径所需的最小 AudioContext / MediaStream 桩。 */
+function fakeCaptureEnv() {
+  const track = { stop: vi.fn() };
+  const stream = { getAudioTracks: () => [track], getTracks: () => [track] } as unknown as MediaStream;
+  const context = {
+    sampleRate: 48_000,
+    destination: {},
+    createMediaStreamSource: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
+    createScriptProcessor: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn(), onaudioprocess: null })),
+    close: vi.fn().mockResolvedValue(undefined),
+  } as unknown as AudioContext;
+  return { stream, track, context };
 }
 
 describe("#466 采音失败必须具名且可渲染", () => {
@@ -75,6 +90,59 @@ describe("#466 采音失败必须具名且可渲染", () => {
       kind: "capture-failed",
     });
     expect(stop).toHaveBeenCalled();
+  });
+});
+
+describe("realtime-asr 增补 A（contract.md §7）：输入设备选择", () => {
+  it("传 deviceId → getUserMedia 约束里带 deviceId: { exact }（精确锁定，不软偏好）", async () => {
+    const { stream, context } = fakeCaptureEnv();
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    await startCapture({ getUserMedia, createAudioContext: () => context, deviceId: "mic-abc" });
+    const constraints = getUserMedia.mock.calls[0]![0] as MediaStreamConstraints;
+    const audio = constraints.audio as MediaTrackConstraints;
+    expect(audio.deviceId).toEqual({ exact: "mic-abc" });
+    // 单声道等既有约束不能被顺手改掉
+    expect(audio.channelCount).toBe(1);
+  });
+
+  it("反证：不传 deviceId（或空串）→ 约束里绝无 deviceId 字段，行为与接本增补前逐字相同", async () => {
+    for (const deviceId of [undefined, ""]) {
+      const { stream, context } = fakeCaptureEnv();
+      const getUserMedia = vi.fn().mockResolvedValue(stream);
+      await startCapture({ getUserMedia, createAudioContext: () => context, deviceId });
+      const audio = (getUserMedia.mock.calls[0]![0] as MediaStreamConstraints).audio as MediaTrackConstraints;
+      expect(audio.deviceId, `deviceId=${JSON.stringify(deviceId)} 不该产生约束`).toBeUndefined();
+    }
+  });
+
+  it("选中的设备已不存在时，浏览器抛 OverconstrainedError → 归到具名的 no-microphone，不静默", async () => {
+    const getUserMedia = vi.fn().mockRejectedValue(domError("OverconstrainedError"));
+    await expect(startCapture({ getUserMedia, deviceId: "ghost-device" }))
+      .rejects.toMatchObject({ kind: "no-microphone" });
+  });
+
+  it("enumerateInputDevices：只留 audioinput，丢掉 deviceId 为空的占位项，label 原样返回", async () => {
+    const enumerateDevices = vi.fn().mockResolvedValue([
+      { kind: "audioinput", deviceId: "mic-1", label: "内建麦克风" },
+      { kind: "audiooutput", deviceId: "spk-1", label: "扬声器" },
+      { kind: "audioinput", deviceId: "", label: "" }, // 未授权占位：无法被 exact 定位，剔除
+      { kind: "videoinput", deviceId: "cam-1", label: "摄像头" },
+    ]);
+    const devices = await enumerateInputDevices({ enumerateDevices });
+    expect(devices).toEqual([{ deviceId: "mic-1", label: "内建麦克风" }]);
+  });
+
+  it("enumerateInputDevices：未授权时 label 为空串是真实状态，如实返回（不编造设备名）", async () => {
+    const enumerateDevices = vi.fn().mockResolvedValue([
+      { kind: "audioinput", deviceId: "mic-1", label: "" },
+    ]);
+    const devices = await enumerateInputDevices({ enumerateDevices });
+    expect(devices).toEqual([{ deviceId: "mic-1", label: "" }]);
+  });
+
+  it("enumerateInputDevices：枚举抛错或环境不支持 → 返回空数组，不抛异常（列不出≠错误态）", async () => {
+    const throwing = vi.fn().mockRejectedValue(new Error("boom"));
+    await expect(enumerateInputDevices({ enumerateDevices: throwing })).resolves.toEqual([]);
   });
 });
 

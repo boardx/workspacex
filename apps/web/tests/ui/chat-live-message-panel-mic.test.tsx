@@ -125,6 +125,25 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
     expect(screen.getByTestId("chat-mic-listening")).toBeInTheDocument();
   });
 
+  it("realtime-asr 增补 A（§7）：设备下拉挂在麦克风旁，选中的 deviceId 传给采音层", async () => {
+    // 记住一个设备（§7.3-3）。本测试环境 mediaDevices 无 enumerateDevices，设备列表为空，
+    // 空列表下记忆保留（“不存在”只是“还没列出来”），selectedDeviceId 即该 id。
+    window.localStorage.setItem("wsx.micDeviceId", "mic-remembered");
+    const stream = deferredStream();
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
+    await waitFor(() => expect(listMessages).toHaveBeenCalled());
+
+    // 下拉触发器与麦克风按钮同处一行。
+    expect(screen.getByTestId("chat-mic-device-select")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("chat-mic-button"));
+    await act(() => stream.promise);
+    // 采音层收到的正是记住的设备（第二个参数 deps.deviceId）。
+    const deps = openAsrDraftStream.mock.calls[0]![1] as { deviceId?: string };
+    expect(deps.deviceId).toBe("mic-remembered");
+    window.localStorage.removeItem("wsx.micDeviceId");
+  });
+
   it("fills the textbox in real time from asr.partial frames, then commits asr.final — not all-at-once after recording ends", async () => {
     const stream = deferredStream();
     render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
