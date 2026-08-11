@@ -85,7 +85,7 @@ export function MembersScreen({ state }: { state: UiState }) {
       moduleLabel="成员配额"
       title="成员与配额"
       /* F160：整屏级的「尚未接入真实后端」摘掉——「成员配额」这一 tab 已经读真库。
-         但**另外两个 tab 仍然是 mock**（用量监控 F161 / 限额策略 F162 未做），
+         但「另外两个 tab 仍然是 mock」（用量监控 F161 / 限额策略 F162 未做），
          所以那条提示搬进那两个 tabpanel 里，按 tab 说实话。
          整屏一刀切地摘掉会让还在骗人的两个 tab 混进「已接线」的观感。 */
       intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。团队/名册/邀请的完整管理在「组织成员」（下方链接，已接真实后端）；本屏只做配额与「管理员看不到什么」这两块，两者不是同一功能。"
@@ -147,10 +147,10 @@ export function MembersScreen({ state }: { state: UiState }) {
 
         <section className="flex flex-col gap-2" data-testid="admin-members-list">
           {/* ── F10 / UC-1.6：邀请入口 + 待激活行 ─────────────────────────
-              F160 起配额列表搬进了 `MemberQuotaTab`（真栈），邀请/待激活这块**仍是 mock**
+              F160 起配额列表搬进了 `MemberQuotaTab`（真栈），邀请/待激活这块「仍是 mock」
               （`lib/mock/org-admin.ts`）——它属 F11 成员表整并的地盘，本轮不碰
               （coord-main 2026-08-12 裁决第 4 条）。两块因此不再同源：上面的人来自真库，
-              这里的人来自 mock，**不保证是同一批人**。这句话必须写在代码里，
+              这里的人来自 mock，「不保证是同一批人」。这句话必须写在代码里，
               否则这一屏看起来像一张统一的成员表。 */}
           <div className="flex flex-wrap items-center gap-2" data-testid="admin-members-invite-bar">
             <span className="text-11 text-muted-foreground" data-testid="admin-members-roster-count">
