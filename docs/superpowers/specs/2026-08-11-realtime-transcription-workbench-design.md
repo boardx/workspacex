@@ -2,7 +2,7 @@
 
 ## 1. 目标与范围
 
-把现有 `/rec` 演示页改造成可真实使用的实时转录工作台：用户可以浏览跨项目历史转录，创建带名称和标签的新转录，使用麦克风进行实时识别，停止后等待尾部结果完成并持久化；完成的逐字稿可以作为带原文引用的上下文交给 Skill 做总结、分析和报告。
+把现有 `/rec` 演示页改造成可真实使用的实时转录工作台：用户可以浏览本人历史转录，创建带名称和标签的新转录，使用麦克风进行实时识别，停止后等待尾部结果完成并持久化；完成的逐字稿可以作为带原文引用的上下文交给 Skill 做总结、分析和报告。
 
 本规格覆盖四个可独立交付的能力：
 
@@ -103,7 +103,6 @@
 
 ```ts
 {
-  projectId: string;
   name: string;
   tags: string[];
 }
@@ -114,6 +113,21 @@
 ```ts
 {
   sessionId: string;
+  name: string;
+  tags: string[];
+  status: "idle";
+}
+```
+
+创建只持久化用户私有转录文档，不立刻申请麦克风或建立上游任务。点击 `开始转录` 时再调用：
+
+`POST /recording/realtime-asr/sessions/:sessionId/tickets`
+
+输出：
+
+```ts
+{
+  captureId: string;
   ticket: string;
   expiresAt: string;
   websocketPath: string;
@@ -123,14 +137,14 @@
 约束：
 
 - 长期 JWT 只用于这次 HTTPS 创建请求。
-- ticket 约 60 秒有效、一次性、只允许打开指定 `sessionId` 的 ASR WebSocket。
-- 服务端保存 ticket 的不可逆摘要与 `userId/orgId/projectId/sessionId/expiresAt/consumedAt`；原文只在创建响应出现一次。
-- WebSocket 升级时原子消费 ticket；过期、重复、会话不匹配、用户/团队无权、额度不足均在升级阶段拒绝。
+- ticket 约 60 秒有效、一次性、只允许打开指定 `sessionId/captureId` 的 ASR WebSocket。
+- 服务端保存 ticket 的不可逆摘要与 `userId/orgId/sessionId/captureId/expiresAt/consumedAt`；原文只在领取响应出现一次。
+- WebSocket 升级时原子消费 ticket；过期、重复、会话不匹配、非 owner 或额度不足均在升级阶段拒绝。
 - 不把 ticket 写入日志、数据库明文字段或可持久浏览器存储。
 
 BoardX WebSocket：
 
-`WS /recording/realtime-asr/sessions/:sessionId/stream?ticket=<one-time-ticket>`
+`WS /recording/realtime-asr/sessions/:sessionId/captures/:captureId/stream?ticket=<one-time-ticket>`
 
 客户端发送：
 
@@ -145,15 +159,15 @@ type BoardxAsrClientEvent =
 
 ```ts
 type BoardxAsrServerEvent =
-  | { type: "ready"; sessionId: string }
+  | { type: "ready"; sessionId: string; captureId: string }
   | { type: "interim"; text: string; beginMs: number; endMs: number }
   | { type: "final"; segmentId: string; text: string; beginMs: number; endMs: number }
   | { type: "stopping" }
-  | { type: "completed"; sessionId: string; durationSeconds: number }
+  | { type: "completed"; sessionId: string; captureId: string; durationSeconds: number }
   | { type: "error"; code: BoardxAsrErrorCode; retryable: boolean };
 ```
 
-`BoardxAsrErrorCode` 是封闭枚举：`TICKET_INVALID`、`TICKET_EXPIRED`、`TICKET_USED`、`NO_PROJECT_ROLE`、`QUOTA_EXCEEDED`、`ASR_NOT_CONFIGURED`、`CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR`、`ASR_PROVIDER_UNAVAILABLE`、`AUDIO_BACKPRESSURE`、`START_TIMEOUT`、`FINISH_TIMEOUT`、`PROTOCOL_ERROR`。
+`BoardxAsrErrorCode` 是封闭枚举：`TICKET_INVALID`、`TICKET_EXPIRED`、`TICKET_USED`、`NOT_TRANSCRIPTION_OWNER`、`QUOTA_EXCEEDED`、`ASR_NOT_CONFIGURED`、`ASR_PROVIDER_UNAVAILABLE`、`AUDIO_BACKPRESSURE`、`START_TIMEOUT`、`FINISH_TIMEOUT`、`PROTOCOL_ERROR`。
 
 ### 3.3 阿里云 Fun-ASR 状态机
 
@@ -201,8 +215,8 @@ created
 
 新增最小元数据：
 
-- `recording_sessions.name`
-- `recording_sessions.tags`（受契约约束的字符串数组）
+- `personal_transcriptions`：`id/org_id/owner_user_id/name/tags/status/created_at/updated_at`，只承担用户私有转录文档的元数据与聚合状态
+- `recording_sessions.source_type` 增加 `personal`；`source_ref_id` 指向 `personal_transcriptions.id`，`project_id` 仅在 `personal` 类型下允许为空
 - 一次性 ASR ticket 表或现有安全令牌仓储中的专用记录
 - 上游任务 ID、最终计费时长和完成/失败原因的审计字段
 
@@ -212,7 +226,9 @@ created
 - 每个 `final` 先落库后推送；刷新页面后仍可读回。
 - `segmentId` 与上游 `sentence_id`/会话 ID 组合形成幂等边界，重连重放不得新增重复段。
 - 转录详情、Skill 上下文和报告引用均读取同一组最终段，不建立第二份逐字稿事实源。
-- 用户只能读取本组织、本人有项目角色的转录；数据库查询继续受 org/project 边界约束。
+- 转录文档以当前登录用户为 owner，不要求关联项目；组织仍作为租户、计费和数据驻留分区，但同组织管理员或其他成员不能读取用户私有逐字稿。
+- `personal_transcriptions` 只保存名称、标签、owner 与聚合状态，不复制逐字稿；每次开始/停止形成一个既有 `recording_sessions` capture run，最终文本仍只存在于 `recording_segments`。
+- 用户只能读取本人拥有的转录文档及其 capture runs；组织管理员沿用“个人层只见计数、不见内容”的既有边界。
 
 ## 5. 背压、重连与资源清理
 
@@ -225,9 +241,9 @@ created
 ## 6. 安全与隐私
 
 - API Key 只存在于服务端环境变量和发往阿里云的 Authorization 请求头。
-- ticket 不替代应用身份，仅授权一次特定 ASR 升级；创建与升级均做用户、组织、项目、会话和额度校验。
+- ticket 不替代应用身份，仅授权一次特定 ASR 升级；创建与升级均做用户、组织、owner、会话、capture 和额度校验。
 - 未取得麦克风许可不创建音频轨；撤销许可后不再发送新帧。
-- 机密项目继续沿用已确认的 fail-closed 规则：外部 ASR 被禁止时返回 `CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR`，不提供“确认后继续”绕行；缺少服务端配置才返回 `ASR_NOT_CONFIGURED`。
+- 用户私有转录不携带项目机密分级，因此不复用项目级 `CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR` 分支；录音前必须在界面明确告知音频将发送至外部 ASR，缺少服务端配置返回 `ASR_NOT_CONFIGURED`。
 - 上游 `error_message` 只写服务端结构化日志，不原样回传浏览器，日志必须脱敏 API Key、ticket 和音频内容。
 
 ## 7. 交付拆分

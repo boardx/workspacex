@@ -22,6 +22,7 @@
     "files": "ui-preview/files",
     "interview": "ui-preview/itv-v2",
     "org-admin": "ui-preview/org-admin",
+    "personal-realtime-transcription": "ui-preview/realtime-transcription",
     "project": "ui-preview/project-v2",
     "recording": "ui-preview/rec-v2",
     "research": "ui-preview/research",

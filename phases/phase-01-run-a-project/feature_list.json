@@ -3700,6 +3700,78 @@
       ],
       "evidence": "",
       "notes": "依据等级：[已签核 + 后端已 passing]——F06 已把 D-18 两侧做完并 passing（GET /identity/personal-layer/summary、admin-access-log 三条端点均在契约里）。本 feature **不新增任何后端**，只是把已经存在的真端点接到界面上，属纯接线。⚠ 这一条是 ui.md 第五节 K-10『管理员边界有两处载体各说各的』的收敛落点之一：本屏接真数后，/org-admin 预览屏的 boundary 原型应标注为已被产品屏取代。"
+    },
+    {
+      "id": "F164",
+      "title": "用户私有转录文档与历史落库：名称/标签/多 capture 聚合，正文仍唯一来自 recording_segments",
+      "user_visible_behavior": "已登录用户在 /rec 创建不关联项目的转录文档后，刷新仍能看到名称、标签、状态、时长和最终逐字稿；停止后再次开始会追加一个 capture run，旧正文不丢。列表、搜索、详情只返回当前用户自己的内容，同组织其他成员和管理员均读不到正文。",
+      "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/recording/personal-transcription-owner-boundary.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/personal-transcription-persistence.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/personal-transcription-multi-capture.test.ts"
+      ],
+      "evidence": "",
+      "notes": "issue #945；原编号 F158 与 main 的项目创建 feature 冲突，重放至最新 main 时顺延为 F164。属 personal-realtime-transcription 束。新增 personal_transcriptions 只存元数据，不复制正文；capture 复用 recording_sessions，final 仍只写 recording_segments。project_id 仅对 source_type=personal 放宽为空，既有 workshop/interview/thread 约束保持不变。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-API",
+      "sprint": null
+    },
+    {
+      "id": "F165",
+      "title": "一次性 ASR ticket 与阿里云 Fun-ASR 状态机：task-started 后转 PCM，task-finished 后完成并按用量记账",
+      "user_visible_behavior": "用户点开始转录时领取约 60 秒的一次性 ticket；浏览器只连接 BoardX，服务端代理阿里云 Fun-ASR。中间文本实时替换，最终文本先落库后出现；点停止后继续接收尾部结果，直到完成。过期、复用、跨会话 ticket、额度不足或服务未配置都会给出明确错误。",
+      "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R4",
+      "depends_on": [
+        "F164"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/recording/realtime-asr-ticket.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/fun-asr-protocol-state-machine.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/fun-asr-final-persist-before-push.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/fun-asr-usage-idempotency.test.ts"
+      ],
+      "evidence": "",
+      "notes": "issue #945；原编号 F159 与 main 的 token 计量 feature 冲突，重放至最新 main 时顺延为 F165。属 personal-realtime-transcription 束。后端使用现有 ws 依赖与既有 segment ingestion/额度/模型调用日志服务，不引入阿里 SDK；环境变量为 ALIYUN_ASR_MODEL/REGION/WORKSPACE_ID 与 DASHSCOPE_API_KEY。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-API",
+      "sprint": null
+    },
+    {
+      "id": "F166",
+      "title": "/rec 真数据接线与 AudioWorklet：历史卡片、新建弹窗、单一开始停止按钮、final/interim 去重",
+      "user_visible_behavior": "用户从真实历史卡片创建或打开转录，详情主区域只看到一个开始/停止按钮与逐字稿。开始后浏览器用 AudioWorklet 发送 mono/16k/PCM16 音频；临时结果只替换当前行，最终结果只追加一次；停止后按钮显示正在收尾且不可重复点击，刷新后从数据库恢复最终正文。",
+      "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R4",
+      "depends_on": [
+        "F164",
+        "F165"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-history.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/realtime-transcription-workspace.test.tsx",
+        "pnpm --filter web exec vitest run tests/lib/pcm-audio-worklet.test.ts",
+        "pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smoke.test.ts"
+      ],
+      "evidence": "",
+      "notes": "issue #945；原编号 F160 与 main 的成员 token 配额 feature 冲突，重放至最新 main 时顺延为 F166。属 personal-realtime-transcription 束。移除 /rec 的 mock 数据与实时详情 Skill 分析面板；前端只理解 BoardX 事件，不解析阿里云原始事件。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-WEB",
+      "sprint": null
     }
   ]
 }
