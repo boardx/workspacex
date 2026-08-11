@@ -39,6 +39,16 @@ export type ClaimOutcome =
   | { readonly kind: "executable"; readonly run: ClaimedAgentRun }
   | { readonly kind: "unresolvable"; readonly runId: string };
 
+/**
+ * V9-b 前置 A（#970）—— 一条消息挂着的附件**元数据**（文件名 + MIME，不含内容）。
+ * V9-a 只上传+存储附件；附件**内容**进上下文是 B（F153/anydoc）。A 让模型至少*知道*
+ * 有附件、能诚实说「我看到你传了 X（image/png），但还读不了它的内容」，而不是矢口否认。
+ */
+export interface HistoryAttachmentMeta {
+  readonly filename: string;
+  readonly mime: string;
+}
+
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
   readonly runId: string;
@@ -46,6 +56,12 @@ export interface ClaimedAgentRun {
   readonly projectId: string;
   readonly inputMessageId: string;
   readonly inputText: string;
+  /**
+   * V9-b 前置 A（#970）—— 触发这次运行的那条人类消息挂的附件（元数据）。触发消息**不在**
+   * `readThreadHistory` 里（它以 `inputText` 单独进模型），所以它的附件也要单独带，否则「刚
+   * 传完就问」这条最常见路径恰好看不到附件。没有附件时是空数组。
+   */
+  readonly inputAttachments: readonly HistoryAttachmentMeta[];
   readonly agentId: string;
   readonly agentVersionId: string;
   readonly instructions: string;
@@ -294,6 +310,11 @@ export interface AgentRunStore {
 export interface ThreadHistoryMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
+  /**
+   * V9-b 前置 A（#970）—— 这条历史消息挂的附件（元数据；见 `HistoryAttachmentMeta`）。
+   * 空/缺省 = 没有附件。B（F153/anydoc）会在此之外再补抽取内容——A 是 B 的地基，不重做。
+   */
+  readonly attachments?: readonly HistoryAttachmentMeta[];
 }
 
 /**
