@@ -11,6 +11,7 @@ import { UI_STATE_LABEL } from "@/lib/ui-state";
 import type { UiState } from "@/lib/ui-state";
 import type { Identity, ProjectRole } from "@/lib/identity";
 import { PROJECT_ROLE_LABEL, PROJECT_ROLES } from "@/lib/identity";
+import { ORG_ADMIN_ORG_LEVEL_SCREENS } from "@/lib/mock/org-admin";
 import { cn } from "@/lib/utils";
 import {
   ORG_ADMIN_SCREENS, ORG_ADMIN_SCREEN_LABEL, ORG_ADMIN_SCREEN_UC,
@@ -70,7 +71,9 @@ export function OrgAdminApp({
       case "roles": return <RolesScreen state={uiState} previewRole={previewRole} href={href} />;
       case "grant": return <GrantScreen state={uiState} previewRole={previewRole} />;
       case "boundary": return <BoundaryScreen state={uiState} />;
-      case "members": return <MembersScreen state={uiState} previewRole={previewRole} />;
+      // members 是组织级屏（UC-1.6）：能否进后台由**组织角色**（管理员）决定，
+      // 与项目角色（引导师/组长/组员/观察者）语义无关——见问题 1 复核。
+      case "members": return <MembersScreen state={uiState} orgRole={identity.orgRole} />;
       case "activate": return <ActivateScreen state={uiState} />;
     }
   })();
@@ -154,6 +157,12 @@ function PreviewControls({
 }) {
   if (process.env.NODE_ENV === "production") return null;
   const currentAs = qs.as ?? "facilitator";
+  // members / activate / boundary 是组织级屏（UC-1.6 / UC-1.4 载体三）：项目角色
+  // （引导师/组长/组员/观察者）在这三屏语义上不存在——原型里这一区通篇没有任何
+  // 项目角色命中（PROTOTYPE-FIDELITY-AUDIT-2.md 问题 1）。继续显示这条「视角」预览行，
+  // 会与顶栏「不在项目上下文中 · 项目角色不适用」同屏矛盾，训练看图的人以为两层是一层。
+  // 这四屏（invites/roster/roles/grant）才是项目级屏（UC-1.3/1.4），项目角色在这里有意义。
+  const showRoleRow = !ORG_ADMIN_ORG_LEVEL_SCREENS.has(screen);
   return (
     <div className="flex flex-col gap-1.5" data-testid="org-admin-preview-controls">
       <div className="flex flex-wrap items-center gap-1">
@@ -164,15 +173,21 @@ function PreviewControls({
           </Button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-1">
-        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">视角</span>
-        {PROJECT_ROLES.map((r) => (
-          <Button key={r} asChild size="xs" variant={currentAs === r ? "primary" : "ghost"} data-testid="org-admin-role-switch">
-            <a href={href({ as: r })}>{PROJECT_ROLE_LABEL[r]}</a>
-          </Button>
-        ))}
-        <Badge tone="outline" className="ml-1">预览手段 · 真实权限在服务端 RLS</Badge>
-      </div>
+      {showRoleRow ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">视角</span>
+          {PROJECT_ROLES.map((r) => (
+            <Button key={r} asChild size="xs" variant={currentAs === r ? "primary" : "ghost"} data-testid="org-admin-role-switch">
+              <a href={href({ as: r })}>{PROJECT_ROLE_LABEL[r]}</a>
+            </Button>
+          ))}
+          <Badge tone="outline" className="ml-1">预览手段 · 真实权限在服务端 RLS</Badge>
+        </div>
+      ) : (
+        <p className="px-1 text-10 text-muted-foreground" data-testid="org-admin-role-row-na">
+          本屏是组织级屏，项目角色不适用（组织角色由服务端判定，不在此预览）
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-1">
         <StatePreviewSwitcher current={uiState} />
         <span className="px-1 text-10 text-muted-foreground">当前：{UI_STATE_LABEL[uiState]}</span>

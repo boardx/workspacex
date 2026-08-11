@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
 import { MobileTabs } from "./mobile-tabs";
-import type { Identity, ProjectRole } from "@/lib/identity";
+import { isLocalOrg, MOCK_ORGS, type Identity, type ProjectRole } from "@/lib/identity";
 import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
@@ -143,18 +143,49 @@ function ShellChrome({
   onSwitchOrganization?: (orgId: string) => Promise<void>;
   onLogout?: () => void;
 }) {
+  const [switching, setSwitching] = React.useState(false);
+  // organizations 未传（旧版 identity 直传原型页）时回落到 mock 列表——
+  // 这段回落原先住在 TopBar 的 OrgSwitcher 里，切换器并入左上角组织菜单
+  //（2026-08-11 信息架构调整）后上提到壳层，rail 与 <md 顶栏两个菜单实例共用一份。
+  const effectiveOrganizations = React.useMemo<ReadonlyArray<{ id: string; label: string }>>(
+    () => organizations ?? MOCK_ORGS.map((o) => ({ id: o.id, label: isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name })),
+    [organizations],
+  );
+  const handleSwitchOrganization = React.useCallback((orgId: string) => {
+    if (onSwitchOrganization) {
+      setSwitching(true);
+      void onSwitchOrganization(orgId)
+        .catch(() => undefined)
+        .finally(() => setSwitching(false));
+      return;
+    }
+    // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
+    const url = new URL(window.location.href);
+    url.searchParams.set("org", orgId);
+    ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
+    window.location.assign(url.toString());
+  }, [onSwitchOrganization]);
+
   return (
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
       <div className="hidden md:flex">
-        <IconRail avatarInitial={identity.displayName.slice(0, 1)} onLogout={onLogout} />
+        <IconRail
+          identity={identity}
+          organizations={effectiveOrganizations}
+          onSwitchOrganization={handleSwitchOrganization}
+          switching={switching}
+          avatarInitial={identity.displayName.slice(0, 1)}
+          onLogout={onLogout}
+        />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           identity={identity}
           previewRole={previewRole}
           hideRoleSwitcher={hideRoleSwitcher}
-          organizations={organizations}
-          onSwitchOrganization={onSwitchOrganization}
+          organizations={effectiveOrganizations}
+          onSwitchOrganization={handleSwitchOrganization}
+          switching={switching}
         />
         <div className="flex min-h-0 flex-1">
           {left && (

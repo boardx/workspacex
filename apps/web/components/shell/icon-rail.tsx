@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_SEGMENTS } from "@/lib/navigation";
+import type { Identity } from "@/lib/identity";
+import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 
@@ -13,12 +15,22 @@ import { cn } from "@/lib/utils";
  *   渲染。想让某个入口回到一级，去 `lib/navigation.ts` 把它挪出 children，
  *   不要在这里加一条渲染 children 的分支——那会让同一个入口在两处出现。
  *
- * ⚠ 左上角 `X` logo（2026-08-09 信息架构调整）：**唯一**的组织管理入口，`data-testid`
- *   沿用 PR #736 建的 `org-admin-entry`（原来挂在顶栏一个独立的文字/图标链接上，现在挪
- *   到这里——同一功能不许两个入口，顶栏那份已删）。原来点它回首页（`href="/"`），现在
- *   首页导航不需要这个入口兼任，直接把它换成组织管理入口。
+ * ⚠ 左上角（2026-08-11 信息架构调整，人类直接要求）：原黑底 `X` logo（点击直跳
+ *   `/org-admin`）换成**组织菜单触发器**（`org-menu.tsx`）——组织头像/首字标识，
+ *   点击弹菜单 = 切换组织 + 组织管理。`org-admin-entry` testid 挪到菜单里的
+ *   「组织管理」项上，仍然是唯一的组织管理入口，只是从「点击直达」变成
+ *   「点开菜单 → 点组织管理」；顶栏原独立组织切换器同轮删除（同一功能不许两个入口）。
  */
-export function IconRail({ avatarInitial, onLogout }: { avatarInitial: string; onLogout?: () => void }) {
+export function IconRail({
+  identity, organizations, onSwitchOrganization, switching, avatarInitial, onLogout,
+}: {
+  identity: Identity;
+  organizations: ReadonlyArray<{ id: string; label: string }>;
+  onSwitchOrganization: (orgId: string) => void;
+  switching?: boolean;
+  avatarInitial: string;
+  onLogout?: () => void;
+}) {
   const pathname = usePathname();
   return (
     <nav
@@ -26,15 +38,15 @@ export function IconRail({ avatarInitial, onLogout }: { avatarInitial: string; o
       aria-label="主导航"
       className="flex w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5"
     >
-      <Link
-        href="/org-admin"
-        data-testid="org-admin-entry"
-        aria-label="组织管理"
-        title="组织管理"
-        className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-inverse text-14 font-semibold text-inverse-foreground transition-all duration-200 hover:bg-inverse/90 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        X
-      </Link>
+      <div className="mb-2">
+        <OrgMenu
+          identity={identity}
+          organizations={organizations}
+          onSelect={onSwitchOrganization}
+          switching={switching}
+          placement="right"
+        />
+      </div>
 
       {NAV_SEGMENTS.map((seg, i) => (
         <div key={seg.label ?? `seg-${i}`} className="flex w-full flex-col items-center">

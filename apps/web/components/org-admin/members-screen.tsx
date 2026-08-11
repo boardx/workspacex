@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AdminModal, ConfirmDialog, Field, Toast } from "@/components/admin/panel";
 import type { UiState } from "@/lib/ui-state";
-import type { ProjectRole, OrgRole } from "@/lib/identity";
+import type { OrgRole } from "@/lib/identity";
 import { OrgAdminFrame } from "./org-admin-frame";
 import {
   ORG_MEMBERS, ORG_MEMBER_TOTAL, ORG_MEMBER_ACTIVE, MEMBER_STATUS_LABEL,
@@ -26,7 +26,7 @@ import {
  * 只授予**组织层身份**（角色 + 团队），不授予任何项目角色（那走 UC-1.3）。
  * 链接携带的组织 / 角色 / 团队以服务端为准，篡改无效（AC5）。
  */
-export function MembersScreen({ state, previewRole }: { state: UiState; previewRole: ProjectRole }) {
+export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: OrgRole }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [quotaExhausted, setQuotaExhausted] = React.useState(false);
   const [revoking, setRevoking] = React.useState<OrgMemberRow | null>(null);
@@ -34,9 +34,12 @@ export function MembersScreen({ state, previewRole }: { state: UiState; previewR
   const [deletingTeam, setDeletingTeam] = React.useState<TeamRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
-  // 只有管理员进后台「成员与配额」（R5）；其余组织角色不进后台
-  // 预览视角是项目角色，这里以「是否引导师」近似「后台可达」——真实由组织角色管理员判定（服务端）
-  const canAdmin = previewRole === "facilitator";
+  // 只有管理员进后台「成员与配额」（R5）；其余组织角色不进后台。
+  // ⚠ 2026-08-11 复核（PROTOTYPE-FIDELITY-AUDIT-2.md 问题 1）：这里曾经以「预览视角是否
+  //   引导师」近似判定，把项目角色（引导师/组长/组员/观察者）当成了后台可达性的门禁——
+  //   「成员与配额」是组织级屏，语义上跟项目角色无关，此前的写法与本屏自己的
+  //   denial 文案（「仅组织管理员可进」）自相矛盾。改用真实的组织角色（服务端同判据）。
+  const canAdmin = orgRole === "admin";
 
   return (
     <OrgAdminFrame
@@ -106,6 +109,9 @@ export function MembersScreen({ state, previewRole }: { state: UiState; previewR
                 <Badge tone={m.role === "admin" ? "danger" : "neutral"}>
                   {ORG_ROLE_LABEL[m.role]}{m.status !== "active" ? "（待激活）" : ""}
                 </Badge>
+                {m.external && (
+                  <Badge tone="outline" data-testid="members-external-tag">客户方 · 外部</Badge>
+                )}
                 <span className="w-16 text-11 text-muted-foreground">{m.team}</span>
                 <span className="w-20 text-11 text-muted-foreground">{m.usedM.toFixed(1)}/{m.limitM.toFixed(1)}M</span>
                 <MemberStatusBadge status={m.status} sentDays={m.sentDays} />

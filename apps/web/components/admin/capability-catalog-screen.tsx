@@ -44,7 +44,23 @@ const COPY: Record<CatalogKind, { label: string; title: string; singular: string
  * ⚠ 入口按缓存的 `orgRole` 挂载，那只是**降噪**；真正的拒绝在服务端，
  *   见 `capability-mutate.tsx` 头部与 `apps/api/tests/kernel/capability-mutate-authorization.test.ts`。
  */
-export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
+export function CapabilityCatalogScreen({
+  kind, renderEditExtra,
+}: {
+  kind: CatalogKind;
+  /**
+   * #848 —— 编辑表单下方按 kind 定制的额外区块（目前只有 `skill-screen.tsx` 传，
+   * 挂内容编辑面板）。刻意做成**调用方注入**而不是在本文件里按 `kind === "skill"`
+   * 分支直接 `import` 那个面板：本文件同时被 `/admin/agent` 与 `/admin/skill` 复用，
+   * `agent-admin-route-no-mock.test.ts`（#458）机械断言 `/admin/agent` 的整棵依赖树
+   * 不含任何 `lib/mock/**` 边——skill 内容编辑面板复用的 `AgSkillEditor`
+   * （`asset-governance/ag-screens.tsx`）为保留 `/asset-governance` 原型路由的七态
+   * 演示，传递性依赖 `lib/mock/asset-governance.ts`；在这里静态 `import` 一次，
+   * 哪怕只在 `kind === "skill"` 时才渲染，那条边在**依赖图**里已经存在，会把
+   * `/admin/agent` 一起拖下水（`walk()` 走的是 import 语句，不是运行时分支）。
+   */
+  renderEditExtra?: (row: CapabilityListing) => React.ReactNode;
+}) {
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityCatalogScreen requires an authenticated session");
   const orgId = session.currentOrgId;
@@ -250,6 +266,7 @@ export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
                   setMutateError(null);
                   setDisablingId(row.id);
                 }}
+                renderEditExtra={renderEditExtra}
               />
             ))}
           </div>
@@ -282,7 +299,7 @@ export function CapabilityCatalogScreen({ kind }: { kind: CatalogKind }) {
 }
 
 function CapabilityRow({
-  row, prefix, ctx, canMutate, editing, onEdit, onCloseEdit, onDisable,
+  row, prefix, ctx, canMutate, editing, onEdit, onCloseEdit, onDisable, renderEditExtra,
 }: {
   row: CapabilityListing;
   prefix: string;
@@ -292,6 +309,7 @@ function CapabilityRow({
   onEdit(): void;
   onCloseEdit(): void;
   onDisable(): void;
+  renderEditExtra?: (row: CapabilityListing) => React.ReactNode;
 }) {
   return (
     <Card data-testid={`${prefix}-row-${row.id}`}>
@@ -332,7 +350,12 @@ function CapabilityRow({
           </div>
         ) : null}
         {canMutate && editing ? (
-          <CapabilityEditForm ctx={ctx} row={row} onClose={onCloseEdit} />
+          <CapabilityEditForm
+            ctx={ctx}
+            row={row}
+            onClose={onCloseEdit}
+            extra={renderEditExtra ? renderEditExtra(row) : undefined}
+          />
         ) : null}
       </CardContent>
     </Card>

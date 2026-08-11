@@ -16,6 +16,9 @@
     "chat": "ui-preview/chat-v2",
     "chat-file-upload": "ui-preview/chat-file-upload",
     "chat-context-engine": { "reuse_bundle": "chat" },
+    "curated-capability-packs": {
+      "reuse_bundle": "skills"
+    },
     "files": "ui-preview/files",
     "interview": "ui-preview/itv-v2",
     "org-admin": "ui-preview/org-admin",

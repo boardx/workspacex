@@ -213,6 +213,14 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     expect(await screen.findByTestId("chat-roster-agent-agent-new")).toBeTruthy();
   });
 
+  it("#787 —— 编制写入口展示诚实提示：候选来自目录，不代表一定可执行", async () => {
+    renderScreen();
+    await screen.findByTestId("chat-roster-edit");
+    openRosterEditor();
+    const hint = await screen.findByTestId("chat-roster-add-hint");
+    expect(hint.textContent).toContain("不代表该 agent 已具备可执行的运行时");
+  });
+
   it("去掉一个 agent：remove 里是它，add 为空，并重读服务端", async () => {
     getAgentPanel.mockResolvedValue(panel(["agent-old"], 5));
     renderScreen();

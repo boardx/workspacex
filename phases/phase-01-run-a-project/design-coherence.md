@@ -45,7 +45,12 @@ phase: "01"
 #       而「综合 Studio」**在任何 phase 都不存在** ⇒ 已签核束里有一个通往未定义目的地的出口。
 #   ⚠ 该束自己的 covers 为空、status 为 pending，且有三条阻塞（Q-2 / Q-8 未裁、feature 未生成、
 #     截图目录未产出）。四道门都红着，这是预期状态。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates]
+#
+# 2026-08-04 新增第十三束 `curated-capability-packs`（F149）。本次**刻意没有**把它追加到
+#   covers_bundles：下面的历史 confirmed_at 是 2026-07-30，当时该束不存在，不能被解释为
+#   已复核它。只改 covers_bundles 会把“没看过”谎报成“看过”。人类须先签该束，再复核本文
+#   新增的 XC-31，最后亲自把该束加入 covers_bundles 并刷新确认时间。在此之前门控红是预期行为。
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs]
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
 confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下
@@ -64,6 +69,37 @@ confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于�
 >
 > 📍 **从哪读起**：**二·〇**（编号统一，先做这一条）→ **二·一 总表**（含「已有答案？」列，
 > 标「已定」的 9 条是**确认动作**不是裁决）→ **六·一**（重签窗口合并，省人类的次数）。
+
+## 〇·2026-08-04 待复核输入：XC-31 · Curated Garden Advisors 不得扩张既有能力边界
+
+**状态**：新束材料已写，尚未进入本文件 frontmatter 的 `covers_bundles`；历史确认不覆盖本条。
+
+**涉及束**：`curated-capability-packs`（待签）· `skills`✅ · `agent-runtime`✅ ·
+`asset-governance`✅ · Wave 2 runtime delta✅。
+
+**要核对的四个方向**：
+
+1. **Skill 语义**：四项都是声明式 advisor；不新增 `Skill.source` 取值，不把 Garden/社区来源
+   伪装成一个已签枚举成员。provenance 只进现有 version manifest 与 NOTICE/LICENSE 文件。
+2. **导入语义**：只复用 `POST /admin/skills/starter-pack-imports` 与 `SKILL_STARTER_PACK_ROOT`；
+   不新增字段/错误码/default/recommended/seed/implicit import。
+3. **运行时边界**：Web Design、Image Prompt Mode C、Article Planning、Video Planning 均无
+   shell/network/browser/image/TTS/fs/secret/tool/MCP/AgentRun；任何可执行模式另立契约。
+4. **治理边界**：这是一次性固定 tag/commit/archive 的 curated adapter pack，不接
+   `asset-governance` 的社区连接/自动同步/升级流水线，也不跟随上游 `main`。
+
+**机械验收输入**：F149 verification 必须含 deterministic generator check、四项精确集合、
+file/pack tamper、non-admin、cross-org、idempotency、attribution、empty-before-explicit-import、
+no-builtin 和 executable-mode-unavailable 反证。
+
+**人类动作（agent 不得代做）**：
+
+- [ ] 确认上述四个方向与既有已签束不冲突。
+- [ ] 先确认 `contracts/curated-capability-packs/design-signoff.md`。
+- [ ] 把 `curated-capability-packs` 加进 frontmatter `covers_bundles`。
+- [ ] 刷新本文 `confirmed_by` / `confirmed_at`，明确这次确认发生在新束之后。
+
+裁决人：______   日期（ISO 8601，含时区）：______
 
 ## 一、复核范围（**十个束** / 111 个 feature / 361 点 —— ⚠ 已过期，见本节末的更正）
 

@@ -52,20 +52,26 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  * 一级导航里已经没有了，不是「界面上没有但 DOM 里还在」的僵尸。
  * 清单的唯一事实源是 `lib/navigation.ts` 的 `ADMIN_SECOND_LEVEL`，这里不抄第二份。
  *
- * ⚠ 已知重复（**先前就有，本 PR 不裁**）：上面「AI 能力 / 组织」组的
- *   Agent · Skill · 项目蓝本 · 成员配额 指向 `/admin/*` 那批**接了真实数据**的屏，
- *   而第三组指向的是同名能力域的 UI 先行全生命周期屏（多为 mock）。
- *   两者是同一件事的两套实现，归并需要人裁——本 PR 只把入口从一级收回后台。
+ * ⚠ 已知重复（**逐对已在「菜单去重复查」issue 里核实虚实，见该 issue**）：上面
+ *   「AI 能力 / 组织」组的 Agent 目录 · Skill 目录 · 项目蓝本 · 成员配额 · 画布模板
+ *   指向 `/admin/*` 那批屏，第三组指向同名能力域的现行屏。五对逐一核实后不是同一种
+ *   关系：Agent（目录 vs 运行时配置，后者零后端）、Skill（两套不同后端数据源，均真）、
+ *   蓝本/画布模板（人类已定为 Q-11/X-J，待裁，暂不合并）、成员（组织成员真实存在，
+ *   配额/管理员边界目前仍是 mock）。不是「两套实现归并」一句话能概括的，各自的判断
+ *   依据见 `lib/navigation.ts` 对应项的注释与 `prototypeNote`。
  *
- * ## #700 —— 「原型 · 待归并」标签（人类裁决选项 1）
+ * ## #700 —— 原型标签（人类裁决选项 1，2026-08-11 订正措辞）
  *
  * 上面这条「已知重复」曾经只写在注释里，用户在界面上看不出这组入口是原型。
  * #700 issue #700#issuecomment-5224610781 人类选了选项 1：**不删这组入口**
  * （删了会打红 `lint-nav-reachability.mjs`，也会让 ADR-023 签核材料不可达），
  * 但要在 UI 上诚实标出「这是原型，不是跟『AI 能力』组重复的另一套正式功能」。
  * 于是这里逐项渲染 `item.isPrototype`（唯一事实源见 `lib/navigation.ts` 的
- * `ADMIN_SECOND_LEVEL`）驱动的 `Badge`——`skills`（已接真实后端）不带该字段，
- * 不与其余四项连坐；语气对齐 `NoBackendNotice`「尚未接入真实后端」。
+ * `ADMIN_SECOND_LEVEL`）驱动的 `Badge`——`skills` 与 `org-admin`（均已接真实后端）
+ * 不带该字段，不与其余三项连坐；语气对齐 `NoBackendNotice`「尚未接入真实后端」。
+ * 2026-08-11：把徽标文案从「原型 · 待归并」（模糊，没说清楚待归并到哪/为什么）
+ * 改成「预览 · 未接后端」+ 标签下方的一句 `prototypeNote`（讲清楚对应哪个后台项、
+ * 差异是什么）——「菜单去重复查」issue 里逐对核实后要求不能再留模糊标签。
  *
  * `countSources` 默认取生产数据源（`ADMIN_NAV_COUNT_SOURCES`）；测试用它注入
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
@@ -160,25 +166,37 @@ export function AdminNav({
           {ADMIN_SECOND_LEVEL.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
-                key={item.key}
-                href={item.href}
-                data-testid={adminSubNavTestId(item.key)}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground"
-              >
-                <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.isPrototype && (
-                  <Badge
-                    tone="warning"
-                    data-testid={`${adminSubNavTestId(item.key)}-prototype-badge`}
-                    aria-label={`${item.label}：原型演示，尚未与「AI 能力」组的正式功能归并`}
-                    className="shrink-0"
+              <div key={item.key} className="flex flex-col gap-0.5">
+                <Link
+                  href={item.href}
+                  data-testid={adminSubNavTestId(item.key)}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground"
+                >
+                  <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.isPrototype && (
+                    <Badge
+                      tone="warning"
+                      data-testid={`${adminSubNavTestId(item.key)}-prototype-badge`}
+                      aria-label={`${item.label}：预览，尚未接入真实后端`}
+                      className="shrink-0"
+                    >
+                      预览 · 未接后端
+                    </Badge>
+                  )}
+                </Link>
+                {/* #700 后续修法：不再用一句模糊的「待归并」打发——每个原型项在标签下方
+                    显式说清楚它和「AI 能力/组织」组哪一项对应、差异是什么（见 navigation.ts
+                    的 prototypeNote 长注）。看得见，不需要 hover。 */}
+                {item.isPrototype && item.prototypeNote && (
+                  <p
+                    data-testid={`${adminSubNavTestId(item.key)}-prototype-note`}
+                    className="px-2 text-10 leading-snug text-muted-foreground/80"
                   >
-                    原型 · 待归并
-                  </Badge>
+                    {item.prototypeNote}
+                  </p>
                 )}
-              </Link>
+              </div>
             );
           })}
         </div>
