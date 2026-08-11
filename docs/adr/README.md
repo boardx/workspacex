@@ -30,6 +30,7 @@
 | ADR-102 | phase-runtime-readiness | feature passing 与 phase runtime/E2E readiness 分离；ready 只由双 evidence 显式门控，doctor 独立复核。**Proposed** |
 | ADR-103 | portable-coord-role-runtime | 稳定角色规格单源生成 Claude Code/Codex 表面；PlatformDirectory 以 `(project, stable role)` binding 保持运行时角色 SSOT；broker 只注入所选角色凭据，model 与身份解耦，再以 ULID + 双租约完成 inbox/ACK/handoff。**Proposed；实现拆为 #441–#446，复用 #396/PR #402。** |
 | ADR-104 | Node/PostgreSQL transactional outbox 通过 Cloudflare REST 投递验证邮件 | Accepted |
+| ADR-105 | digital-expert-interview-independent-slice | 数字专家访谈独立复用 Agent/Context/Artifact 契约，恒输出探索性结果，不等待组织决策晋升链。**Proposed** |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线

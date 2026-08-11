@@ -30,7 +30,16 @@ async function runWrapper(options: {
     process.execPath, "-e", childScript,
   ], {
     cwd: ROOT,
-    env: { ...process.env, ...isolation, PATH: `${temp}:${process.env.PATH ?? ""}` },
+    env: {
+      ...process.env,
+      ...isolation,
+      // This fixture deliberately starts a standalone wrapper scope. When the
+      // suite itself runs inside `harness verify`, the parent's match markers
+      // describe a different scope and must not leak into this child fixture.
+      WORKSPACEX_VERIFY_OUTER_DB: undefined,
+      WORKSPACEX_VERIFY_OUTER_COMPOSE: undefined,
+      PATH: `${temp}:${process.env.PATH ?? ""}`,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";

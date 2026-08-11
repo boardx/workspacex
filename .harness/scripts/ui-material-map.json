@@ -27,5 +27,11 @@
     "research": "ui-preview/research",
     "skills": "ui-preview/skill-v2",
     "templates": "ui-preview/tpl-v2"
+  },
+  "phase-03-reuse-and-governance": {
+    "user-research-studio": "ui-preview/user-research-studio"
+  },
+  "phase-04-digital-expert-interview-studio": {
+    "digital-expert-interview": "ui-preview/digital-expert-interview"
   }
 }

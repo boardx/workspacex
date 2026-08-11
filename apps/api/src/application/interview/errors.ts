@@ -50,6 +50,30 @@ export class IncoherentScopeError extends Error {
   }
 }
 
+/** Phase 04：数字专家访谈草稿缺少名称、标签或主题。 */
+export class DigitalInterviewInputInvalidError extends Error {
+  readonly code = "DIGITAL_INTERVIEW_INPUT_INVALID" as const;
+  constructor() {
+    super("DIGITAL_INTERVIEW_INPUT_INVALID");
+  }
+}
+
+/** Phase 04：调用方试图跨过一个必须由用户确认的步骤。 */
+export class DigitalInterviewStepInvalidError extends Error {
+  readonly code = "DIGITAL_INTERVIEW_STEP_INVALID" as const;
+  constructor(readonly fromStatus: string, readonly toStatus: string) {
+    super(`DIGITAL_INTERVIEW_STEP_INVALID: ${fromStatus} -> ${toStatus}`);
+  }
+}
+
+/** Phase 04：状态或内容已被另一个请求更新。 */
+export class DigitalInterviewConcurrentModificationError extends Error {
+  readonly code = "CONCURRENT_MODIFICATION" as const;
+  constructor(readonly interviewId: string) {
+    super(`CONCURRENT_MODIFICATION: ${interviewId}`);
+  }
+}
+
 /* ─────────────────────────── F86：受访者授权（uc-6-3） ─────────────────────────── */
 
 /**
