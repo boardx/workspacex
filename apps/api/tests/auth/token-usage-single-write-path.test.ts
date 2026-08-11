@@ -200,4 +200,15 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatch(/pg-token-usage-repository\.ts$/);
   });
+
+  it("【反证】计量仓储是 INSERT-only —— 它在 lint-permission-paths 允许清单里的条件就是这个", () => {
+    // `lint-permission-paths.mjs` 放行这个文件不走 `guard()`/`disclose()`，理由是
+    // 「它根本没有读方法，只有一条 INSERT」。写在允许清单里的理由是一句无人验证的话；
+    // 这条断言让它变成会红的东西：任何 SELECT/UPDATE/DELETE 出现在这个仓储里都当场失败。
+    const src = readFileSync(
+      join(__dirname, "../../src/infrastructure/auth/pg-token-usage-repository.ts"), "utf8",
+    );
+    const statements = src.match(/\b(SELECT|UPDATE|DELETE)\b/gi) ?? [];
+    expect(statements).toEqual([]);
+  });
 });
