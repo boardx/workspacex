@@ -74,7 +74,14 @@ function toAttachmentMeta(value: unknown): HistoryAttachmentMeta[] {
     if (v && typeof v === "object"
       && typeof (v as { filename?: unknown }).filename === "string"
       && typeof (v as { mime?: unknown }).mime === "string") {
-      out.push({ filename: (v as { filename: string }).filename, mime: (v as { mime: string }).mime });
+      const o = v as { filename: string; mime: string; extractionStatus?: unknown; extractedExcerpt?: unknown };
+      out.push({
+        filename: o.filename,
+        mime: o.mime,
+        // V9-b(F153)：抽取状态/摘录（旧行/未抽取时 status 恒 'pending'、excerpt 为 null）。
+        ...(typeof o.extractionStatus === "string" ? { extractionStatus: o.extractionStatus } : {}),
+        ...(typeof o.extractedExcerpt === "string" ? { extractedExcerpt: o.extractedExcerpt } : {}),
+      });
     }
   }
   return out;
@@ -87,7 +94,9 @@ function toAttachmentMeta(value: unknown): HistoryAttachmentMeta[] {
  */
 function attachmentsAggSql(msgIdExpr: string): string {
   return `COALESCE(
-    (SELECT json_agg(json_build_object('filename', a.filename, 'mime', a.mime)
+    (SELECT json_agg(json_build_object(
+              'filename', a.filename, 'mime', a.mime,
+              'extractionStatus', a.extraction_status, 'extractedExcerpt', a.extracted_excerpt)
               ORDER BY a.created_at, a.id)
        FROM chat_message_attachments a
       WHERE a.org_id = $1 AND a.message_id = ${msgIdExpr}),

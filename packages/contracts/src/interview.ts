@@ -58,6 +58,21 @@ export const SessionRole = z.enum([
 /** 列表范围切换器的三档 */
 export const InterviewScopeKind = z.enum(["project", "research", "none"]);
 
+/**
+ * 数字专家访谈的唯一工作流状态。历史卡、详情、步骤和主操作只能投影这个字段，
+ * 不得各自维护第二份布尔组合（Phase 04 / I-1）。
+ */
+export const DigitalInterviewStatus = z.enum([
+  "draft",
+  "topic_pending",
+  "experts_pending",
+  "questions_pending",
+  "running",
+  "report_pending",
+  "completed",
+  "failed",
+]);
+
 /** 大纲状态。⚠ 以 `pending_confirm` 进现场**由服务端拒绝**，不只是前端标记（I-10） */
 export const OutlineStatus = z.enum(["pending_confirm", "confirmed"]);
 
@@ -210,6 +225,10 @@ export const InterviewError = z.enum([
   "CONCURRENT_MODIFICATION",
   /** 各 UC 通用：已保留当前输入与最后成功数据，可安全重试 */
   "DEPENDENCY_UNAVAILABLE",
+  /** 数字专家访谈草稿缺名称、标签或主题。 */
+  "DIGITAL_INTERVIEW_INPUT_INVALID",
+  /** 数字专家访谈试图跳过确认步骤。 */
+  "DIGITAL_INTERVIEW_STEP_INVALID",
   /** 🔗 与 `context-pack.ContextPackReason` 同码同义：操作过程中权限被撤回 */
   "PERMISSION_REVOKED_MIDWAY",
 ]);
@@ -233,6 +252,23 @@ export const InterviewRow = z.object({
   tags: z.array(z.string()),
   archived: z.boolean(),
   whenAt: z.string().nullable(),
+}).strict();
+
+/** 数字专家访谈草稿的用户输入。trim 在契约边界完成，存储层不保存空白噪声。 */
+export const DigitalInterviewDraftInput = z.object({
+  name: z.string().trim().min(1),
+  tags: z.array(z.string().trim().min(1)).min(1),
+  topic: z.string().trim().min(1),
+}).strict();
+
+/** Phase 04 数字专家访谈的可恢复读模型。 */
+export const DigitalInterview = DigitalInterviewDraftInput.extend({
+  interviewId: z.string().min(1),
+  status: DigitalInterviewStatus,
+  sourceQuickInterviewId: z.string().nullable(),
+  selectedExpertIds: z.array(z.string()),
+  reportId: z.string().nullable(),
+  version: z.number().int().positive(),
 }).strict();
 
 /** 模板列表行——**名称/用过N次/一句话/题数/时长区间** 五要素 */
@@ -416,6 +452,24 @@ export const WithdrawalStep = z.object({
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
 export const operations = {
+  /* ── Phase 04 · 数字专家访谈基础 ─────────────────────────────── */
+
+  /** 保存草稿不触发专家生成；后续步骤必须由显式确认操作推进。 */
+  createDigitalInterviewDraft: {
+    method: "POST", path: "/interviews/digital",
+    in: DigitalInterviewDraftInput.extend({ scope: InterviewScope }).strict(),
+    out: DigitalInterview,
+    err: ["DIGITAL_INTERVIEW_INPUT_INVALID", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 刷新或重新进入页面时恢复同一状态和版本。 */
+  getDigitalInterview: {
+    method: "GET", path: "/interviews/digital/:interviewId",
+    in: z.object({ interviewId: z.string() }).strict(),
+    out: DigitalInterview,
+    err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
   /* ── A 组 · 范围与列表（uc-6-0）───────────────────────────────── */
 
   /**

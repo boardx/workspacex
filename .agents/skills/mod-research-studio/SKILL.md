@@ -52,7 +52,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
-<空着开始。格式：`- YYYY-MM-DD：一句话结论（出处：PR/issue/postmortem 链接）`>
+- 2026-08-12：数字专家访谈复用 `interview_sessions` 时，任何恢复/状态读取都必须复用既有 SQL 可见性谓词并返回 `Guarded`，再经 application decision 解封；只靠 RLS 只能隔离组织，挡不住同组织内访谈泄露（出处：issue #973）。
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 

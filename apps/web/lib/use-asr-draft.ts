@@ -22,6 +22,11 @@ export interface UseAsrDraftOptions {
   /** 开始录音那一刻读取一次，作为追加的基线（保留用户已经手打的文字，不覆盖）。 */
   readonly getBaseText: () => string;
   readonly sessionToken: string;
+  /**
+   * 选中的输入设备 `deviceId`（contract.md §7.1）。在**开始录音那一刻**读取一次
+   * 传给采音层——所以空闲时换设备，下次点开始即生效。空/未传 = 系统默认设备。
+   */
+  readonly deviceId?: string;
 }
 
 export interface UseAsrDraftResult {
@@ -57,7 +62,7 @@ function appendTranscript(base: string, addition: string): string {
   return /\s$/.test(base) ? `${base}${addition}` : `${base} ${addition}`;
 }
 
-export function useAsrDraft({ onTranscript, getBaseText, sessionToken }: UseAsrDraftOptions): UseAsrDraftResult {
+export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
@@ -66,6 +71,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken }: UseAsrD
   const committedRef = React.useRef("");
   const onTranscriptRef = React.useRef(onTranscript);
   onTranscriptRef.current = onTranscript;
+  // 与 baseText 同理：`start` 是稳定回调，用 ref 让它在被调用那一刻读到**最新**选中的
+  // 设备，而不是闭包捕获的旧值——否则空闲时换设备不会生效。
+  const deviceIdRef = React.useRef(deviceId);
+  deviceIdRef.current = deviceId;
 
   const stop = React.useCallback(() => {
     const handle = handleRef.current;
@@ -104,7 +113,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken }: UseAsrD
           setStatus((current) => (current === "error" || current === "denied" ? current : "idle"));
         },
       },
-      { sessionToken },
+      { sessionToken, deviceId: deviceIdRef.current },
     ).then((handle) => {
       startingRef.current = false;
       handleRef.current = handle;

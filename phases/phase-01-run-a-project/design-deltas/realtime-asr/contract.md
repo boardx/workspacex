@@ -118,3 +118,46 @@ D-U1 的既有口径是「机密整轮全本地」。本面把音频送到**外�
   它们不在核心闭环第 7 步的路径上，单独一条 issue。
 - 说话人分离、PII 遮盖、物化产物：既有 `recording` 束已签，本面不动。
 - 把 WS 面推广到其它场景（chat 流式回复等）：本 delta 只授权 ASR 这一条。
+
+## 7. 输入设备选择（增补，2026-08-12；append-only，不改 §1–§6）
+
+人类要求：录音入口要能**选择输入麦克风**，参照 Claude Code 自身的「Microphone」下拉。
+本增补**只动采集端**，§1–§4（WS 协议、`ingestSegment` 落库单路、机密 fail-closed）
+**逐字不变**——上行仍是 PCM16/16k/单声道裸帧，上游听不出音频来自哪个设备。
+
+### 7.1 采集引擎是单一事实源
+
+`live-recording.ts` 的 `startCapture()` 是**唯一**一段真实采音代码，同时被
+`live-asr.ts`（会话录音，#466）与 `live-asr-draft.ts`（composer 听写，#726）复用。
+设备选择因此落在这一层，两条路径天然共享：
+
+- `startCapture({ deviceId })`：`deviceId` 非空时，`getUserMedia` 约束加
+  `audio.deviceId: { exact: deviceId }`；**为空时行为与今日逐字相同**（系统默认设备）。
+  用 `exact`（而非软偏好）是刻意的：用户选了某个设备却被浏览器悄悄换成默认，
+  比"设备不可用直接报错"更坏——后者由既有 `no-microphone` / `capture-failed` 具名失败态兜住。
+- 新增 `enumerateInputDevices()`：返回 `kind === "audioinput"` 的设备
+  `{ deviceId, label }[]`。**label 只有在已授权麦克风后才可读**（浏览器隐私约束），
+  未授权时 label 为空串——这是**真实状态**，UI 必须如实显示占位（见 7.3），
+  **不得**编造设备名，也**不得**为了拿名字在用户没点录音前偷偷弹权限。
+
+### 7.2 本增补只接线 composer 听写入口
+
+人类 2026-08-12 决定：设备下拉 UI **只挂在 composer 麦克风按钮**
+（`chat-live-message-panel.tsx`，参照图就是这种听写交互）。会话录音面板
+（`chat-recording-panel.tsx`）**本增补不加 UI**——引擎已向后兼容，它不传 `deviceId`
+即保持今日行为，日后要加同样复用这一层，不重造。
+
+### 7.3 三条不可省的诚实约束
+
+1. **未授权 → 占位，不静默**：设备列表拿不到 label 时显示"允许麦克风后显示设备名"
+   之类占位，而不是空白下拉假装没有设备。
+2. **热插拔 → 刷新**：监听 `navigator.mediaDevices.devicechange`，插拔设备后列表更新。
+3. **记住选择**：选中项存 `localStorage`（`wsx.micDeviceId`）；但**记的是 deviceId**，
+   不是设备对象——下次进来若该 id 已不存在，退化为系统默认并如实反映，不卡在一个幽灵设备上。
+
+### 7.4 明确不在本增补范围
+
+- **「Hold to record（按住说话）」开关**：参照图里有，但它改的是 start/stop **交互语义**
+  （按住 vs 点两下），触及已签 §5 的按钮行为，属于另一件事。人类 2026-08-12 决定
+  **本增补不做**，单独一条 feature/签核。
+- 会话录音面板（`chat-recording-panel.tsx`）的设备下拉 UI：见 7.2，本增补不接。

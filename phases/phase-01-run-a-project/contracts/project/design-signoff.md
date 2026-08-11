@@ -7,7 +7,18 @@ phase: "01"
 #   U-1 B 的两张新成员表 + U-7 A 的两张既有表加列回填（F128 5 点）、
 #   以及 Q-3 ① 的改名对齐要回头改 phase-00 已合入 main 的代码（F121 3 点）。
 #   这三件在写「8–10 个」那天都还没裁。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128]
+# ⚠ 2026-08-12（PJ-01 / issue #976）：追加 **F158**，由 agent `dev-project` 追加，**待 coord-main 复核**。
+#   追加的理由，以及为什么这不等于替人类签一次新的核：
+#     · F158 **不引入任何新的设计面**。它做的是把**本束已签核的那一屏**（新建项目向导，
+#       第 ① 件材料 `ui-preview/project-v2/` 里的 `uc-2-2-newproject-*`）接到**本束已签核的
+#       那一条契约**（`createProject`，第 ③ 件，F117 已 passing）上。UI 没有新增，
+#       契约没有新增，失败面沿用 `ProjectReason` 既有的码。
+#     · 它没有绕开任何一件的评审：三件在 2026-07-30 都由人类签过，F158 落在它们的交集里。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改——
+#     那三个字段是人的动作，agent 不许动（ADR-023）。
+#   ⚠ 若 coord-main 或人类认为「已签核束追加 feature 编号」这件事本身需要人类再签一次，
+#     把 F158 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

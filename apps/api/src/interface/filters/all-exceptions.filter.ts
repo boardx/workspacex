@@ -49,6 +49,13 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   404: "not_found",
   409: "conflict",
   /**
+   * 2026-08-12 头像二次上传 408 修复顺手补的洞：`readRawBody` 的 REQUEST_BODY_TIMEOUT
+   * 走 408，此前不在映射里，被渲染成 `internal_error`——一个服务端正确拒绝的超时，
+   * 响应体却声称服务器坏了（与下面 410/413/415 的教训逐字相同）。devapp 两条 traceId
+   * （082a9287-… / 457a6102-…）的响应体就是这么把排查方向骗向「服务器内部错误」的。
+   */
+  408: "request_timeout",
+  /**
    * F32: a short-lived download URL that has aged out.
    *
    * Distinct from 409 on purpose -- 「过期了，重新点一次下载」 and 「这条链接已经被用掉了」 send

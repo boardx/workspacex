@@ -61,7 +61,7 @@ export const VISIBILITY_PREDICATE = `(
  * `is_collaborator` 是在同一条查询里算出来的，而不是回到进程里再查一次：
  * 两次查询之间协作者被移除，就会出现「按 A 时刻的事实判定、发 B 时刻的内容」。
  */
-const FACT_COLUMNS = `
+export const INTERVIEW_VISIBILITY_FACT_COLUMNS = `
   s.created_by,
   EXISTS (
     SELECT 1 FROM interview_collaborators ic2
@@ -182,7 +182,7 @@ export class PgInterviewScopeRepository implements InterviewScopeRepository {
       const rowsSql = `
         SELECT s.id, s.title, s.source_kind, s.project_id, s.research_project_id,
                s.tags, s.archived, s.when_at, s.created_at,
-               ${FACT_COLUMNS}
+               ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
           FROM interview_sessions s
          WHERE ${where.join(" AND ")}
          ORDER BY s.created_at DESC, s.id DESC
@@ -215,7 +215,7 @@ export class PgInterviewScopeRepository implements InterviewScopeRepository {
       const r = await s.query<SessionRowShape>(
         `SELECT s.id, s.title, s.source_kind, s.project_id, s.research_project_id,
                 s.tags, s.archived, s.when_at, s.created_at,
-                ${FACT_COLUMNS}
+                ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
            FROM interview_sessions s
           WHERE s.org_id = $1 AND s.id = $3 AND ${VISIBILITY_PREDICATE}`,
         [orgId, viewerUserId, interviewId],

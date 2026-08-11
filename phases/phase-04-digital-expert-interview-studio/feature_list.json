@@ -1,0 +1,163 @@
+{
+  "phase": "04",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-API",
+      "title": "数字专家访谈统一契约、八态状态机与可恢复存储",
+      "user_visible_behavior": "创建访谈草稿时保存名称、至少一个标签和主题且不生成专家；卡片、详情、步骤与主操作由同一八态字段投影，非法跳步被拒绝；刷新后草稿与当前步骤保持一致。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R7",
+      "depends_on": [
+        "p0:F01",
+        "p0:F02",
+        "p0:F04",
+        "p1:uc-6-0"
+      ],
+      "points": 5,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "agt_01KZRABCZ99M2NGN20C7YWEASG",
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/digital-interview-contract.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-persistence.test.ts"
+      ],
+      "evidence": "evidence/F01.verify.log @ 2026-08-11T17:03:54.818Z",
+      "notes": "release slice。共享热点 packages/contracts/src/interview.ts、apps/api/src/**/interview 与 interview 表；复用现有范围/错误信封，不新增第二个契约文件。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "访谈 Studio 首屏：历史访谈、专家列表与契约派生客户端",
+      "user_visible_behavior": "访问 /itv 默认展示可按状态筛选的历史访谈卡；切换专家列表可按领域筛选并看到材料边界；右上角新建访谈完整单行显示，401/403/依赖失败显示真实错误而不是空列表。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R8",
+      "depends_on": [
+        "F01",
+        "p0:F09"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-controller.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "release slice。共享热点 apps/web/app/itv/page.tsx、apps/web/components/itv/**、apps/web/lib/interview-api.ts；首页只有两个主标签。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "数字专家快捷访谈：独立全页对话、历史留存与转批量",
+      "user_visible_behavior": "用户从专家卡进入独立快捷访谈页完成对话，返回后仍停留在专家列表；对话自动进入历史，并可携带问题、回答和来源指针转为新的批量访谈草稿。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R3",
+      "depends_on": [
+        "F02"
+      ],
+      "points": 4,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/quick-digital-interview.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/quick-digital-interview.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "release slice。共享热点 apps/web/components/itv/** 与 interview API；完整页面，不使用 dialog/drawer。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "批量访谈创建：确认主题、审核专家与针对性问题",
+      "user_visible_behavior": "新建访谈在完整页面填写名称、标签和主题，用户明确确认主题后才生成专家；可删除或从目录添加专家且至少保留一位；系统按专家生成不同问题并允许逐项增删改。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R3",
+      "depends_on": [
+        "F03"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/interview-setup-workflow.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "release slice。共享热点 apps/web/components/itv/**；只处理数字专家，不出现真人、用户画像或模板优先流程。"
+    },
+    {
+      "id": "F05",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "批量执行：专家级进度、追问、局部失败与单独重试",
+      "user_visible_behavior": "确认问题后系统并行运行每位数字专家，页面分别显示问题进度、结构化回答和完整记录；单专家失败不回滚已完成结果，可仅重试失败专家，离开页面后运行继续并能恢复。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R4",
+      "depends_on": [
+        "F04"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-runs.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "release slice。回答结构复用 Standalone 的观点、理由、引用、不确定性、反例层级；模型失败按 expert+operation 记录。"
+    },
+    {
+      "id": "F06",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "访谈详情、可靠返回与可追溯探索性报告",
+      "user_visible_behavior": "历史卡进入详情后显示整体状态、阶段、统计和专家进度；返回按钮明确回到历史卡列表；报告发现可回跳具体专家、问题、回答和材料来源，并始终显示探索性与待真人验证标记。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R12",
+      "depends_on": [
+        "F05"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-report.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/interview-detail-report.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "release slice。报告只在访谈域内可读，不提供强洞察、决策依据或组织晋升写入口；按钮组整体换行、按钮内 nowrap。"
+    },
+    {
+      "id": "F07",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-E2E",
+      "title": "数字专家访谈真实 E2E：快捷转批量、恢复、局部重试与报告溯源",
+      "user_visible_behavior": "浏览器从真实 /itv 入口完成快捷对话并转批量，确认主题、专家和个性化问题，模拟一位专家失败后单独重试，返回历史继续访谈并生成可回跳来源的探索性报告。",
+      "spec_ref": "01-digital-expert-interview-studio.md#R12",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run e2e digital-interview-studio.spec.ts",
+        "pnpm --filter api exec vitest run tests/itv/digital-interview-report.test.ts"
+      ],
+      "evidence": "",
+      "notes": "最终验收 slice。必须真实浏览器+API+数据库，不接受全 mock；由独立 rev-e2e 核对失败链与 traceability。"
+    }
+  ]
+}

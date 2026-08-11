@@ -128,6 +128,58 @@ export interface CaptureHandle {
 interface CaptureDeps {
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createAudioContext?: () => AudioContext;
+  /**
+   * 指定输入设备（麦克风）的 `deviceId`（contract.md §7.1）。
+   *
+   * 非空时给 `getUserMedia` 加 `audio.deviceId: { exact }`；**为空/未传时行为与
+   * 未接本增补前逐字相同**（系统默认设备）——这是会话录音路径不受影响的保证。
+   * 用 `exact` 而非软偏好：用户选了某设备却被浏览器悄悄换成默认，比"设备不可用直接
+   * 报错"更坏，后者由既有 `no-microphone` / `capture-failed` 具名失败态兜住。
+   */
+  deviceId?: string;
+}
+
+/** 一个可选作输入源的麦克风设备（contract.md §7.1）。 */
+export interface AudioInputDevice {
+  readonly deviceId: string;
+  /**
+   * 设备名。**只有在已授权麦克风后才可读**（浏览器隐私约束）；未授权时为空串。
+   * 空串是**真实状态**，调用方据此显示占位，绝不编造设备名。
+   */
+  readonly label: string;
+}
+
+/**
+ * 列出可用的音频输入设备（contract.md §7.1）。
+ *
+ * 只读:**不**主动申请麦克风权限——拿设备名要授权，但"用户还没点录音就弹权限"
+ * 是更糟的体验。因此未授权时这里如实返回 label 为空串的设备，UI 显示占位；
+ * 真正的授权发生在用户点开始录音那一刻（`startCapture` → `getUserMedia`），
+ * 之后 `devicechange` 会带着可读的 label 再刷一次。
+ *
+ * `navigator.mediaDevices` 不可用（老浏览器/非安全上下文）时返回空数组，
+ * 不抛异常——列不出设备不是错误态，是"这台机器/这个环境没有可选设备"。
+ */
+export async function enumerateInputDevices(
+  deps: { enumerateDevices?: () => Promise<MediaDeviceInfo[]> } = {},
+): Promise<AudioInputDevice[]> {
+  const enumerate = deps.enumerateDevices
+    ?? (globalThis.navigator?.mediaDevices?.enumerateDevices
+      ? () => globalThis.navigator.mediaDevices.enumerateDevices()
+      : null);
+  if (enumerate === null) return [];
+  let devices: MediaDeviceInfo[];
+  try {
+    devices = await enumerate();
+  } catch {
+    return [];
+  }
+  return devices
+    .filter((device) => device.kind === "audioinput")
+    // deviceId 为空串的项（某些浏览器未授权时会给一条占位）不作为可选项——
+    // 它无法被 `deviceId: { exact }` 定位，选了也没用。
+    .filter((device) => device.deviceId !== "")
+    .map((device) => ({ deviceId: device.deviceId, label: device.label }));
 }
 
 /**
@@ -148,9 +200,16 @@ export async function startCapture(deps: CaptureDeps = {}): Promise<CaptureHandl
       return media.getUserMedia(constraints);
     });
 
+  // deviceId 非空 → 精确锁定该设备（§7.1）；空/未传 → 不加此约束，走系统默认，
+  // 与接本增补前逐字相同。
+  const audio: MediaTrackConstraints = { channelCount: 1, echoCancellation: true, noiseSuppression: true };
+  if (deps.deviceId !== undefined && deps.deviceId !== "") {
+    audio.deviceId = { exact: deps.deviceId };
+  }
+
   let stream: MediaStream;
   try {
-    stream = await getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+    stream = await getUserMedia({ audio });
   } catch (error) {
     if (error instanceof LiveRecordingError) throw error;
     throw new LiveRecordingError(classifyMediaError(error));

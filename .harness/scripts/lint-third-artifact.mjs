@@ -57,6 +57,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const CONTRACT_MAP_FILE = join(dirname(fileURLToPath(import.meta.url)), "third-artifact-map.json");
 
 /* ── 形态 B 的声明识别 ──────────────────────────────────────────────────
  * 只认 `domain.md` 里的**标题行**（`#` 开头）。两条模式，都以现存两束的真实写法为准：
@@ -159,11 +160,14 @@ function findBundles(phasesRoot) {
 
 /* ── 主体 ─────────────────────────────────────────────────────────────── */
 
-export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, only = [] } = {}) {
+export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schemaMapFile = CONTRACT_MAP_FILE, only = [] } = {}) {
   const errors = [];
   const rows = [];
   const SRC = contractsSrc ?? join(root, "packages", "contracts", "src");
   const PH = phasesRoot ?? join(root, "phases");
+  const schemaMap = existsSync(schemaMapFile)
+    ? JSON.parse(readFileSync(schemaMapFile, "utf8"))
+    : {};
 
   const { out: found, emptyPhases } = findBundles(PH);
   for (const p of emptyPhases) {
@@ -189,8 +193,27 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, only 
     const row = { label, form: null, schema: null, r12: 0 };
 
     /* ── 形态 A：zod 契约文件 ────────────────────────────────────────── */
-    const candidates = [join(SRC, `${bundle}.ts`), join(SRC, bundle, "index.ts")];
+    const mappedSchema = schemaMap[phase]?.[bundle] ?? null;
+    const mappedSchemaValid = mappedSchema === null || (
+      typeof mappedSchema === "string" &&
+      /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(mappedSchema) &&
+      mappedSchema !== bundle
+    );
+    if (!mappedSchemaValid) {
+      errors.push(
+        `[契约复用映射非法] ${label} 在 ${schemaMapFile.slice(root.length + 1)} 中的值必须是` +
+        `不同于束名的安全契约名，实际为 ${JSON.stringify(mappedSchema)}。`,
+      );
+    }
+    const schemaBundle = mappedSchemaValid && mappedSchema ? mappedSchema : bundle;
+    const candidates = [join(SRC, `${schemaBundle}.ts`), join(SRC, schemaBundle, "index.ts")];
     const schemaPath = candidates.find((p) => existsSync(p)) ?? null;
+    if (mappedSchemaValid && mappedSchema && !schemaPath) {
+      errors.push(
+        `[契约复用目标缺失] ${label} 显式复用 ${mappedSchema}，但 packages/contracts/src/${mappedSchema}.ts` +
+        ` 与 packages/contracts/src/${mappedSchema}/index.ts 均不存在。`,
+      );
+    }
     let formA = false;
     if (schemaPath) {
       const src = readFileSync(schemaPath, "utf8");
@@ -251,7 +274,7 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, only 
      * 只在**沉默**的情况下报这一条：既没有契约文件（连空的都没有），
      * 也没有任何「无 HTTP 面」的声明。另外两种不成立各有自己的、更具体的报错
      * （[空契约] / [声明无 HTTP 但无门控命令]），不重复点名。 */
-    if (!schemaPath && !declaration) {
+    if (!schemaPath && !declaration && !mappedSchema) {
       {
         errors.push(
           `[第 ③ 件缺失] ${label}：packages/contracts/src/${bundle}.ts 不存在` +

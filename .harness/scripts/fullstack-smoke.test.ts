@@ -8,7 +8,31 @@ import { deriveTestIsolation } from "./lib/test-isolation";
 const ROOT = resolve(import.meta.dirname, "../..");
 const read = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
 
+/**
+ * 2026-08-12（#1010 项目 Agent 定论）：`harness verify` 的顺序是「先跑各 feature
+ * verification 再跑 verify:base」，而有的 feature 验证会起完整 Next dev server——
+ * load 的衰减均值在 kill 后仍高位停留数分钟，紧接着本套件并行 63 文件，5 秒的
+ * spawn 就绪窗口被压垮：同机同 SHA，单独跑 13/13 连绿三次，verify 序列里 7 条
+ * 全红且全部卡在 5.00–5.02s 的「wrapper did not start」，无一条是断言失败。
+ *
+ * 修法是**只对就绪超时重试一次（换新进程）**，不是调大常数：真「wrapper 起不来」
+ * （with-test-isolation.ts 坏了）两次都起不来，门照响；负载尖峰下第二次通常落在
+ * 尖峰衰减之后。断言失败永不重试。
+ */
 async function runWrapper(options: {
+  childExit?: number;
+  dockerExit?: number;
+  signal?: "SIGINT" | "SIGTERM";
+}) {
+  try {
+    return await runWrapperOnce(options);
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "wrapper did not start") throw error;
+    return await runWrapperOnce(options);
+  }
+}
+
+async function runWrapperOnce(options: {
   childExit?: number;
   dockerExit?: number;
   signal?: "SIGINT" | "SIGTERM";
@@ -30,7 +54,16 @@ async function runWrapper(options: {
     process.execPath, "-e", childScript,
   ], {
     cwd: ROOT,
-    env: { ...process.env, ...isolation, PATH: `${temp}:${process.env.PATH ?? ""}` },
+    env: {
+      ...process.env,
+      ...isolation,
+      // This fixture deliberately starts a standalone wrapper scope. When the
+      // suite itself runs inside `harness verify`, the parent's match markers
+      // describe a different scope and must not leak into this child fixture.
+      WORKSPACEX_VERIFY_OUTER_DB: undefined,
+      WORKSPACEX_VERIFY_OUTER_COMPOSE: undefined,
+      PATH: `${temp}:${process.env.PATH ?? ""}`,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";
@@ -40,14 +73,21 @@ async function runWrapper(options: {
   const exit = new Promise<number | null>((resolveExit) => child.once("exit", resolveExit));
   try {
     if (options.signal) {
-      await new Promise<void>((resolveReady, reject) => {
-        const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 5_000);
-        child.stdout?.on("data", (chunk) => {
-          if (!String(chunk).includes("[test-isolation]")) return;
-          clearTimeout(timeout);
-          resolveReady();
+      try {
+        await new Promise<void>((resolveReady, reject) => {
+          const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 5_000);
+          child.stdout?.on("data", (chunk) => {
+            if (!String(chunk).includes("[test-isolation]")) return;
+            clearTimeout(timeout);
+            resolveReady();
+          });
         });
-      });
+      } catch (error) {
+        // 就绪超时的子进程还活着（keep-alive childScript），重试前必须收尸，
+        // 否则「重试一次」会把泄漏翻倍——恰好加重它想解决的负载问题。
+        child.kill("SIGKILL");
+        throw error;
+      }
       child.kill(options.signal);
     }
     const code = await exit;

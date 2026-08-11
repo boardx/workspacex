@@ -50,6 +50,15 @@ import {
   ID_FACTORY, OBJECT_STORE, type IdFactory, type ObjectStore,
 } from "../../application/artifact/ports";
 import { CLOCK, type Clock } from "../../application/auth/ports";
+import {
+  ATTACHMENT_EXTRACTION_STORE, type AttachmentExtractionStore,
+} from "../../application/chat/attachment-extraction-store";
+import {
+  ATTACHMENT_TO_MARKDOWN, type AttachmentToMarkdownPort,
+} from "../../application/chat/attachment-to-markdown.port";
+import {
+  ATTACHMENT_EXTRACTION_EXECUTOR, type AttachmentExtractionExecutorPort,
+} from "../../application/chat/attachment-extraction-executor.port";
 import { declaredMimeMatchesBytes } from "../../domain/chat/attachment-mime-sniff";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
@@ -97,6 +106,10 @@ export class ChatAttachmentController {
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @Inject(ID_FACTORY) private readonly attachmentIds: IdFactory,
     @Inject(CLOCK) private readonly clock: Clock,
+    // F153（V9-b）：内容抽取子系统——上传成功后触发（≤3MB 内联，更大异步）。
+    @Inject(ATTACHMENT_EXTRACTION_STORE) private readonly extraction: AttachmentExtractionStore,
+    @Inject(ATTACHMENT_TO_MARKDOWN) private readonly converter: AttachmentToMarkdownPort,
+    @Inject(ATTACHMENT_EXTRACTION_EXECUTOR) private readonly executor: AttachmentExtractionExecutorPort,
   ) {}
 
   private get deps() {
@@ -105,6 +118,8 @@ export class ChatAttachmentController {
       store: this.store, attachmentIds: this.attachmentIds,
       // 平台 Clock.now() 回 Date；用例的 createdAt 要 ISO 串（落 timestamptz）——这里适配。
       clock: { now: () => this.clock.now().toISOString() },
+      // F153：接上抽取子系统。
+      extraction: this.extraction, converter: this.converter, executor: this.executor,
     };
   }
 

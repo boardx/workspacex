@@ -61,7 +61,7 @@
 | HMV2-013 | P0 | ✅ 完成 | `renderer-model.ts`：按 template_id 注册的类型化 renderer 注册表 + `renderChecked` 三类完整性校验（模板匹配/来源指纹回指/revision 一致），12 条单测含 4 组反证。API 形状经 coord-main 裁决（#422，2026-08-11 夜间，E2 由 dev-chat-e2e 代跑）。本 PR |
 | HMV2-014 | P0 | ✅ 完成 | `placeholder-gate.ts`：machine（`{{...}}`）+ human（`<CJK>`/`<…>`）两类检测，规则取自 `.harness/templates/` 实测语法；纯 ASCII 尖括号如实标注不覆盖（与 HTML/泛型不可区分）；行内 ignore 标记同 skill-doctor 先例。9 条单测含反证。本 PR |
 | HMV2-015 | P0 | ✅ 完成 | `generated-metadata.ts`：文件内注释头（.md/.yaml 两种语法）+ 正文哈希三件原语（wrap/parse/verify），哈希由 wrap 内部计算防伪造，未登记扩展名抛错不静默省略。口径经 #422 提案无异议。12 条单测含 5 组反证。本 PR |
-| HMV2-016 | P0 | ⬜ 未开始 | Generated drift gate |
+| HMV2-016 | P0 | ✅ 完成 | `generated-drift-gate.ts`（presence-based：带 015 元数据头即受控，畸形头/正文哈希不符即红）接入 `templates doctor`（§12 第 9 条，从 notYetImplemented 移除）；git ls-files -z 全量扫描，git 失败=UNKNOWN 非零退出（P7）。6 条单测 + 活体反证（基线绿→种手改文件红 exit=1→恢复绿）。'该有头而没有'的目录约定半边如实标注留给 017 落盘时定。本 PR |
 | HMV2-017 | P1 | ⬜ 未开始 | `templates render` 命令 |
 | HMV2-018 | P1 | ⬜ 未开始 | `templates migrate` 框架 |
 | HMV2-019 | P1 | ⬜ 未开始 | Mermaid renderer 基础 |
