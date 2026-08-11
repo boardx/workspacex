@@ -340,3 +340,34 @@ test("V7（PROP-CHAT-10ITER-001）composer auto-grows with multi-line input, cap
   // 封顶：不超过上限（200px）+ 边框余量
   expect(manyLines).toBeLessThanOrEqual(210);
 });
+
+test("发送后 thinking 等待动画（非流式/deep-agent 情形）—— 提交即出现，回复到达后让位", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+
+  // 模拟 devapp 默认 agent（deep-agent，走轮询+整段写回，不发 token 流）：掐断 SSE 流，
+  // 让前端只能靠轮询——streamingText 恒空，于是"等待回复"由 thinking 动画表达。
+  await page.route("**/agent-runs/*/stream", (route) => route.abort());
+  // 放慢状态轮询，保证 in-flight 窗口足够长、断言不 racy。
+  await page.route(/\/agent-runs\/[^/]+(\?.*)?$/, async (route) => {
+    if (route.request().method() === "GET") await new Promise((r) => setTimeout(r, 1200));
+    await route.continue();
+  });
+
+  const input = page.getByRole("textbox", { name: "消息内容" });
+  await input.fill("thinking indicator please");
+  await page.getByTestId("chat-message-submit").click();
+
+  // 发送后立刻出现 thinking 动画（awaitingReply 在提交同一 tick 置真，先于任何网络往返）
+  await expect(page.getByTestId("chat-message-row-thinking")).toBeVisible();
+  await expect(page.getByTestId("chat-message-row-thinking")).toContainText("正在思考");
+
+  // run 到终态、真实回复由 loadPage 接管后，thinking 让位消失
+  await expect(page.getByTestId("chat-message-row-thinking")).toHaveCount(0, { timeout: 30_000 });
+});
