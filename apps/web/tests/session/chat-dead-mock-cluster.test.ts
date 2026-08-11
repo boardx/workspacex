@@ -83,7 +83,8 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
   /**
    * 台账：`components/chat/` 下**任何路由都走不到**、却仍 import `lib/mock/**` 的文件。
    *
-   * ⚠ 这七个**不是**「顺手就能删的死代码」，删除已从 #462 的范围里拿掉、上报待裁：
+   * ⚠ 这几个（VZ-01 前是七个，见下方断言旁注为何降为六个）**不是**「顺手就能删的死代码」，
+   *   删除已从 #462 的范围里拿掉、上报待裁：
    * · 它们不是各自孤立的，而是一条**链**：`chat-main.tsx` → `composer.tsx` →
    *   `composer-settings.tsx`，`chat-main.tsx` 还牵着 `message-stream` / `reassign-bar`。
    *   只删链尾会当场把 `chat-main.tsx` 的 typecheck 打红（实测：
@@ -96,7 +97,7 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    *
    * 所以这里如实钉住而不假装已清理，也不偷偷删。
    */
-  it("如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这七个", () => {
+  it("如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这六个", () => {
     const { visited } = walkImports(routeEntries());
     // 反空转：全路由闭包必须真的走到了活着的 chat 屏，否则「都走不到」是因为什么都没走。
     expect(visited).toContain("components/chat/chat-read-screen.tsx");
@@ -105,8 +106,11 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     const orphanMockFiles = chatComponents().filter((file) =>
       !visited.includes(file) && readFileSync(resolve(ROOT, file), "utf8").includes("@/lib/mock/"));
 
+    // ⚠ VZ-01 起从七个降为六个：`ai-message.tsx`（原型 AI 气泡）被新的 `app/preview/chat-viz`
+    //   预览路由 import（用它演示 markdown/mermaid 渲染），routeEntries() 含 `app/**` 全部路由，
+    //   故它不再是「任何路由都走不到」——如实从本台账移出。它仍是原型组件、仍 import `lib/mock/chat`
+    //   的类型；产品 /chat 路由依旧不经它（活体 AI 渲染在 `chat-live-message-panel.tsx`）。
     expect(orphanMockFiles).toEqual([
-      "components/chat/ai-message.tsx",        // UC-8.2 AI 消息气泡
       "components/chat/approval-card.tsx",     // UC-8.2 批准卡（后端无审批路由）
       "components/chat/chat-main.tsx",         // UC-8.2 三栏原型主区：整条链的根，零引用者
       "components/chat/composer-settings.tsx", // 输入区「更多设置」，被 composer.tsx 引
