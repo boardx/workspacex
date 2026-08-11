@@ -171,31 +171,28 @@ step "4h. deep-agent-service（通用助手内核，2026-08-11 —— 此前从�
 # （graph.py 相对导入 → langgraph dev 按文件路径加载时报 GraphLoadError），能跑的
 # `:test-fix` 又是一个无出处的手工镜像。这一步把整个生命周期仓库化：
 # 从当前部署的源码 build（tag = git SHA，有出处）→ 幂等生成专属 env 文件 → 起容器 →
-# 健康检查。宿主侧绑 127.0.0.1:2025（2024 被 open_deep_research 容器占了），容器内 2024。
+# 健康检查。端口归属登记在 .harness/instructions/project/PROJECT.md「本机端口分配」
+# （单一事实源，此处不复述）；可测逻辑抽在 deep-agent-lib.sh，由 deep-agent-lib.test.ts 覆盖。
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/deep-agent-lib.sh"
+
 DEEP_AGENT_ENV_FILE=${DEEP_AGENT_ENV_FILE:-/opt/workspacex/deep-agent.env}
-DEEP_AGENT_HOST_PORT=${DEEP_AGENT_HOST_PORT:-2025}
 DEEP_AGENT_SHA=$(sudo -u "$RUN_AS" git rev-parse --short HEAD)
 DEEP_AGENT_IMAGE="deep-agent-service:${DEEP_AGENT_SHA}"
 
-# deploy.env 幂等补 KERNEL_DEEP_AGENT_BASE_URL——apps/api 的 DeepAgentModelProvider 读它；
-# 没有它，「通用助手」永远是诚实的 MODEL_PROVIDER_NOT_CONFIGURED。
-if ! grep -q '^KERNEL_DEEP_AGENT_BASE_URL=' "$ENV_FILE"; then
-  echo "KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:${DEEP_AGENT_HOST_PORT}" >> "$ENV_FILE"
-  echo "  deploy.env 里没有 KERNEL_DEEP_AGENT_BASE_URL，已写入 http://127.0.0.1:${DEEP_AGENT_HOST_PORT}"
-fi
+# 宿主端口与 KERNEL_DEEP_AGENT_BASE_URL（apps/api 的 DeepAgentModelProvider 读它）机械
+# 一致：deploy.env 已有 BASE_URL ⇒ 端口从它反解；没有 ⇒ 派生写入；两处声明冲突 ⇒ 红退。
+DEEP_AGENT_HOST_PORT=$(deep_agent_resolve_host_port "$ENV_FILE" 2025 "${DEEP_AGENT_HOST_PORT:-}") || exit 1
 
 # 模型凭据复用 deploy.env 里 apps/api 同名的那一对值（model.py 的头注就是这么约定的，
-# 不引入新凭据）。缺了就红——静默跳过只会把故障推迟到用户第一次发消息。
-DEEP_AGENT_MODEL_BASE_URL=$(grep '^KERNEL_MODEL_BASE_URL=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
-DEEP_AGENT_MODEL_API_KEY=$(grep '^KERNEL_MODEL_API_KEY=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
-[ -n "$DEEP_AGENT_MODEL_BASE_URL" ] && [ -n "$DEEP_AGENT_MODEL_API_KEY" ] || {
-  echo "✗ deploy.env 缺 KERNEL_MODEL_BASE_URL / KERNEL_MODEL_API_KEY —— deep-agent-service 起了也无法调模型"
-  exit 1
-}
-# 模型 ID：deploy.env 里显式设了就用它，否则默认 qwen3.8-max（2026-08-11 devapp 实测可用；
-# 是否参数化为每环境必填项待 coord-main 裁决，见对应 issue）。
-DEEP_AGENT_MODEL_ID=$(grep '^KERNEL_DEEP_AGENT_MODEL_ID=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
-DEEP_AGENT_MODEL_ID=${DEEP_AGENT_MODEL_ID:-qwen3.8-max}
+# 不引入新凭据）；模型 ID 每环境必填、无默认值（coord-main 裁决，PR #941）。
+# 缺了就红——静默跳过只会把故障推迟到用户第一次发消息。读取必须 pipefail-safe
+# （read_env_value 内部 `|| true`），否则缺 key 时 grep 流水线会让脚本静默退出，
+# 走不到下面的人话诊断。
+DEEP_AGENT_MODEL_BASE_URL=$(read_env_value "$ENV_FILE" KERNEL_MODEL_BASE_URL)
+DEEP_AGENT_MODEL_API_KEY=$(read_env_value "$ENV_FILE" KERNEL_MODEL_API_KEY)
+DEEP_AGENT_MODEL_ID=$(read_env_value "$ENV_FILE" KERNEL_DEEP_AGENT_MODEL_ID)
+deep_agent_assert_model_env "$ENV_FILE" "$DEEP_AGENT_MODEL_BASE_URL" "$DEEP_AGENT_MODEL_API_KEY" "$DEEP_AGENT_MODEL_ID" || exit 1
 
 # env 文件整体重写（单一来源是 deploy.env，本文件只是投影）——幂等且不会越追加越长。
 (umask 077; cat > "$DEEP_AGENT_ENV_FILE" <<EOF
@@ -211,15 +208,21 @@ chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 echo "  构建镜像 ${DEEP_AGENT_IMAGE}（从当前部署源码，有出处）"
 docker build -t "$DEEP_AGENT_IMAGE" "$APP_DIR/apps/deep-agent-service" >/dev/null
 
-# 同名容器存在（无论手工的还是上一轮部署的）先停删再起新的——幂等替换，不留手工痕迹。
+# 记住上一轮部署的镜像 tag（GC 时保留它作回滚位），再幂等替换容器——
+# 同名容器存在（无论手工的还是上一轮部署的）先停删再起新的，不留手工痕迹。
+DEEP_AGENT_PREV_IMAGE=$(docker inspect --format '{{.Config.Image}}' workspacex-deep-agent 2>/dev/null) || true
+DEEP_AGENT_PREV_TAG=""
+case "$DEEP_AGENT_PREV_IMAGE" in
+  deep-agent-service:*) DEEP_AGENT_PREV_TAG=${DEEP_AGENT_PREV_IMAGE#deep-agent-service:} ;;
+esac
 docker rm -f workspacex-deep-agent >/dev/null 2>&1 || true
 docker run -d --name workspacex-deep-agent --restart unless-stopped \
   -p "127.0.0.1:${DEEP_AGENT_HOST_PORT}:2024" \
   --env-file "$DEEP_AGENT_ENV_FILE" \
   "$DEEP_AGENT_IMAGE" >/dev/null
 
-# 健康检查：轮询 /ok 直到 200 或超时。部署失败要红——devapp 上那个 GraphLoadError 的
-# `:latest` 容器就是这样默默躺了好几天没人发现的。
+# 健康检查①：轮询 /ok 直到 200 或超时（进程活着）。部署失败要红——devapp 上那个
+# GraphLoadError 的 `:latest` 容器就是这样默默躺了好几天没人发现的。
 DEEP_AGENT_OK=""
 for _ in $(seq 1 30); do
   if curl -fsS -m 2 "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}/ok" >/dev/null 2>&1; then
@@ -233,7 +236,22 @@ done
   docker logs --tail 40 workspacex-deep-agent 2>&1 || true
   exit 1
 }
-echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（127.0.0.1:${DEEP_AGENT_HOST_PORT}/ok → 200）"
+
+# 健康检查②：graph 就绪断言。#940 红/绿证据实测：/ok 在 graph 加载失败时也可能 200，
+# 只有 /assistants/search 里看得到目标 graph 才证明消灭了 GraphLoadError——
+# 这正是本步存在的目的，liveness 不等于契约成立。
+DEEP_AGENT_GRAPH_ID="Deep Agent"   # langgraph.json 的 graphs key
+if ! deep_agent_wait_graph_ready "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}" "$DEEP_AGENT_GRAPH_ID" 30 2; then
+  echo "✗ deep-agent-service /assistants/search 里 60s 内没出现 graph_id=\"${DEEP_AGENT_GRAPH_ID}\"——graph 没加载成功。容器日志："
+  docker logs --tail 60 workspacex-deep-agent 2>&1 || true
+  exit 1
+fi
+echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（/ok → 200 且 graph \"${DEEP_AGENT_GRAPH_ID}\" 已加载）"
+
+# 镜像 GC（best-effort）：新容器已验证就绪后才回收，保留当前 SHA + 上一轮 tag（回滚位），
+# 其余 deep-agent-service:* 旧 tag（含历史手工的 latest / test-fix）一律回收，
+# 单个失败只打日志——不然每次部署 +500MB，磁盘迟早撑爆。
+deep_agent_gc_images deep-agent-service "$DEEP_AGENT_SHA" ${DEEP_AGENT_PREV_TAG:+"$DEEP_AGENT_PREV_TAG"}
 
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，

@@ -18,6 +18,15 @@
 规则（源自上游事故，见 coordinator-sop 铁律）：**有 CD 的目标不手动部署**；
 env/secret 变更必须与部署原子（同 PR 或先加后删）。
 
+## 本机端口分配（devapp VM，127.0.0.1 回环）
+> 端口归属的**单一事实源**（PR #941 审查 P1-4：此前散在两个脚本的注释里各自复述）。
+> 脚本注释引用这里，不再自带端口清单；新占端口先登记再用。
+
+| 端口 | 归属 | 端口值的机器声明处 |
+|---|---|---|
+| 2024 | `open_deep_research` 容器（deep-research agent 上游，先占用） | 该容器自身的 run 配置 |
+| 2025 | `workspacex-deep-agent` 容器宿主侧（deep-agent-service，容器内 2024） | `/opt/workspacex/deploy.env` 的 `KERNEL_DEEP_AGENT_BASE_URL`（deploy.sh 第 4h 步由 `deep_agent_resolve_host_port` 反解端口，唯一声明处） |
+
 ## 协调服务（可选——未配置时全套退化为单 agent 模式，依然可用）
 - 基址：`<https://….workers.dev，或留空>`（环境变量 `COORD_SERVICE_URL`）
 - 协议契约见 `docs/coordination-protocol.md`；客户端在 `packages/coord-protocol`
