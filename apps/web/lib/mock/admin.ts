@@ -56,8 +56,12 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
     //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
     items: [
-      { key: "agent", label: "Agent", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
-      { key: "skill", label: "Skill", href: "/admin/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+      // 2026-08-11（菜单去重复查）：标签从「Agent」/「Skill」改成「Agent 目录」/「Skill 目录」——
+      // 与后台二级「智能体运行时」/「Skill 库与市场」不再是近义词硬凑，讲清楚这里是
+      // 目录治理（CapabilityCatalogScreen，真实 `GET/POST /capabilities`），不是运行时配置
+      // 或声明式 skill 全生命周期。判断依据见「菜单去重复查」issue。
+      { key: "agent", label: "Agent 目录", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
+      { key: "skill", label: "Skill 目录", href: "/admin/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
       { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: "画布模板", href: "/admin/canvasadmin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },

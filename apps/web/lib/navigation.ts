@@ -60,10 +60,18 @@ export interface NavItem {
   /**
    * #700 选项 1（人类裁决，见 issue #700 评论 5224610781）：本项默认屏仍是原型/mock，
    * 尚未接真实后端，与「AI 能力」组同名能力域的正式屏不是一回事——`AdminNav` 据此渲染
-   * 「原型 · 待归并」标签，语气对齐 `NoBackendNotice`。不写 = 默认屏已接真实后端
-   * （目前只有 `skills` 是这样），不要连坐打标签。
+   * 一条「预览 · 未接后端」提示，语气对齐 `NoBackendNotice`。不写 = 默认屏已接真实后端
+   * （2026-08-11 起 `skills` 与 `org-admin` 都是这样，见下方 #<菜单去重> 长注），
+   * 不要连坐打标签。
    */
   isPrototype?: boolean;
+  /**
+   * 2026-08-11（菜单去重复查）：`isPrototype` 项在「后台 → AI 能力/组织」组里通常有一个
+   * 近义命名的对应项（Agent/智能体、Skill/技能……），仅一个模糊的「原型」徽标不足以让人
+   * 分清两者关系。这条一句话说清楚：它和哪个后台项对应、差异是什么。`AdminNav` 把它渲染
+   * 在标签下方，不是塞进徽标 tooltip 里——要看得见，不是要 hover 才知道。
+   */
+  prototypeNote?: string;
 }
 
 export interface NavSegment {
@@ -130,22 +138,60 @@ export const NAV_SEGMENTS: NavSegment[] = [
          */
         children: [
           // 束: templates（蓝本设计器 / 套用 / 版本）→ 原型后台「项目蓝本」
-          { key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate, ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"], isPrototype: true },
+          // ⚠ 菜单去重复查（2026-08-11）：与「AI 能力 → 项目蓝本」（`/admin/blueprint`）
+          //   是否合并属 Q-11 / X-J，已由 `admin/blueprint-screen.tsx` 显式记录、待人类裁决，
+          //   本轮不单方合并（domain.md：搬 /tpl 会动已签核束的产出）。这里只把关系讲清楚。
+          {
+            key: "templates", label: "蓝本", href: "/tpl", icon: LayoutTemplate,
+            ucRefs: ["02-tpl/uc-2-1", "02-tpl/uc-2-4"], isPrototype: true,
+            prototypeNote: "蓝本设计器（起草/套用/版本）。「AI 能力 → 项目蓝本」是它的后台治理清单，两者是否合并见 Q-11/X-J，未裁。",
+          },
           // 束: skills（Skill 库与市场 / 发布六道关 / 绑定）→ 原型后台「Skill 库与市场」
-          // ⚠ 唯一默认屏已接真实后端的一项——不带 isPrototype，不与其余四项连坐。
-          { key: "skills", label: "技能", href: "/skill", icon: Puzzle, ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
-          // 束: agent-runtime（注册 agent → 选模型 → 挂 MCP 工具）→ 原型后台「Agent 管理」
-          { key: "agent-runtime", label: "智能体", href: "/preview/agent-runtime", icon: Bot, ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"], isPrototype: true },
-          // 束: org-admin（参与者 / 邀请 / 配额）→ 原型后台「组织 · 成员与配额」
-          { key: "org-admin", label: "成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"], isPrototype: true },
+          // ⚠ 默认屏 `library`（#520/PR#518 `SkillController`）已接真实后端——不带 isPrototype。
+          //   但它读的是 `skills` 声明式契约（`lib/live-skill.ts`），与「AI 能力 → Skill 目录」
+          //   读的 `identity` 能力目录契约（`lib/live-capabilities.ts`）是**两套不同后端数据源**，
+          //   只是概念重叠（都叫「skill」）。这是比改 UI 更大的技术债，记在
+          //   菜单去重复查 issue 里，不在本轮合并数据源。标签改成「Skill 库与市场」
+          //   （沿用它自己 `resolveSkillScreen` 里的自称），不再用「技能」这种和「Skill」
+          //   看着像近义词硬凑的词。
+          { key: "skills", label: "Skill 库与市场", href: "/skill", icon: Puzzle, ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+          // 束: agent-runtime（注册 agent → 选模型 → 挂 MCP 工具）→ 原型后台「Agent 运行时」
+          // ⚠ 菜单去重复查：七个子屏（audit/team/mcp-policy/routing/chat/permission/runtime-shell）
+          //   全部零后端调用，与「AI 能力 → Agent 目录」（真实 `POST /agents` + `/capabilities`）
+          //   不是同一件事的两套实现，是**不同维度**：目录治理 vs 运行时行为配置（路由/权限/
+          //   MCP 策略/审计）。标签改成「智能体运行时」，不再用「智能体」这种和「Agent」
+          //   看着像近义词硬凑的词；`prototypeNote` 把关系讲清楚，不留「待归并」这种模糊话。
+          {
+            key: "agent-runtime", label: "智能体运行时", href: "/preview/agent-runtime", icon: Bot,
+            ucRefs: ["04-agent/uc-4-1", "20-model/uc-20-1", "21-mcp/uc-21-1"], isPrototype: true,
+            prototypeNote: "路由/权限/MCP 策略/审计等运行时配置，全部原型、零后端。「AI 能力 → Agent 目录」是已接后端的目录管理，两者不是同一功能。",
+          },
+          // 束: org-admin（团队 / 成员名册 / 邀请 / 组织资料）→ 原型后台「组织管理」
+          // ⚠ 菜单去重复查：`org-admin-screen.tsx` 的团队/成员/邀请/资料四个标签页全部走
+          //   `lib/live-org-admin.ts` 真实接口（`listOrgMembers` / `listOrgInvites` /
+          //   `updateOrganization` 等），**不是**原型——这条 `isPrototype: true` 是旧的、
+          //   与代码事实不符，本轮一并订正（发现过程见菜单去重复查 issue）。
+          //   与「组织 → 成员配额」（`/admin/members`）有真实重叠：两者都能看到成员名单，
+          //   但 `/admin/members` 的配额与「管理员看不到什么」是**它独有、目前仍是 mock**
+          //   的部分，`/org-admin/preview` 完全不管这两块。标签改成「组织成员」以贴合它
+          //   自己的页面标题「组织管理」，与「成员配额」区分开。
+          { key: "org-admin", label: "组织成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"] },
           // 束: asset-governance（外来资产导入与生命周期治理，第 11 束）
           // ⚠ 原型左栏与后台左栏**都没有**这一项（它是原型之后立的第 11 束）。
           //   放这里的依据是**排除法**：原型一级「治理」只有「后台」，所以它不能是一级项；
           //   它治理的正是后台「AI 能力」组那六种 AssetKind。若人类另有归属，改这一行即可。
           { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"], isPrototype: true },
-          // 束: canvas（推演画布）—— 2026-08-09 人类裁决（issue #801）：从一级 STUDIO 移入此处。
-          //   label/icon/href/ucRefs 原样带过来，未改任何逻辑；不带 isPrototype——
-          //   /canvas 是真实接线的三栏推演画布，不是待归并的 mock 屏，不与上面四项连坐。
+          // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）—— 2026-08-09 人类裁决
+          //   （issue #801）：从一级 STUDIO 移入此处。label/icon/href/ucRefs 原样带过来。
+          // ⚠ 菜单去重复查（2026-08-11）：上一行注释曾写「/canvas 是真实接线的三栏推演画布」
+          //   ——**不准确**，已订正。`resolveCanvasScreen` 的默认值是 `template-admin`
+          //   （`GET /canvas/templates` 真实响应，与「AI 能力 → 画布模板」同一份数据源），
+          //   真正的「三栏推演画布」是 `editor` 子屏（`?screen=editor`），后端零路由，仍是原型。
+          //   也就是说「画布」默认打开的画面其实和「画布模板」是同一份东西——这不算错误的
+          //   重复入口（`/admin/canvasadmin` 是只读清单 + 跳转链接，`/canvas` 是完整编辑器，
+          //   两者数据源相同、粒度不同，模式与蓝本一致），但默认落点选择本身值得复核，已记入
+          //   菜单去重复查 issue，不在本轮改默认屏（改默认屏是产品行为变更，超出本轮「只改
+          //   导航措辞」的范围）。不带 isPrototype——default 屏是真实数据，不与上面几项连坐。
           { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
         ],
       },
