@@ -30,7 +30,7 @@ export function InviteActivation({ token }: { token: string | null }) {
   const [name, setName] = React.useState("");
   const [pwd, setPwd] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<ActivationFailure | null>(null);
   const [done, setDone] = React.useState<null | { mode: "new" | "existing" }>(null);
 
   const hasSession = getStoredSessionToken() !== null;
@@ -71,6 +71,11 @@ export function InviteActivation({ token }: { token: string | null }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    await doSubmit();
+  }
+
+  // 提交与「重试」共用同一条路径：重试不是另一种提交，只是同一次提交再来一遍。
+  async function doSubmit() {
     setError(null);
     setSubmitting(true);
     try {
@@ -134,10 +139,28 @@ export function InviteActivation({ token }: { token: string | null }) {
         )}
 
         {error && (
-          <p role="alert" className="flex items-start gap-2 text-12 text-destructive" data-testid="activate-error">
-            <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {error}
-          </p>
+          <div
+            role="alert"
+            className="flex flex-col gap-2"
+            data-testid={error.kind === "unavailable" ? "activate-error-unavailable" : "activate-error"}
+          >
+            <p className="flex items-start gap-2 text-12 text-destructive">
+              <CircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {error.message}
+            </p>
+            {error.kind === "unavailable" && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={submitting}
+                onClick={() => void doSubmit()}
+                data-testid="activate-retry"
+              >
+                重试
+              </Button>
+            )}
+          </div>
         )}
 
         <Button
@@ -177,19 +200,51 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-function describeActivationFailure(err: unknown): string {
+/**
+ * 失败分两类，界面形状不同：
+ *   `unavailable`  后端够不着（连接失败/超时）或后端 5xx——部署重启窗口的典型表现
+ *                  （2026-08-12 devapp 实测：人类点激活链接撞上滚动部署得到裸 500）。
+ *                  这一类**不是链接的问题**：激活是单一 PG 事务
+ *                  （`pg-org-invite-repository.ts` I-1），任何一步失败令牌都不会被核销，
+ *                  所以这里可以诚实承诺「你的链接不会因此失效」，并给显式重试按钮。
+ *   `terminal`     服务端明确判定过的结果（链接失效/已是成员/口令不合规/会话失效）——
+ *                  重试不会改变任何事，所以不给重试按钮，给的是各自的下一步。
+ */
+type ActivationFailure = { kind: "unavailable" | "terminal"; message: string };
+
+function describeActivationFailure(err: unknown): ActivationFailure {
   const issues = contractFieldIssues(err);
   if (issues?.some((i) => i.path === "profile.password")) {
-    return `密码不符合要求：至少 ${authContract.AUTH_POLICY.passwordMinLen} 位，且不能是常见泄露口令。`;
+    return {
+      kind: "terminal",
+      message: `密码不符合要求：至少 ${authContract.AUTH_POLICY.passwordMinLen} 位，且不能是常见泄露口令。`,
+    };
   }
   if (err instanceof ApiError) {
-    if (err.reasonCode === "INVITE_ALREADY_MEMBER") return "你已是该组织成员，直接登录即可。";
+    if (err.reasonCode === "INVITE_ALREADY_MEMBER") {
+      return { kind: "terminal", message: "你已是该组织成员，直接登录即可。" };
+    }
     if (err.reasonCode === "INVITE_NOT_FOUND") {
       // V10：无效/过期/已用/已撤销四因服务端刻意不可分辨，这里也只说同一句。
-      return "链接无效或已失效（可能已过期、已被使用或已被撤销）。请联系邀请你的管理员重发。";
+      return {
+        kind: "terminal",
+        message: "链接无效或已失效（可能已过期、已被使用或已被撤销）。请联系邀请你的管理员重发。",
+      };
     }
-    if (err.status === 401) return "会话已失效，请重新登录后再打开本链接。";
-    return `激活未完成（${err.reasonCode ?? `HTTP ${err.status}`}），请稍后重试。`;
+    if (err.status === 401) {
+      return { kind: "terminal", message: "会话已失效，请重新登录后再打开本链接。" };
+    }
+    if (err.status >= 500) {
+      return { kind: "unavailable", message: UNAVAILABLE_MESSAGE };
+    }
+    return {
+      kind: "terminal",
+      message: `激活未完成（${err.reasonCode ?? `HTTP ${err.status}`}），请稍后重试。`,
+    };
   }
-  return "激活未完成，请检查网络后重试。";
+  // 非 ApiError ⇒ 请求根本没得到一个 HTTP 响应（连接拒绝/断网/超时）。
+  return { kind: "unavailable", message: UNAVAILABLE_MESSAGE };
 }
+
+const UNAVAILABLE_MESSAGE =
+  "服务暂时不可用（可能正在部署重启），请稍后重试。你的邀请链接不会因这次失败而失效。";
