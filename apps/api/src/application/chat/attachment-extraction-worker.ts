@@ -1,19 +1,15 @@
 /**
- * #946 · F153/W1（V9-b）—— 附件抽取 worker（application：编排，无 DB/anydoc 细节）。
+ * #946 · F153/W1（V9-b）—— 附件抽取（application：编排，无 DB/anydoc 细节）。
  *
- * 一次 tick = 认领一条待办并处理到终态。镜像 files ingestion-worker 的骨架
- * （MAX_ATTEMPTS 上限、claim→process、putOnce→ObjectExistsError=已落跳过 的重放幂等）。
+ * 两条入口共用同一个**抽取核心** `extractAttachment`：
+ *   - 异步 worker `runExtractionTick`：认领 outbox job → extractAttachment → 按结果 complete/重试。
+ *   - 同步内联（≤3MB，见 upload 用例）：直接 extractAttachment，无 job。
  *
- * 抽取路径由领域 `planExtraction(mime)` 决定：
- *   - convert     → `AttachmentToMarkdownPort.convert(bytes, format)`。
- *   - passthrough → 字节即文本（txt/md），直接当 markdown。
- *   - unsupported → 抽不出文本（图片），记 unsupported（非失败）。
+ * 抽取路径由领域 `planExtraction(mime)` 决定：convert（anydoc）/ passthrough（txt/md 字节即文本）/
+ * unsupported（图片无文字层）。重放幂等靠 putOnce→ObjectExistsError=已落跳过。
  *
- * 失败语义**分两类**（关键）：
- *   - convert 的 `ConvertErrorCode`（malformed/encrypted/…）是**确定性**的，重试无用 →
- *     记附件 `failed` + **删 job**（终态，不无限重试）。
- *   - I/O 类抛错（读字节失败、putOnce 非 ObjectExists、DB 抖动）是**可重试** →
- *     `markJobFailed`（job 留着，靠 staleness 窗口重新认领），直到 MAX_ATTEMPTS。
+ * 失败语义**分两类**：convert 的 `ConvertErrorCode`（确定性，重试无用）→ 记附件 failed（终态）；
+ * I/O 类（读字节/putOnce/DB 抖动）→ 返回 "retry"，由 job 侧 markJobFailed 靠 staleness 重试。
  */
 import type { OrgId } from "../../domain/org-id";
 import { planExtraction, boundedExcerpt } from "../../domain/chat/attachment-extraction";
@@ -25,14 +21,18 @@ import type { AttachmentExtractionJob, AttachmentExtractionStore } from "./attac
 /** 认领到但 attempts 已越上限：不再无限重试。 */
 export const MAX_EXTRACTION_ATTEMPTS = 5;
 
-export interface AttachmentExtractionDeps {
+export type ExtractionOutcome = "extracted" | "unsupported" | "failed" | "retry" | "gone";
+
+/** 抽取核心的依赖（不含 job/log）——worker 与内联路径共用。 */
+export interface ExtractionCoreDeps {
   readonly store: ObjectStore;
   readonly extraction: AttachmentExtractionStore;
   readonly converter: AttachmentToMarkdownPort;
-  readonly log: (message: string, ctx?: Record<string, unknown>) => void;
 }
 
-export type ExtractionOutcome = "extracted" | "unsupported" | "failed" | "retry" | "gone";
+export interface AttachmentExtractionDeps extends ExtractionCoreDeps {
+  readonly log: (message: string, ctx?: Record<string, unknown>) => void;
+}
 
 export type ExtractionTickResult =
   | { readonly claimed: false }
@@ -43,6 +43,66 @@ export function extractedObjectKey(orgId: OrgId, attachmentId: string): string {
   return `chat-attachments-extracted/${orgId}/${attachmentId}.md`;
 }
 
+/**
+ * 抽取一个附件到终态（记 extracted/unsupported/failed 到 chat_message_attachments）。
+ * **不碰 outbox job**——只返回结果码，job 生命周期由调用方（worker）处理；内联路径无 job。
+ *
+ * 返回 `"retry"` = 遇到可重试的 I/O 类故障（读字节失败、字节还没落、putOnce 非 ObjectExists），
+ * **未记任何终态**——附件保持 pending，交调用方决定怎么重试（worker markJobFailed；内联可回落入队）。
+ */
+export async function extractAttachment(
+  deps: ExtractionCoreDeps,
+  orgId: OrgId,
+  attachmentId: string,
+): Promise<ExtractionOutcome> {
+  let att: Awaited<ReturnType<AttachmentExtractionStore["readAttachment"]>>;
+  try {
+    att = await deps.extraction.readAttachment(orgId, attachmentId);
+  } catch {
+    return "retry";
+  }
+  if (att === null) return "gone"; // 附件已删（thread/message 级联穿透）
+
+  const plan = planExtraction(att.mime);
+  if (plan.kind === "unsupported") {
+    await deps.extraction.recordUnsupported(orgId, attachmentId);
+    return "unsupported";
+  }
+
+  let bytes: Uint8Array | null;
+  try {
+    bytes = await deps.store.get(att.storageRef);
+  } catch {
+    return "retry";
+  }
+  if (bytes === null) return "retry"; // 字节还没落对象存储——可重试，非终态失败
+
+  let markdown: string;
+  if (plan.kind === "passthrough") {
+    markdown = new TextDecoder().decode(bytes);
+  } else {
+    const r = await deps.converter.convert(bytes, plan.format);
+    if (!r.ok) {
+      // 确定性 convert 错误——重试无用，记 failed（终态）。
+      await deps.extraction.recordFailed(orgId, attachmentId, r.code);
+      return "failed";
+    }
+    markdown = r.markdown;
+  }
+
+  // 落全文 markdown（putOnce 幂等：重放撞 ObjectExistsError 即视为已落，继续记状态）。
+  const extractedRef = extractedObjectKey(orgId, attachmentId);
+  try {
+    await deps.store.putOnce(extractedRef, new TextEncoder().encode(markdown), "text/markdown");
+  } catch (e) {
+    if (!(e instanceof ObjectExistsError)) return "retry";
+    // 已落——重放，继续记状态。
+  }
+  await deps.extraction.recordExtracted(orgId, attachmentId, extractedRef, boundedExcerpt(markdown));
+  return "extracted";
+}
+
+/** 一次 tick：认领一条 outbox job 并处理到终态（或标记重试）。无活 → claimed:false。 */
 export async function runExtractionTick(
   deps: AttachmentExtractionDeps,
   orgId: OrgId,
@@ -67,91 +127,13 @@ async function processJob(
     return "failed";
   }
 
-  const att = await readAttachmentOrRetry(deps, orgId, job);
-  if (att === "retry") return "retry";
-  if (att === null) {
-    // 附件已删（thread/message 级联）——job 也没意义了，删掉。
-    await deps.extraction.complete(orgId, job.jobId);
-    return "gone";
-  }
-
-  const plan = planExtraction(att.mime);
-  if (plan.kind === "unsupported") {
-    await deps.extraction.recordUnsupported(orgId, job.attachmentId);
-    await deps.extraction.complete(orgId, job.jobId);
-    return "unsupported";
-  }
-
-  // 读原始字节（I/O：失败可重试）。
-  let bytes: Uint8Array | null;
-  try {
-    bytes = await deps.store.get(att.storageRef);
-  } catch (e) {
-    await failRetryable(deps, orgId, job, e);
+  const outcome = await extractAttachment(deps, orgId, job.attachmentId);
+  if (outcome === "retry") {
+    deps.log("attachment extraction step failed, will retry", { attachmentId: job.attachmentId });
+    await deps.extraction.markJobFailed(orgId, job.jobId, "extraction step failed, will retry");
     return "retry";
   }
-  if (bytes === null) {
-    // 字节还没落对象存储（上传与挂消息之间的窗口）——可重试，别当终态失败。
-    await deps.extraction.markJobFailed(orgId, job.jobId, "attachment bytes not found yet");
-    return "retry";
-  }
-
-  // 转 markdown：passthrough 直接解码；convert 走 anydoc。
-  let markdown: string;
-  if (plan.kind === "passthrough") {
-    markdown = new TextDecoder().decode(bytes);
-  } else {
-    const r = await deps.converter.convert(bytes, plan.format);
-    if (!r.ok) {
-      // 确定性 convert 错误——重试无用，记 failed + 删 job（终态）。
-      await deps.extraction.recordFailed(orgId, job.attachmentId, r.code);
-      await deps.extraction.complete(orgId, job.jobId);
-      return "failed";
-    }
-    markdown = r.markdown;
-  }
-
-  // 落 markdown（putOnce 幂等：重放撞 ObjectExistsError 即视为已落，继续记状态）。
-  const extractedRef = extractedObjectKey(orgId, job.attachmentId);
-  try {
-    await deps.store.putOnce(extractedRef, new TextEncoder().encode(markdown), "text/markdown");
-  } catch (e) {
-    if (!(e instanceof ObjectExistsError)) {
-      await failRetryable(deps, orgId, job, e);
-      return "retry";
-    }
-    // 已落——重放，落到下面记状态 + 删 job。
-  }
-
-  await deps.extraction.recordExtracted(orgId, job.attachmentId, extractedRef, boundedExcerpt(markdown));
+  // extracted / unsupported / failed / gone —— 都是终态，删 job 排空。
   await deps.extraction.complete(orgId, job.jobId);
-  return "extracted";
-}
-
-async function readAttachmentOrRetry(
-  deps: AttachmentExtractionDeps,
-  orgId: OrgId,
-  job: AttachmentExtractionJob,
-): Promise<AttachmentForExtractionResult> {
-  try {
-    return await deps.extraction.readAttachment(orgId, job.attachmentId);
-  } catch (e) {
-    await failRetryable(deps, orgId, job, e);
-    return "retry";
-  }
-}
-
-type AttachmentForExtractionResult =
-  | Awaited<ReturnType<AttachmentExtractionStore["readAttachment"]>>
-  | "retry";
-
-async function failRetryable(
-  deps: AttachmentExtractionDeps,
-  orgId: OrgId,
-  job: AttachmentExtractionJob,
-  e: unknown,
-): Promise<void> {
-  const msg = e instanceof Error ? e.message : String(e);
-  deps.log("attachment extraction step failed, will retry", { attachmentId: job.attachmentId, detail: msg });
-  await deps.extraction.markJobFailed(orgId, job.jobId, msg);
+  return outcome;
 }

@@ -25,6 +25,13 @@ export type AnydocFormat = "pdf" | "docx" | "xlsx" | "pptx" | "csv";
  */
 export const EXTRACTED_EXCERPT_MAX_CHARS = 4000;
 
+/**
+ * 同步抽取阈值：≤ 此字节数的附件在上传路径**内联**抽取（内容上传返回时即就绪）；更大的入队
+ * 异步抽取（不阻塞上传响应）。3MB —— 小文件 anydoc 转换够快，内联可接受；大文件的转换峰值内存
+ * 与耗时不该压在一次上传请求里（见 PROP-CHAT-ANYDOC-INTEGRATION-001 的内存峰值约束）。
+ */
+export const ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES = 3 * 1024 * 1024;
+
 /** 把抽取出的 markdown 收成进上下文的有界摘录：超上限就截断 + 明示截断，不静默丢尾。 */
 export function boundedExcerpt(markdown: string): string {
   if (markdown.length <= EXTRACTED_EXCERPT_MAX_CHARS) return markdown;
