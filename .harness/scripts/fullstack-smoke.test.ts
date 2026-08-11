@@ -11,13 +11,13 @@ const read = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
 /**
  * 2026-08-12（#1010 项目 Agent 定论）：`harness verify` 的顺序是「先跑各 feature
  * verification 再跑 verify:base」，而有的 feature 验证会起完整 Next dev server——
- * load 的衰减均值在 kill 后仍高位停留数分钟，紧接着本套件并行 63 文件，5 秒的
- * spawn 就绪窗口被压垮：同机同 SHA，单独跑 13/13 连绿三次，verify 序列里 7 条
+ * load 的衰减均值在 kill 后仍高位停留数分钟，紧接着本套件并行 63 文件，spawn 就绪窗口被压垮：同机同 SHA，单独跑 13/13 连绿三次，verify 序列里 7 条
  * 全红且全部卡在 5.00–5.02s 的「wrapper did not start」，无一条是断言失败。
  *
  * 修法是**只对就绪超时重试一次（换新进程）**，不是调大常数：真「wrapper 起不来」
- * （with-test-isolation.ts 坏了）两次都起不来，门照响；负载尖峰下第二次通常落在
- * 尖峰衰减之后。断言失败永不重试。
+ * （with-test-isolation.ts 坏了）两次都起不来，门照响；负载尖峰下第二次通常落在尖峰衰减之后。断言失败永不重试。
+ * 就绪窗口 10s/次（#1010 实测 load≈28 时 5s×2 仍被压穿；窗口是「标记何时打印」的
+ * 预算不是门义，真死 wrapper 两次都不会打印标记）。
  */
 async function runWrapper(options: {
   childExit?: number;
@@ -75,7 +75,7 @@ async function runWrapperOnce(options: {
     if (options.signal) {
       try {
         await new Promise<void>((resolveReady, reject) => {
-          const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 5_000);
+          const timeout = setTimeout(() => reject(new Error("wrapper did not start")), 10_000);
           child.stdout?.on("data", (chunk) => {
             if (!String(chunk).includes("[test-isolation]")) return;
             clearTimeout(timeout);
