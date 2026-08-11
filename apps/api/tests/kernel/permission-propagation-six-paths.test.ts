@@ -749,7 +749,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/auth/token-usage-single-write-path.test.ts` 解析该文件，出现任何
     // SELECT/UPDATE/DELETE 即失败；同一文件还断言那条 INSERT 在整个 `apps/api/src` 里
     // 只出现这一处（否则「唯一写入点」这个主张本身就是假的）。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(48);
+    //
+    // ⚠ Raised 48 -> 49 by F164 (personal transcription persistence): the new entry is
+    // `infrastructure/recording/pg-personal-transcription-repository.ts`. Unlike project
+    // artifacts, this content is private to the authenticated owner and therefore has no
+    // `acl_bindings` object to pass through `guard()`. Its allowlist premise is enforced by
+    // `personal-transcription-repo-scope-guard.test.ts` (table scope, no `withoutTenant`,
+    // owner predicate on every read) and `personal-transcription-owner-boundary.test.ts`
+    // (another member and an org admin both see not-found/empty over real HTTP/PostgreSQL).
+    // This is one repository and one bounded exception, so the ceiling moves by exactly one.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(49);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
