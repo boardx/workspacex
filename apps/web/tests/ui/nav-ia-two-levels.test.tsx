@@ -128,7 +128,15 @@ describe("§2 反证套件", () => {
 describe("§3 渲染层：入口有且只有一处", () => {
   it("IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染）", async () => {
     const { IconRail } = await import("@/components/shell/icon-rail");
-    render(<IconRail avatarInitial="X" />);
+    const { mockIdentity, MOCK_ORGS } = await import("@/lib/identity");
+    render(
+      <IconRail
+        identity={mockIdentity("org-yuanyang", null)}
+        organizations={MOCK_ORGS.map((o) => ({ id: o.id, label: o.name }))}
+        onSwitchOrganization={() => undefined}
+        avatarInitial="X"
+      />,
+    );
     for (const key of MUST_BE_UNDER_ADMIN) {
       expect(screen.queryByTestId(`rail-${key}`)).toBeNull();
     }

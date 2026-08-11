@@ -1,13 +1,14 @@
 "use client";
 import * as React from "react";
-import { Building2, ChevronDown, FolderKanban, Lock, ShieldCheck } from "lucide-react";
+import { Building2, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
-  MOCK_ORGS, describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
+  describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
   selfHostedOnly, SELF_HOSTED_SOURCE_LABEL,
   PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
 } from "@/lib/identity";
 import { resolveProjectContext } from "@/lib/project-context";
+import { OrgMenu } from "./org-menu";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -30,21 +31,28 @@ import { Button } from "@/components/ui/button";
  *   顶栏此时仍显示项目上下文标签（项目名·角色），只是不再出第二个切换器。
  *
  * ⚠ 组织管理入口 / 退出按钮（2026-08-09 信息架构调整）：**都已从顶栏挪走**。
- *   组织管理入口并入左上角 `X` logo（见 `icon-rail.tsx` 的 org-admin 锚点）；
+ *   组织管理入口并入左上角组织菜单（见 `icon-rail.tsx` / `org-menu.tsx`）；
  *   退出并入左下角个人菜单（见 `personal-menu.tsx` 的 logout 菜单项）。
  *   顶栏不再单独持有这两者——同一功能不许两个入口。
+ *
+ * ⚠ 组织切换器（2026-08-11 信息架构调整）：**也从顶栏挪走了**——并入左上角组织菜单
+ *   （`org-menu.tsx`，人类直接要求）。顶栏保留的组织名是**纯展示文本**
+ *   （`topbar-org-name`），没有按钮态、不可点——不留看起来能点但不能点的东西。
+ *   例外：<md 时 IconRail 整根隐藏，组织菜单会失去唯一入口，所以顶栏在 `md:hidden`
+ *   下渲染同一个 `OrgMenu`（testid 加 `-mobile` 后缀防撞）。两个实例永远不同时可见，
+ *   不构成第二入口。
  */
 export function TopBar({
-  identity, previewRole, hideRoleSwitcher, organizations, onSwitchOrganization,
+  identity, previewRole, hideRoleSwitcher, organizations, onSwitchOrganization, switching,
 }: {
   identity: Identity;
   previewRole: ProjectRole | null;
   hideRoleSwitcher?: boolean;
-  organizations?: ReadonlyArray<{ id: string; label: string }>;
-  onSwitchOrganization?: (orgId: string) => Promise<void>;
+  organizations: ReadonlyArray<{ id: string; label: string }>;
+  onSwitchOrganization: (orgId: string) => void;
+  switching?: boolean;
 }) {
   const pathname = usePathname();
-  const [switching, setSwitching] = React.useState(false);
   const project = resolveProjectContext(pathname);
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;
@@ -55,11 +63,8 @@ export function TopBar({
   const sh = selfHostedOnly(identity.org);
   // 顶栏是否出自己的预览切换器：在项目上下文里、开发态、且本页没有自带一套
   const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
-  // organizations 未传时回落到原型 mock 列表，标签规则与原来的 <option> 渲染保持一致
-  const effectiveOrganizations: ReadonlyArray<{ id: string; label: string }> = organizations
-    ?? MOCK_ORGS.map((o) => ({ id: o.id, label: isLocalOrg(o) ? `🔒 ${o.name}（本地）` : o.name }));
   const currentOrgLabel =
-    effectiveOrganizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
+    organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
 
   return (
     <header
@@ -72,29 +77,23 @@ export function TopBar({
     >
       {/* ── 组织层：全局常驻 ── */}
       <div className="flex shrink-0 items-center gap-1.5">
+        {/* <md 时 IconRail 隐藏，组织菜单（切换 + 组织管理）在这里补一个入口；≥md 由 rail 承担 */}
+        <div className="md:hidden">
+          <OrgMenu
+            identity={identity}
+            organizations={organizations}
+            onSelect={onSwitchOrganization}
+            switching={switching}
+            placement="below"
+            testIdSuffix="-mobile"
+          />
+        </div>
         {local
           ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
           : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
-        <OrgSwitcher
-          currentOrgId={identity.org.id}
-          currentOrgLabel={currentOrgLabel}
-          organizations={effectiveOrganizations}
-          disabled={switching}
-          onSelect={(orgId) => {
-            if (onSwitchOrganization) {
-              setSwitching(true);
-              void onSwitchOrganization(orgId)
-                .catch(() => undefined)
-                .finally(() => setSwitching(false));
-              return;
-            }
-            // O-12：切换组织 = 清空全部项目级上下文，权限按新组织重新求值
-            const url = new URL(window.location.href);
-            url.searchParams.set("org", orgId);
-            ["project", "stage", "pack"].forEach((k) => url.searchParams.delete(k));
-            window.location.assign(url.toString());
-          }}
-        />
+        <span data-testid="topbar-org-name" className="max-w-[12rem] truncate text-12 font-medium text-card-foreground">
+          {currentOrgLabel}
+        </span>
       </div>
 
       <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
@@ -169,97 +168,5 @@ export function TopBar({
       )}
 
     </header>
-  );
-}
-
-/**
- * 组织切换器。
- *
- * ⚠ 不用原生 `<select>`——app 层禁止裸原生表单元素（uiux-standards U6），且独立复核在
- *   #638/#639 两轮评分里都截图截到它跟全站 shadcn 观感断裂。仿照本仓已有的手写弹层惯例
- *   （`components/projects/project-more-menu.tsx` / `components/shell/personal-menu.tsx`：
- *   Button 触发 + `role="listbox"` 面板，不是已装但本仓这类小面板一贯不用的
- *   `@radix-ui/react-select`）。
- *
- * `data-testid="org-switcher"` 留在**触发按钮**上（原来在 `<select>` 本身），值以可见
- * 组织名呈现——断言随之从 `toHaveValue()` 改 `toHaveTextContent()`、从 `.selectOption()`
- * 改 `.click()` 打开 + 点 `org-switcher-option-<orgId>`。这不是削弱断言：验证的还是
- * 「当前选中的组织是谁」，只是控件形态换了读取方式跟着换。
- */
-function OrgSwitcher({
-  currentOrgId, currentOrgLabel, organizations, disabled, onSelect,
-}: {
-  currentOrgId: string;
-  currentOrgLabel: string;
-  organizations: ReadonlyArray<{ id: string; label: string }>;
-  disabled: boolean;
-  onSelect: (orgId: string) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <Button
-        type="button"
-        size="xs"
-        variant="outline"
-        data-testid="org-switcher"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`切换组织，当前：${currentOrgLabel}`}
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className="h-7 max-w-[10rem] justify-between gap-1 rounded-md pl-2 pr-1.5 text-12 font-medium"
-      >
-        <span className="truncate">{currentOrgLabel}</span>
-        <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-      </Button>
-
-      {open && (
-        <div
-          role="listbox"
-          aria-label="切换组织"
-          data-testid="org-switcher-listbox"
-          className="absolute left-0 top-8 z-20 min-w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
-        >
-          {organizations.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="option"
-              aria-selected={o.id === currentOrgId}
-              data-testid={`org-switcher-option-${o.id}`}
-              onClick={() => {
-                onSelect(o.id);
-                setOpen(false);
-              }}
-              className={[
-                "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
-                o.id === currentOrgId ? "text-primary" : "text-card-foreground",
-              ].join(" ")}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

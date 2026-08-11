@@ -84,11 +84,19 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await page.goto("/");
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByTestId("app-shell")).toBeVisible();
-  // 2026-08-10 组织切换器从裸 <select> 换成手写选择器（Button 触发 + role="listbox"
-  // 面板），触发按钮以可见组织名呈现，不再是 <select> 的 value —— 断言随之从
-  // toHaveValue() 改 toHaveText()。种子脚本把组织名写成 `org ${orgId}`
-  // （见 apps/api/tests/support/db.ts 的 seedOrg），验证的还是「当前选中的组织是谁」。
-  await expect(page.getByTestId("org-switcher")).toHaveText(`org ${FULLSTACK_E2E.orgId}`);
+  // 2026-08-11 信息架构调整：组织切换器从顶栏并入左上角组织菜单（org-menu.tsx，
+  // 人类直接要求）。触发器（org-switcher）现在呈现组织头像/首字，完整组织名要点开
+  // 菜单读当前项（aria-checked=true 的 menuitemradio）—— 验证的还是
+  // 「当前选中的组织是谁」，交互路径变了读法跟着变。种子脚本把组织名写成
+  // `org ${orgId}`（见 apps/api/tests/support/db.ts 的 seedOrg）。
+  await page.getByTestId("org-switcher").click();
+  const currentOrgOption = page.getByTestId(`org-switcher-option-${FULLSTACK_E2E.orgId}`);
+  await expect(currentOrgOption).toHaveText(`org ${FULLSTACK_E2E.orgId}`);
+  await expect(currentOrgOption).toHaveAttribute("aria-checked", "true");
+  // 组织管理入口也在这同一个左上角菜单里（org-admin-entry → /org-admin）。
+  await expect(page.getByTestId("org-admin-entry")).toHaveAttribute("href", "/org-admin");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("org-menu")).toHaveCount(0);
   // 退出已从顶栏挪进左下角个人菜单（2026-08-09 信息架构调整）——先展开菜单再断言。
   await page.getByTestId("rail-profile-menu").click();
   await expect(page.getByTestId("personal-menu-logout")).toBeVisible();
