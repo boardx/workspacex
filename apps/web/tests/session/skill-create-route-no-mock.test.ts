@@ -53,6 +53,15 @@ const RESIDUAL_MOCK_EDGES: readonly string[] = [
   "components/skill/skill-temp-mount.tsx -> lib/mock/skill.ts",
   "components/skill/skill-tryrun.tsx -> lib/mock/skill.ts",
   "components/skill/skill-versioning.tsx -> lib/mock/skill.ts",
+  // 2026-08-11（菜单去重复查，人类直接裁决真合并）：`/skill` 新增 `catalog` 屏
+  // （原 `/admin/skill` 折进来的组织后台目录：名称/可见范围/归属团队编辑）经
+  // `skill-content-editor.tsx` → `ag-screens.tsx` 拉入了这条既存的边——`ag-screens.tsx`
+  // 本身早就靠一大批 `AG_*` 常量吃 `lib/mock/asset-governance.ts`（asset-governance 束
+  // 自己的既存债，不是本轮制造的），只是此前没有任何从 `skill-app.tsx` 出发的路径会走到它；
+  // 这次真合并让它进了这棵闭包。走的是**真实数据编辑**（`CapabilityCatalogScreen` 接
+  // `GET/POST /capabilities`），这条边纯属 `AgSkillEditor` 编辑器 UI 复用带来的传递依赖。
+  "components/asset-governance/ag-screens.tsx -> lib/mock/asset-governance.ts",
+  "components/asset-governance/ag-shared.tsx -> lib/mock/asset-governance.ts",
 ];
 
 describe("#520 /skill 的「新建 skill」路径不依赖 lib/mock", () => {

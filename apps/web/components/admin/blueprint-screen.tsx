@@ -9,19 +9,18 @@ import { AG_BLUEPRINTS, AG_PRODUCT_VALUES, blueprintProgressTone } from "@/lib/m
 import type { UiState } from "@/lib/ui-state";
 
 /**
- * 后台 → 项目蓝本（`AssetKind.blueprint`，左栏第 6 项，F132）。
+ * ⚠ 已退役（2026-08-11，人类直接裁决真合并）——后台「项目蓝本」已改名「项目模板」，
+ * `ADMIN_NAV` 的 `blueprint` 项 href 直接指向 `/tpl`（蓝本设计器本体），`/admin/blueprint`
+ * 这条路由现在是重定向桩（见 `apps/web/app/admin/[module]/page.tsx` 的 `REDIRECTS`）。
+ * Q-11/X-J 已解除阻塞——不再是「只链过去，不搬也不复制」的过渡态。
  *
- * ## 这一项就是人类那条投诉的正主
+ * 本组件不再被任何路由引用，保留文件是为了留痕（同类先例：
+ * `components/studio/prototype-screen` 在 `/canvas` 收敛后同样保留不删）。
+ *
+ * ## 历史背景（原注释，保留留痕）
  *
  * 「为什么在管理后台看不到项目蓝本」——因为左栏根本没画它，`/admin/blueprint` 是 404，
- * 而蓝本设计器住在另一条路由 `/tpl`。F132 补的是**左栏项集合**；这一屏是它的落点，
- * 好让补上的入口不是死链。
- *
- * ⚠ **蓝本设计器（`templates` 束）已签核并已建成于 `/tpl`。**
- * 后台这一项与 `/tpl` 最终怎么合，属 **Q-11 / X-J**——`domain.md` 写明「搬 `/tpl` 会动
- * 已签核束的产出，本束不可单方决定」。⇒ 本屏**只链过去，不搬也不复制**。
- *
- * 屏内的治理动作（发布 / 可见范围 / 复核周期）属 F134+，本屏不抢。
+ * 而蓝本设计器住在另一条路由 `/tpl`。F132 补的是**左栏项集合**；这一屏曾是它的落点。
  */
 const TONE: Record<"success" | "warning" | "danger", "primary" | "warning" | "danger"> = {
   success: "primary",

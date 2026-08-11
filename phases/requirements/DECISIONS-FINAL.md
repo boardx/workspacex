@@ -107,6 +107,11 @@
 | D-37 | **全量重估**，基线换成约 560。重估在 `requirement-author` 生成 `feature_list.json` 时一并完成 |
 | D-38 | **采纳反推的 Context Pack + Artifact 设计**（`phase-1/00-core/uc-0-1`、`uc-0-2`）作为权威；UML 文档若出现则作为校对参照。深层已印证：「发布必须绑定确定的产出版本」「产出物已锁定快照」 |
 
+## 后台信息架构（2026-08-11）
+| # | 裁决 |
+|---|---|
+| D-42 | **人类直接裁决，Q-11 / X-J 解除阻塞**：后台左栏「AI 能力」组与「能力域 · 全生命周期」组的五对重复入口**真合并**，不是再改一次措辞。人类原话：「AI 的能力里面 Agent 目录、Skill 目录、模型、MCP、画布模板、项目蓝本，这些都没有问题。然后下面在能力域又出现了蓝本、Skill 库与市场、智能体运行时，就这些是重复的……不要有重复的。」逐项落点：<br>① **项目蓝本 → 改名「项目模板」，与 `/tpl`（蓝本设计器）真合并**——`ADMIN_NAV` 的 `blueprint` 项 href 直接指向 `/tpl`，`/admin/blueprint` 退役为重定向。此前 `blueprint-screen.tsx` / `canvas-template-screen.tsx` 头注写的「Q-11/X-J 未裁、domain.md 不可单方决定」到此解除。<br>② **Skill 目录 → 与 `/skill`（Skill 库与市场）真合并**——`ADMIN_NAV` 的 `skill` 项 href 直接指向 `/skill`；原 `/admin/skill` 的简单 CRUD（`CapabilityCatalogScreen` kind=skill）折进 `/skill` 左栏新增的「目录」屏，不是被砍掉，旧路由重定向。两套后端数据源（`identity` 能力目录 vs `skills` 声明式契约）仍不同源——**导航合一，数据源合一是另一件事，本次不做**，记入后续技术债。<br>③ **智能体运行时 → 拆解，不再有独立入口**：三层权限·工具白名单 + 行为审计并入「Agent 目录」；MCP 安全策略四开关·放行评审并入「MCP」；机密路由批准卡并入「模型」。AI 团队编排主持台 / 与 agent 私聊判断为运行时对话概念，不属于后台治理范畴，本轮不强行塞进某个后台入口，记入后续 issue（应在 `/chat` 找入口）。<br>④ **资产（`/asset-governance`）→ 从后台导航直接移除**，无自然的合并目标（它治理的是后台「AI 能力」组那六种 `AssetKind` 本身）。路由本身未下线（拿不准是否还有直接 URL 依赖），只移除导航入口。<br>⑤ **画布（`/canvas`）→ 从后台导航移除，与「画布模板」`/admin/canvasadmin` 去重**——不合并成一个入口（两者数据源相同但粒度不同：`/canvas` 是完整推演编辑器，`/admin/canvasadmin` 是治理清单，合并会丢功能）。原型设计说明本就写着「画布从议程进，不占一级」，`/canvas` 应是项目内上下文入口而非全局菜单项；项目工作台 `/projects/[projectId]/canvas` 路由已存在，但工作台内部尚未有真实入口链过去（与 `files` 子路由同一类已知缺口）——记入后续 issue。<br>⑥ 「组织」组（总览/成员配额/反馈/我的本地）本轮**未改动**，人类原话明确「这些都可以继续保留」。<br>实现见 `apps/web/lib/mock/admin.ts`（`ADMIN_NAV`）、`apps/web/lib/navigation.ts`（`ADMIN_SECOND_LEVEL`，每项注释记录判断依据）、`apps/web/components/admin/admin-nav.tsx`（`MERGED_SECOND_LEVEL_KEYS` 过滤渲染）。回归测试：`apps/web/tests/ui/admin-menu-dedup.test.tsx`。 |
+
 ---
 
 ## 修订需求文档时的通用规则
