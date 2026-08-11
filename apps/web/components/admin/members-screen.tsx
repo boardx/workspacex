@@ -102,9 +102,10 @@ export function MembersScreen({ state }: { state: UiState }) {
           <TabsTrigger value="policy" data-testid="admin-members-tab-policy">限额策略</TabsTrigger>
         </TabsList>
 
+        {/* F161 起「用量监控」读真库，整块的 NoBackendNotice 摘掉；
+            该 tab 内部仍是 mock 的那一小块（近期限额事件）自己带着提示，见其组件。 */}
         <TabsContent value="usage" data-testid="admin-members-tabpanel-usage">
           <div className="flex flex-col gap-3 pt-3">
-            <NoBackendNotice />
             <UsageMonitorTab />
           </div>
         </TabsContent>

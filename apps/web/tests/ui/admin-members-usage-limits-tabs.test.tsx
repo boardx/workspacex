@@ -8,8 +8,9 @@
  *
  * ## 断言选的是「会错的那几件」
  *   ① 默认打开是「成员配额」——已有的 `admin-members-list` 断言集不该因为加了 tab 而失效。
- *   ② 切到「用量监控」：矩阵表格数字与 mock 数据源逐格对应，不是随手写的占位数字；
- *      合计行必须等于各列真实求和，防止「表面像矩阵、数字瞎编」。
+ *   ② 切到「用量监控」：面板挂在同一屏上、与成员配额互斥。
+ *      ⚠ F161 起这块屏读真库，原先「矩阵与 mock 逐格对应」的断言已随那份 mock 退役，
+ *      它的行为断言移到 `admin-usage-monitor-live.test.tsx`（见下方该 describe 的长注）。
  *   ③ 切到「限额策略」：限额规则数、`highlighted` 醒目卡片数与 mock 数据源对应；
  *      降级阈值三级 + 任务分级表四行都在。
  *   ④ 反证：`ADMIN_NAV`「组织」组没有因为这次改动多出 `usage`/`limits` 之类的新左栏项——
@@ -20,10 +21,7 @@ import { render, screen, within, fireEvent, cleanup } from "@testing-library/rea
 import { afterEach } from "vitest";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { ADMIN_NAV } from "@/lib/mock/admin";
-import {
-  USAGE_MATRIX_ROWS, USAGE_MATRIX_MODELS, USAGE_MATRIX_FOOTER, RECENT_LIMIT_EVENTS,
-  LIMIT_RULES, TASK_TYPE_GRADING,
-} from "@/lib/mock/admin-limits";
+import { LIMIT_RULES, TASK_TYPE_GRADING } from "@/lib/mock/admin-limits";
 
 afterEach(() => cleanup());
 
@@ -41,39 +39,24 @@ describe("①默认态：成员配额仍是默认打开的 tab", () => {
   });
 });
 
-describe("②用量监控 tab：矩阵数字与 mock 数据源逐格对应", () => {
-  it("每一行合计 = 各模型用量真实求和（不是编的数）", () => {
-    for (const row of USAGE_MATRIX_ROWS) {
-      const sum = row.values.reduce((a, b) => a + b, 0);
-      expect(row.total).toBe(sum);
-    }
-    const footerSum = USAGE_MATRIX_FOOTER.values.reduce((a, b) => a + b, 0);
-    expect(USAGE_MATRIX_FOOTER.total).toBe(footerSum);
-    // 列合计也必须等于逐行同列之和，防止行/列两份数字各编各的
-    USAGE_MATRIX_MODELS.forEach((_, colIdx) => {
-      const colSum = USAGE_MATRIX_ROWS.reduce((a, r) => a + (r.values[colIdx] ?? 0), 0);
-      expect(USAGE_MATRIX_FOOTER.values[colIdx]).toBe(colSum);
-    });
-  });
-
-  it("切到用量监控 tab 后，矩阵每一行、近期限额事件都渲染在面板内", () => {
+/*
+ * ② 用量监控 tab —— **F161 起这块屏读真库**（`GET /organizations/:orgId/usage`）。
+ *
+ * 原来的两条断言（矩阵每格与 `USAGE_MATRIX_ROWS` 逐格对应、合计等于各列求和）
+ * 测的是 mock 数据自身的自洽，那份 mock 已经不再驱动界面了——继续留着它们，
+ * 就是在断言一个不再被渲染的常量数组内部一致，绿了也不说明屏上有什么。
+ * ⇒ 换成本文件真正还管得着的那一件事：**tab 关系**（三个 tab 同屏、切换互斥）。
+ * 用量监控自己的行为（换窗口换请求、列由响应决定、空态、失败回显）由
+ * `admin-usage-monitor-live.test.tsx` 覆盖，那里有 fetch 与 session 的替身。
+ */
+describe("②用量监控 tab：挂在同一屏上，切换与成员配额互斥", () => {
+  it("切到用量监控后，成员配额面板从 DOM 里消失，用量面板出现", () => {
     renderScreen();
     fireEvent.mouseDown(screen.getByTestId("admin-members-tab-usage"), { button: 0 });
-    const panel = screen.getByTestId("admin-members-tabpanel-usage");
-    const matrix = within(panel).getByTestId("admin-usage-matrix");
 
-    for (const row of USAGE_MATRIX_ROWS) {
-      const tr = within(matrix).getByTestId(`admin-usage-matrix-row-${row.id}`);
-      expect(tr).toHaveTextContent(row.name);
-      expect(tr).toHaveTextContent(String(row.total));
-    }
-    // 阳性对照：数据源确实非空，否则上面的循环零次迭代会平凡通过
-    expect(USAGE_MATRIX_ROWS.length).toBeGreaterThan(0);
-
-    for (const ev of RECENT_LIMIT_EVENTS) {
-      expect(within(panel).getByTestId(`admin-usage-event-${ev.id}`)).toHaveTextContent(ev.detail);
-    }
-
+    expect(screen.getByTestId("admin-members-tabpanel-usage")).toBeInTheDocument();
+    expect(within(screen.getByTestId("admin-members-tabpanel-usage")).getByTestId("admin-usage-tab"))
+      .toBeInTheDocument();
     // 反证：成员配额 tab 的内容这时不在 DOM 里（Radix Tabs 默认不 forceMount 非激活面板）
     expect(screen.queryByTestId("admin-members-list")).toBeNull();
   });

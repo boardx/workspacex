@@ -69,10 +69,11 @@ import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
 import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
 import { listOrgMembers } from "../../application/auth/list-org-members";
 import { getTokenQuotas } from "../../application/auth/get-token-quotas";
+import { getUsageReport } from "../../application/auth/get-usage-report";
 import { setMemberTokenQuota, setOrgTokenBudget } from "../../application/auth/set-token-quota";
 import {
   BudgetBelowAllocatedError, MemberNotFoundError, QuotaOverallocatedError,
-  TOKEN_QUOTA_REPOSITORY, type TokenQuotaRepository,
+  TOKEN_QUOTA_REPOSITORY, type TokenQuotaRepository, type UsageAggregateRepository,
 } from "../../application/auth/token-quota-ports";
 import { listOrgInvites } from "../../application/auth/list-org-invites";
 import { updateOrganization } from "../../application/auth/update-organization";
@@ -221,7 +222,7 @@ export class OrgAdminManagementController {
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
-    @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository,
+    @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository & UsageAggregateRepository,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -510,6 +511,22 @@ export class OrgAdminManagementController {
       }
       throw e;
     }
+  }
+
+  /**
+   * F161 用量监控。⚠ `window` 经契约枚举校验后才落到仓储的窗口映射表——
+   * 未知窗口是 400，不是「悄悄按本周算」。后者会让界面显示一份与标签不符的数字。
+   */
+  @Get("/organizations/:orgId/usage")
+  async usageReport(
+    @Param("orgId") orgIdParam: string,
+    @Query("window") windowParam: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    const parsed = C.UsageStatWindow.safeParse(windowParam);
+    if (!parsed.success) throw new HttpException({ reasonCode: "INVALID_WINDOW" }, HttpStatus.BAD_REQUEST);
+    return getUsageReport({ repo: this.quotas }, { orgId, window: parsed.data });
   }
 
   @Get("/organizations/:orgId/invites")

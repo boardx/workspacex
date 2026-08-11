@@ -3,17 +3,46 @@ import * as React from "react";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  USAGE_WINDOWS, USAGE_WINDOW_DEFAULT, USAGE_STAT_CARDS,
-  USAGE_MATRIX_MODELS, USAGE_MATRIX_ROWS, USAGE_MATRIX_FOOTER,
-  MODEL_DISTRIBUTION, RECENT_LIMIT_EVENTS, type UsageWindowKey,
-} from "@/lib/mock/admin-limits";
+import { NoBackendNotice } from "./no-backend-notice";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { ApiError } from "@/lib/api-client";
+import { getUsageReport, type GetUsageReportOut, type UsageWindowKey } from "@/lib/live-org-admin";
+import { RECENT_LIMIT_EVENTS } from "@/lib/mock/admin-limits";
 
-/** 概览卡的色调 —— 与 `UsageStatCard.tone` 对齐，不用 opacity 表达强调 */
-function statValueTone(tone: "default" | "warning" | "destructive"): string {
-  if (tone === "destructive") return "text-destructive";
-  if (tone === "warning") return "text-warning";
-  return "text-card-foreground";
+/**
+ * 用量监控 tab —— **F161 起真栈**（token-quota-and-usage delta）。
+ *
+ * ## 这个文件此前自己承认过什么
+ *
+ * 它的旧文件头逐字写着：「窗口切换只影响本地展示态（无后端），不真正拉取不同窗口的
+ * 数据——mock 定死一份「本周」快照」。四个窗口按钮点起来数字纹丝不动，而那正是
+ * 管理员最需要相信的一块屏。F161 把每个窗口变成一次真实聚合请求。
+ *
+ * ## 三处刻意与原型不同
+ *
+ * ① **矩阵的列不再写死**（原型是五个固定模型名）。列 = 窗口内真实出现过的模型，
+ *    按用量降序；组织换了模型不会留下五个空列，也不会漏掉真正在用的那个。
+ * ② **去掉了「额度用量%」那一列**。额度是**月度**的，而窗口可以是「最近 5 小时」——
+ *    把 5 小时的用量除以月度额度，得到的百分比没有任何含义，却看起来非常像有含义。
+ *    要看额度用量请去「成员配额」tab（那里的分母与分子同为本月）。
+ * ③ **「近期限额事件」仍然是 mock** 并保留「尚未接入真实后端」提示：它的数据源
+ *    （`limit_events`）要到 F162 才存在。把它做成一块「暂无事件」的空区会让
+ *    「还没做」和「真的没发生过」在界面上长得一模一样。
+ */
+
+/** 窗口枚举 → 界面标签。取值来自契约（单一事实源），标签在这里映射一次。 */
+const WINDOW_LABEL: Record<UsageWindowKey, string> = {
+  "5h": "最近 5 小时",
+  today: "今日",
+  week: "本周",
+  month: "本月",
+};
+const WINDOWS = Object.keys(WINDOW_LABEL) as UsageWindowKey[];
+
+function fmt(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `${(n / 10_000).toFixed(1)} 万`;
+  return n.toLocaleString();
 }
 
 function eventTagTone(tone: "warning" | "destructive" | "success"): "warning" | "danger" | "primary" {
@@ -22,13 +51,34 @@ function eventTagTone(tone: "warning" | "destructive" | "success"): "warning" | 
   return "primary";
 }
 
-/**
- * 用量监控 tab（isMbUsage，字节偏移 15870471-15889337）—— 统计窗口切换、
- * 四张概览卡、按人×模型用量矩阵、按模型分布、近期限额事件。
- * 窗口切换只影响本地展示态（无后端），不真正拉取不同窗口的数据——mock 定死一份「本周」快照。
- */
 export function UsageMonitorTab() {
-  const [windowKey, setWindowKey] = React.useState<UsageWindowKey>(USAGE_WINDOW_DEFAULT);
+  const session = useOptionalSession()?.session ?? null;
+  const orgId = session?.currentOrgId ?? null;
+
+  const [windowKey, setWindowKey] = React.useState<UsageWindowKey>("week");
+  const [data, setData] = React.useState<GetUsageReportOut | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    setError(null);
+    setData(null);
+    void (async () => {
+      try {
+        const out = await getUsageReport(orgId, windowKey);
+        if (!cancelled) setData(out);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // windowKey 进依赖：换窗口 = 换一次请求，这就是本 feature 的全部主张。
+  }, [orgId, windowKey]);
+
+  const empty = data !== null && data.callCount === 0;
 
   return (
     <div className="flex flex-col gap-5" data-testid="admin-usage-tab">
@@ -36,7 +86,7 @@ export function UsageMonitorTab() {
       <div className="flex flex-wrap items-center gap-2" data-testid="admin-usage-window">
         <span className="text-11 text-muted-foreground">统计窗口</span>
         <div className="flex gap-0.5 rounded-lg border border-border bg-card p-0.5">
-          {USAGE_WINDOWS.map((w) => (
+          {WINDOWS.map((w) => (
             <button
               key={w}
               type="button"
@@ -50,121 +100,153 @@ export function UsageMonitorTab() {
                   : "text-muted-foreground hover:text-background-foreground")
               }
             >
-              {w}
+              {WINDOW_LABEL[w]}
             </button>
           ))}
         </div>
-        <span className="ml-auto font-mono text-10 text-muted-foreground">更新于 1 分钟前 · 单位：万 token</span>
+        <span className="ml-auto font-mono text-10 text-muted-foreground">
+          {data ? `${WINDOW_LABEL[data.window]} · 单位 token` : "读取中…"}
+        </span>
       </div>
 
-      {/* 四张概览卡（数值固定为「本周」快照，切窗口只换选中态，如实标注见上） */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="admin-usage-stats">
-        {USAGE_STAT_CARDS.map((c) => (
-          <Card key={c.key} data-testid={`admin-usage-stat-${c.key}`}>
-            <CardContent className="flex flex-col gap-1.5 pt-3">
-              <span className="text-11 text-muted-foreground">{c.label}</span>
-              <span className={`font-serif text-24 font-medium ${statValueTone(c.tone)}`}>
-                {c.value}
-                {c.unit && <span className="ml-1 text-11 font-sans text-muted-foreground">{c.unit}</span>}
+      {!orgId && <p className="text-12 text-muted-foreground">尚未选择组织。</p>}
+
+      {error && (
+        <Card data-testid="admin-usage-load-failed">
+          <CardContent className="p-3 text-12 text-destructive">
+            用量数据读取失败：{error}
+          </CardContent>
+        </Card>
+      )}
+
+      {data && (
+        <>
+          {/* 四张概览卡 —— 数值来自本次窗口的聚合 */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="admin-usage-stats">
+            <Card data-testid="admin-usage-stat-total">
+              <CardContent className="flex flex-col gap-1.5 pt-3">
+                <span className="text-11 text-muted-foreground">总用量</span>
+                <span className="font-serif text-24 font-medium">{fmt(data.totalTokens)}</span>
+                <span className="font-mono text-10 text-muted-foreground">{WINDOW_LABEL[data.window]}</span>
+              </CardContent>
+            </Card>
+            <Card data-testid="admin-usage-stat-calls">
+              <CardContent className="flex flex-col gap-1.5 pt-3">
+                <span className="text-11 text-muted-foreground">调用次数</span>
+                <span className="font-serif text-24 font-medium">{data.callCount.toLocaleString()}</span>
+                <span className="font-mono text-10 text-muted-foreground">含失败调用</span>
+              </CardContent>
+            </Card>
+            <Card data-testid="admin-usage-stat-failed">
+              <CardContent className="flex flex-col gap-1.5 pt-3">
+                <span className="text-11 text-muted-foreground">其中失败</span>
+                <span className={`font-serif text-24 font-medium ${data.failedCallCount > 0 ? "text-warning" : ""}`}>
+                  {data.failedCallCount.toLocaleString()}
+                </span>
+                <span className="font-mono text-10 text-muted-foreground">失败不计 token，但计一次调用</span>
+              </CardContent>
+            </Card>
+            <Card data-testid="admin-usage-stat-active">
+              <CardContent className="flex flex-col gap-1.5 pt-3">
+                <span className="text-11 text-muted-foreground">活跃成员</span>
+                <span className="font-serif text-24 font-medium">{data.activeMemberCount}</span>
+                <span className="font-mono text-10 text-muted-foreground">窗口内有过调用的人</span>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 按人 × 模型矩阵 */}
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <BarChart3 aria-hidden className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-14 font-semibold">按人 × 模型</h2>
+              <span className="ml-auto text-10 text-muted-foreground">
+                额度用量在「成员配额」tab（额度按月结算，与这里的窗口不同口径）
               </span>
-              <span className="font-mono text-10 text-muted-foreground">{c.sub}</span>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </div>
+            <Card>
+              <CardContent className="overflow-x-auto p-0">
+                {empty ? (
+                  <p className="p-4 text-12 text-muted-foreground" data-testid="admin-usage-empty">
+                    {WINDOW_LABEL[data.window]}内还没有任何模型调用。
+                  </p>
+                ) : (
+                  <table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-usage-matrix">
+                    <thead>
+                      <tr className="border-b border-border bg-panel text-11 text-muted-foreground">
+                        <th className="px-3 py-2 text-left font-medium">成员</th>
+                        {data.models.map((m) => (
+                          <th key={m} className="px-2 py-2 text-right font-mono font-medium">{m}</th>
+                        ))}
+                        <th className="px-2 py-2 text-right font-medium">合计</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.rows.map((r) => (
+                        <tr
+                          key={r.userId}
+                          className="border-b border-border-subtle"
+                          data-testid={`admin-usage-matrix-row-${r.userId}`}
+                        >
+                          <td className="px-3 py-2 font-medium">{r.displayName}</td>
+                          {r.perModel.map((v, i) => (
+                            <td key={data.models[i]} className="px-2 py-2 text-right font-mono text-muted-foreground">
+                              {fmt(v)}
+                            </td>
+                          ))}
+                          <td className="px-2 py-2 text-right font-mono font-medium">{fmt(r.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </section>
 
-      {/* 按人 × 模型用量矩阵 */}
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5">
-          <BarChart3 aria-hidden className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-14 font-semibold">按人 × 模型</h2>
-          <span className="ml-auto text-10 text-muted-foreground">最后一列是本周个人额度用掉的比例</span>
-        </div>
-        <Card>
-          <CardContent className="overflow-x-auto p-0">
-            <table className="w-full min-w-[720px] border-collapse text-11" data-testid="admin-usage-matrix">
-              <thead>
-                <tr className="border-b border-border bg-panel text-11 text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium">成员</th>
-                  {USAGE_MATRIX_MODELS.map((m) => (
-                    <th key={m} className="px-2 py-2 text-right font-medium font-mono">{m}</th>
-                  ))}
-                  <th className="px-2 py-2 text-right font-medium">合计</th>
-                  <th className="px-3 py-2 text-left font-medium">额度用量</th>
-                </tr>
-              </thead>
-              <tbody>
-                {USAGE_MATRIX_ROWS.map((r) => (
-                  <tr key={r.id} className="border-b border-border-subtle" data-testid={`admin-usage-matrix-row-${r.id}`}>
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{r.name}</div>
-                      <div className="text-10 text-muted-foreground">{r.subtitle}</div>
-                    </td>
-                    {r.values.map((v, i) => (
-                      <td key={USAGE_MATRIX_MODELS[i]} className="px-2 py-2 text-right font-mono text-muted-foreground">{v}</td>
-                    ))}
-                    <td className="px-2 py-2 text-right font-mono font-medium">{r.total}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={`h-full rounded-full ${r.quotaPct >= 90 ? "bg-destructive" : "bg-foreground"}`}
-                            style={{ width: `${Math.min(100, r.quotaPct)}%` }}
-                          />
-                        </div>
-                        <span className={`font-mono text-10 ${r.quotaPct >= 90 ? "text-destructive" : "text-muted-foreground"}`}>{r.quotaPct}%</span>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <Card data-testid="admin-usage-model-distribution">
+              <CardContent className="flex flex-col gap-2.5 pt-4">
+                <span className="text-12 font-medium">按模型分布</span>
+                {data.distribution.length === 0 && (
+                  <span className="text-11 text-muted-foreground">窗口内没有调用。</span>
+                )}
+                {data.distribution.map((m) => {
+                  const pct = Math.round(m.share * 100);
+                  return (
+                    <div key={m.modelId} data-testid={`admin-usage-distribution-${m.modelId}`}>
+                      <div className="mb-1 flex items-center gap-2 text-11">
+                        <span className="flex-1 truncate font-mono">{m.modelId}</span>
+                        <span className="font-mono text-10">{pct}%</span>
                       </div>
-                    </td>
-                  </tr>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            {/* ⚠ 仍是 mock —— 数据源 `limit_events` 要到 F162 才存在。提示留着。 */}
+            <Card data-testid="admin-usage-recent-events">
+              <CardContent className="flex flex-col gap-2.5 pt-4">
+                <span className="text-12 font-medium">近期限额事件</span>
+                <NoBackendNotice />
+                {RECENT_LIMIT_EVENTS.map((ev) => (
+                  <div key={ev.id} className="flex items-start gap-2" data-testid={`admin-usage-event-${ev.id}`}>
+                    <Badge tone={eventTagTone(ev.tone)}>{ev.tag}</Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-11 leading-relaxed">{ev.detail}</p>
+                      <p className="font-mono text-9 text-muted-foreground">{ev.meta}</p>
+                    </div>
+                  </div>
                 ))}
-                <tr className="bg-panel font-medium" data-testid="admin-usage-matrix-footer">
-                  <td className="px-3 py-2">{USAGE_MATRIX_FOOTER.label}</td>
-                  {USAGE_MATRIX_FOOTER.values.map((v, i) => (
-                    <td key={USAGE_MATRIX_MODELS[i]} className="px-2 py-2 text-right font-mono">{v}</td>
-                  ))}
-                  <td className="px-2 py-2 text-right font-mono">{USAGE_MATRIX_FOOTER.total}</td>
-                  <td className="px-3 py-2 text-10 font-normal text-muted-foreground">{USAGE_MATRIX_FOOTER.note}</td>
-                </tr>
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* 按模型分布 + 近期限额事件 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Card data-testid="admin-usage-model-distribution">
-          <CardContent className="flex flex-col gap-2.5 pt-4">
-            <span className="text-12 font-medium">按模型分布</span>
-            {MODEL_DISTRIBUTION.map((m) => (
-              <div key={m.key} data-testid={`admin-usage-distribution-${m.key}`}>
-                <div className="mb-1 flex items-center gap-2 text-11">
-                  <span className="flex-1 truncate">{m.label}</span>
-                  <span className="font-mono text-10">{m.pct}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className={`h-full rounded-full ${m.colorVar}`} style={{ width: `${m.pct}%` }} />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card data-testid="admin-usage-recent-events">
-          <CardContent className="flex flex-col gap-2.5 pt-4">
-            <span className="text-12 font-medium">近期限额事件</span>
-            {RECENT_LIMIT_EVENTS.map((ev) => (
-              <div key={ev.id} className="flex items-start gap-2" data-testid={`admin-usage-event-${ev.id}`}>
-                <Badge tone={eventTagTone(ev.tone)}>{ev.tag}</Badge>
-                <div className="min-w-0 flex-1">
-                  <p className="text-11 leading-relaxed">{ev.detail}</p>
-                  <p className="font-mono text-9 text-muted-foreground">{ev.meta}</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

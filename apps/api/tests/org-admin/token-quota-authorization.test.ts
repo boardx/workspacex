@@ -1,5 +1,5 @@
 /**
- * F160 —— 三条 token 额度路由的**授权面**，真实 Postgres + 真实 controller。
+ * F160 / F161 —— 四条 token 额度 / 用量路由的**授权面**，真实 Postgres + 真实 controller。
  *
  * 这个文件是 `lint-permission-paths` 允许 `pg-token-quota-repository.ts` 不走
  * `guard()`/`disclose()` 的**条件本身**：那条豁免的理由是「admin 门在 controller 里、
@@ -70,7 +70,7 @@ afterAll(async () => {
   await db?.close();
 }, HOOK_TIMEOUT_MS);
 
-describe("F160 token 额度：三条路由都是 admin 门", () => {
+describe("F160/F161 token 额度与用量：四条路由都是 admin 门", () => {
   it("非本组织成员读配额 → NO_ORG_MEMBERSHIP", async () => {
     await expect(controller.tokenQuotas(ORG, principal(OUTSIDER))).rejects.toThrow(ForbiddenException);
   });
@@ -98,6 +98,16 @@ describe("F160 token 额度：三条路由都是 admin 门", () => {
     const budgets = await asApp(ORG, (c) =>
       c.query("SELECT 1 FROM org_token_budget WHERE org_id=$1", [ORG]).then((r) => r.rows.length));
     expect(budgets).toBe(0);
+  });
+
+  it("非管理员读用量 → FORBIDDEN", async () => {
+    await expect(controller.usageReport(ORG, "week", principal(MEMBER))).rejects.toThrow(ForbiddenException);
+  });
+
+  it("未知统计窗口 → 400，而不是悄悄按本周算", async () => {
+    // 悄悄按本周算的话，界面上「最近 5 小时」这个标签会配着一份本周的数字——
+    // 一块看起来完全正常、却在说谎的屏。
+    await expect(controller.usageReport(ORG, "last-fortnight", principal(ADMIN))).rejects.toThrow();
   });
 
   it("管理员：读得到、写得进，且写的是真库（独立 re-read）", async () => {

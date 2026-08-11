@@ -315,3 +315,23 @@ export async function setOrgTokenBudget(
     { method: "PATCH", body: { orgId, monthlyBudget } },
   );
 }
+
+/* ═══════════════ F161：用量监控（token-quota-and-usage delta）═══════════════ */
+
+export type UsageWindowKey = z.infer<typeof orgAdmin.UsageStatWindow>;
+export type GetUsageReportOut = z.infer<typeof orgAdmin.operations.getUsageReport.out>;
+
+/**
+ * `GET /organizations/:orgId/usage?window=…`
+ *
+ * ⚠ 窗口是**请求参数**，不是本地筛选：换窗口必须发一次新请求。此前那份 mock 的
+ * 文件头逐字写着「窗口切换只影响本地展示态」——那正是 F161 要消灭的东西。
+ */
+export async function getUsageReport(
+  orgId: string, window: UsageWindowKey,
+): Promise<GetUsageReportOut> {
+  return apiRequest<GetUsageReportOut>(
+    `${path(orgAdmin.operations.getUsageReport.path, { orgId })}?window=${encodeURIComponent(window)}`,
+    { method: "GET" },
+  );
+}
