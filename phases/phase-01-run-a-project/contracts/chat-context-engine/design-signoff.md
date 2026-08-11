@@ -1,7 +1,7 @@
 ---
 bundle: chat-context-engine
 phase: "01"
-covers: [F153, F154, F155, F156]   # 回填自 requirement-author F149-156（dev-chat-e2e 2026-08-11）
+covers: [F154, F155, F156, F157]   # 回填自 requirement-author F150-156（dev-chat-e2e 2026-08-11）
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-11T14:32:00+08:00

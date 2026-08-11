@@ -11,7 +11,7 @@ context-engine 是**后端/上下文能力，没有独立用户界面**。它的
 声明复用 `chat` 束（`.harness/scripts/ui-material-map.json` 里本束映射为 `{ "reuse_bundle": "chat" }`，
 先例=curated-capability-packs 复用 skills）。复用机制要求本文逐张引用被复用目录的截图集合：
 
-覆盖 feature：见 `design-signoff.md` 的 `covers:`（权威，F153–F156）。
+覆盖 feature：见 `design-signoff.md` 的 `covers:`（权威，F154–F157）。
 
 ## 复用的截图集合（`ui-preview/chat-v2/`，逐张）
 

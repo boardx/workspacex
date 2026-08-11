@@ -24,4 +24,4 @@
 3. **随线程删除**：附件生命周期从属其消息/线程（FK `ON DELETE CASCADE`），无独立留存策略。
 4. **不产生幽灵附件**：对象存储写入失败 ⇒ 事务不提交（`STORAGE_UNAVAILABLE`）。
 5. **附件本体与「进 context」解耦**：V9-a 只管存下 + 可下载/预览；`extracted_ref`（进 L3 检索）
-   是 V9-b（F152）。抽取失败不删附件、不 fail 上传（见 chat-context-engine 束的失败降级）。
+   是 V9-b（F153）。抽取失败不删附件、不 fail 上传（见 chat-context-engine 束的失败降级）。
