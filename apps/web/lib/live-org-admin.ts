@@ -195,6 +195,14 @@ export interface UploadOrgAvatarInput {
  * （见 `apps/api/src/application/auth/upload-org-avatar.ts`）——这里声明的值只是
  *「客户端认为是什么」，被拒绝时错误码来自服务端的真实校验。
  */
+/**
+ * 2026-08-11 devapp 实测：上传请求在生产可能永远不返回（服务端/链路挂起），按钮就永远
+ * 停在「上传中…」。给这一发 fetch 一个硬超时——5MB 上限的体在还活着的连接上 60s
+ * 绰绰有余；超时抛 `TimeoutError`，由 org-admin-screen.tsx 显示「上传超时，请重试」。
+ * 永远不该让用户卡在没有反馈的等待里。
+ */
+export const UPLOAD_ORG_AVATAR_TIMEOUT_MS = 60_000;
+
 export async function uploadOrgAvatar(input: UploadOrgAvatarInput): Promise<UploadOrgAvatarOut> {
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const sha256 = await sha256Hex(bytes);
@@ -212,7 +220,13 @@ export async function uploadOrgAvatar(input: UploadOrgAvatarInput): Promise<Uplo
   if (token) headers.Authorization = `Bearer ${token}`;
   if (contentType) headers["Content-Type"] = contentType;
 
-  const res = await fetch(url, { method: "POST", headers, credentials: "include", body: bytes });
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: bytes,
+    signal: AbortSignal.timeout(UPLOAD_ORG_AVATAR_TIMEOUT_MS),
+  });
   const text = await res.text();
   const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
   if (!res.ok) throw new ApiError(res.status, extractReasonCode(json), json);

@@ -1198,6 +1198,10 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError("图片超过 5MB 上限，服务端已拒绝，未上传。");
         else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError("文件内容与声明的图片格式不符（服务端按真实字节校验），未上传。");
         else setAvatarError(`上传失败：${err.reasonCode ?? err.status}`);
+      } else if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        // 2026-08-11 devapp 实测：请求可能永远不返回（见 live-org-admin.ts 的硬超时）。
+        // 超时必须给出明确反馈，不许停在「上传中…」。
+        setAvatarError("上传超时，请重试。");
       } else {
         setAvatarError("上传失败，请稍后重试。");
       }
