@@ -11,6 +11,8 @@ import {
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
 import { SkillCatalogLive } from "./skill-catalog-live";
+import { CapabilityCatalogScreen } from "@/components/admin/capability-catalog-screen";
+import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 import { SkillLibrary } from "./skill-library";
 import { SkillTryRun } from "./skill-tryrun";
 import { SkillBinding } from "./skill-binding";
@@ -62,6 +64,14 @@ export function SkillApp({
             七屏原型仍可达，见下面的 `library-prototype`。
           */}
           {screen === "library" && <SkillCatalogLive />}
+          {screen === "catalog" && (
+            <CapabilityCatalogScreen
+              kind="skill"
+              renderEditExtra={(row) => (
+                <SkillContentEditorSection id={`skill-catalog-row-${row.id}`} row={row} />
+              )}
+            />
+          )}
           {screen === "library-prototype" && <SkillLibrary state={uiState} view={view} />}
           {screen === "tryrun" && <SkillTryRun state={uiState} view={view} />}
           {screen === "binding" && <SkillBinding state={uiState} view={view} />}
@@ -86,8 +96,12 @@ export function SkillApp({
  *   「删掉等于把已签核的设计从仓库里抹掉」），只是不再暴露成侧栏可点的入口。
  *   开发态 `PreviewControls`（NODE_ENV !== production 才渲染）不受影响，
  *   仍可切到全部七屏做预览/回归对照。
+ *
+ * ⚠ 2026-08-11 新增 `catalog`：与 `library` 一样接真实后端（`CapabilityCatalogScreen`，
+ *   `GET/POST /capabilities`），所以和 `library` 一起留在生产可达的左栏里——这不是
+ *   「原型 / mock」那六屏的例外，是「真合并」的落点，理应可点。
  */
-const LEFT_NAV_SCREENS: readonly SkillScreen[] = ["library"];
+const LEFT_NAV_SCREENS: readonly SkillScreen[] = ["library", "catalog"];
 
 function LeftNav({
   screen, href,
@@ -128,6 +142,7 @@ function LeftNav({
 function RightRail({ screen }: { screen: SkillScreen }) {
   const notes: Record<SkillScreen, { title: string; body: string }> = {
     library: { title: "只画后端给得出的东西", body: "本屏接真实 API（#520）：只有创建草稿、列表、详情三条路径有 HTTP 边界。没有发布、试跑、审核入口——它们的用例还没有边界，摆出来就是骗人的按钮。" },
+    catalog: { title: "原 /admin/skill，2026-08-11 真合并进来", body: "名称/可见范围/归属团队编辑，走 identity 能力目录契约（GET/POST /capabilities）——与 library 是两套不同后端数据源，只是概念重叠，导航层面收敛为一个入口。" },
     "library-prototype": { title: "双重门禁", body: "安全扫描（自动）与方法论审核（人工）是两道独立门禁，两职能不合并、均由组织管理员指派、不得自审自批。" },
     tryrun: { title: "试跑不落库", body: "试跑用当前未发布的契约跑，不影响线上；自动校验（结构/证据/越权/写库）与回归用例都不需要沙箱（D-06 挡不住），是对契约输出的断言。" },
     binding: { title: "两级继承", body: "后台模板级默认值 → 项目实例级可覆盖、不回写；沉淀回组织只有一条显式路径 [另存为组织模板]。" },

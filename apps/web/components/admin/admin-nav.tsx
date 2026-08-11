@@ -43,7 +43,7 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  * 左栏不会整个空掉。「—」与 `0` 在界面上是两件事，详见 `lib/admin-nav-counts.ts`
  * 顶部的长注：`0` 是「这类资产一个都没有」，「—」是「这个数现在取不到」。
  *
- * ## #593 —— 第三组「能力域 · 全生命周期」
+ * ## #593 —— 第三组「能力域 · 全生命周期」（2026-08-11 起：真合并后基本已清空）
  *
  * 原型（`phases/requirements/WorkspaceX Standalone.html`）的一级导航「治理」只有「后台」
  * 一项；蓝本 / 技能 / 智能体 / 成员 / 资产在原型里是**后台模块**（COLUMN 2）。
@@ -52,26 +52,12 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  * 一级导航里已经没有了，不是「界面上没有但 DOM 里还在」的僵尸。
  * 清单的唯一事实源是 `lib/navigation.ts` 的 `ADMIN_SECOND_LEVEL`，这里不抄第二份。
  *
- * ⚠ 已知重复（**逐对已在「菜单去重复查」issue 里核实虚实，见该 issue**）：上面
- *   「AI 能力 / 组织」组的 Agent 目录 · Skill 目录 · 项目蓝本 · 成员配额 · 画布模板
- *   指向 `/admin/*` 那批屏，第三组指向同名能力域的现行屏。五对逐一核实后不是同一种
- *   关系：Agent（目录 vs 运行时配置，后者零后端）、Skill（两套不同后端数据源，均真）、
- *   蓝本/画布模板（人类已定为 Q-11/X-J，待裁，暂不合并）、成员（组织成员真实存在，
- *   配额/管理员边界目前仍是 mock）。不是「两套实现归并」一句话能概括的，各自的判断
- *   依据见 `lib/navigation.ts` 对应项的注释与 `prototypeNote`。
- *
- * ## #700 —— 原型标签（人类裁决选项 1，2026-08-11 订正措辞）
- *
- * 上面这条「已知重复」曾经只写在注释里，用户在界面上看不出这组入口是原型。
- * #700 issue #700#issuecomment-5224610781 人类选了选项 1：**不删这组入口**
- * （删了会打红 `lint-nav-reachability.mjs`，也会让 ADR-023 签核材料不可达），
- * 但要在 UI 上诚实标出「这是原型，不是跟『AI 能力』组重复的另一套正式功能」。
- * 于是这里逐项渲染 `item.isPrototype`（唯一事实源见 `lib/navigation.ts` 的
- * `ADMIN_SECOND_LEVEL`）驱动的 `Badge`——`skills` 与 `org-admin`（均已接真实后端）
- * 不带该字段，不与其余三项连坐；语气对齐 `NoBackendNotice`「尚未接入真实后端」。
- * 2026-08-11：把徽标文案从「原型 · 待归并」（模糊，没说清楚待归并到哪/为什么）
- * 改成「预览 · 未接后端」+ 标签下方的一句 `prototypeNote`（讲清楚对应哪个后台项、
- * 差异是什么）——「菜单去重复查」issue 里逐对核实后要求不能再留模糊标签。
+ * ⚠ 2026-08-11 人类直接裁决（原话：「这些都是重复的目录，要把它整合在一起，不要有
+ *   重复的」）：#700/#928/#929 那几轮只是改措辞、加徽标、加跳转链接，从未真的合并。
+ *   这次是**真合并**——蓝本 / Skill 库与市场 / 智能体运行时 / 资产 / 画布五项已经
+ *   在 `MERGED_SECOND_LEVEL_KEYS` 里被摘出渲染，各自新落点见 `lib/navigation.ts`
+ *   `ADMIN_SECOND_LEVEL` 里每一项的注释。这一组现在只剩「组织成员」一项——
+ *   人类本轮没有点名它，与「成员配额」的关系维持此前判断，不在本轮合并范围内。
  *
  * `countSources` 默认取生产数据源（`ADMIN_NAV_COUNT_SOURCES`）；测试用它注入
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
@@ -79,6 +65,19 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  */
 /** 左栏全部项的 key，顺序与 `ADMIN_NAV` 一致。 */
 const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.key));
+
+/**
+ * 2026-08-11（人类直接裁决，真合并）：这五个键已经找到各自的真实新落点
+ * （见 `lib/navigation.ts` 的 `ADMIN_SECOND_LEVEL` 里每一项各自的注释），
+ * 不再在「能力域 · 全生命周期」这个第二组里渲染出第二个入口。
+ *
+ * ⚠ 它们仍然**留在** `ADMIN_SECOND_LEVEL`（`lib/navigation.ts`）数组里——那个数组是
+ * `lint-nav-reachability.mjs` 判定「束的现行路由是否可达」时唯一会扫描到的文本来源，
+ * 删掉数组项会让门控把 `/tpl` `/skill` `/preview/agent-runtime` `/asset-governance`
+ * `/canvas` 判成不可达（即使它们其实从别处能点到）。这里只过滤**渲染**，不改数据源，
+ * 「数组仍声明 href、但不再画出第二个菜单项」是刻意的两件事分开做。
+ */
+const MERGED_SECOND_LEVEL_KEYS = new Set<string>(["templates", "skills", "agent-runtime", "asset-governance", "canvas"]);
 
 export function AdminNav({
   active,
@@ -101,6 +100,7 @@ export function AdminNav({
   const session = useOptionalSession();
   const liveSources = useLiveAdminNavCounts(session?.session?.currentOrgId ?? null, ALL_NAV_KEYS);
   const counts = resolveAdminNavCounts(countSources ?? liveSources);
+  const secondLevelVisible = ADMIN_SECOND_LEVEL.filter((item) => !MERGED_SECOND_LEVEL_KEYS.has(item.key));
   return (
     <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
       <div className="flex flex-col gap-0.5 px-1">
@@ -157,13 +157,14 @@ export function AdminNav({
         </div>
       ))}
 
-      {/* #593 后台二级模块 —— 说明见本文件头注「#593」一节。 */}
-      {ADMIN_SECOND_LEVEL.length > 0 && (
+      {/* #593 后台二级模块 —— 说明见本文件头注「#593」一节。2026-08-11：五个真合并的重复项
+          已从这里过滤掉（`MERGED_SECOND_LEVEL_KEYS`），这一组现在只剩「组织成员」一项。 */}
+      {secondLevelVisible.length > 0 && (
         <div className="flex flex-col gap-1">
           <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
             能力域 · 全生命周期
           </span>
-          {ADMIN_SECOND_LEVEL.map((item) => {
+          {secondLevelVisible.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.key} className="flex flex-col gap-0.5">

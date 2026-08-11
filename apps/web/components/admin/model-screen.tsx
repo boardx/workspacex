@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check } from "lucide-react";
+import Link from "next/link";
+import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check, ArrowUpRight } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
@@ -61,6 +62,28 @@ export function ModelScreen({ state }: { state: UiState }) {
       successMessage="模型『qwen3-72b』五项测试判读通过，已启用并纳入 Ledger 的可选范围"
     >
       <div className="flex flex-col gap-4">
+        {/*
+          2026-08-11（人类直接裁决，真合并）：原「智能体运行时」的机密路由批准卡子屏
+          （`agent-runtime/routing-screen.tsx`）折入这里——后台左栏不再有独立的
+          「智能体运行时」入口，模型路由相关的运行时配置在模型屏里就能找到。
+          见 `lib/navigation.ts` `ADMIN_SECOND_LEVEL` 里 `agent-runtime` 项的注释。
+        */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <p className="text-12 text-muted-foreground">
+              机密路由批准卡的运行时预览（客户机密材料强制走自托管模型，原「智能体运行时」子屏，已并入此处）。
+            </p>
+            <Link
+              href="/preview/agent-runtime?screen=routing"
+              data-testid="admin-model-open-runtime-routing"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+            >
+              打开机密路由批准卡预览
+              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* 筛选（可选范围过滤的入口） + 接入 */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1" data-testid="admin-model-filters">

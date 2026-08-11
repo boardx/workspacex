@@ -56,16 +56,23 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
     //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
     items: [
-      // 2026-08-11（菜单去重复查）：标签从「Agent」/「Skill」改成「Agent 目录」/「Skill 目录」——
-      // 与后台二级「智能体运行时」/「Skill 库与市场」不再是近义词硬凑，讲清楚这里是
-      // 目录治理（CapabilityCatalogScreen，真实 `GET/POST /capabilities`），不是运行时配置
-      // 或声明式 skill 全生命周期。判断依据见「菜单去重复查」issue。
+      // 2026-08-11（人类裁决，真合并——见 phases/requirements/DECISIONS-FINAL.md 对应条目）：
+      // 上一轮（#928/#929）只改了措辞、加了跳转链接，没有真的把重复入口合掉。这次人类
+      // 直接裁决：Q-11/X-J 解除阻塞，五个重复项收敛掉，不再有第二个指向同一能力域的入口。
+      //   · 「项目蓝本」→ 改名「项目模板」，href 直接指向 `/tpl`（不再经过 `/admin/blueprint`
+      //     那个空壳治理页，`templates` 束的蓝本设计器就是它）。
+      //   · 「Skill 目录」→ href 直接指向 `/skill`（Skill 库与市场，功能更完整的那条真实链路），
+      //     原 `/admin/skill` 的简单 CRUD（名称/可见范围/归属团队编辑，`CapabilityCatalogScreen`）
+      //     已折进 `/skill` 左栏的新增「目录」屏（`skill-app.tsx` 的 `catalog` screen），
+      //     不是被砍掉——旧路由 `/admin/skill` 重定向过去，不留死链。
+      // Agent（工具白名单/越权申请/行为审计已折入本屏下方新增区块，见 `agent-screen.tsx`）与
+      // MCP / 模型同理：吸收原「智能体运行时」对应子屏的内容，见各自组件头注。
       { key: "agent", label: "Agent 目录", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
-      { key: "skill", label: "Skill 目录", href: "/admin/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+      { key: "skill", label: "Skill 目录", href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
       { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: "画布模板", href: "/admin/canvasadmin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
-      { key: "blueprint", label: "项目蓝本", href: "/admin/blueprint", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
+      { key: "blueprint", label: "项目模板", href: "/tpl", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },
   {

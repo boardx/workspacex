@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { Plus, Plug, Wrench, ShieldCheck, Check, Ban } from "lucide-react";
+import Link from "next/link";
+import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
@@ -56,6 +57,28 @@ export function McpScreen({ state }: { state: UiState }) {
             添加服务器
           </Button>
         </div>
+
+        {/*
+          2026-08-11（人类直接裁决，真合并）：原「智能体运行时」的 MCP 安全策略四开关 /
+          放行评审子屏（`agent-runtime/mcp-policy-screen.tsx`）折入这里——后台左栏不再有
+          独立的「智能体运行时」入口，MCP 相关的运行时配置在 MCP 屏里就能找到。
+          见 `lib/navigation.ts` `ADMIN_SECOND_LEVEL` 里 `agent-runtime` 项的注释。
+        */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <p className="text-12 text-muted-foreground">
+              MCP 安全策略四开关与放行评审的运行时预览（原「智能体运行时」子屏，已并入此处）。
+            </p>
+            <Link
+              href="/preview/agent-runtime?screen=mcp-policy"
+              data-testid="admin-mcp-open-runtime-policy"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+            >
+              打开 MCP 安全策略预览
+              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+            </Link>
+          </CardContent>
+        </Card>
 
         {/* 默认隔离安全策略（UC-21.2） */}
         <Card data-testid="admin-mcp-policy">

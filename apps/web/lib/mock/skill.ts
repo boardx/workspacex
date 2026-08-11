@@ -32,8 +32,18 @@
  * 删掉等于把已签核的设计从仓库里抹掉。剩下的 mock 边逐条钉在
  * `tests/session/skill-create-route-no-mock.test.ts` 的债务台账里。
  */
+/**
+ * ⚠ 2026-08-11（人类直接裁决，真合并）：`catalog` 是新增的第九屏——
+ * 后台「AI 能力 → Skill 目录」（`ADMIN_NAV` 的 `skill` 项）从此直接指向 `/skill`，
+ * 原来住在 `/admin/skill` 的简单 CRUD（`CapabilityCatalogScreen` kind="skill"：名称/
+ * 可见范围/归属团队编辑，走 `identity` 能力目录契约的真实 `GET/POST /capabilities`）
+ * 折进这个域左栏的新增视角，不是被砍掉。它与 `library`（`skills` 声明式契约库）
+ * 读的是**两套不同后端数据源**——这条技术债本轮不解决（需要后端工作），
+ * 但导航层面只剩一个入口：进 `/skill` 之后能在左栏切到「目录」。
+ */
 export const SKILL_SCREENS = [
   "library",
+  "catalog",
   "library-prototype",
   "tryrun",
   "binding",
@@ -46,6 +56,7 @@ export type SkillScreen = (typeof SKILL_SCREENS)[number];
 
 export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
   library: "Skill 库（真实数据）",
+  catalog: "目录（组织后台 · 名称/可见范围/团队）",
   "library-prototype": "Skill 库与双门禁（原型 · mock）",
   tryrun: "试跑 · 场景×校验×回归",
   binding: "绑定到环节与角色",
@@ -57,6 +68,7 @@ export const SKILL_SCREEN_LABEL: Record<SkillScreen, string> = {
 
 export const SKILL_SCREEN_UC: Record<SkillScreen, string> = {
   library: "UC-3.1 · F61 · 接真实 API",
+  catalog: "03-skill/uc-3-1 · uc-3-4 · 接真实 /capabilities（原 /admin/skill）",
   "library-prototype": "UC-3.1 · F61/F62 · 原型",
   tryrun: "UC-3.1 R? · 试跑整屏",
   binding: "UC-3.2 · F63/F64",
