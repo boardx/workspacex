@@ -86,7 +86,8 @@ describe("#407 minimal integration team registry projection", () => {
     // coord-e2e 三个独立 module-coordinator。coord-chat-e2e 本身保留不动（真实
     // 活跃身份，历史/在跑分支仍以它命名），只是不再是这三个 Domain 的 owner
     // （见 .harness/domains/registry.yaml）。这条断言按本用例的设计意图更新
-    // 在编名单，不是绕过它。
+    // 在编名单，不是绕过它。2026-08-11 经用户确认（issue #939）新增普通
+    // worker dev-studio-asr，负责 Studio/recording 实现且不获得协调或合并权。
     const staffed = allEntries().filter((entry) => entry.active).map((entry) => entry.id).sort();
     expect(staffed, `在编名单变了就必须在 PR 里说明理由，实得 ${staffed.join(", ")}`).toEqual([
       "coord-agent-auth",
@@ -96,6 +97,7 @@ describe("#407 minimal integration team registry projection", () => {
       "coord-chat-e2e",
       "coord-e2e",
       "coord-main",
+      "dev-studio-asr",
     ]);
   });
 
