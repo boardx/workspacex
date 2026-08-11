@@ -735,7 +735,21 @@ describe("lint-permission-paths: counter-proof", () => {
     // 输入，抽取内容到用户只经已判定的 agent-run 历史路径。`guard()` 没有 requester 可过滤。
     // 前提被 `tests/chat/attachment-extraction-repo-guard.test.ts` 强制（无 withoutTenant + 运行时
     // 形状 ⊆ 允许集），删测试则本条须一并删——正是这里要求的「带前提测试的 +1」。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(47);
+    //
+    // ⚠ Raised 47 -> 48 by F159（token 计量单一写入点）：新条目是
+    // `infrastructure/auth/pg-token-usage-repository.ts`。论点与 `pg-quarantine-repository.ts`
+    // 同形，而不是「过滤器不方便」：`Guarded<T>` 护的是 DISCLOSURE，而这个文件**没有读方法**
+    // ——`record()` 是唯一导出，里面只有一条 INSERT、返回 `void`，没有任何东西被交给
+    // 任何请求者。一次模型调用烧了多少 token 也不在 UC-0.3 R7 propagation 的射程里：
+    // 它不挂在任何 artifact/segment/embedding/context pack 上，是一条计费事实。
+    // 这条流水被读出来的地方是另一个仓储（`pg-token-quota-repository.ts`），
+    // 那里的授权是 controller 的组织 admin 门。
+    //
+    // 它的**被强制的前提**（本行要求的那种，不是一句声明）：
+    // `tests/auth/token-usage-single-write-path.test.ts` 解析该文件，出现任何
+    // SELECT/UPDATE/DELETE 即失败；同一文件还断言那条 INSERT 在整个 `apps/api/src` 里
+    // 只出现这一处（否则「唯一写入点」这个主张本身就是假的）。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(48);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
