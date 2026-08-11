@@ -15,11 +15,13 @@
  * 只把网络边界（`@/lib/session-api`）换成 mock；断言全部落在
  * `getByTestId("org-switcher")` 渲染出的选项文本上。
  *
- * ⚠ 2026-08-10：切换器从裸 `<select>` 换成手写选择器（Button 触发 + `role="listbox"`
- *   面板，见 `components/shell/top-bar.tsx` 的 `OrgSwitcher`）。`data-testid="org-switcher"`
- *   现在留在**触发按钮**上，只呈现「当前选中组织」这一个文本；其余组织的选项要点开
- *   面板才会出现在 DOM 里。`switcherOptions()` 因此从直读 `<option>` 改成「按需点开
- *   面板 + 读 `role="option"` 按钮文本」——验证的还是同一件事：面板里列出的组织名。
+ * ⚠ 2026-08-10：切换器从裸 `<select>` 换成手写选择器；2026-08-11 信息架构调整又把它
+ *   从顶栏并入**左上角组织菜单**（`components/shell/org-menu.tsx`，人类直接要求）。
+ *   `data-testid="org-switcher"` 现在是左上角菜单触发器（呈现组织头像/首字，不再呈现
+ *   完整组织名文本）；全部组织要点开菜单（`org-menu`）才出现在 DOM 里，逐项是
+ *   `role="menuitemradio"`（带 aria-checked 标当前）。`switcherOptions()` 因此改成
+ *   「按需点开菜单 + 读 `role="menuitemradio"` 按钮文本」——验证的还是同一件事：
+ *   面板里列出的组织名，一个裸 ID 都不许有。
  *
  * ## 等待形状：一次 `findBy*` 等挂载，之后只用**同步**回调的 `waitFor`（2026-08-09）
  * 本文件曾在高负载下随机抛 `Error: Timed out in waitFor.`，把**任何人**的 push 挡下来
@@ -129,8 +131,8 @@ function renderShell() {
 function switcherOptions(): string[] {
   const trigger = screen.getByTestId("org-switcher");
   if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
-  const listbox = screen.getByTestId("org-switcher-listbox");
-  return Array.from(listbox.querySelectorAll('[role="option"]')).map((o) => o.textContent ?? "");
+  const menu = screen.getByTestId("org-menu");
+  return Array.from(menu.querySelectorAll('[role="menuitemradio"]')).map((o) => o.textContent ?? "");
 }
 
 beforeEach(() => {
