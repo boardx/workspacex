@@ -88,6 +88,9 @@ describe("#407 minimal integration team registry projection", () => {
     // （见 .harness/domains/registry.yaml）。这条断言按本用例的设计意图更新
     // 在编名单，不是绕过它。2026-08-11 经用户确认（issue #939）新增普通
     // worker dev-studio-asr，负责 Studio/recording 实现且不获得协调或合并权。
+    // 2026-08-11（晚）人类指令（PR #947）：为远程工程师 usersyj 的 Codex 团队
+    // 注册四个 domain module-coordinator（survey/deep-research/user-research/voice），
+    // 均无合并权、reports_to coord-main；与既有束的边界冲突交 coord-main 仲裁。
     const staffed = allEntries().filter((entry) => entry.active).map((entry) => entry.id).sort();
     expect(staffed, `在编名单变了就必须在 PR 里说明理由，实得 ${staffed.join(", ")}`).toEqual([
       "coord-agent-auth",
@@ -95,8 +98,12 @@ describe("#407 minimal integration team registry projection", () => {
       "coord-canvas",
       "coord-chat",
       "coord-chat-e2e",
+      "coord-deep-research",
       "coord-e2e",
       "coord-main",
+      "coord-survey",
+      "coord-user-research",
+      "coord-voice",
       "dev-studio-asr",
     ]);
   });

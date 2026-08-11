@@ -252,7 +252,7 @@ reviewers:
     active: false
     kind: reviewer
     model: configured-default
-    owner: 147526627+usersyj@users.noreply.github.com
+    owner: 2325074+usamshen@users.noreply.github.com
     areas: [platform, auth, ai-runtime, chat]
     reports_to: coord-main
     required_for: [platform, auth, ai-runtime, chat]
@@ -266,7 +266,7 @@ reviewers:
     active: false
     kind: reviewer
     model: configured-default
-    owner: 147526627+usersyj@users.noreply.github.com
+    owner: 2325074+usamshen@users.noreply.github.com
     areas: [e2e, release-readiness]
     reports_to: coord-main
     required_for: [e2e, release-readiness]
