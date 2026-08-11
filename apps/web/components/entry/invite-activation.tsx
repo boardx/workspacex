@@ -5,7 +5,6 @@ import { CircleAlert, DoorOpen, LoaderCircle, ShieldCheck } from "lucide-react";
 import { auth as authContract, orgAdmin } from "@repo/contracts";
 import { ApiError, apiRequest, getStoredSessionToken } from "@/lib/api-client";
 import { contractFieldIssues } from "@/lib/auth";
-import { ACTIVATION_TOKEN_PARAM } from "@/lib/activation-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +40,7 @@ export function InviteActivation({ token }: { token: string | null }) {
       <Card>
         <p role="alert" className="flex items-start gap-2 text-13 text-destructive" data-testid="activate-missing-token">
           <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-          链接不完整（缺少激活令牌 `?{ACTIVATION_TOKEN_PARAM}=`）。请向邀请你的管理员确认完整链接。
+          链接不完整，请使用完整的邀请链接。可向邀请你的管理员重新索取。
         </p>
       </Card>
     );

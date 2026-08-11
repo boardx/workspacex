@@ -17,14 +17,21 @@
  * `INVITE_SELF_REVIEW_FORBIDDEN`——而不是因为"没有别人"就悄悄放行。
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { orgAdmin as C } from "@repo/contracts";
 import { inviteOrgMember } from "../../src/application/auth/invite-org-member";
 import { reviewAdminInvite } from "../../src/application/auth/review-admin-invite";
+import { activateOrgMember } from "../../src/application/auth/activate-org-member";
 import { OrgAdminError } from "../../src/application/auth/org-invite-errors";
 import { PgOrgInviteRepository } from "../../src/infrastructure/auth/pg-org-invite-repository";
+import { PgOrgProfileRepository } from "../../src/infrastructure/auth/pg-org-profile-repository";
+import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { OrgAdminManagementController } from "../../src/interface/controllers/org-admin-management.controller";
 import { toOrgId } from "../../src/domain/org-id";
+import type { Principal } from "../../src/domain/principal";
 import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { fakeHasher, fakeSessions, fakeTokens, NO_CLAIMS } from "../support/org-invite";
 
 const ORG = "org-f11-review";
 const SINGLE_ADMIN_ORG = "org-f11-review-solo";
@@ -36,7 +43,22 @@ const HOOK_TIMEOUT_MS = 60_000;
 
 let db: PgDatabase;
 let repo: PgOrgInviteRepository;
+let controller: OrgAdminManagementController;
 let fixture: Awaited<ReturnType<typeof seedOrg>>;
+
+const principal = (userId: string, orgId = ORG): Principal => ({ userId, orgId: toOrgId(orgId) });
+
+/** 该邀请此刻唯一可用（未作废）的令牌明文——D2 反证要断言「响应即库中那一枚」。 */
+async function liveToken(inviteId: string): Promise<string> {
+  const r = await asOwner((c) =>
+    c.query<{ token: string }>(
+      "SELECT token FROM org_invite_tokens WHERE invite_id = $1 AND consumed_at IS NULL",
+      [inviteId],
+    ),
+  );
+  expect(r.rows.length, "恰好一枚可用令牌").toBe(1);
+  return r.rows[0]!.token;
+}
 
 async function setSeatQuota(orgId: string, n: number): Promise<void> {
   await asApp(orgId, (c) => c.query("UPDATE organizations SET seat_quota = $2 WHERE id = $1", [orgId, n]));
@@ -54,6 +76,17 @@ beforeAll(async () => {
   await migrateOnce();
   db = new PgDatabase(appConfig());
   repo = new PgOrgInviteRepository(db);
+  // D2 反证的「随时可再读仍封死」半边要打真实的 review / listInvites 路由——
+  // 与 orphan-invite-resend-revoke.test.ts 同一构造：不参与的端口给 null 而不是假件。
+  controller = new OrgAdminManagementController(
+    repo,
+    null as never,
+    null as never,
+    new PgOrgProfileRepository(db, null as never),
+    null as never,
+    new PgIdentityRepository(db),
+    null as never,
+  );
 }, HOOK_TIMEOUT_MS);
 
 afterAll(async () => {
@@ -124,8 +157,11 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
       { repo },
       { orgId: toOrgId(ORG), reviewerId: ADMIN_B, reviewerOrgRole: "admin", inviteId: out.inviteId, decision: "approve" },
     );
-    expect(reviewed).toEqual({ status: "pending", tokenIssued: true });
+    expect(reviewed.status).toBe("pending");
+    expect(reviewed.tokenIssued).toBe(true);
     expect(await tokenCount(out.inviteId)).toBe(1);
+    // D2 裁决 A：批准那一次响应回传令牌，且正是库里那一枚（不是第二枚、不是编的）。
+    expect(reviewed.activationToken).toBe(await liveToken(out.inviteId));
   });
 
   it("reject 后转 revoked，且不签发 token", async () => {
@@ -144,7 +180,7 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
       { repo },
       { orgId: toOrgId(ORG), reviewerId: ADMIN_B, reviewerOrgRole: "admin", inviteId: out.inviteId, decision: "reject" },
     );
-    expect(reviewed).toEqual({ status: "revoked", tokenIssued: false });
+    expect(reviewed).toEqual({ status: "revoked", tokenIssued: false, activationToken: null });
     expect(await tokenCount(out.inviteId)).toBe(0);
   });
 
@@ -164,7 +200,8 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
       { repo },
       { orgId: toOrgId(ORG), reviewerId: ADMIN_B, reviewerOrgRole: "admin", inviteId: out.inviteId, decision: "approve" },
     );
-    expect(first).toEqual({ status: "pending", tokenIssued: true });
+    expect(first.status).toBe("pending");
+    expect(first.tokenIssued).toBe(true);
 
     const second = await reviewAdminInvite(
       { repo },
@@ -175,7 +212,9 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
     // `inviteOrgMember` 对重放的处置一致（`pg-org-invite-repository.ts` 的 `replayed`
     // 分支恒 `tokenIssued: false`，无论首次调用是不是 true）：重放没有再签一次，
     // 所以这次的 `tokenIssued` 如实为 false，而不是复述第一次调用发生过什么。
-    expect(second).toEqual({ status: "pending", tokenIssued: false });
+    // D2 反证：重放同样拿不到 activationToken——「重复批准把令牌再吐一次」正是
+    // 「任何管理员事后可再读」的形状，封死。
+    expect(second).toEqual({ status: "pending", tokenIssued: false, activationToken: null });
     expect(await tokenCount(out.inviteId)).toBe(1);
   });
 
@@ -227,6 +266,77 @@ describe("邀请管理员进入待批队列，批准前不签发 token", () => {
         },
       ),
     ).rejects.toMatchObject({ reasonCode: "PROJECT_ROLE_INSUFFICIENT" } satisfies Partial<OrgAdminError>);
+  });
+});
+
+/* ═══════ D2 反证（coord-main 2026-08-11 裁决 A）：批准响应带 token，且只此一次 ═══════ */
+
+describe("D2：批准那一次响应回传 activationToken，此外任何地方拿不到", () => {
+  async function awaitingInvite(email: string): Promise<string> {
+    const out = await inviteOrgMember(
+      { repo },
+      { orgId: toOrgId(ORG), actorId: ADMIN_A, actorOrgRole: "admin", email, orgRole: "admin", teamId: null },
+    );
+    expect(out.status, "前提：管理员邀请停在待复核").toBe("awaiting-review");
+    return out.inviteId;
+  }
+
+  it("走真实路由批准：响应 key 集合逐字等于契约 out，token 可真实激活建号，重放同一 token 被拒", async () => {
+    const inviteId = await awaitingInvite("d2-activate@f11review.test");
+
+    const out = await controller.review(
+      ORG, inviteId, { orgId: ORG, inviteId, decision: "approve", reason: null }, principal(ADMIN_B),
+    );
+    expect(Object.keys(out).sort()).toEqual(Object.keys(C.operations.reviewAdminInvite.out.shape).sort());
+    expect(out.activationToken).toBe(await liveToken(inviteId));
+
+    // 🔴 目标：用批准响应里的 token 真实走激活建号——链接不是摆设。
+    const activated = await activateOrgMember(
+      { repo, hasher: fakeHasher, sessions: fakeSessions(), tokens: fakeTokens() },
+      {
+        token: out.activationToken!,
+        mode: "new-account",
+        profile: { name: "批准链接进来的", password: "correct-horse-battery" },
+        existingUserId: null,
+        untrustedClaims: NO_CLAIMS,
+      },
+    );
+    expect(activated.orgId).toBe(ORG);
+
+    // 同一 token 重放 → 拒（一次性令牌语义原样，不因回传而放松）。
+    await expect(
+      activateOrgMember(
+        { repo, hasher: fakeHasher, sessions: fakeSessions(), tokens: fakeTokens() },
+        {
+          token: out.activationToken!,
+          mode: "new-account",
+          profile: { name: "重放", password: "correct-horse-battery" },
+          existingUserId: null,
+          untrustedClaims: NO_CLAIMS,
+        },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "INVITE_NOT_FOUND" });
+  });
+
+  it("「只此一次」的另一半：批准后再查列表搜不到令牌值；并发第二个复核者什么也拿不到", async () => {
+    const inviteId = await awaitingInvite("d2-once@f11review.test");
+    const out = await controller.review(
+      ORG, inviteId, { orgId: ORG, inviteId, decision: "approve", reason: null }, principal(ADMIN_B),
+    );
+    expect(out.activationToken, "前提：这次批准确实带出了令牌").not.toBeNull();
+    expect(out.activationToken!.length).toBeGreaterThan(20);
+
+    // 🔴 搜的是**值**，不是字段名——与 orphan-invite-resend-revoke 反证 C 同一形状。
+    const listed = await controller.listInvites(ORG, principal(ADMIN_C));
+    expect(JSON.stringify(listed)).not.toContain(out.activationToken!);
+
+    // 并发第二个复核者：批准本来就一次性生效，第二路收到 VERSION_CHANGED，拿不到 token。
+    await expect(
+      reviewAdminInvite(
+        { repo },
+        { orgId: toOrgId(ORG), reviewerId: ADMIN_C, reviewerOrgRole: "admin", inviteId, decision: "approve" },
+      ),
+    ).rejects.toMatchObject({ reasonCode: "VERSION_CHANGED" } satisfies Partial<OrgAdminError>);
   });
 });
 

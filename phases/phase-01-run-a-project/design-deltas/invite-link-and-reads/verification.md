@@ -18,6 +18,12 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
   `TOKEN ONLY ONCE 反证 C`）。
 - ① 用响应里的 token 真实走激活建号（`member-invite-activation.test.ts` 既有链路）；
   同一 token 重放 → `INVITE_NOT_FOUND`。
+- D2（coord-main 2026-08-11 追加裁决，`admin-invite-dual-review.test.ts` 的 D2 describe）：
+  批准响应带 `activationToken` 且正是库中那一枚，用它真实激活建号成功、同 token 重放
+  被拒；reject / 幂等重放（重复 approve）拿到 null；批准后再查列表搜不到值；并发第二
+  复核者收 `VERSION_CHANGED` 什么也拿不到。
+- 邀请表单 `noValidate` 机械钉（PR #896 修过、重构中复发的原生英文气泡）：
+  `pnpm --filter web exec vitest run tests/ui/org-admin-invite-form-novalidate.test.tsx`。
 - ③ 契约层拒 `a@`：见下方 API 反证（zod 单测由契约 `.email()` 承担，端到端在 curl 层）。
 
 ## 契约门
@@ -41,6 +47,8 @@ curl -s -X POST $API/organizations/$ORG/invites -H "Authorization: Bearer $ADMIN
 
 - 邀请成功 → 链接块出现（`org-admin-invite-link-block`），复制可用
   （`org-admin-invite-link-copy` → `org-admin-invite-link-copied`），关闭后消失；
+  切到「成员」标签再切回「邀请」，链接块**仍在**（state 在 `OrgAdminScreen` 层，复核 D1）；
+- 第二 admin 批准 `awaiting-review` 邀请 → 同款一次性链接块出现（kind=approved，D2）；
 - 发起人视角 `awaiting-review` 行：无 `-approve`/`-reject` 按钮，有
   `-waiting-peer-review` 说明；第二 admin 视角有批准按钮且可批；
 - `/auth/activate?t=<响应里的 token>` 新用户分支建号成功后能用新密码登录；

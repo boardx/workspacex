@@ -23,14 +23,26 @@ resendOrgInvite.out += {
   /** 新签发的令牌明文。成功即已签发，恒非空；旧令牌同一事务内已作废（I-6）。 */
   activationToken: z.string(),
 }
+reviewAdminInvite.out += {
+  /** 批准即签发的那一次回传给批准人；reject / 幂等重放（tokenIssued=false）时 null。 */
+  activationToken: z.string().nullable(),
+}
 ```
 
 **安全口径的改写（不是删除）**：旧注释「token 不进响应体」防的威胁是**任何管理员随时
 可读他人链接**。那条线原样封死——`listOrgInvites`/`OrgInvite` 实体恒不含 token，幂等
 重放不吐既有令牌，仓储返回值里没有 token 字段。放开的只有「刚触发签发的 admin 拿到
 **他自己这次签发**的令牌**一次**」：能发起邀请的本来就是 admin，一次性回传不扩大任何
-可再读的面。`reviewAdminInvite`（双人复核批准）**不**回传 token——批准人可用「重发」
-生成新链接（approve 后状态是 `pending`，重发门放行），不为它单开第三条回传路径。
+可再读的面。
+
+**D2 追加裁决（coord-main 2026-08-11，独立复核升级后裁定选 A）**：`reviewAdminInvite`
+（双人复核**批准**）同样回传一次性 activationToken。初版曾写「批准不回传，批准人用
+『重发』拿链接」——实测那是死胡同：approve 刚签发的令牌落在 60 秒重发冷却窗口内，
+批准人当场拿不到链接、受邀人无从收到。批准人与邀请/重发场景里的 admin 是同一信任
+级别（且批准本身就是签发动作），语义与字段命名与 ① **完全一致**：只在批准那一次
+响应出现；reject / 幂等重放（`tokenIssued=false`）为 null；并发第二个复核者收到
+`VERSION_CHANGED` 什么也拿不到；`listOrgInvites` 仍搜不到值。UI 复用同一个一次性
+链接块（kind = approved），批准成功文案改为「激活链接已签发——见下方，只显示这一次」。
 
 **前端落地**：
 - 邀请/重发成功后展示一次性链接块（复制按钮 + 「只显示这一次」明示 + 复制失败降级
@@ -83,10 +95,12 @@ Organization += { avatarUrl: z.string().nullable() }
 头像），且它是刚上传后不经 session 缓存的权威回读——两条读路径服务两种角色，不构成
 同一事实的第二份声明。
 
-**前端边界（有意分工）**：数据经 `session-provider` 的 `identity.org.avatarUrl` 全员可得。
-左上角组织菜单组件 `org-menu.tsx` 在 PR #920（未合并）上，不在本分支基线里——该 PR 合并
-后其 `useOrgAvatarUrl` 改为优先读 `identity.org.avatarUrl` 是几行的后续（本 delta 已把
-数据递到手边），不在本 PR 里跨分支改别人未合并的文件。
+**前端边界（#920 合并后已接上）**：数据经 `session-provider` 的 `identity.org.avatarUrl`
+全员可得。左上角组织菜单 `org-menu.tsx` 的 `useOrgAvatarUrl` 已改为**优先读
+`identity.org.avatarUrl`**（登录即得、零额外请求、非 admin 也显示真实组织头像）；
+admin-only 空补丁读保留为 `invalidateOrgAvatar` 之后的刷新通道（上传新头像后 session
+里的 identity 是旧值，需要这条不经缓存的权威回读当场刷新），且只在失效后才触发——
+非 admin 永不打这条注定 403 的请求。
 
 ## 不改的东西
 

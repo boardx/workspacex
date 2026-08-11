@@ -360,7 +360,21 @@ export const operations = {
         reason: z.string().nullable(),
       })
       .strict(),
-    out: z.object({ status: OrgInviteStatus, tokenIssued: z.boolean() }).strict(),
+    out: z.object({
+      status: OrgInviteStatus,
+      tokenIssued: z.boolean(),
+      /**
+       * 一次性激活令牌明文（invite-link-and-reads delta，coord-main 2026-08-11 D2 裁决 A：
+       * 批准即签发的那一次响应把令牌回传给**批准人**，由他当场转交受邀人——否则批准人
+       * 唯一的取链接路径是「重发」，会撞 60 秒冷却的死胡同）。
+       *
+       * ⚠ 语义与 `inviteOrgMember.out.activationToken` / `resendOrgInvite.out.activationToken`
+       *   **完全一致**（同一事实一种写法）：只在签发的这一次响应里出现；`reject` 与幂等
+       *   重放（重复 approve，`tokenIssued = false`）时为 null；`listOrgInvites`/`OrgInvite`
+       *   实体恒不含它；并发第二个复核者收到 `VERSION_CHANGED`，什么都拿不到。
+       */
+      activationToken: z.string().nullable(),
+    }).strict(),
     err: [
       "INVITE_SELF_REVIEW_FORBIDDEN",
       "PROJECT_ROLE_INSUFFICIENT",

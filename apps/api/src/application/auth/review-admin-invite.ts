@@ -28,8 +28,17 @@ export interface ReviewAdminInviteInput {
 
 export interface ReviewAdminInviteOutput {
   readonly status: "pending" | "revoked";
-  /** ⚠ 恒为 false 当 `decision = "reject"`；`approve` 时恒为 true（I-3 的正面：批准后必发）。 */
+  /**
+   * ⚠ 恒为 false 当 `decision = "reject"`；首次 `approve` 为 true（I-3 的正面：批准后必发）；
+   *   幂等重放（重复 approve，仓储 `replayed` 分支）为 false——这次调用没有再签一次。
+   */
   readonly tokenIssued: boolean;
+  /**
+   * 一次性激活令牌明文（coord-main 2026-08-11 D2 裁决 A）：仅当**这次调用真的签发了**
+   * （`tokenIssued = true`）才非空——reject / 幂等重放拿不到，语义与
+   * `inviteOrgMember` / `resendOrgInvite` 的 activationToken 完全一致。
+   */
+  readonly activationToken: string | null;
 }
 
 export async function reviewAdminInvite(
@@ -63,5 +72,7 @@ export async function reviewAdminInvite(
     throw new OrgAdminError("VERSION_CHANGED");
   }
 
-  return { status: result.status, tokenIssued: result.tokenIssued };
+  // token 只在真的写进库的那一次（tokenIssued）回传——重放分支 tokenIssued=false，
+  // 这里生成的 token 没有落库，绝不能把它当成有效链接吐出去。
+  return { status: result.status, tokenIssued: result.tokenIssued, activationToken: result.tokenIssued ? token : null };
 }

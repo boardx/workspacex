@@ -64,6 +64,11 @@ export function OrgAdminScreen() {
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
+  // 一次性激活链接（invite-link-and-reads delta ①）：state 挂在屏幕层而不是 InvitesTab 里——
+  // Tabs 切走会卸载标签页内容，挂在标签页内部时「切去成员再切回来」就把仅此一次的链接
+  // 静默销毁了（独立复核 D1，数据不可恢复类）。挂在这里让它在标签页切换间存活；
+  // 真正的销毁条件只有：用户点关闭、刷新/离开页面、被下一条链接覆盖。
+  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
 
   return (
     <AppShell previewRole={null}>
@@ -104,7 +109,11 @@ export function OrgAdminScreen() {
           </TabsContent>
 
           <TabsContent value="invites">
-            {orgId ? <InvitesTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
+            {orgId ? (
+              <InvitesTab orgId={orgId} isAdmin={isAdmin} oneTimeLink={oneTimeLink} onOneTimeLink={setOneTimeLink} />
+            ) : (
+              <LoadingSkeleton rows={3} />
+            )}
           </TabsContent>
 
           {isAdmin && (
@@ -661,8 +670,8 @@ function PopoverSelect({
 type OneTimeLink = {
   readonly email: string;
   readonly url: string;
-  /** invited = 新签发；resent = 重发（旧链接已作废）。 */
-  readonly kind: "invited" | "resent";
+  /** invited = 新签发；resent = 重发（旧链接已作废）；approved = 双人复核批准后签发（D2 裁决 A）。 */
+  readonly kind: "invited" | "resent" | "approved";
 };
 
 /**
@@ -696,7 +705,11 @@ function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismi
       aria-label="一次性激活链接"
     >
       <p className="text-12 font-medium">
-        {link.kind === "resent" ? `已对 ${link.email} 重发——新的激活链接：` : `${link.email} 的激活链接：`}
+        {link.kind === "resent"
+          ? `已对 ${link.email} 重发——新的激活链接：`
+          : link.kind === "approved"
+            ? `已批准——${link.email} 的激活链接：`
+            : `${link.email} 的激活链接：`}
       </p>
       <div className="flex items-center gap-1.5">
         <Input
@@ -725,7 +738,8 @@ function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismi
       )}
       <p className="text-10 text-warning" data-testid="org-admin-invite-link-once-note">
         链接只显示这一次，请立即复制并转交受邀人（邮件通道尚未接通，送达由你完成）。
-        {link.kind === "resent" ? "旧链接已同时作废。" : ""}关闭或刷新后无法找回，只能用「重发」生成新链接（旧链接将作废）。
+        {link.kind === "resent" ? "旧链接已同时作废。" : ""}
+        点「关闭」、刷新或离开本页面后无法找回（切换上方标签页不会丢失），只能用「重发」生成新链接（旧链接将作废）。
       </p>
       <div>
         <Button type="button" size="xs" variant="ghost" onClick={onDismiss} data-testid="org-admin-invite-link-dismiss">
@@ -743,7 +757,8 @@ const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
   ["consultant", "lead", "compliance", "admin"] as const
 ).map((r) => ({ id: r, label: ORG_ROLE_LABEL[r] }));
 
-function InviteMemberForm({
+// export 仅供 `tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉 noValidate（两次复发的 bug），别在别处 import。
+export function InviteMemberForm({
   orgId, onSucceeded, onFailed, onLink,
 }: {
   orgId: string;
@@ -838,6 +853,11 @@ function InviteMemberForm({
     <form
       className="flex flex-col gap-3 rounded-lg border border-border bg-panel p-3"
       onSubmit={handleSubmit}
+      // noValidate：关掉浏览器原生 constraint validation（英文气泡），让本组件的中文预检
+      // 与服务端 `err-invite-email` 结构化文案真正执行、真正可见。
+      // ⚠ 这是 PR #896 修过又在重构中丢失而复发的 bug（独立复核第 4 条判 0）——
+      //   有 `apps/web/tests/ui/org-admin-invite-form-novalidate.test.tsx` 机械钉住，别再删。
+      noValidate
       data-testid="org-admin-invite-form"
     >
       <div className="flex flex-wrap items-start gap-2">
@@ -897,7 +917,7 @@ function InviteMemberForm({
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-10 text-muted-foreground">
-          邮件通道尚未接通：邀请成功后，激活链接会在下方显示<strong>一次</strong>，由你复制并转交受邀人（coord-main 2026-08-11 裁决）。
+          邮件通道尚未接通：邀请成功后，激活链接会在下方显示<strong>一次</strong>，由你复制并转交受邀人。
         </p>
         <Button
           type="submit"
@@ -983,8 +1003,17 @@ function InviteRow({
                 type="button" size="xs" variant="primary" disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
-                    return `已批准对 ${invite.email} 的管理员邀请，激活令牌已签发（7 天有效）。`;
+                    // D2 裁决 A：批准响应带一次性 activationToken（与 delta ① 同一语义），
+                    // 批准人当场拿到链接转交——不再逼他撞 60 秒重发冷却。
+                    const out = await reviewAdminInvite({ orgId, inviteId: invite.inviteId, decision: "approve", reason: null });
+                    if (out.activationToken !== null) {
+                      onLink({
+                        email: invite.email,
+                        url: buildActivationLink(out.activationToken, window.location.origin),
+                        kind: "approved",
+                      });
+                    }
+                    return `已批准对 ${invite.email} 的管理员邀请，激活链接已签发（7 天有效）——见下方，只显示这一次。`;
                   })
                 }
                 data-testid={`org-admin-invite-${invite.inviteId}-approve`}
@@ -1077,15 +1106,24 @@ function InviteRow({
   );
 }
 
-function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
+function InvitesTab({
+  orgId, isAdmin, oneTimeLink, onOneTimeLink,
+}: {
+  orgId: string;
+  isAdmin: boolean;
+  /**
+   * 一次性激活链接（delta ①）：state 由 `OrgAdminScreen` 持有（见其注释：切标签页不销毁，
+   * 复核 D1）。只存在于内存里；换一条会覆盖上一条——上一条已经展示过它唯一的一次机会，
+   * 而同屏堆多条会诱导「回来再抄」的错误预期。
+   */
+  oneTimeLink: OneTimeLink | null;
+  onOneTimeLink: (link: OneTimeLink | null) => void;
+}) {
   const { session } = useSession();
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOrgInvitesOut | null>(null);
   const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
-  // 一次性激活链接（delta ①）：只存在于内存里；换一条会覆盖上一条——上一条已经展示过
-  // 它唯一的一次机会，而同屏堆多条会诱导「回来再抄」的错误预期。
-  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -1130,11 +1168,11 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
             void load();
           }}
           onFailed={(text) => setBanner({ tone: "error", text })}
-          onLink={setOneTimeLink}
+          onLink={onOneTimeLink}
         />
       )}
 
-      {oneTimeLink && <OneTimeActivationLink link={oneTimeLink} onDismiss={() => setOneTimeLink(null)} />}
+      {oneTimeLink && <OneTimeActivationLink link={oneTimeLink} onDismiss={() => onOneTimeLink(null)} />}
 
       {banner ? (
         <div
@@ -1163,7 +1201,7 @@ function InvitesTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
               orgId={orgId}
               invite={inv}
               currentUserId={session?.userId ?? null}
-              onLink={setOneTimeLink}
+              onLink={onOneTimeLink}
               onChanged={() => void load()}
               onSucceeded={(text) => setBanner({ tone: "success", text })}
               onFailed={(text) => setBanner({ tone: "error", text })}

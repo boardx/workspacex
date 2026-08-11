@@ -204,7 +204,9 @@ export class OrgAdminManagementController {
           decision: body.decision,
         },
       );
-      return { status: out.status, tokenIssued: out.tokenIssued };
+      // D2 裁决 A：批准那一次响应回传 activationToken（reject/重放为 null），
+      // 语义同 inviteOrgMember/resendOrgInvite——见契约 reviewAdminInvite.out 注释。
+      return { status: out.status, tokenIssued: out.tokenIssued, activationToken: out.activationToken };
     } catch (e) {
       throw toHttpException(e);
     }
