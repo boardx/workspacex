@@ -50,7 +50,13 @@ phase: "01"
 #   covers_bundles：下面的历史 confirmed_at 是 2026-07-30，当时该束不存在，不能被解释为
 #   已复核它。只改 covers_bundles 会把“没看过”谎报成“看过”。人类须先签该束，再复核本文
 #   新增的 XC-31，最后亲自把该束加入 covers_bundles 并刷新确认时间。在此之前门控红是预期行为。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs]
+# 2026-08-11（下午）由十三束改为**十五束**：新增 `chat-file-upload` 与 `chat-context-engine`
+#   （V9 文件上传 / V10 上下文引擎；两束 design-signoff 已由人类同日晨逐字签核）。
+#   本次**不是只改字段**：交叉约束复核 XC-32…XC-37 已实际做过（coord-main 代核，
+#   六条全部无冲突、不触发任何已签核束重签，全文见文末「2026-08-11 增补」一节）。
+#   人类采纳裁决（逐字，2026-08-11 于「Chat UI 体验迭代」会话）：「采纳 coherence，开始建 V9-a」
+#   ——本次追加即该裁决的代抄落地（#660 先例：agent 代抄 + 来源标注，人类可改）。
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs, chat-file-upload, chat-context-engine]
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
 confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下
@@ -2176,3 +2182,39 @@ XC-06 · XC-09（推荐 B）· XC-12 · XC-16 · XC-19 · XC-22 · XC-23 · XC-2
 `phases/phase-01-run-a-project/ui-signoff.md`（phase 级、`status: pending`）按 ADR-023 决策一
 **并入束级 `ui.md`**，不再单独签。该文件本轮**未删除**——删它是把一份 `pending`
 的签核记录抹掉，属于人类的决定；建议在人类签第一个束时一并处置。
+
+## 2026-08-11 增补：chat-file-upload / chat-context-engine 两束交叉约束复核（XC-32…XC-37）
+
+> 复核人：coord-main（agent 代核）；人类采纳裁决逐字：「采纳 coherence，开始建 V9-a」（2026-08-11，经 Chat UI 体验迭代会话转达并由其代抄）。人类可逐条推翻；推翻任一条，相应 feature 回退 blocked。材料依据：两束 domain/usecases/coverage/ui 四件 + packages/contracts/src/chat-file-upload.ts + uc-8-6/uc-8-7，全读。只查跨束面。
+
+### XC-32 chat-file-upload ↔ chat：消息 schema 与写权
+- 证据：file-upload/domain.md 不变量 1（写权即线程写权，复用 mutate-thread 同一规则）；契约独立为 chat-file-upload.ts，chat.ts 既有 operations 零改动。
+- 双向核对：chat→upload：消息/线程删除经 FK CASCADE 带走附件，chat 束语义不变；upload→chat：createMessage 带 attachments 是新增可选入参，旧调用方不受影响。
+- 结论：无冲突。无需重签 chat 束。
+
+### XC-33 chat-file-upload ↔ files：Attachment ≠ File
+- 证据：domain.md 不变量 3（生命周期随线程、无独立留存策略）；files 束八值来源枚举未新增任何「chat attachment」值。
+- 核对：附件不进项目文件树、不出现在 files 束任何列表；「附件转存为项目文件」若未来要做须另开扩展签核（本轮明确不做）。
+- 结论：无冲突，边界已显式声明。
+
+### XC-34 chat-file-upload ↔ asset-governance / 对象存储
+- 证据：存储走 WORKSPACEX_OBJECT_ROOT 基础设施（#921 的 4g 步已在 devapp 生效）；附件不是治理域资产，不进 provenance/lifecycle 管辖。
+- 结论：无冲突。
+
+### XC-35 chat-context-engine ↔ agent-runtime：ModelCallPort 不动
+- 证据：domain.md 不变量 2（人类裁决 A 逐字：组装在端口内侧、端口形状不变）；第③件走形态 B「无对外 HTTP 面」声明，零新增 operations。
+- 核对：agent_run_context 快照是只读审计新表，不回写 run 语义；对应 feature 的 verification 为 api 层单测，与「无 HTTP 面」一致。
+- 结论：无冲突。无需重签 agent-runtime 束。
+
+### XC-36 chat-context-engine ↔ chat：分层历史与线程语义
+- 证据：HISTORY_MAX_MESSAGES=20 维持（旧轮经 L2/L3 承载，不改 chat 束读取契约）；thread_context_state 以 thread 为键，thread 生命周期语义不变；UI 面走 reuse_bundle: chat。
+- 核对：个人对话零召回反证 feature 与 chat 权限模型一致，不产生新可见性。
+- 结论：无冲突。
+
+### XC-37 chat-context-engine ↔ files/research：L3 检索复用与可见范围
+- 证据：L3 复用既有 context-pack/retrieval 引擎（此前零调用方，本束是第一个生产调用方）；召回受 actor 可见范围约束（domain.md 不变量 3）。
+- 核对：不为检索新开任何越过 RLS 的读取路径；extracted_ref（V9-b）是 L3 输入之一，失败降级不 fail run，两束接缝互相引用、口径一致。
+- 结论：无冲突；唯一后置风险是检索引擎首接生产调用方的性能面，属实现期验证项。
+
+### 处置汇总
+六条全部「无冲突」，不触发任何已签核束的重签窗口。F150–F157 的束门由本复核 + 两束已签核 design-signoff 共同解锁。
