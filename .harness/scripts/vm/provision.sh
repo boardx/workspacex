@@ -145,6 +145,16 @@ PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
 # 重启或 tmp 清理即丢。deploy.sh 第 4g 步会兜底补写并建目录，这里写上是让新机器
 # 从第一天就不经过误配状态。
 WORKSPACEX_OBJECT_ROOT=/opt/workspacex/objects
+# 2026-08-11：deep-agent-service（「通用助手」内核，deploy.sh 第 4h 步 build+run 的
+# 本机容器）。这一行是宿主端口的**单一声明处**——deploy.sh 从它反解端口，端口归属
+# 登记见 .harness/instructions/project/PROJECT.md「本机端口分配」，此处不复述。
+# deploy.sh 第 4h 步会兜底补写这一行；模型凭据 KERNEL_MODEL_BASE_URL /
+# KERNEL_MODEL_API_KEY 是人工填的部署密钥（不在此模板生成），第 4h 步会把它们投影进
+# /opt/workspacex/deep-agent.env 给容器用，缺了部署直接红。
+KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:2025
+# ⚠ 必填、无默认值（coord-main 裁决，PR #941）：deep-agent-service 调模型用的模型 ID，
+# 每环境显式填写。留空则 deploy.sh 第 4h 步显式红退并指回这里补。
+KERNEL_DEEP_AGENT_MODEL_ID=
 EOF
   chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
