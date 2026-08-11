@@ -2,9 +2,9 @@
 bundle: personal-realtime-transcription
 phase: "01"
 covers: [F158, F159, F160]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "qq13613030605"
+confirmed_at: "2026-08-11T23:45:00+08:00"
 ---
 
 # 契约束 `personal-realtime-transcription` 设计签核

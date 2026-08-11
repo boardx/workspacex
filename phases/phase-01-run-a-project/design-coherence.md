@@ -56,10 +56,10 @@ phase: "01"
 #   六条全部无冲突、不触发任何已签核束重签，全文见文末「2026-08-11 增补」一节）。
 #   人类采纳裁决（逐字，2026-08-11 于「Chat UI 体验迭代」会话）：「采纳 coherence，开始建 V9-a」
 #   ——本次追加即该裁决的代抄落地（#660 先例：agent 代抄 + 来源标注，人类可改）。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs, chat-file-upload, chat-context-engine]
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs, chat-file-upload, chat-context-engine, personal-realtime-transcription]
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
-confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下
+confirmed_by:   qq13613030605            # 确认人（姓名/邮箱）
+confirmed_at:  2026-08-11T23:00:24+08:00          # ISO 8601，且不得晚于签核当下
 ---
 
 # phase-01 阶段一致性复核（ADR-020 第二级门 / ADR-023 决策四）
@@ -2218,3 +2218,46 @@ XC-06 · XC-09（推荐 B）· XC-12 · XC-16 · XC-19 · XC-22 · XC-23 · XC-2
 
 ### 处置汇总
 六条全部「无冲突」，不触发任何已签核束的重签窗口。F150–F157 的束门由本复核 + 两束已签核 design-signoff 共同解锁。
+
+## 2026-08-11 增补：personal-realtime-transcription 交叉约束复核（XC-38…XC-42）
+
+> 人类已于 2026-08-11 在本任务明确回复“一致性已签核”并更新本文 frontmatter。材料依据：`contracts/personal-realtime-transcription/{domain,usecases,coverage,ui}.md`、UC-5.5、既有 `recording` 束、旧 `design-deltas/realtime-asr` 与 issue #945 的已确认产品范围。
+
+### XC-38 personal-realtime-transcription ↔ recording：元数据与逐字稿单源
+
+- 新表 `personal_transcriptions` 只保存名称、标签、owner 和聚合状态，不保存正文。
+- 每次开始/停止形成一个既有 `recording_sessions` capture run；final 仍只通过既有 segment ingestion 写 `recording_segments`。
+- `project_id IS NULL` 只允许 `source_type='personal'`；workshop/interview/thread 的非空项目约束保持不变。
+- 结论：没有第二条逐字稿写路径，也不改变既有项目录音语义；无需重签 `recording` 束。
+
+### XC-39 personal-realtime-transcription ↔ identity/org-admin：个人层正文边界
+
+- owner 判定为 `personal_transcriptions.owner_user_id == actor.userId`，列表、详情、ticket 与 WS 升级共用同一 predicate。
+- 组织仍承担租户、计费和数据驻留分区；管理员沿用 F06 的既有边界，只见个人层计数，不获得正文读取旁路。
+- 非 owner 的详情读取返回 not found，避免泄露资源存在性。
+- 结论：与已签身份边界一致；实现期必须有“同组织其他用户 + 管理员正文均为 0”的集成反证。
+
+### XC-40 personal Fun-ASR ↔ 既有 Qwen3 realtime-asr：模型路由不覆盖
+
+- 旧 `WS /recording/sessions/:sessionId/asr-stream` 与 Qwen3 provider 继续服务项目/线程录音，不被全局替换。
+- 新个人转录端点按 scope 选择 Fun-ASR provider；环境变量 `ALIYUN_ASR_*` 与 `DASHSCOPE_API_KEY` 只供该 provider 使用。
+- provider 选择是 application port 内的 scope 路由，不在前端复制模型名，不建立硬编码模型枚举。
+- 结论：两条协议可兼容共存；若实现选择全局替换旧 provider，则本结论失效并必须重签旧 realtime-asr delta。
+
+### XC-41 personal-realtime-transcription ↔ 额度与模型调用日志
+
+- 内容 ownership 是用户级，计费仍归当前组织；两者不是同一授权概念，不合并字段。
+- 阿里 `usage.duration` 只取任务最终累计值或去重后的最大值；`captureId + upstreamTaskId` 是唯一记账键。
+- final 段写入与用量记账失败分别留审计状态，但 completed 只在尾部写链与必要记账均收口后发出。
+- 结论：复用既有额度与模型日志服务，不引入个人余额第二套事实源。
+
+### XC-42 一次性 ticket ↔ 既有 JWT/项目鉴权
+
+- 长期 JWT 只用于 HTTPS 创建文档与领取 ticket；新个人 WS 原子消费约 60 秒的一次性摘要票据。
+- ticket 绑定 user/org/transcription/capture，不携带 projectId，也不放宽旧项目 WS 的项目角色校验。
+- 旧项目 WS 的 bearer subprotocol 保持兼容；新个人 WS 使用独立路径，避免同一路由出现两套鉴权语义。
+- 结论：没有鉴权降级；ticket 过期、复用、跨资源和跨用户必须在握手阶段拒绝。
+
+### 处置汇总
+
+XC-38～XC-42 均无冲突，前提是实现严格保持“个人新路径 + 旧项目路径兼容并存”。采纳后，人类把 `personal-realtime-transcription` 加入 frontmatter `covers_bundles`，更新 `confirmed_by/confirmed_at`；若不采纳，应把 F158–F160 保持 blocked 并逐条写明不同意的交叉约束。
