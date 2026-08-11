@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { EyeOff, ScrollText, FileClock, Gauge, UserPlus } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, EyeOff, ScrollText, FileClock, Gauge, UserPlus } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
@@ -75,7 +76,7 @@ export function MembersScreen({ state }: { state: UiState }) {
       moduleLabel="成员配额"
       title="成员与配额"
       noticeOverride={<NoBackendNotice />}
-      intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。"
+      intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。团队/名册/邀请的完整管理在「组织成员」（下方链接，已接真实后端）；本屏只做配额与「管理员看不到什么」这两块，两者不是同一功能。"
       emptyHint="组织里还没有成员"
       errors={{ quota: "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度" }}
       depFailure="用量统计依赖计量流水线（UC-17.7）；流水线不可用，配额与个人层计数无法刷新。"
@@ -83,6 +84,28 @@ export function MembersScreen({ state }: { state: UiState }) {
       successMessage="已为吴桐单独提额至 5.0M；本次操作已记入审计"
     >
       <div className="flex flex-col gap-5">
+        {/* 2026-08-11（菜单去重复查）：与「组织成员」（/org-admin/preview，已接真实后端）
+            的关系，同 canvas-template-screen.tsx / blueprint-screen.tsx 的「打开 X」链接
+            是同一套模式——本屏只做清单展示与去向，团队创建、成员加入/移出、邀请与组织资料
+            的完整读写在那一屏。这里的邀请/名册仍是本屏自己的 mock，与那一屏的真实数据不同源，
+            两者的「人」目前不保证一致（F11 待收敛）。 */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <p className="text-12 text-muted-foreground">
+              团队创建/改名/删除、真实成员名册与邀请、组织资料在「组织成员」管理（已接真实后端）。
+              这里是配额与「管理员看不到什么」这两块——组织级团队/邀请管理不重复做。
+            </p>
+            <Link
+              href="/org-admin/preview"
+              data-testid="admin-members-open-org-admin"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+            >
+              打开组织成员管理
+              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
+            </Link>
+          </CardContent>
+        </Card>
+
         {/* 成员配额列表 */}
         <section className="flex flex-col gap-2" data-testid="admin-members-list">
           <div className="flex items-center gap-1.5">
