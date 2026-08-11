@@ -32,7 +32,8 @@ export interface DoctorReport {
 const NOT_YET_IMPLEMENTED = [
   "#7 renderer 存在（需要 E2）",
   "#8 消费者存在（需要消费者自身可被发现的机制，E2+）",
-  "#9 generated 文件未手改（需要 E2 的来源标注）",
+  // #9 generated 文件未手改：已由 HMV2-016 实现（generated-drift-gate.ts，
+  // templates-doctor.ts 入口对全部 git 跟踪的 .md/.yaml/.yml 运行），从本清单移除。
   "#10 signoff hash 未漂移（需要 E5）",
   "#13 数据源失败不会渲染为零（本文件已遵守此原则，但作为「仓库级」检查需要看板集成，E6）",
   "#14 allowlist 只能相对 merge-base 缩短（本 Epic 没有 allowlist，等真正开始迁移才有意义，E9）",
