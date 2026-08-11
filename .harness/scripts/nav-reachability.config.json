@@ -16,6 +16,7 @@
       "recording": "/rec",
       "canvas": "/canvas",
       "skills": "/skill",
+  "curated-capability-packs": "/skill",
       "agent-runtime": "/preview/agent-runtime",
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",

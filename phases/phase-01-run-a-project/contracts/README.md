@@ -20,9 +20,11 @@
 | `files` | `22-files` | `files/` | 17 | 48 |
 | `asset-governance` | `23-asset` | `asset-governance/` | **0**（未生成） | — |
 | **`research`** | **`24-research`** | `research/`（**尚未产出**） | **0**（未生成） | **21**（估，D-20） |
+| **`curated-capability-packs`** | **`25-curated-capability-packs`** | **复用 `skills` → `skill-v2/`（#432 `reuse_bundle`）** | **1（F149）** | **5** |
 
 **只有 `project` / `canvas` / `chat` / `files` / `asset-governance` / `research` 名字一致**，
-其余六束至少有一处不同。
+其余束至少有一处不同；`curated-capability-packs` 不拥有第二份截图目录，复用关系只由
+`.harness/scripts/ui-material-map.json` 的 #432 `reuse_bundle` 声明。
 ⚠ 表中「feature / 点」两列对**未生成 feature 的束**填 `0` 与估点，
 **不要把估点读成已生成**——权威是各束 `design-signoff.md` 的 `covers:`（现在都是 `[]`）。
 
@@ -67,7 +69,7 @@ UC-0.2 Context Pack 的屏，不是本束的屏**（`navigation.ts:75` 的 `ucRe
 
 | 需求目录 | 状态 |
 |---|---|
-| —（无） | 2026-07-30 起 phase-01 的每个需求目录都有对应束：`23-asset` → `asset-governance`（第 11 束）、`24-research` → `research`（第 12 束）|
+| —（无） | 每个需求目录都有对应束；2026-08-04 新增 `25-curated-capability-packs` → `curated-capability-packs`（F149） |
 
 ## 明确**不属于** phase-01 的四个域（别再把它们当缺失）
 
