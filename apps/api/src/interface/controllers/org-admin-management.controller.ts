@@ -117,13 +117,48 @@ type UpdateOrganizationBody = {
   avatarArtifactId?: string | null;
 };
 
-/** 读整个请求体的原始字节。`uploadOrgAvatar` 的图片字节走这条路，见契约文件头的两步说明。 */
+/**
+ * 读整个请求体的原始字节。`uploadOrgAvatar` 的图片字节走这条路，见契约文件头的两步说明。
+ *
+ * ⚠ 2026-08-11 devapp 实测加固：人类在生产上传头像，按钮永远停在「上传中…」——
+ * fetch 不 settle 意味着服务端从未响应。原实现只监听 data/end/error 三个事件：
+ * 请求流若在 end 之前断开（客户端中断、反代转发的体不完整、h2/h3 流被重置），
+ * Node 只发 `close` 不一定发 `error`，这个 Promise 就**永远**不 settle——请求
+ * 原地挂死，日志里一个字都没有。⇒ 两条兜底，保证有限时间内必然 settle：
+ *   ① `close` 且流未正常结束 → reject 400（体不完整）；
+ *   ② 硬超时 30s（体上限 5MB，活着的连接绰绰有余）→ reject 408。
+ * settle 之后的迟到事件被 `settled` 标志吞掉，不会二次 settle。
+ * 本地 HTTP 层反证：tests/org-admin/upload-org-avatar-http-route.test.ts。
+ */
+const RAW_BODY_TIMEOUT_MS = 30_000;
+
 function readRawBody(req: Request): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
+    let settled = false;
+    const settle = (fn: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const timer = setTimeout(
+      () =>
+        settle(() =>
+          reject(new HttpException({ reasonCode: "REQUEST_BODY_TIMEOUT" }, HttpStatus.REQUEST_TIMEOUT)),
+        ),
+      RAW_BODY_TIMEOUT_MS,
+    );
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
+    req.on("end", () => settle(() => resolve(Buffer.concat(chunks))));
+    req.on("error", (e) => settle(() => reject(e)));
+    req.on("close", () => {
+      if (!req.readableEnded) {
+        settle(() =>
+          reject(new HttpException({ reasonCode: "REQUEST_BODY_INCOMPLETE" }, HttpStatus.BAD_REQUEST)),
+        );
+      }
+    });
   });
 }
 
