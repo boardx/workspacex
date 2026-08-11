@@ -44,7 +44,13 @@ export interface AsrDraftStreamHandle {
  */
 export async function openAsrDraftStream(
   handlers: AsrDraftStreamHandlers,
-  deps: { sessionToken?: string | null; capture?: () => Promise<CaptureHandle>; handshakeTimeoutMs?: number } = {},
+  deps: {
+    sessionToken?: string | null;
+    capture?: () => Promise<CaptureHandle>;
+    handshakeTimeoutMs?: number;
+    /** 选中的输入设备（contract.md §7.1）；透传给 `startCapture`。空/未传 = 系统默认。 */
+    deviceId?: string;
+  } = {},
 ): Promise<AsrDraftStreamHandle> {
   const token = deps.sessionToken !== undefined ? deps.sessionToken : getStoredSessionToken();
   if (!token) throw new Error("a session token is required to open the ASR draft stream");
@@ -79,7 +85,8 @@ export async function openAsrDraftStream(
   // 采音失败时握手已建立的 WS 连接要关掉，不留着一条永远收不到音频的连接。
   let capture: CaptureHandle;
   try {
-    capture = await (deps.capture ?? startCapture)();
+    // deps.capture 是测试注入口，原样保留；无注入时用选中的设备起真实采音。
+    capture = await (deps.capture ?? (() => startCapture({ deviceId: deps.deviceId })))();
   } catch (error) {
     socket.close();
     throw error;

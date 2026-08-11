@@ -51,3 +51,46 @@ scope: browser-capture-server-proxied-realtime-asr-into-chat
      confirmed_at。在那之前任何实现 PR 都不该被合并。 -->
 
 待确认。
+
+---
+
+# 增补 A：输入设备（麦克风）选择（2026-08-12）
+
+<!--
+  这是对本已签束 §5 前端边界的**增补**，新增一个 UI 面（Microphone 下拉），
+  规范见 contract.md §7。本增补独立签核：agent 不得改下面的 addendum_status。
+  原束 frontmatter 的 status: confirmed 不受影响、未被本增补修改。
+-->
+
+addendum: input-device-selection
+addendum_status: confirmed
+addendum_confirmed_by: "usamshen"
+addendum_confirmed_at: "2026-08-12T..+08:00"
+
+## ① UI（新面）
+
+composer 麦克风按钮旁一个设备下拉：列出所有 `audioinput` 设备，当前选中项打勾；
+未授权麦克风时 label 不可读，显示占位而非空白（contract.md §7.3-1）。
+**本增补只接 composer 听写入口**，会话录音面板不加 UI（§7.2）。
+
+## ② 用例
+
+- 选择某设备 → 下次开始听写用该设备采音（`getUserMedia` 加 `deviceId: { exact }`，§7.1）。
+- 插拔设备 → 列表刷新（`devicechange`，§7.3-2）。
+- 选择记忆到 localStorage；记的 id 若已不存在，退化为系统默认（§7.3-3）。
+
+## ③ API 与持久化契约
+
+**无后端改动。** 上行协议、`ingestSegment` 落库单路、机密 fail-closed 逐字不变（§7 抬头）。
+纯采集端增强。
+
+## 不做（本增补明确排除）
+
+「Hold to record」按住说话开关（§7.4）——改的是 start/stop 交互语义，另立一条。
+
+## 人类决定
+
+<!-- 同意就把 addendum_status 改成 confirmed 并补 addendum_confirmed_by / _at。
+     在那之前实现可在分支上写，但**不合入 main**。agent 不得代签。 -->
+
+我确认。--usashen
