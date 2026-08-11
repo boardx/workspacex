@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
 import { FULLSTACK_E2E } from "./e2e/fullstack-smoke-fixture";
@@ -334,6 +335,24 @@ export default defineConfig({
         FULLSTACK_E2E_API_ORIGIN: apiOrigin,
         FULLSTACK_E2E_BREAK_CONTROLLER: breakController,
         NEXT_DIST_DIR: ".next-fullstack-e2e",
+        /**
+         * #951 —— 让 `next build` 的 `next/font/google` 完全不联网（hermetic）。
+         *
+         * 不配它会怎样：build 期间 next 真去 fonts.googleapis.com 拉 CSS + 逐片下载字体，
+         * Google 边缘节点偶发返回不带扩展名的字体 URL 时，loader.js:112 对 null 取 `[1]`
+         * 崩掉整个 build，CI 表现为
+         * `[WebServer] TypeError: Cannot read properties of null (reading '1')` +
+         * `Process from config.webServer was not able to start`（2026-08-11 一天三红）。
+         *
+         * 这不是 mock 掉被测物：字体是纯视觉资源，smoke 断言全走 data-testid 与文本；
+         * 与本文件里 loopback model/ASR 上游是同一条哲学——外部非确定性上游一律换成
+         * 我们能预测输出的本地事实。键与 layout.tsx 失配时 build 会以
+         * `Missing mocked response for URL: ...` 确定性变红，指向 mock 文件自己。
+         */
+        NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve(
+          __dirname,
+          "e2e/support/google-fonts-mock.cjs",
+        ),
       },
     },
   ],
