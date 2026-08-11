@@ -47,6 +47,16 @@ export type ClaimOutcome =
 export interface HistoryAttachmentMeta {
   readonly filename: string;
   readonly mime: string;
+  /**
+   * V9-b（F153）—— 抽取状态：`pending` | `extracted` | `unsupported` | `failed`
+   * （缺省视为 pending：尚未抽取/旧数据）。决定 `withAttachmentNotice` 怎么向模型交代这个附件。
+   */
+  readonly extractionStatus?: string;
+  /**
+   * V9-b（F153）—— 抽取内容的**有界摘录**（`extractionStatus==='extracted'` 时有；域
+   * `boundedExcerpt` 已按 `EXTRACTED_EXCERPT_MAX_CHARS` 截断）。这就是折进模型上下文的正文。
+   */
+  readonly extractedExcerpt?: string;
 }
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */

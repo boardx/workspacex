@@ -22,6 +22,11 @@ import type { IdFactory } from "../artifact/ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 import { ThreadNotVisibleError } from "./get-thread";
 import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
+import { ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES } from "../../domain/chat/attachment-extraction";
+import { extractAttachment } from "./attachment-extraction-worker";
+import type { AttachmentExtractionStore } from "./attachment-extraction-store";
+import type { AttachmentToMarkdownPort } from "./attachment-to-markdown.port";
+import type { AttachmentExtractionExecutorPort } from "./attachment-extraction-executor.port";
 
 /** 上传失败——携带契约 `ChatAttachmentError` 的具体码，控制器映射成 HTTP 错误响应。 */
 export class AttachmentUploadError extends Error {
@@ -66,6 +71,13 @@ export interface UploadAttachmentDeps extends ResolveVisibilityDeps {
   readonly store: ObjectStore;
   readonly attachmentIds: IdFactory;
   readonly clock: { now(): string };
+  /**
+   * F153（V9-b，可选）—— 内容抽取子系统。三者齐备才触发抽取；缺省则只上传+存储（附件仍成功，
+   * 内容不进上下文）。可选是为了不逼每个 uploadAttachment 单测都接一套抽取假件。
+   */
+  readonly extraction?: AttachmentExtractionStore;
+  readonly converter?: AttachmentToMarkdownPort;
+  readonly executor?: AttachmentExtractionExecutorPort;
 }
 
 export interface UploadAttachmentInput {
@@ -125,5 +137,39 @@ export async function uploadAttachment(
     id, orgId: input.orgId, threadId: input.threadId, storageRef,
     filename: input.filename, mime: input.mime, bytes: byteLen, createdAt,
   });
+
+  // ⑤ F153：触发内容抽取。**绝不影响上传结果**——附件已持久，抽取 best-effort。
+  //    ≤3MB 内联（内容返回时即就绪）；更大 or 内联遇可重试故障 → 入队 + kick 异步。
+  await triggerExtraction(deps, input.orgId, id, byteLen);
+
   return { id, filename: input.filename, mime: input.mime, bytes: byteLen, createdAt };
+}
+
+/** F153：上传成功后触发抽取，任何抽取侧问题都不得让上传失败（附件已存好）。 */
+async function triggerExtraction(
+  deps: UploadAttachmentDeps,
+  orgId: OrgId,
+  attachmentId: string,
+  byteLen: number,
+): Promise<void> {
+  const { extraction, converter, executor, store } = deps;
+  if (!extraction || !converter || !executor) return; // 未接抽取子系统（部分单测）——跳过。
+  try {
+    if (byteLen <= ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) {
+      // 内联：小文件当场抽，内容上传返回时即就绪。
+      const outcome = await extractAttachment({ store, extraction, converter }, orgId, attachmentId);
+      if (outcome !== "retry") return; // 终态（extracted/unsupported/failed/gone）
+      // retry（可重试 I/O 故障）→ 回落异步兜底。
+    }
+    await extraction.enqueue(orgId, attachmentId);
+    executor.kick(orgId);
+  } catch {
+    // 抽取触发本身出错——尽力入队让异步兜底，但绝不抛（上传不能因此失败）。
+    try {
+      await extraction.enqueue(orgId, attachmentId);
+      executor.kick(orgId);
+    } catch {
+      /* 连入队都失败——放弃抽取，附件仍是成功上传的。 */
+    }
+  }
 }

@@ -204,6 +204,16 @@ import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-l
 // #946 · V9-a F150：对话附件上传——独立仓储 + 独立控制器（不塞进 1130 行的 ChatController）。
 import { CHAT_ATTACHMENT_COMMAND_REPOSITORY } from "./application/chat/upload-attachment";
 import { PgChatAttachmentRepository } from "./infrastructure/chat/pg-chat-attachment-repository";
+import {
+  ATTACHMENT_TO_MARKDOWN, type AttachmentToMarkdownPort,
+} from "./application/chat/attachment-to-markdown.port";
+import {
+  ATTACHMENT_EXTRACTION_STORE, type AttachmentExtractionStore,
+} from "./application/chat/attachment-extraction-store";
+import { ATTACHMENT_EXTRACTION_EXECUTOR } from "./application/chat/attachment-extraction-executor.port";
+import { AnydocAttachmentToMarkdown } from "./infrastructure/chat/anydoc-attachment-to-markdown";
+import { PgAttachmentExtractionRepository } from "./infrastructure/chat/pg-attachment-extraction-repository";
+import { AttachmentExtractionExecutor } from "./infrastructure/chat/attachment-extraction-executor";
 import { ChatAttachmentController } from "./interface/controllers/chat-attachment.controller";
 // F112：批准闸门的 model registry 读口——见该文件头，窄读 F48 的 `models` 表，
 // 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
@@ -846,6 +856,24 @@ import type { IdGenerator as RecordingIdGenerator } from "./application/recordin
       provide: CHAT_ATTACHMENT_COMMAND_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatAttachmentRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #946 · F153/W1（V9-b）：附件内容抽取（anydoc）。三件：转换端口实现、outbox+结果仓储、
+    // 执行器（kick 排空，autostart 同 agent-run 由 env 关）。复用 OBJECT_STORE / LOGGER_PORT。
+    { provide: ATTACHMENT_TO_MARKDOWN, useClass: AnydocAttachmentToMarkdown },
+    {
+      provide: ATTACHMENT_EXTRACTION_STORE,
+      useFactory: (db: DatabasePort) => new PgAttachmentExtractionRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ATTACHMENT_EXTRACTION_EXECUTOR,
+      useFactory: (
+        store: ObjectStore, extraction: AttachmentExtractionStore,
+        converter: AttachmentToMarkdownPort, logger: LoggerPort,
+      ) => new AttachmentExtractionExecutor(
+        store, extraction, converter, logger, process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
+      ),
+      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, LOGGER_PORT],
     },
     {
       provide: PUBLISHED_AGENT_READER,

@@ -103,6 +103,40 @@ describe("POST /chat/threads/:threadId/attachments", () => {
     expect(row.rows[0]!.storage_ref).toMatch(/^chat-attachments\//);
   });
 
+  it("F153 端到端：上传真 CSV → ≤3MB 内联抽取，201 返回时 extraction_status 已 extracted + 摘录就绪", async () => {
+    // 走完整真实链路：HTTP multipart → 控制器 → uploadAttachment 用例 → 触发内联抽取
+    // （≤3MB 同步）→ 真 anydoc 转 markdown → 写 extracted_ref/excerpt/status。小文件内联，
+    // 所以 201 返回时抽取已完成——无需轮询。
+    const csv = new TextEncoder().encode("name,role\nAva,facilitator\nScout,researcher\n");
+    const res = await upload({ filename: "team.csv", mime: "text/csv", bytes: csv });
+    expect(res.status).toBe(201);
+    const { id } = await res.json() as { id: string };
+
+    const row = await asApp(ORG, (c) => c.query<{
+      extraction_status: string; extracted_ref: string | null; extracted_excerpt: string | null;
+    }>(
+      `SELECT extraction_status, extracted_ref, extracted_excerpt
+         FROM chat_message_attachments WHERE id=$1`, [id],
+    ));
+    const r = row.rows[0]!;
+    expect(r.extraction_status).toBe("extracted");
+    expect(r.extracted_ref).toMatch(/^chat-attachments-extracted\//);
+    // 抽取内容进了 DB 摘录——CSV 变成 markdown 表格。
+    expect(r.extracted_excerpt).toContain("facilitator");
+    expect(r.extracted_excerpt).toContain("|");
+  });
+
+  it("F153 端到端：上传图片 → 内联抽取判 unsupported（非失败），extracted_ref 保持 NULL", async () => {
+    const res = await upload({ filename: "pic.png", mime: "image/png", bytes: PNG });
+    expect(res.status).toBe(201);
+    const { id } = await res.json() as { id: string };
+    const row = await asApp(ORG, (c) => c.query<{ extraction_status: string; extracted_ref: string | null }>(
+      `SELECT extraction_status, extracted_ref FROM chat_message_attachments WHERE id=$1`, [id],
+    ));
+    expect(row.rows[0]!.extraction_status).toBe("unsupported");
+    expect(row.rows[0]!.extracted_ref).toBeNull();
+  });
+
   it("404: 不存在/不可见的线程 —— 裸 404，不写行", async () => {
     const res404 = await uploadAs(
       ACTOR, "thread-does-not-exist", { filename: "x.pdf", mime: "application/pdf", bytes: PDF },

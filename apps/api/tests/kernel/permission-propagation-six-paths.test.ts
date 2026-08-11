@@ -726,7 +726,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // ⚠ 本条与上面那条 #856 的是同一个 issue 下**两条互补的路径**各自 +1，不是重复：
     // 有能力面的 agent 走双人评审（`pg-agent-publish-repository.ts`），无能力面的走自助
     // （本条）。两个条目、两个仓储、两份前提测试。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(46);
+    //
+    // ⚠ Raised 46 -> 47 by #946 F153/W1（V9-b 附件内容抽取）: 新条目是
+    // `infrastructure/chat/pg-attachment-extraction-repository.ts` —— 见其在
+    // `lint-permission-paths.mjs` 的段落。与正上方的 `pg-ingestion-repository.ts` 完全同类：
+    // 纯 worker/系统路径，**任一调用都没有 requester**——outbox 是作业队列元数据
+    // （jobId/attachmentId/attempts），`readAttachment` 只回 {storageRef, mime} 两个 worker 取数
+    // 输入，抽取内容到用户只经已判定的 agent-run 历史路径。`guard()` 没有 requester 可过滤。
+    // 前提被 `tests/chat/attachment-extraction-repo-guard.test.ts` 强制（无 withoutTenant + 运行时
+    // 形状 ⊆ 允许集），删测试则本条须一并删——正是这里要求的「带前提测试的 +1」。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(47);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
