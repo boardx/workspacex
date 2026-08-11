@@ -4,7 +4,7 @@ phase: "01"
 covers: []   # F 编号待拆入 feature_list 后回填；本束先行签核设计方向与参数
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: yanbin shen
-confirmed_at: 2026-08-11T14:30:00+08:00
+confirmed_at: 2026-08-11T14:32:00+08:00
 confirmed_via: >-
   人类在 2026-08-11 的「Chat UI 体验迭代」会话里，看过 docs/proposals/PROP-CHAT-CONTEXT-ENGINE-001.md
   §4（V10 + 分层历史）后逐字回复「我看了，并且approve」；随后对推荐默认值逐字回复「yes to all」。
