@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { UsageMonitorTab } from "./usage-monitor-tab";
+import { LimitPolicyTab } from "./limit-policy-tab";
 import {
   MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
 } from "@/lib/mock/admin";
@@ -57,7 +60,12 @@ function PendingStatusBadge({ status, sentDays }: { status: MemberStatus; sentDa
   );
 }
 
+/** 三个并列 tab —— 原型（`WorkspaceX Standalone.html` 偏移 15851070/298/527）证实是
+ * 同一屏三按钮，不是三个独立左栏菜单项，因此不新增 `AdminModuleKey`。 */
+type MembersTabKey = "quota" | "usage" | "policy";
+
 export function MembersScreen({ state }: { state: UiState }) {
+  const [tab, setTab] = React.useState<MembersTabKey>("quota");
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [inviteRole, setInviteRole] = React.useState<OrgRole>("consultant");
   const [inviteTeam, setInviteTeam] = React.useState<Team>(TEAMS[0]);
@@ -82,6 +90,22 @@ export function MembersScreen({ state }: { state: UiState }) {
       denialReason="成员与配额仅组织管理员可见；顾问只能通过『看我的访问记录』查看自己的访问历史。"
       successMessage="已为吴桐单独提额至 5.0M；本次操作已记入审计"
     >
+      <Tabs value={tab} onValueChange={(v) => setTab(v as MembersTabKey)} data-testid="admin-members-tabs">
+        <TabsList>
+          <TabsTrigger value="quota" data-testid="admin-members-tab-quota">成员配额</TabsTrigger>
+          <TabsTrigger value="usage" data-testid="admin-members-tab-usage">用量监控</TabsTrigger>
+          <TabsTrigger value="policy" data-testid="admin-members-tab-policy">限额策略</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="usage" data-testid="admin-members-tabpanel-usage">
+          <UsageMonitorTab />
+        </TabsContent>
+
+        <TabsContent value="policy" data-testid="admin-members-tabpanel-policy">
+          <LimitPolicyTab />
+        </TabsContent>
+
+      <TabsContent value="quota" data-testid="admin-members-tabpanel-quota">
       <div className="flex flex-col gap-5">
         {/* 成员配额列表 */}
         <section className="flex flex-col gap-2" data-testid="admin-members-list">
@@ -239,6 +263,8 @@ export function MembersScreen({ state }: { state: UiState }) {
           </Card>
         </section>
       </div>
+      </TabsContent>
+      </Tabs>
 
       {/* F10：[邀请成员] 弹层 —— 邮箱 + 组织角色三选 + 团队（ui.md 2.2 #15） */}
       {inviteOpen && (
