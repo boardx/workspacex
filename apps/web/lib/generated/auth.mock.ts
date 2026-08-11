@@ -83,7 +83,8 @@ export const switchOrgAtLoginMock: z.infer<typeof auth.operations.switchOrgAtLog
     "name": "name-1",
     "kind": "organization",
     "team": null,
-    "modelPolicy": "any"
+    "modelPolicy": "any",
+    "avatarUrl": null
   }
 };
 
@@ -105,7 +106,8 @@ export const exportOrganizationMock: z.infer<typeof auth.operations.exportOrgani
     "name": "name-1",
     "kind": "organization",
     "team": null,
-    "modelPolicy": "any"
+    "modelPolicy": "any",
+    "avatarUrl": null
   },
   "lifecycle": {
     "status": "active",

@@ -113,14 +113,19 @@ export class OrgInviteController {
           teamId: body.teamId.length > 0 ? body.teamId : null,
         },
       );
-      // ⚠ `token` 不进响应体。契约的 `out` 是 `.strict()` 且不含它，
-      //   而它进了响应体就等于任何一个管理员都能把别人的激活链接读出来。
-      //   投递（把它拼进邮件）不在 F10 范围内，见 invite-org-member.ts 文件头。
+      // ⚠ `activationToken`：**只在签发的这一次响应里回传**（invite-link-and-reads
+      //   delta ①，coord-main 2026-08-11 裁决 A）。旧注释「token 不进响应体」防的是
+      //   「任何管理员随时可读他人链接」——那条线仍然封死：列表（`listOrgInvites`）
+      //   恒不含 token，幂等重放时用例层已把 token 置 null（见 invite-org-member.ts
+      //   末尾），`awaiting-review` 根本没签发。能发起邀请的本来就是 admin，把他自己
+      //   刚签发的令牌回传给他**一次**、由他转交受邀人，不扩大任何可再读的面——
+      //   在邮件通道接通之前，这是链接送达受邀人的唯一诚实通道。
       return {
         inviteId: out.inviteId,
         status: out.status,
         quotaReserved: out.quotaReserved,
         tokenIssued: out.tokenIssued,
+        activationToken: out.token,
       };
     } catch (e) {
       if (e instanceof OrgAdminError) {

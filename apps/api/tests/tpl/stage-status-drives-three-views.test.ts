@@ -46,7 +46,7 @@ class FakeIdentityRepository implements IdentityRepository {
   projectMemberships = new Map<string, ProjectMembershipRow>();
 
   async findOrganization() {
-    return { id: ORG, name: "org", kind: "organization" as const, team: null };
+    return { id: ORG, name: "org", kind: "organization" as const, team: null, avatarUrl: null };
   }
   async findOrgMembership(userId: string, orgId: string): Promise<OrgMembershipRow | null> {
     return this.orgMemberships.get(`${userId}/${orgId}`) ?? null;

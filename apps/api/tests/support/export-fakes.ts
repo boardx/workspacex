@@ -42,8 +42,8 @@ export const SELECTED = "f17-art-selected";
 export const UNSELECTED = "f17-art-unselected";
 
 const ORGS: Record<string, OrganizationRow> = {
-  [LOCAL_ORG]: { id: LOCAL_ORG, name: "local", kind: "personal-local", team: null },
-  [REAL_ORG]: { id: REAL_ORG, name: "real", kind: "organization", team: null },
+  [LOCAL_ORG]: { id: LOCAL_ORG, name: "local", kind: "personal-local", team: null, avatarUrl: null },
+  [REAL_ORG]: { id: REAL_ORG, name: "real", kind: "organization", team: null, avatarUrl: null },
 };
 
 class FakeIdentityRepository implements IdentityRepository {

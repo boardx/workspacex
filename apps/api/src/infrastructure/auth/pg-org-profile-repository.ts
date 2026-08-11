@@ -27,7 +27,12 @@ function newAvatarArtifactId(): string {
   return `org-avatar-${randomBytes(12).toString("hex")}`;
 }
 
-function avatarUrlFor(orgId: OrgId, avatarArtifactId: string | null): string | null {
+/**
+ * 组织头像下载 URL 的**唯一**拼装处。`pg-identity-repository.ts`（resolveIdentity 的
+ * `org.avatarUrl`，invite-link-and-reads delta ④）import 这一份，不各自手写第二份——
+ * 路由若改，两个读路径一起变。
+ */
+export function avatarUrlFor(orgId: OrgId, avatarArtifactId: string | null): string | null {
   return avatarArtifactId === null ? null : `/organizations/${orgId}/avatar-file/${avatarArtifactId}`;
 }
 
@@ -104,6 +109,9 @@ export class PgOrgProfileRepository implements OrgProfileRepository {
         email: r.email,
         status: r.status,
         invitedBy: r.invited_by_display_name ?? r.invited_by,
+        // invite-link-and-reads delta ②：裸 id 一并回传，供前端做「发起人不渲染批准按钮」
+        // 的判定——展示名判不了这件事（可重名、可改名）。
+        invitedByUserId: r.invited_by,
         // OA11 ④：从未签发过令牌的邀请（如 awaiting-review）没有 org_invite_tokens 行，
         // 取 created_at + 既有的 7 天域常量作估计值，不新造第二份有效期数字。
         expiresAt: (

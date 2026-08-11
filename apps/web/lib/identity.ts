@@ -153,13 +153,13 @@ export interface Identity {
 
 /** mock 数据 —— 数量级与字段完整度贴近真实（sign-off 要能看出信息密度问题）*/
 export const MOCK_ORGS: Organization[] = [
-  { id: "org-yuanyang", name: "远洋新能源", kind: "organization", team: "能源组", modelPolicy: "any" },
+  { id: "org-yuanyang", name: "远洋新能源", kind: "organization", team: "能源组", modelPolicy: "any", avatarUrl: null },
   // 强合规客户：整组织只用自托管模型（2026-07-28 裁决新增的组织级策略）
-  { id: "org-hengtai", name: "恒泰供应链", kind: "organization", team: "供应链组", modelPolicy: "self-hosted-only" },
+  { id: "org-hengtai", name: "恒泰供应链", kind: "organization", team: "供应链组", modelPolicy: "self-hosted-only", avatarUrl: null },
   // 注册那一刻自动创建，恒定存在、不可删除 / 退出 / 转让 / 邀请他人（UC-0.5 R7）
   // 取值也从契约常量来，不写字面量：这条 mock 是「本地组织长什么样」的唯一前端样本，
   // 它写错了，界面会拿一个不是本地组织的东西演示本地模式，而且一路绿。
-  { id: "org-local", name: "林可 的本地", kind: C.LOCAL_ORG_KIND, team: null },
+  { id: "org-local", name: "林可 的本地", kind: C.LOCAL_ORG_KIND, team: null, avatarUrl: null },
 ];
 
 export function mockIdentity(orgId: string, projectRole: ProjectRole | null): Identity {

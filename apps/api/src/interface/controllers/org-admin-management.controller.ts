@@ -27,9 +27,12 @@
  * · 管理员拿别人组织的 inviteId → 仓储在 RLS 租户上下文里查，零行 ⇒ 与「这个 id
  *   根本不存在」**由构造**产生同一个 `INVITE_NOT_FOUND`（V10）。
  *
- * ⚠ 两条路由的响应体里**没有令牌**，而且不是靠这里记得删：契约的 `out` 是 `.strict()`
- *   且不含它，用例返回的对象里根本没有那个字段，仓储也不把它交出来。三层都没有，
- *   所以「回显令牌」这个变异必须先在三处之一造出一个字段才写得出来。
+ * ⚠ 令牌回传口径（invite-link-and-reads delta ①，coord-main 2026-08-11 裁决 A）：
+ *   `resend` 的响应体带 `activationToken`——**签发那一次，且只有那一次**。由刚触发
+ *   签发的 admin 转交受邀人，是邮件通道接通前链接送达的唯一诚实通道；能发起/重发
+ *   邀请的本来就是 admin，一次性回传不等于「任何管理员随时可读他人链接」。
+ *   仍然封死的面：`listOrgInvites` 恒不含 token（契约 `.strict()`），`revoke`/`review`
+ *   不回传，仓储的返回值里根本没有 token 字段——「随时可再读」在三层都造不出来。
  *
  * ⚠ 路由是 `POST …/remove` 不是 `DELETE /organizations/:orgId/members/:userId`：
  *   契约 `ORG_ADMIN_FORBIDDEN_ROUTES` 的长注解释了为什么——`no-forbidden-routes.test.ts`
@@ -227,8 +230,14 @@ export class OrgAdminManagementController {
         { repo: this.invites },
         { orgId, actorId: principal.userId, actorOrgRole: orgRole, inviteId: inviteIdParam },
       );
-      // 契约 `out` 逐字两个字段。令牌不在这里，也不在 `out` 里——见文件头。
-      return { newTokenIssued: out.newTokenIssued, cooldownSec: out.cooldownSec };
+      // 契约 `out` 逐字三个字段（invite-link-and-reads delta ①）：`activationToken`
+      // 只在这一次重发响应里出现——旧令牌已作废（I-6），列表/重放拿不到它。
+      // 回传给刚触发签发的 admin 一次，是邮件通道接通前链接送达受邀人的唯一诚实通道。
+      return {
+        newTokenIssued: out.newTokenIssued,
+        cooldownSec: out.cooldownSec,
+        activationToken: out.activationToken,
+      };
     } catch (e) {
       throw toHttpException(e);
     }

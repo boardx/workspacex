@@ -19,6 +19,7 @@ import type {
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
 import { isLocalOrg, LOCAL_ORG_KIND } from "../../domain/identity/local-org";
+import { avatarUrlFor } from "../auth/pg-org-profile-repository";
 import { strictestScope } from "../../domain/identity/permission-decision";
 
 export class PgIdentityRepository implements IdentityRepository {
@@ -26,8 +27,14 @@ export class PgIdentityRepository implements IdentityRepository {
 
   async findOrganization(orgId: OrgId): Promise<OrganizationRow | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ id: string; name: string; kind: string; model_policy: string }>(
-        "SELECT id, name, kind, model_policy FROM organizations WHERE id = $1",
+      const r = await s.query<{
+        id: string;
+        name: string;
+        kind: string;
+        model_policy: string;
+        avatar_artifact_id: string | null;
+      }>(
+        "SELECT id, name, kind, model_policy, avatar_artifact_id FROM organizations WHERE id = $1",
         [orgId],
       );
       const row = r.rows[0];
@@ -42,6 +49,11 @@ export class PgIdentityRepository implements IdentityRepository {
         // omitted field is how a response quietly stops matching its contract.
         team: null,
         modelPolicy: row.model_policy as OrganizationRow["modelPolicy"],
+        // invite-link-and-reads delta ④: the byte route itself already admits every org
+        // member (see the controller's `avatarFile` long note); what was missing is a
+        // member-readable place that SAYS the URL. This is that place. URL shape comes from
+        // the single `avatarUrlFor` -- not a second hand-written copy.
+        avatarUrl: avatarUrlFor(orgId, row.avatar_artifact_id),
       };
     });
   }
