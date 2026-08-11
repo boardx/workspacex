@@ -58,7 +58,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetOrgs(ORG);
-  // ⚠ 本文件是唯一需要**真实生产默认值**（0）的地方，所以显式传 `seatQuota: 0`，
+  // ⚠ 本文件测的是 I-9「额度为 0 ⇒ 硬阻断」这条判定本身，所以显式传 `seatQuota: 0`
+  // （生产的列默认值已由 20260811040000 改为 50——devapp 实测「新组织谁都邀不了」
+  // 的修复，见 tests/auth/new-org-default-quota.test.ts；0 不再是缺省，但 0 的语义不变），
   // 不依赖 `seedOrg` 给其余测试文件的那个宽松默认值（1000，见 `tests/support/db.ts`
   // 的注释——那个默认值本身就是「F11 落地那天，所有不关心配额的既有 fixture 突然
   // 被 QUOTA_EXHAUSTED 挡住」这个真实回归的修复）。
@@ -66,8 +68,8 @@ beforeEach(async () => {
   await addOrgMember(ORG, ADMIN, "admin", null);
 });
 
-describe("组织未分配额度（默认 0）时硬阻断", () => {
-  it("seat_quota=0（缺省）时任何邀请一律 QUOTA_EXHAUSTED，且不产生任何 OrgInvite 行", async () => {
+describe("组织额度为 0 时硬阻断", () => {
+  it("seat_quota=0 时任何邀请一律 QUOTA_EXHAUSTED，且不产生任何 OrgInvite 行", async () => {
     const before = await inviteRowCount(ORG);
     await expect(
       inviteOrgMember(
