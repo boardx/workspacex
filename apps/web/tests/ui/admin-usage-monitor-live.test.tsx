@@ -27,6 +27,20 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+/**
+ * 这一屏发两个请求：用量报告 + 限额事件（F162 起）。夹具按 url 分派，
+ * 不用一个 `mockResolvedValue` 糊住两条——那样限额事件会拿到一份用量报告的 body，
+ * 而组件在解析时报的错会被误读成组件的 bug。
+ */
+function routed(usageBody: unknown, usageStatus = 200) {
+  return (url: string) =>
+    Promise.resolve(
+      String(url).includes("/limit-events")
+        ? jsonResponse({ events: [] })
+        : jsonResponse(usageBody, usageStatus),
+    );
+}
+
 function report(overrides: Record<string, unknown> = {}) {
   return {
     window: "week",
@@ -60,10 +74,14 @@ afterEach(() => {
 describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   it("【核心反证】换窗口发出新请求，且 query 里的 window 跟着变", async () => {
     fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(jsonResponse(report({
-        window: new URL(url, "http://x").searchParams.get("window"),
-        totalTokens: url.includes("window=5h") ? 1_000_000 : 12_840_000,
-      }))),
+      Promise.resolve(
+        String(url).includes("/limit-events")
+          ? jsonResponse({ events: [] })
+          : jsonResponse(report({
+              window: new URL(url, "http://x").searchParams.get("window"),
+              totalTokens: url.includes("window=5h") ? 1_000_000 : 12_840_000,
+            })),
+      ),
     );
 
     render(<UsageMonitorTab />);
@@ -80,7 +98,7 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   });
 
   it("矩阵的列来自响应，不是写死的五个模型名", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(report({
+    fetchMock.mockImplementation(routed(report({
       models: ["deepseek-v4"],
       rows: [{ userId: "u-x", displayName: "某人", perModel: [500_000], total: 500_000 }],
       distribution: [{ modelId: "deepseek-v4", tokens: 500_000, share: 1 }],
@@ -95,7 +113,7 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   });
 
   it("零调用 ⇒ 空态文案，不是示例数字", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(report({
+    fetchMock.mockImplementation(routed(report({
       totalTokens: 0, callCount: 0, failedCallCount: 0, activeMemberCount: 0,
       models: [], rows: [], distribution: [],
     })));
@@ -107,7 +125,7 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   });
 
   it("读取失败回显 reasonCode，不静默退回 mock 数字", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ reasonCode: "FORBIDDEN" }, 403));
+    fetchMock.mockImplementation(routed({ reasonCode: "FORBIDDEN" }, 403));
 
     render(<UsageMonitorTab />);
 
@@ -115,12 +133,29 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
     expect(screen.queryByTestId("admin-usage-matrix")).toBeNull();
   });
 
-  it("「近期限额事件」仍带着「尚未接入真实后端」提示（数据源要到 F162 才存在）", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(report()));
+  it("「近期限额事件」F162 起读真端点：零事件时说「近期没有触发」，不再挂 mock 提示", async () => {
+    fetchMock.mockImplementation(routed(report()));
 
     render(<UsageMonitorTab />);
 
-    await waitFor(() => expect(screen.getByTestId("admin-usage-recent-events")).toBeTruthy());
-    expect(screen.getByTestId("admin-no-backend-notice")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("admin-usage-events-empty")).toBeTruthy());
+    // 这块屏在 F162 之前挂着「尚未接入真实后端」，现在空数组第一次真的表示「没发生过」。
+    expect(screen.queryByTestId("admin-no-backend-notice")).toBeNull();
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("/limit-events"))).toBe(true);
+  });
+
+  it("限额事件读失败不把整屏用量拖成错误态（它是附属块）", async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        String(url).includes("/limit-events")
+          ? jsonResponse({ reasonCode: "AUTH_SERVICE_UNAVAILABLE" }, 503)
+          : jsonResponse(report()),
+      ),
+    );
+
+    render(<UsageMonitorTab />);
+
+    await waitFor(() => expect(screen.getByTestId("admin-usage-matrix")).toBeTruthy());
+    expect(screen.queryByTestId("admin-usage-load-failed")).toBeNull();
   });
 });

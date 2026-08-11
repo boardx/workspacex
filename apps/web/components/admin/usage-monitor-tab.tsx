@@ -3,11 +3,12 @@ import * as React from "react";
 import { BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { NoBackendNotice } from "./no-backend-notice";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
-import { getUsageReport, type GetUsageReportOut, type UsageWindowKey } from "@/lib/live-org-admin";
-import { RECENT_LIMIT_EVENTS } from "@/lib/mock/admin-limits";
+import {
+  getUsageReport, listLimitEvents,
+  type GetUsageReportOut, type ListLimitEventsOut, type UsageWindowKey,
+} from "@/lib/live-org-admin";
 
 /**
  * 用量监控 tab —— **F161 起真栈**（token-quota-and-usage delta）。
@@ -25,9 +26,10 @@ import { RECENT_LIMIT_EVENTS } from "@/lib/mock/admin-limits";
  * ② **去掉了「额度用量%」那一列**。额度是**月度**的，而窗口可以是「最近 5 小时」——
  *    把 5 小时的用量除以月度额度，得到的百分比没有任何含义，却看起来非常像有含义。
  *    要看额度用量请去「成员配额」tab（那里的分母与分子同为本月）。
- * ③ **「近期限额事件」仍然是 mock** 并保留「尚未接入真实后端」提示：它的数据源
- *    （`limit_events`）要到 F162 才存在。把它做成一块「暂无事件」的空区会让
- *    「还没做」和「真的没发生过」在界面上长得一模一样。
+ * ③ **「近期限额事件」F162 起也是真的**：数据源 `limit_events` 那时才建起来。
+ *    在它存在之前，这块屏保留着「尚未接入真实后端」提示而不是渲染一块「暂无事件」的
+ *    空区——那会让「还没做」和「真的没发生过」在界面上长得一模一样。现在它有真来源了，
+ *    空数组才第一次真的表示「本周期没有任何规则被触发」。
  */
 
 /** 窗口枚举 → 界面标签。取值来自契约（单一事实源），标签在这里映射一次。 */
@@ -45,11 +47,10 @@ function fmt(n: number): string {
   return n.toLocaleString();
 }
 
-function eventTagTone(tone: "warning" | "destructive" | "success"): "warning" | "danger" | "primary" {
-  if (tone === "destructive") return "danger";
-  if (tone === "warning") return "warning";
-  return "primary";
-}
+/** 触顶动作的中文标签。与 `limit-rules-live.tsx` 的同一份映射同源于契约枚举。 */
+const ACTION_LABEL: Record<string, string> = {
+  warn: "预警", degrade: "已降级", block: "已拒绝", require_approval: "待批准",
+};
 
 export function UsageMonitorTab() {
   const session = useOptionalSession()?.session ?? null;
@@ -57,6 +58,7 @@ export function UsageMonitorTab() {
 
   const [windowKey, setWindowKey] = React.useState<UsageWindowKey>("week");
   const [data, setData] = React.useState<GetUsageReportOut | null>(null);
+  const [events, setEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -77,6 +79,22 @@ export function UsageMonitorTab() {
     return () => { cancelled = true; };
     // windowKey 进依赖：换窗口 = 换一次请求，这就是本 feature 的全部主张。
   }, [orgId, windowKey]);
+
+  // 限额事件不随统计窗口变：它是「近期发生过什么」，不是「这个窗口里的用量」。
+  React.useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const out = await listLimitEvents(orgId);
+        if (!cancelled) setEvents(out.events);
+      } catch {
+        // 事件读失败不该把整屏用量拖成错误态——它是这一屏的附属块。
+        if (!cancelled) setEvents([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   const empty = data !== null && data.callCount === 0;
 
@@ -228,17 +246,30 @@ export function UsageMonitorTab() {
               </CardContent>
             </Card>
 
-            {/* ⚠ 仍是 mock —— 数据源 `limit_events` 要到 F162 才存在。提示留着。 */}
             <Card data-testid="admin-usage-recent-events">
               <CardContent className="flex flex-col gap-2.5 pt-4">
                 <span className="text-12 font-medium">近期限额事件</span>
-                <NoBackendNotice />
-                {RECENT_LIMIT_EVENTS.map((ev) => (
-                  <div key={ev.id} className="flex items-start gap-2" data-testid={`admin-usage-event-${ev.id}`}>
-                    <Badge tone={eventTagTone(ev.tone)}>{ev.tag}</Badge>
+                {events === null && <span className="text-11 text-muted-foreground">读取中…</span>}
+                {events !== null && events.length === 0 && (
+                  <span className="text-11 text-muted-foreground" data-testid="admin-usage-events-empty">
+                    近期没有任何限额规则被触发。
+                  </span>
+                )}
+                {(events ?? []).map((ev) => (
+                  <div key={ev.eventId} className="flex items-start gap-2"
+                    data-testid={`admin-usage-event-${ev.eventId}`}>
+                    <Badge tone={ev.actionTaken === "block" ? "danger" : ev.actionTaken === "warn" ? "warning" : "primary"}>
+                      {ACTION_LABEL[ev.actionTaken]}
+                    </Badge>
                     <div className="min-w-0 flex-1">
-                      <p className="text-11 leading-relaxed">{ev.detail}</p>
-                      <p className="font-mono text-9 text-muted-foreground">{ev.meta}</p>
+                      <p className="text-11 leading-relaxed">
+                        {ev.subjectRef} 触顶：观测 {fmt(ev.observedTokens)} / 上限 {fmt(ev.thresholdTokens)}
+                      </p>
+                      <p className="font-mono text-9 text-muted-foreground">
+                        {ev.occurredAt}
+                        {/* 规则已删时 ruleId 是空串——事件仍然是真的，如实说「规则已删除」 */}
+                        {ev.ruleId === "" ? " · 规则已删除" : ` · 规则 ${ev.ruleId.slice(0, 8)}`}
+                      </p>
                     </div>
                   </div>
                 ))}

@@ -68,30 +68,19 @@ export const TASK_TYPE_GRADING: TaskGradingRow[] = [
 // ─────────────────────────────────────────────────────────────────────────
 // 限额策略 tab · 限额规则列表（谁 × 哪个模型 × 什么窗口）
 // ─────────────────────────────────────────────────────────────────────────
-export type LimitScopeKind = "个人" | "角色" | "团队" | "Agent" | "模型";
-
-export interface LimitRule {
-  id: string;
-  scopeKind: LimitScopeKind;
-  scopeName: string;
-  enabled: boolean;
-  appliesModel: string;
-  window: string;
-  cap: string;
-  usedPct: number;
-  action: string;
-  /** 命中「个人 · 吴桐」的两条规则用醒目样式（原型：黄底黄框），因为她已逼近上限 */
-  highlighted: boolean;
-}
-
-export const LIMIT_RULES: LimitRule[] = [
-  { id: "lr-wutong-opus", scopeKind: "个人", scopeName: "吴桐", enabled: true, appliesModel: "claude-opus-4.6", window: "每 5 小时滚动", cap: "80 万 token", usedPct: 96, action: "自动降级到 claude-sonnet-4.6", highlighted: true },
-  { id: "lr-wutong-all", scopeKind: "个人", scopeName: "吴桐", enabled: true, appliesModel: "全部模型", window: "每周（自然周）", cap: "600 万 token", usedPct: 93, action: "拒绝调用并提示申请应急池", highlighted: true },
-  { id: "lr-consultant-default", scopeKind: "角色", scopeName: "顾问（默认）", enabled: true, appliesModel: "全部闭源 API", window: "每天", cap: "120 万 token", usedPct: 61, action: "自动降级到 deepseek-v4（自托管）", highlighted: false },
-  { id: "lr-energy-team", scopeKind: "团队", scopeName: "能源组", enabled: true, appliesModel: "全部模型", window: "每月", cap: "2,000 万 token", usedPct: 74, action: "超出部分转记团队应急池，需负责人确认", highlighted: false },
-  { id: "lr-scout-batch", scopeKind: "Agent", scopeName: "Scout · 跑批任务", enabled: true, appliesModel: "claude-opus-4.6", window: "每天", cap: "60 万 token", usedPct: 88, action: "自动降级到 deepseek-v4（自托管）", highlighted: false },
-  { id: "lr-gemini-org", scopeKind: "模型", scopeName: "gemini-3-pro 全组织", enabled: false, appliesModel: "gemini-3-pro", window: "每天", cap: "40 万 token", usedPct: 23, action: "排队等待下一个窗口", highlighted: false },
-];
+/*
+ * F162：`LimitScopeKind` / `LimitRule` / `LIMIT_RULES` 三样已删除。
+ *
+ * 规则区从 2026-08-12 起读真库（`components/admin/limit-rules-live.tsx`），这三样
+ * 不再驱动任何界面。留着它们不是「无害的死代码」——`LimitScopeKind` 与契约里的
+ * `orgAdmin.LimitScopeKind` **同名不同义**（这里是中文标签 "个人"|"角色"…，
+ * 契约里是 "member"|"role"…），`lint-contract-source` 因此判「后端契约类型被重定义」
+ * 并当场变红。那道门红得对：同一个名字指两件事，正是本仓栽过五次的那种漂移。
+ *
+ * 中文标签现在活在 `limit-rules-live.tsx` 的 `SCOPE_LABEL` 里——它是**契约枚举到
+ * 展示文案的映射**（`Record<LimitScopeKind, string>`），不是第二份枚举：
+ * 契约加一个取值，那张表少一格就是编译错误。
+ */
 
 export const LIMIT_POLICY_INTRO =
   "限额按「谁 × 哪个模型 × 什么窗口」三段定义。触顶后不是直接失败，而是按这里配置的动作降级或排队——降级目标必须是已测试通过的模型。";

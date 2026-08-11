@@ -57,6 +57,7 @@ import {
   Res,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import type { z } from "zod";
 import { orgAdmin as C } from "@repo/contracts";
 import { listTeams } from "../../application/auth/list-teams";
 import { mutateTeam, TeamInUseError } from "../../application/auth/mutate-team";
@@ -72,9 +73,12 @@ import { getTokenQuotas } from "../../application/auth/get-token-quotas";
 import { getUsageReport } from "../../application/auth/get-usage-report";
 import { setMemberTokenQuota, setOrgTokenBudget } from "../../application/auth/set-token-quota";
 import {
-  BudgetBelowAllocatedError, MemberNotFoundError, QuotaOverallocatedError,
-  TOKEN_QUOTA_REPOSITORY, type TokenQuotaRepository, type UsageAggregateRepository,
+  BudgetBelowAllocatedError, DegradeTargetRequiredError, LimitRuleNotFoundError,
+  MemberNotFoundError, QuotaOverallocatedError,
+  LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY,
+  type LimitRuleRepository, type TokenQuotaRepository, type UsageAggregateRepository,
 } from "../../application/auth/token-quota-ports";
+import { usedRatio } from "../../domain/auth/limit-rule-evaluation";
 import { listOrgInvites } from "../../application/auth/list-org-invites";
 import { updateOrganization } from "../../application/auth/update-organization";
 import { MAX_AVATAR_BYTES, uploadOrgAvatar } from "../../application/auth/upload-org-avatar";
@@ -113,6 +117,27 @@ export const UPLOAD_ORG_AVATAR_SCHEMA = C.operations.uploadOrgAvatar.in;
 /** F160（token-quota-and-usage delta）。同上，导出以证明与契约是同一个对象。 */
 export const SET_MEMBER_TOKEN_QUOTA_SCHEMA = C.operations.setMemberTokenQuota.in;
 export const SET_ORG_TOKEN_BUDGET_SCHEMA = C.operations.setOrgTokenBudget.in;
+/** F162。同上，导出以证明与契约是同一个对象。 */
+export const CREATE_LIMIT_RULE_SCHEMA = C.operations.createLimitRule.in;
+export const UPDATE_LIMIT_RULE_SCHEMA = C.operations.updateLimitRule.in;
+
+/** 「近期限额事件」一屏给多少条。不做分页：这块屏的语义就是「近期」。 */
+const LIMIT_EVENTS_PAGE_SIZE = 20;
+
+type CreateLimitRuleBody = Omit<z.infer<typeof C.operations.createLimitRule.in>, "orgId">;
+type UpdateLimitRuleBody = Omit<z.infer<typeof C.operations.updateLimitRule.in>, "orgId" | "ruleId">;
+
+/** F162 的两个域错误 → HTTP。其余原样上抛（由全局过滤器处理）。 */
+function toLimitHttp(e: unknown): unknown {
+  if (e instanceof LimitRuleNotFoundError) {
+    return new NotFoundException({ reasonCode: "LIMIT_RULE_NOT_FOUND" });
+  }
+  if (e instanceof DegradeTargetRequiredError) {
+    // ⚠ 400 而不是 409：这不是状态冲突，是请求本身不完整——「降级」而不说降到哪。
+    return new HttpException({ reasonCode: "DEGRADE_TARGET_REQUIRED" }, HttpStatus.BAD_REQUEST);
+  }
+  return e;
+}
 
 type ReviewBody = { orgId: string; inviteId: string; decision: "approve" | "reject"; reason: string | null };
 type InviteRefBody = { orgId: string; inviteId: string };
@@ -223,6 +248,7 @@ export class OrgAdminManagementController {
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository & UsageAggregateRepository,
+    @Inject(LIMIT_RULE_REPOSITORY) private readonly limits: LimitRuleRepository,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -527,6 +553,68 @@ export class OrgAdminManagementController {
     const parsed = C.UsageStatWindow.safeParse(windowParam);
     if (!parsed.success) throw new HttpException({ reasonCode: "INVALID_WINDOW" }, HttpStatus.BAD_REQUEST);
     return getUsageReport({ repo: this.quotas }, { orgId, window: parsed.data });
+  }
+
+  /* ── F162 限额策略五条 ─────────────────────────────────────────────── */
+
+  @Get("/organizations/:orgId/limit-rules")
+  async limitRules(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    const rules = await this.limits.listRules(orgId);
+    // 比值在服务端算：两条规则的窗口可能不同，前端拿一个分子去除不同分母会得到
+    // 两个同时显示、互相矛盾的百分比。
+    return { rules: rules.map((r) => ({ ...r, usedRatio: usedRatio(r) })) };
+  }
+
+  @Post("/organizations/:orgId/limit-rules")
+  async createLimitRuleRoute(
+    @Param("orgId") orgIdParam: string,
+    @Body(new ZodBodyPipe(CREATE_LIMIT_RULE_SCHEMA)) body: CreateLimitRuleBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    try {
+      return { ruleId: await this.limits.createRule(orgId, body) };
+    } catch (e) {
+      throw toLimitHttp(e);
+    }
+  }
+
+  @Patch("/organizations/:orgId/limit-rules/:ruleId")
+  async updateLimitRuleRoute(
+    @Param("orgId") orgIdParam: string,
+    @Param("ruleId") ruleId: string,
+    @Body(new ZodBodyPipe(UPDATE_LIMIT_RULE_SCHEMA)) body: UpdateLimitRuleBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    try {
+      await this.limits.updateRule(orgId, ruleId, body);
+      return { ruleId };
+    } catch (e) {
+      throw toLimitHttp(e);
+    }
+  }
+
+  @Post("/organizations/:orgId/limit-rules/:ruleId/delete")
+  async deleteLimitRuleRoute(
+    @Param("orgId") orgIdParam: string,
+    @Param("ruleId") ruleId: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    try {
+      await this.limits.deleteRule(orgId, ruleId);
+      return { ruleId };
+    } catch (e) {
+      throw toLimitHttp(e);
+    }
+  }
+
+  @Get("/organizations/:orgId/limit-events")
+  async limitEvents(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    return { events: await this.limits.listEvents(orgId, LIMIT_EVENTS_PAGE_SIZE) };
   }
 
   @Get("/organizations/:orgId/invites")

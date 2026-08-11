@@ -59,6 +59,22 @@ export const TeamOp = z.enum(["create", "rename", "delete"]);
 export const UsageStatWindow = z.enum(["5h", "today", "week", "month"]);
 
 /**
+ * F162 —— 限额规则的三段定义：**谁 × 哪个模型 × 什么窗口**。
+ *
+ * ⚠ `LimitScopeKind` 五值与前端 `lib/mock/admin-limits.LimitScopeKind`（个人/角色/团队/
+ *   Agent/模型）是**同一个集合**，此处为唯一事实源；数据库那侧的 CHECK 由测试从
+ *   `pg_constraint` 读回来与本枚举断言相等（同 `agent_run_steps_kind_check` 的既有做法），
+ *   杜绝「枚举在三处各写一遍」。
+ *
+ * ⚠ `LimitAction` 是**触顶之后做什么**，不是「失败」。原型的话逐字：「触顶后不是直接失败，
+ *   而是按这里配置的动作降级或排队」。`degrade` 的目标模型必须已通过准入测试（F49），
+ *   这条约束在用例层校验——契约只负责让「降级」这个动作存在且带得上目标。
+ */
+export const LimitScopeKind = z.enum(["member", "role", "team", "agent", "model"]);
+export const LimitWindowKind = z.enum(["hour", "day", "week", "month"]);
+export const LimitAction = z.enum(["warn", "degrade", "block", "require_approval"]);
+
+/**
  * 参与者身份四选（`upsertParticipantRoster` / `issueInviteLink`）。
  *
  * ⚠ `coFacilitator` 是**展示别名**，落库 `projectRole = "facilitator"`（O-03 / I-17），
@@ -157,6 +173,14 @@ export const OrgAdminError = z.enum([
   "BUDGET_BELOW_ALLOCATED",
   /** 给一个不在本组织的 userId 设额度。 */
   "MEMBER_NOT_FOUND",
+  /** F162：改/删一条不存在的限额规则。 */
+  "LIMIT_RULE_NOT_FOUND",
+  /**
+   * F162：`action = "degrade"` 却没给降级目标模型。
+   * ⚠ 「降级」而不说降到哪，等于运行时静默换模型——I-28 那条「绝不静默换模型」
+   *   的反面。所以这不是可选字段的缺省，是一个拒绝。
+   */
+  "DEGRADE_TARGET_REQUIRED",
 
   /** O-06：令牌是必需的不是装饰。去掉 `?t=` 直接访问被拒 */
   "LINK_TOKEN_REQUIRED",
@@ -1526,6 +1550,134 @@ export const operations = {
               tokens: z.number(),
               /** 0~1 的占比，服务端算好——前端各算一遍就会有两个四舍五入口径。 */
               share: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ── F162 限额策略（token-quota-and-usage delta §1.4）───────────────────── */
+
+  /**
+   * `listLimitRules` —— 「限额策略」tab 的规则列表，含每条规则**当前窗口内的实测用量**。
+   *
+   * ⚠ `observedTokens` / `usedRatio` 是服务端按该规则自己的窗口现算的，不是前端拿
+   *   「用量监控」那一屏的数去除：两条规则的窗口可以不同（一条按 5 小时、一条按月），
+   *   用同一个分子去除不同的分母，得到的百分比会同时出现在同一屏上且互相矛盾。
+   */
+  listLimitRules: {
+    method: "GET",
+    path: "/organizations/:orgId/limit-rules",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        rules: z.array(
+          z
+            .object({
+              ruleId: z.string(),
+              scopeKind: LimitScopeKind,
+              /** 作用对象的 id（`model` 范围时是模型 id；`role` 范围时是角色枚举值）。 */
+              scopeRef: z.string(),
+              /** 限哪个模型；`null` = 全部模型。 */
+              modelId: z.string().nullable(),
+              windowKind: LimitWindowKind,
+              thresholdTokens: z.number(),
+              action: LimitAction,
+              /** `degrade` 时的目标模型；其余动作恒为 null。 */
+              degradeToModelId: z.string().nullable(),
+              enabled: z.boolean(),
+              /** 本规则自己的窗口内的实测用量。 */
+              observedTokens: z.number(),
+              /** `observedTokens / thresholdTokens`，服务端算好（见上方 ⚠）。 */
+              usedRatio: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /** `createLimitRule` —— 新增一条规则。 */
+  createLimitRule: {
+    method: "POST",
+    path: "/organizations/:orgId/limit-rules",
+    in: z
+      .object({
+        orgId: z.string(),
+        scopeKind: LimitScopeKind,
+        scopeRef: z.string().min(1),
+        modelId: z.string().nullable(),
+        windowKind: LimitWindowKind,
+        thresholdTokens: z.number().int().positive(),
+        action: LimitAction,
+        degradeToModelId: z.string().nullable(),
+      })
+      .strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "DEGRADE_TARGET_REQUIRED", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /** `updateLimitRule` —— 改阈值 / 动作 / 启停。 */
+  updateLimitRule: {
+    method: "PATCH",
+    path: "/organizations/:orgId/limit-rules/:ruleId",
+    in: z
+      .object({
+        orgId: z.string(),
+        ruleId: z.string(),
+        thresholdTokens: z.number().int().positive().optional(),
+        action: LimitAction.optional(),
+        degradeToModelId: z.string().nullable().optional(),
+        enabled: z.boolean().optional(),
+      })
+      .strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "LIMIT_RULE_NOT_FOUND", "DEGRADE_TARGET_REQUIRED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /** `deleteLimitRule` —— 删规则。⚠ 已触发过的 `limit_events` **不跟着删**（那是账）。 */
+  deleteLimitRule: {
+    method: "POST",
+    path: "/organizations/:orgId/limit-rules/:ruleId/delete",
+    in: z.object({ orgId: z.string(), ruleId: z.string() }).strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "LIMIT_RULE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `listLimitEvents` —— 「用量监控 · 近期限额事件」。
+   *
+   * ⚠ 这一条是 F161 里**刻意没有放进 `getUsageReport`** 的那块（见该操作的注释）：
+   *   数据源到 F162 才存在，提前放进去恒返回空数组会让「还没做」和「真的没发生过」
+   *   在界面上长得一模一样。现在它有了自己的真实来源，才作为独立操作出现。
+   */
+  listLimitEvents: {
+    method: "GET",
+    path: "/organizations/:orgId/limit-events",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        events: z.array(
+          z
+            .object({
+              eventId: z.string(),
+              occurredAt: z.string(),
+              ruleId: z.string(),
+              scopeKind: LimitScopeKind,
+              subjectRef: z.string(),
+              actionTaken: LimitAction,
+              observedTokens: z.number(),
+              thresholdTokens: z.number(),
             })
             .strict(),
         ),

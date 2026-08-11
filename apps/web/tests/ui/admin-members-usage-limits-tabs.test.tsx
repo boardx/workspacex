@@ -11,8 +11,9 @@
  *   ② 切到「用量监控」：面板挂在同一屏上、与成员配额互斥。
  *      ⚠ F161 起这块屏读真库，原先「矩阵与 mock 逐格对应」的断言已随那份 mock 退役，
  *      它的行为断言移到 `admin-usage-monitor-live.test.tsx`（见下方该 describe 的长注）。
- *   ③ 切到「限额策略」：限额规则数、`highlighted` 醒目卡片数与 mock 数据源对应；
- *      降级阈值三级 + 任务分级表四行都在。
+ *   ③ 切到「限额策略」：⚠ F162 起规则区读真库，「与 mock 逐条对应」的断言已退役
+ *      （移到 admin-limit-rules-live.test.tsx）；这里只留降级阈值三级 + 任务分级表——
+ *      那两块仍是 mock（phase-03 F14 的地盘）。
  *   ④ 反证：`ADMIN_NAV`「组织」组没有因为这次改动多出 `usage`/`limits` 之类的新左栏项——
  *      证实信息架构落点选的是「同一屏 tab」而不是「新左栏菜单项」。
  */
@@ -21,7 +22,7 @@ import { render, screen, within, fireEvent, cleanup } from "@testing-library/rea
 import { afterEach } from "vitest";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { ADMIN_NAV } from "@/lib/mock/admin";
-import { LIMIT_RULES, TASK_TYPE_GRADING } from "@/lib/mock/admin-limits";
+import { TASK_TYPE_GRADING } from "@/lib/mock/admin-limits";
 
 afterEach(() => cleanup());
 
@@ -63,68 +64,33 @@ describe("②用量监控 tab：挂在同一屏上，切换与成员配额互斥
 });
 
 describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", () => {
-  it("规则卡片数与 mock 源一致，醒目卡片(highlighted)数目也一致", () => {
+  /*
+   * F162 起「限额规则」这块读真库（`LimitRulesLive`），原来两条断言——卡片数与
+   * `LIMIT_RULES` mock 一致、点[编辑]改本地 state——测的是一份不再驱动界面的常量数组
+   * 和一段不再存在的本地状态。它们的行为断言移到 `admin-limit-rules-live.test.tsx`
+   * （那里有 fetch 与 session 的替身）。本文件只留仍然归它管的：降级阈值三级与任务分级表
+   * 这两块**仍是 mock**（属 phase-03 F14 的地盘），以及它们该带的「尚未接入真实后端」提示。
+   */
+  it("规则区在真栈组件里渲染（不再读 LIMIT_RULES mock）", () => {
     renderScreen();
     fireEvent.mouseDown(screen.getByTestId("admin-members-tab-policy"), { button: 0 });
     const panel = screen.getByTestId("admin-members-tabpanel-policy");
-
-    for (const r of LIMIT_RULES) {
-      const card = within(panel).getByTestId(`admin-limit-rule-${r.id}`);
-      expect(card).toHaveTextContent(r.scopeName);
-      expect(card).toHaveTextContent(r.appliesModel);
-    }
-    expect(LIMIT_RULES.length).toBeGreaterThan(0);
-
-    const highlighted = LIMIT_RULES.filter((r) => r.highlighted);
-    expect(highlighted.length).toBeGreaterThan(0);
-    for (const r of highlighted) {
-      const card = within(panel).getByTestId(`admin-limit-rule-${r.id}`);
-      expect(card.className).toMatch(/warning/);
-    }
-    // 非醒目卡片不该被误标成 warning 边框——防止「全部卡片都套同一个 class」的假阳性
-    const plain = LIMIT_RULES.find((r) => !r.highlighted);
-    expect(plain).toBeDefined();
-    const plainCard = within(panel).getByTestId(`admin-limit-rule-${plain!.id}`);
-    expect(plainCard.className).not.toMatch(/warning/);
+    expect(within(panel).getByTestId("admin-limits-rules")).toBeInTheDocument();
+    // 没有 SessionProvider ⇒ 组件走「尚未选择组织」分支，不会去 fetch，也不会渲染任何
+    // 示例规则卡片——这正是「它不再有 mock 兜底」的证据。
+    expect(within(panel).queryByTestId("admin-limit-rule-lr-wutong-opus")).toBeNull();
   });
 
-  it("降级阈值三级都在，任务分级表四行都在且色调不同（不是一刀切同色）", () => {
+  it("降级阈值/任务分级这两块仍是 mock，带着「尚未接入真实后端」提示", () => {
     renderScreen();
     fireEvent.mouseDown(screen.getByTestId("admin-members-tab-policy"), { button: 0 });
     const panel = screen.getByTestId("admin-members-tabpanel-policy");
-
-    expect(within(panel).getByTestId("admin-degrade-tier-org")).toHaveTextContent("组织级");
-    expect(within(panel).getByTestId("admin-degrade-tier-member")).toHaveTextContent("成员级");
-    expect(within(panel).getByTestId("admin-degrade-tier-agent")).toHaveTextContent("Agent 级");
-
-    for (const row of TASK_TYPE_GRADING) {
-      const tr = within(panel).getByTestId(`admin-degrade-task-${row.key}`);
-      expect(tr).toHaveTextContent(row.taskType);
-      expect(tr).toHaveTextContent(row.action);
-    }
-    // 至少两种不同 tone（防止四行全部同色，看不出「不是一刀切」）
-    expect(new Set(TASK_TYPE_GRADING.map((r) => r.tone)).size).toBeGreaterThan(1);
+    expect(within(panel).getByTestId("admin-degrade-tiers")).toBeInTheDocument();
+    // 两处：一处在降级阈值区（本条要的），一处在整屏 quota tab 之外的位置——
+    // 用 getAllBy 而不是把断言放宽成 queryBy，数量本身是信息。
+    expect(within(within(panel).getByTestId("admin-degrade-tiers"))
+      .getByTestId("admin-no-backend-notice")).toBeInTheDocument();
   });
-
-  it("点[编辑]能改上限并落到卡片上（本地 mock 状态，不是死按钮）", () => {
-    renderScreen();
-    fireEvent.mouseDown(screen.getByTestId("admin-members-tab-policy"), { button: 0 });
-    const panel = screen.getByTestId("admin-members-tabpanel-policy");
-    const rule = LIMIT_RULES[0]!;
-
-    fireEvent.click(within(panel).getByTestId(`admin-limit-rule-edit-${rule.id}`));
-    const dialog = screen.getByTestId("admin-limit-rule-edit-dialog");
-    const capInput = within(dialog).getByTestId("admin-limit-rule-edit-cap") as HTMLInputElement;
-    fireEvent.change(capInput, { target: { value: "999 万 token" } });
-    fireEvent.click(within(dialog).getByTestId("admin-limit-rule-edit-save"));
-
-    expect(screen.queryByTestId("admin-limit-rule-edit-dialog")).toBeNull();
-    const card = within(panel).getByTestId(`admin-limit-rule-${rule.id}`);
-    expect(card).toHaveTextContent("999 万 token");
-  });
-});
-
-describe("④反证：三个 tab 没有变成三条新的左栏菜单项", () => {
   it("ADMIN_NAV「组织」组的 key 集合不含 usage/limits/policy 等新键", () => {
     const org = ADMIN_NAV.find((g) => g.group === "组织")!;
     const keys = org.items.map((i) => i.key);

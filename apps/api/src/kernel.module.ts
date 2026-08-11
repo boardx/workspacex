@@ -300,7 +300,8 @@ import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repos
 //   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
 import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
 import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
-import { TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
+import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
+import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
 import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
 // F31 (files bundle): the project file browser's three READ routes.
@@ -1011,6 +1012,12 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
     },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
     // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
+    // F162 限额策略。与额度仓储分开：规则是配置，额度是数额，两者的读写路径没有共享逻辑。
+    {
+      provide: LIMIT_RULE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgLimitRuleRepository(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: TOKEN_QUOTA_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgTokenQuotaRepository(db),

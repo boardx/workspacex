@@ -52,6 +52,7 @@ beforeAll(async () => {
     new PgIdentityRepository(db),
     null as never,
     new PgTokenQuotaRepository(db),
+    null as never,  // F162 限额规则仓储：本文件只测额度/用量四条路由
   );
 }, HOOK_TIMEOUT_MS);
 
