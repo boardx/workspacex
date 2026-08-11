@@ -64,16 +64,16 @@ afterAll(async () => {
 describe("readThreadHistory —— 附件元数据聚合（真库反证）", () => {
   it("挂了附件的那条历史消息带回 filename/mime；没挂的不带；助手轮不受影响", async () => {
     // 三条历史消息（id 递增即时间递增）：human 带两个附件 → agent 回复 → human 带一个附件。
-    await addChatMessage({ orgId: ORG, id: "m1", threadId: THREAD, body: "看看这两个文件", authorId: ACTOR });
-    await addAttachment({ id: "att-1a", messageId: "m1", filename: "简历.pdf", mime: "application/pdf", bytes: 1024 });
-    await addAttachment({ id: "att-1b", messageId: "m1", filename: "作品.png", mime: "image/png", bytes: 2048 });
-    await addChatMessage({ orgId: ORG, id: "m2", threadId: THREAD, body: "收到，看完了", authorId: "agent-x", authorKind: "agent", agentId: "agent-x" });
-    await addChatMessage({ orgId: ORG, id: "m3", threadId: THREAD, body: "再看这个", authorId: ACTOR });
-    await addAttachment({ id: "att-3", messageId: "m3", filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", bytes: 4096 });
+    await addChatMessage({ orgId: ORG, id: "ih-m1", threadId: THREAD, body: "看看这两个文件", authorId: ACTOR });
+    await addAttachment({ id: "att-1a", messageId: "ih-m1", filename: "简历.pdf", mime: "application/pdf", bytes: 1024 });
+    await addAttachment({ id: "att-1b", messageId: "ih-m1", filename: "作品.png", mime: "image/png", bytes: 2048 });
+    await addChatMessage({ orgId: ORG, id: "ih-m2", threadId: THREAD, body: "收到，看完了", authorId: "agent-x", authorKind: "agent", agentId: "agent-x" });
+    await addChatMessage({ orgId: ORG, id: "ih-m3", threadId: THREAD, body: "再看这个", authorId: ACTOR });
+    await addAttachment({ id: "att-3", messageId: "ih-m3", filename: "合同.docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", bytes: 4096 });
     // 触发消息（anchor）：最新的一条，本身不进历史。
-    await addChatMessage({ orgId: ORG, id: "m9-trigger", threadId: THREAD, body: "附件是什么？", authorId: ACTOR });
+    await addChatMessage({ orgId: ORG, id: "ih-m9-trigger", threadId: THREAD, body: "附件是什么？", authorId: ACTOR });
 
-    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "m9-trigger", 10);
+    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "ih-m9-trigger", 10);
 
     // m1、m2、m3 三轮（trigger 不含），oldest-first。
     expect(history.map((h) => h.content)).toEqual(["看看这两个文件", "收到，看完了", "再看这个"]);
@@ -92,30 +92,30 @@ describe("readThreadHistory —— 附件元数据聚合（真库反证）", () 
   });
 
   it("V9-b：已抽取的附件 → history 带回 extractionStatus='extracted' + extractedExcerpt（内容进上下文）", async () => {
-    await addChatMessage({ orgId: ORG, id: "e1", threadId: THREAD, body: "看这份简历", authorId: ACTOR });
+    await addChatMessage({ orgId: ORG, id: "ih-e1", threadId: THREAD, body: "看这份简历", authorId: ACTOR });
     await asApp(ORG, (c) =>
       c.query(
         `INSERT INTO chat_message_attachments
            (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes,
             extracted_ref, extracted_excerpt, extraction_status)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'extracted')`,
-        ["att-ex", ORG, THREAD, "e1", `chat-attachments/${ORG}/att-ex`, "简历.pdf",
+        ["att-ex", ORG, THREAD, "ih-e1", `chat-attachments/${ORG}/att-ex`, "简历.pdf",
           "application/pdf", 2048, `chat-attachments-extracted/${ORG}/att-ex.md`, "# 张三\n资深后端工程师"],
       ),
     );
-    await addChatMessage({ orgId: ORG, id: "e9-trigger", threadId: THREAD, body: "总结", authorId: ACTOR });
+    await addChatMessage({ orgId: ORG, id: "ih-e9-trigger", threadId: THREAD, body: "总结", authorId: ACTOR });
 
-    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "e9-trigger", 10);
+    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "ih-e9-trigger", 10);
     expect(history[0]!.attachments).toEqual([
       { filename: "简历.pdf", mime: "application/pdf", extractionStatus: "extracted", extractedExcerpt: "# 张三\n资深后端工程师" },
     ]);
   });
 
   it("整条线程都没有附件 → 每轮都不带 attachments（不是空数组噪声）", async () => {
-    await addChatMessage({ orgId: ORG, id: "n1", threadId: THREAD, body: "纯文字", authorId: ACTOR });
-    await addChatMessage({ orgId: ORG, id: "n9-trigger", threadId: THREAD, body: "问题", authorId: ACTOR });
+    await addChatMessage({ orgId: ORG, id: "ih-n1", threadId: THREAD, body: "纯文字", authorId: ACTOR });
+    await addChatMessage({ orgId: ORG, id: "ih-n9-trigger", threadId: THREAD, body: "问题", authorId: ACTOR });
 
-    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "n9-trigger", 10);
+    const history = await repo.readThreadHistory(toOrgId(ORG), THREAD, "ih-n9-trigger", 10);
     expect(history).toHaveLength(1);
     expect(history[0]!.attachments).toBeUndefined();
   });

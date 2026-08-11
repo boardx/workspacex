@@ -75,12 +75,12 @@ beforeEach(async () => {
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", null);
   await addChatThread({ orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ACTOR });
-  await addChatMessage({ orgId: ORG, id: "m1", threadId: THREAD, body: "带附件", authorId: ACTOR });
+  await addChatMessage({ orgId: ORG, id: "frg-m1", threadId: THREAD, body: "带附件", authorId: ACTOR });
   await asApp(ORG, (c) =>
     c.query(
       `INSERT INTO chat_message_attachments (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      ["att-rg", ORG, THREAD, "m1", `chat-attachments/${ORG}/att-rg`, "机密文件名.csv", "text/csv", 42],
+      ["att-rg", ORG, THREAD, "frg-m1", `chat-attachments/${ORG}/att-rg`, "机密文件名.csv", "text/csv", 42],
     ),
   );
 });

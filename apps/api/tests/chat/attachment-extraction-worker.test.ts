@@ -87,7 +87,7 @@ beforeEach(async () => {
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", null);
   await addChatThread({ orgId: ORG, id: THREAD, projectId: PROJECT, visibilityScope: "plenary", createdBy: ACTOR });
-  await addChatMessage({ orgId: ORG, id: "m1", threadId: THREAD, body: "带附件", authorId: ACTOR });
+  await addChatMessage({ orgId: ORG, id: "few-m1", threadId: THREAD, body: "带附件", authorId: ACTOR });
   store = memStore();
 });
 
@@ -98,7 +98,7 @@ describe("attachment extraction worker（真库 + 真 anydoc）", () => {
     const csv = new TextEncoder().encode("name,role\nAva,facilitator\n");
     const ref = `chat-attachments/${ORG}/att-csv`;
     await store.putOnce(ref, csv, "text/csv");
-    await addAttachment({ id: "att-csv", messageId: "m1", mime: "text/csv", storageRef: ref, bytes: csv.byteLength });
+    await addAttachment({ id: "att-csv", messageId: "few-m1", mime: "text/csv", storageRef: ref, bytes: csv.byteLength });
     await repo.enqueue(toOrgId(ORG), "att-csv");
 
     const r = await runExtractionTick(deps(), toOrgId(ORG), "worker-1");
@@ -117,7 +117,7 @@ describe("attachment extraction worker（真库 + 真 anydoc）", () => {
     const txt = new TextEncoder().encode("这是一段纯文本笔记");
     const ref = `chat-attachments/${ORG}/att-txt`;
     await store.putOnce(ref, txt, "text/plain");
-    await addAttachment({ id: "att-txt", messageId: "m1", mime: "text/plain", storageRef: ref, bytes: txt.byteLength });
+    await addAttachment({ id: "att-txt", messageId: "few-m1", mime: "text/plain", storageRef: ref, bytes: txt.byteLength });
     await repo.enqueue(toOrgId(ORG), "att-txt");
 
     const r = await runExtractionTick(deps(), toOrgId(ORG), "worker-1");
@@ -131,7 +131,7 @@ describe("attachment extraction worker（真库 + 真 anydoc）", () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const ref = `chat-attachments/${ORG}/att-png`;
     await store.putOnce(ref, png, "image/png");
-    await addAttachment({ id: "att-png", messageId: "m1", mime: "image/png", storageRef: ref, bytes: png.byteLength });
+    await addAttachment({ id: "att-png", messageId: "few-m1", mime: "image/png", storageRef: ref, bytes: png.byteLength });
     await repo.enqueue(toOrgId(ORG), "att-png");
 
     const r = await runExtractionTick(deps(), toOrgId(ORG), "worker-1");
@@ -146,7 +146,7 @@ describe("attachment extraction worker（真库 + 真 anydoc）", () => {
     const csv = new TextEncoder().encode("a,b\n1,2\n");
     const ref = `chat-attachments/${ORG}/att-replay`;
     await store.putOnce(ref, csv, "text/csv");
-    await addAttachment({ id: "att-replay", messageId: "m1", mime: "text/csv", storageRef: ref, bytes: csv.byteLength });
+    await addAttachment({ id: "att-replay", messageId: "few-m1", mime: "text/csv", storageRef: ref, bytes: csv.byteLength });
     // 预先把 extracted markdown 落好（模拟上一次已 putOnce 但没走完记状态就崩了）。
     await store.putOnce(extractedObjectKey(toOrgId(ORG), "att-replay"), new TextEncoder().encode("| a | b |"), "text/markdown");
     await repo.enqueue(toOrgId(ORG), "att-replay");
