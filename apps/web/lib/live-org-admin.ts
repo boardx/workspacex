@@ -268,3 +268,50 @@ export async function revokeOrgInvite(orgId: string, inviteId: string): Promise<
     { method: "POST", body: { orgId, inviteId } },
   );
 }
+
+/* ═══════════════ F160：成员 token 配额（token-quota-and-usage delta）═══════════════
+ *
+ * ⚠ 三条都**仅组织 admin**（后端 `requireOrgAdmin`）。与本文件里 `listOrgMembers`
+ *   那条对普通成员开放的读**不是同一个授权面**——额度是钱。
+ *
+ * ⚠ `orgBudget` / `unallocated` / `monthlyLimit` 可空，且 **null ≠ 0**：
+ *   null 是「还没设过 / 还没分配」，0 是「设了 0」。渲染时不要 `?? 0`，
+ *   那会把「未设置」显示成「已用尽」。
+ */
+
+export type GetTokenQuotasOut = z.infer<typeof orgAdmin.operations.getTokenQuotas.out>;
+export type SetMemberTokenQuotaOut = z.infer<typeof orgAdmin.operations.setMemberTokenQuota.out>;
+export type SetOrgTokenBudgetOut = z.infer<typeof orgAdmin.operations.setOrgTokenBudget.out>;
+
+/** `GET /organizations/:orgId/token-quotas`——「成员配额」tab 整屏的数据来源。 */
+export async function getTokenQuotas(orgId: string): Promise<GetTokenQuotasOut> {
+  return apiRequest<GetTokenQuotasOut>(
+    path(orgAdmin.operations.getTokenQuotas.path, { orgId }),
+    { method: "GET" },
+  );
+}
+
+/**
+ * `PATCH /organizations/:orgId/token-quotas/:userId`——成员行 `[调整]` 的落点。
+ * 超过组织额度时抛 `ApiError`，`reasonCode = QUOTA_OVERALLOCATED`，响应体带
+ * `remainingTokens`（还剩多少可分）——界面必须把那个数说出来，只说「超了」
+ * 等于让管理员靠试。
+ */
+export async function setMemberTokenQuota(
+  orgId: string, userId: string, monthlyLimit: number,
+): Promise<SetMemberTokenQuotaOut> {
+  return apiRequest<SetMemberTokenQuotaOut>(
+    path(orgAdmin.operations.setMemberTokenQuota.path, { orgId, userId }),
+    { method: "PATCH", body: { orgId, userId, monthlyLimit } },
+  );
+}
+
+/** `PATCH /organizations/:orgId/token-budget`——设置组织月度额度；调到低于已分配之和会被拒。 */
+export async function setOrgTokenBudget(
+  orgId: string, monthlyBudget: number,
+): Promise<SetOrgTokenBudgetOut> {
+  return apiRequest<SetOrgTokenBudgetOut>(
+    path(orgAdmin.operations.setOrgTokenBudget.path, { orgId }),
+    { method: "PATCH", body: { orgId, monthlyBudget } },
+  );
+}

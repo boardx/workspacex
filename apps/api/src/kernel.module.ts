@@ -300,6 +300,8 @@ import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repos
 //   材料字节走同一个 `ObjectStore` 实例，键前缀 `org-avatars/` 区分即可。
 import { ORG_PROFILE_REPOSITORY } from "./application/auth/org-profile-ports";
 import { PgOrgProfileRepository } from "./infrastructure/auth/pg-org-profile-repository";
+import { TOKEN_QUOTA_REPOSITORY } from "./application/auth/token-quota-ports";
+import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
 import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -1005,6 +1007,13 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
     {
       provide: ORG_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
+    // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
+    {
+      provide: TOKEN_QUOTA_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgTokenQuotaRepository(db),
       inject: [DATABASE_PORT],
     },
     // org-profile-membership delta（#363）。
