@@ -257,7 +257,11 @@ systemctl enable workspacex-api workspacex-web >/dev/null
 echo "两个 unit 已写入并 enable（不在这里 start——首次内容还没部署，交给 deploy.sh）"
 
 step "7. /usr/local/bin/workspacex-deploy（root 拥有的副本，仓库里那份不可信）"
+# ⚠ deploy.sh 的全部 helper lib 必须与它**同批 install**——2026-08-11 devapp 实测：只装
+#   deploy.sh 不装 deep-agent-lib.sh，首跑 source 报 No such file or directory 静默跳过
+#   4h 步。以后给 deploy.sh 新增 source 依赖时，这里必须同步加一行 install。
 install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/workspacex-deploy-readiness.sh
+install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh" /usr/local/lib/workspacex-deep-agent-lib.sh
 install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy
 echo "已装 $(sha256sum /usr/local/bin/workspacex-deploy | cut -d' ' -f1)"
 

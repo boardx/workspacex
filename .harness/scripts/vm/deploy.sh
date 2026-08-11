@@ -173,8 +173,19 @@ step "4h. deep-agent-service（通用助手内核，2026-08-11 —— 此前从�
 # 从当前部署的源码 build（tag = git SHA，有出处）→ 幂等生成专属 env 文件 → 起容器 →
 # 健康检查。端口归属登记在 .harness/instructions/project/PROJECT.md「本机端口分配」
 # （单一事实源，此处不复述）；可测逻辑抽在 deep-agent-lib.sh，由 deep-agent-lib.test.ts 覆盖。
+# ⚠ deploy.sh 是被 install 成 /usr/local/bin/workspacex-deploy 的孤本运行的——
+#   `$(dirname BASH_SOURCE)` 相对定位在装好的环境里指向 /usr/local/bin，lib 不在那儿。
+#   2026-08-11 devapp 首跑实测：source 报 No such file or directory 两次却**不红退**、
+#   静默跳过 4h 剩余步。照 DEPLOY_READINESS_LIB 的先例：provision.sh 第 7 步同批
+#   install 到 /usr/local/lib，这里显式判存在、缺了红退，不再依赖相对路径的巧合。
+DEEP_AGENT_LIB=${DEEP_AGENT_LIB:-/usr/local/lib/workspacex-deep-agent-lib.sh}
+if [ ! -r "$DEEP_AGENT_LIB" ]; then
+  # 仓库内直跑（开发/测试）时回落到同目录副本；两处都没有才是真缺。
+  DEEP_AGENT_LIB="$(dirname "${BASH_SOURCE[0]}")/deep-agent-lib.sh"
+fi
+[ -r "$DEEP_AGENT_LIB" ] || { echo "缺 deep-agent helper: $DEEP_AGENT_LIB（provision.sh 第 7 步应与 deploy.sh 同批 install）"; exit 1; }
 # shellcheck source=/dev/null
-source "$(dirname "${BASH_SOURCE[0]}")/deep-agent-lib.sh"
+source "$DEEP_AGENT_LIB"
 
 DEEP_AGENT_ENV_FILE=${DEEP_AGENT_ENV_FILE:-/opt/workspacex/deep-agent.env}
 DEEP_AGENT_SHA=$(sudo -u "$RUN_AS" git rev-parse --short HEAD)
