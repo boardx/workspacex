@@ -55,13 +55,26 @@ CREATE TABLE IF NOT EXISTS token_usage_events (
 
 - **append-only**：UPDATE / DELETE 由触发器拒绝（同 `wave2_agent_run_step_append_only`
   的写法，含「父组织已删除时放行级联」的同一豁口）。RLS 按 `app.current_org`。
-- **⚠ 只有 `tokens_total`，没有 in/out 拆分**。上游我们今天真正拿得到的只有
-  `usage.total_tokens`（见第 0 节）。造两列再各填一半是伪造维度——记为具名缺口
-  **`GAP-TOKEN-IO-SPLIT`**：等 provider 侧真能分出 prompt/completion 再加列，
-  届时旧行按 NULL 处理而不是回填猜测值。
-- **失败也记一行**（`outcome='failed'`, `tokens_total=0`）。理由：管理员问「这个人这周
-  怎么用了这么多」时，失败重试是答案的一部分；「失败就没有用量」会让计量流水与
-  `agent_runs` 的行数对不上，而对不上时没人知道是漏记还是真没调用。
+- **`tokens_prompt` / `tokens_completion` 可空，与 `tokens_total` 并存**。
+  ⚠ 本条**已修订**（coord-main 2026-08-12 裁决③：先查一步再定）。初稿写的是
+  「上游只给得到 `total_tokens`，所以记为具名缺口 `GAP-TOKEN-IO-SPLIT`」——**那个判断是错的**，
+  错在只读了我们自己的解析类型（`configured-model-provider.ts` 的 `CompletionResponse`
+  只声明了 `total_tokens`），没去读线上真实响应。打的是 OpenAI 兼容接口，`usage` 对象
+  本来就带 `prompt_tokens` / `completion_tokens`，一直在线上、一直被我们丢掉。
+  ⇒ 现在解析并落两列，**`GAP-TOKEN-IO-SPLIT` 撤销**。
+  仍然可空：自研包装的 provider（DeepResearch / Bailian / DeepAgent）未必报。
+  **NULL = 上游没报，不是 0**——填 0 会让「没报」在报表上等于「一个 prompt token 都没用」。
+- **失败也记一行**。理由：管理员问「这个人这周怎么用了这么多」时，失败重试是答案的
+  一部分；「失败就没有用量」会让计量流水与 `agent_runs` 的行数对不上，而对不上时
+  没人知道是漏记还是真没调用。
+  ⚠ **失败行的 token 不强制为 0**（coord-main 裁决②的修正）：部分 4xx 上游照样计费
+  prompt tokens 并在错误响应体里回 `usage`，一律记 0 会让那部分钱在账上凭空消失。
+  provider 从非 2xx 响应体里**只取 `usage` 的三个数字**（错误文本一个字都不进来，
+  原来那条「错误体常带 host/port/带凭据的 URL，一律不读」的纪律不松动），
+  挂在 `ModelCallError.usage` 上传给写入点；上游没报才记 0。
+  **代价写清楚**：因此不再有「失败必然为 0」这条数据库 CHECK，「把成功的数写到失败
+  分支上」这类写入点缺陷不再被数据库拦住——改由 `token-usage-single-write-path.test.ts`
+  在写入点上断言。
 
 ### 1.2 `org_token_budget`（F160）—— 组织月度额度
 
@@ -242,7 +255,8 @@ listLimitRules / createLimitRule / updateLimitRule / deleteLimitRule: {
 
 1. **§1.2 的「未设置 ＝ 不限额」**是否就是你要的？还是新组织必须先分配 token 额度？
 2. **§1.1 的「失败调用也记一行」**是否接受？它会让用量矩阵里出现「有调用没 token」的格子。
-3. **`GAP-TOKEN-IO-SPLIT`**：今天只记 total 是否可以？（拆 in/out 要等 provider 侧先能给。）
+3. ~~`GAP-TOKEN-IO-SPLIT`：今天只记 total 是否可以？~~ **已解决，不必再问**：
+   实测上游本来就报 prompt/completion，已落两列（可空），缺口撤销。
 4. **§2 的授权收窄**（四组端点一律仅 admin）——普通成员能不能看自己的用量？
    本 delta 的取向是**这一屏是后台管理屏，普通成员根本进不来**；若要给成员自查入口，
    那是另一条 feature，不在这里顺手做。

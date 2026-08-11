@@ -2,7 +2,8 @@
  * F159 —— 计量写入点的三条主张：
  *
  * ① 一次成功的模型调用 ⇒ 恰好一条用量事件，token 数就是 provider 报的那个数；
- * ② 一次失败的模型调用 ⇒ **也有**一条，`outcome='failed'` 且 `tokensTotal=0`；
+ * ② 一次失败的模型调用 ⇒ **也有**一条；上游在错误体里报了 usage 就如实记，没报才是 0
+ *    （coord-main 2026-08-12 裁决②的修正：部分 4xx 照样计费 prompt tokens）；
  * ③ **产品里只有一个写入点**——`INSERT INTO token_usage_events` 的字面量在
  *    `apps/api/src` 全部源码里只出现在 `pg-token-usage-repository.ts` 一个文件里。
  *
@@ -93,8 +94,48 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     expect(meter.written).toEqual([{
       userId: "user-linke", runId: "run-1",
       modelProvider: "test-provider", modelId: "test-model",
-      tokensTotal: 1234, outcome: "succeeded",
+      tokensTotal: 1234, promptTokens: null, completionTokens: null, outcome: "succeeded",
     }]);
+  });
+
+  it("上游报了 prompt/completion 拆分就如实记（OpenAI 兼容 usage 本来就带这两个字段）", async () => {
+    const meter = recordingMeter();
+    const model: ModelCallPort = {
+      complete: async () => ({ text: "reply", tokens: 300, promptTokens: 200, completionTokens: 100 }),
+    };
+
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, meter), { orgId: ORG });
+
+    expect(meter.written[0]).toMatchObject({
+      tokensTotal: 300, promptTokens: 200, completionTokens: 100,
+    });
+  });
+
+  it("上游只报总数 ⇒ 拆分维度记 null（不是 0）——「没报」与「用了 0」是两件事", async () => {
+    const meter = recordingMeter();
+    const model: ModelCallPort = { complete: async () => ({ text: "reply", tokens: 300 }) };
+
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, meter), { orgId: ORG });
+
+    expect(meter.written[0]).toMatchObject({
+      tokensTotal: 300, promptTokens: null, completionTokens: null,
+    });
+  });
+
+  it("失败的调用：上游在错误体里报了 usage 就如实记，不硬编 0", async () => {
+    const meter = recordingMeter();
+    const model: ModelCallPort = {
+      complete: async () => {
+        // provider 从 4xx 响应体里解出的 usage 挂在错误上（只带数字，不带错误文本）。
+        throw new ModelCallError("MODEL_CALL_FAILED", "upstream 429", { total: 120, prompt: 120, completion: 0 });
+      },
+    };
+
+    await executeQueuedRuns(deps(fakeStore(baseRun()), model, meter), { orgId: ORG });
+
+    expect(meter.written[0]).toMatchObject({
+      tokensTotal: 120, promptTokens: 120, completionTokens: 0, outcome: "failed",
+    });
   });
 
   it("provider 没报 token 数 ⇒ 记 0，不估值（估出来的数会被当成账）", async () => {
@@ -120,7 +161,7 @@ describe("F159 token 计量：模型调用是唯一产生用量事实的地方",
     expect(meter.written).toEqual([{
       userId: "user-linke", runId: "run-1",
       modelProvider: "test-provider", modelId: "test-model",
-      tokensTotal: 0, outcome: "failed",
+      tokensTotal: 0, promptTokens: null, completionTokens: null, outcome: "failed",
     }]);
   });
 

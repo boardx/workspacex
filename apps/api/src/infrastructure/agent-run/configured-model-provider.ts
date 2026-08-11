@@ -50,6 +50,7 @@ import type {
   ModelCallInput, ModelCallPort,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
+import type { ReportedUsage } from "../../application/agent-run/ports";
 
 export interface ConfiguredModelProviderConfig {
   /** The one provider name that runs may pin. Empty means: this deployment has none. */
@@ -106,15 +107,43 @@ function buildMessages(input: ModelCallInput): readonly WireMessage[] {
   ];
 }
 
+/**
+ * F159 —— `usage` 三个字段一起声明。
+ *
+ * ⚠ 在此之前这里只声明了 `total_tokens`，另外两个**一直在线上、一直被丢掉**：
+ * 打的是 OpenAI 兼容接口，`usage` 对象本来就带 `prompt_tokens` / `completion_tokens`。
+ * 「上游给不到所以不能拆 in/out」这个判断（曾被记为具名缺口 GAP-TOKEN-IO-SPLIT）
+ * 是错的——错在没去读线上真实响应，只读了我们自己的解析类型。
+ */
+interface WireUsage {
+  total_tokens?: unknown;
+  prompt_tokens?: unknown;
+  completion_tokens?: unknown;
+}
+
 interface CompletionResponse {
   choices?: { message?: { content?: unknown } }[];
-  usage?: { total_tokens?: unknown };
+  usage?: WireUsage;
 }
 
 /** One OpenAI-compatible `chat.completion.chunk` SSE payload. */
 interface CompletionChunk {
   choices?: { delta?: { content?: unknown }; finish_reason?: unknown }[];
-  usage?: { total_tokens?: unknown };
+  usage?: WireUsage;
+}
+
+/** 非负有限数才算「报了」；其它一律 `undefined`（没报），不在这一层造 0。 */
+function readCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+/** 线上 `usage` → 端口的 `ReportedUsage`。三维各自可缺。 */
+function readUsage(usage: WireUsage | undefined): ReportedUsage {
+  return {
+    total: readCount(usage?.total_tokens),
+    prompt: readCount(usage?.prompt_tokens),
+    completion: readCount(usage?.completion_tokens),
+  };
 }
 
 export class ConfiguredModelProvider implements ModelCallPort {
@@ -130,7 +159,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   readonly completeStream?: (
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
-  ) => Promise<{ readonly text: string; readonly tokens?: number }>;
+  ) => Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
 
   constructor(config: ConfiguredModelProviderConfig) {
     this.config = config;
@@ -140,7 +169,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number }
+    { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
   > {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
@@ -184,10 +213,25 @@ export class ConfiguredModelProvider implements ModelCallPort {
     }
 
     if (!response.ok) {
-      // The status is a number we produced the category for; the body is never read.
+      /*
+       * F159（coord-main 裁决②修正）—— 失败体里**只**取 `usage` 的三个数字。
+       *
+       * 这里原本一个字节都不读，理由写在原注释里：错误体常带 host / port / 有时是带
+       * 凭据的 URL。那条纪律没有松动——下面读出来的只有 `usage` 里的数字，错误文本
+       * 依然不进 `detail`、不进日志、不进任何响应。之所以要读：部分 4xx 上游照样计费
+       * prompt tokens 并把 usage 放在错误体里，一律记 0 会让那部分钱在账上凭空消失。
+       * 读不动（非 JSON / 体已被消费）就当没报，不让它影响失败本身。
+       */
+      let failedUsage: ReportedUsage | undefined;
+      try {
+        failedUsage = readUsage(((await response.json()) as CompletionResponse).usage);
+      } catch {
+        failedUsage = undefined;
+      }
       throw new ModelCallError(
         "MODEL_CALL_FAILED",
         `model provider responded with HTTP ${response.status}`,
+        failedUsage,
       );
     }
 
@@ -204,11 +248,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
     }
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
     // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
-    const reportedTokens = parsed.usage?.total_tokens;
-    const tokens = typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0
-      ? reportedTokens
-      : undefined;
-    return { text: content, tokens };
+    const usage = readUsage(parsed.usage);
+    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
   }
 
   /**
@@ -225,7 +266,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   private async streamImpl(
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }> {
     const { provider, baseUrl, apiKey, timeoutMs } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -274,7 +315,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     }
 
     let text = "";
-    let tokens: number | undefined;
+    let usage: ReportedUsage = {};
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -310,10 +351,14 @@ export class ConfiguredModelProvider implements ModelCallPort {
               text += delta;
               await onDelta(delta);
             }
-            const reportedTokens = chunk.usage?.total_tokens;
-            if (typeof reportedTokens === "number" && Number.isFinite(reportedTokens) && reportedTokens >= 0) {
-              tokens = reportedTokens;
-            }
+            // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
+            // 不用后来的 undefined 把已经报过的数抹掉。
+            const framed = readUsage(chunk.usage);
+            usage = {
+              total: framed.total ?? usage.total,
+              prompt: framed.prompt ?? usage.prompt,
+              completion: framed.completion ?? usage.completion,
+            };
           }
         }
       }
@@ -322,6 +367,6 @@ export class ConfiguredModelProvider implements ModelCallPort {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure");
     }
 
-    return { text, tokens };
+    return { text, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
   }
 }

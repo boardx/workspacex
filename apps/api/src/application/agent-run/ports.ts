@@ -419,6 +419,14 @@ export class ModelCallError extends Error {
   constructor(
     readonly code: RunFailureCode,
     readonly detail: string,
+    /**
+     * F159（coord-main 2026-08-12 裁决②的修正）—— 失败响应里上游报回来的用量。
+     *
+     * 部分 4xx 上游照样计费 prompt tokens 并在错误体里回 `usage`；把失败一律记 0
+     * 会让那部分钱在账上凭空消失。⚠ 只取 `usage` 里的**数字**，错误体的文本一个字
+     * 都不进来——`detail` 那条「provider 的话到此为止」的纪律不因为这个字段松动。
+     */
+    readonly usage?: ReportedUsage,
   ) {
     super(code);
     this.name = "ModelCallError";
@@ -442,7 +450,7 @@ export interface ModelCallPort {
    * reads as "not reported", not "confirmed zero".
    */
   complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number }
+    { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
   >;
 
   /**
@@ -463,7 +471,7 @@ export interface ModelCallPort {
   completeStream?(
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number }>;
+  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
 
   /**
    * #742 -- OPTIONAL, and MUTUALLY EXCLUSIVE with `completeStream` in practice (a provider
@@ -490,7 +498,7 @@ export interface ModelCallPort {
   completeWithProgress?(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number }>;
+  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
 
   /**
    * 2026-08-09 hotfix (#798) -- OPTIONAL per-run capability query, only meaningful for a
@@ -529,18 +537,33 @@ export interface AgentRunExecutorPort {
 /**
  * F159 —— 一次模型调用产生的用量事实。
  *
- * ⚠ 只有 `tokensTotal`，没有 prompt/completion 拆分：上游今天真正给得到的只有
- * `usage.total_tokens`（`configured-model-provider.ts` 从那里解出并返回）。造两个字段
- * 各填一半是伪造维度，记为具名缺口 `GAP-TOKEN-IO-SPLIT`（design-delta §1.1）。
+ * ⚠ `promptTokens` / `completionTokens` 是 `null` 时表示**上游没报这一维**，不是 0。
+ * OpenAI 兼容的 `usage` 对象本来就带 `prompt_tokens` / `completion_tokens`
+ * （coord-main 2026-08-12 裁决③要求先实测再定，实测结果：给得到），但自研包装的
+ * provider 未必报。填 0 会让「没报」在报表上等于「一个 prompt token 都没用过」。
  */
 export interface TokenUsageRecord {
   readonly userId: string;
   readonly runId: string;
   readonly modelProvider: string;
   readonly modelId: string;
-  /** 上游没报 token 数时是 0——「没报」与「报了 0」在库里同形，不猜一个估值。 */
+  /** 上游没报总数时是 0——总数是必填维度，缺失按 0 记而不是猜一个估值。 */
   readonly tokensTotal: number;
+  /** null = 上游没报。 */
+  readonly promptTokens: number | null;
+  /** null = 上游没报。 */
+  readonly completionTokens: number | null;
   readonly outcome: "succeeded" | "failed";
+}
+
+/**
+ * 一次调用的用量报告，provider 从上游响应里如实解出来的那份。
+ * 三个字段各自可缺——缺失一律是 `undefined`（没报），不是 0。
+ */
+export interface ReportedUsage {
+  readonly total?: number;
+  readonly prompt?: number;
+  readonly completion?: number;
 }
 
 /**

@@ -6,8 +6,8 @@
  *   2. **append-only**：UPDATE / DELETE 被触发器拒绝。这是本表存在的意义——
  *      账能改写，「本月已用 3.9M」这句话就不成立。
  *   3. **RLS**：另一个租户读不到，也写不进来。
- *   4. `outcome='failed'` 的行 token 数必须是 0（CHECK），
- *      挡住「把成功的数写到失败分支上」这类写入点缺陷。
+ *   4. 拆分维度（`tokens_prompt` / `tokens_completion`）**没报就是 NULL，不是 0**；
+ *      失败的行也可以带 token（上游 4xx 照样计费 prompt tokens）。
  *
  * 时序/参数那一半（谁在什么时候调用计量、失败路径也记一行）由
  * `token-usage-single-write-path.test.ts` 用内存 fake 验，不在这里重复。
@@ -57,10 +57,15 @@ async function seedMinimalRun(): Promise<void> {
   );
 }
 
-const write = (tokensTotal: number, outcome: "succeeded" | "failed" = "succeeded") =>
+const write = (
+  tokensTotal: number,
+  outcome: "succeeded" | "failed" = "succeeded",
+  split: { promptTokens: number | null; completionTokens: number | null } =
+    { promptTokens: null, completionTokens: null },
+) =>
   repo.record(toOrgId(ORG), {
     userId: ACTOR, runId: RUN, modelProvider: "test-provider", modelId: "test-model",
-    tokensTotal, outcome,
+    tokensTotal, outcome, ...split,
   });
 
 beforeAll(async () => {
@@ -130,17 +135,30 @@ describe("F159 token_usage_events —— 账的落库行为", () => {
     ).rejects.toThrow(/append-only/i);
   });
 
-  it("失败的行 token 必须是 0：写入点把成功的数写到失败分支上时当场违约", async () => {
-    // 仓储自己会把失败归一成 0（见其注释），所以这里绕过它直接写库，
-    // 验的是**数据库那一层**是否真的拦得住——否则这条约束只活在应用代码里。
-    await expect(
-      asApp(ORG, (c) => c.query(
-        `INSERT INTO token_usage_events
-           (id, org_id, user_id, run_id, model_provider, model_id, tokens_total, outcome)
-         VALUES ('evt-bad',$1,$2,$3,'p','m',999,'failed')`,
-        [ORG, ACTOR, RUN],
-      )),
-    ).rejects.toThrow(/failed_is_zero/i);
+  it("失败的行可以带 token：部分 4xx 上游照样计费 prompt tokens，一律记 0 会让那部分钱凭空消失", async () => {
+    // coord-main 2026-08-12 裁决②的修正。代价说清楚：因此**没有**「失败必为 0」这条
+    // 机械约束了，「把成功的数写到失败分支上」不再被数据库拦住——那条改由
+    // `token-usage-single-write-path.test.ts` 在写入点上断言。
+    await write(120, "failed", { promptTokens: 120, completionTokens: 0 });
+
+    const rows = await asApp(ORG, (c) =>
+      c.query<{ tokens_total: string; tokens_prompt: string | null; outcome: string }>(
+        "SELECT tokens_total, tokens_prompt, outcome FROM token_usage_events WHERE org_id=$1", [ORG],
+      ).then((r) => r.rows),
+    );
+    expect(rows[0]).toMatchObject({ tokens_total: "120", tokens_prompt: "120", outcome: "failed" });
+  });
+
+  it("上游没报拆分维度时存 NULL，不是 0（「没报」≠「一个 prompt token 都没用」）", async () => {
+    await write(1000);
+
+    const rows = await asApp(ORG, (c) =>
+      c.query<{ tokens_prompt: string | null; tokens_completion: string | null }>(
+        "SELECT tokens_prompt, tokens_completion FROM token_usage_events WHERE org_id=$1", [ORG],
+      ).then((r) => r.rows),
+    );
+    expect(rows[0]?.tokens_prompt).toBeNull();
+    expect(rows[0]?.tokens_completion).toBeNull();
   });
 
   it("RLS：另一个租户既读不到也写不进来", async () => {
