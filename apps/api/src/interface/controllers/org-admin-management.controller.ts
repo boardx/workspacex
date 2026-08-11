@@ -416,7 +416,8 @@ export class OrgAdminManagementController {
           avatarArtifactId: body.avatarArtifactId,
         },
       );
-      return out;
+      // 契约 out 是 .strict() 的三字段——仓储的 OrgProfile 多带 avatarArtifactId，不透传。
+      return { name: out.name, description: out.description, avatarUrl: out.avatarUrl };
     } catch (e) {
       throw toHttpException(e);
     }

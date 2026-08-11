@@ -9,6 +9,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ForbiddenException } from "@nestjs/common";
+import { orgAdmin as C } from "@repo/contracts";
 import { updateOrganization } from "../../src/application/auth/update-organization";
 import { OrgAdminError } from "../../src/application/auth/org-invite-errors";
 import { PgOrgProfileRepository } from "../../src/infrastructure/auth/pg-org-profile-repository";
@@ -139,5 +140,24 @@ describe("updateOrganization", () => {
 
     const after = await readOrgRow(ORG);
     expect(after.name).not.toBe("Hijacked");
+  });
+
+  /* ═══════ 反证（参照 orphan-invite-resend-revoke.test.ts 反证 C）：
+     controller 响应 key 集合逐字等于契约 out——仓储 OrgProfile 的
+     avatarArtifactId 绝不透传（契约 out 是 .strict() 的三字段）。 ═══════ */
+  it("controller 响应 key 集合逐字等于契约 out（不透传 avatarArtifactId）", async () => {
+    await seedOrg({ orgId: ORG, teamNames: [], projectId: `${ORG}-p` });
+    await addCredential(ADMIN, "admin@i363-update-org.test", "Admin");
+    await addOrgMember(ORG, ADMIN, "admin", null);
+
+    const out = await controller.updateProfile(
+      ORG,
+      { orgId: ORG, name: "Key Set Check", description: "contract-only fields" },
+      { userId: ADMIN, orgId: toOrgId(ORG) },
+    );
+
+    expect(Object.keys(out).sort()).toEqual(Object.keys(C.operations.updateOrganization.out.shape).sort());
+    // 双保险：契约 out 是 .strict()，透传多余字段时 parse 直接炸。
+    expect(() => C.operations.updateOrganization.out.parse(out)).not.toThrow();
   });
 });
