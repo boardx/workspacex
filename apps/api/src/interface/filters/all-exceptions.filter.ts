@@ -26,6 +26,7 @@ import {
   auth,
   canvas,
   chat,
+  chatFileUpload,
   files,
   identity,
   interview,
@@ -344,6 +345,24 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    */
   const chatError = chat.ChatError.safeParse(raw);
   if (chatError.success) return { reasonCode: chatError.data };
+
+  /**
+   * #946 · V9-a F150: `chatFileUpload.ChatAttachmentError`，本文件下一个（第十个）封闭枚举。
+   *
+   * 加它的理由与 F109 `chat.ChatError` 逐字同型：`uploadAttachment.err` 里的
+   * `FILE_TOO_LARGE` / `FILE_TYPE_REJECTED` / `MIME_MISMATCH` / `ATTACHMENT_LIMIT_EXCEEDED`
+   * 声明在契约 `chat-file-upload.ts`，却不属于上面任何枚举，于是前面每次 safeParse 都失败，
+   * 调用方只会收到光秃秃的 `{"error":"..."}`——状态码对、原因没了，而这四件事的用户出口
+   * 完全不同（换小文件 / 换类型 / 别改扩展名骗过检测 / 先减附件）。
+   *
+   * ⚠ 该枚举含 `THREAD_NOT_VISIBLE`，但**它刻意不走这条路**——与 `chat.NOT_VISIBLE` 同型：
+   *   I-3 要求「不可见」与「不存在」逐字节相同，所以 `chat-attachment.controller.ts` 的
+   *   `AttachmentUploadError("THREAD_NOT_VISIBLE")` 那条抛的是**不带 reasonCode 的裸 404**
+   *   （见该控制器 catch 段），不经由本函数。`NO_WRITE_ROLE` / `STORAGE_UNAVAILABLE` 两码
+   *   与 `chat.ChatError` 重叠，本可由上一条放行；这里一并覆盖，语义单源在本枚举。
+   */
+  const attachmentError = chatFileUpload.ChatAttachmentError.safeParse(raw);
+  if (attachmentError.success) return { reasonCode: attachmentError.data };
 
   /**
    * #463: `canvas.CanvasError`，第十个闭集枚举 —— 同一个 bug 第六次发生。

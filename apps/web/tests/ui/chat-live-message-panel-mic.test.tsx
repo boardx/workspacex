@@ -29,7 +29,10 @@ const { listMessages, createMessage, getAgentRun, openAgentRunStream, openAsrDra
   openAsrDraftStream: vi.fn(),
 }));
 
-vi.mock("@/lib/live-chat", () => ({
+// #946：spread 真实 live-chat 保留 ATTACHMENT_LIMITS / ATTACHMENT_MIME_ALLOWLIST /
+// uploadAttachment（composer 附件 UI 在模块加载期就读这些常量），只覆盖本测试驱动的函数。
+vi.mock("@/lib/live-chat", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/live-chat")>()),
   listMessages,
   createMessage,
   landAsArtifact: vi.fn(),

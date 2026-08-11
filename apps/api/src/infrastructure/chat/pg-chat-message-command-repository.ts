@@ -3,9 +3,10 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
 import type {
-  AcceptedHumanMessage, AcceptMessageOutcome, ChatMessageCommandRepository, MessagePageRow,
-  PublishedAgentReader, PublishedAgentSnapshot,
+  AcceptedHumanMessage, AcceptMessageOutcome, ChatMessageCommandRepository, MessageAttachment,
+  MessagePageRow, PublishedAgentReader, PublishedAgentSnapshot,
 } from "../../application/chat/message-command-ports";
+import { AttachmentNotPendingError } from "../../application/chat/message-command-ports";
 
 interface AcceptedDbRow {
   id: string; thread_id: string; author_id: string; body: string; client_message_id: string;
@@ -53,6 +54,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
     input: {
       projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
+      attachmentIds?: readonly string[];
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -93,6 +95,23 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         [randomUUID(), orgId, input.runId, inserted.rows[0]!.created_at.toISOString(),
           createHash("sha256").update(input.text).digest("hex")],
       );
+      // #946 · V9-a F151：把 pending 附件挂到本消息上——**同一事务**内 set message_id。
+      // WHERE 同时约束 thread_id + message_id IS NULL：不属本线程 / 已挂过别的消息 / 不存在
+      // 的 id 都不匹配，更新数 < 期望数 ⇒ 抛错回滚整条消息写入（消息与挂附件原子）。
+      // 并发两条消息抢同一 pending 行时，PG 行锁串行化：先提交者置上 message_id，后者更新数
+      // 不足 ⇒ 同样回滚（不会双挂）。
+      if (input.attachmentIds && input.attachmentIds.length > 0) {
+        const updated = await s.query<{ id: string }>(
+          `UPDATE chat_message_attachments
+              SET message_id = $1
+            WHERE org_id = $2 AND thread_id = $3 AND message_id IS NULL
+              AND id = ANY($4::text[])
+          RETURNING id`,
+          [input.messageId, orgId, input.threadId, input.attachmentIds],
+        );
+        // 更新数 = 去重后期望数才算全挂上；否则有 id 不合格 ⇒ 抛错回滚整条消息。
+        if (updated.rows.length !== input.attachmentIds.length) throw new AttachmentNotPendingError();
+      }
       return {
         kind: "created",
         accepted: {
@@ -105,6 +124,35 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       };
     });
     return guard({ kind: "project", id: input.projectId ?? `personal:${input.actorId}` }, outcome);
+  }
+
+  async attachmentsByMessage(
+    orgId: OrgId,
+    messageIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly MessageAttachment[]>> {
+    const out = new Map<string, MessageAttachment[]>();
+    if (messageIds.length === 0) return out;
+    await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        message_id: string; id: string; filename: string; mime: string; bytes: string; created_at: Date;
+      }>(
+        `SELECT message_id, id, filename, mime, bytes, created_at
+           FROM chat_message_attachments
+          WHERE org_id = $1 AND message_id = ANY($2::text[])
+          ORDER BY created_at ASC, id ASC`,
+        [orgId, messageIds],
+      );
+      for (const row of r.rows) {
+        const list = out.get(row.message_id) ?? [];
+        // bytes 是 bigint（pg 回字符串）——转成 number（≤25MB 远在安全整数内）。
+        list.push({
+          id: row.id, filename: row.filename, mime: row.mime,
+          bytes: Number(row.bytes), createdAt: row.created_at.toISOString(),
+        });
+        out.set(row.message_id, list);
+      }
+    });
+    return out;
   }
 
   async page(

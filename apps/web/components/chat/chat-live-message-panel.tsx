@@ -25,6 +25,14 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ChatAttachmentBanner,
+  ChatAttachmentButton,
+  ChatAttachmentDropzone,
+  ChatAttachmentList,
+  MessageAttachments,
+  useChatAttachments,
+} from "@/components/chat/chat-composer-attachments";
 
 const MESSAGE_PAGE_SIZE = 50;
 
@@ -115,6 +123,8 @@ export function ChatLiveMessagePanel({
   const [listFailure, setListFailure] = React.useState<string | null>(null);
   const [text, setText] = React.useState("");
   const [agentId, setAgentId] = React.useState("");
+  // #946 · V9-a F152：composer 附件（📎 / 拖拽 / 预览条 / 上传态 / 移除）。接真实上传端点。
+  const attach = useChatAttachments({ threadId, bearer });
   const [submitting, setSubmitting] = React.useState(false);
   const [submitFailure, setSubmitFailure] = React.useState<string | null>(null);
   const [attempt, setAttempt] = React.useState<SubmissionAttempt | null>(null);
@@ -469,6 +479,9 @@ export function ChatLiveMessagePanel({
   const submit = async () => {
     const normalizedText = text.trim();
     if (normalizedText === "" || selectedAgentId === "" || archived || submitting) return;
+    // #946 · V9-a F152：有附件还在上传时不发送——等它们各自到 uploaded/error 再发，
+    // 否则会把还没拿到 serverId 的附件漏发。错误态的附件不阻塞发送（用户可先移除或重试）。
+    if (attach.hasUploading) return;
     const currentAttempt = attempt && attempt.threadId === threadId &&
       attempt.text === normalizedText && attempt.agentId === selectedAgentId
       ? attempt
@@ -485,15 +498,19 @@ export function ChatLiveMessagePanel({
     setActiveRunId(null);
     setRunObservation(null);
     try {
+      const attachmentIds = attach.uploadedIds;
       const accepted = await createMessage(threadId, {
         clientMessageId: currentAttempt.clientMessageId,
         text: currentAttempt.text,
         agentId: currentAttempt.agentId,
+        ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       }, bearer);
       setQueuedRun({ id: accepted.agentRunId, messageId: accepted.message.id });
       setActiveRunId(accepted.agentRunId);
       setText("");
       setAttempt(null);
+      attach.clear(); // 发送成功：附件已挂到该消息，清空 composer 的本地附件态
+
       await loadPage(null, "soft"); // 发送后重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
       // #925 ③（人类裁决）—— 发送是显式意图，无条件滚到最新一条，**覆盖 V1「尊重上滚」**
       // （用户之前上滚看历史，发送后也要拽回底部；对齐 Claude/ChatGPT）。置 atBottomRef=true
@@ -696,6 +713,10 @@ export function ChatLiveMessagePanel({
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
                     </div>
+                    {/* #946 · V9-a F152：消息挂的附件（listMessages 投影，只读展示）。 */}
+                    {message.attachments && message.attachments.length > 0 ? (
+                      <MessageAttachments attachments={message.attachments} />
+                    ) : null}
                     {canLandArtifacts ? (
                       <MessageLandingControls
                         message={message}
@@ -840,12 +861,22 @@ export function ChatLiveMessagePanel({
             ))}
           </div>
         ) : null}
-        <div className="rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
+        {/* #946 · V9-a F152：就地报错横幅（超大小 / 非白名单 / 超数量），不静默丢弃。 */}
+        {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
+        <div
+          className={`relative rounded-2xl border bg-card p-1.5 shadow-sm transition-all duration-200 ${
+            attach.dragActive ? "border-primary ring-2 ring-primary" : "border-border-subtle"
+          }`}
+          {...(archived ? {} : attach.dragHandlers)}
+        >
+          {/* 拖拽落区 + 附件预览条（活路由，接真实上传端点）。 */}
+          {archived ? null : <ChatAttachmentDropzone active={attach.dragActive} />}
+          {archived ? null : <ChatAttachmentList ctl={attach} disabled={submitting} />}
           <Textarea
             ref={composerRef}
             data-testid="chat-message-input"
             aria-label="消息内容"
-            placeholder="输入要持久保存并交给所选 Agent 的消息"
+            placeholder="输入要持久保存并交给所选 Agent 的消息，或把文件拖进来一起发送"
             value={text}
             disabled={archived || submitting}
             onChange={(event) => updateDraft({ text: event.target.value })}
@@ -863,12 +894,16 @@ export function ChatLiveMessagePanel({
             留给项目对话那一轮再接进来，不在两边都不存在的东西上造一个空位。
           */}
           <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
-            <AgentPicker
-              agents={agents}
-              selectedAgentId={selectedAgentId}
-              disabled={archived || submitting || agents === null || agents.length === 0}
-              onSelect={(agentId) => updateDraft({ agentId })}
-            />
+            <div className="flex items-center gap-2">
+              <AgentPicker
+                agents={agents}
+                selectedAgentId={selectedAgentId}
+                disabled={archived || submitting || agents === null || agents.length === 0}
+                onSelect={(agentId) => updateDraft({ agentId })}
+              />
+              {/* #946 · V9-a F152：📎 附件按钮 + 计数（接真实上传端点）。 */}
+              <ChatAttachmentButton ctl={attach} disabled={archived || submitting} />
+            </div>
             <div className="flex items-center gap-1.5">
               <Button
                 type="button"
@@ -895,8 +930,12 @@ export function ChatLiveMessagePanel({
                 className="rounded-full"
                 data-testid="chat-message-submit"
                 aria-label={submitting ? "发送中" : "发送并排队"}
-                title={submitting ? "发送中…" : "发送（Enter；Shift+Enter 换行）"}
-                disabled={archived || submitting || text.trim() === "" || selectedAgentId === ""}
+                title={
+                  attach.hasUploading
+                    ? "附件上传中，请稍候…"
+                    : (submitting ? "发送中…" : "发送（Enter；Shift+Enter 换行）")
+                }
+                disabled={archived || submitting || attach.hasUploading || text.trim() === "" || selectedAgentId === ""}
                 onClick={() => void submit()}
               >
                 <Send aria-hidden className="h-3.5 w-3.5" />

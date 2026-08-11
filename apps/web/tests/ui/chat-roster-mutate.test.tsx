@@ -81,7 +81,8 @@ vi.mock("@/components/shell/app-shell", () => ({
     left?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode;
   }) => <div><aside>{left}</aside><main>{children}</main><aside>{right}</aside></div>,
 }));
-vi.mock("@/lib/live-chat", () => ({
+vi.mock("@/lib/live-chat", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
   createThread, renameThread, deleteThread, updateAgentRoster,
   listThreadArtifacts, landAsArtifact,

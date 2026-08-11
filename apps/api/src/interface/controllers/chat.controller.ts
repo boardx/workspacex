@@ -153,6 +153,7 @@ import {
   AgentNotPublishedError,
   InvalidMessageCursorError,
   listMessagePage,
+  MessageAttachmentNotPendingError,
   MessageIdempotencyConflictError,
   MessageNoWriteRoleError,
   MessageThreadArchivedError,
@@ -237,7 +238,7 @@ type CheckDownstreamEligibilityBody = {
   artifactId: string;
   purpose: ChatDownstreamPurposeName;
 };
-type CreateMessageBody = { clientMessageId?: string; text?: string; agentId?: string };
+type CreateMessageBody = { clientMessageId?: string; text?: string; agentId?: string; attachmentIds?: string[] };
 
 @Controller()
 export class ChatController {
@@ -383,7 +384,7 @@ export class ChatController {
       const accepted = await acceptHumanMessage(this.messageDeps, {
         userId: principal.userId, orgId: toOrgId(principal.orgId), threadId,
         clientMessageId: parsed.data.clientMessageId, text: parsed.data.text,
-        agentId: parsed.data.agentId,
+        agentId: parsed.data.agentId, attachmentIds: parsed.data.attachmentIds,
       });
       this.agentRuns.kick(toOrgId(principal.orgId));
       return {
@@ -402,6 +403,9 @@ export class ChatController {
         throw new ConflictException({ reasonCode: "THREAD_ARCHIVED_READONLY" });
       }
       if (e instanceof AgentNotPublishedError) throw new UnprocessableEntityException("AGENT_NOT_FOUND");
+      if (e instanceof MessageAttachmentNotPendingError) {
+        throw new UnprocessableEntityException({ reasonCode: "ATTACHMENT_NOT_PENDING" });
+      }
       if (e instanceof MessageIdempotencyConflictError) {
         throw new ConflictException({ reasonCode: "IDEMPOTENCY_CONFLICT" });
       }
