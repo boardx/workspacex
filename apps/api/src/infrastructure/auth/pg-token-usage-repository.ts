@@ -30,8 +30,9 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
         `INSERT INTO token_usage_events
-           (id, org_id, user_id, run_id, model_provider, model_id, tokens_total, outcome)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           (id, org_id, user_id, run_id, model_provider, model_id,
+            tokens_total, tokens_prompt, tokens_completion, outcome)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           randomUUID(),
           orgId,
@@ -39,10 +40,11 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
           usage.runId,
           usage.modelProvider,
           usage.modelId,
-          // 失败一律 0：数据库那条 `token_usage_events_failed_is_zero_check` 也会拦，
-          // 这里先归一是为了让「失败却带着 token 数」这种调用方 bug 在应用层就不成立，
-          // 而不是变成一条 CHECK 违反的 500。
-          usage.outcome === "failed" ? 0 : Math.max(0, Math.trunc(usage.tokensTotal)),
+          // ⚠ 不再按 outcome 归零（coord-main 裁决②修正）：失败的调用上游也可能真的
+          // 计了 prompt tokens。这里只做「非负整数」的归一，不替上游决定它该报多少。
+          Math.max(0, Math.trunc(usage.tokensTotal)),
+          usage.promptTokens === null ? null : Math.max(0, Math.trunc(usage.promptTokens)),
+          usage.completionTokens === null ? null : Math.max(0, Math.trunc(usage.completionTokens)),
           usage.outcome,
         ],
       );
