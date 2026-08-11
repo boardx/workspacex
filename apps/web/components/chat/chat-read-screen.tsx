@@ -980,6 +980,17 @@ function RosterPanel({
               缺失的读端口），不再是自由文本框。
               ⚠ 原型的「从 Agent 市场加入」仍是另一个缺口：`marketEntry` 是服务端下发的
               可空入口，下发了才渲染，不自己造一个死链。 */}
+          {/* #787 —— 诚实提示，纯 UI 措辞，不改数据流：
+              这份候选列表读的是 `capability_listings`（目录），与实际执行读的
+              `agents`/`agent_versions`（见 `resolvePublished`）不是同一张表。经后台
+              目录页「+」（`POST /capabilities/mutate`）创建的 agent 只写
+              `capability_listings`，不写 `agents`/`agent_versions`——加入编制之后
+              发消息会 422 `AGENT_NOT_FOUND`（`AgentNotPublishedError`）。这是已知的
+              后端数据模型裂痕（#787 记录在案，收敛方向待人类裁决），本处只如实
+              告知，不假装能在这里修掉。 */}
+          <p className="text-10 text-muted-foreground" data-testid="chat-roster-add-hint">
+            候选来自组织 agent 目录，加入编制不代表该 agent 已具备可执行的运行时——如果加入后发消息失败，是已知的后台创建路径缺口，请联系管理员确认该 agent 是否已发布。
+          </p>
           {candidatesError ? (
             <p className="text-10 text-destructive" data-testid="chat-roster-candidates-error">
               agent 目录读取失败：{candidatesError}
