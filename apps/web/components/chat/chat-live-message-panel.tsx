@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { ArrowDown, Bot, Check, CheckCircle2, Copy, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
-import { Markdown } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+// VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
+// 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
+// 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
+import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
@@ -707,7 +709,7 @@ export function ChatLiveMessagePanel({
                       </button>
                     </div>
                     <div
-                      className={`copilotkit-message-markdown rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
+                      className={`rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
                           ? "rounded-tl-sm bg-panel text-card-foreground"
                           // #728 D5：原型里人的气泡是**中性底**，不是实心品牌色。
@@ -716,10 +718,10 @@ export function ChatLiveMessagePanel({
                       }`}
                     >
                       {isAgent ? (
-                        // CopilotKit 的 Markdown 渲染——agent 回复可能带代码块/列表/加粗，
-                        // 之前直接当纯文本 `whitespace-pre-wrap` 会把这些字面语法原样吐出来。
+                        // VZ-01 MarkdownMessage：markdown（代码块/列表/加粗/表格）+ ```mermaid
+                        // 围栏渲成图（越界图类型/语法错误落诚实错误态，不崩整条消息）。
                         // 只对 agent 消息用：用户自己打的文字没有 markdown 语义可渲染。
-                        <Markdown content={message.text} />
+                        <MarkdownMessage text={message.text} />
                       ) : (
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
@@ -760,10 +762,11 @@ export function ChatLiveMessagePanel({
                     <span className="font-medium">Agent</span>
                     <Badge tone="outline">正在生成…</Badge>
                   </div>
-                  <div className="copilotkit-message-markdown rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
-                    {/* 同一个 CopilotKit Markdown 组件——流式草稿和落库后的最终消息
-                        渲染路径不该是两套，图片 markdown 语法在两边要一样生效。 */}
-                    <Markdown content={streamingText} />
+                  <div className="rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
+                    {/* 同一个 MarkdownMessage——流式草稿与落库后的最终消息渲染路径不该是两套。
+                        流式期间未闭合的 ```mermaid 围栏不会被 extractMermaidBlocks 命中，故先当
+                        markdown 文本渲染，围栏闭合（```）后才成图，不会在打字途中闪错误态。 */}
+                    <MarkdownMessage text={streamingText} />
                   </div>
                 </div>
               </li>
