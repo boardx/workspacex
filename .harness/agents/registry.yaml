@@ -54,7 +54,7 @@ agents:
     active: true
     kind: worker
     model: configured-default
-    owner: 147526627+usersyj@users.noreply.github.com
+    owner: qq13613030605
     areas: [studio, recording]
     reports_to: coord-main
     responsibilities:

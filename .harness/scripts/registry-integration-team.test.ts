@@ -108,6 +108,13 @@ describe("#407 minimal integration team registry projection", () => {
     ]);
   });
 
+  it("binds the Studio ASR worker to the approved DevPortal identity", () => {
+    expect(byId("dev-studio-asr"), "dev-studio-asr 必须保持可自助领取凭据的明确归属").toMatchObject({
+      kind: "worker",
+      owner: "qq13613030605",
+    });
+  });
+
   /**
    * 2026-08-04 修订（原文硬编码 `reports_to: "coord-main"`）。
    *
