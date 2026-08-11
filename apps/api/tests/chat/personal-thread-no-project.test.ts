@@ -36,6 +36,7 @@ import {
   addOrgMember, addProjectMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 import { addChatThread } from "../support/chat-db";
+import { DEFAULT_PERSONAL_THREAD_TITLE } from "../../src/application/chat/mutate-thread";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -107,6 +108,23 @@ describe("§1 无项目也能建线程", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { threadId: string };
     expect(body.threadId).toBeTruthy();
+  });
+
+  it("一键即建：留空标题 ⇒ 200 并自动起默认名（不是 422）——兑现「留空则自动命名」，对齐 ChatGPT/Claude", async () => {
+    // 反证（2026-08-11 人类裁决）：个人对话新建**留空标题**此前会 422 TITLE_INVALID，
+    // 与新建表单占位符「留空则自动命名」直接矛盾（假承诺）。现在一键即建：空标题由服务端
+    // 起默认名 `DEFAULT_PERSONAL_THREAD_TITLE`。⚠ 项目线程 create 空标题仍是 422（见
+    // thread-badge-single-source 的「空白标题 ⇒ 422」，projectId 非空）——两条路径故意不同。
+    // 数值/字样单源：断言用服务端导出的常量，不在测试里另抄一份 "新对话"。
+    const blank = await mutate("u-a", { title: "   " }); // 纯空格也算留空
+    expect(blank.status).toBe(200);
+    const { threadId } = (await blank.json()) as { threadId: string };
+    expect(threadId).toBeTruthy();
+
+    const listed = await listPersonal("u-a");
+    const body = (await listed.json()) as { groups: { cards: { id: string; title: string }[] }[] };
+    const card = body.groups.flatMap((g) => g.cards).find((c) => c.id === threadId);
+    expect(card?.title).toBe(DEFAULT_PERSONAL_THREAD_TITLE);
   });
 
   it("正样本对照：带 projectId 走既有项目路径，行为不受影响（回归）", async () => {
