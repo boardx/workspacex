@@ -59,7 +59,7 @@
 | ID | P | 状态 | 备注 |
 |---|---|---|---|
 | HMV2-013 | P0 | ✅ 完成 | `renderer-model.ts`：按 template_id 注册的类型化 renderer 注册表 + `renderChecked` 三类完整性校验（模板匹配/来源指纹回指/revision 一致），12 条单测含 4 组反证。API 形状经 coord-main 裁决（#422，2026-08-11 夜间，E2 由 dev-chat-e2e 代跑）。本 PR |
-| HMV2-014 | P0 | ⬜ 未开始 | 未解析占位符门控 |
+| HMV2-014 | P0 | ✅ 完成 | `placeholder-gate.ts`：machine（`{{...}}`）+ human（`<CJK>`/`<…>`）两类检测，规则取自 `.harness/templates/` 实测语法；纯 ASCII 尖括号如实标注不覆盖（与 HTML/泛型不可区分）；行内 ignore 标记同 skill-doctor 先例。9 条单测含反证。本 PR |
 | HMV2-015 | P0 | ✅ 完成 | `generated-metadata.ts`：文件内注释头（.md/.yaml 两种语法）+ 正文哈希三件原语（wrap/parse/verify），哈希由 wrap 内部计算防伪造，未登记扩展名抛错不静默省略。口径经 #422 提案无异议。12 条单测含 5 组反证。本 PR |
 | HMV2-016 | P0 | ⬜ 未开始 | Generated drift gate |
 | HMV2-017 | P1 | ⬜ 未开始 | `templates render` 命令 |
