@@ -50,7 +50,8 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, RunFailureCode, RunStepKind, ThreadHistoryMessage, TokenUsageMeterPort,
+  PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, ThreadHistoryMessage,
+  TokenUsageMeterPort,
 } from "./ports";
 import { ModelCallError } from "./ports";
 
@@ -267,7 +268,7 @@ async function meter(
   deps: ExecuteAgentRunDeps,
   orgId: OrgId,
   run: ClaimedAgentRun,
-  tokensTotal: number,
+  usage: ReportedUsage,
   outcome: "succeeded" | "failed",
 ): Promise<void> {
   if (!deps.usage) return;
@@ -277,12 +278,15 @@ async function meter(
       runId: run.runId,
       modelProvider: run.modelProvider,
       modelId: run.modelId,
-      tokensTotal,
+      // 总数缺失记 0（必填维度）；拆分维度缺失记 null（「上游没报」≠「用了 0」）。
+      tokensTotal: usage.total ?? 0,
+      promptTokens: usage.prompt ?? null,
+      completionTokens: usage.completion ?? null,
       outcome,
     });
   } catch (e) {
     deps.log("token usage metering write failed; usage under-counted for this run", {
-      runId: run.runId, tokensTotal, outcome,
+      runId: run.runId, tokensTotal: usage.total ?? 0, outcome,
       detail: e instanceof Error ? e.message : "unexpected metering failure",
     });
   }
@@ -432,6 +436,9 @@ async function executeClaimed(
    * 落库时记 0 而不是估一个数——估出来的数会被当成账。
    */
   let reportedTokens: number | undefined;
+  /** F159 —— 上游若报了 prompt/completion 拆分就带上；没报是 undefined（不是 0）。 */
+  let reportedPrompt: number | undefined;
+  let reportedCompletion: number | undefined;
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
   // with that loop retired, `model_called` is always the third step (context_built is 2,
   // the two preceding are the run's own acceptance steps), so this is a constant again.
@@ -480,6 +487,8 @@ async function executeClaimed(
       }
       text = completion.text;
       reportedTokens = completion.tokens;
+      reportedPrompt = completion.promptTokens;
+      reportedCompletion = completion.completionTokens;
     } else {
       // #654 阶段2a: when the configured port supports streaming, use it and persist each
       // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
@@ -515,6 +524,8 @@ async function executeClaimed(
       }
       text = completion.text;
       reportedTokens = completion.tokens;
+      reportedPrompt = completion.promptTokens;
+      reportedCompletion = completion.completionTokens;
     }
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
@@ -531,9 +542,14 @@ async function executeClaimed(
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
       inputDigest: systemDigest, outputDigest: null, failureCode: code,
     });
-    // F159：失败的调用**也记一行**（tokens=0）。「失败就没有用量」会让计量流水与
-    // `agent_runs` 的行数对不上，而对不上时没人分得清是漏记还是真没调用。
-    await meter(deps, orgId, run, 0, "failed");
+    /*
+     * F159：失败的调用**也记一行**。「失败就没有用量」会让计量流水与 `agent_runs` 的
+     * 行数对不上，而对不上时没人分得清是漏记还是真没调用。
+     * ⚠ 不再硬编 0（coord-main 2026-08-12 裁决②的修正）：部分 4xx 上游照样计费
+     * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
+     * 上传过来——报了就如实记，没报才是 0。
+     */
+    await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     await deps.runs.failRun(orgId, run.runId, code);
     return;
   }
@@ -541,7 +557,9 @@ async function executeClaimed(
     runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
     inputDigest: systemDigest, outputDigest: sha256(text), failureCode: null,
   });
-  await meter(deps, orgId, run, reportedTokens ?? 0, "succeeded");
+  await meter(deps, orgId, run, {
+    total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,
+  }, "succeeded");
 
   /* ── hand off to #413 ── */
   // `writeback_pending`, not `succeeded`. §6: the run may only become succeeded after the
