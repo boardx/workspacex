@@ -86,11 +86,23 @@ async function runWrapperOnce(options: {
         // 就绪超时的子进程还活着（keep-alive childScript），重试前必须收尸，
         // 否则「重试一次」会把泄漏翻倍——恰好加重它想解决的负载问题。
         child.kill("SIGKILL");
+        // 2026-08-12（#1032 修法3）：stdout/stderr 被捕获进变量不转发，导致
+        // 「wrapper 卡在哪一步」永远隐形——今晚四轮误诊的共同放大器。失败时如实吐出。
+        console.error(`[fullstack-smoke] wrapper ready-timeout; captured stdout:\n${stdout}\ncaptured stderr:\n${stderr}`);
         throw error;
       }
       child.kill(options.signal);
     }
-    const code = await exit;
+    // 非 signal 路径同样要可诊断：vitest 60s 挂钟杀测试时什么都不吐。自设 55s
+    // 看门狗抢在挂钟前 dump 捕获的输出并收尸（#1032 修法3 的另一半）。
+    const code = await Promise.race([
+      exit,
+      new Promise<never>((_, reject) => setTimeout(() => {
+        console.error(`[fullstack-smoke] wrapper exit-timeout(55s); captured stdout:\n${stdout}\ncaptured stderr:\n${stderr}`);
+        child.kill("SIGKILL");
+        reject(new Error("wrapper did not exit within 55s"));
+      }, 55_000).unref?.() ?? undefined),
+    ]);
     const calls = readFileSync(log, "utf8").trim().split("\n");
     return { code, stdout, stderr, calls, isolation };
   } finally {
