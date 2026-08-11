@@ -14,7 +14,11 @@ import { OrgAdminError } from "./org-invite-errors";
 import type { OrgId } from "../../domain/org-id";
 import type { OrgProfileRepository, StoredOrgAvatar } from "./org-profile-ports";
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+/**
+ * 导出给 HTTP 层的 `readRawBody` 当流式字节上限用（2026-08-12 二次上传 408 修复顺手
+ * 补的洞：chunked 编码可以不带 Content-Length 无限流）——同一个 5MB 只声明在这一处。
+ */
+export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 /** 声明的 `contentType` -> 嗅探结果必须落在的家族集合。执行/未知/其它图片格式一律拒。 */
 const CONTENT_TYPE_TO_SNIFFED = {

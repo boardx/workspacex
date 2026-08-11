@@ -70,7 +70,7 @@ import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
 import { listOrgMembers } from "../../application/auth/list-org-members";
 import { listOrgInvites } from "../../application/auth/list-org-invites";
 import { updateOrganization } from "../../application/auth/update-organization";
-import { uploadOrgAvatar } from "../../application/auth/upload-org-avatar";
+import { MAX_AVATAR_BYTES, uploadOrgAvatar } from "../../application/auth/upload-org-avatar";
 import { OrgAdminError } from "../../application/auth/org-invite-errors";
 import {
   ORG_INVITE_REPOSITORY,
@@ -123,36 +123,73 @@ type UpdateOrganizationBody = {
 /**
  * 读整个请求体的原始字节。`uploadOrgAvatar` 的图片字节走这条路，见契约文件头的两步说明。
  *
- * ⚠ 2026-08-11 devapp 实测加固：人类在生产上传头像，按钮永远停在「上传中…」——
+ * ⚠ 2026-08-11 devapp 实测加固（#921）：人类在生产上传头像，按钮永远停在「上传中…」——
  * fetch 不 settle 意味着服务端从未响应。原实现只监听 data/end/error 三个事件：
  * 请求流若在 end 之前断开（客户端中断、反代转发的体不完整、h2/h3 流被重置），
  * Node 只发 `close` 不一定发 `error`，这个 Promise 就**永远**不 settle——请求
- * 原地挂死，日志里一个字都没有。⇒ 两条兜底，保证有限时间内必然 settle：
+ * 原地挂死，日志里一个字都没有。⇒ 兜底保证有限时间内必然 settle：
  *   ① `close` 且流未正常结束 → reject 400（体不完整）；
- *   ② 硬超时 30s（体上限 5MB，活着的连接绰绰有余）→ reject 408。
+ *   ② 超时 → reject 408。
  * settle 之后的迟到事件被 `settled` 标志吞掉，不会二次 settle。
- * 本地 HTTP 层反证：tests/org-admin/upload-org-avatar-http-route.test.ts。
+ *
+ * ⚠ 2026-08-12 devapp 实测第二刀（traceId 082a9287-… / 457a6102-…）：#921 的 ② 是
+ * **绝对 30s 死线**——从头部到达起数 30s，不看字节有没有在到达。生产链路是
+ * 浏览器 →（公网）→ Caddy →（流式转发，不缓冲请求体）→ 本机 Node：头部一到就
+ * 开表，体还在公网上慢慢爬。上行不快的网络传一张几 MB 的头像 > 30s，就在
+ * **还在正常进度**的时候被 408 误杀（本机反证：33s 匀速滴灌上传，必中 408，
+ * 栈与两条 traceId 逐帧一致）。「第一次成功、第二次失败」的差别在文件大小/
+ * 网络波动，不在 keep-alive 复用——同连接连发/5s keepAliveTimeout 边界扫描
+ * 全部 201，监听器泄漏假说已反证排除。⇒ 超时改成两条：
+ *   ②a **空闲超时 30s，收到任何分片就重置**——它杀的是「死了的流」，不再杀
+ *      「慢但活着的流」；
+ *   ②b **绝对上限 10min**——空闲超时会被一字节一字节的滴灌无限续命（slowloris），
+ *      必须有一个不可续命的总闸。
+ * 另加 ③ **字节上限**：分片累计超过 `maxBytes` 当场 413 settle，不等一个
+ * chunked 编码的无限流把内存喂爆（Content-Length 声明是可以撒谎的）。
+ * 本地 HTTP 层反证（含 #921 原三条兜底）：tests/org-admin/upload-org-avatar-http-route.test.ts。
+ *
+ * 两个时限可用 KERNEL_RAW_BODY_* 环境变量覆盖——**只为测试把 30s/10min 缩到
+ * 秒级**，生产不设它们。
  */
-const RAW_BODY_TIMEOUT_MS = 30_000;
+const RAW_BODY_IDLE_TIMEOUT_MS = envMs("KERNEL_RAW_BODY_IDLE_TIMEOUT_MS", 30_000);
+const RAW_BODY_MAX_TOTAL_MS = envMs("KERNEL_RAW_BODY_MAX_TOTAL_MS", 600_000);
 
-function readRawBody(req: Request): Promise<Buffer> {
+function envMs(name: string, fallback: number): number {
+  const raw = Number(process.env[name]);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+}
+
+function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
+    let received = 0;
     let settled = false;
     const settle = (fn: () => void): void => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearTimeout(idleTimer);
+      clearTimeout(totalTimer);
       fn();
     };
-    const timer = setTimeout(
-      () =>
-        settle(() =>
-          reject(new HttpException({ reasonCode: "REQUEST_BODY_TIMEOUT" }, HttpStatus.REQUEST_TIMEOUT)),
-        ),
-      RAW_BODY_TIMEOUT_MS,
-    );
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    const onTimeout = (): void =>
+      settle(() =>
+        reject(new HttpException({ reasonCode: "REQUEST_BODY_TIMEOUT" }, HttpStatus.REQUEST_TIMEOUT)),
+      );
+    let idleTimer = setTimeout(onTimeout, RAW_BODY_IDLE_TIMEOUT_MS);
+    const totalTimer = setTimeout(onTimeout, RAW_BODY_MAX_TOTAL_MS);
+    req.on("data", (chunk: Buffer) => {
+      if (settled) return;
+      // ②a：有进度就续命。杀死流，不杀慢流。
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(onTimeout, RAW_BODY_IDLE_TIMEOUT_MS);
+      received += chunk.byteLength;
+      if (received > maxBytes) {
+        // ③：超上限当场 settle 成 413——与用例层 FILE_TOO_LARGE 同一响应形状。
+        settle(() => reject(toHttpException(new OrgAdminError("FILE_TOO_LARGE"))));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => settle(() => resolve(Buffer.concat(chunks))));
     req.on("error", (e) => settle(() => reject(e)));
     req.on("close", () => {
@@ -486,7 +523,7 @@ export class OrgAdminManagementController {
       );
     }
 
-    const bytes = new Uint8Array(await readRawBody(req));
+    const bytes = new Uint8Array(await readRawBody(req, MAX_AVATAR_BYTES));
     try {
       const out = await uploadOrgAvatar(
         { repo: this.profiles },
