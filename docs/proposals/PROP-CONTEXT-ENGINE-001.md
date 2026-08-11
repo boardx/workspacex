@@ -1,6 +1,10 @@
 # PROP-CONTEXT-ENGINE-001：Context Engine 从 3.0 分补到 9 分的落地路线图
 
-- 状态：Proposed（2026-08-09，等待人类 Accept/Revise/No-Go）
+- 状态：**Accepted（带一处修订）**——人类 2026-08-11 在 coord-main 会话逐字裁决：
+  「CE-000 接受，解析统一用 anydoc」。修订落点：CE-012/CE-013 的解析库选型由
+  pdf-parse/mammoth 改为统一 `@firecrawl/anydoc`（W1/PR #934 已过依赖评审并批准，
+  覆盖 PDF/docx/pptx/xlsx；同一解析事实只留一个实现）。CE-014 扫描件 OCR 仍为
+  tesseract.js（anydoc 不覆盖 image-only PDF）。代抄：coord-main（#660 先例，人类可改）。
 - 作者：coord-architecture（**跨域代拟**——见下方"域外免责声明"）
 - 依据：`docs/architecture/context-engine.md`（2026-07-28 定稿的目标架构，本提案不推翻它，是它的落地计划）
 - 打分依据：对 exact baseline `752b5e5f158e6f1169914820d318e31224b6c365`
