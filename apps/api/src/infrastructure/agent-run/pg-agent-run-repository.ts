@@ -53,6 +53,7 @@ interface StepRow {
 
 interface ClaimDetailRow {
   id: string; project_id: string; input_text: string; instructions: string;
+  requester_user_id: string;
   input_attachments: unknown;
 }
 
@@ -121,6 +122,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const ids = claimed.rows.map((row) => row.id);
       const detail = await s.query<ClaimDetailRow>(
         `SELECT r.id, t.project_id, m.body AS input_text, v.instructions,
+                m.author_id AS requester_user_id,
                 ${attachmentsAggSql("r.input_message_id")} AS input_attachments
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
@@ -147,6 +149,9 @@ export class PgAgentRunRepository implements AgentRunStore {
           inputMessageId: row.input_message_id,
           inputText: extra.input_text,
           inputAttachments: toAttachmentMeta(extra.input_attachments),
+          // F159：计量要归属到人，而 `agent_runs` 本身没有「谁触发的」这一列——
+          // 触发它的那条人类消息的作者就是那个人，同一次 JOIN 顺手带出来。
+          requesterUserId: extra.requester_user_id,
           agentId: row.agent_id,
           agentVersionId: row.agent_version_id,
           instructions: extra.instructions,

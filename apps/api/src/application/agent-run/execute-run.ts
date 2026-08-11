@@ -50,7 +50,7 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, RunFailureCode, RunStepKind, ThreadHistoryMessage,
+  PinnedSkillContent, RunFailureCode, RunStepKind, ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { ModelCallError } from "./ports";
 
@@ -196,6 +196,11 @@ export async function assembleHistory(
 export interface ExecuteAgentRunDeps {
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
+  /**
+   * F159 计量。**可选**：只有真正产生计费事实的执行路径接它（`trial-run-agent` 一类
+   * 不接，试跑不算进任何人的月度额度）。写失败不 fail run，理由见 `meter()` 的注释。
+   */
+  readonly usage?: TokenUsageMeterPort;
   readonly clock: AgentRunClock;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
@@ -221,6 +226,44 @@ export function buildSystemPrompt(
   skills: readonly { readonly versionId: string; readonly content: string }[],
 ): string {
   return [instructions, ...skills.map((s) => s.content)].join("\n\n");
+}
+
+/**
+ * F159 —— 计量落库的唯一调用处（成功一次、失败一次，两条分支各调一次）。
+ *
+ * ## 为什么写失败不 fail run
+ *
+ * 用量是**账**，不是授权判定。账写失败是运维问题；把它变成用户的聊天失败，等于让一个
+ * 记账缺陷去阻断产品主路径——与 `agent_run_steps` 那条「没有留痕就没有调用」不同，
+ * 那一条护的是审计与授权，这一条护的是计费口径。
+ *
+ * ⚠ 但**不静默**：失败走 `deps.log` 大声留痕，且日志里带 `runId` 与 token 数，
+ * 使「用量少记了」这件事可查。静默吞掉才是那个会让人以为计量在工作的错法。
+ * 具名缺口 `GAP-USAGE-WRITE-RETRY`：本轮不做重试队列，写失败即永久少记一行。
+ */
+async function meter(
+  deps: ExecuteAgentRunDeps,
+  orgId: OrgId,
+  run: ClaimedAgentRun,
+  tokensTotal: number,
+  outcome: "succeeded" | "failed",
+): Promise<void> {
+  if (!deps.usage) return;
+  try {
+    await deps.usage.record(orgId, {
+      userId: run.requesterUserId,
+      runId: run.runId,
+      modelProvider: run.modelProvider,
+      modelId: run.modelId,
+      tokensTotal,
+      outcome,
+    });
+  } catch (e) {
+    deps.log("token usage metering write failed; usage under-counted for this run", {
+      runId: run.runId, tokensTotal, outcome,
+      detail: e instanceof Error ? e.message : "unexpected metering failure",
+    });
+  }
 }
 
 /** The one place a step becomes durable, so no path can record half of one. */
@@ -361,6 +404,12 @@ async function executeClaimed(
   /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
   const modelStartedAt = deps.clock.now();
   let text: string;
+  /**
+   * F159 —— provider 报回来的 token 数。三条分支（completeWithProgress / completeStream /
+   * complete）都可能给，也都可能不给（`tokens` 是可选字段）；没给就是 `undefined`，
+   * 落库时记 0 而不是估一个数——估出来的数会被当成账。
+   */
+  let reportedTokens: number | undefined;
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
   // with that loop retired, `model_called` is always the third step (context_built is 2,
   // the two preceding are the run's own acceptance steps), so this is a constant again.
@@ -408,6 +457,7 @@ async function executeClaimed(
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
       }
       text = completion.text;
+      reportedTokens = completion.tokens;
     } else {
       // #654 阶段2a: when the configured port supports streaming, use it and persist each
       // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
@@ -442,6 +492,7 @@ async function executeClaimed(
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
       }
       text = completion.text;
+      reportedTokens = completion.tokens;
     }
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
@@ -458,6 +509,9 @@ async function executeClaimed(
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
       inputDigest: systemDigest, outputDigest: null, failureCode: code,
     });
+    // F159：失败的调用**也记一行**（tokens=0）。「失败就没有用量」会让计量流水与
+    // `agent_runs` 的行数对不上，而对不上时没人分得清是漏记还是真没调用。
+    await meter(deps, orgId, run, 0, "failed");
     await deps.runs.failRun(orgId, run.runId, code);
     return;
   }
@@ -465,6 +519,7 @@ async function executeClaimed(
     runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
     inputDigest: systemDigest, outputDigest: sha256(text), failureCode: null,
   });
+  await meter(deps, orgId, run, reportedTokens ?? 0, "succeeded");
 
   /* ── hand off to #413 ── */
   // `writeback_pending`, not `succeeded`. §6: the run may only become succeeded after the

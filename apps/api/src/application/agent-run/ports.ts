@@ -62,6 +62,12 @@ export interface ClaimedAgentRun {
    * 传完就问」这条最常见路径恰好看不到附件。没有附件时是空数组。
    */
   readonly inputAttachments: readonly HistoryAttachmentMeta[];
+  /**
+   * F159 —— 谁触发了这次 run。`agent_runs` 没有这一列，值取自触发它的那条人类消息的
+   * 作者（`chat_messages.author_id`，与 claim 同一次 JOIN 带出）。计量必须归属到人：
+   * 配额是按人分配的，只有组织级总数的话「成员与配额」那一屏无从填。
+   */
+  readonly requesterUserId: string;
   readonly agentId: string;
   readonly agentVersionId: string;
   readonly instructions: string;
@@ -510,6 +516,38 @@ export interface AgentRunExecutorPort {
   kick(orgId: OrgId): void;
 }
 
+/**
+ * F159 —— 一次模型调用产生的用量事实。
+ *
+ * ⚠ 只有 `tokensTotal`，没有 prompt/completion 拆分：上游今天真正给得到的只有
+ * `usage.total_tokens`（`configured-model-provider.ts` 从那里解出并返回）。造两个字段
+ * 各填一半是伪造维度，记为具名缺口 `GAP-TOKEN-IO-SPLIT`（design-delta §1.1）。
+ */
+export interface TokenUsageRecord {
+  readonly userId: string;
+  readonly runId: string;
+  readonly modelProvider: string;
+  readonly modelId: string;
+  /** 上游没报 token 数时是 0——「没报」与「报了 0」在库里同形，不猜一个估值。 */
+  readonly tokensTotal: number;
+  readonly outcome: "succeeded" | "failed";
+}
+
+/**
+ * F159 —— 计量的写入口。**产品里只有这一个**：`token_usage_events` 是成员配额、
+ * 用量监控、限额事件三块的共同上游，允许第二个写入点就等于允许两处对「这次算多少
+ * token」给出不同答案（AGENTS.md 顶部那条「同一事实不得声明在两处」已经栽过五次）。
+ * 反证测试 `tests/auth/token-usage-single-write-path.test.ts` 扫描 `apps/api/src`，
+ * 断言往那张表插行的 SQL 语句只出现在这个 port 的唯一实现里
+ * （`pg-token-usage-repository.ts`）。⚠ 这里刻意不写出那条 SQL 的字面量——写出来
+ * 本文件就会被自己的扫描算成第二个写入点，而放宽扫描去容忍注释，等于让反证漏掉
+ * 「有人在注释旁边真的写了一条 INSERT」这种最像真的情形。
+ */
+export interface TokenUsageMeterPort {
+  record(orgId: OrgId, usage: TokenUsageRecord): Promise<void>;
+}
+
 export const AGENT_RUN_STORE = Symbol("AgentRunStore");
 export const MODEL_CALL_PORT = Symbol("ModelCallPort");
 export const AGENT_RUN_EXECUTOR = Symbol("AgentRunExecutor");
+export const TOKEN_USAGE_METER = Symbol("TokenUsageMeter");
