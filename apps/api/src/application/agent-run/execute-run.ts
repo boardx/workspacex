@@ -138,6 +138,13 @@ export async function assembleHistory(
   recent: readonly ThreadHistoryMessage[],
   maxChars: number,
   summarize?: (dropped: readonly ThreadHistoryMessage[]) => Promise<string>,
+  /**
+   * 摘要调用失败时的观测回调（coord-main #913 review 提出）。摘要失败被静默吞、退回丢弃
+   * 行为**不 fail run** 是刻意的，但「静默」会让运行者以为摘要在工作而其实一直在退化——
+   * 受控环境开启摘要前必须能在日志里看到它失败。这里只观测、不改控制流：回调自身抛错也
+   * 不影响「退回 kept」的结果（下方 try/catch 兜住回调的意外）。
+   */
+  onSummarizeError?: (error: unknown) => void,
 ): Promise<readonly ThreadHistoryMessage[]> {
   const kept = trimHistoryToBudget(recent, maxChars);
   if (!summarize) return kept; // 默认路径：与既有行为逐字节相同
@@ -146,7 +153,9 @@ export async function assembleHistory(
   let summaryText: string;
   try {
     summaryText = (await summarize(recent.slice(0, droppedCount))).trim();
-  } catch {
+  } catch (error) {
+    // 退化前先留一行日志（观测），再退回丢弃行为、不 fail run。
+    try { onSummarizeError?.(error); } catch { /* 日志回调不该反过来拖垮组装 */ }
     return kept; // 摘要失败 ⇒ 退回丢弃行为，不 fail run
   }
   if (summaryText === "") return kept;
@@ -306,7 +315,14 @@ async function executeClaimed(
           return completion.text;
         }
       : undefined;
-    history = await assembleHistory(recent, HISTORY_MAX_CHARS, summarize);
+    history = await assembleHistory(recent, HISTORY_MAX_CHARS, summarize, (error) => {
+      // 摘要静默退化前留一行服务端日志（观测，不改行为）——受控环境开启
+      // KERNEL_HISTORY_SUMMARY_ENABLED 前靠它判断摘要是真在工作还是一直在悄悄退回丢弃。
+      deps.log("agent run history summarization failed, continuing with trimmed history", {
+        runId: run.runId,
+        detail: error instanceof Error ? error.message : "unexpected summarization failure",
+      });
+    });
   } catch (e) {
     deps.log("agent run thread history read failed, continuing without it", {
       runId: run.runId,
