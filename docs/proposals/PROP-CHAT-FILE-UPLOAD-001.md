@@ -77,6 +77,67 @@ V9-b 文件进 context：抽取管线 + 进 L3 检索召回（与 V10 L3 同批�
 - 多模态直传（图片直接进多模态模型 vs 先 OCR 成文本）——取决于 devapp 配置的模型是否多模态，
   待确认后再定 L3 对图片的处理。
 
+## 6. 人类已确认的最终值（2026-08-11「yes to all」）+ 三件签核材料
+
+> ⚠ 这是**签核材料**，不是签核本身。签核 status 归人类，由 coord-main 按 #660 先例落进
+> `design-signoff.md`（人类逐字「yes to all」+ confirmed_via 标注来源 + 人类可改）。
+> agent 不改 status。以下是 agent 产出的三件材料（ADR-023 ① UI ② 用例 ③ API 契约），
+> 供 coord-main 放进 file-upload 束。
+
+### 人类确认的参数（V9-a 上传骨架）
+| 项 | 确认值 |
+|---|---|
+| 单文件大小上限 | **25 MB** |
+| MIME 白名单 | PDF / `text/plain`·`text/markdown` / 图片 `image/png`·`image/jpeg`·`image/webp` / Office `…wordprocessingml.document`·`…spreadsheetml.sheet`·`…presentationml.presentation` / `text/csv` |
+| 每消息附件数上限 | **10** |
+| 保留策略 | 随线程删除（FK `ON DELETE CASCADE`，无独立生命周期） |
+| 分期 | V9-a（上传+存储+预览）先行；V9-b（进 context）随 L3 检索层 |
+
+### ① UI（签核材料）
+- composer 左侧 📎 按钮 + 拖拽区（拖文件到输入区高亮）；选中/拖入后在输入框上方显示
+  附件预览条（文件名 + 类型图标 + 大小 + ✕ 移除）。
+- 超限（大小/类型/数量）就地报错，不静默丢弃；上传中显示进度，失败可重试。
+- **无真实后端前不渲染**（本仓「无真实数据支撑不做假 UI」红线）——UI 与 ②③ 同批落地。
+- 附件测试锚点：`chat-attachment-input` / `chat-attachment-chip-<id>` / `chat-attachment-remove-<id>`。
+
+### ② 用例（签核材料）
+- UC1 作者给自己有写权的线程上传一个 25MB 内、白名单类型的文件 → 拿到 attachment id →
+  连同消息发送 → 附件随消息落库、刷新仍在。
+- UC2 观察者（无写权）上传被拒（与 land-as-artifact 同一条写权规则）。
+- UC3 超限（>25MB / 非白名单 / >10 个）被服务端拒，返回明确错误码，前端就地提示。
+- UC4 删除线程 → 附件随之级联删除（FK CASCADE）。
+- UC5（V9-b，本期不做）附件抽取文本进 L3 检索——列为下期，本期不实现、不做假 UI。
+
+### ③ API 契约（签核材料）
+新表（migration）：
+```sql
+CREATE TABLE chat_message_attachments (
+  id            text PRIMARY KEY,
+  org_id        text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  message_id    text NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  storage_ref   text NOT NULL,            -- 复用 files 域对象存储
+  filename      text NOT NULL,
+  mime          text NOT NULL,
+  bytes         bigint NOT NULL,
+  extracted_ref text,                     -- V9-b 抽取文本引用，V9-a 恒 null
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+```
+契约操作（`packages/contracts/src/chat.ts`，走 ADR-020 单源）：
+- `uploadAttachment`：`POST /chat/threads/:threadId/attachments`（multipart）→
+  `{ attachmentId, filename, mime, bytes }`；服务端校验大小≤25MB、MIME∈白名单、
+  该线程已挂附件数<10、actor 有该线程写能力（`capabilitiesFor`/`resolveVisibility`）。
+- 发消息（`createMessage`）扩展：可带 `attachmentIds: string[]`，服务端校验这些 id 属于
+  该线程且未挂到别的消息，落库到 `chat_message_attachments.message_id`。
+- 读消息（`listMessages`）扩展：每条消息带 `attachments: {id,filename,mime,bytes}[]`。
+- **`ModelCallInput` / `ModelCallPort` 不动**（V9-a 不进 context；V9-b 才经 L3 检索进）。
+
+### 落地边界
+- 新表 + 契约 + 端点 + UI = 一束，需 design-signoff（本材料即为其内容）。
+- V9-a 不动 execute-run.ts（不进 context），故不占 context engine 的串行窗口。
+- 上传端点动 chat controller/application/infrastructure + 前端 composer——都是新增，无删改既有。
+
 ---
 
-*本文档由 dev-chat-e2e worker 2026-08-11 整理，契约草案待人类签核，agent 不改 status。*
+*本文档由 dev-chat-e2e worker 2026-08-11 整理；§6 为人类「yes to all」后产出的签核材料，
+签核 status 归人类、由 coord-main 落 design-signoff.md，agent 不改 status。*
