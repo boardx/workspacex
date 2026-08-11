@@ -167,7 +167,9 @@ export function OrgMenu({
           aria-label="组织菜单"
           data-testid={`org-menu${testIdSuffix}`}
           className={cn(
-            "absolute z-20 w-52 rounded-lg border border-border bg-popover p-1 shadow-md",
+            // max-h + 滚动：组织数量多（10+）时菜单不溢出视口——复核读代码起疑的预防项，
+            // 固定宽 w-52 不变，超高时列表内部滚动。
+            "absolute z-20 max-h-[70vh] w-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md",
             placement === "right" ? "left-[calc(100%+8px)] top-0" : "left-0 top-[calc(100%+4px)]",
           )}
         >
@@ -188,7 +190,9 @@ export function OrgMenu({
                   if (!current) onSelect(o.id);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                  // focus-visible 背景：纯键盘用户 Tab 到菜单项时要能看见焦点落点——复核实测
+                  // 焦点在 DOM 上推进但屏幕上无任何指示（outline 透明、无底色）。
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                   current ? "font-medium text-primary" : "text-card-foreground",
                 )}
               >
@@ -207,7 +211,7 @@ export function OrgMenu({
             data-testid={`org-admin-entry${testIdSuffix}`}
             aria-label="组织管理"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-card-foreground transition-colors duration-200 hover:bg-muted"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-card-foreground transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
             <Settings aria-hidden className="h-3.5 w-3.5" />
             组织管理

@@ -39,7 +39,7 @@ export function ThemeToggle({
       onClick={toggle}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 text-card-foreground",
-        "transition-colors duration-200 hover:bg-muted",
+        "transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         className,
       )}
     >
