@@ -1,7 +1,7 @@
 ---
-status: proposed
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: usamshen
+confirmed_at: 2026-08-11T22:00:00+08:00
 bundle: invite-link-and-reads
 scope: invite-activation-link-delivery-plus-three-read-paths
 ruling: "coord-main 2026-08-11（人类离线期间全权授权裁定）"
