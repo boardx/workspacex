@@ -4,6 +4,7 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
+import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
   AttachmentCommandRepository,
   AttachmentRow,
@@ -12,9 +13,14 @@ import type {
 export class PgChatAttachmentRepository implements AttachmentCommandRepository {
   constructor(private readonly db: DatabasePort) {}
 
-  /** 该线程 pending（`message_id IS NULL`）附件数——数量上限校验用。 */
-  async countPendingByThread(orgId: OrgId, threadId: string): Promise<number> {
-    return this.db.withTenant(orgId, async (s) => {
+  /**
+   * 该线程 pending（`message_id IS NULL`）附件数——数量上限校验用。
+   * 经 `guard()` 出门（R7 / lint-permission-paths）：租户表的读一律带判定交出，调用方
+   * disclose 后才拿得到数值。ref 的 id 只是 Guarded 的描述性元数据（discloseDecided 不查它），
+   * 个人线程没有 projectId 时用 `personal:<threadId>`，同 pg-chat-message-command-repository 的先例。
+   */
+  async countPendingByThread(orgId: OrgId, threadId: string): Promise<Guarded<number>> {
+    const n = await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{ n: number }>(
         `SELECT count(*)::int AS n
            FROM chat_message_attachments
@@ -23,6 +29,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       );
       return r.rows[0]?.n ?? 0;
     });
+    return guard({ kind: "project", id: `personal:${threadId}` }, n);
   }
 
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set；extracted_ref 恒 NULL=V9-a）。 */

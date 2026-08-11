@@ -21,6 +21,7 @@ import type { ObjectStore } from "../artifact/ports";
 import type { IdFactory } from "../artifact/ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 import { ThreadNotVisibleError } from "./get-thread";
+import { discloseDecided, isDisclosed, type Guarded } from "../security/permission-filter";
 
 /** 上传失败——携带契约 `ChatAttachmentError` 的具体码，控制器映射成 HTTP 错误响应。 */
 export class AttachmentUploadError extends Error {
@@ -47,8 +48,12 @@ export interface AttachmentRow {
 }
 
 export interface AttachmentCommandRepository {
-  /** 该线程当前 pending（`message_id IS NULL`）附件数——数量上限校验用。 */
-  countPendingByThread(orgId: OrgId, threadId: string): Promise<number>;
+  /**
+   * 该线程当前 pending（`message_id IS NULL`）附件数——数量上限校验用。
+   * 返回 `Guarded<number>`：租户表的读一律经 permission-filter 出门（R7 / coherence X-1，
+   * 由 lint-permission-paths 门控），调用方须以判定 disclose 后才拿得到数值。
+   */
+  countPendingByThread(orgId: OrgId, threadId: string): Promise<Guarded<number>>;
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set）。 */
   insertAttachment(row: AttachmentRow): Promise<void>;
 }
@@ -100,8 +105,11 @@ export async function uploadAttachment(
   const typeErr = checkAttachmentBytesAndType({ bytes: byteLen, mime: input.mime });
   if (typeErr) throw new AttachmentUploadError(typeErr);
 
-  // ③ 数量（该线程 pending 数）
-  const countErr = checkAttachmentCount(await deps.attachments.countPendingByThread(input.orgId, input.threadId));
+  // ③ 数量（该线程 pending 数）——租户表读经 permission-filter 出门，以本次判定 disclose。
+  const guardedCount = await deps.attachments.countPendingByThread(input.orgId, input.threadId);
+  const disclosedCount = discloseDecided(guardedCount, outcome.base);
+  if (!isDisclosed(disclosedCount)) throw new ThreadNotVisibleError();
+  const countErr = checkAttachmentCount(disclosedCount.payload);
   if (countErr) throw new AttachmentUploadError(countErr);
 
   // ④ 先对象存储后落库——存储失败不产生幽灵附件
