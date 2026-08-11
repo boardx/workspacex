@@ -67,9 +67,9 @@ describe("PersonalChatScreen — 主路径", () => {
     expect(await screen.findByTestId("chat-thread-list-empty")).toBeInTheDocument();
   });
 
-  it("建线程走 createPersonalThread，成功后重读列表并显示新会话", async () => {
+  it("一键即建：点「新建对话」直接建线程（null 标题，服务端自动命名），落进新会话", async () => {
     listPersonalThreads.mockResolvedValueOnce(EMPTY_LIST).mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [{ id: "thr-new", title: "我的第一次对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-new", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     createPersonalThread.mockResolvedValue({ threadId: "thr-new", version: 0, auditEventId: "ev-1", impactScope: null });
@@ -81,20 +81,19 @@ describe("PersonalChatScreen — 主路径", () => {
     render(<PersonalChatScreen initialThreadId={null} />);
     await screen.findByTestId("chat-thread-list-empty");
 
-    // #728 P1/P3：新建表单默认收着，点「＋ 新建对话」（与项目对话共用同一个组件，
-    // testid `chat-thread-create`）才展开——不再是常驻输入框。
+    // 2026-08-11 人类裁决：一键即建。点「＋ 新建对话」直接建一条 null 标题（服务端自动命名）
+    // 的线程并落进去——没有中间标题表单、没有「确认」第二步（对齐 ChatGPT/Claude）。
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.click(screen.getByTestId("chat-thread-create"));
-    fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "我的第一次对话" } });
-    fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
 
-    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledWith("我的第一次对话"));
+    // 单击即以 null 标题建线程（服务端起默认名，前端不编一个）。
+    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledWith(null));
     await waitFor(() => expect(getThread).toHaveBeenCalledWith("thr-new", null, "provider-bearer"));
     expect(await screen.findByTestId("chat-thread-detail")).toBeInTheDocument();
     expect(await screen.findByTestId("stub-message-panel")).toBeInTheDocument();
   });
 
-  it("P3：空标题也能新建——空态引导文案指着的按钮不能是禁用态", async () => {
+  it("一键即建没有中间表单——旧的「填标题 → 确认」两步已删（防回归）", async () => {
     listPersonalThreads.mockResolvedValueOnce(EMPTY_LIST).mockResolvedValueOnce({
       groups: [{ label: "今天", cards: [{ id: "thr-blank", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
@@ -108,15 +107,17 @@ describe("PersonalChatScreen — 主路径", () => {
     render(<PersonalChatScreen initialThreadId={null} />);
     await screen.findByTestId("chat-thread-list-empty");
 
+    // 点之前就不该有标题输入框/确认按钮/表单——两步式已删，不许悄悄回来。
+    expect(screen.queryByTestId("chat-thread-title-input")).toBeNull();
+    expect(screen.queryByTestId("chat-thread-title-submit")).toBeNull();
+    expect(screen.queryByTestId("chat-thread-create-form")).toBeNull();
+
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.click(screen.getByTestId("chat-thread-create"));
-    // 标题一个字都不打，直接点确认——提交按钮此刻必须不是 disabled。
-    const submit = screen.getByTestId("chat-thread-title-submit");
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
 
-    // 空标题传 null，不是空字符串——由服务端起默认名，前端不编一个。
+    // 单击直达 create(null)，中途也不冒出任何标题表单。
     await waitFor(() => expect(createPersonalThread).toHaveBeenCalledWith(null));
+    expect(screen.queryByTestId("chat-thread-title-input")).toBeNull();
     expect(await screen.findByTestId("chat-thread-detail")).toBeInTheDocument();
   });
 });

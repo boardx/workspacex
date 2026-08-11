@@ -203,6 +203,12 @@ export function ChatLiveMessagePanel({
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
     el.style.overflowY = el.scrollHeight > COMPOSER_MAX_HEIGHT_PX ? "auto" : "hidden";
   }, [text]);
+  // 一键即建后（及打开任一线程时）把光标落在输入框——落进会话即可打字，不必再点一下。
+  // 归档线程只读，不抢焦点（`disabled` 的 textarea 也无法聚焦，这里显式短路更清楚）。
+  React.useEffect(() => {
+    if (archived) return;
+    composerRef.current?.focus();
+  }, [threadId, archived]);
   /**
    * V3（PROP-CHAT-10ITER-001）—— 逐条消息复制。`copiedMessageId` 记住「刚复制的是哪条」，
    * 2 秒后自动清空，让图标从对勾切回复制图标（短暂反馈，不常驻）。复制的是消息**纯文本**

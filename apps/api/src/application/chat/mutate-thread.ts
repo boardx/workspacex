@@ -133,6 +133,25 @@ function normalizeTitle(raw: string | null): string {
   return t;
 }
 
+/** 个人线程 create 的自动默认名（留空即起名，不是拒绝）。内容自动命名（取首条消息）是后续。 */
+export const DEFAULT_PERSONAL_THREAD_TITLE = "新对话";
+
+/**
+ * 个人线程 **create** 的标题规则——与 rename 路径**故意不同**：
+ * 留空/纯空格 = 起默认名（一键即建：用户不必先想标题），非空仍按 `normalizeTitle` 校验长度。
+ *
+ * ⚠ 为什么单独一个函数而不复用 `normalizeTitle`：`normalizeTitle` 空标题抛 `TITLE_INVALID`，
+ *   那是 rename 的正确语义（把标题清空不是合法编辑）。但 create 空标题曾经也抛——而个人
+ *   对话新建表单的占位符逐字写着「留空则自动命名」，两者矛盾：留空实际会 422。这里让
+ *   create 的空标题**如占位符承诺**地起默认名，把那句假承诺变成真的。rename 仍走 `normalizeTitle`。
+ */
+function titleForPersonalCreate(raw: string | null): string {
+  const t = (raw ?? "").trim();
+  if (t.length === 0) return DEFAULT_PERSONAL_THREAD_TITLE;
+  if (t.length > 200) throw new TitleInvalidError();
+  return t;
+}
+
 export async function mutateThread(
   deps: MutateThreadDeps,
   input: MutateThreadInput,
@@ -207,7 +226,8 @@ async function createPersonalThread(
   deps: MutateThreadDeps,
   input: MutateThreadInput,
 ): Promise<MutateThreadResult> {
-  const title = normalizeTitle(input.title);
+  // 个人对话新建：留空即起默认名（占位符「留空则自动命名」的兑现），不再 422。
+  const title = titleForPersonalCreate(input.title);
   const threadId = deps.artifactIds.next("thr");
   await deps.chat.createThread({
     orgId: input.orgId,
