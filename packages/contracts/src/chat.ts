@@ -43,6 +43,9 @@
  *     `context-pack.CITATION_OUT_OF_PACK`，**本束引用它，不另起**（见文件末尾编译期断言）
  */
 import { z } from "zod";
+// #946 · V9-a F151：消息挂附件。`Attachment` / `ATTACHMENT_LIMITS` 的唯一事实源在
+// chat-file-upload.ts（单向依赖，无环——该文件只 import z）。这里复用，不另立第二份形状。
+import { Attachment, ATTACHMENT_LIMITS } from "./chat-file-upload";
 import { PermissionReason, ProjectRole, VisibilityScope } from "./identity";
 import { ArtifactError } from "./artifact";
 import { ContextPackReason } from "./context-pack";
@@ -91,6 +94,9 @@ export const DurableMessage = z.object({
   agentRunId: z.string().nullable(),
   replyToMessageId: z.string().nullable(),
   createdAt: z.string().datetime(),
+  // #946 · V9-a F151：该消息挂的附件投影（listMessages 回读）。可选——既有不带附件的消息
+  // 与 agentProactiveSpeak 等其它 DurableMessage 生产者不受影响；缺省即无附件。
+  attachments: z.array(Attachment).optional(),
 }).strict();
 
 /** 消息徽标。⚠ **标在发生它的那条消息上**，不折叠进别处（AC5 / 原型状态 4.5） */
@@ -215,6 +221,9 @@ export const ChatError = z.enum([
   "PRESET_NOT_FOUND",
   "NOT_DISPATCHED_TO_ACTOR",
   "PRESET_VERSION_SUPERSEDED",
+  /** #946 · V9-a F151：createMessage 的 attachmentIds 里有 id 不属本线程 / 已挂过别的
+   *  消息 / 不存在。整条消息连同挂附件是一个原子事务，任一不合格即整体拒（422）。 */
+  "ATTACHMENT_NOT_PENDING",
 ]);
 
 /* ─────────────────────────────── 值对象 ─────────────────────────────── */
@@ -626,13 +635,21 @@ export const operations = {
       clientMessageId: z.string().uuid(),
       text: z.string().trim().min(1),
       agentId: z.string().trim().min(1),
+      // #946 · V9-a F151：把已上传的 pending 附件挂到这条消息上。可选、去重、上限取自
+      // 单源 ATTACHMENT_LIMITS。每个 id 必须属本线程且未挂过别的消息，否则整条拒
+      // （ATTACHMENT_NOT_PENDING），发消息与挂附件是一个原子事务。
+      attachmentIds: z.array(z.string()).max(ATTACHMENT_LIMITS.maxAttachmentsPerMessage).optional(),
     }).strict(),
     out: z.object({
       message: DurableMessage,
       agentRunId: z.string(),
       runStatus: z.literal("queued"),
     }).strict(),
-    err: ["NOT_VISIBLE", "NO_WRITE_ROLE", "AGENT_NOT_FOUND", "IDEMPOTENCY_CONFLICT"] as const,
+    err: [
+      "NOT_VISIBLE", "NO_WRITE_ROLE", "AGENT_NOT_FOUND", "IDEMPOTENCY_CONFLICT",
+      // #946 · V9-a F151：attachmentIds 里有 id 不属本线程 / 已挂过别的消息 / 不存在。
+      "ATTACHMENT_NOT_PENDING",
+    ] as const,
   },
 
   /**

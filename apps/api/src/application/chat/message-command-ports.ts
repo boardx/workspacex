@@ -38,6 +38,30 @@ export interface AcceptedHumanMessage {
   readonly runStatus: "queued";
 }
 
+/**
+ * #946 · V9-a F151：消息挂的附件投影（listMessages 回读一份）。形状与契约 `Attachment`
+ * 一致（id/filename/mime/bytes/createdAt），是那份的**运行时映射**，不另立第二事实源。
+ */
+export interface MessageAttachment {
+  readonly id: string;
+  readonly filename: string;
+  readonly mime: string;
+  readonly bytes: number;
+  readonly createdAt: string;
+}
+
+/**
+ * #946 · V9-a F151：`accept` 里挂附件时，attachmentIds 有 id 不属本线程 / 已挂过别的消息 /
+ * 不存在——由仓储在**同一事务内**抛出，回滚整条消息写入（原子）。用例 catch 后转
+ * `MessageAttachmentNotPendingError`，控制器映射 422 `ATTACHMENT_NOT_PENDING`。
+ */
+export class AttachmentNotPendingError extends Error {
+  constructor() {
+    super("ATTACHMENT_NOT_PENDING");
+    this.name = "AttachmentNotPendingError";
+  }
+}
+
 export interface MessagePageRow {
   readonly id: string;
   readonly authorKind: "human" | "agent";
@@ -80,8 +104,23 @@ export interface ChatMessageCommandRepository {
       messageId: string;
       runId: string;
       snapshot: PublishedAgentSnapshot;
+      /**
+       * #946 · V9-a F151：挂到这条消息上的 pending 附件 id（已去重、≤10）。在**同一事务内**
+       * set message_id；任一 id 不属本线程/已挂过/不存在 ⇒ 抛 `AttachmentNotPendingError`
+       * 回滚整条消息（消息与挂附件是一个原子动作）。空/缺省 = 不挂附件。
+       */
+      attachmentIds?: readonly string[];
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
+
+  /**
+   * #946 · V9-a F151：按消息 id 批量回读附件（listMessages 投影）。返回 messageId → 附件数组
+   * （按 createdAt,id 升序）。无附件的消息不在 map 里。
+   */
+  attachmentsByMessage(
+    orgId: OrgId,
+    messageIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly MessageAttachment[]>>;
 
   page(
     orgId: OrgId,
