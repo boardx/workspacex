@@ -49,8 +49,8 @@
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort, PinnedSkillContent,
-  RunFailureCode, RunStepKind, ThreadHistoryMessage,
+  AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
+  PinnedSkillContent, RunFailureCode, RunStepKind, ThreadHistoryMessage,
 } from "./ports";
 import { ModelCallError } from "./ports";
 
@@ -134,6 +134,28 @@ export function trimHistoryToBudget(
  *   保证总量不超预算，且**近几轮优先**（摘要挤不下时缩的是更旧的保留轮，不是最近的）。
  * - 摘要只是 `role/content` 伪消息，`ModelCallInput` 与 `ModelCallPort` 形状不变。
  */
+/**
+ * V9-b 前置 A（#970）—— 把一轮的附件元数据渲染成模型能读到的一行提示，拼到该轮文本末尾。
+ *
+ * 为什么落进 content 字符串：`ModelCallPort`/各 provider 只认 `{ role, content }`，不读
+ * `ThreadHistoryMessage.attachments`。要让模型*知道*有附件，附件必须进 content。
+ *
+ * 渲染成**中性、诚实**的一行：模型据此可以说「你传了 X（image/png），但我还读不了它的内容」，
+ * 而不是矢口否认有附件。附件**内容**进上下文是 B（F153/anydoc），不在这里。
+ *
+ * 无附件 → 原样返回，不加任何噪声（保持既有 run 的 prompt 逐字节不变，不惊动既有断言）。
+ */
+export function withAttachmentNotice(
+  content: string,
+  attachments: readonly HistoryAttachmentMeta[] | undefined,
+): string {
+  if (!attachments || attachments.length === 0) return content;
+  const list = attachments.map((a) => `${a.filename}（${a.mime}）`).join("、");
+  const notice = `［附件：${list}。这些文件已随该消息上传，但其内容尚未进入你的上下文——`
+    + `你只知道它们存在，暂时还无法读取里面的内容。］`;
+  return content.length > 0 ? `${content}\n\n${notice}` : notice;
+}
+
 export async function assembleHistory(
   recent: readonly ThreadHistoryMessage[],
   maxChars: number,
@@ -330,6 +352,12 @@ async function executeClaimed(
     });
   }
 
+  // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。
+  // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
+  // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
+  history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
+  const userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+
   /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
   const modelStartedAt = deps.clock.now();
   let text: string;
@@ -358,7 +386,7 @@ async function executeClaimed(
       // for the contract.
       const completion = await completeWithProgress(
         {
-          modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
+          modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
           history,
         },
         async (event) => {
@@ -390,7 +418,7 @@ async function executeClaimed(
       const completion = deps.model.completeStream
         ? await deps.model.completeStream(
           {
-            modelProvider: run.modelProvider, modelId: run.modelId, system, user: run.inputText,
+            modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             history, skills: toolSkills,
           },
           async (delta) => {
@@ -404,7 +432,7 @@ async function executeClaimed(
           modelProvider: run.modelProvider,
           modelId: run.modelId,
           system,
-          user: run.inputText,
+          user: userText,
           history,
           // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
           // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.

@@ -26,9 +26,9 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
-  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, PendingWriteback,
-  PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunLocator, RunProjection,
-  ThreadHistoryMessage,
+  AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
+  PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus,
+  RunLocator, RunProjection, ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -53,11 +53,44 @@ interface StepRow {
 
 interface ClaimDetailRow {
   id: string; project_id: string; input_text: string; instructions: string;
+  input_attachments: unknown;
 }
 
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === "string");
+}
+
+/**
+ * V9-b 前置 A（#970）—— 把 `json_agg(json_build_object('filename',…,'mime',…))` 的结果收成
+ * `HistoryAttachmentMeta[]`。SQL 侧已 `COALESCE(..., '[]')`，这里再兜一层脏输入（非数组、
+ * 缺字段、非字符串一律丢弃）——附件元数据是「锦上添花」，绝不能因为一条坏行让整次运行失败。
+ */
+function toAttachmentMeta(value: unknown): HistoryAttachmentMeta[] {
+  if (!Array.isArray(value)) return [];
+  const out: HistoryAttachmentMeta[] = [];
+  for (const v of value) {
+    if (v && typeof v === "object"
+      && typeof (v as { filename?: unknown }).filename === "string"
+      && typeof (v as { mime?: unknown }).mime === "string") {
+      out.push({ filename: (v as { filename: string }).filename, mime: (v as { mime: string }).mime });
+    }
+  }
+  return out;
+}
+
+/**
+ * V9-b 前置 A（#970）—— 按 `message_id` 聚合该消息的附件元数据成一个 json 数组的 SQL 片段。
+ * 单源在这里，claim（触发消息）与 readThreadHistory（历史消息）两处都用它，避免第二份会漂移的
+ * 聚合写法。`$msgIdExpr` 传入外层消息 id 的列引用（如 `r.input_message_id` 或 `m.id`）。
+ */
+function attachmentsAggSql(msgIdExpr: string): string {
+  return `COALESCE(
+    (SELECT json_agg(json_build_object('filename', a.filename, 'mime', a.mime)
+              ORDER BY a.created_at, a.id)
+       FROM chat_message_attachments a
+      WHERE a.org_id = $1 AND a.message_id = ${msgIdExpr}),
+    '[]'::json)`;
 }
 
 export class PgAgentRunRepository implements AgentRunStore {
@@ -87,7 +120,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       // later cannot observe a different value than the claim did.
       const ids = claimed.rows.map((row) => row.id);
       const detail = await s.query<ClaimDetailRow>(
-        `SELECT r.id, t.project_id, m.body AS input_text, v.instructions
+        `SELECT r.id, t.project_id, m.body AS input_text, v.instructions,
+                ${attachmentsAggSql("r.input_message_id")} AS input_attachments
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
@@ -112,6 +146,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           projectId: extra.project_id,
           inputMessageId: row.input_message_id,
           inputText: extra.input_text,
+          inputAttachments: toAttachmentMeta(extra.input_attachments),
           agentId: row.agent_id,
           agentVersionId: row.agent_version_id,
           instructions: extra.instructions,
@@ -473,15 +508,18 @@ export class PgAgentRunRepository implements AgentRunStore {
   ): Promise<readonly ThreadHistoryMessage[]> {
     if (limit <= 0) return [];
     return this.db.withTenant(orgId, async (s) => {
-      const result = await s.query<{ author_kind: string; body: string }>(
-        `SELECT author_kind, body FROM (
-           SELECT author_kind, body, created_at, id
-             FROM chat_messages
-            WHERE org_id=$1 AND thread_id=$2
-              AND (created_at, id) < (
+      // V9-b 前置 A（#970）：每条历史消息顺带聚合它的附件元数据（filename/mime），让模型
+      // 看到历史里「那条消息带了文件」。附件内容不在这里（那是 B/anydoc）。
+      const result = await s.query<{ author_kind: string; body: string; attachments: unknown }>(
+        `SELECT author_kind, body, attachments FROM (
+           SELECT cm.author_kind, cm.body, cm.created_at, cm.id,
+                  ${attachmentsAggSql("cm.id")} AS attachments
+             FROM chat_messages cm
+            WHERE cm.org_id=$1 AND cm.thread_id=$2
+              AND (cm.created_at, cm.id) < (
                 SELECT created_at, id FROM chat_messages WHERE org_id=$1 AND id=$3
               )
-            ORDER BY created_at DESC, id DESC
+            ORDER BY cm.created_at DESC, cm.id DESC
             LIMIT $4
          ) recent
          ORDER BY created_at ASC, id ASC`,
@@ -489,8 +527,12 @@ export class PgAgentRunRepository implements AgentRunStore {
       );
       return result.rows
         .map((row): ThreadHistoryMessage | null => {
-          if (row.author_kind === "human") return { role: "user", content: row.body };
-          if (row.author_kind === "agent") return { role: "assistant", content: row.body };
+          const attachments = toAttachmentMeta(row.attachments);
+          // 附件字段只在真有附件时挂上（保持「空/缺省 = 没有附件」的读法，也让既有断言不被
+          // 一个恒空数组搅动）。
+          const withAtt = attachments.length > 0 ? { attachments } : {};
+          if (row.author_kind === "human") return { role: "user", content: row.body, ...withAtt };
+          if (row.author_kind === "agent") return { role: "assistant", content: row.body, ...withAtt };
           // No third `author_kind` exists in this schema today (see the CHECK on
           // `chat_messages`); skipping rather than throwing keeps a future value from
           // turning "read some history" into "fail the whole run" for an enhancement
