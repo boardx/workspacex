@@ -7,6 +7,9 @@ developers:
   - email: 2325074+usamshen@users.noreply.github.com
     github: usamshen
     role: maintainer
+  - email: 147526627+usersyj@users.noreply.github.com
+    github: usersyj
+    role: contributor
 
 agents:
   # ── 主协调者（唯一，合并权归它）─────────────────────────────
@@ -45,6 +48,17 @@ agents:
   #   kind: worker
   #   owner: you@example.com
   #   areas: [<模块名>]
+
+  # ── Studio 实时转录 worker（无分派、审批或合并权）──────────────
+  - id: dev-studio-asr
+    active: true
+    kind: worker
+    model: configured-default
+    owner: 147526627+usersyj@users.noreply.github.com
+    areas: [studio, recording]
+    reports_to: coord-main
+    responsibilities:
+      - 实现 Studio 实时转录、阿里云 Fun-ASR、转录落库与 Skill 分析链路
 
   # ── chat/agent/skills/canvas/recording 模块协调者（无合并权）────────
   # ⚠ H3A-011 裁决（2026-08-08，人类）：本身份同时是 DOM-CHAT/DOM-CANVAS-DIAGRAM/
