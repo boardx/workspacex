@@ -12,6 +12,14 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    /**
+     * 2026-08-12（#1010 第四轮定案，项目 Agent）：verify:base 的隔离栈需求是 3——
+     * 外层 wrapper(1) + test-isolation.test.ts 自 spawn 的 wrapper(2) 与
+     * fullstack-smoke fixture(3) 在 fileParallelism 下并行抢——而准入闸上限=2
+     * （2026-08-08 load66 崩机事故的保护，不放宽）⇒ 确定性饿死，与负载/他人栈无关
+     * （空机 0 栈实测 7/7 红；单测试 600s 等槽是铁证）。文件串行把并发需求降回 2。
+     */
+    fileParallelism: false,
     testTimeout: 60_000,
   },
 });
