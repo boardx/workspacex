@@ -55,6 +55,7 @@ function run() {
     root,
     phasesRoot: join(root, "phases"),
     contractsSrc: join(root, "packages", "contracts", "src"),
+    schemaMapFile: join(root, ".harness", "scripts", "third-artifact-map.json"),
   });
 }
 
@@ -93,6 +94,29 @@ describe("反证 —— 逐条破坏必须变红", () => {
     const { errors, rows } = run();
     expect(errors).toEqual([]);
     expect(rows[0]).toMatchObject({ form: "A" });
+  });
+
+  it("基线 · 形态 A 复用：显式映射到既有契约文件 ⇒ 绿且不复制第二套 schema", () => {
+    bundle({ schema: null });
+    write("packages/contracts/src/interview.ts", "export const Interview = {};\n");
+    write(
+      ".harness/scripts/third-artifact-map.json",
+      JSON.stringify({ [PHASE]: { [BUNDLE]: "interview" } }),
+    );
+    const { errors, rows } = run();
+    expect(errors).toEqual([]);
+    expect(rows[0]).toMatchObject({ form: "A", schema: "packages/contracts/src/interview.ts" });
+  });
+
+  it("反证 · 契约复用映射的目标不存在 ⇒ 红并点名映射", () => {
+    bundle({ schema: null });
+    write(
+      ".harness/scripts/third-artifact-map.json",
+      JSON.stringify({ [PHASE]: { [BUNDLE]: "missing-contract" } }),
+    );
+    const { errors } = run();
+    expect(errors.join("\n")).toContain("[契约复用目标缺失]");
+    expect(errors.join("\n")).toContain("missing-contract");
   });
 
   it("基线 · 形态 B：显式声明无 HTTP 面 + API 列填门控命令 ⇒ 绿", () => {

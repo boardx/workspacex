@@ -1,0 +1,9 @@
+{
+  "//": "契约束复用既有 zod 契约文件的唯一事实源。仅登记真正共享同一领域契约的跨阶段扩展；普通束无需出现。",
+  "phase-03-reuse-and-governance": {
+    "user-research-studio": "interview"
+  },
+  "phase-04-digital-expert-interview-studio": {
+    "digital-expert-interview": "interview"
+  }
+}
