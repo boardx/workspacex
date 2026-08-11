@@ -33,6 +33,6 @@ phases:
     slug: digital-expert-interview-studio
     name: 数字专家访谈 Studio
     goal: "独立交付历史访谈、专家快捷对话、五步批量访谈与可追溯探索性报告，不依赖组织决策晋升链"
-    status: not_started
+    status: in_progress
     depends_on: []
     has_ui: true
