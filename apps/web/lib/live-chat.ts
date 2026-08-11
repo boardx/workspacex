@@ -30,9 +30,9 @@
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
  */
-import { chat } from "@repo/contracts";
+import { chat, chatFileUpload } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
 export type ThreadCard = z.infer<typeof chat.ThreadCard>;
 export type ListThreadsOut = z.infer<typeof chat.operations.listThreads.out>;
@@ -258,6 +258,43 @@ export async function createMessage(
       sessionToken,
     },
   );
+}
+
+/** #946 · V9-a：一条附件（契约 `chat-file-upload.Attachment` 的运行时类型）。 */
+export type ChatAttachment = z.infer<typeof chatFileUpload.Attachment>;
+
+/** #946 · V9-a：附件容量约束（单文件字节 / 每消息数上限）——前端预检用，服务端仍权威。 */
+export const ATTACHMENT_LIMITS = chatFileUpload.ATTACHMENT_LIMITS;
+
+/** #946 · V9-a：允许的 MIME 白名单（前端预检 + accept 属性用）。 */
+export const ATTACHMENT_MIME_ALLOWLIST = chatFileUpload.ATTACHMENT_MIME_ALLOWLIST;
+
+/**
+ * #946 · V9-a F150/F152：上传一个附件到线程（`POST /chat/threads/:threadId/attachments`）。
+ * ⚠ **不套 `apiRequest`**（它假设 JSON body）：字节走 multipart 表单，multer 端点收 `file`
+ * 字段。绝不手动设 `Content-Type`——fetch 会从 `FormData` 自带 multipart boundary，手设会
+ * 覆盖它导致服务端解析失败。失败信封解析复用 `extractReasonCode` + `ApiError`，与其余端点
+ * 一致（`reasonCode` 驱动前端文案：FILE_TOO_LARGE / FILE_TYPE_REJECTED / MIME_MISMATCH /
+ * ATTACHMENT_LIMIT_EXCEEDED / NO_WRITE_ROLE / STORAGE_UNAVAILABLE）。
+ */
+export async function uploadAttachment(
+  threadId: string,
+  file: File,
+  sessionToken?: string,
+): Promise<ChatAttachment> {
+  const url = apiUrl(
+    chatFileUpload.operations.uploadAttachment.path.replace(":threadId", encodeURIComponent(threadId)),
+  );
+  const token = sessionToken !== undefined ? sessionToken : getStoredSessionToken();
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const res = await fetch(url, { method: "POST", headers, credentials: "include", body: form });
+  const text = await res.text();
+  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+  if (!res.ok) throw new ApiError(res.status, extractReasonCode(json), json);
+  return json as ChatAttachment;
 }
 
 export interface CreateThreadInput {

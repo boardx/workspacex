@@ -5,47 +5,37 @@
  *   假数据，仅用于让人类在 sign-off 时点得动、看得到六种界面态。**不混进活路由**
  *   `chat-live-message-panel.tsx`——那条路径保持「无真实数据不做假 UI」的红线。
  *
- * ## 参数单一事实源（逐字抄自已签核的 design-signoff.md「人类确认的参数」）
- * 这三个常量与白名单**只在这里声明一次**。原型 UI 的文案/校验提示全部读它们，
- * 不在组件里再手写第二份「25MB」「10 个」——本仓已五次因「同一事实两处声明」漂移。
- * 真正落地时后端会有自己的权威校验；此处只是把签核值材料化给人看。
+ * ## 参数单一事实源（V9-a 契约落地后收敛）
+ * 签核数值（25MB / 10 / 白名单）的唯一事实源现在是契约 `chat-file-upload.ts` 的
+ * `ATTACHMENT_LIMITS` / `ATTACHMENT_MIME_ALLOWLIST`——本文件**从契约派生**，不再手写第二份
+ * 「25MB」「10 个」（本仓已五次因「同一事实两处声明」漂移）。展示助手（formatBytes /
+ * iconKindForMime / 标签）从 `../chat-attachment-format` 取，活路由 composer 也从那里取，
+ * 一份实现两处用。
  */
+import { ATTACHMENT_LIMITS, ATTACHMENT_MIME_ALLOWLIST } from "../live-chat";
+import {
+  formatBytes,
+  iconKindForMime,
+  mimeLabel,
+  WHITELIST_LABELS,
+  type AttachmentIconKind,
+} from "../chat-attachment-format";
 
-/** 单文件大小上限：25 MB（design-signoff：「单文件大小上限 = 25 MB」）。 */
-export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+// 原型（chat-file-upload-preview）仍从本 mock 模块取这些展示助手——转手再导出，一份实现。
+export { formatBytes, iconKindForMime, WHITELIST_LABELS, type AttachmentIconKind };
 
-/** 每条消息附件数上限：10（design-signoff：「每消息附件数上限 = 10」）。 */
-export const MAX_ATTACHMENTS = 10;
+/** 单文件大小上限（派生自契约签核值）。 */
+export const MAX_FILE_BYTES = ATTACHMENT_LIMITS.maxBytesPerFile;
+
+/** 每条消息附件数上限（派生自契约签核值）。 */
+export const MAX_ATTACHMENTS = ATTACHMENT_LIMITS.maxAttachmentsPerMessage;
 
 /**
- * MIME 白名单（design-signoff：「PDF / text·markdown / 图片(png·jpg·webp) /
- * Office(docx·xlsx·pptx) / csv」，保守起步）。`label` 是给「不支持的文件类型」
- * 报错文案里列出「支持哪些」用的人读串。
+ * MIME 白名单（从契约 `ATTACHMENT_MIME_ALLOWLIST` 派生）。`label` 是给「不支持的文件类型」
+ * 报错文案与 `accept` 属性用的人读串/mime 串。顺序即契约顺序。
  */
-export const MIME_WHITELIST: ReadonlyArray<{ mime: string; label: string }> = [
-  { mime: "application/pdf", label: "PDF" },
-  { mime: "text/plain", label: "TXT" },
-  { mime: "text/markdown", label: "Markdown" },
-  { mime: "text/csv", label: "CSV" },
-  { mime: "image/png", label: "PNG" },
-  { mime: "image/jpeg", label: "JPG" },
-  { mime: "image/webp", label: "WEBP" },
-  {
-    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    label: "DOCX",
-  },
-  {
-    mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    label: "XLSX",
-  },
-  {
-    mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    label: "PPTX",
-  },
-];
-
-/** 白名单人读串，供报错文案「支持：PDF、DOCX、…」直接拼。 */
-export const WHITELIST_LABELS = MIME_WHITELIST.map((m) => m.label).join("、");
+export const MIME_WHITELIST: ReadonlyArray<{ mime: string; label: string }> =
+  (ATTACHMENT_MIME_ALLOWLIST as readonly string[]).map((mime) => ({ mime, label: mimeLabel(mime) }));
 
 /** 附件在原型里的上传态。真实后端落地后由服务端响应驱动，这里是 mock 定值。 */
 export type AttachmentStatus = "done" | "uploading" | "error";
@@ -98,29 +88,3 @@ export const OVERSIZE_SAMPLE: MockAttachment[] = [
   { id: "a1", filename: "接入说明.md", mime: "text/markdown", bytes: 12_284, status: "done" },
   { id: "a2", filename: "产品全量演示录屏.mp4-封面帧.png", mime: "image/png", bytes: 41_281_536, status: "error", error: `单个文件不超过 ${formatBytes(MAX_FILE_BYTES)}（该文件 ${formatBytes(41_281_536)}）`, retryable: false },
 ];
-
-/** 人读文件大小，1024 进制，最多一位小数。 */
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${round1(kb)} KB`;
-  const mb = kb / 1024;
-  if (mb < 1024) return `${round1(mb)} MB`;
-  return `${round1(mb / 1024)} GB`;
-}
-function round1(n: number): string {
-  return (Math.round(n * 10) / 10).toString();
-}
-
-/** MIME → 类型图标族（组件按此选 lucide 图标；不认识的回落到通用文件图标）。 */
-export type AttachmentIconKind = "pdf" | "doc" | "sheet" | "slides" | "image" | "text" | "file";
-
-export function iconKindForMime(mime: string): AttachmentIconKind {
-  if (mime === "application/pdf") return "pdf";
-  if (mime.includes("wordprocessingml")) return "doc";
-  if (mime.includes("spreadsheetml") || mime === "text/csv") return "sheet";
-  if (mime.includes("presentationml")) return "slides";
-  if (mime.startsWith("image/")) return "image";
-  if (mime === "text/plain" || mime === "text/markdown") return "text";
-  return "file";
-}
