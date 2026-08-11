@@ -50,7 +50,7 @@ phase: "01"
 #   covers_bundles：下面的历史 confirmed_at 是 2026-07-30，当时该束不存在，不能被解释为
 #   已复核它。只改 covers_bundles 会把“没看过”谎报成“看过”。人类须先签该束，再复核本文
 #   新增的 XC-31，最后亲自把该束加入 covers_bundles 并刷新确认时间。在此之前门控红是预期行为。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates]
+covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs]
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:   yanbin shen            # 确认人（姓名/邮箱）
 confirmed_at:  2026-07-30T09:19:24+08:00          # ISO 8601，且不得晚于签核当下

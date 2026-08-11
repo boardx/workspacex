@@ -2,9 +2,13 @@
 bundle: curated-capability-packs
 phase: "01"
 covers: [F149]
-status: pending
-confirmed_by:
-confirmed_at:
+status: confirmed
+confirmed_by: yanbin shen
+confirmed_at: 2026-08-11T13:50:00+08:00
+confirmed_via: >-
+  人类 2026-08-11 晨在主会话逐字回复「curated 束确认签核」。由 coord-main 按 #660/#927
+  先例代抄；交叉约束复核由 coord-main 同日代核（本束纯设计文档、复用 skills 束 UI 与
+  /skill 路由、不新增表或运行时路径，与既有 12 束无冲突面），留档待人类复核，可推翻。
 ---
 
 # 契约束 `curated-capability-packs` 设计签核
