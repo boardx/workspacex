@@ -533,6 +533,20 @@ export function ChatLiveMessagePanel({
     }
   };
 
+  /**
+   * 发送后等待动画（人类 devapp 实测：发完消息像卡死，要对标 Claude Code 的 thinking 动画）。
+   * `awaitingReply` = 有一个在途 run 且还没有任何逐 token 文本可显示时——此时消息区什么都
+   * 不动，正是"卡死感"的来源。deep-agent 走轮询+整段写回，`streamingText` 全程为空，所以
+   * 这个态在 devapp 的默认 agent 上尤其常见。
+   * - `activeRunId !== null`：确实有一个 run 在跑（提交后即置）。
+   * - `streamingText === ""`：还没有逐字草稿（有草稿就走上面的流式气泡，二者互斥）。
+   * - run 未到终态：`runObservation.view` 为 null（首次轮询还没回）或状态非终态都算在途；
+   *   到终态后真实回复由 `loadPage` 接管，动画让位。
+   */
+  const awaitingReply = activeRunId !== null
+    && streamingText === ""
+    && !(runObservation?.view != null && isTerminalRunStatus(runObservation.view.status));
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
       <div
@@ -692,6 +706,35 @@ export function ChatLiveMessagePanel({
                     {/* 同一个 CopilotKit Markdown 组件——流式草稿和落库后的最终消息
                         渲染路径不该是两套，图片 markdown 语法在两边要一样生效。 */}
                     <Markdown content={streamingText} />
+                  </div>
+                </div>
+              </li>
+            ) : null}
+            {awaitingReply ? (
+              // 发送后等待动画——对标 Claude Code 的 thinking 指示。与流式草稿气泡互斥
+              // （`streamingText === ""` 才走这里），与 V4 首载骨架也不同（那是读历史，
+              // 这是等本轮回复）。三颗错峰脉动的点 = 明确的"系统在想，没卡死"信号。
+              <li
+                className="flex items-start gap-2.5"
+                data-testid="chat-message-row-thinking"
+                data-run-id={activeRunId}
+              >
+                <div aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Bot className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex max-w-[80%] flex-col gap-1 items-start">
+                  <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <span className="font-medium">Agent</span>
+                    <Badge tone="outline">正在思考…</Badge>
+                  </div>
+                  <div
+                    className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-panel px-3.5 py-3"
+                    role="status"
+                    aria-label="正在思考，请稍候"
+                  >
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:200ms]" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:400ms]" />
                   </div>
                 </div>
               </li>
