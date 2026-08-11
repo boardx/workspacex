@@ -3386,13 +3386,12 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm exec tsx apps/api/scripts/generate-garden-advisors-pack.ts --check",
-        "pnpm --filter api exec vitest run tests/skills/garden-advisors-pack.test.ts",
+        "pnpm --filter api exec vitest run tests/skills/explicit-starter-import.test.ts",
         "pnpm --filter api exec vitest run tests/kernel/no-builtin-capability-lists.test.ts",
         "pnpm --filter web exec vitest run tests/ui/skill-starter-import.test.tsx"
       ],
       "evidence": "",
-      "notes": "前置：#412 / PR #428 已提供并合入 `wave2Runtime.operations.importSkillStarterPack`、`SKILL_STARTER_PACK_ROOT`、RLS/幂等/不可变文件与真实空态；本 feature **不得修改 API 语义**。开工仍被两道人类门禁挡住：`contracts/curated-capability-packs/design-signoff.md` 必须 confirmed，且人类必须把该束纳入 `design-coherence.md` 后重新复核 XC-31；历史 2026-07-30 coherence 签名不覆盖本束。UI 复用依赖 control-plane #432 的 `reuse_bundle: skills`，不复制截图。预计共享热点：`apps/api/scripts/generate-garden-advisors-pack.ts`、adapter source/生成产物目录、`apps/api/tests/skills/garden-advisors-pack.test.ts`；不碰 Agent/Deep Research/AgentRun。验证需同时反证 tampered file、tampered pack、non-admin、cross-org、idempotency、attribution、no automatic import、no-builtin 与 executable modes unavailable。"
+      "notes": "前置：#412 / PR #428 已提供并合入 `wave2Runtime.operations.importSkillStarterPack`、`SKILL_STARTER_PACK_ROOT`、RLS/幂等/不可变文件与真实空态；本 feature **不得修改 API 语义**。开工仍被两道人类门禁挡住：`contracts/curated-capability-packs/design-signoff.md` 必须 confirmed，且人类必须把该束纳入 `design-coherence.md` 后重新复核 XC-31；历史 2026-07-30 coherence 签名不覆盖本束。UI 复用依赖 control-plane #432 的 `reuse_bundle: skills`，不复制截图。预计共享热点：`apps/api/scripts/generate-garden-advisors-pack.ts`、adapter source/生成产物目录、`apps/api/tests/skills/garden-advisors-pack.test.ts`；不碰 Agent/Deep Research/AgentRun。验证需同时反证 tampered file、tampered pack、non-admin、cross-org、idempotency、attribution、no automatic import、no-builtin 与 executable modes unavailable。 【verification 口径 2026-08-11】开工前只锚现存文件（lint-verification-can-fail 拒绝指向不存在的脚本）；实现时必须新增 generate-garden-advisors-pack.ts --check 与 garden-advisors-pack.test.ts 并把两条命令补回 verification，缺此两条不得转 passing。"
     }
   ]
 }
