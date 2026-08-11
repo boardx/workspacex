@@ -185,8 +185,7 @@ agents:
 
   # ── 远程工程师（Codex）domain 团队（2026-08-11 人类指令注册；均无合并权）────
   # 运行工具：Codex（规格单源在本 registry，`pnpm harness gen-subagents` 生成
-  # Codex 格式，行为不漂移——CI 门控）。owner 暂挂仓库所有者邮箱；远程工程师
-  # 邮箱确认后由人类改为其邮箱（门户人类身份映射用）。
+  # Codex 格式，行为不漂移——CI 门控）。owner 挂 developers 里已登记的远程工程师 usersyj。
   # ⚠ directory_agent_id / token：registry 合并后走接入自助通道领取
   # （ADR-011 P2），或由仓库所有者带外 mint 后经密码管理器/一次性链接交付；
   # 明文 token 不进仓库、不进邮件（coord-directory 代码不变量：只存 hash 前缀）。
@@ -194,7 +193,7 @@ agents:
     active: true
     kind: module-coordinator
     model: codex
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [survey, questionnaire]
     reports_to: coord-main
     responsibilities:
@@ -205,7 +204,7 @@ agents:
     active: true
     kind: module-coordinator
     model: codex
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [deep-research]
     reports_to: coord-main
     responsibilities:
@@ -217,7 +216,7 @@ agents:
     active: true
     kind: module-coordinator
     model: codex
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [user-research]
     reports_to: coord-main
     responsibilities:
@@ -229,7 +228,7 @@ agents:
     active: true
     kind: module-coordinator
     model: codex
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [voice, asr, tts]
     reports_to: coord-main
     responsibilities:
@@ -253,7 +252,7 @@ reviewers:
     active: false
     kind: reviewer
     model: configured-default
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [platform, auth, ai-runtime, chat]
     reports_to: coord-main
     required_for: [platform, auth, ai-runtime, chat]
@@ -267,7 +266,7 @@ reviewers:
     active: false
     kind: reviewer
     model: configured-default
-    owner: 2325074+usamshen@users.noreply.github.com
+    owner: 147526627+usersyj@users.noreply.github.com
     areas: [e2e, release-readiness]
     reports_to: coord-main
     required_for: [e2e, release-readiness]
