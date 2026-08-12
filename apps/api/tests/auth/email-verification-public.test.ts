@@ -138,6 +138,71 @@ describe("signed public email-verification contract", () => {
       .toEqual({ status: 201, body: { status: "completed" } });
   });
 
+  /**
+   * 【互斥反证】—— confirm 真的在 challenge 行上取了 `FOR UPDATE`。
+   *
+   * 上面那条 Promise.all 双 confirm 断言的是**行为**（重放拿到同一个 completed），
+   * 不是锁：反证实测把 confirm 的 FOR UPDATE、resend 的 advisory lock 全删掉，
+   * 它照样绿（HTTP 往返的 I/O 把两路错开了，见 #1040）。锁的证据必须是确定性的：
+   *
+   * holder 事务先 UPDATE 该行（核销，不提交）按住行锁 → confirm 必须**阻塞**；
+   * holder 提交后 confirm 才继续，且必须把已核销读成 completed（幂等重放）。
+   * 把 target CTE 的 `FOR UPDATE` 删掉 ⇒ confirm 的快照读到 consumed_at IS NULL、
+   * UPDATE 被 EvalPlanQual 判零行 ⇒ 这里变成 400 invalid ⇒ 当场红，且每次都红。
+   */
+  it("【互斥反证】confirm 在 challenge 行锁上等待，锁一放读到的是 completed 不是 invalid", async () => {
+    const registration = await register("confirm-row-lock");
+    let settled = false;
+    let confirmPending!: Promise<{ status: number; body: Record<string, unknown> }>;
+    const holder = db.withoutTenant(async (session) => {
+      await session.query(
+        `UPDATE email_verification_challenges SET consumed_at = now() WHERE id = $1`,
+        [registration.row.id],
+      );
+      confirmPending = post("/auth/email-verifications/confirm", { token: registration.raw })
+        .then((r) => { settled = true; return r; });
+      // 给 confirm 足够时间走完整条 HTTP+SQL 路径；它必须停在行锁上。
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      expect(settled, "confirm 没有阻塞——challenge 行锁被删了？").toBe(false);
+    });
+    await holder;
+    await expect(confirmPending).resolves.toEqual({ status: 201, body: { status: "completed" } });
+  });
+
+  /**
+   * 【互斥反证】—— resend 真的持有按 lower(email) 键控的 advisory 锁。
+   * 测试自己抢住同一把锁不放，resend 必须等；删掉仓储里那一行锁 ⇒ 立刻返回 ⇒ 红。
+   */
+  it("【互斥反证】resend 在同 key 的 advisory 锁上等待，锁一放才继续", async () => {
+    const registration = await register("resend-advisory-lock");
+    await asOwner((client) => client.query(
+      `UPDATE email_verification_challenges SET created_at = now() - interval '61 seconds' WHERE id = $1`,
+      [registration.row.id],
+    ));
+    let settled = false;
+    let resendPending!: Promise<{ status: number; body: Record<string, unknown> }>;
+    const holder = db.withoutTenant(async (session) => {
+      await session.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended(lower($1), 0))`,
+        [registration.email],
+      );
+      resendPending = post(
+        "/auth/email-verifications/resend", { email: registration.email }, registration.pendingCookie,
+      ).then((r) => { settled = true; return r; });
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      expect(settled, "resend 没有阻塞——advisory 锁被删了？").toBe(false);
+    });
+    await holder;
+    await expect(resendPending).resolves.toEqual({
+      status: 201, body: { verificationDelivery: "queued" },
+    });
+    const count = await asOwner(async (client) => Number((await client.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM email_verification_challenges WHERE user_id = $1`,
+      [registration.userId],
+    )).rows[0]!.n));
+    expect(count).toBe(2);
+  });
+
   it("collapses forged and expired challenges into VERIFICATION_LINK_INVALID", async () => {
     const registration = await register("expired");
     await asOwner((client) => client.query(

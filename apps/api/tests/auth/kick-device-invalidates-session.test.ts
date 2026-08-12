@@ -262,7 +262,7 @@ describe("幂等重放", () => {
     expect(second.affectedDevice).toBe(first.affectedDevice);
   });
 
-  it("并发两路踢同一条：最终状态唯一，两路拿到同一个 revokedAt", async () => {
+  it("并发两路踢同一条：最终状态唯一，存储里的 revokedAt 是两路答复之一", async () => {
     const laptop = await loginAs(EMAIL, LAPTOP_UA);
     const phone = await loginAs(EMAIL, PHONE_UA);
     const phoneRow = (await rows(laptop)).find((r) => r.device === "Safari on iPhone")!;
@@ -271,9 +271,19 @@ describe("幂等重放", () => {
       kick(laptop, phoneRow.id as string).then(readJson),
       kick(laptop, phoneRow.id as string).then(readJson),
     ]);
-    expect(a.revokedAt).toBe(b.revokedAt);
+    // ⚠ 这里**不**断言 a.revokedAt === b.revokedAt：store 有意不做 WATCH/事务
+    //   （redis-session-token-store.ts 的注释写明接受交错），真交错时两路各写各的
+    //   时间戳，相等只是「第二路恰好读到第一路写入」的调度巧合（#1040）。
+    //   「重复踢返回同一个 revokedAt」是**串行重放**的承诺，由上一条测试钉住。
+    //   并发承诺的是最终状态唯一：两路都拿到已吊销的答复，存储里恰好一条、
+    //   其 revokedAt 是两路答复之一而不是第三个值。
+    expect(a.revokedAt).toBeTruthy();
+    expect(b.revokedAt).toBeTruthy();
     expect(await stillWorks(phone)).toBe(false);
-    expect((await sessions.listForUser(USER)).filter((s) => s.id === phoneRow.id)).toHaveLength(1);
+    const stored = (await sessions.listForUser(USER)).filter((s) => s.id === phoneRow.id);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]!.revokedAt).not.toBeNull();
+    expect([a.revokedAt, b.revokedAt]).toContain(new Date(stored[0]!.revokedAt!).toISOString());
   });
 });
 

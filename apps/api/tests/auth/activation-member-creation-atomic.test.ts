@@ -228,6 +228,43 @@ describe("并发：同一枚令牌两路同时激活 ⇒ 恰好一个成员", ()
   });
 });
 
+describe("【互斥反证】核销真的是条件 UPDATE，不是靠别的约束碰巧兜住", () => {
+  /**
+   * 上面那条 Promise.all 赛跑**证不了核销谓词**：#1040 的删锁反证实测把
+   * `AND consumed_at IS NULL` 删掉后它照样绿——两路 newAccount 用的是同一个
+   * 邀请邮箱，`credentials_email_uniq` 把第二路顶了回去，「一成一败」与谓词无关。
+   * 而两个**已有账号**抢同一枚令牌的分支没有任何唯一约束可撞：谓词一删就是双重授予。
+   *
+   * 这条按 F160 的范式做成确定性的：holder 事务先核销令牌但**不提交**，按住行锁；
+   * activate 必须阻塞在那把行锁上；holder 提交后，activate 重新求值 WHERE、
+   * 看到 consumed_at 非空，必须以 not-found 收场。
+   * 删掉谓词 ⇒ activate 提交后照样匹配、激活成功 ⇒ 这里当场红，且每次都红。
+   */
+  it("holder 核销未提交时 activate 阻塞；holder 提交后 activate 必须 not-found", async () => {
+    const inv = await invite("rowlock@f10atomic.test");
+
+    let settled = false;
+    let racer!: ReturnType<typeof activateRaw>;
+    await db.withoutTenant(async (session) => {
+      await session.query(
+        "UPDATE org_invite_tokens SET consumed_at = now() WHERE token = $1",
+        [inv.token!],
+      );
+      racer = activateRaw(inv.token!, "u-f10-atomic-rowlock").then((r) => {
+        settled = true;
+        return r;
+      }) as ReturnType<typeof activateRaw>;
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      expect(settled, "activate 没有阻塞在令牌行锁上").toBe(false);
+    });
+
+    await expect(racer).resolves.toMatchObject({ ok: false, reason: "not-found" });
+    const after = await snapshot(inv.inviteId, EMAIL_LIKE);
+    expect(after.members).toBe(0);
+    expect(after.credentials).toBe(0);
+  });
+});
+
 describe("反证：把核销从条件 UPDATE 改成「先查后写」，并发那条当场红", () => {
   /**
    * 这里不改源码跑子进程（那一手在 tamper 那个文件里做过一次），
