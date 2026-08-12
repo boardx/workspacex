@@ -103,6 +103,21 @@ describe("POST /chat/threads/:threadId/attachments", () => {
     expect(row.rows[0]!.storage_ref).toMatch(/^chat-attachments\//);
   });
 
+  it("修 bug：中文文件名不再 mojibake —— multipart latin1 filename 复原成 UTF-8（人类 devapp 实测）", async () => {
+    // busboy 默认按 latin1 解 Content-Disposition 的 filename，浏览器发的 UTF-8 中文名被解成
+    // 「æ ªå±…」这类 mojibake。控制器 decodeMultipartFilename 复原。这里走真实 multipart 上传，
+    // 断言 201 返回体与落库的 filename 都是正确中文，不是乱码。
+    const cjk = "截屏 2026-08-09 风险核算模板.png";
+    const res = await upload({ filename: cjk, mime: "image/png", bytes: PNG });
+    expect(res.status).toBe(201);
+    const body = await res.json() as { id: string; filename: string };
+    expect(body.filename).toBe(cjk);
+    expect(body.filename).not.toContain("æ"); // 不是 latin1 mojibake
+    const row = await asApp(ORG, (c) => c.query<{ filename: string }>(
+      `SELECT filename FROM chat_message_attachments WHERE id=$1`, [body.id]));
+    expect(row.rows[0]!.filename).toBe(cjk);
+  });
+
   it("F153 端到端：上传真 CSV → ≤3MB 内联抽取，201 返回时 extraction_status 已 extracted + 摘录就绪", async () => {
     // 走完整真实链路：HTTP multipart → 控制器 → uploadAttachment 用例 → 触发内联抽取
     // （≤3MB 同步）→ 真 anydoc 转 markdown → 写 extracted_ref/excerpt/status。小文件内联，
