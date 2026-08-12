@@ -1,8 +1,9 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, Square, Trash2, Maximize, Save, X, Check } from "lucide-react";
+import { MousePointer2, Square, Spline, Trash2, Maximize, Save, X, Check } from "lucide-react";
 import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
+import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
 import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,10 @@ export function ChatDiagramCanvasModal({
   const handleSave = React.useCallback(() => {
     // 保存 = 取编辑后 markdown 里的 mermaid 源（canvasToMarkdown 已在 onMarkdownChange 产出）。
     const block = extractMermaidBlocks(markdown).find((b) => b.lang === "mermaid");
-    const mermaid = block?.code ?? markdown;
+    // 序列化边界解转义（main agent 决定 ④）：fabric-markdown 的 canvasToMarkdown 会把节点标签里的
+    // `<`/`>`/`&`/`"` HTML 转义（`< 18 个月?` → `&lt; 18 个月?`），落盘再渲染会 mermaid 语法漂移。
+    // 修在 chat 保存边界、不动 fabric-markdown 包（避免牵动其他 canvas 消费者）；真实接线沿用同一函数。
+    const mermaid = decodeMermaidEntities(block?.code ?? markdown);
     // 原型：mock 持久化——展示会被落成 canvas artifact 的内容 + 落「已保存」态。
     setSaved({
       mermaid,
@@ -63,6 +67,7 @@ export function ChatDiagramCanvasModal({
   const TOOLS: { key: CanvasTool; label: string; icon: typeof Square }[] = [
     { key: "select", label: "选择", icon: MousePointer2 },
     { key: "node", label: "＋节点", icon: Square },
+    { key: "edge", label: "连线", icon: Spline },
     { key: "delete", label: "删除", icon: Trash2 },
   ];
 

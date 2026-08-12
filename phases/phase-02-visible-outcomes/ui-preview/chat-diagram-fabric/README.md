@@ -27,7 +27,7 @@
 - `chat-diagram-fabric`（气泡内只读 fabric 容器，带 `data-ready`）· `chat-diagram-fabric-surface`（canvas）
 - `chat-diagram-maximize`（最大化按钮）
 - `chat-diagram-canvas-modal`（全屏可编辑覆盖层）
-- `chat-diagram-tool-select|node|delete`（最小工具条）· `chat-diagram-zoom-fit` · `chat-diagram-close`
+- `chat-diagram-tool-select|node|edge|delete`（工具条：选择/＋节点/连线/删除，见决定 ③）· `chat-diagram-zoom-fit` · `chat-diagram-close`
 - `chat-diagram-save`（保存）· `chat-diagram-saved`（已保存态）· `chat-diagram-saved-source`（将落盘的 mermaid 源）· `chat-diagram-dirty`（未保存提示）
 - `chat-ai-mermaid-error`（诚实错误框，**沿用 VZ-01**，结构/文案不变）
 
@@ -44,8 +44,10 @@
   诚实错误框 + 回显原文 + 不崩）逐字沿用 VZ-01**，不另起一套。
 
 ## 建议束级 design-signoff.md 第 ① 件签核时重点核对 3 处
-1. **保存语义**：就地覆盖原消息里的图 vs 派生新 canvas artifact（定这条才能画后端契约）。
-2. **round-trip 保真**：saved 截图右栏 `D1{"&lt; 18 个月?"}` —— `<` 被转义。确认真实保存前需在序列化层解转义。
+1. **四个设计问题 main agent 已定**（2026-08-12 人类授权）：保存语义=派生 canvas artifact、气泡内只读、
+   工具条加连线、`<` 保存边界解转义——逐条与理由见 `SIGNOFF-INCREMENT-fabric-canvas.md`。人类可驳回任一条。
+2. **round-trip 保真**：saved 截图右栏源已是 `D1{"< 18 个月?"}`（解回，落盘那份正确）;**画布内显示**仍 `&lt;`
+   （markdownToCanvas 转义，纯视觉残留，待 fabric-markdown 包级修复）——核对这条「存对、显示待修」的边界。
 3. **错误态是否真的不崩**：核对 `VZ-02-error-box.png` —— 两个错误框都在、且**没有**残留破损画布，
    整条消息其余 markdown 正常（这正是 VZ-01 零异常态缺陷的补齐点）。
 

@@ -21,7 +21,7 @@ awaiting: 人类补签（agent 不改 status）
 ## 第一版口径（原型默认，逐条待人类拍板）
 - 气泡内 = **fabric.js 只读渲染**（`selection:false`，防误拖）；右上角「最大化」入口。
 - 最大化 = `fixed inset-0` 全屏**可编辑**画布，**复用既有 `CanvasStage`**（不新造渲染逻辑）。
-- 最小工具条：**选择 / ＋节点 / 删除 + 适应画布**（`CanvasStage` 另支持 便签/连线/源码，本版未暴露）。
+- 最小工具条：**选择 / ＋节点 / 连线 / 删除 + 适应画布**（`CanvasStage` 另支持 便签/源码视图，本版未暴露——见决定 ③）。
 - 保存 → 右栏显示**将被持久化的 mermaid 源**（`canvasToMarkdown` 产物）+ 落「已保存 · 时间」态；
   有新编辑置脏。**保存目标 = canvas artifact**（复用既有 land-as-artifact / canvas-doc 体系，不新造持久化通道）。
 - 渲染改 fabric，但**错误态契约逐字沿用 VZ-01**：白名单闸门 + `mermaid.parse` + 诚实错误框 + 回显原文 + 不崩。
@@ -50,13 +50,24 @@ awaiting: 人类补签（agent 不改 status）
   规避 fabric 造的 `.canvas-container` 包裹节点撞 React reconciler → `removeChild ... not a child` **整页崩塌**（实测栽过）。
 - **惰性化**：`IntersectionObserver`（图滚进视口才建画布），一屏多图不一次性建满重对象。
 
-## 待人类拍板（签核第 ① 件时逐条看，任一条改动都可能牵后端契约）
-1. **保存语义**：编辑后保存是「**就地覆盖**原 AI 消息里的这张图」还是「派生一个**独立 canvas artifact**」？
-   本原型两种都能承接（未接后端），但定这条才能画后端契约。
-2. **气泡内只读是否符合预期**：目前气泡内不可直接拖动、编辑一律走最大化。若要气泡内轻量微调需另议（与「误拖」权衡）。
-3. **最小工具条范围**：是否把 `连线 / ＋便签 / 源码视图` 也搬进最大化面（`CanvasStage` 都支持，仅未暴露）。
-4. **round-trip 保真瑕疵**：saved 截图右栏 `D1{"&lt; 18 个月?"}` —— `<` 被 HTML 转义（`fabric-markdown` 序列化器既有行为，
-   非本次引入）。确认真实保存前需在序列化层解转义。
+## 四个设计问题 —— main agent 已定（2026-08-12 人类授权「main agent 来做决定」）
+> 以下 4 条**设计取舍**由 main agent 拍定并已落进原型;**签核动作（status: pending → confirmed）仍是人类的**，
+> 人类过目时若不认同任一条可驳回重议。
+
+1. **保存语义 → 派生独立 canvas artifact（不覆盖原消息）**。AI 消息是不可变历史，就地覆盖会篡改
+   「AI 说过的话」、破坏审计链;用户「保存下来」的本质是「留下来、以后继续编辑」，派生一个挂在项目/消息下的
+   canvas artifact（复用既有 land-as-artifact/canvas-doc）正好满足，且不新造持久化通道。原图保留，保存产出
+   带「派生自这条消息的图」溯源。**后端契约影响**：真实接线时补 canvas artifact 侧的「从 chat 消息派生」入口，不改现有 chat 契约。
+2. **气泡内只读 → 保持**。气泡空间小、是对话流的一部分应稳定，直接可拖易误操作;编辑走最大化（预览→点开编辑的通行模式）。
+3. **工具条 → 加「连线」，成为 选择 / ＋节点 / 连线 / 删除**。只能加删节点却不能连线，编辑流程图（最常见 mermaid 类型）
+   能力残缺;`CanvasStage` 已支持 `edge`，暴露成本极低。便签（sticky）聊天图场景用不上，不上;**源码视图列 fast-follow**
+   （高价值非阻塞）。**已落进原型**（`chat-diagram-tool-edge`，见 `VZ-02-modal-saved.png` 顶栏）。
+4. **`<` 转义 → 修在 chat 保存边界（不动 fabric-markdown 包）**。保存前对将落盘的 mermaid 源解 HTML 实体
+   （`decodeMermaidEntities`，`apps/web/lib/chat/decode-mermaid-entities.ts` + round-trip 反证测试 4 例）。
+   **已落进原型**：saved 截图右栏源已是 `D1{"< 18 个月?"}`（解回），不再是 `&lt;`。
+   **残留（诚实标注）**：**画布内节点标签的显示**仍是 `&lt; 18 个月?`——那是 `markdownToCanvas`（渲染进 fabric）
+   阶段的转义，与保存路径不同源;让**显示**也匹配需 fabric-markdown **包级**修复（会牵动其他 canvas 消费者），
+   本次刻意不做。**结论：落盘的源已正确（这是真实持久化的那份）;画布内显示的 `&lt;` 是纯视觉残留，待包级修复。**
 
 ## 与既有线一致性
 - 白名单图类型（12 类）、`securityLevel:'strict'`、诚实错误框结构/testid/文案：**与 VZ-01 同一份**，未另起。
