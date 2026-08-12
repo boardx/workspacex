@@ -60,6 +60,14 @@ describe("personal transcription owner boundary", () => {
         reasonCode: "TRANSCRIPTION_NOT_FOUND",
       });
 
+      const edit = await fetch(`${baseUrl}/recording/realtime-asr/sessions/${sessionId}/content`, {
+        method: "PATCH",
+        headers: { ...headers(actor), "content-type": "application/json" },
+        body: JSON.stringify({ content: "不能修改别人的正文" }),
+      });
+      expect(edit.status).toBe(404);
+      expect(await edit.json()).toMatchObject({ reasonCode: "TRANSCRIPTION_NOT_FOUND" });
+
       const list = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
         headers: headers(actor),
       });

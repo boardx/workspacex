@@ -11,10 +11,14 @@ import {
   createPersonalTranscription,
   listPersonalTranscriptions,
   readPersonalTranscription,
+  updatePersonalTranscriptionContent,
   type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
+import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
+import { LiveRecordingError } from "@/lib/live-recording";
+import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import {
   TRANSCRIPTION_TAGS,
   type TranscriptionHistoryItem,
@@ -36,6 +40,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
+  const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
+  const [interimSegment, setInterimSegment] = React.useState("");
+  const [streamError, setStreamError] = React.useState<string | null>(null);
+  const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
+  const receivedFinalIdsRef = React.useRef(new Set<string>());
 
   React.useEffect(() => {
     let active = true;
@@ -71,7 +80,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     const created = toHistoryItem(summary);
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
-    setActiveSession({ ...summary, captures: [] });
+    setActiveSession({ ...summary, content: "" });
   }
 
   async function openTranscription(item: TranscriptionHistoryItem) {
@@ -83,8 +92,74 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
+  async function startRealtimeTranscription() {
+    if (!activeSession || streamRef.current || streamState === "connecting") return;
+    setStreamError(null);
+    setInterimSegment("");
+    receivedFinalIdsRef.current.clear();
+    setStreamState("connecting");
+    try {
+      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
+        sessionToken,
+        handlers: {
+          onState: setStreamState,
+          onInterim: setInterimSegment,
+          onFinal: (event) => {
+            if (receivedFinalIdsRef.current.has(event.segmentId)) return;
+            receivedFinalIdsRef.current.add(event.segmentId);
+            setInterimSegment("");
+            setActiveSession((current) => appendFinalEvent(current, event));
+          },
+          onError: (reason) => {
+            setStreamError(streamErrorText(reason));
+            streamRef.current = null;
+          },
+        },
+      });
+    } catch (error) {
+      streamRef.current = null;
+      setStreamState("error");
+      setStreamError(error instanceof LiveRecordingError ? error.message : streamErrorText(error instanceof Error ? error.message : "CONNECTION_FAILED"));
+    }
+  }
+
+  async function stopRealtimeTranscription() {
+    const handle = streamRef.current;
+    if (!handle) return;
+    setStreamError(null);
+    setStreamState("stopping");
+    try {
+      await handle.stop();
+      setInterimSegment("");
+      setActiveSession(await readPersonalTranscription(activeSession!.sessionId, sessionToken));
+      setStreamState("idle");
+    } catch {
+      setStreamState("error");
+      setStreamError("转录收尾失败，已保存的最终文字不会丢失，请重新打开后重试。");
+    } finally {
+      streamRef.current = null;
+    }
+  }
+
+  async function saveContent(content: string) {
+    if (!activeSession) return;
+    setStreamError(null);
+    try {
+      setActiveSession(await updatePersonalTranscriptionContent(activeSession.sessionId, content, sessionToken));
+    } catch {
+      setStreamError("正文保存失败，请稍后重试。");
+      throw new Error("TRANSCRIPTION_CONTENT_SAVE_FAILED");
+    }
+  }
+
+  React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
+
   if (activeSession) {
-    return <RealtimeTranscriptionWorkspace session={activeSession} onBack={() => setActiveSession(null)} />;
+    return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
+      interimSegment={interimSegment} errorMessage={streamError}
+      onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
+      onSaveContent={saveContent}
+      onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
   }
 
   return (
@@ -155,6 +230,26 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   );
 }
 
+function appendFinalEvent(
+  current: PersonalTranscriptionDetail | null,
+  event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number },
+): PersonalTranscriptionDetail | null {
+  if (!current) return null;
+  return { ...current, status: "recording", content: [current.content, event.text].filter(Boolean).join(" ") };
+}
+
+function streamErrorText(reason: string): string {
+  const messages: Record<string, string> = {
+    ASR_NOT_CONFIGURED: "当前环境尚未配置阿里云实时转录，请联系管理员配置服务后重试。",
+    QUOTA_EXCEEDED: "当前实时转录额度不足。",
+    CAPTURE_ALREADY_ACTIVE: "这条转录已有正在进行的录音，请重新打开后继续。",
+    TICKET_EXPIRED: "连接凭证已过期，请重新点击开始转录。",
+    ASR_PROVIDER_UNAVAILABLE: "阿里云实时转录暂时不可用，请稍后重试。",
+    CONNECTION_FAILED: "无法连接实时转录服务，请检查网络后重试。",
+  };
+  return messages[reason] ?? "无法启动实时转录，请稍后重试。";
+}
+
 function HistoryState({
   uiState, items, onCreate, onOpen,
 }: {
@@ -221,8 +316,8 @@ function HistoryCard({
               <p className="mt-1 truncate text-11 text-muted-foreground">{item.project} · {item.owner}</p>
             </div>
           </div>
-          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : item.status === "idle" ? "neutral" : "primary"}>
-            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.status === "idle" ? "待开始" : "已完成"}
+          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>
+            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}
           </Badge>
         </div>
         <p className="line-clamp-3 text-12 leading-relaxed text-muted-foreground">{item.summary}</p>
@@ -236,10 +331,10 @@ function HistoryCard({
           <Button
             data-testid={`rec-history-open-${item.id}`}
             size="sm"
-            variant={item.status === "recording" || item.status === "idle" ? "primary" : "outline"}
+            variant="primary"
             onClick={() => onOpen(item)}
           >
-            {item.status === "recording" || item.status === "idle" ? "进入转录" : "打开转录"}
+            进入转录
           </Button>
         </div>
         <Button size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button>
@@ -258,7 +353,7 @@ function toHistoryItem(item: PersonalTranscriptionSummary): TranscriptionHistory
     project: "个人转录",
     owner: "我",
     ownerInitial: "我",
-    summary: item.status === "completed" ? "转录已完成，打开查看逐字稿。" : "等待麦克风音频输入。",
+    summary: item.durationMs > 0 ? "内容已保存，可随时进入并继续追加转录。" : "等待麦克风音频输入。",
     tags: item.tags,
     duration: `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
     updatedAt: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt)),

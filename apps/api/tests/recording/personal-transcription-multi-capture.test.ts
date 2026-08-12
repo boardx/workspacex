@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { personalRealtimeTranscription as C } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { PgPersonalTranscriptionRepository } from "../../src/infrastructure/recording/pg-personal-transcription-repository";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -35,8 +38,8 @@ beforeEach(async () => {
   await addOrgMember(ORG, USER, "consultant", fixture.teams.energy!);
 });
 
-describe("personal transcription multi-capture aggregation", () => {
-  it("returns final segments from every capture in stable capture/ordinal order", async () => {
+describe("personal transcription single body", () => {
+  it("returns one body and never exposes capture or segment arrays", async () => {
     const create = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
@@ -44,67 +47,62 @@ describe("personal transcription multi-capture aggregation", () => {
     });
     const { sessionId } = (await create.json()) as { sessionId: string };
 
-    await asApp(ORG, async (client) => {
-      for (const [captureId, startedAt, texts] of [
-        ["capture-1", "2026-08-11T01:00:00.000Z", ["第一轮第一句", "第一轮第二句"]],
-        ["capture-2", "2026-08-11T02:00:00.000Z", ["第二轮第一句"]],
-      ] as const) {
-        await client.query(
-          `INSERT INTO recording_sessions
-             (id, org_id, project_id, source_type, source_ref_id, started_at, ended_at,
-              duration_ms, materialize_job_id, retention_days, retention_from,
-              retention_resolved_at, expires_at, created_by)
-           VALUES ($1,$2,NULL,'personal',$3,$4,$4,2000,$5,180,'org',$4,
-                   ($4::timestamptz + interval '180 days'),$6)`,
-          [captureId, ORG, sessionId, startedAt, `job-${captureId}`, USER],
-        );
-        await client.query(
-          `INSERT INTO recording_tracks
-             (id, org_id, session_id, participant_id, mic_state, gap_ranges)
-           VALUES ($1,$2,$3,NULL,'granted','[]'::jsonb)`,
-          [`track-${captureId}`, ORG, captureId],
-        );
-        for (const [index, text] of texts.entries()) {
-          await client.query(
-            `INSERT INTO recording_segments
-               (id, org_id, session_id, track_id, ordinal, source_type,
-                anchor_start_ms, anchor_end_ms, anchor_message_id, speaker_channel_id,
-                status, low_confidence, text, pii_findings)
-             VALUES ($1,$2,$3,$4,$5,'personal',$6,$7,NULL,NULL,'final',false,$8,'[]'::jsonb)`,
-            [
-              `segment-${captureId}-${index + 1}`,
-              ORG,
-              captureId,
-              `track-${captureId}`,
-              index + 1,
-              index * 1000,
-              (index + 1) * 1000,
-              text,
-            ],
-          );
-        }
-        await client.query(
-          `INSERT INTO recording_segments
-             (id, org_id, session_id, track_id, ordinal, source_type,
-              anchor_start_ms, anchor_end_ms, anchor_message_id, speaker_channel_id,
-              status, low_confidence, text, pii_findings)
-           VALUES ($1,$2,$3,$4,99,'personal',3000,3500,NULL,NULL,'partial',false,
-                   '不得出现在详情里','[]'::jsonb)`,
-          [`partial-${captureId}`, ORG, captureId, `track-${captureId}`],
-        );
-      }
-    });
+    await asOwner((client) => client.query(
+      `UPDATE personal_transcriptions SET content=$1 WHERE id=$2`,
+      ["第一轮第一句 第一轮第二句 第二轮第一句", sessionId],
+    ));
 
     const response = await fetch(`${baseUrl}/recording/realtime-asr/sessions/${sessionId}`, {
       headers: auth,
     });
     expect(response.status).toBe(200);
     const detail = C.operations.readPersonalTranscription.out.parse(await response.json());
-    expect(detail.captures.map((capture) => capture.captureId)).toEqual(["capture-1", "capture-2"]);
-    expect(detail.captures.flatMap((capture) => capture.segments.map((segment) => segment.text))).toEqual([
-      "第一轮第一句",
-      "第一轮第二句",
-      "第二轮第一句",
-    ]);
+    expect(detail.content).toBe("第一轮第一句 第一轮第二句 第二轮第一句");
+    expect(detail).not.toHaveProperty("captures");
+  });
+
+  it("atomically appends every confirmed final to the one persisted body", async () => {
+    const create = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "连续正文", tags: [] }),
+    });
+    const { sessionId } = (await create.json()) as { sessionId: string };
+    const db = new PgDatabase(appConfig());
+    const repository = new PgPersonalTranscriptionRepository(db);
+    try {
+      await repository.startCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body", trackId: "track-body" });
+      for (const [index, text] of ["第一句", "第二句"].entries()) {
+        await repository.appendFinal({ orgId: ORG as never, ownerUserId: USER,
+          transcriptionId: sessionId, captureId: "capture-body", segmentId: `final-${index}`,
+          ordinal: index + 1, text, startMs: index * 1_000, endMs: (index + 1) * 1_000 });
+      }
+      const detail = await repository.readOwned({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId });
+      expect(detail?.content).toBe("第一句 第二句");
+      const storedSegments = await asApp(ORG, (client) => client.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM recording_segments WHERE session_id='capture-body'`,
+      ));
+      expect(storedSegments.rows[0]?.count).toBe("0");
+
+      await repository.finishCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body", durationMs: 2_000 });
+      expect((await repository.readOwned({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId }))?.status).toBe("idle");
+
+      await repository.startCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", trackId: "track-body-2" });
+      await repository.appendFinal({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", segmentId: "final-3",
+        ordinal: 1, text: "第三句", startMs: 0, endMs: 1_000 });
+      await repository.finishCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", durationMs: 1_000 });
+      const continued = await repository.readOwned({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId });
+      expect(continued).toMatchObject({ status: "idle", content: "第一句 第二句 第三句" });
+    } finally {
+      await db.close();
+    }
   });
 });

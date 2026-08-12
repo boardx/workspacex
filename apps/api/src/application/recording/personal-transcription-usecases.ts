@@ -68,6 +68,23 @@ export async function readPersonalTranscription(
   return found;
 }
 
+export async function updatePersonalTranscriptionContent(
+  deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
+  input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string; readonly content: string },
+) {
+  await requireOrgMembership(deps.identities, input.userId, input.orgId);
+  if (await deps.repository.hasActiveCapture({ orgId: input.orgId, ownerUserId: input.userId,
+    transcriptionId: input.transcriptionId })) throw new RealtimeAsrCaptureAlreadyActive();
+  const updated = await deps.repository.replaceContent({ orgId: input.orgId, ownerUserId: input.userId,
+    transcriptionId: input.transcriptionId, content: input.content });
+  if (!updated) {
+    if (await deps.repository.hasActiveCapture({ orgId: input.orgId, ownerUserId: input.userId,
+      transcriptionId: input.transcriptionId })) throw new RealtimeAsrCaptureAlreadyActive();
+    throw new PersonalTranscriptionNotFound();
+  }
+  return updated;
+}
+
 export class RealtimeAsrNotConfigured extends Error {}
 export class RealtimeAsrCaptureAlreadyActive extends Error {}
 const REALTIME_ASR_TICKET_TTL_MS = 60_000; // [days-literal-ok:unit-conversion] 60-second one-use WebSocket ticket TTL.
@@ -77,7 +94,8 @@ export async function issueRealtimeAsrTicket(deps:{identities:IdentityRepository
   if(!deps.isConfigured()) throw new RealtimeAsrNotConfigured();
   const owned=await deps.repository.readOwned({orgId:input.orgId,ownerUserId:input.userId,transcriptionId:input.transcriptionId});
   if(!owned) throw new PersonalTranscriptionNotFound();
-  if(owned.captures.some(c=>c.status==="recording")) throw new RealtimeAsrCaptureAlreadyActive();
+  if(await deps.repository.hasActiveCapture({orgId:input.orgId,ownerUserId:input.userId,
+    transcriptionId:input.transcriptionId})) throw new RealtimeAsrCaptureAlreadyActive();
   const captureId=deps.ids.next("personal-capture"),trackId=deps.ids.next("personal-track");
   await deps.repository.startCapture({orgId:input.orgId,ownerUserId:input.userId,transcriptionId:input.transcriptionId,captureId,trackId});
   const ticket=`${Buffer.from(String(input.orgId)).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
