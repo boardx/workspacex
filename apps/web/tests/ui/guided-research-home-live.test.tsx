@@ -87,7 +87,7 @@ describe("F168 guided research home live data", () => {
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
     const firstKey = createGuidedResearchSession.mock.calls[0]![0].idempotencyKey;
-    expect(window.localStorage.getItem("wsx.guidedResearch.createIdempotencyKey")).toBe(firstKey);
+    expect(Object.values(window.localStorage)).toContain(firstKey);
 
     first.unmount();
     const onStepChange = vi.fn();
@@ -97,6 +97,23 @@ describe("F168 guided research home live data", () => {
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(2));
     expect(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey).toBe(firstKey);
     await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-replayed"));
-    expect(window.localStorage.getItem("wsx.guidedResearch.createIdempotencyKey")).toBeNull();
+    expect(Object.values(window.localStorage)).not.toContain(firstKey);
+  });
+
+  it("does not reuse an idempotency key after the brief changes into a different create intent", async () => {
+    createGuidedResearchSession
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({ sessionId: "grs-other", stage: "directions" });
+    const first = render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
+    const firstKey = createGuidedResearchSession.mock.calls[0]![0].idempotencyKey;
+    first.unmount();
+
+    render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "另一个研究主题" } });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(2));
+    expect(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey).not.toBe(firstKey);
   });
 });

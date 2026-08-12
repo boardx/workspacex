@@ -586,6 +586,9 @@ export const operations = {
     path: "/research/guided-sessions",
     in: z.object({
       idempotencyKey: z.string().trim().min(1).max(200),
+      collaboratorUserIds: z.array(z.string().trim().min(1)).max(50)
+        .refine((ids) => new Set(ids).size === ids.length, "collaborator ids must be unique")
+        .default([]),
       brief: GuidedResearchBrief,
     }).strict(),
     out: GuidedResearchSession,

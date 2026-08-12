@@ -1,9 +1,10 @@
 import type { DatabasePort } from "../../application/ports/database.port";
-import type {
-  GuidedResearchBrief,
-  GuidedResearchSession,
-  GuidedResearchSessionRepository,
-  GuardedGuidedResearchSession,
+import {
+  InvalidGuidedResearchCollaboratorError,
+  type GuidedResearchBrief,
+  type GuidedResearchSession,
+  type GuidedResearchSessionRepository,
+  type GuardedGuidedResearchSession,
 } from "../../application/research/guided-session-ports";
 import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
@@ -57,9 +58,19 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
   constructor(private readonly db: DatabasePort) {}
 
   async create(input: {
-    orgId: OrgId; ownerUserId: string; idempotencyKey: string; brief: GuidedResearchBrief;
+    orgId: OrgId; ownerUserId: string; idempotencyKey: string;
+    collaboratorUserIds: readonly string[]; brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession> {
     return this.db.withTenant(input.orgId, async (session) => {
+      if (input.collaboratorUserIds.length > 0) {
+        const members = await session.query<{ user_id: string }>(
+          `SELECT user_id FROM org_memberships WHERE org_id = $1 AND user_id = ANY($2::text[])`,
+          [input.orgId, input.collaboratorUserIds],
+        );
+        if (members.rows.length !== input.collaboratorUserIds.length) {
+          throw new InvalidGuidedResearchCollaboratorError();
+        }
+      }
       const inserted = await session.query<Row>(
         `INSERT INTO guided_research_sessions
            (id, org_id, owner_user_id, idempotency_key, title, brief, stage, resume_stage, progress)
@@ -74,6 +85,14 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
         [input.orgId, input.ownerUserId, input.idempotencyKey],
       )).rows[0];
       if (!row) throw new Error("guided research session idempotency replay disappeared");
+      if (input.collaboratorUserIds.length > 0) {
+        await session.query(
+          `INSERT INTO guided_research_session_collaborators (session_id, org_id, user_id, added_by)
+           SELECT $1, $2, unnest($3::text[]), $4
+           ON CONFLICT (session_id, user_id) DO NOTHING`,
+          [row.id, input.orgId, input.collaboratorUserIds, input.ownerUserId],
+        );
+      }
       return guarded(row);
     });
   }

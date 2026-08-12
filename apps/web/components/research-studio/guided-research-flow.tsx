@@ -194,14 +194,22 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   );
 }
 
-const CREATE_IDEMPOTENCY_STORAGE_KEY = "wsx.guidedResearch.createIdempotencyKey";
+const CREATE_IDEMPOTENCY_TAB_KEY = "wsx.guidedResearch.createTabId";
+const CREATE_IDEMPOTENCY_STORAGE_PREFIX = "wsx.guidedResearch.createIdempotencyKey.";
 
-function pendingCreateIdempotencyKey(): string {
-  const existing = window.localStorage.getItem(CREATE_IDEMPOTENCY_STORAGE_KEY);
-  if (existing) return existing;
+function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key: string; storageKey: string } {
+  let tabId = window.sessionStorage.getItem(CREATE_IDEMPOTENCY_TAB_KEY);
+  if (!tabId) {
+    tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.sessionStorage.setItem(CREATE_IDEMPOTENCY_TAB_KEY, tabId);
+  }
+  const intent = JSON.stringify(brief);
+  const storageKey = `${CREATE_IDEMPOTENCY_STORAGE_PREFIX}${tabId}.${encodeURIComponent(intent)}`;
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing) return { key: existing, storageKey };
   const generated = `guided-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  window.localStorage.setItem(CREATE_IDEMPOTENCY_STORAGE_KEY, generated);
-  return generated;
+  window.localStorage.setItem(storageKey, generated);
+  return { key: generated, storageKey };
 }
 
 function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
@@ -213,8 +221,9 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
     setSubmitting(true);
     setSubmitFailed(false);
     try {
-      const session = await createGuidedResearchSession({ idempotencyKey: pendingCreateIdempotencyKey(), brief });
-      window.localStorage.removeItem(CREATE_IDEMPOTENCY_STORAGE_KEY);
+      const pending = pendingCreateIdempotencyKey(brief);
+      const session = await createGuidedResearchSession({ idempotencyKey: pending.key, collaboratorUserIds: [], brief });
+      window.localStorage.removeItem(pending.storageKey);
       onNavigate("directions", session.sessionId);
     } catch {
       setSubmitFailed(true);

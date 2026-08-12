@@ -10,7 +10,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/identity/ports";
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { decideGuidedResearchVisibility } from "../../domain/research/guided-research-visibility";
-import type { GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
+import { InvalidGuidedResearchCollaboratorError, type GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
 
 @Controller()
 export class GuidedResearchController {
@@ -33,7 +33,15 @@ export class GuidedResearchController {
     assertPrincipal(principal);
     const input = C.operations.createGuidedResearchSession.in.safeParse(raw);
     if (!input.success) throw new BadRequestException();
-    const row = await this.sessions.create({ orgId: principal.orgId, ownerUserId: principal.userId, ...input.data });
+    let row: GuardedGuidedResearchSession;
+    try {
+      row = await this.sessions.create({ orgId: principal.orgId, ownerUserId: principal.userId, ...input.data });
+    } catch (error) {
+      if (error instanceof InvalidGuidedResearchCollaboratorError) {
+        throw new BadRequestException({ reasonCode: error.reasonCode });
+      }
+      throw error;
+    }
     const visible = this.disclose(row, principal.userId);
     if (!visible) throw new NotFoundException();
     return visible;

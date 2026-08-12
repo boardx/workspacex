@@ -57,11 +57,11 @@ beforeEach(async () => {
   await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f168-other" });
 });
 
-async function create(key = "create-f168") {
+async function create(key = "create-f168", collaboratorUserIds: string[] = []) {
   return fetch(`${base}${C.operations.createGuidedResearchSession.path}`, {
     method: "POST",
     headers: auth(OWNER),
-    body: JSON.stringify({ idempotencyKey: key, brief }),
+    body: JSON.stringify({ idempotencyKey: key, collaboratorUserIds, brief }),
   });
 }
 
@@ -111,12 +111,9 @@ describe("F168 guided research session list and recovery", () => {
   });
 
   it("lists and restores a session for an explicit collaborator", async () => {
-    const created = C.operations.createGuidedResearchSession.out.parse(await (await create()).json());
-    await db.withTenant(toOrgId(ORG), (session) => session.query(
-      `INSERT INTO guided_research_session_collaborators (session_id, org_id, user_id, added_by)
-       VALUES ($1, $2, $3, $4)`,
-      [created.sessionId, ORG, COLLABORATOR, OWNER],
-    ));
+    const response = await create("create-shared", [COLLABORATOR]);
+    expect(response.status).toBe(201);
+    const created = C.operations.createGuidedResearchSession.out.parse(await response.json());
 
     const list = await fetch(`${base}${C.operations.listGuidedResearchSessions.path}`, {
       headers: auth(COLLABORATOR),
@@ -131,6 +128,14 @@ describe("F168 guided research session list and recovery", () => {
     expect(detail.status).toBe(200);
     expect(C.operations.getGuidedResearchSession.out.parse(await detail.json()).sessionId)
       .toBe(created.sessionId);
+  });
+
+  it("rejects collaborator ids that are not members of the current organization", async () => {
+    const response = await create("create-invalid-collaborator", ["u-not-an-org-member"]);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "bad_request" });
+    const list = await fetch(`${base}${C.operations.listGuidedResearchSessions.path}`, { headers: auth(OWNER) });
+    expect(C.operations.listGuidedResearchSessions.out.parse(await list.json()).items).toEqual([]);
   });
 
   it("RLS also hides the session when queried under another tenant", async () => {

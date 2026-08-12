@@ -46,4 +46,19 @@ describe("F168 guided research session contract", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("accepts only explicit collaborator user ids when a session is created", () => {
+    const parsed = operations.createGuidedResearchSession.in.parse({
+      idempotencyKey: "create-shared",
+      collaboratorUserIds: ["u-collaborator"],
+      brief: {
+        topic: "欧洲储能市场进入策略", goal: "确定首批进入国家",
+        timeRange: "2025-2028", region: "欧洲", focus: "市场、政策和并网",
+      },
+    });
+    expect(parsed.collaboratorUserIds).toEqual(["u-collaborator"]);
+    expect(operations.createGuidedResearchSession.in.safeParse({
+      ...parsed, collaboratorUserIds: ["u-collaborator", "u-collaborator"],
+    }).success).toBe(false);
+  });
 });

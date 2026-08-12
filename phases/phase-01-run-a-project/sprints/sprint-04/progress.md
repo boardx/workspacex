@@ -42,3 +42,10 @@
 - 已记录证据: `evidence/F168.verify.log` 已由 harness 重写；基础回归明确失败于 `digital_expert_profiles_agent_fk`，F168 专项均通过且状态未升 passing。
 - 已知风险或未解决问题: main `038ce93d` 的 digital expert migration trigger 会在既有 capability 测试数据只写 listing、未写 agents 时触发 FK，导致 API 58 条级联失败；不属于 F168 diff，需对应 interview feature 修复。
 - 下一步最佳动作: 提交并推送 review 修复，重新做 exact-SHA 独立 review；基线修复合入后重跑 harness verify。
+
+### 2026-08-13 03:19
+- 本轮目标: 关闭第二轮独立 review 的 collaborator 赋权链和多创建意图幂等冲突。
+- 已完成: create 契约新增显式 collaborator ids，服务端在同事务校验组织成员并写入 collaborator 表；幂等存储改为 tab + 完整 brief 意图分区。
+- 运行过的验证: contracts 190/190；隔离 API 5/5；guided UI 9/9；web/api typecheck；API lint 全绿。
+- 已知风险或未解决问题: 仍需新 exact SHA 独立复审；verify:base 的 digital expert 外键基线阻断未变。
+- 下一步最佳动作: 提交、推送、复审；review 通过后等待基线修复并重跑 harness 门禁。

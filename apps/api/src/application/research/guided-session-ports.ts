@@ -16,6 +16,7 @@ export interface GuidedResearchSessionRepository {
     orgId: OrgId;
     ownerUserId: string;
     idempotencyKey: string;
+    collaboratorUserIds: readonly string[];
     brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession>;
   listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]>;
@@ -23,3 +24,7 @@ export interface GuidedResearchSessionRepository {
 }
 
 export const GUIDED_RESEARCH_SESSION_REPOSITORY = Symbol("GuidedResearchSessionRepository");
+
+export class InvalidGuidedResearchCollaboratorError extends Error {
+  readonly reasonCode = "INVALID_RESEARCH_COLLABORATOR";
+}
