@@ -1,11 +1,17 @@
 ---
-status: pending
+status: confirmed
 bundle: token-quota-and-usage
 base_bundle: org-admin
 scope: token-metering-plus-member-token-quota-plus-usage-monitor-plus-limit-policy
 covers: [F159, F160, F161, F162]
-confirmed_by: ""
-confirmed_at: ""
+confirmed_by: yanbin shen
+confirmed_at: 2026-08-12T09:20:00+08:00
+confirmed_via: >-
+  人类 2026-08-12 晨在 coord-main 会话逐字授权：「我授权你来进行推理并决定剩下的决定，
+  并推进PR的整合，以及设计决定。」coord-main 据此代抄确认（#660 先例，人类可改）。
+  §4 取舍按 coord-main 夜间裁决落地：未设置=不限额（seat_quota=0 事故的反向教材）、
+  失败调用如实记上游 usage（无则 0）、tokens_prompt/completion 两列实测落地
+  （GAP-TOKEN-IO-SPLIT 已撤销）。
 ---
 
 # design delta 签核 · token 计量 / 成员配额 / 用量监控 / 限额策略
