@@ -28,3 +28,7 @@ export const GUIDED_RESEARCH_SESSION_REPOSITORY = Symbol("GuidedResearchSessionR
 export class InvalidGuidedResearchCollaboratorError extends Error {
   readonly reasonCode = "INVALID_RESEARCH_COLLABORATOR";
 }
+
+export class GuidedResearchCreateReplayMismatchError extends Error {
+  readonly reasonCode = "RESEARCH_CREATE_REPLAY_MISMATCH";
+}

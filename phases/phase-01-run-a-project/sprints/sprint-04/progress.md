@@ -49,3 +49,9 @@
 - 运行过的验证: contracts 190/190；隔离 API 5/5；guided UI 9/9；web/api typecheck；API lint 全绿。
 - 已知风险或未解决问题: 仍需新 exact SHA 独立复审；verify:base 的 digital expert 外键基线阻断未变。
 - 下一步最佳动作: 提交、推送、复审；review 通过后等待基线修复并重跑 harness 门禁。
+
+### 2026-08-13 03:25
+- 本轮目标: 关闭第三轮 review 的幂等重放扩权、错误契约漂移和 pending key 生命周期。
+- 已完成: 重放时锁定 brief + collaborator 指纹，不匹配返回契约化 409；非法 collaborator 码进入 ResearchError；pending key 加 24 小时清理。
+- 运行过的验证: contracts 190/190；隔离 API 6/6；guided UI 10/10；web/api typecheck；API lint 全绿。
+- 下一步最佳动作: 推送新 exact SHA 并做最终复审。

@@ -1,6 +1,7 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import {
   InvalidGuidedResearchCollaboratorError,
+  GuidedResearchCreateReplayMismatchError,
   type GuidedResearchBrief,
   type GuidedResearchSession,
   type GuidedResearchSessionRepository,
@@ -54,6 +55,14 @@ function guarded(row: Row): GuardedGuidedResearchSession {
   };
 }
 
+function sameBrief(left: GuidedResearchBrief, right: GuidedResearchBrief): boolean {
+  return left.topic === right.topic
+    && left.goal === right.goal
+    && left.timeRange === right.timeRange
+    && left.region === right.region
+    && left.focus === right.focus;
+}
+
 export class PgGuidedResearchSessionRepository implements GuidedResearchSessionRepository {
   constructor(private readonly db: DatabasePort) {}
 
@@ -85,6 +94,18 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
         [input.orgId, input.ownerUserId, input.idempotencyKey],
       )).rows[0];
       if (!row) throw new Error("guided research session idempotency replay disappeared");
+      if (inserted.rows.length === 0) {
+        const existingCollaborators = await session.query<{ user_id: string }>(
+          `SELECT user_id FROM guided_research_session_collaborators
+            WHERE org_id = $1 AND session_id = $2 ORDER BY user_id`,
+          [input.orgId, row.id],
+        );
+        const requested = [...input.collaboratorUserIds].sort();
+        const existing = existingCollaborators.rows.map((item) => item.user_id);
+        if (!sameBrief(row.brief, input.brief) || JSON.stringify(existing) !== JSON.stringify(requested)) {
+          throw new GuidedResearchCreateReplayMismatchError();
+        }
+      }
       if (input.collaboratorUserIds.length > 0) {
         await session.query(
           `INSERT INTO guided_research_session_collaborators (session_id, org_id, user_id, added_by)

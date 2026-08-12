@@ -217,6 +217,10 @@ export const ResearchError = z.enum([
   "AGENT_RUN_FAILED",
   /** 引导式研究会话不存在或对当前用户不可见；两种情况共用同一外部结果。 */
   "RESEARCH_NOT_FOUND",
+  /** 创建时指定的协作者不是当前组织成员。 */
+  "INVALID_RESEARCH_COLLABORATOR",
+  /** 同一创建幂等键被用于不同的 brief 或协作者集合。 */
+  "RESEARCH_CREATE_REPLAY_MISMATCH",
   /**
    * 证据所依赖的访谈引述已被撤回（X-C）。
    * ⚠ `usecases.md` 声称来自 `interview`（已签核）——**那束里没有这个字面量**；
@@ -592,7 +596,7 @@ export const operations = {
       brief: GuidedResearchBrief,
     }).strict(),
     out: GuidedResearchSession,
-    err: [] as const,
+    err: ["INVALID_RESEARCH_COLLABORATOR", "RESEARCH_CREATE_REPLAY_MISMATCH"] as const,
   },
   listGuidedResearchSessions: {
     method: "GET",

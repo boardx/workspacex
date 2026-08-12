@@ -196,8 +196,24 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
 
 const CREATE_IDEMPOTENCY_TAB_KEY = "wsx.guidedResearch.createTabId";
 const CREATE_IDEMPOTENCY_STORAGE_PREFIX = "wsx.guidedResearch.createIdempotencyKey.";
+const CREATE_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+function cleanStaleCreateIdempotencyKeys(now: number): void {
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const storageKey = window.localStorage.key(index);
+    if (!storageKey?.startsWith(CREATE_IDEMPOTENCY_STORAGE_PREFIX)) continue;
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as { createdAt?: number } | null;
+      if (!stored?.createdAt || now - stored.createdAt > CREATE_IDEMPOTENCY_TTL_MS) window.localStorage.removeItem(storageKey);
+    } catch {
+      window.localStorage.removeItem(storageKey);
+    }
+  }
+}
 
 function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key: string; storageKey: string } {
+  const now = Date.now();
+  cleanStaleCreateIdempotencyKeys(now);
   let tabId = window.sessionStorage.getItem(CREATE_IDEMPOTENCY_TAB_KEY);
   if (!tabId) {
     tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -206,9 +222,12 @@ function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key
   const intent = JSON.stringify(brief);
   const storageKey = `${CREATE_IDEMPOTENCY_STORAGE_PREFIX}${tabId}.${encodeURIComponent(intent)}`;
   const existing = window.localStorage.getItem(storageKey);
-  if (existing) return { key: existing, storageKey };
-  const generated = `guided-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  window.localStorage.setItem(storageKey, generated);
+  if (existing) {
+    const stored = JSON.parse(existing) as { key: string; createdAt: number };
+    return { key: stored.key, storageKey };
+  }
+  const generated = `guided-${now}-${Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(storageKey, JSON.stringify({ key: generated, createdAt: now }));
   return { key: generated, storageKey };
 }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -10,7 +10,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/identity/ports";
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { decideGuidedResearchVisibility } from "../../domain/research/guided-research-visibility";
-import { InvalidGuidedResearchCollaboratorError, type GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
+import { GuidedResearchCreateReplayMismatchError, InvalidGuidedResearchCollaboratorError, type GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
 
 @Controller()
 export class GuidedResearchController {
@@ -39,6 +39,9 @@ export class GuidedResearchController {
     } catch (error) {
       if (error instanceof InvalidGuidedResearchCollaboratorError) {
         throw new BadRequestException({ reasonCode: error.reasonCode });
+      }
+      if (error instanceof GuidedResearchCreateReplayMismatchError) {
+        throw new ConflictException({ reasonCode: error.reasonCode });
       }
       throw error;
     }

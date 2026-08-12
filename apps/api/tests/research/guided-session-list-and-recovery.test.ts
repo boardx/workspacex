@@ -133,8 +133,18 @@ describe("F168 guided research session list and recovery", () => {
   it("rejects collaborator ids that are not members of the current organization", async () => {
     const response = await create("create-invalid-collaborator", ["u-not-an-org-member"]);
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: "bad_request" });
+    expect(await response.json()).toMatchObject({ error: "bad_request", reasonCode: "INVALID_RESEARCH_COLLABORATOR" });
     const list = await fetch(`${base}${C.operations.listGuidedResearchSessions.path}`, { headers: auth(OWNER) });
+    expect(C.operations.listGuidedResearchSessions.out.parse(await list.json()).items).toEqual([]);
+  });
+
+  it("rejects an idempotency replay whose brief or collaborators differ", async () => {
+    expect((await create("create-fingerprint", [COLLABORATOR])).status).toBe(201);
+    const changedCollaborator = await create("create-fingerprint", [SAME_ORG_OTHER]);
+    expect(changedCollaborator.status).toBe(409);
+    expect(await changedCollaborator.json()).toMatchObject({ reasonCode: "RESEARCH_CREATE_REPLAY_MISMATCH" });
+
+    const list = await fetch(`${base}${C.operations.listGuidedResearchSessions.path}`, { headers: auth(SAME_ORG_OTHER) });
     expect(C.operations.listGuidedResearchSessions.out.parse(await list.json()).items).toEqual([]);
   });
 
