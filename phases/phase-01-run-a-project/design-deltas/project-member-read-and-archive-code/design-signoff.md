@@ -2,7 +2,7 @@
 status: pending                  # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: project
 scope: member-roster-read + archive-blocked-error-code
-decision: ~                      # ③ 的三个候选待人类选定
+decision: ~                      # joinedAt-with-migration | no-joinedAt —— 待人类选定
 confirmed_by: ~
 confirmed_at: ~
 ---
@@ -20,6 +20,8 @@ confirmed_at: ~
 ## 变更一：`listProjectMembers` —— 成员名单没有读端点
 
 ### 实测事实（不是推测）
+
+**形状与字段依据见同目录 `contract.md`；可执行验收见 `verification.md`。**
 
 `packages/contracts/src/project.ts` 的全部 12 个 operation：
 
@@ -67,9 +69,9 @@ listProjectMembers: {
     members: z.array(
       z.object({
         userId: z.string(),
+        displayName: z.string(),
         projectRole: z.enum(["facilitator", "groupLead", "member", "observer"]),
         isHost: z.boolean(),
-        // ⚠ displayName 见下方「③ 待裁」——本草案**故意留空**，不预设答案
       }).strict(),
     ),
   }).strict(),
@@ -78,35 +80,35 @@ listProjectMembers: {
 ```
 
 字段选取依据：与 `addProjectMember.out` 的 `{projectId, userId, projectRole, isHost}` **逐字对齐**，
-不新造字段、不改写 phase-00 的 `identity.ProjectRole` 语义（该束原则）。
+`displayName` 照同类读端点 `listOrgMembers` 的先例；不新造字段、不改写 phase-00 的
+`identity.ProjectRole` 语义（该束原则）。逐字段依据见 `contract.md`。
 
-### ③ 待裁：名单要不要带显示名，从哪来
+### 显示名：已定 B（服务端 join 后返回）
 
-F125 的行为契约里逐字写着「**展示别名不落库**」。所以成员表里没有可直接返回的名字，
-名单只能给 `userId`。三个候选：
+F125 的行为契约里逐字写着「**展示别名不落库**」，所以这一条需要确认。
 
-| 候选 | 做法 | 代价 |
+**已定：`out` 带 `displayName`，服务端 join 后返回**（coord-main 2026-08-12 口径）。
+
+这不是新模式：同类读端点 `listOrgMembers`（`org-admin.ts:668-686`）就是这么做的，
+其 `out[]` 逐字含 `userId` / `displayName` / `joinedAt`。「展示别名不落库」防的是
+**把别名写进 project 的表**，不是「不许在响应里出现」——与该先例一致。
+
+> 起草时曾列过「前端自己解析显示名」的候选，**实测排除**：identity 束唯一的解析端点是
+> `GET /identity/me`（只解析当前登录者），`authorizeBatch` 是批量鉴权不返回名字，
+> 全束没有「按 userId 批量取显示名」的端点。留着这个候选等于把研究成本转嫁给签核的人。
+
+### ⚠ 两处与 coord-main 口径的**有依据偏离**（请人类一并确认）
+
+coord-main 给的字段口径是「`memberId` / `displayName` / `role` / `joinedAt`」。落稿时按实测改了两处：
+
+| 口径 | 本稿 | 依据 |
 |---|---|---|
-| **A** | `out` 只给 `userId`，前端另调身份服务解析显示名 | ⛔ **今天不可行**，见下 |
-| **B** | `out` 带 `displayName`，服务端 join 身份表后返回 | 前端一次拿全；需确认「不落库」的边界（不落库 ≠ 不可返回，但这是人类要确认的事） |
-| **C** | 本版只给 `userId`，`displayName` 留待身份束新增批量解析端点后再补 | 边界最清；但要**先在 identity 束加一个新端点**（另一份 delta + 另一轮签核），且第一版界面显示 id 而非人名 |
+| `memberId` | **`userId`** | `addProjectMember.out.userId`（同束写操作）+ `listOrgMembers.out[].userId`（同类读先例）。用 `memberId` 会让同一概念在仓里有两个名字 |
+| `role` | **`projectRole`** | `addProjectMember.in/out.projectRole`；先例 `listOrgMembers` 用的是束内限定名 `orgRole` |
+| `joinedAt` | **本版不含** | `project_memberships` 表（`0003-identity.sql:60`）**没有 `joined_at` 列**；`org_memberships` 那一列是 i363 专门加的迁移。要它就要同形加迁移 + 回填——**是 schema 变更，不该藏在「顺手加个字段」里** |
 
-#### ⛔ 候选 A 已被实测排除
-
-我原本把 A 写成「前端另调身份服务解析」并标注「该端点是否存在未核」。**核了，不存在**：
-
-- `identity` 契约里唯一解析身份的是 `resolveIdentity`，其 path 是 **`GET /identity/me`**，
-  `in` 只有 `{orgId, projectId?}` ——**只能解析当前登录者，不能按 userId 解析别人**。
-- `authorizeBatch`（`POST /identity/authorize-batch`）是**批量鉴权**，不返回 `displayName`。
-- 全束**没有**「按 userId 批量取显示名」的端点。
-
-⇒ **A 今天做不到**；C 实质上是「A + 先给 identity 束加一个新端点」，代价是多一轮签核。
-
-**我倾向 B**：「不落库」防的是**把别名写进 project 的表**，不是「不许在响应里出现」——
-B 不违反它，且不需要动 identity 束。**但这句话是我对该约束的解读，必须由人类确认**，
-所以本草案的 `out` 里没有预先塞 `displayName`。
-
-若人类选 C，请一并裁「identity 束新增批量解析端点」那份 delta 由谁提、走哪个束。
+⇒ **人类需就 `joinedAt` 做一次选择**：本 delta 追加迁移（照 i363 形制）｜ 本版不要、将来另提。
+前两处若人类认为应照口径字面执行，改回即可，实现尚未开始。
 
 ---
 
@@ -144,7 +146,7 @@ archiveProject.err: [
 命名与状态码依据：与 PJ-13 已裁的 `BLUEPRINT_NOT_APPLICABLE`（422 fail-closed）**同形**，
 不新造一套约定。
 
-### 落地时必须同时改的两处（否则补了码等于没补）
+### 落地时必须同时改的三处（否则补了码等于没补）
 
 1. `application/project/errors.ts:46` 的 `ProjectArchiveBlockedByActiveSegmentError` 补上 reasonCode；
 2. `project.controller.ts:516-518` 从抛裸 400 改为抛带码的 422；
@@ -163,8 +165,14 @@ archiveProject.err: [
 
 ## 签核这份 delta 需要人类做的
 
-1. 确认**变更一**的形状，并在 ③ 的 A / B / C 里选一个（填进 frontmatter 的 `decision`）。
-2. 确认**变更二**的码名与 422 语义。
-3. 把 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`。
+1. 确认**变更一**的形状（四字段 + `NO_PROJECT_ROLE` 权限口径）。
+2. **就 `joinedAt` 二选一**，填进 frontmatter 的 `decision`：
+   - `joinedAt-with-migration` —— 本 delta 追加一条迁移 + 回填，照 i363 形制；
+   - `no-joinedAt` —— 本版 out 不含该字段（当前稿即此），将来需要时另提。
+3. 确认**变更二**的码名与 422 语义。
+4. 把 `status` 改为 `confirmed`，填 `confirmed_by` / `confirmed_at`。
+
+⚠ 另请一并确认第 100 节那两处**与 coord-main 口径的有依据偏离**（`memberId → userId`、
+`role → projectRole`）。若认为应照口径字面执行，改回即可——实现尚未开始，改动成本为零。
 
 **在此之前，PJ-05（成员管理接真）不开工**——`claim` 门会拒，这是设计如此。
