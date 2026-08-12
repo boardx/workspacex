@@ -49,10 +49,14 @@ export function CreateTranscriptionDialog({
     event.preventDefault();
     const nextName = name.trim();
     if (!nextName || submitting) return;
+    const pendingTag = tagDraft.trim();
+    const submittedTags = pendingTag && !tags.includes(pendingTag) && tags.length < 5
+      ? [...tags, pendingTag]
+      : tags;
     setSubmitting(true);
     setSubmitError(false);
     try {
-      await onCreate({ name: nextName, tags });
+      await onCreate({ name: nextName, tags: submittedTags });
       changeOpen(false);
     } catch {
       setSubmitError(true);

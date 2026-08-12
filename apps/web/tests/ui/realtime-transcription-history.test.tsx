@@ -123,6 +123,30 @@ describe("实时转录历史工作台", () => {
     expect(screen.queryByTestId("rec-history-page")).not.toBeInTheDocument();
   });
 
+  it("提交时把尚未按回车确认的标签一并传给创建 API", async () => {
+    api.create.mockResolvedValue({
+      sessionId: "jiujiang-draft-tag",
+      name: "江西九江",
+      tags: ["江西"],
+      status: "idle",
+      durationMs: 0,
+      createdAt: "2026-08-12T00:00:00.000Z",
+      updatedAt: "2026-08-12T00:00:00.000Z",
+    });
+    renderHistory();
+
+    await waitFor(() => expect(api.list).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("rec-create-open"));
+    fireEvent.change(screen.getByTestId("rec-create-name"), { target: { value: "江西九江" } });
+    fireEvent.change(screen.getByTestId("rec-create-tags"), { target: { value: "江西" } });
+    fireEvent.click(screen.getByTestId("rec-create-submit"));
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledWith(
+      { name: "江西九江", tags: ["江西"] },
+      "session-token",
+    ));
+  });
+
   it("点击 API 返回的历史卡片进入对应转录详情", async () => {
     renderHistory();
 
