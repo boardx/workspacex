@@ -28,7 +28,7 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus,
-  RunLocator, RunProjection, ThreadHistoryMessage,
+  RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -554,6 +554,72 @@ export class PgAgentRunRepository implements AgentRunStore {
           return null;
         })
         .filter((m): m is ThreadHistoryMessage => m !== null);
+    });
+  }
+
+  async readThreadContextState(orgId: OrgId, threadId: string): Promise<ThreadContextState | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{
+        summary: string;
+        summarized_through_id: string | null;
+        summarized_through_at: Date | string | null;
+        version: number;
+      }>(
+        `SELECT summary, summarized_through_id, summarized_through_at, version
+           FROM thread_context_state
+          WHERE org_id=$1 AND thread_id=$2`,
+        [orgId, threadId],
+      );
+      const row = result.rows[0];
+      if (row === undefined) return null;
+      return {
+        summary: row.summary,
+        summarizedThroughId: row.summarized_through_id,
+        // timestamptz → ISO 串（pg 驱动回 Date；也容忍已是串的情况）。
+        summarizedThroughAt:
+          row.summarized_through_at === null
+            ? null
+            : new Date(row.summarized_through_at).toISOString(),
+        version: row.version,
+      };
+    });
+  }
+
+  async upsertThreadContextState(
+    orgId: OrgId,
+    threadId: string,
+    state: {
+      readonly summary: string;
+      readonly summarizedThroughId: string | null;
+      readonly summarizedThroughAt: string | null;
+      readonly expectedVersion: number;
+    },
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 乐观并发的单条原子写：
+      //   · 首次（无行，expectedVersion=0）→ INSERT，version 落 1；
+      //   · 增量（有行）→ ON CONFLICT DO UPDATE，但 **仅当现存 version = expectedVersion**，
+      //     version 自增 1；撞并发（version 已变）→ WHERE 不满足 → 0 行受影响 → 回 false。
+      // 竞态的首次并发：先到者 INSERT version=1，后到者走 ON CONFLICT、其 WHERE version=0 对不上
+      // 现存的 1 → 0 行 → false。全程不静默覆盖别人的写。
+      const result = await s.query<{ thread_id: string }>(
+        `INSERT INTO thread_context_state
+           (thread_id, org_id, summary, summarized_through_id, summarized_through_at, version, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 1, now())
+         ON CONFLICT (thread_id) DO UPDATE
+           SET summary = EXCLUDED.summary,
+               summarized_through_id = EXCLUDED.summarized_through_id,
+               summarized_through_at = EXCLUDED.summarized_through_at,
+               version = thread_context_state.version + 1,
+               updated_at = now()
+         WHERE thread_context_state.version = $6
+         RETURNING thread_id`,
+        [
+          threadId, orgId, state.summary, state.summarizedThroughId,
+          state.summarizedThroughAt, state.expectedVersion,
+        ],
+      );
+      return result.rows.length > 0;
     });
   }
 }
