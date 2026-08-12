@@ -50,7 +50,7 @@ async function runWrapperOnce(options: {
     ? "setInterval(() => {}, 1000)"
     : `process.exit(${options.childExit ?? 0})`;
   const child = spawn(process.execPath, [
-    "--import", "tsx", ".harness/scripts/with-test-isolation.ts", "--",
+    "--import", "tsx", ".harness/scripts/fixtures/with-test-isolation-fixture.ts", "--",
     process.execPath, "-e", childScript,
   ], {
     cwd: ROOT,
@@ -135,6 +135,16 @@ describe("#387 trusted full-stack gate contract", () => {
     }
     expect(scripts.scripts["verify:fullstack-smoke:raw"]).not.toContain("with-test-isolation");
     expect(scripts.scripts["verify:full:raw"]).not.toContain("with-test-isolation");
+  });
+
+  it("keeps lifecycle fixtures deterministic without exposing an admission bypass to package scripts", () => {
+    const scripts = JSON.stringify(JSON.parse(read("package.json")) as { scripts: Record<string, string> });
+    const wrapper = read(".harness/scripts/with-test-isolation.ts");
+    const fixture = read(".harness/scripts/fixtures/with-test-isolation-fixture.ts");
+
+    expect(scripts).not.toContain("with-test-isolation-fixture");
+    expect(wrapper).toContain("acquireSlot: acquireStackSlot");
+    expect(fixture).toContain("acquireSlot: async () =>");
   });
 
   it("pins fresh dynamic servers and the same-origin API allowlist", () => {

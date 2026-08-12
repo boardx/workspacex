@@ -1,15 +1,27 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ensureReservedTestIsolation } from "./lib/test-isolation";
-import { acquireStackSlot } from "./lib/stack-admission";
+import { acquireStackSlot, type AcquireOptions, type StackSlot } from "./lib/stack-admission";
 
-async function main(): Promise<void> {
-  const separator = process.argv.indexOf("--");
-  const command = separator >= 0 ? process.argv.slice(separator + 1) : process.argv.slice(2);
+export interface TestIsolationRuntime {
+  acquireSlot: (options: AcquireOptions) => Promise<StackSlot>;
+}
+
+const productionRuntime: TestIsolationRuntime = {
+  acquireSlot: acquireStackSlot,
+};
+
+export async function runWithTestIsolation(
+  argv: string[],
+  runtime: TestIsolationRuntime = productionRuntime,
+): Promise<number> {
+  const separator = argv.indexOf("--");
+  const command = separator >= 0 ? argv.slice(separator + 1) : argv.slice(2);
   if (command.length === 0) {
     console.error("usage: with-test-isolation -- <command> [args...]");
-    process.exit(2);
+    return 2;
   }
 
   // #468：端口不再靠哈希猜，而是真的向 OS 预留（探到即持有），起栈前才释放。
@@ -26,7 +38,7 @@ async function main(): Promise<void> {
       `inner_compose=${isolation.COMPOSE_PROJECT_NAME} status=${matched ? "matched" : "mismatch"}`;
     if (!matched) {
       console.error(message);
-      process.exit(2);
+      return 2;
     }
     console.log(message);
   }
@@ -34,7 +46,7 @@ async function main(): Promise<void> {
   // 并行度准入：起栈前排队，不是拒绝。机器 2026-08-05 曾到 4.08 倍超额认购
   // （load 40.78 / 10 核），`docker ps` 超时 >2min，连 `uptime` 都 300 秒没返回。
   // 拒绝会让 agent 以为自己写错了——今天就有人把饥饿归因成自己的代码。
-  const slot = await acquireStackSlot({
+  const slot = await runtime.acquireSlot({
     repoRoot: fileURLToPath(new URL("../..", import.meta.url)),
     isolationId: isolation.WORKSPACEX_ISOLATION_ID,
   });
@@ -79,17 +91,31 @@ async function main(): Promise<void> {
   if (cleanupError) console.error(`[test-isolation] cleanup failed: ${cleanupError}`);
   if (result.error) {
     console.error(`[test-isolation] failed to start ${command[0]}: ${result.error.message}`);
-    process.exit(1);
+    return 1;
   }
   if (receivedSignal) {
     const signalExit = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 }[receivedSignal];
-    process.exit(signalExit);
+    return signalExit;
   }
-  if (result.code !== 0) process.exit(result.code ?? 1);
-  process.exit(cleanupError ? 1 : 0);
+  if (result.code !== 0) return result.code ?? 1;
+  return cleanupError ? 1 : 0;
 }
 
-void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+function isMainModule(): boolean {
+  if (process.argv[1] === undefined) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  void runWithTestIsolation(process.argv).then(
+    (code) => process.exit(code),
+    (error: unknown) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    },
+  );
+}
