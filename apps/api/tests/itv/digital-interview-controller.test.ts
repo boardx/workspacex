@@ -83,12 +83,6 @@ beforeEach(async () => {
        VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','负责德国制造业能源采购与供应商谈判')`,
       [ORG],
     );
-    await session.query(
-      `INSERT INTO digital_expert_profiles
-        (org_id, agent_id, domains, material_context_pack_id, material_version)
-       VALUES ($1, 'agent-f02-de', ARRAY['采购与供应链','德国市场'], NULL, NULL)`,
-      [ORG],
-    );
   });
 });
 
@@ -107,14 +101,14 @@ describe("F02 数字访谈首屏 HTTP", () => {
     });
   });
 
-  it("专家目录只返回运行中且已启用的 Agent，并如实给出材料边界", async () => {
-    const response = await fetch(`${base}/interviews/digital/experts?domain=采购与供应链`, { headers: auth });
+  it("现有与新发布 Agent 会获得明确的未分类 profile，不会在升级后从专家目录消失", async () => {
+    const response = await fetch(`${base}/interviews/digital/experts`, { headers: auth });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       items: [{
         expertId: "agent-f02-de", initials: "DE", displayName: "德国采购总监",
         role: "负责德国制造业能源采购与供应商谈判",
-        domains: ["采购与供应链", "德国市场"],
+        domains: ["未分类"],
         materialBoundary: "未绑定 Context Pack 材料版本", exploratory: true,
       }],
     });
@@ -122,6 +116,12 @@ describe("F02 数字访谈首屏 HTTP", () => {
 
   it("已发布 Agent 版本不冒充材料版本，领域筛选也不读取角色文案", async () => {
     await db.withTenant(toOrgId(ORG), async (session) => {
+      await session.query(
+        `UPDATE digital_expert_profiles
+            SET domains=ARRAY['采购与供应链','德国市场']
+          WHERE org_id=$1 AND agent_id='agent-f02-de'`,
+        [ORG],
+      );
       await session.query(
         `INSERT INTO agent_versions
           (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,

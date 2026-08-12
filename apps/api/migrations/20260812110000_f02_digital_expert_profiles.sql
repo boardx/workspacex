@@ -28,6 +28,33 @@ CREATE TABLE IF NOT EXISTS digital_expert_profiles (
     REFERENCES context_packs(run_id, org_id)
 );
 
+-- Upgrading must not make the existing Agent directory disappear.  The marker is
+-- intentionally not inferred from role/duty prose: owners can classify it later, while
+-- the unfiltered expert catalogue remains complete and honest in the meantime.
+INSERT INTO digital_expert_profiles (org_id, agent_id, domains)
+SELECT c.org_id, c.id, ARRAY['未分类']::text[]
+  FROM capability_listings c
+  JOIN agents a ON a.org_id = c.org_id AND a.id = c.id
+ WHERE c.kind = 'agent'
+ON CONFLICT (org_id, agent_id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION ensure_digital_expert_profile()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.kind = 'agent' THEN
+    INSERT INTO digital_expert_profiles (org_id, agent_id, domains)
+    VALUES (NEW.org_id, NEW.id, ARRAY['未分类']::text[])
+    ON CONFLICT (org_id, agent_id) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS capability_listing_ensures_digital_expert_profile_trg
+  ON capability_listings;
+CREATE TRIGGER capability_listing_ensures_digital_expert_profile_trg
+  AFTER INSERT OR UPDATE OF kind ON capability_listings
+  FOR EACH ROW EXECUTE FUNCTION ensure_digital_expert_profile();
+
 ALTER TABLE digital_expert_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE digital_expert_profiles FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS digital_expert_profiles_tenant ON digital_expert_profiles;
@@ -38,4 +65,3 @@ CREATE POLICY digital_expert_profiles_tenant ON digital_expert_profiles
 REVOKE ALL ON digital_expert_profiles FROM app_rw;
 GRANT SELECT, INSERT, UPDATE, DELETE ON digital_expert_profiles TO app_rw;
 SELECT kernel_apply_org_freeze_policies();
-
