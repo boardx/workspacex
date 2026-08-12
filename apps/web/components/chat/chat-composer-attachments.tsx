@@ -12,6 +12,7 @@
  * ⚠ 上传进度：fetch 不暴露上传字节进度，故上传态用**不确定态 spinner**（不伪造百分比）。
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle, File as FileIcon, FileImage, FileSpreadsheet, FileText, Loader2, Paperclip,
   Presentation, RotateCw, Trash2, UploadCloud, X, type LucideIcon,
@@ -25,6 +26,8 @@ import {
 } from "@/lib/chat-attachment-format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Modal } from "@/components/files/overlay";
 
 const MAX_FILE_BYTES = ATTACHMENT_LIMITS.maxBytesPerFile;
 const MAX_ATTACHMENTS = ATTACHMENT_LIMITS.maxAttachmentsPerMessage;
@@ -45,6 +48,8 @@ export interface LiveAttachment {
   readonly serverId?: string;
   readonly error?: string;
   readonly retryable?: boolean;
+  /** 上传已发送比例 0..1（XHR upload.onprogress）。用于真实进度条。 */
+  readonly progress?: number;
   /** 保留原 File 供重试。 */
   readonly file?: File;
 }
@@ -100,8 +105,11 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
 
   const doUpload = React.useCallback(async (localId: string, file: File) => {
     try {
-      const uploaded: ChatAttachment = await uploadAttachment(threadId, file, bearer);
-      patch(localId, { status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime });
+      const uploaded: ChatAttachment = await uploadAttachment(
+        threadId, file, bearer,
+        (fraction) => patch(localId, { progress: fraction }),
+      );
+      patch(localId, { status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime, progress: 1 });
     } catch (err) {
       const { text, retryable } = describeUploadError(err);
       patch(localId, { status: "error", error: text, retryable });
@@ -135,7 +143,7 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
         const localId = nextLocalId();
         added.push({
           localId, filename: file.name, mime: file.type || "application/octet-stream",
-          bytes: file.size, status: "uploading", file,
+          bytes: file.size, status: "uploading", progress: 0, file,
         });
         toUpload.push({ localId, file });
         running += 1;
@@ -152,7 +160,7 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
       const target = cur.find((a) => a.localId === localId);
       if (target?.file) {
         queueMicrotask(() => void doUpload(localId, target.file!));
-        return cur.map((a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined } : a));
+        return cur.map((a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined, progress: 0 } : a));
       }
       return cur;
     });
@@ -232,14 +240,19 @@ export function ChatAttachmentDropzone({ active }: { active: boolean }) {
   );
 }
 
-export function ChatAttachmentList({ ctl, disabled }: { ctl: ChatAttachmentsController; disabled?: boolean }) {
+export function ChatAttachmentList({
+  ctl, disabled, testId = "chat-attachment-list", idPrefix = "chat-attachment",
+}: {
+  ctl: ChatAttachmentsController; disabled?: boolean; testId?: string; idPrefix?: string;
+}) {
   if (ctl.attachments.length === 0) return null;
   return (
-    <ul className="flex flex-col gap-1.5 px-1 pb-1.5 pt-1" data-testid="chat-attachment-list">
+    <ul className="flex flex-col gap-1.5 px-1 pb-1.5 pt-1" data-testid={testId}>
       {ctl.attachments.map((att) => (
         <AttachmentRow
           key={att.localId}
           att={att}
+          idPrefix={idPrefix}
           disabled={disabled}
           confirming={ctl.confirmingId === att.localId}
           onAskRemove={() => ctl.askRemove(att.localId)}
@@ -252,8 +265,17 @@ export function ChatAttachmentList({ ctl, disabled }: { ctl: ChatAttachmentsCont
   );
 }
 
-/** 📎 按钮 + 隐藏文件输入 + 计数。放在 composer 底部控件行左侧。 */
+/**
+ * 📎 按钮 + 隐藏文件输入 + 计数。放在 composer 底部控件行左侧。
+ *
+ * 点 📎 **先弹「加材料进这一轮」面板**（`ChatAttachMaterialModal`），不再直接开系统文件框——
+ * 由面板里的「从本机文件选择」才触发隐藏 input。拖拽落区行为不变（仍在 composer 上）。
+ * 隐藏 input 留在这里渲染，供面板经 `ctl.openFileDialog` 复用。
+ */
 export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsController; disabled?: boolean }) {
+  const [open, setOpen] = React.useState(false);
+  // 线程归档 / 提交中途 → 关面板，避免停在一个不能操作的壳上。
+  React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   return (
     <div className="flex items-center gap-1.5">
       <Button
@@ -263,11 +285,11 @@ export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsCo
         className="rounded-full"
         data-testid="chat-attachment-input"
         aria-label="添加附件"
-        title={ctl.atLimit
-          ? `已达 ${MAX_ATTACHMENTS} 个附件上限`
-          : `添加附件（单个不超过 ${formatBytes(MAX_FILE_BYTES)}，最多 ${MAX_ATTACHMENTS} 个）`}
-        disabled={disabled || ctl.atLimit}
-        onClick={ctl.openFileDialog}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={`添加附件（单个不超过 ${formatBytes(MAX_FILE_BYTES)}，最多 ${MAX_ATTACHMENTS} 个）`}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
       >
         <Paperclip aria-hidden className="h-3.5 w-3.5" />
       </Button>
@@ -288,7 +310,98 @@ export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsCo
           {ctl.attachments.length}/{MAX_ATTACHMENTS}
         </span>
       ) : null}
+      <ChatAttachMaterialModal ctl={ctl} open={open} disabled={disabled} onClose={() => setOpen(false)} />
     </div>
+  );
+}
+
+/**
+ * 「加材料进这一轮」面板 —— **第一版从简**（人类 2026-08-11 裁决，coord-main 转达）。
+ *
+ * 复用 `files/overlay` 的 `Modal` 壳（不另造）。只做已落地的上传：拖拽/选择 → 25MB+白名单校验 →
+ * 真实上传（带进度条），面板列出全部已传文件，全部随消息进上下文（文件**内容**进模型等 W1/F153
+ * anydoc 落地）。**砍掉且不留占位**：token 计数 / 逐文件勾选进上下文 / 机密→本地模型路由——不做假开关。
+ *
+ * 选/拖即上传，文件同时落在 composer 的 pending 预览条上。「取消」「加入这一轮」都只关面板；
+ * 上传未完时「加入这一轮」禁用，与发送键同一诚实约束。
+ */
+export function ChatAttachMaterialModal({
+  ctl, open, disabled, onClose,
+}: { ctl: ChatAttachmentsController; open: boolean; disabled?: boolean; onClose: () => void }) {
+  // Modal 壳是 `absolute inset-0`（贴最近定位祖先）。composer 输入框那层是 `relative`，直接挂会被
+  // 困在输入框小盒里。portal 到 body 的 `fixed inset-0` 宿主，才能像 files 页那样铺满视口。
+  // mounted 门：SSR 与 client 首帧都渲 null（避免 portal 造成 hydration 不匹配），挂载后再出 portal。
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!open || !mounted) return null;
+  const count = ctl.attachments.length;
+  return createPortal(
+    <div className="fixed inset-0 z-40" data-testid="chat-attach-material-portal">
+    <Modal
+      testid="chat-attach-material"
+      title="加材料进这一轮"
+      subtitle={`上传的文件都会随这条消息进上下文；单个不超过 ${formatBytes(MAX_FILE_BYTES)}，最多 ${MAX_ATTACHMENTS} 个。`}
+      onClose={onClose}
+      footer={
+        <>
+          <Button
+            type="button" size="sm" variant="ghost"
+            data-testid="chat-attach-material-cancel" onClick={onClose}
+          >
+            取消
+          </Button>
+          <Button
+            type="button" size="sm" variant="primary"
+            data-testid="chat-attach-material-confirm"
+            disabled={ctl.hasUploading}
+            onClick={onClose}
+          >
+            加入这一轮
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3" {...ctl.dragHandlers}>
+        {/* 拖拽落区 + 从本机选择 */}
+        <div
+          className={`grid place-items-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
+            ctl.dragActive ? "border-primary bg-primary/5" : "border-border"
+          }`}
+          data-testid="chat-attach-material-dropzone"
+        >
+          <UploadCloud aria-hidden className="h-6 w-6 text-muted-foreground" />
+          <p className="text-12 font-medium">把文件拖进来</p>
+          <p className="text-10 text-muted-foreground">
+            单个不超过 {formatBytes(MAX_FILE_BYTES)} · 最多 {MAX_ATTACHMENTS} 个 · 支持 {WHITELIST_LABELS}
+          </p>
+          <Button
+            type="button" size="sm" variant="outline" className="mt-1 rounded-full"
+            data-testid="chat-attach-material-pick"
+            disabled={disabled || ctl.atLimit}
+            onClick={ctl.openFileDialog}
+          >
+            从本机文件选择
+          </Button>
+          {ctl.atLimit ? <p className="text-10 text-warning">已达 {MAX_ATTACHMENTS} 个上限，先移除再添加</p> : null}
+        </div>
+
+        <ChatAttachmentBanner banner={ctl.banner} />
+
+        <div>
+          <p className="px-1 text-11 text-muted-foreground" data-testid="chat-attach-material-selected-count">
+            本次已选 · {count}
+          </p>
+          <ChatAttachmentList
+            ctl={ctl}
+            disabled={disabled}
+            testId="chat-attach-material-list"
+            idPrefix="chat-attach-material-att"
+          />
+        </div>
+      </div>
+    </Modal>
+    </div>,
+    document.body,
   );
 }
 
@@ -321,11 +434,13 @@ export function MessageAttachments({ attachments }: { attachments: readonly Chat
 }
 
 function AttachmentRow({
-  att, confirming, disabled, onAskRemove, onCancelRemove, onConfirmRemove, onRetry,
+  att, confirming, disabled, idPrefix = "chat-attachment",
+  onAskRemove, onCancelRemove, onConfirmRemove, onRetry,
 }: {
   att: LiveAttachment;
   confirming: boolean;
   disabled?: boolean;
+  idPrefix?: string;
   onAskRemove: () => void;
   onCancelRemove: () => void;
   onConfirmRemove: () => void;
@@ -339,7 +454,7 @@ function AttachmentRow({
       className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-200 ${
         isError ? "border-destructive/40" : "border-border-subtle"
       }`}
-      data-testid={`chat-attachment-chip-${att.localId}`}
+      data-testid={`${idPrefix}-chip-${att.localId}`}
       data-status={att.status}
     >
       <div className="flex items-center gap-2">
@@ -357,16 +472,27 @@ function AttachmentRow({
           </span>
           <div className="flex items-center gap-1.5 text-10 text-muted-foreground">
             <span>{formatBytes(att.bytes)}</span>
-            {isUploading ? <span>· 上传中…</span> : null}
+            {isUploading ? (
+              <span data-testid={`${idPrefix}-progress-label-${att.localId}`}>
+                · 上传中 {Math.round((att.progress ?? 0) * 100)}%
+              </span>
+            ) : null}
             {att.status === "uploaded" ? <Badge tone="outline">已就绪</Badge> : null}
             {isError ? <span className="text-destructive">· {att.error}</span> : null}
           </div>
+          {isUploading ? (
+            <Progress
+              value={Math.round((att.progress ?? 0) * 100)}
+              className="mt-1"
+              label={`上传进度 ${att.filename}`}
+            />
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {isError && att.retryable ? (
             <Button
               type="button" size="xs" variant="outline" className="rounded-md"
-              data-testid={`chat-attachment-retry-${att.localId}`}
+              data-testid={`${idPrefix}-retry-${att.localId}`}
               disabled={disabled}
               onClick={onRetry}
             >
@@ -376,7 +502,7 @@ function AttachmentRow({
           ) : null}
           <Button
             type="button" size="icon" variant="ghost" className="h-6 w-6 rounded-md"
-            data-testid={`chat-attachment-remove-${att.localId}`}
+            data-testid={`${idPrefix}-remove-${att.localId}`}
             aria-label={`移除附件 ${att.filename}`}
             title="移除附件"
             disabled={disabled}
@@ -390,7 +516,7 @@ function AttachmentRow({
       {confirming ? (
         <div
           className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2 py-1.5"
-          data-testid={`chat-attachment-remove-confirm-${att.localId}`}
+          data-testid={`${idPrefix}-remove-confirm-${att.localId}`}
           role="alertdialog"
           aria-label="确认移除附件"
         >
@@ -401,14 +527,14 @@ function AttachmentRow({
           <div className="flex items-center gap-1.5">
             <Button
               type="button" size="xs" variant="ghost"
-              data-testid={`chat-attachment-remove-cancel-${att.localId}`}
+              data-testid={`${idPrefix}-remove-cancel-${att.localId}`}
               onClick={onCancelRemove}
             >
               取消
             </Button>
             <Button
               type="button" size="xs" variant="destructive"
-              data-testid={`chat-attachment-remove-yes-${att.localId}`}
+              data-testid={`${idPrefix}-remove-yes-${att.localId}`}
               onClick={onConfirmRemove}
             >
               移除
