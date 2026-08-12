@@ -1,9 +1,9 @@
 ---
 phase: "02"
 covers_bundles: [survey]
-status: pending
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-12T17:05:00+08:00
 ---
 
 # Phase 02 阶段一致性复核
