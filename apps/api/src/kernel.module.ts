@@ -173,8 +173,9 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
-import { DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
+import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { ContextApiDigitalExpertMaterialReader } from "./infrastructure/interview/context-api-digital-expert-material-reader";
 // F86 (#356): consent-token 真实持久化——替换原 in-memory-consent-token-repository.ts。
 // ⚠ 尚无 controller 调用这三个仓储背后的用例（issue-signing-token 等）：见该文件顶部
 // 与迁移文件头，F86 五个用例目前没有任何 interface 层入口，绑好 provider 只是把
@@ -981,6 +982,12 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
       provide: DIGITAL_INTERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDigitalInterviewRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: DIGITAL_EXPERT_CONTEXT_API,
+      useFactory: (db: DatabasePort, identities: IdentityRepository) =>
+        new ContextApiDigitalExpertMaterialReader(db, identities),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
     },
     // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。
     {

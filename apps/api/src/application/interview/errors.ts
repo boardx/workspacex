@@ -74,6 +74,20 @@ export class DigitalInterviewConcurrentModificationError extends Error {
   }
 }
 
+/** Phase 04：数字专家定义、固定 Skill 或模型提供方暂时不可用。 */
+export class DigitalInterviewDependencyUnavailableError extends Error {
+  readonly code = "DEPENDENCY_UNAVAILABLE" as const;
+  constructor() {
+    super("DEPENDENCY_UNAVAILABLE");
+  }
+}
+
+/** Phase 04：模型执行期间访问权被撤回，回答不得落库。 */
+export class DigitalInterviewPermissionRevokedMidwayError extends Error {
+  readonly code = "PERMISSION_REVOKED_MIDWAY" as const;
+  constructor() { super("PERMISSION_REVOKED_MIDWAY"); }
+}
+
 /* ─────────────────────────── F86：受访者授权（uc-6-3） ─────────────────────────── */
 
 /**

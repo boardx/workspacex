@@ -20,6 +20,7 @@ export interface StoredDigitalInterview {
 
 export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
   readonly updatedAt: string;
+  readonly kind: "quick" | "batch";
 }
 
 export interface StoredDigitalExpert {
@@ -30,6 +31,43 @@ export interface StoredDigitalExpert {
   readonly domains: readonly string[];
   readonly materialContextPackId: string | null;
   readonly materialVersion: string | null;
+}
+
+export interface StoredQuickMessage {
+  readonly messageId: string; readonly role: "user" | "assistant"; readonly text: string;
+  readonly sourcePointers: readonly string[]; readonly createdAt: string;
+}
+
+export interface StoredQuickInterview {
+  readonly interviewId: string; readonly expert: StoredDigitalExpert;
+  readonly messages: readonly StoredQuickMessage[]; readonly version: number;
+}
+
+export interface StoredDigitalInterviewSourceMaterial {
+  readonly sourceMessageId: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly sourcePointers: readonly string[];
+}
+
+export interface StoredConvertedDigitalInterview extends StoredDigitalInterview {
+  readonly sourceMaterials: readonly StoredDigitalInterviewSourceMaterial[];
+}
+
+export interface DigitalExpertContextMaterial {
+  readonly packId: string;
+  readonly runId: string;
+  readonly items: readonly {
+    readonly segmentId: string;
+    readonly content: string;
+    readonly artifactVersionId: string;
+    readonly permissionDecisionId: string;
+  }[];
+}
+
+/** Adapter boundary to the signed Context Pack API; interview never reads its tables. */
+export interface DigitalExpertContextApi {
+  read(input: { readonly orgId: OrgId; readonly actorId: string; readonly runId: string }): Promise<DigitalExpertContextMaterial | null>;
 }
 
 export interface CreateDigitalInterviewRecordInput {
@@ -72,6 +110,11 @@ export interface DigitalInterviewRepository {
     readonly viewerUserId: string;
     readonly domain?: string;
   }): Promise<readonly StoredDigitalExpert[]>;
+  createQuick(input: { readonly orgId: OrgId; readonly interviewId: string; readonly actorId: string; readonly requestId: string; readonly expert: StoredDigitalExpert }): Promise<StoredQuickInterview>;
+  loadQuick(orgId: OrgId, interviewId: string): Promise<StoredQuickInterview | null>;
+  appendQuickExchange(input: { readonly orgId: OrgId; readonly interviewId: string; readonly expectedVersion: number; readonly userMessageId: string; readonly assistantMessageId: string; readonly question: string; readonly answer: string; readonly sourcePointers: readonly string[] }): Promise<void>;
+  convertQuick(input: { readonly orgId: OrgId; readonly sourceInterviewId: string; readonly interviewId: string; readonly actorId: string; readonly expectedVersion: number; readonly name: string; readonly tags: readonly string[]; readonly topic: string }): Promise<StoredConvertedDigitalInterview>;
 }
 
 export const DIGITAL_INTERVIEW_REPOSITORY = Symbol("DigitalInterviewRepository");
+export const DIGITAL_EXPERT_CONTEXT_API = Symbol("DigitalExpertContextApi");

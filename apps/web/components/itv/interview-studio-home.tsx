@@ -200,6 +200,7 @@ function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
 }
 
 function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
+  if (item.kind === "quick") return { label: "继续对话", href: `/itv/quick/${item.interviewId}` };
   const detail = `/itv/${item.interviewId}`;
   const report = `${detail}/report`;
   return {

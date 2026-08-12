@@ -21,11 +21,11 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (url.pathname === "/interviews/digital") {
         return json({ items: [{
-          interviewId: "itv-1", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
+          interviewId: "itv-1", kind: "batch", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
           status: "running", expertCount: 3, completedExpertCount: 2, primaryAction: "continue_runs",
           updatedAt: "2026-08-12T03:00:00.000Z",
         }, {
-          interviewId: "itv-2", name: "待生成报告", tags: ["报告"], topic: "归纳专家回答",
+          interviewId: "itv-2", kind: "batch", name: "待生成报告", tags: ["报告"], topic: "归纳专家回答",
           status: "report_pending", expertCount: 2, completedExpertCount: 2, primaryAction: "generate_report",
           updatedAt: "2026-08-12T04:00:00.000Z",
         }] });

@@ -61,14 +61,14 @@
         "F02"
       ],
       "points": 4,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "03",
+      "owner": "agt_01KZRABCZ99M2NGN20C7YWEASG",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/quick-digital-interview.test.ts",
         "pnpm --filter web exec vitest run tests/ui/quick-digital-interview.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F03.verify.log @ 2026-08-12T19:36:01.309Z",
       "notes": "release slice。共享热点 apps/web/components/itv/** 与 interview API；完整页面，不使用 dialog/drawer。"
     },
     {
