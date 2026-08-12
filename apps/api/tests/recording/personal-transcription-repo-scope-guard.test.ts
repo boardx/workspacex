@@ -14,13 +14,14 @@ const port = readFileSync(portPath, "utf8");
 const SQL_REF = /\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi;
 
 describe("personal transcription repository keeps its owner-only exemption true", () => {
-  it("names only personal metadata, capture sessions and final segments", () => {
+  it("names only personal metadata, capture sessions, tracks and final segments", () => {
     const tables = [...repository.matchAll(SQL_REF)].map((match) => match[1]!.toLowerCase());
     expect(tables.length).toBeGreaterThan(5);
     expect([...new Set(tables)].sort()).toEqual([
       "personal_transcriptions",
       "recording_segments",
       "recording_sessions",
+      "recording_tracks",
     ]);
   });
 

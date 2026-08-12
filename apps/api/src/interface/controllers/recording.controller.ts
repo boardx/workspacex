@@ -113,12 +113,17 @@ import {
   PersonalTranscriptionNotFound,
   PersonalTranscriptionOrgMembershipRequired,
   readPersonalTranscription,
+  issueRealtimeAsrTicket,
+  RealtimeAsrNotConfigured,
+  RealtimeAsrCaptureAlreadyActive,
 } from "../../application/recording/personal-transcription-usecases";
 import {
   PERSONAL_TRANSCRIPTION_REPOSITORY,
   PersonalTranscriptionCursorInvalid,
   type PersonalTranscriptionRepository,
 } from "../../application/recording/personal-transcription-ports";
+import { PERSONAL_REALTIME_ASR_PROVIDER, REALTIME_ASR_TICKET_STORE, type PersonalRealtimeAsrProvider,
+  type RealtimeAsrTicketStore } from "../../application/recording/personal-realtime-asr";
 
 type StartBody = typeof C.operations.startRecording.in._type;
 type EndBody = typeof C.operations.endRecording.in._type;
@@ -167,6 +172,8 @@ export class RecordingController {
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
     @Inject(PERSONAL_TRANSCRIPTION_REPOSITORY)
     private readonly personalTranscriptions: PersonalTranscriptionRepository,
+    @Inject(REALTIME_ASR_TICKET_STORE) private readonly personalAsrTickets: RealtimeAsrTicketStore,
+    @Inject(PERSONAL_REALTIME_ASR_PROVIDER) private readonly personalAsr: PersonalRealtimeAsrProvider,
   ) {}
 
   private personalDependencies() {
@@ -186,7 +193,19 @@ export class RecordingController {
     if (error instanceof PersonalTranscriptionCursorInvalid) {
       throw new BadRequestException({ reasonCode: "VALIDATION_FAILED" });
     }
+    if (error instanceof RealtimeAsrNotConfigured) throw new ServiceUnavailableException({reasonCode:"ASR_NOT_CONFIGURED"});
+    if (error instanceof RealtimeAsrCaptureAlreadyActive)
+      throw new ConflictException({reasonCode:"CAPTURE_ALREADY_ACTIVE"});
     throw error;
+  }
+
+  @Post(PersonalC.operations.issueRealtimeAsrTicket.path)
+  async issuePersonalTicket(@CurrentPrincipal() principal:Principal,@Param("sessionId") sessionId:string){
+    assertPrincipal(principal);
+    try{return PersonalC.operations.issueRealtimeAsrTicket.out.parse(await issueRealtimeAsrTicket({
+      ...this.personalDependencies(),tickets:this.personalAsrTickets,ids:this.ids,isConfigured:()=>this.personalAsr.isConfigured()},
+      {userId:principal.userId,orgId:toOrgId(principal.orgId),transcriptionId:sessionId}));}
+    catch(error){this.personalError(error);}
   }
 
   @Post(PersonalC.operations.createPersonalTranscription.path)

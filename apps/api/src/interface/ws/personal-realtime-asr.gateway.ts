@@ -1,0 +1,62 @@
+import { createHash } from "node:crypto";
+import type { Server } from "node:http";
+import type { Duplex } from "node:stream";
+import { personalRealtimeTranscription as C } from "@repo/contracts";
+import { WebSocketServer, type WebSocket } from "ws";
+import type { IdGenerator } from "../../application/recording/ports";
+import type { PersonalTranscriptionRepository } from "../../application/recording/personal-transcription-ports";
+import { persistThenPublishFinal, type AsrUsageMeter, type PersonalRealtimeAsrProvider,
+  type RealtimeAsrTicketStore } from "../../application/recording/personal-realtime-asr";
+import { toOrgId } from "../../domain/org-id";
+
+const PATH=/^\/recording\/realtime-asr\/sessions\/([^/?]+)\/captures\/([^/?]+)\/stream(?:\?|$)/;
+type Frame=typeof C.RealtimeAsrServerEvent._type;
+export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
+  provider:PersonalRealtimeAsrProvider; usage:AsrUsageMeter; ids:IdGenerator; }
+function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
+
+export function attachPersonalRealtimeAsrGateway(server:Server,deps:PersonalRealtimeAsrGatewayDeps):WebSocketServer{
+  const wss=new WebSocketServer({noServer:true});
+  server.on("upgrade",(request,socket,head)=>{const url=new URL(request.url??"/","http://localhost");const match=PATH.exec(url.pathname);
+    if(!match)return; void(async()=>{const transcriptionId=decodeURIComponent(match[1]!),captureId=decodeURIComponent(match[2]!);
+      const ticket=url.searchParams.get(C.streamOperation.ticketQueryParameter); if(!ticket)return refuse(socket,401);
+      const [encodedOrg]=ticket.split("."); let orgId; try{orgId=toOrgId(Buffer.from(encodedOrg??"","base64url").toString("utf8"));}
+      catch{return refuse(socket,401);}
+      const consumed=await deps.tickets.consume({ticketHash:createHash("sha256").update(ticket).digest("hex"),orgId,transcriptionId,captureId});
+      if(!consumed.ok)return refuse(socket,consumed.reason==="TICKET_EXPIRED"?410:401);
+      wss.handleUpgrade(request,socket,head,ws=>serve(ws,deps,consumed));
+    })().catch(()=>refuse(socket,500));
+  }); return wss;
+}
+function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:ReturnType<typeof toOrgId>;ownerUserId:string;transcriptionId:string;captureId:string}){
+  const send=(f:Frame)=>{if(ws.readyState===ws.OPEN)ws.send(JSON.stringify(C.RealtimeAsrServerEvent.parse(f)));};
+  let upstream:Awaited<ReturnType<PersonalRealtimeAsrProvider["open"]>>|null=null,ordinal=0,writeChain=Promise.resolve();
+  let starting=false; const pendingAudio:Uint8Array[]=[]; let pendingBytes=0;
+  const startedAt=Date.now(); let closing=false;
+  const fail=async(reason:typeof C.RealtimeAsrStreamError._type)=>{if(closing)return;closing=true;upstream?.abort();
+    await deps.repository.finishCapture({...auth,durationMs:Date.now()-startedAt,failed:true});send({type:"error",captureId:auth.captureId,reason});ws.close();};
+  ws.on("message",(raw,isBinary)=>{if(isBinary){try{const audio=new Uint8Array(raw as Buffer);
+      if(upstream)upstream.pushAudio(audio);else if(starting){pendingBytes+=audio.byteLength;if(pendingBytes>960_000){void fail("AUDIO_BACKPRESSURE");return;}pendingAudio.push(audio);}
+      else void fail("PROTOCOL_ERROR");}catch{void fail("PROTOCOL_ERROR");}return;}
+    const parsed=C.RealtimeAsrClientEvent.safeParse(safeJson(String(raw)));if(!parsed.success){void fail("PROTOCOL_ERROR");return;}
+    if(parsed.data.type==="start"){
+      if(upstream||starting){void fail("PROTOCOL_ERROR");return;} starting=true;
+      void deps.provider.open({onReady:()=>send({type:"ready",captureId:auth.captureId}),
+        onInterim:text=>send({type:"interim",captureId:auth.captureId,text}),
+        onFinal:r=>{const current=++ordinal;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
+          const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,...r});
+          return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs:r.startMs,endMs:r.endMs}))).then(()=>undefined);},
+        onError:()=>void fail("ASR_PROVIDER_UNAVAILABLE")}).then(s=>{upstream=s;starting=false;
+          for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;
+        }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
+    }
+    if(!upstream){void fail("PROTOCOL_ERROR");return;} closing=true;send({type:"stopping",captureId:auth.captureId});
+    void upstream.finish().then(async usage=>{await writeChain;await deps.usage.record({providerTaskId:upstream!.taskId,
+      orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
+      model:process.env.ALIYUN_ASR_MODEL??"fun-asr-realtime",durationSeconds:usage.durationSeconds});
+      await deps.repository.finishCapture({...auth,durationMs:usage.durationSeconds*1000});send({type:"completed",captureId:auth.captureId});ws.close();
+    }).catch(()=>{closing=false;void fail("FINISH_TIMEOUT");});
+  });
+  ws.on("close",()=>{if(!closing)void fail("ASR_PROVIDER_UNAVAILABLE");});
+}
+function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}

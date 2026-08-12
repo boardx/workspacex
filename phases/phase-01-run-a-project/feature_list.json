@@ -3754,8 +3754,8 @@
         "F165"
       ],
       "points": 8,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "coord-voice",
       "verification": [
         "pnpm --filter @repo/contracts run test",
         "pnpm --filter api exec vitest run tests/recording/realtime-asr-ticket.test.ts",
@@ -3768,7 +3768,7 @@
       "priority": 1,
       "area": "recording",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "04"
     },
     {
       "id": "F167",

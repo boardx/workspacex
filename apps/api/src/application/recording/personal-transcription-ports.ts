@@ -35,6 +35,14 @@ export interface PersonalTranscriptionRepository {
     readonly ownerUserId: string;
     readonly transcriptionId: string;
   }): Promise<PersonalTranscriptionDetail | undefined>;
+
+  startCapture(input: { readonly orgId: OrgId; readonly ownerUserId: string; readonly transcriptionId: string;
+    readonly captureId: string; readonly trackId: string }): Promise<void>;
+  appendFinal(input: { readonly orgId: OrgId; readonly ownerUserId: string; readonly transcriptionId: string;
+    readonly captureId: string; readonly segmentId: string; readonly ordinal: number; readonly text: string;
+    readonly startMs: number; readonly endMs: number }): Promise<void>;
+  finishCapture(input: { readonly orgId: OrgId; readonly ownerUserId: string; readonly transcriptionId: string;
+    readonly captureId: string; readonly durationMs: number; readonly failed?: boolean }): Promise<void>;
 }
 
 export const PERSONAL_TRANSCRIPTION_REPOSITORY = Symbol("PersonalTranscriptionRepository");

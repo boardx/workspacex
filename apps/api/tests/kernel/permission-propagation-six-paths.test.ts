@@ -758,7 +758,12 @@ describe("lint-permission-paths: counter-proof", () => {
     // owner predicate on every read) and `personal-transcription-owner-boundary.test.ts`
     // (another member and an org admin both see not-found/empty over real HTTP/PostgreSQL).
     // This is one repository and one bounded exception, so the ceiling moves by exactly one.
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(49);
+    //
+    // ⚠ Raised 49 -> 50 by F166 (realtime ASR ticket persistence): the ticket store is a
+    // write/consume-only authentication boundary. It returns no protected artifact content;
+    // its table scope, tenant context and one-use atomic consume are mechanically enforced by
+    // `realtime-asr-repo-scope-guard.test.ts` and `realtime-asr-ticket.test.ts`.
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(50);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

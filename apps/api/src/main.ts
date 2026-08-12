@@ -11,6 +11,7 @@ import { KernelModule } from "./kernel.module";
 import { traceMiddleware } from "./interface/middleware/trace";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
+import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 import { IDENTITY_REPOSITORY } from "./application/identity/ports";
@@ -19,6 +20,8 @@ import {
   RECORDING_UNIT_OF_WORK,
   TRANSCRIPTION_POLICY_PROVIDER,
 } from "./application/recording/session-lifecycle-ports";
+import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
+import { ASR_USAGE_METER, PERSONAL_REALTIME_ASR_PROVIDER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -97,6 +100,13 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   attachAsrDraftGateway(app.getHttpServer(), {
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     asr: app.get(ASR_PROVIDER),
+  });
+  attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
+    tickets: app.get(REALTIME_ASR_TICKET_STORE),
+    repository: app.get(PERSONAL_TRANSCRIPTION_REPOSITORY),
+    provider: app.get(PERSONAL_REALTIME_ASR_PROVIDER),
+    usage: app.get(ASR_USAGE_METER),
+    ids: app.get(RECORDING_ID_GENERATOR),
   });
 }
 

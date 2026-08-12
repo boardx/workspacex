@@ -248,4 +248,47 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
       });
     });
   }
+
+  async startCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string; captureId: string; trackId: string }): Promise<void> {
+    await this.db.withTenant(input.orgId, async (s) => {
+      const owner = await s.query(`SELECT 1 FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3 FOR UPDATE`,
+        [input.transcriptionId, input.orgId, input.ownerUserId]);
+      if (owner.rows.length === 0) throw new Error("personal transcription not owned");
+      await s.query(`INSERT INTO recording_sessions
+        (id,org_id,project_id,source_type,source_ref_id,started_at,retention_days,retention_from,retention_resolved_at,expires_at,created_by)
+        VALUES ($1,$2,NULL,'personal',$3,now(),365,'org',now(),now()+interval '365 days',$4)`,
+        [input.captureId, input.orgId, input.transcriptionId, input.ownerUserId]);
+      await s.query(`INSERT INTO recording_tracks (id,org_id,session_id,participant_id,mic_state)
+        VALUES ($1,$2,$3,$4,'granted')`, [input.trackId, input.orgId, input.captureId, input.ownerUserId]);
+      await s.query(`UPDATE personal_transcriptions SET status='recording',updated_at=now() WHERE id=$1`, [input.transcriptionId]);
+    });
+  }
+
+  async appendFinal(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string; captureId: string;
+    segmentId: string; ordinal: number; text: string; startMs: number; endMs: number }): Promise<void> {
+    await this.db.withTenant(input.orgId, async (s) => {
+      const inserted = await s.query(`INSERT INTO recording_segments
+        (id,org_id,session_id,track_id,ordinal,source_type,anchor_start_ms,anchor_end_ms,status,low_confidence,text)
+        SELECT $1,$2,rs.id,rt.id,$3,'personal',$4,$5,'final',false,$6
+          FROM recording_sessions rs JOIN recording_tracks rt ON rt.org_id=rs.org_id AND rt.session_id=rs.id
+         WHERE rs.id=$7 AND rs.org_id=$2 AND rs.source_ref_id=$8 AND rs.created_by=$9 AND rs.ended_at IS NULL
+        RETURNING id`,
+        [input.segmentId,input.orgId,input.ordinal,input.startMs,Math.max(input.startMs + 1,input.endMs),input.text,
+          input.captureId,input.transcriptionId,input.ownerUserId]);
+      if (inserted.rows.length !== 1) throw new Error("personal capture is not active or not owned");
+      await s.query(`UPDATE personal_transcriptions SET updated_at=now() WHERE id=$1`, [input.transcriptionId]);
+    });
+  }
+
+  async finishCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string; captureId: string;
+    durationMs: number; failed?: boolean }): Promise<void> {
+    await this.db.withTenant(input.orgId, async (s) => {
+      const ended = await s.query(`UPDATE recording_sessions SET ended_at=now(),duration_ms=$1,materialize_job_id=$2
+        WHERE id=$3 AND org_id=$4 AND source_ref_id=$5 AND created_by=$6 AND ended_at IS NULL RETURNING id`,
+        [input.durationMs,`personal:${input.captureId}`,input.captureId,input.orgId,input.transcriptionId,input.ownerUserId]);
+      if (ended.rows.length !== 1) throw new Error("personal capture is not active or not owned");
+      await s.query(`UPDATE personal_transcriptions SET status=$1,updated_at=now() WHERE id=$2 AND owner_user_id=$3`,
+        [input.failed ? "failed" : "completed",input.transcriptionId,input.ownerUserId]);
+    });
+  }
 }
