@@ -60,11 +60,12 @@ export async function listDigitalExperts(
       initials: row.initials,
       displayName: row.displayName,
       role: row.role,
-      domains: [row.role],
-      materialBoundary: row.publishedVersionId === null
-        ? "未绑定已发布材料版本"
-        : "已绑定发布材料版本",
-      exploratory: row.publishedVersionId === null,
+      domains: [...row.domains],
+      materialBoundary: row.materialContextPackId === null
+        ? "未绑定 Context Pack 材料版本"
+        : `Context Pack ${row.materialContextPackId} · ${row.materialVersion}`,
+      // 数字专家结论恒为探索性；绑定材料只增强可追溯性，不把推演升级为真人证据。
+      exploratory: true,
     })),
   };
 }

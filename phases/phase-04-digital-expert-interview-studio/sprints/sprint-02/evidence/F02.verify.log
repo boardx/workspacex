@@ -1,335 +1,35 @@
 $ pnpm --filter api exec vitest run tests/itv/digital-interview-controller.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02/apps/api
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-1079-f02-review-fix/apps/api
 
-[db-isolation] db=wsx_ff64d56c1b164297c280 capacity=100 current=6 required=32
-{"level":"error","msg":"http exception","traceId":"70921571-f8c9-4add-bd50-c1bbe6eaf290","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
- ✓ tests/itv/digital-interview-controller.test.ts (3 tests) 13386ms
-   ✓ F02 数字访谈首屏 HTTP > 专家目录只返回运行中且已启用的 Agent，并如实给出材料边界 365ms
+[db-isolation] db=wsx_21cecfccf24392a32ca1 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"e7fa9f24-dd2e-4aac-b59d-c0259cf0d00f","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-1079-f02-review-fix/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/itv/digital-interview-controller.test.ts (4 tests) 15500ms
+   ✓ F02 数字访谈首屏 HTTP > 历史列表只返回当前用户可见的数字访谈，并携带八态派生操作 411ms
+   ✓ F02 数字访谈首屏 HTTP > 已发布 Agent 版本不冒充材料版本，领域筛选也不读取角色文案 381ms
 
  Test Files  1 passed (1)
-      Tests  3 passed (3)
-   Start at  12:37:25
-   Duration  20.77s (transform 4.04s, setup 0ms, collect 1.07s, tests 13.39s, environment 0ms, prepare 127ms)
+      Tests  4 passed (4)
+   Start at  18:50:03
+   Duration  25.48s (transform 5.08s, setup 0ms, collect 1.99s, tests 15.50s, environment 0ms, prepare 305ms)
 
-[db-isolation] db=wsx_ff64d56c1b164297c280 peak_connections=4
+[db-isolation] db=wsx_21cecfccf24392a32ca1 peak_connections=4
 
 
 $ pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02/apps/web
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-1079-f02-review-fix/apps/web
 
- ✓ tests/ui/interview-studio-home.test.tsx (3 tests) 410ms
-   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 340ms
+ ✓ tests/ui/interview-studio-home.test.tsx (3 tests) 974ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 799ms
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  12:37:47
-   Duration  4.48s (transform 145ms, setup 295ms, collect 316ms, tests 410ms, environment 1.72s, prepare 628ms)
+   Start at  18:50:30
+   Duration  13.16s (transform 739ms, setup 1.80s, collect 989ms, tests 974ms, environment 7.73s, prepare 830ms)
 
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
-
-
-[BASE VERIFY] $ pnpm -w run verify:base
-[exit 1]
-
-> agentic-harness-template@ verify:base /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
-
-[harness-isolation] outer_db=wsx_ff64d56c1b164297c280 inner_db=wsx_ff64d56c1b164297c280 outer_compose=wsx-ff64d56c1b164297c280 inner_compose=wsx-ff64d56c1b164297c280 status=matched
-[stack-admission] load1=13.80 cores=10 perCore=1.38 running=0/2
-[stack-admission] 排到了，等了 0s
-[test-isolation] id=run-mspllgw9-0fc906e0-ff64d56c1b16 db=wsx_ff64d56c1b164297c280 compose=wsx-ff64d56c1b164297c280 pg=23316 redis=28316
-
-> agentic-harness-template@ verify:base:raw /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:terminology-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:domains-doctor && pnpm run lint:role-authorization-doctor && pnpm run lint:task-assignment-doctor && pnpm run lint:workflow-event-doctor && pnpm run lint:review-decision-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness && turbo run typecheck lint test --continue
-
-
-> agentic-harness-template@ lint:ui-material /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> node .harness/scripts/lint-ui-material.mjs
-
-  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
-  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
-  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
-  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
-  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
-  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
-  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
-  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
-  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
-  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
-  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
-  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
-  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
-  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
-  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
-✅ lint-ui-material: 17 个契约束的 ui.md 引用集合 == ui-preview 实存集合（共 726 张截图，无死链、无孤图）
-
-> agentic-harness-template@ lint:third-artifact /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> node .harness/scripts/lint-third-artifact.mjs
-
-  ✓ phase-00-shared-kernel/api-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-00-shared-kernel/artifact              形态 A  R12   8 行  packages/contracts/src/artifact.ts
-  ✓ phase-00-shared-kernel/auth                  形态 A  R12  12 行  packages/contracts/src/auth.ts
-  ✓ phase-00-shared-kernel/context-pack          形态 A  R12  13 行  packages/contracts/src/context-pack.ts
-  ✓ phase-00-shared-kernel/identity              形态 A  R12  23 行  packages/contracts/src/identity.ts
-  ✓ phase-00-shared-kernel/web-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-01-run-a-project/agent-runtime         形态 A  R12 160 行  packages/contracts/src/agent-runtime.ts
-  ✓ phase-01-run-a-project/asset-governance      形态 A  R12 108 行  packages/contracts/src/asset-governance.ts
-  ✓ phase-01-run-a-project/canvas                形态 A  R12  57 行  packages/contracts/src/canvas.ts
-  ✓ phase-01-run-a-project/chat                  形态 A  R12  67 行  packages/contracts/src/chat.ts
-  ✓ phase-01-run-a-project/chat-context-engine   形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-01-run-a-project/chat-file-upload      形态 A  R12   7 行  packages/contracts/src/chat-file-upload.ts
-  ✓ phase-01-run-a-project/curated-capability-packs 形态 A  R12  12 行  packages/contracts/src/curated-capability-packs.ts
-  ✓ phase-01-run-a-project/files                 形态 A  R12  50 行  packages/contracts/src/files.ts
-  ✓ phase-01-run-a-project/interview             形态 A  R12 105 行  packages/contracts/src/interview.ts
-  ✓ phase-01-run-a-project/org-admin             形态 A  R12  61 行  packages/contracts/src/org-admin.ts
-  ✓ phase-01-run-a-project/personal-realtime-transcription 形态 A  R12   8 行  packages/contracts/src/personal-realtime-transcription.ts
-  ✓ phase-01-run-a-project/project               形态 A  R12  38 行  packages/contracts/src/project.ts
-  ✓ phase-01-run-a-project/recording             形态 A  R12  48 行  packages/contracts/src/recording.ts
-  ✓ phase-01-run-a-project/research              形态 A  R12  41 行  packages/contracts/src/research.ts
-  ✓ phase-01-run-a-project/skills                形态 A  R12  77 行  packages/contracts/src/skills.ts
-  ✓ phase-01-run-a-project/templates             形态 A  R12  64 行  packages/contracts/src/templates.ts
-  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview 形态 A  R12   9 行  packages/contracts/src/interview.ts
-✅ lint-third-artifact: 23 个契约束的第 ③ 件均成立（形态 A 20 束 / 形态 B 3 束）
-
-> agentic-harness-template@ lint:verification /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> node .harness/scripts/lint-verification-can-fail.mjs
-
-  · 00                                   22 feature / 146 条 verification
-  · 01                                  163 feature / 516 条 verification
-  · 02                                   46 feature / 128 条 verification
-  · 03                                   47 feature / 135 条 verification
-  · 04                                    7 feature / 14 条 verification
-  ~ 形态 pnpm-script                  无动态探针（见文件头：换脚本名恰恰 exit 0，靠 ② 静态兜住）
-  ✓ 形态 vitest-file:api              必然失败变体 exit 1
-  ✓ 形态 script-file:direct           必然失败变体 exit 127
-  ✓ 形态 script-file:node             必然失败变体 exit 1
-  ✓ 形态 vitest-file:web              必然失败变体 exit 1
-  ✓ 形态 script-file:bash             必然失败变体 exit 127
-  ✓ 形态 vitest-file:@repo/contracts  必然失败变体 exit 1
-  ✓ 形态 grep                         必然失败变体 exit 1
-  ✓ 形态 pnpm-script-arg:web:e2e      必然失败变体 exit 1
-✅ lint-verification-can-fail: 939 条 verification 全部属于已登记形态，8 种形态实测「指向物不存在时会非 0 退出」
-
-> agentic-harness-template@ lint:nav-reachability /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> node .harness/scripts/lint-nav-reachability.mjs
-
-  ✓ phase-01-run-a-project         束可达 16/16 · 导航项 16
-✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链。
-
-> agentic-harness-template@ lint:rewrite-coverage /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
-
-✓ [rewrite-coverage] 156 条路由、33 条 rewrite 覆盖一致（9 条历史缺口在棘轮名单里，只能变短）
-
-> agentic-harness-template@ lint:spec-gate-coverage /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> node .harness/scripts/lint-spec-gate-coverage.mjs
-
-被 CI 真正调用的 playwright config：
-  · apps/devportal/playwright.config.ts
-  · apps/web/playwright.chat-read.config.ts
-  · apps/web/playwright.fullstack-smoke.config.ts
-  · apps/web/playwright.self-service-profile.config.ts
-
-spec 覆盖判定：
-  ✅ apps/devportal/e2e/p30/auth-gray.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/enroll.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/join-approve.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/me-workbench.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/onboard.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/workspace-authz.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/web/e2e/canvas-template-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/capability-mutate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/chat-behavior-shots.spec.ts  [exempt]
-  🟡 apps/web/e2e/chat-main-shots.spec.ts  [exempt]
-  ✅ apps/web/e2e/chat-read.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/core-loop.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/fullstack-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/project-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/responsive.spec.ts  [exempt]
-  ✅ apps/web/e2e/self-service-profile.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
-  ✅ apps/web/e2e/skill-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/skill-review-gate.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-
-✅ 每一条 spec 都被某条 CI 门控跑到（或有署名豁免）
-
-> agentic-harness-template@ lint:templates-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts templates doctor
-
-[templates doctor] 扫到 2 份实例文档
-✓ [templates doctor] PASS
-✓ [templates doctor] drift gate PASS —— 0 份带元数据头的生成物，无手改/无畸形头
-
-以下 Proposal §12 检查项尚未实现（如实列出，不是遗漏）：
-   · #7 renderer 存在（需要 E2）
-   · #8 消费者存在（需要消费者自身可被发现的机制，E2+）
-   · #10 signoff hash 未漂移（需要 E5）
-   · #13 数据源失败不会渲染为零（本文件已遵守此原则，但作为「仓库级」检查需要看板集成，E6）
-   · #14 allowlist 只能相对 merge-base 缩短（本 Epic 没有 allowlist，等真正开始迁移才有意义，E9）
-
-> agentic-harness-template@ lint:terminology-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts terminology doctor
-
-✓ [terminology doctor] registry.yaml：36 个 Term ID，无重复/无歧义映射
-✓ [terminology doctor] compat.yaml：6 条字段迁移映射，无重复/无歧义
-
-以下 H3A-008 完成契约条款本命令尚未实现（如实列出，不是遗漏）：
-   · 全仓扫描新代码是否新写旧字段名——需要 AST/字符串级扫描，是不同性质的检查
-
-> agentic-harness-template@ lint:role-freeze-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts role-freeze doctor
-
-✓ [role-freeze doctor] 6 个角色文件全部在 registry.yaml 登记
-
-> agentic-harness-template@ lint:graph-authority-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts graph-authority doctor
-
-✓ [graph-authority doctor] 4 条已知投影路径全部干净（未被 Git 追踪）
-
-> agentic-harness-template@ lint:domains-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts domains doctor
-
-✓ [domains doctor] registry.yaml：8 个 Domain，无重复 domain_id
-[domains doctor] 1 份 Domain Skill 实例（H3A-012 schema 合规）
-[domains doctor] Domain↔Skill gate（H3A-013/014/015/016/017）：0 FAIL / 7 WARN
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-PLATFORM"（Platform / 基础平台）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-IDENTITY-AUTH"（Identity & Auth / 身份与鉴权）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-CHAT"（Chat / 对话）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-AI-RUNTIME"（AI Runtime / AI 运行时）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-AGENT-SKILL-DIRECTORY"（Agent & Skill Directory / Agent 与 Skill 目录）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-CONTRACT-CONTROL-PLANE"（Contract & Control Plane / 契约与控制平面）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-   ! H3A013-MISSING-ACTIVE-SKILL: Domain "DOM-E2E-RELEASE-READINESS"（E2E & Release Readiness / 端到端与发布就绪）没有 active Domain Skill —— H3A-016+（P1，不在本 PR 范围）尚未建设，今天全仓 0 个真实实例是已知状态，不是回归
-
-以下部分本命令如实标注为「今天做不到 / 刻意不做」，不是遗漏（同 terminology-doctor.ts 的先例）：
-   · H3A-014 只检查 authority_refs.{contracts,adrs,source_paths} 三个路径字段是否在仓库里存在，
-     不检查 verification 字段（shell 命令，不是文件路径，不同性质的检查）
-   · H3A-015 只检查 last_verified.commit 是否「像」一个 SHA（7~40 位十六进制），
-     不通过 git 验证该 commit 是否真实存在于历史——那需要真实 git IO，本命令刻意只做形状检查
-   · H3A-017 只检查 SKILL.md 入口文件行数是否超过 150 行阈值，不检查体积超标的实例是否配套
-     reference 拆分目录——全仓今天没有任何既有的 reference 拆分约定可供比对，如实不做这一半
-   · H3A-011（核心 Domain inventory）的边界裁决需要人类确认，本命令只校验 registry.yaml 的结构，
-     不代表 registry.yaml 里的 owner/边界已经过人类签核——见 docs/proposals/PROP-HARNESS-AGENT-001-h3a011-domain-inventory.md
-
-> agentic-harness-template@ lint:role-authorization-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts role-authorization doctor
-
-✓ [role-authorization doctor] H3A-020 角色文件 schema（6 个文件）：干净
-✓ [role-authorization doctor] H3A-021 Root Orchestrator 单例门：干净
-✓ [role-authorization doctor] H3A-023 Specialist Worker spec schema（9 个文件）：干净
-✓ [role-authorization doctor] H3A-024 最大三层深度 gate：干净
-✓ [role-authorization doctor] H3A-025 authority monotonicity gate：干净
-✓ [role-authorization doctor] H3A-026 merge/signoff 权限 gate：干净
-✓ [role-authorization doctor] H3A-027 producer/verifier separation（静态自我一致性）：干净
-✓ [role-authorization doctor] H3A-022b 一个 orchestrator 一个 Domain：干净
-✓ [role-authorization doctor] H3A-022c 持久 domain_orchestrator 角色必须绑定 Domain：干净
-
-以下条款本命令如实未实现（不是遗漏，是今天没有输入数据可判定）：
-   · H3A-027 的完整 producer/verifier separation（同 actor 自产自签同一 artifact）——
-     需要 Epic E3 的 Task Assignment/Review Decision 运行态数据，静态角色文件判不出
-   · H3A-028（portable role generator 适配）——P1，本命令不覆盖
-
-> agentic-harness-template@ lint:task-assignment-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts task-assignment doctor
-
-✓ [task-assignment doctor] .harness/tasks/：0 份实例——Epic E3 尚未产生真实 Task Assignment，是今天的已知状态，不是回归
-✓ [task-assignment doctor] H3A-031 Root→Domain gate：干净
-✓ [task-assignment doctor] H3A-019 Domain readiness gate：干净
-✓ [task-assignment doctor] H3A-032a 不越领域（assignee layer + areas 子集）：干净
-✓ [task-assignment doctor] H3A-032b 不越配额（budget 数值 vs §10.3 默认约定，全局生效不按 assigned_by 过滤）：干净
-✓ [task-assignment doctor] H3A-032c 不越权限（assignee authority ≤ assigned_by）：干净
-
-以下部分本命令如实标注为「本条目范围外」，不是遗漏：
-   · scope 越权只做字面 area 名启发式匹配（scope.include vs Domain areas[]），不解析路径模式——
-     Proposal 原文没有给出「越权」的机器可判定定义，见 lib/task-assignment-root-domain-gate.ts 文件头
-   · skill_refs 归属核实依赖全仓 Domain Skill 实例语料库，今天 0 个真实实例（H3A-012 已确认）——
-     查无实例时判 WARN「无法核实」，不是判定「已核实无误」
-   · dependencies 是否成环——本命令只查引用的 task_id 是否存在于语料库，不做环检测（H3A-031/032 均不覆盖）
-   · assigned_by/assignee_role 按§10.2 原文应是 Directory ULID 运行时身份，本命令按已登记的稳定角色名/registry id 解析——见 lib/domain-worker-task-assignment-gate.ts 文件头注释①，若传入真实 ULID 会被当成未知身份（FAIL），而不是静默放行
-   · budget 是否有"合理例外"——schema 没有例外理由字段，本命令只能对超默认值的 max_parallel_workers 发 WARN，不能判定 FAIL/放行
-   · authority_snapshot_hash 是否等于当前 Authorization Model 的真实哈希——运行态语义，本命令只检查非空字符串存在
-   · H3A-019「健康数据源」——Proposal §6.4 只写这四个字，没有给出机器可判定的精确定义，本命令的解释选择是 contracts[]、verification[] 均为空数组才判「数据源缺失」，见 lib/domain-readiness-gate.ts 文件头注释③
-
-> agentic-harness-template@ lint:workflow-event-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts workflow-event doctor
-
-✓ [workflow-event doctor] .harness/events/：0 份实例——Epic E3 尚未产生真实 Workflow Event，是今天的已知状态，不是回归
-✓ [workflow-event doctor] H3A-034 重复 ID / append-only：今天没有输入数据可判定（0 份实例），如实跳过，不是回归
-
-以下部分本命令如实标注为「本条目范围外」，不是遗漏：
-   · 12 行短文本 renderer——H3A-035，尚未落地
-   · task_id 指向的 Task Assignment 是否真实存在——跨表 gate，尚未落地
-
-> agentic-harness-template@ lint:review-decision-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts review-decision doctor
-
-✓ [review-decision doctor] .harness/reviews/：0 份实例——Epic E3 尚未产生真实 Review Decision，是今天的已知状态，不是回归
-✓ [review-decision doctor] H3A-037 stale gate：今天没有输入数据可判定（0 份实例），如实跳过，不是回归
-
-以下部分本命令如实标注为「本条目范围外」，不是遗漏：
-   · task_id → 真实分支/PR head 的机械映射机制——本仓库今天不存在，H3A-037 设计缺口，见 resolveHeadShaForTaskId 与 lib/review-decision-stale-gate.ts 头部说明
-   · evidence_refs 指向的路径是否真实可读——运行态语义，本命令只检查非空字符串数组存在
-   · reviewer lease 是否有效——需要查询 lease 系统当前状态，本命令不读 lease
-   · task_id 指向的 Task Assignment（.harness/tasks/）是否真实存在——跨表 gate，尚未落地
-   · findings 数组内部结构——Proposal 未定义其形状，本命令只检查字段本身是数组
-   · reviewer===producer 由本命令在字段级直接判 FAIL；registry.yaml 层面的身份分离一致性检查是 H3A-027 role-authorization doctor 的事，两者互补不重复
-
-> agentic-harness-template@ lint:readiness /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts readiness --strict
-
-==> 核心闭环就绪度 CLR = 5.7 / 10   未达标（门槛 9，还差 3.3）   （实测 HEAD: 6eb5f83096eb）
-   公式：min( 可达性 7 , 体验均值 5.7 )
-   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。
-   ⚠ 4 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），
-      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。
-
-| track | 记录分 | 计入分 | 为什么 |
-|---|---|---|---|
-| R 真实用户可达性 | 7 | 7 | 分数已过期（评分后 watch 路径有改动） |
-| B 行为体验（对标 Claude Code） | 6 | 6 | 分数已过期（评分后 watch 路径有改动） |
-| V-D 项目对话主屏原型保真（ChatReadScreen） | 1 | 1 | 分数已过期（评分后 watch 路径有改动）；⏸ 人类暂停中：D 组实现迭代明确暂停（原话见 source）；重评动作一并冻结（coord-main 2026-08-11 夜间裁决，非人类原话——依据：实现零改动时重评只会复得同分，纯空转且诱发「过期→重评→再过期」循环；人类醒后可推翻）；⚠ 暂停前提「先把个人对话做到十分」已达成（V-P=10 新鲜），是否解除待人类晨间确认（人类（实现暂停）+ coord-main（重评冻结），见 _vd_pause_ruling_20260811） |
-| V-P 个人对话屏（PersonalChatScreen） | 10 | 10 | 分数已过期（评分后 watch 路径有改动） |
-
-==> 统一队列（所有 agent 的唯一取活口，从上往下做）
-    1. #877
-    2. #624
-    3. #728
-    4. #750
-
-   排序规则：R（天花板）的阻塞项永远在最前——其余 track 修到满分也抬不动总分。
-✓ CLR 记录结构合法（分数高低不影响本检查的退出码）
-
-> agentic-harness-template@ lint:skills-doctor /Users/shenyangjun/boardx/workspacex/.worktrees/worker-coord-user-research-04-f02
-> pnpm exec tsx .harness/scripts/cli.ts skills doctor
-
-
-本命令未覆盖（如实列出，不是遗漏）：
-   · 引用内容是否仍然准确（只查路径是否存在，不查语义是否过时）
-   · PR 号/commit hash/ADR 编号这类非路径引用的有效性
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
-! [role-authorization doctor] H3A-029 Root 直派 L3 例外门：2 条 WARN（不阻断）
-!    [H3A029-DIRECT-L3-NOT-REVIEWER] .harness/agents/roles/dev-ai-runtime.yaml: "dev-ai-runtime"（kind:worker）直接 reports_to:coord-main 且不是 domain_orchestrator——§6.4 只允许这个模式用于独立 reviewer/verifier、子树恢复或迁移期兼容任务；如果这是迁移期兼容（尚无 Domain Orchestrator 承接该领域），保持 WARN 可见即可，一旦对应 Domain Orchestrator 建立就应该改成 reports_to 该 Domain Orchestrator
-!    [H3A029-DIRECT-L3-NOT-REVIEWER] .harness/agents/roles/dev-chat-e2e.yaml: "dev-chat-e2e"（kind:worker）直接 reports_to:coord-main 且不是 domain_orchestrator——§6.4 只允许这个模式用于独立 reviewer/verifier、子树恢复或迁移期兼容任务；如果这是迁移期兼容（尚无 Domain Orchestrator 承接该领域），保持 WARN 可见即可，一旦对应 Domain Orchestrator 建立就应该改成 reports_to 该 Domain Orchestrator
-! [role-authorization doctor] H3A-022a Domain owner 身份存在性 + orchestrator 层归属：3 条 WARN（不阻断）
-!    [H3A022-OWNER-NOT-ORCHESTRATOR-LAYER] .harness/domains/registry.yaml: Domain "DOM-PLATFORM" 的 owner "dev-platform-baseline" 是已登记身份，但今天不是 layer:domain_orchestrator（该 Domain 没有 coordinator 层，只有直接 worker）——E0 inventory 已记录的结构问题，不是新回归
-!    [H3A022-OWNER-NOT-ORCHESTRATOR-LAYER] .harness/domains/registry.yaml: Domain "DOM-AI-RUNTIME" 的 owner "dev-ai-runtime" 是已登记身份，但今天不是 layer:domain_orchestrator（该 Domain 没有 coordinator 层，只有直接 worker）——E0 inventory 已记录的结构问题，不是新回归
-!    [H3A022-DOMAIN-NO-OWNER] .harness/domains/registry.yaml: Domain "DOM-AGENT-SKILL-DIRECTORY"（Agent & Skill Directory / Agent 与 Skill 目录）owner 为 null——今天没有唯一权威 owner，需人类确认（见文件头 H3A-011 说明），不视为本次改动引入的新回归
-! [role-authorization doctor] H3A-022d 一个 Domain 一个 active Skill：6 条 WARN（不阻断）
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-PLATFORM" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-IDENTITY-AUTH" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-CHAT" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-AI-RUNTIME" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-CONTRACT-CONTROL-PLANE" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-!    [H3A022-NO-ACTIVE-SKILL] .harness/domains/registry.yaml: Domain "DOM-E2E-RELEASE-READINESS" 没有绑定任何 status:active 的 Domain Skill 实例——今天全仓 0 个真实 TPL-MOD-001 实例是 H3A-002 inventory 已确认的已知状态（H3A-016+ 尚未建设），不是本次改动引入的回归
-! 跳过「队列死条目」检查：拿不到 issue 状态（gh 不可用/未登录/离线）——问不到不等于有问题
-✗ [skills doctor] 发现 1 条失效路径引用：
-✗    dashboard（.agents/skills/dashboard/SKILL.md）引用了不存在的路径：.harness/state/DASHBOARD.md
-
-[harness-verify v1 sha256=464b56032f344da5f5d89a02cd704ee4cecd58c43ca22374f64b912ef06455f3 commit=6eb5f83096eb8eb89c010a14628bfaa47e3b4e4c at=2026-08-12T04:41:22.773Z]
+[harness-verify v1 sha256=cb6a5427289b5877edaaf21e7073608636ee0d800f093b15f6f492306d3049f6 commit=fa87d1257114cea775fb63666f7d06263b97aa56 at=2026-08-12T10:50:44.216Z]

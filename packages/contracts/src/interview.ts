@@ -277,6 +277,9 @@ export const DigitalInterviewPrimaryAction = z.enum([
   "generate_report", "view_report", "retry",
 ]);
 
+/** 当前步骤与主操作同源，领域投影不得另抄一份字符串联合。 */
+export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "runs", "report"]);
+
 export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   interviewId: z.string().min(1),
   status: DigitalInterviewStatus,

@@ -3,9 +3,9 @@ import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
 export type DigitalInterviewHistory = z.infer<typeof interview.operations.listDigitalInterviews.out>;
-export type DigitalInterviewHistoryRow = DigitalInterviewHistory["items"][number];
+export type DigitalInterviewHistoryRow = z.infer<typeof interview.DigitalInterviewHistoryRow>;
 export type DigitalExpertCatalog = z.infer<typeof interview.operations.listDigitalExperts.out>;
-export type DigitalExpertCatalogRow = DigitalExpertCatalog["items"][number];
+export type DigitalExpertCatalogRow = z.infer<typeof interview.DigitalExpertCatalogRow>;
 
 export function loadDigitalInterviewHistory(status?: string): Promise<DigitalInterviewHistory> {
   return apiRequest("/interviews/digital", { query: { status } });

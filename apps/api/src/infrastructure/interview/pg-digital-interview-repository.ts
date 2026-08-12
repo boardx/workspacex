@@ -165,15 +165,24 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
   }): Promise<readonly StoredDigitalExpert[]> {
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query<{
-        id: string; initials: string; name: string; role: string; published_version_id: string | null;
+        id: string;
+        initials: string;
+        name: string;
+        role: string;
+        domains: string[];
+        material_context_pack_id: string | null;
+        material_version: string | null;
       }>(
-        `SELECT a.id, a.initials, a.name, a.role, a.published_version_id
+        `SELECT a.id, a.initials, a.name, a.role, p.domains,
+                p.material_context_pack_id, p.material_version
            FROM agents a
            JOIN capability_listings c
              ON c.org_id = a.org_id AND c.id = a.id AND c.kind = 'agent'
+           JOIN digital_expert_profiles p
+             ON p.org_id = a.org_id AND p.agent_id = a.id
           WHERE a.org_id = $1 AND a.status = 'enabled' AND a.publish_state = '运行中'
             AND c.enabled = true
-            AND ($3::text IS NULL OR a.role = $3)
+            AND ($3::text IS NULL OR $3 = ANY(p.domains))
             AND (c.scope = 'org-wide' OR c.owner_team_id = (
               SELECT om.team_id FROM org_memberships om
                WHERE om.org_id = $1 AND om.user_id = $2
@@ -186,7 +195,9 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         initials: row.initials,
         displayName: row.name,
         role: row.role,
-        publishedVersionId: row.published_version_id,
+        domains: row.domains,
+        materialContextPackId: row.material_context_pack_id,
+        materialVersion: row.material_version,
       }));
     });
   }
