@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   create: vi.fn(),
   list: vi.fn(),
   read: vi.fn(),
+  openAsr: vi.fn(),
 }));
 
 vi.mock("@/components/session/session-provider", () => ({
@@ -22,6 +23,10 @@ vi.mock("@/lib/live-personal-transcriptions", () => ({
   createPersonalTranscription: api.create,
   listPersonalTranscriptions: api.list,
   readPersonalTranscription: api.read,
+}));
+
+vi.mock("@/lib/BoardxRealtimeAsrClient", () => ({
+  openBoardxRealtimeAsr: api.openAsr,
 }));
 
 const EUROPE = {
@@ -38,6 +43,8 @@ beforeEach(() => {
   api.create.mockReset();
   api.list.mockReset();
   api.read.mockReset();
+  api.openAsr.mockReset();
+  api.openAsr.mockResolvedValue({ captureId: "capture-live", stop: vi.fn().mockResolvedValue(undefined) });
   api.list.mockResolvedValue({ items: [EUROPE], nextCursor: null });
   api.read.mockResolvedValue({
     ...EUROPE,
@@ -158,6 +165,18 @@ describe("实时转录历史工作台", () => {
     expect(screen.getByTestId("rec-live-status")).toHaveTextContent("已完成");
     expect(screen.getByText("这是数据库中保存的真实逐字稿。")).toBeVisible();
     expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
+  });
+
+  it("详情页开始按钮可用并启动该用户转录的 BoardX 实时客户端", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    const button = await screen.findByTestId("rec-live-toggle");
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(api.openAsr).toHaveBeenCalledWith(
+      "europe-entry",
+      expect.objectContaining({ sessionToken: "session-token" }),
+    ));
   });
 
   it("刷新后仍从 API 读回已创建转录，不依赖组件内存", async () => {

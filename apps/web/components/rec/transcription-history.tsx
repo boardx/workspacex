@@ -15,6 +15,9 @@ import {
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
+import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
+import { LiveRecordingError } from "@/lib/live-recording";
+import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import {
   TRANSCRIPTION_TAGS,
   type TranscriptionHistoryItem,
@@ -36,6 +39,10 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
+  const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
+  const [interimSegment, setInterimSegment] = React.useState("");
+  const [streamError, setStreamError] = React.useState<string | null>(null);
+  const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -83,8 +90,59 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
+  async function startRealtimeTranscription() {
+    if (!activeSession || streamRef.current || streamState === "connecting") return;
+    setStreamError(null);
+    setInterimSegment("");
+    setStreamState("connecting");
+    try {
+      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
+        sessionToken,
+        handlers: {
+          onState: setStreamState,
+          onInterim: setInterimSegment,
+          onFinal: (event) => {
+            setInterimSegment("");
+            setActiveSession((current) => appendFinalEvent(current, event));
+          },
+          onError: (reason) => {
+            setStreamError(streamErrorText(reason));
+            streamRef.current = null;
+          },
+        },
+      });
+    } catch (error) {
+      streamRef.current = null;
+      setStreamState("error");
+      setStreamError(error instanceof LiveRecordingError ? error.message : streamErrorText(error instanceof Error ? error.message : "CONNECTION_FAILED"));
+    }
+  }
+
+  async function stopRealtimeTranscription() {
+    const handle = streamRef.current;
+    if (!handle) return;
+    setStreamError(null);
+    setStreamState("stopping");
+    try {
+      await handle.stop();
+      setInterimSegment("");
+      setActiveSession(await readPersonalTranscription(activeSession!.sessionId, sessionToken));
+      setStreamState("idle");
+    } catch {
+      setStreamState("error");
+      setStreamError("转录收尾失败，已保存的最终文字不会丢失，请重新打开后重试。");
+    } finally {
+      streamRef.current = null;
+    }
+  }
+
+  React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
+
   if (activeSession) {
-    return <RealtimeTranscriptionWorkspace session={activeSession} onBack={() => setActiveSession(null)} />;
+    return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
+      interimSegment={interimSegment} errorMessage={streamError}
+      onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
+      onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
   }
 
   return (
@@ -153,6 +211,38 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       <CreateTranscriptionDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} />
     </section>
   );
+}
+
+function appendFinalEvent(
+  current: PersonalTranscriptionDetail | null,
+  event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number },
+): PersonalTranscriptionDetail | null {
+  if (!current) return null;
+  if (current.captures.some((capture) => capture.segments.some((segment) => segment.segmentId === event.segmentId))) return current;
+  const createdAt = new Date().toISOString();
+  const segment = { ...event, createdAt };
+  const captureIndex = current.captures.findIndex((capture) => capture.captureId === event.captureId);
+  if (captureIndex === -1) {
+    return { ...current, status: "recording", captures: [...current.captures, {
+      captureId: event.captureId, status: "recording", startedAt: createdAt, endedAt: null,
+      durationMs: event.endMs, segments: [segment],
+    }] };
+  }
+  return { ...current, status: "recording", captures: current.captures.map((capture, index) => index === captureIndex
+    ? { ...capture, segments: [...capture.segments, segment] }
+    : capture) };
+}
+
+function streamErrorText(reason: string): string {
+  const messages: Record<string, string> = {
+    ASR_NOT_CONFIGURED: "当前环境尚未配置阿里云实时转录，请联系管理员配置服务后重试。",
+    QUOTA_EXCEEDED: "当前实时转录额度不足。",
+    CAPTURE_ALREADY_ACTIVE: "这条转录已有正在进行的录音，请重新打开后继续。",
+    TICKET_EXPIRED: "连接凭证已过期，请重新点击开始转录。",
+    ASR_PROVIDER_UNAVAILABLE: "阿里云实时转录暂时不可用，请稍后重试。",
+    CONNECTION_FAILED: "无法连接实时转录服务，请检查网络后重试。",
+  };
+  return messages[reason] ?? "无法启动实时转录，请稍后重试。";
 }
 
 function HistoryState({
