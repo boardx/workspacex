@@ -11,6 +11,7 @@ import {
   createPersonalTranscription,
   listPersonalTranscriptions,
   readPersonalTranscription,
+  updatePersonalTranscriptionContent,
   type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
@@ -43,6 +44,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
+  const receivedFinalIdsRef = React.useRef(new Set<string>());
 
   React.useEffect(() => {
     let active = true;
@@ -78,7 +80,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     const created = toHistoryItem(summary);
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
-    setActiveSession({ ...summary, captures: [] });
+    setActiveSession({ ...summary, content: "" });
   }
 
   async function openTranscription(item: TranscriptionHistoryItem) {
@@ -94,6 +96,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
+    receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
       streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
@@ -102,6 +105,8 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
           onState: setStreamState,
           onInterim: setInterimSegment,
           onFinal: (event) => {
+            if (receivedFinalIdsRef.current.has(event.segmentId)) return;
+            receivedFinalIdsRef.current.add(event.segmentId);
             setInterimSegment("");
             setActiveSession((current) => appendFinalEvent(current, event));
           },
@@ -136,12 +141,24 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     }
   }
 
+  async function saveContent(content: string) {
+    if (!activeSession) return;
+    setStreamError(null);
+    try {
+      setActiveSession(await updatePersonalTranscriptionContent(activeSession.sessionId, content, sessionToken));
+    } catch {
+      setStreamError("正文保存失败，请稍后重试。");
+      throw new Error("TRANSCRIPTION_CONTENT_SAVE_FAILED");
+    }
+  }
+
   React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} errorMessage={streamError}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
+      onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
   }
 
@@ -218,19 +235,7 @@ function appendFinalEvent(
   event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number },
 ): PersonalTranscriptionDetail | null {
   if (!current) return null;
-  if (current.captures.some((capture) => capture.segments.some((segment) => segment.segmentId === event.segmentId))) return current;
-  const createdAt = new Date().toISOString();
-  const segment = { ...event, createdAt };
-  const captureIndex = current.captures.findIndex((capture) => capture.captureId === event.captureId);
-  if (captureIndex === -1) {
-    return { ...current, status: "recording", captures: [...current.captures, {
-      captureId: event.captureId, status: "recording", startedAt: createdAt, endedAt: null,
-      durationMs: event.endMs, segments: [segment],
-    }] };
-  }
-  return { ...current, status: "recording", captures: current.captures.map((capture, index) => index === captureIndex
-    ? { ...capture, segments: [...capture.segments, segment] }
-    : capture) };
+  return { ...current, status: "recording", content: [current.content, event.text].filter(Boolean).join(" ") };
 }
 
 function streamErrorText(reason: string): string {

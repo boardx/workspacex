@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, Mic, Radio } from "lucide-react";
+import * as React from "react";
+import { ArrowLeft, Check, Copy, Mic, Pencil, Radio, X } from "lucide-react";
 import type { personalRealtimeTranscription as C } from "@repo/contracts";
 import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,6 @@ import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 
 type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
 type PersonalTranscriptionStatus = z.infer<typeof C.PersonalTranscriptionStatus>;
-type PersonalTranscriptionCapture = PersonalTranscriptionDetail["captures"][number];
-type PersonalTranscriptionSegment = PersonalTranscriptionCapture["segments"][number];
 
 const STATUS_LABEL: Record<PersonalTranscriptionStatus, string> = {
   idle: "待开始",
@@ -28,6 +27,7 @@ export function RealtimeTranscriptionWorkspace({
   errorMessage,
   onStart,
   onStop,
+  onSaveContent,
 }: {
   session: PersonalTranscriptionDetail;
   onBack: () => void;
@@ -36,11 +36,34 @@ export function RealtimeTranscriptionWorkspace({
   errorMessage?: string | null;
   onStart: () => void;
   onStop: () => void;
+  onSaveContent?: (content: string) => Promise<void>;
 }) {
-  const segments = session.captures.flatMap((capture: PersonalTranscriptionCapture) => capture.segments);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(session.content);
+  const [saving, setSaving] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   const recording = streamState === "recording" || streamState === "stopping" || session.status === "recording";
   const busy = streamState === "connecting" || streamState === "stopping";
   const canStart = session.status === "idle" || session.status === "completed" || session.status === "failed";
+  const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
+
+  async function copyContent() {
+    await navigator.clipboard.writeText(visibleContent);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1_500);
+  }
+
+  async function saveContent() {
+    if (!onSaveContent) return;
+    setSaving(true);
+    try {
+      await onSaveContent(draft);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section data-testid="rec-live-workspace" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
@@ -84,25 +107,41 @@ export function RealtimeTranscriptionWorkspace({
 
         <Card className="min-h-96 p-6" data-testid="rec-live-transcript">
           <div className="border-b border-border pb-4">
-            <h2 className="text-16 font-semibold">实时逐字稿</h2>
-            <p className="mt-1 text-11 text-muted-foreground">这里只显示已由服务端确认并持久化的最终段。</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h2 className="text-16 font-semibold">实时逐字稿</h2>
+                <p className="mt-1 text-11 text-muted-foreground">最终识别会持续追加为一段正文，停止后可以修改。</p></div>
+              <div className="flex items-center gap-2">
+                <Button data-testid="rec-live-copy" type="button" size="sm" variant="outline"
+                  disabled={!visibleContent} onClick={() => void copyContent()}>
+                  {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
+                  {copied ? "已复制" : "复制全文"}
+                </Button>
+                {!editing && <Button data-testid="rec-live-edit" type="button" size="sm" variant="outline"
+                  disabled={recording || busy || !onSaveContent} onClick={() => { setDraft(session.content); setEditing(true); }}>
+                  <Pencil aria-hidden className="h-4 w-4" />编辑
+                </Button>}
+              </div>
+            </div>
           </div>
 
-          {segments.length > 0 || interimSegment ? (
-            <div className="mt-5 flex flex-col gap-4">
-              {segments.map((segment: PersonalTranscriptionSegment) => (
-                <TranscriptSegment
-                  key={segment.segmentId}
-                  time={formatTime(segment.startMs)}
-                  text={segment.text}
-                />
-              ))}
-              {interimSegment && (
-                <article data-testid="rec-live-interim" className="rounded-lg border border-dashed border-border bg-muted p-4">
-                  <div className="text-11 text-muted-foreground">识别中</div>
-                  <p className="mt-3 text-13 leading-relaxed">{interimSegment}</p>
-                </article>
-              )}
+          {editing ? (
+            <div className="mt-5">
+              <textarea data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
+                className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              <div className="mt-3 flex justify-end gap-2">
+                <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+                  <X aria-hidden className="h-4 w-4" />取消
+                </Button>
+                <Button data-testid="rec-live-save" type="button" variant="primary" disabled={saving}
+                  onClick={() => void saveContent()}>{saving ? "保存中" : "保存修改"}</Button>
+              </div>
+            </div>
+          ) : visibleContent ? (
+            <div className="mt-5 rounded-lg bg-card p-1">
+              <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
+                {session.content && interimSegment ? " " : ""}
+                {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
+              </p>
             </div>
           ) : (
             <div className="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
@@ -119,21 +158,4 @@ export function RealtimeTranscriptionWorkspace({
       </div>
     </section>
   );
-}
-
-function TranscriptSegment({ time, text }: { time: string; text: string }) {
-  return (
-    <article className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-11 text-muted-foreground">
-        <span>{time}</span>
-        <Badge tone="primary">最终</Badge>
-      </div>
-      <p className="mt-3 text-13 leading-relaxed">{text}</p>
-    </article>
-  );
-}
-
-function formatTime(valueMs: number): string {
-  const seconds = Math.floor(valueMs / 1_000);
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }

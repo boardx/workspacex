@@ -17,4 +17,6 @@
 
 详情主区域只有 `rec-live-toggle` 与 `rec-live-transcript`。保留顶部返回、名称与 `rec-live-status`；移除详情页内的分析、报告、引用和 Skill 面板。
 
+逐字稿只显示一份连续正文，不展示分段卡片、时间戳或 final 标签。停止录音后显示 `rec-live-copy` 与 `rec-live-edit`；编辑态通过 `rec-live-save` 保存整份正文。interim 只以内联弱化文本临时显示，不进入持久化正文。
+
 按钮状态：idle/completed/failed 为“开始转录”；connecting/waiting/recording 为“停止转录”；finalizing 为“正在收尾”且 disabled。

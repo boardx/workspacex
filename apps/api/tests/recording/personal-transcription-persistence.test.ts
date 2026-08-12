@@ -38,14 +38,16 @@ beforeEach(async () => {
 
 describe("personal transcription persistence", () => {
   it("migration can be replayed without duplicate-constraint failure", async () => {
-    const migration = await readFile(
-      new URL("../../migrations/20260812000000_f164_personal_realtime_transcriptions.sql", import.meta.url),
-      "utf8",
-    );
-    await expect(asOwner((client) => client.query(migration))).resolves.toBeDefined();
+    for (const file of [
+      "20260812000000_f164_personal_realtime_transcriptions.sql",
+      "20260812113000_f167_personal_transcription_content.sql",
+    ]) {
+      const migration = await readFile(new URL(`../../migrations/${file}`, import.meta.url), "utf8");
+      await expect(asOwner((client) => client.query(migration))).resolves.toBeDefined();
+    }
   });
 
-  it("survives a create -> list -> detail round trip without storing transcript text in metadata", async () => {
+  it("survives create -> edit -> search -> detail with one persisted body", async () => {
     const create = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
       method: "POST",
       headers: { ...auth, "content-type": "application/json" },
@@ -55,32 +57,14 @@ describe("personal transcription persistence", () => {
     const created = C.operations.createPersonalTranscription.out.parse(await create.json());
     expect(created.status).toBe("idle");
 
-    await asApp(ORG, async (client) => {
-      await client.query(
-        `INSERT INTO recording_sessions
-           (id, org_id, project_id, source_type, source_ref_id, started_at, ended_at,
-            duration_ms, materialize_job_id, retention_days, retention_from,
-            retention_resolved_at, expires_at, created_by)
-         VALUES ('capture-search',$1,NULL,'personal',$2,now(),now(),1000,'job-capture-search',
-                 180,'org',now(),now() + interval '180 days',$3)`,
-        [ORG, created.sessionId, USER],
-      );
-      await client.query(
-        `INSERT INTO recording_tracks
-           (id, org_id, session_id, participant_id, mic_state, gap_ranges)
-         VALUES ('track-search',$1,'capture-search',NULL,'granted','[]'::jsonb)`,
-        [ORG],
-      );
-      await client.query(
-        `INSERT INTO recording_segments
-           (id, org_id, session_id, track_id, ordinal, source_type,
-            anchor_start_ms, anchor_end_ms, anchor_message_id, speaker_channel_id,
-            status, low_confidence, text, pii_findings)
-         VALUES ('segment-search',$1,'capture-search','track-search',1,'personal',
-                 0,1000,NULL,NULL,'final',false,'讨论了德国市场的合规要求','[]'::jsonb)`,
-        [ORG],
-      );
+    const edited = await fetch(`${baseUrl}/recording/realtime-asr/sessions/${created.sessionId}/content`, {
+      method: "PATCH",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ content: "讨论了德国市场的合规要求" }),
     });
+    expect(edited.status).toBe(200);
+    expect(C.operations.updatePersonalTranscriptionContent.out.parse(await edited.json()).content)
+      .toBe("讨论了德国市场的合规要求");
 
     const otherCreate = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
       method: "POST",
@@ -122,10 +106,7 @@ describe("personal transcription persistence", () => {
     const read = C.operations.readPersonalTranscription.out.parse(await detail.json());
     expect(read.name).toBe("欧洲市场讨论");
     expect(read.tags).toEqual(["客户", "市场研究"]);
-    expect(read.captures).toHaveLength(1);
-    expect(read.captures[0]?.segments.map((segment) => segment.text)).toEqual([
-      "讨论了德国市场的合规要求",
-    ]);
+    expect(read.content).toBe("讨论了德国市场的合规要求");
 
     const columns = await asApp(ORG, (client) =>
       client.query<{ column_name: string }>(
@@ -133,8 +114,7 @@ describe("personal transcription persistence", () => {
           WHERE table_schema = 'public' AND table_name = 'personal_transcriptions'`,
       ),
     );
-    expect(columns.rows.map((row) => row.column_name)).not.toContain("text");
-    expect(columns.rows.map((row) => row.column_name)).not.toContain("transcript");
+    expect(columns.rows.map((row) => row.column_name)).toContain("content");
   });
 
   it("rejects malformed cursors with the declared validation reason", async () => {

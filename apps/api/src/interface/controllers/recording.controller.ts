@@ -52,6 +52,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -113,6 +114,7 @@ import {
   PersonalTranscriptionNotFound,
   PersonalTranscriptionOrgMembershipRequired,
   readPersonalTranscription,
+  updatePersonalTranscriptionContent,
   issueRealtimeAsrTicket,
   RealtimeAsrNotConfigured,
   RealtimeAsrCaptureAlreadyActive,
@@ -131,6 +133,7 @@ type MaterializeBody = typeof C.operations.materializeRecordingArtifacts.in._typ
 type SetConsentDecisionBody = typeof C.operations.setConsentDecision.in._type;
 type CreatePersonalTranscriptionBody = typeof PersonalC.operations.createPersonalTranscription.in._type;
 type ListPersonalTranscriptionsQuery = typeof PersonalC.operations.listPersonalTranscriptions.in._type;
+const UpdatePersonalContentBody = PersonalC.operations.updatePersonalTranscriptionContent.in.pick({ content: true });
 
 const CONFLICT: ReadonlySet<string> = new Set([
   "SESSION_ALREADY_RECORDING", "SESSION_ALREADY_ENDED", "SESSION_ENDED", "SESSION_NOT_ENDED",
@@ -263,6 +266,27 @@ export class RecordingController {
         transcriptionId: sessionId,
       });
       return PersonalC.operations.readPersonalTranscription.out.parse(detail);
+    } catch (error) {
+      this.personalError(error);
+    }
+  }
+
+  @Patch(PersonalC.operations.updatePersonalTranscriptionContent.path)
+  async updatePersonalContent(
+    @CurrentPrincipal() principal: Principal,
+    @Param("sessionId") sessionId: string,
+    @Body(new ZodBodyPipe(UpdatePersonalContentBody)) body: { content: string },
+  ) {
+    assertPrincipal(principal);
+    try {
+      return PersonalC.operations.updatePersonalTranscriptionContent.out.parse(
+        await updatePersonalTranscriptionContent(this.personalDependencies(), {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          transcriptionId: sessionId,
+          content: body.content,
+        }),
+      );
     } catch (error) {
       this.personalError(error);
     }

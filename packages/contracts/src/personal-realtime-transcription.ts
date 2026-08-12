@@ -8,7 +8,6 @@
 import { z } from "zod";
 
 export const PersonalTranscriptionStatus = z.enum(["idle", "recording", "completed", "failed"]);
-export const PersonalCaptureStatus = z.enum(["recording", "completed", "failed"]);
 
 const Name = z.string().trim().min(1).max(100);
 const Tag = z.string().trim().min(1).max(20);
@@ -24,27 +23,8 @@ export const PersonalTranscriptionSummary = z.object({
   updatedAt: z.string(),
 }).strict();
 
-export const PersonalTranscriptionSegment = z.object({
-  segmentId: z.string(),
-  captureId: z.string(),
-  ordinal: z.number().int().positive(),
-  text: z.string(),
-  startMs: z.number().int().nonnegative(),
-  endMs: z.number().int().nonnegative(),
-  createdAt: z.string(),
-}).strict();
-
-export const PersonalTranscriptionCapture = z.object({
-  captureId: z.string(),
-  status: PersonalCaptureStatus,
-  startedAt: z.string(),
-  endedAt: z.string().nullable(),
-  durationMs: z.number().int().nonnegative(),
-  segments: z.array(PersonalTranscriptionSegment),
-}).strict();
-
 export const PersonalTranscriptionDetail = PersonalTranscriptionSummary.extend({
-  captures: z.array(PersonalTranscriptionCapture),
+  content: z.string(),
 }).strict();
 
 export const PersonalTranscriptionError = z.enum([
@@ -133,6 +113,19 @@ export const operations = {
     in: z.object({ sessionId: z.string().min(1) }).strict(),
     out: PersonalTranscriptionDetail,
     err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND"] as const,
+  },
+  updatePersonalTranscriptionContent: {
+    method: "PATCH",
+    path: "/recording/realtime-asr/sessions/:sessionId/content",
+    in: z.object({ sessionId: z.string().min(1), content: z.string() }).strict(),
+    out: PersonalTranscriptionDetail,
+    err: [
+      "AUTH_REQUIRED",
+      "ORG_MEMBERSHIP_REQUIRED",
+      "TRANSCRIPTION_NOT_FOUND",
+      "CAPTURE_ALREADY_ACTIVE",
+      "VALIDATION_FAILED",
+    ] as const,
   },
   issueRealtimeAsrTicket: {
     method: "POST",

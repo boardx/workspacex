@@ -54,3 +54,18 @@ export async function readPersonalTranscription(
   });
   return operations.readPersonalTranscription.out.parse(raw);
 }
+
+export async function updatePersonalTranscriptionContent(
+  sessionId: string,
+  content: string,
+  sessionToken?: string | null,
+): Promise<PersonalTranscriptionDetail> {
+  const input = operations.updatePersonalTranscriptionContent.in.parse({ sessionId, content });
+  const path = operations.updatePersonalTranscriptionContent.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path, {
+    method: operations.updatePersonalTranscriptionContent.method,
+    body: { content: input.content },
+    sessionToken,
+  });
+  return operations.updatePersonalTranscriptionContent.out.parse(raw);
+}

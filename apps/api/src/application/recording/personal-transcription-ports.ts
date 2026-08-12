@@ -36,6 +36,11 @@ export interface PersonalTranscriptionRepository {
     readonly transcriptionId: string;
   }): Promise<PersonalTranscriptionDetail | undefined>;
 
+  hasActiveCapture(input: { readonly orgId: OrgId; readonly ownerUserId: string;
+    readonly transcriptionId: string }): Promise<boolean>;
+  replaceContent(input: { readonly orgId: OrgId; readonly ownerUserId: string;
+    readonly transcriptionId: string; readonly content: string }): Promise<PersonalTranscriptionDetail | undefined>;
+
   startCapture(input: { readonly orgId: OrgId; readonly ownerUserId: string; readonly transcriptionId: string;
     readonly captureId: string; readonly trackId: string }): Promise<void>;
   appendFinal(input: { readonly orgId: OrgId; readonly ownerUserId: string; readonly transcriptionId: string;

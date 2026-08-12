@@ -24,11 +24,32 @@ describe("personal realtime transcription contract", () => {
     expect(errorCodes).toContain("TRANSCRIPTION_NOT_FOUND");
   });
 
-  it("describes create, list, read and ticket HTTP operations", () => {
+  it("describes create, list, read, content update and ticket HTTP operations", () => {
     expect(C.operations.createPersonalTranscription.path).toBe("/recording/realtime-asr/sessions");
     expect(C.operations.listPersonalTranscriptions.method).toBe("GET");
     expect(C.operations.readPersonalTranscription.path).toContain(":sessionId");
+    expect(C.operations.updatePersonalTranscriptionContent.method).toBe("PATCH");
+    expect(C.operations.updatePersonalTranscriptionContent.path).toContain("/content");
     expect(C.operations.issueRealtimeAsrTicket.path).toContain("/tickets");
+  });
+
+  it("returns one editable body instead of captures and timestamped segments", () => {
+    const detail = {
+      sessionId: "session-1",
+      name: "客户访谈",
+      tags: ["客户"],
+      status: "completed",
+      durationMs: 1200,
+      createdAt: "2026-08-12T00:00:00.000Z",
+      updatedAt: "2026-08-12T00:00:01.000Z",
+      content: "第一句 第二句",
+    };
+    expect(C.PersonalTranscriptionDetail.safeParse(detail).success).toBe(true);
+    expect(C.PersonalTranscriptionDetail.safeParse({ ...detail, captures: [] }).success).toBe(false);
+    expect(C.operations.updatePersonalTranscriptionContent.in.safeParse({
+      sessionId: "session-1",
+      content: "人工修改后的完整正文",
+    }).success).toBe(true);
   });
 
   it("requires capture identity on final and completed events", () => {
@@ -59,7 +80,7 @@ describe("personal realtime transcription contract", () => {
     expect(C.RealtimeAsrServerEvent.safeParse({ type: "completed" }).success).toBe(false);
   });
 
-  it("keeps interim distinct from persisted final segments", () => {
+  it("keeps interim distinct from the persisted body", () => {
     expect(
       C.RealtimeAsrServerEvent.safeParse({
         type: "interim",
@@ -67,17 +88,7 @@ describe("personal realtime transcription contract", () => {
         text: "正在识别",
       }).success,
     ).toBe(true);
-    expect(
-      C.PersonalTranscriptionSegment.safeParse({
-        segmentId: "segment-1",
-        captureId: "capture-1",
-        ordinal: 1,
-        text: "最终文本",
-        startMs: 0,
-        endMs: 900,
-        createdAt: "2026-08-11T00:00:00.000Z",
-        status: "interim",
-      }).success,
-    ).toBe(false);
+    expect(C.PersonalTranscriptionDetail.keyof().options).toContain("content");
+    expect(C.PersonalTranscriptionDetail.keyof().options).not.toContain("captures");
   });
 });

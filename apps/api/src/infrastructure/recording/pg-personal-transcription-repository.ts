@@ -16,30 +16,14 @@ interface SummaryRow {
   duration_ms: string | number;
   created_at: string;
   updated_at: string;
-}
-
-interface CaptureRow {
-  id: string;
-  started_at: string;
-  ended_at: string | null;
-  duration_ms: string | number;
-}
-
-interface SegmentRow {
-  id: string;
-  session_id: string;
-  ordinal: number;
-  text: string;
-  anchor_start_ms: string | number;
-  anchor_end_ms: string | number;
-  created_at: string;
+  content: string;
 }
 
 const PAGE_SIZE = 24;
 const iso = (value: string): string => new Date(value).toISOString();
 const number = (value: string | number): number => Number(value);
 
-const SUMMARY_COLUMNS = `p.id, p.name, p.tags,
+const SUMMARY_COLUMNS = `p.id, p.name, p.tags, p.content,
   CASE
     WHEN bool_or(rs.ended_at IS NULL) FILTER (WHERE rs.id IS NOT NULL) THEN 'recording'
     WHEN count(rs.id) > 0 THEN 'completed'
@@ -97,7 +81,7 @@ async function readSummary(
        LEFT JOIN recording_sessions rs
          ON rs.org_id = p.org_id AND rs.source_type = 'personal' AND rs.source_ref_id = p.id
       WHERE p.org_id = $1 AND p.owner_user_id = $2 AND p.id = $3
-      GROUP BY p.id, p.name, p.tags, p.status, p.created_at, p.updated_at`,
+      GROUP BY p.id, p.name, p.tags, p.content, p.status, p.created_at, p.updated_at`,
     [orgId, ownerUserId, transcriptionId],
   );
   return result.rows[0];
@@ -146,22 +130,10 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
                  ON rs.org_id = p.org_id AND rs.source_type = 'personal' AND rs.source_ref_id = p.id
               WHERE p.org_id = $1 AND p.owner_user_id = $2
                 AND (
-                  $3::text IS NULL OR p.name ILIKE '%' || $3 || '%' OR EXISTS (
-                    SELECT 1
-                      FROM recording_sessions search_session
-                      JOIN recording_segments search_segment
-                        ON search_segment.org_id = search_session.org_id
-                       AND search_segment.session_id = search_session.id
-                     WHERE search_session.org_id = p.org_id
-                       AND search_session.source_type = 'personal'
-                       AND search_session.source_ref_id = p.id
-                       AND search_session.created_by = p.owner_user_id
-                       AND search_segment.status = 'final'
-                       AND search_segment.text ILIKE '%' || $3 || '%'
-                  )
+                  $3::text IS NULL OR p.name ILIKE '%' || $3 || '%' OR p.content ILIKE '%' || $3 || '%'
                 )
                 AND ($4::text IS NULL OR $4 = ANY(p.tags))
-              GROUP BY p.id, p.name, p.tags, p.status, p.created_at, p.updated_at
+              GROUP BY p.id, p.name, p.tags, p.content, p.status, p.created_at, p.updated_at
            ) AS owned_summaries
           WHERE ($5::timestamptz IS NULL OR (updated_at, id) ${comparison} ($5::timestamptz, $6::text))
           ORDER BY updated_at ${direction}, id ${direction}
@@ -193,59 +165,42 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
       const metadata = await readSummary(session, input.orgId, input.ownerUserId, input.transcriptionId);
       if (metadata === undefined) return undefined;
 
-      const captures = await session.query<CaptureRow>(
-        `SELECT rs.id, rs.started_at, rs.ended_at,
-                COALESCE(rs.duration_ms,
-                  floor(extract(epoch FROM (now() - rs.started_at)) * 1000)::bigint)::text AS duration_ms
-           FROM recording_sessions rs
-           JOIN personal_transcriptions p
-             ON p.id = rs.source_ref_id AND p.org_id = rs.org_id
-          WHERE p.id = $1 AND p.org_id = $2 AND p.owner_user_id = $3
-            AND rs.source_type = 'personal' AND rs.created_by = p.owner_user_id
-          ORDER BY rs.started_at, rs.id`,
-        [input.transcriptionId, input.orgId, input.ownerUserId],
-      );
-
-      const segments = await session.query<SegmentRow>(
-        `SELECT seg.id, seg.session_id, seg.ordinal, seg.text,
-                seg.anchor_start_ms, seg.anchor_end_ms, seg.created_at
-           FROM recording_segments seg
-           JOIN recording_sessions rs
-             ON rs.id = seg.session_id AND rs.org_id = seg.org_id
-           JOIN personal_transcriptions p
-             ON p.id = rs.source_ref_id AND p.org_id = rs.org_id
-          WHERE p.id = $1 AND p.org_id = $2 AND p.owner_user_id = $3
-            AND rs.source_type = 'personal' AND rs.created_by = p.owner_user_id
-            AND seg.status = 'final'
-          ORDER BY rs.started_at, rs.id, seg.ordinal`,
-        [input.transcriptionId, input.orgId, input.ownerUserId],
-      );
-      const segmentsByCapture = new Map<string, SegmentRow[]>();
-      for (const row of segments.rows) {
-        const rows = segmentsByCapture.get(row.session_id) ?? [];
-        rows.push(row);
-        segmentsByCapture.set(row.session_id, rows);
-      }
-
       return C.PersonalTranscriptionDetail.parse({
         ...summary(metadata),
-        captures: captures.rows.map((capture) => ({
-          captureId: capture.id,
-          status: capture.ended_at === null ? "recording" : "completed",
-          startedAt: iso(capture.started_at),
-          endedAt: capture.ended_at === null ? null : iso(capture.ended_at),
-          durationMs: number(capture.duration_ms),
-          segments: (segmentsByCapture.get(capture.id) ?? []).map((segment) => ({
-            segmentId: segment.id,
-            captureId: segment.session_id,
-            ordinal: segment.ordinal,
-            text: segment.text,
-            startMs: number(segment.anchor_start_ms),
-            endMs: number(segment.anchor_end_ms),
-            createdAt: iso(segment.created_at),
-          })),
-        })),
+        content: metadata.content,
       });
+    });
+  }
+
+  async hasActiveCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }): Promise<boolean> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const result = await session.query(
+        `SELECT 1 FROM recording_sessions rs
+          JOIN personal_transcriptions p ON p.id=rs.source_ref_id AND p.org_id=rs.org_id
+         WHERE p.id=$1 AND p.org_id=$2 AND p.owner_user_id=$3
+           AND rs.source_type='personal' AND rs.created_by=p.owner_user_id AND rs.ended_at IS NULL
+         LIMIT 1`,
+        [input.transcriptionId, input.orgId, input.ownerUserId],
+      );
+      return result.rows.length > 0;
+    });
+  }
+
+  async replaceContent(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string;
+    content: string }): Promise<PersonalTranscriptionDetail | undefined> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const updated = await session.query<{ id: string }>(
+        `UPDATE personal_transcriptions p SET content=$1,updated_at=now()
+          WHERE p.id=$2 AND p.org_id=$3 AND p.owner_user_id=$4
+            AND NOT EXISTS (SELECT 1 FROM recording_sessions rs
+              WHERE rs.org_id=p.org_id AND rs.source_type='personal' AND rs.source_ref_id=p.id
+                AND rs.created_by=p.owner_user_id AND rs.ended_at IS NULL)
+          RETURNING p.id`,
+        [input.content, input.transcriptionId, input.orgId, input.ownerUserId],
+      );
+      if (!updated.rows[0]) return undefined;
+      const row = await readSummary(session, input.orgId, input.ownerUserId, input.transcriptionId);
+      return row ? C.PersonalTranscriptionDetail.parse({ ...summary(row), content: row.content }) : undefined;
     });
   }
 
@@ -267,16 +222,17 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
   async appendFinal(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string; captureId: string;
     segmentId: string; ordinal: number; text: string; startMs: number; endMs: number }): Promise<void> {
     await this.db.withTenant(input.orgId, async (s) => {
-      const inserted = await s.query(`INSERT INTO recording_segments
-        (id,org_id,session_id,track_id,ordinal,source_type,anchor_start_ms,anchor_end_ms,status,low_confidence,text)
-        SELECT $1,$2,rs.id,rt.id,$3,'personal',$4,$5,'final',false,$6
-          FROM recording_sessions rs JOIN recording_tracks rt ON rt.org_id=rs.org_id AND rt.session_id=rs.id
-         WHERE rs.id=$7 AND rs.org_id=$2 AND rs.source_ref_id=$8 AND rs.created_by=$9 AND rs.ended_at IS NULL
-        RETURNING id`,
-        [input.segmentId,input.orgId,input.ordinal,input.startMs,Math.max(input.startMs + 1,input.endMs),input.text,
-          input.captureId,input.transcriptionId,input.ownerUserId]);
-      if (inserted.rows.length !== 1) throw new Error("personal capture is not active or not owned");
-      await s.query(`UPDATE personal_transcriptions SET updated_at=now() WHERE id=$1`, [input.transcriptionId]);
+      const appended = await s.query(
+        `UPDATE personal_transcriptions p
+            SET content=concat_ws(' ',NULLIF(p.content,''),$1::text),updated_at=now()
+          WHERE p.id=$2 AND p.org_id=$3 AND p.owner_user_id=$4
+            AND EXISTS (SELECT 1 FROM recording_sessions rs
+              WHERE rs.id=$5 AND rs.org_id=p.org_id AND rs.source_type='personal'
+                AND rs.source_ref_id=p.id AND rs.created_by=p.owner_user_id AND rs.ended_at IS NULL)
+          RETURNING p.id`,
+        [input.text, input.transcriptionId, input.orgId, input.ownerUserId, input.captureId],
+      );
+      if (appended.rows.length !== 1) throw new Error("personal capture is not active or not owned");
     });
   }
 

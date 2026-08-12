@@ -21,8 +21,11 @@ describe("personal realtime ASR tickets", () => {
     expect(issued.websocketPath).toContain(`/sessions/${summary.sessionId}/captures/${issued.captureId}/stream`);
     expect(Date.parse(issued.expiresAt)-Date.now()).toBeGreaterThan(50_000);
     const detail=await fetch(`${baseUrl}/recording/realtime-asr/sessions/${summary.sessionId}`,{headers:auth});
-    expect(C.operations.readPersonalTranscription.out.parse(await detail.json()).captures).toEqual([
-      expect.objectContaining({captureId:issued.captureId,status:"recording"})]);
+    expect(C.operations.readPersonalTranscription.out.parse(await detail.json())).toMatchObject({
+      sessionId:summary.sessionId,status:"recording",content:""});
+    const edit=await fetch(`${baseUrl}/recording/realtime-asr/sessions/${summary.sessionId}/content`,{
+      method:"PATCH",headers:{...auth,"content-type":"application/json"},body:JSON.stringify({content:"录音中禁止覆盖"})});
+    expect(edit.status).toBe(409);expect(await edit.json()).toMatchObject({reasonCode:"CAPTURE_ALREADY_ACTIVE"});
   });
   it("are scoped, expire, and can be consumed only once", async () => {
     let now = 1_000;
