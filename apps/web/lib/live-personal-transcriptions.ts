@@ -17,6 +17,69 @@ export type CreatePersonalTranscriptionInput = z.infer<
   typeof operations.createPersonalTranscription.in
 >;
 
+const LegacyStatus = z.enum(["idle", "recording", "completed", "failed"]);
+const LegacySummary = z.object({
+  sessionId: z.string(), name: z.string(), tags: z.array(z.string()), status: LegacyStatus,
+  durationMs: z.number(), createdAt: z.string(), updatedAt: z.string(),
+}).passthrough();
+const LegacySegment = z.object({ ordinal: z.number(), text: z.string() }).passthrough();
+const LegacyCapture = z.object({ startedAt: z.string(), segments: z.array(LegacySegment) }).passthrough();
+const LegacyDetail = LegacySummary.extend({ captures: z.array(LegacyCapture) }).passthrough();
+const RollingDetail = LegacySummary.extend({ content: z.string() }).passthrough();
+
+function resumableStatus(status: z.infer<typeof LegacyStatus>): "idle" | "recording" | "failed" {
+  return status === "completed" ? "idle" : status;
+}
+
+function parseSummary(raw: unknown): PersonalTranscriptionSummary {
+  const legacy = LegacySummary.parse(raw);
+  return personalRealtimeTranscription.PersonalTranscriptionSummary.parse({
+    sessionId: legacy.sessionId,
+    name: legacy.name,
+    tags: legacy.tags,
+    status: resumableStatus(legacy.status),
+    durationMs: legacy.durationMs,
+    createdAt: legacy.createdAt,
+    updatedAt: legacy.updatedAt,
+  });
+}
+
+function parseDetail(raw: unknown): PersonalTranscriptionDetail {
+  const current = personalRealtimeTranscription.PersonalTranscriptionDetail.safeParse(raw);
+  if (current.success) return current.data;
+  const rolling = RollingDetail.safeParse(raw);
+  if (rolling.success) {
+    return personalRealtimeTranscription.PersonalTranscriptionDetail.parse({
+      sessionId: rolling.data.sessionId,
+      name: rolling.data.name,
+      tags: rolling.data.tags,
+      status: resumableStatus(rolling.data.status),
+      durationMs: rolling.data.durationMs,
+      createdAt: rolling.data.createdAt,
+      updatedAt: rolling.data.updatedAt,
+      content: rolling.data.content,
+    });
+  }
+  const legacy = LegacyDetail.parse(raw);
+  const content = legacy.captures
+    .flatMap((capture) => capture.segments
+      .map((segment) => ({ ...segment, startedAt: capture.startedAt })))
+    .sort((left, right) => left.startedAt.localeCompare(right.startedAt) || left.ordinal - right.ordinal)
+    .map((segment) => segment.text.trim())
+    .filter(Boolean)
+    .join(" ");
+  return personalRealtimeTranscription.PersonalTranscriptionDetail.parse({
+    sessionId: legacy.sessionId,
+    name: legacy.name,
+    tags: legacy.tags,
+    status: resumableStatus(legacy.status),
+    durationMs: legacy.durationMs,
+    createdAt: legacy.createdAt,
+    updatedAt: legacy.updatedAt,
+    content,
+  });
+}
+
 export async function listPersonalTranscriptions(
   input: ListPersonalTranscriptionsInput = {},
   sessionToken?: string | null,
@@ -26,7 +89,8 @@ export async function listPersonalTranscriptions(
     query: input,
     sessionToken,
   });
-  return operations.listPersonalTranscriptions.out.parse(raw);
+  const page = z.object({ items: z.array(z.unknown()), nextCursor: z.string().nullable() }).strict().parse(raw);
+  return { ...page, items: page.items.map(parseSummary) };
 }
 
 export async function createPersonalTranscription(
@@ -39,7 +103,7 @@ export async function createPersonalTranscription(
     body,
     sessionToken,
   });
-  return operations.createPersonalTranscription.out.parse(raw);
+  return parseSummary(raw);
 }
 
 export async function readPersonalTranscription(
@@ -52,5 +116,20 @@ export async function readPersonalTranscription(
     method: operations.readPersonalTranscription.method,
     sessionToken,
   });
-  return operations.readPersonalTranscription.out.parse(raw);
+  return parseDetail(raw);
+}
+
+export async function updatePersonalTranscriptionContent(
+  sessionId: string,
+  content: string,
+  sessionToken?: string | null,
+): Promise<PersonalTranscriptionDetail> {
+  const input = operations.updatePersonalTranscriptionContent.in.parse({ sessionId, content });
+  const path = operations.updatePersonalTranscriptionContent.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path, {
+    method: operations.updatePersonalTranscriptionContent.method,
+    body: { content: input.content },
+    sessionToken,
+  });
+  return parseDetail(raw);
 }

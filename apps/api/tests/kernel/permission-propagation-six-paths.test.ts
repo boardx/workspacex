@@ -758,6 +758,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // owner predicate on every read) and `personal-transcription-owner-boundary.test.ts`
     // (another member and an org admin both see not-found/empty over real HTTP/PostgreSQL).
     // This is one repository and one bounded exception, so the ceiling moves by exactly one.
+    //
+    // ⚠ Raised 49 -> 50 by F166 (realtime ASR ticket persistence): the ticket store is a
+    // write/consume-only authentication boundary. It returns no protected artifact content;
+    // its table scope, tenant context and one-use atomic consume are mechanically enforced by
+    // `realtime-asr-repo-scope-guard.test.ts` and `realtime-asr-ticket.test.ts`.
     // ⚠ Raised 49 -> 50 by F160（成员 token 配额）：新条目是
     // `infrastructure/auth/pg-token-quota-repository.ts`。它与上一条不同——它**真的**把内容
     // 交给请求者（谁分了多少额度、谁烧了多少 token）。论点因此走的是紧邻的
@@ -774,7 +779,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // ——只断言抛异常的话，一个「先写后判」的实现照样能过：它抛的异常是真的，
     // 写进去的行也是真的。删测试则本条须重新论证。
     //
-    // ⚠ Raised 50 -> 51 by F162（限额策略）：新条目是
+    // ⚠ Raised 51 -> 52 by F162（限额策略）：新条目是
     // `infrastructure/auth/pg-limit-rule-repository.ts`。它读两样东西，两样都不是
     // `acl_bindings` 治理的内容：`limit_rules` 是组织自己的配置，`limit_events` 是
     // 触发留痕——后者与 `pg-provenance-repository.ts` 同形，一条审计轨迹不能被它
@@ -784,7 +789,7 @@ describe("lint-permission-paths: counter-proof", () => {
     //
     // 它的**被强制的前提**：`tests/org-admin/limit-rule-authorization.test.ts` 逐条反证
     // 非成员/非 admin 被拒，**且断言被拒时库里没有新规则、没有新事件**。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(51);
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(52);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

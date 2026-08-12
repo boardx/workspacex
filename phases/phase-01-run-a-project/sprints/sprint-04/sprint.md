@@ -1,0 +1,18 @@
+# Sprint 01/04 — 个人实时转录一次性 ticket 与阿里云 Fun-ASR 服务端状态机
+
+- **所属阶段**: Phase 01 (run-a-project)
+- **创建于**: 2026-08-12 02:54:39
+
+## 本 sprint 目标
+个人实时转录一次性 ticket 与阿里云 Fun-ASR 服务端状态机
+
+## 领取的 feature(引用自阶段权威清单,按 id)
+- F166 (P1, recording) — 一次性 ASR ticket 与阿里云 Fun-ASR 状态机：task-started 后转 PCM，task-finished 后完成并按用量记账
+
+> 实际工作集见同目录 `active-features.json`(脚本派生,只读,勿手改)。
+> 修改功能归属:改阶段 `feature_list.json` 里对应 feature 的 `sprint` 字段,再重跑
+> `pnpm harness new-sprint`(或 refresh)重新派生。
+
+## 完成标准
+- 上述每个 feature 经 `pnpm harness verify --sprint 01/04` 门控为 `passing`。
+- `session-handoff.md` 与 `progress.md` 已更新。
