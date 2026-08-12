@@ -34,7 +34,7 @@ import { Button } from "@/components/ui/button";
  *   录音/agent run」的真实信号，所以不再在这一层渲染任何等价内容，也不留占位符。
  */
 export function AppShell({
-  identity, previewRole, left, right, children, hideRoleSwitcher,
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
 }: {
   /** Legacy prototype screens may still provide an explicit projection; authenticated routes omit it. */
   identity?: Identity;
@@ -44,25 +44,27 @@ export function AppShell({
   children: React.ReactNode;
   /** 本页自带角色/视角切换器时置 true，顶栏让位不再出第二套 */
   hideRoleSwitcher?: boolean;
+  /** 沉浸式工作台可隐藏横向顶栏，仅保留全局图标栏。 */
+  hideTopBar?: boolean;
 }) {
   const session = useOptionalSession();
   if (identity) {
     return (
-      <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher}>
+      <ShellChrome identity={identity} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
         {children}
       </ShellChrome>
     );
   }
   if (!session) throw new Error("Authenticated AppShell requires SessionProvider");
   return (
-    <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher}>
+    <SessionAppShell session={session} previewRole={previewRole} left={left} right={right} hideRoleSwitcher={hideRoleSwitcher} hideTopBar={hideTopBar}>
       {children}
     </SessionAppShell>
   );
 }
 
 function SessionAppShell({
-  session, previewRole, left, right, children, hideRoleSwitcher,
+  session, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
 }: {
   session: SessionContextValue;
   previewRole: ProjectRole | null;
@@ -70,6 +72,7 @@ function SessionAppShell({
   right?: React.ReactNode;
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
+  hideTopBar?: boolean;
 }) {
   const router = useRouter();
 
@@ -106,6 +109,7 @@ function SessionAppShell({
       left={left}
       right={right}
       hideRoleSwitcher={hideRoleSwitcher}
+      hideTopBar={hideTopBar}
       organizations={organizations}
       onSwitchOrganization={async (orgId) => {
         await session.switchOrganization(orgId);
@@ -130,7 +134,7 @@ function SessionState({ testId, children }: { testId: string; children: React.Re
 }
 
 function ShellChrome({
-  identity, previewRole, left, right, children, hideRoleSwitcher,
+  identity, previewRole, left, right, children, hideRoleSwitcher, hideTopBar,
   organizations, onSwitchOrganization, onLogout,
 }: {
   identity: Identity;
@@ -139,6 +143,7 @@ function ShellChrome({
   right?: React.ReactNode;
   children: React.ReactNode;
   hideRoleSwitcher?: boolean;
+  hideTopBar?: boolean;
   organizations?: ReadonlyArray<{ id: string; label: string }>;
   onSwitchOrganization?: (orgId: string) => Promise<void>;
   onLogout?: () => void;
@@ -179,14 +184,16 @@ function ShellChrome({
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          identity={identity}
-          previewRole={previewRole}
-          hideRoleSwitcher={hideRoleSwitcher}
-          organizations={effectiveOrganizations}
-          onSwitchOrganization={handleSwitchOrganization}
-          switching={switching}
-        />
+        {!hideTopBar && (
+          <TopBar
+            identity={identity}
+            previewRole={previewRole}
+            hideRoleSwitcher={hideRoleSwitcher}
+            organizations={effectiveOrganizations}
+            onSwitchOrganization={handleSwitchOrganization}
+            switching={switching}
+          />
+        )}
         <div className="flex min-h-0 flex-1">
           {left && (
             <aside

@@ -16,6 +16,7 @@
       "templates": "/tpl",
       "interview": "/itv",
       "recording": "/rec",
+      "personal-realtime-transcription": "/rec",
       "canvas": "/canvas",
       "skills": "/skill",
   "curated-capability-packs": "/skill",

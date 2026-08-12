@@ -15,6 +15,7 @@ import * as agentRuntime from "../src/agent-runtime";
 import * as skills from "../src/skills";
 import * as templates from "../src/templates";
 import * as research from "../src/research";
+import * as personalRealtimeTranscription from "../src/personal-realtime-transcription";
 
 /**
  * 契约自身的形状约束（ADR-020）
@@ -42,6 +43,7 @@ const BUNDLES = [
   ["skills", skills.operations],
   ["templates", templates.operations],
   ["research", research.operations],
+  ["personal-realtime-transcription", personalRealtimeTranscription.operations],
 ] as const;
 
 type Op = {

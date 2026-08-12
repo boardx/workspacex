@@ -59,7 +59,7 @@ import {
   UnprocessableEntityException,
 } from "@nestjs/common";
 import type { Response } from "express";
-import { recording as C } from "@repo/contracts";
+import { personalRealtimeTranscription as PersonalC, recording as C } from "@repo/contracts";
 import {
   startRecording,
   type CaptureDeps,
@@ -107,11 +107,25 @@ import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
+import {
+  createPersonalTranscription,
+  listPersonalTranscriptions,
+  PersonalTranscriptionNotFound,
+  PersonalTranscriptionOrgMembershipRequired,
+  readPersonalTranscription,
+} from "../../application/recording/personal-transcription-usecases";
+import {
+  PERSONAL_TRANSCRIPTION_REPOSITORY,
+  PersonalTranscriptionCursorInvalid,
+  type PersonalTranscriptionRepository,
+} from "../../application/recording/personal-transcription-ports";
 
 type StartBody = typeof C.operations.startRecording.in._type;
 type EndBody = typeof C.operations.endRecording.in._type;
 type MaterializeBody = typeof C.operations.materializeRecordingArtifacts.in._type;
 type SetConsentDecisionBody = typeof C.operations.setConsentDecision.in._type;
+type CreatePersonalTranscriptionBody = typeof PersonalC.operations.createPersonalTranscription.in._type;
+type ListPersonalTranscriptionsQuery = typeof PersonalC.operations.listPersonalTranscriptions.in._type;
 
 const CONFLICT: ReadonlySet<string> = new Set([
   "SESSION_ALREADY_RECORDING", "SESSION_ALREADY_ENDED", "SESSION_ENDED", "SESSION_NOT_ENDED",
@@ -151,7 +165,89 @@ export class RecordingController {
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @Inject(ARTIFACT_REPOSITORY) private readonly artifacts: ArtifactRepository,
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
+    @Inject(PERSONAL_TRANSCRIPTION_REPOSITORY)
+    private readonly personalTranscriptions: PersonalTranscriptionRepository,
   ) {}
+
+  private personalDependencies() {
+    return {
+      identities: this.identities,
+      repository: this.personalTranscriptions,
+    };
+  }
+
+  private personalError(error: unknown): never {
+    if (error instanceof PersonalTranscriptionNotFound) {
+      throw new NotFoundException({ reasonCode: "TRANSCRIPTION_NOT_FOUND" });
+    }
+    if (error instanceof PersonalTranscriptionOrgMembershipRequired) {
+      throw new ForbiddenException({ reasonCode: "ORG_MEMBERSHIP_REQUIRED" });
+    }
+    if (error instanceof PersonalTranscriptionCursorInvalid) {
+      throw new BadRequestException({ reasonCode: "VALIDATION_FAILED" });
+    }
+    throw error;
+  }
+
+  @Post(PersonalC.operations.createPersonalTranscription.path)
+  async createPersonal(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(PersonalC.operations.createPersonalTranscription.in))
+    body: CreatePersonalTranscriptionBody,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const created = await createPersonalTranscription(
+        { ...this.personalDependencies(), ids: this.ids },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), name: body.name, tags: body.tags },
+      );
+      response.status(HttpStatus.CREATED);
+      return PersonalC.operations.createPersonalTranscription.out.parse(created);
+    } catch (error) {
+      this.personalError(error);
+    }
+  }
+
+  @Get(PersonalC.operations.listPersonalTranscriptions.path)
+  async listPersonal(
+    @CurrentPrincipal() principal: Principal,
+    @Query(new ZodBodyPipe(PersonalC.operations.listPersonalTranscriptions.in))
+    query: ListPersonalTranscriptionsQuery,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const listed = await listPersonalTranscriptions(this.personalDependencies(), {
+        userId: principal.userId,
+        orgId: toOrgId(principal.orgId),
+        query: query.query,
+        tag: query.tag,
+        sort: query.sort,
+        cursor: query.cursor,
+      });
+      return PersonalC.operations.listPersonalTranscriptions.out.parse(listed);
+    } catch (error) {
+      this.personalError(error);
+    }
+  }
+
+  @Get(PersonalC.operations.readPersonalTranscription.path)
+  async readPersonal(
+    @CurrentPrincipal() principal: Principal,
+    @Param("sessionId") sessionId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const detail = await readPersonalTranscription(this.personalDependencies(), {
+        userId: principal.userId,
+        orgId: toOrgId(principal.orgId),
+        transcriptionId: sessionId,
+      });
+      return PersonalC.operations.readPersonalTranscription.out.parse(detail);
+    } catch (error) {
+      this.personalError(error);
+    }
+  }
 
   /**
    * `NO_PROJECT_ROLE`, decided from the SAME membership rows every other bundle's decision
