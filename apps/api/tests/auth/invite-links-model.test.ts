@@ -153,6 +153,43 @@ describe("幂等：同一槽位返回同一条，不每次新签", () => {
     );
     expect(rows.filter((r) => r.linkId === a.linkId)).toHaveLength(1);
   });
+
+  /**
+   * 【互斥反证】—— 幂等真的钉在 `invite_links_live_slot_uniq` 上，不是钉在
+   * 「issue() 先查一遍在世链接」上。
+   *
+   * 上面那条 Promise.all 证不了索引：#1040 的反证实测 DROP 掉该索引后它照样绿——
+   * findLiveSlot 的先查后写在真实 I/O 时序下总能看到对方已提交的行，「同一 linkId」
+   * 断言的是调度巧合。确定性版本（F160 范式）：
+   *
+   * holder 事务先把同槽位的一条在世链接**插进去但不提交**。issue() 的 findLiveSlot
+   * 看不见未提交的行，于是走到 INSERT，必须**阻塞在唯一索引的冲突等待上**；
+   * holder 提交后 INSERT 拿到 23505，走 SAVEPOINT 回收路径，以 replayed=true 返回
+   * holder 那条的 linkId。索引被删 ⇒ INSERT 不阻塞、直接签出第二条 ⇒ 两处断言当场红。
+   */
+  it("【互斥反证】issue() 阻塞在在世槽位唯一索引上，冲突后以 replayed 返回既有链接", async () => {
+    let settled = false;
+    let racer!: ReturnType<typeof issue>;
+    await db.withTenant(orgId, async (session) => {
+      await session.query(
+        `INSERT INTO invite_links
+           (id, org_id, project_id, kind, group_id, project_role, validity,
+            token, invite_code, expires_at, created_by, created_at)
+         VALUES ($1,$2,$3,'main',NULL,'member','7d',$4,$5, now() + interval '7 days', $6, now())`,
+        ["link-cp-holder", ORG, PROJECT, "cp-holder-token", "CPHOLDER1", HOST],
+      );
+      racer = issue().then((r) => {
+        settled = true;
+        return r;
+      }) as ReturnType<typeof issue>;
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      expect(settled, "issue() 没有阻塞——invite_links_live_slot_uniq 被删了？").toBe(false);
+    });
+
+    const raced = await racer;
+    expect(raced.replayed).toBe(true);
+    expect(raced.linkId).toBe("link-cp-holder");
+  });
 });
 
 describe("撤销：⚠ 反向断言 —— 撤销后旧链接的下一次使用即失效", () => {

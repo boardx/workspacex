@@ -169,6 +169,14 @@ describe("导出必须出示一份被确认过的预览", () => {
     ]);
     const ok = results.filter((r) => r.status === 200);
     expect(ok.length, "两次都成了——令牌不是一次性的").toBe(1);
+    // ⚠ loser 必须是**契约里的拒绝**，不是随便一个非 200：#1040 的删谓词反证实测，
+    //   谓词删掉后 loser 撞的是下游副本冲突的 500，本条按旧写法（只数 200）照样绿。
+    //   钉住 409 + 错误码之后，「loser 是被这道门拒掉的」才是被断言过的事实。
+    const loser = results.find((r) => r.status !== 200)!;
+    expect(loser.status).toBe(409);
+    expect((await loser.json()) as { reasonCode: string }).toMatchObject({
+      reasonCode: "EXPORT_PREVIEW_REQUIRED",
+    });
     expect(await copiedCount()).toBe(fx.artifactIds.length);
   });
 
