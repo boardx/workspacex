@@ -1,0 +1,18 @@
+# Sprint 04/02 — 交付第3组UI的访谈Studio历史访谈与专家列表首屏，并接通真实列表API
+
+- **所属阶段**: Phase 04 (digital-expert-interview-studio)
+- **创建于**: 2026-08-12 03:52:51
+
+## 本 sprint 目标
+交付第3组UI的访谈Studio历史访谈与专家列表首屏，并接通真实列表API
+
+## 领取的 feature(引用自阶段权威清单,按 id)
+- F02 (P1, user-research) — 访谈 Studio 首屏：历史访谈、专家列表与契约派生客户端
+
+> 实际工作集见同目录 `active-features.json`(脚本派生,只读,勿手改)。
+> 修改功能归属:改阶段 `feature_list.json` 里对应 feature 的 `sprint` 字段,再重跑
+> `pnpm harness new-sprint`(或 refresh)重新派生。
+
+## 完成标准
+- 上述每个 feature 经 `pnpm harness verify --sprint 04/02` 门控为 `passing`。
+- `session-handoff.md` 与 `progress.md` 已更新。

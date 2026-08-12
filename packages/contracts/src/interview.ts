@@ -271,6 +271,32 @@ export const DigitalInterview = DigitalInterviewDraftInput.extend({
   version: z.number().int().positive(),
 }).strict();
 
+/** 历史访谈卡片。主操作是八态工作流的服务端投影，前端不得自行猜测。 */
+export const DigitalInterviewPrimaryAction = z.enum([
+  "confirm_topic", "confirm_experts", "confirm_questions", "continue_runs",
+  "generate_report", "view_report", "retry",
+]);
+
+export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
+  interviewId: z.string().min(1),
+  status: DigitalInterviewStatus,
+  expertCount: z.number().int().nonnegative(),
+  completedExpertCount: z.number().int().nonnegative(),
+  primaryAction: DigitalInterviewPrimaryAction,
+  updatedAt: z.string().datetime(),
+}).strict();
+
+/** 可快捷访谈的数字专家。材料不足必须明示，不能把探索性回答包装成证据。 */
+export const DigitalExpertCatalogRow = z.object({
+  expertId: z.string().min(1),
+  initials: z.string().min(1),
+  displayName: z.string().min(1),
+  role: z.string().min(1),
+  domains: z.array(z.string().min(1)).min(1),
+  materialBoundary: z.string().min(1),
+  exploratory: z.boolean(),
+}).strict();
+
 /** 模板列表行——**名称/用过N次/一句话/题数/时长区间** 五要素 */
 export const TemplateRow = z.object({
   templateId: z.string(),
@@ -468,6 +494,22 @@ export const operations = {
     in: z.object({ interviewId: z.string() }).strict(),
     out: DigitalInterview,
     err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** Studio 首屏历史列表；可见性在服务端完成。 */
+  listDigitalInterviews: {
+    method: "GET", path: "/interviews/digital",
+    in: z.object({ status: DigitalInterviewStatus.optional() }).strict(),
+    out: z.object({ items: z.array(DigitalInterviewHistoryRow) }).strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** Studio 首屏数字专家目录；只返回当前调用者可见且可运行的 Agent。 */
+  listDigitalExperts: {
+    method: "GET", path: "/interviews/digital/experts",
+    in: z.object({ domain: z.string().trim().min(1).optional() }).strict(),
+    out: z.object({ items: z.array(DigitalExpertCatalogRow) }).strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /* ── A 组 · 范围与列表（uc-6-0）───────────────────────────────── */
