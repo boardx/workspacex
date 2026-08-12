@@ -34,3 +34,11 @@
 - 提交记录: 实现提交 `e011b4ed`；验证证据与交接记录在该分支的后续收尾提交。
 - 已知风险或未解决问题: `apps/web/lib/interview-api.ts` 与 `apps/api/src/domain/interview/digital-interview.ts` 两条 ADR-020 违规属于 base `origin/worker/coord-deep-research-01-research-flow`，不在 F168 范围；F168 保持 `in_progress`，PR #1081 保持 draft。
 - 下一步最佳动作: 基线问题已通过设计分支 rebase 消除；先修复独立 review 的四个阻断项，再重新运行完整验证。
+
+### 2026-08-13 03:10
+- 本轮目标: 关闭 F168 独立 review 的四个阻断项。
+- 已完成: URL session 真恢复、跨刷新创建幂等键、显式 collaborator 可见性；API verification 改用标准隔离外壳并刷新派生工作集。
+- 运行过的验证: F168 四条 verification 全绿；额外 web 8/8、API lint/typecheck、隔离 API 4/4 全绿。
+- 已记录证据: `evidence/F168.verify.log` 已由 harness 重写；基础回归明确失败于 `digital_expert_profiles_agent_fk`，F168 专项均通过且状态未升 passing。
+- 已知风险或未解决问题: main `038ce93d` 的 digital expert migration trigger 会在既有 capability 测试数据只写 listing、未写 agents 时触发 FK，导致 API 58 条级联失败；不属于 F168 diff，需对应 interview feature 修复。
+- 下一步最佳动作: 提交并推送 review 修复，重新做 exact-SHA 独立 review；基线修复合入后重跑 harness verify。

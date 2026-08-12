@@ -3,19 +3,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { GUIDED_RESEARCH_BRIEF, GUIDED_RESEARCH_HISTORY } from "@/lib/mock/guided-research";
 
-const { listGuidedResearchSessions, createGuidedResearchSession } = vi.hoisted(() => ({
+const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession } = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
+  getGuidedResearchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
   listGuidedResearchSessions,
   createGuidedResearchSession,
+  getGuidedResearchSession,
 }));
 
 beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
+  getGuidedResearchSession.mockReset();
+  window.localStorage.clear();
   listGuidedResearchSessions.mockResolvedValue({
     items: GUIDED_RESEARCH_HISTORY.map((item) => ({
       sessionId: item.id,

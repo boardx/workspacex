@@ -8,6 +8,7 @@ export type GuidedResearchBrief = z.infer<typeof research.GuidedResearchBrief>;
 export interface GuardedGuidedResearchSession {
   item: Guarded<GuidedResearchSession>;
   ownerUserId: string;
+  isExplicitCollaborator: boolean;
 }
 
 export interface GuidedResearchSessionRepository {
@@ -17,8 +18,8 @@ export interface GuidedResearchSessionRepository {
     idempotencyKey: string;
     brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession>;
-  listOwned(orgId: OrgId, ownerUserId: string): Promise<readonly GuardedGuidedResearchSession[]>;
-  findOwned(orgId: OrgId, ownerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null>;
+  listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]>;
+  findVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null>;
 }
 
 export const GUIDED_RESEARCH_SESSION_REPOSITORY = Symbol("GuidedResearchSessionRepository");

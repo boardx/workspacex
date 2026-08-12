@@ -20,9 +20,14 @@ interface Row {
   created_at: Date | string;
   updated_at: Date | string;
   owner_user_id: string;
+  is_collaborator: boolean;
 }
 
-const COLUMNS = "id, title, brief, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id";
+const COLUMNS = "g.id, g.title, g.brief, g.stage, g.resume_stage, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
+const COLLABORATOR_PROJECTION = `EXISTS (
+  SELECT 1 FROM guided_research_session_collaborators c
+   WHERE c.org_id = g.org_id AND c.session_id = g.id AND c.user_id = $2
+) AS is_collaborator`;
 
 function project(row: Row): GuidedResearchSession {
   return {
@@ -41,7 +46,11 @@ function project(row: Row): GuidedResearchSession {
 }
 
 function guarded(row: Row): GuardedGuidedResearchSession {
-  return { item: guard({ kind: "research", id: row.id }, project(row)), ownerUserId: row.owner_user_id };
+  return {
+    item: guard({ kind: "research", id: row.id }, project(row)),
+    ownerUserId: row.owner_user_id,
+    isExplicitCollaborator: row.is_collaborator,
+  };
 }
 
 export class PgGuidedResearchSessionRepository implements GuidedResearchSessionRepository {
@@ -56,12 +65,12 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
            (id, org_id, owner_user_id, idempotency_key, title, brief, stage, resume_stage, progress)
          VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::jsonb, 'directions', 'directions', 20)
          ON CONFLICT (org_id, owner_user_id, idempotency_key) DO NOTHING
-         RETURNING ${COLUMNS}`,
+         RETURNING id, title, brief, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
         [input.orgId, input.ownerUserId, input.idempotencyKey, input.brief.topic, JSON.stringify(input.brief)],
       );
       const row = inserted.rows[0] ?? (await session.query<Row>(
-        `SELECT ${COLUMNS} FROM guided_research_sessions
-          WHERE org_id = $1 AND owner_user_id = $2 AND idempotency_key = $3`,
+        `SELECT ${COLUMNS}, false AS is_collaborator FROM guided_research_sessions g
+          WHERE g.org_id = $1 AND g.owner_user_id = $2 AND g.idempotency_key = $3`,
         [input.orgId, input.ownerUserId, input.idempotencyKey],
       )).rows[0];
       if (!row) throw new Error("guided research session idempotency replay disappeared");
@@ -69,24 +78,26 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
     });
   }
 
-  async listOwned(orgId: OrgId, ownerUserId: string): Promise<readonly GuardedGuidedResearchSession[]> {
+  async listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]> {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<Row>(
-        `SELECT ${COLUMNS} FROM guided_research_sessions
-          WHERE org_id = $1 AND owner_user_id = $2
-          ORDER BY updated_at DESC, id DESC`,
-        [orgId, ownerUserId],
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+          WHERE g.org_id = $1
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          ORDER BY g.updated_at DESC, g.id DESC`,
+        [orgId, viewerUserId],
       );
       return result.rows.map(guarded);
     });
   }
 
-  async findOwned(orgId: OrgId, ownerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null> {
+  async findVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null> {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<Row>(
-        `SELECT ${COLUMNS} FROM guided_research_sessions
-          WHERE org_id = $1 AND owner_user_id = $2 AND id = $3`,
-        [orgId, ownerUserId, sessionId],
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})`,
+        [orgId, viewerUserId, sessionId],
       );
       return result.rows[0] ? guarded(result.rows[0]) : null;
     });

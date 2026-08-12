@@ -20,3 +20,10 @@ export async function createGuidedResearchSession(
   });
   return research.operations.createGuidedResearchSession.out.parse(raw);
 }
+
+export async function getGuidedResearchSession(sessionId: string): Promise<GuidedResearchSession> {
+  const input = research.operations.getGuidedResearchSession.in.parse({ sessionId });
+  const path = research.operations.getGuidedResearchSession.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path);
+  return research.operations.getGuidedResearchSession.out.parse(raw);
+}

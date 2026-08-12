@@ -1,16 +1,25 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 
-const { listGuidedResearchSessions, createGuidedResearchSession } = vi.hoisted(() => ({
+const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession } = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
+  getGuidedResearchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
   listGuidedResearchSessions,
   createGuidedResearchSession,
+  getGuidedResearchSession,
 }));
+
+beforeEach(() => {
+  window.localStorage.clear();
+  listGuidedResearchSessions.mockReset();
+  createGuidedResearchSession.mockReset();
+  getGuidedResearchSession.mockReset();
+});
 
 describe("F168 guided research home live data", () => {
   it("renders server history and resumes from the server-authored stage", async () => {
@@ -54,5 +63,40 @@ describe("F168 guided research home live data", () => {
       brief: expect.objectContaining({ topic: "新的研究主题" }),
     }));
     await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-new"));
+  });
+
+  it("uses the session URL to restore the server-authored stage", async () => {
+    getGuidedResearchSession.mockResolvedValueOnce({
+      sessionId: "grs-recover", title: "恢复中的研究", brief: {
+        topic: "恢复中的研究", goal: "继续检索", timeRange: "2026", region: "欧洲", focus: "政策",
+      }, stage: "researching", resumeStage: "researching", status: "active", progress: 68, sourceCount: 27,
+      reportId: null, createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T09:00:00.000Z",
+    });
+
+    render(<GuidedResearchFlow step="directions" sessionId="grs-recover" />);
+
+    await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-recover"));
+    expect(await screen.findByTestId("research-flow-search")).toBeInTheDocument();
+  });
+
+  it("reuses the create idempotency key after remount and clears it only after success", async () => {
+    createGuidedResearchSession
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({ sessionId: "grs-replayed", stage: "directions" });
+    const first = render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
+    const firstKey = createGuidedResearchSession.mock.calls[0]![0].idempotencyKey;
+    expect(window.localStorage.getItem("wsx.guidedResearch.createIdempotencyKey")).toBe(firstKey);
+
+    first.unmount();
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="brief" onStepChange={onStepChange} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+
+    await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(2));
+    expect(createGuidedResearchSession.mock.calls[1]![0].idempotencyKey).toBe(firstKey);
+    await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-replayed"));
+    expect(window.localStorage.getItem("wsx.guidedResearch.createIdempotencyKey")).toBeNull();
   });
 });

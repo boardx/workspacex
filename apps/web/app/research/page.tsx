@@ -19,7 +19,7 @@ import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 export default function ResearchPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string };
+  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRsView(searchParams.as);
@@ -37,6 +37,7 @@ export default function ResearchPage({
       view={view}
       sub={searchParams.sub}
       flow={flow}
+      guidedSessionId={searchParams.session}
       qs={{ as: searchParams.as, flow: searchParams.flow }}
     />
   );

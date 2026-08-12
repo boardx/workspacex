@@ -23,6 +23,7 @@ export class GuidedResearchController {
   private disclose(row: GuardedGuidedResearchSession, viewerUserId: string) {
     const disclosed = discloseDecided(row.item, decideGuidedResearchVisibility({
       decisionId: this.decisions.next(), ownerUserId: row.ownerUserId, viewerUserId,
+      isExplicitCollaborator: row.isExplicitCollaborator,
     }));
     return isDisclosed(disclosed) ? disclosed.payload : null;
   }
@@ -41,7 +42,7 @@ export class GuidedResearchController {
   @Get(C.operations.listGuidedResearchSessions.path)
   async list(@CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
-    const rows = await this.sessions.listOwned(principal.orgId, principal.userId);
+    const rows = await this.sessions.listVisible(principal.orgId, principal.userId);
     return { items: rows.flatMap((row) => {
       const visible = this.disclose(row, principal.userId);
       return visible ? [visible] : [];
@@ -53,7 +54,7 @@ export class GuidedResearchController {
     assertPrincipal(principal);
     const input = C.operations.getGuidedResearchSession.in.safeParse({ sessionId });
     if (!input.success) throw new BadRequestException();
-    const found = await this.sessions.findOwned(principal.orgId, principal.userId, input.data.sessionId);
+    const found = await this.sessions.findVisible(principal.orgId, principal.userId, input.data.sessionId);
     if (!found) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
     const visible = this.disclose(found, principal.userId);
     if (!visible) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });

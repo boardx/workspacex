@@ -4,8 +4,9 @@ export function decideGuidedResearchVisibility(input: {
   decisionId: string;
   ownerUserId: string;
   viewerUserId: string;
+  isExplicitCollaborator: boolean;
 }): PermissionDecision {
-  const allowed = input.ownerUserId === input.viewerUserId;
+  const allowed = input.ownerUserId === input.viewerUserId || input.isExplicitCollaborator;
   return {
     allowed,
     orgLayer: { role: null, teamId: null, passed: true },

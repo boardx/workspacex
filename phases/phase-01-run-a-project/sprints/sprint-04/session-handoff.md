@@ -2,14 +2,14 @@
 
 ## 当前已验证
 - F166 尚未 passing（需其独立 PR 合入 main）；专项验证均通过。
-- F168 已认领并已重放到最新设计分支；旧定向验证曾通过，但独立 review 新发现三类产品缺口，当前仍为 `in_progress`。
+- F168 已认领并已重放到最新设计分支；独立 review 的 session 恢复、刷新幂等性、collaborator 可见性和 verification 外壳四项均已修复，当前仍为 `in_progress`。
 
 ## 本轮改动
 - F166：一次性 ticket、ASR 状态机与用量链路，详见其独立分支。
 - F168：研究首页与可恢复会话，详见 `coord-deep-research` 分支。
 
 ## 仍损坏或未验证
-- F166/F168 均须各自 review、验证、合并；不得把两个 owner 的改动混成一个 PR。F168 还需修复会话恢复、幂等键刷新稳定性和协作者可见性。
+- F166/F168 均须各自 review、验证、合并；不得把两个 owner 的改动混成一个 PR。F168 还需 exact-SHA 复审，并等待 main 的 digital expert migration 基线修复。
 
 ## 下一步最佳动作
 - coord-voice 只处理 F166/F167；coord-deep-research 只处理 F168，完成后串行 F169-F171。
@@ -26,10 +26,10 @@
 - PR #1081 尚未 review 通过或合并 main；根据完成定义，F168 不能 passing。
 
 ## 下一步最佳动作
-1. 按 TDD 修复 session URL 恢复、跨刷新幂等键和 collaborator 可见性。
-2. 将 F168 API verification 改为标准隔离外壳命令并刷新派生工作集。
-3. 重新执行全部 feature verification、`verify:base` 和 doctor。
-4. PR #1081 重新独立 review、合并 main，并通过 doctor 后，才允许 harness 将 F168 置为 passing。
+1. F168 修复提交、推送后按 exact SHA 重新做独立 review。
+2. 在对应 interview feature 修复 `digital_expert_profiles_agent_fk` 的基线迁移问题。
+3. 基线修复进入本分支后重跑 `pnpm harness verify --sprint 01/04 --feature F168` 和 doctor。
+4. PR #1081 review 通过、合并 main，并通过 doctor 后，才允许 harness 将 F168 置为 passing。
 
 ## 命令
 - 启动:`pnpm -w run dev`

@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   createGuidedResearchSession,
+  getGuidedResearchSession,
   listGuidedResearchSessions,
   type GuidedResearchSession,
 } from "@/lib/guided-research-api";
@@ -32,27 +33,52 @@ import {
 
 export function GuidedResearchFlow({
   step,
+  sessionId,
   onStepChange,
 }: {
   step: GuidedResearchStep;
+  sessionId?: string;
   onStepChange?: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
+  const [restoredStep, setRestoredStep] = React.useState(step);
+  const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
+  const [restoreFailed, setRestoreFailed] = React.useState(false);
+  React.useEffect(() => {
+    setRestoredStep(step);
+    setActiveSessionId(sessionId);
+    setRestoreFailed(false);
+    if (!sessionId) return;
+    let active = true;
+    getGuidedResearchSession(sessionId)
+      .then((session) => {
+        if (!active) return;
+        setRestoredStep(stageToStep(session.resumeStage));
+        setActiveSessionId(session.sessionId);
+      })
+      .catch(() => { if (active) setRestoreFailed(true); });
+    return () => { active = false; };
+  }, [sessionId, step]);
+
   const navigate = (next: GuidedResearchStep, sessionId?: string) => {
-    if (onStepChange) return onStepChange(next, sessionId);
+    const targetSessionId = sessionId ?? activeSessionId;
+    if (onStepChange) return onStepChange(next, targetSessionId);
+    setRestoredStep(next);
+    if (sessionId) setActiveSessionId(sessionId);
     const query = new URLSearchParams({ flow: next });
-    if (sessionId) query.set("session", sessionId);
+    if (targetSessionId) query.set("session", targetSessionId);
     window.location.assign(`?${query.toString()}`);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10" data-testid={`research-flow-${step}`}>
-      {step !== "home" && <FlowProgress step={step} onBack={() => navigate(previousStep(step))} />}
-      {step === "home" && <ResearchHome onNavigate={navigate} />}
-      {step === "brief" && <BriefScreen onNavigate={navigate} />}
-      {step === "directions" && <DirectionsScreen onNavigate={navigate} />}
-      {step === "outline" && <OutlineScreen onNavigate={navigate} />}
-      {step === "search" && <SearchScreen />}
-      {step === "report" && <ReportScreen onNavigate={navigate} />}
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10" data-testid={`research-flow-${restoredStep}`}>
+      {restoreFailed && <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>}
+      {restoredStep !== "home" && <FlowProgress step={restoredStep} onBack={() => navigate(previousStep(restoredStep))} />}
+      {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
+      {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
+      {restoredStep === "directions" && <DirectionsScreen onNavigate={navigate} />}
+      {restoredStep === "outline" && <OutlineScreen onNavigate={navigate} />}
+      {restoredStep === "search" && <SearchScreen />}
+      {restoredStep === "report" && <ReportScreen onNavigate={navigate} />}
     </div>
   );
 }
@@ -168,17 +194,27 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   );
 }
 
+const CREATE_IDEMPOTENCY_STORAGE_KEY = "wsx.guidedResearch.createIdempotencyKey";
+
+function pendingCreateIdempotencyKey(): string {
+  const existing = window.localStorage.getItem(CREATE_IDEMPOTENCY_STORAGE_KEY);
+  if (existing) return existing;
+  const generated = `guided-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(CREATE_IDEMPOTENCY_STORAGE_KEY, generated);
+  return generated;
+}
+
 function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitFailed, setSubmitFailed] = React.useState(false);
-  const idempotencyKey = React.useRef(`guided-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const patch = (key: keyof typeof brief, value: string) => setBrief((current) => ({ ...current, [key]: value }));
   const confirm = async () => {
     setSubmitting(true);
     setSubmitFailed(false);
     try {
-      const session = await createGuidedResearchSession({ idempotencyKey: idempotencyKey.current, brief });
+      const session = await createGuidedResearchSession({ idempotencyKey: pendingCreateIdempotencyKey(), brief });
+      window.localStorage.removeItem(CREATE_IDEMPOTENCY_STORAGE_KEY);
       onNavigate("directions", session.sessionId);
     } catch {
       setSubmitFailed(true);

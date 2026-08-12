@@ -13,6 +13,7 @@ const ORG = "org-f168-guided-research";
 const OTHER_ORG = "org-f168-guided-research-other";
 const OWNER = "u-f168-owner";
 const SAME_ORG_OTHER = "u-f168-same-org-other";
+const COLLABORATOR = "u-f168-collaborator";
 let app: NestExpressApplication;
 let base = "";
 let db: PgDatabase;
@@ -52,6 +53,7 @@ beforeEach(async () => {
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f168" });
   await addOrgMember(ORG, OWNER, "consultant", fixture.teams.energy!);
   await addOrgMember(ORG, SAME_ORG_OTHER, "consultant", fixture.teams.energy!);
+  await addOrgMember(ORG, COLLABORATOR, "consultant", fixture.teams.energy!);
   await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f168-other" });
 });
 
@@ -106,6 +108,29 @@ describe("F168 guided research session list and recovery", () => {
     });
     expect(detail.status).toBe(404);
     expect(await detail.json()).toMatchObject({ error: "not_found", reasonCode: "RESEARCH_NOT_FOUND" });
+  });
+
+  it("lists and restores a session for an explicit collaborator", async () => {
+    const created = C.operations.createGuidedResearchSession.out.parse(await (await create()).json());
+    await db.withTenant(toOrgId(ORG), (session) => session.query(
+      `INSERT INTO guided_research_session_collaborators (session_id, org_id, user_id, added_by)
+       VALUES ($1, $2, $3, $4)`,
+      [created.sessionId, ORG, COLLABORATOR, OWNER],
+    ));
+
+    const list = await fetch(`${base}${C.operations.listGuidedResearchSessions.path}`, {
+      headers: auth(COLLABORATOR),
+    });
+    expect(list.status).toBe(200);
+    expect(C.operations.listGuidedResearchSessions.out.parse(await list.json()).items)
+      .toEqual([expect.objectContaining({ sessionId: created.sessionId })]);
+
+    const detail = await fetch(`${base}/research/guided-sessions/${created.sessionId}`, {
+      headers: auth(COLLABORATOR),
+    });
+    expect(detail.status).toBe(200);
+    expect(C.operations.getGuidedResearchSession.out.parse(await detail.json()).sessionId)
+      .toBe(created.sessionId);
   });
 
   it("RLS also hides the session when queried under another tenant", async () => {
