@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UsageMonitorTab } from "./usage-monitor-tab";
 import { LimitPolicyTab } from "./limit-policy-tab";
+import { MemberQuotaTab } from "./member-quota-tab";
 import {
   MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
 } from "@/lib/mock/admin";
@@ -83,7 +84,10 @@ export function MembersScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="成员配额"
       title="成员与配额"
-      noticeOverride={<NoBackendNotice />}
+      /* F160：整屏级的「尚未接入真实后端」摘掉——「成员配额」这一 tab 已经读真库。
+         但「另外两个 tab 仍然是 mock」（用量监控 F161 / 限额策略 F162 未做），
+         所以那条提示搬进那两个 tabpanel 里，按 tab 说实话。
+         整屏一刀切地摘掉会让还在骗人的两个 tab 混进「已接线」的观感。 */
       intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。团队/名册/邀请的完整管理在「组织成员」（下方链接，已接真实后端）；本屏只做配额与「管理员看不到什么」这两块，两者不是同一功能。"
       emptyHint="组织里还没有成员"
       errors={{ quota: "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度" }}
@@ -99,11 +103,17 @@ export function MembersScreen({ state }: { state: UiState }) {
         </TabsList>
 
         <TabsContent value="usage" data-testid="admin-members-tabpanel-usage">
-          <UsageMonitorTab />
+          <div className="flex flex-col gap-3 pt-3">
+            <NoBackendNotice />
+            <UsageMonitorTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="policy" data-testid="admin-members-tabpanel-policy">
-          <LimitPolicyTab />
+          <div className="flex flex-col gap-3 pt-3">
+            <NoBackendNotice />
+            <LimitPolicyTab />
+          </div>
         </TabsContent>
 
       <TabsContent value="quota" data-testid="admin-members-tabpanel-quota">
@@ -130,43 +140,18 @@ export function MembersScreen({ state }: { state: UiState }) {
           </CardContent>
         </Card>
 
-        {/* 成员配额列表 */}
-        <section className="flex flex-col gap-2" data-testid="admin-members-list">
-          <div className="flex items-center gap-1.5">
-            <Gauge aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">成员配额</h2>
-            <span className="text-11 text-muted-foreground">· 共 {MEMBERS.length} 人</span>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col pt-2">
-              {MEMBERS.map((m, i) => {
-                const limit = limits[m.id] ?? m.limitM;
-                const pct = Math.round((m.usedM / limit) * 100);
-                return (
-                  <div key={m.id} data-testid={`admin-member-row-${m.id}`}>
-                    <div className="flex flex-wrap items-center gap-3 py-2.5">
-                      <span className="w-14 shrink-0 text-13 font-medium">{m.name}</span>
-                      <Badge tone="outline">{m.orgRole}</Badge>
-                      <span className="text-11 text-muted-foreground">{m.team}</span>
-                      <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
-                        <Progress value={pct} tone={quotaTone(pct)} label={`${m.name} 配额 ${pct}%`} className="flex-1" />
-                        <span className="shrink-0 font-mono text-11 text-muted-foreground">
-                          {m.usedM.toFixed(1)}/{limit.toFixed(1)}M
-                        </span>
-                      </div>
-                      <Button size="xs" variant="outline" onClick={() => openQuota(m)} data-testid={`admin-member-quota-${m.id}`}>给他单独提额</Button>
-                    </div>
-                    {i < MEMBERS.length - 1 && <Separator />}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
+        {/* 成员配额列表 —— F160 起改为**真栈**（`MemberQuotaTab`）。
+            这里原先是 `lib/mock/admin.MEMBERS` 的 usedM/limitM 两个写死的浮点数；
+            根因不在前端，是全仓此前零 token 计量落库（见 F159 的迁移）。 */}
+        <MemberQuotaTab />
 
+        <section className="flex flex-col gap-2" data-testid="admin-members-list">
           {/* ── F10 / UC-1.6：邀请入口 + 待激活行 ─────────────────────────
-              放在 `admin-members-list` 这个 section 之内，因为它讲的是同一张成员表：
-              待激活的人计入名册、不计入活跃成员；把他们挪到另一块屏上，
-              「48 人里 41 个活跃」这句话就没有落点了。 */}
+              F160 起配额列表搬进了 `MemberQuotaTab`（真栈），邀请/待激活这块「仍是 mock」
+              （`lib/mock/org-admin.ts`）——它属 F11 成员表整并的地盘，本轮不碰
+              （coord-main 2026-08-12 裁决第 4 条）。两块因此不再同源：上面的人来自真库，
+              这里的人来自 mock，「不保证是同一批人」。这句话必须写在代码里，
+              否则这一屏看起来像一张统一的成员表。 */}
           <div className="flex flex-wrap items-center gap-2" data-testid="admin-members-invite-bar">
             <span className="text-11 text-muted-foreground" data-testid="admin-members-roster-count">
               名册 {ORG_MEMBER_TOTAL} 人 · 活跃 {ORG_MEMBER_ACTIVE} 人（待激活计入名册，不计入活跃）

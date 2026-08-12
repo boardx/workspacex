@@ -130,6 +130,20 @@ export const OrgAdminError = z.enum([
    *  直接说"先清空成员"即可，不需要逐项列出——两条不同的错误体形状是两次不同的签核决定，
    *  不是同一件事写了两遍。 */
   "TEAM_NOT_EMPTY",
+  /* ── ③ F160 token 配额（design-delta `token-quota-and-usage`，等人类签）────── */
+  /**
+   * 逐人分配之和将超过组织额度。
+   * ⚠ 与 `QUOTA_EXHAUSTED` **不是同一个码**：那一条是 F11 的人数配额用尽
+   * （「不能再邀人」），这一条是 token 额度超分配（「这个数分不出来」）。
+   * 合并会让界面无法说清是哪种额度出了问题——两种额度在同一屏上并存。
+   * ⚠ 响应体必须带 `remainingTokens`（还剩多少可分），同 O-29⑤ 的纪律。
+   */
+  "QUOTA_OVERALLOCATED",
+  /** 组织额度被调到低于已分配之和。不静默截断谁的额度——那是管理员要亲自做的决定。 */
+  "BUDGET_BELOW_ALLOCATED",
+  /** 给一个不在本组织的 userId 设额度。 */
+  "MEMBER_NOT_FOUND",
+
   /** O-06：令牌是必需的不是装饰。去掉 `?t=` 直接访问被拒 */
   "LINK_TOKEN_REQUIRED",
   /** ⚠ 三码对**参与者**统一渲染为「找引导师重发」，不泄露项目/组是否存在（E1） */
@@ -1342,6 +1356,115 @@ export const operations = {
     in: z.object({ targetSessionId: z.string(), confirmed: z.literal(true) }).strict(),
     out: z.object({ revokedAt: z.string(), affectedDevice: z.string() }).strict(),
     err: ["NO_ORG_MEMBERSHIP", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * F160 —— 成员 token 配额（design-delta `token-quota-and-usage`，等人类签）。
+   *
+   * ⚠ **与 F11 的 `seat_quota` 是两件不同的配额，不得合并**：
+   *   `seat_quota` 答「还能邀几个人」（`QUOTA_EXHAUSTED`，O-29⑤ 硬阻断）；
+   *   这里的 token 额度答「每人每月能烧多少 token」。同一个词「配额」在产品里
+   *   指两件事，所以错误码也分成两个——把 token 超分配也塞进 `QUOTA_EXHAUSTED`，
+   *   界面就没法说清到底是哪种额度出了问题。
+   *
+   * ⚠ 授权一律**仅组织 admin**（`FORBIDDEN`），与 `listOrgInvites` 同一收窄取向，
+   *   且各自判一次——不共用 `listOrgMembers` 的判定（那一条对普通成员开放）。
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * `getTokenQuotas` —— 「成员配额」tab 整屏的数据来源：三张卡 + 成员行。
+   *
+   * ⚠ `orgBudget` / `unallocated` 可空，且 **null ≠ 0**：null 是「组织额度未设置」，
+   *   界面显示「未设置组织额度」+ 设置入口；0 是「设了，但一个 token 都没有」。
+   *   把未设置渲染成 0/0 会把每个新组织显示成「已用尽」——`seat_quota` 默认 0
+   *   那次事故（`20260811040000` 迁移的头注）就是这么发生的，这里不重演。
+   */
+  getTokenQuotas: {
+    method: "GET",
+    path: "/organizations/:orgId/token-quotas",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        /** null = 组织额度未设置 ⇒ 不限额、不阻断（delta §1.2，等人类签） */
+        orgBudget: z.number().nullable(),
+        /** 逐人已分配之和。恒有值——没有任何人被分配时是 0，这个 0 是真的 0。 */
+        allocated: z.number(),
+        /** `orgBudget - allocated`；`orgBudget` 为 null 时同为 null，不写 0。 */
+        unallocated: z.number().nullable(),
+        /** 全组织本自然月已用（从 `token_usage_events` 聚合，非成员行之和的缓存）。 */
+        orgUsed: z.number(),
+        /** 已用超过自身额度 85% 的人数——「超支预警」那张卡的数字。 */
+        overspendCount: z.number(),
+        members: z.array(
+          z
+            .object({
+              userId: z.string(),
+              displayName: z.string(),
+              email: z.string(),
+              orgRole: OrgRole,
+              teamId: z.string().nullable(),
+              /** null = 这个人还没被分配额度（不是 0 额度）。 */
+              monthlyLimit: z.number().nullable(),
+              usedTokens: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `setMemberTokenQuota` —— 成员行 `[调整]` 的落点。
+   *
+   * ⚠ `QUOTA_OVERALLOCATED` 的响应体**必须带 `remainingTokens`**——延续
+   *   `QUOTA_EXHAUSTED` 那条「阻断必须伴随可执行的下一步」的纪律（O-29⑤）：
+   *   只说「超了」而不说「还剩多少可分」，管理员只能靠试。
+   */
+  setMemberTokenQuota: {
+    method: "PATCH",
+    path: "/organizations/:orgId/token-quotas/:userId",
+    in: z
+      .object({
+        orgId: z.string(),
+        userId: z.string(),
+        monthlyLimit: z.number().int().min(0),
+      })
+      .strict(),
+    out: z
+      .object({
+        userId: z.string(),
+        monthlyLimit: z.number(),
+        allocated: z.number(),
+        unallocated: z.number().nullable(),
+      })
+      .strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "QUOTA_OVERALLOCATED",
+      "MEMBER_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `setOrgTokenBudget` —— 设置/调整组织月度额度（三张卡上方的入口）。
+   *
+   * ⚠ 调低到「低于已分配之和」被拒（`BUDGET_BELOW_ALLOCATED`），不静默截断每个人的
+   *   额度：截断意味着服务端替管理员做了「谁被砍」这个决定，而那正是他要亲自做的事。
+   */
+  setOrgTokenBudget: {
+    method: "PATCH",
+    path: "/organizations/:orgId/token-budget",
+    in: z.object({ orgId: z.string(), monthlyBudget: z.number().int().min(0) }).strict(),
+    out: z
+      .object({
+        orgBudget: z.number(),
+        allocated: z.number(),
+        unallocated: z.number(),
+      })
+      .strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "BUDGET_BELOW_ALLOCATED", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
   },
 } as const;
 

@@ -68,6 +68,12 @@ import { resendOrgInvite } from "../../application/auth/resend-org-invite";
 import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
 import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
 import { listOrgMembers } from "../../application/auth/list-org-members";
+import { getTokenQuotas } from "../../application/auth/get-token-quotas";
+import { setMemberTokenQuota, setOrgTokenBudget } from "../../application/auth/set-token-quota";
+import {
+  BudgetBelowAllocatedError, MemberNotFoundError, QuotaOverallocatedError,
+  TOKEN_QUOTA_REPOSITORY, type TokenQuotaRepository,
+} from "../../application/auth/token-quota-ports";
 import { listOrgInvites } from "../../application/auth/list-org-invites";
 import { updateOrganization } from "../../application/auth/update-organization";
 import { MAX_AVATAR_BYTES, uploadOrgAvatar } from "../../application/auth/upload-org-avatar";
@@ -103,6 +109,9 @@ export const REMOVE_ORG_MEMBER_SCHEMA = C.operations.removeOrgMember.in;
 /** org-profile-membership delta（#363 收拢）。同上，导出以证明是同一个对象。 */
 export const UPDATE_ORGANIZATION_SCHEMA = C.operations.updateOrganization.in;
 export const UPLOAD_ORG_AVATAR_SCHEMA = C.operations.uploadOrgAvatar.in;
+/** F160（token-quota-and-usage delta）。同上，导出以证明与契约是同一个对象。 */
+export const SET_MEMBER_TOKEN_QUOTA_SCHEMA = C.operations.setMemberTokenQuota.in;
+export const SET_ORG_TOKEN_BUDGET_SCHEMA = C.operations.setOrgTokenBudget.in;
 
 type ReviewBody = { orgId: string; inviteId: string; decision: "approve" | "reject"; reason: string | null };
 type InviteRefBody = { orgId: string; inviteId: string };
@@ -212,6 +221,7 @@ export class OrgAdminManagementController {
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -434,6 +444,74 @@ export class OrgAdminManagementController {
   }
 
   /** `listOrgInvites`（#363 delta）—— **仅组织 admin**，与 `listMembers` 不共用授权判定。 */
+  /* ── F160 token 配额三条（token-quota-and-usage delta，等人类签）─────────────
+   *
+   * ⚠ 三条都用 `requireOrgAdmin` 而不是 `requireAdminRole`：后者名字里有 admin，
+   *   实际只检查**是不是本组织成员**（见其实现）。额度是钱，读写都必须真的是管理员。
+   *   这不是给既有路由挑错——`listMembers` 对普通成员开放是 delta §2 的裁决——
+   *   而是说这三条的授权面**各自判一次**，不共用那条更宽的判定。
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  private async requireOrgAdmin(principal: Principal, orgIdParam: string) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    if (orgRole !== "admin") throw new ForbiddenException({ reasonCode: "FORBIDDEN" });
+    return { orgId, orgRole };
+  }
+
+  @Get("/organizations/:orgId/token-quotas")
+  async tokenQuotas(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    return getTokenQuotas({ repo: this.quotas }, { orgId });
+  }
+
+  @Patch("/organizations/:orgId/token-quotas/:userId")
+  async setTokenQuota(
+    @Param("orgId") orgIdParam: string,
+    @Param("userId") userIdParam: string,
+    @Body(new ZodBodyPipe(SET_MEMBER_TOKEN_QUOTA_SCHEMA)) body: { monthlyLimit: number },
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    try {
+      return await setMemberTokenQuota({ repo: this.quotas }, {
+        orgId, userId: userIdParam, monthlyLimit: body.monthlyLimit, actorUserId: principal.userId,
+      });
+    } catch (e) {
+      // ⚠ `remainingTokens` 必须进响应体：只回一个错误码等于让管理员靠试
+      //   （O-29⑤「阻断必须伴随可执行的下一步」的同一条纪律）。
+      if (e instanceof QuotaOverallocatedError) {
+        throw new ConflictException({
+          reasonCode: "QUOTA_OVERALLOCATED", remainingTokens: e.remainingTokens,
+        });
+      }
+      if (e instanceof MemberNotFoundError) {
+        throw new NotFoundException({ reasonCode: "MEMBER_NOT_FOUND" });
+      }
+      throw e;
+    }
+  }
+
+  @Patch("/organizations/:orgId/token-budget")
+  async setTokenBudget(
+    @Param("orgId") orgIdParam: string,
+    @Body(new ZodBodyPipe(SET_ORG_TOKEN_BUDGET_SCHEMA)) body: { monthlyBudget: number },
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId } = await this.requireOrgAdmin(principal, orgIdParam);
+    try {
+      return await setOrgTokenBudget({ repo: this.quotas }, {
+        orgId, monthlyBudget: body.monthlyBudget, actorUserId: principal.userId,
+      });
+    } catch (e) {
+      if (e instanceof BudgetBelowAllocatedError) {
+        throw new ConflictException({
+          reasonCode: "BUDGET_BELOW_ALLOCATED", allocated: e.allocated,
+        });
+      }
+      throw e;
+    }
+  }
+
   @Get("/organizations/:orgId/invites")
   async listInvites(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
     const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
