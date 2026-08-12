@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UsageMonitorTab } from "./usage-monitor-tab";
 import { LimitPolicyTab } from "./limit-policy-tab";
 import { MemberQuotaTab } from "./member-quota-tab";
+import { AdminBoundaryLive } from "./admin-boundary-live";
 import {
   MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
 } from "@/lib/mock/admin";
@@ -206,71 +207,11 @@ export function MembersScreen({ state }: { state: UiState }) {
           </p>
         </section>
 
-        {/* 管理员权力边界（UC-17.5）—— 「你作为管理员看不到什么」 */}
-        <section className="flex flex-col gap-2" data-testid="admin-members-boundary">
-          <div className="flex items-center gap-1.5">
-            <EyeOff aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">你作为管理员看不到什么</h2>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-3 pt-4">
-              <p className="text-12 text-muted-foreground">
-                这不是缺失功能，是产品的硬约束。个人层是三层记忆里唯一对管理员封闭的一层——顾问敢把半成品判断写进系统，
-                前提是这一层<strong className="text-background-foreground">组织管理员看不到、agent 也读不到</strong>。
-              </p>
+        {/* 管理员权力边界（D-18 / UC-17.5）—— F163 起接**既有**真端点
+            （GET /identity/personal-layer/summary + GET /admin-access-log/mine，
+            两条都是 F06 已 passing 的，此前前端一直没接、读的是 mock）。 */}
+        <AdminBoundaryLive />
 
-              {/* 个人层：只有计数 */}
-              <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3" data-testid="admin-members-private-counts">
-                <span className="text-12 font-medium">个人层 · 只有计数（内容不可见、不可搜索、不可导出、不进 AI 检索）</span>
-                <div className="flex flex-wrap gap-2">
-                  {MEMBERS.filter((m) => m.privateEntries > 0).map((m) => (
-                    <span
-                      key={m.id}
-                      data-testid={`admin-member-private-${m.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-11"
-                    >
-                      <span className="font-medium">{m.name}</span>
-                      <span className="text-muted-foreground">私有条目 {m.privateEntries} 条</span>
-                      <Badge tone="neutral">内容不可见</Badge>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* 项目层：可读但必留痕、对负责人可见 */}
-              <div className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/5 p-3" data-testid="admin-members-project-access">
-                <div className="flex items-start gap-2">
-                  <ScrollText aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                  <p className="text-12">
-                    出于审计目的你可以读项目内容，但<strong className="text-background-foreground">每次访问都会写入审计日志，并对项目负责人可见</strong>。
-                    本月你访问过 {ADMIN_PROJECT_ACCESS_COUNT} 个项目。「升到项目层」是获取内容的唯一路径——不存在申请、提权、临时授权等旁路。
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" className="self-start" onClick={() => setAccessOpen(true)} data-testid="admin-members-my-access">
-                  <FileClock aria-hidden className="h-3.5 w-3.5" />
-                  看我的访问记录
-                </Button>
-              </div>
-
-              {/* 我的访问记录明细 */}
-              <div className="flex flex-col gap-1" data-testid="admin-members-access-logs">
-                <span className="text-11 font-medium text-muted-foreground">我本月的项目层访问（每条都对该项目负责人可见）</span>
-                {ADMIN_ACCESS_LOGS.map((log) => (
-                  <div
-                    key={log.id}
-                    data-testid={`admin-access-log-${log.id}`}
-                    className="flex flex-wrap items-center gap-2 rounded-sm border border-border-subtle bg-card px-2.5 py-1.5 text-11"
-                  >
-                    <span className="font-medium">{log.project}</span>
-                    <span className="text-muted-foreground">负责人 {log.lead}</span>
-                    <span className="ml-auto text-muted-foreground">{log.when}</span>
-                    <Badge tone="primary">对负责人可见</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
       </div>
       </TabsContent>
       </Tabs>

@@ -379,3 +379,33 @@ export async function listLimitEvents(orgId: string): Promise<ListLimitEventsOut
   return apiRequest<ListLimitEventsOut>(
     path(orgAdmin.operations.listLimitEvents.path, { orgId }), { method: "GET" });
 }
+
+/* ═══════════════ F163：管理员权力边界（D-18）—— 接的是 F06 已 passing 的既有端点 ═══════════════
+ *
+ * ⚠ 本节**没有任何新契约**。`getPersonalLayerSummary`（identity 束）与 `listMyAccessLog`
+ *   （org-admin 束）在 F06 就已实现并 passing，只是前端一直没接，界面上那两块读的是
+ *   `lib/mock/admin.MEMBERS.privateEntries` / `ADMIN_ACCESS_LOGS`。
+ *
+ * ⚠ `getPersonalLayerSummary` 的 `out` 里**结构上就没有内容字段**（契约注释逐字：
+ *   content/body/text/excerpt/preview/snippet 任何一种都不得出现）。前端因此不可能
+ *   「不小心把内容显示出来」——这条保证在契约层，不靠界面自觉。
+ */
+
+export type PersonalLayerSummaryOut = z.infer<typeof identity.operations.getPersonalLayerSummary.out>;
+export type ListMyAccessLogOut = z.infer<typeof orgAdmin.operations.listMyAccessLog.out>;
+
+/** `GET /identity/personal-layer/summary`——查他人只回条目数 + `PERSONAL_LAYER_CLOSED`。 */
+export async function getPersonalLayerSummary(
+  orgId: string, userId: string,
+): Promise<PersonalLayerSummaryOut> {
+  return apiRequest<PersonalLayerSummaryOut>(
+    `${identity.operations.getPersonalLayerSummary.path}`
+      + `?orgId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}`,
+    { method: "GET" },
+  );
+}
+
+/** `GET /admin-access-log/mine`——当前管理员自己的项目层访问留痕。 */
+export async function listMyAccessLog(): Promise<ListMyAccessLogOut> {
+  return apiRequest<ListMyAccessLogOut>(orgAdmin.operations.listMyAccessLog.path, { method: "GET" });
+}
