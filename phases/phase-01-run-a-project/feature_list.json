@@ -3580,14 +3580,14 @@
         "F117"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/new-project-wizard.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F158.verify.log @ 2026-08-12T00:02:59.409Z",
       "notes": "前端接线 feature：/project/new 向导从纯 mock 切到真实 POST /projects（依赖 F117 createProject 后端，同源 uc-00-1#R3 的一条创建路径 + 蓝本可选参数，空白新建 = blueprintVersionId:null）。本 feature 只覆盖 blueprintVersionId=null 的空白新建路径。蓝本九宫格如实标注为整体禁用（project-new-blueprint-unavailable），蓝本选择路径留待 PJ-12（依赖蓝本后端 PJ-10，本版零实现）。契约收不到的四项（关联研究来源/时长档位/日期时间/参与人数）只读展示 + project-new-unpersisted-note，本版不写入后端。改动文件：apps/web/components/project/new-project-flow.tsx、apps/web/app/project/new/page.tsx、apps/web/tests/ui/new-project-wizard.test.tsx。",
       "priority": 1,
       "area": "project",
