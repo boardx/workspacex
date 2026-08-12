@@ -1,3 +1,6 @@
+import { research } from "@repo/contracts";
+import type { z } from "zod";
+
 export const GUIDED_RESEARCH_STEPS = ["home", "brief", "directions", "outline", "search", "report"] as const;
 export type GuidedResearchStep = (typeof GUIDED_RESEARCH_STEPS)[number];
 
@@ -67,13 +70,7 @@ export const GUIDED_RESEARCH_HISTORY: GuidedResearchHistoryItem[] = [
   },
 ];
 
-export interface GuidedResearchBrief {
-  topic: string;
-  goal: string;
-  timeRange: string;
-  region: string;
-  focus: string;
-}
+export type GuidedResearchBrief = z.infer<typeof research.GuidedResearchBrief>;
 
 export const GUIDED_RESEARCH_BRIEF: GuidedResearchBrief = {
   topic: "欧洲储能市场进入策略",
