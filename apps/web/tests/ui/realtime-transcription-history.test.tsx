@@ -3,9 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RecApp } from "@/components/rec/rec-app";
 import { mockIdentity } from "@/lib/identity";
 
+const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+const sessionContext = vi.hoisted(() => ({ current: null as unknown }));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/rec",
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: navigation.replace }),
 }));
 
 const api = vi.hoisted(() => ({
@@ -15,7 +18,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/session/session-provider", () => ({
-  useOptionalSession: () => ({ session: { sessionToken: "session-token", currentOrgId: "org-yuanyang" } }),
+  useOptionalSession: () => sessionContext.current,
 }));
 
 vi.mock("@/lib/live-personal-transcriptions", () => ({
@@ -35,6 +38,27 @@ const EUROPE = {
 } as const;
 
 beforeEach(() => {
+  navigation.replace.mockReset();
+  sessionContext.current = {
+    status: "authenticated",
+    session: {
+      sessionToken: "session-token",
+      userId: "user-realtime-asr",
+      orgIds: ["org-yuanyang"],
+      currentOrgId: "org-yuanyang",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    },
+    identity: mockIdentity("org-yuanyang", null),
+    organizations: [],
+    error: null,
+    retry: vi.fn(),
+    logout: vi.fn(),
+    startSession: vi.fn(),
+    switchOrganization: vi.fn(),
+    updateDisplayName: vi.fn(),
+    updateOrgName: vi.fn(),
+    updateAvatarUrl: vi.fn(),
+  };
   api.create.mockReset();
   api.list.mockReset();
   api.read.mockReset();
@@ -74,6 +98,25 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("个人转录页在真实会话失效时回到登录门禁，不展示可提交的演示身份页面", async () => {
+    sessionContext.current = {
+      status: "anonymous",
+      session: null,
+      identity: null,
+      organizations: [],
+      error: null,
+      retry: vi.fn(),
+      logout: vi.fn(),
+    };
+
+    renderHistory();
+
+    expect(screen.getByTestId("session-loading")).toBeVisible();
+    expect(screen.queryByTestId("rec-history-page")).not.toBeInTheDocument();
+    expect(api.list).not.toHaveBeenCalled();
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/login"));
+  });
+
   it("历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗", async () => {
     renderHistory();
 
