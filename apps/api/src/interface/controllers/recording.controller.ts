@@ -116,6 +116,7 @@ import {
 } from "../../application/recording/personal-transcription-usecases";
 import {
   PERSONAL_TRANSCRIPTION_REPOSITORY,
+  PersonalTranscriptionCursorInvalid,
   type PersonalTranscriptionRepository,
 } from "../../application/recording/personal-transcription-ports";
 
@@ -181,6 +182,9 @@ export class RecordingController {
     }
     if (error instanceof PersonalTranscriptionOrgMembershipRequired) {
       throw new ForbiddenException({ reasonCode: "ORG_MEMBERSHIP_REQUIRED" });
+    }
+    if (error instanceof PersonalTranscriptionCursorInvalid) {
+      throw new BadRequestException({ reasonCode: "VALIDATION_FAILED" });
     }
     throw error;
   }

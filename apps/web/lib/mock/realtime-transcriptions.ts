@@ -7,10 +7,10 @@ export interface TranscriptionHistoryItem {
   readonly owner: string;
   readonly ownerInitial: string;
   readonly summary: string;
-  readonly tags: readonly TranscriptionTag[];
+  readonly tags: readonly string[];
   readonly duration: string;
   readonly updatedAt: string;
-  readonly status: "completed" | "recording";
+  readonly status: "idle" | "recording" | "completed" | "failed";
 }
 
 export const TRANSCRIPTION_TAGS: readonly TranscriptionTag[] = [

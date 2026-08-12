@@ -6,10 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useOptionalSession } from "@/components/session/session-provider";
+import {
+  createPersonalTranscription,
+  listPersonalTranscriptions,
+  type PersonalTranscriptionSummary,
+} from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
 import {
-  MOCK_TRANSCRIPTION_TOTAL,
-  MOCK_TRANSCRIPTIONS,
   TRANSCRIPTION_TAGS,
   type TranscriptionHistoryItem,
   type TranscriptionTag,
@@ -20,12 +24,37 @@ import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspa
 type ActiveTag = "全部标签" | TranscriptionTag;
 
 export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
-  const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>(MOCK_TRANSCRIPTIONS);
+  const sessionContext = useOptionalSession();
+  const sessionToken = sessionContext?.session?.sessionToken;
+  const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [activeTag, setActiveTag] = React.useState<ActiveTag>("全部标签");
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [activeSession, setActiveSession] = React.useState<TranscriptionHistoryItem | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError(null);
+    void listPersonalTranscriptions({}, sessionToken)
+      .then((result) => {
+        if (!active) return;
+        setItems(result.items.map(toHistoryItem));
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_LIST_FAILED");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [sessionToken]);
 
   const visibleItems = React.useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -36,19 +65,12 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     });
   }, [activeTag, items, query]);
 
-  function createTranscription(draft: NewTranscriptionDraft) {
-    const created: TranscriptionHistoryItem = {
-      id: `draft-${items.length + 1}`,
-      title: draft.name,
-      project: "当前项目",
-      owner: "林可",
-      ownerInitial: "林",
-      summary: "实时转录已创建，等待麦克风音频输入。",
-      tags: draft.tags.filter((tag): tag is TranscriptionTag => TRANSCRIPTION_TAGS.includes(tag as TranscriptionTag)),
-      duration: "00:00",
-      updatedAt: "刚刚",
-      status: "recording",
-    };
+  async function createTranscription(draft: NewTranscriptionDraft) {
+    setLoadError(null);
+    const created = toHistoryItem(await createPersonalTranscription({
+      name: draft.name,
+      tags: [...draft.tags],
+    }, sessionToken));
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
     setActiveSession(created);
@@ -66,7 +88,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
             <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;转录</p>
             <div className="flex items-center gap-2">
               <h1 className="text-24 font-semibold tracking-tight">历史转录</h1>
-              <span data-testid="rec-history-count" className="text-18 text-muted-foreground">· {MOCK_TRANSCRIPTION_TOTAL}</span>
+              <span data-testid="rec-history-count" className="text-18 text-muted-foreground">· {items.length}</span>
             </div>
             <p className="text-12 text-muted-foreground">跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。</p>
           </div>
@@ -112,8 +134,9 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
         </div>
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
+        {loadError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">历史转录读取失败，请稍后重试。</p>}
         <HistoryState
-          uiState={uiState}
+          uiState={loading && uiState === "default" ? "loading" : uiState}
           items={visibleItems}
           onCreate={() => setCreateOpen(true)}
           onOpen={setActiveSession}
@@ -191,7 +214,9 @@ function HistoryCard({
               <p className="mt-1 truncate text-11 text-muted-foreground">{item.project} · {item.owner}</p>
             </div>
           </div>
-          <Badge tone={item.status === "recording" ? "warning" : "primary"}>{item.status === "recording" ? "转录中" : "已完成"}</Badge>
+          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : item.status === "idle" ? "neutral" : "primary"}>
+            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.status === "idle" ? "待开始" : "已完成"}
+          </Badge>
         </div>
         <p className="line-clamp-3 text-12 leading-relaxed text-muted-foreground">{item.summary}</p>
         <div className="flex min-h-6 flex-wrap gap-1.5">
@@ -204,14 +229,32 @@ function HistoryCard({
           <Button
             data-testid={`rec-history-open-${item.id}`}
             size="sm"
-            variant={item.status === "recording" ? "primary" : "outline"}
+            variant={item.status === "recording" || item.status === "idle" ? "primary" : "outline"}
             onClick={() => onOpen(item)}
           >
-            {item.status === "recording" ? "进入转录" : "打开转录"}
+            {item.status === "recording" || item.status === "idle" ? "进入转录" : "打开转录"}
           </Button>
         </div>
         <Button size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button>
       </div>
     </Card>
   );
+}
+
+function toHistoryItem(item: PersonalTranscriptionSummary): TranscriptionHistoryItem {
+  const durationSeconds = Math.floor(item.durationMs / 1_000);
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+  return {
+    id: item.sessionId,
+    title: item.name,
+    project: "个人转录",
+    owner: "我",
+    ownerInitial: "我",
+    summary: item.status === "completed" ? "转录已完成，打开查看逐字稿。" : "等待麦克风音频输入。",
+    tags: item.tags,
+    duration: `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+    updatedAt: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt)),
+    status: item.status,
+  };
 }

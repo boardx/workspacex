@@ -18,16 +18,19 @@ export function CreateTranscriptionDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (draft: NewTranscriptionDraft) => void;
+  onCreate: (draft: NewTranscriptionDraft) => void | Promise<void>;
 }) {
   const [name, setName] = React.useState("");
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState(false);
 
   function reset() {
     setName("");
     setTags([]);
     setTagDraft("");
+    setSubmitError(false);
   }
 
   function changeOpen(next: boolean) {
@@ -42,12 +45,20 @@ export function CreateTranscriptionDialog({
     setTagDraft("");
   }
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextName = name.trim();
-    if (!nextName) return;
-    onCreate({ name: nextName, tags });
-    changeOpen(false);
+    if (!nextName || submitting) return;
+    setSubmitting(true);
+    setSubmitError(false);
+    try {
+      await onCreate({ name: nextName, tags });
+      changeOpen(false);
+    } catch {
+      setSubmitError(true);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -115,6 +126,7 @@ export function CreateTranscriptionDialog({
                   aria-label="添加转录标签"
                   placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"}
                   className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  maxLength={20}
                   onChange={(event) => setTagDraft(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -125,14 +137,15 @@ export function CreateTranscriptionDialog({
                 />
               </div>
               <p className="text-11 text-muted-foreground">最多可添加 5 个标签</p>
+              {submitError && <p role="alert" className="text-11 text-destructive">创建失败，请稍后重试。</p>}
             </div>
 
             <div className="mt-2 flex justify-end gap-3">
               <Button data-testid="rec-create-cancel" type="button" variant="outline" size="lg" className="min-w-24" onClick={() => changeOpen(false)}>
                 取消
               </Button>
-              <Button data-testid="rec-create-submit" type="submit" variant="primary" size="lg" className="min-w-32" disabled={!name.trim()}>
-                开始实时转录
+              <Button data-testid="rec-create-submit" type="submit" variant="primary" size="lg" className="min-w-32" disabled={!name.trim() || submitting}>
+                {submitting ? "正在创建" : "开始实时转录"}
               </Button>
             </div>
           </form>

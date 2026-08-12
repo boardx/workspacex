@@ -53,9 +53,12 @@ describe("personal transcription owner boundary", () => {
         headers: headers(actor),
       });
       expect(detail.status).toBe(404);
-      // The global exception filter deliberately does not disclose the internal reason code.
-      // The indistinguishable public not-found shape is the anti-enumeration guarantee.
-      expect((await detail.json()) as object).toMatchObject({ error: "not_found" });
+      // Both a missing id and another owner's id use the same closed contract code, so the
+      // response remains non-enumerable while clients still receive the declared reason.
+      expect((await detail.json()) as object).toMatchObject({
+        error: "not_found",
+        reasonCode: "TRANSCRIPTION_NOT_FOUND",
+      });
 
       const list = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
         headers: headers(actor),

@@ -5,6 +5,13 @@ import type { OrgId } from "../../domain/org-id";
 export type PersonalTranscriptionSummary = z.infer<typeof C.PersonalTranscriptionSummary>;
 export type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
 
+export class PersonalTranscriptionCursorInvalid extends Error {
+  constructor() {
+    super("personal transcription cursor is invalid");
+    this.name = "PersonalTranscriptionCursorInvalid";
+  }
+}
+
 export interface PersonalTranscriptionRepository {
   create(input: {
     readonly transcriptionId: string;
@@ -31,4 +38,3 @@ export interface PersonalTranscriptionRepository {
 }
 
 export const PERSONAL_TRANSCRIPTION_REPOSITORY = Symbol("PersonalTranscriptionRepository");
-

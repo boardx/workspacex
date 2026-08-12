@@ -125,7 +125,7 @@ export const operations = {
       items: z.array(PersonalTranscriptionSummary),
       nextCursor: z.string().nullable(),
     }).strict(),
-    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED"] as const,
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "VALIDATION_FAILED"] as const,
   },
   readPersonalTranscription: {
     method: "GET",

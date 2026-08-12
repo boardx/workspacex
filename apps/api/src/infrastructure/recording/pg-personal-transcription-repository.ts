@@ -1,5 +1,6 @@
 import { personalRealtimeTranscription as C } from "@repo/contracts";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
+import { PersonalTranscriptionCursorInvalid } from "../../application/recording/personal-transcription-ports";
 import type {
   PersonalTranscriptionDetail,
   PersonalTranscriptionRepository,
@@ -72,14 +73,16 @@ function decodeCursor(cursor: string | undefined): { updatedAt: string; id: stri
     if (
       typeof decoded === "object" && decoded !== null &&
       typeof (decoded as { updatedAt?: unknown }).updatedAt === "string" &&
-      typeof (decoded as { id?: unknown }).id === "string"
+      Number.isFinite(Date.parse((decoded as { updatedAt: string }).updatedAt)) &&
+      typeof (decoded as { id?: unknown }).id === "string" &&
+      (decoded as { id: string }).id.length > 0
     ) {
       return decoded as { updatedAt: string; id: string };
     }
   } catch {
-    // Invalid cursors are deliberately treated as an empty page boundary, not interpolated.
+    // Fall through to the closed validation failure below.
   }
-  return undefined;
+  throw new PersonalTranscriptionCursorInvalid();
 }
 
 async function readSummary(

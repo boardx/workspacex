@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { personalRealtimeTranscription as C } from "@repo/contracts";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -36,6 +37,14 @@ beforeEach(async () => {
 });
 
 describe("personal transcription persistence", () => {
+  it("migration can be replayed without duplicate-constraint failure", async () => {
+    const migration = await readFile(
+      new URL("../../migrations/20260812000000_f164_personal_realtime_transcriptions.sql", import.meta.url),
+      "utf8",
+    );
+    await expect(asOwner((client) => client.query(migration))).resolves.toBeDefined();
+  });
+
   it("survives a create -> list -> detail round trip without storing transcript text in metadata", async () => {
     const create = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
       method: "POST",
@@ -126,5 +135,39 @@ describe("personal transcription persistence", () => {
     );
     expect(columns.rows.map((row) => row.column_name)).not.toContain("text");
     expect(columns.rows.map((row) => row.column_name)).not.toContain("transcript");
+  });
+
+  it("rejects malformed cursors with the declared validation reason", async () => {
+    const response = await fetch(
+      `${baseUrl}/recording/realtime-asr/sessions?cursor=${encodeURIComponent("not-a-cursor")}`,
+      { headers: auth },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "bad_request",
+      reasonCode: "VALIDATION_FAILED",
+    });
+  });
+
+  it("storage prevents changing owner identity and invalid tag elements", async () => {
+    const create = await fetch(`${baseUrl}/recording/realtime-asr/sessions`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ name: "不可转移", tags: ["客户"] }),
+    });
+    expect(create.status).toBe(201);
+    const created = C.operations.createPersonalTranscription.out.parse(await create.json());
+
+    await expect(asApp(ORG, (client) => client.query(
+      `UPDATE personal_transcriptions SET owner_user_id = 'another-user' WHERE id = $1`,
+      [created.sessionId],
+    ))).rejects.toThrow();
+
+    await expect(asApp(ORG, (client) => client.query(
+      `INSERT INTO personal_transcriptions (id, org_id, owner_user_id, name, tags)
+       VALUES ('invalid-tags',$1,$2,'invalid',ARRAY['']::text[])`,
+      [ORG, USER],
+    ))).rejects.toThrow();
   });
 });

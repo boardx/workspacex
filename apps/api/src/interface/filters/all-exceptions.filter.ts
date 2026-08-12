@@ -31,6 +31,7 @@ import {
   identity,
   interview,
   orgAdmin,
+  personalRealtimeTranscription,
   project,
   recording,
   skills,
@@ -424,6 +425,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    */
   const recordingError = recording.RecordingError.safeParse(raw);
   if (recordingError.success) return { reasonCode: recordingError.data };
+
+  const personalTranscriptionError = personalRealtimeTranscription.PersonalTranscriptionError.safeParse(raw);
+  if (personalTranscriptionError.success) return { reasonCode: personalTranscriptionError.data };
 
   /**
    * #548: `agentRuntime.AgentRuntimeError`, the FIFTEENTH closed enum —— **同一个 bug 又一次**。
