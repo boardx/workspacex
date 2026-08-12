@@ -244,11 +244,33 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
  * second time -- that phrase is the one place this project's answer to "what does an Agent
  * actually see" lives, and a second copy is exactly the drift AGENTS.md calls out by name.
  */
+/**
+ * VZ-02 —— 可视化输出指引。附加到**每个** agent 的 system prompt，引导模型在图比文字更清楚时
+ * 输出**能被 mermaid 解析**的 ```mermaid 围栏。零契约变更、`ModelCallPort` 不动——纯提示词。
+ *
+ * ⚠ 规则聚焦「能渲染」：devapp 实测（2026-08-12）模型爱在节点标签里塞裸 `|` 和 `<br/>`，前端
+ *   白名单闸门下 mermaid 严格模式解析直接失败、落诚实错误盒。这段指引就是把「产出可解析语法」
+ *   写进模型看到的东西，从源头减少那类失败。图类型白名单单源是 `@repo/contracts`
+ *   `MermaidDiagramType`（12 种）——这里为 prompt 可读性列出同一份，前端校验仍以枚举为准。
+ */
+export const VISUALIZATION_GUIDANCE = [
+  "## 可视化（mermaid 图）",
+  "当用图（流程 / 时序 / 类图 / 状态 / 实体关系 / 思维导图 / 时间线 / 甘特 / 饼图等）比纯文字更清楚时，"
+    + "在回答里输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只在图真的帮助理解时才画，纯问答不必配图。",
+  "只用这 12 种图类型（其它类型渲染不了）：flowchart、sequenceDiagram、classDiagram、stateDiagram、"
+    + "erDiagram、journey、gantt、pie、quadrantChart、mindmap、timeline、gitGraph。",
+  "必须产出**能被 mermaid 解析**的语法，否则会渲染失败：",
+  "- 节点标签里含空格以外的特殊字符（例如 | : ; ( ) [ ] { } < > \" #）时，把整个标签用双引号包起来："
+    + "写 A[\"pbpaste | fabric\"]，不要写 A[pbpaste | fabric]——裸的 | 会被当成边标签分隔符，直接解析失败。",
+  "- 不要在标签里用 <br/> 之类 HTML 标签（严格模式下不生效且容易解析失败）；要分行就拆成多个节点，别往标签里塞 HTML。",
+  "- 先给一个**能渲染**的简洁图，更多细节放到图后面的文字里补充。",
+].join("\n");
+
 export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly content: string }[],
 ): string {
-  return [instructions, ...skills.map((s) => s.content)].join("\n\n");
+  return [instructions, ...skills.map((s) => s.content), VISUALIZATION_GUIDANCE].join("\n\n");
 }
 
 /**

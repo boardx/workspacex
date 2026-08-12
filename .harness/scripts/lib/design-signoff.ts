@@ -236,6 +236,37 @@ export function readBundleSignoffs(phaseId: string): BundleSignoff[] {
     });
 }
 
+/** design-delta 的签核投影（PROP-HARNESS-SIGNOFF-002，2026-08-12 人类 Accept） */
+export interface DeltaSignoff {
+  delta: string;
+  signoffPath: string;
+  status: SignoffStatus;
+  /** delta 挂靠的既有束——必须真实存在且已 confirmed，否则「新建 delta 目录 +
+   *  自己写 confirmed」就是一条绕过全流程的路（门不依赖「没人会作弊」）。 */
+  baseBundle: string;
+  features: string[];
+}
+
+/** 读某阶段全部 design-delta 的签核状态。没有 design-deltas/ → 空数组 */
+export function readDeltaSignoffs(phaseId: string): DeltaSignoff[] {
+  const deltasDir = join(findPhaseDir(phaseId), "design-deltas");
+  if (!existsSync(deltasDir)) return [];
+  return readdirSync(deltasDir)
+    .filter((n) => statSync(join(deltasDir, n)).isDirectory())
+    .sort()
+    .map((delta) => {
+      const signoffPath = join(deltasDir, delta, "design-signoff.md");
+      const fm = parseFrontmatter(signoffPath);
+      return {
+        delta,
+        signoffPath: relative(REPO_ROOT, signoffPath),
+        status: statusOf(fm),
+        baseBundle: fmString(fm, "base_bundle"),
+        features: (fmList(fm, "covers") ?? []).map((s) => s.trim()).filter(Boolean),
+      };
+    });
+}
+
 export interface Coherence {
   path: string;
   status: SignoffStatus;
@@ -448,19 +479,65 @@ export function auditSignoff(
     }
   }
 
-  /* ② 要放行的 feature 必须属于某个已签的束 */
+  /* ② 要放行的 feature 必须属于某个已签的束**或已签的 design-delta**
+   *   （PROP-HARNESS-SIGNOFF-002，2026-08-12 人类 Accept：#953 只立了评审侧，
+   *    claim 侧漏了——delta 覆盖的 feature 此前永远 claim 不了）。
+   *   三条不可放宽约束逐条落在下面，反证见 design-signoff.test.ts。 */
+  const deltas = readDeltaSignoffs(phaseId);
   for (const fid of featureIds) {
-    const owner = bundles.find((b) => b.features.includes(fid));
-    if (!owner) {
+    const bundleOwners = bundles.filter((b) => b.features.includes(fid));
+    const deltaOwners = deltas.filter((d) => d.features.includes(fid));
+    const total = bundleOwners.length + deltaOwners.length;
+
+    /* 约束③：同一 feature 被两处 covers ⇒ 判失败，不是取第一个——
+     * 两份声明会漂移，漂移的那份读起来照样像权威。 */
+    if (total > 1) {
+      const places = [
+        ...bundleOwners.map((b) => `束「${b.bundle}」`),
+        ...deltaOwners.map((d) => `delta「${d.delta}」`),
+      ].join("、");
       fails.push(
-        `${fid} 不属于任何契约束 —— 无法确认它的设计被评审过。` +
-          `请把它写进某个束 design-signoff.md 的 frontmatter \`covers:\`（ADR-023 决策三）`,
+        `${fid} 被多处 covers 同时声明（${places}）—— 同一 feature 的签核归属必须唯一，` +
+          `留一处、删其余（同一事实不得声明在两处）。`,
       );
       continue;
     }
-    if (owner.status !== "confirmed") {
+    if (total === 0) {
       fails.push(
-        `${fid} 所属的契约束「${owner.bundle}」尚未签核（status: ${owner.status}）→ ${owner.signoffPath}`,
+        `${fid} 不属于任何契约束或已签 design-delta —— 无法确认它的设计被评审过。` +
+          `请把它写进某个束 design-signoff.md 的 frontmatter \`covers:\`（ADR-023 决策三），` +
+          `或为增量面走 design-delta（#953 先例）。`,
+      );
+      continue;
+    }
+    const bOwner = bundleOwners[0];
+    if (bOwner) {
+      if (bOwner.status !== "confirmed") {
+        fails.push(
+          `${fid} 所属的契约束「${bOwner.bundle}」尚未签核（status: ${bOwner.status}）→ ${bOwner.signoffPath}`,
+        );
+      }
+      continue;
+    }
+    const dOwner = deltaOwners[0]!;
+    /* 约束①：delta 必须 confirmed 才放行，pending 照拦——「签核是人的动作」的脚本层落点 */
+    if (dOwner.status !== "confirmed") {
+      fails.push(
+        `${fid} 所属的 design-delta「${dOwner.delta}」尚未签核（status: ${dOwner.status}）→ ${dOwner.signoffPath}`,
+      );
+      continue;
+    }
+    /* 约束②：delta 必须挂在真实存在且已 confirmed 的 base_bundle 上 */
+    const base = bundles.find((b) => b.bundle === dOwner.baseBundle);
+    if (!base) {
+      fails.push(
+        `${fid} 所属 delta「${dOwner.delta}」的 base_bundle「${dOwner.baseBundle || "（未声明）"}」` +
+          `在本阶段 contracts/ 里不存在 —— delta 只能挂靠既有已签束，不能凭空立户 → ${dOwner.signoffPath}`,
+      );
+    } else if (base.status !== "confirmed") {
+      fails.push(
+        `${fid} 所属 delta「${dOwner.delta}」挂靠的束「${base.bundle}」尚未签核（status: ${base.status}）` +
+          `—— 基座未签，增量无从谈起 → ${dOwner.signoffPath}`,
       );
     }
   }

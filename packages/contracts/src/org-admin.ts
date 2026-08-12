@@ -45,6 +45,36 @@ export const OrgInviteStatus = z.enum(["pending", "awaiting-review", "revoked", 
 export const TeamOp = z.enum(["create", "rename", "delete"]);
 
 /**
+ * F161 —— 用量监控的四个统计窗口（token-quota-and-usage delta）。
+ *
+ * ⚠ 名字里带 `Stat`（统计窗口）是为了与 `apps/api/src/domain/agent/anomaly-detection.ts`
+ *   里已有的 `UsageWindow`（F14 异常检测的限速观察窗，一个完全不同的概念）区分开——
+ *   `contract-single-source` 的门控按**名字**判「后端重定义了契约类型」，两个同名不同义
+ *   的类型撞在一起时，它红得对：那正是同一个词指两件事的开头。
+ *
+ * ⚠ 这四个值是**唯一事实源**：`apps/web` 的 tab 上显示的中文标签（最近 5 小时 / 今日 /
+ *   本周 / 本月）从这个枚举映射出去，不在前端另立一份窗口列表。此前
+ *   `lib/mock/admin-limits.USAGE_WINDOWS` 是中文字面量数组，那份随 F161 接线退役。
+ */
+export const UsageStatWindow = z.enum(["5h", "today", "week", "month"]);
+
+/**
+ * F162 —— 限额规则的三段定义：**谁 × 哪个模型 × 什么窗口**。
+ *
+ * ⚠ `LimitScopeKind` 五值与前端 `lib/mock/admin-limits.LimitScopeKind`（个人/角色/团队/
+ *   Agent/模型）是**同一个集合**，此处为唯一事实源；数据库那侧的 CHECK 由测试从
+ *   `pg_constraint` 读回来与本枚举断言相等（同 `agent_run_steps_kind_check` 的既有做法），
+ *   杜绝「枚举在三处各写一遍」。
+ *
+ * ⚠ `LimitAction` 是**触顶之后做什么**，不是「失败」。原型的话逐字：「触顶后不是直接失败，
+ *   而是按这里配置的动作降级或排队」。`degrade` 的目标模型必须已通过准入测试（F49），
+ *   这条约束在用例层校验——契约只负责让「降级」这个动作存在且带得上目标。
+ */
+export const LimitScopeKind = z.enum(["member", "role", "team", "agent", "model"]);
+export const LimitWindowKind = z.enum(["hour", "day", "week", "month"]);
+export const LimitAction = z.enum(["warn", "degrade", "block", "require_approval"]);
+
+/**
  * 参与者身份四选（`upsertParticipantRoster` / `issueInviteLink`）。
  *
  * ⚠ `coFacilitator` 是**展示别名**，落库 `projectRole = "facilitator"`（O-03 / I-17），
@@ -130,6 +160,28 @@ export const OrgAdminError = z.enum([
    *  直接说"先清空成员"即可，不需要逐项列出——两条不同的错误体形状是两次不同的签核决定，
    *  不是同一件事写了两遍。 */
   "TEAM_NOT_EMPTY",
+  /* ── ③ F160 token 配额（design-delta `token-quota-and-usage`，等人类签）────── */
+  /**
+   * 逐人分配之和将超过组织额度。
+   * ⚠ 与 `QUOTA_EXHAUSTED` **不是同一个码**：那一条是 F11 的人数配额用尽
+   * （「不能再邀人」），这一条是 token 额度超分配（「这个数分不出来」）。
+   * 合并会让界面无法说清是哪种额度出了问题——两种额度在同一屏上并存。
+   * ⚠ 响应体必须带 `remainingTokens`（还剩多少可分），同 O-29⑤ 的纪律。
+   */
+  "QUOTA_OVERALLOCATED",
+  /** 组织额度被调到低于已分配之和。不静默截断谁的额度——那是管理员要亲自做的决定。 */
+  "BUDGET_BELOW_ALLOCATED",
+  /** 给一个不在本组织的 userId 设额度。 */
+  "MEMBER_NOT_FOUND",
+  /** F162：改/删一条不存在的限额规则。 */
+  "LIMIT_RULE_NOT_FOUND",
+  /**
+   * F162：`action = "degrade"` 却没给降级目标模型。
+   * ⚠ 「降级」而不说降到哪，等于运行时静默换模型——I-28 那条「绝不静默换模型」
+   *   的反面。所以这不是可选字段的缺省，是一个拒绝。
+   */
+  "DEGRADE_TARGET_REQUIRED",
+
   /** O-06：令牌是必需的不是装饰。去掉 `?t=` 直接访问被拒 */
   "LINK_TOKEN_REQUIRED",
   /** ⚠ 三码对**参与者**统一渲染为「找引导师重发」，不泄露项目/组是否存在（E1） */
@@ -1342,6 +1394,296 @@ export const operations = {
     in: z.object({ targetSessionId: z.string(), confirmed: z.literal(true) }).strict(),
     out: z.object({ revokedAt: z.string(), affectedDevice: z.string() }).strict(),
     err: ["NO_ORG_MEMBERSHIP", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * F160 —— 成员 token 配额（design-delta `token-quota-and-usage`，等人类签）。
+   *
+   * ⚠ **与 F11 的 `seat_quota` 是两件不同的配额，不得合并**：
+   *   `seat_quota` 答「还能邀几个人」（`QUOTA_EXHAUSTED`，O-29⑤ 硬阻断）；
+   *   这里的 token 额度答「每人每月能烧多少 token」。同一个词「配额」在产品里
+   *   指两件事，所以错误码也分成两个——把 token 超分配也塞进 `QUOTA_EXHAUSTED`，
+   *   界面就没法说清到底是哪种额度出了问题。
+   *
+   * ⚠ 授权一律**仅组织 admin**（`FORBIDDEN`），与 `listOrgInvites` 同一收窄取向，
+   *   且各自判一次——不共用 `listOrgMembers` 的判定（那一条对普通成员开放）。
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * `getTokenQuotas` —— 「成员配额」tab 整屏的数据来源：三张卡 + 成员行。
+   *
+   * ⚠ `orgBudget` / `unallocated` 可空，且 **null ≠ 0**：null 是「组织额度未设置」，
+   *   界面显示「未设置组织额度」+ 设置入口；0 是「设了，但一个 token 都没有」。
+   *   把未设置渲染成 0/0 会把每个新组织显示成「已用尽」——`seat_quota` 默认 0
+   *   那次事故（`20260811040000` 迁移的头注）就是这么发生的，这里不重演。
+   */
+  getTokenQuotas: {
+    method: "GET",
+    path: "/organizations/:orgId/token-quotas",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        /** null = 组织额度未设置 ⇒ 不限额、不阻断（delta §1.2，等人类签） */
+        orgBudget: z.number().nullable(),
+        /** 逐人已分配之和。恒有值——没有任何人被分配时是 0，这个 0 是真的 0。 */
+        allocated: z.number(),
+        /** `orgBudget - allocated`；`orgBudget` 为 null 时同为 null，不写 0。 */
+        unallocated: z.number().nullable(),
+        /** 全组织本自然月已用（从 `token_usage_events` 聚合，非成员行之和的缓存）。 */
+        orgUsed: z.number(),
+        /** 已用超过自身额度 85% 的人数——「超支预警」那张卡的数字。 */
+        overspendCount: z.number(),
+        members: z.array(
+          z
+            .object({
+              userId: z.string(),
+              displayName: z.string(),
+              email: z.string(),
+              orgRole: OrgRole,
+              teamId: z.string().nullable(),
+              /** null = 这个人还没被分配额度（不是 0 额度）。 */
+              monthlyLimit: z.number().nullable(),
+              usedTokens: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `setMemberTokenQuota` —— 成员行 `[调整]` 的落点。
+   *
+   * ⚠ `QUOTA_OVERALLOCATED` 的响应体**必须带 `remainingTokens`**——延续
+   *   `QUOTA_EXHAUSTED` 那条「阻断必须伴随可执行的下一步」的纪律（O-29⑤）：
+   *   只说「超了」而不说「还剩多少可分」，管理员只能靠试。
+   */
+  setMemberTokenQuota: {
+    method: "PATCH",
+    path: "/organizations/:orgId/token-quotas/:userId",
+    in: z
+      .object({
+        orgId: z.string(),
+        userId: z.string(),
+        monthlyLimit: z.number().int().min(0),
+      })
+      .strict(),
+    out: z
+      .object({
+        userId: z.string(),
+        monthlyLimit: z.number(),
+        allocated: z.number(),
+        unallocated: z.number().nullable(),
+      })
+      .strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "QUOTA_OVERALLOCATED",
+      "MEMBER_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `setOrgTokenBudget` —— 设置/调整组织月度额度（三张卡上方的入口）。
+   *
+   * ⚠ 调低到「低于已分配之和」被拒（`BUDGET_BELOW_ALLOCATED`），不静默截断每个人的
+   *   额度：截断意味着服务端替管理员做了「谁被砍」这个决定，而那正是他要亲自做的事。
+   */
+  setOrgTokenBudget: {
+    method: "PATCH",
+    path: "/organizations/:orgId/token-budget",
+    in: z.object({ orgId: z.string(), monthlyBudget: z.number().int().min(0) }).strict(),
+    out: z
+      .object({
+        orgBudget: z.number(),
+        allocated: z.number(),
+        unallocated: z.number(),
+      })
+      .strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "BUDGET_BELOW_ALLOCATED", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * F161 `getUsageReport` —— 「用量监控」tab。**每个窗口是一次真实聚合**。
+   *
+   * ⚠ 窗口是 `in` 的一部分而不是前端筛选：`usage-monitor-tab.tsx` 此前的注释逐字写着
+   *   「窗口切换只影响本地展示态（无后端），mock 定死一份「本周」快照」——换窗口不换数
+   *   正是这个 feature 要消灭的东西。所以切窗口必须发一次新请求。
+   *
+   * ⚠ **不含「近期限额事件」**。那份数据的来源（`limit_events`）要到 F162 才存在；
+   *   现在把字段放进契约、恒返回空数组，界面就会长出一块「暂时没有事件」的空区，
+   *   而真相是「这个功能还没做」——两者在界面上长得一模一样。宁可契约里没有这个字段，
+   *   让那一块继续挂着「尚未接入真实后端」的提示，等 F162 一起接。
+   */
+  getUsageReport: {
+    method: "GET",
+    path: "/organizations/:orgId/usage",
+    in: z.object({ orgId: z.string(), window: UsageStatWindow }).strict(),
+    out: z
+      .object({
+        window: UsageStatWindow,
+        totalTokens: z.number(),
+        callCount: z.number(),
+        /** 其中失败的次数。失败也记用量（F159），所以「调用数」与「成功数」不是一回事。 */
+        failedCallCount: z.number(),
+        /** 窗口内有过调用的人数——不是组织成员总数。 */
+        activeMemberCount: z.number(),
+        /** 矩阵的列：窗口内真实出现过的模型，按用量降序。没有调用时是空数组。 */
+        models: z.array(z.string()),
+        /** 矩阵的行：人 × 模型。`perModel` 与 `models` 同序等长。 */
+        rows: z.array(
+          z
+            .object({
+              userId: z.string(),
+              displayName: z.string(),
+              perModel: z.array(z.number()),
+              total: z.number(),
+            })
+            .strict(),
+        ),
+        distribution: z.array(
+          z
+            .object({
+              modelId: z.string(),
+              tokens: z.number(),
+              /** 0~1 的占比，服务端算好——前端各算一遍就会有两个四舍五入口径。 */
+              share: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ── F162 限额策略（token-quota-and-usage delta §1.4）───────────────────── */
+
+  /**
+   * `listLimitRules` —— 「限额策略」tab 的规则列表，含每条规则**当前窗口内的实测用量**。
+   *
+   * ⚠ `observedTokens` / `usedRatio` 是服务端按该规则自己的窗口现算的，不是前端拿
+   *   「用量监控」那一屏的数去除：两条规则的窗口可以不同（一条按 5 小时、一条按月），
+   *   用同一个分子去除不同的分母，得到的百分比会同时出现在同一屏上且互相矛盾。
+   */
+  listLimitRules: {
+    method: "GET",
+    path: "/organizations/:orgId/limit-rules",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        rules: z.array(
+          z
+            .object({
+              ruleId: z.string(),
+              scopeKind: LimitScopeKind,
+              /** 作用对象的 id（`model` 范围时是模型 id；`role` 范围时是角色枚举值）。 */
+              scopeRef: z.string(),
+              /** 限哪个模型；`null` = 全部模型。 */
+              modelId: z.string().nullable(),
+              windowKind: LimitWindowKind,
+              thresholdTokens: z.number(),
+              action: LimitAction,
+              /** `degrade` 时的目标模型；其余动作恒为 null。 */
+              degradeToModelId: z.string().nullable(),
+              enabled: z.boolean(),
+              /** 本规则自己的窗口内的实测用量。 */
+              observedTokens: z.number(),
+              /** `observedTokens / thresholdTokens`，服务端算好（见上方 ⚠）。 */
+              usedRatio: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /** `createLimitRule` —— 新增一条规则。 */
+  createLimitRule: {
+    method: "POST",
+    path: "/organizations/:orgId/limit-rules",
+    in: z
+      .object({
+        orgId: z.string(),
+        scopeKind: LimitScopeKind,
+        scopeRef: z.string().min(1),
+        modelId: z.string().nullable(),
+        windowKind: LimitWindowKind,
+        thresholdTokens: z.number().int().positive(),
+        action: LimitAction,
+        degradeToModelId: z.string().nullable(),
+      })
+      .strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "DEGRADE_TARGET_REQUIRED", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /** `updateLimitRule` —— 改阈值 / 动作 / 启停。 */
+  updateLimitRule: {
+    method: "PATCH",
+    path: "/organizations/:orgId/limit-rules/:ruleId",
+    in: z
+      .object({
+        orgId: z.string(),
+        ruleId: z.string(),
+        thresholdTokens: z.number().int().positive().optional(),
+        action: LimitAction.optional(),
+        degradeToModelId: z.string().nullable().optional(),
+        enabled: z.boolean().optional(),
+      })
+      .strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "LIMIT_RULE_NOT_FOUND", "DEGRADE_TARGET_REQUIRED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /** `deleteLimitRule` —— 删规则。⚠ 已触发过的 `limit_events` **不跟着删**（那是账）。 */
+  deleteLimitRule: {
+    method: "POST",
+    path: "/organizations/:orgId/limit-rules/:ruleId/delete",
+    in: z.object({ orgId: z.string(), ruleId: z.string() }).strict(),
+    out: z.object({ ruleId: z.string() }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP", "FORBIDDEN", "LIMIT_RULE_NOT_FOUND", "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `listLimitEvents` —— 「用量监控 · 近期限额事件」。
+   *
+   * ⚠ 这一条是 F161 里**刻意没有放进 `getUsageReport`** 的那块（见该操作的注释）：
+   *   数据源到 F162 才存在，提前放进去恒返回空数组会让「还没做」和「真的没发生过」
+   *   在界面上长得一模一样。现在它有了自己的真实来源，才作为独立操作出现。
+   */
+  listLimitEvents: {
+    method: "GET",
+    path: "/organizations/:orgId/limit-events",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        events: z.array(
+          z
+            .object({
+              eventId: z.string(),
+              occurredAt: z.string(),
+              ruleId: z.string(),
+              scopeKind: LimitScopeKind,
+              subjectRef: z.string(),
+              actionTaken: LimitAction,
+              observedTokens: z.number(),
+              thresholdTokens: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 } as const;
 

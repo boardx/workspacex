@@ -151,7 +151,13 @@ export async function verify(args: Args): Promise<void> {
       promoted++;
       log.ok(`门控通过 -> ${f.id} = passing`);
     } else {
-      if (f.status === "not_started") f.status = "in_progress";
+      // 2026-08-12（#1030 人类 Accept）：失败**不产生任何状态转移**。
+      // 旧行为 `not_started → in_progress` 是静默认领：sprint 全量 verify 会把
+      // 不属于本次任务的 feature 翻成 in_progress 并写回权威清单，制造
+      // 「owner 名下 N 个 in_progress」的幽灵违规，被 assertSingleInProgress
+      // 拦下后**整条 sprint 的 verify 对所有人停摆**（2026-08-12 夜真实发生，
+      // 因果链五步见 #1030）。开工动作只属于 `harness claim`；
+      // 通过转 passing 是本函数唯一合法的状态转移。
       failed++;
     }
   }

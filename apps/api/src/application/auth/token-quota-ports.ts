@@ -1,0 +1,201 @@
+/**
+ * F160 / F161 —— token 额度与用量的读写端口。
+ *
+ * ## 为什么额度与用量在同一个端口里
+ *
+ * 「成员配额」那一屏的每一行都要同时回答两件事：**分了多少**（`member_token_quota`）
+ * 与**用了多少**（`token_usage_events` 的本月聚合）。拆成两个仓储会让 controller
+ * 拿着两份按 userId 对齐的列表自己做 join——那正是「同一屏的数据在两处各查一半、
+ * 迟早对不上」的开头。读侧一次给全，写侧只动额度表。
+ *
+ * ⚠ **本端口不写 `token_usage_events`**。用量的唯一写入点是 `TokenUsageMeterPort`
+ *   （F159），这里只读。两者分开正是那条「唯一写入点」主张的形状。
+ */
+import type { z } from "zod";
+import { orgAdmin as C } from "@repo/contracts";
+import type { OrgId } from "../../domain/org-id";
+
+/** 一位成员在「成员配额」屏上的一行：身份 + 分了多少 + 用了多少。 */
+export interface MemberQuotaRow {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly email: string;
+  readonly orgRole: string;
+  readonly teamId: string | null;
+  /** null = 还没被分配额度。**不是 0**——0 是「分了 0」。 */
+  readonly monthlyLimit: number | null;
+  /** 本自然月已用（从计量流水聚合）。没有任何调用时是真的 0。 */
+  readonly usedTokens: number;
+}
+
+export interface OrgQuotaSnapshot {
+  /** null = 组织额度未设置 ⇒ 不限额、不阻断（delta §1.2，等人类签）。 */
+  readonly orgBudget: number | null;
+  /** 逐人已分配之和。 */
+  readonly allocated: number;
+  /** 全组织本自然月已用。 */
+  readonly orgUsed: number;
+  readonly members: readonly MemberQuotaRow[];
+}
+
+export interface TokenQuotaRepository {
+  /** 读整屏：组织额度 + 逐人额度 + 逐人本月已用，一次给全。 */
+  readSnapshot(orgId: OrgId): Promise<OrgQuotaSnapshot>;
+
+  /**
+   * 设某人的月度额度。**在同一个事务里**先锁住本组织的额度行再校验 I-Q1
+   * （逐人之和 ≤ 组织额度），否则两个管理员同时提额可以双双通过、合计超发。
+   * 违反时抛 `QuotaOverallocatedError`，且**不写入**。
+   */
+  setMemberQuota(
+    orgId: OrgId,
+    input: { readonly userId: string; readonly monthlyLimit: number; readonly updatedBy: string },
+  ): Promise<{ readonly allocated: number; readonly orgBudget: number | null }>;
+
+  /**
+   * 设组织月度额度。调低到低于已分配之和时抛 `BudgetBelowAllocatedError` 并不写入——
+   * 不静默截断谁的额度，那是管理员要亲自做的决定。
+   */
+  setOrgBudget(
+    orgId: OrgId,
+    input: { readonly monthlyBudget: number; readonly updatedBy: string },
+  ): Promise<{ readonly allocated: number }>;
+
+  /** 这个 userId 是不是本组织成员。设额度前判一次——给一个外人设额度应当是错误而不是插一行。 */
+  isOrgMember(orgId: OrgId, userId: string): Promise<boolean>;
+}
+
+/** ⚠ `remainingTokens` 是响应体的必填部分（O-29⑤：阻断必须伴随可执行的下一步）。 */
+export class QuotaOverallocatedError extends Error {
+  constructor(readonly remainingTokens: number) {
+    super("QUOTA_OVERALLOCATED");
+    this.name = "QuotaOverallocatedError";
+  }
+}
+
+export class BudgetBelowAllocatedError extends Error {
+  constructor(readonly allocated: number) {
+    super("BUDGET_BELOW_ALLOCATED");
+    this.name = "BudgetBelowAllocatedError";
+  }
+}
+
+export class MemberNotFoundError extends Error {
+  constructor() {
+    super("MEMBER_NOT_FOUND");
+    this.name = "MemberNotFoundError";
+  }
+}
+
+/* ── F161 用量监控 ──────────────────────────────────────────────────────── */
+
+/** 契约枚举的别名，不重新声明取值（ADR-020：契约是单一事实源）。 */
+export type UsageWindowKey = z.infer<typeof C.UsageStatWindow>;
+
+/** 一格：某人 × 某模型在窗口内的用量。矩阵由用例层从这些格子摆出来。 */
+export interface UsageCell {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly modelId: string;
+  readonly tokens: number;
+}
+
+export interface UsageAggregate {
+  readonly totalTokens: number;
+  readonly callCount: number;
+  readonly failedCallCount: number;
+  readonly cells: readonly UsageCell[];
+}
+
+export interface UsageAggregateRepository {
+  /**
+   * 按窗口聚合。**每个窗口一次真实查询**——不是查一次全量再在内存里切，
+   * 那样「最近 5 小时」会随着数据长大越来越慢，而它恰恰是刷得最勤的那个窗口。
+   */
+  readUsage(orgId: OrgId, window: UsageWindowKey): Promise<UsageAggregate>;
+}
+
+export const TOKEN_QUOTA_REPOSITORY = Symbol("TokenQuotaRepository");
+
+/* ── F162 限额策略 ──────────────────────────────────────────────────────── */
+
+export type LimitScopeKind = z.infer<typeof C.LimitScopeKind>;
+export type LimitWindowKind = z.infer<typeof C.LimitWindowKind>;
+export type LimitAction = z.infer<typeof C.LimitAction>;
+
+export interface LimitRuleRow {
+  readonly ruleId: string;
+  readonly scopeKind: LimitScopeKind;
+  readonly scopeRef: string;
+  readonly modelId: string | null;
+  readonly windowKind: LimitWindowKind;
+  readonly thresholdTokens: number;
+  readonly action: LimitAction;
+  readonly degradeToModelId: string | null;
+  readonly enabled: boolean;
+  /** 本规则**自己的窗口**内的实测用量（见契约 `listLimitRules` 的 ⚠）。 */
+  readonly observedTokens: number;
+}
+
+export interface LimitEventRow {
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly ruleId: string;
+  readonly scopeKind: LimitScopeKind;
+  readonly subjectRef: string;
+  readonly actionTaken: LimitAction;
+  readonly observedTokens: number;
+  readonly thresholdTokens: number;
+}
+
+export interface CreateLimitRuleInput {
+  readonly scopeKind: LimitScopeKind;
+  readonly scopeRef: string;
+  readonly modelId: string | null;
+  readonly windowKind: LimitWindowKind;
+  readonly thresholdTokens: number;
+  readonly action: LimitAction;
+  readonly degradeToModelId: string | null;
+}
+
+export interface UpdateLimitRuleInput {
+  readonly thresholdTokens?: number;
+  readonly action?: LimitAction;
+  readonly degradeToModelId?: string | null;
+  readonly enabled?: boolean;
+}
+
+export interface LimitRuleRepository {
+  /** 规则 + 每条规则在自己窗口内的实测用量，一次给全。 */
+  listRules(orgId: OrgId): Promise<readonly LimitRuleRow[]>;
+  createRule(orgId: OrgId, input: CreateLimitRuleInput): Promise<string>;
+  updateRule(orgId: OrgId, ruleId: string, input: UpdateLimitRuleInput): Promise<void>;
+  deleteRule(orgId: OrgId, ruleId: string): Promise<void>;
+  listEvents(orgId: OrgId, limit: number): Promise<readonly LimitEventRow[]>;
+  /** 记一次触发。**append-only**，与 `token_usage_events` 同一条纪律。 */
+  recordEvent(
+    orgId: OrgId,
+    input: {
+      readonly ruleId: string; readonly scopeKind: LimitScopeKind; readonly subjectRef: string;
+      readonly actionTaken: LimitAction; readonly observedTokens: number;
+      readonly thresholdTokens: number;
+    },
+  ): Promise<string>;
+}
+
+export class LimitRuleNotFoundError extends Error {
+  constructor() {
+    super("LIMIT_RULE_NOT_FOUND");
+    this.name = "LimitRuleNotFoundError";
+  }
+}
+
+/** ⚠ 「降级」而不说降到哪 = 运行时静默换模型，正是 I-28 的反面。所以是拒绝，不是缺省。 */
+export class DegradeTargetRequiredError extends Error {
+  constructor() {
+    super("DEGRADE_TARGET_REQUIRED");
+    this.name = "DegradeTargetRequiredError";
+  }
+}
+
+export const LIMIT_RULE_REPOSITORY = Symbol("LimitRuleRepository");

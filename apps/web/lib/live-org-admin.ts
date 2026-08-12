@@ -268,3 +268,144 @@ export async function revokeOrgInvite(orgId: string, inviteId: string): Promise<
     { method: "POST", body: { orgId, inviteId } },
   );
 }
+
+/* ═══════════════ F160：成员 token 配额（token-quota-and-usage delta）═══════════════
+ *
+ * ⚠ 三条都**仅组织 admin**（后端 `requireOrgAdmin`）。与本文件里 `listOrgMembers`
+ *   那条对普通成员开放的读**不是同一个授权面**——额度是钱。
+ *
+ * ⚠ `orgBudget` / `unallocated` / `monthlyLimit` 可空，且 **null ≠ 0**：
+ *   null 是「还没设过 / 还没分配」，0 是「设了 0」。渲染时不要 `?? 0`，
+ *   那会把「未设置」显示成「已用尽」。
+ */
+
+export type GetTokenQuotasOut = z.infer<typeof orgAdmin.operations.getTokenQuotas.out>;
+export type SetMemberTokenQuotaOut = z.infer<typeof orgAdmin.operations.setMemberTokenQuota.out>;
+export type SetOrgTokenBudgetOut = z.infer<typeof orgAdmin.operations.setOrgTokenBudget.out>;
+
+/** `GET /organizations/:orgId/token-quotas`——「成员配额」tab 整屏的数据来源。 */
+export async function getTokenQuotas(orgId: string): Promise<GetTokenQuotasOut> {
+  return apiRequest<GetTokenQuotasOut>(
+    path(orgAdmin.operations.getTokenQuotas.path, { orgId }),
+    { method: "GET" },
+  );
+}
+
+/**
+ * `PATCH /organizations/:orgId/token-quotas/:userId`——成员行 `[调整]` 的落点。
+ * 超过组织额度时抛 `ApiError`，`reasonCode = QUOTA_OVERALLOCATED`，响应体带
+ * `remainingTokens`（还剩多少可分）——界面必须把那个数说出来，只说「超了」
+ * 等于让管理员靠试。
+ */
+export async function setMemberTokenQuota(
+  orgId: string, userId: string, monthlyLimit: number,
+): Promise<SetMemberTokenQuotaOut> {
+  return apiRequest<SetMemberTokenQuotaOut>(
+    path(orgAdmin.operations.setMemberTokenQuota.path, { orgId, userId }),
+    { method: "PATCH", body: { orgId, userId, monthlyLimit } },
+  );
+}
+
+/** `PATCH /organizations/:orgId/token-budget`——设置组织月度额度；调到低于已分配之和会被拒。 */
+export async function setOrgTokenBudget(
+  orgId: string, monthlyBudget: number,
+): Promise<SetOrgTokenBudgetOut> {
+  return apiRequest<SetOrgTokenBudgetOut>(
+    path(orgAdmin.operations.setOrgTokenBudget.path, { orgId }),
+    { method: "PATCH", body: { orgId, monthlyBudget } },
+  );
+}
+
+/* ═══════════════ F161：用量监控（token-quota-and-usage delta）═══════════════ */
+
+export type UsageWindowKey = z.infer<typeof orgAdmin.UsageStatWindow>;
+export type GetUsageReportOut = z.infer<typeof orgAdmin.operations.getUsageReport.out>;
+
+/**
+ * `GET /organizations/:orgId/usage?window=…`
+ *
+ * ⚠ 窗口是**请求参数**，不是本地筛选：换窗口必须发一次新请求。此前那份 mock 的
+ * 文件头逐字写着「窗口切换只影响本地展示态」——那正是 F161 要消灭的东西。
+ */
+export async function getUsageReport(
+  orgId: string, window: UsageWindowKey,
+): Promise<GetUsageReportOut> {
+  return apiRequest<GetUsageReportOut>(
+    `${path(orgAdmin.operations.getUsageReport.path, { orgId })}?window=${encodeURIComponent(window)}`,
+    { method: "GET" },
+  );
+}
+
+/* ═══════════════ F162：限额策略（token-quota-and-usage delta §1.4）═══════════════ */
+
+export type ListLimitRulesOut = z.infer<typeof orgAdmin.operations.listLimitRules.out>;
+export type ListLimitEventsOut = z.infer<typeof orgAdmin.operations.listLimitEvents.out>;
+export type LimitScopeKind = z.infer<typeof orgAdmin.LimitScopeKind>;
+export type LimitWindowKind = z.infer<typeof orgAdmin.LimitWindowKind>;
+export type LimitAction = z.infer<typeof orgAdmin.LimitAction>;
+
+export async function listLimitRules(orgId: string): Promise<ListLimitRulesOut> {
+  return apiRequest<ListLimitRulesOut>(
+    path(orgAdmin.operations.listLimitRules.path, { orgId }), { method: "GET" });
+}
+
+/** ⚠ `action: "degrade"` 必须带 `degradeToModelId`，否则 400 `DEGRADE_TARGET_REQUIRED`——
+ *  「降级」而不说降到哪等于运行时静默换模型（I-28 的反面）。 */
+export async function createLimitRule(
+  orgId: string,
+  input: Omit<z.infer<typeof orgAdmin.operations.createLimitRule.in>, "orgId">,
+): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.createLimitRule.path, { orgId }), {
+    method: "POST", body: { orgId, ...input },
+  });
+}
+
+export async function updateLimitRule(
+  orgId: string, ruleId: string,
+  input: Omit<z.infer<typeof orgAdmin.operations.updateLimitRule.in>, "orgId" | "ruleId">,
+): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.updateLimitRule.path, { orgId, ruleId }), {
+    method: "PATCH", body: { orgId, ruleId, ...input },
+  });
+}
+
+export async function deleteLimitRule(orgId: string, ruleId: string): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.deleteLimitRule.path, { orgId, ruleId }), {
+    method: "POST", body: { orgId, ruleId },
+  });
+}
+
+export async function listLimitEvents(orgId: string): Promise<ListLimitEventsOut> {
+  return apiRequest<ListLimitEventsOut>(
+    path(orgAdmin.operations.listLimitEvents.path, { orgId }), { method: "GET" });
+}
+
+/* ═══════════════ F163：管理员权力边界（D-18）—— 接的是 F06 已 passing 的既有端点 ═══════════════
+ *
+ * ⚠ 本节**没有任何新契约**。`getPersonalLayerSummary`（identity 束）与 `listMyAccessLog`
+ *   （org-admin 束）在 F06 就已实现并 passing，只是前端一直没接，界面上那两块读的是
+ *   `lib/mock/admin.MEMBERS.privateEntries` / `ADMIN_ACCESS_LOGS`。
+ *
+ * ⚠ `getPersonalLayerSummary` 的 `out` 里**结构上就没有内容字段**（契约注释逐字：
+ *   content/body/text/excerpt/preview/snippet 任何一种都不得出现）。前端因此不可能
+ *   「不小心把内容显示出来」——这条保证在契约层，不靠界面自觉。
+ */
+
+export type PersonalLayerSummaryOut = z.infer<typeof identity.operations.getPersonalLayerSummary.out>;
+export type ListMyAccessLogOut = z.infer<typeof orgAdmin.operations.listMyAccessLog.out>;
+
+/** `GET /identity/personal-layer/summary`——查他人只回条目数 + `PERSONAL_LAYER_CLOSED`。 */
+export async function getPersonalLayerSummary(
+  orgId: string, userId: string,
+): Promise<PersonalLayerSummaryOut> {
+  return apiRequest<PersonalLayerSummaryOut>(
+    `${identity.operations.getPersonalLayerSummary.path}`
+      + `?orgId=${encodeURIComponent(orgId)}&userId=${encodeURIComponent(userId)}`,
+    { method: "GET" },
+  );
+}
+
+/** `GET /admin-access-log/mine`——当前管理员自己的项目层访问留痕。 */
+export async function listMyAccessLog(): Promise<ListMyAccessLogOut> {
+  return apiRequest<ListMyAccessLogOut>(orgAdmin.operations.listMyAccessLog.path, { method: "GET" });
+}

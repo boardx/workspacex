@@ -13,6 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UsageMonitorTab } from "./usage-monitor-tab";
 import { LimitPolicyTab } from "./limit-policy-tab";
+import { MemberQuotaTab } from "./member-quota-tab";
+import { AdminBoundaryLive } from "./admin-boundary-live";
 import {
   MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
 } from "@/lib/mock/admin";
@@ -83,7 +85,10 @@ export function MembersScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="成员配额"
       title="成员与配额"
-      noticeOverride={<NoBackendNotice />}
+      /* F160：整屏级的「尚未接入真实后端」摘掉——「成员配额」这一 tab 已经读真库。
+         但「另外两个 tab 仍然是 mock」（用量监控 F161 / 限额策略 F162 未做），
+         所以那条提示搬进那两个 tabpanel 里，按 tab 说实话。
+         整屏一刀切地摘掉会让还在骗人的两个 tab 混进「已接线」的观感。 */
       intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。团队/名册/邀请的完整管理在「组织成员」（下方链接，已接真实后端）；本屏只做配额与「管理员看不到什么」这两块，两者不是同一功能。"
       emptyHint="组织里还没有成员"
       errors={{ quota: "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度" }}
@@ -98,12 +103,19 @@ export function MembersScreen({ state }: { state: UiState }) {
           <TabsTrigger value="policy" data-testid="admin-members-tab-policy">限额策略</TabsTrigger>
         </TabsList>
 
+        {/* F161 起「用量监控」读真库，整块的 NoBackendNotice 摘掉；
+            该 tab 内部仍是 mock 的那一小块（近期限额事件）自己带着提示，见其组件。 */}
         <TabsContent value="usage" data-testid="admin-members-tabpanel-usage">
-          <UsageMonitorTab />
+          <div className="flex flex-col gap-3 pt-3">
+            <UsageMonitorTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="policy" data-testid="admin-members-tabpanel-policy">
-          <LimitPolicyTab />
+          <div className="flex flex-col gap-3 pt-3">
+            <NoBackendNotice />
+            <LimitPolicyTab />
+          </div>
         </TabsContent>
 
       <TabsContent value="quota" data-testid="admin-members-tabpanel-quota">
@@ -130,43 +142,18 @@ export function MembersScreen({ state }: { state: UiState }) {
           </CardContent>
         </Card>
 
-        {/* 成员配额列表 */}
-        <section className="flex flex-col gap-2" data-testid="admin-members-list">
-          <div className="flex items-center gap-1.5">
-            <Gauge aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">成员配额</h2>
-            <span className="text-11 text-muted-foreground">· 共 {MEMBERS.length} 人</span>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col pt-2">
-              {MEMBERS.map((m, i) => {
-                const limit = limits[m.id] ?? m.limitM;
-                const pct = Math.round((m.usedM / limit) * 100);
-                return (
-                  <div key={m.id} data-testid={`admin-member-row-${m.id}`}>
-                    <div className="flex flex-wrap items-center gap-3 py-2.5">
-                      <span className="w-14 shrink-0 text-13 font-medium">{m.name}</span>
-                      <Badge tone="outline">{m.orgRole}</Badge>
-                      <span className="text-11 text-muted-foreground">{m.team}</span>
-                      <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
-                        <Progress value={pct} tone={quotaTone(pct)} label={`${m.name} 配额 ${pct}%`} className="flex-1" />
-                        <span className="shrink-0 font-mono text-11 text-muted-foreground">
-                          {m.usedM.toFixed(1)}/{limit.toFixed(1)}M
-                        </span>
-                      </div>
-                      <Button size="xs" variant="outline" onClick={() => openQuota(m)} data-testid={`admin-member-quota-${m.id}`}>给他单独提额</Button>
-                    </div>
-                    {i < MEMBERS.length - 1 && <Separator />}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
+        {/* 成员配额列表 —— F160 起改为**真栈**（`MemberQuotaTab`）。
+            这里原先是 `lib/mock/admin.MEMBERS` 的 usedM/limitM 两个写死的浮点数；
+            根因不在前端，是全仓此前零 token 计量落库（见 F159 的迁移）。 */}
+        <MemberQuotaTab />
 
+        <section className="flex flex-col gap-2" data-testid="admin-members-list">
           {/* ── F10 / UC-1.6：邀请入口 + 待激活行 ─────────────────────────
-              放在 `admin-members-list` 这个 section 之内，因为它讲的是同一张成员表：
-              待激活的人计入名册、不计入活跃成员；把他们挪到另一块屏上，
-              「48 人里 41 个活跃」这句话就没有落点了。 */}
+              F160 起配额列表搬进了 `MemberQuotaTab`（真栈），邀请/待激活这块「仍是 mock」
+              （`lib/mock/org-admin.ts`）——它属 F11 成员表整并的地盘，本轮不碰
+              （coord-main 2026-08-12 裁决第 4 条）。两块因此不再同源：上面的人来自真库，
+              这里的人来自 mock，「不保证是同一批人」。这句话必须写在代码里，
+              否则这一屏看起来像一张统一的成员表。 */}
           <div className="flex flex-wrap items-center gap-2" data-testid="admin-members-invite-bar">
             <span className="text-11 text-muted-foreground" data-testid="admin-members-roster-count">
               名册 {ORG_MEMBER_TOTAL} 人 · 活跃 {ORG_MEMBER_ACTIVE} 人（待激活计入名册，不计入活跃）
@@ -220,71 +207,11 @@ export function MembersScreen({ state }: { state: UiState }) {
           </p>
         </section>
 
-        {/* 管理员权力边界（UC-17.5）—— 「你作为管理员看不到什么」 */}
-        <section className="flex flex-col gap-2" data-testid="admin-members-boundary">
-          <div className="flex items-center gap-1.5">
-            <EyeOff aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">你作为管理员看不到什么</h2>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-3 pt-4">
-              <p className="text-12 text-muted-foreground">
-                这不是缺失功能，是产品的硬约束。个人层是三层记忆里唯一对管理员封闭的一层——顾问敢把半成品判断写进系统，
-                前提是这一层<strong className="text-background-foreground">组织管理员看不到、agent 也读不到</strong>。
-              </p>
+        {/* 管理员权力边界（D-18 / UC-17.5）—— F163 起接**既有**真端点
+            （GET /identity/personal-layer/summary + GET /admin-access-log/mine，
+            两条都是 F06 已 passing 的，此前前端一直没接、读的是 mock）。 */}
+        <AdminBoundaryLive />
 
-              {/* 个人层：只有计数 */}
-              <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3" data-testid="admin-members-private-counts">
-                <span className="text-12 font-medium">个人层 · 只有计数（内容不可见、不可搜索、不可导出、不进 AI 检索）</span>
-                <div className="flex flex-wrap gap-2">
-                  {MEMBERS.filter((m) => m.privateEntries > 0).map((m) => (
-                    <span
-                      key={m.id}
-                      data-testid={`admin-member-private-${m.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-2 py-1 text-11"
-                    >
-                      <span className="font-medium">{m.name}</span>
-                      <span className="text-muted-foreground">私有条目 {m.privateEntries} 条</span>
-                      <Badge tone="neutral">内容不可见</Badge>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* 项目层：可读但必留痕、对负责人可见 */}
-              <div className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/5 p-3" data-testid="admin-members-project-access">
-                <div className="flex items-start gap-2">
-                  <ScrollText aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                  <p className="text-12">
-                    出于审计目的你可以读项目内容，但<strong className="text-background-foreground">每次访问都会写入审计日志，并对项目负责人可见</strong>。
-                    本月你访问过 {ADMIN_PROJECT_ACCESS_COUNT} 个项目。「升到项目层」是获取内容的唯一路径——不存在申请、提权、临时授权等旁路。
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" className="self-start" onClick={() => setAccessOpen(true)} data-testid="admin-members-my-access">
-                  <FileClock aria-hidden className="h-3.5 w-3.5" />
-                  看我的访问记录
-                </Button>
-              </div>
-
-              {/* 我的访问记录明细 */}
-              <div className="flex flex-col gap-1" data-testid="admin-members-access-logs">
-                <span className="text-11 font-medium text-muted-foreground">我本月的项目层访问（每条都对该项目负责人可见）</span>
-                {ADMIN_ACCESS_LOGS.map((log) => (
-                  <div
-                    key={log.id}
-                    data-testid={`admin-access-log-${log.id}`}
-                    className="flex flex-wrap items-center gap-2 rounded-sm border border-border-subtle bg-card px-2.5 py-1.5 text-11"
-                  >
-                    <span className="font-medium">{log.project}</span>
-                    <span className="text-muted-foreground">负责人 {log.lead}</span>
-                    <span className="ml-auto text-muted-foreground">{log.when}</span>
-                    <Badge tone="primary">对负责人可见</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
       </div>
       </TabsContent>
       </Tabs>

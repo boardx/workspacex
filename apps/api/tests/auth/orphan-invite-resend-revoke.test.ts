@@ -139,7 +139,9 @@ beforeAll(async () => {
     new PgOrgProfileRepository(db, null as never),
     null as never,
     new PgIdentityRepository(db),
-    null as never, // #638 迭代 4：新增的 PROVENANCE_WRITER，同样不参与
+    null as never, // #638 迭代 4：新增的 PROVENANCE_WRITER，同样不参与,
+    null as never,  // F160 token 额度仓储：本文件不调那三条路由,
+    null as never,  // F162 限额规则仓储：本文件不调那五条路由
   );
 }, HOOK_TIMEOUT_MS);
 
