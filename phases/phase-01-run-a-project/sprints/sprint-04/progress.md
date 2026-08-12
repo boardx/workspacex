@@ -1,11 +1,11 @@
 # 进度日志 — Sprint 01/04
 
 ## 当前已验证状态(唯一真相)
-- 仓库根目录: `/Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-f166`
+- 仓库根目录: `/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-flow`
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: `pnpm -w run verify:base`
-- 当前最高优先级未完成功能: F166 / 一次性 ASR ticket 与阿里云 Fun-ASR 状态机
-- 当前 blocker: 实现与专项验证完成，等待 PR review/coord-main 合并；仓库级 base 曾因宿主机 load≈74 未获隔离栈准入而中止，无测试失败输出
+- 当前最高优先级未完成功能: F166、F168（不同 owner 并行）
+- 当前 blocker: F166 等待其独立 PR 合并；F168 独立 review 发现会话恢复、幂等键刷新稳定性和协作者可见性仍需修复。
 
 ## 会话记录
 ### 2026-08-12 02:54:39
@@ -13,6 +13,45 @@
 - 已完成: HTTP ticket、一次性原子消费、个人 capture、BoardX WS、Fun-ASR 状态机、final 先落库后推送、用量幂等、超时与背压。
 - 运行过的验证: contracts 186/186；F166 五条 harness 专项；扩展隔离 6 files/8 tests；migration 空库重建与强制重放；API lint；doctor。
 - 已记录证据: GitHub issue #1050 评论；本 sprint evidence 将由 verify/PR 继续固化。
-- 提交记录: 待提交。
+- 提交记录: 见 F166 独立分支。
 - 已知风险或未解决问题: 前端 AudioWorklet/ticket/WS 接线属 F167；真实阿里账号端点需部署环境变量后做 E2E。
-- 下一步最佳动作: 提交/推送 PR，review 后由 coord-main 合并，再领取 F167。
+- 下一步最佳动作: review/合并 F166，再领取 F167。
+
+### 2026-08-12 09:48:52
+- 本轮目标: 实现 F168 研究首页与可恢复会话。
+- 已完成: 建立 F168 sprint 工作集。
+- 运行过的验证: 待实现后执行 feature verification。
+- 已记录证据: 待 harness verify 生成。
+- 提交记录: 当前 rebase 链。
+- 已知风险或未解决问题: 与 F166 共用 sprint 04，但 owner 独立；不得互相覆盖状态或证据。
+- 下一步最佳动作: 只推进 F168，不修改 F166 范围。
+
+### 2026-08-12 19:16
+- 本轮目标: 实现 F168 的真实研究会话持久化、首页历史、幂等创建、服务端断点恢复和不可见性边界。
+- 已完成: 合同 schema、Postgres migration/RLS、repository/controller/kernel 接线、web API 与首页交互；修复本次新增 `GuidedResearchBrief` 在 mock 层的重复类型声明。
+- 运行过的验证: F168 四条 verification 全部 exit 0；`pnpm harness verify --sprint 01/04` 生成证据但因 `verify:base` exit 1 未升 passing；头像上传失败用标准隔离外壳复跑 9/9 通过；`pnpm harness doctor --phase 01` 为 0 FAIL / 2 WARN。
+- 已记录证据: `evidence/F168.verify.log`（包含定向验证、全仓失败摘要和精确失败位置）。
+- 提交记录: 实现提交 `e011b4ed`；验证证据与交接记录在该分支的后续收尾提交。
+- 已知风险或未解决问题: `apps/web/lib/interview-api.ts` 与 `apps/api/src/domain/interview/digital-interview.ts` 两条 ADR-020 违规属于 base `origin/worker/coord-deep-research-01-research-flow`，不在 F168 范围；F168 保持 `in_progress`，PR #1081 保持 draft。
+- 下一步最佳动作: 基线问题已通过设计分支 rebase 消除；先修复独立 review 的四个阻断项，再重新运行完整验证。
+
+### 2026-08-13 03:10
+- 本轮目标: 关闭 F168 独立 review 的四个阻断项。
+- 已完成: URL session 真恢复、跨刷新创建幂等键、显式 collaborator 可见性；API verification 改用标准隔离外壳并刷新派生工作集。
+- 运行过的验证: F168 四条 verification 全绿；额外 web 8/8、API lint/typecheck、隔离 API 4/4 全绿。
+- 已记录证据: `evidence/F168.verify.log` 已由 harness 重写；基础回归明确失败于 `digital_expert_profiles_agent_fk`，F168 专项均通过且状态未升 passing。
+- 已知风险或未解决问题: main `038ce93d` 的 digital expert migration trigger 会在既有 capability 测试数据只写 listing、未写 agents 时触发 FK，导致 API 58 条级联失败；不属于 F168 diff，需对应 interview feature 修复。
+- 下一步最佳动作: 提交并推送 review 修复，重新做 exact-SHA 独立 review；基线修复合入后重跑 harness verify。
+
+### 2026-08-13 03:19
+- 本轮目标: 关闭第二轮独立 review 的 collaborator 赋权链和多创建意图幂等冲突。
+- 已完成: create 契约新增显式 collaborator ids，服务端在同事务校验组织成员并写入 collaborator 表；幂等存储改为 tab + 完整 brief 意图分区。
+- 运行过的验证: contracts 190/190；隔离 API 5/5；guided UI 9/9；web/api typecheck；API lint 全绿。
+- 已知风险或未解决问题: 仍需新 exact SHA 独立复审；verify:base 的 digital expert 外键基线阻断未变。
+- 下一步最佳动作: 提交、推送、复审；review 通过后等待基线修复并重跑 harness 门禁。
+
+### 2026-08-13 03:25
+- 本轮目标: 关闭第三轮 review 的幂等重放扩权、错误契约漂移和 pending key 生命周期。
+- 已完成: 重放时锁定 brief + collaborator 指纹，不匹配返回契约化 409；非法 collaborator 码进入 ResearchError；pending key 加 24 小时清理。
+- 运行过的验证: contracts 190/190；隔离 API 6/6；guided UI 10/10；web/api typecheck；API lint 全绿。
+- 下一步最佳动作: 推送新 exact SHA 并做最终复审。

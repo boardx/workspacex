@@ -33,7 +33,7 @@ const SCREEN_ICON: Record<RsScreen, React.ComponentType<{ className?: string }>>
 };
 
 export function ResearchStudioApp({
-  identity, uiState, screen, view, sub, flow, qs,
+  identity, uiState, screen, view, sub, flow, guidedSessionId, qs,
 }: {
   identity: Identity;
   uiState: UiState;
@@ -41,6 +41,7 @@ export function ResearchStudioApp({
   view: RsView;
   sub?: string;
   flow?: GuidedResearchStep;
+  guidedSessionId?: string;
   qs: { as?: string; flow?: string };
 }) {
   const href = (o: Partial<{ as: string; state: string; screen: string; sub: string }>) => {
@@ -58,7 +59,7 @@ export function ResearchStudioApp({
       <div className="flex h-full min-h-0 flex-col">
         {!flow && <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />}
         <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="rs-main">
-          {flow && <GuidedResearchFlow step={flow} />}
+          {flow && <GuidedResearchFlow step={flow} sessionId={guidedSessionId} />}
           {!flow && screen === "list" && <RsListScreen state={uiState} view={view} sub={sub} href={href} />}
           {!flow && screen === "plan" && <RsPlanScreen state={uiState} view={view} sub={sub} />}
           {!flow && screen === "new" && <RsNewScreen state={uiState} view={view} sub={sub} />}

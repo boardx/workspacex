@@ -3802,11 +3802,11 @@
       "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R2",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts run test",
-        "pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
         "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
@@ -3815,7 +3815,7 @@
       "priority": 1,
       "area": "research",
       "capability": "CAP-WEB",
-      "sprint": null
+      "sprint": "04"
     },
     {
       "id": "F169",
