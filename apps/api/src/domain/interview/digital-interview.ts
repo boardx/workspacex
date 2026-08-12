@@ -22,14 +22,7 @@ export function canTransitionDigitalInterview(
 }
 
 export type DigitalInterviewStep = "topic" | "experts" | "questions" | "runs" | "report";
-export type DigitalInterviewPrimaryAction =
-  | "confirm_topic"
-  | "confirm_experts"
-  | "confirm_questions"
-  | "continue_runs"
-  | "generate_report"
-  | "view_report"
-  | "retry";
+export type DigitalInterviewPrimaryAction = z.infer<typeof interview.DigitalInterviewPrimaryAction>;
 
 export interface DigitalInterviewStateProjection {
   readonly cardStatus: DigitalInterviewStatusName;
