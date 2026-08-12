@@ -172,6 +172,9 @@ import { INTERVIEW_ATTACHMENT_REPOSITORY } from "./application/interview/attachm
 import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interview-scope-repository";
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
+import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+import { DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
+import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 // F86 (#356): consent-token 真实持久化——替换原 in-memory-consent-token-repository.ts。
 // ⚠ 尚无 controller 调用这三个仓储背后的用例（issue-signing-token 等）：见该文件顶部
 // 与迁移文件头，F86 五个用例目前没有任何 interface 层入口，绑好 provider 只是把
@@ -499,6 +502,7 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
     EvidenceWithdrawalController,
     AuthOrgController,
     OrgAdminScopeController,
+    DigitalInterviewController,
     InterviewScopeController,
     ChatController,
     ChatAttachmentController,
@@ -967,6 +971,11 @@ import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg
     {
       provide: INTERVIEW_SCOPE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgInterviewScopeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: DIGITAL_INTERVIEW_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDigitalInterviewRepository(db),
       inject: [DATABASE_PORT],
     },
     // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。

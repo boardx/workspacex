@@ -1,9 +1,5 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { ItvChainNav } from "@/components/itv/itv-chain-nav";
-import { ItvWorkspace } from "@/components/itv/itv-workspace";
-import { resolvePreviewState } from "@/lib/ui-state";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
-import { resolveScreen, resolveScope, resolveItvView } from "@/lib/mock/itv";
+import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
 
 /**
  * 访谈能力域 UI 先行原型 v2 —— 顶层路由 `/itv`（并行安全，不覆盖旧的 /studio/interview）。
@@ -22,33 +18,12 @@ export default function ItvPage({
   searchParams,
 }: {
   searchParams: {
-    screen?: string;
-    scope?: string;
-    view?: string;
-    state?: string;
-    step?: string;
-    as?: string;
-    org?: string;
+    tab?: string;
   };
 }) {
-  const screen = resolveScreen(searchParams.screen);
-  const scope = resolveScope(searchParams.scope);
-  const view = resolveItvView(searchParams.view);
-  const state = resolvePreviewState(searchParams.state);
-  const stepNum = Number(searchParams.step);
-  const step: 1 | 2 | 3 = stepNum === 1 || stepNum === 2 ? (stepNum as 1 | 2) : 3;
-
-  // 身份用于三栏骨架的顶栏/图标栏；访谈自有角色模型，identity 仅承载组织与展示名。
-  const previewRole = resolvePreviewRole(searchParams.as);
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", previewRole);
-
   return (
-    <AppShell
-      identity={identity}
-      previewRole={previewRole}
-      left={<ItvChainNav screen={screen} state={state} scope={scope} view={view} />}
-    >
-      <ItvWorkspace screen={screen} state={state} view={view} scope={scope} step={step} />
+    <AppShell previewRole={null}>
+      <InterviewStudioHome initialTab={searchParams.tab === "experts" ? "experts" : "history"} />
     </AppShell>
   );
 }

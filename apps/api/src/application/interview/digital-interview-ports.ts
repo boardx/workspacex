@@ -18,6 +18,18 @@ export interface StoredDigitalInterview {
   readonly createdBy: string;
 }
 
+export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
+  readonly updatedAt: string;
+}
+
+export interface StoredDigitalExpert {
+  readonly expertId: string;
+  readonly initials: string;
+  readonly displayName: string;
+  readonly role: string;
+  readonly publishedVersionId: string | null;
+}
+
 export interface CreateDigitalInterviewRecordInput {
   readonly orgId: OrgId;
   readonly interviewId: string;
@@ -45,6 +57,19 @@ export interface DigitalInterviewRepository {
     readonly fromStatus: DigitalInterviewStatusName;
     readonly toStatus: DigitalInterviewStatusName;
   }): Promise<void>;
+  listVisible(input: {
+    readonly orgId: OrgId;
+    readonly viewerUserId: string;
+    readonly status?: DigitalInterviewStatusName;
+  }): Promise<readonly {
+    readonly item: Guarded<StoredDigitalInterviewListItem>;
+    readonly facts: InterviewVisibilityFacts;
+  }[]>;
+  listVisibleExperts(input: {
+    readonly orgId: OrgId;
+    readonly viewerUserId: string;
+    readonly domain?: string;
+  }): Promise<readonly StoredDigitalExpert[]>;
 }
 
 export const DIGITAL_INTERVIEW_REPOSITORY = Symbol("DigitalInterviewRepository");
