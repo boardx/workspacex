@@ -1,19 +1,20 @@
 # 会话交接 — Sprint 01/04
 
 ## 当前已验证
-- F166 尚未 passing（需 PR 合入 main）；其五条专项验证均通过，扩展测试 6 files/8 tests 通过。
+- F166 尚未 passing（需其独立 PR 合入 main）；专项验证均通过。
+- F168 已认领，当前实现链正在重放到最新 main。
 
 ## 本轮改动
-- 新增短期一次性 ticket 表、ASR 用量事件表、个人 capture/segment 写入、阿里 Fun-ASR provider/state machine 与 BoardX WS gateway。
+- F166：一次性 ticket、ASR 状态机与用量链路，详见其独立分支。
+- F168：研究首页与可恢复会话，详见 `coord-deep-research` 分支。
 
 ## 仍损坏或未验证
-- `verify:base` 在宿主机高负载下等待隔离栈准入，未实际启动而人工中止；专项、migration、lint 均绿。
-- F167 尚未开始，因此当前 `/rec` 按钮仍不会调用 ticket 或采集麦克风。
+- F166/F168 均须各自 review、验证、合并；不得把两个 owner 的改动混成一个 PR。
 
 ## 下一步最佳动作
-- 先 review/合并 F166；随后单独领取 F167 做前端 AudioWorklet、BoardX client 和最终段刷新恢复。不要把 F167 混进本 PR。
+- coord-voice 只处理 F166/F167；coord-deep-research 只处理 F168，完成后串行 F169-F171。
 
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 01/04`
-- 调试:`WORKSPACEX_ISOLATION_SEED=f166-final pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/recording/*asr*.test.ts`
+- F168 API:`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts --reporter=verbose`
