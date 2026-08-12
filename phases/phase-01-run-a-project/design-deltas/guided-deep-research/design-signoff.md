@@ -1,11 +1,11 @@
 ---
-status: pending
+status: confirmed
 bundle: guided-deep-research
 base_bundle: research
 scope: guided-brief-directions-outline-web-search-report
 covers: []
-confirmed_by:
-confirmed_at:
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-12T17:05:00+08:00
 ---
 
 # Design delta 签核 · 引导式 Deep Research
