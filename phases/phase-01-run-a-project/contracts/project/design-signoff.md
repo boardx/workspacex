@@ -18,7 +18,22 @@ phase: "01"
 #     那三个字段是人的动作，agent 不许动（ADR-023）。
 #   ⚠ 若 coord-main 或人类认为「已签核束追加 feature 编号」这件事本身需要人类再签一次，
 #     把 F158 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158]
+# ⚠ 2026-08-12（PJ-03 / F164）：追加 **F164**，由 agent `dev-project` 追加，**待 coord-main 复核**。
+#   理由与 F158 同构——它**不引入任何新的设计面**：
+#     · UI 早已在第 ① 件材料里签过：`ui-preview/project-v2/uc-00-2-allprojects-more-menu.png`
+#       （⋯ 菜单四项）与 `uc-00-2-allprojects-archived.png`（已归档态）；`contracts/project/ui.md`
+#       第 39 行逐字写明菜单内容「编辑/看大屏/复制邀请/归档，无删除」，第 81 行给出
+#       `projects-card-*-more` / `projects-more-*` 这组 testid，第 40/117 行写明「归档是 status 不是 tag」。
+#     · 契约早已在第 ③ 件里签过：`archiveProject` / `unarchiveProject`，其后端 F124 已 passing 并在本 covers 里。
+#     · 失败面沿用既有码（ORG_ROLE_INSUFFICIENT / PROJECT_ARCHIVED / AUTH_SERVICE_UNAVAILABLE），
+#       **没有新增任何错误码**——U-2⑵ 那条无码的裸 400（KNOWN_CONTRACT_GAPS.P7）本版按
+#       coord-main 2026-08-12 裁决 (a) 显示通用失败文案、不编原因，缺口另记 issue #999，
+#       将来补码要走 delta 重签，不在本次追加的范围内。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改——
+#     那三个字段是人的动作，agent 不许动（ADR-023）。
+#   ⚠ 若 coord-main 或人类认为「已签核束追加 feature 编号」本身需要人类再签一次，
+#     把 F164 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

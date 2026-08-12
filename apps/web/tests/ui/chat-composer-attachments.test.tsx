@@ -79,7 +79,7 @@ describe("ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152）", () =
     await renderPanel();
 
     await act(async () => { selectFiles([pdf("brief.pdf")]); });
-    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledWith("t", expect.any(File), "b"));
+    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledWith("t", expect.any(File), "b", expect.any(Function)));
 
     // 预览条出现且转为「已就绪」
     const list = await screen.findByTestId("chat-attachment-list");
@@ -139,5 +139,89 @@ describe("ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152）", () =
     await act(async () => { selectFiles([pdf("pending.pdf")]); });
     await screen.findByTestId("chat-attachment-list");
     expect(screen.getByTestId("chat-message-submit")).toBeDisabled();
+  });
+
+  // ── 📎 → 「加材料进这一轮」面板（第一版从简；复用 Modal 壳） ──────────────
+  it("点 📎 先弹「加材料进这一轮」面板，而非直接开系统文件框", async () => {
+    await renderPanel();
+    expect(screen.queryByTestId("chat-attach-material")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    const modal = await screen.findByTestId("chat-attach-material");
+    expect(modal).toHaveAttribute("role", "dialog");
+    expect(within(modal).getByText("加材料进这一轮")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-attachment-input")).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("面板里「从本机文件选择」才触发隐藏 file input", async () => {
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    await screen.findByTestId("chat-attach-material");
+    const input = screen.getByTestId("chat-attachment-file-input") as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, "click").mockImplementation(() => {});
+    fireEvent.click(screen.getByTestId("chat-attach-material-pick"));
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    clickSpy.mockRestore();
+  });
+
+  it("面板约束文案用已签 25MB（非原型 200MB）且不含未支持的「录音」", async () => {
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    const dropzone = await screen.findByTestId("chat-attach-material-dropzone");
+    const text = dropzone.textContent ?? "";
+    expect(text).toContain(`${ATTACHMENT_LIMITS.maxBytesPerFile / (1024 * 1024)}`); // 25
+    expect(text).not.toContain("200");
+    expect(text).not.toContain("录音"); // 白名单无 audio
+  });
+
+  it("第一版砍掉的能力不留假占位：无勾选框、无 token/机密/即将上线字样", async () => {
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    const modal = await screen.findByTestId("chat-attach-material");
+    // 没有逐文件「勾选进上下文」控件
+    expect(within(modal).queryByRole("checkbox")).not.toBeInTheDocument();
+    // 没有被砍能力的占位文案（不做假开关）
+    const text = modal.textContent ?? "";
+    expect(text).not.toContain("即将上线");
+    expect(text).not.toContain("qwen3-32b");
+    expect(text).not.toContain("token");
+  });
+
+  it("面板：「取消」与关闭按钮都能关闭（复用 Modal 壳）", async () => {
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    await screen.findByTestId("chat-attach-material");
+    fireEvent.click(screen.getByTestId("chat-attach-material-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("chat-attach-material")).not.toBeInTheDocument());
+    // 再开，点右上角关闭
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    await screen.findByTestId("chat-attach-material");
+    fireEvent.click(screen.getByTestId("chat-attach-material-close"));
+    await waitFor(() => expect(screen.queryByTestId("chat-attach-material")).not.toBeInTheDocument());
+  });
+
+  it("面板内选文件走真实上传，预览条与「本次已选」计数同步", async () => {
+    uploadAttachment.mockResolvedValue({ id: "att-server-9", filename: "in-modal.pdf", mime: "application/pdf", bytes: 1024, createdAt: "2026-01-01T00:00:00.000Z" });
+    await renderPanel();
+    fireEvent.click(screen.getByTestId("chat-attachment-input"));
+    await screen.findByTestId("chat-attach-material");
+    await act(async () => { selectFiles([pdf("in-modal.pdf")]); });
+    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledWith("t", expect.any(File), "b", expect.any(Function)));
+    expect(screen.getByTestId("chat-attach-material-selected-count").textContent).toContain("1");
+    const list = await screen.findByTestId("chat-attach-material-list");
+    expect(within(list).getByText("in-modal.pdf")).toBeInTheDocument();
+  });
+
+  it("上传显示真实进度条：onProgress(0.5) → 进度条 aria-valuenow=50 且「上传中 50%」", async () => {
+    // 上报 50% 后挂起，让附件停在 uploading@50%
+    uploadAttachment.mockImplementation((_t: string, _f: File, _b: string | undefined, onProgress?: (f: number) => void) => {
+      onProgress?.(0.5);
+      return new Promise<never>(() => {}); // 永不 resolve
+    });
+    await renderPanel();
+    await act(async () => { selectFiles([pdf("uploading.pdf")]); });
+    const list = await screen.findByTestId("chat-attachment-list");
+    const bar = await within(list).findByRole("progressbar");
+    expect(bar).toHaveAttribute("aria-valuenow", "50");
+    expect(within(list).getByText(/上传中 50%/)).toBeInTheDocument();
   });
 });

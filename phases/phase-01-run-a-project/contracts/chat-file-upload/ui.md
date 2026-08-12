@@ -1,7 +1,8 @@
 # 契约束 `chat-file-upload` — ① UI（人看到的界面对不对）
 
-> **自检**：本文件引用 9 张截图，目录 `ui-preview/chat-file-upload/` 下实际 9 张 PNG + 一份
-> `README.md`。N == M == 9，逐张核对全部真实存在，无死链。
+> **自检**：本文件引用 12 张截图，目录 `ui-preview/chat-file-upload/` 下实际 12 张 PNG + 一份
+> `README.md` + 一份 `SIGNOFF-INCREMENT-attach-modal.md`（📎 面板增量说明源）。
+> N == M == 12，逐张核对全部真实存在，无死链。
 > 复核命令（唯一实现）：`node .harness/scripts/lint-ui-material.mjs`
 >
 > phase-01 是 `has_ui: true` 阶段，本文件由 `requiredBundleFiles()` 强制存在。
@@ -30,6 +31,19 @@ V9-a 附件能力寄生在 chat 输入区（composer）。原型用 `apps/web` �
 | ⑦ | 失败·超张数 · 满 10/10 + 拒收横幅 | `ui-preview/chat-file-upload/v9-composer-attach-error-count.png` | F152 |
 | ⑧ | 失败·可重试 · 传输中断 +「重试」按钮 | `ui-preview/chat-file-upload/v9-composer-attach-error-retry.png` | F152 |
 | ⑨ | 二次确认·移除 · 含影响说明 + 取消/移除 | `ui-preview/chat-file-upload/v9-composer-attach-remove-confirm.png` | F152 |
+
+### 索引表·签核增量（📎「加材料进这一轮」面板 · 简版）
+
+> F152 的 📎 由**直接开系统文件框**改为**先弹面板**（人类 devapp 实测反馈）。第一版从简口径与
+> 逐条设计说明见 **`ui-preview/chat-file-upload/SIGNOFF-INCREMENT-attach-modal.md`**（本增量的说明源）；
+> 活组件 `apps/web/components/chat/chat-composer-attachments.tsx` `ChatAttachMaterialModal`，无鉴权预览
+> `/preview/chat-attach-modal`。数值仍单源自 `packages/contracts/src/chat-file-upload.ts`（25MB/白名单/10）。
+
+| # | 界面态 | 截图 | 服务 feature |
+|---|---|---|---|
+| ⑩ | 面板·混合态 · 已就绪 / 上传中（真实进度条）/ 失败可重试 | `ui-preview/chat-file-upload/v9-attach-modal-mix.png` | F152 |
+| ⑪ | 面板·达上限 · 满 10/10「从本机文件选择」禁用 + 上限提示 | `ui-preview/chat-file-upload/v9-attach-modal-atlimit.png` | F152 |
+| ⑫ | 面板·空态 · 拖拽区 + 约束文案（25MB · 支持类型 = 契约白名单派生） | `ui-preview/chat-file-upload/v9-attach-modal-empty.png` | F152 |
 
 ## 三、签核① 须人类核对的设计决定（ui-prototyper 报告，超签核字面处）
 

@@ -3703,6 +3703,28 @@
     },
     {
       "id": "F164",
+      "title": "/projects 列表卡片 ⋯ 菜单接通真实 archiveProject / unarchiveProject",
+      "user_visible_behavior": "项目负责人在 /projects 列表某张真栈卡片上点开 ⋯ 菜单（projects-card-<id>-more，菜单容器 projects-more-menu-<id>，含「编辑 / 看大屏 / 复制邀请 / 归档」四项，无删除项）。点「归档」（projects-more-<id>-archive）后弹出二次确认（projects-archive-confirm-<id>，含影响范围说明：归档后项目转为只读、可稍后解归档），点确认提交（projects-archive-submit-<id>）发出真实 POST /projects/<id>/archive（带 Bearer 鉴权头），点取消（projects-archive-cancel-<id>）关闭不发请求。成功后列表刷新，该卡片 readOnlyReason 变为 \"archived\"，既有的 projects-card-<id>-readonly 只读徽标自动出现且状态徽标显示「已归档」。对已归档项目，⋯ 菜单改为提供「解归档」，点击发出 POST /projects/<id>/unarchive，成功后卡片恢复活跃态。失败时就地显示错误（projects-archive-error-<id>）：有 reasonCode（ORG_ROLE_INSUFFICIENT / PROJECT_ARCHIVED / AUTH_SERVICE_UNAVAILABLE）时显示该 reasonCode；后端因「有进行中环节」抛出的无码裸 400 时显示通用失败文案、不编造原因。提交进行中按钮禁用，不会发出第二个请求。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F124"
+      ],
+      "points": 2,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/projects-screen-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "evidence/F164.verify.log @ 2026-08-12T00:47:31.147Z",
+      "notes": "前端接线 + UI 重做 feature：本 feature 不是纯接线，需在真栈卡片 ProjectRealCard（apps/web/components/projects/projects-screen.tsx:175-208，当前只有「进入项目」按钮 + 状态/只读徽标，完全没有 ⋯ 菜单）上重做 ⋯ 菜单 UI并接线到真实 archiveProject / unarchiveProject。原型组件 apps/web/components/projects/project-more-menu.tsx 已孤儿化（仅被无人 import 的 project-card.tsx 引用，归档动作是 window.alert(\"演示\")），不复用其接线，只可参考其结构。testid 依 contracts/project/ui.md:39,81：projects-card-<id>-more / projects-more-menu-<id> / projects-more-<id>-archive / projects-archive-confirm-<id> / projects-archive-cancel-<id> / projects-archive-submit-<id>；菜单四项「编辑/看大屏/复制邀请/归档」无删除（Q-9 裁不提供删除项目，退役由归档承接）；归档是 status 不是 tag（U-2）。权限：组织角色 lead|admin 可归档（archive-project.ts:73 复用 canCreateProject，#608 已放宽）。\n🔴 已知契约缺口 P7（KNOWN_CONTRACT_GAPS.P7）：U-2⑵「有进行中环节时拒绝归档」后端已在 project.controller.ts:516-518 拦截但抛裸 400 无错误码。coord-main 2026-08-12 裁决 (a)：本版对无码裸 400 显示通用失败文案、不编造原因；缺口记 issue #999（建议码名 ARCHIVE_BLOCKED_ACTIVE_SEGMENT，挂 project 束下一次 delta 批次）。归档成功后 readOnlyReason=\"archived\" 触发既有 projects-card-<id>-readonly 徽标，前端不需额外做。\n预计改动文件：apps/web/components/projects/projects-screen.tsx、apps/web/lib/live-projects.ts、apps/web/tests/ui/projects-screen-live.test.tsx（已存在，追加归档/解归档用例）。\n【依赖】F124（后端 archiveProject/unarchiveProject 已 passing）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F165",
       "title": "用户私有转录文档与历史落库：名称/标签/多 capture 聚合，正文仍唯一来自 recording_segments",
       "user_visible_behavior": "已登录用户在 /rec 创建不关联项目的转录文档后，刷新仍能看到名称、标签、状态、时长和最终逐字稿；停止后再次开始会追加一个 capture run，旧正文不丢。列表、搜索、详情只返回当前用户自己的内容，同组织其他成员和管理员均读不到正文。",
       "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R3",
@@ -3716,20 +3738,20 @@
         "pnpm --filter api exec vitest run tests/recording/personal-transcription-persistence.test.ts",
         "pnpm --filter api exec vitest run tests/recording/personal-transcription-multi-capture.test.ts"
       ],
-      "evidence": "evidence/F164.verify.log @ 2026-08-12T00:07:35.601Z",
-      "notes": "issue #945；原编号 F158 与 main 的项目创建 feature 冲突，重放至最新 main 时顺延为 F164。属 personal-realtime-transcription 束。新增 personal_transcriptions 只存元数据，不复制正文；capture 复用 recording_sessions，final 仍只写 recording_segments。project_id 仅对 source_type=personal 放宽为空，既有 workshop/interview/thread 约束保持不变。",
+      "evidence": "evidence/F165.verify.log @ 2026-08-12T00:07:35.601Z",
+      "notes": "issue #945；原编号 F158，因 main 的项目创建与归档 feature 冲突，重放至最新 main 时顺延为 F165。属 personal-realtime-transcription 束。新增 personal_transcriptions 只存元数据，不复制正文；capture 复用 recording_sessions，final 仍只写 recording_segments。project_id 仅对 source_type=personal 放宽为空，既有 workshop/interview/thread 约束保持不变。",
       "priority": 1,
       "area": "recording",
       "capability": "CAP-API",
       "sprint": "03"
     },
     {
-      "id": "F165",
+      "id": "F166",
       "title": "一次性 ASR ticket 与阿里云 Fun-ASR 状态机：task-started 后转 PCM，task-finished 后完成并按用量记账",
       "user_visible_behavior": "用户点开始转录时领取约 60 秒的一次性 ticket；浏览器只连接 BoardX，服务端代理阿里云 Fun-ASR。中间文本实时替换，最终文本先落库后出现；点停止后继续接收尾部结果，直到完成。过期、复用、跨会话 ticket、额度不足或服务未配置都会给出明确错误。",
       "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R4",
       "depends_on": [
-        "F164"
+        "F165"
       ],
       "points": 8,
       "status": "not_started",
@@ -3742,20 +3764,20 @@
         "pnpm --filter api exec vitest run tests/recording/fun-asr-usage-idempotency.test.ts"
       ],
       "evidence": "",
-      "notes": "issue #945；原编号 F159 与 main 的 token 计量 feature 冲突，重放至最新 main 时顺延为 F165。属 personal-realtime-transcription 束。后端使用现有 ws 依赖与既有 segment ingestion/额度/模型调用日志服务，不引入阿里 SDK；环境变量为 ALIYUN_ASR_MODEL/REGION/WORKSPACE_ID 与 DASHSCOPE_API_KEY。",
+      "notes": "issue #945；原编号 F159，因 main feature 编号冲突，重放至最新 main 时顺延为 F166。属 personal-realtime-transcription 束。后端使用现有 ws 依赖与既有 segment ingestion/额度/模型调用日志服务，不引入阿里 SDK；环境变量为 ALIYUN_ASR_MODEL/REGION/WORKSPACE_ID 与 DASHSCOPE_API_KEY。",
       "priority": 1,
       "area": "recording",
       "capability": "CAP-API",
       "sprint": null
     },
     {
-      "id": "F166",
+      "id": "F167",
       "title": "/rec 真数据接线与 AudioWorklet：历史卡片、新建弹窗、单一开始停止按钮、final/interim 去重",
       "user_visible_behavior": "用户从真实历史卡片创建或打开转录，详情主区域只看到一个开始/停止按钮与逐字稿。开始后浏览器用 AudioWorklet 发送 mono/16k/PCM16 音频；临时结果只替换当前行，最终结果只追加一次；停止后按钮显示正在收尾且不可重复点击，刷新后从数据库恢复最终正文。",
       "spec_ref": "05-rec/uc-5-5-用户私有实时转录工作台.md#R4",
       "depends_on": [
-        "F164",
-        "F165"
+        "F165",
+        "F166"
       ],
       "points": 5,
       "status": "not_started",
@@ -3767,7 +3789,7 @@
         "pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smoke.test.ts"
       ],
       "evidence": "",
-      "notes": "issue #945；原编号 F160 与 main 的成员 token 配额 feature 冲突，重放至最新 main 时顺延为 F166。属 personal-realtime-transcription 束。移除 /rec 的 mock 数据与实时详情 Skill 分析面板；前端只理解 BoardX 事件，不解析阿里云原始事件。",
+      "notes": "issue #945；原编号 F160，因 main feature 编号冲突，重放至最新 main 时顺延为 F167。属 personal-realtime-transcription 束。移除 /rec 的 mock 数据与实时详情 Skill 分析面板；前端只理解 BoardX 事件，不解析阿里云原始事件。",
       "priority": 1,
       "area": "recording",
       "capability": "CAP-WEB",

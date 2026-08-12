@@ -317,3 +317,17 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 7. **枚举的封闭性是要守的性质，成员数不是**（修订 E-4 的教训）。
    断言写成 `toHaveLength(7)` 会让一个经 ADR 评审的正当新增被自己的测试拦下。
    要断言的是：成员集合与契约一致，且**未声明的值不能通过**。
+
+## covers 追加规则（2026-08-12 人类批准，coord-main 代抄）
+
+agent 可以**不经人类重签**、自行把新 feature 编号追加进已签核束的 `covers:`，当且仅当三条件全部满足：
+
+1. **UI 已签**：该 feature 的全部界面落点已在该束签核过的 ui.md/截图集里逐屏存在；
+2. **契约已签**：它调用的 API 操作全部属于该束已签核的契约面；
+3. **零新增设计面**：不引入新错误码、新字段、新屏、新交互语义。
+
+任一条不满足 ⇒ 走 design-delta（#953 先例）或人类重签，不得追加。追加时只动 `covers:`，
+`status`/`confirmed_by`/`confirmed_at` 一字不改，commit message 里逐条写明三条件的证据。
+
+先例：F158（#1035→#1036）、F164（#1038）。出处：人类 2026-08-12 晨逐字「同意」
+coord-main 提请的三条件规则（本节即代抄落档，人类可改）。

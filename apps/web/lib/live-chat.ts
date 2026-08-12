@@ -277,24 +277,51 @@ export const ATTACHMENT_MIME_ALLOWLIST = chatFileUpload.ATTACHMENT_MIME_ALLOWLIS
  * 一致（`reasonCode` 驱动前端文案：FILE_TOO_LARGE / FILE_TYPE_REJECTED / MIME_MISMATCH /
  * ATTACHMENT_LIMIT_EXCEEDED / NO_WRITE_ROLE / STORAGE_UNAVAILABLE）。
  */
+/**
+ * 上传单个附件。
+ *
+ * ⚠ 用 **XMLHttpRequest** 而不是 fetch：只有 XHR 暴露 `upload.onprogress`，才能给出真实上传
+ * 进度条（`onProgress` 传 0..1 的已发送比例）。fetch 拿不到上传字节进度，只能不确定态转圈——
+ * 人类要求「上传要有进度显示」，故这里换 XHR。错误语义与原 fetch 版一致：非 2xx → `ApiError`
+ * 带 `reasonCode`（供 composer 就地报错映射），网络层失败 → `ApiError(0, null)`（默认可重试）。
+ */
 export async function uploadAttachment(
   threadId: string,
   file: File,
   sessionToken?: string,
+  onProgress?: (fraction: number) => void,
 ): Promise<ChatAttachment> {
   const url = apiUrl(
     chatFileUpload.operations.uploadAttachment.path.replace(":threadId", encodeURIComponent(threadId)),
   );
   const token = sessionToken !== undefined ? sessionToken : getStoredSessionToken();
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
   const form = new FormData();
   form.append("file", file, file.name);
-  const res = await fetch(url, { method: "POST", headers, credentials: "include", body: form });
-  const text = await res.text();
-  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
-  if (!res.ok) throw new ApiError(res.status, extractReasonCode(json), json);
-  return json as ChatAttachment;
+  return new Promise<ChatAttachment>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Accept", "application/json");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
+      };
+    }
+    xhr.onload = () => {
+      const text = xhr.responseText ?? "";
+      let json: unknown;
+      try { json = text.length > 0 ? JSON.parse(text) : undefined; } catch { json = undefined; }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new ApiError(xhr.status, extractReasonCode(json), json));
+        return;
+      }
+      onProgress?.(1); // 收到 200 = 字节已全部送达并落库
+      resolve(json as ChatAttachment);
+    };
+    xhr.onerror = () => reject(new ApiError(0, null, undefined));
+    xhr.send(form);
+  });
 }
 
 export interface CreateThreadInput {
