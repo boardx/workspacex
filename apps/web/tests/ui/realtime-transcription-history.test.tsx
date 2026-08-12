@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 const api = vi.hoisted(() => ({
   create: vi.fn(),
   list: vi.fn(),
+  read: vi.fn(),
 }));
 
 vi.mock("@/components/session/session-provider", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/components/session/session-provider", () => ({
 vi.mock("@/lib/live-personal-transcriptions", () => ({
   createPersonalTranscription: api.create,
   listPersonalTranscriptions: api.list,
+  readPersonalTranscription: api.read,
 }));
 
 const EUROPE = {
@@ -35,7 +37,27 @@ const EUROPE = {
 beforeEach(() => {
   api.create.mockReset();
   api.list.mockReset();
+  api.read.mockReset();
   api.list.mockResolvedValue({ items: [EUROPE], nextCursor: null });
+  api.read.mockResolvedValue({
+    ...EUROPE,
+    captures: [{
+      captureId: "capture-1",
+      status: "completed",
+      startedAt: "2026-08-11T06:30:00.000Z",
+      endedAt: "2026-08-11T07:28:12.000Z",
+      durationMs: 3_492_000,
+      segments: [{
+        segmentId: "segment-1",
+        captureId: "capture-1",
+        ordinal: 1,
+        text: "这是数据库中保存的真实逐字稿。",
+        startMs: 4_000,
+        endMs: 8_000,
+        createdAt: "2026-08-11T06:30:08.000Z",
+      }],
+    }],
+  });
 });
 
 function renderHistory() {
@@ -95,6 +117,9 @@ describe("实时转录历史工作台", () => {
     expect(await screen.findByTestId("rec-live-workspace")).toBeVisible();
     expect(screen.getByTestId("rec-live-title")).toHaveTextContent("江西九江");
     expect(screen.getByText(/\u5ba2户成功/)).toBeVisible();
+    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("待开始");
+    expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("开始转录");
+    expect(screen.queryByText(/已连接/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("rec-history-page")).not.toBeInTheDocument();
   });
 
@@ -103,9 +128,12 @@ describe("实时转录历史工作台", () => {
 
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
 
+    await waitFor(() => expect(api.read).toHaveBeenCalledWith("europe-entry", "session-token"));
     expect(screen.getByTestId("rec-live-workspace")).toBeVisible();
     expect(screen.getByTestId("rec-live-title")).toHaveTextContent("欧洲市场进入讨论");
     expect(screen.getByTestId("rec-live-status")).toHaveTextContent("已完成");
+    expect(screen.getByText("这是数据库中保存的真实逐字稿。")).toBeVisible();
+    expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
   });
 
   it("刷新后仍从 API 读回已创建转录，不依赖组件内存", async () => {
@@ -123,5 +151,45 @@ describe("实时转录历史工作台", () => {
 
     expect(await screen.findByText("刷新后仍在")).toBeVisible();
     expect(api.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("沿服务端游标读取全部历史，并把搜索与标签传给 API", async () => {
+    api.list
+      .mockResolvedValueOnce({ items: [EUROPE], nextCursor: "cursor-2" })
+      .mockResolvedValueOnce({
+        items: [{ ...EUROPE, sessionId: "older", name: "更早的持久化转录" }],
+        nextCursor: null,
+      })
+      .mockResolvedValue({ items: [], nextCursor: null });
+    renderHistory();
+
+    expect(await screen.findByText("更早的持久化转录")).toBeVisible();
+    expect(api.list).toHaveBeenNthCalledWith(1, {}, "session-token");
+    expect(api.list).toHaveBeenNthCalledWith(2, { cursor: "cursor-2" }, "session-token");
+
+    fireEvent.change(screen.getByTestId("rec-history-search"), { target: { value: "合规要求" } });
+    await waitFor(() => expect(api.list).toHaveBeenCalledWith({ query: "合规要求" }, "session-token"));
+
+    fireEvent.click(screen.getByTestId("rec-history-tag-客户"));
+    await waitFor(() => expect(api.list).toHaveBeenCalledWith(
+      { query: "合规要求", tag: "客户" },
+      "session-token",
+    ));
+  });
+
+  it("项目录制旧屏仍可通过显式模式访问", () => {
+    render(
+      <RecApp
+        identity={mockIdentity("org-yuanyang", "facilitator")}
+        uiState="default"
+        screen="prep"
+        carrier="interview"
+        view="facilitator"
+        qs={{ mode: "project" }}
+      />,
+    );
+
+    expect(screen.getByTestId("rec-prep")).toBeVisible();
+    expect(screen.queryByTestId("rec-history-page")).not.toBeInTheDocument();
   });
 });

@@ -1,29 +1,34 @@
 "use client";
 
-import * as React from "react";
-import { ArrowLeft, FileText, ListChecks, Mic, Quote, Radio, Sparkles, Square } from "lucide-react";
+import { ArrowLeft, Mic, Radio } from "lucide-react";
+import type { personalRealtimeTranscription as C } from "@repo/contracts";
+import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
 
-type LiveStatus = "recording" | "finalizing" | "completed";
+type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
+type PersonalTranscriptionStatus = z.infer<typeof C.PersonalTranscriptionStatus>;
+
+const STATUS_LABEL: Record<PersonalTranscriptionStatus, string> = {
+  idle: "待开始",
+  recording: "录音中",
+  completed: "已完成",
+  failed: "转录失败",
+};
 
 export function RealtimeTranscriptionWorkspace({
-  session, onBack,
+  session,
+  onBack,
+  onToggle,
 }: {
-  session: TranscriptionHistoryItem;
+  session: PersonalTranscriptionDetail;
   onBack: () => void;
+  onToggle?: () => void;
 }) {
-  const [status, setStatus] = React.useState<LiveStatus>(session.status === "completed" ? "completed" : "recording");
-
-  React.useEffect(() => {
-    if (status !== "finalizing") return;
-    const timer = window.setTimeout(() => setStatus("completed"), 800);
-    return () => window.clearTimeout(timer);
-  }, [status]);
-
-  const completed = status === "completed";
+  const segments = session.captures.flatMap((capture) => capture.segments);
+  const recording = session.status === "recording";
+  const canStart = session.status === "idle" || session.status === "completed" || session.status === "failed";
 
   return (
     <section data-testid="rec-live-workspace" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
@@ -35,92 +40,80 @@ export function RealtimeTranscriptionWorkspace({
             </Button>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 data-testid="rec-live-title" className="truncate text-24 font-semibold tracking-tight">{session.title}</h1>
-                <Badge data-testid="rec-live-status" tone={completed ? "primary" : status === "finalizing" ? "warning" : "danger"}>
-                  {completed ? "已完成" : status === "finalizing" ? "正在收尾" : "录音中"}
+                <h1 data-testid="rec-live-title" className="truncate text-24 font-semibold tracking-tight">{session.name}</h1>
+                <Badge
+                  data-testid="rec-live-status"
+                  tone={session.status === "completed" ? "primary" : session.status === "recording" ? "danger" : session.status === "failed" ? "danger" : "neutral"}
+                >
+                  {STATUS_LABEL[session.status]}
                 </Badge>
               </div>
-              <p className="mt-2 text-12 text-muted-foreground">{session.project} · {session.owner} · {session.tags.join(" / ") || "未添加标签"}</p>
+              <p className="mt-2 text-12 text-muted-foreground">个人转录 · {session.tags.join(" / ") || "未添加标签"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 pl-11 md:pl-0">
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
-              <Radio aria-hidden className="h-4 w-4 text-success" />
-              {completed ? "内容已保存" : status === "finalizing" ? "等待最终识别结果" : "已连接 · 00:00"}
+              <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
+              {session.status === "completed" ? "内容已保存" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : "尚未开始"}
             </div>
-            {!completed && (
-              <Button
-                data-testid="rec-live-stop"
-                type="button"
-                variant="destructive"
-                disabled={status === "finalizing"}
-                onClick={() => setStatus("finalizing")}
-              >
-                <Square aria-hidden className="h-3.5 w-3.5" />
-                {status === "finalizing" ? "正在收尾" : "停止转录"}
-              </Button>
-            )}
+            <Button
+              data-testid="rec-live-toggle"
+              type="button"
+              variant={recording ? "destructive" : "primary"}
+              disabled={onToggle === undefined}
+              onClick={onToggle}
+            >
+              {recording ? "停止转录" : canStart ? "开始转录" : "开始转录"}
+            </Button>
           </div>
         </header>
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <Card className="min-h-96 p-6 lg:col-span-2" data-testid="rec-live-transcript">
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+        <Card className="min-h-96 p-6" data-testid="rec-live-transcript">
+          <div className="border-b border-border pb-4">
+            <h2 className="text-16 font-semibold">实时逐字稿</h2>
+            <p className="mt-1 text-11 text-muted-foreground">这里只显示已由服务端确认并持久化的最终段。</p>
+          </div>
+
+          {segments.length > 0 ? (
+            <div className="mt-5 flex flex-col gap-4">
+              {segments.map((segment) => (
+                <TranscriptSegment
+                  key={segment.segmentId}
+                  time={formatTime(segment.startMs)}
+                  text={segment.text}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Mic aria-hidden className="h-5 w-5" />
+              </span>
               <div>
-                <h2 className="text-16 font-semibold">实时逐字稿</h2>
-                <p className="mt-1 text-11 text-muted-foreground">最终段与当前识别中内容分开显示，避免重复。</p>
+                <p className="text-14 font-medium">{recording ? "正在等待识别结果" : "还没有逐字稿"}</p>
+                <p className="mt-1 text-12 text-muted-foreground">{recording ? "最终文字会在服务端保存后显示。" : "点击开始转录后，最终文字会显示在这里。"}</p>
               </div>
-              {!completed && <Badge tone="outline">自动滚动</Badge>}
             </div>
-
-            {completed ? (
-              <div className="mt-5 flex flex-col gap-4">
-                <TranscriptSegment time="00:04" text={session.summary} final />
-                <TranscriptSegment time="00:18" text="本次转录已完成，可以继续生成总结、报告或提取带时间码的引用。" final />
-              </div>
-            ) : (
-              <div className="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <Mic aria-hidden className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-14 font-medium">{status === "finalizing" ? "正在接收最后一段识别结果" : "麦克风已就绪"}</p>
-                  <p className="mt-1 text-12 text-muted-foreground">{status === "finalizing" ? "完成前暂不可调用 Skill。" : "开始说话后，实时文字会出现在这里。"}</p>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <Card className="flex min-h-96 flex-col p-6" data-testid="rec-live-analysis">
-            <div>
-              <h2 className="text-16 font-semibold">转录分析</h2>
-              <p className="mt-1 text-11 text-muted-foreground">转录完成后，调用 Skill 生成带原文引用的结果。</p>
-            </div>
-            <div className="mt-5 grid gap-2">
-              <AnalysisAction icon={ListChecks} label="总结要点" disabled={!completed} />
-              <AnalysisAction icon={FileText} label="生成报告" disabled={!completed} />
-              <AnalysisAction icon={Quote} label="提取引用" disabled={!completed} />
-            </div>
-            <div className="mt-auto rounded-lg border border-dashed border-border bg-muted p-4">
-              <div className="flex items-center gap-2 text-12 font-medium"><Sparkles aria-hidden className="h-4 w-4" />继续提问或调用 Skill</div>
-              <p className="mt-2 text-11 text-muted-foreground">{completed ? "输入分析目标，生成内容会保留逐字稿来源。" : "请先停止并等待转录完成。"}</p>
-            </div>
-          </Card>
-        </div>
+          )}
+        </Card>
       </div>
     </section>
   );
 }
 
-function TranscriptSegment({ time, text, final }: { time: string; text: string; final: boolean }) {
+function TranscriptSegment({ time, text }: { time: string; text: string }) {
   return (
     <article className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-11 text-muted-foreground"><span>{time}</span><Badge tone={final ? "primary" : "warning"}>{final ? "最终" : "识别中"}</Badge></div>
+      <div className="flex items-center gap-2 text-11 text-muted-foreground">
+        <span>{time}</span>
+        <Badge tone="primary">最终</Badge>
+      </div>
       <p className="mt-3 text-13 leading-relaxed">{text}</p>
     </article>
   );
 }
 
-function AnalysisAction({ icon: Icon, label, disabled }: { icon: typeof ListChecks; label: string; disabled: boolean }) {
-  return <Button variant="outline" className="justify-start" disabled={disabled}><Icon aria-hidden className="h-4 w-4" />{label}</Button>;
+function formatTime(valueMs: number): string {
+  const seconds = Math.floor(valueMs / 1_000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }

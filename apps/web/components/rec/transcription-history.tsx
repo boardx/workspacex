@@ -10,6 +10,8 @@ import { useOptionalSession } from "@/components/session/session-provider";
 import {
   createPersonalTranscription,
   listPersonalTranscriptions,
+  readPersonalTranscription,
+  type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
@@ -33,13 +35,17 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [activeSession, setActiveSession] = React.useState<TranscriptionHistoryItem | null>(null);
+  const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
 
   React.useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError(null);
-    void listPersonalTranscriptions({}, sessionToken)
+    const input = {
+      ...(query.trim() ? { query: query.trim() } : {}),
+      ...(activeTag === "全部标签" ? {} : { tag: activeTag }),
+    };
+    void loadAllPersonalTranscriptions(input, sessionToken)
       .then((result) => {
         if (!active) return;
         setItems(result.items.map(toHistoryItem));
@@ -54,26 +60,27 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     return () => {
       active = false;
     };
-  }, [sessionToken]);
-
-  const visibleItems = React.useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    return items.filter((item) => {
-      const tagMatch = activeTag === "全部标签" || item.tags.includes(activeTag);
-      const textMatch = !normalized || `${item.title} ${item.summary} ${item.project}`.toLocaleLowerCase().includes(normalized);
-      return tagMatch && textMatch;
-    });
-  }, [activeTag, items, query]);
+  }, [activeTag, query, sessionToken]);
 
   async function createTranscription(draft: NewTranscriptionDraft) {
     setLoadError(null);
-    const created = toHistoryItem(await createPersonalTranscription({
+    const summary = await createPersonalTranscription({
       name: draft.name,
       tags: [...draft.tags],
-    }, sessionToken));
+    }, sessionToken);
+    const created = toHistoryItem(summary);
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
-    setActiveSession(created);
+    setActiveSession({ ...summary, captures: [] });
+  }
+
+  async function openTranscription(item: TranscriptionHistoryItem) {
+    setLoadError(null);
+    try {
+      setActiveSession(await readPersonalTranscription(item.id, sessionToken));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_READ_FAILED");
+    }
   }
 
   if (activeSession) {
@@ -137,9 +144,9 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
         {loadError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">历史转录读取失败，请稍后重试。</p>}
         <HistoryState
           uiState={loading && uiState === "default" ? "loading" : uiState}
-          items={visibleItems}
+          items={items}
           onCreate={() => setCreateOpen(true)}
-          onOpen={setActiveSession}
+          onOpen={(item) => void openTranscription(item)}
         />
       </div>
 
@@ -257,4 +264,21 @@ function toHistoryItem(item: PersonalTranscriptionSummary): TranscriptionHistory
     updatedAt: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt)),
     status: item.status,
   };
+}
+
+async function loadAllPersonalTranscriptions(
+  input: { readonly query?: string; readonly tag?: string },
+  sessionToken?: string | null,
+): Promise<{ items: PersonalTranscriptionSummary[] }> {
+  const items: PersonalTranscriptionSummary[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await listPersonalTranscriptions(
+      cursor === undefined ? input : { ...input, cursor },
+      sessionToken,
+    );
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return { items };
 }
