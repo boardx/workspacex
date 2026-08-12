@@ -39,14 +39,14 @@
         "p0:F09"
       ],
       "points": 4,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "agt_01KZRABCZ99M2NGN20C7YWEASG",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/digital-interview-controller.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F02.verify.log @ 2026-08-12T10:40:55.876Z",
       "notes": "release slice。共享热点 apps/web/app/itv/page.tsx、apps/web/components/itv/**、apps/web/lib/interview-api.ts；首页只有两个主标签。"
     },
     {

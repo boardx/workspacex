@@ -24,6 +24,10 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
           interviewId: "itv-1", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
           status: "running", expertCount: 3, completedExpertCount: 2, primaryAction: "continue_runs",
           updatedAt: "2026-08-12T03:00:00.000Z",
+        }, {
+          interviewId: "itv-2", name: "待生成报告", tags: ["报告"], topic: "归纳专家回答",
+          status: "report_pending", expertCount: 2, completedExpertCount: 2, primaryAction: "generate_report",
+          updatedAt: "2026-08-12T04:00:00.000Z",
         }] });
       }
       if (url.pathname === "/interviews/digital/experts") {
@@ -50,6 +54,9 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("德国采购决策链")).toBeInTheDocument();
     expect(within(card).getByText("进行中")).toBeInTheDocument();
     expect(within(card).getByText("2 / 3 位专家完成")).toBeInTheDocument();
+    const reportCard = await screen.findByTestId("itv-history-card-itv-2");
+    expect(within(reportCard).getByRole("link", { name: /生成报告/ })).toHaveAttribute("href", "/itv/itv-2/report");
+    expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
   });
 
   it("切到专家列表后显示材料边界，快捷访谈进入独立页面", async () => {

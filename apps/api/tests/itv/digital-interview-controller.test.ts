@@ -74,13 +74,19 @@ beforeEach(async () => {
         (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,
          initials,role,visibility,source,publish_state,model_id,concurrency_limit,degrade_policy)
        VALUES ('agent-f02-de',$1,'de-procurement','德国采购总监','enabled',$2,now(),now(),NULL,
-               'DE','采购与供应链','全组织可用','self','运行中','model-f02',2,'跟随组织级')`,
+               'DE','负责德国制造业能源采购与供应商谈判','全组织可用','self','运行中','model-f02',2,'跟随组织级')`,
       [ORG, USER],
     );
     await session.query(
       `INSERT INTO capability_listings
         (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty)
-       VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','采购与供应链')`,
+       VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','负责德国制造业能源采购与供应商谈判')`,
+      [ORG],
+    );
+    await session.query(
+      `INSERT INTO digital_expert_profiles
+        (org_id, agent_id, domains, material_context_pack_id, material_version)
+       VALUES ($1, 'agent-f02-de', ARRAY['采购与供应链','德国市场'], NULL, NULL)`,
       [ORG],
     );
   });
@@ -107,10 +113,46 @@ describe("F02 数字访谈首屏 HTTP", () => {
     expect(await response.json()).toEqual({
       items: [{
         expertId: "agent-f02-de", initials: "DE", displayName: "德国采购总监",
-        role: "采购与供应链", domains: ["采购与供应链"],
-        materialBoundary: "未绑定已发布材料版本", exploratory: true,
+        role: "负责德国制造业能源采购与供应商谈判",
+        domains: ["采购与供应链", "德国市场"],
+        materialBoundary: "未绑定 Context Pack 材料版本", exploratory: true,
       }],
     });
+  });
+
+  it("已发布 Agent 版本不冒充材料版本，领域筛选也不读取角色文案", async () => {
+    await db.withTenant(toOrgId(ORG), async (session) => {
+      await session.query(
+        `INSERT INTO agent_versions
+          (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+           model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+         VALUES ('agent-version-f02',$1,'agent-f02-de','v1',$2,'instructions',ARRAY[]::text[],
+                 'deep-agent','model-f02','[]'::jsonb,$3,now(),now())`,
+        [ORG, "a".repeat(64), USER],
+      );
+      await session.query(
+        `UPDATE agents SET published_version_id='agent-version-f02' WHERE org_id=$1 AND id='agent-f02-de'`,
+        [ORG],
+      );
+    });
+
+    const byDomain = await fetch(`${base}/interviews/digital/experts?domain=采购与供应链`, { headers: auth });
+    expect(byDomain.status).toBe(200);
+    expect(await byDomain.json()).toMatchObject({
+      items: [{
+        expertId: "agent-f02-de",
+        role: "负责德国制造业能源采购与供应商谈判",
+        domains: ["采购与供应链", "德国市场"],
+        materialBoundary: "未绑定 Context Pack 材料版本",
+        exploratory: true,
+      }],
+    });
+
+    const byRole = await fetch(
+      `${base}/interviews/digital/experts?domain=${encodeURIComponent("负责德国制造业能源采购与供应商谈判")}`,
+      { headers: auth },
+    );
+    expect(await byRole.json()).toEqual({ items: [] });
   });
 
   it("未认证请求明确返回 401，而不是成功空列表", async () => {

@@ -27,7 +27,9 @@ export interface StoredDigitalExpert {
   readonly initials: string;
   readonly displayName: string;
   readonly role: string;
-  readonly publishedVersionId: string | null;
+  readonly domains: readonly string[];
+  readonly materialContextPackId: string | null;
+  readonly materialVersion: string | null;
 }
 
 export interface CreateDigitalInterviewRecordInput {

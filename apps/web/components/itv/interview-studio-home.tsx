@@ -171,7 +171,7 @@ function HistoryContent({ state }: { state: LoadState<DigitalInterviewHistoryRow
 }
 
 function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
-  const href = item.status === "completed" ? `/itv/${item.interviewId}/report` : `/itv/${item.interviewId}`;
+  const action = historyPrimaryAction(item);
   return (
     <article data-testid={`itv-history-card-${item.interviewId}`} className="flex min-h-64 flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -191,12 +191,26 @@ function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
           <span>{item.completedExpertCount} / {item.expertCount} 位专家完成</span>
           <time>{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time>
         </div>
-        <Link href={href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-          {item.status === "completed" ? "查看报告" : "继续访谈"}<ArrowRight className="size-4" />
+        <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+          {action.label}<ArrowRight className="size-4" />
         </Link>
       </div>
     </article>
   );
+}
+
+function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
+  const detail = `/itv/${item.interviewId}`;
+  const report = `${detail}/report`;
+  return {
+    confirm_topic: { label: "确认主题", href: detail },
+    confirm_experts: { label: "确认专家", href: detail },
+    confirm_questions: { label: "确认问题", href: detail },
+    continue_runs: { label: "继续访谈", href: detail },
+    generate_report: { label: "生成报告", href: report },
+    view_report: { label: "查看报告", href: report },
+    retry: { label: "重试", href: detail },
+  }[item.primaryAction];
 }
 
 function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> }) {
