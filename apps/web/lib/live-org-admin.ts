@@ -335,3 +335,47 @@ export async function getUsageReport(
     { method: "GET" },
   );
 }
+
+/* ═══════════════ F162：限额策略（token-quota-and-usage delta §1.4）═══════════════ */
+
+export type ListLimitRulesOut = z.infer<typeof orgAdmin.operations.listLimitRules.out>;
+export type ListLimitEventsOut = z.infer<typeof orgAdmin.operations.listLimitEvents.out>;
+export type LimitScopeKind = z.infer<typeof orgAdmin.LimitScopeKind>;
+export type LimitWindowKind = z.infer<typeof orgAdmin.LimitWindowKind>;
+export type LimitAction = z.infer<typeof orgAdmin.LimitAction>;
+
+export async function listLimitRules(orgId: string): Promise<ListLimitRulesOut> {
+  return apiRequest<ListLimitRulesOut>(
+    path(orgAdmin.operations.listLimitRules.path, { orgId }), { method: "GET" });
+}
+
+/** ⚠ `action: "degrade"` 必须带 `degradeToModelId`，否则 400 `DEGRADE_TARGET_REQUIRED`——
+ *  「降级」而不说降到哪等于运行时静默换模型（I-28 的反面）。 */
+export async function createLimitRule(
+  orgId: string,
+  input: Omit<z.infer<typeof orgAdmin.operations.createLimitRule.in>, "orgId">,
+): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.createLimitRule.path, { orgId }), {
+    method: "POST", body: { orgId, ...input },
+  });
+}
+
+export async function updateLimitRule(
+  orgId: string, ruleId: string,
+  input: Omit<z.infer<typeof orgAdmin.operations.updateLimitRule.in>, "orgId" | "ruleId">,
+): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.updateLimitRule.path, { orgId, ruleId }), {
+    method: "PATCH", body: { orgId, ruleId, ...input },
+  });
+}
+
+export async function deleteLimitRule(orgId: string, ruleId: string): Promise<{ ruleId: string }> {
+  return apiRequest(path(orgAdmin.operations.deleteLimitRule.path, { orgId, ruleId }), {
+    method: "POST", body: { orgId, ruleId },
+  });
+}
+
+export async function listLimitEvents(orgId: string): Promise<ListLimitEventsOut> {
+  return apiRequest<ListLimitEventsOut>(
+    path(orgAdmin.operations.listLimitEvents.path, { orgId }), { method: "GET" });
+}

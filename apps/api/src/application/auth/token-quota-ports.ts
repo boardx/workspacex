@@ -116,3 +116,86 @@ export interface UsageAggregateRepository {
 }
 
 export const TOKEN_QUOTA_REPOSITORY = Symbol("TokenQuotaRepository");
+
+/* ── F162 限额策略 ──────────────────────────────────────────────────────── */
+
+export type LimitScopeKind = z.infer<typeof C.LimitScopeKind>;
+export type LimitWindowKind = z.infer<typeof C.LimitWindowKind>;
+export type LimitAction = z.infer<typeof C.LimitAction>;
+
+export interface LimitRuleRow {
+  readonly ruleId: string;
+  readonly scopeKind: LimitScopeKind;
+  readonly scopeRef: string;
+  readonly modelId: string | null;
+  readonly windowKind: LimitWindowKind;
+  readonly thresholdTokens: number;
+  readonly action: LimitAction;
+  readonly degradeToModelId: string | null;
+  readonly enabled: boolean;
+  /** 本规则**自己的窗口**内的实测用量（见契约 `listLimitRules` 的 ⚠）。 */
+  readonly observedTokens: number;
+}
+
+export interface LimitEventRow {
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly ruleId: string;
+  readonly scopeKind: LimitScopeKind;
+  readonly subjectRef: string;
+  readonly actionTaken: LimitAction;
+  readonly observedTokens: number;
+  readonly thresholdTokens: number;
+}
+
+export interface CreateLimitRuleInput {
+  readonly scopeKind: LimitScopeKind;
+  readonly scopeRef: string;
+  readonly modelId: string | null;
+  readonly windowKind: LimitWindowKind;
+  readonly thresholdTokens: number;
+  readonly action: LimitAction;
+  readonly degradeToModelId: string | null;
+}
+
+export interface UpdateLimitRuleInput {
+  readonly thresholdTokens?: number;
+  readonly action?: LimitAction;
+  readonly degradeToModelId?: string | null;
+  readonly enabled?: boolean;
+}
+
+export interface LimitRuleRepository {
+  /** 规则 + 每条规则在自己窗口内的实测用量，一次给全。 */
+  listRules(orgId: OrgId): Promise<readonly LimitRuleRow[]>;
+  createRule(orgId: OrgId, input: CreateLimitRuleInput): Promise<string>;
+  updateRule(orgId: OrgId, ruleId: string, input: UpdateLimitRuleInput): Promise<void>;
+  deleteRule(orgId: OrgId, ruleId: string): Promise<void>;
+  listEvents(orgId: OrgId, limit: number): Promise<readonly LimitEventRow[]>;
+  /** 记一次触发。**append-only**，与 `token_usage_events` 同一条纪律。 */
+  recordEvent(
+    orgId: OrgId,
+    input: {
+      readonly ruleId: string; readonly scopeKind: LimitScopeKind; readonly subjectRef: string;
+      readonly actionTaken: LimitAction; readonly observedTokens: number;
+      readonly thresholdTokens: number;
+    },
+  ): Promise<string>;
+}
+
+export class LimitRuleNotFoundError extends Error {
+  constructor() {
+    super("LIMIT_RULE_NOT_FOUND");
+    this.name = "LimitRuleNotFoundError";
+  }
+}
+
+/** ⚠ 「降级」而不说降到哪 = 运行时静默换模型，正是 I-28 的反面。所以是拒绝，不是缺省。 */
+export class DegradeTargetRequiredError extends Error {
+  constructor() {
+    super("DEGRADE_TARGET_REQUIRED");
+    this.name = "DegradeTargetRequiredError";
+  }
+}
+
+export const LIMIT_RULE_REPOSITORY = Symbol("LimitRuleRepository");

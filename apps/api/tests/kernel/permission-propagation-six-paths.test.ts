@@ -773,7 +773,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // 非成员 → NO_ORG_MEMBERSHIP、组织内非管理员 → FORBIDDEN，**且同时断言库里没写进去**
     // ——只断言抛异常的话，一个「先写后判」的实现照样能过：它抛的异常是真的，
     // 写进去的行也是真的。删测试则本条须重新论证。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(50);
+    //
+    // ⚠ Raised 50 -> 51 by F162（限额策略）：新条目是
+    // `infrastructure/auth/pg-limit-rule-repository.ts`。它读两样东西，两样都不是
+    // `acl_bindings` 治理的内容：`limit_rules` 是组织自己的配置，`limit_events` 是
+    // 触发留痕——后者与 `pg-provenance-repository.ts` 同形，一条审计轨迹不能被它
+    // 自己要供给的那个判定把守。用量是从 `token_usage_events` 现算的派生 SUM，
+    // 不是把某个人的原始事件行交出去。门与上一条同：五条路由都在 controller 的
+    // `requireOrgAdmin` 里判组织 admin，在仓储被触达之前跑完。
+    //
+    // 它的**被强制的前提**：`tests/org-admin/limit-rule-authorization.test.ts` 逐条反证
+    // 非成员/非 admin 被拒，**且断言被拒时库里没有新规则、没有新事件**。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(51);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
