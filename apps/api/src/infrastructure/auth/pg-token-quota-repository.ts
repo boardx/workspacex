@@ -27,12 +27,69 @@ import type { OrgId } from "../../domain/org-id";
 import {
   BudgetBelowAllocatedError, QuotaOverallocatedError,
   type MemberQuotaRow, type OrgQuotaSnapshot, type TokenQuotaRepository,
+  type UsageAggregate, type UsageAggregateRepository, type UsageCell, type UsageWindowKey,
 } from "../../application/auth/token-quota-ports";
 
 /** pg 把 bigint 作为字符串返回；统一在这里收口，别让字符串漏进用例层的算术。 */
 const num = (v: string | number | null): number => (v === null ? 0 : Number(v));
 
-export class PgTokenQuotaRepository implements TokenQuotaRepository {
+/**
+ * F161 —— 四个窗口各自的时间起点。
+ *
+ * ⚠ 一份事实：窗口枚举来自契约（`orgAdmin.UsageWindow`），这里只把每个取值翻译成
+ *   一个 SQL 时间表达式。`Record<UsageWindowKey, string>` 让「契约加了第五个窗口
+ *   而这里没跟上」变成一个编译错误，而不是一个运行时落到 default 分支的静默错值。
+ */
+const WINDOW_START: Record<UsageWindowKey, string> = {
+  "5h": "now() - interval '5 hours'",
+  today: "date_trunc('day', now())",
+  week: "date_trunc('week', now())",
+  month: "date_trunc('month', now())",
+};
+
+export class PgTokenQuotaRepository implements TokenQuotaRepository, UsageAggregateRepository {
+  async readUsage(orgId: OrgId, window: UsageWindowKey): Promise<UsageAggregate> {
+    // 表达式来自上面那张受类型约束的表，不是请求里的字符串——窗口值经 zod 校验后
+    // 只可能是四个字面量之一，且这里再经一次映射，拼不进任何外部输入。
+    const since = WINDOW_START[window];
+    return this.db.withTenant(orgId, async (s) => {
+      const totals = await s.query<{ total: string | null; calls: string; failed: string }>(
+        `SELECT SUM(tokens_total) AS total,
+                COUNT(*) AS calls,
+                COUNT(*) FILTER (WHERE outcome = 'failed') AS failed
+           FROM token_usage_events
+          WHERE org_id = $1 AND occurred_at >= ${since}`,
+        [orgId],
+      );
+
+      const cells = await s.query<{
+        user_id: string; display_name: string | null; model_id: string; tokens: string;
+      }>(
+        /* LEFT JOIN credentials：免注册身份（guest identity）不在 credentials 里，
+           但它们同样会触发模型调用。INNER JOIN 会让那部分用量从矩阵里整行消失，
+           而总数里还在——一屏自相矛盾的数字。查不到名字就退回裸 id。 */
+        `SELECT e.user_id, c.display_name, e.model_id, SUM(e.tokens_total) AS tokens
+           FROM token_usage_events e
+           LEFT JOIN credentials c ON c.user_id = e.user_id
+          WHERE e.org_id = $1 AND e.occurred_at >= ${since}
+          GROUP BY e.user_id, c.display_name, e.model_id`,
+        [orgId],
+      );
+
+      return {
+        totalTokens: num(totals.rows[0]?.total ?? null),
+        callCount: num(totals.rows[0]?.calls ?? null),
+        failedCallCount: num(totals.rows[0]?.failed ?? null),
+        cells: cells.rows.map((r): UsageCell => ({
+          userId: r.user_id,
+          displayName: r.display_name ?? r.user_id,
+          modelId: r.model_id,
+          tokens: num(r.tokens),
+        })),
+      };
+    });
+  }
+
   constructor(private readonly db: DatabasePort) {}
 
   async readSnapshot(orgId: OrgId): Promise<OrgQuotaSnapshot> {

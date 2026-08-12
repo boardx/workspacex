@@ -11,6 +11,8 @@
  * ⚠ **本端口不写 `token_usage_events`**。用量的唯一写入点是 `TokenUsageMeterPort`
  *   （F159），这里只读。两者分开正是那条「唯一写入点」主张的形状。
  */
+import type { z } from "zod";
+import { orgAdmin as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 
 /** 一位成员在「成员配额」屏上的一行：身份 + 分了多少 + 用了多少。 */
@@ -83,6 +85,34 @@ export class MemberNotFoundError extends Error {
     super("MEMBER_NOT_FOUND");
     this.name = "MemberNotFoundError";
   }
+}
+
+/* ── F161 用量监控 ──────────────────────────────────────────────────────── */
+
+/** 契约枚举的别名，不重新声明取值（ADR-020：契约是单一事实源）。 */
+export type UsageWindowKey = z.infer<typeof C.UsageStatWindow>;
+
+/** 一格：某人 × 某模型在窗口内的用量。矩阵由用例层从这些格子摆出来。 */
+export interface UsageCell {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly modelId: string;
+  readonly tokens: number;
+}
+
+export interface UsageAggregate {
+  readonly totalTokens: number;
+  readonly callCount: number;
+  readonly failedCallCount: number;
+  readonly cells: readonly UsageCell[];
+}
+
+export interface UsageAggregateRepository {
+  /**
+   * 按窗口聚合。**每个窗口一次真实查询**——不是查一次全量再在内存里切，
+   * 那样「最近 5 小时」会随着数据长大越来越慢，而它恰恰是刷得最勤的那个窗口。
+   */
+  readUsage(orgId: OrgId, window: UsageWindowKey): Promise<UsageAggregate>;
 }
 
 export const TOKEN_QUOTA_REPOSITORY = Symbol("TokenQuotaRepository");

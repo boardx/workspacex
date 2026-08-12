@@ -45,6 +45,20 @@ export const OrgInviteStatus = z.enum(["pending", "awaiting-review", "revoked", 
 export const TeamOp = z.enum(["create", "rename", "delete"]);
 
 /**
+ * F161 —— 用量监控的四个统计窗口（token-quota-and-usage delta）。
+ *
+ * ⚠ 名字里带 `Stat`（统计窗口）是为了与 `apps/api/src/domain/agent/anomaly-detection.ts`
+ *   里已有的 `UsageWindow`（F14 异常检测的限速观察窗，一个完全不同的概念）区分开——
+ *   `contract-single-source` 的门控按**名字**判「后端重定义了契约类型」，两个同名不同义
+ *   的类型撞在一起时，它红得对：那正是同一个词指两件事的开头。
+ *
+ * ⚠ 这四个值是**唯一事实源**：`apps/web` 的 tab 上显示的中文标签（最近 5 小时 / 今日 /
+ *   本周 / 本月）从这个枚举映射出去，不在前端另立一份窗口列表。此前
+ *   `lib/mock/admin-limits.USAGE_WINDOWS` 是中文字面量数组，那份随 F161 接线退役。
+ */
+export const UsageStatWindow = z.enum(["5h", "today", "week", "month"]);
+
+/**
  * 参与者身份四选（`upsertParticipantRoster` / `issueInviteLink`）。
  *
  * ⚠ `coFacilitator` 是**展示别名**，落库 `projectRole = "facilitator"`（O-03 / I-17），
@@ -1465,6 +1479,59 @@ export const operations = {
     err: [
       "NO_ORG_MEMBERSHIP", "FORBIDDEN", "BUDGET_BELOW_ALLOCATED", "AUTH_SERVICE_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * F161 `getUsageReport` —— 「用量监控」tab。**每个窗口是一次真实聚合**。
+   *
+   * ⚠ 窗口是 `in` 的一部分而不是前端筛选：`usage-monitor-tab.tsx` 此前的注释逐字写着
+   *   「窗口切换只影响本地展示态（无后端），mock 定死一份「本周」快照」——换窗口不换数
+   *   正是这个 feature 要消灭的东西。所以切窗口必须发一次新请求。
+   *
+   * ⚠ **不含「近期限额事件」**。那份数据的来源（`limit_events`）要到 F162 才存在；
+   *   现在把字段放进契约、恒返回空数组，界面就会长出一块「暂时没有事件」的空区，
+   *   而真相是「这个功能还没做」——两者在界面上长得一模一样。宁可契约里没有这个字段，
+   *   让那一块继续挂着「尚未接入真实后端」的提示，等 F162 一起接。
+   */
+  getUsageReport: {
+    method: "GET",
+    path: "/organizations/:orgId/usage",
+    in: z.object({ orgId: z.string(), window: UsageStatWindow }).strict(),
+    out: z
+      .object({
+        window: UsageStatWindow,
+        totalTokens: z.number(),
+        callCount: z.number(),
+        /** 其中失败的次数。失败也记用量（F159），所以「调用数」与「成功数」不是一回事。 */
+        failedCallCount: z.number(),
+        /** 窗口内有过调用的人数——不是组织成员总数。 */
+        activeMemberCount: z.number(),
+        /** 矩阵的列：窗口内真实出现过的模型，按用量降序。没有调用时是空数组。 */
+        models: z.array(z.string()),
+        /** 矩阵的行：人 × 模型。`perModel` 与 `models` 同序等长。 */
+        rows: z.array(
+          z
+            .object({
+              userId: z.string(),
+              displayName: z.string(),
+              perModel: z.array(z.number()),
+              total: z.number(),
+            })
+            .strict(),
+        ),
+        distribution: z.array(
+          z
+            .object({
+              modelId: z.string(),
+              tokens: z.number(),
+              /** 0~1 的占比，服务端算好——前端各算一遍就会有两个四舍五入口径。 */
+              share: z.number(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "FORBIDDEN", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 } as const;
 
