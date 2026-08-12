@@ -2,6 +2,7 @@ import { ResearchStudioApp } from "@/components/research-studio/research-studio-
 import { mockIdentity } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
+import { resolveGuidedResearchStep } from "@/lib/mock/guided-research";
 
 /**
  * 研究 Studio（phase-01 契约束 `research` / M24）—— UI 先行原型。
@@ -18,11 +19,13 @@ import { resolveRsScreen, resolveRsView } from "@/lib/mock/research-studio";
 export default function ResearchPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string };
+  searchParams: { state?: string; as?: string; screen?: string; sub?: string; org?: string; flow?: string; session?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const view = resolveRsView(searchParams.as);
   const screen = resolveRsScreen(searchParams.screen);
+  // 新的研究首页是 /research 默认落点；既有已签 Research Studio 屏仍可由 ?screen=… 显式进入。
+  const flow = searchParams.screen ? undefined : resolveGuidedResearchStep(searchParams.flow);
   // 研究成员模型是 owner/collaborator（U-1 B），与项目四角色无关；身份用组织层即可。
   const identity = mockIdentity(searchParams.org ?? "org-yuanyang", null);
 
@@ -33,7 +36,9 @@ export default function ResearchPage({
       screen={screen}
       view={view}
       sub={searchParams.sub}
-      qs={{ as: searchParams.as }}
+      flow={flow}
+      guidedSessionId={searchParams.session}
+      qs={{ as: searchParams.as, flow: searchParams.flow }}
     />
   );
 }

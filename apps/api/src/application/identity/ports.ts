@@ -82,7 +82,7 @@ export interface ObjectRef {
    * 没有绑定行的对象找不到绑定、退回宽松默认 scope，让**观察者也能读对象表**——
    * 这正是 R5「观察者不可读对象表」被作废的样子。
    */
-  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview" | "subject";
+  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview" | "subject" | "research";
   readonly id: string;
 }
 

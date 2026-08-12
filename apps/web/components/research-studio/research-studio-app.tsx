@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Search, FileText, PlusSquare, MessageSquare, Radio } from "lucide-react";
+import { Search, FileText, PlusSquare, MessageSquare, Radio, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import {
   type RsScreen, type RsView,
 } from "@/lib/mock/research-studio";
 import { RsListScreen, RsPlanScreen, RsNewScreen, RsDetailScreen, RsLiveScreen } from "./rs-screens";
+import { GuidedResearchFlow } from "./guided-research-flow";
+import type { GuidedResearchStep } from "@/lib/mock/guided-research";
 
 /**
  * 研究 Studio（M24 / 契约束 `research`）—— UI 先行原型编排。
@@ -31,14 +33,16 @@ const SCREEN_ICON: Record<RsScreen, React.ComponentType<{ className?: string }>>
 };
 
 export function ResearchStudioApp({
-  identity, uiState, screen, view, sub, qs,
+  identity, uiState, screen, view, sub, flow, guidedSessionId, qs,
 }: {
   identity: Identity;
   uiState: UiState;
   screen: RsScreen;
   view: RsView;
   sub?: string;
-  qs: { as?: string };
+  flow?: GuidedResearchStep;
+  guidedSessionId?: string;
+  qs: { as?: string; flow?: string };
 }) {
   const href = (o: Partial<{ as: string; state: string; screen: string; sub: string }>) => {
     const p = new URLSearchParams();
@@ -51,15 +55,16 @@ export function ResearchStudioApp({
   };
 
   return (
-    <AppShell identity={identity} previewRole={null} hideRoleSwitcher left={<LeftNav screen={screen} href={href} />}>
+    <AppShell identity={identity} previewRole={null} hideRoleSwitcher left={<LeftNav screen={screen} flow={flow} href={href} />}>
       <div className="flex h-full min-h-0 flex-col">
-        <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />
+        {!flow && <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />}
         <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="rs-main">
-          {screen === "list" && <RsListScreen state={uiState} view={view} sub={sub} href={href} />}
-          {screen === "plan" && <RsPlanScreen state={uiState} view={view} sub={sub} />}
-          {screen === "new" && <RsNewScreen state={uiState} view={view} sub={sub} />}
-          {screen === "detail" && <RsDetailScreen state={uiState} view={view} sub={sub} />}
-          {screen === "live" && <RsLiveScreen state={uiState} view={view} sub={sub} />}
+          {flow && <GuidedResearchFlow step={flow} sessionId={guidedSessionId} />}
+          {!flow && screen === "list" && <RsListScreen state={uiState} view={view} sub={sub} href={href} />}
+          {!flow && screen === "plan" && <RsPlanScreen state={uiState} view={view} sub={sub} />}
+          {!flow && screen === "new" && <RsNewScreen state={uiState} view={view} sub={sub} />}
+          {!flow && screen === "detail" && <RsDetailScreen state={uiState} view={view} sub={sub} />}
+          {!flow && screen === "live" && <RsLiveScreen state={uiState} view={view} sub={sub} />}
         </div>
       </div>
     </AppShell>
@@ -67,17 +72,28 @@ export function ResearchStudioApp({
 }
 
 /** 左栏：研究 Studio 的五块屏 IA（不是工作坊五段导航——这是 STUDIO 内的屏切换）。 */
-function LeftNav({ screen, href }: { screen: RsScreen; href: (o: Partial<{ screen: string; sub: string }>) => string }) {
+function LeftNav({ screen, flow, href }: { screen: RsScreen; flow?: GuidedResearchStep; href: (o: Partial<{ screen: string; sub: string }>) => string }) {
   return (
     <nav className="flex flex-col gap-1 p-3" data-testid="rs-left-nav">
       <span className="px-1 pb-1 text-10 uppercase tracking-wide text-muted-foreground">研究 Studio</span>
+      <a
+        href="?flow=home"
+        data-testid="rs-nav-guided-research"
+        data-active={Boolean(flow)}
+        className={cn(
+          "mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors",
+          flow ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+        )}
+      >
+        <Sparkles className="h-4 w-4" /><span className="flex-1">引导式研究</span><Badge tone="ai">新</Badge>
+      </a>
       {RS_SCREENS.map((s) => {
         const Icon = SCREEN_ICON[s];
         const active = s === screen;
         return (
           <a
             key={s}
-            href={href({ screen: s, sub: undefined })}
+            href={flow ? `?screen=${s}` : href({ screen: s, sub: undefined })}
             data-testid={`rs-nav-${s}`}
             data-active={active}
             className={cn(
