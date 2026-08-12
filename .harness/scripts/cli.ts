@@ -46,6 +46,7 @@ async function main(): Promise<void> {
     case "new-adr":       newAdr(args); break;
     case "new-sprint":    newSprint(args); break;
     case "board":         await import("./phase-board.mjs"); break;
+    case "dashboard":     await import("./dashboard.mjs"); break;
     case "verify":        await verify(args); break;
     case "sync":          syncGithub(args); break;
     case "gen-subagents": genSubagents(args); break;

@@ -91,3 +91,4 @@ test-results/
 *.key
 *.p12
 *.pfx
+.harness/state/DASHBOARD.md
