@@ -1,11 +1,15 @@
 ---
-status: pending
+status: confirmed
 bundle: personal-thread-own-attachment-recall
 base_bundle: chat-context-engine
 scope: personal-thread-may-recall-its-own-uploaded-attachments-still-zero-recall-of-any-org-or-project-data
 covers: [F156]
-confirmed_by: ""
-confirmed_at: ""
+confirmed_by: yanbin shen
+confirmed_at: 2026-08-12T13:35:00+08:00
+confirmed_via: >-
+  人类 2026-08-12「线程内文件可搜」口径（适用于个人对话）+ 同日晨全权授权；
+  coord-main 备稿、人类亲手推送本 commit 生效（#1048 同法）。硬边界不放宽：
+  cross_scope 召回恒 0，只放宽本线程自有附件。
 ---
 
 # design delta 签核 · 个人线程可召回本线程自己上传的附件
