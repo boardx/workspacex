@@ -2,7 +2,7 @@
 
 状态：待人类裁决
 提出：2026-08-12（dev-project，人类 2026-08-12 直接下达「建立一个标准」）
-实测基线：`origin/main@0d556167`
+实测基线：`origin/main@42f0ca21`（提案初版基线 `0d556167`；rebase 时按新 main 重核，见第 3 节表下更正）
 相关：CLR（`core-loop-readiness-standard.md`，本提案设计成它的第五条 track）、#991（蓝本闭环 backlog）、#470（去 mock epic）、ADR-023
 
 ## 1. 一句话
@@ -39,12 +39,17 @@ track P 怎么并进那个公式（是进 `min` 还是进 `mean`），是**人�
 | **P9** | 项目筹备可读 | 打开项目筹备页 → `GET /projects/:projectId/prep` → 四子标签计数与 P8 实际条目数一致；不套蓝本的空项目显示**真实空态**，不生成示例数据 | ✗ |
 | **P10** | 推进议程环节 | 在现场协作界面推进一个环节 → `project.advanceAgendaSegment`（该状态的**唯一**写操作）→ 刷新后状态保持 | ✗ |
 | **P11** | 成员管理 | 加成员 / 改角色 / 移除 → 三个真实端点 → 变更**下一次请求即生效** | ✗ |
-| **P12** | 归档退役 | 列表 ⋯ 菜单归档 → `POST /projects/:id/archive` → 项目转只读（写被拒、读仍可用），可解归档 | ⏳ |
+| **P12** | 归档退役 | 列表 ⋯ 菜单归档 → `POST /projects/:id/archive` → 项目转只读（写被拒、读仍可用），可解归档 | **✓** |
 
-**今天（`origin/main@0d556167`）P = 0/12。**
+**今天（`origin/main@42f0ca21`）P = 1/12。**
 
-⏳ = P12 的实现（F164）在 **PR #1038**，CI 全绿但**尚未合入 main**。按 G2 的同一条纪律
-（「grep 不会告诉你树是旧的」），**未合入 main 的代码不计分**——合入后 P 变 1/12。
+P12 由 F164（#1038，已合入 main）成立。核实方式是**读 main 上的内容**而不是看 PR 状态：
+`feature_list.json` 里 F164 = `passing`，且 `projects-screen.tsx` 里确有 `archiveProject` 接线
+——squash 合并会让 `merge-base --is-ancestor` 假阴，只看 SHA 血统会误判。
+
+> 本行初版写的是「P = 0/12，P12 ⏳ 未合入」。#1038 在提案提交后合入，此处按 G2 的
+> 同一条纪律（未合入 main 的代码不计分 ⇒ 合入了就该计）更正。**留下这条更正痕迹是有意的**：
+> 分数会随 main 变动，任何引用本表的人都必须回到当时的 main 上重核，不能引用这一行本身。
 
 ⚠ 另注：P7 有一半是真的——`POST /projects` 的**空白新建路径**（`blueprintVersionId: null`）
 已由 F158 接通并 passing。但 P7 判据要求的是**带已发布蓝本版本**建项目，那条走不到，所以记 0。
