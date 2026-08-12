@@ -14,10 +14,14 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  createGuidedResearchSession,
+  listGuidedResearchSessions,
+  type GuidedResearchSession,
+} from "@/lib/guided-research-api";
+import {
   GUIDED_REPORT_CITATIONS,
   GUIDED_RESEARCH_BRIEF,
   GUIDED_RESEARCH_DIRECTIONS,
-  GUIDED_RESEARCH_HISTORY,
   GUIDED_RESEARCH_OUTLINE,
   GUIDED_SEARCH_SOURCES,
   GUIDED_SEARCH_TASKS,
@@ -31,11 +35,13 @@ export function GuidedResearchFlow({
   onStepChange,
 }: {
   step: GuidedResearchStep;
-  onStepChange?: (step: GuidedResearchStep) => void;
+  onStepChange?: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
-  const navigate = (next: GuidedResearchStep) => {
-    if (onStepChange) return onStepChange(next);
-    window.location.assign(`?flow=${next}`);
+  const navigate = (next: GuidedResearchStep, sessionId?: string) => {
+    if (onStepChange) return onStepChange(next, sessionId);
+    const query = new URLSearchParams({ flow: next });
+    if (sessionId) query.set("session", sessionId);
+    window.location.assign(`?${query.toString()}`);
   };
 
   return (
@@ -100,7 +106,19 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
   );
 }
 
-function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep) => void }) {
+const stageToStep = (stage: GuidedResearchSession["resumeStage"]): GuidedResearchStep =>
+  stage === "researching" ? "search" : stage;
+
+function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
+  const [history, setHistory] = React.useState<GuidedResearchSession[] | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
+  React.useEffect(() => {
+    let active = true;
+    listGuidedResearchSessions()
+      .then((result) => { if (active) setHistory(result.items); })
+      .catch(() => { if (active) setLoadFailed(true); });
+    return () => { active = false; };
+  }, []);
   return (
     <>
       <PageHeading
@@ -119,24 +137,27 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep) =
         </CardContent>
       </Card>
       <section className="space-y-3" data-testid="research-history">
-        <div className="flex items-center justify-between"><h2 className="text-16 font-semibold">历史研究</h2><span className="text-11 text-muted-foreground">{GUIDED_RESEARCH_HISTORY.length} 项</span></div>
+        <div className="flex items-center justify-between"><h2 className="text-16 font-semibold">历史研究</h2><span className="text-11 text-muted-foreground">{history?.length ?? 0} 项</span></div>
+        {history === null && !loadFailed && <p className="text-12 text-muted-foreground" data-testid="research-history-loading">正在加载历史研究…</p>}
+        {loadFailed && <p className="text-12 text-destructive" data-testid="research-history-error">历史研究加载失败，请稍后重试。</p>}
+        {history?.length === 0 && <p className="rounded-md border border-dashed p-6 text-center text-12 text-muted-foreground" data-testid="research-history-empty">还没有研究，先创建一项吧。</p>}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {GUIDED_RESEARCH_HISTORY.map((item) => (
-            <Card key={item.id} className="flex h-full flex-col transition-shadow hover:shadow-md" data-testid={`research-history-${item.id}`}>
+          {history?.map((item) => (
+            <Card key={item.sessionId} className="flex h-full flex-col transition-shadow hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
               <CardHeader className="space-y-3 pb-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge tone={item.status === "completed" ? "primary" : item.status === "researching" ? "warning" : "outline"}>{item.statusLabel}</Badge>
-                  <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{item.updatedAt}</span>
+                  <Badge tone={item.stage === "report" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.stage === "report" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
+                  <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <CardTitle className="text-16 leading-snug">{item.title}</CardTitle>
-                <p className="min-h-10 text-11 leading-relaxed text-muted-foreground">{item.description}</p>
+                <p className="min-h-10 text-11 leading-relaxed text-muted-foreground">{item.brief.goal}</p>
               </CardHeader>
               <CardContent className="mt-auto space-y-3">
-                <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sources} 个来源</span></div><Progress value={item.progress} /></div>
-                {item.status === "completed" ? (
-                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report")} data-testid={`research-view-${item.id}`}><FileText className="h-4 w-4" />查看研究</Button>
+                <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
+                {item.stage === "report" ? (
+                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看研究</Button>
                 ) : (
-                  <Button className="w-full" variant="secondary" onClick={() => onNavigate(item.resumeAt)} data-testid={`research-continue-${item.id}`}><RotateCcw className="h-4 w-4" />继续研究</Button>
+                  <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" />继续研究</Button>
                 )}
               </CardContent>
             </Card>
@@ -147,9 +168,24 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep) =
   );
 }
 
-function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep) => void }) {
+function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitFailed, setSubmitFailed] = React.useState(false);
+  const idempotencyKey = React.useRef(`guided-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const patch = (key: keyof typeof brief, value: string) => setBrief((current) => ({ ...current, [key]: value }));
+  const confirm = async () => {
+    setSubmitting(true);
+    setSubmitFailed(false);
+    try {
+      const session = await createGuidedResearchSession({ idempotencyKey: idempotencyKey.current, brief });
+      onNavigate("directions", session.sessionId);
+    } catch {
+      setSubmitFailed(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <>
       <PageHeading eyebrow="Step 1 · Research brief" title="确认研究主题与范围" description="先把问题边界说清楚。后续生成的研究方向、大纲和检索词都会以这份 brief 为准。" />
@@ -159,7 +195,8 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep) =>
           <Field label="研究目标" hint="最终希望做出什么判断"><Textarea value={brief.goal} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" /></Field>
           <div className="grid gap-4 md:grid-cols-2"><Field label="时间范围"><Input value={brief.timeRange} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label="地域范围"><Input value={brief.region} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
-          <div className="flex justify-end"><Button variant="primary" disabled={!brief.topic.trim() || !brief.goal.trim()} onClick={() => onNavigate("directions")} data-testid="research-confirm-brief">确认并生成研究方向<ArrowRight className="h-4 w-4" /></Button></div>
+          {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
+          <div className="flex justify-end"><Button variant="primary" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "确认并生成研究方向"}<ArrowRight className="h-4 w-4" /></Button></div>
         </CardContent></Card>
         <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><Target className="h-4 w-4" />本次研究将回答</CardTitle></CardHeader><CardContent className="space-y-3 text-11 leading-relaxed text-muted-foreground"><p>哪些欧洲市场同时具备增长、政策与并网确定性？</p><p>适合以自建、合资还是渠道合作进入？</p><p>未来 90 天最优先验证哪些假设？</p><div className="rounded-md border border-border bg-muted p-3 text-10">可在下一步逐条修改或删除 AI 建议的研究方向。</div></CardContent></Card>
       </div>

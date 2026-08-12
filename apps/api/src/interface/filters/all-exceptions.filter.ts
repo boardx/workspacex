@@ -33,6 +33,7 @@ import {
   orgAdmin,
   personalRealtimeTranscription,
   project,
+  research,
   recording,
   skills,
   wave2Runtime,
@@ -324,6 +325,9 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    */
   const skillError = skills.SkillError.safeParse(raw);
   if (skillError.success) return { reasonCode: skillError.data };
+
+  const researchError = research.ResearchError.safeParse(raw);
+  if (researchError.success) return { reasonCode: researchError.data };
 
   /**
    * F109: `chat.ChatError`, the NINTH closed enum —— 同一个 bug 第五次发生。

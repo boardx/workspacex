@@ -215,6 +215,8 @@ export const ResearchError = z.enum([
    *   不是「整单失败」——`runResearch.out.partial` 才是那条不变量的可断言面。
    */
   "AGENT_RUN_FAILED",
+  /** 引导式研究会话不存在或对当前用户不可见；两种情况共用同一外部结果。 */
+  "RESEARCH_NOT_FOUND",
   /**
    * 证据所依赖的访谈引述已被撤回（X-C）。
    * ⚠ `usecases.md` 声称来自 `interview`（已签核）——**那束里没有这个字面量**；
@@ -550,7 +552,59 @@ export const RESEARCH_FORBIDDEN_ROUTES = [
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
 
+export const GuidedResearchStage = z.enum([
+  "brief", "directions", "outline", "researching", "report", "failed",
+]);
+
+export const GuidedResearchBrief = z.object({
+  topic: z.string().trim().min(1).max(200),
+  goal: z.string().trim().min(1).max(2000),
+  timeRange: z.string().trim().max(200),
+  region: z.string().trim().max(200),
+  focus: z.string().trim().max(2000),
+}).strict();
+
+export const GuidedResearchSession = z.object({
+  sessionId: z.string(),
+  title: z.string(),
+  brief: GuidedResearchBrief,
+  /** 服务端断点事实；客户端只能读取，不能在创建时指定。 */
+  stage: GuidedResearchStage,
+  /** 失败态仍指向最近稳定阶段；首页只按这个服务端字段恢复。 */
+  resumeStage: GuidedResearchStage.exclude(["failed"]),
+  status: z.enum(["active", "completed", "failed"]),
+  progress: z.number().int().min(0).max(100),
+  sourceCount: z.number().int().min(0),
+  reportId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+}).strict();
+
 export const operations = {
+  createGuidedResearchSession: {
+    method: "POST",
+    path: "/research/guided-sessions",
+    in: z.object({
+      idempotencyKey: z.string().trim().min(1).max(200),
+      brief: GuidedResearchBrief,
+    }).strict(),
+    out: GuidedResearchSession,
+    err: [] as const,
+  },
+  listGuidedResearchSessions: {
+    method: "GET",
+    path: "/research/guided-sessions",
+    in: z.object({}).strict(),
+    out: z.object({ items: z.array(GuidedResearchSession) }).strict(),
+    err: [] as const,
+  },
+  getGuidedResearchSession: {
+    method: "GET",
+    path: "/research/guided-sessions/:sessionId",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND"] as const,
+  },
   /**
    * `CreateResearch`（`usecases.md` 1.1 / `uc-24-1` R3）—— 七项配置一次固化（**N-12**）
    *
