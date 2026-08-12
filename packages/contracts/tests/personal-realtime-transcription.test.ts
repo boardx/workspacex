@@ -38,7 +38,7 @@ describe("personal realtime transcription contract", () => {
       sessionId: "session-1",
       name: "客户访谈",
       tags: ["客户"],
-      status: "completed",
+      status: "idle",
       durationMs: 1200,
       createdAt: "2026-08-12T00:00:00.000Z",
       updatedAt: "2026-08-12T00:00:01.000Z",
@@ -46,6 +46,7 @@ describe("personal realtime transcription contract", () => {
     };
     expect(C.PersonalTranscriptionDetail.safeParse(detail).success).toBe(true);
     expect(C.PersonalTranscriptionDetail.safeParse({ ...detail, captures: [] }).success).toBe(false);
+    expect(C.PersonalTranscriptionStatus.safeParse("completed").success).toBe(false);
     expect(C.operations.updatePersonalTranscriptionContent.in.safeParse({
       sessionId: "session-1",
       content: "人工修改后的完整正文",

@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 
-export const PersonalTranscriptionStatus = z.enum(["idle", "recording", "completed", "failed"]);
+export const PersonalTranscriptionStatus = z.enum(["idle", "recording", "failed"]);
 
 const Name = z.string().trim().min(1).max(100);
 const Tag = z.string().trim().min(1).max(20);

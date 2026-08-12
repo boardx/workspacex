@@ -15,7 +15,6 @@ type PersonalTranscriptionStatus = z.infer<typeof C.PersonalTranscriptionStatus>
 const STATUS_LABEL: Record<PersonalTranscriptionStatus, string> = {
   idle: "待开始",
   recording: "录音中",
-  completed: "已完成",
   failed: "转录失败",
 };
 
@@ -45,8 +44,8 @@ export function RealtimeTranscriptionWorkspace({
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   const recording = streamState === "recording" || streamState === "stopping" || session.status === "recording";
   const busy = streamState === "connecting" || streamState === "stopping";
-  const canStart = session.status === "idle" || session.status === "completed" || session.status === "failed";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
+  const statusLabel = session.status === "idle" && session.content ? "可续录" : STATUS_LABEL[session.status];
 
   async function copyContent() {
     await navigator.clipboard.writeText(visibleContent);
@@ -78,9 +77,9 @@ export function RealtimeTranscriptionWorkspace({
                 <h1 data-testid="rec-live-title" className="truncate text-24 font-semibold tracking-tight">{session.name}</h1>
                 <Badge
                   data-testid="rec-live-status"
-                  tone={session.status === "completed" ? "primary" : session.status === "recording" ? "danger" : session.status === "failed" ? "danger" : "neutral"}
+                  tone={session.status === "recording" ? "danger" : session.status === "failed" ? "danger" : "neutral"}
                 >
-                  {STATUS_LABEL[session.status]}
+                  {statusLabel}
                 </Badge>
               </div>
               <p className="mt-2 text-12 text-muted-foreground">个人转录 · {session.tags.join(" / ") || "未添加标签"}</p>
@@ -89,7 +88,7 @@ export function RealtimeTranscriptionWorkspace({
           <div className="flex items-center gap-3 pl-11 md:pl-0">
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
               <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : session.status === "completed" ? "内容已保存" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : "尚未开始"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "内容已保存，可继续追加" : "尚未开始"}
             </div>
             <Button
               data-testid="rec-live-toggle"
@@ -98,7 +97,7 @@ export function RealtimeTranscriptionWorkspace({
               disabled={busy}
               onClick={recording ? onStop : onStart}
             >
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在收尾" : recording ? "停止转录" : canStart ? "开始转录" : "开始转录"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在收尾" : recording ? "停止转录" : session.content ? "继续转录" : "开始转录"}
             </Button>
           </div>
         </header>

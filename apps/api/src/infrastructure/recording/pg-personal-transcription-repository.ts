@@ -26,7 +26,7 @@ const number = (value: string | number): number => Number(value);
 const SUMMARY_COLUMNS = `p.id, p.name, p.tags, p.content,
   CASE
     WHEN bool_or(rs.ended_at IS NULL) FILTER (WHERE rs.id IS NOT NULL) THEN 'recording'
-    WHEN count(rs.id) > 0 THEN 'completed'
+    WHEN count(rs.id) > 0 THEN 'idle'
     ELSE p.status
   END AS status,
   COALESCE(sum(COALESCE(rs.duration_ms,
@@ -244,7 +244,7 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
         [input.durationMs,`personal:${input.captureId}`,input.captureId,input.orgId,input.transcriptionId,input.ownerUserId]);
       if (ended.rows.length !== 1) throw new Error("personal capture is not active or not owned");
       await s.query(`UPDATE personal_transcriptions SET status=$1,updated_at=now() WHERE id=$2 AND owner_user_id=$3`,
-        [input.failed ? "failed" : "completed",input.transcriptionId,input.ownerUserId]);
+        [input.failed ? "failed" : "idle",input.transcriptionId,input.ownerUserId]);
     });
   }
 }

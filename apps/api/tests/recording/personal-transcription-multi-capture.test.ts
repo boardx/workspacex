@@ -4,7 +4,7 @@ import { personalRealtimeTranscription as C } from "@repo/contracts";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgPersonalTranscriptionRepository } from "../../src/infrastructure/recording/pg-personal-transcription-repository";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -47,7 +47,7 @@ describe("personal transcription single body", () => {
     });
     const { sessionId } = (await create.json()) as { sessionId: string };
 
-    await asApp(ORG, (client) => client.query(
+    await asOwner((client) => client.query(
       `UPDATE personal_transcriptions SET content=$1 WHERE id=$2`,
       ["第一轮第一句 第一轮第二句 第二轮第一句", sessionId],
     ));
@@ -85,6 +85,22 @@ describe("personal transcription single body", () => {
         `SELECT count(*)::text AS count FROM recording_segments WHERE session_id='capture-body'`,
       ));
       expect(storedSegments.rows[0]?.count).toBe("0");
+
+      await repository.finishCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body", durationMs: 2_000 });
+      expect((await repository.readOwned({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId }))?.status).toBe("idle");
+
+      await repository.startCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", trackId: "track-body-2" });
+      await repository.appendFinal({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", segmentId: "final-3",
+        ordinal: 1, text: "第三句", startMs: 0, endMs: 1_000 });
+      await repository.finishCapture({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId, captureId: "capture-body-2", durationMs: 1_000 });
+      const continued = await repository.readOwned({ orgId: ORG as never, ownerUserId: USER,
+        transcriptionId: sessionId });
+      expect(continued).toMatchObject({ status: "idle", content: "第一句 第二句 第三句" });
     } finally {
       await db.close();
     }

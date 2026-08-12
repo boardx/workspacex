@@ -38,7 +38,7 @@ const EUROPE = {
   sessionId: "europe-entry",
   name: "欧洲市场进入讨论",
   tags: ["客户", "市场研究"],
-  status: "completed",
+  status: "idle",
   durationMs: 3_492_000,
   createdAt: "2026-08-11T06:30:00.000Z",
   updatedAt: "2026-08-11T07:28:12.000Z",
@@ -158,7 +158,7 @@ describe("实时转录历史工作台", () => {
     await waitFor(() => expect(api.read).toHaveBeenCalledWith("europe-entry", "session-token"));
     expect(screen.getByTestId("rec-live-workspace")).toBeVisible();
     expect(screen.getByTestId("rec-live-title")).toHaveTextContent("欧洲市场进入讨论");
-    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("已完成");
+    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("可续录");
     expect(screen.getByText("这是数据库中保存的真实逐字稿。")).toBeVisible();
     expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
   });

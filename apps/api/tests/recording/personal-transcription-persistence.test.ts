@@ -41,6 +41,7 @@ describe("personal transcription persistence", () => {
     for (const file of [
       "20260812000000_f164_personal_realtime_transcriptions.sql",
       "20260812113000_f167_personal_transcription_content.sql",
+      "20260812170000_f167_resumable_personal_transcriptions.sql",
     ]) {
       const migration = await readFile(new URL(`../../migrations/${file}`, import.meta.url), "utf8");
       await expect(asOwner((client) => client.query(migration))).resolves.toBeDefined();

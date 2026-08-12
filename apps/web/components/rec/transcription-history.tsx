@@ -316,8 +316,8 @@ function HistoryCard({
               <p className="mt-1 truncate text-11 text-muted-foreground">{item.project} · {item.owner}</p>
             </div>
           </div>
-          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : item.status === "idle" ? "neutral" : "primary"}>
-            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.status === "idle" ? "待开始" : "已完成"}
+          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>
+            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}
           </Badge>
         </div>
         <p className="line-clamp-3 text-12 leading-relaxed text-muted-foreground">{item.summary}</p>
@@ -331,10 +331,10 @@ function HistoryCard({
           <Button
             data-testid={`rec-history-open-${item.id}`}
             size="sm"
-            variant={item.status === "recording" || item.status === "idle" ? "primary" : "outline"}
+            variant="primary"
             onClick={() => onOpen(item)}
           >
-            {item.status === "recording" || item.status === "idle" ? "进入转录" : "打开转录"}
+            进入转录
           </Button>
         </div>
         <Button size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button>
@@ -353,7 +353,7 @@ function toHistoryItem(item: PersonalTranscriptionSummary): TranscriptionHistory
     project: "个人转录",
     owner: "我",
     ownerInitial: "我",
-    summary: item.status === "completed" ? "转录已完成，打开查看逐字稿。" : "等待麦克风音频输入。",
+    summary: item.durationMs > 0 ? "内容已保存，可随时进入并继续追加转录。" : "等待麦克风音频输入。",
     tags: item.tags,
     duration: `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
     updatedAt: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt)),

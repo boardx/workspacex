@@ -19,4 +19,4 @@
 
 逐字稿只显示一份连续正文，不展示分段卡片、时间戳或 final 标签。停止录音后显示 `rec-live-copy` 与 `rec-live-edit`；编辑态通过 `rec-live-save` 保存整份正文。interim 只以内联弱化文本临时显示，不进入持久化正文。
 
-按钮状态：idle/completed/failed 为“开始转录”；connecting/waiting/recording 为“停止转录”；finalizing 为“正在收尾”且 disabled。
+按钮状态：idle/failed 为“开始转录”或“继续转录”；connecting/waiting/recording 为“停止转录”；finalizing 为“正在收尾”且 disabled。个人转录没有完成态，停止只结束当前 capture，正文保留并可再次追加。

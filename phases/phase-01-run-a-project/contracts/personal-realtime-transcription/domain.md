@@ -18,6 +18,7 @@
 - I-7：ticket 原文不落库，摘要一次原子消费；过期、已消费或绑定不匹配时不能建立 WebSocket。
 - I-8：Fun-ASR `task-started` 前向上游发送的 PCM 字节数恒为 0。
 - I-9：客户端 stop 后不再接受新 PCM；`task-finished` 且所有 final 写入完成前不得发送 completed。
+- I-10：`completed` 只表示本次 WebSocket capture 已收尾；个人转录文档回到 `idle`，没有不可续录的完成态，后续 capture 继续追加同一正文。
 - I-10：每个上游 task 的最终累计用量最多记账一次。
 - I-11：API Key 只存在于服务端环境和上游 Authorization 头，浏览器永不可见。
 - I-12：结束、失败、断线和卸载后麦克风轨、AudioContext、缓冲、计时器与两侧 WebSocket 均释放。

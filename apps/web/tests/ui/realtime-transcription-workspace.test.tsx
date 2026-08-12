@@ -18,6 +18,14 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
+  it("treats a stopped transcription as resumable instead of completed", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="idle"
+      onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-status")).toHaveTextContent("可续录");
+    expect(screen.queryByText("已完成")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
+  });
+
   it("renders one body without segment timestamps and copies the whole body", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });

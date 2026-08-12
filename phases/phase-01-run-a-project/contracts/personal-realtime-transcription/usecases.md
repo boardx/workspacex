@@ -43,6 +43,8 @@
 
 协议顺序：连接上游后发 `run-task`；`task-started` 前只缓冲不转发 PCM；final 原子追加到 `PersonalTranscription.content` 后再推送；stop 发 `finish-task`；`task-finished` 后完成用量记账、结束 capture 并发 completed。
 
+这里的 `completed` 是 capture 级事件，不是个人转录文档终态。事件送达后文档状态回到 `idle`，用户可再次开始并继续追加正文。
+
 ## RetryPersonalTranscriptionCapture
 
 完成或失败后再次领取 ticket 会创建新的 capture run，新的 final 继续追加在原正文末尾。
