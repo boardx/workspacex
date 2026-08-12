@@ -30,4 +30,5 @@ export * as skills from "./skills";
 export * as wave2Runtime from "./wave2-runtime";
 export * as templates from "./templates";
 export * as research from "./research";
+export * as survey from "./survey";
 export * as personalRealtimeTranscription from "./personal-realtime-transcription";
