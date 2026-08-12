@@ -84,3 +84,30 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
 }
 
 export const PROJECT_KIND_OPTIONS = project.ProjectKind.options;
+
+export type ArchiveProjectOut = z.infer<typeof project.operations.archiveProject.out>;
+export type UnarchiveProjectOut = z.infer<typeof project.operations.unarchiveProject.out>;
+
+/**
+ * F164 —— 真实 `POST /projects/:projectId/archive` / `…/unarchive`。
+ *
+ * 与 `getProjectOverview` 同形：契约 `in` 只收 `{ projectId }`，`orgId` 在服务端取自
+ * `principal.orgId`，所以这里不传组织。
+ *
+ * ⚠ 归档失败面有一条**无错误码**的路径：U-2⑵「有进行中环节时拒绝归档」后端已在
+ *   `project.controller.ts` 拦截，但抛的是裸 400（`KNOWN_CONTRACT_GAPS.P7`），
+ *   `ApiError.reasonCode` 为空。调用方**不要替它编一个原因**——见 issue #999。
+ */
+export async function archiveProject(projectId: string): Promise<ArchiveProjectOut> {
+  return apiRequest<ArchiveProjectOut>(
+    project.operations.archiveProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST" },
+  );
+}
+
+export async function unarchiveProject(projectId: string): Promise<UnarchiveProjectOut> {
+  return apiRequest<UnarchiveProjectOut>(
+    project.operations.unarchiveProject.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST" },
+  );
+}
