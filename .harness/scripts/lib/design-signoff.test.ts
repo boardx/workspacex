@@ -539,3 +539,59 @@ describe("phase 级 ui-signoff.md 已停用：改它的 status 不产生任何�
     }
   });
 });
+
+/* ═══ PROP-HARNESS-SIGNOFF-002：claim 门认识 design-delta（2026-08-12 人类 Accept）═══
+ * 四条反证里三条是「把某一约束删掉的实现会当场红」，只有一条正向——
+ * 单靠「加了 delta 之后 claim 通过」是空转（提案自述的反证结构）。 */
+describe("design-delta aware gate (PROP-HARNESS-SIGNOFF-002)", () => {
+  function writeDelta(
+    name: string,
+    opts: { covers?: string[]; status?: string; baseBundle?: string | null } = {},
+  ): void {
+    const dir = join(PHASE_DIR, "design-deltas", name);
+    mkdirSync(dir, { recursive: true });
+    const base = opts.baseBundle === null ? "" : `base_bundle: ${opts.baseBundle ?? "identity"}\n`;
+    writeFileSync(
+      join(dir, "design-signoff.md"),
+      `---\nbundle: ${name}\n${base}covers: [${(opts.covers ?? ["F90"]).join(", ")}]\n` +
+        `status: ${opts.status ?? "confirmed"}\nconfirmed_by: "yanbin shen"\nconfirmed_at: "2026-07-28"\n---\n\n# delta\n`,
+      "utf8",
+    );
+  }
+
+  it("正向：confirmed delta 挂 confirmed 基座 → 其 covers 的 feature 放行", () => {
+    writeBundle("identity", { covers: ["F01"] });
+    writeCoherence({ coversBundles: ["identity"] });
+    writeDelta("quota", { covers: ["F90"], status: "confirmed", baseBundle: "identity" });
+    expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails).toEqual([]);
+  });
+
+  it("约束①反证：pending delta 照拦——删掉 status 检查的实现会让这条绿", () => {
+    writeBundle("identity", { covers: ["F01"] });
+    writeCoherence({ coversBundles: ["identity"] });
+    writeDelta("quota", { covers: ["F90"], status: "pending", baseBundle: "identity" });
+    expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails.join("\n")).toMatch(/design-delta「quota」尚未签核/);
+  });
+
+  it("约束②反证 a：base_bundle 不存在 → 拦（自建 delta+自写 confirmed 不能绕全流程）", () => {
+    writeBundle("identity", { covers: ["F01"] });
+    writeCoherence({ coversBundles: ["identity"] });
+    writeDelta("rogue", { covers: ["F90"], status: "confirmed", baseBundle: "no-such-bundle" });
+    expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails.join("\n")).toMatch(/不存在.*不能凭空立户/s);
+  });
+
+  it("约束②反证 b：base_bundle 存在但 pending → 拦（基座未签，增量无从谈起）", () => {
+    writeBundle("identity", { covers: ["F01"] });
+    writeBundle("drafty", { covers: ["F02"], status: "pending" });
+    writeCoherence({ coversBundles: ["identity", "drafty"] });
+    writeDelta("quota", { covers: ["F90"], status: "confirmed", baseBundle: "drafty" });
+    expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails.join("\n")).toMatch(/挂靠的束「drafty」尚未签核/);
+  });
+
+  it("约束③反证：同一 feature 被束和 delta 同时 covers → 判失败，不是取第一个", () => {
+    writeBundle("identity", { covers: ["F01", "F90"] });
+    writeCoherence({ coversBundles: ["identity"] });
+    writeDelta("quota", { covers: ["F90"], status: "confirmed", baseBundle: "identity" });
+    expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails.join("\n")).toMatch(/被多处 covers 同时声明/);
+  });
+});
