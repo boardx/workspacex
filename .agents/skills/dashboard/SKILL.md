@@ -24,7 +24,7 @@ pnpm harness dashboard              # 全量（现查 gh + git + 磁盘 + 本机
 pnpm harness dashboard --no-remote  # 离线快速模式（跳过 gh/git fetch）
 ```
 
-输出：stdout 全文 + `.harness/state/DASHBOARD.md`（派生视图）。
+输出：stdout 全文 + `.harness/state/DASHBOARD.md`（派生视图）。 <!-- 运行时生成物，gitignored；skill-doctor:ignore -->
 
 ## 它回答的六个问题
 
