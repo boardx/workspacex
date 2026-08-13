@@ -33,7 +33,17 @@ phase: "01"
 #     那三个字段是人的动作，agent 不许动（ADR-023）。
 #   ⚠ 若 coord-main 或人类认为「已签核束追加 feature 编号」本身需要人类再签一次，
 #     把 F164 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164]
+# ⚠ 2026-08-12（PJ-04 / F172）：追加 **F172**，由 agent `dev-project` 追加，**coord-main 已批**
+#   （第三次追加；coord-main 要求「第三次前先问」，已问已批。人类定规前不再有第四次自行追加）。
+#   本次与前两次的差别：**它是减法**。F172 不接任何新数据、不加任何端点——
+#   它删掉的是概览 tab 上**没有契约出处的编造展示**（假倒计时 / 假环节标题 / 编造的角色分工
+#   与待办动态），并把有出处的两项接到 `getProjectOverview`。
+#   三条件依旧满足：
+#     · UI 已签：`ui-preview/project-v2/` 的概览屏；
+#     · 契约已签：`getProjectOverview`（F123 已 passing 且在本 covers 里），白名单四件封闭；
+#     · **零新增面**：没有新端点、没有新错误码、没有新字段——净行数为负。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
