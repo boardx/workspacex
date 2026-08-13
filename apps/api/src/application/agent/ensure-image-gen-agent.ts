@@ -7,8 +7,13 @@
  * 独立 agent，不是"通用助手"的一个 skill：执行路径是"提交异步任务到阿里云百炼、
  * 轮询到终态"，不是一次 chat completion——见 `bailian-image-provider.ts` 头注。
  */
-export const IMAGE_GEN_AGENT_STABLE_NAME = "image-gen-agent";
-export const IMAGE_GEN_AGENT_NAME = "图片生成";
+import { agentDefaults } from "@repo/contracts";
+
+// stable_name / 显示名单源在 `@repo/contracts` 的 `agentDefaults`（2026-08-14，同
+// `ensure-default-agent.ts` 那条注释）——再导出，调用方（同目录
+// `pg-image-gen-agent-repository.ts`）导入路径不用改。
+export const IMAGE_GEN_AGENT_STABLE_NAME = agentDefaults.IMAGE_GEN_AGENT_STABLE_NAME;
+export const IMAGE_GEN_AGENT_NAME = agentDefaults.IMAGE_GEN_AGENT_NAME;
 export const IMAGE_GEN_AGENT_PROVIDER = "bailian-image";
 /** `model_id` 一列没有外键校验，这里只是给日志/审计一个可读标签；真正生效的模型名
  *  在 `bailian-image-provider.ts` 的 `KERNEL_BAILIAN_IMAGE_MODEL_ID`（默认已实测的

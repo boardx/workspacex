@@ -17,6 +17,7 @@ export * as consentItem from "./consent-item";
 export * as filterAction from "./filter-action";
 export * as provenance from "./provenance";
 export * as thresholds from "./thresholds";
+export * as agentDefaults from "./agent-defaults";
 
 /* ── phase-01 契约束 ─────────────────────────────────────────────── */
 export * as interview from "./interview";
