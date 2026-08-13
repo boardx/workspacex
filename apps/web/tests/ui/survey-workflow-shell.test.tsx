@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SurveyWorkflowShell } from "@/components/survey/workflow/survey-workflow-shell";
 
 const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push }) }));
 
 afterEach(() => {
   cleanup();
   replace.mockReset();
+  push.mockReset();
 });
 
 describe("SurveyWorkflowShell", () => {
@@ -35,6 +37,12 @@ describe("SurveyWorkflowShell", () => {
     render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly />);
     expect(screen.getByTestId("survey-workflow-readonly")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-workflow-save")).not.toBeInTheDocument();
+  });
+
+  it("返回按钮回到问卷资源列表", () => {
+    render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly={false} />);
+    fireEvent.click(screen.getByTestId("survey-workflow-back-to-list"));
+    expect(push).toHaveBeenCalledWith("/studio/survey");
   });
 
   it("连续呈现全部问题并让左侧目录定位题目", () => {
