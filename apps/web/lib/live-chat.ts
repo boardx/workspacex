@@ -348,27 +348,23 @@ export async function createThread(input: CreateThreadInput): Promise<MutateThre
 }
 
 /**
- * ⚠ `projectId` 是**必传**的，尽管契约把它声明成 `.nullable()`。
+ * ⚠ `projectId` 是**必传**的（这条纪律不变——#541 的教训是「忘传」而不是「传 null」，
+ * 见下），但从 2026-08-14 起**允许显式传 `null`**——本条注释此前一直写着后端
+ * `mutateExisting` 会对 `projectId === null` 直接裸 404，那是 #594 之前的旧行为；
+ * #594 把 `projectId === null` 从那条恒拒名单里移出了（`mutate-thread.ts` 现在的
+ * guard 只剩 `threadId === null || expectedVersion === null`），个人线程的改名/
+ * 删除请求本来就该传 `projectId: null`（`resolveVisibility` 自己知道 null 意味着
+ * 走个人线程分支），不是缺陷。**本条注释此前描述的 guard 形状已经过时**——写这条
+ * 更新是为了不让下一个读者对着一段早就不成立的引用代码去踩坑。
  *
- * 后端 `mutate-thread.ts:145` 的 `mutateExisting` 一进来就是：
- *
- *     if (threadId === null || projectId === null || expectedVersion === null)
- *       throw new ThreadNotVisibleError();      // ← 裸 404，不带 reasonCode
- *
- * 而那个错误按 I-3 被映射成**裸 404**（「不可见」与「不存在」必须同一个出口，
- * 否则改名接口就成了存在性探测器）。
- *
- * ⇒ 少传一个 `projectId`，得到的不是「参数缺失」而是「这条线程不存在」。
- *   #541 就是这么来的：`create` 传了 `input.projectId` 所以一直是通的，
- *   `rename` / `delete` 写死 `null` ⇒ **改名和删除在界面上从来没成功过**，
- *   而人类八步里逐字要求「Chat 功能，新增，**删除**，聊天」。
- *
- * ⚠ 契约把它写成 `.nullable()` 与实现「rename/delete 必须有」不一致，
- *   已登记为 out-of-scope 跟进项。**这里不靠注释防守，靠传对值。**
+ * #541 的教训仍然成立、仍然是「必传」这条纪律的理由：`create` 传了
+ * `input.projectId` 所以一直是通的，`rename` / `delete` 当年**没传、被隐式传成
+ * `undefined`**（不是显式 `null`）导致 400——「必传」防的是这种遗漏，不是禁止 `null`
+ * 本身；`null` 现在是个合法的、有意义的值（"这是一条个人线程"），不再是历史 bug 的信号。
  */
 export async function renameThread(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   title: string,
   expectedVersion: number,
 ): Promise<MutateThreadOut> {
@@ -387,10 +383,10 @@ export async function renameThread(
   });
 }
 
-/** `projectId` 必传，理由同 `renameThread`（#541）。 */
+/** `projectId` 必传、允许 `null`，理由同 `renameThread`（见其文档注释）。 */
 export async function deleteThread(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   expectedVersion: number,
   reason: string,
 ): Promise<MutateThreadOut> {
