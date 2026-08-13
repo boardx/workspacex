@@ -19,21 +19,20 @@
 
 ---
 
-### Task 1: 更新并重新签核个人实时转录契约束
+### Task 1: 新增并签核个人共享 ASR design delta
 
 **Files:**
-- Modify: `phases/phase-01-run-a-project/contracts/personal-realtime-transcription/design-signoff.md`
-- Modify: `phases/phase-01-run-a-project/contracts/personal-realtime-transcription/domain.md`
-- Modify: `phases/phase-01-run-a-project/contracts/personal-realtime-transcription/usecases.md`
-- Modify: `phases/phase-01-run-a-project/contracts/personal-realtime-transcription/coverage.md`
-- Modify: `phases/phase-01-run-a-project/design-coherence.md`
-- Modify: `phases/phase-01-run-a-project/requirements/05-rec/uc-5-5-用户私有实时转录工作台.md`
+- Create: `phases/phase-01-run-a-project/design-deltas/personal-shared-realtime-asr/design-signoff.md`
+- Create: `phases/phase-01-run-a-project/design-deltas/personal-shared-realtime-asr/contract.md`
+- Create: `phases/phase-01-run-a-project/design-deltas/personal-shared-realtime-asr/verification.md`
+- Create: `phases/phase-01-run-a-project/requirements/05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md`
+- Modify: `phases/phase-01-run-a-project/feature_list.json`
 
 **Interfaces:**
 - Consumes: 已确认规格 `docs/superpowers/specs/2026-08-13-unify-personal-chat-realtime-asr-design.md`。
-- Produces: 唯一签核事实——个人与 Chat 共用 `AsrProviderPort`/`KERNEL_ASR_*`，个人边界仍独立。
+- Produces: F173 的唯一增量签核事实——个人与 Chat 共用 `AsrProviderPort`/`KERNEL_ASR_*`，个人边界仍独立；原基础束保持历史原文。
 
-- [ ] **Step 1: 把 Fun-ASR 专用名词替换成通用 provider 生命周期**
+- [x] **Step 1: 用新 UC 与 delta 描述通用 provider 生命周期**
 
 将 `task-started/task-finished/AliyunAsrTask/ALIYUN_ASR_*` 改为：
 
@@ -44,13 +43,13 @@ ConfiguredRealtimeAsrProvider.open(audio=mono/16k/pcm16le)
   -> finish（等待尾部 final 或明确失败）
 ```
 
-- [ ] **Step 2: 改写 XC-40**
+- [x] **Step 2: 登记新的 F173 垂直 feature**
 
-明确共享的是上游 provider 和配置，不共享个人与 Chat 的 ticket、WebSocket 路径、授权或落库编排；删除“两条模型路由并存”的旧前提。
+F173 同时覆盖 provider/DI、个人 gateway、PCM 用量和 `/rec` stable events 回归；不复用已关闭的 F166 issue #1050。
 
-- [ ] **Step 3: 保持签核状态由人类修改**
+- [ ] **Step 3: 保持 delta 签核状态由人类修改**
 
-Agent 只提交契约正文，不自行改 `status/confirmed_by/confirmed_at`；等待人类在该 bundle 与阶段一致性复核上确认。
+Agent 只提交契约正文，不自行改 `status/confirmed_by/confirmed_at`；等待人类确认 `personal-shared-realtime-asr` delta。原基础束和阶段一致性复核不被静默改写。
 
 - [ ] **Step 4: 运行契约检查**
 
@@ -66,10 +65,10 @@ Expected: 契约结构、覆盖矩阵与 harness 测试通过；若签核门提�
 - [ ] **Step 5: 提交契约变更**
 
 ```bash
-git add phases/phase-01-run-a-project/contracts/personal-realtime-transcription \
-  phases/phase-01-run-a-project/design-coherence.md \
-  phases/phase-01-run-a-project/requirements/05-rec/uc-5-5-用户私有实时转录工作台.md
-git commit -m "docs(recording): unify personal and chat realtime ASR contract"
+git add phases/phase-01-run-a-project/design-deltas/personal-shared-realtime-asr \
+  phases/phase-01-run-a-project/requirements/05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md \
+  phases/phase-01-run-a-project/feature_list.json
+git commit -m "docs(recording): define shared personal realtime ASR delta"
 ```
 
 ---
@@ -424,10 +423,12 @@ Expected: exit 0. Any pre-existing failure must be reproduced on exact `origin/m
 
 - [ ] **Step 4: 运行 harness verify**
 
-After the feature is formally claimed and assigned to a sprint:
+After human confirms the delta, allocate F173 to a sprint through harness (do not reuse closed F166/#1050), then run:
 
 ```bash
-pnpm harness verify --sprint <phase>/<sprint> --feature <feature-id>
+FEATURE_ID=$(jq -r '.features[] | select(.notes | contains("shared-realtime-asr")) | .id' phases/phase-01-run-a-project/feature_list.json)
+SPRINT_ID=$(jq -r --arg id "$FEATURE_ID" '.features[] | select(.id==$id) | .sprint' phases/phase-01-run-a-project/feature_list.json)
+pnpm harness verify --sprint "01/${SPRINT_ID}" --feature "$FEATURE_ID"
 ```
 
 Confirm the evidence blob is actually in Git:
@@ -450,10 +451,12 @@ Capture browser Network/WS evidence without exposing the API key. Confirm the br
 - [ ] **Step 6: Push and create one PR**
 
 ```bash
-git push -u origin <claimed-branch>
+FEATURE_ID=$(jq -r '.features[] | select(.notes | contains("shared-realtime-asr")) | .id' phases/phase-01-run-a-project/feature_list.json)
+BRANCH="worker/coord-voice-01-${FEATURE_ID:l}-shared-realtime-asr"
+git push -u origin "$BRANCH"
 ```
 
-Open a PR containing `Closes #<feature-issue>`, link parent #945, include verification evidence and the old-to-new configuration mapping. Do not merge it as `coord-voice`; hand it to `coord-main` after review.
+Read the open issue number created by `pnpm harness sync --phase 01 --apply` for the new feature, then open one PR containing `Closes #<generated issue number>`, link parent #945, include verification evidence and the old-to-new configuration mapping. Do not reuse closed #1050 and do not merge it as `coord-voice`; hand it to `coord-main` after review.
 
 ---
 

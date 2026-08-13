@@ -95,16 +95,16 @@ gateway 为本次上游连接生成只用于幂等的内部 id；不得伪造成
 Qwen3 realtime-asr 两条模型路由并存”，而是“个人与 Chat 共享 Qwen realtime provider，
 但各自保留独立的鉴权、WebSocket 边界与落库编排”。
 
-需要更新 `personal-realtime-transcription` 束中的：
+由于 `personal-realtime-transcription` 基础束已经确认，本方案不得静默改写其正文；改为新增
+`design-deltas/personal-shared-realtime-asr/`，挂靠该基础束并覆盖新的 F173。delta 记录：
 
-- `design-signoff.md`：将 Fun-ASR 专用描述改为共享 Chat ASR provider。
-- `domain.md`：将 `AliyunAsrTask` 改为通用 realtime provider session。
-- `usecases.md`：停止条件从 `task-finished` 改为 provider `finish()` 收口。
-- `coverage.md`：用 provider open/final/finish 和持续落库作为验证锚点。
-- `design-coherence.md` XC-40：记录新的共享边界并重新进行阶段一致性复核。
+- `design-signoff.md`：三件签核入口，初始保持 pending。
+- `contract.md`：通用 realtime provider session、配置、生命周期、计量和错误边界。
+- `verification.md`：provider open/final/finish、持续落库与反证命令。
+- `requirements/05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md`：F173 的 spec_ref 来源。
 
-由于原束已确认，agent 只能提交上述变更材料，不能自行改签核人的 `status`。运行时代码
-必须等待人类对新契约重新确认后才开工。
+Agent 不能自行改 delta 的 `status`。运行时代码必须等待人类确认 delta 后才开工；基础束与
+阶段一致性复核继续作为历史事实保留，不用新结论覆盖旧签名。
 
 ## 验证策略
 

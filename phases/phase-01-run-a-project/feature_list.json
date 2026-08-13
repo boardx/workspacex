@@ -3910,6 +3910,28 @@
       "priority": 1,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F173",
+      "title": "/rec 复用 Chat 实时 ASR Provider：KERNEL_ASR 单一配置、final 持久化与 PCM 用量",
+      "user_visible_behavior": "DevApp 只配置 Chat 已使用的 KERNEL_ASR_* 时，用户在 /rec 点击开始即可实时出字；临时文本不落库，最终文本先落库再显示，停止等待尾部 final 后完成，并可再次开始继续追加。同一入口不再因缺少独立 ALIYUN_ASR_* 或 DASHSCOPE_API_KEY 误报未配置；失败时显示稳定错误且释放麦克风和两侧连接。",
+      "spec_ref": "05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-provider-wiring.test.ts tests/recording/configured-realtime-asr-provider.test.ts tests/recording/personal-realtime-asr-gateway.test.ts tests/recording/personal-realtime-asr-usage.test.ts tests/recording/provider-final-persist-before-push.test.ts",
+        "pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smoke.test.ts tests/lib/boardx-realtime-asr-client.test.ts tests/lib/pcm-audio-worklet.test.ts tests/ui/realtime-transcription-workspace.test.tsx",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "属 personal-shared-realtime-asr design delta，挂靠已签 personal-realtime-transcription 束。垂直切片：通用 AsrProviderPort/DI + personal gateway + PCM 用量 + 既有 /rec stable events 回归。F165–F167 的运行时代码已在 main；本 feature 不复用已关闭的 #1050，必须由 harness sync 创建新 issue。共享热点：apps/api/src/kernel.module.ts、apps/api/src/main.ts、apps/api/src/interface/ws/personal-realtime-asr.gateway.ts、apps/api/src/application/recording/personal-realtime-asr.ts；不得与其它 recording feature 并行修改这些文件。回滚：恢复本 feature 前 main；禁止以 Fun-ASR fallback 双轨运行。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-WEB",
+      "sprint": null
     }
   ]
 }
