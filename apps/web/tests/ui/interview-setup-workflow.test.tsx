@@ -6,9 +6,10 @@ import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-import { DigitalInterviewCreate } from "@/components/itv/digital-interview-create";
+import { DigitalInterviewSetup } from "@/components/itv/digital-interview-setup";
+import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
 
-describe("F04 新建批量访谈第一步", () => {
+describe("F04 可点击 Mock 访谈流程", () => {
   beforeEach(() => {
     push.mockReset();
     localStorage.clear();
@@ -16,29 +17,30 @@ describe("F04 新建批量访谈第一步", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("名称、标签、主题完整后创建本地 Mock 草稿并进入 setup", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+  it("确认主题后可点击完成专家、问题、访谈和报告步骤", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "德国采购决策链", tags: ["采购决策"] });
+    render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
 
-    render(<DigitalInterviewCreate />);
-    expect(screen.getByTestId("itv-create-page")).toBeInTheDocument();
-    expect(screen.getByTestId("itv-step-active")).toHaveTextContent("01主题");
-    expect(screen.getByTestId("itv-step-active")).toHaveClass("bg-primary", "text-primary-foreground");
-    expect(screen.getByTestId("itv-create-submit")).toBeDisabled();
-
-    fireEvent.change(screen.getByTestId("itv-create-name"), { target: { value: "德国采购决策链" } });
-    fireEvent.change(screen.getByTestId("itv-create-tags"), { target: { value: "采购决策，德国市场" } });
-    fireEvent.change(screen.getByTestId("itv-create-topic"), { target: { value: "德国储能采购由谁否决？" } });
-    expect(screen.getByTestId("itv-create-submit")).toBeEnabled();
-    expect(screen.getByTestId("itv-create-submit")).toHaveClass("bg-primary", "text-primary-foreground");
-    fireEvent.click(screen.getByTestId("itv-create-submit"));
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/itv\/mock-batch-.+\/setup$/)));
-    expect(fetchMock).not.toHaveBeenCalled();
-    const saved = JSON.parse(localStorage.getItem("wsx.mockDigitalInterviewDrafts.v1") ?? "{}");
-    expect(Object.values(saved)[0]).toMatchObject({
-      name: "德国采购决策链", tags: ["采购决策", "德国市场"],
-      topic: "德国储能采购由谁否决？", status: "draft", selectedExpertIds: [],
+    expect(await screen.findByTestId("itv-workflow-step-1")).toHaveAttribute("aria-current", "step");
+    fireEvent.change(screen.getByTestId("itv-topic-input"), {
+      target: { value: "德国储能采购由谁拥有最终否决权？" },
     });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+
+    expect(await screen.findByTestId("itv-workflow-step-2")).toHaveAttribute("aria-current", "step");
+    expect(screen.getAllByTestId("itv-selected-expert").length).toBeGreaterThan(1);
+    fireEvent.click(screen.getAllByLabelText(/删除专家/)[0]!);
+    fireEvent.click(screen.getByTestId("itv-confirm-experts"));
+
+    expect(await screen.findByTestId("itv-workflow-step-3")).toHaveAttribute("aria-current", "step");
+    const question = screen.getAllByTestId("itv-question-input")[0]!;
+    fireEvent.change(question, { target: { value: "请解释你在采购否决中的职责边界。" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-questions"));
+
+    expect(await screen.findByTestId("itv-workflow-step-4")).toHaveAttribute("aria-current", "step");
+    fireEvent.click(screen.getByTestId("itv-run-all"));
+    fireEvent.click(screen.getByTestId("itv-workflow-step-5"));
+    expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("# 德国采购决策链");
+    expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
 });

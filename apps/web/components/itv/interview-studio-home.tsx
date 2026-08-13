@@ -10,6 +10,8 @@ import {
   type DigitalInterviewHistoryRow,
 } from "@/lib/interview-api";
 import { cn } from "@/lib/utils";
+import { DigitalInterviewCreateModal } from "./digital-interview-create-modal";
+import { listMockDigitalInterviewDrafts, type MockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
 import {
   MOCK_DIGITAL_EXPERTS,
   MOCK_EXPERT_CATEGORIES,
@@ -45,17 +47,21 @@ function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : "DEPENDENCY_UNAVAILABLE";
 }
 
-export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: Tab }) {
+export function InterviewStudioHome({ initialTab = "history", initialCreateOpen = false }: { initialTab?: Tab; initialCreateOpen?: boolean }) {
   const [tab, setTab] = React.useState<Tab>(initialTab);
   const [status, setStatus] = React.useState<string | undefined>();
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
+  const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
 
   React.useEffect(() => {
     let active = true;
     setHistory({ kind: "loading" });
     void loadDigitalInterviewHistory(status).then(
-      (result) => active && setHistory({ kind: "ready", items: result.items }),
+      (result) => active && setHistory({
+        kind: "ready",
+        items: [...listMockDigitalInterviewDrafts().map(mockDraftHistoryRow), ...result.items],
+      }),
       (error: unknown) => active && setHistory({ kind: "error", reason: reasonOf(error) }),
     );
     return () => { active = false; };
@@ -71,13 +77,14 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
               回看或继续历史访谈，也可以选择一位数字专家快速开始对话。
             </p>
           </div>
-          <Link
+          <button
+            type="button"
             data-testid="itv-create"
-            href="/itv/new"
+            onClick={() => setCreateOpen(true)}
             className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             <Plus className="size-4" /> 新建访谈
-          </Link>
+          </button>
         </header>
 
         <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-8 border-b border-border">
@@ -125,8 +132,38 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
           </section>
         )}
       </div>
+      <DigitalInterviewCreateModal open={createOpen} onOpenChange={setCreateOpen} />
     </main>
   );
+}
+
+function mockDraftHistoryRow(draft: MockDigitalInterviewDraft): DigitalInterviewHistoryRow {
+  const actionByStep = {
+    1: "confirm_topic",
+    2: "confirm_experts",
+    3: "confirm_questions",
+    4: "continue_runs",
+    5: "view_report",
+  } as const;
+  const statusByStep = {
+    1: "draft",
+    2: "experts_pending",
+    3: "questions_pending",
+    4: "running",
+    5: "completed",
+  } as const;
+  return {
+    interviewId: draft.interviewId,
+    kind: "batch",
+    name: draft.name,
+    tags: [...draft.tags],
+    topic: draft.topic || "尚未确认访谈主题",
+    status: statusByStep[draft.currentStep],
+    expertCount: draft.selectedExpertIds.length,
+    completedExpertCount: draft.currentStep === 5 ? draft.selectedExpertIds.length : 0,
+    primaryAction: actionByStep[draft.currentStep],
+    updatedAt: draft.updatedAt ?? new Date(0).toISOString(),
+  };
 }
 
 function TabButton({ active, testId, onClick, children }: {
@@ -203,7 +240,7 @@ function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
 
 function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
   if (item.kind === "quick") return { label: "继续对话", href: `/itv/quick/${item.interviewId}` };
-  const detail = `/itv/${item.interviewId}`;
+  const detail = item.interviewId.startsWith("mock-batch-") ? `/itv/${item.interviewId}/setup` : `/itv/${item.interviewId}`;
   const report = `${detail}/report`;
   return {
     confirm_topic: { label: "确认主题", href: detail },

@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ session: { currentOrgId: "org-f02" } }),
 }));
 
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
+import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -15,6 +19,7 @@ function json(body: unknown, status = 200): Response {
 
 describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   beforeEach(() => {
+    push.mockReset();
     window.localStorage.clear();
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-f02");
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
@@ -41,7 +46,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(2);
     expect(screen.getByTestId("itv-tab-history")).toHaveTextContent("历史访谈");
     expect(screen.getByTestId("itv-tab-experts")).toHaveTextContent("专家列表");
-    expect(screen.getByTestId("itv-create")).toHaveAttribute("href", "/itv/new");
+    expect(screen.getByTestId("itv-create")).toHaveAttribute("type", "button");
     expect(screen.getByTestId("itv-create")).toHaveClass("whitespace-nowrap");
     expect(screen.getByTestId("itv-create")).toHaveClass("bg-primary", "text-primary-foreground");
 
@@ -52,6 +57,52 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     const reportCard = await screen.findByTestId("itv-history-card-itv-2");
     expect(within(reportCard).getByRole("link", { name: /生成报告/ })).toHaveAttribute("href", "/itv/itv-2/report");
     expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
+  });
+
+  it("通过弹窗填写名称和最多五个标签后直接进入访谈流程", async () => {
+    render(<InterviewStudioHome initialTab="history" />);
+
+    fireEvent.click(screen.getByTestId("itv-create"));
+    const dialog = screen.getByTestId("itv-create-dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByTestId("itv-create-submit")).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByTestId("itv-create-name"), {
+      target: { value: "德国采购决策链" },
+    });
+    const tagInput = within(dialog).getByTestId("itv-create-tag-input");
+    for (const tag of ["采购", "德国", "储能", "决策", "B2B"]) {
+      fireEvent.change(tagInput, { target: { value: tag } });
+      fireEvent.keyDown(tagInput, { key: "Enter" });
+    }
+    expect(within(dialog).getAllByTestId("itv-create-tag")).toHaveLength(5);
+    expect(tagInput).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByLabelText("删除标签 B2B"));
+    expect(tagInput).toBeEnabled();
+    fireEvent.click(within(dialog).getByTestId("itv-create-submit"));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/itv\/mock-batch-.+\/setup$/)));
+    const drafts = JSON.parse(localStorage.getItem("wsx.mockDigitalInterviewDrafts.v1") ?? "{}");
+    expect(Object.values(drafts)[0]).toMatchObject({
+      name: "德国采购决策链",
+      tags: ["采购", "德国", "储能", "决策"],
+      topic: "",
+      currentStep: 1,
+    });
+  });
+
+  it("返回历史访谈后可以看到并继续本地 Mock 草稿", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "德国储能采购", tags: ["采购"] });
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const card = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
+    expect(within(card).getByText("德国储能采购")).toBeInTheDocument();
+    expect(within(card).getByText("草稿")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /确认主题/ }))
+      .toHaveAttribute("href", `/itv/${draft.interviewId}/setup`);
   });
 
   it("切到专家列表后显示 persona mock、分类和快捷访谈入口", async () => {

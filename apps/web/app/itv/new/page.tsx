@@ -1,6 +1,5 @@
-import { AppShell } from "@/components/shell/app-shell";
-import { DigitalInterviewCreate } from "@/components/itv/digital-interview-create";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AppShell previewRole={null}><DigitalInterviewCreate /></AppShell>;
+  redirect("/itv?create=1");
 }

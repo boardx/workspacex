@@ -57,7 +57,7 @@ export function sendQuickDigitalInterviewMessage(
 export function createDigitalInterviewDraft(input: {
   readonly name: string;
   readonly tags: readonly string[];
-  readonly topic: string;
+  readonly topic?: string;
 }) {
   return Promise.resolve(createMockDigitalInterviewDraft(input));
 }
