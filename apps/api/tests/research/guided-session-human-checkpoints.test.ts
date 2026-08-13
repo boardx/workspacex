@@ -112,6 +112,7 @@ describe("F169 guided research human checkpoints", () => {
       method: "POST", headers: outsiderAuth, body: "{}",
     });
     expect(hidden.status).toBe(404);
-    expect((await hidden.json()).reasonCode).toBe("RESEARCH_NOT_FOUND");
+    const hiddenBody = await hidden.json() as { reasonCode?: string };
+    expect(hiddenBody.reasonCode).toBe("RESEARCH_NOT_FOUND");
   });
 });
