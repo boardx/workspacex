@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, Pencil, RefreshCw, Share2, Store, Trash2, Users,
+  MessageSquare, RefreshCw, Share2, Store, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -204,6 +204,13 @@ export function ChatReadScreen({
    * 而这条路径的整个意义就是「界面反映的是数据库里真实发生的事」。 */
   const [mutatePending, setMutatePending] = React.useState<"create" | "rename" | "delete" | null>(null);
   const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
+  /**
+   * `mutateFailure` 本身不带"这是哪个动作失败的"——2026-08-14 改名/删除入口下沉到各自
+   * 卡片、新建入口留在栏头下之后，两处渲染位需要**分别**判断"这条错误是不是我的"，
+   * 不然一次改名失败会在栏头下的新建区**和**卡片里同时冒出同一条 `chat-thread-mutate-error`
+   * （同一个 testid 出现两次，断言直接以「found multiple elements」红掉）。
+   */
+  const [mutateFailureOp, setMutateFailureOp] = React.useState<"create" | "rename" | "delete" | null>(null);
 
   const runMutation = React.useCallback(async (
     op: "create" | "rename" | "delete",
@@ -212,6 +219,7 @@ export function ChatReadScreen({
     if (!sourceKey || !projectId || !bearer) return;
     setMutatePending(op);
     setMutateFailure(null);
+    setMutateFailureOp(null);
     try {
       const preferred = await action();
       // 重读列表，并**从服务端返回的列表里**解析选中态。删除后不能沿用路由上的
@@ -226,6 +234,7 @@ export function ChatReadScreen({
       if (resolved) router.replace(chatHref(projectId, resolved));
     } catch (failure) {
       setMutateFailure(describeMutateFailure(failure));
+      setMutateFailureOp(op);
     } finally {
       setMutatePending(null);
     }
@@ -424,6 +433,7 @@ export function ChatReadScreen({
           canMutate={canMutate}
           mutatePending={mutatePending}
           mutateFailure={mutateFailure}
+          mutateFailureOp={mutateFailureOp}
           onCreate={handleCreate}
           onRename={handleRename}
           onDelete={handleDelete}
@@ -482,7 +492,7 @@ export function ChatReadScreen({
  */
 function ThreadList({
   groups, loading, error, selectedThreadId,
-  canMutate, mutatePending, mutateFailure, onCreate, onRename, onDelete,
+  canMutate, mutatePending, mutateFailure, mutateFailureOp, onCreate, onRename, onDelete,
   onRetry, onSelect, roster,
 }: {
   groups: ListThreadsOut["groups"] | null;
@@ -492,6 +502,9 @@ function ThreadList({
   canMutate: boolean;
   mutatePending: "create" | "rename" | "delete" | null;
   mutateFailure: string | null;
+  /** 见 `chat-read-screen.tsx` 顶层同名 state 的注释：判断一条失败属于哪个动作，
+   * 好让新建区与卡片自己的表单**各自**只显示属于自己的那条错误，不重复渲染同一条。 */
+  mutateFailureOp: "create" | "rename" | "delete" | null;
   onCreate: (title: string) => void;
   onRename: (title: string) => void;
   onDelete: (reason: string) => void;
@@ -499,19 +512,55 @@ function ThreadList({
   onSelect: (threadId: string) => void;
   roster: React.ReactNode;
 }) {
-  /* 表单状态提到这里：新建入口在栏头下、改名/删除在会话列表下方，两个渲染位共用同一份
-     `form`/`draft`，所以状态不能再住在 `ThreadActions` 内部（那会变成两份互不相干的状态）。 */
-  const [form, setForm] = React.useState<"create" | "rename" | "delete" | null>(null);
-  const [draft, setDraft] = React.useState("");
-  const writeProps = {
-    selectedThreadId, pending: mutatePending, failure: mutateFailure,
-    onCreate, onRename, onDelete, form, draft, setForm, setDraft,
-  } as const;
+  /* 新建入口自己的表单状态——改名/删除已经下沉进各自卡片自身（`ThreadCardButton`，
+     2026-08-14 重做），不再需要一份「两个渲染位共用」的表单状态。 */
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createDraft, setCreateDraft] = React.useState("");
+
+  // 改名/删除的 pending/failure 只对「正在编辑/删除」的那个动作有意义——`mutatePending`
+  // 恒是 "create"|"rename"|"delete"|null 三选一，卡片只关心后两者，"create" 时对卡片
+  // 而言就是"没有正在进行的改名/删除"，与 null 同义。
+  const cardPending = mutatePending === "create" ? null : mutatePending;
+  const cardFailure = mutateFailureOp === "rename" || mutateFailureOp === "delete" ? mutateFailure : null;
+  const createFailure = mutateFailureOp === "create" ? mutateFailure : null;
 
   return (
     <div className="flex flex-col" data-testid="chat-read-thread-list">
       <ThreadListHeader />
-      {canMutate ? <ThreadActions {...writeProps} slot="create" /> : null}
+      {canMutate ? (
+        <div className="flex flex-col gap-2 p-3" data-testid="chat-thread-actions">
+          <NewThreadButton onClick={() => { setCreateOpen(true); setCreateDraft(""); }} disabled={mutatePending !== null} />
+          {createOpen ? (
+            <form
+              data-testid="chat-thread-create-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const title = createDraft.trim();
+                if (!title) return;
+                onCreate(title);
+                setCreateOpen(false);
+              }}
+              className="flex flex-col gap-1"
+            >
+              <input
+                aria-label="新会话标题"
+                data-testid="chat-thread-title-input"
+                className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={createDraft}
+                onChange={(event) => setCreateDraft(event.target.value)}
+              />
+              <div className="flex gap-1">
+                <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={mutatePending !== null || createDraft.trim() === ""}>
+                  确认
+                </Button>
+                <Button size="xs" variant="outline" type="button" onClick={() => setCreateOpen(false)}>取消</Button>
+              </div>
+            </form>
+          ) : null}
+          {mutatePending === "create" ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+          {createFailure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{createFailure}</p> : null}
+        </div>
+      ) : null}
       {roster}
       <Separator />
       {loading && groups === null ? <p className="p-3 text-12 text-muted-foreground">正在加载真实线程…</p> : null}
@@ -546,6 +595,10 @@ function ThreadList({
                   card={card}
                   selected={card.id === selectedThreadId}
                   onSelect={() => onSelect(card.id)}
+                  onRename={canMutate ? onRename : undefined}
+                  onDelete={canMutate ? onDelete : undefined}
+                  pending={card.id === selectedThreadId ? cardPending : null}
+                  failure={card.id === selectedThreadId ? cardFailure : null}
                 />
               ))}
             </section>
@@ -553,104 +606,6 @@ function ThreadList({
           ))}
         </nav>
       ) : null}
-      {/* 改名/删除作用于**当前选中的那条会话**。与列表之间加分隔线并标明归属，
-          否则它紧贴在最后一个分组下面，会被读成该分组里的一项（评分员实测过这个误读）。 */}
-      {canMutate && selectedThreadId !== null ? (
-        <>
-          <Separator />
-          <ThreadActions {...writeProps} slot="selection" />
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * 会话增删改入口。**只在服务端下发了 `thread.mutate` 时才渲染**（调用方已判），
- * 而不是渲染后禁用——「在集合里但标了 disabled」等于把授权判定交给客户端执行。
- */
-function ThreadActions({
-  selectedThreadId, pending, failure, onCreate, onRename, onDelete, form, draft, setForm, setDraft, slot,
-}: {
-  selectedThreadId: string | null;
-  pending: "create" | "rename" | "delete" | null;
-  failure: string | null;
-  onCreate: (title: string) => void;
-  onRename: (title: string) => void;
-  onDelete: (reason: string) => void;
-  form: "create" | "rename" | "delete" | null;
-  draft: string;
-  setForm: (next: "create" | "rename" | "delete" | null) => void;
-  setDraft: (next: string) => void;
-  /** `create` = 栏头下的新建入口；`selection` = 会话列表下方、作用于选中项的次要动作 */
-  slot: "create" | "selection";
-}) {
-  const busy = pending !== null;
-  const hasSelection = selectedThreadId !== null;
-
-  function open(next: "create" | "rename" | "delete") {
-    setForm(next);
-    setDraft("");
-  }
-
-  /**
-   * 表单只跟着**触发它的那个 slot** 渲染，否则同一份表单会在左栏出现两次
-   * （两个 slot 各画一遍 ⇒ `chat-thread-title-input` 命中两个，断言会以
-   * 「found multiple elements」红掉，而不是以「找不到」红掉 —— 后者好认，前者容易
-   * 被读成 testid 写错）。
-   */
-  const ownsForm = slot === "create" ? form === "create" : form === "rename" || form === "delete";
-
-  if (slot === "selection") {
-    if (!hasSelection) return null;
-    return (
-      <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-selection-actions">
-        <div className="flex items-center gap-2">
-          <Button size="xs" variant="ghost" data-testid="chat-thread-rename" disabled={busy} onClick={() => open("rename")}>
-            <Pencil aria-hidden className="h-3 w-3" />改名
-          </Button>
-          <Button size="xs" variant="ghost" data-testid="chat-thread-delete" disabled={busy} onClick={() => open("delete")}>
-            <Trash2 aria-hidden className="h-3 w-3" />删除
-          </Button>
-        </div>
-        {ownsForm ? <ThreadWriteForm
-          form={form}
-          draft={draft}
-          busy={busy}
-          setForm={setForm}
-          setDraft={setDraft}
-          onCreate={onCreate}
-          onRename={onRename}
-          onDelete={onDelete}
-        /> : null}
-        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
-        {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2 p-3" data-testid="chat-thread-actions">
-      {/* 原型里新建是一条全宽 primary（`+ 新建对话`），不是并排三个同权重的裸按钮：
-          三个 outline 按钮并排等于宣布「新建、改名、删除一样重要」。改名/删除降为
-          次要动作、跟着选中项走，渲染在会话列表下方的 `selection` slot 里。
-          ⚠ testid 一个不改——`chat-read.spec.ts` 与 `chat-thread-crud.test.tsx`
-          都锚在 create / rename / delete 这三个名字上。 */}
-<NewThreadButton onClick={() => open("create")} disabled={busy} />
-      {ownsForm ? (
-        <ThreadWriteForm
-          form={form}
-          draft={draft}
-          busy={busy}
-          setForm={setForm}
-          setDraft={setDraft}
-          onCreate={onCreate}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
-      ) : null}
-      {busy && form === "create" ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
-      {failure && !hasSelection ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
     </div>
   );
 }

@@ -284,7 +284,8 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("chat-thread-title-input").fill(title);
     await page.getByTestId("chat-thread-title-submit").click();
 
-    // 改名与删除的入口都要 `hasSelection`（`chat-read-screen.tsx:494/497`），
+    // 改名/删除的 hover「…」菜单只在卡片被**选中**时才会渲染（乐观并发的版本号只有
+    // 选中项才加载了，见 `thread-list-shell.tsx` `ThreadCardButton` 头注），
     // 所以先点中那张卡。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
     // 因此按标题在 `chat-thread-card-list` 内点 —— 那个容器**只包会话卡**，
     // 不含写入口，正是为这种定位准备的（见该组件注释）。
@@ -295,6 +296,8 @@ test.describe("核心闭环八步", () => {
     // ⚠ 新标题**刻意不包含原标题**。写成 `${title} 改名后` 的话，
     //   下面「旧名字消失」那条会因子串匹配恒假 —— 一个会自己骗自己的断言。
     const renamed = `闭环改名 ${Date.now()}`;
+    // 2026-08-14 重做：改名/删除挂在选中卡片自己的 hover「…」菜单里，要先点开菜单。
+    await page.getByTestId("chat-thread-card-menu-trigger").click();
     await page.getByTestId("chat-thread-rename").click();
     await page.getByTestId("chat-thread-title-input").fill(renamed);
     await page.getByTestId("chat-thread-title-submit").click();
@@ -307,6 +310,7 @@ test.describe("核心闭环八步", () => {
 
     // ── 删除 ──────────────────────────────────────────────────────────
     await cardList.getByText(renamed).click();
+    await page.getByTestId("chat-thread-card-menu-trigger").click();
     await page.getByTestId("chat-thread-delete").click();
     // 删除是可追溯动作，服务端要写审计 ⇒ 原因必填。
     // 这条守的是「删除不能无理由发生」：摘掉它，一个把 reason 改成可选的回退
