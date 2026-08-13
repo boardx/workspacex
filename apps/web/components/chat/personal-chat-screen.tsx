@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, MessageSquare, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
@@ -38,14 +38,15 @@ import {
  * 未经充分测试覆盖的大组件，在时间压力下引入真实 bug"的形状。另起一个小组件，
  * 项目路径**一行没动**，新组件自己的问题也只影响新组件自己的用户。
  *
- * ## 改名/删除已补上（2026-08-14，人类实测发现"看不到改名删除"后重新设计）
+ * ## 改名/删除已补上（2026-08-14 补入口 → 同日晚人类实测反馈"看不到"后重做成 hover 菜单）
  *
  * 本条注释此前写着"改名、删除...本轮不做"——那是 #594 首版的范围，**后端一直就绪**
  * （`mutateExisting` 早就接受 `projectId: null`，`personal-thread-no-project.test.ts`
- * 真库反证过），只是前端一直没有把入口做出来。见下方 `handleRename`/`handleDelete`
- * 与 `ThreadSelectionActions`——UI 形状直接照抄 `ChatReadScreen` 的 `ThreadActions`
- * "selection" slot（改名/删除按钮 + 内联表单 + 二次确认删除），保持两条路径视觉/交互
- * 一致，不是重新发明。
+ * 真库反证过），只是前端一直没有把入口做出来。第一版补的是"选中会话 → 列表下方常驻
+ * 按钮"（照抄 `ChatReadScreen` 当时的形状），人类实测反馈找不到；入口本体现已下沉进
+ * `ThreadCardButton`（`thread-list-shell.tsx`）自己的 hover「…」菜单 + 双击改名，
+ * 见下方 `handleRename`/`handleDelete`——两条路径（本组件与 `ChatReadScreen`）共用
+ * 同一个 `ThreadCardButton`，交互形状天然一致，不是分别维护两份。
  *
  * **agent 编制（roster）仍不做**：`getAgentPanel`/`updateAgentRoster` 本身没有改过，
  * 仍要求非空 `projectId`，个人线程走这条会直接 400/404——这条依旧是真实的后端缺口，
@@ -183,22 +184,9 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
    * 这是一条个人线程，`renameThread`/`deleteThread` 从 2026-08-14 起接受这个值
    * （见两者各自的文档注释——此前误传 `null` 是 #541 的 bug，现在是本该如此的值）。
    */
-  const [mutateForm, setMutateForm] = React.useState<"rename" | "delete" | null>(null);
-  const [mutateDraft, setMutateDraft] = React.useState("");
   const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
   const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
   const selectedVersion = detail?.thread.version ?? null;
-
-  const openMutateForm = React.useCallback((next: "rename" | "delete") => {
-    setMutateForm(next);
-    setMutateDraft("");
-    setMutateFailure(null);
-  }, []);
-
-  const closeMutateForm = React.useCallback(() => {
-    setMutateForm(null);
-    setMutateDraft("");
-  }, []);
 
   const handleRename = React.useCallback(async (title: string) => {
     if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
@@ -209,13 +197,12 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       const refreshed = await listPersonalThreads({}, bearer);
       setThreadResult({ key: sourceKey, value: refreshed });
       void loadSelectedThread(); // 标题进了 detail 的可读副行，重读一次保持一致
-      closeMutateForm();
     } catch (failure) {
       setMutateFailure(describeFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, closeMutateForm, loadSelectedThread, selectedThreadId, selectedVersion, sourceKey]);
+  }, [bearer, loadSelectedThread, selectedThreadId, selectedVersion, sourceKey]);
 
   const handleDelete = React.useCallback(async (reason: string) => {
     if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
@@ -232,13 +219,12 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       const next = remaining[0]?.id ?? null;
       setSelectedThreadId(next);
       router.replace(next ? personalChatHref(next) : "/chat");
-      closeMutateForm();
     } catch (failure) {
       setMutateFailure(describeFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, closeMutateForm, router, selectedThreadId, selectedVersion, sourceKey]);
+  }, [bearer, router, selectedThreadId, selectedVersion, sourceKey]);
 
   /**
    * 手机端真实 bug（人类实测报告，2026-08-07）：`AppShell` 的 `left` 栏在 `<md` 断点
@@ -291,27 +277,13 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
                     setSelectedThreadId(card.id);
                     router.replace(personalChatHref(card.id));
                   }}
+                  onRename={canCreate ? (title) => void handleRename(title) : undefined}
+                  onDelete={canCreate ? (reason) => void handleDelete(reason) : undefined}
+                  pending={card.id === selectedThreadId ? mutatePending : null}
+                  failure={card.id === selectedThreadId ? mutateFailure : null}
                 />
               ))}
             </nav>
-          ) : null}
-          {/* 改名/删除作用于**当前选中的那条会话**，与列表之间加分隔线并标明归属——
-              同 ChatReadScreen 的既有理由：紧贴在列表下面会被读成"最后一组的一项"。 */}
-          {canCreate && selectedThreadId !== null ? (
-            <>
-              <Separator />
-              <ThreadSelectionActions
-                form={mutateForm}
-                draft={mutateDraft}
-                pending={mutatePending}
-                failure={mutateFailure}
-                onOpen={openMutateForm}
-                onCancel={closeMutateForm}
-                onDraftChange={setMutateDraft}
-                onRename={(title) => void handleRename(title)}
-                onDelete={(reason) => void handleDelete(reason)}
-              />
-            </>
           ) : null}
     </div>
   );
@@ -561,101 +533,9 @@ function toAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][numbe
   };
 }
 
-/**
- * 改名/删除入口（2026-08-14）——UI 形状照抄 `ChatReadScreen` 的 `ThreadActions`
- * "selection" slot（改名/删除按钮 + 内联表单 + 二次确认删除），testid 也刻意复用
- * 同一批名字（`chat-thread-rename`/`chat-thread-delete`/…）：两条路径互斥渲染
- * （`/chat` 按 `projectId` 二选一，见 `apps/web/app/chat/page.tsx`），不会在同一页面
- * 同时出现两份，复用 testid 不会引发唯一性冲突，反而让两条路径的 e2e 断言可以共享
- * 同一套选择器。只做 rename/delete 两态——本组件的"新建"由 `NewThreadButton` 单独
- * 处理（一键即建，见上方 `handleCreate` 注释），不经过这个表单。
- */
-function ThreadSelectionActions({
-  form, draft, pending, failure, onOpen, onCancel, onDraftChange, onRename, onDelete,
-}: {
-  form: "rename" | "delete" | null;
-  draft: string;
-  pending: "rename" | "delete" | null;
-  failure: string | null;
-  onOpen: (next: "rename" | "delete") => void;
-  onCancel: () => void;
-  onDraftChange: (next: string) => void;
-  onRename: (title: string) => void;
-  onDelete: (reason: string) => void;
-}) {
-  const busy = pending !== null;
-  return (
-    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-thread-selection-actions">
-      <div className="flex items-center gap-2">
-        <Button size="xs" variant="ghost" data-testid="chat-thread-rename" disabled={busy} onClick={() => onOpen("rename")}>
-          <Pencil aria-hidden className="h-3 w-3" />改名
-        </Button>
-        <Button size="xs" variant="ghost" data-testid="chat-thread-delete" disabled={busy} onClick={() => onOpen("delete")}>
-          <Trash2 aria-hidden className="h-3 w-3" />删除
-        </Button>
-      </div>
-      {form === "rename" ? (
-        <form
-          data-testid="chat-thread-rename-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const title = draft.trim();
-            if (!title) return;
-            onRename(title);
-          }}
-          className="flex flex-col gap-1"
-        >
-          <input
-            aria-label="新的会话标题"
-            data-testid="chat-thread-title-input"
-            className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft}
-            onChange={(event) => onDraftChange(event.target.value)}
-            autoFocus
-          />
-          <div className="flex gap-1">
-            <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || draft.trim() === ""}>
-              确认
-            </Button>
-            <Button size="xs" variant="outline" type="button" onClick={onCancel}>取消</Button>
-          </div>
-        </form>
-      ) : null}
-      {form === "delete" ? (
-        /* 删除要二次确认：它是可追溯动作，服务端会写审计并返回 impactScope（同
-           ChatReadScreen 的既有理由）。 */
-        <form
-          data-testid="chat-thread-delete-confirm"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const reason = draft.trim();
-            if (!reason) return;
-            onDelete(reason);
-          }}
-          className="flex flex-col gap-1"
-        >
-          <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
-          <input
-            aria-label="删除原因"
-            data-testid="chat-thread-delete-reason"
-            className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft}
-            onChange={(event) => onDraftChange(event.target.value)}
-            autoFocus
-          />
-          <div className="flex gap-1">
-            <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || draft.trim() === ""}>
-              确认删除
-            </Button>
-            <Button size="xs" variant="outline" type="button" onClick={onCancel}>取消</Button>
-          </div>
-        </form>
-      ) : null}
-      {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
-      {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
-    </div>
-  );
-}
+// 改名/删除入口本体已下沉进 `ThreadCardButton`（`thread-list-shell.tsx`，2026-08-14
+// 重做为 hover「…」菜单 + 双击改名）——`handleRename`/`handleDelete` 原样保留，只是
+// 现在直接作为 `onRename`/`onDelete` 传给每张卡片自己，不再经过这个中间表单组件。
 
 function ErrorState({
   testId, message, retryTestId, onRetry,
