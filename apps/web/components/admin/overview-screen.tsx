@@ -44,6 +44,20 @@ import type { UiState } from "@/lib/ui-state";
  *   `tests/ui/overview-mixed-state.test.tsx` 是补上的那道机械门。
  */
 
+/**
+ * #1178 —— 导出与月度报告禁用的原因，单一事实源。
+ *
+ * 这两个按钮此前只弹 Toast，什么都没发生。全仓查过三处（契约、全 phase 的 feature_list、
+ * phase-03 F15 的标题）都没有认领它们的东西：组织级审计导出端点不存在
+ * （只有项目级的 `/projects/:projectId/audit/export` 与组织数据导出 `/auth/org-export`，
+ * 两条都不是这个按钮要的）。
+ *
+ * ⚠ 禁用**不等于**裁定这两个功能不做。「要不要做、归谁」仍在 #1178 里等人裁；
+ *   这一步只消掉「点了像成功了」这个误导，且不预设任何归属。
+ */
+export const EXPORT_UNAVAILABLE_REASON =
+  "组织级审计导出与月度报告尚未实现——没有对应的服务端接口，见 issue #1178。";
+
 /** 演示数据区块的统一标记。集中一处，是为了让测试能逐块断言它存在。 */
 export const DEMO_BADGE_TEXT = "演示数据 · 等 phase-03 F15";
 
@@ -167,10 +181,15 @@ export function OverviewScreen({ state }: { state: UiState }) {
               <DemoBadge testid="admin-overview-reports-demo" />
             </div>
             <div className="flex gap-2">
+              {/* #1178：显式禁用。之前它们点下去只弹一个带具体数字（「12,408 条」）与承诺
+                  （「发送到你的收件箱」）的 Toast——比一个不说话的按钮更容易被读成真的。
+                  `lint-dead-controls` 的判词逐字：「显式禁用是设计，静默无反应是缺陷」。
+                  ⚠ 这一步不预设「这两个功能要不要做」——那仍是 #1178 里留给人裁的。 */}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setToast(`已导出活动流 CSV（12,408 条，含在跑的重活标记）`)}
+                disabled
+                title={EXPORT_UNAVAILABLE_REASON}
                 data-testid="admin-activity-export"
               >
                 <Download aria-hidden className="h-3.5 w-3.5" />
@@ -179,7 +198,8 @@ export function OverviewScreen({ state }: { state: UiState }) {
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => setToast(`月度报告生成中…完成后发送到你的收件箱（含用量、异常处置、越权拦截汇总）`)}
+                disabled
+                title={EXPORT_UNAVAILABLE_REASON}
                 data-testid="admin-activity-report"
               >
                 <FileBarChart aria-hidden className="h-3.5 w-3.5" />
@@ -187,6 +207,11 @@ export function OverviewScreen({ state }: { state: UiState }) {
               </Button>
             </div>
           </div>
+          {/* 原因摆在旁边，不只藏在 title 里——只禁用不说为什么，和藏起来一样让人
+              读作「产品做不到」。同 `local-org-screen` 云端模型整行禁用的处理。 */}
+          <p className="text-11 text-muted-foreground" data-testid="admin-overview-reports-disabled-reason">
+            {EXPORT_UNAVAILABLE_REASON}
+          </p>
         </section>
       </div>
 
