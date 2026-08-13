@@ -56,8 +56,9 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
  *   重复的」）：#700/#928/#929 那几轮只是改措辞、加徽标、加跳转链接，从未真的合并。
  *   这次是**真合并**——蓝本 / Skill 库与市场 / 智能体运行时 / 资产 / 画布五项已经
  *   在 `MERGED_SECOND_LEVEL_KEYS` 里被摘出渲染，各自新落点见 `lib/navigation.ts`
- *   `ADMIN_SECOND_LEVEL` 里每一项的注释。这一组现在只剩「组织成员」一项——
- *   人类本轮没有点名它，与「成员配额」的关系维持此前判断，不在本轮合并范围内。
+ *   `ADMIN_SECOND_LEVEL` 里每一项的注释。
+ *   ⚠ 2026-08-14（#1168）：最后剩下的「组织成员」也被人类点名合并，这一组因此
+ *   **一项都不再渲染**——但数组本身仍在，见下方 `MERGED_SECOND_LEVEL_KEYS` 的长注。
  *
  * `countSources` 默认取生产数据源（`ADMIN_NAV_COUNT_SOURCES`）；测试用它注入
  * 会抛错的来源做反证（见 `tests/ui/admin-nav-count-unavailable.test.tsx`），
@@ -77,7 +78,21 @@ const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) 
  * `/canvas` 判成不可达（即使它们其实从别处能点到）。这里只过滤**渲染**，不改数据源，
  * 「数组仍声明 href、但不再画出第二个菜单项」是刻意的两件事分开做。
  */
-const MERGED_SECOND_LEVEL_KEYS = new Set<string>(["templates", "skills", "agent-runtime", "asset-governance", "canvas"]);
+/*
+ * 2026-08-14（#1168，人类截图实测后直接裁决）：`org-admin`（「组织成员」）加入本集合。
+ *
+ * ⚠ 这个键此前被明确排除在外，理由写在本文件与 `lib/navigation.ts` 两处：
+ *   「人类本轮原话没有点名『组织』这一项……不在本轮改动」。那句话记录的是
+ *   **当时人类没点名**，不是「这件事不该做」——现在点名了，条件变了。
+ *   （把它当成「已裁决为不做」而不再复查，正是 AGENTS.md 那条「静态痕迹 ≠ 动态事实」：
+ *   一句写下来就不会再变的注释，读起来像一条永久裁决。）
+ *
+ * 新落点：「成员配额」屏内的 `[打开组织成员管理]` 链接（`admin-members-open-org-admin`）
+ * —— 与上面五项同一形态：入口只留一个，且留在与它语义最近的那块屏里。
+ */
+const MERGED_SECOND_LEVEL_KEYS = new Set<string>([
+  "templates", "skills", "agent-runtime", "asset-governance", "canvas", "org-admin",
+]);
 
 export function AdminNav({
   active,
