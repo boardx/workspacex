@@ -40,7 +40,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
     item.title.includes(query.trim()));
   const templates = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
-  const reports = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS.filter((item) => item.status !== "draft"))
+  const reports = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS.filter((item) => item.validResponses !== undefined))
     .filter((item) => item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
 
@@ -67,7 +67,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
           <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1" aria-label="Survey 资源类型">
             <ResourceNavItem active={tab === "surveys"} count={SURVEY_LIBRARY_CARDS.length} icon={<FileText className="h-5 w-5" />} label="问卷列表" onClick={() => changeTab("surveys")} testId="survey-resource-nav-surveys" />
             <ResourceNavItem active={tab === "modules"} count={SURVEY_TEMPLATE_CARDS.length} icon={<ClipboardList className="h-5 w-5" />} label="问卷模块" onClick={() => changeTab("modules")} testId="survey-resource-nav-modules" />
-            <ResourceNavItem active={tab === "reports"} count={SURVEY_LIBRARY_CARDS.filter((item) => item.status !== "draft").length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
+            <ResourceNavItem active={tab === "reports"} count={SURVEY_LIBRARY_CARDS.filter((item) => item.validResponses !== undefined).length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
           </nav>
         </aside>
 
@@ -164,7 +164,7 @@ function ReportCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[numb
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ChartNoAxesCombined className="h-5 w-5" /></span><Badge tone="primary">分析报告</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}分析报告</h3>
-    <p className="mt-2 text-11 text-muted-foreground">{item.reportSectionCount} 个报告章节 · {item.received ?? 0} 份有效答卷</p>
+    <p className="mt-2 text-11 text-muted-foreground">{item.reportSectionCount} 个报告章节 · {item.validResponses ?? 0} 份有效答卷</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     <p className="mt-3 text-12 text-primary">查看完整报告</p>
     <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
