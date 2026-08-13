@@ -57,7 +57,7 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly }
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览答题</Button>
             {!readonly && <Button variant="primary" size="sm" data-testid="survey-workflow-save" onClick={() => setSaved(true)}><Save className="h-3.5 w-3.5" />保存修改</Button>}
-            <Button variant="outline" size="sm"><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
+            <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push("/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
           </div>
         </div>
         {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-workflow-saved"><Check className="mr-1 inline h-3 w-3" />修改已保存</p>}

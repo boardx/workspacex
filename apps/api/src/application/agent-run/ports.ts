@@ -315,6 +315,25 @@ export interface AgentRunStore {
     beforeMessageId: string,
     limit: number,
   ): Promise<readonly ThreadHistoryMessage[]>;
+
+  /** F154 L2 —— 读该线程的持久滚动摘要状态（`thread_context_state`）。还没摘要过 → null。 */
+  readThreadContextState(orgId: OrgId, threadId: string): Promise<ThreadContextState | null>;
+
+  /**
+   * F154 L2 —— 增量 upsert 该线程的滚动摘要。`expectedVersion` 做乐观并发：撞并发（version 已变）
+   * **不静默覆盖**，跳过本次写回并回 `false`。L2 是降级安全的（摘要没写成不 fail run，见
+   * execute-run 组装），所以并发冲突安全放弃即可。首次写入传 `expectedVersion: 0`。
+   */
+  upsertThreadContextState(
+    orgId: OrgId,
+    threadId: string,
+    state: {
+      readonly summary: string;
+      readonly summarizedThroughId: string | null;
+      readonly summarizedThroughAt: string | null;
+      readonly expectedVersion: number;
+    },
+  ): Promise<boolean>;
 }
 
 /**
@@ -323,6 +342,19 @@ export interface AgentRunStore {
  * repository does that mapping once here, so it is not re-decided at each of the three
  * provider implementations that read `ModelCallInput.history`.
  */
+/**
+ * F154 L2 —— 一条对话的持久滚动摘要状态（`thread_context_state` 一行）。L1（近 N 条逐字）之外的
+ * 更早历史被折进 `summary`，组装时前置成一条 assistant 伪消息，打破 `HISTORY_MAX_MESSAGES` 硬上限。
+ * `summarizedThrough{Id,At}` 是「已折到哪」的边界游标（(created_at,id) 单调）：下次只摘这之后的新消息。
+ * `version` 是乐观并发的写回条件（读到多少就以多少为条件 upsert，撞并发不静默覆盖）。
+ */
+export interface ThreadContextState {
+  readonly summary: string;
+  readonly summarizedThroughId: string | null;
+  readonly summarizedThroughAt: string | null;
+  readonly version: number;
+}
+
 export interface ThreadHistoryMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
@@ -331,6 +363,13 @@ export interface ThreadHistoryMessage {
    * 空/缺省 = 没有附件。B（F153/anydoc）会在此之外再补抽取内容——A 是 B 的地基，不重做。
    */
   readonly attachments?: readonly HistoryAttachmentMeta[];
+  /**
+   * F154 L2 —— 这条历史消息的 `chat_messages.id`。**可选**：既有构造点（测试 fake、trial-run
+   * 等不关心持久化的路径）不必填，L2 的增量摘要判定只在 id 存在时才尝试推进游标——任何一条
+   * 缺 id 就保守跳过本轮 L2 增量（沿用已有摘要，不猜、不崩），与本层「降级不 fail run」的
+   * 整体哲学一致。真实 Pg 读路径（`readThreadHistory`）总是填它。
+   */
+  readonly id?: string;
 }
 
 /**

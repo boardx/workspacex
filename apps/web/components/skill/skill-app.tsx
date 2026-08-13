@@ -11,6 +11,7 @@ import {
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
 import { SkillCatalogLive } from "./skill-catalog-live";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityCatalogScreen } from "@/components/admin/capability-catalog-screen";
 import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 import { SkillLibrary } from "./skill-library";
@@ -22,11 +23,18 @@ import { SkillPromotion } from "./skill-promotion";
 import { SkillFeedback } from "./skill-feedback";
 
 /**
- * skill 能力域编排 —— 复用已确认的骨架 AppShell（图标栏 / 中栏 / 右栏 / 环境态条）。
+ * skill 能力域编排 —— 复用已确认的骨架 AppShell（图标栏 / 后台左栏 / 中栏 / 右栏）。
  *
- * ⚠ 2026-08-13 起**不再传 `left`**：人类直接裁决砍掉左栏导航列（见下方注释），
- *   `AppShell` 在 `left` 为空时自动收起，中栏顶到页面。生产默认屏 `library` 是
- *   卡片网格（`SkillCatalogLive`），不再被侧栏挤压宽度。
+ * ⚠ 2026-08-13（两轮裁决,不是同一件事,见下方 `AdminLeftNav` 长注）：
+ *   第一轮砍掉的是 **skill 模块自己的二级导航**（`library`/`catalog` 切换的
+ *   `LeftNav` 组件，旧 `LEFT_NAV_SCREENS`）——那次删除依然有效，本文件里
+ *   已经没有那个组件了。第二轮（本次改动，人类给了两张后台原型截图核对）要求
+ *   **在 `/skill` 加回后台的 `AdminNav` 侧栏**（数据总览/Agent/Skill/模型/MCP/
+ *   画布模板/项目模板/成员配额/反馈），让 `/skill` 在视觉与导航上仍处在
+ *   「后台」里，与 `/admin/[module]` 那批屏一致。两者都叫「column」/「左栏」，
+ *   是这次容易搞混的地方，但装的是完全不同的两个组件。
+ * 生产默认屏 `library` 是卡片网格（`SkillCatalogLive`），不再被 skill 自己的
+ * 二级导航挤压宽度；后台 `AdminNav` 侧栏保留（与其余后台模块一致）。
  * AI 四种在场方式在各屏体现：线程里的同事（temp）/ 画布上的协作者（binding 左栏投影）/
  * 后台的 worker（library 试跑、feedback 归因）/ 项目里的主持人（binding 三视角）。
  */
@@ -52,6 +60,7 @@ export function SkillApp({
   return (
     <AppShell
       previewRole={previewRole}
+      left={<AdminNav active="skill" />}
       right={<RightRail screen={screen} />}
     >
       <div className="flex h-full min-h-0 flex-col">
@@ -86,17 +95,20 @@ export function SkillApp({
   );
 }
 
-/* ── 左栏：2026-08-13 人类直接裁决，砍掉整列 ─────────────────────────
+/* ── 左栏：两轮裁决，装的是两个不同的组件 ─────────────────────────────
+ *
+ * ## 第一轮（2026-08-13 上午，#1102/#1104）：砍掉 skill 模块自己的二级导航
  *
  * 人类原话：「后台的 skill 目前有两个菜单，请只保留一个，并且保留真实数据的这个。
  * 不需要有中间的这个 column，直接显示 skills 的列表，用卡片的方式来展示」。
  *
  * 「两个菜单」＝旧 `LEFT_NAV_SCREENS`（`library` 真实数据 / `catalog` 原
  * `/admin/skill` 真合并落点，见 issue #700、2026-08-11 的合并记录）；
- * 「中间这个 column」＝整个左栏导航列（`AppShell` 的 `left` 插槽），不只是
- * `catalog` 那一项。`SkillApp` 不再传 `left` 给 `AppShell`——`AppShell` 在
- * `left` 为空时本就自动收起左栏（`shell-left-panel` 只在 `left &&` 时渲染），
- * 内容区因此顶到页面，不需要另起骨架改动。
+ * 「中间这个 column」在**那一轮**指的是 `SkillApp` 自己拼的那个 `LeftNav`
+ * 组件（`Skill 能力包` 标题 + library/catalog 两个按钮），不是本节下面
+ * 第二轮加回来的后台 `AdminNav`——那时候 `AdminNav` 从未在 `/skill` 出现过，
+ * 不在这句话的指代范围内。`LeftNav` 组件连同 `LEFT_NAV_SCREENS` 已删除，
+ * **这一条本轮没有撤销**。
  *
  * ⚠ 只摘导航列，不摘屏：`catalog` 组件本身、`resolveSkillScreen` 与
  *   `?screen=catalog` 直达仍然保留（参照 issue #700 先例：删导航项不删屏，
@@ -109,6 +121,18 @@ export function SkillApp({
  *   `library` 卡片网格里补一个新落点——那是需要人类/coord-main 确认要不要保留、
  *   保留的话该长在哪（比如卡片详情的编辑弹层）的产品决策，不是这次改动能替人类
  *   悄悄决定的事。见本 issue/PR 正文的说明。
+ *
+ * ## 第二轮（本次改动）：加回后台 `AdminNav` 侧栏
+ *
+ * 人类拿着两张后台原型截图核对：「skill 的界面应该如上图，保留中间的 column 菜单，
+ * 现实卡片列表」——截图里的「column 菜单」是**后台**左栏（数据总览/Agent管理/
+ * Skill库与市场/模型/MCP服务器/画布模板/项目蓝本/成员与配额/反馈与迭代），
+ * 与第一轮删掉的 `LeftNav`（skill 模块自己的二级导航）是两个不同的组件、
+ * 不同的信息——`AdminNav` 展示的是「你在整个后台里的哪个模块」，`LeftNav`
+ * 展示的是「这个模块内部有哪几个子屏」。第一轮结论「子屏不需要单独一列，
+ * 直接显示卡片」依然成立；第二轮要求的是「但整个页面仍要处在后台的壳子里」。
+ * 两者不矛盾，`skill-single-screen-nav.test.tsx` 的断言已同步更新为
+ * 「`LeftNav` 不再渲染，但 `left` 插槽现在装的是 `AdminNav`」。
  */
 
 /* ── 右栏：门禁 / 溯源上下文（AI 后台 worker 的在场证据）──────────────── */

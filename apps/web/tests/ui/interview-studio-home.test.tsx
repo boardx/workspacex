@@ -105,6 +105,31 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       .toHaveAttribute("href", `/itv/${draft.interviewId}/setup`);
   });
 
+  it("旧版 Mock 草稿缺少流程字段时仍可恢复为确认主题卡片", async () => {
+    window.localStorage.setItem("wsx.mockDigitalInterviewDrafts.v1", JSON.stringify({
+      "mock-batch-legacy": {
+        interviewId: "mock-batch-legacy",
+        name: "旧版采购访谈",
+        tags: ["采购"],
+        topic: "",
+        status: "draft",
+        sourceQuickInterviewId: null,
+        selectedExpertIds: [],
+        reportId: null,
+        updatedAt: "2026-08-12T05:00:00.000Z",
+        version: 1,
+      },
+    }));
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const card = await screen.findByTestId("itv-history-card-mock-batch-legacy");
+    expect(within(card).getByText("旧版采购访谈")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /确认主题/ }))
+      .toHaveAttribute("href", "/itv/mock-batch-legacy/setup");
+  });
+
   it("切到专家列表后显示 persona mock、分类和快捷访谈入口", async () => {
     render(<InterviewStudioHome initialTab="history" />);
     fireEvent.click(screen.getByTestId("itv-tab-experts"));

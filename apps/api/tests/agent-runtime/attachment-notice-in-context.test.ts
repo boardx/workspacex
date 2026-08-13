@@ -54,6 +54,8 @@ function fakeStore(run: ClaimedAgentRun, history: readonly ThreadHistoryMessage[
     findLocator: async (): Promise<RunLocator | null> => null,
     readRun: async (): Promise<Guarded<RunProjection> | null> => null,
     readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => history,
+    readThreadContextState: async () => null,
+    upsertThreadContextState: async () => true,
   };
 }
 

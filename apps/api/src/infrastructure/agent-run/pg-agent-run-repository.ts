@@ -28,7 +28,7 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus,
-  RunLocator, RunProjection, ThreadHistoryMessage,
+  RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -524,8 +524,10 @@ export class PgAgentRunRepository implements AgentRunStore {
     return this.db.withTenant(orgId, async (s) => {
       // V9-b 前置 A（#970）：每条历史消息顺带聚合它的附件元数据（filename/mime），让模型
       // 看到历史里「那条消息带了文件」。附件内容不在这里（那是 B/anydoc）。
-      const result = await s.query<{ author_kind: string; body: string; attachments: unknown }>(
-        `SELECT author_kind, body, attachments FROM (
+      // F154 L2：outer SELECT 也带上 id——L2 的增量摘要判定要知道「读回的这批消息，哪些已经
+      // 被 thread_context_state.summarized_through_id 覆盖过」，没有 id 就分不出新旧。
+      const result = await s.query<{ id: string; author_kind: string; body: string; attachments: unknown }>(
+        `SELECT id, author_kind, body, attachments FROM (
            SELECT cm.author_kind, cm.body, cm.created_at, cm.id,
                   ${attachmentsAggSql("cm.id")} AS attachments
              FROM chat_messages cm
@@ -545,8 +547,8 @@ export class PgAgentRunRepository implements AgentRunStore {
           // 附件字段只在真有附件时挂上（保持「空/缺省 = 没有附件」的读法，也让既有断言不被
           // 一个恒空数组搅动）。
           const withAtt = attachments.length > 0 ? { attachments } : {};
-          if (row.author_kind === "human") return { role: "user", content: row.body, ...withAtt };
-          if (row.author_kind === "agent") return { role: "assistant", content: row.body, ...withAtt };
+          if (row.author_kind === "human") return { role: "user", content: row.body, id: row.id, ...withAtt };
+          if (row.author_kind === "agent") return { role: "assistant", content: row.body, id: row.id, ...withAtt };
           // No third `author_kind` exists in this schema today (see the CHECK on
           // `chat_messages`); skipping rather than throwing keeps a future value from
           // turning "read some history" into "fail the whole run" for an enhancement
@@ -554,6 +556,72 @@ export class PgAgentRunRepository implements AgentRunStore {
           return null;
         })
         .filter((m): m is ThreadHistoryMessage => m !== null);
+    });
+  }
+
+  async readThreadContextState(orgId: OrgId, threadId: string): Promise<ThreadContextState | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{
+        summary: string;
+        summarized_through_id: string | null;
+        summarized_through_at: Date | string | null;
+        version: number;
+      }>(
+        `SELECT summary, summarized_through_id, summarized_through_at, version
+           FROM thread_context_state
+          WHERE org_id=$1 AND thread_id=$2`,
+        [orgId, threadId],
+      );
+      const row = result.rows[0];
+      if (row === undefined) return null;
+      return {
+        summary: row.summary,
+        summarizedThroughId: row.summarized_through_id,
+        // timestamptz → ISO 串（pg 驱动回 Date；也容忍已是串的情况）。
+        summarizedThroughAt:
+          row.summarized_through_at === null
+            ? null
+            : new Date(row.summarized_through_at).toISOString(),
+        version: row.version,
+      };
+    });
+  }
+
+  async upsertThreadContextState(
+    orgId: OrgId,
+    threadId: string,
+    state: {
+      readonly summary: string;
+      readonly summarizedThroughId: string | null;
+      readonly summarizedThroughAt: string | null;
+      readonly expectedVersion: number;
+    },
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 乐观并发的单条原子写：
+      //   · 首次（无行，expectedVersion=0）→ INSERT，version 落 1；
+      //   · 增量（有行）→ ON CONFLICT DO UPDATE，但 **仅当现存 version = expectedVersion**，
+      //     version 自增 1；撞并发（version 已变）→ WHERE 不满足 → 0 行受影响 → 回 false。
+      // 竞态的首次并发：先到者 INSERT version=1，后到者走 ON CONFLICT、其 WHERE version=0 对不上
+      // 现存的 1 → 0 行 → false。全程不静默覆盖别人的写。
+      const result = await s.query<{ thread_id: string }>(
+        `INSERT INTO thread_context_state
+           (thread_id, org_id, summary, summarized_through_id, summarized_through_at, version, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 1, now())
+         ON CONFLICT (thread_id) DO UPDATE
+           SET summary = EXCLUDED.summary,
+               summarized_through_id = EXCLUDED.summarized_through_id,
+               summarized_through_at = EXCLUDED.summarized_through_at,
+               version = thread_context_state.version + 1,
+               updated_at = now()
+         WHERE thread_context_state.version = $6
+         RETURNING thread_id`,
+        [
+          threadId, orgId, state.summary, state.summarizedThroughId,
+          state.summarizedThroughAt, state.expectedVersion,
+        ],
+      );
+      return result.rows.length > 0;
     });
   }
 }

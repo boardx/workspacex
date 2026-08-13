@@ -105,7 +105,40 @@ function readAll(): Record<string, MockDigitalInterviewDraft> {
   if (typeof window === "undefined") return {};
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return {};
-  try { return JSON.parse(raw) as Record<string, MockDigitalInterviewDraft>; } catch { return {}; }
+  try {
+    const parsed = JSON.parse(raw) as Record<string, Partial<MockDigitalInterviewDraft>>;
+    return Object.fromEntries(
+      Object.entries(parsed).flatMap(([interviewId, draft]) => {
+        if (!draft || typeof draft !== "object" || typeof draft.name !== "string") return [];
+        const currentStep = isMockInterviewStep(draft.currentStep) ? draft.currentStep : 1;
+        return [[interviewId, {
+          ...draft,
+          interviewId,
+          name: draft.name,
+          tags: Array.isArray(draft.tags) ? normalizeTags(draft.tags) : [],
+          topic: typeof draft.topic === "string" ? draft.topic : "",
+          status: "draft",
+          sourceQuickInterviewId: typeof draft.sourceQuickInterviewId === "string" ? draft.sourceQuickInterviewId : null,
+          selectedExpertIds: Array.isArray(draft.selectedExpertIds) ? draft.selectedExpertIds : [],
+          questions: Array.isArray(draft.questions) ? draft.questions : [],
+          currentStep,
+          reportMarkdown: typeof draft.reportMarkdown === "string" ? draft.reportMarkdown : "",
+          skillMessages: Array.isArray(draft.skillMessages) ? draft.skillMessages : [],
+          pendingSuggestion: draft.pendingSuggestion ?? null,
+          undoSnapshot: draft.undoSnapshot ?? null,
+          reportId: typeof draft.reportId === "string" ? draft.reportId : null,
+          updatedAt: typeof draft.updatedAt === "string" ? draft.updatedAt : new Date(0).toISOString(),
+          version: typeof draft.version === "number" ? draft.version : 1,
+        } satisfies MockDigitalInterviewDraft]];
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function isMockInterviewStep(value: unknown): value is MockInterviewStep {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
 }
 
 function write(draft: MockDigitalInterviewDraft): void {
