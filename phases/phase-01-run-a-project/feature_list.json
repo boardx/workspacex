@@ -3830,7 +3830,7 @@
       "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts run test",
-        "pnpm --filter api exec vitest run tests/research/guided-session-human-checkpoints.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-human-checkpoints.test.ts",
         "pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],

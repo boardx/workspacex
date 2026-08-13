@@ -176,6 +176,7 @@ import { DigitalInterviewController } from "./interface/controllers/digital-inte
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
+import { DeterministicGuidedResearchCheckpointGenerator, GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { ContextApiDigitalExpertMaterialReader } from "./infrastructure/interview/context-api-digital-expert-material-reader";
@@ -997,6 +998,10 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_CHECKPOINT_GENERATOR,
+      useFactory: () => new DeterministicGuidedResearchCheckpointGenerator(),
     },
     // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。
     {

@@ -4,7 +4,7 @@
 
 **Goal:** Persist and expose separate brief, research-direction, and report-outline confirmation checkpoints without regeneration overwriting the latest human-confirmed version.
 
-**Architecture:** Extend the shared research contract with versioned direction and outline snapshots. Store snapshots inside the existing tenant-scoped guided session aggregate, mutate them through repository transactions, and generate candidates through an injected application port. The web flow reads and writes only those BoardX APIs; mock data no longer drives the direction or outline screens for persisted sessions.
+**Architecture:** Extend the shared research contract with versioned direction and outline snapshots. Store snapshots inside the existing tenant-scoped guided session aggregate, mutate them through repository transactions, and generate candidates through an injected domain port. The web flow reads and writes only those BoardX APIs; mock data no longer drives the direction or outline screens for persisted sessions.
 
 **Tech Stack:** TypeScript, Zod, NestJS, PostgreSQL/RLS, React, Vitest, Testing Library.
 
@@ -48,7 +48,7 @@
 - Consumes: injected `GuidedResearchCheckpointGenerator`; the controller never imports its implementation.
 
 - [ ] Write API tests for generate/edit/confirm/regenerate, validation gates, recovery, and tenant invisibility.
-- [ ] Run the isolated API test and observe missing-route failures.
+- [ ] Run the standard isolated API test and observe missing-route failures.
 - [ ] Add JSONB version columns and transactional repository mutations with row locks.
 - [ ] Add a deterministic generator behind the injected port, wire it in the kernel, and add controller routes.
 - [ ] Re-run the isolated API test and keep it green.
