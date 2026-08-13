@@ -26,6 +26,65 @@ import {
 } from "@/lib/live-skill";
 
 /**
+ * 2026-08-13 —— tag 过滤 chip。
+ *
+ * 人类原话：「另外需要有一个 tags，用来过滤」。契约 `SkillListItem`（`packages/
+ * contracts/src/skills.ts`）**没有 tag 字段**，为此另开一个契约面（后端新字段 /
+ * 新接口）不在这次改动范围内（人类只要求「只改 UI/mock，不新开后端契约」）。
+ *
+ * 这里用已经在渲染的三个既有封闭枚举当过滤维度——它们本就是后端真实返回、
+ * 界面上已经画成 `Badge` 的字段，语义上就是「标签」：
+ *   · `source`（来源）：自建 / 晋升生成 / CC
+ *   · `status`（状态）：草稿 / 待审核 / 被退回 / 已启用 / 已停用
+ *   · `visibility`（可见范围）：组织可见 / 仅本团队
+ * 纯前端本地过滤（`Array.prototype.filter`），零网络请求、零后端改动、零新签核面。
+ * 同一维度内选中多个 chip 是「或」（比如同时选「草稿」「已启用」＝两者都要），
+ * 跨维度是「且」；某维度一个 chip 都没选＝该维度不参与过滤（等价于全选）。
+ */
+interface TagFilterChip<V extends string> {
+  readonly value: V;
+  readonly label: string;
+  /** 英文 slug，拼进 `data-testid`——中文枚举值直接拼 testid 不稳（转义/断言都麻烦）。 */
+  readonly slug: string;
+}
+
+const SOURCE_CHIPS: readonly TagFilterChip<SkillListItem["source"]>[] = [
+  { value: "自建", label: "自建", slug: "self-built" },
+  { value: "晋升生成", label: "晋升生成", slug: "promoted" },
+  { value: "CC", label: "CC", slug: "cc" },
+];
+const STATUS_CHIPS: readonly TagFilterChip<SkillListItem["status"]>[] = [
+  { value: "草稿", label: "草稿", slug: "draft" },
+  { value: "待审核", label: "待审核", slug: "pending-review" },
+  { value: "被退回", label: "被退回", slug: "rejected" },
+  { value: "已启用", label: "已启用", slug: "enabled" },
+  { value: "已停用", label: "已停用", slug: "disabled" },
+];
+const VISIBILITY_CHIPS: readonly TagFilterChip<SkillListItem["visibility"]>[] = [
+  { value: "org-wide", label: "组织可见", slug: "org-wide" },
+  { value: "team-only", label: "仅本团队", slug: "team-only" },
+];
+
+interface TagFilterState {
+  readonly source: ReadonlySet<SkillListItem["source"]>;
+  readonly status: ReadonlySet<SkillListItem["status"]>;
+  readonly visibility: ReadonlySet<SkillListItem["visibility"]>;
+}
+
+const EMPTY_TAG_FILTER: TagFilterState = {
+  source: new Set(),
+  status: new Set(),
+  visibility: new Set(),
+};
+
+function matchesTagFilter(row: SkillListItem, filter: TagFilterState): boolean {
+  if (filter.source.size > 0 && !filter.source.has(row.source)) return false;
+  if (filter.status.size > 0 && !filter.status.has(row.status)) return false;
+  if (filter.visibility.size > 0 && !filter.visibility.has(row.visibility)) return false;
+  return true;
+}
+
+/**
  * #520 —— `/skill` 的 Skill 库屏，**接真实后端**（#459 / PR #518 的 `SkillController`）。
  *
  * 它只画后端**真的能给出**的东西：`SkillListItem` 的七个字段，加上 `getSkillDetail`
@@ -144,6 +203,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [detail, setDetail] = React.useState<SkillDetail | null>(null);
   const [detailError, setDetailError] = React.useState<string | null>(null);
+  const [tagFilter, setTagFilter] = React.useState<TagFilterState>(EMPTY_TAG_FILTER);
 
   const load = React.useCallback(async () => {
     if (currentOrgId.current !== orgId) return;
@@ -168,6 +228,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     setNotice(null);
     setDetail(null);
     setDetailError(null);
+    // 换组织后过滤条件也清空：上一组织选中的 tag 在新组织里未必还有对应的行。
+    setTagFilter(EMPTY_TAG_FILTER);
     // 乐观行同理作废：它说的是另一个组织里刚发生的事。
     setPending([]);
     void load();
@@ -189,6 +251,20 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     ...pending.filter((p) => !confirmedIds.has(p.row.skillId)).map((p) => p.row),
     ...serverRows,
   ];
+  // tag 过滤在真实数据之上、纯前端本地做——不改变「本屏没有 skill」这条真实空态的判定，
+  // 只影响「有 skill 但都被过滤掉了」这条另外的、可清空的状态。
+  const filteredRows = rows.filter((row) => matchesTagFilter(row, tagFilter));
+  const tagFilterActive =
+    tagFilter.source.size > 0 || tagFilter.status.size > 0 || tagFilter.visibility.size > 0;
+
+  function toggleTag<K extends keyof TagFilterState>(dimension: K, value: TagFilterState[K] extends ReadonlySet<infer T> ? T : never) {
+    setTagFilter((prev) => {
+      const next = new Set(prev[dimension] as ReadonlySet<typeof value>);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, [dimension]: next };
+    });
+  }
 
   async function openDetail(skillId: string) {
     setDetailError(null);
@@ -295,35 +371,66 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       ) : null}
 
       {/**
+       * tag 过滤条只在「确实有行可过滤」时露出——rows 空的时候摆一排不生效的 chip
+       * 只会让真实空态看起来像是被过滤掉了。条件同样用 `rows.length > 0`
+       * （不是 `status === "ready"`），理由与下面列表的 #861 注释相同。
+       */}
+      {rows.length > 0 ? (
+        <TagFilterBar
+          filter={tagFilter}
+          active={tagFilterActive}
+          onToggle={toggleTag}
+          onClear={() => setTagFilter(EMPTY_TAG_FILTER)}
+        />
+      ) : null}
+
+      {/**
        * ⚠ 条件是 `rows.length > 0`，**不是** `status === "ready" && …`（#861）：
        *   首屏还在飞的时候刚建出来的那一行也得看得见，否则「提示说建好了、列表里没有」
        *   这个状态会一直挂到 GET 回来为止。加载态那一格照常显示 —— 两件事都是真的：
        *   这一行确实建出来了，整份列表确实还在读。
+       *
+       * tag 过滤是在这份「真实存在的行」之上另做的一层本地筛选：`rows` 本身不变，
+       * 变的是 `filteredRows`——过滤把它们全滤空了，是「无匹配」，不是「没有 skill」，
+       * 两者在界面上分开显示（见下面 `skill-catalog-no-match`）。
        */}
-      {rows.length > 0 ? (
-        <div className="flex flex-col gap-2" data-testid="skill-catalog-list">
-          {rows.map((row) => (
+      {rows.length > 0 && filteredRows.length === 0 ? (
+        <div
+          data-testid="skill-catalog-no-match"
+          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
+        >
+          没有 skill 匹配当前选中的标签。
+        </div>
+      ) : null}
+
+      {filteredRows.length > 0 ? (
+        <div
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+          data-testid="skill-catalog-list"
+        >
+          {filteredRows.map((row) => (
             <Card key={row.skillId}>
-              <CardContent className="flex flex-wrap items-center gap-3 pt-4">
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-13 font-medium">{row.name}</span>
-                    <Badge tone="outline">{row.source}</Badge>
-                    <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
-                    <Badge tone="outline">
-                      {row.visibility === "org-wide" ? "组织可见" : "仅本团队"}
-                    </Badge>
-                  </div>
-                  <p className="truncate text-11 text-muted-foreground">{row.duty}</p>
-                  <p className="text-10 text-muted-foreground">
-                    满意度{" "}
-                    {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
-                    {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
-                  </p>
+              <CardContent className="flex h-full flex-col gap-2 pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-13 font-medium">{row.name}</span>
                 </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge tone="outline">{row.source}</Badge>
+                  <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
+                  <Badge tone="outline">
+                    {row.visibility === "org-wide" ? "组织可见" : "仅本团队"}
+                  </Badge>
+                </div>
+                <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
+                <p className="text-10 text-muted-foreground">
+                  满意度{" "}
+                  {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
+                  {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
+                </p>
                 <Button
                   size="xs"
                   variant="ghost"
+                  className="self-start"
                   onClick={() => void openDetail(row.skillId)}
                   data-testid="skill-catalog-detail"
                 >
@@ -372,6 +479,91 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+/* ── tag 过滤条：三组既有封闭枚举当过滤维度，纯前端本地过滤 ──────────── */
+
+function TagFilterBar({
+  filter,
+  active,
+  onToggle,
+  onClear,
+}: {
+  filter: TagFilterState;
+  active: boolean;
+  onToggle: <K extends keyof TagFilterState>(dimension: K, value: TagFilterState[K] extends ReadonlySet<infer T> ? T : never) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-panel p-3"
+      data-testid="skill-tag-filter"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-10 uppercase tracking-wide text-muted-foreground">按标签过滤</span>
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={!active}
+          onClick={onClear}
+          data-testid="skill-tag-filter-clear"
+        >
+          清除过滤
+        </Button>
+      </div>
+      <TagFilterGroup
+        label="来源"
+        chips={SOURCE_CHIPS}
+        selected={filter.source}
+        onToggle={(v) => onToggle("source", v)}
+      />
+      <TagFilterGroup
+        label="状态"
+        chips={STATUS_CHIPS}
+        selected={filter.status}
+        onToggle={(v) => onToggle("status", v)}
+      />
+      <TagFilterGroup
+        label="可见范围"
+        chips={VISIBILITY_CHIPS}
+        selected={filter.visibility}
+        onToggle={(v) => onToggle("visibility", v)}
+      />
+    </div>
+  );
+}
+
+function TagFilterGroup<V extends string>({
+  label,
+  chips,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  chips: readonly TagFilterChip<V>[];
+  selected: ReadonlySet<V>;
+  onToggle: (value: V) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="px-1 text-9 uppercase tracking-wide text-muted-foreground">{label}</span>
+      {chips.map((chip) => {
+        const isSelected = selected.has(chip.value);
+        return (
+          <Button
+            key={chip.value}
+            size="xs"
+            variant={isSelected ? "primary" : "outline"}
+            aria-pressed={isSelected}
+            onClick={() => onToggle(chip.value)}
+            data-testid={`skill-tag-chip-${chip.slug}`}
+          >
+            {chip.label}
+          </Button>
+        );
+      })}
     </div>
   );
 }

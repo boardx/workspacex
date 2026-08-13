@@ -7,7 +7,7 @@ import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import type { ProjectRole } from "@/lib/identity";
 import {
-  SKILL_SCREENS, SKILL_SCREEN_LABEL, SKILL_SCREEN_UC, SKILL_VIEWS,
+  SKILL_SCREENS, SKILL_SCREEN_LABEL, SKILL_VIEWS,
   type SkillScreen, type SkillView,
 } from "@/lib/mock/skill";
 import { SkillCatalogLive } from "./skill-catalog-live";
@@ -22,9 +22,11 @@ import { SkillPromotion } from "./skill-promotion";
 import { SkillFeedback } from "./skill-feedback";
 
 /**
- * skill 能力域编排 —— 复用已确认的三栏骨架 AppShell（图标栏 / 左栏 / 中栏 / 右栏 / 环境态条）。
+ * skill 能力域编排 —— 复用已确认的骨架 AppShell（图标栏 / 中栏 / 右栏 / 环境态条）。
  *
- * 左栏走「五段语义导航」心智：本域六屏 + 视角说明。
+ * ⚠ 2026-08-13 起**不再传 `left`**：人类直接裁决砍掉左栏导航列（见下方注释），
+ *   `AppShell` 在 `left` 为空时自动收起，中栏顶到页面。生产默认屏 `library` 是
+ *   卡片网格（`SkillCatalogLive`），不再被侧栏挤压宽度。
  * AI 四种在场方式在各屏体现：线程里的同事（temp）/ 画布上的协作者（binding 左栏投影）/
  * 后台的 worker（library 试跑、feedback 归因）/ 项目里的主持人（binding 三视角）。
  */
@@ -50,7 +52,6 @@ export function SkillApp({
   return (
     <AppShell
       previewRole={previewRole}
-      left={<LeftNav screen={screen} href={href} />}
       right={<RightRail screen={screen} />}
     >
       <div className="flex h-full min-h-0 flex-col">
@@ -85,57 +86,30 @@ export function SkillApp({
   );
 }
 
-/* ── 左栏：生产可达导航 ──────────────────────────────────────────────
+/* ── 左栏：2026-08-13 人类直接裁决，砍掉整列 ─────────────────────────
  *
- * issue #700：`library` 之外的六屏（library-prototype/tryrun/binding/temp/
- * versioning/promotion/feedback）仍是纯 mock，未接后端，也没有任何 e2e 依赖
- * 这六屏本身——只留 `library`（真实数据，见 #520）作为本域唯一的可点入口。
+ * 人类原话：「后台的 skill 目前有两个菜单，请只保留一个，并且保留真实数据的这个。
+ * 不需要有中间的这个 column，直接显示 skills 的列表，用卡片的方式来展示」。
  *
- * ⚠ 只摘导航项，不摘屏：这六个组件、`resolveSkillScreen` 与 `?screen=` 直达
- *   仍然保留——它们是 ADR-023 签核第 ① 件材料（见 lib/mock/skill.ts 顶部注释：
- *   「删掉等于把已签核的设计从仓库里抹掉」），只是不再暴露成侧栏可点的入口。
- *   开发态 `PreviewControls`（NODE_ENV !== production 才渲染）不受影响，
- *   仍可切到全部七屏做预览/回归对照。
+ * 「两个菜单」＝旧 `LEFT_NAV_SCREENS`（`library` 真实数据 / `catalog` 原
+ * `/admin/skill` 真合并落点，见 issue #700、2026-08-11 的合并记录）；
+ * 「中间这个 column」＝整个左栏导航列（`AppShell` 的 `left` 插槽），不只是
+ * `catalog` 那一项。`SkillApp` 不再传 `left` 给 `AppShell`——`AppShell` 在
+ * `left` 为空时本就自动收起左栏（`shell-left-panel` 只在 `left &&` 时渲染），
+ * 内容区因此顶到页面，不需要另起骨架改动。
  *
- * ⚠ 2026-08-11 新增 `catalog`：与 `library` 一样接真实后端（`CapabilityCatalogScreen`，
- *   `GET/POST /capabilities`），所以和 `library` 一起留在生产可达的左栏里——这不是
- *   「原型 / mock」那六屏的例外，是「真合并」的落点，理应可点。
+ * ⚠ 只摘导航列，不摘屏：`catalog` 组件本身、`resolveSkillScreen` 与
+ *   `?screen=catalog` 直达仍然保留（参照 issue #700 先例：删导航项不删屏，
+ *   七屏／九屏仍是 ADR-023 签核第 ① 件材料，见 lib/mock/skill.ts 顶部注释：
+ *   「删掉等于把已签核的设计从仓库里抹掉」）。旧路由 `/admin/skill` 重定向到
+ *   `/skill?screen=catalog` 不受影响，仍然可达。开发态 `PreviewControls`
+ *   （`NODE_ENV !== production` 才渲染）不受影响，仍可切到全部九屏做预览/回归对照。
+ *
+ * ⚠ `catalog` 屏管的「名称/可见范围/归属团队编辑」这个编辑能力，本轮**没有**在
+ *   `library` 卡片网格里补一个新落点——那是需要人类/coord-main 确认要不要保留、
+ *   保留的话该长在哪（比如卡片详情的编辑弹层）的产品决策，不是这次改动能替人类
+ *   悄悄决定的事。见本 issue/PR 正文的说明。
  */
-const LEFT_NAV_SCREENS: readonly SkillScreen[] = ["library", "catalog"];
-
-function LeftNav({
-  screen, href,
-}: {
-  screen: SkillScreen;
-  href: (o: Partial<{ screen: string }>) => string;
-}) {
-  return (
-    <nav className="flex flex-col gap-4 p-3" data-testid="skill-left-nav">
-      <div className="flex flex-col gap-1.5">
-        <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">Skill 能力包</span>
-        {LEFT_NAV_SCREENS.map((s) => (
-          <Button
-            key={s}
-            asChild
-            size="sm"
-            variant={s === screen ? "primary" : "ghost"}
-            className="h-auto flex-col items-start gap-0.5 py-1.5"
-            data-testid={`skill-nav-${s}`}
-          >
-            <a href={href({ screen: s })}>
-              <span className="text-12">{SKILL_SCREEN_LABEL[s]}</span>
-              <span className="text-9 text-muted-foreground">{SKILL_SCREEN_UC[s]}</span>
-            </a>
-          </Button>
-        ))}
-      </div>
-      <p className="rounded-md border border-border-subtle bg-panel px-2 py-1.5 text-9 text-muted-foreground">
-        phase-1 的 skill 是<strong className="text-foreground">声明式契约</strong>（提示词模板＋io schema＋数据范围声明），不是可执行代码包——
-        不做沙箱、不跑任意代码（D-06）。
-      </p>
-    </nav>
-  );
-}
 
 /* ── 右栏：门禁 / 溯源上下文（AI 后台 worker 的在场证据）──────────────── */
 
