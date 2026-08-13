@@ -1,8 +1,11 @@
 ---
-status: proposed
+status: confirmed
 bundle: shared-invite-links
 scope: org-shared-invite-links-multi-use
 ruling: "人类 2026-08-13 会话内逐条拍板三点（形态 / 默认值 / admin 级双人复核前移）"
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-13"
+confirmed_via: "contract.md「⚠ 待人类确认点」email_verified_at 语义——选项 A：置为激活时刻（与单人邀请激活相同），风险由 admin 信任边界 + 重复邮箱拒绝 + 可移除成员纠正兜底。"
 ---
 
 # 组织共享邀请链接 —— 设计签核
