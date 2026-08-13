@@ -260,10 +260,12 @@ reviewers:
 
   - id: rev-e2e
     directory_agent_id: agt_01KZ4MJRKKKE91M6FWMS47MNWY
-    # 2026-08-04 人类裁决：本条目没有任何在跑的会话，如实标记为停用。
-    # registry 不得声称存在不存在的 agent（AGENTS.md：仓库即唯一事实来源）。
-    # Directory ULID 与 token 绑定保留，将来恢复编制无需重新 mint。
-    active: false
+    # 2026-08-13 更正（rev-e2e scorecard 上线首日抓到，coord-main 核实后改）：
+    # 2026-08-04 那次"没有任何在跑的会话"是当时的静态快照，此后该角色真实
+    # 评过分并合入 main（#855 2026-08-09 / #885、#899 2026-08-10，均可在
+    # git log 里查到），registry 一直没跟上——这正是"静态痕迹≠动态事实"：
+    # 5 天前的裁决没有过期机制，一直被当成现状引用。按活信号改回 active。
+    active: true
     kind: reviewer
     model: configured-default
     owner: 2325074+usamshen@users.noreply.github.com
