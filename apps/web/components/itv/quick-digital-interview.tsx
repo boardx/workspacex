@@ -12,6 +12,7 @@ import {
   startQuickDigitalInterview,
   type QuickDigitalInterview as QuickInterview,
 } from "@/lib/interview-api";
+import { findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
 
 export function QuickDigitalInterview({
   interviewId,
@@ -77,6 +78,7 @@ export function QuickDigitalInterview({
 
   if (error && !quick) return <PageState text={`加载失败：${error}`} />;
   if (!quick) return <PageState text="正在准备快捷访谈…" />;
+  const mockExpert = findMockDigitalExpert(quick.expert.expertId);
 
   return (
     <main data-testid="itv-quick-page" className="flex min-h-0 flex-1 flex-col bg-background">
@@ -100,7 +102,7 @@ export function QuickDigitalInterview({
             data-testid="itv-convert-batch"
             disabled={busy}
             onClick={convert}
-            className="whitespace-nowrap rounded-lg bg-foreground px-5 py-3 text-sm font-medium text-background disabled:bg-disabled disabled:text-disabled-foreground"
+            className="whitespace-nowrap rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground"
           >
             转为批量访谈
           </button>
@@ -111,6 +113,24 @@ export function QuickDigitalInterview({
         aria-label="对话记录"
         className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 overflow-y-auto px-6 py-8"
       >
+        {mockExpert && (
+          <article
+            data-testid="itv-quick-expert-intro"
+            className="rounded-xl border border-primary/20 bg-primary/5 p-5"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold">关于这位专家</h2>
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>
+            </div>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">{mockExpert.bio}</p>
+            <p className="mt-3 text-xs leading-6 text-muted-foreground">
+              <span className="font-medium text-foreground">典型建议：</span>{mockExpert.typicalAdvice}
+            </p>
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              <span className="font-medium text-foreground">使用边界：</span>{mockExpert.materialBoundary}
+            </p>
+          </article>
+        )}
         {quick.messages.length === 0 ? (
           <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
             直接提出第一个需要验证的问题。
@@ -119,7 +139,7 @@ export function QuickDigitalInterview({
           <article
             key={message.messageId}
             className={message.role === "user"
-              ? "ml-auto max-w-2xl rounded-xl bg-foreground px-4 py-3 text-background"
+              ? "ml-auto max-w-2xl rounded-xl bg-primary px-4 py-3 text-primary-foreground"
               : "mr-auto max-w-2xl rounded-xl border border-border bg-card px-4 py-3"}
           >
             <p>{message.text}</p>
@@ -145,7 +165,7 @@ export function QuickDigitalInterview({
           <button
             disabled={busy || !question.trim()}
             onClick={send}
-            className="inline-flex h-12 items-center gap-2 self-end rounded-lg bg-foreground px-5 text-sm text-background disabled:bg-disabled disabled:text-disabled-foreground"
+            className="inline-flex h-12 items-center gap-2 self-end rounded-lg bg-primary px-5 text-sm text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground"
           >
             <Send className="size-4" />
             {busy ? "发送中…" : "发送"}

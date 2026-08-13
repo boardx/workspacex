@@ -15,6 +15,18 @@ describe("F03 快捷访谈独立页", () => {
     if (init?.method === "GET") return json(initial); throw new Error(u.pathname);
   })); });
   afterEach(()=>vi.unstubAllGlobals());
-  it("是完整页面，返回专家列表并可发送问题", async()=>{ render(<QuickDigitalInterview interviewId="q1"/>); expect(await screen.findByTestId("itv-quick-page")).toBeInTheDocument(); expect(screen.getByTestId("itv-quick-back")).toHaveAttribute("href","/itv?tab=experts"); fireEvent.change(screen.getByLabelText("访谈问题"),{target:{value:"谁否决？"}}); fireEvent.click(screen.getByRole("button",{name:"发送"})); expect(await screen.findByText("采购总监否决")).toBeInTheDocument(); expect(screen.getByText("探索性回答")).toBeInTheDocument(); });
+  it("是完整页面，返回专家列表并可发送问题", async()=>{ render(<QuickDigitalInterview interviewId="q1"/>); expect(await screen.findByTestId("itv-quick-page")).toBeInTheDocument(); expect(screen.getByTestId("itv-quick-back")).toHaveAttribute("href","/itv?tab=experts"); const send=screen.getByRole("button",{name:"发送"}); expect(send).toBeDisabled(); fireEvent.change(screen.getByLabelText("访谈问题"),{target:{value:"谁否决？"}}); expect(send).toBeEnabled(); expect(send).toHaveClass("bg-primary", "text-primary-foreground"); fireEvent.click(send); expect(await screen.findByText("采购总监否决")).toBeInTheDocument(); expect(screen.getByText("探索性回答")).toBeInTheDocument(); });
   it("转为批量草稿后进入 setup", async()=>{ render(<QuickDigitalInterview interviewId="q1"/>); await screen.findByTestId("itv-quick-page"); fireEvent.click(screen.getByTestId("itv-convert-batch")); await waitFor(()=>expect(push).toHaveBeenCalledWith("/itv/batch1/setup")); });
+  it("persona mock 不访问后端专家表即可开始并回答", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("mock quick must stay local"));
+    render(<QuickDigitalInterview interviewId="new" expertId="mock-persona:68ecb1289191bb24396f9bd4" />);
+    expect(await screen.findByText("张浩宇")).toBeInTheDocument();
+    expect(screen.getByTestId("itv-quick-expert-intro")).toHaveTextContent("清华大学计算机系博士");
+    expect(screen.getByTestId("itv-quick-expert-intro")).toHaveTextContent("临时 Mock 档案");
+    expect(screen.getByTestId("itv-quick-expert-intro")).toHaveTextContent("典型建议");
+    fireEvent.change(screen.getByLabelText("访谈问题"), { target: { value: "AI 产品最先验证什么？" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText(/数据飞轮/)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
