@@ -60,7 +60,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
           const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
           .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
-        onError:reason=>void fail(asPersonalErrorReason(reason)),
+        onError:(reason,detail)=>void fail(asPersonalErrorReason(reason,detail,stopping)),
         onClosed:()=>undefined,
       },{sampleRate:16_000,channels:1,encoding:"pcm16le"}).then(s=>{starting=false;
           if(terminal){s.abort();return;}upstream=s;
@@ -82,7 +82,8 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
 }
 function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}
 function safeErrorDetail(error:unknown):string{return error instanceof Error?error.name:"unknown";}
-function asPersonalErrorReason(reason:string):typeof C.RealtimeAsrStreamError._type{
+function asPersonalErrorReason(reason:string,detail:string,stopping:boolean):typeof C.RealtimeAsrStreamError._type{
+  if(stopping&&reason==="ASR_PROVIDER_UNAVAILABLE"&&detail==="upstream did not settle the final segment in time")return "FINISH_TIMEOUT";
   const parsed=C.RealtimeAsrStreamError.safeParse(reason);
   return parsed.success?parsed.data:"ASR_PROVIDER_UNAVAILABLE";
 }

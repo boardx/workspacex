@@ -86,6 +86,26 @@ describe("personal realtime ASR gateway", () => {
     client.ws.close();
   });
 
+  it("preserves FINISH_TIMEOUT when the shared provider cannot settle the final segment", async () => {
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async handlers => ({
+        ...sessionStub(() => undefined),
+        finish: async () => handlers.onError(
+          "ASR_PROVIDER_UNAVAILABLE",
+          "upstream did not settle the final segment in time",
+        ),
+      }),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    client.ws.send(JSON.stringify({ type: "stop" }));
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+    expect(await client.next()).toMatchObject({ type: "error", reason: "FINISH_TIMEOUT" });
+    client.ws.close();
+  });
+
   it("maps provider reasons outside the personal BoardX contract to provider unavailable", async () => {
     const provider: AsrProviderPort = {
       isConfigured: () => true,
