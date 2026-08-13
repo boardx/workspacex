@@ -11,12 +11,12 @@ afterEach(() => {
 });
 
 describe("SurveyTemplateEditorShell", () => {
-  it("呈现独立模板编辑器并返回模板列表", () => {
+  it("呈现独立报告模块编辑器并返回报告模块列表", () => {
     render(<SurveyTemplateEditorShell templateId="tpl-digital-collaboration" />);
 
     expect(screen.getByTestId("survey-template-editor-shell")).toBeInTheDocument();
     expect(screen.getByTestId("survey-template-editor")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("survey-template-back-to-list"));
-    expect(push).toHaveBeenCalledWith("/studio/survey?tab=templates");
+    expect(push).toHaveBeenCalledWith("/studio/survey?tab=reports");
   });
 });

@@ -5,7 +5,7 @@ export default function SurveyPage({ searchParams }: {
   searchParams: { tab?: string; state?: string };
 }) {
   const tab: SurveyResourceTab = searchParams.tab === "templates"
-    ? "modules"
+    ? "reports"
     : searchParams.tab === "modules" || searchParams.tab === "reports"
       ? searchParams.tab
       : "surveys";

@@ -12,14 +12,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  SURVEY_LIBRARY_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
+  SURVEY_LIBRARY_CARDS, SURVEY_QUESTION_MODULE_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
   TEMPLATE_CATEGORY_LABEL, type SurveyResourceState, type SurveyResourceTab,
 } from "@/lib/survey/resource-library";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
   surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
-  modules: { title: "问卷模块", description: "管理可复用的问卷模块，快速创建标准化问卷", search: "搜索问卷模块名称" },
-  reports: { title: "报告模块", description: "集中查看已生成的问卷分析报告", search: "搜索报告名称" },
+  modules: { title: "问卷模块", description: "管理可复用的问题设计模块，快速组合问卷", search: "搜索问卷模块名称" },
+  reports: { title: "报告模块", description: "管理报告结构、章节和输出方式", search: "搜索报告模块名称" },
 };
 
 export function SurveyResourceLibrary({ initialTab, uiState }: {
@@ -38,10 +38,10 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
 
   const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
     item.title.includes(query.trim()));
-  const templates = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
+  const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
-  const reports = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS.filter((item) => item.validResponses !== undefined))
-    .filter((item) => item.title.includes(query.trim()));
+  const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
+    item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
 
   return (
@@ -66,8 +66,8 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
           <h2 className="mb-4 text-14 font-semibold">Survey</h2>
           <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1" aria-label="Survey 资源类型">
             <ResourceNavItem active={tab === "surveys"} count={SURVEY_LIBRARY_CARDS.length} icon={<FileText className="h-5 w-5" />} label="问卷列表" onClick={() => changeTab("surveys")} testId="survey-resource-nav-surveys" />
-            <ResourceNavItem active={tab === "modules"} count={SURVEY_TEMPLATE_CARDS.length} icon={<ClipboardList className="h-5 w-5" />} label="问卷模块" onClick={() => changeTab("modules")} testId="survey-resource-nav-modules" />
-            <ResourceNavItem active={tab === "reports"} count={SURVEY_LIBRARY_CARDS.filter((item) => item.validResponses !== undefined).length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
+            <ResourceNavItem active={tab === "modules"} count={SURVEY_QUESTION_MODULE_CARDS.length} icon={<ClipboardList className="h-5 w-5" />} label="问卷模块" onClick={() => changeTab("modules")} testId="survey-resource-nav-modules" />
+            <ResourceNavItem active={tab === "reports"} count={SURVEY_TEMPLATE_CARDS.length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
           </nav>
         </aside>
 
@@ -79,8 +79,10 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg"><FilePlus2 className="h-4 w-4" />从模板新建</Button>}
-                {tab !== "reports" && <Button variant="primary" size="lg"><Plus className="h-4 w-4" />{tab === "surveys" ? "新建问卷" : "新建问卷模块"}</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => changeTab("modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
+                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")}><Plus className="h-4 w-4" />新建问卷模块</Button>}
+                {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
             </div>
 
@@ -92,24 +94,19 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
 
-            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "模块编辑" : "完整报告"}</p>
+            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "基于该模块的新问卷设计" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
               {tab === "surveys" ? (
                 <CardGrid empty={surveys.length === 0} emptyLabel="没有匹配的问卷，调整搜索或筛选条件。">
                   {surveys.map((item) => <SurveyCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/${item.id}?step=design`)} />)}
                 </CardGrid>
               ) : tab === "modules" ? (
-                <CardGrid empty={templates.length === 0} emptyLabel="没有匹配的模板，调整搜索或分类条件。">
-                  {templates.map((item) => <TemplateCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/templates/${item.id}`)} />)}
-                  <button type="button" className="flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-6 text-center transition-all duration-200 hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="survey-resource-new-template">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full border border-primary text-primary"><Plus className="h-6 w-6" /></span>
-                    <span className="mt-4 text-14 font-semibold">新建空白模板</span>
-                    <span className="mt-2 text-11 text-muted-foreground">从零开始配置问题与报告章节</span>
-                  </button>
+                <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/new?step=design&module=${item.id}`)} />)}
                 </CardGrid>
               ) : (
-                <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告。">
-                  {reports.map((item) => <ReportCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/${item.id}?step=report`)} />)}
+                <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">
+                  {reports.map((item) => <ReportTemplateCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/templates/${item.id}`)} />)}
                 </CardGrid>
               )}
             </ResourceBody>
@@ -149,24 +146,25 @@ function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[numb
   </button>;
 }
 
-function TemplateCard({ item, onOpen }: { item: (typeof SURVEY_TEMPLATE_CARDS)[number]; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-template-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+function QuestionModuleCard({ item, onOpen }: { item: (typeof SURVEY_QUESTION_MODULE_CARDS)[number]; onOpen: () => void }) {
+  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-module-${item.id}`} className="group min-h-48 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" /></span><Badge tone="primary">问题模块</Badge></div>
+    <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
+    <p className="mt-2 text-11 text-muted-foreground">{item.description}</p>
+    <p className="mt-3 text-12 text-muted-foreground">{item.questionCount} 题 · 更新于 {item.updatedAt}</p>
+    <p className="mt-3 text-12 text-primary">用于新问卷</p>
+    <ChevronRight className="ml-auto mt-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+  </button>;
+}
+
+function ReportTemplateCard({ item, onOpen }: { item: (typeof SURVEY_TEMPLATE_CARDS)[number]; onOpen: () => void }) {
+  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-template-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" /></span><Badge tone="primary">{TEMPLATE_CATEGORY_LABEL[item.category]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
-    <p className="mt-3 text-12 text-muted-foreground">已创建 <strong className="font-semibold text-primary">{item.surveyCount}</strong> 份问卷</p>
-    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-  </button>;
-}
-
-function ReportCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[number]; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ChartNoAxesCombined className="h-5 w-5" /></span><Badge tone="primary">分析报告</Badge></div>
-    <h3 className="mt-4 text-14 font-semibold">{item.title}分析报告</h3>
-    <p className="mt-2 text-11 text-muted-foreground">{item.reportSectionCount} 个报告章节 · {item.validResponses ?? 0} 份有效答卷</p>
-    <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
-    <p className="mt-3 text-12 text-primary">查看完整报告</p>
+    <p className="mt-3 text-12 text-muted-foreground">已应用于 <strong className="font-semibold text-primary">{item.surveyCount}</strong> 份问卷</p>
+    <p className="mt-3 text-12 text-primary">编辑报告模块</p>
     <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
   </button>;
 }

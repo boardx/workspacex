@@ -13,6 +13,21 @@ afterEach(() => {
 });
 
 describe("SurveyWorkflowShell", () => {
+  it("新建问卷使用草稿身份进入问题设计", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} />);
+
+    expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
+    expect(screen.getByText(/问卷 ID new/)).toBeInTheDocument();
+  });
+
+  it("从问卷模块创建时只载入该模块的问题", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleId="profile" />);
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+  });
+
   it("只呈现新的五步导航并用 URL 切步", () => {
     render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly={false} />);
 

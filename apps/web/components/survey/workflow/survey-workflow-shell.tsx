@@ -23,14 +23,15 @@ const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = 
   { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
-export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly }: {
+export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleId }: {
   surveyId: string;
   initialStep: survey.SurveyWorkflowStep;
   uiState: SurveyPrototypeState;
   readonly: boolean;
+  moduleId?: string;
 }) {
   const router = useRouter();
-  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock());
+  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId }));
   const [saved, setSaved] = React.useState(false);
   const metrics = getSurveyMetrics(model);
 
