@@ -484,9 +484,8 @@ import { RecordingController } from "./interface/controllers/recording.controlle
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
-import { ASR_USAGE_METER, PERSONAL_REALTIME_ASR_PROVIDER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
+import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
-import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-provider";
 
 @Module({
   controllers: [
@@ -1184,7 +1183,6 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
     },
     { provide: REALTIME_ASR_TICKET_STORE, useFactory: (db: DatabasePort) => new PgRealtimeAsrTicketStore(db), inject: [DATABASE_PORT] },
     { provide: ASR_USAGE_METER, useFactory: (db: DatabasePort) => new PgAsrUsageMeter(db), inject: [DATABASE_PORT] },
-    { provide: PERSONAL_REALTIME_ASR_PROVIDER, useFactory: () => new AliyunFunAsrProvider() },
     // #466: the realtime ASR upstream. ONE adapter, selected explicitly by
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why

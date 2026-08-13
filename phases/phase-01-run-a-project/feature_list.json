@@ -3918,8 +3918,8 @@
       "spec_ref": "05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "coord-voice",
       "verification": [
         "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-provider-wiring.test.ts",
         "pnpm --filter api exec vitest run tests/recording/configured-realtime-asr-provider.test.ts",
@@ -3938,7 +3938,7 @@
       "priority": 1,
       "area": "recording",
       "capability": "CAP-WEB",
-      "sprint": null
+      "sprint": "05"
     }
   ]
 }

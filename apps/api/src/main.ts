@@ -21,7 +21,7 @@ import {
   TRANSCRIPTION_POLICY_PROVIDER,
 } from "./application/recording/session-lifecycle-ports";
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
-import { ASR_USAGE_METER, PERSONAL_REALTIME_ASR_PROVIDER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
+import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -104,7 +104,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
   attachPersonalRealtimeAsrGateway(app.getHttpServer(), {
     tickets: app.get(REALTIME_ASR_TICKET_STORE),
     repository: app.get(PERSONAL_TRANSCRIPTION_REPOSITORY),
-    provider: app.get(PERSONAL_REALTIME_ASR_PROVIDER),
+    provider: app.get(ASR_PROVIDER),
     usage: app.get(ASR_USAGE_METER),
     ids: app.get(RECORDING_ID_GENERATOR),
   });

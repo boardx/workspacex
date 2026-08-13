@@ -124,8 +124,8 @@ import {
   PersonalTranscriptionCursorInvalid,
   type PersonalTranscriptionRepository,
 } from "../../application/recording/personal-transcription-ports";
-import { PERSONAL_REALTIME_ASR_PROVIDER, REALTIME_ASR_TICKET_STORE, type PersonalRealtimeAsrProvider,
-  type RealtimeAsrTicketStore } from "../../application/recording/personal-realtime-asr";
+import { REALTIME_ASR_TICKET_STORE, type RealtimeAsrTicketStore } from "../../application/recording/personal-realtime-asr";
+import { ASR_PROVIDER, type AsrProviderPort } from "../../application/recording/asr-ports";
 
 type StartBody = typeof C.operations.startRecording.in._type;
 type EndBody = typeof C.operations.endRecording.in._type;
@@ -176,7 +176,7 @@ export class RecordingController {
     @Inject(PERSONAL_TRANSCRIPTION_REPOSITORY)
     private readonly personalTranscriptions: PersonalTranscriptionRepository,
     @Inject(REALTIME_ASR_TICKET_STORE) private readonly personalAsrTickets: RealtimeAsrTicketStore,
-    @Inject(PERSONAL_REALTIME_ASR_PROVIDER) private readonly personalAsr: PersonalRealtimeAsrProvider,
+    @Inject(ASR_PROVIDER) private readonly personalAsr: AsrProviderPort,
   ) {}
 
   private personalDependencies() {

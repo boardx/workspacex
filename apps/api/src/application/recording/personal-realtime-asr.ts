@@ -21,13 +21,6 @@ export interface AsrUsageEvent {
 export interface AsrUsageMeter { record(event: AsrUsageEvent): Promise<boolean>; }
 export const ASR_USAGE_METER = Symbol("ASR_USAGE_METER");
 
-export interface PersonalRealtimeAsrProvider {
-  isConfigured(): boolean;
-  open(handlers: import("../../infrastructure/recording/aliyun-realtime-transcription-session").FunAsrHandlers): Promise<
-    import("../../infrastructure/recording/aliyun-realtime-transcription-session").FunAsrProtocolSession>;
-}
-export const PERSONAL_REALTIME_ASR_PROVIDER = Symbol("PERSONAL_REALTIME_ASR_PROVIDER");
-
 export async function persistThenPublishFinal<T>(persist: () => Promise<T>, publish: (stored: T) => void): Promise<T> {
   const stored = await persist();
   publish(stored);
