@@ -1,7 +1,9 @@
 ---
-status: pending
+status: confirmed
 signoff_gate: contract-bundle chat-visualization · 第 ① 件 UI（增量）
-awaiting: 人类补签（agent 不改 status）
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-13"
+confirmed_via: "批准第一版口径：气泡内只读 fabric 渲染 + 最大化全屏可编辑（复用 CanvasStage）+ 保存落 canvas artifact + 错误态沿用 VZ-01 契约。"
 ---
 
 # ① UI 签核**增量** —— chat 内 mermaid 图改 fabric.js 渲染 / 最大化 / 编辑 / 保存
