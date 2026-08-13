@@ -2,10 +2,16 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SectionTitle, StatChip, MetaSep, ObserverNotice } from "./parts";
+import { SectionTitle, MetaSep, ObserverNotice } from "./parts";
+/**
+ * F172：本文件对 `lib/mock/project` 的依赖从 9 个符号收到 4 个。
+ * 去掉的五个（`OVERVIEW_STATUS` / `CURRENT_SEGMENT` / `OVERVIEW_TODOS` / `ACTIVITY_FEED` /
+ * `PROJECT_ROLE_LABEL`）全部是**编造的展示数据**，契约里没有出处。
+ * 留下的四个是别的东西：`PROJECT_HEADER`（页头文案）、`PROJECT_SURFACES`（工作面导航入口，
+ * F317 已裁它只是一排跳转）、`ROLE_CAN_WRITE` / `observerHidden`（前端角色投影规则）。
+ */
 import {
-  OVERVIEW_STATUS, CURRENT_SEGMENT, OVERVIEW_TODOS, ACTIVITY_FEED, PROJECT_HEADER,
-  PROJECT_SURFACES, ROLE_CAN_WRITE, PROJECT_ROLE_LABEL, observerHidden, type ProjectRole,
+  PROJECT_HEADER, PROJECT_SURFACES, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
 import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
 
@@ -32,8 +38,21 @@ const BACKFLOW_BADGE_LABEL: Record<ProjectOverview["backflow"][number]["badge"],
  * ⚠ F362：新增一块「真实概览」，接的是真实 `GET /projects/:projectId/overview`
  *   （控制器路由由 F123 挂好，前端此前一直误以为它没挂，见 `lib/live-projects.ts`
  *   `getProjectOverview` 头注）。只加这一块，白名单四件（当前议程环节 / 四类角色
- *   人数 / 回流列表 / 蓝本名与版本）照契约原样呈现，不新造第五件；上面 F353 那块
- *   「项目基本信息」与下面的 mock 板块都不动。
+ *   人数 / 回流列表 / 蓝本名与版本）照契约原样呈现，不新造第五件。
+ *
+ * ⚠ F172（本次）：上面 F353/F362 两条各自留了「其余 mock 板块本次不动」——**现在动了**。
+ *   动的原因是它们与真实数据打架：F362 接真之后，屏上同时存在两份「当前环节」，
+ *   一份真、一份是带假倒计时（`12:48`）的 mock 卡，用户无从分辨。
+ *   本次处理（净效果是删，不是加）：
+ *     · 当前环节卡：标题接真 `currentAgendaSegment`；删掉假倒计时（契约只给
+ *       `{title, state}`，没有剩余时长——一个不走动的计时器比没有计时器更糟）；
+ *       三角色分工无契约出处，降级为如实说明；
+ *     · 现场状态条：五项收敛到有出处的两项（环节 / 角色人数），阶段·就绪检查·计时删除；
+ *     · 待办 / 最新动态：全仓无对应端点（待办属 PJ-21），整块降级为如实空态；
+ *     · 工作面：保留（F317 已裁它只是一排跳转入口，不是数据展示）。
+ *   ⇒ 本文件对 `lib/mock/project` 的依赖由 9 个符号收到 4 个，且剩下的四个都不是假数据。
+ *   ⚠ 上面第 26-28 行那段「原型转译」的描述写的是**改动前**的形态，保留作沿革；
+ *     以本条为准。
  */
 export function TabOverview({
   view, readOnly = false, projectId, liveProject = null, liveLoading = false, liveError = null,
@@ -173,21 +192,28 @@ export function TabOverview({
         </div>
       </header>
 
-      {/* 现场状态条（聚合，四视角都能看） */}
+      {/*
+        现场状态条（聚合，四视角都能看）—— F172：只画有出处的两项。
+        原型这条状态条有五项（阶段 / 当前环节 / 就绪检查 / 出席 / 计时），其中
+        「当前环节」与「出席」在 `getProjectOverview` 里有真实来源，另外三项
+        （阶段 / 就绪检查 / 计时）契约里没有，本版不再渲染编造值。
+        白名单是封闭的四件（F123 裁），补第五件属修订已签核裁决，不是「补一个板块」。
+      */}
       <div
         data-testid="project-overview-statusbar"
         className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-panel px-3.5 py-2.5"
       >
-        <StatChip tone="neutral" testId="project-overview-phase">
-          <span className="rounded-sm bg-inverse px-1.5 py-0.5 text-inverse-foreground">{OVERVIEW_STATUS.phase}</span>
-        </StatChip>
-        <span className="text-11">{OVERVIEW_STATUS.segment}</span>
+        <span className="text-11" data-testid="project-overview-statusbar-segment">
+          {liveOverview?.currentAgendaSegment != null
+            ? `${liveOverview.currentAgendaSegment.title} · ${liveOverview.currentAgendaSegment.state}`
+            : "当前没有进行中的环节"}
+        </span>
         <MetaSep />
-        <span className="text-11 text-success">{OVERVIEW_STATUS.readyCheck}</span>
-        <MetaSep />
-        <span className="text-11 text-muted-foreground">{OVERVIEW_STATUS.attendance}</span>
-        <span className="flex-1" />
-        <span className="text-10 text-muted-foreground">{OVERVIEW_STATUS.timing}</span>
+        <span className="text-11 text-muted-foreground" data-testid="project-overview-statusbar-attendance">
+          {liveOverview?.roleCounts != null
+            ? `引导师 ${liveOverview.roleCounts.facilitator} · 组长 ${liveOverview.roleCounts.groupLead} · 组员 ${liveOverview.roleCounts.member} · 观察者 ${liveOverview.roleCounts.observer}`
+            : "角色人数暂不可读"}
+        </span>
       </div>
 
       {isObserver ? (
@@ -197,72 +223,63 @@ export function TabOverview({
         />
       ) : (
         <>
-          {/* 当前环节：三角色分工卡（现场同一环节，三种视角各看到什么、各该做什么） */}
+          {/*
+            当前环节卡 —— F172：标题接真，倒计时与三角色分工不再编造。
+
+            改前这张卡整卡是 mock：标题、一个不走动的假倒计时（`CURRENT_SEGMENT.countdown`），
+            外加三个角色「各该做什么」的文案与 CTA。而 F362 接真的议程环节块就在同一屏上方
+            ——同一个概念在一屏里一真一假两份，是本次要修掉的主要缺陷。
+
+            契约 `getProjectOverview.out.currentAgendaSegment` 只给 `{title, state}`：
+            · 倒计时：契约没有剩余时长 ⇒ 删（一个不走动的计时器比没有计时器更糟）；
+            · 三角色分工：「这个环节里每个角色该做什么」在契约里没有出处 ⇒ 不渲染编造文案。
+              这不是砍掉已签核的 UI，是把它降级为如实的空态——它要真，得先有契约（PJ-20 现场协作）。
+          */}
           <Card data-testid="project-overview-current-segment">
             <div className="flex items-center gap-3 rounded-t-lg bg-inverse px-4 py-3 text-inverse-foreground">
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
-              <div className="min-w-0 flex-1 truncate text-14 font-medium">{CURRENT_SEGMENT.title}</div>
-              <div className="shrink-0 font-mono text-18 tabular-nums">{CURRENT_SEGMENT.countdown}</div>
+              <div className="min-w-0 flex-1 truncate text-14 font-medium" data-testid="project-overview-current-segment-title">
+                {liveOverview?.currentAgendaSegment != null
+                  ? `${liveOverview.currentAgendaSegment.title} · ${liveOverview.currentAgendaSegment.state}`
+                  : "当前没有进行中的环节"}
+              </div>
             </div>
-            <div className="grid grid-cols-1 divide-y divide-border border-t border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {CURRENT_SEGMENT.roles.map((r) => (
-                <div key={r.role} className="flex flex-col gap-2 p-3.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-10 font-medium uppercase tracking-wide text-muted-foreground">
-                      {r.self ? PROJECT_ROLE_LABEL[r.role] : r.count}
-                    </span>
-                    {r.self && <span className="rounded-sm bg-muted px-1 text-9 font-mono">你</span>}
-                  </div>
-                  <p className="text-11 leading-relaxed text-card-foreground">
-                    {r.note}
-                    {"warn" in r && r.warn && <span className="text-destructive"> {r.warn}</span>}
-                  </p>
-                  {canWrite && (
-                    <Button size="xs" variant="outline" className="self-start" data-testid={`project-overview-role-cta-${r.role}`}>
-                      {r.action}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p
+              className="border-t border-border px-4 py-3 text-11 leading-relaxed text-muted-foreground"
+              data-testid="project-overview-current-segment-roles-unavailable"
+            >
+              这个环节里各角色分别该做什么，契约里还没有出处，本版不显示。
+              环节的推进与角色分工属于现场协作那一束，接真后才会出现在这里。
+            </p>
           </Card>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-[1.25fr_1fr]">
-            {/* 待办预览 */}
+            {/*
+              待办 —— F172：契约里根本没有待办这个东西（`getProjectOverview` 白名单四件里没有它，
+              全仓也没有任何待办端点）。原型这三条是手写的示例数据，其中「1 项阻塞」这种
+              计数尤其危险：它看起来像算出来的。本版整块降级为如实空态。
+              待办看板要真，得先走一遍契约设计流程 —— 那是 PJ-21，本 feature 不越界替它定义。
+            */}
             <section>
-              <SectionTitle meta="3 项 · 1 项阻塞">待办</SectionTitle>
+              <SectionTitle>待办</SectionTitle>
               <Card>
-                <ul className="divide-y divide-border" data-testid="project-overview-todos">
-                  {OVERVIEW_TODOS.map((t) => (
-                    <li key={t.id} className="flex items-center gap-3 px-3.5 py-3">
-                      <span aria-hidden className="h-3.5 w-3.5 shrink-0 rounded border-[1.5px] border-border" />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-12">{t.title}</div>
-                        <div className="truncate text-10 text-muted-foreground">{t.sub}</div>
-                      </div>
-                      <span className={
-                        t.tone === "danger" ? "shrink-0 font-mono text-10 text-destructive"
-                          : t.tone === "warning" ? "shrink-0 font-mono text-10 text-warning"
-                            : "shrink-0 font-mono text-10 text-muted-foreground"
-                      }>{t.tag}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-todos-unavailable">
+                  项目待办还没有契约来源，本版不显示。它需要先定义「待办从哪里来、谁能改、
+                  完成算什么」，那是一次独立的契约设计，不是这一屏能顺手补出来的。
+                </p>
               </Card>
             </section>
 
-            {/* 最新动态（人与 AI 混合） */}
+            {/*
+              最新动态 —— F172：同上，契约里没有动态流。原型这条混合了人与 AI 的活动，
+              它的真实来源应当是溯源/审计事件，但 `getProjectOverview` 不返回它们，
+              也没有别的端点提供「这个项目最近发生了什么」。不编。
+            */}
             <section>
               <SectionTitle>最新动态</SectionTitle>
-              <ul className="flex flex-col" data-testid="project-overview-activity">
-                {ACTIVITY_FEED.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-0">
-                    <span aria-hidden className={cnAvatar(a.kind)}>{a.who.slice(0, 2)}</span>
-                    <span className="min-w-0 flex-1 truncate text-11">{a.text}</span>
-                    <span className="shrink-0 font-mono text-10 text-muted-foreground">{a.time}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="border-b border-border py-2.5 text-11 leading-relaxed text-muted-foreground" data-testid="project-overview-activity-unavailable">
+                项目动态流还没有契约来源，本版不显示。已回流的产出在上方「真实概览」里，
+                那是目前唯一有出处的「最近发生了什么」。
+              </p>
             </section>
           </div>
         </>
@@ -318,11 +335,3 @@ export function TabOverview({
   );
 }
 
-function cnAvatar(kind: "ai" | "person") {
-  return [
-    "grid h-5 w-5 shrink-0 place-items-center text-9 font-semibold",
-    kind === "ai"
-      ? "rounded-md bg-ai-tint text-ai-tint-foreground"
-      : "rounded-full bg-muted text-muted-foreground",
-  ].join(" ");
-}
