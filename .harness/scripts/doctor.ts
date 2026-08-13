@@ -8,7 +8,7 @@
 // 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { findPhaseDir, sprintDir, PROGRESS_PATH, REPO_ROOT } from "./lib/paths";
+import { findPhaseDir, sprintDir, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
@@ -16,10 +16,22 @@ import { checkFingerprint, isLegacyEvidence } from "./lib/evidence-fingerprint";
 import { auditSignoff } from "./lib/design-signoff";
 import { auditPhaseReadiness, type EvidenceProof, type ReadinessEvidenceKind } from "./lib/phase-readiness";
 import { loadReferencedEvidenceProof, loadPhaseReadiness } from "./lib/phase-readiness-fs";
+import {
+  allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey, type PhaseFeatures,
+} from "./lib/feature-evidence-ratchet";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
+
+const FEATURE_EVIDENCE_ALLOWLIST_PATH = join(STATE_DIR, "feature-evidence-allowlist.json");
+
+/** #1136 棘轮名单读取。缺文件视为空名单（拒绝任何非标准 evidence），不是「跳过检查」。 */
+function readFeatureEvidenceAllowlist(): readonly AllowlistKey[] {
+  if (!existsSync(FEATURE_EVIDENCE_ALLOWLIST_PATH)) return [];
+  const doc = JSON.parse(readFileSync(FEATURE_EVIDENCE_ALLOWLIST_PATH, "utf8")) as { entries?: unknown };
+  return Array.isArray(doc.entries) ? (doc.entries as AllowlistKey[]) : [];
+}
 
 interface Finding {
   level: "FAIL" | "WARN" | "INFO";
@@ -87,7 +99,12 @@ const EVIDENCE_PATH_RE = /^evidence\/(F\d+)\.verify\.log @ /;
 /** 裸 ISO 时间戳（--phase 模式的历史产物，ADR-012 起视为不合规证据） */
 const BARE_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
 
-function checkPassingEvidence(phaseId: string, f: Feature, findings: Finding[]): void {
+function checkPassingEvidence(
+  phaseId: string,
+  f: Feature,
+  findings: Finding[],
+  evidenceAllowlist: ReadonlySet<AllowlistKey>,
+): void {
   if (!f.evidence) {
     findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 是 passing 但 evidence 为空——"没有证据=没有完成"` });
     return;
@@ -101,8 +118,15 @@ function checkPassingEvidence(phaseId: string, f: Feature, findings: Finding[]):
     return;
   }
   if (!EVIDENCE_PATH_RE.test(f.evidence)) {
-    // 非标准形态（早期阶段有 commit hash / 截图路径等），不判死，但提示统一
-    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id} 的 evidence 非标准形态（"${f.evidence.slice(0, 60)}"），无法机器校验` });
+    // #1136：自由文本 evidence 此前只 WARN，实测这一档能让手改 status=passing
+    // 绕过完成定义、doctor 仍全绿。棘轮门（同 #539 rewrite-coverage-allowlist 的
+    // 只许收缩模式）：不在 allowlist 里 ⇒ 直接 FAIL；在 allowlist 里 ⇒ 存量豁免。
+    const key = allowlistKey(phaseId, f.id);
+    if (evidenceAllowlist.has(key)) {
+      findings.push({ level: "WARN", phase: phaseId, msg: `${f.id} 的 evidence 非标准形态（"${f.evidence.slice(0, 60)}"）——存量豁免（见 feature-evidence-allowlist.json），待清理` });
+    } else {
+      findings.push({ level: "FAIL", phase: phaseId, msg: `${f.id} 的 evidence 非标准形态（"${f.evidence.slice(0, 60)}"），无法机器校验，也不在存量豁免名单里——完成定义不接受一句人话当证据。用 pnpm harness verify --sprint ${phaseId}/<sprint> --backfill-evidence 补真实日志` });
+    }
     return;
   }
   // 标准形态 → 文件必须真实存在、非空、且记录了成功退出码
@@ -444,6 +468,12 @@ export function doctor(args: Args): void {
       msg: "读不到 GitHub issue（gh 未登录 / 离线）—— 本次跳过「开发任务必须在 issue 上可见」的检查",
     });
   }
+  const evidenceAllowlist = readFeatureEvidenceAllowlist();
+  const evidenceAllowlistSet = new Set(evidenceAllowlist);
+  // #1136 棘轮体检的输入：只收本次真正扫到的 phase，避免 `--phase 01` 这类局部
+  // 运行把「没扫到的 phase」误判成「不再需要」——那会把陈旧检查变成假阳性门。
+  const scannedForRatchet: PhaseFeatures[] = [];
+
   for (const id of phaseIds) {
     let fl;
     try {
@@ -451,9 +481,10 @@ export function doctor(args: Args): void {
     } catch {
       continue; // 没有 feature_list 的 phase（纯 requirements 期）不体检
     }
+    scannedForRatchet.push({ phaseId: id, features: fl.features });
     for (const f of fl.features) {
       if (f.status === "passing") {
-        checkPassingEvidence(id, f, findings);
+        checkPassingEvidence(id, f, findings, evidenceAllowlistSet);
         checkMergedToMain(id, f, findings, strict ? "FAIL" : "WARN");
       }
       checkSpecRef(id, f, findings);
@@ -467,6 +498,17 @@ export function doctor(args: Args): void {
     checkOrphanInProgress(id, findings);
     checkSignoffChain(id, findings);
     checkPhaseReadiness(id, findings);
+  }
+
+  // 棘轮只许收缩：只对本次实际扫到的 phase 判陈旧，不动没扫到的那部分名单。
+  const scannedPhaseIds = new Set(scannedForRatchet.map((p) => p.phaseId));
+  const inScopeAllowlist = evidenceAllowlist.filter((key) => scannedPhaseIds.has(key.split("/")[0] ?? ""));
+  for (const stale of staleFeatureEvidenceEntries(scannedForRatchet, inScopeAllowlist)) {
+    findings.push({
+      level: "FAIL",
+      phase: stale.split("/")[0] ?? "-",
+      msg: `feature-evidence-allowlist.json 里的 "${stale}" 已陈旧（对应 feature 已不再是「passing + 自由文本 evidence」）——请删掉这一条，留着会遮住未来的回归`,
+    });
   }
 
   const fails = findings.filter((f) => f.level === "FAIL");

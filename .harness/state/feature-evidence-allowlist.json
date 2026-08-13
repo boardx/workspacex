@@ -1,0 +1,15 @@
+{
+  "_readme": [
+    "#1136 棘轮名单：完成定义反证发现「evidence 是自由文本」这一档 doctor 此前只 WARN 不 FAIL，",
+    "手改一条 feature 为 passing + 一句人话当 evidence 就能让 doctor 全绿——完成定义被单方面绕过。",
+    "2026-08-13 实测：5 个 phase 全量扫描，存量为 0，不需要任何豁免。",
+    "规则同 #539 的 rewrite-coverage-allowlist.json：这个数组只能变短。",
+    "条目形如 `<phaseId>/<featureId>`，例如 `01/F149`。",
+    "一条 passing feature 的 evidence 一旦标准化（evidence/<Fxx>.verify.log @ …）或状态不再是",
+    "passing，对应条目就是陈旧的，doctor 会判红要求删掉——留着等于给未来的回归留一扇没人看守的门。",
+    "为什么不是全绿门：coord-main 2026-08-13 裁决——存量不经盘点直接升级会不可控地炸红，",
+    "'上线即全红'等于没有门。今天存量为 0，所以这道门从落地起就是满棘轮，",
+    "但机制留着：明天如果有人绕过标准 verify 路径手写一条 evidence，会立刻被新增判红拦住。"
+  ],
+  "entries": []
+}
