@@ -43,7 +43,21 @@ function segment(text: string): Segment[] {
   return out;
 }
 
-export function MarkdownMessage({ text }: { text: string }) {
+export function MarkdownMessage({
+  text, threadId, messageId, bearer,
+}: {
+  text: string;
+  /**
+   * VZ-fabric 真实保存接线：图「最大化→编辑→保存」时要挂一个真实 canvas artifact 需要
+   * `threadId`/`messageId`/`bearer` 三者俱全。**调用方按消息来源自行决定传不传**——
+   * 已落库的最终消息（有稳定 `message.id`）该传；流式草稿（还没有稳定 id）不该传，
+   * 传了也没有真实消息可挂，`ChatDiagramCanvasModal` 会在缺失时退回本地演示，不会崩，
+   * 但不传更诚实（不会先短暂出现「可保存」态又在草稿定型后行为跳变）。
+   */
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
+}) {
   const segments = React.useMemo(() => segment(text), [text]);
   return (
     <div
@@ -52,7 +66,13 @@ export function MarkdownMessage({ text }: { text: string }) {
     >
       {segments.map((s) =>
         s.kind === "mermaid" ? (
-          <ChatDiagramFabric key={s.key} code={s.code} />
+          <ChatDiagramFabric
+            key={s.key}
+            code={s.code}
+            threadId={threadId}
+            messageId={messageId}
+            bearer={bearer}
+          />
         ) : (
           <ReactMarkdown
             key={s.key}

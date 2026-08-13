@@ -7,9 +7,9 @@ import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lu
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
-import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
+  describeMessageFailure,
   landAsArtifact,
   listMessages,
   type CreateMessageInput,
@@ -722,7 +722,14 @@ export function ChatLiveMessagePanel({
                         // VZ-01 MarkdownMessage：markdown（代码块/列表/加粗/表格）+ ```mermaid
                         // 围栏渲成图（越界图类型/语法错误落诚实错误态，不崩整条消息）。
                         // 只对 agent 消息用：用户自己打的文字没有 markdown 语义可渲染。
-                        <MarkdownMessage text={message.text} />
+                        // 传 threadId/message.id/bearer：这是已落库的最终消息，图「最大化→
+                        // 编辑→保存」时可以真实落一个 canvas artifact（landAsArtifact）。
+                        <MarkdownMessage
+                          text={message.text}
+                          threadId={threadId}
+                          messageId={message.id}
+                          bearer={bearer}
+                        />
                       ) : (
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
@@ -1445,18 +1452,10 @@ function FailureState({
   );
 }
 
-export function describeMessageFailure(failure: unknown, action: string): string {
-  if (failure instanceof ApiError) {
-    if (failure.status === 401) return `${action}失败：登录已失效（HTTP 401），请重新登录。`;
-    if (failure.status === 403) return `${action}失败：当前身份没有写入权限（HTTP 403）。`;
-    if (failure.status === 404) return `${action}失败：对话不存在或当前身份不可见（HTTP 404）。`;
-    if (failure.status === 409 && failure.reasonCode === "IDEMPOTENCY_CONFLICT") {
-      return `${action}失败：同一 clientMessageId 已对应其他内容（HTTP 409），未创建重复消息。`;
-    }
-    if (failure.status === 409) return `${action}失败：对话状态冲突或已归档（HTTP 409）。`;
-    if (failure.status === 422) return `${action}失败：消息无效或所选 Agent 没有可用的已发布版本（HTTP 422）。`;
-    if (failure.status === 503) return `${action}失败：授权或依赖服务暂不可用（HTTP 503），系统没有降级到 mock。`;
-    return `${action}失败：${failure.reasonCode ?? "UNKNOWN"}（HTTP ${failure.status}）。`;
-  }
-  return failure instanceof Error ? `${action}失败：${failure.message}` : `${action}失败，请稍后重试。`;
-}
+// `describeMessageFailure` 本体移到 `@/lib/live-chat`（VZ-fabric 真实保存接线）：
+// `chat-diagram-canvas-modal.tsx` 也要用它，而它经 `markdown-message.tsx` →
+// `chat-diagram-fabric.tsx` 被本文件引入——若本体还留在本文件会成环
+// （本文件→markdown-message→chat-diagram-fabric→chat-diagram-canvas-modal→本文件）。
+// 这里保留一个**再导出**，让既有从本文件导入它的调用点（`chat-skill-mount-panel.tsx`、
+// `chat-read-screen.test.tsx`）不必跟着改路径——再导出指向叶子模块，不构成新的环。
+export { describeMessageFailure } from "@/lib/live-chat";

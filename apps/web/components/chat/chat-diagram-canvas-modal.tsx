@@ -4,6 +4,7 @@ import { MousePointer2, Square, Spline, Trash2, Maximize, Save, X, Check } from 
 import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
+import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
 import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
@@ -15,30 +16,50 @@ import { Badge } from "@/components/ui/badge";
  * 并在每次画布变化时经 `onMarkdownChange` 吐出「编辑后的 markdown」（就是 canvasToMarkdown
  * 的输出，也就是「保存」要落的东西）。此处不重写编辑逻辑，只提供：
  *   · 最小工具条（选择 / ＋节点 / 删除 + 适应画布），镜像 CanvasStage 支持的 tool；
- *   · 「保存」动作——原型阶段 mock 持久化：展示「会被存下来」的 mermaid 源 + 落「已保存」态。
+ *   · 「保存」动作。
  *
- * 真实持久化目标 = **画布 Artifact**（既有 land-as-artifact / canvas-doc 体系）：
- *   保存时把这份编辑后的 markdown 落成一个 canvas artifact 挂在消息/项目下。
- *   原型不接后端，只演示存-回环；真实接线在 design-note.md 里标注。
+ * ## 保存 = 真实调用既有 `landAsArtifact`（不新起持久化通道）
+ * main agent 决定 ①（SIGNOFF-INCREMENT）：保存派生一个独立 canvas artifact（`mode:"draft"`，
+ * 同 `chat-live-message-panel.tsx` 的 `submitLand` 用法——`live`/`pinned` 要求非空 citations，
+ * 编辑后的图目前没有，传那两个模式会 100% 撞 `MISSING_PROVENANCE_BACKLINK`，这是后端契约
+ * 现状，不是本组件的限制）。真实调用需要 `threadId`/`messageId`/`bearer` 三者俱全——
+ * **调用方（`ChatDiagramFabric` → `MarkdownMessage`）没传全就退回本地 mock 演示**：
+ * `/preview/chat-diagram-fabric` 这类无鉴权预览路由、以及流式草稿消息（还没有稳定
+ * `messageId`）都会走这条退路，不是 bug，是刻意的降级——没有真实身份/消息可挂，
+ * 硬发请求只会 100% 撞 401/404。
  */
 export function ChatDiagramCanvasModal({
   code,
   onClose,
+  threadId,
+  messageId,
+  bearer,
 }: {
   code: string;
   onClose: () => void;
+  /** 三者俱全才真实持久化；任一缺失退回本地 mock（见文件头注释）。 */
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
 }) {
   const initialMarkdown = React.useMemo(() => wrapAsMermaidBlock(code), [code]);
   const [markdown, setMarkdown] = React.useState(initialMarkdown);
   const [tool, setTool] = React.useState<CanvasTool>("select");
   const [zoom, setZoom] = React.useState(1);
-  const [saved, setSaved] = React.useState<{ mermaid: string; at: string } | null>(null);
+  const [saved, setSaved] = React.useState<
+    { mermaid: string; at: string; artifactId: string | null } | null
+  >(null);
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const canPersist = threadId !== undefined && messageId !== undefined;
 
   const dirty = markdown !== initialMarkdown;
 
   const handleMarkdownChange = React.useCallback((next: string) => {
     setMarkdown(next);
     setSaved(null); // 有新编辑 → 「已保存」态失效，需重新保存
+    setSaveError(null);
   }, []);
 
   // ESC 关闭（全屏覆盖层的基本可达性）。
@@ -50,19 +71,42 @@ export function ChatDiagramCanvasModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const handleSave = React.useCallback(() => {
+  const handleSave = React.useCallback(async () => {
     // 保存 = 取编辑后 markdown 里的 mermaid 源（canvasToMarkdown 已在 onMarkdownChange 产出）。
     const block = extractMermaidBlocks(markdown).find((b) => b.lang === "mermaid");
     // 序列化边界解转义（main agent 决定 ④）：fabric-markdown 的 canvasToMarkdown 会把节点标签里的
     // `<`/`>`/`&`/`"` HTML 转义（`< 18 个月?` → `&lt; 18 个月?`），落盘再渲染会 mermaid 语法漂移。
-    // 修在 chat 保存边界、不动 fabric-markdown 包（避免牵动其他 canvas 消费者）；真实接线沿用同一函数。
+    // 修在 chat 保存边界、不动 fabric-markdown 包（避免牵动其他 canvas 消费者）。
     const mermaid = decodeMermaidEntities(block?.code ?? markdown);
-    // 原型：mock 持久化——展示会被落成 canvas artifact 的内容 + 落「已保存」态。
-    setSaved({
-      mermaid,
-      at: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-    });
-  }, [markdown]);
+    setSaveError(null);
+
+    if (!canPersist) {
+      // 无鉴权预览 / 流式草稿：没有真实身份或消息可挂，退回本地演示（不落库）。
+      setSaved({
+        mermaid, artifactId: null,
+        at: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const title = `对话图 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+      const result = await landAsArtifact(
+        threadId!,
+        { messageId: messageId!, mode: "draft", title, payloadRef: mermaid },
+        bearer,
+      );
+      setSaved({
+        mermaid, artifactId: result.artifactId,
+        at: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+      });
+    } catch (failure) {
+      setSaveError(describeMessageFailure(failure, "保存"));
+    } finally {
+      setSaving(false);
+    }
+  }, [markdown, canPersist, threadId, messageId, bearer]);
 
   const TOOLS: { key: CanvasTool; label: string; icon: typeof Square }[] = [
     { key: "select", label: "选择", icon: MousePointer2 },
@@ -117,13 +161,18 @@ export function ChatDiagramCanvasModal({
         </span>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {saved && (
+          {saveError && (
+            <span className="text-11 text-destructive" data-testid="chat-diagram-save-error">
+              {saveError}
+            </span>
+          )}
+          {saved && !saveError && (
             <Badge tone="primary" data-testid="chat-diagram-saved">
               <Check aria-hidden className="h-3 w-3" />
               已保存 · {saved.at}
             </Badge>
           )}
-          {!saved && dirty && (
+          {!saved && !saveError && dirty && (
             <span className="text-11 text-muted-foreground" data-testid="chat-diagram-dirty">
               有未保存的改动
             </span>
@@ -132,11 +181,11 @@ export function ChatDiagramCanvasModal({
             variant="primary"
             size="sm"
             onClick={handleSave}
-            disabled={!dirty && saved !== null}
+            disabled={saving || (!dirty && saved !== null && saveError === null)}
             data-testid="chat-diagram-save"
           >
             <Save aria-hidden className="h-3.5 w-3.5" />
-            保存
+            {saving ? "保存中…" : "保存"}
           </Button>
           <Button
             variant="ghost"
@@ -162,17 +211,22 @@ export function ChatDiagramCanvasModal({
           />
         </div>
 
-        {/* 保存回环：展示「会被存成 canvas artifact 的 mermaid 源」（原型 mock 持久化）。*/}
+        {/* 保存回环：真实接线时展示「已落成的 canvas artifact」；无法持久化（预览/流式草稿）
+            时展示本地演示态，明确标出「本地演示」而非佯装已落库。 */}
         <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-card md:flex">
           <div className="border-b border-border px-3 py-2 text-12 font-medium">
             保存目标 · 画布 Artifact
-            <span className="ml-1 font-normal text-muted-foreground">（原型 mock）</span>
+            {!canPersist && (
+              <span className="ml-1 font-normal text-muted-foreground">（本地演示，未接后端）</span>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-3">
             {saved ? (
               <>
                 <p className="mb-1.5 text-11 text-muted-foreground">
-                  以下 mermaid 源会被落成一个 canvas artifact（真实接线见 design-note）：
+                  {saved.artifactId
+                    ? <>已落成 canvas artifact（<code className="font-mono">{saved.artifactId}</code>），以下是保存的 mermaid 源：</>
+                    : "以下 mermaid 源是本地演示——没有真实身份/消息可挂，未落库："}
                 </p>
                 <pre
                   data-testid="chat-diagram-saved-source"

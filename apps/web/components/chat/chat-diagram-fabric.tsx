@@ -43,7 +43,16 @@ type Status =
   | { phase: "valid" }
   | { phase: "error"; reason: "whitelist" | "syntax"; detail: string };
 
-export function ChatDiagramFabric({ code }: { code: string }) {
+export function ChatDiagramFabric({
+  code, threadId, messageId, bearer,
+}: {
+  code: string;
+  /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
+   * `ChatDiagramCanvasModal` 文件头注释。原样透传，本组件不判断。 */
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
+}) {
   const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(code), [code]);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
@@ -211,7 +220,13 @@ export function ChatDiagramFabric({ code }: { code: string }) {
       </div>
 
       {maximized && (
-        <ChatDiagramCanvasModal code={code} onClose={() => setMaximized(false)} />
+        <ChatDiagramCanvasModal
+          code={code}
+          onClose={() => setMaximized(false)}
+          threadId={threadId}
+          messageId={messageId}
+          bearer={bearer}
+        />
       )}
     </>
   );
