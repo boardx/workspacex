@@ -404,9 +404,9 @@ describe("ui.md 的要求范围只覆盖 has_ui 阶段（ADR-023 决策一 ①�
  * 以下三个 describe 是 2026-07-30「两道签核门收敛为一道」的反证（ADR-023 决策一）。
  *
  * 收敛本身很小：`new-sprint` 少调一个 assert。**危险的是它的副作用**：
- * phase-02/03 标了 `has_ui`、还没建 `contracts/`，此前挡住它们的唯一一道门
+ * phase-03 标了 `has_ui`、还没建 `contracts/`，此前挡住它的唯一一道门
  * 正是被撤掉的那道；而束级门有一个「零契约束 ⇒ 静默放行」的逃生口。
- * 只撤门不堵口 = 那两个阶段从「有门」变成「无门」。下面的测试就是钉这件事的。
+ * 只撤门不堵口 = 该阶段从「有门」变成「无门」。下面的测试就是钉这件事的。
  * ══════════════════════════════════════════════════════════════════════════ */
 
 describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落地，2026-07-30）", () => {
@@ -417,16 +417,15 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
     expect(r.fails).toEqual([]);
   });
 
-  // ★ 本次改动最大的风险点：撤掉 phase 级 UI 门后，phase-02/03 是否**仍然**被挡住。
-  //   用真实 roadmap + 真实磁盘断言，不是 fixture——因为要防的就是真实那两个阶段被放行。
-  it("phase-02 / phase-03（has_ui: true，磁盘上没有 contracts/）→ 判失败，且点名 has_ui", () => {
-    for (const phaseId of ["02", "03"]) {
-      expect(existsSync(join(findPhaseDir(phaseId), "contracts"))).toBe(false); // 前提没变
-      const r = auditSignoff(phaseId, [], NOW);
-      expect(r.applicable).toBe(true);
-      expect(r.fails.join("\n")).toMatch(/has_ui/);
-      expect(r.fails.join("\n")).toMatch(/没有任何契约束/);
-    }
+  // ★ 用真实 roadmap + 真实磁盘断言仍为空的 has_ui 阶段。
+  //   Phase 02 已于 2026-08 新增 Survey 契约束，不能再当作零束 fixture。
+  it("phase-03（has_ui: true，磁盘上没有 contracts/）→ 判失败，且点名 has_ui", () => {
+    const phaseId = "03";
+    expect(existsSync(join(findPhaseDir(phaseId), "contracts"))).toBe(false);
+    const r = auditSignoff(phaseId, [], NOW);
+    expect(r.applicable).toBe(true);
+    expect(r.fails.join("\n")).toMatch(/has_ui/);
+    expect(r.fails.join("\n")).toMatch(/没有任何契约束/);
   });
 
   /* ── UNSTARTED_PHASE_IS_WARN 的反证套件（2026-07-31）──────────────────
@@ -436,7 +435,7 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
    * 下面三条把「降级的边界」钉死：只在 audit 模式 ∧ 零开工 feature 时降级，
    * 其余三种组合必须仍是 FAIL。 */
   it("降级只在 audit 模式发生：同样零开工 feature，gate 模式仍判 FAIL", () => {
-    for (const phaseId of ["02", "03"]) {
+    for (const phaseId of ["03"]) {
       const gate = auditSignoff(phaseId, [], NOW); // 默认 "gate"
       expect(gate.fails.join("\n")).toMatch(/没有任何契约束/);
       expect(gate.warns).toEqual([]);
@@ -444,7 +443,7 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
   });
 
   it("降级只在零开工时发生：audit 模式 + 有 in_progress/passing 的 feature ⇒ 变回 FAIL", () => {
-    for (const phaseId of ["02", "03"]) {
+    for (const phaseId of ["03"]) {
       const started = auditSignoff(phaseId, ["F01"], NOW, "audit");
       expect(started.fails.join("\n")).toMatch(/没有任何契约束/);
       expect(started.warns).toEqual([]);
@@ -452,7 +451,7 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
   });
 
   it("降级后这条缺口仍然可见、有名字：WARN 文案点名 has_ui、点名它为什么被降级、并给出登记位置", () => {
-    for (const phaseId of ["02", "03"]) {
+    for (const phaseId of ["03"]) {
       const r = auditSignoff(phaseId, [], NOW, "audit");
       expect(r.applicable).toBe(true);
       expect(r.fails).toEqual([]);
@@ -464,8 +463,8 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
     }
   });
 
-  it("assertDesignSignedOff 对 phase-02/03 抛错 —— new-sprint 与 claim 共用它，两个入口一起被挡", () => {
-    for (const phaseId of ["02", "03"]) {
+  it("assertDesignSignedOff 对 phase-03 抛错 —— new-sprint 与 claim 共用它，两个入口一起被挡", () => {
+    for (const phaseId of ["03"]) {
       expect(() => assertDesignSignedOff(phaseId, ["F01"])).toThrow(/has_ui/);
     }
   });
