@@ -444,6 +444,14 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// F173（BP-01）：templates 束**第一条**接上电的路由。此前该束是「34 个契约 operation
+// + 32 个纯用例，零控制器零表零仓储」（#991 勘探），应用层写好了却没人调得到。
+import { BlueprintController } from "./interface/controllers/blueprint.controller";
+import {
+  BLUEPRINT_PERSISTENCE_PORT,
+  type BlueprintPersistencePort,
+} from "./application/templates/blueprint-persistence-ports";
+import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
@@ -534,6 +542,7 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    BlueprintController,
     RecordingController,
     AgentRunController,
     CopilotkitAguiController,
@@ -1170,6 +1179,14 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
       provide: CANVAS_TEMPLATE_REPOSITORY,
       useFactory: (db: DatabasePort): CanvasTemplateRepository =>
         new PgCanvasTemplateRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F173（BP-01）：蓝本落库。读写 `blueprints` 与 `blueprint_design_facets` 两张新表，
+    // 与既有仓储没有共享读写路径。
+    {
+      provide: BLUEPRINT_PERSISTENCE_PORT,
+      useFactory: (db: DatabasePort): BlueprintPersistencePort =>
+        new PgBlueprintRepository(db),
       inject: [DATABASE_PORT],
     },
     // #465: recording session lifecycle.
