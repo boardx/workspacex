@@ -1,0 +1,73 @@
+{
+  "_": "角色宪章：声明「谁对哪条可评项负责 + 目标分」。人类 2026-08-12 指令的产物。⚠ 本文件**只放目标与归属，绝不放现状分**——现状分的单一事实源是各 authority 的 state（今天是 core-loop-readiness.json），由 `pnpm harness scorecard` 现算。S3 门会机械挡住任何现状字段。",
+  "_who_may_edit": "目标分与归属是**决策**，归人类 / coord-main。被评的角色不得改自己那条的 target（同 CLR 的 G3 精神：能自己调目标的 eval 等于没有 eval）。",
+  "_gates": "S1 owns 为空判红 / S2 角色必须存在于 .harness/agents/registry.yaml / S3 charter 不得出现现状字段 / S4 owns 必须指向真实存在的可评项 / S5 target 必须在 [0,max] / S6 clr_track 的 target 必须逐字等于 core-loop-readiness.ts 的 PASS_THRESHOLD / S7 每个 target 必须写明 target_source（coord-main 2026-08-12 裁决）。七道门的反证在 .harness/scripts/lib/role-scorecard.test.ts，每道都实测过「拆掉它测试会红」。",
+  "_scope": "v1 只实现 `clr_track` 一种可评项，因此只有 CLR 的四条 track 的负责人在此声明。**domain coordinator 与 worker 今天没有可评分项**——不是遗漏，是 CLR 之外还没有任何 per-role 的量化 authority 可引用。他们仍可跑 `scorecard --role <id>` 看②blocker ③等谁 ④下一个动作（那三问只需要 owner: 标签，不需要分数）。补齐需要新增 `feature` 类可评项（读 feature_list.json），已登记为已知缺口，不在本轮范围。",
+  "version": 1,
+  "roles": {
+    "rev-e2e": {
+      "mission": "真实用户可达性（R）与行为体验（B）—— 用户走不走得到、用起来像不像 Claude Code",
+      "owns": [
+        {
+          "kind": "clr_track",
+          "id": "R",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        },
+        {
+          "kind": "clr_track",
+          "id": "B",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        }
+      ]
+    },
+    "rev-uiux": {
+      "mission": "项目对话主屏（V-D）与个人对话屏（V-P）的原型保真度",
+      "owns": [
+        {
+          "kind": "clr_track",
+          "id": "V-D",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        },
+        {
+          "kind": "clr_track",
+          "id": "V-P",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        }
+      ]
+    },
+    "coord-main": {
+      "mission": "对 CLR 总分负全责 —— 四条 track 都归它统筹，任何一条不达标它就不达标",
+      "owns": [
+        {
+          "kind": "clr_track",
+          "id": "R",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        },
+        {
+          "kind": "clr_track",
+          "id": "B",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        },
+        {
+          "kind": "clr_track",
+          "id": "V-D",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        },
+        {
+          "kind": "clr_track",
+          "id": "V-P",
+          "target": 9,
+          "target_source": "人类裁决 #831（门槛单一事实源 = PASS_THRESHOLD，S6 机械钉死，此处为引用不是第二份声明）"
+        }
+      ]
+    }
+  },
+  "_target_source": "coord-main 2026-08-12 裁决：每个 target 必须写明出处，空着由 S7 判红。取值约定：『人类裁决 #NNN』= 人类拍板，agent 不得改；『coord-main 代裁（可推翻）』= 全权授权期内 coord 先定，人类醒后可推翻。决策必须可追溯到做决定的那个人，否则半年后没人知道这个数字是谁拍的，也就无从推翻。"
+}
