@@ -43,13 +43,13 @@ provider.open(handlers, {
 
 ## 4. 用量
 
-mono 16k PCM16 的权威输入速率为 `16000 * 1 * 2 = 32000 bytes/s`。个人 gateway 统计成功接收的 PCM 字节；收口时以 `durationSeconds = bytes / 32000` 记账。幂等键使用 capture 与内部 provider-session id，不宣称它是阿里 task id。重复 stop、close 或错误回调不得重复记账。
+mono 16k PCM16 的权威输入速率为 `16000 * 1 * 2 = 32000 bytes/s`。个人 gateway 统计成功接收的 PCM 字节；正文时间轴保留 `bytes / 32000` 的真实毫秒数，用量表依照既有整数列以 `Math.ceil(bytes / 32000)` 记账。幂等键使用 capture 与内部 provider-session id，不宣称它是阿里 task id。重复 stop、close 或错误回调不得重复记账。
 
 ## 5. 错误映射与清理
 
 - 缺 `KERNEL_ASR_*` → `ASR_NOT_CONFIGURED`。
 - Provider 连接/模型拒绝/异常断开 → `ASR_PROVIDER_UNAVAILABLE`。
-- 格式拒绝 → `AUDIO_FORMAT_REJECTED`。
+- 格式拒绝在个人既有外部错误枚举中没有独立码；为保持外部协议不变，归一为 `ASR_PROVIDER_UNAVAILABLE`。原始原因只留在 Provider/服务端日志。
 - 背压、启动、收尾超时继续使用既有稳定 BoardX 错误。
 - 任一终止路径只执行一次清理：capture 状态、上游 session、BoardX socket、缓冲与计时器均释放。
 

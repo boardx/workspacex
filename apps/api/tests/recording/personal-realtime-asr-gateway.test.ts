@@ -51,18 +51,18 @@ describe("personal realtime ASR gateway", () => {
 
     handlers?.onPartial({ text: "临时文本", confidence: null });
     expect(await client.next()).toMatchObject({ type: "interim", text: "临时文本" });
-    client.ws.send(Buffer.alloc(32_000));
+    client.ws.send(Buffer.alloc(48_000));
     client.ws.send(JSON.stringify({ type: "stop" }));
 
     const stopping = await client.next();
     const final = await client.next();
     const completed = await client.next();
     expect(stopping).toMatchObject({ type: "stopping" });
-    expect(final).toMatchObject({ type: "final", text: "最终文本", startMs: 0, endMs: 1_000 });
+    expect(final).toMatchObject({ type: "final", text: "最终文本", startMs: 0, endMs: 1_500 });
     expect(completed).toMatchObject({ type: "completed" });
     expect(trace.indexOf("persist-final")).toBeLessThan(trace.indexOf("finish-capture"));
     expect(usage).toHaveLength(1);
-    expect(usage[0]).toMatchObject({ captureId: CAPTURE, durationSeconds: 1 });
+    expect(usage[0]).toMatchObject({ captureId: CAPTURE, durationSeconds: 2 });
     expect(usage[0]?.providerTaskId).toMatch(/^personal:capture-1:asr-provider-session-/);
     client.ws.close();
   });
@@ -75,6 +75,23 @@ describe("personal realtime ASR gateway", () => {
         commit: () => undefined,
         finish: async () => handlers.onError("ASR_PROVIDER_UNAVAILABLE", "upstream failed"),
         abort: () => undefined,
+      }),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    client.ws.send(JSON.stringify({ type: "stop" }));
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+    expect(await client.next()).toMatchObject({ type: "error", reason: "ASR_PROVIDER_UNAVAILABLE" });
+    client.ws.close();
+  });
+
+  it("maps provider reasons outside the personal BoardX contract to provider unavailable", async () => {
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async handlers => ({
+        ...sessionStub(() => undefined),
+        finish: async () => handlers.onError("AUDIO_FORMAT_REJECTED", "upstream format detail"),
       }),
     };
     const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
@@ -100,6 +117,54 @@ describe("personal realtime ASR gateway", () => {
     resolveOpen?.(sessionStub(() => { aborted = true; }));
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(aborted).toBe(true);
+  });
+
+  it("closes and aborts immediately when final persistence and cleanup both fail", async () => {
+    let handlers: AsrSessionHandlers | undefined;
+    let aborted = false;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async nextHandlers => {
+        handlers = nextHandlers;
+        return sessionStub(() => { aborted = true; });
+      },
+    };
+    const repository = repositoryStub({
+      appendFinal: async () => { throw new Error("append failed"); },
+      finishCapture: async () => { throw new Error("cleanup failed"); },
+    });
+    const client = await connect({ provider, repository, usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+
+    handlers?.onFinal({ text: "不得发布", confidence: null });
+
+    expect(await client.next()).toMatchObject({ type: "error", reason: "FINISH_TIMEOUT" });
+    await once(client.ws, "close");
+    expect(aborted).toBe(true);
+  });
+
+  it("aborts a finishing provider when the browser disconnects", async () => {
+    let aborted = false;
+    let resolveFinish: (() => void) | undefined;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: async () => ({
+        ...sessionStub(() => { aborted = true; }),
+        finish: () => new Promise<void>(resolve => { resolveFinish = resolve; }),
+      }),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    client.ws.send(JSON.stringify({ type: "stop" }));
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+
+    client.ws.close();
+    await once(client.ws, "close");
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(aborted).toBe(true);
+    resolveFinish?.();
   });
 });
 

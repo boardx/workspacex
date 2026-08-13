@@ -35,8 +35,16 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
   let starting=false; const pendingAudio:Uint8Array[]=[]; let pendingBytes=0;
   const startedAt=Date.now(),providerSessionId=deps.ids.next("asr-provider-session");
   let receivedPcmBytes=0,lastFinalEndMs=0,stopping=false,terminal=false,usageRecorded=false;
-  const fail=async(reason:typeof C.RealtimeAsrStreamError._type)=>{if(terminal)return;terminal=true;upstream?.abort();
-    await deps.repository.finishCapture({...auth,durationMs:Date.now()-startedAt,failed:true});send({type:"error",captureId:auth.captureId,reason});ws.close();};
+  let failure:Promise<void>|null=null;
+  const fail=(reason:typeof C.RealtimeAsrStreamError._type):Promise<void>=>{
+    if(failure)return failure;
+    if(terminal)return Promise.resolve();
+    terminal=true;stopping=true;upstream?.abort();upstream=null;pendingAudio.splice(0);pendingBytes=0;
+    failure=(async()=>{try{await deps.repository.finishCapture({...auth,durationMs:Date.now()-startedAt,failed:true});}
+      catch(error){process.stderr.write(`[personal-asr] capture cleanup failed: ${safeErrorDetail(error)}\n`);}
+      finally{send({type:"error",captureId:auth.captureId,reason});ws.close();}})();
+    return failure;
+  };
   ws.on("message",(raw,isBinary)=>{if(isBinary){try{const audio=new Uint8Array(raw as Buffer);
       if(upstream&&!stopping){upstream.pushAudio(audio);receivedPcmBytes+=audio.byteLength;}
       else if(starting){if(pendingBytes+audio.byteLength>960_000){void fail("AUDIO_BACKPRESSURE");return;}
@@ -50,8 +58,9 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         onFinal:r=>{if(terminal)return;const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
           const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});
-          return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs}))).then(()=>undefined);},
-        onError:()=>void fail("ASR_PROVIDER_UNAVAILABLE"),
+          return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs})))
+          .catch(()=>fail("FINISH_TIMEOUT")).then(()=>undefined);},
+        onError:reason=>void fail(asPersonalErrorReason(reason)),
         onClosed:()=>undefined,
       },{sampleRate:16_000,channels:1,encoding:"pcm16le"}).then(s=>{starting=false;
           if(terminal){s.abort();return;}upstream=s;
@@ -64,17 +73,23 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
       if(terminal)return;
       if(!usageRecorded){usageRecorded=true;await deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
-      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds});}
+      model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
       await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
       if(terminal)return;terminal=true;send({type:"completed",captureId:auth.captureId});ws.close();
     }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
-  ws.on("close",()=>{if(!terminal&&!stopping)void fail("ASR_PROVIDER_UNAVAILABLE");});
+  ws.on("close",()=>{if(!terminal)void fail("ASR_PROVIDER_UNAVAILABLE");});
 }
 function safeJson(value:string):unknown{try{return JSON.parse(value);}catch{return null;}}
+function safeErrorDetail(error:unknown):string{return error instanceof Error?error.name:"unknown";}
+function asPersonalErrorReason(reason:string):typeof C.RealtimeAsrStreamError._type{
+  const parsed=C.RealtimeAsrStreamError.safeParse(reason);
+  return parsed.success?parsed.data:"ASR_PROVIDER_UNAVAILABLE";
+}
 
 const PCM16_MONO_16KHZ_BYTES_PER_SECOND=32_000;
 export function pcm16MonoDurationSeconds(bytes:number):number{return bytes/PCM16_MONO_16KHZ_BYTES_PER_SECOND;}
+export function billedPcm16MonoDurationSeconds(bytes:number):number{return Math.ceil(pcm16MonoDurationSeconds(bytes));}
 export function providerSessionUsageId(captureId:string,providerSessionId:string):string{
   return `personal:${captureId}:${providerSessionId}`;
 }
