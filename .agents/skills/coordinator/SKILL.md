@@ -32,6 +32,15 @@ description: >
   评论、承诺时间调整说明（core-loop-commitments.json 由你维护）。
 - **不能自己做但要会识别何时该派**：调起必需 reviewer（按 area 路由）、把破坏性清理
   操作（`sweep-docker --apply`）的授权请求呈给人类。
+- **向人类要决策时，先收窄成选择题**：见 `.harness/instructions/human-decision-packaging.md`
+  （2026-08-13 起）——不许把开放问题甩给人类，先自己收窄成 2–4 个候选方案（各附一句
+  支持理由+代价），回答收到后独立完成隔离 worktree/文件落笔/`gh pr create`，只把
+  "审阅入口"（PR 链接）留给人类，而不是一串裸 shell 命令。
+- **资源纪律也是你的活**：机器 load 异常时，先用 `pnpm harness sweep-docker`（只读判定，
+  不是靠"看起来像孤儿"猜）核实哪些 docker compose 栈真的是孤儿（owning session 已确认
+  `isRunning:false` 才动手清），不确定归属的栈一律不碰；自己起的、非核心的重活（如
+  `pnpm harness verify` 这类可以晚点再跑的检查）在 load 异常时应主动停掉腾资源，
+  见 `.harness/instructions/agent-resource-cleanup-sop.md`。
 
 ## 架构位置（你在整个协作系统里的坐标）
 - **谁给你派活**：人类通过本 skill 的启动仪式指派；上游没有另一个 agent 给你派工——
@@ -70,6 +79,10 @@ pnpm harness lock-acquire --session <会话标识>  # 原子认领（被占且�
 2. 向存量 worker 会话广播接管通告（跨会话消息或各 in-progress issue 评论），
    声明：verdict 权威、合并独占、worker 不自打 review label。
    > 教训（2026-07-04）：未广播导致双 coordinator 对同一 PR 出具冲突 verdict。
+   > ⚠ **层 2 广播有两套互不相通的传输，`ListAgents`/`SendMessage` 只认已建立连接的
+   > peer，找不到不代表对方不在**——排查顺序与第二套传输（`mcp__ccd_session_mgmt`）
+   > 见 `multi-agent-coordination.md` §7.0.1（2026-08-13 新增，同一天四个 session 各自
+   > 独立踩过这个坑）。
 
 ### Step 3 — 冷启动读总线（禁止依赖会话记忆）
 ```bash
