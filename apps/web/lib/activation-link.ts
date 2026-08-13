@@ -22,3 +22,15 @@ export const ACTIVATION_TOKEN_PARAM = "t";
 export function buildActivationLink(token: string, origin: string): string {
   return `${origin}${ACTIVATION_PAGE_PATH}?${ACTIVATION_TOKEN_PARAM}=${encodeURIComponent(token)}`;
 }
+
+/**
+ * 共享邀请链接（shared-invite-links delta）的查询参数名。与单人 token 的 `?t=`
+ * **刻意分开**：两种令牌语义不同（一次性 vs 多次），同一个参数名会让激活页猜
+ * 「这枚该打哪个端点」——参数名本身就是分发依据。
+ */
+export const SHARED_LINK_TOKEN_PARAM = "lt";
+
+/** 管理端：把共享链接令牌拼成可分享的绝对链接（同一个激活页，link 模式）。 */
+export function buildSharedInviteLink(token: string, origin: string): string {
+  return `${origin}${ACTIVATION_PAGE_PATH}?${SHARED_LINK_TOKEN_PARAM}=${encodeURIComponent(token)}`;
+}

@@ -45,6 +45,29 @@ export const OrgInviteStatus = z.enum(["pending", "awaiting-review", "revoked", 
 export const TeamOp = z.enum(["create", "rename", "delete"]);
 
 /**
+ * 组织共享邀请链接的有效期三档（shared-invite-links delta，人类 2026-08-13 拍板①②）。
+ *
+ * ⚠ 与 UC-1.3 的 `InviteLinkValidity`（项目链接：24h/7d/once）**不是同一个枚举**：
+ *   那套服务工作坊参与者（免注册进场、含一次性档），这套服务**组织成员加入**
+ *   （Slack/Discord 式多次使用，没有 once——一次性语义已由单人邀请 token 承担）。
+ * ⚠ 默认 7d 由前端表单体现，契约不设 default：default 会让「没传」与「选了 7d」
+ *   在服务端不可分辨，而审计恰好要分辨。
+ */
+export const OrgInviteLinkExpiry = z.enum(["1d", "7d", "30d"]);
+
+/**
+ * 共享链接五态。`pending-review` / `active` / `revoked` 是**存储事实**，
+ * `expired` / `exhausted` 是**派生事实**（由 `expiresAt` 已过 / `usedCount ≥ maxUses`
+ * 现算，不落库——落库就是同一事实两处声明，且「过期」这种随时间自动翻转的状态
+ * 根本没有写入时机）。
+ *
+ * ⚠ `pending-review`（拍板③：O-28⑥ 复核前移到建链环节）：admin 级链接建后、
+ *   另一位管理员批准前。这个状态下**令牌不存在**（不是「签了但拦着」）——与单人
+ *   邀请 I-3 的落地同构，`org_invite_link_tokens` 里查无此行是它的机械判据。
+ */
+export const OrgInviteLinkStatus = z.enum(["pending-review", "active", "expired", "revoked", "exhausted"]);
+
+/**
  * F161 —— 用量监控的四个统计窗口（token-quota-and-usage delta）。
  *
  * ⚠ 名字里带 `Stat`（统计窗口）是为了与 `apps/api/src/domain/agent/anomaly-detection.ts`
@@ -512,6 +535,207 @@ export const operations = {
       })
       .strict(),
     err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ══ 一.二、组织共享邀请链接（shared-invite-links delta，人类 2026-08-13 三条拍板）══
+   *
+   * Slack/Discord 式：一个链接谁点谁能加入，多次使用，直到过期 / 作废 / 用满。
+   *
+   * ⚠ **操作名带 `Org` 前缀是记录在案的技术判断**：派工单写的 `createInviteLink` /
+   *   `revokeInviteLink` 与本束既有的项目链接操作（UC-1.3 `issueInviteLink` /
+   *   `revokeInviteLink`）同名冲突——契约束是一个对象字面量，同名键互相覆盖，
+   *   `contract-shape` 的 path 唯一门也会红。与 `createTeam` 撞路径门时改动作后缀
+   *   是同一类处置（见该操作头注）。
+   *
+   * ⚠ **令牌语义与单人邀请 token（invite-link-and-reads delta ①）刻意不同**：
+   *   单人 token 一次性、核销即死、明文落库短窗口；共享链接 token **多次使用、长期
+   *   有效**，所以落库**只存 hash**（sha-256）——DB 泄露不可还原出可用链接。
+   *   明文只在签发那一次响应出现（创建非 admin 级 / 复核批准），列表恒不含，
+   *   与 #953 的一次性展示纪律同一条。
+   *
+   * ⚠ **错误码零新增**：失效各因（不存在/过期/已作废/待复核/已用满）统一
+   *   `INVITE_NOT_FOUND`（V10 防枚举——长期有效凭据被枚举的价值更高，只紧不松）；
+   *   邮箱已有账号或已是成员 → `INVITE_ALREADY_MEMBER`（明确拒绝、不重复建号，
+   *   拍板①的查重要求；链接激活只走建新号分支，已有账号的人该去登录）；
+   *   席位配额满 → `QUOTA_EXHAUSTED`（拍板①「文案指向配额」——刻意不并入防枚举：
+   *   它发生在令牌校验通过之后，持有效令牌者本来就会在成功时知道组织存在）。
+   */
+
+  /**
+   * `CreateOrgInviteLink` —— 管理员建一条共享邀请链接。
+   *
+   * ⚠ 拍板③：`orgRole = "admin"` 时返回 `pending-review` 且 `linkToken` 为 null——
+   *   令牌**此刻不存在**（同 I-3 的落地形状），另一位管理员批准后才签发。
+   *   非 admin 角色即建即用（`active` + 明文令牌一次性回传）。
+   * ⚠ `expiresAt`：`pending-review` 时为 null——有效期窗口从**批准**起算，不从建链
+   *   起算（否则复核拖几天等于变相缩短链接寿命，且「已过期的待复核链接」是个
+   *   谁也说不清的状态）。
+   * ⚠ 建链**不占席位配额**：配额闸在加入时（`activateViaOrgInviteLink`），一条上限 50
+   *   的链接不等于预定了 50 个座位。
+   */
+  createOrgInviteLink: {
+    method: "POST",
+    path: "/organizations/:orgId/invite-links",
+    in: z
+      .object({
+        orgId: z.string(),
+        orgRole: OrgRole,
+        expiry: OrgInviteLinkExpiry,
+        /** null = 无人数上限（拍板②的默认）。 */
+        maxUses: z.number().int().positive().nullable(),
+      })
+      .strict(),
+    out: z
+      .object({
+        linkId: z.string(),
+        status: OrgInviteLinkStatus,
+        /** 链接令牌明文——只在签发这一次响应出现；`pending-review` 时 null（令牌不存在）。 */
+        linkToken: z.string().nullable(),
+        /** `pending-review` 时 null：窗口从批准起算。 */
+        expiresAt: z.string().nullable(),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `ListOrgInviteLinks` —— 链接列表（仅组织 admin，与 `listOrgInvites` 同一收窄）。
+   *
+   * ⚠ **恒不含令牌**（明文在库里根本不存在，hash 也不出仓储）；`status` 里的
+   *   `expired` / `exhausted` 是服务端按 now 现算的派生态。
+   * ⚠ `createdByUserId`：前端判「这条是不是我建的」——待复核行发起人不渲染批准/拒绝
+   *   （I-4 自批禁止），照 invite-link-and-reads delta ② 消灭死按钮的先例。
+   */
+  listOrgInviteLinks: {
+    method: "GET",
+    path: "/organizations/:orgId/invite-links",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        links: z.array(
+          z
+            .object({
+              linkId: z.string(),
+              orgRole: OrgRole,
+              status: OrgInviteLinkStatus,
+              expiry: OrgInviteLinkExpiry,
+              /** null = 待复核（窗口未起算）。 */
+              expiresAt: z.string().nullable(),
+              /** null = 无上限。 */
+              maxUses: z.number().int().positive().nullable(),
+              usedCount: z.number().int().nonnegative(),
+              /** 建链人展示名（join credentials，兜底裸 id）。 */
+              createdBy: z.string(),
+              /** 建链人裸 user id——自批按钮抑制的判据（见头注）。 */
+              createdByUserId: z.string(),
+              createdAt: z.string(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `RevokeOrgInviteLink` —— 手动作废（拍板①「随时可手动作废」）。**幂等**：
+   * 重复作废返回同一 `revoked`，不刷新时间戳（同 `revokeOrgInvite` 的处置）。
+   * 待复核的链接同样可作废（建链人反悔不需要惊动第二位管理员）。
+   */
+  revokeOrgInviteLink: {
+    method: "POST",
+    path: "/organizations/:orgId/invite-links/:linkId/revoke",
+    in: z.object({ orgId: z.string(), linkId: z.string() }).strict(),
+    out: z.object({ status: OrgInviteLinkStatus }).strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP",
+      "PROJECT_ROLE_INSUFFICIENT",
+      "INVITE_NOT_FOUND",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `ReviewOrgInviteLink` —— admin 级链接的双人复核（拍板③，O-28⑥ 适用点扩展）。
+   *
+   * ⚠ 发起人不可自批（I-4，`INVITE_SELF_REVIEW_FORBIDDEN`）——组织内只有一名管理员时
+   *   链接停在待复核，**不得退化为单人可批**（同 `reviewAdminInvite` 的形状：这里
+   *   没有「唯一管理员可自批」的入参分支）。
+   * ⚠ `approve` 即签发：令牌在批准那一刻才产生，明文只回传给**批准人**这一次
+   *   （同 D2 裁决 A 的语义——否则批准人没有任何取链接的路径）。`reject` → `revoked`。
+   * ⚠ 已不在待复核态（别人先批/先拒、已作废）→ `VERSION_CHANGED`（`already-decided`
+   *   先例），并发第二个复核者什么也拿不到。
+   */
+  reviewOrgInviteLink: {
+    method: "POST",
+    path: "/organizations/:orgId/invite-links/:linkId/review",
+    in: z
+      .object({
+        orgId: z.string(),
+        linkId: z.string(),
+        decision: z.enum(["approve", "reject"]),
+        reason: z.string().nullable(),
+      })
+      .strict(),
+    out: z
+      .object({
+        status: OrgInviteLinkStatus,
+        /** 批准签发那一次回传给批准人；reject / 幂等重放为 null。 */
+        linkToken: z.string().nullable(),
+        expiresAt: z.string().nullable(),
+      })
+      .strict(),
+    err: [
+      "INVITE_SELF_REVIEW_FORBIDDEN",
+      "NO_ORG_MEMBERSHIP",
+      "PROJECT_ROLE_INSUFFICIENT",
+      "INVITE_NOT_FOUND",
+      "VERSION_CHANGED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * `ActivateViaOrgInviteLink` —— 持链接者自助加入（`@Public()`，同 activate 先例：
+   * 令牌本身就是这条端点的授权）。
+   *
+   * ⚠ 与 `activateOrgMember` 的关键差异：**邮箱是自填的**（共享链接不指向任何邮箱），
+   *   所以 `in` 里有 `email`（`auth.EmailAddress` 服务端权威校验，delta ③ 先例）。
+   *   查重是拍板①的硬要求：已有账号/已是成员 → `INVITE_ALREADY_MEMBER` 明确拒绝，
+   *   **不重复建号**（`credentials` 行数不变是它的机械判据）。
+   * ⚠ 部分成功禁止：校验令牌 + 判上限 + 判配额 + 建号 + 建成员 + `usedCount` 原子 +1
+   *   在**同一事务**（I-1 同款）；任何一步失败 ⇒ 全回滚 ⇒ 计数与配额都不变。
+   * ⚠ 授予角色恒为**链接行的服务端记录值**（I-2 同款）；`in` 里没有 orgId/orgRole，
+   *   字段不存在是契约事实。
+   * ⚠ `teamId` 恒为 `""`：共享链接不预分团队（建链表单没有团队选项——分团队是
+   *   加入后的管理动作，不是链接属性；一条链接绑定一个团队会让它在团队重组后
+   *   变成一枚指向已删除团队的凭据）。
+   */
+  activateViaOrgInviteLink: {
+    method: "POST",
+    path: "/org-invites/activate-via-link",
+    in: z
+      .object({
+        token: z.string().min(1),
+        email: EmailAddress,
+        profile: z.object({ name: z.string().min(1), password: z.string() }).strict(),
+      })
+      .strict(),
+    out: z
+      .object({
+        userId: z.string(),
+        orgId: z.string(),
+        orgRole: OrgRole,
+        teamId: z.string(),
+        sessionId: z.string(),
+      })
+      .strict(),
+    err: [
+      "INVITE_NOT_FOUND",
+      "INVITE_ALREADY_MEMBER",
+      "QUOTA_EXHAUSTED",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
   },
 
   /**
@@ -1806,5 +2030,18 @@ export const KNOWN_CONTRACT_GAPS = {
    *    `created_at + ORG_INVITE_LINK_VALIDITY_MS`（domain/auth/org-invite.ts 的既有
    *    常量，OA3 已裁定为单一事实源）作为估计值，不新造第二份有效期数字。
    */
+  /**
+   * **shared-invite-links delta 落地时的两处裁定，需人类签核确认。**
+   *
+   * ① 共享链接建号的 `email_verified_at` 置为激活时刻：邮箱是自填的、点链接不证明
+   *    邮箱所有权（与单人路径 O-28⑤ 不同），但邮件通道未接通时未验证账号在登录处
+   *    是死路（`EMAIL_NOT_VERIFIED` 无从恢复）。风险边界与替代方案见 delta
+   *    contract.md「待人类确认点」。
+   * ② `INVITE_ALREADY_MEMBER` 在 `activateViaOrgInviteLink` 上的语义扩展为
+   *    「该邮箱已有账号（无论是否本组织成员）」——链接激活只走建新号分支，
+   *    已有账号的人该去登录；细分「已注册未入组」需要 existing-account 分支，
+   *    不在本 delta 范围。
+   */
+  OA12: "shared-invite-links: (1) accounts created via a shared link get email_verified_at = activation time even though the self-typed email is unproven — an unverified account is a dead end at login while the mail channel is not connected (see the delta's contract.md for the risk boundary); (2) INVITE_ALREADY_MEMBER on activateViaOrgInviteLink covers 'this email already has an account' whether or not it is a member of this org — the link flow only creates new accounts, an existing-account join branch is out of scope",
   OA11: "org-profile-membership delta (#363): (1) contract.md's draft used a literal 'FORBIDDEN' that never existed in this bundle's error vocabulary — implemented as NO_ORG_MEMBERSHIP (non-member, listTeams precedent) / PROJECT_ROLE_INSUFFICIENT (member but insufficient role, mutateTeam precedent); (2) uploadOrgAvatar.in carries metadata only, no bytes field — zod validates JSON only, image bytes travel as the request's raw binary body, metadata arrives via query string validated against the same schema; (3) listOrgMembers.out needs joinedAt/status but org_memberships (0003) had neither — migration adds joined_at backfilled to migration-run time (true historical join time is unrecoverable, an honest gap not a precise value), status is always 'active' since this table has no 'deactivated but recorded' concept (removeOrgMember hard-deletes the row) — 'suspended' is a reserved value with no reachable path today, same treatment as TEMPLATE_SWITCH_FORBIDDEN_AFTER_START (T10); (4) listOrgInvites.out.expiresAt is required but org_invites has no expiry column — implementation reads the invite's most recent org_invite_tokens.expires_at, falling back to created_at + ORG_INVITE_LINK_VALIDITY_MS (OA3's already-ruled single source) for invites that never had a token issued",
 } as const;
