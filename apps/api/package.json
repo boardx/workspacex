@@ -8,7 +8,7 @@
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "lint": "node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check &&node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.exclusive.config.ts",
     "test:stability": "bash scripts/verify-test-stability.sh",
     "test:stability:tempfile": "bash scripts/verify-test-stability.sh --check-tempfiles",
     "migrate": "tsx src/infrastructure/db/migrate-cli.ts",
