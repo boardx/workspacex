@@ -200,6 +200,9 @@ describe("本地组织判定单一事实源", () => {
     const offenders = files([
       "components/shell/top-bar.tsx",
       "components/admin/local-org-screen.tsx",
+      // #1172：本地组织屏的数据块搬进了 `local-org-live.tsx`。搬走的代码要跟着进这个清单，
+      // 否则「组件里不出现字面量」这句话就只剩下一个不再渲染任何模型行的外壳在担保。
+      "components/admin/local-org-live.tsx",
     ]).filter(({ body }) =>
       body
         .split("\n")
@@ -228,11 +231,22 @@ describe("本地组织判定单一事实源", () => {
   });
 
   it("本地组织屏的云端禁用原因取自契约函数，不是界面里另写的一句", () => {
-    const [screen] = files(["components/admin/local-org-screen.tsx"]);
-    expect(screen!.body).toMatch(/localOrgCloudDisabledReason\(/);
-    expect(screen!.body).toMatch(/LOCAL_RUNTIME_STARTUP_HINT/);
+    // #1172：渲染模型行的是 `local-org-live.tsx`（真端点），外壳只剩三条承诺与导出豁口。
+    // 所以这条断言跟着搬——**留在外壳上会变成一句空话**：那个文件已经不画模型行了，
+    // 它不含 `localOrgCloudDisabledReason(` 也完全正常，检查就再也红不了。
+    const [live, shell] = files([
+      "components/admin/local-org-live.tsx",
+      "components/admin/local-org-screen.tsx",
+    ]);
+    expect(live!.body).toMatch(/localOrgCloudDisabledReason\(/);
+    // 启动指引仍是两处各自的职责：外壳把它交给 AdminScreen 的 depFailure，
+    // 真栈块在 available:false 时把它渲染出来。两处读的都是同一个契约常量。
+    expect(live!.body).toMatch(/LOCAL_RUNTIME_STARTUP_HINT/);
+    expect(shell!.body).toMatch(/LOCAL_RUNTIME_STARTUP_HINT/);
     // 手抄的迹象：界面自己拼一句「云端模型不可用」
-    expect(screen!.body).not.toMatch(/const\s+\w*[Rr]eason\s*=\s*["'`]/);
+    for (const f of [live!, shell!]) {
+      expect(f.body, f.path).not.toMatch(/const\s+\w*[Rr]eason\s*=\s*["'`]/);
+    }
   });
 });
 

@@ -119,3 +119,32 @@ export async function listOwnActivity(input: {
 
 /** 供本文件外部使用（`fetchAvatarObjectUrl`/上传都要拼 origin），跟随既有导出习惯。 */
 export { apiBaseUrl };
+
+/* ───────────────── 本地组织：getLocalOrg / getLocalRuntimeStatus（#1172）───────────────── */
+
+export type GetLocalOrgOut = z.infer<typeof identity.operations.getLocalOrg.out>;
+export type GetLocalRuntimeStatusOut =
+  z.infer<typeof identity.operations.getLocalRuntimeStatus.out>;
+
+/**
+ * ⚠ **无参数**，这是契约的一部分而不是省事。
+ *
+ * 契约注释逐字：「一个接受 org id 的端点就是一个可以被指向别人本地组织的端点，
+ * 那样隔离就变成靠一个检查永远正确，而不是靠根本没有可检查的东西」。
+ * 所以这里也**不许**顺手加一个 `orgId` 形参「以备将来」——那正是把洞开回来的写法。
+ */
+export async function getLocalOrg(): Promise<GetLocalOrgOut> {
+  return apiRequest<GetLocalOrgOut>(identity.operations.getLocalOrg.path, { method: "GET" });
+}
+
+/**
+ * ⚠ 运行时没起来时它返回 **200 + `available: false`**，不是错误码。
+ * 一个「东西挂了就报错」的状态端点没法报告那个东西挂了。所以调用方**不该**
+ * 把它包在 try 里当作「读不到就当就绪」——那会让依赖失败态永远显示不出来。
+ */
+export async function getLocalRuntimeStatus(orgId: string): Promise<GetLocalRuntimeStatusOut> {
+  return apiRequest<GetLocalRuntimeStatusOut>(identity.operations.getLocalRuntimeStatus.path, {
+    method: "GET",
+    query: { orgId },
+  });
+}

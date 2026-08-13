@@ -1,15 +1,12 @@
 "use client";
 import * as React from "react";
-import { Lock, ServerCog, ShieldCheck, User, CloudOff } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { LocalExportPanel } from "./local-export-panel";
+import { LocalOrgLive } from "./local-org-live";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  LOCAL_ORG_GUARANTEES, LOCAL_RUNTIME_STARTUP_HINT, isLocalModelEndpoint,
-  localOrgCloudDisabledReason, mockIdentity,
-} from "@/lib/identity";
-import { getLocalOrgMock, getLocalRuntimeStatusMock } from "@/lib/generated/identity.mock";
+import { LOCAL_ORG_GUARANTEES, LOCAL_RUNTIME_STARTUP_HINT } from "@/lib/identity";
 import type { UiState } from "@/lib/ui-state";
 
 /**
@@ -23,33 +20,20 @@ import type { UiState } from "@/lib/ui-state";
  *   云端模型整行禁用+原因   不是隐藏。藏起来读作「产品做不到」，真相是「这个组织不允许」
  *   运行时依赖失败态       给启动指引，而不是「稍后重试」——绝不改用云端
  *
- * ## 数据从哪来
+ * ## 数据从哪来（#1172 之后边界很清楚）
  *
- * 全部来自**契约**：`lib/generated/identity.mock.ts` 是从 `packages/contracts` 生成的，
- * 三条承诺、启动指引、云端禁用原因、「什么算本机端点」也都是契约导出的常量与函数。
- * 这一屏刻意**不碰** `lib/mock/admin.ts` —— 那份手写 mock 正是 F15 记在账上的债务，
- * 从它取数会让本屏成为第 21 处硬编码。
- */
-
-/**
- * 示例条目：**结构**来自契约类型，值在这里给。
+ *   **常量** —— 三条承诺、启动指引、云端禁用原因、「什么算本机端点」，
+ *     来自 `packages/contracts` 导出的常量与函数。它们是产品承诺，不是数据，
+ *     没有「读库读出来」这回事，所以留在本文件里。
+ *   **数据** —— 成员数、可用模型、运行时状态、所有者名字，全部来自真端点，
+ *     见 `local-org-live.tsx`。#1172 之前它们读 `identity.mock.ts`、
+ *     本文件里写死的 `DEMO_MODELS`、以及 `mockIdentity()`，三处都已删除。
  *
- * ⚠ 它不是「内置清单」（F15 V1 禁止的那种）：产品代码里不存在默认能力清单，
- * 这是一屏 mock 的展示样本，且 `lint-no-builtin-capabilities` 把 `apps/web/lib/mock/` 之外的
- * 清单形状当违规——所以这里只放两条、且明确标注为演示数据。
+ * ⚠ 不要把模型清单写回本文件。产品代码里不存在默认能力清单（F15 V1），
+ *   `lint-no-builtin-capabilities` 把 `apps/web/lib/mock/` 之外的清单形状当违规，
+ *   `tests/ui/local-org-live.test.tsx` 另有一条源码断言守着它。
  */
-const DEMO_MODELS: { id: string; name: string; endpoint: string }[] = [
-  { id: "m-local", name: "qwen3-8b（本机）", endpoint: "http://127.0.0.1:11434" },
-  { id: "m-cloud", name: "vendor-cloud-pro", endpoint: "https://api.vendor.example/v1" },
-];
-
 export function LocalOrgScreen({ state }: { state: UiState }) {
-  const identity = mockIdentity("org-local", null);
-  const runtimeDown = state === "dep-failed";
-  const runtime = runtimeDown
-    ? { ...getLocalRuntimeStatusMock, available: false }
-    : { ...getLocalRuntimeStatusMock, available: true, failure: null };
-
   return (
     <AdminScreen
       state={state}
@@ -57,6 +41,8 @@ export function LocalOrgScreen({ state }: { state: UiState }) {
       title="我的本地"
       intro="这个组织只有你一个人，且它的数据不出本机。以下三条是产品承诺，不是可配置项——任何接口都改不动它们。"
       emptyHint="本机还没有可用的本地模型，先在本机启动推理运行时"
+      // #1172：三块数据都读真端点了，屏级「示例数据」提示不再适用。
+      liveBacked
       // 依赖失败态 = 本地运行时没起来。文案取自契约常量，不在这里另写一句。
       depFailure={LOCAL_RUNTIME_STARTUP_HINT}
       denialReason="本地组织只对它的所有者可见——组织管理员与平台运营都看不到，这比「个人层对管理员封闭」更强：数据根本不在他们的组织里。"
@@ -82,95 +68,11 @@ export function LocalOrgScreen({ state }: { state: UiState }) {
           </Card>
         </section>
 
-        {/* ── 成员：只有自己，且没有邀请入口 ── */}
-        <section className="flex flex-col gap-2" data-testid="local-org-members">
-          <div className="flex items-center gap-1.5">
-            <User aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">成员</h2>
-            <span className="text-11 text-muted-foreground">· 共 {getLocalOrgMock.memberCount} 人</span>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-2 pt-3">
-              <div className="flex items-center gap-2">
-                <span className="text-13 font-medium">{identity.displayName}</span>
-                <Badge tone="outline">所有者</Badge>
-              </div>
-              {/* 没有「邀请成员」按钮，而且这里说清楚为什么——空着会读作「功能还没做」 */}
-              <p className="text-12 text-muted-foreground" data-testid="local-org-no-invite">
-                本地组织恒为单人，因此没有邀请入口。需要多人协作又要求不出网的场景，
-                请用私有部署的正式组织并把模型策略设为「只用自托管模型」——那是可配置策略，与这里的承诺不同。
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* ── 模型：云端整行禁用并注明原因，不是隐藏 ── */}
-        <section className="flex flex-col gap-2" data-testid="local-org-models">
-          <div className="flex items-center gap-1.5">
-            <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">可用模型</h2>
-            <span className="text-11 text-muted-foreground">· 端点不在本机的整行禁用（示例数据）</span>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col pt-2">
-              {DEMO_MODELS.map((m) => {
-                // 判定用契约的函数，界面不自己认「什么是云端」
-                const local = isLocalModelEndpoint(m.endpoint);
-                return (
-                  <div
-                    key={m.id}
-                    data-testid={`local-org-model-${m.id}`}
-                    data-disabled={local ? undefined : "true"}
-                    className="flex flex-wrap items-center gap-2 border-b border-border-subtle py-2.5 last:border-0"
-                  >
-                    <span className={local ? "text-13 font-medium" : "text-13 font-medium text-disabled-foreground"}>
-                      {m.name}
-                    </span>
-                    <code className="text-11 text-muted-foreground">{m.endpoint}</code>
-                    {local ? (
-                      <Badge tone="outline">本机</Badge>
-                    ) : (
-                      <>
-                        <Badge tone="outline">
-                          <CloudOff aria-hidden className="mr-1 h-3 w-3" />
-                          已禁用
-                        </Badge>
-                        {/* 原因就摆在行上——「禁用但不说为什么」和隐藏一样让人误解 */}
-                        <p className="w-full text-11 text-muted-foreground" data-testid={`local-org-model-reason-${m.id}`}>
-                          {localOrgCloudDisabledReason(m.endpoint)}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </section>
-
         {/* ── 导出豁口（F17）：三条承诺唯一被允许打开的口子，就放在承诺下面 ── */}
         <LocalExportPanel />
 
-        {/* ── 本地运行时状态 ── */}
-        <section className="flex flex-col gap-2" data-testid="local-org-runtime">
-          <div className="flex items-center gap-1.5">
-            <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">本地运行时</h2>
-          </div>
-          <Card>
-            <CardContent className="flex flex-col gap-1.5 pt-3">
-              <div className="flex items-center gap-2">
-                <Badge tone="outline">{runtime.available ? "已就绪" : "未就绪"}</Badge>
-                <code className="text-11 text-muted-foreground">{runtime.endpoint}</code>
-              </div>
-              {!runtime.available && (
-                <p className="text-12 text-muted-foreground" data-testid="local-org-runtime-hint">
-                  {LOCAL_RUNTIME_STARTUP_HINT}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+        {/* ── 成员 / 可用模型 / 本地运行时：真端点 ── */}
+        <LocalOrgLive />
       </div>
     </AdminScreen>
   );
