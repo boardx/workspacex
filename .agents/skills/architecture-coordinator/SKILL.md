@@ -142,12 +142,28 @@ ADR-009 措辞、未同步 ADR-017（约滞后四周），是这条纪律最直�
   规则"当成协议的一部分显式声明，而不是让新来者自己摸索。
   ([MCP 概览](https://www.dremio.com/blog/the-model-context-protocol-mcp-a-beginners-guide-to-plug-and-play-agents/))
 
+## 踩坑与经验（append-only，最新在上；同 mod-_template 的回流格式）
+- 2026-08-13：**新模板落地第一份真实实例前，先查是否已有旧格式的示例占了同一个
+  template_id**——真实事故：`TPL-EVT-001` 在 E1（HMV2-006~012）阶段就有一份示例
+  实例（原路径 `.harness/templates/examples/EVT-hmv2-e1-001.yaml`，已随本条裁决迁走，此处是历史指路非现存声明 <!-- skill-doctor:ignore -->）——
+  通用 InstanceMetadata 形状，H3A-033 后来给同一个 template_id 定义了专属 envelope schema（无 status/
+  scope 字段），两者一直并存到 HMV2-017 落第一份真正业务用途的实例时才被发现——
+  是又一次"同一事实两处声明"（这次是"同一 template_id 两套 schema"）。裁决：
+  以有 doctor+实例+renderer 三件对齐的那一套为权威，另一套迁移或退役，不是"两个都留
+  着以示兼容"（出处：#422，2026-08-13 裁决 + PR #1128 执行）。
+- 2026-08-11：**"活跃产能优先于在场负责人"是可用的临时裁决原则，但必须留痕**——
+  见 `.agents/skills/coordinator` 同名条目（该原则由 coord-main 应用于代跑本角色的
+  Epic 工作），本条从 architecture-coordinator 视角记录：回归后第一件事应该是读
+  对应协调线（如 #422）核实代跑期间的决策是否符合本 skill 既定的设计原则，而不是
+  默认全盘接受或全盘推翻。
+
 ## 迭代/进化机制（这份 skill 自己怎么变好）
 - 本 skill 属于 `.harness/state/skill-upgrade-backlog.md` 的批次 A，升级历史记在该
   文件的"迭代日志"，不在本文件重复维护。
 - **你是全仓所有协调类 skill 的结构维护者**：coordinator/module-coordinator/
   harness-auditor 这三个 skill 的语义变更都经你手；但反过来，**本 skill 自身的
   修订不能只靠自己审自己**——走正常 PR + review（同你在"产出流程"里对别人的要求），
-  避免"维护规则的人不受规则约束"这种信任腐蚀。
+  避免"维护规则的人不受规则约束"这种信任腐蚀。上方"踩坑与经验"是这条回流规则的
+  具体落点，代跑本角色职责的 agent 也应在收尾时补一条，不必等你亲自动手。
 - **触发时机**：事故复盘发现协议缺口时、或定期跑一遍 `.agents/skills/harness-auditor`
   的五子系统审计发现"指令"子系统扣分时，是本 skill 该被修订的信号。
