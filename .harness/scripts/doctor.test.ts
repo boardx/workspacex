@@ -40,6 +40,6 @@ describe("isEvidenceCommitIntegrated", () => {
   it("push and local runs still require evidence to be on origin/main", () => {
     const { repo, evidence } = makeRepo();
     expect(isEvidenceCommitIntegrated(evidence, repo, "push", "origin-main", "HEAD")).toBe(false);
-    expect(isEvidenceCommitIntegrated(evidence, repo, undefined, "origin-main", "HEAD")).toBe(false);
+    expect(isEvidenceCommitIntegrated(evidence, repo, "workflow_dispatch", "origin-main", "HEAD")).toBe(false);
   });
 });
