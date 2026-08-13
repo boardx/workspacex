@@ -30,7 +30,7 @@
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
  */
-import { chat, chatFileUpload } from "@repo/contracts";
+import { agentDefaults, chat, chatFileUpload } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
@@ -477,6 +477,30 @@ export const CHAT_VISIBILITY_OPTIONS = chat.ChatVisibility.options;
  * 而它经 `markdown-message.tsx → chat-diagram-fabric.tsx` 被 `chat-live-message-panel.tsx`
  * 引入，若还从那边导出会成循环引用。`lib/live-chat.ts` 不依赖任何组件，两边都能安全引用。
  */
+/**
+ * 挑「消息应该发给哪个 agent」——2026-08-14 devapp 实测根因：`getAgentPanel`/
+ * `listCapabilities` 的 `agents` 都是后端 `ORDER BY name` 排出来的（数据库默认
+ * collation 下 Latin 字母排在中文之前），composer 原来直接兜底 `agents?.[0]?.id`，
+ * 于是"Deep Research"（Latin 名）总排在"通用助手"（中文名）前面，被意外当成默认
+ * agent——不是任何人挑的，只是字母表偶然第一个。Deep Research 是慢速多步的外部服务
+ * 调用，意外选中它会让"发一句话"变成长时间卡在"思考中"，看起来像坏了。
+ *
+ * 纯函数，不做 IO：`requestedAgentId` 命中就用它（用户/调用方明确选过）；否则优先选
+ * "通用助手"（`agentDefaults.DEFAULT_AGENT_NAME`，与后端 `ensure-default-agent.ts`
+ * 同一单源，不是本文件另抄一份字符串）；组织里真没有这个 agent 时（理论上
+ * `ensureDefaultAgent` 保证每个组织都有，但不假设它一定生效）退回原来的「数组第一个」
+ * 兜底，不引入新的空态。
+ */
+export function pickDefaultAgentId(
+  agents: GetAgentPanelOut["agents"] | null | undefined,
+  requestedAgentId: string,
+): string {
+  if (agents?.some((agent) => agent.id === requestedAgentId)) return requestedAgentId;
+  return agents?.find((agent) => agent.name === agentDefaults.DEFAULT_AGENT_NAME)?.id
+    ?? agents?.[0]?.id
+    ?? "";
+}
+
 export function describeMessageFailure(failure: unknown, action: string): string {
   if (failure instanceof ApiError) {
     if (failure.status === 401) return `${action}失败：登录已失效（HTTP 401），请重新登录。`;
