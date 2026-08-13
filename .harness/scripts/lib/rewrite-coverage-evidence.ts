@@ -50,8 +50,8 @@ export interface RewriteCoverageEvidencePayload {
 
 /**
  * 写盘形态**不含** `sourceFile`：那是 `template-scan.ts` 扫描时从文件路径派生的字段，
- * 不是 YAML 里手写/生成的内容（同 `EVT-hmv2-e1-001.yaml` 那份例子——它也没有这个
- * key）。塞一个空字符串进去只会让读到的人误以为这是本 schema 的一部分。
+ * 不是 YAML 里手写/生成的内容（历史上 E1 的 EVT 示例文件同样没有这个 key，
+ * 该示例已随 #422 双 schema 裁决迁往 .harness/events/）。塞一个空字符串进去只会让读到的人误以为这是本 schema 的一部分。
  */
 export type RewriteCoverageEvidence = Omit<InstanceMetadata, "sourceFile"> & RewriteCoverageEvidencePayload;
 

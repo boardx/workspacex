@@ -128,9 +128,13 @@ entries:
   - template_id: TPL-EVT-001
     template_version: 1
     name: Work Event
+    # schema 权威（2026-08-13，#422 coord-main 裁决）：H3A-033 envelope
+    # （workflow-event-model.ts）是唯一权威形状；实例住 .harness/events/，
+    # 由 workflow-event doctor 校验（通用 InstanceMetadata 扫描按目录豁免）。
+    # E1 早期示例已按 envelope 迁移（见 .harness/events/EVT-hmv2-e1-001.yaml 头注）。
     status: active
     owner: coord-architecture
-    consumers: []
+    consumers: [workflow-event-doctor, templates-render, evt-short-text-renderer]
     authority: agent/system 创建
 
   - template_id: TPL-RVW-001
