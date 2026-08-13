@@ -20,6 +20,39 @@ afterEach(async () => {
 });
 
 describe("personal realtime ASR gateway", () => {
+  it("rounds a non-integral PCM duration before persisting the bigint capture duration", async () => {
+    const persistedDurations: number[] = [];
+    const repository = repositoryStub({
+      finishCapture: async input => {
+        persistedDurations.push(input.durationMs);
+        if (!Number.isInteger(input.durationMs)) {
+          throw new Error("PostgreSQL bigint rejects a fractional duration");
+        }
+      },
+    });
+    const client = await connect({
+      provider: {
+        isConfigured: () => true,
+        open: async () => sessionStub(() => undefined),
+      },
+      repository,
+      usage: usageMeter([]),
+    });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+
+    // 48,016 bytes of mono PCM16 at 16 kHz = 1,500.5 ms. PostgreSQL stores
+    // recording_sessions.duration_ms as bigint, so the gateway must choose an
+    // integer timeline value instead of sending the fractional conversion.
+    client.ws.send(Buffer.alloc(48_016));
+    client.ws.send(JSON.stringify({ type: "stop" }));
+
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+    expect(await client.next()).toMatchObject({ type: "completed" });
+    expect(persistedDurations).toEqual([1_501]);
+    client.ws.close();
+  });
+
   it("streams shared provider events, persists final before publish, and meters accepted PCM", async () => {
     const trace: string[] = [];
     const usage: AsrUsageEvent[] = [];

@@ -74,7 +74,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
       if(!usageRecorded){usageRecorded=true;await deps.usage.record({providerTaskId:providerSessionUsageId(auth.captureId,providerSessionId),
       orgId:auth.orgId,ownerUserId:auth.ownerUserId,captureId:auth.captureId,
       model:process.env.KERNEL_ASR_MODEL??"realtime-asr",durationSeconds:billedPcm16MonoDurationSeconds(receivedPcmBytes)});}
-      await deps.repository.finishCapture({...auth,durationMs:durationSeconds*1000});
+      await deps.repository.finishCapture({...auth,durationMs:Math.round(durationSeconds*1000)});
       if(terminal)return;terminal=true;send({type:"completed",captureId:auth.captureId});ws.close();
     }).catch(()=>void fail("FINISH_TIMEOUT"));
   });
