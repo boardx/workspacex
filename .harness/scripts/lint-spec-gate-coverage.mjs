@@ -94,6 +94,16 @@ const EXEMPTIONS = [
       "若哪天把保真度做成机械比对（像素/结构 diff），那条新 spec 要接进 CI，" +
       "并把本条豁免删掉。",
   },
+  {
+    spec: "apps/web/e2e/vz-fabric-shots.spec.ts",
+    reason:
+      "VZ-fabric（chat 内 mermaid 图改 fabric.js 渲染 · 最大化/编辑/保存）—— 同 chat-main-shots：" +
+      "**不是规格，是取证工具**，零 expect，只把 chat-diagram-fabric 原型的每个界面态截图落到 " +
+      "phases/phase-02-visible-outcomes/ui-preview/chat-diagram-fabric/，供人类签核第 ① 件 UI " +
+      "（SIGNOFF-INCREMENT-fabric-canvas.md）核对用。走独立 dev server（playwright.config.ts " +
+      "的 3197 端口，纯前端预览页，不接后端），不存在『第二份栈定义』。接进门控没有意义：" +
+      "没有断言的 spec 在 CI 里永远绿，等于加一条不会红的耗时步骤——与 chat-main-shots 同一理由。",
+  },
 ];
 
 /** 拿 workspace 包名 → 目录 的映射，用于解析 `pnpm --filter <name>`。 */
