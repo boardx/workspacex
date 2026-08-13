@@ -81,7 +81,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
               <div className="flex gap-2">
                 {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => changeTab("modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
                 {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
-                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")}><Plus className="h-4 w-4" />新建问卷模块</Button>}
+                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
             </div>
@@ -102,7 +102,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/new?step=design&module=${item.id}`)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/new?step=design&mode=module&module=${item.id}`)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">

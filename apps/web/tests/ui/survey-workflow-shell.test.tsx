@@ -21,14 +21,17 @@ describe("SurveyWorkflowShell", () => {
   });
 
   it("从问卷模块创建时只载入该模块的问题", () => {
-    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleId="profile" />);
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
 
     expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
-    expect(replace).toHaveBeenCalledWith("/studio/survey/new?step=template&module=profile");
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("survey-workflow-step-template")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("survey-workflow-back-to-list"));
+    expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules");
   });
 
   it("只呈现新的五步导航并用 URL 切步", () => {

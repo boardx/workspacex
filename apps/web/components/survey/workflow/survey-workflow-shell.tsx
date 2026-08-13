@@ -23,12 +23,13 @@ const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = 
   { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
-export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleId }: {
+export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleId, moduleEditor = false }: {
   surveyId: string;
   initialStep: survey.SurveyWorkflowStep;
   uiState: SurveyPrototypeState;
   readonly: boolean;
   moduleId?: string;
+  moduleEditor?: boolean;
 }) {
   const router = useRouter();
   const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId }));
@@ -37,7 +38,8 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
     const moduleQuery = moduleId ? `&module=${moduleId}` : "";
-    router.replace(`/studio/survey/${surveyId}?step=${step}${moduleQuery}`);
+    const modeQuery = moduleEditor ? "&mode=module" : "";
+    router.replace(`/studio/survey/${surveyId}?step=${step}${modeQuery}${moduleQuery}`);
   };
 
   if (uiState === "loading") return <WorkflowMessage testId="survey-workflow-loading" title="正在加载问卷" body="正在准备问题、答卷与报告数据…" pulse />;
@@ -59,14 +61,14 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览答题</Button>
             {!readonly && <Button variant="primary" size="sm" data-testid="survey-workflow-save" onClick={() => setSaved(true)}><Save className="h-3.5 w-3.5" />保存修改</Button>}
-            <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push("/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
+            <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push(moduleEditor ? "/studio/survey?tab=modules" : "/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
           </div>
         </div>
         {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-workflow-saved"><Check className="mr-1 inline h-3 w-3" />修改已保存</p>}
         {readonly && <p className="mt-2 rounded-md border border-border bg-muted px-3 py-2 text-11 text-muted-foreground" data-testid="survey-workflow-readonly">当前为只读预览，编辑与发布操作已隐藏。</p>}
       </header>
 
-      <nav className="overflow-x-auto border-b border-border bg-card" data-testid="survey-workflow-steps" aria-label="问卷工作流步骤">
+      {!moduleEditor && <nav className="overflow-x-auto border-b border-border bg-card" data-testid="survey-workflow-steps" aria-label="问卷工作流步骤">
         <div className="mx-auto flex min-w-max justify-center px-3">
           {STEPS.map((step, index) => {
             const active = step.id === initialStep;
@@ -81,10 +83,10 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
             );
           })}
         </div>
-      </nav>
+      </nav>}
 
       <section className="min-h-0">
-        {initialStep === "design" && <SurveyDesignStep model={model} setModel={setModel} readonly={readonly} />}
+        {(moduleEditor || initialStep === "design") && <SurveyDesignStep model={model} setModel={setModel} readonly={readonly} />}
         {initialStep === "template" && <ReportTemplateStep model={model} setModel={setModel} readonly={readonly} />}
         {initialStep === "publish" && <PublishRecoveryStep model={model} metrics={metrics} readonly={readonly} />}
         {initialStep === "responses" && <ResponseReviewStep model={model} setModel={setModel} metrics={metrics} readonly={readonly} />}

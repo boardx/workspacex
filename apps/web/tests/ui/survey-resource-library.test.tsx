@@ -42,8 +42,16 @@ describe("SurveyResourceLibrary", () => {
     expect(screen.getByTestId("survey-resource-card-module-profile")).toHaveTextContent("组织画像");
     expect(screen.getByTestId("survey-resource-card-module-strategy")).toHaveTextContent("战略治理");
     fireEvent.click(screen.getByTestId("survey-resource-card-module-profile"));
-    expect(push).toHaveBeenLastCalledWith("/studio/survey/new?step=design&module=profile");
+    expect(push).toHaveBeenLastCalledWith("/studio/survey/new?step=design&mode=module&module=profile");
     expect(screen.queryByTestId("survey-resource-card-survey-sv-1")).not.toBeInTheDocument();
+  });
+
+  it("新建问卷模块进入独立题目编辑模式", () => {
+    render(<SurveyResourceLibrary initialTab="modules" uiState="default" />);
+
+    fireEvent.click(screen.getByTestId("survey-resource-new-module"));
+
+    expect(push).toHaveBeenCalledWith("/studio/survey/new?step=design&mode=module");
   });
 
   it("报告模块承接原问卷模板内容并进入报告模板编辑", () => {
