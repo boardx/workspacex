@@ -251,4 +251,80 @@ describe("#520 Skill 库屏接真实 API", () => {
     expect(screen.queryByTestId("skill-catalog-empty")).toBeNull();
     expect(screen.getByTestId("skill-catalog-retry")).toBeTruthy();
   });
+
+  /**
+   * 2026-08-13 —— tag 过滤 chip（人类原话：「另外需要有一个 tags，用来过滤」）。
+   *
+   * 断言的是**过滤真的生效**（点了 chip，列表真的收窄；再点一次，列表真的恢复），
+   * 不是「chip 渲染出来了」这种空转断言。
+   */
+  describe("tag 过滤", () => {
+    function twoSkills() {
+      return jsonResponse({
+        items: [
+          {
+            skillId: "sk-a", name: "排序器", duty: "排序", source: "自建",
+            status: "草稿", visibility: "org-wide", currentVersionId: "sv-a", satisfaction: null,
+          },
+          {
+            skillId: "sk-b", name: "翻译器", duty: "翻译", source: "晋升生成",
+            status: "已启用", visibility: "team-only", currentVersionId: "sv-b", satisfaction: 0.8,
+          },
+        ],
+        total: 2,
+      });
+    }
+
+    it("点一个来源 chip 之后，列表只剩匹配的那一行；再点一次恢复全部", async () => {
+      install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+
+      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).not.toContain("翻译器");
+
+      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+    });
+
+    it("跨维度是「且」：同时选来源=晋升生成 与 状态=草稿，没有任何一行同时满足，显示无匹配态", async () => {
+      install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("skill-tag-chip-promoted")); // source=晋升生成 → 只剩「翻译器」
+      fireEvent.click(screen.getByTestId("skill-tag-chip-draft")); // status=草稿 → 「翻译器」是已启用，被排除
+      expect(screen.queryByTestId("skill-catalog-list")).toBeNull();
+      expect(screen.getByTestId("skill-catalog-no-match")).toBeTruthy();
+      // 这不是真实空态——真实数据还在，只是被过滤条件收窄没了：两者必须分得开。
+      expect(screen.queryByTestId("skill-catalog-empty")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("skill-tag-filter-clear"));
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+      expect(screen.queryByTestId("skill-catalog-no-match")).toBeNull();
+    });
+
+    it("同一维度内选中多个 chip 是「或」：来源同时选自建＋晋升生成＝两行都要", async () => {
+      install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
+      fireEvent.click(screen.getByTestId("skill-tag-chip-promoted"));
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+    });
+
+    it("真实空态（没有任何 skill）时不渲染过滤条——没有行可过滤", async () => {
+      install(() => jsonResponse({ items: [], total: 0 }));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+      expect(screen.queryByTestId("skill-tag-filter")).toBeNull();
+    });
+  });
 });
