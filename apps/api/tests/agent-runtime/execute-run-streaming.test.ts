@@ -73,6 +73,8 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
     // #690: no thread history fixtures in this file -- these tests are about the
     // streaming/delta timing, not about what gets read from a thread.
     readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => [],
+    readThreadContextState: async () => null,
+    upsertThreadContextState: async () => true,
   };
 }
 
