@@ -1,7 +1,8 @@
 # 会话交接 — Sprint 01/05
 
 ## 当前已验证
-- F169 的实现已由 PR #1126 合入 `main`；其阶段状态由原 owner 按 harness 门禁收尾。
+- F169 已由 `pnpm harness verify --sprint 01/05 --feature F169` 机械门控为 `passing`；PR #1126 已合并，Issue #1110 已关闭。
+- F169 四条专属验证及完整 `verify:base` 已通过，受信证据位于 `evidence/F169.verify.log`。
 - F173 为 `passing`；11 条 feature verification、完整基础验证、API/Web 定向测试与 typecheck 已通过。
 - F173 人类签核字段已填写为可解析时间，独立 reviewer 对运行时实现 APPROVE。
 
@@ -12,6 +13,7 @@
 
 ## 仍需完成
 - 将 PR #1127 合入 `main`，确认 `ac06595d`（或后续 merge commit）进入 `origin/main` 血统并关闭 issue #1109。
+- 审阅并合入 PR #1146 中的 F169 门禁收尾状态、真实验证证据和全局进度聚合；合入后删除 F169 worktree。
 
 ## 命令
 - 启动: `pnpm -w run dev`
