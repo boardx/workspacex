@@ -160,8 +160,13 @@ describe("test isolation contract (#74)", () => {
   });
 
   it("caps Vitest's actual default forks pool via maxWorkers", () => {
+    // 2026-08-12（项目 Agent 定位，#1068/#1090 续作第三层）：4→1。maxWorkers=4 让
+    // 本包内 4 个 fork 并行打同一张共享库，DDL/RLS 重的测试文件互相死锁（`DROP
+    // POLICY` 的 AccessExclusiveLock 与另一 worker 的行锁互等成环）——两轮同代码
+    // 红不同文件的判据 + 锁等待日志逐字印证。这条断言原意是「有上限、不是无限制
+    // 的默认值」，不是钉死具体数字 4；1 同样满足「有上限」且是当前止血值。
     const config = readFileSync(resolve(ROOT, "apps/api/vitest.config.ts"), "utf8");
-    expect(config).toMatch(/maxWorkers:\s*4/);
+    expect(config).toMatch(/maxWorkers:\s*1/);
     expect(config).not.toMatch(/threads:\s*\{[\s\S]*maxThreads/);
   });
 
