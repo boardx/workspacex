@@ -178,7 +178,7 @@ export class BlueprintController {
         appliedProjectCount: r.appliedProjectCount,
         // 样本不足 ⇒ null（契约逐字）。满意度要等蓝本被真实套用并回收评分，BP-01 恒 null。
         satisfaction: null,
-        completeness: { filled: r.filledDesignFacetCount, total },
+        completeness: { done: r.filledDesignFacetCount, denominator: total },
         // 服务端派生（契约逐字「前端不得自行决定能不能删」）。BP-01 只实现了新建与列出，
         // 归档/删除/回滚的端点都还不存在 ⇒ 此刻没有任何可用动作，空数组是事实不是占位。
         availableActions: [],

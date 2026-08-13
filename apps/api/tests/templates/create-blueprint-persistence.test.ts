@@ -25,6 +25,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PgBlueprintRepository } from "../../src/infrastructure/templates/pg-blueprint-repository";
+import { BlueprintController } from "../../src/interface/controllers/blueprint.controller";
+import { templates as C } from "@repo/contracts";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import type { DatabasePort, TenantSession } from "../../src/application/ports/database.port";
@@ -133,6 +135,37 @@ beforeEach(async () => {
 }, HOOK_TIMEOUT_MS);
 
 describe("F173 蓝本真实落库", () => {
+  /**
+   * ⚠ 这条钉住的是**仓储测试钉不住**的那类 bug：本文件所有其它用例都直接调
+   * `repo.list()`/`repo.create()`，跳过了控制器把行拼成契约形状那一步——
+   * BP-01 实测就在那一步栽过一次（把 `Completeness` 写成 `{filled,total}`，
+   * 契约要的是 `{done,denominator}`，`.strict()` 会让前端在生产上直接炸，
+   * 而所有仓储测试全绿看不出这个问题）。
+   *
+   * 不起 HTTP、不 mock 身份服务——直接实例化控制器类，用真实身份仓储
+   * （同一个 db），断言返回值能被契约 schema `.parse()` 通过。
+   */
+  it("控制器的 list 输出逐字段对得上契约 schema（不只是仓储对得上）", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-shape", orgId, actorId: ACTOR, name: "形状校验用",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+
+    const identity = new (
+      await import("../../src/infrastructure/identity/pg-identity-repository")
+    ).PgIdentityRepository(db);
+    const ids = { next: (prefix: string) => `${prefix}-test-${Math.random().toString(36).slice(2)}` };
+    const controller = new BlueprintController(repo, identity, ids as never);
+
+    const out = await controller.list(ORG, undefined, { userId: ACTOR, orgId: ORG } as never);
+    // `.strict()` schema：多一个字段、少一个字段、字段名拼错，`.parse()` 全部会抛。
+    expect(() => C.operations.listBlueprints.out.parse(out)).not.toThrow();
+    const parsed = C.operations.listBlueprints.out.parse(out);
+    expect(parsed.find((r) => r.blueprintId === "bp-shape")?.completeness.denominator).toBeGreaterThan(0);
+  });
+
+
   it("空白新建：写进 DB，刷新（重新读）后仍在", async () => {
     const orgId = toOrgId(ORG);
     await repo.create({
