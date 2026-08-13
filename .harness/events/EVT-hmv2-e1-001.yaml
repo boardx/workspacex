@@ -1,0 +1,33 @@
+# EVT-hmv2-e1-001.yaml — 记录 HMV2 Epic E1 骨架落地的真实事件（迁移件）。
+#
+# 迁移记录（2026-08-13，#422 coord-main 裁决）：本文件原住
+# `.harness/templates/examples/`、用 E1 通用 InstanceMetadata 形状写成——当时
+# TPL-EVT-001 还没有自己的深度 schema，原文件注释明确写着"E3 会把它收进
+# TPL-EVT-001 自己的深度 schema"。深度 schema 到了（H3A-033 envelope，
+# workflow-event-model.ts），#422 裁决 envelope 为 TPL-EVT-001 唯一权威，
+# 本文件按 envelope 形状迁移至此，历史事实逐字段保留：
+#   - facts/delta 原条目 → delta.implemented（envelope 的 progress 载荷）
+#   - head_sha = 7edbf614（PR #634 的真实合并 commit，可 git log 核验）
+#   - next_action.owner → owner_role（envelope 字段名）
+# 原文件已删除，此处是它唯一的后继。
+template_id: TPL-EVT-001
+template_version: 1
+instance_id: EVT-hmv2-e1-001
+kind: progress
+task_id: TSK-hmv2-e1-01
+actor: coord-architecture
+head_sha: 7edbf614
+evidence_refs:
+  - "PR #634 HMV2-006~012 Registry/Schema/三条门控"
+  - "PR #653 HMV2-002/004 inventory + 编号分配"
+  - "PR #641 TPL-EVD-001 首个真实消费者验收"
+delta:
+  implemented:
+    - "PROP-HARNESS-MODEL-001 Epic E1（HMV2-006~012）骨架落地"
+    - "template-model.ts / template-id.ts / template-scan.ts / template-doctor.ts 实现完成"
+    - "registry.yaml 按 Proposal §8 seed 了 23 个模板类型"
+    - "pnpm harness templates doctor / templates allocate 两条命令可用"
+blockers: []
+next_action:
+  owner_role: coord-architecture
+  action: "跑 doctor 验证本文件自己能被扫描到并通过校验，作为 E1 的第一个反证"

@@ -28,7 +28,8 @@ describe("#728 scanForInstances 跳过嵌套 checkout", () => {
   function writeInstance(relPath: string, instanceId: string): void {
     const full = join(root, relPath);
     mkdirSync(join(full, ".."), { recursive: true });
-    // 字段照 `.harness/templates/examples/EVT-hmv2-e1-001.yaml` 的真实形状写，
+    // 字段按 E1 通用 InstanceMetadata 的完整必填形状写（早期示例文件已随
+    // #422 双 schema 裁决迁往 .harness/events/ 并改用 envelope 形状），
     // 不是凭 instance_id 三个字段拼的——少一个必填字段，`validateInstanceMetadata`
     // 会把它整条丢进 validationFailures，`instances` 就是空数组，
     // 于是三条断言全部红在「扫不到」上，而不是红在它们各自要验的那件事上。
