@@ -1,5 +1,5 @@
 /**
- * F173（BP-01）—— 蓝本真实落库：`POST /blueprints` 的存储侧。
+ * F175（BP-01）—— 蓝本真实落库：`POST /blueprints` 的存储侧。
  *
  * ## 这个文件在钉什么
  *
@@ -134,7 +134,7 @@ beforeEach(async () => {
   await addOrgMember(ORG, ACTOR, "admin", null);
 }, HOOK_TIMEOUT_MS);
 
-describe("F173 蓝本真实落库", () => {
+describe("F175 蓝本真实落库", () => {
   /**
    * ⚠ 这条钉住的是**仓储测试钉不住**的那类 bug：本文件所有其它用例都直接调
    * `repo.list()`/`repo.create()`，跳过了控制器把行拼成契约形状那一步——

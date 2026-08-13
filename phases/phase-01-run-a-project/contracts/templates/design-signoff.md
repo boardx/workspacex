@@ -1,9 +1,9 @@
 ---
 bundle: templates
 phase: "01"
-# ⚠ 2026-08-13（#991 BP-01 / F173）：追加 **F173**，由 agent `dev-project` 依
+# ⚠ 2026-08-13（#991 BP-01 / F175）：追加 **F175**，由 agent `dev-project` 依
 #   `contract-design.md` 的「covers 追加规则」（2026-08-12 人类批准）自行追加。三条件逐条对照：
-#     1. **UI 已签**：F173 是**纯后端**（表 + 迁移 + pg 仓储 + 控制器），**零界面落点**
+#     1. **UI 已签**：F175 是**纯后端**（表 + 迁移 + pg 仓储 + 控制器），**零界面落点**
 #        ——该条对本 feature 空成立。它的界面在后续 BP-05（后台蓝本列表接真），
 #        那一条另行对照本条件。
 #     2. **契约已签**：只实现本束已签核的两条 operation —— `createBlueprint`（POST /blueprints）
@@ -11,7 +11,7 @@ phase: "01"
 #     3. **零新增设计面**：不新增错误码（`origin = reverse-from-project` 的拒绝复用契约
 #        既有的 `DEPENDENCY_UNAVAILABLE`）、不新增字段、不新增屏、不新增交互语义。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F173]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

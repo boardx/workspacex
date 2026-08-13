@@ -1,0 +1,24 @@
+$ pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/gifted-haslett-df03ec/apps/api
+
+[db-isolation] db=wsx_e6940d07d67d5674690b capacity=100 current=6 required=32
+ ✓ tests/templates/create-blueprint-persistence.test.ts (9 tests) 2372ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  23:33:26
+   Duration  4.88s (transform 335ms, setup 0ms, collect 528ms, tests 2.37s, environment 0ms, prepare 39ms)
+
+[db-isolation] db=wsx_e6940d07d67d5674690b peak_connections=3
+
+
+$ pnpm --filter api run typecheck
+[exit 0]
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/gifted-haslett-df03ec/apps/api
+> tsc --noEmit
+
+
+[harness-verify v1 sha256=5ce6f8173a94cd5bff4a09003fcd64f9ab69efb5b5211292e6e0cdd3850d52c3 commit=1e09882596d8ef0764b590337b6fceac0d8edce0 at=2026-08-13T15:33:41.000Z]

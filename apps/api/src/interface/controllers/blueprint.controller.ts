@@ -1,5 +1,5 @@
 /**
- * 蓝本控制器（F173 / BP-01）——本束**第一条**接上电的 HTTP 路由。
+ * 蓝本控制器（F175 / BP-01）——本束**第一条**接上电的 HTTP 路由。
  *
  *   POST /blueprints   createBlueprint（origin = blank / copy）
  *   GET  /blueprints   listBlueprints

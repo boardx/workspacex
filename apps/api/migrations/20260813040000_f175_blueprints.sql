@@ -1,5 +1,5 @@
--- F173 (BP-01)：蓝本落库 —— `blueprints` 表 + 设计环节取值表
--- 契约：templates.createBlueprint / listBlueprints（束已签核 2026-07-30，covers 含 F173）
+-- F175 (BP-01)：蓝本落库 —— `blueprints` 表 + 设计环节取值表
+-- 契约：templates.createBlueprint / listBlueprints（束已签核 2026-07-30，covers 含 F175）
 --
 -- ## 这个文件在防什么
 --
@@ -93,13 +93,18 @@ CREATE POLICY blueprint_design_facets_tenant ON blueprint_design_facets
   WITH CHECK (org_id = current_setting('app.current_org', true));
 
 REVOKE ALL ON blueprints, blueprint_design_facets FROM app_rw;
--- ⚠ **没有 DELETE**：蓝本的退役语义是归档（契约 `BlueprintState` 含 archived），
+-- ⚠ **`blueprints` 没有 DELETE**：蓝本的退役语义是归档（契约 `BlueprintState` 含 archived），
 --   授予 DELETE 会让「把归档实现成删掉一行」这个最省事的错误实现变得**可能**——
 --   canvas 模板那张表出于同一理由也没给（该迁移第 126 行），research 模块 F146 真栽过。
 --   契约里那条 `deleteBlueprint`（DELETE /blueprints/:id）是**硬删**，属另一条裁决
 --   （「未被任何项目套用过的草稿才可删」），等实现它时再单独加权限并写清判据。
 GRANT SELECT, INSERT, UPDATE ON blueprints TO app_rw;
-GRANT SELECT, INSERT, UPDATE ON blueprint_design_facets TO app_rw;
+-- ⚠ **`blueprint_design_facets` 需要 DELETE，与上面那条不是同一件事**：清空一个
+--   已填的设计环节（`updateDesignFacet` 收到空串 value）是正常编辑，不是「删蓝本」——
+--   「未填 = 没有这一行」是本表从 BP-01 就定的表达方式（见表定义头注），不给 DELETE
+--   会让用户清空一项之后那一行永远留着一条空壳记录，完成度分子永远多算一个。
+--   （BP-02 实测撞过：写测试时被 `permission denied` 拦下才发现漏了这条。）
+GRANT SELECT, INSERT, UPDATE, DELETE ON blueprint_design_facets TO app_rw;
 
 -- 组织冻结策略只看得见它运行时已经存在的表。加完租户表要重新应用一次，
 -- 否则一个被停用的组织仍然能新建蓝本。

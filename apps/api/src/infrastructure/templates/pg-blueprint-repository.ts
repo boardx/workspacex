@@ -1,5 +1,5 @@
 /**
- * `BlueprintPersistencePort` 的 PostgreSQL 实现（F173 / BP-01）——
+ * `BlueprintPersistencePort` 的 PostgreSQL 实现（F175 / BP-01）——
  * **全仓唯一一处 `INSERT INTO blueprints`**。
  *
  * 与 `pg-project-repository.ts` 同一条纪律：创建路径只有一个写点。
