@@ -85,6 +85,22 @@ describe("personal realtime ASR gateway", () => {
     expect(await client.next()).toMatchObject({ type: "error", reason: "ASR_PROVIDER_UNAVAILABLE" });
     client.ws.close();
   });
+
+  it("aborts a provider that finishes opening after the browser disconnects", async () => {
+    let resolveOpen: ((session: ReturnType<typeof sessionStub>) => void) | undefined;
+    let aborted = false;
+    const provider: AsrProviderPort = {
+      isConfigured: () => true,
+      open: () => new Promise(resolve => { resolveOpen = resolve; }),
+    };
+    const client = await connect({ provider, repository: repositoryStub(), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    client.ws.close();
+    await once(client.ws, "close");
+    resolveOpen?.(sessionStub(() => { aborted = true; }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(aborted).toBe(true);
+  });
 });
 
 async function connect(input: {
@@ -144,6 +160,15 @@ async function connect(input: {
 
 function usageMeter(events: AsrUsageEvent[]): AsrUsageMeter {
   return { record: async event => { events.push(event); return true; } };
+}
+
+function sessionStub(abort: () => void) {
+  return {
+    pushAudio: () => undefined,
+    commit: () => undefined,
+    finish: async () => undefined,
+    abort,
+  };
 }
 
 function repositoryStub(overrides: Partial<PersonalTranscriptionRepository> = {}): PersonalTranscriptionRepository {

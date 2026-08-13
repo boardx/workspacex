@@ -46,14 +46,15 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
     if(parsed.data.type==="start"){
       if(upstream||starting){void fail("PROTOCOL_ERROR");return;} starting=true;
       void deps.provider.open({
-        onPartial:r=>send({type:"interim",captureId:auth.captureId,text:r.text}),
-        onFinal:r=>{const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
+        onPartial:r=>{if(!terminal)send({type:"interim",captureId:auth.captureId,text:r.text});},
+        onFinal:r=>{if(terminal)return;const current=++ordinal,endMs=Math.round(pcm16MonoDurationSeconds(receivedPcmBytes)*1000),startMs=lastFinalEndMs;
           lastFinalEndMs=endMs;writeChain=writeChain.then(()=>persistThenPublishFinal(async()=>{
           const segmentId=deps.ids.next("personal-segment");await deps.repository.appendFinal({...auth,segmentId,ordinal:current,text:r.text,startMs,endMs});
           return{segmentId,ordinal:current};},stored=>send({type:"final",captureId:auth.captureId,...stored,text:r.text,startMs,endMs}))).then(()=>undefined);},
         onError:()=>void fail("ASR_PROVIDER_UNAVAILABLE"),
         onClosed:()=>undefined,
-      },{sampleRate:16_000,channels:1,encoding:"pcm16le"}).then(s=>{upstream=s;starting=false;
+      },{sampleRate:16_000,channels:1,encoding:"pcm16le"}).then(s=>{starting=false;
+          if(terminal){s.abort();return;}upstream=s;
           send({type:"ready",captureId:auth.captureId});
           for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;
         }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
