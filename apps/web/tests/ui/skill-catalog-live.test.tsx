@@ -327,4 +327,99 @@ describe("#520 Skill 库屏接真实 API", () => {
       expect(screen.queryByTestId("skill-tag-filter")).toBeNull();
     });
   });
+
+  /**
+   * 2026-08-13 —— 「新建 Skill」三条路径（人类拿两张后台原型截图核对）。
+   *
+   * 断言的是**接线关系**，不是「面板渲染出来了」这种空转断言：
+   *   · 「从 GitHub 导入」tab 打开的就是真实组件 `SkillUrlImportPanel`，
+   *     点「确认导入」真的打 `POST /admin/skills/url-imports`，请求体形状对，
+   *     导入成功后真的触发一次 `GET /skills` 刷新（`onImported` 接的是真实 `load`）。
+   *   · 「从市场挑一个改」tab 只显示「未接后端」的如实说明，**不发任何网络请求**——
+   *     防止有人为了让界面看起来完整而悄悄塞进 mock 数字或死按钮。
+   *   · 默认 tab 仍是「完全新建（契约表单）」——上面那一整组既有用例
+   *     （点 `skill-create-open` 直接操作 `skill-create-name` 等）不需要改，
+   *     这条本身就是这份新增测试要保护的回归面。
+   */
+  describe("2026-08-13 新建 Skill 三条路径", () => {
+    it("默认 tab 是「完全新建」：点 skill-create-open 后契约表单立即可见，不需要先选 tab", async () => {
+      install(() => jsonResponse({ items: [], total: 0 }));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("skill-create-open"));
+      expect(screen.getByTestId("skill-create-mode-form").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByTestId("skill-create-panel")).toBeTruthy();
+      expect(screen.queryByTestId("skill-url-import-panel")).toBeNull();
+    });
+
+    it("切到「从 GitHub 导入」：渲染的是真实 SkillUrlImportPanel，确认导入打 POST /admin/skills/url-imports 且参数正确，成功后刷新列表", async () => {
+      install((call) => {
+        if (call.method === "GET" && call.pathname === "/skills") return jsonResponse({ items: [], total: 0 });
+        if (call.method === "POST" && call.pathname === "/admin/skills/url-imports") {
+          return jsonResponse(
+            {
+              skillId: "sk-imported",
+              versionId: "sv-imported",
+              filePaths: ["SKILL.md", "reference.md"],
+              contentDigest: "a".repeat(64),
+              replayed: false,
+            },
+            201,
+          );
+        }
+        return jsonResponse({}, 500);
+      });
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("skill-create-open"));
+      fireEvent.click(screen.getByTestId("skill-create-mode-import"));
+      expect(screen.getByTestId("skill-url-import-panel")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("skill-url-import-open"));
+      fireEvent.change(screen.getByTestId("skill-url-import-url"), {
+        target: { value: "https://github.com/org/skill-repo" },
+      });
+      fireEvent.change(screen.getByTestId("skill-url-import-name"), {
+        target: { value: "导入的 skill" },
+      });
+      fireEvent.click(screen.getByTestId("skill-url-import-confirm"));
+
+      await waitFor(() => expect(screen.getByTestId("skill-url-import-result")).toBeTruthy());
+      expect(screen.getByTestId("skill-url-import-result").textContent).toContain("2 个文件");
+
+      const importCall = calls.find(
+        (c) => c.method === "POST" && c.pathname === "/admin/skills/url-imports",
+      );
+      expect(importCall).toBeTruthy();
+      const body = importCall!.body as Record<string, unknown>;
+      expect(body.sourceUrl).toBe("https://github.com/org/skill-repo");
+      expect(body.name).toBe("导入的 skill");
+      expect(typeof body.idempotencyKey).toBe("string");
+
+      // ⚠ 断言的是「真的重新打了一次 GET /skills」，不是「界面上有没有文字」——
+      //   `onImported` 接的必须是本屏真实的 `load`，不是一个假装成功的 no-op。
+      const listCallsAfterImport = calls.filter(
+        (c) => c.method === "GET" && c.pathname === "/skills",
+      );
+      expect(listCallsAfterImport.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("切到「从市场挑一个改」：只显示未接后端的说明，不发任何网络请求", async () => {
+      install(() => jsonResponse({ items: [], total: 0 }));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+
+      const callsBefore = calls.length;
+      fireEvent.click(screen.getByTestId("skill-create-open"));
+      fireEvent.click(screen.getByTestId("skill-create-mode-market"));
+
+      expect(screen.getByTestId("skill-create-market-unavailable")).toBeTruthy();
+      expect(screen.getByTestId("skill-create-market-unavailable").textContent).toContain("还没有后端");
+      // 没有假数字、没有可点的「浏览」按钮。
+      expect(screen.queryByText(/已同步/)).toBeNull();
+      expect(calls.length).toBe(callsBefore);
+    });
+  });
 });
