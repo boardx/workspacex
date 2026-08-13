@@ -58,10 +58,15 @@ import { ID_FACTORY } from "../../application/artifact/ports";
 import type { IdFactory } from "../../application/artifact/ports";
 import { canMutateCapabilities, decideCapabilityVisibility } from "../../domain/identity/capability-listing";
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
+import { Put, Param } from "@nestjs/common";
+import { ConflictException } from "@nestjs/common";
+import { designFacetKeys as designFacetKeySet } from "../../domain/templates/design-facet-table";
 
 const CREATE_SCHEMA = C.operations.createBlueprint.in;
 type CreateBody = z.infer<typeof CREATE_SCHEMA>;
 type BlueprintState = z.infer<typeof C.BlueprintState>;
+const UPDATE_FACET_BODY_SCHEMA = C.operations.updateDesignFacet.in.omit({ blueprintId: true, designFacetKey: true });
+type UpdateFacetBody = z.infer<typeof UPDATE_FACET_BODY_SCHEMA>;
 
 @Controller()
 export class BlueprintController {
@@ -198,6 +203,58 @@ export class BlueprintController {
    *   `canvas/template-admin.ts` 的先例：把非成员单独渲染成另一种拒绝，
    *   等于告诉一个陌生人「这个组织存在，只是你不在里面」。
    */
+  /**
+   * F174（BP-02）—— 设计环节逐项写入。
+   *
+   * ⚠ `designFacetKey` 不在契约的 err 闭集里有专门的码（对照先例 `roleKey` 有
+   *   `UNKNOWN_ROLE_KEY`，这里没有——两处不对称，本身是一个契约缺口，登记但
+   *   不新造码，见类的文件头注同一条纪律）。key 不属于定义表时，用
+   *   `BLUEPRINT_NOT_FOUND`：路径 `/blueprints/:id/design-facets/:key` 寻址的
+   *   是这一对 (blueprintId, designFacetKey)，key 不存在 ⇒ 该资源不存在，
+   *   这是对该码字面最不勉强的读法。
+   */
+  @Put("/blueprints/:blueprintId/design-facets/:designFacetKey")
+  async updateDesignFacet(
+    @Param("blueprintId") blueprintId: string,
+    @Param("designFacetKey") designFacetKey: string,
+    @Body(new ZodBodyPipe(UPDATE_FACET_BODY_SCHEMA)) body: UpdateFacetBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    await this.requireCapabilityAdmin(orgId, principal.userId);
+
+    if (!designFacetKeySet(DESIGN_FACET_DEFINITIONS).includes(designFacetKey)) {
+      throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+    }
+
+    const outcome = await this.repo.updateDesignFacet({
+      orgId,
+      blueprintId,
+      designFacetKey,
+      value: body.value,
+      expectedItemRevision: body.expectedItemRevision,
+    });
+
+    switch (outcome.kind) {
+      case "blueprint-not-found":
+        throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+      case "version-changed":
+        throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      case "ok": {
+        const total = designFacetKeys(DESIGN_FACET_DEFINITIONS).length;
+        return {
+          itemRevision: outcome.itemRevision,
+          completed: outcome.itemRevision !== "",
+          completeness: { done: outcome.filledDesignFacetCount, denominator: total },
+          // ⚠ 真实写入时刻（契约逐字要求），不是「我们打算保存的时间」——
+          //   这里没有伪造，Date.now() 就是这次请求真正落库完成的那一刻。
+          autosavedAt: new Date().toISOString(),
+        };
+      }
+    }
+  }
+
   private async requireCapabilityAdmin(orgId: OrgId, userId: string): Promise<void> {
     let membership;
     try {

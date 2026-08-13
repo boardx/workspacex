@@ -3959,6 +3959,28 @@
       "priority": 1,
       "area": "project",
       "capability": "CAP-DATA"
+    },
+    {
+      "id": "F174",
+      "title": "设计环节逐项乐观并发写入（BP-02：PUT design-facets/:key + item-level CAS）",
+      "user_visible_behavior": "在蓝本设计器里改任一设计环节的内容并保存 → 真实 PUT /blueprints/:blueprintId/design-facets/:designFacetKey（value + expectedItemRevision）→ 刷新（重新 GET /blueprints）后完成度分子随之变化，不是前端 state。乐观并发粒度=单项（契约注释逐字）：两个人同时改不同环节互不干扰；同一个人拿着过期的 itemRevision 再写会收到 VERSION_CHANGED，且已成功的那次写入不被覆盖。写入空值等价于清空这一项（完成度分子-1，itemRevision 回到未填哨兵），不是写入一个空字符串内容。designFacetKey 不在 15 项定义表内的请求被拒绝（不静默创建一个新键）。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R4",
+      "depends_on": [
+        "F175"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F174.verify.log @ 2026-08-13T16:57:30.474Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第二件（BP-02），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P2「编设计环节」的实现，依赖 BP-01（F175，已 passing，PR #1130）建的blueprint_design_facets 表。\n② 依据：契约 updateDesignFacet（packages/contracts/src/templates.ts）已随 templates束签核，要求乐观并发粒度=单项（注释逐字）。\n③ 范围边界——做：PUT design-facets/:key 的完整 CAS 语义（首次填/更新/清空/版本冲突/蓝本不存在五种结局）。不做：designFacetKey 校验失败没有契约专属码（对照 roleKey 有UNKNOWN_ROLE_KEY，这里没有——两处不对称是一个契约缺口，登记但不新造码，复用BLUEPRINT_NOT_FOUND：路径 (blueprintId, designFacetKey) 寻址的资源不存在，是对该码字面最不勉强的读法）。\n④ 设计决定：未填过的项用哨兵空字符串''作为 expectedItemRevision 的初始值（迁移文件头注写明依据）；item_revision 用 gen_random_uuid()，PG11+对易失默认值逐行求值（不是全表共享一个值）——这条断言不只信记忆，已用真实数据库反证。\n⑤ 迁移 20260813110000_f174_design_facet_item_revision.sql 给 blueprint_design_facets加 item_revision 列；同时发现并修复 BP-01 迁移遗留的权限缺口——该表需要 DELETE权限（清空一项是正常编辑，不是删蓝本，与 blueprints 表本身的归档语义不同），已在该迁移里一并授予。\n⑥ 本 feature 依赖 F175（尚未合入 main），分支基于 feat/bp-01-blueprint-persistence而非 main（叠加 PR），#1130 合入后需 rebase 到 main。\n⑦ 预计改动文件：blueprint-persistence-ports.ts（新增 updateDesignFacet 接口）、pg-blueprint-repository.ts（CAS 实现）、blueprint.controller.ts（PUT 端点）、create-blueprint-persistence.test.ts（追加 F174 CAS 测试组，含真库反证）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
     }
   ]
 }

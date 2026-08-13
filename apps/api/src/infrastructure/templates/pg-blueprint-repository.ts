@@ -23,6 +23,8 @@ import type {
   BlueprintState,
   CreateBlueprintCommand,
   DurationTier,
+  UpdateDesignFacetCommand,
+  UpdateDesignFacetOutcome,
 } from "../../application/templates/blueprint-persistence-ports";
 
 interface ListRow {
@@ -78,6 +80,78 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
       );
       return new Map(r.rows.map((row) => [row.design_facet_key, row.content]));
     });
+  }
+
+  /**
+   * F174（BP-02）：逐项 compare-and-swap，同 `pg-agent-skill-pins-repository.ts`
+   * 的先例——`SELECT ... FOR UPDATE` 读快照、应用层比对、再写，而不是
+   * `UPDATE ... WHERE revision = $expected`（那种写法在「行不存在」与
+   * 「行存在但版本不对」两种情况下都返回 0 行，调用方分不清是哪一种）。
+   *
+   * ⚠ 空串 value 不是「写一个空字符串」，是**删掉这一行**（未填的表达是没有行，
+   *   见 BP-01 文件头注）；删除后返回的 revision 是哨兵 `''`——它自然而然
+   *   成了「这一项现在没人填过」状态下的正确 expected 值，不需要特殊分支。
+   */
+  async updateDesignFacet(cmd: UpdateDesignFacetCommand): Promise<UpdateDesignFacetOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const bp = await s.query<{ id: string }>(
+        `SELECT id FROM blueprints WHERE id = $1 FOR UPDATE`,
+        [cmd.blueprintId],
+      );
+      if (bp.rows.length === 0) return { kind: "blueprint-not-found" };
+
+      const existing = await s.query<{ item_revision: string }>(
+        `SELECT item_revision FROM blueprint_design_facets
+          WHERE blueprint_id = $1 AND design_facet_key = $2 FOR UPDATE`,
+        [cmd.blueprintId, cmd.designFacetKey],
+      );
+      const row = existing.rows[0];
+
+      if (row === undefined) {
+        // 从未填过。哨兵之外的任何 expected 值都说明调用方的信念与现实不符
+        // （例如它曾经填过、被别处清空了，而调用方还拿着旧 revision）。
+        if (cmd.expectedItemRevision !== "") return { kind: "version-changed" };
+        if (cmd.value.trim() === "") {
+          // 空到空，无事可做——不产生新 revision，也不必产生。
+          const count = await this.countFilled(s, cmd.blueprintId);
+          return { kind: "ok", itemRevision: "", filledDesignFacetCount: count };
+        }
+        const inserted = await s.query<{ item_revision: string }>(
+          `INSERT INTO blueprint_design_facets (blueprint_id, org_id, design_facet_key, content)
+           VALUES ($1, $2, $3, $4) RETURNING item_revision`,
+          [cmd.blueprintId, cmd.orgId, cmd.designFacetKey, cmd.value],
+        );
+        const count = await this.countFilled(s, cmd.blueprintId);
+        return { kind: "ok", itemRevision: inserted.rows[0]!.item_revision, filledDesignFacetCount: count };
+      }
+
+      if (row.item_revision !== cmd.expectedItemRevision) return { kind: "version-changed" };
+
+      if (cmd.value.trim() === "") {
+        await s.query(
+          `DELETE FROM blueprint_design_facets WHERE blueprint_id = $1 AND design_facet_key = $2`,
+          [cmd.blueprintId, cmd.designFacetKey],
+        );
+        const count = await this.countFilled(s, cmd.blueprintId);
+        return { kind: "ok", itemRevision: "", filledDesignFacetCount: count };
+      }
+
+      const updated = await s.query<{ item_revision: string }>(
+        `UPDATE blueprint_design_facets SET content = $3, item_revision = gen_random_uuid()::text, updated_at = now()
+          WHERE blueprint_id = $1 AND design_facet_key = $2 RETURNING item_revision`,
+        [cmd.blueprintId, cmd.designFacetKey, cmd.value],
+      );
+      const count = await this.countFilled(s, cmd.blueprintId);
+      return { kind: "ok", itemRevision: updated.rows[0]!.item_revision, filledDesignFacetCount: count };
+    });
+  }
+
+  private async countFilled(s: Parameters<Parameters<DatabasePort["withTenant"]>[1]>[0], blueprintId: string): Promise<number> {
+    const r = await s.query<{ n: string }>(
+      `SELECT count(*) AS n FROM blueprint_design_facets WHERE blueprint_id = $1`,
+      [blueprintId],
+    );
+    return Number(r.rows[0]?.n ?? "0");
   }
 
   async list(orgId: OrgId, state: BlueprintState | null): Promise<readonly GuardedBlueprint[]> {
