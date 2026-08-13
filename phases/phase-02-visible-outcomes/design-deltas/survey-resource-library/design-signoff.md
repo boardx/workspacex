@@ -1,7 +1,10 @@
 ---
-status: pending
+status: confirmed
 bundle: survey-resource-library
 scope: survey-and-template-library-entry-and-routing
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-13"
+confirmed_via: "coord-survey 会话内已确认两张 UI 图及交互方向，本次于 coord-main 复核确认属实。"
 ---
 
 # Survey 资源库入口设计签核
