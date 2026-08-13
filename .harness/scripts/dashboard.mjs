@@ -17,6 +17,9 @@
  *   · 等人类 Accept 的提案       ← docs/proposals/*.md 头部「状态：Proposed」
  *   · 逐 agent 状态              ← registry.yaml（身份）+ coord-gateway GET /claims
  *     （谁还活着，ADR-017）+ feature owner（在做什么）+ PR headRefName（是否有对应 PR）
+ *   · track P（项目生命周期闭环）← 现读 origin/main 内容机械核对 P1-P11 判据
+ *     （PROP-PROJECT-LIFECYCLE-E2E-001 第 3 节唯一权威；本节只是把该文档的判据机械化，
+ *     不是第二块记分牌——官方 0/1 分数仍以该文档人工核实为准）
  *   · 本机资源                  ← load / wsx 栈数 /（占准入闸的活栈）
  *
  * 输出：stdout 摘要 + `.harness/state/DASHBOARD.md`（带时间戳的派生视图，
@@ -168,6 +171,120 @@ const agentRows = registryAgents.map((a) => {
   return { id: a.id, kind: a.kind ?? "?", leaseText, inProgress, ownPrs, hint };
 });
 
+/* ── 6. track P（项目生命周期闭环）现场诊断 ──────────────────────
+ * ⚠ 这不是第二块记分牌——判据、编号、0/1 判分规则的唯一事实源是
+ *   `docs/proposals/PROP-PROJECT-LIFECYCLE-E2E-001.md` 第 3 节。这里只是把该文档
+ *   里手工核对的三条判分纪律机械化到能重复执行的程度：
+ *     规程 1 —— 判「在不在 main 上」只能读内容，不能读 PR 状态/SHA 血统
+ *               （squash 合并会让 merge-base --is-ancestor 假阴）。
+ *     规程 2 —— 评分必须声明基于的 main SHA。
+ *     规程 3 —— 分数是某个 SHA 上的事实，不是永久属性；每次重跑都要现查。
+ *
+ * 三态诊断（不是最终判分）：
+ *   ⬜ NONE      — main 上找不到对应的后端端点/表
+ *   🟡 BACKEND   — 后端存在，但没找到前端真实调用（非 mock）证据 —— 按 track P 规则仍计 0 分
+ *   🟢 WIRED     — 后端 + 前端都能找到证据，但未必等于真实端到端可用 —— 仍需人工在
+ *                  devapp 上手工走一遍才能定为官方 1 分（提案第 4 节「落地时机」）。
+ *   ✅ CONFIRMED — 已被人工/e2e 规格核实为 track P 官方 1 分（目前只有 P11）。
+ *
+ * 刻意不把 🟢 WIRED 直接记为官方 1 分——那会制造「脚本说过了但没人真走过」的假绿，
+ * 正是 #991 记录的七条蓝本 feature 栽过的坑（evidence 只覆盖领域层）。
+ */
+const grepOnMain = (path, pattern) => {
+  const out = sh("git", ["show", `origin/main:${path}`]);
+  if (out === null) return false;
+  return new RegExp(pattern).test(out);
+};
+
+function checkTrackP() {
+  const dims = [];
+
+  // P1 建蓝本：POST /blueprints 控制器 + 前端调用（不是 lib/mock/tpl.ts）
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/blueprint.controller.ts", "class BlueprintController");
+    const frontendReal = grepOnMain("apps/web/components/tpl/blueprint-list-screen.tsx", "live-(blueprint|tpl)|listBlueprints\\(");
+    dims.push({
+      id: "P1", label: "建蓝本",
+      state: !backend ? "NONE" : frontendReal ? "WIRED" : "BACKEND",
+      evidence: [`blueprint.controller.ts on main: ${backend}`, frontendReal ? "blueprint-list-screen.tsx 疑似接真" : "blueprint-list-screen.tsx 仍是 lib/mock/tpl.ts（2026-08-14 人工核实）"],
+    });
+  }
+  // P2 编设计环节：PUT design-facets 控制器 + 前端调用
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/blueprint.controller.ts", "design-facets");
+    const frontendReal = grepOnMain("apps/web/components/tpl-designer/blueprint-designer-shell.tsx", "updateDesignFacet|live-(blueprint|tpl)");
+    dims.push({
+      id: "P2", label: "编设计环节",
+      state: !backend ? "NONE" : frontendReal ? "WIRED" : "BACKEND",
+      evidence: [`PUT design-facets on main: ${backend}`, `designer 前端接真: ${frontendReal}`],
+    });
+  }
+  // P3 设时长档位
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/blueprint.controller.ts", "duration-tier|durationTier");
+    dims.push({ id: "P3", label: "设时长档位", state: backend ? "BACKEND" : "NONE", evidence: [`duration-tier endpoint: ${backend}`] });
+  }
+  // P4 发布版本
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/blueprint.controller.ts", "/versions|publishVersion");
+    dims.push({ id: "P4", label: "发布版本", state: backend ? "BACKEND" : "NONE", evidence: [`versions endpoint: ${backend}`] });
+  }
+  // P5 套用前预览
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/blueprint.controller.ts", "initialization-preview");
+    dims.push({ id: "P5", label: "套用前预览", state: backend ? "BACKEND" : "NONE", evidence: [`initialization-preview endpoint: ${backend}`] });
+  }
+  // P6 用蓝本建项目：POST /projects 接受非空 blueprintVersionId 并真正处理
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/project.controller.ts", "blueprintVersionId");
+    dims.push({ id: "P6", label: "用蓝本建项目", state: backend ? "BACKEND" : "NONE", evidence: [`POST /projects 接 blueprintVersionId: ${backend}`] });
+  }
+  // P7 六类初始化真落库
+  {
+    const exists = sh("git", ["cat-file", "-e", "origin/main:apps/api/src/application/project/initialize-from-blueprint.ts"]) !== null;
+    dims.push({ id: "P7", label: "六类初始化真落库", state: exists ? "BACKEND" : "NONE", evidence: [`初始化用例文件存在: ${exists}`] });
+  }
+  // P8 项目筹备可读（计数与 P7 一致）
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/project.controller.ts", "/prep\\b");
+    dims.push({ id: "P8", label: "项目筹备可读", state: backend ? "BACKEND" : "NONE", evidence: [`GET .../prep endpoint: ${backend}`] });
+  }
+  // P9 推进议程环节：后端有，前端是否真调用未机械核实
+  {
+    const backend = grepOnMain("apps/api/src/interface/controllers/project.controller.ts", "advanceAgendaSegment|advance-agenda");
+    dims.push({
+      id: "P9", label: "推进议程环节", state: backend ? "BACKEND" : "NONE",
+      evidence: [`advanceAgendaSegment endpoint: ${backend}`, "前端调用未机械核实，需人工在 devapp 走一遍"],
+    });
+  }
+  // P10 成员管理：F125 状态
+  {
+    const raw = sh("git", ["show", "origin/main:phases/phase-01-run-a-project/feature_list.json"]);
+    let f125passing = false;
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        const f = (data.features ?? []).find((x) => x.id === "F125");
+        f125passing = f?.status === "passing";
+      } catch { /* leave false */ }
+    }
+    dims.push({
+      id: "P10", label: "成员管理", state: f125passing ? "BACKEND" : "NONE",
+      evidence: [`F125 (项目成员三用例) status=${f125passing ? "passing" : "非 passing"}`, "verification 只覆盖 api 层，前端调用未机械核实"],
+    });
+  }
+  // P11 归档退役 —— 已由人工核实为 CONFIRMED（F164/#1038，见提案第 3 节表）
+  dims.push({
+    id: "P11", label: "归档退役", state: "CONFIRMED",
+    evidence: ["F164 (#1038) 已合入 main，人工核实归档转只读语义（见 PROP-PROJECT-LIFECYCLE-E2E-001 第 3 节表）"],
+  });
+
+  return dims;
+}
+const trackPDims = NO_REMOTE ? null : checkTrackP();
+const trackPOfficialScore = trackPDims ? trackPDims.filter((d) => d.state === "CONFIRMED").length : null;
+const trackPMainSha = NO_REMOTE ? null : (sh("git", ["rev-parse", "origin/main"]) ?? "").slice(0, 8);
+
 /* ── 6. 本机资源 ─────────────────────────────────────────────── */
 const load1 = loadavg()[0].toFixed(1);
 const cores = cpus().length;
@@ -196,6 +313,24 @@ lines.push(`| phase | 总数 | passing | in_progress（在编槽） | blocked | 
 lines.push(`|---|---:|---:|---|---:|---:|`);
 for (const ph of phases) {
   lines.push(`| ${ph.name} | ${ph.total} | ${ph.passing} | ${ph.in_progress}${ph.slots.length ? `：${ph.slots.join("、")}` : ""} | ${ph.blocked} | ${ph.not_started} |`);
+}
+lines.push(``);
+lines.push(`## track P（项目生命周期闭环，唯一权威 docs/proposals/PROP-PROJECT-LIFECYCLE-E2E-001.md 第 3 节）`);
+if (NO_REMOTE || trackPDims === null) {
+  lines.push(`（--no-remote 跳过）`);
+} else {
+  lines.push(`> 官方分数（严格 0/1）：**${trackPOfficialScore}/11** —— origin/main@${trackPMainSha}`);
+  lines.push(`>`);
+  lines.push(`> ⬜ 未开始　🟡 后端存在但前端未接（官方仍计 0）　🟢 前后端都有迹象但未经人工/e2e 核实（官方仍计 0）　✅ 已人工核实的官方 1 分`);
+  lines.push(``);
+  lines.push(`| # | 维度 | 诊断 | 依据 |`);
+  lines.push(`|---|---|---|---|`);
+  const trackPIcon = { NONE: "⬜", BACKEND: "🟡", WIRED: "🟢", CONFIRMED: "✅" };
+  for (const d of trackPDims) {
+    lines.push(`| ${d.id} | ${d.label} | ${trackPIcon[d.state]} ${d.state} | ${d.evidence.join("；")} |`);
+  }
+  lines.push(`> ⚠ 🟢/🟡 不是官方分数，是「大概还差多远」的施工进度视图，最终 1 分仍需人工在 devapp 或`);
+  lines.push(`> \`project-lifecycle.spec.ts\`（BP-10 落地后）核实，见提案第 4 节「落地时机」。`);
 }
 lines.push(``);
 lines.push(`## 等人类（签核/Accept 面）`);
