@@ -3,6 +3,15 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    /**
+     * 2026-08-12（org-admin 线三组对照实验定位）：本文件的「migration 可重放」用例
+     * 是 DDL 重放——PG 里 DDL 拿重量级锁，与几十个并行测试文件的事务必然互咬，
+     * 完整套件下稳定 deadlock（单文件 4/4 绿、三目录 1348 绿、全量必红）。
+     * 它是**设计上不能与他人并行**的用例：从并行池排除，由 package.json 的 test
+     * 脚本在主套件后独占补跑（见 vitest.exclusive.config.ts）。#1068 的包间串行化
+     * 解决的是跨包，解决不了包内——这条是那条修复的直接续作。
+     */
+    exclude: ["tests/recording/personal-transcription-persistence.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],
     /**
      * WORKSPACEX_DB is how parallel workers avoid dropping each other's database, and
