@@ -134,6 +134,23 @@ export const SKILL_SOURCE_LABEL: Record<SkillSourceView, string> = {
 /** 社区导入 phase-1 不实现（D-06）——保留取值、入口置灰。 */
 export const COMMUNITY_DISABLED = true;
 
+/**
+ * 「新建 Skill」原型（偏移 15726036 起）里「或从市场挑一个改」的三个市场——
+ * 「浏览」按钮与整块导入入口同受 D-06 支配（`COMMUNITY_DISABLED`），仍是置灰展示：
+ * 让签核者看到完整设计意图，而不是因为 phase-1 不接就整块从原型里消失。
+ * 数字逐字取自原型，不是编的：1,842 / 903 / 28，「已同步」数分别 34 / 12 / 28。
+ */
+export interface MarketPick {
+  id: string;
+  name: string;
+  countLabel: string;
+}
+export const MARKET_PICKS: MarketPick[] = [
+  { id: "market-cc", name: "Claude Code 社区", countLabel: "1,842 个 · 已同步 34" },
+  { id: "market-codex", name: "Codex 社区", countLabel: "903 个 · 已同步 12" },
+  { id: "market-consulting", name: "咨询方法库", countLabel: "官方精选 · 已同步 28" },
+];
+
 /* ─────────────────────────── 四态状态机（O-11：恰四态）─────────────────────────── */
 
 export const SKILL_STATUSES = ["draft", "review", "enabled", "disabled"] as const;
@@ -351,6 +368,16 @@ export interface ReviewItem {
   submitter: string;
   submittedAt: string;
   source: SkillSourceView;
+  /**
+   * 原型（偏移 15719900 起）里「来源」显示的是具体子来源（如「Codex 社区」），
+   * 不是 `SKILL_SOURCE_LABEL[source]` 那个粗粒度五值之一（「社区」）——
+   * `source` 仍是契约分离出来的粗粒度取值（D-09），这里补一个可选的展示态细分，
+   * 不改 `source` 本身的取值集合。
+   */
+  sourceDetail?: string;
+  /** 原型卡片正文那句完整描述（「高琳 18 分钟前从 Codex 社区导入，安全扫描通过，等待方法论审核」），
+   *  与下面紧凑的 `submitter · submittedAt · files · 来源` 元数据行并列展示，不是互相替代。 */
+  summary?: string;
   files?: number;
   /** 两道门禁的独立结论：安全扫描 / 方法论审核 */
   securityScan: "passed" | "risk" | "rejected";
@@ -366,6 +393,8 @@ export const REVIEW_QUEUE: ReviewItem[] = [
     submitter: "高琳",
     submittedAt: "18 分钟前",
     source: "community",
+    sourceDetail: "Codex 社区",
+    summary: "高琳 18 分钟前从 Codex 社区导入，安全扫描通过，等待方法论审核",
     files: 4,
     securityScan: "passed",
     methodReview: "pending",
