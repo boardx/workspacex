@@ -5,7 +5,7 @@ base_bundle: personal-realtime-transcription
 scope: personal-rec-reuses-chat-configured-realtime-asr-provider
 covers: [F173]
 confirmed_by: "qq13613030605"
-confirmed_at: "2026-08-13T当前时间+08:00"
+confirmed_at: "2026-08-13T18:20:00+08:00"
 ---
 
 # Design delta 签核 · `/rec` 复用 Chat 实时 ASR Provider
@@ -39,4 +39,4 @@ confirmed_at: "2026-08-13T当前时间+08:00"
 
 ## 人类决定
 
-待确认。确认后由人类将 frontmatter 改为 `status: confirmed` 并填写签核人和时间；在此之前 F173 不得 claim 或修改运行时代码。
+已确认以上 UI、用例与 API 契约设计。
