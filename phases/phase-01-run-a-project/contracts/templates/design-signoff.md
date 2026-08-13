@@ -11,7 +11,16 @@ phase: "01"
 #     3. **零新增设计面**：不新增错误码（`origin = reverse-from-project` 的拒绝复用契约
 #        既有的 `DEPENDENCY_UNAVAILABLE`）、不新增字段、不新增屏、不新增交互语义。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-13（#991 BP-02 / F174）：追加 **F174**，由 agent `dev-project` 依
+#   `contract-design.md` 的「covers 追加规则」自行追加（第四次；coord-main 要求人类定规前
+#   继续沿用，未见新裁决改口）。三条件逐条对照：
+#     1. **UI 已签**：本 feature 是纯后端（PUT 端点 + 逐项 CAS），零界面落点，空成立
+#        （与 F175/BP-01 同理，界面留待 BP-06 设计器）。
+#     2. **契约已签**：只实现已签核的 `updateDesignFacet` 一条 operation，形状逐字照契约。
+#     3. **零新增设计面**：designFacetKey 校验失败复用既有 `BLUEPRINT_NOT_FOUND`
+#        （未新造码，见 F174 notes ③ 对不对称的说明）；未新增字段/屏/交互语义。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

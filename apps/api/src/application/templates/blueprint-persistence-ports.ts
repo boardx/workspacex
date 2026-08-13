@@ -72,12 +72,32 @@ export interface GuardedBlueprint {
 }
 
 export interface BlueprintPersistencePort {
+  updateDesignFacet(cmd: UpdateDesignFacetCommand): Promise<UpdateDesignFacetOutcome>;
   create(cmd: CreateBlueprintCommand): Promise<void>;
   /** 读一个蓝本已填的设计环节内容（`origin = copy` 时用来带上源蓝本内容） */
   readDesignFacets(orgId: OrgId, blueprintId: string): Promise<ReadonlyMap<string, string>>;
   /** 该蓝本是否存在于这个组织下（copy 的源必须可见，否则 BLUEPRINT_NOT_FOUND） */
   exists(orgId: OrgId, blueprintId: string): Promise<boolean>;
   list(orgId: OrgId, state: BlueprintState | null): Promise<readonly GuardedBlueprint[]>;
+}
+
+/**
+ * F174（BP-02）：设计环节逐项写入的结果 —— compare-and-swap，判据在仓储层做
+ * （`SELECT ... FOR UPDATE` 读到的行与 `expectedItemRevision` 比对），不是这里。
+ * 仓储只回三种结局，调用方（控制器）把它们映射成契约的 err 枚举。
+ */
+export type UpdateDesignFacetOutcome =
+  | { readonly kind: "ok"; readonly itemRevision: string; readonly filledDesignFacetCount: number }
+  | { readonly kind: "blueprint-not-found" }
+  | { readonly kind: "version-changed" };
+
+export interface UpdateDesignFacetCommand {
+  readonly orgId: OrgId;
+  readonly blueprintId: string;
+  readonly designFacetKey: string;
+  readonly value: string;
+  /** 哨兵 `''` = 「我以为这一项还没人填过」（见迁移文件头注） */
+  readonly expectedItemRevision: string;
 }
 
 export const BLUEPRINT_PERSISTENCE_PORT = Symbol("BlueprintPersistencePort");

@@ -308,3 +308,135 @@ describe("F175 蓝本真实落库", () => {
     expect(await countBlueprints(ORG)).toBe(1);
   });
 });
+
+/**
+ * F174（BP-02）—— 设计环节逐项写入的 compare-and-swap。
+ *
+ * 判据来源：`updateDesignFacet` 的乐观并发**粒度 = 单项**（契约注释逐字）。
+ */
+describe("F174 设计环节逐项 CAS", () => {
+  it("首次填一项：expected 用哨兵 '' 即成功，完成度分子 +1", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-cas-1", orgId, actorId: ACTOR, name: "CAS 一号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+
+    const out = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-1", designFacetKey: key!,
+      value: "主题内容", expectedItemRevision: "",
+    });
+    expect(out.kind).toBe("ok");
+    if (out.kind !== "ok") throw new Error("unreachable");
+    expect(out.itemRevision).not.toBe("");
+    expect(out.filledDesignFacetCount).toBe(1);
+  });
+
+  it("拿着旧 revision 再写：VERSION_CHANGED，且内容不被覆盖", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-cas-2", orgId, actorId: ACTOR, name: "CAS 二号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const first = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-2", designFacetKey: key!,
+      value: "版本一", expectedItemRevision: "",
+    });
+    if (first.kind !== "ok") throw new Error("setup failed");
+
+    // 第二个写手不知道第一个已经写过——它还拿着「从未填过」的旧信念。
+    const stale = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-2", designFacetKey: key!,
+      value: "被抢先的写入", expectedItemRevision: "",
+    });
+    expect(stale.kind).toBe("version-changed");
+
+    const content = await repo.readDesignFacets(orgId, "bp-cas-2");
+    expect(content.get(key!)).toBe("版本一"); // 输家没有覆盖赢家
+  });
+
+  it("拿着当前 revision 再写：成功，且 revision 轮换（不是原地不变）", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-cas-3", orgId, actorId: ACTOR, name: "CAS 三号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const first = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-3", designFacetKey: key!,
+      value: "版本一", expectedItemRevision: "",
+    });
+    if (first.kind !== "ok") throw new Error("setup failed");
+
+    const second = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-3", designFacetKey: key!,
+      value: "版本二", expectedItemRevision: first.itemRevision,
+    });
+    expect(second.kind).toBe("ok");
+    if (second.kind !== "ok") throw new Error("unreachable");
+    expect(second.itemRevision).not.toBe(first.itemRevision); // 不轮换，第三方就没法判断"这次写有没有真的发生"
+    expect(second.filledDesignFacetCount).toBe(1); // 更新不是新增
+
+    const content = await repo.readDesignFacets(orgId, "bp-cas-3");
+    expect(content.get(key!)).toBe("版本二");
+  });
+
+  it("写空串 = 删掉这一项：完成度分子 -1，revision 回到哨兵", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-cas-4", orgId, actorId: ACTOR, name: "CAS 四号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const filled = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-4", designFacetKey: key!,
+      value: "先填上", expectedItemRevision: "",
+    });
+    if (filled.kind !== "ok") throw new Error("setup failed");
+
+    const cleared = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-cas-4", designFacetKey: key!,
+      value: "", expectedItemRevision: filled.itemRevision,
+    });
+    expect(cleared.kind).toBe("ok");
+    if (cleared.kind !== "ok") throw new Error("unreachable");
+    expect(cleared.itemRevision).toBe("");
+    expect(cleared.filledDesignFacetCount).toBe(0);
+
+    const content = await repo.readDesignFacets(orgId, "bp-cas-4");
+    expect(content.has(key!)).toBe(false);
+  });
+
+  it("蓝本不存在：BLUEPRINT_NOT_FOUND（不是把它当成一个新键去建）", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    const out = await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-does-not-exist", designFacetKey: key!,
+      value: "x", expectedItemRevision: "",
+    });
+    expect(out.kind).toBe("blueprint-not-found");
+  });
+
+  it("反证：迁移的易失默认值确实逐行求值（不是全表共享同一个 revision）", async () => {
+    // 这条不测应用逻辑，测的是我在迁移文件头注里写下的那句关于 PG 行为的断言——
+    // 不能只信记忆，得让真实数据库回答。若这条红，说明所有历史行共享同一个
+    // revision，CAS 的「谁先写谁后写」判定会失去意义。
+    const orgId = toOrgId(ORG);
+    const keys = designFacetKeys(DESIGN_FACET_DEFINITIONS).slice(0, 3);
+    const designFacets = new Map(keys.map((k) => [k, `内容-${k}`]));
+    await repo.create({
+      blueprintId: "bp-revision-distinct", orgId, actorId: ACTOR, name: "revision 分布",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets,
+    });
+    const rows = await asApp(ORG, (c) =>
+      c.query<{ item_revision: string }>(
+        `SELECT item_revision FROM blueprint_design_facets WHERE blueprint_id = $1`,
+        ["bp-revision-distinct"],
+      ),
+    );
+    const revisions = new Set(rows.rows.map((r) => r.item_revision));
+    expect(revisions.size).toBe(keys.length); // 全部互不相同
+  });
+});
