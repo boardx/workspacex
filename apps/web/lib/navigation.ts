@@ -196,8 +196,13 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   `lib/live-org-admin.ts` 真实接口（`listOrgMembers` / `listOrgInvites` /
           //   `updateOrganization` 等），**不是**原型——这条 `isPrototype: true` 是旧的、
           //   与代码事实不符，本轮一并订正（发现过程见菜单去重复查 issue）。
-          //   人类本轮原话没有点名「组织」这一项——只点名了 AI 能力域那五项重复；
-          //   `org-admin` 与「成员配额」的关系维持 2026-08-11 之前的判断，不在本轮改动。
+          //   ⚠ 2026-08-14（#1168）：人类截图实测后**点名了这一项**——左栏「组织成员」与
+          //   「成员配额」屏内的 `[打开组织成员管理]` 重复，要求删掉左栏那个。
+          //   （此处原本写着「人类本轮原话没有点名『组织』这一项……不在本轮改动」——
+          //   那句记录的是当时的裁决范围，不是「这件事不该做」。条件变了，结论跟着变。）
+          //   ⇒ 该键已加入 `admin-nav.tsx` 的 `MERGED_SECOND_LEVEL_KEYS`：**只过滤渲染**，
+          //   本数组项保留——它是 `lint-nav-reachability.mjs` 唯一会扫到的文本来源，
+          //   删掉会让 `/org-admin/preview` 被判不可达。路由本身不下线。
           { key: "org-admin", label: "组织成员", href: "/org-admin/preview", icon: Users, ucRefs: ["01-auth/uc-1-4"] },
           // 束: asset-governance（外来资产导入与生命周期治理，第 11 束）
           // ✅ 已从后台导航移除（人类原话："资产在这里也是不必要的"）。没有可合并的目标——
