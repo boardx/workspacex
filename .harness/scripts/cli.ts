@@ -17,6 +17,7 @@ import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
 import { phaseReadiness } from "./phase-readiness";
 import { coreLoopReadiness } from "./core-loop-readiness-doctor";
+import { roleScorecard } from "./role-scorecard";
 import { prQueue } from "./pr-queue";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
@@ -61,6 +62,7 @@ async function main(): Promise<void> {
     case "doctor":         doctor(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "readiness":      coreLoopReadiness(args); break;
+    case "scorecard":      roleScorecard(args); break;
     case "pr-queue":       prQueue(args); break;
     case "templates": {
       // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
@@ -226,6 +228,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness review-decision doctor                    # PROP-HARNESS-AGENT-001 H3A-036：Review Decision schema + reviewer≠producer 体检（Epic E3）");
       log.info("  pnpm harness skills doctor                             # skill 深度升级 backlog 第 2 轮：检查 SKILL.md 引用的仓库路径是否仍然存在");
       log.info("  pnpm harness readiness [--strict]                      # #814 核心闭环就绪度 CLR = min(可达性, 体验均值) + 统一队列");
+      log.info("  pnpm harness scorecard [--role <id>] [--strict]        # 角色记分卡：我的目标/blocker/等谁/下一个动作（现状分派生自 readiness）");
       process.exit(cmd ? 1 : 0);
   }
 }

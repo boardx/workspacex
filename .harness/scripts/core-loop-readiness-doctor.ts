@@ -108,9 +108,15 @@ function repoPathExists(ref: string): boolean {
   return existsSync(resolve(REPO_ROOT, ref));
 }
 
-export function coreLoopReadiness(args: Args): void {
-  const strict = args.flags.strict === true;
-
+/**
+ * 读记录 → 判定，一步到位。
+ *
+ * ⚠ 抽成导出，是为了让 `role-scorecard.ts`（角色记分卡）**复用同一次判定**而不是
+ * 自己再实现一遍 G2/G5 的 git 查询。角色记分卡里的「现状分」必须与 `readiness`
+ * 输出的**逐字一致**——两处各算一遍，迟早会因为其中一处忘了某道门而漂移，
+ * 而那正是本仓九次「同一事实两处声明」事故的形状。
+ */
+export function computeReadiness(): { state: ReadinessState; verdict: ReturnType<typeof judgeReadiness> } {
   if (!existsSync(READINESS_PATH)) {
     log.err(`找不到 ${READINESS_PATH}`);
     process.exit(1);
@@ -132,7 +138,13 @@ export function coreLoopReadiness(args: Args): void {
     ancestryByTrack[id] = measuresMainTree(t.scored_sha, t.watch);
   }
 
-  const v = judgeReadiness(state, changedByTrack, ancestryByTrack, repoPathExists);
+  return { state, verdict: judgeReadiness(state, changedByTrack, ancestryByTrack, repoPathExists) };
+}
+
+export function coreLoopReadiness(args: Args): void {
+  const strict = args.flags.strict === true;
+
+  const { state, verdict: v } = computeReadiness();
   const head = sh("git rev-parse HEAD").stdout.trim();
 
   // 方案 A：分数够高但有过期时，必须**说清楚是因为过期才不算达标**——
