@@ -27,6 +27,25 @@ interface Finding {
   msg: string;
 }
 
+/**
+ * A passing feature is integrated when its evidence commit is already on main.
+ * Pull-request workflows are the one pre-merge exception: actions/checkout checks
+ * out GitHub's synthetic merge ref, so the evidence commit is valid when it is an
+ * ancestor of that checked-out HEAD. Push/local runs retain the main-only rule.
+ */
+export function isEvidenceCommitIntegrated(
+  commit: string,
+  repoRoot = REPO_ROOT,
+  eventName = process.env.GITHUB_EVENT_NAME,
+  mainRef = "origin/main",
+  checkedOutRef = "HEAD",
+): boolean {
+  if (sh(`git merge-base --is-ancestor ${JSON.stringify(commit)} ${JSON.stringify(mainRef)}`, repoRoot).code === 0)
+    return true;
+  return eventName === "pull_request"
+    && sh(`git merge-base --is-ancestor ${JSON.stringify(commit)} ${JSON.stringify(checkedOutRef)}`, repoRoot).code === 0;
+}
+
 /** Phase runtime/E2E readiness is a separate state machine. Feature counts are
  * inputs to its transition gate, never a derived readiness result (#392). */
 function checkPhaseReadiness(phaseId: string, findings: Finding[]): void {
@@ -393,8 +412,7 @@ function checkMergedToMain(
     return;
   }
   const commit = head.stdout.trim();
-  const merged = sh(`git merge-base --is-ancestor ${commit} origin/main`, REPO_ROOT);
-  if (merged.code === 0) return;
+  if (isEvidenceCommitIntegrated(commit)) return;
   findings.push({
     level,
     phase: phaseId,
