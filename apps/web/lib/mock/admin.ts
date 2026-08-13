@@ -59,8 +59,12 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
       // 2026-08-11（人类裁决，真合并——见 phases/requirements/DECISIONS-FINAL.md 对应条目）：
       // 上一轮（#928/#929）只改了措辞、加了跳转链接，没有真的把重复入口合掉。这次人类
       // 直接裁决：Q-11/X-J 解除阻塞，五个重复项收敛掉，不再有第二个指向同一能力域的入口。
-      //   · 「项目蓝本」→ 改名「项目模板」，href 直接指向 `/tpl`（不再经过 `/admin/blueprint`
+      //   · 「项目蓝本」→ 改名「项目模板」，href 直接指向 `/tpl/list`（不再经过 `/admin/blueprint`
       //     那个空壳治理页，`templates` 束的蓝本设计器就是它）。
+      //     ⚠ 2026-08-14（人类反馈：生产入口不该带原型切换器）：改指 `/tpl/list` 而不是
+      //     裸 `/tpl`——`/tpl` 身兼「list 屏」与「一整套 UI-first 原型屏切换器」两职
+      //     （`TplNav` 中间导航列 + `PreviewControls` 顶条），`/tpl/list` 是只渲染
+      //     `BlueprintListScreen`、不带那套脚手架的生产入口。见 `app/tpl/list/page.tsx`。
       //   · 「Skill 目录」→ href 直接指向 `/skill`（Skill 库与市场，功能更完整的那条真实链路），
       //     原 `/admin/skill` 的简单 CRUD（名称/可见范围/归属团队编辑，`CapabilityCatalogScreen`）
       //     已折进 `/skill` 左栏的新增「目录」屏（`skill-app.tsx` 的 `catalog` screen），
@@ -72,7 +76,7 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
       { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: "画布模板", href: "/admin/canvasadmin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
-      { key: "blueprint", label: "项目模板", href: "/tpl", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
+      { key: "blueprint", label: "项目模板", href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },
   {

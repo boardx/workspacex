@@ -12,7 +12,8 @@
  *       `org-admin` 当「过滤是精确匹配、不是整组连坐」的活证据），所以对照换成了
  *       别的东西——见 §1 第三条与 §3 R-1 各自的注释。删掉对照而不换，
  *       整组过滤断言就变成「选择器拼错也全绿」的空转。
- *   §2 `ADMIN_NAV` 五项已改指到真实合并落点（蓝本→/tpl、Skill→/skill）。
+ *   §2 `ADMIN_NAV` 五项已改指到真实合并落点（蓝本→/tpl/list——生产入口，不带原型
+ *       切换器，2026-08-14 另一处修复；Skill→/skill）。
  *   §3 旧路由不是死链：`/admin/blueprint`、`/admin/skill` 重定向到新落点。
  *   §4 反证：把某一项塞回渲染列表，判定必须能被抓到（不是空转）。
  */
@@ -67,10 +68,10 @@ describe("§1 「能力域 · 全生命周期」组已真合并，不再有五�
 /* ══════════════════ §2 ADMIN_NAV 五项已改指到真实合并落点 ══════════════════ */
 
 describe("§2 AI 能力组的入口已直接指向真实的合并落点，不再经过空壳/简单 CRUD 页", () => {
-  it("项目蓝本 → 改名「项目模板」，href 直接指向 /tpl", () => {
+  it("项目蓝本 → 改名「项目模板」，href 直接指向 /tpl/list（生产入口，不带原型切换器）", () => {
     const item = adminItem("blueprint");
     expect(item.label).toBe("项目模板");
-    expect(item.href).toBe("/tpl");
+    expect(item.href).toBe("/tpl/list");
   });
 
   it("Skill 目录 → href 直接指向 /skill（更完整的 Skill 库与市场）", () => {
