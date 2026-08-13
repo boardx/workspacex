@@ -193,11 +193,14 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     },
     { timeout: 60_000 },
   );
-  await page.getByTestId("chat-run-tool-call-steps").waitFor({ state: "visible", timeout: 5_000 });
-  // V6（PROP-CHAT-10ITER-001）—— 思考折叠块「思考了 X 秒 · N 步」从真实 run steps 派生。
-  // 默认 open（P7 的工具调用可见性不被折叠藏起来），summary 含步数。
-  await expect(page.getByTestId("chat-run-thinking-summary")).toContainText("步");
+  // TOOLCHAIN-01（人类裁决方案 A）—— 工具调用链改 Claude-Code 风**默认收起**一行摘要
+  // （`思考了 X 秒 · 调用了 N 个工具`），不再默认铺一大块。收起态即拍，正是这次改的默认 UX。
+  await page.getByTestId("agent-tool-chain").waitFor({ state: "visible", timeout: 5_000 });
+  await expect(page.getByTestId("agent-tool-chain-summary")).toContainText("工具");
   await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
+  // 点开摘要，证明细节一键可达、逐条真实 step 仍在（信息不丢，只是默认折起）。
+  await page.getByTestId("agent-tool-chain-toggle").click();
+  await page.getByTestId("agent-tool-chain-step-0").waitFor({ state: "visible", timeout: 5_000 });
 
   /**
    * #728 P8 —— 语音实时转录取证。评分员第 12 轮指出：判据第 5 项逐字要求「转录
