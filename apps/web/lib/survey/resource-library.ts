@@ -1,4 +1,4 @@
-export type SurveyResourceTab = "surveys" | "templates";
+export type SurveyResourceTab = "surveys" | "modules" | "reports";
 export type SurveyResourceState = "default" | "loading" | "empty" | "error";
 export type SurveyCardStatus = "draft" | "collecting" | "closed";
 export type TemplateCategory = "organization" | "collaboration" | "feedback";
