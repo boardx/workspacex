@@ -21,19 +21,13 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (url.pathname === "/interviews/digital") {
         return json({ items: [{
-          interviewId: "itv-1", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
+          interviewId: "itv-1", kind: "batch", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
           status: "running", expertCount: 3, completedExpertCount: 2, primaryAction: "continue_runs",
           updatedAt: "2026-08-12T03:00:00.000Z",
         }, {
-          interviewId: "itv-2", name: "待生成报告", tags: ["报告"], topic: "归纳专家回答",
+          interviewId: "itv-2", kind: "batch", name: "待生成报告", tags: ["报告"], topic: "归纳专家回答",
           status: "report_pending", expertCount: 2, completedExpertCount: 2, primaryAction: "generate_report",
           updatedAt: "2026-08-12T04:00:00.000Z",
-        }] });
-      }
-      if (url.pathname === "/interviews/digital/experts") {
-        return json({ items: [{
-          expertId: "agent-de", initials: "DE", displayName: "德国采购总监", role: "采购与供应链",
-          domains: ["采购与供应链"], materialBoundary: "未绑定已发布材料版本", exploratory: true,
         }] });
       }
       throw new Error(`unexpected fetch ${url.pathname}`);
@@ -49,6 +43,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getByTestId("itv-tab-experts")).toHaveTextContent("专家列表");
     expect(screen.getByTestId("itv-create")).toHaveAttribute("href", "/itv/new");
     expect(screen.getByTestId("itv-create")).toHaveClass("whitespace-nowrap");
+    expect(screen.getByTestId("itv-create")).toHaveClass("bg-primary", "text-primary-foreground");
 
     const card = await screen.findByTestId("itv-history-card-itv-1");
     expect(within(card).getByText("德国采购决策链")).toBeInTheDocument();
@@ -59,12 +54,23 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
   });
 
-  it("切到专家列表后显示材料边界，快捷访谈进入独立页面", async () => {
+  it("切到专家列表后显示 persona mock、分类和快捷访谈入口", async () => {
     render(<InterviewStudioHome initialTab="history" />);
     fireEvent.click(screen.getByTestId("itv-tab-experts"));
-    const card = await screen.findByTestId("itv-expert-card-agent-de");
-    expect(within(card).getByText("未绑定已发布材料版本")).toBeInTheDocument();
-    expect(screen.getByTestId("itv-quick-agent-de")).toHaveAttribute("href", "/itv/quick/new?expertId=agent-de");
+    const card = await screen.findByTestId("itv-expert-card-mock-persona:68ecb1289191bb24396f9bd4");
+    expect(within(card).getByText("张浩宇")).toBeInTheDocument();
+    expect(within(card).getByText("AI/机器学习专家")).toBeInTheDocument();
+    expect(within(card).getByText("Mock 专家")).toBeInTheDocument();
+    expect(screen.getByTestId("itv-expert-count")).toHaveTextContent("97 位 Mock 专家");
+    expect(screen.getByRole("button", { name: "技术专家" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全部专家" }))
+      .toHaveClass("bg-primary", "text-primary-foreground");
+    expect(screen.getByTestId("itv-quick-mock-persona:68ecb1289191bb24396f9bd4"))
+      .toHaveAttribute("href", "/itv/quick/new?expertId=mock-persona%3A68ecb1289191bb24396f9bd4");
+    expect(screen.getByTestId("itv-quick-mock-persona:68ecb1289191bb24396f9bd4"))
+      .toHaveClass("bg-primary", "text-primary-foreground");
+    expect(within(card).getByRole("link", { name: "查看专家" }))
+      .toHaveAttribute("href", "/itv/experts/mock-persona:68ecb1289191bb24396f9bd4");
   });
 
   it("依赖失败显示错误，不伪装成空列表", async () => {

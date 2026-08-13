@@ -282,6 +282,7 @@ export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "ru
 
 export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   interviewId: z.string().min(1),
+  kind: z.enum(["quick", "batch"]),
   status: DigitalInterviewStatus,
   expertCount: z.number().int().nonnegative(),
   completedExpertCount: z.number().int().nonnegative(),
@@ -298,6 +299,34 @@ export const DigitalExpertCatalogRow = z.object({
   domains: z.array(z.string().min(1)).min(1),
   materialBoundary: z.string().min(1),
   exploratory: z.boolean(),
+}).strict();
+
+export const QuickDigitalInterviewMessage = z.object({
+  messageId: z.string().min(1),
+  role: z.enum(["user", "assistant"]),
+  text: z.string().min(1),
+  exploratory: z.literal(true),
+  sourcePointers: z.array(z.string().min(1)),
+  createdAt: z.string().datetime(),
+}).strict();
+
+export const QuickDigitalInterview = z.object({
+  interviewId: z.string().min(1),
+  expert: DigitalExpertCatalogRow,
+  messages: z.array(QuickDigitalInterviewMessage),
+  version: z.number().int().positive(),
+}).strict();
+
+/** 快捷访谈转批量后冻结的原始问答素材；正文与来源指针不得在转换时改写。 */
+export const DigitalInterviewSourceMaterial = z.object({
+  sourceMessageId: z.string().min(1),
+  role: z.enum(["user", "assistant"]),
+  text: z.string().min(1),
+  sourcePointers: z.array(z.string().min(1)),
+}).strict();
+
+export const ConvertedDigitalInterview = DigitalInterview.extend({
+  sourceMaterials: z.array(DigitalInterviewSourceMaterial),
 }).strict();
 
 /** 模板列表行——**名称/用过N次/一句话/题数/时长区间** 五要素 */
@@ -513,6 +542,39 @@ export const operations = {
     in: z.object({ domain: z.string().trim().min(1).optional() }).strict(),
     out: z.object({ items: z.array(DigitalExpertCatalogRow) }).strict(),
     err: ["DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  startQuickDigitalInterview: {
+    method: "POST", path: "/interviews/digital/quick",
+    in: z.object({ expertId: z.string().min(1), requestId: z.string().min(1) }).strict(),
+    out: QuickDigitalInterview,
+    err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  getQuickDigitalInterview: {
+    method: "GET", path: "/interviews/digital/quick/:interviewId",
+    in: z.object({ interviewId: z.string().min(1) }).strict(),
+    out: QuickDigitalInterview,
+    err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  appendQuickDigitalInterviewMessage: {
+    method: "POST", path: "/interviews/digital/quick/:interviewId/messages",
+    in: z.object({
+      interviewId: z.string().min(1), text: z.string().trim().min(1),
+      expectedVersion: z.number().int().positive(),
+    }).strict(),
+    out: QuickDigitalInterview,
+    err: ["NO_INTERVIEW_ACCESS", "CONCURRENT_MODIFICATION", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  convertQuickInterviewToBatch: {
+    method: "POST", path: "/interviews/digital/quick/:interviewId/convert",
+    in: DigitalInterviewDraftInput.extend({
+      interviewId: z.string().min(1), expectedVersion: z.number().int().positive(),
+    }).strict(),
+    out: ConvertedDigitalInterview,
+    err: ["NO_INTERVIEW_ACCESS", "CONCURRENT_MODIFICATION", "DIGITAL_INTERVIEW_INPUT_INVALID", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /* ── A 组 · 范围与列表（uc-6-0）───────────────────────────────── */

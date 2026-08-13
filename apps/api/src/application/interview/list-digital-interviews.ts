@@ -36,6 +36,7 @@ export async function listDigitalInterviews(
   return {
     items: visible.map((row) => ({
       interviewId: row.interviewId,
+      kind: row.kind,
       name: row.name,
       tags: [...row.tags],
       topic: row.topic,

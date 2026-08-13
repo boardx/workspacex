@@ -5,12 +5,16 @@ import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
 import {
-  loadDigitalExperts,
   loadDigitalInterviewHistory,
   type DigitalExpertCatalogRow,
   type DigitalInterviewHistoryRow,
 } from "@/lib/interview-api";
 import { cn } from "@/lib/utils";
+import {
+  MOCK_DIGITAL_EXPERTS,
+  MOCK_EXPERT_CATEGORIES,
+  type MockDigitalExpertPersona,
+} from "@/lib/mock/digital-expert-personas";
 
 type Tab = "history" | "experts";
 type LoadState<T> =
@@ -24,8 +28,6 @@ const HISTORY_FILTERS = [
   { value: "questions_pending", label: "待确认" },
   { value: "completed", label: "已完成" },
 ] as const;
-
-const EXPERT_DOMAINS = [undefined, "采购与供应链", "产品与市场", "交付与合规"] as const;
 
 const STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"], string> = {
   draft: "草稿",
@@ -48,7 +50,6 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
   const [status, setStatus] = React.useState<string | undefined>();
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
-  const [experts, setExperts] = React.useState<LoadState<DigitalExpertCatalogRow>>({ kind: "loading" });
 
   React.useEffect(() => {
     let active = true;
@@ -59,17 +60,6 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
     );
     return () => { active = false; };
   }, [status]);
-
-  React.useEffect(() => {
-    if (tab !== "experts") return;
-    let active = true;
-    setExperts({ kind: "loading" });
-    void loadDigitalExperts(domain).then(
-      (result) => active && setExperts({ kind: "ready", items: result.items }),
-      (error: unknown) => active && setExperts({ kind: "error", reason: reasonOf(error) }),
-    );
-    return () => { active = false; };
-  }, [domain, tab]);
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
@@ -84,7 +74,7 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
           <Link
             data-testid="itv-create"
             href="/itv/new"
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-foreground px-5 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             <Plus className="size-4" /> 新建访谈
           </Link>
@@ -112,14 +102,26 @@ export function InterviewStudioHome({ initialTab = "history" }: { initialTab?: T
           </section>
         ) : (
           <section aria-label="专家列表" className="pt-6">
-            <FilterBar>
-              {EXPERT_DOMAINS.map((value) => (
-                <FilterButton key={value ?? "all"} active={domain === value} onClick={() => setDomain(value)}>
-                  {value ?? "全部专家"}
-                </FilterButton>
-              ))}
-            </FilterBar>
-            <ExpertContent state={experts} />
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <FilterBar>
+                {[undefined, ...MOCK_EXPERT_CATEGORIES].map((value) => (
+                  <FilterButton key={value ?? "all"} active={domain === value} onClick={() => setDomain(value)}>
+                    {value ?? "全部专家"}
+                  </FilterButton>
+                ))}
+              </FilterBar>
+              <p data-testid="itv-expert-count" className="py-2 text-xs text-muted-foreground">
+                {domain === undefined ? MOCK_DIGITAL_EXPERTS.length : MOCK_DIGITAL_EXPERTS.filter((expert) => expert.domains.includes(domain)).length} 位 Mock 专家
+              </p>
+            </div>
+            <ExpertContent
+              state={{
+                kind: "ready",
+                items: domain === undefined
+                  ? MOCK_DIGITAL_EXPERTS
+                  : MOCK_DIGITAL_EXPERTS.filter((expert) => expert.domains.includes(domain)),
+              }}
+            />
           </section>
         )}
       </div>
@@ -145,7 +147,7 @@ function TabButton({ active, testId, onClick, children }: {
 }
 
 function FilterBar({ children }: { children: React.ReactNode }) {
-  return <div className="mb-5 flex flex-wrap items-center gap-2">{children}</div>;
+  return <div className="flex flex-wrap items-center gap-2">{children}</div>;
 }
 
 function FilterButton({ active, onClick, children }: {
@@ -154,7 +156,7 @@ function FilterButton({ active, onClick, children }: {
   return (
     <button type="button" onClick={onClick} className={cn(
       "rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
-      active ? "border-foreground bg-foreground text-background" : "border-border bg-background text-muted-foreground hover:text-foreground",
+      active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground",
     )}>{children}</button>
   );
 }
@@ -200,6 +202,7 @@ function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
 }
 
 function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
+  if (item.kind === "quick") return { label: "继续对话", href: `/itv/quick/${item.interviewId}` };
   const detail = `/itv/${item.interviewId}`;
   const report = `${detail}/report`;
   return {
@@ -219,20 +222,26 @@ function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> })
   if (state.items.length === 0) return <StatePanel testId="itv-experts-empty">当前分类暂无可用专家。</StatePanel>;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {state.items.map((expert) => (
+      {state.items.map((expert) => {
+        const mock = expert as MockDigitalExpertPersona;
+        return (
         <article key={expert.expertId} data-testid={`itv-expert-card-${expert.expertId}`} className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">{expert.initials}</div>
-            <div>
-              <h2 className="text-base font-semibold text-card-foreground">{expert.displayName}</h2>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-card-foreground">{expert.displayName}</h2>
+                <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
             </div>
           </div>
+          {mock.bio && <p className="mt-4 line-clamp-2 text-sm leading-6 text-muted-foreground">{mock.bio}</p>}
           <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">材料边界：</span>{expert.materialBoundary}
           </div>
           <div className="mt-5 flex items-center gap-3">
-            <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${expert.expertId}`} className="inline-flex h-9 items-center rounded-lg bg-foreground px-4 text-xs font-medium text-background">
+            <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`} className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
               快捷访谈
             </Link>
             <Link href={`/itv/experts/${expert.expertId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-medium text-foreground">
@@ -240,7 +249,7 @@ function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> })
             </Link>
           </div>
         </article>
-      ))}
+      );})}
     </div>
   );
 }

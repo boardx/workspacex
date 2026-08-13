@@ -108,6 +108,10 @@ export default {
       // `startRecording` 前置的“配置保留期”从浏览器根本发不出请求，会被 Next 自己
       // 接住返回 404 HTML，而不是 API 的 403/422。
       { source: `${prefix}/retention-policy`, destination: `${apiOrigin}/retention-policy` },
+      // Phase 04 Interview Studio：集合路由承载历史列表，子路由承载专家与快捷访谈。
+      // 两条都需要，否则 Next 会把请求接成 404 HTML，客户端表现为 Unexpected token '<'。
+      { source: `${prefix}/interviews`, destination: `${apiOrigin}/interviews` },
+      { source: `${prefix}/interviews/:path*`, destination: `${apiOrigin}/interviews/:path*` },
       { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
       // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
       // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
