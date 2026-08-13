@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Plus, FileCode2, Braces, DatabaseZap, Play, ShieldCheck, Eye } from "lucide-react";
+import { Plus, FileCode2, Braces, DatabaseZap, Play, ShieldCheck, Eye, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { ScreenHead, RoleGate, NewScreenTag } from "./skill-shared";
 import {
-  SKILLS, REVIEW_QUEUE, TRY_RUN_SAMPLE,
+  SKILLS, REVIEW_QUEUE, TRY_RUN_SAMPLE, MARKET_PICKS,
   SKILL_STATUS_LABEL, SKILL_STATUS_TONE, SKILL_SOURCE_LABEL, SKILL_SOURCE_TONE,
   COMMUNITY_DISABLED, satisfactionText,
   type SkillView, type SkillRow,
@@ -92,11 +92,17 @@ export function SkillLibrary({ state, view }: { state: UiState; view: SkillView 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-13 font-medium">{r.name}</span>
                       <Badge tone="warning">待审核</Badge>
-                      <span className="text-10 text-muted-foreground">
-                        {r.submitter} · {r.submittedAt}
-                        {r.files ? ` · ${r.files} 个文件` : ""} · 来源 {SKILL_SOURCE_LABEL[r.source]}
-                      </span>
                     </div>
+                    {/* 原型正文那句完整描述（偏移 15719900 起），与下面紧凑元数据行并列——两者不是互相替代 */}
+                    {r.summary && (
+                      <p className="text-11 leading-relaxed text-muted-foreground" data-testid={`skill-review-summary-${r.id}`}>
+                        {r.summary}
+                      </p>
+                    )}
+                    <span className="text-10 text-muted-foreground">
+                      {r.submitter} · {r.submittedAt}
+                      {r.files ? ` · ${r.files} 个文件` : ""} · 来源 {r.sourceDetail ?? SKILL_SOURCE_LABEL[r.source]}
+                    </span>
                     {/* 两道门禁结论并排 */}
                     <div className="flex flex-wrap items-center gap-2 text-11">
                       <Badge tone={r.securityScan === "passed" ? "primary" : "danger"}>
@@ -174,6 +180,12 @@ export function SkillLibrary({ state, view }: { state: UiState; view: SkillView 
                         <Button size="xs" variant="ghost" onClick={() => setTryOf((v) => (v === s.id ? null : s.id))} data-testid={`skill-tryrun-${s.id}`}>
                           <Play aria-hidden className="h-3 w-3" /> 试跑<NewScreenTag>补画</NewScreenTag>
                         </Button>
+                        {/* 原型全部 skill 行都带「删除」（偏移 15711167 起逐条核对）；内置 skill 不可删（O-11 邻近约束） */}
+                        {!s.builtin && (
+                          <Button size="xs" variant="ghost" title="删除" data-testid={`skill-delete-${s.id}`}>
+                            <Trash2 aria-hidden className="h-3 w-3" />
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
@@ -226,6 +238,24 @@ function ContractEditor({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2">
           <Button size="sm" variant="primary" data-testid="skill-editor-submit">提交校验</Button>
           <Button size="sm" variant="ghost" onClick={onClose} data-testid="skill-editor-cancel">取消</Button>
+        </div>
+
+        {/* 原型「或从市场挑一个改」（偏移 15726036 起）：三个市场逐字核对。
+            与「导入契约（社区）」同受 D-06 支配，phase-1 仍是置灰展示——完整画出签核意图，
+            不因为暂不接后端就从签核材料里消失。 */}
+        <div className="mt-1 rounded-md border border-border-subtle bg-panel-alt p-3" data-testid="skill-market-picks">
+          <p className="mb-2 text-11 font-medium text-foreground">或从市场挑一个改</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {MARKET_PICKS.map((m) => (
+              <div key={m.id} className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5" data-testid={`skill-market-${m.id}`}>
+                <span className="text-11 font-medium text-foreground">{m.name}</span>
+                <span className="text-9 text-muted-foreground">{m.countLabel}</span>
+                <Button size="xs" variant="outline" disabled={COMMUNITY_DISABLED} title={COMMUNITY_DISABLED ? "社区市场浏览 phase-1 不实现（D-06），入口置灰" : undefined} data-testid={`skill-market-browse-${m.id}`}>
+                  浏览
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
