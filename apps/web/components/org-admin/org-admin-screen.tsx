@@ -19,6 +19,7 @@ import { contractFieldIssues } from "@/lib/auth";
 import { buildActivationLink } from "@/lib/activation-link";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
+import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import {
   createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
   updateOrganization, uploadOrgAvatar,
@@ -69,6 +70,8 @@ export function OrgAdminScreen() {
   // 静默销毁了（独立复核 D1，数据不可恢复类）。挂在这里让它在标签页切换间存活；
   // 真正的销毁条件只有：用户点关闭、刷新/离开页面、被下一条链接覆盖。
   const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
+  // 共享链接的一次性明文展示（shared-invite-links delta）：同一条 D1 纪律、同一个挂载层。
+  const [sharedLinkReveal, setSharedLinkReveal] = React.useState<SharedLinkReveal | null>(null);
 
   return (
     <AppShell previewRole={null}>
@@ -110,7 +113,14 @@ export function OrgAdminScreen() {
 
           <TabsContent value="invites">
             {orgId ? (
-              <InvitesTab orgId={orgId} isAdmin={isAdmin} oneTimeLink={oneTimeLink} onOneTimeLink={setOneTimeLink} />
+              <InvitesTab
+                orgId={orgId}
+                isAdmin={isAdmin}
+                oneTimeLink={oneTimeLink}
+                onOneTimeLink={setOneTimeLink}
+                sharedLinkReveal={sharedLinkReveal}
+                onSharedLinkReveal={setSharedLinkReveal}
+              />
             ) : (
               <LoadingSkeleton rows={3} />
             )}
@@ -587,7 +597,8 @@ function describeInviteFailure(failure: unknown): string {
  * 弹层单选——同 `top-bar.tsx` 的 `OrgSwitcher` 模式（#860 把裸原生 select 换掉的
  * 同一处置）：Button 触发 + role=listbox 弹层，外点/Escape 关闭。
  */
-function PopoverSelect({
+// export 供 shared-invite-links.tsx 复用——同一份弹层单选实现不许出现第二份副本。
+export function PopoverSelect({
   value, options, onSelect, disabled, testid, ariaLabel,
 }: {
   value: string;
@@ -1107,10 +1118,13 @@ function InviteRow({
 }
 
 function InvitesTab({
-  orgId, isAdmin, oneTimeLink, onOneTimeLink,
+  orgId, isAdmin, oneTimeLink, onOneTimeLink, sharedLinkReveal, onSharedLinkReveal,
 }: {
   orgId: string;
   isAdmin: boolean;
+  /** 共享链接一次性明文（shared-invite-links delta），同 oneTimeLink 的挂载层纪律。 */
+  sharedLinkReveal: SharedLinkReveal | null;
+  onSharedLinkReveal: (reveal: SharedLinkReveal | null) => void;
   /**
    * 一次性激活链接（delta ①）：state 由 `OrgAdminScreen` 持有（见其注释：切标签页不销毁，
    * 复核 D1）。只存在于内存里；换一条会覆盖上一条——上一条已经展示过它唯一的一次机会，
@@ -1209,6 +1223,14 @@ function InvitesTab({
           ))}
         </ul>
       </StateShell>
+      {isAdmin && (
+        <SharedInviteLinksSection
+          orgId={orgId}
+          currentUserId={session?.userId ?? null}
+          reveal={sharedLinkReveal}
+          onReveal={onSharedLinkReveal}
+        />
+      )}
       {!isAdmin && state !== "denied" && (
         <p className="text-10 text-muted-foreground">（当前身份非组织管理员，若上方出现内容属于预览态误判，请以服务端 403 为准。）</p>
       )}

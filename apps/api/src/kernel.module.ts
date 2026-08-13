@@ -294,6 +294,11 @@ import { SkillMountController } from "./interface/controllers/skill-mount.contro
 import { ORG_INVITE_REPOSITORY } from "./application/auth/org-invite-ports";
 import { PgOrgInviteRepository } from "./infrastructure/auth/pg-org-invite-repository";
 import { OrgInviteController } from "./interface/controllers/org-invite.controller";
+// shared-invite-links delta（人类 2026-08-13 三条拍板）：组织共享邀请链接。
+// ⚠ 与单人邀请分端口分仓储：两套令牌语义刻意不同（一次性明文 vs 多次 hash），见端口头注。
+import { ORG_INVITE_LINK_REPOSITORY } from "./application/auth/org-invite-link-ports";
+import { PgOrgInviteLinkRepository } from "./infrastructure/auth/pg-org-invite-link-repository";
+import { OrgInviteLinkController } from "./interface/controllers/org-invite-link.controller";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 团队增删改 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -517,6 +522,7 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
     ChatController,
     ChatAttachmentController,
     OrgInviteController,
+    OrgInviteLinkController,
     OrgAdminManagementController,
     FilesBrowserController,
     FilesDeliveryController,
@@ -1029,6 +1035,12 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
     {
       provide: ORG_INVITE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgInviteRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // shared-invite-links delta：组织共享邀请链接（多次使用、hash 落库）。
+    {
+      provide: ORG_INVITE_LINK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
       inject: [DATABASE_PORT],
     },
     // F11：团队增删改（占用校验）+ 成员移除（停用访问，不删产出）。两个独立 provider——

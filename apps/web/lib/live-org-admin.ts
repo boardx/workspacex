@@ -409,3 +409,49 @@ export async function getPersonalLayerSummary(
 export async function listMyAccessLog(): Promise<ListMyAccessLogOut> {
   return apiRequest<ListMyAccessLogOut>(orgAdmin.operations.listMyAccessLog.path, { method: "GET" });
 }
+
+/* ═══════════════ shared-invite-links delta：组织共享邀请链接（人类 2026-08-13 拍板） ═══════════════ */
+
+export type CreateOrgInviteLinkOut = z.infer<typeof orgAdmin.operations.createOrgInviteLink.out>;
+export type ListOrgInviteLinksOut = z.infer<typeof orgAdmin.operations.listOrgInviteLinks.out>;
+export type RevokeOrgInviteLinkOut = z.infer<typeof orgAdmin.operations.revokeOrgInviteLink.out>;
+export type ReviewOrgInviteLinkOut = z.infer<typeof orgAdmin.operations.reviewOrgInviteLink.out>;
+
+export interface CreateOrgInviteLinkInput {
+  readonly orgId: string;
+  readonly orgRole: z.infer<typeof identity.OrgRole>;
+  readonly expiry: z.infer<typeof orgAdmin.OrgInviteLinkExpiry>;
+  readonly maxUses: number | null;
+}
+
+/** 仅 admin。`linkToken` 明文只在这一次响应里出现（admin 级链接为 null：待复核）。 */
+export async function createOrgInviteLink(input: CreateOrgInviteLinkInput): Promise<CreateOrgInviteLinkOut> {
+  return apiRequest<CreateOrgInviteLinkOut>(
+    path(orgAdmin.operations.createOrgInviteLink.path, { orgId: input.orgId }),
+    { method: "POST", body: { orgId: input.orgId, orgRole: input.orgRole, expiry: input.expiry, maxUses: input.maxUses } },
+  );
+}
+
+/** 仅 admin。恒不含令牌（明文在库里根本不存在）。 */
+export async function listOrgInviteLinks(orgId: string): Promise<ListOrgInviteLinksOut> {
+  return apiRequest<ListOrgInviteLinksOut>(
+    path(orgAdmin.operations.listOrgInviteLinks.path, { orgId }), { method: "GET" });
+}
+
+/** 幂等作废。 */
+export async function revokeOrgInviteLink(orgId: string, linkId: string): Promise<RevokeOrgInviteLinkOut> {
+  return apiRequest<RevokeOrgInviteLinkOut>(
+    path(orgAdmin.operations.revokeOrgInviteLink.path, { orgId, linkId }),
+    { method: "POST", body: { orgId, linkId } },
+  );
+}
+
+/** admin 级链接双人复核；批准那一次响应带 `linkToken` 明文（发起人不可自批）。 */
+export async function reviewOrgInviteLink(
+  orgId: string, linkId: string, decision: "approve" | "reject",
+): Promise<ReviewOrgInviteLinkOut> {
+  return apiRequest<ReviewOrgInviteLinkOut>(
+    path(orgAdmin.operations.reviewOrgInviteLink.path, { orgId, linkId }),
+    { method: "POST", body: { orgId, linkId, decision, reason: null } },
+  );
+}

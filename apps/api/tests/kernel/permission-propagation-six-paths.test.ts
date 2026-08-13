@@ -789,7 +789,19 @@ describe("lint-permission-paths: counter-proof", () => {
     //
     // 它的**被强制的前提**：`tests/org-admin/limit-rule-authorization.test.ts` 逐条反证
     // 非成员/非 admin 被拒，**且断言被拒时库里没有新规则、没有新事件**。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(52);
+    //
+    // ⚠ Raised 52 -> 53 by shared-invite-links delta（组织共享邀请链接）：新条目是
+    // `infrastructure/auth/pg-org-invite-link-repository.ts`。论点与
+    // `pg-org-invite-repository.ts` **同形**：`activate()` 读的 `org_invite_links` 行是
+    // 授予的权威，而这条路径上没有 requester 可判——点链接的人还不属于任何组织，
+    // `disclose()` 无问题可问。admin 侧四方法的组织 admin 判定在用例层
+    // （actorOrgRole === "admin"）先于仓储跑完；`list()` 只回链接元数据，令牌明文
+    // 在库里**根本不存在**（只有 sha-256 hash，比单人邀请的明文 token 表更窄）。
+    //
+    // 它的**被强制的前提**：`tests/auth/shared-invite-links.test.ts` 断言 activate 的
+    // 返回形状恰好是授予键集（多一个内容字段即红），并以「搜值不搜字段名」断言两张表
+    // 整行 JSON 里搜不到签发响应中的明文。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(53);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
