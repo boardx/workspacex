@@ -19,4 +19,12 @@ describe("SurveyTemplateEditorShell", () => {
     fireEvent.click(screen.getByTestId("survey-template-back-to-list"));
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=reports");
   });
+
+  it("按报告模块 ID 加载对应标题和章节数量", () => {
+    render(<SurveyTemplateEditorShell templateId="tpl-team-health" />);
+
+    expect(screen.getByRole("heading", { name: "团队协作健康度报告模块" })).toBeInTheDocument();
+    expect(screen.getByText(/6 个报告章节/)).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^survey-template-section-(?!list$)/)).toHaveLength(6);
+  });
 });

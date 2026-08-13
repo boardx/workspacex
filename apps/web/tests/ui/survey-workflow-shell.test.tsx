@@ -26,6 +26,9 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
+    expect(replace).toHaveBeenCalledWith("/studio/survey/new?step=template&module=profile");
   });
 
   it("只呈现新的五步导航并用 URL 切步", () => {

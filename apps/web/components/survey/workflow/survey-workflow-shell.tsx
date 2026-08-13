@@ -36,7 +36,8 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
   const metrics = getSurveyMetrics(model);
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
-    router.replace(`/studio/survey/${surveyId}?step=${step}`);
+    const moduleQuery = moduleId ? `&module=${moduleId}` : "";
+    router.replace(`/studio/survey/${surveyId}?step=${step}${moduleQuery}`);
   };
 
   if (uiState === "loading") return <WorkflowMessage testId="survey-workflow-loading" title="正在加载问卷" body="正在准备问题、答卷与报告数据…" pulse />;
