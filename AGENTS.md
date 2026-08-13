@@ -104,6 +104,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 ## 按需深入(渐进式披露,需要时才读)
 - 参考技术架构（前端/后台/AI/DB/实时同步）→ `.harness/instructions/architecture.md`
 - **契约先行的设计流程 + 签核执行书（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-023 / ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
+- **人类决策打包流程（签核决策收窄成 A/B/C/D + 单 PR 交付，减少人类手工 git 操作）** → `.harness/instructions/human-decision-packaging.md`（2026-08-13 起，每次开工先跑 `pnpm harness dashboard` 看等人类那节）
 - 智能体编排/工具/记忆约定 → `.harness/instructions/agentic-patterns.md`
 - 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
