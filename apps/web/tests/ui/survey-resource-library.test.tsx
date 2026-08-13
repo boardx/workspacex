@@ -41,6 +41,8 @@ describe("SurveyResourceLibrary", () => {
     fireEvent.click(screen.getByTestId("survey-resource-nav-reports"));
 
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=reports");
+    expect(screen.getByTestId("survey-resource-card-report-sv-1")).toHaveTextContent("56 份有效答卷");
+    expect(screen.queryByTestId("survey-resource-card-report-sv-project-review")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("survey-resource-card-report-sv-1"));
     expect(push).toHaveBeenLastCalledWith("/studio/survey/sv-1?step=report");
   });
