@@ -62,7 +62,7 @@
 | HMV2-014 | P0 | ✅ 完成 | `placeholder-gate.ts`：machine（`{{...}}`）+ human（`<CJK>`/`<…>`）两类检测，规则取自 `.harness/templates/` 实测语法；纯 ASCII 尖括号如实标注不覆盖（与 HTML/泛型不可区分）；行内 ignore 标记同 skill-doctor 先例。9 条单测含反证。本 PR |
 | HMV2-015 | P0 | ✅ 完成 | `generated-metadata.ts`：文件内注释头（.md/.yaml 两种语法）+ 正文哈希三件原语（wrap/parse/verify），哈希由 wrap 内部计算防伪造，未登记扩展名抛错不静默省略。口径经 #422 提案无异议。12 条单测含 5 组反证。本 PR |
 | HMV2-016 | P0 | ✅ 完成 | `generated-drift-gate.ts`（presence-based：带 015 元数据头即受控，畸形头/正文哈希不符即红）接入 `templates doctor`（§12 第 9 条，从 notYetImplemented 移除）；git ls-files -z 全量扫描，git 失败=UNKNOWN 非零退出（P7）。6 条单测 + 活体反证（基线绿→种手改文件红 exit=1→恢复绿）。'该有头而没有'的目录约定半边如实标注留给 017 落盘时定。本 PR |
-| HMV2-017 | P1 | ⬜ 未开始 | `templates render` 命令 |
+| HMV2-017 | P1 | ✅ 完成 | `templates render [--dry-run]`：E2 五件套组装（render-pipeline.ts 纯组合层 013→014→015，016 在下游复检）+ 收编 H3A-035 为首个注册 renderer（adapter 零改动渲染逻辑，兑现 HMV2-025 行的收编标注）+ 首份真实 TPL-EVT-001 事件实例与其生成物入库。发现并上报 TPL-EVT-001 双 schema 并存（E1 示例 vs H3A-033 envelope，#422 待裁）；template-scan 豁免从按 template_id 改为按目录（每份文件恰归一道门）。口径依据 #422 无异议协议。本 PR |
 | HMV2-018 | P1 | ⬜ 未开始 | `templates migrate` 框架 |
 | HMV2-019 | P1 | ⬜ 未开始 | Mermaid renderer 基础 |
 
