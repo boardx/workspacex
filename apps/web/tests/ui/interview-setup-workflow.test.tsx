@@ -43,4 +43,61 @@ describe("F04 可点击 Mock 访谈流程", () => {
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("# 德国采购决策链");
     expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
+
+  it("从专家目录弹窗搜索并多选添加专家", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "专家选择", tags: ["采购"] });
+    render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证决策链" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+
+    fireEvent.click(await screen.findByTestId("itv-add-expert"));
+    expect(screen.getByTestId("itv-expert-picker-dialog")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: "陈宇轩" } });
+    fireEvent.click(screen.getByLabelText("选择专家 陈宇轩"));
+    fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
+
+    expect(screen.getByText("陈宇轩")).toBeInTheDocument();
+    expect(screen.getAllByText("陈宇轩")).toHaveLength(1);
+  });
+
+  it("每位专家默认三问，生成问题与手动问题都可删除", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "问题编辑", tags: ["采购"] });
+    render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证决策链" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+
+    const groups = await screen.findAllByTestId("itv-question-group");
+    expect(groups.length).toBeGreaterThan(1);
+    expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3);
+
+    fireEvent.click(screen.getAllByTestId("itv-delete-question")[0]!);
+    expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3 - 1);
+
+    fireEvent.click(screen.getAllByTestId("itv-add-question")[0]!);
+    expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3);
+    fireEvent.click(screen.getAllByTestId("itv-delete-question").at(-1)!);
+    expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3 - 1);
+  });
+
+  it("往返专家步骤时保留编辑，只为新增专家补齐三问", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "往返编辑", tags: ["采购"] });
+    render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证决策链" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+
+    const firstQuestion = (await screen.findAllByTestId("itv-question-input"))[0]!;
+    fireEvent.change(firstQuestion, { target: { value: "保留这条用户编辑的问题" } });
+    fireEvent.click(screen.getByTestId("itv-workflow-step-2"));
+    fireEvent.click(await screen.findByTestId("itv-add-expert"));
+    fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: "陈宇轩" } });
+    fireEvent.click(screen.getByLabelText("选择专家 陈宇轩"));
+    fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
+    fireEvent.click(await screen.findByTestId("itv-confirm-experts"));
+
+    expect(await screen.findByDisplayValue("保留这条用户编辑的问题")).toBeInTheDocument();
+    expect(screen.getAllByTestId("itv-question-group")).toHaveLength(4);
+    expect(screen.getAllByTestId("itv-question-input")).toHaveLength(12);
+  });
 });
