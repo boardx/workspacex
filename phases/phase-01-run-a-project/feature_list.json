@@ -3918,7 +3918,7 @@
       "spec_ref": "05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "coord-voice",
       "verification": [
         "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-provider-wiring.test.ts",
@@ -3933,7 +3933,7 @@
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F173.verify.log @ 2026-08-13T10:10:19.954Z",
       "notes": "属 personal-shared-realtime-asr design delta，挂靠已签 personal-realtime-transcription 束。垂直切片：通用 AsrProviderPort/DI + personal gateway + PCM 用量 + 既有 /rec stable events 回归。F165–F167 的运行时代码已在 main；本 feature 不复用已关闭的 #1050，必须由 harness sync 创建新 issue。共享热点：apps/api/src/kernel.module.ts、apps/api/src/main.ts、apps/api/src/interface/ws/personal-realtime-asr.gateway.ts、apps/api/src/application/recording/personal-realtime-asr.ts；不得与其它 recording feature 并行修改这些文件。回滚：恢复本 feature 前 main；禁止以 Fun-ASR fallback 双轨运行。",
       "priority": 1,
       "area": "recording",
