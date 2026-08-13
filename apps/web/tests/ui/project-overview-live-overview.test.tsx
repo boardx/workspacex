@@ -81,3 +81,62 @@ describe("F362 project-overview：真实概览白名单四件块只显示真实�
     expect(screen.queryByTestId("project-overview-live-overview-empty")).not.toBeInTheDocument();
   });
 });
+
+/**
+ * F172 —— 概览 tab 去掉没有契约出处的编造数据。
+ *
+ * 这组测试的重点不是「新块渲染出来了」，而是**旧的编造值不再出现**。
+ * 改前这一屏同时存在两份「当前环节」：F362 接真的那块，和一张 mock 卡
+ * （标题 + 一个不走动的假倒计时 `12:48` + 三角色「各该做什么」的文案）。
+ * 一真一假并列时，用户没有任何办法分辨——所以每条断言都钉「那个具体的编造值没了」。
+ */
+describe("F172 project-overview：没有契约出处的板块不再编造数据", () => {
+  it("当前环节卡接真：显示真实环节，不再有假倒计时", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverview={FULL_OVERVIEW} />);
+
+    expect(screen.getByTestId("project-overview-current-segment-title")).toHaveTextContent("破冰环节");
+    // 反证：mock 的标题与倒计时都不得再出现在任何地方
+    expect(screen.queryByText(/12:48/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/假设风暴/)).not.toBeInTheDocument();
+    // 三角色分工没有契约出处 ⇒ 如实说明，且不得再出现原来的编造文案
+    expect(screen.getByTestId("project-overview-current-segment-roles-unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/第 4 组落后/)).not.toBeInTheDocument();
+  });
+
+  it("没有进行中环节时，当前环节卡说实话而不是显示上一次的值", () => {
+    render(
+      <TabOverview view="facilitator" projectId="p1" liveOverview={{ ...FULL_OVERVIEW, currentAgendaSegment: null }} />,
+    );
+    expect(screen.getByTestId("project-overview-current-segment-title")).toHaveTextContent("当前没有进行中的环节");
+  });
+
+  it("状态条只画有出处的两项（当前环节 / 角色人数），其余三项不再编造", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverview={FULL_OVERVIEW} />);
+
+    expect(screen.getByTestId("project-overview-statusbar-segment")).toHaveTextContent("破冰环节");
+    expect(screen.getByTestId("project-overview-statusbar-attendance")).toHaveTextContent("组员 6");
+    // 反证：原型那三项（阶段 / 就绪检查 / 计时）契约里没有 ⇒ 不得出现
+    expect(screen.queryByText(/就绪检查/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/12 人在场/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/09:00 开始/)).not.toBeInTheDocument();
+  });
+
+  it("待办与动态整块降级为如实空态，不再渲染示例行", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverview={FULL_OVERVIEW} />);
+
+    expect(screen.getByTestId("project-overview-todos-unavailable")).toBeInTheDocument();
+    expect(screen.getByTestId("project-overview-activity-unavailable")).toBeInTheDocument();
+    // 反证：三条示例待办与「1 项阻塞」这种看起来算过的计数都不得再出现
+    expect(screen.queryByText(/催回 14 份问卷/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/给第 3 组补 1 位/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1 项阻塞/)).not.toBeInTheDocument();
+  });
+
+  it("白名单四件块不受影响（F362 的行为不回退）", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverview={FULL_OVERVIEW} />);
+    expect(screen.getByTestId("project-overview-live-agenda-segment")).toHaveTextContent("破冰环节");
+    expect(screen.getByTestId("project-overview-live-role-counts")).toHaveTextContent("组长 2");
+    expect(screen.getByTestId("project-overview-live-backflow-count")).toHaveTextContent("1 条");
+    expect(screen.getByTestId("project-overview-live-blueprint")).toHaveTextContent("标准工作坊蓝本 · v2");
+  });
+});
