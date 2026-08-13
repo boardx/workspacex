@@ -7,11 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReportTemplateStep } from "@/components/survey/workflow/report-template-step";
 import { createSurveyWorkflowMock } from "@/lib/survey/workflow-model";
+import { SURVEY_TEMPLATE_CARDS } from "@/lib/survey/resource-library";
 import type { survey } from "@repo/contracts";
 
 export function SurveyTemplateEditorShell({ templateId }: { templateId: string }) {
   const router = useRouter();
-  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock());
+  const template = SURVEY_TEMPLATE_CARDS.find((item) => item.id === templateId);
+  const reportSectionCount = template?.reportSectionCount ?? 8;
+  const title = template ? template.title.replace(/模板$/, "报告模块") : "新建报告模块";
+  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => {
+    const baseModel = createSurveyWorkflowMock();
+    return {
+      ...baseModel,
+      reportTemplate: {
+        sections: baseModel.reportTemplate.sections.slice(0, reportSectionCount),
+      },
+    };
+  });
   const [saved, setSaved] = React.useState(false);
 
   return (
@@ -22,14 +34,14 @@ export function SurveyTemplateEditorShell({ templateId }: { templateId: string }
             <span className="text-18 font-bold tracking-tight">BoardX <span className="text-primary">Survey</span></span>
             <span className="hidden h-6 w-px bg-border sm:block" />
             <div className="min-w-0">
-              <div className="flex items-center gap-2"><h1 className="truncate text-16 font-semibold">企业数字协作成熟度诊断模板</h1><Badge tone="primary">模板编辑</Badge></div>
-              <p className="text-10 text-muted-foreground">模板 ID {templateId} · 16 题 · 8 个报告章节</p>
+              <div className="flex items-center gap-2"><h1 className="truncate text-16 font-semibold">{title}</h1><Badge tone="primary">报告模块编辑</Badge></div>
+              <p className="text-10 text-muted-foreground">报告模块 ID {templateId} · {reportSectionCount} 个报告章节</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览模板</Button>
             <Button variant="primary" size="sm" onClick={() => setSaved(true)} data-testid="survey-template-save"><Save className="h-3.5 w-3.5" />保存模板</Button>
-            <Button variant="outline" size="sm" onClick={() => router.push("/studio/survey?tab=templates")} data-testid="survey-template-back-to-list"><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/studio/survey?tab=reports")} data-testid="survey-template-back-to-list"><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
           </div>
         </div>
         {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-template-saved"><Check className="mr-1 inline h-3 w-3" />模板已保存</p>}

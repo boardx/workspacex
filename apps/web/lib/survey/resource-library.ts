@@ -1,4 +1,4 @@
-export type SurveyResourceTab = "surveys" | "templates";
+export type SurveyResourceTab = "surveys" | "modules" | "reports";
 export type SurveyResourceState = "default" | "loading" | "empty" | "error";
 export type SurveyCardStatus = "draft" | "collecting" | "closed";
 export type TemplateCategory = "organization" | "collaboration" | "feedback";
@@ -24,6 +24,14 @@ export interface SurveyTemplateCard {
   surveyCount: number;
 }
 
+export interface SurveyQuestionModuleCard {
+  id: string;
+  title: string;
+  description: string;
+  questionCount: number;
+  updatedAt: string;
+}
+
 export const SURVEY_LIBRARY_CARDS: SurveyLibraryCard[] = [
   { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 10:30", received: 62, target: 100 },
   { id: "sv-team-health", title: "团队协作健康度调查", status: "draft", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 16:20" },
@@ -38,6 +46,15 @@ export const SURVEY_TEMPLATE_CARDS: SurveyTemplateCard[] = [
   { id: "tpl-team-health", title: "团队协作健康度模板", category: "collaboration", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 15:40", surveyCount: 8 },
   { id: "tpl-project-review", title: "客户项目复盘模板", category: "feedback", questionCount: 12, reportSectionCount: 5, updatedAt: "2 天前 11:30", surveyCount: 15 },
   { id: "tpl-knowledge-governance", title: "组织知识治理评估模板", category: "organization", questionCount: 24, reportSectionCount: 8, updatedAt: "4 天前 16:50", surveyCount: 6 },
+];
+
+export const SURVEY_QUESTION_MODULE_CARDS: SurveyQuestionModuleCard[] = [
+  { id: "profile", title: "组织画像", description: "职责层级、业务领域与组织规模", questionCount: 3, updatedAt: "今天 09:30" },
+  { id: "strategy", title: "战略治理", description: "数字化战略、管理重视与投入水平", questionCount: 3, updatedAt: "今天 09:10" },
+  { id: "collaboration", title: "流程协同", description: "跨部门协作流程与协作效率", questionCount: 2, updatedAt: "昨天 16:40" },
+  { id: "knowledge", title: "知识管理", description: "知识共享与知识获取体验", questionCount: 2, updatedAt: "昨天 15:20" },
+  { id: "data", title: "数据决策", description: "数据文化、数据质量与可用性", questionCount: 2, updatedAt: "2 天前 11:20" },
+  { id: "tools", title: "工具与集成", description: "协作工具体验与系统数据互通", questionCount: 2, updatedAt: "2 天前 10:10" },
 ];
 
 export const SURVEY_STATUS_LABEL: Record<SurveyCardStatus, string> = {

@@ -16,7 +16,7 @@ export interface PublishBlocker {
   label: string;
 }
 
-export function createSurveyWorkflowMock(): survey.SurveyWorkflowModel {
+export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?: string } = {}): survey.SurveyWorkflowModel {
   const questions: survey.SurveyWorkflowQuestion[] = [
     { id: "Q01", order: 1, chapterId: "profile", type: "single", title: "您目前承担的主要职责层级是？", required: true, options: ["企业高管", "部门负责人", "项目负责人", "专业骨干", "一线员工"] },
     { id: "Q02", order: 2, chapterId: "profile", type: "single", title: "所在组织的主要业务领域是？", required: true, options: ["专业服务", "软件与互联网", "制造业", "能源", "其他"] },
@@ -54,9 +54,15 @@ export function createSurveyWorkflowMock(): survey.SurveyWorkflowModel {
     ],
   }));
 
+  const isNew = options.surveyId === "new";
+  const selectedQuestions = options.moduleId
+    ? questions.filter((question) => question.chapterId === options.moduleId)
+    : questions;
+  const selectedResponses = isNew || options.moduleId ? [] : responses;
+
   return survey.SurveyWorkflowSchema.parse({
-    survey: { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
-    questions,
+    survey: { id: options.surveyId ?? "sv-1", title: isNew ? "未命名问卷" : "企业数字协作成熟度诊断", status: isNew ? "draft" : "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
+    questions: selectedQuestions,
     reportTemplate: {
       sections: [
         { id: "summary", title: "管理层摘要", managementQuestion: "组织整体成熟度与主要短板是什么？", method: "综合评分与差距分析", output: "text" },
@@ -70,7 +76,7 @@ export function createSurveyWorkflowMock(): survey.SurveyWorkflowModel {
       ],
     },
     publication: { target: 100, link: "https://survey.boardx.test/s/7gnk2e" },
-    responses,
+    responses: selectedResponses,
     report: {
       generatedAt: "2026-08-12T10:00:00.000Z",
       sections: [
