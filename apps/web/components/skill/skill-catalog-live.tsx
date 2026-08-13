@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
+import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
 import {
   createSkillDraft,
   getSkillDetail,
@@ -200,31 +201,36 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const [state, setState] = React.useState<LoadState>({ orgId, status: "loading" });
   const [pending, setPending] = React.useState<readonly PendingRow[]>([]);
   const [creating, setCreating] = React.useState(false);
+  const [createMode, setCreateMode] = React.useState<CreateMode>("form");
   const [notice, setNotice] = React.useState<string | null>(null);
   const [detail, setDetail] = React.useState<SkillDetail | null>(null);
   const [detailError, setDetailError] = React.useState<string | null>(null);
   const [tagFilter, setTagFilter] = React.useState<TagFilterState>(EMPTY_TAG_FILTER);
 
-  const load = React.useCallback(async () => {
-    if (currentOrgId.current !== orgId) return;
+  /** 返回是否真的刷新成功——`SkillUrlImportPanel` 的 `onImported` 契约要求这个布尔值。 */
+  const load = React.useCallback(async (): Promise<boolean> => {
+    if (currentOrgId.current !== orgId) return false;
     const request = ++generation.current;
     setState({ orgId, status: "loading" });
     try {
       const rows = await listSkills(orgId);
       // 换组织后到达的旧响应不得覆盖新组织的真实请求（同 `capability-catalog-screen.tsx`）。
-      if (request !== generation.current || currentOrgId.current !== orgId) return;
+      if (request !== generation.current || currentOrgId.current !== orgId) return false;
       setState({ orgId, status: "ready", rows });
       // 这次读取**发起于**编号 `request`：它只对更早的乐观行有发言权（见 `PendingRow`）。
       setPending((prev) => prev.filter((p) => p.afterRequest >= request));
+      return true;
     } catch (error) {
-      if (request !== generation.current || currentOrgId.current !== orgId) return;
+      if (request !== generation.current || currentOrgId.current !== orgId) return false;
       setState({ orgId, status: "error", message: describeError(error) });
+      return false;
     }
   }, [orgId]);
 
   React.useEffect(() => {
     // 换组织 = 上一组织的提示与详情全部作废：它们说的是另一个组织发生过的事。
     setCreating(false);
+    setCreateMode("form");
     setNotice(null);
     setDetail(null);
     setDetailError(null);
@@ -322,17 +328,26 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       </p>
 
       {creating ? (
-        <CreatePanel
-          orgId={orgId}
-          onCancel={() => setCreating(false)}
-          onCreated={(row, message) => {
-            // ⚠ 乐观插入，**不重读**。理由见文件头第 ③ 条。
-            // ⚠ 不看当前是不是 `ready`：首屏还在加载时也照样插得进去（#861）。
-            setPending((prev) => [{ afterRequest: generation.current, row }, ...prev]);
-            setNotice(message);
-            setCreating(false);
-          }}
-        />
+        <div className="flex flex-col gap-3" data-testid="skill-create-launcher">
+          <CreateModeTabs mode={createMode} onChange={setCreateMode} />
+          {createMode === "form" ? (
+            <CreatePanel
+              orgId={orgId}
+              onCancel={() => setCreating(false)}
+              onCreated={(row, message) => {
+                // ⚠ 乐观插入，**不重读**。理由见文件头第 ③ 条。
+                // ⚠ 不看当前是不是 `ready`：首屏还在加载时也照样插得进去（#861）。
+                setPending((prev) => [{ afterRequest: generation.current, row }, ...prev]);
+                setNotice(message);
+                setCreating(false);
+              }}
+            />
+          ) : null}
+          {createMode === "import" ? (
+            <SkillUrlImportPanel key={orgId} onImported={load} />
+          ) : null}
+          {createMode === "market" ? <MarketPickUnavailable /> : null}
+        </div>
       ) : null}
 
       {notice ? (
@@ -565,6 +580,95 @@ function TagFilterGroup<V extends string>({
         );
       })}
     </div>
+  );
+}
+
+/* ── 新建 Skill 三条路径 ───────────────────────────────────────────────
+ *
+ * 2026-08-13 —— 人类给了两张后台原型截图核对，「新建 Skill」应长出三条路径
+ * （完全新建 / 导入 / 从市场挑一个改）。逐条核实过后端能给什么，**只接已经真实
+ * 存在的后端**，没有的如实标注，不假装、不摆一个会自己抛错的按钮：
+ *
+ *   · **完全新建** —— 契约 `createSkillDraft`（`POST /skills`）真实存在，
+ *     但它要求一次性交齐「提示词模板 ＋ 输入输出 schema ＋ 数据范围声明」这份
+ *     完整声明式契约，**不是**「先建一个只有 SKILL.md 的空目录，再用文件浏览器
+ *     + 代码编辑器逐个文件补」这条路径。下面的 `CreatePanel`（本文件原有组件，
+ *     未改动）就是这条真实路径，标签如实叫「完全新建（契约表单）」。
+ *   · **导入** —— `POST /admin/skills/url-imports`（#595）真实存在，`apps/web`
+ *     里已经有对应组件 `SkillUrlImportPanel`（`components/admin/skill-
+ *     url-import-panel.tsx`，#881 F2），此前只接在 `catalog` 屏
+ *     （`CapabilityCatalogScreen`），本轮把它接到这里——同一个组件，同一条
+ *     真实调用链，只是多了一个入口。
+ *   · **从市场挑一个改** —— 没有对应后端。`packages/contracts/src/*.ts` 里
+ *     不存在任何 market/marketplace 相关操作；「Claude Code 社区 1,842 个 ·
+ *     已同步 34」这类数字只存在于 `components/asset-governance/ag-screens.tsx`
+ *     的 `AgNewSkill`（签核用 UI 先行原型，`lib/mock/asset-governance.ts` 的
+ *     `AG_MARKET_CARDS` 纯 mock）。这里**不**把那份 mock 数字搬过来冒充真实——
+ *     `MarketPickUnavailable` 如实说「未接后端」，并指向登记这个缺口的 issue。
+ *
+ * ⚠ 「空白骨架 + 文件浏览器 + 代码编辑器从头写」这条路径（人类原话第③点）在
+ *   `asset-governance` 契约里也找不到对应操作：`getAssetDirectory` /
+ *   `readAssetFile` / `writeAssetFile` / `createAssetFile` 全部要求一个
+ *   **已经存在**的 `assetId`（见 `packages/contracts/src/asset-governance.ts`
+ *   `getAssetDirectory` 的 `in: { assetKind, assetId }`）——`AgSkillEditor`
+ *   （`asset-governance` 束，#933）编辑的是**已建好**的 skill，不能拿它开一个
+ *   还不存在的新 skill。缺的是一个「创建只带 SKILL.md 骨架的空白 skill 记录」
+ *   的后端操作（可能是 `skills` 束新增 `createSkillSkeleton`，或
+ *   `asset-governance` 束新增「先建空 asset 记录再进文件编辑器」）。这不是这次
+ *   改动能顺手补的契约面（新契约需要单独走 ADR-023 签核），已记录为独立 issue。
+ */
+
+type CreateMode = "form" | "import" | "market";
+
+const CREATE_MODE_TABS: readonly { id: CreateMode; label: string }[] = [
+  { id: "form", label: "完全新建（契约表单）" },
+  { id: "import", label: "从 GitHub 导入" },
+  { id: "market", label: "从市场挑一个改" },
+];
+
+function CreateModeTabs({
+  mode,
+  onChange,
+}: {
+  mode: CreateMode;
+  onChange: (mode: CreateMode) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="skill-create-mode-tabs">
+      {CREATE_MODE_TABS.map((tab) => (
+        <Button
+          key={tab.id}
+          size="xs"
+          variant={mode === tab.id ? "primary" : "outline"}
+          aria-pressed={mode === tab.id}
+          onClick={() => onChange(tab.id)}
+          data-testid={`skill-create-mode-${tab.id}`}
+        >
+          {tab.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 「从市场挑一个改」——如实标注未接后端，不摆 mock 数字冒充真实。
+ * 证据与去处见上方文件头长注。
+ */
+function MarketPickUnavailable() {
+  return (
+    <Card data-testid="skill-create-market-unavailable">
+      <CardContent className="flex flex-col gap-1.5 pt-4">
+        <p className="text-12 font-medium">这条路径还没有后端</p>
+        <p className="text-11 leading-relaxed text-muted-foreground">
+          「从市场挑一个改」需要一个 market/marketplace 数据源——`packages/contracts`
+          里目前不存在任何这样的操作。Skill 库与市场原型（`?screen=library-prototype`）
+          与后台签核原型（`AgNewSkill`）里的「Claude Code 社区 1,842 个」这类数字都是
+          UI 先行阶段的 mock，不代表真实可拉取的市场目录。这里不搬那份 mock 数字冒充真实——
+          需要先补市场浏览的后端契约（另开 ADR-023 签核），已记录为独立 issue。
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

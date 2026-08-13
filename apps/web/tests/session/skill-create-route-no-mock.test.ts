@@ -62,6 +62,15 @@ const RESIDUAL_MOCK_EDGES: readonly string[] = [
   // `GET/POST /capabilities`），这条边纯属 `AgSkillEditor` 编辑器 UI 复用带来的传递依赖。
   "components/asset-governance/ag-screens.tsx -> lib/mock/asset-governance.ts",
   "components/asset-governance/ag-shared.tsx -> lib/mock/asset-governance.ts",
+  // 2026-08-13（后台侧栏核对，人类拿两张后台原型截图核对）：`/skill` 加回后台
+  // `AdminNav` 侧栏（与 `/admin/[module]` 那批屏一致），带进这三条既存的传递依赖。
+  // `AdminNav` 本身接的是**真实**计数（`useLiveAdminNavCounts` → `GET /capabilities`
+  // 等真实端点，见 #881），这几条 mock 边不是它的取数路径，是「计数源查不到时的
+  // 静态标签表 / 兜底数据源字典」这类结构性依赖，属于 `admin-nav` 这套既存组件自己
+  // 的既存债（不是本轮制造的），只是此前没有任何从 `skill-app.tsx` 出发的路径会走到它。
+  "components/admin/admin-nav.tsx -> lib/mock/admin.ts",
+  "components/admin/asset-kind-nav.ts -> lib/mock/admin.ts",
+  "lib/live-admin-nav-counts.ts -> lib/mock/admin.ts",
 ];
 
 describe("#520 /skill 的「新建 skill」路径不依赖 lib/mock", () => {
