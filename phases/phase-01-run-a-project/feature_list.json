@@ -3603,14 +3603,14 @@
       "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/token-usage-single-write-path.test.ts",
         "pnpm --filter api exec vitest run tests/auth/token-usage-append-only.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F159.verify.log @ 2026-08-13T17:53:48.024Z",
       "notes": "依据等级：[实测缺口]——2026-08-12 实测（SHA 54d9e340）全仓零 token 计量落库：agent_runs 有 model_provider/model_id 却无 token 列，configured-model-provider 已从上游 usage.total_tokens 解出 tokens 并经 complete()/completeStream() 返回，execute-run 拿到后丢弃。本 feature 只做「把已经拿到的数记下来」，不新增上游调用。⚠ 写入点唯一性是本 feature 的主张，反证测试断言除 execute-run 外没有第二处 INSERT。属 org-admin 束；新表 → 需 design-delta 补签（coord-main 2026-08-12 裁决第 2 条）。"
     },
     {
@@ -3625,7 +3625,7 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
@@ -3633,7 +3633,7 @@
         "pnpm --filter api exec vitest run tests/auth/member-token-quota-overallocation-rejected.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-members-quota-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F160.verify.log @ 2026-08-13T17:55:57.072Z",
       "notes": "依据等级：[已签核] org-admin 束 ①（ui.md 第 7 行 /admin/members，锚 admin-member-quota-<id> / -save / -cancel 已建成）+ [实测缺口] 数据全来自 lib/mock/admin.MEMBERS。⚠ 与 F11 的 seat_quota（人数配额、O-29⑤ 硬阻断）是两件不同的配额，不得合并到同一列：F11 管「还能邀几个人」，本 feature 管「每人每月几个 token」。⚠ 本轮不碰名册两副本（mock/admin.MEMBERS vs mock/org-admin.ORG_MEMBERS）收敛，属 F11 整并地盘（coord-main 2026-08-12 裁决第 4 条），本屏引用哪份须在代码里如实标注。新端点 → design-delta 补签。"
     },
     {
@@ -3648,14 +3648,14 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/usage-window-aggregation.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-usage-monitor-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F161.verify.log @ 2026-08-13T17:58:10.333Z",
       "notes": "依据等级：[已签核] 束 ① 同屏三 tab（usage-monitor-tab.tsx 已建成，锚 admin-usage-tab / admin-usage-window-<w>）+ [实测缺口] 该文件自带注释逐字承认『窗口切换只影响本地展示态（无后端），mock 定死一份「本周」快照』。本 feature 就是消灭那句注释。新端点 → design-delta 补签。"
     },
     {
@@ -3670,7 +3670,7 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
@@ -3678,7 +3678,7 @@
         "pnpm --filter api exec vitest run tests/auth/limit-rule-first-trigger-wins.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-limit-policy-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F162.verify.log @ 2026-08-13T18:00:17.769Z",
       "notes": "依据等级：[原型] limit-policy-tab.tsx + lib/mock/admin-limits.LIMIT_RULES（LimitScopeKind 五值）已建成界面。⚠ 『取最先触发』这条判据来自 phase-03 F14（异常检测三级阈值取最先触发）的同一语义——本 feature 只做组织额度侧的规则求值，不把 F14 的四类任务处置矩阵领进来（coord-main 2026-08-12 裁决第 1 条：不整条领 phase-03）。新表+新端点 → design-delta 补签。"
     },
     {
@@ -3691,14 +3691,14 @@
       "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R7",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/admin-members-boundary-live.test.tsx",
         "pnpm --filter api exec vitest run tests/auth/admin-boundary-personal-counts-only.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F163.verify.log @ 2026-08-13T18:01:48.461Z",
       "notes": "依据等级：[已签核 + 后端已 passing]——F06 已把 D-18 两侧做完并 passing（GET /identity/personal-layer/summary、admin-access-log 三条端点均在契约里）。本 feature **不新增任何后端**，只是把已经存在的真端点接到界面上，属纯接线。⚠ 这一条是 ui.md 第五节 K-10『管理员边界有两处载体各说各的』的收敛落点之一：本屏接真数后，/org-admin 预览屏的 boundary 原型应标注为已被产品屏取代。"
     },
     {
