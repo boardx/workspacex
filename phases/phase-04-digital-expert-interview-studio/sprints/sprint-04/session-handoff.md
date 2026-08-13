@@ -2,7 +2,8 @@
 
 ## 当前已验证
 - F04 仍为 `in_progress`，没有宣称 passing。
-- 已验证当前 UI 切片：设计 lint、Web TypeScript、访谈 UI 10 条测试与 diff 检查均通过。
+- 已验证当前 UI 切片：设计 lint、Web TypeScript、访谈 UI 10 条测试与 diff 检查均通过；合并最新 `main` 前的完整 Web 门禁 112 个文件、960 条测试全绿。
+- 合并最新 `main` 后的完整门禁在高系统负载下有两个非访谈时序用例失败；对应测试单线程精确复跑 2/2 通过，未修改无关的 Admin/Chat 实现。
 
 ## 本轮改动
 - 从 `experts_persona.json` 整理 97 位临时 Mock 专家，接入 Studio 专家列表、分类筛选、专家详情和快捷访谈。
