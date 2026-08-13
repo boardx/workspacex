@@ -60,7 +60,7 @@ charter 是手写的，所以每一条都必须被机械检查。实现在
 | 门 | 规则 | 为什么 |
 |---|---|---|
 | **S1** | `owns` 为空 ⇒ 判红 | 声明了角色却不给可评项 ⇒ 它会永远 `met=true`，看起来达标其实从未被测量 |
-| **S2** | 角色必须存在于 `registry.yaml` | 给一个不存在的角色发分毫无意义 |
+| **S2** | 角色必须是**真实存在的身份**：`registry.yaml` **或** `.harness/agents/*.yaml` | 给一个不存在的角色发分毫无意义。⚠ 两者**并集**——见下 |
 | **S3** | charter 里出现任何**现状字段** ⇒ 判红 | 防第二事实源。漂移永远往「看起来达标」的方向走 |
 | **S4** | `owns` 必须指向真实存在的可评项 | 防指向虚空（本仓已有五次「锚在不存在的 testid 上」的同型事故） |
 | **S5** | `target ∈ [0, max]` | 一个永远达不到的目标 = 门废掉 |
@@ -95,17 +95,34 @@ charter 是手写的，所以每一条都必须被机械检查。实现在
   任何 per-role 的量化 authority 可引用。他们仍可跑 `scorecard --role <id>` 看 ②③④
   （那三问只需要 `owner:` 标签，不需要分数）。补齐需要新增 `feature` 类可评项
   （读 `feature_list.json`），已登记，不在本轮范围。
-- **`--strict` 目前未接入任何 CI 门**。接之前要先把下面两条真实不一致修掉，
-  否则一上线就是红的，而"红着的门等于没有门"。
+- **`--strict` 尚未接入 CI 门**。现在它已经是 exit 0（两条不一致都已消解，见下），
+  接入前请 coord-main 决定挂在哪道门上。
 
-## 上线第一天就抓到的两条真实不一致
+## 上线第一天抓到的两条真实不一致（**都已消解**）
 
 这不是 bug，是这套工具的**第一个交付物**——把隐性漂移变成显性：
 
-1. **`rev-uiux` 是 CLR 里 V-D / V-P 的 `allowed_scorers`，却不在 `registry.yaml` 里。**
-   评分授权与身份注册表对不上。
-2. **`rev-e2e` 在 `registry.yaml` 里是 `active: false`**（2026-08-04 裁决："没有任何在跑的会话"），
-   而它整晚都在评 R/B 并合入了 #855 / #885 / #899。注册表与现实漂了。
+### ① `rev-e2e` 在 registry 里是 `active: false` —— registry 错了，已修
 
-两条都需要**人类或 coord-main 裁决**（改 registry 还是改 CLR 的 allowed_scorers），
-记分卡不替他们决定，只负责让它们不再隐形。
+2026-08-04 那次"没有任何在跑的会话"是**静态快照**，此后它真实合入了 #855 / #885 / #899，
+registry 一直没跟上。coord-main 已改回 active（PR #1133）。
+**这正是本仓「静态痕迹 ≠ 动态事实」的又一例。**
+
+### ② `rev-uiux` 不在 registry —— **我的 S2 错了，不是 registry 错了**
+
+查证结论（coord-main 提的问题，我查的）：
+
+> **CLR 的 `allowed_scorers` 根本不拿 `registry.yaml` 做鉴权。**
+> `core-loop-readiness.ts` **零 import、零 `registry`/`yaml` 引用**，
+> G3 只是 `allowed_scorers.includes(scored_by)` —— JSON 内部的字符串比对。
+
+⇒ `rev-uiux` **不需要** mint Directory ULID / token。它是
+`.harness/agents/rev-uiux.yaml` 定义的**便携 subagent 角色**，与 registry 收的
+coordinator / reviewer（需授权凭据）是**两类身份**。
+
+**是我第一版把两类混成一套**——同型错误我在同一个文件里犯了两次
+（第一次是只读 registry 的 `agents:` 键，漏了 `reviewers:`）。
+S2 已改为**两者并集**，`--strict` 随之转绿。
+
+> 教训值得留下：写门的时候，「权威来源」这件事本身也要先实测，
+> 不能凭直觉认定某个文件就是唯一事实源。

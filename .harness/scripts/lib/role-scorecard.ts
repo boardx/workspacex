@@ -97,7 +97,8 @@ export type CharterViolation =
  * 四道门（沿用 CLR G1-G6 的形状，每道在 `.test.ts` 里都配反证）：
  *
  *   S1 未声明 owns ⇒ 该角色不可评（**不是**默认满分——空着不等于达标）
- *   S2 charter 里的角色必须存在于 `registry.yaml`（给不存在的角色发分毫无意义）
+ *   S2 charter 里的角色必须是**真实存在的身份**——`registry.yaml`（coordinator/reviewer，
+ *      需授权凭据）**或** `.harness/agents/*.yaml`（便携 subagent）。两者并集，不是 registry 一家
  *   S3 charter 里出现任何「现状」字段 ⇒ 判红（防第二事实源）
  *   S4 owns 指向的 item 必须真的存在于其 authority（防指向虚空）
  *   S5 target 必须在 [0, max]（一个永远达不到的目标 = 门废掉）
