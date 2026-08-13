@@ -3898,14 +3898,14 @@
         "F123"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/project-overview-live-overview.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F172.verify.log @ 2026-08-13T03:50:44.899Z",
       "notes": "⚠ 编号撞过两次：先是 F165（被 recording 束占），顺延到 F172 后又被 coord-deep-research 的「研究首页与可恢复会话」占（在本 feature 实现期间合入 main），最终定为 F172（当时 main 最大 F171）。根因是**编号按快照的 max+1 分配，而 main 前进得比一个 feature 做完还快**——已另报。\n① 本 feature 的净效果是**删除编造数据**而非新增接线：概览白名单封闭为四件（F123 notes 逐字「加第五件属修订已签核裁决」），四件早已由 F362 接真（getProjectOverview），因此此处无新契约可接，只做减法——删掉与真实块并存的 mock。\n② 主要缺陷：mock「当前环节」卡（假标题「假设风暴 →…」+ 不走动的假倒计时 12:48 + 三角色编造分工）与 F362 接真的议程环节块**同屏并列**，用户无法分辨真假。契约 currentAgendaSegment 只给 {title, state}，没有剩余时长，故删除倒计时；角色分工无出处，改如实说明不可用。\n③ 待办与最新动态属其它束、当前无契约来源（待办= PJ-21，全仓无待办端点），故整块降级为如实空态而非伪造。状态条五项砍到两项：仅保留有出处的环节与角色人数，阶段/就绪检查/计时契约里没有 ⇒ 不渲染（「就绪检查 3/3」分母无出处，见 F123 notes / GAPS.P6）。工作面保留（F317 裁它只是一排跳转入口）。\n④ 测试策略是**断言编造值不再出现**：12:48 / 假设风暴 / 第 4 组落后 / 就绪检查 / 12 人在场 / 催回 14 份问卷 / 1 项阻塞 等字样在概览 tab 上不得出现；已做反证——把假倒计时放回去测试必红。对 lib/mock/project 的依赖从 9 个符号收到 4 个，删掉孤儿 helper cnAvatar。\n⑤ 改动文件：apps/web/components/project/tab-overview.tsx、apps/web/tests/ui/project-overview-live-overview.test.tsx（已存在，已追加 F172 的 5 条用例）。\n【依赖】F123（getProjectOverview 概览白名单四件，已 passing）。",
       "priority": 1,
       "area": "project",
