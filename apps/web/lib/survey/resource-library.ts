@@ -11,6 +11,7 @@ export interface SurveyLibraryCard {
   reportSectionCount: number;
   updatedAt: string;
   received?: number;
+  validResponses?: number;
   target?: number;
 }
 
@@ -25,7 +26,7 @@ export interface SurveyTemplateCard {
 }
 
 export const SURVEY_LIBRARY_CARDS: SurveyLibraryCard[] = [
-  { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 10:30", received: 62, target: 100 },
+  { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 10:30", received: 62, validResponses: 56, target: 100 },
   { id: "sv-team-health", title: "团队协作健康度调查", status: "draft", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 16:20" },
   { id: "sv-project-review", title: "客户项目复盘问卷", status: "closed", questionCount: 12, reportSectionCount: 5, updatedAt: "昨天 14:10", received: 86 },
   { id: "sv-tool-satisfaction", title: "员工数字工具满意度", status: "collecting", questionCount: 18, reportSectionCount: 7, updatedAt: "前天 11:15", received: 41, target: 80 },
