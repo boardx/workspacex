@@ -1,18 +1,21 @@
 # 进度日志 — Sprint 01/05
 
 ## 当前已验证状态(唯一真相)
-- 仓库根目录: `/Users/shenyangjun/boardx/workspacex/.worktrees/coord-voice-unify-rec-chat-asr`
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: `pnpm -w run verify:base`
-- 当前最高优先级未完成功能: F173 `/rec 复用 Chat 实时 ASR Provider`
-- 当前 blocker: F173 11/11 专属验证通过；`verify:base` 两轮分别被 identity/skill 无关测试在机器高负载下超时阻断，F173 保持 `in_progress`。
+- F169 已由 PR #1126 合入 `main`；阶段清单仍由其 owner 按 harness 门禁收尾。
+- F173 已由 `pnpm harness verify --sprint 01/05 --feature F173` 门控为 `passing`，PR #1127 等待合入 `main`。
 
 ## 会话记录
-### 2026-08-13 06:29:48
-- 本轮目标: 统一 `/rec` 与 Chat 的实时 ASR Provider，删除个人 Fun-ASR 双轨。
-- 已完成: controller/gateway/main/kernel 改用 `ASR_PROVIDER`；PCM 用量、final 写序、停止竞态和延迟 open 断线清理已有覆盖。
-- 运行过的验证: F173 11/11；API/Web typecheck；gateway 3/3；无关 identity 失败用例单跑 7/7。
-- 已记录证据: `evidence/F173.verify.log`（包含两轮完整基础门控及环境失败原文）。
-- 提交记录: `ce8c77ff`、`26f6749b`。
-- 已知风险或未解决问题: `verify:base` 尚未退出 0，不能标 passing；exact SHA 独立 review 进行中。
-- 下一步最佳动作: 等机器负载恢复后重跑 `pnpm harness verify --sprint 01/05 --feature F173`；review 无重要问题后推分支并开 `Closes #1109` PR。
+### 2026-08-13 17:09:00 — F169
+- 已完成: 候选/确认版本模型；方向与大纲生成、编辑和确认接口；主题确认时间；协作者写权限；越权 404；会话驱动 UI。
+- 验证: contracts 194/194；F169 API 3/3（隔离数据库）；研究 UI 13/13；web/contracts typecheck；权限路径与架构依赖 lint。
+- 证据: `evidence/F169.verify.log`。
+- 合入: PR #1126 已进入 `main`。
+
+### 2026-08-13 18:20:00 — F173
+- 已完成: `/rec` 复用 Chat 的 `AsrProviderPort` 和 `KERNEL_ASR_*`；删除个人专用 Fun-ASR 双轨；final 先落库后推送；PCM 用量与停止/断线资源清理。
+- 验证: F173 11/11、完整 `verify:base`、API/Web 定向回归与 typecheck 均通过。
+- 证据: `evidence/F173.verify.log`；人类签核位于 `design-deltas/personal-shared-realtime-asr/design-signoff.md`。
+- Review: 独立 feature review 对运行时实现 APPROVE，无 Critical/High。
+- 下一步: PR #1127 合入 `main` 后核验 commit 祖先关系与 issue #1109 关闭状态。

@@ -80,31 +80,21 @@ export const GUIDED_RESEARCH_BRIEF: GuidedResearchBrief = {
   focus: "市场增长质量、政策确定性、并网可行性、竞争强度与本地合作伙伴",
 };
 
-export interface GuidedResearchDirection {
-  id: string;
-  title: string;
-  description: string;
-  enabled: boolean;
-}
+export type GuidedResearchDirection = z.infer<typeof research.GuidedResearchDirection>;
 
 export const GUIDED_RESEARCH_DIRECTIONS: GuidedResearchDirection[] = [
-  { id: "d1", title: "市场规模与增长动能", description: "拆分表前、表后与工商业储能，辨别装机增长和收入增长的质量。", enabled: true },
-  { id: "d2", title: "监管政策与并网约束", description: "比较容量市场、辅助服务、电价机制及各国并网审批摩擦。", enabled: true },
-  { id: "d3", title: "竞争格局与进入路径", description: "识别头部开发商、聚合商与 EPC，评估自建、合资和渠道合作。", enabled: true },
+  { id: "d1", title: "市场规模与增长动能", description: "拆分表前、表后与工商业储能，辨别装机增长和收入增长的质量。", enabled: true, order: 1 },
+  { id: "d2", title: "监管政策与并网约束", description: "比较容量市场、辅助服务、电价机制及各国并网审批摩擦。", enabled: true, order: 2 },
+  { id: "d3", title: "竞争格局与进入路径", description: "识别头部开发商、聚合商与 EPC，评估自建、合资和渠道合作。", enabled: true, order: 3 },
 ];
 
-export interface GuidedOutlineSection {
-  id: string;
-  title: string;
-  questions: string[];
-  enabled: boolean;
-}
+export type GuidedOutlineSection = z.infer<typeof research.GuidedResearchOutlineSection>;
 
 export const GUIDED_RESEARCH_OUTLINE: GuidedOutlineSection[] = [
-  { id: "o1", title: "执行摘要与关键判断", questions: ["首选市场与进入时点", "关键风险与反证"], enabled: true },
-  { id: "o2", title: "市场规模与商业模式", questions: ["2023–2027 装机与收入规模", "细分场景单位经济性"], enabled: true },
-  { id: "o3", title: "政策、并网与收入机制", questions: ["关键政策变化", "各国并网周期与约束"], enabled: true },
-  { id: "o4", title: "竞争格局与进入建议", questions: ["主要玩家与差异化", "合作对象及 90 天行动"], enabled: true },
+  { id: "o1", title: "执行摘要与关键判断", questions: ["首选市场与进入时点", "关键风险与反证"], enabled: true, order: 1 },
+  { id: "o2", title: "市场规模与商业模式", questions: ["2023–2027 装机与收入规模", "细分场景单位经济性"], enabled: true, order: 2 },
+  { id: "o3", title: "政策、并网与收入机制", questions: ["关键政策变化", "各国并网周期与约束"], enabled: true, order: 3 },
+  { id: "o4", title: "竞争格局与进入建议", questions: ["主要玩家与差异化", "合作对象及 90 天行动"], enabled: true, order: 4 },
 ];
 
 export const GUIDED_SEARCH_SOURCES = [

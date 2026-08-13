@@ -221,6 +221,10 @@ export const ResearchError = z.enum([
   "INVALID_RESEARCH_COLLABORATOR",
   /** 同一创建幂等键被用于不同的 brief 或协作者集合。 */
   "RESEARCH_CREATE_REPLAY_MISMATCH",
+  /** 人工确认所基于的候选版本已被另一轮生成或确认替换。 */
+  "RESEARCH_CHECKPOINT_CONFLICT",
+  /** 报告大纲只能基于已经由人确认的研究方向生成。 */
+  "RESEARCH_DIRECTIONS_NOT_CONFIRMED",
   /**
    * 证据所依赖的访谈引述已被撤回（X-C）。
    * ⚠ `usecases.md` 声称来自 `interview`（已签核）——**那束里没有这个字面量**；
@@ -568,10 +572,42 @@ export const GuidedResearchBrief = z.object({
   focus: z.string().trim().max(2000),
 }).strict();
 
+export const GuidedResearchDirection = z.object({
+  id: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(2000),
+  enabled: z.boolean(),
+  order: z.number().int().nonnegative(),
+}).strict();
+
+export const GuidedResearchOutlineSection = z.object({
+  id: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  questions: z.array(z.string().trim().min(1).max(1000)).min(1),
+  enabled: z.boolean(),
+  order: z.number().int().nonnegative(),
+}).strict();
+
+const versionedCheckpoint = <T extends z.ZodTypeAny>(item: T) => z.object({
+  candidateVersion: z.number().int().positive().nullable(),
+  confirmedVersion: z.number().int().positive().nullable(),
+  versions: z.array(z.object({
+    version: z.number().int().positive(), items: z.array(item).min(1),
+    createdAt: z.string(), confirmedAt: z.string().nullable(),
+  }).strict()),
+}).strict();
+
+export const GuidedResearchDirectionsCheckpoint = versionedCheckpoint(GuidedResearchDirection);
+export const GuidedResearchOutlineCheckpoint = versionedCheckpoint(GuidedResearchOutlineSection);
+
 export const GuidedResearchSession = z.object({
   sessionId: z.string(),
   title: z.string(),
   brief: GuidedResearchBrief,
+  briefVersion: z.number().int().positive().default(1),
+  briefConfirmedAt: z.string().nullable().default(null),
+  directions: GuidedResearchDirectionsCheckpoint.default({ candidateVersion: null, confirmedVersion: null, versions: [] }),
+  outline: GuidedResearchOutlineCheckpoint.default({ candidateVersion: null, confirmedVersion: null, versions: [] }),
   /** 服务端断点事实；客户端只能读取，不能在创建时指定。 */
   stage: GuidedResearchStage,
   /** 失败态仍指向最近稳定阶段；首页只按这个服务端字段恢复。 */
@@ -611,6 +647,34 @@ export const operations = {
     in: z.object({ sessionId: z.string().min(1) }).strict(),
     out: GuidedResearchSession,
     err: ["RESEARCH_NOT_FOUND"] as const,
+  },
+  generateResearchDirections: {
+    method: "POST", path: "/research/guided-sessions/:sessionId/directions/generate",
+    in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND"] as const,
+  },
+  confirmResearchDirections: {
+    method: "PUT", path: "/research/guided-sessions/:sessionId/directions",
+    in: z.object({
+      sessionId: z.string().min(1), candidateVersion: z.number().int().positive(),
+      directions: z.array(GuidedResearchDirection).min(1)
+        .refine((items) => items.some((item) => item.enabled), "at least one direction must be enabled"),
+    }).strict(), out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+  },
+  generateResearchOutline: {
+    method: "POST", path: "/research/guided-sessions/:sessionId/outline/generate",
+    in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_DIRECTIONS_NOT_CONFIRMED"] as const,
+  },
+  confirmResearchOutline: {
+    method: "PUT", path: "/research/guided-sessions/:sessionId/outline",
+    in: z.object({
+      sessionId: z.string().min(1), candidateVersion: z.number().int().positive(),
+      outline: z.array(GuidedResearchOutlineSection).min(1)
+        .refine((items) => items.some((item) => item.enabled && item.title.trim().length > 0), "at least one outline section must be enabled"),
+    }).strict(), out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
   },
   /**
    * `CreateResearch`（`usecases.md` 1.1 / `uc-24-1` R3）—— 七项配置一次固化（**N-12**）
