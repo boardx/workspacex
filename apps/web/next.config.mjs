@@ -26,6 +26,13 @@ export default {
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
+      // F173（#991 BP-01）：蓝本的读与写。`/blueprints` 自己既是 GET 列表也是
+      // POST 新建 —— 与上面 `/capabilities`、`/canvas/templates`、`/skills` 逐字
+      // 同一个坑：`:path*` 匹配不到没有后缀的那一条，所以**两条都要写**。
+      // 缺了裸路径那条，前端打到的是 Next 的 404 HTML，症状是
+      // `Unexpected token '<'`（JSON.parse 到了 `<!DOCTYPE`），而不是一个像样的报错。
+      { source: `${prefix}/blueprints`, destination: `${apiOrigin}/blueprints` },
+      { source: `${prefix}/blueprints/:path*`, destination: `${apiOrigin}/blueprints/:path*` },
       // #520：Skill 目录的读与写。`/skills` 自己既是 GET 列表也是 POST 建草稿，
       // `/skills/:id` 与 `/skills/:id/disable` 走 `:path*` ——
       // **这是同一个坑的第三次**（前两次就写在上面 `/capabilities` 与
