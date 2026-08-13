@@ -60,12 +60,12 @@ export function createSurveyWorkflowMock(): survey.SurveyWorkflowModel {
     reportTemplate: {
       sections: [
         { id: "summary", title: "管理层摘要", managementQuestion: "组织整体成熟度与主要短板是什么？", method: "综合评分与差距分析", output: "text" },
-        { id: "findings", title: "关键发现", managementQuestion: "哪些证据最值得管理层关注？", method: "频次与交叉分析", output: "chart" },
+        { id: "findings", title: "关键发现", managementQuestion: "哪些证据最值得管理层关注？", method: "频次与交叉分析", output: "chart", chartType: "grouped-bar" },
         { id: "meaning", title: "业务含义", managementQuestion: "短板将如何影响协作绩效？", method: "业务影响推断", output: "text" },
-        { id: "gap", title: "能力缺口", managementQuestion: "当前水平与目标水平的差距是什么？", method: "目标值减当前值", output: "chart" },
-        { id: "scenario", title: "情景选择", managementQuestion: "不同投入组合的结果如何？", method: "情景分析", output: "chart" },
+        { id: "gap", title: "能力缺口", managementQuestion: "当前水平与目标水平的差距是什么？", method: "目标值减当前值", output: "chart", chartType: "gap-matrix" },
+        { id: "scenario", title: "情景选择", managementQuestion: "不同投入组合的结果如何？", method: "情景分析", output: "chart", chartType: "radar" },
         { id: "action", title: "优先行动", managementQuestion: "下一步最应优先做什么？", method: "影响与可行性排序", output: "text" },
-        { id: "roadmap", title: "90天路线图", managementQuestion: "如何在 90 天内形成闭环？", method: "里程碑规划", output: "chart" },
+        { id: "roadmap", title: "90天路线图", managementQuestion: "如何在 90 天内形成闭环？", method: "里程碑规划", output: "chart", chartType: "line" },
         { id: "boundary", title: "方法与边界", managementQuestion: "结论适用到什么范围？", method: "证据边界审查", output: "text" },
       ],
     },
