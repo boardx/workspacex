@@ -134,8 +134,12 @@ if (!NO_REMOTE && process.env.COORD_GATEWAY_URL && process.env.COORD_API_TOKEN &
       const body = await res.json();
       const leases = Array.isArray(body.leases) ? body.leases : [];
       claimsByAgent = new Map();
+      // 不再按 status 过滤：/claims 端点（repohub.ts listActiveLeases）SQL 本身是
+      // `WHERE status='in_progress'`，只会返回活跃租约——这里曾经写成
+      // `!== "active"`（LeaseStatus 实际取值是 in_progress/released/expired，压根
+      // 没有 "active"），导致每条真实租约都被过滤掉、整块「租约」列恒空。别再加字面量
+      // 过滤，上游契约变了这里会用错误的方式假装「无租约」而不是报错。
       for (const lease of leases) {
-        if (lease.status !== "active") continue;
         if (!claimsByAgent.has(lease.agent_id)) claimsByAgent.set(lease.agent_id, []);
         claimsByAgent.get(lease.agent_id).push(lease);
       }
@@ -143,10 +147,30 @@ if (!NO_REMOTE && process.env.COORD_GATEWAY_URL && process.env.COORD_API_TOKEN &
   } catch { /* claimsByAgent 留 null——下面显式报告「查询失败」而不是假装空 */ }
 }
 
+// PR → owner agent 的归属：不能用裸 startsWith，registry 里存在 id 互为前缀的情况
+// （如 coord-chat / coord-chat-e2e）——`worker/coord-chat-e2e-...` 会被 `coord-chat-`
+// 误判命中。按 id 长度降序取「最长匹配」，保证更具体的 id 优先拿到归属。
+const idsByLengthDesc = registryAgents.map((a) => a.id).sort((x, y) => y.length - x.length);
+function ownerIdOf(headRefName) {
+  if (!headRefName) return null;
+  for (const id of idsByLengthDesc) {
+    if (headRefName === `worker/${id}` || headRefName.startsWith(`worker/${id}-`)) return id;
+  }
+  return null;
+}
+const prsByOwner = new Map();
+for (const p of prs) {
+  const owner = ownerIdOf(p.headRefName);
+  if (!owner) continue;
+  if (!prsByOwner.has(owner)) prsByOwner.set(owner, []);
+  prsByOwner.get(owner).push(p);
+}
+const prsQueried = !NO_REMOTE; // --no-remote 下 prs 恒为 []，「没查到」≠「没有 PR」
+
 const agentRows = registryAgents.map((a) => {
   const leases = claimsByAgent?.get(a.id) ?? [];
   const inProgress = ownerInProgress.get(a.id) ?? [];
-  const ownPrs = prs.filter((p) => p.headRefName?.startsWith(`worker/${a.id}-`) || p.headRefName === `worker/${a.id}`);
+  const ownPrs = prsByOwner.get(a.id) ?? [];
 
   let leaseText;
   if (claimsByAgent === null) leaseText = "（coord-gateway 未连接，查不到）";
@@ -160,6 +184,12 @@ const agentRows = registryAgents.map((a) => {
   let hint;
   const staleLease = leases.some((l) => (Date.now() - new Date(l.last_heartbeat_at).getTime()) / 60_000 > 30);
   if (staleLease) hint = "⚠ 心跳超 30 分钟，可能掉线，人类需确认/回收";
+  else if (!prsQueried) {
+    // --no-remote：PR 信号本轮没查，不能用「ownPrs.length === 0」推出「没有 PR」
+    if (inProgress.length > 0) hint = "在编中（PR 未查询，--no-remote 模式）";
+    else if (leases.length > 0) hint = "运行中（PR 未查询，--no-remote 模式）";
+    else hint = claimsByAgent === null ? "信号不足（--no-remote，PR/租约均未查）" : "空闲（PR 未查询）";
+  }
   else if (inProgress.length > 0 && ownPrs.length === 0) hint = "在编但未见对应 PR——可能还在写，或已经写完没开 PR";
   else if (ownPrs.some((p) => !p.isDraft && p.mergeStateStatus && p.mergeStateStatus !== "CLEAN")) hint = "PR 待处理（review/CI/冲突），人类或 reviewer 可介入";
   else if (inProgress.length === 0 && ownPrs.length === 0 && leases.length === 0) hint = claimsByAgent === null ? "信号不足（未连 coord-gateway）" : "空闲";
@@ -208,13 +238,18 @@ if (claimsByAgent === null && !NO_REMOTE) {
   lines.push(`> ⚠ coord-gateway 未连接（缺 COORD_GATEWAY_URL/COORD_API_TOKEN/COORD_REPO，或查询失败）——`);
   lines.push(`> 下表「租约」列查不到，不代表这些 agent 空闲，是这次没问到（fail-open ≠ fail-silent）。`);
 }
+if (!prsQueried) {
+  lines.push(`> ⚠ --no-remote：本轮没查 PR——下表「关联 PR」列全部显示「未查询」，不代表真的没有 PR。`);
+}
 if (agentRows.length === 0) {
   lines.push(`（registry.yaml 读取失败或没有 active agent）`);
 } else {
   lines.push(`| agent | kind | 租约（心跳） | 在编 feature | 关联 PR | 卡点提示 |`);
   lines.push(`|---|---|---|---|---|---|`);
   for (const r of agentRows) {
-    const prText = r.ownPrs.length ? r.ownPrs.map((p) => `#${p.number}[${p.isDraft ? "draft" : p.mergeStateStatus}]`).join("、") : "（无）";
+    const prText = !prsQueried
+      ? "（未查询，--no-remote）"
+      : r.ownPrs.length ? r.ownPrs.map((p) => `#${p.number}[${p.isDraft ? "draft" : p.mergeStateStatus}]`).join("、") : "（无）";
     lines.push(`| ${r.id} | ${r.kind} | ${r.leaseText} | ${r.inProgress.join("、") || "（无）"} | ${prText} | ${r.hint} |`);
   }
 }
