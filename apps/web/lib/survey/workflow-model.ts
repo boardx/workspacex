@@ -1,5 +1,6 @@
 import { survey } from "@repo/contracts";
 import { z } from "zod";
+import { SURVEY_QUESTION_MODULE_CARDS } from "@/lib/survey/resource-library";
 
 export type SurveyWorkflowModel = z.infer<typeof survey.SurveyWorkflowSchema>;
 
@@ -16,7 +17,7 @@ export interface PublishBlocker {
   label: string;
 }
 
-export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?: string } = {}): survey.SurveyWorkflowModel {
+export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?: string; moduleEditor?: boolean } = {}): survey.SurveyWorkflowModel {
   const questions: survey.SurveyWorkflowQuestion[] = [
     { id: "Q01", order: 1, chapterId: "profile", type: "single", title: "您目前承担的主要职责层级是？", required: true, options: ["企业高管", "部门负责人", "项目负责人", "专业骨干", "一线员工"] },
     { id: "Q02", order: 2, chapterId: "profile", type: "single", title: "所在组织的主要业务领域是？", required: true, options: ["专业服务", "软件与互联网", "制造业", "能源", "其他"] },
@@ -55,13 +56,21 @@ export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?
   }));
 
   const isNew = options.surveyId === "new";
-  const selectedQuestions = options.moduleId
-    ? questions.filter((question) => question.chapterId === options.moduleId)
-    : questions;
+  const selectedQuestions = options.moduleEditor && isNew && !options.moduleId
+    ? []
+    : options.moduleId
+      ? questions.filter((question) => question.chapterId === options.moduleId)
+      : questions;
   const selectedResponses = isNew || options.moduleId ? [] : responses;
+  const moduleTitle = SURVEY_QUESTION_MODULE_CARDS.find((item) => item.id === options.moduleId)?.title;
+  const title = options.moduleEditor
+    ? moduleTitle ?? "未命名问卷模块"
+    : isNew
+      ? "未命名问卷"
+      : "企业数字协作成熟度诊断";
 
   return survey.SurveyWorkflowSchema.parse({
-    survey: { id: options.surveyId ?? "sv-1", title: isNew ? "未命名问卷" : "企业数字协作成熟度诊断", status: isNew ? "draft" : "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
+    survey: { id: options.surveyId ?? "sv-1", title, status: isNew ? "draft" : "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
     questions: selectedQuestions,
     reportTemplate: {
       sections: [
@@ -91,6 +100,13 @@ export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?
       ],
     },
   });
+}
+
+export function getSurveyQuestionModuleQuestions(moduleId: string): survey.SurveyWorkflowQuestion[] {
+  return createSurveyWorkflowMock({ surveyId: "new", moduleId, moduleEditor: true }).questions.map((question) => ({
+    ...question,
+    options: [...question.options],
+  }));
 }
 
 export function getSurveyMetrics(model: survey.SurveyWorkflowModel): SurveyMetrics {

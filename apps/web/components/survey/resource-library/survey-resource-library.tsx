@@ -102,7 +102,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/new?step=design&mode=module&module=${item.id}`)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/module-${item.id}?step=design&mode=module`)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">

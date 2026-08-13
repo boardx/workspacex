@@ -21,8 +21,9 @@ describe("SurveyWorkflowShell", () => {
   });
 
   it("从问卷模块创建时只载入该模块的问题", () => {
-    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
+    render(<SurveyWorkflowShell surveyId="module-profile" initialStep="design" uiState="default" readonly={false} moduleEditor />);
 
+    expect(screen.getByRole("heading", { name: "组织画像" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
@@ -34,8 +35,59 @@ describe("SurveyWorkflowShell", () => {
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules");
   });
 
+  it("不同模块身份对应各自标题与题目集", () => {
+    render(<SurveyWorkflowShell surveyId="module-strategy" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    expect(screen.getByRole("heading", { name: "战略治理" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q06")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("新建空白问卷模块默认没有题目并提供创建入口", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    expect(screen.getByRole("heading", { name: "未命名问卷模块" })).toBeInTheDocument();
+    expect(screen.getByText("当前模块还没有题目")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加第一道题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "从已有问卷模块创建" })).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("空白模块可以复制已有模块题目后独立修改", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    fireEvent.click(screen.getByRole("button", { name: "从已有问卷模块创建" }));
+    fireEvent.click(screen.getByRole("button", { name: /组织画像/ }));
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "未命名问卷模块" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getAllByLabelText("问题内容")[0]!, { target: { value: "自定义后的题目" } });
+    expect(screen.getAllByLabelText("问题内容")[0]!).toHaveValue("自定义后的题目");
+  });
+
+  it("空白模块可以添加第一道题", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加第一道题" }));
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByLabelText("问题内容")).toHaveValue("请输入问题内容");
+  });
+
+  it("只读空白模块不提供创建题目的操作", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly moduleEditor />);
+
+    expect(screen.getByText("当前模块还没有题目")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加第一道题" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "从已有问卷模块创建" })).not.toBeInTheDocument();
+  });
+
   it("问卷模块模式忽略非设计步骤且只显示题目编辑", () => {
-    render(<SurveyWorkflowShell surveyId="new" initialStep="template" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
+    render(<SurveyWorkflowShell surveyId="module-profile" initialStep="template" uiState="default" readonly={false} moduleEditor />);
 
     expect(screen.getByTestId("survey-design-question-editor")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-template-editor")).not.toBeInTheDocument();
