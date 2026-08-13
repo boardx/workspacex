@@ -24,6 +24,7 @@ import { normalizedPath, sha256 } from "../../domain/skill/starter-pack";
 import type { IdentityRepository } from "../identity/ports";
 import { toOrgId } from "../../domain/org-id";
 import type { ImportUrlPolicy } from "../../domain/skill/import-source";
+import { SkillNameConflictError } from "../skill/ports";
 import {
   ImportSkillFromUrlError,
   type ImportSkillFromUrlInput,
@@ -121,6 +122,130 @@ function filePathFor(sourceUrl: string): string {
   }
 }
 
+/**
+ * G1（2026-08-14）—— GitHub **目录** URL（`.../tree/<branch>/<path>`）。
+ *
+ * ⚠ 在这条分支加入之前，这种 URL 会被当成「单文件」处理：`filePathFor` 从路径最后一段
+ *   取文件名（比如 `gpt-image-2`，没有扩展名），`fetchImportSource` 直接 GET 这个 HTML
+ *   页面本身（GitHub 的目录页，不是文件内容）。只要页面字节数不超 1MB 且这次的 name
+ *   没有撞现有 skill（G1 的另一半修复），这条路径会**成功**——但落库的是一份叫
+ *   `gpt-image-2` 的文件、内容是整页 HTML，不是使用者以为的那个 skill 目录。
+ *   这是「看起来成功、实际是垃圾」，比诚实报错更糟——所以这里改成把整个子目录当成
+ *   skill 目录导入，而不是仅仅把错误提示写得更好看。
+ */
+const GITHUB_TREE_URL_RE =
+  /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+?)\/?$/;
+
+interface GithubTreeTarget {
+  readonly owner: string;
+  readonly repo: string;
+  readonly branch: string;
+  /** 仓库内的目录路径，比如 `skills/gpt-image-2`。不含前导/尾随斜杠。 */
+  readonly dirPath: string;
+}
+
+export function parseGithubTreeUrl(raw: string): GithubTreeTarget | null {
+  const match = GITHUB_TREE_URL_RE.exec(raw);
+  if (match === null) return null;
+  const [, owner, repo, branch, path] = match;
+  if (owner === undefined || repo === undefined || branch === undefined || path === undefined) return null;
+  return { owner, repo, branch, dirPath: decodeURIComponent(path) };
+}
+
+/** 目录导入的保守上限：导入的是 skill 目录，不是整个仓库。 */
+const MAX_DIRECTORY_FILES = 200;
+const MAX_DIRECTORY_DEPTH = 6;
+
+interface GithubContentEntry {
+  readonly type: string;
+  readonly name: string;
+  readonly path: string;
+  readonly download_url: string | null;
+}
+
+/**
+ * 递归走 GitHub Contents API 把一个目录取成 `{ 相对路径 → 字节 }` 的扁平文件集合。
+ *
+ * ⚠ 每一次 HTTP 调用（目录列表、单个文件）都走 `deps.fetch`——与单文件导入
+ *   同一条两道 SSRF 门流水线，这里不另开一条不经过校验的取回路径。
+ * ⚠ `entry.path` 相对 `root.dirPath` 求出**包内相对路径**（`skill 目录本身就是发布出去
+ *   的目录结构`，与 `AgSkillEditor` 头注「左侧文件树就是发布出去的目录结构」同一心智）。
+ */
+async function fetchGithubDirectoryFiles(
+  root: GithubTreeTarget,
+  fetchFn: ImportSourceFetcher,
+  policy: ImportUrlPolicy,
+): Promise<readonly { path: string; content: Buffer; mediaType: string; digest: string }[]> {
+  const files: { path: string; content: Buffer; mediaType: string; digest: string }[] = [];
+
+  async function walk(dirPath: string, depth: number): Promise<void> {
+    if (depth > MAX_DIRECTORY_DEPTH) {
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+    const apiUrl = `https://api.github.com/repos/${root.owner}/${root.repo}/contents/${dirPath
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}?ref=${encodeURIComponent(root.branch)}`;
+    const listing = await fetchFn(apiUrl, policy);
+    let entries: unknown;
+    try {
+      entries = JSON.parse(listing.body.toString("utf8"));
+    } catch {
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+    if (!Array.isArray(entries)) {
+      // GitHub 对单文件路径也返回 200，但 body 是一个对象而不是数组——
+      // 这里只接受「这是一个目录」的形状，不静默降级成单文件导入。
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+
+    for (const raw of entries as readonly GithubContentEntry[]) {
+      if (files.length >= MAX_DIRECTORY_FILES) {
+        throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+      }
+      if (raw.type === "dir") {
+        await walk(raw.path, depth + 1);
+        continue;
+      }
+      if (raw.type !== "file" || raw.download_url === null) continue; // 符号链接/submodule 等，跳过
+      const fetched = await fetchFn(raw.download_url, policy);
+      if (fetched.body.length === 0 || fetched.body.length > MAX_SINGLE_FILE_BYTES) {
+        throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+      }
+      const relative = raw.path.startsWith(`${root.dirPath}/`)
+        ? raw.path.slice(root.dirPath.length + 1)
+        : raw.path;
+      let path: string;
+      try {
+        path = normalizedPath(relative);
+      } catch {
+        throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+      }
+      files.push({ path, content: fetched.body, mediaType: fetched.mediaType, digest: sha256(fetched.body) });
+    }
+  }
+
+  await walk(root.dirPath, 0);
+
+  // 与 `wave2_skill_starter_import` 迁移里 `wave2_publish_skill_version` 校验的同一条
+  // 不变量对齐（「目录里必须恰好有一个根 SKILL.md」）——这里提前判、给出可行动的错误码，
+  // 而不是让请求走到发布函数那一步才因为一个 DB 触发器报错折成裸 500。
+  if (!files.some((f) => f.path === "SKILL.md")) {
+    throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+  }
+  return files;
+}
+
+/** 多文件目录导入的整体内容摘要——与 `pg-asset-file-repository.ts` 的 manifest digest 同一构造。 */
+function manifestDigestOf(files: readonly { readonly path: string; readonly digest: string }[]): string {
+  return sha256(
+    [...files]
+      .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+      .map((f) => `${f.path}\0${f.digest}`)
+      .join("\n"),
+  );
+}
+
 export async function importSkillFromUrl(
   input: ImportSkillFromUrlInput,
   deps: ImportSkillFromUrlDeps,
@@ -153,23 +278,48 @@ export async function importSkillFromUrl(
    * ⚠ 这里**故意没有 try/catch**。取回层的拒绝（SSRF / 协议 / 体积 / 本地组织）
    *   必须原样冒泡到调用方。吞掉它 = 两道门形同虚设。
    */
-  const fetched = await deps.fetch(input.sourceUrl, deps.policy);
+  const githubTree = parseGithubTreeUrl(input.sourceUrl);
 
-  if (fetched.body.length === 0 || fetched.body.length > MAX_SINGLE_FILE_BYTES) {
-    throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+  const { sourceUrl, files, contentDigest } = githubTree !== null
+    ? await (async () => {
+        // 目录导入：整个子目录就是要发布的 skill 目录结构（同 `filePathFor` 单文件分支
+        // 「路径按取回后最终落地的 URL 算」的精神——这里「最终落地」是整个目录快照）。
+        const dirFiles = await fetchGithubDirectoryFiles(githubTree, deps.fetch, deps.policy);
+        return { sourceUrl: input.sourceUrl, files: dirFiles, contentDigest: manifestDigestOf(dirFiles) };
+      })()
+    : await (async () => {
+        const fetched = await deps.fetch(input.sourceUrl, deps.policy);
+        if (fetched.body.length === 0 || fetched.body.length > MAX_SINGLE_FILE_BYTES) {
+          throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+        }
+        // 路径按**取回后最终落地的 URL**算——重定向可能换了文件名。
+        const path = filePathFor(fetched.url);
+        const digest = sha256(fetched.body);
+        return {
+          sourceUrl: fetched.url,
+          files: [{ path, content: fetched.body, mediaType: fetched.mediaType, digest }],
+          contentDigest: digest,
+        };
+      })();
+
+  try {
+    return await deps.repository.persist({
+      orgId: input.orgId,
+      actorId: input.actorId,
+      idempotencyKey: input.idempotencyKey,
+      name: input.name,
+      sourceUrl,
+      contentDigest,
+      files,
+    });
+  } catch (error) {
+    // G1（2026-08-14）：同组织已有同名 skill（不分大小写）。此前这条错误从
+    // repository 一路裸奔到 controller，变成一个没有 reasonCode 的 500——
+    // 见 `pg-skill-url-import-repository.ts` 文件头长注与 `ImportSkillFromUrlFailure`
+    // 里早就声明、却从未被抛出过的 `IMPORT_NAME_CONFLICT`。
+    if (error instanceof SkillNameConflictError) {
+      throw new ImportSkillFromUrlError("IMPORT_NAME_CONFLICT");
+    }
+    throw error;
   }
-
-  // 路径按**取回后最终落地的 URL**算——重定向可能换了文件名。
-  const path = filePathFor(fetched.url);
-  const digest = sha256(fetched.body);
-
-  return deps.repository.persist({
-    orgId: input.orgId,
-    actorId: input.actorId,
-    idempotencyKey: input.idempotencyKey,
-    name: input.name,
-    sourceUrl: fetched.url,
-    contentDigest: digest,
-    files: [{ path, content: fetched.body, mediaType: fetched.mediaType, digest }],
-  });
 }
