@@ -153,13 +153,18 @@ export function CapabilityCatalogScreen({
   React.useEffect(() => {
     if (consumedInitialEdit.current) return;
     if (initialEditId === null) return;
-    if (visibleState.status !== "ready") return; // 数据没到位之前找不到目标行
-    const index = rows.findIndex((r) => r.id === initialEditId);
+    // ⚠ 依赖 `state`（`useState` 本身管理的引用，只在真正 setState 时才变）而不是
+    //   上面渲染期派生出的 `visibleState`/`rows`——那两个在 `sourceKey` 不匹配时
+    //   是每次渲染都新建的对象/数组字面量，会让这个 effect 被判定成「依赖每次都变」
+    //   而重跑（react-hooks/exhaustive-deps）。这里在 effect 内部重新做一次同样的
+    //   「source 是否匹配」判断，逻辑与渲染期的 `visibleState` 计算一致。
+    if (state.sourceKey !== sourceKey || state.status !== "ready") return;
+    const index = state.rows.findIndex((r) => r.id === initialEditId);
     if (index === -1) return; // 这个 id 不在当前组织/这个 kind 的目录里——如实什么都不做
     consumedInitialEdit.current = true;
     setEditingId(initialEditId);
     setPage(Math.floor(index / PAGE_SIZE));
-  }, [initialEditId, rows, visibleState.status]);
+  }, [initialEditId, state, sourceKey]);
 
   return (
     <div className="flex flex-col gap-5 p-6" data-testid={`${prefix}-catalog`}>
