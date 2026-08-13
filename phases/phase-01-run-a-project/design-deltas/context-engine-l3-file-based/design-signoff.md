@@ -1,12 +1,12 @@
 ---
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed         # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: context-engine-l3-file-based
 base_bundle: chat-context-engine
 scope: l3-retrieval-goes-file-based-keyword-search-not-embedding-similarity
 covers: [F155]
-confirmed_by:
-confirmed_at:
-confirmed_via:
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-14"
+confirmed_via: "contract.md 审阅确认：L3 改走 Postgres 原生全文检索（tsvector/ts_rank，零新外部依赖），覆盖聊天附件+已落地画布产物（含 mermaid 图），不重做 L1/L2，旧五路召回引擎保留不删。批准理由：EmbeddingPort 实测零生产实现，已签方案今天跑不起来。"
 ---
 
 # design delta 签核 · L3 检索改走文件式检索（不依赖 embedding）
