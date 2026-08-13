@@ -3802,7 +3802,7 @@
       "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R2",
       "depends_on": [],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3810,7 +3810,7 @@
         "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F168.verify.log @ 2026-08-13T03:17:54.741Z",
       "notes": "属 guided-deep-research design delta。垂直切片：契约 + 会话表/仓储 + list/create/get API + /research 首页真数据接线。resumeStage 必须服务端派生；create 对同一幂等键不得重复建会话。共享热点：packages/contracts/src/research.ts、apps/api/src/kernel.module.ts、apps/web/components/research-studio/guided-research-flow.tsx；F169-F171 必须在本 feature 合入 main 后串行。Issue 由 harness sync 创建。",
       "priority": 1,
       "area": "research",
