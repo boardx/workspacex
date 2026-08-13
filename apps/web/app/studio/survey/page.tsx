@@ -4,7 +4,11 @@ import type { SurveyResourceState, SurveyResourceTab } from "@/lib/survey/resour
 export default function SurveyPage({ searchParams }: {
   searchParams: { tab?: string; state?: string };
 }) {
-  const tab: SurveyResourceTab = searchParams.tab === "templates" ? "templates" : "surveys";
+  const tab: SurveyResourceTab = searchParams.tab === "templates"
+    ? "modules"
+    : searchParams.tab === "modules" || searchParams.tab === "reports"
+      ? searchParams.tab
+      : "surveys";
   const uiState: SurveyResourceState = (["loading", "empty", "error"] as const).includes(searchParams.state as "loading" | "empty" | "error")
     ? searchParams.state as SurveyResourceState
     : "default";
