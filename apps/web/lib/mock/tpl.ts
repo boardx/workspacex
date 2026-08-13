@@ -504,6 +504,13 @@ export interface BlueprintRow {
   team: string | null;
   appliedByProject: boolean; // 是否被项目套用过 —— 决定 [删除] vs [归档]（O-18①）
   draftHint?: string; // 草稿态门槛提示
+  /**
+   * 标签（2026-08-14 卡片网格改版新增，人类直接给的截图指令）：用于列表页的标签过滤。
+   * ⚠ 纯 mock 展示字段，不在 templates 契约的 BlueprintRow 里 —— 真实接后端时
+   * （BP-05）需确认契约是否已补 tags，若未补，先按 KNOWN_CONTRACT_GAPS 记录，
+   * 不要在真库那侧擅自造一个新列。
+   */
+  tags: string[];
 }
 
 /** 满意度最小样本量阈值（缺 D-5：具体数值待产品给；此处参数化占位）*/
@@ -513,21 +520,30 @@ export const hasEnoughSatisfactionSamples = (s: BlueprintRow["satisfaction"]) =>
 
 export const BLUEPRINTS: BlueprintRow[] = [
   { id: "bp-hmw", name: "HMW 定题项目", state: "published", version: 4, agendaSegments: 7, duration: "3.5h",
-    usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, doneCount: 16, visibility: "org-wide", team: null, appliedByProject: true },
+    usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, doneCount: 16, visibility: "org-wide", team: null, appliedByProject: true,
+    tags: ["定题", "创新"] },
   { id: "bp-bmc", name: "商业模式共创", state: "published", version: 3, agendaSegments: 14, duration: "2d",
-    usedCount: 21, satisfaction: { mean: 4.1, sampleSize: 14 }, doneCount: 14, visibility: "org-wide", team: null, appliedByProject: true },
+    usedCount: 21, satisfaction: { mean: 4.1, sampleSize: 14 }, doneCount: 14, visibility: "org-wide", team: null, appliedByProject: true,
+    tags: ["战略", "共创"] },
   { id: "bp-diag", name: "组织诊断（两天）", state: "published", version: 2, agendaSegments: 14, duration: "2d",
-    usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, doneCount: 15, visibility: "team-only", team: "能源组", appliedByProject: true },
+    usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, doneCount: 15, visibility: "team-only", team: "能源组", appliedByProject: true,
+    tags: ["诊断", "组织"] },
   { id: "bp-sprint", name: "设计冲刺 5 天", state: "published", version: 5, agendaSegments: 19, duration: "5d",
-    usedCount: 7, satisfaction: { mean: 4.0, sampleSize: 6 }, doneCount: 13, visibility: "org-wide", team: null, appliedByProject: true },
+    usedCount: 7, satisfaction: { mean: 4.0, sampleSize: 6 }, doneCount: 13, visibility: "org-wide", team: null, appliedByProject: true,
+    tags: ["设计冲刺", "创新"] },
   { id: "bp-hypo", name: "假设风暴（快版）", state: "draft", version: null, agendaSegments: 7, duration: "3.5h",
-    usedCount: 0, satisfaction: null, doneCount: 12, visibility: "org-wide", team: null, appliedByProject: false, draftHint: "试跑一场后才能发布" },
+    usedCount: 0, satisfaction: null, doneCount: 12, visibility: "org-wide", team: null, appliedByProject: false, draftHint: "试跑一场后才能发布",
+    tags: ["假设检验", "快版"] },
   { id: "bp-review", name: "客户访谈复盘", state: "draft", version: null, agendaSegments: 4, duration: "90m",
-    usedCount: 0, satisfaction: null, doneCount: 9, visibility: "org-wide", team: null, appliedByProject: false, draftHint: "试跑一场后才能发布 · 场地与打印素材两节待清空" },
+    usedCount: 0, satisfaction: null, doneCount: 9, visibility: "org-wide", team: null, appliedByProject: false, draftHint: "试跑一场后才能发布 · 场地与打印素材两节待清空",
+    tags: ["访谈", "复盘"] },
   { id: "bp-strat", name: "战略假设复盘", state: "published", version: 6, agendaSegments: 7, duration: "3.5h",
-    usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, doneCount: 15, visibility: "org-wide", team: null, appliedByProject: false },
+    usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, doneCount: 15, visibility: "org-wide", team: null, appliedByProject: false,
+    tags: ["战略", "复盘"] },
 ];
 export const BLUEPRINT_STATS = { total: 7, published: 5, draft: 2 };
+/** 全部标签（去重），驱动列表页的标签过滤器 —— 从 BLUEPRINTS 派生，不单独维护第二份 */
+export const ALL_BLUEPRINT_TAGS: string[] = Array.from(new Set(BLUEPRINTS.flatMap((b) => b.tags))).sort();
 
 /** 版本历史（UC-2.4 R8「待补/待定」：版本历史屏在已探明区确认缺失，此处为补画）*/
 export interface BlueprintVersion {
