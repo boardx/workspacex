@@ -1,0 +1,21 @@
+# 首个真实 TPL-EVT-001 实例——记录 HMV2 Epic E2 的真实进展（issue #422 协调线）。
+# 这不是 fixture：字段内容全部对应真实已发生的工作，可逐条核验。
+template_id: TPL-EVT-001
+template_version: 1
+instance_id: EVT-422-0001
+kind: progress
+task_id: TSK-422-e2-01
+actor: dev-chat-e2e
+head_sha: b975e6f6
+evidence_refs:
+  - "PR #894 HMV2-013"
+  - "PR #916 HMV2-014"
+  - "PR #922 HMV2-015"
+  - "PR #987 HMV2-016"
+delta:
+  implemented:
+    - "typed renderer API + 占位符门 + 元数据头 + drift gate 四件已合并"
+blockers: []
+next_action:
+  owner_role: dev-chat-e2e
+  action: "HMV2-017 templates render CLI（收编 H3A-035 为首个注册 renderer）"

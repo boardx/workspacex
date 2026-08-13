@@ -20,6 +20,7 @@ import { coreLoopReadiness } from "./core-loop-readiness-doctor";
 import { prQueue } from "./pr-queue";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
+import { templatesRender } from "./templates-render";
 import { terminologyDoctor } from "./terminology-doctor";
 import { roleFreezeDoctor } from "./role-freeze-doctor";
 import { graphAuthorityDoctor } from "./graph-authority-doctor";
@@ -69,7 +70,8 @@ async function main(): Promise<void> {
       const subArgs = { ...args, _: args._.slice(1) };
       if (sub === "doctor") { templatesDoctor(subArgs); break; }
       if (sub === "allocate") { templatesAllocate(subArgs); break; }
-      log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate`);
+      if (sub === "render") { templatesRender(subArgs); break; }
+      log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate / render`);
       process.exitCode = 1;
       break;
     }
@@ -211,6 +213,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness module-lock-heartbeat --module <name> --session <agent-id>");
       log.info("  pnpm harness module-lock-release   --module <name> --session <agent-id>");
       log.info("  pnpm harness templates doctor                          # PROP-HARNESS-MODEL-001 Epic E1：模板实例唯一性/生命周期/引用完整性体检");
+      log.info("  pnpm harness templates render [--dry-run]                # HMV2-017：渲染全部实例（013→014→015 管道），产物落 .harness/generated/");
       log.info("  pnpm harness templates allocate --domain <3位大写域码> --name \"<name>\" [--owner <id>] [--authority <text>] [--consumers a,b]");
       log.info("                             # 原子取号 + 登记进 registry.yaml（占号即登记，防撞号，同 new-adr 思路）");
       log.info("  pnpm harness terminology doctor                        # PROP-HARNESS-AGENT-001 H3A-006/007/008：术语注册表 + 兼容映射结构校验");

@@ -17,6 +17,30 @@ import { parse } from "yaml";
 import { DOMAIN_SKILL_TEMPLATE_ID } from "./domain-skill-model";
 import { validateInstanceMetadata, type InstanceMetadata, type ValidationIssue } from "./template-model";
 
+/**
+ * 有**专属 schema + 专属 doctor**（都在 verify:base 链上）认领的**目录**——通用
+ * InstanceMetadata 扫描对这些目录下的文件豁免。跳过 ≠ 放过：这三个目录各自的
+ * README 声明了存放约定，各自的 doctor 扫的正是这个目录，校验责任完整落在
+ * 那条门上，这里只是不用错误的尺子量第二遍（AGENTS.md：同一事实不得声明在两处）。
+ *
+ * 为什么按**目录**豁免而不是按 template_id 全局豁免（HMV2-017 实测教训）：
+ * TPL-EVT-001 存在两套并存 schema——E1 的示例实例
+ * （`.harness/templates/examples/EVT-hmv2-e1-001.yaml`，通用 InstanceMetadata
+ * 形状）与 H3A-033 的 envelope（`.harness/events/`，刻意没有 status/scope）。
+ * 按 template_id 全局豁免会让 E1 示例**失去所有校验**（哪个 doctor 都不扫
+ * `templates/examples/`）——豁免=放过，违反准入规则。按目录豁免则每份文件
+ * 恰好归一道门：events/tasks/reviews 归各自 doctor，其余位置归本扫描。
+ * 双 schema 冲突本身是真实待裁事项，已上报 #422，本文件不裁。
+ *
+ * 新增豁免目录的准入条件：该目录必须已有专属 doctor 挂在 verify:base 上，
+ * 否则豁免=放过，不许加。
+ */
+const OWN_DOCTOR_DIRS = [
+  ".harness/events/",   // workflow-event doctor（lint:workflow-event-doctor，H3A-033/034）
+  ".harness/tasks/",    // task-assignment doctor（lint:task-assignment-doctor，H3A-030）
+  ".harness/reviews/",  // review-decision doctor（lint:review-decision-doctor，H3A-036）
+];
+
 const EXCLUDED_DIRS = new Set([
   "node_modules", ".git", ".next", ".turbo", "dist", "build", ".vercel",
   "coverage", ".claude", ".wrangler",
@@ -116,6 +140,7 @@ export function scanForInstances(repoRoot: string): ScanResult {
      * 这里只是不再用错误的尺子量第二遍（AGENTS.md：同一事实不得声明在两处）。
      */
     if ((parsed as Record<string, unknown>)["template_id"] === DOMAIN_SKILL_TEMPLATE_ID) continue;
+    if (OWN_DOCTOR_DIRS.some((d) => relPath.startsWith(d))) continue;
 
     const result = validateInstanceMetadata(parsed, relPath);
     if (result.ok && result.value) {
