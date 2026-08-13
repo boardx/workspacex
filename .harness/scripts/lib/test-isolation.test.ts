@@ -160,8 +160,20 @@ describe("test isolation contract (#74)", () => {
   });
 
   it("caps Vitest's actual default forks pool via maxWorkers", () => {
+    // 2026-08-12（项目 Agent 两轮定位）：这条断言原本钉死 `maxWorkers: 4` 这个
+    // 字面值，而用例名说的是性质——「有上限」。第一次踩坑：4→1（DDL/RLS 重的
+    // 测试文件在 4 个并行 fork 间死锁，`DROP POLICY` 的 AccessExclusiveLock 与
+    // 另一 worker 的行锁互等成环，两轮同代码红不同文件的判据 + 锁等待日志逐字
+    // 印证），断言钉的还是字面值，只是换了个数字——下一次调优同样会撞红。
+    // 改断言性质本身：必须显式设（否则 forks 池按 CPU 数无限开，打爆共享库）
+    // 且不超过当初定 4 时论证过的 PostgreSQL 并发预算上界（见本文件 ~68 行注释
+    // "keeps the PostgreSQL budget mechanical"）。1–4 之间调优不再惊动这道门；
+    // 改上界本身仍然会红——那才是需要重新论证预算的时候。
     const config = readFileSync(resolve(ROOT, "apps/api/vitest.config.ts"), "utf8");
-    expect(config).toMatch(/maxWorkers:\s*4/);
+    const m = config.match(/maxWorkers:\s*(\d+)/);
+    expect(m, "apps/api/vitest.config.ts 必须显式设 maxWorkers（否则 forks 池按 CPU 数无限开，会打爆共享库）").not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(1);
+    expect(Number(m![1])).toBeLessThanOrEqual(4);
     expect(config).not.toMatch(/threads:\s*\{[\s\S]*maxThreads/);
   });
 
