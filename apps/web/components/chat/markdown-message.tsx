@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import { extractMermaidBlocks } from "@repo/fabric-markdown/markdown";
-import { MermaidDiagram } from "./mermaid-diagram";
+import { ChatDiagramFabric } from "./chat-diagram-fabric";
 
 /**
  * AI 消息正文渲染（VZ-01）：把 `msg.text`（纯 markdown 源）渲成 HTML，
@@ -52,7 +52,7 @@ export function MarkdownMessage({ text }: { text: string }) {
     >
       {segments.map((s) =>
         s.kind === "mermaid" ? (
-          <MermaidDiagram key={s.key} code={s.code} />
+          <ChatDiagramFabric key={s.key} code={s.code} />
         ) : (
           <ReactMarkdown
             key={s.key}

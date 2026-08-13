@@ -34,10 +34,14 @@ describe("MarkdownMessage", () => {
     expect(screen.getByText(/完。/)).toBeInTheDocument();
   });
 
-  it("白名单内的 mermaid 围栏 → 走渲染路径（loading→SVG），不落错误态", async () => {
+  it("白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态", async () => {
+    // VZ-fabric 增量：happy-path 从 VZ-01 的静态 SVG（chat-ai-mermaid）换成 fabric 渲染
+    // （ChatDiagramFabric）。mermaid.parse mock 成功 → 状态机 validating→valid → 挂
+    // data-testid="chat-diagram-fabric" 容器（内含 <canvas> 与最大化入口）。fabric 建画布
+    // 依赖真实 canvas context，jsdom 里不产 data-ready，但容器随 valid 态同步出现——这里验
+    // 的是「白名单内走渲染路径、不落错误态」，画布像素属浏览器 e2e。
     render(<MarkdownMessage text={"```mermaid\nflowchart TD\n  A --> B\n```"} />);
-    // mermaid 被 mock 成功渲染：最终落 chat-ai-mermaid（含 fake-svg），且没有错误态。
-    await waitFor(() => expect(screen.getByTestId("chat-ai-mermaid")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("chat-diagram-fabric")).toBeInTheDocument());
     expect(screen.queryByTestId("chat-ai-mermaid-error")).toBeNull();
   });
 });
