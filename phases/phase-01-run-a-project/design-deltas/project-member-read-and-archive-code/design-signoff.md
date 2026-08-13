@@ -1,10 +1,12 @@
 ---
-status: pending                  # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed                # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: project
 scope: member-roster-read + archive-blocked-error-code
-decision: ~                      # joinedAt-with-migration | no-joinedAt —— 待人类选定
-confirmed_by: ~
-confirmed_at: ~
+decision: joinedAt-with-migration   # 本 delta 追加迁移 + 回填，照 org 侧 i363 形制
+field_naming: as-drafted           # userId/projectRole 按本稿实测口径执行，不改回 memberId/role
+archive_error_code: adopted        # ARCHIVE_BLOCKED_ACTIVE_SEGMENT（422 fail-closed）按提议形状采纳，落地需联动改 F164 反证测试
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-13"
 ---
 
 # project 束 delta —— 成员名单读端点 + 归档被拦截的错误码
@@ -176,3 +178,13 @@ archiveProject.err: [
 `role → projectRole`）。若认为应照口径字面执行，改回即可——实现尚未开始，改动成本为零。
 
 **在此之前，PJ-05（成员管理接真）不开工**——`claim` 门会拒，这是设计如此。
+
+## 人类裁决（2026-08-13）
+
+三点全部按本稿默认/建议方向确认：
+1. 变更一形状（四字段 + `NO_PROJECT_ROLE`）——确认。
+2. `joinedAt` —— **`joinedAt-with-migration`**：本 delta 需要追加一条迁移 + 回填，照 i363 形制，
+   不是本版默认（本版原稿是 `no-joinedAt`）——实现时请注意这一条比原稿多了 schema 变更范围。
+3. 字段命名 `userId`/`projectRole` —— 按本稿实测口径执行，不改回 `memberId`/`role`。
+4. 变更二 `ARCHIVE_BLOCKED_ACTIVE_SEGMENT`（422 fail-closed）—— 采纳，落地时三处联动
+   （`errors.ts` 补码 / controller 改 422 / F164 反证测试同步改断言方向）缺一不可。
