@@ -75,7 +75,16 @@ export default defineConfig({
     // Vitest 2 defaults to the `forks` pool. The old poolOptions.threads limit therefore
     // constrained a pool we never used and left the real fork count at available CPUs.
     // `maxWorkers` applies to the active pool and keeps the PostgreSQL budget mechanical.
-    maxWorkers: 4,
+    //
+    // 2026-08-12（项目 Agent 定位，直接续 #1068/#1090）：maxWorkers=4 让本包 4 个 fork
+    // 并行打同一张共享库，撞见的是真锁序死锁，不是连接数问题——`kernel_apply_org_freeze_
+    // policies()` 的 `DROP POLICY` 要表级 AccessExclusiveLock，与另一个 worker 正持的
+    // 行锁互等成环（rbac-role-matrix / rls-cross-tenant-zero-leak / personal-transcription-
+    // persistence 三个文件轮流中枪，同一份代码两轮红的文件都不同，是并发争用的确定特征）。
+    // 单独 exclude 一个文件（见上）治不了这个：任何两个 DDL/RLS 重的文件同时抽到不同
+    // worker 就会撞。降到 1 worker 先止血——「谁跑 verify 谁随机中枪」比慢更糟；把
+    // DDL/RLS 类测试分组保持并行是后续优化，不在本次止血范围内。
+    maxWorkers: 1,
     minWorkers: 1,
   },
 });
