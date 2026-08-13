@@ -95,4 +95,3 @@
 - [ ] Run the four interview UI test files with one fork worker.
 - [ ] Run `git diff --check` and inspect the feature-only diff for unrelated changes.
 - [ ] Record exact commands and results in the sprint progress/handoff without marking F04 passing unless the full authoritative verification succeeds.
-
