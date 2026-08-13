@@ -3794,6 +3794,100 @@
       "area": "recording",
       "capability": "CAP-WEB",
       "sprint": null
+    },
+    {
+      "id": "F168",
+      "title": "研究首页与可恢复会话：历史研究、创建、继续和查看全部读真栈",
+      "user_visible_behavior": "用户访问 /research 时看到真实的历史研究；未完成研究显示服务端保存的阶段与进度并可从该阶段继续，已完成研究进入完整报告。用户确认主题后创建会话，刷新或离开再进入不会新建重复研究，也不会丢失当前阶段；无权研究不会出现在列表响应中。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R2",
+      "depends_on": [],
+      "points": 5,
+      "status": "in_progress",
+      "owner": "coord-deep-research",
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "属 guided-deep-research design delta。垂直切片：契约 + 会话表/仓储 + list/create/get API + /research 首页真数据接线。resumeStage 必须服务端派生；create 对同一幂等键不得重复建会话。共享热点：packages/contracts/src/research.ts、apps/api/src/kernel.module.ts、apps/web/components/research-studio/guided-research-flow.tsx；F169-F171 必须在本 feature 合入 main 后串行。Issue 由 harness sync 创建。",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "sprint": "04"
+    },
+    {
+      "id": "F169",
+      "title": "主题、研究方向与报告大纲三次人类确认：编辑版本不被重新生成静默覆盖",
+      "user_visible_behavior": "用户确认研究主题后获得 AI 生成的研究方向，可编辑、新增、删除和启停；确认方向后生成可编辑的大纲。三个阶段分别保存版本，重新生成只产生候选版本，不覆盖最近一次人类确认结果；主题或目标为空、方向全停用或大纲为空时不能进入下一阶段。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R3",
+      "depends_on": [
+        "F168"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/guided-session-human-checkpoints.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "依赖 F168 会话聚合。生成方向/大纲通过既有 deep-research provider 的受控端口，不在 controller 直连外部服务。版本和 confirmedVersion 分开，重新生成候选不改变 confirmedVersion。共享 research.ts、guided-research-flow.tsx 与 session repository，必须串行。",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "sprint": null
+    },
+    {
+      "id": "F170",
+      "title": "按确认大纲执行 Web Search：章节进度、来源与部分失败可恢复",
+      "user_visible_behavior": "用户确认大纲并开始研究后，页面显示服务端真实的整体百分比、当前查询、各章节任务状态和最新来源。离开页面后搜索继续运行，回来从同一会话恢复；单章节失败不抹掉其它章节已完成来源，用户可只重试失败阶段，同一大纲版本重复 start 不启动第二次搜索。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R4",
+      "depends_on": [
+        "F169"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/guided-search-progress-and-retry.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-search-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "依赖 F169 confirmed outline version。搜索执行复用 open-deep-research/LangGraph 服务，但本 feature 需要持久化 BoardX 侧 snapshot 和幂等 start key；前端只消费 BoardX 契约，不解析上游原始事件。共享 research.ts、guided-research-flow.tsx 和 session repository，必须串行。",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "sprint": null
+    },
+    {
+      "id": "F171",
+      "title": "完整研究报告与引用：结构化章节、目录和来源可追溯",
+      "user_visible_behavior": "研究完成后，用户在报告页看到按已确认大纲生成的结构化章节、目录、生成时间和来源数量；每条关键结论引用的 citationId 都能解析到真实来源标题、规范 URL、类型与抓取时间。报告生成失败时仍可查看已完成搜索和来源并重试，不返回孤儿引用或一段不可追溯的纯文本。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R5",
+      "depends_on": [
+        "F170"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm --filter api exec vitest run tests/research/guided-report-citations.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-report-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "依赖 F170 已持久化来源。报告章节引用只允许指向同一 report citations 集合内的稳定 id；来源列表必须是真数据，不以计数替代。导出/分享/评论明确不在范围。共享 research.ts、guided-research-flow.tsx 与 session repository，必须串行。",
+      "priority": 1,
+      "area": "research",
+      "capability": "CAP-WEB",
+      "sprint": null
     }
   ]
 }

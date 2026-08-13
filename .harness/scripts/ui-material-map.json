@@ -29,6 +29,9 @@
     "skills": "ui-preview/skill-v2",
     "templates": "ui-preview/tpl-v2"
   },
+  "phase-02-visible-outcomes": {
+    "survey": "ui-preview/survey-v2"
+  },
   "phase-03-reuse-and-governance": {
     "user-research-studio": "ui-preview/user-research-studio"
   },

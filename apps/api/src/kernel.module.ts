@@ -173,6 +173,9 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
+import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
+import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { ContextApiDigitalExpertMaterialReader } from "./infrastructure/interview/context-api-digital-expert-material-reader";
@@ -508,6 +511,7 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
     AuthOrgController,
     OrgAdminScopeController,
     DigitalInterviewController,
+    GuidedResearchController,
     InterviewScopeController,
     ChatController,
     ChatAttachmentController,
@@ -988,6 +992,11 @@ import { AliyunFunAsrProvider } from "./infrastructure/recording/aliyun-fun-asr-
       useFactory: (db: DatabasePort, identities: IdentityRepository) =>
         new ContextApiDigitalExpertMaterialReader(db, identities),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    {
+      provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
+      inject: [DATABASE_PORT],
     },
     // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。
     {

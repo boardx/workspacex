@@ -106,6 +106,12 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `decideSubjectVisibility (application/interview/subject-visibility-decision) and discloseDecided().`,
     );
   }
+  if (ref.kind === "research") {
+    throw new Error(
+      `research "${ref.id}" cannot be judged by authorize -- guided research sessions have no ` +
+        `acl_bindings row. Use decideGuidedResearchVisibility and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 
