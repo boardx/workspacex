@@ -363,6 +363,13 @@ export interface ThreadHistoryMessage {
    * 空/缺省 = 没有附件。B（F153/anydoc）会在此之外再补抽取内容——A 是 B 的地基，不重做。
    */
   readonly attachments?: readonly HistoryAttachmentMeta[];
+  /**
+   * F154 L2 —— 这条历史消息的 `chat_messages.id`。**可选**：既有构造点（测试 fake、trial-run
+   * 等不关心持久化的路径）不必填，L2 的增量摘要判定只在 id 存在时才尝试推进游标——任何一条
+   * 缺 id 就保守跳过本轮 L2 增量（沿用已有摘要，不猜、不崩），与本层「降级不 fail run」的
+   * 整体哲学一致。真实 Pg 读路径（`readThreadHistory`）总是填它。
+   */
+  readonly id?: string;
 }
 
 /**

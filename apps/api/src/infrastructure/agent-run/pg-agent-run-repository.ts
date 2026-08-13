@@ -524,8 +524,10 @@ export class PgAgentRunRepository implements AgentRunStore {
     return this.db.withTenant(orgId, async (s) => {
       // V9-b 前置 A（#970）：每条历史消息顺带聚合它的附件元数据（filename/mime），让模型
       // 看到历史里「那条消息带了文件」。附件内容不在这里（那是 B/anydoc）。
-      const result = await s.query<{ author_kind: string; body: string; attachments: unknown }>(
-        `SELECT author_kind, body, attachments FROM (
+      // F154 L2：outer SELECT 也带上 id——L2 的增量摘要判定要知道「读回的这批消息，哪些已经
+      // 被 thread_context_state.summarized_through_id 覆盖过」，没有 id 就分不出新旧。
+      const result = await s.query<{ id: string; author_kind: string; body: string; attachments: unknown }>(
+        `SELECT id, author_kind, body, attachments FROM (
            SELECT cm.author_kind, cm.body, cm.created_at, cm.id,
                   ${attachmentsAggSql("cm.id")} AS attachments
              FROM chat_messages cm
@@ -545,8 +547,8 @@ export class PgAgentRunRepository implements AgentRunStore {
           // 附件字段只在真有附件时挂上（保持「空/缺省 = 没有附件」的读法，也让既有断言不被
           // 一个恒空数组搅动）。
           const withAtt = attachments.length > 0 ? { attachments } : {};
-          if (row.author_kind === "human") return { role: "user", content: row.body, ...withAtt };
-          if (row.author_kind === "agent") return { role: "assistant", content: row.body, ...withAtt };
+          if (row.author_kind === "human") return { role: "user", content: row.body, id: row.id, ...withAtt };
+          if (row.author_kind === "agent") return { role: "assistant", content: row.body, id: row.id, ...withAtt };
           // No third `author_kind` exists in this schema today (see the CHECK on
           // `chat_messages`); skipping rather than throwing keeps a future value from
           // turning "read some history" into "fail the whole run" for an enhancement

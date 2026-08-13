@@ -78,11 +78,14 @@ export const HISTORY_MAX_MESSAGES = 20;
 export const HISTORY_MAX_CHARS = 12_000;
 
 /**
- * V8 —— 滚动摘要开关。**默认关**：不设或非 "1" 时 `assembleHistory` 不接 summarize，
- * 历史组装与 #709 逐字节相同。设为 "1"（受控环境）才开启对被丢弃旧轮的摘要。
- * 读一次（组装期），运行中途改环境变量不改已在跑的进程行为——同本文件其余配置的做法。
+ * F154 L2（08-chat/uc-8-7 R7，人类 2026-08-11 逐字签核「`HISTORY_MAX_MESSAGES` 不撑大」）——
+ * `HISTORY_MAX_MESSAGES` 本身**不变**，它仍是 L1 概念上的行数上限；这个新常量只用来给 L2 的
+ * 「有没有新增区间要折进持久摘要」判断一个更宽的候选窗口。L1 最终喂给模型的内容仍然只由
+ * `HISTORY_MAX_CHARS` 的字符预算裁出（`trimHistoryToBudget` 逐字节不变）——宽窗口只是让
+ * 「被裁掉的那部分」里，更旧的轮次也进入候选集，好让 L2 摘要真的能覆盖到它们，而不是让 L1
+ * 本身变大。有界（不是无限翻查全史）：一次 run 最多为这个目的多读这么多行。
  */
-export const HISTORY_SUMMARY_ENABLED = process.env.KERNEL_HISTORY_SUMMARY_ENABLED === "1";
+export const L2_CATCHUP_FETCH_LIMIT = 200;
 
 /**
  * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
@@ -122,10 +125,14 @@ export function trimHistoryToBudget(
  * 「记得前几轮」必然掉线。本函数在丢弃之前，可选地把被丢掉的旧轮压成一段摘要，作为一条
  * `assistant` 伪历史消息前置——这样近几轮原文保留、更旧的要点也不至于完全消失。
  *
- * ## 为什么默认关、opt-in
- * `summarize` 为 `undefined` 时，本函数返回值与直接调 `trimHistoryToBudget` **逐字节相同**
- * ——生产默认路径零行为变化、零风险（同 loopback 流式 / ASR turn_detection 的 opt-in 纪律）。
- * 打开摘要要多一次模型调用（成本/时延变化），因此由部署显式开启、先在受控环境验证再上生产。
+ * ## F154 L2 已接管调用侧（本函数本身、其 opt-in 形状、其纯单测不变）
+ * `executeClaimed` 不再直接调用本函数做「摘要」——那份职责已被 F154 L2（持久化、增量、
+ * `planLayeredHistoryIncrement` + `thread_context_state`）接管，L2 的摘要**跨 run 持久**，
+ * 不是本函数这种「每次调用临时摘要一次、summarize 未传就什么都不做」的 ephemeral 形状。
+ * `executeClaimed` 现在只用本文件同一个 `trimHistoryToBudget`（L1 的字符预算裁剪）。
+ * 本函数与其 opt-in `summarize` 参数原样保留——仍是一个通用、纯粹、经过测试的「裁剪 + 可选
+ * 摘要前置」工具，供未来其他调用点复用；`assemble-history.test.ts` 覆盖的正是这份能力本身，
+ * 与 L2 是否接管了 `executeClaimed` 的调用无关。
  *
  * ## 失败与预算
  * - 摘要调用失败或返回空 ⇒ 静默退回 `trimHistoryToBudget` 的结果（不 fail run，与 #709
@@ -214,6 +221,51 @@ export async function assembleHistory(
   const keptChars = kept.reduce((sum, m) => sum + m.content.length, 0);
   if (keptChars + summaryMessage.content.length > maxChars) return kept;
   return [summaryMessage, ...kept];
+}
+
+/**
+ * F154 L2（08-chat/uc-8-7 R3②/R7/R12 V1-V2）—— 纯函数，零 IO：给定「较宽窗口内按时间正序取回
+ * 的候选消息」「L1 已经裁出、原样保留的最新那段」「上次持久摘要覆盖到哪条消息 id」，算出
+ * 「L1 边界之前、尚未纳入持久摘要的新增轮」——即本轮真正需要做的增量摘要工作。
+ *
+ * ## 为什么用长度切片而不是内容比对
+ * `l1` 是 `candidates` 经 `trimHistoryToBudget` 裁出的**连续最新后缀**（该函数只按预算丢最旧的，
+ * 不重排、不抽样、不去重）——因此 `candidates` 去掉最后 `l1.length` 条，剩下的前缀就精确是
+ * 「L1 边界之前的一切」，用长度切片是唯一不会被重复文本内容误判的做法。
+ *
+ * ## 缺 id 时保守跳过（不猜测顺序）
+ * `ThreadHistoryMessage.id` 是可选字段（多数不关心持久化的构造点不填）。候选集里只要有一条
+ * 缺 id，本函数直接返回「无新增」——精确定位「摘要覆盖到哪」离不开 id，猜测顺序换来的是可能
+ * 重复摘要或漏摘，两者都比「这轮不推进摘要、复用已有的」更糟。
+ *
+ * ## 游标定位
+ * `summarizedThroughId` 为 `null`（从未摘要过）或找不到匹配（比宽窗口本身覆盖的还旧——
+ * `L2_CATCHUP_FETCH_LIMIT` 本就有界，这是刻意的降级，不是 bug）时，从候选集里「L1 边界之前」
+ * 最旧的一条开始；否则只取游标之后（不含）到 L1 边界之前的部分——这正是 V2 要求的
+ * 「摘要调用输入只含新增区间，不重读全史」。
+ */
+export interface LayeredHistoryIncrement {
+  /** 需要折进持久摘要的新增轮，oldest-first；空数组 = 无新增（游标已经覆盖到 L1 边界）。 */
+  readonly toSummarize: readonly ThreadHistoryMessage[];
+  /** `toSummarize` 非空时，其最新一条的 id——摘要成功后 `summarizedThroughId` 应前推到这里。 */
+  readonly advanceCursorTo: string | null;
+}
+
+export function planLayeredHistoryIncrement(
+  candidates: readonly ThreadHistoryMessage[],
+  l1: readonly ThreadHistoryMessage[],
+  summarizedThroughId: string | null,
+): LayeredHistoryIncrement {
+  if (candidates.some((m) => m.id === undefined)) return { toSummarize: [], advanceCursorTo: null };
+  const olderThanL1 = l1.length > 0 ? candidates.slice(0, candidates.length - l1.length) : candidates;
+  let startIndex = 0;
+  if (summarizedThroughId !== null) {
+    const cursorIndex = olderThanL1.findIndex((m) => m.id === summarizedThroughId);
+    startIndex = cursorIndex === -1 ? 0 : cursorIndex + 1;
+  }
+  const toSummarize = olderThanL1.slice(startIndex);
+  if (toSummarize.length === 0) return { toSummarize: [], advanceCursorTo: null };
+  return { toSummarize, advanceCursorTo: toSummarize[toSummarize.length - 1]!.id! };
 }
 
 export interface ExecuteAgentRunDeps {
@@ -409,33 +461,66 @@ async function executeClaimed(
    */
   let history: readonly ThreadHistoryMessage[] = [];
   try {
-    const recent = await deps.runs.readThreadHistory(
-      orgId, run.threadId, run.inputMessageId, HISTORY_MAX_MESSAGES,
+    // F154 L2——宽窗口取回（见 `L2_CATCHUP_FETCH_LIMIT` 注释：不撑大 L1，只给 L2 增量判断更多
+    // 候选）。L1 仍是纯字符预算裁剪（`trimHistoryToBudget`，与 #709/V8 逐字节相同的函数）。
+    const candidates = await deps.runs.readThreadHistory(
+      orgId, run.threadId, run.inputMessageId, L2_CATCHUP_FETCH_LIMIT,
     );
-    // V8 —— 开启摘要时，把被预算丢弃的旧轮压成一段摘要前置；关闭时（默认）
-    // `assembleHistory` 不接 summarize，返回值与 `trimHistoryToBudget` 逐字节相同。
-    // summarize 复用 `deps.model.complete`（ModelCallPort 契约不动），失败在
-    // `assembleHistory` 内部被吞并退回丢弃行为，不会把这次 run 拖失败。
-    const summarize = HISTORY_SUMMARY_ENABLED
-      ? async (dropped: readonly ThreadHistoryMessage[]): Promise<string> => {
-          const transcript = dropped.map((m) => `${m.role}: ${m.content}`).join("\n");
-          const completion = await deps.model.complete({
-            modelProvider: run.modelProvider,
-            modelId: run.modelId,
-            system: "你是对话历史摘要器。把下面这段较早的多轮对话压成简短要点，只保留后续对话可能需要回指的事实与结论，不要复述客套。用中文，尽量短。",
-            user: transcript,
+    const l1 = trimHistoryToBudget(candidates, HISTORY_MAX_CHARS);
+
+    // L2：直读已有持久摘要，只对「L1 边界之前、尚未纳入摘要」的新增轮增量摘要并写回。
+    // 这一段整体不 fail run（E1，见 spec R4）——任何一步失败都退回「只有 L1，没有 L2 摘要」，
+    // 与 #709 原本「没历史也能单轮作答」的保守失败模式一致。
+    let l2Summary: string | null = null;
+    try {
+      const persisted = await deps.runs.readThreadContextState(orgId, run.threadId);
+      const increment = planLayeredHistoryIncrement(candidates, l1, persisted?.summarizedThroughId ?? null);
+      if (increment.toSummarize.length === 0) {
+        // 没有新增区间——直接复用已有摘要，本轮零模型调用（V2：不重读全史重算）。
+        l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+      } else {
+        const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join("\n");
+        const priorSummary = persisted?.summary ?? "";
+        const completion = await deps.model.complete({
+          modelProvider: run.modelProvider,
+          modelId: run.modelId,
+          system: "你是对话历史摘要器。下面可能包含「已有摘要」（更早对话已经压缩过的要点）和"
+            + "「新增对话」（自上次摘要之后的新轮次）。把两者合并压成一段更新后的完整摘要，只保留"
+            + "后续对话可能需要回指的事实与结论，不要复述客套，不要分点罗列「已有/新增」这个结构"
+            + "本身。用中文，尽量短。",
+          user: priorSummary === "" ? transcript : `已有摘要：\n${priorSummary}\n\n新增对话：\n${transcript}`,
+        });
+        const updated = completion.text.trim();
+        if (updated === "") {
+          // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
+          l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+        } else {
+          l2Summary = updated;
+          const wrote = await deps.runs.upsertThreadContextState(orgId, run.threadId, {
+            summary: updated,
+            summarizedThroughId: increment.advanceCursorTo,
+            summarizedThroughAt: deps.clock.now(),
+            expectedVersion: persisted?.version ?? 0,
           });
-          return completion.text;
+          // 乐观并发撞车（另一个并发 run 抢先写回）不影响本轮——本轮仍用刚算出的 `updated` 作答，
+          // 只是没能把游标继续往前推；下一次某个赢家会推进它。这是「安全放弃写」，不是数据丢失。
+          if (!wrote) {
+            deps.log("agent run L2 context state upsert lost optimistic-concurrency race, continuing with locally computed summary", {
+              runId: run.runId,
+            });
+          }
         }
-      : undefined;
-    history = await assembleHistory(recent, HISTORY_MAX_CHARS, summarize, (error) => {
-      // 摘要静默退化前留一行服务端日志（观测，不改行为）——受控环境开启
-      // KERNEL_HISTORY_SUMMARY_ENABLED 前靠它判断摘要是真在工作还是一直在悄悄退回丢弃。
-      deps.log("agent run history summarization failed, continuing with trimmed history", {
+      }
+    } catch (error) {
+      deps.log("agent run L2 context state read/summarize/write failed, continuing with L1 only", {
         runId: run.runId,
-        detail: error instanceof Error ? error.message : "unexpected summarization failure",
+        detail: error instanceof Error ? error.message : "unexpected L2 error",
       });
-    });
+    }
+
+    history = l2Summary === null
+      ? l1
+      : [{ role: "assistant", content: `[早前对话摘要] ${l2Summary}` }, ...l1];
   } catch (e) {
     deps.log("agent run thread history read failed, continuing without it", {
       runId: run.runId,
