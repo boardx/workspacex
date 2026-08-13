@@ -184,26 +184,29 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.closedCount.value).toBe(1);
   });
 
-  it("a caller-initiated finish() does NOT report a spurious error even though it also closes the socket", async () => {
+  it("finishes a VAD session with session.finish and waits for session.finished", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
-      if (frame.type === "input_audio_buffer.commit") {
-        ws.send(JSON.stringify({
-          type: "conversation.item.input_audio_transcription.completed", transcript: "ok", confidence: null,
-        }));
-      }
+      if (frame.type === "session.finish") ws.send(JSON.stringify({ type: "session.finished" }));
     });
     const provider = new ConfiguredRealtimeAsrProvider({
       provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
     });
     const handlers = recordingHandlers();
     const session = await provider.open(handlers, AUDIO);
-    await session.finish();
-    expect(handlers.errors).toEqual([]);
-    expect(handlers.finals).toEqual(["ok"]);
+    try {
+      const finishing = session.finish();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(upstream.seenFrames.at(-1)?.type).toBe("session.finish");
+      expect(upstream.seenFrames.some((frame) => frame.type === "input_audio_buffer.commit")).toBe(false);
+      await finishing;
+      expect(handlers.errors).toEqual([]);
+    } finally {
+      session.abort();
+    }
   });
 
-  it("does not report a finish timeout when a final was already received and the stop commit has no new tail", async () => {
+  it("does not report a finish timeout when a final was already received before session.finished", async () => {
     let commitCount = 0;
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
@@ -214,8 +217,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
           confidence: null,
         }));
       }
-      // The second commit is finish() flushing an empty tail. DashScope is allowed to
-      // return no additional completed event because the preceding final already settled it.
+      if (frame.type === "session.finish") ws.send(JSON.stringify({ type: "session.finished" }));
     });
     const provider = new ConfiguredRealtimeAsrProvider({
       provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
@@ -226,16 +228,10 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(handlers.finals).toEqual(["已经保存的正文"]);
 
-    vi.useFakeTimers();
-    try {
-      const finishing = session.finish();
-      await vi.advanceTimersByTimeAsync(15_000);
-      await finishing;
-    } finally {
-      vi.useRealTimers();
-    }
+    await session.finish();
 
-    expect(commitCount).toBe(2);
+    expect(commitCount).toBe(1);
+    expect(upstream.seenFrames.at(-1)?.type).toBe("session.finish");
     expect(handlers.errors).toEqual([]);
   });
 

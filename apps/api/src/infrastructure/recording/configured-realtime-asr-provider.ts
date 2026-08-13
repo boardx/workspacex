@@ -174,7 +174,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     }));
 
     let closed = false;
-    let finalSeen = false;
+    let sessionFinished = false;
     let finishResolve: (() => void) | null = null;
     // #802 —— the actual root cause the wrong protocol fields could hide behind for 7+
     // days undetected: `finish()`/`abort()` are the only CALLER-INITIATED ways this
@@ -208,12 +208,15 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       if (type === "conversation.item.input_audio_transcription.completed") {
-        finalSeen = true;
         const confidence = (event as { confidence?: unknown }).confidence;
         handlers.onFinal({
           text: String(event.transcript ?? ""),
           confidence: typeof confidence === "number" ? confidence : null,
         });
+        return;
+      }
+      if (type === "session.finished") {
+        sessionFinished = true;
         if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         return;
       }
@@ -254,27 +257,24 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       async finish() {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
-        // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
-        // 而那种丢失在界面上长得像「录音没生效」。这里不能清空整次会话
-        // 已经收到 final 的事实：server VAD 可能已在停止前结算并持久化最后一句，
-        // 此时 stop 的空尾 commit 合法地不会再产生 completed 事件。
+        socket.send(JSON.stringify({ type: "session.finish", event_id: `event_${Date.now()}` }));
+        // Qwen-ASR 的默认模式是服务端 VAD。该模式禁止 input_audio_buffer.commit；
+        // 正常收尾必须发送 session.finish，并等 session.finished 确认服务端已经冲掉尾段。
         await new Promise<void>((resolve) => {
           finishResolve = resolve;
           setTimeout(() => {
             if (finishResolve) { finishResolve = null; resolve(); }
           }, FINISH_GRACE_MS);
         });
-        // 整次会话从未拿到 final 才是真正的收尾失败；已有 final 且没有新尾段
-        // 是正常完成，不能让已保存正文之后又出现 FINISH_TIMEOUT。
-        if (!finalSeen && !closed) {
+        if (!sessionFinished && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
-        socket.close();
+        if (!closed) socket.close();
       },
       abort() {
         finishRequested = true;
         closed = true;
+        if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         socket.terminate();
       },
     };
