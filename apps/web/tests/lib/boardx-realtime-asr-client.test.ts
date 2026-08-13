@@ -74,6 +74,28 @@ describe("BoardxRealtimeAsrClient", () => {
     expect(onError).toHaveBeenCalledWith("ASR_PROVIDER_UNAVAILABLE");
   });
 
+  it("stops microphone capture only once when a server error races with stop", async () => {
+    const onError = vi.fn();
+    const handle = await openBoardxRealtimeAsr("session-1", {
+      issueTicket: vi.fn().mockResolvedValue({
+        captureId: "capture-1", ticket: "one-time", expiresAt: "2026-08-12T08:00:00Z",
+        websocketPath: "/recording/realtime-asr/sessions/session-1/captures/capture-1/stream",
+      }),
+      createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
+      capture: async () => capture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError },
+    });
+
+    const stopping = handle.stop();
+    await vi.waitFor(() => expect(stopCapture).toHaveBeenCalledOnce());
+    socket!.message({ type: "error", captureId: "capture-1", reason: "FINISH_TIMEOUT" });
+
+    await expect(stopping).rejects.toThrow("FINISH_TIMEOUT");
+    await Promise.resolve();
+    expect(stopCapture).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith("FINISH_TIMEOUT");
+  });
+
   it("releases the microphone when the BoardX socket closes unexpectedly", async () => {
     const onError = vi.fn();
     const onState = vi.fn();

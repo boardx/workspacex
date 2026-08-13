@@ -62,11 +62,19 @@ export async function openBoardxRealtimeAsr(
   let completed = false;
   let stopping = false;
   let cleaningUp = false;
+  let captureStopPromise: Promise<void> | undefined;
+  const stopCaptureOnce = () => {
+    captureStopPromise ??= capture.stop();
+    return captureStopPromise;
+  };
   const releaseResources = async () => {
     if (cleaningUp) return;
     cleaningUp = true;
-    await capture.stop();
-    socket.close();
+    try {
+      await stopCaptureOnce();
+    } finally {
+      socket.close();
+    }
   };
   socket.addEventListener("message", (event) => {
     const parsed = C.RealtimeAsrServerEvent.safeParse(safeJson(String(event.data)));
@@ -115,12 +123,12 @@ export async function openBoardxRealtimeAsr(
       if (stopping) return;
       stopping = true;
       deps.handlers.onState("stopping");
-      if (!cleaningUp) await capture.stop();
-      if (socket.readyState !== socket.OPEN) throw new Error("ASR connection is not open");
       const completion = new Promise<void>((resolve, reject) => {
         completedResolve = resolve;
         completedReject = reject;
       });
+      await stopCaptureOnce();
+      if (socket.readyState !== socket.OPEN) throw new Error("ASR connection is not open");
       socket.send(JSON.stringify({ type: "stop" }));
       await completion;
       socket.close();
