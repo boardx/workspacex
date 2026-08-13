@@ -1,29 +1,19 @@
 # 会话交接 — Sprint 01/05
 
 ## 当前已验证
-- F169 仍为 `in_progress`，不能假标 passing；四条 feature verification 均已通过。
-- `pnpm --filter @repo/contracts run test`：13 files / 194 tests passed。
-- 隔离数据库 API 测试：3/3 passed，包含协作者可编辑与非协作者 404。
-- 研究 UI 回归：3 files / 13 tests passed；web 与 contracts typecheck 通过。
-- 权限路径和洋葱依赖 lint 均通过。
-- 预推送 Web 全量回归：114 files / 975 tests passed；API 默认 typecheck 通过。
-- `lint-contract-source` 已确认 Web mock 直接派生 contracts，不再重声明 checkpoint 类型。
+- F169 的实现已由 PR #1126 合入 `main`；其阶段状态由原 owner 按 harness 门禁收尾。
+- F173 为 `passing`；11 条 feature verification、完整基础验证、API/Web 定向测试与 typecheck 已通过。
+- F173 人类签核字段已填写为可解析时间，独立 reviewer 对运行时实现 APPROVE。
 
 ## 本轮改动
-- `packages/contracts/src/research.ts`：版本化 brief/directions/outline 与四个 checkpoint 操作。
-- `apps/api`：迁移、事务仓储、生成端口、controller 和真实 DB 测试。
-- `apps/web`：真实会话 API 驱动的方向/大纲编辑、确认、重新生成交互及测试。
+- F169：版本化研究 brief/directions/outline、持久化/API 和真实会话 UI。
+- F173：`/rec` 与 Chat 共用 `AsrProviderPort`/`KERNEL_ASR_*`，保留独立 ticket、用户/组织隔离、稳定 BoardX 事件和正文持久化。
+- F173：final 先落库后推送；服务端 PCM 计量；持久化失败、停止和断线均保证清理上游及浏览器 socket。
 
-## 仍损坏或未验证
-- 首次 `pnpm harness verify --sprint 01/05 --feature F169` 的四条 feature verification 全绿，但后续 `verify:base` 曾红于 API 数据库连接中断和 Web 录音历史偶发失败；预推送复跑 Web 全量已全绿。
-- 预推送 API 全量跑到 560 files / 5212 tests，仅契约单源门禁发现 Web mock 重声明 `GuidedResearchDirection`；已在 `0e722017` 修复，并用 `lint-contract-source`、web 默认 typecheck 复核通过。
-
-## 下一步最佳动作
-1. 推送 `worker/coord-deep-research-01-f169-human-checkpoints`，创建 PR 并在正文写 `Closes #1110`。
-2. 等 CI；若 `verify:base` 再现无关数据库连接中断，引用 `evidence/F169.verify.log`，不要扩大 F169 范围。
-3. CI 全绿后交给 `coord-main` 合并；本角色没有 merge 权限。
+## 仍需完成
+- 将 PR #1127 合入 `main`，确认 `ac06595d`（或后续 merge commit）进入 `origin/main` 血统并关闭 issue #1109。
 
 ## 命令
-- 启动:`pnpm -w run dev`
-- 验证:`pnpm harness verify --sprint 01/05 --feature F169`
-- 调试:`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-human-checkpoints.test.ts`
+- 启动: `pnpm -w run dev`
+- F173 验证: `pnpm harness verify --sprint 01/05 --feature F173`
+- API 定向: `pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-gateway.test.ts tests/recording/personal-realtime-asr-usage.test.ts`

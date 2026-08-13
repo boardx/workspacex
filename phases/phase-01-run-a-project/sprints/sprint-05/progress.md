@@ -1,27 +1,21 @@
 # 进度日志 — Sprint 01/05
 
 ## 当前已验证状态(唯一真相)
-- 仓库根目录: `/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f169`
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: `pnpm -w run verify:base`
-- 当前最高优先级未完成功能: F169 / 主题、研究方向与报告大纲三次人类确认
-- 当前 blocker: F169 实现与专属验证已完成，但按完成定义仍须 PR 合入 main 且 issue #1110 关闭；F169 保持 in_progress。
+- F169 已由 PR #1126 合入 `main`；阶段清单仍由其 owner 按 harness 门禁收尾。
+- F173 已由 `pnpm harness verify --sprint 01/05 --feature F173` 门控为 `passing`，PR #1127 等待合入 `main`。
 
 ## 会话记录
-### 2026-08-13 07:17:16
-- 本轮目标:
-- 已完成:
-- 运行过的验证:
-- 已记录证据:
-- 提交记录:
-- 已知风险或未解决问题:
-- 下一步最佳动作:
-
-### 2026-08-13 17:09:00
-- 本轮目标: 完成 F169 三次人类确认的真实 API、持久化和 UI 交互。
+### 2026-08-13 17:09:00 — F169
 - 已完成: 候选/确认版本模型；方向与大纲生成、编辑和确认接口；主题确认时间；协作者写权限；越权 404；会话驱动 UI。
-- 运行过的验证: contracts 194/194；F169 API 3/3（隔离数据库）；研究 UI 13/13；web/contracts typecheck；权限路径与架构依赖 lint 均通过。
-- 已记录证据: `evidence/F169.verify.log`（包含四条 F169 专属验证全部通过及全仓基线失败详情）。
-- 提交记录: `96a02323`（checkpoint 实现）、`1a77e86d`（错误响应类型）、`0e722017`（mock 直接派生 contracts）。
-- 已知风险或未解决问题: 首次 `verify:base` 出现无关 API 数据库连接中断与 `personal-transcription-history` 偶发失败；随后预推送 Web 全量 114 files / 975 tests 全绿，API 全量 560 files / 5212 tests 仅由 F169 mock 重声明契约类型失败。该单一事实源问题已修复，`lint-contract-source` 与默认 web/API typecheck 均通过。
-- 下一步最佳动作: 推送分支，创建 `Closes #1110` 的 PR；等待 CI 后交给 `coord-main` 合并。
+- 验证: contracts 194/194；F169 API 3/3（隔离数据库）；研究 UI 13/13；web/contracts typecheck；权限路径与架构依赖 lint。
+- 证据: `evidence/F169.verify.log`。
+- 合入: PR #1126 已进入 `main`。
+
+### 2026-08-13 18:20:00 — F173
+- 已完成: `/rec` 复用 Chat 的 `AsrProviderPort` 和 `KERNEL_ASR_*`；删除个人专用 Fun-ASR 双轨；final 先落库后推送；PCM 用量与停止/断线资源清理。
+- 验证: F173 11/11、完整 `verify:base`、API/Web 定向回归与 typecheck 均通过。
+- 证据: `evidence/F173.verify.log`；人类签核位于 `design-deltas/personal-shared-realtime-asr/design-signoff.md`。
+- Review: 独立 feature review 对运行时实现 APPROVE，无 Critical/High。
+- 下一步: PR #1127 合入 `main` 后核验 commit 祖先关系与 issue #1109 关闭状态。
