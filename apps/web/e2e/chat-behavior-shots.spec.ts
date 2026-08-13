@@ -141,7 +141,8 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       const seen = async (id: string) =>
         page.getByTestId(id).isVisible({ timeout: 1_000 }).catch(() => false);
       const streaming = await seen("chat-message-row-streaming");
-      const toolSteps = await seen("chat-run-tool-call-steps");
+      // TOOLCHAIN-01：活体工具调用链现为折叠块（默认收起一行摘要），锚点改用容器 testid。
+      const toolSteps = await seen("agent-tool-chain");
       const runStatus = await page.getByTestId("chat-live-agent-run-status")
         .textContent({ timeout: 1_000 }).catch(() => null);
       await shoot(

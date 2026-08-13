@@ -583,11 +583,18 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
 
-    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    // TOOLCHAIN-01（人类裁决方案 A）：工具调用链**默认收起**成一行摘要，逐条细节
+    // 折进折叠——先点开 toggle 才有 step 行。这一步正是 P7「默认可见」被反转后的界面真相。
+    const chain = await screen.findByTestId("agent-tool-chain");
+    expect(chain).toHaveAttribute("data-tool-count", "1");
+    expect(screen.queryByTestId("agent-tool-chain-step-0")).toBeNull(); // 收起态：细节不在 DOM
+    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+
+    const step = await screen.findByTestId("agent-tool-chain-step-0");
     expect(step).toHaveAttribute("data-tool-name", "beautiful-article");
     expect(step).toHaveAttribute("data-tool-status", "succeeded");
     // 第 2 项——调用前的可见计划，真实来自后端 `planningNote`。
-    expect(screen.getByTestId("chat-run-tool-call-plan-0"))
+    expect(screen.getByTestId("agent-tool-chain-plan-0"))
       .toHaveTextContent("我需要一段介绍文字，调用 beautiful-article 来生成它。");
     expect(step).toHaveTextContent("调用 beautiful-article");
     expect(step).toHaveTextContent("完成");
@@ -609,12 +616,20 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
 
-    const step = await screen.findByTestId("chat-run-tool-call-step-0");
+    // TOOLCHAIN-01 方案 A 的核心保证：失败在**收起态**就以红徽标显性，不必点开就看到出事了
+    // ——这正是「默认收起」不违背 P7「出错要看得见」精神的原因。
+    const chain = await screen.findByTestId("agent-tool-chain");
+    expect(chain).toHaveAttribute("data-fail-count", "1");
+    expect(screen.getByTestId("agent-tool-chain-fail-badge")).toHaveTextContent("1 个失败");
+    expect(screen.queryByTestId("agent-tool-chain-step-0")).toBeNull(); // 收起：step 细节不在 DOM
+    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+
+    const step = await screen.findByTestId("agent-tool-chain-step-0");
     expect(step).toHaveAttribute("data-tool-status", "failed");
     expect(step).toHaveTextContent("失败");
     expect(step).toHaveTextContent("未知工具「not-a-real-tool」");
     // 没有 planningNote 时不渲染计划行，不编一句话凑数。
-    expect(screen.queryByTestId("chat-run-tool-call-plan-0")).toBeNull();
+    expect(screen.queryByTestId("agent-tool-chain-plan-0")).toBeNull();
   });
 
   it("没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生", async () => {
@@ -628,7 +643,8 @@ describe("formal Chat read path", () => {
     fireEvent.click(screen.getByTestId("chat-message-submit"));
 
     await screen.findByTestId("chat-live-agent-run-status");
-    expect(screen.queryByTestId("chat-run-tool-call-steps")).toBeNull();
+    // run 完全没有 step：折叠块整体不渲染（组件 steps.length===0 → null）——不是黑盒，是没发生。
+    expect(screen.queryByTestId("agent-tool-chain")).toBeNull();
   });
 
   /**

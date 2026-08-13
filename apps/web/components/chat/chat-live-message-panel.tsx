@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Bot, Check, CheckCircle2, Copy, Mic, RefreshCw, Send, UserRound, Wrench, XCircle } from "lucide-react";
+import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lucide-react";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { ApiError } from "@/lib/api-client";
 import {
   createMessage,
@@ -1000,7 +1001,7 @@ export function ChatLiveMessagePanel({
           </p>
         ) : null}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
-        {runObservation?.view ? <AgentRunToolCallSteps steps={runObservation.view.steps} /> : null}
+        {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -1083,119 +1084,6 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
         <span className="text-muted-foreground">本页面已停止轮询，运行可能仍在继续。</span>
       ) : null}
     </div>
-  );
-}
-
-/**
- * #731 follow-up —— chat-ux-acceptance-criteria.md 第 2/3 项在界面上的交付物。
- *
- * ## 数据源：轮询里已经有的东西，不是新接口
- *
- * `runObservation.view.steps` 早就在 `GET /agent-runs/:runId` 的响应里（`lib/agent-run.ts`
- * 的 `AgentRunView`），只是之前没人读它。这里只筛出 `kind === "tool_call"` 的条目并渲染
- * ——不发起任何新请求，不在客户端合成任何字段。`toolArgsSummary`/`toolResultSummary`/
- * `planningNote` 全部原样来自后端，为 `null` 就不渲染那一行，绝不用占位文案顶替。
- *
- * ## 为什么不做"正在调用中"的假动画
- *
- * 后端只在一次工具调用**真正完成**（成功或失败）之后才写入这条 step——调用期间没有
- * 中间状态可读。伪造一个"正在调用…"的过渡态会是一句界面从未验证过的谎言；这里如实
- * 只展示"已经发生的事"，`AgentRunStatus` 上方已有的"正在执行"整体状态负责传达"run
- * 还没完"，两者不重复表达同一件事。
- */
-/**
- * V6（PROP-CHAT-10ITER-001）—— 从 run 的真实 steps 派生「思考了 X 秒 · N 步」。
- * `AgentRunView.steps` 每步已带 `startedAt`/`endedAt`（契约既有字段，无需后端改动）：
- * 步数 = 全部 step 数；耗时 = 最晚 `endedAt` − 最早 `startedAt`。解析失败/时间缺失
- * 时返回 `seconds: null`，`summary` 只显示步数，绝不编一个耗时出来。
- */
-function deriveThinkingSummary(steps: AgentRunView["steps"]): { seconds: number | null; stepCount: number } {
-  const stepCount = steps.length;
-  let minStart = Number.POSITIVE_INFINITY;
-  let maxEnd = Number.NEGATIVE_INFINITY;
-  for (const step of steps) {
-    const start = Date.parse(step.startedAt);
-    const end = Date.parse(step.endedAt);
-    if (!Number.isNaN(start)) minStart = Math.min(minStart, start);
-    if (!Number.isNaN(end)) maxEnd = Math.max(maxEnd, end);
-  }
-  const spanValid = Number.isFinite(minStart) && Number.isFinite(maxEnd) && maxEnd >= minStart;
-  return { seconds: spanValid ? Math.round(((maxEnd - minStart) / 1000) * 10) / 10 : null, stepCount };
-}
-
-function AgentRunToolCallSteps({ steps }: { steps: AgentRunView["steps"] }) {
-  const toolSteps = steps.filter((step) => step.kind === "tool_call");
-  // V6 —— 只要 run 有任何 step 就展示思考折叠块，不再要求有工具调用才渲染。
-  if (steps.length === 0) return null;
-  const { seconds, stepCount } = deriveThinkingSummary(steps);
-  const summaryText = seconds !== null
-    ? `思考了 ${seconds} 秒 · ${stepCount} 步`
-    : `${stepCount} 步`;
-  return (
-    // ⚠ 默认 `open`：P7（round 17 的 10/10）判据要求工具调用的参数/终态**默认可见**。
-    // 折叠它会把 P7 依赖的可见性藏起来 ⇒ 回归。所以这里是「默认展开、可手动收起」，
-    // 不是「默认收起」——既加了 V6 的思考摘要，又不动 P7 已得的可见性。
-    <details open className="mt-1.5" data-testid="chat-run-thinking" data-step-count={stepCount}>
-      <summary
-        className="cursor-pointer list-none text-11 text-muted-foreground transition-colors hover:text-card-foreground"
-        data-testid="chat-run-thinking-summary"
-      >
-        {summaryText}
-      </summary>
-      {toolSteps.length === 0 ? (
-        <p className="mt-1.5 text-11 text-muted-foreground" data-testid="chat-run-thinking-no-tools">
-          本次没有工具调用，模型直接作答。
-        </p>
-      ) : (
-        <AgentRunToolCallStepList toolSteps={toolSteps} />
-      )}
-    </details>
-  );
-}
-
-function AgentRunToolCallStepList({ toolSteps }: { toolSteps: AgentRunView["steps"] }) {
-  return (
-    <ol className="mt-1.5 flex flex-col gap-1.5" data-testid="chat-run-tool-call-steps">
-      {toolSteps.map((step, index) => {
-        const succeeded = step.status === "succeeded";
-        return (
-          <li
-            key={index}
-            className="rounded-md border border-border-subtle bg-card px-2 py-1.5 text-11"
-            data-testid={`chat-run-tool-call-step-${index}`}
-            data-tool-name={step.toolName ?? undefined}
-            data-tool-status={step.status}
-          >
-            {step.planningNote ? (
-              // 第 2 项——工具调用前的可见计划。真实来自模型同一轮回复里的文本，
-              // 模型没说就不显示（见组件自身 doc comment），不编一句话出来凑数。
-              <p className="mb-1 italic text-muted-foreground" data-testid={`chat-run-tool-call-plan-${index}`}>
-                {step.planningNote}
-              </p>
-            ) : null}
-            <div className="flex items-center gap-1.5">
-              <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-              <span className="font-medium">调用 {step.toolName ?? "未知工具"}</span>
-              {succeeded ? (
-                <Badge tone="primary"><CheckCircle2 aria-hidden className="h-2.5 w-2.5" />完成</Badge>
-              ) : (
-                <Badge tone="danger"><XCircle aria-hidden className="h-2.5 w-2.5" />失败</Badge>
-              )}
-            </div>
-            {step.toolArgsSummary ? (
-              <p className="mt-1 text-10 text-muted-foreground">
-                参数：{step.toolArgsSummary}
-              </p>
-            ) : null}
-            {step.toolResultSummary ? (
-              <p className={`mt-0.5 text-10 ${succeeded ? "text-card-foreground" : "text-destructive"}`}>
-                {succeeded ? "结果" : "失败原因"}：{step.toolResultSummary}
-              </p>
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
