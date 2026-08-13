@@ -34,6 +34,14 @@ describe("SurveyWorkflowShell", () => {
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules");
   });
 
+  it("问卷模块模式忽略非设计步骤且只显示题目编辑", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="template" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
+
+    expect(screen.getByTestId("survey-design-question-editor")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-template-editor")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
+  });
+
   it("只呈现新的五步导航并用 URL 切步", () => {
     render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly={false} />);
 

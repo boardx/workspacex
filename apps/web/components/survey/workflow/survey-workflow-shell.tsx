@@ -87,10 +87,10 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
 
       <section className="min-h-0">
         {(moduleEditor || initialStep === "design") && <SurveyDesignStep model={model} setModel={setModel} readonly={readonly} />}
-        {initialStep === "template" && <ReportTemplateStep model={model} setModel={setModel} readonly={readonly} />}
-        {initialStep === "publish" && <PublishRecoveryStep model={model} metrics={metrics} readonly={readonly} />}
-        {initialStep === "responses" && <ResponseReviewStep model={model} setModel={setModel} metrics={metrics} readonly={readonly} />}
-        {initialStep === "report" && <AnalysisReportStep model={model} metrics={metrics} />}
+        {!moduleEditor && initialStep === "template" && <ReportTemplateStep model={model} setModel={setModel} readonly={readonly} />}
+        {!moduleEditor && initialStep === "publish" && <PublishRecoveryStep model={model} metrics={metrics} readonly={readonly} />}
+        {!moduleEditor && initialStep === "responses" && <ResponseReviewStep model={model} setModel={setModel} metrics={metrics} readonly={readonly} />}
+        {!moduleEditor && initialStep === "report" && <AnalysisReportStep model={model} metrics={metrics} />}
       </section>
     </main>
   );

@@ -54,4 +54,3 @@ Expected: all tests pass; ordinary survey test still renders `survey-workflow-st
 Run: `pnpm --filter web exec tsc --noEmit --incremental false && pnpm --filter web lint:design && git diff --check`
 
 Expected: exit code 0.
-
