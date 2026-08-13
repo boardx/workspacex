@@ -210,6 +210,10 @@ lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-f
 
 ## 四、签核流程（人类的动作，agent 不许代劳）
 
+> **coordinator 怎么把签核决策打包到人类面前、怎么落地，不写在这里** ——
+> 见 [`human-decision-packaging.md`](./human-decision-packaging.md)（收窄成 A/B/C/D
+> 选择题 + 单 PR 交付，2026-08-13 起的标准流程）。本节只定义签核内容本身要审什么。
+
 1. agent 产出三件签核材料 + 两件支撑材料 → `design-signoff.md` 的 `status: pending`，
    frontmatter 写 `covers: [F01, F02, …]`（束↔feature 映射的**权威**，ADR-023 决策三）。
 2. **人类**在同一份 `design-signoff.md` 里逐节确认三件，重点看：
