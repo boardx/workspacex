@@ -20,10 +20,17 @@ import type { UiState } from "@/lib/ui-state";
  *   零后端的调用方必须传 `noticeOverride={<NoBackendNotice />}` 替换掉这条提示，
  *   而不是让两条语义矛盾的提示同时出现在同一页头。机械门控见
  *   `apps/web/scripts/lint-no-backend-badge.mjs`。
+ *
+ * ⚠ #1165：以上两条**穷举不了第三种屏**——**已经读真库的屏**。它既不是「示例组织配置」，
+ *   也不是「零后端」，所以两条提示都不适用。F160 把成员配额屏的 `noticeOverride` 摘掉时
+ *   撞上了这个缺口：摘掉之后落进 `??` 的默认分支，于是「型号、定价与条目为演示数据」
+ *   这条讲模型定价的提示出现在了配额屏上。⇒ 加 `liveBacked` 作为显式的第三态。
+ *   **不改默认行为**：不传它的屏（agent / canvas-template / capability-catalog /
+ *   local-org / skill）一个字节不变。
  */
 export function AdminScreen({
   state, moduleLabel, title, intro, children,
-  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride,
+  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked,
 }: {
   state: UiState;
   moduleLabel: string;
@@ -37,6 +44,15 @@ export function AdminScreen({
   successMessage: string;
   /** 传入即替换默认的 `<SampleConfigNotice />`（用于零后端模块渲染 `<NoBackendNotice />`）。 */
   noticeOverride?: React.ReactNode;
+  /**
+   * #1165 —— 这块屏**已经读真库**，两条屏级提示都不适用，一条都不渲染。
+   *
+   * ⚠ 它不是「把提示关掉」的开关，是一句关于这块屏的事实声明。屏内若仍有局部
+   *   mock 区块（如成员配额屏的用量监控/限额策略两个 tab 曾经的状态），那条提示
+   *   应当**贴着那个区块**渲染，而不是靠屏级提示笼统覆盖——按 tab 说实话，
+   *   比在页头挂一条覆盖全屏的话诚实。
+   */
+  liveBacked?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -47,7 +63,7 @@ export function AdminScreen({
         <p className="text-13 text-muted-foreground">{intro}</p>
       </div>
 
-      {noticeOverride ?? <SampleConfigNotice />}
+      {liveBacked ? null : (noticeOverride ?? <SampleConfigNotice />)}
 
       <StatePreviewSwitcher current={state} />
 

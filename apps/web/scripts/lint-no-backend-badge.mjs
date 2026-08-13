@@ -52,7 +52,44 @@ export function classifyScreenFile(filePath) {
   }
   const src = readFileSync(filePath, "utf8");
   const usesMock = /from\s*["']@\/lib\/mock\//.test(src);
-  const usesRealBackend = /\bapiRequest\b/.test(src) || /from\s*["']@\/lib\/live-[^"']+["']/.test(src);
+  /*
+   * #1165 —— 一个**带理由、且被验证**的例外：屏把真实请求拆进了同目录子组件。
+   *
+   * 背景：F160~F163 之后 `members-screen.tsx` 把三个 tab 与边界区拆成四个子组件，
+   * 真实请求全在子组件里，屏文件自己只剩布局 + 几个仍是 mock 的引用 ⇒ 被判「零后端·未标注」。
+   * 而那个判定的唯一修法是在一块**已经读真库**的屏上挂「尚未接入真实后端」——
+   * 门控逼出一句假话，正是这道门存在的反面。
+   *
+   * ⚠ 我先试过「自动跟进所有 `./` 子组件」，**当场把门弄坏了**：每块零后端屏都 import
+   *   `./no-backend-notice`，而那个文件的**文档注释里**逐字写着 `apiRequest` 与 `lib/live-*`
+   *   （它在解释这条判定规则本身），于是全仓 8 块屏一起变成「非纯 mock」，零后端行数归零。
+   *   是这个脚本自己的测试（`expect(zeroBackendRows.length).toBeGreaterThan(0)` 那条反空转
+   *   断言）把它抓住的。⇒ 不做自动跟进。
+   *
+   * 现在的形态：屏文件必须显式写一行标记 + 理由，脚本再去**验证**那句理由是真的
+   * （至少一个同目录子组件确实有后端调用，且判定前先剥掉注释，不让文档里的字算数）。
+   * 没写标记的屏，判定逻辑与从前逐字节相同。
+   */
+  const stripComments = (text) =>
+    text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+  const hasBackend = (text) => {
+    const code = stripComments(text);
+    return /\bapiRequest\b/.test(code) || /from\s*["']@\/lib\/live-[^"']+["']/.test(code);
+  };
+
+  const backedByChildren = /lint-no-backend-badge:backed-by-children\s*[—-]{1,2}\s*\S{10,}/.test(src);
+  let childHasBackend = false;
+  if (backedByChildren) {
+    for (const m of src.matchAll(/from\s*["']\.\/([\w.-]+)["']/g)) {
+      const childPath = resolve(dirname(filePath), `${m[1]}.tsx`);
+      if (existsSync(childPath) && hasBackend(readFileSync(childPath, "utf8"))) {
+        childHasBackend = true;
+        break;
+      }
+    }
+  }
+
+  const usesRealBackend = hasBackend(src) || childHasBackend;
   const importsNotice = /import\s*\{[^}]*\bNoBackendNotice\b[^}]*\}\s*from\s*["'][^"']*no-backend-notice["']/.test(src);
   const rendersNotice = importsNotice && /<NoBackendNotice\b/.test(src);
   return { exists: true, usesMock, usesRealBackend, rendersNotice };
