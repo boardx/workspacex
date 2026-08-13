@@ -3754,7 +3754,7 @@
         "F165"
       ],
       "points": 8,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "coord-voice",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -3763,7 +3763,7 @@
         "pnpm --filter api exec vitest run tests/recording/fun-asr-final-persist-before-push.test.ts",
         "pnpm --filter api exec vitest run tests/recording/fun-asr-usage-idempotency.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F166.verify.log @ 2026-08-13T06:28:17.337Z",
       "notes": "issue #945；原编号 F159，因 main feature 编号冲突，重放至最新 main 时顺延为 F166。属 personal-realtime-transcription 束。后端使用现有 ws 依赖与既有 segment ingestion/额度/模型调用日志服务，不引入阿里 SDK；环境变量为 ALIYUN_ASR_MODEL/REGION/WORKSPACE_ID 与 DASHSCOPE_API_KEY。",
       "priority": 1,
       "area": "recording",
@@ -3921,8 +3921,15 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-provider-wiring.test.ts tests/recording/configured-realtime-asr-provider.test.ts tests/recording/personal-realtime-asr-gateway.test.ts tests/recording/personal-realtime-asr-usage.test.ts tests/recording/provider-final-persist-before-push.test.ts",
-        "pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smoke.test.ts tests/lib/boardx-realtime-asr-client.test.ts tests/lib/pcm-audio-worklet.test.ts tests/ui/realtime-transcription-workspace.test.tsx",
+        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-provider-wiring.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/configured-realtime-asr-provider.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-gateway.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-usage.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/provider-final-persist-before-push.test.ts",
+        "pnpm --filter web exec vitest run tests/e2e/personal-realtime-transcription-smoke.test.ts",
+        "pnpm --filter web exec vitest run tests/lib/boardx-realtime-asr-client.test.ts",
+        "pnpm --filter web exec vitest run tests/lib/pcm-audio-worklet.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/realtime-transcription-workspace.test.tsx",
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck"
       ],
