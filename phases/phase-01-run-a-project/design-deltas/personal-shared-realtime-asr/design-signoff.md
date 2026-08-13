@@ -1,11 +1,11 @@
 ---
-status: pending
+status: confirmed
 bundle: personal-shared-realtime-asr
 base_bundle: personal-realtime-transcription
 scope: personal-rec-reuses-chat-configured-realtime-asr-provider
 covers: [F173]
-confirmed_by: ""
-confirmed_at: ""
+confirmed_by: "qq13613030605"
+confirmed_at: "2026-08-13T当前时间+08:00"
 ---
 
 # Design delta 签核 · `/rec` 复用 Chat 实时 ASR Provider
