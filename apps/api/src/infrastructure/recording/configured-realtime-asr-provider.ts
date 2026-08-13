@@ -254,16 +254,19 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       async finish() {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) return;
-        finalSeen = false;
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
         // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
-        // 而那种丢失在界面上长得像「录音没生效」。
+        // 而那种丢失在界面上长得像「录音没生效」。这里不能清空整次会话
+        // 已经收到 final 的事实：server VAD 可能已在停止前结算并持久化最后一句，
+        // 此时 stop 的空尾 commit 合法地不会再产生 completed 事件。
         await new Promise<void>((resolve) => {
           finishResolve = resolve;
           setTimeout(() => {
             if (finishResolve) { finishResolve = null; resolve(); }
           }, FINISH_GRACE_MS);
         });
+        // 整次会话从未拿到 final 才是真正的收尾失败；已有 final 且没有新尾段
+        // 是正常完成，不能让已保存正文之后又出现 FINISH_TIMEOUT。
         if (!finalSeen && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }

@@ -3,7 +3,7 @@ status: confirmed
 bundle: personal-shared-realtime-asr
 base_bundle: personal-realtime-transcription
 scope: personal-rec-reuses-chat-configured-realtime-asr-provider
-covers: [F173]
+covers: [F173, F174]
 confirmed_by: "qq13613030605"
 confirmed_at: "2026-08-13T18:20:00+08:00"
 ---
@@ -40,3 +40,5 @@ confirmed_at: "2026-08-13T18:20:00+08:00"
 ## 人类决定
 
 已确认以上 UI、用例与 API 契约设计。
+
+F174 是同一停止语义的回归修复：不增加界面、用例或外部协议，只纠正“已有 final 且无新尾段”被误判为收尾超时的问题。

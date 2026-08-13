@@ -15,7 +15,7 @@
  */
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer, type WebSocket as WsWebSocket } from "ws";
 import { ConfiguredRealtimeAsrProvider } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
 import type { AsrAudioFormat, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
@@ -201,6 +201,42 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     await session.finish();
     expect(handlers.errors).toEqual([]);
     expect(handlers.finals).toEqual(["ok"]);
+  });
+
+  it("does not report a finish timeout when a final was already received and the stop commit has no new tail", async () => {
+    let commitCount = 0;
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
+      if (frame.type === "input_audio_buffer.commit" && ++commitCount === 1) {
+        ws.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.completed",
+          transcript: "已经保存的正文",
+          confidence: null,
+        }));
+      }
+      // The second commit is finish() flushing an empty tail. DashScope is allowed to
+      // return no additional completed event because the preceding final already settled it.
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const handlers = recordingHandlers();
+    const session = await provider.open(handlers, AUDIO);
+    session.commit();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(handlers.finals).toEqual(["已经保存的正文"]);
+
+    vi.useFakeTimers();
+    try {
+      const finishing = session.finish();
+      await vi.advanceTimersByTimeAsync(15_000);
+      await finishing;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(commitCount).toBe(2);
+    expect(handlers.errors).toEqual([]);
   });
 
   it("an explicit `error` frame from upstream is reported once, not duplicated by the close that follows it", async () => {

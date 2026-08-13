@@ -3939,6 +3939,29 @@
       "area": "recording",
       "capability": "CAP-WEB",
       "sprint": "05"
+    },
+    {
+      "id": "F174",
+      "title": "/rec 已有最终文字后停止正常收尾，不误报转录收尾失败",
+      "user_visible_behavior": "用户在 /rec 讲话并已看到最终文字后点击停止转录，已持久化正文保持不变，界面正常结束本次录音并允许之后再次开始追加；当停止时没有新的尾段可返回，不再误报“转录收尾失败”。如果整次会话从未收到任何 final，仍按既有超时错误提示失败。",
+      "spec_ref": "05-rec/uc-5-6-个人转录复用-chat-实时-asr-provider.md#R3",
+      "depends_on": [
+        "F173"
+      ],
+      "points": 1,
+      "status": "in_progress",
+      "owner": "coord-voice",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/configured-realtime-asr-provider.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/personal-realtime-asr-gateway.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "",
+      "notes": "F173 回归修复，无 UI/API 契约变化。根因：ConfiguredRealtimeAsrProvider.finish() 在停止前清空整次会话的 finalSeen；正文已持久化且停止 commit 没有新尾段时，被错误映射为 FINISH_TIMEOUT。修复必须保留真正的“整次会话无 final”超时保护，并覆盖已有 final 后停止无新增 final 的反证测试。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-API",
+      "sprint": "06"
     }
   ]
 }
