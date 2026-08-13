@@ -1,43 +1,114 @@
-import type { z } from "zod";
-import { interview } from "@repo/contracts";
+export type MockInterviewStep = 1 | 2 | 3 | 4 | 5;
 
-type Draft = z.infer<typeof interview.DigitalInterview>;
+export interface MockInterviewQuestion {
+  readonly expertId: string;
+  readonly text: string;
+}
+
+export interface MockSkillMessage {
+  readonly id: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+
+export interface MockSkillSuggestion {
+  readonly target: "topic" | "experts" | "questions" | "report";
+  readonly text: string;
+  readonly applied: boolean;
+}
+
+export interface MockDigitalInterviewDraft {
+  readonly interviewId: string;
+  readonly name: string;
+  readonly tags: readonly string[];
+  readonly topic: string;
+  readonly status: "draft";
+  readonly sourceQuickInterviewId: string | null;
+  readonly selectedExpertIds: readonly string[];
+  readonly questions: readonly MockInterviewQuestion[];
+  readonly currentStep: MockInterviewStep;
+  readonly reportMarkdown: string;
+  readonly skillMessages: readonly MockSkillMessage[];
+  readonly pendingSuggestion: MockSkillSuggestion | null;
+  readonly undoSnapshot: MockDigitalInterviewUndoSnapshot | null;
+  readonly reportId: string | null;
+  readonly updatedAt: string;
+  readonly version: number;
+}
+
+export interface MockDigitalInterviewUndoSnapshot {
+  readonly topic: string;
+  readonly selectedExpertIds: readonly string[];
+  readonly questions: readonly MockInterviewQuestion[];
+  readonly reportMarkdown: string;
+}
+
 const STORAGE_KEY = "wsx.mockDigitalInterviewDrafts.v1";
 
 export function createMockDigitalInterviewDraft(input: {
   readonly name: string;
   readonly tags: readonly string[];
-  readonly topic: string;
-}): Draft {
+  readonly topic?: string;
+}): MockDigitalInterviewDraft {
   if (typeof window === "undefined") throw new Error("MOCK_BROWSER_REQUIRED");
-  const draft: Draft = {
+  const draft: MockDigitalInterviewDraft = {
     interviewId: `mock-batch-${crypto.randomUUID()}`,
     name: input.name.trim(),
-    tags: input.tags.map((tag) => tag.trim()).filter(Boolean),
-    topic: input.topic.trim(),
+    tags: normalizeTags(input.tags),
+    topic: input.topic?.trim() ?? "",
     status: "draft",
     sourceQuickInterviewId: null,
     selectedExpertIds: [],
+    questions: [],
+    currentStep: 1,
+    reportMarkdown: "",
+    skillMessages: [{
+      id: `skill-${crypto.randomUUID()}`,
+      role: "assistant",
+      text: "我是访谈 Skill 助手，可以和你一起优化主题、专家、问题和报告结构。",
+    }],
+    pendingSuggestion: null,
+    undoSnapshot: null,
     reportId: null,
+    updatedAt: new Date().toISOString(),
     version: 1,
   };
   write(draft);
   return draft;
 }
 
-export function loadMockDigitalInterviewDraft(interviewId: string): Draft | null {
+export function loadMockDigitalInterviewDraft(interviewId: string): MockDigitalInterviewDraft | null {
   if (!interviewId.startsWith("mock-batch-") || typeof window === "undefined") return null;
   return readAll()[interviewId] ?? null;
 }
 
-function readAll(): Record<string, Draft> {
+export function updateMockDigitalInterviewDraft(
+  interviewId: string,
+  updater: (draft: MockDigitalInterviewDraft) => MockDigitalInterviewDraft,
+): MockDigitalInterviewDraft {
+  const current = loadMockDigitalInterviewDraft(interviewId);
+  if (!current) throw new Error("MOCK_INTERVIEW_NOT_FOUND");
+  const next = { ...updater(current), interviewId, updatedAt: new Date().toISOString(), version: current.version + 1 };
+  write(next);
+  return next;
+}
+
+export function listMockDigitalInterviewDrafts(): readonly MockDigitalInterviewDraft[] {
+  return Object.values(readAll()).sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
+}
+
+function normalizeTags(tags: readonly string[]): readonly string[] {
+  return Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean))).slice(0, 5);
+}
+
+function readAll(): Record<string, MockDigitalInterviewDraft> {
   if (typeof window === "undefined") return {};
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return {};
-  try { return JSON.parse(raw) as Record<string, Draft>; } catch { return {}; }
+  try { return JSON.parse(raw) as Record<string, MockDigitalInterviewDraft>; } catch { return {}; }
 }
 
-function write(draft: Draft): void {
+function write(draft: MockDigitalInterviewDraft): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...readAll(), [draft.interviewId]: draft }));
 }
