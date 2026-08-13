@@ -36,4 +36,45 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.getByTestId("survey-workflow-readonly")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-workflow-save")).not.toBeInTheDocument();
   });
+
+  it("连续呈现全部问题并让左侧目录定位题目", () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    render(<SurveyWorkflowShell surveyId="sv-1" initialStep="design" uiState="default" readonly={false} />);
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q16")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("survey-design-nav-Q16"));
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(screen.getByTestId("survey-design-nav-Q16")).toHaveAttribute("aria-current", "location");
+  });
+
+  it("每个报告章节独立保留输出方式与具体图表类型", () => {
+    render(<SurveyWorkflowShell surveyId="sv-1" initialStep="template" uiState="default" readonly={false} />);
+
+    fireEvent.click(screen.getByTestId("survey-template-chart-type-radar"));
+    expect(screen.getByTestId("survey-template-chart-type-radar")).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByTestId("survey-template-section-action"));
+    fireEvent.click(screen.getByTestId("survey-template-output-text"));
+    expect(screen.queryByTestId("survey-template-chart-types")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("survey-template-section-gap"));
+    expect(screen.getByTestId("survey-template-output-chart")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("survey-template-chart-type-radar")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("连续呈现整份报告并让左侧目录定位章节", () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    render(<SurveyWorkflowShell surveyId="sv-1" initialStep="report" uiState="default" readonly={false} />);
+
+    expect(screen.getByTestId("survey-report-section-summary")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-report-section-boundary")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("survey-report-nav-gap"));
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(screen.getByTestId("survey-report-nav-gap")).toHaveAttribute("aria-current", "location");
+  });
 });

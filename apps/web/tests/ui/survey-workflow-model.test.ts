@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { survey } from "@repo/contracts";
 import {
   createSurveyWorkflowMock,
   getPublishBlockers,
@@ -29,5 +30,12 @@ describe("survey workflow model", () => {
     const before = createSurveyWorkflowMock();
     const after = markResponseForReview(before, "R-0007");
     expect(getSurveyMetrics(after).needsReview).toBe(getSurveyMetrics(before).needsReview + 1);
+  });
+
+  it("图表章节声明具体图表类型并拒绝未签核类型", () => {
+    const model = createSurveyWorkflowMock();
+    expect(model.reportTemplate.sections.find((section) => section.id === "gap")?.chartType).toBe("gap-matrix");
+    expect(survey.SurveyChartTypeSchema.safeParse("radar").success).toBe(true);
+    expect(survey.SurveyChartTypeSchema.safeParse("pie").success).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ export const SurveyWorkflowStepSchema = z.enum(["design", "template", "publish",
 export const SurveyStatusSchema = z.enum(["draft", "ready", "collecting", "closed"]);
 export const SurveyQuestionTypeSchema = z.enum(["single", "multi", "scale", "open"]);
 export const SurveyResponseQualitySchema = z.enum(["normal", "review"]);
+export const SurveyChartTypeSchema = z.enum(["gap-matrix", "capability-table", "grouped-bar", "line", "radar"]);
 
 export const SurveyWorkflowQuestionSchema = z.object({
   id: z.string().min(1),
@@ -21,6 +22,7 @@ export const SurveyReportSectionSchema = z.object({
   managementQuestion: z.string(),
   method: z.string(),
   output: z.enum(["text", "chart", "image"]),
+  chartType: SurveyChartTypeSchema.optional(),
 });
 
 export const SurveyResponseSchema = z.object({
@@ -64,4 +66,5 @@ export const SurveyWorkflowSchema = z.object({
 export type SurveyWorkflowStep = z.infer<typeof SurveyWorkflowStepSchema>;
 export type SurveyWorkflowModel = z.infer<typeof SurveyWorkflowSchema>;
 export type SurveyWorkflowQuestion = z.infer<typeof SurveyWorkflowQuestionSchema>;
+export type SurveyChartType = z.infer<typeof SurveyChartTypeSchema>;
 export type SurveyResponse = z.infer<typeof SurveyResponseSchema>;
