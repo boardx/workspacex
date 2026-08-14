@@ -4076,7 +4076,7 @@
       "id": "F181",
       "title": "「项目模板」生产入口前端真实接线（BP-05：/tpl/list 列表 + 新建 + 复制）",
       "user_visible_behavior": "组织成员进入后台「AI 能力 → 项目模板」（/tpl/list），看到的是真实 GET /blueprints 返回的模板列表（不再是写死的 7 条 mock），刷新按钮真实重新拉取；点「新建模板」填名称提交，真实 POST /blueprints（origin=blank）落库，成功后列表自动出现新模板；点某个模板卡片上的「复制」，真实 POST /blueprints（origin=copy）落库为一份独立新草稿；卡片只画契约 BlueprintRow 真实有的字段（不显示 mock 专属的标签/草稿门槛提示等编造字段）。",
-      "spec_ref": "02-tpl/uc-2-4-版本与锁定.md#R8",
+      "spec_ref": "02-tpl/uc-2-4-蓝本版本与锁定.md#R8",
       "depends_on": [
         "F175"
       ],
