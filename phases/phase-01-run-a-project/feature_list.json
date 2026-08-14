@@ -3992,15 +3992,15 @@
       "spec_ref": "03-skill/uc-3-6-skill-改进反馈与版本触发.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
-      "owner": null,
+      "owner": "org-admin-quota",
       "verification": [
         "pnpm --filter api exec vitest run tests/skill/message-rating-persistence.test.ts",
         "pnpm --filter api exec vitest run tests/skill/message-rating-attribution-server-derived.test.ts",
         "pnpm --filter web exec vitest run tests/ui/chat-message-rating.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F176.verify.log @ 2026-08-14T06:10:42.527Z",
       "notes": "依据等级：[已签核] `skills` 束（covers 含 F68，status: confirmed 2026-07-30）——本 feature **零新增契约**，`rateMessage`（POST /messages/:messageId/rating）的形状 F68 已定并签核。\n\n⚠ 实测缺口（2026-08-14，SHA 8cf89fad）：F68 标着 passing，但它只做到 application 层——`RatingRepositoryPort` 全仓只有声明与引用、**没有任何 infrastructure 实现**；migrations 里 grep `message_rating` **零命中**；`skill.controller.ts` 自己写着「rateMessage 不在 #459 范围内」（**无 HTTP 路由**）；F68 的四条 verification 全在 tests/capability/skill/ 且**没有一条 import PgDatabase**（纯内存 fake）。所以本 feature 是给一条已签核契约**补地基**，形态同 F163（零新增契约、纯接线），不是新设计。\n\n⚠ **归因从 `agent_runs` 查出来，不接受前端传入**——这是本 feature 的核心不变量，也是反证要守的边界：前端能传归因，就等于任何用户都能伪造某个 skill 的满意度。消息经 `chat_messages.agent_run_id` 关联到 run，run 上有 `agent_version_id` / `skill_version_ids`。反证测试构造一个「请求体里带伪造 skillVersionId」的调用，断言落库的是服务端查出来的那个、不是请求体里的那个。\n\n⚠ 幂等键 `(messageId, raterId)`（契约 V13 逐字）：同一人对同一条消息重复评价只计一次，不是插两行也不是报错。\n\n⚠ 归因缺失（`ATTRIBUTION_MISSING`）是**记录后仍返回的告警型失败**，不是丢弃——契约注释逐字：缺 skillVersionId 的评价不计入任何 skill 满意度并进数据质量报表（I-20/V9）。\n\n本 feature 是 PROP-FEEDBACK-LOOP-E2E-001 的 FB-1（coord-main 2026-08-14 批准执行顺序 FB-1→FB-4）。FB-2/FB-3/FB-4 需要 phase-03 `feedback-loop` 束先签核，不在本条范围内。"
     },
     {
