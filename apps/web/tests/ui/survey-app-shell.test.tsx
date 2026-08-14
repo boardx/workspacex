@@ -78,4 +78,14 @@ describe("SurveyAppShell", () => {
     expect(screen.getByTestId("shell-left-panel")).toBeInTheDocument();
     expect(screen.getByTestId("survey-section-nav-reports")).toHaveAttribute("aria-current", "page");
   });
+
+  it("报告模板路径忽略 workflow 模块标志并保留报告模块高亮", () => {
+    pathname = "/studio/survey/templates/tpl-team-health";
+    search = "mode=module";
+
+    render(<SurveyAppShell><div>报告模块编辑器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-reports")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-modules")).not.toHaveAttribute("aria-current");
+  });
 });
