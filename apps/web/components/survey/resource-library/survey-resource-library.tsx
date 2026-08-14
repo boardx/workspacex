@@ -14,6 +14,8 @@ import {
   SURVEY_LIBRARY_CARDS, SURVEY_QUESTION_MODULE_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
   TEMPLATE_CATEGORY_LABEL, type SurveyResourceState, type SurveyResourceTab,
 } from "@/lib/survey/resource-library";
+import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/survey/creation-draft";
+import { SurveyCreateDialog, type SurveyCreationMode } from "./survey-create-dialog";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
   surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
@@ -30,29 +32,31 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
+  const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
+  const [createMode, setCreateMode] = React.useState<SurveyCreationMode | null>(initialIntent === "create-survey" ? "module" : null);
   const tab = initialTab;
 
   React.useEffect(() => {
     setQuery("");
+    setSelectedTags([]);
   }, [tab]);
 
-  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+  const availableTags = [...new Set(SURVEY_LIBRARY_CARDS.flatMap((item) => item.tags))];
+  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) => {
+    const matchesQuery = item.title.includes(query.trim());
+    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => item.tags.includes(tag));
+    return matchesQuery && matchesTags;
+  });
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
-  const selectingSurveySource = tab === "modules" && initialIntent === "create-survey";
-  const title = selectingSurveySource ? "选择问卷模块" : copy.title;
-  const description = selectingSurveySource
-    ? "选择一个问题模块作为新问卷的起点，之后可继续编辑和调整。"
-    : copy.description;
-  const openModule = (moduleId: string) => router.push(
-    selectingSurveySource
-      ? `/studio/survey/new?step=design&sourceModule=${moduleId}`
-      : `/studio/survey/module-${moduleId}?step=design&mode=module`,
-  );
+  const createSurvey = (draft: SurveyCreationDraft) => {
+    const params = new URLSearchParams({ step: "design", draft: encodeSurveyCreationDraft(draft) });
+    setCreateMode(null);
+    router.push(`/studio/survey/new?${params.toString()}`);
+  };
 
   return (
     <main className="min-h-full bg-background text-background-foreground" data-testid="survey-resource-library">
@@ -60,14 +64,13 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
               <div>
-                <h2 className="text-24 font-semibold">{title}</h2>
-                <p className="mt-1 text-12 text-muted-foreground">{description}</p>
+                <h2 className="text-24 font-semibold">{copy.title}</h2>
+                <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey?tab=modules&intent=create-survey")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
-                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
-                {selectingSurveySource && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey")}>返回问卷列表</Button>}
-                {tab === "modules" && !selectingSurveySource && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => setCreateMode("module")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => setCreateMode("blank")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
+                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
             </div>
@@ -80,7 +83,16 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
 
-            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? selectingSurveySource ? "基于该模块的新问卷设计" : "可复用问卷模块编辑" : "报告模块编辑"}</p>
+            {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
+              <span className="mr-1 text-11 text-muted-foreground">标签</span>
+              {availableTags.map((tag) => {
+                const selected = selectedTags.includes(tag);
+                return <button key={tag} type="button" aria-label={`筛选标签 ${tag}`} aria-pressed={selected} onClick={() => setSelectedTags((current) => selected ? current.filter((value) => value !== tag) : [...current, tag])} className={`rounded-full border px-3 py-1 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent text-primary" : "border-border bg-card text-muted-foreground hover:border-primary"}`}>{tag}</button>;
+              })}
+              {selectedTags.length > 0 && <button type="button" onClick={() => setSelectedTags([])} className="rounded-md px-2 py-1 text-11 text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">清除标签筛选</button>}
+            </div>}
+
+            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
               {tab === "surveys" ? (
                 <CardGrid empty={surveys.length === 0} emptyLabel="没有匹配的问卷，调整搜索或筛选条件。">
@@ -88,7 +100,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => openModule(item.id)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/module-${item.id}?step=design&mode=module`)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">
@@ -98,6 +110,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
             </ResourceBody>
           </div>
         </section>
+        <SurveyCreateDialog open={createMode !== null} mode={createMode ?? "blank"} onOpenChange={(open) => { if (!open) setCreateMode(null); }} onCreate={createSurvey} />
     </main>
   );
 }
@@ -119,6 +132,7 @@ function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[numb
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
+    <div className="mt-2 flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     {item.received !== undefined && <p className="mt-3 text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}

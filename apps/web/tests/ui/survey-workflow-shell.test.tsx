@@ -40,10 +40,10 @@ describe("SurveyWorkflowShell", () => {
       initialStep="design"
       uiState="default"
       readonly={false}
-      sourceModuleId="strategy"
+      creationDraft={{ name: "战略调查", tags: ["治理"], sourceModuleId: "strategy" }}
     />);
 
-    expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "战略调查" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q06")).toBeInTheDocument();
@@ -56,26 +56,30 @@ describe("SurveyWorkflowShell", () => {
       initialStep="design"
       uiState="default"
       readonly={false}
-      sourceModuleId="strategy"
+      creationDraft={{ name: "不应使用", tags: [], sourceModuleId: "strategy" }}
     />);
 
     expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q16")).toBeInTheDocument();
   });
 
-  it("切步时安全编码来源模块值且不激活模块编辑语义", () => {
+  it("切步时只保留一个安全编码的创建草稿参数", () => {
+    const creationDraft = { name: "战略与协作", tags: ["内部"], sourceModuleId: "strategy" };
     render(<SurveyWorkflowShell
       surveyId="new"
       initialStep="design"
       uiState="default"
       readonly={false}
-      sourceModuleId="strategy&mode=module"
+      creationDraft={creationDraft}
     />);
 
-    expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "战略与协作" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
-    expect(replace).toHaveBeenCalledWith("/studio/survey/new?step=template&sourceModule=strategy%26mode%3Dmodule");
+    const target = replace.mock.calls[0]?.[0] as string;
+    const params = new URL(target, "https://boardx.test").searchParams;
+    expect(params.getAll("draft")).toHaveLength(1);
+    expect(params.has("sourceModule")).toBe(false);
   });
 
   it("模块模式忽略同时出现的问卷来源参数", () => {
@@ -85,7 +89,7 @@ describe("SurveyWorkflowShell", () => {
       uiState="default"
       readonly={false}
       moduleEditor
-      sourceModuleId="strategy"
+      creationDraft={{ name: "忽略", tags: [], sourceModuleId: "strategy" }}
     />);
 
     expect(screen.getByRole("heading", { name: "组织画像" })).toBeInTheDocument();
@@ -196,7 +200,7 @@ describe("SurveyWorkflowShell", () => {
       initialStep="publish"
       uiState="default"
       readonly={false}
-      sourceModuleId={sourceModuleId}
+      creationDraft={{ name: "发布检查", tags: [], sourceModuleId }}
     />);
 
     expect(screen.getByTestId("survey-publish-checks")).toHaveTextContent("问卷必须至少包含一道题目");
