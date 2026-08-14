@@ -38,6 +38,30 @@ const checkpointSession = {
   sourceCount: 0, reportId: null, createdAt: "2026-08-13T00:00:00.000Z", updatedAt: "2026-08-13T00:00:00.000Z",
 } as const;
 
+function sessionAt(resumeStage: "directions" | "outline" | "researching" | "report") {
+  return {
+    ...checkpointSession,
+    stage: resumeStage === "researching" ? "researching" : resumeStage,
+    resumeStage,
+    directions: {
+      candidateVersion: 1,
+      confirmedVersion: null,
+      versions: [{
+        version: 1, createdAt: "2026-08-13T00:01:00.000Z", confirmedAt: null,
+        items: [{ id: "d1", title: "候选方向", description: "候选描述", enabled: true, order: 0 }],
+      }],
+    },
+    outline: resumeStage === "outline" ? {
+      candidateVersion: 1,
+      confirmedVersion: null,
+      versions: [{
+        version: 1, createdAt: "2026-08-13T00:02:00.000Z", confirmedAt: null,
+        items: [{ id: "o1", title: "候选章节", questions: ["候选问题"], enabled: true, order: 0 }],
+      }],
+    } : checkpointSession.outline,
+  };
+}
+
 beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
@@ -114,6 +138,32 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     fireEvent.change(outline, { target: { value: "执行摘要与关键判断" } });
     expect(outline.value).toBe("执行摘要与关键判断");
     expect(screen.getByTestId("research-start-search")).toBeEnabled();
+  });
+
+  it("clamps a requested future checkpoint to the session maximum", async () => {
+    getGuidedResearchSession.mockResolvedValue(sessionAt("outline"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-edit" />);
+
+    expect(await screen.findByTestId("research-flow-outline")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /研究报告/ })).toBeDisabled();
+  });
+
+  it("keeps an earlier requested checkpoint available after loading a later session", async () => {
+    getGuidedResearchSession.mockResolvedValue(sessionAt("outline"));
+    render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);
+
+    await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-edit"));
+    expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
+  });
+
+  it("applies a direction Skill suggestion to the live editor", async () => {
+    getGuidedResearchSession.mockResolvedValue(sessionAt("directions"));
+    render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);
+
+    await screen.findByTestId("research-direction-title-d1");
+    fireEvent.click(screen.getByRole("button", { name: "补充研究方向" }));
+    fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
+    expect(screen.getAllByTestId(/^research-direction-title-/)).toHaveLength(2);
   });
 
   it("search and report expose evidence-bearing states", () => {
