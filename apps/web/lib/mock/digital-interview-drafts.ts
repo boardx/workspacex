@@ -100,6 +100,28 @@ export function updateMockDigitalInterviewDraft(
   return next;
 }
 
+export function updateMockDigitalInterviewMetadata(
+  interviewId: string,
+  input: { readonly name: string; readonly tags: readonly string[] },
+): MockDigitalInterviewDraft {
+  const name = input.name.trim();
+  if (!name) throw new Error("MOCK_INTERVIEW_NAME_REQUIRED");
+  return updateMockDigitalInterviewDraft(interviewId, (draft) => ({
+    ...draft,
+    name: name.slice(0, 100),
+    tags: normalizeTags(input.tags),
+  }));
+}
+
+export function deleteMockDigitalInterviewDraft(interviewId: string): void {
+  const drafts = readAll();
+  if (!interviewId.startsWith("mock-batch-") || !drafts[interviewId]) {
+    throw new Error("MOCK_INTERVIEW_NOT_FOUND");
+  }
+  const { [interviewId]: _removed, ...remaining } = drafts;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+}
+
 export function listMockDigitalInterviewDrafts(): readonly MockDigitalInterviewDraft[] {
   return Object.values(readAll()).sort((left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""));
 }
