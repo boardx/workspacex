@@ -601,3 +601,176 @@ describe("F177 换时长档位", () => {
     expect(after?.agendaSegmentCount).toBe(11); // R3 主表：一天 = 11
   });
 });
+
+describe("F179 试跑与发布版本", () => {
+  it("没试跑过直接发布：TRIAL_RUN_REQUIRED，且不占版本号（I-3）", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-publish-1", orgId, actorId: ACTOR, name: "发布一号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+
+    const out = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-1", expectedCurrentVersionNumber: 0, newVersionId: "bpv-1",
+    });
+    expect(out.kind).toBe("gate-blocked");
+    if (out.kind !== "gate-blocked") throw new Error("unreachable");
+    expect(out.reasonCode).toBe("TRIAL_RUN_REQUIRED");
+
+    // 反证 I-3「失败不占号」：blueprints.version_number 原地不动，
+    // blueprint_versions 没有任何行——不是「生成了但没提交」，是根本没写。
+    const bp = await asApp(ORG, (c) =>
+      c.query<{ version_number: number; state: string }>(
+        `SELECT version_number, state FROM blueprints WHERE id = $1`,
+        ["bp-publish-1"],
+      ),
+    );
+    expect(bp.rows[0]!.version_number).toBe(0);
+    expect(bp.rows[0]!.state).toBe("draft");
+    const versions = await asApp(ORG, (c) =>
+      c.query<{ n: string }>(`SELECT count(*) AS n FROM blueprint_versions WHERE blueprint_id = $1`, ["bp-publish-1"]),
+    );
+    expect(Number(versions.rows[0]!.n)).toBe(0);
+  });
+
+  it("试跑一次后发布：成功，版本号从 0 变 1，蓝本转已发布", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-publish-2", orgId, actorId: ACTOR, name: "发布二号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-publish-2", designFacetKey: key!,
+      value: "主题内容", expectedItemRevision: "",
+    });
+
+    const trial = await repo.startTrialRun({ orgId, blueprintId: "bp-publish-2", trialRunId: "trial-1" });
+    expect(trial.kind).toBe("ok");
+
+    const out = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-2", expectedCurrentVersionNumber: 0, newVersionId: "bpv-2",
+    });
+    expect(out.kind).toBe("ok");
+    if (out.kind !== "ok") throw new Error("unreachable");
+    expect(out.versionNumber).toBe(1);
+    expect(out.archivedVersionId).toBeNull(); // 首发没有旧版可归档
+    expect(out.changedDesignFacetKeys).toEqual([key]); // 首发：已填的都算改动
+
+    const bp = await asApp(ORG, (c) =>
+      c.query<{ version_number: number; state: string }>(
+        `SELECT version_number, state FROM blueprints WHERE id = $1`,
+        ["bp-publish-2"],
+      ),
+    );
+    expect(bp.rows[0]!.version_number).toBe(1);
+    expect(bp.rows[0]!.state).toBe("published");
+  });
+
+  it("拿着过期的 expectedCurrentVersionNumber 发布：VERSION_CHANGED", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-publish-3", orgId, actorId: ACTOR, name: "发布三号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    await repo.startTrialRun({ orgId, blueprintId: "bp-publish-3", trialRunId: "trial-2" });
+    const first = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-3", expectedCurrentVersionNumber: 0, newVersionId: "bpv-3",
+    });
+    if (first.kind !== "ok") throw new Error("setup failed");
+
+    // 第二个调用方不知道刚刚已经发布过，还拿着 0（发布前的版本号）
+    const stale = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-3", expectedCurrentVersionNumber: 0, newVersionId: "bpv-3-stale",
+    });
+    expect(stale.kind).toBe("version-changed");
+  });
+
+  it("发布两次：旧版转 archived，新版 published，版本号单调递增", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-publish-4", orgId, actorId: ACTOR, name: "发布四号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    await repo.startTrialRun({ orgId, blueprintId: "bp-publish-4", trialRunId: "trial-3" });
+    const v1 = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-4", expectedCurrentVersionNumber: 0, newVersionId: "bpv-4a",
+    });
+    if (v1.kind !== "ok") throw new Error("setup failed");
+
+    // v2 之前改一项内容，验证 changedDesignFacetKeys 只算真正变了的
+    await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-publish-4", designFacetKey: key!,
+      value: "v2 内容", expectedItemRevision: "",
+    });
+    const v2 = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-publish-4", expectedCurrentVersionNumber: 1, newVersionId: "bpv-4b",
+    });
+    expect(v2.kind).toBe("ok");
+    if (v2.kind !== "ok") throw new Error("unreachable");
+    expect(v2.versionNumber).toBe(2);
+    expect(v2.archivedVersionId).toBe("bpv-4a");
+    expect(v2.changedDesignFacetKeys).toEqual([key]);
+
+    const rows = await asApp(ORG, (c) =>
+      c.query<{ id: string; state: string; version_number: number }>(
+        `SELECT id, state, version_number FROM blueprint_versions WHERE blueprint_id = $1 ORDER BY version_number`,
+        ["bp-publish-4"],
+      ),
+    );
+    expect(rows.rows).toEqual([
+      { id: "bpv-4a", state: "archived", version_number: 1 },
+      { id: "bpv-4b", state: "published", version_number: 2 },
+    ]);
+  });
+
+  it("发布不存在的蓝本：BLUEPRINT_NOT_FOUND", async () => {
+    const orgId = toOrgId(ORG);
+    const out = await repo.publishBlueprintVersion({
+      orgId, blueprintId: "bp-does-not-exist", expectedCurrentVersionNumber: 0, newVersionId: "bpv-x",
+    });
+    expect(out.kind).toBe("blueprint-not-found");
+  });
+
+  it("试跑不存在的蓝本：BLUEPRINT_NOT_FOUND", async () => {
+    const orgId = toOrgId(ORG);
+    const out = await repo.startTrialRun({ orgId, blueprintId: "bp-does-not-exist", trialRunId: "trial-x" });
+    expect(out.kind).toBe("blueprint-not-found");
+  });
+
+  it("试跑不计入已套用项目数（I-22）——控制器层 list() 的 appliedProjectCount 仍是 0", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-publish-5", orgId, actorId: ACTOR, name: "发布五号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    await repo.startTrialRun({ orgId, blueprintId: "bp-publish-5", trialRunId: "trial-4" });
+    await repo.startTrialRun({ orgId, blueprintId: "bp-publish-5", trialRunId: "trial-5" });
+
+    const rows = discloseAll(await repo.list(orgId, null));
+    const row = rows.find((r) => r.blueprintId === "bp-publish-5");
+    expect(row?.appliedProjectCount).toBe(0); // 两次试跑，一次「套用」都没有
+  });
+
+  it("反证：两条并发试跑各自留痕，不互相覆盖（没有 CAS 冲突）", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-publish-6", orgId, actorId: ACTOR, name: "发布六号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const [a, b] = await Promise.all([
+      repo.startTrialRun({ orgId, blueprintId: "bp-publish-6", trialRunId: "trial-6a" }),
+      repo.startTrialRun({ orgId, blueprintId: "bp-publish-6", trialRunId: "trial-6b" }),
+    ]);
+    expect(a.kind).toBe("ok");
+    expect(b.kind).toBe("ok");
+    const bindings = await asApp(ORG, (c) =>
+      c.query<{ n: string }>(
+        `SELECT count(*) AS n FROM blueprint_bindings WHERE blueprint_id = $1 AND kind = 'trial-run'`,
+        ["bp-publish-6"],
+      ),
+    );
+    expect(Number(bindings.rows[0]!.n)).toBe(2);
+  });
+});

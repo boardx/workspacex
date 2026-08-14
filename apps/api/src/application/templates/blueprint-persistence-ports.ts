@@ -80,6 +80,8 @@ export interface BlueprintPersistencePort {
   exists(orgId: OrgId, blueprintId: string): Promise<boolean>;
   list(orgId: OrgId, state: BlueprintState | null): Promise<readonly GuardedBlueprint[]>;
   setDurationTier(cmd: SetDurationTierCommand): Promise<SetDurationTierOutcome>;
+  startTrialRun(cmd: StartTrialRunCommand): Promise<StartTrialRunOutcome>;
+  publishBlueprintVersion(cmd: PublishBlueprintVersionCommand): Promise<PublishBlueprintVersionOutcome>;
 }
 
 /**
@@ -133,6 +135,53 @@ export interface SetDurationTierCommand {
   readonly tier: DurationTier;
   readonly confirmed: boolean;
   readonly expectedVersion: string;
+}
+
+/**
+ * F179（BP-04）：试跑一场的仓储结果。没有 CAS——试跑是**追加一条记录**，不是修改
+ * 蓝本行本身，两次并发试跑各自成功、各自留一条绑定，互不冲突（不像后续行级写操作
+ * 那种「读-判-写」需要防止基于旧状态的判断被后来者的写入作废）。
+ */
+export type StartTrialRunOutcome =
+  | { readonly kind: "ok"; readonly trialRunId: string }
+  | { readonly kind: "blueprint-not-found" };
+
+export interface StartTrialRunCommand {
+  readonly orgId: OrgId;
+  readonly blueprintId: string;
+  readonly trialRunId: string;
+}
+
+/**
+ * F179（BP-04）：发布新版本的仓储结果。
+ *
+ * ⚠ 版本比对（`expectedCurrentVersionNumber` 对照 `blueprints.version_number`）
+ * **先于**门槛判定——版本冲突不该被误判成门槛不通过，反之亦然。
+ * `gate-blocked` 携带的 `reasonCode` 恒是 `REQUIRED_CONFIG_INCOMPLETE` 或
+ * `TRIAL_RUN_REQUIRED`（`publishBlueprintVersionUseCase` 的判定结果），
+ * `missingKeys` 仅 `REQUIRED_CONFIG_INCOMPLETE` 时非空。
+ */
+export type PublishBlueprintVersionOutcome =
+  | {
+      readonly kind: "ok";
+      readonly versionId: string;
+      readonly versionNumber: number;
+      readonly changedDesignFacetKeys: readonly string[];
+      readonly archivedVersionId: string | null;
+    }
+  | {
+      readonly kind: "gate-blocked";
+      readonly reasonCode: "REQUIRED_CONFIG_INCOMPLETE" | "TRIAL_RUN_REQUIRED";
+      readonly missingKeys: readonly string[];
+    }
+  | { readonly kind: "blueprint-not-found" }
+  | { readonly kind: "version-changed" };
+
+export interface PublishBlueprintVersionCommand {
+  readonly orgId: OrgId;
+  readonly blueprintId: string;
+  readonly expectedCurrentVersionNumber: number;
+  readonly newVersionId: string;
 }
 
 export const BLUEPRINT_PERSISTENCE_PORT = Symbol("BlueprintPersistencePort");
