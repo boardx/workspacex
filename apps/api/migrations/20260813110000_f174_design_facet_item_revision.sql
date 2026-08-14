@@ -18,5 +18,20 @@
 --   会做整表重写、**逐行**求值，不是算一次填全表。历史行（BP-01 已写入的）因此
 --   各自拿到独立的 revision，不需要额外回填——若这里用的是一个常量默认值，
 --   所有历史行会共享同一个 revision，「谁先写谁后写」的判定就失去意义了。
+--
+-- ## ⚠ 2026-08-14：补 `IF NOT EXISTS`（替 F174 修 main 上的 backend-gates 红）
+--
+-- `backend-gates` 有一条「**无视版本表、强制重放全部迁移**」的检查，本文件在那条
+-- 检查下当场失败：`column "item_revision" of relation "blueprint_design_facets"
+-- already exists`。裸 `ADD COLUMN` 只在「每个迁移恰好跑一次」的假设下成立，
+-- 而那条检查存在的理由正是不接受这个假设——一次重放、一次回滚重来、一次从快照
+-- 恢复，都会让同一个文件跑第二遍。
+--
+-- ⚠ 为什么 F174 的 PR 没能发现：**`backend-gates` 不在 PR 上跑**，它只在合入 main
+--   之后开火。所以这不是当时那位的疏忽，是门守的时机让它抓不到该抓的东西
+--   （同 issue #485 / #1177 记的那类问题）。
+--
+-- ⚠ `IF NOT EXISTS` 不改变首次执行的语义：列不存在时照样整表重写、逐行求值
+--   `gen_random_uuid()`，上面那段关于易失默认值的说明**仍然成立**。
 ALTER TABLE blueprint_design_facets
-  ADD COLUMN item_revision text NOT NULL DEFAULT gen_random_uuid()::text;
+  ADD COLUMN IF NOT EXISTS item_revision text NOT NULL DEFAULT gen_random_uuid()::text;
