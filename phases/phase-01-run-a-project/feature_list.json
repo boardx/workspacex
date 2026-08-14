@@ -4081,7 +4081,7 @@
         "F175"
       ],
       "points": 3,
-      "status": "passing",
+      "status": "not_started",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [

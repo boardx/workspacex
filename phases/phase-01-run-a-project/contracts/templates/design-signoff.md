@@ -46,7 +46,15 @@ phase: "01"
 #        实现（`trial-run-gate.ts` 文件头注已声明，本 feature 未做新裁决，只是首次
 #        让它接上真实存储）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-15（自追加，dev-project agent）：F181（BP-05：/tpl/list 生产入口前端真实接线）
+#   三条件核对：① UI 已签——`/tpl/list` 卡片列表/新建/复制界面已作为 #1158 卡片网格
+#     改版签核范围的一部分，本次只是把同一界面的数据源从 mock 切到真实 API，界面本身
+#     没有新落点。② 契约已签——只实现已签核的 createBlueprint/listBlueprints 两条
+#     operation，形状逐字照契约。③ 零新增设计面——「复制」走既有
+#     createBlueprint(origin=copy)，未新造错误码或端点；setDurationTier 因契约缺口
+#     T13 明确排除在外，未强行接线。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
