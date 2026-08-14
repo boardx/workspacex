@@ -223,6 +223,8 @@ export const ResearchError = z.enum([
   "RESEARCH_CREATE_REPLAY_MISMATCH",
   /** 人工确认所基于的候选版本已被另一轮生成或确认替换。 */
   "RESEARCH_CHECKPOINT_CONFLICT",
+  /** 生命周期操作未按已确认的大纲与研究阶段顺序执行。 */
+  "RESEARCH_STAGE_CONFLICT",
   /** 报告大纲只能基于已经由人确认的研究方向生成。 */
   "RESEARCH_DIRECTIONS_NOT_CONFIRMED",
   /**
@@ -603,6 +605,7 @@ export const GuidedResearchOutlineCheckpoint = versionedCheckpoint(GuidedResearc
 export const GuidedResearchSession = z.object({
   sessionId: z.string(),
   title: z.string(),
+  tags: z.array(z.string().trim().min(1).max(20)).max(5).default([]),
   brief: GuidedResearchBrief,
   briefVersion: z.number().int().positive().default(1),
   briefConfirmedAt: z.string().nullable().default(null),
@@ -625,6 +628,10 @@ export const operations = {
     method: "POST",
     path: "/research/guided-sessions",
     in: z.object({
+      title: z.string().trim().min(1).max(100),
+      tags: z.array(z.string().trim().min(1).max(20)).max(5)
+        .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique")
+        .default([]),
       idempotencyKey: z.string().trim().min(1).max(200),
       collaboratorUserIds: z.array(z.string().trim().min(1)).max(50)
         .refine((ids) => new Set(ids).size === ids.length, "collaborator ids must be unique")
@@ -648,10 +655,21 @@ export const operations = {
     out: GuidedResearchSession,
     err: ["RESEARCH_NOT_FOUND"] as const,
   },
+  confirmResearchBrief: {
+    method: "PUT",
+    path: "/research/guided-sessions/:sessionId/brief",
+    in: z.object({
+      sessionId: z.string().min(1),
+      briefVersion: z.number().int().positive(),
+      brief: GuidedResearchBrief,
+    }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+  },
   generateResearchDirections: {
     method: "POST", path: "/research/guided-sessions/:sessionId/directions/generate",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   confirmResearchDirections: {
     method: "PUT", path: "/research/guided-sessions/:sessionId/directions",
@@ -660,12 +678,12 @@ export const operations = {
       directions: z.array(GuidedResearchDirection).min(1)
         .refine((items) => items.some((item) => item.enabled), "at least one direction must be enabled"),
     }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   generateResearchOutline: {
     method: "POST", path: "/research/guided-sessions/:sessionId/outline/generate",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_DIRECTIONS_NOT_CONFIRMED"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_DIRECTIONS_NOT_CONFIRMED", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   confirmResearchOutline: {
     method: "PUT", path: "/research/guided-sessions/:sessionId/outline",
@@ -674,7 +692,24 @@ export const operations = {
       outline: z.array(GuidedResearchOutlineSection).min(1)
         .refine((items) => items.some((item) => item.enabled && item.title.trim().length > 0), "at least one outline section must be enabled"),
     }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT", "RESEARCH_STAGE_CONFLICT"] as const,
+  },
+  finishGuidedResearchCollection: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/researching/complete",
+    in: z.object({
+      sessionId: z.string().min(1),
+      sourceCount: z.number().int().min(0).max(10_000),
+    }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
+  },
+  completeGuidedResearchSession: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/complete",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   /**
    * `CreateResearch`（`usecases.md` 1.1 / `uc-24-1` R3）—— 七项配置一次固化（**N-12**）

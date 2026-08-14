@@ -74,7 +74,7 @@ describe("F169 guided research live checkpoints", () => {
       }] },
     };
     api.getGuidedResearchSession.mockResolvedValueOnce(outlined);
-    api.confirmResearchOutline.mockResolvedValueOnce(outlined);
+    api.confirmResearchOutline.mockResolvedValueOnce({ ...outlined, stage: "researching", resumeStage: "researching" });
     const onStepChange = vi.fn();
     render(<GuidedResearchFlow step="outline" sessionId="grs-f169" onStepChange={onStepChange} />);
     expect(await screen.findByDisplayValue("候选章节")).toBeInTheDocument();

@@ -105,7 +105,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   是 requirements/24-research/OPEN-QUESTIONS.md 的 Q-2（阻塞级·未裁）。此处只做**最小可逆**
       //   的一步：把「研究」一级导航指向真正的研究 Studio（与原型 IA 一致——研究是一级导航、
       //   Context Pack 不是）；Context Pack 页面仍在 /studio/research 直达。Q-2 的最终归并留给人类。
-      { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5"] },
+      { key: "research", label: "研究", href: "/research", icon: Search, ucRefs: ["24-research/uc-24-1", "24-research/uc-24-2", "24-research/uc-24-3", "24-research/uc-24-4", "24-research/uc-24-5", "24-research/uc-24-6"] },
       // 束: interview —— 重指到 v2 现行屏 /itv（label/icon 不变，像素不变；旧 /studio/interview 已重定向）
       { key: "interview", label: "访谈", href: "/itv", icon: Mic, ucRefs: ["06-itv/uc-6-1", "06-itv/uc-6-3"] },
       // 束: recording —— 现场录音转写，此前只能敲 /rec

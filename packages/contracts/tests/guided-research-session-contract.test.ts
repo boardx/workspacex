@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { operations } from "../src/research";
+import * as research from "../src/research";
+
+const { operations } = research;
 
 describe("F168 guided research session contract", () => {
   it("keeps the resumable stage and brief in the shared contract", () => {
     const created = operations.createGuidedResearchSession.out.parse({
       sessionId: "grs-1",
       title: "欧洲储能市场进入策略",
+      tags: ["欧洲", "储能"],
       brief: {
         topic: "欧洲储能市场进入策略",
         goal: "确定首批进入国家",
@@ -24,6 +27,7 @@ describe("F168 guided research session contract", () => {
     });
 
     expect(created.stage).toBe("directions");
+    expect(created.tags).toEqual(["欧洲", "储能"]);
     expect(operations.listGuidedResearchSessions.path).toBe("/research/guided-sessions");
     expect(operations.getGuidedResearchSession.path).toContain(":sessionId");
   });
@@ -49,6 +53,8 @@ describe("F168 guided research session contract", () => {
 
   it("accepts only explicit collaborator user ids when a session is created", () => {
     const parsed = operations.createGuidedResearchSession.in.parse({
+      title: "欧洲储能进入研究",
+      tags: ["欧洲", "储能"],
       idempotencyKey: "create-shared",
       collaboratorUserIds: ["u-collaborator"],
       brief: {
@@ -57,6 +63,7 @@ describe("F168 guided research session contract", () => {
       },
     });
     expect(parsed.collaboratorUserIds).toEqual(["u-collaborator"]);
+    expect(parsed.tags).toEqual(["欧洲", "储能"]);
     expect(operations.createGuidedResearchSession.in.safeParse({
       ...parsed, collaboratorUserIds: ["u-collaborator", "u-collaborator"],
     }).success).toBe(false);
@@ -100,5 +107,46 @@ describe("F169 guided research human checkpoint contract", () => {
     expect(operations.confirmResearchOutline.in.safeParse({
       sessionId: "grs-1", candidateVersion: 1, outline: [{ ...outline, title: "   " }],
     }).success).toBe(false);
+  });
+});
+
+describe("guided research post-outline lifecycle contract", () => {
+  it("defines same-session brief reconfirmation", () => {
+    const operation = operations.confirmResearchBrief;
+
+    expect(operation).toMatchObject({
+      method: "PUT",
+      path: "/research/guided-sessions/:sessionId/brief",
+    });
+    expect(operation.err).toContain("RESEARCH_CHECKPOINT_CONFLICT");
+  });
+
+  it("declares every stage conflict returned by checkpoint controllers", () => {
+    for (const operation of [
+      operations.generateResearchDirections,
+      operations.confirmResearchDirections,
+      operations.generateResearchOutline,
+      operations.confirmResearchOutline,
+    ]) {
+      expect(operation.err).toContain("RESEARCH_STAGE_CONFLICT");
+    }
+  });
+
+  it("defines ordered collection and completion operations", () => {
+    expect(research.operations.finishGuidedResearchCollection).toMatchObject({
+      method: "POST",
+      path: "/research/guided-sessions/:sessionId/researching/complete",
+      err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"],
+    });
+    expect(research.operations.completeGuidedResearchSession).toMatchObject({
+      method: "POST",
+      path: "/research/guided-sessions/:sessionId/complete",
+      err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"],
+    });
+    expect(research.operations.finishGuidedResearchCollection.in.parse({
+      sessionId: "grs-1",
+      sourceCount: 3,
+    })).toEqual({ sessionId: "grs-1", sourceCount: 3 });
+    expect(research.ResearchError.options).toContain("RESEARCH_STAGE_CONFLICT");
   });
 });

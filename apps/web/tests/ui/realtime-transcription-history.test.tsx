@@ -126,7 +126,7 @@ describe("实时转录历史工作台", () => {
 
     expect(screen.getByTestId("rec-history-page")).toBeInTheDocument();
     await waitFor(() => expect(api.list).toHaveBeenCalledWith({}, "session-token"));
-    expect(screen.getAllByTestId(/^rec-history-card-/)).toHaveLength(1);
+    expect(await screen.findAllByTestId(/^rec-history-card-/)).toHaveLength(1);
 
     fireEvent.click(screen.getByTestId("rec-create-open"));
 

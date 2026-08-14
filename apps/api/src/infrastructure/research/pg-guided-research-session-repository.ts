@@ -5,6 +5,7 @@ import {
   type GuidedResearchBrief,
   GuidedResearchCheckpointConflictError,
   GuidedResearchDirectionsNotConfirmedError,
+  GuidedResearchStageConflictError,
   type GuidedResearchDirection,
   type GuidedResearchOutlineSection,
   type GuidedResearchSession,
@@ -17,6 +18,7 @@ import { guard } from "../../application/security/permission-filter";
 interface Row {
   id: string;
   title: string;
+  tags: string[];
   brief: GuidedResearchBrief;
   brief_version: number;
   brief_confirmed_at: Date | string | null;
@@ -24,6 +26,7 @@ interface Row {
   outline: GuidedResearchSession["outline"];
   stage: GuidedResearchSession["stage"];
   resume_stage: GuidedResearchSession["resumeStage"];
+  status: GuidedResearchSession["status"];
   progress: number;
   source_count: number;
   report_id: string | null;
@@ -33,7 +36,7 @@ interface Row {
   is_collaborator: boolean;
 }
 
-const COLUMNS = "g.id, g.title, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
+const COLUMNS = "g.id, g.title, g.tags, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.status, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
 const COLLABORATOR_PROJECTION = `EXISTS (
   SELECT 1 FROM guided_research_session_collaborators c
    WHERE c.org_id = g.org_id AND c.session_id = g.id AND c.user_id = $2
@@ -43,6 +46,7 @@ function project(row: Row): GuidedResearchSession {
   return {
     sessionId: row.id,
     title: row.title,
+    tags: row.tags,
     brief: row.brief,
     briefVersion: row.brief_version,
     briefConfirmedAt: row.brief_confirmed_at === null ? null : new Date(row.brief_confirmed_at).toISOString(),
@@ -50,7 +54,7 @@ function project(row: Row): GuidedResearchSession {
     outline: row.outline,
     stage: row.stage,
     resumeStage: row.resume_stage,
-    status: row.stage === "report" ? "completed" : row.stage === "failed" ? "failed" : "active",
+    status: row.status,
     progress: row.progress,
     sourceCount: row.source_count,
     reportId: row.report_id,
@@ -75,11 +79,16 @@ function sameBrief(left: GuidedResearchBrief, right: GuidedResearchBrief): boole
     && left.focus === right.focus;
 }
 
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return JSON.stringify([...left]) === JSON.stringify([...right]);
+}
+
 export class PgGuidedResearchSessionRepository implements GuidedResearchSessionRepository {
   constructor(private readonly db: DatabasePort) {}
 
   async create(input: {
     orgId: OrgId; ownerUserId: string; idempotencyKey: string;
+    title: string; tags: readonly string[];
     collaboratorUserIds: readonly string[]; brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession> {
     return this.db.withTenant(input.orgId, async (session) => {
@@ -94,11 +103,11 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
       }
       const inserted = await session.query<Row>(
         `INSERT INTO guided_research_sessions
-           (id, org_id, owner_user_id, idempotency_key, title, brief, brief_confirmed_at, stage, resume_stage, progress)
-         VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::jsonb, now(), 'directions', 'directions', 20)
+           (id, org_id, owner_user_id, idempotency_key, title, tags, brief, brief_confirmed_at, stage, resume_stage, progress)
+         VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::text[], $6::jsonb, now(), 'directions', 'directions', 20)
          ON CONFLICT (org_id, owner_user_id, idempotency_key) DO NOTHING
-         RETURNING id, title, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
-        [input.orgId, input.ownerUserId, input.idempotencyKey, input.brief.topic, JSON.stringify(input.brief)],
+         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, status, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
+        [input.orgId, input.ownerUserId, input.idempotencyKey, input.title, input.tags, JSON.stringify(input.brief)],
       );
       const row = inserted.rows[0] ?? (await session.query<Row>(
         `SELECT ${COLUMNS}, false AS is_collaborator FROM guided_research_sessions g
@@ -114,7 +123,8 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
         );
         const requested = [...input.collaboratorUserIds].sort();
         const existing = existingCollaborators.rows.map((item) => item.user_id);
-        if (!sameBrief(row.brief, input.brief) || JSON.stringify(existing) !== JSON.stringify(requested)) {
+        if (row.title !== input.title || !sameStrings(row.tags, input.tags)
+          || !sameBrief(row.brief, input.brief) || JSON.stringify(existing) !== JSON.stringify(requested)) {
           throw new GuidedResearchCreateReplayMismatchError();
         }
       }
@@ -155,6 +165,37 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
     });
   }
 
+  async confirmBrief(input: {
+    orgId: OrgId; viewerUserId: string; sessionId: string; briefVersion: number; brief: GuidedResearchBrief;
+  }): Promise<GuardedGuidedResearchSession | null> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const currentResult = await session.query<Row>(
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          FOR UPDATE`,
+        [input.orgId, input.viewerUserId, input.sessionId],
+      );
+      const current = currentResult.rows[0];
+      if (!current) return null;
+      if (current.brief_version !== input.briefVersion) throw new GuidedResearchCheckpointConflictError();
+
+      const updated = await session.query<Row>(
+        `UPDATE guided_research_sessions g
+            SET brief = $4::jsonb, brief_version = brief_version + 1, brief_confirmed_at = now(),
+                directions = '{"candidateVersion":null,"confirmedVersion":null,"versions":[]}'::jsonb,
+                outline = '{"candidateVersion":null,"confirmedVersion":null,"versions":[]}'::jsonb,
+                stage = 'directions', resume_stage = 'directions', status = 'active', progress = 20,
+                source_count = 0, report_id = NULL, updated_at = now()
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+        [input.orgId, input.viewerUserId, input.sessionId, JSON.stringify(input.brief)],
+      );
+      return updated.rows[0] ? guarded(updated.rows[0]) : null;
+    });
+  }
+
   private async mutateCheckpoint(input: {
     orgId: OrgId; viewerUserId: string; sessionId: string;
     mutation: "generate-directions" | "confirm-directions" | "generate-outline" | "confirm-outline";
@@ -175,33 +216,48 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
       let outline = current.outline;
       let stage = current.stage;
       let resumeStage = current.resume_stage;
+      let status = current.status;
+      let progress = current.progress;
+      let sourceCount = current.source_count;
+      let reportId = current.report_id;
+      const isAtStage = (...allowed: GuidedResearchSession["stage"][]) =>
+        current.stage === current.resume_stage && allowed.includes(current.stage);
 
       if (input.mutation === "generate-directions") {
+        if (!isAtStage("directions", "outline", "researching", "report")) throw new GuidedResearchStageConflictError();
         const version = Math.max(0, ...directions.versions.map((item) => item.version)) + 1;
         directions = { ...directions, candidateVersion: version, versions: [...directions.versions, { version, items: input.items as GuidedResearchDirection[], createdAt: now, confirmedAt: null }] };
       } else if (input.mutation === "confirm-directions") {
+        if (!isAtStage("directions", "outline", "researching", "report")) throw new GuidedResearchStageConflictError();
         if (directions.candidateVersion !== input.candidateVersion) throw new GuidedResearchCheckpointConflictError();
         const version = Math.max(0, ...directions.versions.map((item) => item.version)) + 1;
         directions = { candidateVersion: version, confirmedVersion: version, versions: [...directions.versions, { version, items: input.items as GuidedResearchDirection[], createdAt: now, confirmedAt: now }] };
+        outline = { candidateVersion: null, confirmedVersion: null, versions: [] };
         stage = "outline"; resumeStage = "outline";
+        status = "active"; progress = 40; sourceCount = 0; reportId = null;
       } else if (input.mutation === "generate-outline") {
         if (directions.confirmedVersion === null) throw new GuidedResearchDirectionsNotConfirmedError();
+        if (!isAtStage("outline", "researching", "report")) throw new GuidedResearchStageConflictError();
         const version = Math.max(0, ...outline.versions.map((item) => item.version)) + 1;
         outline = { ...outline, candidateVersion: version, versions: [...outline.versions, { version, items: input.items as GuidedResearchOutlineSection[], createdAt: now, confirmedAt: null }] };
       } else {
+        if (!isAtStage("outline", "researching", "report")) throw new GuidedResearchStageConflictError();
         if (outline.candidateVersion !== input.candidateVersion) throw new GuidedResearchCheckpointConflictError();
         const version = Math.max(0, ...outline.versions.map((item) => item.version)) + 1;
         outline = { candidateVersion: version, confirmedVersion: version, versions: [...outline.versions, { version, items: input.items as GuidedResearchOutlineSection[], createdAt: now, confirmedAt: now }] };
+        stage = "researching"; resumeStage = "researching";
+        status = "active"; progress = 60; sourceCount = 0; reportId = null;
       }
       const updated = await session.query<Row>(
         `UPDATE guided_research_sessions g SET directions = $4::jsonb, outline = $5::jsonb,
-           stage = $6, resume_stage = $7, updated_at = now()
+           stage = $6, resume_stage = $7, status = $8, progress = $9, source_count = $10,
+           report_id = $11, updated_at = now()
          WHERE g.org_id = $1 AND g.id = $3
            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
-         RETURNING id, title, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage,
+         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, status,
            progress, source_count, report_id, created_at, updated_at, owner_user_id,
            ${COLLABORATOR_PROJECTION}`,
-        [input.orgId, input.viewerUserId, input.sessionId, JSON.stringify(directions), JSON.stringify(outline), stage, resumeStage],
+        [input.orgId, input.viewerUserId, input.sessionId, JSON.stringify(directions), JSON.stringify(outline), stage, resumeStage, status, progress, sourceCount, reportId],
       );
       return updated.rows[0] ? guarded(updated.rows[0]) : null;
     });
@@ -218,5 +274,56 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
   }
   confirmOutline(input: { orgId: OrgId; viewerUserId: string; sessionId: string; candidateVersion: number; items: readonly GuidedResearchOutlineSection[] }) {
     return this.mutateCheckpoint({ ...input, mutation: "confirm-outline" });
+  }
+
+  private async transition(input: {
+    orgId: OrgId; viewerUserId: string; sessionId: string;
+    mutation: "finish-collection" | "complete"; sourceCount?: number;
+  }): Promise<GuardedGuidedResearchSession | null> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const currentResult = await session.query<Row>(
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          FOR UPDATE`,
+        [input.orgId, input.viewerUserId, input.sessionId],
+      );
+      const current = currentResult.rows[0];
+      if (!current) return null;
+
+      if (input.mutation === "finish-collection") {
+        if ((current.stage !== "researching" && current.stage !== "report") || current.outline.confirmedVersion === null) {
+          throw new GuidedResearchStageConflictError();
+        }
+        const updated = await session.query<Row>(
+          `UPDATE guided_research_sessions g
+             SET stage = 'report', resume_stage = 'report', status = 'active', progress = 90, source_count = $4,
+                 report_id = COALESCE(g.report_id, $5), updated_at = now()
+           WHERE g.org_id = $1 AND g.id = $3
+             AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+           RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+          [input.orgId, input.viewerUserId, input.sessionId, input.sourceCount, `guided-report-${input.sessionId}`],
+        );
+        return updated.rows[0] ? guarded(updated.rows[0]) : null;
+      }
+
+      if (current.stage !== "report") throw new GuidedResearchStageConflictError();
+      const updated = await session.query<Row>(
+        `UPDATE guided_research_sessions g SET status = 'completed', progress = 100, updated_at = now()
+         WHERE g.org_id = $1 AND g.id = $3
+           AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+         RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+        [input.orgId, input.viewerUserId, input.sessionId],
+      );
+      return updated.rows[0] ? guarded(updated.rows[0]) : null;
+    });
+  }
+
+  finishCollection(input: { orgId: OrgId; viewerUserId: string; sessionId: string; sourceCount: number }) {
+    return this.transition({ ...input, mutation: "finish-collection" });
+  }
+
+  complete(input: { orgId: OrgId; viewerUserId: string; sessionId: string }) {
+    return this.transition({ ...input, mutation: "complete" });
   }
 }

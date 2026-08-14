@@ -3,7 +3,7 @@ status: confirmed
 bundle: guided-deep-research
 base_bundle: research
 scope: guided-brief-directions-outline-web-search-report
-covers: [F168, F169, F170, F171]
+covers: [F168, F169, F170, F171, F180]
 confirmed_by: shenyangjun
 confirmed_at: 2026-08-12T17:05:00+08:00
 ---

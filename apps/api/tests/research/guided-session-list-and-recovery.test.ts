@@ -61,7 +61,7 @@ async function create(key = "create-f168", collaboratorUserIds: string[] = []) {
   return fetch(`${base}${C.operations.createGuidedResearchSession.path}`, {
     method: "POST",
     headers: auth(OWNER),
-    body: JSON.stringify({ idempotencyKey: key, collaboratorUserIds, brief }),
+    body: JSON.stringify({ title: "欧洲储能进入研究", tags: ["欧洲", "储能"], idempotencyKey: key, collaboratorUserIds, brief }),
   });
 }
 
@@ -71,7 +71,7 @@ describe("F168 guided research session list and recovery", () => {
     expect(first.status).toBe(201);
     const created = C.operations.createGuidedResearchSession.out.parse(await first.json());
     expect(created).toMatchObject({
-      title: brief.topic, stage: "directions", resumeStage: "directions", status: "active", progress: 20,
+      title: "欧洲储能进入研究", tags: ["欧洲", "储能"], stage: "directions", resumeStage: "directions", status: "active", progress: 20,
     });
 
     const replay = await create();
@@ -154,5 +154,168 @@ describe("F168 guided research session list and recovery", () => {
       session.query("SELECT id FROM guided_research_sessions"),
     );
     expect(rows.rows).toEqual([]);
+  });
+
+  it("persists the lifecycle and transactionally retracts completed checkpoints", async () => {
+    const created = C.operations.createGuidedResearchSession.out.parse(await (await create("create-lifecycle")).json());
+
+    const premature = await fetch(`${base}/research/guided-sessions/${created.sessionId}/complete`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(premature.status).toBe(409);
+    expect(await premature.json()).toMatchObject({ reasonCode: "RESEARCH_STAGE_CONFLICT" });
+
+    const directionsResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions/generate`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(directionsResponse.status).toBe(201);
+    const directions = C.operations.generateResearchDirections.out.parse(await directionsResponse.json());
+    const directionCandidate = directions.directions.versions.at(-1)!;
+
+    const confirmedDirectionsResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: directionCandidate.version, directions: directionCandidate.items }),
+    });
+    expect(confirmedDirectionsResponse.status).toBe(200);
+    const confirmedDirections = C.operations.confirmResearchDirections.out.parse(await confirmedDirectionsResponse.json());
+
+    const outlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline/generate`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(outlineResponse.status).toBe(201);
+    const outline = C.operations.generateResearchOutline.out.parse(await outlineResponse.json());
+    const outlineCandidate = outline.outline.versions.at(-1)!;
+
+    const confirmedOutlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: outlineCandidate.version, outline: outlineCandidate.items }),
+    });
+    expect(confirmedOutlineResponse.status).toBe(200);
+    const confirmedOutline = C.operations.confirmResearchOutline.out.parse(await confirmedOutlineResponse.json());
+    expect(confirmedOutline.stage).toBe("researching");
+    expect(confirmedOutline.resumeStage).toBe("researching");
+
+    const reportResponse = await fetch(
+      `${base}/research/guided-sessions/${created.sessionId}/researching/complete`,
+      {
+        method: "POST",
+        headers: auth(OWNER),
+        body: JSON.stringify({ sourceCount: 3 }),
+      },
+    );
+    expect(reportResponse.status).toBe(201);
+    const reported = C.operations.finishGuidedResearchCollection.out.parse(await reportResponse.json());
+    expect(reported).toMatchObject({
+      stage: "report",
+      resumeStage: "report",
+      status: "active",
+      sourceCount: 3,
+    });
+
+    const completedResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/complete`, {
+      method: "POST", headers: auth(OWNER), body: "{}",
+    });
+    expect(completedResponse.status).toBe(201);
+    expect(C.operations.completeGuidedResearchSession.out.parse(await completedResponse.json()).status).toBe("completed");
+
+    const regeneratedReportResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/researching/complete`, {
+      method: "POST", headers: auth(OWNER), body: JSON.stringify({ sourceCount: 2 }),
+    });
+    expect(regeneratedReportResponse.status).toBe(201);
+    expect(C.operations.finishGuidedResearchCollection.out.parse(await regeneratedReportResponse.json()))
+      .toMatchObject({ stage: "report", status: "active", sourceCount: 2 });
+    expect((await fetch(`${base}/research/guided-sessions/${created.sessionId}/complete`, {
+      method: "POST", headers: auth(OWNER), body: "{}",
+    })).status).toBe(201);
+
+    const hiddenBriefUpdate = await fetch(`${base}/research/guided-sessions/${created.sessionId}/brief`, {
+      method: "PUT",
+      headers: auth(SAME_ORG_OTHER),
+      body: JSON.stringify({ briefVersion: 1, brief: { ...brief, topic: "不应泄露的修改" } }),
+    });
+    expect(hiddenBriefUpdate.status).toBe(404);
+    expect(await hiddenBriefUpdate.json()).toMatchObject({ reasonCode: "RESEARCH_NOT_FOUND" });
+
+    const reconfirmedOutlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        candidateVersion: confirmedOutline.outline.candidateVersion,
+        outline: confirmedOutline.outline.versions.at(-1)!.items.map((item, index) => index === 0 ? { ...item, title: "回访后更新的大纲" } : item),
+      }),
+    });
+    expect(reconfirmedOutlineResponse.status).toBe(200);
+    const reconfirmedOutline = C.operations.confirmResearchOutline.out.parse(await reconfirmedOutlineResponse.json());
+    expect(reconfirmedOutline).toMatchObject({
+      stage: "researching", resumeStage: "researching", status: "active", progress: 60, sourceCount: 0, reportId: null,
+    });
+
+    const reportAgain = await fetch(`${base}/research/guided-sessions/${created.sessionId}/researching/complete`, {
+      method: "POST", headers: auth(OWNER), body: JSON.stringify({ sourceCount: 2 }),
+    });
+    expect(reportAgain.status).toBe(201);
+
+    const reconfirmedDirectionsResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        candidateVersion: confirmedDirections.directions.candidateVersion,
+        directions: confirmedDirections.directions.versions.at(-1)!.items.map((item, index) => index === 0 ? { ...item, title: "回访后更新的方向" } : item),
+      }),
+    });
+    expect(reconfirmedDirectionsResponse.status).toBe(200);
+    const reconfirmedDirections = C.operations.confirmResearchDirections.out.parse(await reconfirmedDirectionsResponse.json());
+    expect(reconfirmedDirections).toMatchObject({
+      stage: "outline", resumeStage: "outline", status: "active", progress: 40, sourceCount: 0, reportId: null,
+      outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+    });
+
+    const regeneratedOutlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline/generate`, {
+      method: "POST", headers: auth(OWNER), body: "{}",
+    });
+    expect(regeneratedOutlineResponse.status).toBe(201);
+    const regeneratedOutline = C.operations.generateResearchOutline.out.parse(await regeneratedOutlineResponse.json());
+    const regeneratedOutlineCandidate = regeneratedOutline.outline.versions.at(-1)!;
+    const confirmedAgainResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline`, {
+      method: "PUT", headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: regeneratedOutlineCandidate.version, outline: regeneratedOutlineCandidate.items }),
+    });
+    expect(confirmedAgainResponse.status).toBe(200);
+    expect((await fetch(`${base}/research/guided-sessions/${created.sessionId}/researching/complete`, {
+      method: "POST", headers: auth(OWNER), body: JSON.stringify({ sourceCount: 1 }),
+    })).status).toBe(201);
+
+    const reconfirmedBriefResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/brief`, {
+      method: "PUT", headers: auth(OWNER),
+      body: JSON.stringify({ briefVersion: 1, brief: { ...brief, topic: "回访后更新的主题" } }),
+    });
+    expect(reconfirmedBriefResponse.status).toBe(200);
+    const reconfirmedBrief = C.operations.getGuidedResearchSession.out.parse(await reconfirmedBriefResponse.json());
+    expect(reconfirmedBrief).toMatchObject({
+      sessionId: created.sessionId, briefVersion: 2, brief: { topic: "回访后更新的主题" },
+      stage: "directions", resumeStage: "directions", status: "active", progress: 20, sourceCount: 0, reportId: null,
+      directions: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+    });
+
+    const staleBrief = await fetch(`${base}/research/guided-sessions/${created.sessionId}/brief`, {
+      method: "PUT", headers: auth(OWNER),
+      body: JSON.stringify({ briefVersion: 1, brief }),
+    });
+    expect(staleBrief.status).toBe(409);
+    expect(await staleBrief.json()).toMatchObject({ reasonCode: "RESEARCH_CHECKPOINT_CONFLICT" });
+
+    const afterStaleBrief = C.operations.getGuidedResearchSession.out.parse(await (await fetch(
+      `${base}/research/guided-sessions/${created.sessionId}`, { headers: auth(OWNER) },
+    )).json());
+    expect(afterStaleBrief.brief.topic).toBe("回访后更新的主题");
   });
 });

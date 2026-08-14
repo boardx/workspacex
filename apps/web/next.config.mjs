@@ -163,6 +163,10 @@ export default {
         ? `${apiOrigin}/__broken/projects/:projectId/artifacts`
         : `${apiOrigin}/projects/:projectId/artifacts` },
       { source: `${prefix}/projects/:path*`, destination: `${apiOrigin}/projects/:path*` },
+      // 引导式研究的历史集合与全部检查点共享 `/research` 前缀。
+      // 两条都必须存在：集合列表/创建命中裸路径，恢复、方向与大纲命中深路径。
+      { source: `${prefix}/research`, destination: `${apiOrigin}/research` },
+      { source: `${prefix}/research/:path*`, destination: `${apiOrigin}/research/:path*` },
       { source: `${prefix}/artifacts/:path*`, destination: `${apiOrigin}/artifacts/:path*` },
       { source: `${prefix}/artifact-versions/:path*`, destination: `${apiOrigin}/artifact-versions/:path*` },
       { source: `${prefix}/artifact-aliases/:path*`, destination: `${apiOrigin}/artifact-aliases/:path*` },

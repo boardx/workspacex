@@ -38,9 +38,17 @@ beforeEach(async () => {
 
 async function create(collaboratorUserIds: string[] = []) {
   const response = await fetch(`${base}${C.operations.createGuidedResearchSession.path}`, {
-    method: "POST", headers: auth, body: JSON.stringify({ idempotencyKey: `f169-${crypto.randomUUID()}`, collaboratorUserIds, brief }),
+    method: "POST", headers: auth, body: JSON.stringify({
+      title: "欧洲储能研究",
+      tags: ["市场", "政策"],
+      idempotencyKey: `f169-${crypto.randomUUID()}`,
+      collaboratorUserIds,
+      brief,
+    }),
   });
   const created = C.operations.createGuidedResearchSession.out.parse(await response.json());
+  expect(created.title).toBe("欧洲储能研究");
+  expect(created.tags).toEqual(["市场", "政策"]);
   expect(created.briefVersion).toBe(1);
   expect(created.briefConfirmedAt).not.toBeNull();
   return created;
@@ -94,7 +102,8 @@ describe("F169 guided research human checkpoints", () => {
     });
     expect(confirmedResponse.status).toBe(200);
     const confirmed = C.operations.confirmResearchOutline.out.parse(await confirmedResponse.json());
-    expect(confirmed.stage).toBe("outline");
+    expect(confirmed.stage).toBe("researching");
+    expect(confirmed.resumeStage).toBe("researching");
     expect(confirmed.outline.versions.find((version) => version.version === confirmed.outline.confirmedVersion)?.items[0]?.title).toBe("人工编辑章节");
   });
 
