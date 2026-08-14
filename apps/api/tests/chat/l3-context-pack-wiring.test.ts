@@ -215,7 +215,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
     });
     expect(lastId).not.toBe("");
 
-    const calls = await askAndRun(`${CODE_ATTACHMENT} 这个代号对应的违约金条款是什么？`, "run-v1");
+    const calls = await askAndRun(`${CODE_ATTACHMENT} 这个代号对应的违约金条款是什么？`, "f155w-run-v1");
 
     const fileContext = fileContextOf(calls);
     expect(fileContext).not.toBeNull();
@@ -276,7 +276,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
       ));
     expect(stored.rows[0]?.content_excerpt).toContain(CODE_MERMAID);
 
-    const calls = await askAndRun(`${CODE_MERMAID} 这个节点在架构里负责什么？`, "run-v2");
+    const calls = await askAndRun(`${CODE_MERMAID} 这个节点在架构里负责什么？`, "f155w-run-v2");
     const fileContext = fileContextOf(calls);
     expect(fileContext).not.toBeNull();
     expect(fileContext!).toContain(CODE_MERMAID);
@@ -289,7 +289,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
     // 图只出现在一条早期消息正文里，**没有**走 landAsArtifact。
     await seedTurns(30, 1, `这是草图：\n\`\`\`mermaid\nflowchart TD\n  A["${CODE_UNSAVED}"] --> B["未保存"]\n\`\`\``);
 
-    const calls = await askAndRun(`${CODE_UNSAVED} 是什么？`, "run-v3");
+    const calls = await askAndRun(`${CODE_UNSAVED} 是什么？`, "f155w-run-v3");
 
     // 断言的是**检索范围**，不是「模型完全看不到这几个字」：L2 摘要覆盖旧轮是 L1/L2 的正常
     // 职责，与「未保存的图该不该进 L3 检索索引」是两件事。所以精确断言在 L3 那条伪消息上。
@@ -312,7 +312,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
     const exploding: FileRetrievalPort = {
       async search() { throw new Error("relation \"chat_message_attachments\" does not exist"); },
     };
-    const calls = await askAndRun(`${CODE_ATTACHMENT} 是什么？`, "run-v6", { files: exploding });
+    const calls = await askAndRun(`${CODE_ATTACHMENT} 是什么？`, "f155w-run-v6", { files: exploding });
 
     // run 照常完成：模型被调用了、且 run 没有落在 failed 上。
     // 反证：若实现照抄了五路召回引擎「任一路失败即整体 block」的纪律（RetrievalUnavailableError），
@@ -321,7 +321,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
     expect(answerCalls.length).toBe(1);
     const status = await asApp(ORG, (c) =>
       c.query<{ status: string; error_code: string | null }>(
-        "SELECT status, error_code FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, "run-v6"]));
+        "SELECT status, error_code FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, "f155w-run-v6"]));
     expect(status.rows[0]?.status).not.toBe("failed");
     expect(status.rows[0]?.error_code).toBeNull();
     // 降级 = 这一轮没有 L3 伪消息（不是塞一条「检索失败了」的噪声进上下文）。
@@ -335,7 +335,7 @@ describe("F155 L3 文件式检索接线（真库 + 真 executeQueuedRuns + 真 t
       excerpt: `合同正文：内部代号 ${CODE_ATTACHMENT}。`,
     });
 
-    const calls = await askAndRun(`${CODE_ATTACHMENT} 是什么？`, "run-v8");
+    const calls = await askAndRun(`${CODE_ATTACHMENT} 是什么？`, "f155w-run-v8");
     const answer = calls.filter((c) => !c.system.includes("摘要器")).at(-1)!;
     expect(fileContextOf(calls)).not.toBeNull(); // 前提：这一轮确实注入了 L3，否则本条空转
 
