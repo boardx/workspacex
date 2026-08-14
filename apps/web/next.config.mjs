@@ -40,6 +40,12 @@ export default {
       // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      // F176：消息级评价（`POST /messages/:messageId/rating`，F68 契约）。
+      // ⚠ path 前缀是 `/messages` 而不是 `/chat/...`——契约把它挂在消息本身上，
+      //   因为评价的主语是消息，而消息同时属于 chat（可见性）与 skills（归因）两束。
+      //   少了这条 rewrite，前端拿到的是 Next 返回的 404 HTML，
+      //   报错长成 `Unexpected token '<'`——一个看起来像 JSON 解析 bug 的路由缺失。
+      { source: `${prefix}/messages/:path*`, destination: `${apiOrigin}/messages/:path*` },
       /**
        * #595：`/admin/*` —— 后台管理面（`/admin/skills/url-imports`、
        * `/admin/skills/starter-pack-imports`、`/admin/agents/starter-pack-imports` …）。
