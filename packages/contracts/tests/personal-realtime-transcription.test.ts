@@ -39,6 +39,10 @@ describe("personal realtime transcription contract", () => {
       method: "PATCH",
       path: "/recording/realtime-asr/sessions/:sessionId",
     });
+    expect(C.operations.stopPersonalTranscription).toMatchObject({
+      method: "POST",
+      path: "/recording/realtime-asr/sessions/:sessionId/stop",
+    });
     expect(C.operations.deletePersonalTranscription).toMatchObject({
       method: "DELETE",
       path: "/recording/realtime-asr/sessions/:sessionId",

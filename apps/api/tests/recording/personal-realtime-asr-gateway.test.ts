@@ -265,6 +265,7 @@ function repositoryStub(overrides: Partial<PersonalTranscriptionRepository> = {}
     hasActiveCapture: async () => false,
     replaceContent: async () => undefined,
     updateMetadataOwned: async () => ({ kind: "not_found" }),
+    stopActiveOwned: async () => ({ kind: "not_found" }),
     deleteOwned: async () => ({ kind: "not_found" }),
     startCapture: async () => undefined,
     appendFinal: async () => undefined,

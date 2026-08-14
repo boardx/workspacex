@@ -158,3 +158,11 @@ export async function deletePersonalTranscription(sessionId: string,
   const raw = await apiRequest<unknown>(path, { method: operations.deletePersonalTranscription.method, sessionToken });
   return operations.deletePersonalTranscription.out.parse(raw);
 }
+
+export async function stopPersonalTranscription(sessionId: string,
+  sessionToken?: string | null): Promise<PersonalTranscriptionSummary> {
+  const input = operations.stopPersonalTranscription.in.parse({ sessionId });
+  const path = operations.stopPersonalTranscription.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path, { method: operations.stopPersonalTranscription.method, sessionToken });
+  return parseSummary(raw);
+}

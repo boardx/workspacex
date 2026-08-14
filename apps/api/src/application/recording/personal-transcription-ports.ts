@@ -40,6 +40,9 @@ export interface PersonalTranscriptionRepository {
     readonly transcriptionId: string; readonly name: string; readonly tags: readonly string[]
   }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
 
+  stopActiveOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
+    readonly transcriptionId: string }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
+
   deleteOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
     readonly transcriptionId: string }): Promise<PersonalTranscriptionMutationResult>;
 

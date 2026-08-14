@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   listTags: vi.fn(),
   updateMetadata: vi.fn(),
   deleteTranscription: vi.fn(),
+  stopTranscription: vi.fn(),
   openAsr: vi.fn(),
   openAsrDraft: vi.fn(),
   stopAsrDraft: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("@/lib/live-personal-transcriptions", () => ({
   listPersonalTranscriptionTags: api.listTags,
   updatePersonalTranscriptionMetadata: api.updateMetadata,
   deletePersonalTranscription: api.deleteTranscription,
+  stopPersonalTranscription: api.stopTranscription,
 }));
 
 vi.mock("@/lib/BoardxRealtimeAsrClient", () => ({
@@ -70,6 +72,7 @@ beforeEach(() => {
   api.listTags.mockReset();
   api.updateMetadata.mockReset();
   api.deleteTranscription.mockReset();
+  api.stopTranscription.mockReset();
   api.openAsr.mockReset();
   api.openAsrDraft.mockReset();
   api.stopAsrDraft.mockReset();
@@ -97,6 +100,11 @@ beforeEach(() => {
     return updated;
   });
   api.deleteTranscription.mockResolvedValue({ deleted: true });
+  api.stopTranscription.mockImplementation(async (sessionId: string) => ({
+    ...EUROPE,
+    sessionId,
+    status: "idle",
+  }));
 });
 
 function renderHistory() {
@@ -363,6 +371,38 @@ describe("实时转录历史工作台", () => {
     await waitFor(() => expect(api.deleteTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
     expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
     expect(api.listTags).toHaveBeenCalledTimes(2);
+  });
+
+  it("遗留的转录中卡片可以结束状态，也可以直接永久删除", async () => {
+    const recording = { ...EUROPE, status: "recording" as const };
+    api.list.mockResolvedValue({ items: [recording], nextCursor: null });
+    api.read.mockResolvedValue({ ...recording, content: "遗留正文" });
+    renderHistory();
+
+    fireEvent.pointerDown(await screen.findByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-stop-europe-entry"));
+    await waitFor(() => expect(api.stopTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
+    expect(screen.getByTestId("rec-history-card-europe-entry")).toHaveTextContent("可续录");
+
+    api.list.mockResolvedValue({ items: [recording], nextCursor: null });
+    fireEvent.pointerDown(screen.getByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-delete-europe-entry"));
+    fireEvent.click(screen.getByTestId("rec-delete-confirm"));
+    await waitFor(() => expect(api.deleteTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
+  });
+
+  it("重新打开遗留转录后，停止按钮会调用服务端恢复操作", async () => {
+    const recording = { ...EUROPE, status: "recording" as const };
+    api.list.mockResolvedValue({ items: [recording], nextCursor: null });
+    api.read.mockResolvedValue({ ...recording, content: "遗留正文" });
+    renderHistory();
+
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+
+    await waitFor(() => expect(api.stopTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
+    expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
+    expect(api.stopAsrDraft).not.toHaveBeenCalled();
   });
 
   it("删除成功后即使标签刷新失败也关闭弹窗并保留删除结果", async () => {

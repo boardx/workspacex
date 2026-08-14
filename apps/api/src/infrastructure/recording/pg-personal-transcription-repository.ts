@@ -215,17 +215,29 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
         [input.transcriptionId, input.orgId, input.ownerUserId],
       );
       if (owned.rows.length === 0) return { kind: "not_found" as const };
-      const active = await session.query(
-        `SELECT 1 FROM recording_sessions WHERE org_id=$1 AND source_type='personal'
-          AND source_ref_id=$2 AND created_by=$3 AND ended_at IS NULL LIMIT 1`,
-        [input.orgId, input.transcriptionId, input.ownerUserId],
-      );
-      if (active.rows.length > 0) return { kind: "capture_active" as const };
+      await endActiveCaptures(session, input.orgId, input.ownerUserId, input.transcriptionId);
       await session.query(`DELETE FROM recording_sessions WHERE org_id=$1 AND source_type='personal'
         AND source_ref_id=$2 AND created_by=$3`, [input.orgId, input.transcriptionId, input.ownerUserId]);
       await session.query(`DELETE FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3`,
         [input.transcriptionId, input.orgId, input.ownerUserId]);
       return { kind: "changed" as const, value: undefined };
+    });
+  }
+
+  async stopActiveOwned(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }) {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const owned = await session.query(
+        `SELECT 1 FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3 FOR UPDATE`,
+        [input.transcriptionId, input.orgId, input.ownerUserId],
+      );
+      if (owned.rows.length === 0) return { kind: "not_found" as const };
+      await endActiveCaptures(session, input.orgId, input.ownerUserId, input.transcriptionId);
+      await session.query(`UPDATE personal_transcriptions SET status='idle',updated_at=now()
+        WHERE id=$1 AND org_id=$2 AND owner_user_id=$3`,
+      [input.transcriptionId, input.orgId, input.ownerUserId]);
+      const row = await readSummary(session, input.orgId, input.ownerUserId, input.transcriptionId);
+      if (!row) return { kind: "not_found" as const };
+      return { kind: "changed" as const, value: summary(row) };
     });
   }
 
@@ -304,4 +316,21 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
         [input.failed ? "failed" : "idle",input.transcriptionId,input.ownerUserId]);
     });
   }
+}
+
+async function endActiveCaptures(
+  session: TenantSession,
+  orgId: OrgId,
+  ownerUserId: string,
+  transcriptionId: string,
+): Promise<void> {
+  await session.query(
+    `UPDATE recording_sessions
+        SET ended_at=now(),
+            duration_ms=GREATEST(0,floor(extract(epoch FROM (now()-started_at))*1000)::bigint),
+            materialize_job_id='personal:recovered:' || id
+      WHERE org_id=$1 AND source_type='personal' AND source_ref_id=$2
+        AND created_by=$3 AND ended_at IS NULL`,
+    [orgId, transcriptionId, ownerUserId],
+  );
 }

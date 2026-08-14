@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, Clock3, MoreVertical, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ChevronDown, Clock3, MoreVertical, Pencil, Plus, Search, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   listPersonalTranscriptions,
   listPersonalTranscriptionTags,
   readPersonalTranscription,
+  stopPersonalTranscription,
   updatePersonalTranscriptionMetadata,
   type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
@@ -110,6 +111,17 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
+  async function stopLegacyTranscription(item: TranscriptionHistoryItem) {
+    setLoadError(null);
+    try {
+      const updated = await stopPersonalTranscription(item.id, sessionToken);
+      setItems((current) => current.map((entry) => entry.id === item.id ? toHistoryItem(updated) : entry));
+      setNotice(`已结束“${item.title}”的遗留转录状态`);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
+    }
+  }
+
   async function openTranscription(item: TranscriptionHistoryItem) {
     setLoadError(null);
     try {
@@ -151,6 +163,20 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   async function stopRealtimeTranscription() {
     const handle = streamRef.current;
+    if (!handle && activeSession?.status === "recording") {
+      setStreamError(null);
+      setStreamState("stopping");
+      try {
+        const updated = await stopPersonalTranscription(activeSession.sessionId, sessionToken);
+        setActiveSession((current) => current ? { ...current, ...updated } : current);
+        setListRevision((current) => current + 1);
+        setStreamState("idle");
+      } catch {
+        setStreamState("error");
+        setStreamError("无法结束遗留转录状态，请稍后重试。");
+      }
+      return;
+    }
     if (!handle) return;
     setStreamError(null);
     setStreamState("stopping");
@@ -241,6 +267,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
           onCreate={() => setCreateOpen(true)}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}
+          onStop={(item) => void stopLegacyTranscription(item)}
           onDelete={setDeleteItem}
         />
       </div>
@@ -278,13 +305,14 @@ function streamErrorText(reason: string): string {
 }
 
 function HistoryState({
-  uiState, items, onCreate, onOpen, onEdit, onDelete,
+  uiState, items, onCreate, onOpen, onEdit, onStop, onDelete,
 }: {
   uiState: UiState;
   items: readonly TranscriptionHistoryItem[];
   onCreate: () => void;
   onOpen: (item: TranscriptionHistoryItem) => void;
   onEdit: (item: TranscriptionHistoryItem) => void;
+  onStop: (item: TranscriptionHistoryItem) => void;
   onDelete: (item: TranscriptionHistoryItem) => void;
 }) {
   if (uiState === "loading") {
@@ -312,7 +340,7 @@ function HistoryState({
   }
   return (
     <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />)}
+      {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
       <button
         type="button"
         data-testid="rec-create-card"
@@ -329,11 +357,12 @@ function HistoryState({
 
 function HistoryCard({
   item,
-  onOpen, onEdit, onDelete,
+  onOpen, onEdit, onStop, onDelete,
 }: {
   item: TranscriptionHistoryItem;
   onOpen: (item: TranscriptionHistoryItem) => void;
   onEdit: (item: TranscriptionHistoryItem) => void;
+  onStop: (item: TranscriptionHistoryItem) => void;
   onDelete: (item: TranscriptionHistoryItem) => void;
 }) {
   return (
@@ -371,6 +400,7 @@ function HistoryCard({
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-card p-1 shadow-md">
+            {item.status === "recording" && <DropdownMenu.Item data-testid={`rec-history-stop-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onStop(item)}><Square className="h-4 w-4" />结束转录</DropdownMenu.Item>}
             <DropdownMenu.Item data-testid={`rec-history-edit-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onEdit(item)}><Pencil className="h-4 w-4" />修改</DropdownMenu.Item>
             <DropdownMenu.Item data-testid={`rec-history-delete-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onDelete(item)}><Trash2 className="h-4 w-4" />删除</DropdownMenu.Item>
           </DropdownMenu.Content></DropdownMenu.Portal>
