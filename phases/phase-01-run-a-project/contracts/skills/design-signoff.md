@@ -1,7 +1,24 @@
 ---
 bundle: skills
 phase: "01"
-covers: [F61, F62, F63, F64, F65, F66, F67, F68]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-14（F176）：追加 **F176**，依 `.harness/instructions/contract-design.md` 的
+#   「covers 追加规则」（人类 2026-08-12 批准）自行追加。三条件逐条对照：
+#     1. **UI 已签**：F176 的界面落点就是本束 `ui.md` **屏 F**（`uc-3-6-feedback`，
+#        line 266）里逐字描述的**采集侧**——「AI 消息下 `[👍 有用]` `[👎 待改进（可填理由）]`
+#        + 完整归因链『消息 → agent → skill → skill 版本』+ 归因不全时只计 agent 级、
+#        不计入任何 skill 满意度、列入数据质量报表」。截图在
+#        `ui-preview/skill/uc-3-6-feedback-*.png`（八态齐全，已核实文件存在）。
+#        ⚠ 同一份 ui.md 的 line 95-108 写着「评价控件均未建」——那是**产品现状**，
+#        不是签核范围；屏 F 正是为补这个缺口画的（标着「补画 · 原型确认缺失」）。
+#     2. **契约已签**：`rateMessage`（`POST /messages/:messageId/rating`）在
+#        `packages/contracts/src/skills.ts:1074`，正是本签核第 ③ 件逐字指定的落点
+#        （line 112）；`usecases.md:390` 也有它的用例条目。F176 **不新增任何 operation**。
+#     3. **零新增设计面**：`err` 仍是既有的 `["ATTRIBUTION_MISSING", "PERMISSION_REVOKED"]`
+#        两值，`out.attribution` 形状不动，无新屏、无新交互语义。F176 做的全部事情是
+#        给这条已签核契约补 infrastructure（表 + 仓储 + 路由）——形态同 F163。
+#   ⚠ 本次**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+#   先例：F158(#1035/#1036)、F164(#1038)、F163(ecc246dc)。
+covers: [F61, F62, F63, F64, F65, F66, F67, F68, F176]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
