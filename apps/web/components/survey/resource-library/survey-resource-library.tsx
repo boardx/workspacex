@@ -32,15 +32,21 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
+  const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
   const [createMode, setCreateMode] = React.useState<SurveyCreationMode | null>(initialIntent === "create-survey" ? "module" : null);
   const tab = initialTab;
 
   React.useEffect(() => {
     setQuery("");
+    setSelectedTags([]);
   }, [tab]);
 
-  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+  const availableTags = [...new Set(SURVEY_LIBRARY_CARDS.flatMap((item) => item.tags))];
+  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) => {
+    const matchesQuery = item.title.includes(query.trim());
+    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => item.tags.includes(tag));
+    return matchesQuery && matchesTags;
+  });
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
@@ -76,6 +82,15 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               </div>
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
+
+            {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
+              <span className="mr-1 text-11 text-muted-foreground">标签</span>
+              {availableTags.map((tag) => {
+                const selected = selectedTags.includes(tag);
+                return <button key={tag} type="button" aria-label={`筛选标签 ${tag}`} aria-pressed={selected} onClick={() => setSelectedTags((current) => selected ? current.filter((value) => value !== tag) : [...current, tag])} className={`rounded-full border px-3 py-1 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent text-primary" : "border-border bg-card text-muted-foreground hover:border-primary"}`}>{tag}</button>;
+              })}
+              {selectedTags.length > 0 && <button type="button" onClick={() => setSelectedTags([])} className="rounded-md px-2 py-1 text-11 text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">清除标签筛选</button>}
+            </div>}
 
             <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
@@ -117,6 +132,7 @@ function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[numb
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
+    <div className="mt-2 flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     {item.received !== undefined && <p className="mt-3 text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}

@@ -10,6 +10,7 @@ export interface SurveyLibraryCard {
   questionCount: number;
   reportSectionCount: number;
   updatedAt: string;
+  tags: string[];
   received?: number;
   target?: number;
 }
@@ -33,12 +34,12 @@ export interface SurveyQuestionModuleCard {
 }
 
 export const SURVEY_LIBRARY_CARDS: SurveyLibraryCard[] = [
-  { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 10:30", received: 62, target: 100 },
-  { id: "sv-team-health", title: "团队协作健康度调查", status: "draft", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 16:20" },
-  { id: "sv-project-review", title: "客户项目复盘问卷", status: "closed", questionCount: 12, reportSectionCount: 5, updatedAt: "昨天 14:10", received: 86 },
-  { id: "sv-tool-satisfaction", title: "员工数字工具满意度", status: "collecting", questionCount: 18, reportSectionCount: 7, updatedAt: "前天 11:15", received: 41, target: 80 },
-  { id: "sv-meeting-feedback", title: "会议反馈调查", status: "draft", questionCount: 8, reportSectionCount: 3, updatedAt: "3 天前 09:40" },
-  { id: "sv-knowledge-governance", title: "组织知识治理评估", status: "closed", questionCount: 24, reportSectionCount: 8, updatedAt: "4 天前 17:20", received: 124 },
+  { id: "sv-1", title: "企业数字协作成熟度诊断", status: "collecting", questionCount: 16, reportSectionCount: 8, updatedAt: "今天 10:30", tags: ["组织诊断", "数字协作"], received: 62, target: 100 },
+  { id: "sv-team-health", title: "团队协作健康度调查", status: "draft", questionCount: 20, reportSectionCount: 6, updatedAt: "昨天 16:20", tags: ["团队协作", "健康度"] },
+  { id: "sv-project-review", title: "客户项目复盘问卷", status: "closed", questionCount: 12, reportSectionCount: 5, updatedAt: "昨天 14:10", tags: ["客户反馈", "项目复盘"], received: 86 },
+  { id: "sv-tool-satisfaction", title: "员工数字工具满意度", status: "collecting", questionCount: 18, reportSectionCount: 7, updatedAt: "前天 11:15", tags: ["员工体验", "数字工具"], received: 41, target: 80 },
+  { id: "sv-meeting-feedback", title: "会议反馈调查", status: "draft", questionCount: 8, reportSectionCount: 3, updatedAt: "3 天前 09:40", tags: ["团队协作", "会议"] },
+  { id: "sv-knowledge-governance", title: "组织知识治理评估", status: "closed", questionCount: 24, reportSectionCount: 8, updatedAt: "4 天前 17:20", tags: ["组织诊断", "知识治理"], received: 124 },
 ];
 
 export const SURVEY_TEMPLATE_CARDS: SurveyTemplateCard[] = [
