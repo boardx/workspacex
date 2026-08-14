@@ -159,6 +159,72 @@ reviewer.required_for 含 "*"   OR   reviewer.required_for ∩ {issue.area} ≠ 
 > 与 registry.yaml 的 `kind: module-coordinator`）：只做分派/初审/返工裁决，**不在"唯一合并者"
 > 授权集合内**，全绿 PR 一律转交 coord-main 执行最终合并——不改变本节的独占合并权归属。
 
+### 5.1 「no checks reported」第一件事查 `mergeable`，不是重推
+
+**同一个坑踩了两次才查到根因（#1171、#1227，2026-08-14）**：`gh pr checks <n>` 回
+"no checks reported on the '<branch>' branch"，看起来像 CI 系统坏了或 workflow 没触发。
+**大多数时候它的真实含义是：这个 PR 与 `main` 冲突。**
+
+PR 一旦冲突，GitHub **算不出 merge commit，就不会为 `pull_request` 事件创建任何
+workflow run**——而且**不报错**。于是「CI 基础设施故障」与「这个 PR 冲突了」在
+`gh pr checks` 的输出上**长得一模一样**，而两者的处置完全相反。
+
+- **判据（一条命令）**：
+  ```bash
+  gh pr view <n> --json mergeable,mergeStateStatus
+  ```
+  `CONFLICTING / DIRTY` ⇒ 不是 CI 的问题，是这个 PR 的问题。rebase 到 `main`
+  解掉冲突，CI 会**自己**挂上去，不需要再做任何触发动作。
+  `MERGEABLE` 而仍然零 check ⇒ 这才轮到怀疑 workflow 触发面（此时再看
+  `gh run list --branch <b>`、以及同期别的分支有没有正常的 `pull_request` run）。
+
+- **三种试过而无效的「触发」办法**，写下来免得下一个人重走一遍：
+  1. `gh workflow run <wf> --ref <branch>` —— 能跑起来，但 `workflow_dispatch` 那条
+     路径下 **`verify` job 是 `skipped`**（只跑 `fullstack-smoke` / `e2e-full`），
+     而且**手动 run 的结果不会挂进 PR 的 checks 列表**，两头都拿不到可用作合并依据的信号。
+  2. `gh pr close` + `gh pr reopen` —— 不触发。
+  3. **空提交 push** —— 也不触发。这条最反直觉：`synchronize` 事件确实发出去了，
+     但冲突仍在，GitHub 照样算不出 merge commit。
+
+- ⚠ **第一次踩它时我下过一个错结论**：#1171 那次 rebase 之后 CI 跑了起来，
+  当时归因为「重推触发的」，并把这句话写进了给 coordinator 的汇报。**那是错的**——
+  起作用的是**解冲突**，重推只是顺带。错误归因让同一个坑在 #1227 又踩了一次，
+  这一节存在的直接理由就是那次重复。
+
+> 与 §5 门禁第 3、4 条的关系：「CI 必需 check 为 success」与「分支 up-to-date」
+> 在这里是**同一件事的两面**——分支落后到冲突的程度时，第 3 条根本不会有值可读。
+> 所以看到零 check 先查第 4 条，不要去修第 3 条。
+
+### 5.2 棘轮/计数类数字的冲突：合并后必须重跑门控读真实值
+
+**实测撞出来的（F155 / F176 争同一个 `54`，2026-08-14）**：本仓有若干「棘轮」断言——
+写死一个上限、每加一条豁免就把它 +1，并要求同一处留下逐条论证
+（`tests/kernel/permission-propagation-six-paths.test.ts` 的
+`allowlisted=<n>` 上限是其中最典型的一条）。
+
+两条 feature 并行开发时，**各自都会把上限从 N 提到 N+1，并各自写一段
+「⚠ Raised N -> N+1 by <feature>」的论证**。先合入的那条把真实值推到了 N+1；
+后合入的那条 rebase 时，git 报的是**两段注释打架**——它不会、也无法告诉你
+**那个数字已经不对了**。
+
+按「保留双方注释、数字留 N+1」去解，结果是：
+
+- 文件里出现**两条都自称 `Raised N -> N+1`** 的记录，其中一条是假的；
+- 而真实条目数已经是 **N+2** ⇒ 断言当场红。而红了之后**最省事的修法恰恰是
+  把数字改成 N+2 而不去读那两段注释**——于是那条假记录永久留在文件里，
+  下一个人读到时会以为豁免的历史比实际短一条。
+
+- **纪律**：这类冲突解完**必须回去跑一次对应门控、读它输出的真实值**，
+  再让断言与之对齐。例：
+  ```bash
+  node apps/api/scripts/lint-permission-paths.mjs   # 末行 allowlisted=<真实值>
+  ```
+  然后把**后合入**的那条论证改成 `Raised <真实值-1> -> <真实值>`，两段论证都保留。
+
+- ⚠ **不能只看 diff 好不好看**。文本冲突解得漂亮与数字算得对是两件事，
+  而 git 只对前者负责。同理适用于任何「计数 + 逐条论证」的成对结构：
+  论证条数与计数**必须由同一次真实测量对齐**，不是由手工加法对齐。
+
 ## 6. v0 边界（当前落地范围）
 
 v0 只做**契约层**，不引入 coordinator 自动化代码（那是 v1）：

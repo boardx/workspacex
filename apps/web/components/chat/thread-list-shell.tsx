@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ThreadCard } from "@/lib/live-chat";
@@ -60,28 +60,221 @@ const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
   "review-pending": "待复核",
 };
 
-/** 一张会话卡。选中态是左边框 + 底色，两屏一致。 */
+/**
+ * 一张会话卡。选中态是左边框 + 底色，两屏一致。
+ *
+ * ## 改名/删除 UX（2026-08-14 人类要求重做）——hover 「…」菜单 + 双击改名
+ *
+ * 此前是「选中会话 → 列表下方常驻显示改名/删除按钮」，人类实测反馈"看不到"、
+ * 要求换成更符合直觉的形态：鼠标悬停某张卡片时右上角浮出一个「…」按钮，点开是
+ * 改名/删除的小菜单；双击卡片标题直接进入行内改名。
+ *
+ * ## 为什么只在 `selected` 时启用（不是每张卡都能改名/删除）
+ * 后端改名/删除走乐观并发（`selectedVersion`，来自线程**详情**接口），而列表卡
+ * （`ThreadCard`）本身不带版本号——只有被选中、详情已加载的那一条才有可用的版本号
+ * 可以安全提交写请求。给未选中的卡片也画一个"…"菜单，点开改名会因为拿不到版本号
+ * 而卡死或误发一个没有并发保护的请求，两者都不诚实。「先选中再操作」不是本次限制，
+ * 是继承自既有后端写路径的真实约束——只是**入口**从"下方常驻按钮"换成了"卡片本身
+ * 的 hover 菜单/双击"，选中态才有意义没有变。
+ *
+ * `onRename`/`onDelete`/`pending`/`failure` 全部可选：不传即渲染成纯选择按钮
+ * （非 `selected` 的卡片走这条路径，`selected` 但调用方不支持写操作——例如未来只读
+ * 场景——也一样安全降级）。
+ */
 export function ThreadCardButton({
-  card, selected, onSelect,
+  card, selected, onSelect, onRename, onDelete, pending, failure,
 }: {
   card: ThreadCard;
   selected: boolean;
   onSelect: () => void;
+  onRename?: (title: string) => void;
+  onDelete?: (reason: string) => void;
+  pending?: "rename" | "delete" | null;
+  failure?: string | null;
 }) {
+  const canMutate = selected && onRename !== undefined && onDelete !== undefined;
+  const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
+  const [titleDraft, setTitleDraft] = React.useState(card.title);
+  const [deleteReason, setDeleteReason] = React.useState("");
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const busy = pending !== undefined && pending !== null;
+
+  // 卡片不再被选中（切到别的会话）时退回浏览态——不留一个挂在已经不对的会话上的编辑框。
+  React.useEffect(() => {
+    if (!canMutate) setMode("view");
+  }, [canMutate]);
+  React.useEffect(() => {
+    setTitleDraft(card.title);
+  }, [card.title]);
+
+  /**
+   * 提交后**不**立刻收起表单——那样一旦服务端拒绝（`failure` 变化），表单和它携带的
+   * 错误提示会一起消失，用户只看到"点了没反应"。改成跟踪 `pending` 的**下降沿**
+   * （从 "rename"/"delete" 变回 null）：那一刻若 `failure` 仍是 null，说明这次提交
+   * 成功了，才收起表单；`failure` 非空则原地停留，把错误亮出来、留给用户重试或取消。
+   */
+  const prevPendingRef = React.useRef(pending);
+  React.useEffect(() => {
+    const prevPending = prevPendingRef.current;
+    prevPendingRef.current = pending;
+    const justSettled = prevPending !== undefined && prevPending !== null && (pending === null || pending === undefined);
+    if (justSettled && !failure) setMode("view");
+  }, [pending, failure]);
+
+  // 菜单展开时点击外部关闭——同「先判后挂」的克制：只在 menu 打开时挂监听，
+  // 用完立刻摘掉，不常驻一个全局点击监听器。
+  React.useEffect(() => {
+    if (mode !== "menu") return;
+    function onDocPointerDown(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMode("view");
+    }
+    document.addEventListener("mousedown", onDocPointerDown);
+    return () => document.removeEventListener("mousedown", onDocPointerDown);
+  }, [mode]);
+
+  function startEdit(): void {
+    setTitleDraft(card.title);
+    setMode("editing");
+  }
+  function startDelete(): void {
+    setDeleteReason("");
+    setMode("deleting");
+  }
+  function submitRename(event: React.FormEvent): void {
+    event.preventDefault();
+    const title = titleDraft.trim();
+    if (!title || onRename === undefined) return;
+    onRename(title); // 表单何时收起交给上面的 pending/failure 下降沿 effect 判断
+  }
+  function submitDelete(event: React.FormEvent): void {
+    event.preventDefault();
+    const reason = deleteReason.trim();
+    if (!reason || onDelete === undefined) return;
+    onDelete(reason);
+  }
+
+  if (mode === "editing") {
+    return (
+      <form
+        data-testid="chat-thread-rename-form"
+        onSubmit={submitRename}
+        className="flex flex-col gap-1 rounded-md border-l-2 border-primary bg-muted px-2 py-2"
+      >
+        <input
+          autoFocus
+          aria-label="新的会话标题"
+          data-testid="chat-thread-title-input"
+          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={titleDraft}
+          onChange={(event) => setTitleDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setMode("view");
+          }}
+        />
+        <div className="flex gap-1">
+          <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || titleDraft.trim() === ""}>
+            确认
+          </Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>取消</Button>
+        </div>
+        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+        {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
+      </form>
+    );
+  }
+
+  if (mode === "deleting") {
+    return (
+      <form
+        data-testid="chat-thread-delete-confirm"
+        onSubmit={submitDelete}
+        className="flex flex-col gap-1 rounded-md border-l-2 border-destructive/60 bg-muted px-2 py-2"
+      >
+        <p className="text-11 text-muted-foreground">删除后不可撤销，请填写原因（会写入审计）。</p>
+        <input
+          autoFocus
+          aria-label="删除原因"
+          data-testid="chat-thread-delete-reason"
+          className="rounded-md border border-border-subtle px-2 py-1 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={deleteReason}
+          onChange={(event) => setDeleteReason(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setMode("view");
+          }}
+        />
+        <div className="flex gap-1">
+          <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || deleteReason.trim() === ""}>
+            确认删除
+          </Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>取消</Button>
+        </div>
+        {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">正在提交…</p> : null}
+        {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
+      </form>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      data-testid={`chat-thread-${card.id}`}
-      aria-current={selected ? "page" : undefined}
-      onClick={onSelect}
-      className={[
-        "flex flex-col gap-1 rounded-md border-l-2 px-2 py-2 text-left transition-colors hover:bg-muted",
-        selected ? "border-primary bg-muted" : "border-transparent",
-      ].join(" ")}
-    >
-      <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
-      <ThreadMeta card={card} />
-    </button>
+    <div className="group relative" data-testid={canMutate ? "chat-thread-selection-actions" : undefined}>
+      <button
+        type="button"
+        data-testid={`chat-thread-${card.id}`}
+        aria-current={selected ? "page" : undefined}
+        onClick={onSelect}
+        onDoubleClick={canMutate ? startEdit : undefined}
+        className={[
+          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-7 text-left transition-colors hover:bg-muted",
+          selected ? "border-primary bg-muted" : "border-transparent",
+        ].join(" ")}
+      >
+        <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
+        <ThreadMeta card={card} />
+      </button>
+      {canMutate ? (
+        <div ref={menuRef} className="absolute right-1 top-1">
+          <button
+            type="button"
+            aria-label="更多操作"
+            aria-haspopup="menu"
+            aria-expanded={mode === "menu"}
+            data-testid="chat-thread-card-menu-trigger"
+            onClick={(event) => {
+              event.stopPropagation();
+              setMode((current) => (current === "menu" ? "view" : "menu"));
+            }}
+            className="rounded-md p-1 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
+          >
+            <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+          </button>
+          {mode === "menu" ? (
+            <div
+              role="menu"
+              data-testid="chat-thread-card-menu"
+              className="absolute right-0 top-full z-10 mt-1 min-w-28 rounded-md border border-border bg-card py-1 shadow-md"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="chat-thread-rename"
+                onClick={(event) => { event.stopPropagation(); startEdit(); }}
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 transition-colors hover:bg-muted"
+              >
+                <Pencil aria-hidden className="h-3 w-3" />改名
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="chat-thread-delete"
+                onClick={(event) => { event.stopPropagation(); startDelete(); }}
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 text-destructive transition-colors hover:bg-muted"
+              >
+                <Trash2 aria-hidden className="h-3 w-3" />删除
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

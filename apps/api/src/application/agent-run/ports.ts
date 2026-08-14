@@ -63,7 +63,14 @@ export interface HistoryAttachmentMeta {
 export interface ClaimedAgentRun {
   readonly runId: string;
   readonly threadId: string;
-  readonly projectId: string;
+  /**
+   * F155：改成 `string | null` 不是放宽，是**改正一处早就在说谎的类型**——`chat_threads.project_id`
+   * 自 #594（个人线程）起可空，claim 的 `t.project_id` 因此一直可能是 `null`，而这里写着
+   * `string`。在 L3 之前没有任何调用点读它，谎言没有代价；L3 的检索范围**恰恰以它是不是 null
+   * 来选分支**（个人线程只吃本线程自有附件），继续写 `string` 会让「个人线程」这条分支在类型上
+   * 永远走不到，实际却在运行时命中——最坏的一种绿。
+   */
+  readonly projectId: string | null;
   readonly inputMessageId: string;
   readonly inputText: string;
   /**

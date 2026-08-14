@@ -31,8 +31,14 @@
  * 后端 `resolvePublished` 按 `agents.id` 查——两个 id 不相等，选出来的默认 agent
  * 发消息就是 422，这个 feature 就没有兑现。
  */
-export const DEFAULT_AGENT_STABLE_NAME = "default-assistant";
-export const DEFAULT_AGENT_NAME = "通用助手";
+import { agentDefaults } from "@repo/contracts";
+
+// stable_name / 显示名单源在 `@repo/contracts` 的 `agentDefaults`（2026-08-14）：前端
+// `chat-live-message-panel.tsx` 挑默认 agent 时也要读同一个"通用助手"字符串，第二处
+// declare 就是本仓第六次「同一事实声明在两处」。这里只再导出，调用方（同目录
+// `pg-default-agent-repository.ts`）导入路径不用改。
+export const DEFAULT_AGENT_STABLE_NAME = agentDefaults.DEFAULT_AGENT_STABLE_NAME;
+export const DEFAULT_AGENT_NAME = agentDefaults.DEFAULT_AGENT_NAME;
 export const DEFAULT_AGENT_INSTRUCTIONS =
   "你是本组织的默认通用助手（系统预置，开箱即用）。请友好、简洁、诚实地帮助用户完成日常任务；" +
   "遇到你不确定或无法完成的事，直接说明，不要编造。";

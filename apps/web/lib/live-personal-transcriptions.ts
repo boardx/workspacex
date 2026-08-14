@@ -16,6 +16,7 @@ export type ListPersonalTranscriptionsInput = z.infer<
 export type CreatePersonalTranscriptionInput = z.infer<
   typeof operations.createPersonalTranscription.in
 >;
+export type UpdatePersonalTranscriptionMetadataInput = Pick<CreatePersonalTranscriptionInput, "name" | "tags">;
 
 const LegacyStatus = z.enum(["idle", "recording", "completed", "failed"]);
 const LegacySummary = z.object({
@@ -132,4 +133,28 @@ export async function updatePersonalTranscriptionContent(
     sessionToken,
   });
   return parseDetail(raw);
+}
+
+export async function listPersonalTranscriptionTags(sessionToken?: string | null): Promise<{ tags: string[] }> {
+  const raw = await apiRequest<unknown>(operations.listPersonalTranscriptionTags.path, {
+    method: operations.listPersonalTranscriptionTags.method, sessionToken,
+  });
+  return operations.listPersonalTranscriptionTags.out.parse(raw);
+}
+
+export async function updatePersonalTranscriptionMetadata(sessionId: string,
+  metadata: UpdatePersonalTranscriptionMetadataInput, sessionToken?: string | null): Promise<PersonalTranscriptionSummary> {
+  const input = operations.updatePersonalTranscriptionMetadata.in.parse({ sessionId, ...metadata });
+  const path = operations.updatePersonalTranscriptionMetadata.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path, { method: operations.updatePersonalTranscriptionMetadata.method,
+    body: { name: input.name, tags: input.tags }, sessionToken });
+  return parseSummary(raw);
+}
+
+export async function deletePersonalTranscription(sessionId: string,
+  sessionToken?: string | null): Promise<{ deleted: true }> {
+  const input = operations.deletePersonalTranscription.in.parse({ sessionId });
+  const path = operations.deletePersonalTranscription.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path, { method: operations.deletePersonalTranscription.method, sessionToken });
+  return operations.deletePersonalTranscription.out.parse(raw);
 }

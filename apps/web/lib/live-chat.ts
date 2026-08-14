@@ -30,7 +30,7 @@
  * Wave 2 的消息写入只接受 human message + selected published Agent。成功响应是 durable
  * human message 与 queued run identity，永不在客户端合成 inline Agent reply。
  */
-import { chat, chatFileUpload } from "@repo/contracts";
+import { agentDefaults, chat, chatFileUpload } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
@@ -348,27 +348,23 @@ export async function createThread(input: CreateThreadInput): Promise<MutateThre
 }
 
 /**
- * ⚠ `projectId` 是**必传**的，尽管契约把它声明成 `.nullable()`。
+ * ⚠ `projectId` 是**必传**的（这条纪律不变——#541 的教训是「忘传」而不是「传 null」，
+ * 见下），但从 2026-08-14 起**允许显式传 `null`**——本条注释此前一直写着后端
+ * `mutateExisting` 会对 `projectId === null` 直接裸 404，那是 #594 之前的旧行为；
+ * #594 把 `projectId === null` 从那条恒拒名单里移出了（`mutate-thread.ts` 现在的
+ * guard 只剩 `threadId === null || expectedVersion === null`），个人线程的改名/
+ * 删除请求本来就该传 `projectId: null`（`resolveVisibility` 自己知道 null 意味着
+ * 走个人线程分支），不是缺陷。**本条注释此前描述的 guard 形状已经过时**——写这条
+ * 更新是为了不让下一个读者对着一段早就不成立的引用代码去踩坑。
  *
- * 后端 `mutate-thread.ts:145` 的 `mutateExisting` 一进来就是：
- *
- *     if (threadId === null || projectId === null || expectedVersion === null)
- *       throw new ThreadNotVisibleError();      // ← 裸 404，不带 reasonCode
- *
- * 而那个错误按 I-3 被映射成**裸 404**（「不可见」与「不存在」必须同一个出口，
- * 否则改名接口就成了存在性探测器）。
- *
- * ⇒ 少传一个 `projectId`，得到的不是「参数缺失」而是「这条线程不存在」。
- *   #541 就是这么来的：`create` 传了 `input.projectId` 所以一直是通的，
- *   `rename` / `delete` 写死 `null` ⇒ **改名和删除在界面上从来没成功过**，
- *   而人类八步里逐字要求「Chat 功能，新增，**删除**，聊天」。
- *
- * ⚠ 契约把它写成 `.nullable()` 与实现「rename/delete 必须有」不一致，
- *   已登记为 out-of-scope 跟进项。**这里不靠注释防守，靠传对值。**
+ * #541 的教训仍然成立、仍然是「必传」这条纪律的理由：`create` 传了
+ * `input.projectId` 所以一直是通的，`rename` / `delete` 当年**没传、被隐式传成
+ * `undefined`**（不是显式 `null`）导致 400——「必传」防的是这种遗漏，不是禁止 `null`
+ * 本身；`null` 现在是个合法的、有意义的值（"这是一条个人线程"），不再是历史 bug 的信号。
  */
 export async function renameThread(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   title: string,
   expectedVersion: number,
 ): Promise<MutateThreadOut> {
@@ -387,10 +383,10 @@ export async function renameThread(
   });
 }
 
-/** `projectId` 必传，理由同 `renameThread`（#541）。 */
+/** `projectId` 必传、允许 `null`，理由同 `renameThread`（见其文档注释）。 */
 export async function deleteThread(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   expectedVersion: number,
   reason: string,
 ): Promise<MutateThreadOut> {
@@ -477,6 +473,30 @@ export const CHAT_VISIBILITY_OPTIONS = chat.ChatVisibility.options;
  * 而它经 `markdown-message.tsx → chat-diagram-fabric.tsx` 被 `chat-live-message-panel.tsx`
  * 引入，若还从那边导出会成循环引用。`lib/live-chat.ts` 不依赖任何组件，两边都能安全引用。
  */
+/**
+ * 挑「消息应该发给哪个 agent」——2026-08-14 devapp 实测根因：`getAgentPanel`/
+ * `listCapabilities` 的 `agents` 都是后端 `ORDER BY name` 排出来的（数据库默认
+ * collation 下 Latin 字母排在中文之前），composer 原来直接兜底 `agents?.[0]?.id`，
+ * 于是"Deep Research"（Latin 名）总排在"通用助手"（中文名）前面，被意外当成默认
+ * agent——不是任何人挑的，只是字母表偶然第一个。Deep Research 是慢速多步的外部服务
+ * 调用，意外选中它会让"发一句话"变成长时间卡在"思考中"，看起来像坏了。
+ *
+ * 纯函数，不做 IO：`requestedAgentId` 命中就用它（用户/调用方明确选过）；否则优先选
+ * "通用助手"（`agentDefaults.DEFAULT_AGENT_NAME`，与后端 `ensure-default-agent.ts`
+ * 同一单源，不是本文件另抄一份字符串）；组织里真没有这个 agent 时（理论上
+ * `ensureDefaultAgent` 保证每个组织都有，但不假设它一定生效）退回原来的「数组第一个」
+ * 兜底，不引入新的空态。
+ */
+export function pickDefaultAgentId(
+  agents: GetAgentPanelOut["agents"] | null | undefined,
+  requestedAgentId: string,
+): string {
+  if (agents?.some((agent) => agent.id === requestedAgentId)) return requestedAgentId;
+  return agents?.find((agent) => agent.name === agentDefaults.DEFAULT_AGENT_NAME)?.id
+    ?? agents?.[0]?.id
+    ?? "";
+}
+
 export function describeMessageFailure(failure: unknown, action: string): string {
   if (failure instanceof ApiError) {
     if (failure.status === 401) return `${action}失败：登录已失效（HTTP 401），请重新登录。`;

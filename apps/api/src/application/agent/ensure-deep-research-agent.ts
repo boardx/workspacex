@@ -19,8 +19,13 @@
  * 抽出来的那份通用实现——两个 agent 的落库逻辑是同一份代码，不是两份互相漂移的拷贝，
  * 差异只在传进去的 `SystemAgentTemplate`。
  */
-export const DEEP_RESEARCH_AGENT_STABLE_NAME = "deep-research-agent";
-export const DEEP_RESEARCH_AGENT_NAME = "Deep Research";
+import { agentDefaults } from "@repo/contracts";
+
+// stable_name / 显示名单源在 `@repo/contracts` 的 `agentDefaults`（2026-08-14，同
+// `ensure-default-agent.ts` 那条注释）——再导出，调用方（同目录
+// `pg-deep-research-agent-repository.ts`）导入路径不用改。
+export const DEEP_RESEARCH_AGENT_STABLE_NAME = agentDefaults.DEEP_RESEARCH_AGENT_STABLE_NAME;
+export const DEEP_RESEARCH_AGENT_NAME = agentDefaults.DEEP_RESEARCH_AGENT_NAME;
 export const DEEP_RESEARCH_AGENT_PROVIDER = "open-deep-research";
 /** `model_id` 一列本身没有外键校验（自由文本），这里只是给日志/审计一个可读标签。 */
 export const DEEP_RESEARCH_AGENT_MODEL_ID = "deep-researcher";

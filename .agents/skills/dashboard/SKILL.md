@@ -26,7 +26,7 @@ pnpm harness dashboard --no-remote  # 离线快速模式（跳过 gh/git fetch�
 
 输出：stdout 全文 + `.harness/state/DASHBOARD.md`（派生视图）。 <!-- 运行时生成物，gitignored；skill-doctor:ignore -->
 
-## 它回答的六个问题
+## 它回答的七个问题
 
 | 板块 | 数据源（全是活信号） |
 |---|---|
@@ -35,6 +35,7 @@ pnpm harness dashboard --no-remote  # 离线快速模式（跳过 gh/git fetch�
 | feature 状态分布 + 谁占在编槽 | 各 phase `feature_list.json`（权威清单）实读 |
 | 等人类签核的有哪几份 | 磁盘扫 `contracts/**` 与 `design-deltas/**` 的 `status: pending` |
 | 等人类 Accept 的提案 | `docs/proposals/*.md` 头部 `状态：Proposed` |
+| **逐 agent 状态**（谁活着、在做什么、卡在哪）— ADR-010 缺口，issue #1162 | `registry.yaml`（身份）+ coord-gateway `GET /claims`（租约/心跳，ADR-017；未配凭据时显式标「未连接」而非「空闲」）+ §feature 板块的 owner 归属 + PR `headRefName` 前缀匹配 |
 | 本机能不能开重活 | load/核数 + wsx 隔离栈数（准入闸上限 2） |
 
 ## 铁律

@@ -88,7 +88,7 @@ export function RealtimeTranscriptionWorkspace({
           <div className="flex items-center gap-3 pl-11 md:pl-0">
             <div className="flex items-center gap-2 text-12 text-muted-foreground">
               <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "内容已保存，可继续追加" : "尚未开始"}
+              {streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在等待尾部结果" : recording ? "正在接收音频" : session.status === "failed" ? "上次转录失败，可重新开始" : session.content ? "当前页面已有文字，可继续追加" : "尚未开始"}
             </div>
             <Button
               data-testid="rec-live-toggle"
@@ -104,11 +104,15 @@ export function RealtimeTranscriptionWorkspace({
 
         {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
 
+        <p data-testid="rec-live-transient-notice" className="rounded-md border border-warning bg-warning/10 px-3 py-2 text-12 text-foreground">
+          当前文字仅保存在本页面，刷新或离开后将消失。
+        </p>
+
         <Card className="min-h-96 p-6" data-testid="rec-live-transcript">
           <div className="border-b border-border pb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><h2 className="text-16 font-semibold">实时逐字稿</h2>
-                <p className="mt-1 text-11 text-muted-foreground">最终识别会持续追加为一段正文，停止后可以修改。</p></div>
+                <p className="mt-1 text-11 text-muted-foreground">最终识别会持续追加为一段正文；当前文字不会保存到历史记录。</p></div>
               <div className="flex items-center gap-2">
                 <Button data-testid="rec-live-copy" type="button" size="sm" variant="outline"
                   disabled={!visibleContent} onClick={() => void copyContent()}>
@@ -149,7 +153,7 @@ export function RealtimeTranscriptionWorkspace({
               </span>
               <div>
                 <p className="text-14 font-medium">{recording ? "正在等待识别结果" : "还没有逐字稿"}</p>
-                <p className="mt-1 text-12 text-muted-foreground">{recording ? "最终文字会在服务端保存后显示。" : "点击开始转录后，最终文字会显示在这里。"}</p>
+                <p className="mt-1 text-12 text-muted-foreground">{recording ? "最终文字会显示在当前页面。" : "点击开始转录后，最终文字会显示在这里。"}</p>
               </div>
             </div>
           )}

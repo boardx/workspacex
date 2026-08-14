@@ -4,12 +4,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
 const {
-  replace, listPersonalThreads, getThread, createPersonalThread, listCapabilities, sessionState,
+  replace, listPersonalThreads, getThread, createPersonalThread, renameThread, deleteThread,
+  listCapabilities, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listPersonalThreads: vi.fn(),
   getThread: vi.fn(),
   createPersonalThread: vi.fn(),
+  renameThread: vi.fn(),
+  deleteThread: vi.fn(),
   listCapabilities: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
@@ -29,7 +32,9 @@ vi.mock("@/components/shell/app-shell", () => ({
     <div><aside>{left}</aside><main>{children}</main></div>
   ),
 }));
-vi.mock("@/lib/live-chat", () => ({ listPersonalThreads, getThread, createPersonalThread }));
+vi.mock("@/lib/live-chat", () => ({
+  listPersonalThreads, getThread, createPersonalThread, renameThread, deleteThread,
+}));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/components/chat/chat-live-message-panel", () => ({
   ChatLiveMessagePanel: ({ agents }: { agents: unknown }) => (
@@ -234,6 +239,156 @@ describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent
     const errorState = await screen.findByTestId("personal-chat-agent-list-error");
     expect(errorState).toHaveTextContent("HTTP 500");
     expect(screen.queryByTestId("personal-chat-no-agents-hint")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * 🔴 人类实测报告的真实 bug（2026-08-14）："看不到你说的改名和删除的功能"——组件此前的
+ * 头注写着"改名、删除...本轮不做"，但后端（`mutateExisting`）与真库反证
+ * （`personal-thread-no-project.test.ts`）早就就绪，只是前端一直没做入口。本节反证补上
+ * 的 UI：选中线程才出现改名/删除入口、`projectId` 显式传 `null`（不是漏传导致
+ * `undefined`）、成功后重读列表、删除后选中态正确回退。
+ */
+describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有后端，前端一直没做入口）", () => {
+  beforeEach(() => {
+    listPersonalThreads.mockReset();
+    getThread.mockReset();
+    renameThread.mockReset();
+    deleteThread.mockReset();
+    replace.mockReset();
+  });
+
+  const THREAD_LIST_TWO = {
+    groups: [{ label: "今天", cards: [
+      { id: "thr-a", title: "对话 A", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+      { id: "thr-b", title: "对话 B", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+    ] }],
+    capabilities: ["thread.mutate"],
+  };
+  const detailFor = (id: string, version: number) => ({
+    thread: { id, projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version },
+    messages: [], rightTabs: [], capabilities: ["composer.send", "thread.mutate"],
+  });
+
+  it("未选中任何线程 ⇒ 不渲染改名/删除入口（同 ChatReadScreen 的既有纪律）", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_TWO);
+    render(<PersonalChatScreen initialThreadId={null} />);
+    await screen.findByTestId("chat-thread-thr-a");
+    expect(screen.queryByTestId("chat-thread-selection-actions")).not.toBeInTheDocument();
+  });
+
+  it("选中一条线程 ⇒ 出现改名/删除入口；点改名 → 填标题 → 提交 → projectId 显式传 null，成功后重读列表", async () => {
+    listPersonalThreads.mockResolvedValueOnce(THREAD_LIST_TWO).mockResolvedValueOnce(THREAD_LIST_TWO);
+    getThread.mockResolvedValue(detailFor("thr-a", 3));
+    renameThread.mockResolvedValue({ threadId: "thr-a", version: 4, auditEventId: "ev-r1", impactScope: null });
+
+    render(<PersonalChatScreen initialThreadId="thr-a" />);
+    await screen.findByTestId("chat-thread-detail");
+    expect(await screen.findByTestId("chat-thread-selection-actions")).toBeInTheDocument();
+
+    const { fireEvent } = await import("@testing-library/react");
+    // 2026-08-14 重做：改名/删除现在挂在卡片自己的 hover「…」菜单里，
+    // 要先点开菜单才能看到「改名」这个菜单项。
+    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.click(screen.getByTestId("chat-thread-rename"));
+    const input = await screen.findByTestId("chat-thread-title-input");
+    fireEvent.change(input, { target: { value: "改名了" } });
+    fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
+
+    // ⚠ 决定性断言：projectId 显式传 null（第二个参数），不是漏传成 undefined——
+    // #541 的教训是「忘传」，这里要证明的是「传了、且传的是 null」。
+    await waitFor(() => expect(renameThread).toHaveBeenCalledWith("thr-a", null, "改名了", 3));
+    await waitFor(() => expect(listPersonalThreads).toHaveBeenCalledTimes(2));
+    // 表单提交后应该收起。
+    expect(screen.queryByTestId("chat-thread-title-input")).not.toBeInTheDocument();
+  });
+
+  it("点删除 → 二次确认（必填原因）→ 提交 → 删完自动选中列表里剩下的那条", async () => {
+    listPersonalThreads.mockResolvedValueOnce(THREAD_LIST_TWO).mockResolvedValueOnce({
+      groups: [{ label: "今天", cards: [
+        { id: "thr-b", title: "对话 B", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+      ] }],
+      capabilities: ["thread.mutate"],
+    });
+    getThread.mockResolvedValue(detailFor("thr-a", 3));
+    deleteThread.mockResolvedValue({ threadId: "thr-a", version: 4, auditEventId: "ev-d1", impactScope: null });
+
+    render(<PersonalChatScreen initialThreadId="thr-a" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.click(screen.getByTestId("chat-thread-delete"));
+    // 删除前必须先看到不可撤销 + 必填原因的二次确认，不是点一下就直接删。
+    const reasonInput = await screen.findByTestId("chat-thread-delete-reason");
+    const submit = screen.getByTestId("chat-thread-delete-submit");
+    expect(submit).toBeDisabled(); // 原因未填时不可提交
+    fireEvent.change(reasonInput, { target: { value: "测试用，清理" } });
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(deleteThread).toHaveBeenCalledWith("thr-a", null, 3, "测试用，清理"));
+    // 删完选中态回退到服务端返回列表里剩下的第一条，不是本地猜。
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat?thread=thr-b"));
+  });
+
+  it("删完一条不剩 ⇒ 选中态清空，回退到 /chat（空态，不是卡在一个已删线程的详情页）", async () => {
+    listPersonalThreads.mockResolvedValueOnce({
+      groups: [{ label: "今天", cards: [
+        { id: "thr-only", title: "唯一一条", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+      ] }],
+      capabilities: ["thread.mutate"],
+    }).mockResolvedValueOnce(EMPTY_LIST);
+    getThread.mockResolvedValue(detailFor("thr-only", 0));
+    deleteThread.mockResolvedValue({ threadId: "thr-only", version: 1, auditEventId: "ev-d2", impactScope: null });
+
+    render(<PersonalChatScreen initialThreadId="thr-only" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.click(screen.getByTestId("chat-thread-delete"));
+    fireEvent.change(await screen.findByTestId("chat-thread-delete-reason"), { target: { value: "清空测试" } });
+    fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat"));
+  });
+
+  it("改名失败（服务端拒绝）⇒ 展示诚实错误，表单不静默消失、不假装成功", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_TWO);
+    getThread.mockResolvedValue(detailFor("thr-a", 3));
+    renameThread.mockRejectedValue(new ApiError(409, "VERSION_CHANGED", {}));
+
+    render(<PersonalChatScreen initialThreadId="thr-a" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.click(screen.getByTestId("chat-thread-rename"));
+    fireEvent.change(await screen.findByTestId("chat-thread-title-input"), { target: { value: "改名了" } });
+    fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
+
+    const failure = await screen.findByTestId("chat-thread-mutate-error");
+    expect(failure).toHaveTextContent("HTTP 409");
+    // 失败时列表**不该**重新拉取（乐观更新会先给用户一个假成功画面，这里必须没有）。
+    expect(listPersonalThreads).toHaveBeenCalledTimes(1);
+  });
+
+  it("取消改名 ⇒ 表单收起，不发起任何请求", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_TWO);
+    getThread.mockResolvedValue(detailFor("thr-a", 3));
+
+    render(<PersonalChatScreen initialThreadId="thr-a" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.click(screen.getByTestId("chat-thread-rename"));
+    await screen.findByTestId("chat-thread-title-input");
+    fireEvent.click(screen.getByText("取消"));
+
+    expect(screen.queryByTestId("chat-thread-title-input")).not.toBeInTheDocument();
+    expect(renameThread).not.toHaveBeenCalled();
   });
 });
 

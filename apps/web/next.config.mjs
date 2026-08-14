@@ -26,6 +26,13 @@ export default {
       // 与上面 `/capabilities` 逐字同一个坑，所以同样写两条。
       { source: `${prefix}/canvas/templates`, destination: `${apiOrigin}/canvas/templates` },
       { source: `${prefix}/canvas/:path*`, destination: `${apiOrigin}/canvas/:path*` },
+      // F173（#991 BP-01）：蓝本的读与写。`/blueprints` 自己既是 GET 列表也是
+      // POST 新建 —— 与上面 `/capabilities`、`/canvas/templates`、`/skills` 逐字
+      // 同一个坑：`:path*` 匹配不到没有后缀的那一条，所以**两条都要写**。
+      // 缺了裸路径那条，前端打到的是 Next 的 404 HTML，症状是
+      // `Unexpected token '<'`（JSON.parse 到了 `<!DOCTYPE`），而不是一个像样的报错。
+      { source: `${prefix}/blueprints`, destination: `${apiOrigin}/blueprints` },
+      { source: `${prefix}/blueprints/:path*`, destination: `${apiOrigin}/blueprints/:path*` },
       // #520：Skill 目录的读与写。`/skills` 自己既是 GET 列表也是 POST 建草稿，
       // `/skills/:id` 与 `/skills/:id/disable` 走 `:path*` ——
       // **这是同一个坑的第三次**（前两次就写在上面 `/capabilities` 与
@@ -33,6 +40,12 @@ export default {
       // Next 自己的 404 而不是 API，表现成「后端没实现」，而不是「路由没接」。
       { source: `${prefix}/skills`, destination: `${apiOrigin}/skills` },
       { source: `${prefix}/skills/:path*`, destination: `${apiOrigin}/skills/:path*` },
+      // F176：消息级评价（`POST /messages/:messageId/rating`，F68 契约）。
+      // ⚠ path 前缀是 `/messages` 而不是 `/chat/...`——契约把它挂在消息本身上，
+      //   因为评价的主语是消息，而消息同时属于 chat（可见性）与 skills（归因）两束。
+      //   少了这条 rewrite，前端拿到的是 Next 返回的 404 HTML，
+      //   报错长成 `Unexpected token '<'`——一个看起来像 JSON 解析 bug 的路由缺失。
+      { source: `${prefix}/messages/:path*`, destination: `${apiOrigin}/messages/:path*` },
       /**
        * #595：`/admin/*` —— 后台管理面（`/admin/skills/url-imports`、
        * `/admin/skills/starter-pack-imports`、`/admin/agents/starter-pack-imports` …）。

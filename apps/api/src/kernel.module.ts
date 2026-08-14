@@ -235,6 +235,7 @@ import {
   type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
@@ -273,8 +274,13 @@ import { AgentPublishController } from "./interface/controllers/agent-publish.co
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
+  MESSAGE_RATING_REPOSITORY,
   SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS, THREAD_MOUNT_STORE,
 } from "./application/skill/ports";
+// F176：消息级评价的落库面与 HTTP 边界——给 F68 那条已签核契约补地基。
+// ⚠ 归因由 `MessageAttributionPort` 从 agent_runs 查出来，路由不接受任何外部归因输入。
+import { PgMessageRatingRepository } from "./infrastructure/skill/pg-message-rating-repository";
+import { MessageRatingController } from "./interface/controllers/message-rating.controller";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -444,6 +450,14 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// F173（BP-01）：templates 束**第一条**接上电的路由。此前该束是「34 个契约 operation
+// + 32 个纯用例，零控制器零表零仓储」（#991 勘探），应用层写好了却没人调得到。
+import { BlueprintController } from "./interface/controllers/blueprint.controller";
+import {
+  BLUEPRINT_PERSISTENCE_PORT,
+  type BlueprintPersistencePort,
+} from "./application/templates/blueprint-persistence-ports";
+import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
@@ -533,6 +547,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    BlueprintController,
     RecordingController,
     AgentRunController,
     CopilotkitAguiController,
@@ -540,6 +555,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentController,
     AgentPublishController,
     SkillController,
+    MessageRatingController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -940,13 +956,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
       // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
       // fourth argument at all.
+      // F155：L3 文件式检索在这里注入——`ExecuteAgentRunDeps.files` 是可选的，所以
+      // 「生产 run 到底有没有 L3」由这一行、而不是由某个运行期开关决定（同 `usage` 的先例）。
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
+        db: DatabasePort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
+          new PgFileRetrieval(db),
         ),
-      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER],
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。
@@ -1171,6 +1191,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         new PgCanvasTemplateRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F173（BP-01）：蓝本落库。读写 `blueprints` 与 `blueprint_design_facets` 两张新表，
+    // 与既有仓储没有共享读写路径。
+    {
+      provide: BLUEPRINT_PERSISTENCE_PORT,
+      useFactory: (db: DatabasePort): BlueprintPersistencePort =>
+        new PgBlueprintRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // #465: recording session lifecycle.
     {
       provide: RETENTION_POLICY_REPOSITORY,
@@ -1222,6 +1250,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: THREAD_MOUNT_STORE,
       useFactory: (db: DatabasePort) => new PgThreadMountStore(db),
+      inject: [DATABASE_PORT],
+    },
+    // F176: same factory shape and same reason as the two above -- `rateMessage.in` has no
+    // `orgId` (only `messageId`), so a rating repository not bound to a tenant would be a
+    // thing that can write a rating into somebody else's organization.
+    {
+      provide: MESSAGE_RATING_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgMessageRatingRepository(db),
       inject: [DATABASE_PORT],
     },
     {

@@ -73,6 +73,20 @@ export function CapabilityCatalogScreen({
   const [page, setPage] = React.useState(0);
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  /**
+   * G6（2026-08-14）—— 深链自动展开编辑。`skill-catalog-live.tsx`（`/skill?screen=library`
+   * 的真实卡片网格）上「编辑源码」按钮跳过来时带 `?...&edit=<skillId>`，这里接住它：
+   * 数据到位后若这个 id 在当前这批行里，直接展开它的编辑表单，不需要使用者再从
+   * 分页列表里翻出同一行点一次「编辑」。
+   *
+   * ⚠ 只读一次（`consumedInitialEdit`）：使用者手动 `onCloseEdit` 之后，`edit` 这个
+   *   query 参数还留在地址栏里，不能让它在下一次 `rows` 变化时把编辑框重新弹出来。
+   */
+  const initialEditId = React.useMemo(
+    () => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("edit")),
+    [],
+  );
+  const consumedInitialEdit = React.useRef(false);
   const [disablingId, setDisablingId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [mutateError, setMutateError] = React.useState<string | null>(null);
@@ -135,6 +149,22 @@ export function CapabilityCatalogScreen({
   // 从**当前这批 rows** 里找，而不是把点击时的那一份存进 state：
   // 后者会在刷新之后继续指着一条服务端已经改掉的记录。
   const disablingRow = rows.find((r) => r.id === disablingId) ?? null;
+
+  React.useEffect(() => {
+    if (consumedInitialEdit.current) return;
+    if (initialEditId === null) return;
+    // ⚠ 依赖 `state`（`useState` 本身管理的引用，只在真正 setState 时才变）而不是
+    //   上面渲染期派生出的 `visibleState`/`rows`——那两个在 `sourceKey` 不匹配时
+    //   是每次渲染都新建的对象/数组字面量，会让这个 effect 被判定成「依赖每次都变」
+    //   而重跑（react-hooks/exhaustive-deps）。这里在 effect 内部重新做一次同样的
+    //   「source 是否匹配」判断，逻辑与渲染期的 `visibleState` 计算一致。
+    if (state.sourceKey !== sourceKey || state.status !== "ready") return;
+    const index = state.rows.findIndex((r) => r.id === initialEditId);
+    if (index === -1) return; // 这个 id 不在当前组织/这个 kind 的目录里——如实什么都不做
+    consumedInitialEdit.current = true;
+    setEditingId(initialEditId);
+    setPage(Math.floor(index / PAGE_SIZE));
+  }, [initialEditId, state, sourceKey]);
 
   return (
     <div className="flex flex-col gap-5 p-6" data-testid={`${prefix}-catalog`}>

@@ -85,16 +85,13 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
   await shoot("b10-entry.png", "第10项 整体连贯性", "进入 /chat 的首屏，用于检查有无假按钮/死链/孤岛组件");
 
   /* ── 新建一条会话，避免复用历史线程导致证据含糊 ───────────────────── */
-  // ⚠ 「新建对话」是**折叠开关**（`chat-thread-create` → `setFormOpen`），点它标题表单才展开。
-  //   第一版漏了这一步，落地在零线程空态上，`chat-message-input` 自然找不到——
-  //   脚本如实报了「取证受阻」而不是静默产出空证据，这是对的；但证据也就没抓到。
+  // 2026-08-14：#1179 把个人对话「新建」改成一键创建（`personal-chat-screen.tsx`
+  // 直接 `handleCreate(null)`），不再是「折叠开关点开标题表单」——旧版在这里等
+  // `chat-thread-create-form` 出现会永远超时。改成点了就等 URL 落地 `?thread=`。
   const createToggle = page.getByTestId("chat-thread-create");
   if (await createToggle.isVisible().catch(() => false)) {
     await createToggle.click();
-    await page.getByTestId("chat-thread-create-form").waitFor({ state: "visible", timeout: 15_000 });
-    await page.getByTestId("chat-thread-title-input")
-      .fill(`track-B 取证 ${new Date().toISOString().slice(11, 19)}`);
-    await page.getByTestId("chat-thread-title-submit").click();
+    await page.waitForURL(/\/chat\?thread=/);
     // 新建后应自动选中并渲染出会话详情——等它，而不是盲等固定秒数
     await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });
     await shoot("b10-new-thread.png", "第10项 整体连贯性 / 第9项 控制感", "新建会话并自动选中后的状态");

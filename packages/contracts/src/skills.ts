@@ -284,6 +284,15 @@ export const SkillListItem = z
     currentVersionId: z.string().nullable(),
     /** ⚠ null ⟺ 样本不足。**不得为了填满界面而给一个 0%** */
     satisfaction: z.number().nullable(),
+    /**
+     * G5（2026-08-14，本轮**唯一**契约变更）—— 新增字段，**向后兼容**：
+     * `.default([])` 而不是必填 —— 旧数据（迁移前落库的行、或调用方没有传这个
+     * 字段时手写的对象）在 `.parse()` 时自动补 `[]`，不会因为「以前没有这个字段」
+     * 而校验失败。**从不是** `nullable`：调用方不需要在拿到之后区分
+     * `null`（没有的概念，同 `satisfaction`）与「有但是空数组」——tags 空的时候
+     * 就是空数组，不是一个额外的第三态。
+     */
+    tags: z.array(z.string()).default([]),
   })
   .strict();
 
@@ -366,6 +375,8 @@ export const operations = {
         contract: DeclarativeContract,
         visibility: z.enum(["org-wide", "team-only"]),
         modelRef: z.string(),
+        /** G5：可选——不传时落 `[]`，老调用方（旧前端缓存 / 直接打接口的脚本）不受影响。 */
+        tags: z.array(z.string()).optional(),
       })
       .strict(),
     out: z

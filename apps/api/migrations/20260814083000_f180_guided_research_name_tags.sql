@@ -1,4 +1,4 @@
--- F174 -- persist the user-confirmed research name and optional tags before the brief step.
+-- F180 -- persist the user-confirmed research name and optional tags before the brief step.
 ALTER TABLE guided_research_sessions
   ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}';
 

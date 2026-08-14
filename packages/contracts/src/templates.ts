@@ -1485,4 +1485,16 @@ export const KNOWN_CONTRACT_GAPS = {
    * 若裁为覆盖格级，返回项要多一个粒度维度——那是签核后新增。
    */
   T12: "whether deviation diffs cover matrix-cell-level changes, and at what granularity, is unruled (D-14); deviations are currently keyed only by designFacetKey",
+  /**
+   * **`setDurationTier.in.expectedVersion` 没有任何契约操作把它读出来。**
+   * `listBlueprints.out`（`BlueprintRow`）不含蓝本行级的乐观并发令牌，也没有
+   * `getBlueprint` 单条读操作。任何要求 `expectedVersion` 的蓝本行级写操作
+   * （`setDurationTier` / `setFormatAndLanguage` / `setModelStrategy` / `setQuotaPolicy`）
+   * 都有这同一个缺口——本文件签核时没有配一条读它的路径。
+   * ⇒ F177（BP-03）的后端实现真实、可测（真库测试直接读该值构造合法请求），
+   * 但今天没有客户端能合法拿到第一个 `expectedVersion`；真正前端接线要等这个
+   * 读路径缺口被补上（新增 `getBlueprint` 或把它塞进 `listBlueprints.out`，
+   * 两者都是新增契约面，需走 delta 重签，不是本文件能单方补的）。
+   */
+  T13: "setDurationTier.in.expectedVersion (and the same shape for setFormatAndLanguage/setModelStrategy/setQuotaPolicy) has no read path — listBlueprints.out doesn't carry a blueprint-level revision token and there is no getBlueprint operation; a caller cannot legitimately obtain the first expectedVersion",
 } as const;

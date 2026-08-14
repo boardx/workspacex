@@ -1,18 +1,28 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { GripVertical, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
+import { SURVEY_QUESTION_MODULE_CARDS } from "@/lib/survey/resource-library";
+import { getSurveyQuestionModuleQuestions } from "@/lib/survey/workflow-model";
 import type { survey } from "@repo/contracts";
 import { SectionTitle } from "./survey-workflow-shell";
 import { useSectionNavigation } from "./use-section-navigation";
 
-export function SurveyDesignStep({ model, setModel, readonly }: { model: survey.SurveyWorkflowModel; setModel: React.Dispatch<React.SetStateAction<survey.SurveyWorkflowModel>>; readonly: boolean }) {
+export function SurveyDesignStep({ model, setModel, readonly, editorKind }: { model: survey.SurveyWorkflowModel; setModel: React.Dispatch<React.SetStateAction<survey.SurveyWorkflowModel>>; readonly: boolean; editorKind: "survey" | "module" }) {
+  const router = useRouter();
   const [prompt, setPrompt] = React.useState("");
+  const [showModuleChoices, setShowModuleChoices] = React.useState(false);
+  const isModuleEditor = editorKind === "module";
+  const emptyTitle = isModuleEditor ? "当前模块还没有题目" : "当前问卷还没有题目";
+  const emptyDescription = isModuleEditor
+    ? "从空白题目开始，或复制已有问卷模块作为基础后再修改。"
+    : "从空白题目开始，或选择问卷模块作为新问卷的基础。";
   const questionIds = React.useMemo(() => model.questions.map((question) => question.id), [model.questions]);
   const { activeId, navigateTo } = useSectionNavigation(questionIds, "survey-question");
   const activeQuestion = model.questions.find((question) => question.id === activeId) ?? model.questions[0];
@@ -23,6 +33,42 @@ export function SurveyDesignStep({ model, setModel, readonly }: { model: survey.
       questions: current.questions.map((question) => question.id === questionId ? { ...question, ...patch } : question),
     }));
   };
+
+  const addFirstQuestion = () => {
+    setModel((current) => ({
+      ...current,
+      questions: [{ id: "Q01", order: 1, chapterId: "", type: "single", title: "请输入问题内容", required: true, options: ["选项 1"] }],
+    }));
+  };
+
+  const copyModuleQuestions = (moduleId: string) => {
+    setModel((current) => ({ ...current, questions: getSurveyQuestionModuleQuestions(moduleId) }));
+    setShowModuleChoices(false);
+  };
+
+  if (model.questions.length === 0) {
+    return <div className="flex min-h-[calc(100vh-5rem)] items-start justify-center p-6" data-testid="survey-design-empty-module">
+      <div className="mt-16 w-full max-w-3xl rounded-xl border border-dashed border-border bg-card p-8 text-center shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-primary"><Plus className="h-6 w-6" /></div>
+        <h2 className="mt-4 text-18 font-semibold">{emptyTitle}</h2>
+        <p className="mt-2 text-12 text-muted-foreground">{emptyDescription}</p>
+        {!readonly && <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Button variant="primary" onClick={addFirstQuestion}><Plus className="h-4 w-4" />添加第一道题</Button>
+          {isModuleEditor ? (
+            <Button variant="outline" onClick={() => setShowModuleChoices((current) => !current)}>从已有问卷模块创建</Button>
+          ) : (
+            <Button variant="outline" onClick={() => router.push("/studio/survey?tab=modules&intent=create-survey")}>从问卷模块选择</Button>
+          )}
+        </div>}
+        {!readonly && isModuleEditor && showModuleChoices && <div className="mt-6 grid gap-3 text-left sm:grid-cols-2" data-testid="survey-design-module-choices">
+          {SURVEY_QUESTION_MODULE_CARDS.map((item) => <button key={item.id} type="button" onClick={() => copyModuleQuestions(item.id)} className="rounded-lg border border-border p-4 transition-colors hover:border-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="block text-13 font-semibold">{item.title}</span>
+            <span className="mt-1 block text-11 text-muted-foreground">{item.description} · {item.questionCount} 题</span>
+          </button>)}
+        </div>}
+      </div>
+    </div>;
+  }
 
   return <div className="grid min-h-[calc(100vh-9rem)] grid-cols-1 xl:grid-cols-[22rem_minmax(28rem,1fr)_22rem]">
     <aside className="border-b border-border bg-card p-4 xl:sticky xl:top-0 xl:self-start xl:border-b-0 xl:border-r" data-testid="survey-design-question-list">

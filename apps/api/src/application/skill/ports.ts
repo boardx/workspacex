@@ -29,7 +29,9 @@ import type {
 import type { ThreadSkillMount } from "../../domain/skill/thread-mount";
 import type { ReviewerFunctionValue } from "../../domain/skill/review-authorization";
 import type { PromotionLink } from "../../domain/skill/promotion-link";
-import type { DataQualityEntry, RatingRecord } from "../../domain/skill/rating-attribution";
+import type {
+  DataQualityEntry, RatingAttribution, RatingRecord,
+} from "../../domain/skill/rating-attribution";
 import type { SuggestionCategory } from "../../domain/skill/suggestion-aggregation";
 
 /**
@@ -86,6 +88,11 @@ export interface SkillDraftStorePort {
     readonly ownerTeamId: string | null;
     /** 契约 `createSkillDraft.in.modelRef`。落在版本行上，见迁移里的理由 */
     readonly modelRef: string;
+    /**
+     * G5（2026-08-14）——可选，缺省 `[]`。落 `skill_contracts.tags`
+     * （`20260814090000_g5_skill_contract_tags.sql`，`NOT NULL DEFAULT '{}'`）。
+     */
+    readonly tags?: readonly string[];
   }): Promise<{ readonly skillId: string; readonly versionId: string }>;
 }
 
@@ -140,6 +147,8 @@ export interface SkillContractRow {
   readonly visibility: "org-wide" | "team-only";
   readonly ownerTeamId: string | null;
   readonly currentVersionId: string | null;
+  /** G5（2026-08-14）。wave2（`skills` 表来源）行恒为 `[]`——见 `listAll()` 的映射注释。 */
+  readonly tags: readonly string[];
 }
 
 /** `getSkillDetail` 的取数结果。⚠ `contract` 取的是**最新版本**的声明正文。 */
@@ -627,6 +636,29 @@ export interface RatingRepositoryPort {
   listBySkillId(skillId: string): Promise<readonly RatingRecord[]>;
 }
 
+/**
+ * F176 —— 一条 AI 消息的归因链，**由服务端查出来**。
+ *
+ * ⚠ 这个端口存在的全部理由是：`rateMessage` 的用例入参里有 `attribution`，
+ *   而那份 attribution **绝不能来自请求体**。前端能传归因，就等于任何用户都能
+ *   伪造某个 skill 的满意度——而满意度是 UC-3.6 整条改进闭环的输入。
+ *   契约的 `rateMessage.in` 本身已经不含 attribution（`{ messageId, verdict, reason }`
+ *   且 `.strict()`），这个端口是把「那么它从哪来」这个问题的答案钉在一处。
+ *
+ * ⚠ 返回 `null` ⇒ 这条消息不是某次 agent run 的产物（人类发的消息、或早于
+ *   `chat_messages.agent_run_id` 的历史消息）。调用方应当拒绝评价，
+ *   **不是**编一个 attribution 出来。
+ */
+export interface MessageAttributionPort {
+  /**
+   * ⚠ 实现必须只认 `author_kind = 'agent'` 的消息，并沿 `chat_messages.agent_run_id`
+   *   →`agent_runs` 取 `agent_id` / `skill_version_ids`。
+   *   「一次 run 用了几个 skill」与「这条评价归给哪个 skill 版本」不是同一个问题，
+   *   两者的接缝规则写在实现的文件头里（恰好一个才归因，见 I-20）。
+   */
+  resolveForMessage(messageId: string): Promise<RatingAttribution | null>;
+}
+
 /** 数据质量报表落库面（E1：缺归因的评价不得静默消失，必须可被列出）。 */
 export interface DataQualityReportPort {
   record(entry: DataQualityEntry): Promise<void>;
@@ -747,4 +779,22 @@ export class SkillNameConflictError extends Error {
     super(`该组织内已存在同名 skill：${skillName}`);
     this.name = "SkillNameConflictError";
   }
+}
+
+/**
+ * F176 —— 消息级评价仓储的**工厂**令牌。
+ *
+ * 与 `SKILL_CONTRACT_REPOSITORY` 同一个理由发工厂而不是端口本身：契约的
+ * `rateMessage.in` 里没有 `orgId`（只有 `messageId`），租户只能来自已认证的 principal。
+ * 「未绑定租户的评价仓储」这个东西不该存在——它能写进别人组织的评价。
+ */
+export const MESSAGE_RATING_REPOSITORY = Symbol("MessageRatingRepository");
+
+/** 一个请求内、已绑定租户的评价仓储：三个端口的交集（同一组表、同一次租户会话）。 */
+export type MessageRatingRepository = RatingRepositoryPort &
+  DataQualityReportPort &
+  MessageAttributionPort;
+
+export interface MessageRatingRepositoryFactory {
+  forOrg(orgId: string): MessageRatingRepository;
 }

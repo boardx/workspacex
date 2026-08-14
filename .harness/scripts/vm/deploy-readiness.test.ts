@@ -47,6 +47,10 @@ case "$url" in
     [ "\${FAKE_WEB_MODE:-ready}" = ready ] || exit 7
     printf '%s\n' '<html>ready</html>'
     ;;
+  https://*/recording/realtime-asr/sessions/probe-session/captures/probe-capture/stream)
+    [ "\${FAKE_PERSONAL_ASR_WS_MODE:-routed}" = routed ] || exit 28
+    printf '%s' '401'
+    ;;
   https://*/kernel/probe/identity-session)
     [ "\${FAKE_PUBLIC_PROBE_MODE:-hidden}" = exposed ] && exit 0
     exit 7
@@ -116,7 +120,11 @@ function runGate(
 function run(
   sequence: string[],
   attempts = 8,
-  modes: { web?: "ready" | "refuse"; publicProbe?: "hidden" | "exposed" } = {},
+  modes: {
+    web?: "ready" | "refuse";
+    publicProbe?: "hidden" | "exposed";
+    personalAsrWs?: "routed" | "missing";
+  } = {},
 ) {
   const files = fixture(sequence);
   const result = spawnSync("bash", ["-c", 'source "$1"; run_post_restart_smoke', "--", HELPER], {
@@ -136,6 +144,7 @@ function run(
       DEPLOY_DIAGNOSTIC_LINES: "40",
       FAKE_WEB_MODE: modes.web ?? "ready",
       FAKE_PUBLIC_PROBE_MODE: modes.publicProbe ?? "hidden",
+      FAKE_PERSONAL_ASR_WS_MODE: modes.personalAsrWs ?? "routed",
     },
   });
   return {
@@ -198,6 +207,13 @@ describe("#448 post-restart readiness", () => {
     expect(result.commands).toHaveLength(4);
   });
 
+  it("fails when personal realtime ASR WebSocket traffic does not reach the API", () => {
+    const result = run(["trusted", "trusted", "trusted"], 3, { personalAsrWs: "missing" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("personal realtime ASR WebSocket");
+    expect(result.commands).toHaveLength(4);
+  });
+
   it("accepts only an exact nonce-bound root smoke/exit contract", () => {
     const nonce = "0123456789abcdef0123456789abcdef";
     const exact = `protocol=workspacex-deploy/v1\nnonce=${nonce}\nstage=smoke\nexit=7`;
@@ -251,5 +267,6 @@ describe("#448 post-restart readiness", () => {
     expect(provision).toContain(
       'install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deploy-readiness.sh" /usr/local/lib/workspacex-deploy-readiness.sh',
     );
+    expect(provision).toContain("handle /recording/realtime-asr/sessions/*/captures/*/stream");
   });
 });

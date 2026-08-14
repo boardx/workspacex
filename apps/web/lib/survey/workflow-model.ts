@@ -1,5 +1,7 @@
 import { survey } from "@repo/contracts";
 import { z } from "zod";
+import { SURVEY_QUESTION_MODULE_CARDS } from "@/lib/survey/resource-library";
+import type { SurveyCreationDraft } from "@/lib/survey/creation-draft";
 
 export type SurveyWorkflowModel = z.infer<typeof survey.SurveyWorkflowSchema>;
 
@@ -7,16 +9,29 @@ export interface SurveyMetrics {
   received: number;
   valid: number;
   needsReview: number;
+  validRate: number;
   completionRate: number;
   averageDurationSeconds: number;
 }
 
 export interface PublishBlocker {
-  code: "QUESTION_OPTIONS_EMPTY" | "MAPPING_INCOMPLETE";
+  code: "QUESTIONS_EMPTY" | "QUESTION_OPTIONS_EMPTY" | "MAPPING_INCOMPLETE";
   label: string;
 }
 
-export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?: string } = {}): survey.SurveyWorkflowModel {
+interface CreateSurveyWorkflowMockOptions {
+  surveyId?: string;
+  moduleId?: string;
+  creationDraft?: SurveyCreationDraft;
+  moduleEditor?: boolean;
+}
+
+const cloneQuestions = (questions: survey.SurveyWorkflowQuestion[]) => questions.map((question) => ({
+  ...question,
+  options: [...question.options],
+}));
+
+export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOptions = {}): survey.SurveyWorkflowModel {
   const questions: survey.SurveyWorkflowQuestion[] = [
     { id: "Q01", order: 1, chapterId: "profile", type: "single", title: "您目前承担的主要职责层级是？", required: true, options: ["企业高管", "部门负责人", "项目负责人", "专业骨干", "一线员工"] },
     { id: "Q02", order: 2, chapterId: "profile", type: "single", title: "所在组织的主要业务领域是？", required: true, options: ["专业服务", "软件与互联网", "制造业", "能源", "其他"] },
@@ -55,13 +70,33 @@ export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?
   }));
 
   const isNew = options.surveyId === "new";
-  const selectedQuestions = options.moduleId
-    ? questions.filter((question) => question.chapterId === options.moduleId)
-    : questions;
+  const requestedModuleId = options.moduleEditor
+    ? options.moduleId
+    : isNew
+      ? options.creationDraft?.sourceModuleId
+      : undefined;
+  const knownModule = requestedModuleId
+    ? SURVEY_QUESTION_MODULE_CARDS.some((item) => item.id === requestedModuleId)
+    : false;
+  const selectedQuestions = options.moduleEditor && isNew && !options.moduleId
+    ? []
+    : requestedModuleId
+      ? knownModule
+        ? cloneQuestions(questions.filter((question) => question.chapterId === requestedModuleId))
+        : []
+      : isNew
+        ? []
+        : cloneQuestions(questions);
   const selectedResponses = isNew || options.moduleId ? [] : responses;
+  const moduleTitle = SURVEY_QUESTION_MODULE_CARDS.find((item) => item.id === options.moduleId)?.title;
+  const title = options.moduleEditor
+    ? moduleTitle ?? "未命名问卷模块"
+    : isNew
+      ? options.creationDraft?.name ?? "未命名问卷"
+      : "企业数字协作成熟度诊断";
 
   return survey.SurveyWorkflowSchema.parse({
-    survey: { id: options.surveyId ?? "sv-1", title: isNew ? "未命名问卷" : "企业数字协作成熟度诊断", status: isNew ? "draft" : "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
+    survey: { id: options.surveyId ?? "sv-1", title, status: isNew ? "draft" : "collecting", lastSavedAt: "2026-08-12T10:00:00.000Z" },
     questions: selectedQuestions,
     reportTemplate: {
       sections: [
@@ -93,6 +128,10 @@ export function createSurveyWorkflowMock(options: { surveyId?: string; moduleId?
   });
 }
 
+export function getSurveyQuestionModuleQuestions(moduleId: string): survey.SurveyWorkflowQuestion[] {
+  return cloneQuestions(createSurveyWorkflowMock({ surveyId: "new", moduleId, moduleEditor: true }).questions);
+}
+
 export function getSurveyMetrics(model: survey.SurveyWorkflowModel): SurveyMetrics {
   const received = model.responses.length;
   const needsReview = model.responses.filter((response) => response.quality === "review").length;
@@ -101,13 +140,17 @@ export function getSurveyMetrics(model: survey.SurveyWorkflowModel): SurveyMetri
     received,
     valid: received - needsReview,
     needsReview,
-    completionRate: Math.round((received / model.publication.target) * 100),
+    validRate: received === 0 ? 0 : Math.round(((received - needsReview) / received) * 100),
+    completionRate: model.publication.target === 0 ? 0 : Math.round((received / model.publication.target) * 100),
     averageDurationSeconds: received === 0 ? 0 : Math.round(durationTotal / received),
   };
 }
 
 export function getPublishBlockers(model: survey.SurveyWorkflowModel): PublishBlocker[] {
   const blockers: PublishBlocker[] = [];
+  if (model.questions.length === 0) {
+    blockers.push({ code: "QUESTIONS_EMPTY", label: "问卷必须至少包含一道题目" });
+  }
   if (model.questions.some((question) => question.type !== "open" && question.options.length === 0)) {
     blockers.push({ code: "QUESTION_OPTIONS_EMPTY", label: "选择题必须至少包含一个选项" });
   }

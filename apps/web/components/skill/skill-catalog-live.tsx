@@ -13,6 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
 import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
+/**
+ * G3（2026-08-14，人类原话：「新建skill应该弹出来一个新的popup界面」）—— 复用
+ * `components/files/overlay.tsx` 的 `Modal`：这不是 `components/ui/` 底下的组件，
+ * 但它是本仓**实际上**被当成通用 Dialog 原语在用的那一个（`chat-composer-attachments
+ * .tsx` / `agent-runtime/chat-screen.tsx` / `tpl/parts.tsx` 等互不相关的模块都在复用
+ * 它），`components/ui/` 目前没有任何 Dialog/Modal 组件——不新造第二套弹窗机制。
+ */
+import { Modal } from "@/components/files/overlay";
 import {
   createSkillDraft,
   getSkillDetail,
@@ -86,6 +94,42 @@ function matchesTagFilter(row: SkillListItem, filter: TagFilterState): boolean {
 }
 
 /**
+ * G2/G6（2026-08-14，人类实测：点开一张「从外部 URL 导入的 skill」卡片报
+ * `详情读取失败：SKILL_NOT_FOUND（HTTP 404）`）—— 真根因：
+ *
+ * `GET /skills`（`listSkills`）已经在 #662 合并了两套互不相通的数据模型
+ * （声明式契约 `skill_contracts`，与运行时唯一真读的 `skills`/`skill_versions`/
+ * `skill_version_files`——见 `pg-skill-url-import-repository.ts` 文件头「模型 A/B」）,
+ * 但 `GET /skills/:skillId`（`getSkillDetail`）**没有跟着合并**——它只读
+ * `skill_contracts`（`get-skill-detail.ts` → `scopeOf` → `loadDetail`，`pg-skill
+ * -contract-repository.ts:314-320` 逐字 `FROM skill_contracts`）。URL 导入 /
+ * starter-pack 导入的 skill 只在 `skills` 表里有行，`loadDetail` 对它们恒返回
+ * `null` ⇒ `SKILL_NOT_FOUND`——这不是权限问题，也不是这一条记录坏了，是
+ * **这一类记录的详情端口从来没有实现过**（#598「A/B 不收敛」的已知债，本轮不
+ * 收敛那道墙）。
+ *
+ * 与其继续摆一个必然 404 的「查看契约」，这里给这批行换一个**真实可达**的入口：
+ * 「编辑源码」，导到 `catalog` 屏（`CapabilityCatalogScreen` kind="skill"）的
+ * `AgSkillEditor`——它读写的正是 `skills`/`skill_versions`/`skill_version_files`
+ * 本身（`PgAssetFileRepository`，#785/#933），不经过 `skill_contracts`，因此对这批
+ * 行是**真的**能打开、能看源文件、能编辑。
+ *
+ * ⚠ 判据是 `duty` 这个既有字段的取值，**不是新契约字段**——本轮唯一允许的契约变更
+ *   是 G5 的 `tags`（见 PR 描述）。`pg-skill-contract-repository.ts` 的 `listAll()`
+ *   对每一行「`skills` 表来源」的记录都写死同一句 `duty`（`WAVE2_BACKED_DUTY_MARKER`
+ *   这个前缀），跟它是通过 URL 导入还是 starter-pack 导入无关——两者都在 `skills` 表
+ *   里有行，都能用 `AgSkillEditor` 打开，用同一个信号完全够用。
+ *   ⚠ 改这句文案时**两处必须一起改**（后端 `pg-skill-contract-repository.ts` 那一行 +
+ *   这个常量），否则这条判定悄悄失效——两边都不引用对方，是故意的（前端不能 import
+ *   `apps/api/src`），所以只能靠这条注释与两边的字面量一致来维持。
+ */
+const WAVE2_BACKED_DUTY_MARKER = "查看/编辑源码请点卡片上的「编辑源码」";
+
+function isSourceFileBacked(row: SkillListItem): boolean {
+  return row.duty.includes(WAVE2_BACKED_DUTY_MARKER);
+}
+
+/**
  * #520 —— `/skill` 的 Skill 库屏，**接真实后端**（#459 / PR #518 的 `SkillController`）。
  *
  * 它只画后端**真的能给出**的东西：`SkillListItem` 的七个字段，加上 `getSkillDetail`
@@ -138,6 +182,8 @@ interface DraftForm {
   fallbackDeclaration: string;
   visibility: "org-wide" | "team-only";
   modelRef: string;
+  /** G5——逗号分隔文本框，最简单可用的 tag 输入，仓库里没有现成的 chip-input 组件可复用。 */
+  tags: string;
 }
 
 const EMPTY_FORM: DraftForm = {
@@ -150,6 +196,7 @@ const EMPTY_FORM: DraftForm = {
   readsRawTranscript: false,
   fallbackDeclaration: "",
   visibility: "org-wide",
+  tags: "",
   /**
    * ⚠ 服务端目前不校验 `modelRef` 的取值（`MODEL_UNAVAILABLE` 那条路径还没有生产者），
    *   但契约要求它非空。给一个可改的缺省值，而不是在提交时偷偷补一个 —— 后者会让
@@ -195,6 +242,25 @@ interface PendingRow {
 }
 
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
+  /**
+   * 「编辑源码」目的地：同一个 `/skill` 路由的 `catalog` 屏，带上 `edit=<skillId>`
+   * 让 `CapabilityCatalogScreen` 自动展开那一行的编辑表单（见该组件里读这个 query
+   * 参数的那段）。保留当前已有的其它 query 参数（`as`/`org`/`state`）——同
+   * `skill-app.tsx` 里 `href()` 的纪律，不能因为跳一次「编辑源码」就丢了预览视角。
+   *
+   * ⚠ 故意不用 `next/navigation` 的 `useSearchParams()`——那会把这个已经挂在服务端
+   *   `searchParams` prop 之上的页面拖进「必须包 `<Suspense>`」的客户端渲染路径，
+   *   这里只是拼一个链接，不需要那一层。直接读 `window.location.search`
+   *   （客户端组件，浏览器渲染时才需要这个值——SSR 期间给个安全的空字符串兜底）。
+   */
+  function editSourceHref(skillId: string): string {
+    const currentSearch = typeof window === "undefined" ? "" : window.location.search;
+    const p = new URLSearchParams(currentSearch);
+    p.set("screen", "catalog");
+    p.set("edit", skillId);
+    return `?${p.toString()}`;
+  }
+
   const generation = React.useRef(0);
   const currentOrgId = React.useRef(orgId);
   currentOrgId.current = orgId;
@@ -283,7 +349,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-5" data-testid="skill-catalog-live">
+    <div className="relative flex flex-col gap-5" data-testid="skill-catalog-live">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -328,6 +394,13 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       </p>
 
       {creating ? (
+        <Modal
+          title="新建 Skill"
+          subtitle="三条路径：完全新建（契约表单）／从 GitHub 导入／从市场挑一个改"
+          onClose={() => setCreating(false)}
+          testid="skill-create-modal"
+          width="lg"
+        >
         <div className="flex flex-col gap-3" data-testid="skill-create-launcher">
           <CreateModeTabs mode={createMode} onChange={setCreateMode} />
           {createMode === "form" ? (
@@ -348,6 +421,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           ) : null}
           {createMode === "market" ? <MarketPickUnavailable /> : null}
         </div>
+        </Modal>
       ) : null}
 
       {notice ? (
@@ -437,20 +511,48 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
                   </Badge>
                 </div>
                 <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
+                {/*
+                  G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的
+                  异常状态，不占位、不显示「无标签」这类提示语（同 contract.md §3④）。
+                */}
+                {(row.tags ?? []).length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1" data-testid="skill-catalog-tags">
+                    {/* key 带下标：tags 是自由文本输入（`skill-create-tags`），
+                        不去重（G5 契约没有要求唯一），同一个 tag 可能重复出现。 */}
+                    {(row.tags ?? []).map((tag, i) => (
+                      <Badge key={`${tag}-${i}`} tone="neutral" className="font-normal">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
                 <p className="text-10 text-muted-foreground">
                   满意度{" "}
                   {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
                   {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
                 </p>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="self-start"
-                  onClick={() => void openDetail(row.skillId)}
-                  data-testid="skill-catalog-detail"
-                >
-                  查看契约
-                </Button>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {/*
+                    G2/G6：`isSourceFileBacked` 为真的行在 `skill_contracts` 里没有对应
+                    记录，「查看契约」必 404（见上方文件头长注）——换成真实可达的
+                    「编辑源码」，不是两个都摆、其中一个是死路。
+                  */}
+                  {isSourceFileBacked(row) ? (
+                    <Button asChild size="xs" variant="ghost" className="self-start" data-testid="skill-catalog-edit-source">
+                      <a href={editSourceHref(row.skillId)}>编辑源码</a>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="self-start"
+                      onClick={() => void openDetail(row.skillId)}
+                      data-testid="skill-catalog-detail"
+                    >
+                      查看契约
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -694,6 +796,8 @@ function CreatePanel({
   async function submit() {
     setError(null);
     setSubmitting(true);
+    // G5：逗号分隔 → 数组；同 `dataScope` 那行的纪律——空串是空 tags，不是 `[""]`。
+    const tags = form.tags.split(",").map((t) => t.trim()).filter((t) => t !== "");
     const input: CreateSkillDraftIn = {
       orgId,
       name: form.name,
@@ -709,6 +813,7 @@ function CreatePanel({
       },
       visibility: form.visibility,
       modelRef: form.modelRef,
+      tags,
       // ⚠ 这里**没有** `source`：它由服务端按入口打标；写它 ⇒ `SOURCE_TAG_IMMUTABLE`。
     };
     try {
@@ -725,6 +830,8 @@ function CreatePanel({
           currentVersionId: created.versionId,
           // 契约：null ⟺ 样本不足。新建的 skill 一次调用都没有过。
           satisfaction: null,
+          // G5：乐观插入这一行时回填使用者刚填的 tags——不是编的，是这次提交本身的入参。
+          tags,
         },
         `已创建草稿「${form.name}」（skillId ${created.skillId}）`,
       );
@@ -822,6 +929,17 @@ function CreatePanel({
             data-testid="skill-create-model"
             value={form.modelRef}
             onChange={(e) => set("modelRef", e.target.value)}
+          />
+        </Field>
+        {/* G5（2026-08-14，人类原话：「新建的时候要支持添加tags」）——最简单可用的输入：
+            逗号分隔文本框，与上面 `dataScope` 同一种输入方式，不引入新的 chip-input 组件。 */}
+        <Field id="skill-create-tags" label="标签（可选，逗号分隔）">
+          <Input
+            id="skill-create-tags"
+            data-testid="skill-create-tags"
+            placeholder="例如：客服, 数据分析"
+            value={form.tags}
+            onChange={(e) => set("tags", e.target.value)}
           />
         </Field>
 

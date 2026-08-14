@@ -17,11 +17,16 @@ description: >
 > 不同厂商的模型、不同工具集、甚至开源社区贡献的自定义 agent。协作协议必须是
 > "读文档 + 走机械契约"就能懂，不能依赖 Claude Code 私有机制（跨会话消息、
 > Claude 专属工具）作为协议本体——那些是加速手段，不是契约。
-> ⚠ 2026-07-08（ADR-009）起：**认领/心跳/退位/唯一性的协调权威已整体迁至
-> coord-service（D1）**，不再是 GitHub issue/label；feature 规格与
-> `status:*` label 的单向只读投影（见 `.agents/skills/github-projector`）不受影响、仍然有效。
+> ⚠ 2026-07-08（ADR-009）起：**认领/心跳/退位/唯一性的协调权威**已整体迁离
+> GitHub issue/label；2026-07-18（ADR-017）起，权威载体又从 ADR-009 确立的
+> **coord-service（D1）割接到 coord-gateway（每仓一个 RepoHub Durable Object）**——
+> ADR-017 只换载体，不改 ADR-009 定的 claim/heartbeat/TTL/fail-closed 语义；旧
+> `COORD_SERVICE_URL`/`COORD_SERVICE_TOKEN` 已退役，配了也不会被读取（实测见
+> `pnpm harness module-lock-status` 的报错原文）。feature 规格与 `status:*` label
+> 的单向只读投影（见 `.agents/skills/github-projector`）不受影响、仍然有效。
 > 下文提到"issue/label"的地方，指的是这条投影通道，不是协调锁本身——细则见
-> `.harness/instructions/multi-agent-coordination.md` 顶部说明。
+> `.harness/instructions/multi-agent-coordination.md` 顶部说明（该文件本身尚未
+> 同步 ADR-017，读它时留意这条落差，已提请 coord-architecture 后续跟进）。
 
 ## 何时使用
 - 人类让本会话"当 architecture/harness 架构负责人"。
@@ -73,14 +78,16 @@ description: >
 
 ## 启动仪式
 1. 读 `.harness/agents/registry.yaml` 确认自己是 `coord-architecture`。
-2. **唯一性机制同 module-coordinator（ADR-009 起，D1 是唯一权威）**：`pnpm harness
-   module-lock-acquire --module architecture --session coord-architecture`（及对应的
-   `module-lock-heartbeat`/`module-lock-release`）。~~`coordination:lease:architecture`
-   label + `gh issue comment` 心跳仪式~~ 已退役，存量 issue 保留为历史记录，不再读写，
-   不是"两种等价方式"，D1 是唯一裁定。但你巡检的对象本来就不是 lease issue 队列，
-   而是"文档 vs 实际协作事故"的落差——定期读各模块 coordinator 在协调叙述 issue（如
-   #323）下的报到评论、总线上反复出现的同类问题，收集"文档没说清楚导致的真实事故"
-   作为待办输入。
+2. **唯一性机制同 module-coordinator（ADR-009 定语义，ADR-017 起 coord-gateway 是
+   唯一权威载体）**：`pnpm harness module-lock-acquire --module architecture --session
+   coord-architecture`（及对应的 `module-lock-heartbeat`/`module-lock-release`），
+   需要 `COORD_GATEWAY_URL`/`COORD_API_TOKEN`/`COORD_REPO`（按仓 scoped token，走
+   devportal 自助领取，p29-F08；agent 拿不到时需要人类先开通，不能代填）。
+   ~~`coordination:lease:architecture` label + `gh issue comment` 心跳仪式~~ 已退役，
+   存量 issue 保留为历史记录，不再读写，不是"两种等价方式"，coord-gateway 是唯一裁定。
+   但你巡检的对象本来就不是 lease issue 队列，而是"文档 vs 实际协作事故"的落差——
+   定期读各模块 coordinator 在协调叙述 issue（如 #323）下的报到评论、总线上反复出现
+   的同类问题，收集"文档没说清楚导致的真实事故"作为待办输入。
 3. 向总协调会话报到，说明当前在迭代哪一块。
 
 ## 产出流程
@@ -97,11 +104,12 @@ description: >
 ## 面向跨平台/开源接入的具体设计原则
 - **身份可自描述**：registry.yaml 里每个 agent 条目只需要 id/kind/model/areas 这类
   平台无关字段；不要引入只有 Claude Code 才懂的字段。
-- **协调权威与只读投影分层**：认领/心跳/退位这类协调锁的权威在 coord-service（D1），
-  接入需要 `COORD_GATEWAY_URL`/`COORD_API_TOKEN` 凭据（ADR-009）；feature 规格、
-  `status:*` label 这类**只读投影**任何能读写 GitHub 的 agent 都能看懂，不需要
-  Claude 专属 API——但"能读 issue"不等于"能参与协调认领"，这两件事分开说清楚，
-  不要合成一句"issue/label 是协作总线"笼统带过。
+- **协调权威与只读投影分层**：认领/心跳/退位这类协调锁的权威在 coord-gateway（每仓
+  一个 RepoHub DO，ADR-017 割接自 ADR-009 确立的 coord-service/D1），接入需要
+  `COORD_GATEWAY_URL`/`COORD_API_TOKEN`/`COORD_REPO` 凭据；feature 规格、`status:*`
+  label 这类**只读投影**任何能读写 GitHub 的 agent 都能看懂，不需要 Claude 专属
+  API——但"能读 issue"不等于"能参与协调认领"，这两件事分开说清楚，不要合成一句
+  "issue/label 是协作总线"笼统带过。
 - **门禁与信任无关平台**：evidence 门控、review 路由规则对所有 agent 一视同仁，
   不因为"这是 Claude 生成的"就降低验证标准。
 - **新增 agent 类型的最小成本**：写清楚"一个新 agent 想加入,最少要读哪几份文档、
@@ -114,9 +122,11 @@ description: >
   这类决策由人类或 coord-main 拍板，你负责把决策落成可执行的文档/协议。
 
 ## 领域/商业知识（为什么需要一个专门角色维护协议本身）
-真实教训：本仓协作协议至少经历过一次协调权威整体迁移（ADR-009：从 GitHub issue/
-label 迁移到 coord-service/D1），若没有专人盯着"迁移后哪些文档还在讲旧机制"，
-就会出现"文档说一套、代码做另一套"的漂移——这正是你职责范围第 3 条要防的事。
+真实教训：本仓协作协议至少经历过两次协调权威迁移（ADR-009：从 GitHub issue/label
+迁移到 coord-service/D1；ADR-017：coord-service/D1 又割接到 coord-gateway/RepoHub
+DO），若没有专人盯着"迁移后哪些文档还在讲旧机制"，就会出现"文档说一套、代码做
+另一套"的漂移——本 skill 自身就在 2026-08-14 的一次 review 中被发现三处停留在
+ADR-009 措辞、未同步 ADR-017（约滞后四周），是这条纪律最直接的反例，不是假设。
 外部参照（抄的是治理思路，不是照搬工具）：
 - **MADR（Markdown Architectural Decision Records）**：核心主张是 ADR 应该短小、
   纯文本、版本可控，并且"先用最简模板，需要时才加可选章节"——对应本仓
@@ -132,12 +142,28 @@ label 迁移到 coord-service/D1），若没有专人盯着"迁移后哪些文�
   规则"当成协议的一部分显式声明，而不是让新来者自己摸索。
   ([MCP 概览](https://www.dremio.com/blog/the-model-context-protocol-mcp-a-beginners-guide-to-plug-and-play-agents/))
 
+## 踩坑与经验（append-only，最新在上；同 mod-_template 的回流格式）
+- 2026-08-13：**新模板落地第一份真实实例前，先查是否已有旧格式的示例占了同一个
+  template_id**——真实事故：`TPL-EVT-001` 在 E1（HMV2-006~012）阶段就有一份示例
+  实例（原路径 `.harness/templates/examples/EVT-hmv2-e1-001.yaml`，已随本条裁决迁走，此处是历史指路非现存声明 <!-- skill-doctor:ignore -->）——
+  通用 InstanceMetadata 形状，H3A-033 后来给同一个 template_id 定义了专属 envelope schema（无 status/
+  scope 字段），两者一直并存到 HMV2-017 落第一份真正业务用途的实例时才被发现——
+  是又一次"同一事实两处声明"（这次是"同一 template_id 两套 schema"）。裁决：
+  以有 doctor+实例+renderer 三件对齐的那一套为权威，另一套迁移或退役，不是"两个都留
+  着以示兼容"（出处：#422，2026-08-13 裁决 + PR #1128 执行）。
+- 2026-08-11：**"活跃产能优先于在场负责人"是可用的临时裁决原则，但必须留痕**——
+  见 `.agents/skills/coordinator` 同名条目（该原则由 coord-main 应用于代跑本角色的
+  Epic 工作），本条从 architecture-coordinator 视角记录：回归后第一件事应该是读
+  对应协调线（如 #422）核实代跑期间的决策是否符合本 skill 既定的设计原则，而不是
+  默认全盘接受或全盘推翻。
+
 ## 迭代/进化机制（这份 skill 自己怎么变好）
 - 本 skill 属于 `.harness/state/skill-upgrade-backlog.md` 的批次 A，升级历史记在该
   文件的"迭代日志"，不在本文件重复维护。
 - **你是全仓所有协调类 skill 的结构维护者**：coordinator/module-coordinator/
   harness-auditor 这三个 skill 的语义变更都经你手；但反过来，**本 skill 自身的
   修订不能只靠自己审自己**——走正常 PR + review（同你在"产出流程"里对别人的要求），
-  避免"维护规则的人不受规则约束"这种信任腐蚀。
+  避免"维护规则的人不受规则约束"这种信任腐蚀。上方"踩坑与经验"是这条回流规则的
+  具体落点，代跑本角色职责的 agent 也应在收尾时补一条，不必等你亲自动手。
 - **触发时机**：事故复盘发现协议缺口时、或定期跑一遍 `.agents/skills/harness-auditor`
   的五子系统审计发现"指令"子系统扣分时，是本 skill 该被修订的信号。

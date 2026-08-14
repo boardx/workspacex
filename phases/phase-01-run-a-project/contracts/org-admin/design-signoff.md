@@ -1,7 +1,16 @@
 ---
 bundle: org-admin
 phase: "01"
-covers: [F03, F04, F05, F06, F07, F10, F11, F12, F13, F14, F15, F16]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-13（F163）：追加 **F163**，由 coord-main 依 `contract-design.md` 的「covers
+#   追加规则」自行追加。三条件逐条对照：
+#     1. **UI 已签**：F163 的界面落点（`admin-members-boundary`/`admin-members-private-counts`
+#        等 testid）已在本束 `ui.md` §3.5「管理员边界」逐屏记录并签核（line 64 / 167-186）。
+#     2. **契约已签**：F163 spec_ref = `01-auth/uc-1-4`，与本束覆盖的 UC-1.4 一致；
+#        只接既有真端点，未新增 operation。
+#     3. **零新增设计面**：不新增错误码/字段/屏/交互语义（个人层计数、项目层留痕、
+#        `[看我的访问记录]` 均为已签核材料里的既有描述，本次只是补接线）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F03, F04, F05, F06, F07, F10, F11, F12, F13, F14, F15, F16, F163]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

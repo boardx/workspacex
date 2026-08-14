@@ -101,13 +101,40 @@ describe("2026-08-13 /skill 单屏卡片网格 + 后台 AdminNav 侧栏", () => 
   it("④ 源码层面：skill-app.tsx 的 left= 传的是 <AdminNav，不是别的东西", () => {
     const src = readFileSync(resolve(ROOT, "components/skill/skill-app.tsx"), "utf8");
     expect(src).toMatch(/left=\{<AdminNav\s+active="skill"\s*\/>\}/);
-    // 反空转：不是整个 AppShell 调用都被删了，right 插槽还在正常传。
-    expect(src).toMatch(/<AppShell[\s\S]*?right=\{<RightRail/);
+    // 反空转：不是整个 AppShell 调用都被删了，right 插槽还在按屏条件传（见 G7）。
+    expect(src).toMatch(/<AppShell[\s\S]*?right=\{isProductionScreen \? undefined : <RightRail/);
     // catalog 屏渲染分支仍然保留在源码里（防止「删导航项」滑成「删屏」）。
     expect(src).toMatch(/screen === "catalog"/);
     // 旧的 LeftNav 组件定义与 LEFT_NAV_SCREENS 常量声明不再存在于源码里
     // （正则只锁"声明"，允许说明性注释里提到这两个历史名字用于交代沿革）。
     expect(src).not.toMatch(/const LEFT_NAV_SCREENS/);
     expect(src).not.toMatch(/function LeftNav\(/);
+  });
+});
+
+describe("G7（2026-08-14，人类原话：「不需要右边的 column」）—— library/catalog 不再挂 RightRail", () => {
+  it("library 屏：AppShell 收到的 right 是 undefined（RightRail 完全不渲染）", () => {
+    capturedAppShellProps = null;
+    render(<SkillApp {...BASE_PROPS} screen="library" />);
+    expect(capturedAppShellProps).not.toBeNull();
+    expect(capturedAppShellProps!.right).toBeUndefined();
+    expect(screen.queryByTestId("skill-right-rail")).toBeNull();
+  });
+
+  it("catalog 屏：同 library，AppShell 收到的 right 也是 undefined", () => {
+    capturedAppShellProps = null;
+    render(<SkillApp {...BASE_PROPS} screen="catalog" />);
+    expect(capturedAppShellProps!.right).toBeUndefined();
+    expect(screen.queryByTestId("skill-right-rail")).toBeNull();
+  });
+
+  it("反证：签核用的原型屏（library-prototype）仍然保留 RightRail——不是把它整个删掉", () => {
+    // ⚠ 这里的 fake `AppShell`（见文件头 mock）只转发渲染 `left`/`children`，不渲染
+    //   `right`——所以只能断言**捕获到的 prop**本身，不能像①那样再断言 DOM 里有
+    //   `skill-right-rail`。prop truthy 已经足够证明「library/catalog 传 undefined，
+    //   其余屏仍然传一个真实 element」这条区分没有被误伤成「全部屏都不传了」。
+    capturedAppShellProps = null;
+    render(<SkillApp {...BASE_PROPS} screen="library-prototype" />);
+    expect(capturedAppShellProps!.right).toBeTruthy();
   });
 });

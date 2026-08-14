@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DigitalInterviewCreateModal } from "./digital-interview-create-modal";
 import { listMockDigitalInterviewDrafts, type MockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
+import { InterviewHistoryCardActions } from "./interview-history-card-actions";
 import {
   MOCK_DIGITAL_EXPERTS,
   MOCK_EXPERT_CATEGORIES,
@@ -23,13 +24,6 @@ type LoadState<T> =
   | { kind: "loading" }
   | { kind: "ready"; items: readonly T[] }
   | { kind: "error"; reason: string };
-
-const HISTORY_FILTERS = [
-  { value: undefined, label: "全部" },
-  { value: "running", label: "进行中" },
-  { value: "questions_pending", label: "待确认" },
-  { value: "completed", label: "已完成" },
-] as const;
 
 const STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"], string> = {
   draft: "草稿",
@@ -49,7 +43,7 @@ function reasonOf(error: unknown): string {
 
 export function InterviewStudioHome({ initialTab = "history", initialCreateOpen = false }: { initialTab?: Tab; initialCreateOpen?: boolean }) {
   const [tab, setTab] = React.useState<Tab>(initialTab);
-  const [status, setStatus] = React.useState<string | undefined>();
+  const [selectedTag, setSelectedTag] = React.useState<string | undefined>();
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
@@ -57,15 +51,43 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
   React.useEffect(() => {
     let active = true;
     setHistory({ kind: "loading" });
-    void loadDigitalInterviewHistory(status).then(
+    void loadDigitalInterviewHistory().then(
       (result) => active && setHistory({
         kind: "ready",
-        items: [...listMockDigitalInterviewDrafts().map(mockDraftHistoryRow), ...result.items],
+        items: combineHistoryRows(result.items),
       }),
       (error: unknown) => active && setHistory({ kind: "error", reason: reasonOf(error) }),
     );
     return () => { active = false; };
-  }, [status]);
+  }, []);
+
+  const refreshMockHistory = React.useCallback(() => {
+    setHistory((current) => current.kind === "ready"
+      ? { kind: "ready", items: combineHistoryRows(current.items) }
+      : current);
+  }, []);
+
+  const historyItems = React.useMemo(
+    () => history.kind === "ready" ? history.items : [],
+    [history],
+  );
+  const availableTags = React.useMemo(() => {
+    const tags = new Set<string>();
+    for (const item of historyItems) {
+      for (const tag of item.tags) {
+        const normalizedTag = tag.trim();
+        if (normalizedTag) tags.add(normalizedTag);
+      }
+    }
+    return Array.from(tags);
+  }, [historyItems]);
+  const visibleHistoryItems = selectedTag
+    ? historyItems.filter((item) => item.tags.some((tag) => tag.trim() === selectedTag))
+    : historyItems;
+
+  React.useEffect(() => {
+    if (selectedTag && !availableTags.includes(selectedTag)) setSelectedTag(undefined);
+  }, [availableTags, selectedTag]);
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
@@ -99,13 +121,12 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
         {tab === "history" ? (
           <section aria-label="历史访谈" className="pt-6">
             <FilterBar>
-              {HISTORY_FILTERS.map((filter) => (
-                <FilterButton key={filter.label} active={status === filter.value} onClick={() => setStatus(filter.value)}>
-                  {filter.label}
-                </FilterButton>
+              <FilterButton active={selectedTag === undefined} onClick={() => setSelectedTag(undefined)}>全部</FilterButton>
+              {availableTags.map((tag) => (
+                <FilterButton key={tag} active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>{tag}</FilterButton>
               ))}
             </FilterBar>
-            <HistoryContent state={history} />
+            <HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshMockHistory} />
           </section>
         ) : (
           <section aria-label="专家列表" className="pt-6">
@@ -166,6 +187,13 @@ function mockDraftHistoryRow(draft: MockDigitalInterviewDraft): DigitalInterview
   };
 }
 
+function combineHistoryRows(serverItems: readonly DigitalInterviewHistoryRow[]): readonly DigitalInterviewHistoryRow[] {
+  return [
+    ...listMockDigitalInterviewDrafts().map(mockDraftHistoryRow),
+    ...serverItems.filter((item) => !item.interviewId.startsWith("mock-batch-")),
+  ];
+}
+
 function TabButton({ active, testId, onClick, children }: {
   active: boolean; testId: string; onClick: () => void; children: React.ReactNode;
 }) {
@@ -198,18 +226,18 @@ function FilterButton({ active, onClick, children }: {
   );
 }
 
-function HistoryContent({ state }: { state: LoadState<DigitalInterviewHistoryRow> }) {
+function HistoryContent({ state, onChanged }: { state: LoadState<DigitalInterviewHistoryRow>; onChanged: () => void }) {
   if (state.kind === "loading") return <StatePanel>正在加载历史访谈…</StatePanel>;
   if (state.kind === "error") return <StatePanel testId="itv-history-error">加载失败：{state.reason}</StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-history-empty">还没有符合条件的访谈。</StatePanel>;
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} />)}
+      {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} onChanged={onChanged} />)}
     </div>
   );
 }
 
-function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
+function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; onChanged: () => void }) {
   const action = historyPrimaryAction(item);
   return (
     <article data-testid={`itv-history-card-${item.interviewId}`} className="flex min-h-64 flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -230,9 +258,12 @@ function HistoryCard({ item }: { item: DigitalInterviewHistoryRow }) {
           <span>{item.completedExpertCount} / {item.expertCount} 位专家完成</span>
           <time>{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time>
         </div>
-        <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-          {action.label}<ArrowRight className="size-4" />
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            {action.label}<ArrowRight className="size-4" />
+          </Link>
+          <InterviewHistoryCardActions item={item} onChanged={onChanged} />
+        </div>
       </div>
     </article>
   );

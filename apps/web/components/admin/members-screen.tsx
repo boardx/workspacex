@@ -3,7 +3,6 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowUpRight, EyeOff, ScrollText, FileClock, Gauge, UserPlus } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
-import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +66,15 @@ function PendingStatusBadge({ status, sentDays }: { status: MemberStatus; sentDa
  * 同一屏三按钮，不是三个独立左栏菜单项，因此不新增 `AdminModuleKey`。 */
 type MembersTabKey = "quota" | "usage" | "policy";
 
+/*
+ * lint-no-backend-badge:backed-by-children —— 这块屏的真实请求全在同目录子组件里：
+ * `member-quota-tab`（配额三卡与成员行）、`usage-monitor-tab`（四窗口聚合 + 限额事件）、
+ * `limit-rules-live`（限额规则 CRUD）、`admin-boundary-live`（个人层计数与访问留痕）。
+ * 屏文件自己只剩布局与几处仍是 mock 的引用（邀请/待激活块，属 F11 整并地盘）。
+ *
+ * ⚠ 这不是「把门关掉」：`lint-no-backend-badge.mjs` 读到这行标记后**会去验证**它——
+ * 至少一个同目录子组件确实有后端调用才放行。子组件全变回 mock 的那天，这行标记救不了它。
+ */
 export function MembersScreen({ state }: { state: UiState }) {
   const [tab, setTab] = React.useState<MembersTabKey>("quota");
   const [inviteOpen, setInviteOpen] = React.useState(false);
@@ -85,10 +93,15 @@ export function MembersScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="成员配额"
       title="成员与配额"
-      /* F160：整屏级的「尚未接入真实后端」摘掉——「成员配额」这一 tab 已经读真库。
-         但「另外两个 tab 仍然是 mock」（用量监控 F161 / 限额策略 F162 未做），
-         所以那条提示搬进那两个 tabpanel 里，按 tab 说实话。
-         整屏一刀切地摘掉会让还在骗人的两个 tab 混进「已接线」的观感。 */
+      /* F160：整屏级的「尚未接入真实后端」摘掉——三个 tab 都已读真库。
+         仍是 mock 的局部区块（限额策略里的「降级阈值三级 / 按任务分级」，属 phase-03 F14）
+         自带提示，贴着那个区块渲染——按区块说实话，比在页头挂一条覆盖全屏的话诚实。
+
+         ⚠ #1165：只摘 `noticeOverride` 是不够的——`AdminScreen` 会落进
+         `noticeOverride ?? <SampleConfigNotice />` 的默认分支，把一条讲「模型型号与定价」
+         的提示挂到配额屏上（人类 2026-08-14 截图实测）。`liveBacked` 是那个缺口的第三态：
+         这块屏既不是「示例组织配置」也不是「零后端」，两条屏级提示都不适用。 */
+      liveBacked
       intro="管理员不是超级用户。你能看到每个人的用量与个人层「条目数」，但看不到个人层的内容——这一层是三层记忆里唯一对管理员封闭的一层。团队/名册/邀请的完整管理在「组织成员」（下方链接，已接真实后端）；本屏只做配额与「管理员看不到什么」这两块，两者不是同一功能。"
       emptyHint="组织里还没有成员"
       errors={{ quota: "提额失败：目标额度超过组织剩余额度（1,380 万 tokens），请先调整组织总额度" }}
@@ -111,9 +124,13 @@ export function MembersScreen({ state }: { state: UiState }) {
           </div>
         </TabsContent>
 
+        {/* ⚠ #1165 顺带修掉的第二处：这里原本在 tabpanel 级也挂了一条 NoBackendNotice
+            （F161 按 tab 分区时留下的）。F162 之后限额规则区已读真库，那条「panel 级」的
+            提示等于在说「整个 tab 都是假的」——不实。真正仍是 mock 的只有 tab 内部的
+            「降级阈值三级 / 按任务分级」两块（属 phase-03 F14），它们的提示由
+            `LimitPolicyTab` 贴着那个区块渲染。两条同时在，红横幅还会出现两次。 */}
         <TabsContent value="policy" data-testid="admin-members-tabpanel-policy">
           <div className="flex flex-col gap-3 pt-3">
-            <NoBackendNotice />
             <LimitPolicyTab />
           </div>
         </TabsContent>

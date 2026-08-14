@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createMockDigitalInterviewDraft,
   createDefaultMockInterviewQuestions,
+  deleteMockDigitalInterviewDraft,
   listMockDigitalInterviewDrafts,
   reconcileMockInterviewQuestions,
+  updateMockDigitalInterviewMetadata,
 } from "@/lib/mock/digital-interview-drafts";
 
 const STORAGE_KEY = "wsx.mockDigitalInterviewDrafts.v1";
@@ -158,5 +161,38 @@ describe("Mock digital interview draft compatibility", () => {
       selectedExpertIds: ["expert-a"],
       questions: [expect.objectContaining({ questionId: "expert-a:generated:1" })],
     }));
+  });
+
+  it("只更新 Mock 访谈名称与标签并保留流程内容", () => {
+    const draft = createMockDigitalInterviewDraft({ name: "旧名称", tags: ["旧标签"] });
+
+    const updated = updateMockDigitalInterviewMetadata(draft.interviewId, {
+      name: " 新名称 ",
+      tags: ["采购", "采购", " 德国 ", "储能", "决策", "B2B", "超限"],
+    });
+
+    expect(updated).toMatchObject({ name: "新名称", tags: ["采购", "德国", "储能", "决策", "B2B"] });
+    expect(updated.currentStep).toBe(draft.currentStep);
+    expect(updated.version).toBe(draft.version + 1);
+  });
+
+  it("拒绝更新 Mock 访谈为空白名称", () => {
+    const draft = createMockDigitalInterviewDraft({ name: "访谈", tags: [] });
+
+    expect(() => updateMockDigitalInterviewMetadata(draft.interviewId, { name: "  ", tags: [] }))
+      .toThrow("MOCK_INTERVIEW_NAME_REQUIRED");
+  });
+
+  it("删除 Mock 草稿后不再出现在历史存储中", () => {
+    const keep = createMockDigitalInterviewDraft({ name: "保留", tags: [] });
+    const removed = createMockDigitalInterviewDraft({ name: "删除", tags: [] });
+
+    deleteMockDigitalInterviewDraft(removed.interviewId);
+
+    expect(listMockDigitalInterviewDrafts().map((draft) => draft.interviewId)).toEqual([keep.interviewId]);
+  });
+
+  it("拒绝删除非 Mock 访谈", () => {
+    expect(() => deleteMockDigitalInterviewDraft("interview-real")).toThrow("MOCK_INTERVIEW_NOT_FOUND");
   });
 });

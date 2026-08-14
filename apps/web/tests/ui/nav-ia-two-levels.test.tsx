@@ -18,8 +18,10 @@
  * 数组里）——这六项在数据层面的位置没变，仍然满足「不是一级导航」。但 §3 判的是**渲染**，
  * 而这次五项（templates/skills/agent-runtime/asset-governance/canvas）被真合并进了
  * 「AI 能力」组，`admin-nav.tsx` 不再把它们渲染成第二个入口（见 `MERGED_SECOND_LEVEL_KEYS`）
- * ——这是本轮的**目的**，不是回归。§3 拆成两组：`STILL_RENDERED_UNDER_ADMIN`（只剩
- * `org-admin`，本轮未动）与原 `MUST_BE_UNDER_ADMIN`（六项，供 §1/§2 结构判定不变）。
+ * ——这是本轮的**目的**，不是回归。§3 拆成两组：`STILL_RENDERED_UNDER_ADMIN`
+ * （#1168 之后为**空**）与原 `MUST_BE_UNDER_ADMIN`（六项，供 §1/§2 结构判定不变）。
+ * ⚠ 2026-08-14（#1168）：`org-admin` 也被合并，「入口有且只有一处」这句话的承担者
+ * 因此从「二级组画出它」换成「它的唯一入口在成员配额屏里」——见 §3 最后一条。
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -37,12 +39,16 @@ afterEach(() => cleanup());
 const MUST_BE_UNDER_ADMIN = ["templates", "skills", "agent-runtime", "org-admin", "asset-governance", "canvas"];
 
 /**
- * 2026-08-11 起，§3 的渲染断言只对**没有被真合并**的项成立——`org-admin` 是这六项里
- * 唯一一个本轮未动的，其余五项已经在「AI 能力」组里有了真实的合并入口，不再在
- * 「能力域 · 全生命周期」这个二级组里画出第二份。见 `admin-nav.tsx` 的
- * `MERGED_SECOND_LEVEL_KEYS`、`lib/navigation.ts` 每一项的注释。
+ * 2026-08-11 起，§3 的渲染断言只对**没有被真合并**的项成立。
+ *
+ * ⚠ 2026-08-14（#1168）：`org-admin` 也被人类点名合并 ⇒ **这个集合现在是空的**，
+ *   二级组一项都不渲染。
+ *
+ * 空集合会让「逐项断言 href」的循环平凡通过，所以那条测试**换了主张**而不是留个空循环：
+ * 「入口有且只有一处」这句话在合并之后的检验方式不再是「二级组画出它」，
+ * 而是「二级组不画它 ∧ 它的唯一入口在合并落点上真实存在」。见 §3 第二条。
  */
-const STILL_RENDERED_UNDER_ADMIN = ["org-admin"];
+const STILL_RENDERED_UNDER_ADMIN: string[] = [];
 
 /* ══════════════════ §1 真实结构断言 ══════════════════ */
 
@@ -161,17 +167,39 @@ describe("§3 渲染层：入口有且只有一处", () => {
     expect(TOP_LEVEL_NAV_ITEMS.some((i) => i.key === "admin")).toBe(true);
   });
 
-  it("AdminNav 只画出「组织成员」这一个二级入口，href 指向它的现行屏", async () => {
+  it("AdminNav 一个二级入口都不画 —— 且仍在集合里的项（若有）href 必须指向现行屏", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
     const { ADMIN_NAV_COUNT_SOURCES } = await import("@/lib/mock/admin");
     render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />);
     const expectedHref: Record<string, string> = Object.fromEntries(
       ADMIN_SECOND_LEVEL.map((i) => [i.key, i.href]),
     );
+    // 仍会渲染的项（#1168 之后为空）：href 必须对。这段保留是为了「哪天又有项被放回来」时
+    // 它自动重新生效，而不是被删掉之后没人记得补。
     for (const key of STILL_RENDERED_UNDER_ADMIN) {
       const link = screen.getByTestId(`admin-sub-${key}`);
       expect(link.getAttribute("href")).toBe(expectedHref[key]);
     }
+    // 被合并的项：一个都不该出现在 DOM 里。
+    for (const key of MUST_BE_UNDER_ADMIN) {
+      if (STILL_RENDERED_UNDER_ADMIN.includes(key)) continue;
+      expect(screen.queryByTestId(`admin-sub-${key}`)).toBeNull();
+    }
+    // ⚠ 反空转：上面两个循环在集合都空时会一起平凡通过。`MUST_BE_UNDER_ADMIN` 非空
+    //   是它们有意义的前提。
+    expect(MUST_BE_UNDER_ADMIN.length).toBeGreaterThan(0);
+  });
+
+  it("「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里", async () => {
+    // #1168 之前这句话由「二级组画出组织成员」承担；合并之后二级组不画它了，
+    // 那句话如果没有新的承担者就变成一句无人检验的话——这条就是新的承担者。
+    const { MembersScreen } = await import("@/components/admin/members-screen");
+    render(<MembersScreen state="default" />);
+    const link = screen.getByTestId("admin-members-open-org-admin");
+    const orgAdminItem = ADMIN_SECOND_LEVEL.find((i) => i.key === "org-admin");
+    expect(orgAdminItem, "ADMIN_SECOND_LEVEL 仍须声明 org-admin（lint-nav-reachability 的文本来源）")
+      .toBeDefined();
+    expect(link.getAttribute("href")).toBe(orgAdminItem!.href);
   });
 
   it("其余五项（已真合并）不再在 AdminNav 里画出第二个入口", async () => {

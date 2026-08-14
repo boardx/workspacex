@@ -3509,8 +3509,8 @@
     {
       "id": "F155",
       "title": "L3 context-pack 检索召回接线进 chat（ContextAssemblyPort 内侧调既有引擎 + 权限约束检索 + 注入伪消息，ModelCallPort 不动）",
-      "user_visible_behavior": "对属于某项目的线程发问时，以本轮输入为 query 经既有 context-pack/retrieval 引擎（五路召回、权限约束）在当前项目范围内召回可引用片段，作为一段检索上下文伪消息注入 history；传入的可见范围等于当前 actor 范围，越权片段不被召回；引擎只接线不重写。",
-      "spec_ref": "08-chat/uc-8-7-上下文引擎分层历史.md#R4",
+      "user_visible_behavior": "对线程发问时，以本轮输入为 query 对该线程/项目范围内的「文件」做全文检索（Postgres tsvector/ts_rank）：已抽取的聊天附件正文 + 经 landAsArtifact 落地的画布产物（含保存的 mermaid 图），命中片段作为一条来源标记清晰（chat-attachment / canvas-artifact）的检索上下文伪消息注入 history；权限判定写在 SQL 谓词里，越权片段查不出来；个人线程只召回自己这条线程的附件、跨范围恒零；检索失败降级为「本次未召回」而不 fail run；ModelCallInput/ModelCallPort 形状不动。",
+      "spec_ref": "08-chat/uc-8-7-上下文引擎分层历史.md#R4 + design-deltas/context-engine-l3-file-based/contract.md",
       "depends_on": [
         "F154"
       ],
@@ -3522,11 +3522,11 @@
         "pnpm --filter api exec vitest run tests/chat/l3-retrieval-permission-scope.test.ts"
       ],
       "evidence": "",
-      "notes": "依据等级：[Backlog]+[设计]，签核参数「L3 复用既有 context-pack/retrieval 引擎，接线不重写」逐字来自 design-signoff.md。跨域接线 + context-pack 调用契约已在束级签核。ModelCallPort 不动。属 chat-context-engine 束。",
+      "notes": "依据等级：[已签核]。⚠ 实现路径已由 design delta `context-engine-l3-file-based`（人类 2026-08-14 签核，status: confirmed）修订：束级原参数「L3 复用既有 context-pack/retrieval 五路召回引擎」不再是本条的实现方式——那条引擎的向量一路没有任何生产实现（EmbeddingPort 零 implements），字面执行会撞上 RetrievalUnavailableError 整体 block。改走文件式检索（Postgres 原生 tsvector，零新增外部依赖）；既有五路引擎一行不动、不作废（V7 静态断言两个目录逐字节未变），留待 embedding provider 落地后并行接入。验收口径见该 delta 的 verification.md（V1-V8）。ModelCallPort 不动。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "07"
     },
     {
       "id": "F156",
@@ -3603,14 +3603,14 @@
       "spec_ref": "01-auth/uc-1-6-组织成员邀请与激活.md#R10",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/token-usage-single-write-path.test.ts",
         "pnpm --filter api exec vitest run tests/auth/token-usage-append-only.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F159.verify.log @ 2026-08-13T17:53:48.024Z",
       "notes": "依据等级：[实测缺口]——2026-08-12 实测（SHA 54d9e340）全仓零 token 计量落库：agent_runs 有 model_provider/model_id 却无 token 列，configured-model-provider 已从上游 usage.total_tokens 解出 tokens 并经 complete()/completeStream() 返回，execute-run 拿到后丢弃。本 feature 只做「把已经拿到的数记下来」，不新增上游调用。⚠ 写入点唯一性是本 feature 的主张，反证测试断言除 execute-run 外没有第二处 INSERT。属 org-admin 束；新表 → 需 design-delta 补签（coord-main 2026-08-12 裁决第 2 条）。"
     },
     {
@@ -3625,7 +3625,7 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
@@ -3633,7 +3633,7 @@
         "pnpm --filter api exec vitest run tests/auth/member-token-quota-overallocation-rejected.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-members-quota-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F160.verify.log @ 2026-08-13T17:55:57.072Z",
       "notes": "依据等级：[已签核] org-admin 束 ①（ui.md 第 7 行 /admin/members，锚 admin-member-quota-<id> / -save / -cancel 已建成）+ [实测缺口] 数据全来自 lib/mock/admin.MEMBERS。⚠ 与 F11 的 seat_quota（人数配额、O-29⑤ 硬阻断）是两件不同的配额，不得合并到同一列：F11 管「还能邀几个人」，本 feature 管「每人每月几个 token」。⚠ 本轮不碰名册两副本（mock/admin.MEMBERS vs mock/org-admin.ORG_MEMBERS）收敛，属 F11 整并地盘（coord-main 2026-08-12 裁决第 4 条），本屏引用哪份须在代码里如实标注。新端点 → design-delta 补签。"
     },
     {
@@ -3648,14 +3648,14 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter api exec vitest run tests/auth/usage-window-aggregation.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-usage-monitor-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F161.verify.log @ 2026-08-13T17:58:10.333Z",
       "notes": "依据等级：[已签核] 束 ① 同屏三 tab（usage-monitor-tab.tsx 已建成，锚 admin-usage-tab / admin-usage-window-<w>）+ [实测缺口] 该文件自带注释逐字承认『窗口切换只影响本地展示态（无后端），mock 定死一份「本周」快照』。本 feature 就是消灭那句注释。新端点 → design-delta 补签。"
     },
     {
@@ -3670,7 +3670,7 @@
         "F159"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
@@ -3678,7 +3678,7 @@
         "pnpm --filter api exec vitest run tests/auth/limit-rule-first-trigger-wins.test.ts",
         "pnpm --filter web exec vitest run tests/ui/admin-limit-policy-live.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F162.verify.log @ 2026-08-13T18:00:17.769Z",
       "notes": "依据等级：[原型] limit-policy-tab.tsx + lib/mock/admin-limits.LIMIT_RULES（LimitScopeKind 五值）已建成界面。⚠ 『取最先触发』这条判据来自 phase-03 F14（异常检测三级阈值取最先触发）的同一语义——本 feature 只做组织额度侧的规则求值，不把 F14 的四类任务处置矩阵领进来（coord-main 2026-08-12 裁决第 1 条：不整条领 phase-03）。新表+新端点 → design-delta 补签。"
     },
     {
@@ -3691,14 +3691,14 @@
       "spec_ref": "01-auth/uc-1-4-角色可见性判定.md#R7",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-org-admin",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/admin-members-boundary-live.test.tsx",
         "pnpm --filter api exec vitest run tests/auth/admin-boundary-personal-counts-only.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F163.verify.log @ 2026-08-13T18:01:48.461Z",
       "notes": "依据等级：[已签核 + 后端已 passing]——F06 已把 D-18 两侧做完并 passing（GET /identity/personal-layer/summary、admin-access-log 三条端点均在契约里）。本 feature **不新增任何后端**，只是把已经存在的真端点接到界面上，属纯接线。⚠ 这一条是 ui.md 第五节 K-10『管理员边界有两处载体各说各的』的收敛落点之一：本屏接真数后，/org-admin 预览屏的 boundary 原型应标注为已被产品屏取代。"
     },
     {
@@ -3941,7 +3941,139 @@
       "sprint": "05"
     },
     {
+      "id": "F175",
+      "title": "组织后台新建/复制蓝本真实落库，蓝本按组织列出（BP-01：表+迁移+pg 仓储+POST/GET 控制器）",
+      "user_visible_behavior": "组织管理员在后台点「＋ 新建蓝本」，选「从空白开始」，填名称提交 → 真实 POST /blueprints 落库，返回契约 BlueprintRow；刷新页面（重新 GET /blueprints）后这个蓝本仍在列表里（数据来自 DB 的 blueprints 表行，不是前端 state）。GET /blueprints 按 orgId 列出本组织的蓝本，每行的完成度分母 N 来自运行时读设计环节定义表（domain/templates/design-facet-table.ts，当前 15 项），不是硬编码的 15 或 16。选「套用已有蓝本」（origin=copy）新建时，新蓝本会带上源蓝本已填的设计环节内容一并落库。选「从已办过的项目反向生成」（origin=reverse-from-project）时，请求被如实拒绝（DEPENDENCY_UNAVAILABLE，detail 说明「反向生成依赖 AI 抽取能力，本版未接入」），不落库、不静默降级为空白蓝本。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R4",
+      "depends_on": [],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F175.verify.log @ 2026-08-13T15:33:41.001Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第一件（BP-01），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P1「建蓝本」的实现。\n② 依据等级：契约与纯用例均已就位——契约 packages/contracts/src/templates.ts 已人类签核（contracts/templates/design-signoff.md status=confirmed，2026-07-30，covers F17–F30），阶段一致性复核已 confirmed（2026-08-11）；纯用例 apps/api/src/application/templates/create-blueprint.ts 已存在（只编排、不碰存储、blueprintId 由调用方传入），领域 planner 在 domain/templates/create-blueprint.ts。缺的是中间层：apps/api/src/infrastructure/ 下没有 templates 目录、44 个控制器里没有蓝本控制器、migrations 里没有蓝本表。故本条不依赖任何未完成 feature（depends_on=[]）。\n③ 范围边界——做：blueprints 表 + 设计环节取值表 + 迁移；pg 仓储；POST /blueprints 的 origin=blank（空白新建）与 origin=copy（复制源蓝本已填内容）两条路径真实落库；GET /blueprints 按 orgId 列出，返回契约 BlueprintRow 形状，完成度分母运行时读定义表（禁止硬编码 15/16，见 A3 required 列由定义表驱动）。不做：origin=reverse-from-project——它要求调用方先算出「项目→设计环节」的映射（planReverseFromProject 入参 mappedFacets），该映射是 AI 抽取（契约 machineGenerated:true 即指此），全仓无任何实现，本版对该 origin 如实拒绝 DEPENDENCY_UNAVAILABLE，不猜、不静默降级为 blank；蓝本编辑/发布/复制端点之外的其它 20 多个 operation（设计环节写入、时长档位、发布版本、试跑、归档、回滚、可见性、审计……）各自是后续 BP 条目。\n④ 编号第三次撞号：取号时（当时 main 最大 F172）定为 F173，均已按活数据核实空闲；但 main 在本 feature 开发期间独立合入了 coord-voice 的 ASR 相关 feature 并抢占了 F173，发现后顺延为 **F175**（F174 同期被本人的 BP-02 占用，故不能用）。同一天内这是第三次撞号（此前 F165→F168→F172），根因已开 #1094，coord-main 已批方案 B（claim 时才定号）。重命名后 status 退回 not_started、evidence 清空，因为旧的 F173.verify.log 是在错误编号下跑出来的，必须用新编号重新走一次 claim→verify，不能只改文件名假装它一直是 F175（静态痕迹≠动态事实）。\n⑤ 预计改动文件：新建 apps/api/migrations 下蓝本表迁移；新建 apps/api/src/infrastructure/templates/（pg 仓储 + 设计环节取值表接线）；新建蓝本控制器（POST/GET /blueprints）并注册路由；新建 apps/api/tests/templates/create-blueprint-persistence.test.ts（API 层断言：blank/copy 落库后 GET 可见且行数递增、完成度分母来自定义表长度、reverse-from-project 返回 DEPENDENCY_UNAVAILABLE 且不落库）。verification 第一条指向的测试文件本 feature 会创建；lint-verification-can-fail 的 test-file 检查对尚不存在的测试文件故意不报错（未实现时该条本就应红），已实跑自查通过。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
       "id": "F174",
+      "title": "设计环节逐项乐观并发写入（BP-02：PUT design-facets/:key + item-level CAS）",
+      "user_visible_behavior": "在蓝本设计器里改任一设计环节的内容并保存 → 真实 PUT /blueprints/:blueprintId/design-facets/:designFacetKey（value + expectedItemRevision）→ 刷新（重新 GET /blueprints）后完成度分子随之变化，不是前端 state。乐观并发粒度=单项（契约注释逐字）：两个人同时改不同环节互不干扰；同一个人拿着过期的 itemRevision 再写会收到 VERSION_CHANGED，且已成功的那次写入不被覆盖。写入空值等价于清空这一项（完成度分子-1，itemRevision 回到未填哨兵），不是写入一个空字符串内容。designFacetKey 不在 15 项定义表内的请求被拒绝（不静默创建一个新键）。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R4",
+      "depends_on": [
+        "F175"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F174.verify.log @ 2026-08-13T16:57:30.474Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第二件（BP-02），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P2「编设计环节」的实现，依赖 BP-01（F175，已 passing，PR #1130）建的blueprint_design_facets 表。\n② 依据：契约 updateDesignFacet（packages/contracts/src/templates.ts）已随 templates束签核，要求乐观并发粒度=单项（注释逐字）。\n③ 范围边界——做：PUT design-facets/:key 的完整 CAS 语义（首次填/更新/清空/版本冲突/蓝本不存在五种结局）。不做：designFacetKey 校验失败没有契约专属码（对照 roleKey 有UNKNOWN_ROLE_KEY，这里没有——两处不对称是一个契约缺口，登记但不新造码，复用BLUEPRINT_NOT_FOUND：路径 (blueprintId, designFacetKey) 寻址的资源不存在，是对该码字面最不勉强的读法）。\n④ 设计决定：未填过的项用哨兵空字符串''作为 expectedItemRevision 的初始值（迁移文件头注写明依据）；item_revision 用 gen_random_uuid()，PG11+对易失默认值逐行求值（不是全表共享一个值）——这条断言不只信记忆，已用真实数据库反证。\n⑤ 迁移 20260813110000_f174_design_facet_item_revision.sql 给 blueprint_design_facets加 item_revision 列；同时发现并修复 BP-01 迁移遗留的权限缺口——该表需要 DELETE权限（清空一项是正常编辑，不是删蓝本，与 blueprints 表本身的归档语义不同），已在该迁移里一并授予。\n⑥ 本 feature 依赖 F175（尚未合入 main），分支基于 feat/bp-01-blueprint-persistence而非 main（叠加 PR），#1130 合入后需 rebase 到 main。\n⑦ 预计改动文件：blueprint-persistence-ports.ts（新增 updateDesignFacet 接口）、pg-blueprint-repository.ts（CAS 实现）、blueprint.controller.ts（PUT 端点）、create-blueprint-persistence.test.ts（追加 F174 CAS 测试组，含真库反证）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
+      "id": "F176",
+      "priority": 1,
+      "area": "skill",
+      "capability": "CAP-API",
+      "title": "消息级评价落地：chat 里对 AI 消息打 👍/👎 真的存进库，归因到 agent 版本与 skill 版本",
+      "user_visible_behavior": "在 chat 里把鼠标移到一条 AI 消息上出现 👍/👎，点 👎 可再填一句理由；点完刷新页面评价仍在（不是本地状态）。同一个人对同一条消息重复点只算一次。评价被绑定到**这条消息实际用的** agent 版本与 skill 版本；归因不全时评价仍然保存，但不计入任何 skill 的满意度，并在数据质量报表里可见。",
+      "spec_ref": "03-skill/uc-3-6-skill-改进反馈与版本触发.md#R3",
+      "depends_on": [],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "org-admin-quota",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/skill/message-rating-persistence.test.ts",
+        "pnpm --filter api exec vitest run tests/skill/message-rating-attribution-server-derived.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/chat-message-rating.test.tsx"
+      ],
+      "evidence": "evidence/F176.verify.log @ 2026-08-14T06:10:42.527Z",
+      "notes": "依据等级：[已签核] `skills` 束（covers 含 F68，status: confirmed 2026-07-30）——本 feature **零新增契约**，`rateMessage`（POST /messages/:messageId/rating）的形状 F68 已定并签核。\n\n⚠ 实测缺口（2026-08-14，SHA 8cf89fad）：F68 标着 passing，但它只做到 application 层——`RatingRepositoryPort` 全仓只有声明与引用、**没有任何 infrastructure 实现**；migrations 里 grep `message_rating` **零命中**；`skill.controller.ts` 自己写着「rateMessage 不在 #459 范围内」（**无 HTTP 路由**）；F68 的四条 verification 全在 tests/capability/skill/ 且**没有一条 import PgDatabase**（纯内存 fake）。所以本 feature 是给一条已签核契约**补地基**，形态同 F163（零新增契约、纯接线），不是新设计。\n\n⚠ **归因从 `agent_runs` 查出来，不接受前端传入**——这是本 feature 的核心不变量，也是反证要守的边界：前端能传归因，就等于任何用户都能伪造某个 skill 的满意度。消息经 `chat_messages.agent_run_id` 关联到 run，run 上有 `agent_version_id` / `skill_version_ids`。反证测试构造一个「请求体里带伪造 skillVersionId」的调用，断言落库的是服务端查出来的那个、不是请求体里的那个。\n\n⚠ 幂等键 `(messageId, raterId)`（契约 V13 逐字）：同一人对同一条消息重复评价只计一次，不是插两行也不是报错。\n\n⚠ 归因缺失（`ATTRIBUTION_MISSING`）是**记录后仍返回的告警型失败**，不是丢弃——契约注释逐字：缺 skillVersionId 的评价不计入任何 skill 满意度并进数据质量报表（I-20/V9）。\n\n本 feature 是 PROP-FEEDBACK-LOOP-E2E-001 的 FB-1（coord-main 2026-08-14 批准执行顺序 FB-1→FB-4）。FB-2/FB-3/FB-4 需要 phase-03 `feedback-loop` 束先签核，不在本条范围内。"
+    },
+    {
+      "id": "F178",
+      "title": "个人转录历史管理：真实标签筛选、名称标签修改与确认删除",
+      "user_visible_behavior": "用户进入 /rec 时，标签筛选只显示自己真实转录中存在的标签，不再出现固定示例。每张历史卡片右下角菜单可修改名称与最多 5 个标签，刷新后仍保持；也可在二次确认后永久删除转录正文与全部 capture，卡片及无引用标签立即消失。正在录音或收尾时拒绝修改和删除；删除保留不含正文的用量审计。",
+      "spec_ref": "05-rec/uc-5-7-个人转录历史管理.md#R3",
+      "depends_on": [
+        "F165"
+      ],
+      "points": 5,
+      "status": "passing",
+      "owner": "coord-voice",
+      "verification": [
+        "pnpm --filter @repo/contracts run test",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/recording/personal-transcription-management.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/realtime-transcription-history.test.tsx",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "evidence/F179.verify.log @ 2026-08-14T01:32:18.798Z",
+      "notes": "属 personal-transcription-management design delta，挂靠已确认 personal-realtime-transcription 束。垂直切片：契约 + owner-scoped tags/update/delete API + usage 外键迁移 + /rec 卡片菜单与弹窗。删除正文与 capture，但保留不含正文的 realtime_asr_usage_events；活动 capture 必须拒绝修改和删除。Issue 必须由 harness sync 创建后再 claim；共享热点为 personal-transcription-usecases/repository/controller、personal-transcription.ts 与 realtime-transcription-history.tsx。",
+      "priority": 1,
+      "area": "recording",
+      "capability": "CAP-WEB",
+      "sprint": "06"
+    },
+    {
+      "id": "F177",
+      "title": "换时长档位真实落库（BP-03：PUT duration-tier + 议程环节数派生）",
+      "user_visible_behavior": "组织管理员对一个蓝本选定/切换时长档位（半天/一天/两天/三天），后端真实落库并返回该档位的议程环节数（随档位变，不硬编码 7/11/14/19）；升档（纯新增）无需确认直接生效；降档会移除环节时，不带 confirmed=true 的请求被拒绝并返回将被移除的清单，带 confirmed=true 才生效，被移除的环节标记为可恢复（切回该档位可恢复，不静默丢弃）；目标档位为 custom 时如实拒绝（该档规则未裁，不猜一个推导式）。GET /blueprints 列表页的 agendaSegmentCount 随之从写死的 0 变为按当前档位实时派生。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F175"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F177.verify.log @ 2026-08-14T01:30:11.219Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第三件（BP-03），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P3「设时长档位」的实现。\n② 依据等级：域/应用层早已就位且高质量——`domain/templates/agenda-segment-table.ts`（R3 主表 7/11/14/19 逐字来自需求文档，`optional` 是文件自己声明的结构判断、非对 D-8 的裁决）、`domain/templates/duration-tier.ts`（纯函数 `planDurationTierChange`）、`application/templates/set-duration-tier.ts`（编排）均已存在且有独立单测覆盖；缺的只是仓储 + 控制器这一层（同 F175/F174 的缺口形状）。\n③ 范围边界——做：`blueprints` 加行级 `revision` 列（CAS 令牌，同 F174 的 `item_revision`同一动机）；仓储 `setDurationTier()`：SELECT FOR UPDATE 读快照、版本比对、调用纯函数、按结果落库或拒绝；控制器 `PUT /blueprints/:id/duration-tier`；顺带修正`list()` 里硬编码的 `agendaSegmentCount: 0`，改为随 `duration_tier` 实时派生（F175 遗留的诚实占位，档位是 'custom' 时其值本就是 0，现在有真实档位后必须跟着变，否则会出现「换了档位但列表页数字不动」的真实不一致）。不做：`setFormatAndLanguage`/`setModelStrategy`/`setQuotaPolicy`（各自独立 BP 条目）。\n④ ⚠ 真实发现的契约缺口（登记为 `KNOWN_CONTRACT_GAPS.T13`，不是本 feature 发明的，也不是本 feature 能单方补的）：`setDurationTier.in.expectedVersion` 要求调用方传入，但没有任何契约操作把它读出来——`listBlueprints.out` 不含蓝本行级的乐观并发令牌，也没有 `getBlueprint` 单条读操作。本 feature 的后端因此是**真实、可测、但前端暂时无法合法调用**的状态（真库测试直接读 `revision` 构造合法请求，同 T13 注释里写明的「不得为了看起来能用而发明一个契约没有的读端点」）——与 F175 对 `reverse-from-project`的处理是同一类诚实。真正前端接线要等这个读路径缺口被补上（新增 `getBlueprint` 或扩 `listBlueprints.out`，两者都是新增契约面，需走 delta 重签）。\n⑤ 编号：读活数据 `git show origin/main:.../feature_list.json` 取最大号=F176，F177 在两处均空闲，取 F177（#1094 教训：编号按快照取号会撞，已按此纪律核对）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
+      "id": "F179",
+      "title": "试跑与发布蓝本版本真实落库（BP-04：POST trial-runs + POST versions）",
+      "user_visible_behavior": "组织管理员对一个蓝本点「试跑」，后端记一条试跑绑定；未试跑过就点「发布」会被拒绝（TRIAL_RUN_REQUIRED），试跑过至少一次后再发布会真实生成一个不可变版本（版本号从 0 起单调递增、不复用、不缺号），旧的已发布版本同一事务内转为已归档，蓝本状态从草稿变为已发布；带着过期的版本号发布会被拒绝（VERSION_CHANGED），不产生任何新版本记录（失败不占号）；返回值包含这次发布相对上一版改动了哪些设计配置项。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F175"
+      ],
+      "points": 5,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F179.verify.log @ 2026-08-14T10:20:08.343Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第四件（BP-04），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P4「发布版本」的实现，与 F179 一并接线的还有 startTrialRun（试跑本身没有独立编号，因为发布门槛的「已试跑」判据挂在同一张绑定表上，两个操作拆开做互相测不了——没有试跑基础设施，发布门槛永远无法在真库测试里走到 applied 分支）。\n② 依据等级：域/应用层早已就位——`domain/templates/trial-run-gate.ts`（试跑门槛，D-6 未裁「已试跑」判据，本文件已声明按「创建即算」实现且登记了 KNOWN_CONTRACT_GAPS.T7）、`domain/templates/publish-blueprint-version.ts`（组合门槛 + 版本生成，纯函数）、`application/templates/publish-blueprint-version.ts`（编排，把门槛判定映射成契约错误码）均已存在且有独立单测覆盖；缺的是仓储 + 控制器这一层（同 F175/F174/F177 的缺口形状）。\n③ 范围边界——做：新建 `blueprint_versions`（不可变快照）+ `blueprint_bindings`（试跑/套用绑定，本 feature 只写 trial-run 一种 kind）两张表；仓储 `startTrialRun()`（追加绑定，无 CAS——并发试跑各自成功）与 `publishBlueprintVersion()`（版本号 CAS + 门槛判定 + 同事务的新版写入/旧版归档/蓝本行更新）；控制器`POST /blueprints/:id/trial-runs`、`POST /blueprints/:id/versions`。不做：回滚到历史版本（rollbackToVersion，另一 BP 条目）、可见性/审计（各自独立 BP 条目）。\n④ 与 F177（BP-03）不同，本 feature **没有** T13 那类读路径缺口：`expectedCurrentVersionNumber` 对照的就是 `blueprints.version_number`，而这个字段 `listBlueprints.out` 已经在返回（`BlueprintRow.versionNumber`）——客户端有合法途径拿到它，前端接线不受阻。\n⑤ `changedDesignFacetKeys` 的算法是本 feature 自己的判断（契约只给了字段形状，没给算法）：与上一个 `published` 版本的冻结快照逐 key 比较，值不同或某 key 从有变没有都算改动；首次发布没有基线可比，当前所有已填 key 都算改动——这是对「改动了哪些」字面最不勉强的读法，不是唯一可能的裁决，供人类复核。\n⑥ 编号：读活数据 `git show origin/main:.../feature_list.json` 取最大号=F176，F177 已被同会话的 BP-03（未合并，PR #1208）占用，故取 F179（#1094 教训：编号按快照取号会撞，已按活数据 + 同会话已知占用核对）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
+      "id": "F180",
       "title": "引导式 Deep Research 六屏保真与研究入口收口",
       "user_visible_behavior": "用户从主导航进入 /research 时直接看到已签核的研究首页；点击创建研究先填写必填名称和最多 5 个可选标签，确认后才进入主题表单，名称与标签随会话持久化并显示在历史卡片；之后依次进入方向、大纲、Web Search 和报告六屏。每个非首页步骤都有上下文研究 Skill，建议只有经用户明确应用才修改当前步骤，且可撤销；服务端持久化阶段顺序解锁下一步并阻止未来步骤，刷新搜索后保持搜索阶段。搜索与报告明确标为演示，不冒充真实 Web Search 或研究结论；完成后首页卡片显示「已完成」并提供「查看报告」。页面的信息层级、宽度、卡片与表单密度、步骤进度和主操作位置与 ui-preview/01-home.png 至 06-report.png 一致。引导式六屏不显示 Research Studio 二级左栏，旧 Studio 仅在显式 ?screen= 页面保留菜单，研究主入口不再落到 ?screen=detail；1280px 与 1920px 桌面视口下核心内容不被裁切。",
       "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R11",
@@ -3965,11 +4097,11 @@
         "cd apps/web && ./scripts/lint-design.sh"
       ],
       "evidence": "",
-      "notes": "用户在 PR #1146 合并后明确指出真实页面没有按已签六张 UI 图开发，并再次确认按开始设计图修改；随后明确要求创建研究先命名并填写可选标签。本 feature 收口视觉保真、主入口、创建元数据持久化与既有交互，不把 F170 Web Search 真运行态或 F171 报告真数据偷并进来；两者继续串行交付。共享热点：apps/web/components/research-studio/guided-research-flow.tsx、research-studio-app.tsx、guided research 契约/仓储及对应 tests。队列外原因：用户明确要求修复已签 UI 与真实入口的偏差。回滚：恢复本 feature 的前后端与迁移；既有会话 tags 默认空数组。",
+      "notes": "用户在 PR #1146 合并后明确指出真实页面没有按已签六张 UI 图开发，并再次确认按开始设计图修改；随后明确要求创建研究先命名并填写可选标签。本 feature 收口视觉保真、主入口、创建元数据持久化与既有交互，不把 F170 Web Search 真运行态或 F171 报告真数据偷并进来；两者继续串行交付。共享热点：apps/web/components/research-studio/guided-research-flow.tsx、research-studio-app.tsx、guided research 契约/仓储及对应 tests。队列外原因：用户明确要求修复已签 UI 与真实入口的偏差。回滚：恢复本 feature 的前后端与迁移；既有会话 tags 默认空数组。编号在合入 2026-08-14 最新 main 后由冲突的 F174 迁移为当时最大号之后的 F180。",
       "priority": 1,
       "area": "deep-research",
       "capability": "CAP-WEB",
-      "sprint": "06"
+      "sprint": "08"
     }
   ]
 }

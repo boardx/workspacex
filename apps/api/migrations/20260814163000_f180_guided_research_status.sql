@@ -1,4 +1,4 @@
--- F174 -- a report-stage session remains active until its explicit completion checkpoint.
+-- F180 -- a report-stage session remains active until its explicit completion checkpoint.
 ALTER TABLE guided_research_sessions
   ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
 

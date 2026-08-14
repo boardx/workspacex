@@ -57,6 +57,8 @@ export interface CreateSkillDraftInput {
   readonly visibility: "org-wide" | "team-only";
   readonly ownerTeamId: string | null;
   readonly modelRef: string;
+  /** G5（2026-08-14）——可选，缺省 `[]`。契约 `createSkillDraft.in.tags`。 */
+  readonly tags?: readonly string[];
   /**
    * 未经契约解析的原始请求体。
    * 契约的 `createSkillDraft.in` 是 `.strict()` 的，所以解析后永远看不到 `source`——
@@ -183,6 +185,7 @@ export async function createSkillDraft(
     visibility: input.visibility,
     ownerTeamId: input.ownerTeamId,
     modelRef: input.modelRef,
+    tags: input.tags,
   });
 
   return { ok: true, skillId: saved.skillId, versionId: saved.versionId, source, status: "草稿" };

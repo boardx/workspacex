@@ -13,7 +13,18 @@ const api = vi.hoisted(() => ({
   list: vi.fn(),
   read: vi.fn(),
   update: vi.fn(),
+  listTags: vi.fn(),
+  updateMetadata: vi.fn(),
+  deleteTranscription: vi.fn(),
   openAsr: vi.fn(),
+  openAsrDraft: vi.fn(),
+  stopAsrDraft: vi.fn(),
+  draftHandlers: null as null | {
+    onPartial: (text: string) => void;
+    onFinal: (text: string) => void;
+    onError: (reason: string) => void;
+    onFinished: () => void;
+  },
   handlers: null as null | {
     onFinal: (event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number }) => void;
   },
@@ -28,10 +39,17 @@ vi.mock("@/lib/live-personal-transcriptions", () => ({
   listPersonalTranscriptions: api.list,
   readPersonalTranscription: api.read,
   updatePersonalTranscriptionContent: api.update,
+  listPersonalTranscriptionTags: api.listTags,
+  updatePersonalTranscriptionMetadata: api.updateMetadata,
+  deletePersonalTranscription: api.deleteTranscription,
 }));
 
 vi.mock("@/lib/BoardxRealtimeAsrClient", () => ({
   openBoardxRealtimeAsr: api.openAsr,
+}));
+
+vi.mock("@/lib/live-asr-draft", () => ({
+  openAsrDraftStream: api.openAsrDraft,
 }));
 
 const EUROPE = {
@@ -49,18 +67,36 @@ beforeEach(() => {
   api.list.mockReset();
   api.read.mockReset();
   api.update.mockReset();
+  api.listTags.mockReset();
+  api.updateMetadata.mockReset();
+  api.deleteTranscription.mockReset();
   api.openAsr.mockReset();
+  api.openAsrDraft.mockReset();
+  api.stopAsrDraft.mockReset();
+  api.draftHandlers = null;
   api.handlers = null;
   api.openAsr.mockImplementation(async (_sessionId: string, options: { handlers: typeof api.handlers }) => {
     api.handlers = options.handlers;
     return { captureId: "capture-live", stop: vi.fn().mockResolvedValue(undefined) };
   });
+  api.stopAsrDraft.mockResolvedValue(undefined);
+  api.openAsrDraft.mockImplementation(async (handlers: typeof api.draftHandlers) => {
+    api.draftHandlers = handlers;
+    return { stop: api.stopAsrDraft };
+  });
   api.list.mockResolvedValue({ items: [EUROPE], nextCursor: null });
+  api.listTags.mockResolvedValue({ tags: ["客户", "市场研究"] });
   api.read.mockResolvedValue({
     ...EUROPE,
     content: "这是数据库中保存的真实逐字稿。",
   });
   api.update.mockImplementation(async (_sessionId: string, content: string) => ({ ...EUROPE, content }));
+  api.updateMetadata.mockImplementation(async (_sessionId: string, input: { name: string; tags: string[] }) => {
+    const updated = { ...EUROPE, name: input.name, tags: input.tags };
+    api.list.mockResolvedValue({ items: [updated], nextCursor: null });
+    return updated;
+  });
+  api.deleteTranscription.mockResolvedValue({ deleted: true });
 });
 
 function renderHistory() {
@@ -163,40 +199,57 @@ describe("实时转录历史工作台", () => {
     expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
   });
 
-  it("详情页开始按钮可用并启动该用户转录的 BoardX 实时客户端", async () => {
+  it("详情页复用 Chat 草稿流，并在当前页面拼接 partial 与 final 文本", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     const button = await screen.findByTestId("rec-live-toggle");
     expect(button).toBeEnabled();
     fireEvent.click(button);
-    await waitFor(() => expect(api.openAsr).toHaveBeenCalledWith(
-      "europe-entry",
-      expect.objectContaining({ sessionToken: "session-token" }),
+    await waitFor(() => expect(api.openAsrDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onPartial: expect.any(Function),
+        onFinal: expect.any(Function),
+        onError: expect.any(Function),
+        onFinished: expect.any(Function),
+      }),
+      { sessionToken: "session-token" },
     ));
+    expect(api.openAsr).not.toHaveBeenCalled();
+    expect(screen.getByTestId("rec-live-transient-notice")).toHaveTextContent("刷新或离开后将消失");
+
+    api.draftHandlers!.onPartial("正在识别");
+    expect(await screen.findByTestId("rec-live-interim")).toHaveTextContent("正在识别");
+    api.draftHandlers!.onFinal("第一句。");
+    api.draftHandlers!.onFinal("第二句。");
+    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent(
+      "这是数据库中保存的真实逐字稿。 第一句。 第二句。",
+    ));
+    expect(screen.queryByTestId("rec-live-interim")).not.toBeInTheDocument();
+    expect(api.update).not.toHaveBeenCalled();
   });
 
-  it("相同最终事件只追加一次正文", async () => {
+  it("停止后只等待 Chat 草稿流收尾，不刷新或持久化正文", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     fireEvent.click(await screen.findByTestId("rec-live-toggle"));
-    await waitFor(() => expect(api.handlers).not.toBeNull());
-    const event = { captureId: "capture-live", segmentId: "final-1", ordinal: 1,
-      text: "重复事件也只显示一次。", startMs: 0, endMs: 1_000 };
-    api.handlers!.onFinal(event);
-    api.handlers!.onFinal(event);
-    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent(
-      "这是数据库中保存的真实逐字稿。 重复事件也只显示一次。",
-    ));
-    expect(screen.getByTestId("rec-live-content")).not.toHaveTextContent("重复事件也只显示一次。 重复事件也只显示一次。");
+    await waitFor(() => expect(api.draftHandlers).not.toBeNull());
+    api.read.mockClear();
+
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+
+    await waitFor(() => expect(api.stopAsrDraft).toHaveBeenCalledTimes(1));
+    expect(api.read).not.toHaveBeenCalled();
+    expect(api.update).not.toHaveBeenCalled();
   });
 
-  it("编辑完整正文后调用 owner-only 内容更新 API", async () => {
+  it("编辑完整正文只更新当前页面，不调用正文持久化 API", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     fireEvent.click(await screen.findByTestId("rec-live-edit"));
     fireEvent.change(screen.getByTestId("rec-live-editor"), { target: { value: "修改后的全文" } });
     fireEvent.click(screen.getByTestId("rec-live-save"));
-    await waitFor(() => expect(api.update).toHaveBeenCalledWith("europe-entry", "修改后的全文", "session-token"));
+    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent("修改后的全文"));
+    expect(api.update).not.toHaveBeenCalled();
   });
 
   it("刷新后仍从 API 读回已创建转录，不依赖组件内存", async () => {
@@ -226,6 +279,8 @@ describe("实时转录历史工作台", () => {
       .mockResolvedValue({ items: [], nextCursor: null });
     renderHistory();
 
+    await waitFor(() => expect(api.listTags).toHaveBeenCalledWith("session-token"));
+
     expect(await screen.findByText("更早的持久化转录")).toBeVisible();
     expect(api.list).toHaveBeenNthCalledWith(1, {}, "session-token");
     expect(api.list).toHaveBeenNthCalledWith(2, { cursor: "cursor-2" }, "session-token");
@@ -238,6 +293,90 @@ describe("实时转录历史工作台", () => {
       { query: "合规要求", tag: "客户" },
       "session-token",
     ));
+  });
+
+  it("标签筛选只展示当前用户 API 返回的真实标签", async () => {
+    api.listTags.mockResolvedValue({ tags: ["客户成功", "江西"] });
+    renderHistory();
+
+    expect(await screen.findByTestId("rec-history-tag-客户成功")).toBeVisible();
+    expect(screen.getByTestId("rec-history-tag-江西")).toBeVisible();
+    expect(screen.queryByTestId("rec-history-tag-客户")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rec-history-tag-高优先级")).not.toBeInTheDocument();
+  });
+
+  it("卡片菜单可修改名称与标签并刷新真实标签", async () => {
+    renderHistory();
+    fireEvent.pointerDown(await screen.findByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-edit-europe-entry"));
+    expect(screen.getByTestId("rec-edit-dialog")).toBeVisible();
+    fireEvent.change(screen.getByTestId("rec-edit-name"), { target: { value: "欧洲市场复盘" } });
+    fireEvent.change(screen.getByTestId("rec-edit-tags"), { target: { value: "合规" } });
+    fireEvent.keyDown(screen.getByTestId("rec-edit-tags"), { key: "Enter" });
+    fireEvent.click(screen.getByTestId("rec-edit-submit"));
+
+    await waitFor(() => expect(api.updateMetadata).toHaveBeenCalledWith("europe-entry", {
+      name: "欧洲市场复盘",
+      tags: ["客户", "市场研究", "合规"],
+    }, "session-token"));
+    expect(await screen.findByText("欧洲市场复盘")).toBeVisible();
+    expect(api.listTags).toHaveBeenCalledTimes(2);
+  });
+
+  it("修改后按当前标签重新读取列表，不保留已不匹配的卡片", async () => {
+    const OTHER = {
+      ...EUROPE,
+      sessionId: "other-entry",
+      name: "仍属于客户标签的转录",
+    } as const;
+    api.list
+      .mockResolvedValueOnce({ items: [EUROPE, OTHER], nextCursor: null })
+      .mockResolvedValueOnce({ items: [EUROPE, OTHER], nextCursor: null })
+      .mockResolvedValueOnce({ items: [OTHER], nextCursor: null });
+    api.updateMetadata.mockResolvedValue({
+      ...EUROPE,
+      name: "欧洲市场复盘",
+      tags: ["市场研究"],
+    });
+    renderHistory();
+
+    fireEvent.click(await screen.findByTestId("rec-history-tag-客户"));
+    await waitFor(() => expect(api.list).toHaveBeenCalledWith({ tag: "客户" }, "session-token"));
+    fireEvent.pointerDown(screen.getByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-edit-europe-entry"));
+    fireEvent.click(screen.getByLabelText("移除标签 客户"));
+    fireEvent.click(screen.getByTestId("rec-edit-submit"));
+
+    await waitFor(() => expect(api.list).toHaveBeenCalledTimes(3));
+    expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-history-card-other-entry")).toBeVisible();
+  });
+
+  it("永久删除前二次确认，成功后移除卡片并刷新标签", async () => {
+    renderHistory();
+    fireEvent.pointerDown(await screen.findByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-delete-europe-entry"));
+    expect(screen.getByTestId("rec-delete-dialog")).toHaveTextContent("欧洲市场进入讨论");
+    expect(api.deleteTranscription).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("rec-delete-confirm"));
+
+    await waitFor(() => expect(api.deleteTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
+    expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
+    expect(api.listTags).toHaveBeenCalledTimes(2);
+  });
+
+  it("删除成功后即使标签刷新失败也关闭弹窗并保留删除结果", async () => {
+    api.listTags
+      .mockResolvedValueOnce({ tags: ["客户", "市场研究"] })
+      .mockRejectedValueOnce(new Error("TAG_REFRESH_FAILED"));
+    renderHistory();
+    fireEvent.pointerDown(await screen.findByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-delete-europe-entry"));
+    fireEvent.click(screen.getByTestId("rec-delete-confirm"));
+
+    await waitFor(() => expect(api.deleteTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
+    await waitFor(() => expect(screen.queryByTestId("rec-delete-dialog")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
   });
 
   it("项目录制旧屏仍可通过显式模式访问", () => {

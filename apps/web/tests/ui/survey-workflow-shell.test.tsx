@@ -16,13 +16,92 @@ describe("SurveyWorkflowShell", () => {
   it("新建问卷使用草稿身份进入问题设计", () => {
     render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} />);
 
+    expect(screen.queryByText("BoardX Survey")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
     expect(screen.getByText(/问卷 ID new/)).toBeInTheDocument();
   });
 
-  it("从问卷模块创建时只载入该模块的问题", () => {
-    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
+  it("空白新问卷使用问卷文案并保留五步流程", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} />);
 
+    expect(screen.getByText("当前问卷还没有题目")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加第一道题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "从问卷模块选择" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    expect(screen.queryByText("当前模块还没有题目")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "从问卷模块选择" }));
+    expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules&intent=create-survey");
+  });
+
+  it("从模块创建的是带五步流程的新问卷", () => {
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      creationDraft={{ name: "战略调查", tags: ["治理"], sourceModuleId: "strategy" }}
+    />);
+
+    expect(screen.getByRole("heading", { name: "战略调查" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q06")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("现有问卷忽略来源模块并保留完整题目集", () => {
+    render(<SurveyWorkflowShell
+      surveyId="sv-1"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      creationDraft={{ name: "不应使用", tags: [], sourceModuleId: "strategy" }}
+    />);
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q16")).toBeInTheDocument();
+  });
+
+  it("切步时只保留一个安全编码的创建草稿参数", () => {
+    const creationDraft = { name: "战略与协作", tags: ["内部"], sourceModuleId: "strategy" };
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      creationDraft={creationDraft}
+    />);
+
+    expect(screen.getByRole("heading", { name: "战略与协作" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
+    const target = replace.mock.calls[0]?.[0] as string;
+    const params = new URL(target, "https://boardx.test").searchParams;
+    expect(params.getAll("draft")).toHaveLength(1);
+    expect(params.has("sourceModule")).toBe(false);
+  });
+
+  it("模块模式忽略同时出现的问卷来源参数", () => {
+    render(<SurveyWorkflowShell
+      surveyId="module-profile"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      moduleEditor
+      creationDraft={{ name: "忽略", tags: [], sourceModuleId: "strategy" }}
+    />);
+
+    expect(screen.getByRole("heading", { name: "组织画像" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
+  });
+
+  it("从问卷模块创建时只载入该模块的问题", () => {
+    render(<SurveyWorkflowShell surveyId="module-profile" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    expect(screen.getByRole("heading", { name: "组织画像" })).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
     expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
@@ -34,8 +113,67 @@ describe("SurveyWorkflowShell", () => {
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules");
   });
 
+  it("不同模块身份对应各自标题与题目集", () => {
+    render(<SurveyWorkflowShell surveyId="module-strategy" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    expect(screen.getByRole("heading", { name: "战略治理" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q06")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("新建空白问卷模块默认没有题目并提供创建入口", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    expect(screen.getByRole("heading", { name: "未命名问卷模块" })).toBeInTheDocument();
+    expect(screen.getByText("当前模块还没有题目")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加第一道题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "从已有问卷模块创建" })).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("空白模块可以复制已有模块题目后独立修改", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    fireEvent.click(screen.getByRole("button", { name: "从已有问卷模块创建" }));
+    fireEvent.click(screen.getByRole("button", { name: /组织画像/ }));
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q03")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "未命名问卷模块" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getAllByLabelText("问题内容")[0]!, { target: { value: "自定义后的题目" } });
+    expect(screen.getAllByLabelText("问题内容")[0]!).toHaveValue("自定义后的题目");
+  });
+
+  it("空白模块可以添加第一道题", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} moduleEditor />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加第一道题" }));
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByLabelText("问题内容")).toHaveValue("请输入问题内容");
+  });
+
+  it("只读空白模块不提供创建题目的操作", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly moduleEditor />);
+
+    expect(screen.getByText("当前模块还没有题目")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加第一道题" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "从已有问卷模块创建" })).not.toBeInTheDocument();
+  });
+
+  it("只读空白问卷不提供创建题目或选择模块的操作", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly />);
+
+    expect(screen.getByText("当前问卷还没有题目")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加第一道题" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "从问卷模块选择" })).not.toBeInTheDocument();
+  });
+
   it("问卷模块模式忽略非设计步骤且只显示题目编辑", () => {
-    render(<SurveyWorkflowShell surveyId="new" initialStep="template" uiState="default" readonly={false} moduleId="profile" moduleEditor />);
+    render(<SurveyWorkflowShell surveyId="module-profile" initialStep="template" uiState="default" readonly={false} moduleEditor />);
 
     expect(screen.getByTestId("survey-design-question-editor")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-template-editor")).not.toBeInTheDocument();
@@ -51,6 +189,24 @@ describe("SurveyWorkflowShell", () => {
 
     fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
     expect(replace).toHaveBeenCalledWith("/studio/survey/sv-1?step=template");
+  });
+
+  it.each([
+    ["空白新问卷", undefined],
+    ["未知来源新问卷", "missing"],
+  ])("%s 在发布页显示无题阻断、零安全指标并禁用发布", (_label, sourceModuleId) => {
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="publish"
+      uiState="default"
+      readonly={false}
+      creationDraft={{ name: "发布检查", tags: [], sourceModuleId }}
+    />);
+
+    expect(screen.getByTestId("survey-publish-checks")).toHaveTextContent("问卷必须至少包含一道题目");
+    expect(screen.getByRole("button", { name: "发布问卷" })).toBeDisabled();
+    expect(screen.getByTestId("survey-publish-quality-summary")).toHaveTextContent("0%");
+    expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
   });
 
   it.each([

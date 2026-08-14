@@ -15,8 +15,10 @@ import { ApiError } from "@/lib/api-client";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
   createPersonalThread,
+  deleteThread,
   getThread,
   listPersonalThreads,
+  renameThread,
   type GetAgentPanelOut,
   type GetThreadOut,
   type ListThreadsOut,
@@ -36,12 +38,19 @@ import {
  * 未经充分测试覆盖的大组件，在时间压力下引入真实 bug"的形状。另起一个小组件，
  * 项目路径**一行没动**，新组件自己的问题也只影响新组件自己的用户。
  *
- * ## 本轮明确不做（人类已授权延后）
+ * ## 改名/删除已补上（2026-08-14 补入口 → 同日晚人类实测反馈"看不到"后重做成 hover 菜单）
  *
- * 改名、删除、agent 编制（roster）——那三样在后端目前也没有个人线程版本
- * （`mutateExisting` 虽然接受 `projectId: null`，但改名/删除本身的产品化 UI
- * 本轮不做；`getAgentPanel`/`updateAgentRoster` 本身没有改过，仍要求非空
- * `projectId`，个人线程走这条会直接 400/404，所以本组件压根不调用它们）。
+ * 本条注释此前写着"改名、删除...本轮不做"——那是 #594 首版的范围，**后端一直就绪**
+ * （`mutateExisting` 早就接受 `projectId: null`，`personal-thread-no-project.test.ts`
+ * 真库反证过），只是前端一直没有把入口做出来。第一版补的是"选中会话 → 列表下方常驻
+ * 按钮"（照抄 `ChatReadScreen` 当时的形状），人类实测反馈找不到；入口本体现已下沉进
+ * `ThreadCardButton`（`thread-list-shell.tsx`）自己的 hover「…」菜单 + 双击改名，
+ * 见下方 `handleRename`/`handleDelete`——两条路径（本组件与 `ChatReadScreen`）共用
+ * 同一个 `ThreadCardButton`，交互形状天然一致，不是分别维护两份。
+ *
+ * **agent 编制（roster）仍不做**：`getAgentPanel`/`updateAgentRoster` 本身没有改过，
+ * 仍要求非空 `projectId`，个人线程走这条会直接 400/404——这条依旧是真实的后端缺口，
+ * 不是前端疏漏，本轮不碰。
  *
  * ## agentId 怎么来——2026-08-07 从"手填"改成"真下拉"
  *
@@ -170,6 +179,54 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
 
   /**
+   * 改名/删除（2026-08-14）——同一套「先等服务端返回，再重读服务端」纪律，
+   * 与上面 `handleCreate` 一致，不做乐观更新。`projectId` 显式传 `null`：
+   * 这是一条个人线程，`renameThread`/`deleteThread` 从 2026-08-14 起接受这个值
+   * （见两者各自的文档注释——此前误传 `null` 是 #541 的 bug，现在是本该如此的值）。
+   */
+  const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
+  const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
+  const selectedVersion = detail?.thread.version ?? null;
+
+  const handleRename = React.useCallback(async (title: string) => {
+    if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
+    setMutatePending("rename");
+    setMutateFailure(null);
+    try {
+      await renameThread(selectedThreadId, null, title, selectedVersion);
+      const refreshed = await listPersonalThreads({}, bearer);
+      setThreadResult({ key: sourceKey, value: refreshed });
+      void loadSelectedThread(); // 标题进了 detail 的可读副行，重读一次保持一致
+    } catch (failure) {
+      setMutateFailure(describeFailure(failure));
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, loadSelectedThread, selectedThreadId, selectedVersion, sourceKey]);
+
+  const handleDelete = React.useCallback(async (reason: string) => {
+    if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
+    const removed = selectedThreadId;
+    setMutatePending("delete");
+    setMutateFailure(null);
+    try {
+      await deleteThread(removed, null, selectedVersion, reason);
+      const refreshed = await listPersonalThreads({}, bearer);
+      const remaining = refreshed.groups.flatMap((group) => group.cards);
+      setThreadResult({ key: sourceKey, value: refreshed });
+      // 删完的选中态：交给服务端返回的第一条兜底（同 ChatReadScreen 的既有纪律），
+      // 一条都不剩就清空选中，回退到"从左侧新建或选择"的空态。
+      const next = remaining[0]?.id ?? null;
+      setSelectedThreadId(next);
+      router.replace(next ? personalChatHref(next) : "/chat");
+    } catch (failure) {
+      setMutateFailure(describeFailure(failure));
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, router, selectedThreadId, selectedVersion, sourceKey]);
+
+  /**
    * 手机端真实 bug（人类实测报告，2026-08-07）：`AppShell` 的 `left` 栏在 `<md` 断点
    * 整个 `hidden`（见该组件头注"改用底部一级 tab"），但 `/chat` 从没实现那个替代
    * 导航——手机上会话列表**完全不可达**，连"从左侧新建或选择"这句空态文案指向的
@@ -220,6 +277,10 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
                     setSelectedThreadId(card.id);
                     router.replace(personalChatHref(card.id));
                   }}
+                  onRename={canCreate ? (title) => void handleRename(title) : undefined}
+                  onDelete={canCreate ? (reason) => void handleDelete(reason) : undefined}
+                  pending={card.id === selectedThreadId ? mutatePending : null}
+                  failure={card.id === selectedThreadId ? mutateFailure : null}
                 />
               ))}
             </nav>
@@ -471,6 +532,10 @@ function toAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][numbe
     presence: "present",
   };
 }
+
+// 改名/删除入口本体已下沉进 `ThreadCardButton`（`thread-list-shell.tsx`，2026-08-14
+// 重做为 hover「…」菜单 + 双击改名）——`handleRename`/`handleDelete` 原样保留，只是
+// 现在直接作为 `onRename`/`onDelete` 传给每张卡片自己，不再经过这个中间表单组件。
 
 function ErrorState({
   testId, message, retryTestId, onRetry,

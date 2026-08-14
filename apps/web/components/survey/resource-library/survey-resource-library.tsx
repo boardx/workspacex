@@ -3,18 +3,19 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle, Bell, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp,
+  AlertCircle, ChevronDown, ChevronRight,
   ClipboardList, FilePlus2, FileText, Plus, Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
   SURVEY_LIBRARY_CARDS, SURVEY_QUESTION_MODULE_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
   TEMPLATE_CATEGORY_LABEL, type SurveyResourceState, type SurveyResourceTab,
 } from "@/lib/survey/resource-library";
+import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/survey/creation-draft";
+import { SurveyCreateDialog, type SurveyCreationMode } from "./survey-create-dialog";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
   surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
@@ -22,55 +23,43 @@ const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; 
   reports: { title: "报告模块", description: "管理报告结构、章节和输出方式", search: "搜索报告模块名称" },
 };
 
-export function SurveyResourceLibrary({ initialTab, uiState }: {
+export type SurveyResourceIntent = "create-survey" | null;
+
+export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
   initialTab: SurveyResourceTab;
+  initialIntent: SurveyResourceIntent;
   uiState: SurveyResourceState;
 }) {
   const router = useRouter();
-  const [tab, setTab] = React.useState(initialTab);
   const [query, setQuery] = React.useState("");
+  const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
+  const [createMode, setCreateMode] = React.useState<SurveyCreationMode | null>(initialIntent === "create-survey" ? "module" : null);
+  const tab = initialTab;
 
-  const changeTab = (next: SurveyResourceTab) => {
-    setTab(next);
+  React.useEffect(() => {
     setQuery("");
-    router.push(next === "surveys" ? "/studio/survey" : `/studio/survey?tab=${next}`);
-  };
+    setSelectedTags([]);
+  }, [tab]);
 
-  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
-    item.title.includes(query.trim()));
+  const availableTags = [...new Set(SURVEY_LIBRARY_CARDS.flatMap((item) => item.tags))];
+  const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) => {
+    const matchesQuery = item.title.includes(query.trim());
+    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => item.tags.includes(tag));
+    return matchesQuery && matchesTags;
+  });
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
+  const createSurvey = (draft: SurveyCreationDraft) => {
+    const params = new URLSearchParams({ step: "design", draft: encodeSurveyCreationDraft(draft) });
+    setCreateMode(null);
+    router.push(`/studio/survey/new?${params.toString()}`);
+  };
 
   return (
-    <main className="min-h-screen bg-background text-background-foreground" data-testid="survey-resource-library">
-      <header className="flex items-center justify-between border-b border-border bg-card px-5 py-4 lg:px-8">
-        <div className="flex items-center gap-4">
-          <p className="text-18 font-bold tracking-tight">BoardX <span className="text-primary">Survey</span></p>
-          <span className="h-7 w-px bg-border" />
-          <h1 className="text-18 font-semibold">问卷与报告</h1>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Button variant="ghost" size="icon" aria-label="帮助"><CircleHelp className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" aria-label="通知"><Bell className="h-4 w-4" /></Button>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-11 font-semibold text-primary-foreground">陈</span>
-          <span className="hidden text-12 font-medium text-foreground sm:inline">陈顾问</span>
-          <ChevronDown className="hidden h-3.5 w-3.5 sm:block" />
-        </div>
-      </header>
-
-      <div className="grid min-h-[calc(100vh-65px)] lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="border-b border-border bg-card p-4 lg:border-b-0 lg:border-r lg:p-6">
-          <h2 className="mb-4 text-14 font-semibold">Survey</h2>
-          <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1" aria-label="Survey 资源类型">
-            <ResourceNavItem active={tab === "surveys"} count={SURVEY_LIBRARY_CARDS.length} icon={<FileText className="h-5 w-5" />} label="问卷列表" onClick={() => changeTab("surveys")} testId="survey-resource-nav-surveys" />
-            <ResourceNavItem active={tab === "modules"} count={SURVEY_QUESTION_MODULE_CARDS.length} icon={<ClipboardList className="h-5 w-5" />} label="问卷模块" onClick={() => changeTab("modules")} testId="survey-resource-nav-modules" />
-            <ResourceNavItem active={tab === "reports"} count={SURVEY_TEMPLATE_CARDS.length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
-          </nav>
-        </aside>
-
+    <main className="min-h-full bg-background text-background-foreground" data-testid="survey-resource-library">
         <section className="min-w-0 p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
@@ -79,8 +68,8 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => changeTab("modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
-                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => setCreateMode("module")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => setCreateMode("blank")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
                 {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
@@ -94,7 +83,16 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
 
-            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "基于该模块的新问卷设计" : "报告模块编辑"}</p>
+            {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
+              <span className="mr-1 text-11 text-muted-foreground">标签</span>
+              {availableTags.map((tag) => {
+                const selected = selectedTags.includes(tag);
+                return <button key={tag} type="button" aria-label={`筛选标签 ${tag}`} aria-pressed={selected} onClick={() => setSelectedTags((current) => selected ? current.filter((value) => value !== tag) : [...current, tag])} className={`rounded-full border px-3 py-1 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent text-primary" : "border-border bg-card text-muted-foreground hover:border-primary"}`}>{tag}</button>;
+              })}
+              {selectedTags.length > 0 && <button type="button" onClick={() => setSelectedTags([])} className="rounded-md px-2 py-1 text-11 text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">清除标签筛选</button>}
+            </div>}
+
+            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
               {tab === "surveys" ? (
                 <CardGrid empty={surveys.length === 0} emptyLabel="没有匹配的问卷，调整搜索或筛选条件。">
@@ -102,7 +100,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/new?step=design&mode=module&module=${item.id}`)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/module-${item.id}?step=design&mode=module`)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">
@@ -112,13 +110,9 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
             </ResourceBody>
           </div>
         </section>
-      </div>
+        <SurveyCreateDialog open={createMode !== null} mode={createMode ?? "blank"} onOpenChange={(open) => { if (!open) setCreateMode(null); }} onCreate={createSurvey} />
     </main>
   );
-}
-
-function ResourceNavItem({ active, count, icon, label, onClick, testId }: { active: boolean; count: number; icon: React.ReactNode; label: string; onClick: () => void; testId: string }) {
-  return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} data-testid={testId} className={cn("flex items-center gap-3 rounded-lg border px-4 py-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "border-primary bg-accent text-primary" : "border-border bg-card hover:bg-muted")}><span>{icon}</span><span className="flex-1 text-13 font-medium">{label}</span><span className="text-12">{count}</span></button>;
 }
 
 function ResourceBody({ uiState, tab, children }: { uiState: SurveyResourceState; tab: SurveyResourceTab; children: React.ReactNode }) {
@@ -138,6 +132,7 @@ function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[numb
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
+    <div className="mt-2 flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     {item.received !== undefined && <p className="mt-3 text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}

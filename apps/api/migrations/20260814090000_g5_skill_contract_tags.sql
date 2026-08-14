@@ -1,0 +1,24 @@
+-- G5 (2026-08-14, human ruling on the /skill library screenshots): "新建的时候要支持添加
+-- tags". This is the ONLY contract change in this round -- see the PR description for the
+-- backward-compatibility argument in full; this migration is its storage half.
+--
+-- ## Backward compatible by construction
+--
+-- `tags` is `NOT NULL DEFAULT '{}'::text[]` -- every row that already exists in
+-- `skill_contracts` gets an empty tag list for free, no backfill script needed, and no
+-- existing read path breaks (`SELECT` without `tags` in scope still works; call sites that
+-- *do* select it get `{}`, never `NULL`, so callers never need a null-check).
+--
+-- ## Why only `skill_contracts` (model B), not `skills` (model A / wave2 imports)
+--
+-- The "新建 Skill" dialog (G3) this field feeds is the declarative-contract creation path
+-- (`createSkillDraft`, `packages/contracts/src/skills.ts`), which has only ever written
+-- `skill_contracts`. Wave2 (`skills`/`skill_versions`, URL/starter-pack imports) has no
+-- "duty" field either -- it is a file package, not a form -- and `pg-skill-contract
+-- -repository.ts`'s `listAll()` union already maps every wave2 row to a fixed set of
+-- placeholder field values (see that file's 2026-08-07 header). Adding a real `tags` column
+-- to `skills` for a feature that only the declarative-contract creation dialog produces would
+-- be a second, unused column sitting on the wrong table. Wave2 rows project through the same
+-- union as `tags: []` (application code, not a DB default -- see `toRow`/`toGuarded`).
+ALTER TABLE skill_contracts
+  ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}';

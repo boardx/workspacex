@@ -580,7 +580,7 @@ git commit -m "feat(research): complete demo search report journey"
 
 **Interfaces:**
 - Consumes: all preceding UI and lifecycle behavior.
-- Produces: executable acceptance evidence for F174 without marking the feature `passing` manually.
+- Produces: executable acceptance evidence for F180 without marking the feature `passing` manually.
 
 - [ ] **Step 1: Add visual-contract assertions**
 
@@ -588,13 +588,13 @@ Assert that non-home steps contain `research-skill-assistant` and `research-step
 
 - [ ] **Step 2: Record the approved requirement without changing signoff status**
 
-Add a new R11 section describing the contextual Skill, explicit apply/undo, sequential server-stage gate, demo search/report labels, and completed-home behavior. Extend F174 `user_visible_behavior` and verification commands to include the new Skill/state tests. Do not edit a human signoff `status` field and do not hand-edit the generated sprint `active-features.json`. After changing the authoritative feature, regenerate the derived view through the existing claim command:
+Add a new R11 section describing the contextual Skill, explicit apply/undo, sequential server-stage gate, demo search/report labels, and completed-home behavior. Extend F180 `user_visible_behavior` and verification commands to include the new Skill/state tests. Do not edit a human signoff `status` field and do not hand-edit the generated sprint `active-features.json`. After changing the authoritative feature, regenerate the derived view through the existing claim command:
 
 ```bash
-pnpm harness claim --phase 01 --feature F174 --owner coord-deep-research
+pnpm harness claim --phase 01 --feature F180 --owner coord-deep-research
 ```
 
-- [ ] **Step 3: Run the complete F174 verification set**
+- [ ] **Step 3: Run the complete F180 verification set**
 
 ```bash
 pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
@@ -634,7 +634,7 @@ git commit -m "test(research): verify skill guided completion flow"
 - [ ] **Step 6: Run harness verification only after evidence is recorded**
 
 ```bash
-pnpm harness verify --sprint 01/06
+pnpm harness verify --sprint 01/08
 pnpm harness doctor --phase 01
 git status --short
 ```

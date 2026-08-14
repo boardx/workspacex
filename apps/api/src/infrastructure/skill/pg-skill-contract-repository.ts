@@ -69,6 +69,8 @@ interface SkillContractDbRow {
   readonly visibility: string;
   readonly owner_team_id: string | null;
   readonly current_version_id: string | null;
+  /** G5——`skill_contracts.tags`，`text[] NOT NULL DEFAULT '{}'`。wave2 行手填 `[]`（见 `listAll`）。 */
+  readonly tags: readonly string[];
 }
 
 /**
@@ -111,10 +113,11 @@ function toRow(row: SkillContractDbRow): SkillContractRow {
     visibility: row.visibility,
     ownerTeamId: row.owner_team_id,
     currentVersionId: row.current_version_id,
+    tags: row.tags,
   };
 }
 
-const ROW_COLUMNS = "id, name, duty, source, status, visibility, owner_team_id, current_version_id";
+const ROW_COLUMNS = "id, name, duty, source, status, visibility, owner_team_id, current_version_id, tags";
 
 /**
  * 把一行包成 `Guarded`，`ref.kind` 恒为 `"capability"`。
@@ -174,6 +177,7 @@ export class ScopedPgSkillContractRepository
     readonly visibility: "org-wide" | "team-only";
     readonly ownerTeamId: string | null;
     readonly modelRef: string;
+    readonly tags?: readonly string[];
   }): Promise<{ readonly skillId: string; readonly versionId: string }> {
     // 端口签名带 `orgId`（它是 `createSkillDraft` 的入参之一），而本实例已经绑定了
     // 一个租户。两者不一致说明调用方在拿 A 的会话往 B 里写——拒绝，不是二选一。
@@ -191,8 +195,8 @@ export class ScopedPgSkillContractRepository
         await s.query(
           `INSERT INTO skill_contracts
              (id, org_id, name, duty, source, status, visibility, owner_team_id,
-              current_version_id, archived, created_by)
-           VALUES ($1,$2,$3,$4,$5,'草稿',$6,$7,NULL,false,$8)`,
+              current_version_id, archived, created_by, tags)
+           VALUES ($1,$2,$3,$4,$5,'草稿',$6,$7,NULL,false,$8,$9)`,
           [
             skillId,
             input.orgId,
@@ -202,6 +206,9 @@ export class ScopedPgSkillContractRepository
             input.visibility,
             input.ownerTeamId,
             input.submitterId,
+            // G5：可选，缺省 `[]`——列本身也有 `DEFAULT '{}'`，这里显式传是为了让「没传」
+            // 与「传了空数组」在这条 INSERT 里读起来是同一件事，不依赖读者去翻迁移文件。
+            [...(input.tags ?? [])],
           ],
         );
 
@@ -294,12 +301,24 @@ export class ScopedPgSkillContractRepository
       const fromWave2 = wave2Rows.rows.map((raw) => toGuarded(toRow({
         id: raw.id,
         name: raw.name,
-        duty: "从外部 URL 导入的 skill（后台暂不支持在这里编辑详情，见 /admin/skills/:skillId/versions）",
+        // G6（2026-08-14）：这一行此前写着「后台暂不支持在这里编辑详情」——那句话
+        // 在 `skill-catalog-live.tsx` 接上「编辑源码」（走 `AgSkillEditor` 真实读写
+        // `skills`/`skill_versions`/`skill_version_files`）之后已经不成立，继续显示
+        // 会把使用者导向一个其实已经存在的功能当作不存在。
+        // ⚠ `duty.includes(WAVE2_BACKED_DUTY_MARKER)` 是前端 `skill-catalog-live.tsx`
+        //   用来判定「这一行在 `skills` 表里有真实文件、该给「编辑源码」而不是「查看
+        //   契约」」的**唯一**信号（这批行没有走声明式契约 `skill_contracts`，没有可读
+        //   的 `getSkillDetail`——那条 404 正是本轮 G2 修的问题，见 `get-skill-detail.ts`
+        //   与 #598「模型 A/B 不收敛」）。改这句文案时**连同**改
+        //   `apps/web/components/skill/skill-catalog-live.tsx` 的同名常量，两处必须一致。
+        duty: "这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。",
         source: "自建",
         status: "已启用",
         visibility: "org-wide",
         owner_team_id: null,
         current_version_id: raw.current_version_id,
+        // G5：wave2（`skills` 表）行没有声明式契约表单，恒 `[]`——见 contract.md §2。
+        tags: [],
       })));
       return [...fromContracts, ...fromWave2];
     });

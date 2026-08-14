@@ -19,12 +19,14 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  * 会把「缺入口」换成「点进去 404」——那正是 F132 要修的那条投诉的另一半。
  *
  * ⚠ 2026-08-11（人类直接裁决，真合并）：`blueprint` 与 `skill` **不再在这里落地**——
- *   `ADMIN_NAV` 的这两项 href 已经直接指向 `/tpl`、`/skill`（真实的蓝本设计器 / Skill
+ *   `ADMIN_NAV` 的这两项 href 已经直接指向 `/tpl/list`、`/skill`（真实的蓝本设计器 / Skill
  *   库与市场，不再经过 `/admin/blueprint`、`/admin/skill` 这两个曾经的空壳/简单 CRUD 页）。
  *   旧路由**保留重定向**（见下方 `REDIRECTS`），不留死链，给还停在旧书签的人一个去处。
+ *   ⚠ 2026-08-14：`blueprint` 的重定向目标从 `/tpl` 改为 `/tpl/list`（生产入口不带
+ *   原型切换器），理由同 `lib/mock/admin.ts` 里 `blueprint` 项 href 的改动注释。
  */
 const REDIRECTS: Partial<Record<string, string>> = {
-  blueprint: "/tpl",
+  blueprint: "/tpl/list",
   skill: "/skill?screen=catalog",
 };
 

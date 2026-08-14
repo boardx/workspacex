@@ -54,6 +54,9 @@ import type {
   TokenUsageMeterPort,
 } from "./ports";
 import { ModelCallError } from "./ports";
+import {
+  buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
+} from "./file-retrieval";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -277,6 +280,15 @@ export interface ExecuteAgentRunDeps {
    */
   readonly usage?: TokenUsageMeterPort;
   readonly clock: AgentRunClock;
+  /**
+   * F155 L3 —— 文件式检索（design delta `context-engine-l3-file-based`，人类 2026-08-14 签核）。
+   *
+   * **可选**，与 `usage` 同一条既有理由：既有测试与不需要 L3 的执行路径（`trial-run-agent`
+   * 一类）构造这个对象时不必都改，而生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定
+   * 注入——「这次 run 有没有 L3」因此是**合成期的一个明确选择**，不是运行期的一个偶然。
+   * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
+   */
+  readonly files?: FileRetrievalPort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -526,6 +538,52 @@ async function executeClaimed(
       runId: run.runId,
       detail: e instanceof Error ? e.message : "unexpected thread history read failure",
     });
+  }
+
+  /*
+   * ── L3（F155）：文件式检索 ──────────────────────────────────────────────
+   *
+   * delta §1：以本轮输入文本为 query，对**已经存在、已经抽取成文本**的两类「文件」做全文
+   * 检索（聊天附件 + 落地的画布产物，含保存的 mermaid 图），命中作为**一条**来源标记清晰的
+   * 伪消息前置进 history。第三类「线程历史本身」由上面的 L1/L2 覆盖，这里不重做。
+   *
+   * ## 失败**降级**，不 fail run（delta §3.3 / verification V6）
+   *
+   * 这个 try/catch 与 L1/L2 那两层是同一种保守失败模式，也是本 delta 与既有五路召回引擎
+   * 刻意分道的那一条：`retrieveCandidates` 的纪律是「任一路失败即整体 block」
+   * （`RetrievalUnavailableError`），本路径**不复用**它——单路径、无融合，降级为空是诚实的
+   * 答案，不是一个被污染的排序结果。V6 的反证就是：若这里误套用了 block 那条纪律，
+   * 「检索失败时 run 仍成功」这条断言会当场红。
+   *
+   * ## 注入位置在 L2 摘要之前
+   *
+   * 顺序：[检索到的文件] → [早前对话摘要] → L1 近端原文。文件是**参考材料**，摘要与近端原文
+   * 是**对话本身**，把参考材料放在最前、离当前轮最远，与 L1「近几轮永远优先」同一条取舍。
+   */
+  if (deps.files) {
+    try {
+      const hits = await deps.files.search(
+        orgId,
+        {
+          threadId: run.threadId,
+          // 个人线程的 `chat_threads.project_id` 自 #594 起可空（`ClaimedAgentRun.projectId`
+          // 因此是 `string | null`）——`null` 在检索端是**另一条查询分支**（只吃本线程自有
+          // 附件），不是「没传这个可选参数」。空串同样按个人线程处理，不去猜一个项目 id。
+          projectId: run.projectId === null || run.projectId === "" ? null : run.projectId,
+          actorUserId: run.requesterUserId,
+        },
+        run.inputText,
+        FILE_RETRIEVAL_MAX_HITS,
+      );
+      const fileContext = buildFileContextMessage(hits, run.inputText);
+      if (fileContext !== null) history = [fileContext, ...history];
+    } catch (e) {
+      // 「查了但没查成」与「查了、没有相关文件」在日志里分得开——后者根本不到这里。
+      deps.log("agent run L3 file retrieval failed, continuing without retrieved files", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : "unexpected file retrieval failure",
+      });
+    }
   }
 
   // V9-b 前置 A（#970）：把附件元数据折进模型可见的 content——历史每轮 + 当前触发消息。

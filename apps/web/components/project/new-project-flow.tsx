@@ -9,7 +9,8 @@ import { SectionTitle, StatChip } from "./parts";
 import { ApiError } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { createProject } from "@/lib/live-projects";
-import { NEWPROJECT, BLUEPRINT_CATALOG } from "@/lib/mock/project";
+import { listBlueprints, BLUEPRINT_STATE_LABEL, DURATION_TIER_LABEL, type BlueprintRow } from "@/lib/live-blueprints";
+import { NEWPROJECT } from "@/lib/mock/project";
 import { INIT_CATEGORIES } from "@/lib/mock/tpl";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,15 +29,19 @@ import { Badge } from "@/components/ui/badge";
  *   AGENTS.md 点名的「编一个看起来算过的数」的同一类事故。故这四项保持只读展示，
  *   并各挂一句「本版不写入后端」的旁注，等各自的契约有了出处再接。
  *
- * ## 蓝本九宫格为什么是禁用的
+ * ## 蓝本目录为什么改成真数据了、又为什么选择依然禁用
  *
- * 蓝本的**契约**已在 templates 束签核（`createBlueprint` POST /blueprints），但
- * **后端零实现**：没有控制器、没有路由、没有蓝本表（2026-08-11 实测 origin/main
- * 89093f20）。`BLUEPRINT_CATALOG` 是 mock 目录，它的 id 不对应任何真实
- * `blueprintVersionId`。因此本版一律走契约明写的**空白新建路径**
- * （`blueprintVersionId: null`，Q-1 裁决 C 逐字：此时六类初始化**跳过而非写空值**）。
- * 九宫格保留渲染但整体禁用 + 明示原因 —— 删掉它会让已签核的界面凭空少一块，
- * 让它可点却什么都不做则是更糟的谎。接真蓝本是 PJ-12（依赖 PJ-10 建后端）。
+ * `GET /blueprints`（F175 / BP-01）已经是真控制器 + pg 仓储（`blueprint.controller.ts`），
+ * 不再是「契约签核、后端零实现」——本区块因此从 `BLUEPRINT_CATALOG`（mock 目录）
+ * 切到 `listBlueprints()`（`@/lib/live-blueprints`），展示这个组织**真实存在**的蓝本。
+ *
+ * 但选择依然禁用：能被这里真正用上的是**已发布版本**的 `blueprintVersionId`
+ * （`POST /blueprints/:id/versions` 发布版本端点），而这条端点**还没实现**——
+ * `listBlueprints` 返回的 `BlueprintRow` 里根本没有 `blueprintVersionId` 这个字段。
+ * 所以本版一律仍走契约明写的**空白新建路径**（`blueprintVersionId: null`，
+ * Q-1 裁决 C 逐字：此时六类初始化**跳过而非写空值**）。目录卡片保留真实渲染但
+ * 整体禁用 + 如实说明「有蓝本、没有可套用的发布版本」，不是继续显示假数据，
+ * 也不是假装能选。接「选蓝本真正建项目」是 PJ-12（依赖发布版本端点先落地）。
  *
  * ## 幂等
  * 契约 `applyBlueprint` 的幂等（V13）由后端 `idempotencyKey` 保证；界面这一侧只负责
@@ -54,6 +59,39 @@ export function NewProjectFlow() {
   const [error, setError] = React.useState<string | null>(null);
   const d = NEWPROJECT.defaults;
   const src = NEWPROJECT.linkedSources;
+
+  // 蓝本目录：真实 `GET /blueprints`，见文件头注「蓝本目录为什么改成真数据了」。
+  const [blueprints, setBlueprints] = React.useState<BlueprintRow[] | null>(null);
+  const [blueprintsError, setBlueprintsError] = React.useState<string | null>(null);
+  const [blueprintsBusy, setBlueprintsBusy] = React.useState(false);
+
+  const refreshBlueprints = React.useCallback(async (org: string, isCancelled: () => boolean) => {
+    if (org === "") return;
+    setBlueprintsBusy(true);
+    setBlueprintsError(null);
+    try {
+      const out = await listBlueprints(org);
+      if (isCancelled()) return;
+      setBlueprints(out);
+    } catch (e) {
+      if (isCancelled()) return;
+      setBlueprintsError(describeError(e));
+      setBlueprints(null);
+    } finally {
+      if (!isCancelled()) setBlueprintsBusy(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    // 组件在 fetch 落地前卸载（路由跳走、测试提前拆卸环境）时不再 setState——
+    // 不加这道门槛会在卸载后的 `finally` 里调用 `setBlueprintsBusy`，React 会尝试
+    // 在已拆卸的环境上调度更新；jsdom 测试环境下这不只是警告，是真的
+    // `ReferenceError: window is not defined`（`tests/ui/new-project-wizard.test.tsx`
+    // 实测撞到过，见 `git blame` 附近提交）。
+    let cancelled = false;
+    void refreshBlueprints(orgId, () => cancelled);
+    return () => { cancelled = true; };
+  }, [orgId, refreshBlueprints]);
 
   const trimmed = name.trim();
   const canSubmit = trimmed !== "" && !busy;
@@ -103,31 +141,60 @@ export function NewProjectFlow() {
           >
             <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              蓝本服务尚未实现（契约已签核，后端还没建蓝本表与发布路由），下面的蓝本目录暂不可选。
+              {blueprintsBusy
+                ? "蓝本目录加载中…"
+                : blueprintsError !== null
+                  ? `蓝本目录加载失败：${blueprintsError}`
+                  : blueprints !== null && blueprints.length > 0
+                    ? `已有 ${blueprints.length} 个蓝本，但还没有可套用的已发布版本（发布版本端点未实现），下面的蓝本目录暂不可选。`
+                    : "这个组织还没有人建过蓝本，下面暂时没有目录可看。"}{" "}
               本版一律以<strong className="font-medium text-foreground">空白骨架</strong>创建项目：
               不套用蓝本时六类初始化会整体跳过，而不是写入空值。
             </span>
           </div>
-          <div
-            className="grid grid-cols-1 gap-2.5 opacity-50 sm:grid-cols-2 lg:grid-cols-3"
-            data-testid="project-new-blueprints"
-          >
-            {BLUEPRINT_CATALOG.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                disabled
-                aria-disabled="true"
-                aria-pressed="false"
-                data-testid={`project-new-blueprint-${b.id}`}
-                className="flex cursor-not-allowed flex-col gap-1 rounded-lg border border-border bg-card p-3 text-left"
-              >
-                <span className="text-12 font-medium">{b.name}</span>
-                <span className="text-10 text-muted-foreground">{b.desc}</span>
-                <span className="mt-1 font-mono text-9 text-muted-foreground">{b.meta}</span>
-              </button>
-            ))}
-          </div>
+          {blueprintsError !== null ? (
+            <div className="mb-2.5 flex items-center gap-2" data-testid="project-new-blueprints-error">
+              <Button size="sm" variant="outline" onClick={() => void refreshBlueprints(orgId, () => false)} disabled={blueprintsBusy}>
+                重试
+              </Button>
+            </div>
+          ) : null}
+          {blueprints !== null && blueprints.length > 0 ? (
+            <div
+              className="grid grid-cols-1 gap-2.5 opacity-50 sm:grid-cols-2 lg:grid-cols-3"
+              data-testid="project-new-blueprints"
+            >
+              {blueprints.map((b) => (
+                <button
+                  key={b.blueprintId}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  aria-pressed="false"
+                  data-testid={`project-new-blueprint-${b.blueprintId}`}
+                  className="flex cursor-not-allowed flex-col gap-1 rounded-lg border border-border bg-card p-3 text-left"
+                >
+                  <span className="text-12 font-medium">{b.name}</span>
+                  <span className="text-10 text-muted-foreground">
+                    {BLUEPRINT_STATE_LABEL[b.state]} · {DURATION_TIER_LABEL[b.durationTier]}
+                  </span>
+                  <span className="mt-1 font-mono text-9 text-muted-foreground">
+                    {b.agendaSegmentCount} 环节 · 完成度 {b.completeness.done}/{b.completeness.denominator} · 用过{" "}
+                    {b.appliedProjectCount} 次
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : blueprintsBusy ? (
+            <div
+              className="grid grid-cols-1 gap-2.5 opacity-50 sm:grid-cols-2 lg:grid-cols-3"
+              data-testid="project-new-blueprints-loading"
+            >
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-lg border border-dashed border-border bg-muted" />
+              ))}
+            </div>
+          ) : null}
           <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2" data-testid="project-new-scratch">
             {NEWPROJECT.scratchOptions.map((o) => {
               // 「从空白开始」是本版真实走的那条路径；「复制一场」同样没有后端。

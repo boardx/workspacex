@@ -1,4 +1,4 @@
-# F174 Task 6 verification record — 2026-08-14
+# F180 Task 6 verification record — 2026-08-14
 
 ## RED → GREEN
 
@@ -12,7 +12,7 @@
 
 ## Committed harness rerun
 
-`F174.verify.log` is the committed raw output from the latest `pnpm harness verify --sprint 01/06` run. Earlier
+`F180.verify.log` is the committed raw output from the latest `pnpm harness verify --sprint 01/08` run. Earlier
 standalone commands were diagnostic runs only; their raw output is not used to assert the final harness result.
 
 | Command | Result | Evidence |
@@ -27,7 +27,7 @@ standalone commands were diagnostic runs only; their raw output is not used to a
 ## Browser path and screenshots
 
 - At 1280×900, the `http://127.0.0.1:3010/research` instance rendered an older Studio submenu, so it was not used
-  as F174 acceptance evidence.
+  as F180 acceptance evidence.
 - The task handoff's assigned stack `http://127.0.0.1:3074/research` redirected the unauthenticated browser to
   `/login`. No credentials or supported local test-login flow were available, so the requested create → Skill
   apply/undo → sequential confirmation → refresh → demo completion journey could not be safely performed.
@@ -37,18 +37,18 @@ standalone commands were diagnostic runs only; their raw output is not used to a
 
 ## Scope and self-check
 
-- Authoritative F174 requirement was updated with R11; no human design-signoff status was changed.
+- Authoritative F180 requirement was updated with R11; no human design-signoff status was changed.
 - R11 explicitly aggregates R9 visual/entry and R10 creation-metadata constraints, so the supported single
   `spec_ref` anchor remains `#R11`; the reviewer-proposed `#R9-R11` is incompatible with the current parser.
 - `active-features.json` and `.harness/state/PROGRESS.md` were regenerated only by `pnpm harness claim`.
 - No real Web Search or model call was made. Demo labels are asserted in the visual contract.
 - The combined UI suite is intentionally serialized as one fork worker because its five component files mock the
   same API module. The updated harness command passed 34/34 tests, including all three checkpoint cases; its exact
-  command and output are in the refreshed `F174.verify.log`.
-- The refreshed `pnpm harness verify --sprint 01/06` left F174 as `in_progress` only because the later API
+  command and output are in the refreshed `F180.verify.log`.
+- The refreshed `pnpm harness verify --sprint 01/08` left F180 as `in_progress` only because the later API
   typecheck exited 2 on unrelated `packages/fabric-markdown` DOM type errors (`Element`, `SVGElement`, and Canvas
-  rendering methods are absent from its TypeScript environment). No F174 code changes are made for that baseline
+  rendering methods are absent from its TypeScript environment). No F180 code changes are made for that baseline
   concern.
-- `pnpm harness doctor --phase 01` was invoked after harness verification; it completed without changing F174 or
+- `pnpm harness doctor --phase 01` was invoked after harness verification; it completed without changing F180 or
   the generated evidence/state fields in this worktree.
 - Remaining gates: unrelated API typecheck baseline failure and authenticated two-width browser journey unavailable.

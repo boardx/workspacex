@@ -24,13 +24,39 @@ describe("personal realtime transcription contract", () => {
     expect(errorCodes).toContain("TRANSCRIPTION_NOT_FOUND");
   });
 
-  it("describes create, list, read, content update and ticket HTTP operations", () => {
+  it("describes owner-scoped tag, metadata update and delete operations", () => {
     expect(C.operations.createPersonalTranscription.path).toBe("/recording/realtime-asr/sessions");
     expect(C.operations.listPersonalTranscriptions.method).toBe("GET");
     expect(C.operations.readPersonalTranscription.path).toContain(":sessionId");
     expect(C.operations.updatePersonalTranscriptionContent.method).toBe("PATCH");
     expect(C.operations.updatePersonalTranscriptionContent.path).toContain("/content");
     expect(C.operations.issueRealtimeAsrTicket.path).toContain("/tickets");
+    expect(C.operations.listPersonalTranscriptionTags).toMatchObject({
+      method: "GET",
+      path: "/recording/realtime-asr/tags",
+    });
+    expect(C.operations.updatePersonalTranscriptionMetadata).toMatchObject({
+      method: "PATCH",
+      path: "/recording/realtime-asr/sessions/:sessionId",
+    });
+    expect(C.operations.deletePersonalTranscription).toMatchObject({
+      method: "DELETE",
+      path: "/recording/realtime-asr/sessions/:sessionId",
+    });
+    expect(C.operations.updatePersonalTranscriptionMetadata.in.safeParse({
+      sessionId: "session-1",
+      name: "新名称",
+      tags: ["客户", "复盘"],
+    }).success).toBe(true);
+    expect(C.operations.updatePersonalTranscriptionMetadata.in.safeParse({
+      sessionId: "session-1",
+      name: "新名称",
+      tags: ["客户", "客户"],
+    }).success).toBe(false);
+    expect(C.operations.deletePersonalTranscription.out.safeParse({ deleted: true }).success).toBe(true);
+    expect(C.operations.listPersonalTranscriptionTags.out.parse({
+      tags: ["客户", "内部", "高优先级", "已归档", "市场研究", "合规"],
+    }).tags).toHaveLength(6);
   });
 
   it("returns one editable body instead of captures and timestamped segments", () => {

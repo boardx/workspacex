@@ -1,7 +1,18 @@
 ---
 bundle: skills
 phase: "01"
-covers: [F61, F62, F63, F64, F65, F66, F67, F68]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-14（F176 消息级评价落地）：追加 **F176**，由 coord-main 依
+#   `contract-design.md` 的「covers 追加规则」审计后追加（先例：F158/F164/F172/F175/F163）。
+#   三条件逐条对照：
+#     1. **UI 已签**：👍/👎 是既已签核的 chat 消息交互面上的操作点，本 feature 不新增屏、
+#        不新增导航路径，只是把已存在的交互接到真后端。
+#     2. **契约已签**：`rateMessage`（POST /messages/:messageId/rating）的形状在本束
+#        2026-07-30 签核时随 F68 一并确定，本 feature 零新增契约，只补 F68 缺失的
+#        infrastructure/路由层（同 F163 对 F60 系一族的形态）。
+#     3. **零新增设计面**：未新增错误码/字段/交互语义；归因服务端派生、幂等键、
+#        ATTRIBUTION_MISSING 告警态均已在已签契约的 V13/I-20/V9 里写明。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F61, F62, F63, F64, F65, F66, F67, F68, F176]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
