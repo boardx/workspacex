@@ -94,9 +94,26 @@ describe("guided research skill assistant", () => {
     );
 
     expect(screen.getByText("研究 Skill 助手").closest("summary")).toBeInTheDocument();
-    expect(screen.getByText("助手面板").parentElement?.parentElement).toHaveClass("min-w-0");
+    const workspace = screen.getByTestId("research-step-main").parentElement;
+    expect(workspace).toHaveAttribute("data-layout", "skill-workspace-thirds");
+    expect(workspace).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]");
     expect(assistantEffects).toBe(1);
     expect(editorEffects).toBe(1);
+  });
+
+  it("renders a full-height conversation surface with scrolling messages and a bottom composer", () => {
+    render(
+      <GuidedResearchSkillAssistant
+        step="directions"
+        sessionKey="research-layout"
+        snapshot={directionSnapshot}
+        onSnapshotChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("research-skill-assistant")).toHaveAttribute("data-surface", "full-height-conversation");
+    expect(screen.getByTestId("research-skill-messages")).toHaveClass("overflow-y-auto");
+    expect(screen.getByTestId("research-skill-composer")).toBeInTheDocument();
   });
 
   it("keeps the assistant interactive when local storage writes fail", () => {
