@@ -1,7 +1,12 @@
 ---
 bundle: chat-context-engine
 phase: "01"
-covers: [F154, F155, F156, F157]   # 回填自 requirement-author F150-156（dev-chat-e2e 2026-08-11）
+covers: [F154, F156, F157]   # 回填自 requirement-author F150-156（dev-chat-e2e 2026-08-11）；
+  # F155 已于 2026-08-14 移交 delta「context-engine-l3-file-based」单独 covers——
+  # 该 delta 人类当天直接签核，修订了 F155 的 L3 实现路径（文件式检索取代复用既有
+  # embedding 五路引擎），本束正文其余部分（L1/L2、F154/F156/F157）不变、未被
+  # 静默改写。同一 feature 不得被两处 covers 同时声明（lint-third-artifact 门控），
+  # 故从这里摘除，唯一权威见该 delta 自己的 design-signoff.md。
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-11T14:32:00+08:00

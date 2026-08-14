@@ -3509,8 +3509,8 @@
     {
       "id": "F155",
       "title": "L3 context-pack 检索召回接线进 chat（ContextAssemblyPort 内侧调既有引擎 + 权限约束检索 + 注入伪消息，ModelCallPort 不动）",
-      "user_visible_behavior": "对属于某项目的线程发问时，以本轮输入为 query 经既有 context-pack/retrieval 引擎（五路召回、权限约束）在当前项目范围内召回可引用片段，作为一段检索上下文伪消息注入 history；传入的可见范围等于当前 actor 范围，越权片段不被召回；引擎只接线不重写。",
-      "spec_ref": "08-chat/uc-8-7-上下文引擎分层历史.md#R4",
+      "user_visible_behavior": "对线程发问时，以本轮输入为 query 对该线程/项目范围内的「文件」做全文检索（Postgres tsvector/ts_rank）：已抽取的聊天附件正文 + 经 landAsArtifact 落地的画布产物（含保存的 mermaid 图），命中片段作为一条来源标记清晰（chat-attachment / canvas-artifact）的检索上下文伪消息注入 history；权限判定写在 SQL 谓词里，越权片段查不出来；个人线程只召回自己这条线程的附件、跨范围恒零；检索失败降级为「本次未召回」而不 fail run；ModelCallInput/ModelCallPort 形状不动。",
+      "spec_ref": "08-chat/uc-8-7-上下文引擎分层历史.md#R4 + design-deltas/context-engine-l3-file-based/contract.md",
       "depends_on": [
         "F154"
       ],
@@ -3522,11 +3522,11 @@
         "pnpm --filter api exec vitest run tests/chat/l3-retrieval-permission-scope.test.ts"
       ],
       "evidence": "",
-      "notes": "依据等级：[Backlog]+[设计]，签核参数「L3 复用既有 context-pack/retrieval 引擎，接线不重写」逐字来自 design-signoff.md。跨域接线 + context-pack 调用契约已在束级签核。ModelCallPort 不动。属 chat-context-engine 束。",
+      "notes": "依据等级：[已签核]。⚠ 实现路径已由 design delta `context-engine-l3-file-based`（人类 2026-08-14 签核，status: confirmed）修订：束级原参数「L3 复用既有 context-pack/retrieval 五路召回引擎」不再是本条的实现方式——那条引擎的向量一路没有任何生产实现（EmbeddingPort 零 implements），字面执行会撞上 RetrievalUnavailableError 整体 block。改走文件式检索（Postgres 原生 tsvector，零新增外部依赖）；既有五路引擎一行不动、不作废（V7 静态断言两个目录逐字节未变），留待 embedding provider 落地后并行接入。验收口径见该 delta 的 verification.md（V1-V8）。ModelCallPort 不动。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "07"
     },
     {
       "id": "F156",

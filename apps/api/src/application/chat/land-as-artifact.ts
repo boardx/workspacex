@@ -32,6 +32,7 @@ import type { ArtifactRepository, IdFactory, ObjectStore } from "../artifact/por
 import { materializeArtifact } from "../artifact/materialize-artifact";
 import type { ProvenanceWriter } from "../provenance/ports";
 import type { ArtifactLandingRepository } from "./artifact-landing-ports";
+import { LANDED_CONTENT_EXCERPT_MAX_CHARS } from "../agent-run/file-retrieval";
 import type { ChatCitationRow, ChatRepository } from "./ports";
 import { isCitationLocatable } from "./locate-citation";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
@@ -190,6 +191,11 @@ export async function landAsArtifact(
     mode: verdict.mode,
     hasSource: verdict.hasSource,
     citationCount: citations.length,
+    // F155 L3（delta §4）：落地即可检索。`payloadRef` 就是刚写进 `content.md` 的那份正文
+    // （含用户在画布里编辑过的 mermaid 源），这里取它的有界前缀喂给 `search_tsv` 生成列。
+    // **未落地**（用户没点保存）的图因此天然不在索引里——那正是 verification V3 要的边界，
+    // 不需要任何额外判断逻辑。
+    contentExcerpt: payloadRef.slice(0, LANDED_CONTENT_EXCERPT_MAX_CHARS),
     createdBy: userId,
   });
 

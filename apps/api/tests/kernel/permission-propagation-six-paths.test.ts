@@ -801,7 +801,25 @@ describe("lint-permission-paths: counter-proof", () => {
     // 它的**被强制的前提**：`tests/auth/shared-invite-links.test.ts` 断言 activate 的
     // 返回形状恰好是授予键集（多一个内容字段即红），并以「搜值不搜字段名」断言两张表
     // 整行 JSON 里搜不到签发响应中的明文。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(53);
+    //
+    // ⚠ Raised 53 -> 54 by F155（L3 文件式检索，design delta `context-engine-l3-file-based`，
+    // 人类 2026-08-14 签核）：新条目是 `infrastructure/agent-run/pg-file-retrieval.ts`。
+    // 论点与 `pg-model-pool-repository.ts` / `pg-admission-test-repository.ts` **同形**，
+    // 而且更直接：`ObjectRef` 里没有「聊天线程的附件」这一种；把它当 `project` ref 推进
+    // `authorize` 问的是错的问题，而**个人线程**（`project_id IS NULL`，#594 起存在）
+    // 根本没有 project ref 可推——会落到 `DEFAULT_SCOPE`（org-wide）从而对全组织每个成员
+    // 返回 allowed:true，正是 `interview`/`organization` 在 `toAclRef` 里 THROW 的那个失败。
+    // 与前面几条不同的是：取代 `disclose()` 的不是「一层之上的一次判定」，而是**判权就是
+    // 这条查询的 WHERE 子句**——这是已签 delta §3.1 明确选择的机制，原话「SQL 谓词本身带
+    // org_id/thread_id/可见性判定，不是『召回了再过滤』」。方向恒为 fail closed：受限可见性
+    // 线程的文件一律不召回（具名缺口 `GAP-CE-FTS-SCOPE-GROUP-VISIBILITY`），只会少给。
+    //
+    // 它的**被强制的前提**：`tests/chat/l3-retrieval-permission-scope.test.ts` 在真库上让
+    // 一个真的没有权限的 actor 去查一份真的存在的文件并断言零命中（另一个项目的成员、
+    // 伪造 projectId 的非成员、别人的个人线程），**且**解析源码断言两条 SELECT 的 scope
+    // 谓词都还带着个人线程分支与 `EXISTS(project_memberships)`——只解析源码的话，
+    // 几行字还在但语义被改坏照样能过。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(54);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
