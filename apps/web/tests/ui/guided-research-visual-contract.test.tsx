@@ -73,12 +73,25 @@ describe("F174 signed guided-research visual contract", () => {
 
   it("keeps a contextual Skill workspace with one main editor on every non-home step", () => {
     for (const step of ["brief", "directions", "outline", "search", "report"] as const) {
-      const view = render(<GuidedResearchFlow step={step} />);
+      const view = render(
+        <ResearchStudioApp
+          identity={identity}
+          uiState="default"
+          screen="list"
+          view="owner"
+          flow={step}
+          qs={{}}
+        />,
+      );
       const assistant = screen.getByTestId("research-skill-assistant");
       const workspace = assistant.closest("[data-layout]");
 
       expect(workspace).toHaveAttribute("data-layout", "skill-workspace");
       expect(screen.getByTestId("research-step-main")).toBeInTheDocument();
+      expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
+      for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
+        expect(screen.queryByText(label)).not.toBeInTheDocument();
+      }
       view.unmount();
     }
   });

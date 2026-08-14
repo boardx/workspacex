@@ -10,21 +10,19 @@
 - RED: the completed research card test expected `查看报告` and received `查看研究`.
 - GREEN: after changing only the completed-card copy, the combined flow/rewrite test passed: 14/14.
 
-## Automated commands
+## Committed harness rerun
+
+`F174.verify.log` is the committed raw output from the latest `pnpm harness verify --sprint 01/06` run. Earlier
+standalone commands were diagnostic runs only; their raw output is not used to assert the final harness result.
 
 | Command | Result | Evidence |
 | --- | --- | --- |
 | `pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts` | PASS | 6 tests |
-| `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts` | PASS | Harness reran it through isolation after 20s admission wait: 7 tests pass; peak isolated DB connections 4. Full output is in `F174.verify.log`. |
+| `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts` | PASS | Exit 0; 7 tests; admission wait 0s; peak isolated DB connections 4. |
 | `pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/guided-research-demo-state.test.ts tests/guided-research-skill-state.test.ts` | PASS | 13 tests |
-| `pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx` | PASS | 34 tests |
+| `pnpm --filter web exec vitest run --pool=forks --maxWorkers=1 --minWorkers=1 tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx` | PASS | Exit 0; 34 tests |
 | `pnpm --filter web exec vitest run tests/research-rewrite.test.ts` | PASS | 1 test (also included in the 14-test RED/GREEN follow-up) |
-| `pnpm --filter api run typecheck` | PASS | `tsc --noEmit` exit 0 |
-| `pnpm --filter web run typecheck` | PASS | `tsc --noEmit` exit 0 |
-| `node apps/api/scripts/lint-permission-paths.mjs` | PASS | 880 files scanned; 130 tenant tables use guarded reads. |
-| `node .harness/scripts/lint-arch-deps.mjs` | PASS | 878 files, all dependencies point inward |
-| `node .harness/scripts/lint-ui-material.mjs` | PASS | 18 contract bundles, 732 screenshots, no dead or orphaned assets |
-| `cd apps/web && ./scripts/lint-design.sh` | PASS | All scanned app/components/lib files pass after the authorized disabled-token correction. |
+| `pnpm --filter api run typecheck` | FAIL | Exit 2; `packages/fabric-markdown` lacks DOM types. The remaining commands were not reached in this harness rerun. |
 
 ## Browser path and screenshots
 
@@ -40,6 +38,8 @@
 ## Scope and self-check
 
 - Authoritative F174 requirement was updated with R11; no human design-signoff status was changed.
+- R11 explicitly aggregates R9 visual/entry and R10 creation-metadata constraints, so the supported single
+  `spec_ref` anchor remains `#R11`; the reviewer-proposed `#R9-R11` is incompatible with the current parser.
 - `active-features.json` and `.harness/state/PROGRESS.md` were regenerated only by `pnpm harness claim`.
 - No real Web Search or model call was made. Demo labels are asserted in the visual contract.
 - The combined UI suite is intentionally serialized as one fork worker because its five component files mock the
