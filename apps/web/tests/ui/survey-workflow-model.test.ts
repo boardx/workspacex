@@ -38,4 +38,11 @@ describe("survey workflow model", () => {
     expect(survey.SurveyChartTypeSchema.safeParse("radar").success).toBe(true);
     expect(survey.SurveyChartTypeSchema.safeParse("pie").success).toBe(false);
   });
+
+  it("未知来源模块不会回退到完整示例题库", () => {
+    const model = createSurveyWorkflowMock({ surveyId: "new", sourceModuleId: "missing" });
+
+    expect(model.questions).toEqual([]);
+    expect(model.survey.title).toBe("未命名问卷");
+  });
 });

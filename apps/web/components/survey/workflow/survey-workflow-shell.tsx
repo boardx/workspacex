@@ -23,22 +23,25 @@ const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = 
   { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
-export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false }: {
+export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false, sourceModuleId }: {
   surveyId: string;
   initialStep: survey.SurveyWorkflowStep;
   uiState: SurveyPrototypeState;
   readonly: boolean;
   moduleEditor?: boolean;
+  sourceModuleId?: string;
 }) {
   const router = useRouter();
   const moduleId = moduleEditor && surveyId.startsWith("module-") ? surveyId.slice("module-".length) : undefined;
-  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, moduleEditor }));
+  const effectiveSourceModuleId = moduleEditor ? undefined : sourceModuleId;
+  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, sourceModuleId: effectiveSourceModuleId, moduleEditor }));
   const [saved, setSaved] = React.useState(false);
   const metrics = getSurveyMetrics(model);
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
     const modeQuery = moduleEditor ? "&mode=module" : "";
-    router.replace(`/studio/survey/${surveyId}?step=${step}${modeQuery}`);
+    const sourceQuery = effectiveSourceModuleId ? `&sourceModule=${effectiveSourceModuleId}` : "";
+    router.replace(`/studio/survey/${surveyId}?step=${step}${modeQuery}${sourceQuery}`);
   };
 
   if (uiState === "loading") return <WorkflowMessage testId="survey-workflow-loading" title="正在加载问卷" body="正在准备问题、答卷与报告数据…" pulse />;

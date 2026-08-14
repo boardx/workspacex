@@ -21,6 +21,38 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.getByText(/问卷 ID new/)).toBeInTheDocument();
   });
 
+  it("从模块创建的是带五步流程的新问卷", () => {
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      sourceModuleId="strategy"
+    />);
+
+    expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q04")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q06")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
+  });
+
+  it("模块模式忽略同时出现的问卷来源参数", () => {
+    render(<SurveyWorkflowShell
+      surveyId="module-profile"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      moduleEditor
+      sourceModuleId="strategy"
+    />);
+
+    expect(screen.getByRole("heading", { name: "组织画像" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-design-question-Q04")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("survey-workflow-steps")).not.toBeInTheDocument();
+  });
+
   it("从问卷模块创建时只载入该模块的问题", () => {
     render(<SurveyWorkflowShell surveyId="module-profile" initialStep="design" uiState="default" readonly={false} moduleEditor />);
 
