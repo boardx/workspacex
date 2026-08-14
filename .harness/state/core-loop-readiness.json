@@ -39,7 +39,6 @@
         "packages/contracts/src/**"
       ],
       "blocking_issues": [
-        877,
         624
       ]
     },
@@ -77,9 +76,7 @@
         "apps/api/src/application/agent-run/**",
         "apps/api/src/infrastructure/agent-run/**"
       ],
-      "blocking_issues": [
-        877
-      ]
+      "blocking_issues": []
     },
     "V-D": {
       "name": "项目对话主屏原型保真（ChatReadScreen）",
@@ -164,5 +161,6 @@
   "_rev_e2e_queue_fix_20260810": "`--strict` 判红：统一队列首位 #660 已 CLOSED（2026-08-10T16:36Z，COMPLETED）而症状未变——#660 评论区实现方自己已指出「自建 agent 发消息仍 422，R9 仍是 0」并建议重开或另开，但无人执行。rev-e2e 独立复核（4a1dce3e 与最新 main b1a4ea8c 一致）：`grep -c instructions packages/contracts/src/agent-runtime.ts`=0、publish 路径零实现、delta `agent-instructions/design-signoff.md` 仍 `status: proposed`（三候选待人类签核，ADR-023 禁止 agent 自选）。故开 #877 作替代 tracker 并把 R/B 的 blocking_issues 里 660→877，让 #823 那道门恢复可用。blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排请直接覆盖。",
   "_rev_e2e_track_b_round2_20260810": "track B 重评 = 6/10（此前 1/10），实测 origin/main `5da21fce`，#876 修好取证脚本后重跑（rev-e2e，非自评）。逐项：①流式 **0.5** ②规划 **1** ③工具调用 **1** ④多步 0 ⑤语音 0 ⑥多轮 0 ⑦错误处理 **1** ⑧呈现 **0.5** ⑨控制感 **1** ⑩连贯性 **1**。得分依据：②③⑨ 由 b1-stream-01 一张图同时坐实——执行前先渲染「我需要先查一下当前时间，再回答这个问题。」，随后 `调用 lookup_time ⊙完成` 带参数摘要与结果，run 状态由「消息已持久化，AgentRun 已排队」→「正在执行」→「执行完成，回复已写入对话」；⑦沿用上一轮真实 422 红条（HTTP 码+人读原因+重试按钮），已用 `git diff` 证明 B 的六条 watch 路径在 4a1dce3e..5da21fce 之间**零改动**，故跨 SHA 仍成立；⑩全链路跑通、空态诚实、有「不在本地伪造」披露、无假按钮。①给 0.5 是**取证到的真实行为**不是取证失败：发消息后立刻有反馈（判据前半满足），但六次连拍 streaming行 恒 false——deep-agent 走轮询+整段写入，**不走 token 流式**（判据后半不满足）。⑧给 0.5：纯文本/agent 名/徽章/时间戳/左右对齐均渲染正确无裸标记，但取证样本里**没有 markdown/代码块/图片**，该三项未被测到。④⑥ 判 0 是**判据性质决定的**：loopback 是脚本化 echo 桩，④要的「真的按步骤决定下一步」与⑥要的「记得前几轮」都属模型行为，桩恒调 lookup_time、且回复只 echo 本轮原话从不引用前轮 ⇒ 界面层已证、模型行为未证，按「不能因为看起来对就放宽」记 0，**非缺陷结论**，需 devapp 真实模型复评。MANIFEST 边界声明与本判定一致。",
   "_vd_pause_ruling_20260811": "人类裁决原话留档（由 #728 会话提供逐字，coord-main 落档）。① 初次裁决（会话压缩前引文）：「项目的chat先不做，先把个人对话做到十分」。② 2026-08-10 AskUserQuestion 再确认——问题原文：「D组（项目对话 ChatReadScreen）现在还是暂停状态。要现在解除暂停、开始推进吗？」人类所选选项逐字：「继续暂停（维持原指示）」（选项描述：「按你之前「项目对话先不做」的指示，D组维持1/10，我不碰这部分代码。」）。③ 范围解释：人类明确暂停的是**实现/修复迭代**；「V-D 重评是否冻结」人类未直接谈及，由 coord-main 以夜间裁决权补充为「一并冻结」，此扩张记为 coord-main 裁决而非人类原话。 ④ ⚠ 前提状态（2026-08-11 夜间补记，rev-uiux 发现）：本暂停源自一条**带条件的排序指令**「项目的chat先不做，先把个人对话做到十分」——而『个人对话做到十分』已达成（V-P=10/10，新鲜非过期，round 17 @ 23416846）。暂停**未自动解除**（人类没说到 10 分自动开做，替他解释是不该做的扩张），但它现在处于人类下指令时不存在的状态。**是否解除 = 晨间第一件待人类确认事项**，封闭二选一：『项目对话（D 组，当前 1/10）现在开做，还是继续暂停？』",
-  "_rev_e2e_track_r_round2_20260811": "track R 重评 = 7/10（此前 6/10），实测 origin/main `5dd9a67e`（rev-e2e，非自评）。变化只有一处：**R9 由 0 翻正为 1**（#660 / PR #859 selfPublishToollessAgent 合入）。R9 判 1 的双重依据：①产品路径真实存在且可达——`agent-definition-create-panel.tsx:135` 依次调 createAgent + setAgentInstructions + selfPublishAgent，该面板挂在 `agent-screen.tsx:24` 即 `/admin/agent`；②见证测试实跑 6 passed，逐字覆盖 R9 判据「建 agent →（发布前仍 422，反证保留）→ 自助发布 201 → 发消息 202 → **恰好一条**回复 → 且出现在 capabilities 下拉（用户选得中）」。R1-R6 = 1，本轮在同一 SHA 上重跑 `verify:core-loop` 13 passed 取得新鲜证据（R1 仍是真空库硬证据）。**R7/R8/R10 仍为 0，本轮逐条复核过，结论未变**：R7 `consent-form.tsx:11` 仍 import `@/lib/mock/entry` 且 apps/web 零 `setConsentDecision` 调用方（#854）；R8 全仓 `INSERT INTO skill_reviewer_functions` 只有种子与两个测试文件，无 controller/契约/UI 任命路径，新组织 functionOf() 恒 null（#852）；R10 `createAgendaSegment` 在 apps/web 源码零调用方（#853）。三条同型：后端已合、界面那一半没人接。⚠ 记一笔：R9 走的 `selfPublishToollessAgent` 契约面在源码里自称「**草案，尚未经人类签核**（AR11）」，见 `self-publish-toolless-agent.ts:2` 与 `agent-definition-create-panel.tsx:121`。按 ADR-023 契约面变更需人类签核，本轮按「代码已合入 main 且端到端可用」计分，但该签核缺口应由 coord-main 登记跟踪，不因计分而消失。"
+  "_rev_e2e_track_r_round2_20260811": "track R 重评 = 7/10（此前 6/10），实测 origin/main `5dd9a67e`（rev-e2e，非自评）。变化只有一处：**R9 由 0 翻正为 1**（#660 / PR #859 selfPublishToollessAgent 合入）。R9 判 1 的双重依据：①产品路径真实存在且可达——`agent-definition-create-panel.tsx:135` 依次调 createAgent + setAgentInstructions + selfPublishAgent，该面板挂在 `agent-screen.tsx:24` 即 `/admin/agent`；②见证测试实跑 6 passed，逐字覆盖 R9 判据「建 agent →（发布前仍 422，反证保留）→ 自助发布 201 → 发消息 202 → **恰好一条**回复 → 且出现在 capabilities 下拉（用户选得中）」。R1-R6 = 1，本轮在同一 SHA 上重跑 `verify:core-loop` 13 passed 取得新鲜证据（R1 仍是真空库硬证据）。**R7/R8/R10 仍为 0，本轮逐条复核过，结论未变**：R7 `consent-form.tsx:11` 仍 import `@/lib/mock/entry` 且 apps/web 零 `setConsentDecision` 调用方（#854）；R8 全仓 `INSERT INTO skill_reviewer_functions` 只有种子与两个测试文件，无 controller/契约/UI 任命路径，新组织 functionOf() 恒 null（#852）；R10 `createAgendaSegment` 在 apps/web 源码零调用方（#853）。三条同型：后端已合、界面那一半没人接。⚠ 记一笔：R9 走的 `selfPublishToollessAgent` 契约面在源码里自称「**草案，尚未经人类签核**（AR11）」，见 `self-publish-toolless-agent.ts:2` 与 `agent-definition-create-panel.tsx:121`。按 ADR-023 契约面变更需人类签核，本轮按「代码已合入 main 且端到端可用」计分，但该签核缺口应由 coord-main 登记跟踪，不因计分而消失。",
+  "_readiness_queue_fix_877_20260814": "`--strict` 判红（init.sh 基础验证失败，拦下了本次 F154/F155 verify 工作，先修）：`gh issue view 877` = CLOSED，但 track R 与 track B 的 `blocking_issues` 仍各挂着 877（沿用 `_rev_e2e_queue_fix_20260810` 那次的替代 tracker，那次开完 #877 后就没人再回来收尾）。track R 的 877 直接摘除（同列表里的 624 仍 OPEN，保留）；track B 的 blocking_issues 摘掉 877 后变空数组（该 track 当前无其他在途 blocking issue）。跟 `_rev_e2e_queue_fix_20260810` 同一条纪律：blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排请直接覆盖。"
 }
