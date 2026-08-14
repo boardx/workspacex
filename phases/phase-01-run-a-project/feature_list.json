@@ -4081,14 +4081,14 @@
         "F175"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/blueprint-list-screen-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F181.verify.log @ 2026-08-14T16:33:09.472Z",
       "notes": "① 这是 #991 蓝本闭环 backlog 的第五件（BP-05），把已经真实落库的后端（F175/F174/F177/F179）第一次接上前端——track P 的 P1「建蓝本」从 🟡（后端有前端未接）拉到 🟢（前后端都有迹象，最终 1 分仍需人工 devapp/e2e 核实，见 dashboard 的三态说明）。\n② 范围边界——做：`/tpl/list`（生产入口）从 mock 切到真实 GET/POST /blueprints；新建 apps/web/lib/live-blueprints.ts 的 createBlueprint/updateDesignFacet 封装（listBlueprints/BLUEPRINT_STATE_LABEL/DURATION_TIER_LABEL 已由早前的 #1175 建好，本次是在同一文件上补充，不是新建）；新建 apps/web/components/tpl/blueprint-list-screen-live.tsx（真实卡片列表，不复用原型的 BlueprintListScreen——那个组件继续服务 /tpl 原型切换器路径的 ADR-023 签核材料，两者故意分开，见组件文件头注）。不做：蓝本设计器（/tpl/designer 真实路由）接线——该页面内部仍是 BLUEPRINT[0] 硬编码，传真实 blueprintId 过去它也不会用，是另一块要先改页面本身才能接的工作，留给后续 BP；换时长档位前端接线——契约缺口 T13（expectedVersion 无读路径）挡住，本 feature 里 live-blueprints.ts 明确不封装 setDurationTier；归档/删除——availableActions 服务端恒返回空数组（对应端点未实现），前端如实不画这两个按钮。\n③ 途中顺手修正一处认知：契约里「复制」有两个入口——createBlueprint(origin=copy)（已实现，F175 真库测试覆盖）与独立的 copyBlueprint 操作（POST /blueprints/:id/copy，签核时就有，至今未实现）。本 feature 的「复制」按钮走前者，不受 availableActions（那个字段门控的是后者）影响，已登记为 KNOWN_CONTRACT_GAPS.T14（同 T9 的性质：同一件事两个入口）。\n④ 验证：组件测试（同 F353 ProjectsScreen 的假 fetch 模式，不连真实后端）覆盖：按 provider currentOrgId 自动拉取、只渲染契约字段（反证 mock 专属字段不出现）、新建真实调 POST、复制真实调 POST 且不受 availableActions 门控、空名称就地报错不发请求、有 reasonCode 的失败就地显示、空列表如实空态。\n⑤ 一次真实事故：动手前先 cat 了已存在的 apps/web/lib/live-blueprints.ts（早前 #1175 建的），但第一版直接用 `cat >` 整体覆写，删掉了 new-project-flow.tsx 依赖的 BLUEPRINT_STATE_LABEL/DURATION_TIER_LABEL——typecheck 当场抓到，改成读原文件内容后再追加导出，未推送过这个错误版本。\n⑥ 编号：读活数据取最大号=F180，但 F180 与同期独立合入的「引导式 Deep Research」撞号（#1094 同款竞态），改取 F181。",
       "priority": 1,
       "area": "project",
