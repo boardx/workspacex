@@ -21,6 +21,19 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.getByText(/问卷 ID new/)).toBeInTheDocument();
   });
 
+  it("空白新问卷使用问卷文案并保留五步流程", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} />);
+
+    expect(screen.getByText("当前问卷还没有题目")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加第一道题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "从问卷模块选择" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    expect(screen.queryByText("当前模块还没有题目")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "从问卷模块选择" }));
+    expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules&intent=create-survey");
+  });
+
   it("从模块创建的是带五步流程的新问卷", () => {
     render(<SurveyWorkflowShell
       surveyId="new"
@@ -117,6 +130,14 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.getByText("当前模块还没有题目")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "添加第一道题" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "从已有问卷模块创建" })).not.toBeInTheDocument();
+  });
+
+  it("只读空白问卷不提供创建题目或选择模块的操作", () => {
+    render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly />);
+
+    expect(screen.getByText("当前问卷还没有题目")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加第一道题" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "从问卷模块选择" })).not.toBeInTheDocument();
   });
 
   it("问卷模块模式忽略非设计步骤且只显示题目编辑", () => {
