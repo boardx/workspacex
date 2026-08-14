@@ -1,7 +1,7 @@
 # Survey Creation Metadata and Tag Filtering Design
 
 Date: 2026-08-14
-Status: Awaiting human review
+Status: Approved by user on 2026-08-14
 Scope: Survey resource library and new-survey creation flow
 
 ## Goal
