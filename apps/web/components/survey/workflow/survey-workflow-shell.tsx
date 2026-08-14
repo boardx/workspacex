@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, Check, Eye, Save, Sparkles } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createSurveyWorkflowMock, getSurveyMetrics } from "@/lib/survey/workflow-model";
+import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/survey/creation-draft";
 import type { survey } from "@repo/contracts";
 import { SurveyDesignStep } from "./survey-design-step";
 import { ReportTemplateStep } from "./report-template-step";
@@ -23,25 +24,25 @@ const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = 
   { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
-export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false, sourceModuleId }: {
+export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false, creationDraft }: {
   surveyId: string;
   initialStep: survey.SurveyWorkflowStep;
   uiState: SurveyPrototypeState;
   readonly: boolean;
   moduleEditor?: boolean;
-  sourceModuleId?: string;
+  creationDraft?: SurveyCreationDraft;
 }) {
   const router = useRouter();
   const moduleId = moduleEditor && surveyId.startsWith("module-") ? surveyId.slice("module-".length) : undefined;
-  const effectiveSourceModuleId = !moduleEditor && surveyId === "new" ? sourceModuleId : undefined;
-  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, sourceModuleId: effectiveSourceModuleId, moduleEditor }));
+  const effectiveCreationDraft = !moduleEditor && surveyId === "new" ? creationDraft : undefined;
+  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, creationDraft: effectiveCreationDraft, moduleEditor }));
   const [saved, setSaved] = React.useState(false);
   const metrics = getSurveyMetrics(model);
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
     const searchParams = new URLSearchParams({ step });
     if (moduleEditor) searchParams.set("mode", "module");
-    if (effectiveSourceModuleId) searchParams.set("sourceModule", effectiveSourceModuleId);
+    if (effectiveCreationDraft) searchParams.set("draft", encodeSurveyCreationDraft(effectiveCreationDraft));
     router.replace(`/studio/survey/${surveyId}?${searchParams.toString()}`);
   };
 

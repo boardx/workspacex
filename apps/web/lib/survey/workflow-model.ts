@@ -1,6 +1,7 @@
 import { survey } from "@repo/contracts";
 import { z } from "zod";
 import { SURVEY_QUESTION_MODULE_CARDS } from "@/lib/survey/resource-library";
+import type { SurveyCreationDraft } from "@/lib/survey/creation-draft";
 
 export type SurveyWorkflowModel = z.infer<typeof survey.SurveyWorkflowSchema>;
 
@@ -21,7 +22,7 @@ export interface PublishBlocker {
 interface CreateSurveyWorkflowMockOptions {
   surveyId?: string;
   moduleId?: string;
-  sourceModuleId?: string;
+  creationDraft?: SurveyCreationDraft;
   moduleEditor?: boolean;
 }
 
@@ -72,7 +73,7 @@ export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOption
   const requestedModuleId = options.moduleEditor
     ? options.moduleId
     : isNew
-      ? options.sourceModuleId
+      ? options.creationDraft?.sourceModuleId
       : undefined;
   const knownModule = requestedModuleId
     ? SURVEY_QUESTION_MODULE_CARDS.some((item) => item.id === requestedModuleId)
@@ -91,7 +92,7 @@ export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOption
   const title = options.moduleEditor
     ? moduleTitle ?? "未命名问卷模块"
     : isNew
-      ? "未命名问卷"
+      ? options.creationDraft?.name ?? "未命名问卷"
       : "企业数字协作成熟度诊断";
 
   return survey.SurveyWorkflowSchema.parse({
