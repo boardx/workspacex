@@ -104,6 +104,21 @@ const EXEMPTIONS = [
       "的 3197 端口，纯前端预览页，不接后端），不存在『第二份栈定义』。接进门控没有意义：" +
       "没有断言的 spec 在 CI 里永远绿，等于加一条不会红的耗时步骤——与 chat-main-shots 同一理由。",
   },
+  {
+    spec: "apps/web/e2e/canvas-tpl-shots.spec.ts",
+    reason:
+      "新建画布→选模板 入口 UI 原型（21 起点 + 真实 CanvasStage 起手）—— 同 vz-fabric-shots：" +
+      "**取证工具，不是规格**。它确实带 `expect(...).toBeVisible()`，但那些只是「等这一态的锚点" +
+      "出现了再截图」的时序门，不是行为/契约断言——没有一条比对 POST 请求体、服务端响应字段或" +
+      "状态转移这类真正的产品行为。目的是把七态（default/loading/empty/invalid/dep-failed/" +
+      "denied/success）+ R5 四角色视角落成 phases/phase-02-visible-outcomes/ui-preview/" +
+      "canvas-template-gallery/ 下的截图，供人类签核第 ① 件 UI" +
+      "（SIGNOFF-INCREMENT-canvas-template-gallery.md，status: pending）核对用。" +
+      "由 `playwright.tplgallery.config.ts` 单独调用，对**已预热**的 dev server（默认 3221）" +
+      "截图、不自带 webServer，接进 fullstack-smoke 那套栈做不到（同一理由见 chat-main-shots 那条：" +
+      "两个 config 不能共存）。接进门控没有意义：这些 toBeVisible 门在 CI 里只会绿，" +
+      "真正的验收在人类签核，不在这个脚本自己判定「像不像」。",
+  },
 ];
 
 /** 拿 workspace 包名 → 目录 的映射，用于解析 `pnpm --filter <name>`。 */
