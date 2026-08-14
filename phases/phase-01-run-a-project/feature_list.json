@@ -4012,7 +4012,7 @@
         "F165"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "coord-voice",
       "verification": [
         "pnpm --filter @repo/contracts run test",
@@ -4021,7 +4021,7 @@
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F177.verify.log @ 2026-08-14T01:32:18.798Z",
       "notes": "属 personal-transcription-management design delta，挂靠已确认 personal-realtime-transcription 束。垂直切片：契约 + owner-scoped tags/update/delete API + usage 外键迁移 + /rec 卡片菜单与弹窗。删除正文与 capture，但保留不含正文的 realtime_asr_usage_events；活动 capture 必须拒绝修改和删除。Issue 必须由 harness sync 创建后再 claim；共享热点为 personal-transcription-usecases/repository/controller、personal-transcription.ts 与 realtime-transcription-history.tsx。",
       "priority": 1,
       "area": "recording",
