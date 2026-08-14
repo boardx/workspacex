@@ -422,4 +422,129 @@ describe("#520 Skill 库屏接真实 API", () => {
       expect(calls.length).toBe(callsBefore);
     });
   });
+
+  /**
+   * G3（2026-08-14，人类原话：「新建skill应该弹出来一个新的popup界面」）——
+   * 「新建 Skill」现在是一个真正的 Dialog（复用 `components/files/overlay.tsx` 的
+   * `Modal`），不是内嵌在页面里的一块区域。
+   */
+  describe("G3：新建 Skill 是弹窗", () => {
+    it("点「新建 skill」后出现 role=dialog 的弹窗；点关闭按钮后消失", async () => {
+      install(() => jsonResponse({ items: [], total: 0 }));
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+
+      expect(screen.queryByTestId("skill-create-modal")).toBeNull();
+      fireEvent.click(screen.getByTestId("skill-create-open"));
+
+      const dialog = screen.getByTestId("skill-create-modal");
+      expect(dialog).toBeTruthy();
+      expect(dialog.getAttribute("role")).toBe("dialog");
+      // 三条路径的 tab 切换器仍在弹窗内部，不是被弹窗遮住的另一块。
+      expect(screen.getByTestId("skill-create-mode-tabs")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("skill-create-modal-close"));
+      expect(screen.queryByTestId("skill-create-modal")).toBeNull();
+    });
+  });
+
+  /**
+   * G5（2026-08-14，人类原话：「新建的时候要支持添加tags」）—— 契约新增字段
+   * `tags?: string[]`（design delta：`phases/phase-01-run-a-project/design-deltas/
+   * skill-tags/`）。
+   */
+  describe("G5：新建时可以填 tags，请求体带上它，卡片上能看见", () => {
+    it("提交时 tags 输入框的逗号分隔文本被拆成数组，随请求体一起发出", async () => {
+      install((call) => {
+        if (call.method === "GET") return jsonResponse({ items: [], total: 0 });
+        return jsonResponse(
+          { skillId: "sk-tagged", versionId: "sv-tagged", source: "自建", status: "草稿" },
+          201,
+        );
+      });
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("skill-create-open"));
+      fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "打标签的" } });
+      fireEvent.change(screen.getByTestId("skill-create-duty"), { target: { value: "职责" } });
+      fireEvent.change(screen.getByTestId("skill-create-prompt"), { target: { value: "p" } });
+      fireEvent.change(screen.getByTestId("skill-create-input-schema"), { target: { value: "{}" } });
+      fireEvent.change(screen.getByTestId("skill-create-output-schema"), { target: { value: "{}" } });
+      fireEvent.change(screen.getByTestId("skill-create-fallback"), { target: { value: "如实说" } });
+      fireEvent.change(screen.getByTestId("skill-create-tags"), {
+        target: { value: "客服, 数据分析 ,客服" },
+      });
+      fireEvent.click(screen.getByTestId("skill-create-submit"));
+
+      await waitFor(() =>
+        expect(calls.some((c) => c.method === "POST" && c.pathname === "/skills")).toBe(true),
+      );
+      const createCall = calls.find((c) => c.method === "POST" && c.pathname === "/skills")!;
+      const body = createCall.body as Record<string, unknown>;
+      // ⚠ 逐字段拆分即可——本层不去重（"客服" 出现两次原样两次），去重不是这个输入框的职责。
+      expect(body.tags).toEqual(["客服", "数据分析", "客服"]);
+
+      // 乐观插入那一行也带着刚填的 tags——不是编的，是这次提交本身的入参（同名义务见文件头③条）。
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      const tagsBlock = screen.getByTestId("skill-catalog-tags");
+      expect(tagsBlock.textContent).toContain("客服");
+      expect(tagsBlock.textContent).toContain("数据分析");
+    });
+
+    it("没有 tags 的行不渲染 skill-catalog-tags 这个区块", async () => {
+      install(() =>
+        jsonResponse({
+          items: [
+            {
+              skillId: "sk-no-tags", name: "无标签", duty: "职责", source: "自建",
+              status: "草稿", visibility: "org-wide", currentVersionId: "sv-x", satisfaction: null,
+              tags: [],
+            },
+          ],
+          total: 1,
+        }),
+      );
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      expect(screen.queryByTestId("skill-catalog-tags")).toBeNull();
+    });
+  });
+
+  /**
+   * G2/G6（2026-08-14，人类实测：卡片 404 `SKILL_NOT_FOUND`）—— `duty` 命中 wave2
+   * 标记（`isSourceFileBacked`）的行显示「编辑源码」而不是「查看契约」，见
+   * `skill-catalog-live.tsx` 文件头长注。
+   */
+  describe("G2/G6：wave2（skills 表来源）行不再摆一个必 404 的「查看契约」", () => {
+    it("duty 命中标记的行显示「编辑源码」链接，目标是 ?screen=catalog&edit=<skillId>；普通行仍是「查看契约」", async () => {
+      install(() =>
+        jsonResponse({
+          items: [
+            {
+              skillId: "sk-wave2", name: "URL 导入的", duty: "这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。",
+              source: "自建", status: "已启用", visibility: "org-wide",
+              currentVersionId: "sv-wave2", satisfaction: null, tags: [],
+            },
+            {
+              skillId: "sk-form", name: "契约表单建的", duty: "普通职责说明",
+              source: "自建", status: "草稿", visibility: "org-wide",
+              currentVersionId: null, satisfaction: null, tags: [],
+            },
+          ],
+          total: 2,
+        }),
+      );
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+
+      const editLink = screen.getByTestId("skill-catalog-edit-source") as HTMLAnchorElement;
+      expect(editLink.getAttribute("href")).toContain("screen=catalog");
+      expect(editLink.getAttribute("href")).toContain("edit=sk-wave2");
+
+      // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
+      expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
+      expect(screen.getAllByTestId("skill-catalog-edit-source")).toHaveLength(1);
+    });
+  });
 });

@@ -22,6 +22,25 @@
  * 分叉过两条。DB 侧的 `skill_version_files_normal_path` CHECK 是**机械兜底**，
  * 不是第二份定义：两者一旦不同义，DB 拒掉应用层放行的行，而不是反过来。
  *
+ * ## G1（2026-08-14，人类实测："导入失败：http_500"）—— `IMPORT_NAME_CONFLICT` 声明了但从未真正抛出过
+ *
+ * `url-import-draft.ts` 的 `ImportSkillFromUrlFailure` 联合类型里一直就有
+ * `IMPORT_NAME_CONFLICT`，`skill-url-import.controller.ts` 也早就把它映射到 409——
+ * 但**没有任何代码真的抛出它**。`skills` 表有 `skills_name_casefold_uniq`
+ * （`org_id, lower(name)`）这条真实唯一约束（`wave2_skill_starter_import` 迁移），
+ * 声明式契约那条姊妹路径（`pg-skill-contract-repository.ts` 的 `SkillDraftStorePort`）
+ * 早就在 `catch (isUniqueViolation(error))` 里把它翻成 `SkillNameConflictError`，
+ * 这条 URL 导入路径漏了同一步：下面 `INSERT INTO skills` 撞到重名时，原始的
+ * Postgres `23505` 一路裸奔到 `skill-url-import.controller.ts` 的 `catch` 块——
+ * 那里只认 `ImportSkillFromUrlError` 与 `ImportSourceRefusedError` 两种类型，
+ * 其余一律 `throw error`，NestJS 的默认异常过滤器把它变成一个**没有 reasonCode**
+ * 的裸 500。前端 `ApiError` 在没有 reasonCode 时把 `message` 缺省成 `` `http_${status}` ``
+ * （`lib/api-client.ts`），这正是人类看到的「导入失败：http_500」的完整机制——
+ * 不是 SSRF 门误杀，也不是目录 URL 单独的问题，是**这一条错误翻译从来没接上**。
+ * 修法：`persist` 捕获这条唯一约束冲突，抛出与声明式路径同一个 `SkillNameConflictError`
+ * （`application/skill/ports.ts`），由用例层（`import-skill-from-url.ts`）接住翻成
+ * `ImportSkillFromUrlError("IMPORT_NAME_CONFLICT")`——与已经存在的 409 映射对上。
+ *
  * ## `capability_listings`（2026-08-07 补，人类实测："我在后台不能看到导入了的 skills"）
  *
  * 后台「Skill 目录」页（`/admin/skill`）读的是 `GET /capabilities?kind=skill`，那是
@@ -39,6 +58,7 @@ import type {
   SkillUrlImportRepository,
 } from "../../application/skill-import/import-skill-from-url";
 import type { ImportSkillFromUrlResult } from "../../application/skill-import/url-import-draft";
+import { SkillNameConflictError } from "../../application/skill/ports";
 
 interface ImportRow {
   readonly skill_id: string;
@@ -48,6 +68,11 @@ interface ImportRow {
 
 interface PathRow {
   readonly path: string;
+}
+
+/** 唯一约束冲突。23505 = unique_violation。与 `pg-skill-contract-repository.ts` 同一判定。 */
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
 }
 
 export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
@@ -117,12 +142,19 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
       const versionId = `sv_${randomUUID()}`;
       const now = new Date().toISOString();
 
-      await session.query(
-        `INSERT INTO skills
-           (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)`,
-        [skillId, input.orgId, skillId, input.name, input.actorId, now],
-      );
+      try {
+        await session.query(
+          `INSERT INTO skills
+             (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)`,
+          [skillId, input.orgId, skillId, input.name, input.actorId, now],
+        );
+      } catch (error) {
+        // `skills_name_casefold_uniq`（org_id, lower(name)）撞了：同组织已有同名 skill
+        // （不分大小写）。翻成与声明式创建路径同一个错误类型，见文件头 G1 长注。
+        if (isUniqueViolation(error)) throw new SkillNameConflictError(input.name);
+        throw error;
+      }
       await session.query(
         `INSERT INTO skill_versions
            (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id,

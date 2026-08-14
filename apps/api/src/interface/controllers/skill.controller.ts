@@ -82,6 +82,8 @@ type CreateBody = {
   };
   readonly visibility: "org-wide" | "team-only";
   readonly modelRef: string;
+  /** G5（2026-08-14）——可选，契约 `.optional()`。 */
+  readonly tags?: readonly string[];
 };
 
 type DisableBody = {
@@ -112,6 +114,7 @@ function toListItem(row: SkillContractRow) {
     visibility: row.visibility,
     currentVersionId: row.currentVersionId,
     satisfaction: SATISFACTION_SAMPLE_INSUFFICIENT,
+    tags: row.tags,
   };
 }
 
@@ -171,6 +174,7 @@ export class SkillController {
         // 而 `SkillListItem.visibility = team-only` 必须有归属团队才有意义。
         ownerTeamId: body.visibility === "team-only" ? (membership?.teamId ?? null) : null,
         modelRef: body.modelRef,
+        tags: body.tags,
         // ⚠ 未经契约解析的原始请求体：`createSkillDraft.in` 是 `.strict()` 的，
         //   解析后永远看不到 `source`，所以「有人试图写 source」只在这一层可见。
         rawBody: body as unknown,

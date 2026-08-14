@@ -57,11 +57,26 @@ export function SkillApp({
     return s ? `?${s}` : "?";
   };
 
+  /**
+   * G7（2026-08-14，人类原话：「不需要右边的 column」）—— `RightRail` 是签核期给
+   * `library-prototype`/`tryrun`/`binding`/`temp`/`versioning`/`promotion`/`feedback`
+   * 这七屏原型配的「本屏关键约束」批注面板，供人类核对 ADR-023 签核材料用；
+   * `library`（真实卡片网格）与 `catalog`（真实目录，2026-08-11 合并进来）是两个
+   * **生产屏**，不是签核材料，右侧摆一块签核批注对使用者没有意义。
+   *
+   * ⚠ 不是给 `RightRail` 加 `NODE_ENV==="production"` 门（`PreviewControls` 那种做法）——
+   *   那样在生产环境里 `library-prototype` 等七屏也会跟着失去批注，而它们本来就还
+   *   停在签核阶段、批注仍有意义。这里按**屏**区分，不按环境区分：`library`/`catalog`
+   *   两个真实屏一律不传 `right`（哪怕是开发环境下核对这两屏本身也不需要它），
+   *   其余七屏一律保留。
+   */
+  const isProductionScreen = screen === "library" || screen === "catalog";
+
   return (
     <AppShell
       previewRole={previewRole}
       left={<AdminNav active="skill" />}
-      right={<RightRail screen={screen} />}
+      right={isProductionScreen ? undefined : <RightRail screen={screen} />}
     >
       <div className="flex h-full min-h-0 flex-col">
         <PreviewControls href={href} screen={screen} uiState={uiState} qs={qs} />

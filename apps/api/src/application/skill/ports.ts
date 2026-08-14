@@ -86,6 +86,11 @@ export interface SkillDraftStorePort {
     readonly ownerTeamId: string | null;
     /** 契约 `createSkillDraft.in.modelRef`。落在版本行上，见迁移里的理由 */
     readonly modelRef: string;
+    /**
+     * G5（2026-08-14）——可选，缺省 `[]`。落 `skill_contracts.tags`
+     * （`20260814090000_g5_skill_contract_tags.sql`，`NOT NULL DEFAULT '{}'`）。
+     */
+    readonly tags?: readonly string[];
   }): Promise<{ readonly skillId: string; readonly versionId: string }>;
 }
 
@@ -140,6 +145,8 @@ export interface SkillContractRow {
   readonly visibility: "org-wide" | "team-only";
   readonly ownerTeamId: string | null;
   readonly currentVersionId: string | null;
+  /** G5（2026-08-14）。wave2（`skills` 表来源）行恒为 `[]`——见 `listAll()` 的映射注释。 */
+  readonly tags: readonly string[];
 }
 
 /** `getSkillDetail` 的取数结果。⚠ `contract` 取的是**最新版本**的声明正文。 */
