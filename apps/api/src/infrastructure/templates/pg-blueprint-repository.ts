@@ -27,6 +27,10 @@ import type {
   UpdateDesignFacetOutcome,
   SetDurationTierCommand,
   SetDurationTierOutcome,
+  StartTrialRunCommand,
+  StartTrialRunOutcome,
+  PublishBlueprintVersionCommand,
+  PublishBlueprintVersionOutcome,
 } from "../../application/templates/blueprint-persistence-ports";
 import {
   planDurationTierChange,
@@ -36,6 +40,12 @@ import {
   isOrderedDurationTier,
   type OrderedDurationTier,
 } from "../../domain/templates/agenda-segment-table";
+import {
+  publishBlueprintVersionUseCase,
+  PublishBlueprintVersionError,
+} from "../../application/templates/publish-blueprint-version";
+import type { BlueprintBinding } from "../../domain/templates/designer-shell";
+import type { BlueprintVersion } from "../../domain/templates/blueprint-version";
 
 interface ListRow {
   id: string;
@@ -256,6 +266,154 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
           },
         ),
       }));
+    });
+  }
+
+  /**
+   * F178（BP-04）：试跑一场。追加一条 `kind='trial-run'` 绑定——
+   * `startTrialRun`（应用层纯函数）本身不持久化（见该文件头注），持久化在这里做。
+   * 没有 CAS：多次试跑各自成功、各自留痕，不是互斥写。
+   */
+  async startTrialRun(cmd: StartTrialRunCommand): Promise<StartTrialRunOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const bp = await s.query<{ id: string }>(`SELECT id FROM blueprints WHERE id = $1`, [cmd.blueprintId]);
+      if (bp.rows.length === 0) return { kind: "blueprint-not-found" };
+
+      await s.query(
+        `INSERT INTO blueprint_bindings (id, blueprint_id, org_id, kind) VALUES ($1, $2, $3, 'trial-run')`,
+        [cmd.trialRunId, cmd.blueprintId, cmd.orgId],
+      );
+      return { kind: "ok", trialRunId: cmd.trialRunId };
+    });
+  }
+
+  /**
+   * F178（BP-04）：发布新版本。
+   *
+   * 顺序：① 锁行 + 版本号 CAS 比对 → ② 读齐编排 `publishBlueprintVersionUseCase`
+   * 所需的四样东西（已填 key 集合、绑定集合、历史版本、当前内容快照）→
+   * ③ 调用纯用例判门槛 → ④ 门槛通过才写：新版本行 + 旧版本行转 archived +
+   * `blueprints` 行的 `version_number`/`state` 一次性更新（同一事务，
+   * 见 `domain/templates/publish-blueprint-version.ts` 头注「同事务」）。
+   *
+   * ⚠ `changedDesignFacetKeys` 的算法：与「上一个 published 版本」的冻结快照逐 key 比较；
+   *   没有上一个版本（首次发布）⇒ 当前所有已填 key 都算「改动」——首次发布没有基线可比，
+   *   把「从无到有」记成改动是对该字段字面最不勉强的读法。
+   */
+  async publishBlueprintVersion(cmd: PublishBlueprintVersionCommand): Promise<PublishBlueprintVersionOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const bp = await s.query<{ state: BlueprintState; version_number: number }>(
+        `SELECT state, version_number FROM blueprints WHERE id = $1 FOR UPDATE`,
+        [cmd.blueprintId],
+      );
+      const bpRow = bp.rows[0];
+      if (bpRow === undefined) return { kind: "blueprint-not-found" };
+      if (bpRow.version_number !== cmd.expectedCurrentVersionNumber) return { kind: "version-changed" };
+
+      const facetsRes = await s.query<{ design_facet_key: string; content: string }>(
+        `SELECT design_facet_key, content FROM blueprint_design_facets WHERE blueprint_id = $1`,
+        [cmd.blueprintId],
+      );
+      const completedKeys = facetsRes.rows.map((r) => r.design_facet_key);
+      const currentContent: Record<string, unknown> = Object.fromEntries(
+        facetsRes.rows.map((r) => [r.design_facet_key, r.content]),
+      );
+
+      const bindingsRes = await s.query<{ kind: "project" | "trial-run" }>(
+        `SELECT kind FROM blueprint_bindings WHERE blueprint_id = $1`,
+        [cmd.blueprintId],
+      );
+      const bindings: BlueprintBinding[] = bindingsRes.rows.map((r) => ({ kind: r.kind }));
+
+      const historyRes = await s.query<{
+        id: string;
+        version_number: number;
+        content: Record<string, unknown>;
+        changed_design_facet_keys: string[];
+        rolled_back_from: string | null;
+        state: "published" | "archived";
+      }>(
+        `SELECT id, version_number, content, changed_design_facet_keys, rolled_back_from, state
+           FROM blueprint_versions WHERE blueprint_id = $1 ORDER BY version_number ASC`,
+        [cmd.blueprintId],
+      );
+      const history: BlueprintVersion[] = historyRes.rows.map((r) => ({
+        id: r.id,
+        blueprintId: cmd.blueprintId,
+        versionNumber: r.version_number,
+        content: r.content,
+        changedDesignFacetKeys: r.changed_design_facet_keys,
+        rolledBackFrom: r.rolled_back_from,
+        state: r.state,
+      }));
+      const currentVersion = history.find((v) => v.state === "published") ?? null;
+
+      const changedDesignFacetKeys =
+        currentVersion === null
+          ? completedKeys
+          : completedKeys.filter((k) => currentVersion.content[k] !== currentContent[k]);
+      // 反向：上一版有、这一版被清空的 key 也算改动（内容变化包含「消失」）
+      if (currentVersion !== null) {
+        for (const k of Object.keys(currentVersion.content)) {
+          if (!(k in currentContent) && !changedDesignFacetKeys.includes(k)) changedDesignFacetKeys.push(k);
+        }
+      }
+
+      let useCaseOut;
+      try {
+        useCaseOut = publishBlueprintVersionUseCase({
+          blueprintId: cmd.blueprintId,
+          completedKeys,
+          bindings,
+          history,
+          currentVersion,
+          content: currentContent,
+          changedDesignFacetKeys,
+          newVersionId: cmd.newVersionId,
+        });
+      } catch (e) {
+        if (e instanceof PublishBlueprintVersionError) {
+          return {
+            kind: "gate-blocked",
+            reasonCode: e.reasonCode as "REQUIRED_CONFIG_INCOMPLETE" | "TRIAL_RUN_REQUIRED",
+            missingKeys: e.missingKeys,
+          };
+        }
+        throw e;
+      }
+
+      if (currentVersion !== null) {
+        await s.query(`UPDATE blueprint_versions SET state = 'archived' WHERE id = $1`, [currentVersion.id]);
+      }
+      await s.query(
+        `INSERT INTO blueprint_versions
+           (id, blueprint_id, org_id, version_number, content, changed_design_facet_keys, state)
+         VALUES ($1, $2, $3, $4, $5, $6, 'published')`,
+        [
+          cmd.newVersionId,
+          cmd.blueprintId,
+          cmd.orgId,
+          useCaseOut.versionNumber,
+          JSON.stringify(currentContent),
+          useCaseOut.changedDesignFacetKeys,
+        ],
+      );
+      // ⚠ 不碰 `revision` 列——那是 BP-03（F177）的迁移加的，本分支从 main 独立分出，
+      //   不依赖它是否已合入。发布的并发令牌是 `version_number` 本身（契约
+      //   `expectedCurrentVersionNumber` 就读它），不需要额外令牌。
+      await s.query(
+        `UPDATE blueprints SET state = 'published', version_number = $2, updated_at = now()
+           WHERE id = $1`,
+        [cmd.blueprintId, useCaseOut.versionNumber],
+      );
+
+      return {
+        kind: "ok",
+        versionId: useCaseOut.versionId,
+        versionNumber: useCaseOut.versionNumber,
+        changedDesignFacetKeys: useCaseOut.changedDesignFacetKeys,
+        archivedVersionId: useCaseOut.archivedVersionId,
+      };
     });
   }
 }

@@ -36,6 +36,7 @@ import {
   Post,
   Query,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { templates as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -70,6 +71,10 @@ const UPDATE_FACET_BODY_SCHEMA = C.operations.updateDesignFacet.in.omit({ bluepr
 type UpdateFacetBody = z.infer<typeof UPDATE_FACET_BODY_SCHEMA>;
 const SET_DURATION_TIER_BODY_SCHEMA = C.operations.setDurationTier.in.omit({ blueprintId: true });
 type SetDurationTierBody = z.infer<typeof SET_DURATION_TIER_BODY_SCHEMA>;
+const START_TRIAL_RUN_BODY_SCHEMA = C.operations.startTrialRun.in.omit({ blueprintId: true });
+type StartTrialRunBody = z.infer<typeof START_TRIAL_RUN_BODY_SCHEMA>;
+const PUBLISH_VERSION_BODY_SCHEMA = C.operations.publishBlueprintVersion.in.omit({ blueprintId: true });
+type PublishVersionBody = z.infer<typeof PUBLISH_VERSION_BODY_SCHEMA>;
 
 @Controller()
 export class BlueprintController {
@@ -262,7 +267,7 @@ export class BlueprintController {
    * F177（BP-03）—— 换时长档位。
    *
    * ⚠ 已知契约缺口（如实登记，见迁移文件头注、`packages/contracts/src/templates.ts`
-   *   `KNOWN_CONTRACT_GAPS.T9`）：契约要求调用方传 `expectedVersion`，但没有任何
+   *   `KNOWN_CONTRACT_GAPS.T13`）：契约要求调用方传 `expectedVersion`，但没有任何
    *   契约操作把它读出来——`listBlueprints` 不含它，也没有 `getBlueprint`。
    *   本端点因此真实、可测，但目前没有合法途径从前端拿到第一个 `expectedVersion`；
    *   真正接线（BP-05 之后的某个 BP）要等这个读路径的缺口被补上或走 delta 新增。
@@ -305,6 +310,78 @@ export class BlueprintController {
           added: outcome.added,
           removed: outcome.removed,
           recoverable: outcome.recoverable,
+        };
+    }
+  }
+
+  /**
+   * F178（BP-04）—— 试跑一场，发布门槛「已试跑」判据的写入路径。
+   * 复用 `requireCapabilityAdmin`：试跑是编辑动作的一种（同 setDurationTier/
+   * updateDesignFacet 的角色门槛），不新造一套判据。
+   */
+  @Post("/blueprints/:blueprintId/trial-runs")
+  async startTrialRun(
+    @Param("blueprintId") blueprintId: string,
+    @Body(new ZodBodyPipe(START_TRIAL_RUN_BODY_SCHEMA)) _body: StartTrialRunBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    await this.requireCapabilityAdmin(orgId, principal.userId);
+
+    const outcome = await this.repo.startTrialRun({
+      orgId,
+      blueprintId,
+      trialRunId: this.ids.next("trial"),
+    });
+
+    if (outcome.kind === "blueprint-not-found") {
+      throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+    }
+    // 见 `application/templates/start-trial-run.ts`：判据挂在绑定表上，
+    // 今天等价于「创建即算」（D-6 未裁，`KNOWN_CONTRACT_GAPS.T7`）。
+    return { trialRunId: outcome.trialRunId, trialRunDone: true };
+  }
+
+  /**
+   * F178（BP-04）—— 发布新版本。门槛判定（必填面 + 试跑面）与版本生成的编排
+   * 全部在仓储层完成（`publishBlueprintVersionUseCase`），控制器只做错误码映射。
+   */
+  @Post("/blueprints/:blueprintId/versions")
+  async publishBlueprintVersion(
+    @Param("blueprintId") blueprintId: string,
+    @Body(new ZodBodyPipe(PUBLISH_VERSION_BODY_SCHEMA)) body: PublishVersionBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    await this.requireCapabilityAdmin(orgId, principal.userId);
+
+    const outcome = await this.repo.publishBlueprintVersion({
+      orgId,
+      blueprintId,
+      expectedCurrentVersionNumber: body.expectedCurrentVersionNumber,
+      newVersionId: this.ids.next("bpv"),
+    });
+
+    switch (outcome.kind) {
+      case "blueprint-not-found":
+        throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+      case "version-changed":
+        throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      case "gate-blocked":
+        // 422：请求形式合法，但当前资源状态不满足发布的语义前置条件——
+        //   与 400（请求本身畸形）和 409（并发写冲突，上面那支）都不是同一件事。
+        throw new UnprocessableEntityException({
+          reasonCode: outcome.reasonCode,
+          detail: outcome.reasonCode === "REQUIRED_CONFIG_INCOMPLETE" ? { missingKeys: outcome.missingKeys } : undefined,
+        });
+      case "ok":
+        return {
+          versionId: outcome.versionId,
+          versionNumber: outcome.versionNumber,
+          changedDesignFacetKeys: outcome.changedDesignFacetKeys,
+          archivedVersionId: outcome.archivedVersionId,
         };
     }
   }
