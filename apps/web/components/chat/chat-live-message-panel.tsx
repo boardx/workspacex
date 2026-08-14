@@ -746,13 +746,22 @@ export function ChatLiveMessagePanel({
                         // VZ-01 MarkdownMessage：markdown（代码块/列表/加粗/表格）+ ```mermaid
                         // 围栏渲成图（越界图类型/语法错误落诚实错误态，不崩整条消息）。
                         // 只对 agent 消息用：用户自己打的文字没有 markdown 语义可渲染。
-                        // 传 threadId/message.id/bearer：这是已落库的最终消息，图「最大化→
-                        // 编辑→保存」时可以真实落一个 canvas artifact（landAsArtifact）。
+                        //
+                        // 只在 canLandArtifacts 为真时传 threadId/message.id/bearer——跟
+                        // 下面 `MessageLandingControls` 同一道门。此前这里无条件传全三者，
+                        // 于是图「最大化→编辑→保存」在个人线程（canLandArtifacts 恒 false，
+                        // `artifact-land-capability.test.ts` 钉死的既有设计：产物对个人线程
+                        // 是只读，不是禁用）里会调 landAsArtifact 撞上后端角色门，403「保存
+                        // 失败：当前身份没有写入权限」——那不是权限模型错了，是这个入口没接
+                        // 上已有的能力开关，让一枚本该退回「本地演示」的按钮伪装成了可保存。
+                        // 不传时 `ChatDiagramCanvasModal` 自己的 `canPersist` 判断会退回本地
+                        // 演示态（明确标「本地演示，未接后端」），不会崩、也不会打出一个
+                        // 注定 403 的请求。
                         <MarkdownMessage
                           text={message.text}
-                          threadId={threadId}
-                          messageId={message.id}
-                          bearer={bearer}
+                          threadId={canLandArtifacts ? threadId : undefined}
+                          messageId={canLandArtifacts ? message.id : undefined}
+                          bearer={canLandArtifacts ? bearer : undefined}
                         />
                       ) : (
                         <p className="whitespace-pre-wrap">{message.text}</p>
