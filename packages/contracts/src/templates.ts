@@ -1497,4 +1497,14 @@ export const KNOWN_CONTRACT_GAPS = {
    * 两者都是新增契约面，需走 delta 重签，不是本文件能单方补的）。
    */
   T13: "setDurationTier.in.expectedVersion (and the same shape for setFormatAndLanguage/setModelStrategy/setQuotaPolicy) has no read path — listBlueprints.out doesn't carry a blueprint-level revision token and there is no getBlueprint operation; a caller cannot legitimately obtain the first expectedVersion",
+  /**
+   * **复制蓝本有两个入口**：`createBlueprint`（`origin: "copy"` + `sourceId`，
+   * F175/BP-01 已实现且有真库测试覆盖）与本束独立的 `copyBlueprint`
+   * （`POST /blueprints/:id/copy`，契约签核时就有，至今未实现）。同 T9（项目创建
+   * 两个入口）的性质——两处都能把「复制」这件事做完，语义重叠但没人合并它们。
+   * BP-05（F1xx，前端接线）选择了已实现的 `createBlueprint` 路径，`copyBlueprint`
+   * 仍然是签核过但零实现的状态，**不是**本文件能单方合并的（合并两个 operation
+   * 是新增/删减契约面，需走 delta）。
+   */
+  T14: "copying a blueprint has two entry points: createBlueprint with origin='copy' (implemented, F175/BP-01, real-DB tested) and this bundle's standalone copyBlueprint (POST /blueprints/:id/copy, contracted at signoff time, still unimplemented); same shape of issue as T9",
 } as const;
