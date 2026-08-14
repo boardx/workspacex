@@ -5,12 +5,14 @@ import { GUIDED_RESEARCH_BRIEF, GUIDED_RESEARCH_HISTORY } from "@/lib/mock/guide
 
 const {
   listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession,
+  confirmResearchBrief,
   generateResearchDirections, confirmResearchDirections, generateResearchOutline, confirmResearchOutline,
   finishGuidedResearchCollection, completeGuidedResearchSession,
 } = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
   getGuidedResearchSession: vi.fn(),
+  confirmResearchBrief: vi.fn(),
   generateResearchDirections: vi.fn(),
   confirmResearchDirections: vi.fn(),
   generateResearchOutline: vi.fn(),
@@ -23,6 +25,7 @@ vi.mock("@/lib/guided-research-api", () => ({
   listGuidedResearchSessions,
   createGuidedResearchSession,
   getGuidedResearchSession,
+  confirmResearchBrief,
   generateResearchDirections,
   confirmResearchDirections,
   generateResearchOutline,
@@ -67,6 +70,35 @@ function sessionAt(resumeStage: "directions" | "outline" | "researching" | "repo
   };
 }
 
+function reportCheckpointSession() {
+  return {
+    ...checkpointSession,
+    sessionId: "grs-edit",
+    stage: "report" as const,
+    resumeStage: "report" as const,
+    status: "completed" as const,
+    progress: 100,
+    sourceCount: 3,
+    reportId: "report-grs-edit",
+    directions: {
+      candidateVersion: 1,
+      confirmedVersion: 1,
+      versions: [{
+        version: 1, createdAt: "2026-08-13T00:01:00.000Z", confirmedAt: "2026-08-13T00:02:00.000Z",
+        items: [{ id: "d1", title: "已确认方向", description: "已确认描述", enabled: true, order: 0 }],
+      }],
+    },
+    outline: {
+      candidateVersion: 1,
+      confirmedVersion: 1,
+      versions: [{
+        version: 1, createdAt: "2026-08-13T00:03:00.000Z", confirmedAt: "2026-08-13T00:04:00.000Z",
+        items: [{ id: "o1", title: "已确认大纲", questions: ["问题"], enabled: true, order: 0 }],
+      }],
+    },
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -81,6 +113,7 @@ beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
+  confirmResearchBrief.mockReset();
   generateResearchDirections.mockReset();
   confirmResearchDirections.mockReset();
   generateResearchOutline.mockReset();
@@ -220,14 +253,95 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
   });
 
-  it("clamps an earlier requested checkpoint to the persisted current stage", async () => {
+  it("keeps a requested completed checkpoint accessible and locks only future progress", async () => {
     getGuidedResearchSession.mockResolvedValue(sessionAt("outline"));
     render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);
 
     await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-edit"));
-    expect(screen.getByTestId("research-flow-outline")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "研究方向" })).toBeDisabled();
-    expect(screen.queryByTestId("research-flow-directions")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2研究方向" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "3报告大纲" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "资料研究" })).toBeDisabled();
+  });
+
+  it("reconfirms a persisted brief on the same session and warns that downstream demo results regenerate", async () => {
+    const reportSession = reportCheckpointSession();
+    getGuidedResearchSession.mockResolvedValue(reportSession);
+    confirmResearchBrief.mockResolvedValue({
+      ...reportSession, brief: { ...GUIDED_RESEARCH_BRIEF, topic: "更新后的主题" }, briefVersion: 2,
+      directions: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      stage: "directions", resumeStage: "directions", status: "active", progress: 20, sourceCount: 0, reportId: null,
+    });
+    window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-edit", JSON.stringify({
+      version: 1, sessionId: "grs-edit", completedTaskIds: ["t1"], sourceDecisions: { s1: "accepted" }, reportSummary: "旧报告",
+    }));
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="brief" sessionId="grs-edit" onStepChange={onStepChange} />);
+
+    expect(await screen.findByDisplayValue(GUIDED_RESEARCH_BRIEF.topic)).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "更新后的主题" } });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+
+    await waitFor(() => expect(confirmResearchBrief).toHaveBeenCalledWith("grs-edit", {
+      briefVersion: 1,
+      brief: expect.objectContaining({ topic: "更新后的主题" }),
+    }));
+    expect(createGuidedResearchSession).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("wsx.guidedResearch.demo.v1.grs-edit")).toBeNull();
+    expect(onStepChange).toHaveBeenCalledWith("directions", "grs-edit");
+  });
+
+  it("reconfirms completed directions, clears browser results, and retracts progress to outline", async () => {
+    const reportSession = reportCheckpointSession();
+    getGuidedResearchSession.mockResolvedValue(reportSession);
+    confirmResearchDirections.mockResolvedValue({
+      ...reportSession,
+      directions: { ...reportSession.directions, candidateVersion: 2, confirmedVersion: 2 },
+      outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+      stage: "outline", resumeStage: "outline", status: "active", progress: 40, sourceCount: 0, reportId: null,
+    });
+    window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-edit", "old-results");
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="directions" sessionId="grs-edit" onStepChange={onStepChange} />);
+
+    expect(await screen.findByDisplayValue("已确认方向")).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("research-direction-title-d1"), { target: { value: "更新后的方向" } });
+    fireEvent.click(screen.getByTestId("research-confirm-directions"));
+
+    await waitFor(() => expect(confirmResearchDirections).toHaveBeenCalledWith("grs-edit", expect.objectContaining({
+      candidateVersion: 1,
+      directions: [expect.objectContaining({ title: "更新后的方向" })],
+    })));
+    expect(window.localStorage.getItem("wsx.guidedResearch.demo.v1.grs-edit")).toBeNull();
+    expect(onStepChange).toHaveBeenCalledWith("outline", "grs-edit");
+  });
+
+  it("reconfirms a completed outline, clears browser results, and retracts progress to search", async () => {
+    const reportSession = reportCheckpointSession();
+    getGuidedResearchSession.mockResolvedValue(reportSession);
+    confirmResearchOutline.mockResolvedValue({
+      ...reportSession,
+      outline: { ...reportSession.outline, candidateVersion: 2, confirmedVersion: 2 },
+      stage: "researching", resumeStage: "researching", status: "active", progress: 60, sourceCount: 0, reportId: null,
+    });
+    window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-edit", "old-results");
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="outline" sessionId="grs-edit" onStepChange={onStepChange} />);
+
+    expect(await screen.findByDisplayValue("已确认大纲")).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("research-outline-title-o1"), { target: { value: "更新后的大纲" } });
+    fireEvent.click(screen.getByTestId("research-start-search"));
+
+    await waitFor(() => expect(confirmResearchOutline).toHaveBeenCalledWith("grs-edit", expect.objectContaining({
+      candidateVersion: 1,
+      outline: [expect.objectContaining({ title: "更新后的大纲" })],
+    })));
+    expect(window.localStorage.getItem("wsx.guidedResearch.demo.v1.grs-edit")).toBeNull();
+    expect(onStepChange).toHaveBeenCalledWith("search", "grs-edit");
   });
 
   it.each(["directions", "outline", "search", "report"] as const)(
@@ -320,6 +434,17 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "返回研究首页" }));
 
     expect(onStepChange).toHaveBeenCalledWith("home", undefined);
+  });
+
+  it("returns from report to the completed search checkpoint", async () => {
+    const onStepChange = vi.fn();
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
+    render(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
+
+    await screen.findByTestId("research-report");
+    fireEvent.click(screen.getByRole("button", { name: "返回资料研究" }));
+
+    expect(onStepChange).toHaveBeenCalledWith("search", "grs-1");
   });
 
   it("shows zero report citations when every source was excluded", async () => {

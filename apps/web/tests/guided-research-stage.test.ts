@@ -11,10 +11,10 @@ describe("guided research stage gate", () => {
     expect(maxGuidedResearchStep(session("directions"))).toBe("directions");
   });
 
-  it("clamps future and completed checkpoint requests to the persisted current stage", () => {
+  it("keeps completed checkpoint requests and clamps only future requests", () => {
     expect(clampGuidedResearchStep("report", session("outline"))).toBe("outline");
-    expect(clampGuidedResearchStep("brief", session("researching"))).toBe("search");
-    expect(clampGuidedResearchStep("directions", session("outline"))).toBe("outline");
+    expect(clampGuidedResearchStep("brief", session("researching"))).toBe("brief");
+    expect(clampGuidedResearchStep("directions", session("outline"))).toBe("directions");
     expect(clampGuidedResearchStep("search", session("researching"))).toBe("search");
     expect(clampGuidedResearchStep("report", session("report"))).toBe("report");
   });

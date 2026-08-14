@@ -90,6 +90,24 @@ export class GuidedResearchController {
     throw error;
   }
 
+  @Put(C.operations.confirmResearchBrief.path)
+  async confirmBrief(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.operations.confirmResearchBrief.in.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    try {
+      const updated = await this.sessions.confirmBrief({
+        orgId: principal.orgId,
+        viewerUserId: principal.userId,
+        sessionId: input.data.sessionId,
+        briefVersion: input.data.briefVersion,
+        brief: input.data.brief,
+      });
+      if (!updated) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
+      return this.disclose(updated, principal.userId);
+    } catch (error) { this.checkpointError(error); }
+  }
+
   @Post(C.operations.generateResearchDirections.path)
   async generateDirections(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
     assertPrincipal(principal);

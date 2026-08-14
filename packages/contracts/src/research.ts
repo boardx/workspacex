@@ -655,6 +655,17 @@ export const operations = {
     out: GuidedResearchSession,
     err: ["RESEARCH_NOT_FOUND"] as const,
   },
+  confirmResearchBrief: {
+    method: "PUT",
+    path: "/research/guided-sessions/:sessionId/brief",
+    in: z.object({
+      sessionId: z.string().min(1),
+      briefVersion: z.number().int().positive(),
+      brief: GuidedResearchBrief,
+    }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+  },
   generateResearchDirections: {
     method: "POST", path: "/research/guided-sessions/:sessionId/directions/generate",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,

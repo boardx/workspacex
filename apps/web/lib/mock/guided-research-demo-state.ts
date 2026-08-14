@@ -55,6 +55,15 @@ export function saveGuidedResearchDemoState(state: GuidedResearchDemoState): voi
   window.localStorage.setItem(storageKey(state.sessionId), JSON.stringify(state));
 }
 
+export function clearGuidedResearchDemoState(sessionId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey(sessionId));
+  } catch {
+    // The server rollback remains authoritative if browser storage is unavailable.
+  }
+}
+
 export function advanceDemoTask(state: GuidedResearchDemoState, taskId: string): GuidedResearchDemoState {
   if (state.completedTaskIds.includes(taskId)) return state;
   return { ...state, completedTaskIds: [...state.completedTaskIds, taskId] };

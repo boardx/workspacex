@@ -111,6 +111,18 @@ describe("F169 guided research human checkpoint contract", () => {
 });
 
 describe("guided research post-outline lifecycle contract", () => {
+  it("defines same-session brief reconfirmation", () => {
+    const operation = (operations as unknown as Record<string, {
+      method: string; path: string; err: readonly string[];
+    }>).confirmResearchBrief;
+
+    expect(operation).toMatchObject({
+      method: "PUT",
+      path: "/research/guided-sessions/:sessionId/brief",
+    });
+    expect(operation.err).toContain("RESEARCH_CHECKPOINT_CONFLICT");
+  });
+
   it("declares every stage conflict returned by checkpoint controllers", () => {
     for (const operation of [
       operations.generateResearchDirections,

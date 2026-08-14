@@ -16,6 +16,7 @@ import { CreateGuidedResearchDialog, type GuidedResearchCreateDraft } from "./cr
 import { cn } from "@/lib/utils";
 import {
   createGuidedResearchSession,
+  confirmResearchBrief,
   confirmResearchDirections,
   confirmResearchOutline,
   generateResearchDirections,
@@ -38,6 +39,7 @@ import {
 } from "@/lib/mock/guided-research";
 import {
   advanceDemoTask,
+  clearGuidedResearchDemoState,
   decideDemoSource,
   loadGuidedResearchDemoState,
   saveGuidedResearchDemoState,
@@ -114,7 +116,7 @@ export function GuidedResearchFlow({
         <>
           {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate("home")} onNavigate={navigate} />}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
-          {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
+          {restoredStep === "brief" && <BriefScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
           {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
           {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
@@ -149,7 +151,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
             <div key={item.id} className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
-                disabled={index !== current}
+                disabled={index > maximum}
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
@@ -297,7 +299,12 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
+function BriefScreen({ sessionId, session, onSession, onNavigate }: {
+  sessionId?: string;
+  session: GuidedResearchSession | null;
+  onSession: (session: GuidedResearchSession) => void;
+  onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
+}) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
   const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
     try {
@@ -315,16 +322,26 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
   const [submitting, setSubmitting] = React.useState(false);
   const [submitFailed, setSubmitFailed] = React.useState(false);
   const patch = (key: keyof typeof brief, value: string) => setBrief((current) => ({ ...current, [key]: value }));
+  React.useEffect(() => {
+    if (session) setBrief({ ...session.brief });
+  }, [session]);
   const confirm = async () => {
     setSubmitting(true);
     setSubmitFailed(false);
     try {
+      if (sessionId && session) {
+        const updated = await confirmResearchBrief(sessionId, { briefVersion: session.briefVersion, brief });
+        clearGuidedResearchDemoState(sessionId);
+        onSession(updated);
+        onNavigate("directions", sessionId);
+        return;
+      }
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
-      const session = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
+      const createdSession = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       clearResearchSkillState("pending-brief");
-      onNavigate("directions", session.sessionId);
+      onNavigate("directions", createdSession.sessionId);
     } catch {
       setSubmitFailed(true);
     } finally {
@@ -336,7 +353,7 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
       assistant={
         <GuidedResearchSkillAssistant
           step="brief"
-          sessionKey="pending-brief"
+          sessionKey={sessionId ? `${sessionId}:brief` : "pending-brief"}
           snapshot={{ step: "brief", value: brief }}
           onSnapshotChange={(next) => {
             if (next.step === "brief") setBrief(next.value);
@@ -345,6 +362,7 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
       }
     >
       <PageHeading eyebrow="Step 1 · Research brief" title="确认研究主题与范围" description="先把问题边界说清楚。后续生成的研究方向、大纲和检索词都会以这份 brief 为准。" />
+      {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <Card><CardContent className="space-y-5 p-5">
           <Field label="研究主题" hint="用一句话说明要研究什么"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
@@ -371,6 +389,7 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
   const [directions, setDirections] = React.useState<GuidedResearchDirection[]>([]);
   const [candidateVersion, setCandidateVersion] = React.useState<number | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [saveFailed, setSaveFailed] = React.useState(false);
   const apply = React.useCallback((next: GuidedResearchSession) => {
     onSession(next);
     const version = next.directions.versions.find((item) => item.version === next.directions.candidateVersion)
@@ -394,11 +413,14 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
   const confirm = async () => {
     if (!sessionId || candidateVersion === null) return;
     setSubmitting(true);
+    setSaveFailed(false);
     try {
       const updated = await confirmResearchDirections(sessionId, { candidateVersion, directions: directions.map((item, order) => ({ ...item, order })) });
       apply(updated);
+      clearGuidedResearchDemoState(sessionId);
       onNavigate?.("outline", sessionId);
     }
+    catch { setSaveFailed(true); }
     finally { setSubmitting(false); }
   };
   return (
@@ -415,10 +437,12 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
       }
     >
       <PageHeading eyebrow="Step 2 · Directions" title="编辑研究方向" description="AI 根据主题生成了互补方向。重新生成只创建候选版本，不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-directions"><Sparkles className="h-4 w-4" />重新生成</Button>} />
+      {session && maxGuidedResearchStep(session) !== "directions" && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="space-y-3" data-testid="research-directions">
         {directions.map((direction, index) => <Card key={direction.id} className={cn("transition-colors", !direction.enabled && "bg-muted")} data-testid={`research-direction-${direction.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" /><Button variant="outline" size="icon" aria-label={`启用方向 ${index + 1}`} onClick={() => patch(direction.id, { enabled: !direction.enabled })} className="mt-1 h-6 w-6 shrink-0">{direction.enabled && <Check className="h-3 w-3" />}</Button><div className="min-w-0 flex-1 space-y-2"><Input value={direction.title} onChange={(event) => patch(direction.id, { title: event.target.value })} data-testid={`research-direction-title-${direction.id}`} aria-label={`研究方向 ${index + 1} 标题`} /><Textarea value={direction.description} onChange={(event) => patch(direction.id, { description: event.target.value })} data-testid={`research-direction-description-${direction.id}`} aria-label={`研究方向 ${index + 1} 描述`} /></div><Button variant="ghost" size="icon" aria-label={`删除方向 ${index + 1}`} onClick={() => setDirections((items) => items.filter((item) => item.id !== direction.id))}><Trash2 className="h-4 w-4" /></Button></CardContent></Card>)}
         <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-direction"><Plus className="h-4 w-4" />添加研究方向</Button>
       </div>
+      {saveFailed && <p className="text-12 text-destructive" role="alert">研究方向保存失败，请重试。</p>}
       <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !directions.some((item) => item.enabled)} onClick={() => void confirm()} data-testid="research-confirm-directions">生成报告大纲<ArrowRight className="h-4 w-4" /></Button></div>
     </GuidedResearchStepLayout>
   );
@@ -431,6 +455,7 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
   const [sections, setSections] = React.useState<GuidedResearchOutlineSection[]>([]);
   const [candidateVersion, setCandidateVersion] = React.useState<number | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [saveFailed, setSaveFailed] = React.useState(false);
   const apply = React.useCallback((next: GuidedResearchSession) => {
     onSession(next);
     const version = next.outline.versions.find((item) => item.version === next.outline.candidateVersion)
@@ -454,11 +479,14 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
   const confirm = async () => {
     if (!sessionId || candidateVersion === null) return;
     setSubmitting(true);
+    setSaveFailed(false);
     try {
       const updated = await confirmResearchOutline(sessionId, { candidateVersion, outline: sections.map((item, order) => ({ ...item, order })) });
       apply(updated);
+      clearGuidedResearchDemoState(sessionId);
       onNavigate?.("search", sessionId);
     }
+    catch { setSaveFailed(true); }
     finally { setSubmitting(false); }
   };
   return (
@@ -475,6 +503,7 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
       }
     >
       <PageHeading eyebrow="Step 3 · Outline" title="确认报告大纲" description="大纲决定 Web Search 的任务拆分与报告结构。重新生成不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-outline"><Sparkles className="h-4 w-4" />重新生成</Button>} />
+      {session && maxGuidedResearchStep(session) !== "outline" && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="space-y-3" data-testid="research-outline">
           {sections.map((section, index) => <Card key={section.id} data-testid={`research-outline-${section.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 text-muted-foreground" /><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-10 font-semibold">{index + 1}</span><div className="min-w-0 flex-1 space-y-2"><Input value={section.title} onChange={(event) => patchTitle(section.id, event.target.value)} data-testid={`research-outline-title-${section.id}`} aria-label={`大纲章节 ${index + 1}`} /><div className="flex flex-wrap gap-1.5">{section.questions.map((question) => <Badge key={question} tone="outline">{question}</Badge>)}</div></div><Pencil className="mt-2 h-4 w-4 text-muted-foreground" /></CardContent></Card>)}
@@ -482,6 +511,7 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
         </div>
         <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><ListTree className="h-4 w-4" />研究计划摘要</CardTitle></CardHeader><CardContent className="space-y-3 text-11 text-muted-foreground"><div className="flex justify-between"><span>报告章节</span><strong className="text-foreground">{sections.length}</strong></div><div className="flex justify-between"><span>研究问题</span><strong className="text-foreground">{sections.reduce((sum, item) => sum + item.questions.length, 0)}</strong></div><div className="flex justify-between"><span>预计检索</span><strong className="text-foreground">20–30 个来源</strong></div><p className="rounded-md bg-muted p-3 text-10 leading-relaxed">开始后系统会按章节并行搜索，过程中可离开页面，稍后从研究首页继续。</p></CardContent></Card>
       </div>
+      {saveFailed && <p className="text-12 text-destructive" role="alert">报告大纲保存失败，请重试。</p>}
       <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !sections.some((item) => item.enabled && item.title.trim())} onClick={() => void confirm()} data-testid="research-start-search"><Search className="h-4 w-4" />按此大纲开始研究</Button></div>
     </GuidedResearchStepLayout>
   );
@@ -615,7 +645,7 @@ function ReportScreen({
         />
       }
     >
-      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button>} />
+      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)_19rem]" data-testid="research-report" data-layout="toc-report-citations">
         <Card className="h-fit"><CardHeader><CardTitle className="text-13">目录</CardTitle></CardHeader><CardContent className="space-y-1">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="flex items-center justify-between rounded-md px-2 py-1.5 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><span>{index + 1}. {item.title}</span><ChevronRight className="h-3 w-3" /></a>)}</CardContent></Card>

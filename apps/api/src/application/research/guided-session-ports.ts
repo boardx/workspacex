@@ -25,6 +25,7 @@ export interface GuidedResearchSessionRepository {
   }): Promise<GuardedGuidedResearchSession>;
   listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]>;
   findVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null>;
+  confirmBrief(input: { orgId: OrgId; viewerUserId: string; sessionId: string; briefVersion: number; brief: GuidedResearchBrief }): Promise<GuardedGuidedResearchSession | null>;
   generateDirections(input: { orgId: OrgId; viewerUserId: string; sessionId: string; items: readonly GuidedResearchDirection[] }): Promise<GuardedGuidedResearchSession | null>;
   confirmDirections(input: { orgId: OrgId; viewerUserId: string; sessionId: string; candidateVersion: number; items: readonly GuidedResearchDirection[] }): Promise<GuardedGuidedResearchSession | null>;
   generateOutline(input: { orgId: OrgId; viewerUserId: string; sessionId: string; items: readonly GuidedResearchOutlineSection[] }): Promise<GuardedGuidedResearchSession | null>;

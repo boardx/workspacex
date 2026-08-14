@@ -31,7 +31,8 @@ export async function getGuidedResearchSession(sessionId: string): Promise<Guide
 }
 
 async function checkpointRequest(
-  operation: typeof research.operations.generateResearchDirections
+  operation: typeof research.operations.confirmResearchBrief
+    | typeof research.operations.generateResearchDirections
     | typeof research.operations.confirmResearchDirections
     | typeof research.operations.generateResearchOutline
     | typeof research.operations.confirmResearchOutline
@@ -45,6 +46,10 @@ async function checkpointRequest(
   return operation.out.parse(raw);
 }
 
+export const confirmResearchBrief = (
+  sessionId: string,
+  input: Omit<z.infer<typeof research.operations.confirmResearchBrief.in>, "sessionId">,
+) => checkpointRequest(research.operations.confirmResearchBrief, sessionId, input);
 export const generateResearchDirections = (sessionId: string) =>
   checkpointRequest(research.operations.generateResearchDirections, sessionId, {});
 export const confirmResearchDirections = (
