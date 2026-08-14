@@ -16,6 +16,7 @@ describe("SurveyWorkflowShell", () => {
   it("新建问卷使用草稿身份进入问题设计", () => {
     render(<SurveyWorkflowShell surveyId="new" initialStep="design" uiState="default" readonly={false} />);
 
+    expect(screen.queryByText("BoardX Survey")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
     expect(screen.getByText(/问卷 ID new/)).toBeInTheDocument();
   });
