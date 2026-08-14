@@ -25,7 +25,9 @@ vi.mock("@/components/session/session-provider", () => ({
   useOptionalSession: () => null,          // 无会话 ⇒ OverviewLive 不发请求，只渲染骨架
 }));
 
-import { OverviewScreen, DEMO_BADGE_TEXT } from "@/components/admin/overview-screen";
+import {
+  OverviewScreen, DEMO_BADGE_TEXT, EXPORT_UNAVAILABLE_REASON,
+} from "@/components/admin/overview-screen";
 import { NoBackendNotice } from "@/components/admin/no-backend-notice";
 
 /** `NoBackendNotice` 文案里最不可能被别处复用的一段（逐字取自该组件）。 */
@@ -70,6 +72,22 @@ describe("#1182 总览屏混合态", () => {
   it("【阳性对照】NoBackendNotice 本身仍然渲染得出那句话 —— 否则上一条是空转", () => {
     render(<NoBackendNotice />);
     expect(document.body.textContent).toMatch(NO_BACKEND_TEXT);
+  });
+
+  it("#1178 导出与月度报告显式禁用，且原因摆在屏上不只藏在 title 里", () => {
+    render(<OverviewScreen state="default" />);
+    for (const testid of ["admin-activity-export", "admin-activity-report"]) {
+      const btn = screen.getByTestId(testid) as HTMLButtonElement;
+      // 「显式禁用是设计，静默无反应是缺陷」（lint-dead-controls 判词逐字）。
+      expect(btn.disabled, `${testid} 没有 disabled`).toBe(true);
+      expect(btn.getAttribute("title")).toBe(EXPORT_UNAVAILABLE_REASON);
+    }
+    // 只禁用不说为什么，和藏起来一样让人读作「产品做不到」。
+    expect(screen.getByTestId("admin-overview-reports-disabled-reason").textContent)
+      .toBe(EXPORT_UNAVAILABLE_REASON);
+    // ⚠ 缺席断言：不许再弹那条「已导出 12,408 条」的假成功 Toast。
+    //   阳性对照是上面两条 disabled——按钮还在、还看得见，只是点不动。
+    expect(document.body.textContent).not.toMatch(/已导出活动流|月度报告生成中/);
   });
 
   it("【缺席】演示标记不许出现在真数据那三块上 —— 标反了比不标更糟", () => {
