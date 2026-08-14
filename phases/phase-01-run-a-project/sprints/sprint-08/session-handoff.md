@@ -13,10 +13,10 @@
 ## 仍损坏或未验证
 - `pnpm --filter api run typecheck` 被未改动的 `packages/fabric-markdown` DOM 类型基线错误阻塞。
 - 没有可用登录态，1280px / 1920px 的完整浏览器旅程仍未补；没有伪造截图证据。
-- GitHub issue/PR 尚待发布；F180 不得手工改为 passing。
+- GitHub issue #1249 已创建，PR 尚待发布；F180 不得手工改为 passing。
 
 ## 下一步最佳动作
-- 完成整分支审查后创建 F180 issue，推送分支并开 PR；PR 明确披露两个剩余门禁。
+- 完成整分支审查后推送分支并开 PR，PR 使用 `Closes #1249` 并明确披露两个剩余门禁。
 
 ## 命令
 - 启动:`pnpm -w run dev`

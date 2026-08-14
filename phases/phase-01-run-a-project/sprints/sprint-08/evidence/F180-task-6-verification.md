@@ -64,5 +64,6 @@ typecheck baseline. Their output was observed directly and is not represented as
   typecheck exited 2 on unrelated `packages/fabric-markdown` DOM type errors (`Element`, `SVGElement`, and Canvas
   rendering methods are absent from its TypeScript environment). No F180 code changes are made for that baseline
   concern.
+- GitHub audit chain now starts at issue #1249; the PR must include `Closes #1249`.
 - Remaining gates: unrelated API typecheck baseline failure, authenticated two-width browser journey unavailable,
-  and GitHub issue/PR publication.
+  and PR publication.

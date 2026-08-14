@@ -15,4 +15,4 @@
 - 已记录证据: `evidence/F180.verify.log`、`evidence/F180-task-6-verification.md`、`evidence/design-qa/`。
 - 提交记录: 当前分支包含实现、审查修复与 main 合并提交；最终收尾提交和 PR 待完成。
 - 已知风险或未解决问题: API typecheck 仅报未改动的 `packages/fabric-markdown` DOM 类型错误；未登录环境无法完成 1280/1920 登录态截图。
-- 下一步最佳动作: 完成整分支审查，创建 GitHub issue，推送并提交 PR；不得把 F170/F171 真实搜索/报告运行时并入。
+- 下一步最佳动作: F180 issue #1249 已创建；完成整分支审查后推送并提交带 `Closes #1249` 的 PR，不得把 F170/F171 真实搜索/报告运行时并入。
