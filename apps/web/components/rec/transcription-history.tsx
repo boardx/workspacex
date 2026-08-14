@@ -14,13 +14,12 @@ import {
   listPersonalTranscriptions,
   listPersonalTranscriptionTags,
   readPersonalTranscription,
-  updatePersonalTranscriptionContent,
   updatePersonalTranscriptionMetadata,
   type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
-import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
+import { openAsrDraftStream, type AsrDraftStreamHandle } from "@/lib/live-asr-draft";
 import { LiveRecordingError } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
@@ -49,8 +48,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
-  const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
-  const receivedFinalIdsRef = React.useRef(new Set<string>());
+  const streamRef = React.useRef<AsrDraftStreamHandle | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -125,26 +123,25 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
-    receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
-      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
-        sessionToken,
-        handlers: {
-          onState: setStreamState,
-          onInterim: setInterimSegment,
-          onFinal: (event) => {
-            if (receivedFinalIdsRef.current.has(event.segmentId)) return;
-            receivedFinalIdsRef.current.add(event.segmentId);
-            setInterimSegment("");
-            setActiveSession((current) => appendFinalEvent(current, event));
-          },
-          onError: (reason) => {
-            setStreamError(streamErrorText(reason));
-            streamRef.current = null;
-          },
+      streamRef.current = await openAsrDraftStream({
+        onPartial: setInterimSegment,
+        onFinal: (text) => {
+          setInterimSegment("");
+          setActiveSession((current) => appendTransientFinal(current, text));
         },
-      });
+        onError: (reason) => {
+          setStreamState("error");
+          setStreamError(streamErrorText(reason));
+          streamRef.current = null;
+        },
+        onFinished: () => {
+          streamRef.current = null;
+          setStreamState("idle");
+        },
+      }, { sessionToken });
+      setStreamState("recording");
     } catch (error) {
       streamRef.current = null;
       setStreamState("error");
@@ -160,25 +157,17 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     try {
       await handle.stop();
       setInterimSegment("");
-      setActiveSession(await readPersonalTranscription(activeSession!.sessionId, sessionToken));
       setStreamState("idle");
     } catch {
       setStreamState("error");
-      setStreamError("转录收尾失败，已保存的最终文字不会丢失，请重新打开后重试。");
+      setStreamError("转录收尾失败，当前页面已识别的文字仍然保留，请重新开始后重试。");
     } finally {
       streamRef.current = null;
     }
   }
 
-  async function saveContent(content: string) {
-    if (!activeSession) return;
-    setStreamError(null);
-    try {
-      setActiveSession(await updatePersonalTranscriptionContent(activeSession.sessionId, content, sessionToken));
-    } catch {
-      setStreamError("正文保存失败，请稍后重试。");
-      throw new Error("TRANSCRIPTION_CONTENT_SAVE_FAILED");
-    }
+  async function saveContentLocally(content: string) {
+    setActiveSession((current) => current ? { ...current, content } : current);
   }
 
   React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
@@ -187,7 +176,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} errorMessage={streamError}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
-      onSaveContent={saveContent}
+      onSaveContent={saveContentLocally}
       onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
   }
 
@@ -267,18 +256,19 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   );
 }
 
-function appendFinalEvent(
+function appendTransientFinal(
   current: PersonalTranscriptionDetail | null,
-  event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number },
+  text: string,
 ): PersonalTranscriptionDetail | null {
   if (!current) return null;
-  return { ...current, status: "recording", content: [current.content, event.text].filter(Boolean).join(" ") };
+  return { ...current, content: [current.content, text].filter(Boolean).join(" ") };
 }
 
 function streamErrorText(reason: string): string {
   const messages: Record<string, string> = {
     ASR_NOT_CONFIGURED: "当前环境尚未配置阿里云实时转录，请联系管理员配置服务后重试。",
     QUOTA_EXCEEDED: "当前实时转录额度不足。",
+    AUDIO_FORMAT_REJECTED: "麦克风音频格式不受支持，请刷新页面后重试。",
     CAPTURE_ALREADY_ACTIVE: "这条转录已有正在进行的录音，请重新打开后继续。",
     TICKET_EXPIRED: "连接凭证已过期，请重新点击开始转录。",
     ASR_PROVIDER_UNAVAILABLE: "阿里云实时转录暂时不可用，请稍后重试。",
@@ -315,7 +305,7 @@ function HistoryState({
     return (
       <div data-testid="rec-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-card text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <div><p className="text-14 font-medium">还没有转录</p><p className="mt-1 text-12 text-muted-foreground">创建一次新的实时转录，内容会保存在这里。</p></div>
+        <div><p className="text-14 font-medium">还没有转录</p><p className="mt-1 text-12 text-muted-foreground">创建一次新的实时转录，名称和标签会保存在这里。</p></div>
         <Button variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</Button>
       </div>
     );
