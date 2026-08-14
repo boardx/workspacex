@@ -92,10 +92,8 @@ export function GuidedResearchFlow({
     const targetSessionId = next === "home" ? undefined : sessionId ?? activeSessionId;
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
-    if (sessionId) setActiveSessionId(sessionId);
-    const query = new URLSearchParams({ flow: next });
-    if (targetSessionId) query.set("session", targetSessionId);
-    window.location.assign(`?${query.toString()}`);
+    setActiveSessionId(targetSessionId);
+    window.history.replaceState({}, "", "/research");
   };
 
   const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === sessionId;
@@ -104,7 +102,7 @@ export function GuidedResearchFlow({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-8"
+      className="mx-auto flex w-full max-w-none flex-col gap-4 pb-8"
       data-testid={restorationBlocked ? "research-session-restore" : `research-flow-${restoredStep}`}
       data-layout="signed-desktop"
     >
@@ -114,7 +112,16 @@ export function GuidedResearchFlow({
         <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
       ) : (
         <>
-          {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate("home")} onNavigate={navigate} />}
+          {restoredStep !== "home" && (
+            <div
+              className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+              data-testid="research-progress-shell"
+              data-layout="right-aligned-progress"
+            >
+              <div aria-hidden className="hidden lg:block" />
+              <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate("home")} onNavigate={navigate} />
+            </div>
+          )}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
           {restoredStep === "brief" && <BriefScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
@@ -341,6 +348,7 @@ function BriefScreen({ sessionId, session, onSession, onNavigate }: {
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       clearResearchSkillState("pending-brief");
+      onSession(createdSession);
       onNavigate("directions", createdSession.sessionId);
     } catch {
       setSubmitFailed(true);

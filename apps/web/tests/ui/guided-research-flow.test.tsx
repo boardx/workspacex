@@ -136,7 +136,7 @@ beforeEach(() => {
       updatedAt: "2026-08-12T09:00:00.000Z",
     })),
   });
-  createGuidedResearchSession.mockResolvedValue({ sessionId: "grs-new", stage: "directions" });
+  createGuidedResearchSession.mockResolvedValue({ ...checkpointSession, sessionId: "grs-new" });
   finishGuidedResearchCollection.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
   completeGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", status: "completed" });
 });
@@ -262,6 +262,32 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.getByRole("button", { name: "2研究方向" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "3报告大纲" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "资料研究" })).toBeDisabled();
+  });
+
+  it("switches completed checkpoints in place without navigating the document", async () => {
+    getGuidedResearchSession.mockResolvedValue(checkpointSession);
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);
+
+    await screen.findByTestId("research-flow-directions");
+    fireEvent.click(screen.getByRole("button", { name: "确认主题" }));
+
+    expect(screen.getByTestId("research-flow-brief")).toBeInTheDocument();
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/research");
+    replaceState.mockRestore();
+  });
+
+  it("continues a newly created session in the same mounted flow", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(checkpointSession);
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    render(<GuidedResearchFlow step="brief" />);
+
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+
+    expect(await screen.findByTestId("research-flow-directions")).toBeInTheDocument();
+    expect(screen.getByTestId("research-direction-title-d1")).toBeInTheDocument();
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/research");
+    replaceState.mockRestore();
   });
 
   it("reconfirms a persisted brief on the same session and warns that downstream demo results regenerate", async () => {
