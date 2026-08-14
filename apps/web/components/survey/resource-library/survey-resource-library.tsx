@@ -3,14 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle, Bell, ChartNoAxesCombined, ChevronDown, ChevronRight, CircleHelp,
+  AlertCircle, ChevronDown, ChevronRight,
   ClipboardList, FilePlus2, FileText, Plus, Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
   SURVEY_LIBRARY_CARDS, SURVEY_QUESTION_MODULE_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
   TEMPLATE_CATEGORY_LABEL, type SurveyResourceState, type SurveyResourceTab,
@@ -27,14 +26,8 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
   uiState: SurveyResourceState;
 }) {
   const router = useRouter();
-  const [tab, setTab] = React.useState(initialTab);
   const [query, setQuery] = React.useState("");
-
-  const changeTab = (next: SurveyResourceTab) => {
-    setTab(next);
-    setQuery("");
-    router.push(next === "surveys" ? "/studio/survey" : `/studio/survey?tab=${next}`);
-  };
+  const tab = initialTab;
 
   const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
     item.title.includes(query.trim()));
@@ -45,32 +38,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
   const copy = TAB_COPY[tab];
 
   return (
-    <main className="min-h-screen bg-background text-background-foreground" data-testid="survey-resource-library">
-      <header className="flex items-center justify-between border-b border-border bg-card px-5 py-4 lg:px-8">
-        <div className="flex items-center gap-4">
-          <p className="text-18 font-bold tracking-tight">BoardX <span className="text-primary">Survey</span></p>
-          <span className="h-7 w-px bg-border" />
-          <h1 className="text-18 font-semibold">问卷与报告</h1>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Button variant="ghost" size="icon" aria-label="帮助"><CircleHelp className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" aria-label="通知"><Bell className="h-4 w-4" /></Button>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-11 font-semibold text-primary-foreground">陈</span>
-          <span className="hidden text-12 font-medium text-foreground sm:inline">陈顾问</span>
-          <ChevronDown className="hidden h-3.5 w-3.5 sm:block" />
-        </div>
-      </header>
-
-      <div className="grid min-h-[calc(100vh-65px)] lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="border-b border-border bg-card p-4 lg:border-b-0 lg:border-r lg:p-6">
-          <h2 className="mb-4 text-14 font-semibold">Survey</h2>
-          <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1" aria-label="Survey 资源类型">
-            <ResourceNavItem active={tab === "surveys"} count={SURVEY_LIBRARY_CARDS.length} icon={<FileText className="h-5 w-5" />} label="问卷列表" onClick={() => changeTab("surveys")} testId="survey-resource-nav-surveys" />
-            <ResourceNavItem active={tab === "modules"} count={SURVEY_QUESTION_MODULE_CARDS.length} icon={<ClipboardList className="h-5 w-5" />} label="问卷模块" onClick={() => changeTab("modules")} testId="survey-resource-nav-modules" />
-            <ResourceNavItem active={tab === "reports"} count={SURVEY_TEMPLATE_CARDS.length} icon={<ChartNoAxesCombined className="h-5 w-5" />} label="报告模块" onClick={() => changeTab("reports")} testId="survey-resource-nav-reports" />
-          </nav>
-        </aside>
-
+    <main className="min-h-full bg-background text-background-foreground" data-testid="survey-resource-library">
         <section className="min-w-0 p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
@@ -79,7 +47,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => changeTab("modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey?tab=modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
                 {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
                 {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
@@ -112,13 +80,8 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
             </ResourceBody>
           </div>
         </section>
-      </div>
     </main>
   );
-}
-
-function ResourceNavItem({ active, count, icon, label, onClick, testId }: { active: boolean; count: number; icon: React.ReactNode; label: string; onClick: () => void; testId: string }) {
-  return <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} data-testid={testId} className={cn("flex items-center gap-3 rounded-lg border px-4 py-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "border-primary bg-accent text-primary" : "border-border bg-card hover:bg-muted")}><span>{icon}</span><span className="flex-1 text-13 font-medium">{label}</span><span className="text-12">{count}</span></button>;
 }
 
 function ResourceBody({ uiState, tab, children }: { uiState: SurveyResourceState; tab: SurveyResourceTab; children: React.ReactNode }) {
