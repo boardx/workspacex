@@ -141,7 +141,11 @@ export function loadResearchSkillState(sessionKey: string): ResearchSkillState {
 
 export function saveResearchSkillState(sessionKey: string, state: ResearchSkillState): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(sessionKey), JSON.stringify(state));
+  try {
+    window.localStorage.setItem(storageKey(sessionKey), JSON.stringify(state));
+  } catch {
+    // Storage can be unavailable or full; the caller still retains its in-memory state.
+  }
 }
 
 export function suggestionForResearchPrompt(

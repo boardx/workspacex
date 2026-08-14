@@ -53,14 +53,51 @@ describe("guided research skill assistant", () => {
     expect(screen.getByText("演示 Skill · 不作为真实研究证据")).toBeInTheDocument();
   });
 
-  it("uses a disclosure on smaller screens and preserves a min-width-safe desktop grid", () => {
+  it("mounts one assistant and one editor while using a responsive disclosure", () => {
+    let assistantEffects = 0;
+    let editorEffects = 0;
+    function AssistantProbe() {
+      React.useEffect(() => { assistantEffects += 1; }, []);
+      return <div>助手面板</div>;
+    }
+    function EditorProbe() {
+      React.useEffect(() => { editorEffects += 1; }, []);
+      return <div>主内容</div>;
+    }
+
     render(
-      <GuidedResearchStepLayout assistant={<div>助手面板</div>}>
-        <div>主内容</div>
+      <GuidedResearchStepLayout assistant={<AssistantProbe />}>
+        <EditorProbe />
       </GuidedResearchStepLayout>,
     );
 
     expect(screen.getByText("研究 Skill 助手").closest("summary")).toBeInTheDocument();
-    expect(screen.getAllByText("助手面板")[0]?.parentElement?.parentElement).toHaveClass("min-w-0");
+    expect(screen.getByText("助手面板").parentElement?.parentElement).toHaveClass("min-w-0");
+    expect(assistantEffects).toBe(1);
+    expect(editorEffects).toBe(1);
+  });
+
+  it("keeps the assistant interactive when local storage writes fail", () => {
+    const onSnapshotChange = vi.fn();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("storage disabled", "SecurityError");
+    });
+    render(
+      <GuidedResearchSkillAssistant
+        step="directions"
+        sessionKey="research-storage-error"
+        snapshot={directionSnapshot}
+        onSnapshotChange={onSnapshotChange}
+      />,
+    );
+
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "补充研究方向" }))).not.toThrow();
+    expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "应用建议" }))).not.toThrow();
+    expect(onSnapshotChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "撤销上次应用" })).toBeInTheDocument();
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "撤销上次应用" }))).not.toThrow();
+    expect(onSnapshotChange).toHaveBeenLastCalledWith(directionSnapshot);
+    setItem.mockRestore();
   });
 });
