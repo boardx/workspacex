@@ -80,7 +80,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
 
-            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "基于该模块的新问卷设计" : "报告模块编辑"}</p>
+            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? selectingSurveySource ? "基于该模块的新问卷设计" : "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
               {tab === "surveys" ? (
                 <CardGrid empty={surveys.length === 0} emptyLabel="没有匹配的问卷，调整搜索或筛选条件。">

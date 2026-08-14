@@ -58,6 +58,16 @@ describe("SurveyAppShell", () => {
     expect(screen.getByTestId("survey-section-nav-modules")).not.toHaveAttribute("aria-current");
   });
 
+  it("畸形 URL 同时声明模块编辑和新建问卷意图时以编辑器语义为准", () => {
+    pathname = "/studio/survey/new";
+    search = "step=design&mode=module&intent=create-survey";
+
+    render(<SurveyAppShell><div>模块编辑器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-modules")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-surveys")).not.toHaveAttribute("aria-current");
+  });
+
   it("编辑报告模块时保留左栏并标记报告模块入口", () => {
     pathname = "/studio/survey/templates/tpl-team-health";
     search = "";

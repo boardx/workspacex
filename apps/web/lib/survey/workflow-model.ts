@@ -8,12 +8,13 @@ export interface SurveyMetrics {
   received: number;
   valid: number;
   needsReview: number;
+  validRate: number;
   completionRate: number;
   averageDurationSeconds: number;
 }
 
 export interface PublishBlocker {
-  code: "QUESTION_OPTIONS_EMPTY" | "MAPPING_INCOMPLETE";
+  code: "QUESTIONS_EMPTY" | "QUESTION_OPTIONS_EMPTY" | "MAPPING_INCOMPLETE";
   label: string;
 }
 
@@ -68,7 +69,11 @@ export function createSurveyWorkflowMock(options: CreateSurveyWorkflowMockOption
   }));
 
   const isNew = options.surveyId === "new";
-  const requestedModuleId = options.moduleEditor ? options.moduleId : options.sourceModuleId;
+  const requestedModuleId = options.moduleEditor
+    ? options.moduleId
+    : isNew
+      ? options.sourceModuleId
+      : undefined;
   const knownModule = requestedModuleId
     ? SURVEY_QUESTION_MODULE_CARDS.some((item) => item.id === requestedModuleId)
     : false;
@@ -134,13 +139,17 @@ export function getSurveyMetrics(model: survey.SurveyWorkflowModel): SurveyMetri
     received,
     valid: received - needsReview,
     needsReview,
-    completionRate: Math.round((received / model.publication.target) * 100),
+    validRate: received === 0 ? 0 : Math.round(((received - needsReview) / received) * 100),
+    completionRate: model.publication.target === 0 ? 0 : Math.round((received / model.publication.target) * 100),
     averageDurationSeconds: received === 0 ? 0 : Math.round(durationTotal / received),
   };
 }
 
 export function getPublishBlockers(model: survey.SurveyWorkflowModel): PublishBlocker[] {
   const blockers: PublishBlocker[] = [];
+  if (model.questions.length === 0) {
+    blockers.push({ code: "QUESTIONS_EMPTY", label: "问卷必须至少包含一道题目" });
+  }
   if (model.questions.some((question) => question.type !== "open" && question.options.length === 0)) {
     blockers.push({ code: "QUESTION_OPTIONS_EMPTY", label: "选择题必须至少包含一个选项" });
   }

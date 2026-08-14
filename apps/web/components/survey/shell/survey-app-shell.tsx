@@ -39,11 +39,13 @@ function SurveySectionNav() {
 function SurveySectionNavWithLocation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeSection = searchParams.get("intent") === "create-survey"
-    ? "surveys"
-    : pathname.startsWith("/studio/survey/templates")
+  const activeSection = searchParams.get("mode") === "module"
+    ? "modules"
+    : searchParams.get("intent") === "create-survey"
+      ? "surveys"
+      : pathname.startsWith("/studio/survey/templates")
       ? "reports"
-      : searchParams.get("mode") === "module" || searchParams.get("tab") === "modules"
+      : searchParams.get("tab") === "modules"
         ? "modules"
         : searchParams.get("tab") === "reports"
           ? "reports"

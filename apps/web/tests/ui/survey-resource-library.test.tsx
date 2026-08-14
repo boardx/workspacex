@@ -102,6 +102,7 @@ describe("SurveyResourceLibrary", () => {
   it("模块管理页的卡片仍进入模块编辑器", () => {
     render(<SurveyResourceLibrary initialTab="modules" initialIntent={null} uiState="default" />);
 
+    expect(screen.getByText("点击卡片进入可复用问卷模块编辑")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("survey-resource-card-module-strategy"));
 
     expect(push).toHaveBeenCalledWith("/studio/survey/module-strategy?step=design&mode=module");

@@ -33,15 +33,16 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
 }) {
   const router = useRouter();
   const moduleId = moduleEditor && surveyId.startsWith("module-") ? surveyId.slice("module-".length) : undefined;
-  const effectiveSourceModuleId = moduleEditor ? undefined : sourceModuleId;
+  const effectiveSourceModuleId = !moduleEditor && surveyId === "new" ? sourceModuleId : undefined;
   const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, sourceModuleId: effectiveSourceModuleId, moduleEditor }));
   const [saved, setSaved] = React.useState(false);
   const metrics = getSurveyMetrics(model);
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
-    const modeQuery = moduleEditor ? "&mode=module" : "";
-    const sourceQuery = effectiveSourceModuleId ? `&sourceModule=${effectiveSourceModuleId}` : "";
-    router.replace(`/studio/survey/${surveyId}?step=${step}${modeQuery}${sourceQuery}`);
+    const searchParams = new URLSearchParams({ step });
+    if (moduleEditor) searchParams.set("mode", "module");
+    if (effectiveSourceModuleId) searchParams.set("sourceModule", effectiveSourceModuleId);
+    router.replace(`/studio/survey/${surveyId}?${searchParams.toString()}`);
   };
 
   if (uiState === "loading") return <WorkflowMessage testId="survey-workflow-loading" title="正在加载问卷" body="正在准备问题、答卷与报告数据…" pulse />;

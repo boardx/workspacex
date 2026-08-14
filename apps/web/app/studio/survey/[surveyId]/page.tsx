@@ -10,6 +10,6 @@ export default function SurveyWorkflowPage({ params, searchParams }: {
     ? searchParams.state as SurveyPrototypeState
     : "default";
   const moduleEditor = searchParams.mode === "module";
-  const sourceModuleId = moduleEditor ? undefined : searchParams.sourceModule;
+  const sourceModuleId = !moduleEditor && params.surveyId === "new" ? searchParams.sourceModule : undefined;
   return <SurveyWorkflowShell surveyId={params.surveyId} initialStep={parsedStep.success ? parsedStep.data : "design"} uiState={state} readonly={searchParams.readonly === "1"} moduleEditor={moduleEditor} sourceModuleId={sourceModuleId} />;
 }

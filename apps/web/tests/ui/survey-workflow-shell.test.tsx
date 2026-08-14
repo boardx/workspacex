@@ -50,6 +50,34 @@ describe("SurveyWorkflowShell", () => {
     expect(screen.queryByTestId("survey-design-question-Q01")).not.toBeInTheDocument();
   });
 
+  it("现有问卷忽略来源模块并保留完整题目集", () => {
+    render(<SurveyWorkflowShell
+      surveyId="sv-1"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      sourceModuleId="strategy"
+    />);
+
+    expect(screen.getByTestId("survey-design-question-Q01")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-design-question-Q16")).toBeInTheDocument();
+  });
+
+  it("切步时安全编码来源模块值且不激活模块编辑语义", () => {
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="design"
+      uiState="default"
+      readonly={false}
+      sourceModuleId="strategy&mode=module"
+    />);
+
+    expect(screen.getByRole("heading", { name: "未命名问卷" })).toBeInTheDocument();
+    expect(screen.getByTestId("survey-workflow-steps")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
+    expect(replace).toHaveBeenCalledWith("/studio/survey/new?step=template&sourceModule=strategy%26mode%3Dmodule");
+  });
+
   it("模块模式忽略同时出现的问卷来源参数", () => {
     render(<SurveyWorkflowShell
       surveyId="module-profile"
@@ -157,6 +185,24 @@ describe("SurveyWorkflowShell", () => {
 
     fireEvent.click(screen.getByTestId("survey-workflow-step-template"));
     expect(replace).toHaveBeenCalledWith("/studio/survey/sv-1?step=template");
+  });
+
+  it.each([
+    ["空白新问卷", undefined],
+    ["未知来源新问卷", "missing"],
+  ])("%s 在发布页显示无题阻断、零安全指标并禁用发布", (_label, sourceModuleId) => {
+    render(<SurveyWorkflowShell
+      surveyId="new"
+      initialStep="publish"
+      uiState="default"
+      readonly={false}
+      sourceModuleId={sourceModuleId}
+    />);
+
+    expect(screen.getByTestId("survey-publish-checks")).toHaveTextContent("问卷必须至少包含一道题目");
+    expect(screen.getByRole("button", { name: "发布问卷" })).toBeDisabled();
+    expect(screen.getByTestId("survey-publish-quality-summary")).toHaveTextContent("0%");
+    expect(screen.queryByText("NaN%")).not.toBeInTheDocument();
   });
 
   it.each([
