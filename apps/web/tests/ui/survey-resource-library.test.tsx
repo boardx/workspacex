@@ -78,14 +78,44 @@ describe("SurveyResourceLibrary", () => {
     expect(screen.queryByTestId("survey-resource-card-survey-sv-1")).not.toBeInTheDocument();
   });
 
+  it("显示问卷标签并以 OR 逻辑组合多个标签筛选", () => {
+    render(<SurveyResourceLibrary initialTab="surveys" initialIntent={null} uiState="default" />);
+
+    expect(screen.getByTestId("survey-resource-card-survey-sv-1")).toHaveTextContent("数字协作");
+    fireEvent.click(screen.getByRole("button", { name: "筛选标签 数字协作" }));
+    fireEvent.click(screen.getByRole("button", { name: "筛选标签 团队协作" }));
+
+    expect(screen.getByRole("button", { name: "筛选标签 数字协作" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("survey-resource-card-survey-sv-1")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-resource-card-survey-sv-team-health")).toBeInTheDocument();
+    expect(screen.getByTestId("survey-resource-card-survey-sv-meeting-feedback")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-resource-card-survey-sv-project-review")).not.toBeInTheDocument();
+  });
+
+  it("名称搜索与标签筛选同时生效并可清空标签", () => {
+    render(<SurveyResourceLibrary initialTab="surveys" initialIntent={null} uiState="default" />);
+    fireEvent.click(screen.getByRole("button", { name: "筛选标签 团队协作" }));
+    fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "会议" } });
+
+    expect(screen.getByTestId("survey-resource-card-survey-sv-meeting-feedback")).toBeInTheDocument();
+    expect(screen.queryByTestId("survey-resource-card-survey-sv-team-health")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "清除标签筛选" }));
+    fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "" } });
+    expect(screen.getByTestId("survey-resource-card-survey-sv-project-review")).toBeInTheDocument();
+  });
+
   it("切换资源入口时清空上一入口的搜索条件", () => {
     const view = render(<SurveyResourceLibrary initialTab="surveys" initialIntent={null} uiState="default" />);
     fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "团队协作" } });
+    fireEvent.click(screen.getByRole("button", { name: "筛选标签 团队协作" }));
 
     view.rerender(<SurveyResourceLibrary initialTab="modules" initialIntent={null} uiState="default" />);
 
     expect(screen.getByTestId("survey-resource-search")).toHaveValue("");
     expect(screen.getByTestId("survey-resource-card-module-profile")).toBeInTheDocument();
+
+    view.rerender(<SurveyResourceLibrary initialTab="surveys" initialIntent={null} uiState="default" />);
+    expect(screen.getByRole("button", { name: "筛选标签 团队协作" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it.each([
