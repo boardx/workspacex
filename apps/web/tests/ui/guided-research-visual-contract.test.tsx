@@ -94,8 +94,8 @@ describe("F180 signed guided-research visual contract", () => {
     expect(screen.getByTestId("research-flow-search")).toHaveAttribute("data-layout", "signed-desktop");
   });
 
-  it("keeps a contextual Skill workspace with one main editor on every non-home step", async () => {
-    for (const step of ["brief", "directions", "outline", "search", "report"] as const) {
+  it("keeps a one-third contextual Skill workspace with one main editor on guided steps", async () => {
+    for (const step of ["brief", "directions", "outline", "search"] as const) {
       if (step !== "brief") api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt(step));
       const view = render(
         <ResearchStudioApp
@@ -111,7 +111,8 @@ describe("F180 signed guided-research visual contract", () => {
       const assistant = await screen.findByTestId("research-skill-assistant");
       const workspace = assistant.closest("[data-layout]");
 
-      expect(workspace).toHaveAttribute("data-layout", "skill-workspace");
+      expect(workspace).toHaveAttribute("data-layout", "skill-workspace-thirds");
+      expect(workspace).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]");
       expect(screen.getByTestId("research-step-main")).toBeInTheDocument();
       expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
       for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
@@ -119,6 +120,15 @@ describe("F180 signed guided-research visual contract", () => {
       }
       view.unmount();
     }
+  });
+
+  it("uses the whole research workspace for the final report", async () => {
+    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
+
+    await screen.findByTestId("research-flow-report");
+    expect(screen.queryByTestId("research-skill-assistant")).not.toBeInTheDocument();
+    expect(screen.getByTestId("research-report")).toHaveAttribute("data-layout", "full-width-report");
   });
 
   it("keeps future checkpoints disabled and labels every demo output", async () => {
@@ -154,7 +164,7 @@ describe("F180 signed guided-research visual contract", () => {
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-report");
     const report = screen.getByTestId("research-report");
-    expect(report).toHaveAttribute("data-layout", "toc-report-citations");
+    expect(report).toHaveAttribute("data-layout", "full-width-report");
     expect(screen.getByRole("heading", { name: "目录" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "欧洲储能市场进入策略研究报告" })).toBeInTheDocument();
   });
