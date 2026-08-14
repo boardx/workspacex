@@ -14,6 +14,8 @@ import {
   SURVEY_LIBRARY_CARDS, SURVEY_QUESTION_MODULE_CARDS, SURVEY_STATUS_LABEL, SURVEY_TEMPLATE_CARDS,
   TEMPLATE_CATEGORY_LABEL, type SurveyResourceState, type SurveyResourceTab,
 } from "@/lib/survey/resource-library";
+import { encodeSurveyCreationDraft, type SurveyCreationDraft } from "@/lib/survey/creation-draft";
+import { SurveyCreateDialog, type SurveyCreationMode } from "./survey-create-dialog";
 
 const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; search: string }> = {
   surveys: { title: "问卷列表", description: "管理问卷、查看回收进度并继续设计", search: "搜索问卷名称" },
@@ -30,6 +32,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
+  const [createMode, setCreateMode] = React.useState<SurveyCreationMode | null>(initialIntent === "create-survey" ? "module" : null);
   const tab = initialTab;
 
   React.useEffect(() => {
@@ -43,16 +46,11 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
-  const selectingSurveySource = tab === "modules" && initialIntent === "create-survey";
-  const title = selectingSurveySource ? "选择问卷模块" : copy.title;
-  const description = selectingSurveySource
-    ? "选择一个问题模块作为新问卷的起点，之后可继续编辑和调整。"
-    : copy.description;
-  const openModule = (moduleId: string) => router.push(
-    selectingSurveySource
-      ? `/studio/survey/new?step=design&sourceModule=${moduleId}`
-      : `/studio/survey/module-${moduleId}?step=design&mode=module`,
-  );
+  const createSurvey = (draft: SurveyCreationDraft) => {
+    const params = new URLSearchParams({ step: "design", draft: encodeSurveyCreationDraft(draft) });
+    setCreateMode(null);
+    router.push(`/studio/survey/new?${params.toString()}`);
+  };
 
   return (
     <main className="min-h-full bg-background text-background-foreground" data-testid="survey-resource-library">
@@ -60,14 +58,13 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
               <div>
-                <h2 className="text-24 font-semibold">{title}</h2>
-                <p className="mt-1 text-12 text-muted-foreground">{description}</p>
+                <h2 className="text-24 font-semibold">{copy.title}</h2>
+                <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey?tab=modules&intent=create-survey")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
-                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
-                {selectingSurveySource && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey")}>返回问卷列表</Button>}
-                {tab === "modules" && !selectingSurveySource && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => setCreateMode("module")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => setCreateMode("blank")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
+                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
             </div>
@@ -80,7 +77,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
               <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
             </div>
 
-            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? selectingSurveySource ? "基于该模块的新问卷设计" : "可复用问卷模块编辑" : "报告模块编辑"}</p>
+            <p className="mt-5 text-11 text-muted-foreground">点击卡片进入{tab === "surveys" ? "问卷设计" : tab === "modules" ? "可复用问卷模块编辑" : "报告模块编辑"}</p>
             <ResourceBody uiState={uiState} tab={tab}>
               {tab === "surveys" ? (
                 <CardGrid empty={surveys.length === 0} emptyLabel="没有匹配的问卷，调整搜索或筛选条件。">
@@ -88,7 +85,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => openModule(item.id)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/module-${item.id}?step=design&mode=module`)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">
@@ -98,6 +95,7 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
             </ResourceBody>
           </div>
         </section>
+        <SurveyCreateDialog open={createMode !== null} mode={createMode ?? "blank"} onOpenChange={(open) => { if (!open) setCreateMode(null); }} onCreate={createSurvey} />
     </main>
   );
 }
