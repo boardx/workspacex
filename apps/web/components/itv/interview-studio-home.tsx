@@ -67,7 +67,10 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
       : current);
   }, []);
 
-  const historyItems = history.kind === "ready" ? history.items : [];
+  const historyItems = React.useMemo(
+    () => history.kind === "ready" ? history.items : [],
+    [history],
+  );
   const availableTags = React.useMemo(() => {
     const tags = new Set<string>();
     for (const item of historyItems) {
