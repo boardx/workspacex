@@ -144,12 +144,19 @@ export const operations = {
     out: PersonalTranscriptionSummary,
     err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND", "CAPTURE_ALREADY_ACTIVE", "VALIDATION_FAILED"] as const,
   },
+  stopPersonalTranscription: {
+    method: "POST",
+    path: "/recording/realtime-asr/sessions/:sessionId/stop",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: PersonalTranscriptionSummary,
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND"] as const,
+  },
   deletePersonalTranscription: {
     method: "DELETE",
     path: "/recording/realtime-asr/sessions/:sessionId",
     in: z.object({ sessionId: z.string().min(1) }).strict(),
     out: z.object({ deleted: z.literal(true) }).strict(),
-    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND", "CAPTURE_ALREADY_ACTIVE"] as const,
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND"] as const,
   },
   issueRealtimeAsrTicket: {
     method: "POST",

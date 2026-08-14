@@ -94,7 +94,26 @@ describe("personal transcription management", () => {
       transcriptionId: transcription.sessionId, captureId: "capture-active", durationMs: 1_000 });
   });
 
-  it("deletes content and captures, preserves usage audit, and rejects active deletion", async () => {
+  it("ends a legacy active capture idempotently", async () => {
+    const transcription = await create("遗留录音", ["待恢复"]);
+    await repository.startCapture({ orgId: toOrgId(ORG), ownerUserId: USER,
+      transcriptionId: transcription.sessionId, captureId: "capture-stale", trackId: "track-stale" });
+
+    for (const invocation of [1, 2]) {
+      const response = await fetch(
+        `${baseUrl}/recording/realtime-asr/sessions/${transcription.sessionId}/stop`,
+        { method: "POST", headers: auth() },
+      );
+      expect(response.status, `stop invocation ${invocation}`).toBe(200);
+      expect(C.operations.stopPersonalTranscription.out.parse(await response.json()).status).toBe("idle");
+    }
+
+    const active = await repository.hasActiveCapture({ orgId: toOrgId(ORG), ownerUserId: USER,
+      transcriptionId: transcription.sessionId });
+    expect(active).toBe(false);
+  });
+
+  it("deletes content and captures including an active legacy capture, while preserving usage audit", async () => {
     const transcription = await create("待删除", ["删除后消失"]);
     await repository.startCapture({ orgId: toOrgId(ORG), ownerUserId: USER,
       transcriptionId: transcription.sessionId, captureId: "capture-delete", trackId: "track-delete" });
@@ -102,13 +121,6 @@ describe("personal transcription management", () => {
       transcriptionId: transcription.sessionId, captureId: "capture-delete", segmentId: "segment-delete",
       ordinal: 1, text: "应永久删除的正文", startMs: 0, endMs: 1_000 });
 
-    const activeDelete = await fetch(`${baseUrl}/recording/realtime-asr/sessions/${transcription.sessionId}`, {
-      method: "DELETE", headers: auth(),
-    });
-    expect(activeDelete.status).toBe(409);
-
-    await repository.finishCapture({ orgId: toOrgId(ORG), ownerUserId: USER,
-      transcriptionId: transcription.sessionId, captureId: "capture-delete", durationMs: 1_000 });
     await expect(usage.record({ providerTaskId: "f177-provider-task", orgId: toOrgId(ORG), ownerUserId: USER,
       captureId: "capture-delete", model: "qwen3-asr-flash-realtime", durationSeconds: 1 })).resolves.toBe(true);
 

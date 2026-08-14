@@ -115,6 +115,7 @@ import {
   listPersonalTranscriptionTags,
   updatePersonalTranscriptionMetadata,
   deletePersonalTranscription,
+  stopPersonalTranscription,
   PersonalTranscriptionNotFound,
   PersonalTranscriptionOrgMembershipRequired,
   readPersonalTranscription,
@@ -330,6 +331,19 @@ export class RecordingController {
     try {
       return PersonalC.operations.deletePersonalTranscription.out.parse(
         await deletePersonalTranscription(this.personalDependencies(), {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId,
+        }),
+      );
+    } catch (error) { this.personalError(error); }
+  }
+
+  @Post(PersonalC.operations.stopPersonalTranscription.path)
+  @HttpCode(HttpStatus.OK)
+  async stopPersonal(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+    assertPrincipal(principal);
+    try {
+      return PersonalC.operations.stopPersonalTranscription.out.parse(
+        await stopPersonalTranscription(this.personalDependencies(), {
           userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId,
         }),
       );
