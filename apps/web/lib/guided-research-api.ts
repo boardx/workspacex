@@ -34,7 +34,9 @@ async function checkpointRequest(
   operation: typeof research.operations.generateResearchDirections
     | typeof research.operations.confirmResearchDirections
     | typeof research.operations.generateResearchOutline
-    | typeof research.operations.confirmResearchOutline,
+    | typeof research.operations.confirmResearchOutline
+    | typeof research.operations.finishGuidedResearchCollection
+    | typeof research.operations.completeGuidedResearchSession,
   sessionId: string,
   body: Record<string, unknown>,
 ): Promise<GuidedResearchSession> {
@@ -55,3 +57,9 @@ export const confirmResearchOutline = (
   sessionId: string,
   input: Omit<z.infer<typeof research.operations.confirmResearchOutline.in>, "sessionId">,
 ) => checkpointRequest(research.operations.confirmResearchOutline, sessionId, input);
+export const finishGuidedResearchCollection = (
+  sessionId: string,
+  input: Omit<z.infer<typeof research.operations.finishGuidedResearchCollection.in>, "sessionId">,
+) => checkpointRequest(research.operations.finishGuidedResearchCollection, sessionId, input);
+export const completeGuidedResearchSession = (sessionId: string) =>
+  checkpointRequest(research.operations.completeGuidedResearchSession, sessionId, {});

@@ -5,6 +5,7 @@ import {
   type GuidedResearchBrief,
   GuidedResearchCheckpointConflictError,
   GuidedResearchDirectionsNotConfirmedError,
+  GuidedResearchStageConflictError,
   type GuidedResearchDirection,
   type GuidedResearchOutlineSection,
   type GuidedResearchSession,
@@ -25,6 +26,7 @@ interface Row {
   outline: GuidedResearchSession["outline"];
   stage: GuidedResearchSession["stage"];
   resume_stage: GuidedResearchSession["resumeStage"];
+  status: GuidedResearchSession["status"];
   progress: number;
   source_count: number;
   report_id: string | null;
@@ -34,7 +36,7 @@ interface Row {
   is_collaborator: boolean;
 }
 
-const COLUMNS = "g.id, g.title, g.tags, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
+const COLUMNS = "g.id, g.title, g.tags, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.status, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
 const COLLABORATOR_PROJECTION = `EXISTS (
   SELECT 1 FROM guided_research_session_collaborators c
    WHERE c.org_id = g.org_id AND c.session_id = g.id AND c.user_id = $2
@@ -52,7 +54,7 @@ function project(row: Row): GuidedResearchSession {
     outline: row.outline,
     stage: row.stage,
     resumeStage: row.resume_stage,
-    status: row.stage === "report" ? "completed" : row.stage === "failed" ? "failed" : "active",
+    status: row.status,
     progress: row.progress,
     sourceCount: row.source_count,
     reportId: row.report_id,
@@ -104,7 +106,7 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
            (id, org_id, owner_user_id, idempotency_key, title, tags, brief, brief_confirmed_at, stage, resume_stage, progress)
          VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::text[], $6::jsonb, now(), 'directions', 'directions', 20)
          ON CONFLICT (org_id, owner_user_id, idempotency_key) DO NOTHING
-         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
+         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, status, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
         [input.orgId, input.ownerUserId, input.idempotencyKey, input.title, input.tags, JSON.stringify(input.brief)],
       );
       const row = inserted.rows[0] ?? (await session.query<Row>(
@@ -200,13 +202,14 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
         if (outline.candidateVersion !== input.candidateVersion) throw new GuidedResearchCheckpointConflictError();
         const version = Math.max(0, ...outline.versions.map((item) => item.version)) + 1;
         outline = { candidateVersion: version, confirmedVersion: version, versions: [...outline.versions, { version, items: input.items as GuidedResearchOutlineSection[], createdAt: now, confirmedAt: now }] };
+        stage = "researching"; resumeStage = "researching";
       }
       const updated = await session.query<Row>(
         `UPDATE guided_research_sessions g SET directions = $4::jsonb, outline = $5::jsonb,
            stage = $6, resume_stage = $7, updated_at = now()
          WHERE g.org_id = $1 AND g.id = $3
            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
-         RETURNING id, title, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage,
+         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, status,
            progress, source_count, report_id, created_at, updated_at, owner_user_id,
            ${COLLABORATOR_PROJECTION}`,
         [input.orgId, input.viewerUserId, input.sessionId, JSON.stringify(directions), JSON.stringify(outline), stage, resumeStage],
@@ -226,5 +229,56 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
   }
   confirmOutline(input: { orgId: OrgId; viewerUserId: string; sessionId: string; candidateVersion: number; items: readonly GuidedResearchOutlineSection[] }) {
     return this.mutateCheckpoint({ ...input, mutation: "confirm-outline" });
+  }
+
+  private async transition(input: {
+    orgId: OrgId; viewerUserId: string; sessionId: string;
+    mutation: "finish-collection" | "complete"; sourceCount?: number;
+  }): Promise<GuardedGuidedResearchSession | null> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const currentResult = await session.query<Row>(
+        `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          FOR UPDATE`,
+        [input.orgId, input.viewerUserId, input.sessionId],
+      );
+      const current = currentResult.rows[0];
+      if (!current) return null;
+
+      if (input.mutation === "finish-collection") {
+        if (current.stage !== "researching" || current.outline.confirmedVersion === null) {
+          throw new GuidedResearchStageConflictError();
+        }
+        const updated = await session.query<Row>(
+          `UPDATE guided_research_sessions g
+             SET stage = 'report', resume_stage = 'report', progress = 90, source_count = $4,
+                 report_id = COALESCE(g.report_id, $5), updated_at = now()
+           WHERE g.org_id = $1 AND g.id = $3
+             AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+           RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+          [input.orgId, input.viewerUserId, input.sessionId, input.sourceCount, `guided-report-${input.sessionId}`],
+        );
+        return updated.rows[0] ? guarded(updated.rows[0]) : null;
+      }
+
+      if (current.stage !== "report") throw new GuidedResearchStageConflictError();
+      const updated = await session.query<Row>(
+        `UPDATE guided_research_sessions g SET status = 'completed', progress = 100, updated_at = now()
+         WHERE g.org_id = $1 AND g.id = $3
+           AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+         RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+        [input.orgId, input.viewerUserId, input.sessionId],
+      );
+      return updated.rows[0] ? guarded(updated.rows[0]) : null;
+    });
+  }
+
+  finishCollection(input: { orgId: OrgId; viewerUserId: string; sessionId: string; sourceCount: number }) {
+    return this.transition({ ...input, mutation: "finish-collection" });
+  }
+
+  complete(input: { orgId: OrgId; viewerUserId: string; sessionId: string }) {
+    return this.transition({ ...input, mutation: "complete" });
   }
 }

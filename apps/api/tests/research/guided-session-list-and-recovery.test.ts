@@ -155,4 +155,76 @@ describe("F168 guided research session list and recovery", () => {
     );
     expect(rows.rows).toEqual([]);
   });
+
+  it("persists the ordered post-outline lifecycle and rejects premature completion", async () => {
+    const created = C.operations.createGuidedResearchSession.out.parse(await (await create("create-lifecycle")).json());
+
+    const premature = await fetch(`${base}/research/guided-sessions/${created.sessionId}/complete`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(premature.status).toBe(409);
+    expect(await premature.json()).toMatchObject({ reasonCode: "RESEARCH_STAGE_CONFLICT" });
+
+    const directionsResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions/generate`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(directionsResponse.status).toBe(201);
+    const directions = C.operations.generateResearchDirections.out.parse(await directionsResponse.json());
+    const directionCandidate = directions.directions.versions.at(-1)!;
+
+    const confirmedDirectionsResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: directionCandidate.version, directions: directionCandidate.items }),
+    });
+    expect(confirmedDirectionsResponse.status).toBe(200);
+
+    const outlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline/generate`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({}),
+    });
+    expect(outlineResponse.status).toBe(201);
+    const outline = C.operations.generateResearchOutline.out.parse(await outlineResponse.json());
+    const outlineCandidate = outline.outline.versions.at(-1)!;
+
+    const confirmedOutlineResponse = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: outlineCandidate.version, outline: outlineCandidate.items }),
+    });
+    expect(confirmedOutlineResponse.status).toBe(200);
+    const confirmedOutline = C.operations.confirmResearchOutline.out.parse(await confirmedOutlineResponse.json());
+    expect(confirmedOutline.stage).toBe("researching");
+    expect(confirmedOutline.resumeStage).toBe("researching");
+
+    const reportResponse = await fetch(
+      `${base}/research/guided-sessions/${created.sessionId}/researching/complete`,
+      {
+        method: "POST",
+        headers: auth(OWNER),
+        body: JSON.stringify({ sourceCount: 3 }),
+      },
+    );
+    expect(reportResponse.status).toBe(201);
+    const reported = C.operations.finishGuidedResearchCollection.out.parse(await reportResponse.json());
+    expect(reported).toMatchObject({
+      stage: "report",
+      resumeStage: "report",
+      status: "active",
+      sourceCount: 3,
+    });
+
+    const completeResponse = await fetch(
+      `${base}/research/guided-sessions/${created.sessionId}/complete`,
+      { method: "POST", headers: auth(OWNER), body: JSON.stringify({}) },
+    );
+    expect(completeResponse.status).toBe(201);
+    const completed = C.operations.completeGuidedResearchSession.out.parse(await completeResponse.json());
+    expect(completed).toMatchObject({ stage: "report", status: "completed", progress: 100 });
+  });
 });

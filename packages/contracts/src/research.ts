@@ -223,6 +223,8 @@ export const ResearchError = z.enum([
   "RESEARCH_CREATE_REPLAY_MISMATCH",
   /** 人工确认所基于的候选版本已被另一轮生成或确认替换。 */
   "RESEARCH_CHECKPOINT_CONFLICT",
+  /** 生命周期操作未按已确认的大纲与研究阶段顺序执行。 */
+  "RESEARCH_STAGE_CONFLICT",
   /** 报告大纲只能基于已经由人确认的研究方向生成。 */
   "RESEARCH_DIRECTIONS_NOT_CONFIRMED",
   /**
@@ -680,6 +682,23 @@ export const operations = {
         .refine((items) => items.some((item) => item.enabled && item.title.trim().length > 0), "at least one outline section must be enabled"),
     }).strict(), out: GuidedResearchSession,
     err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+  },
+  finishGuidedResearchCollection: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/researching/complete",
+    in: z.object({
+      sessionId: z.string().min(1),
+      sourceCount: z.number().int().min(0).max(10_000),
+    }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
+  },
+  completeGuidedResearchSession: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/complete",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   /**
    * `CreateResearch`（`usecases.md` 1.1 / `uc-24-1` R3）—— 七项配置一次固化（**N-12**）

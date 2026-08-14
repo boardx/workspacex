@@ -11,7 +11,7 @@ import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/i
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { decideGuidedResearchVisibility } from "../../domain/research/guided-research-visibility";
 import { GuidedResearchCreateReplayMismatchError, InvalidGuidedResearchCollaboratorError, type GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
-import { GuidedResearchCheckpointConflictError, GuidedResearchDirectionsNotConfirmedError } from "../../application/research/guided-session-ports";
+import { GuidedResearchCheckpointConflictError, GuidedResearchDirectionsNotConfirmedError, GuidedResearchStageConflictError } from "../../application/research/guided-session-ports";
 import { GUIDED_RESEARCH_CHECKPOINT_GENERATOR, type GuidedResearchCheckpointGenerator } from "../../domain/research/guided-research-checkpoint-generator";
 
 @Controller()
@@ -84,7 +84,7 @@ export class GuidedResearchController {
   }
 
   private checkpointError(error: unknown): never {
-    if (error instanceof GuidedResearchCheckpointConflictError || error instanceof GuidedResearchDirectionsNotConfirmedError) {
+    if (error instanceof GuidedResearchCheckpointConflictError || error instanceof GuidedResearchDirectionsNotConfirmedError || error instanceof GuidedResearchStageConflictError) {
       throw new ConflictException({ reasonCode: error.reasonCode });
     }
     throw error;
@@ -137,6 +137,32 @@ export class GuidedResearchController {
     if (!input.success) throw new BadRequestException();
     try {
       const updated = await this.sessions.confirmOutline({ orgId: principal.orgId, viewerUserId: principal.userId, sessionId, candidateVersion: input.data.candidateVersion, items: input.data.outline });
+      if (!updated) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
+      return this.disclose(updated, principal.userId);
+    } catch (error) { this.checkpointError(error); }
+  }
+
+  @Post(C.operations.finishGuidedResearchCollection.path)
+  async finishCollection(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.operations.finishGuidedResearchCollection.in.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    try {
+      const updated = await this.sessions.finishCollection({
+        orgId: principal.orgId, viewerUserId: principal.userId, sessionId, sourceCount: input.data.sourceCount,
+      });
+      if (!updated) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
+      return this.disclose(updated, principal.userId);
+    } catch (error) { this.checkpointError(error); }
+  }
+
+  @Post(C.operations.completeGuidedResearchSession.path)
+  async complete(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.operations.completeGuidedResearchSession.in.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    try {
+      const updated = await this.sessions.complete({ orgId: principal.orgId, viewerUserId: principal.userId, sessionId });
       if (!updated) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
       return this.disclose(updated, principal.userId);
     } catch (error) { this.checkpointError(error); }

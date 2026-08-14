@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { operations } from "../src/research";
+import * as research from "../src/research";
+
+const { operations } = research;
 
 describe("F168 guided research session contract", () => {
   it("keeps the resumable stage and brief in the shared contract", () => {
@@ -105,5 +107,25 @@ describe("F169 guided research human checkpoint contract", () => {
     expect(operations.confirmResearchOutline.in.safeParse({
       sessionId: "grs-1", candidateVersion: 1, outline: [{ ...outline, title: "   " }],
     }).success).toBe(false);
+  });
+});
+
+describe("guided research post-outline lifecycle contract", () => {
+  it("defines ordered collection and completion operations", () => {
+    expect(research.operations.finishGuidedResearchCollection).toMatchObject({
+      method: "POST",
+      path: "/research/guided-sessions/:sessionId/researching/complete",
+      err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"],
+    });
+    expect(research.operations.completeGuidedResearchSession).toMatchObject({
+      method: "POST",
+      path: "/research/guided-sessions/:sessionId/complete",
+      err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"],
+    });
+    expect(research.operations.finishGuidedResearchCollection.in.parse({
+      sessionId: "grs-1",
+      sourceCount: 3,
+    })).toEqual({ sessionId: "grs-1", sourceCount: 3 });
+    expect(research.ResearchError.options).toContain("RESEARCH_STAGE_CONFLICT");
   });
 });
