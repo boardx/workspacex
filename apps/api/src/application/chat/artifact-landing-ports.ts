@@ -21,6 +21,16 @@ export interface NewArtifactLanding {
   readonly mode: LandingModeName;
   readonly hasSource: boolean;
   readonly citationCount: number;
+  /**
+   * F155 L3 —— 落地内容的**有界摘录**（= 写进对象存储那份 `content.md` 的前 N 字，
+   * N 见 `application/agent-run/file-retrieval.ts` 的 `LANDED_CONTENT_EXCERPT_MAX_CHARS`）。
+   *
+   * ⚠ 这**不是**在落地记录里存第二份正文：字节本体与版本血缘仍全部在 phase-00 artifact
+   * （本文件头注那条纪律不变）。存这一段的唯一目的是让 `chat_artifact_landings.search_tsv`
+   * 这个生成列有正文可索引——delta §4：「落地即可检索，不需要用户额外操作」。要让全文检索
+   * 每次都去对象存储把 `content.md` 拉回来，就等于没有索引。
+   */
+  readonly contentExcerpt: string;
   readonly createdBy: string;
 }
 

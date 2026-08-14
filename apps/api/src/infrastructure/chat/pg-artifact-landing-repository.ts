@@ -52,11 +52,13 @@ export class PgArtifactLandingRepository implements ArtifactLandingRepository {
       s.query(
         `INSERT INTO chat_artifact_landings
            (id, org_id, thread_id, message_id, artifact_id, version_id, title, mode,
-            has_source, citation_count, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            has_source, citation_count, created_by, content_excerpt)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           row.id, row.orgId, row.threadId, row.messageId, row.artifactId, row.versionId,
           row.title, row.mode, row.hasSource, row.citationCount, row.createdBy,
+          // F155：写进来的这一刻，`search_tsv` 生成列就自动有了正文——落地即可检索。
+          row.contentExcerpt,
         ],
       ),
     );

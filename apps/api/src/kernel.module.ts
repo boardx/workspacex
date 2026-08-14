@@ -235,6 +235,7 @@ import {
   type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
@@ -949,13 +950,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
       // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
       // fourth argument at all.
+      // F155：L3 文件式检索在这里注入——`ExecuteAgentRunDeps.files` 是可选的，所以
+      // 「生产 run 到底有没有 L3」由这一行、而不是由某个运行期开关决定（同 `usage` 的先例）。
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
+        db: DatabasePort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
+          new PgFileRetrieval(db),
         ),
-      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER],
+      inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
     // 「这次返回了多少 token」，不知道这次调用属于哪个组织的哪个人——那是 run 才有的事实。

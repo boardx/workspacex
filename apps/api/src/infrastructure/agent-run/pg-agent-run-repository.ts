@@ -52,7 +52,9 @@ interface StepRow {
 }
 
 interface ClaimDetailRow {
-  id: string; project_id: string; input_text: string; instructions: string;
+  // F155：`chat_threads.project_id` 自 #594 起可空（个人线程），这里跟着改成可空——
+  // 驱动本来就会回 `null`，之前只是类型上没承认。见 `ClaimedAgentRun.projectId` 的注释。
+  id: string; project_id: string | null; input_text: string; instructions: string;
   requester_user_id: string;
   input_attachments: unknown;
 }

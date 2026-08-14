@@ -24,6 +24,7 @@ import type { LoggerPort } from "../../application/ports/logger.port";
 import type {
   AgentRunClock, AgentRunExecutorPort, AgentRunStore, ModelCallPort, TokenUsageMeterPort,
 } from "../../application/agent-run/ports";
+import type { FileRetrievalPort } from "../../application/agent-run/file-retrieval";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
@@ -49,6 +50,11 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 选择，不是运行期的一个偶然。
      */
     private readonly usage?: TokenUsageMeterPort,
+    /**
+     * F155 L3 —— 文件式检索。可选，与 `usage` 同一条理由（见上）：既有构造点不必都改，
+     * 生产合成必定注入。不注入 ⇒ 组装出的 history 与 F155 之前逐字节相同。
+     */
+    private readonly files?: FileRetrievalPort,
   ) {}
 
   /**
@@ -73,6 +79,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
   async tick(orgId: OrgId): Promise<number> {
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
+      files: this.files,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;

@@ -10,7 +10,13 @@ import { asApp } from "./db";
 export async function addChatThread(opts: {
   orgId: string;
   id: string;
-  projectId: string;
+  /**
+   * F155：可空——`chat_threads.project_id` 自 #594（个人线程）起就是可空的，夹具此前却只
+   * 接受 `string`，于是「个人线程」这一类真实存在的行**在测试里造不出来**。要反证 F156
+   * delta 的「个人线程只召回自己这条线程的附件」，第一步就是能造出一条 `project_id IS NULL`
+   * 的线程。
+   */
+  projectId: string | null;
   groupId?: string | null;
   visibilityScope: string;
   createdBy: string;
