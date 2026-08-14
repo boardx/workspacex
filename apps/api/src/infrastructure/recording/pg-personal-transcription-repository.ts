@@ -176,7 +176,7 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query<{ tag: string }>(
         `SELECT DISTINCT btrim(tag) AS tag
-           FROM personal_transcriptions p CROSS JOIN LATERAL unnest(p.tags) AS tag
+           FROM personal_transcriptions p, unnest(p.tags) AS tag
           WHERE p.org_id=$1 AND p.owner_user_id=$2 AND btrim(tag)<>''
           ORDER BY tag`,
         [input.orgId, input.ownerUserId],
