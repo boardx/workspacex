@@ -76,7 +76,11 @@ export function GuidedResearchSkillAssistant({
   }
 
   return (
-    <section data-testid="research-skill-assistant" className="flex min-w-0 flex-col rounded-lg border border-border bg-card p-4">
+    <section
+      data-testid="research-skill-assistant"
+      data-surface="full-height-conversation"
+      className="flex h-full min-h-0 min-w-0 flex-col rounded-lg border border-border bg-card p-4"
+    >
       <div className="flex items-center gap-2">
         <MessageCircle aria-hidden className="size-5 text-primary" />
         <h2 className="font-semibold">研究 Skill 助手</h2>
@@ -89,7 +93,7 @@ export function GuidedResearchSkillAssistant({
           </button>
         ))}
       </div>
-      <div className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto">
+      <div data-testid="research-skill-messages" className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto pr-1">
         {skillState.messages.map((message) => (
           <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-foreground"}>
             {message.text}
@@ -104,7 +108,7 @@ export function GuidedResearchSkillAssistant({
         )}
       </div>
       {skillState.undoSnapshot && <Button type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={undo}><Undo2 aria-hidden className="size-3" />撤销上次应用</Button>}
-      <div className="mt-4 flex gap-2">
+      <div data-testid="research-skill-composer" className="mt-4 flex shrink-0 gap-2">
         <input
           data-testid="research-skill-input"
           value={input}
