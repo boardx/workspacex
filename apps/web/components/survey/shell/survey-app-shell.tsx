@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChartNoAxesCombined, ClipboardList, FileText } from "lucide-react";
@@ -28,6 +29,14 @@ export function SurveyAppShell({ children }: { children: React.ReactNode }) {
 }
 
 function SurveySectionNav() {
+  return (
+    <React.Suspense fallback={<SurveySectionNavContent activeSection={null} />}>
+      <SurveySectionNavWithLocation />
+    </React.Suspense>
+  );
+}
+
+function SurveySectionNavWithLocation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeSection = pathname.startsWith("/studio/survey/templates")
@@ -38,6 +47,10 @@ function SurveySectionNav() {
         ? "reports"
         : "surveys";
 
+  return <SurveySectionNavContent activeSection={activeSection} />;
+}
+
+function SurveySectionNavContent({ activeSection }: { activeSection: (typeof SURVEY_SECTIONS)[number]["id"] | null }) {
   return (
     <nav className="flex flex-col gap-1 p-3" aria-label="Survey 资源类型" data-testid="survey-section-nav">
       <span className="px-1 pb-2 text-10 uppercase tracking-wide text-muted-foreground">Survey</span>
