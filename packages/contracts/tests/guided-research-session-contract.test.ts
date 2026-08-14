@@ -112,9 +112,7 @@ describe("F169 guided research human checkpoint contract", () => {
 
 describe("guided research post-outline lifecycle contract", () => {
   it("defines same-session brief reconfirmation", () => {
-    const operation = (operations as unknown as Record<string, {
-      method: string; path: string; err: readonly string[];
-    }>).confirmResearchBrief;
+    const operation = operations.confirmResearchBrief;
 
     expect(operation).toMatchObject({
       method: "PUT",
