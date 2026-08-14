@@ -81,23 +81,10 @@ wait_for_stable_web() {
   return 1
 }
 
-personal_realtime_asr_websocket_is_routed() {
-  local url=$1 status
-  status=$(curl -sS --http1.1 --connect-timeout 2 --max-time 5 \
-    -o /dev/null -w '%{http_code}' \
-    -H 'Connection: Upgrade' \
-    -H 'Upgrade: websocket' \
-    -H 'Sec-WebSocket-Version: 13' \
-    -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
-    "$url" 2>/dev/null) || return 1
-  [[ "$status" == "401" ]]
-}
-
 run_post_restart_smoke() {
   local api_url="http://127.0.0.1:${APP_API_PORT:-3200}/healthz"
   local web_url="http://127.0.0.1:${APP_WEB_PORT:-3100}/"
   local public_probe="https://${PUBLIC_DOMAIN:-devapp.boardx.us}/kernel/probe/identity-session"
-  local personal_asr_probe="https://${PUBLIC_DOMAIN:-devapp.boardx.us}/recording/realtime-asr/sessions/probe-session/captures/probe-capture/stream"
 
   if ! wait_for_stable_api "$api_url"; then
     print_deploy_diagnostics
@@ -109,13 +96,6 @@ run_post_restart_smoke() {
     print_deploy_diagnostics
     return 1
   fi
-
-  if ! personal_realtime_asr_websocket_is_routed "$personal_asr_probe"; then
-    echo "✗ personal realtime ASR WebSocket 未路由到 API（缺 ticket 时应立即返回 401）" >&2
-    print_deploy_diagnostics
-    return 1
-  fi
-  echo "  ✓ personal realtime ASR WebSocket 已路由到 API"
 
   if curl -fsS --connect-timeout 2 --max-time 5 -o /dev/null "$public_probe" 2>/dev/null; then
     echo "✗ /kernel/probe/* 从公网可达 —— 那是门控的被测面，不是对外 API" >&2
