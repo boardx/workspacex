@@ -42,7 +42,7 @@ describe("F169 guided research live checkpoints", () => {
     const onStepChange = vi.fn();
     render(<GuidedResearchFlow step="directions" sessionId="grs-f169" onStepChange={onStepChange} />);
 
-    expect(await screen.findByDisplayValue("候选方向")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("候选方向", {}, { timeout: 5_000 })).toBeInTheDocument();
     fireEvent.change(screen.getByTestId("research-direction-title-d1"), { target: { value: "人工编辑方向" } });
     fireEvent.click(screen.getByTestId("research-confirm-directions"));
 

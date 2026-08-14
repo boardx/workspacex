@@ -17,6 +17,7 @@
 - Do not change research APIs, persistence, checkpoint semantics, route names, or session restoration.
 - Reuse existing semantic tokens, spacing scale, components, icons, and test IDs; add no dependency or hard-coded visual value.
 - Preserve the mobile Skill disclosure and prevent horizontal overflow at 375px, 768px, and 1280px.
+- Keep `/research` as the only browser location during checkpoint transitions; never reload the document to switch steps.
 
 ---
 
@@ -310,3 +311,54 @@ git push -u origin codex/research-split-workspace
 - [ ] **Step 7: Create the delivery PR**
 
 Create a ready PR titled `feat(research): add split AI workspace and wide report`, include the targeted test/typecheck/design-lint results, the two screenshot paths, the design QA result, and `Closes #1253`.
+
+---
+
+### Task 5: Align progress with the right workspace and remove checkpoint reloads
+
+**Files:**
+- Modify: `apps/web/components/research-studio/guided-research-flow.tsx`
+- Test: `apps/web/tests/ui/guided-research-visual-contract.test.tsx`
+- Test: `apps/web/tests/ui/guided-research-flow.test.tsx`
+
+**Interfaces:**
+- Consumes: existing `restoredStep`, `activeSessionId`, `FlowProgress`, `GuidedResearchStepLayout`, and persisted session snapshots.
+- Produces: `data-layout="right-aligned-progress"` and a default navigation path that updates React state plus `window.history.replaceState({}, "", "/research")`.
+
+- [ ] **Step 1: Add failing layout and navigation tests**
+
+Assert that the flow root uses the full content width, the progress wrapper has the same one-third/two-thirds grid as the step workspace, and the progress control is in the second column. Render `GuidedResearchFlow` without `onStepChange`, click an accessible completed checkpoint, then assert that the new step content appears in the same document and `history.replaceState` receives `/research`.
+
+- [ ] **Step 2: Run the focused tests and confirm RED**
+
+```bash
+pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx
+```
+
+Expected: the layout test sees the old centered flow/progress placement and the navigation test observes the existing `window.location.assign` path.
+
+- [ ] **Step 3: Implement the minimal single-page shell**
+
+Remove `max-w-6xl` from the flow root. Wrap `FlowProgress` in a desktop one-third/two-thirds grid with an empty first column and the progress control in the second column. Replace the default `window.location.assign` fallback with synchronous `restoredStep`/`activeSessionId` updates and `window.history.replaceState({}, "", "/research")`. Preserve the optional `onStepChange` callback used by controlled tests and consumers.
+
+- [ ] **Step 4: Keep newly created sessions live without a reload**
+
+When brief creation returns a session, call the existing `onSession(createdSession)` before navigating to directions. This supplies directions generation and checkpoint state in the same mounted flow.
+
+- [ ] **Step 5: Run the guided-research and static gates**
+
+```bash
+pnpm --filter web exec vitest run --pool=forks --maxWorkers=1 --minWorkers=1 tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx tests/ui/guided-research-skill-assistant.test.tsx
+pnpm --filter web run typecheck
+cd apps/web && ./scripts/lint-design.sh
+```
+
+Expected: all commands exit 0 and no checkpoint action reloads the document.
+
+- [ ] **Step 6: Commit and update PR #1255**
+
+```bash
+git add docs/superpowers/specs/2026-08-14-guided-research-split-workspace-design.md docs/superpowers/plans/2026-08-14-guided-research-split-workspace.md apps/web/components/research-studio/guided-research-flow.tsx apps/web/tests/ui/guided-research-visual-contract.test.tsx apps/web/tests/ui/guided-research-flow.test.tsx
+git commit -m "fix(research): keep guided steps on one page"
+git push
+```

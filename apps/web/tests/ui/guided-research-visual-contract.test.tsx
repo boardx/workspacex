@@ -91,7 +91,15 @@ describe("F180 signed guided-research visual contract", () => {
 
     const progress = await screen.findByTestId("research-flow-progress");
     expect(progress).toHaveClass("rounded-lg", "border");
-    expect(screen.getByTestId("research-flow-search")).toHaveAttribute("data-layout", "signed-desktop");
+    const flow = screen.getByTestId("research-flow-search");
+    expect(flow).toHaveAttribute("data-layout", "signed-desktop");
+    expect(flow).toHaveClass("max-w-none");
+    expect(flow).not.toHaveClass("max-w-6xl");
+
+    const progressShell = screen.getByTestId("research-progress-shell");
+    expect(progressShell).toHaveAttribute("data-layout", "right-aligned-progress");
+    expect(progressShell).toHaveClass("lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]");
+    expect(progressShell.lastElementChild).toBe(progress);
   });
 
   it("keeps a one-third contextual Skill workspace with one main editor on guided steps", async () => {

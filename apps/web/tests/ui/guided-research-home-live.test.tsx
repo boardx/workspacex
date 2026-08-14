@@ -18,6 +18,33 @@ vi.mock("@/lib/guided-research-api", () => ({
   completeGuidedResearchSession,
 }));
 
+function createdSession(sessionId: string) {
+  return {
+    sessionId,
+    title: "欧洲储能进入研究",
+    tags: ["欧洲", "储能"],
+    brief: {
+      topic: "新的研究主题",
+      goal: "判断市场机会",
+      timeRange: "2025",
+      region: "欧洲",
+      focus: "储能",
+    },
+    briefVersion: 1,
+    briefConfirmedAt: "2026-08-13T00:00:00.000Z",
+    directions: { candidateVersion: null, confirmedVersion: null, versions: [] },
+    outline: { candidateVersion: null, confirmedVersion: null, versions: [] },
+    stage: "directions",
+    resumeStage: "directions",
+    status: "active",
+    progress: 20,
+    sourceCount: 0,
+    reportId: null,
+    createdAt: "2026-08-13T00:00:00.000Z",
+    updatedAt: "2026-08-13T00:00:00.000Z",
+  };
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -92,7 +119,7 @@ describe("F168 guided research home live data", () => {
   });
 
   it("creates a persisted session before entering directions", async () => {
-    createGuidedResearchSession.mockResolvedValueOnce({ sessionId: "grs-new", stage: "directions" });
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-new"));
     const onStepChange = vi.fn();
     window.sessionStorage.setItem("wsx.guidedResearch.createDraft", JSON.stringify({
       title: "欧洲储能进入研究", tags: ["欧洲", "储能"],
@@ -129,7 +156,7 @@ describe("F168 guided research home live data", () => {
   it("reuses the create idempotency key after remount and clears it only after success", async () => {
     createGuidedResearchSession
       .mockRejectedValueOnce(new Error("response lost"))
-      .mockResolvedValueOnce({ sessionId: "grs-replayed", stage: "directions" });
+      .mockResolvedValueOnce(createdSession("grs-replayed"));
     const first = render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
@@ -150,7 +177,7 @@ describe("F168 guided research home live data", () => {
   it("does not reuse an idempotency key after the brief changes into a different create intent", async () => {
     createGuidedResearchSession
       .mockRejectedValueOnce(new Error("response lost"))
-      .mockResolvedValueOnce({ sessionId: "grs-other", stage: "directions" });
+      .mockResolvedValueOnce(createdSession("grs-other"));
     const first = render(<GuidedResearchFlow step="brief" onStepChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
