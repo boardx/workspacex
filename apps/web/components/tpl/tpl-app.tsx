@@ -71,39 +71,6 @@ export function TplApp({
   );
 }
 
-/**
- * `tpl` 生产入口（`/tpl/list`）—— 人类反馈：后台点「项目模板」进入的界面里有一列
- * 多余的中间导航（UC 编号的 `TplNav`）不该出现在生产路径，`PreviewControls`
- * （屏/视角/七态切换条）同理。这条组件只渲染 `BlueprintListScreen` 本身，
- * 不带 `TplNav` 左栏、不带 `PreviewControls` 顶条——`AppShell` 不传 `left` 时
- * 干脆不渲染左栏面板（见 `app-shell.tsx` 的 `{left && (...)}`）。
- *
- * 其余原型屏（designer/apply/prep/workflow/promote/versions）仍只挂在 `/tpl`
- * 这条原型切换器路径下（`?screen=xxx`），继续是 ADR-023 UI 先行的签核材料，
- * 未受影响——它们目前没有独立的生产页面，本组件不覆盖它们。
- */
-export function TplListProductionApp({
-  identity, previewRole, uiState,
-}: {
-  identity: Identity;
-  previewRole: ProjectRole | null;
-  uiState: UiState;
-}) {
-  const [toast, setToast] = React.useState<string | null>(null);
-
-  return (
-    <AppShell identity={identity} previewRole={previewRole}>
-      <div className="relative flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <BlueprintListScreen uiState={uiState} previewRole={previewRole} onToast={setToast} />
-        </div>
-
-        <TplToast message={toast} onDismiss={() => setToast(null)} />
-      </div>
-    </AppShell>
-  );
-}
-
 /* ── 左栏导航（后台 · 项目蓝本 / 项目 · 筹备 两组）──────────────────────── */
 
 const NAV_GROUPS: { label: string; icon: typeof LayoutTemplate; screens: TplScreen[] }[] = [
