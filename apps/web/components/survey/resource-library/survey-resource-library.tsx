@@ -29,6 +29,10 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
   const [query, setQuery] = React.useState("");
   const tab = initialTab;
 
+  React.useEffect(() => {
+    setQuery("");
+  }, [tab]);
+
   const surveys = (uiState === "empty" ? [] : SURVEY_LIBRARY_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const modules = (uiState === "empty" ? [] : SURVEY_QUESTION_MODULE_CARDS).filter((item) =>

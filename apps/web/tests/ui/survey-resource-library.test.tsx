@@ -70,6 +70,16 @@ describe("SurveyResourceLibrary", () => {
     expect(screen.queryByTestId("survey-resource-card-survey-sv-1")).not.toBeInTheDocument();
   });
 
+  it("切换资源入口时清空上一入口的搜索条件", () => {
+    const view = render(<SurveyResourceLibrary initialTab="surveys" uiState="default" />);
+    fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "团队协作" } });
+
+    view.rerender(<SurveyResourceLibrary initialTab="modules" uiState="default" />);
+
+    expect(screen.getByTestId("survey-resource-search")).toHaveValue("");
+    expect(screen.getByTestId("survey-resource-card-module-profile")).toBeInTheDocument();
+  });
+
   it.each([
     ["loading", "survey-resource-loading"],
     ["empty", "survey-resource-empty"],
