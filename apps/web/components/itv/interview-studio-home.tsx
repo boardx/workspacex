@@ -24,13 +24,6 @@ type LoadState<T> =
   | { kind: "ready"; items: readonly T[] }
   | { kind: "error"; reason: string };
 
-const HISTORY_FILTERS = [
-  { value: undefined, label: "全部" },
-  { value: "running", label: "进行中" },
-  { value: "questions_pending", label: "待确认" },
-  { value: "completed", label: "已完成" },
-] as const;
-
 const STATUS_LABEL: Record<DigitalInterviewHistoryRow["status"], string> = {
   draft: "草稿",
   topic_pending: "待确认主题",
@@ -49,7 +42,7 @@ function reasonOf(error: unknown): string {
 
 export function InterviewStudioHome({ initialTab = "history", initialCreateOpen = false }: { initialTab?: Tab; initialCreateOpen?: boolean }) {
   const [tab, setTab] = React.useState<Tab>(initialTab);
-  const [status, setStatus] = React.useState<string | undefined>();
+  const [selectedTag, setSelectedTag] = React.useState<string | undefined>();
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
@@ -57,7 +50,7 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
   React.useEffect(() => {
     let active = true;
     setHistory({ kind: "loading" });
-    void loadDigitalInterviewHistory(status).then(
+    void loadDigitalInterviewHistory().then(
       (result) => active && setHistory({
         kind: "ready",
         items: [...listMockDigitalInterviewDrafts().map(mockDraftHistoryRow), ...result.items],
@@ -65,7 +58,26 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
       (error: unknown) => active && setHistory({ kind: "error", reason: reasonOf(error) }),
     );
     return () => { active = false; };
-  }, [status]);
+  }, []);
+
+  const historyItems = history.kind === "ready" ? history.items : [];
+  const availableTags = React.useMemo(() => {
+    const tags = new Set<string>();
+    for (const item of historyItems) {
+      for (const tag of item.tags) {
+        const normalizedTag = tag.trim();
+        if (normalizedTag) tags.add(normalizedTag);
+      }
+    }
+    return Array.from(tags);
+  }, [historyItems]);
+  const visibleHistoryItems = selectedTag
+    ? historyItems.filter((item) => item.tags.some((tag) => tag.trim() === selectedTag))
+    : historyItems;
+
+  React.useEffect(() => {
+    if (selectedTag && !availableTags.includes(selectedTag)) setSelectedTag(undefined);
+  }, [availableTags, selectedTag]);
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
@@ -99,13 +111,12 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
         {tab === "history" ? (
           <section aria-label="历史访谈" className="pt-6">
             <FilterBar>
-              {HISTORY_FILTERS.map((filter) => (
-                <FilterButton key={filter.label} active={status === filter.value} onClick={() => setStatus(filter.value)}>
-                  {filter.label}
-                </FilterButton>
+              <FilterButton active={selectedTag === undefined} onClick={() => setSelectedTag(undefined)}>全部</FilterButton>
+              {availableTags.map((tag) => (
+                <FilterButton key={tag} active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>{tag}</FilterButton>
               ))}
             </FilterBar>
-            <HistoryContent state={history} />
+            <HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} />
           </section>
         ) : (
           <section aria-label="专家列表" className="pt-6">

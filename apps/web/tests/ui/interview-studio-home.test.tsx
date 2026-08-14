@@ -26,7 +26,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (url.pathname === "/interviews/digital") {
         return json({ items: [{
-          interviewId: "itv-1", kind: "batch", name: "德国采购决策链", tags: ["采购决策"], topic: "谁拥有否决权",
+          interviewId: "itv-1", kind: "batch", name: "德国采购决策链", tags: ["采购决策", "德国"], topic: "谁拥有否决权",
           status: "running", expertCount: 3, completedExpertCount: 2, primaryAction: "continue_runs",
           updatedAt: "2026-08-12T03:00:00.000Z",
         }, {
@@ -57,6 +57,53 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     const reportCard = await screen.findByTestId("itv-history-card-itv-2");
     expect(within(reportCard).getByRole("link", { name: /生成报告/ })).toHaveAttribute("href", "/itv/itv-2/report");
     expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
+  });
+
+  it("从全部历史记录动态派生 Tag 并在客户端单选过滤", async () => {
+    render(<InterviewStudioHome initialTab="history" />);
+
+    expect(await screen.findByRole("button", { name: "全部" })).toHaveClass("bg-primary");
+    expect(screen.getByRole("button", { name: "采购决策" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "德国" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "报告" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "进行中" })).not.toBeInTheDocument();
+
+    const historyRequest = vi.mocked(fetch).mock.calls.find(([input]) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      return url.pathname === "/interviews/digital";
+    });
+    expect(historyRequest).toBeDefined();
+    expect(new URL(typeof historyRequest![0] === "string" ? historyRequest![0] : historyRequest![0].toString()).searchParams)
+      .not.toHaveProperty("status");
+
+    fireEvent.click(screen.getByRole("button", { name: "报告" }));
+    expect(screen.getByTestId("itv-history-card-itv-2")).toBeInTheDocument();
+    expect(screen.queryByTestId("itv-history-card-itv-1")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "全部" }));
+    expect(screen.getByTestId("itv-history-card-itv-1")).toBeInTheDocument();
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it("忽略空 Tag 并按首次出现顺序显示去重后的 Tag", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{
+      interviewId: "itv-1", kind: "batch", name: "采购访谈", tags: [" 采购 "], topic: "采购流程",
+      status: "running", expertCount: 1, completedExpertCount: 0, primaryAction: "continue_runs",
+      updatedAt: "2026-08-12T03:00:00.000Z",
+    }, {
+      interviewId: "itv-2", kind: "batch", name: "德国访谈", tags: ["采购", "德国"], topic: "区域差异",
+      status: "completed", expertCount: 1, completedExpertCount: 1, primaryAction: "view_report",
+      updatedAt: "2026-08-12T04:00:00.000Z",
+    }, {
+      interviewId: "itv-3", kind: "batch", name: "无标签访谈", tags: ["  "], topic: "不参与筛选",
+      status: "draft", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic",
+      updatedAt: "2026-08-12T05:00:00.000Z",
+    }] }));
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const history = await screen.findByRole("region", { name: "历史访谈" });
+    expect(within(history).getAllByRole("button").map((button) => button.textContent)).toEqual(["全部", "采购", "德国"]);
   });
 
   it("通过弹窗填写名称和最多五个标签后直接进入访谈流程", async () => {
