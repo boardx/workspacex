@@ -112,6 +112,7 @@ describe("V1 static: no built-in capability list exists in product code", () => 
       "apps/web/lib/mock/project.ts",      // phase-01 project（项目本身）域 UI 先行
       "apps/web/lib/mock/tpl.ts",          // phase-01 templates 域 UI 先行（tpl-v2 保真度重做：Agent 编排面板含 Scout）
       "apps/web/lib/mock/asset-governance.ts", // phase-01 asset-governance 域 UI 先行（六道关/查重/灰度/复核降级/文件树/试跑台）
+      "apps/web/lib/mock/chat-diagram-fabric.ts", // phase-01 chat 域 VZ-fabric 图保存 UI 先行遗留（#1149，与本轮 skill 修复无关，见 issue #1161）
       "apps/web/lib/mock/admin-limits.ts",  // org-admin 域 #923/#924 后台用量监控+限额策略两 tab 的 UI 先行（B1，2026-08-11）
       "apps/web/lib/mock/chat-viz.ts",      // chat 域 VZ-01（#1020）mermaid 渲染签核增量的原型预览数据（2026-08-12）
     ];
