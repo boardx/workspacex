@@ -185,8 +185,9 @@ ${PUBLIC_DOMAIN} {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
 	# ⚠ 2026-08-08 事故：composer 麦克风（#726 WS /chat/asr-draft）与正式录音转写
-	# （#466 WS /recording/sessions/:id/asr-stream）点了没反应——不是权限提示缺失，
-	# 是这两条 WS 面压根没有路由到这里就落进了下面的兜底 handle，打到 Next.js 前端，
+	# （#466 WS /recording/sessions/:id/asr-stream）点了没反应；2026-08-14 个人实时
+	# 转录也复现同一问题。不是权限提示缺失，是这些 WS 面没有路由到这里就落进了
+	# 下面的兜底 handle，打到 Next.js 前端，
 	# Upgrade 请求在那断了（Next 的 rewrite 不代理 WebSocket，见
 	# apps/web/lib/api-client.ts 里 apiWebSocketUrl() 的头注）。这两条面不走 /api
 	# 前缀（apiWebSocketUrl() 直连 API 源、不套 NEXT_PUBLIC_API_PATH_PREFIX），所以
@@ -195,6 +196,9 @@ ${PUBLIC_DOMAIN} {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
 	handle /recording/sessions/*/asr-stream {
+		reverse_proxy 127.0.0.1:${APP_API_PORT}
+	}
+	handle /recording/realtime-asr/sessions/*/captures/*/stream {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
 	# 门控自检面绝不能从公网可达——deploy.sh 自己的冒烟会验这一条（反向断言：
