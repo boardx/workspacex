@@ -11,7 +11,10 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
-import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
+import {
+  createMockDigitalInterviewDraft,
+  loadMockDigitalInterviewDraft,
+} from "@/lib/mock/digital-interview-drafts";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -175,6 +178,56 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("旧版采购访谈")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: /确认主题/ }))
       .toHaveAttribute("href", "/itv/mock-batch-legacy/setup");
+  });
+
+  it("仅本地 Mock 历史卡可编辑名称和标签", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "采购访谈", tags: ["采购"] });
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const mockCard = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
+    expect(within(mockCard).getByTestId(`itv-history-actions-${draft.interviewId}`)).toBeInTheDocument();
+    const serverCard = await screen.findByTestId("itv-history-card-itv-1");
+    expect(within(serverCard).queryByRole("button", { name: "管理访谈" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "编辑" }));
+    fireEvent.change(screen.getByTestId("itv-edit-name"), { target: { value: "新版采购访谈" } });
+    fireEvent.click(screen.getByLabelText("删除标签 采购"));
+    fireEvent.change(screen.getByTestId("itv-edit-tag-input"), { target: { value: "德国" } });
+    fireEvent.keyDown(screen.getByTestId("itv-edit-tag-input"), { key: "Enter" });
+    fireEvent.click(screen.getByTestId("itv-edit-submit"));
+
+    expect(await screen.findByText("新版采购访谈")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "德国" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "采购" })).not.toBeInTheDocument();
+    expect(loadMockDigitalInterviewDraft(draft.interviewId)).toMatchObject({
+      name: "新版采购访谈",
+      tags: ["德国"],
+    });
+  });
+
+  it("删除本地 Mock 历史卡前需要确认", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "待删除访谈", tags: ["采购"] });
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const mockCard = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
+    fireEvent.click(screen.getByRole("button", { name: "采购" }));
+    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
+    expect(screen.getByRole("dialog", { name: "删除访谈" })).toHaveTextContent("主题、专家、问题、进度和报告");
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(loadMockDigitalInterviewDraft(draft.interviewId)).not.toBeNull();
+
+    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
+    fireEvent.click(screen.getByTestId("itv-delete-confirm"));
+
+    expect(screen.queryByTestId(`itv-history-card-${draft.interviewId}`)).not.toBeInTheDocument();
+    expect(loadMockDigitalInterviewDraft(draft.interviewId)).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "全部" })).toHaveClass("bg-primary"));
+    expect(screen.getByTestId("itv-history-card-itv-1")).toBeInTheDocument();
   });
 
   it("切到专家列表后显示 persona mock、分类和快捷访谈入口", async () => {
