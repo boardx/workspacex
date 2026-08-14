@@ -22,6 +22,8 @@ import {
   generateResearchOutline,
   getGuidedResearchSession,
   listGuidedResearchSessions,
+  finishGuidedResearchCollection,
+  completeGuidedResearchSession,
   type GuidedResearchDirection,
   type GuidedResearchOutlineSection,
   type GuidedResearchSession,
@@ -29,10 +31,18 @@ import {
 import {
   GUIDED_REPORT_CITATIONS,
   GUIDED_RESEARCH_BRIEF,
+  GUIDED_RESEARCH_OUTLINE,
   GUIDED_SEARCH_SOURCES,
   GUIDED_SEARCH_TASKS,
   type GuidedResearchStep,
 } from "@/lib/mock/guided-research";
+import {
+  advanceDemoTask,
+  decideDemoSource,
+  loadGuidedResearchDemoState,
+  saveGuidedResearchDemoState,
+  type GuidedResearchDemoState,
+} from "@/lib/mock/guided-research-demo-state";
 import { clampGuidedResearchStep, maxGuidedResearchStep } from "@/lib/guided-research-stage";
 import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
@@ -100,8 +110,8 @@ export function GuidedResearchFlow({
           {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
           {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-          {restoredStep === "search" && <SearchScreen />}
-          {restoredStep === "report" && <ReportScreen onNavigate={navigate} />}
+          {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
+          {restoredStep === "report" && <ReportScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
         </>
       )}
     </div>
@@ -215,7 +225,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
             <Card key={item.sessionId} className="flex h-full flex-col transition-shadow hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
               <CardHeader className="space-y-3 pb-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Badge tone={item.stage === "report" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.stage === "report" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
+                  <Badge tone={item.status === "completed" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.status === "completed" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
                   <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <CardTitle className="text-16 leading-snug">{item.title}</CardTitle>
@@ -224,7 +234,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
               </CardHeader>
               <CardContent className="mt-auto space-y-3">
                 <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
-                {item.stage === "report" ? (
+                {item.status === "completed" ? (
                   <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看研究</Button>
                 ) : (
                   <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" />继续研究</Button>
@@ -473,36 +483,144 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
   );
 }
 
-function SearchScreen() {
+function SearchScreen({
+  sessionId,
+  session,
+  onSession,
+  onNavigate,
+}: {
+  sessionId?: string;
+  session: GuidedResearchSession | null;
+  onSession: (session: GuidedResearchSession) => void;
+  onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
+}) {
+  const sessionKey = sessionId ?? "demo-search";
+  const [demoState, setDemoState] = React.useState<GuidedResearchDemoState>(() => loadGuidedResearchDemoState(sessionKey));
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setDemoState(loadGuidedResearchDemoState(sessionKey));
+    setSubmitting(false);
+    setError(null);
+  }, [sessionKey]);
+
+  const persist = (next: GuidedResearchDemoState) => {
+    setDemoState(next);
+    saveGuidedResearchDemoState(next);
+  };
+  const incompleteTasks = GUIDED_SEARCH_TASKS.filter((task) => !demoState.completedTaskIds.includes(task.id));
+  const completedTaskCount = GUIDED_SEARCH_TASKS.length - incompleteTasks.length;
+  const progress = sessionId ? Math.round((completedTaskCount / GUIDED_SEARCH_TASKS.length) * 100) : 68;
+  const acceptedSourceCount = Object.values(demoState.sourceDecisions).filter((decision) => decision === "accepted").length;
+  const completeCollection = async () => {
+    if (!sessionId || incompleteTasks.length > 0 || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const nextSession = await finishGuidedResearchCollection(sessionId, { sourceCount: acceptedSourceCount });
+      onSession(nextSession);
+      onNavigate("report", sessionId);
+    } catch {
+      setError("生成演示研究报告失败，请重试。");
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
-    <>
+    <GuidedResearchStepLayout
+      assistant={
+        <GuidedResearchSkillAssistant
+          step="search"
+          sessionKey={sessionKey}
+          snapshot={{ step: "search", value: demoState }}
+          onSnapshotChange={(next) => { if (next.step === "search") persist(next.value); }}
+        />
+      }
+    >
       <PageHeading eyebrow="Step 4 · Web Search" title="正在检索与交叉验证" description="你可以离开此页面。任务进度、已找到的来源和当前查询都会保存，回来后可继续查看。" action={<Badge tone="warning"><Loader2 className="mr-1 h-3 w-3 animate-spin" />研究进行中</Badge>} />
-      <Card data-testid="research-search-summary"><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">68%</p></div><p className="text-11 text-muted-foreground">已分析 27 个来源 · 预计还需 6–8 分钟</p></div><div data-testid="research-search-progress" data-progress="68"><Progress value={68} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
+      <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示检索结果，不代表真实 Web Search</p>
+      <Card data-testid="research-search-summary"><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">{progress}%</p></div><p className="text-11 text-muted-foreground">已完成 {completedTaskCount} / {GUIDED_SEARCH_TASKS.length} 项演示任务</p></div><div data-testid="research-search-progress" data-progress={progress}><Progress value={progress} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card><CardHeader><CardTitle className="text-14">按大纲执行</CardTitle></CardHeader><CardContent className="space-y-2">{GUIDED_SEARCH_TASKS.map((task) => <div key={task.id} className="flex items-center gap-3 rounded-md border border-border p-3" data-testid={`research-task-${task.id}`}>{task.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-success" /> : task.status === "running" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Circle className="h-4 w-4 text-muted-foreground" />}<div className="min-w-0 flex-1"><p className="text-12 font-medium">{task.label}</p><p className="text-10 text-muted-foreground">{task.status === "completed" ? "已完成交叉验证" : task.status === "running" ? "正在搜索并提取证据" : "等待前置章节"}</p></div><Badge tone="outline">{task.sources} 来源</Badge></div>)}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-14"><FileSearch className="h-4 w-4" />最新来源</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_SEARCH_SOURCES.map((source) => <article key={source.id} className="space-y-1 border-b border-border pb-3 last:border-0 last:pb-0" data-testid={`research-source-${source.id}`}><div className="flex items-center justify-between gap-2"><span className="text-10 text-primary">{source.domain}</span><Badge tone="outline">{source.confidence}可信</Badge></div><p className="text-11 font-medium leading-relaxed">{source.title}</p><span className="text-10 text-muted-foreground">{source.kind}</span></article>)}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-14">按大纲执行</CardTitle></CardHeader><CardContent className="space-y-2">{GUIDED_SEARCH_TASKS.map((task) => { const complete = demoState.completedTaskIds.includes(task.id); return <div key={task.id} className="flex items-center gap-3 rounded-md border border-border p-3" data-testid={`research-task-${task.id}`}>{complete ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground" />}<div className="min-w-0 flex-1"><p className="text-12 font-medium">{task.label}</p><p className="text-10 text-muted-foreground">{complete ? "已完成演示检索" : "等待完成演示检索"}</p></div>{complete ? <Badge tone="outline">已完成</Badge> : <Button type="button" size="sm" variant="outline" onClick={() => persist(advanceDemoTask(demoState, task.id))}>完成演示检索</Button>}</div>; })}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-14"><FileSearch className="h-4 w-4" />演示来源</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_SEARCH_SOURCES.map((source) => { const decision = demoState.sourceDecisions[source.id]; return <article key={source.id} className="space-y-2 border-b border-border pb-3 last:border-0 last:pb-0" data-testid={`research-source-${source.id}`}><div className="flex items-center justify-between gap-2"><span className="text-10 text-primary">{source.domain}</span><Badge tone="outline">{source.confidence}可信</Badge></div><p className="text-11 font-medium leading-relaxed">{source.title}</p><div className="flex items-center justify-between gap-2"><span className="text-10 text-muted-foreground">{source.kind}</span>{decision ? <Badge tone={decision === "accepted" ? "primary" : "neutral"}>{decision === "accepted" ? "已保留" : "已排除"}</Badge> : <div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => persist(decideDemoSource(demoState, source.id, "excluded"))}>排除</Button><Button size="sm" variant="outline" onClick={() => persist(decideDemoSource(demoState, source.id, "accepted"))}>保留</Button></div>}</div></article>; })}</CardContent></Card>
       </div>
-      <p className="text-center text-11 text-muted-foreground">研究完成后会自动生成报告，并保留每条关键结论的来源引用。</p>
-    </>
+      {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
+      <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || incompleteTasks.length > 0 || submitting} onClick={() => void completeCollection()}>生成演示研究报告<ArrowRight className="h-4 w-4" /></Button></div>
+    </GuidedResearchStepLayout>
   );
 }
 
-function ReportScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep) => void }) {
+function latestConfirmedOutline(session: GuidedResearchSession | null): GuidedResearchOutlineSection[] {
+  const confirmedVersion = session?.outline.confirmedVersion;
+  return session?.outline.versions.find((version) => version.version === confirmedVersion)?.items ?? GUIDED_RESEARCH_OUTLINE;
+}
+
+function ReportScreen({
+  sessionId,
+  session,
+  onSession,
+  onNavigate,
+}: {
+  sessionId?: string;
+  session: GuidedResearchSession | null;
+  onSession: (session: GuidedResearchSession) => void;
+  onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
+}) {
+  const sessionKey = sessionId ?? "demo-report";
+  const [demoState, setDemoState] = React.useState<GuidedResearchDemoState>(() => loadGuidedResearchDemoState(sessionKey));
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [completed, setCompleted] = React.useState(session?.status === "completed");
+  React.useEffect(() => {
+    setDemoState(loadGuidedResearchDemoState(sessionKey));
+    setSubmitting(false);
+    setError(null);
+    setCompleted(session?.status === "completed");
+  }, [sessionKey, session?.status]);
+  const persist = (next: GuidedResearchDemoState) => {
+    setDemoState(next);
+    saveGuidedResearchDemoState(next);
+  };
+  const finishReport = async () => {
+    if (!sessionId || completed || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const nextSession = await completeGuidedResearchSession(sessionId);
+      onSession(nextSession);
+      setCompleted(true);
+    } catch {
+      setError("完成研究失败，请重试。");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const outline = latestConfirmedOutline(session);
+  const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
   return (
-    <>
-      <PageHeading eyebrow="Step 5 · Final report" title="研究报告已完成" description="报告按确认过的大纲生成，关键判断可追溯到原始来源。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("home")}>返回研究首页</Button><Button variant="primary"><BookOpen className="h-4 w-4" />导出报告</Button></div>} />
+    <GuidedResearchStepLayout
+      assistant={
+        <GuidedResearchSkillAssistant
+          step="report"
+          sessionKey={sessionKey}
+          snapshot={{ step: "report", value: { reportSummary: demoState.reportSummary } }}
+          onSnapshotChange={(next) => { if (next.step === "report") persist({ ...demoState, reportSummary: next.value.reportSummary }); }}
+        />
+      }
+    >
+      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
+      <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)_19rem]" data-testid="research-report" data-layout="toc-report-citations">
-        <Card className="h-fit"><CardHeader><CardTitle className="text-13">目录</CardTitle></CardHeader><CardContent className="space-y-1">{["执行摘要", "市场规模与商业模式", "政策与并网", "竞争格局", "进入建议"].map((item, index) => <a key={item} href={`#report-${index}`} className="flex items-center justify-between rounded-md px-2 py-1.5 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><span>{index + 1}. {item}</span><ChevronRight className="h-3 w-3" /></a>)}</CardContent></Card>
+        <Card className="h-fit"><CardHeader><CardTitle className="text-13">目录</CardTitle></CardHeader><CardContent className="space-y-1">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="flex items-center justify-between rounded-md px-2 py-1.5 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><span>{index + 1}. {item.title}</span><ChevronRight className="h-3 w-3" /></a>)}</CardContent></Card>
         <article className="space-y-6 rounded-lg border border-border bg-card p-6">
-          <header className="space-y-3 border-b border-border pb-5"><Badge tone="primary">研究完成</Badge><h2 className="text-24 font-semibold leading-tight">欧洲储能市场进入策略研究报告</h2><div className="flex flex-wrap gap-3 text-10 text-muted-foreground"><span>2026 年 8 月 12 日</span><span>约 18 分钟阅读</span><span>41 个来源</span></div></header>
-          <ReportSection id="report-0" title="执行摘要"><p>欧洲储能市场正在从补贴驱动转向由电价波动、容量机制与并网约束共同驱动。德国仍是规模最大的优先市场，但进入策略应从单纯设备销售转向与本地开发商或聚合商合作。</p><div className="rounded-md border-l-4 border-primary bg-accent p-4"><p className="text-12 font-semibold">核心判断</p><p className="mt-1 text-12 leading-relaxed">优先顺序建议为德国、意大利、西班牙；英国适合作为交易与聚合能力验证市场，而不是第一阶段重资产进入。</p></div></ReportSection>
-          <ReportSection id="report-1" title="市场规模与商业模式"><p>电池储能新增装机仍维持两位数增长，但不同国家的收入结构差异显著。德国工商业侧的峰谷价差和灵活性服务同时改善，具备更好的收入组合韧性。</p></ReportSection>
-          <ReportSection id="report-2" title="政策、并网与收入机制"><p>政策方向总体利好，但并网队列和许可周期是项目落地的主要摩擦。进入决策应同时评估政策支持和真实并网能力，避免只看名义市场规模。</p></ReportSection>
-          <ReportSection id="report-3" title="竞争格局与进入建议"><p>建议采用“本地开发合作 + 统一技术与运营平台”的两层模式，用 90 天完成伙伴筛选、两个示范项目和收入压力测试。</p></ReportSection>
+          <header className="space-y-3 border-b border-border pb-5"><Badge tone={completed ? "primary" : "warning"}>{completed ? "研究已完成" : "待完成"}</Badge><h2 className="text-24 font-semibold leading-tight">{title}</h2><div className="flex flex-wrap gap-3 text-10 text-muted-foreground"><span>演示报告</span><span>{session?.sourceCount ?? 0} 个已记录来源</span></div></header>
+          {outline.map((section, index) => <ReportSection key={section.id} id={`report-${index}`} title={section.title}><p>{index === 0 ? `本演示报告围绕“${session?.brief.goal ?? GUIDED_RESEARCH_BRIEF.goal}”整理了固定演示资料与结论结构。` : "此章节基于确认后的报告大纲保留为演示内容，不代表真实检索或研究判断。"}</p>{index === 0 && <div className="rounded-md border-l-4 border-primary bg-accent p-4"><p className="text-12 font-semibold">演示摘要</p><p className="mt-1 text-12 leading-relaxed">{demoState.reportSummary || "可通过右侧 Skill 助手补充演示摘要；它只会更新这段摘要。"}</p></div>}</ReportSection>)}
         </article>
         <Card className="h-fit"><CardHeader><CardTitle className="text-13">来源与引用</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_REPORT_CITATIONS.map((citation, index) => <div key={citation.id} className="rounded-md border border-border p-3" data-testid={`research-citation-${citation.id}`}><div className="flex gap-2"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-10">{index + 1}</span><div><p className="text-10 font-medium leading-relaxed">{citation.label}</p><p className="mt-1 text-10 text-primary">{citation.url}</p></div></div></div>)}</CardContent></Card>
       </div>
-    </>
+      {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
+      {!completed && <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || submitting} onClick={() => void finishReport()}>完成研究<BookOpen className="h-4 w-4" /></Button></div>}
+    </GuidedResearchStepLayout>
   );
 }
 

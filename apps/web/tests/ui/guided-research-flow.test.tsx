@@ -6,6 +6,7 @@ import { GUIDED_RESEARCH_BRIEF, GUIDED_RESEARCH_HISTORY } from "@/lib/mock/guide
 const {
   listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession,
   generateResearchDirections, confirmResearchDirections, generateResearchOutline, confirmResearchOutline,
+  finishGuidedResearchCollection, completeGuidedResearchSession,
 } = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
@@ -14,6 +15,8 @@ const {
   confirmResearchDirections: vi.fn(),
   generateResearchOutline: vi.fn(),
   confirmResearchOutline: vi.fn(),
+  finishGuidedResearchCollection: vi.fn(),
+  completeGuidedResearchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
@@ -24,6 +27,8 @@ vi.mock("@/lib/guided-research-api", () => ({
   confirmResearchDirections,
   generateResearchOutline,
   confirmResearchOutline,
+  finishGuidedResearchCollection,
+  completeGuidedResearchSession,
 }));
 
 const checkpointSession = {
@@ -80,6 +85,8 @@ beforeEach(() => {
   confirmResearchDirections.mockReset();
   generateResearchOutline.mockReset();
   confirmResearchOutline.mockReset();
+  finishGuidedResearchCollection.mockReset();
+  completeGuidedResearchSession.mockReset();
   window.localStorage.clear();
   listGuidedResearchSessions.mockResolvedValue({
     items: GUIDED_RESEARCH_HISTORY.map((item) => ({
@@ -97,6 +104,8 @@ beforeEach(() => {
     })),
   });
   createGuidedResearchSession.mockResolvedValue({ sessionId: "grs-new", stage: "directions" });
+  finishGuidedResearchCollection.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
+  completeGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", status: "completed" });
 });
 
 describe("Issue #1073 · guided deep research UI-first flow", () => {
@@ -220,6 +229,60 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "补充研究方向" }));
     fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
     expect(screen.getAllByTestId(/^research-direction-title-/)).toHaveLength(2);
+  });
+
+  it("completes the persisted demo search and report journey", async () => {
+    const onStepChange = vi.fn();
+    getGuidedResearchSession
+      .mockResolvedValueOnce({ ...sessionAt("researching"), sessionId: "grs-1" })
+      .mockResolvedValueOnce({ ...sessionAt("report"), sessionId: "grs-1" });
+    const { rerender } = render(<GuidedResearchFlow step="search" sessionId="grs-1" onStepChange={onStepChange} />);
+
+    await screen.findByTestId("research-search-summary");
+    for (const task of screen.getAllByRole("button", { name: /完成演示检索/ })) fireEvent.click(task);
+    expect(screen.getByRole("button", { name: "生成演示研究报告" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "生成演示研究报告" }));
+
+    await waitFor(() => expect(finishGuidedResearchCollection).toHaveBeenCalledWith("grs-1", {
+      sourceCount: expect.any(Number),
+    }));
+    expect(onStepChange).toHaveBeenCalledWith("report", "grs-1");
+
+    rerender(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
+    await screen.findByTestId("research-report");
+    fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
+
+    await waitFor(() => expect(completeGuidedResearchSession).toHaveBeenCalledWith("grs-1"));
+    expect(await screen.findByRole("heading", { name: "研究已完成" })).toBeInTheDocument();
+  });
+
+  it("retains search on lifecycle failure and offers retry without navigation", async () => {
+    const onStepChange = vi.fn();
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("researching"), sessionId: "grs-1" });
+    finishGuidedResearchCollection.mockRejectedValue(new Error("offline"));
+    render(<GuidedResearchFlow step="search" sessionId="grs-1" onStepChange={onStepChange} />);
+
+    await screen.findByTestId("research-search-summary");
+    for (const task of screen.getAllByRole("button", { name: /完成演示检索/ })) fireEvent.click(task);
+    fireEvent.click(screen.getByRole("button", { name: "生成演示研究报告" }));
+
+    expect(await screen.findByText("生成演示研究报告失败，请重试。")) .toBeInTheDocument();
+    expect(screen.getByTestId("research-flow-search")).toBeInTheDocument();
+    expect(onStepChange).not.toHaveBeenCalled();
+  });
+
+  it("retains report on completion failure and offers retry without navigation", async () => {
+    const onStepChange = vi.fn();
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
+    completeGuidedResearchSession.mockRejectedValue(new Error("offline"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
+
+    await screen.findByTestId("research-report");
+    fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
+
+    expect(await screen.findByText("完成研究失败，请重试。")) .toBeInTheDocument();
+    expect(screen.getByTestId("research-report")).toBeInTheDocument();
+    expect(onStepChange).not.toHaveBeenCalled();
   });
 
   it("search and report expose evidence-bearing states", () => {

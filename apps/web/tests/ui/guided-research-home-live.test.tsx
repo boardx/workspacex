@@ -2,16 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 
-const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession } = vi.hoisted(() => ({
+const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
   getGuidedResearchSession: vi.fn(),
+  finishGuidedResearchCollection: vi.fn(),
+  completeGuidedResearchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
   listGuidedResearchSessions,
   createGuidedResearchSession,
   getGuidedResearchSession,
+  finishGuidedResearchCollection,
+  completeGuidedResearchSession,
 }));
 
 beforeEach(() => {
@@ -20,6 +24,8 @@ beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
+  finishGuidedResearchCollection.mockReset();
+  completeGuidedResearchSession.mockReset();
   listGuidedResearchSessions.mockResolvedValue({ items: [] });
 });
 
@@ -67,6 +73,24 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-done");
   });
 
+  it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        sessionId: "grs-report-active", title: "仍待完成的报告", brief: {
+          topic: "仍待完成的报告", goal: "确认结论", timeRange: "2025", region: "欧洲", focus: "政策",
+        }, stage: "report", resumeStage: "report", status: "active", progress: 95, sourceCount: 12, reportId: null,
+        createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T08:00:00.000Z",
+      }],
+    });
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
+
+    await screen.findByTestId("research-history-grs-report-active");
+    expect(screen.getByText("待继续")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("research-continue-grs-report-active"));
+    expect(onStepChange).toHaveBeenCalledWith("report", "grs-report-active");
+  });
+
   it("creates a persisted session before entering directions", async () => {
     createGuidedResearchSession.mockResolvedValueOnce({ sessionId: "grs-new", stage: "directions" });
     const onStepChange = vi.fn();
@@ -96,7 +120,7 @@ describe("F168 guided research home live data", () => {
       reportId: null, createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T09:00:00.000Z",
     });
 
-    render(<GuidedResearchFlow step="directions" sessionId="grs-recover" />);
+    render(<GuidedResearchFlow step="search" sessionId="grs-recover" />);
 
     await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-recover"));
     expect(await screen.findByTestId("research-flow-search")).toBeInTheDocument();
