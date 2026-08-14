@@ -111,8 +111,7 @@ export const GUIDED_SEARCH_TASKS = [
 ] as const;
 
 export const GUIDED_REPORT_CITATIONS = [
-  { id: "c1", label: "European Commission · Energy storage recommendations", url: "ec.europa.eu" },
-  { id: "c2", label: "IEA · Batteries and Secure Energy Transitions", url: "iea.org" },
-  { id: "c3", label: "SolarPower Europe · European Market Outlook", url: "solarpowereurope.org" },
-  { id: "c4", label: "ENTSO-E · TYNDP 2024", url: "entsoe.eu" },
+  { id: "s1", label: "European Commission · Energy storage recommendations", url: "ec.europa.eu" },
+  { id: "s2", label: "IEA · Batteries and Secure Energy Transitions", url: "iea.org" },
+  { id: "s3", label: "SolarPower Europe · European Market Outlook", url: "solarpowereurope.org" },
 ] as const;

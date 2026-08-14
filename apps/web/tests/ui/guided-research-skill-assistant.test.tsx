@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { GuidedResearchSkillAssistant } from "@/components/research-studio/guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "@/components/research-studio/guided-research-step-layout";
+import { cloneResearchEditableSnapshot, saveResearchSkillState, suggestionForResearchPrompt } from "@/lib/guided-research-skill-state";
 
 const directionSnapshot = {
   step: "directions",
@@ -51,6 +52,27 @@ describe("guided research skill assistant", () => {
     expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
     expect(input).toHaveValue("");
     expect(screen.getByText("演示 Skill · 不作为真实研究证据")).toBeInTheDocument();
+  });
+
+  it("does not render or apply another step's saved suggestion or undo", () => {
+    saveResearchSkillState("research-shared", {
+      version: 1,
+      messages: [],
+      pendingSuggestion: suggestionForResearchPrompt("补充研究方向", directionSnapshot),
+      undoSnapshot: cloneResearchEditableSnapshot(directionSnapshot),
+    });
+
+    render(
+      <GuidedResearchSkillAssistant
+        step="brief"
+        sessionKey="research-shared"
+        snapshot={{ step: "brief", value: { topic: "储能", goal: "进入市场", timeRange: "2026", region: "欧盟", focus: "政策" } }}
+        onSnapshotChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("research-skill-suggestion")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "撤销上次应用" })).not.toBeInTheDocument();
   });
 
   it("mounts one assistant and one editor while using a responsive disclosure", () => {

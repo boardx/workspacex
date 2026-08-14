@@ -44,8 +44,15 @@ import {
   type GuidedResearchDemoState,
 } from "@/lib/mock/guided-research-demo-state";
 import { clampGuidedResearchStep, maxGuidedResearchStep } from "@/lib/guided-research-stage";
+import { clearResearchSkillState } from "@/lib/guided-research-skill-state";
 import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
+
+const SESSION_REQUIRED_STEPS: readonly GuidedResearchStep[] = ["directions", "outline", "search", "report"];
+
+function clampSessionlessStep(step: GuidedResearchStep, sessionId?: string): GuidedResearchStep {
+  return !sessionId && SESSION_REQUIRED_STEPS.includes(step) ? "home" : step;
+}
 
 export function GuidedResearchFlow({
   step,
@@ -56,12 +63,12 @@ export function GuidedResearchFlow({
   sessionId?: string;
   onStepChange?: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
-  const [restoredStep, setRestoredStep] = React.useState(step);
+  const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
   const [restoreFailed, setRestoreFailed] = React.useState(false);
   const [sessionSnapshot, setSessionSnapshot] = React.useState<GuidedResearchSession | null>(null);
   React.useEffect(() => {
-    setRestoredStep(step);
+    setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);
     setRestoreFailed(false);
     setSessionSnapshot(null);
@@ -80,7 +87,7 @@ export function GuidedResearchFlow({
   }, [sessionId, step]);
 
   const navigate = (next: GuidedResearchStep, sessionId?: string) => {
-    const targetSessionId = sessionId ?? activeSessionId;
+    const targetSessionId = next === "home" ? undefined : sessionId ?? activeSessionId;
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
     if (sessionId) setActiveSessionId(sessionId);
@@ -105,7 +112,7 @@ export function GuidedResearchFlow({
         <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
       ) : (
         <>
-          {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate(previousStep(restoredStep))} onNavigate={navigate} />}
+          {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate("home")} onNavigate={navigate} />}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
           {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
@@ -116,11 +123,6 @@ export function GuidedResearchFlow({
       )}
     </div>
   );
-}
-
-function previousStep(step: GuidedResearchStep): GuidedResearchStep {
-  const order: GuidedResearchStep[] = ["home", "brief", "directions", "outline", "search", "report"];
-  return order[Math.max(0, order.indexOf(step) - 1)]!;
 }
 
 function FlowProgress({ step, maxStep, onBack, onNavigate }: {
@@ -147,7 +149,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
             <div key={item.id} className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
-                disabled={index > maximum}
+                disabled={index !== current}
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
@@ -248,6 +250,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         open={createOpen}
         onOpenChange={setCreateOpen}
         onContinue={(draft) => {
+          clearResearchSkillState("pending-brief");
           window.sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft));
           onNavigate("brief");
         }}
@@ -320,6 +323,7 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
       const session = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
+      clearResearchSkillState("pending-brief");
       onNavigate("directions", session.sessionId);
     } catch {
       setSubmitFailed(true);
@@ -402,7 +406,7 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
       assistant={
         <GuidedResearchSkillAssistant
           step="directions"
-          sessionKey={sessionId ?? "pending-directions"}
+          sessionKey={`${sessionId ?? "pending"}:directions`}
           snapshot={{ step: "directions", value: directions }}
           onSnapshotChange={(next) => {
             if (next.step === "directions") setDirections(next.value);
@@ -462,7 +466,7 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
       assistant={
         <GuidedResearchSkillAssistant
           step="outline"
-          sessionKey={sessionId ?? "pending-outline"}
+          sessionKey={`${sessionId ?? "pending"}:outline`}
           snapshot={{ step: "outline", value: sections }}
           onSnapshotChange={(next) => {
             if (next.step === "outline") setSections(next.value);
@@ -531,7 +535,7 @@ function SearchScreen({
       assistant={
         <GuidedResearchSkillAssistant
           step="search"
-          sessionKey={sessionKey}
+          sessionKey={`${sessionKey}:search`}
           snapshot={{ step: "search", value: demoState }}
           onSnapshotChange={(next) => { if (next.step === "search") persist(next.value); }}
         />
@@ -596,19 +600,22 @@ function ReportScreen({
     }
   };
   const outline = latestConfirmedOutline(session);
+  const acceptedCitations = GUIDED_REPORT_CITATIONS.filter(
+    (citation) => demoState.sourceDecisions[citation.id] === "accepted",
+  );
   const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
   return (
     <GuidedResearchStepLayout
       assistant={
         <GuidedResearchSkillAssistant
           step="report"
-          sessionKey={sessionKey}
+          sessionKey={`${sessionKey}:report`}
           snapshot={{ step: "report", value: { reportSummary: demoState.reportSummary } }}
           onSnapshotChange={(next) => { if (next.step === "report") persist({ ...demoState, reportSummary: next.value.reportSummary }); }}
         />
       }
     >
-      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
+      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)_19rem]" data-testid="research-report" data-layout="toc-report-citations">
         <Card className="h-fit"><CardHeader><CardTitle className="text-13">目录</CardTitle></CardHeader><CardContent className="space-y-1">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="flex items-center justify-between rounded-md px-2 py-1.5 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><span>{index + 1}. {item.title}</span><ChevronRight className="h-3 w-3" /></a>)}</CardContent></Card>
@@ -616,7 +623,7 @@ function ReportScreen({
           <header className="space-y-3 border-b border-border pb-5"><Badge tone={completed ? "primary" : "warning"}>{completed ? "研究已完成" : "待完成"}</Badge><h2 className="text-24 font-semibold leading-tight">{title}</h2><div className="flex flex-wrap gap-3 text-10 text-muted-foreground"><span>演示报告</span><span>{session?.sourceCount ?? 0} 个已记录来源</span></div></header>
           {outline.map((section, index) => <ReportSection key={section.id} id={`report-${index}`} title={section.title}><p>{index === 0 ? `本演示报告围绕“${session?.brief.goal ?? GUIDED_RESEARCH_BRIEF.goal}”整理了固定演示资料与结论结构。` : "此章节基于确认后的报告大纲保留为演示内容，不代表真实检索或研究判断。"}</p>{index === 0 && <div className="rounded-md border-l-4 border-primary bg-accent p-4"><p className="text-12 font-semibold">演示摘要</p><p className="mt-1 text-12 leading-relaxed">{demoState.reportSummary || "可通过右侧 Skill 助手补充演示摘要；它只会更新这段摘要。"}</p></div>}</ReportSection>)}
         </article>
-        <Card className="h-fit"><CardHeader><CardTitle className="text-13">来源与引用</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_REPORT_CITATIONS.map((citation, index) => <div key={citation.id} className="rounded-md border border-border p-3" data-testid={`research-citation-${citation.id}`}><div className="flex gap-2"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-10">{index + 1}</span><div><p className="text-10 font-medium leading-relaxed">{citation.label}</p><p className="mt-1 text-10 text-primary">{citation.url}</p></div></div></div>)}</CardContent></Card>
+        <Card className="h-fit"><CardHeader><CardTitle className="text-13">来源与引用</CardTitle></CardHeader><CardContent className="space-y-3">{acceptedCitations.length === 0 ? <p className="text-11 text-muted-foreground">没有已保留的演示来源</p> : acceptedCitations.map((citation, index) => <div key={citation.id} className="rounded-md border border-border p-3" data-testid={`research-citation-${citation.id}`}><div className="flex gap-2"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-10">{index + 1}</span><div><p className="text-10 font-medium leading-relaxed">{citation.label}</p><p className="mt-1 text-10 text-primary">{citation.url}</p></div></div></div>)}</CardContent></Card>
       </div>
       {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
       {!completed && <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || submitting} onClick={() => void finishReport()}>完成研究<BookOpen className="h-4 w-4" /></Button></div>}

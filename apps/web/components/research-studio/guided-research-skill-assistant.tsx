@@ -34,11 +34,11 @@ export function GuidedResearchSkillAssistant({
   onSnapshotChange: (snapshot: ResearchEditableSnapshot) => void;
 }) {
   const [input, setInput] = React.useState("");
-  const [skillState, setSkillState] = React.useState<ResearchSkillState>(() => loadResearchSkillState(sessionKey));
+  const [skillState, setSkillState] = React.useState<ResearchSkillState>(() => loadResearchSkillState(sessionKey, step));
 
   React.useEffect(() => {
-    setSkillState(loadResearchSkillState(sessionKey));
-  }, [sessionKey]);
+    setSkillState(loadResearchSkillState(sessionKey, step));
+  }, [sessionKey, step]);
 
   function persist(next: ResearchSkillState) {
     setSkillState(next);
@@ -63,14 +63,14 @@ export function GuidedResearchSkillAssistant({
   }
 
   function apply() {
-    if (!skillState.pendingSuggestion) return;
+    if (!skillState.pendingSuggestion || skillState.pendingSuggestion.step !== step || snapshot.step !== step) return;
     const nextSnapshot = applyResearchSkillSuggestion(skillState.pendingSuggestion, snapshot);
     persist({ ...skillState, pendingSuggestion: null, undoSnapshot: cloneResearchEditableSnapshot(snapshot) });
     onSnapshotChange(nextSnapshot);
   }
 
   function undo() {
-    if (!skillState.undoSnapshot) return;
+    if (!skillState.undoSnapshot || skillState.undoSnapshot.step !== step) return;
     onSnapshotChange(skillState.undoSnapshot);
     persist({ ...skillState, undoSnapshot: null });
   }

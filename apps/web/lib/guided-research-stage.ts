@@ -1,7 +1,6 @@
 import type { GuidedResearchSession } from "./guided-research-api";
 import type { GuidedResearchStep } from "./mock/guided-research";
 
-const ORDER: GuidedResearchStep[] = ["brief", "directions", "outline", "search", "report"];
 const STAGE_MAX: Record<GuidedResearchSession["resumeStage"], GuidedResearchStep> = {
   brief: "brief",
   directions: "directions",
@@ -19,6 +18,7 @@ export function clampGuidedResearchStep(
   session: GuidedResearchSession,
 ): GuidedResearchStep {
   if (requested === "home") return "home";
-  const max = maxGuidedResearchStep(session);
-  return ORDER.indexOf(requested) <= ORDER.indexOf(max) ? requested : max;
+  // Confirmed checkpoints are immutable in F180. Returning to one would expose
+  // an editor whose mutation endpoints correctly reject the stale stage.
+  return maxGuidedResearchStep(session);
 }

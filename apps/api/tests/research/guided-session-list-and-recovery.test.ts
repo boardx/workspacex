@@ -235,6 +235,13 @@ describe("F168 guided research session list and recovery", () => {
     expect(staleOutline.status).toBe(409);
     expect(await staleOutline.json()).toMatchObject({ reasonCode: "RESEARCH_STAGE_CONFLICT" });
 
+    const afterRejectedReconfirmation = await fetch(
+      `${base}/research/guided-sessions/${created.sessionId}`,
+      { headers: auth(OWNER) },
+    );
+    expect(C.operations.getGuidedResearchSession.out.parse(await afterRejectedReconfirmation.json()))
+      .toMatchObject({ stage: "report", resumeStage: "report", sourceCount: 3 });
+
     const completeResponse = await fetch(
       `${base}/research/guided-sessions/${created.sessionId}/complete`,
       { method: "POST", headers: auth(OWNER), body: JSON.stringify({}) },

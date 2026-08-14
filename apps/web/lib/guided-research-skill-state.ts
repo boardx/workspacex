@@ -127,13 +127,21 @@ function isResearchSkillState(value: unknown): value is ResearchSkillState {
     && (candidate.undoSnapshot === null || isSnapshot(candidate.undoSnapshot));
 }
 
-export function loadResearchSkillState(sessionKey: string): ResearchSkillState {
+export function loadResearchSkillState(sessionKey: string): ResearchSkillState;
+export function loadResearchSkillState(sessionKey: string, step: ResearchEditableSnapshot["step"]): ResearchSkillState;
+export function loadResearchSkillState(sessionKey: string, step?: ResearchEditableSnapshot["step"]): ResearchSkillState {
   if (typeof window === "undefined") return emptyState();
   try {
     const raw = window.localStorage.getItem(storageKey(sessionKey));
     if (!raw) return emptyState();
     const parsed: unknown = JSON.parse(raw);
-    return isResearchSkillState(parsed) ? parsed : emptyState();
+    if (!isResearchSkillState(parsed)) return emptyState();
+    if (!step) return parsed;
+    return {
+      ...parsed,
+      pendingSuggestion: parsed.pendingSuggestion?.step === step ? parsed.pendingSuggestion : null,
+      undoSnapshot: parsed.undoSnapshot?.step === step ? parsed.undoSnapshot : null,
+    };
   } catch {
     return emptyState();
   }
@@ -145,6 +153,15 @@ export function saveResearchSkillState(sessionKey: string, state: ResearchSkillS
     window.localStorage.setItem(storageKey(sessionKey), JSON.stringify(state));
   } catch {
     // Storage can be unavailable or full; the caller still retains its in-memory state.
+  }
+}
+
+export function clearResearchSkillState(sessionKey: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey(sessionKey));
+  } catch {
+    // Storage can be unavailable; mounted state is discarded on navigation.
   }
 }
 

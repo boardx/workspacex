@@ -111,6 +111,17 @@ describe("F169 guided research human checkpoint contract", () => {
 });
 
 describe("guided research post-outline lifecycle contract", () => {
+  it("declares every stage conflict returned by checkpoint controllers", () => {
+    for (const operation of [
+      operations.generateResearchDirections,
+      operations.confirmResearchDirections,
+      operations.generateResearchOutline,
+      operations.confirmResearchOutline,
+    ]) {
+      expect(operation.err).toContain("RESEARCH_STAGE_CONFLICT");
+    }
+  });
+
   it("defines ordered collection and completion operations", () => {
     expect(research.operations.finishGuidedResearchCollection).toMatchObject({
       method: "POST",

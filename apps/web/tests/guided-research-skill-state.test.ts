@@ -50,6 +50,7 @@ describe("guided research skill state", () => {
       localStorage: {
         getItem: (key: string) => values.get(key) ?? null,
         setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
       },
     });
   });
@@ -137,5 +138,15 @@ describe("guided research skill state", () => {
       { id: "message-1", role: "user", text: "仅第一会话" },
     ]);
     expect(loadResearchSkillState("second").messages).toEqual([]);
+  });
+
+  it("drops pending and undo snapshots that belong to another step", () => {
+    saveResearchSkillState("shared", {
+      ...state(),
+      pendingSuggestion: suggestionForResearchPrompt("补充研究方向", directionSnapshot),
+      undoSnapshot: cloneResearchEditableSnapshot(directionSnapshot),
+    });
+
+    expect(loadResearchSkillState("shared", "brief")).toEqual(state());
   });
 });

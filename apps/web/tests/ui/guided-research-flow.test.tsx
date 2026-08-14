@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { GUIDED_RESEARCH_BRIEF, GUIDED_RESEARCH_HISTORY } from "@/lib/mock/guided-research";
 
@@ -126,6 +126,10 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
 
   it("topic confirmation keeps the user's brief editable", async () => {
     const onStepChange = vi.fn();
+    window.localStorage.setItem("wsx.guidedResearch.skill.v1.pending-brief", JSON.stringify({
+      version: 1, messages: [], pendingSuggestion: null,
+      undoSnapshot: { step: "brief", value: GUIDED_RESEARCH_BRIEF },
+    }));
     render(<GuidedResearchFlow step="brief" onStepChange={onStepChange} />);
 
     const topic = screen.getByTestId("research-brief-topic") as HTMLInputElement;
@@ -133,6 +137,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(topic.value).toBe("欧洲储能市场进入策略");
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
     await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-new"));
+    expect(window.localStorage.getItem("wsx.guidedResearch.skill.v1.pending-brief")).toBeNull();
   });
 
   it("AI directions and outline remain editable before search", async () => {
@@ -215,13 +220,26 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
   });
 
-  it("keeps an earlier requested checkpoint available after loading a later session", async () => {
+  it("clamps an earlier requested checkpoint to the persisted current stage", async () => {
     getGuidedResearchSession.mockResolvedValue(sessionAt("outline"));
     render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);
 
     await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-edit"));
-    expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
+    expect(screen.getByTestId("research-flow-outline")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "研究方向" })).toBeDisabled();
+    expect(screen.queryByTestId("research-flow-directions")).not.toBeInTheDocument();
   });
+
+  it.each(["directions", "outline", "search", "report"] as const)(
+    "does not render the %s fixture without a restored session",
+    (step) => {
+      render(<GuidedResearchFlow step={step} />);
+
+      expect(screen.getByTestId("research-flow-home")).toBeInTheDocument();
+      expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("research-search-summary")).not.toBeInTheDocument();
+    },
+  );
 
   it("applies a direction Skill suggestion to the live editor", async () => {
     getGuidedResearchSession.mockResolvedValue(sessionAt("directions"));
@@ -242,16 +260,22 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
 
     await screen.findByTestId("research-search-summary");
     for (const task of screen.getAllByRole("button", { name: /完成演示检索/ })) fireEvent.click(task);
+    fireEvent.click(within(screen.getByTestId("research-source-s1")).getByRole("button", { name: "保留" }));
+    fireEvent.click(within(screen.getByTestId("research-source-s2")).getByRole("button", { name: "排除" }));
+    fireEvent.click(within(screen.getByTestId("research-source-s3")).getByRole("button", { name: "排除" }));
     expect(screen.getByRole("button", { name: "生成演示研究报告" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "生成演示研究报告" }));
 
     await waitFor(() => expect(finishGuidedResearchCollection).toHaveBeenCalledWith("grs-1", {
-      sourceCount: expect.any(Number),
+      sourceCount: 1,
     }));
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-1");
 
     rerender(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
     await screen.findByTestId("research-report");
+    expect(screen.getByTestId("research-citation-s1")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-citation-s2")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-citation-s3")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
 
     await waitFor(() => expect(completeGuidedResearchSession).toHaveBeenCalledWith("grs-1"));
@@ -287,14 +311,31 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(onStepChange).not.toHaveBeenCalled();
   });
 
-  it("search and report expose evidence-bearing states", () => {
-    const { rerender } = render(<GuidedResearchFlow step="search" />);
-    expect(screen.getByTestId("research-search-progress")).toHaveAttribute("data-progress", "68");
-    expect(screen.getByTestId("research-current-query")).toHaveTextContent("Germany utility-scale battery storage market 2025");
-    expect(screen.getAllByTestId(/^research-source-/)).toHaveLength(3);
+  it("leaves a persisted report for the sessionless research home", async () => {
+    const onStepChange = vi.fn();
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
+    render(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
 
-    rerender(<GuidedResearchFlow step="report" />);
-    expect(screen.getByTestId("research-report")).toHaveTextContent("欧洲储能市场进入策略研究报告");
-    expect(screen.getAllByTestId(/^research-citation-/).length).toBeGreaterThanOrEqual(3);
+    await screen.findByTestId("research-report");
+    fireEvent.click(screen.getByRole("button", { name: "返回研究首页" }));
+
+    expect(onStepChange).toHaveBeenCalledWith("home", undefined);
+  });
+
+  it("shows zero report citations when every source was excluded", async () => {
+    window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-1", JSON.stringify({
+      version: 1,
+      sessionId: "grs-1",
+      completedTaskIds: ["t1", "t2", "t3", "t4"],
+      sourceDecisions: { s1: "excluded", s2: "excluded", s3: "excluded" },
+      reportSummary: "",
+    }));
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", sourceCount: 0 });
+
+    render(<GuidedResearchFlow step="report" sessionId="grs-1" />);
+
+    await screen.findByTestId("research-report");
+    expect(screen.getByText("0 个已记录来源")).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/^research-citation-/)).toHaveLength(0);
   });
 });

@@ -658,7 +658,7 @@ export const operations = {
   generateResearchDirections: {
     method: "POST", path: "/research/guided-sessions/:sessionId/directions/generate",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   confirmResearchDirections: {
     method: "PUT", path: "/research/guided-sessions/:sessionId/directions",
@@ -667,12 +667,12 @@ export const operations = {
       directions: z.array(GuidedResearchDirection).min(1)
         .refine((items) => items.some((item) => item.enabled), "at least one direction must be enabled"),
     }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   generateResearchOutline: {
     method: "POST", path: "/research/guided-sessions/:sessionId/outline/generate",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_DIRECTIONS_NOT_CONFIRMED"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_DIRECTIONS_NOT_CONFIRMED", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   confirmResearchOutline: {
     method: "PUT", path: "/research/guided-sessions/:sessionId/outline",
@@ -681,7 +681,7 @@ export const operations = {
       outline: z.array(GuidedResearchOutlineSection).min(1)
         .refine((items) => items.some((item) => item.enabled && item.title.trim().length > 0), "at least one outline section must be enabled"),
     }).strict(), out: GuidedResearchSession,
-    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT"] as const,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_CHECKPOINT_CONFLICT", "RESEARCH_STAGE_CONFLICT"] as const,
   },
   finishGuidedResearchCollection: {
     method: "POST",
