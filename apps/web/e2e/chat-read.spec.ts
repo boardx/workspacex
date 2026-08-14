@@ -90,9 +90,8 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
    * 把「按能力渲染」写歪成「一律不渲染」时，这里当场红。
    */
   await expect(page.locator('[data-testid^="chat-land-artifact-open-"]').first()).toBeVisible();
-  await expect(
-    page.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
-  ).toBeVisible();
+  // 2026-08-14：常驻免责声明式提示已整个删除（人类实测反馈是多余噪音）——
+  // 不再有对应断言，本用例其余断言已完整覆盖"落地为产物"按钮按能力渲染这条真正要证的事。
 
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");

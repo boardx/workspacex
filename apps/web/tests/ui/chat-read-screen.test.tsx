@@ -510,9 +510,10 @@ describe("formal Chat read path", () => {
     await waitFor(() => expect(listMessages).toHaveBeenCalledTimes(3));
     // 而且新增的这次仍然是**从服务端读**，不是把回复合成到本地列表里。
     expect(createMessage).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByText("只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。"),
-    ).toBeInTheDocument();
+    // 2026-08-14：常驻免责声明式提示已整个删除（人类实测反馈是多余噪音），
+    // 这条测试原本顺带断言它存在，本行不再需要——上面对 `listMessages` 调用次数与
+    // `createMessage` 未被二次调用的断言已经完整覆盖了这条测试真正要证的事
+    // （回复来自服务端持久化重读，不是本地合成）。
   });
 
   /**
@@ -572,23 +573,54 @@ describe("formal Chat read path", () => {
    * 界面必须把它们画出来，而不是只显示一条笼统的"正在执行"。
    */
   it("渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要", async () => {
-    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
-      toolCallStep(),
-    ]));
+    // 2026-08-14：思考链现在挂在每条持久消息自己身上，种子的 20 条消息里 10 条是 AI
+    // 消息（各带自己的 `agentRunId`）——按 runId 分流，只有触发本轮 submit 的那个
+    // run（`run-new`，成功后重读为 `durable-message-22`/`agentRunId:"run-22"`）真的带
+    // 工具调用步骤，其余种子消息的 run 一律回空 steps（`AgentToolChain` 空 steps 不
+    // 渲染），避免页面上出现不止一个 `agent-tool-chain` 元素、断言指向不明。
+    getAgentRun.mockImplementation(async (runId: string) => {
+      if (runId === "run-new" || runId === "run-22") {
+        return agentRunView("succeeded", "durable-message-22", null, [toolCallStep()]);
+      }
+      return agentRunView("succeeded", null);
+    });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
     await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    // 2026-08-14 重做：工具调用链现在挂在**持久消息自己**身上（`MessageThinkingChain`
+    // 按 `message.agentRunId` 拉取），不再是 composer 下方跟着"当前是否有 run 在跑"
+    // 走的瞬时状态——run 到终态后 `listMessages` 的重读（第 8b 步）必须真的把新消息
+    // （带着它的 `agentRunId`）带回来，测试才能测到"消息 → 它自己的思考链"这条真实链路。
+    //
+    // ⚠ 三次 GET 里，第②次（202 之后立刻重读，agent 回复还没写回）与第③次（run 到终态
+    // 后重读，回复已写回）都要显式排队——只排一个 `mockResolvedValueOnce` 会被第②次先
+    // 消耗掉，第③次落回 `beforeEach` 的默认值（20 条、不含 22），message 22 先出现又
+    // 被"擦掉"，`getAgentRun("run-22")` 那次拉取因此从来没等到它对应的消息行留在 DOM 里。
+    const twentyOnly = { messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)), nextCursor: "cursor-20" };
+    const twentyPlusNew = {
+      messages: [...Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)), durableMessage(22, "介绍文章正文")],
+      nextCursor: "cursor-20",
+    };
+    listMessages.mockResolvedValueOnce(twentyOnly).mockResolvedValueOnce(twentyPlusNew);
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "帮我生成一段介绍" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
 
     // TOOLCHAIN-01（人类裁决方案 A）：工具调用链**默认收起**成一行摘要，逐条细节
     // 折进折叠——先点开 toggle 才有 step 行。这一步正是 P7「默认可见」被反转后的界面真相。
-    const chain = await screen.findByTestId("agent-tool-chain");
-    expect(chain).toHaveAttribute("data-tool-count", "1");
+    //
+    // 2026-08-14：`findByTestId` 而非 `getByTestId`——在途 run 到终态那一刻，界面上
+    // 短暂经过"composer 下方的活体气泡链"过渡到"持久消息自己的链"（`MessageThinkingChain`
+    // 异步拉取），中间有一帧两者都不在 DOM 里，同步查询会撞上那一帧；用 `find*`（带重试）
+    // 等它真正稳定到最终态。
+    // 2026-08-14 二次实测：嵌套 waitFor(find*) 在并发跑全量套件、机器负载高时会撞上
+    // 两层各自的默认 1000ms 超时叠加限流——单独跑/跑整份文件都稳定通过，只在整套
+    // 并发下偶发超时，是资源争抢而非行为回归。显式放宽到 5000ms 吸收这类抖动。
+    const chain = await screen.findByTestId("agent-tool-chain", {}, { timeout: 5000 });
+    await waitFor(() => expect(chain).toHaveAttribute("data-tool-count", "1"), { timeout: 5000 });
     expect(screen.queryByTestId("agent-tool-chain-step-0")).toBeNull(); // 收起态：细节不在 DOM
-    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+    fireEvent.click(await screen.findByTestId("agent-tool-chain-toggle"));
 
     const step = await screen.findByTestId("agent-tool-chain-step-0");
     expect(step).toHaveAttribute("data-tool-name", "beautiful-article");
@@ -602,27 +634,45 @@ describe("formal Chat read path", () => {
   });
 
   it("工具调用失败：如实显示失败状态与失败原因，不假装成功", async () => {
-    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22", null, [
-      toolCallStep({
-        status: "failed", failureCode: "MODEL_CALL_FAILED", planningNote: null,
-        toolResultSummary: "未知工具「not-a-real-tool」：本次运行挂载的技能里没有这一个。",
-      }),
-    ]));
+    // 同上一条测试的理由：按 runId 分流，避免种子消息各自的 run 也渲出 agent-tool-chain。
+    getAgentRun.mockImplementation(async (runId: string) => {
+      if (runId === "run-new" || runId === "run-22") {
+        return agentRunView("succeeded", "durable-message-22", null, [
+          toolCallStep({
+            status: "failed", failureCode: "MODEL_CALL_FAILED", planningNote: null,
+            toolResultSummary: "未知工具「not-a-real-tool」：本次运行挂载的技能里没有这一个。",
+          }),
+        ]);
+      }
+      return agentRunView("succeeded", null);
+    });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     await screen.findByTestId("chat-composer");
     await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    // 同上一条测试的理由：工具调用链现在挂在持久消息自己身上，且三次 GET 里第②、③次
+    // 都要显式排队（只排一次会被第②次先消耗、第③次落回默认值把新消息"擦掉"）。
+    listMessages
+      .mockResolvedValueOnce({ messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)), nextCursor: "cursor-20" })
+      .mockResolvedValueOnce({
+        messages: [...Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)), durableMessage(22, "调用失败的那次回复")],
+        nextCursor: "cursor-20",
+      });
     fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "会调用失败的一次" } });
     await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
     fireEvent.click(screen.getByTestId("chat-message-submit"));
 
     // TOOLCHAIN-01 方案 A 的核心保证：失败在**收起态**就以红徽标显性，不必点开就看到出事了
     // ——这正是「默认收起」不违背 P7「出错要看得见」精神的原因。
-    const chain = await screen.findByTestId("agent-tool-chain");
-    expect(chain).toHaveAttribute("data-fail-count", "1");
-    expect(screen.getByTestId("agent-tool-chain-fail-badge")).toHaveTextContent("1 个失败");
+    // 2026-08-14：`findByTestId`（带重试）而非同步 `getByTestId`——理由同上一条测试，
+    // 在途→持久两条渲染路径交接的那一帧要等它稳定。
+    // 2026-08-14 二次实测：同上一条测试，嵌套 waitFor(find*) 在整套并发跑、机器负载高时
+    // 会撞上两层默认 1000ms 超时叠加——放宽到 5000ms 吸收资源争抢导致的抖动。
+    const chain = await screen.findByTestId("agent-tool-chain", {}, { timeout: 5000 });
+    await waitFor(() => expect(chain).toHaveAttribute("data-fail-count", "1"), { timeout: 5000 });
+    expect(await screen.findByTestId("agent-tool-chain-fail-badge")).toHaveTextContent("1 个失败");
     expect(screen.queryByTestId("agent-tool-chain-step-0")).toBeNull(); // 收起：step 细节不在 DOM
-    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+    fireEvent.click(await screen.findByTestId("agent-tool-chain-toggle"));
 
     const step = await screen.findByTestId("agent-tool-chain-step-0");
     expect(step).toHaveAttribute("data-tool-status", "failed");
