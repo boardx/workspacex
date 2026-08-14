@@ -79,20 +79,30 @@ export function GuidedResearchFlow({
     window.location.assign(`?${query.toString()}`);
   };
 
+  const restoringSession = Boolean(sessionId) && sessionSnapshot === null && !restoreFailed;
+  const restorationBlocked = restoringSession || restoreFailed;
+
   return (
     <div
       className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"
-      data-testid={`research-flow-${restoredStep}`}
+      data-testid={restorationBlocked ? "research-session-restore" : `research-flow-${restoredStep}`}
       data-layout="signed-desktop"
     >
-      {restoreFailed && <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>}
-      {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate(previousStep(restoredStep))} onNavigate={navigate} />}
-      {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
-      {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
-      {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-      {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-      {restoredStep === "search" && <SearchScreen />}
-      {restoredStep === "report" && <ReportScreen onNavigate={navigate} />}
+      {restoringSession ? (
+        <p className="rounded-md border border-border bg-muted p-3 text-12 text-muted-foreground" data-testid="research-session-restore-loading" role="status">正在恢复研究会话…</p>
+      ) : restoreFailed ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
+      ) : (
+        <>
+          {restoredStep !== "home" && <FlowProgress step={restoredStep} maxStep={sessionSnapshot ? maxGuidedResearchStep(sessionSnapshot) : restoredStep} onBack={() => navigate(previousStep(restoredStep))} onNavigate={navigate} />}
+          {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
+          {restoredStep === "brief" && <BriefScreen onNavigate={navigate} />}
+          {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
+          {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
+          {restoredStep === "search" && <SearchScreen />}
+          {restoredStep === "report" && <ReportScreen onNavigate={navigate} />}
+        </>
+      )}
     </div>
   );
 }

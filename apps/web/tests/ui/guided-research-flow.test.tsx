@@ -62,6 +62,16 @@ function sessionAt(resumeStage: "directions" | "outline" | "researching" | "repo
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
@@ -146,6 +156,30 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
 
     expect(await screen.findByTestId("research-flow-outline")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /研究报告/ })).toBeDisabled();
+  });
+
+  it("waits for server-stage restoration before exposing a requested future checkpoint", async () => {
+    const pendingSession = deferred<ReturnType<typeof sessionAt>>();
+    getGuidedResearchSession.mockReturnValueOnce(pendingSession.promise);
+    render(<GuidedResearchFlow step="report" sessionId="grs-edit" />);
+
+    expect(screen.getByTestId("research-session-restore-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
+
+    pendingSession.resolve(sessionAt("outline"));
+    expect(await screen.findByTestId("research-flow-outline")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+  });
+
+  it("does not retain a requested future checkpoint when restoration fails", async () => {
+    getGuidedResearchSession.mockRejectedValueOnce(new Error("session unavailable"));
+    render(<GuidedResearchFlow step="report" sessionId="grs-edit" />);
+
+    expect(await screen.findByTestId("research-session-restore-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-search-summary")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
   });
 
   it("keeps an earlier requested checkpoint available after loading a later session", async () => {
