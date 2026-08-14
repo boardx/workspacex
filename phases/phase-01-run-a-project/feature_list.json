@@ -3955,7 +3955,7 @@
         "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
         "pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/guided-research-demo-state.test.ts tests/guided-research-skill-state.test.ts",
-        "pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web exec vitest run --pool=forks --maxWorkers=1 --minWorkers=1 tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx",
         "pnpm --filter web exec vitest run tests/research-rewrite.test.ts",
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck",

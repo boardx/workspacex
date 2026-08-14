@@ -42,10 +42,13 @@
 - Authoritative F174 requirement was updated with R11; no human design-signoff status was changed.
 - `active-features.json` and `.harness/state/PROGRESS.md` were regenerated only by `pnpm harness claim`.
 - No real Web Search or model call was made. Demo labels are asserted in the visual contract.
-- `pnpm harness verify --sprint 01/06` was run after this evidence was created. It left F174 as `in_progress` and
-  wrote `F174.verify.log`: contracts, isolated API, and state suites passed, then the 5-file UI batch failed 2/34
-  checkpoint tests (`候选方向` / `方向` not rendered within the default query timeout). The same checkpoint file
-  immediately passed alone (3/3), so this is a timing-sensitive batch concern, not treated as a passing full gate.
+- The combined UI suite is intentionally serialized as one fork worker because its five component files mock the
+  same API module. The updated harness command passed 34/34 tests, including all three checkpoint cases; its exact
+  command and output are in the refreshed `F174.verify.log`.
+- The refreshed `pnpm harness verify --sprint 01/06` left F174 as `in_progress` only because the later API
+  typecheck exited 2 on unrelated `packages/fabric-markdown` DOM type errors (`Element`, `SVGElement`, and Canvas
+  rendering methods are absent from its TypeScript environment). No F174 code changes are made for that baseline
+  concern.
 - `pnpm harness doctor --phase 01` was invoked after harness verification; it completed without changing F174 or
   the generated evidence/state fields in this worktree.
-- Remaining gates: the timing-sensitive full UI batch and authenticated two-width browser journey unavailable.
+- Remaining gates: unrelated API typecheck baseline failure and authenticated two-width browser journey unavailable.
