@@ -44,6 +44,18 @@ describe("F04 可点击 Mock 访谈流程", () => {
     expect(screen.getByTestId("itv-report-timeline")).toHaveTextContent("报告已生成");
   });
 
+  it("整个访谈流程始终可以返回历史访谈列表", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "可返回流程", tags: ["采购"] });
+    render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
+
+    const backLink = await screen.findByRole("link", { name: "返回访谈列表" });
+    expect(backLink).toHaveAttribute("href", "/itv?tab=history");
+
+    fireEvent.change(screen.getByTestId("itv-topic-input"), { target: { value: "验证决策链" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+    expect(screen.getByRole("link", { name: "返回访谈列表" })).toBeInTheDocument();
+  });
+
   it("从专家目录弹窗搜索并多选添加专家", async () => {
     const draft = createMockDigitalInterviewDraft({ name: "专家选择", tags: ["采购"] });
     render(<DigitalInterviewSetup interviewId={draft.interviewId} />);
@@ -70,6 +82,7 @@ describe("F04 可点击 Mock 访谈流程", () => {
     const groups = await screen.findAllByTestId("itv-question-group");
     expect(groups.length).toBeGreaterThan(1);
     expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3);
+    expect(screen.getAllByTestId("itv-question-input")[0]).toHaveAttribute("rows", "2");
 
     fireEvent.click(screen.getAllByTestId("itv-delete-question")[0]!);
     expect(screen.getAllByTestId("itv-question-input")).toHaveLength(groups.length * 3 - 1);
