@@ -48,6 +48,26 @@ describe("SurveyAppShell", () => {
     expect(screen.getByTestId("survey-section-nav-modules")).toHaveAttribute("aria-current", "page");
   });
 
+  it("选择问卷来源模块时仍标记问卷列表入口", () => {
+    pathname = "/studio/survey";
+    search = "tab=modules&intent=create-survey";
+
+    render(<SurveyAppShell><div>模块选择器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-surveys")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-modules")).not.toHaveAttribute("aria-current");
+  });
+
+  it("畸形 URL 同时声明模块编辑和新建问卷意图时以编辑器语义为准", () => {
+    pathname = "/studio/survey/new";
+    search = "step=design&mode=module&intent=create-survey";
+
+    render(<SurveyAppShell><div>模块编辑器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-modules")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-surveys")).not.toHaveAttribute("aria-current");
+  });
+
   it("编辑报告模块时保留左栏并标记报告模块入口", () => {
     pathname = "/studio/survey/templates/tpl-team-health";
     search = "";
@@ -57,5 +77,15 @@ describe("SurveyAppShell", () => {
     expect(screen.getByTestId("shell-rail")).toBeInTheDocument();
     expect(screen.getByTestId("shell-left-panel")).toBeInTheDocument();
     expect(screen.getByTestId("survey-section-nav-reports")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("报告模板路径忽略 workflow 模块标志并保留报告模块高亮", () => {
+    pathname = "/studio/survey/templates/tpl-team-health";
+    search = "mode=module";
+
+    render(<SurveyAppShell><div>报告模块编辑器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-reports")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-modules")).not.toHaveAttribute("aria-current");
   });
 });

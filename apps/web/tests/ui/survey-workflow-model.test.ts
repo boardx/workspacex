@@ -38,4 +38,34 @@ describe("survey workflow model", () => {
     expect(survey.SurveyChartTypeSchema.safeParse("radar").success).toBe(true);
     expect(survey.SurveyChartTypeSchema.safeParse("pie").success).toBe(false);
   });
+
+  it("未知来源模块不会回退到完整示例题库", () => {
+    const model = createSurveyWorkflowMock({ surveyId: "new", sourceModuleId: "missing" });
+
+    expect(model.questions).toEqual([]);
+    expect(model.survey.title).toBe("未命名问卷");
+  });
+
+  it("现有问卷忽略来源模块并保留答卷题目契约", () => {
+    const model = createSurveyWorkflowMock({ surveyId: "sv-1", sourceModuleId: "strategy" });
+    const questionIds = new Set(model.questions.map((question) => question.id));
+
+    expect(model.questions).toHaveLength(16);
+    expect(model.responses).toHaveLength(62);
+    expect(model.responses.flatMap((response) => response.answers).every((answer) => questionIds.has(answer.questionId))).toBe(true);
+  });
+
+  it.each([
+    ["空白新问卷", undefined],
+    ["未知来源新问卷", "missing"],
+  ])("%s 以零安全指标和无题阻断禁止发布", (_label, sourceModuleId) => {
+    const model = createSurveyWorkflowMock({ surveyId: "new", sourceModuleId });
+    const zeroTargetModel = { ...model, publication: { ...model.publication, target: 0 } };
+    const metrics = getSurveyMetrics(zeroTargetModel);
+
+    expect(model.questions).toEqual([]);
+    expect(getPublishBlockers(model).map((item) => item.code)).toContain("QUESTIONS_EMPTY");
+    expect(metrics).toMatchObject({ received: 0, valid: 0, needsReview: 0, completionRate: 0, averageDurationSeconds: 0 });
+    expect(Object.values(metrics).every(Number.isFinite)).toBe(true);
+  });
 });

@@ -41,11 +41,15 @@ function SurveySectionNavWithLocation() {
   const searchParams = useSearchParams();
   const activeSection = pathname.startsWith("/studio/survey/templates")
     ? "reports"
-    : searchParams.get("mode") === "module" || searchParams.get("tab") === "modules"
+    : searchParams.get("mode") === "module"
       ? "modules"
-      : searchParams.get("tab") === "reports"
-        ? "reports"
-        : "surveys";
+      : searchParams.get("intent") === "create-survey"
+        ? "surveys"
+        : searchParams.get("tab") === "modules"
+        ? "modules"
+        : searchParams.get("tab") === "reports"
+          ? "reports"
+          : "surveys";
 
   return <SurveySectionNavContent activeSection={activeSection} />;
 }

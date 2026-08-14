@@ -23,22 +23,26 @@ const STEPS: { id: survey.SurveyWorkflowStep; label: string; note: string }[] = 
   { id: "report", label: "分析报告", note: "生成洞察与改进建议" },
 ];
 
-export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false }: {
+export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, moduleEditor = false, sourceModuleId }: {
   surveyId: string;
   initialStep: survey.SurveyWorkflowStep;
   uiState: SurveyPrototypeState;
   readonly: boolean;
   moduleEditor?: boolean;
+  sourceModuleId?: string;
 }) {
   const router = useRouter();
   const moduleId = moduleEditor && surveyId.startsWith("module-") ? surveyId.slice("module-".length) : undefined;
-  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, moduleEditor }));
+  const effectiveSourceModuleId = !moduleEditor && surveyId === "new" ? sourceModuleId : undefined;
+  const [model, setModel] = React.useState<survey.SurveyWorkflowModel>(() => createSurveyWorkflowMock({ surveyId, moduleId, sourceModuleId: effectiveSourceModuleId, moduleEditor }));
   const [saved, setSaved] = React.useState(false);
   const metrics = getSurveyMetrics(model);
 
   const navigate = (step: survey.SurveyWorkflowStep) => {
-    const modeQuery = moduleEditor ? "&mode=module" : "";
-    router.replace(`/studio/survey/${surveyId}?step=${step}${modeQuery}`);
+    const searchParams = new URLSearchParams({ step });
+    if (moduleEditor) searchParams.set("mode", "module");
+    if (effectiveSourceModuleId) searchParams.set("sourceModule", effectiveSourceModuleId);
+    router.replace(`/studio/survey/${surveyId}?${searchParams.toString()}`);
   };
 
   if (uiState === "loading") return <WorkflowMessage testId="survey-workflow-loading" title="正在加载问卷" body="正在准备问题、答卷与报告数据…" pulse />;
@@ -81,7 +85,7 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
       </nav>}
 
       <section className="min-h-0">
-        {(moduleEditor || initialStep === "design") && <SurveyDesignStep model={model} setModel={setModel} readonly={readonly} />}
+        {(moduleEditor || initialStep === "design") && <SurveyDesignStep model={model} setModel={setModel} readonly={readonly} editorKind={moduleEditor ? "module" : "survey"} />}
         {!moduleEditor && initialStep === "template" && <ReportTemplateStep model={model} setModel={setModel} readonly={readonly} />}
         {!moduleEditor && initialStep === "publish" && <PublishRecoveryStep model={model} metrics={metrics} readonly={readonly} />}
         {!moduleEditor && initialStep === "responses" && <ResponseReviewStep model={model} setModel={setModel} metrics={metrics} readonly={readonly} />}
