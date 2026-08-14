@@ -52,6 +52,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-08-14：引导式 `/research` 已接真实 API 时不得继续向 `AppShell` 传原型 `mockIdentity`，否则会绕过 `SessionProvider`、让失效会话渲染出假登录壳后再由业务请求暴露 401；预览身份只留给显式 `?screen=…` Studio 原型入口（出处：F174 本地回归）。
 - 2026-08-12：数字专家访谈复用 `interview_sessions` 时，任何恢复/状态读取都必须复用既有 SQL 可见性谓词并返回 `Guarded`，再经 application decision 解封；只靠 RLS 只能隔离组织，挡不住同组织内访谈泄露（出处：issue #973）。
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）

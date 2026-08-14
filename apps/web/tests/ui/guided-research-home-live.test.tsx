@@ -16,12 +16,30 @@ vi.mock("@/lib/guided-research-api", () => ({
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
+  listGuidedResearchSessions.mockResolvedValue({ items: [] });
 });
 
 describe("F168 guided research home live data", () => {
+  it("asks for a name and optional tags before entering the research brief", () => {
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="home" onStepChange={onStepChange} />);
+
+    fireEvent.click(screen.getByTestId("research-create"));
+    expect(screen.getByTestId("research-create-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("research-create-submit")).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId("research-create-name"), { target: { value: "欧洲储能进入研究" } });
+    fireEvent.change(screen.getByTestId("research-create-tags"), { target: { value: "欧洲" } });
+    fireEvent.keyDown(screen.getByTestId("research-create-tags"), { key: "Enter" });
+    fireEvent.click(screen.getByTestId("research-create-submit"));
+
+    expect(onStepChange).toHaveBeenCalledWith("brief", undefined);
+  });
+
   it("renders server history and resumes from the server-authored stage", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({
       items: [
@@ -52,6 +70,9 @@ describe("F168 guided research home live data", () => {
   it("creates a persisted session before entering directions", async () => {
     createGuidedResearchSession.mockResolvedValueOnce({ sessionId: "grs-new", stage: "directions" });
     const onStepChange = vi.fn();
+    window.sessionStorage.setItem("wsx.guidedResearch.createDraft", JSON.stringify({
+      title: "欧洲储能进入研究", tags: ["欧洲", "储能"],
+    }));
     render(<GuidedResearchFlow step="brief" onStepChange={onStepChange} />);
 
     fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "新的研究主题" } });
@@ -59,6 +80,8 @@ describe("F168 guided research home live data", () => {
 
     await waitFor(() => expect(createGuidedResearchSession).toHaveBeenCalledTimes(1));
     expect(createGuidedResearchSession).toHaveBeenCalledWith(expect.objectContaining({
+      title: "欧洲储能进入研究",
+      tags: ["欧洲", "储能"],
       idempotencyKey: expect.any(String),
       brief: expect.objectContaining({ topic: "新的研究主题" }),
     }));

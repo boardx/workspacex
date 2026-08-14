@@ -6,6 +6,7 @@ describe("F168 guided research session contract", () => {
     const created = operations.createGuidedResearchSession.out.parse({
       sessionId: "grs-1",
       title: "欧洲储能市场进入策略",
+      tags: ["欧洲", "储能"],
       brief: {
         topic: "欧洲储能市场进入策略",
         goal: "确定首批进入国家",
@@ -24,6 +25,7 @@ describe("F168 guided research session contract", () => {
     });
 
     expect(created.stage).toBe("directions");
+    expect(created.tags).toEqual(["欧洲", "储能"]);
     expect(operations.listGuidedResearchSessions.path).toBe("/research/guided-sessions");
     expect(operations.getGuidedResearchSession.path).toContain(":sessionId");
   });
@@ -49,6 +51,8 @@ describe("F168 guided research session contract", () => {
 
   it("accepts only explicit collaborator user ids when a session is created", () => {
     const parsed = operations.createGuidedResearchSession.in.parse({
+      title: "欧洲储能进入研究",
+      tags: ["欧洲", "储能"],
       idempotencyKey: "create-shared",
       collaboratorUserIds: ["u-collaborator"],
       brief: {
@@ -57,6 +61,7 @@ describe("F168 guided research session contract", () => {
       },
     });
     expect(parsed.collaboratorUserIds).toEqual(["u-collaborator"]);
+    expect(parsed.tags).toEqual(["欧洲", "储能"]);
     expect(operations.createGuidedResearchSession.in.safeParse({
       ...parsed, collaboratorUserIds: ["u-collaborator", "u-collaborator"],
     }).success).toBe(false);

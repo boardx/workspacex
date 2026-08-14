@@ -18,6 +18,8 @@ export interface GuidedResearchSessionRepository {
     orgId: OrgId;
     ownerUserId: string;
     idempotencyKey: string;
+    title: string;
+    tags: readonly string[];
     collaboratorUserIds: readonly string[];
     brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession>;

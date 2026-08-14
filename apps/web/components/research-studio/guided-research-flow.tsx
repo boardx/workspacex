@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { CreateGuidedResearchDialog, type GuidedResearchCreateDraft } from "./create-guided-research-dialog";
 import { cn } from "@/lib/utils";
 import {
   createGuidedResearchSession,
@@ -74,7 +75,11 @@ export function GuidedResearchFlow({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10" data-testid={`research-flow-${restoredStep}`}>
+    <div
+      className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"
+      data-testid={`research-flow-${restoredStep}`}
+      data-layout="signed-desktop"
+    >
       {restoreFailed && <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>}
       {restoredStep !== "home" && <FlowProgress step={restoredStep} onBack={() => navigate(previousStep(restoredStep))} />}
       {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
@@ -142,6 +147,7 @@ const stageToStep = (stage: GuidedResearchSession["resumeStage"]): GuidedResearc
 function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
   const [history, setHistory] = React.useState<GuidedResearchSession[] | null>(null);
   const [loadFailed, setLoadFailed] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
   React.useEffect(() => {
     let active = true;
     listGuidedResearchSessions()
@@ -155,7 +161,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         eyebrow="Deep Research"
         title="研究"
         description="从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。"
-        action={<Button variant="primary" size="md" onClick={() => onNavigate("brief")} data-testid="research-create"><Plus className="h-4 w-4" />创建研究</Button>}
+        action={<Button variant="primary" size="md" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" />创建研究</Button>}
       />
       <Card className="border-primary/20 bg-accent/40">
         <CardContent className="flex flex-col items-start justify-between gap-4 p-5 md:flex-row md:items-center">
@@ -163,7 +169,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
             <span className="rounded-lg bg-primary p-2 text-primary-foreground"><Sparkles className="h-5 w-5" /></span>
             <div><h2 className="text-15 font-semibold">开始一项新的深度研究</h2><p className="mt-1 text-12 text-muted-foreground">确认主题后，研究方向和报告大纲都可以在执行前编辑。</p></div>
           </div>
-          <Button variant="primary" onClick={() => onNavigate("brief")} data-testid="research-create-hero">描述研究主题<ArrowRight className="h-4 w-4" /></Button>
+          <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="research-create-hero">描述研究主题<ArrowRight className="h-4 w-4" /></Button>
         </CardContent>
       </Card>
       <section className="space-y-3" data-testid="research-history">
@@ -180,6 +186,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
                   <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <CardTitle className="text-16 leading-snug">{item.title}</CardTitle>
+                {item.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>}
                 <p className="min-h-10 text-11 leading-relaxed text-muted-foreground">{item.brief.goal}</p>
               </CardHeader>
               <CardContent className="mt-auto space-y-3">
@@ -194,10 +201,19 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
           ))}
         </div>
       </section>
+      <CreateGuidedResearchDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onContinue={(draft) => {
+          window.sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft));
+          onNavigate("brief");
+        }}
+      />
     </>
   );
 }
 
+const CREATE_DRAFT_KEY = "wsx.guidedResearch.createDraft";
 const CREATE_IDEMPOTENCY_TAB_KEY = "wsx.guidedResearch.createTabId";
 const CREATE_IDEMPOTENCY_STORAGE_PREFIX = "wsx.guidedResearch.createIdempotencyKey.";
 const CREATE_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -215,7 +231,7 @@ function cleanStaleCreateIdempotencyKeys(now: number): void {
   }
 }
 
-function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key: string; storageKey: string } {
+function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief: typeof GUIDED_RESEARCH_BRIEF }): { key: string; storageKey: string } {
   const now = Date.now();
   cleanStaleCreateIdempotencyKeys(now);
   let tabId = window.sessionStorage.getItem(CREATE_IDEMPOTENCY_TAB_KEY);
@@ -223,8 +239,8 @@ function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key
     tabId = `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     window.sessionStorage.setItem(CREATE_IDEMPOTENCY_TAB_KEY, tabId);
   }
-  const intent = JSON.stringify(brief);
-  const storageKey = `${CREATE_IDEMPOTENCY_STORAGE_PREFIX}${tabId}.${encodeURIComponent(intent)}`;
+  const fingerprint = JSON.stringify(intent);
+  const storageKey = `${CREATE_IDEMPOTENCY_STORAGE_PREFIX}${tabId}.${encodeURIComponent(fingerprint)}`;
   const existing = window.localStorage.getItem(storageKey);
   if (existing) {
     const stored = JSON.parse(existing) as { key: string; createdAt: number };
@@ -237,6 +253,19 @@ function pendingCreateIdempotencyKey(brief: typeof GUIDED_RESEARCH_BRIEF): { key
 
 function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
+  const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
+    try {
+      const stored = window.sessionStorage.getItem(CREATE_DRAFT_KEY);
+      if (!stored) return { title: GUIDED_RESEARCH_BRIEF.topic, tags: [] };
+      const parsed = JSON.parse(stored) as Partial<GuidedResearchCreateDraft>;
+      return {
+        title: typeof parsed.title === "string" && parsed.title.trim() ? parsed.title.trim() : GUIDED_RESEARCH_BRIEF.topic,
+        tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 5) : [],
+      };
+    } catch {
+      return { title: GUIDED_RESEARCH_BRIEF.topic, tags: [] };
+    }
+  });
   const [submitting, setSubmitting] = React.useState(false);
   const [submitFailed, setSubmitFailed] = React.useState(false);
   const patch = (key: keyof typeof brief, value: string) => setBrief((current) => ({ ...current, [key]: value }));
@@ -244,9 +273,10 @@ function BriefScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep, se
     setSubmitting(true);
     setSubmitFailed(false);
     try {
-      const pending = pendingCreateIdempotencyKey(brief);
-      const session = await createGuidedResearchSession({ idempotencyKey: pending.key, collaboratorUserIds: [], brief });
+      const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
+      const session = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
       window.localStorage.removeItem(pending.storageKey);
+      window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       onNavigate("directions", session.sessionId);
     } catch {
       setSubmitFailed(true);
@@ -381,7 +411,7 @@ function SearchScreen() {
   return (
     <>
       <PageHeading eyebrow="Step 4 · Web Search" title="正在检索与交叉验证" description="你可以离开此页面。任务进度、已找到的来源和当前查询都会保存，回来后可继续查看。" action={<Badge tone="warning"><Loader2 className="mr-1 h-3 w-3 animate-spin" />研究进行中</Badge>} />
-      <Card><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">68%</p></div><p className="text-11 text-muted-foreground">已分析 27 个来源 · 预计还需 6–8 分钟</p></div><div data-testid="research-search-progress" data-progress="68"><Progress value={68} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
+      <Card data-testid="research-search-summary"><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">68%</p></div><p className="text-11 text-muted-foreground">已分析 27 个来源 · 预计还需 6–8 分钟</p></div><div data-testid="research-search-progress" data-progress="68"><Progress value={68} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <Card><CardHeader><CardTitle className="text-14">按大纲执行</CardTitle></CardHeader><CardContent className="space-y-2">{GUIDED_SEARCH_TASKS.map((task) => <div key={task.id} className="flex items-center gap-3 rounded-md border border-border p-3" data-testid={`research-task-${task.id}`}>{task.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-success" /> : task.status === "running" ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Circle className="h-4 w-4 text-muted-foreground" />}<div className="min-w-0 flex-1"><p className="text-12 font-medium">{task.label}</p><p className="text-10 text-muted-foreground">{task.status === "completed" ? "已完成交叉验证" : task.status === "running" ? "正在搜索并提取证据" : "等待前置章节"}</p></div><Badge tone="outline">{task.sources} 来源</Badge></div>)}</CardContent></Card>
         <Card><CardHeader><CardTitle className="flex items-center gap-2 text-14"><FileSearch className="h-4 w-4" />最新来源</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_SEARCH_SOURCES.map((source) => <article key={source.id} className="space-y-1 border-b border-border pb-3 last:border-0 last:pb-0" data-testid={`research-source-${source.id}`}><div className="flex items-center justify-between gap-2"><span className="text-10 text-primary">{source.domain}</span><Badge tone="outline">{source.confidence}可信</Badge></div><p className="text-11 font-medium leading-relaxed">{source.title}</p><span className="text-10 text-muted-foreground">{source.kind}</span></article>)}</CardContent></Card>
@@ -395,7 +425,7 @@ function ReportScreen({ onNavigate }: { onNavigate: (step: GuidedResearchStep) =
   return (
     <>
       <PageHeading eyebrow="Step 5 · Final report" title="研究报告已完成" description="报告按确认过的大纲生成，关键判断可追溯到原始来源。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("home")}>返回研究首页</Button><Button variant="primary"><BookOpen className="h-4 w-4" />导出报告</Button></div>} />
-      <div className="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)_19rem]" data-testid="research-report">
+      <div className="grid gap-5 lg:grid-cols-[14rem_minmax(0,1fr)_19rem]" data-testid="research-report" data-layout="toc-report-citations">
         <Card className="h-fit"><CardHeader><CardTitle className="text-13">目录</CardTitle></CardHeader><CardContent className="space-y-1">{["执行摘要", "市场规模与商业模式", "政策与并网", "竞争格局", "进入建议"].map((item, index) => <a key={item} href={`#report-${index}`} className="flex items-center justify-between rounded-md px-2 py-1.5 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><span>{index + 1}. {item}</span><ChevronRight className="h-3 w-3" /></a>)}</CardContent></Card>
         <article className="space-y-6 rounded-lg border border-border bg-card p-6">
           <header className="space-y-3 border-b border-border pb-5"><Badge tone="primary">研究完成</Badge><h2 className="text-24 font-semibold leading-tight">欧洲储能市场进入策略研究报告</h2><div className="flex flex-wrap gap-3 text-10 text-muted-foreground"><span>2026 年 8 月 12 日</span><span>约 18 分钟阅读</span><span>41 个来源</span></div></header>

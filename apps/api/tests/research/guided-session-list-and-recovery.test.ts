@@ -61,7 +61,7 @@ async function create(key = "create-f168", collaboratorUserIds: string[] = []) {
   return fetch(`${base}${C.operations.createGuidedResearchSession.path}`, {
     method: "POST",
     headers: auth(OWNER),
-    body: JSON.stringify({ idempotencyKey: key, collaboratorUserIds, brief }),
+    body: JSON.stringify({ title: "欧洲储能进入研究", tags: ["欧洲", "储能"], idempotencyKey: key, collaboratorUserIds, brief }),
   });
 }
 
@@ -71,7 +71,7 @@ describe("F168 guided research session list and recovery", () => {
     expect(first.status).toBe(201);
     const created = C.operations.createGuidedResearchSession.out.parse(await first.json());
     expect(created).toMatchObject({
-      title: brief.topic, stage: "directions", resumeStage: "directions", status: "active", progress: 20,
+      title: "欧洲储能进入研究", tags: ["欧洲", "储能"], stage: "directions", resumeStage: "directions", status: "active", progress: 20,
     });
 
     const replay = await create();

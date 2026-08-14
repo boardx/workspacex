@@ -1,0 +1,20 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 276ms
+ ✓ tests/ui/guided-research-flow.test.tsx (4 tests) 384ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (6 tests) 390ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (3 tests) 267ms
+
+ Test Files  4 passed (4)
+      Tests  16 passed (16)
+   Start at  02:07:52
+   Duration  4.39s (transform 1.20s, setup 1.27s, collect 3.41s, tests 1.32s, environment 6.32s, prepare 316ms)
+
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+> tsc --noEmit
+
+
+✅ lint-design：全部通过（扫描 app components lib）

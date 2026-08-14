@@ -17,6 +17,7 @@ import { guard } from "../../application/security/permission-filter";
 interface Row {
   id: string;
   title: string;
+  tags: string[];
   brief: GuidedResearchBrief;
   brief_version: number;
   brief_confirmed_at: Date | string | null;
@@ -33,7 +34,7 @@ interface Row {
   is_collaborator: boolean;
 }
 
-const COLUMNS = "g.id, g.title, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
+const COLUMNS = "g.id, g.title, g.tags, g.brief, g.brief_version, g.brief_confirmed_at, g.directions, g.outline, g.stage, g.resume_stage, g.progress, g.source_count, g.report_id, g.created_at, g.updated_at, g.owner_user_id";
 const COLLABORATOR_PROJECTION = `EXISTS (
   SELECT 1 FROM guided_research_session_collaborators c
    WHERE c.org_id = g.org_id AND c.session_id = g.id AND c.user_id = $2
@@ -43,6 +44,7 @@ function project(row: Row): GuidedResearchSession {
   return {
     sessionId: row.id,
     title: row.title,
+    tags: row.tags,
     brief: row.brief,
     briefVersion: row.brief_version,
     briefConfirmedAt: row.brief_confirmed_at === null ? null : new Date(row.brief_confirmed_at).toISOString(),
@@ -75,11 +77,16 @@ function sameBrief(left: GuidedResearchBrief, right: GuidedResearchBrief): boole
     && left.focus === right.focus;
 }
 
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return JSON.stringify([...left]) === JSON.stringify([...right]);
+}
+
 export class PgGuidedResearchSessionRepository implements GuidedResearchSessionRepository {
   constructor(private readonly db: DatabasePort) {}
 
   async create(input: {
     orgId: OrgId; ownerUserId: string; idempotencyKey: string;
+    title: string; tags: readonly string[];
     collaboratorUserIds: readonly string[]; brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession> {
     return this.db.withTenant(input.orgId, async (session) => {
@@ -94,11 +101,11 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
       }
       const inserted = await session.query<Row>(
         `INSERT INTO guided_research_sessions
-           (id, org_id, owner_user_id, idempotency_key, title, brief, brief_confirmed_at, stage, resume_stage, progress)
-         VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::jsonb, now(), 'directions', 'directions', 20)
+           (id, org_id, owner_user_id, idempotency_key, title, tags, brief, brief_confirmed_at, stage, resume_stage, progress)
+         VALUES ('grs_' || replace(gen_random_uuid()::text, '-', ''), $1, $2, $3, $4, $5::text[], $6::jsonb, now(), 'directions', 'directions', 20)
          ON CONFLICT (org_id, owner_user_id, idempotency_key) DO NOTHING
-         RETURNING id, title, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
-        [input.orgId, input.ownerUserId, input.idempotencyKey, input.brief.topic, JSON.stringify(input.brief)],
+         RETURNING id, title, tags, brief, brief_version, brief_confirmed_at, directions, outline, stage, resume_stage, progress, source_count, report_id, created_at, updated_at, owner_user_id, false AS is_collaborator`,
+        [input.orgId, input.ownerUserId, input.idempotencyKey, input.title, input.tags, JSON.stringify(input.brief)],
       );
       const row = inserted.rows[0] ?? (await session.query<Row>(
         `SELECT ${COLUMNS}, false AS is_collaborator FROM guided_research_sessions g
@@ -114,7 +121,8 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
         );
         const requested = [...input.collaboratorUserIds].sort();
         const existing = existingCollaborators.rows.map((item) => item.user_id);
-        if (!sameBrief(row.brief, input.brief) || JSON.stringify(existing) !== JSON.stringify(requested)) {
+        if (row.title !== input.title || !sameStrings(row.tags, input.tags)
+          || !sameBrief(row.brief, input.brief) || JSON.stringify(existing) !== JSON.stringify(requested)) {
           throw new GuidedResearchCreateReplayMismatchError();
         }
       }

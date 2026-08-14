@@ -35,7 +35,7 @@ const SCREEN_ICON: Record<RsScreen, React.ComponentType<{ className?: string }>>
 export function ResearchStudioApp({
   identity, uiState, screen, view, sub, flow, guidedSessionId, qs,
 }: {
-  identity: Identity;
+  identity?: Identity;
   uiState: UiState;
   screen: RsScreen;
   view: RsView;
@@ -55,7 +55,12 @@ export function ResearchStudioApp({
   };
 
   return (
-    <AppShell identity={identity} previewRole={null} hideRoleSwitcher left={<LeftNav screen={screen} flow={flow} href={href} />}>
+    <AppShell
+      identity={identity}
+      previewRole={null}
+      hideRoleSwitcher
+      left={flow ? undefined : <LeftNav screen={screen} href={href} />}
+    >
       <div className="flex h-full min-h-0 flex-col">
         {!flow && <PreviewControls screen={screen} view={view} uiState={uiState} href={href} />}
         <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="rs-main">
@@ -72,19 +77,11 @@ export function ResearchStudioApp({
 }
 
 /** 左栏：研究 Studio 的五块屏 IA（不是工作坊五段导航——这是 STUDIO 内的屏切换）。 */
-function LeftNav({ screen, flow, href }: { screen: RsScreen; flow?: GuidedResearchStep; href: (o: Partial<{ screen: string; sub: string }>) => string }) {
+function LeftNav({ screen, href }: { screen: RsScreen; href: (o: Partial<{ screen: string; sub: string }>) => string }) {
   return (
     <nav className="flex flex-col gap-1 p-3" data-testid="rs-left-nav">
       <span className="px-1 pb-1 text-10 uppercase tracking-wide text-muted-foreground">研究 Studio</span>
-      <a
-        href="?flow=home"
-        data-testid="rs-nav-guided-research"
-        data-active={Boolean(flow)}
-        className={cn(
-          "mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors",
-          flow ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
-        )}
-      >
+      <a href="?flow=home" data-testid="rs-nav-guided-research" data-active="false" className="mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-colors hover:bg-muted">
         <Sparkles className="h-4 w-4" /><span className="flex-1">引导式研究</span><Badge tone="ai">新</Badge>
       </a>
       {RS_SCREENS.map((s) => {
@@ -93,7 +90,7 @@ function LeftNav({ screen, flow, href }: { screen: RsScreen; flow?: GuidedResear
         return (
           <a
             key={s}
-            href={flow ? `?screen=${s}` : href({ screen: s, sub: undefined })}
+            href={href({ screen: s, sub: undefined })}
             data-testid={`rs-nav-${s}`}
             data-active={active}
             className={cn(

@@ -603,6 +603,7 @@ export const GuidedResearchOutlineCheckpoint = versionedCheckpoint(GuidedResearc
 export const GuidedResearchSession = z.object({
   sessionId: z.string(),
   title: z.string(),
+  tags: z.array(z.string().trim().min(1).max(20)).max(5).default([]),
   brief: GuidedResearchBrief,
   briefVersion: z.number().int().positive().default(1),
   briefConfirmedAt: z.string().nullable().default(null),
@@ -625,6 +626,10 @@ export const operations = {
     method: "POST",
     path: "/research/guided-sessions",
     in: z.object({
+      title: z.string().trim().min(1).max(100),
+      tags: z.array(z.string().trim().min(1).max(20)).max(5)
+        .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique")
+        .default([]),
       idempotencyKey: z.string().trim().min(1).max(200),
       collaboratorUserIds: z.array(z.string().trim().min(1)).max(50)
         .refine((ids) => new Set(ids).size === ids.length, "collaborator ids must be unique")

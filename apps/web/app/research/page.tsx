@@ -31,7 +31,7 @@ export default function ResearchPage({
 
   return (
     <ResearchStudioApp
-      identity={identity}
+      identity={flow ? undefined : identity}
       uiState={uiState}
       screen={screen}
       view={view}

@@ -3939,6 +3939,35 @@
       "area": "recording",
       "capability": "CAP-WEB",
       "sprint": "05"
+    },
+    {
+      "id": "F174",
+      "title": "引导式 Deep Research 六屏保真与研究入口收口",
+      "user_visible_behavior": "用户从主导航进入 /research 时直接看到已签核的研究首页；点击创建研究先填写必填名称和最多 5 个可选标签，确认后才进入主题表单，名称与标签随会话持久化并显示在历史卡片；之后依次进入方向、大纲、Web Search 和报告六屏。页面的信息层级、宽度、卡片与表单密度、步骤进度和主操作位置与 ui-preview/01-home.png 至 06-report.png 一致。引导式六屏不显示 Research Studio 二级左栏，旧 Studio 仅在显式 ?screen= 页面保留菜单，研究主入口不再落到 ?screen=detail；1280px 与 1920px 桌面视口下核心内容不被裁切。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R9-R10",
+      "depends_on": [
+        "F169"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "owner": "coord-deep-research",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/research-rewrite.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck",
+        "node .harness/scripts/lint-ui-material.mjs",
+        "cd apps/web && ./scripts/lint-design.sh"
+      ],
+      "evidence": "",
+      "notes": "用户在 PR #1146 合并后明确指出真实页面没有按已签六张 UI 图开发，并再次确认按开始设计图修改；随后明确要求创建研究先命名并填写可选标签。本 feature 收口视觉保真、主入口、创建元数据持久化与既有交互，不把 F170 Web Search 真运行态或 F171 报告真数据偷并进来；两者继续串行交付。共享热点：apps/web/components/research-studio/guided-research-flow.tsx、research-studio-app.tsx、guided research 契约/仓储及对应 tests。队列外原因：用户明确要求修复已签 UI 与真实入口的偏差。回滚：恢复本 feature 的前后端与迁移；既有会话 tags 默认空数组。",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-WEB",
+      "sprint": "06"
     }
   ]
 }
