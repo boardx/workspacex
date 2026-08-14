@@ -219,6 +219,22 @@ describe("F168 guided research session list and recovery", () => {
       sourceCount: 3,
     });
 
+    const staleDirections = await fetch(`${base}/research/guided-sessions/${created.sessionId}/directions`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: directionCandidate.version, directions: directionCandidate.items }),
+    });
+    expect(staleDirections.status).toBe(409);
+    expect(await staleDirections.json()).toMatchObject({ reasonCode: "RESEARCH_STAGE_CONFLICT" });
+
+    const staleOutline = await fetch(`${base}/research/guided-sessions/${created.sessionId}/outline`, {
+      method: "PUT",
+      headers: auth(OWNER),
+      body: JSON.stringify({ candidateVersion: outlineCandidate.version, outline: outlineCandidate.items }),
+    });
+    expect(staleOutline.status).toBe(409);
+    expect(await staleOutline.json()).toMatchObject({ reasonCode: "RESEARCH_STAGE_CONFLICT" });
+
     const completeResponse = await fetch(
       `${base}/research/guided-sessions/${created.sessionId}/complete`,
       { method: "POST", headers: auth(OWNER), body: JSON.stringify({}) },

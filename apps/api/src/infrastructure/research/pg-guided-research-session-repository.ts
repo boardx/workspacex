@@ -185,20 +185,26 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
       let outline = current.outline;
       let stage = current.stage;
       let resumeStage = current.resume_stage;
+      const isAtStage = (...allowed: GuidedResearchSession["stage"][]) =>
+        current.stage === current.resume_stage && allowed.includes(current.stage);
 
       if (input.mutation === "generate-directions") {
+        if (!isAtStage("directions", "outline")) throw new GuidedResearchStageConflictError();
         const version = Math.max(0, ...directions.versions.map((item) => item.version)) + 1;
         directions = { ...directions, candidateVersion: version, versions: [...directions.versions, { version, items: input.items as GuidedResearchDirection[], createdAt: now, confirmedAt: null }] };
       } else if (input.mutation === "confirm-directions") {
+        if (!isAtStage("directions", "outline")) throw new GuidedResearchStageConflictError();
         if (directions.candidateVersion !== input.candidateVersion) throw new GuidedResearchCheckpointConflictError();
         const version = Math.max(0, ...directions.versions.map((item) => item.version)) + 1;
         directions = { candidateVersion: version, confirmedVersion: version, versions: [...directions.versions, { version, items: input.items as GuidedResearchDirection[], createdAt: now, confirmedAt: now }] };
         stage = "outline"; resumeStage = "outline";
       } else if (input.mutation === "generate-outline") {
         if (directions.confirmedVersion === null) throw new GuidedResearchDirectionsNotConfirmedError();
+        if (!isAtStage("outline")) throw new GuidedResearchStageConflictError();
         const version = Math.max(0, ...outline.versions.map((item) => item.version)) + 1;
         outline = { ...outline, candidateVersion: version, versions: [...outline.versions, { version, items: input.items as GuidedResearchOutlineSection[], createdAt: now, confirmedAt: null }] };
       } else {
+        if (!isAtStage("outline")) throw new GuidedResearchStageConflictError();
         if (outline.candidateVersion !== input.candidateVersion) throw new GuidedResearchCheckpointConflictError();
         const version = Math.max(0, ...outline.versions.map((item) => item.version)) + 1;
         outline = { candidateVersion: version, confirmedVersion: version, versions: [...outline.versions, { version, items: input.items as GuidedResearchOutlineSection[], createdAt: now, confirmedAt: now }] };
