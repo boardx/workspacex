@@ -11,7 +11,10 @@ export const PersonalTranscriptionStatus = z.enum(["idle", "recording", "failed"
 
 const Name = z.string().trim().min(1).max(100);
 const Tag = z.string().trim().min(1).max(20);
-const Tags = z.array(Tag).max(5);
+const Tags = z.array(Tag).max(5).refine(
+  (tags) => new Set(tags).size === tags.length,
+  { message: "Tags must be unique" },
+);
 
 export const PersonalTranscriptionSummary = z.object({
   sessionId: z.string(),
@@ -107,6 +110,13 @@ export const operations = {
     }).strict(),
     err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "VALIDATION_FAILED"] as const,
   },
+  listPersonalTranscriptionTags: {
+    method: "GET",
+    path: "/recording/realtime-asr/tags",
+    in: z.object({}).strict(),
+    out: z.object({ tags: z.array(Tag) }).strict(),
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED"] as const,
+  },
   readPersonalTranscription: {
     method: "GET",
     path: "/recording/realtime-asr/sessions/:sessionId",
@@ -126,6 +136,20 @@ export const operations = {
       "CAPTURE_ALREADY_ACTIVE",
       "VALIDATION_FAILED",
     ] as const,
+  },
+  updatePersonalTranscriptionMetadata: {
+    method: "PATCH",
+    path: "/recording/realtime-asr/sessions/:sessionId",
+    in: z.object({ sessionId: z.string().min(1), name: Name, tags: Tags }).strict(),
+    out: PersonalTranscriptionSummary,
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND", "CAPTURE_ALREADY_ACTIVE", "VALIDATION_FAILED"] as const,
+  },
+  deletePersonalTranscription: {
+    method: "DELETE",
+    path: "/recording/realtime-asr/sessions/:sessionId",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: z.object({ deleted: z.literal(true) }).strict(),
+    err: ["AUTH_REQUIRED", "ORG_MEMBERSHIP_REQUIRED", "TRANSCRIPTION_NOT_FOUND", "CAPTURE_ALREADY_ACTIVE"] as const,
   },
   issueRealtimeAsrTicket: {
     method: "POST",

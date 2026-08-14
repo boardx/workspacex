@@ -54,6 +54,39 @@ export async function listPersonalTranscriptions(
   });
 }
 
+export async function listPersonalTranscriptionTags(
+  deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
+  input: { readonly userId: string; readonly orgId: OrgId },
+) {
+  await requireOrgMembership(deps.identities, input.userId, input.orgId);
+  return { tags: await deps.repository.listOwnedTags({ orgId: input.orgId, ownerUserId: input.userId }) };
+}
+
+export async function updatePersonalTranscriptionMetadata(
+  deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
+  input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string;
+    readonly name: string; readonly tags: readonly string[] },
+) {
+  await requireOrgMembership(deps.identities, input.userId, input.orgId);
+  const result = await deps.repository.updateMetadataOwned({ orgId: input.orgId, ownerUserId: input.userId,
+    transcriptionId: input.transcriptionId, name: input.name, tags: input.tags });
+  if (result.kind === "capture_active") throw new RealtimeAsrCaptureAlreadyActive();
+  if (result.kind === "not_found") throw new PersonalTranscriptionNotFound();
+  return result.value;
+}
+
+export async function deletePersonalTranscription(
+  deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
+  input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string },
+) {
+  await requireOrgMembership(deps.identities, input.userId, input.orgId);
+  const result = await deps.repository.deleteOwned({ orgId: input.orgId, ownerUserId: input.userId,
+    transcriptionId: input.transcriptionId });
+  if (result.kind === "capture_active") throw new RealtimeAsrCaptureAlreadyActive();
+  if (result.kind === "not_found") throw new PersonalTranscriptionNotFound();
+  return { deleted: true as const };
+}
+
 export async function readPersonalTranscription(
   deps: { readonly identities: IdentityRepository; readonly repository: PersonalTranscriptionRepository },
   input: { readonly userId: string; readonly orgId: OrgId; readonly transcriptionId: string },

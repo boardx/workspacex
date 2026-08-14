@@ -172,6 +172,63 @@ export class PgPersonalTranscriptionRepository implements PersonalTranscriptionR
     });
   }
 
+  async listOwnedTags(input: { orgId: OrgId; ownerUserId: string }): Promise<readonly string[]> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const result = await session.query<{ tag: string }>(
+        `SELECT DISTINCT btrim(tag) AS tag
+           FROM personal_transcriptions p, unnest(p.tags) AS tag
+          WHERE p.org_id=$1 AND p.owner_user_id=$2 AND btrim(tag)<>''
+          ORDER BY tag`,
+        [input.orgId, input.ownerUserId],
+      );
+      return result.rows.map((row) => row.tag);
+    });
+  }
+
+  async updateMetadataOwned(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string;
+    name: string; tags: readonly string[] }) {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const owned = await session.query(
+        `SELECT 1 FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3 FOR UPDATE`,
+        [input.transcriptionId, input.orgId, input.ownerUserId],
+      );
+      if (owned.rows.length === 0) return { kind: "not_found" as const };
+      const active = await session.query(
+        `SELECT 1 FROM recording_sessions WHERE org_id=$1 AND source_type='personal'
+          AND source_ref_id=$2 AND created_by=$3 AND ended_at IS NULL LIMIT 1`,
+        [input.orgId, input.transcriptionId, input.ownerUserId],
+      );
+      if (active.rows.length > 0) return { kind: "capture_active" as const };
+      await session.query(`UPDATE personal_transcriptions SET name=$1,tags=$2::text[],updated_at=now()
+        WHERE id=$3 AND org_id=$4 AND owner_user_id=$5`,
+      [input.name, [...input.tags], input.transcriptionId, input.orgId, input.ownerUserId]);
+      const row = await readSummary(session, input.orgId, input.ownerUserId, input.transcriptionId);
+      if (!row) return { kind: "not_found" as const };
+      return { kind: "changed" as const, value: summary(row) };
+    });
+  }
+
+  async deleteOwned(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }) {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const owned = await session.query(
+        `SELECT 1 FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3 FOR UPDATE`,
+        [input.transcriptionId, input.orgId, input.ownerUserId],
+      );
+      if (owned.rows.length === 0) return { kind: "not_found" as const };
+      const active = await session.query(
+        `SELECT 1 FROM recording_sessions WHERE org_id=$1 AND source_type='personal'
+          AND source_ref_id=$2 AND created_by=$3 AND ended_at IS NULL LIMIT 1`,
+        [input.orgId, input.transcriptionId, input.ownerUserId],
+      );
+      if (active.rows.length > 0) return { kind: "capture_active" as const };
+      await session.query(`DELETE FROM recording_sessions WHERE org_id=$1 AND source_type='personal'
+        AND source_ref_id=$2 AND created_by=$3`, [input.orgId, input.transcriptionId, input.ownerUserId]);
+      await session.query(`DELETE FROM personal_transcriptions WHERE id=$1 AND org_id=$2 AND owner_user_id=$3`,
+        [input.transcriptionId, input.orgId, input.ownerUserId]);
+      return { kind: "changed" as const, value: undefined };
+    });
+  }
+
   async hasActiveCapture(input: { orgId: OrgId; ownerUserId: string; transcriptionId: string }): Promise<boolean> {
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query(

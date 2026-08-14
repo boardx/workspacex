@@ -45,6 +45,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -111,6 +112,9 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import {
   createPersonalTranscription,
   listPersonalTranscriptions,
+  listPersonalTranscriptionTags,
+  updatePersonalTranscriptionMetadata,
+  deletePersonalTranscription,
   PersonalTranscriptionNotFound,
   PersonalTranscriptionOrgMembershipRequired,
   readPersonalTranscription,
@@ -134,6 +138,7 @@ type SetConsentDecisionBody = typeof C.operations.setConsentDecision.in._type;
 type CreatePersonalTranscriptionBody = typeof PersonalC.operations.createPersonalTranscription.in._type;
 type ListPersonalTranscriptionsQuery = typeof PersonalC.operations.listPersonalTranscriptions.in._type;
 const UpdatePersonalContentBody = PersonalC.operations.updatePersonalTranscriptionContent.in.pick({ content: true });
+const UpdatePersonalMetadataBody = PersonalC.operations.updatePersonalTranscriptionMetadata.in.omit({ sessionId: true });
 
 const CONFLICT: ReadonlySet<string> = new Set([
   "SESSION_ALREADY_RECORDING", "SESSION_ALREADY_ENDED", "SESSION_ENDED", "SESSION_NOT_ENDED",
@@ -253,6 +258,18 @@ export class RecordingController {
     }
   }
 
+  @Get(PersonalC.operations.listPersonalTranscriptionTags.path)
+  async listPersonalTags(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    try {
+      return PersonalC.operations.listPersonalTranscriptionTags.out.parse(
+        await listPersonalTranscriptionTags(this.personalDependencies(), {
+          userId: principal.userId, orgId: toOrgId(principal.orgId),
+        }),
+      );
+    } catch (error) { this.personalError(error); }
+  }
+
   @Get(PersonalC.operations.readPersonalTranscription.path)
   async readPersonal(
     @CurrentPrincipal() principal: Principal,
@@ -290,6 +307,33 @@ export class RecordingController {
     } catch (error) {
       this.personalError(error);
     }
+  }
+
+  @Patch(PersonalC.operations.updatePersonalTranscriptionMetadata.path)
+  async updatePersonalMetadata(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string,
+    @Body(new ZodBodyPipe(UpdatePersonalMetadataBody)) body: { name: string; tags: string[] }) {
+    assertPrincipal(principal);
+    try {
+      return PersonalC.operations.updatePersonalTranscriptionMetadata.out.parse(
+        await updatePersonalTranscriptionMetadata(this.personalDependencies(), {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId,
+          name: body.name, tags: body.tags,
+        }),
+      );
+    } catch (error) { this.personalError(error); }
+  }
+
+  @Delete(PersonalC.operations.deletePersonalTranscription.path)
+  @HttpCode(HttpStatus.OK)
+  async deletePersonal(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+    assertPrincipal(principal);
+    try {
+      return PersonalC.operations.deletePersonalTranscription.out.parse(
+        await deletePersonalTranscription(this.personalDependencies(), {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), transcriptionId: sessionId,
+        }),
+      );
+    } catch (error) { this.personalError(error); }
   }
 
   /**

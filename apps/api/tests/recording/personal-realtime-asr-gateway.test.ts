@@ -260,9 +260,12 @@ function repositoryStub(overrides: Partial<PersonalTranscriptionRepository> = {}
   return {
     create: async () => { throw new Error("not used"); },
     listOwned: async () => ({ items: [], nextCursor: null }),
+    listOwnedTags: async () => [],
     readOwned: async () => undefined,
     hasActiveCapture: async () => false,
     replaceContent: async () => undefined,
+    updateMetadataOwned: async () => ({ kind: "not_found" }),
+    deleteOwned: async () => ({ kind: "not_found" }),
     startCapture: async () => undefined,
     appendFinal: async () => undefined,
     finishCapture: async () => undefined,

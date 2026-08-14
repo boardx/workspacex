@@ -4,6 +4,10 @@ import type { OrgId } from "../../domain/org-id";
 
 export type PersonalTranscriptionSummary = z.infer<typeof C.PersonalTranscriptionSummary>;
 export type PersonalTranscriptionDetail = z.infer<typeof C.PersonalTranscriptionDetail>;
+export type PersonalTranscriptionMutationResult<T = undefined> =
+  | { readonly kind: "changed"; readonly value: T }
+  | { readonly kind: "not_found" }
+  | { readonly kind: "capture_active" };
 
 export class PersonalTranscriptionCursorInvalid extends Error {
   constructor() {
@@ -29,6 +33,15 @@ export interface PersonalTranscriptionRepository {
     readonly sort: "recent" | "oldest";
     readonly cursor?: string;
   }): Promise<{ readonly items: readonly PersonalTranscriptionSummary[]; readonly nextCursor: string | null }>;
+
+  listOwnedTags(input: { readonly orgId: OrgId; readonly ownerUserId: string }): Promise<readonly string[]>;
+
+  updateMetadataOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
+    readonly transcriptionId: string; readonly name: string; readonly tags: readonly string[]
+  }): Promise<PersonalTranscriptionMutationResult<PersonalTranscriptionSummary>>;
+
+  deleteOwned(input: { readonly orgId: OrgId; readonly ownerUserId: string;
+    readonly transcriptionId: string }): Promise<PersonalTranscriptionMutationResult>;
 
   readOwned(input: {
     readonly orgId: OrgId;
