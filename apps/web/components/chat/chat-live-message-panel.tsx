@@ -8,6 +8,7 @@ import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lu
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { MessageThinkingChain } from "@/components/chat/message-thinking-chain";
+import { MessageRating } from "@/components/chat/message-rating";
 import {
   createMessage,
   describeMessageFailure,
@@ -711,6 +712,18 @@ export function ChatLiveMessagePanel({
                           <Copy aria-hidden className="h-3 w-3" />
                         )}
                       </button>
+                      {/*
+                        F176 —— 👍/👎 只画在 AI 消息上，且只画在「已经写回、有 agent_run」的消息上。
+
+                        ⚠ 两个条件缺一不可：
+                        · `isAgent`——人自己说的话没有 agent 可归因，服务端会 404；
+                        · `agentRunId`——早于 `chat_messages.agent_run_id` 的历史消息
+                          同样归不了因。给它画一个点了必然失败的按钮，比不画更糟。
+                        画在身份行里（与逐条复制同一排），跟随同一套 hover 显形规则。
+                      */}
+                      {isAgent && message.agentRunId ? (
+                        <MessageRating messageId={message.id} />
+                      ) : null}
                     </div>
                     {/*
                       2026-08-14 人类实测反馈重做：思考/工具调用链挂在这条消息自己身上

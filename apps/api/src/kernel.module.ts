@@ -274,8 +274,13 @@ import { AgentPublishController } from "./interface/controllers/agent-publish.co
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
 // ⚠ 没有「启用」路由——`SKILLS_FORBIDDEN_ROUTES` 逐字禁止它，见 controller 文件头。
 import {
+  MESSAGE_RATING_REPOSITORY,
   SKILL_CONTRACT_REPOSITORY, SKILL_SECURITY_AUDIT, SKILL_SUBMITTER_GRANTS, THREAD_MOUNT_STORE,
 } from "./application/skill/ports";
+// F176：消息级评价的落库面与 HTTP 边界——给 F68 那条已签核契约补地基。
+// ⚠ 归因由 `MessageAttributionPort` 从 agent_runs 查出来，路由不接受任何外部归因输入。
+import { PgMessageRatingRepository } from "./infrastructure/skill/pg-message-rating-repository";
+import { MessageRatingController } from "./interface/controllers/message-rating.controller";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -550,6 +555,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentController,
     AgentPublishController,
     SkillController,
+    MessageRatingController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -1244,6 +1250,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: THREAD_MOUNT_STORE,
       useFactory: (db: DatabasePort) => new PgThreadMountStore(db),
+      inject: [DATABASE_PORT],
+    },
+    // F176: same factory shape and same reason as the two above -- `rateMessage.in` has no
+    // `orgId` (only `messageId`), so a rating repository not bound to a tenant would be a
+    // thing that can write a rating into somebody else's organization.
+    {
+      provide: MESSAGE_RATING_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgMessageRatingRepository(db),
       inject: [DATABASE_PORT],
     },
     {

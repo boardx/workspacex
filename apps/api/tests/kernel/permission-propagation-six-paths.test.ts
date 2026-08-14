@@ -819,7 +819,22 @@ describe("lint-permission-paths: counter-proof", () => {
     // 伪造 projectId 的非成员、别人的个人线程），**且**解析源码断言两条 SELECT 的 scope
     // 谓词都还带着个人线程分支与 `EXISTS(project_memberships)`——只解析源码的话，
     // 几行字还在但语义被改坏照样能过。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(54);
+    // ⚠ Raised 54 -> 55 by F176（消息级评价落地）：新条目是
+    // `infrastructure/skill/pg-message-rating-repository.ts`。它比前几条**多碰三张表**
+    // （`chat_messages` / `agent_runs` / `skill_versions`），所以论点必须比前几条更窄：
+    // 那三张表只为**归因**而读，交出来的是三个标识符（agent_id / skill_id /
+    // skill_version_id），**一个内容列都不选**——尤其没有 `chat_messages.body`。
+    // 门在仓储之前：唯一调用方 `application/skill/submit-message-rating.ts` 先跑
+    // `chat.findMessageLocation` + `resolveVisibility`，不是 `allow` 就抛，
+    // 之后才碰 `deps.ratings`。那是 chat 束**已有的**可见性判定（`expandToolCallChain`
+    // 用的同一个），不是第二套。
+    //
+    // 它的**被强制的前提**：`tests/skill/message-rating-repo-guard.test.ts` 断言四件——
+    // ① 名到的表恰好是这五张；② 不选任何内容列（含 `m.body`/`body,`）；
+    // ③ 无 `withoutTenant`；④ 两道前置检查仍在 `submit-message-rating.ts` 里、
+    // 且位置在第一次 `deps.ratings.` 之前（按字符下标断言，不是「文件里有这两个词」）。
+    // 删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(55);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
