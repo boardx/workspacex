@@ -138,7 +138,7 @@ export interface SetDurationTierCommand {
 }
 
 /**
- * F178（BP-04）：试跑一场的仓储结果。没有 CAS——试跑是**追加一条记录**，不是修改
+ * F179（BP-04）：试跑一场的仓储结果。没有 CAS——试跑是**追加一条记录**，不是修改
  * 蓝本行本身，两次并发试跑各自成功、各自留一条绑定，互不冲突（不像后续行级写操作
  * 那种「读-判-写」需要防止基于旧状态的判断被后来者的写入作废）。
  */
@@ -153,7 +153,7 @@ export interface StartTrialRunCommand {
 }
 
 /**
- * F178（BP-04）：发布新版本的仓储结果。
+ * F179（BP-04）：发布新版本的仓储结果。
  *
  * ⚠ 版本比对（`expectedCurrentVersionNumber` 对照 `blueprints.version_number`）
  * **先于**门槛判定——版本冲突不该被误判成门槛不通过，反之亦然。

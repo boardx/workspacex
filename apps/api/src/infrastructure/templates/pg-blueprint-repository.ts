@@ -270,7 +270,7 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
   }
 
   /**
-   * F178（BP-04）：试跑一场。追加一条 `kind='trial-run'` 绑定——
+   * F179（BP-04）：试跑一场。追加一条 `kind='trial-run'` 绑定——
    * `startTrialRun`（应用层纯函数）本身不持久化（见该文件头注），持久化在这里做。
    * 没有 CAS：多次试跑各自成功、各自留痕，不是互斥写。
    */
@@ -288,7 +288,7 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
   }
 
   /**
-   * F178（BP-04）：发布新版本。
+   * F179（BP-04）：发布新版本。
    *
    * 顺序：① 锁行 + 版本号 CAS 比对 → ② 读齐编排 `publishBlueprintVersionUseCase`
    * 所需的四样东西（已填 key 集合、绑定集合、历史版本、当前内容快照）→

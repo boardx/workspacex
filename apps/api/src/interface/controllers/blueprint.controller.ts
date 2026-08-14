@@ -315,7 +315,7 @@ export class BlueprintController {
   }
 
   /**
-   * F178（BP-04）—— 试跑一场，发布门槛「已试跑」判据的写入路径。
+   * F179（BP-04）—— 试跑一场，发布门槛「已试跑」判据的写入路径。
    * 复用 `requireCapabilityAdmin`：试跑是编辑动作的一种（同 setDurationTier/
    * updateDesignFacet 的角色门槛），不新造一套判据。
    */
@@ -344,7 +344,7 @@ export class BlueprintController {
   }
 
   /**
-   * F178（BP-04）—— 发布新版本。门槛判定（必填面 + 试跑面）与版本生成的编排
+   * F179（BP-04）—— 发布新版本。门槛判定（必填面 + 试跑面）与版本生成的编排
    * 全部在仓储层完成（`publishBlueprintVersionUseCase`），控制器只做错误码映射。
    */
   @Post("/blueprints/:blueprintId/versions")

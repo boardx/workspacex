@@ -4021,7 +4021,7 @@
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "evidence/F178.verify.log @ 2026-08-14T01:32:18.798Z",
+      "evidence": "evidence/F179.verify.log @ 2026-08-14T01:32:18.798Z",
       "notes": "属 personal-transcription-management design delta，挂靠已确认 personal-realtime-transcription 束。垂直切片：契约 + owner-scoped tags/update/delete API + usage 外键迁移 + /rec 卡片菜单与弹窗。删除正文与 capture，但保留不含正文的 realtime_asr_usage_events；活动 capture 必须拒绝修改和删除。Issue 必须由 harness sync 创建后再 claim；共享热点为 personal-transcription-usecases/repository/controller、personal-transcription.ts 与 realtime-transcription-history.tsx。",
       "priority": 1,
       "area": "recording",
@@ -4051,7 +4051,7 @@
       "capability": "CAP-DATA"
     },
     {
-      "id": "F178",
+      "id": "F179",
       "title": "试跑与发布蓝本版本真实落库（BP-04：POST trial-runs + POST versions）",
       "user_visible_behavior": "组织管理员对一个蓝本点「试跑」，后端记一条试跑绑定；未试跑过就点「发布」会被拒绝（TRIAL_RUN_REQUIRED），试跑过至少一次后再发布会真实生成一个不可变版本（版本号从 0 起单调递增、不复用、不缺号），旧的已发布版本同一事务内转为已归档，蓝本状态从草稿变为已发布；带着过期的版本号发布会被拒绝（VERSION_CHANGED），不产生任何新版本记录（失败不占号）；返回值包含这次发布相对上一版改动了哪些设计配置项。",
       "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
@@ -4059,15 +4059,15 @@
         "F175"
       ],
       "points": 5,
-      "status": "passing",
+      "status": "not_started",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
         "pnpm --filter api run typecheck"
       ],
-      "evidence": "evidence/F178.verify.log @ 2026-08-14T03:22:44.328Z",
-      "notes": "① 这是 #991 蓝本闭环 backlog 的第四件（BP-04），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P4「发布版本」的实现，与 F178 一并接线的还有 startTrialRun（试跑本身没有独立编号，因为发布门槛的「已试跑」判据挂在同一张绑定表上，两个操作拆开做互相测不了——没有试跑基础设施，发布门槛永远无法在真库测试里走到 applied 分支）。\n② 依据等级：域/应用层早已就位——`domain/templates/trial-run-gate.ts`（试跑门槛，D-6 未裁「已试跑」判据，本文件已声明按「创建即算」实现且登记了 KNOWN_CONTRACT_GAPS.T7）、`domain/templates/publish-blueprint-version.ts`（组合门槛 + 版本生成，纯函数）、`application/templates/publish-blueprint-version.ts`（编排，把门槛判定映射成契约错误码）均已存在且有独立单测覆盖；缺的是仓储 + 控制器这一层（同 F175/F174/F177 的缺口形状）。\n③ 范围边界——做：新建 `blueprint_versions`（不可变快照）+ `blueprint_bindings`（试跑/套用绑定，本 feature 只写 trial-run 一种 kind）两张表；仓储 `startTrialRun()`（追加绑定，无 CAS——并发试跑各自成功）与 `publishBlueprintVersion()`（版本号 CAS + 门槛判定 + 同事务的新版写入/旧版归档/蓝本行更新）；控制器`POST /blueprints/:id/trial-runs`、`POST /blueprints/:id/versions`。不做：回滚到历史版本（rollbackToVersion，另一 BP 条目）、可见性/审计（各自独立 BP 条目）。\n④ 与 F177（BP-03）不同，本 feature **没有** T13 那类读路径缺口：`expectedCurrentVersionNumber` 对照的就是 `blueprints.version_number`，而这个字段 `listBlueprints.out` 已经在返回（`BlueprintRow.versionNumber`）——客户端有合法途径拿到它，前端接线不受阻。\n⑤ `changedDesignFacetKeys` 的算法是本 feature 自己的判断（契约只给了字段形状，没给算法）：与上一个 `published` 版本的冻结快照逐 key 比较，值不同或某 key 从有变没有都算改动；首次发布没有基线可比，当前所有已填 key 都算改动——这是对「改动了哪些」字面最不勉强的读法，不是唯一可能的裁决，供人类复核。\n⑥ 编号：读活数据 `git show origin/main:.../feature_list.json` 取最大号=F176，F177 已被同会话的 BP-03（未合并，PR #1208）占用，故取 F178（#1094 教训：编号按快照取号会撞，已按活数据 + 同会话已知占用核对）。",
+      "evidence": "",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第四件（BP-04），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P4「发布版本」的实现，与 F179 一并接线的还有 startTrialRun（试跑本身没有独立编号，因为发布门槛的「已试跑」判据挂在同一张绑定表上，两个操作拆开做互相测不了——没有试跑基础设施，发布门槛永远无法在真库测试里走到 applied 分支）。\n② 依据等级：域/应用层早已就位——`domain/templates/trial-run-gate.ts`（试跑门槛，D-6 未裁「已试跑」判据，本文件已声明按「创建即算」实现且登记了 KNOWN_CONTRACT_GAPS.T7）、`domain/templates/publish-blueprint-version.ts`（组合门槛 + 版本生成，纯函数）、`application/templates/publish-blueprint-version.ts`（编排，把门槛判定映射成契约错误码）均已存在且有独立单测覆盖；缺的是仓储 + 控制器这一层（同 F175/F174/F177 的缺口形状）。\n③ 范围边界——做：新建 `blueprint_versions`（不可变快照）+ `blueprint_bindings`（试跑/套用绑定，本 feature 只写 trial-run 一种 kind）两张表；仓储 `startTrialRun()`（追加绑定，无 CAS——并发试跑各自成功）与 `publishBlueprintVersion()`（版本号 CAS + 门槛判定 + 同事务的新版写入/旧版归档/蓝本行更新）；控制器`POST /blueprints/:id/trial-runs`、`POST /blueprints/:id/versions`。不做：回滚到历史版本（rollbackToVersion，另一 BP 条目）、可见性/审计（各自独立 BP 条目）。\n④ 与 F177（BP-03）不同，本 feature **没有** T13 那类读路径缺口：`expectedCurrentVersionNumber` 对照的就是 `blueprints.version_number`，而这个字段 `listBlueprints.out` 已经在返回（`BlueprintRow.versionNumber`）——客户端有合法途径拿到它，前端接线不受阻。\n⑤ `changedDesignFacetKeys` 的算法是本 feature 自己的判断（契约只给了字段形状，没给算法）：与上一个 `published` 版本的冻结快照逐 key 比较，值不同或某 key 从有变没有都算改动；首次发布没有基线可比，当前所有已填 key 都算改动——这是对「改动了哪些」字面最不勉强的读法，不是唯一可能的裁决，供人类复核。\n⑥ 编号：读活数据 `git show origin/main:.../feature_list.json` 取最大号=F176，F177 已被同会话的 BP-03（未合并，PR #1208）占用，故取 F179（#1094 教训：编号按快照取号会撞，已按活数据 + 同会话已知占用核对）。",
       "priority": 1,
       "area": "project",
       "capability": "CAP-DATA"

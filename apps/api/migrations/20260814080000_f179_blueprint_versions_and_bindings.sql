@@ -1,7 +1,7 @@
--- F178 (BP-04)：发布版本 —— `blueprint_versions`（不可变快照）+ `blueprint_bindings`
+-- F179 (BP-04)：发布版本 —— `blueprint_versions`（不可变快照）+ `blueprint_bindings`
 -- （试跑/套用绑定，发布门槛的「已试跑」判据挂在这张表上）
 -- 契约：templates.startTrialRun / templates.publishBlueprintVersion（束已签核 2026-07-30，
--- covers 含 F178）
+-- covers 含 F179）
 --
 -- ## 为什么这两张表必须一起建
 --
@@ -9,7 +9,7 @@
 -- 「这个蓝本有没有至少一条 kind='trial-run' 的绑定」——不是一个独立布尔标记。
 -- 没有 blueprint_bindings 表，`publishBlueprintVersion` 的试跑门槛就没有任何真实数据
 -- 可判，要么假装通过（静默降级，本仓明令禁止的做法），要么永远拒绝（发布形同虚设）。
--- 两者都不诚实，所以 F178 把 startTrialRun 与 publishBlueprintVersion 的存储一起接上电。
+-- 两者都不诚实，所以 F179 把 startTrialRun 与 publishBlueprintVersion 的存储一起接上电。
 --
 -- ## blueprint_bindings 现在只会出现 kind='trial-run' 的行
 --

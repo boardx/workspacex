@@ -34,7 +34,7 @@ phase: "01"
 #        存在于已签契约里的缺口写清楚（同 T1-T12 的性质，都是签核时留下、事后发现
 #        才登记的缺口，不是本 feature 发明的）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-# 2026-08-14（自追加，dev-project agent）：F178（BP-04：POST trial-runs + POST versions）
+# 2026-08-14（自追加，dev-project agent）：F179（BP-04：POST trial-runs + POST versions）
 #   自查三条件（同 F175/F174/F177 的先例，continuing dev-project 的判断，非新裁决）：
 #     1. **UI 已签**：本 feature 是纯后端（两条 POST 端点 + 版本号 CAS + 门槛判定），
 #        零界面落点，空成立（与 F175/BP-01 同理，界面留待 BP-06 设计器）。
@@ -46,7 +46,7 @@ phase: "01"
 #        实现（`trial-run-gate.ts` 文件头注已声明，本 feature 未做新裁决，只是首次
 #        让它接上真实存储）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F178]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

@@ -602,7 +602,7 @@ describe("F177 换时长档位", () => {
   });
 });
 
-describe("F178 试跑与发布版本", () => {
+describe("F179 试跑与发布版本", () => {
   it("没试跑过直接发布：TRIAL_RUN_REQUIRED，且不占版本号（I-3）", async () => {
     const orgId = toOrgId(ORG);
     await repo.create({
