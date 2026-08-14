@@ -26,6 +26,7 @@
  *   已登记为待补缺口，将来与其它 templates 契约变更攒批走 delta。
  */
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -67,6 +68,8 @@ type CreateBody = z.infer<typeof CREATE_SCHEMA>;
 type BlueprintState = z.infer<typeof C.BlueprintState>;
 const UPDATE_FACET_BODY_SCHEMA = C.operations.updateDesignFacet.in.omit({ blueprintId: true, designFacetKey: true });
 type UpdateFacetBody = z.infer<typeof UPDATE_FACET_BODY_SCHEMA>;
+const SET_DURATION_TIER_BODY_SCHEMA = C.operations.setDurationTier.in.omit({ blueprintId: true });
+type SetDurationTierBody = z.infer<typeof SET_DURATION_TIER_BODY_SCHEMA>;
 
 @Controller()
 export class BlueprintController {
@@ -252,6 +255,57 @@ export class BlueprintController {
           autosavedAt: new Date().toISOString(),
         };
       }
+    }
+  }
+
+  /**
+   * F177（BP-03）—— 换时长档位。
+   *
+   * ⚠ 已知契约缺口（如实登记，见迁移文件头注、`packages/contracts/src/templates.ts`
+   *   `KNOWN_CONTRACT_GAPS.T9`）：契约要求调用方传 `expectedVersion`，但没有任何
+   *   契约操作把它读出来——`listBlueprints` 不含它，也没有 `getBlueprint`。
+   *   本端点因此真实、可测，但目前没有合法途径从前端拿到第一个 `expectedVersion`；
+   *   真正接线（BP-05 之后的某个 BP）要等这个读路径的缺口被补上或走 delta 新增。
+   */
+  @Put("/blueprints/:blueprintId/duration-tier")
+  async setDurationTier(
+    @Param("blueprintId") blueprintId: string,
+    @Body(new ZodBodyPipe(SET_DURATION_TIER_BODY_SCHEMA)) body: SetDurationTierBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    await this.requireCapabilityAdmin(orgId, principal.userId);
+
+    const outcome = await this.repo.setDurationTier({
+      orgId,
+      blueprintId,
+      tier: body.tier,
+      confirmed: body.confirmed,
+      expectedVersion: body.expectedVersion,
+    });
+
+    switch (outcome.kind) {
+      case "blueprint-not-found":
+        throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+      case "version-changed":
+        throw new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      case "custom-tier-undefined":
+        // D-7「宁可拒绝也不猜一个推导式」——custom 档的规则本身未定，不是这次请求的输入错了。
+        throw new BadRequestException({ reasonCode: "CUSTOM_TIER_RULE_UNDEFINED" });
+      case "confirmation-required":
+        // 契约逐字要求这份清单要能带给调用方（A2「已填内容不得静默丢弃」）。
+        throw new ConflictException({
+          reasonCode: "TIER_CHANGE_NEEDS_CONFIRMATION",
+          detail: { added: outcome.added, removed: outcome.removed },
+        });
+      case "applied":
+        return {
+          agendaSegmentCount: outcome.agendaSegmentCount,
+          added: outcome.added,
+          removed: outcome.removed,
+          recoverable: outcome.recoverable,
+        };
     }
   }
 
