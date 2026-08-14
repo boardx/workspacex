@@ -11,7 +11,10 @@ export const PersonalTranscriptionStatus = z.enum(["idle", "recording", "failed"
 
 const Name = z.string().trim().min(1).max(100);
 const Tag = z.string().trim().min(1).max(20);
-const Tags = z.array(Tag).max(5);
+const Tags = z.array(Tag).max(5).refine(
+  (tags) => new Set(tags).size === tags.length,
+  { message: "Tags must be unique" },
+);
 
 export const PersonalTranscriptionSummary = z.object({
   sessionId: z.string(),

@@ -48,6 +48,11 @@ describe("personal realtime transcription contract", () => {
       name: "新名称",
       tags: ["客户", "复盘"],
     }).success).toBe(true);
+    expect(C.operations.updatePersonalTranscriptionMetadata.in.safeParse({
+      sessionId: "session-1",
+      name: "新名称",
+      tags: ["客户", "客户"],
+    }).success).toBe(false);
     expect(C.operations.deletePersonalTranscription.out.safeParse({ deleted: true }).success).toBe(true);
     expect(C.operations.listPersonalTranscriptionTags.out.parse({
       tags: ["客户", "内部", "高优先级", "已归档", "市场研究", "合规"],

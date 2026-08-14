@@ -3094,3 +3094,13 @@ stderr | .harness/scripts/portable-role-generator.test.ts > #441 portable persis
 • turbo 2.10.5
 
 [harness-verify v1 sha256=f2549073fb85ec2ec362367e4d33671fb181997fc8fee7781c09de87f0840435 commit=3a5250ea90808db10f771e1ffd7bc5014d63a96a at=2026-08-14T01:32:18.795Z]
+
+[review-fix verification at=2026-08-14T13:18:48+08:00]
+- RED: web history test failed because metadata update did not reload the active filtered list; delete dialog remained open when tag refresh failed.
+- RED: contracts test accepted duplicate metadata tags.
+- GREEN: packages/contracts 13 files, 194 tests passed.
+- GREEN: API personal-transcription-management 3 tests passed with isolated PostgreSQL/Redis.
+- GREEN: Web realtime-transcription-history 15 tests passed.
+- GREEN: API and Web TypeScript typecheck passed.
+- GREEN: Web lint and design lint passed.
+- GREEN: harness doctor --phase 01 completed with 0 FAIL / 3 existing WARN.

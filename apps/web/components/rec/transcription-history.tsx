@@ -37,6 +37,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [listRevision, setListRevision] = React.useState(0);
   const [activeTag, setActiveTag] = React.useState<ActiveTag>("全部标签");
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [query, setQuery] = React.useState("");
@@ -74,7 +75,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     return () => {
       active = false;
     };
-  }, [activeTag, query, sessionToken]);
+  }, [activeTag, listRevision, query, sessionToken]);
 
   const refreshTags = React.useCallback(async () => {
     const result = await listPersonalTranscriptionTags(sessionToken);
@@ -99,16 +100,16 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   async function saveMetadata(item: TranscriptionHistoryItem, draft: NewTranscriptionDraft) {
     const updated = await updatePersonalTranscriptionMetadata(item.id, { name: draft.name, tags: [...draft.tags] }, sessionToken);
-    setItems((current) => current.map((entry) => entry.id === item.id ? toHistoryItem(updated) : entry));
     setNotice(`已更新“${updated.name}”`);
-    await refreshTags();
+    setListRevision((current) => current + 1);
+    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function removeTranscription(item: TranscriptionHistoryItem) {
     await deletePersonalTranscription(item.id, sessionToken);
     setItems((current) => current.filter((entry) => entry.id !== item.id));
     setNotice(`已永久删除“${item.title}”`);
-    await refreshTags();
+    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function openTranscription(item: TranscriptionHistoryItem) {
