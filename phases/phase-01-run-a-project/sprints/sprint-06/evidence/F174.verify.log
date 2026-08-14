@@ -1,0 +1,1220 @@
+$ pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/packages/contracts
+
+ ✓ tests/guided-research-session-contract.test.ts (6 tests) 26ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  18:57:00
+   Duration  2.49s (transform 609ms, setup 0ms, collect 683ms, tests 26ms, environment 1ms, prepare 489ms)
+
+
+
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
+[exit 0]
+[harness-isolation] outer_db=wsx_771592356bb3424269e9 inner_db=wsx_771592356bb3424269e9 outer_compose=wsx-771592356bb3424269e9 inner_compose=wsx-771592356bb3424269e9 status=matched
+[stack-admission] load1=29.56 cores=10 perCore=2.96 running=0/2
+[stack-admission] 排队中：机器每核负载 2.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.04（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 20s
+[test-isolation] id=run-mssu1bu2-130fda23-771592356bb3 db=wsx_771592356bb3424269e9 compose=wsx-771592356bb3424269e9 pg=22389 redis=27389
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api
+
+[db-isolation] db=wsx_771592356bb3424269e9 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"569041a6-bcc6-46c1-ade3-3556c7b799e7","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"30a5784d-43c9-4664-98bb-d8b644271d2a","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"e501b80c-e951-44cc-9d0d-e3dcc670d56c","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b6f5e535-ab8f-47df-b872-9d5274e47b17","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:168:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f23c43a9-3ea0-4788-ae56-d8bfd5ea2138","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmDirections (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:116:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"fd65da54-343c-45e1-8d6d-cfc6d0786099","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmOutline (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:142:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 21103ms
+   ✓ F168 guided research session list and recovery > creates once per owner idempotency key and resumes from the persisted stage 422ms
+   ✓ F168 guided research session list and recovery > does not reveal an owner's private session to another member in the same org 324ms
+   ✓ F168 guided research session list and recovery > lists and restores a session for an explicit collaborator 482ms
+   ✓ F168 guided research session list and recovery > rejects collaborator ids that are not members of the current organization 358ms
+   ✓ F168 guided research session list and recovery > rejects an idempotency replay whose brief or collaborators differ 484ms
+   ✓ F168 guided research session list and recovery > RLS also hides the session when queried under another tenant 415ms
+   ✓ F168 guided research session list and recovery > persists the ordered post-outline lifecycle and rejects premature completion 682ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  18:57:30
+   Duration  37.09s (transform 8.46s, setup 0ms, collect 1.47s, tests 21.10s, environment 0ms, prepare 179ms)
+
+[db-isolation] db=wsx_771592356bb3424269e9 peak_connections=4
+
+
+$ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/guided-research-demo-state.test.ts tests/guided-research-skill-state.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+
+ ✓ tests/guided-research-stage.test.ts (2 tests) 5ms
+ ✓ tests/guided-research-demo-state.test.ts (4 tests) 11ms
+ ✓ tests/guided-research-skill-state.test.ts (7 tests) 33ms
+
+ Test Files  3 passed (3)
+      Tests  13 passed (13)
+   Start at  18:58:20
+   Duration  5.38s (transform 510ms, setup 3.36s, collect 691ms, tests 49ms, environment 4ms, prepare 5.26s)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx
+[exit 1]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (4 tests) 4653ms
+   ✓ guided research skill assistant > only changes the editor after explicit application and restores it on undo 2312ms
+   ✓ guided research skill assistant > sends non-empty input with Enter and disables empty sends 408ms
+   ✓ guided research skill assistant > mounts one assistant and one editor while using a responsive disclosure 587ms
+   ✓ guided research skill assistant > keeps the assistant interactive when local storage writes fail 1339ms
+ ❯ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests | 2 failed) 5159ms
+   × F169 guided research live checkpoints > loads a generated direction candidate, saves human edits, and then enters outline 2003ms
+     → Unable to find an element with the display value: 候选方向.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+   × F169 guided research live checkpoints > keeps confirmation disabled when every direction is disabled 1497ms
+     → Unable to find an element with the display value: 方向.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+   ✓ F169 guided research live checkpoints > loads and confirms an edited non-empty outline 1657ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (8 tests) 8993ms
+   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 4987ms
+   ✓ F168 guided research home live data > renders server history and resumes from the server-authored stage 1067ms
+   ✓ F168 guided research home live data > creates a persisted session before entering directions 798ms
+   ✓ F168 guided research home live data > uses the session URL to restore the server-authored stage 642ms
+   ✓ F168 guided research home live data > reuses the create idempotency key after remount and clears it only after success 575ms
+   ✓ F168 guided research home live data > does not reuse an idempotency key after the brief changes into a different create intent 593ms
+ ✓ tests/ui/guided-research-flow.test.tsx (13 tests) 13442ms
+   ✓ Issue #1073 · guided deep research UI-first flow > home distinguishes resumable and completed research 2502ms
+   ✓ Issue #1073 · guided deep research UI-first flow > topic confirmation keeps the user's brief editable 820ms
+   ✓ Issue #1073 · guided deep research UI-first flow > AI directions and outline remain editable before search 1967ms
+   ✓ Issue #1073 · guided deep research UI-first flow > clamps a requested future checkpoint to the session maximum 3475ms
+   ✓ Issue #1073 · guided deep research UI-first flow > applies a direction Skill suggestion to the live editor 848ms
+   ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 1330ms
+   ✓ Issue #1073 · guided deep research UI-first flow > retains search on lifecycle failure and offers retry without navigation 521ms
+   ✓ Issue #1073 · guided deep research UI-first flow > retains report on completion failure and offers retry without navigation 971ms
+   ✓ Issue #1073 · guided deep research UI-first flow > search and report expose evidence-bearing states 409ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (6 tests) 5412ms
+   ✓ F174 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 1830ms
+   ✓ F174 signed guided-research visual contract > keeps a contextual Skill workspace with one main editor on every non-home step 325ms
+   ✓ F174 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 2490ms
+   ✓ F174 signed guided-research visual contract > keeps the signed search and report information hierarchy 602ms
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  2 failed | 32 passed (34)
+   Start at  18:58:28
+   Duration  39.26s (transform 14.03s, setup 6.30s, collect 29.04s, tests 37.66s, environment 52.76s, prepare 19.84s)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-checkpoints-live.test.tsx > F169 guided research live checkpoints > loads a generated direction candidate, saves human edits, and then enters outline
+TestingLibraryElementError: Unable to find an element with the display value: 候选方向.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/guided-research-checkpoints-live.test.tsx:45:25
+     43|     render(<GuidedResearchFlow step="directions" sessionId="grs-f169" …
+     44| 
+     45|     expect(await screen.findByDisplayValue("候选方向")).toBeInTheDocum…
+       |                         ^
+     46|     fireEvent.change(screen.getByTestId("research-direction-title-d1")…
+     47|     fireEvent.click(screen.getByTestId("research-confirm-directions"));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/guided-research-checkpoints-live.test.tsx > F169 guided research live checkpoints > keeps confirmation disabled when every direction is disabled
+TestingLibraryElementError: Unable to find an element with the display value: 方向.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-6xl flex-col gap-5 pb-10"[39m
+      [33mdata-layout[39m=[32m"signed-desktop"[39m
+      [33mdata-testid[39m=[32m"research-flow-directions"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"rounded-lg border border-border bg-card px-4 py-3"[39m
+        [33mdata-testid[39m=[32m"research-flow-progress"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-4 w-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回[0m
+          [36m</button>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid min-w-0 flex-1 grid-cols-5 gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-primary text-primary-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M20 6 9 17l-5-5"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m确认主题[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-current[39m=[32m"step"[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground font-medium text-foreground"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-primary bg-accent text-accent-foreground"[39m
+                [36m>[39m
+                  [0m2[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"truncate text-11"[39m
+                [36m>[39m
+                  [0m研究方向[0m
+                [36m</span>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex min-w-0 items-center gap-2"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground text-muted-foreground"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-10 transition-colors border-border text-muted-foreground"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-lock-keyhole h-3 w-3"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<circle[39m
+                      [33mcx[39m=[32m"12"[39m
+                      [33mcy[39m=[32m"16"[39m
+                      [33mr[39m=[32m"1"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"12"[39m
+                      [33mrx[39m=[32m"2"[39m
+                      [33mwidth[39m=[32m"18"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"10"[39m
+  ...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/guided-research-checkpoints-live.test.tsx:63:18
+     61|     });
+     62|     render(<GuidedResearchFlow step="directions" sessionId="grs-f169" …
+     63|     await screen.findByDisplayValue("方向");
+       |                  ^
+     64|     fireEvent.click(screen.getByLabelText("启用方向 1"));
+     65|     expect(screen.getByTestId("research-confirm-directions")).toBeDisa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+[harness-verify v1 sha256=c435b57af428dd9dc46277602e5795cd0c7f8e9bff1a117e600c6eeed1a320e6 commit=31ea1aa183c5714c06a1184bd33bb5148642f1b0 at=2026-08-14T10:59:08.808Z]

@@ -3943,8 +3943,8 @@
     {
       "id": "F174",
       "title": "引导式 Deep Research 六屏保真与研究入口收口",
-      "user_visible_behavior": "用户从主导航进入 /research 时直接看到已签核的研究首页；点击创建研究先填写必填名称和最多 5 个可选标签，确认后才进入主题表单，名称与标签随会话持久化并显示在历史卡片；之后依次进入方向、大纲、Web Search 和报告六屏。页面的信息层级、宽度、卡片与表单密度、步骤进度和主操作位置与 ui-preview/01-home.png 至 06-report.png 一致。引导式六屏不显示 Research Studio 二级左栏，旧 Studio 仅在显式 ?screen= 页面保留菜单，研究主入口不再落到 ?screen=detail；1280px 与 1920px 桌面视口下核心内容不被裁切。",
-      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R9-R10",
+      "user_visible_behavior": "用户从主导航进入 /research 时直接看到已签核的研究首页；点击创建研究先填写必填名称和最多 5 个可选标签，确认后才进入主题表单，名称与标签随会话持久化并显示在历史卡片；之后依次进入方向、大纲、Web Search 和报告六屏。每个非首页步骤都有上下文研究 Skill，建议只有经用户明确应用才修改当前步骤，且可撤销；服务端持久化阶段顺序解锁下一步并阻止未来步骤，刷新搜索后保持搜索阶段。搜索与报告明确标为演示，不冒充真实 Web Search 或研究结论；完成后首页卡片显示「已完成」并提供「查看报告」。页面的信息层级、宽度、卡片与表单密度、步骤进度和主操作位置与 ui-preview/01-home.png 至 06-report.png 一致。引导式六屏不显示 Research Studio 二级左栏，旧 Studio 仅在显式 ?screen= 页面保留菜单，研究主入口不再落到 ?screen=detail；1280px 与 1920px 桌面视口下核心内容不被裁切。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R11",
       "depends_on": [
         "F169"
       ],
@@ -3952,13 +3952,15 @@
       "status": "in_progress",
       "owner": "coord-deep-research",
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.tsx",
-        "pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx",
-        "pnpm --filter web exec vitest run tests/research-rewrite.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts",
+        "pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/guided-research-demo-state.test.ts tests/guided-research-skill-state.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/research-rewrite.test.ts",
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck",
+        "node apps/api/scripts/lint-permission-paths.mjs",
+        "node .harness/scripts/lint-arch-deps.mjs",
         "node .harness/scripts/lint-ui-material.mjs",
         "cd apps/web && ./scripts/lint-design.sh"
       ],

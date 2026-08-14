@@ -45,6 +45,9 @@ describe("F174 signed guided-research visual contract", () => {
     );
 
     expect(screen.queryByTestId("shell-left-panel")).not.toBeInTheDocument();
+    for (const label of ["研究 Studio 列表", "研究计划详情", "新建深度研究", "研究主题详情", "现场深度研究"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
     await waitFor(() => expect(screen.getByTestId("research-history-empty")).toBeInTheDocument());
 
     render(
@@ -66,6 +69,33 @@ describe("F174 signed guided-research visual contract", () => {
     const progress = screen.getByTestId("research-flow-progress");
     expect(progress).toHaveClass("rounded-lg", "border");
     expect(screen.getByTestId("research-flow-search")).toHaveAttribute("data-layout", "signed-desktop");
+  });
+
+  it("keeps a contextual Skill workspace with one main editor on every non-home step", () => {
+    for (const step of ["brief", "directions", "outline", "search", "report"] as const) {
+      const view = render(<GuidedResearchFlow step={step} />);
+      const assistant = screen.getByTestId("research-skill-assistant");
+      const workspace = assistant.closest("[data-layout]");
+
+      expect(workspace).toHaveAttribute("data-layout", "skill-workspace");
+      expect(screen.getByTestId("research-step-main")).toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it("keeps future checkpoints disabled and labels every demo output", () => {
+    const directions = render(<GuidedResearchFlow step="directions" />);
+    for (const futureStep of ["报告大纲", "资料研究", "研究报告"]) {
+      expect(screen.getByRole("button", { name: futureStep })).toBeDisabled();
+    }
+    directions.unmount();
+
+    const search = render(<GuidedResearchFlow step="search" />);
+    expect(search.container).toHaveTextContent("演示检索结果，不代表真实 Web Search");
+    search.unmount();
+
+    const report = render(<GuidedResearchFlow step="report" />);
+    expect(report.container).toHaveTextContent("演示报告，不作为真实研究结论");
   });
 
   it("keeps the signed search and report information hierarchy", () => {

@@ -115,6 +115,8 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
 
     expect(screen.getByTestId("research-history")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("research-continue-r-energy")).toBeInTheDocument());
+    expect(screen.getByTestId("research-history-r-grid")).toHaveTextContent("已完成");
+    expect(screen.getByTestId("research-view-r-grid")).toHaveTextContent("查看报告");
     fireEvent.click(screen.getByTestId("research-continue-r-energy"));
     expect(onStepChange).toHaveBeenCalledWith("search", "r-energy");
 

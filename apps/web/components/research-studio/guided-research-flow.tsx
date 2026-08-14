@@ -151,7 +151,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
-                  "flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-70",
+                  "flex min-w-0 items-center gap-2 text-left disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
                   index === current ? "font-medium text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -235,7 +235,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
               <CardContent className="mt-auto space-y-3">
                 <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
                 {item.status === "completed" ? (
-                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看研究</Button>
+                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看报告</Button>
                 ) : (
                   <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" />继续研究</Button>
                 )}

@@ -19,13 +19,12 @@ describe("guided research browser routing", () => {
     process.env.FULLSTACK_E2E_API_ORIGIN = "http://127.0.0.1:3274";
 
     const rewrites = await nextConfig.rewrites();
-    const researchSources = rewrites
-      .map((rewrite) => rewrite.source)
-      .filter((source) => source.includes("/research"));
+    const researchRewrites = rewrites
+      .filter((rewrite) => rewrite.source.includes("/research"));
 
-    expect(researchSources).toEqual([
-      "/__fullstack_api/research",
-      "/__fullstack_api/research/:path*",
+    expect(researchRewrites).toEqual([
+      { source: "/__fullstack_api/research", destination: "http://127.0.0.1:3274/research" },
+      { source: "/__fullstack_api/research/:path*", destination: "http://127.0.0.1:3274/research/:path*" },
     ]);
   });
 });
