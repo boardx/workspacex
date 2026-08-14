@@ -93,3 +93,21 @@ Visual verification must compare the implemented research step at a desktop view
 - Making the assistant width literal rather than proportional would drift from the approved one-third layout on larger screens.
 - Reusing the split wrapper for the report would preserve the current narrow-reading defect; report mode must be selected explicitly.
 - Tightening all padding indiscriminately could reduce editor usability; compactness applies primarily to page rhythm and summary cards, not minimum interactive target sizes.
+
+## Confirmed Follow-up: Single-page Step Navigation
+
+The guided workflow remains one `/research` page. `brief`, `directions`, `outline`, `search`, and `report` are component states, not separate browser navigations.
+
+- Moving between checkpoints updates React state without `window.location.assign`, a Next.js route transition, or a document reload.
+- The address is normalized to `/research`; `flow` is not rewritten for every checkpoint.
+- A browser refresh returns to the research home. Persisted sessions remain resumable from the history list through the existing API state.
+- Initial legacy `flow` and `session` query values may still be read for backward-compatible entry, but the first in-page transition normalizes the address.
+
+The desktop composition also changes at the page-shell level:
+
+- The guided flow uses the full available content width rather than a centered `max-w-6xl` island.
+- On guided steps, the Skill assistant occupies the left third from the content area's left edge.
+- The five-step progress control and current step content share the right two-thirds column.
+- On the report step, the progress control keeps the right-column alignment while the report body remains full width below it.
+
+Automated tests must prove that an in-page checkpoint click changes the rendered step while preserving the document and calling `history.replaceState` rather than a navigation API.
