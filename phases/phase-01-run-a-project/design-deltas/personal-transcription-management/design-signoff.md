@@ -3,7 +3,7 @@ status: confirmed
 bundle: personal-transcription-management
 base_bundle: personal-realtime-transcription
 scope: personal-transcription-real-tags-edit-delete
-covers: [F177]
+covers: [F178]
 confirmed_by: "qq13613030605"
 confirmed_at: "2026-08-14T08:30:00+08:00"
 ---

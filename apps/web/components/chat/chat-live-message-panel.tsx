@@ -7,6 +7,7 @@ import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lu
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
+import { MessageThinkingChain } from "@/components/chat/message-thinking-chain";
 import {
   createMessage,
   describeMessageFailure,
@@ -711,6 +712,14 @@ export function ChatLiveMessagePanel({
                         )}
                       </button>
                     </div>
+                    {/*
+                      2026-08-14 人类实测反馈重做：思考/工具调用链挂在这条消息自己身上
+                      （紧跟身份行、在正文气泡之前），不是只在 composer 下方为"当前正在提交
+                      的 run"临时显示——翻页、切线程再切回来，历史消息的思考链依然可见。
+                      只对 AI 消息、且有 `agentRunId` 时渲染；`MessageThinkingChain` 内部
+                      挂载才惰性拉取，失败静默降级，不影响消息正文本身。
+                    */}
+                    {isAgent ? <MessageThinkingChain agentRunId={message.agentRunId} bearer={bearer} /> : null}
                     <div
                       className={`rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent
@@ -772,6 +781,10 @@ export function ChatLiveMessagePanel({
                     <span className="font-medium">Agent</span>
                     <Badge tone="outline">正在生成…</Badge>
                   </div>
+                  {/* 2026-08-14 重做：在途 run 的工具调用链也挂在这条流式气泡自己身上，
+                      不再挂在 composer 下方——同一条 run 落库后接力给 `MessageThinkingChain`
+                      （上面持久消息那条），视觉位置不因"是否还在流式中"而跳动。 */}
+                  {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div className="rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
                     {/* 同一个 MarkdownMessage——流式草稿与落库后的最终消息渲染路径不该是两套。
                         流式期间未闭合的 ```mermaid 围栏不会被 extractMermaidBlocks 命中，故先当
@@ -798,6 +811,7 @@ export function ChatLiveMessagePanel({
                     <span className="font-medium">Agent</span>
                     <Badge tone="outline">正在思考…</Badge>
                   </div>
+                  {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div
                     className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-panel px-3.5 py-3"
                     role="status"
@@ -978,16 +992,12 @@ export function ChatLiveMessagePanel({
             </div>
           </div>
           {/*
-            #728 第 8 轮 P10 —— 原文案「不会合成即时 AI 回复」在个人对话已经能收到
-            真实 AI 回复的今天是假的（P6/P7 的取证截图里正上方就摆着一条真实回复，
-            两句话字面矛盾）。改成描述真正的行为约束：回复是服务端跑完真实 run 后
-            写回的持久消息，不是前端本地伪造/拼出来的——这条约束仍然成立，只是
-            换一种不自相矛盾的说法。`tests/ui/chat-read-screen.test.tsx:500` 与
-            `e2e/chat-read.spec.ts:61` 两处断言已同步改成新文案，不是删掉旧断言。
+            2026-08-14 人类实测反馈：这条常驻免责声明式提示（#728 第 8 轮 P10 加的）是多余的——
+            它描述的行为约束（回复是服务端真实 run 写回，不是本地伪造）本就没有反例会让用户
+            怀疑，常驻占一行纯噪音。约束本身没变，只是不再需要一直印在界面上说给用户看；
+            `tests/ui/chat-read-screen.test.tsx`/`e2e/chat-read.spec.ts` 两处依赖这段文案的
+            断言随本次改动一并删除（不是改文案，是这条提示整个不再存在）。
           */}
-          <p className="px-1.5 pb-0.5 text-10 text-muted-foreground">
-            只显示服务端持久化的消息；AI 回复来自真实执行完成的写回，不在本地伪造。
-          </p>
         </div>
         {speech.listening ? (
           // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
@@ -1010,7 +1020,6 @@ export function ChatLiveMessagePanel({
           </p>
         ) : null}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
-        {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />

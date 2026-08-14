@@ -4004,7 +4004,7 @@
       "notes": "依据等级：[已签核] `skills` 束（covers 含 F68，status: confirmed 2026-07-30）——本 feature **零新增契约**，`rateMessage`（POST /messages/:messageId/rating）的形状 F68 已定并签核。\n\n⚠ 实测缺口（2026-08-14，SHA 8cf89fad）：F68 标着 passing，但它只做到 application 层——`RatingRepositoryPort` 全仓只有声明与引用、**没有任何 infrastructure 实现**；migrations 里 grep `message_rating` **零命中**；`skill.controller.ts` 自己写着「rateMessage 不在 #459 范围内」（**无 HTTP 路由**）；F68 的四条 verification 全在 tests/capability/skill/ 且**没有一条 import PgDatabase**（纯内存 fake）。所以本 feature 是给一条已签核契约**补地基**，形态同 F163（零新增契约、纯接线），不是新设计。\n\n⚠ **归因从 `agent_runs` 查出来，不接受前端传入**——这是本 feature 的核心不变量，也是反证要守的边界：前端能传归因，就等于任何用户都能伪造某个 skill 的满意度。消息经 `chat_messages.agent_run_id` 关联到 run，run 上有 `agent_version_id` / `skill_version_ids`。反证测试构造一个「请求体里带伪造 skillVersionId」的调用，断言落库的是服务端查出来的那个、不是请求体里的那个。\n\n⚠ 幂等键 `(messageId, raterId)`（契约 V13 逐字）：同一人对同一条消息重复评价只计一次，不是插两行也不是报错。\n\n⚠ 归因缺失（`ATTRIBUTION_MISSING`）是**记录后仍返回的告警型失败**，不是丢弃——契约注释逐字：缺 skillVersionId 的评价不计入任何 skill 满意度并进数据质量报表（I-20/V9）。\n\n本 feature 是 PROP-FEEDBACK-LOOP-E2E-001 的 FB-1（coord-main 2026-08-14 批准执行顺序 FB-1→FB-4）。FB-2/FB-3/FB-4 需要 phase-03 `feedback-loop` 束先签核，不在本条范围内。"
     },
     {
-      "id": "F177",
+      "id": "F178",
       "title": "个人转录历史管理：真实标签筛选、名称标签修改与确认删除",
       "user_visible_behavior": "用户进入 /rec 时，标签筛选只显示自己真实转录中存在的标签，不再出现固定示例。每张历史卡片右下角菜单可修改名称与最多 5 个标签，刷新后仍保持；也可在二次确认后永久删除转录正文与全部 capture，卡片及无引用标签立即消失。正在录音或收尾时拒绝修改和删除；删除保留不含正文的用量审计。",
       "spec_ref": "05-rec/uc-5-7-个人转录历史管理.md#R3",
@@ -4021,12 +4021,34 @@
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "evidence/F177.verify.log @ 2026-08-14T01:32:18.798Z",
+      "evidence": "evidence/F178.verify.log @ 2026-08-14T01:32:18.798Z",
       "notes": "属 personal-transcription-management design delta，挂靠已确认 personal-realtime-transcription 束。垂直切片：契约 + owner-scoped tags/update/delete API + usage 外键迁移 + /rec 卡片菜单与弹窗。删除正文与 capture，但保留不含正文的 realtime_asr_usage_events；活动 capture 必须拒绝修改和删除。Issue 必须由 harness sync 创建后再 claim；共享热点为 personal-transcription-usecases/repository/controller、personal-transcription.ts 与 realtime-transcription-history.tsx。",
       "priority": 1,
       "area": "recording",
       "capability": "CAP-WEB",
       "sprint": "06"
+    },
+    {
+      "id": "F177",
+      "title": "换时长档位真实落库（BP-03：PUT duration-tier + 议程环节数派生）",
+      "user_visible_behavior": "组织管理员对一个蓝本选定/切换时长档位（半天/一天/两天/三天），后端真实落库并返回该档位的议程环节数（随档位变，不硬编码 7/11/14/19）；升档（纯新增）无需确认直接生效；降档会移除环节时，不带 confirmed=true 的请求被拒绝并返回将被移除的清单，带 confirmed=true 才生效，被移除的环节标记为可恢复（切回该档位可恢复，不静默丢弃）；目标档位为 custom 时如实拒绝（该档规则未裁，不猜一个推导式）。GET /blueprints 列表页的 agendaSegmentCount 随之从写死的 0 变为按当前档位实时派生。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F175"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F177.verify.log @ 2026-08-14T01:30:11.219Z",
+      "notes": "① 这是 #991 蓝本闭环 backlog 的第三件（BP-03），也是 PROP-PROJECT-LIFECYCLE-E2E-001（track P）P3「设时长档位」的实现。\n② 依据等级：域/应用层早已就位且高质量——`domain/templates/agenda-segment-table.ts`（R3 主表 7/11/14/19 逐字来自需求文档，`optional` 是文件自己声明的结构判断、非对 D-8 的裁决）、`domain/templates/duration-tier.ts`（纯函数 `planDurationTierChange`）、`application/templates/set-duration-tier.ts`（编排）均已存在且有独立单测覆盖；缺的只是仓储 + 控制器这一层（同 F175/F174 的缺口形状）。\n③ 范围边界——做：`blueprints` 加行级 `revision` 列（CAS 令牌，同 F174 的 `item_revision`同一动机）；仓储 `setDurationTier()`：SELECT FOR UPDATE 读快照、版本比对、调用纯函数、按结果落库或拒绝；控制器 `PUT /blueprints/:id/duration-tier`；顺带修正`list()` 里硬编码的 `agendaSegmentCount: 0`，改为随 `duration_tier` 实时派生（F175 遗留的诚实占位，档位是 'custom' 时其值本就是 0，现在有真实档位后必须跟着变，否则会出现「换了档位但列表页数字不动」的真实不一致）。不做：`setFormatAndLanguage`/`setModelStrategy`/`setQuotaPolicy`（各自独立 BP 条目）。\n④ ⚠ 真实发现的契约缺口（登记为 `KNOWN_CONTRACT_GAPS.T13`，不是本 feature 发明的，也不是本 feature 能单方补的）：`setDurationTier.in.expectedVersion` 要求调用方传入，但没有任何契约操作把它读出来——`listBlueprints.out` 不含蓝本行级的乐观并发令牌，也没有 `getBlueprint` 单条读操作。本 feature 的后端因此是**真实、可测、但前端暂时无法合法调用**的状态（真库测试直接读 `revision` 构造合法请求，同 T13 注释里写明的「不得为了看起来能用而发明一个契约没有的读端点」）——与 F175 对 `reverse-from-project`的处理是同一类诚实。真正前端接线要等这个读路径缺口被补上（新增 `getBlueprint` 或扩 `listBlueprints.out`，两者都是新增契约面，需走 delta 重签）。\n⑤ 编号：读活数据 `git show origin/main:.../feature_list.json` 取最大号=F176，F177 在两处均空闲，取 F177（#1094 教训：编号按快照取号会撞，已按此纪律核对）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
     }
   ]
 }

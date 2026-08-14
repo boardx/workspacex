@@ -80,11 +80,11 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    */
   await page.setViewportSize(DESKTOP);
   await page.goto("/chat");
+  // 2026-08-14：#1179 把个人对话「新建」改成一键创建（`personal-chat-screen.tsx`
+  // 直接 `handleCreate(null)`），不再弹标题表单——旧版这里等 `chat-thread-title-input`
+  // 会永远超时。创建走真实 mutateThread，成功后用 `router.replace` 把新线程 id
+  // 写进 URL —— 等它落地，而不是等固定时长再赌一把。
   await page.getByTestId("chat-thread-create").click();
-  await page.getByTestId("chat-thread-title-input").fill("对话保真取证专用");
-  await page.getByTestId("chat-thread-title-submit").click();
-  // 创建走真实 mutateThread，成功后 `personal-chat-screen.tsx` 用 `router.replace`
-  // 把新线程 id 写进 URL —— 等它落地，而不是等固定时长再赌一把。
   await page.waitForURL(/\/chat\?thread=/);
   await shoot("chat-main-personal-created.png", "chat-thread-detail");
 
@@ -125,7 +125,8 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   const fullReplyText = `${CHAT_READ_E2E.agentReplyPrefix} ${probeText}`;
   const streamingRow = page.getByTestId("chat-message-row-streaming");
   await streamingRow.waitFor({ state: "visible", timeout: 15_000 });
-  // ⚠ 只读 `.copilotkit-message-markdown` 这一段——整行 `textContent` 还带着
+  // ⚠ 只读 `chat-ai-markdown`（`MarkdownMessage` 自己的 testid，见
+  // `components/chat/markdown-message.tsx`）这一段——整行 `textContent` 还带着
   // "Agent" 名字标签与 `正在生成…` 状态徽标（`chat-live-message-panel.tsx` 同一个
   // `<li>` 里的兄弟节点）。第一版拿整行 `textContent` 去跟 `fullReplyText` 比长度：
   // 实测抓到的其实是真实的半截内容（"对话保真取"，回复原文 13 字里的前 5 字），
@@ -133,8 +134,13 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 半截内容` 反而比 `fullReplyText` 更长，被误判成"已经是完整回复"而拒绝——
   // 这里只取真正的回复内容，长度比较才对应得上 `loopback-model-provider.ts`
   // 自己的协议，不会被展示层的标签文字污染。
+  // 2026-08-14 实测发现：这里原来选的 `.copilotkit-message-markdown` 在本仓
+  // 从未存在过（`grep` 全仓零命中），选择器一直是错的——只是此前从没有一次
+  // 跑到这一步真去读它（被更早的「等标题表单」步骤挡住了）。选择器错误时
+  // `.textContent()` 没有自带超时，会一路等到整条测试的 300s 预算耗尽才报，
+  // 表现成"卡死"而不是"选择器找不到元素"，掩盖了真正的原因。
   const midStreamText = (
-    await streamingRow.locator(".copilotkit-message-markdown").textContent()
+    await streamingRow.getByTestId("chat-ai-markdown").textContent()
   )?.trim() ?? "";
   if (midStreamText === "") {
     throw new Error(

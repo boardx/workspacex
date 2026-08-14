@@ -7,9 +7,9 @@ pnpm exec tsx .harness/scripts/validate-fl.ts 01
 pnpm exec vitest run .harness/scripts/lib/design-signoff.test.ts
 ```
 
-F177 在本 delta 为 `pending` 时必须被 design gate 拒绝；人类改为 `confirmed` 后才允许 claim 和运行时代码修改。
+F178 在本 delta 为 `pending` 时必须被 design gate 拒绝；人类改为 `confirmed` 后才允许 claim 和运行时代码修改。
 
-## F177 实现门
+## F178 实现门
 
 ```bash
 pnpm --filter @repo/contracts run test
