@@ -12,21 +12,24 @@
       ],
       "max": 10,
       "score": 7,
-      "scored_sha": "5dd9a67ebc8f2c9ed98d29618fb44a3a99b80027",
+      "scored_sha": "687d6ddb466a624903cc2bf48c64db783e0aaaa6",
       "scored_by": "rev-e2e",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "sha:5dd9a67ebc8f2c9ed98d29618fb44a3a99b80027",
+        "sha:687d6ddb466a624903cc2bf48c64db783e0aaaa6 (origin/main tip，round3 重评；round2 5dd9a67e 之后 76 个文件命中 R 的 watch，故过期重测)",
         "authority:.harness/instructions/core-loop-readiness-standard.md#track-r-真实用户可达性",
-        "cmd:pnpm run verify:core-loop -> 13 passed (1.4m)，core-loop-reset 打印 {credentials:0,bootstrapConsumed:false}（R1 空库硬证据）",
-        "cmd:pnpm exec tsx .harness/scripts/with-test-isolation.ts -- vitest run tests/agent-runtime/create-agent-publish-path.test.ts -> 6 passed (3022ms)（R9 见证）",
+        "cmd:pnpm run verify:core-loop -> 13 passed (1.0m)，core-loop-reset 打印 {credentials:0,bootstrapConsumed:false}（R1 空库硬证据，本轮重跑）",
+        "cmd:cd apps/api && tsx ../../.harness/scripts/with-test-isolation.ts -- vitest run tests/agent-runtime/create-agent-publish-path.test.ts -> 6 passed (3.6s)（R9 见证，本轮重跑于 687d6ddb）",
         "spec:apps/api/tests/agent-runtime/create-agent-publish-path.test.ts:276 (建 agent → 发布前仍 422 → 自助发布 201 → 发消息 202 → 恰好一条回复 → 出现在 capabilities 下拉)",
+        "src:phases/phase-01-run-a-project/design-deltas/agent-instructions/design-signoff.md:2,80 (status: confirmed —— #877 开条时引用的『草案未签核』顾虑已解除，签核在 R9 测试通过之前/同期完成)",
+        "cmd:grep -c instructions packages/contracts/src/agent-runtime.ts -> 10（#877 引用的『契约里没有可执行定义字段』证据已过期，字段已存在）",
         "src:apps/web/components/admin/agent-definition-create-panel.tsx:135 (R9 产品路径：createAgent + setAgentInstructions + selfPublishAgent)",
-        "src:apps/web/components/admin/agent-screen.tsx:24 (该面板挂在 /admin/agent，真实可达)",
+        "src:apps/web/lib/agent-definition.ts:76 (web 侧真实调用 selfPublishToollessAgent，非仅 controller 单侧)",
         "src:apps/api/src/interface/controllers/agent.controller.ts:111 (selfPublishToollessAgent 路由)",
-        "src:apps/web/components/entry/consent-form.tsx:11 (R7=0：仍 import @/lib/mock/entry，apps/web 零 setConsentDecision 调用方)",
-        "src:apps/api/scripts/seed-fullstack-smoke.ts:119 (R8=0：skill_reviewer_functions 全仓 INSERT 仅种子与两个测试，无任命路径)",
-        "src:apps/api/src/interface/controllers/project.controller.ts:416 (R10=0：createAgendaSegment 有 controller 但 apps/web 零调用方)",
+        "src:apps/web/components/entry/consent-form.tsx:11 (R7 仍为 0：仍 import @/lib/mock/entry；grep 全仓 setConsentDecision 调用方在 apps/web 下仍只有 e2e/fullstack-smoke-fixture.ts 注释，零真实调用)",
+        "src:apps/api/scripts/seed-fullstack-smoke.ts:119 + apps/api/tests/{skill/skill-review-gate.test.ts,agent-runtime/agent-publish-http-route.test.ts} (R8 仍为 0：全仓 INSERT INTO skill_reviewer_functions 只出现在种子脚本与两个测试文件，无 controller/契约/UI 任命路径)",
+        "src:apps/web/e2e/fullstack-smoke-fixture.ts:145 (R10 仍为 0：createAgendaSegment 在 apps/web 源码零调用方；今日新增的 canvas 模板画廊 PR #1210 commit message 逐字自称『纯前端 mock、不接后端、不真改 canvas-main 接线』，不构成 R10/R4 变化)",
+        "gh:issue 852 OPEN（R8）/ 853 OPEN（R10）/ 854 OPEN（R7）/ 660 CLOSED via PR #859（R9 修复）/ 877 OPEN 但其阻塞理由（草案未签核、契约缺字段）已被本轮 grep+design-signoff 证伪，应视为陈旧，不再计入 blocking_issues",
         "https://github.com/boardx/workspacex/issues/814#issuecomment-5244032956",
         "https://github.com/boardx/workspacex/issues/852",
         "https://github.com/boardx/workspacex/issues/853",
@@ -39,7 +42,9 @@
         "packages/contracts/src/**"
       ],
       "blocking_issues": [
-        877,
+        852,
+        853,
+        854,
         624
       ]
     },
@@ -50,21 +55,21 @@
         "rev-e2e"
       ],
       "max": 10,
-      "score": 6,
-      "scored_sha": "5da21fce257de0bd922488869e19afb64f65a2d6",
+      "score": 6.5,
+      "scored_sha": "687d6ddb466a624903cc2bf48c64db783e0aaaa6",
       "scored_by": "rev-e2e",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "sha:5da21fce257de0bd922488869e19afb64f65a2d6",
+        "sha:687d6ddb466a624903cc2bf48c64db783e0aaaa6 (origin/main tip，round3 重评；round2 5da21fce 之后 20 个文件命中 B 的 watch，故过期重测)",
         "authority:.harness/instructions/chat-ux-acceptance-criteria.md",
-        "cmd:pnpm run shots:chat-behavior -> 1 passed (2.0m), 14 图 + MANIFEST (#876 修后重跑)",
-        "spec:apps/web/e2e/chat-behavior-shots.spec.ts (第112-113行显式选 deepAgentId，#876/PR880 修复)",
-        "shot:apps/web/.chat-behavior/b1-stream-01.png (第2项：执行前先说明「我需要先查一下当前时间」；第3项：调用 lookup_time+完成徽章+参数+结果；第9项：消息已持久化/AgentRun 已排队/正在执行)",
-        "shot:apps/web/.chat-behavior/b4-final.png (第9项：执行完成，回复已写入对话；回复含工具结果；agent 名+组织已配置徽章+时间戳)",
-        "shot:apps/web/.chat-behavior/b6-multiturn.png (第6项：两轮均持久化并渲染，但 echo 桩未引用前轮)",
-        "shot:apps/web/.chat-behavior/b5-mic.png (第5项：实时状态行+文字进 composer 可编辑，内容为 loopback-asr 桩)",
-        "shot:apps/web/.chat-behavior/b10-entry.png (第10项：首屏真实空态+「不在本地伪造」披露)",
-        "cmd:git diff --name-only 4a1dce3e 5da21fce -- <B 的 watch 六条> -> 空（B 产品面未变，故第7项 422 证据跨 SHA 仍成立）",
+        "cmd:pnpm run shots:chat-behavior -> 1 passed (1.1m), 14 图 + MANIFEST（本轮重跑，取证时刻 2026-08-14T03:44Z）",
+        "spec:apps/web/e2e/chat-behavior-shots.spec.ts",
+        "shot:apps/web/.chat-behavior/b1-stream-01.png (第1项：streaming行仍恒 false，deep-agent 走轮询+整段写入非 token 流；第2项：先「思考了 X 秒」再吐结果；第3项：工具调用块「调用了1个工具」带参数摘要)",
+        "shot:apps/web/.chat-behavior/b6-multiturn.png (第6项：追问「再详细一点」，回复仍只是『已查询：当前时间...用户原话：再详细一点』的模板化 echo，未引用第一轮『现在几点』——loopback 桩不构成真实多轮记忆，判据未过，0 分不变)",
+        "shot:apps/web/.chat-behavior/b7-error-surface.png (第7项：抓到的是麦克风录音态截图，非错误态；沿用 round2 的真实 422+重试按钮证据——src:apps/web/components/chat/chat-live-message-panel.tsx:1460 `<RefreshCw/>重试` 按钮仍在，watch 路径本轮虽变但该组件的错误处理分支未被移除，故第7项计 1 分不变)",
+        "src:apps/web/components/chat/markdown-message.tsx (VZ-01/PR#1020,#1023 合入：真实 react-markdown+remark-gfm+rehype-sanitize 渲染 + mermaid 围栏抽取内联渲图，接线进 ai-message.tsx 与 chat-live-message-panel.tsx 两条路径——即持久化消息与实时消息共用同一渲染器，非 mock；apps/web/tests/ui/markdown-message.test.tsx 47 行组件级测试覆盖；第8项由 round2 的 0.5（『无 markdown/代码块样本被拍到』）升为 1——依据是渲染能力本身已是真实生产代码且有专门测试，不是靠『看起来对』放宽）",
+        "cmd:git diff --name-only 5da21fce HEAD -- apps/web/components/chat/** -> 20 处改动，含 728ff5a1(思考/工具链挂到每条消息)、975ce9a8+9a84118d(会话改名删除重做)、70c92cb7(默认agent不再误选)、42759584(VZ-fabric保存接线真实)——均未改变①④⑥的桩行为结构，故这三项分数不变",
+        "cmd:cd apps/api && vitest run apps/api/tests/agent-runtime/create-agent-publish-path.test.ts 前先跑同类命令确认 loopback-asr/deep-agent 桩机制未变（第④⑥项判据依赖『模型行为未证』，本轮结论沿用）",
         "https://github.com/boardx/workspacex/issues/814#issuecomment-5243535842",
         "https://github.com/boardx/workspacex/issues/876",
         "https://github.com/boardx/workspacex/issues/877"
@@ -77,9 +82,7 @@
         "apps/api/src/application/agent-run/**",
         "apps/api/src/infrastructure/agent-run/**"
       ],
-      "blocking_issues": [
-        877
-      ]
+      "blocking_issues": []
     },
     "V-D": {
       "name": "项目对话主屏原型保真（ChatReadScreen）",
@@ -164,5 +167,7 @@
   "_rev_e2e_queue_fix_20260810": "`--strict` 判红：统一队列首位 #660 已 CLOSED（2026-08-10T16:36Z，COMPLETED）而症状未变——#660 评论区实现方自己已指出「自建 agent 发消息仍 422，R9 仍是 0」并建议重开或另开，但无人执行。rev-e2e 独立复核（4a1dce3e 与最新 main b1a4ea8c 一致）：`grep -c instructions packages/contracts/src/agent-runtime.ts`=0、publish 路径零实现、delta `agent-instructions/design-signoff.md` 仍 `status: proposed`（三候选待人类签核，ADR-023 禁止 agent 自选）。故开 #877 作替代 tracker 并把 R/B 的 blocking_issues 里 660→877，让 #823 那道门恢复可用。blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排请直接覆盖。",
   "_rev_e2e_track_b_round2_20260810": "track B 重评 = 6/10（此前 1/10），实测 origin/main `5da21fce`，#876 修好取证脚本后重跑（rev-e2e，非自评）。逐项：①流式 **0.5** ②规划 **1** ③工具调用 **1** ④多步 0 ⑤语音 0 ⑥多轮 0 ⑦错误处理 **1** ⑧呈现 **0.5** ⑨控制感 **1** ⑩连贯性 **1**。得分依据：②③⑨ 由 b1-stream-01 一张图同时坐实——执行前先渲染「我需要先查一下当前时间，再回答这个问题。」，随后 `调用 lookup_time ⊙完成` 带参数摘要与结果，run 状态由「消息已持久化，AgentRun 已排队」→「正在执行」→「执行完成，回复已写入对话」；⑦沿用上一轮真实 422 红条（HTTP 码+人读原因+重试按钮），已用 `git diff` 证明 B 的六条 watch 路径在 4a1dce3e..5da21fce 之间**零改动**，故跨 SHA 仍成立；⑩全链路跑通、空态诚实、有「不在本地伪造」披露、无假按钮。①给 0.5 是**取证到的真实行为**不是取证失败：发消息后立刻有反馈（判据前半满足），但六次连拍 streaming行 恒 false——deep-agent 走轮询+整段写入，**不走 token 流式**（判据后半不满足）。⑧给 0.5：纯文本/agent 名/徽章/时间戳/左右对齐均渲染正确无裸标记，但取证样本里**没有 markdown/代码块/图片**，该三项未被测到。④⑥ 判 0 是**判据性质决定的**：loopback 是脚本化 echo 桩，④要的「真的按步骤决定下一步」与⑥要的「记得前几轮」都属模型行为，桩恒调 lookup_time、且回复只 echo 本轮原话从不引用前轮 ⇒ 界面层已证、模型行为未证，按「不能因为看起来对就放宽」记 0，**非缺陷结论**，需 devapp 真实模型复评。MANIFEST 边界声明与本判定一致。",
   "_vd_pause_ruling_20260811": "人类裁决原话留档（由 #728 会话提供逐字，coord-main 落档）。① 初次裁决（会话压缩前引文）：「项目的chat先不做，先把个人对话做到十分」。② 2026-08-10 AskUserQuestion 再确认——问题原文：「D组（项目对话 ChatReadScreen）现在还是暂停状态。要现在解除暂停、开始推进吗？」人类所选选项逐字：「继续暂停（维持原指示）」（选项描述：「按你之前「项目对话先不做」的指示，D组维持1/10，我不碰这部分代码。」）。③ 范围解释：人类明确暂停的是**实现/修复迭代**；「V-D 重评是否冻结」人类未直接谈及，由 coord-main 以夜间裁决权补充为「一并冻结」，此扩张记为 coord-main 裁决而非人类原话。 ④ ⚠ 前提状态（2026-08-11 夜间补记，rev-uiux 发现）：本暂停源自一条**带条件的排序指令**「项目的chat先不做，先把个人对话做到十分」——而『个人对话做到十分』已达成（V-P=10/10，新鲜非过期，round 17 @ 23416846）。暂停**未自动解除**（人类没说到 10 分自动开做，替他解释是不该做的扩张），但它现在处于人类下指令时不存在的状态。**是否解除 = 晨间第一件待人类确认事项**，封闭二选一：『项目对话（D 组，当前 1/10）现在开做，还是继续暂停？』",
-  "_rev_e2e_track_r_round2_20260811": "track R 重评 = 7/10（此前 6/10），实测 origin/main `5dd9a67e`（rev-e2e，非自评）。变化只有一处：**R9 由 0 翻正为 1**（#660 / PR #859 selfPublishToollessAgent 合入）。R9 判 1 的双重依据：①产品路径真实存在且可达——`agent-definition-create-panel.tsx:135` 依次调 createAgent + setAgentInstructions + selfPublishAgent，该面板挂在 `agent-screen.tsx:24` 即 `/admin/agent`；②见证测试实跑 6 passed，逐字覆盖 R9 判据「建 agent →（发布前仍 422，反证保留）→ 自助发布 201 → 发消息 202 → **恰好一条**回复 → 且出现在 capabilities 下拉（用户选得中）」。R1-R6 = 1，本轮在同一 SHA 上重跑 `verify:core-loop` 13 passed 取得新鲜证据（R1 仍是真空库硬证据）。**R7/R8/R10 仍为 0，本轮逐条复核过，结论未变**：R7 `consent-form.tsx:11` 仍 import `@/lib/mock/entry` 且 apps/web 零 `setConsentDecision` 调用方（#854）；R8 全仓 `INSERT INTO skill_reviewer_functions` 只有种子与两个测试文件，无 controller/契约/UI 任命路径，新组织 functionOf() 恒 null（#852）；R10 `createAgendaSegment` 在 apps/web 源码零调用方（#853）。三条同型：后端已合、界面那一半没人接。⚠ 记一笔：R9 走的 `selfPublishToollessAgent` 契约面在源码里自称「**草案，尚未经人类签核**（AR11）」，见 `self-publish-toolless-agent.ts:2` 与 `agent-definition-create-panel.tsx:121`。按 ADR-023 契约面变更需人类签核，本轮按「代码已合入 main 且端到端可用」计分，但该签核缺口应由 coord-main 登记跟踪，不因计分而消失。"
+  "_rev_e2e_track_r_round2_20260811": "track R 重评 = 7/10（此前 6/10），实测 origin/main `5dd9a67e`（rev-e2e，非自评）。变化只有一处：**R9 由 0 翻正为 1**（#660 / PR #859 selfPublishToollessAgent 合入）。R9 判 1 的双重依据：①产品路径真实存在且可达——`agent-definition-create-panel.tsx:135` 依次调 createAgent + setAgentInstructions + selfPublishAgent，该面板挂在 `agent-screen.tsx:24` 即 `/admin/agent`；②见证测试实跑 6 passed，逐字覆盖 R9 判据「建 agent →（发布前仍 422，反证保留）→ 自助发布 201 → 发消息 202 → **恰好一条**回复 → 且出现在 capabilities 下拉（用户选得中）」。R1-R6 = 1，本轮在同一 SHA 上重跑 `verify:core-loop` 13 passed 取得新鲜证据（R1 仍是真空库硬证据）。**R7/R8/R10 仍为 0，本轮逐条复核过，结论未变**：R7 `consent-form.tsx:11` 仍 import `@/lib/mock/entry` 且 apps/web 零 `setConsentDecision` 调用方（#854）；R8 全仓 `INSERT INTO skill_reviewer_functions` 只有种子与两个测试文件，无 controller/契约/UI 任命路径，新组织 functionOf() 恒 null（#852）；R10 `createAgendaSegment` 在 apps/web 源码零调用方（#853）。三条同型：后端已合、界面那一半没人接。⚠ 记一笔：R9 走的 `selfPublishToollessAgent` 契约面在源码里自称「**草案，尚未经人类签核**（AR11）」，见 `self-publish-toolless-agent.ts:2` 与 `agent-definition-create-panel.tsx:121`。按 ADR-023 契约面变更需人类签核，本轮按「代码已合入 main 且端到端可用」计分，但该签核缺口应由 coord-main 登记跟踪，不因计分而消失。",
+  "_rev_e2e_track_r_round3_20260814": "track R 重评 = 7/10（**分数与 round2 相同，但 round2 SHA 已过期须重测**：round2 评在 `5dd9a67e`，其后 R 的 watch 路径（apps/web/e2e/**、apps/api/src/interface/**、apps/api/src/application/**、packages/contracts/src/**）命中 76 个改动文件，含用户点名的 2026-08-13/14 大批真实功能变化）。实测 origin/main `687d6ddb`（rev-e2e，非自评，init.sh 先跑通过后在本 SHA 上起真实 docker 隔离栈跑测）。逐维核实：R1-R6=1——`pnpm run verify:core-loop` 本轮重跑 13 passed（1.0m），含步骤1『空库注册第一个用户并自动成为管理员』(2.3s) 与其余 seeded 步骤全绿，无一条退化。R9=1——`cd apps/api && tsx ../../.harness/scripts/with-test-isolation.ts -- vitest run tests/agent-runtime/create-agent-publish-path.test.ts` 本轮独立重跑（非复用旧日志）：6 passed (3.6s)，逐字覆盖『建 agent →（发布前仍 422）→ 自助发布 → 发消息 202 → 恰好一条回复』。且顺带核实了 round2 记录里留的那个『不因计分而消失』的签核缺口：`design-deltas/agent-instructions/design-signoff.md` 的 `status` 已从 round2 时的 `proposed` 变成 **`confirmed`**（两处：第2行头注 + 第80行），`grep -c instructions packages/contracts/src/agent-runtime.ts` 从 0 变成 10——即 #877 里引用的两条『R9 真实阻塞』证据（草案未签核、契约无可执行定义字段）本身已经双双过期，#877 应视为陈旧 tracker，本轮不再计入 blocking_issues（原样保留 issue 开着，改状态非本角色权限，只改分数记录侧的引用）。R7/R8/R10 仍为 0，逐条重新 grep 复核（不是照抄 round2 结论）：R7 `apps/web/components/entry/consent-form.tsx:11` 仍 `import { CONSENT, WITHDRAWAL_FLOW } from \"@/lib/mock/entry\"`，全仓 `setConsentDecision` 在 apps/web 下唯一命中是 `e2e/fullstack-smoke-fixture.ts` 里的**注释**，零真实调用方；R8 `grep -rln \"INSERT INTO skill_reviewer_functions\" apps/` 命中仍只有 `seed-fullstack-smoke.ts` 与两个测试文件；R10 `grep -rn createAgendaSegment apps/web` 唯一命中仍是 fixture 里的说明性注释，零产品调用方——**且本轮特别核实了用户点名的『canvas 模板画廊入口』(PR #1210, commit 687d6ddb 本身)：该 commit message 逐字自称『纯前端 mock、不接后端、不改 packages/fabric-markdown 本体、不真改 canvas-main 接线』『签核件 status=pending，等人类』，因此不构成 R10（或 R4）的任何变化**，与用户提示『今天合入大量真实功能变化』这一大类描述形成对照——不是所有今天的改动都是真接线，这条恰是纯 UI 原型。R1-R6/R9=1，R7/R8/R10=0，CLR 数字不变，但**证明力从『6 轮前测的』变成『刚在当前 main 上测的』**，且顺带清理了一条过期 blocking issue 引用。",
+  "_rev_e2e_track_b_round3_20260814": "track B 重评 = **6.5/10**（此前 6/10，+0.5 于第⑧项），实测 origin/main `687d6ddb`（rev-e2e，非自评）。round2 SHA `5da21fce` 之后 B 的 watch 六条命中 20 个改动文件（含用户点名的『chat 默认 agent 修复』#1157、『个人对话改名删除重做』#1160/#1179/#975ce9a8、『思考/工具调用链挂到每条持久消息』#1209/728ff5a1、『VZ-fabric 保存接线真实』#1149/42759584），故过期须重测，不是复用旧证据延续判定。本轮 `pnpm run shots:chat-behavior` 重新跑出 1 passed (1.1m)，14 图 + MANIFEST，取证时刻 2026-08-14T03:44Z（新鲜，非复用 5da21fce 那批图）。逐项复核：①流式 **0.5 不变**——b1-stream-01~06 六连拍逐张核对，streaming行仍恒 false，deep-agent 仍走轮询+整段写入非 token 级流式，判据后半仍不满足；②规划 **1 不变**；③工具调用可见 **1 不变**——工具调用块『思考了 X 秒·调用了 1 个工具』带参数摘要与完成徽章原样呈现；④多步 **0 不变**——桩行为结构未变（本轮 diff 过 20 个改动文件，无一处触及 loopback/deep-agent 桩本身的决策逻辑）；⑤语音 **0 不变**；⑥多轮 **0 不变**——本轮用 b6-multiturn.png 实际截图核验（非沿用旧结论）：第二轮追问『再详细一点』，AI 回复原文『根据查询结果回答你：\"再详细一点\" —— 已查询：当前时间 2026-08-14T03:44:59.761Z。用户原话：\"再详细一点\"』——完全没有引用第一轮『现在几点？请先说明你打算怎么做，再动手』的内容，仍是模板化 echo，判据『记得前几轮说了什么』不满足；⑦错误处理 **1 不变**——本轮 `git diff` 确认 `chat-live-message-panel.tsx:1460` 的 `<RefreshCw/>重试` 按钮分支仍在，20 处改动里没有一处触及错误展示逻辑本身（改动集中在改名删除/默认agent/工具链UI位置/VZ-fabric保存），round2 的真实 422 硬证据链未被破坏；⑧呈现质量 **0.5→1，本轮唯一变化项**——依据：`markdown-message.tsx` 现在是真实 `react-markdown+remark-gfm+rehype-sanitize` 渲染器，并用 `@repo/fabric-markdown` 的 `extractMermaidBlocks` 把 ```mermaid 围栏抽出内联渲图，接线进 `ai-message.tsx`（持久化消息）与 `chat-live-message-panel.tsx`（实时消息）两条路径共用同一渲染器（不是各画一半），且有 `apps/web/tests/ui/markdown-message.test.tsx`（47 行）组件级测试覆盖；这不是『看起来对就放宽』——是渲染能力本身从『没有』变成『真实生产代码 + 单测』，够格从 0.5 的『能力存在但未被测到』升到 1 的『能力存在且有证据』；⑨控制感 **1 不变**；⑩连贯性 **1 不变**——且『默认 agent 不再意外选中 Deep Research』(#1157/70c92cb7) 与『会话改名删除重做』(#1179) 两处用户点名的修复进一步巩固了这一项（此前就是 1 分，不因为『更好』而超过 1，只是佐证没有退化）。B 的原 blocking_issues 只有 #877，本轮核实 #877 是 R9 相关（R9 已=1 且其阻塞理由已过期，见 track R round3 记录），不构成 B 的真实阻塞，故清空为 `[]`——B 目前剩下的四个 0 分维度（①④⑤⑥）都要求真实模型/真实麦克风行为，loopback/deep-agent 桩机制性质决定它们测不出来，devapp 真实模型复评仍是唯一路径，暂无对应 tracked issue。"
 }
