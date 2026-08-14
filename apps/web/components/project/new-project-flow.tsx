@@ -65,23 +65,32 @@ export function NewProjectFlow() {
   const [blueprintsError, setBlueprintsError] = React.useState<string | null>(null);
   const [blueprintsBusy, setBlueprintsBusy] = React.useState(false);
 
-  const refreshBlueprints = React.useCallback(async (org: string) => {
+  const refreshBlueprints = React.useCallback(async (org: string, isCancelled: () => boolean) => {
     if (org === "") return;
     setBlueprintsBusy(true);
     setBlueprintsError(null);
     try {
       const out = await listBlueprints(org);
+      if (isCancelled()) return;
       setBlueprints(out);
     } catch (e) {
+      if (isCancelled()) return;
       setBlueprintsError(describeError(e));
       setBlueprints(null);
     } finally {
-      setBlueprintsBusy(false);
+      if (!isCancelled()) setBlueprintsBusy(false);
     }
   }, []);
 
   React.useEffect(() => {
-    void refreshBlueprints(orgId);
+    // 组件在 fetch 落地前卸载（路由跳走、测试提前拆卸环境）时不再 setState——
+    // 不加这道门槛会在卸载后的 `finally` 里调用 `setBlueprintsBusy`，React 会尝试
+    // 在已拆卸的环境上调度更新；jsdom 测试环境下这不只是警告，是真的
+    // `ReferenceError: window is not defined`（`tests/ui/new-project-wizard.test.tsx`
+    // 实测撞到过，见 `git blame` 附近提交）。
+    let cancelled = false;
+    void refreshBlueprints(orgId, () => cancelled);
+    return () => { cancelled = true; };
   }, [orgId, refreshBlueprints]);
 
   const trimmed = name.trim();
@@ -145,7 +154,7 @@ export function NewProjectFlow() {
           </div>
           {blueprintsError !== null ? (
             <div className="mb-2.5 flex items-center gap-2" data-testid="project-new-blueprints-error">
-              <Button size="sm" variant="outline" onClick={() => void refreshBlueprints(orgId)} disabled={blueprintsBusy}>
+              <Button size="sm" variant="outline" onClick={() => void refreshBlueprints(orgId, () => false)} disabled={blueprintsBusy}>
                 重试
               </Button>
             </div>
