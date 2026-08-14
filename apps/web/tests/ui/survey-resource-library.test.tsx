@@ -11,14 +11,12 @@ afterEach(() => {
 });
 
 describe("SurveyResourceLibrary", () => {
-  it("左侧仅显示问卷列表、问卷模块和报告模块三个一级入口", () => {
+  it("只呈现右侧问卷列表内容，不重复全局和二级导航", () => {
     render(<SurveyResourceLibrary initialTab="surveys" uiState="default" />);
 
     expect(screen.getByTestId("survey-resource-library")).toBeInTheDocument();
-    expect(screen.getByTestId("survey-resource-nav-surveys")).toHaveAttribute("aria-current", "page");
-    expect(screen.getByTestId("survey-resource-nav-modules")).toHaveTextContent("问卷模块");
-    expect(screen.getByTestId("survey-resource-nav-reports")).toHaveTextContent("报告模块");
-    expect(screen.getAllByRole("navigation")[0]?.querySelectorAll("button")).toHaveLength(3);
+    expect(screen.queryByText("BoardX Survey")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("survey-resource-nav-surveys")).not.toBeInTheDocument();
     expect(screen.queryByText("快速筛选")).not.toBeInTheDocument();
     expect(screen.queryByText("模板分类")).not.toBeInTheDocument();
     expect(screen.getByTestId("survey-resource-card-survey-sv-1")).toBeInTheDocument();
@@ -34,11 +32,8 @@ describe("SurveyResourceLibrary", () => {
   });
 
   it("切到问卷模块时呈现可复用的问题设计模块", () => {
-    render(<SurveyResourceLibrary initialTab="surveys" uiState="default" />);
+    render(<SurveyResourceLibrary initialTab="modules" uiState="default" />);
 
-    fireEvent.click(screen.getByTestId("survey-resource-nav-modules"));
-
-    expect(push).toHaveBeenCalledWith("/studio/survey?tab=modules");
     expect(screen.getByTestId("survey-resource-card-module-profile")).toHaveTextContent("组织画像");
     expect(screen.getByTestId("survey-resource-card-module-strategy")).toHaveTextContent("战略治理");
     fireEvent.click(screen.getByTestId("survey-resource-card-module-profile"));
@@ -55,11 +50,8 @@ describe("SurveyResourceLibrary", () => {
   });
 
   it("报告模块承接原问卷模板内容并进入报告模板编辑", () => {
-    render(<SurveyResourceLibrary initialTab="surveys" uiState="default" />);
+    render(<SurveyResourceLibrary initialTab="reports" uiState="default" />);
 
-    fireEvent.click(screen.getByTestId("survey-resource-nav-reports"));
-
-    expect(push).toHaveBeenCalledWith("/studio/survey?tab=reports");
     expect(screen.getByTestId("survey-resource-card-report-template-tpl-digital-collaboration")).toHaveTextContent("企业数字协作成熟度诊断模板");
     fireEvent.click(screen.getByTestId("survey-resource-card-report-template-tpl-digital-collaboration"));
     expect(push).toHaveBeenLastCalledWith("/studio/survey/templates/tpl-digital-collaboration");
@@ -76,6 +68,16 @@ describe("SurveyResourceLibrary", () => {
     fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "团队协作" } });
     expect(screen.getByTestId("survey-resource-card-survey-sv-team-health")).toBeInTheDocument();
     expect(screen.queryByTestId("survey-resource-card-survey-sv-1")).not.toBeInTheDocument();
+  });
+
+  it("切换资源入口时清空上一入口的搜索条件", () => {
+    const view = render(<SurveyResourceLibrary initialTab="surveys" uiState="default" />);
+    fireEvent.change(screen.getByTestId("survey-resource-search"), { target: { value: "团队协作" } });
+
+    view.rerender(<SurveyResourceLibrary initialTab="modules" uiState="default" />);
+
+    expect(screen.getByTestId("survey-resource-search")).toHaveValue("");
+    expect(screen.getByTestId("survey-resource-card-module-profile")).toBeInTheDocument();
   });
 
   it.each([

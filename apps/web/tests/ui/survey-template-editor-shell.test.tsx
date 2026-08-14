@@ -15,6 +15,7 @@ describe("SurveyTemplateEditorShell", () => {
     render(<SurveyTemplateEditorShell templateId="tpl-digital-collaboration" />);
 
     expect(screen.getByTestId("survey-template-editor-shell")).toBeInTheDocument();
+    expect(screen.queryByText("BoardX Survey")).not.toBeInTheDocument();
     expect(screen.getByTestId("survey-template-editor")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("survey-template-back-to-list"));
     expect(push).toHaveBeenCalledWith("/studio/survey?tab=reports");

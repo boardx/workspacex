@@ -46,16 +46,12 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
   if (uiState === "error") return <WorkflowMessage testId="survey-workflow-error" title="问卷暂时无法加载" body="数据没有被修改，请稍后重试。" danger />;
 
   return (
-    <main className="min-h-screen bg-background text-background-foreground" data-testid="survey-workflow-shell">
+    <main className="min-h-full bg-background text-background-foreground" data-testid="survey-workflow-shell">
       <header className="border-b border-border bg-card px-4 py-3 lg:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="text-18 font-bold tracking-tight">BoardX <span className="text-primary">Survey</span></span>
-            <span className="hidden h-6 w-px bg-border sm:block" />
-            <div className="min-w-0">
+          <div className="min-w-0">
               <div className="flex items-center gap-2"><h1 className="truncate text-16 font-semibold">{model.survey.title}</h1><Badge tone="ai">草稿已保存</Badge></div>
               <p className="text-10 text-muted-foreground">问卷 ID {model.survey.id} · 最近保存 18:00</p>
-            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览答题</Button>
