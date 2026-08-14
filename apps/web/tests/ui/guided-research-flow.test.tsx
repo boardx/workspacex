@@ -182,6 +182,28 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
   });
 
+  it("hides an earlier session while a replacement session restores or fails", async () => {
+    const replacement = deferred<ReturnType<typeof sessionAt>>();
+    getGuidedResearchSession
+      .mockResolvedValueOnce({ ...sessionAt("directions"), sessionId: "grs-a" })
+      .mockReturnValueOnce(replacement.promise);
+    const { rerender } = render(<GuidedResearchFlow step="directions" sessionId="grs-a" />);
+
+    await screen.findByTestId("research-direction-title-d1");
+    rerender(<GuidedResearchFlow step="report" sessionId="grs-b" />);
+
+    expect(screen.getByTestId("research-session-restore-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-directions")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
+
+    replacement.reject(new Error("replacement unavailable"));
+    expect(await screen.findByTestId("research-session-restore-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-directions")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-flow-progress")).not.toBeInTheDocument();
+  });
+
   it("keeps an earlier requested checkpoint available after loading a later session", async () => {
     getGuidedResearchSession.mockResolvedValue(sessionAt("outline"));
     render(<GuidedResearchFlow step="directions" sessionId="grs-edit" />);

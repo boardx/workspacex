@@ -79,7 +79,8 @@ export function GuidedResearchFlow({
     window.location.assign(`?${query.toString()}`);
   };
 
-  const restoringSession = Boolean(sessionId) && sessionSnapshot === null && !restoreFailed;
+  const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === sessionId;
+  const restoringSession = Boolean(sessionId) && !hasCurrentSessionSnapshot && !restoreFailed;
   const restorationBlocked = restoringSession || restoreFailed;
 
   return (
