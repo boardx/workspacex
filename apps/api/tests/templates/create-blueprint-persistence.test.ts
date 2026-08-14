@@ -440,3 +440,164 @@ describe("F174 设计环节逐项 CAS", () => {
     expect(revisions.size).toBe(keys.length); // 全部互不相同
   });
 });
+
+describe("F177 换时长档位", () => {
+  /** 测试直接读 revision——见 KNOWN_CONTRACT_GAPS.T13：契约没有给调用方读它的路径,
+   *  真库测试只能这样构造合法的第一次 expectedVersion。 */
+  async function currentRevision(blueprintId: string): Promise<string> {
+    const r = await asApp(ORG, (c) =>
+      c.query<{ revision: string }>(`SELECT revision FROM blueprints WHERE id = $1`, [blueprintId]),
+    );
+    return r.rows[0]!.revision;
+  }
+
+  it("首次选档位（当前恒为 custom/未选）：无需确认，agendaSegmentCount 与定义表一致", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-1", orgId, actorId: ACTOR, name: "档位一号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev = await currentRevision("bp-tier-1");
+
+    const out = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-1", tier: "two-day", confirmed: false, expectedVersion: rev,
+    });
+    expect(out.kind).toBe("applied");
+    if (out.kind !== "applied") throw new Error("unreachable");
+    expect(out.agendaSegmentCount).toBe(14); // R3 主表：两天 = 14（agenda-segment-table.ts 头注）
+    expect(out.added.length).toBe(14);
+    expect(out.removed.length).toBe(0);
+    expect(out.newRevision).not.toBe(rev); // 首次选档位也是一次真实写入，revision 必须轮换
+  });
+
+  it("升档（两天→三天）：纯新增，不需要确认即可成功", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-2", orgId, actorId: ACTOR, name: "档位二号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev1 = await currentRevision("bp-tier-2");
+    const first = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-2", tier: "two-day", confirmed: false, expectedVersion: rev1,
+    });
+    if (first.kind !== "applied") throw new Error("setup failed");
+
+    const second = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-2", tier: "three-day", confirmed: false, expectedVersion: first.newRevision,
+    });
+    expect(second.kind).toBe("applied");
+    if (second.kind !== "applied") throw new Error("unreachable");
+    expect(second.agendaSegmentCount).toBe(19);
+    expect(second.removed.length).toBe(0); // 升档不丢东西，不该出现在 removed 里
+  });
+
+  it("降档（两天→半天）不带 confirmed：拒绝，返回将被移除的清单，不落库", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-3", orgId, actorId: ACTOR, name: "档位三号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev1 = await currentRevision("bp-tier-3");
+    const first = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-3", tier: "two-day", confirmed: false, expectedVersion: rev1,
+    });
+    if (first.kind !== "applied") throw new Error("setup failed");
+
+    const attempt = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-3", tier: "half-day", confirmed: false, expectedVersion: first.newRevision,
+    });
+    expect(attempt.kind).toBe("confirmation-required");
+    if (attempt.kind !== "confirmation-required") throw new Error("unreachable");
+    expect(attempt.removed.length).toBe(7); // 两天(14) - 半天(7) = 7 项会被移除
+
+    // 反证：没有 confirmed 就不落库——档位仍是 two-day，revision 没有轮换
+    const revAfter = await currentRevision("bp-tier-3");
+    expect(revAfter).toBe(first.newRevision);
+  });
+
+  it("同一次降档带 confirmed=true：成功，被移除的环节全部进 recoverable（A2 不静默丢弃）", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-4", orgId, actorId: ACTOR, name: "档位四号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev1 = await currentRevision("bp-tier-4");
+    const first = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-4", tier: "two-day", confirmed: false, expectedVersion: rev1,
+    });
+    if (first.kind !== "applied") throw new Error("setup failed");
+
+    const confirmed = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-4", tier: "half-day", confirmed: true, expectedVersion: first.newRevision,
+    });
+    expect(confirmed.kind).toBe("applied");
+    if (confirmed.kind !== "applied") throw new Error("unreachable");
+    expect(confirmed.agendaSegmentCount).toBe(7);
+    expect(confirmed.removed.length).toBe(7);
+    expect(confirmed.recoverable.length).toBe(7); // 全部可恢复——被移除的行在定义表里恒 optional:true
+  });
+
+  it("拿着过期 revision：VERSION_CHANGED，且落败方不覆盖赢家", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-5", orgId, actorId: ACTOR, name: "档位五号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev1 = await currentRevision("bp-tier-5");
+    const winner = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-5", tier: "two-day", confirmed: false, expectedVersion: rev1,
+    });
+    if (winner.kind !== "applied") throw new Error("setup failed");
+
+    // 落败方还拿着建蓝本时的旧 revision
+    const loser = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-5", tier: "three-day", confirmed: false, expectedVersion: rev1,
+    });
+    expect(loser.kind).toBe("version-changed");
+
+    const revAfter = await currentRevision("bp-tier-5");
+    expect(revAfter).toBe(winner.newRevision); // 赢家的写入没有被落败方覆盖
+  });
+
+  it("目标档位 custom：拒绝，CUSTOM_TIER_RULE_UNDEFINED（D-7，规则本身未定）", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-6", orgId, actorId: ACTOR, name: "档位六号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const rev = await currentRevision("bp-tier-6");
+    const out = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-6", tier: "custom", confirmed: true, expectedVersion: rev,
+    });
+    expect(out.kind).toBe("custom-tier-undefined");
+  });
+
+  it("蓝本不存在：blueprint-not-found", async () => {
+    const orgId = toOrgId(ORG);
+    const out = await repo.setDurationTier({
+      orgId, blueprintId: "bp-does-not-exist", tier: "two-day", confirmed: false, expectedVersion: "",
+    });
+    expect(out.kind).toBe("blueprint-not-found");
+  });
+
+  it("list() 的 agendaSegmentCount 随 duration_tier 实时派生，不是写死的 0", async () => {
+    // 钉住我在本 feature 里改掉的那处硬编码——反证：换档位前 list() 报 0（未选档位的真实值），
+    // 换档位后 list() 必须报与定义表一致的数，不能停留在创建时刻的旧值。
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-tier-list", orgId, actorId: ACTOR, name: "档位与列表",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const before = discloseAll(await repo.list(orgId, null)).find((b) => b.blueprintId === "bp-tier-list");
+    expect(before?.agendaSegmentCount).toBe(0);
+
+    const rev = await currentRevision("bp-tier-list");
+    const applied = await repo.setDurationTier({
+      orgId, blueprintId: "bp-tier-list", tier: "one-day", confirmed: false, expectedVersion: rev,
+    });
+    if (applied.kind !== "applied") throw new Error("setup failed");
+
+    const after = discloseAll(await repo.list(orgId, null)).find((b) => b.blueprintId === "bp-tier-list");
+    expect(after?.agendaSegmentCount).toBe(11); // R3 主表：一天 = 11
+  });
+});
