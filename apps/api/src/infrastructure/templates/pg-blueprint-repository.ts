@@ -25,7 +25,17 @@ import type {
   DurationTier,
   UpdateDesignFacetCommand,
   UpdateDesignFacetOutcome,
+  SetDurationTierCommand,
+  SetDurationTierOutcome,
 } from "../../application/templates/blueprint-persistence-ports";
+import {
+  planDurationTierChange,
+} from "../../domain/templates/duration-tier";
+import {
+  agendaSegmentCountForTier,
+  isOrderedDurationTier,
+  type OrderedDurationTier,
+} from "../../domain/templates/agenda-segment-table";
 
 interface ListRow {
   id: string;
@@ -154,6 +164,56 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
     return Number(r.rows[0]?.n ?? "0");
   }
 
+  /**
+   * F177（BP-03）：换时长档位。行级 CAS——同 `updateDesignFacet` 的先例，
+   * `SELECT ... FOR UPDATE` 读快照、应用层比对 `revision`，而不是
+   * `UPDATE ... WHERE revision = $expected`（那种写法分不清「行不存在」与
+   * 「版本不对」）。版本比对**先于**领域判定（是否需要确认/`custom` 未定）——
+   * 顺序见 ports 文件里 `SetDurationTierOutcome` 的类型注释。
+   *
+   * ⚠ `duration_tier = 'custom'` 是「从未显式选过档位」的存储表达（BP-01 迁移默认值），
+   *   喂给纯函数时按 `currentTier: null` 处理——不是把 `'custom'` 当成一个真实档位。
+   */
+  async setDurationTier(cmd: SetDurationTierCommand): Promise<SetDurationTierOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const bp = await s.query<{ duration_tier: DurationTier; revision: string }>(
+        `SELECT duration_tier, revision FROM blueprints WHERE id = $1 FOR UPDATE`,
+        [cmd.blueprintId],
+      );
+      const row = bp.rows[0];
+      if (row === undefined) return { kind: "blueprint-not-found" };
+      if (row.revision !== cmd.expectedVersion) return { kind: "version-changed" };
+
+      const currentTier: OrderedDurationTier | null =
+        row.duration_tier !== "custom" && isOrderedDurationTier(row.duration_tier) ? row.duration_tier : null;
+
+      const result = planDurationTierChange({
+        currentTier,
+        targetTier: cmd.tier,
+        confirmed: cmd.confirmed,
+      });
+
+      if (result.kind === "custom-tier-undefined") return { kind: "custom-tier-undefined" };
+      if (result.kind === "confirmation-required") {
+        return { kind: "confirmation-required", added: result.added, removed: result.removed };
+      }
+
+      const updated = await s.query<{ revision: string }>(
+        `UPDATE blueprints SET duration_tier = $2, revision = gen_random_uuid()::text, updated_at = now()
+          WHERE id = $1 RETURNING revision`,
+        [cmd.blueprintId, cmd.tier],
+      );
+      return {
+        kind: "applied",
+        newRevision: updated.rows[0]!.revision,
+        agendaSegmentCount: result.agendaSegmentCount,
+        added: result.added,
+        removed: result.removed,
+        recoverable: result.recoverable,
+      };
+    });
+  }
+
   async list(orgId: OrgId, state: BlueprintState | null): Promise<readonly GuardedBlueprint[]> {
     return this.db.withTenant(orgId, async (s) => {
       // 分子（已填项数）在 SQL 侧聚合：列表页 N 个蓝本各取一次完整内容是没必要的读放大。
@@ -183,11 +243,15 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
         versionNumber: row.version_number,
         durationTier: row.duration_tier,
         filledDesignFacetCount: Number(row.filled_count),
-        // ⚠ 这两个在 BP-01 恒 0，且**不是**编出来的占位数：
-        //   · 议程环节：蓝本的议程要等 BP-02「设计环节读写」把 flow-agenda 填进来才有；
-        //   · 已套用项目数：要等 BP-08「createProject 带 blueprintVersionId」才会有项目引用蓝本。
-        //   在那之前它们的真实值就是 0，不是「未知」。
-        agendaSegmentCount: 0,
+        // F177（BP-03）之前，`duration_tier` 恒为 'custom'（未选档位），此时议程环节数
+        // 就是 0——不是占位，是「还没选档位」的真实值。选过档位后从定义表现读，
+        // 不再硬编码；分母/分子同款纪律（禁止把运行时能算出来的数字写死）。
+        agendaSegmentCount:
+          row.duration_tier !== "custom" && isOrderedDurationTier(row.duration_tier)
+            ? agendaSegmentCountForTier(row.duration_tier)
+            : 0,
+        // ⚠ 恒 0，且不是编出来的占位数：要等 BP-08「createProject 带 blueprintVersionId」
+        //   才会有项目引用蓝本，在那之前真实值就是 0，不是「未知」。
         appliedProjectCount: 0,
           },
         ),

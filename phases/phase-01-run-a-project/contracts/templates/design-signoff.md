@@ -20,7 +20,21 @@ phase: "01"
 #     3. **零新增设计面**：designFacetKey 校验失败复用既有 `BLUEPRINT_NOT_FOUND`
 #        （未新造码，见 F174 notes ③ 对不对称的说明）；未新增字段/屏/交互语义。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-14（#991 BP-03 / F177）：追加 **F177**，由 agent `dev-project` 依
+#   `contract-design.md` 的「covers 追加规则」自行追加（第五次）。三条件逐条对照：
+#     1. **UI 已签**：本 feature 是纯后端（PUT duration-tier 端点 + 域纯函数编排），
+#        零界面落点，空成立（与 F175/F174 同理，界面留待后续 BP）。
+#     2. **契约已签**：只实现已签核的 `setDurationTier` 一条 operation，形状逐字照契约
+#        （`agendaSegmentCount`/`added`/`removed`/`recoverable` 四个输出字段一个没多、
+#        一个没少）。
+#     3. **零新增设计面**：不新增错误码、不新增字段、不新增屏、不新增交互语义。
+#        ⚠ 本 feature 在 `packages/contracts/src/templates.ts` 的 `KNOWN_CONTRACT_GAPS`
+#        追加了一条 **T13**——但那是**文档**，不是契约面：不改任何 zod schema、
+#        不加任何字段/操作/错误码，只是把「`expectedVersion` 没有读路径」这个早已
+#        存在于已签契约里的缺口写清楚（同 T1-T12 的性质，都是签核时留下、事后发现
+#        才登记的缺口，不是本 feature 发明的）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

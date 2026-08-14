@@ -79,6 +79,7 @@ export interface BlueprintPersistencePort {
   /** 该蓝本是否存在于这个组织下（copy 的源必须可见，否则 BLUEPRINT_NOT_FOUND） */
   exists(orgId: OrgId, blueprintId: string): Promise<boolean>;
   list(orgId: OrgId, state: BlueprintState | null): Promise<readonly GuardedBlueprint[]>;
+  setDurationTier(cmd: SetDurationTierCommand): Promise<SetDurationTierOutcome>;
 }
 
 /**
@@ -98,6 +99,40 @@ export interface UpdateDesignFacetCommand {
   readonly value: string;
   /** 哨兵 `''` = 「我以为这一项还没人填过」（见迁移文件头注） */
   readonly expectedItemRevision: string;
+}
+
+/**
+ * F177（BP-03）：换时长档位的仓储结果 —— 同 BP-02 的 compare-and-swap 惯例，
+ * 判据（`revision` 是否匹配 `expectedVersion`）在仓储层的 `SELECT ... FOR UPDATE` 之后做，
+ * 不在这里。领域纯函数 `planDurationTierChange` 的判定结果（是否需要确认、
+ * `custom` 档规则未定）由仓储在版本比对**通过之后**再调用——
+ * 顺序是：先判「你拿的版本号是不是最新的」，再判「这次改动本身是否合法/需要确认」，
+ * 这样两种失败不会互相掩盖（版本冲突不会被误判成「需要确认」，反之亦然）。
+ */
+export type SetDurationTierOutcome =
+  | {
+      readonly kind: "applied";
+      readonly newRevision: string;
+      readonly agendaSegmentCount: number;
+      readonly added: readonly { readonly agendaSegmentId: string; readonly title: string; readonly addedBy: string | null; readonly optional: boolean }[];
+      readonly removed: readonly { readonly agendaSegmentId: string; readonly title: string; readonly addedBy: string | null; readonly optional: boolean }[];
+      readonly recoverable: readonly { readonly agendaSegmentId: string; readonly title: string; readonly addedBy: string | null; readonly optional: boolean }[];
+    }
+  | {
+      readonly kind: "confirmation-required";
+      readonly added: readonly { readonly agendaSegmentId: string; readonly title: string; readonly addedBy: string | null; readonly optional: boolean }[];
+      readonly removed: readonly { readonly agendaSegmentId: string; readonly title: string; readonly addedBy: string | null; readonly optional: boolean }[];
+    }
+  | { readonly kind: "custom-tier-undefined" }
+  | { readonly kind: "blueprint-not-found" }
+  | { readonly kind: "version-changed" };
+
+export interface SetDurationTierCommand {
+  readonly orgId: OrgId;
+  readonly blueprintId: string;
+  readonly tier: DurationTier;
+  readonly confirmed: boolean;
+  readonly expectedVersion: string;
 }
 
 export const BLUEPRINT_PERSISTENCE_PORT = Symbol("BlueprintPersistencePort");
