@@ -48,6 +48,16 @@ describe("SurveyAppShell", () => {
     expect(screen.getByTestId("survey-section-nav-modules")).toHaveAttribute("aria-current", "page");
   });
 
+  it("选择问卷来源模块时仍标记问卷列表入口", () => {
+    pathname = "/studio/survey";
+    search = "tab=modules&intent=create-survey";
+
+    render(<SurveyAppShell><div>模块选择器</div></SurveyAppShell>);
+
+    expect(screen.getByTestId("survey-section-nav-surveys")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("survey-section-nav-modules")).not.toHaveAttribute("aria-current");
+  });
+
   it("编辑报告模块时保留左栏并标记报告模块入口", () => {
     pathname = "/studio/survey/templates/tpl-team-health";
     search = "";

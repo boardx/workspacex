@@ -21,8 +21,11 @@ const TAB_COPY: Record<SurveyResourceTab, { title: string; description: string; 
   reports: { title: "报告模块", description: "管理报告结构、章节和输出方式", search: "搜索报告模块名称" },
 };
 
-export function SurveyResourceLibrary({ initialTab, uiState }: {
+export type SurveyResourceIntent = "create-survey" | null;
+
+export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
   initialTab: SurveyResourceTab;
+  initialIntent: SurveyResourceIntent;
   uiState: SurveyResourceState;
 }) {
   const router = useRouter();
@@ -40,6 +43,16 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
   const reports = (uiState === "empty" ? [] : SURVEY_TEMPLATE_CARDS).filter((item) =>
     item.title.includes(query.trim()));
   const copy = TAB_COPY[tab];
+  const selectingSurveySource = tab === "modules" && initialIntent === "create-survey";
+  const title = selectingSurveySource ? "选择问卷模块" : copy.title;
+  const description = selectingSurveySource
+    ? "选择一个问题模块作为新问卷的起点，之后可继续编辑和调整。"
+    : copy.description;
+  const openModule = (moduleId: string) => router.push(
+    selectingSurveySource
+      ? `/studio/survey/new?step=design&sourceModule=${moduleId}`
+      : `/studio/survey/module-${moduleId}?step=design&mode=module`,
+  );
 
   return (
     <main className="min-h-full bg-background text-background-foreground" data-testid="survey-resource-library">
@@ -47,13 +60,14 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
               <div>
-                <h2 className="text-24 font-semibold">{copy.title}</h2>
-                <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
+                <h2 className="text-24 font-semibold">{title}</h2>
+                <p className="mt-1 text-12 text-muted-foreground">{description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey?tab=modules")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey?tab=modules&intent=create-survey")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
                 {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
-                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
+                {selectingSurveySource && <Button variant="outline" size="lg" onClick={() => router.push("/studio/survey")}>返回问卷列表</Button>}
+                {tab === "modules" && !selectingSurveySource && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
                 {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
               </div>
             </div>
@@ -74,7 +88,7 @@ export function SurveyResourceLibrary({ initialTab, uiState }: {
                 </CardGrid>
               ) : tab === "modules" ? (
                 <CardGrid empty={modules.length === 0} emptyLabel="没有匹配的问卷模块。">
-                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => router.push(`/studio/survey/module-${item.id}?step=design&mode=module`)} />)}
+                  {modules.map((item) => <QuestionModuleCard key={item.id} item={item} onOpen={() => openModule(item.id)} />)}
                 </CardGrid>
               ) : (
                 <CardGrid empty={reports.length === 0} emptyLabel="没有匹配的报告模块。">

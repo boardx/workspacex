@@ -39,13 +39,15 @@ function SurveySectionNav() {
 function SurveySectionNavWithLocation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeSection = pathname.startsWith("/studio/survey/templates")
-    ? "reports"
-    : searchParams.get("mode") === "module" || searchParams.get("tab") === "modules"
-      ? "modules"
-      : searchParams.get("tab") === "reports"
-        ? "reports"
-        : "surveys";
+  const activeSection = searchParams.get("intent") === "create-survey"
+    ? "surveys"
+    : pathname.startsWith("/studio/survey/templates")
+      ? "reports"
+      : searchParams.get("mode") === "module" || searchParams.get("tab") === "modules"
+        ? "modules"
+        : searchParams.get("tab") === "reports"
+          ? "reports"
+          : "surveys";
 
   return <SurveySectionNavContent activeSection={activeSection} />;
 }
