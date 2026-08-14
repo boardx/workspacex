@@ -17,6 +17,14 @@ const api = vi.hoisted(() => ({
   updateMetadata: vi.fn(),
   deleteTranscription: vi.fn(),
   openAsr: vi.fn(),
+  openAsrDraft: vi.fn(),
+  stopAsrDraft: vi.fn(),
+  draftHandlers: null as null | {
+    onPartial: (text: string) => void;
+    onFinal: (text: string) => void;
+    onError: (reason: string) => void;
+    onFinished: () => void;
+  },
   handlers: null as null | {
     onFinal: (event: { captureId: string; segmentId: string; ordinal: number; text: string; startMs: number; endMs: number }) => void;
   },
@@ -40,6 +48,10 @@ vi.mock("@/lib/BoardxRealtimeAsrClient", () => ({
   openBoardxRealtimeAsr: api.openAsr,
 }));
 
+vi.mock("@/lib/live-asr-draft", () => ({
+  openAsrDraftStream: api.openAsrDraft,
+}));
+
 const EUROPE = {
   sessionId: "europe-entry",
   name: "欧洲市场进入讨论",
@@ -59,10 +71,18 @@ beforeEach(() => {
   api.updateMetadata.mockReset();
   api.deleteTranscription.mockReset();
   api.openAsr.mockReset();
+  api.openAsrDraft.mockReset();
+  api.stopAsrDraft.mockReset();
+  api.draftHandlers = null;
   api.handlers = null;
   api.openAsr.mockImplementation(async (_sessionId: string, options: { handlers: typeof api.handlers }) => {
     api.handlers = options.handlers;
     return { captureId: "capture-live", stop: vi.fn().mockResolvedValue(undefined) };
+  });
+  api.stopAsrDraft.mockResolvedValue(undefined);
+  api.openAsrDraft.mockImplementation(async (handlers: typeof api.draftHandlers) => {
+    api.draftHandlers = handlers;
+    return { stop: api.stopAsrDraft };
   });
   api.list.mockResolvedValue({ items: [EUROPE], nextCursor: null });
   api.listTags.mockResolvedValue({ tags: ["客户", "市场研究"] });
@@ -179,40 +199,57 @@ describe("实时转录历史工作台", () => {
     expect(screen.queryByText(/本次转录已完成，可以继续生成总结/)).not.toBeInTheDocument();
   });
 
-  it("详情页开始按钮可用并启动该用户转录的 BoardX 实时客户端", async () => {
+  it("详情页复用 Chat 草稿流，并在当前页面拼接 partial 与 final 文本", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     const button = await screen.findByTestId("rec-live-toggle");
     expect(button).toBeEnabled();
     fireEvent.click(button);
-    await waitFor(() => expect(api.openAsr).toHaveBeenCalledWith(
-      "europe-entry",
-      expect.objectContaining({ sessionToken: "session-token" }),
+    await waitFor(() => expect(api.openAsrDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onPartial: expect.any(Function),
+        onFinal: expect.any(Function),
+        onError: expect.any(Function),
+        onFinished: expect.any(Function),
+      }),
+      { sessionToken: "session-token" },
     ));
+    expect(api.openAsr).not.toHaveBeenCalled();
+    expect(screen.getByTestId("rec-live-transient-notice")).toHaveTextContent("刷新或离开后将消失");
+
+    api.draftHandlers!.onPartial("正在识别");
+    expect(await screen.findByTestId("rec-live-interim")).toHaveTextContent("正在识别");
+    api.draftHandlers!.onFinal("第一句。");
+    api.draftHandlers!.onFinal("第二句。");
+    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent(
+      "这是数据库中保存的真实逐字稿。 第一句。 第二句。",
+    ));
+    expect(screen.queryByTestId("rec-live-interim")).not.toBeInTheDocument();
+    expect(api.update).not.toHaveBeenCalled();
   });
 
-  it("相同最终事件只追加一次正文", async () => {
+  it("停止后只等待 Chat 草稿流收尾，不刷新或持久化正文", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     fireEvent.click(await screen.findByTestId("rec-live-toggle"));
-    await waitFor(() => expect(api.handlers).not.toBeNull());
-    const event = { captureId: "capture-live", segmentId: "final-1", ordinal: 1,
-      text: "重复事件也只显示一次。", startMs: 0, endMs: 1_000 };
-    api.handlers!.onFinal(event);
-    api.handlers!.onFinal(event);
-    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent(
-      "这是数据库中保存的真实逐字稿。 重复事件也只显示一次。",
-    ));
-    expect(screen.getByTestId("rec-live-content")).not.toHaveTextContent("重复事件也只显示一次。 重复事件也只显示一次。");
+    await waitFor(() => expect(api.draftHandlers).not.toBeNull());
+    api.read.mockClear();
+
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+
+    await waitFor(() => expect(api.stopAsrDraft).toHaveBeenCalledTimes(1));
+    expect(api.read).not.toHaveBeenCalled();
+    expect(api.update).not.toHaveBeenCalled();
   });
 
-  it("编辑完整正文后调用 owner-only 内容更新 API", async () => {
+  it("编辑完整正文只更新当前页面，不调用正文持久化 API", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
     fireEvent.click(await screen.findByTestId("rec-live-edit"));
     fireEvent.change(screen.getByTestId("rec-live-editor"), { target: { value: "修改后的全文" } });
     fireEvent.click(screen.getByTestId("rec-live-save"));
-    await waitFor(() => expect(api.update).toHaveBeenCalledWith("europe-entry", "修改后的全文", "session-token"));
+    await waitFor(() => expect(screen.getByTestId("rec-live-content")).toHaveTextContent("修改后的全文"));
+    expect(api.update).not.toHaveBeenCalled();
   });
 
   it("刷新后仍从 API 读回已创建转录，不依赖组件内存", async () => {
