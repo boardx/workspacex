@@ -20,6 +20,12 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function activateDropdownTrigger(trigger: HTMLElement) {
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+  fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false });
+  fireEvent.click(trigger);
+}
+
 describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   beforeEach(() => {
     push.mockReset();
@@ -76,8 +82,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       return url.pathname === "/interviews/digital";
     });
     expect(historyRequest).toBeDefined();
-    expect(new URL(typeof historyRequest![0] === "string" ? historyRequest![0] : historyRequest![0].toString()).searchParams)
-      .not.toHaveProperty("status");
+    expect(new URL(typeof historyRequest![0] === "string" ? historyRequest![0] : historyRequest![0].toString()).searchParams.has("status"))
+      .toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "报告" }));
     expect(screen.getByTestId("itv-history-card-itv-2")).toBeInTheDocument();
@@ -190,7 +196,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     const serverCard = await screen.findByTestId("itv-history-card-itv-1");
     expect(within(serverCard).queryByRole("button", { name: "管理访谈" })).not.toBeInTheDocument();
 
-    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    activateDropdownTrigger(within(mockCard).getByRole("button", { name: "管理访谈" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "编辑" }));
     fireEvent.change(screen.getByTestId("itv-edit-name"), { target: { value: "新版采购访谈" } });
     fireEvent.click(screen.getByLabelText("删除标签 采购"));
@@ -207,6 +213,20 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     });
   });
 
+  it("管理访谈菜单可在完整指针事件序列后再次关闭", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "采购访谈", tags: [] });
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const trigger = within(await screen.findByTestId(`itv-history-card-${draft.interviewId}`))
+      .getByRole("button", { name: "管理访谈" });
+    activateDropdownTrigger(trigger);
+    expect(await screen.findByRole("menu")).toBeInTheDocument();
+
+    activateDropdownTrigger(trigger);
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  });
+
   it("删除本地 Mock 历史卡前需要确认", async () => {
     const draft = createMockDigitalInterviewDraft({ name: "待删除访谈", tags: ["采购"] });
 
@@ -214,13 +234,13 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
 
     const mockCard = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
     fireEvent.click(screen.getByRole("button", { name: "采购" }));
-    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    activateDropdownTrigger(within(mockCard).getByRole("button", { name: "管理访谈" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
     expect(screen.getByRole("dialog", { name: "删除访谈" })).toHaveTextContent("主题、专家、问题、进度和报告");
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(loadMockDigitalInterviewDraft(draft.interviewId)).not.toBeNull();
 
-    fireEvent.click(within(mockCard).getByRole("button", { name: "管理访谈" }));
+    activateDropdownTrigger(within(mockCard).getByRole("button", { name: "管理访谈" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "删除" }));
     fireEvent.click(screen.getByTestId("itv-delete-confirm"));
 

@@ -82,7 +82,6 @@ export function InterviewHistoryCardActions({ item, onChanged }: {
             size="icon"
             aria-label="管理访谈"
             data-testid={`itv-history-actions-${item.interviewId}`}
-            onClick={() => setMenuOpen(true)}
           >
             <MoreHorizontal aria-hidden className="size-4" />
           </Button>
