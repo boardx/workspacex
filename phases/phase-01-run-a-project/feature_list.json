@@ -3559,17 +3559,17 @@
         "F155"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/agent-run-context-snapshot.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F157.verify.log @ 2026-08-15T09:43:23.179Z",
       "notes": "依据等级：[已签核] 可审计快照 agent_run_context（design-signoff.md）。新表/step jsonb 列 → migration → 已在束级签核。解决 G5（每次 run 重读全史现拼、无会话级快照）。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "09"
     },
     {
       "id": "F158",

@@ -236,6 +236,7 @@ import {
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
+import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-run-context-snapshot";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
@@ -958,13 +959,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // fourth argument at all.
       // F155：L3 文件式检索在这里注入——`ExecuteAgentRunDeps.files` 是可选的，所以
       // 「生产 run 到底有没有 L3」由这一行、而不是由某个运行期开关决定（同 `usage` 的先例）。
+      // F157：可审计上下文快照同一条先例——生产合成必定注入 `PgAgentRunContextSnapshot`。
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
-          new PgFileRetrieval(db),
+          new PgFileRetrieval(db), new PgAgentRunContextSnapshot(db),
         ),
       inject: [AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT],
     },

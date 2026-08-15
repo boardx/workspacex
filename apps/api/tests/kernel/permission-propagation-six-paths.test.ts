@@ -834,7 +834,25 @@ describe("lint-permission-paths: counter-proof", () => {
     // ③ 无 `withoutTenant`；④ 两道前置检查仍在 `submit-message-rating.ts` 里、
     // 且位置在第一次 `deps.ratings.` 之前（按字符下标断言，不是「文件里有这两个词」）。
     // 删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(55);
+    //
+    // ⚠ Raised 55 -> 56 by F157（可审计上下文快照 agent_run_context，08-chat/uc-8-7 R3②，
+    // 人类 2026-08-11「yes to all」签核）：新条目是
+    // `infrastructure/agent-run/pg-agent-run-context-snapshot.ts`。两个方法两种豁免理由：
+    // `record()` 是系统内部写——`execute-run.ts` 在组装完成后无条件写一条「这次到底喂了
+    // 什么」的事实快照，没有请求者向它发问「我能不能读」，同 F117 那批「actor 写自己刚
+    // 创建的容器」不必判权的形状（这里甚至连 actor 都不是概念上的读者，是执行器自己）。
+    // `findByRunId()` 才是真正的披露面，判权在调用它之前发生——
+    // `application/agent-run/read-run-context-snapshot.ts` 复用 `read-run.ts` 已经在用
+    // 的同一个 `resolveVisibility`（一条快照的可见性等于它所属 run 的可见性，不新开
+    // 第二套判权）。快照不是 `ObjectRef` 的任何一种，`guard()`/`disclose()` 同样问错问题，
+    // 与 `pg-file-retrieval.ts` 那条同理。
+    //
+    // 它的**被强制的前提**：`tests/chat/agent-run-context-snapshot-repo-guard.test.ts`
+    // 断言两件——(a) `pg-agent-run-context-snapshot.ts` 不出现
+    // `agent_run_context_snapshots` 之外的任何租户表；(b) `readAgentRunContextSnapshot`
+    // 在调用 `deps.snapshots.findByRunId` 之前先调 `resolveVisibility`，未通过时抛出、
+    // 绝不往下走。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(56);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
