@@ -18,6 +18,7 @@ import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
+import { computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -117,10 +118,32 @@ export async function verify(args: Args): Promise<void> {
     }
 
     // 2) 如果 feature verification 全部通过，且 config 要求 base verify，额外运行基础验证
+    //    同一 SHA + 同一命令 + 工作树无变化时复用上次结果（ADR-106 batch-1/6，#1275）——
+    //    verificationType 目前固定用 base_verify_cmd 本身当 key：不同 profile 会有不同的
+    //    命令字符串，天然不会互相误命中；等 #1274 落地风险分档后，profile 名字会替代
+    //    命令字符串成为更稳定的 key，这里到时候一起改，不重复发明一套。
     if (ok && cfg.verification.require_base_pass) {
       const baseCmd = cfg.verification.base_verify_cmd;
-      log.step(`运行基础验证（require_base_pass=true）: ${baseCmd}`);
-      const br = sh(baseCmd);
+      const sha = currentSha();
+      const fingerprint = computeFingerprint(sha);
+      const cached = lookupCredential(baseCmd, sha, fingerprint);
+      let br: { code: number; stdout: string; stderr: string };
+      if (cached) {
+        log.step(`命中缓存凭证，跳过基础验证（require_base_pass=true）: ${baseCmd}`);
+        log.info(`  上次执行于 ${cached.completedAt}，退出码=${cached.exitCode}`);
+        br = { code: cached.exitCode, stdout: "", stderr: cached.exitCode === 0 ? "" : "[verify-cache] 复用上次失败结果，未重新执行" };
+      } else {
+        log.step(`运行基础验证（require_base_pass=true）: ${baseCmd}`);
+        br = sh(baseCmd);
+        recordCredential({
+          sha,
+          fingerprint,
+          verificationType: baseCmd,
+          command: baseCmd,
+          exitCode: br.code,
+          completedAt: new Date().toISOString(),
+        });
+      }
       logs.push(`\n[BASE VERIFY] $ ${baseCmd}\n[exit ${br.code}]\n${br.stdout}${br.stderr}`);
       if (br.code !== 0) {
         ok = false;
