@@ -233,6 +233,40 @@ jobs:
       - name: 全仓 typecheck + lint
         run: pnpm turbo run typecheck lint --continue
 
+  # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
+  # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
+  # 权限）4 秒内直接合并三项，`latestReviews=[]`、`labels=[]`，#922 body 里连
+  # `Closes #N` 都没有。`pr-queue` 从来是只读建议（不合并、不改 label），门禁
+  # 完全靠 coordinator 自律——admin 一按就绕过。
+  #
+  # 本 job 是"机械阻止"的第一层：对着当前 PR 的**当前 head SHA**跑
+  # `pnpm harness merge-gate`，判定独立 APPROVE / 唯一 verdict label / Closes
+  # 关联三条，任一不满足就报红（.harness/scripts/lib/merge-gate.ts，反证测试见
+  # 同目录 merge-gate.test.ts）。
+  #
+  # ⚠ 这个 job 红了只能挡住 CI 状态与自动化流程里"当前 PR 是否绿"的判断——它
+  # **不能**单靠自己阻止 repo admin 在 GitHub 网页端直接点击合并（2026-08-11
+  # 那三次事故正是管理员 bypass）。要让它真正拦人，需要人类在 GitHub 仓库
+  # Settings → Branches 把 main 分支保护规则里加一条 required status check
+  # 指向这个 job（job 名 `merge-gate`），并勾选 "Include administrators"（或
+  # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
+  # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
+  merge-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 机械合并门禁（独立 APPROVE + 唯一 verdict label + Closes 关联）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm harness merge-gate --pr ${{ github.event.pull_request.number }}
+
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
