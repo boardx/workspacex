@@ -33,8 +33,10 @@ describe("数字专家访谈契约", () => {
     sourceQuickInterviewId: null,
     selectedExpertIds: ["expert-1"],
     expertCandidates: [{
-      expertId: "expert-1", initials: "DE", displayName: "德国采购总监", role: "采购决策",
-      domains: ["采购"], materialBoundary: "材料版本 v1", exploratory: true,
+      expertId: "expert-1", agentDefinitionId: "agent-definition-1", agentVersion: "agent-version-1",
+      initials: "DE", displayName: "德国采购总监", role: "采购决策", domains: ["采购"],
+      materialContextPackId: "context-pack-1", materialVersion: "material-v1",
+      materialBoundary: "材料版本 v1", exploratory: true,
     }],
     questions: [question],
     questionCandidates: [question],
@@ -213,7 +215,14 @@ describe("数字专家访谈契约", () => {
   it("workflow 严格包含 scope、服务端候选与问题草稿，历史行复用已确认 topic", () => {
     const parsed = DigitalInterviewWorkflowView.parse(workflow());
     expect(parsed.scope).toEqual(scope);
-    expect(parsed.expertCandidates[0]).toMatchObject({ expertId: "expert-1", displayName: "德国采购总监" });
+    expect(parsed.expertCandidates[0]).toMatchObject({
+      expertId: "expert-1", agentDefinitionId: "agent-definition-1", agentVersion: "agent-version-1",
+      materialContextPackId: "context-pack-1", materialVersion: "material-v1",
+    });
+    expect(DigitalInterviewWorkflowView.safeParse({
+      ...workflow(),
+      expertCandidates: workflow().expertCandidates.map(({ agentVersion: _omitted, ...candidate }) => candidate),
+    }).success).toBe(false);
     expect(parsed.questionCandidates).toEqual([question]);
     expect(operations.listDigitalInterviews.out.parse({
       items: [{

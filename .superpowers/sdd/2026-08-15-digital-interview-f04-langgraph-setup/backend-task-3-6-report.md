@@ -66,31 +66,59 @@ Branch: `worker/coord-user-research-04-f04-langgraph-persistence`
 - `pnpm --filter api typecheck`: PASS, exit 0 (fresh sequential run after all fix-round changes).
 - Pure graph gate, run with a temporary no-global-setup Vitest config so it did not touch a database:
   `pnpm --filter api exec vitest run tests/itv/digital-interview-graph.test.ts --config vitest.f04-graph.config.ts --pool=forks --maxWorkers=1 --minWorkers=1`:
-  PASS, 1 file / 3 tests, including completed-checkpoint upstream reconfirmation and current-actor
-  propagation. The temporary config was removed after the run.
+  PASS, 1 file / 4 tests, including completed-checkpoint upstream reconfirmation, current-actor
+  propagation, and namespace isolation. The temporary config was removed after the run.
 - `git diff --check`: PASS (no output).
-- The single bounded isolated PostgreSQL attempt after the fix round used:
-
-  ```text
-  pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run \
-    tests/itv/digital-interview-workflow-migration.test.ts \
-    tests/itv/digital-interview-langgraph-persistence.test.ts \
-    tests/itv/digital-interview-setup.test.ts \
-    tests/itv/digital-interview-controller.test.ts --pool=forks --maxWorkers=1 --minWorkers=1
-  ```
-
-  Admission refused before Docker/database creation: initial `load1=46.24`, `cores=10`,
-  `perCore=4.62`, `running=0/2`, against the `2.5` per-core ceiling. The final observations were
-  `perCore=4.02` at 30 seconds and `3.73` at 35 seconds; the bounded attempt was interrupted.
-  No shared database was used. Therefore the migration replay/migrate-check, persistence, and
-  authoritative HTTP gates are **blocked by resource admission**, not claimed passing. The pure
-  graph gate was executed independently and passed as recorded above.
 
 ## Known risks / review focus
 
-- The database-backed gates could not execute under the machine admission ceiling. Migration SQL,
-  PostgresSaver DDL compatibility, RLS/catalog assertions, graph checkpoint behavior, and full HTTP
-  behavior still require one isolated run when admission opens.
 - Question generation is intentionally deterministic from the signed three-question template and
   the persisted visible expert snapshot; it does not claim model-produced evidence. Candidate
   material boundaries remain explicitly exploratory.
+
+## Post-review PostgreSQL fix round (`a537680b` base)
+
+- Replaced the NUL-delimited advisory-lock input with a canonical SHA-256 digest. PostgreSQL now
+  receives a safe text key while preserving the full org/interview/operation/request identity.
+- Added a fixed-namespace saver adapter because LangGraph 0.4.9 reserves non-empty root namespaces
+  for subgraphs and clears them before saver calls. Runtime configs keep `thread_id=interviewId`;
+  the adapter durably maps every get/list/put/write to `checkpoint_ns=digital-interview:v1`.
+  A shared-MemorySaver regression proves the same thread ID is isolated across two namespaces.
+- Extended the formal expert catalog and browser contract with the immutable Agent definition ID,
+  published Agent version ID, and structured Context Pack/material version pointers. Candidate and
+  confirmed snapshot tables persist the complete expert projection with org-first composite FKs.
+- Recovery now handles both receipt/checkpoint crash windows: confirmation committed before its
+  checkpoint and generation committed before its checkpoint. Receipt replay advances the stale
+  interrupt instead of returning a business response while leaving the graph behind.
+- Upstream reconfirmation now forks from the durable routing checkpoint with `updateState`; this
+  supersedes the paused downstream interrupt instead of scheduling two confirmation tasks beside
+  each other.
+- Made the authoritative HTTP restart gate bind its replacement application before closing the old
+  listener and derive the base URL from the exact returned server, eliminating port-handoff races.
+
+## Post-review final verification
+
+- `pnpm --filter @repo/contracts typecheck`: PASS, exit 0.
+- `pnpm --filter @repo/contracts exec vitest run tests/digital-interview-contract.test.ts`:
+  PASS, 13/13.
+- `pnpm --filter @repo/api typecheck`: PASS, exit 0.
+- Focused pure graph gate: PASS, 4/4, including same-thread/different-namespace isolation and
+  upstream reconfirmation from a completed checkpoint.
+- Exact isolated PostgreSQL command requested by review:
+
+  ```text
+  pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+    pnpm --filter @repo/api exec vitest run \
+    tests/itv/digital-interview-workflow-migration.test.ts \
+    tests/itv/digital-interview-langgraph-persistence.test.ts \
+    tests/itv/digital-interview-setup.test.ts \
+    tests/itv/digital-interview-controller.test.ts \
+    --pool=forks --maxWorkers=1 --minWorkers=1
+  ```
+
+  PASS, 4 files / 22 tests, exit 0. Isolated DB
+  `wsx_c404abff9be09a6cfafd`; peak connections 13.
+- Isolated `migrate:check`: PASS, exit 0. All 122 migrations applied from empty, every migration
+  force-replayed, and the before/after schema digests were identical.
+- The suite emits an upstream `pg` deprecation warning about concurrent `client.query()` calls.
+  It does not fail the gate, but should be removed before upgrading to pg 9.

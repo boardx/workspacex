@@ -7,11 +7,11 @@ import type {
   DigitalInterviewEffects,
 } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import { initialDigitalInterviewState } from "../../src/application/interview/workflow/digital-interview-state";
+import { withCheckpointNamespace } from "../../src/infrastructure/interview/workflow/langgraph-digital-interview-runtime";
 
 const config = {
   configurable: {
     thread_id: "itv-graph-f04",
-    checkpoint_ns: "digital-interview:v1",
   },
 };
 
@@ -177,10 +177,9 @@ describe("F04 digital interview LangGraph", () => {
         order: 1, text: "旧问题", purpose: "旧目的" }], expectedVersion: 3, requestId: "questions-first",
     } }), config);
 
-    await graph.invoke(new Command({
-      update: { currentStep: "topic", actorId: "current-actor" },
-      goto: "confirm_topic",
-    }), config);
+    await graph.updateState(config, {
+      currentStep: "topic", actorId: "current-actor",
+    }, "route");
     const revised = await graph.invoke(new Command({ update: { actorId: "current-actor" }, resume: {
       kind: "confirm_topic", topic: "新主题", expectedVersion: 4, requestId: "topic-reconfirm",
     } }), config);
@@ -191,5 +190,39 @@ describe("F04 digital interview LangGraph", () => {
       command: expect.objectContaining({ requestId: "topic-reconfirm" }),
     }));
     expect(effects.generateExpertCandidates).toHaveBeenCalledTimes(2);
+  });
+
+  it("isolates the same thread id across different checkpoint namespaces", async () => {
+    const storage = new MemorySaver();
+    const firstGraph = createDigitalInterviewGraph({
+      effects: createEffects(),
+      checkpointer: withCheckpointNamespace(storage, "digital-interview:v1"),
+    });
+    const secondGraph = createDigitalInterviewGraph({
+      effects: createEffects(),
+      checkpointer: withCheckpointNamespace(storage, "digital-interview:test-isolated"),
+    });
+    const base = {
+      interviewId: "same-thread", orgId: "org-graph-f04", actorId: "user-graph-f04",
+      revisionNumber: 1, skillThreadId: "skill-thread-f04",
+    };
+    const threadConfig = { configurable: { thread_id: "same-thread" } };
+
+    await firstGraph.invoke(initialDigitalInterviewState({ ...base, revisionId: "revision-v1" }), threadConfig);
+    await secondGraph.invoke(initialDigitalInterviewState({ ...base, revisionId: "revision-isolated" }), threadConfig);
+
+    expect(Object.keys(storage.storage["same-thread"] ?? {}).sort()).toEqual([
+      "digital-interview:test-isolated", "digital-interview:v1",
+    ]);
+    await expect(storage.getTuple({ configurable: {
+      thread_id: "same-thread", checkpoint_ns: "digital-interview:v1",
+    } })).resolves.toMatchObject({
+      checkpoint: { channel_values: { revisionId: "revision-v1" } },
+    });
+    await expect(storage.getTuple({ configurable: {
+      thread_id: "same-thread", checkpoint_ns: "digital-interview:test-isolated",
+    } })).resolves.toMatchObject({
+      checkpoint: { channel_values: { revisionId: "revision-isolated" } },
+    });
   });
 });

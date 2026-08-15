@@ -26,6 +26,8 @@ export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
 
 export interface StoredDigitalExpert {
   readonly expertId: string;
+  readonly agentDefinitionId: string;
+  readonly agentVersion: string;
   readonly initials: string;
   readonly displayName: string;
   readonly role: string;

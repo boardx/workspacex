@@ -89,23 +89,41 @@ CREATE TABLE IF NOT EXISTS digital_interview_expert_snapshot_versions (
 CREATE UNIQUE INDEX IF NOT EXISTS digital_interview_expert_snapshot_versions_one_current
   ON digital_interview_expert_snapshot_versions(org_id, revision_id) WHERE is_current;
 
+-- Agent versions expose `(id,org_id,agent_id)` for their head FK. Interview tables keep every
+-- tenant composite key org-first, so add the equivalent lookup order without duplicating data.
+CREATE UNIQUE INDEX IF NOT EXISTS agent_versions_org_id_id_agent_id_uniq
+  ON agent_versions(org_id, id, agent_id);
+
 CREATE TABLE IF NOT EXISTS digital_interview_expert_snapshots (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   version_id text NOT NULL,
   expert_id text NOT NULL,
+  agent_definition_id text NOT NULL,
+  agent_version text NOT NULL,
   ordinal integer NOT NULL CHECK (ordinal > 0),
+  initials text NOT NULL CHECK (length(btrim(initials)) > 0),
+  display_name text NOT NULL CHECK (length(btrim(display_name)) > 0),
+  role text NOT NULL CHECK (length(btrim(role)) > 0),
+  domains text[] NOT NULL CHECK (cardinality(domains) > 0),
+  material_context_pack_id text,
+  material_version text,
   PRIMARY KEY (org_id, version_id, expert_id),
   UNIQUE (org_id, version_id, ordinal),
   FOREIGN KEY (org_id, version_id)
     REFERENCES digital_interview_expert_snapshot_versions(org_id, id) ON DELETE CASCADE,
   FOREIGN KEY (org_id, expert_id)
-    REFERENCES digital_expert_profiles(org_id, agent_id)
+    REFERENCES digital_expert_profiles(org_id, agent_id),
+  FOREIGN KEY (org_id, agent_version, agent_definition_id)
+    REFERENCES agent_versions(org_id, id, agent_id),
+  CHECK ((material_context_pack_id IS NULL) = (material_version IS NULL))
 );
 
 CREATE TABLE IF NOT EXISTS digital_interview_expert_candidates (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   revision_id text NOT NULL,
   expert_id text NOT NULL,
+  agent_definition_id text NOT NULL,
+  agent_version text NOT NULL,
   ordinal integer NOT NULL CHECK (ordinal > 0),
   initials text NOT NULL CHECK (length(btrim(initials)) > 0),
   display_name text NOT NULL CHECK (length(btrim(display_name)) > 0),
@@ -120,6 +138,8 @@ CREATE TABLE IF NOT EXISTS digital_interview_expert_candidates (
     REFERENCES digital_interview_revisions(org_id, id) ON DELETE CASCADE,
   FOREIGN KEY (org_id, expert_id)
     REFERENCES digital_expert_profiles(org_id, agent_id),
+  FOREIGN KEY (org_id, agent_version, agent_definition_id)
+    REFERENCES agent_versions(org_id, id, agent_id),
   CHECK ((material_context_pack_id IS NULL) = (material_version IS NULL))
 );
 

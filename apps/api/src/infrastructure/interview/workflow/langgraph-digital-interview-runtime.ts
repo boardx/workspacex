@@ -1,5 +1,11 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { Command, type BaseCheckpointSaver } from "@langchain/langgraph";
+import {
+  BaseCheckpointSaver,
+  Command,
+  type Checkpoint,
+  type CheckpointMetadata,
+  type CheckpointTuple,
+} from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import pg from "pg";
 import { interview } from "@repo/contracts";
@@ -28,8 +34,105 @@ import type { PgConfig } from "../../db/pg-config";
 
 const CHECKPOINT_NS = "digital-interview:v1";
 
-export function createDigitalInterviewCheckpointer(config: PgConfig): PostgresSaver {
-  return new PostgresSaver(new pg.Pool({ ...config, max: 5 }), undefined, { schema: "langgraph_interview" });
+function storedCheckpointConfig(config: RunnableConfig, checkpointNamespace: string): RunnableConfig {
+  return {
+    ...config,
+    configurable: { ...config.configurable, checkpoint_ns: checkpointNamespace },
+  };
+}
+
+function runtimeCheckpointConfig(config: RunnableConfig): RunnableConfig {
+  return {
+    ...config,
+    configurable: { ...config.configurable, checkpoint_ns: "" },
+  };
+}
+
+/**
+ * LangGraph reserves non-empty namespaces for subgraphs and clears a root graph namespace
+ * before calling its saver. Keep the runtime root namespace empty while pinning all durable
+ * storage operations to the signed digital-interview namespace.
+ */
+export class FixedNamespaceCheckpointSaver extends BaseCheckpointSaver {
+  constructor(
+    private readonly delegate: BaseCheckpointSaver,
+    private readonly checkpointNamespace: string,
+  ) {
+    super(delegate.serde);
+  }
+
+  async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const tuple = await this.delegate.getTuple(storedCheckpointConfig(config, this.checkpointNamespace));
+    if (!tuple) return undefined;
+    return {
+      ...tuple,
+      config: runtimeCheckpointConfig(tuple.config),
+      parentConfig: tuple.parentConfig ? runtimeCheckpointConfig(tuple.parentConfig) : undefined,
+    };
+  }
+
+  async *list(
+    config: RunnableConfig,
+    options?: Parameters<BaseCheckpointSaver["list"]>[1],
+  ): AsyncGenerator<CheckpointTuple> {
+    const storedOptions = options?.before
+      ? { ...options, before: storedCheckpointConfig(options.before, this.checkpointNamespace) }
+      : options;
+    for await (const tuple of this.delegate.list(
+      storedCheckpointConfig(config, this.checkpointNamespace), storedOptions,
+    )) {
+      yield {
+        ...tuple,
+        config: runtimeCheckpointConfig(tuple.config),
+        parentConfig: tuple.parentConfig ? runtimeCheckpointConfig(tuple.parentConfig) : undefined,
+      };
+    }
+  }
+
+  async put(
+    config: RunnableConfig,
+    checkpoint: Checkpoint,
+    metadata: CheckpointMetadata,
+    newVersions: Parameters<BaseCheckpointSaver["put"]>[3],
+  ): Promise<RunnableConfig> {
+    const stored = await this.delegate.put(
+      storedCheckpointConfig(config, this.checkpointNamespace), checkpoint, metadata, newVersions,
+    );
+    return runtimeCheckpointConfig(stored);
+  }
+
+  async putWrites(
+    config: RunnableConfig,
+    writes: Parameters<BaseCheckpointSaver["putWrites"]>[1],
+    taskId: string,
+  ): Promise<void> {
+    await this.delegate.putWrites(
+      storedCheckpointConfig(config, this.checkpointNamespace), writes, taskId,
+    );
+  }
+
+  async deleteThread(threadId: string): Promise<void> {
+    await this.delegate.deleteThread(threadId);
+  }
+
+  async end(): Promise<void> {
+    const delegate = this.delegate as BaseCheckpointSaver & { end?: () => Promise<void> };
+    await delegate.end?.();
+  }
+}
+
+export function withCheckpointNamespace(
+  checkpointer: BaseCheckpointSaver,
+  checkpointNamespace: string,
+): FixedNamespaceCheckpointSaver {
+  return new FixedNamespaceCheckpointSaver(checkpointer, checkpointNamespace);
+}
+
+export function createDigitalInterviewCheckpointer(config: PgConfig): FixedNamespaceCheckpointSaver {
+  const saver = new PostgresSaver(
+    new pg.Pool({ ...config, max: 5 }), undefined, { schema: "langgraph_interview" },
+  );
+  return withCheckpointNamespace(saver, CHECKPOINT_NS);
 }
 
 export interface DigitalInterviewRuntimeDeps {
@@ -45,7 +148,7 @@ export interface DigitalInterviewRuntimeDeps {
 }
 
 function checkpointConfig(interviewId: string): RunnableConfig {
-  return { configurable: { thread_id: interviewId, checkpoint_ns: CHECKPOINT_NS } };
+  return { configurable: { thread_id: interviewId } };
 }
 
 const STEP_ORDER: Readonly<Record<z.infer<typeof interview.DigitalInterviewStep>, number>> = {
@@ -248,12 +351,12 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       : command.kind === "confirm_experts"
         ? "generate_questions"
         : null;
+    let generatedReplay: DigitalInterviewWorkflowView | null = null;
     if (replay && generationOperation !== null) {
-      const generated = await this.deps.effects.findReceipt({
+      generatedReplay = await this.deps.effects.findReceipt({
         orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
         requestId: command.requestId, payload: { expectedVersion: replay.version },
       });
-      if (generated) return generated;
     } else if (replay) {
       return replay;
     }
@@ -266,16 +369,33 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
         if (STEP_ORDER[targetStep] >= STEP_ORDER[current.currentStep]) {
           throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
         }
-        await this.graph.invoke(new Command({
-          update: { currentStep: targetStep, actorId: input.actorId },
-          goto: expectedNode,
-        }), config);
+        // Fork the durable checkpoint from the routing node. A Command.goto from a paused
+        // downstream interrupt adds work beside that pending task; updateState supersedes the
+        // old pending interrupt and lets the graph derive exactly one new confirmation task.
+        await this.graph.updateState(
+          config,
+          { currentStep: targetStep, actorId: input.actorId },
+          "route",
+        );
+      }
+    } else {
+      const snapshot = await this.graph.getState(config);
+      if (snapshot.next.includes(expectedNode)) {
+        await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
+      } else if (generationOperation !== null && snapshot.next.includes(generationOperation)) {
+        await this.graph.invoke(new Command({ update: { actorId: input.actorId } }), config);
+      } else if (generatedReplay) {
+        return generatedReplay;
+      } else {
+        throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
       }
     }
 
     // The authorization above occurs directly before checkpoint load/resume. The effect is
     // receipt-first, so a crash after its business commit but before the next checkpoint is safe.
-    await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
+    if (!replay) {
+      await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
+    }
     if (generationOperation !== null) {
       const generated = await this.deps.effects.findReceipt({
         orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,

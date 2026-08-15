@@ -123,6 +123,25 @@ describe("F04 digital interview workflow migration", () => {
     }
   });
 
+  it("persists the published Agent definition/version and structured material pointers in candidates and confirmed snapshots", async () => {
+    const client = new pg.Client(migrationConfig());
+    await client.connect();
+    try {
+      const columns = await client.query<{ table_name: string; column_name: string }>(
+        `SELECT table_name,column_name FROM information_schema.columns
+          WHERE table_schema='public'
+            AND table_name=ANY($1::text[])
+            AND column_name=ANY($2::text[])
+          ORDER BY table_name,column_name`,
+        [["digital_interview_expert_candidates", "digital_interview_expert_snapshots"],
+          ["agent_definition_id", "agent_version", "material_context_pack_id", "material_version"]],
+      );
+      expect(columns.rows).toHaveLength(8);
+    } finally {
+      await client.end();
+    }
+  });
+
   it("is safe to replay after a partially completed deployment", async () => {
     const sql = await readFile(MIGRATION, "utf8");
     const client = new pg.Client(migrationConfig());

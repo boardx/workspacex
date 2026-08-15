@@ -15,6 +15,7 @@ const ORG = "org-digital-interview-f04";
 const OTHER_ORG = "org-digital-interview-f04-other";
 const USER = "u-digital-interview-f04";
 const EXPERT = "agent-digital-interview-f04";
+const EXPERT_VERSION = "agent-version-digital-interview-f04";
 const PROVIDER = "digital-interview-f04-loopback";
 const MODEL = "digital-interview-f04-model";
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
@@ -29,14 +30,18 @@ let providerHook: (() => Promise<void>) | null = null;
 async function startApp() {
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
-  const address = app.getHttpServer().address();
-  base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+  const server = await app.listen(0, "127.0.0.1");
+  const address = server.address();
+  if (typeof address !== "object" || address === null) {
+    throw new Error("digital interview acceptance server did not bind a TCP port");
+  }
+  base = `http://127.0.0.1:${address.port}`;
 }
 
 async function restartApp() {
-  await app.close();
+  const previous = app;
   await startApp();
+  await previous.close();
 }
 
 type DigitalInterviewResponse = z.infer<typeof interview.DigitalInterviewWorkflowView>;
@@ -119,6 +124,17 @@ beforeEach(async () => {
        VALUES ($1,$2,'f04-procurement','德国采购总监','enabled',$3,now(),now(),NULL,
                'DE','采购决策','全组织可用','self','运行中',$4,2,'跟随组织级')`,
       [EXPERT, ORG, USER, MODEL],
+    );
+    await session.query(
+      `INSERT INTO agent_versions
+        (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+         model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+       VALUES ($1,$2,$3,'v1',$4,'德国采购决策专家','{}',$5,$6,'[]',$7,now(),now())`,
+      [EXPERT_VERSION, ORG, EXPERT, "a".repeat(64), PROVIDER, MODEL, USER],
+    );
+    await session.query(
+      "UPDATE agents SET published_version_id=$3 WHERE org_id=$1 AND id=$2",
+      [ORG, EXPERT, EXPERT_VERSION],
     );
     await session.query(
       `INSERT INTO capability_listings(id,org_id,kind,name,scope,enabled,abbr,duty)
@@ -245,7 +261,15 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(topic.status).toBe(201);
     const topicView = await topic.json() as DigitalInterviewResponse;
     expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
-    expect(topicView.expertCandidates.map((candidate) => candidate.expertId)).toEqual([EXPERT]);
+    expect(topicView.expertCandidates).toEqual([
+      expect.objectContaining({
+        expertId: EXPERT,
+        agentDefinitionId: EXPERT,
+        agentVersion: EXPERT_VERSION,
+        materialContextPackId: null,
+        materialVersion: null,
+      }),
+    ]);
 
     const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },

@@ -18,8 +18,10 @@ const ORG = toOrgId("org-f04-langgraph-persistence");
 const USER = "user-f04-langgraph-persistence";
 const COLLABORATOR = "collaborator-f04-langgraph-persistence";
 const EXPERT = "expert-f04-langgraph-persistence";
+const EXPERT_VERSION = "expert-version-f04-langgraph-persistence";
 let db: PgDatabase;
 let sequence = 0;
+let testCycle = 0;
 const ids = { next: (prefix: string) => `${prefix}-persistence-${++sequence}` };
 let modelCalls: Array<Parameters<ModelCallPort["complete"]>[0]> = [];
 const model: ModelCallPort = { complete: async (input) => {
@@ -63,7 +65,9 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  sequence = 0;
+  // Checkpoints deliberately outlive business-row resets; keep thread IDs unique per test
+  // so one case cannot resume another case's durable graph.
+  sequence = ++testCycle * 1_000;
   modelCalls = [];
   await resetOrgs(ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "project-f04-persistence" });
@@ -77,6 +81,17 @@ beforeEach(async () => {
        VALUES ($1,$2,$1,'采购专家','enabled',$3,now(),now(),NULL,
                'PE','采购决策','全组织可用','self','运行中','model-f04',2,'跟随组织级')`,
       [EXPERT, ORG, USER],
+    );
+    await session.query(
+      `INSERT INTO agent_versions
+         (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+          model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+       VALUES ($1,$2,$3,'v1',$4,'采购决策专家','{}','test-provider','model-f04','[]',$5,now(),now())`,
+      [EXPERT_VERSION, ORG, EXPERT, "a".repeat(64), USER],
+    );
+    await session.query(
+      "UPDATE agents SET published_version_id=$3 WHERE org_id=$1 AND id=$2",
+      [ORG, EXPERT, EXPERT_VERSION],
     );
     await session.query(
       `INSERT INTO capability_listings(id,org_id,kind,name,scope,enabled,abbr,duty)
@@ -144,6 +159,43 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await recreated.checkpointer.end();
   });
 
+  it("advances the stale interrupt after generation committed but before its graph checkpoint", async () => {
+    const first = createRuntime();
+    const created = await first.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "生成节点崩溃恢复", tags: ["恢复"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-generation-crash",
+    });
+    const command = {
+      kind: "confirm_topic" as const, topic: "生成已落库但图未推进",
+      expectedVersion: 1, requestId: "topic-generation-crash",
+    };
+    const committed = await first.effects.commitStep({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      revisionId: created.revisionId, revisionNumber: 1, nodeName: "confirm_topic",
+      operationId: `${created.interviewId}:confirm_topic:1:${command.requestId}`, command,
+    });
+    await first.effects.generateExpertCandidates({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      revisionId: committed.revisionId, revisionNumber: committed.revisionNumber,
+      expectedVersion: committed.aggregateVersion, requestId: command.requestId,
+      operationId: `${created.interviewId}:generate_expert_candidates:1:${command.requestId}`,
+    });
+
+    const recreated = createRuntime();
+    const replay = await recreated.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: command.topic, expectedVersion: command.expectedVersion, requestId: command.requestId,
+    });
+    const advanced = await recreated.runtime.confirmExperts({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [EXPERT], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
+    });
+    expect(advanced).toMatchObject({ currentStep: "questions", selectedExpertIds: [EXPERT], version: 3 });
+    expect(advanced.questionCandidates).toHaveLength(3);
+    await first.checkpointer.end();
+    await recreated.checkpointer.end();
+  });
+
   it("scopes the same operation/request id to each interview and returns its own workflow", async () => {
     const setup = createRuntime();
     const first = await setup.runtime.createDraft({
@@ -176,10 +228,29 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
       topic: "旧主题", expectedVersion: 1, requestId: "topic-revision-1" });
     expect(topic.expertCandidates.map((item) => item.expertId)).toEqual([EXPERT]);
+    expect(topic.expertCandidates[0]).toMatchObject({
+      agentDefinitionId: EXPERT, agentVersion: EXPERT_VERSION,
+      materialContextPackId: null, materialVersion: null,
+    });
     const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
       expertIds: [EXPERT], expectedVersion: 2, requestId: "experts-revision-1" });
     expect(experts.questionCandidates).toHaveLength(3);
     expect(new Set(experts.questionCandidates.map((item) => item.expertId))).toEqual(new Set([EXPERT]));
+    const snapshot = await asOwner((client) => client.query<{
+      agent_definition_id: string; agent_version: string;
+      material_context_pack_id: string | null; material_version: string | null;
+    }>(
+      `SELECT s.agent_definition_id,s.agent_version,s.material_context_pack_id,s.material_version
+         FROM digital_interview_expert_snapshots s
+         JOIN digital_interview_expert_snapshot_versions v
+           ON v.org_id=s.org_id AND v.id=s.version_id
+        WHERE v.org_id=$1 AND v.interview_id=$2 AND v.is_current`,
+      [ORG, created.interviewId],
+    ));
+    expect(snapshot.rows).toEqual([{
+      agent_definition_id: EXPERT, agent_version: EXPERT_VERSION,
+      material_context_pack_id: null, material_version: null,
+    }]);
     const editedQuestions = experts.questionCandidates.map((question, index) => index === 0
       ? { ...question, text: "用户编辑后保留的问题" }
       : question);
@@ -211,8 +282,8 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-permission-race",
     });
     await asApp(ORG, (session) => session.query(
-      "INSERT INTO interview_collaborators(org_id,interview_id,user_id) VALUES($1,$2,$3)",
-      [ORG, created.interviewId, COLLABORATOR],
+      "INSERT INTO interview_collaborators(org_id,interview_id,user_id,added_by) VALUES($1,$2,$3,$4)",
+      [ORG, created.interviewId, COLLABORATOR, USER],
     ));
 
     const original = base.effects.commitStep.bind(base.effects);

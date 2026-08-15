@@ -13,6 +13,7 @@ process.env.KERNEL_QUIET = "1";
 const ORG = "org-digital-interview-f02";
 const OTHER_ORG = "org-digital-interview-f02-other";
 const USER = "u-digital-interview-f02";
+const EXPERT_VERSION = "agent-version-f02";
 let app: NestExpressApplication;
 let base = "";
 let db: PgDatabase;
@@ -78,6 +79,18 @@ beforeEach(async () => {
       [ORG, USER],
     );
     await session.query(
+      `INSERT INTO agent_versions
+        (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+         model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+       VALUES ($1,$2,'agent-f02-de','v1',$3,'instructions',ARRAY[]::text[],
+               'deep-agent','model-f02','[]'::jsonb,$4,now(),now())`,
+      [EXPERT_VERSION, ORG, "a".repeat(64), USER],
+    );
+    await session.query(
+      "UPDATE agents SET published_version_id=$2 WHERE org_id=$1 AND id='agent-f02-de'",
+      [ORG, EXPERT_VERSION],
+    );
+    await session.query(
       `INSERT INTO capability_listings
         (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty)
        VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','负责德国制造业能源采购与供应商谈判')`,
@@ -101,14 +114,16 @@ describe("F02 数字访谈首屏 HTTP", () => {
     });
   });
 
-  it("现有与新发布 Agent 会获得明确的未分类 profile，不会在升级后从专家目录消失", async () => {
+  it("已发布 Agent 会获得明确的未分类 profile，不会在升级后从专家目录消失", async () => {
     const response = await fetch(`${base}/interviews/digital/experts`, { headers: auth });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       items: [{
-        expertId: "agent-f02-de", initials: "DE", displayName: "德国采购总监",
+        expertId: "agent-f02-de", agentDefinitionId: "agent-f02-de", agentVersion: EXPERT_VERSION,
+        initials: "DE", displayName: "德国采购总监",
         role: "负责德国制造业能源采购与供应商谈判",
         domains: ["未分类"],
+        materialContextPackId: null, materialVersion: null,
         materialBoundary: "未绑定 Context Pack 材料版本", exploratory: true,
       }],
     });
@@ -120,18 +135,6 @@ describe("F02 数字访谈首屏 HTTP", () => {
         `UPDATE digital_expert_profiles
             SET domains=ARRAY['采购与供应链','德国市场']
           WHERE org_id=$1 AND agent_id='agent-f02-de'`,
-        [ORG],
-      );
-      await session.query(
-        `INSERT INTO agent_versions
-          (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
-           model_provider,model_id,tool_policy,creator_id,created_at,published_at)
-         VALUES ('agent-version-f02',$1,'agent-f02-de','v1',$2,'instructions',ARRAY[]::text[],
-                 'deep-agent','model-f02','[]'::jsonb,$3,now(),now())`,
-        [ORG, "a".repeat(64), USER],
-      );
-      await session.query(
-        `UPDATE agents SET published_version_id='agent-version-f02' WHERE org_id=$1 AND id='agent-f02-de'`,
         [ORG],
       );
     });

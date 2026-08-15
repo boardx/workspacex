@@ -230,9 +230,14 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         );
         for (const [index, expertId] of input.command.expertIds.entries()) {
           await session.query(
-            `INSERT INTO digital_interview_expert_snapshots(org_id,version_id,expert_id,ordinal)
-             VALUES ($1,$2,$3,$4)`,
-            [input.orgId, committedVersionId, expertId, index + 1],
+            `INSERT INTO digital_interview_expert_snapshots
+               (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
+                initials,display_name,role,domains,material_context_pack_id,material_version)
+             SELECT org_id,$2,expert_id,agent_definition_id,agent_version,$4,
+                    initials,display_name,role,domains,material_context_pack_id,material_version
+               FROM digital_interview_expert_candidates
+              WHERE org_id=$1 AND revision_id=$3 AND expert_id=$5`,
+            [input.orgId, committedVersionId, activeRevisionId, index + 1, expertId],
           );
         }
         await session.query(
@@ -346,10 +351,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       for (const [index, expert] of experts.entries()) {
         await session.query(
           `INSERT INTO digital_interview_expert_candidates
-             (org_id,revision_id,expert_id,ordinal,initials,display_name,role,domains,
+             (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
               material_context_pack_id,material_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [input.orgId, input.revisionId, expert.expertId, index + 1, expert.initials,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [input.orgId, input.revisionId, expert.expertId, expert.agentDefinitionId,
+            expert.agentVersion, index + 1, expert.initials,
             expert.displayName, expert.role, [...expert.domains], expert.materialContextPackId,
             expert.materialVersion],
         );
@@ -541,8 +547,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         WHERE org_id=$1 AND revision_id=$2 AND is_current`,
       [input.orgId, current.revision_id],
     );
-    const previousExperts = await session.query<{ expert_id: string; ordinal: number }>(
-      `SELECT s.expert_id,s.ordinal
+    const previousExperts = await session.query<{
+      expert_id: string; agent_definition_id: string; agent_version: string; ordinal: number;
+      initials: string; display_name: string; role: string; domains: string[];
+      material_context_pack_id: string | null; material_version: string | null;
+    }>(
+      `SELECT s.expert_id,s.agent_definition_id,s.agent_version,s.ordinal,s.initials,
+              s.display_name,s.role,s.domains,s.material_context_pack_id,s.material_version
          FROM digital_interview_expert_snapshots s
          JOIN digital_interview_expert_snapshot_versions v
            ON v.org_id=s.org_id AND v.id=s.version_id
@@ -594,9 +605,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     );
     await session.query(
       `INSERT INTO digital_interview_expert_candidates
-         (org_id,revision_id,expert_id,ordinal,initials,display_name,role,domains,
+         (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
           material_context_pack_id,material_version)
-       SELECT org_id,$3,expert_id,ordinal,initials,display_name,role,domains,
+       SELECT org_id,$3,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
               material_context_pack_id,material_version
          FROM digital_interview_expert_candidates
         WHERE org_id=$1 AND revision_id=$2`,
@@ -641,9 +652,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       );
       for (const expert of previousExperts.rows) {
         await session.query(
-          `INSERT INTO digital_interview_expert_snapshots(org_id,version_id,expert_id,ordinal)
-           VALUES ($1,$2,$3,$4)`,
-          [input.orgId, expertVersionId, expert.expert_id, expert.ordinal],
+          `INSERT INTO digital_interview_expert_snapshots
+             (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
+              initials,display_name,role,domains,material_context_pack_id,material_version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [input.orgId, expertVersionId, expert.expert_id, expert.agent_definition_id,
+            expert.agent_version, expert.ordinal, expert.initials, expert.display_name,
+            expert.role, expert.domains, expert.material_context_pack_id, expert.material_version],
         );
       }
     }
@@ -761,7 +776,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   ): Promise<void> {
     await session.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-      [`${orgId}\u0000${interviewId ?? "create"}\u0000${operationName}\u0000${requestId}`],
+      [payloadDigest([orgId, interviewId, operationName, requestId])],
     );
   }
 

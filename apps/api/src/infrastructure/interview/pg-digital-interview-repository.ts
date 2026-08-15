@@ -183,6 +183,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
     return this.db.withTenant(input.orgId, async (session) => {
       const result = await session.query<{
         id: string;
+        agent_version: string;
         initials: string;
         name: string;
         role: string;
@@ -190,9 +191,11 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         material_context_pack_id: string | null;
         material_version: string | null;
       }>(
-        `SELECT a.id, a.initials, a.name, a.role, p.domains,
+        `SELECT a.id, v.id AS agent_version, a.initials, a.name, a.role, p.domains,
                 p.material_context_pack_id, p.material_version
            FROM agents a
+           JOIN agent_versions v
+             ON v.org_id=a.org_id AND v.agent_id=a.id AND v.id=a.published_version_id
            JOIN capability_listings c
              ON c.org_id = a.org_id AND c.id = a.id AND c.kind = 'agent'
            JOIN digital_expert_profiles p
@@ -209,6 +212,8 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
       );
       return result.rows.map((row): StoredDigitalExpert => ({
         expertId: row.id,
+        agentDefinitionId: row.id,
+        agentVersion: row.agent_version,
         initials: row.initials,
         displayName: row.name,
         role: row.role,
@@ -364,10 +369,12 @@ export async function readDigitalInterviewWorkflow(
       [orgId, row.question_version_id],
     ),
     session.query<{
-      expert_id: string; initials: string; display_name: string; role: string; domains: string[];
+      expert_id: string; agent_definition_id: string; agent_version: string;
+      initials: string; display_name: string; role: string; domains: string[];
       material_context_pack_id: string | null; material_version: string | null;
     }>(
-      `SELECT expert_id,initials,display_name,role,domains,material_context_pack_id,material_version
+      `SELECT expert_id,agent_definition_id,agent_version,initials,display_name,role,domains,
+              material_context_pack_id,material_version
          FROM digital_interview_expert_candidates
         WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
       [orgId, row.revision_id],
@@ -429,10 +436,14 @@ export async function readDigitalInterviewWorkflow(
     questionVersionId: row.question_version_id,
     expertCandidates: expertCandidates.rows.map((candidate) => ({
       expertId: candidate.expert_id,
+      agentDefinitionId: candidate.agent_definition_id,
+      agentVersion: candidate.agent_version,
       initials: candidate.initials,
       displayName: candidate.display_name,
       role: candidate.role,
       domains: candidate.domains,
+      materialContextPackId: candidate.material_context_pack_id,
+      materialVersion: candidate.material_version,
       materialBoundary: candidate.material_context_pack_id === null
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${candidate.material_context_pack_id} · ${candidate.material_version}`,

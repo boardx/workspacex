@@ -325,13 +325,25 @@ const DigitalInterviewQuestionConfirmation = z.array(DigitalInterviewQuestion).m
 /** 浏览器可直接消费的当前可见专家快照；它与专家目录复用同一个严格投影。 */
 export const DigitalExpertCatalogRow = z.object({
   expertId: z.string().min(1),
+  agentDefinitionId: z.string().min(1),
+  agentVersion: z.string().min(1),
   initials: z.string().min(1),
   displayName: z.string().min(1),
   role: z.string().min(1),
   domains: z.array(z.string().min(1)).min(1),
+  materialContextPackId: z.string().min(1).nullable(),
+  materialVersion: z.string().min(1).nullable(),
   materialBoundary: z.string().min(1),
   exploratory: z.literal(true),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if ((value.materialContextPackId === null) !== (value.materialVersion === null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["materialVersion"],
+      message: "materialContextPackId and materialVersion must both be null or both be present",
+    });
+  }
+});
 
 export const DigitalInterviewSkillDraftContext = z.discriminatedUnion("step", [
   z.object({ step: z.literal("topic"), topic: z.string().trim().min(1) }).strict(),
