@@ -19,10 +19,14 @@ type PersistedLiveInterview = Omit<LiveInterview, "topic"> & {
 
 const expertCandidate = {
   expertId: "catalog-expert-f04",
+  agentDefinitionId: "agent-definition-f04",
+  agentVersion: "agent-version-f04",
   initials: "EP",
   displayName: "服务端候选专家",
   role: "采购决策顾问",
   domains: ["采购"],
+  materialContextPackId: "context-pack-f04",
+  materialVersion: "material-version-f04",
   materialBoundary: "仅使用当前有权读取的材料",
   exploratory: true as const,
 };

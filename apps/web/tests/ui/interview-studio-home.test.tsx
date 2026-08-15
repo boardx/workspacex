@@ -30,10 +30,14 @@ function activateDropdownTrigger(trigger: HTMLElement) {
 
 const catalogExpert = {
   expertId: "catalog-expert-home",
+  agentDefinitionId: "agent-definition-home",
+  agentVersion: "agent-version-home",
   initials: "CE",
   displayName: "服务端目录专家",
   role: "采购决策顾问",
   domains: ["采购"],
+  materialContextPackId: "context-pack-home",
+  materialVersion: "material-version-home",
   materialBoundary: "当前组织可见材料",
   exploratory: true,
 };
