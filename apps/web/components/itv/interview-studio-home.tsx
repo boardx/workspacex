@@ -273,8 +273,9 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
 
 function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly label: string; readonly href: string } {
   if (item.kind === "quick") return { label: "继续对话", href: `/itv/quick/${item.interviewId}` };
-  const detail = item.interviewId.startsWith("mock-batch-") ? `/itv/${item.interviewId}/setup` : `/itv/${item.interviewId}`;
-  const report = `${detail}/report`;
+  const isMockBatch = item.interviewId.startsWith("mock-batch-");
+  const detail = isMockBatch ? `/itv/${item.interviewId}/setup` : `/itv/${item.interviewId}`;
+  const report = isMockBatch ? detail : `${detail}/report`;
   return {
     confirm_topic: { label: "确认主题", href: detail },
     confirm_experts: { label: "确认专家", href: detail },

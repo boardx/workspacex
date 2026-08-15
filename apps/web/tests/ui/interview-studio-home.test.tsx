@@ -14,6 +14,7 @@ import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
 import {
   createMockDigitalInterviewDraft,
   loadMockDigitalInterviewDraft,
+  updateMockDigitalInterviewDraft,
 } from "@/lib/mock/digital-interview-drafts";
 
 function json(body: unknown, status = 200): Response {
@@ -167,6 +168,22 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("德国储能采购")).toBeInTheDocument();
     expect(within(card).getByText("草稿")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: /确认主题/ }))
+      .toHaveAttribute("href", `/itv/${draft.interviewId}/setup`);
+  });
+
+  it("完成的本地 Mock 访谈从查看报告返回现有的设置工作流", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "已完成采购访谈", tags: ["报告"] });
+    updateMockDigitalInterviewDraft(draft.interviewId, (current) => ({
+      ...current,
+      currentStep: 5,
+      reportMarkdown: "# 已完成采购访谈",
+    }));
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+
+    render(<InterviewStudioHome initialTab="history" />);
+
+    const card = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
+    expect(within(card).getByRole("link", { name: /查看报告/ }))
       .toHaveAttribute("href", `/itv/${draft.interviewId}/setup`);
   });
 
