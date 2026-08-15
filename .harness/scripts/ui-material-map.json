@@ -15,7 +15,9 @@
     "canvas": "ui-preview/canvas-v2",
     "chat": "ui-preview/chat-v2",
     "chat-file-upload": "ui-preview/chat-file-upload",
-    "chat-context-engine": { "reuse_bundle": "chat" },
+    "chat-context-engine": {
+      "reuse_bundle": "chat"
+    },
     "curated-capability-packs": {
       "reuse_bundle": "skills"
     },
@@ -33,7 +35,8 @@
     "survey": "ui-preview/survey-v2"
   },
   "phase-03-reuse-and-governance": {
-    "user-research-studio": "ui-preview/user-research-studio"
+    "user-research-studio": "ui-preview/user-research-studio",
+    "feedback-loop": "ui-preview/feedback-loop"
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "ui-preview/digital-expert-interview"
