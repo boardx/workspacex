@@ -358,6 +358,12 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
         requestId: command.requestId, payload: { expectedVersion: replay.version },
       });
     } else if (replay) {
+      const snapshot = await this.graph.getState(config);
+      if (snapshot.next.includes(expectedNode)) {
+        await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
+      } else if (snapshot.next.length !== 0) {
+        throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+      }
       return replay;
     }
     if (!replay) {

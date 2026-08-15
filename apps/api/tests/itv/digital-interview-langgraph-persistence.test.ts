@@ -196,6 +196,51 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await recreated.checkpointer.end();
   });
 
+  it("advances a stale terminal confirmation interrupt to END when its receipt already committed", async () => {
+    const first = createRuntime();
+    const created = await first.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "终态确认崩溃恢复", tags: ["恢复"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-terminal-crash",
+    });
+    const topic = await first.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "终态确认后图必须结束", expectedVersion: 1, requestId: "topic-terminal-crash",
+    });
+    const experts = await first.runtime.confirmExperts({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [EXPERT], expectedVersion: topic.version, requestId: "experts-terminal-crash",
+    });
+    const command = {
+      kind: "confirm_questions" as const,
+      questions: experts.questionCandidates,
+      expectedVersion: experts.version,
+      requestId: "questions-terminal-crash",
+    };
+    const committed = await first.effects.commitStep({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      revisionId: experts.revisionId, revisionNumber: 1, nodeName: "confirm_questions",
+      operationId: `${created.interviewId}:confirm_questions:1:${command.requestId}`,
+      command,
+    });
+
+    const recreated = createRuntime();
+    const replay = await recreated.runtime.confirmQuestions({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: command.questions, expectedVersion: command.expectedVersion, requestId: command.requestId,
+    });
+    expect(replay).toMatchObject({ currentStep: "runs", version: 4 });
+    const checkpoint = await recreated.checkpointer.getTuple({
+      configurable: { thread_id: created.interviewId },
+    });
+    expect(checkpoint?.checkpoint.channel_values).toMatchObject({
+      currentStep: "runs",
+      questionVersionId: committed.questionVersionId,
+      aggregateVersion: 4,
+    });
+    await first.checkpointer.end();
+    await recreated.checkpointer.end();
+  });
+
   it("scopes the same operation/request id to each interview and returns its own workflow", async () => {
     const setup = createRuntime();
     const first = await setup.runtime.createDraft({
