@@ -3,78 +3,66 @@ $ pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-co
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/packages/contracts
 
- ✓ tests/guided-research-session-contract.test.ts (8 tests) 35ms
+ ✓ tests/guided-research-session-contract.test.ts (8 tests) 9ms
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  00:15:17
-   Duration  6.01s (transform 748ms, setup 0ms, collect 871ms, tests 35ms, environment 1ms, prepare 1.17s)
+   Start at  02:58:14
+   Duration  489ms (transform 140ms, setup 0ms, collect 155ms, tests 9ms, environment 0ms, prepare 85ms)
 
 
 
 $ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
 [exit 0]
-[harness-isolation] outer_db=wsx_aee84b7e3e3c798221c0 inner_db=wsx_aee84b7e3e3c798221c0 outer_compose=wsx-aee84b7e3e3c798221c0 inner_compose=wsx-aee84b7e3e3c798221c0 status=matched
-[stack-admission] load1=44.19 cores=10 perCore=4.42 running=0/2
-[stack-admission] 排队中：机器每核负载 4.42（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 4.49（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 4.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 4.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 3.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 3.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 3.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 3.26（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 3.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 2.83（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排队中：机器每核负载 2.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
-[stack-admission] 排到了，等了 55s
-[test-isolation] id=run-msukueq3-82eb449e-aee84b7e3e3c db=wsx_aee84b7e3e3c798221c0 compose=wsx-aee84b7e3e3c798221c0 pg=24262 redis=29262
+[harness-isolation] outer_db=wsx_a42d11fe040c4f0200c6 inner_db=wsx_a42d11fe040c4f0200c6 outer_compose=wsx-a42d11fe040c4f0200c6 inner_compose=wsx-a42d11fe040c4f0200c6 status=matched
+[stack-admission] load1=3.08 cores=10 perCore=0.31 running=0/2
+[test-isolation] id=run-msuqo2f0-c74c2d74-a42d11fe040c db=wsx_a42d11fe040c4f0200c6 compose=wsx-a42d11fe040c4f0200c6 pg=22150 redis=27150
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
 
-[db-isolation] db=wsx_aee84b7e3e3c798221c0 capacity=100 current=6 required=32
-{"level":"error","msg":"http exception","traceId":"e2b15896-26b6-4c49-9abf-ea58bf7a7c3b","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"f459c1de-583d-4d87-abb0-e2c40b23275b","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"6fadc8b1-f19b-4558-bb4d-e9351c858357","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"6777a579-db3c-47c4-9d15-e565ea3d1164","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:186:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"b210a6cf-b65b-41f2-a67b-c37a52fdf9f3","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:106:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"63b996a5-6d00-414a-8049-b59e028faa80","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:108:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
- ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 11327ms
-   ✓ F168 guided research session list and recovery > rejects an idempotency replay whose brief or collaborators differ 469ms
-   ✓ F168 guided research session list and recovery > RLS also hides the session when queried under another tenant 1806ms
-   ✓ F168 guided research session list and recovery > persists the lifecycle and transactionally retracts completed checkpoints 719ms
+[db-isolation] db=wsx_a42d11fe040c4f0200c6 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"01e2cb05-d057-4172-a7e2-29475fbaf0b2","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3d5ae44c-f026-4f74-9920-3be7a43b4bf4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"818b4c51-b77f-4f45-8437-baff5b1cf0af","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"066671b3-491c-45d7-b4c8-f90265bc8a06","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:186:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"99f239d5-a58c-4743-b22f-5027e3efbf27","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:106:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"7640b935-7b65-4229-bf78-0ea175595349","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:108:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 8491ms
+   ✓ F168 guided research session list and recovery > creates once per owner idempotency key and resumes from the persisted stage 302ms
+   ✓ F168 guided research session list and recovery > does not reveal an owner's private session to another member in the same org 360ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  00:16:24
-   Duration  15.87s (transform 2.32s, setup 0ms, collect 744ms, tests 11.33s, environment 0ms, prepare 115ms)
+   Start at  02:58:16
+   Duration  11.74s (transform 2.23s, setup 0ms, collect 477ms, tests 8.49s, environment 0ms, prepare 47ms)
 
-[db-isolation] db=wsx_aee84b7e3e3c798221c0 peak_connections=4
+[db-isolation] db=wsx_a42d11fe040c4f0200c6 peak_connections=4
 [timing] pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
   环境预留：0s
-  等待资源：55s
-  命令执行：17s
+  等待资源：0s
+  命令执行：13s
   清理：0s
-  总计：1m12s
+  总计：13s
 
 
 $ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/guided-research-stage.test.ts (2 tests) 5ms
+ ✓ tests/guided-research-stage.test.ts (2 tests) 2ms
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  00:16:42
-   Duration  1.98s (transform 66ms, setup 401ms, collect 24ms, tests 5ms, environment 0ms, prepare 723ms)
+   Start at  02:58:29
+   Duration  1.03s (transform 33ms, setup 211ms, collect 14ms, tests 2ms, environment 0ms, prepare 55ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/guided-research-demo-state.test.ts
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
@@ -82,148 +70,139 @@ $ pnpm --filter web exec vitest run tests/guided-research-demo-state.test.ts
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  00:16:45
-   Duration  1.01s (transform 47ms, setup 163ms, collect 25ms, tests 3ms, environment 0ms, prepare 294ms)
+   Start at  02:58:30
+   Duration  609ms (transform 38ms, setup 127ms, collect 19ms, tests 3ms, environment 0ms, prepare 49ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/guided-research-skill-state.test.ts
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/guided-research-skill-state.test.ts (8 tests) 12ms
+ ✓ tests/guided-research-skill-state.test.ts (8 tests) 6ms
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  00:16:47
-   Duration  1.39s (transform 99ms, setup 167ms, collect 76ms, tests 12ms, environment 0ms, prepare 389ms)
+   Start at  02:58:32
+   Duration  553ms (transform 52ms, setup 113ms, collect 40ms, tests 6ms, environment 0ms, prepare 47ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 442ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 203ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  00:16:52
-   Duration  3.84s (transform 109ms, setup 117ms, collect 179ms, tests 442ms, environment 1.18s, prepare 799ms)
+   Start at  02:58:33
+   Duration  1.96s (transform 92ms, setup 114ms, collect 180ms, tests 203ms, environment 1.06s, prepare 46ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.tsx
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1349ms
-   ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 491ms
-   ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 439ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 580ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  00:16:58
-   Duration  9.02s (transform 1.22s, setup 622ms, collect 2.05s, tests 1.35s, environment 2.56s, prepare 1.05s)
+   Start at  02:58:36
+   Duration  2.65s (transform 593ms, setup 124ms, collect 959ms, tests 580ms, environment 588ms, prepare 102ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 1993ms
-   ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 360ms
+ ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 861ms
 
  Test Files  1 passed (1)
       Tests  24 passed (24)
-   Start at  00:17:08
-   Duration  5.76s (transform 482ms, setup 200ms, collect 835ms, tests 1.99s, environment 1.29s, prepare 660ms)
+   Start at  02:58:39
+   Duration  2.30s (transform 204ms, setup 110ms, collect 359ms, tests 861ms, environment 561ms, prepare 166ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 3631ms
-   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 1193ms
-   ✓ F168 guided research home live data > renders server history and resumes from the server-authored stage 747ms
-   ✓ F168 guided research home live data > uses the session URL to restore the server-authored stage 509ms
-   ✓ F168 guided research home live data > reuses the create idempotency key after remount and clears it only after success 402ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 344ms
 
  Test Files  1 passed (1)
       Tests  9 passed (9)
-   Start at  00:17:15
-   Duration  10.81s (transform 820ms, setup 462ms, collect 1.45s, tests 3.63s, environment 3.35s, prepare 997ms)
+   Start at  02:58:42
+   Duration  1.93s (transform 263ms, setup 182ms, collect 489ms, tests 344ms, environment 550ms, prepare 145ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 1238ms
-   ✓ F169 guided research live checkpoints > loads a generated direction candidate, saves human edits, and then enters outline 705ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 281ms
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  00:17:30
-   Duration  18.36s (transform 2.17s, setup 2.91s, collect 3.75s, tests 1.24s, environment 6.54s, prepare 2.47s)
+   Start at  02:58:45
+   Duration  2.50s (transform 379ms, setup 154ms, collect 532ms, tests 281ms, environment 841ms, prepare 384ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm --filter web exec vitest run tests/research-rewrite.test.ts
 [exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/research-rewrite.test.ts (1 test) 15ms
+ ✓ tests/research-rewrite.test.ts (1 test) 3ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  00:17:52
-   Duration  4.15s (transform 214ms, setup 639ms, collect 174ms, tests 15ms, environment 0ms, prepare 1.19s)
+   Start at  02:58:49
+   Duration  1.14s (transform 69ms, setup 304ms, collect 30ms, tests 3ms, environment 0ms, prepare 311ms)
 
-[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
 $ pnpm turbo run typecheck --filter=@repo/api
 [exit 0]
+• turbo 2.10.5
 
    • Packages in scope: @repo/api
    • Running typecheck in 1 packages
    • Remote caching disabled, using shared worktree cache
 
 @repo/fabric-markdown:build: cache hit, replaying logs 40576d20e95572f7
-@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build:
 @repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/boardx/workspacex/packages/fabric-markdown
 @repo/fabric-markdown:build: > tsc -p tsconfig.build.json
-@repo/fabric-markdown:build: 
-@repo/api:typecheck: cache hit, replaying logs ac10ce7373a7226b
-@repo/api:typecheck: 
+@repo/fabric-markdown:build:
+@repo/api:typecheck: cache miss, executing 532d795530cac1b6
+@repo/api:typecheck:
 @repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
 @repo/api:typecheck: > tsc --noEmit
-@repo/api:typecheck: 
+@repo/api:typecheck:
 
  Tasks:    2 successful, 2 total
-Cached:    2 cached, 2 total
-  Time:    1.326s >>> FULL TURBO
+Cached:    1 cached, 2 total
+  Time:    15.184s
 
-• turbo 2.10.5
 
 
 $ pnpm --filter web run typecheck
@@ -275,36 +254,4 @@ $ bash apps/web/scripts/lint-design.sh
 
 ✅ lint-design：全部通过（扫描 app components lib）
 
-
-
-[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
-[exit 0]
-
-> agentic-harness-template@ verify:quick /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout
-> pnpm exec tsx .harness/scripts/verify-quick.ts
-
-[verify:quick] base=cc23c596bbd4a2374f7d13eb746818d04be2dd2b（相对 origin/main 的改动面，turbo --affected）
-[harness-isolation] outer_db=wsx_aee84b7e3e3c798221c0 inner_db=wsx_aee84b7e3e3c798221c0 outer_compose=wsx-aee84b7e3e3c798221c0 inner_compose=wsx-aee84b7e3e3c798221c0 status=matched
-[stack-admission] load1=24.72 cores=10 perCore=2.47 running=0/2
-[stack-admission] 排到了，等了 0s
-[test-isolation] id=run-msukueq3-82eb449e-aee84b7e3e3c db=wsx_aee84b7e3e3c798221c0 compose=wsx-aee84b7e3e3c798221c0 pg=24262 redis=29262
-
-   • Packages in scope: //
-   • Running typecheck, lint, test in 1 packages
-   • Remote caching disabled, using shared worktree cache
-
-
- Tasks:    0 successful, 0 total
-Cached:    0 cached, 0 total
-  Time:    845ms 
-
-[timing] pnpm turbo run typecheck lint test --affected
-  环境预留：0s
-  等待资源：0s
-  命令执行：2s
-  清理：0s
-  总计：2s
-• turbo 2.10.5
- WARNING  No tasks were executed as part of this run.
-
-[harness-verify v1 sha256=3ed8b0e90b29e7f57390d3360a762fcc027d271bd5da54ffff540148c860a155 commit=cc23c596bbd4a2374f7d13eb746818d04be2dd2b at=2026-08-15T16:19:59.194Z]
+[harness-verify v1 sha256=ef46fb496aa2f676b211f53e1a4e494189987f0a4d839390b6281297f10913e3 commit=5179577b85b4644f4c3edba1d0fead71efea5cca at=2026-08-15T18:59:14.234Z]
