@@ -38,6 +38,17 @@ import type { OrgId } from "../../domain/org-id";
  */
 export type ContextLayerStatus = "ok" | "degraded" | "not_configured";
 
+/**
+ * L3 查询这一次 run 走的是哪条**范围分支**（F156 delta §2 点 2）——与 `l3Sources`
+ * （命中的**内容类型**，`chat-attachment`/`canvas-artifact`）是正交的两个维度，不能合并：
+ * 一次 `own-attachment` 范围的查询命中的一样是 `chat-attachment` 这个 kind。
+ *
+ * `own-attachment` —— 个人线程，只吃本线程自己创建者的附件（`FileRetrievalScope.projectId
+ * === null`）。`project-retrieval` —— 项目线程，走既有项目范围。一次查询只可能落在其中一支
+ * （互斥，见 `pg-file-retrieval.ts` 的两条分支），所以是标量，不是集合。
+ */
+export type L3RetrievalScope = "own-attachment" | "project-retrieval";
+
 /** 写一条快照需要的全部字段——由 `execute-run.ts` 在三层组装完成的那一刻算出、直接传入。 */
 export interface AgentRunContextSnapshotInput {
   readonly runId: string;
@@ -54,6 +65,11 @@ export interface AgentRunContextSnapshotInput {
   readonly l3HitCount: number;
   /** L3：命中的来源标记去重集合（`FileRetrievalSourceKind` 的字面值）。未召回时为空数组。 */
   readonly l3Sources: readonly string[];
+  /**
+   * L3：这次查询走的范围分支（见 `L3RetrievalScope` 文档）。`null` = 这次 run 根本没有发起
+   * L3 查询（`l3Status === "not_configured"`）。与 `l3Status`/`l3HitCount` 同级的标量字段。
+   */
+  readonly l3RetrievalScope: L3RetrievalScope | null;
   /** 保守字符预算换算出的估值，不是真实 token 数——见本文件头注。 */
   readonly estimatedTokens: number;
 }
