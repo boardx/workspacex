@@ -4,6 +4,7 @@ import { LayoutList, Download, ThumbsDown, ArrowRight, GitPullRequestArrow, Chec
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, Toast } from "./panel";
+import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,9 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   const [boardOpen, setBoardOpen] = React.useState(false);
   const [triaged, setTriaged] = React.useState<Set<string>>(new Set());
   const [toast, setToast] = React.useState<string | null>(null);
+  /** 软件反馈 / Agent-Skill 改进反馈都是一条条反馈记录的 entity 列表——
+   *  两块共用同一个视图切换：默认卡片，可切列表。 */
+  const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
   return (
     <AdminScreen
@@ -49,7 +53,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
         <section className="flex flex-col gap-2" data-testid="admin-feedback-loop">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-14 font-semibold">迭代闭环 · 本月</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <ViewModeToggle module="feedback" mode={viewMode} onChange={setViewMode} />
               <Button size="sm" variant="outline" onClick={() => setBoardOpen(true)} data-testid="admin-feedback-board">
                 <LayoutList aria-hidden className="h-3.5 w-3.5" />
                 打开迭代看板
@@ -76,16 +81,31 @@ export function FeedbackScreen({ state }: { state: UiState }) {
           <h2 className="text-14 font-semibold">
             软件反馈 <span className="text-11 font-normal text-muted-foreground">· 本周 {SW_FEEDBACK_SUMMARY.total} 条 · {SW_FEEDBACK_SUMMARY.pending} 条待处理</span>
           </h2>
-          <div className="flex flex-col gap-1.5">
+          <div
+            className={
+              viewMode === "card"
+                ? "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                : "flex flex-col gap-1.5"
+            }
+            data-testid={viewMode === "card" ? "admin-feedback-sw-cards" : "admin-feedback-sw-list"}
+          >
             {SW_FEEDBACK.map((f) => (
               <Card key={f.id} data-testid={`admin-feedback-sw-${f.id}`}>
-                <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3">
-                  <Badge tone={SW_TONE[f.status]} data-testid={`admin-feedback-sw-status-${f.id}`}>
-                    {SW_FEEDBACK_LABEL[f.status]}
-                  </Badge>
-                  <span className="text-12 font-medium">{f.title}</span>
-                  <span className="text-11 text-muted-foreground">👍 {f.votes}</span>
-                  {f.target && <Badge tone="outline" className="font-mono">{f.target}</Badge>}
+                <CardContent
+                  className={
+                    viewMode === "card"
+                      ? "flex h-full flex-col gap-1.5 py-3"
+                      : "flex flex-wrap items-center gap-x-3 gap-y-1.5 py-3"
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <Badge tone={SW_TONE[f.status]} data-testid={`admin-feedback-sw-status-${f.id}`}>
+                      {SW_FEEDBACK_LABEL[f.status]}
+                    </Badge>
+                    <span className="text-12 font-medium">{f.title}</span>
+                    <span className="text-11 text-muted-foreground">👍 {f.votes}</span>
+                    {f.target && <Badge tone="outline" className="font-mono">{f.target}</Badge>}
+                  </div>
                   <span className="w-full text-11 text-muted-foreground">{f.detail}</span>
                 </CardContent>
               </Card>
@@ -98,12 +118,19 @@ export function FeedbackScreen({ state }: { state: UiState }) {
           <h2 className="text-14 font-semibold">
             Agent / Skill 改进反馈 <span className="text-11 font-normal text-muted-foreground">· 来自消息级评价</span>
           </h2>
-          <div className="flex flex-col gap-1.5">
+          <div
+            className={
+              viewMode === "card"
+                ? "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                : "flex flex-col gap-1.5"
+            }
+            data-testid={viewMode === "card" ? "admin-feedback-agent-cards" : "admin-feedback-agent-list"}
+          >
             {AGENT_FEEDBACK.map((f) => {
               const isTriaged = triaged.has(f.id);
               return (
                 <Card key={f.id} data-testid={`admin-feedback-agent-${f.id}`}>
-                  <CardContent className="flex flex-col gap-2 py-3">
+                  <CardContent className="flex h-full flex-col gap-2 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Avatar initials={f.initials} tone="ai" size="sm" />
                       <span className="text-12 font-medium">{f.target}</span>

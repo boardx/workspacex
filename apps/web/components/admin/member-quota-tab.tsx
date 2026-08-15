@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { AdminModal, Field, Toast } from "./panel";
+import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -64,6 +65,8 @@ export function MemberQuotaTab() {
   const [draft, setDraft] = React.useState("");
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  /** 成员配额是一人一行的 entity 列表——默认卡片视图，可切列表（人类原话 2026-08-15）。 */
+  const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
   const load = React.useCallback(async () => {
     if (!orgId) return;
@@ -192,51 +195,54 @@ export function MemberQuotaTab() {
         </Button>
       </div>
 
-      {/* ── 成员行 ───────────────────────────────────────────────── */}
+      {/* ── 成员行：一人一行的 entity 列表，默认卡片视图，可切列表 ───────────── */}
       <section className="flex flex-col gap-2" data-testid="admin-quota-members">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Gauge aria-hidden className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-14 font-semibold">成员配额</h2>
           <span className="text-11 text-muted-foreground">· 共 {data.members.length} 人</span>
+          <ViewModeToggle module="members" mode={viewMode} onChange={setViewMode} className="ml-auto" />
         </div>
-        <Card>
-          <CardContent className="flex flex-col pt-2">
-            {data.members.length === 0 && (
-              <p className="py-3 text-12 text-muted-foreground">组织里还没有成员。</p>
-            )}
-            {data.members.map((m, i) => {
-              // 未分配额度的人**没有百分比**——没有分母就没有比例。画一条 0% 的进度条
-              // 会让「没分配」和「分了但没用」看起来一模一样。
+
+        {data.members.length === 0 && (
+          <Card>
+            <CardContent className="py-3 text-12 text-muted-foreground">组织里还没有成员。</CardContent>
+          </Card>
+        )}
+
+        {data.members.length > 0 && viewMode === "card" && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="admin-quota-members-cards">
+            {data.members.map((m) => {
               const pct = m.monthlyLimit === null || m.monthlyLimit === 0
                 ? null
                 : Math.round((m.usedTokens / m.monthlyLimit) * 100);
               return (
-                <div key={m.userId} data-testid={`admin-member-row-${m.userId}`}>
-                  <div className="flex flex-wrap items-center gap-3 py-2.5">
-                    <span className="w-16 shrink-0 text-13 font-medium">{m.displayName}</span>
-                    <Badge tone="outline">{ORG_ROLE_LABEL[m.orgRole as OrgRole] ?? m.orgRole}</Badge>
-                    <span className="text-11 text-muted-foreground">{m.email}</span>
-                    <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
-                      {pct === null ? (
-                        <span className="flex-1 text-11 text-muted-foreground">未分配额度</span>
-                      ) : (
-                        <Progress
-                          value={Math.min(100, pct)}
-                          tone={quotaTone(pct)}
-                          label={`${m.displayName} 配额 ${pct}%`}
-                          className="flex-1"
-                        />
-                      )}
-                      <span
-                        className="shrink-0 font-mono text-11 text-muted-foreground"
-                        data-testid={`admin-member-quota-usage-${m.userId}`}
-                      >
-                        {fmtTokens(m.usedTokens)}/{m.monthlyLimit === null ? "—" : fmtTokens(m.monthlyLimit)}
-                      </span>
+                <Card key={m.userId} data-testid={`admin-member-card-${m.userId}`}>
+                  <CardContent className="flex h-full flex-col gap-2 pt-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-13 font-medium">{m.displayName}</span>
+                      <Badge tone="outline">{ORG_ROLE_LABEL[m.orgRole as OrgRole] ?? m.orgRole}</Badge>
                     </div>
+                    <span className="truncate text-11 text-muted-foreground">{m.email}</span>
+                    {pct === null ? (
+                      <span className="text-11 text-muted-foreground">未分配额度</span>
+                    ) : (
+                      <Progress
+                        value={Math.min(100, pct)}
+                        tone={quotaTone(pct)}
+                        label={`${m.displayName} 配额 ${pct}%`}
+                      />
+                    )}
+                    <span
+                      className="font-mono text-11 text-muted-foreground"
+                      data-testid={`admin-member-quota-usage-${m.userId}`}
+                    >
+                      {fmtTokens(m.usedTokens)}/{m.monthlyLimit === null ? "—" : fmtTokens(m.monthlyLimit)}
+                    </span>
                     <Button
                       size="xs"
                       variant="outline"
+                      className="self-start"
                       data-testid={`admin-member-quota-${m.userId}`}
                       onClick={() => {
                         setEditing(m);
@@ -246,13 +252,66 @@ export function MemberQuotaTab() {
                     >
                       调整
                     </Button>
-                  </div>
-                  {i < data.members.length - 1 && <Separator />}
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        )}
+
+        {data.members.length > 0 && viewMode === "list" && (
+          <Card>
+            <CardContent className="flex flex-col pt-2" data-testid="admin-quota-members-list">
+              {data.members.map((m, i) => {
+                // 未分配额度的人**没有百分比**——没有分母就没有比例。画一条 0% 的进度条
+                // 会让「没分配」和「分了但没用」看起来一模一样。
+                const pct = m.monthlyLimit === null || m.monthlyLimit === 0
+                  ? null
+                  : Math.round((m.usedTokens / m.monthlyLimit) * 100);
+                return (
+                  <div key={m.userId} data-testid={`admin-member-row-${m.userId}`}>
+                    <div className="flex flex-wrap items-center gap-3 py-2.5">
+                      <span className="w-16 shrink-0 text-13 font-medium">{m.displayName}</span>
+                      <Badge tone="outline">{ORG_ROLE_LABEL[m.orgRole as OrgRole] ?? m.orgRole}</Badge>
+                      <span className="text-11 text-muted-foreground">{m.email}</span>
+                      <div className="ml-auto flex w-full items-center gap-3 sm:w-64">
+                        {pct === null ? (
+                          <span className="flex-1 text-11 text-muted-foreground">未分配额度</span>
+                        ) : (
+                          <Progress
+                            value={Math.min(100, pct)}
+                            tone={quotaTone(pct)}
+                            label={`${m.displayName} 配额 ${pct}%`}
+                            className="flex-1"
+                          />
+                        )}
+                        <span
+                          className="shrink-0 font-mono text-11 text-muted-foreground"
+                          data-testid={`admin-member-quota-usage-${m.userId}`}
+                        >
+                          {fmtTokens(m.usedTokens)}/{m.monthlyLimit === null ? "—" : fmtTokens(m.monthlyLimit)}
+                        </span>
+                      </div>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        data-testid={`admin-member-quota-${m.userId}`}
+                        onClick={() => {
+                          setEditing(m);
+                          setDraft(m.monthlyLimit === null ? "" : String(m.monthlyLimit));
+                          setSaveError(null);
+                        }}
+                      >
+                        调整
+                      </Button>
+                    </div>
+                    {i < data.members.length - 1 && <Separator />}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       {editing && (

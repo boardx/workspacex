@@ -173,4 +173,38 @@ describe("F160 成员配额 tab —— 只投影真实响应", () => {
       expect(screen.getByTestId("admin-member-quota-usage-u-linke").textContent).toBe("2.1M/5.0M"));
     expect(read).toBeGreaterThanOrEqual(2);
   });
+
+  describe("2026-08-15 · 卡片/列表视图切换（人类原话：右边列出卡片，卡片也可以切换为列表）", () => {
+    it("默认卡片视图：成员卡片网格可见，关键字段不丢", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(payload()));
+
+      render(<MemberQuotaTab />);
+
+      await waitFor(() => expect(screen.getByTestId("admin-quota-live")).toBeTruthy());
+      expect(screen.getByTestId("admin-quota-members-cards")).toBeTruthy();
+      expect(screen.queryByTestId("admin-quota-members-list")).toBeNull();
+      expect(screen.getByTestId("admin-member-card-u-linke")).toBeTruthy();
+      // 卡片视图里字段没有丢：邮箱、角色、用量都还在。
+      expect(screen.getByText("linke@x.test")).toBeTruthy();
+      expect(screen.getByTestId("admin-member-quota-usage-u-linke").textContent).toBe("2.1M/4.0M");
+    });
+
+    it("切到列表视图：卡片网格消失，原有一行一人的列表结构出现", async () => {
+      fetchMock.mockResolvedValue(jsonResponse(payload()));
+
+      render(<MemberQuotaTab />);
+      await waitFor(() => expect(screen.getByTestId("admin-quota-live")).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId("admin-members-view-toggle-list"));
+
+      expect(screen.getByTestId("admin-quota-members-list")).toBeTruthy();
+      expect(screen.queryByTestId("admin-quota-members-cards")).toBeNull();
+      expect(screen.getByTestId("admin-member-row-u-linke")).toBeTruthy();
+      // 切回列表视图后调整按钮与用量字段仍是同一个 testid——功能不因视图切换而丢失。
+      expect(screen.getByTestId("admin-member-quota-usage-u-linke").textContent).toBe("2.1M/4.0M");
+
+      fireEvent.click(screen.getByTestId("admin-members-view-toggle-card"));
+      expect(screen.getByTestId("admin-quota-members-cards")).toBeTruthy();
+    });
+  });
 });
