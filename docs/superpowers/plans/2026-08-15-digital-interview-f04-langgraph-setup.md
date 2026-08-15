@@ -60,7 +60,7 @@
 
 - [ ] **Step 1: Update the three contract documents without changing signoff status**
 
-Specify `createDigitalInterview.in = { name, tags, scope, requestId }`, initial status `topic_pending`, and topic persistence only through `confirmDigitalInterviewTopic`.
+Specify `createDigitalInterviewDraft.in = { name, tags, scope, requestId }`, initial status `topic_pending`, and topic persistence only through `confirmDigitalInterviewTopic`. Preserve this existing operation name for backward compatibility; do not introduce a duplicate `createDigitalInterview` operation.
 
 - [ ] **Step 2: Write the failing API and web acceptance tests**
 
@@ -93,6 +93,9 @@ git commit -m "test(interview): lock explicit persistence acceptance"
 **Files:**
 - Modify: `packages/contracts/src/interview.ts`
 - Test: `packages/contracts/tests/digital-interview-contract.test.ts`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/domain.md`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/usecases.md`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/ui.md`
 
 **Interfaces:**
 - Consumes: bundle from Task 1.
@@ -124,7 +127,7 @@ Expected: FAIL because confirmation and Skill operations are undefined.
 
 - [ ] **Step 3: Implement the schemas and operation registry entries**
 
-Use strict schemas. All confirmation responses return the full `DigitalInterviewWorkflowView` including `currentStep`, `status`, `version`, active revision/version IDs, confirmed data, and active applied Skill proposals. Add `REQUEST_REPLAY_MISMATCH` to `InterviewError` for a reused request ID with a different payload.
+Use strict schemas. All confirmation responses return the full `DigitalInterviewWorkflowView` including `currentStep`, `status`, `version`, active revision/version IDs, confirmed data, and active applied Skill proposals. Add `IDEMPOTENCY_KEY_REUSED` to `InterviewError` for a reused request ID with a different payload, matching the signed F04 contract and authoritative HTTP acceptance gate. Reconcile the three bundle documents to the canonical existing operation name `createDigitalInterviewDraft`.
 
 - [ ] **Step 4: Run contract tests and typecheck**
 
@@ -135,7 +138,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/contracts/src/interview.ts packages/contracts/tests/digital-interview-contract.test.ts
+git add packages/contracts/src/interview.ts packages/contracts/tests/digital-interview-contract.test.ts phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview
 git commit -m "feat(interview): define persistent setup contracts"
 ```
 
