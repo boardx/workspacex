@@ -20,6 +20,7 @@ import { phaseReadiness } from "./phase-readiness";
 import { coreLoopReadiness } from "./core-loop-readiness-doctor";
 import { roleScorecard } from "./role-scorecard";
 import { prQueue } from "./pr-queue";
+import { mergeGate } from "./merge-gate";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
 import { templatesRender } from "./templates-render";
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
     case "readiness":      coreLoopReadiness(args); break;
     case "scorecard":      roleScorecard(args); break;
     case "pr-queue":       prQueue(args); break;
+    case "merge-gate":     mergeGate(args); break;
     case "templates": {
       // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
       // 与本文件其余命令的单词/连字符风格不同——刻意跟随 Proposal 原文，不改它的
@@ -207,6 +209,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness cycle-report                              # C-cycle 周期健康表（只读，见 work-cycle-proposal.md）");
       log.info("  pnpm harness pr-queue [--pr N] [--json] [--attended]    # PR 队列状态机（只读，#451）；无 --attended 一律不授权合并");
       log.info("  pnpm harness pr-queue --post-merge N [--deployment-tracked]  # 合并后收尾核验：merged + commit 在 main + issue 已关闭");
+      log.info("  pnpm harness merge-gate --pr N [--json]                # 机械合并门禁（#956）：当前 SHA 独立 APPROVE + 唯一 verdict label + Closes 关联；失败非 0 退出，供 CI required check 使用");
       log.info("  pnpm harness tick [--session <id>] [--json]            # 每个 loop 跑这条：权威时钟+漂移告警+续租约+收件箱（ADR-014）");
       log.info("  pnpm harness lock-status");
       log.info("  pnpm harness lock-acquire   --session <id> [--force] [--note <text>]");
