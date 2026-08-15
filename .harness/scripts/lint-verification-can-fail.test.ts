@@ -92,6 +92,13 @@ describe("② 静态存在性", () => {
     const { errors } = run(["pnpm --filter api exec vitest run tests/kernel/not-written-yet.test.ts"]);
     expect(errors).toEqual([]);
   });
+
+  it("Turbo task 的 filter 必须指向真实工作区包", () => {
+    expect(run(["pnpm turbo run typecheck --filter=@repo/api"]).errors).toEqual([]);
+    expect(run(["pnpm turbo run typecheck --filter=@repo/no-such-package"]).errors.join("\n")).toContain(
+      "包不存在",
+    );
+  });
 });
 
 describe("③ 动态实证：探针恒 0 时门控必须红", () => {
@@ -145,6 +152,12 @@ describe("④ 未登记形态不得被静默放过", () => {
     expect(c.shape).toBe("vitest-file:api");
     expect(c.probe).toContain("--filter api exec vitest run");
     expect(c.probe).not.toBe(GOOD); // 变体必须真的和原命令不同，否则「实证」是自证
+  });
+
+  it("Turbo task 用不存在的 package filter 构造必然失败变体", () => {
+    const c = classify("pnpm turbo run typecheck --filter=@repo/api");
+    expect(c.shape).toBe("turbo-task:typecheck");
+    expect(c.probe).toContain(`--filter=@repo/${"__verification_gate_probe_absent__"}`);
   });
 });
 
