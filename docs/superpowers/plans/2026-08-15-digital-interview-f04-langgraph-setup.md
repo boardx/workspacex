@@ -44,33 +44,48 @@
 - Modify `apps/web/app/itv/[interviewId]/setup/page.tsx`: load the server read model.
 - Add/modify focused tests under `packages/contracts/tests`, `apps/api/tests/itv`, and `apps/web/tests/ui`.
 
-### Task 1: Reconcile and re-sign the F04 contract bundle
+### Task 1: Reconcile the F04 contract bundle and lock the failing acceptance tests
 
 **Files:**
-- Modify: `phases/phase-04-digital-expert-interviews/contracts/digital-interview/domain.md`
-- Modify: `phases/phase-04-digital-expert-interviews/contracts/digital-interview/usecases.md`
-- Modify: `phases/phase-04-digital-expert-interviews/contracts/digital-interview/api.md`
-- Read only: `phases/phase-04-digital-expert-interviews/contracts/digital-interview/design-signoff.md`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/domain.md`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/usecases.md`
+- Modify: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/ui.md`
+- Read only: `phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview/design-signoff.md`
+- Create: `apps/api/tests/itv/digital-interview-setup.test.ts`
+- Modify: `apps/web/tests/ui/interview-setup-workflow.test.tsx`
 
 **Interfaces:**
 - Consumes: approved UI behavior: create modal persists `name` and `tags`, then step 1 confirms `topic`.
-- Produces: signed contract text that names explicit confirmation, dirty-step warning, Skill proposal lifecycle, `requestId`, and `expectedVersion`.
+- Produces: signed contract text that names explicit confirmation, dirty-step warning, Skill proposal lifecycle, `requestId`, and `expectedVersion`, plus executable acceptance tests that are red before implementation.
 
 - [ ] **Step 1: Update the three contract documents without changing signoff status**
 
 Specify `createDigitalInterview.in = { name, tags, scope, requestId }`, initial status `topic_pending`, and topic persistence only through `confirmDigitalInterviewTopic`.
 
-- [ ] **Step 2: Run the design consistency checks**
+- [ ] **Step 2: Write the failing API and web acceptance tests**
+
+The API test must exercise the HTTP boundary with an isolated real PostgreSQL database and prove: create persists only `name/tags`; typing has no server write; each explicit confirmation persists exactly one new version; retrying the same `requestId` is idempotent; a changed payload with the same request ID is rejected; refresh/process recreation returns the same step/version; a stale `expectedVersion` conflicts; and cross-org reads remain indistinguishable 404s. The web test must prove: typing does not call `fetch`; confirmation sends `requestId/expectedVersion`; refresh hydrates from GET; dirty navigation warns; Skill send persists immediately while apply changes only the local dirty buffer until step confirmation.
+
+Run the two authoritative commands before production changes:
+
+```bash
+pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts
+pnpm --filter web exec vitest run tests/ui/interview-setup-workflow.test.tsx
+```
+
+Expected: FAIL on the new persistence assertions, not because zero tests were discovered or because test infrastructure is missing. Perform one mutation check by temporarily inverting a core persistence assertion and confirm the test fails at that assertion; do not commit the mutation.
+
+- [ ] **Step 3: Run the design consistency checks**
 
 Run: `pnpm --filter web run lint:design`
 
-Expected: PASS. If the bundle requires human re-signoff, stop before Task 2 and present the exact diff; an agent must not edit `design-signoff.md` status.
+Expected: PASS. The user confirmed this architecture and interaction change on 2026-08-15; record that fact in the delivery ledger, but do not edit `design-signoff.md` status.
 
-- [ ] **Step 3: Commit the contract reconciliation**
+- [ ] **Step 4: Commit the contract and failing acceptance gate**
 
 ```bash
-git add phases/phase-04-digital-expert-interviews/contracts/digital-interview
-git commit -m "docs(interview): reconcile explicit confirmation contract"
+git add phases/phase-04-digital-expert-interview-studio/contracts/digital-expert-interview apps/api/tests/itv/digital-interview-setup.test.ts apps/web/tests/ui/interview-setup-workflow.test.tsx
+git commit -m "test(interview): lock explicit persistence acceptance"
 ```
 
 ### Task 2: Add contract schemas for F04 persistence
@@ -259,7 +274,7 @@ git commit -m "feat(interview): persist setup graph and effects"
 
 **Files:**
 - Modify: `apps/api/src/interface/controllers/digital-interview.controller.ts`
-- Test: `apps/api/tests/itv/digital-interview-workflow-controller.test.ts`
+- Modify: `apps/api/tests/itv/digital-interview-setup.test.ts`
 
 **Interfaces:**
 - Consumes: `DigitalInterviewRuntime` from Task 5.
@@ -271,7 +286,7 @@ Test authenticated create, all three confirmations, Skill send/apply/reject, ref
 
 - [ ] **Step 2: Run the controller tests**
 
-Run: `pnpm --filter api test -- digital-interview-workflow-controller.test.ts`
+Run: `pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts`
 
 Expected: FAIL with 404 for new routes.
 
@@ -281,14 +296,14 @@ Parse only with the shared Zod operations, derive `orgId/actorId` from `Principa
 
 - [ ] **Step 4: Run API verification**
 
-Run: `pnpm --filter api test -- digital-interview-workflow-controller.test.ts digital-interview-controller.test.ts && pnpm --filter api typecheck`
+Run: `pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts tests/itv/digital-interview-controller.test.ts && pnpm --filter api typecheck`
 
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api/src/interface/controllers/digital-interview.controller.ts apps/api/tests/itv/digital-interview-workflow-controller.test.ts
+git add apps/api/src/interface/controllers/digital-interview.controller.ts apps/api/tests/itv/digital-interview-setup.test.ts
 git commit -m "feat(interview): expose setup confirmation APIs"
 ```
 
@@ -368,7 +383,7 @@ Expected: PASS or an explicit harness instruction identifying missing GitHub/evi
 - [ ] **Step 4: Commit final evidence-only changes**
 
 ```bash
-git add phases/phase-04-digital-expert-interviews
+git add phases/phase-04-digital-expert-interview-studio
 git commit -m "test(interview): record F04 persistence evidence"
 ```
 
