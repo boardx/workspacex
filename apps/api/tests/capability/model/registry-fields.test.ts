@@ -155,16 +155,29 @@ describe("the divergences stay registered until a human rules on them", () => {
   });
 });
 
-describe("the pool has no listing operation, and that gap is pinned", () => {
-  it("no response schema returns vendor / unitPrice / capabilityTags / contextWindow", () => {
-    // Not a complaint about the contract -- a tripwire. F48 promises the admin list shows
-    // these; the contract (57 operations) returns none of them, and an agent may not add an
-    // operation to a bundle awaiting sign-off. So the day a listing operation appears, this
-    // fails and whoever adds it has to reconcile the field names with `MODEL_POOL_ROW_FIELDS`
-    // instead of growing a second definition of "what the admin list shows".
-    expect([...POOL_LISTING_GAP].sort()).toEqual(
-      ["capabilityTags", "contextWindow", "members", "unitPrice", "vendor"].sort(),
+describe("the pool's listing gap is closed by `listModelPool` (#1381), and reconciled", () => {
+  it("POOL_LISTING_GAP is now empty -- `listModelPool.out` returns every previously-missing field", () => {
+    // Before #1381 this equaled ["capabilityTags", "contextWindow", "members", "unitPrice",
+    // "vendor"] -- the tripwire the original comment described. The day a listing operation
+    // appeared, that assertion was meant to fail and force reconciliation rather than let a
+    // second definition of "what the admin list shows" grow quietly. This is that
+    // reconciliation: `listModelPool.out`'s element carries all five, so the derived gap
+    // (computed off `responseSchemas()`, not hand-maintained) now closes to nothing.
+    expect([...POOL_LISTING_GAP]).toEqual([]);
+  });
+
+  it("`listModelPool.out` is exactly the pool row plus `credentialConfigured` -- no credential, no endpoint", () => {
+    const row = schemaKeyNames(C.operations.listModelPool.out);
+    // `schemaKeyNames` walks INTO `members` (an array of `CompositeMember`), so its own
+    // `role` key rides along -- that is the walker doing its job (registry-fields' third
+    // test already leans on this to catch a walker that stops at arrays), not a leak: `role`
+    // is a plain string naming a composite member's part, nothing secret-shaped about it.
+    expect([...row].sort()).toEqual(
+      [...MODEL_POOL_ROW_FIELDS, "modelId", "status", "credentialConfigured", "role"].sort(),
     );
+    for (const secret of CREDENTIAL_BEARING_FIELDS) {
+      expect(row.has(secret), `\`listModelPool\` leaked \`${secret}\``).toBe(false);
+    }
   });
 
   it("`listSelectableModels` is the PICKER, not the admin list (I-2)", () => {

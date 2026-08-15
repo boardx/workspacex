@@ -17,7 +17,8 @@
  * ⚠ **不**覆盖 `app/admin/[module]/page.tsx` 这个外壳本身。它 `import type
  * { AdminModuleKey } from "@/lib/mock/admin"`——一个**类型**导入（左栏模块键的联合类型），
  * 编译后不产生任何运行时依赖，也不给 Agent 目录提供任何数据；而那个外壳同时挂着
- * model / mcp / blueprint 等仍在吃 mock 的屏，把它们拽进本断言等于让 #458
+ * mcp / blueprint 等仍在吃 mock 的屏（#1381 起 model 屏的列表读真实 `GET /models` 了，
+ * 从这份「仍在吃 mock」名单里摘掉），把它们拽进本断言等于让 #458
  * 去背别人的债。这个残留已在 issue #458 的评论里报给 coord，不在本 issue 范围内。
  * 这段话是**限制说明**，不是免责声明：下面第三条断言把「外壳只从 mock 拿类型」钉死，
  * 一旦有人从那里拿到运行时的值，它会红。
@@ -48,7 +49,10 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
 
   it("反证：同一个走图器对仍在吃 mock 的屏会报出 mock 边", () => {
     // 没有这条，上面那条断言可能只是因为走图器解析不出任何 import 而恒为空。
-    const { mockEdges } = walk("components/admin/model-screen.tsx");
+    // ⚠ #1381 之前这里用的是 `model-screen.tsx`——它现在读真实 `GET /models`
+    //  （`lib/live-model.ts`），不再有任何 `lib/mock` 边，于是这条反证换了个仍然
+    //  纯 mock 的屏（MCP 后台页，零后端，见 `lib/mock/admin.ts` 的 MCP 清单）。
+    const { mockEdges } = walk("components/admin/mcp-screen.tsx");
     expect(mockEdges.length).toBeGreaterThan(0);
     expect(mockEdges.join("\n")).toContain("lib/mock/");
   });

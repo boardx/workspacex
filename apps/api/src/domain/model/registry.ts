@@ -11,20 +11,24 @@
  * configuration (uc-0-5 R2, uc-20-1 R6). `no-hardcoded-model-list.test.ts` asserts that
  * mechanically rather than trusting this paragraph.
  *
- * ## ⚠ The pool has no listing operation in the contract, and that is REPORTED, not fixed
+ * ## The pool's listing gap (#1381, design-delta `model-pool-listing`)
  *
  * F48's `user_visible_behavior` says the admin list shows kind / vendor / capability tags /
- * context window / unit price / compliance attributes / status. Those eleven fields exist
- * in the contract only on the way IN (`registerModel.in`): `agent-runtime.ts` declares 57
- * operations and none of them returns a pool row. `listSelectableModels` returns
- * `ModelCandidate`, which is the PICKER's five fields (I-2) -- deliberately not the admin
- * row, since a picker that carried unit price and vendor would be a second listing surface.
+ * context window / unit price / compliance attributes / status. Until #1381 those fields
+ * existed in the contract only on the way IN (`registerModel.in`) -- no operation's `out`
+ * carried a pool row, and `POOL_LISTING_GAP` below existed to PIN that as a known gap rather
+ * than let it go unnoticed (an agent may not add an operation to a contract awaiting
+ * sign-off, `contract-design.md` §五 / ADR-020).
  *
- * An agent may not add an operation to a contract that is awaiting human sign-off
- * (`contract-design.md` §五, ADR-020). So the gap is PINNED instead: `POOL_LISTING_GAP`
- * below is asserted by `registry-fields.test.ts`, which goes red the day a listing
- * operation appears -- forcing whoever adds it to reconcile these field names with it
- * rather than quietly growing a second definition of "what the admin list shows".
+ * `listModelPool` (`GET /models`) closes it, added as a design-delta -- merge is still
+ * gated on a human flipping `phases/phase-01-run-a-project/design-deltas/model-pool-listing/
+ * design-signoff.md` from `proposed` to `confirmed` (ADR-023). `POOL_LISTING_GAP` is left in
+ * place as a computed constant rather than deleted: it is derived from `responseSchemas()`,
+ * so it now evaluates to `[]` on its own, and `registry-fields.test.ts` asserts that emptiness
+ * rather than the old five-field pin -- the reconciliation the original comment asked for.
+ * `listSelectableModels` still returns `ModelCandidate`, the PICKER's five fields (I-2),
+ * deliberately not the admin row -- a picker that carried unit price and vendor would be a
+ * second listing surface.
  */
 import { agentRuntime as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -82,11 +86,12 @@ export const MODEL_POOL_ROW_FIELDS: readonly string[] = REGISTER_INPUT_FIELDS.fi
 /**
  * Registered fields that no operation's `out` schema mentions anywhere.
  *
- * An OVER-approximation of "write-only": today it also contains `vendor`, `unitPrice`,
- * `capabilityTags`, `contextWindow` and `members`, because the pool has no listing
- * operation at all (see the header). Two assertions use it, neither of which needs it to
- * be tight: the credentials must be INSIDE it (a containment check, which an
- * over-approximation cannot fake), and the rest of it is the pinned gap.
+ * An OVER-approximation of "write-only". Before #1381 this also contained `vendor`,
+ * `unitPrice`, `capabilityTags`, `contextWindow` and `members`, because the pool had no
+ * listing operation at all (see the header); `listModelPool` now returns all five, so this
+ * set has shrunk to exactly `CREDENTIAL_BEARING_FIELDS`. Two assertions use it, neither of
+ * which needs it to be tight: the credentials must be INSIDE it (a containment check, which
+ * an over-approximation cannot fake), and the rest of it is `POOL_LISTING_GAP` below.
  */
 export const FIELDS_NO_RESPONSE_RETURNS: readonly string[] = REGISTER_INPUT_FIELDS.filter(
   (f) => !responseKeyNames().has(f),
