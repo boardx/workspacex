@@ -5,7 +5,14 @@
 #     `verify-affected` 两个并行 job（原来是一个叫 `verify` 的顺序 job）——两段
 #     互不依赖，拆开跑 wall-clock 是两者较慢的那个，不是相加。下面各处提到
 #     "module verify"/"verify job" 指的是这两个 job 加起来那一层门控语义，
-#     不是某个具体 job 名。
+#     不是某个具体 job 名。2026-08-15 用真实历史数据核实（issue #1358）：拆分后
+#     中位数耗时没降反升（98s→104s），因为拆分让"每个 job 各自 setup 一次"的成本
+#     变成了两份；两个 job 里各加了一步 `actions/cache` 缓存 node_modules 本身
+#     （不是 pnpm store——store 已经被 setup-node 的 `cache: pnpm` 缓存住，
+#     实测瓶颈是 store→node_modules 的 link 步骤，不是下载）。这与 ADR-106 batch-2
+#     的"turbo 任务编译缓存跨 worktree 复用"是两件不同的事：这里缓存的是 npm 依赖
+#     安装产出、缓存边界是单个 CI runner 内的 GitHub Actions cache；batch-2 缓存的
+#     是 typecheck/lint/build 的 turbo 任务产出、缓存边界跨 worktree/本地，不要混为一谈。
 #   - 全栈烟测(fullstack-smoke)：PR/push 都跑，但只跑 `seeded` project（5 个非 core-loop 的
 #     spec）。**信息性、不阻塞合并**（2026-08-06 人类裁决 #633：module verify 继续阻塞合并，
 #     浏览器 e2e 不再阻塞合并，只阻塞发布）——`continue-on-error: true` 见下方 job。
@@ -79,6 +86,23 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # 缓存的是 node_modules 本身,不是 pnpm store。setup-node 的 `cache: pnpm`
+      # 已经在缓存 store（key 同样是 pnpm-lock.yaml 哈希），实测（issue #1358）
+      # `pnpm install` 在 store 命中时是 `reused 1313, downloaded 0`——没有下载，
+      # 耗时全花在把 store 里的包 link 进 12 个 workspace 的 node_modules 这一步
+      # （单次约 10-11s）。store 缓存解决不了这个，因为要缓存的是这一步的产出，
+      # 不是它的输入。命中时 Install 步骤里的 `pnpm install` 仍会执行一次（用来
+      # 校验 lockfile 一致性、把 workspace protocol 的 `@repo/*` 包重新 link 好），
+      # 但不需要重新解析/下载/link 第三方包。
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -183,6 +207,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # 见 verify-control-plane 里同名步骤的注释：缓存的是 node_modules（link 产出），
+      # 不是 pnpm store（setup-node 的 cache: pnpm 已经在缓存 store）。
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            apps/*/node_modules
+            packages/*/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install
         run: pnpm install --frozen-lockfile
