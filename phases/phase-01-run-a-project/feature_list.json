@@ -4230,14 +4230,14 @@
         "F177"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
         "pnpm --filter api run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F186.verify.log @ 2026-08-15T11:40:51.323Z",
       "notes": "① 这是 2026-08-15 人类批准的 delta（design-deltas/blueprint-read-path/，PR #1262）的实现落地——delta 本身只批了契约面，实现是这条 feature 单独走的（同 BP-01~BP-05 的一贯做法：delta/契约变更与实现分开走，实现要过真库测试才能转 passing）。\n② 依据等级：`packages/contracts/src/templates.ts` 已加 `getBlueprintDesignFacets` operation（本 feature 一并加，字段名逐字对齐已签核的 `updateDesignFacet`），仓储层复用早已存在的 `blueprint_design_facets`/`blueprints.revision` 两列（BP-02/BP-03 已建），不需要新迁移。\n③ 范围边界——做：仓储 `getBlueprintDesignFacets()` + 控制器 `GET /blueprints/:id/design-facets`。不做：BP-06 本身（前端把 `/tpl/designer` 从硬编码 `BLUEPRINT[0]` 切到用这条端点读真实数据）——那是下一个 feature，本条只解除它的阻塞，不包含前端改动。\n④ 门槛用 `requireCapabilityAdmin`（同 `updateDesignFacet`/`setDurationTier` 这类写端点），不是 `listBlueprints` 用的 `requireOrgMember`——契约里本端点声明的错误码是 `ROLE_INSUFFICIENT` 不是 `NO_ORG_ROLE`，读写对同一份内容用同一档敏感度，不该不对称。\n⑤ 验证新增 6 条真库测试（空读/填后读一致/revision 随行级写滚动/单项写不影响蓝本级 revision/不存在报错/并发写各 key 的 itemRevision 互不相同的反证），与既有 31 条一起 37/37 通过。",
       "priority": 1,
       "area": "project",
