@@ -4,6 +4,7 @@ import { newPhase } from "./new-phase";
 import { newAdr } from "./new-adr";
 import { newSprint } from "./new-sprint";
 import { verify } from "./verify";
+import { verifyTimingReport } from "./verify-timing-report";
 import { syncGithub } from "./sync-github";
 import { genSubagents } from "./gen-subagents";
 import { claim } from "./claim";
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     case "board":         await import("./phase-board.mjs"); break;
     case "dashboard":     await import("./dashboard.mjs"); break;
     case "verify":        await verify(args); break;
+    case "verify-timings": verifyTimingReport(args); break;
     case "sync":          syncGithub(args); break;
     case "gen-subagents": genSubagents(args); break;
     case "claim":         claim(args); break;
