@@ -19,7 +19,7 @@ import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
 import { computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
-import { resolveVerifyProfile } from "./lib/verify-risk";
+import { collectChangedFiles, resolveVerifyProfile } from "./lib/verify-risk";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -66,6 +66,10 @@ export async function verify(args: Args): Promise<void> {
   // 正是被修复的 bug 本身，不应继续被用来产出"证据"。
   const backfillEvidence = args.flags["backfill-evidence"] === true;
   if (backfillEvidence && !sprintId) die("--backfill-evidence 仅支持 --sprint 模式（需要落盘证据目录）");
+
+  // #1332：风险由**本次改动碰了哪些文件**决定，是改动的属性而非 feature 的属性，
+  // 所以整轮只收集一次，循环内所有 feature 共用同一个判定。
+  const changedFiles = collectChangedFiles();
 
   let promoted = 0, failed = 0;
   for (const f of targets) {
@@ -125,7 +129,16 @@ export async function verify(args: Args): Promise<void> {
     //    #1274 还没合，只能先用命令字符串当 key；#1274 一起合入后按预告改成
     //    level，更稳定（同一档位换了命令实现也还是同一档、缓存语义不受影响）。
     if (ok) {
-      const { level, cmd: baseCmd } = resolveVerifyProfile(f, cfg.verification);
+      const { level, cmd: baseCmd, matched, failClosedReason } = resolveVerifyProfile(
+        changedFiles,
+        cfg.verification,
+      );
+      if (failClosedReason) {
+        log.info(`  ⚠ 拿不到改动清单（${failClosedReason}）——fail-closed 按 high_risk 处理`);
+      } else if (matched.length > 0) {
+        const shown = matched.slice(0, 3).map((m) => `${m.path} ⟵ ${m.pattern}`).join("; ");
+        log.info(`  高风险命中 ${matched.length} 处：${shown}${matched.length > 3 ? " …" : ""}`);
+      }
       const sha = currentSha();
       const fingerprint = computeFingerprint(sha);
       const cached = lookupCredential(level, sha, fingerprint);
@@ -146,7 +159,12 @@ export async function verify(args: Args): Promise<void> {
           completedAt: new Date().toISOString(),
         });
       }
-      logs.push(`\n[BASE VERIFY] (risk=${level}) $ ${baseCmd}\n[exit ${br.code}]\n${br.stdout}${br.stderr}`);
+      const riskNote = failClosedReason
+        ? `fail-closed: ${failClosedReason}`
+        : matched.length > 0
+          ? `matched: ${matched.map((m) => `${m.path}⟵${m.pattern}`).join(", ")}`
+          : "no high-risk path touched";
+      logs.push(`\n[BASE VERIFY] (risk=${level}; ${riskNote}) $ ${baseCmd}\n[exit ${br.code}]\n${br.stdout}${br.stderr}`);
       if (br.code !== 0) {
         ok = false;
         log.err(`基础验证失败，拒绝将 ${f.id} 升为 passing`);

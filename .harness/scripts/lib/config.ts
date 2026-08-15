@@ -12,8 +12,9 @@ export interface VerificationConfig {
   default_profile: string;
   /** profile 名 → 该档要跑的完整命令（如 "pnpm -w run verify:quick"）。 */
   profiles: Record<string, string>;
-  /** feature.area 或 verification 命令字符串命中任一标记 → 判 high_risk。 */
-  high_risk_markers: string[];
+  /** 本次改动碰到的文件路径命中任一 glob → 判 high_risk（#1332；替代原
+   *  high_risk_markers 的 feature 元数据子串匹配，见 lib/verify-risk.ts 文件头）。 */
+  high_risk_paths: string[];
 }
 
 export interface GatesConfig {

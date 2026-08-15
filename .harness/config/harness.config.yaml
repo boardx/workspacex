@@ -22,18 +22,26 @@ verification:
     small: "pnpm -w run verify:quick"
     standard: "pnpm -w run verify:quick"
     high_risk: "pnpm -w run verify:release"
-  # 风险判据（显式、可审计，不是"凭感觉"）：feature.area 或 feature.verification
-  # 命令字符串里出现下列任一标记子串 → high_risk。命中就跑 verify:release 而不是
-  # verify:quick，宁可判重不判漏——这三类是 harness 里明确写过"专项测试"要求的：
-  # 数据库 schema、鉴权/权限、跨束 API 契约（AGENTS.md「明确不改的部分」）。
-  high_risk_markers:
-    - "migration"
-    - "apps/api/migrations"
-    - "auth"
-    - "permission"
-    - "packages/coord-"
-    - "contracts/"
-    - "schema"
+  # 风险判据（#1332 重做）：看**这次改动实际碰了哪些文件**，不看 feature 元数据。
+  # 原实现读 feature.area + verification 命令字符串做子串匹配，实测对 304 个真实
+  # feature 跑一遍，7 个 marker 里 4 个零命中（含 migration，而仓库有 122 个真实
+  # migration 文件）——判据形同虚设。详见 #1332 与 lib/verify-risk.ts 文件头。
+  #
+  # 匹配语义：glob，`**` 跨目录、`*` 不跨 `/`，其余字符按字面。命中任一 → high_risk。
+  # 覆盖 AGENTS.md「明确不改的部分」点名的三类：数据库 schema、鉴权/权限、跨束契约。
+  # 拿不到改动清单（未 fetch / 分支不基于 main / 不在 git 里）→ fail-closed 判 high_risk。
+  high_risk_paths:
+    # 数据库 schema 与迁移
+    - "apps/api/migrations/**"
+    - "**/migrations/**"
+    - "**/*.sql"
+    # 鉴权 / 身份 / 权限（洋葱四层都算）
+    - "apps/api/src/*/auth/**"
+    - "apps/api/src/*/identity/**"
+    # 跨束 API 契约单源
+    - "packages/contracts/**"
+    # 协调协议（租约/权威，改错会让全体 agent 协作失效）
+    - "packages/coord-*/**"
 
 gates:
   single_in_progress: true        # 强制"同时只有一个 in_progress"
