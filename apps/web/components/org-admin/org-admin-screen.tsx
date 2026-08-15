@@ -24,7 +24,9 @@ import {
   createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
   updateOrganization, uploadOrgAvatar,
   inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
+  assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
   type ListTeamsOut, type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
+  type SkillReviewerFunctionValue,
 } from "@/lib/live-org-admin";
 
 /**
@@ -108,7 +110,7 @@ export function OrgAdminScreen() {
           </TabsContent>
 
           <TabsContent value="members">
-            {orgId ? <MembersTab orgId={orgId} /> : <LoadingSkeleton rows={3} />}
+            {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
           </TabsContent>
 
           <TabsContent value="invites">
@@ -494,10 +496,71 @@ function TeamRow({
 
 /* ═══════════════════════════════ 成员（#363，真实数据） ═══════════════════════════════ */
 
-function MembersTab({ orgId }: { orgId: string }) {
+/**
+ * issue #852 —— 「Skill 审核人职能」下拉，只在 `isAdmin` 时渲染成可操作控件。
+ * 非 admin 完全看不到这一列（同 `listSkillReviewerFunctions` 契约仅 admin 可读的既定
+ * 纪律：「谁能审我」不是给提交人看的信息，不只是「看得到但按不动」）。
+ */
+function ReviewerFunctionPicker({
+  orgId, userId, current, onChanged,
+}: {
+  orgId: string;
+  userId: string;
+  current: SkillReviewerFunctionValue | null;
+  onChanged: (userId: string, next: SkillReviewerFunctionValue | null) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = event.currentTarget.value as SkillReviewerFunctionValue | "";
+    setBusy(true);
+    setError(null);
+    try {
+      if (value === "") {
+        await revokeSkillReviewerFunction(orgId, userId);
+        onChanged(userId, null);
+      } else {
+        await assignSkillReviewerFunction(orgId, userId, value);
+        onChanged(userId, value);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : "操作失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        className="h-7 rounded-md border border-input bg-panel px-1.5 text-11 disabled:opacity-60"
+        value={current ?? ""}
+        disabled={busy}
+        onChange={(e) => void handleChange(e)}
+        data-testid={`org-admin-member-${userId}-reviewer-function`}
+      >
+        <option value="">无审核职能</option>
+        <option value="methodology-reviewer">方法论审核人</option>
+        <option value="security-reviewer">安全评审人</option>
+      </select>
+      {error && (
+        <span className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-reviewer-function-error`}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** 导出供测试直接渲染，不必连 `useSession` 一起 mock 出整个 `OrgAdminScreen`。 */
+export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
   const [state, setState] = React.useState<UiState>("loading");
   const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
   const [out, setOut] = React.useState<ListOrgMembersOut | null>(null);
+  // issue #852：`userId → 当前职能` 表。未列出 ⇒ 未指派。仅 admin 会真的发起这条请求
+  // ——非 admin 调用 `listSkillReviewerFunctions` 会拿到 403，这里干脆不发那次请求。
+  const [reviewerFunctions, setReviewerFunctions] = React.useState<Record<string, SkillReviewerFunctionValue>>({});
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -510,11 +573,30 @@ function MembersTab({ orgId }: { orgId: string }) {
       setFailureMessage(describeFailureFor(err, "组织不存在或当前身份不可见", "当前身份无权读取成员列表"));
       setState("dep-failed");
     }
-  }, [orgId]);
+    if (isAdmin) {
+      try {
+        const { assignments } = await listSkillReviewerFunctions(orgId);
+        setReviewerFunctions(Object.fromEntries(assignments.map((a) => [a.userId, a.reviewerFunction])));
+      } catch {
+        // 职能名单读失败不该把整块成员列表也带走——那是另一件事的失败。
+        setReviewerFunctions({});
+      }
+    }
+  }, [orgId, isAdmin]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const handleReviewerFunctionChanged = (userId: string, next: SkillReviewerFunctionValue | null) => {
+    setReviewerFunctions((prev) => {
+      if (next === null) {
+        const { [userId]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [userId]: next };
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3 pt-3">
@@ -536,6 +618,17 @@ function MembersTab({ orgId }: { orgId: string }) {
                 {ORG_ROLE_LABEL[m.orgRole]}
               </Badge>
               {m.status === "suspended" && <Badge tone="outline">已停用</Badge>}
+              {/* issue #852：职能指派仅 admin 可见可改——`listSkillReviewerFunctions` 契约本身
+                  就是仅 admin 可读（同「谁能审我」不给提交人看的既定纪律），非 admin 这里
+                  不渲染任何东西，不是「看得到但按不动」。 */}
+              {isAdmin && (
+                <ReviewerFunctionPicker
+                  orgId={orgId}
+                  userId={m.userId}
+                  current={reviewerFunctions[m.userId] ?? null}
+                  onChanged={handleReviewerFunctionChanged}
+                />
+              )}
               <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-member-${m.userId}-joined`}>
                 {new Date(m.joinedAt).toLocaleDateString("zh-CN")} 加入
               </span>

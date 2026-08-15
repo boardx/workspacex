@@ -404,12 +404,32 @@ export function reviewerFunctions(
   functions: Readonly<Record<string, ReviewerFunctionValue>>,
   anotherExists: boolean,
 ): ReviewerFunctionPort {
+  // issue #852 delta：本地可变副本，让 assign/revoke 在测试里真的改变 functionOf() 的答案
+  // ——同一个替身既回答「读」也承接「写」，不新造第二个替身构造函数。
+  const store = new Map<string, { reviewerFunction: ReviewerFunctionValue; assignedBy: string; assignedAt: string }>(
+    Object.entries(functions).map(([principalId, fn]) => [
+      principalId,
+      { reviewerFunction: fn, assignedBy: "seed", assignedAt: new Date(0).toISOString() },
+    ]),
+  );
   return {
     async functionOf(principalId) {
-      return functions[principalId] ?? null;
+      return store.get(principalId)?.reviewerFunction ?? functions[principalId] ?? null;
     },
     async anotherMethodologyReviewerExists() {
       return anotherExists;
+    },
+    async assignReviewerFunction(input) {
+      const assignedAt = new Date().toISOString();
+      store.set(input.principalId, { reviewerFunction: input.reviewerFunction, assignedBy: input.assignedBy, assignedAt });
+      return { assignedAt };
+    },
+    async revokeReviewerFunction(principalId) {
+      const revoked = store.delete(principalId) || principalId in functions;
+      return { revoked };
+    },
+    async listReviewerFunctions() {
+      return Array.from(store.entries()).map(([principalId, v]) => ({ principalId, ...v }));
     },
   };
 }

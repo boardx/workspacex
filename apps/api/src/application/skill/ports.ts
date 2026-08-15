@@ -450,6 +450,31 @@ export interface ReviewerFunctionPort {
    *   刻意不做成「列出全部审核人」，列表本身对本次判定是多余信息。
    */
   anotherMethodologyReviewerExists(orgId: string, excludePrincipalId: string): Promise<boolean>;
+
+  /**
+   * issue #852 delta（skill-reviewer-function-assignment）—— 组织管理员任命入口的
+   * 落库面。`functionOf` 在 #552 就有了读方，这三个方法补上从未存在过的**写**方。
+   *
+   * ⚠ 鉴权（调用者是不是本组织 admin）**不在这里判断**——同 `functionOf` 的既有分工，
+   *   端口只负责取数/落库，判定住在 `application/auth/assign-skill-reviewer-function.ts`
+   *   与 `.../revoke-skill-reviewer-function.ts`（controller `requireAdminRole` 之后
+   *   第二道，同 `removeOrgMember` 的既有纪律：判断不能只靠 HTTP 层一次）。
+   */
+  assignReviewerFunction(input: {
+    readonly principalId: string;
+    readonly reviewerFunction: ReviewerFunctionValue;
+    readonly assignedBy: string;
+  }): Promise<{ readonly assignedAt: string }>;
+  /** `revoked: false` ＝ 目标人此前从未被指派过（`NOT_ASSIGNED` 的判据），不是失败。 */
+  revokeReviewerFunction(principalId: string): Promise<{ readonly revoked: boolean }>;
+  listReviewerFunctions(): Promise<
+    readonly {
+      readonly principalId: string;
+      readonly reviewerFunction: ReviewerFunctionValue;
+      readonly assignedBy: string;
+      readonly assignedAt: string;
+    }[]
+  >;
 }
 
 /* ═══════════════════ #552：两道门禁的落库面 ═══════════════════ */

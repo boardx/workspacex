@@ -52,6 +52,7 @@ beforeAll(async () => {
     new PgIdentityRepository(db),
     null as never, null as never,
     new PgLimitRuleRepository(db),
+    null as never,  // issue #852 delta：skill 审核人职能仓储：本文件不调那三条路由
   );
 }, HOOK_TIMEOUT_MS);
 

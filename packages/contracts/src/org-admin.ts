@@ -106,6 +106,14 @@ export const LimitAction = z.enum(["warn", "degrade", "block", "require_approval
  */
 export const ParticipantIdentityChoice = z.enum(["member", "groupLead", "observer", "coFacilitator"]);
 
+/**
+ * Skill 审核人职能（issue #852 delta，skill-reviewer-function-assignment）。
+ * ⚠ 取值集合与 `apps/api/src/domain/skill/review-authorization.ts` 的
+ *   `ReviewerFunctionValue` 逐字相同——那是运行时判定用的 domain 类型，这是契约边界
+ *   的 zod 校验，两处各自的存在理由不同（洋葱分层），但取值不得漂移，改一处必须同改。
+ */
+export const SkillReviewerFunction = z.enum(["methodology-reviewer", "security-reviewer"]);
+
 /** 邀请链接三种有效期（R10 链接有效期统一表）。⚠ `once` = 一次性令牌 */
 export const InviteLinkValidity = z.enum(["24h", "7d", "once"]);
 
@@ -241,6 +249,10 @@ export const OrgAdminError = z.enum([
   "UNSUPPORTED_CONTENT_TYPE",
   /** `updateOrganization`：`avatarArtifactId` 不是这个组织通过 `uploadOrgAvatar` 产出的。 */
   "AVATAR_ARTIFACT_NOT_OWNED",
+
+  /* ── ④ issue #852 delta（skill-reviewer-function-assignment）─────────────── */
+  /** `revokeSkillReviewerFunction`：目标人此前从未被指派过职能——与「撤销成功」可区分。 */
+  "NOT_ASSIGNED",
 ]);
 
 type OrgAdminErrorT = z.infer<typeof OrgAdminError>;
@@ -876,6 +888,79 @@ export const operations = {
       })
       .strict(),
     err: ["PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /* ══ 一.六、Skill 审核人职能指派（issue #852 delta，skill-reviewer-function-assignment）══
+   *
+   * `skills/domain.md` 早已把 `ReviewerFunction`（`methodology-reviewer` /
+   * `security-reviewer`）定义为「组织管理员指派、组织级职能授权」，但从未有过一条能
+   * 到达 `skill_reviewer_functions` 表的写路径——`functionOf()` 在任何新组织里恒
+   * 返回 null，skill 永远批不到「已启用」。三条操作放进本束是「跟着 `/admin/members`
+   * 已建成的真实归属走」，见 delta `contract.md` §0。
+   *
+   * ⚠ 取值集合与 `apps/api/src/domain/skill/review-authorization.ts` 的
+   *   `ReviewerFunctionValue` 逐字相同，本文件不重新定义第二份——`SkillReviewerFunction`
+   *   是这份枚举在契约层的唯一声明。
+   */
+
+  /**
+   * `assignSkillReviewerFunction` —— upsert 覆盖式指派。
+   * ⚠ `assignedBy`/`assignedAt` **不进请求体**，服务端从认证 principal 与当前时间派生——
+   *   同 `reviewSkillVersion` 的既有纪律（三个「谁」全部来自服务端事实）。
+   * ⚠ PK 是 `(org_id, principal_id)`：改指派是同一行的更新，不是先撤销再指派。
+   */
+  assignSkillReviewerFunction: {
+    method: "POST",
+    path: "/organizations/:orgId/members/:userId/skill-reviewer-function",
+    in: z
+      .object({ orgId: z.string(), userId: z.string(), reviewerFunction: SkillReviewerFunction })
+      .strict(),
+    out: z
+      .object({
+        userId: z.string(),
+        reviewerFunction: SkillReviewerFunction,
+        assignedBy: z.string(),
+        assignedAt: z.string(),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "MEMBER_NOT_FOUND"] as const,
+  },
+
+  /**
+   * `revokeSkillReviewerFunction` —— 撤销一名成员的审核人职能（回到「无职能」）。
+   * `NOT_ASSIGNED`：对一个从未被指派过的人调用，与「撤销成功」在数据上可区分。
+   */
+  revokeSkillReviewerFunction: {
+    method: "POST",
+    path: "/organizations/:orgId/members/:userId/skill-reviewer-function/revoke",
+    in: z.object({ orgId: z.string(), userId: z.string() }).strict(),
+    out: z.object({ userId: z.string(), revoked: z.literal(true) }).strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT", "MEMBER_NOT_FOUND", "NOT_ASSIGNED"] as const,
+  },
+
+  /**
+   * `listSkillReviewerFunctions` —— 组织内全部审核人职能指派，**仅 admin 可读**
+   * （同 `anotherMethodologyReviewerExists` 的既有纪律：「谁能审我」不是给提交人看的信息）。
+   */
+  listSkillReviewerFunctions: {
+    method: "GET",
+    path: "/organizations/:orgId/skill-reviewer-functions",
+    in: z.object({ orgId: z.string() }).strict(),
+    out: z
+      .object({
+        assignments: z.array(
+          z
+            .object({
+              userId: z.string(),
+              reviewerFunction: SkillReviewerFunction,
+              assignedBy: z.string(),
+              assignedAt: z.string(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["NO_ORG_MEMBERSHIP", "PROJECT_ROLE_INSUFFICIENT"] as const,
   },
 
   /* ══ 一.五、组织资料 + 成员/邀请列表读（#363 delta，org-profile-membership）════ */
