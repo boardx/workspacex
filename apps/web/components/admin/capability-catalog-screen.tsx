@@ -22,6 +22,7 @@ import {
 } from "./capability-mutate";
 import { SkillStarterImportPanel } from "./skill-starter-import-panel";
 import { SkillUrlImportPanel } from "./skill-url-import-panel";
+import { EntityViewToggle } from "./entity-view-toggle";
 
 const PAGE_SIZE = 10;
 
@@ -149,6 +150,31 @@ export function CapabilityCatalogScreen({
   // 从**当前这批 rows** 里找，而不是把点击时的那一份存进 state：
   // 后者会在刷新之后继续指着一条服务端已经改掉的记录。
   const disablingRow = rows.find((r) => r.id === disablingId) ?? null;
+
+  /**
+   * 卡片 / 列表两态**渲染同一个 `CapabilityRow`**——它本来就已经是一张 `<Card>`，
+   * 差别只在外层是网格排列（卡片态）还是单列纵向排列（列表态，即改动前的原始布局）。
+   * 这样切换视图不改变任何一行内部的结构与 testid，编辑 / 停用逻辑原样复用。
+   */
+  function renderCapabilityRow(row: CapabilityListing) {
+    return (
+      <CapabilityRow
+        row={row}
+        prefix={prefix}
+        ctx={ctx}
+        canMutate={canMutate}
+        editing={editingId === row.id}
+        onEdit={() => setEditingId(row.id)}
+        onCloseEdit={() => setEditingId(null)}
+        onDisable={() => {
+          setNotice(null);
+          setMutateError(null);
+          setDisablingId(row.id);
+        }}
+        renderEditExtra={renderEditExtra}
+      />
+    );
+  }
 
   React.useEffect(() => {
     if (consumedInitialEdit.current) return;
@@ -280,26 +306,22 @@ export function CapabilityCatalogScreen({
             <span>共 {rows.length} 条组织目录记录</span>
             <span data-testid={`${prefix}-page-status`}>第 {page + 1} / {pageCount} 页</span>
           </div>
-          <div className="flex flex-col gap-2" data-testid={`${prefix}-list`}>
-            {visibleRows.map((row) => (
-              <CapabilityRow
-                key={row.id}
-                row={row}
-                prefix={prefix}
-                ctx={ctx}
-                canMutate={canMutate}
-                editing={editingId === row.id}
-                onEdit={() => setEditingId(row.id)}
-                onCloseEdit={() => setEditingId(null)}
-                onDisable={() => {
-                  setNotice(null);
-                  setMutateError(null);
-                  setDisablingId(row.id);
-                }}
-                renderEditExtra={renderEditExtra}
-              />
-            ))}
-          </div>
+          {/*
+            人类原话（2026-08-15）：「后台的管理功能…左边还是保留一个 column 显示当前的
+            后台菜单，右边列出卡片来表达当前的 entity 的列表，卡片也可以切换为列表」。
+            ⚠ 两个 testid 都指回改动前就存在的 `${prefix}-list`——不管当前选的是卡片还是
+              列表视图，容器 testid 都不变，`capability-catalog-*.test.tsx` 等既有测试
+              不需要跟着这次改动重写。
+          */}
+          <EntityViewToggle
+            prefix={prefix}
+            entities={visibleRows}
+            keyOf={(row) => row.id}
+            renderCard={renderCapabilityRow}
+            renderListRow={renderCapabilityRow}
+            cardContainerTestId={`${prefix}-list`}
+            listContainerTestId={`${prefix}-list`}
+          />
           {pageCount > 1 ? (
             <div className="flex justify-end gap-2">
               <Button

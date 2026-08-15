@@ -21,6 +21,7 @@ import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
  * 它），`components/ui/` 目前没有任何 Dialog/Modal 组件——不新造第二套弹窗机制。
  */
 import { Modal } from "@/components/files/overlay";
+import { EntityViewToggle } from "@/components/admin/entity-view-toggle";
 import {
   createSkillDraft,
   getSkillDetail,
@@ -348,6 +349,75 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     }
   }
 
+  /**
+   * G7（2026-08-15，人类原话：「后台的管理功能…卡片也可以切换为列表」）——卡片 / 列表
+   * 两态渲染**同一张卡片**（`renderEntity`），差别只在外层容器是网格排列还是纵向排列。
+   * `EntityViewToggle`（`components/admin/entity-view-toggle.tsx`）本来是为「后台统一
+   * 卡片/列表标准」新建的共享组件，Skill 库是这个标准最早落地的参照（人类原话把它当
+   * 参照），所以这里也接上——此前只有卡片网格，没有切换列表的入口。
+   */
+  function renderEntity(row: SkillListItem) {
+    return (
+      <Card>
+        <CardContent className="flex h-full flex-col gap-2 pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-13 font-medium">{row.name}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge tone="outline">{row.source}</Badge>
+            <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
+            <Badge tone="outline">
+              {row.visibility === "org-wide" ? "组织可见" : "仅本团队"}
+            </Badge>
+          </div>
+          <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
+          {/*
+            G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的
+            异常状态，不占位、不显示「无标签」这类提示语（同 contract.md §3④）。
+          */}
+          {(row.tags ?? []).length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1" data-testid="skill-catalog-tags">
+              {/* key 带下标：tags 是自由文本输入（`skill-create-tags`），
+                  不去重（G5 契约没有要求唯一），同一个 tag 可能重复出现。 */}
+              {(row.tags ?? []).map((tag, i) => (
+                <Badge key={`${tag}-${i}`} tone="neutral" className="font-normal">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          <p className="text-10 text-muted-foreground">
+            满意度{" "}
+            {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
+            {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/*
+              G2/G6：`isSourceFileBacked` 为真的行在 `skill_contracts` 里没有对应
+              记录，「查看契约」必 404（见上方文件头长注）——换成真实可达的
+              「编辑源码」，不是两个都摆、其中一个是死路。
+            */}
+            {isSourceFileBacked(row) ? (
+              <Button asChild size="xs" variant="ghost" className="self-start" data-testid="skill-catalog-edit-source">
+                <a href={editSourceHref(row.skillId)}>编辑源码</a>
+              </Button>
+            ) : (
+              <Button
+                size="xs"
+                variant="ghost"
+                className="self-start"
+                onClick={() => void openDetail(row.skillId)}
+                data-testid="skill-catalog-detail"
+              >
+                查看契约
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="relative flex flex-col gap-5" data-testid="skill-catalog-live">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
@@ -493,70 +563,15 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       ) : null}
 
       {filteredRows.length > 0 ? (
-        <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
-          data-testid="skill-catalog-list"
-        >
-          {filteredRows.map((row) => (
-            <Card key={row.skillId}>
-              <CardContent className="flex h-full flex-col gap-2 pt-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-13 font-medium">{row.name}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge tone="outline">{row.source}</Badge>
-                  <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
-                  <Badge tone="outline">
-                    {row.visibility === "org-wide" ? "组织可见" : "仅本团队"}
-                  </Badge>
-                </div>
-                <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
-                {/*
-                  G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的
-                  异常状态，不占位、不显示「无标签」这类提示语（同 contract.md §3④）。
-                */}
-                {(row.tags ?? []).length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-1" data-testid="skill-catalog-tags">
-                    {/* key 带下标：tags 是自由文本输入（`skill-create-tags`），
-                        不去重（G5 契约没有要求唯一），同一个 tag 可能重复出现。 */}
-                    {(row.tags ?? []).map((tag, i) => (
-                      <Badge key={`${tag}-${i}`} tone="neutral" className="font-normal">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-                <p className="text-10 text-muted-foreground">
-                  满意度{" "}
-                  {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
-                  {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
-                </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {/*
-                    G2/G6：`isSourceFileBacked` 为真的行在 `skill_contracts` 里没有对应
-                    记录，「查看契约」必 404（见上方文件头长注）——换成真实可达的
-                    「编辑源码」，不是两个都摆、其中一个是死路。
-                  */}
-                  {isSourceFileBacked(row) ? (
-                    <Button asChild size="xs" variant="ghost" className="self-start" data-testid="skill-catalog-edit-source">
-                      <a href={editSourceHref(row.skillId)}>编辑源码</a>
-                    </Button>
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="self-start"
-                      onClick={() => void openDetail(row.skillId)}
-                      data-testid="skill-catalog-detail"
-                    >
-                      查看契约
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <EntityViewToggle
+          prefix="skill-catalog"
+          entities={filteredRows}
+          keyOf={(row) => row.skillId}
+          renderCard={renderEntity}
+          renderListRow={renderEntity}
+          cardContainerTestId="skill-catalog-list"
+          listContainerTestId="skill-catalog-list"
+        />
       ) : null}
 
       {detailError ? (
