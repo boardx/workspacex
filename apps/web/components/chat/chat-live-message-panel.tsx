@@ -868,9 +868,13 @@ export function ChatLiveMessagePanel({
         （`showJumpToLatest`）时出现，绝对定位在消息区底部正中、输入区上方。点击平滑滚到底。
         条件渲染而非 visibility 切换：不在底部时它才存在，避免常驻挡内容，也让 e2e 能用
         存在性断言（`toHaveCount`）确定性验证显隐。
+        CLR track V-D/V-P 回归（#1267）：composer 加了建议 chips 行 + agent 选择器行后变高，
+        这个绝对定位容器落进了 composer 的区域；两者是同一层级的 sibling，都没有 z-index，
+        文档流顺序在后的 `chat-composer`（含 textarea）会盖住它、拦截 pointer events——按钮
+        看不见也点不到。显式给 z-index 让它稳定浮在 composer 之上，不再受 composer 高度变化影响。
       */}
       {showJumpToLatest ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-24 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center">
           <Button
             size="xs"
             variant="outline"
