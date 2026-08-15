@@ -1,7 +1,8 @@
 # ADR-106: 分级验证策略：拆分 `verify:base`、按风险分档、affected 优先
 
-- 状态: Proposed（需人类确认后转 Accepted；本 ADR 本身不改任何硬门禁，只记录决策——
-  执行拆为独立 issue，一个 issue 一个 PR，逐条过 CI）
+- 状态: Accepted（2026-08-15，coord-main 裁决：同意两批拆法，明确同意第二批的前置条件——
+  不得在解决 #1068/#1090 连接预算根因前恢复并行、不得精简 turbo.json 的
+  `globalPassThroughEnv` 规则。执行拆为独立 issue，一个 issue 一个 PR，逐条过 CI）
 - 适用层：方法论（可移植）
 - 日期: 2026-08-15
 
