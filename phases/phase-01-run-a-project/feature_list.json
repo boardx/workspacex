@@ -4196,6 +4196,28 @@
       "area": "chat",
       "capability": "CAP-API",
       "sprint": null
+    },
+    {
+      "id": "F185",
+      "title": "工具调用轨迹跨 run 回喂上下文（agent_run_steps 的 tool_call 摘要作为第四类历史来源注入，ModelCallPort 不动）",
+      "user_visible_behavior": "多轮 agentic 任务里，后续轮次能『记得』前面轮次做过的工具调用：某一轮 run 记录的 tool_call step（toolName/toolArgsSummary/toolResultSummary/planningNote）会作为一类新的上下文来源，被后续轮次的历史组装读到并以伪历史消息（role+content）注入 ModelCallInput.history——即使工具结果没有逐字复述进最终回复文字，下一轮 run 也不再对上一轮的工具调用轨迹失明；读取失败时按既有降级策略跳过该来源、不阻断 run。",
+      "spec_ref": "08-chat/uc-8-10-工具调用轨迹跨run回喂上下文.md#R3",
+      "depends_on": [
+        "F154",
+        "F157"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]+[待设计]。来源：差距分析 G-A（跨 run 的工具调用轨迹不进上下文），人类 2026-08-15 原话『同意 继续执行』。底层数据已在采集/持久化（agent_run_steps 表 kind='tool_call' 行的 tool_name/tool_args_summary/tool_result_summary/planning_note，契约 packages/contracts/src/wave2-runtime.ts:276-288），readThreadHistory 只读 chat_messages 从未读该表——本 feature 是把已有信息接进已有组装管线，不新建表/不新建列。⚠ 不可直接开工：改动 apps/api/src/.../execute-run.ts 的历史组装逻辑（chat-context-engine 束明确要求『动 execute-run.ts 需取 coord-main 串行窗口』，见 F154 notes），且引入 L1/L2/L3 之外的第四类上下文来源，超出该束已签参数字面范围，不能援引 F154/F155/F157 既有签核直接开工——须走 design-delta 追加签核（预计与 context-engine-l3-file-based delta 同等重量级，需人类直接看，不适合 coord-main 代裁）。留给签核裁定的参数（UC R4）：①范围窗口（最近 N 轮 run / 最近 N 条 tool_call / 只读上一轮）②与 L1/L2/L3 的预算相对优先级与 L1 重叠去重 ③与 F156 delta『个人对话零跨范围召回』的边界共存（本线程自产、非跨范围检索，需签核时写死一句不留活口）④是否在 F157 的 agent_run_context 快照追加来源类别留痕（复用不另建，同一事实不得声明在两处）⑤读取失败的降级模式。depends_on F154（历史组装分层落点）+ F157（快照复用来源，R4.4）。UC 头部未声明估点，按『接线已有数据入已有管线、无新采集机制』估 2 点。属 chat-context-engine 束；sprint 留 null：design-delta 追加签核未完成前不分配。",
+      "priority": 1,
+      "area": "chat",
+      "capability": "CAP-API",
+      "sprint": null
     }
   ]
 }
