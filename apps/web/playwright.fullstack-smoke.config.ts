@@ -222,6 +222,10 @@ export default defineConfig({
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",
+        // ⚠ 「蓝本到项目」主流程同理排在 `seeded`：它要用种子里的组织管理员
+        //   （`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色）与 sentinel 项目
+        //   （`FULLSTACK_E2E.projectId`，F29 边界证明那条用它做 404 归因排除）。
+        "blueprint-to-project-journey.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
