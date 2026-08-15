@@ -39,7 +39,15 @@ const asrProviderPort = String(Number(webPort) + 10_000);
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "chat-read.spec.ts",
+  /**
+   * #1310 —— 新增 `chat-agent-skill-context.spec.ts` 由**本 config** 接住，不新建第四个
+   * playwright config：它已经把这条主流程需要的全部编排都起好了（确定性 model provider +
+   * deep-agent provider + 真 Postgres + 真 API + 真 web），单自建 runner 是硬瓶颈，
+   * 再起一份等于把同一套 webServer 又跑一遍。根 `pnpm run verify:chat-read` 调用本 config
+   * ⇒ 新 spec 自动落在 harness-verify.yml 的 `e2e-full` job 里，
+   * `.harness/scripts/lint-spec-gate-coverage.mjs` 那道「不存在没人跑的 spec」门控随之满足。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -127,6 +135,16 @@ export default defineConfig({
         ...process.env,
         LOOPBACK_MODEL_PROVIDER_PORT: modelProviderPort,
         LOOPBACK_MODEL_REPLY_PREFIX: CHAT_READ_E2E.agentReplyPrefix,
+        /**
+         * #1310 —— 打开替身进程「回显它在 history 里收到的 L3 检索来源标记」这个
+         * **默认关闭**的开关（见 `loopback-model-provider.ts` 自己的头注）。
+         * `fullstack-smoke.config.ts` / `core-loop` 不下发这个变量，那两条链路行为逐字节不变。
+         *
+         * 不打开它的话，「检索确实发生了」在浏览器侧**没有任何可观察信号**：伪消息不落表，
+         * `GET /agent-runs/:id` 的 step 只有 digest ⇒ 召回与不召回的可观测输出完全相同，
+         * 只能写一条恒绿的假断言。
+         */
+        LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX: CHAT_READ_E2E.retrievalEchoPrefix,
       },
     },
     /**
@@ -169,6 +187,12 @@ export default defineConfig({
         CHAT_E2E_THREAD_ID: CHAT_READ_E2E.threadId,
         CHAT_E2E_AGENT_ID: CHAT_READ_E2E.agentId,
         CHAT_E2E_CATALOG_ONLY_AGENT_ID: CHAT_READ_E2E.catalogOnlyAgentId,
+        // #1310 —— 主流程 e2e 的两份前置条件（可挂载的已启用 skill + 已抽取正文的附件）。
+        // 与上面那些一样：唯一事实源在 `chat-read-fixture.ts`，种子脚本与断言方共用同一份。
+        CHAT_E2E_MOUNTABLE_SKILL_ID: CHAT_READ_E2E.mountableSkillId,
+        CHAT_E2E_MOUNTABLE_SKILL_NAME: CHAT_READ_E2E.mountableSkillName,
+        CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME: CHAT_READ_E2E.retrievalAttachmentFilename,
+        CHAT_E2E_RETRIEVAL_EXCERPT: CHAT_READ_E2E.retrievalExcerpt,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",

@@ -62,6 +62,16 @@ const DEEP_AGENT_VERSION_ID = `${DEEP_AGENT_ID}-version-1`;
 const DEEP_AGENT_MODEL_PROVIDER = required("CHAT_E2E_DEEP_AGENT_MODEL_PROVIDER");
 const DEEP_AGENT_MODEL_ID = required("CHAT_E2E_DEEP_AGENT_MODEL_ID");
 const DEEP_AGENT_DISPLAY_NAME = required("CHAT_E2E_DEEP_AGENT_DISPLAY_NAME");
+/**
+ * #1310 —— 「agent/skill/context 配置 → chat 出结果」主流程 e2e 的两份**前置条件**。
+ * 与上面 agent 那几条同型：种的是「这个组织里有一个可挂载的 skill」「这条线程里有一份
+ * 已抽取正文的附件」，**动作本身**（挂载、发问、召回）全部由用例现场做——
+ * `thread_skill_mounts` 一行都不种，所以「挂载没生效」时用例照样红。
+ */
+const MOUNTABLE_SKILL_ID = required("CHAT_E2E_MOUNTABLE_SKILL_ID");
+const MOUNTABLE_SKILL_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_NAME");
+const RETRIEVAL_ATTACHMENT_FILENAME = required("CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME");
+const RETRIEVAL_EXCERPT = required("CHAT_E2E_RETRIEVAL_EXCERPT");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -250,6 +260,86 @@ await addCapability({
   enabled: true,
 });
 
+/**
+ * #1310 ① —— F65 要挂载的那个**已启用** skill。
+ *
+ * ⚠ 种 `skill_contracts` 而**不是** wave2 的 `skills` 表，这不是随手选的：挂载判据走
+ *   `SkillVisibilityPort` → `PgSkillContractRepository.loadDetail`，而 `loadDetail` **只**读
+ *   `skill_contracts`（`listAll` 那侧才合并了 wave2 表）。种进 wave2 表的话，skill 会出现在
+ *   选择器池子里却挂不上（`loadDetail` 返回 null ⇒ `SKILL_NOT_FOUND`）——那是一个真实的
+ *   产品缺口（列表读合并了两套模型、详情读没有），本条测试刻意避开它，不把它掩盖成「挂载坏了」。
+ *
+ * ⚠ 为什么必须种、不能让用例自己建：`skill.controller.ts` 逐字没有启用路由
+ *   （`SKILLS_FORBIDDEN_ROUTES` 禁 `POST /skills/:id/enable`），`草稿 → 已启用` 只能由
+ *   `reviewSkillVersion` 产生，而那条用例今天没有 HTTP 边界。同 `seed-fullstack-smoke.ts`
+ *   里 #467 那份种子的处境，一字不差。
+ *
+ * `visibility='org-wide'`：本夹具用户是 `addOrgMember(..., "lead", null)`，**不属于任何团队**，
+ * 而 `decide()` 对 `team-only` 要求 `org.teamId === scope.ownerTeamId` ⇒ 种成 team-only
+ * 它对自己都不可见、挂不上。本夹具也没有 `skill-create-smoke.spec.ts` 那条「目录空态」
+ * 断言需要保护（那正是 fullstack-smoke 那份种子必须选 team-only 的理由）。
+ */
+{
+  const { createHash } = await import("node:crypto");
+  const versionId = `${MOUNTABLE_SKILL_ID}-v1`;
+  const promptTemplate = "把讨论拆成 MECE 的假设树。";
+  const contentHash = createHash("sha256").update(promptTemplate).digest("hex");
+  await asApp(ORG_ID, async (client) => {
+    await client.query(
+      `INSERT INTO skill_contracts
+         (id, org_id, name, duty, source, status, visibility, owner_team_id,
+          current_version_id, archived, created_by)
+       VALUES ($1,$2,$3,'把讨论拆成 MECE 的假设树','自建','已启用','org-wide',NULL,$4,false,$5)
+       ON CONFLICT (id) DO NOTHING`,
+      [MOUNTABLE_SKILL_ID, ORG_ID, MOUNTABLE_SKILL_NAME, versionId, USER_ID],
+    );
+    await client.query(
+      `INSERT INTO skill_contract_versions
+         (id, org_id, skill_id, version_number, state, prompt_template, input_schema,
+          output_schema, data_scope, reads_raw_transcript, fallback_declaration,
+          model_ref, content_hash, created_by)
+       VALUES ($1,$2,$3,1,'已生效',$4,'{}','{}','[]'::jsonb,false,'不确定时明说不确定',
+               $5,$6,$7)
+       ON CONFLICT (id) DO NOTHING`,
+      [versionId, ORG_ID, MOUNTABLE_SKILL_ID, promptTemplate,
+        `${AGENT_MODEL_PROVIDER}/${AGENT_MODEL_ID}`, contentHash, USER_ID],
+    );
+  });
+}
+
+/**
+ * #1310 ② —— F155 L3 文件检索的**素材**：一份已抽出正文的聊天附件。
+ *
+ * `message_id` 刻意留 NULL（「已上传、尚未挂到任何消息」的 pending 态）：
+ * `pg-file-retrieval.ts` 的检索只 `JOIN chat_threads ON t.id = a.thread_id`，**不看**
+ * `message_id`，所以 pending 行照样被召回；而不挂消息就不会在消息列表里多渲染一个附件 chip，
+ * 本 config 上另外八条既有 chat-read 用例的断言一条都不会被这份种子动到。
+ *
+ * `extraction_status='extracted'` ∧ `extracted_excerpt` 非空是检索 WHERE 里的硬条件
+ * （pending/failed/unsupported 的附件没有可检索内容，实现刻意不召回它们）。
+ * `search_tsv` 是**生成列**（migration `20260814120000_f155_file_retrieval_fts.sql`），
+ * 不在这里写——写它会是「同一事实声明在两处」，而且那列根本不可写。
+ */
+await asApp(ORG_ID, async (client) => {
+  await client.query(
+    `INSERT INTO chat_message_attachments
+       (id, org_id, thread_id, message_id, storage_ref, filename, mime, bytes,
+        extraction_status, extracted_excerpt)
+     VALUES ($1,$2,$3,NULL,$4,$5,'text/markdown',$6,'extracted',$7)
+     ON CONFLICT (id) DO UPDATE
+       SET extraction_status = 'extracted', extracted_excerpt = EXCLUDED.extracted_excerpt`,
+    [
+      "attachment-chat-read-e2e-retrieval",
+      ORG_ID,
+      THREAD_ID,
+      "chat-read-e2e/retrieval-fixture.md",
+      RETRIEVAL_ATTACHMENT_FILENAME,
+      Buffer.byteLength(RETRIEVAL_EXCERPT, "utf8"),
+      RETRIEVAL_EXCERPT,
+    ],
+  );
+});
+
 process.stdout.write(
-  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1\n`,
+  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1\n`,
 );

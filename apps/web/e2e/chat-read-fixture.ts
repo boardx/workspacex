@@ -56,4 +56,45 @@ export const CHAT_READ_E2E = {
    * 不是编造的。
    */
   asrTranscriptPrefix: "[loopback-asr]",
+
+  /* ══════════ #1310 —— agent / skill / context 主流程 e2e 的种子与取证约定 ══════════ */
+
+  /**
+   * F65 要挂载的那个**已启用** skill。种在 `skill_contracts`（不是 wave2 的 `skills` 表）：
+   * 挂载走 `SkillVisibilityPort` → `PgSkillContractRepository.loadDetail`，那条读路径**只**
+   * 读 `skill_contracts`。种进 wave2 表的话，它会出现在选择器池子里（`listAll` 合并了两张表）
+   * 却挂不上（`loadDetail` 返回 null ⇒ `SKILL_NOT_FOUND`）——那是一个真实的产品缺口，
+   * 但不是这条测试要证的东西，所以这里避开它，不在测试里把它掩盖成「挂载坏了」。
+   *
+   * `org-wide` 而不是 `fullstack-smoke` 那份种子用的 `team-only`：本夹具的用户
+   * （`addOrgMember(..., "lead", null)`）**不属于任何团队**，`decide()` 对 `team-only`
+   * 要求 `org.teamId === scope.ownerTeamId`，种成 team-only 它对自己不可见、挂不上。
+   * 本夹具也没有 `skill-create-smoke.spec.ts` 那条「目录空态」断言要保护。
+   */
+  mountableSkillId: "skill-chat-read-e2e-mountable",
+  mountableSkillName: "假设拆解（E2E）",
+
+  /**
+   * F155 的检索素材：一份 `extraction_status='extracted'` 的聊天附件。
+   *
+   * ⚠ `retrievalTerm` 与 `retrievalDecoyQuery` 必须**零 token 重叠**，这是反向对照成立的前提。
+   *   `pg-file-retrieval.ts` 把 `plainto_tsquery` 的 AND 改成了 **OR**，任何一个共同词都会
+   *   让「不该命中」的那条命中，反向对照就退化成一条永远绿的断言。同理，正文用词刻意避开
+   *   本夹具其余用例发送的文本（"Browser durable message" / "thinking indicator please" 等），
+   *   免得那些用例的回复里冒出本条测试的来源标记。
+   */
+  retrievalAttachmentFilename: "zephyr-7742-cutover.md",
+  retrievalTerm: "ZEPHYR-7742",
+  retrievalExcerpt:
+    "ZEPHYR-7742 cutover runbook. Rollback window: 40 minutes. Owner: platform guild. "
+    + "Blast radius limited to the ZEPHYR-7742 shard; no cross-shard writes during cutover.",
+  /** 一条与上面那份附件零 token 重叠的提问——用作「没召回」的反向对照。 */
+  retrievalDecoyQuery: "如何给盆栽浇水",
+
+  /**
+   * 确定性上游替身在「history 里真的收到了 L3 检索伪消息」时，回显进回复的前缀。
+   * 与 `agentReplyPrefix` / `asrTranscriptPrefix` 同一套惯例：唯一事实源在本文件，
+   * 由 `playwright.chat-read.config.ts` 同时下发给替身进程与断言方。
+   */
+  retrievalEchoPrefix: "[retrieved:]",
 } as const;
