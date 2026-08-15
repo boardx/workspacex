@@ -3547,7 +3547,7 @@
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "10"
     },
     {
       "id": "F157",
