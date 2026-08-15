@@ -4103,7 +4103,7 @@
         "F169"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
@@ -4117,14 +4117,14 @@
         "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx",
         "pnpm --filter web exec vitest run tests/research-rewrite.test.ts",
-        "pnpm --filter api run typecheck",
+        "pnpm turbo run typecheck --filter=@repo/api",
         "pnpm --filter web run typecheck",
         "node apps/api/scripts/lint-permission-paths.mjs",
         "node .harness/scripts/lint-arch-deps.mjs",
         "node .harness/scripts/lint-ui-material.mjs",
         "bash apps/web/scripts/lint-design.sh"
       ],
-      "evidence": "",
+      "evidence": "evidence/F180.verify.log @ 2026-08-15T19:05:06.759Z",
       "notes": "用户在 PR #1146 合并后明确指出真实页面没有按已签六张 UI 图开发，并再次确认按开始设计图修改；随后明确要求创建研究先命名并填写可选标签。本 feature 收口视觉保真、主入口、创建元数据持久化与既有交互，不把 F170 Web Search 真运行态或 F171 报告真数据偷并进来；两者继续串行交付。共享热点：apps/web/components/research-studio/guided-research-flow.tsx、research-studio-app.tsx、guided research 契约/仓储及对应 tests。队列外原因：用户明确要求修复已签 UI 与真实入口的偏差。回滚：恢复本 feature 的前后端与迁移；既有会话 tags 默认空数组。编号在合入 2026-08-14 最新 main 后由冲突的 F174 迁移为当时最大号之后的 F180。",
       "priority": 1,
       "area": "deep-research",

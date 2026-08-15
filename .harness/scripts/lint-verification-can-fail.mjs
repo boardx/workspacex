@@ -34,6 +34,7 @@
  *     · grep 命令   → 被搜的模式        形态键 `grep`
  *     · 脚本类命令  → 脚本文件路径      形态键 `script-file:<解释器>`
  *     · pnpm run    → 脚本名            形态键 `pnpm-script`（见下方「为什么它没有动态探针」）
+ *     · turbo run   → 工作区 package     形态键 `turbo-task:<task>`
  *   同一形态键下的所有命令共用一次探针：因为它们的失败传导路径**逐字相同**
  *   （同一个 pnpm/vitest/grep 调用形式），差异只在指向物。
  *   ⚠ 抽样只在形态**内部**抽，不在形态**之间**抽——全部形态都必须各被探一次，
@@ -198,6 +199,19 @@ export function classify(cmd) {
       shape: `vitest-file:${pkg}`,
       probe: `pnpm --filter ${pkg} exec vitest run tests/${PROBE_TOKEN}.test.ts`,
       checks: [{ type: "package", pkg }, { type: "test-file", pkg, path }],
+    };
+  }
+
+  // Turbo task：pnpm turbo run <task> --filter=<workspace package>
+  // 这里把 package filter 当作指向物；不存在的 package 会让 Turbo 非 0 退出，
+  // 因而可以动态证明该形态不会在目标缺失时静默放行。
+  m = /^pnpm\s+turbo\s+run\s+([\w:.-]+)\s+--filter(?:=|\s+)(\S+)\s*$/.exec(c);
+  if (m) {
+    const [, task, pkg] = m;
+    return {
+      shape: `turbo-task:${task}`,
+      probe: `pnpm turbo run ${task} --filter=@repo/${PROBE_TOKEN}`,
+      checks: [{ type: "package", pkg }],
     };
   }
 
