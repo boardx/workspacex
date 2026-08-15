@@ -9,20 +9,15 @@
  * 发布版本还没实现，选择动作本身禁用。BP-04（F179）已把发布/试跑接上电，
  * BP-05 在此基础上补齐「项目模板」生产入口（`/tpl/list`）需要的
  * `createBlueprint`/`updateDesignFacet`，供列表页新建、设计器编辑设计环节用。
+ * BP-06 前置（F186）补上 `getBlueprintDesignFacets`，给设计器页面读真实内容。
  *
- * ## 契约缺口 T13：`setDurationTier` 需要的 `expectedVersion` 没有读路径
+ * ## 契约缺口 T13 已解决——`getBlueprintDesignFacets` 补上了这个读路径
  *
- * `packages/contracts/src/templates.ts` `KNOWN_CONTRACT_GAPS.T13` 已如实登记：
- * `listBlueprints.out`（`BlueprintRow`）不含蓝本行级的乐观并发令牌，也没有
- * `getBlueprint` 单条读操作。⇒ **本文件不封装 `setDurationTier`**——不是漏做，
- * 是没有合法输入可以喂给它。等这个读路径缺口被补上（新增 `getBlueprint` 或把
- * 令牌塞进 `listBlueprints.out`，两者都需要走 delta 重签），再补这个函数。
- * BP-03（F177）的后端本身真实、可测，只是前端暂时够不到——「设时长档位」
- * 因此不在本次 BP-05 的接线范围内，P3 仍停在🟡。
- *
- * `createBlueprint`/`listBlueprints`/`updateDesignFacet` 不受这个缺口影响：
- * 前两个不需要令牌，后者的令牌是每个设计配置项自己的 `itemRevision`
- * （首次调用用哨兵 `''`），跟蓝本行级的 `expectedVersion` 是两回事。
+ * 之前 `KNOWN_CONTRACT_GAPS.T13` 登记的缺口（`setDurationTier` 需要的
+ * `expectedVersion` 没有任何操作读得到）已经被 `getBlueprintDesignFacets.out.revision`
+ * 解决——`setDurationTier` 因此可以封装了（本文件仍未封装，是因为设计器页面本身
+ * 还没有换档位的界面交互，不是契约层面卡住了，属于设计器接线的下一个增量）。
+ * `KNOWN_CONTRACT_GAPS.T13` 的文档措辞留给人类更新（不是本文件能单方改的事）。
  */
 import { templates } from "@repo/contracts";
 import type { z } from "zod";
@@ -85,5 +80,15 @@ export async function updateDesignFacet(input: UpdateDesignFacetInput): Promise<
       .replace(":blueprintId", encodeURIComponent(input.blueprintId))
       .replace(":designFacetKey", encodeURIComponent(input.designFacetKey)),
     { method: "PUT", body: { value: input.value, expectedItemRevision: input.expectedItemRevision } },
+  );
+}
+
+export type GetBlueprintDesignFacetsOut = z.infer<typeof templates.operations.getBlueprintDesignFacets.out>;
+
+/** BP-06 前置（F186）：读一个蓝本已填的设计环节内容 + 蓝本级并发令牌。 */
+export async function getBlueprintDesignFacets(blueprintId: string): Promise<GetBlueprintDesignFacetsOut> {
+  return apiRequest<GetBlueprintDesignFacetsOut>(
+    templates.operations.getBlueprintDesignFacets.path.replace(":blueprintId", encodeURIComponent(blueprintId)),
+    { method: "GET" },
   );
 }
