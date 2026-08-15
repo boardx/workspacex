@@ -46,6 +46,10 @@
  * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
 import { createServer } from "node:http";
+import {
+  FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
+  FILE_RETRIEVAL_SOURCE_KINDS,
+} from "../src/application/agent-run/file-retrieval";
 
 /**
  * 每个 SSE delta 的字符数上限，与段间延迟。4 字符/120ms 在一句十几到几十字的回显
@@ -76,6 +80,50 @@ if (!Number.isInteger(port) || port <= 0) {
  */
 const REPLY_PREFIX = process.env.LOOPBACK_MODEL_REPLY_PREFIX;
 if (!REPLY_PREFIX) throw new Error("LOOPBACK_MODEL_REPLY_PREFIX is required");
+
+/**
+ * #1310 —— **默认关闭**的开关：把「本进程在 history 里确实收到了一条带来源标记的 L3
+ * 检索伪消息」这件事回显进回复。不设这个变量时，下面所有相关分支都不执行，回复逐字节
+ * 等同于本次改动之前（`fullstack-smoke` / `core-loop` 那两条链路不下发它，行为不变）。
+ *
+ * ## 这不是「为了让测试变绿而伪造内容」，区别很具体
+ *
+ * 回显的是**它真的收到的东西**——与本脚本既有的「回显用户原文以证明闭环穿过整条链」
+ * 是同一条取证纪律，只是换了一条此前无法取证的链：F155 注入的检索伪消息**不落任何表**，
+ * `GET /agent-runs/:id` 的 step 只有 digest（`context_built.output_digest` 是 system prompt
+ * 的哈希，不含 history）⇒ 召回与不召回，浏览器侧可观测输出**逐字节相同**。
+ * 不加这条回显，真栈 e2e 里就不存在任何能证明「检索确实发生了」的信号，只能写一条恒绿的断言。
+ *
+ * 若检索坏掉（没注入伪消息），这里检测不到任何来源标记 ⇒ 回复里没有这段 ⇒ 断言如实红。
+ * 反向对照（发一条不命中任何文件的消息）也走同一条代码，回复同样没有这段——
+ * 「有没有召回」在回复里是**可区分**的，不是恒真。
+ */
+const RETRIEVAL_ECHO_PREFIX = process.env.LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX ?? null;
+
+/**
+ * 从 history 里找出 L3 检索伪消息，返回它携带的来源标记（去重、按枚举顺序）。
+ *
+ * ⚠ **先按伪消息头前缀筛，再找来源标记**，两步缺一不可：agent 的历史回复本身就是
+ *   `role: "assistant"`，而一旦某轮回复里字面出现过 `chat-attachment`（本脚本自己的回显
+ *   就会造成这件事），下一轮再扫全部 assistant 消息就会把「上一轮说过这个词」误判成
+ *   「这一轮召回了文件」。那样反向对照会假绿——正是这条测试要防的空转。
+ *
+ * 两个字面量都从产品源码 import（`file-retrieval.ts` 的
+ * `FILE_CONTEXT_MESSAGE_HEADER_PREFIX` / `FILE_RETRIEVAL_SOURCE_KINDS`），不在这里抄第二份。
+ */
+function retrievedSourceKinds(messages: CompletionRequest["messages"]): readonly string[] {
+  const seen = new Set<string>();
+  for (const message of messages ?? []) {
+    if (message.role !== "assistant") continue;
+    const content = message.content;
+    if (typeof content !== "string") continue;
+    if (!content.startsWith(FILE_CONTEXT_MESSAGE_HEADER_PREFIX)) continue;
+    for (const kind of FILE_RETRIEVAL_SOURCE_KINDS) {
+      if (content.includes(kind)) seen.add(kind);
+    }
+  }
+  return FILE_RETRIEVAL_SOURCE_KINDS.filter((kind) => seen.has(kind));
+}
 
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -141,7 +189,10 @@ const server = createServer((req, res) => {
     }
     const user = parsed.messages?.find((message) => message.role === "user")?.content;
     const echoed = typeof user === "string" ? user : "";
-    const fullText = `${REPLY_PREFIX} ${echoed}`;
+    // #1310 —— 开关未设置时 `kinds` 恒为空数组（短路），拼出来的字符串与改动前逐字节相同。
+    const kinds = RETRIEVAL_ECHO_PREFIX === null ? [] : retrievedSourceKinds(parsed.messages);
+    const retrievalEcho = kinds.length === 0 ? "" : `${RETRIEVAL_ECHO_PREFIX}${kinds.join(",")} `;
+    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;

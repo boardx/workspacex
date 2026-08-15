@@ -49,8 +49,26 @@ export const LANDED_CONTENT_EXCERPT_MAX_CHARS = 4_000;
 /**
  * 命中来源的类别标记。verification V2 要求「来源标记区分于附件」——所以它是一个封闭枚举，
  * 逐字进入伪消息文本（模型看得到「这段话是从哪种文件来的」），也让测试能精确断言来源。
+ *
+ * ⚠ **运行时值在这里，类型由它派生**（#1310）。此前只有类型别名，于是任何需要在运行时
+ * 遍历这两个值的地方（`chat-agent-skill-context.spec.ts` 那条真栈链路上的确定性上游替身
+ * `scripts/loopback-model-provider.ts`）只能自己写第二份字面量——AGENTS.md 点名的
+ * 「同一事实声明在两处」。改成 `as const` 元组 + `typeof[number]` 之后类型逐字不变
+ * （仍是 `"chat-attachment" | "canvas-artifact"`），但多了一个可 import 的唯一事实源。
  */
-export type FileRetrievalSourceKind = "chat-attachment" | "canvas-artifact";
+export const FILE_RETRIEVAL_SOURCE_KINDS = ["chat-attachment", "canvas-artifact"] as const;
+
+export type FileRetrievalSourceKind = (typeof FILE_RETRIEVAL_SOURCE_KINDS)[number];
+
+/**
+ * 检索伪消息正文的**开头**（#1310）。
+ *
+ * 它是「这条 assistant 消息是 L3 注入的检索上下文，不是某个 agent 说过的话」的唯一判据。
+ * 单独抽出来，是因为读侧真的需要区分这两者：agent 的历史回复里完全可能**字面**出现
+ * `chat-attachment`（例如上一轮回复复述了来源标记），拿来源标记去扫全部 assistant 消息
+ * 会把「上一轮说过这个词」误判成「这一轮召回了文件」——那种断言在检索彻底坏掉时照样绿。
+ */
+export const FILE_CONTEXT_MESSAGE_HEADER_PREFIX = "[检索到的相关文件";
 
 /** 一条命中。`text` 是**未开窗**的原文摘录，开窗在 `buildFileContextMessage` 里做（纯、可测）。 */
 export interface FileRetrievalHit {
@@ -178,6 +196,6 @@ export function buildFileContextMessage(
   if (rendered.length === 0) return null;
   return {
     role: "assistant",
-    content: `[检索到的相关文件（共 ${rendered.length} 份）]\n${rendered.join("\n\n")}`,
+    content: `${FILE_CONTEXT_MESSAGE_HEADER_PREFIX}（共 ${rendered.length} 份）]\n${rendered.join("\n\n")}`,
   };
 }
