@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, Undo2, FileWarning, UserCog, ArrowLeft } from "lucide-react";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
@@ -10,6 +10,24 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CONSENT, WITHDRAWAL_FLOW } from "@/lib/mock/entry";
 import { WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
+import { useSession } from "@/components/session/session-provider";
+import { ApiError } from "@/lib/api-client";
+import { setConsentDecision, type ConsentItem } from "@/lib/live-consent";
+
+/**
+ * 同意书条目 id → 契约的 `RecordingConsentItem`（issue #854）。
+ *
+ * `CONSENT.items` 是本屏的界面视图模型（`lib/mock/entry.ts`，label/desc/defaultChecked），
+ * 与契约的封闭枚举（`packages/contracts/src/consent-item.ts`）不是同一份东西——
+ * 契约当前是四项（`record`/`transcript`/`ai_analysis`/`attribution`），本屏只画了三项
+ * （少 `ai_analysis`），那是 issue #820 的范围（UI 保真度），本次不动。
+ * `realname` → `attribution` 是同一件事的两个名字：「实名引用」就是「署名引述」。
+ */
+const CONTRACT_ITEM: Record<string, ConsentItem> = {
+  record: "record",
+  transcript: "transcript",
+  realname: "attribution",
+};
 
 /**
  * 受访者同意书（档案第九节 A / UC-1.2 D-13）——「被记录的人，自己也要有一块屏」。
@@ -17,14 +35,77 @@ import { WITHDRAWAL_SLA_SUMMARY } from "@/lib/withdrawal-flow";
  * 两块内容：
  *  1. 逐项同意（录音 / 转文字稿 / 实名引用），拒绝任何一项都不影响访谈进行；
  *  2. **撤回是一条真实的数据流**（D-13 五步全画），撤回属危险动作，二次确认 + 影响范围说明。
+ *
+ * ## 提交是真实写（issue #854）
+ *
+ * 「确认并进入访谈」不再只是一个 `<Link>`——它对每一项勾选各发一次
+ * `POST /recording/consent/decisions`（`lib/live-consent.ts`），全部成功后才导航到
+ * `/session`。三者缺一不可：`projectId` / `sourceRefId` / `participantId` 决定
+ * 这份同意落在哪一行 `recording_consent_cells`；鉴权是既有模型（`NO_PROJECT_ROLE`），
+ * 提交者必须已登录且在该项目上有角色——这不是本文件发明的门，是 `setConsentDecision`
+ * 契约本身的现状（见 `packages/contracts/src/recording.ts` 的 `C_REC_6`）。
  */
-export function ConsentForm({ state }: { state: UiState }) {
+export function ConsentForm({
+  state,
+  projectId,
+  sourceRefId,
+  participantId,
+}: {
+  state: UiState;
+  /** 这份同意书链接指向的项目/访谈/受访者。三者缺一即无法真实提交（见文件头注释）。 */
+  projectId: string | null;
+  sourceRefId: string | null;
+  participantId: string | null;
+}) {
+  const router = useRouter();
+  const session = useSession();
   const [checked, setChecked] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(CONSENT.items.map((i) => [i.id, i.defaultChecked])),
   );
   const [withdrawing, setWithdrawing] = React.useState(false);
   const [ackImpact, setAckImpact] = React.useState(false);
   const [withdrawn, setWithdrawn] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  const handleSubmit = React.useCallback(async () => {
+    if (!projectId || !sourceRefId || !participantId) {
+      setSubmitError(
+        "这条同意书链接缺少必要参数（项目 / 访谈 / 受访者），无法提交。请联系发出该链接的人重新生成。",
+      );
+      return;
+    }
+    if (!session.session) {
+      setSubmitError("请先登录后再提交这份同意书——提交由你的账号代为记录这场授权。");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await Promise.all(
+        CONSENT.items.map((item) =>
+          setConsentDecision(
+            {
+              projectId,
+              sourceRefId,
+              participantId,
+              item: CONTRACT_ITEM[item.id]!,
+              state: checked[item.id] ? "granted" : "denied",
+            },
+            session.session!.sessionToken,
+          ),
+        ),
+      );
+      router.push("/session");
+    } catch (e) {
+      if (e instanceof ApiError && e.reasonCode === "NO_PROJECT_ROLE") {
+        setSubmitError("你在这个项目上没有角色，无法代这场访谈提交授权。请联系项目引导师把你加入项目。");
+      } else {
+        setSubmitError("同意书提交失败，请稍后重试；你的勾选已保留。");
+      }
+      setSubmitting(false);
+    }
+  }, [projectId, sourceRefId, participantId, session.session, checked, router]);
 
   // ── 七态优先 ────────────────────────────────────────────────────────
   if (state !== "default") {
@@ -165,14 +246,23 @@ export function ConsentForm({ state }: { state: UiState }) {
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="primary" size="lg" asChild data-testid="consent-confirm">
-            <Link href="/session">
-              {allDeclined ? "全部拒绝，仍进入访谈" : "确认并进入访谈"}
-            </Link>
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={submitting}
+            onClick={handleSubmit}
+            data-testid="consent-confirm"
+          >
+            {submitting
+              ? "正在提交…"
+              : allDeclined
+                ? "全部拒绝，仍进入访谈"
+                : "确认并进入访谈"}
           </Button>
           <Button
             variant="outline"
             size="lg"
+            disabled={submitting}
             onClick={() => setChecked(Object.fromEntries(CONSENT.items.map((i) => [i.id, false])))}
             data-testid="consent-decline-all"
           >
@@ -182,6 +272,11 @@ export function ConsentForm({ state }: { state: UiState }) {
         <p className="text-11 text-muted-foreground">
           未确认即不能开始。拒绝任何一项都不影响访谈进行——不勾「实名引用」时，报告里只会写「{CONSENT.alias}」。
         </p>
+        {submitError !== null ? (
+          <p data-testid="consent-submit-error" className="text-12 text-destructive">
+            {submitError}
+          </p>
+        ) : null}
       </div>
 
       <Separator />

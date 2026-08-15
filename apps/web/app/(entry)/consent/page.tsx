@@ -7,11 +7,18 @@ import { CONSENT } from "@/lib/mock/entry";
 /**
  * 受访者同意书（档案第九节 A）——外部受访者的同意与撤回。
  * 未登录 / 外部人员上下文，不套 AppShell。撤回的五步数据流是 D-13 前置进 phase-1 的那条链。
+ *
+ * ## `projectId` / `sourceRefId` / `participantId`（issue #854）
+ *
+ * 三者缺一，「确认」按钮就无法真的写 `setConsentDecision`——这不是可选装饰参数，
+ * 是这条链接**指向哪一场访谈、哪一位受访者**的身份。没有它们时（例如 UI 状态预览、
+ * `responsive.spec.ts` 的静态截图）表单仍然完整渲染，只是提交会给出「链接缺参数」
+ * 的错误而不是静默假装写成功了。
  */
 export default function ConsentPage({
   searchParams,
 }: {
-  searchParams: { state?: string };
+  searchParams: { state?: string; projectId?: string; sourceRefId?: string; participantId?: string };
 }) {
   const state = resolvePreviewState(searchParams.state);
 
@@ -36,7 +43,12 @@ export default function ConsentPage({
           </p>
         </header>
 
-        <ConsentForm state={state} />
+        <ConsentForm
+          state={state}
+          projectId={searchParams.projectId ?? null}
+          sourceRefId={searchParams.sourceRefId ?? null}
+          participantId={searchParams.participantId ?? null}
+        />
       </div>
     </div>
   );
