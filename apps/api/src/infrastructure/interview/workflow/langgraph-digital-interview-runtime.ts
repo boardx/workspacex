@@ -115,8 +115,8 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
   private async ensureGraphStarted(workflow: DigitalInterviewWorkflowView, orgId: OrgId, actorId: string): Promise<void> {
     await this.authorize(orgId, actorId, workflow.interviewId);
     const config = checkpointConfig(workflow.interviewId);
-    const state = await this.graph.getState(config);
-    if ((state.values as Partial<{ interviewId: string }>).interviewId === workflow.interviewId) return;
+    const checkpoint = await this.deps.checkpointer.getTuple(config);
+    if (checkpoint) return;
     await this.graph.invoke(initialDigitalInterviewState({
       interviewId: workflow.interviewId,
       orgId,
