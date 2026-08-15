@@ -201,7 +201,7 @@ export function BlueprintListScreenLive() {
             当前组织还没有项目模板。点右上角「新建模板」从空白开始。
           </div>
         ) : viewMode === "card" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="tpl-live-grid">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpl-live-grid">
             {rows.map((row) => (
               <BlueprintLiveCard key={row.blueprintId} row={row} onCopy={() => void copyOne(row)} />
             ))}
