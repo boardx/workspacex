@@ -121,14 +121,15 @@ interface BriefNodeState extends NodeMeta {
   name: string;
   tags: string[];
   topic: string;
-  objective: string;
+  goal: string;
   timeRange: string;
-  geography: string;
+  region: string;
   focus: string;
 }
 ```
 
-确认时校验名称、主题和目标；确认成功解锁 Directions。重确认 Brief 创建新 revision，并将
+创建弹窗确认名称和 Tags 后立即创建会话与 Brief checkpoint，主题、目标等字段可以暂时为空；
+确认 Brief 时校验名称、主题和目标，成功后解锁 Directions。重确认 Brief 创建新 revision，并将
 Directions、Outline、Research、Report 标记为 `stale`。
 
 ### 5.2 DirectionsNodeState
@@ -421,12 +422,13 @@ revision，不依赖应用层约定。
 
 ## 12. 迁移与兼容
 
-1. 为现有会话创建 `guided-research:v1` 初始 checkpoint。
-2. 从现有 brief、directions、outline、stage、status 和 progress 生成初始 Graph State。
-3. 旧演示搜索/报告不升级为真实证据；迁移后保持未运行或演示标记。
-4. 迁移期旧 confirm/start/complete API 转换为统一 Node Command，Web 完成切换后再删除旧写入口。
-5. Backfill 幂等；重复执行不得生成多个 thread 初始 revision。
-6. 无法安全映射的会话进入 `failed` 并返回可诊断错误，不静默重置为 Brief。
+1. 新会话在创建名称和 Tags 后立即创建 `guided-research:v1` Brief checkpoint；不等到 Brief 确认。
+2. 为现有会话创建 `guided-research:v1` 初始 checkpoint。
+3. 从现有 brief、directions、outline、stage、status 和 progress 生成初始 Graph State。
+4. 旧演示搜索/报告不升级为真实证据；迁移后保持未运行或演示标记。
+5. 迁移期旧 confirm/start/complete API 转换为统一 Node Command，Web 完成切换后再删除旧写入口。
+6. Backfill 幂等；重复执行不得生成多个 thread 初始 revision。
+7. 无法安全映射的会话进入 `failed` 并返回可诊断错误，不静默重置为 Brief。
 
 ## 13. 安全与可观测性
 
