@@ -530,8 +530,10 @@ test.describe("核心闭环八步", () => {
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
     const threadList = page.getByTestId("chat-read-thread-list");
     // 种子里那条**已完成录音授权**的线程。为什么它必须预置（而 6a/8a 的线程是现场建的），
-    // 理由写在 `fullstack-smoke-fixture.ts`：契约里没有写授权格子的操作，
-    // 而授权按 `source_ref_id` 存 —— 现场新建的线程 id 在种子跑的时候还不存在。
+    // 理由写在 `fullstack-smoke-fixture.ts`：授权按 `source_ref_id` 存，而现场新建的
+    // 线程 id 在种子跑的时候还不存在，纯属时序问题——**不是**「契约里没有写授权格子的
+    // 操作」（那句在 #652 之后已经过期：`setConsentDecision` 就是那个写口，issue #854
+    // 把它接到了 `apps/web` 的 `consent-form.tsx` 上）。
     await expect(threadList.getByText(FULLSTACK_E2E.recordingThreadTitle)).toBeVisible();
     await threadList.getByText(FULLSTACK_E2E.recordingThreadTitle).click();
 
