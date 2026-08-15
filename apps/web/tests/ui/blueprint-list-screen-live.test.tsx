@@ -157,4 +157,35 @@ describe("BP-05 /tpl/list：登录 → 真实列表（无编造字段）", () =>
       expect(screen.getByTestId("tpl-live-empty")).toHaveTextContent("当前组织还没有项目模板");
     });
   });
+
+  describe("后台管理界面统一标准（2026-08-15）——卡片 / 列表视图切换", () => {
+    it("默认卡片视图：容器里是 tpl-live-grid，卡片切换按钮处于选中态（aria-pressed=true）", async () => {
+      render(<BlueprintListScreenLive />);
+      await screen.findByTestId("tpl-live-card-bp-real-1");
+
+      expect(screen.getByTestId("admin-blueprint-view-container")).toBeTruthy();
+      expect(screen.getByTestId("tpl-live-grid")).toBeTruthy();
+      expect(screen.queryByTestId("tpl-live-list")).toBeNull();
+      expect(screen.getByTestId("admin-blueprint-view-toggle-card").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByTestId("admin-blueprint-view-toggle-list").getAttribute("aria-pressed")).toBe("false");
+    });
+
+    it("点「列表视图」按钮：真的切成列表——tpl-live-grid 消失、tpl-live-list 出现，同一行数据仍在", async () => {
+      render(<BlueprintListScreenLive />);
+      await screen.findByTestId("tpl-live-card-bp-real-1");
+
+      fireEvent.click(screen.getByTestId("admin-blueprint-view-toggle-list"));
+
+      expect(screen.queryByTestId("tpl-live-grid")).toBeNull();
+      const row = screen.getByTestId("tpl-live-list-row-bp-real-1");
+      expect(row).toHaveTextContent("真实蓝本一号");
+      expect(screen.getByTestId("admin-blueprint-view-toggle-list").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByTestId("admin-blueprint-view-toggle-card").getAttribute("aria-pressed")).toBe("false");
+
+      // 切回卡片视图：还原
+      fireEvent.click(screen.getByTestId("admin-blueprint-view-toggle-card"));
+      expect(screen.getByTestId("tpl-live-grid")).toBeTruthy();
+      expect(screen.queryByTestId("tpl-live-list")).toBeNull();
+    });
+  });
 });
