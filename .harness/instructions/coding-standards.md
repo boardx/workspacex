@@ -14,7 +14,11 @@
   （`harness.config.yaml` 的 `verification.profiles`，见 `lib/verify-risk.ts`）：
   feature 的 `area` 或 `verification` 命令命中 `high_risk_markers`（数据库
   migration、鉴权/权限、跨束契约等）就跑 `verify:release`，否则跑 `verify:quick`。
-  判据写错的后果是漏验证，别在不确定时手改 `high_risk_markers` 收窄范围。
+  判据写错的后果是漏验证，别在不确定时手改 `high_risk_paths` 收窄范围。
+- **PR 上有一道全仓编译门**（`verify-full-compile`，#1333）：全仓 `build` +
+  `typecheck` + `lint`，**不含全量 test**（遵守 2026-08-05「PR 不跑全仓单测」的
+  裁决）。它保证「每次修改必须编译」这条不可改约束在**合并前**成立——feature 门控
+  按风险档走 affected 之后，这是 PR 上唯一的全仓证明。
 
 ## Feature 与 Delivery PR
 
