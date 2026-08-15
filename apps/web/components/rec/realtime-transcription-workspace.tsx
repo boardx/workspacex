@@ -104,15 +104,11 @@ export function RealtimeTranscriptionWorkspace({
 
         {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
 
-        <p data-testid="rec-live-transient-notice" className="rounded-md border border-warning bg-warning/10 px-3 py-2 text-12 text-foreground">
-          当前文字仅保存在本页面，刷新或离开后将消失。
-        </p>
-
         <Card className="min-h-96 p-6" data-testid="rec-live-transcript">
           <div className="border-b border-border pb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div><h2 className="text-16 font-semibold">实时逐字稿</h2>
-                <p className="mt-1 text-11 text-muted-foreground">最终识别会持续追加为一段正文；当前文字不会保存到历史记录。</p></div>
+                <p className="mt-1 text-11 text-muted-foreground">最终识别会持续追加并保存为一段正文，停止后可以修改。</p></div>
               <div className="flex items-center gap-2">
                 <Button data-testid="rec-live-copy" type="button" size="sm" variant="outline"
                   disabled={!visibleContent} onClick={() => void copyContent()}>
