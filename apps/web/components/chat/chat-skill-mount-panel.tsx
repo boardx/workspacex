@@ -157,7 +157,7 @@ export function ChatSkillMountPanel({
             >
               <Badge tone="outline">{entry.skillId}</Badge>
               {/*
-                FB-2 —— 对**这个 skill 本身**提反馈。挂在挂载态的 chip 上而不是选择器里：
+                FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
                 有意见的前提是用过它，而选择器里的那些还没被用过。
                 传的是真实 `skillId`（不是版本 id）——见契约 `FeedbackTarget` 里
                 「skill 只带 skillId，不带 skillVersionId」那条注释。

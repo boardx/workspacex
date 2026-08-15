@@ -695,14 +695,14 @@ export function ChatLiveMessagePanel({
                       {isAgent ? agentDuty(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
                       {/*
-                        FB-2 —— 对**这个 agent 本身**提反馈（与同一行上的 👍/👎 不是一件事）。
+                        FB-2 —— 对「这个 agent 本身」提反馈（与同一行上的 👍/👎 不是一件事）。
 
                         ⚠ 消息级 👍/👎（F176）答的是「这一条回答好不好」；这个按钮答的是
                           「这个 agent 老是漏掉附件」这类跨很多条消息、需要正文的话。
                           两者都留，是因为它们在下游走两条不同的路：前者聚合成满意度与改进建议，
                           后者直接进分诊队列（`components/feedback/feedback-button.tsx` 头注）。
 
-                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是**真实 agent id**，
+                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是「真实 agent id」，
                           不是显示名。显示名会改，反馈要能一直对上同一个 agent。
                       */}
                       {isAgent && message.agentId !== null && (
@@ -710,7 +710,7 @@ export function ChatLiveMessagePanel({
                           target={{ kind: "agent", agentId: message.agentId }}
                           targetLabel={agentLabel(message.agentId, agents)}
                           testid="chat-agent-feedback"
-                          className="invisible focus-visible:visible group-hover:visible"
+                          className="invisible transition-opacity focus-visible:visible group-hover:visible"
                         />
                       )}
                       {/*
