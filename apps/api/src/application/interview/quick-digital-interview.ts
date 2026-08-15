@@ -39,10 +39,14 @@ function presentQuick(stored: StoredQuickInterview) {
     ...stored,
     expert: {
       expertId: stored.expert.expertId,
+      agentDefinitionId: stored.expert.agentDefinitionId,
+      agentVersion: stored.expert.agentVersion,
       initials: stored.expert.initials,
       displayName: stored.expert.displayName,
       role: stored.expert.role,
       domains: stored.expert.domains,
+      materialContextPackId: stored.expert.materialContextPackId,
+      materialVersion: stored.expert.materialVersion,
       materialBoundary: stored.expert.materialContextPackId === null
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${stored.expert.materialContextPackId} · ${stored.expert.materialVersion}`,

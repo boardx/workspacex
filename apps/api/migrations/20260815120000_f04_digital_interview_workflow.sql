@@ -26,7 +26,12 @@ ALTER TABLE interview_sessions
       AND cardinality(tags) > 0
       AND version > 0
       AND (
-        (digital_status = 'topic_pending' AND topic IS NULL)
+        -- New F04 drafts enter topic_pending before confirmation (NULL topic), while
+        -- pre-F04 callers may transition an already populated legacy draft. Both
+        -- representations are valid and remain recoverable during the rollout.
+        (digital_status = 'topic_pending' AND (
+          topic IS NULL OR length(btrim(topic)) > 0
+        ))
         OR (digital_status <> 'topic_pending' AND topic IS NOT NULL AND length(btrim(topic)) > 0)
       )
     )
