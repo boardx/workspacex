@@ -5,7 +5,20 @@
 #     `verify-affected` 两个并行 job（原来是一个叫 `verify` 的顺序 job）——两段
 #     互不依赖，拆开跑 wall-clock 是两者较慢的那个，不是相加。下面各处提到
 #     "module verify"/"verify job" 指的是这两个 job 加起来那一层门控语义，
-#     不是某个具体 job 名。
+#     不是某个具体 job 名。2026-08-15 用真实历史数据核实（issue #1358）：拆分后
+#     中位数耗时没降反升（98s→104s），因为拆分让"每个 job 各自 setup 一次"的成本
+#     变成了两份，而多数日常 PR 改动小，`--affected` 本来就只要几秒，并行省下的
+#     部分盖不住多付的 setup。
+#     ⚠ 已尝试并放弃的方向（issue #1358 / PR #1359，避免后人重复踩坑）：
+#     以为瓶颈是 pnpm store 下载，给两个 job 加 `actions/cache` 缓存 store——实测
+#     发现 setup-node 的 `cache: pnpm` 已经在缓存 store（`downloaded 0`），瓶颈其实
+#     是 store→node_modules 的 link 步骤（~10-11s）。于是改缓存 node_modules 本身，
+#     真机 miss/hit 对照测出：link 步骤确实从 11.1s 降到 5.5s，但下载/解压这个
+#     ~400MB+ 的 node_modules 缓存本身要花 7-11s——因为 tarball 里是真实文件不是
+#     指向 store 的 symlink，体积和 store 同量级。两头基本抵消，`verify-affected`
+#     样本甚至比不缓存更慢（35s→39s）。净收益约等于零，已回退，不要重复尝试同一
+#     方向；真要降 setup 耗时需要更激进的手段（自建 runner 复用磁盘等），不是这层
+#     GitHub Actions cache 能解决的。
 #   - 全栈烟测(fullstack-smoke)：PR/push 都跑，但只跑 `seeded` project（5 个非 core-loop 的
 #     spec）。**信息性、不阻塞合并**（2026-08-06 人类裁决 #633：module verify 继续阻塞合并，
 #     浏览器 e2e 不再阻塞合并，只阻塞发布）——`continue-on-error: true` 见下方 job。
