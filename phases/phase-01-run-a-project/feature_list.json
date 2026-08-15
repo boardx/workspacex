@@ -4130,6 +4130,72 @@
       "area": "deep-research",
       "capability": "CAP-WEB",
       "sprint": "08"
+    },
+    {
+      "id": "F182",
+      "title": "对话进行中：断线重连自动续观察 in-flight run（缺口 A）",
+      "user_visible_behavior": "用户打开/切回/刷新一个仍有 in-flight run（queued/running/writeback_pending）的线程时，前端自动发现并续上对该 runId 的观察（复用既有轮询或 SSE），无需手动再次触发就能看到该 run 的流式进度（token/工具调用链）与最终回复自动出现；数据格式与写回/终态判定不变，只恢复“观察时机”这一件事。",
+      "spec_ref": "08-chat/uc-8-8-会话进行中run断线重连与发送重试.md#R3",
+      "depends_on": [
+        "F111"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/chat/inflight-run-reconnect.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]+[待设计]。人类 2026-08-14 原话下发（模仿 Claude Code：后台化生成 + 断线不丢 + 网络中断重试）；调研已确认后台化生成与结果持久化为现状，本 feature 只做缺口 A（断线重连续观察）——缺口 B（发送重试）已拆为独立 feature F184，因两者改动文件不重叠、评审边界与风险等级不同（UC R5 也分两段列）。缺口 A 落在 apps/web/components/chat/chat-live-message-panel.tsx 的换线程 reset/轮询 effect/SSE effect，复用既有 openAgentRunStream/轮询逻辑，不重新发明。断线重连判定路径（回推 in-flight run vs 线程侧暴露 activeRunId 字段）二选一留给 design-signoff 逐字签核。属 contracts/chat 束，但需在该束 design-signoff.md 追加 covers（新增 UC-8.8）并签核后方可开工——本文件明确写“不可直接开工，需先过 contracts/chat/design-signoff.md 补签”。不改后端 run 状态机/错误码。UC 头部未声明估点，A/B 拆分后此缺口按“单会话可做完”估 2 点（原合并 3 点 = A 2 + B 1）。sprint 留 null：未签核前不分配，避免 assertDesignSignedOff 阻断。",
+      "priority": 1,
+      "area": "chat",
+      "capability": "CAP-WEB",
+      "sprint": null
+    },
+    {
+      "id": "F184",
+      "title": "对话进行中：发送失败最多重试10次带退避与明确超时错误态（缺口 B）",
+      "user_visible_behavior": "用户点击发送若遇网络中断/超时/5xx 等可安全重试的失败，前端自动重试最多 10 次（带退避、非固定间隔硬打 10 枪），重试进行中显示“正在重试”状态（非静默、非表现成卡住无响应）；每次重试复用同一 clientMessageId 保证后端幂等不产生重复消息；某次成功则正常进入 202+queued 流程不再重试；10 次全部失败后进入区别于普通 submitFailure 的明确超时错误态，保留输入内容与 clientMessageId 允许用户手动再次触发（仍受幂等保护）；4xx 校验类错误不重试。",
+      "spec_ref": "08-chat/uc-8-8-会话进行中run断线重连与发送重试.md#R3",
+      "depends_on": [
+        "F111"
+      ],
+      "points": 1,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/chat/submit-retry-backoff-timeout.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]+[待设计]。人类 2026-08-14 原话“chat 提交 request 以后网络中断，系统重复测试 10 次，还连不上则超时错误”。本 feature 只做缺口 B（发送重试+超时态），与缺口 A（F182 断线重连）拆开，因改动文件不重叠、风险等级不同（UC R5 分两段列）。⚠ 关键风险：缺口 B 的重试策略落在 apps/web/lib/api-client.ts 的 apiRequest（当前单次 fetch、无重试无超时），这是全 web 共享的基础设施热点——在此加重试会影响所有调用方，必须独立评审、不要与其它 feature 并发改这个文件（撞车风险高）。可安全重试判定参照 agent-runtime 束已定义的 REQUEST_TIMEOUT/DEPENDENCY_UNAVAILABLE 语义，不是所有失败都重试。重试次数上限 10 + 必须退避（指数退避起始/上限的具体数值）留给 contracts/chat/design-signoff.md 逐字签核，本文件只圈定“上限 10 次 + 要退避”这条边界。不改 clientMessageId 幂等机制本身，只是“谁负责多发起几次请求”。属 contracts/chat 束，需在该束 design-signoff.md 追加 covers（新增 UC-8.8）并签核后方可开工——本文件明确写“不可直接开工”。UC 头部未声明估点，A/B 拆分后此缺口估 1 点（原合并 3 点 = A 2 + B 1）。sprint 留 null：未签核前不分配。",
+      "priority": 1,
+      "area": "chat",
+      "capability": "CAP-WEB",
+      "sprint": null
+    },
+    {
+      "id": "F183",
+      "title": "对话 thinking 推理正文可视化：采集并持久化模型推理原文，展开态渲染其 markdown",
+      "user_visible_behavior": "当模型 provider 在一次 run 里真的返回了 thinking/reasoning block 时，用户展开某条 AI 消息的“思考了 X 秒”折叠块，能看到这段推理文本本身的 markdown 原文（无论本次是否伴随工具调用，含“直接作答”场景）；provider 未返回推理内容时该字段为 null，如实维持现状空态提示，不伪造推理文本；仅 thinking 正文被持久化为原文，prompt/response 其余部分与工具调用入参/结果仍按既有隐私策略只存摘要/哈希，边界不放宽。",
+      "spec_ref": "08-chat/uc-8-9-thinking-推理正文可视化.md#R3",
+      "depends_on": [
+        "F111",
+        "F154"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/chat/reasoning-text-field-contract.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/reasoning-text-writeback.test.ts",
+        "pnpm --filter web exec vitest run tests/chat/reasoning-text-render.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]+[待设计]。人类 2026-08-14 原话（chat thinking 内容可视化在 message 里）+ 同日 AskUserQuestion 隐私裁决：允许持久化 thinking 正文（仅限 thinking，不含 prompt/response 其余部分）。现状证据：MessageThinkingChain/AgentToolChain 只渲染 tool_call 的 planningNote，直接作答时展开态为空；契约 AgentRunStep 的 inputDigest/outputDigest 只存 SHA-256 哈希（隐私策略 §5），Message.thinkingSummary 两条读路径(get-thread.ts/admin-audit-read.ts)恒硬编码返回 null。属 contracts/chat-context-engine 束，但本 UC 修订了该束已签的隐私边界（为 thinking 正文开原文持久化例外），必须走 design-delta（束级 design-signoff.md 追加签核 + 阶段一致性复核），非普通 covers 追加即可——本文件明确写“不能直接开工，需补 contracts 三件套(UI 可从简，用例+API 契约必须补)经人类束级签核后才可进 feature_list”。待签事项：字段挂 AgentRunStep(step级) 还是 DurableMessage(message级)、各 provider thinking block 归一化、推理原文长度/存储上限、是否参与 context-pack/L2 摘要。UC 头部未声明估点，按跨契约+后端采集+前端展示估 5 点。sprint 留 null：未签核前不分配。",
+      "priority": 1,
+      "area": "chat",
+      "capability": "CAP-API",
+      "sprint": null
     }
   ]
 }
