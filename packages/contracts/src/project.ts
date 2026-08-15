@@ -144,6 +144,10 @@ export const ProjectReason = z.enum([
    *   应用层这个码是**它的投影**，不是第二处判定。
    */
   "PROJECT_ARCHIVED",
+  /**
+   * 2026-08-16（F185，delta）：`updateProjectTags` 指向一个不存在（或不在当前组织下）的容器 id。
+   */
+  "PROJECT_NOT_FOUND",
 ]);
 
 type ProjectReasonT = z.infer<typeof ProjectReason>;
@@ -233,8 +237,17 @@ export const ProjectListItem = z
      * 藏起来读作「产品做不到这件事」，而真相是「这个组织不允许」。
      */
     readOnlyReason: z.enum(["archived", "org-disabled"]).nullable(),
+    /**
+     * 2026-08-16（F185，delta）：项目自由文本标签，默认 `[]`。由 `updateProjectTags`
+     * 整体替换写入（不是增量 patch）。不是内容摘要，不触碰 D-18 边界。
+     */
+    tags: z.array(z.string()),
   })
   .strict();
+
+/** `updateProjectTags` 单条 tag 的校验规则——与迁移里的 CHECK 校验函数逐字对应，不在两处各判一次不同的口径。 */
+export const ProjectTag = z.string().trim().min(1).max(40);
+export const PROJECT_TAGS_MAX = 20;
 
 /**
  * 议程环节实例（Q-2① 裁 A：**建独立表** `agenda_segments`，挂 `workshops`）。
@@ -365,33 +378,43 @@ export const operations = {
   },
 
   /**
-   * UC-P2 `listProjects` —— **两段式返回**（Q-6① 裁 B）
+   * UC-P2 `listProjects` —— **扁平数组**（Q-6① 2026-08-16 delta 裁 D，覆盖 2026-07-30 裁 B）
    *
-   * 「我在这个项目里」与「我管着这个项目」是**两种不同的东西**。
-   * ⚠ **不是**一个混合数组加 `canManage` 布尔——压成一个列表会让前端猜，
-   * 与 D-8「`projectLayer` 的两种 null 不许合并」是同一条已签纪律。
+   * ⚠ 2026-08-16 之前这里是 `{ member: [], managed: [] }` 两段式——那条裁决已被人类在
+   *   会话里直接推翻（见 `requirements/00-project/OPEN-QUESTIONS.md` 「🔁 2026-08-16 delta」）。
+   *   「我在这个项目里」/「我管着这个项目」两种入列理由依然存在，只是不再体现为响应体的
+   *   顶层分段——同一容器满足任一理由都会出现，按 `id` **去重**，只出现一次。
    *
-   * ⚠ **平铺，不折叠**（Q-12 必裁三件之 3 逐字）；在超类型模型下本来也没有父子边。
-   * ⚠ 按 `kind` 分区是**展示决定不是响应体决定**：响应体只带 `kind`。
-   * ⚠ 两段都为 `[]` 是**正常空态**，且**不生成伪数据**。
+   * ⚠ **平铺，不折叠**（Q-12 必裁三件之 3 逐字，未受本次 delta 影响）。
+   * ⚠ 按 `kind`/`tags` 分区或筛选是**展示决定不是响应体决定**。
+   * ⚠ `[]` 是**正常空态**，且**不生成伪数据**。
    */
   listProjects: {
     method: "GET",
     path: "/projects",
     in: z.object({ orgId: z.string() }).strict(),
-    out: z
+    out: z.array(ProjectListItem),
+    err: ["AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `updateProjectTags` —— 2026-08-16（F185，delta）新增。
+   *
+   * 整体替换项目的 `tags`（不是增量 patch），与 F180
+   * `updatePersonalTranscriptionMetadata` 的 `tags` 语义同型，不另发明一套局部
+   * add/remove 接口。权限复用 `archiveProject` 同一条线（组织角色 `lead`/`admin`）。
+   */
+  updateProjectTags: {
+    method: "PATCH",
+    path: "/projects/:projectId/tags",
+    in: z
       .object({
-        /** 我**持有项目角色**的容器 */
-        member: z.array(ProjectListItem),
-        /**
-         * 我作为 `lead` / `admin` **可管理**的容器。
-         * ⚠ 响应体**不得**因此附带任何内容摘要——出现在这一段里 ≠ 能进去看内容。
-         * ⚠ U-4 裁 A 之后，`admin` 的入列理由只剩「管理」，**不含「我建的」**。
-         */
-        managed: z.array(ProjectListItem),
+        projectId: z.string(),
+        tags: z.array(ProjectTag).max(PROJECT_TAGS_MAX),
       })
       .strict(),
-    err: ["AUTH_SERVICE_UNAVAILABLE"] as const,
+    out: z.object({ id: z.string(), tags: z.array(z.string()) }).strict(),
+    err: ["ORG_ROLE_INSUFFICIENT", "AUTH_SERVICE_UNAVAILABLE", "PROJECT_NOT_FOUND"] as const,
   },
 
   /**

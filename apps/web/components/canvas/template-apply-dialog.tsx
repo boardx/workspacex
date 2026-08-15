@@ -75,10 +75,9 @@ export function TemplateApplyDialog({
       try {
         const out = await listProjects(orgId);
         if (!live) return;
-        const all = [...out.member, ...out.managed]
-          .filter((p) => p.kind === "workshop" && p.status === "active")
-          .filter((p, i, a) => a.findIndex((x) => x.id === p.id) === i);
-        setProjects(all);
+        // F185（2026-08-16 delta）：`listProjects` 已经是去重后的扁平数组，
+        // 这里只需要按 kind/status 过滤，不再需要手动合并 member/managed 再去重。
+        setProjects(out.filter((p) => p.kind === "workshop" && p.status === "active"));
       } catch (e) {
         if (live) setError(describeError(e));
       }

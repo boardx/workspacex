@@ -852,7 +852,22 @@ describe("lint-permission-paths: counter-proof", () => {
     // `agent_run_context_snapshots` 之外的任何租户表；(b) `readAgentRunContextSnapshot`
     // 在调用 `deps.snapshots.findByRunId` 之前先调 `resolveVisibility`，未通过时抛出、
     // 绝不往下走。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(56);
+    //
+    // ⚠ Raised 56 -> 57 by F185（2026-08-16 delta，listProjects 扁平化 + 项目标签）：
+    // 新条目是 `infrastructure/project/pg-project-tags-repository.ts`。与 F124
+    // `pg-project-archive-repository.ts` 同一个形状：一条 WRITE 路径（`project_tags`
+    // 的整体替换：DELETE + INSERT）加一条只用来判定「写入目标存不存在」的 SELECT，
+    // 从不披露别人的内容——`UpdateProjectTagsOutcome` 只带调用者自己这次写入的
+    // projectId/tags 回显，同 F117/F124 那批「actor 写自己刚提交的东西」不必判权的形状。
+    // 判权发生在仓储被调用之前：`application/project/update-project-tags.ts` 先跑
+    // `canCreateProject`（与 `archiveProject` 同一条组织角色线），不通过就抛，
+    // 之后才碰 `deps.repo.updateTags`。
+    //
+    // 它的**被强制的前提**：`tests/project/tags-repo-guard.test.ts` 断言两件——
+    // ① 名到的表恰好是 `projects`/`project_tags`；② `canCreateProject` 判定在第一次
+    // `deps.repo.updateTags` 之前，且未通过必须抛出（按字符下标断言，不是「文件里有这两
+    // 个词」）。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(57);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

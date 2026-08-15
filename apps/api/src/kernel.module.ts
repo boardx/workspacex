@@ -402,6 +402,7 @@ import {
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
+  PROJECT_TAGS_REPOSITORY,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -412,6 +413,7 @@ import { PgProjectListRepository } from "./infrastructure/project/pg-project-lis
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
+import { PgProjectTagsRepository } from "./infrastructure/project/pg-project-tags-repository";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
 // F127（本次新增）：`TEMPORARY_GRANT_REPOSITORY`——F05 交付了判定逻辑但故意不建的存储层，
@@ -1213,6 +1215,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_ARCHIVE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectArchiveRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F185（2026-08-16 delta）：独立 provider，见 `pg-project-tags-repository.ts` 文件头。
+    {
+      provide: PROJECT_TAGS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
       inject: [DATABASE_PORT],
     },
     // F125：独立 provider，见 `pg-project-membership-repository.ts` 文件头。

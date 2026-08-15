@@ -1,9 +1,11 @@
 /**
  * F353 —— `/projects` 列表页从 mock 切到真实 `GET /projects` 的组件测试。
+ * F185（2026-08-16 delta）—— 两段式（member/managed）改扁平数组 + tags + 卡片/列表视图切换。
  *
  * 与 `tests/ui/project-live-page.test.tsx`（F122）同一模式：假 `fetch`，不连真实后端。
  * SessionProvider 已在壳层完成登录与 current-org 解析。本组件测试钉住：① 自动使用
- * provider 的 currentOrgId；② member/managed 两段只渲染契约字段；③ 不生成伪数据。
+ * provider 的 currentOrgId；② 扁平列表只渲染契约字段（含 tags）；③ 不生成伪数据；
+ * ④ 标签筛选与卡片/列表视图切换是纯前端行为。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +27,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-describe("F353 /projects：登录 → 真实列表（无编造字段）", () => {
+describe("F353/F185 /projects：登录 → 真实扁平列表（无编造字段）", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -39,10 +41,9 @@ describe("F353 /projects：登录 → 真实列表（无编造字段）", () => 
       if (url.pathname === "/projects" && method === "GET") {
         expect(url.searchParams.get("orgId")).toBe(ORG);
         expect((init?.headers as Record<string, string>)?.Authorization).toBe("Bearer tok-e2e-353");
-        return jsonResponse({
-          member: [{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null }],
-          managed: [],
-        });
+        return jsonResponse([
+          { id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null, tags: ["客户"] },
+        ]);
       }
 
       throw new Error(`unexpected fetch: ${method} ${url.pathname}`);
@@ -55,28 +56,146 @@ describe("F353 /projects：登录 → 真实列表（无编造字段）", () => 
     vi.unstubAllGlobals();
   });
 
-  it("按 provider 的 current-org 自动拉取真实列表，只渲染契约有的字段", async () => {
+  it("按 provider 的 current-org 自动拉取真实列表，只渲染契约有的字段，没有分组标题", async () => {
     render(<ProjectsScreen />);
 
-    const memberList = await screen.findByTestId("projects-member-list");
-    expect(within(memberList).getByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
-    expect(within(memberList).getByTestId("projects-card-p-real-1-status")).toHaveTextContent("进行中");
+    const list = await screen.findByTestId("projects-list");
+    expect(within(list).getByTestId("projects-card-p-real-1-name")).toHaveTextContent("真实项目一号");
+    expect(within(list).getByTestId("projects-card-p-real-1-status")).toHaveTextContent("进行中");
 
-    // managed 段是正常空态，不是伪数据
-    expect(screen.getByTestId("projects-managed-list-empty")).toBeInTheDocument();
+    // 反证「不生成伪数据」+「不再有两段式分组」：旧的两段容器 testid 不应存在。
+    expect(screen.queryByTestId("projects-member-list")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("projects-managed-list")).not.toBeInTheDocument();
 
     // 「进入项目」链接必须带上 org id，overview 才查得到真实数据
-    const enterLink = within(memberList).getByTestId("projects-card-p-real-1-enter");
+    const enterLink = within(list).getByTestId("projects-card-p-real-1-enter");
     expect(enterLink).toHaveAttribute("href", `/projects/p-real-1?org=${ORG}`);
   });
 
   it("搜索框按名称过滤真实列表", async () => {
     render(<ProjectsScreen />);
 
-    await waitFor(() => screen.getByTestId("projects-member-list"));
+    await waitFor(() => screen.getByTestId("projects-list"));
 
     fireEvent.change(screen.getByTestId("projects-search"), { target: { value: "不存在的名字" } });
-    expect(screen.getByTestId("projects-member-list-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("projects-list-empty")).toBeInTheDocument();
+  });
+
+  it("标签筛选：点标签只显示带该标签的项目，清除筛选后恢复", async () => {
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-list");
+
+    const chip = screen.getByTestId("projects-tag-filter-客户");
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("projects-card-p-real-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("projects-tag-filters-clear"));
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("视图切换：默认卡片视图，点列表视图后 aria-pressed 状态跟着换，且偏好写进 localStorage", async () => {
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-list");
+
+    expect(screen.getByTestId("projects-view-toggle-card")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("projects-view-toggle-list")).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(screen.getByTestId("projects-view-toggle-list"));
+
+    expect(screen.getByTestId("projects-view-toggle-list")).toHaveAttribute("aria-pressed", "true");
+    expect(window.localStorage.getItem("projects-view-mode")).toBe("list");
+  });
+});
+
+/**
+ * F185（2026-08-16 delta）—— 标签的增/删：整体替换语义，提交前不本地乐观拼接。
+ */
+describe("F185 /projects：标签增删接真实 PATCH /projects/:id/tags", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let patchCalls: { path: string; body: unknown }[];
+  let afterPatch: unknown = null;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-e2e-185");
+    patchCalls = [];
+    afterPatch = null;
+
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      const method = init?.method ?? "GET";
+
+      if (url.pathname === "/projects" && method === "GET") {
+        if (afterPatch !== null) return jsonResponse(afterPatch);
+        return jsonResponse([
+          { id: "p-tag-1", name: "待打标签的项目", kind: "workshop", status: "active", readOnlyReason: null, tags: [] },
+        ]);
+      }
+
+      if (url.pathname === "/projects/p-tag-1/tags" && method === "PATCH") {
+        const body = JSON.parse((init?.body as string) ?? "{}");
+        patchCalls.push({ path: url.pathname, body });
+        return jsonResponse({ id: "p-tag-1", tags: body.tags });
+      }
+
+      throw new Error(`unexpected fetch: ${method} ${url.pathname}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("新增标签：发出整体替换的 PATCH，成功后刷新列表看到新标签", async () => {
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-list");
+
+    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-add"));
+    fireEvent.change(screen.getByTestId("projects-card-p-tag-1-tag-input"), { target: { value: "高优先级" } });
+
+    afterPatch = [
+      { id: "p-tag-1", name: "待打标签的项目", kind: "workshop", status: "active", readOnlyReason: null, tags: ["高优先级"] },
+    ];
+    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-confirm"));
+
+    await waitFor(() => expect(patchCalls).toHaveLength(1));
+    expect(patchCalls[0]).toMatchObject({ path: "/projects/p-tag-1/tags", body: { tags: ["高优先级"] } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("projects-card-p-tag-1-tag-高优先级")).toBeInTheDocument();
+    });
+  });
+
+  it("移除标签：整体替换语义——发出去掉该标签后的完整集合，不是单条删除请求", async () => {
+    fetchMock.mockImplementationOnce(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      expect(url.pathname).toBe("/projects");
+      return jsonResponse([
+        { id: "p-tag-1", name: "已有两个标签", kind: "workshop", status: "active", readOnlyReason: null, tags: ["a", "b"] },
+      ]);
+    });
+
+    render(<ProjectsScreen />);
+    await screen.findByTestId("projects-card-p-tag-1-tag-a");
+
+    afterPatch = [
+      { id: "p-tag-1", name: "已有两个标签", kind: "workshop", status: "active", readOnlyReason: null, tags: ["b"] },
+    ];
+    fireEvent.click(screen.getByTestId("projects-card-p-tag-1-tag-a-remove"));
+
+    await waitFor(() => expect(patchCalls).toHaveLength(1));
+    // ⚠ 反证整体替换：body 里的 tags 是「剩下的那个」，不是一个「删除了 a」的动作描述。
+    expect(patchCalls[0]?.body).toMatchObject({ tags: ["b"] });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("projects-card-p-tag-1-tag-a")).not.toBeInTheDocument();
+      expect(screen.getByTestId("projects-card-p-tag-1-tag-b")).toBeInTheDocument();
+    });
   });
 });
 
@@ -112,10 +231,9 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
       if (url.pathname === "/projects" && method === "GET") {
         listCalls += 1;
         if (listCalls > 1 && afterArchive !== null) return jsonResponse(afterArchive);
-        return jsonResponse({
-          member: [{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null }],
-          managed: [],
-        });
+        return jsonResponse([
+          { id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "active", readOnlyReason: null, tags: [] },
+        ]);
       }
 
       if (/^\/projects\/[^/]+\/(archive|unarchive)$/.test(url.pathname) && method === "POST") {
@@ -139,7 +257,7 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
 
   async function openMenu() {
     render(<ProjectsScreen />);
-    await screen.findByTestId("projects-member-list");
+    await screen.findByTestId("projects-list");
     fireEvent.click(screen.getByTestId("projects-card-p-real-1-more"));
     return screen.getByTestId("projects-more-menu-p-real-1");
   }
@@ -174,10 +292,9 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
   });
 
   it("确认后发出真实 POST /projects/:id/archive（带鉴权头），成功后列表刷新并出现只读徽标", async () => {
-    afterArchive = {
-      member: [{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "archived", readOnlyReason: "archived" }],
-      managed: [],
-    };
+    afterArchive = [
+      { id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "archived", readOnlyReason: "archived", tags: [] },
+    ];
 
     const menu = await openMenu();
     fireEvent.click(within(menu).getByTestId("projects-more-p-real-1-archive"));
@@ -199,7 +316,7 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
 
   it("已归档项目的菜单提供恢复，走 unarchive 端点", async () => {
     render(<ProjectsScreen />);
-    await screen.findByTestId("projects-member-list");
+    await screen.findByTestId("projects-list");
     // 第一次就是归档态：改用一个已归档的列表重新渲染
     afterArchive = null;
 
@@ -207,10 +324,9 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
       const url = new URL(typeof input === "string" ? input : input.toString());
       const method = init?.method ?? "GET";
       if (url.pathname === "/projects" && method === "GET") {
-        return jsonResponse({
-          member: [{ id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "archived", readOnlyReason: "archived" }],
-          managed: [],
-        });
+        return jsonResponse([
+          { id: "p-real-1", name: "真实项目一号", kind: "workshop", status: "archived", readOnlyReason: "archived", tags: [] },
+        ]);
       }
       if (url.pathname === "/projects/p-real-1/unarchive" && method === "POST") {
         archiveCalls.push({ path: url.pathname, method });

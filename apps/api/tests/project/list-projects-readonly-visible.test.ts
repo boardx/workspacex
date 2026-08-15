@@ -93,7 +93,7 @@ describe("F122：归档容器——显示且标注只读，不消失", () => {
 
     const out = await listProjects({ repo, identity }, { orgId: toOrgId(ORG), actorId: LEAD });
 
-    const row = out.managed.find((p) => p.id === "f122-ro-archived");
+    const row = out.find((p) => p.id === "f122-ro-archived");
     expect(row, "归档容器不该从 managed 段消失").toBeDefined();
     expect(row?.status).toBe("archived");
     expect(row?.readOnlyReason).toBe("archived");
@@ -104,7 +104,7 @@ describe("F122：归档容器——显示且标注只读，不消失", () => {
 
     const out = await listProjects({ repo, identity }, { orgId: toOrgId(ORG), actorId: LEAD });
 
-    const row = out.managed.find((p) => p.id === "f122-ro-active");
+    const row = out.find((p) => p.id === "f122-ro-active");
     expect(row?.readOnlyReason).toBeNull();
   });
 });
@@ -118,7 +118,7 @@ describe("F122：组织停用——显示且标注只读，且两种只读原因
 
     const out = await listProjects({ repo, identity }, { orgId: toOrgId(ORG), actorId: LEAD });
 
-    const row = out.managed.find((p) => p.id === "f122-ro-org-disabled");
+    const row = out.find((p) => p.id === "f122-ro-org-disabled");
     expect(row, "组织停用不该让容器从列表消失").toBeDefined();
     // ⚠ 容器自己的 status 仍是 'active'——它没有被归档，只是所属组织被停用。
     expect(row?.status).toBe("active");
@@ -154,7 +154,7 @@ describe("F122：组织停用——显示且标注只读，且两种只读原因
 
     const out = await listProjects({ repo, identity }, { orgId: toOrgId(ORG), actorId: LEAD });
 
-    const row = out.managed.find((p) => p.id === "f122-ro-both-reasons");
+    const row = out.find((p) => p.id === "f122-ro-both-reasons");
     expect(row, "两个只读原因都成立时容器仍不该消失").toBeDefined();
     expect(row?.readOnlyReason).toBe("archived");
   });

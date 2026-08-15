@@ -29,10 +29,11 @@ export async function listProjects(orgId: string): Promise<ListProjectsOut> {
 /**
  * F353 —— 按 id 找一个项目的真实基本信息。
  *
- * 用已经真实挂了的 `listProjects` 复用两段列表，在 member/managed 里按 id 查——
- * 能拿到的字段就是 `ProjectListItem` 那五个（id/name/kind/status/readOnlyReason）。
- * `readOnlyReason` 是 `getProjectOverview` 不返回的字段（白名单四件里没有它），
- * 只需要粗粒度身份 + 只读原因的场景（工作台顶部项目头）继续用它。
+ * 用已经真实挂了的 `listProjects` 复用扁平列表（F185 之前是两段，那条裁决已被
+ * 2026-08-16 推翻），按 id 查——能拿到的字段就是 `ProjectListItem` 那六个
+ * （id/name/kind/status/readOnlyReason/tags）。`readOnlyReason` 是
+ * `getProjectOverview` 不返回的字段（白名单四件里没有它），只需要粗粒度身份 +
+ * 只读原因的场景（工作台顶部项目头）继续用它。
  *
  * ⚠ 需要更完整的概览（`currentAgendaSegment`/`roleCounts`/`backflow`/`blueprint`）
  *   请用下面的 `getProjectOverview`——控制器的 `@Get` 路由其实早已由 F123 挂好
@@ -41,7 +42,7 @@ export async function listProjects(orgId: string): Promise<ListProjectsOut> {
  */
 export async function findProject(orgId: string, projectId: string): Promise<ProjectListItem | null> {
   const out = await listProjects(orgId);
-  return out.member.find((p) => p.id === projectId) ?? out.managed.find((p) => p.id === projectId) ?? null;
+  return out.find((p) => p.id === projectId) ?? null;
 }
 
 export type ProjectOverview = z.infer<typeof project.operations.getProjectOverview.out>;
@@ -111,6 +112,21 @@ export async function unarchiveProject(projectId: string): Promise<UnarchiveProj
     { method: "POST" },
   );
 }
+
+export type UpdateProjectTagsOut = z.infer<typeof project.operations.updateProjectTags.out>;
+
+/**
+ * F185（2026-08-16 delta）—— 真实 `PATCH /projects/:projectId/tags`。整体替换语义：
+ * 传入的 `tags` 就是替换后的全集，不是增量 add/remove。
+ */
+export async function updateProjectTags(projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOut> {
+  return apiRequest<UpdateProjectTagsOut>(
+    project.operations.updateProjectTags.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "PATCH", body: { projectId, tags } },
+  );
+}
+
+export const PROJECT_TAGS_MAX = project.PROJECT_TAGS_MAX;
 
 export type AgendaSegment = z.infer<typeof project.AgendaSegment>;
 export type CreateAgendaSegmentOut = z.infer<typeof project.operations.createAgendaSegment.out>;

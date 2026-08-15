@@ -67,6 +67,7 @@ import {
 import { getProjectOverview } from "../../application/project/get-project-overview";
 import { archiveProject } from "../../application/project/archive-project";
 import { unarchiveProject } from "../../application/project/unarchive-project";
+import { updateProjectTags } from "../../application/project/update-project-tags";
 import { addProjectMember } from "../../application/project/add-project-member";
 import { changeProjectRole } from "../../application/project/change-project-role";
 import { removeProjectMember } from "../../application/project/remove-project-member";
@@ -81,11 +82,13 @@ import {
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
+  PROJECT_TAGS_REPOSITORY,
   type AgendaSegmentRepository,
   type ProjectArchiveRepository,
   type ProjectListRepository,
   type ProjectOverviewRepository,
   type ProjectRepository,
+  type ProjectTagsRepository,
 } from "../../application/project/ports";
 import {
   MEMBER_SUBJECT_RESOLVER,
@@ -148,6 +151,8 @@ export const GET_PROJECT_OVERVIEW_SCHEMA = C.operations.getProjectOverview.in;
 /** 同上，`archiveProject` / `unarchiveProject` 的入参契约（F124）。两者形状相同：`{ projectId }`。 */
 export const ARCHIVE_PROJECT_SCHEMA = C.operations.archiveProject.in;
 export const UNARCHIVE_PROJECT_SCHEMA = C.operations.unarchiveProject.in;
+/** 同上，`updateProjectTags` 的入参契约（F185，2026-08-16 delta）。 */
+export const UPDATE_PROJECT_TAGS_SCHEMA = C.operations.updateProjectTags.in;
 /** 同上，F125 三个成员操作的入参契约。 */
 export const ADD_PROJECT_MEMBER_SCHEMA = C.operations.addProjectMember.in;
 export const CHANGE_PROJECT_ROLE_SCHEMA = C.operations.changeProjectRole.in;
@@ -173,6 +178,7 @@ export class ProjectController {
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(AGENDA_SEGMENT_REPOSITORY) private readonly segments: AgendaSegmentRepository,
     @Inject(PROJECT_ARCHIVE_REPOSITORY) private readonly archiveRepo: ProjectArchiveRepository,
+    @Inject(PROJECT_TAGS_REPOSITORY) private readonly tagsRepo: ProjectTagsRepository,
     @Inject(PROJECT_MEMBERSHIP_REPOSITORY) private readonly members: ProjectMembershipRepository,
     @Inject(MEMBER_SUBJECT_RESOLVER) private readonly memberSubjects: MemberSubjectResolver,
     @Inject(BINDING_REPOSITORY) private readonly bindings: BindingRepository,
@@ -580,6 +586,43 @@ export class ProjectController {
       if (e instanceof ProjectError) {
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * `updateProjectTags`（F185，2026-08-16 delta）。`orgId` 取自 `principal.orgId`——
+   * 同 `archive`/`unarchive` 两条路由的形状，契约 `updateProjectTags.in` 的
+   * `projectId` 来自路径，`tags` 来自 body，两者合并后一起过 `ZodBodyPipe`。
+   */
+  @Patch("/projects/:projectId/tags")
+  async updateTags(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body() rawBody: unknown,
+  ) {
+    assertPrincipal(principal);
+    const body = (rawBody ?? {}) as { tags?: unknown };
+    const input = new ZodBodyPipe(UPDATE_PROJECT_TAGS_SCHEMA).transform({
+      projectId,
+      tags: body.tags,
+    }) as { projectId: string; tags: string[] };
+
+    try {
+      return await updateProjectTags(
+        { repo: this.tagsRepo, identity: this.identity },
+        { orgId: principal.orgId, actorId: principal.userId, projectId: input.projectId, tags: input.tags },
+      );
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "PROJECT_NOT_FOUND") {
+          throw new NotFoundException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
