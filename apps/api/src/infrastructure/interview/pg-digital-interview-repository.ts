@@ -353,7 +353,7 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, messages, proposals] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, proposals] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
     }>(
@@ -362,6 +362,23 @@ export async function readDigitalInterviewWorkflow(
         WHERE org_id=$1 AND version_id=$2
         ORDER BY ordinal`,
       [orgId, row.question_version_id],
+    ),
+    session.query<{
+      expert_id: string; initials: string; display_name: string; role: string; domains: string[];
+      material_context_pack_id: string | null; material_version: string | null;
+    }>(
+      `SELECT expert_id,initials,display_name,role,domains,material_context_pack_id,material_version
+         FROM digital_interview_expert_candidates
+        WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
+      [orgId, row.revision_id],
+    ),
+    session.query<{
+      question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+    }>(
+      `SELECT question_id,expert_id,ordinal,body,purpose
+         FROM digital_interview_question_candidates
+        WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
+      [orgId, row.revision_id],
     ),
     session.query<{
       id: string; skill_thread_id: string; role: "user" | "assistant"; body: string; created_at: Date | string;
@@ -394,12 +411,7 @@ export async function readDigitalInterviewWorkflow(
     : row.research_project_id !== null
       ? { kind: "research" as const, projectId: null, researchProjectId: row.research_project_id }
       : { kind: "none" as const, projectId: null, researchProjectId: null };
-  const workflow: DigitalInterviewWorkflowView & {
-    readonly scope:
-      | { readonly kind: "project"; readonly projectId: string; readonly researchProjectId: null }
-      | { readonly kind: "research"; readonly projectId: null; readonly researchProjectId: string }
-      | { readonly kind: "none"; readonly projectId: null; readonly researchProjectId: null };
-  } = {
+  const workflow: DigitalInterviewWorkflowView = {
     interviewId: row.id,
     name: row.title,
     tags: row.tags,
@@ -415,7 +427,25 @@ export async function readDigitalInterviewWorkflow(
     topicVersionId: row.topic_version_id,
     expertSnapshotVersionId: row.expert_snapshot_version_id,
     questionVersionId: row.question_version_id,
+    expertCandidates: expertCandidates.rows.map((candidate) => ({
+      expertId: candidate.expert_id,
+      initials: candidate.initials,
+      displayName: candidate.display_name,
+      role: candidate.role,
+      domains: candidate.domains,
+      materialBoundary: candidate.material_context_pack_id === null
+        ? "未绑定 Context Pack 材料版本"
+        : `Context Pack ${candidate.material_context_pack_id} · ${candidate.material_version}`,
+      exploratory: true,
+    })),
     questions: questions.rows.map((question) => ({
+      questionId: question.question_id,
+      expertId: question.expert_id,
+      order: question.ordinal,
+      text: question.body,
+      purpose: question.purpose,
+    })),
+    questionCandidates: questionCandidates.rows.map((question) => ({
       questionId: question.question_id,
       expertId: question.expert_id,
       order: question.ordinal,

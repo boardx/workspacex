@@ -102,6 +102,27 @@ CREATE TABLE IF NOT EXISTS digital_interview_expert_snapshots (
     REFERENCES digital_expert_profiles(org_id, agent_id)
 );
 
+CREATE TABLE IF NOT EXISTS digital_interview_expert_candidates (
+  org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  revision_id text NOT NULL,
+  expert_id text NOT NULL,
+  ordinal integer NOT NULL CHECK (ordinal > 0),
+  initials text NOT NULL CHECK (length(btrim(initials)) > 0),
+  display_name text NOT NULL CHECK (length(btrim(display_name)) > 0),
+  role text NOT NULL CHECK (length(btrim(role)) > 0),
+  domains text[] NOT NULL CHECK (cardinality(domains) > 0),
+  material_context_pack_id text,
+  material_version text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, revision_id, expert_id),
+  UNIQUE (org_id, revision_id, ordinal),
+  FOREIGN KEY (org_id, revision_id)
+    REFERENCES digital_interview_revisions(org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, expert_id)
+    REFERENCES digital_expert_profiles(org_id, agent_id),
+  CHECK ((material_context_pack_id IS NULL) = (material_version IS NULL))
+);
+
 CREATE TABLE IF NOT EXISTS digital_interview_question_versions (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   id text NOT NULL,
@@ -136,6 +157,23 @@ CREATE TABLE IF NOT EXISTS digital_interview_questions (
   UNIQUE (org_id, version_id, ordinal),
   FOREIGN KEY (org_id, version_id)
     REFERENCES digital_interview_question_versions(org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, expert_id)
+    REFERENCES digital_expert_profiles(org_id, agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS digital_interview_question_candidates (
+  org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  revision_id text NOT NULL,
+  question_id text NOT NULL,
+  expert_id text NOT NULL,
+  ordinal integer NOT NULL CHECK (ordinal > 0),
+  body text NOT NULL CHECK (length(btrim(body)) > 0),
+  purpose text NOT NULL CHECK (length(btrim(purpose)) > 0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, revision_id, question_id),
+  UNIQUE (org_id, revision_id, ordinal),
+  FOREIGN KEY (org_id, revision_id)
+    REFERENCES digital_interview_revisions(org_id, id) ON DELETE CASCADE,
   FOREIGN KEY (org_id, expert_id)
     REFERENCES digital_expert_profiles(org_id, agent_id)
 );
@@ -207,13 +245,17 @@ CREATE TABLE IF NOT EXISTS digital_interview_step_receipts (
   response_version bigint NOT NULL CHECK (response_version > 0),
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id, interview_id, operation_id),
-  UNIQUE (org_id, operation_name, request_id),
   FOREIGN KEY (org_id, interview_id)
     REFERENCES interview_sessions(org_id, id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS digital_interview_step_receipts_operation_uniq
   ON digital_interview_step_receipts(org_id, interview_id, operation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS digital_interview_step_receipts_aggregate_request_uniq
+  ON digital_interview_step_receipts(org_id, interview_id, operation_name, request_id);
+CREATE UNIQUE INDEX IF NOT EXISTS digital_interview_step_receipts_create_request_uniq
+  ON digital_interview_step_receipts(org_id, operation_name, request_id)
+  WHERE operation_name = 'create_draft';
 
 DO $$
 DECLARE
@@ -224,8 +266,10 @@ BEGIN
     'digital_interview_topic_versions',
     'digital_interview_expert_snapshot_versions',
     'digital_interview_expert_snapshots',
+    'digital_interview_expert_candidates',
     'digital_interview_question_versions',
     'digital_interview_questions',
+    'digital_interview_question_candidates',
     'digital_interview_skill_threads',
     'digital_interview_skill_messages',
     'digital_interview_skill_proposals',
@@ -247,8 +291,10 @@ REVOKE ALL ON
   digital_interview_topic_versions,
   digital_interview_expert_snapshot_versions,
   digital_interview_expert_snapshots,
+  digital_interview_expert_candidates,
   digital_interview_question_versions,
   digital_interview_questions,
+  digital_interview_question_candidates,
   digital_interview_skill_threads,
   digital_interview_skill_messages,
   digital_interview_skill_proposals,
@@ -260,12 +306,19 @@ GRANT SELECT, INSERT, UPDATE ON
   digital_interview_topic_versions,
   digital_interview_expert_snapshot_versions,
   digital_interview_expert_snapshots,
+  digital_interview_expert_candidates,
   digital_interview_question_versions,
   digital_interview_questions,
+  digital_interview_question_candidates,
   digital_interview_skill_threads,
   digital_interview_skill_messages,
   digital_interview_skill_proposals,
   digital_interview_step_receipts
+TO app_rw;
+
+GRANT DELETE ON
+  digital_interview_expert_candidates,
+  digital_interview_question_candidates
 TO app_rw;
 
 SELECT kernel_apply_org_freeze_policies();

@@ -15,8 +15,10 @@ const BUSINESS_TABLES = [
   "digital_interview_topic_versions",
   "digital_interview_expert_snapshot_versions",
   "digital_interview_expert_snapshots",
+  "digital_interview_expert_candidates",
   "digital_interview_question_versions",
   "digital_interview_questions",
+  "digital_interview_question_candidates",
   "digital_interview_skill_threads",
   "digital_interview_skill_messages",
   "digital_interview_skill_proposals",
@@ -91,6 +93,13 @@ describe("F04 digital interview workflow migration", () => {
       );
       expect(indexes.rows.some((row) =>
         row.indexdef.includes("(org_id, interview_id, operation_id)"),
+      )).toBe(true);
+      expect(indexes.rows.some((row) =>
+        row.indexdef.includes("(org_id, interview_id, operation_name, request_id)"),
+      )).toBe(true);
+      expect(indexes.rows.some((row) =>
+        row.indexname === "digital_interview_step_receipts_create_request_uniq" &&
+        row.indexdef.includes("operation_name = 'create_draft'"),
       )).toBe(true);
       for (const table of ["topic", "expert_snapshot", "question"] as const) {
         expect(indexes.rows.some((row) =>

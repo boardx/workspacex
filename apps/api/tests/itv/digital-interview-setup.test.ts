@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { interview } from "@repo/contracts";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import type { z } from "zod";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -37,18 +39,7 @@ async function restartApp() {
   await startApp();
 }
 
-type DigitalInterviewResponse = {
-  interviewId: string;
-  version: number;
-  topic: string | null;
-  status: string;
-  scope: { kind: string; projectId: string | null; researchProjectId: string | null };
-  currentStep: string;
-  selectedExpertIds: string[];
-  questions: Array<{ questionId: string; expertId: string; order: number; text: string; purpose: string }>;
-  skillMessages: Array<{ messageId: string; role: string; text: string }>;
-  skillProposals: Array<{ proposalId: string; status: string; patch: Record<string, unknown> }>;
-};
+type DigitalInterviewResponse = z.infer<typeof interview.DigitalInterviewWorkflowView>;
 
 function maskTrace(raw: string) {
   return raw.replace(/"traceId":"[^"]+"/, '"traceId":"<masked>"');
@@ -83,8 +74,19 @@ beforeAll(async () => {
     request.on("data", (chunk) => chunks.push(chunk));
     request.on("end", async () => {
       await providerHook?.();
+      const body = JSON.parse(Buffer.concat(chunks).toString()) as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const context = JSON.parse(body.messages.at(-1)?.content ?? "{}") as { currentStep?: string };
+      const patch = context.currentStep === "topic"
+        ? { topic: "建议聚焦最终否决权" }
+        : context.currentStep === "experts"
+          ? { expertIds: [EXPERT] }
+          : context.currentStep === "questions"
+            ? { questions: [] }
+            : { instruction: "建议聚焦最终否决权" };
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ topic: "建议聚焦最终否决权" }) } }] }));
+      response.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(patch) } }] }));
     });
   });
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
@@ -243,6 +245,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(topic.status).toBe(201);
     const topicView = await topic.json() as DigitalInterviewResponse;
     expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
+    expect(topicView.expertCandidates.map((candidate) => candidate.expertId)).toEqual([EXPERT]);
 
     const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
@@ -251,25 +254,30 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(experts.status).toBe(201);
     const expertView = await experts.json() as DigitalInterviewResponse;
     expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [EXPERT], version: 3 });
+    expect(expertView.questionCandidates).toHaveLength(3);
 
-    const question = { questionId: "question-f04-1", expertId: EXPERT, order: 1, text: "谁签署最终采购合同？", purpose: "确认否决权归属" };
+    const generatedQuestions = expertView.questionCandidates;
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ questions: [question], expectedVersion: 3, requestId: "questions-complete-f04" }),
+      body: JSON.stringify({ questions: generatedQuestions, expectedVersion: 3, requestId: "questions-complete-f04" }),
     });
     expect(questions.status).toBe(201);
-    expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: [question], version: 4 });
+    expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: generatedQuestions, version: 4 });
 
     const message = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ currentStep: "runs", text: "请聚焦最终否决权", expectedVersion: 4, requestId: "skill-message-f04" }),
+      body: JSON.stringify({
+        currentStep: "runs", text: "请聚焦最终否决权",
+        draftContext: { step: "runs", instruction: "按已确认问题开始执行" },
+        expectedVersion: 4, requestId: "skill-message-f04",
+      }),
     });
     expect(message.status).toBe(201);
     const messageView = await message.json() as DigitalInterviewResponse;
     expect(messageView).toMatchObject({ version: 5 });
     expect(messageView.skillMessages.map((item) => item.role)).toEqual(["user", "assistant"]);
     expect(messageView.skillProposals).toEqual([
-      expect.objectContaining({ status: "proposed", patch: { topic: "建议聚焦最终否决权" } }),
+      expect.objectContaining({ status: "proposed", patch: { instruction: "建议聚焦最终否决权" } }),
     ]);
 
     const proposalId = messageView.skillProposals[0]!.proposalId;
@@ -285,7 +293,11 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
 
     const secondMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ currentStep: "runs", text: "这条建议请保留审计后拒绝", expectedVersion: 6, requestId: "skill-message-reject-f04" }),
+      body: JSON.stringify({
+        currentStep: "runs", text: "这条建议请保留审计后拒绝",
+        draftContext: { step: "runs", instruction: "按已确认问题开始执行" },
+        expectedVersion: 6, requestId: "skill-message-reject-f04",
+      }),
     });
     expect(secondMessage.status).toBe(201);
     const secondMessageView = await secondMessage.json() as DigitalInterviewResponse;
@@ -310,7 +322,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(restoredView).toMatchObject({
       version: 8,
       selectedExpertIds: [EXPERT],
-      questions: [question],
+      questions: generatedQuestions,
       skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
       skillProposals: expect.arrayContaining([
         expect.objectContaining({ proposalId, status: "applied_to_draft" }),
@@ -329,7 +341,11 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
 
     const response = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ currentStep: "topic", text: "这条消息不能落库", expectedVersion: 1, requestId: "skill-revoke-f04" }),
+      body: JSON.stringify({
+        currentStep: "topic", text: "这条消息不能落库",
+        draftContext: { step: "topic", topic: "这条主题不能落库" },
+        expectedVersion: 1, requestId: "skill-revoke-f04",
+      }),
     });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ reasonCode: "PERMISSION_REVOKED_MIDWAY" });

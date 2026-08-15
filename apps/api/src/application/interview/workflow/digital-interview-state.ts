@@ -23,6 +23,8 @@ export interface DigitalInterviewGraphState {
   readonly questionVersionId: string | null;
   readonly skillThreadId: string;
   readonly lastOperationId: string | null;
+  readonly lastRequestId: string | null;
+  readonly aggregateVersion: number;
   readonly errorCode: string | null;
   readonly command: DigitalInterviewCommand | null;
 }
@@ -39,6 +41,8 @@ export const DigitalInterviewStateAnnotation = Annotation.Root({
   questionVersionId: Annotation<string | null>(),
   skillThreadId: Annotation<string>(),
   lastOperationId: Annotation<string | null>(),
+  lastRequestId: Annotation<string | null>(),
+  aggregateVersion: Annotation<number>(),
   errorCode: Annotation<string | null>(),
   command: Annotation<DigitalInterviewCommand | null>(),
 });
@@ -62,6 +66,8 @@ export function initialDigitalInterviewState(input: {
     expertSnapshotVersionId: input.expertSnapshotVersionId ?? null,
     questionVersionId: input.questionVersionId ?? null,
     lastOperationId: null,
+    lastRequestId: null,
+    aggregateVersion: 1,
     errorCode: null,
     command: null,
   };

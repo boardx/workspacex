@@ -15,8 +15,10 @@ describe("数字专家访谈契约", () => {
   };
   const draftWorkflow = {
     interviewId: "itv-digital-1", name: "德国采购决策链", tags: ["采购决策"], topic: null,
+    scope,
     status: "topic_pending" as const, currentStep: "topic" as const, sourceQuickInterviewId: null,
-    selectedExpertIds: [], questions: [], reportId: null, version: 1, revisionId: "rev-1",
+    selectedExpertIds: [], expertCandidates: [], questions: [], questionCandidates: [],
+    reportId: null, version: 1, revisionId: "rev-1",
     topicVersionId: null, expertSnapshotVersionId: null, questionVersionId: null,
     skillThreadId: "skill-thread-1", skillMessages: [], skillProposals: [],
   };
@@ -24,12 +26,18 @@ describe("数字专家访谈契约", () => {
     interviewId: "itv-digital-1",
     name: "德国采购决策链",
     tags: ["采购决策"],
+    scope,
     topic: "储能采购的否决权归属",
     status: "questions_pending" as const,
     currentStep: "questions" as const,
     sourceQuickInterviewId: null,
     selectedExpertIds: ["expert-1"],
+    expertCandidates: [{
+      expertId: "expert-1", initials: "DE", displayName: "德国采购总监", role: "采购决策",
+      domains: ["采购"], materialBoundary: "材料版本 v1", exploratory: true,
+    }],
     questions: [question],
+    questionCandidates: [question],
     reportId: null,
     version,
     revisionId: "rev-1",
@@ -46,17 +54,17 @@ describe("数字专家访谈契约", () => {
     skillProposals: [
       {
         proposalId: "proposal-proposed", sourceMessageId: "message-1", targetStep: "questions" as const,
-        baseRevisionId: "rev-1", patch: { purpose: "补充反例" }, status: "proposed" as const,
+        baseRevisionId: "rev-1", patch: { questions: [question] }, status: "proposed" as const,
         createdAt: "2026-08-15T10:00:01.000Z", appliedAt: null, rejectedAt: null, committedVersionId: null,
       },
       {
         proposalId: "proposal-applied", sourceMessageId: "message-1", targetStep: "questions" as const,
-        baseRevisionId: "rev-1", patch: { text: "反例是什么？" }, status: "applied_to_draft" as const,
+        baseRevisionId: "rev-1", patch: { questions: [{ ...question, text: "反例是什么？" }] }, status: "applied_to_draft" as const,
         createdAt: "2026-08-15T10:00:02.000Z", appliedAt: "2026-08-15T10:00:03.000Z", rejectedAt: null, committedVersionId: null,
       },
       {
         proposalId: "proposal-rejected", sourceMessageId: "message-1", targetStep: "questions" as const,
-        baseRevisionId: "rev-1", patch: { text: "重复问题" }, status: "rejected" as const,
+        baseRevisionId: "rev-1", patch: { questions: [{ ...question, text: "重复问题" }] }, status: "rejected" as const,
         createdAt: "2026-08-15T10:00:04.000Z", appliedAt: null, rejectedAt: "2026-08-15T10:00:05.000Z", committedVersionId: null,
       },
       {
@@ -123,7 +131,11 @@ describe("数字专家访谈契约", () => {
     },
     {
       name: "追加 Skill 消息", operation: operations.appendDigitalInterviewSkillMessage,
-      input: { interviewId: "itv-1", currentStep: "questions", text: "补充反例", expectedVersion: 3, requestId: "req-skill-message-1" },
+      input: {
+        interviewId: "itv-1", currentStep: "questions", text: "补充反例",
+        draftContext: { step: "questions", questions: [question] },
+        expectedVersion: 3, requestId: "req-skill-message-1",
+      },
     },
     {
       name: "应用 Skill 建议", operation: operations.applyDigitalInterviewSkillProposal,
@@ -196,5 +208,35 @@ describe("数字专家访谈契约", () => {
     expect(DigitalInterviewWorkflowView.safeParse(malformed).success).toBe(false);
     expect(InterviewError.options).toContain("IDEMPOTENCY_KEY_REUSED");
     expect(InterviewError.options).not.toContain("REQUEST_REPLAY_MISMATCH");
+  });
+
+  it("workflow 严格包含 scope、服务端候选与问题草稿，历史行复用已确认 topic", () => {
+    const parsed = DigitalInterviewWorkflowView.parse(workflow());
+    expect(parsed.scope).toEqual(scope);
+    expect(parsed.expertCandidates[0]).toMatchObject({ expertId: "expert-1", displayName: "德国采购总监" });
+    expect(parsed.questionCandidates).toEqual([question]);
+    expect(operations.listDigitalInterviews.out.parse({
+      items: [{
+        interviewId: "itv-1", name: "采购", tags: ["采购"], topic: "谁有否决权", kind: "batch",
+        status: "experts_pending", expertCount: 0, completedExpertCount: 0,
+        primaryAction: "confirm_experts", updatedAt: "2026-08-15T10:00:00.000Z",
+      }],
+    }).items[0]?.topic).toBe("谁有否决权");
+  });
+
+  it("Skill 草稿上下文必须与当前步骤一致且保持严格结构", () => {
+    const base = {
+      interviewId: "itv-1", currentStep: "topic" as const, text: "聚焦否决权",
+      expectedVersion: 3, requestId: "req-skill-context",
+    };
+    expect(operations.appendDigitalInterviewSkillMessage.in.parse({
+      ...base, draftContext: { step: "topic", topic: "本地未确认主题" },
+    }).draftContext).toEqual({ step: "topic", topic: "本地未确认主题" });
+    expect(operations.appendDigitalInterviewSkillMessage.in.safeParse({
+      ...base, draftContext: { step: "experts", expertIds: ["expert-1"] },
+    }).success).toBe(false);
+    expect(operations.appendDigitalInterviewSkillMessage.in.safeParse({
+      ...base, draftContext: { step: "topic", topic: "草稿", unknown: true },
+    }).success).toBe(false);
   });
 });

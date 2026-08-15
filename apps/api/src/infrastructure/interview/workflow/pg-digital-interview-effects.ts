@@ -4,7 +4,9 @@ import type {
   CommitDigitalInterviewStepInput,
   CommitDigitalInterviewStepResult,
   DigitalInterviewEffects,
+  GenerateDigitalInterviewDraftInput,
 } from "../../../application/interview/workflow/digital-interview-effects.port";
+import type { DigitalInterviewRepository } from "../../../application/interview/digital-interview-ports";
 import {
   DigitalInterviewWorkflowError,
   type DigitalInterviewWorkflowView,
@@ -42,14 +44,33 @@ interface LockedInterviewRow {
   revision_number: number;
 }
 
+const EXPECTED_STATUS = {
+  confirm_topic: "topic_pending",
+  confirm_experts: "experts_pending",
+  confirm_questions: "questions_pending",
+} as const;
+
+const RECONFIRMABLE_STATUS = {
+  confirm_topic: new Set(["experts_pending", "questions_pending", "running", "report_pending", "completed"]),
+  confirm_experts: new Set(["questions_pending", "running", "report_pending", "completed"]),
+  confirm_questions: new Set(["running", "report_pending", "completed"]),
+} as const;
+
 export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
-  constructor(private readonly db: DatabasePort, private readonly ids: IdFactory) {}
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly ids: IdFactory,
+    private readonly repo: DigitalInterviewRepository,
+  ) {}
 
   async findReceipt(input: {
-    readonly orgId: OrgId; readonly operationName: string; readonly requestId: string; readonly payload: unknown;
+    readonly orgId: OrgId; readonly interviewId: string | null;
+    readonly operationName: string; readonly requestId: string; readonly payload: unknown;
   }): Promise<DigitalInterviewWorkflowView | null> {
     return this.db.withTenant(input.orgId, async (session) => {
-      const receipt = await this.readReceipt(session, input.orgId, input.operationName, input.requestId);
+      const receipt = await this.readReceipt(
+        session, input.orgId, input.interviewId, input.operationName, input.requestId,
+      );
       if (!receipt) return null;
       this.assertMatchingReceipt(receipt, input.payload);
       return receipt.response_body;
@@ -65,11 +86,20 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     if (!scopeIsCoherent(input.scope)) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
     const payload = { name: input.name, tags: input.tags, scope: input.scope };
     return this.db.withTenant(input.orgId, async (session) => {
-      await this.lockRequest(session, input.orgId, "create_draft", input.requestId);
-      const receipt = await this.readReceipt(session, input.orgId, "create_draft", input.requestId);
+      await this.lockRequest(session, input.orgId, null, "create_draft", input.requestId);
+      const receipt = await this.readReceipt(session, input.orgId, null, "create_draft", input.requestId);
       if (receipt) {
         this.assertMatchingReceipt(receipt, payload);
         return receipt.response_body;
+      }
+      const membership = await session.query<{ allowed: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2
+         ) AS allowed`,
+        [input.orgId, input.actorId],
+      );
+      if (!membership.rows[0]?.allowed) {
+        throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
       }
       await session.query(
         `INSERT INTO interview_sessions
@@ -113,14 +143,27 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
 
   async commitStep(input: CommitDigitalInterviewStepInput): Promise<CommitDigitalInterviewStepResult> {
     const payload = input.command;
-    const workflow = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
-      await this.lockRequest(session, toOrgId(input.orgId), input.nodeName, input.command.requestId);
-      const replay = await this.readReceipt(session, toOrgId(input.orgId), input.nodeName, input.command.requestId);
+    const committed = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      await this.lockRequest(
+        session, toOrgId(input.orgId), input.interviewId, input.nodeName, input.command.requestId,
+      );
+      const replay = await this.readReceipt(
+        session, toOrgId(input.orgId), input.interviewId, input.nodeName, input.command.requestId,
+      );
       if (replay) {
         this.assertMatchingReceipt(replay, payload);
-        return replay.response_body;
+        const revision = await session.query<{ revision_number: number }>(
+          "SELECT revision_number FROM digital_interview_revisions WHERE org_id=$1 AND id=$2",
+          [input.orgId, replay.response_body.revisionId],
+        );
+        return {
+          workflow: replay.response_body,
+          revisionNumber: revision.rows[0]?.revision_number ?? input.revisionNumber,
+        };
       }
-      const current = await this.lockInterview(session, toOrgId(input.orgId), input.interviewId);
+      const current = await this.lockInterview(
+        session, toOrgId(input.orgId), input.interviewId, input.actorId,
+      );
       if (Number(current.version) !== input.command.expectedVersion) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
@@ -128,41 +171,62 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
 
+      let activeRevisionId = input.revisionId;
+      let activeRevisionNumber = input.revisionNumber;
+      const expectedStatus = EXPECTED_STATUS[input.nodeName];
+      if (current.digital_status !== expectedStatus) {
+        if (!RECONFIRMABLE_STATUS[input.nodeName].has(current.digital_status)) {
+          throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+        }
+        const branched = await this.branchRevision(session, input, current);
+        activeRevisionId = branched.revisionId;
+        activeRevisionNumber = branched.revisionNumber;
+      }
+
       let committedVersionId: string;
       let nextStatus: "experts_pending" | "questions_pending" | "running";
       if (input.nodeName === "confirm_topic" && input.command.kind === "confirm_topic") {
-        if (current.digital_status !== "topic_pending") throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
         committedVersionId = this.ids.next("itv-topic");
         await session.query(
           `UPDATE digital_interview_topic_versions SET is_current=false
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
-          [input.orgId, input.revisionId],
+          [input.orgId, activeRevisionId],
         );
         await session.query(
           `INSERT INTO digital_interview_topic_versions
              (org_id,id,interview_id,revision_id,version_number,topic,is_current,created_by)
            VALUES ($1,$2,$3,$4,1,$5,true,$6)`,
-          [input.orgId, committedVersionId, input.interviewId, input.revisionId, input.command.topic, input.actorId],
+          [input.orgId, committedVersionId, input.interviewId, activeRevisionId, input.command.topic, input.actorId],
         );
         await session.query(
-          `UPDATE interview_sessions SET topic=$3,digital_status='experts_pending',version=version+1,updated_at=now()
+          `UPDATE interview_sessions
+              SET topic=$3,digital_status='experts_pending',selected_expert_ids='{}',report_id=NULL,
+                  version=version+1,updated_at=now()
             WHERE org_id=$1 AND id=$2`,
           [input.orgId, input.interviewId, input.command.topic],
         );
         nextStatus = "experts_pending";
       } else if (input.nodeName === "confirm_experts" && input.command.kind === "confirm_experts") {
-        if (current.digital_status !== "experts_pending") throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+        const candidateIds = await session.query<{ expert_id: string }>(
+          `SELECT expert_id
+             FROM digital_interview_expert_candidates
+            WHERE org_id=$1 AND revision_id=$2 AND expert_id=ANY($3::text[])`,
+          [input.orgId, activeRevisionId, [...input.command.expertIds]],
+        );
+        if (candidateIds.rows.length !== input.command.expertIds.length) {
+          throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+        }
         committedVersionId = this.ids.next("itv-experts");
         await session.query(
           `UPDATE digital_interview_expert_snapshot_versions SET is_current=false
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
-          [input.orgId, input.revisionId],
+          [input.orgId, activeRevisionId],
         );
         await session.query(
           `INSERT INTO digital_interview_expert_snapshot_versions
              (org_id,id,interview_id,revision_id,version_number,is_current,created_by)
            VALUES ($1,$2,$3,$4,1,true,$5)`,
-          [input.orgId, committedVersionId, input.interviewId, input.revisionId, input.actorId],
+          [input.orgId, committedVersionId, input.interviewId, activeRevisionId, input.actorId],
         );
         for (const [index, expertId] of input.command.expertIds.entries()) {
           await session.query(
@@ -173,31 +237,31 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         }
         await session.query(
           `UPDATE interview_sessions
-              SET selected_expert_ids=$3,digital_status='questions_pending',version=version+1,updated_at=now()
+              SET selected_expert_ids=$3,digital_status='questions_pending',report_id=NULL,
+                  version=version+1,updated_at=now()
             WHERE org_id=$1 AND id=$2`,
           [input.orgId, input.interviewId, [...input.command.expertIds]],
         );
         nextStatus = "questions_pending";
       } else if (input.nodeName === "confirm_questions" && input.command.kind === "confirm_questions") {
-        if (current.digital_status !== "questions_pending") throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
         await this.assertQuestionsCoverExperts(session, toOrgId(input.orgId), input.interviewId, input.command.questions);
         const expertVersion = await session.query<{ id: string }>(
           `SELECT id FROM digital_interview_expert_snapshot_versions
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
-          [input.orgId, input.revisionId],
+          [input.orgId, activeRevisionId],
         );
         if (!expertVersion.rows[0]) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
         committedVersionId = this.ids.next("itv-questions");
         await session.query(
           `UPDATE digital_interview_question_versions SET is_current=false
             WHERE org_id=$1 AND revision_id=$2 AND is_current`,
-          [input.orgId, input.revisionId],
+          [input.orgId, activeRevisionId],
         );
         await session.query(
           `INSERT INTO digital_interview_question_versions
              (org_id,id,interview_id,revision_id,expert_snapshot_version_id,version_number,is_current,created_by)
            VALUES ($1,$2,$3,$4,$5,1,true,$6)`,
-          [input.orgId, committedVersionId, input.interviewId, input.revisionId, expertVersion.rows[0].id, input.actorId],
+          [input.orgId, committedVersionId, input.interviewId, activeRevisionId, expertVersion.rows[0].id, input.actorId],
         );
         for (const question of input.command.questions) {
           await session.query(
@@ -208,7 +272,20 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           );
         }
         await session.query(
-          `UPDATE interview_sessions SET digital_status='running',version=version+1,updated_at=now()
+          "DELETE FROM digital_interview_question_candidates WHERE org_id=$1 AND revision_id=$2",
+          [input.orgId, activeRevisionId],
+        );
+        for (const question of input.command.questions) {
+          await session.query(
+            `INSERT INTO digital_interview_question_candidates
+               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [input.orgId, activeRevisionId, question.questionId, question.expertId,
+              question.order, question.text, question.purpose],
+          );
+        }
+        await session.query(
+          `UPDATE interview_sessions SET digital_status='running',report_id=NULL,version=version+1,updated_at=now()
             WHERE org_id=$1 AND id=$2`,
           [input.orgId, input.interviewId],
         );
@@ -217,12 +294,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       }
 
-      await session.query(
-        `UPDATE digital_interview_skill_proposals
-            SET status='committed', committed_version_id=$4
-          WHERE org_id=$1 AND base_revision_id=$2 AND target_step=$3
-            AND status='applied_to_draft'`,
-        [input.orgId, input.revisionId, input.nodeName.replace("confirm_", ""), committedVersionId],
+      await this.finishStepProposals(
+        session, toOrgId(input.orgId), activeRevisionId, input.nodeName,
+        input.command, committedVersionId,
       );
       const updated = await this.requireWorkflow(session, toOrgId(input.orgId), input.interviewId);
       if (updated.status !== nextStatus) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
@@ -230,34 +304,155 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         orgId: toOrgId(input.orgId), interviewId: input.interviewId, operationId: input.operationId,
         operationName: input.nodeName, requestId: input.command.requestId, payload, workflow: updated,
       });
-      return updated;
+      return { workflow: updated, revisionNumber: activeRevisionNumber };
     });
+    const workflow = committed.workflow;
     return {
       interviewId: workflow.interviewId,
       revisionId: workflow.revisionId,
-      revisionNumber: input.revisionNumber,
+      revisionNumber: committed.revisionNumber,
       currentStep: workflow.currentStep,
       topicVersionId: workflow.topicVersionId,
       expertSnapshotVersionId: workflow.expertSnapshotVersionId,
       questionVersionId: workflow.questionVersionId,
       skillThreadId: workflow.skillThreadId,
       operationId: input.operationId,
+      requestId: input.command.requestId,
+      aggregateVersion: workflow.version,
     };
+  }
+
+  async generateExpertCandidates(input: GenerateDigitalInterviewDraftInput): Promise<void> {
+    const experts = await this.repo.listVisibleExperts({
+      orgId: toOrgId(input.orgId), viewerUserId: input.actorId,
+    });
+    const payload = { expectedVersion: input.expectedVersion };
+    await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      await this.lockRequest(
+        session, toOrgId(input.orgId), input.interviewId, "generate_expert_candidates", input.requestId,
+      );
+      const replay = await this.readReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "generate_expert_candidates", input.requestId,
+      );
+      if (replay) { this.assertMatchingReceipt(replay, payload); return; }
+      const current = await this.lockInterview(session, toOrgId(input.orgId), input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId) {
+        throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      }
+      await session.query(
+        "DELETE FROM digital_interview_expert_candidates WHERE org_id=$1 AND revision_id=$2",
+        [input.orgId, input.revisionId],
+      );
+      for (const [index, expert] of experts.entries()) {
+        await session.query(
+          `INSERT INTO digital_interview_expert_candidates
+             (org_id,revision_id,expert_id,ordinal,initials,display_name,role,domains,
+              material_context_pack_id,material_version)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [input.orgId, input.revisionId, expert.expertId, index + 1, expert.initials,
+            expert.displayName, expert.role, [...expert.domains], expert.materialContextPackId,
+            expert.materialVersion],
+        );
+      }
+      const workflow = await this.requireWorkflow(session, toOrgId(input.orgId), input.interviewId);
+      await this.writeReceipt(session, {
+        orgId: toOrgId(input.orgId), interviewId: input.interviewId, operationId: input.operationId,
+        operationName: "generate_expert_candidates", requestId: input.requestId, payload, workflow,
+      });
+      await this.refreshReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "confirm_topic", input.requestId, workflow,
+      );
+    });
+  }
+
+  async generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void> {
+    const payload = { expectedVersion: input.expectedVersion };
+    await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      await this.lockRequest(
+        session, toOrgId(input.orgId), input.interviewId, "generate_questions", input.requestId,
+      );
+      const replay = await this.readReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "generate_questions", input.requestId,
+      );
+      if (replay) { this.assertMatchingReceipt(replay, payload); return; }
+      const current = await this.lockInterview(session, toOrgId(input.orgId), input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId) {
+        throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      }
+      const selected = await session.query<{
+        expert_id: string; display_name: string; existing_question_count: string;
+      }>(
+        `SELECT c.expert_id,c.display_name,count(q.question_id)::text AS existing_question_count
+           FROM digital_interview_expert_candidates c
+           JOIN interview_sessions s ON s.org_id=c.org_id AND s.id=$3
+           LEFT JOIN digital_interview_question_candidates q
+             ON q.org_id=c.org_id AND q.revision_id=c.revision_id AND q.expert_id=c.expert_id
+          WHERE c.org_id=$1 AND c.revision_id=$2 AND c.expert_id=ANY(s.selected_expert_ids)
+          GROUP BY c.expert_id,c.display_name,c.ordinal
+          ORDER BY c.ordinal`,
+        [input.orgId, input.revisionId, input.interviewId],
+      );
+      await session.query(
+        `DELETE FROM digital_interview_question_candidates q
+          USING interview_sessions s
+         WHERE q.org_id=$1 AND q.revision_id=$2 AND s.org_id=q.org_id AND s.id=$3
+           AND NOT (q.expert_id=ANY(s.selected_expert_ids))`,
+        [input.orgId, input.revisionId, input.interviewId],
+      );
+      const maximum = await session.query<{ ordinal: string }>(
+        `SELECT COALESCE(max(ordinal),0)::text AS ordinal
+           FROM digital_interview_question_candidates WHERE org_id=$1 AND revision_id=$2`,
+        [input.orgId, input.revisionId],
+      );
+      let ordinal = Number(maximum.rows[0]?.ordinal ?? "0");
+      for (const expert of selected.rows) {
+        if (Number(expert.existing_question_count) > 0) continue;
+        const defaults = [
+          { text: `请描述${expert.display_name}参与的决策流程与关键节点。`, purpose: "梳理决策流程" },
+          { text: `从${expert.display_name}视角，哪些风险会触发否决或暂停？`, purpose: "识别否决风险" },
+          { text: `请提供${expert.display_name}支持上述判断的实际案例或依据。`, purpose: "追问案例依据" },
+        ];
+        for (const question of defaults) {
+          ordinal += 1;
+          await session.query(
+            `INSERT INTO digital_interview_question_candidates
+               (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [input.orgId, input.revisionId, this.ids.next("itv-question-draft"), expert.expert_id,
+              ordinal, question.text, question.purpose],
+          );
+        }
+      }
+      const workflow = await this.requireWorkflow(session, toOrgId(input.orgId), input.interviewId);
+      await this.writeReceipt(session, {
+        orgId: toOrgId(input.orgId), interviewId: input.interviewId, operationId: input.operationId,
+        operationName: "generate_questions", requestId: input.requestId, payload, workflow,
+      });
+      await this.refreshReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "confirm_experts", input.requestId, workflow,
+      );
+    });
   }
 
   async appendSkillMessage(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly currentStep: DigitalInterviewWorkflowView["currentStep"]; readonly text: string;
+    readonly draftContext: unknown;
     readonly assistantText: string; readonly proposalPatch: Readonly<Record<string, unknown>>;
     readonly expectedVersion: number; readonly requestId: string;
     readonly userMessageId: string; readonly assistantMessageId: string; readonly proposalId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    const payload = { currentStep: input.currentStep, text: input.text, expectedVersion: input.expectedVersion };
+    const payload = {
+      currentStep: input.currentStep, text: input.text, draftContext: input.draftContext,
+      expectedVersion: input.expectedVersion,
+    };
     return this.db.withTenant(input.orgId, async (session) => {
-      await this.lockRequest(session, input.orgId, "append_skill_message", input.requestId);
-      const replay = await this.readReceipt(session, input.orgId, "append_skill_message", input.requestId);
+      await this.lockRequest(session, input.orgId, input.interviewId, "append_skill_message", input.requestId);
+      const replay = await this.readReceipt(
+        session, input.orgId, input.interviewId, "append_skill_message", input.requestId,
+      );
       if (replay) { this.assertMatchingReceipt(replay, payload); return replay.response_body; }
-      const current = await this.lockInterview(session, input.orgId, input.interviewId);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const workflowBefore = await this.requireWorkflow(session, input.orgId, input.interviewId);
       if (workflowBefore.currentStep !== input.currentStep) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
@@ -303,10 +498,12 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     const operationName = input.status === "applied_to_draft" ? "apply_skill_proposal" : "reject_skill_proposal";
     const payload = { proposalId: input.proposalId, expectedVersion: input.expectedVersion };
     return this.db.withTenant(input.orgId, async (session) => {
-      await this.lockRequest(session, input.orgId, operationName, input.requestId);
-      const replay = await this.readReceipt(session, input.orgId, operationName, input.requestId);
+      await this.lockRequest(session, input.orgId, input.interviewId, operationName, input.requestId);
+      const replay = await this.readReceipt(
+        session, input.orgId, input.interviewId, operationName, input.requestId,
+      );
       if (replay) { this.assertMatchingReceipt(replay, payload); return replay.response_body; }
-      const current = await this.lockInterview(session, input.orgId, input.interviewId);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const changed = await session.query<{ id: string }>(
         `UPDATE digital_interview_skill_proposals p
@@ -334,17 +531,186 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
   }
 
-  private async lockInterview(session: TenantSession, orgId: OrgId, interviewId: string): Promise<LockedInterviewRow> {
+  private async branchRevision(
+    session: TenantSession,
+    input: CommitDigitalInterviewStepInput,
+    current: LockedInterviewRow,
+  ): Promise<{ revisionId: string; revisionNumber: number }> {
+    const previousTopic = await session.query<{ topic: string }>(
+      `SELECT topic FROM digital_interview_topic_versions
+        WHERE org_id=$1 AND revision_id=$2 AND is_current`,
+      [input.orgId, current.revision_id],
+    );
+    const previousExperts = await session.query<{ expert_id: string; ordinal: number }>(
+      `SELECT s.expert_id,s.ordinal
+         FROM digital_interview_expert_snapshots s
+         JOIN digital_interview_expert_snapshot_versions v
+           ON v.org_id=s.org_id AND v.id=s.version_id
+        WHERE v.org_id=$1 AND v.revision_id=$2 AND v.is_current
+        ORDER BY s.ordinal`,
+      [input.orgId, current.revision_id],
+    );
+    const previousQuestions = await session.query<{
+      question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+    }>(
+      `SELECT q.question_id,q.expert_id,q.ordinal,q.body,q.purpose
+         FROM digital_interview_questions q
+         JOIN digital_interview_question_versions v
+           ON v.org_id=q.org_id AND v.id=q.version_id
+        WHERE v.org_id=$1 AND v.revision_id=$2 AND v.is_current
+        ORDER BY q.ordinal`,
+      [input.orgId, current.revision_id],
+    );
+    await session.query(
+      `UPDATE digital_interview_revisions
+          SET is_current=false,superseded_at=now()
+        WHERE org_id=$1 AND id=$2 AND is_current`,
+      [input.orgId, current.revision_id],
+    );
+    for (const table of [
+      "digital_interview_topic_versions",
+      "digital_interview_expert_snapshot_versions",
+      "digital_interview_question_versions",
+    ]) {
+      await session.query(
+        `UPDATE ${table} SET is_current=false WHERE org_id=$1 AND revision_id=$2 AND is_current`,
+        [input.orgId, current.revision_id],
+      );
+    }
+    await session.query(
+      `UPDATE digital_interview_skill_proposals
+          SET status='stale',applied_at=NULL,rejected_at=NULL,committed_version_id=NULL
+        WHERE org_id=$1 AND base_revision_id=$2 AND status IN ('proposed','applied_to_draft')`,
+      [input.orgId, current.revision_id],
+    );
+
+    const revisionId = this.ids.next("itv-revision");
+    const revisionNumber = current.revision_number + 1;
+    await session.query(
+      `INSERT INTO digital_interview_revisions
+         (org_id,id,interview_id,revision_number,is_current,created_by)
+       VALUES ($1,$2,$3,$4,true,$5)`,
+      [input.orgId, revisionId, input.interviewId, revisionNumber, input.actorId],
+    );
+    await session.query(
+      `INSERT INTO digital_interview_expert_candidates
+         (org_id,revision_id,expert_id,ordinal,initials,display_name,role,domains,
+          material_context_pack_id,material_version)
+       SELECT org_id,$3,expert_id,ordinal,initials,display_name,role,domains,
+              material_context_pack_id,material_version
+         FROM digital_interview_expert_candidates
+        WHERE org_id=$1 AND revision_id=$2`,
+      [input.orgId, current.revision_id, revisionId],
+    );
+
+    if (input.nodeName !== "confirm_topic") {
+      const topic = previousTopic.rows[0]?.topic;
+      if (!topic) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+      await session.query(
+        `INSERT INTO digital_interview_topic_versions
+           (org_id,id,interview_id,revision_id,version_number,topic,is_current,created_by)
+         VALUES ($1,$2,$3,$4,1,$5,true,$6)`,
+        [input.orgId, this.ids.next("itv-topic"), input.interviewId, revisionId, topic, input.actorId],
+      );
+    }
+    if (input.nodeName === "confirm_experts" && input.command.kind === "confirm_experts") {
+      const retainedExpertIds = new Set(input.command.expertIds);
+      let ordinal = 0;
+      for (const question of previousQuestions.rows) {
+        if (!retainedExpertIds.has(question.expert_id)) continue;
+        ordinal += 1;
+        await session.query(
+          `INSERT INTO digital_interview_question_candidates
+             (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [input.orgId, revisionId, question.question_id, question.expert_id,
+            ordinal, question.body, question.purpose],
+        );
+      }
+    }
+    if (input.nodeName === "confirm_questions") {
+      if (previousExperts.rows.length === 0) {
+        throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+      }
+      const expertVersionId = this.ids.next("itv-experts");
+      await session.query(
+        `INSERT INTO digital_interview_expert_snapshot_versions
+           (org_id,id,interview_id,revision_id,version_number,is_current,created_by)
+         VALUES ($1,$2,$3,$4,1,true,$5)`,
+        [input.orgId, expertVersionId, input.interviewId, revisionId, input.actorId],
+      );
+      for (const expert of previousExperts.rows) {
+        await session.query(
+          `INSERT INTO digital_interview_expert_snapshots(org_id,version_id,expert_id,ordinal)
+           VALUES ($1,$2,$3,$4)`,
+          [input.orgId, expertVersionId, expert.expert_id, expert.ordinal],
+        );
+      }
+    }
+    return { revisionId, revisionNumber };
+  }
+
+  private async finishStepProposals(
+    session: TenantSession,
+    orgId: OrgId,
+    revisionId: string,
+    nodeName: CommitDigitalInterviewStepInput["nodeName"],
+    command: CommitDigitalInterviewStepInput["command"],
+    committedVersionId: string,
+  ): Promise<void> {
+    const submittedPatch = command.kind === "confirm_topic"
+      ? { topic: command.topic }
+      : command.kind === "confirm_experts"
+        ? { expertIds: command.expertIds }
+        : { questions: command.questions };
+    await session.query(
+      `UPDATE digital_interview_skill_proposals
+          SET status=CASE WHEN status='applied_to_draft' AND patch=$5::jsonb
+                          THEN 'committed' ELSE 'stale' END,
+              applied_at=CASE WHEN status='applied_to_draft' AND patch=$5::jsonb
+                              THEN applied_at ELSE NULL END,
+              rejected_at=NULL,
+              committed_version_id=CASE WHEN status='applied_to_draft' AND patch=$5::jsonb
+                                        THEN $4 ELSE NULL END
+        WHERE org_id=$1 AND base_revision_id=$2 AND target_step=$3
+          AND status IN ('proposed','applied_to_draft')`,
+      [orgId, revisionId, nodeName.replace("confirm_", ""), committedVersionId, submittedPatch],
+    );
+  }
+
+  private async lockInterview(
+    session: TenantSession,
+    orgId: OrgId,
+    interviewId: string,
+    actorId: string,
+  ): Promise<LockedInterviewRow> {
     const result = await session.query<LockedInterviewRow>(
       `SELECT s.version, s.digital_status, r.id AS revision_id, r.revision_number
          FROM interview_sessions s
          JOIN digital_interview_revisions r
            ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
         WHERE s.org_id=$1 AND s.id=$2
+          AND EXISTS (
+            SELECT 1 FROM org_memberships om
+             WHERE om.org_id=$1 AND om.user_id=$3
+          )
+          AND (
+            s.created_by=$3
+            OR EXISTS (
+              SELECT 1 FROM interview_collaborators ic
+               WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
+            )
+            OR (
+              s.project_id IS NOT NULL AND EXISTS (
+                SELECT 1 FROM project_memberships pm
+                 WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
+              )
+            )
+          )
         FOR UPDATE OF s`,
-      [orgId, interviewId],
+      [orgId, interviewId, actorId],
     );
-    if (!result.rows[0]) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
+    if (!result.rows[0]) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
     return result.rows[0];
   }
 
@@ -368,26 +734,34 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   private async readReceipt(
     session: TenantSession,
     orgId: OrgId,
+    interviewId: string | null,
     operationName: string,
     requestId: string,
   ): Promise<ReceiptRow | null> {
-    const result = await session.query<ReceiptRow>(
-      `SELECT payload_digest,response_body FROM digital_interview_step_receipts
-        WHERE org_id=$1 AND operation_name=$2 AND request_id=$3`,
-      [orgId, operationName, requestId],
-    );
+    const result = interviewId === null
+      ? await session.query<ReceiptRow>(
+        `SELECT payload_digest,response_body FROM digital_interview_step_receipts
+          WHERE org_id=$1 AND operation_name=$2 AND request_id=$3`,
+        [orgId, operationName, requestId],
+      )
+      : await session.query<ReceiptRow>(
+        `SELECT payload_digest,response_body FROM digital_interview_step_receipts
+          WHERE org_id=$1 AND interview_id=$2 AND operation_name=$3 AND request_id=$4`,
+        [orgId, interviewId, operationName, requestId],
+      );
     return result.rows[0] ?? null;
   }
 
   private async lockRequest(
     session: TenantSession,
     orgId: OrgId,
+    interviewId: string | null,
     operationName: string,
     requestId: string,
   ): Promise<void> {
     await session.query(
       "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-      [`${orgId}\u0000${operationName}\u0000${requestId}`],
+      [`${orgId}\u0000${interviewId ?? "create"}\u0000${operationName}\u0000${requestId}`],
     );
   }
 
@@ -408,6 +782,22 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
        VALUES ($1,$2,$3,$4,$5,$6,201,$7,$8)`,
       [input.orgId, input.interviewId, input.operationId, input.operationName, input.requestId,
         payloadDigest(input.payload), input.workflow, input.workflow.version],
+    );
+  }
+
+  private async refreshReceipt(
+    session: TenantSession,
+    orgId: OrgId,
+    interviewId: string,
+    operationName: string,
+    requestId: string,
+    workflow: DigitalInterviewWorkflowView,
+  ): Promise<void> {
+    await session.query(
+      `UPDATE digital_interview_step_receipts
+          SET response_body=$5,response_version=$6
+        WHERE org_id=$1 AND interview_id=$2 AND operation_name=$3 AND request_id=$4`,
+      [orgId, interviewId, operationName, requestId, workflow, workflow.version],
     );
   }
 

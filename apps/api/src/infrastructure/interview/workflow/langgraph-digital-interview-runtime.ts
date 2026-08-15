@@ -2,7 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { Command, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import pg from "pg";
-import type { interview } from "@repo/contracts";
+import { interview } from "@repo/contracts";
 import type { z } from "zod";
 import type { ModelCallPort } from "../../../application/agent-run/ports";
 import { ModelCallError } from "../../../application/agent-run/ports";
@@ -48,17 +48,29 @@ function checkpointConfig(interviewId: string): RunnableConfig {
   return { configurable: { thread_id: interviewId, checkpoint_ns: CHECKPOINT_NS } };
 }
 
-function proposalPatch(text: string): Readonly<Record<string, unknown>> {
+const STEP_ORDER: Readonly<Record<z.infer<typeof interview.DigitalInterviewStep>, number>> = {
+  topic: 0, experts: 1, questions: 2, runs: 3, report: 4,
+};
+
+function proposalPatch(
+  text: string,
+  step: z.infer<typeof interview.DigitalInterviewStep>,
+): z.infer<typeof interview.DigitalInterviewSkillPatch> {
   try {
     const parsed = JSON.parse(text) as unknown;
-    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Readonly<Record<string, unknown>>;
+    const validated = interview.DigitalInterviewSkillPatch.safeParse(parsed);
+    if (validated.success) {
+      const matchesStep =
+        (step === "topic" && "topic" in validated.data)
+        || (step === "experts" && "expertIds" in validated.data)
+        || (step === "questions" && "questions" in validated.data)
+        || ((step === "runs" || step === "report") && "instruction" in validated.data);
+      if (matchesStep) return validated.data;
     }
   } catch {
-    // A provider may return prose even when asked for JSON. Persist the suggestion as data;
-    // never discard a durable assistant reply merely because its optional patch is unstructured.
+    // Handled below as a dependency response that cannot satisfy the signed patch contract.
   }
-  return { suggestion: text };
+  throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
 }
 
 export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime {
@@ -80,6 +92,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     await this.assertOrgMember(input.orgId, input.actorId);
     const replay = await this.deps.effects.findReceipt({
       orgId: input.orgId,
+      interviewId: null,
       operationName: "create_draft",
       requestId: input.requestId,
       payload: { name: input.name, tags: input.tags, scope: input.scope },
@@ -147,14 +160,19 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
   async appendSkillMessage(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly currentStep: z.infer<typeof interview.DigitalInterviewStep>; readonly text: string;
+    readonly draftContext: z.infer<typeof interview.DigitalInterviewSkillDraftContext>;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
     const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
     const replay = await this.deps.effects.findReceipt({
       orgId: input.orgId,
+      interviewId: input.interviewId,
       operationName: "append_skill_message",
       requestId: input.requestId,
-      payload: { currentStep: input.currentStep, text: input.text, expectedVersion: input.expectedVersion },
+      payload: {
+        currentStep: input.currentStep, text: input.text, draftContext: input.draftContext,
+        expectedVersion: input.expectedVersion,
+      },
     });
     if (replay) return replay;
     if (!this.deps.skillModelProvider || !this.deps.skillModelId) {
@@ -166,8 +184,17 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       completion = await this.deps.model.complete({
         modelProvider: this.deps.skillModelProvider,
         modelId: this.deps.skillModelId,
-        system: "你是数字专家访谈设计 Skill。只返回一个 JSON object，表示对当前步骤草稿的建议 patch。",
-        user: `当前步骤: ${input.currentStep}\n用户请求: ${input.text}`,
+        system: "你是数字专家访谈设计 Skill。只返回符合当前步骤严格 schema 的 JSON patch，不得修改其他步骤。",
+        user: JSON.stringify({
+          currentStep: input.currentStep,
+          confirmedWorkflow: {
+            name: current.name, tags: current.tags, scope: current.scope, topic: current.topic,
+            selectedExpertIds: current.selectedExpertIds, questions: current.questions,
+            revisionId: current.revisionId, version: current.version,
+          },
+          currentDraft: input.draftContext,
+          request: input.text,
+        }),
         history: current.skillMessages.map((message) => ({ role: message.role, content: message.text })),
       });
     } catch (error) {
@@ -175,14 +202,13 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       throw error;
     }
 
-    // The model boundary is an authorization boundary. Recheck after the response and once
-    // more immediately before the transaction so a revoked user leaves no assistant message.
-    await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
+    // The model boundary is an authorization boundary. The final check is performed again by
+    // the effect in the same transaction that locks and mutates the interview.
     await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
     return this.deps.effects.appendSkillMessage({
       ...input,
       assistantText: completion.text,
-      proposalPatch: proposalPatch(completion.text),
+      proposalPatch: proposalPatch(completion.text, input.currentStep),
       userMessageId: this.deps.ids.next("itv-skill-message"),
       assistantMessageId: this.deps.ids.next("itv-skill-message"),
       proposalId: this.deps.ids.next("itv-skill-proposal"),
@@ -213,23 +239,53 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     const operationName = command.kind;
     const config = checkpointConfig(input.interviewId);
     const replay = await this.deps.effects.findReceipt({
-      orgId: input.orgId, operationName, requestId: command.requestId, payload: command,
+      orgId: input.orgId, interviewId: input.interviewId,
+      operationName, requestId: command.requestId, payload: command,
     });
-    const state = await this.graph.getState(config);
     const expectedNode = command.kind;
-    if (replay && !state.next.includes(expectedNode)) return replay;
-    if (!state.next.includes(expectedNode)) {
+    const generationOperation = command.kind === "confirm_topic"
+      ? "generate_expert_candidates"
+      : command.kind === "confirm_experts"
+        ? "generate_questions"
+        : null;
+    if (replay && generationOperation !== null) {
+      const generated = await this.deps.effects.findReceipt({
+        orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
+        requestId: command.requestId, payload: { expectedVersion: replay.version },
+      });
+      if (generated) return generated;
+    } else if (replay) {
+      return replay;
+    }
+    if (!replay) {
       if (current.version !== command.expectedVersion) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
-      throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+      const targetStep = command.kind.replace("confirm_", "") as "topic" | "experts" | "questions";
+      if (targetStep !== current.currentStep) {
+        if (STEP_ORDER[targetStep] >= STEP_ORDER[current.currentStep]) {
+          throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
+        }
+        await this.graph.invoke(new Command({
+          update: { currentStep: targetStep, actorId: input.actorId },
+          goto: expectedNode,
+        }), config);
+      }
     }
 
     // The authorization above occurs directly before checkpoint load/resume. The effect is
     // receipt-first, so a crash after its business commit but before the next checkpoint is safe.
-    await this.graph.invoke(new Command({ resume: command }), config);
+    await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
+    if (generationOperation !== null) {
+      const generated = await this.deps.effects.findReceipt({
+        orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
+        requestId: command.requestId, payload: { expectedVersion: command.expectedVersion + 1 },
+      });
+      if (!generated) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    }
     const stored = await this.deps.effects.findReceipt({
-      orgId: input.orgId, operationName, requestId: command.requestId, payload: command,
+      orgId: input.orgId, interviewId: input.interviewId,
+      operationName, requestId: command.requestId, payload: command,
     });
     if (!stored) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     return stored;

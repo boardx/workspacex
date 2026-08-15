@@ -69,7 +69,9 @@ export class DigitalInterviewController {
   ) {
     assertPrincipal(principal);
     try {
-      return await this.workflow.createDraft({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...body });
+      return C.operations.createDigitalInterviewDraft.out.parse(
+        await this.workflow.createDraft({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...body }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -84,7 +86,9 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
     try {
-      return await this.workflow.confirmTopic({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.confirmDigitalInterviewTopic.out.parse(
+        await this.workflow.confirmTopic({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -99,7 +103,9 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.confirmDigitalInterviewExperts.in, this.withPath(body, { interviewId }));
     try {
-      return await this.workflow.confirmExperts({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.confirmDigitalInterviewExperts.out.parse(
+        await this.workflow.confirmExperts({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -114,7 +120,9 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(body, { interviewId }));
     try {
-      return await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.confirmDigitalInterviewQuestions.out.parse(
+        await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -129,7 +137,9 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.appendDigitalInterviewSkillMessage.in, this.withPath(body, { interviewId }));
     try {
-      return await this.workflow.appendSkillMessage({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.appendDigitalInterviewSkillMessage.out.parse(
+        await this.workflow.appendSkillMessage({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -148,7 +158,9 @@ export class DigitalInterviewController {
       this.withPath(body, { interviewId, proposalId }),
     );
     try {
-      return await this.workflow.applySkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.applyDigitalInterviewSkillProposal.out.parse(
+        await this.workflow.applySkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -167,7 +179,9 @@ export class DigitalInterviewController {
       this.withPath(body, { interviewId, proposalId }),
     );
     try {
-      return await this.workflow.rejectSkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.rejectDigitalInterviewSkillProposal.out.parse(
+        await this.workflow.rejectSkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }
@@ -251,7 +265,9 @@ export class DigitalInterviewController {
     assertPrincipal(principal);
     const input = this.parse(C.operations.getDigitalInterview.in, { interviewId });
     try {
-      return await this.workflow.get({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+      return C.operations.getDigitalInterview.out.parse(
+        await this.workflow.get({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
     } catch (error) {
       return this.translate(error);
     }

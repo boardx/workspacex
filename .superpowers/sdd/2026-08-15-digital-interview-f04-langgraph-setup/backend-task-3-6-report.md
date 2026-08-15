@@ -37,27 +37,51 @@ Branch: `worker/coord-user-research-04-f04-langgraph-persistence`
   `DigitalInterviewDraftInput`: their separately required topic now parses through the canonical
   topic operation schema.
 
+## Final-review fix round
+
+- Made `DigitalInterviewWorkflowView` the strict browser/recovery source of truth for scope,
+  visible expert candidates, generated question candidates, and Skill draft context. Controller
+  success bodies now parse through the corresponding shared operation output schemas.
+- Replaced both no-op generation nodes with durable effects. Topic confirmation snapshots the real
+  visible formal expert catalog; expert confirmation creates three stable-ID default questions per
+  newly selected expert. Expert reconfirmation retains confirmed questions for still-selected
+  experts, generates defaults only for new experts, and leaves removed experts/questions in the
+  superseded revision history.
+- Scoped all existing-aggregate receipts and advisory locks by interview while retaining the signed
+  org-level create replay key. Added the two-interview/same-request counterexample.
+- Added upstream reconfirmation through the installed LangGraph `Command` API, revision branching,
+  downstream invalidation, immutable superseded history, proposal staling, and crash recovery when
+  the confirmation receipt committed before its generation node.
+- Skill prompts now include confirmed scope/workflow, persistent conversation history, and the
+  step-matched page draft. Provider patches are strict step-specific schemas. Only an applied patch
+  equal to the confirmed payload is committed; other pending/applied proposals become stale.
+- Moved the final current-actor visibility/membership decision into the mutation transaction and
+  pass the current collaborator into each graph resume. A controlled pre-write revocation test and
+  collaborator attribution assertion cover the race.
+
 ## Verification evidence
 
-- `pnpm --filter api typecheck`: PASS, exit 0 (fresh run after all TypeScript changes).
+- `pnpm --filter @repo/contracts typecheck`: PASS, exit 0.
+- `pnpm --filter @repo/contracts test -- digital-interview-contract.test.ts`: PASS, 13/13.
+- `pnpm --filter api typecheck`: PASS, exit 0 (fresh sequential run after all fix-round changes).
 - Pure graph gate, run with a temporary no-global-setup Vitest config so it did not touch a database:
   `pnpm --filter api exec vitest run tests/itv/digital-interview-graph.test.ts --config vitest.f04-graph.config.ts --pool=forks --maxWorkers=1 --minWorkers=1`:
-  PASS, 1 file / 2 tests.
+  PASS, 1 file / 3 tests, including completed-checkpoint upstream reconfirmation and current-actor
+  propagation. The temporary config was removed after the run.
 - `git diff --check`: PASS (no output).
-- Isolated PostgreSQL command attempted once after implementation:
+- The single bounded isolated PostgreSQL attempt after the fix round used:
 
   ```text
   pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run \
-    tests/itv/digital-interview-graph.test.ts \
     tests/itv/digital-interview-workflow-migration.test.ts \
     tests/itv/digital-interview-langgraph-persistence.test.ts \
     tests/itv/digital-interview-setup.test.ts \
     tests/itv/digital-interview-controller.test.ts --pool=forks --maxWorkers=1 --minWorkers=1
   ```
 
-  Admission refused before Docker/database creation: `load1=213.45`, `cores=10`,
-  `perCore=21.35`, `running=0/2`, against the `2.5` per-core ceiling. After bounded retries the
-  final observed value at 30 seconds was `perCore=19.40`; the command was stopped with exit 130.
+  Admission refused before Docker/database creation: initial `load1=46.24`, `cores=10`,
+  `perCore=4.62`, `running=0/2`, against the `2.5` per-core ceiling. The final observations were
+  `perCore=4.02` at 30 seconds and `3.73` at 35 seconds; the bounded attempt was interrupted.
   No shared database was used. Therefore the migration replay/migrate-check, persistence, and
   authoritative HTTP gates are **blocked by resource admission**, not claimed passing. The pure
   graph gate was executed independently and passed as recorded above.
@@ -67,12 +91,6 @@ Branch: `worker/coord-user-research-04-f04-langgraph-persistence`
 - The database-backed gates could not execute under the machine admission ceiling. Migration SQL,
   PostgresSaver DDL compatibility, RLS/catalog assertions, graph checkpoint behavior, and full HTTP
   behavior still require one isolated run when admission opens.
-- The corrected shared `DigitalInterviewWorkflowView` schema omits `scope`, while the authoritative
-  Task 1 create/GET acceptance test requires scope recovery. The repository intentionally preserves
-  `scope` on the runtime HTTP object without editing Task 2-owned contracts. The contract owner
-  should reconcile this single-source mismatch.
-- The global plan states that changing an already-confirmed upstream step creates a new revision and
-  supersedes downstream versions. Tasks 3–6 provide the versioned schema, but the signed operation
-  flow and current graph only accept the next pending confirmation; no re-confirm/edit acceptance
-  route exists in Task 6. This behavior remains a product-contract gap rather than silently inventing
-  an unreviewed checkpoint-reset API.
+- Question generation is intentionally deterministic from the signed three-question template and
+  the persisted visible expert snapshot; it does not claim model-produced evidence. Candidate
+  material boundaries remain explicitly exploratory.

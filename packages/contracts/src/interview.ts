@@ -322,6 +322,32 @@ const DigitalInterviewQuestionList = z.array(DigitalInterviewQuestion)
 const DigitalInterviewQuestionConfirmation = z.array(DigitalInterviewQuestion).min(1)
   .superRefine(validateUniqueDigitalInterviewQuestions);
 
+/** 浏览器可直接消费的当前可见专家快照；它与专家目录复用同一个严格投影。 */
+export const DigitalExpertCatalogRow = z.object({
+  expertId: z.string().min(1),
+  initials: z.string().min(1),
+  displayName: z.string().min(1),
+  role: z.string().min(1),
+  domains: z.array(z.string().min(1)).min(1),
+  materialBoundary: z.string().min(1),
+  exploratory: z.literal(true),
+}).strict();
+
+export const DigitalInterviewSkillDraftContext = z.discriminatedUnion("step", [
+  z.object({ step: z.literal("topic"), topic: z.string().trim().min(1) }).strict(),
+  z.object({ step: z.literal("experts"), expertIds: DigitalInterviewExpertIds }).strict(),
+  z.object({ step: z.literal("questions"), questions: DigitalInterviewQuestionList }).strict(),
+  z.object({ step: z.literal("runs"), instruction: z.string().trim().min(1) }).strict(),
+  z.object({ step: z.literal("report"), instruction: z.string().trim().min(1) }).strict(),
+]);
+
+export const DigitalInterviewSkillPatch = z.union([
+  z.object({ topic: z.string().trim().min(1) }).strict(),
+  z.object({ expertIds: DigitalInterviewExpertIds }).strict(),
+  z.object({ questions: DigitalInterviewQuestionList }).strict(),
+  z.object({ instruction: z.string().trim().min(1) }).strict(),
+]);
+
 /** Skill 线程的持久消息。业务正文不进入 LangGraph checkpoint。 */
 export const DigitalInterviewSkillMessage = z.object({
   messageId: z.string().min(1),
@@ -337,7 +363,7 @@ const DigitalInterviewSkillProposalBase = z.object({
   sourceMessageId: z.string().min(1),
   targetStep: DigitalInterviewStep,
   baseRevisionId: z.string().min(1),
-  patch: z.record(z.unknown()),
+  patch: DigitalInterviewSkillPatch,
   createdAt: z.string().datetime(),
 });
 
@@ -380,12 +406,15 @@ export const DigitalInterviewSkillProposal = z.discriminatedUnion("status", [
  * localStorage 或未确认的 dirty buffer 推断状态。
  */
 export const DigitalInterviewWorkflowView = DigitalInterview.extend({
+  scope: InterviewScope,
   currentStep: DigitalInterviewStep,
   revisionId: z.string().min(1),
   topicVersionId: z.string().min(1).nullable(),
   expertSnapshotVersionId: z.string().min(1).nullable(),
   questionVersionId: z.string().min(1).nullable(),
+  expertCandidates: z.array(DigitalExpertCatalogRow),
   questions: DigitalInterviewQuestionList,
+  questionCandidates: DigitalInterviewQuestionList,
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),
@@ -398,23 +427,13 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
 
 export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   interviewId: z.string().min(1),
+  topic: z.string().trim().min(1).nullable(),
   kind: z.enum(["quick", "batch"]),
   status: DigitalInterviewStatus,
   expertCount: z.number().int().nonnegative(),
   completedExpertCount: z.number().int().nonnegative(),
   primaryAction: DigitalInterviewPrimaryAction,
   updatedAt: z.string().datetime(),
-}).strict();
-
-/** 可快捷访谈的数字专家。材料不足必须明示，不能把探索性回答包装成证据。 */
-export const DigitalExpertCatalogRow = z.object({
-  expertId: z.string().min(1),
-  initials: z.string().min(1),
-  displayName: z.string().min(1),
-  role: z.string().min(1),
-  domains: z.array(z.string().min(1)).min(1),
-  materialBoundary: z.string().min(1),
-  exploratory: z.boolean(),
 }).strict();
 
 export const QuickDigitalInterviewMessage = z.object({
@@ -693,9 +712,18 @@ export const operations = {
       interviewId: z.string().min(1),
       currentStep: DigitalInterviewStep,
       text: z.string().trim().min(1),
+      draftContext: DigitalInterviewSkillDraftContext,
       expectedVersion: z.number().int().positive(),
       requestId: z.string().min(1),
-    }).strict(),
+    }).strict().superRefine((value, context) => {
+      if (value.currentStep !== value.draftContext.step) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["draftContext", "step"],
+          message: "draftContext.step must match currentStep",
+        });
+      }
+    }),
     out: DigitalInterviewWorkflowView,
     err: ["NO_INTERVIEW_ACCESS", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
   },

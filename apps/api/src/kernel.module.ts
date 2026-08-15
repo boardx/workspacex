@@ -1029,9 +1029,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: DIGITAL_INTERVIEW_EFFECTS,
-      useFactory: (db: DatabasePort, ids: import("./application/artifact/ports").IdFactory) =>
-        new PgDigitalInterviewEffects(db, ids),
-      inject: [DATABASE_PORT, ID_FACTORY],
+      useFactory: (
+        db: DatabasePort,
+        ids: import("./application/artifact/ports").IdFactory,
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+      ) => new PgDigitalInterviewEffects(db, ids, repo),
+      inject: [DATABASE_PORT, ID_FACTORY, DIGITAL_INTERVIEW_REPOSITORY],
     },
     {
       provide: DIGITAL_INTERVIEW_RUNTIME,

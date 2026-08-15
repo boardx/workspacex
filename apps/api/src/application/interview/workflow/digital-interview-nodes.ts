@@ -9,7 +9,11 @@ import type {
   DigitalInterviewGraphState,
 } from "./digital-interview-state";
 
-function operationId(state: DigitalInterviewGraphState, nodeName: ConfirmationNodeName, requestId: string): string {
+function operationId(
+  state: DigitalInterviewGraphState,
+  nodeName: ConfirmationNodeName | "generate_expert_candidates" | "generate_questions",
+  requestId: string,
+): string {
   return `${state.interviewId}:${nodeName}:${state.revisionNumber}:${requestId}`;
 }
 
@@ -23,6 +27,8 @@ function statePatch(result: CommitDigitalInterviewStepResult): Partial<DigitalIn
     questionVersionId: result.questionVersionId,
     skillThreadId: result.skillThreadId,
     lastOperationId: result.operationId,
+    lastRequestId: result.requestId,
+    aggregateVersion: result.aggregateVersion,
     command: null,
     errorCode: null,
   };
@@ -51,11 +57,31 @@ export function createConfirmationNode(
   };
 }
 
-export function generateExpertCandidatesNode(): Partial<DigitalInterviewGraphState> {
+export async function generateExpertCandidatesNode(
+  state: DigitalInterviewGraphState,
+  effects: DigitalInterviewEffects,
+): Promise<Partial<DigitalInterviewGraphState>> {
+  if (!state.lastRequestId) return { errorCode: "DIGITAL_INTERVIEW_STEP_INVALID" };
+  await effects.generateExpertCandidates({
+    orgId: state.orgId, actorId: state.actorId, interviewId: state.interviewId,
+    revisionId: state.revisionId, revisionNumber: state.revisionNumber,
+    expectedVersion: state.aggregateVersion, requestId: state.lastRequestId,
+    operationId: operationId(state, "generate_expert_candidates", state.lastRequestId),
+  });
   return { errorCode: null };
 }
 
-export function generateQuestionsNode(): Partial<DigitalInterviewGraphState> {
+export async function generateQuestionsNode(
+  state: DigitalInterviewGraphState,
+  effects: DigitalInterviewEffects,
+): Promise<Partial<DigitalInterviewGraphState>> {
+  if (!state.lastRequestId) return { errorCode: "DIGITAL_INTERVIEW_STEP_INVALID" };
+  await effects.generateQuestions({
+    orgId: state.orgId, actorId: state.actorId, interviewId: state.interviewId,
+    revisionId: state.revisionId, revisionNumber: state.revisionNumber,
+    expectedVersion: state.aggregateVersion, requestId: state.lastRequestId,
+    operationId: operationId(state, "generate_questions", state.lastRequestId),
+  });
   return { errorCode: null };
 }
 

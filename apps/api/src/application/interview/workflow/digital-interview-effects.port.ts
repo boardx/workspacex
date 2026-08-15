@@ -26,6 +26,19 @@ export interface CommitDigitalInterviewStepResult {
   readonly questionVersionId: string | null;
   readonly skillThreadId: string;
   readonly operationId: string;
+  readonly requestId: string;
+  readonly aggregateVersion: number;
+}
+
+export interface GenerateDigitalInterviewDraftInput {
+  readonly orgId: string;
+  readonly actorId: string;
+  readonly interviewId: string;
+  readonly revisionId: string;
+  readonly revisionNumber: number;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+  readonly operationId: string;
 }
 
 export interface DigitalInterviewEffects {
@@ -36,12 +49,13 @@ export interface DigitalInterviewEffects {
     readonly name: string; readonly tags: readonly string[]; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView>;
   findReceipt(input: {
-    readonly orgId: OrgId; readonly operationName: string; readonly requestId: string;
+    readonly orgId: OrgId; readonly interviewId: string | null;
+    readonly operationName: string; readonly requestId: string;
     readonly payload: unknown;
   }): Promise<DigitalInterviewWorkflowView | null>;
   appendSkillMessage(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
-    readonly currentStep: DigitalInterviewStep; readonly text: string;
+    readonly currentStep: DigitalInterviewStep; readonly text: string; readonly draftContext: unknown;
     readonly assistantText: string; readonly proposalPatch: Readonly<Record<string, unknown>>;
     readonly expectedVersion: number; readonly requestId: string;
     readonly userMessageId: string; readonly assistantMessageId: string; readonly proposalId: string;
@@ -51,6 +65,8 @@ export interface DigitalInterviewEffects {
     readonly proposalId: string; readonly status: "applied_to_draft" | "rejected";
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView>;
+  generateExpertCandidates(input: GenerateDigitalInterviewDraftInput): Promise<void>;
+  generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void>;
 }
 
 export const DIGITAL_INTERVIEW_EFFECTS = Symbol("DigitalInterviewEffects");
