@@ -143,4 +143,24 @@ describe("F162 限额规则 —— 只投影真实响应", () => {
     await waitFor(() => expect(screen.getByTestId("admin-limit-rule-rule-new")).toBeTruthy());
     expect(reads).toBeGreaterThanOrEqual(2);
   });
+
+  describe("2026-08-15 · 卡片/列表视图切换", () => {
+    it("默认卡片视图：规则网格可见，切到列表视图后同一条规则仍在，字段不丢", async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ rules: [rule()] }));
+
+      render(<LimitRulesLive />);
+      await waitFor(() => expect(screen.getByTestId("admin-limit-rules-live")).toBeTruthy());
+      expect(screen.getByTestId("admin-limit-rules-cards")).toBeTruthy();
+      expect(screen.queryByTestId("admin-limit-rules-list")).toBeNull();
+      expect(screen.getByTestId("admin-limit-rule-used-rule-1").textContent).toContain("96%");
+
+      fireEvent.click(screen.getByTestId("admin-limits-view-toggle-list"));
+
+      expect(screen.getByTestId("admin-limit-rules-list")).toBeTruthy();
+      expect(screen.queryByTestId("admin-limit-rules-cards")).toBeNull();
+      // 切到列表视图后同一条规则（同一个 ruleId）仍然可见，字段没有丢。
+      expect(screen.getByTestId("admin-limit-rule-used-rule-1").textContent).toContain("96%");
+      expect(screen.getByText(/自动降级 → sonnet-4\.6/)).toBeTruthy();
+    });
+  });
 });

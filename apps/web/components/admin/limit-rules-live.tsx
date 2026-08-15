@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { AdminModal, Field, Toast } from "./panel";
+import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -57,6 +58,8 @@ export function LimitRulesLive() {
   const [draftCap, setDraftCap] = React.useState("");
   const [formError, setFormError] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  /** 限额规则是一条条规则的 entity 列表——默认卡片视图，可切列表。 */
+  const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
   // 新建表单
   const [scopeKind, setScopeKind] = React.useState<LimitScopeKind>("member");
@@ -158,8 +161,9 @@ export function LimitRulesLive() {
 
   return (
     <div className="flex flex-col gap-3" data-testid="admin-limit-rules-live">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-11 text-muted-foreground">共 {data.rules.length} 条规则</span>
+        <ViewModeToggle module="limits" mode={viewMode} onChange={setViewMode} />
         <Button size="xs" variant="primary" className="ml-auto" data-testid="admin-limit-rule-new"
           onClick={() => { setCreating(true); setFormError(null); }}>
           <Plus aria-hidden className="h-3.5 w-3.5" />
@@ -173,81 +177,92 @@ export function LimitRulesLive() {
         </p>
       )}
 
-      {data.rules.map((r) => {
-        const pct = Math.round(r.usedRatio * 100);
-        const noMetric = r.scopeKind === "agent";
-        return (
-          <div
-            key={r.ruleId}
-            data-testid={`admin-limit-rule-${r.ruleId}`}
-            className={
-              "flex flex-col gap-2.5 rounded-lg border p-3 " +
-              (pct >= 90 && !noMetric ? "border-warning/40 bg-warning/5" : "border-border bg-card")
-            }
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="outline">{SCOPE_LABEL[r.scopeKind]}</Badge>
-              <span className="min-w-0 flex-1 truncate text-12 font-medium">{r.scopeRef}</span>
-              <Toggle
-                id={`admin-limit-rule-toggle-${r.ruleId}`}
-                data-testid={`admin-limit-rule-toggle-${r.ruleId}`}
-                checked={r.enabled}
-                onCheckedChange={() => void toggle(r)}
-                label={`${r.scopeRef} 规则启用状态`}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-11">
-              <div>
-                <div className="mb-1 text-10 text-muted-foreground">适用模型</div>
-                <div className="truncate font-mono text-11">{r.modelId ?? "全部模型"}</div>
-              </div>
-              <div>
-                <div className="mb-1 text-10 text-muted-foreground">窗口</div>
-                <div className="text-11">{WINDOW_LABEL[r.windowKind]}</div>
-              </div>
-              <div>
-                <div className="mb-1 text-10 text-muted-foreground">上限</div>
-                <div className="font-mono text-11">{fmt(r.thresholdTokens)} token</div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-11">
-              {noMetric ? (
-                // 不画 0%：一条永远不会触发的规则不该看起来在正常工作。
-                <span className="text-muted-foreground" data-testid={`admin-limit-rule-nometric-${r.ruleId}`}>
-                  该范围暂无计量维度（用量按 Agent 归集尚未实现），本规则当前不会触发
-                </span>
-              ) : (
-                <>
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : "bg-foreground"}`}
-                      style={{ width: `${Math.min(100, pct)}%` }}
-                    />
+      {data.rules.length > 0 && (
+        <div
+          className={
+            viewMode === "card"
+              ? "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+          data-testid={viewMode === "card" ? "admin-limit-rules-cards" : "admin-limit-rules-list"}
+        >
+          {data.rules.map((r) => {
+            const pct = Math.round(r.usedRatio * 100);
+            const noMetric = r.scopeKind === "agent";
+            return (
+              <div
+                key={r.ruleId}
+                data-testid={`admin-limit-rule-${r.ruleId}`}
+                className={
+                  "flex flex-col gap-2.5 rounded-lg border p-3 " +
+                  (pct >= 90 && !noMetric ? "border-warning/40 bg-warning/5" : "border-border bg-card")
+                }
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="outline">{SCOPE_LABEL[r.scopeKind]}</Badge>
+                  <span className="min-w-0 flex-1 truncate text-12 font-medium">{r.scopeRef}</span>
+                  <Toggle
+                    id={`admin-limit-rule-toggle-${r.ruleId}`}
+                    data-testid={`admin-limit-rule-toggle-${r.ruleId}`}
+                    checked={r.enabled}
+                    onCheckedChange={() => void toggle(r)}
+                    label={`${r.scopeRef} 规则启用状态`}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-11">
+                  <div>
+                    <div className="mb-1 text-10 text-muted-foreground">适用模型</div>
+                    <div className="truncate font-mono text-11">{r.modelId ?? "全部模型"}</div>
                   </div>
-                  <span className="font-mono text-10" data-testid={`admin-limit-rule-used-${r.ruleId}`}>
-                    已用 {fmt(r.observedTokens)}（{pct}%）
+                  <div>
+                    <div className="mb-1 text-10 text-muted-foreground">窗口</div>
+                    <div className="text-11">{WINDOW_LABEL[r.windowKind]}</div>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-10 text-muted-foreground">上限</div>
+                    <div className="font-mono text-11">{fmt(r.thresholdTokens)} token</div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-11">
+                  {noMetric ? (
+                    // 不画 0%：一条永远不会触发的规则不该看起来在正常工作。
+                    <span className="text-muted-foreground" data-testid={`admin-limit-rule-nometric-${r.ruleId}`}>
+                      该范围暂无计量维度（用量按 Agent 归集尚未实现），本规则当前不会触发
+                    </span>
+                  ) : (
+                    <>
+                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : "bg-foreground"}`}
+                          style={{ width: `${Math.min(100, pct)}%` }}
+                        />
+                      </div>
+                      <span className="font-mono text-10" data-testid={`admin-limit-rule-used-${r.ruleId}`}>
+                        已用 {fmt(r.observedTokens)}（{pct}%）
+                      </span>
+                    </>
+                  )}
+                  <span className="ml-auto text-11">
+                    触顶动作：{ACTION_LABEL[r.action]}
+                    {r.action === "degrade" && r.degradeToModelId ? ` → ${r.degradeToModelId}` : ""}
                   </span>
-                </>
-              )}
-              <span className="ml-auto text-11">
-                触顶动作：{ACTION_LABEL[r.action]}
-                {r.action === "degrade" && r.degradeToModelId ? ` → ${r.degradeToModelId}` : ""}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <Button size="xs" variant="outline" data-testid={`admin-limit-rule-edit-${r.ruleId}`}
-                onClick={() => { setEditing(r); setDraftCap(String(r.thresholdTokens)); setFormError(null); }}>
-                改阈值
-              </Button>
-              <Button size="xs" variant="ghost" data-testid={`admin-limit-rule-delete-${r.ruleId}`}
-                onClick={() => void remove(r)}>
-                <Trash2 aria-hidden className="h-3.5 w-3.5" />
-                删除
-              </Button>
-            </div>
-          </div>
-        );
-      })}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="xs" variant="outline" data-testid={`admin-limit-rule-edit-${r.ruleId}`}
+                    onClick={() => { setEditing(r); setDraftCap(String(r.thresholdTokens)); setFormError(null); }}>
+                    改阈值
+                  </Button>
+                  <Button size="xs" variant="ghost" data-testid={`admin-limit-rule-delete-${r.ruleId}`}
+                    onClick={() => void remove(r)}>
+                    <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                    删除
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {creating && (
         <AdminModal
