@@ -15,14 +15,15 @@ import {
   listPersonalTranscriptionTags,
   readPersonalTranscription,
   stopPersonalTranscription,
+  updatePersonalTranscriptionContent,
   updatePersonalTranscriptionMetadata,
   type PersonalTranscriptionDetail,
   type PersonalTranscriptionSummary,
 } from "@/lib/live-personal-transcriptions";
 import type { UiState } from "@/lib/ui-state";
-import { openAsrDraftStream, type AsrDraftStreamHandle } from "@/lib/live-asr-draft";
+import { openBoardxRealtimeAsr, type BoardxRealtimeAsrHandle } from "@/lib/BoardxRealtimeAsrClient";
 import { LiveRecordingError } from "@/lib/live-recording";
-import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
+import type { RealtimeAsrFinalEvent, RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
 import type { TranscriptionHistoryItem } from "@/lib/mock/realtime-transcriptions";
 import { CreateTranscriptionDialog, type NewTranscriptionDraft } from "./create-transcription-dialog";
 import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
@@ -49,7 +50,8 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
   const [interimSegment, setInterimSegment] = React.useState("");
   const [streamError, setStreamError] = React.useState<string | null>(null);
-  const streamRef = React.useRef<AsrDraftStreamHandle | null>(null);
+  const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
+  const receivedFinalIdsRef = React.useRef(new Set<string>());
 
   React.useEffect(() => {
     let active = true;
@@ -135,25 +137,26 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     if (!activeSession || streamRef.current || streamState === "connecting") return;
     setStreamError(null);
     setInterimSegment("");
+    receivedFinalIdsRef.current.clear();
     setStreamState("connecting");
     try {
-      streamRef.current = await openAsrDraftStream({
-        onPartial: setInterimSegment,
-        onFinal: (text) => {
-          setInterimSegment("");
-          setActiveSession((current) => appendTransientFinal(current, text));
+      streamRef.current = await openBoardxRealtimeAsr(activeSession.sessionId, {
+        sessionToken,
+        handlers: {
+          onState: setStreamState,
+          onInterim: setInterimSegment,
+          onFinal: (event) => {
+            if (receivedFinalIdsRef.current.has(event.segmentId)) return;
+            receivedFinalIdsRef.current.add(event.segmentId);
+            setInterimSegment("");
+            setActiveSession((current) => appendFinalEvent(current, event));
+          },
+          onError: (reason) => {
+            setStreamError(streamErrorText(reason));
+            streamRef.current = null;
+          },
         },
-        onError: (reason) => {
-          setStreamState("error");
-          setStreamError(streamErrorText(reason));
-          streamRef.current = null;
-        },
-        onFinished: () => {
-          streamRef.current = null;
-          setStreamState("idle");
-        },
-      }, { sessionToken });
-      setStreamState("recording");
+      });
     } catch (error) {
       streamRef.current = null;
       setStreamState("error");
@@ -163,6 +166,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
 
   async function stopRealtimeTranscription() {
     const handle = streamRef.current;
+    const sessionId = activeSession?.sessionId;
     if (!handle && activeSession?.status === "recording") {
       setStreamError(null);
       setStreamState("stopping");
@@ -177,23 +181,33 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
       }
       return;
     }
-    if (!handle) return;
+    if (!handle || !sessionId) return;
     setStreamError(null);
     setStreamState("stopping");
     try {
       await handle.stop();
       setInterimSegment("");
+      setActiveSession(await readPersonalTranscription(sessionId, sessionToken));
+      setListRevision((current) => current + 1);
       setStreamState("idle");
     } catch {
       setStreamState("error");
-      setStreamError("转录收尾失败，当前页面已识别的文字仍然保留，请重新开始后重试。");
+      setStreamError("转录收尾失败，已保存的最终文字不会丢失，请重新打开后重试。");
     } finally {
       streamRef.current = null;
     }
   }
 
-  async function saveContentLocally(content: string) {
-    setActiveSession((current) => current ? { ...current, content } : current);
+  async function saveContent(content: string) {
+    if (!activeSession) return;
+    setStreamError(null);
+    try {
+      setActiveSession(await updatePersonalTranscriptionContent(activeSession.sessionId, content, sessionToken));
+      setListRevision((current) => current + 1);
+    } catch {
+      setStreamError("正文保存失败，请稍后重试。");
+      throw new Error("TRANSCRIPTION_CONTENT_SAVE_FAILED");
+    }
   }
 
   React.useEffect(() => () => { void streamRef.current?.stop(); }, []);
@@ -202,7 +216,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
       interimSegment={interimSegment} errorMessage={streamError}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
-      onSaveContent={saveContentLocally}
+      onSaveContent={saveContent}
       onBack={() => { if (!streamRef.current) setActiveSession(null); }} />;
   }
 
@@ -283,12 +297,12 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   );
 }
 
-function appendTransientFinal(
+function appendFinalEvent(
   current: PersonalTranscriptionDetail | null,
-  text: string,
+  event: RealtimeAsrFinalEvent,
 ): PersonalTranscriptionDetail | null {
   if (!current) return null;
-  return { ...current, content: [current.content, text].filter(Boolean).join(" ") };
+  return { ...current, content: [current.content, event.text].filter(Boolean).join(" ") };
 }
 
 function streamErrorText(reason: string): string {

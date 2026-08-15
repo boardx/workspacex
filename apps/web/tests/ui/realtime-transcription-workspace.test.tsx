@@ -24,6 +24,8 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-status")).toHaveTextContent("可续录");
     expect(screen.queryByText("已完成")).not.toBeInTheDocument();
     expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("继续转录");
+    expect(screen.queryByTestId("rec-live-transient-notice")).not.toBeInTheDocument();
+    expect(screen.getByText("最终识别会持续追加并保存为一段正文，停止后可以修改。")).toBeVisible();
   });
 
   it("renders one body without segment timestamps and copies the whole body", async () => {
