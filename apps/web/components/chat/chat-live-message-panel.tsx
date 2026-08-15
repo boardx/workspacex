@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
@@ -693,6 +694,25 @@ export function ChatLiveMessagePanel({
                       </span>
                       {isAgent ? agentDuty(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
+                      {/*
+                        FB-2 —— 对**这个 agent 本身**提反馈（与同一行上的 👍/👎 不是一件事）。
+
+                        ⚠ 消息级 👍/👎（F176）答的是「这一条回答好不好」；这个按钮答的是
+                          「这个 agent 老是漏掉附件」这类跨很多条消息、需要正文的话。
+                          两者都留，是因为它们在下游走两条不同的路：前者聚合成满意度与改进建议，
+                          后者直接进分诊队列（`components/feedback/feedback-button.tsx` 头注）。
+
+                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是**真实 agent id**，
+                          不是显示名。显示名会改，反馈要能一直对上同一个 agent。
+                      */}
+                      {isAgent && message.agentId !== null && (
+                        <FeedbackButton
+                          target={{ kind: "agent", agentId: message.agentId }}
+                          targetLabel={agentLabel(message.agentId, agents)}
+                          testid="chat-agent-feedback"
+                          className="invisible focus-visible:visible group-hover:visible"
+                        />
+                      )}
                       {/*
                         V3 —— 逐条复制。hover 出现（`opacity-0 group-hover`），键盘聚焦时也
                         显形（`focus-visible:opacity-100`）保证键盘可达；复制后 2 秒内显对勾。

@@ -621,6 +621,20 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   blueprint: () => AG_BLUEPRINTS.length,
   overview: () => OVERVIEW_ANOMALIES.length,
   members: () => MEMBERS.length,
-  feedback: () => SW_FEEDBACK_SUMMARY.pending,
+  /**
+   * FB-3：反馈屏已接真实后端，「待处理」条数只能由 `GET /feedback/counts` 异步给出，
+   * 而这个计数源的签名是同步的（`() => number`）。
+   *
+   * ⚠ 所以这里**抛错**，让左栏显示「—」——而不是继续返回 `SW_FEEDBACK_SUMMARY.pending`
+   *   那个 mock 数字。一个 mock 计数摆在一块真数据的屏旁边，是最难发现的一种谎：
+   *   它看起来完全正常，只是永远不动。门控（`admin-nav`）本来就有「取不到显示—、
+   *   单类失败不传染」这条不变量，这里用的正是它。
+   *
+   *   要让它变成真数字，需要把计数源改成异步（会动到全部十个来源的签名），
+   *   不在本次改动范围内。
+   */
+  feedback: () => {
+    throw new Error("反馈待处理数需异步查询 GET /feedback/counts；同步计数源给不出，显示「—」而不是 mock 数字");
+  },
   local: () => 1,
 };
