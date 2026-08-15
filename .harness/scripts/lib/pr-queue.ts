@@ -127,7 +127,7 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * pr-queue.test.ts 的机械核对走：先跑测试确认真的会红（复现 #848 那类"改名后
  * 门禁静默失效"），改完这行再确认转绿——不是先改代码再回头补测试。
  */
-export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected"] as const;
+export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected", "verify-full-compile"] as const;
 
 function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
