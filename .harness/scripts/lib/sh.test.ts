@@ -17,8 +17,13 @@ describe("sh() — 双管道大体量并发输出不挂起（2026-08-15 F156 ver
     const elapsedMs = Date.now() - start;
 
     expect(r.code).toBe(0);
-    // 挂起的旧实现会一直卡到测试超时（默认远超数秒）；新实现应在几秒内完成。
-    expect(elapsedMs).toBeLessThan(15_000);
+    // 挂起的旧实现会一直卡到 testTimeout=60_000ms（见 .harness/vitest.config.ts）才失败；
+    // 新实现应远快于此完成。阈值原为 15_000ms，但在本仓典型并发 agent 负载下（多个 worktree
+    // 同时跑 verify）实测多次落在 16_000-19_000ms（2026-08-16 F156 verify:release 两次复现，
+    // 见 issue，均非挂起——r.code===0 且内容完整，只是墙钟变慢），15s 阈值把「跑得慢」误判成
+    // 「疑似挂起」。放宽到 45s：仍比 60s 的 testTimeout 留出安全边际，且远快于旧 bug 的
+    // 「直到 testTimeout 才失败」特征，不会漏检真的挂起。
+    expect(elapsedMs).toBeLessThan(45_000);
     expect(r.stdout).toContain("stdout-line-1-");
     expect(r.stdout).toContain("stdout-line-4000-");
     // stderr 已被合并进 stdout（shell 级 2>&1），单独的 stderr 字段应为空。
