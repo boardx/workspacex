@@ -154,6 +154,10 @@ describe("verify-cache", () => {
       const g = (args: string) =>
         execFileSync("git", args.split(" "), { cwd: tmp, encoding: "utf8" }).trim();
       execFileSync("git", ["init", "-q", "."], { cwd: tmp });
+      // ⚠ 不要硬编码 "main"：`git init` 的默认分支名取决于环境的
+      // init.defaultBranch（本机是 main，GitHub runner 上不是）——这条测试第一次
+      // 提交时就是这么在 CI 上红的，本地全绿。取实际分支名，不假设。
+      const mainBranch = g("symbolic-ref --short HEAD"); // 对尚无提交的 HEAD 也有效
       g("config user.email t@e.com");
       g("config user.name t");
       writeFileSync(join(tmp, "x.txt"), "1\n");
@@ -169,11 +173,11 @@ describe("verify-cache", () => {
       const mbBefore = g("merge-base origin/main HEAD");
 
       // origin/main 前进到 C，HEAD 与工作树都不动
-      g("checkout -q main");
+      g(`checkout -q ${mainBranch}`);
       writeFileSync(join(tmp, "z.txt"), "3\n");
       g("add .");
       g("commit -qm C");
-      g(`update-ref refs/remotes/origin/main ${g("rev-parse main")}`);
+      g(`update-ref refs/remotes/origin/main ${g(`rev-parse ${mainBranch}`)}`);
       g("checkout -q feature");
 
       expect(g("rev-parse HEAD")).toBe(head); // HEAD 没变
