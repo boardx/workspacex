@@ -130,13 +130,14 @@ describe("F180 signed guided-research visual contract", () => {
     }
   });
 
-  it("uses the whole research workspace for the final report", async () => {
+  it("keeps the research Skill assistant beside the final report", async () => {
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
 
     await screen.findByTestId("research-flow-report");
-    expect(screen.queryByTestId("research-skill-assistant")).not.toBeInTheDocument();
-    expect(screen.getByTestId("research-report")).toHaveAttribute("data-layout", "full-width-report");
+    const assistant = screen.getByTestId("research-skill-assistant");
+    expect(assistant.closest("[data-layout]")).toHaveAttribute("data-layout", "skill-workspace-thirds");
+    expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
   it("keeps future checkpoints disabled and labels every demo output", async () => {
