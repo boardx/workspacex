@@ -455,3 +455,40 @@ export async function reviewOrgInviteLink(
     { method: "POST", body: { orgId, linkId, decision, reason: null } },
   );
 }
+
+/* ═══════════════ issue #852 delta：组织管理员任命 Skill 审核人职能 ═══════════════
+ *
+ * 在这三个函数之前，`skill_reviewer_functions` 全仓零生产写入方——`functionOf()`
+ * 在任何新组织里恒返回 null，一个新组织永远造不出一个「已启用」的 skill。
+ */
+
+export type SkillReviewerFunctionValue = z.infer<typeof orgAdmin.SkillReviewerFunction>;
+export type AssignSkillReviewerFunctionOut = z.infer<typeof orgAdmin.operations.assignSkillReviewerFunction.out>;
+export type RevokeSkillReviewerFunctionOut = z.infer<typeof orgAdmin.operations.revokeSkillReviewerFunction.out>;
+export type ListSkillReviewerFunctionsOut = z.infer<typeof orgAdmin.operations.listSkillReviewerFunctions.out>;
+
+/** 仅 admin。upsert 覆盖式指派——对已持有职能的人再调一次是「改指派」，不是叠加。 */
+export async function assignSkillReviewerFunction(
+  orgId: string, userId: string, reviewerFunction: SkillReviewerFunctionValue,
+): Promise<AssignSkillReviewerFunctionOut> {
+  return apiRequest<AssignSkillReviewerFunctionOut>(
+    path(orgAdmin.operations.assignSkillReviewerFunction.path, { orgId, userId }),
+    { method: "POST", body: { orgId, userId, reviewerFunction } },
+  );
+}
+
+/** 仅 admin。撤销一个从未被指派过的人会拿到 `NOT_ASSIGNED`（404），不是静默成功。 */
+export async function revokeSkillReviewerFunction(
+  orgId: string, userId: string,
+): Promise<RevokeSkillReviewerFunctionOut> {
+  return apiRequest<RevokeSkillReviewerFunctionOut>(
+    path(orgAdmin.operations.revokeSkillReviewerFunction.path, { orgId, userId }),
+    { method: "POST", body: { orgId, userId } },
+  );
+}
+
+/** 仅 admin 可读——同 `anotherMethodologyReviewerExists` 的既有纪律：谁能审我不是给提交人看的信息。 */
+export async function listSkillReviewerFunctions(orgId: string): Promise<ListSkillReviewerFunctionsOut> {
+  return apiRequest<ListSkillReviewerFunctionsOut>(
+    path(orgAdmin.operations.listSkillReviewerFunctions.path, { orgId }), { method: "GET" });
+}

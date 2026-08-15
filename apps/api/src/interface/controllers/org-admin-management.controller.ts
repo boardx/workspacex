@@ -88,6 +88,13 @@ import {
   type OrgInviteRepository,
 } from "../../application/auth/org-invite-ports";
 import { ORG_MEMBER_REPOSITORY, type OrgMemberRepository } from "../../application/auth/org-member-ports";
+import { assignSkillReviewerFunction } from "../../application/skill/assign-reviewer-function";
+import { revokeSkillReviewerFunction } from "../../application/skill/revoke-reviewer-function";
+import { listSkillReviewerFunctions } from "../../application/skill/list-reviewer-functions";
+import {
+  SKILL_CONTRACT_REPOSITORY,
+  type SkillContractRepositoryFactory,
+} from "../../application/skill/ports";
 import { TEAM_REPOSITORY, type TeamRepository } from "../../application/auth/team-ports";
 import { ORG_PROFILE_REPOSITORY, type OrgProfileRepository } from "../../application/auth/org-profile-ports";
 import { SESSION_TOKEN_STORE, type SessionTokenStore } from "../../application/auth/ports";
@@ -117,6 +124,9 @@ export const UPLOAD_ORG_AVATAR_SCHEMA = C.operations.uploadOrgAvatar.in;
 /** F160（token-quota-and-usage delta）。同上，导出以证明与契约是同一个对象。 */
 export const SET_MEMBER_TOKEN_QUOTA_SCHEMA = C.operations.setMemberTokenQuota.in;
 export const SET_ORG_TOKEN_BUDGET_SCHEMA = C.operations.setOrgTokenBudget.in;
+/** issue #852 delta（skill-reviewer-function-assignment）。同上，导出以证明与契约是同一个对象。 */
+export const ASSIGN_SKILL_REVIEWER_FUNCTION_SCHEMA = C.operations.assignSkillReviewerFunction.in;
+export const REVOKE_SKILL_REVIEWER_FUNCTION_SCHEMA = C.operations.revokeSkillReviewerFunction.in;
 /** F162。同上，导出以证明与契约是同一个对象。 */
 export const CREATE_LIMIT_RULE_SCHEMA = C.operations.createLimitRule.in;
 export const UPDATE_LIMIT_RULE_SCHEMA = C.operations.updateLimitRule.in;
@@ -148,6 +158,13 @@ type MutateTeamBody = {
   name: string | null;
 };
 type RemoveMemberBody = { orgId: string; userId: string };
+/** issue #852 delta（skill-reviewer-function-assignment）。 */
+type AssignReviewerFunctionBody = {
+  orgId: string;
+  userId: string;
+  reviewerFunction: "methodology-reviewer" | "security-reviewer";
+};
+type RevokeReviewerFunctionBody = { orgId: string; userId: string };
 type UpdateOrganizationBody = {
   orgId: string;
   name?: string;
@@ -249,6 +266,7 @@ export class OrgAdminManagementController {
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(TOKEN_QUOTA_REPOSITORY) private readonly quotas: TokenQuotaRepository & UsageAggregateRepository,
     @Inject(LIMIT_RULE_REPOSITORY) private readonly limits: LimitRuleRepository,
+    @Inject(SKILL_CONTRACT_REPOSITORY) private readonly skillRepos: SkillContractRepositoryFactory,
   ) {}
 
   private async requireAdminRole(principal: Principal, orgIdParam: string) {
@@ -454,6 +472,72 @@ export class OrgAdminManagementController {
         { orgId, actorId: principal.userId, actorOrgRole: orgRole, userId: userIdParam },
       );
       return out;
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * `assignSkillReviewerFunction`（issue #852 delta）—— 组织管理员任命入口。
+   * ⚠ 目标是否是本组织成员的判定用 `this.identity.findOrgMembership`（同
+   *   `requireAdminRole` 读的是同一张表），**不**复用 `this.skillRepos` 去查——那个
+   *   仓储只知道 `skill_reviewer_functions`，不知道组织成员名单，两件事分属两个仓储。
+   */
+  @Post(C.operations.assignSkillReviewerFunction.path)
+  async assignReviewerFunction(
+    @Param("orgId") orgIdParam: string,
+    @Param("userId") userIdParam: string,
+    @Body(new ZodBodyPipe(ASSIGN_SKILL_REVIEWER_FUNCTION_SCHEMA)) body: AssignReviewerFunctionBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const targetIsMember = (await this.identity.findOrgMembership(userIdParam, orgId)) !== null;
+      const out = await assignSkillReviewerFunction(
+        {
+          actorOrgRole: orgRole,
+          actorId: principal.userId,
+          targetUserId: userIdParam,
+          reviewerFunction: body.reviewerFunction,
+        },
+        { reviewerFunctions: this.skillRepos.forOrg(orgId), targetIsMember },
+      );
+      return C.operations.assignSkillReviewerFunction.out.parse(out);
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  @Post(C.operations.revokeSkillReviewerFunction.path)
+  async revokeReviewerFunction(
+    @Param("orgId") orgIdParam: string,
+    @Param("userId") userIdParam: string,
+    @Body(new ZodBodyPipe(REVOKE_SKILL_REVIEWER_FUNCTION_SCHEMA)) _body: RevokeReviewerFunctionBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const targetIsMember = (await this.identity.findOrgMembership(userIdParam, orgId)) !== null;
+      const out = await revokeSkillReviewerFunction(
+        { actorOrgRole: orgRole, targetUserId: userIdParam },
+        { reviewerFunctions: this.skillRepos.forOrg(orgId), targetIsMember },
+      );
+      return C.operations.revokeSkillReviewerFunction.out.parse(out);
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /** `listSkillReviewerFunctions`（issue #852 delta）—— 仅 admin 可读，见契约文件头。 */
+  @Get(C.operations.listSkillReviewerFunctions.path)
+  async listReviewerFunctions(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const out = await listSkillReviewerFunctions(
+        { actorOrgRole: orgRole },
+        { reviewerFunctions: this.skillRepos.forOrg(orgId) },
+      );
+      return C.operations.listSkillReviewerFunctions.out.parse(out);
     } catch (e) {
       throw toHttpException(e);
     }
@@ -790,6 +874,11 @@ function toHttpException(e: unknown) {
     // `mutateTeam` 没有专属码时借用 `VERSION_CHANGED`（走 409）；这三条新操作有专属码，
     // 用它本来的语义即可，不必也折进 409。
     if (e.reasonCode === "TEAM_NOT_FOUND") {
+      return new NotFoundException({ reasonCode: e.reasonCode });
+    }
+    // issue #852 delta：目标不是本组织成员 / 撤销一个从未被指派过的人——同 `TEAM_NOT_FOUND`
+    // 的处置，「对象不存在」用 404，不折进 409（409 会误导客户端去重试或提示「状态已变」）。
+    if (e.reasonCode === "MEMBER_NOT_FOUND" || e.reasonCode === "NOT_ASSIGNED") {
       return new NotFoundException({ reasonCode: e.reasonCode });
     }
     return new ConflictException({ reasonCode: e.reasonCode });

@@ -755,6 +755,91 @@ export class ScopedPgSkillContractRepository
     });
   }
 
+  /**
+   * issue #852 delta —— upsert 覆盖式指派。PK 是 `(org_id, principal_id)`：改指派是
+   * 同一行的 `ON CONFLICT DO UPDATE`，不是先删再插——同一个人被重复指派/改指派时
+   * `assigned_by`/`assigned_at` 跟着最新一次调用走，历史指派不留痕（本表不是
+   * append-only 表，`GRANT ... UPDATE, DELETE` 与迁移头注「assignments change over
+   * time」已经说明这是设计如此，append-only 的是 scans/reviews 两张表，不是这张）。
+   */
+  async assignReviewerFunction(input: {
+    readonly principalId: string;
+    readonly reviewerFunction: ReviewerFunctionValue;
+    readonly assignedBy: string;
+  }): Promise<{ readonly assignedAt: string }> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ assigned_at: string }>(
+        `INSERT INTO skill_reviewer_functions (org_id, principal_id, reviewer_function, assigned_by, assigned_at)
+              VALUES ($1, $2, $3, $4, now())
+         ON CONFLICT (org_id, principal_id) DO UPDATE
+              SET reviewer_function = EXCLUDED.reviewer_function,
+                  assigned_by = EXCLUDED.assigned_by,
+                  assigned_at = now()
+         RETURNING assigned_at`,
+        [orgId, input.principalId, input.reviewerFunction, input.assignedBy],
+      );
+      const assignedAt = result.rows[0]?.assigned_at;
+      if (assignedAt === undefined) throw new Error("skill_reviewer_functions upsert 未返回 assigned_at");
+      return { assignedAt: new Date(assignedAt).toISOString() };
+    });
+  }
+
+  /** `revoked: false` ＝ 目标人此前从未被指派过（`NOT_ASSIGNED` 的判据），不是失败。 */
+  async revokeReviewerFunction(principalId: string): Promise<{ readonly revoked: boolean }> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{ principal_id: string }>(
+        `DELETE FROM skill_reviewer_functions
+          WHERE org_id = $1 AND principal_id = $2
+         RETURNING principal_id`,
+        [orgId, principalId],
+      );
+      return { revoked: result.rows.length > 0 };
+    });
+  }
+
+  /**
+   * ⚠ 与 `anotherMethodologyReviewerExists` 不同——这里**是**名单，因为调用方是
+   * `listSkillReviewerFunctions`（契约层已把它限定为仅 admin 可读，controller 侧
+   * `requireAdminRole` 之后判 `orgRole === "admin"`），不是提交人视角。
+   */
+  async listReviewerFunctions(): Promise<
+    readonly {
+      readonly principalId: string;
+      readonly reviewerFunction: ReviewerFunctionValue;
+      readonly assignedBy: string;
+      readonly assignedAt: string;
+    }[]
+  > {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const result = await s.query<{
+        principal_id: string;
+        reviewer_function: string;
+        assigned_by: string;
+        assigned_at: string;
+      }>(
+        `SELECT principal_id, reviewer_function, assigned_by, assigned_at
+           FROM skill_reviewer_functions
+          WHERE org_id = $1
+          ORDER BY assigned_at DESC`,
+        [orgId],
+      );
+      return result.rows.map((row) => {
+        if (row.reviewer_function !== "methodology-reviewer" && row.reviewer_function !== "security-reviewer") {
+          throw new Error(`skill_reviewer_functions.reviewer_function 非法：${row.reviewer_function}`);
+        }
+        return {
+          principalId: row.principal_id,
+          reviewerFunction: row.reviewer_function,
+          assignedBy: row.assigned_by,
+          assignedAt: new Date(row.assigned_at).toISOString(),
+        };
+      });
+    });
+  }
+
   /* ─────────────────────────── 内部 ─────────────────────────── */
 
   /**
