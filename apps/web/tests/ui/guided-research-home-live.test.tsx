@@ -100,6 +100,22 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-done");
   });
 
+  it("uses the shared Studio list-page width and card density", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({
+      items: [{
+        sessionId: "grs-style", title: "欧洲储能进入研究", tags: ["欧洲"], brief: {
+          topic: "欧洲储能进入研究", goal: "判断市场机会", timeRange: "2025", region: "欧洲", focus: "储能",
+        }, stage: "directions", resumeStage: "directions", status: "active", progress: 20, sourceCount: 3, reportId: null,
+        createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T08:00:00.000Z",
+      }],
+    });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+
+    const page = screen.getByTestId("research-home-page");
+    expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:-translate-y-0.5");
+  });
+
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({
       items: [{

@@ -37,5 +37,8 @@
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "ui-preview/digital-expert-interview"
+  },
+  "phase-05-studio-style-unification": {
+    "studio-style": "ui-preview/studio-style"
   }
 }

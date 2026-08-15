@@ -36,3 +36,10 @@ phases:
     status: in_progress
     depends_on: []
     has_ui: true
+  - id: "05"
+    slug: studio-style-unification
+    name: Studio style unification
+    goal: "Unify the Research, Interview Studio, and Transcription list-home and create name/tag visual language using the deployed Transcription experience as the reference."
+    status: not_started
+    depends_on: []
+    has_ui: true

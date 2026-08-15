@@ -68,6 +68,15 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
   });
 
+  it("uses the shared Studio list-page density and tag treatment", async () => {
+    render(<InterviewStudioHome initialTab="history" />);
+
+    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    const card = await screen.findByTestId("itv-history-card-itv-1");
+    expect(card).toHaveClass("min-h-64", "rounded-lg", "hover:-translate-y-0.5");
+    expect(within(card).getByText("采购决策")).toHaveClass("rounded-sm", "text-10");
+  });
+
   it("从全部历史记录动态派生 Tag 并在客户端单选过滤", async () => {
     render(<InterviewStudioHome initialTab="history" />);
 
