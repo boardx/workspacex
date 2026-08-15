@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Copy, Pencil, Plus, Sparkles } from "lucide-react";
+import { Copy, LayoutGrid, List as ListIcon, Pencil, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,10 +40,17 @@ import {
  *   · 换时长档位——设计器页面还没有对应交互入口（契约缺口 T13 已被 F186 解决，
  *     纯粹是前端交互还没做），见 `live-blueprints.ts` 头注。
  */
+type BlueprintViewMode = "card" | "list";
+
 export function BlueprintListScreenLive() {
   const { session } = useSession();
   if (!session) throw new Error("BlueprintListScreenLive requires an authenticated session");
   const orgId = session.currentOrgId;
+
+  // 后台管理界面统一标准（2026-08-15，人类原话：「卡片也可以切换为列表」）——
+  // 与 skill/agent 等其余后台模块同一套 data-testid 命名：
+  // `admin-<module>-view-container` 包容器，`admin-<module>-view-toggle-card|list` 两个切换按钮。
+  const [viewMode, setViewMode] = React.useState<BlueprintViewMode>("card");
 
   const [rows, setRows] = React.useState<BlueprintRow[] | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -118,6 +125,33 @@ export function BlueprintListScreenLive() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+            role="group"
+            aria-label="视图切换"
+            data-testid="admin-blueprint-view-toggle"
+          >
+            <Button
+              size="xs"
+              variant={viewMode === "card" ? "primary" : "ghost"}
+              aria-pressed={viewMode === "card"}
+              aria-label="卡片视图"
+              data-testid="admin-blueprint-view-toggle-card"
+              onClick={() => setViewMode("card")}
+            >
+              <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="xs"
+              variant={viewMode === "list" ? "primary" : "ghost"}
+              aria-pressed={viewMode === "list"}
+              aria-label="列表视图"
+              data-testid="admin-blueprint-view-toggle-list"
+              onClick={() => setViewMode("list")}
+            >
+              <ListIcon aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          </div>
           <Button size="sm" variant="outline" data-testid="tpl-live-refresh" onClick={() => refresh(orgId)} disabled={listBusy}>
             {listBusy ? "加载中…" : "刷新"}
           </Button>
@@ -157,21 +191,29 @@ export function BlueprintListScreenLive() {
         <p className="text-12 text-destructive" data-testid="tpl-live-list-error">{listError}</p>
       )}
 
-      {rows === null ? (
-        <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
-          {listBusy ? "加载中…" : listError !== null ? "加载失败" : "还没有任何模板"}
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
-          当前组织还没有项目模板。点右上角「新建模板」从空白开始。
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="tpl-live-grid">
-          {rows.map((row) => (
-            <BlueprintLiveCard key={row.blueprintId} row={row} onCopy={() => void copyOne(row)} />
-          ))}
-        </div>
-      )}
+      <div data-testid="admin-blueprint-view-container">
+        {rows === null ? (
+          <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
+            {listBusy ? "加载中…" : listError !== null ? "加载失败" : "还没有任何模板"}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground" data-testid="tpl-live-empty">
+            当前组织还没有项目模板。点右上角「新建模板」从空白开始。
+          </div>
+        ) : viewMode === "card" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="tpl-live-grid">
+            {rows.map((row) => (
+              <BlueprintLiveCard key={row.blueprintId} row={row} onCopy={() => void copyOne(row)} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2" data-testid="tpl-live-list">
+            {rows.map((row) => (
+              <BlueprintLiveListRow key={row.blueprintId} row={row} onCopy={() => void copyOne(row)} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -219,6 +261,32 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
               archive/delete/rollback 三项对应的端点还没实现，BP-01 至今恒返回空数组，
               这不是本屏漏画。 */}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** 列表视图行——与卡片同一份字段，仅布局从网格换成单列横排（人类原话：「卡片也可以切换为列表」）。 */
+function BlueprintLiveListRow({ row, onCopy }: { row: BlueprintRow; onCopy: () => void }) {
+  return (
+    <Card data-testid={`tpl-live-list-row-${row.blueprintId}`}>
+      <CardContent className="flex flex-wrap items-center gap-3 p-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className="truncate text-14 font-semibold" data-testid="tpl-live-card-name">{row.name}</span>
+          <Badge tone={row.state === "published" ? "primary" : "outline"} data-testid="tpl-live-card-state">
+            {BLUEPRINT_STATE_LABEL[row.state]}
+            {row.state === "published" ? ` v${row.versionNumber}` : ""}
+          </Badge>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-3 text-11 text-muted-foreground">
+          <span>{DURATION_TIER_LABEL[row.durationTier]} · {row.agendaSegmentCount} 环节</span>
+          <span>用过 {row.appliedProjectCount} 次</span>
+          <span>{row.satisfaction === null ? "满意度 —" : `满意度 ${row.satisfaction.toFixed(1)}`}</span>
+          <span data-testid="tpl-live-card-completion">{row.completeness.done}/{row.completeness.denominator} 已配</span>
+        </div>
+        <Button size="xs" variant="outline" onClick={onCopy} data-testid="tpl-live-card-copy">
+          <Copy aria-hidden className="h-3 w-3" /> 复制
+        </Button>
       </CardContent>
     </Card>
   );
