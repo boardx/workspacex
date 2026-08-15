@@ -182,6 +182,20 @@ export interface AgendaSegmentRepository {
    * 异常。`id` 由仓储生成（`IdFactory`），同 `PgProjectRepository.create` 的先例。
    */
   create(cmd: CreateAgendaSegmentCommand): Promise<CreateAgendaSegmentOutcome>;
+
+  /**
+   * #853：`listAgendaSegments`（UC-P6，契约 `project.ts` 里与 `createAgendaSegment` 同一次
+   * 签核、同一张表，但此前**从未实现**——全仓零 controller、零 application 用例）。
+   * 缺口本身是 #853 的发现：没有它，前端建出来的环节（初始 `pending`）在任何真实读路径
+   * 里都不可见（`getProjectOverview` 只回 `state='active'` 那一条），「建了 → 刷新 → 还在」
+   * 这条闭环因此做不出来。补的是**实现缺口**，不是设计缺口，同 `create()` 那条注释
+   * 同一条纪律（`createAgendaSegment` 本身当年就是这样补的，见 #627）。
+   *
+   * 按 `ordinal` 升序返回**全部**环节（不筛状态）——契约 `listAgendaSegments.out` 是
+   * `z.array(AgendaSegment)`，没有分页/筛选参数，筛出一部分就是在这里发明一份契约
+   * 没有的过滤规则。
+   */
+  list(orgId: OrgId, workshopId: string): Promise<readonly AgendaSegmentRow[]>;
 }
 
 export const AGENDA_SEGMENT_REPOSITORY = Symbol("AgendaSegmentRepository");

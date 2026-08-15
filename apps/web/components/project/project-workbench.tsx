@@ -14,7 +14,10 @@ import {
   ORG_DISABLED_BANNER, type ProjectTab, type ProjectRole,
 } from "@/lib/mock/project";
 import { getStoredSessionToken, ApiError } from "@/lib/api-client";
-import { findProject, getProjectOverview, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
+import {
+  findProject, getProjectOverview, listAgendaSegments,
+  type ProjectListItem, type ProjectOverview, type ListAgendaSegmentsOut,
+} from "@/lib/live-projects";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
 import { TabResults } from "./tab-results";
@@ -156,6 +159,46 @@ export function ProjectWorkbench({
     return () => {
       cancelled = true;
     };
+  }, [projectId, tab]);
+
+  /**
+   * #853 —— 项目筹备 tab 专用的真实议程环节列表（`GET /workshops/:workshopId/
+   * agenda-segments`，F853 补的 `listAgendaSegments`）。同 F362 那次 `liveOverview`
+   * 的取法：只在「筹备」tab 激活时拉取，不需要 `qs.org`（`orgId` 服务端取自
+   * principal）。`refreshSegments` 单独导出给 `TabPrep`：新建一条环节成功后**重新
+   * 打一次这个真实 GET**，不在本地把新行 append 进 state——那是本仓一贯的纪律
+   * （同 `template-apply-dialog.tsx` 对 `onApplied` 的注释）。
+   */
+  const [liveSegments, setLiveSegments] = React.useState<ListAgendaSegmentsOut | null>(null);
+  const [liveSegmentsLoading, setLiveSegmentsLoading] = React.useState(false);
+  const [liveSegmentsError, setLiveSegmentsError] = React.useState<string | null>(null);
+
+  const refreshSegments = React.useCallback(() => {
+    if (!projectId) return;
+    if (!getStoredSessionToken()) return;
+    setLiveSegmentsLoading(true);
+    setLiveSegmentsError(null);
+    listAgendaSegments(projectId)
+      .then((rows) => setLiveSegments(rows))
+      .catch((e: unknown) => {
+        setLiveSegmentsError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      })
+      .finally(() => setLiveSegmentsLoading(false));
+  }, [projectId]);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "prep") {
+      setLiveSegments(null);
+      setLiveSegmentsError(null);
+      return;
+    }
+    if (!getStoredSessionToken()) {
+      setLiveSegments(null);
+      setLiveSegmentsError(null);
+      return;
+    }
+    refreshSegments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshSegments 只依赖 projectId，随它一起重建
   }, [projectId, tab]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
@@ -317,6 +360,7 @@ export function ProjectWorkbench({
                 tab, view, sub, orgDisabled, projectId ?? PROJECT_HEADER.id,
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,
+                liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
               )}
             </StateShell>
           </main>
@@ -338,6 +382,10 @@ function renderTab(
   liveOverview: ProjectOverview | null,
   liveOverviewLoading: boolean,
   liveOverviewError: string | null,
+  liveSegments: ListAgendaSegmentsOut | null,
+  liveSegmentsLoading: boolean,
+  liveSegmentsError: string | null,
+  refreshSegments: () => void,
 ) {
   switch (tab) {
     case "overview":
@@ -355,7 +403,19 @@ function renderTab(
         />
       );
     case "research": return <TabResearch view={view} readOnly={orgDisabled} />;
-    case "prep": return <TabPrep view={view} readOnly={orgDisabled} />;
+    case "prep":
+      return (
+        <TabPrep
+          view={view}
+          readOnly={orgDisabled}
+          projectId={projectId}
+          liveProject={liveProject}
+          liveSegments={liveSegments}
+          liveSegmentsLoading={liveSegmentsLoading}
+          liveSegmentsError={liveSegmentsError}
+          onSegmentCreated={refreshSegments}
+        />
+      );
     case "live": return <TabLive view={view} readOnly={orgDisabled} />;
     case "results": return <TabResults view={view} readOnly={orgDisabled} />;
     case "todo": return <TabTodo view={view} readOnly={orgDisabled} />;

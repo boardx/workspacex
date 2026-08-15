@@ -159,6 +159,21 @@ export class PgAgendaSegmentRepository implements AgendaSegmentRepository {
       throw e;
     }
   }
+
+  /**
+   * #853：按 `ordinal` 升序返回一个工作坊的**全部**环节（不筛状态）。纯读，没有
+   * 「不存在的工作坊」与「存在但没有环节」的区分——两者在这里都是空数组，同 `ports.ts`
+   * `list()` 的文档；调用方（application 层）若要区分容器存在性，走 `authorize()` 那一层。
+   */
+  async list(orgId: OrgId, workshopId: string): Promise<readonly AgendaSegmentRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<SegmentRecord>(
+        `SELECT ${SELECT_COLUMNS} FROM agenda_segments WHERE workshop_id = $1 ORDER BY ordinal ASC`,
+        [workshopId],
+      );
+      return r.rows.map(toRow);
+    });
+  }
 }
 
 async function findSegment(

@@ -111,3 +111,61 @@ export async function unarchiveProject(projectId: string): Promise<UnarchiveProj
     { method: "POST" },
   );
 }
+
+export type AgendaSegment = z.infer<typeof project.AgendaSegment>;
+export type CreateAgendaSegmentOut = z.infer<typeof project.operations.createAgendaSegment.out>;
+export type ListAgendaSegmentsOut = z.infer<typeof project.operations.listAgendaSegments.out>;
+
+/**
+ * #853 —— 真实 `POST /workshops/:workshopId/agenda-segments`（UC-P6，`createAgendaSegment`）。
+ *
+ * `createAgendaSegment` 有 controller 挂了整整一个 feature（#627），但直到 #853 之前
+ * `apps/web` 里零调用方——用户造不出议程环节，`bindTemplateToSegment`（#493）因此永远
+ * 没有可绑的目标。本函数是它的第一个真实调用方。
+ *
+ * ⚠ 建出来的初始态恒 `pending`（服务端 `PgAgendaSegmentRepository.create` 逐字），
+ *   不是「建完就是当前环节」——调用方不要在本地把它渲染成「当前」。
+ */
+export async function createAgendaSegment(input: {
+  readonly workshopId: string;
+  readonly agendaSegmentDefinitionId: string | null;
+  readonly ordinal: number;
+  readonly title: string;
+  readonly duration: number;
+}): Promise<CreateAgendaSegmentOut> {
+  return apiRequest<CreateAgendaSegmentOut>(
+    project.operations.createAgendaSegment.path.replace(":workshopId", encodeURIComponent(input.workshopId)),
+    {
+      method: "POST",
+      body: {
+        workshopId: input.workshopId,
+        agendaSegmentDefinitionId: input.agendaSegmentDefinitionId,
+        ordinal: input.ordinal,
+        title: input.title,
+        duration: input.duration,
+      },
+    },
+  );
+}
+
+/**
+ * #853 —— 真实 `GET /workshops/:workshopId/agenda-segments`（`listAgendaSegments`）。
+ *
+ * 契约签了跟 `createAgendaSegment` 一样久（同一次签核），此前也是全仓零 controller——
+ * 没有它，`createAgendaSegment` 建出来的环节（初始 `pending`）在任何真实读路径里都
+ * 不可见（`getProjectOverview` 只回 `state='active'` 那一条）。#853 把它跟建的入口
+ * 一起补上，两者缺一，「建了 → 刷新 → 还在」这条闭环都做不出来。
+ */
+export async function listAgendaSegments(workshopId: string): Promise<ListAgendaSegmentsOut> {
+  return apiRequest<ListAgendaSegmentsOut>(
+    project.operations.listAgendaSegments.path.replace(":workshopId", encodeURIComponent(workshopId)),
+    { method: "GET" },
+  );
+}
+
+export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> = {
+  pending: "待开始",
+  active: "进行中",
+  closed: "已结束",
+  skipped: "已跳过",
+};
