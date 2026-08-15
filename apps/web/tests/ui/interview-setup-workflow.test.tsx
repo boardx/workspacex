@@ -9,7 +9,19 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 import { DigitalInterviewSetup } from "@/components/itv/digital-interview-setup";
 import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
 
-const liveInterview = {
+type LiveInterview = {
+  readonly interviewId: string;
+  readonly name: string;
+  readonly tags: readonly string[];
+  readonly topic: string | null;
+  readonly status: string;
+  readonly sourceQuickInterviewId: string | null;
+  readonly selectedExpertIds: readonly string[];
+  readonly reportId: string | null;
+  readonly version: number;
+};
+
+const topicPendingInterview: LiveInterview = {
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
   tags: ["采购", "德国市场"],
@@ -18,27 +30,47 @@ const liveInterview = {
   sourceQuickInterviewId: null,
   selectedExpertIds: [],
   reportId: null,
-  version: 1,
+  version: 41,
+};
+
+const persistedInterview: LiveInterview = {
+  ...topicPendingInterview,
+  topic: "服务端恢复：谁拥有最终否决权？",
+  status: "experts_pending",
+  selectedExpertIds: ["expert-persisted"],
+  version: 73,
 };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
-function installLiveFetch() {
+type FetchCall = { readonly method: string; readonly path: string; readonly body: unknown };
+
+function installLiveFetch(initial: LiveInterview = topicPendingInterview) {
+  const calls: FetchCall[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input.toString());
-    if (init?.method === "POST" && url.pathname.endsWith("/topic/confirm")) {
-      return json({ ...liveInterview, topic: "谁拥有最终否决权？", status: "experts_pending", version: 2 }, 201);
+    const method = init?.method ?? "GET";
+    const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
+    calls.push({ method, path: url.pathname, body });
+    if (method === "POST" && url.pathname.endsWith("/topic/confirm")) {
+      return json({ ...topicPendingInterview, topic: body.topic, status: "experts_pending", version: 42 }, 201);
     }
-    if (init?.method === "POST" && url.pathname.endsWith("/skill/messages")) {
-      return json({ proposalId: "proposal-f04", target: "topic", text: "建议主题：谁拥有最终否决权？" }, 201);
+    if (method === "POST" && url.pathname.endsWith("/skill/messages")) {
+      return json({ proposalId: "proposal-f04", target: "topic", text: "建议主题：应用后的可验证主题" }, 201);
     }
-    if (init?.method === "GET") return json(liveInterview);
-    throw new Error(`unexpected fetch: ${init?.method ?? "GET"} ${url.pathname}`);
+    if (method === "GET") return json(initial);
+    throw new Error(`unexpected fetch: ${method} ${url.pathname}`);
   });
   vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  return {
+    calls,
+    fetchMock,
+    requests(method: string, suffix: string) {
+      return calls.filter((call) => call.method === method && call.path.endsWith(suffix));
+    },
+  };
 }
 
 describe("F04 可点击 Mock 访谈流程", () => {
@@ -155,59 +187,76 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("主题输入只是 dirty buffer，不发 fetch；确认才携带 requestId 与 expectedVersion", async () => {
-    const fetchMock = installLiveFetch();
-    render(<DigitalInterviewSetup interviewId={liveInterview.interviewId} />);
+    const transport = installLiveFetch();
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
 
+    await waitFor(() => expect(transport.requests("GET", `/interviews/digital/${topicPendingInterview.interviewId}`)).toHaveLength(1));
     const topic = await screen.findByTestId("itv-topic-input");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(topic).toHaveValue("");
+    expect(screen.getByTestId("itv-workflow-status")).toHaveTextContent("topic_pending");
+    expect(screen.getByTestId("itv-workflow-version")).toHaveTextContent("41");
     fireEvent.change(topic, { target: { value: "谁拥有最终否决权？" } });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
+    expect(transport.requests("POST", "/skill/messages")).toHaveLength(0);
 
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const [url, init] = fetchMock.mock.calls[1]!;
-    expect(String(url)).toContain(`/interviews/digital/${liveInterview.interviewId}/topic/confirm`);
-    expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({
+    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/topic/confirm`)[0]!.body).toMatchObject({
       topic: "谁拥有最终否决权？",
-      expectedVersion: 1,
+      expectedVersion: 41,
       requestId: expect.any(String),
     });
   });
 
-  it("刷新从 GET hydrate 服务端状态与版本，而不是把本地 Mock 当正式状态", async () => {
-    const fetchMock = installLiveFetch();
-    const first = render(<DigitalInterviewSetup interviewId={liveInterview.interviewId} />);
-    expect(await screen.findByTestId("itv-topic-input")).toHaveValue("");
+  it("刷新从 GET hydrate 独特的服务端 topic/status/version，而不是本地默认值", async () => {
+    const transport = installLiveFetch(persistedInterview);
+    const first = render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+    await waitFor(() => expect(transport.requests("GET", `/interviews/digital/${persistedInterview.interviewId}`)).toHaveLength(1));
+    expect(await screen.findByTestId("itv-persisted-topic")).toHaveTextContent(persistedInterview.topic);
+    expect(screen.getByTestId("itv-workflow-status")).toHaveTextContent("experts_pending");
+    expect(screen.getByTestId("itv-workflow-version")).toHaveTextContent("73");
     first.unmount();
 
-    render(<DigitalInterviewSetup interviewId={liveInterview.interviewId} />);
-    expect(await screen.findByTestId("itv-topic-input")).toHaveValue("");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+    expect(await screen.findByTestId("itv-persisted-topic")).toHaveTextContent(persistedInterview.topic);
+    expect(screen.getByTestId("itv-workflow-status")).toHaveTextContent("experts_pending");
+    expect(screen.getByTestId("itv-workflow-version")).toHaveTextContent("73");
+    expect(transport.requests("GET", `/interviews/digital/${persistedInterview.interviewId}`)).toHaveLength(2);
   });
 
   it("在未确认主题时切换步骤会警告用户，而不是默默丢弃或保存", async () => {
-    const fetchMock = installLiveFetch();
-    render(<DigitalInterviewSetup interviewId={liveInterview.interviewId} />);
+    const transport = installLiveFetch();
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    await waitFor(() => expect(transport.requests("GET", `/interviews/digital/${topicPendingInterview.interviewId}`)).toHaveLength(1));
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "未确认的主题" } });
 
     fireEvent.click(screen.getByTestId("itv-workflow-step-2"));
     expect(await screen.findByRole("alert")).toHaveTextContent("未确认");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
   });
 
   it("Skill 发送立即持久化，而应用建议只改本地 dirty buffer，直到步骤确认才写访谈", async () => {
-    const fetchMock = installLiveFetch();
-    render(<DigitalInterviewSetup interviewId={liveInterview.interviewId} />);
+    const transport = installLiveFetch();
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    await waitFor(() => expect(transport.requests("GET", `/interviews/digital/${topicPendingInterview.interviewId}`)).toHaveLength(1));
     await screen.findByTestId("itv-topic-input");
 
     fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "把主题改得可验证" } });
     fireEvent.click(screen.getByTestId("itv-skill-send"));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(String(fetchMock.mock.calls[1]![0])).toContain(`/interviews/digital/${liveInterview.interviewId}/skill/messages`);
+    await waitFor(() => expect(transport.requests("POST", "/skill/messages")).toHaveLength(1));
+    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/skill/messages`)[0]!.body).toMatchObject({
+      text: "把主题改得可验证",
+    });
 
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("itv-topic-input")).toHaveValue("应用后的可验证主题");
+    expect(transport.requests("POST", "/topic/confirm")).toHaveLength(0);
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(transport.requests("POST", "/topic/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/topic/confirm`)[0]!.body).toMatchObject({
+      topic: "应用后的可验证主题",
+      expectedVersion: 41,
+      requestId: expect.any(String),
+    });
   });
 });

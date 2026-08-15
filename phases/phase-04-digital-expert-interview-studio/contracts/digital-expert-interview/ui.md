@@ -45,6 +45,7 @@
 - 创建弹窗只收集名称和标签，提交后立即调用 `createDigitalInterview({ name, tags, scope, requestId })` 并进入 `/itv/[interviewId]/setup`；成功创建的状态是 `topic_pending`，页面不预先写入主题。
 - 在步骤 1 输入主题、在步骤 2/3 编辑专家或问题时，内容只存在当前步骤的 dirty buffer，输入事件不得发起 `fetch`。用户点击“确认主题并生成专家”等显式确认按钮时才发送 `requestId` 与当前 `expectedVersion`；成功响应替换客户端版本。
 - 刷新、重开页面或浏览器进程重建后，setup 必须从 `GET /interviews/digital/:interviewId` hydrate 服务器的步骤与版本，不能从 mock/localStorage 推断。
+- 真实 workflow 为恢复验收稳定暴露 `itv-workflow-status`、`itv-workflow-version` 和已确认主题的 `itv-persisted-topic`；它们必须直接反映 GET 的 `status`、`version`、`topic`。
 - dirty buffer 未确认时导航到另一步骤、返回历史或离开页面必须出现放弃/继续编辑警告；继续编辑不写服务端。
 - 左侧 Skill 的“发送”立即持久化消息与 proposal；“应用建议”只改变本地 dirty buffer，直到当前步骤确认才落入访谈版本。
 - 快捷访谈、步骤 2–5、详情、报告都是完整页面；离开后恢复服务端真实状态。

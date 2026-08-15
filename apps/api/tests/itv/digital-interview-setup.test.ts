@@ -30,19 +30,32 @@ async function restartApp() {
   await startApp();
 }
 
-async function createInterview(requestId = "create-f04") {
+type DigitalInterviewResponse = {
+  interviewId: string;
+  version: number;
+  topic: string | null;
+  status: string;
+  scope: { kind: string; projectId: string | null; researchProjectId: string | null };
+};
+
+async function postCreate(input: { readonly requestId: string; readonly name?: string }) {
   const response = await fetch(`${base}/interviews/digital`, {
     method: "POST",
     headers: { ...auth, "content-type": "application/json" },
     body: JSON.stringify({
-      name: "德国储能采购决策链",
+      name: input.name ?? "德国储能采购决策链",
       tags: ["采购", "德国市场"],
       scope: { kind: "none", projectId: null, researchProjectId: null },
-      requestId,
+      requestId: input.requestId,
     }),
   });
+  return response;
+}
+
+async function createInterview(requestId = "create-f04") {
+  const response = await postCreate({ requestId });
   expect(response.status).toBe(201);
-  return await response.json() as { interviewId: string; version: number; topic: string | null; status: string };
+  return await response.json() as DigitalInterviewResponse;
 }
 
 beforeAll(async () => {
@@ -62,13 +75,27 @@ beforeEach(async () => {
   await resetOrgs(ORG, OTHER_ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f04" });
   await addOrgMember(ORG, USER, "consultant", fixture.teams.energy!);
-  await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f04-other" });
+  const otherFixture = await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f04-other" });
+  await addOrgMember(OTHER_ORG, USER, "consultant", otherFixture.teams.energy!);
 });
 
 describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
-  it("创建只持久化名称和标签；刷新及进程重建后仍恢复 topic_pending 与版本", async () => {
+  it("创建只持久化名称和标签；create replay 幂等、变更 payload 被拒绝，并在重启后恢复 scope", async () => {
     const created = await createInterview();
-    expect(created).toMatchObject({ topic: null, status: "topic_pending", version: 1 });
+    expect(created).toMatchObject({
+      topic: null,
+      status: "topic_pending",
+      version: 1,
+      scope: { kind: "none", projectId: null, researchProjectId: null },
+    });
+
+    const replay = await postCreate({ requestId: "create-f04" });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ interviewId: created.interviewId, version: 1 });
+
+    const changedPayload = await postCreate({ requestId: "create-f04", name: "同一 key 不能创建第二场访谈" });
+    expect(changedPayload.status).toBe(409);
+    expect(await changedPayload.json()).toMatchObject({ reasonCode: "IDEMPOTENCY_KEY_REUSED" });
 
     await restartApp();
     const restored = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
@@ -80,6 +107,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       topic: null,
       status: "topic_pending",
       version: 1,
+      scope: { kind: "none", projectId: null, researchProjectId: null },
     });
   });
 
@@ -120,15 +148,37 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     });
     expect(stale.status).toBe(409);
     expect(await stale.json()).toMatchObject({ reasonCode: "CONCURRENT_MODIFICATION" });
+
+    await restartApp();
+    const restored = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toMatchObject({
+      topic: "先确认的主题",
+      status: "experts_pending",
+      version: 2,
+    });
   });
 
-  it("跨组织读取与不存在读取保持字节等价的 404", async () => {
+  it("跨组织读取与不存在读取仅 traceId 不同，且不泄露原因或被寻址 id", async () => {
     const created = await createInterview();
     const denied = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: otherAuth });
     const missing = await fetch(`${base}/interviews/digital/itv-f04-does-not-exist`, { headers: auth });
 
     expect(denied.status).toBe(404);
     expect(missing.status).toBe(404);
-    expect(await denied.text()).toBe(await missing.text());
+    const deniedRaw = await denied.text();
+    const missingRaw = await missing.text();
+    const maskTrace = (raw: string) => raw.replace(/"traceId":"[^"]+"/, '"traceId":"<masked>"');
+    const traceOf = (raw: string) => /"traceId":"([^"]+)"/.exec(raw)?.[1];
+
+    expect(traceOf(deniedRaw)).toBeTruthy();
+    expect(traceOf(missingRaw)).toBeTruthy();
+    expect(traceOf(deniedRaw)).not.toBe(traceOf(missingRaw));
+    expect(maskTrace(deniedRaw)).toBe(maskTrace(missingRaw));
+    for (const raw of [deniedRaw, missingRaw]) {
+      expect(raw).not.toContain("reasonCode");
+      expect(raw).not.toContain(created.interviewId);
+      expect(raw).not.toContain("itv-f04-does-not-exist");
+    }
   });
 });
