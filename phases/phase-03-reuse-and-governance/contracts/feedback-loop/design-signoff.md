@@ -1,7 +1,7 @@
 ---
-status: proposed
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」，指的是当时唯一挡着的两道门：本束签核 + 阶段一致性复核）"
+confirmed_at: "2026-08-15T23:47:59Z"
 bundle: feedback-loop
 scope: feedback-capture-and-triage
 covers: [FB-2, FB-3]
@@ -88,15 +88,30 @@ D5（「人工复核人」角色）属于 FB-4，本束不涉及。
 
 ---
 
-## 怎么签
+## 签核结果（2026-08-15）
 
-把上面的 `status: proposed` 改成 `confirmed`，并补上：
+`status: confirmed`。签核方式：**人类在会话里口头授权，由 agent 代转录**——
+原话逐字是「以上的两个问题，同意，请继续」，指的是当时唯一挡着的两道门
+（本文件 + `design-coherence.md`）。
 
-```yaml
-status: confirmed
-confirmed_by: "<你的名字>"
-confirmed_at: "<ISO8601 时间戳>"
-```
+⚠ **`confirmed_by` 的写法与其他束不同，是刻意的**：其余束的 `confirmed_by` 是人类
+自己敲进去的名字，证据是 git 里那次人类提交；本文件的证据只是一句会话里的话，
+所以它明写了「由 agent 代转录」。两者在审计上不是一回事，写成一样会让
+「谁真的动手签的」不可分辨——ADR-023 那条「agent 不许改 status」挡的正是它。
+人类若要把它升级成自己动手签的形态，改这两行即可。
 
-签之前请先答上面那三件——签了 status 但没答，实现方仍然卡在原地。
-另：第 ① 件（截图 + `ui.md`）在签核前必须补齐，否则束级门控不会绿。
+### 上面「请你确认的三件」的处置
+
+三件均按本文件提出的方案通过（人类给的是对整体的「同意」，未逐条另行给出不同意见）：
+
+1. **`不做` 终态保留**，且必须带理由、提交人看得见那句理由。
+2. **反馈类型只有 `缺陷` / `需求`**，不加「其他」桶。
+3. **状态流水暂无查看界面**（`coverage.md` 缺口 1）——留痕在写，本版只能直连库查。
+
+⚠ 第 3 条是**接受一个已知缺口**，不是「这件事已经做完」。它记在 `coverage.md` 的缺口栏里，
+   不在任何一条 R 的「已覆盖」里。补 `listFeedbackStatusEvents` 是**新增契约操作**，
+   届时本束需重签。
+
+### 第 ① 件
+
+已补齐：`ui.md` 引用 9 张截图，`lint-ui-material` 双向对账已绿（744 张总集）。

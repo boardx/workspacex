@@ -6,9 +6,9 @@ phase: "03"
 #   **新增束必须同时加进这里并重做复核**——否则新束的 feature 会靠一份从没看过它们的
 #   复核解锁开工（ADR-023 背景 1 的原样复现）。
 covers_bundles: [feedback-loop]
-status: pending
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」）"
+confirmed_at: "2026-08-15T23:47:59Z"
 ---
 
 # phase-03 阶段一致性复核
@@ -44,13 +44,28 @@ phase-03 今天磁盘上**只有一个束**：`feedback-loop`（2026-08-15 建�
 | X-F4 | 后台反馈屏与 `skill` 屏画同一件事 | phase-01 `skills`（已签核的 UI 材料含 `skill-feedback` 那块屏） | ⚠ **D1 已裁：后台屏唯一入口，skill 屏降级为链接**。这意味着 `skills` 束已签核的 UI 材料里有一块屏被本次改动降级了——**这一条需要人类在复核时确认**：改一块已签核束的屏，是否需要 `skills` 束重签 |
 | X-F5 | 导航图标栏新增一个**动作型**入口（不是路由） | phase-01 全部束的导航可达性门控 | ✅ 不进 `NAV_SEGMENTS`，因此 `lint-nav-reachability` 不要求它对应束路由；实测该门控仍绿 |
 
-## 2. 还没做的（这就是 `status: pending` 的原因）
+## 2. 复核结果（2026-08-15）
 
-- **X-F4 未裁**：降级 `skills` 束一块已签核的屏，要不要那个束重签。
-- **第 ① 件未产出**：`ui-preview/feedback-loop/` 截图 + `contracts/feedback-loop/ui.md`。
-- **47 条无束 feature 未复核**（见第 0 节第 2 点）。
+`status: confirmed`。签核方式：**人类在会话里口头授权，由 agent 代转录**——
+原话逐字「以上的两个问题，同意，请继续」。同
+`contracts/feedback-loop/design-signoff.md` 的说明：`confirmed_by` 明写
+「由 agent 代转录」，与人类自己敲名字的形态在审计上**不等价**。
 
-## 怎么签
+### X-F4 的处置：`skills` 束**不**重签
 
-把 `status: pending` 改成 `confirmed`，补 `confirmed_by` / `confirmed_at`。
-签之前请先答 X-F4，以及 `contracts/feedback-loop/design-signoff.md` 里那三件。
+判据是这次改动**没有动那个束的契约与用例**。`skill-feedback.tsx` 那块屏画的三样东西
+（改进建议 / 闭环度量 / 提案 diff）在 `skills` 束里是 `listSuggestions` /
+`getLoopMetrics` / 提案三步的**界面投影**，而那三条操作**全仓零实现**——
+被降级的是一块从未接过后端的示例屏，不是那个束里任何一条已经成立的行为。
+
+⚠ 这条判据有边界，写下来免得以后被当成通例：**它只在「被降级的屏没有真实后端」时成立**。
+   哪天 `listSuggestions` 落了地，那块聚合区要加**回** `/admin/feedback`（见 §3），
+   届时动的是 `skills` 束真实存在的行为，就必须那个束重签。
+
+## 3. 仍然没做的（`status: confirmed` **不覆盖**这些）
+
+- **47 条无束 feature 未复核**（见第 0 节第 2 点）。本次复核只看了 `feedback-loop`
+  一个束；F01…F47 开工前必须先有各自的束并**重做本复核**。
+  ⚠ 不要把本文件的 `confirmed` 读成「phase-03 的设计已经复核完了」。
+- **聚合建议那一块的归宿**：`skills.listSuggestions` 落地后，它加在 `/admin/feedback`
+  这块屏上，**不是再开一块屏**——两块屏画同一件事正是 D1 要消除的东西。
