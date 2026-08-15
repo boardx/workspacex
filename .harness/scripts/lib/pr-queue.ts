@@ -121,7 +121,13 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * ⚠ 现在挡发布的 e2e 是 `backend-gates.yml` 的 `e2e-core-loop`（deploy 前置条件），
  * 不在这份 **PR 合并门**清单里——两者是不同的门，别再合并进来。
  */
-export const REQUIRED_CHECKS = ["verify"] as const;
+/**
+ * 2026-08-15（ADR-106 batch-1/6，#1277）：`verify` 拆成 `verify-control-plane` +
+ * `verify-affected` 两个并行 job（wall-clock 拆分，语义不变）。这次改名照着
+ * pr-queue.test.ts 的机械核对走：先跑测试确认真的会红（复现 #848 那类"改名后
+ * 门禁静默失效"），改完这行再确认转绿——不是先改代码再回头补测试。
+ */
+export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected"] as const;
 
 function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
