@@ -2,6 +2,62 @@ import { LiveRecordingError, classifyMediaError } from "./live-recording";
 
 export const PCM_WORKLET_PROCESSOR_NAME = "boardx-pcm16-processor";
 export const PCM_TARGET_SAMPLE_RATE = 16_000;
+export const PCM_FRAME_DURATION_MS = 80;
+export const PCM_FRAME_BYTES = PCM_TARGET_SAMPLE_RATE * 2 * PCM_FRAME_DURATION_MS / 1_000;
+
+/**
+ * Combines tiny AudioWorklet render quanta into transport-sized PCM frames.
+ * The worklet normally emits about 84 bytes every 2.7ms at a 48kHz source;
+ * forwarding those chunks one-for-one would create hundreds of WebSocket
+ * messages per second.
+ */
+export class PcmFrameBatcher {
+  private pendingBuffer: ArrayBuffer;
+  private pending: Uint8Array;
+  private pendingLength = 0;
+
+  constructor(private readonly frameBytes = PCM_FRAME_BYTES) {
+    if (!Number.isInteger(frameBytes) || frameBytes <= 0) {
+      throw new Error("PCM frame size must be a positive integer");
+    }
+    this.pendingBuffer = new ArrayBuffer(frameBytes);
+    this.pending = new Uint8Array(this.pendingBuffer);
+  }
+
+  push(frame: ArrayBuffer): ArrayBuffer[] {
+    const input = new Uint8Array(frame);
+    const output: ArrayBuffer[] = [];
+    let inputOffset = 0;
+
+    while (inputOffset < input.byteLength) {
+      const copyLength = Math.min(
+        this.frameBytes - this.pendingLength,
+        input.byteLength - inputOffset,
+      );
+      this.pending.set(input.subarray(inputOffset, inputOffset + copyLength), this.pendingLength);
+      this.pendingLength += copyLength;
+      inputOffset += copyLength;
+
+      if (this.pendingLength === this.frameBytes) {
+        output.push(this.pendingBuffer);
+        this.pendingBuffer = new ArrayBuffer(this.frameBytes);
+        this.pending = new Uint8Array(this.pendingBuffer);
+        this.pendingLength = 0;
+      }
+    }
+
+    return output;
+  }
+
+  flush(): ArrayBuffer | null {
+    if (this.pendingLength === 0) return null;
+    const tail = this.pendingBuffer.slice(0, this.pendingLength);
+    this.pendingBuffer = new ArrayBuffer(this.frameBytes);
+    this.pending = new Uint8Array(this.pendingBuffer);
+    this.pendingLength = 0;
+    return tail;
+  }
+}
 
 /** Pure conversion helper shared by the worklet algorithm and deterministic tests. */
 export function downsampleToPcm16Le(
@@ -113,21 +169,30 @@ export async function startPcmAudioWorklet(): Promise<PcmAudioWorkletHandle> {
   node.connect(silentGain);
   silentGain.connect(context.destination);
   const listeners = new Set<(frame: ArrayBuffer) => void>();
+  const batcher = new PcmFrameBatcher();
+  const emit = (frame: ArrayBuffer) => {
+    for (const listener of listeners) listener(frame);
+  };
   node.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
     if (!(event.data instanceof ArrayBuffer) || event.data.byteLength === 0) return;
-    for (const listener of listeners) listener(event.data);
+    for (const frame of batcher.push(event.data)) emit(frame);
   };
+  let stopped = false;
 
   return {
     sourceSampleRate: context.sampleRate,
     onFrame: (listener) => listeners.add(listener),
     stop: async () => {
+      if (stopped) return;
+      stopped = true;
       node.port.onmessage = null;
+      const tail = batcher.flush();
+      if (tail) emit(tail);
       source.disconnect();
       node.disconnect();
       silentGain.disconnect();
       stream.getTracks().forEach((track) => track.stop());
-      await context.close();
+      if (context.state !== "closed") await context.close();
     },
   };
 }
