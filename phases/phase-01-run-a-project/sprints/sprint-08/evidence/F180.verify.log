@@ -3,46 +3,45 @@ $ pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-co
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/packages/contracts
 
- ✓ tests/guided-research-session-contract.test.ts (8 tests) 9ms
+ ✓ tests/guided-research-session-contract.test.ts (8 tests) 10ms
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  02:58:14
-   Duration  489ms (transform 140ms, setup 0ms, collect 155ms, tests 9ms, environment 0ms, prepare 85ms)
+   Start at  03:04:15
+   Duration  910ms (transform 155ms, setup 0ms, collect 162ms, tests 10ms, environment 0ms, prepare 167ms)
 
 
 
 $ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
 [exit 0]
-[harness-isolation] outer_db=wsx_a42d11fe040c4f0200c6 inner_db=wsx_a42d11fe040c4f0200c6 outer_compose=wsx-a42d11fe040c4f0200c6 inner_compose=wsx-a42d11fe040c4f0200c6 status=matched
-[stack-admission] load1=3.08 cores=10 perCore=0.31 running=0/2
-[test-isolation] id=run-msuqo2f0-c74c2d74-a42d11fe040c db=wsx_a42d11fe040c4f0200c6 compose=wsx-a42d11fe040c4f0200c6 pg=22150 redis=27150
+[harness-isolation] outer_db=wsx_6d3501b1dab8617cab78 inner_db=wsx_6d3501b1dab8617cab78 outer_compose=wsx-6d3501b1dab8617cab78 inner_compose=wsx-6d3501b1dab8617cab78 status=matched
+[stack-admission] load1=6.84 cores=10 perCore=0.68 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-msuqvsjq-ac1ee06a-6d3501b1dab8 db=wsx_6d3501b1dab8617cab78 compose=wsx-6d3501b1dab8617cab78 pg=20385 redis=25385
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
 
-[db-isolation] db=wsx_a42d11fe040c4f0200c6 capacity=100 current=6 required=32
-{"level":"error","msg":"http exception","traceId":"01e2cb05-d057-4172-a7e2-29475fbaf0b2","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"3d5ae44c-f026-4f74-9920-3be7a43b4bf4","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"818b4c51-b77f-4f45-8437-baff5b1cf0af","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"066671b3-491c-45d7-b4c8-f90265bc8a06","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:186:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"99f239d5-a58c-4743-b22f-5027e3efbf27","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:106:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"7640b935-7b65-4229-bf78-0ea175595349","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:108:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
- ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 8491ms
-   ✓ F168 guided research session list and recovery > creates once per owner idempotency key and resumes from the persisted stage 302ms
-   ✓ F168 guided research session list and recovery > does not reveal an owner's private session to another member in the same org 360ms
+[db-isolation] db=wsx_6d3501b1dab8617cab78 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"d554e293-c60d-44e1-a717-78d4059207a6","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"cd439d9d-57f3-43ee-9841-037de27b40b7","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ee02f600-7132-44df-a2a2-6fde7ec54f53","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"0627dc57-1509-4b01-8409-5b62004289ac","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:186:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ca13a5a7-face-478e-a56e-afdd98e16b74","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:106:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"90e7d69c-93b8-4068-8247-878b9be6605f","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:108:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 10868ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  02:58:16
-   Duration  11.74s (transform 2.23s, setup 0ms, collect 477ms, tests 8.49s, environment 0ms, prepare 47ms)
+   Start at  03:04:17
+   Duration  15.51s (transform 2.57s, setup 0ms, collect 1.06s, tests 10.87s, environment 0ms, prepare 99ms)
 
-[db-isolation] db=wsx_a42d11fe040c4f0200c6 peak_connections=4
+[db-isolation] db=wsx_6d3501b1dab8617cab78 peak_connections=4
 [timing] pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
   环境预留：0s
   等待资源：0s
-  命令执行：13s
-  清理：0s
-  总计：13s
+  命令执行：16s
+  清理：1s
+  总计：17s
 
 
 $ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts
@@ -55,8 +54,8 @@ $ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  02:58:29
-   Duration  1.03s (transform 33ms, setup 211ms, collect 14ms, tests 2ms, environment 0ms, prepare 55ms)
+   Start at  03:04:34
+   Duration  685ms (transform 35ms, setup 190ms, collect 14ms, tests 2ms, environment 0ms, prepare 225ms)
 
 
 
@@ -66,12 +65,12 @@ $ pnpm --filter web exec vitest run tests/guided-research-demo-state.test.ts
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
+ ✓ tests/guided-research-demo-state.test.ts (4 tests) 39ms
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  02:58:30
-   Duration  609ms (transform 38ms, setup 127ms, collect 19ms, tests 3ms, environment 0ms, prepare 49ms)
+   Start at  03:04:36
+   Duration  967ms (transform 111ms, setup 202ms, collect 109ms, tests 39ms, environment 0ms, prepare 253ms)
 
 
 
@@ -85,8 +84,8 @@ $ pnpm --filter web exec vitest run tests/guided-research-skill-state.test.ts
 
  Test Files  1 passed (1)
       Tests  8 passed (8)
-   Start at  02:58:32
-   Duration  553ms (transform 52ms, setup 113ms, collect 40ms, tests 6ms, environment 0ms, prepare 47ms)
+   Start at  03:04:38
+   Duration  651ms (transform 61ms, setup 122ms, collect 44ms, tests 6ms, environment 0ms, prepare 182ms)
 
 
 
@@ -96,12 +95,12 @@ $ pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.tes
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 203ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 209ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  02:58:33
-   Duration  1.96s (transform 92ms, setup 114ms, collect 180ms, tests 203ms, environment 1.06s, prepare 46ms)
+   Start at  03:04:39
+   Duration  1.92s (transform 91ms, setup 112ms, collect 188ms, tests 209ms, environment 902ms, prepare 49ms)
 
 
 
@@ -111,12 +110,15 @@ $ pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.tes
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 580ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1674ms
+   ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 548ms
+   ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 437ms
+   ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 456ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  02:58:36
-   Duration  2.65s (transform 593ms, setup 124ms, collect 959ms, tests 580ms, environment 588ms, prepare 102ms)
+   Start at  03:04:42
+   Duration  5.26s (transform 1.18s, setup 213ms, collect 1.90s, tests 1.67s, environment 1.02s, prepare 186ms)
 
 
 
@@ -126,12 +128,12 @@ $ pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 861ms
+ ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 1031ms
 
  Test Files  1 passed (1)
       Tests  24 passed (24)
-   Start at  02:58:39
-   Duration  2.30s (transform 204ms, setup 110ms, collect 359ms, tests 861ms, environment 561ms, prepare 166ms)
+   Start at  03:04:48
+   Duration  3.11s (transform 219ms, setup 117ms, collect 364ms, tests 1.03s, environment 749ms, prepare 403ms)
 
 
 
@@ -141,12 +143,13 @@ $ pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 344ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 630ms
+   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 313ms
 
  Test Files  1 passed (1)
       Tests  9 passed (9)
-   Start at  02:58:42
-   Duration  1.93s (transform 263ms, setup 182ms, collect 489ms, tests 344ms, environment 550ms, prepare 145ms)
+   Start at  03:04:52
+   Duration  2.38s (transform 196ms, setup 112ms, collect 343ms, tests 630ms, environment 610ms, prepare 162ms)
 
 
 
@@ -156,12 +159,12 @@ $ pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.te
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 281ms
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 138ms
 
  Test Files  1 passed (1)
       Tests  3 passed (3)
-   Start at  02:58:45
-   Duration  2.50s (transform 379ms, setup 154ms, collect 532ms, tests 281ms, environment 841ms, prepare 384ms)
+   Start at  03:04:55
+   Duration  2.18s (transform 187ms, setup 114ms, collect 321ms, tests 138ms, environment 769ms, prepare 250ms)
 
 
 
@@ -171,12 +174,12 @@ $ pnpm --filter web exec vitest run tests/research-rewrite.test.ts
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/research-rewrite.test.ts (1 test) 3ms
+ ✓ tests/research-rewrite.test.ts (1 test) 2ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  02:58:49
-   Duration  1.14s (transform 69ms, setup 304ms, collect 30ms, tests 3ms, environment 0ms, prepare 311ms)
+   Start at  03:04:58
+   Duration  551ms (transform 36ms, setup 115ms, collect 20ms, tests 2ms, environment 0ms, prepare 49ms)
 
 
 
@@ -189,19 +192,19 @@ $ pnpm turbo run typecheck --filter=@repo/api
    • Remote caching disabled, using shared worktree cache
 
 @repo/fabric-markdown:build: cache hit, replaying logs 40576d20e95572f7
-@repo/fabric-markdown:build:
+@repo/fabric-markdown:build: 
 @repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/boardx/workspacex/packages/fabric-markdown
 @repo/fabric-markdown:build: > tsc -p tsconfig.build.json
-@repo/fabric-markdown:build:
-@repo/api:typecheck: cache miss, executing 532d795530cac1b6
-@repo/api:typecheck:
+@repo/fabric-markdown:build: 
+@repo/api:typecheck: cache hit, replaying logs 532d795530cac1b6
+@repo/api:typecheck: 
 @repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
 @repo/api:typecheck: > tsc --noEmit
-@repo/api:typecheck:
+@repo/api:typecheck: 
 
  Tasks:    2 successful, 2 total
-Cached:    1 cached, 2 total
-  Time:    15.184s
+Cached:    2 cached, 2 total
+  Time:    122ms >>> FULL TURBO
 
 
 
@@ -254,4 +257,4 @@ $ bash apps/web/scripts/lint-design.sh
 
 ✅ lint-design：全部通过（扫描 app components lib）
 
-[harness-verify v1 sha256=ef46fb496aa2f676b211f53e1a4e494189987f0a4d839390b6281297f10913e3 commit=5179577b85b4644f4c3edba1d0fead71efea5cca at=2026-08-15T18:59:14.234Z]
+[harness-verify v1 sha256=5f05e25b2227539a5af5ca6264e7bda4a36add4062488cc2caa06f4d480ce875 commit=1da87ff0ecf434b1d78a600b1197127953091644 at=2026-08-15T19:05:06.757Z]
