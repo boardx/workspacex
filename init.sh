@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 # init.sh — 一键 bootstrap:安装依赖 + 基础验证 + 安装 git hooks + 打印启动命令
 # 改下面三个变量为你项目的真实命令即可。
+#
+# 默认路径（ADR-106 batch-1/6，#1276）：只跑依赖安装 + 生成物检查 + 快速健康检查，
+# 不再默认跑全仓 verify:base:raw（分钟级）——每次新开 worktree 都要付这个成本，
+# 而多数场景根本不需要全量证明。想要完整验证：./init.sh --full。
 set -euo pipefail
 
+RUN_FULL_VERIFY=0
+for arg in "$@"; do
+  case "${arg}" in
+    --full) RUN_FULL_VERIFY=1 ;;
+  esac
+done
+
 INSTALL_CMD="pnpm install"
-VERIFY_CMD="pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm -w run verify:base:raw"   # 基础验证:类型检查 + lint + 单测
+FULL_VERIFY_CMD="pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm -w run verify:base:raw"   # --full 时跑:类型检查 + lint + 单测（全仓）
 START_CMD=""   # 模板无应用层；接入你的 app 后改成真实启动命令（如 pnpm -w run dev）
 
 echo "==> 工作目录: $(pwd)"
@@ -71,41 +82,47 @@ echo "==> [harness] pre-push: 受影响模块 typecheck/lint/test（turbo --affe
 # --affected 相对 origin/main 计算改动面。用解析后的单一 merge-base SHA 而非
 # origin/main 引用：分支含 merge commit 时 turbo 内部 git 会报
 # "fatal: multiple merge bases found"（git merge-base 命令本身总返回单个最优解）。
-# 拿不到 base（首次 clone 未 fetch 等）→ 回退全量 verify:base。
 BASE_SHA="$(git merge-base origin/main HEAD 2>/dev/null || true)"
-if [ -n "${BASE_SHA}" ]; then
-  # 审计链体检（ADR-012）：只体检本次 push 触碰了 feature_list.json / sprints/** 的
-  # phase（只有这些文件能引入假 passing / 断证据 / 派生视图矛盾；改 adr/、requirements/
-  # 不触发，否则 phase-01 的历史欠债会卡死所有 ADR 提交）。历史欠债不阻塞无关 push，
-  # 谁触碰谁先还（存量修复见 ADR-012 remediation）。
-  # 注意 pathspec 必须用 '**' 递归匹配：'phases/*/sprints/' 对嵌套文件（如
-  # sprints/sprint-01/evidence/F01.verify.log）返回空，会漏拦 sprint 目录内的
-  # 全部改动（coord-main 实测：非递归 → 0 文件，'**' → 命中；见 PR #521 review）。
-  CHANGED_PHASES="$(git diff --name-only "${BASE_SHA}"..HEAD -- 'phases/*/feature_list.json' 'phases/*/sprints/**' 2>/dev/null | awk -F/ '{print $2}' | sed -n 's/^phase-\([^-]*\)-.*/\1/p' | sort -u)"
-  if [ -n "${CHANGED_PHASES}" ] && ! pnpm exec tsx --version >/dev/null 2>&1; then
-    # fresh worktree 依赖未装时 tsx 不可用——doctor 跑不了就 warn 跳过（与下方
-    # verify:base 回退同精神），不能让"环境没装好"伪装成"审计失败"卡死 push。
-    echo "  ! tsx 不可用（依赖未安装？），跳过审计链体检（doctor）——先 ./init.sh 装依赖后重推可恢复体检"
-    CHANGED_PHASES=""
-  fi
-  for PHASE_ID in ${CHANGED_PHASES}; do
-    if ! pnpm harness doctor --phase "${PHASE_ID}"; then
-      echo "✗ [harness] phase ${PHASE_ID} 审计链体检失败（假 passing / 断证据 / 派生视图矛盾），push 中止。"
-      echo "  按 doctor 输出修复（通常是 pnpm harness verify --sprint ${PHASE_ID}/<MM> [--backfill-evidence]）；跳过（不推荐）：git push --no-verify"
-      exit 1
-    fi
-  done
-  export TURBO_SCM_BASE="${BASE_SHA}"
-  if ! pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm turbo run typecheck lint test --affected; then
-    echo "✗ [harness] 受影响模块验证失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
+if [ -z "${BASE_SHA}" ]; then
+  # 拿不到 base（首次 clone 未 fetch、origin/main 引用过期等）：先 fetch 一次再试，
+  # 不静默退化成全量 verify:base（ADR-106）——全量验证是分钟级的，用它当默认回退
+  # 会把"我该 fetch 一下"的小问题伪装成"push 变慢了"的大问题，且不会有人去修根因。
+  echo "  ! 解析不到与 origin/main 的 merge-base，先 fetch 一次再试"
+  git fetch origin main --quiet || true
+  BASE_SHA="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+fi
+if [ -z "${BASE_SHA}" ]; then
+  echo "✗ [harness] fetch 后仍解析不到 merge-base——这是环境错误（网络不通 / origin 引用" >&2
+  echo "  异常 / 当前分支不是从 main 分出去的），不是「没有改动」，拒绝假装可以继续验证。" >&2
+  echo "  排查：git remote -v；git fetch origin main；确认分支确实基于 main。" >&2
+  echo "  确认环境没问题、只是想临时跳过：git push --no-verify" >&2
+  exit 1
+fi
+# 审计链体检（ADR-012）：只体检本次 push 触碰了 feature_list.json / sprints/** 的
+# phase（只有这些文件能引入假 passing / 断证据 / 派生视图矛盾；改 adr/、requirements/
+# 不触发，否则 phase-01 的历史欠债会卡死所有 ADR 提交）。历史欠债不阻塞无关 push，
+# 谁触碰谁先还（存量修复见 ADR-012 remediation）。
+# 注意 pathspec 必须用 '**' 递归匹配：'phases/*/sprints/' 对嵌套文件（如
+# sprints/sprint-01/evidence/F01.verify.log）返回空，会漏拦 sprint 目录内的
+# 全部改动（coord-main 实测：非递归 → 0 文件，'**' → 命中；见 PR #521 review）。
+CHANGED_PHASES="$(git diff --name-only "${BASE_SHA}"..HEAD -- 'phases/*/feature_list.json' 'phases/*/sprints/**' 2>/dev/null | awk -F/ '{print $2}' | sed -n 's/^phase-\([^-]*\)-.*/\1/p' | sort -u)"
+if [ -n "${CHANGED_PHASES}" ] && ! pnpm exec tsx --version >/dev/null 2>&1; then
+  # fresh worktree 依赖未装时 tsx 不可用——doctor 跑不了就 warn 跳过，不能让
+  # "环境没装好"伪装成"审计失败"卡死 push。
+  echo "  ! tsx 不可用（依赖未安装？），跳过审计链体检（doctor）——先 ./init.sh 装依赖后重推可恢复体检"
+  CHANGED_PHASES=""
+fi
+for PHASE_ID in ${CHANGED_PHASES}; do
+  if ! pnpm harness doctor --phase "${PHASE_ID}"; then
+    echo "✗ [harness] phase ${PHASE_ID} 审计链体检失败（假 passing / 断证据 / 派生视图矛盾），push 中止。"
+    echo "  按 doctor 输出修复（通常是 pnpm harness verify --sprint ${PHASE_ID}/<MM> [--backfill-evidence]）；跳过（不推荐）：git push --no-verify"
     exit 1
   fi
-else
-  echo "  ! 解析不到与 origin/main 的 merge-base，回退全量 verify:base"
-  if ! pnpm -w run verify:base; then
-    echo "✗ [harness] verify:base 失败，push 中止。"
-    exit 1
-  fi
+done
+export TURBO_SCM_BASE="${BASE_SHA}"
+if ! pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm turbo run typecheck lint test --affected; then
+  echo "✗ [harness] 受影响模块验证失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
+  exit 1
 fi
 HOOK
   chmod +x "${hook_path}"
@@ -175,10 +192,40 @@ if [ "${RUN_INFRA:-0}" = "1" ]; then
   pnpm --filter @repo/data run migrate
 fi
 
-echo "==> 基础验证: ${VERIFY_CMD}"
-if ! eval "${VERIFY_CMD}"; then
-  echo "!! 基础验证失败。请先修复基础状态,不要在坏的基础上继续叠功能。" >&2
-  exit 1
+# 快速健康检查：不是语法检查，是"关键依赖真的装上了、真的能跑"这一级——
+# ADR-106 负面后果里点名要求的底线，默认路径弱化后不能连这个都不查，否则
+# "环境根本没装对"会被无限期延后到 --full 或 CI 才暴露。
+fast_health_check() {
+  echo "==> 快速健康检查（关键依赖是否真的装上、真的能跑）"
+  local missing=()
+  for bin in tsx turbo vitest; do
+    [ -x "node_modules/.bin/${bin}" ] || missing+=("${bin}")
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "!! 关键依赖缺失：${missing[*]}（node_modules/.bin 下找不到对应可执行文件）" >&2
+    echo "   pnpm install 可能没有成功完成，或 lockfile 与实际依赖不一致。" >&2
+    exit 1
+  fi
+  if ! pnpm exec tsx --version >/dev/null 2>&1; then
+    echo "!! tsx 文件存在但跑不起来（pnpm exec tsx --version 失败）" >&2
+    exit 1
+  fi
+  if ! pnpm exec turbo --version >/dev/null 2>&1; then
+    echo "!! turbo 文件存在但跑不起来（pnpm exec turbo --version 失败）" >&2
+    exit 1
+  fi
+  echo "   ✓ 关键依赖已安装且可执行"
+}
+
+if [ "${RUN_FULL_VERIFY}" = "1" ]; then
+  echo "==> --full：跑完整验证: ${FULL_VERIFY_CMD}"
+  if ! eval "${FULL_VERIFY_CMD}"; then
+    echo "!! 完整验证失败。请先修复基础状态,不要在坏的基础上继续叠功能。" >&2
+    exit 1
+  fi
+else
+  fast_health_check
+  echo "==> 快速路径通过（跳过全仓验证）。需要完整证明时运行：./init.sh --full"
 fi
 
 if [ -n "${START_CMD}" ]; then
@@ -188,7 +235,7 @@ if [ -n "${START_CMD}" ]; then
     eval "${START_CMD}"
   fi
 else
-  echo "==> 基础验证通过。下一步（README『十分钟接入』）："
+  echo "==> 初始化完成。下一步（README『十分钟接入』）："
   echo "    1. 填 .harness/instructions/project/PROJECT.md 与 .harness/config/github-sync.yaml"
   echo "    2. pnpm harness new-phase --id 01 --name <名字> --goal \"<目标>\""
   echo "    3. 把原始需求写进 phases/phase-01-*/requirements/ 后让 agent 读 AGENTS.md 开工"
