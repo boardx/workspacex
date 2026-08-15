@@ -4332,14 +4332,14 @@
         "F174"
       ],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-chat-e2e",
       "verification": [
         "pnpm --filter api exec vitest run tests/templates/initialization-preview-persistence.test.ts",
         "pnpm --filter api run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F189.verify.log @ 2026-08-15T17:36:58.487Z",
       "notes": "① #991 backlog 第七件（BP-07），当量 1，依赖 BP-02（F174，已 passing）。契约操作 `getInitializationPreview` 与用例 `get-initialization-preview.ts`（`planInitializationPreview` 纯函数）此前均已存在，本 feature 只补控制器接线，不新增契约面、不需要新设计签核。\n② 范围边界——做：控制器 `GET /blueprints/:id/initialization-preview`，读 `BlueprintPersistencePort.getBlueprintDesignFacets()` 派生 `filledFacetKeys`（未填 facet 无行，出现的每一行即已填，判据见仓储层写入侧对空串的过滤 + CHECK 约束，不新增 port 方法），可见性判定复用 `decideCapabilityVisibility`（同 F132 六类 AssetKind 单一事实源，不新造判定）。不做：`versionId`/`tier` 参与派生（用例头注已注明这是当前范围之外，走当前草稿即可覆盖 AC5「随配置实时变化」）；BP-08/BP-09 的前端消费（本条只解除它们的阻塞）。\n③ 门槛按契约 err 枚举（`BLUEPRINT_NOT_FOUND`/`BLUEPRINT_NOT_VISIBLE`/`DEPENDENCY_UNAVAILABLE`，无 `ROLE_INSUFFICIENT`）——本端点是可见性门不是管理员门，与 F186（`requireCapabilityAdmin`）门槛不同，因为契约本身对这两个端点声明的错误集合不同。",
       "priority": 1,
       "area": "project",
