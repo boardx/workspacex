@@ -13,9 +13,27 @@ verification:
   # verify 脚本逐条执行 feature.verification 中的命令,全部退出码为 0 才允许门控通过
   shell: bash
   fail_fast: true
-  # 门控通过后是否要求基础验证仍然通过
-  require_base_pass: true
-  base_verify_cmd: "pnpm -w run verify:base"
+  # ADR-106 batch-1/6（#1274）：门控通过后要不要求基础验证、跑哪一档，按风险分
+  # 档决定，不再是全局布尔值。small/standard 目前都映射到 verify:quick（affected）
+  # ——两者合并是因为当前只有两档真实验证深度（affected 或 release），不是三档；
+  # 保留三个 key 是为了未来给 small 一档更轻的验证时不用改 schema，只改这里的值。
+  default_profile: standard
+  profiles:
+    small: "pnpm -w run verify:quick"
+    standard: "pnpm -w run verify:quick"
+    high_risk: "pnpm -w run verify:release"
+  # 风险判据（显式、可审计，不是"凭感觉"）：feature.area 或 feature.verification
+  # 命令字符串里出现下列任一标记子串 → high_risk。命中就跑 verify:release 而不是
+  # verify:quick，宁可判重不判漏——这三类是 harness 里明确写过"专项测试"要求的：
+  # 数据库 schema、鉴权/权限、跨束 API 契约（AGENTS.md「明确不改的部分」）。
+  high_risk_markers:
+    - "migration"
+    - "apps/api/migrations"
+    - "auth"
+    - "permission"
+    - "packages/coord-"
+    - "contracts/"
+    - "schema"
 
 gates:
   single_in_progress: true        # 强制"同时只有一个 in_progress"

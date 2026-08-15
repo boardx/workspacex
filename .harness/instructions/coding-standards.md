@@ -10,9 +10,11 @@
   日常小改动用 `pnpm -w run verify:quick`（affected typecheck/lint/test），碰
   `.harness/**` 用 `pnpm -w run verify:harness`，push 前想跑全量或不确定选哪档用
   `pnpm -w run verify:release`（等价于原 `verify:base`，命令仍可用，不是被删除）。
-  `pnpm harness verify` 门控 feature 转 passing 时目前仍固定跑 `verify:base`（即
-  `verify:release`）——按风险分档自动选 profile 是 ADR-106 第一批的后续 issue，
-  尚未落地，这行到时候一起更新，不要提前假装已经分档。
+  `pnpm harness verify` 门控 feature 转 passing 时按风险分档自动选 profile
+  （`harness.config.yaml` 的 `verification.profiles`，见 `lib/verify-risk.ts`）：
+  feature 的 `area` 或 `verification` 命令命中 `high_risk_markers`（数据库
+  migration、鉴权/权限、跨束契约等）就跑 `verify:release`，否则跑 `verify:quick`。
+  判据写错的后果是漏验证，别在不确定时手改 `high_risk_markers` 收窄范围。
 
 ## Feature 与 Delivery PR
 

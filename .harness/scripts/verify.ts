@@ -19,6 +19,7 @@ import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
 import { computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
+import { resolveVerifyProfile } from "./lib/verify-risk";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -117,40 +118,41 @@ export async function verify(args: Args): Promise<void> {
       continue;
     }
 
-    // 2) 如果 feature verification 全部通过，且 config 要求 base verify，额外运行基础验证
-    //    同一 SHA + 同一命令 + 工作树无变化时复用上次结果（ADR-106 batch-1/6，#1275）——
-    //    verificationType 目前固定用 base_verify_cmd 本身当 key：不同 profile 会有不同的
-    //    命令字符串，天然不会互相误命中；等 #1274 落地风险分档后，profile 名字会替代
-    //    命令字符串成为更稳定的 key，这里到时候一起改，不重复发明一套。
-    if (ok && cfg.verification.require_base_pass) {
-      const baseCmd = cfg.verification.base_verify_cmd;
+    // 2) 如果 feature verification 全部通过，按风险分档额外运行基础验证
+    //    （ADR-106 batch-1/6，#1274：取代原来的全局布尔 require_base_pass），
+    //    同一 SHA + 同一 profile + 工作树无变化时复用上次结果（ADR-106 batch-1/6，#1275）——
+    //    这里用 profile 的 level 当缓存 key（不是命令字符串本身）：#1275 落地时
+    //    #1274 还没合，只能先用命令字符串当 key；#1274 一起合入后按预告改成
+    //    level，更稳定（同一档位换了命令实现也还是同一档、缓存语义不受影响）。
+    if (ok) {
+      const { level, cmd: baseCmd } = resolveVerifyProfile(f, cfg.verification);
       const sha = currentSha();
       const fingerprint = computeFingerprint(sha);
-      const cached = lookupCredential(baseCmd, sha, fingerprint);
+      const cached = lookupCredential(level, sha, fingerprint);
       let br: { code: number; stdout: string; stderr: string };
       if (cached) {
-        log.step(`命中缓存凭证，跳过基础验证（require_base_pass=true）: ${baseCmd}`);
+        log.step(`命中缓存凭证，跳过基础验证（风险档=${level}）: ${baseCmd}`);
         log.info(`  上次执行于 ${cached.completedAt}，退出码=${cached.exitCode}`);
         br = { code: cached.exitCode, stdout: "", stderr: cached.exitCode === 0 ? "" : "[verify-cache] 复用上次失败结果，未重新执行" };
       } else {
-        log.step(`运行基础验证（require_base_pass=true）: ${baseCmd}`);
+        log.step(`运行基础验证（风险档=${level}）: ${baseCmd}`);
         br = sh(baseCmd);
         recordCredential({
           sha,
           fingerprint,
-          verificationType: baseCmd,
+          verificationType: level,
           command: baseCmd,
           exitCode: br.code,
           completedAt: new Date().toISOString(),
         });
       }
-      logs.push(`\n[BASE VERIFY] $ ${baseCmd}\n[exit ${br.code}]\n${br.stdout}${br.stderr}`);
+      logs.push(`\n[BASE VERIFY] (risk=${level}) $ ${baseCmd}\n[exit ${br.code}]\n${br.stdout}${br.stderr}`);
       if (br.code !== 0) {
         ok = false;
         log.err(`基础验证失败，拒绝将 ${f.id} 升为 passing`);
         log.err(`请先修复: ${baseCmd}`);
       } else {
-        log.ok(`基础验证通过`);
+        log.ok(`基础验证通过（${level}）`);
       }
     }
 

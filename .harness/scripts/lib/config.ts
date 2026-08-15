@@ -8,8 +8,12 @@ import { HARNESS_DIR } from "./paths";
 export interface VerificationConfig {
   shell: string;
   fail_fast: boolean;
-  require_base_pass: boolean;
-  base_verify_cmd: string;
+  /** ADR-106 batch-1/6（#1274）：风险分档取代原来的 require_base_pass 布尔值。 */
+  default_profile: string;
+  /** profile 名 → 该档要跑的完整命令（如 "pnpm -w run verify:quick"）。 */
+  profiles: Record<string, string>;
+  /** feature.area 或 verification 命令字符串命中任一标记 → 判 high_risk。 */
+  high_risk_markers: string[];
 }
 
 export interface GatesConfig {
