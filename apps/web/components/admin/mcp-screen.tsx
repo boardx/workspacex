@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight } from "lucide-react";
+import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight, LayoutGrid, LayoutList } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
@@ -33,6 +33,7 @@ export function McpScreen({ state }: { state: UiState }) {
   const [revoked, setRevoked] = React.useState<Set<string>>(new Set());
   const [disableOf, setDisableOf] = React.useState<McpRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<"card" | "list">("card");
 
   return (
     <AdminScreen
@@ -52,10 +53,38 @@ export function McpScreen({ state }: { state: UiState }) {
           <p className="text-12 text-muted-foreground">
             {MCP_SUMMARY.total} 台 · {MCP_SUMMARY.connected} 台已连接 · {MCP_SUMMARY.isolated} 台已隔离
           </p>
-          <Button size="sm" variant="primary" onClick={() => setPanel({ mode: "add" })} data-testid="admin-mcp-add">
-            <Plus aria-hidden className="h-3.5 w-3.5" />
-            添加服务器
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-md border border-border p-0.5" role="group" aria-label="视图切换">
+              <button
+                type="button"
+                onClick={() => setViewMode("card")}
+                aria-pressed={viewMode === "card"}
+                data-testid="admin-mcp-view-toggle-card"
+                className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-11 transition-colors duration-200 ${
+                  viewMode === "card" ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
+                卡片
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                aria-pressed={viewMode === "list"}
+                data-testid="admin-mcp-view-toggle-list"
+                className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-11 transition-colors duration-200 ${
+                  viewMode === "list" ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <LayoutList aria-hidden className="h-3.5 w-3.5" />
+                列表
+              </button>
+            </div>
+            <Button size="sm" variant="primary" onClick={() => setPanel({ mode: "add" })} data-testid="admin-mcp-add">
+              <Plus aria-hidden className="h-3.5 w-3.5" />
+              添加服务器
+            </Button>
+          </div>
         </div>
 
         {/*
@@ -115,59 +144,117 @@ export function McpScreen({ state }: { state: UiState }) {
         </div>
 
         {/* 服务器清单：服务器 ｜ 端点 ｜ 工具 ｜ 授权范围 ｜ 评审 ｜ 状态 */}
-        <div className="flex flex-col gap-1.5" data-testid="admin-mcp-list">
-          {MCP_SERVERS.map((s) => {
-            const isRevoked = revoked.has(s.id);
-            const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
-            return (
-              <Card key={s.id} data-testid={`admin-mcp-row-${s.id}`}>
-                <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <Plug aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="text-12 font-medium">{s.name}</span>
-                      <span className="text-11 text-muted-foreground">{s.note}</span>
-                      {s.touchesClientData && <Badge tone="warning">涉客户数据</Badge>}
-                    </div>
-                    <span className="font-mono text-10 text-muted-foreground">{s.endpoint}</span>
-                  </div>
+        <div data-testid="admin-mcp-view-container">
+          {viewMode === "card" ? (
+            <div
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              data-testid="admin-mcp-card-grid"
+            >
+              {MCP_SERVERS.map((s) => {
+                const isRevoked = revoked.has(s.id);
+                const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
+                return (
+                  <Card key={s.id} data-testid={`admin-mcp-card-${s.id}`}>
+                    <CardContent className="flex h-full flex-col gap-2 pt-4">
+                      <div className="flex items-start gap-2">
+                        <Plug aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate text-13 font-medium">{s.name}</span>
+                          <span className="font-mono text-10 text-muted-foreground">{s.endpoint}</span>
+                        </div>
+                      </div>
+                      {s.note && <p className="text-11 text-muted-foreground">{s.note}</p>}
 
-                  <div className="flex items-center gap-1 text-11 text-muted-foreground">
-                    <Wrench aria-hidden className="h-3 w-3" />
-                    {s.tools} 工具
-                  </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {s.touchesClientData && <Badge tone="warning">涉客户数据</Badge>}
+                        <AuthScopeBadge scope={s.authScope} team={s.authTeam} data-testid={`admin-mcp-authscope-${s.id}`} />
+                        <ReviewBadge status={isCleared ? "cleared" : "pending"} data-testid={`admin-mcp-review-${s.id}`} />
+                        <Badge tone={CONN_TONE[s.conn]} data-testid={`admin-mcp-conn-${s.id}`}>
+                          {MCP_CONN_LABEL[s.conn]}
+                        </Badge>
+                        {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
+                      </div>
 
-                  {/* 授权范围（枚举②） */}
-                  <AuthScopeBadge scope={s.authScope} team={s.authTeam} data-testid={`admin-mcp-authscope-${s.id}`} />
+                      <div className="flex items-center gap-1 text-11 text-muted-foreground">
+                        <Wrench aria-hidden className="h-3 w-3" />
+                        {s.tools} 工具
+                      </div>
 
-                  {/* 评审状态（枚举③，与授权范围并列） */}
-                  <ReviewBadge status={isCleared ? "cleared" : "pending"} data-testid={`admin-mcp-review-${s.id}`} />
+                      <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
+                        <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
+                        {!isCleared ? (
+                          <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
+                        ) : (
+                          <>
+                            <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
+                            <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
+                              <Ban aria-hidden className="h-3 w-3" />
+                              撤销授权
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5" data-testid="admin-mcp-list">
+              {MCP_SERVERS.map((s) => {
+                const isRevoked = revoked.has(s.id);
+                const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
+                return (
+                  <Card key={s.id} data-testid={`admin-mcp-row-${s.id}`}>
+                    <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <Plug aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-12 font-medium">{s.name}</span>
+                          <span className="text-11 text-muted-foreground">{s.note}</span>
+                          {s.touchesClientData && <Badge tone="warning">涉客户数据</Badge>}
+                        </div>
+                        <span className="font-mono text-10 text-muted-foreground">{s.endpoint}</span>
+                      </div>
 
-                  {/* 连接状态 */}
-                  <Badge tone={CONN_TONE[s.conn]} data-testid={`admin-mcp-conn-${s.id}`}>
-                    {MCP_CONN_LABEL[s.conn]}
-                  </Badge>
+                      <div className="flex items-center gap-1 text-11 text-muted-foreground">
+                        <Wrench aria-hidden className="h-3 w-3" />
+                        {s.tools} 工具
+                      </div>
 
-                  {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
+                      {/* 授权范围（枚举②） */}
+                      <AuthScopeBadge scope={s.authScope} team={s.authTeam} data-testid={`admin-mcp-authscope-${s.id}`} />
 
-                  <div className="ml-auto flex gap-1.5">
-                    <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
-                    {!isCleared ? (
-                      <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
-                    ) : (
-                      <>
-                        <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
-                        <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
-                          <Ban aria-hidden className="h-3 w-3" />
-                          撤销授权
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                      {/* 评审状态（枚举③，与授权范围并列） */}
+                      <ReviewBadge status={isCleared ? "cleared" : "pending"} data-testid={`admin-mcp-review-${s.id}`} />
+
+                      {/* 连接状态 */}
+                      <Badge tone={CONN_TONE[s.conn]} data-testid={`admin-mcp-conn-${s.id}`}>
+                        {MCP_CONN_LABEL[s.conn]}
+                      </Badge>
+
+                      {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
+
+                      <div className="ml-auto flex gap-1.5">
+                        <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
+                        {!isCleared ? (
+                          <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
+                        ) : (
+                          <>
+                            <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
+                            <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
+                              <Ban aria-hidden className="h-3 w-3" />
+                              撤销授权
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
