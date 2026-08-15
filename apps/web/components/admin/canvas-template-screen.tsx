@@ -17,11 +17,23 @@ import {
 } from "@/lib/live-canvas";
 
 /**
+ * ⚠ 已退役（2026-08-15，人类直接裁决真合并，D-43，推翻 D-42 ⑤）——后台「画布模板」
+ * 与「画布模板库与编辑器」（`template-admin.tsx`）已真合并成一个屏：`ADMIN_NAV` 的
+ * `canvasadmin` 项 href 直接指向 `/canvas?screen=template-admin`，`/admin/canvasadmin`
+ * 这条路由现在是重定向桩（见 `apps/web/app/admin/[module]/page.tsx` 的 `REDIRECTS`）。
+ * Q-11 已解除阻塞——不再是「只链过去，不搬也不复制」的过渡态，见
+ * `phases/requirements/DECISIONS-FINAL.md` D-43。
+ *
+ * 本组件不再被任何路由引用，保留文件是为了留痕（同类先例：
+ * `components/admin/blueprint-screen.tsx` 在项目模板收敛后同样保留不删）。
+ *
+ * ## 历史背景（原注释，保留留痕）
+ *
  * 后台 → 画布模板（`AssetKind.canvas-template`，左栏第 5 项，F132）。
  *
  * #464 起数据来自 `GET /canvas/templates` 的真实响应，不再从 `lib/mock/canvas` 取。
- * 这一屏仍然**只做清单与去向**：治理动作（发布 / 可见范围 / 归档）在模板库那一屏，
- * 后台这一项与那一屏是否合并属 Q-11，未裁 —— 只链过去，不搬也不复制。
+ * 这一屏曾经**只做清单与去向**：治理动作（发布 / 可见范围 / 归档）在模板库那一屏，
+ * 后台这一项与那一屏是否合并属 Q-11——这个问题现在已经由 D-43 解除。
  *
  * ⚠ 原先的 `AdminScreen` 七态预览壳已撤下：加载 / 空 / 失败三态现在由真实请求决定，
  *   一个能用 `?state=` 切出来的失败态与真实失败并存，会让人分不清屏上这句报错是谁说的。
@@ -107,7 +119,7 @@ export function CanvasTemplateScreen() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
           <p className="text-12 text-muted-foreground">
-            分区结构、围栏语法与版本历史在模板编辑器里改。后台这一项与那一屏是否合并，属 Q-11，待人类裁决。
+            分区结构、围栏语法与版本历史在模板编辑器里改。后台这一项与那一屏已真合并（D-43），本屏已退役。
           </p>
           <Link
             href="/canvas?screen=template-admin"

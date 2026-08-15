@@ -80,11 +80,16 @@ describe("§2 AI 能力组的入口已直接指向真实的合并落点，不再
     expect(item.href).toBe("/skill");
   });
 
-  it("Agent 目录 / 模型 / MCP / 画布模板：本轮未改 href（它们是吸收方，不是被合并方）", () => {
+  it("画布模板 → href 直接指向 /canvas?screen=template-admin（D-43，2026-08-15 人类直接裁决真合并，推翻此前 D-42 ⑤「合并会丢功能」的判断）", () => {
+    const item = adminItem("canvasadmin");
+    expect(item.label).toBe("画布模板");
+    expect(item.href).toBe("/canvas?screen=template-admin");
+  });
+
+  it("Agent 目录 / 模型 / MCP：本轮未改 href（它们是吸收方，不是被合并方）", () => {
     expect(adminItem("agent").href).toBe("/admin/agent");
     expect(adminItem("model").href).toBe("/admin/model");
     expect(adminItem("mcp").href).toBe("/admin/mcp");
-    expect(adminItem("canvasadmin").href).toBe("/admin/canvasadmin");
   });
 });
 

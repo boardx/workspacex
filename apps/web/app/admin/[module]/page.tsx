@@ -4,7 +4,6 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { AgentScreen } from "@/components/admin/agent-screen";
 import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
-import { CanvasTemplateScreen } from "@/components/admin/canvas-template-screen";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { LocalOrgScreen } from "@/components/admin/local-org-screen";
@@ -24,17 +23,24 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  *   旧路由**保留重定向**（见下方 `REDIRECTS`），不留死链，给还停在旧书签的人一个去处。
  *   ⚠ 2026-08-14：`blueprint` 的重定向目标从 `/tpl` 改为 `/tpl/list`（生产入口不带
  *   原型切换器），理由同 `lib/mock/admin.ts` 里 `blueprint` 项 href 的改动注释。
+ * ⚠ 2026-08-15（人类直接裁决，D-43，推翻 D-42 ⑤）：`canvasadmin` 同样**不再在这里落地**——
+ *   人类看真实后台截图后原话「画布模板……右边的列表，应该和打开模板和编辑器的界面整合，
+ *   合并成一个」。`ADMIN_NAV` 的 `canvasadmin` 项 href 已直接指向
+ *   `/canvas?screen=template-admin`（真实的模板库与编辑器，`TemplateAdmin` 组件），
+ *   `/admin/canvasadmin` 退役为重定向，不留死链。旧的 `CanvasTemplateScreen`（清单 + 跳转链接）
+ *   不再被任何路由引用，保留文件留痕（同 `blueprint-screen.tsx` 先例）。见
+ *   `phases/requirements/DECISIONS-FINAL.md` D-43。
  */
 const REDIRECTS: Partial<Record<string, string>> = {
   blueprint: "/tpl/list",
   skill: "/skill?screen=catalog",
+  canvasadmin: "/canvas?screen=template-admin",
 };
 
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {
   agent: AgentScreen,
   model: ModelScreen,
   mcp: McpScreen,
-  canvasadmin: CanvasTemplateScreen,
   members: MembersScreen,
   feedback: FeedbackScreen,
   local: LocalOrgScreen,

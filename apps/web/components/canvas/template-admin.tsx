@@ -29,6 +29,12 @@ import { TemplateApplyDialog } from "./template-apply-dialog";
 /**
  * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
  *
+ * ⚠ 2026-08-15（人类直接裁决真合并，D-43，见 `phases/requirements/DECISIONS-FINAL.md`）：
+ *   这条路由现在**也是**后台左栏「画布模板」的落点——`ADMIN_NAV` 的 `canvasadmin` 项 href
+ *   直接指向这里，`/admin/canvasadmin`（原先只做清单 + 跳转链接的 `canvas-template-screen.tsx`）
+ *   已退役为重定向。Q-11「后台这一项与这一屏是否合并」到此解除：不再是两处各画一半，
+ *   这一屏就是唯一入口。
+ *
  * #464 起这一屏只投影 `GET /canvas/templates` 的真实响应：browser → controller →
  * `application/canvas/list-templates` → `PgCanvasTemplateRepository` → PostgreSQL。
  *
