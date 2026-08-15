@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import {
   loadDigitalInterviewHistory,
@@ -91,11 +92,12 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
-      <div className="mx-auto w-full max-w-[1380px] px-6 py-8 lg:px-10 lg:py-10">
-        <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
+      <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
+        <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">访谈 Studio</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;访谈</p>
+            <h1 className="mt-2 text-24 font-semibold tracking-tight text-foreground">访谈 Studio</h1>
+            <p className="mt-2 text-12 text-muted-foreground">
               回看或继续历史访谈，也可以选择一位数字专家快速开始对话。
             </p>
           </div>
@@ -109,7 +111,7 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
           </button>
         </header>
 
-        <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-8 border-b border-border">
+        <div role="tablist" aria-label="访谈内容" className="mt-6 flex gap-6 border-b border-border">
           <TabButton active={tab === "history"} testId="itv-tab-history" onClick={() => setTab("history")}>
             历史访谈
           </TabButton>
@@ -220,7 +222,7 @@ function FilterButton({ active, onClick, children }: {
 }) {
   return (
     <button type="button" onClick={onClick} className={cn(
-      "rounded-lg border px-4 py-2 text-xs font-medium transition-colors",
+      "h-7 rounded-md border px-2.5 text-12 font-medium transition-colors",
       active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground",
     )}>{children}</button>
   );
@@ -231,7 +233,7 @@ function HistoryContent({ state, onChanged }: { state: LoadState<DigitalIntervie
   if (state.kind === "error") return <StatePanel testId="itv-history-error">加载失败：{state.reason}</StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-history-empty">还没有符合条件的访谈。</StatePanel>;
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} onChanged={onChanged} />)}
     </div>
   );
@@ -240,18 +242,18 @@ function HistoryContent({ state, onChanged }: { state: LoadState<DigitalIntervie
 function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; onChanged: () => void }) {
   const action = historyPrimaryAction(item);
   return (
-    <article data-testid={`itv-history-card-${item.interviewId}`} className="flex min-h-64 flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article data-testid={`itv-history-card-${item.interviewId}`} className="flex min-h-64 flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="truncate text-base font-semibold text-card-foreground">{item.name}</h2>
           <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.topic}</p>
         </div>
-        <span className="shrink-0 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground">
+        <Badge tone="outline" className="shrink-0">
           {STATUS_LABEL[item.status]}
-        </span>
+        </Badge>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {item.tags.map((tag) => <span key={tag} className="rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground">{tag}</span>)}
+        {item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
       </div>
       <div className="mt-auto border-t border-border pt-4">
         <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
@@ -323,5 +325,5 @@ function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> })
 }
 
 function StatePanel({ testId, children }: { testId?: string; children: React.ReactNode }) {
-  return <div data-testid={testId} className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">{children}</div>;
+  return <div data-testid={testId} className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-6 text-center text-12 text-muted-foreground">{children}</div>;
 }

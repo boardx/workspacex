@@ -210,13 +210,15 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
     return () => { active = false; };
   }, []);
   return (
-    <>
-      <PageHeading
-        eyebrow="Deep Research"
-        title="研究"
-        description="从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。"
-        action={<Button variant="primary" size="md" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" />创建研究</Button>}
-      />
+    <section data-testid="research-home-page" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
+      <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-1">
+          <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;研究</p>
+          <h1 className="text-24 font-semibold tracking-tight text-foreground">研究</h1>
+          <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。</p>
+        </div>
+        <Button variant="primary" size="lg" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" />创建研究</Button>
+      </header>
       <Card className="border-primary/20 bg-accent/40">
         <CardContent className="flex flex-col items-start justify-between gap-4 p-5 md:flex-row md:items-center">
           <div className="flex items-start gap-3">
@@ -229,12 +231,12 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
       <section className="space-y-3" data-testid="research-history">
         <div className="flex items-center justify-between"><h2 className="text-16 font-semibold">历史研究</h2><span className="text-11 text-muted-foreground">{history?.length ?? 0} 项</span></div>
         {history === null && !loadFailed && <p className="text-12 text-muted-foreground" data-testid="research-history-loading">正在加载历史研究…</p>}
-        {loadFailed && <p className="text-12 text-destructive" data-testid="research-history-error">历史研究加载失败，请稍后重试。</p>}
-        {history?.length === 0 && <p className="rounded-md border border-dashed p-6 text-center text-12 text-muted-foreground" data-testid="research-history-empty">还没有研究，先创建一项吧。</p>}
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {loadFailed && <p className="rounded-lg border border-destructive bg-card p-6 text-12 text-destructive" data-testid="research-history-error">历史研究加载失败，请稍后重试。</p>}
+        {history?.length === 0 && <p className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-6 text-center text-12 text-muted-foreground" data-testid="research-history-empty">还没有研究，先创建一项吧。</p>}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {history?.map((item) => (
-            <Card key={item.sessionId} className="flex h-full flex-col transition-shadow hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
-              <CardHeader className="space-y-3 pb-2">
+            <Card key={item.sessionId} className="flex min-h-64 h-full flex-col p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
+              <CardHeader className="space-y-3 p-0 pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <Badge tone={item.status === "completed" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.status === "completed" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
                   <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
@@ -243,7 +245,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
                 {item.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>}
                 <p className="min-h-10 text-11 leading-relaxed text-muted-foreground">{item.brief.goal}</p>
               </CardHeader>
-              <CardContent className="mt-auto space-y-3">
+              <CardContent className="mt-auto space-y-3 p-0 pt-2">
                 <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
                 {item.status === "completed" ? (
                   <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看报告</Button>
@@ -264,7 +266,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
           onNavigate("brief");
         }}
       />
-    </>
+    </section>
   );
 }
 

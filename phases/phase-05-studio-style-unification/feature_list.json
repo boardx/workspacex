@@ -1,0 +1,26 @@
+{
+  "phase": "05",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "user-research",
+      "title": "统一 Studio 列表与创建样式",
+      "spec_ref": "00-overview.md#R1",
+      "user_visible_behavior": "用户访问 /research、/itv 或 /rec 时看到一致的列表页层级、筛选区、卡片与空态；从任一列表打开创建弹窗时，名称与最多五个标签使用一致的样式，原有创建、取消、筛选与跳转行为保持不变。",
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "agt_01KZRABCZ99M2NGN20C7YWEASG",
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-history.test.tsx",
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint:design"
+      ],
+      "evidence": "",
+      "notes": "范围仅限 /research、/itv、/rec 的列表首页与创建弹窗名称/标签区；无 API 契约变更。"
+    }
+  ]
+}
