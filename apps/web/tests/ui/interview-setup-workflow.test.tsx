@@ -21,6 +21,10 @@ type LiveInterview = {
   readonly version: number;
 };
 
+type PersistedLiveInterview = Omit<LiveInterview, "topic"> & {
+  readonly topic: string;
+};
+
 const topicPendingInterview: LiveInterview = {
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
@@ -33,7 +37,7 @@ const topicPendingInterview: LiveInterview = {
   version: 41,
 };
 
-const persistedInterview: LiveInterview = {
+const persistedInterview: PersistedLiveInterview = {
   ...topicPendingInterview,
   topic: "服务端恢复：谁拥有最终否决权？",
   status: "experts_pending",
