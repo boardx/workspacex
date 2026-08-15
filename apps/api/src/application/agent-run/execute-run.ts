@@ -599,6 +599,13 @@ async function executeClaimed(
   let l3Status: ContextLayerStatus = deps.files ? "degraded" : "not_configured";
   let l3HitCount = 0;
   let l3Sources: readonly string[] = [];
+  // F156（design-delta `personal-thread-own-attachment-recall` §2 点 2）：这次 L3 查询走的是
+  // 哪条范围分支，由 `run.projectId` 是否为空**在发起查询之前**就已经确定——与查询成不成功、
+  // 命中多少条无关（哪怕降级为空，「这次本该查的是哪条分支」仍是一个可以诚实记录的事实）。
+  // `deps.files` 未配置时保持 `null`（这次执行根本没有发起 L3 查询）。
+  const l3RetrievalScope: "own-attachment" | "project-retrieval" | null = deps.files
+    ? (run.projectId === null || run.projectId === "" ? "own-attachment" : "project-retrieval")
+    : null;
   if (deps.files) {
     try {
       const hits = await deps.files.search(
@@ -657,6 +664,7 @@ async function executeClaimed(
         l3Status,
         l3HitCount,
         l3Sources,
+        l3RetrievalScope,
         estimatedTokens,
       });
     } catch (e) {

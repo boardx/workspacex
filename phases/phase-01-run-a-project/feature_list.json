@@ -3537,17 +3537,17 @@
         "F155"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/personal-thread-zero-retrieval.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F156.verify.log @ 2026-08-15T16:40:43.727Z",
       "notes": "依据等级：[已签核] 个人对话零召回（design-signoff.md），须有真栈反证（无项目 ⇒ 零检索请求）。与既有 tests/chat/personal-thread-no-project.test.ts 的 P 组『无项目上下文如实呈现』一致，不伪造。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "10"
     },
     {
       "id": "F157",
