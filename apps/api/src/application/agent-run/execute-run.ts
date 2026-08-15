@@ -57,6 +57,7 @@ import { ModelCallError } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
 } from "./file-retrieval";
+import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-snapshot";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -289,9 +290,23 @@ export interface ExecuteAgentRunDeps {
    * 缺省不注入 ⇒ 行为与 F155 之前逐字节相同（history 不多一条伪消息）。
    */
   readonly files?: FileRetrievalPort;
+  /**
+   * F157 —— 可审计上下文快照写入口。**可选**，与 `usage`/`files` 同一条既有理由：既有测试
+   * 与不需要被审计的执行路径（`trial-run-agent` 一类）不必都改，生产合成
+   * （`kernel.module.ts` → `AgentRunExecutor`）必定注入。缺省不注入 ⇒ 不写快照，行为与
+   * F157 之前逐字节相同（不影响 history/model 调用本身）。
+   */
+  readonly contextSnapshots?: AgentRunContextSnapshotPort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
+
+/**
+ * F157 —— 与 `HISTORY_MAX_CHARS` 头注同一条换算（~4 字符/token 的保守代理，这个部署没有真实
+ * tokenizer）。单独具名，不复述那段注释——唯一事实源仍是 `HISTORY_MAX_CHARS` 自己的头注，
+ * 这里只是给「怎么把字符数换算成一个估值」一个可复用的数字。
+ */
+const ESTIMATED_TOKENS_CHAR_RATIO = 4;
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
 
@@ -472,6 +487,13 @@ async function executeClaimed(
    * regress runs that never needed history in the first place.
    */
   let history: readonly ThreadHistoryMessage[] = [];
+  // F157 —— L1/L2 快照字段。悲观初始化：`l1MessageCount` 只在真正算出 `l1` 之后才前推；
+  // `l2Status` 默认 `"degraded"`、只在两条正常收尾路径（复用已有摘要 / 新摘要写回或竞态丢失）
+  // 上才翻成 `"ok"`——这样"外层 try 整体失败"与"内层 L2 try 自己抛错"两条路径**不必各写一次
+  // 赋值**，天然都停在悲观默认值上，不会有遗漏某条 catch 分支忘记标记降级的风险。
+  let l1MessageCount = 0;
+  let l2Status: Exclude<ContextLayerStatus, "not_configured"> = "degraded";
+  let l2CoveredThroughId: string | null = null;
   try {
     // F154 L2——宽窗口取回（见 `L2_CATCHUP_FETCH_LIMIT` 注释：不撑大 L1，只给 L2 增量判断更多
     // 候选）。L1 仍是纯字符预算裁剪（`trimHistoryToBudget`，与 #709/V8 逐字节相同的函数）。
@@ -479,6 +501,7 @@ async function executeClaimed(
       orgId, run.threadId, run.inputMessageId, L2_CATCHUP_FETCH_LIMIT,
     );
     const l1 = trimHistoryToBudget(candidates, HISTORY_MAX_CHARS);
+    l1MessageCount = l1.length; // F157：这是本轮真正进模型的 L1 条数，读取失败时保持默认 0。
 
     // L2：直读已有持久摘要，只对「L1 边界之前、尚未纳入摘要」的新增轮增量摘要并写回。
     // 这一段整体不 fail run（E1，见 spec R4）——任何一步失败都退回「只有 L1，没有 L2 摘要」，
@@ -490,6 +513,9 @@ async function executeClaimed(
       if (increment.toSummarize.length === 0) {
         // 没有新增区间——直接复用已有摘要，本轮零模型调用（V2：不重读全史重算）。
         l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+        // F157：这次没有新增摘要工作，生效边界就是持久状态里已有的那个（从未摘要过则 null）。
+        l2CoveredThroughId = persisted?.summarizedThroughId ?? null;
+        l2Status = "ok";
       } else {
         const transcript = increment.toSummarize.map((m) => `${m.role}: ${m.content}`).join("\n");
         const priorSummary = persisted?.summary ?? "";
@@ -506,6 +532,8 @@ async function executeClaimed(
         if (updated === "") {
           // 模型给了空文本——当作这次没有可用的新摘要，退回已有的（若有）。
           l2Summary = persisted && persisted.summary.length > 0 ? persisted.summary : null;
+          l2CoveredThroughId = persisted?.summarizedThroughId ?? null; // F157：边界未推进。
+          l2Status = "ok";
         } else {
           l2Summary = updated;
           const wrote = await deps.runs.upsertThreadContextState(orgId, run.threadId, {
@@ -521,6 +549,10 @@ async function executeClaimed(
               runId: run.runId,
             });
           }
+          // F157：快照记录「这次实际生效的边界」——写成功就是新游标，撞并发丢失就是旧游标
+          // （本轮仍在用刚算出的 `updated` 文本作答，但没能把边界前推，如实记旧值）。
+          l2CoveredThroughId = wrote ? increment.advanceCursorTo : (persisted?.summarizedThroughId ?? null);
+          l2Status = "ok";
         }
       }
     } catch (error) {
@@ -528,6 +560,8 @@ async function executeClaimed(
         runId: run.runId,
         detail: error instanceof Error ? error.message : "unexpected L2 error",
       });
+      // F157：l2Status 保持悲观默认 "degraded"，l2CoveredThroughId 保持 null——
+      // 降级之后不敢再声称一个可能已经过时/不可信的边界。
     }
 
     history = l2Summary === null
@@ -560,6 +594,11 @@ async function executeClaimed(
    * 顺序：[检索到的文件] → [早前对话摘要] → L1 近端原文。文件是**参考材料**，摘要与近端原文
    * 是**对话本身**，把参考材料放在最前、离当前轮最远，与 L1「近几轮永远优先」同一条取舍。
    */
+  // F157：L3 三态默认值——没配 `deps.files` 就是 "not_configured"（这次执行根本没接这一层）；
+  // 配了就悲观从 "degraded" 起步，只有真正查询成功才翻 "ok"（同 L2 的悲观默认写法）。
+  let l3Status: ContextLayerStatus = deps.files ? "degraded" : "not_configured";
+  let l3HitCount = 0;
+  let l3Sources: readonly string[] = [];
   if (deps.files) {
     try {
       const hits = await deps.files.search(
@@ -575,6 +614,9 @@ async function executeClaimed(
         run.inputText,
         FILE_RETRIEVAL_MAX_HITS,
       );
+      l3Status = "ok"; // F157：查询本身成功（不代表一定有命中——零命中也是 "ok"，见端口文档）。
+      l3HitCount = hits.length;
+      l3Sources = [...new Set(hits.map((h) => h.kind))];
       const fileContext = buildFileContextMessage(hits, run.inputText);
       if (fileContext !== null) history = [fileContext, ...history];
     } catch (e) {
@@ -583,6 +625,8 @@ async function executeClaimed(
         runId: run.runId,
         detail: e instanceof Error ? e.message : "unexpected file retrieval failure",
       });
+      // F157：l3Status 保持悲观默认 "degraded"，hitCount/sources 保持 0/[]——降级为空是诚实
+      // 的答案（同 delta §3.3 的既有纪律），快照如实记这是「查了没查成」而不是「查了没结果」。
     }
   }
 
@@ -591,6 +635,37 @@ async function executeClaimed(
   // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
   history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
   const userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+
+  /*
+   * F157 —— 可审计上下文快照：在三层组装完成、system+history+userText 就是即将真正喂给模型
+   * 的那份内容的这一刻写下快照。挂在这里而不是 run 成功之后：无论接下来的模型调用成不成功，
+   * "这次到底喂了什么"这件事已经发生、已经是历史事实——快照记录的是喂入，不是喂入之后的结果。
+   * 可选依赖，写失败不 fail run（同 `meter()` 那条既有纪律：审计观测面，不是运行正确性）。
+   */
+  if (deps.contextSnapshots) {
+    const estimatedTokens = Math.ceil(
+      (system.length + userText.length
+        + history.reduce((sum, m) => sum + m.content.length, 0))
+      / ESTIMATED_TOKENS_CHAR_RATIO,
+    );
+    try {
+      await deps.contextSnapshots.record(orgId, {
+        runId: run.runId,
+        l1MessageCount,
+        l2Status,
+        l2CoveredThroughId,
+        l3Status,
+        l3HitCount,
+        l3Sources,
+        estimatedTokens,
+      });
+    } catch (e) {
+      deps.log("agent run context snapshot write failed; this run is not auditable via agent_run_context_snapshots", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : "unexpected context snapshot write failure",
+      });
+    }
+  }
 
   /* ── step: model_called -- exactly one FINAL answer, whatever it took to reach it ── */
   const modelStartedAt = deps.clock.now();
