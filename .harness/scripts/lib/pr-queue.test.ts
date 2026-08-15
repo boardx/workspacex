@@ -69,8 +69,8 @@ describe("#451 PR 队列状态机", () => {
       const got = classifyPr({
         ...greenFacts(),
         checks: greenFacts().checks.map((check) =>
-          check.name === "verify"
-            ? { name: "verify", status: pending ? "IN_PROGRESS" : "COMPLETED", conclusion: pending ? null : conclusion }
+          check.name === REQUIRED_CHECKS[0]
+            ? { name: REQUIRED_CHECKS[0], status: pending ? "IN_PROGRESS" : "COMPLETED", conclusion: pending ? null : conclusion }
             : check,
         ),
       });
@@ -157,7 +157,7 @@ describe("#451 PR 队列状态机", () => {
   it("未知的 check 结论不放行", () => {
     const got = classifyPr({
       ...greenFacts(),
-      checks: [{ name: "verify", status: "COMPLETED", conclusion: "SOMETHING_NEW" }],
+      checks: [{ name: REQUIRED_CHECKS[0], status: "COMPLETED", conclusion: "SOMETHING_NEW" }],
     });
     expect(got.state).toBe("MERGE_BLOCKED");
   });
@@ -170,7 +170,7 @@ describe("#451 PR 队列状态机", () => {
   it("CI 失败退回 worker（CHANGES_REQUIRED），不与门禁完整性问题混为一谈", () => {
     const got = classifyPr({
       ...greenFacts(),
-      checks: greenFacts().checks.map((c) => (c.name === "verify" ? { ...c, conclusion: "FAILURE" } : c)),
+      checks: greenFacts().checks.map((c) => (c.name === REQUIRED_CHECKS[0] ? { ...c, conclusion: "FAILURE" } : c)),
     });
     expect(got.state).toBe("CHANGES_REQUIRED");
   });

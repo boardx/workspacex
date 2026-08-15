@@ -1,6 +1,11 @@
 # harness-verify.yml — CI 门控
 # 快速迭代策略（2026-07）：
 #   - PR/push 只做轻量门控：受影响模块的 typecheck/lint/test（turbo --affected）+ 生成物漂移检查。
+#     2026-08-15（ADR-106 batch-1/6，#1277）起拆成 `verify-control-plane` +
+#     `verify-affected` 两个并行 job（原来是一个叫 `verify` 的顺序 job）——两段
+#     互不依赖，拆开跑 wall-clock 是两者较慢的那个，不是相加。下面各处提到
+#     "module verify"/"verify job" 指的是这两个 job 加起来那一层门控语义，
+#     不是某个具体 job 名。
 #   - 全栈烟测(fullstack-smoke)：PR/push 都跑，但只跑 `seeded` project（5 个非 core-loop 的
 #     spec）。**信息性、不阻塞合并**（2026-08-06 人类裁决 #633：module verify 继续阻塞合并，
 #     浏览器 e2e 不再阻塞合并，只阻塞发布）——`continue-on-error: true` 见下方 job。
@@ -34,10 +39,27 @@ on:
         default: true
 
 jobs:
-  verify:
-    # 轻量门控：每个 PR/push 都跑，只测受本次改动影响的模块；定时(daily)不重复跑。
-    # 也排除 workflow_dispatch：dispatch 是专门用来手动跑 e2e-full 的，payload 里没有
-    # `before` 字段 → TURBO_SCM_BASE 会解析成空串 → `turbo --affected` 基线为空。
+  # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
+  # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
+  # typecheck/lint/test"（turbo --affected，唯一真正耗时的一步）串在一起跑。
+  # 拆成两个并行 job，wall-clock ≈ 两者中较慢的那个，不是两者之和。
+  #
+  # ⚠ 范围刻意收窄，不是 ADR-106 描述的完整五 job 方案：
+  #   1. 没有新增"全仓 typecheck/lint/build 强制门"（ADR-106 item 8 的 Job B）——
+  #      2026-08-05 人类已经明确指令"PR 上不再跑全仓单测,只跑 affected,提高速度"
+  #      （见下方 e2e-full job 注释），新增全仓强制门会直接推翻这条裁决，需要
+  #      人类重新确认，不该由这个 issue 单方面改回去。
+  #   2. 没有把这里的 control-plane job 换成本 PR 系列 #1273 新增的
+  #      `verify:harness` 命令（尽管语义上更完整，含全部 19 个 lint doctor）——
+  #      dry-run 实测发现 `verify:harness:raw` 里的 `lint:readiness --strict` 在
+  #      当前 main（f4f0c3c5）上就是红的（统一队列引用了已关闭的 issue #750，
+  #      跟本次改动无关，是 main 上已有的过期状态）。把它接进 CI 门控会让**所有**
+  #      PR 立刻卡死，不是本 issue 该单方面承担的决定；已另开 issue 修那条过期
+  #      引用，`lint:readiness` 干净之后再考虑把 control-plane job 换成
+  #      `verify:harness` 一条命令。
+  #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
+  #   两段拆成并行 job"这一件事。
+  verify-control-plane:
     if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -139,6 +161,31 @@ jobs:
       # 控制平面的测试不跑，等于控制平面没有测试。
       - name: harness 控制平面自测（含门控反证）
         run: pnpm exec vitest run --dir .harness
+
+  # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
+  # 业务包），拆开跑 wall-clock ≈ 两者较慢的那个，不是相加。这是本 issue
+  # 唯一动的并行拆分，见上面 verify-control-plane 顶部注释里的范围说明。
+  verify-affected:
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # --affected 需要能 diff 到 base 分支
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node (read .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
 
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
