@@ -4253,7 +4253,7 @@
         "F181"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
       "owner": "dev-project",
       "verification": [
@@ -4262,7 +4262,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-list-screen-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F187.verify.log @ 2026-08-15T12:47:35.208Z",
       "notes": "① 这是 #991 蓝本闭环 backlog 的第六件（BP-06），track P 的 P2「编设计环节」从 🟡（后端有前端未接）拉到 🟢（前后端都有迹象，官方 1 分仍需人工 devapp 核实）。\n② 依赖 F186（GET design-facets 端点，本会话稍早合并）与 F181（BP-05 的 /tpl/list 生产入口，本次补上「编辑设计」真实链接）。\n③ 范围边界——做：新建 `BlueprintDesignerPageLive`（客户端组件，真实拉取 listBlueprints + getBlueprintDesignFacets 拼出外壳 props）；`/tpl/designer/page.tsx` 从硬编码 `BLUEPRINT[0]`+`mockIdentity()` 切到按 `?blueprintId=` 真实读、`AppShell` 自己读真实会话（顺带修正了该页面这一处 issue #1316 点名的 mockIdentity 用法，不是专门为它开工，是切真实数据的自然结果）；`blueprint-list-screen-live.tsx` 补上「编辑设计」链接。不做：设计环节内容的编辑面板（外壳自身注释「二级 sign-off，D-05 待补抽取」，没有签核过的界面设计，不能自己发明）；试跑/发布/预览三个按钮的交互（外壳组件本身没有 onClick 落点，接它们要先给外壳加事件回调 props，属于下一个增量）；换时长档位交互（T13 契约缺口已被 F186 解决，纯粹是这版没做这块 UI）。\n④ `nextVersionNumber` 显示用「当前 versionNumber + 1」，不是编的数——见组件头注对该算法在无回滚场景下与后端权威算法等价的说明；真正发布时以后端 `publishNewVersion` 的计算为准。\n⑤ 真实浏览器实测（本地 seed 账号 + 真实 docker Postgres，非 mock）：新建蓝本→列表页「编辑设计」跳转→设计器显示真实 v1/已发布/0/15；通过真实 `PUT design-facets` 端点填一项后刷新页面，完成度变 1/15、对应项打勾——读写链路完整闭环验证过一次，不只是组件测试。",
       "priority": 1,
       "area": "project",
