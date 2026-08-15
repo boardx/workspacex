@@ -13,7 +13,9 @@
       "owner": "agt_01KZRABCZ99M2NGN20C7YWEASG",
       "capability": "CAP-WEB",
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx tests/ui/interview-studio-home.test.tsx tests/ui/personal-transcription-history.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/interview-studio-home.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-history.test.tsx",
         "pnpm --filter web run typecheck",
         "pnpm --filter web run lint:design"
       ],
