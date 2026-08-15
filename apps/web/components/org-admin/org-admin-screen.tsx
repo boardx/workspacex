@@ -534,7 +534,7 @@ function ReviewerFunctionPicker({
   return (
     <div className="flex items-center gap-1.5">
       <select
-        className="h-7 rounded-md border border-input bg-panel px-1.5 text-11 disabled:opacity-60"
+        className="h-7 rounded-md border border-input bg-panel px-1.5 text-11 disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         value={current ?? ""}
         disabled={busy}
         onChange={(e) => void handleChange(e)}
