@@ -98,7 +98,7 @@ export function TopBar({
 
       <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
 
-      <p data-testid="role-bar-org" className="shrink-0 truncate text-12 text-muted-foreground">
+      <p data-testid="role-bar-org" className="min-w-0 flex-1 truncate text-12 text-muted-foreground">
         {describeOrgLayer(identity)}
       </p>
 
