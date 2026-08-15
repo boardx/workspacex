@@ -18,7 +18,7 @@ import { loadHarnessConfig } from "./lib/config";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { req } from "./lib/args";
-import { computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
+import { cacheReadDisabled, computeFingerprint, currentSha, lookupCredential, recordCredential } from "./lib/verify-cache";
 import { collectChangedFiles, resolveVerifyProfile } from "./lib/verify-risk";
 import { log, die } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -141,12 +141,15 @@ export async function verify(args: Args): Promise<void> {
       }
       const sha = currentSha();
       const fingerprint = computeFingerprint(sha);
-      const cached = lookupCredential(level, sha, fingerprint);
+      // #1334：只有成功结果会被写进凭证（recordCredential 拒绝非零退出码），
+      // 所以命中即通过——不存在"重放一个失败结果"的路径。基础设施抖动导致的
+      // 失败因此永远会被重跑，不会被钉死。
+      const cached = cacheReadDisabled() ? null : lookupCredential(level, sha, fingerprint);
       let br: { code: number; stdout: string; stderr: string };
       if (cached) {
         log.step(`命中缓存凭证，跳过基础验证（风险档=${level}）: ${baseCmd}`);
-        log.info(`  上次执行于 ${cached.completedAt}，退出码=${cached.exitCode}`);
-        br = { code: cached.exitCode, stdout: "", stderr: cached.exitCode === 0 ? "" : "[verify-cache] 复用上次失败结果，未重新执行" };
+        log.info(`  上次通过于 ${cached.completedAt}（WORKSPACEX_VERIFY_NO_CACHE=1 可强制重跑）`);
+        br = { code: cached.exitCode, stdout: "", stderr: "" };
       } else {
         log.step(`运行基础验证（风险档=${level}）: ${baseCmd}`);
         br = sh(baseCmd);

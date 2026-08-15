@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 // 测试或真实使用。计算指纹的部分则用一个独立的临时 git 仓库隔离，不依赖本仓库
 // 当前的工作树状态（避免"测试结果取决于开发者本机有没有未提交改动"这种脆弱性）。
 import {
+  cacheReadDisabled,
   computeFingerprint,
   currentSha,
   lookupCredential,
@@ -98,6 +99,86 @@ describe("verify-cache", () => {
 
       expect(shaClean).toBe(shaDirty); // SHA 没变
       expect(diffClean).not.toBe(diffDirty); // 但 diff 变了——这正是指纹要吃进去的信号
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+
+  // ── #1334：失败不入缓存 + 逃生口 ────────────────────────────────────────
+  it("反证：失败结果不写入缓存——基础设施抖动不能被钉死", () => {
+    const sha = "c0ffee00".repeat(5);
+    const fp = "fp-fail";
+    const wrote = recordCredential({
+      sha,
+      fingerprint: fp,
+      verificationType: "standard",
+      command: "false",
+      exitCode: 1, // 失败
+      completedAt: new Date().toISOString(),
+    });
+    expect(wrote).toBe(false); // 明确拒绝，不是静默吞掉
+    expect(lookupCredential("standard", sha, fp)).toBeNull(); // 下次必然重跑
+  });
+
+  it("成功结果照常写入（确认上一条不是把缓存整个关掉了）", () => {
+    const sha = "c0ffee01".repeat(5);
+    const fp = "fp-ok";
+    expect(
+      recordCredential({
+        sha,
+        fingerprint: fp,
+        verificationType: "standard",
+        command: "true",
+        exitCode: 0,
+        completedAt: new Date().toISOString(),
+      }),
+    ).toBe(true);
+    expect(lookupCredential("standard", sha, fp)).not.toBeNull();
+  });
+
+  it("逃生口 WORKSPACEX_VERIFY_NO_CACHE=1 让调用方跳过读缓存", () => {
+    expect(cacheReadDisabled({ WORKSPACEX_VERIFY_NO_CACHE: "1" })).toBe(true);
+    expect(cacheReadDisabled({})).toBe(false);
+    expect(cacheReadDisabled({ WORKSPACEX_VERIFY_NO_CACHE: "0" })).toBe(false);
+  });
+
+  // ── #1334 更正记录：原判断「指纹漏 merge-base 会假绿」经实测证伪 ─────────
+  // merge-base 是**共同祖先**，origin/main 前进不改变分支点，affected 集合因此
+  // 不变；rebase 会改 HEAD SHA（指纹自然失效）；origin/main 被改写历史时
+  // merge-base 变空、verify-quick.ts 的 resolveBaseSha 报环境错误退出。三条路径
+  // 都不产生假绿。本用例把这个结论钉住，防止后来人"看着像有洞"又加一次。
+  it("merge-base 不随 origin/main 前进而移动（钉住 #1334 的证伪结论）", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "verify-cache-mb-"));
+    try {
+      const g = (args: string) =>
+        execFileSync("git", args.split(" "), { cwd: tmp, encoding: "utf8" }).trim();
+      execFileSync("git", ["init", "-q", "."], { cwd: tmp });
+      g("config user.email t@e.com");
+      g("config user.name t");
+      writeFileSync(join(tmp, "x.txt"), "1\n");
+      g("add .");
+      g("commit -qm A");
+      const a = g("rev-parse HEAD");
+      g(`update-ref refs/remotes/origin/main ${a}`);
+      g("checkout -qb feature");
+      writeFileSync(join(tmp, "y.txt"), "2\n");
+      g("add .");
+      g("commit -qm B");
+      const head = g("rev-parse HEAD");
+      const mbBefore = g("merge-base origin/main HEAD");
+
+      // origin/main 前进到 C，HEAD 与工作树都不动
+      g("checkout -q main");
+      writeFileSync(join(tmp, "z.txt"), "3\n");
+      g("add .");
+      g("commit -qm C");
+      g(`update-ref refs/remotes/origin/main ${g("rev-parse main")}`);
+      g("checkout -q feature");
+
+      expect(g("rev-parse HEAD")).toBe(head); // HEAD 没变
+      expect(g("merge-base origin/main HEAD")).toBe(mbBefore); // merge-base 也没变
+      expect(mbBefore).toBe(a); // 就是分支点
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

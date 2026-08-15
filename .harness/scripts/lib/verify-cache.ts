@@ -8,6 +8,27 @@
 // 存储：.harness/state/.cache/verify-credentials.jsonl（已 gitignore，运行时生成物，
 // 不是权威——凭证只是"这份指纹在这个环境下跑过一次、结果是什么"的备忘，不代表
 // "现在一定还是这个结果"，调用方决定信不信）。
+//
+// ── 只缓存成功，不缓存失败（#1334）──────────────────────────────────────
+// 缓存失败没有上手收益：要修就得改代码，改了指纹自然变、本来就不会命中。
+// 却有真实的下行风险——docker 没起、端口冲突、隔离栈准入超时这类**基础设施抖动**
+// 导致的失败会被钉死，除非去改一个无关文件让指纹变化，否则重跑永远拿到同一个
+// 失败结果。`recordCredential` 因此拒绝写入非零退出码（见该函数）。
+//
+// ── 逃生口 ──────────────────────────────────────────────────────────────
+// `WORKSPACEX_VERIFY_NO_CACHE=1` 强制不读缓存（照常写入成功结果）。用于怀疑
+// 缓存本身有问题、或想强制取得一份当下的新证据时。
+//
+// ── 消费方接入范围（#1334 要求显式声明，不留含糊）────────────────────────
+// · `verify.ts`（feature 转 passing 的基础验证）→ **已接入**。
+// · pre-push hook → **明确不接**。它跑的是 `turbo --affected`，turbo 自带任务级
+//   缓存且粒度更细（按包按任务，而不是"整条命令一个布尔"）。再叠一层凭证缓存是
+//   第二套缓存语义，收益重叠、失效路径却要各自维护——本仓已多次因"同一事实两处
+//   声明"漂移，不新增一处。
+// · CI → **当前设计达不到**，不是"忘了接"。凭证写在 .harness/state/.cache/
+//   （gitignored、机器本地），CI 每次是全新 runner，读不到任何历史凭证。要让 CI
+//   复用必须上远端存储（对象存储/turbo remote cache 一类），那是独立的设计决策
+//   与运维成本，不在本 issue 范围内；需要时另立 issue。
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -116,9 +137,20 @@ export function lookupCredential(
   return null;
 }
 
-export function recordCredential(record: VerifyCredential): void {
+/**
+ * 写入凭证。**非零退出码一律不写**（#1334）——理由见文件头「只缓存成功，不缓存
+ * 失败」。返回是否真的写入了，方便调用方与测试断言，而不是静默吞掉。
+ */
+export function recordCredential(record: VerifyCredential): boolean {
+  if (record.exitCode !== 0) return false;
   ensureCacheDir();
   appendFileSync(CREDENTIALS_PATH, `${JSON.stringify(record)}\n`);
+  return true;
+}
+
+/** `WORKSPACEX_VERIFY_NO_CACHE=1` 时强制不读缓存（仍照常写入成功结果）。 */
+export function cacheReadDisabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env["WORKSPACEX_VERIFY_NO_CACHE"] === "1";
 }
 
 export function credentialsPath(): string {
