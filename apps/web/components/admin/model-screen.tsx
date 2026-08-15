@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check, ArrowUpRight } from "lucide-react";
+import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check, ArrowUpRight, LayoutGrid, LayoutList } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { NoBackendNotice } from "./no-backend-notice";
 import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
@@ -29,8 +29,17 @@ const ADMISSION_TESTS = [
   "安全与拒答：对越权/出域请求正确拒绝并说明",
 ];
 
+/**
+ * 后台统一改版（人类原话：「左边保留后台菜单，右边卡片展示 entity 列表，卡片可切换列表」）——
+ * 「模型」屏这一份。默认卡片视图，可切回现有的列表实现（不重写，原样复用 `ModelListRow`）。
+ * 与其它后台屏（Agent 目录等，并行 agent 同批改造）保持结构一致的 testid 与切换交互形状，
+ * 便于后续把这份「本地写一份」的切换按钮收敛进共享组件。
+ */
+type ModelView = "card" | "list";
+
 export function ModelScreen({ state }: { state: UiState }) {
   const [filter, setFilter] = React.useState<ModelFilterKey>("all");
+  const [view, setView] = React.useState<ModelView>("card");
   const [enabled, setEnabled] = React.useState<Record<string, boolean>>(
     () => Object.fromEntries(MODELS.map((m) => [m.id, m.status === "enabled"])),
   );
@@ -99,43 +108,82 @@ export function ModelScreen({ state }: { state: UiState }) {
               </Button>
             ))}
           </div>
-          <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-model-add">
-            <Plus aria-hidden className="h-3.5 w-3.5" />
-            接入模型
-          </Button>
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
+              data-testid="admin-model-view-toggle"
+            >
+              <Button
+                size="xs"
+                variant={view === "card" ? "primary" : "ghost"}
+                aria-pressed={view === "card"}
+                aria-label="卡片视图"
+                onClick={() => setView("card")}
+                data-testid="admin-model-view-toggle-card"
+              >
+                <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="xs"
+                variant={view === "list" ? "primary" : "ghost"}
+                aria-pressed={view === "list"}
+                aria-label="列表视图"
+                onClick={() => setView("list")}
+                data-testid="admin-model-view-toggle-list"
+              >
+                <LayoutList aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-model-add">
+              <Plus aria-hidden className="h-3.5 w-3.5" />
+              接入模型
+            </Button>
+          </div>
         </div>
 
-        {/* 闭源 API 组 */}
-        {hosted.length > 0 && (
-          <section className="flex flex-col gap-2" data-testid="admin-model-group-hosted">
-            <div className="flex items-center gap-1.5">
-              <Cpu aria-hidden className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-13 font-semibold">闭源 API</h2>
-              <span className="text-11 text-muted-foreground">· 凭据由管理员保管，成员看不到</span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {hosted.map((m) => (
-                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onRequestDisable={() => setDisableOf(m)} onTest={() => setTestOf(m)} />
-              ))}
-            </div>
-          </section>
-        )}
+        <div data-testid="admin-model-view-container" data-view={view}>
+          {/* 闭源 API 组 */}
+          {hosted.length > 0 && (
+            <section className="flex flex-col gap-2" data-testid="admin-model-group-hosted">
+              <div className="flex items-center gap-1.5">
+                <Cpu aria-hidden className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-13 font-semibold">闭源 API</h2>
+                <span className="text-11 text-muted-foreground">· 凭据由管理员保管，成员看不到</span>
+              </div>
+              <ModelGroup
+                groupKey="hosted"
+                view={view}
+                rows={hosted}
+                tested={tested}
+                enabled={enabled}
+                setEnabled={setEnabled}
+                setDisableOf={setDisableOf}
+                setTestOf={setTestOf}
+              />
+            </section>
+          )}
 
-        {/* 开源自托管组 */}
-        {selfHosted.length > 0 && (
-          <section className="flex flex-col gap-2" data-testid="admin-model-group-self">
-            <div className="flex items-center gap-1.5">
-              <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-13 font-semibold">开源自托管</h2>
-              <span className="text-11 text-muted-foreground">· 权重跑在自己的 GPU 上，客户机密材料只走这一类</span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {selfHosted.map((m) => (
-                <ModelListRow key={m.id} m={m} untested={m.status === "untested" && !tested.has(m.id)} on={enabled[m.id] ?? false} setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))} onRequestDisable={() => setDisableOf(m)} onTest={() => setTestOf(m)} />
-              ))}
-            </div>
-          </section>
-        )}
+          {/* 开源自托管组 */}
+          {selfHosted.length > 0 && (
+            <section className="mt-4 flex flex-col gap-2" data-testid="admin-model-group-self">
+              <div className="flex items-center gap-1.5">
+                <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-13 font-semibold">开源自托管</h2>
+                <span className="text-11 text-muted-foreground">· 权重跑在自己的 GPU 上，客户机密材料只走这一类</span>
+              </div>
+              <ModelGroup
+                groupKey="self"
+                view={view}
+                rows={selfHosted}
+                tested={tested}
+                enabled={enabled}
+                setEnabled={setEnabled}
+                setDisableOf={setDisableOf}
+                setTestOf={setTestOf}
+              />
+            </section>
+          )}
+        </div>
       </div>
 
       {/* 接入模型 —— #548：唯一真实写路径，打 POST /models */}
@@ -417,6 +465,127 @@ function TestModal({ model, onClose, onPass }: { model: ModelRow; onClose: () =>
         ))}
       </div>
     </AdminModal>
+  );
+}
+
+/** 分组内的行渲染，按 `view` 切换卡片/列表，两种视图共享同一份状态与回调。 */
+function ModelGroup({
+  groupKey,
+  view,
+  rows,
+  tested,
+  enabled,
+  setEnabled,
+  setDisableOf,
+  setTestOf,
+}: {
+  /** "hosted" / "self"——两个分组各出一份 card-grid / list 容器，testid 靠这个后缀避免全局重名。 */
+  groupKey: "hosted" | "self";
+  view: ModelView;
+  rows: ModelRow[];
+  tested: Set<string>;
+  enabled: Record<string, boolean>;
+  setEnabled: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setDisableOf: (m: ModelRow) => void;
+  setTestOf: (m: ModelRow) => void;
+}) {
+  if (view === "card") {
+    return (
+      <div
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        data-testid={`admin-model-card-grid-${groupKey}`}
+      >
+        {rows.map((m) => (
+          <ModelCard
+            key={m.id}
+            m={m}
+            untested={m.status === "untested" && !tested.has(m.id)}
+            on={enabled[m.id] ?? false}
+            setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))}
+            onRequestDisable={() => setDisableOf(m)}
+            onTest={() => setTestOf(m)}
+          />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5" data-testid={`admin-model-list-${groupKey}`}>
+      {rows.map((m) => (
+        <ModelListRow
+          key={m.id}
+          m={m}
+          untested={m.status === "untested" && !tested.has(m.id)}
+          on={enabled[m.id] ?? false}
+          setOn={(v) => setEnabled((p) => ({ ...p, [m.id]: v }))}
+          onRequestDisable={() => setDisableOf(m)}
+          onTest={() => setTestOf(m)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 卡片视图 —— 与 Skill 目录（`skill-catalog-live.tsx`）的卡片信息密度对齐：
+ * 标题 + 状态徽标一行，关键字段网格排布，操作按钮落在卡片底部。列表视图的六项信息
+ * （供应商 / 能力标签 / 上下文长度 / 单价 / 可选范围 / 启用开关或测试入口）一个不丢，
+ * 只是从横向一行换成纵向卡片布局。
+ */
+function ModelCard({ m, untested, on, setOn, onRequestDisable, onTest }: { m: ModelRow; untested: boolean; on: boolean; setOn: (v: boolean) => void; onRequestDisable: () => void; onTest: () => void }) {
+  const statusTone = untested ? "warning" : on ? "primary" : "outline";
+  return (
+    <Card data-testid={`admin-model-card-${m.id}`}>
+      <CardContent className="flex h-full flex-col gap-2 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate font-mono text-12 font-medium">{m.name}</span>
+          <Badge tone={statusTone} data-testid={`admin-model-status-${m.id}`}>
+            {MODEL_STATUS_VIEW_LABEL[untested ? "untested" : on ? "enabled" : "disabled"]}
+          </Badge>
+          {m.confidentialOk && (
+            <Badge tone="ai" data-testid={`admin-model-confidential-${m.id}`}>
+              <ShieldCheck aria-hidden className="h-3 w-3" />
+              可承接机密
+            </Badge>
+          )}
+        </div>
+        <span className="text-11 text-muted-foreground">{m.vendor} · {m.tags}</span>
+
+        <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
+          <span>上下文 {m.context}</span>
+          <span className="inline-flex items-center gap-1" data-testid={`admin-model-price-${m.id}`}>
+            {m.price}
+            {m.price.includes("￥") && (
+              <Badge tone="outline" data-testid={`admin-model-price-sample-${m.id}`}>示例</Badge>
+            )}
+          </span>
+          <span className="col-span-2 inline-flex items-center gap-1">
+            可选范围 <span className="text-background-foreground">{m.optionalScope}</span>
+          </span>
+        </div>
+
+        <div className="mt-auto flex items-center justify-end pt-1">
+          {untested ? (
+            <Button size="xs" variant="outline" onClick={onTest} data-testid={`admin-model-test-${m.id}`}>
+              <FlaskConical aria-hidden className="h-3 w-3" />
+              录入测试判读
+            </Button>
+          ) : (
+            <label className="flex items-center gap-1.5">
+              <span className={cn("text-11", on ? "text-background-foreground" : "text-muted-foreground")}>
+                {on ? "已启用" : "未启用"}
+              </span>
+              <Toggle
+                checked={on}
+                onCheckedChange={(v) => (on && !v ? onRequestDisable() : setOn(v))}
+                label={`启用/停用 ${m.name}`}
+                data-testid={`admin-model-toggle-${m.id}`}
+              />
+            </label>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
