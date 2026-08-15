@@ -18,6 +18,9 @@ export type DigitalInterviewHistoryRow = z.infer<typeof interview.DigitalIntervi
 export type DigitalExpertCatalog = z.infer<typeof interview.operations.listDigitalExperts.out>;
 export type DigitalExpertCatalogRow = z.infer<typeof interview.DigitalExpertCatalogRow>;
 export type QuickDigitalInterview = z.infer<typeof interview.QuickDigitalInterview>;
+export type DigitalInterviewWorkflowView = z.infer<typeof interview.DigitalInterviewWorkflowView>;
+export type DigitalInterviewQuestion = z.infer<typeof interview.DigitalInterviewQuestion>;
+export type DigitalInterviewStep = z.infer<typeof interview.DigitalInterviewStep>;
 
 export function loadDigitalInterviewHistory(status?: string): Promise<DigitalInterviewHistory> {
   return apiRequest("/interviews/digital", { query: { status } });
@@ -65,7 +68,89 @@ export function createDigitalInterviewDraft(input: {
 export function loadDigitalInterview(interviewId: string) {
   const mock = loadMockDigitalInterviewDraft(interviewId);
   if (mock) return Promise.resolve(mock);
-  return apiRequest<z.infer<typeof interview.DigitalInterview>>(`/interviews/digital/${interviewId}`);
+  return loadDigitalInterviewWorkflow(interviewId);
+}
+
+/** The workflow view is the only live recovery model; drafts never fall back to localStorage. */
+export function loadDigitalInterviewWorkflow(interviewId: string) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${interviewId}`);
+}
+
+export function confirmDigitalInterviewTopic(input: {
+  readonly interviewId: string;
+  readonly topic: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/topic/confirm`, {
+    method: "POST",
+    body: { topic: input.topic, expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function confirmDigitalInterviewExperts(input: {
+  readonly interviewId: string;
+  readonly expertIds: readonly string[];
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/experts/confirm`, {
+    method: "POST",
+    body: { expertIds: input.expertIds, expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function confirmDigitalInterviewQuestions(input: {
+  readonly interviewId: string;
+  readonly questions: readonly DigitalInterviewQuestion[];
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/questions/confirm`, {
+    method: "POST",
+    body: { questions: input.questions, expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+export function appendDigitalInterviewSkillMessage(input: {
+  readonly interviewId: string;
+  readonly currentStep: DigitalInterviewStep;
+  readonly text: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/skill/messages`, {
+    method: "POST",
+    body: { currentStep: input.currentStep, text: input.text, expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+function changeDigitalInterviewSkillProposal(
+  action: "apply" | "reject",
+  input: { readonly interviewId: string; readonly proposalId: string; readonly expectedVersion: number; readonly requestId: string },
+) {
+  return apiRequest<DigitalInterviewWorkflowView>(
+    `/interviews/digital/${input.interviewId}/skill/proposals/${input.proposalId}/${action}`,
+    { method: "POST", body: { expectedVersion: input.expectedVersion, requestId: input.requestId } },
+  );
+}
+
+export function applyDigitalInterviewSkillProposal(input: {
+  readonly interviewId: string;
+  readonly proposalId: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return changeDigitalInterviewSkillProposal("apply", input);
+}
+
+export function rejectDigitalInterviewSkillProposal(input: {
+  readonly interviewId: string;
+  readonly proposalId: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return changeDigitalInterviewSkillProposal("reject", input);
 }
 
 export function convertQuickDigitalInterview(quick: QuickDigitalInterview) {
