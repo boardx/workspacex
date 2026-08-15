@@ -193,6 +193,12 @@ export default defineConfig({
         CHAT_E2E_MOUNTABLE_SKILL_NAME: CHAT_READ_E2E.mountableSkillName,
         CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME: CHAT_READ_E2E.retrievalAttachmentFilename,
         CHAT_E2E_RETRIEVAL_EXCERPT: CHAT_READ_E2E.retrievalExcerpt,
+        // #1324 —— 三条专属线程（挂载持久化 / 因果对照 / 检索命中对照），见
+        // `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
+        CHAT_E2E_RESTRUCTURE_PROJECT_ID: CHAT_READ_E2E.restructureProjectId,
+        CHAT_E2E_SKILL_MOUNT_THREAD_ID: CHAT_READ_E2E.skillMountThreadId,
+        CHAT_E2E_CAUSAL_CHECK_THREAD_ID: CHAT_READ_E2E.causalCheckThreadId,
+        CHAT_E2E_CONTEXT_CHECK_THREAD_ID: CHAT_READ_E2E.contextCheckThreadId,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",

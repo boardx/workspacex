@@ -1,38 +1,48 @@
 /**
- * #1310 —— 「agent / skill / context 配置 → 在 chat 里出结果」这条**主流程**的真栈端到端用例。
+ * #1324 —— 复核重构：把原来一条 27 秒的大用例（#1310/PR #1314）拆成三条独立、
+ * 各自专属线程的 spec。
  *
- * 人类要求的「两条主流程 e2e 测试用例」的第二条。真登录、真 API、真 Postgres、真浏览器，
- * 不 mock：模型上游是确定性替身 `loopback-model-provider.ts`（真实 `ConfiguredModelProvider`
- * 适配器走真实 HTTP，只是上游可预测），不是在前端拦一个假响应。
+ * ## 为什么重构（复核意见，逐字摘录判分）
  *
- * ## 这一条走完的一整条路
+ * 一次外部复核指出：原用例证明了「skill 挂载能落库、刷新后可见」和「文件检索进了模型
+ * 输入」，但两件事之间**没有因果断言**——挂载的 skill 是否真的参与了那次 run，测试从未
+ * 证明。打分：检索链路 7/10；skill 实际生效证明 2/10；综合 5/10。
  *
- *   ① 选一个**真实可运行**的 agent（`agentId`，loopback-echo provider）
- *   ② F65：在这条对话里临时加一个 skill，**刷新后仍在**（落库，不是 useState）
- *   ③ F155：发一条命中项目内可检索文件的提问，来源标记随召回内容进了模型输入
- *   ④ AgentRun 从「已排队」真实流转到 `succeeded`，回复**落库并渲染**进消息列表
- *   ⑤ 反向对照：一条不命中任何文件的提问，回复里**没有**来源标记
+ * coord-main 独立复核确认这不只是测试盲区，是**真实产品缺口**，已单独开 #1322 追踪：
+ * `execute-run.ts` 的 `run.skillVersionIds` 只来自已发布 agent 版本
+ * （`agent_versions.skill_version_ids`），全仓 `thread_skill_mounts`/`ThreadMountStore`
+ * 在 agent-run 构建路径零命中——线程级临时挂载事实上不影响任何一次真实 run。
  *
- * ## 范围诚实（三条，不许在报告里说成已覆盖）
+ * 🔴 **本文件不修 #1322**。这里只做人类在 #1324 上要求的测试重构本身：
+ *   1. 三个关注点（挂载持久化 / 挂载-运行因果对照 / 检索命中对照）拆成三条独立 `test()`，
+ *      各自一条**零预置消息**的专属线程（见 `chat-read-fixture.ts` 的
+ *      `skillMountThreadId`/`causalCheckThreadId`/`contextCheckThreadId`），不再共享
+ *      51 条消息的 `threadId` 夹具、不靠 `chat-messages-load-more` 翻页定位——原用例的
+ *      失败定位差正是这一点造成的（翻页 + 51 条历史 + 一条大用例三件事绑在一起）。
+ *   2. 挂载→运行因果对照那条**如实断言现状**（挂载前后 `skillVersionIds` 无差异），
+ *      不装作 #1322 已经修好——见该测试自己的大注释。
  *
- * · **F63（把 skill 绑定到议程环节 / 套用工作流模板）今天没有端到端路径。**
- *   它的唯一可写端口 `ProjectOrchestrationStorePort` **零适配器**（本轮实测：全仓无任何
- *   `implements`，`skill-mount.controller.ts:20` 与 `list-thread-deviations.ts:12` 两处
- *   独立记着同一件事）。⇒ 它的 `verification` 是应用层 vitest，不是浏览器可达的东西。
- *   本用例覆盖的是**同一条主流程上今天真的接通的那一段**：F65 的线程级临时挂载。
- *   把 F63 硬写进来只能靠直接改库造出编排数据，那不是端到端，是给自己发一张假通行证。
- * · **本用例不证明「skill 改变了模型的回答」。** 上游是确定性替身，它没有真实模型语义，
- *   「挂了 skill 之后回答更好」这件事在这套编排里不可判定（见
- *   `.harness/instructions/chat-ux-acceptance-criteria.md` 记的同一条结构性限制）。
- *   能证明的是「挂载真的落库、并且真的作用在这条对话上」——那正是 F65 的可见行为本身。
- *   context 那一侧则**确实**证到了「起作用」：来源标记真的进了模型输入，且**只在命中时**进。
+ * ## 上游依旧是确定性替身
+ *
+ * 真登录、真 API、真 Postgres、真浏览器，不 mock：模型上游是确定性替身
+ * `loopback-model-provider.ts`（真实 `ConfiguredModelProvider` 适配器走真实 HTTP，
+ * 只是上游可预测），不是在前端拦一个假响应。
+ *
+ * ## 范围诚实（延续原文件的三条边界，本次重构未改变它们）
+ *
+ * · **F63（把 skill 绑定到议程环节 / 套用工作流模板）今天没有端到端路径**——
+ *   它的唯一可写端口 `ProjectOrchestrationStorePort` 零适配器，本文件不覆盖。
+ * · **本文件不证明「skill 改变了模型的回答」。** 上游是确定性替身，没有真实模型语义。
+ *   下面第二条测试能证明的，也只是「挂载是否影响了 run 快照里的 `skillVersionIds`
+ *   这个结构性字段」——不是语义、不是回答质量。
  * · 断言的是**性质**不是字面值：不断言召回正文逐字相等、不断言消息条数、不断言回复措辞。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-
-/** 两次 run + 首次编译，默认 120s 偏紧（同 config 头注记的那条首载慢的老问题）。 */
-test.slow();
+// ⚠ 从产品代码 import 那个 key，不在这里再写一份字面量——鉴权是
+//   `Authorization: Bearer <token>`（不是 cookie），token 存在 localStorage 的这个键下。
+//   抄一份副本就是本仓多次记录过的漂移形状（见 `skill-review-gate.spec.ts` 同一模式）。
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
@@ -42,126 +52,97 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/projects$/);
 }
 
+/** `page.request` 不会自动带上身份（Bearer，不是 cookie）——直连 API 时要显式带这个头。 */
+async function authHeaders(page: Page): Promise<Record<string, string>> {
+  const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token, "登录之后 localStorage 里应有 session token").toBeTruthy();
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+}
+
 /**
- * 发一条消息，等这次 AgentRun 真的走到终态，返回它在界面上的**服务端状态**与回复文本。
+ * 发一条消息，等服务端确认已排队（202 + `runId`），返回这次 `AgentRun` 的 id。
  *
- * 「真实流转到完成」在这里由两个**服务端来源**的信号共同保证，而不是「loading 转完了」：
- *   · `chat-message-queued` —— POST 回 202 且带 runId 才渲染（排队态，服务端确认过）；
- *   · `data-run-status` —— 直接来自 `GET /agent-runs/:id` 的契约状态机原值；
- *   · `data-result-message-id` —— #413 的写回事务**提交后**才非空，
- *     即「恰好一条回复真的落库了」在 DOM 上的投影。
- * 三者都不是前端自己推断出来的。
+ * 不在这里等到终态——两条测试对「终态」的取证方式不同（因果对照那条要读
+ * `skillVersionIds`，只能走 API；context 对照那条走 UI 的 `data-run-status`），
+ * 所以终态等待留给各自的调用方。
  */
-async function sendAndAwaitRun(page: Page, text: string): Promise<string> {
+async function sendMessage(page: Page, threadId: string, text: string): Promise<string> {
   const input = page.getByRole("textbox", { name: "消息内容" });
   await expect(input).toBeVisible();
   await input.fill(text);
 
   const responsePromise = page.waitForResponse((response) => (
     response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/messages`)
+    && response.url().endsWith(`/chat/threads/${threadId}/messages`)
   ));
   await page.getByTestId("chat-message-submit").click();
   const response = await responsePromise;
   expect(response.status()).toBe(202);
-  // ① 这条消息真的是发给那个**可运行**的 agent 的，不是发给目录里那个跑不动的。
-  expect(response.request().postDataJSON()).toMatchObject({
-    text,
-    agentId: CHAT_READ_E2E.agentId,
-  });
-
-  // 排队态（服务端已持久化消息并建了 run）。
+  const body = await response.json() as { agentRunId: string; runStatus: string };
+  expect(body.runStatus).toBe("queued");
   await expect(page.getByTestId("chat-message-queued")).toBeVisible();
+  return body.agentRunId;
+}
 
-  // 终态：succeeded。⚠ 断言的是**恰好 succeeded**，不是「不再是 queued」——
-  // failed 也不再是 queued，放宽成后者会让一条整体失败的 run 也算通过。
-  const status = page.getByTestId("chat-live-agent-run-status");
-  await expect
-    .poll(async () => status.getAttribute("data-run-status"), { timeout: 60_000 })
-    .toBe("succeeded");
-  // 写回事务已提交 ⇒ 真的有一条回复落库了。
-  await expect
-    .poll(async () => status.getAttribute("data-result-message-id"), { timeout: 60_000 })
-    .not.toBeNull();
-  const resultMessageId = await status.getAttribute("data-result-message-id");
-  expect(resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
-  return resultMessageId as string;
+/** 挂一个 skill 到当前线程，等它出现在挂载列表里。三条测试里有两条要做这同一个动作。 */
+async function mountSkill(page: Page, threadId: string): Promise<void> {
+  const mountResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && response.url().includes(`/threads/${threadId}/skill-mounts`)
+  ));
+  // 「加 skill」在版本号读到之前是禁用的（拒绝盲写），所以这里等它可点而不是硬点。
+  await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+  await page.getByTestId("chat-skill-mount").click();
+  await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
+  await page.getByTestId(`chat-skill-mount-option-${CHAT_READ_E2E.mountableSkillId}`).click();
+  expect((await mountResponse).ok()).toBe(true);
+  await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
 }
 
 /**
- * 把消息列表翻到能看见 `messageId` 那一条为止，返回它所在的行。
+ * 直连 `GET /agent-runs/:runId`，轮询到终态（`succeeded`/`failed`，见 `AgentRunStatus`
+ * 契约），返回完整投影（含 `skillVersionIds`）。
  *
- * ## 为什么按 **message id** 定位，而不是按回复文本
- *
- * 本轮实测（两次独立运行）撞出来的两件事，都指向「按文本找回复」是错的：
- *
- * ① **消息列表是游标分页的。** 夹具里已有 51 条，新产生的回复落在后续页上，不点
- *    `chat-messages-load-more` 就不在 DOM 里——run 明明已经 `succeeded` 且
- *    `data-result-message-id` 非空，首页却什么都找不到。这不是等待时间不够，
- *    加 timeout 永远等不到，所以这里是「翻页」不是「再等等」。
- * ② **确定性上游回显的不是本轮输入。** `loopback-model-provider.ts` 取的是
- *    `messages.find(role === "user")`，即 history 里**第一条** user 消息；在这条
- *    51 条消息的夹具线程上，它恒等于 `Controlled fixture message 01`。
- *    ⇒ 「回复里回显了我刚发的那句话」在**这条**线程上根本不成立（在 core-loop 那种
- *    新建线程上才成立，那里 history 只有一条）。照那个假设写断言，会得到一条
- *    永远找不到目标的测试，而失败信息看起来却像「回复没写回」——正是本仓
- *    `static-trace-vs-live-fact.md` 说的那种会骗人的失败。
- *
- * `data-result-message-id` 来自 `GET /agent-runs/:id`，是**这一次 run 的写回事务
- * 产生的那一条消息**的 id。按它定位，锚点既精确又与回复措辞无关。
+ * 用直连 API 而不是 UI 的 `data-run-status`：`skillVersionIds` 从未被投影到任何
+ * data-testid 上（`chat-live-agent-run-status` 只暴露 `status`/`resultMessageId`），
+ * 这条契约字段本来就只在这个响应体里——直接读它，不新增任何产品侧的 UI 暴露面，
+ * 也不需要为了取证而改 `execute-run.ts`（那是 #1322 的范围，本文件不碰）。
  */
-async function revealMessage(page: Page, messageId: string) {
-  // ⚠ 必须同时锚 `chat-message-row`：`data-message-id` 在同一条消息里挂在**三个**元素上
-  //   （消息行本身、复制按钮、评分块），只按它选会 strict mode violation（本轮实测）。
-  const row = page.locator(`[data-testid="chat-message-row"][data-message-id="${messageId}"]`);
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    if (await row.count() > 0) break;
-    const more = page.getByTestId("chat-messages-load-more");
-    // ⚠ 先 count 再 click 之间有窗口：最后一页加载完按钮会消失，此时 click 会一直等到
-    //   整条用例超时（本轮实测栽过一次，360s 全耗在这一行）。给它一个短超时并吞掉，
-    //   循环下一轮会重新判断，不会把「没有更多页了」变成「测试挂死」。
-    if (await more.count() === 0) break;
-    await more.click({ timeout: 10_000 }).catch(() => {});
-  }
-  return row;
+async function pollRunToTerminal(
+  page: Page,
+  headers: Record<string, string>,
+  runId: string,
+): Promise<{ status: string; skillVersionIds: readonly string[] }> {
+  let last: { status: string; skillVersionIds: readonly string[] } | null = null;
+  await expect.poll(async () => {
+    const res = await page.request.get(`/agent-runs/${runId}`, { headers });
+    expect(res.ok(), `GET /agent-runs/${runId} 应返回 2xx`).toBe(true);
+    const projection = await res.json() as { status: string; skillVersionIds: readonly string[] };
+    last = projection;
+    // 只有 queued/running/writeback_pending 这三个非终态才继续轮询；succeeded/failed
+    // 都停下——「恰好 succeeded」这条更严格的断言留给调用方做，这里只负责等到终态。
+    return projection.status === "succeeded" || projection.status === "failed";
+  }, { timeout: 60_000 }).toBe(true);
+  expect(last, "轮询结束时应该已经拿到过至少一次响应").not.toBeNull();
+  return last!;
 }
 
-test("agent → skill → context：配置一个 agent 与 skill，检索命中的文件真的进了模型输入并产出可见回复", async ({ page }) => {
+/* ═══════════════════════════ ① F65：挂载持久化与刷新 ═══════════════════════════ */
+
+test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async ({ page }) => {
   await login(page);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
-
-  /* ═══════════ ① 真实、可运行的 agent 在编制里 ═══════════
-   *
-   * ⚠ 刻意**不**用 `catalogOnlyAgentId`：那个 agent 只进了 `capability_listings`，
-   *   没有 `agents`/`agent_versions` 的可执行版本，选它 run 会停在
-   *   `AGENT_VERSION_UNAVAILABLE`，整条主流程根本走不到出结果那一步。
-   *   这里显式断言两件事：能跑的那个在场、跑不动的那个不在场——
-   *   后者保证下面 `sendAndAwaitRun` 里那条 `agentId` 断言不是碰巧成立。 */
-  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toBeVisible();
-  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`)).toHaveCount(0);
-
-  /* ═══════════ ② F65：在这条对话里临时加一个 skill ═══════════ */
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.skillMountThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.skillMountThreadId}`))
+    .toContainText("Skill mount check fixture thread");
 
   const panel = page.getByTestId("chat-skill-mount-panel");
   await expect(panel).toBeVisible();
   // 前提：现在一个都没挂。没有这条，下面「挂上了」的断言可能一开始就是真的。
   await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
 
-  const mountResponse = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && response.url().includes(`/threads/${CHAT_READ_E2E.threadId}/skill-mounts`)
-  ));
-  // 「加 skill」在版本号读到之前是禁用的（拒绝盲写），所以这里等它可点而不是硬点。
-  await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
-  await page.getByTestId("chat-skill-mount").click();
-  await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
-  // 池子来自真实的 `GET /skills`，不是常量。种子那条「已启用」的必须真的在里面。
-  await page.getByTestId(`chat-skill-mount-option-${CHAT_READ_E2E.mountableSkillId}`).click();
-  expect((await mountResponse).ok()).toBe(true);
+  await mountSkill(page, CHAT_READ_E2E.skillMountThreadId);
 
   // 挂载列表即时更新（F65 的可见行为：输入区上方的挂载角标）。
-  await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
   await expect(page.getByTestId("chat-skill-mount-empty")).toHaveCount(0);
   await expect(page.getByTestId("chat-skill-mount-failure")).toHaveCount(0);
 
@@ -169,37 +150,123 @@ test("agent → skill → context：配置一个 agent 与 skill，检索命中�
    *   不刷新的话，`useState` 里的一个数组就能让界面看起来是对的——
    *   只有真的写进了 `thread_skill_mounts` 才活得过这一下。 */
   await page.reload();
-  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.skillMountThreadId}`))
+    .toContainText("Skill mount check fixture thread");
   await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
+});
 
-  /* ═══════════ ③ 反向对照先跑：不命中任何文件的提问 ═══════════
+/* ══════════════ ② 挂载→运行因果对照——如实反映 #1322 这个真实缺口 ══════════════ */
+
+test("挂载前后同一 agent 的 run，skillVersionIds 无因果差异（#1322 已知缺口，本条如实断言现状）", async ({ page }) => {
+  await login(page);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.causalCheckThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.causalCheckThreadId}`))
+    .toContainText("Causal check fixture thread");
+
+  const headers = await authHeaders(page);
+
+  // 挂载前：发一条消息，记录这次 run 的 skillVersionIds。
+  const beforeRunId = await sendMessage(page, CHAT_READ_E2E.causalCheckThreadId, "挂载前：第一条取证消息");
+  const beforeRun = await pollRunToTerminal(page, headers, beforeRunId);
+  expect(beforeRun.status, "挂载前这次 run 应该正常跑到 succeeded，不是本条要测的东西红在别处").toBe("succeeded");
+
+  // 挂一个 skill 到这条线程（与①同一个 F65 动作，这里只是构造因果对照的前置条件）。
+  await mountSkill(page, CHAT_READ_E2E.causalCheckThreadId);
+
+  // 挂载后：再发一条消息，同样记录这次 run 的 skillVersionIds。
+  const afterRunId = await sendMessage(page, CHAT_READ_E2E.causalCheckThreadId, "挂载后：第二条取证消息");
+  const afterRun = await pollRunToTerminal(page, headers, afterRunId);
+  expect(afterRun.status, "挂载后这次 run 也应该正常跑到 succeeded").toBe("succeeded");
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 🔴 已知缺口 #1322——这条断言的方向是"当前确实没有因果关系"，不是"挂载生效了"。
    *
-   * 顺序是判据的一部分，**必须排在命中那一轮之前**：命中那轮的回复文本里会含有来源标记，
+   * `execute-run.ts` 的 `run.skillVersionIds` 只来自已发布 agent 版本快照
+   * （`agent_versions.skill_version_ids`，本夹具种的是空数组），线程级临时挂载
+   * （`thread_skill_mounts`）从未进入这条构建路径。所以挂载前、挂载后两次 run 的
+   * `skillVersionIds` 现在**必然相等**（都是 `[]`）——这不是本条测试的 bug，
+   * 是产品今天真实的样子。
+   *
+   * ⚠⚠ #1322 修复后，这条断言的方向需要**反过来**：改成断言
+   *   `afterRun.skillVersionIds` 包含挂载那个 skill 的 version id、且与
+   *   `beforeRun.skillVersionIds` 不同——到那时删掉这段大注释和下面这条
+   *   `toEqual`，换成不等/包含断言。**在那之前，这条测试必须保持现在这个方向**：
+   *   如果有人不小心提前把 thread mount 接进了 run 构建路径（哪怕只是意外的
+   *   副作用），这条测试会因为断言方向不对而失败，逼着人回来看，而不是静默通过。
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  expect(beforeRun.skillVersionIds, "#1322：agent 未发布任何 skill version，挂载前应为空").toEqual([]);
+  expect(
+    afterRun.skillVersionIds,
+    "#1322 已知缺口：线程临时挂载当前不影响 run 的 skillVersionIds，这里如实断言挂载前后相等",
+  ).toEqual(beforeRun.skillVersionIds);
+});
+
+/* ═══════════════════════════ ③ F155：context 命中/未命中对照 ═══════════════════════════ */
+
+test("F155：命中项目内可检索文件的提问带来源标记，未命中的不带", async ({ page }) => {
+  await login(page);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.contextCheckThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.contextCheckThreadId}`))
+    .toContainText("Context check fixture thread");
+
+  const status = page.getByTestId("chat-live-agent-run-status");
+
+  async function sendAndAwaitRun(text: string): Promise<string> {
+    await sendMessage(page, CHAT_READ_E2E.contextCheckThreadId, text);
+    // 终态：succeeded。⚠ 断言的是**恰好 succeeded**，不是「不再是 queued」——
+    // failed 也不再是 queued，放宽成后者会让一条整体失败的 run 也算通过。
+    await expect
+      .poll(async () => status.getAttribute("data-run-status"), { timeout: 60_000 })
+      .toBe("succeeded");
+    await expect
+      .poll(async () => status.getAttribute("data-result-message-id"), { timeout: 60_000 })
+      .not.toBeNull();
+    const resultMessageId = await status.getAttribute("data-result-message-id");
+    expect(resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
+    return resultMessageId as string;
+  }
+
+  // 这条线程是专属、零预置消息的夹具（见文件头），发出去的消息天然落在第一页，
+  // 定位回复不需要任何翻页逻辑——这正是 #1324 重构要解决的失败定位问题。
+  function messageRow(messageId: string) {
+    // ⚠ 必须同时锚 `chat-message-row`：`data-message-id` 在同一条消息里挂在**三个**
+    //   元素上（消息行本身、复制按钮、评分块），只按它选会 strict mode violation。
+    return page.locator(`[data-testid="chat-message-row"][data-message-id="${messageId}"]`);
+  }
+
+  /* ═══════════ 反向对照先跑：不命中任何文件的提问 ═══════════
+   *
+   * 顺序是判据的一部分，必须排在命中那一轮之前：命中那轮的回复文本里会含有来源标记，
    * 而它随后就成了 L1 近端历史的一部分。先跑对照，就不存在「上一轮的回显污染这一轮」
    * 这种解释空间。（替身那侧还另有一道防线：只认以 L3 伪消息头开头的 assistant 消息，
    * 见 `loopback-model-provider.ts` 的 `retrievedSourceKinds`。两道各自独立。） */
-  const decoyMessageId = await sendAndAwaitRun(page, CHAT_READ_E2E.retrievalDecoyQuery);
-  const decoyReply = await revealMessage(page, decoyMessageId);
+  const decoyMessageId = await sendAndAwaitRun(CHAT_READ_E2E.retrievalDecoyQuery);
+  const decoyReply = messageRow(decoyMessageId);
   // 这条回复真的出自确定性上游（带回显前缀）⇒ 闭环穿过了整条链，不是前端合成的。
   await expect(decoyReply).toBeVisible();
   await expect(decoyReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
   await expect(
     decoyReply,
-    "没有命中任何文件时，回复里不该出现检索来源标记——否则第 ④ 步那条断言恒绿、证明不了任何事",
+    "没有命中任何文件时，回复里不该出现检索来源标记——否则下面那条命中断言恒绿、证明不了任何事",
   ).not.toContainText(CHAT_READ_E2E.retrievalEchoPrefix);
 
-  /* ═══════════ ④ F155：命中项目内可检索文件的提问 ═══════════
+  /* ═══════════ 命中项目内可检索文件的提问 ═══════════
    *
    * 断言的是**结构性质**：那条召回伪消息**带着来源标记 `chat-attachment`** 真的到达了
    * 模型输入。不断言召回正文逐字相等（那是把断言绑死在种子文案上），也不断言命中份数。
+   *
+   * ⚠ 边界诚实：这证明的是「检索内容真的到达了 provider」，不是「真实模型用上了
+   *   context」，也不是「skill 改变了回答」——上游是确定性替身，没有真实模型语义，
+   *   这条边界不因为拆了文件就变宽。
    *
    * 这条断言为什么不可能靠「假装检索」蒙混：回显出自**上游进程**，它只在自己收到的
    * history 里真的存在一条以 L3 伪消息头开头、且含来源标记的 assistant 消息时才写这一段。
    * 检索坏掉 ⇒ 不注入伪消息 ⇒ 上游收不到 ⇒ 回复里没有这一段 ⇒ 本条如实红。 */
   const groundedQuestion = `${CHAT_READ_E2E.retrievalTerm} 的回滚窗口是多久？`;
-  const groundedMessageId = await sendAndAwaitRun(page, groundedQuestion);
-
-  const groundedReply = await revealMessage(page, groundedMessageId);
+  const groundedMessageId = await sendAndAwaitRun(groundedQuestion);
+  const groundedReply = messageRow(groundedMessageId);
   await expect(groundedReply).toBeVisible();
   await expect(groundedReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
   await expect(
@@ -210,13 +277,13 @@ test("agent → skill → context：配置一个 agent 与 skill，检索命中�
   // 这是「这段上下文是从哪一类文件来的」这一契约性质，不是某份种子文件的内容。
   await expect(groundedReply).toContainText("chat-attachment");
 
-  /* ═══════════ ⑤ 结果真的落在这条对话里 ═══════════
+  /* ═══════════ 结果真的落在这条对话里 ═══════════
    *
-   * 刷新一次再看：回复不是渲染在内存里的一帧，是写回了库、重读得回来的一条消息。
-   * 同时挂载列表仍在——整条主流程的两件配置（skill 挂载）与产出（回复）都持久。 */
+   * 刷新一次再看：回复不是渲染在内存里的一帧，是写回了库、重读得回来的一条消息。 */
   await page.reload();
-  await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
-  const persistedReply = await revealMessage(page, groundedMessageId);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.contextCheckThreadId}`))
+    .toContainText("Context check fixture thread");
+  const persistedReply = messageRow(groundedMessageId);
   await expect(persistedReply).toBeVisible();
   // 来源标记也是重读回来的，不是上一帧留在内存里的。
   await expect(persistedReply).toContainText(CHAT_READ_E2E.retrievalEchoPrefix);

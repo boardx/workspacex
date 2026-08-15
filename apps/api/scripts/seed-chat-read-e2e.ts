@@ -72,6 +72,14 @@ const MOUNTABLE_SKILL_ID = required("CHAT_E2E_MOUNTABLE_SKILL_ID");
 const MOUNTABLE_SKILL_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_NAME");
 const RETRIEVAL_ATTACHMENT_FILENAME = required("CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME");
 const RETRIEVAL_EXCERPT = required("CHAT_E2E_RETRIEVAL_EXCERPT");
+/**
+ * #1324 —— #1310/#1314 复核重构的三条专属线程（见 `chat-read-fixture.ts` 同名字段的头注）：
+ * 各自零预置消息，不共享 `THREAD_ID` 那 51 条历史，用例发的第一条消息天然落在第一页。
+ */
+const SKILL_MOUNT_THREAD_ID = required("CHAT_E2E_SKILL_MOUNT_THREAD_ID");
+const CAUSAL_CHECK_THREAD_ID = required("CHAT_E2E_CAUSAL_CHECK_THREAD_ID");
+const CONTEXT_CHECK_THREAD_ID = required("CHAT_E2E_CONTEXT_CHECK_THREAD_ID");
+const RESTRUCTURE_PROJECT_ID = required("CHAT_E2E_RESTRUCTURE_PROJECT_ID");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -88,6 +96,22 @@ await asOwner(async (client) => {
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "lead", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);
+
+/**
+ * #1324 —— 一个**独立的第二个项目**，专门装下面三条零预置消息的线程（见
+ * `chat-read-fixture.ts` 里 `restructureProjectId` 的头注）。`seedOrg` 一个 org 只能调
+ * 一次（`INSERT INTO organizations` 撞主键），所以这里手写第二条 `projects` +
+ * `workshops` 子类型行——逐字照抄 `seedOrg` 内部对 `PROJECT_ID` 做的那两条 INSERT
+ * （F116 要求 `projects` 与子类型表 1:1，见 `db.ts` 里 `seedOrg` 自己的头注），
+ * 不是发明第二套建项目的方式。
+ */
+await asApp(ORG_ID, async (client) => {
+  await client.query("INSERT INTO projects (id, org_id, name, kind) VALUES ($1, $2, $3, 'workshop')", [
+    RESTRUCTURE_PROJECT_ID, ORG_ID, `project ${RESTRUCTURE_PROJECT_ID}`,
+  ]);
+  await client.query("INSERT INTO workshops (id, org_id) VALUES ($1, $2)", [RESTRUCTURE_PROJECT_ID, ORG_ID]);
+});
+await addProjectMember(ORG_ID, RESTRUCTURE_PROJECT_ID, USER_ID, "facilitator", null);
 
 const passwordHash = await new BcryptPasswordHasher().hash(password);
 await asOwner(async (client) => {
@@ -107,6 +131,43 @@ await addChatThread({
   phase: "research",
   title: "Controlled fixture thread",
 });
+
+/**
+ * #1324 —— 三条零预置消息的专属线程，种在**独立的第二个项目**
+ * `RESTRUCTURE_PROJECT_ID`（不是 `PROJECT_ID`）。刻意**不**在这里调用
+ * `addChatMessage`：每条测试自己发的第一条消息就是这条线程的第一条消息，
+ * 落在第一页，用例不需要 `chat-messages-load-more`。
+ *
+ * ⚠ 为什么必须是独立项目，不能塞进 `PROJECT_ID`——本轮实测踩过两版才定下来：
+ *   · 塞进同一个项目：`chat-read.spec.ts:41` 有一条显式断言「这个项目只有一条会话」
+ *     （数 `chat-thread-card-list` 里的按钮，注释原话「夹具里只有一条会话，
+ *     列表就只列一条」），三条线程一进去，数字从 1 变 4，那条断言红。
+ *   · 塞进同一个项目 + 把这三条线程的 `lastActivityAt` 往回钉：能避开上一条，
+ *     但 `ChatReadScreen` 在 URL 不带 `?thread=` 时默认选中列表第一条
+ *     （`chat-read-screen.tsx:137`），`listThreads` 又按 `last_activity_at DESC`
+ *     排序——稍不注意就会顶替 `THREAD_ID` 成为默认项，把 `chat-read.spec.ts` 里
+ *     8 条依赖「默认落在 51 条消息那条线程」的既有用例全部带红；往回钉太远（如
+ *     2020-01-01）又会撞上 `threadGroupLabel`（`thread-grouping.ts`）「只认今天/
+ *     本周两组、更早的线程直接不出现在返回值里」这条已知功能缺失，线程从侧栏
+ *     整个消失。两个坑本质上都是「同一个项目内的线程列表互相干扰」。
+ *   放进独立项目，两个问题一次性消失：`chat-read.spec.ts` 数的是 `PROJECT_ID`
+ *   下的会话数，与这里无关；默认选中也是各项目独立计算，互不竞争。
+ */
+for (const [id, title] of [
+  [SKILL_MOUNT_THREAD_ID, "Skill mount check fixture thread"],
+  [CAUSAL_CHECK_THREAD_ID, "Causal check fixture thread"],
+  [CONTEXT_CHECK_THREAD_ID, "Context check fixture thread"],
+] as const) {
+  await addChatThread({
+    orgId: ORG_ID,
+    id,
+    projectId: RESTRUCTURE_PROJECT_ID,
+    visibilityScope: "plenary",
+    createdBy: USER_ID,
+    phase: "research",
+    title,
+  });
+}
 
 for (let index = 1; index <= 51; index += 1) {
   const suffix = String(index).padStart(2, "0");
@@ -194,6 +255,14 @@ await asApp(ORG_ID, async (client) => {
     "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
     [THREAD_ID, ORG_ID, AGENT_ID],
   );
+  // #1324 —— 三条专属线程也各自把同一个可运行 agent 种进编制：用例发消息时不需要
+  // 先走「加进编制」那一步，`chat-live-message-panel.tsx` 默认选中唯一在场的 agent。
+  for (const threadId of [SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID]) {
+    await client.query(
+      "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
+      [threadId, ORG_ID, AGENT_ID],
+    );
+  }
 
   // #728 P6/P7 —— 第二个 agent，同一套生产表 + 夹具表两处种法，唯一不同是
   // model_provider 指向 deep-agent（真实工具调用可见代码路径的取证 agent）。
@@ -308,7 +377,7 @@ await addCapability({
 }
 
 /**
- * #1310 ② —— F155 L3 文件检索的**素材**：一份已抽出正文的聊天附件。
+ * #1310 ② / #1324 —— F155 L3 文件检索的**素材**：一份已抽出正文的聊天附件。
  *
  * `message_id` 刻意留 NULL（「已上传、尚未挂到任何消息」的 pending 态）：
  * `pg-file-retrieval.ts` 的检索只 `JOIN chat_threads ON t.id = a.thread_id`，**不看**
@@ -319,6 +388,12 @@ await addCapability({
  * （pending/failed/unsupported 的附件没有可检索内容，实现刻意不召回它们）。
  * `search_tsv` 是**生成列**（migration `20260814120000_f155_file_retrieval_fts.sql`），
  * 不在这里写——写它会是「同一事实声明在两处」，而且那列根本不可写。
+ *
+ * ⚠ #1324 —— `thread_id` 从共享的 `THREAD_ID`（51 条消息那条）**改成**
+ *   `CONTEXT_CHECK_THREAD_ID`（专属、零预置消息）。这是搬家不是复制：全仓只有
+ *   `chat-agent-skill-context.spec.ts` 用到这份附件，`chat-read.spec.ts` 那八条既有用例
+ *   从未依赖过它，搬过去不影响它们；context 命中/未命中那条用例也因此不再需要
+ *   翻 `THREAD_ID` 那 51 条历史去找自己发的消息。
  */
 await asApp(ORG_ID, async (client) => {
   await client.query(
@@ -331,7 +406,7 @@ await asApp(ORG_ID, async (client) => {
     [
       "attachment-chat-read-e2e-retrieval",
       ORG_ID,
-      THREAD_ID,
+      CONTEXT_CHECK_THREAD_ID,
       "chat-read-e2e/retrieval-fixture.md",
       RETRIEVAL_ATTACHMENT_FILENAME,
       Buffer.byteLength(RETRIEVAL_EXCERPT, "utf8"),
@@ -341,5 +416,8 @@ await asApp(ORG_ID, async (client) => {
 });
 
 process.stdout.write(
-  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1\n`,
+  `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
+  + `roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1 `
+  + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
+  + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID}\n`,
 );

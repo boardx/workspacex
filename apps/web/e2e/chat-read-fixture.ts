@@ -97,4 +97,40 @@ export const CHAT_READ_E2E = {
    * 由 `playwright.chat-read.config.ts` 同时下发给替身进程与断言方。
    */
   retrievalEchoPrefix: "[retrieved:]",
+
+  /* ══════════ #1324 —— #1310/#1314 的复核重构：三条独立线程，零预置历史 ══════════
+   *
+   * 复核意见：原来那条 27 秒大用例把三件不同的事（挂载持久化 / 因果链 / 检索命中对照）
+   * 全压在 `threadId` 那条 51 条消息的共享夹具上，任何一条失败都要靠翻页才能定位。
+   * 这里给每一条关注点各自一条**零预置消息**的专属线程——发出去的第一条消息天然
+   * 落在第一页，不需要 `chat-messages-load-more`，失败定位不再依赖翻页。
+   *
+   * 三条线程共用同一个已发布、可运行的 `agentId`（`chat_thread_agents` 已种为
+   * `present`），选择器不需要额外一步「加进编制」。
+   */
+  /**
+   * ⚠ 三条线程放在**独立的第二个项目**里，不放进 `projectId` 那个项目——
+   *   `chat-read.spec.ts:41` 有一条显式断言「这个项目只有一条会话」（`chat-thread-card-list`
+   *   数出恰好 1 个按钮），注释原话「夹具里只有一条会话，列表就只列一条」；本轮实测过
+   *   把三条线程直接塞进同一个项目，那条断言从 1 变 4，8/9 号断言收窄逻辑无关——是
+   *   本次改动真的破坏了那条不变量。放到独立项目，两边互不相扰，不需要碰
+   *   `chat-read.spec.ts` 那条断言本身。同一个 org、同一个已发布 agent、同一批
+   *   org-wide 的 `capability_listings`（agent 目录）与 skill 依旧全部可见——
+   *   这两样都不是项目范围的。
+   */
+  restructureProjectId: "project-chat-read-e2e-restructure",
+  /** 只验 F65（挂载 → 角标 → 刷新仍在）的专属线程，不发任何消息。 */
+  skillMountThreadId: "thread-chat-read-e2e-skill-mount",
+  /**
+   * #1322 因果对照的专属线程：挂载前后各发一条消息，比较各自那次 run 的
+   * `skillVersionIds`。**当前诚实结论是两次相等（`[]`）**——挂载不影响 run，
+   * 这是 #1322 记录的真实产品缺口，不是本条测试的 bug。
+   */
+  causalCheckThreadId: "thread-chat-read-e2e-causal-check",
+  /**
+   * context 命中/未命中对照的专属线程。F155 的检索附件（见下面 `retrievalAttachmentFilename`
+   * 等字段）现在种在**这条**线程上，不再种在共享的 51 条消息 `threadId` 上——那条线程
+   * 从未有任何其它用例依赖这份附件，移过来不影响 `chat-read.spec.ts` 的既有断言。
+   */
+  contextCheckThreadId: "thread-chat-read-e2e-context-check",
 } as const;
