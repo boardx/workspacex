@@ -23,7 +23,7 @@
 
 受保护路由统一挂在既有 interview 控制器边界下；准确路径由 `packages/contracts/src/interview.ts` 导出，Web 客户端不得手写第二套响应类型。至少覆盖：列表、详情、创建/保存、确认主题、专家增删确认、问题增删改确认、运行/单专家重试、报告生成、快捷访谈与转批量。
 
-创建路由为 `POST /interviews/digital`；主题确认路由为 `POST /interviews/digital/:interviewId/topic/confirm`；其余步骤按同一 `/:interviewId/<step>/confirm` 形状暴露。创建输入只允许 `{ name, tags, scope, requestId }`，不接收 `topic`。每一个确认请求都必须携带 `requestId` 与 `expectedVersion`；成功时恰好保存一个新版本。相同 `requestId` 和相同规范化 payload 重试返回第一次结果；同 key 但 payload 改变返回 `IDEMPOTENCY_KEY_REUSED`，而不是覆盖或生成重复专家、问题、run 或报告。任何陈旧 `expectedVersion` 返回 `CONCURRENT_MODIFICATION`。
+创建路由为 `POST /interviews/digital`；主题确认路由为 `POST /interviews/digital/:interviewId/topic/confirm`；其余步骤按同一 `/:interviewId/<step>/confirm` 形状暴露。创建输入只允许 `{ name, tags, scope, requestId }`，不接收 `topic`。每一个确认请求都必须携带 `requestId` 与 `expectedVersion`；成功时恰好保存一个新版本。相同 `requestId` 和相同规范化 payload 的成功 replay 必须复用首次成功的 HTTP status 与业务正文：本 F04 create/confirm 的首次和 replay 都是 201；若平台附带动态 `traceId`，遮蔽它后正文相同。同 key 但 payload 改变返回 `IDEMPOTENCY_KEY_REUSED`，而不是覆盖或生成重复专家、问题、run 或报告。任何陈旧 `expectedVersion` 返回 `CONCURRENT_MODIFICATION`。
 
 `getDigitalInterview` 是恢复的唯一读端口：刷新和进程重建都从 `GET /interviews/digital/:interviewId` 取得服务器的状态、当前步骤和版本。无权与不存在在该端口均为 404；将平台每请求生成的非空 `traceId` 遮蔽后，错误信封逐字节相同，两个 `traceId` 必须不同。共同信封不得包含 `reasonCode` 或被寻址的 interview id。
 

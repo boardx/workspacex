@@ -71,7 +71,7 @@
 | I-11 | 数字专家材料只经既有 Context API 读取 | 静态依赖检查与 context-pack provenance 断言 |
 | I-12 | 所有有效修改后保存版本；恢复以服务端状态为准 | 重进页面或重建进程后恢复准确步骤、版本与运行进度 |
 | I-13 | 主题、专家、问题、运行和报告的推进都必须经各自的显式确认操作；输入中的未确认内容是客户端 dirty buffer，不得提前写入服务端 | 输入主题/编辑专家或问题时没有写请求；点击确认后恰好保存一个新版本 |
-| I-14 | 每一个可重放写操作以 `(orgId, interviewId, operation, requestId)` 去重；相同 payload 重试返回第一次结果，改变 payload 重用同一 `requestId` 被拒绝 | 重试不生成第二个版本/专家/问题/run/报告；payload 指纹不同返回 `IDEMPOTENCY_KEY_REUSED` |
+| I-14 | 每一个可重放写操作以 `(orgId, interviewId, operation, requestId)` 去重；相同 payload 重试复用首次成功的 HTTP status 与业务正文，改变 payload 重用同一 `requestId` 被拒绝 | F04 create/confirm 首次和 replay 均为 201；遮蔽动态 `traceId` 后正文相同；重试不生成第二个版本/专家/问题/run/报告；payload 指纹不同返回 `IDEMPOTENCY_KEY_REUSED` |
 | I-15 | 写入带调用方读到的 `expectedVersion`；服务端版本不相等时冲突，绝不静默覆盖 | 陈旧版本返回 `CONCURRENT_MODIFICATION`，服务端内容和版本保持不变 |
 
 ## 四、边界

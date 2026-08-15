@@ -38,6 +38,10 @@ type DigitalInterviewResponse = {
   scope: { kind: string; projectId: string | null; researchProjectId: string | null };
 };
 
+function maskTrace(raw: string) {
+  return raw.replace(/"traceId":"[^"]+"/, '"traceId":"<masked>"');
+}
+
 async function postCreate(input: { readonly requestId: string; readonly name?: string }) {
   const response = await fetch(`${base}/interviews/digital`, {
     method: "POST",
@@ -81,7 +85,10 @@ beforeEach(async () => {
 
 describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
   it("创建只持久化名称和标签；create replay 幂等、变更 payload 被拒绝，并在重启后恢复 scope", async () => {
-    const created = await createInterview();
+    const first = await postCreate({ requestId: "create-f04" });
+    expect(first.status).toBe(201);
+    const firstRaw = await first.text();
+    const created = JSON.parse(firstRaw) as DigitalInterviewResponse;
     expect(created).toMatchObject({
       topic: null,
       status: "topic_pending",
@@ -90,8 +97,9 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     });
 
     const replay = await postCreate({ requestId: "create-f04" });
-    expect(replay.status).toBe(200);
-    expect(await replay.json()).toMatchObject({ interviewId: created.interviewId, version: 1 });
+    expect(replay.status).toBe(201);
+    const replayRaw = await replay.text();
+    expect(maskTrace(replayRaw)).toBe(maskTrace(firstRaw));
 
     const changedPayload = await postCreate({ requestId: "create-f04", name: "同一 key 不能创建第二场访谈" });
     expect(changedPayload.status).toBe(409);
@@ -121,11 +129,12 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
 
     const first = await confirm("谁拥有储能采购的最终否决权？");
     expect(first.status).toBe(201);
-    expect(await first.json()).toMatchObject({ status: "experts_pending", version: 2 });
+    const firstRaw = await first.text();
+    expect(JSON.parse(firstRaw)).toMatchObject({ status: "experts_pending", version: 2 });
 
     const retry = await confirm("谁拥有储能采购的最终否决权？");
-    expect(retry.status).toBe(200);
-    expect(await retry.json()).toMatchObject({ status: "experts_pending", version: 2 });
+    expect(retry.status).toBe(201);
+    expect(maskTrace(await retry.text())).toBe(maskTrace(firstRaw));
 
     const changedPayload = await confirm("同一 key 不能悄悄覆盖成另一个主题");
     expect(changedPayload.status).toBe(409);
