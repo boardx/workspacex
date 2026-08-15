@@ -153,6 +153,14 @@ class FakeAgendaSegmentRepository implements AgendaSegmentRepository {
     this.store.segments.set(row.id, row);
     return { kind: "created", row };
   }
+  // #853：本文件测的不是 listAgendaSegments 那条链——给个最小的满足接口的实现
+  // （按 ordinal 排序全部返回），不复刻仓储的租户隔离；那条判定有它自己的测试
+  // （`list-agenda-segments.test.ts`）。
+  async list(_orgId: string, workshopId: string): Promise<readonly AgendaSegmentRow[]> {
+    return [...this.store.segments.values()]
+      .filter((r) => r.workshopId === workshopId)
+      .sort((a, b) => a.ordinal - b.ordinal);
+  }
 }
 
 class FakeProjectOverviewRepository implements ProjectOverviewRepository {

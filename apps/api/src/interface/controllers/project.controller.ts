@@ -59,6 +59,7 @@ import { renderRoleView } from "../../application/project/render-role-view";
 import { previewAsRole } from "../../application/project/preview-as-role";
 import { advanceAgendaSegment } from "../../application/project/advance-agenda-segment";
 import { createAgendaSegment } from "../../application/project/create-agenda-segment";
+import { listAgendaSegments } from "../../application/project/list-agenda-segments";
 import {
   AgendaSegmentNotFoundError,
   MergeTargetRequiredError,
@@ -434,6 +435,37 @@ export class ProjectController {
         },
       );
       return C.operations.createAgendaSegment.out.parse(segment);
+    } catch (e) {
+      if (e instanceof ProjectError) {
+        if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * #853 UC-P6：`listAgendaSegments`——与 `createSegment` 同一个路径前缀、同一张表，
+   * 补的是这条契约操作本身从未挂过 controller 的实现缺口（见
+   * `application/project/list-agenda-segments.ts` 文件头）。拒绝面与 `createSegment`
+   * 同型：`AUTH_SERVICE_UNAVAILABLE` → 503（判定服务不可用不是裁定），其余 → 403。
+   * 实践中 `PROJECT_ROLE_INSUFFICIENT` 不可达（`read.published` 四种角色都持有），
+   * 但契约 `err` 只声明了 `NO_PROJECT_ROLE`，所以 catch-all 就是它。
+   */
+  @Get("/workshops/:workshopId/agenda-segments")
+  async listSegments(
+    @CurrentPrincipal() principal: Principal,
+    @Param("workshopId") workshopId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const segments = await listAgendaSegments(
+        { auth: { repo: this.identity, ids: this.decisions }, segments: this.segments },
+        { userId: principal.userId, orgId: principal.orgId, workshopId },
+      );
+      return C.operations.listAgendaSegments.out.parse(segments);
     } catch (e) {
       if (e instanceof ProjectError) {
         if (e.reasonCode === "AUTH_SERVICE_UNAVAILABLE") {

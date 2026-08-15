@@ -219,6 +219,9 @@ export default defineConfig({
         // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
         //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
         "project-create-smoke.spec.ts",
+        // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
+        //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
+        "agenda-segment-create-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

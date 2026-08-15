@@ -163,6 +163,17 @@ export default {
         ? `${apiOrigin}/__broken/projects/:projectId/artifacts`
         : `${apiOrigin}/projects/:projectId/artifacts` },
       { source: `${prefix}/projects/:path*`, destination: `${apiOrigin}/projects/:path*` },
+      // #853 实测发现：议程环节三条路由（`createAgendaSegment`/`listAgendaSegments`/
+      // `advanceAgendaSegment`，`project.controller.ts` 逐字）都挂在 `/workshops` 前缀下，
+      // 不是 `/projects` 前缀——超类型模型下 `workshops.id ≡ projects.id`，但**路径前缀
+      // 不共享**（同一件事在 URL 层面被处理成了两个空间）。这一条此前**完全缺失**：
+      // #627 补齐 `createAgendaSegment` 的 controller 那次没人从浏览器真的打过它，
+      // 缺口一直不可见——直到 #853 写 `agenda-segment-create-smoke.spec.ts` 第一次
+      // 让浏览器真的发一次 `POST /workshops/...`，同源代理直接把它 404 成一页 HTML
+      // （`apiRequest` 把 `<!DOCTYPE ...` 当 JSON 解析失败，界面上显示成一句读取失败）。
+      // 少了这一条，`/workshops/*` 下任何一条契约操作在**任何**走同源代理部署的产品里
+      // 都打不到后端，不只是本地 e2e。
+      { source: `${prefix}/workshops/:path*`, destination: `${apiOrigin}/workshops/:path*` },
       // 引导式研究的历史集合与全部检查点共享 `/research` 前缀。
       // 两条都必须存在：集合列表/创建命中裸路径，恢复、方向与大纲命中深路径。
       { source: `${prefix}/research`, destination: `${apiOrigin}/research` },
