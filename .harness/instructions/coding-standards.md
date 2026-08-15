@@ -6,7 +6,13 @@
 - 命名:文件 kebab-case,类型 PascalCase,变量/函数 camelCase。
 - 文件规模:业务源文件原则上不超过 2000 行。页面只负责路由装配和数据编排;子界面、领域类型、纯函数、请求适配器和复杂状态分别拆到独立模块。超过 2000 行必须在同一变更中拆分,或记录临时豁免、负责人和移除期限。
 - 每个包必须提供:`build`、`test`、`lint`、`typecheck` 四个 turbo 任务。
-- 提交前 `pnpm -w run verify:base` 必须通过。
+- 提交前跑哪一档验证，见 [ADR-106](../../docs/adr/ADR-106-verify-base-affected.md)（单一权威源，别在这里另立一份）：
+  日常小改动用 `pnpm -w run verify:quick`（affected typecheck/lint/test），碰
+  `.harness/**` 用 `pnpm -w run verify:harness`，push 前想跑全量或不确定选哪档用
+  `pnpm -w run verify:release`（等价于原 `verify:base`，命令仍可用，不是被删除）。
+  `pnpm harness verify` 门控 feature 转 passing 时目前仍固定跑 `verify:base`（即
+  `verify:release`）——按风险分档自动选 profile 是 ADR-106 第一批的后续 issue，
+  尚未落地，这行到时候一起更新，不要提前假装已经分档。
 
 ## Feature 与 Delivery PR
 

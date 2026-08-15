@@ -18,7 +18,8 @@
     定期跑 `pnpm harness sweep-worktrees` / `pnpm harness sweep-docker` 巡检，
     不要等 `uptime` 报警才想起来查。
 - [ ] 标准启动路径仍可用(`pnpm -w run dev`)。
-- [ ] 标准验证仍能跑(`pnpm -w run verify:base`)。
+- [ ] 标准验证仍能跑——按 [ADR-106](../../docs/adr/ADR-106-verify-base-affected.md) 选档
+      (`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`)。
 - [ ] 进度日志已更新(对应 scope 的 `progress.md`)。
 - [ ] 会话交接已写(`session-handoff.md`)。
 - [ ] 功能清单真实反映 passing / 未验证边界——**没有假 passing**。
