@@ -7,21 +7,25 @@
  *   写进别人组织的东西。让它在**类型上就构造不出来**，比在每个方法里多传一个
  *   orgId 参数可靠——后者只要有一处忘了传就是一个洞。
  */
+import { feedbackLoop } from "@repo/contracts";
+import type { z } from "zod";
 import type { Guarded } from "../security/permission-filter";
 import type { FeedbackStatus } from "../../domain/feedback/product-feedback";
 
 export const PRODUCT_FEEDBACK_REPOSITORY = Symbol("ProductFeedbackRepository");
 
-/** 与契约 `FeedbackTarget` 同构。⚠ 判别联合，不是「kind + 可空 id」——见契约里的理由。 */
-export type FeedbackTarget =
-  | { readonly kind: "product" }
-  | { readonly kind: "agent"; readonly agentId: string }
-  | { readonly kind: "skill"; readonly skillId: string };
+/**
+ * ⚠ **从契约派生**（ADR-020）。判别联合的三种目标只在
+ * `packages/contracts/src/feedback-loop.ts` 里写过一遍——在这里再写一遍，
+ * 契约加第四种目标时这里不会有任何东西报。
+ */
+export type FeedbackTarget = z.infer<typeof feedbackLoop.FeedbackTarget>;
+export type FeedbackKind = z.infer<typeof feedbackLoop.FeedbackKind>;
 
 export interface NewFeedback {
   readonly id: string;
   readonly submittedBy: string;
-  readonly kind: "缺陷" | "需求";
+  readonly kind: FeedbackKind;
   readonly target: FeedbackTarget;
   readonly targetLabel: string | null;
   readonly title: string;
@@ -44,7 +48,7 @@ export interface NewFeedback {
 export interface FeedbackRow {
   readonly id: string;
   readonly submittedBy: string;
-  readonly kind: "缺陷" | "需求";
+  readonly kind: FeedbackKind;
   readonly target: FeedbackTarget;
   readonly targetLabel: string | null;
   readonly title: string;
@@ -58,11 +62,8 @@ export interface FeedbackRow {
   readonly createdAt: string;
 }
 
-/** 读取口径。与契约 `FeedbackScope` 同构。 */
-export type FeedbackScope =
-  | { readonly kind: "mine" }
-  | { readonly kind: "org" }
-  | { readonly kind: "target"; readonly target: FeedbackTarget };
+/** 读取口径。⚠ 同样从契约派生，不重列。 */
+export type FeedbackScope = z.infer<typeof feedbackLoop.FeedbackScope>;
 
 export interface StatusEvent {
   readonly id: string;

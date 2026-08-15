@@ -15,10 +15,22 @@
  *   只有其中一半时，前者会在并发下失效，后者只会给用户一句 23514。
  */
 
-/** 与契约 `FeedbackStatus` 逐字同集。⚠ 这里不 import zod——domain 层不依赖契约包的运行时。 */
-export type FeedbackStatus = "待处理" | "已进入迭代" | "已修复" | "不做";
+/**
+ * ⚠ **从契约派生，不在这里重列**（ADR-020 / `lint-contract-source`）。
+ *
+ * 把它写成 `"待处理" | "已进入迭代" | ...` 的字面量联合，是本项目已栽过五次的
+ * 「同一事实声明在两处」——契约加一个状态而这里没加，编译仍然过，
+ * 只是 domain 悄悄少认识一个状态。
+ *
+ * 往 domain 里 import `@repo/contracts` 不是层次违规：它没有 IO、没有框架、
+ * 没有基础设施，是一本共享类型词典（`domain/identity/roles.ts` 的头注逐字论证过这一点）。
+ */
+import { feedbackLoop } from "@repo/contracts";
+import type { z } from "zod";
+import type { OrgRole } from "../identity/roles";
 
-export type OrgRole = "admin" | (string & {});
+export type FeedbackStatus = z.infer<typeof feedbackLoop.FeedbackStatus>;
+export type { OrgRole };
 
 /**
  * 合法状态转移。
@@ -99,7 +111,7 @@ export function allowedTransitionsFrom(status: FeedbackStatus): readonly Feedbac
  */
 export function canReadDetail(input: {
   readonly viewerId: string;
-  readonly viewerOrgRole: OrgRole;
+  readonly viewerOrgRole: OrgRole | null;
   readonly submittedBy: string;
 }): boolean {
   return input.viewerOrgRole === "admin" || input.viewerId === input.submittedBy;
@@ -112,6 +124,6 @@ export function canReadDetail(input: {
  *   不经分诊的旁路：一条被提交人自行标成「已修复」的反馈，会照常计入
  *   `getFeedbackCounts` 的已修复数，而没有任何人验证过它真的修好了。
  */
-export function canTriage(viewerOrgRole: OrgRole): boolean {
+export function canTriage(viewerOrgRole: OrgRole | null): boolean {
   return viewerOrgRole === "admin";
 }

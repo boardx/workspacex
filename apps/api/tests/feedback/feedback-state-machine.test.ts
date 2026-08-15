@@ -100,6 +100,8 @@ describe("FB-2 分诊权限", () => {
   it("只有组织管理员能分诊", () => {
     expect(canTriage("admin")).toBe(true);
     expect(canTriage("consultant")).toBe(false);
-    expect(canTriage("")).toBe(false);
+    // null = 不是本组织成员。⚠ 这一格必须显式验：`canTriage(null)` 若为 true，
+    //   组织外的人就能分诊，而 controller 那层传的正是可能为 null 的 orgRole。
+    expect(canTriage(null)).toBe(false);
   });
 });

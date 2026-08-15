@@ -155,7 +155,7 @@ export class FeedbackController {
     const { orgRole } = await this.viewerRole(principal);
     // ⚠ 计数是**分诊面板**的数字，不是给所有人看的。标题可见 ≠ 全局统计可见：
     //   一个非管理员知道「本周 40 条待处理」没有任何用处，而它泄露的是团队的处理节奏。
-    if (!canTriage(orgRole ?? "")) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+    if (!canTriage(orgRole)) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
     return this.feedback.forOrg(principal.orgId).counts();
   }
 

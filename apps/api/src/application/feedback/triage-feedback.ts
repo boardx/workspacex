@@ -48,7 +48,7 @@ export async function triageFeedback(
 ): Promise<{ readonly feedbackId: string; readonly status: FeedbackStatus }> {
   // ⚠ 权限先判，仓储后动——与本仓 F119/F124/F125/#467/F176 同一条顺序纪律。
   //   反过来写的话，一次越权的分诊请求仍然会先把那条反馈读出来。
-  if (!canTriage(input.actorOrgRole ?? "")) throw new FeedbackTriageForbiddenError();
+  if (!canTriage(input.actorOrgRole)) throw new FeedbackTriageForbiddenError();
 
   const current = await deps.repo.findById(input.feedbackId, input.actorId);
   if (current === null) throw new FeedbackNotFoundError();

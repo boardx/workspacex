@@ -53,7 +53,7 @@ function mockApi(items: unknown[], overrides: Partial<Record<string, unknown>> =
 describe("FB-3 后台反馈屏（真栈）", () => {
   it("① 屏上的条目来自接口", async () => {
     mockApi([productItem, skillItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     expect(await screen.findByTestId("admin-feedback-item-fb-p")).toBeTruthy();
     expect(screen.getByTestId("admin-feedback-item-fb-s")).toBeTruthy();
     expect(screen.getByTestId("admin-feedback-counts").textContent).toContain("2");
@@ -61,7 +61,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("① 接口回空 ⇒ 两列都是空态，不是示例数据", async () => {
     mockApi([], { counts: { total: 0, 待处理: 0, 已进入迭代: 0, 已修复: 0, 不做: 0 } });
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     expect(await screen.findByTestId("admin-feedback-software-empty")).toBeTruthy();
     expect(screen.getByTestId("admin-feedback-capability-empty")).toBeTruthy();
     // 旧 mock 常量里的标题一个都不该出现。
@@ -70,7 +70,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("② 产品级进左列，skill 进右列", async () => {
     mockApi([productItem, skillItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     const software = await screen.findByTestId("admin-feedback-software");
     const capability = screen.getByTestId("admin-feedback-capability");
     expect(software.textContent).toContain("批准卡不记得预算");
@@ -81,14 +81,14 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("③ detail 为 null ⇒ 说「仅组织管理员与提交人可见」，不说「暂无内容」", async () => {
     mockApi([skillItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     const withheld = await screen.findByTestId("admin-feedback-detail-withheld-fb-s");
     expect(withheld.textContent).toContain("仅组织管理员与提交人可见");
   });
 
   it("④ 转「不做」先要理由；理由为空时确认按钮不可点", async () => {
     mockApi([productItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     fireEvent.click(await screen.findByTestId("admin-feedback-to-不做-fb-p"));
 
     const submit = screen.getByTestId("admin-feedback-decline-submit-fb-p") as HTMLButtonElement;
@@ -111,7 +111,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("④ 非「不做」的转移直接发请求，不要理由", async () => {
     mockApi([productItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-p"));
     await waitFor(() => {
       const put = apiRequest.mock.calls.find((c) => (c[1] as { method?: string })?.method === "PUT");
@@ -123,7 +123,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("④ 只出现当前状态出得去的那几条边 —— 「已进入迭代」不该有转到自己的按钮", async () => {
     mockApi([skillItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-s");
     expect(screen.queryByTestId("admin-feedback-to-已进入迭代-fb-s")).toBeNull();
     expect(screen.getByTestId("admin-feedback-to-已修复-fb-s")).toBeTruthy();
@@ -131,7 +131,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
 
   it("⑤ 读取失败是失败态，且说出「数据没有丢」", async () => {
     apiRequest.mockRejectedValue(new Error("offline"));
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     const failed = await screen.findByTestId("admin-feedback-failed");
     expect(failed.textContent).toContain("数据没有丢");
     expect(screen.queryByTestId("admin-feedback-software-empty")).toBeNull();
@@ -142,14 +142,14 @@ describe("FB-3 后台反馈屏（真栈）", () => {
       if (path === "/feedback/counts") throw new Error("forbidden");
       return { items: [productItem] };
     });
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     expect(await screen.findByTestId("admin-feedback-item-fb-p")).toBeTruthy();
     expect(screen.getByTestId("admin-feedback-counts-unavailable")).toBeTruthy();
   });
 
   it("回归：`打开迭代看板` / `导出` 两个按钮已删除", async () => {
     mockApi([productItem]);
-    render(<FeedbackScreen state="ready" />);
+    render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     expect(screen.queryByTestId("admin-feedback-board")).toBeNull();
     expect(screen.queryByTestId("admin-feedback-export")).toBeNull();
