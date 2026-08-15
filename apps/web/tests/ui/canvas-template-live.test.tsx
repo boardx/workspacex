@@ -1,6 +1,7 @@
 /**
- * #464 —— `/canvas?screen=template-admin` 与 `/admin/canvasadmin` 两屏只投影
- * `GET /canvas/templates` 的真实响应。
+ * #464 —— `/canvas?screen=template-admin` 只投影 `GET /canvas/templates` 的真实响应。
+ * D-43（2026-08-15）起，这也是 `/admin/canvasadmin` 重定向后的合并落点（见文件尾
+ * 「D-43 …源码级回归」那组）。
  *
  * 反证重点（每条都对应一次真实事故模式）：
  *  · 空数组不得回落到 mock / 示例模板「先让它显示出来」；
@@ -12,7 +13,11 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
+import { ROOT } from "../session/import-closure";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-464", orgRole: "admin" }));
 
@@ -27,7 +32,12 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { TemplateAdmin } from "@/components/canvas/template-admin";
-import { CanvasTemplateScreen } from "@/components/admin/canvas-template-screen";
+
+function adminItem(key: AdminModuleKey) {
+  const item = ADMIN_NAV.flatMap((g) => g.items).find((i) => i.key === key);
+  if (!item) throw new Error(`ADMIN_NAV 缺 ${key}`);
+  return item;
+}
 
 interface TemplateRow {
   key: string;
@@ -214,45 +224,39 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
   });
 });
 
-describe("#464 后台画布模板屏（/admin/canvasadmin）只投影真实响应", () => {
-  beforeEach(() => {
-    sessionState.currentOrgId = "org-464";
-    window.localStorage.clear();
-    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-464");
+/**
+ * D-43（2026-08-15，人类直接裁决真合并，推翻 D-42 ⑤，见
+ * `phases/requirements/DECISIONS-FINAL.md`）—— 后台「画布模板」（`/admin/canvasadmin`）
+ * 与「画布模板库与编辑器」（`/canvas?screen=template-admin`）**真合并成一个屏**。
+ *
+ * `CanvasTemplateScreen`（原后台清单+跳转链接屏）到此退役，不再被任何路由引用，
+ * 上面 `#464` 那组 `TemplateAdmin` 测试**同时覆盖**了它原来投影的内容——`TemplateAdmin`
+ * 现在就是 `/admin/canvasadmin` 重定向后的落点，不需要再单独测一遍同一份真实响应。
+ * 本组不重复断言 UI 行为，只做**机械可检的路由事实**：源码层面确认合并没有被悄悄撤销。
+ */
+describe("D-43 /admin/canvasadmin 与 /canvas?screen=template-admin 已真合并（源码级回归）", () => {
+  it("ADMIN_NAV 的 canvasadmin 项 href 直接指向合并落点，不再经过旧的清单+跳转页", () => {
+    expect(adminItem("canvasadmin").href).toBe("/canvas?screen=template-admin");
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("app/admin/[module]/page.tsx：canvasadmin 在 REDIRECTS 里指向合并落点，且 SCREENS 不再挂 CanvasTemplateScreen", () => {
+    const src = readFileSync(
+      resolve(ROOT, "app/admin/[module]/page.tsx"),
+      "utf8",
+    );
+    expect(src).toMatch(/canvasadmin:\s*"\/canvas\?screen=template-admin"/);
+    // 只锁「导入语句」与「SCREENS 映射项」不再存在，允许说明性注释里提到这个历史组件名
+    // （同 `skill-single-screen-nav.test.tsx` 对 `LEFT_NAV_SCREENS` 的处理方式）。
+    expect(src).not.toMatch(/from "@\/components\/admin\/canvas-template-screen"/);
+    expect(src).not.toMatch(/canvasadmin:\s*CanvasTemplateScreen/);
   });
 
-  it("列出真实模板行，并保留通往模板库的去向", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(typeof input === "string" ? input : input.toString());
-      expect(url.pathname).toBe("/canvas/templates");
-      expect(url.searchParams.get("orgId")).toBe("org-464");
-      return jsonResponse({ templates: [template({ key: "bmc", displayName: "商业模式画布", version: 3, usageCount: 34 })] });
-    }));
-
-    render(<CanvasTemplateScreen />);
-
-    const list = await screen.findByTestId("admin-canvasadmin-list");
-    expect(within(list).getByText("商业模式画布")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-canvasadmin-open-editor")).toBeInTheDocument();
-    for (const name of MOCK_ONLY_NAMES) expect(screen.queryByText(name)).toBeNull();
-  });
-
-  it("空响应 = 真实空态；读取失败回显 reasonCode + HTTP 状态", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
-    const empty = render(<CanvasTemplateScreen />);
-    await waitFor(() => expect(screen.getByTestId("admin-canvasadmin-empty")).toBeInTheDocument());
-    empty.unmount();
-
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ reasonCode: "NO_PROJECT_ROLE" }, 403)));
-    render(<CanvasTemplateScreen />);
-    const error = await screen.findByTestId("admin-canvasadmin-error");
-    expect(error.textContent).toContain("NO_PROJECT_ROLE");
-    expect(error.textContent).toContain("403");
-    expect(screen.queryByTestId("admin-canvasadmin-empty")).toBeNull();
+  it("canvas-hub.tsx：template-admin 屏仍然渲染 TemplateAdmin（合并落点没有被换成别的组件）", () => {
+    const src = readFileSync(
+      resolve(ROOT, "components/canvas/canvas-hub.tsx"),
+      "utf8",
+    );
+    expect(src).toMatch(/screen === "template-admin" && <TemplateAdmin/);
   });
 });
 

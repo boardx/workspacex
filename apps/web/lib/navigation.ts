@@ -214,9 +214,7 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   真要下线整条路由，记入后续 issue，需要先确认零依赖。
           { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"], isPrototype: true },
           // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）
-          // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。⚠ 与蓝本/Skill
-          //   那两项不同：这里**不是**改指到 `/admin/canvasadmin`（两者数据源相同但粒度不同，
-          //   `/canvas` 是完整推演编辑器，不是清单页，硬合并会丢功能），而是原型本来的设计
+          // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局
           //   菜单项。项目工作台 `/projects/[projectId]/canvas` 这条参数化路由已经存在
           //   （`project-workbench.tsx` 头注确认过，与 `files` 子路由同型），但工作台内部
@@ -225,6 +223,12 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   href 留在此数组只为满足 lint-nav-reachability 的文本扫描；「给项目工作台补一个
           //   真实的画布入口」记入后续 issue，不在本轮"后台导航去重"范围内展开（那是项目
           //   工作台的功能缺口，不是后台信息架构问题）。
+          //   ⚠ 2026-08-15（D-43，推翻 D-42 ⑤，见 `phases/requirements/DECISIONS-FINAL.md`）：
+          //   `ADMIN_NAV` 的 `canvasadmin` 项此前"不改指到这里、合并会丢功能"的判断已被
+          //   人类推翻——它现在直接指向这个 hub 的 `template-admin` 屏（`/canvas?screen=
+          //   template-admin`），不是指向整个 hub 默认屏（`/canvas` 不带 `screen` 参数也会
+          //   落在 `template-admin`，两者等价）。这一条本身（`ADMIN_SECOND_LEVEL` 里的
+          //   `canvas` 项，指向裸 `/canvas`）不受影响，仍是去重后不再渲染的重复入口。
           { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
         ],
       },
