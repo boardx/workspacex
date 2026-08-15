@@ -54,7 +54,19 @@ phase: "01"
 #     createBlueprint(origin=copy)，未新造错误码或端点；setDurationTier 因契约缺口
 #     T13 明确排除在外，未强行接线。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-15（自追加，dev-project agent）：追加 **F186**——与前五次自追加（F175/F174/
+#   F177/F179/F181）性质不同，本条实现了一个新的契约 operation（`getBlueprintDesignFacets`），
+#   不是「零新增设计面」的自动满足。但这个新 operation 本身已经走过独立签核——
+#   `design-deltas/blueprint-read-path/design-signoff.md`（status: confirmed，
+#   confirmed_by: usam.shen@gmail.com，2026-08-15，PR #1262）——本条只是把已批准的
+#   delta 落地成代码，实现与该 delta 文档里的形状逐字一致（字段名对齐已签核的
+#   `updateDesignFacet`，未偏离批准范围一字）。三条件对照：
+#     1. UI 已签：零界面落点，空成立。
+#     2. 契约已签：通过 delta 独立签核，不是通过本文件的原始签核，但确实签了。
+#     3. 零新增设计面（相对 delta 已批准的范围）：实现与 delta 文档形状完全一致，
+#        没有在 delta 批准范围之外多加一个字段或错误码。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

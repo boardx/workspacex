@@ -82,6 +82,7 @@ export interface BlueprintPersistencePort {
   setDurationTier(cmd: SetDurationTierCommand): Promise<SetDurationTierOutcome>;
   startTrialRun(cmd: StartTrialRunCommand): Promise<StartTrialRunOutcome>;
   publishBlueprintVersion(cmd: PublishBlueprintVersionCommand): Promise<PublishBlueprintVersionOutcome>;
+  getBlueprintDesignFacets(orgId: OrgId, blueprintId: string): Promise<GetBlueprintDesignFacetsOutcome>;
 }
 
 /**
@@ -183,5 +184,22 @@ export interface PublishBlueprintVersionCommand {
   readonly expectedCurrentVersionNumber: number;
   readonly newVersionId: string;
 }
+
+/**
+ * 2026-08-15 delta（`design-deltas/blueprint-read-path/`，人类已批准）：
+ * 读一个蓝本已填的设计环节内容 + 蓝本级并发令牌。字段名逐字对齐
+ * `UpdateDesignFacetCommand`/`SetDurationTierCommand` 已用的名字，读写不产生第二套命名。
+ */
+export type GetBlueprintDesignFacetsOutcome =
+  | {
+      readonly kind: "ok";
+      readonly revision: string;
+      readonly designFacets: readonly {
+        readonly designFacetKey: string;
+        readonly content: string;
+        readonly itemRevision: string;
+      }[];
+    }
+  | { readonly kind: "blueprint-not-found" };
 
 export const BLUEPRINT_PERSISTENCE_PORT = Symbol("BlueprintPersistencePort");

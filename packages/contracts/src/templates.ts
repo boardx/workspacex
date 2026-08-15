@@ -528,6 +528,34 @@ export const operations = {
   },
 
   /**
+   * 读一个蓝本已填的设计环节内容 + 蓝本级并发令牌（2026-08-15 delta，人类批准，
+   * `design-deltas/blueprint-read-path/`）。解决两处读路径缺口：
+   * · 设计器需要「这个蓝本哪些环节已填、填的是什么」——之前没有任何操作能读它；
+   * · `setDurationTier`/`setFormatAndLanguage`/`setModelStrategy`/`setQuotaPolicy` 的
+   *   `expectedVersion` 都从 `revision` 读，不必各自另造一个读端点（`KNOWN_CONTRACT_GAPS.T13`）。
+   * 字段名逐字对齐已签核的 `updateDesignFacet`（`designFacetKey`/`content`/`itemRevision`），
+   * 读写用同一套名字。
+   */
+  getBlueprintDesignFacets: {
+    method: "GET",
+    path: "/blueprints/:blueprintId/design-facets",
+    in: z.object({ blueprintId: z.string() }).strict(),
+    out: z
+      .object({
+        revision: z.string(),
+        designFacets: z.array(
+          z.object({
+            designFacetKey: z.string(),
+            content: z.string(),
+            itemRevision: z.string(),
+          }).strict(),
+        ),
+      })
+      .strict(),
+    err: ["BLUEPRINT_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
    * 换时长档位 —— 与**议程环节表**联动（不是与 16 项设计配置联动）。
    * ⚠ `confirmed: false` ⇒ `TIER_CHANGE_NEEDS_CONFIRMATION` + **将被增删的议程环节清单**
    *   （换档位是破坏性变更，R8）。

@@ -31,6 +31,7 @@ import type {
   StartTrialRunOutcome,
   PublishBlueprintVersionCommand,
   PublishBlueprintVersionOutcome,
+  GetBlueprintDesignFacetsOutcome,
 } from "../../application/templates/blueprint-persistence-ports";
 import {
   planDurationTierChange,
@@ -413,6 +414,38 @@ export class PgBlueprintRepository implements BlueprintPersistencePort {
         versionNumber: useCaseOut.versionNumber,
         changedDesignFacetKeys: useCaseOut.changedDesignFacetKeys,
         archivedVersionId: useCaseOut.archivedVersionId,
+      };
+    });
+  }
+
+  /**
+   * 2026-08-15 delta（`design-deltas/blueprint-read-path/`）：读一个蓝本的
+   * `revision`（行级 CAS 令牌，BP-03/F177 已加的列）+ 已填设计环节内容与各自的
+   * `item_revision`。纯读，不加锁——CAS 的判据在各自的写操作里做，这里只负责
+   * 给调用方一个可以拿去发起下一次写的快照。
+   */
+  async getBlueprintDesignFacets(orgId: OrgId, blueprintId: string): Promise<GetBlueprintDesignFacetsOutcome> {
+    return this.db.withTenant(orgId, async (s) => {
+      const bp = await s.query<{ revision: string }>(
+        `SELECT revision FROM blueprints WHERE id = $1`,
+        [blueprintId],
+      );
+      const bpRow = bp.rows[0];
+      if (bpRow === undefined) return { kind: "blueprint-not-found" };
+
+      const facets = await s.query<{ design_facet_key: string; content: string; item_revision: string }>(
+        `SELECT design_facet_key, content, item_revision FROM blueprint_design_facets WHERE blueprint_id = $1`,
+        [blueprintId],
+      );
+
+      return {
+        kind: "ok",
+        revision: bpRow.revision,
+        designFacets: facets.rows.map((r) => ({
+          designFacetKey: r.design_facet_key,
+          content: r.content,
+          itemRevision: r.item_revision,
+        })),
       };
     });
   }
