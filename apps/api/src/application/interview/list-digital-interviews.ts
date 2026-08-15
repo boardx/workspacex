@@ -58,10 +58,14 @@ export async function listDigitalExperts(
   return {
     items: rows.map((row) => ({
       expertId: row.expertId,
+      agentDefinitionId: row.agentDefinitionId,
+      agentVersion: row.agentVersion,
       initials: row.initials,
       displayName: row.displayName,
       role: row.role,
       domains: [...row.domains],
+      materialContextPackId: row.materialContextPackId,
+      materialVersion: row.materialVersion,
       materialBoundary: row.materialContextPackId === null
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${row.materialContextPackId} · ${row.materialVersion}`,

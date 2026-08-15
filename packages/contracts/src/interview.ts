@@ -225,10 +225,12 @@ export const InterviewError = z.enum([
   "CONCURRENT_MODIFICATION",
   /** 各 UC 通用：已保留当前输入与最后成功数据，可安全重试 */
   "DEPENDENCY_UNAVAILABLE",
-  /** 数字专家访谈草稿缺名称、标签或主题。 */
+  /** 数字专家访谈草稿缺名称或标签。主题只能由确认步骤写入。 */
   "DIGITAL_INTERVIEW_INPUT_INVALID",
   /** 数字专家访谈试图跳过确认步骤。 */
   "DIGITAL_INTERVIEW_STEP_INVALID",
+  /** 同一幂等请求键携带了不同的规范化 payload。 */
+  "IDEMPOTENCY_KEY_REUSED",
   /** 🔗 与 `context-pack.ContextPackReason` 同码同义：操作过程中权限被撤回 */
   "PERMISSION_REVOKED_MIDWAY",
 ]);
@@ -258,15 +260,23 @@ export const InterviewRow = z.object({
 export const DigitalInterviewDraftInput = z.object({
   name: z.string().trim().min(1),
   tags: z.array(z.string().trim().min(1)).min(1),
-  topic: z.string().trim().min(1),
 }).strict();
 
-/** Phase 04 数字专家访谈的可恢复读模型。 */
+const validateUniqueExpertIds = (expertIds: readonly string[], context: z.RefinementCtx) => {
+  if (new Set(expertIds).size !== expertIds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "expertIds must be unique" });
+  }
+};
+
+const DigitalInterviewExpertIds = z.array(z.string().min(1)).superRefine(validateUniqueExpertIds);
+
+/** 已确认的基础访谈数据；创建时主题为空，直到显式确认主题。 */
 export const DigitalInterview = DigitalInterviewDraftInput.extend({
   interviewId: z.string().min(1),
+  topic: z.string().trim().min(1).nullable(),
   status: DigitalInterviewStatus,
   sourceQuickInterviewId: z.string().nullable(),
-  selectedExpertIds: z.array(z.string()),
+  selectedExpertIds: DigitalInterviewExpertIds,
   reportId: z.string().nullable(),
   version: z.number().int().positive(),
 }).strict();
@@ -280,25 +290,162 @@ export const DigitalInterviewPrimaryAction = z.enum([
 /** 当前步骤与主操作同源，领域投影不得另抄一份字符串联合。 */
 export const DigitalInterviewStep = z.enum(["topic", "experts", "questions", "runs", "report"]);
 
+/** 已确认的问题属于本场当前已确认的专家快照。 */
+export const DigitalInterviewQuestion = z.object({
+  questionId: z.string().min(1),
+  expertId: z.string().min(1),
+  order: z.number().int().positive(),
+  text: z.string().trim().min(1),
+  purpose: z.string().trim().min(1),
+}).strict();
+
+const validateUniqueDigitalInterviewQuestions = (
+  questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
+  context: z.RefinementCtx,
+) => {
+  const questionIds = new Set<string>();
+  const orders = new Set<number>();
+  questions.forEach((question, index) => {
+    if (questionIds.has(question.questionId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [index, "questionId"], message: "questionId must be unique" });
+    }
+    if (orders.has(question.order)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [index, "order"], message: "order must be unique" });
+    }
+    questionIds.add(question.questionId);
+    orders.add(question.order);
+  });
+};
+
+const DigitalInterviewQuestionList = z.array(DigitalInterviewQuestion)
+  .superRefine(validateUniqueDigitalInterviewQuestions);
+const DigitalInterviewQuestionConfirmation = z.array(DigitalInterviewQuestion).min(1)
+  .superRefine(validateUniqueDigitalInterviewQuestions);
+
+/** 浏览器可直接消费的当前可见专家快照；它与专家目录复用同一个严格投影。 */
+export const DigitalExpertCatalogRow = z.object({
+  expertId: z.string().min(1),
+  agentDefinitionId: z.string().min(1),
+  agentVersion: z.string().min(1),
+  initials: z.string().min(1),
+  displayName: z.string().min(1),
+  role: z.string().min(1),
+  domains: z.array(z.string().min(1)).min(1),
+  materialContextPackId: z.string().min(1).nullable(),
+  materialVersion: z.string().min(1).nullable(),
+  materialBoundary: z.string().min(1),
+  exploratory: z.literal(true),
+}).strict().superRefine((value, context) => {
+  if ((value.materialContextPackId === null) !== (value.materialVersion === null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["materialVersion"],
+      message: "materialContextPackId and materialVersion must both be null or both be present",
+    });
+  }
+});
+
+export const DigitalInterviewSkillDraftContext = z.discriminatedUnion("step", [
+  z.object({ step: z.literal("topic"), topic: z.string().trim().min(1) }).strict(),
+  z.object({ step: z.literal("experts"), expertIds: DigitalInterviewExpertIds }).strict(),
+  z.object({ step: z.literal("questions"), questions: DigitalInterviewQuestionList }).strict(),
+  z.object({ step: z.literal("runs"), instruction: z.string().trim().min(1) }).strict(),
+  z.object({ step: z.literal("report"), instruction: z.string().trim().min(1) }).strict(),
+]);
+
+export const DigitalInterviewSkillPatch = z.union([
+  z.object({ topic: z.string().trim().min(1) }).strict(),
+  z.object({ expertIds: DigitalInterviewExpertIds }).strict(),
+  z.object({ questions: DigitalInterviewQuestionList }).strict(),
+  z.object({ instruction: z.string().trim().min(1) }).strict(),
+]);
+
+/** Skill 线程的持久消息。业务正文不进入 LangGraph checkpoint。 */
+export const DigitalInterviewSkillMessage = z.object({
+  messageId: z.string().min(1),
+  skillThreadId: z.string().min(1),
+  role: z.enum(["user", "assistant"]),
+  text: z.string().trim().min(1),
+  createdAt: z.string().datetime(),
+}).strict();
+
+/** Skill 只能提出草稿 patch；确认步骤才会把内容写进工作流版本。 */
+const DigitalInterviewSkillProposalBase = z.object({
+  proposalId: z.string().min(1),
+  sourceMessageId: z.string().min(1),
+  targetStep: DigitalInterviewStep,
+  baseRevisionId: z.string().min(1),
+  patch: DigitalInterviewSkillPatch,
+  createdAt: z.string().datetime(),
+});
+
+/** 每一生命周期状态都携带明确的审计时间/确认版本，避免把草稿误报为已确认数据。 */
+export const DigitalInterviewSkillProposal = z.discriminatedUnion("status", [
+  DigitalInterviewSkillProposalBase.extend({
+    status: z.literal("proposed"),
+    appliedAt: z.null(),
+    rejectedAt: z.null(),
+    committedVersionId: z.null(),
+  }).strict(),
+  DigitalInterviewSkillProposalBase.extend({
+    status: z.literal("applied_to_draft"),
+    appliedAt: z.string().datetime(),
+    rejectedAt: z.null(),
+    committedVersionId: z.null(),
+  }).strict(),
+  DigitalInterviewSkillProposalBase.extend({
+    status: z.literal("rejected"),
+    appliedAt: z.null(),
+    rejectedAt: z.string().datetime(),
+    committedVersionId: z.null(),
+  }).strict(),
+  DigitalInterviewSkillProposalBase.extend({
+    status: z.literal("committed"),
+    appliedAt: z.string().datetime(),
+    rejectedAt: z.null(),
+    committedVersionId: z.string().min(1),
+  }).strict(),
+  DigitalInterviewSkillProposalBase.extend({
+    status: z.literal("stale"),
+    appliedAt: z.null(),
+    rejectedAt: z.null(),
+    committedVersionId: z.null(),
+  }).strict(),
+]);
+
+/**
+ * F04 的唯一恢复读模型。确认操作和所有持久 Skill 写都返回完整视图，因此浏览器不会从
+ * localStorage 或未确认的 dirty buffer 推断状态。
+ */
+export const DigitalInterviewWorkflowView = DigitalInterview.extend({
+  scope: InterviewScope,
+  currentStep: DigitalInterviewStep,
+  revisionId: z.string().min(1),
+  topicVersionId: z.string().min(1).nullable(),
+  expertSnapshotVersionId: z.string().min(1).nullable(),
+  questionVersionId: z.string().min(1).nullable(),
+  expertCandidates: z.array(DigitalExpertCatalogRow),
+  questions: DigitalInterviewQuestionList,
+  questionCandidates: DigitalInterviewQuestionList,
+  skillThreadId: z.string().min(1),
+  skillMessages: z.array(DigitalInterviewSkillMessage),
+  skillProposals: z.array(DigitalInterviewSkillProposal),
+}).strict();
+
+/*
+ * `skillProposals` is the sole proposal fact source. Consumers derive active proposals by filtering
+ * `status === "applied_to_draft"` and `baseRevisionId === revisionId`; no duplicate active object list exists.
+ */
+
 export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
   interviewId: z.string().min(1),
+  topic: z.string().trim().min(1).nullable(),
   kind: z.enum(["quick", "batch"]),
   status: DigitalInterviewStatus,
   expertCount: z.number().int().nonnegative(),
   completedExpertCount: z.number().int().nonnegative(),
   primaryAction: DigitalInterviewPrimaryAction,
   updatedAt: z.string().datetime(),
-}).strict();
-
-/** 可快捷访谈的数字专家。材料不足必须明示，不能把探索性回答包装成证据。 */
-export const DigitalExpertCatalogRow = z.object({
-  expertId: z.string().min(1),
-  initials: z.string().min(1),
-  displayName: z.string().min(1),
-  role: z.string().min(1),
-  domains: z.array(z.string().min(1)).min(1),
-  materialBoundary: z.string().min(1),
-  exploratory: z.boolean(),
 }).strict();
 
 export const QuickDigitalInterviewMessage = z.object({
@@ -515,17 +662,108 @@ export const operations = {
   /** 保存草稿不触发专家生成；后续步骤必须由显式确认操作推进。 */
   createDigitalInterviewDraft: {
     method: "POST", path: "/interviews/digital",
-    in: DigitalInterviewDraftInput.extend({ scope: InterviewScope }).strict(),
-    out: DigitalInterview,
-    err: ["DIGITAL_INTERVIEW_INPUT_INVALID", "DEPENDENCY_UNAVAILABLE"] as const,
+    in: DigitalInterviewDraftInput.extend({
+      scope: InterviewScope,
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["DIGITAL_INTERVIEW_INPUT_INVALID", "IDEMPOTENCY_KEY_REUSED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 刷新或重新进入页面时恢复同一状态和版本。 */
   getDigitalInterview: {
     method: "GET", path: "/interviews/digital/:interviewId",
     in: z.object({ interviewId: z.string() }).strict(),
-    out: DigitalInterview,
+    out: DigitalInterviewWorkflowView,
     err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 主题只在显式确认时持久化，并推进到专家确认。 */
+  confirmDigitalInterviewTopic: {
+    method: "POST", path: "/interviews/digital/:interviewId/topic/confirm",
+    in: z.object({
+      interviewId: z.string().min(1),
+      topic: z.string().trim().min(1),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 确认至少一名专家后，才允许生成并编辑该场的问题集合。 */
+  confirmDigitalInterviewExperts: {
+    method: "POST", path: "/interviews/digital/:interviewId/experts/confirm",
+    in: z.object({
+      interviewId: z.string().min(1),
+      expertIds: z.array(z.string().min(1)).min(1).superRefine(validateUniqueExpertIds),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 每位已确认专家至少一题；确认后工作流才能进入运行阶段。 */
+  confirmDigitalInterviewQuestions: {
+    method: "POST", path: "/interviews/digital/:interviewId/questions/confirm",
+    in: z.object({
+      interviewId: z.string().min(1),
+      questions: DigitalInterviewQuestionConfirmation,
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 用户消息和由它生成的 proposal 立即持久化，并推进同一访谈 aggregate version。 */
+  appendDigitalInterviewSkillMessage: {
+    method: "POST", path: "/interviews/digital/:interviewId/skill/messages",
+    in: z.object({
+      interviewId: z.string().min(1),
+      currentStep: DigitalInterviewStep,
+      text: z.string().trim().min(1),
+      draftContext: DigitalInterviewSkillDraftContext,
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict().superRefine((value, context) => {
+      if (value.currentStep !== value.draftContext.step) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["draftContext", "step"],
+          message: "draftContext.step must match currentStep",
+        });
+      }
+    }),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 应用 proposal 只持久化其草稿状态，但仍推进同一访谈 aggregate version。 */
+  applyDigitalInterviewSkillProposal: {
+    method: "POST", path: "/interviews/digital/:interviewId/skill/proposals/:proposalId/apply",
+    in: z.object({
+      interviewId: z.string().min(1),
+      proposalId: z.string().min(1),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 拒绝 proposal 要保留生命周期审计，并推进同一访谈 aggregate version。 */
+  rejectDigitalInterviewSkillProposal: {
+    method: "POST", path: "/interviews/digital/:interviewId/skill/proposals/:proposalId/reject",
+    in: z.object({
+      interviewId: z.string().min(1),
+      proposalId: z.string().min(1),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** Studio 首屏历史列表；可见性在服务端完成。 */
@@ -571,6 +809,7 @@ export const operations = {
   convertQuickInterviewToBatch: {
     method: "POST", path: "/interviews/digital/quick/:interviewId/convert",
     in: DigitalInterviewDraftInput.extend({
+      topic: z.string().trim().min(1),
       interviewId: z.string().min(1), expectedVersion: z.number().int().positive(),
     }).strict(),
     out: ConvertedDigitalInterview,

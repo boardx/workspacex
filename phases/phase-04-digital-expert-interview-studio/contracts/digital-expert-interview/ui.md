@@ -1,7 +1,7 @@
 # 契约束 `digital-expert-interview` — ① UI
 
 > 本文件引用 10 张截图，目录下实际 10 张；目录为 `phases/phase-04-digital-expert-interview-studio/ui-preview/digital-expert-interview/`。
-> 原型结论：全页导航；不使用弹窗或右侧抽屉；不出现真人或用户画像选择。
+> 2026-08-15 用户确认的后续裁决覆盖旧原型的新建入口：名称/标签使用创建弹窗持久化，随后进入完整的五步页面确认主题；不出现真人或用户画像选择。
 
 ## Standalone 视觉参考裁决
 
@@ -14,7 +14,7 @@
 | Studio 历史访谈 | `/itv?tab=history` | `apps/web/components/itv/InterviewStudioHome*` | `itv-tab-history`, `itv-history-card-*`, `itv-create` |
 | Studio 专家列表 | `/itv?tab=experts` | `apps/web/components/itv/DigitalExpertList*` | `itv-tab-experts`, `itv-expert-card-*`, `itv-quick-*` |
 | 快捷访谈 | `/itv/quick/[interviewId]` | `apps/web/components/itv/QuickDigitalInterview*` | `itv-quick-page`, `itv-convert-batch` |
-| 新建访谈入口 | `/itv/new` | `apps/web/components/itv/DigitalInterviewWorkflow*` | `itv-create-page`, `itv-step-1` |
+| 新建访谈入口 | `/itv?tab=history` 创建弹窗 | `apps/web/components/itv/DigitalInterviewCreateModal*` | `itv-create`, `itv-create-modal` |
 | 继续五步流程 | `/itv/[interviewId]/setup` | `apps/web/components/itv/DigitalInterviewWorkflow*` | `itv-step-1` … `itv-step-5` |
 | 访谈详情 | `/itv/[interviewId]` | `apps/web/components/itv/InterviewDetail*` | `itv-detail`, `itv-back-history`, `itv-status` |
 | 访谈报告 | `/itv/[interviewId]/report` | `apps/web/components/itv/DigitalInterviewReport*` | `itv-report`, `itv-finding-*`, `itv-source-*` |
@@ -42,6 +42,12 @@
 - “返回历史访谈”显式导航到 `/itv?tab=history`，不依赖 `window.history`。
 - “＋ 新建访谈”在首页与详情页均可见；主操作文案 `white-space: nowrap`，空间不足时整个 action group 换行。
 - 桌面历史卡最多三列；窄屏两列或一列。详情侧栏在小屏转为上方状态区，不横向裁切。
-- 快捷访谈、创建、详情、报告都是完整页面；离开后恢复服务端真实状态。
+- 创建弹窗只收集名称和标签，提交后立即调用 `createDigitalInterviewDraft({ name, tags, scope, requestId })` 并进入 `/itv/[interviewId]/setup`；成功创建的状态是 `topic_pending`，页面不预先写入主题。
+- 在步骤 1 输入主题、在步骤 2/3 编辑专家或问题时，内容只存在当前步骤的 dirty buffer，输入事件不得发起 `fetch`。用户点击“确认主题并生成专家”等显式确认按钮时才发送 `requestId` 与当前 `expectedVersion`；成功响应替换客户端版本。
+- 刷新、重开页面或浏览器进程重建后，setup 必须从 `GET /interviews/digital/:interviewId` hydrate 服务器的步骤、aggregate version、Skill messages 和完整 proposal 生命周期，不能从 mock/localStorage 推断。
+- 真实 workflow 为恢复验收稳定暴露 `itv-workflow-status`、`itv-workflow-version` 和已确认主题的 `itv-persisted-topic`；它们必须直接反映 GET 的 `status`、`version`、`topic`。
+- dirty buffer 未确认时导航到另一步骤、返回历史或离开页面必须出现放弃/继续编辑警告；继续编辑不写服务端。
+- 左侧 Skill 的“发送”通过 `appendDigitalInterviewSkillMessage` 立即持久化消息与 proposal；append/apply/reject 都携带当前 `requestId` 与 `expectedVersion`，成功响应的同一 aggregate `version` 恰好加一并替换客户端 view。 “应用建议”只将同 revision 的 `applied_to_draft` proposal patch 到本地 dirty buffer，直到当前步骤确认才落入 topic、专家或问题版本；已 committed、stale 或 rejected 的 proposal 不能再次应用。active applied 集合从完整 `skillProposals` 派生，界面不得另存 proposal 对象副本。
+- 快捷访谈、步骤 2–5、详情、报告都是完整页面；离开后恢复服务端真实状态。
 - 空态、加载、401/403、依赖失败、并发冲突和局部运行失败必须有独立呈现，不得把错误伪装为空列表。
 - 所有按钮具备键盘焦点、禁用和忙碌态；生成/重试期间禁止重复提交但保留页面内容。

@@ -39,10 +39,14 @@ function presentQuick(stored: StoredQuickInterview) {
     ...stored,
     expert: {
       expertId: stored.expert.expertId,
+      agentDefinitionId: stored.expert.agentDefinitionId,
+      agentVersion: stored.expert.agentVersion,
       initials: stored.expert.initials,
       displayName: stored.expert.displayName,
       role: stored.expert.role,
       domains: stored.expert.domains,
+      materialContextPackId: stored.expert.materialContextPackId,
+      materialVersion: stored.expert.materialVersion,
       materialBoundary: stored.expert.materialContextPackId === null
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${stored.expert.materialContextPackId} · ${stored.expert.materialVersion}`,
@@ -188,9 +192,9 @@ export async function convertQuick(
   const parsed = interview.DigitalInterviewDraftInput.safeParse({
     name: input.name,
     tags: input.tags,
-    topic: input.topic,
   });
-  if (!parsed.success) throw new DigitalInterviewInputInvalidError();
+  const topic = interview.operations.confirmDigitalInterviewTopic.in.shape.topic.safeParse(input.topic);
+  if (!parsed.success || !topic.success) throw new DigitalInterviewInputInvalidError();
   await getQuick(deps, input);
 
   try {
@@ -201,6 +205,7 @@ export async function convertQuick(
       actorId: input.actorId,
       expectedVersion: input.expectedVersion,
       ...parsed.data,
+      topic: topic.data,
     });
     return interview.ConvertedDigitalInterview.parse({
       interviewId: converted.interviewId,

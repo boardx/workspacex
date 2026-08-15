@@ -40,10 +40,14 @@ export function findMockDigitalExpert(expertId: string): MockDigitalExpertPerson
 function toCatalogRow(source: PersonaSource): MockDigitalExpertPersona {
   return {
     expertId: `${MOCK_EXPERT_ID_PREFIX}${source.id}`,
+    agentDefinitionId: `mock-agent-definition:${source.id}`,
+    agentVersion: "experts-persona-json:v1",
     initials: source.name.replace(/[・\s/]/g, "").slice(0, 2).toUpperCase(),
     displayName: source.name,
     role: source.specialty.replace(/\s+/g, " ").trim(),
     domains: [source.category],
+    materialContextPackId: null,
+    materialVersion: null,
     materialBoundary: "来自 experts_persona.json 的临时 Mock 档案，不作为真实证据",
     exploratory: true,
     category: source.category,

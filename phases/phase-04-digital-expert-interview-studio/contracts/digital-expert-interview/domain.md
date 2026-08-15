@@ -13,12 +13,19 @@
 | `orgId` | `OrgId` | RLS 隔离键 |
 | `name` | `string` | 非空访谈名称 |
 | `tags` | `string[]` | 至少一项 |
-| `topic` | `string` | 非空主题 |
+| `topic` | `string \| null` | 创建时为空；只能由“确认主题”操作写入非空主题 |
 | `status` | `DigitalInterviewStatus` | 八态单源 |
+| `currentStep` | `DigitalInterviewStep` | 当前可恢复步骤；页面不得从本地 dirty buffer 推断 |
+| `revisionId` | `RevisionId` | 当前业务 revision；上游确认变化时创建新 revision |
+| `topicVersionId` / `expertSnapshotVersionId` / `questionVersionId` | `VersionId \| null` | 当前 revision 的已确认版本指针；未到该步骤前为空 |
 | `sourceQuickInterviewId` | `InterviewId \| null` | 快捷访谈转批量时保留来源 |
 | `selectedExpertIds` | `DigitalExpertId[]` | 已确认集合不得为空 |
+| `questions` | `DigitalInterviewQuestion[]` | 当前问题版本的已确认问题；只属于已确认专家 |
+| `skillThreadId` | `SkillThreadId` | 一对一持久 Skill 线程，不能复用 LangGraph thread id |
+| `skillMessages` | `DigitalInterviewSkillMessage[]` | 完整持久消息历史，按 `skillThreadId` 归属 |
+| `skillProposals` | `DigitalInterviewSkillProposal[]` | 完整 proposal 生命周期；active applied 集合由本数组过滤 `applied_to_draft ∧ baseRevisionId=revisionId` 派生，不存第二份对象事实 |
 | `reportId` | `InterviewReportId \| null` | 报告生成后写入 |
-| `version` | `number` | 并发修改保护 |
+| `version` | `number` | 唯一访谈 aggregate 并发版本；每一次成功的持久写（确认、Skill append/apply/reject）恰好递增一次 |
 
 `DigitalInterviewStatus` 是封闭八态：
 `draft / topic_pending / experts_pending / questions_pending / running / report_pending / completed / failed`。
@@ -46,7 +53,7 @@
 
 | 当前态 | 操作 | 下一态 | 关键前置条件 |
 |---|---|---|---|
-| `draft` / `topic_pending` | 确认主题 | `experts_pending` | 名称、标签、主题有效；成功生成或允许手动添加专家 |
+| `topic_pending` | 确认主题 | `experts_pending` | 名称、标签、主题有效；成功生成或允许手动添加专家 |
 | `experts_pending` | 确认专家 | `questions_pending` | 至少一位专家 |
 | `questions_pending` | 确认问题并运行 | `running` | 每位专家至少一题且归属合法 |
 | `running` | 全部运行结束 | `report_pending` | 允许部分专家失败，但不得伪装全部成功 |
@@ -59,7 +66,7 @@
 | # | 不变量 | 机械断言 |
 |---|---|---|
 | I-1 | 状态只来自八态闭集；卡片、详情、当前步骤与主按钮均由该字段投影 | 契约拒绝第九值；同一 fixture 的四处投影一致 |
-| I-2 | 创建草稿只保存名称、标签、主题，不调用专家生成器 | spy 断言生成器 0 调用 |
+| I-2 | `createDigitalInterviewDraft` 只保存名称、标签、范围和 `requestId`，初始态为 `topic_pending`；它不保存主题，也不调用专家生成器 | HTTP 创建响应与重新读取均为 `topic=null`、`status=topic_pending`；生成器 0 调用 |
 | I-3 | 未确认主题不得生成专家；未确认专家不得生成问题；未确认问题不得开始运行 | 三种跳步均由服务端拒绝 |
 | I-4 | 已确认专家集合永不为空 | 删除最后一位返回 `DIGITAL_EXPERT_REQUIRED` |
 | I-5 | 问题只能归属于本场已选专家 | 外部或已删除专家返回 `DIGITAL_QUESTION_EXPERT_INVALID` |
@@ -67,9 +74,13 @@
 | I-7 | 报告失败不删除主题、专家、问题、回答或候选素材 | 重试前后素材哈希一致 |
 | I-8 | 每条报告发现均含合法 `expertId`、`questionId`、`sourceAnswerId` 且 `exploratory=true` | 响应契约与数据库约束双重断言 |
 | I-9 | 快捷访谈创建即进入历史记录；转批量保留来源引用且只复制当前用户有权使用的内容 | 跨组织/无权内容不进入目标访谈 |
-| I-10 | 无权与不存在返回同一个既有 `NO_INTERVIEW_ACCESS` 信封 | 响应状态与正文逐字节一致 |
+| I-10 | 无权与不存在返回同一个既有 `NO_INTERVIEW_ACCESS` 信封；每请求的运维 `traceId` 是唯一允许不同的字段 | 两者均为 404；遮蔽 `traceId` 后信封一致，两个非空 traceId 不同，正文不含 reason code 或被寻址 interview id |
 | I-11 | 数字专家材料只经既有 Context API 读取 | 静态依赖检查与 context-pack provenance 断言 |
-| I-12 | 所有有效修改后保存版本；恢复以服务端状态为准 | 重进页面恢复准确步骤、版本与运行进度 |
+| I-12 | 所有有效修改后保存同一 aggregate 版本；恢复以服务端状态为准 | 重进页面或重建进程后恢复准确步骤、版本、运行进度、Skill 消息与完整 proposal 生命周期 |
+| I-13 | 主题、专家、问题、运行和报告的确认数据都必须经各自的显式确认操作；输入中的未确认内容是客户端 dirty buffer，不得提前写入服务端 | 输入主题/编辑专家或问题时没有写请求；点击确认后恰好保存一个新版本；Skill lifecycle 写不确认业务数据，但也递增 aggregate 版本 |
+| I-14 | 每一个可重放写操作以 `(orgId, interviewId, operation, requestId)` 去重；相同 payload 重试复用首次成功的 HTTP status 与业务正文，改变 payload 重用同一 `requestId` 被拒绝 | F04 create/confirm 首次和 replay 均为 201；遮蔽动态 `traceId` 后正文相同；重试不生成第二个版本/专家/问题/run/报告；payload 指纹不同返回 `IDEMPOTENCY_KEY_REUSED` |
+| I-15 | 写入带调用方读到的 `expectedVersion`；服务端版本不相等时冲突，绝不静默覆盖 | 陈旧版本返回 `CONCURRENT_MODIFICATION`，服务端内容和版本保持不变 |
+| I-16 | Skill proposal 可持久化为 `proposed`、`applied_to_draft`、`rejected`、`committed` 或 `stale`；只有同 revision 的 active applied proposal 可重建客户端草稿 | append/apply/reject 均携带 `requestId` 和 `expectedVersion`，并在成功时将 aggregate `version` 恰好加一；apply 不写入 topic、专家或问题版本，步骤确认后才变为 `committed` |
 
 ## 四、边界
 

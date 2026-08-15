@@ -2,10 +2,17 @@
 
 ## 当前已验证
 - F04 仍为 `in_progress`，没有宣称 passing。
-- 已验证当前 UI 切片：设计 lint、Web TypeScript、访谈 UI 10 条测试与 diff 检查均通过；合并最新 `main` 前的完整 Web 门禁 112 个文件、960 条测试全绿。
-- 合并最新 `main` 后的完整门禁在高系统负载下有两个非访谈时序用例失败；对应测试单线程精确复跑 2/2 通过，未修改无关的 Admin/Chat 实现。
+- 已在当前 `origin/main` 上完成 rebase；正式 F04 的 contracts 13/13、Web 31/31、API/Web/contracts TypeScript、design lint 与 diff 检查通过。
+- 隔离 PostgreSQL 验证 4 文件 23/23 通过，覆盖迁移、HTTP、组织隔离、幂等、Skill 与三个 receipt→checkpoint 崩溃恢复窗口；122 个迁移空库执行、强制回放与 schema digest 通过。
+- 独立最终复审在 exact SHA `69a8eb808495471e0f46f1fabbbab9dd36c51b42` 为 READY，Critical/Important/Minor 均为 0。
 
 ## 本轮改动
+- 正式创建入口改走 `POST /interviews/digital`，使用服务端返回的访谈 ID；生产历史、专家目录和 setup 不再读取本地 Mock。
+- 用 TypeScript LangGraph 将主题、专家、问题确认映射为节点，PostgreSQL Checkpointer 保存运行位置，规范化业务表保存可查询事实。
+- 每一步只在用户明确确认时持久化；写操作具备 aggregate 版本检查、访谈范围幂等 receipt、组织隔离和重启恢复。
+- 服务端生成可审核专家候选与每专家默认三问；专家快照带 Agent Definition/版本及结构化材料指针。
+- Skill 消息、草稿上下文、建议 apply/reject 与 stale 状态完整持久化，同一访谈版本连续递增。
+- 补齐业务提交成功但 checkpoint 未推进的主题、生成和终态三个崩溃窗口恢复。
 - 从 `experts_persona.json` 整理 97 位临时 Mock 专家，接入 Studio 专家列表、分类筛选、专家详情和快捷访谈。
 - 快捷访谈展示专家说明，允许本地发送问答并可转为 Mock 批量访谈。
 - 新增全屏创建访谈流程，首步包含访谈名称、标签和访谈主题。
@@ -17,11 +24,12 @@
 
 ## 仍损坏或未验证
 - Mock 专家只用于当前交互验证，不是正式专家事实源，也不作为访谈证据。
-- 正式 F04 后端持久化、针对性问题生成、批量访谈运行与报告生成仍未完成。
-- 本轮范围验证已完成；正式 F04 仍需用真实 API/数据库/模型链路补齐全功能验证。
+- F04 尚未合入 `main`，因此不能标记 passing；需 PR 合入后由 harness verify 完成状态转移。
+- F05 的批量专家运行与 F06 的可追溯报告不属于本次 F04 范围。
+- `pg` 的 concurrent `client.query()` 弃用预警需在升级 pg@9 前处理。
 
 ## 下一步最佳动作
-- 继续 F04 的正式后端接线；复用已确认的五步 UI 与 Skill 显式应用契约，不把 Mock 内容升级为证据。
+- 推送当前分支并创建关联 issue #1317 的 F04 PR；合入后执行 `pnpm harness verify --sprint 04/04`。
 
 ## 命令
 - 启动:`pnpm -w run dev`

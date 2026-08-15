@@ -20,11 +20,16 @@ export default function ItvPage({
   searchParams: {
     tab?: string;
     create?: string;
+    preview?: string;
   };
 }) {
   return (
     <AppShell previewRole={null}>
-      <InterviewStudioHome initialTab={searchParams.tab === "experts" ? "experts" : "history"} initialCreateOpen={searchParams.create === "1"} />
+      <InterviewStudioHome
+        initialTab={searchParams.tab === "experts" ? "experts" : "history"}
+        initialCreateOpen={searchParams.create === "1"}
+        includeMockPreviews={searchParams.preview === "mock"}
+      />
     </AppShell>
   );
 }

@@ -3,6 +3,7 @@ import type { DigitalInterviewStatusName } from "../../domain/interview/digital-
 import type { ScopeSelector } from "../../domain/interview/scope";
 import type { InterviewVisibilityFacts } from "../../domain/interview/scope";
 import type { Guarded } from "../security/permission-filter";
+import type { DigitalInterviewWorkflowView } from "./workflow/digital-interview-runtime.port";
 
 export interface StoredDigitalInterview {
   readonly interviewId: string;
@@ -25,6 +26,8 @@ export interface StoredDigitalInterviewListItem extends StoredDigitalInterview {
 
 export interface StoredDigitalExpert {
   readonly expertId: string;
+  readonly agentDefinitionId: string;
+  readonly agentVersion: string;
   readonly initials: string;
   readonly displayName: string;
   readonly role: string;
@@ -90,6 +93,7 @@ export interface DigitalInterviewRepository {
     readonly item: Guarded<StoredDigitalInterview>;
     readonly facts: InterviewVisibilityFacts;
   } | null>;
+  loadWorkflow(orgId: OrgId, interviewId: string): Promise<Guarded<DigitalInterviewWorkflowView> | null>;
   updateStatus(input: {
     readonly orgId: OrgId;
     readonly interviewId: string;
