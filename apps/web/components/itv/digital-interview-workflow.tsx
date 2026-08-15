@@ -15,6 +15,8 @@ import {
   type DigitalInterviewQuestion,
   type DigitalInterviewStep,
   type DigitalInterviewWorkflowView,
+  type DigitalExpertCatalogRow,
+  type DigitalInterviewSkillDraftContext,
 } from "@/lib/interview-api";
 import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
 import { ExpertPickerDialog } from "./expert-picker-dialog";
@@ -91,7 +93,11 @@ type LiveBuffers = { readonly topic: string; readonly expertIds: readonly string
 type PendingNavigation = { readonly step?: DigitalInterviewStep; readonly href?: string } | null;
 
 function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
-  return { topic: view.topic ?? "", expertIds: view.selectedExpertIds, questions: view.questions };
+  return {
+    topic: view.topic ?? "",
+    expertIds: view.selectedExpertIds.length ? view.selectedExpertIds : view.expertCandidates.map((expert) => expert.expertId),
+    questions: view.questions.length ? view.questions : view.questionCandidates,
+  };
 }
 
 /** Live workflow deliberately has no persistence side effects on input events. */
@@ -197,7 +203,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   async function sendSkillMessage(text: string) {
-    const payload = { currentStep: view.currentStep, text, expectedVersion: view.version };
+    const payload = { currentStep: view.currentStep, text, draftContext: skillDraftContext(view.currentStep, buffers, view.name), expectedVersion: view.version };
     const operation = "append-skill-message";
     try {
       const next = await appendDigitalInterviewSkillMessage({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
@@ -241,8 +247,8 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">操作未完成：{error}。请重试，当前草稿已保留。</p>}
       <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
         {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
-        {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
-        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
+        {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
+        {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
         {active === "runs" && <LiveReadOnlyStep title="执行批量访谈" text="访谈执行进度会以服务端状态恢复。" />}
         {active === "report" && <LiveReadOnlyStep title="访谈报告" text="报告和来源会在服务端生成后显示。" />}
       </section>
@@ -251,21 +257,29 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   </div>;
 }
 
+function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fallbackTopic: string): DigitalInterviewSkillDraftContext {
+  if (step === "topic") return { step, topic: buffers.topic.trim() || fallbackTopic };
+  if (step === "experts") return { step, expertIds: [...buffers.expertIds] };
+  if (step === "questions") return { step, questions: [...buffers.questions] };
+  if (step === "runs") return { step, instruction: "继续执行当前访谈" };
+  return { step, instruction: "检查当前访谈报告" };
+}
+
 function LiveTopicStep({ topic, onChange, onConfirm }: { readonly topic: string; readonly onChange: (topic: string) => void; readonly onConfirm: () => void }) {
   return <div><h2 className="text-xl font-semibold">确认访谈主题</h2><textarea data-testid="itv-topic-input" value={topic} onChange={(event) => onChange(event.target.value)} placeholder="用一句业务问题说明需要验证什么" className="mt-5 min-h-40 w-full rounded-lg border border-input bg-background p-3" /><Button data-testid="itv-confirm-topic" className="mt-5" variant="primary" size="lg" disabled={!topic.trim()} onClick={onConfirm}>确认主题并生成专家</Button></div>;
 }
 
-function LiveExpertStep({ expertIds, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly onChange: (expertIds: readonly string[]) => void; readonly onConfirm: () => void }) {
+function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly onChange: (expertIds: readonly string[]) => void; readonly onConfirm: () => void }) {
   const addExpert = () => {
-    const candidate = MOCK_DIGITAL_EXPERTS.find((expert) => !expertIds.includes(expert.expertId));
+    const candidate = candidates.find((expert) => !expertIds.includes(expert.expertId));
     if (candidate) onChange([...expertIds, candidate.expertId]);
   };
-  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">调整仅保存在本地草稿，确认后才生成下一步问题。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => <article key={expertId} className="flex items-center justify-between rounded-lg border border-border p-4"><strong>{findMockDigitalExpert(expertId)?.displayName ?? expertId}</strong><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${expertId}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" /></button></article>)}</div><div className="mt-5 flex flex-wrap gap-3"><Button type="button" variant="outline" onClick={addExpert}><Plus className="size-4" />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div></div>;
+  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">调整仅保存在本地草稿，确认后才生成下一步问题。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => { const expert = candidates.find((candidate) => candidate.expertId === expertId); return <article key={expertId} className="flex items-center justify-between rounded-lg border border-border p-4"><div><strong>{expert?.displayName ?? expertId}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.role} · {expert.materialBoundary}</p>}</div><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${expert?.displayName ?? expertId}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" /></button></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button type="button" variant="outline" disabled={candidates.every((candidate) => expertIds.includes(candidate.expertId))} onClick={addExpert}><Plus className="size-4" />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div></div>;
 }
 
-function LiveQuestionStep({ expertIds, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {
+function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {
   const addQuestion = (expertId: string) => onChange([...questions, { questionId: `manual-${crypto.randomUUID()}`, expertId, order: questions.length + 1, text: "", purpose: "手动问题" }]);
-  return <div><h2 className="text-xl font-semibold">确认针对性问题</h2><div className="mt-4 space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{findMockDigitalExpert(expertId)?.displayName ?? expertId}</h3>{questions.filter((question) => question.expertId === expertId).map((question) => <textarea key={question.questionId} rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-3 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" />)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" />添加问题</Button></section>)}</div><Button data-testid="itv-confirm-questions" className="mt-5" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim())} onClick={onConfirm}>确认问题并进入访谈</Button></div>;
+  return <div><h2 className="text-xl font-semibold">确认针对性问题</h2><div className="mt-4 space-y-4">{expertIds.map((expertId) => <section data-testid="itv-question-group" key={expertId} className="rounded-xl border border-border p-4"><h3 className="font-semibold">{candidates.find((candidate) => candidate.expertId === expertId)?.displayName ?? expertId}</h3>{questions.filter((question) => question.expertId === expertId).map((question) => <textarea key={question.questionId} rows={2} data-testid="itv-question-input" value={question.text} onChange={(event) => onChange(questions.map((candidate) => candidate.questionId === question.questionId ? { ...candidate, text: event.target.value } : candidate))} className="mt-3 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" />)}<Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => addQuestion(expertId)}><Plus className="size-4" />添加问题</Button></section>)}</div><Button data-testid="itv-confirm-questions" className="mt-5" variant="primary" disabled={!questions.length || questions.some((question) => !question.text.trim())} onClick={onConfirm}>确认问题并进入访谈</Button></div>;
 }
 
 function LiveReadOnlyStep({ title, text }: { readonly title: string; readonly text: string }) { return <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>; }

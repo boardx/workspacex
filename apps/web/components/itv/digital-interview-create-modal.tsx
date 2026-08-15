@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
+import { ApiError } from "@/lib/api-client";
+import { createDigitalInterviewDraft, type InterviewScope } from "@/lib/interview-api";
+
+const INDEPENDENT_SCOPE: InterviewScope = { kind: "none", projectId: null, researchProjectId: null };
 
 export function DigitalInterviewCreateModal({ open, onOpenChange }: {
   open: boolean;
@@ -18,12 +21,18 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
   const [name, setName] = React.useState("");
   const [tags, setTags] = React.useState<string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const requestAttempt = React.useRef<{ readonly fingerprint: string; readonly requestId: string } | null>(null);
 
   function close() {
     onOpenChange(false);
     setName("");
     setTags([]);
     setTagDraft("");
+    setBusy(false);
+    setError("");
+    requestAttempt.current = null;
   }
 
   function addTag() {
@@ -33,14 +42,27 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
     setTagDraft("");
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || busy) return;
     const pending = tagDraft.trim();
     const nextTags = pending && !tags.includes(pending) && tags.length < 5 ? [...tags, pending] : tags;
-    const created = createMockDigitalInterviewDraft({ name, tags: nextTags });
-    close();
-    push(`/itv/${created.interviewId}/setup`);
+    if (!nextTags.length) return;
+    const payload = { name: name.trim(), tags: nextTags, scope: INDEPENDENT_SCOPE };
+    const fingerprint = JSON.stringify(payload);
+    if (requestAttempt.current?.fingerprint !== fingerprint) {
+      requestAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const created = await createDigitalInterviewDraft({ ...payload, requestId: requestAttempt.current.requestId });
+      close();
+      push(`/itv/${created.interviewId}/setup`);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE");
+      setBusy(false);
+    }
   }
 
   return (
@@ -61,16 +83,18 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
               <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-10" />
             </div>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-tag-input" className="text-13">标签（可选）</Label><span className="text-11 text-muted-foreground">{tags.length}/5</span></div>
+              <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-tag-input" className="text-13">标签</Label><span className="text-11 text-muted-foreground">{tags.length}/5</span></div>
               <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
                 {tags.map((tag) => <Badge data-testid="itv-create-tag" key={tag} tone="neutral" className="gap-1 py-1">{tag}<button type="button" aria-label={`删除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((value) => value !== tag))}><X className="h-3 w-3" /></button></Badge>)}
                 <Input id="itv-create-tag-input" data-testid="itv-create-tag-input" disabled={tags.length >= 5} value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === "," || event.key === "，") { event.preventDefault(); addTag(); } }} placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"} className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
               </div>
-              <p className="text-11 text-muted-foreground">标签可选，最多添加 5 个</p>
+              <p className="text-11 text-muted-foreground">至少添加 1 个标签，最多 5 个</p>
             </div>
+            <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-foreground">访谈范围：</span>独立访谈</div>
+            {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
             <div className="mt-2 flex justify-end gap-3">
               <Button type="button" variant="outline" size="lg" className="min-w-24" onClick={close}>取消</Button>
-              <Button data-testid="itv-create-submit" type="submit" variant="primary" size="lg" className="min-w-28" disabled={!name.trim()}>开始访谈</Button>
+              <Button data-testid="itv-create-submit" type="submit" variant="primary" size="lg" className="min-w-28" disabled={!name.trim() || !(tags.length || tagDraft.trim()) || busy}>{busy ? "创建中…" : "开始访谈"}</Button>
             </div>
           </form>
         </Dialog.Content>

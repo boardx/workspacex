@@ -21,6 +21,9 @@ export type QuickDigitalInterview = z.infer<typeof interview.QuickDigitalIntervi
 export type DigitalInterviewWorkflowView = z.infer<typeof interview.DigitalInterviewWorkflowView>;
 export type DigitalInterviewQuestion = z.infer<typeof interview.DigitalInterviewQuestion>;
 export type DigitalInterviewStep = z.infer<typeof interview.DigitalInterviewStep>;
+export type InterviewScope = z.infer<typeof interview.InterviewScope>;
+export type CreateDigitalInterviewDraftInput = z.infer<typeof interview.operations.createDigitalInterviewDraft.in>;
+export type DigitalInterviewSkillDraftContext = z.infer<typeof interview.DigitalInterviewSkillDraftContext>;
 
 export function loadDigitalInterviewHistory(status?: string): Promise<DigitalInterviewHistory> {
   return apiRequest("/interviews/digital", { query: { status } });
@@ -57,17 +60,18 @@ export function sendQuickDigitalInterviewMessage(
   );
 }
 
-export function createDigitalInterviewDraft(input: {
-  readonly name: string;
-  readonly tags: readonly string[];
-  readonly topic?: string;
-}) {
-  return Promise.resolve(createMockDigitalInterviewDraft(input));
+export function createDigitalInterviewDraft(input: CreateDigitalInterviewDraftInput) {
+  return apiRequest<DigitalInterviewWorkflowView>("/interviews/digital", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export function loadDigitalInterview(interviewId: string) {
-  const mock = loadMockDigitalInterviewDraft(interviewId);
-  if (mock) return Promise.resolve(mock);
+  if (interviewId.startsWith("mock-batch-")) {
+    const mock = loadMockDigitalInterviewDraft(interviewId);
+    if (mock) return Promise.resolve(mock);
+  }
   return loadDigitalInterviewWorkflow(interviewId);
 }
 
@@ -116,12 +120,13 @@ export function appendDigitalInterviewSkillMessage(input: {
   readonly interviewId: string;
   readonly currentStep: DigitalInterviewStep;
   readonly text: string;
+  readonly draftContext: DigitalInterviewSkillDraftContext;
   readonly expectedVersion: number;
   readonly requestId: string;
 }) {
   return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/skill/messages`, {
     method: "POST",
-    body: { currentStep: input.currentStep, text: input.text, expectedVersion: input.expectedVersion, requestId: input.requestId },
+    body: { currentStep: input.currentStep, text: input.text, draftContext: input.draftContext, expectedVersion: input.expectedVersion, requestId: input.requestId },
   });
 }
 

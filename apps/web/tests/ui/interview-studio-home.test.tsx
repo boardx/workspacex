@@ -11,6 +11,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { InterviewStudioHome } from "@/components/itv/interview-studio-home";
+import { DigitalInterviewSetup } from "@/components/itv/digital-interview-setup";
 import {
   createMockDigitalInterviewDraft,
   loadMockDigitalInterviewDraft,
@@ -26,6 +27,16 @@ function activateDropdownTrigger(trigger: HTMLElement) {
   fireEvent.pointerUp(trigger, { button: 0, ctrlKey: false });
   fireEvent.click(trigger);
 }
+
+const catalogExpert = {
+  expertId: "catalog-expert-home",
+  initials: "CE",
+  displayName: "服务端目录专家",
+  role: "采购决策顾问",
+  domains: ["采购"],
+  materialBoundary: "当前组织可见材料",
+  exploratory: true,
+};
 
 describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   beforeEach(() => {
@@ -45,6 +56,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
           updatedAt: "2026-08-12T04:00:00.000Z",
         }] });
       }
+      if (url.pathname === "/interviews/digital/experts") return json({ items: [catalogExpert] });
       throw new Error(`unexpected fetch ${url.pathname}`);
     }));
   });
@@ -125,8 +137,39 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(history).getAllByRole("button").map((button) => button.textContent)).toEqual(["全部", "采购", "德国"]);
   });
 
-  it("通过弹窗填写名称和最多五个标签后直接进入访谈流程", async () => {
-    render(<InterviewStudioHome initialTab="history" />);
+  it("通过真实创建接口提交名称、标签和可见范围，再用服务端 ID 恢复流程", async () => {
+    const created = {
+      interviewId: "itv-server-created",
+      name: "德国采购决策链",
+      tags: ["采购", "德国", "储能", "决策"],
+      topic: null,
+      status: "topic_pending",
+      sourceQuickInterviewId: null,
+      selectedExpertIds: [],
+      reportId: null,
+      version: 1,
+      scope: { kind: "none", projectId: null, researchProjectId: null },
+      currentStep: "topic",
+      revisionId: "revision-server-created",
+      topicVersionId: null,
+      expertSnapshotVersionId: null,
+      questionVersionId: null,
+      expertCandidates: [],
+      questions: [],
+      questionCandidates: [],
+      skillThreadId: "skill-thread-server-created",
+      skillMessages: [],
+      skillProposals: [],
+    } as const;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.pathname === "/interviews/digital") return json({ items: [] });
+      if (method === "POST" && url.pathname === "/interviews/digital") return json(created, 201);
+      if (method === "GET" && url.pathname === `/interviews/digital/${created.interviewId}`) return json(created);
+      throw new Error(`unexpected fetch ${method} ${url.pathname}`);
+    });
+    const home = render(<InterviewStudioHome initialTab="history" />);
 
     fireEvent.click(screen.getByTestId("itv-create"));
     const dialog = screen.getByTestId("itv-create-dialog");
@@ -143,18 +186,62 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     }
     expect(within(dialog).getAllByTestId("itv-create-tag")).toHaveLength(5);
     expect(tagInput).toBeDisabled();
+    expect(within(dialog).getByTestId("itv-create-scope")).toHaveTextContent("独立访谈");
 
     fireEvent.click(within(dialog).getByLabelText("删除标签 B2B"));
     expect(tagInput).toBeEnabled();
     fireEvent.click(within(dialog).getByTestId("itv-create-submit"));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/itv\/mock-batch-.+\/setup$/)));
-    const drafts = JSON.parse(localStorage.getItem("wsx.mockDigitalInterviewDrafts.v1") ?? "{}");
-    expect(Object.values(drafts)[0]).toMatchObject({
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/itv/${created.interviewId}/setup`));
+    const createRequest = vi.mocked(fetch).mock.calls.find(([input, init]) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      return (init?.method ?? "GET") === "POST" && url.pathname === "/interviews/digital";
+    });
+    expect(createRequest).toBeDefined();
+    expect(JSON.parse(String(createRequest![1]?.body))).toMatchObject({
       name: "德国采购决策链",
       tags: ["采购", "德国", "储能", "决策"],
-      topic: "",
-      currentStep: 1,
+      scope: { kind: "none", projectId: null, researchProjectId: null },
+      requestId: expect.any(String),
+    });
+    expect(localStorage.getItem("wsx.mockDigitalInterviewDrafts.v1")).toBeNull();
+
+    home.unmount();
+    render(<DigitalInterviewSetup interviewId={created.interviewId} />);
+    expect(await screen.findByTestId("itv-workflow-status")).toHaveTextContent("topic_pending");
+    expect(vi.mocked(fetch).mock.calls.some(([input, init]) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      return (init?.method ?? "GET") === "GET" && url.pathname === `/interviews/digital/${created.interviewId}`;
+    })).toBe(true);
+  });
+
+  it("创建依赖失败时保留输入，并用同一个 requestId 重试相同 payload", async () => {
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.pathname === "/interviews/digital") return json({ items: [] });
+      if (method === "POST" && url.pathname === "/interviews/digital") return json({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503);
+      throw new Error(`unexpected fetch ${method} ${url.pathname}`);
+    });
+    render(<InterviewStudioHome initialTab="history" />);
+    fireEvent.click(screen.getByTestId("itv-create"));
+    fireEvent.change(screen.getByTestId("itv-create-name"), { target: { value: "保留的创建输入" } });
+    fireEvent.change(screen.getByTestId("itv-create-tag-input"), { target: { value: "采购" } });
+    fireEvent.keyDown(screen.getByTestId("itv-create-tag-input"), { key: "Enter" });
+
+    fireEvent.click(screen.getByTestId("itv-create-submit"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(screen.getByTestId("itv-create-name")).toHaveValue("保留的创建输入");
+    fireEvent.click(screen.getByTestId("itv-create-submit"));
+    await waitFor(() => {
+      const writes = vi.mocked(fetch).mock.calls.filter(([input, init]) => {
+        const url = new URL(typeof input === "string" ? input : input.toString());
+        return (init?.method ?? "GET") === "POST" && url.pathname === "/interviews/digital";
+      });
+      expect(writes).toHaveLength(2);
+      const first = JSON.parse(String(writes[0]![1]?.body));
+      const retry = JSON.parse(String(writes[1]![1]?.body));
+      expect(retry.requestId).toBe(first.requestId);
     });
   });
 
@@ -162,7 +249,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     const draft = createMockDigitalInterviewDraft({ name: "德国储能采购", tags: ["采购"] });
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const card = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
     expect(within(card).getByText("德国储能采购")).toBeInTheDocument();
@@ -180,7 +267,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     }));
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const card = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
     expect(within(card).getByRole("link", { name: /查看报告/ }))
@@ -204,7 +291,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     }));
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const card = await screen.findByTestId("itv-history-card-mock-batch-legacy");
     expect(within(card).getByText("旧版采购访谈")).toBeInTheDocument();
@@ -215,7 +302,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("仅本地 Mock 历史卡可编辑名称和标签", async () => {
     const draft = createMockDigitalInterviewDraft({ name: "采购访谈", tags: ["采购"] });
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const mockCard = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
     expect(within(mockCard).getByTestId(`itv-history-actions-${draft.interviewId}`)).toBeInTheDocument();
@@ -242,7 +329,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("管理访谈菜单可在完整指针事件序列后再次关闭", async () => {
     const draft = createMockDigitalInterviewDraft({ name: "采购访谈", tags: [] });
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const trigger = within(await screen.findByTestId(`itv-history-card-${draft.interviewId}`))
       .getByRole("button", { name: "管理访谈" });
@@ -256,7 +343,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("删除本地 Mock 历史卡前需要确认", async () => {
     const draft = createMockDigitalInterviewDraft({ name: "待删除访谈", tags: ["采购"] });
 
-    render(<InterviewStudioHome initialTab="history" />);
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
 
     const mockCard = await screen.findByTestId(`itv-history-card-${draft.interviewId}`);
     fireEvent.click(screen.getByRole("button", { name: "采购" }));
@@ -276,23 +363,36 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getByTestId("itv-history-card-itv-1")).toBeInTheDocument();
   });
 
-  it("切到专家列表后显示 persona mock、分类和快捷访谈入口", async () => {
+  it("切到专家列表后消费正式专家目录，不注入 Mock persona", async () => {
     render(<InterviewStudioHome initialTab="history" />);
     fireEvent.click(screen.getByTestId("itv-tab-experts"));
-    const card = await screen.findByTestId("itv-expert-card-mock-persona:68ecb1289191bb24396f9bd4");
-    expect(within(card).getByText("张浩宇")).toBeInTheDocument();
-    expect(within(card).getByText("AI/机器学习专家")).toBeInTheDocument();
-    expect(within(card).getByText("Mock 专家")).toBeInTheDocument();
-    expect(screen.getByTestId("itv-expert-count")).toHaveTextContent("97 位 Mock 专家");
-    expect(screen.getByRole("button", { name: "技术专家" })).toBeInTheDocument();
+    const card = await screen.findByTestId(`itv-expert-card-${catalogExpert.expertId}`);
+    expect(within(card).getByText(catalogExpert.displayName)).toBeInTheDocument();
+    expect(within(card).getByText(catalogExpert.role)).toBeInTheDocument();
+    expect(within(card).queryByText(/Mock/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("itv-expert-count")).toHaveTextContent("1 位专家");
+    expect(screen.getByRole("button", { name: "采购" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "全部专家" }))
       .toHaveClass("bg-primary", "text-primary-foreground");
-    expect(screen.getByTestId("itv-quick-mock-persona:68ecb1289191bb24396f9bd4"))
-      .toHaveAttribute("href", "/itv/quick/new?expertId=mock-persona%3A68ecb1289191bb24396f9bd4");
-    expect(screen.getByTestId("itv-quick-mock-persona:68ecb1289191bb24396f9bd4"))
+    expect(screen.getByTestId(`itv-quick-${catalogExpert.expertId}`))
+      .toHaveAttribute("href", `/itv/quick/new?expertId=${catalogExpert.expertId}`);
+    expect(screen.getByTestId(`itv-quick-${catalogExpert.expertId}`))
       .toHaveClass("bg-primary", "text-primary-foreground");
     expect(within(card).getByRole("link", { name: "查看专家" }))
-      .toHaveAttribute("href", "/itv/experts/mock-persona:68ecb1289191bb24396f9bd4");
+      .toHaveAttribute("href", `/itv/experts/${catalogExpert.expertId}`);
+  });
+
+  it("本地 Mock 草稿只在显式预览模式出现", async () => {
+    const draft = createMockDigitalInterviewDraft({ name: "预览草稿", tags: ["预览"] });
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+    const live = render(<InterviewStudioHome initialTab="history" />);
+    expect(await screen.findByTestId("itv-history-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId(`itv-history-card-${draft.interviewId}`)).not.toBeInTheDocument();
+    live.unmount();
+
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [] }));
+    render(<InterviewStudioHome initialTab="history" includeMockPreviews />);
+    expect(await screen.findByTestId(`itv-history-card-${draft.interviewId}`)).toBeInTheDocument();
   });
 
   it("依赖失败显示错误，不伪装成空列表", async () => {

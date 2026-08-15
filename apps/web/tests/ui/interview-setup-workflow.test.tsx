@@ -17,6 +17,24 @@ type PersistedLiveInterview = Omit<LiveInterview, "topic"> & {
   readonly topic: string;
 };
 
+const expertCandidate = {
+  expertId: "catalog-expert-f04",
+  initials: "EP",
+  displayName: "服务端候选专家",
+  role: "采购决策顾问",
+  domains: ["采购"],
+  materialBoundary: "仅使用当前有权读取的材料",
+  exploratory: true as const,
+};
+
+const defaultQuestion = {
+  questionId: "catalog-question-f04",
+  expertId: expertCandidate.expertId,
+  order: 1,
+  text: "服务端为候选专家生成的默认问题",
+  purpose: "决策流程",
+};
+
 const topicPendingInterview: LiveInterview = {
   interviewId: "itv-f04-live",
   name: "德国储能采购决策链",
@@ -27,12 +45,15 @@ const topicPendingInterview: LiveInterview = {
   selectedExpertIds: [],
   reportId: null,
   version: 41,
+  scope: { kind: "none", projectId: null, researchProjectId: null },
   currentStep: "topic",
   revisionId: "revision-f04",
   topicVersionId: null,
   expertSnapshotVersionId: null,
   questionVersionId: null,
+  expertCandidates: [],
   questions: [],
+  questionCandidates: [],
   skillThreadId: "thread-f04",
   skillMessages: [],
   skillProposals: [],
@@ -42,12 +63,13 @@ const persistedInterview: PersistedLiveInterview = {
   ...topicPendingInterview,
   topic: "服务端恢复：谁拥有最终否决权？",
   status: "experts_pending",
-  selectedExpertIds: ["expert-persisted"],
+  selectedExpertIds: [expertCandidate.expertId],
   version: 73,
   currentStep: "experts",
   revisionId: "revision-persisted",
   topicVersionId: "topic-version-persisted",
   expertSnapshotVersionId: null,
+  expertCandidates: [expertCandidate],
 };
 
 function json(body: unknown, status = 200) {
@@ -91,7 +113,31 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
         status: "experts_pending",
         currentStep: "experts",
         topicVersionId: "topic-version-f04",
-        selectedExpertIds: ["expert-f04"],
+        selectedExpertIds: [],
+        expertCandidates: [expertCandidate],
+        version: view.version + 1,
+      };
+      return json(view, 201);
+    }
+    if (method === "POST" && url.pathname.endsWith("/experts/confirm")) {
+      view = {
+        ...view,
+        selectedExpertIds: body.expertIds,
+        status: "questions_pending",
+        currentStep: "questions",
+        expertSnapshotVersionId: "expert-version-f04",
+        questionCandidates: [defaultQuestion],
+        version: view.version + 1,
+      };
+      return json(view, 201);
+    }
+    if (method === "POST" && url.pathname.endsWith("/questions/confirm")) {
+      view = {
+        ...view,
+        questions: body.questions,
+        status: "running",
+        currentStep: "runs",
+        questionVersionId: "question-version-f04",
         version: view.version + 1,
       };
       return json(view, 201);
@@ -282,6 +328,23 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("GET", `/interviews/digital/${persistedInterview.interviewId}`)).toHaveLength(2);
   });
 
+  it("主题与专家确认后只消费服务端返回的候选专家和默认问题", async () => {
+    const transport = installLiveFetch();
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+
+    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
+    expect(screen.queryByText(/mock/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-confirm-experts"));
+    expect(await screen.findByDisplayValue(defaultQuestion.text)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-confirm-questions"));
+
+    await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({ expertIds: [expertCandidate.expertId] });
+    expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
+  });
+
   it("在未确认主题时切换步骤会警告用户，而不是默默丢弃或保存", async () => {
     const transport = installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
@@ -299,11 +362,14 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     await waitFor(() => expect(transport.requests("GET", `/interviews/digital/${topicPendingInterview.interviewId}`)).toHaveLength(1));
     await screen.findByTestId("itv-topic-input");
 
+    fireEvent.change(screen.getByTestId("itv-topic-input"), { target: { value: "当前未确认主题" } });
     fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "把主题改得可验证" } });
     fireEvent.click(screen.getByTestId("itv-skill-send"));
     await waitFor(() => expect(transport.requests("POST", "/skill/messages")).toHaveLength(1));
     expect(transport.requests("POST", `/interviews/digital/${topicPendingInterview.interviewId}/skill/messages`)[0]!.body).toMatchObject({
       text: "把主题改得可验证",
+      currentStep: "topic",
+      draftContext: { step: "topic", topic: "当前未确认主题" },
     });
 
     fireEvent.click(await screen.findByTestId("itv-skill-apply"));

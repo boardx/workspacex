@@ -6,6 +6,7 @@ import { ArrowRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import {
+  loadDigitalExperts,
   loadDigitalInterviewHistory,
   type DigitalExpertCatalogRow,
   type DigitalInterviewHistoryRow,
@@ -16,8 +17,6 @@ import { listMockDigitalInterviewDrafts, type MockDigitalInterviewDraft } from "
 import { InterviewHistoryCardActions } from "./interview-history-card-actions";
 import {
   MOCK_DIGITAL_EXPERTS,
-  MOCK_EXPERT_CATEGORIES,
-  type MockDigitalExpertPersona,
 } from "@/lib/mock/digital-expert-personas";
 
 type Tab = "history" | "experts";
@@ -42,11 +41,20 @@ function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : "DEPENDENCY_UNAVAILABLE";
 }
 
-export function InterviewStudioHome({ initialTab = "history", initialCreateOpen = false }: { initialTab?: Tab; initialCreateOpen?: boolean }) {
+export function InterviewStudioHome({
+  initialTab = "history",
+  initialCreateOpen = false,
+  includeMockPreviews = false,
+}: {
+  initialTab?: Tab;
+  initialCreateOpen?: boolean;
+  includeMockPreviews?: boolean;
+}) {
   const [tab, setTab] = React.useState<Tab>(initialTab);
   const [selectedTag, setSelectedTag] = React.useState<string | undefined>();
   const [domain, setDomain] = React.useState<string | undefined>();
   const [history, setHistory] = React.useState<LoadState<DigitalInterviewHistoryRow>>({ kind: "loading" });
+  const [experts, setExperts] = React.useState<LoadState<DigitalExpertCatalogRow>>({ kind: "loading" });
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
 
   React.useEffect(() => {
@@ -55,18 +63,34 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
     void loadDigitalInterviewHistory().then(
       (result) => active && setHistory({
         kind: "ready",
-        items: combineHistoryRows(result.items),
+        items: combineHistoryRows(result.items, includeMockPreviews),
       }),
       (error: unknown) => active && setHistory({ kind: "error", reason: reasonOf(error) }),
     );
     return () => { active = false; };
-  }, []);
+  }, [includeMockPreviews]);
+
+  React.useEffect(() => {
+    if (tab !== "experts") return;
+    if (includeMockPreviews) {
+      setExperts({ kind: "ready", items: MOCK_DIGITAL_EXPERTS });
+      return;
+    }
+
+    let active = true;
+    setExperts({ kind: "loading" });
+    void loadDigitalExperts().then(
+      (result) => active && setExperts({ kind: "ready", items: result.items }),
+      (error: unknown) => active && setExperts({ kind: "error", reason: reasonOf(error) }),
+    );
+    return () => { active = false; };
+  }, [includeMockPreviews, tab]);
 
   const refreshMockHistory = React.useCallback(() => {
     setHistory((current) => current.kind === "ready"
-      ? { kind: "ready", items: combineHistoryRows(current.items) }
+      ? { kind: "ready", items: combineHistoryRows(current.items, includeMockPreviews) }
       : current);
-  }, []);
+  }, [includeMockPreviews]);
 
   const historyItems = React.useMemo(
     () => history.kind === "ready" ? history.items : [],
@@ -85,6 +109,14 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
   const visibleHistoryItems = selectedTag
     ? historyItems.filter((item) => item.tags.some((tag) => tag.trim() === selectedTag))
     : historyItems;
+  const expertItems = experts.kind === "ready" ? experts.items : [];
+  const expertDomains = React.useMemo(
+    () => Array.from(new Set(expertItems.flatMap((expert) => expert.domains))),
+    [expertItems],
+  );
+  const visibleExperts = domain === undefined
+    ? expertItems
+    : expertItems.filter((expert) => expert.domains.includes(domain));
 
   React.useEffect(() => {
     if (selectedTag && !availableTags.includes(selectedTag)) setSelectedTag(undefined);
@@ -134,23 +166,19 @@ export function InterviewStudioHome({ initialTab = "history", initialCreateOpen 
           <section aria-label="专家列表" className="pt-6">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <FilterBar>
-                {[undefined, ...MOCK_EXPERT_CATEGORIES].map((value) => (
+                {[undefined, ...expertDomains].map((value) => (
                   <FilterButton key={value ?? "all"} active={domain === value} onClick={() => setDomain(value)}>
                     {value ?? "全部专家"}
                   </FilterButton>
                 ))}
               </FilterBar>
               <p data-testid="itv-expert-count" className="py-2 text-xs text-muted-foreground">
-                {domain === undefined ? MOCK_DIGITAL_EXPERTS.length : MOCK_DIGITAL_EXPERTS.filter((expert) => expert.domains.includes(domain)).length} 位 Mock 专家
+                {visibleExperts.length} 位专家
               </p>
             </div>
             <ExpertContent
-              state={{
-                kind: "ready",
-                items: domain === undefined
-                  ? MOCK_DIGITAL_EXPERTS
-                  : MOCK_DIGITAL_EXPERTS.filter((expert) => expert.domains.includes(domain)),
-              }}
+              state={experts.kind === "ready" ? { kind: "ready", items: visibleExperts } : experts}
+              preview={includeMockPreviews}
             />
           </section>
         )}
@@ -189,9 +217,9 @@ function mockDraftHistoryRow(draft: MockDigitalInterviewDraft): DigitalInterview
   };
 }
 
-function combineHistoryRows(serverItems: readonly DigitalInterviewHistoryRow[]): readonly DigitalInterviewHistoryRow[] {
+function combineHistoryRows(serverItems: readonly DigitalInterviewHistoryRow[], includeMockPreviews: boolean): readonly DigitalInterviewHistoryRow[] {
   return [
-    ...listMockDigitalInterviewDrafts().map(mockDraftHistoryRow),
+    ...(includeMockPreviews ? listMockDigitalInterviewDrafts().map(mockDraftHistoryRow) : []),
     ...serverItems.filter((item) => !item.interviewId.startsWith("mock-batch-")),
   ];
 }
@@ -287,27 +315,24 @@ function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly labe
   }[item.primaryAction];
 }
 
-function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> }) {
+function ExpertContent({ state, preview = false }: { state: LoadState<DigitalExpertCatalogRow>; preview?: boolean }) {
   if (state.kind === "loading") return <StatePanel>正在加载专家…</StatePanel>;
   if (state.kind === "error") return <StatePanel testId="itv-experts-error">加载失败：{state.reason}</StatePanel>;
   if (state.items.length === 0) return <StatePanel testId="itv-experts-empty">当前分类暂无可用专家。</StatePanel>;
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {state.items.map((expert) => {
-        const mock = expert as MockDigitalExpertPersona;
-        return (
+      {state.items.map((expert) => (
         <article key={expert.expertId} data-testid={`itv-expert-card-${expert.expertId}`} className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">{expert.initials}</div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-card-foreground">{expert.displayName}</h2>
-                <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>
+                {preview && <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">Mock 专家</span>}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
             </div>
           </div>
-          {mock.bio && <p className="mt-4 line-clamp-2 text-sm leading-6 text-muted-foreground">{mock.bio}</p>}
           <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">材料边界：</span>{expert.materialBoundary}
           </div>
@@ -320,7 +345,7 @@ function ExpertContent({ state }: { state: LoadState<DigitalExpertCatalogRow> })
             </Link>
           </div>
         </article>
-      );})}
+      ))}
     </div>
   );
 }
