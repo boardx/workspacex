@@ -58,6 +58,14 @@ function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
 const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
 const ENDPOINT_KEY_RE = /^endpoint$/i;
 
+/**
+ * `credentialConfigured`（#1381，`listModelPool.out`）是模型池对凭据**唯一**允许透出的一
+ * 个布尔位——"是否配置"，不是凭据本身。exempt by name，同 `apps/api` 侧
+ * `credential-never-echoed.test.ts` 的 `endpointHint` 豁免纪律：豁免只在下方形状测试
+ * （必须是 bare boolean）仍然通过时才成立，不是一句免检声明。
+ */
+const SECRET_KEY_EXEMPT = new Set(["credentialConfigured"]);
+
 const OPS = Object.entries(AR.operations) as [string, { in: z.ZodTypeAny; out: z.ZodTypeAny }][];
 
 describe("扫描器本身不是空转", () => {
@@ -78,7 +86,7 @@ describe("扫描器本身不是空转", () => {
 
 describe("凭据：agent-runtime 束的**任何**响应 schema 里都不存在（I-6 / AC3）", () => {
   it.each(OPS)("%s 的 out 里没有任何凭据类字段", (_name, op) => {
-    const leaked = collectKeys(op.out).filter((k) => SECRET_KEY_RE.test(k));
+    const leaked = collectKeys(op.out).filter((k) => SECRET_KEY_RE.test(k) && !SECRET_KEY_EXEMPT.has(k));
     expect(leaked, `响应体里出现了凭据类字段：${leaked.join(",")}`).toEqual([]);
   });
 
@@ -90,6 +98,16 @@ describe("凭据：agent-runtime 束的**任何**响应 schema 里都不存在�
   it("反证：扫描器确实认得凭据类字段名", () => {
     const fake = z.object({ credentialRef: z.string(), nested: z.object({ apiKey: z.string() }) });
     expect(collectKeys(fake).filter((k) => SECRET_KEY_RE.test(k)).sort()).toEqual(["apiKey", "credentialRef"]);
+  });
+
+  it("`credentialConfigured` 的豁免是有条件的：它必须是 bare boolean，不能扩权成一个字符串值", () => {
+    const rowSchema = AR.operations.listModelPool.out.element as unknown as {
+      shape: Record<string, z.ZodTypeAny>;
+    };
+    const flag = rowSchema.shape.credentialConfigured!;
+    expect(flag.safeParse(true).success).toBe(true);
+    expect(flag.safeParse("sk-live-should-never-parse").success,
+      "credentialConfigured 不再是布尔——豁免条件不成立了，回去看这条测试上面的注释").toBe(false);
   });
 });
 

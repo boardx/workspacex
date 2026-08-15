@@ -64,8 +64,14 @@ const PLAINTEXT = "sk-live-9f2b7c11-never-echo-me";
  * `tokens` is a token COUNT on tool-call records. Excluded by requiring `token` to be part
  * of `accessToken` / `apiToken` rather than matching the bare word, because an over-firing
  * secret scanner is one somebody eventually deletes.
+ *
+ * `credentialConfigured` (#1381, `listModelPool.out`) is the ONE bit about a credential that
+ * `ports.ts` documents as allowed to cross the boundary -- "whether", never "what". Exempt by
+ * exact name, same discipline as `endpointHint`: the shape check below fails the day it stops
+ * being a bare boolean, so the exemption cannot quietly widen into carrying the value itself.
  */
 const SECRET_KEY_RE = /credential|secret|passw|api[-_]?key|access[-_]?token|bearer|^endpoint$/i;
+const SECRET_KEY_EXEMPT = new Set(["credentialConfigured"]);
 
 function walkFiles(dir: string, out: string[] = []): string[] {
   for (const n of readdirSync(dir)) {
@@ -83,7 +89,7 @@ function secretKeysInResponses(
   const hits: { op: string; key: string }[] = [];
   for (const [op, out] of schemas) {
     for (const key of schemaKeyNames(out)) {
-      if (SECRET_KEY_RE.test(key)) hits.push({ op, key });
+      if (SECRET_KEY_RE.test(key) && !SECRET_KEY_EXEMPT.has(key)) hits.push({ op, key });
     }
   }
   return hits;
@@ -160,6 +166,17 @@ describe("no response schema in the bundle can carry a credential (I-6, first de
     expect(options.length, "endpointHint stopped being an enum -- it can now carry an address")
       .toBeGreaterThan(0);
     expect(hint.safeParse("http://10.0.0.4:8000").success).toBe(false);
+  });
+
+  it("`credentialConfigured` is exempt because it is a bare boolean, and that is checked", () => {
+    const rowSchema = C.operations.listModelPool.out.element as unknown as {
+      shape: Record<string, z.ZodTypeAny>;
+    };
+    const flag = rowSchema.shape.credentialConfigured!;
+    expect(flag.safeParse(true).success).toBe(true);
+    // The counter-proof: a real credential string must NOT validate against this field's
+    // schema -- if it ever widened to `z.string()`, this is the line that goes red.
+    expect(flag.safeParse(PLAINTEXT).success, "credentialConfigured stopped being a boolean -- it can now carry a value").toBe(false);
   });
 
   it("the two write-only fields go IN and are declared on no way out", () => {

@@ -65,6 +65,14 @@ function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
 const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
 const ENDPOINT_KEY_RE = /^endpoint$/i;
 
+/**
+ * `credentialConfigured`（#1381，`listModelPool.out`）是模型池对凭据**唯一**允许透出的一
+ * 个布尔位——"是否配置"，不是凭据本身。exempt by name，同
+ * `tests/capability/model/credential-never-echoed.test.ts` 的 `endpointHint` 豁免纪律：
+ * 豁免只在下方形状测试（必须是 bare boolean）仍然通过时才成立，不是一句免检声明。
+ */
+const SECRET_KEY_EXEMPT = new Set(["credentialConfigured"]);
+
 const OPS = Object.entries(A.operations) as [string, { in: z.ZodTypeAny; out: z.ZodTypeAny }][];
 
 describe("扫描器本身不是空转", () => {
@@ -91,13 +99,23 @@ describe("扫描器本身不是空转", () => {
 
 describe("F52 I-6 · 凭据：agent-runtime 束的**任何**响应 schema 里都不存在", () => {
   it.each(OPS)("%s 的 out 里没有任何凭据类字段", (_name, op) => {
-    const leaked = collectKeys(op.out).filter((k) => SECRET_KEY_RE.test(k));
+    const leaked = collectKeys(op.out).filter((k) => SECRET_KEY_RE.test(k) && !SECRET_KEY_EXEMPT.has(k));
     expect(leaked, `响应体里出现了凭据类字段：${leaked.join(",")}`).toEqual([]);
   });
 
   it("写入面**允许**带凭据 —— 不对称是有意的，不是漏检", () => {
     // 注册当然要给凭据，不然连不上。被禁止的是**回显**。
     expect(collectKeys(A.operations.registerMcpServer.in)).toContain("credential");
+  });
+
+  it("`credentialConfigured` 的豁免是有条件的：它必须是 bare boolean，不能扩权成一个字符串值", () => {
+    const rowSchema = A.operations.listModelPool.out.element as unknown as {
+      shape: Record<string, z.ZodTypeAny>;
+    };
+    const flag = rowSchema.shape.credentialConfigured!;
+    expect(flag.safeParse(true).success).toBe(true);
+    expect(flag.safeParse("sk-live-should-never-parse").success,
+      "credentialConfigured 不再是布尔——豁免条件不成立了，回去看这条测试上面的注释").toBe(false);
   });
 });
 

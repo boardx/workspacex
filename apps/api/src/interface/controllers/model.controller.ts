@@ -1,15 +1,18 @@
 /**
- * 模型池的写入路由（#548）。协议适配，判断全在 `application`。
+ * 模型池的路由（#548 起）。协议适配，判断全在 `application`。
  *
  *   POST /models   接入一个模型 —— **凭据进入系统的唯一入口**
+ *   GET  /models   管理台的模型池列表（#1381 design-delta，收口 `POOL_LISTING_GAP`）
  *
- * ## 为什么只有一条，而契约里有十条
+ * ## 为什么只有两条，而契约里有十一条
  *
- * 契约的十条**全部已签核**，缺的不是签核而是 `infrastructure`：#548 的工单写着「只差
- * controller 一层」，实测不成立——`ModelPoolRepository` / `ComplianceVocabularyReader` /
- * `ModelPoolClock` / `CredentialCipher` 在本分支之前**一个实现都没有**（只有 F49 的
- * `PgAdmissionTestRepository` 是现成的）。本分支补齐了 `registerModel` 那条链所需的四个
- * 实现，另外九条各自还缺自己的端口实现：
+ * 契约的十一条**全部已签核**（`listModelPool` 是 #1381 新增，走 design-delta，见
+ * `phases/phase-01-run-a-project/design-deltas/model-pool-listing/`），缺的不是签核而是
+ * `infrastructure`：#548 的工单写着「只差 controller 一层」，实测不成立——
+ * `ModelPoolRepository` / `ComplianceVocabularyReader` / `ModelPoolClock` /
+ * `CredentialCipher` 在 #548 之前**一个实现都没有**（只有 F49 的 `PgAdmissionTestRepository`
+ * 是现成的）。#548 补齐了 `registerModel` 那条链所需的四个实现，其余九条各自还缺自己的端口
+ * 实现：
  *
  *   · `recordAdmissionTest` —— **端口实现（F49 的 `PgAdmissionTestRepository`）是现成的，
  *     本条却仍然没接，这是有意的**。`lint-permission-paths.mjs` 给那个仓储开的豁免，
@@ -38,18 +41,19 @@
  *   · `routeModelCall` / `assembleSystemPrompt` —— 本束的安全内核，判定顺序本身是契约，
  *     不适合与本条一起塞进同一个 PR。
  *
- * ## ⚠ 池子的「列表」路由不存在，这是**上报**而不是顺手补的
+ * ## `GET /models`（#1381）
  *
- * F48 的 `user_visible_behavior` 说管理台列表展示 kind / vendor / 能力标签 / 上下文窗口 /
- * 单价 / 合规属性 / 状态，而契约里**没有任何操作返回池子行**——这一点
- * `domain/model/registry.ts` 文件头早就写下并用 `POOL_LISTING_GAP` 钉住了。
- * 契约待人类签核期间 agent 不得自行加操作（`contract-design.md` §五 / ADR-020），所以
- * 前端的「能看列表」在本 PR 里**做不了**，另开 issue。
+ * `application/model/list-model-pool.ts` 早就实现好了（F48 落地时一起写的，只是没人接
+ * 路由）——`listModelPool(orgId, repository)` 原样转发 `repository.listForOrg`，本条只是
+ * 接线 + 出门过契约 `.out.parse()`。**契约新增了一个 operation**，按
+ * `contract-design.md` §五 / ADR-020，这需要人类在 design-delta 的 `design-signoff.md`
+ * 签核（status: proposed → confirmed）才能合并；agent 只改契约本身，不碰 status 字段。
  *
  * ## 凭据（本文件的要害）
  *
  * `credential` 与 `endpoint` 只在 `registerModel.in` 里出现，**任何 `out` 都没有它们**
- * （`credential-never-echoed.test.ts` 扫描全部 57 条响应 schema）。本控制器：
+ * （`credential-never-echoed.test.ts` 扫描全部契约响应 schema）。`GET /models` 只带
+ * `credentialConfigured`（一个布尔位，来自仓储的 `EXISTS`，从不读密文本身）。本控制器：
  *   · 出门一律走契约 `.out.parse()`——`.strict()` 会拒掉任何多出来的键，所以即便下层
  *     哪天开始回传凭据，它也出不了这道门；
  *   · **不记请求体**。没有 `logger.log(body)`，也没有把 body 塞进异常 message 的分支。
@@ -58,6 +62,7 @@ import {
   BadRequestException,
   Controller,
   ForbiddenException,
+  Get,
   Inject,
   Post,
   ServiceUnavailableException,
@@ -78,6 +83,7 @@ import {
   type ModelPoolClock,
   type ModelPoolRepository,
 } from "../../application/model/ports";
+import { listModelPool } from "../../application/model/list-model-pool";
 import { registerModel } from "../../application/model/register-model";
 import type { CredentialCipher } from "../../domain/model/credential-vault";
 import { toOrgId } from "../../domain/org-id";
@@ -136,6 +142,20 @@ export class ModelController {
         modelId: result.row.modelId,
         status: result.row.status,
       });
+    });
+  }
+
+  /**
+   * 管理台的模型池列表（#1381）。空池返回 `[]`——不预置任何默认行。
+   */
+  @Get("/models")
+  async list(@CurrentPrincipal() principal: Principal) {
+    const orgId = await this.requireOrgAdmin(principal);
+    return this.run(async () => {
+      const rows = await listModelPool(orgId, this.pool);
+      return C.operations.listModelPool.out.parse(
+        rows.map((stored) => ({ ...stored.row, credentialConfigured: stored.credentialConfigured })),
+      );
     });
   }
 

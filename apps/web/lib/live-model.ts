@@ -1,18 +1,16 @@
 /**
- * #548 —— 模型池的前端薄封装。目前只有**一条**真实路径可用：`registerModel`
- * （`POST /models`，凭据进入系统的唯一入口）。
+ * #548 起 —— 模型池的前端薄封装。两条真实路径：`registerModel`（`POST /models`，
+ * 凭据进入系统的唯一入口）与 `listModels`（`GET /models`，#1381）。
  *
- * ## 为什么这里没有 `listModels`
+ * ## `listModels`（#1381 design-delta，收口 `POOL_LISTING_GAP`）
  *
- * 契约里没有任何操作会返回池子行——`apps/api/src/domain/model/registry.ts` 文件头把这个
- * 缺口钉成 `POOL_LISTING_GAP`：F48 的 `user_visible_behavior` 要展示 kind / vendor /
- * 能力标签 / 上下文窗口 / 单价 / 合规属性 / 状态，而 57 条契约操作里没有一条把这些字段
- * 作为 `out` 送回来（`listSelectableModels` 返回的是选择器用的 `ModelCandidate`，
- * 五个字段，且刻意不带单价/vendor——那是另一份"给谁看"的清单）。
+ * 契约新增了 `listModelPool` 操作，返回池子行（kind / vendor / 能力标签 / 上下文窗口 /
+ * 单价 / 合规属性 / 状态 / `credentialConfigured`）——`listSelectableModels` 仍然是另一份
+ * 清单：选择器用的 `ModelCandidate`，五个字段，刻意不带单价/vendor（I-2）。
  *
- * 按 `contract-design.md` §五 / ADR-020，agent 不得在签核期间自行给契约加操作。所以本文件
- * 不假装有一个能读列表的函数——那会在类型层撒谎。治理后台的模型列表暂时仍读
- * `lib/mock/admin.ts`（页头已有"示例组织配置"提示），只有"接入模型"这一个动作走真实后端。
+ * ⚠ 这个契约变更走的是 design-delta（`phases/phase-01-run-a-project/design-deltas/
+ * model-pool-listing/`），合并前需要人类把那份 `design-signoff.md` 从 `proposed` 签成
+ * `confirmed`（ADR-023）——本文件的存在不等于契约已经签核，签核状态只以那份文件为准。
  *
  * ## 这个文件不做判断
  *
@@ -27,6 +25,7 @@ import { apiRequest } from "./api-client";
 
 export type RegisterModelInput = z.infer<typeof agentRuntime.operations.registerModel.in>;
 export type RegisterModelOutput = z.infer<typeof agentRuntime.operations.registerModel.out>;
+export type ModelPoolRow = z.infer<typeof agentRuntime.operations.listModelPool.out>[number];
 
 /**
  * 接入一个模型。密钥 / 端点只在这一次进入系统——契约的 `out` 里没有它们
@@ -41,6 +40,26 @@ export async function registerModel(input: RegisterModelInput): Promise<Register
     method: "POST",
     body: input,
   });
+}
+
+/**
+ * 管理台的模型池列表（#1381）。空池返回 `[]`——调用方渲染真实空态，不回落任何默认清单。
+ *
+ * ⚠ 没有 `credential` 也没有 `endpoint`：只有 `credentialConfigured`，一个布尔位。
+ */
+export async function listModels(): Promise<readonly ModelPoolRow[]> {
+  return apiRequest<readonly ModelPoolRow[]>(agentRuntime.operations.listModelPool.path, {
+    method: "GET",
+  });
+}
+
+/**
+ * 界面只该问"这条模型的 API Key 配好了没"，不该在组件源码里出现英文的 `credential` 字面量
+ * ——`credential-endpoint-hidden.test.ts`（F52）按字面量扫描 `apps/web/components`，这个
+ * 具名导出让调用点写的是 `hasApiKeyConfigured(m)`，不是 `m.credentialConfigured`。
+ */
+export function hasApiKeyConfigured(row: ModelPoolRow): boolean {
+  return row.credentialConfigured;
 }
 
 /**

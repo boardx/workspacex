@@ -557,6 +557,31 @@ export const ModelCandidate = z
   .strict();
 
 /**
+ * 管理台看到的模型池一行（#1381 design-delta，收口 `POOL_LISTING_GAP`）。
+ *
+ * ⚠ 与 `ModelCandidate`（选择器用，五个字段）**不是同一份清单**——本类型是给管理台的，
+ *   带 vendor / 单价 / 上下文窗口；`listSelectableModels` 刻意不带这些（I-2）。
+ * ⚠ 没有 `credential` 也没有 `endpoint`：只有 `credentialConfigured`——是否已配置凭据的
+ *   一个布尔位，凭据本身**只写不读**（I-6），与 `registerModel.in` 同一份禁令。
+ */
+export const ModelPoolRow = z
+  .object({
+    modelId: z.string(),
+    status: ModelStatus,
+    kind: ModelKind,
+    shape: ModelShape,
+    vendor: z.string(),
+    displayName: z.string(),
+    capabilityTags: z.array(z.string()),
+    contextWindow: z.number().int().positive(),
+    unitPrice: z.number().nonnegative(),
+    complianceAttrs: z.array(z.string()),
+    members: z.array(CompositeMember),
+    credentialConfigured: z.boolean(),
+  })
+  .strict();
+
+/**
  * 每次模型调用前的一条判定记录（`RoutingDecision`）。
  * ⚠ **记录中不得包含机密内容原文**（I-13），只记标记与依据 id。
  */
@@ -979,6 +1004,22 @@ export const operations = {
       "VERSION_CHANGED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * 管理台的模型池列表（#1381 design-delta）。收口 `POOL_LISTING_GAP`——F48 的
+   * `user_visible_behavior` 说管理台要展示 kind / vendor / 能力标签 / 上下文窗口 / 单价 /
+   * 合规属性 / 状态，此前 57 条操作没有一条把这些字段读出来，这一条补上。
+   * ⚠ 组织取自会话主体，不接受任何过滤参数——`listSelectableModels` 才是「可选范围」那条，
+   *   两者不是同一份清单，别合并（domain/model/registry.ts 文件头）。
+   * ⚠ 空池返回 `[]`，前端渲染真实空态（uc-0-5 R12 V1 的模型半边）。
+   */
+  listModelPool: {
+    method: "GET",
+    path: "/models",
+    in: z.object({}).strict(),
+    out: z.array(ModelPoolRow),
+    err: ["NOT_ORG_ADMIN"] as const,
   },
 
   /**
