@@ -15,8 +15,14 @@
 | `tags` | `string[]` | 至少一项 |
 | `topic` | `string \| null` | 创建时为空；只能由“确认主题”操作写入非空主题 |
 | `status` | `DigitalInterviewStatus` | 八态单源 |
+| `currentStep` | `DigitalInterviewStep` | 当前可恢复步骤；页面不得从本地 dirty buffer 推断 |
+| `revisionId` | `RevisionId` | 当前业务 revision；上游确认变化时创建新 revision |
+| `topicVersionId` / `expertSnapshotVersionId` / `questionVersionId` | `VersionId \| null` | 当前 revision 的已确认版本指针；未到该步骤前为空 |
 | `sourceQuickInterviewId` | `InterviewId \| null` | 快捷访谈转批量时保留来源 |
 | `selectedExpertIds` | `DigitalExpertId[]` | 已确认集合不得为空 |
+| `questions` | `DigitalInterviewQuestion[]` | 当前问题版本的已确认问题；只属于已确认专家 |
+| `skillThreadId` | `SkillThreadId` | 一对一持久 Skill 线程，不能复用 LangGraph thread id |
+| `activeAppliedSkillProposals` | `DigitalInterviewSkillProposal[]` | 仅同一 revision 且 `applied_to_draft` 的建议；不是已确认业务数据 |
 | `reportId` | `InterviewReportId \| null` | 报告生成后写入 |
 | `version` | `number` | 并发修改保护；每一次成功的显式确认恰好递增一次 |
 
@@ -59,7 +65,7 @@
 | # | 不变量 | 机械断言 |
 |---|---|---|
 | I-1 | 状态只来自八态闭集；卡片、详情、当前步骤与主按钮均由该字段投影 | 契约拒绝第九值；同一 fixture 的四处投影一致 |
-| I-2 | `createDigitalInterview` 只保存名称、标签、范围和 `requestId`，初始态为 `topic_pending`；它不保存主题，也不调用专家生成器 | HTTP 创建响应与重新读取均为 `topic=null`、`status=topic_pending`；生成器 0 调用 |
+| I-2 | `createDigitalInterviewDraft` 只保存名称、标签、范围和 `requestId`，初始态为 `topic_pending`；它不保存主题，也不调用专家生成器 | HTTP 创建响应与重新读取均为 `topic=null`、`status=topic_pending`；生成器 0 调用 |
 | I-3 | 未确认主题不得生成专家；未确认专家不得生成问题；未确认问题不得开始运行 | 三种跳步均由服务端拒绝 |
 | I-4 | 已确认专家集合永不为空 | 删除最后一位返回 `DIGITAL_EXPERT_REQUIRED` |
 | I-5 | 问题只能归属于本场已选专家 | 外部或已删除专家返回 `DIGITAL_QUESTION_EXPERT_INVALID` |
@@ -73,6 +79,7 @@
 | I-13 | 主题、专家、问题、运行和报告的推进都必须经各自的显式确认操作；输入中的未确认内容是客户端 dirty buffer，不得提前写入服务端 | 输入主题/编辑专家或问题时没有写请求；点击确认后恰好保存一个新版本 |
 | I-14 | 每一个可重放写操作以 `(orgId, interviewId, operation, requestId)` 去重；相同 payload 重试复用首次成功的 HTTP status 与业务正文，改变 payload 重用同一 `requestId` 被拒绝 | F04 create/confirm 首次和 replay 均为 201；遮蔽动态 `traceId` 后正文相同；重试不生成第二个版本/专家/问题/run/报告；payload 指纹不同返回 `IDEMPOTENCY_KEY_REUSED` |
 | I-15 | 写入带调用方读到的 `expectedVersion`；服务端版本不相等时冲突，绝不静默覆盖 | 陈旧版本返回 `CONCURRENT_MODIFICATION`，服务端内容和版本保持不变 |
+| I-16 | Skill proposal 可持久化为 `proposed`、`applied_to_draft`、`rejected`、`committed` 或 `stale`；只有同 revision 的 active applied proposal 可重建客户端草稿 | apply/reject 携带 `requestId` 和 `expectedVersion`；apply 不写入 topic、专家或问题版本，步骤确认后才变为 `committed` |
 
 ## 四、边界
 

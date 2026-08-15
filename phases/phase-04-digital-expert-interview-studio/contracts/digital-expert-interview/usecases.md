@@ -6,12 +6,13 @@
 |---|---|---|---|
 | `listDigitalInterviews` | scope, status filter | 历史卡投影 | `NO_INTERVIEW_ACCESS`, `DEPENDENCY_UNAVAILABLE` |
 | `listDigitalExperts` | domain filter | 可用专家投影 | `DEPENDENCY_UNAVAILABLE`（不得伪装空列表） |
-| `createDigitalInterview` | `{ name, tags, scope, requestId }` | `topic_pending`；只含名称/标签/范围/版本 | `DIGITAL_INTERVIEW_INPUT_INVALID`, `IDEMPOTENCY_KEY_REUSED` |
-| `confirmDigitalInterviewTopic` | `{ interviewId, topic, requestId, expectedVersion }` | `experts_pending` + candidates | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
-| `updateDigitalInterviewExperts` | `{ interviewId, add, remove, requestId, expectedVersion }` | dirty candidate set | `DIGITAL_EXPERT_REQUIRED`, `DIGITAL_EXPERT_NOT_AVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
-| `confirmDigitalInterviewExperts` | `{ interviewId, requestId, expectedVersion }` | `questions_pending` + per-expert questions | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
-| `updateDigitalInterviewQuestions` | `{ interviewId, expertId, mutations, requestId, expectedVersion }` | dirty per-expert questions | `DIGITAL_QUESTION_EXPERT_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
-| `confirmDigitalInterviewQuestions` | `{ interviewId, requestId, expectedVersion }` | `running` + run list | `DIGITAL_INTERVIEW_STEP_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `createDigitalInterviewDraft` | `{ name, tags, scope, requestId }` | 完整 `DigitalInterviewWorkflowView`，初始为 `topic_pending` | `DIGITAL_INTERVIEW_INPUT_INVALID`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewTopic` | `{ interviewId, topic, requestId, expectedVersion }` | 完整 workflow view，`experts_pending` + active revision/version 指针 | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewExperts` | `{ interviewId, expertIds, requestId, expectedVersion }` | 完整 workflow view，`questions_pending` + 已确认专家 | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewQuestions` | `{ interviewId, questions, requestId, expectedVersion }` | 完整 workflow view，`running` + 已确认问题版本 | `DIGITAL_INTERVIEW_STEP_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `appendDigitalInterviewSkillMessage` | `{ interviewId, currentStep, text, requestId, expectedVersion }` | 完整 workflow view，含新消息产生的 proposal | `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED`, `PERMISSION_REVOKED_MIDWAY` |
+| `applyDigitalInterviewSkillProposal` | `{ interviewId, proposalId, requestId, expectedVersion }` | 完整 workflow view，proposal 为 `applied_to_draft` | `DIGITAL_INTERVIEW_STEP_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `rejectDigitalInterviewSkillProposal` | `{ interviewId, proposalId, requestId, expectedVersion }` | 完整 workflow view，proposal 为 `rejected` | `DIGITAL_INTERVIEW_STEP_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
 | `retryDigitalExpertRun` | interviewId, expertId | one updated run | `DIGITAL_EXPERT_RUN_NOT_FAILED`, `DEPENDENCY_UNAVAILABLE` |
 | `generateDigitalInterviewReport` | interviewId, version | traceable report | `DIGITAL_REPORT_NOT_READY`, `DIGITAL_REPORT_SOURCE_INVALID`, `AI_GENERATION_UNAVAILABLE` |
 | `startQuickDigitalInterview` | expertId | persisted quick interview | `DIGITAL_EXPERT_NOT_AVAILABLE` |
@@ -25,11 +26,11 @@
 
 创建路由为 `POST /interviews/digital`；主题确认路由为 `POST /interviews/digital/:interviewId/topic/confirm`；其余步骤按同一 `/:interviewId/<step>/confirm` 形状暴露。创建输入只允许 `{ name, tags, scope, requestId }`，不接收 `topic`。每一个确认请求都必须携带 `requestId` 与 `expectedVersion`；成功时恰好保存一个新版本。相同 `requestId` 和相同规范化 payload 的成功 replay 必须复用首次成功的 HTTP status 与业务正文：本 F04 create/confirm 的首次和 replay 都是 201；若平台附带动态 `traceId`，遮蔽它后正文相同。同 key 但 payload 改变返回 `IDEMPOTENCY_KEY_REUSED`，而不是覆盖或生成重复专家、问题、run 或报告。任何陈旧 `expectedVersion` 返回 `CONCURRENT_MODIFICATION`。
 
-`getDigitalInterview` 是恢复的唯一读端口：刷新和进程重建都从 `GET /interviews/digital/:interviewId` 取得服务器的状态、当前步骤和版本。无权与不存在在该端口均为 404；将平台每请求生成的非空 `traceId` 遮蔽后，错误信封逐字节相同，两个 `traceId` 必须不同。共同信封不得包含 `reasonCode` 或被寻址的 interview id。
+`getDigitalInterview` 是恢复的唯一读端口：刷新和进程重建都从 `GET /interviews/digital/:interviewId` 取得完整 `DigitalInterviewWorkflowView`：服务器的状态、当前步骤、版本、active revision/version IDs、已确认 topic/专家/问题，以及当前 revision 的 `activeAppliedSkillProposals`。无权与不存在在该端口均为 404；将平台每请求生成的非空 `traceId` 遮蔽后，错误信封逐字节相同，两个 `traceId` 必须不同。共同信封不得包含 `reasonCode` 或被寻址的 interview id。
 
 ### Skill 建议的双层持久化
 
-`sendDigitalInterviewSkillMessage` 立即把用户消息、助手消息和 proposal 持久化到 `POST /interviews/digital/:interviewId/skill/messages`；proposal 有 `proposalId`、目标步骤、建议内容与 `createdAt`。`applyDigitalInterviewSkillProposal` 只把建议应用到当前步骤的客户端 dirty buffer，不是写操作。只有对应步骤的显式 `confirm*` 才把已应用内容写入访谈并递增版本；取消/离开不应把未确认的 applied buffer 落库。
+`appendDigitalInterviewSkillMessage` 立即把用户消息、助手消息和 proposal 持久化到 `POST /interviews/digital/:interviewId/skill/messages`；proposal 有 `proposalId`、目标步骤、建议内容、base revision 与 `createdAt`。`applyDigitalInterviewSkillProposal` 与 `rejectDigitalInterviewSkillProposal` 都是可重放写操作，必须带 `requestId` 与 `expectedVersion`：前者只持久化 `applied_to_draft`，供当前步骤的客户端 dirty buffer 应用，后者持久化 `rejected`。两者都不直接修改确认数据或 workflow version。只有对应步骤的显式 `confirm*` 才把已应用内容写入访谈、递增版本并将参与 proposal 标为 `committed`；取消/离开不应把未确认的 applied buffer 落库。
 
 ## 三、失败处理
 
