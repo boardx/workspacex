@@ -2,6 +2,7 @@ import type { IdentityRepository } from "../identity/ports";
 import type { IdGenerator } from "./ports";
 import type { OrgId } from "../../domain/org-id";
 import type { PersonalTranscriptionRepository } from "./personal-transcription-ports";
+import { personalRealtimeTranscription as C } from "@repo/contracts";
 import { createHash, randomBytes } from "node:crypto";
 import type { RealtimeAsrTicketStore } from "./personal-realtime-asr";
 
@@ -146,5 +147,5 @@ export async function issueRealtimeAsrTicket(deps:{identities:IdentityRepository
   const ticketHash=createHash("sha256").update(ticket).digest("hex"),expiresAtMs=Date.now()+REALTIME_ASR_TICKET_TTL_MS;
   await deps.tickets.issue({ticket,ticketHash,orgId:input.orgId,ownerUserId:input.userId,transcriptionId:input.transcriptionId,captureId,expiresAtMs});
   return {captureId,ticket,expiresAt:new Date(expiresAtMs).toISOString(),
-    websocketPath:`/recording/realtime-asr/sessions/${encodeURIComponent(input.transcriptionId)}/captures/${encodeURIComponent(captureId)}/stream`};
+    websocketPath:`/recording/sessions/${encodeURIComponent(input.transcriptionId)}/asr-stream?${C.streamOperation.captureQueryParameter}=${encodeURIComponent(captureId)}`};
 }

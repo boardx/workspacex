@@ -24,6 +24,11 @@ describe("personal realtime transcription contract", () => {
     expect(errorCodes).toContain("TRANSCRIPTION_NOT_FOUND");
   });
 
+  it("names both query parameters used by the one-time ticket stream", () => {
+    expect(C.streamOperation.ticketQueryParameter).toBe("ticket");
+    expect(C.streamOperation.captureQueryParameter).toBe("captureId");
+  });
+
   it("describes owner-scoped tag, metadata update and delete operations", () => {
     expect(C.operations.createPersonalTranscription.path).toBe("/recording/realtime-asr/sessions");
     expect(C.operations.listPersonalTranscriptions.method).toBe("GET");

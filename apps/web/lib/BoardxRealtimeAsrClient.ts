@@ -1,5 +1,6 @@
 import { personalRealtimeTranscription as C } from "@repo/contracts";
 import { apiRequest, apiWebSocketUrl, waitForSocketOpen } from "./api-client";
+import { stopPersonalTranscription } from "./live-personal-transcriptions";
 import { startPcmAudioWorklet, type PcmAudioWorkletHandle } from "./PcmAudioWorklet";
 import type {
   RealtimeAsrFinalEvent, RealtimeAsrStreamError, RealtimeAsrStreamState, RealtimeAsrTicket,
@@ -38,6 +39,7 @@ export async function openBoardxRealtimeAsr(
     readonly issueTicket?: (sessionId: string, sessionToken?: string | null) => Promise<RealtimeAsrTicket>;
     readonly createSocket?: (url: string) => WebSocket;
     readonly capture?: () => Promise<PcmAudioWorkletHandle>;
+    readonly cleanupCapture?: (sessionId: string, sessionToken?: string | null) => Promise<unknown>;
     readonly handshakeTimeoutMs?: number;
   },
 ): Promise<BoardxRealtimeAsrHandle> {
@@ -47,13 +49,28 @@ export async function openBoardxRealtimeAsr(
   url.searchParams.set(C.streamOperation.ticketQueryParameter, ticket.ticket);
   const socket = (deps.createSocket ?? ((target) => new WebSocket(target)))(url.toString());
   socket.binaryType = "arraybuffer";
-  await waitForSocketOpen(socket, () => new Error("personal_realtime_asr_handshake_failed"), deps.handshakeTimeoutMs);
+  const cleanupReservedCapture = async () => {
+    try {
+      await (deps.cleanupCapture ?? stopPersonalTranscription)(sessionId, deps.sessionToken);
+    } catch {
+      // Preserve the startup failure. The stop endpoint is best-effort recovery for the
+      // capture reserved when the ticket was issued; it must not mask the root cause.
+    }
+  };
+  try {
+    await waitForSocketOpen(socket, () => new Error("personal_realtime_asr_handshake_failed"), deps.handshakeTimeoutMs);
+  } catch (error) {
+    socket.close();
+    await cleanupReservedCapture();
+    throw error;
+  }
 
   let capture: PcmAudioWorkletHandle;
   try {
     capture = await (deps.capture ?? startPcmAudioWorklet)();
   } catch (error) {
     socket.close();
+    await cleanupReservedCapture();
     throw error;
   }
 

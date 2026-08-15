@@ -34,7 +34,7 @@
 import type { Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, type WebSocket } from "ws";
-import { recording as C } from "@repo/contracts";
+import { personalRealtimeTranscription as PersonalC, recording as C } from "@repo/contracts";
 import {
   AsrNotConfiguredError,
   type AsrProviderPort,
@@ -55,6 +55,12 @@ type AsrErrorReason = typeof C.streamOperations.streamAsr.err._type;
 
 const PATH_RE = /^\/recording\/sessions\/([^/?]+)\/asr-stream(?:\?|$)/;
 const BEARER_PREFIX = C.streamOperations.streamAsr.bearerSubprotocolPrefix;
+
+export function isPersonalRealtimeAsrUpgrade(url: URL): boolean {
+  return PATH_RE.test(url.pathname)
+    && url.searchParams.has(PersonalC.streamOperation.captureQueryParameter)
+    && url.searchParams.has(PersonalC.streamOperation.ticketQueryParameter);
+}
 
 export interface AsrGatewayDeps {
   readonly principals: PrincipalResolverPort;
@@ -83,9 +89,11 @@ export function attachAsrGateway(server: Server, deps: AsrGatewayDeps): WebSocke
 
   server.on("upgrade", (request, socket, head) => {
     const url = request.url ?? "";
-    const match = PATH_RE.exec(url);
-    // 不是本面的路径 ⇒ 一个字都不写、一个字节都不动。别的 upgrade 监听者（今天没有）
-    // 还要用这条连接，抢答会把它们的连接吃掉。
+    const parsedUrl = new URL(url, "http://localhost");
+    if (isPersonalRealtimeAsrUpgrade(parsedUrl)) return;
+    const match = PATH_RE.exec(parsedUrl.pathname);
+    // 不是本面的路径 ⇒ 一个字都不写、一个字节都不动。个人实时转录 gateway
+    // 与本面共用同一 HTTP server；抢答会把它的一次性 ticket 连接吃掉。
     if (match === null) return;
     const sessionId = decodeURIComponent(match[1] ?? "");
 

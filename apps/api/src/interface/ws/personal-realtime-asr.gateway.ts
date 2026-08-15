@@ -10,16 +10,26 @@ import { persistThenPublishFinal, type AsrUsageMeter,
 import type { AsrProviderPort, AsrSession } from "../../application/recording/asr-ports";
 import { toOrgId } from "../../domain/org-id";
 
-const PATH=/^\/recording\/realtime-asr\/sessions\/([^/?]+)\/captures\/([^/?]+)\/stream(?:\?|$)/;
+const CANONICAL_PATH=/^\/recording\/realtime-asr\/sessions\/([^/?]+)\/captures\/([^/?]+)\/stream$/;
+const ROUTED_ALIAS_PATH=/^\/recording\/sessions\/([^/?]+)\/asr-stream$/;
 type Frame=typeof C.RealtimeAsrServerEvent._type;
 export interface PersonalRealtimeAsrGatewayDeps { tickets:RealtimeAsrTicketStore; repository:PersonalTranscriptionRepository;
   provider:AsrProviderPort; usage:AsrUsageMeter; ids:IdGenerator; }
 function refuse(socket:Duplex,status:number){socket.write(`HTTP/1.1 ${status} Refused\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);socket.destroy();}
 
+export function matchPersonalRealtimeAsrPath(url:URL):{transcriptionId:string;captureId:string}|null{
+  const canonical=CANONICAL_PATH.exec(url.pathname);
+  const encodedTranscriptionId=canonical?.[1]??ROUTED_ALIAS_PATH.exec(url.pathname)?.[1];
+  const encodedCaptureId=canonical?.[2]??url.searchParams.get(C.streamOperation.captureQueryParameter);
+  if(!encodedTranscriptionId||!encodedCaptureId)return null;
+  try{return{transcriptionId:decodeURIComponent(encodedTranscriptionId),captureId:decodeURIComponent(encodedCaptureId)};}
+  catch{return null;}
+}
+
 export function attachPersonalRealtimeAsrGateway(server:Server,deps:PersonalRealtimeAsrGatewayDeps):WebSocketServer{
   const wss=new WebSocketServer({noServer:true});
-  server.on("upgrade",(request,socket,head)=>{const url=new URL(request.url??"/","http://localhost");const match=PATH.exec(url.pathname);
-    if(!match)return; void(async()=>{const transcriptionId=decodeURIComponent(match[1]!),captureId=decodeURIComponent(match[2]!);
+  server.on("upgrade",(request,socket,head)=>{const url=new URL(request.url??"/","http://localhost");const match=matchPersonalRealtimeAsrPath(url);
+    if(!match)return; void(async()=>{const {transcriptionId,captureId}=match;
       const ticket=url.searchParams.get(C.streamOperation.ticketQueryParameter); if(!ticket)return refuse(socket,401);
       const [encodedOrg]=ticket.split("."); let orgId; try{orgId=toOrgId(Buffer.from(encodedOrg??"","base64url").toString("utf8"));}
       catch{return refuse(socket,401);}
