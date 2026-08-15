@@ -6,12 +6,12 @@
 |---|---|---|---|
 | `listDigitalInterviews` | scope, status filter | 历史卡投影 | `NO_INTERVIEW_ACCESS`, `DEPENDENCY_UNAVAILABLE` |
 | `listDigitalExperts` | domain filter | 可用专家投影 | `DEPENDENCY_UNAVAILABLE`（不得伪装空列表） |
-| `createDigitalInterviewDraft` | name, tags, topic | `draft` | `DIGITAL_INTERVIEW_INPUT_INVALID` |
-| `confirmDigitalInterviewTopic` | interviewId, version | `experts_pending` + candidates | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION` |
-| `updateDigitalInterviewExperts` | add/remove ids, version | candidate set | `DIGITAL_EXPERT_REQUIRED`, `DIGITAL_EXPERT_NOT_AVAILABLE`, `CONCURRENT_MODIFICATION` |
-| `confirmDigitalInterviewExperts` | interviewId, version | `questions_pending` + per-expert questions | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE` |
-| `updateDigitalInterviewQuestions` | expertId, mutations, version | per-expert questions | `DIGITAL_QUESTION_EXPERT_INVALID`, `CONCURRENT_MODIFICATION` |
-| `startDigitalInterviewRuns` | interviewId, version | run list | `DIGITAL_INTERVIEW_STEP_INVALID` |
+| `createDigitalInterview` | `{ name, tags, scope, requestId }` | `topic_pending`；只含名称/标签/范围/版本 | `DIGITAL_INTERVIEW_INPUT_INVALID`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewTopic` | `{ interviewId, topic, requestId, expectedVersion }` | `experts_pending` + candidates | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `updateDigitalInterviewExperts` | `{ interviewId, add, remove, requestId, expectedVersion }` | dirty candidate set | `DIGITAL_EXPERT_REQUIRED`, `DIGITAL_EXPERT_NOT_AVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewExperts` | `{ interviewId, requestId, expectedVersion }` | `questions_pending` + per-expert questions | `DIGITAL_INTERVIEW_STEP_INVALID`, `AI_GENERATION_UNAVAILABLE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `updateDigitalInterviewQuestions` | `{ interviewId, expertId, mutations, requestId, expectedVersion }` | dirty per-expert questions | `DIGITAL_QUESTION_EXPERT_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
+| `confirmDigitalInterviewQuestions` | `{ interviewId, requestId, expectedVersion }` | `running` + run list | `DIGITAL_INTERVIEW_STEP_INVALID`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED` |
 | `retryDigitalExpertRun` | interviewId, expertId | one updated run | `DIGITAL_EXPERT_RUN_NOT_FAILED`, `DEPENDENCY_UNAVAILABLE` |
 | `generateDigitalInterviewReport` | interviewId, version | traceable report | `DIGITAL_REPORT_NOT_READY`, `DIGITAL_REPORT_SOURCE_INVALID`, `AI_GENERATION_UNAVAILABLE` |
 | `startQuickDigitalInterview` | expertId | persisted quick interview | `DIGITAL_EXPERT_NOT_AVAILABLE` |
@@ -23,7 +23,13 @@
 
 受保护路由统一挂在既有 interview 控制器边界下；准确路径由 `packages/contracts/src/interview.ts` 导出，Web 客户端不得手写第二套响应类型。至少覆盖：列表、详情、创建/保存、确认主题、专家增删确认、问题增删改确认、运行/单专家重试、报告生成、快捷访谈与转批量。
 
-所有写操作携带 `version` 或等价条件更新；重复提交要么幂等返回同一结果，要么返回既有 `CONCURRENT_MODIFICATION`，不得生成重复专家、问题、run 或报告。
+创建路由为 `POST /interviews/digital`；主题确认路由为 `POST /interviews/digital/:interviewId/topic/confirm`；其余步骤按同一 `/:interviewId/<step>/confirm` 形状暴露。创建输入只允许 `{ name, tags, scope, requestId }`，不接收 `topic`。每一个确认请求都必须携带 `requestId` 与 `expectedVersion`；成功时恰好保存一个新版本。相同 `requestId` 和相同规范化 payload 重试返回第一次结果；同 key 但 payload 改变返回 `IDEMPOTENCY_KEY_REUSED`，而不是覆盖或生成重复专家、问题、run 或报告。任何陈旧 `expectedVersion` 返回 `CONCURRENT_MODIFICATION`。
+
+`getDigitalInterview` 是恢复的唯一读端口：刷新和进程重建都从 `GET /interviews/digital/:interviewId` 取得服务器的状态、当前步骤和版本。无权与不存在在该端口均为字节等价的 404。
+
+### Skill 建议的双层持久化
+
+`sendDigitalInterviewSkillMessage` 立即把用户消息、助手消息和 proposal 持久化到 `POST /interviews/digital/:interviewId/skill/messages`；proposal 有 `proposalId`、目标步骤、建议内容与 `createdAt`。`applyDigitalInterviewSkillProposal` 只把建议应用到当前步骤的客户端 dirty buffer，不是写操作。只有对应步骤的显式 `confirm*` 才把已应用内容写入访谈并递增版本；取消/离开不应把未确认的 applied buffer 落库。
 
 ## 三、失败处理
 
@@ -33,3 +39,4 @@
 - 权限在操作中撤回时复用 `PERMISSION_REVOKED_MIDWAY`，并且目标资源信息不泄露。
 - 模型失败日志只记录 interview、expert、operation 和 correlation id，不记录问题或回答正文。
 - 所有报告与快捷/批量问答接口只输出探索性结果，不暴露写入强洞察、决策依据或组织晋升的动作。
+- 操作未确认内容时离开步骤或页面，UI 必须请求用户确认放弃或继续编辑；选择继续编辑不得触发写入。

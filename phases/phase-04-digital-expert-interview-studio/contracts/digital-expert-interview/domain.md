@@ -13,12 +13,12 @@
 | `orgId` | `OrgId` | RLS 隔离键 |
 | `name` | `string` | 非空访谈名称 |
 | `tags` | `string[]` | 至少一项 |
-| `topic` | `string` | 非空主题 |
+| `topic` | `string \| null` | 创建时为空；只能由“确认主题”操作写入非空主题 |
 | `status` | `DigitalInterviewStatus` | 八态单源 |
 | `sourceQuickInterviewId` | `InterviewId \| null` | 快捷访谈转批量时保留来源 |
 | `selectedExpertIds` | `DigitalExpertId[]` | 已确认集合不得为空 |
 | `reportId` | `InterviewReportId \| null` | 报告生成后写入 |
-| `version` | `number` | 并发修改保护 |
+| `version` | `number` | 并发修改保护；每一次成功的显式确认恰好递增一次 |
 
 `DigitalInterviewStatus` 是封闭八态：
 `draft / topic_pending / experts_pending / questions_pending / running / report_pending / completed / failed`。
@@ -46,7 +46,7 @@
 
 | 当前态 | 操作 | 下一态 | 关键前置条件 |
 |---|---|---|---|
-| `draft` / `topic_pending` | 确认主题 | `experts_pending` | 名称、标签、主题有效；成功生成或允许手动添加专家 |
+| `topic_pending` | 确认主题 | `experts_pending` | 名称、标签、主题有效；成功生成或允许手动添加专家 |
 | `experts_pending` | 确认专家 | `questions_pending` | 至少一位专家 |
 | `questions_pending` | 确认问题并运行 | `running` | 每位专家至少一题且归属合法 |
 | `running` | 全部运行结束 | `report_pending` | 允许部分专家失败，但不得伪装全部成功 |
@@ -59,7 +59,7 @@
 | # | 不变量 | 机械断言 |
 |---|---|---|
 | I-1 | 状态只来自八态闭集；卡片、详情、当前步骤与主按钮均由该字段投影 | 契约拒绝第九值；同一 fixture 的四处投影一致 |
-| I-2 | 创建草稿只保存名称、标签、主题，不调用专家生成器 | spy 断言生成器 0 调用 |
+| I-2 | `createDigitalInterview` 只保存名称、标签、范围和 `requestId`，初始态为 `topic_pending`；它不保存主题，也不调用专家生成器 | HTTP 创建响应与重新读取均为 `topic=null`、`status=topic_pending`；生成器 0 调用 |
 | I-3 | 未确认主题不得生成专家；未确认专家不得生成问题；未确认问题不得开始运行 | 三种跳步均由服务端拒绝 |
 | I-4 | 已确认专家集合永不为空 | 删除最后一位返回 `DIGITAL_EXPERT_REQUIRED` |
 | I-5 | 问题只能归属于本场已选专家 | 外部或已删除专家返回 `DIGITAL_QUESTION_EXPERT_INVALID` |
@@ -69,7 +69,10 @@
 | I-9 | 快捷访谈创建即进入历史记录；转批量保留来源引用且只复制当前用户有权使用的内容 | 跨组织/无权内容不进入目标访谈 |
 | I-10 | 无权与不存在返回同一个既有 `NO_INTERVIEW_ACCESS` 信封 | 响应状态与正文逐字节一致 |
 | I-11 | 数字专家材料只经既有 Context API 读取 | 静态依赖检查与 context-pack provenance 断言 |
-| I-12 | 所有有效修改后保存版本；恢复以服务端状态为准 | 重进页面恢复准确步骤、版本与运行进度 |
+| I-12 | 所有有效修改后保存版本；恢复以服务端状态为准 | 重进页面或重建进程后恢复准确步骤、版本与运行进度 |
+| I-13 | 主题、专家、问题、运行和报告的推进都必须经各自的显式确认操作；输入中的未确认内容是客户端 dirty buffer，不得提前写入服务端 | 输入主题/编辑专家或问题时没有写请求；点击确认后恰好保存一个新版本 |
+| I-14 | 每一个可重放写操作以 `(orgId, interviewId, operation, requestId)` 去重；相同 payload 重试返回第一次结果，改变 payload 重用同一 `requestId` 被拒绝 | 重试不生成第二个版本/专家/问题/run/报告；payload 指纹不同返回 `IDEMPOTENCY_KEY_REUSED` |
+| I-15 | 写入带调用方读到的 `expectedVersion`；服务端版本不相等时冲突，绝不静默覆盖 | 陈旧版本返回 `CONCURRENT_MODIFICATION`，服务端内容和版本保持不变 |
 
 ## 四、边界
 
