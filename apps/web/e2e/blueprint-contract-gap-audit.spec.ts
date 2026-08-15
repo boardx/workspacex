@@ -1,12 +1,19 @@
 /**
- * 「蓝本到项目」端到端主流程门控——人类需求「两条主流程 e2e 测试用例」第一条
- * （issue 标题带 "blueprint-to-project e2e"）。
+ * 蓝本管理闭环 + 契约缺口审计——本文件名与标题在 2026-08-15 重定框
+ * （issue #1323，响应对 #1312 / PR #1313 的外部复核；复核评分：作为"主流程"证明力
+ * 3/10，作为"缺口审计"价值 7/10）。旧名 `blueprint-to-project-journey.spec.ts` 和旧标题
+ * 「蓝本到项目主流程」会让读者以为测试真的走到了"套用蓝本新建项目"这一步——它没有，
+ * 见下方②。这次改动**只重定框，不改变任何断言的判定逻辑**：所有 expect 与旧版逐字相同。
  *
- * 覆盖 phase-01 已 passing 的一段真实闭环：F175（新建蓝本）→ F174（设计环节逐项写入）
- * → F179（试跑/发布版本）。链路一节不许省：Chromium → 真登录 → Next 同源代理 →
- * NestJS `BlueprintController` → `PgBlueprintRepository` → PostgreSQL。
+ * 本文件覆盖两类完全不同性质的东西，读结果时不要混为一谈：
  *
- * ## 覆盖范围为什么比人类原始需求窄——如实记录，不是漏做
+ * 【A. 蓝本管理闭环——真实端到端，phase-01 已 passing】
+ * F175（新建蓝本）→ F174（设计环节逐项写入）→ F179（试跑/发布版本）。链路一节不许省：
+ * Chromium → 真登录 → Next 同源代理 → NestJS `BlueprintController` →
+ * `PgBlueprintRepository` → PostgreSQL。这部分是本文件里唯一能称为"闭环验证"的内容。
+ *
+ * 【B. 契约缺口审计——F177 边界证明 + F23/F29 缺口门控，不是功能验证】
+ * 覆盖范围为什么比人类原始需求窄——如实记录，不是漏做。
  *
  * 人类原始需求还要求覆盖 F177（换时长档位）与 F23（套用蓝本新建项目，六类初始化 +
  * 版本快照绑定）。逐项勘探（本次改动前）发现两者在**当前 main（SHA cf162a2d）**上
@@ -37,18 +44,25 @@
  *    `grep -rn "submitChangeRequest" apps/api/src/interface` 零命中。
  *
  * 本文件因此：
- *   · 正例走完 F175 → F174 → F179 的完整真实闭环（含真实 UI 新建蓝本 + 刷新持久化）；
- *   · 对 F177 用真实端点做一条**诚实的边界证明**（CAS 闸门活着，而不是假装完成了一次
- *     被契约允许的写入）；
- *   · 对 F23 / F29 各留一条**契约路径 404** 的证据用例——不是随便编的 URL，是契约里
+ *   · 【A 闭环】正例走完 F175 → F174 → F179 的完整真实闭环（含真实 UI 新建蓝本 +
+ *     刷新持久化）；
+ *   · 【B 审计】对 F177 用真实端点做一条**诚实的边界证明**（CAS 闸门活着，而不是假装
+ *     完成了一次被契约允许的写入）——这条不证明"换档位功能可用"，只证明"这条端点存在
+ *     且校验逻辑是活的"；
+ *   · 【B 审计】对 F23 / F29 各留一条**契约缺口门控**——不是随便编的 URL，是契约里
  *     `operations.applyBlueprint.path` / `operations.submitBlueprintChangeRequest.path`
- *     字面量本身，证明"这条能力承诺的入口，在生产路由表里不存在"，而不是猜测。
- *   · `/project/new`（生产入口）里蓝本套用整体禁用是源码自己标注的当前状态
+ *     字面量本身，断言"这条能力承诺的入口，在生产路由表里不存在"（404）。这两条用例的
+ *     目的不是证明主流程走通了，是**在缺口被悄悄补上之前一直提醒它还没补上**——一旦
+ *     哪天有人挂了控制器却没更新这条断言，CI 会在这里红，逼着回来把这条用例升级成
+ *     真实功能验证。
+ *   · 【B 审计】`/project/new`（生产入口）里蓝本套用整体禁用是源码自己标注的当前状态
  *     （`new-project-flow.tsx` 文件头注），本文件对它做一条真实断言，防止它在未来
  *     被悄悄"看起来能用了"却没有真正接上 `applyBlueprint`。
  *
  * 这份记录不是"这条测试写不完"的借口——是"现在到底能验证到哪"的诚实边界，
  * 供人类决定接下来先补哪个缺口（读路径 T9，还是 `applyBlueprint` 挂控制器）。
+ * 【B 审计】部分**不要**被当作"F177/F23/F29 已经过端到端验证"的证据引用——它们验证的是
+ * "缺口确实还在"，方向和【A 闭环】相反。
  *
  * ⚠ 排进 `playwright.fullstack-smoke.config.ts` 的 `seeded` project：本文件用种子里的
  *   组织管理员（`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色，`canMutateCapabilities`
@@ -87,7 +101,7 @@ const { scope } = (() => {
 
 const BLUEPRINT_NAME = `BP2PROJ_${scope}`;
 
-test.describe.serial("blueprint-to-project 主流程", () => {
+test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②）", () => {
   let blueprintId = "";
 
   test("F175: 组织后台在真实浏览器里新建蓝本，刷新后仍在（真实 POST/GET /blueprints）", async ({ page }) => {
@@ -134,12 +148,13 @@ test.describe.serial("blueprint-to-project 主流程", () => {
 
     await loginAsAdmin(page);
 
-    // 设计器（/tpl/designer）今天仍是纯 mock 挂载点，接受不了真实 blueprintId
-    // （见该页面文件头注：「templates 束的 listDesignFacetDefinitions / updateDesignFacet
-    // 路由今天还不存在」——那句话现在已经不准了，路由是真的，只是没有真实设计器 UI 消费它）。
-    // 本条用例因此走 `updateDesignFacet` 真实端点直连（同 skill-review-gate.spec.ts
-    // 处理「后端真、前端未接线」的既有做法），并用真实 UI 的完成度徽标验证写入生效——
-    // 不靠再读一次这条 PUT 自己的响应体自证。
+    // ── 为什么这里走 API 不走 UI ──────────────────────────────────────────
+    // 不是图省事抄近道：设计器（/tpl/designer）今天仍是纯 mock 挂载点，接受不了
+    // 真实 blueprintId（见该页面文件头注：「templates 束的 listDesignFacetDefinitions /
+    // updateDesignFacet 路由今天还不存在」——那句话现在已经不准了，路由是真的，只是
+    // 没有真实设计器 UI 消费它）。也就是说，**现在真的没有一个可点的表单字段能让这条
+    // 用例走 UI**，不是我们选择跳过它。本条用例因此走 `updateDesignFacet` 真实端点
+    // 直连（同 skill-review-gate.spec.ts 处理「后端真、前端未接线」的既有做法）。
     const headers = await authHeaders(page);
     const designFacetKey = "topic-and-background"; // 真实存在于 design-facet-table.ts 定义表
     const putResponse = await page.request.put(
@@ -156,6 +171,10 @@ test.describe.serial("blueprint-to-project 主流程", () => {
     expect(putBody.completed).toBe(true);
     expect(putBody.completeness.done).toBeGreaterThanOrEqual(1);
 
+    // ── API 调用之后：用真实 UI 复核写入生效 ──────────────────────────────
+    // 不靠再读一次这条 PUT 自己的响应体自证——回到 /tpl/list 让真实浏览器渲染
+    // 出来的完成度徽标去证明数据库里的状态真的变了，这一步不能省，否则上面那次
+    // PUT 调用只证明了"端点接受了请求"，证明不了"写入对用户可见"。
     await page.goto("/tpl/list");
     await expect(page.getByTestId("tpl-live-screen")).toBeVisible();
     const card = page.getByTestId(`tpl-live-card-${blueprintId}`);
@@ -170,10 +189,15 @@ test.describe.serial("blueprint-to-project 主流程", () => {
 
     await loginAsAdmin(page);
 
-    // 见文件头注①：契约缺口 T9 —— 没有任何契约操作把 `expectedVersion`（对应
-    // `blueprints.revision` 列）读出来给调用方。本条用例因此不猜/编一个"看起来对"的值，
-    // 而是证明这条真实端点存在、真实写库前会先校验 CAS 令牌——传一个明显不合法的令牌，
-    // 必须被拒在 409 VERSION_CHANGED（而不是 404/500，证明它真的在校验，不是路由缺失）。
+    // ── 为什么这里走 API 不走 UI，以及为什么这不是"换档位功能验证" ──────────
+    // 换时长档位在生产 UI 上根本没有可点的表单（没有对应设计——不是"表单存在但没
+    // 接线"，是"这个交互目前还不存在于任何页面"）。就算有表单，也没有合法途径让它
+    // 拿到 `expectedVersion`：见文件头注①，契约缺口 T9 —— 没有任何契约操作把
+    // `expectedVersion`（对应 `blueprints.revision` 列）读出来给调用方。本条用例
+    // 因此**不是在验证"换档位能用"**——它只证明这条端点存在、真实写库前会先校验
+    // CAS 令牌：传一个明显不合法的令牌，必须被拒在 409 VERSION_CHANGED（而不是
+    // 404/500，证明它真的在校验，不是路由缺失）。读到这条用例通过，不能得出
+    // "F177 已端到端验证"的结论。
     const headers = await authHeaders(page);
     const putResponse = await page.request.put(
       `${API}${templates.operations.setDurationTier.path.replace(":blueprintId", blueprintId)}`,
@@ -186,6 +210,9 @@ test.describe.serial("blueprint-to-project 主流程", () => {
         },
       },
     );
+    // ── API 调用之后：只做边界断言，不追加任何"看起来更完整"的后续 UI 步骤 ──
+    // 追加一步去点某个 UI 元素不会让这条用例更真实——没有表单可点，硬点会点到
+    // 不相关的元素，制造假的"UI 也验证过了"的印象，那正是这次重定框要避免的事。
     expect(putResponse.status()).toBe(409);
     const body = await putResponse.json();
     expect(body.reasonCode).toBe("VERSION_CHANGED");
@@ -197,6 +224,12 @@ test.describe.serial("blueprint-to-project 主流程", () => {
     await loginAsAdmin(page);
     const headers = await authHeaders(page);
 
+    // ── 为什么试跑/发布这三步走 API 不走 UI ────────────────────────────────
+    // 同 F174/F177：`/tpl/designer` 是试跑/发布动作实际所在的页面，今天仍是纯 mock
+    // 挂载点，没有真实可点的"试跑"“发布”按钮能接受真实 blueprintId。这三步因此走
+    // `startTrialRun` / `publishBlueprintVersion` 真实端点直连，和 F174 同一处境——
+    // 不是选择跳过 UI，是这些按钮现在真的不存在于任何已接线的页面。下方 API 调用
+    // 结束后会切回真实 UI（/tpl/list）复核状态确实落地，见下方"真实 UI 复核"。
     // 未试跑就发布必须被拒（发布门槛之一）。
     //
     // ⚠ 只断言状态码，不断言 `reasonCode: "TRIAL_RUN_REQUIRED"`——实测（本文件调试过程中）
