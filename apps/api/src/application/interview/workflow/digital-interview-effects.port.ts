@@ -2,6 +2,7 @@ import type { DigitalInterviewCommand, DigitalInterviewStep } from "./digital-in
 import type { DigitalInterviewWorkflowView } from "./digital-interview-runtime.port";
 import type { OrgId } from "../../../domain/org-id";
 import type { ScopeSelector } from "../../../domain/interview/scope";
+import type { Guarded } from "../../security/permission-filter";
 
 export type ConfirmationNodeName = "confirm_topic" | "confirm_experts" | "confirm_questions";
 
@@ -47,24 +48,24 @@ export interface DigitalInterviewEffects {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly revisionId: string; readonly skillThreadId: string; readonly scope: ScopeSelector;
     readonly name: string; readonly tags: readonly string[]; readonly requestId: string;
-  }): Promise<DigitalInterviewWorkflowView>;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>>;
   findReceipt(input: {
     readonly orgId: OrgId; readonly interviewId: string | null;
     readonly operationName: string; readonly requestId: string;
     readonly payload: unknown;
-  }): Promise<DigitalInterviewWorkflowView | null>;
+  }): Promise<Guarded<DigitalInterviewWorkflowView> | null>;
   appendSkillMessage(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly currentStep: DigitalInterviewStep; readonly text: string; readonly draftContext: unknown;
     readonly assistantText: string; readonly proposalPatch: Readonly<Record<string, unknown>>;
     readonly expectedVersion: number; readonly requestId: string;
     readonly userMessageId: string; readonly assistantMessageId: string; readonly proposalId: string;
-  }): Promise<DigitalInterviewWorkflowView>;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>>;
   setSkillProposalStatus(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly proposalId: string; readonly status: "applied_to_draft" | "rejected";
     readonly expectedVersion: number; readonly requestId: string;
-  }): Promise<DigitalInterviewWorkflowView>;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>>;
   generateExpertCandidates(input: GenerateDigitalInterviewDraftInput): Promise<void>;
   generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void>;
 }

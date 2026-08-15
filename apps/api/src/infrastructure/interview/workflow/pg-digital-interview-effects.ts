@@ -12,6 +12,7 @@ import {
   type DigitalInterviewWorkflowView,
 } from "../../../application/interview/workflow/digital-interview-runtime.port";
 import type { DatabasePort, TenantSession } from "../../../application/ports/database.port";
+import { guard, type Guarded } from "../../../application/security/permission-filter";
 import { scopeIsCoherent } from "../../../domain/interview/scope";
 import { toOrgId, type OrgId } from "../../../domain/org-id";
 import { readDigitalInterviewWorkflow } from "../pg-digital-interview-repository";
@@ -30,6 +31,10 @@ function canonical(value: unknown): unknown {
 
 function payloadDigest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+}
+
+function guardWorkflow(workflow: DigitalInterviewWorkflowView): Guarded<DigitalInterviewWorkflowView> {
+  return guard({ kind: "interview", id: workflow.interviewId }, workflow);
 }
 
 interface ReceiptRow {
@@ -66,14 +71,14 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   async findReceipt(input: {
     readonly orgId: OrgId; readonly interviewId: string | null;
     readonly operationName: string; readonly requestId: string; readonly payload: unknown;
-  }): Promise<DigitalInterviewWorkflowView | null> {
+  }): Promise<Guarded<DigitalInterviewWorkflowView> | null> {
     return this.db.withTenant(input.orgId, async (session) => {
       const receipt = await this.readReceipt(
         session, input.orgId, input.interviewId, input.operationName, input.requestId,
       );
       if (!receipt) return null;
       this.assertMatchingReceipt(receipt, input.payload);
-      return receipt.response_body;
+      return guardWorkflow(receipt.response_body);
     });
   }
 
@@ -82,7 +87,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     readonly revisionId: string; readonly skillThreadId: string;
     readonly scope: { readonly kind: "none" | "project" | "research"; readonly projectId: string | null; readonly researchProjectId: string | null };
     readonly name: string; readonly tags: readonly string[]; readonly requestId: string;
-  }): Promise<DigitalInterviewWorkflowView> {
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
     if (!scopeIsCoherent(input.scope)) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
     const payload = { name: input.name, tags: input.tags, scope: input.scope };
     return this.db.withTenant(input.orgId, async (session) => {
@@ -90,7 +95,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const receipt = await this.readReceipt(session, input.orgId, null, "create_draft", input.requestId);
       if (receipt) {
         this.assertMatchingReceipt(receipt, payload);
-        return receipt.response_body;
+        return guardWorkflow(receipt.response_body);
       }
       const membership = await session.query<{ allowed: boolean }>(
         `SELECT EXISTS (
@@ -137,7 +142,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         payload,
         workflow,
       });
-      return workflow;
+      return guardWorkflow(workflow);
     });
   }
 
@@ -447,7 +452,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     readonly assistantText: string; readonly proposalPatch: Readonly<Record<string, unknown>>;
     readonly expectedVersion: number; readonly requestId: string;
     readonly userMessageId: string; readonly assistantMessageId: string; readonly proposalId: string;
-  }): Promise<DigitalInterviewWorkflowView> {
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
     const payload = {
       currentStep: input.currentStep, text: input.text, draftContext: input.draftContext,
       expectedVersion: input.expectedVersion,
@@ -457,7 +462,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const replay = await this.readReceipt(
         session, input.orgId, input.interviewId, "append_skill_message", input.requestId,
       );
-      if (replay) { this.assertMatchingReceipt(replay, payload); return replay.response_body; }
+      if (replay) { this.assertMatchingReceipt(replay, payload); return guardWorkflow(replay.response_body); }
       const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const workflowBefore = await this.requireWorkflow(session, input.orgId, input.interviewId);
@@ -492,7 +497,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         operationId: `${input.interviewId}:append_skill_message:${current.revision_number}:${input.requestId}`,
         operationName: "append_skill_message", requestId: input.requestId, payload, workflow,
       });
-      return workflow;
+      return guardWorkflow(workflow);
     });
   }
 
@@ -500,7 +505,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly proposalId: string; readonly status: "applied_to_draft" | "rejected";
     readonly expectedVersion: number; readonly requestId: string;
-  }): Promise<DigitalInterviewWorkflowView> {
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
     const operationName = input.status === "applied_to_draft" ? "apply_skill_proposal" : "reject_skill_proposal";
     const payload = { proposalId: input.proposalId, expectedVersion: input.expectedVersion };
     return this.db.withTenant(input.orgId, async (session) => {
@@ -508,7 +513,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const replay = await this.readReceipt(
         session, input.orgId, input.interviewId, operationName, input.requestId,
       );
-      if (replay) { this.assertMatchingReceipt(replay, payload); return replay.response_body; }
+      if (replay) { this.assertMatchingReceipt(replay, payload); return guardWorkflow(replay.response_body); }
       const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const changed = await session.query<{ id: string }>(
@@ -533,7 +538,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         operationId: `${input.interviewId}:${operationName}:${current.revision_number}:${input.requestId}`,
         operationName, requestId: input.requestId, payload, workflow,
       });
-      return workflow;
+      return guardWorkflow(workflow);
     });
   }
 

@@ -93,7 +93,7 @@ export interface DigitalInterviewRepository {
     readonly item: Guarded<StoredDigitalInterview>;
     readonly facts: InterviewVisibilityFacts;
   } | null>;
-  loadWorkflow(orgId: OrgId, interviewId: string): Promise<DigitalInterviewWorkflowView | null>;
+  loadWorkflow(orgId: OrgId, interviewId: string): Promise<Guarded<DigitalInterviewWorkflowView> | null>;
   updateStatus(input: {
     readonly orgId: OrgId;
     readonly interviewId: string;

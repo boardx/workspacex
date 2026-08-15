@@ -27,8 +27,14 @@ import {
 import { createDigitalInterviewGraph } from "../../../application/interview/workflow/digital-interview-graph";
 import type { DecisionIdFactory } from "../../../application/identity/ports";
 import type { InterviewScopeRepository } from "../../../application/interview/ports";
-import { getDigitalInterview } from "../../../application/interview/get-digital-interview";
+import { authorizeDigitalInterview } from "../../../application/interview/get-digital-interview";
 import { NoInterviewAccessError } from "../../../application/interview/errors";
+import {
+  discloseDecided,
+  isDisclosed,
+  type Guarded,
+} from "../../../application/security/permission-filter";
+import type { PermissionDecision } from "../../../domain/identity/permission-decision";
 import type { OrgId } from "../../../domain/org-id";
 import type { PgConfig } from "../../db/pg-config";
 
@@ -155,6 +161,11 @@ const STEP_ORDER: Readonly<Record<z.infer<typeof interview.DigitalInterviewStep>
   topic: 0, experts: 1, questions: 2, runs: 3, report: 4,
 };
 
+interface AuthorizedWorkflow {
+  readonly workflow: DigitalInterviewWorkflowView;
+  readonly decision: PermissionDecision;
+}
+
 function proposalPatch(
   text: string,
   step: z.infer<typeof interview.DigitalInterviewStep>,
@@ -193,24 +204,28 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly scope: z.infer<typeof interview.InterviewScope>; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
     await this.assertOrgMember(input.orgId, input.actorId);
-    const replay = await this.deps.effects.findReceipt({
+    const guardedReplay = await this.deps.effects.findReceipt({
       orgId: input.orgId,
       interviewId: null,
       operationName: "create_draft",
       requestId: input.requestId,
       payload: { name: input.name, tags: input.tags, scope: input.scope },
     });
-    if (replay) {
+    if (guardedReplay) {
+      const authorized = await this.authorize(input.orgId, input.actorId, guardedReplay.ref.id);
+      const replay = this.discloseWorkflow(guardedReplay, authorized.decision);
       await this.ensureGraphStarted(replay, input.orgId, input.actorId);
       return replay;
     }
 
-    const workflow = await this.deps.effects.createDraft({
+    const guardedWorkflow = await this.deps.effects.createDraft({
       ...input,
       interviewId: this.deps.ids.next("itv"),
       revisionId: this.deps.ids.next("itv-revision"),
       skillThreadId: this.deps.ids.next("itv-skill-thread"),
     });
+    const authorized = await this.authorize(input.orgId, input.actorId, guardedWorkflow.ref.id);
+    const workflow = this.discloseWorkflow(guardedWorkflow, authorized.decision);
     await this.ensureGraphStarted(workflow, input.orgId, input.actorId);
     return workflow;
   }
@@ -231,7 +246,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
   }
 
   async get(input: { readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string }): Promise<DigitalInterviewWorkflowView> {
-    return this.authorize(input.orgId, input.actorId, input.interviewId);
+    return (await this.authorize(input.orgId, input.actorId, input.interviewId)).workflow;
   }
 
   async confirmTopic(input: {
@@ -267,7 +282,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
     const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
-    const replay = await this.deps.effects.findReceipt({
+    const guardedReplay = await this.deps.effects.findReceipt({
       orgId: input.orgId,
       interviewId: input.interviewId,
       operationName: "append_skill_message",
@@ -277,7 +292,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
         expectedVersion: input.expectedVersion,
       },
     });
-    if (replay) return replay;
+    if (guardedReplay) return this.discloseWorkflow(guardedReplay, current.decision);
     if (!this.deps.skillModelProvider || !this.deps.skillModelId) {
       throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     }
@@ -291,14 +306,15 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
         user: JSON.stringify({
           currentStep: input.currentStep,
           confirmedWorkflow: {
-            name: current.name, tags: current.tags, scope: current.scope, topic: current.topic,
-            selectedExpertIds: current.selectedExpertIds, questions: current.questions,
-            revisionId: current.revisionId, version: current.version,
+            name: current.workflow.name, tags: current.workflow.tags,
+            scope: current.workflow.scope, topic: current.workflow.topic,
+            selectedExpertIds: current.workflow.selectedExpertIds, questions: current.workflow.questions,
+            revisionId: current.workflow.revisionId, version: current.workflow.version,
           },
           currentDraft: input.draftContext,
           request: input.text,
         }),
-        history: current.skillMessages.map((message) => ({ role: message.role, content: message.text })),
+        history: current.workflow.skillMessages.map((message) => ({ role: message.role, content: message.text })),
       });
     } catch (error) {
       if (error instanceof ModelCallError) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
@@ -307,8 +323,8 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
 
     // The model boundary is an authorization boundary. The final check is performed again by
     // the effect in the same transaction that locks and mutates the interview.
-    await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
-    return this.deps.effects.appendSkillMessage({
+    const rechecked = await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
+    const guardedWorkflow = await this.deps.effects.appendSkillMessage({
       ...input,
       assistantText: completion.text,
       proposalPatch: proposalPatch(completion.text, input.currentStep),
@@ -316,22 +332,25 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       assistantMessageId: this.deps.ids.next("itv-skill-message"),
       proposalId: this.deps.ids.next("itv-skill-proposal"),
     });
+    return this.discloseWorkflow(guardedWorkflow, rechecked.decision);
   }
 
   async applySkillProposal(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly proposalId: string;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    await this.authorize(input.orgId, input.actorId, input.interviewId);
-    return this.deps.effects.setSkillProposalStatus({ ...input, status: "applied_to_draft" });
+    const authorized = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    const workflow = await this.deps.effects.setSkillProposalStatus({ ...input, status: "applied_to_draft" });
+    return this.discloseWorkflow(workflow, authorized.decision);
   }
 
   async rejectSkillProposal(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly proposalId: string;
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    await this.authorize(input.orgId, input.actorId, input.interviewId);
-    return this.deps.effects.setSkillProposalStatus({ ...input, status: "rejected" });
+    const authorized = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    const workflow = await this.deps.effects.setSkillProposalStatus({ ...input, status: "rejected" });
+    return this.discloseWorkflow(workflow, authorized.decision);
   }
 
   private async resumeConfirmation(
@@ -341,10 +360,11 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
     const operationName = command.kind;
     const config = checkpointConfig(input.interviewId);
-    const replay = await this.deps.effects.findReceipt({
+    const guardedReplay = await this.deps.effects.findReceipt({
       orgId: input.orgId, interviewId: input.interviewId,
       operationName, requestId: command.requestId, payload: command,
     });
+    const replay = guardedReplay ? this.discloseWorkflow(guardedReplay, current.decision) : null;
     const expectedNode = command.kind;
     const generationOperation = command.kind === "confirm_topic"
       ? "generate_expert_candidates"
@@ -353,10 +373,13 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
         : null;
     let generatedReplay: DigitalInterviewWorkflowView | null = null;
     if (replay && generationOperation !== null) {
-      generatedReplay = await this.deps.effects.findReceipt({
+      const guardedGeneratedReplay = await this.deps.effects.findReceipt({
         orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
         requestId: command.requestId, payload: { expectedVersion: replay.version },
       });
+      generatedReplay = guardedGeneratedReplay
+        ? this.discloseWorkflow(guardedGeneratedReplay, current.decision)
+        : null;
     } else if (replay) {
       const snapshot = await this.graph.getState(config);
       if (snapshot.next.includes(expectedNode)) {
@@ -367,12 +390,12 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       return replay;
     }
     if (!replay) {
-      if (current.version !== command.expectedVersion) {
+      if (current.workflow.version !== command.expectedVersion) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const targetStep = command.kind.replace("confirm_", "") as "topic" | "experts" | "questions";
-      if (targetStep !== current.currentStep) {
-        if (STEP_ORDER[targetStep] >= STEP_ORDER[current.currentStep]) {
+      if (targetStep !== current.workflow.currentStep) {
+        if (STEP_ORDER[targetStep] >= STEP_ORDER[current.workflow.currentStep]) {
           throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
         }
         // Fork the durable checkpoint from the routing node. A Command.goto from a paused
@@ -403,38 +426,51 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       await this.graph.invoke(new Command({ update: { actorId: input.actorId }, resume: command }), config);
     }
     if (generationOperation !== null) {
-      const generated = await this.deps.effects.findReceipt({
+      const guardedGenerated = await this.deps.effects.findReceipt({
         orgId: input.orgId, interviewId: input.interviewId, operationName: generationOperation,
         requestId: command.requestId, payload: { expectedVersion: command.expectedVersion + 1 },
       });
-      if (!generated) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+      if (!guardedGenerated) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+      this.discloseWorkflow(guardedGenerated, current.decision);
     }
-    const stored = await this.deps.effects.findReceipt({
+    const guardedStored = await this.deps.effects.findReceipt({
       orgId: input.orgId, interviewId: input.interviewId,
       operationName, requestId: command.requestId, payload: command,
     });
-    if (!stored) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
-    return stored;
+    if (!guardedStored) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    return this.discloseWorkflow(guardedStored, current.decision);
   }
 
-  private async authorize(orgId: OrgId, actorId: string, interviewId: string): Promise<DigitalInterviewWorkflowView> {
+  private async authorize(orgId: OrgId, actorId: string, interviewId: string): Promise<AuthorizedWorkflow> {
     try {
-      await getDigitalInterview(
+      const authorized = await authorizeDigitalInterview(
         { repo: this.deps.repo, scope: this.deps.scope, decisions: this.deps.decisions },
         { orgId, viewerUserId: actorId, interviewId },
       );
+      const guardedWorkflow = await this.deps.repo.loadWorkflow(orgId, interviewId);
+      if (!guardedWorkflow) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
+      return {
+        workflow: this.discloseWorkflow(guardedWorkflow, authorized.decision),
+        decision: authorized.decision,
+      };
     } catch (error) {
       if (error instanceof NoInterviewAccessError) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
       throw error;
     }
-    const workflow = await this.deps.repo.loadWorkflow(orgId, interviewId);
-    if (!workflow) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
-    return workflow;
   }
 
-  private async recheckAfterModel(orgId: OrgId, actorId: string, interviewId: string): Promise<void> {
+  private discloseWorkflow(
+    workflow: Guarded<DigitalInterviewWorkflowView>,
+    decision: PermissionDecision,
+  ): DigitalInterviewWorkflowView {
+    const disclosed = discloseDecided(workflow, decision);
+    if (!isDisclosed(disclosed)) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
+    return disclosed.payload;
+  }
+
+  private async recheckAfterModel(orgId: OrgId, actorId: string, interviewId: string): Promise<AuthorizedWorkflow> {
     try {
-      await this.authorize(orgId, actorId, interviewId);
+      return await this.authorize(orgId, actorId, interviewId);
     } catch (error) {
       if (error instanceof DigitalInterviewWorkflowError && error.code === "NO_INTERVIEW_ACCESS") {
         throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");

@@ -124,8 +124,11 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
     });
   }
 
-  async loadWorkflow(orgId: OrgId, interviewId: string): Promise<DigitalInterviewWorkflowView | null> {
-    return this.db.withTenant(orgId, (session) => readDigitalInterviewWorkflow(session, orgId, interviewId));
+  async loadWorkflow(orgId: OrgId, interviewId: string) {
+    return this.db.withTenant(orgId, async (session) => {
+      const workflow = await readDigitalInterviewWorkflow(session, orgId, interviewId);
+      return workflow === null ? null : guard({ kind: "interview", id: interviewId }, workflow);
+    });
   }
 
   async updateStatus(input: {
