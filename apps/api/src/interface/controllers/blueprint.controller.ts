@@ -386,6 +386,32 @@ export class BlueprintController {
     }
   }
 
+  /**
+   * 2026-08-15 delta（`design-deltas/blueprint-read-path/`，人类已批准）——
+   * 读一个蓝本已填的设计环节内容 + 蓝本级并发令牌。解锁 BP-06（设计器接线）与
+   * BP-03 遗留的 T13（`setDurationTier.expectedVersion` 之前没有读路径）。
+   *
+   * ⚠ 门槛用 `requireCapabilityAdmin` 而不是 `requireOrgMember`：本端点声明的
+   *   `err` 是 `ROLE_INSUFFICIENT`（对齐 `updateDesignFacet`/`setDurationTier`
+   *   这类同一资源的写端点），不是 `listBlueprints` 用的 `NO_ORG_ROLE`——
+   *   设计环节内容与写它用的是同一档敏感度，读写门槛不该不对称。
+   */
+  @Get("/blueprints/:blueprintId/design-facets")
+  async getDesignFacets(
+    @Param("blueprintId") blueprintId: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    await this.requireCapabilityAdmin(orgId, principal.userId);
+
+    const outcome = await this.repo.getBlueprintDesignFacets(orgId, blueprintId);
+    if (outcome.kind === "blueprint-not-found") {
+      throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+    }
+    return { revision: outcome.revision, designFacets: outcome.designFacets };
+  }
+
   private async requireCapabilityAdmin(orgId: OrgId, userId: string): Promise<void> {
     let membership;
     try {

@@ -774,3 +774,110 @@ describe("F179 试跑与发布版本", () => {
     expect(Number(bindings.rows[0]!.n)).toBe(2);
   });
 });
+
+describe("F186 蓝本读路径缺口 delta —— getBlueprintDesignFacets", () => {
+  it("空蓝本读取：designFacets 为空数组，revision 非空", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-read-1", orgId, actorId: ACTOR, name: "读一号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const out = await repo.getBlueprintDesignFacets(orgId, "bp-read-1");
+    expect(out.kind).toBe("ok");
+    if (out.kind !== "ok") throw new Error("unreachable");
+    expect(out.designFacets).toEqual([]);
+    expect(out.revision).not.toBe("");
+  });
+
+  it("填了若干项后读取：与写入内容逐项一致", async () => {
+    const orgId = toOrgId(ORG);
+    const keys = designFacetKeys(DESIGN_FACET_DEFINITIONS).slice(0, 2);
+    await repo.create({
+      blueprintId: "bp-read-2", orgId, actorId: ACTOR, name: "读二号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const written = await Promise.all(
+      keys.map((k) =>
+        repo.updateDesignFacet({
+          orgId, blueprintId: "bp-read-2", designFacetKey: k, value: `内容-${k}`, expectedItemRevision: "",
+        }),
+      ),
+    );
+
+    const out = await repo.getBlueprintDesignFacets(orgId, "bp-read-2");
+    expect(out.kind).toBe("ok");
+    if (out.kind !== "ok") throw new Error("unreachable");
+    expect(out.designFacets).toHaveLength(2);
+    for (const [i, k] of keys.entries()) {
+      const row = out.designFacets.find((f) => f.designFacetKey === k);
+      const w = written[i];
+      if (w?.kind !== "ok") throw new Error("setup failed");
+      expect(row?.content).toBe(`内容-${k}`);
+      expect(row?.itemRevision).toBe(w.itemRevision);
+    }
+  });
+
+  it("revision 随行级写操作（setDurationTier）滚动", async () => {
+    const orgId = toOrgId(ORG);
+    await repo.create({
+      blueprintId: "bp-read-3", orgId, actorId: ACTOR, name: "读三号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const before = await repo.getBlueprintDesignFacets(orgId, "bp-read-3");
+    if (before.kind !== "ok") throw new Error("setup failed");
+
+    const tierOut = await repo.setDurationTier({
+      orgId, blueprintId: "bp-read-3", tier: "half-day", confirmed: false, expectedVersion: before.revision,
+    });
+    expect(tierOut.kind).toBe("applied");
+
+    const after = await repo.getBlueprintDesignFacets(orgId, "bp-read-3");
+    if (after.kind !== "ok") throw new Error("unreachable");
+    expect(after.revision).not.toBe(before.revision); // 不轮换，前端就没法判断这次写有没有真的发生
+  });
+
+  it("单条 updateDesignFacet 不影响蓝本级 revision（两个令牌粒度独立）", async () => {
+    const orgId = toOrgId(ORG);
+    const [key] = designFacetKeys(DESIGN_FACET_DEFINITIONS);
+    await repo.create({
+      blueprintId: "bp-read-4", orgId, actorId: ACTOR, name: "读四号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    const before = await repo.getBlueprintDesignFacets(orgId, "bp-read-4");
+    if (before.kind !== "ok") throw new Error("setup failed");
+
+    await repo.updateDesignFacet({
+      orgId, blueprintId: "bp-read-4", designFacetKey: key!, value: "内容", expectedItemRevision: "",
+    });
+
+    const after = await repo.getBlueprintDesignFacets(orgId, "bp-read-4");
+    if (after.kind !== "ok") throw new Error("unreachable");
+    expect(after.revision).toBe(before.revision); // 逐项写不该滚动蓝本级令牌——粒度不同，混在一起就分不清谁在动什么
+  });
+
+  it("蓝本不存在：BLUEPRINT_NOT_FOUND", async () => {
+    const orgId = toOrgId(ORG);
+    const out = await repo.getBlueprintDesignFacets(orgId, "bp-does-not-exist-read");
+    expect(out.kind).toBe("blueprint-not-found");
+  });
+
+  it("反证：并发写不同 key 后读取，itemRevision 互不相同（同 F174 的 revision 分布反证同款套路）", async () => {
+    const orgId = toOrgId(ORG);
+    const keys = designFacetKeys(DESIGN_FACET_DEFINITIONS).slice(0, 3);
+    await repo.create({
+      blueprintId: "bp-read-5", orgId, actorId: ACTOR, name: "读五号",
+      origin: "blank", sourceId: null, machineGenerated: false, designFacets: new Map(),
+    });
+    await Promise.all(
+      keys.map((k) =>
+        repo.updateDesignFacet({
+          orgId, blueprintId: "bp-read-5", designFacetKey: k, value: `内容-${k}`, expectedItemRevision: "",
+        }),
+      ),
+    );
+    const out = await repo.getBlueprintDesignFacets(orgId, "bp-read-5");
+    if (out.kind !== "ok") throw new Error("unreachable");
+    const revisions = new Set(out.designFacets.map((f) => f.itemRevision));
+    expect(revisions.size).toBe(keys.length);
+  });
+});

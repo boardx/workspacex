@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Copy, Plus, Sparkles } from "lucide-react";
+import { Copy, Pencil, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
 
 /**
  * BP-05（F1xx，track P P1）—— 「项目模板」生产入口（`/tpl/list`）真实接线。
+ * BP-06：补上「编辑设计」真实链接（`/tpl/designer` 已能接受 `blueprintId` 参数）。
  *
  * ## 与原型 `BlueprintListScreen`（`lib/mock/tpl.ts`）的关系
  *
@@ -29,16 +30,15 @@ import {
  *
  * ## 这次接了什么、没接什么
  *
- * 接：`GET /blueprints` 列表、`POST /blueprints`（origin=blank 新建 / origin=copy 复制）。
+ * 接：`GET /blueprints` 列表、`POST /blueprints`（origin=blank 新建 / origin=copy 复制）、
+ *   「编辑设计」真实链到 `/tpl/designer?blueprintId=`（BP-06 已让该页面读真实数据）。
  * 没接：
- *   · 「编辑设计」——`/tpl/designer` 真实路由内部仍是 `BLUEPRINTS[0]` 硬编码
- *     （见该页面文件头注），传一个真实 blueprintId 过去它也不会用，属于另一块
- *     接线工作（designer 页面本身要先能接受并使用 blueprintId 参数），本次不做。
  *   · 「从项目反向生成」——后端如实拒绝 `DEPENDENCY_UNAVAILABLE`（BP-01 头注），
  *     本屏直接不提供这个入口，不做一个点了必错的按钮。
  *   · 归档/删除——`availableActions` 由服务端派生，BP-01 至今恒返回空数组
  *     （对应端点还没实现），所以真实数据里这两个动作永远不出现，不是本屏忘画。
- *   · 换时长档位——契约缺口 T13（`expectedVersion` 无读路径），见 `live-blueprints.ts` 头注。
+ *   · 换时长档位——设计器页面还没有对应交互入口（契约缺口 T13 已被 F186 解决，
+ *     纯粹是前端交互还没做），见 `live-blueprints.ts` 头注。
  */
 export function BlueprintListScreenLive() {
   const { session } = useSession();
@@ -200,6 +200,12 @@ function BlueprintLiveCard({ row, onCopy }: { row: BlueprintRow; onCopy: () => v
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+          {/* BP-06：designer 页面已能按 blueprintId 读真实数据，链接不再是死指针。 */}
+          <Button size="xs" variant="outline" asChild data-testid="tpl-live-card-edit">
+            <Link href={`/tpl/designer?blueprintId=${encodeURIComponent(row.blueprintId)}`}>
+              <Pencil aria-hidden className="h-3 w-3" /> 编辑设计
+            </Link>
+          </Button>
           {/* ⚠ 不受 `availableActions` 门控：那个字段管的是契约里独立的
               `copyBlueprint`（`POST /blueprints/:id/copy`，未实现）这个动作，
               本按钮走的是另一条已实现路径——`createBlueprint({origin:'copy'})`，
