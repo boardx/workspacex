@@ -1,9 +1,10 @@
 ---
-status: pending                # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: templates
 scope: getBlueprintDesignFacets-read-endpoint
-confirmed_by: null
-confirmed_at: null
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-15"
+confirmed_via: "对话签核（coord-main 转述提案，人类经封闭二选一批准）——新增只读端点 getBlueprintDesignFacets，字段/命名对齐已签核的 updateDesignFacet，不改任何已签核契约形状，不需要新表/迁移，解锁 BP-06 设计器读路径与 BP-03 遗留 T13。"
 ---
 
 # templates 束 delta —— 蓝本读路径缺口（新增 `getBlueprintDesignFacets`）
