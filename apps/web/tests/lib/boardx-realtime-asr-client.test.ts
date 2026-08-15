@@ -93,4 +93,80 @@ describe("BoardxRealtimeAsrClient", () => {
     expect(onState).toHaveBeenCalledWith("error");
     expect(onError).toHaveBeenCalledWith("CONNECTION_FAILED");
   });
+
+  it("releases the capture reserved by a ticket when the WebSocket handshake fails", async () => {
+    const cleanupCapture = vi.fn().mockResolvedValue(undefined);
+
+    await expect(openBoardxRealtimeAsr("session-1", {
+      sessionToken: "jwt",
+      issueTicket: vi.fn().mockResolvedValue({
+        captureId: "capture-1", ticket: "one-time", expiresAt: "2026-08-12T08:00:00Z",
+        websocketPath: "/recording/realtime-asr/sessions/session-1/captures/capture-1/stream",
+      }),
+      createSocket: (url) => {
+        socket = new FakeSocket(url);
+        queueMicrotask(() => socket.dispatchEvent(new Event("error")));
+        return socket as unknown as WebSocket;
+      },
+      cleanupCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    })).rejects.toThrow("personal_realtime_asr_handshake_failed");
+
+    expect(cleanupCapture).toHaveBeenCalledOnce();
+    expect(cleanupCapture).toHaveBeenCalledWith("session-1", "jwt");
+    expect(socket!.readyState).toBe(3);
+  });
+
+  it("does not stop another active capture when ticket issuance is rejected", async () => {
+    const cleanupCapture = vi.fn().mockResolvedValue(undefined);
+
+    await expect(openBoardxRealtimeAsr("session-1", {
+      sessionToken: "jwt",
+      issueTicket: vi.fn().mockRejectedValue(new Error("CAPTURE_ALREADY_ACTIVE")),
+      createSocket: vi.fn(),
+      cleanupCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    })).rejects.toThrow("CAPTURE_ALREADY_ACTIVE");
+
+    expect(cleanupCapture).not.toHaveBeenCalled();
+  });
+
+  it("releases the reserved capture when microphone startup fails", async () => {
+    const cleanupCapture = vi.fn().mockResolvedValue(undefined);
+
+    await expect(openBoardxRealtimeAsr("session-1", {
+      sessionToken: "jwt",
+      issueTicket: vi.fn().mockResolvedValue({
+        captureId: "capture-1", ticket: "one-time", expiresAt: "2026-08-12T08:00:00Z",
+        websocketPath: "/recording/sessions/session-1/asr-stream?captureId=capture-1",
+      }),
+      createSocket: (url) => { socket = new FakeSocket(url); queueMicrotask(() => socket.open()); return socket as unknown as WebSocket; },
+      capture: vi.fn().mockRejectedValue(new Error("microphone denied")),
+      cleanupCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    })).rejects.toThrow("microphone denied");
+
+    expect(cleanupCapture).toHaveBeenCalledOnce();
+    expect(socket!.readyState).toBe(3);
+  });
+
+  it("preserves the handshake error when capture cleanup also fails", async () => {
+    const cleanupCapture = vi.fn().mockRejectedValue(new Error("cleanup failed"));
+
+    await expect(openBoardxRealtimeAsr("session-1", {
+      issueTicket: vi.fn().mockResolvedValue({
+        captureId: "capture-1", ticket: "one-time", expiresAt: "2026-08-12T08:00:00Z",
+        websocketPath: "/recording/sessions/session-1/asr-stream?captureId=capture-1",
+      }),
+      createSocket: (url) => {
+        socket = new FakeSocket(url);
+        queueMicrotask(() => socket.dispatchEvent(new Event("error")));
+        return socket as unknown as WebSocket;
+      },
+      cleanupCapture,
+      handlers: { onInterim: vi.fn(), onFinal: vi.fn(), onState: vi.fn(), onError: vi.fn() },
+    })).rejects.toThrow("personal_realtime_asr_handshake_failed");
+
+    expect(cleanupCapture).toHaveBeenCalledOnce();
+  });
 });

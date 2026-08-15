@@ -21,7 +21,9 @@ describe("personal realtime ASR tickets", () => {
     expect(created.status).toBe(201);const summary=C.operations.createPersonalTranscription.out.parse(await created.json());
     const response=await fetch(`${baseUrl}/recording/realtime-asr/sessions/${summary.sessionId}/tickets`,{method:"POST",headers:auth});
     expect(response.status).toBe(201);const issued=C.operations.issueRealtimeAsrTicket.out.parse(await response.json());
-    expect(issued.websocketPath).toContain(`/sessions/${summary.sessionId}/captures/${issued.captureId}/stream`);
+    expect(issued.websocketPath).toBe(
+      `/recording/sessions/${summary.sessionId}/asr-stream?captureId=${issued.captureId}`,
+    );
     expect(Date.parse(issued.expiresAt)-Date.now()).toBeGreaterThan(50_000);
     const detail=await fetch(`${baseUrl}/recording/realtime-asr/sessions/${summary.sessionId}`,{headers:auth});
     expect(C.operations.readPersonalTranscription.out.parse(await detail.json())).toMatchObject({

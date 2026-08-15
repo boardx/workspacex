@@ -220,7 +220,7 @@ async function connect(input: {
   if (!address || typeof address === "string") throw new Error("test server did not bind");
   const ticket = `${Buffer.from(ORG).toString("base64url")}.secret`;
   const client = new WebSocket(
-    `ws://127.0.0.1:${address.port}/recording/realtime-asr/sessions/${TRANSCRIPTION}/captures/${CAPTURE}/stream?ticket=${ticket}`,
+    `ws://127.0.0.1:${address.port}/recording/sessions/${TRANSCRIPTION}/asr-stream?captureId=${CAPTURE}&ticket=${ticket}`,
   );
   await once(client, "open");
   const frames: Record<string, unknown>[] = [];

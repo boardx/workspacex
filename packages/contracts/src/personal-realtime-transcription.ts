@@ -182,6 +182,7 @@ export const operations = {
 export const streamOperation = {
   path: "/recording/realtime-asr/sessions/:sessionId/captures/:captureId/stream",
   ticketQueryParameter: "ticket",
+  captureQueryParameter: "captureId",
   audio: REALTIME_ASR_AUDIO_FORMAT,
   client: RealtimeAsrClientEvent,
   server: RealtimeAsrServerEvent,
