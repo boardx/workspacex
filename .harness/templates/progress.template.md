@@ -3,7 +3,7 @@
 ## 当前已验证状态(唯一真相)
 - 仓库根目录: <repo 路径>
 - 标准启动路径: `pnpm -w run dev`
-- 标准验证路径: `pnpm -w run verify:base`
+- 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
 - 当前最高优先级未完成功能: <feature id / title>
 - 当前 blocker: <无 / 描述>
 
