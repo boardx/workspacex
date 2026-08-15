@@ -1,5 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException } from "@nestjs/common";
 import { interview as C } from "@repo/contracts";
+import type { z } from "zod";
 import {
   DIGITAL_INTERVIEW_REPOSITORY,
   DIGITAL_EXPERT_CONTEXT_API,
@@ -28,6 +29,11 @@ import {
 } from "../../application/interview/errors";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { toOrgId } from "../../domain/org-id";
+import {
+  DIGITAL_INTERVIEW_RUNTIME,
+  DigitalInterviewWorkflowError,
+  type DigitalInterviewRuntime,
+} from "../../application/interview/workflow/digital-interview-runtime.port";
 
 @Controller("/interviews/digital")
 export class DigitalInterviewController {
@@ -40,9 +46,132 @@ export class DigitalInterviewController {
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(DIGITAL_EXPERT_CONTEXT_API) private readonly context: DigitalExpertContextApi,
+    @Inject(DIGITAL_INTERVIEW_RUNTIME) private readonly workflow: DigitalInterviewRuntime,
   ) {}
 
   private deps() { return { repo:this.repo, ids:this.ids, agents:this.agents, runs:this.runs, model:this.model, scope:this.scope, decisions:this.decisions, context:this.context }; }
+
+  private parse<T>(schema: z.ZodType<T>, input: unknown): T {
+    const parsed = schema.safeParse(input);
+    if (!parsed.success) throw new BadRequestException();
+    return parsed.data;
+  }
+
+  private withPath(body: unknown, path: Readonly<Record<string, string>>): unknown {
+    return { ...(body !== null && typeof body === "object" ? body : {}), ...path };
+  }
+
+  @Post()
+  async createDraft(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(C.operations.createDigitalInterviewDraft.in))
+    body: z.infer<typeof C.operations.createDigitalInterviewDraft.in>,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await this.workflow.createDraft({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...body });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/topic/confirm")
+  async confirmTopic(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.confirmDigitalInterviewTopic.in, this.withPath(body, { interviewId }));
+    try {
+      return await this.workflow.confirmTopic({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/experts/confirm")
+  async confirmExperts(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.confirmDigitalInterviewExperts.in, this.withPath(body, { interviewId }));
+    try {
+      return await this.workflow.confirmExperts({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/questions/confirm")
+  async confirmQuestions(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.confirmDigitalInterviewQuestions.in, this.withPath(body, { interviewId }));
+    try {
+      return await this.workflow.confirmQuestions({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/skill/messages")
+  async appendSkillMessage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.appendDigitalInterviewSkillMessage.in, this.withPath(body, { interviewId }));
+    try {
+      return await this.workflow.appendSkillMessage({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/skill/proposals/:proposalId/apply")
+  async applySkillProposal(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Param("proposalId") proposalId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(
+      C.operations.applyDigitalInterviewSkillProposal.in,
+      this.withPath(body, { interviewId, proposalId }),
+    );
+    try {
+      return await this.workflow.applySkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
+  @Post("/:interviewId/skill/proposals/:proposalId/reject")
+  async rejectSkillProposal(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Param("proposalId") proposalId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(
+      C.operations.rejectDigitalInterviewSkillProposal.in,
+      this.withPath(body, { interviewId, proposalId }),
+    );
+    try {
+      return await this.workflow.rejectSkillProposal({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
 
   @Post("/quick")
   async start(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(C.operations.startQuickDigitalInterview.in)) body: {expertId:string;requestId:string}) {
@@ -65,6 +194,12 @@ export class DigitalInterviewController {
   }
 
   private translate(error:unknown):never {
+    if(error instanceof DigitalInterviewWorkflowError) {
+      if(error.code === "NO_INTERVIEW_ACCESS") throw new NotFoundException();
+      if(error.code === "DEPENDENCY_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:error.code});
+      if(error.code === "DIGITAL_INTERVIEW_INPUT_INVALID") throw new BadRequestException({reasonCode:error.code});
+      throw new ConflictException({reasonCode:error.code});
+    }
     if(error instanceof NoInterviewAccessError) throw new NotFoundException();
     if(error instanceof DigitalInterviewConcurrentModificationError) throw new ConflictException({reasonCode:"CONCURRENT_MODIFICATION"});
     if(error instanceof DigitalInterviewDependencyUnavailableError) throw new ServiceUnavailableException({reasonCode:"DEPENDENCY_UNAVAILABLE"});
@@ -106,5 +241,19 @@ export class DigitalInterviewController {
         status: parsed.data.status as DigitalInterviewStatusName,
       }),
     });
+  }
+
+  @Get("/:interviewId")
+  async getWorkflow(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.getDigitalInterview.in, { interviewId });
+    try {
+      return await this.workflow.get({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input });
+    } catch (error) {
+      return this.translate(error);
+    }
   }
 }

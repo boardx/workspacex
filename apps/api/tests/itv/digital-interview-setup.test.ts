@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
-import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -10,12 +12,17 @@ process.env.KERNEL_QUIET = "1";
 const ORG = "org-digital-interview-f04";
 const OTHER_ORG = "org-digital-interview-f04-other";
 const USER = "u-digital-interview-f04";
+const EXPERT = "agent-digital-interview-f04";
+const PROVIDER = "digital-interview-f04-loopback";
+const MODEL = "digital-interview-f04-model";
 const auth = { "x-kernel-test-principal": `${USER}:${ORG}` };
 const otherAuth = { "x-kernel-test-principal": `${USER}:${OTHER_ORG}` };
 
 let app: NestExpressApplication;
 let base = "";
 let db: PgDatabase;
+let provider: Server;
+let providerHook: (() => Promise<void>) | null = null;
 
 async function startApp() {
   const { createApp } = await import("../../src/main");
@@ -36,6 +43,11 @@ type DigitalInterviewResponse = {
   topic: string | null;
   status: string;
   scope: { kind: string; projectId: string | null; researchProjectId: string | null };
+  currentStep: string;
+  selectedExpertIds: string[];
+  questions: Array<{ questionId: string; expertId: string; order: number; text: string; purpose: string }>;
+  skillMessages: Array<{ messageId: string; role: string; text: string }>;
+  skillProposals: Array<{ proposalId: string; status: string; patch: Record<string, unknown> }>;
 };
 
 function maskTrace(raw: string) {
@@ -66,6 +78,20 @@ beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
+  provider = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk) => chunks.push(chunk));
+    request.on("end", async () => {
+      await providerHook?.();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ topic: "建议聚焦最终否决权" }) } }] }));
+    });
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  process.env.KERNEL_MODEL_PROVIDER = PROVIDER;
+  process.env.KERNEL_MODEL_BASE_URL = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
+  process.env.KERNEL_MODEL_API_KEY = "test-key";
+  process.env.KERNEL_DIGITAL_INTERVIEW_SKILL_MODEL_ID = MODEL;
   await startApp();
 }, 120_000);
 
@@ -73,14 +99,31 @@ afterAll(async () => {
   await app?.close();
   await resetOrgs(ORG, OTHER_ORG);
   await db.close();
+  await new Promise<void>((resolve) => provider.close(() => resolve()));
 });
 
 beforeEach(async () => {
+  providerHook = null;
   await resetOrgs(ORG, OTHER_ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f04" });
   await addOrgMember(ORG, USER, "consultant", fixture.teams.energy!);
   const otherFixture = await seedOrg({ orgId: OTHER_ORG, projectId: "proj-f04-other" });
   await addOrgMember(OTHER_ORG, USER, "consultant", otherFixture.teams.energy!);
+  await asApp(ORG, async (session) => {
+    await session.query(
+      `INSERT INTO agents
+        (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,
+         initials,role,visibility,source,publish_state,model_id,concurrency_limit,degrade_policy)
+       VALUES ($1,$2,'f04-procurement','德国采购总监','enabled',$3,now(),now(),NULL,
+               'DE','采购决策','全组织可用','self','运行中',$4,2,'跟随组织级')`,
+      [EXPERT, ORG, USER, MODEL],
+    );
+    await session.query(
+      `INSERT INTO capability_listings(id,org_id,kind,name,scope,enabled,abbr,duty)
+       VALUES ($1,$2,'agent','德国采购总监','org-wide',true,'DE','采购决策')`,
+      [EXPERT, ORG],
+    );
+  });
 });
 
 describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
@@ -189,5 +232,116 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       expect(raw).not.toContain(created.interviewId);
       expect(raw).not.toContain("itv-f04-does-not-exist");
     }
+  });
+
+  it("显式确认推进主题、专家和问题；Skill 消息与 proposal 使用同一 aggregate version 并可重启恢复", async () => {
+    const created = await createInterview("create-complete-f04");
+    const topic = await fetch(`${base}/interviews/digital/${created.interviewId}/topic/confirm`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ topic: "德国储能采购谁有最终否决权", expectedVersion: 1, requestId: "topic-complete-f04" }),
+    });
+    expect(topic.status).toBe(201);
+    const topicView = await topic.json() as DigitalInterviewResponse;
+    expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
+
+    const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ expertIds: [EXPERT], expectedVersion: 2, requestId: "experts-complete-f04" }),
+    });
+    expect(experts.status).toBe(201);
+    const expertView = await experts.json() as DigitalInterviewResponse;
+    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [EXPERT], version: 3 });
+
+    const question = { questionId: "question-f04-1", expertId: EXPERT, order: 1, text: "谁签署最终采购合同？", purpose: "确认否决权归属" };
+    const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ questions: [question], expectedVersion: 3, requestId: "questions-complete-f04" }),
+    });
+    expect(questions.status).toBe(201);
+    expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: [question], version: 4 });
+
+    const message = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ currentStep: "runs", text: "请聚焦最终否决权", expectedVersion: 4, requestId: "skill-message-f04" }),
+    });
+    expect(message.status).toBe(201);
+    const messageView = await message.json() as DigitalInterviewResponse;
+    expect(messageView).toMatchObject({ version: 5 });
+    expect(messageView.skillMessages.map((item) => item.role)).toEqual(["user", "assistant"]);
+    expect(messageView.skillProposals).toEqual([
+      expect.objectContaining({ status: "proposed", patch: { topic: "建议聚焦最终否决权" } }),
+    ]);
+
+    const proposalId = messageView.skillProposals[0]!.proposalId;
+    const applied = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/proposals/${proposalId}/apply`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ expectedVersion: 5, requestId: "skill-apply-f04" }),
+    });
+    expect(applied.status).toBe(201);
+    expect(await applied.json()).toMatchObject({
+      version: 6,
+      skillProposals: [expect.objectContaining({ proposalId, status: "applied_to_draft" })],
+    });
+
+    const secondMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ currentStep: "runs", text: "这条建议请保留审计后拒绝", expectedVersion: 6, requestId: "skill-message-reject-f04" }),
+    });
+    expect(secondMessage.status).toBe(201);
+    const secondMessageView = await secondMessage.json() as DigitalInterviewResponse;
+    expect(secondMessageView.version).toBe(7);
+    const rejectedProposalId = secondMessageView.skillProposals.find((proposal) => proposal.status === "proposed")!.proposalId;
+    const rejected = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/proposals/${rejectedProposalId}/reject`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ expectedVersion: 7, requestId: "skill-reject-f04" }),
+    });
+    expect(rejected.status).toBe(201);
+    expect(await rejected.json()).toMatchObject({
+      version: 8,
+      skillProposals: expect.arrayContaining([
+        expect.objectContaining({ proposalId: rejectedProposalId, status: "rejected" }),
+      ]),
+    });
+
+    await restartApp();
+    const restored = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+    expect(restored.status).toBe(200);
+    const restoredView = await restored.json() as DigitalInterviewResponse;
+    expect(restoredView).toMatchObject({
+      version: 8,
+      selectedExpertIds: [EXPERT],
+      questions: [question],
+      skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
+      skillProposals: expect.arrayContaining([
+        expect.objectContaining({ proposalId, status: "applied_to_draft" }),
+        expect.objectContaining({ proposalId: rejectedProposalId, status: "rejected" }),
+      ]),
+    });
+    expect(restoredView).not.toHaveProperty("dirtyTopic");
+    expect(restoredView).not.toHaveProperty("dirtyQuestions");
+  });
+
+  it("模型调用期间权限被撤销时拒绝 Skill 落库", async () => {
+    const created = await createInterview("create-revoke-f04");
+    providerHook = () => asOwner((client) =>
+      client.query("DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2", [ORG, USER]),
+    ).then(() => undefined);
+
+    const response = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ currentStep: "topic", text: "这条消息不能落库", expectedVersion: 1, requestId: "skill-revoke-f04" }),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reasonCode: "PERMISSION_REVOKED_MIDWAY" });
+    providerHook = null;
+
+    const count = await asOwner((client) => client.query<{ count: string }>(
+      `SELECT count(*)::text AS count
+         FROM digital_interview_skill_messages m
+         JOIN digital_interview_skill_threads t ON t.org_id=m.org_id AND t.id=m.skill_thread_id
+        WHERE t.org_id=$1 AND t.interview_id=$2`,
+      [ORG, created.interviewId],
+    ));
+    expect(count.rows[0]?.count).toBe("0");
   });
 });

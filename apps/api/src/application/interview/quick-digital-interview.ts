@@ -188,9 +188,9 @@ export async function convertQuick(
   const parsed = interview.DigitalInterviewDraftInput.safeParse({
     name: input.name,
     tags: input.tags,
-    topic: input.topic,
   });
-  if (!parsed.success) throw new DigitalInterviewInputInvalidError();
+  const topic = interview.operations.confirmDigitalInterviewTopic.in.shape.topic.safeParse(input.topic);
+  if (!parsed.success || !topic.success) throw new DigitalInterviewInputInvalidError();
   await getQuick(deps, input);
 
   try {
@@ -201,6 +201,7 @@ export async function convertQuick(
       actorId: input.actorId,
       expectedVersion: input.expectedVersion,
       ...parsed.data,
+      topic: topic.data,
     });
     return interview.ConvertedDigitalInterview.parse({
       interviewId: converted.interviewId,

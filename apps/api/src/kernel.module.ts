@@ -178,7 +178,19 @@ import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guide
 import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
 import { DeterministicGuidedResearchCheckpointGenerator, GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
+import {
+  DIGITAL_INTERVIEW_EFFECTS,
+  type DigitalInterviewEffects,
+} from "./application/interview/workflow/digital-interview-effects.port";
+import {
+  DIGITAL_INTERVIEW_RUNTIME,
+} from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
+import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
+import {
+  createDigitalInterviewCheckpointer,
+  LangGraphDigitalInterviewRuntime,
+} from "./infrastructure/interview/workflow/langgraph-digital-interview-runtime";
 import { ContextApiDigitalExpertMaterialReader } from "./infrastructure/interview/context-api-digital-expert-material-reader";
 // F86 (#356): consent-token 真实持久化——替换原 in-memory-consent-token-repository.ts。
 // ⚠ 尚无 controller 调用这三个仓储背后的用例（issue-signing-token 等）：见该文件顶部
@@ -1014,6 +1026,41 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: DIGITAL_INTERVIEW_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDigitalInterviewRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: DIGITAL_INTERVIEW_EFFECTS,
+      useFactory: (db: DatabasePort, ids: import("./application/artifact/ports").IdFactory) =>
+        new PgDigitalInterviewEffects(db, ids),
+      inject: [DATABASE_PORT, ID_FACTORY],
+    },
+    {
+      provide: DIGITAL_INTERVIEW_RUNTIME,
+      useFactory: (
+        effects: DigitalInterviewEffects,
+        repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
+        scope: import("./application/interview/ports").InterviewScopeRepository,
+        decisions: import("./application/identity/ports").DecisionIdFactory,
+        ids: import("./application/artifact/ports").IdFactory,
+        model: ModelCallPort,
+      ) => new LangGraphDigitalInterviewRuntime({
+        effects,
+        checkpointer: createDigitalInterviewCheckpointer(appConfig()),
+        repo,
+        scope,
+        decisions,
+        ids,
+        model,
+        skillModelProvider: (process.env.KERNEL_MODEL_PROVIDER ?? "").trim(),
+        skillModelId: (process.env.KERNEL_DIGITAL_INTERVIEW_SKILL_MODEL_ID ?? process.env.KERNEL_MODEL_ID ?? "").trim(),
+      }),
+      inject: [
+        DIGITAL_INTERVIEW_EFFECTS,
+        DIGITAL_INTERVIEW_REPOSITORY,
+        INTERVIEW_SCOPE_REPOSITORY,
+        DECISION_ID_FACTORY,
+        ID_FACTORY,
+        MODEL_CALL_PORT,
+      ],
     },
     {
       provide: DIGITAL_EXPERT_CONTEXT_API,

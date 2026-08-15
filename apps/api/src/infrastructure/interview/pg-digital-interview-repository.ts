@@ -1,4 +1,4 @@
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   CreateDigitalInterviewRecordInput,
   DigitalInterviewRepository,
@@ -11,6 +11,8 @@ import type {
 import type { DigitalInterviewStatusName } from "../../domain/interview/digital-interview";
 import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
+import type { DigitalInterviewWorkflowView } from "../../application/interview/workflow/digital-interview-runtime.port";
+import { projectDigitalInterviewState } from "../../domain/interview/digital-interview";
 import {
   INTERVIEW_VISIBILITY_FACT_COLUMNS,
   VISIBILITY_PREDICATE,
@@ -120,6 +122,10 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
             },
           };
     });
+  }
+
+  async loadWorkflow(orgId: OrgId, interviewId: string): Promise<DigitalInterviewWorkflowView | null> {
+    return this.db.withTenant(orgId, (session) => readDigitalInterviewWorkflow(session, orgId, interviewId));
   }
 
   async updateStatus(input: {
@@ -306,4 +312,136 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
         WHERE org_id=$1 AND interview_id=$2 ORDER BY ordinal`,[orgId,interviewId]);
     return materials.rows.map(row=>({sourceMessageId:row.source_message_id,role:row.role,text:row.body,sourcePointers:row.source_pointers}));
   }
+}
+
+interface WorkflowBaseRow extends DigitalInterviewRow {
+  research_project_id: string | null;
+  revision_id: string;
+  revision_number: number;
+  topic_version_id: string | null;
+  expert_snapshot_version_id: string | null;
+  question_version_id: string | null;
+  skill_thread_id: string;
+}
+
+export async function readDigitalInterviewWorkflow(
+  session: TenantSession,
+  orgId: OrgId,
+  interviewId: string,
+): Promise<DigitalInterviewWorkflowView | null> {
+  const base = await session.query<WorkflowBaseRow>(
+    `SELECT s.id, s.org_id, s.title, s.tags, s.topic, s.digital_status,
+            s.source_quick_interview_id, s.selected_expert_ids, s.report_id, s.version,
+            s.created_by, s.updated_at, s.project_id, s.research_project_id,
+            false AS is_collaborator, r.id AS revision_id, r.revision_number,
+            tv.id AS topic_version_id, ev.id AS expert_snapshot_version_id,
+            qv.id AS question_version_id, st.id AS skill_thread_id
+       FROM interview_sessions s
+       JOIN digital_interview_revisions r
+         ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
+       JOIN digital_interview_skill_threads st
+         ON st.org_id=s.org_id AND st.interview_id=s.id
+       LEFT JOIN digital_interview_topic_versions tv
+         ON tv.org_id=r.org_id AND tv.revision_id=r.id AND tv.is_current
+       LEFT JOIN digital_interview_expert_snapshot_versions ev
+         ON ev.org_id=r.org_id AND ev.revision_id=r.id AND ev.is_current
+       LEFT JOIN digital_interview_question_versions qv
+         ON qv.org_id=r.org_id AND qv.revision_id=r.id AND qv.is_current
+      WHERE s.org_id=$1 AND s.id=$2 AND s.digital_status IS NOT NULL`,
+    [orgId, interviewId],
+  );
+  const row = base.rows[0];
+  if (!row) return null;
+
+  const [questions, messages, proposals] = await Promise.all([
+    session.query<{
+      question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
+    }>(
+      `SELECT question_id, expert_id, ordinal, body, purpose
+         FROM digital_interview_questions
+        WHERE org_id=$1 AND version_id=$2
+        ORDER BY ordinal`,
+      [orgId, row.question_version_id],
+    ),
+    session.query<{
+      id: string; skill_thread_id: string; role: "user" | "assistant"; body: string; created_at: Date | string;
+    }>(
+      `SELECT id, skill_thread_id, role, body, created_at
+         FROM digital_interview_skill_messages
+        WHERE org_id=$1 AND skill_thread_id=$2
+        ORDER BY ordinal`,
+      [orgId, row.skill_thread_id],
+    ),
+    session.query<{
+      id: string; source_message_id: string; target_step: DigitalInterviewWorkflowView["currentStep"];
+      base_revision_id: string; patch: Record<string, unknown>;
+      status: DigitalInterviewWorkflowView["skillProposals"][number]["status"];
+      applied_at: Date | string | null; rejected_at: Date | string | null;
+      committed_version_id: string | null; created_at: Date | string;
+    }>(
+      `SELECT id, source_message_id, target_step, base_revision_id, patch, status,
+              applied_at, rejected_at, committed_version_id, created_at
+         FROM digital_interview_skill_proposals
+        WHERE org_id=$1 AND skill_thread_id=$2
+        ORDER BY created_at, id`,
+      [orgId, row.skill_thread_id],
+    ),
+  ]);
+
+  const status = row.digital_status as DigitalInterviewStatusName;
+  const scope = row.project_id !== null
+    ? { kind: "project" as const, projectId: row.project_id, researchProjectId: null }
+    : row.research_project_id !== null
+      ? { kind: "research" as const, projectId: null, researchProjectId: row.research_project_id }
+      : { kind: "none" as const, projectId: null, researchProjectId: null };
+  const workflow: DigitalInterviewWorkflowView & {
+    readonly scope:
+      | { readonly kind: "project"; readonly projectId: string; readonly researchProjectId: null }
+      | { readonly kind: "research"; readonly projectId: null; readonly researchProjectId: string }
+      | { readonly kind: "none"; readonly projectId: null; readonly researchProjectId: null };
+  } = {
+    interviewId: row.id,
+    name: row.title,
+    tags: row.tags,
+    scope,
+    topic: row.topic,
+    status,
+    sourceQuickInterviewId: row.source_quick_interview_id,
+    selectedExpertIds: row.selected_expert_ids,
+    reportId: row.report_id,
+    version: Number(row.version),
+    currentStep: projectDigitalInterviewState(status).currentStep,
+    revisionId: row.revision_id,
+    topicVersionId: row.topic_version_id,
+    expertSnapshotVersionId: row.expert_snapshot_version_id,
+    questionVersionId: row.question_version_id,
+    questions: questions.rows.map((question) => ({
+      questionId: question.question_id,
+      expertId: question.expert_id,
+      order: question.ordinal,
+      text: question.body,
+      purpose: question.purpose,
+    })),
+    skillThreadId: row.skill_thread_id,
+    skillMessages: messages.rows.map((message) => ({
+      messageId: message.id,
+      skillThreadId: message.skill_thread_id,
+      role: message.role,
+      text: message.body,
+      createdAt: new Date(message.created_at).toISOString(),
+    })),
+    skillProposals: proposals.rows.map((proposal) => ({
+      proposalId: proposal.id,
+      sourceMessageId: proposal.source_message_id,
+      targetStep: proposal.target_step,
+      baseRevisionId: proposal.base_revision_id,
+      patch: proposal.patch,
+      status: proposal.status,
+      appliedAt: proposal.applied_at === null ? null : new Date(proposal.applied_at).toISOString(),
+      rejectedAt: proposal.rejected_at === null ? null : new Date(proposal.rejected_at).toISOString(),
+      committedVersionId: proposal.committed_version_id,
+      createdAt: new Date(proposal.created_at).toISOString(),
+    })) as DigitalInterviewWorkflowView["skillProposals"],
+  };
+  return workflow;
 }

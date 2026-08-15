@@ -27,9 +27,9 @@ export async function createDigitalInterviewDraft(
   const parsed = interview.DigitalInterviewDraftInput.safeParse({
     name: input.name,
     tags: input.tags,
-    topic: input.topic,
   });
-  if (!parsed.success) throw new DigitalInterviewInputInvalidError();
+  const topic = interview.operations.confirmDigitalInterviewTopic.in.shape.topic.safeParse(input.topic);
+  if (!parsed.success || !topic.success) throw new DigitalInterviewInputInvalidError();
   if (!scopeIsCoherent(input.scope)) throw new IncoherentScopeError();
 
   return deps.repo.createDraft({
@@ -38,5 +38,6 @@ export async function createDigitalInterviewDraft(
     actorId: input.actorId,
     scope: input.scope,
     ...parsed.data,
+    topic: topic.data,
   });
 }
