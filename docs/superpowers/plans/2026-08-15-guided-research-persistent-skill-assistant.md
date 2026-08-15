@@ -73,9 +73,11 @@ assistant={
   <GuidedResearchSkillAssistant
     step="report"
     sessionKey={`${sessionId ?? "pending"}:report`}
-    snapshot={{ step: "report", value: demoState }}
+    snapshot={{ step: "report", value: { reportSummary: demoState.reportSummary } }}
     onSnapshotChange={(next) => {
-      if (next.step === "report") setDemoState(next.value);
+      if (next.step === "report") {
+        setDemoState((current) => ({ ...current, ...next.value }));
+      }
     }}
   />
 }
@@ -159,4 +161,3 @@ gh pr create --base main --head codex/research-persistent-skill-assistant --draf
 ```
 
 Expected: GitHub returns the new draft PR URL.
-

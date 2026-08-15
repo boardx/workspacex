@@ -649,7 +649,19 @@ function ReportScreen({
   );
   const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
   return (
-    <div className="flex min-w-0 flex-col gap-4" data-density="compact-report">
+    <GuidedResearchStepLayout
+      assistant={
+        <GuidedResearchSkillAssistant
+          step="report"
+          sessionKey={`${sessionId ?? "pending"}:report`}
+          snapshot={{ step: "report", value: { reportSummary: demoState.reportSummary } }}
+          onSnapshotChange={(next) => {
+            if (next.step === "report") setDemoState((current) => ({ ...current, ...next.value }));
+          }}
+        />
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-4" data-density="compact-report">
       <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
@@ -667,7 +679,8 @@ function ReportScreen({
       </div>
       {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
       {!completed && <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || submitting} onClick={() => void finishReport()}>完成研究<BookOpen className="h-4 w-4" /></Button></div>}
-    </div>
+      </div>
+    </GuidedResearchStepLayout>
   );
 }
 
