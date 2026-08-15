@@ -109,7 +109,10 @@ export function InterviewStudioHome({
   const visibleHistoryItems = selectedTag
     ? historyItems.filter((item) => item.tags.some((tag) => tag.trim() === selectedTag))
     : historyItems;
-  const expertItems = experts.kind === "ready" ? experts.items : [];
+  const expertItems = React.useMemo(
+    () => experts.kind === "ready" ? experts.items : [],
+    [experts],
+  );
   const expertDomains = React.useMemo(
     () => Array.from(new Set(expertItems.flatMap((expert) => expert.domains))),
     [expertItems],
