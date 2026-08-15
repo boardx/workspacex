@@ -1,93 +1,187 @@
 $ pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/packages/contracts
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/packages/contracts
 
- ✓ tests/guided-research-session-contract.test.ts (6 tests) 17ms
+ ✓ tests/guided-research-session-contract.test.ts (8 tests) 35ms
 
  Test Files  1 passed (1)
-      Tests  6 passed (6)
-   Start at  19:23:58
-   Duration  1.85s (transform 259ms, setup 0ms, collect 261ms, tests 17ms, environment 0ms, prepare 266ms)
+      Tests  8 passed (8)
+   Start at  00:15:17
+   Duration  6.01s (transform 748ms, setup 0ms, collect 871ms, tests 35ms, environment 1ms, prepare 1.17s)
 
 
 
 $ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
 [exit 0]
-[harness-isolation] outer_db=wsx_1b21fa02bd4a5beb2571 inner_db=wsx_1b21fa02bd4a5beb2571 outer_compose=wsx-1b21fa02bd4a5beb2571 inner_compose=wsx-1b21fa02bd4a5beb2571 status=matched
-[stack-admission] load1=7.75 cores=10 perCore=0.77 running=0/2
-[stack-admission] 排到了，等了 0s
-[test-isolation] id=run-mssv00nv-042e9569-1b21fa02bd4a db=wsx_1b21fa02bd4a5beb2571 compose=wsx-1b21fa02bd4a5beb2571 pg=21522 redis=26522
+[harness-isolation] outer_db=wsx_aee84b7e3e3c798221c0 inner_db=wsx_aee84b7e3e3c798221c0 outer_compose=wsx-aee84b7e3e3c798221c0 inner_compose=wsx-aee84b7e3e3c798221c0 status=matched
+[stack-admission] load1=44.19 cores=10 perCore=4.42 running=0/2
+[stack-admission] 排队中：机器每核负载 4.42（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.49（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.26（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.83（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 55s
+[test-isolation] id=run-msukueq3-82eb449e-aee84b7e3e3c db=wsx_aee84b7e3e3c798221c0 compose=wsx-aee84b7e3e3c798221c0 pg=24262 redis=29262
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
 
-[db-isolation] db=wsx_1b21fa02bd4a5beb2571 capacity=100 current=6 required=32
-{"level":"error","msg":"http exception","traceId":"671161ff-3315-4428-909d-2cc92c294565","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"7a8dd974-3df8-44e9-998d-c606564b6ae0","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"646cd66e-a4ba-4016-8d73-3c632f7c2676","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"45100783-d10f-44b4-be91-7d86bd1ff51b","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:168:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"aff4da71-7e25-4b7f-a4bd-0c691e1df5ef","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmDirections (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:116:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
-{"level":"error","msg":"http exception","traceId":"1efa6f82-427f-429f-b5be-df08a10fe64c","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmOutline (/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api/src/interface/controllers/guided-research.controller.ts:142:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
- ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 66392ms
-   ✓ F168 guided research session list and recovery > creates once per owner idempotency key and resumes from the persisted stage 739ms
-   ✓ F168 guided research session list and recovery > does not reveal an owner's private session to another member in the same org 1292ms
-   ✓ F168 guided research session list and recovery > lists and restores a session for an explicit collaborator 8221ms
-   ✓ F168 guided research session list and recovery > rejects collaborator ids that are not members of the current organization 1020ms
-   ✓ F168 guided research session list and recovery > rejects an idempotency replay whose brief or collaborators differ 1112ms
-   ✓ F168 guided research session list and recovery > RLS also hides the session when queried under another tenant 1011ms
-   ✓ F168 guided research session list and recovery > persists the ordered post-outline lifecycle and rejects premature completion 1323ms
+[db-isolation] db=wsx_aee84b7e3e3c798221c0 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"e2b15896-26b6-4c49-9abf-ea58bf7a7c3b","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.get (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:72:23)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f459c1de-583d-4d87-abb0-e2c40b23275b","detail":{"name":"BadRequestException","message":"Bad Request Exception","stack":"BadRequestException: Bad Request Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:44:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"6fadc8b1-f19b-4558-bb4d-e9351c858357","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.create (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:47:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"6777a579-db3c-47c4-9d15-e565ea3d1164","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.complete (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:186:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b210a6cf-b65b-41f2-a67b-c37a52fdf9f3","detail":{"name":"NotFoundException","message":"Not Found Exception","stack":"NotFoundException: Not Found Exception\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:106:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"63b996a5-6d00-414a-8049-b59e028faa80","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at GuidedResearchController.checkpointError (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:88:13)\n    at GuidedResearchController.confirmBrief (/Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api/src/interface/controllers/guided-research.controller.ts:108:28)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+platfo_7kfmsha4ldy5jexczco62bentu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/research/guided-session-list-and-recovery.test.ts (7 tests) 11327ms
+   ✓ F168 guided research session list and recovery > rejects an idempotency replay whose brief or collaborators differ 469ms
+   ✓ F168 guided research session list and recovery > RLS also hides the session when queried under another tenant 1806ms
+   ✓ F168 guided research session list and recovery > persists the lifecycle and transactionally retracts completed checkpoints 719ms
 
  Test Files  1 passed (1)
       Tests  7 passed (7)
-   Start at  19:24:05
-   Duration  71.75s (transform 21.34s, setup 0ms, collect 516ms, tests 66.39s, environment 0ms, prepare 59ms)
+   Start at  00:16:24
+   Duration  15.87s (transform 2.32s, setup 0ms, collect 744ms, tests 11.33s, environment 0ms, prepare 115ms)
 
-[db-isolation] db=wsx_1b21fa02bd4a5beb2571 peak_connections=4
+[db-isolation] db=wsx_aee84b7e3e3c798221c0 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/research/guided-session-list-and-recovery.test.ts
+  环境预留：0s
+  等待资源：55s
+  命令执行：17s
+  清理：0s
+  总计：1m12s
 
 
-$ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/guided-research-demo-state.test.ts tests/guided-research-skill-state.test.ts
+$ pnpm --filter web exec vitest run tests/guided-research-stage.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
  ✓ tests/guided-research-stage.test.ts (2 tests) 5ms
- ✓ tests/guided-research-demo-state.test.ts (4 tests) 13ms
- ✓ tests/guided-research-skill-state.test.ts (7 tests) 18ms
 
- Test Files  3 passed (3)
-      Tests  13 passed (13)
-   Start at  19:25:24
-   Duration  9.79s (transform 689ms, setup 4.63s, collect 791ms, tests 36ms, environment 1ms, prepare 12.68s)
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:16:42
+   Duration  1.98s (transform 66ms, setup 401ms, collect 24ms, tests 5ms, environment 0ms, prepare 723ms)
 
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
-$ pnpm --filter web exec vitest run --pool=forks --maxWorkers=1 --minWorkers=1 tests/ui/guided-research-skill-assistant.test.tsx tests/ui/guided-research-visual-contract.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-home-live.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx
+$ pnpm --filter web exec vitest run tests/guided-research-demo-state.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/ui/guided-research-flow.test.tsx (13 tests) 6219ms
-   ✓ Issue #1073 · guided deep research UI-first flow > home distinguishes resumable and completed research 610ms
-   ✓ Issue #1073 · guided deep research UI-first flow > AI directions and outline remain editable before search 514ms
-   ✓ Issue #1073 · guided deep research UI-first flow > clamps a requested future checkpoint to the session maximum 1954ms
-   ✓ Issue #1073 · guided deep research UI-first flow > applies a direction Skill suggestion to the live editor 719ms
-   ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 914ms
-   ✓ Issue #1073 · guided deep research UI-first flow > retains search on lifecycle failure and offers retry without navigation 357ms
- ✓ tests/ui/guided-research-home-live.test.tsx (8 tests) 1995ms
-   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 1009ms
- ✓ tests/ui/guided-research-visual-contract.test.tsx (6 tests) 3851ms
-   ✓ F174 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 999ms
-   ✓ F174 signed guided-research visual contract > keeps a contextual Skill workspace with one main editor on every non-home step 1650ms
-   ✓ F174 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 684ms
- ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 433ms
- ✓ tests/ui/guided-research-skill-assistant.test.tsx (4 tests) 1465ms
-   ✓ guided research skill assistant > only changes the editor after explicit application and restores it on undo 1108ms
+ ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
 
- Test Files  5 passed (5)
-      Tests  34 passed (34)
-   Start at  19:25:37
-   Duration  59.79s (transform 5.12s, setup 5.60s, collect 12.24s, tests 13.96s, environment 22.11s, prepare 3.67s)
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  00:16:45
+   Duration  1.01s (transform 47ms, setup 163ms, collect 25ms, tests 3ms, environment 0ms, prepare 294ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/guided-research-skill-state.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/guided-research-skill-state.test.ts (8 tests) 12ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  00:16:47
+   Duration  1.39s (transform 99ms, setup 167ms, collect 76ms, tests 12ms, environment 0ms, prepare 389ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-skill-assistant.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 442ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  00:16:52
+   Duration  3.84s (transform 109ms, setup 117ms, collect 179ms, tests 442ms, environment 1.18s, prepare 799ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1349ms
+   ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 491ms
+   ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 439ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  00:16:58
+   Duration  9.02s (transform 1.22s, setup 622ms, collect 2.05s, tests 1.35s, environment 2.56s, prepare 1.05s)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 1993ms
+   ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 360ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  00:17:08
+   Duration  5.76s (transform 482ms, setup 200ms, collect 835ms, tests 1.99s, environment 1.29s, prepare 660ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-home-live.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 3631ms
+   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 1193ms
+   ✓ F168 guided research home live data > renders server history and resumes from the server-authored stage 747ms
+   ✓ F168 guided research home live data > uses the session URL to restore the server-authored stage 509ms
+   ✓ F168 guided research home live data > reuses the create idempotency key after remount and clears it only after success 402ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  00:17:15
+   Duration  10.81s (transform 820ms, setup 462ms, collect 1.45s, tests 3.63s, environment 3.35s, prepare 997ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+$ pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
+
+ ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 1238ms
+   ✓ F169 guided research live checkpoints > loads a generated direction candidate, saves human edits, and then enters outline 705ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  00:17:30
+   Duration  18.36s (transform 2.17s, setup 2.91s, collect 3.75s, tests 1.24s, environment 6.54s, prepare 2.47s)
 
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
@@ -95,150 +189,122 @@ $ pnpm --filter web exec vitest run --pool=forks --maxWorkers=1 --minWorkers=1 t
 $ pnpm --filter web exec vitest run tests/research-rewrite.test.ts
 [exit 0]
 
- RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/web
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 
- ✓ tests/research-rewrite.test.ts (1 test) 5ms
+ ✓ tests/research-rewrite.test.ts (1 test) 15ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  19:26:39
-   Duration  4.12s (transform 121ms, setup 467ms, collect 66ms, tests 5ms, environment 0ms, prepare 169ms)
+   Start at  00:17:52
+   Duration  4.15s (transform 214ms, setup 639ms, collect 174ms, tests 15ms, environment 0ms, prepare 1.19s)
 
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
 
-$ pnpm --filter api run typecheck
-[exit 2]
+$ pnpm turbo run typecheck --filter=@repo/api
+[exit 0]
 
-> @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api
+   • Packages in scope: @repo/api
+   • Running typecheck in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 40576d20e95572f7
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/boardx/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/api:typecheck: cache hit, replaying logs ac10ce7373a7226b
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+
+ Tasks:    2 successful, 2 total
+Cached:    2 cached, 2 total
+  Time:    1.326s >>> FULL TURBO
+
+• turbo 2.10.5
+
+
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout/apps/web
 > tsc --noEmit
 
-../../packages/fabric-markdown/src/diagrams/registry.ts(13,13): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/fabric-objects.ts(759,9): error TS2339: Property 'save' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(761,9): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(764,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(765,42): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(772,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(773,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(774,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(775,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(776,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(777,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(779,11): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(780,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(781,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(782,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(783,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(784,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(785,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(786,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(788,13): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(789,26): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(792,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(809,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(810,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(811,11): error TS2339: Property 'bezierCurveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(812,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(819,11): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(856,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(857,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(859,11): error TS2339: Property 'quadraticCurveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(861,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(863,9): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(885,9): error TS2339: Property 'restore' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(906,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(907,9): error TS2339: Property 'lineWidth' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(913,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(914,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(915,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(916,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(917,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(918,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(919,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(920,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(921,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(929,11): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(930,11): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(931,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(932,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(933,11): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(934,11): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(935,11): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(936,11): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(937,11): error TS2339: Property 'strokeStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(938,11): error TS2339: Property 'stroke' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(943,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(944,9): error TS2339: Property 'beginPath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(945,9): error TS2339: Property 'moveTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(946,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(947,9): error TS2339: Property 'lineTo' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(948,9): error TS2339: Property 'closePath' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(949,9): error TS2339: Property 'fill' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(953,9): error TS2339: Property 'setLineDash' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(954,9): error TS2339: Property 'font' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(955,9): error TS2339: Property 'textAlign' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(956,9): error TS2339: Property 'textBaseline' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(957,25): error TS2339: Property 'measureText' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(959,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(960,9): error TS2339: Property 'fillRect' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(961,9): error TS2339: Property 'fillStyle' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/fabric-objects.ts(962,9): error TS2339: Property 'fillText' does not exist on type 'CanvasRenderingContext2D'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(48,24): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(79,29): error TS2304: Cannot find name 'SVGGraphicsElement'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(82,28): error TS2304: Cannot find name 'SVGGraphicsElement'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(116,46): error TS2304: Cannot find name 'SVGElement'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(116,59): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(119,20): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(123,38): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(130,23): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(131,36): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(132,11): error TS18046: 'child' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(133,11): error TS18046: 'child' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(134,39): error TS18046: 'child' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(182,49): error TS2304: Cannot find name 'SVGElement'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(182,62): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(185,15): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(186,36): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(187,11): error TS18046: 'child' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(198,38): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(204,15): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(205,15): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(452,36): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(455,31): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(457,20): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(459,9): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(460,14): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(461,14): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(461,73): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(466,21): error TS18046: 'path' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(646,40): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(648,31): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(650,35): error TS18046: 'g' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(651,28): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(652,28): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(653,32): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(654,33): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(665,12): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(819,50): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(831,26): error TS18046: 'line' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(832,27): error TS18046: 'line' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(833,27): error TS18046: 'line' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(841,10): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(842,18): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(844,26): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(845,26): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(846,30): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(847,31): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(863,26): error TS18046: 'line' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(869,26): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(870,26): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(871,30): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(872,31): error TS18046: 'rect' is of type 'unknown'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(880,68): error TS2304: Cannot find name 'Element'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(1018,21): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
-../../packages/fabric-markdown/src/mermaid-parser.ts(1022,3): error TS2584: Cannot find name 'document'. Do you need to change your target library? Try changing the 'lib' compiler option to include 'dom'.
-/Users/shenyangjun/boardx/workspacex/.worktrees/coord-deep-research-f174-ui/apps/api:
- ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 typecheck: `tsc --noEmit`
-Exit status 2
 
-[harness-verify v1 sha256=9b894b88b892f5d4f3b16d2c60642b7bf06f3c7f2041d68c6e18e8a490a52a4c commit=6a147de35a6f317bc4b716415a683a14daa591ce at=2026-08-14T11:28:48.003Z]
+
+$ node apps/api/scripts/lint-permission-paths.mjs
+[exit 0]
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=895 tenant-tables=137 allowlisted=56
+
+
+$ node .harness/scripts/lint-arch-deps.mjs
+[exit 0]
+✅ lint-arch-deps: 893 files, all dependencies point inward
+scanned=893
+
+
+$ node .harness/scripts/lint-ui-material.mjs
+[exit 0]
+  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
+  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
+  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
+  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
+  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
+  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
+  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
+  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
+  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
+  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
+  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
+  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
+  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
+  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
+  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
+  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
+✅ lint-ui-material: 19 个契约束的 ui.md 引用集合 == ui-preview 实存集合（共 735 张截图，无死链、无孤图）
+
+
+$ bash apps/web/scripts/lint-design.sh
+[exit 0]
+
+✅ lint-design：全部通过（扫描 app components lib）
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyangjun/boardx/workspacex/.worktrees/worker-codex-01-f180-control-closeout
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=cc23c596bbd4a2374f7d13eb746818d04be2dd2b（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_aee84b7e3e3c798221c0 inner_db=wsx_aee84b7e3e3c798221c0 outer_compose=wsx-aee84b7e3e3c798221c0 inner_compose=wsx-aee84b7e3e3c798221c0 status=matched
+[stack-admission] load1=24.72 cores=10 perCore=2.47 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-msukueq3-82eb449e-aee84b7e3e3c db=wsx_aee84b7e3e3c798221c0 compose=wsx-aee84b7e3e3c798221c0 pg=24262 redis=29262
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    845ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s
+• turbo 2.10.5
+ WARNING  No tasks were executed as part of this run.
+
+[harness-verify v1 sha256=3ed8b0e90b29e7f57390d3360a762fcc027d271bd5da54ffff540148c860a155 commit=cc23c596bbd4a2374f7d13eb746818d04be2dd2b at=2026-08-15T16:19:59.194Z]
