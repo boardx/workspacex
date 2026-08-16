@@ -1,11 +1,11 @@
 ---
-status: pending
+status: confirmed
 bundle: canvas-mermaid-templates
 base_bundle: canvas
 scope: create-template-signoff-plus-mermaid-diagram-type-plus-two-subgaps
 covers: []
-confirmed_by:
-confirmed_at:
+confirmed_by: usamshen
+confirmed_at: 2026-08-17
 ---
 
 # Design delta 签核 · canvas 模板承载 mermaid 图模板（#988）
@@ -72,7 +72,24 @@ confirmed_at:
 
 待确认。
 
-- [ ] ① UI 通过
-- [ ] ② 用例通过
-- [ ] ③ API 契约通过（含第 2 条 12/13 类裁决、第 4 条颗粒度裁决）
-- [ ] 三件全部通过，`status` 可改为 `confirmed`
+## 人类决定
+
+- [x] ① UI 通过 —— 「新建画布模板」对话框用分岔控件（画布分区模板 / mermaid 图模板）即可，
+      不必拆两个独立入口；初始骨架先只读预览，同意（编辑放到创建后在画布里做）；
+      「基于此开新版」按钮条件 `status !== "draft"` 通过。
+- [x] ② 用例通过 —— 新增 `INVALID_DIAGRAM_SKELETON` 错误码；「基于既有模板开新版」
+      默认不去重（同意材料现状）；team-only 归属采用「补字段并改为创建时显式拒绝」
+      （新增 `TEAM_REQUIRED_FOR_TEAM_ONLY`），不要静默 fail-closed。
+- [x] ③ API 契约通过，具体裁决：
+  1. #496 补签：按现状签（`createTemplate` 保持 `z.string().min(1)` 的 `underlyingType`，
+     无 `ownerTeamId`，只铸 v1），第二、三节的扩展作为后续独立 feature 迭代，不绑定
+     在同一次实现里。
+  2. `MermaidDiagramType` 定为 **12 类**，不含 `xychart`（与 issue 原文一致；`xychart`
+     后续若有需求再单独提扩展，不在本次范围内）。
+  3. `underlyingType` 判别联合（`canvas-section` | `MermaidDiagramType`）方式通过，
+     不另起独立 `mermaid` 模板类型。
+  4. `ownerTeamId` 采用与 `identity` 束 `CapabilityAddPayload` 逐字同型的 `.refine`
+     写法，且升级为「显式拒绝」（呼应 ②「用例」的裁决，二者保持一致）。
+  5. `mintTemplateVersion` 通过；`basedOnVersion` 不需要幂等键，不允许跨分支开新版
+     （避免版本树复杂化，先做线性版本链）。
+- [x] 三件全部通过，`status` 可改为 `confirmed`
