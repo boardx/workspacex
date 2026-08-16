@@ -1,6 +1,7 @@
 # 验收口径 · 工具调用轨迹跨 run 回喂上下文
 
-规范以 [`contract.md`](./contract.md) 为准。以下是 F190（原 F185，重编号见 design-signoff.md）的验收改写口径（真栈反证，不伪造）。
+规范以 [`contract.md`](./contract.md) 为准。以下是本 delta 对应 feature 的验收改写口径（真栈反证，不伪造）。
+
 
 ## V1（跨 run 可见）——上一轮的工具调用对下一轮可见
 - 构造：同一线程内，第一轮 run 触发至少一次 `tool_call` step（有 `tool_name`/
