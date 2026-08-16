@@ -100,12 +100,23 @@ export const FULLSTACK_E2E = {
    *     用他做职能不匹配的断言会红在 404 上，**不是因为对的原因**。
    * ⇒ 多种一个团队 fullstack 的 consultant，专门持 `security-reviewer`。
    *
-   * ## ⚠ 这两条 skill 由用例**现场建**，一行都不种
+   * ## ⚠ 这两条 skill 只种到「草稿」——扫描 → 提交 → 批准仍是用例现场的事
    *
-   * 与上面 `mountableSkillId`（#467 种的那条已启用 skill）**恰好相反**：那条必须种，
-   * 因为当时不存在任何产品路径能启用一个 skill —— 而 #552 补的就是那条路径。
-   * 在这里种一条已启用的，等于把被断言的东西预置掉。库里只种「谁能审」这个前置条件
-   * （`skill_reviewer_functions`），`skill_contracts` 一行都不种。
+   * 与上面 `mountableSkillId`（#467 种的那条已启用 skill）**不同**：那条必须种到底
+   * （已启用），因为当时不存在任何产品路径能启用一个 skill；而 #552 补的就是那条路径，
+   * 所以**不**在这里把 `reviewedSkillName` 种到已启用——那会把被断言的结论预置掉。
+   *
+   * 这两行原来确实一行都不种（`createTeamOnlySkill` 走 `/skill` 的「完全新建」面板
+   * 现场建）。**F192**（issue #598，2026-08-16 签核）冻结了那条面板与 `POST /skills`
+   * （恒 410）之后，「现场建」这条路已经走不通了——不是这条 spec 的断言错了，是
+   * 它依赖的创建入口被另一条 feature 关掉了。于是改为在这里把**草稿**（`skill_contracts`
+   * `status='草稿'`、`skill_contract_versions` `state='草稿'`、`current_version_id`
+   * 仍是 NULL）种进去，`created_by` 钉死为 `userId`（下面的提交人账号）——与 UI 面板
+   * 原本会写出的行**同形**（对照 `pg-skill-contract-repository.ts` 的 `saveDraft`），
+   * 只是换了写入路径，不改变「谁提交的」这个事实，所以「自己审自己 ⇒
+   * `SELF_REVIEW_FORBIDDEN`」等断言不受影响。扫描 pass/reject、提交进人工门禁、
+   * 第二评审人批准、安全评审人职能不匹配、批准后刷新仍是「已启用」——这些仍然全部
+   * 走真实的 `SkillReviewController` HTTP 路径，一步都没有被种子代劳。
    *
    * ⚠ 建出来的是 **`team-only`（归 fullstack 团队）**，与 `mountableSkillId` 同一个理由：
    *   `skill-create-smoke.spec.ts:94` 断言**管理员**打开目录看到真实空态，那是一条反空转

@@ -25,6 +25,10 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+// ⚠ 从产品代码 import 那个 key,**不在这里再写一份字面量**——鉴权是
+//   `Authorization: Bearer <token>`（不是 cookie,见 `api-client.ts` 文件头）,
+//   token 存在 localStorage 的这个键下。同 `skill-review-gate.spec.ts` 的理由。
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 const API = "/__fullstack_api";
 const CREATE_PATH = `${API}/skills`;
@@ -79,13 +83,24 @@ test("F192 · POST /skills 对真实已认证会话恒 410（不是本地 stub�
   await loginAsAdmin(page);
   await openSkillCatalog(page);
 
-  // 在页面上下文里直接发请求：复用浏览器已建立的真实会话 cookie/凭据，
+  // ⚠ 这套系统鉴权靠 `Authorization: Bearer <token>`,不是 cookie（`api-client.ts`
+  //   文件头逐字）——`page.request`/`fetch` 都不会自动带上它。少了这一步,下面的
+  //   请求会先被全局鉴权判 401,断言会红,但**不是因为对的原因**（本条要考验的是
+  //   「已认证会话也照样 410」,不是「没认证所以 401」，同 `skill-review-gate.spec.ts`
+  //   `authHeaders()` 的理由）。
+  const token = await page.evaluate(
+    (key) => window.localStorage.getItem(key),
+    SESSION_TOKEN_STORAGE_KEY,
+  );
+  expect(token, "登录之后 localStorage 里应有 session token").toBeTruthy();
+
+  // 在页面上下文里直接发请求：复用浏览器已建立的真实会话 token，
   // 走的是同一条同源代理 → 真实 `SkillController.create`，不是测试进程自己拼的 fetch。
   const result = await page.evaluate(
-    async ({ path }) => {
+    async ({ path, authToken }) => {
       const response = await fetch(path, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", authorization: `Bearer ${authToken}` },
         body: JSON.stringify({
           orgId: "org-does-not-matter-its-410-regardless",
           name: "F192 真实浏览器反证",
@@ -105,7 +120,7 @@ test("F192 · POST /skills 对真实已认证会话恒 410（不是本地 stub�
       const body = (await response.json()) as { reasonCode?: string };
       return { status: response.status, reasonCode: body.reasonCode };
     },
-    { path: CREATE_PATH },
+    { path: CREATE_PATH, authToken: token },
   );
 
   expect(result.status).toBe(410);
