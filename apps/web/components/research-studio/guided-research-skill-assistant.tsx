@@ -25,11 +25,13 @@ const QUICK_PROMPTS: Record<ResearchEditableSnapshot["step"], readonly string[]>
 export function GuidedResearchSkillAssistant({
   step,
   sessionKey,
+  progressLabel,
   snapshot,
   onSnapshotChange,
 }: {
   step: ResearchEditableSnapshot["step"];
   sessionKey: string;
+  progressLabel?: string;
   snapshot: ResearchEditableSnapshot | ResearchEditableSnapshotInput;
   onSnapshotChange: (snapshot: ResearchEditableSnapshot) => void;
 }) {
@@ -84,6 +86,14 @@ export function GuidedResearchSkillAssistant({
       <div className="flex items-center gap-2">
         <MessageCircle aria-hidden className="size-5 text-primary" />
         <h2 className="font-semibold">研究 Skill 助手</h2>
+        {progressLabel && (
+          <span
+            className="ml-auto rounded-full border border-border bg-muted px-2 py-0.5 text-11 font-medium text-muted-foreground"
+            data-testid="research-skill-progress"
+          >
+            {progressLabel}
+          </span>
+        )}
       </div>
       <p className="mt-2 text-12 leading-5 text-muted-foreground">通过对话优化当前步骤；建议只有点击应用后才会修改内容。</p>
       <div className="mt-4 flex flex-wrap gap-2">

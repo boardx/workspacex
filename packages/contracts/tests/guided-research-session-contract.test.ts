@@ -150,3 +150,214 @@ describe("guided research post-outline lifecycle contract", () => {
     expect(research.ResearchError.options).toContain("RESEARCH_STAGE_CONFLICT");
   });
 });
+
+describe("F195 guided research workflow command contract", () => {
+  const commandBase = {
+    sessionId: "grs-1",
+    action: "confirm",
+    requestId: "req-1",
+    expectedGraphVersion: 3,
+  } as const;
+
+  const completeNodeStates = {
+    brief: {
+      name: "欧洲储能进入研究",
+      tags: ["欧洲", "储能"],
+      topic: "欧洲储能市场进入策略",
+      objective: "确定首批进入国家",
+      timeRange: "2025-2028",
+      geography: "欧洲",
+      focus: "市场、政策和并网",
+    },
+    directions: {
+      directions: [{
+        id: "direction-1",
+        title: "市场规模",
+        description: "验证市场规模与增长质量",
+        enabled: true,
+        order: 0,
+      }],
+    },
+    outline: {
+      sections: [{
+        id: "section-1",
+        title: "市场规模",
+        description: "核验市场容量、增速和增长质量",
+        researchQuestions: ["市场容量是多少？"],
+        order: 0,
+      }],
+    },
+    research: {
+      acceptedSourceIds: ["source-1"],
+      excludedSourceIds: ["source-2"],
+    },
+    report: {
+      title: "欧洲储能市场进入策略研究报告",
+      revisionInstruction: "补充执行摘要",
+    },
+  } as const;
+
+  it("requires the complete current node state for every node command", () => {
+    for (const [node, nodeState] of Object.entries(completeNodeStates)) {
+      expect(research.GuidedResearchNodeCommand.parse({
+        ...commandBase,
+        node,
+        nodeState,
+      })).toMatchObject({ node, nodeState });
+    }
+
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "brief",
+      nodeState: { ...completeNodeStates.brief, objective: undefined },
+    }).success).toBe(false);
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "brief",
+      nodeState: completeNodeStates.brief,
+      requestId: undefined,
+    }).success).toBe(false);
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "brief",
+      nodeState: completeNodeStates.brief,
+      expectedGraphVersion: undefined,
+    }).success).toBe(false);
+  });
+
+  it("strictly validates workflow directions and outline node states", () => {
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "directions",
+      nodeState: {
+        directions: [{ ...completeNodeStates.directions.directions[0], enabled: false }],
+      },
+    }).success).toBe(false);
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "directions",
+      nodeState: {
+        directions: [
+          completeNodeStates.directions.directions[0],
+          { ...completeNodeStates.directions.directions[0], title: "重复 ID", order: 1 },
+        ],
+      },
+    }).success).toBe(false);
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "outline",
+      nodeState: {
+        sections: [
+          completeNodeStates.outline.sections[0],
+          { ...completeNodeStates.outline.sections[0], id: "section-2", order: 2 },
+        ],
+      },
+    }).success).toBe(false);
+  });
+
+  it("rejects server-authored graph metadata and unknown fields", () => {
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "brief",
+      nodeState: {
+        ...completeNodeStates.brief,
+        graphVersion: 99,
+        modelId: "qwen3.7-plus",
+      },
+    }).success).toBe(false);
+    expect(research.GuidedResearchNodeCommand.safeParse({
+      ...commandBase,
+      node: "brief",
+      nodeState: completeNodeStates.brief,
+      orgId: "org-other",
+    }).success).toBe(false);
+  });
+
+  it("exposes one canonical workflow command route and closed workflow errors", () => {
+    expect(operations.getGuidedResearchWorkflow).toMatchObject({
+      method: "GET",
+      path: "/research/guided-sessions/:sessionId/workflow",
+    });
+    expect(operations.getGuidedResearchNode).toMatchObject({
+      method: "GET",
+      path: "/research/guided-sessions/:sessionId/workflow/nodes/:node",
+    });
+    expect(operations.executeGuidedResearchNode).toMatchObject({
+      method: "POST",
+      path: "/research/guided-sessions/:sessionId/workflow/nodes/:node",
+    });
+    expect(operations.listGuidedResearchEvents.path).toBe(
+      "/research/guided-sessions/:sessionId/workflow/events",
+    );
+    expect(operations.appendGuidedResearchSkillMessage.path).toBe(
+      "/research/guided-sessions/:sessionId/skill/messages",
+    );
+
+    for (const code of [
+      "RESEARCH_WORKFLOW_UNAVAILABLE",
+      "RESEARCH_NODE_LOCKED",
+      "RESEARCH_NODE_MISMATCH",
+      "RESEARCH_GRAPH_VERSION_CONFLICT",
+      "RESEARCH_NODE_STATE_INVALID",
+      "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
+      "RESEARCH_CONTENT_REFERENCE_INVALID",
+      "RESEARCH_TASK_NOT_RETRYABLE",
+    ]) {
+      expect(research.ResearchError.options).toContain(code);
+      expect(operations.executeGuidedResearchNode.err).toContain(code);
+    }
+  });
+
+  it("treats generated directions as structured node state with qwen3.7-plus provenance", () => {
+    const parsed = research.GuidedResearchWorkflowProjection.parse({
+      sessionId: "grs-1",
+      graphVersion: 2,
+      revision: 2,
+      currentNode: "directions",
+      availableNodes: ["brief", "directions"],
+      nodeSummaries: {
+        brief: {
+          status: "confirmed",
+          version: 2,
+          confirmedVersion: 2,
+          contentVersionId: null,
+          modelId: null,
+          modelInvocationId: null,
+          modelOutputSchemaVersion: null,
+          confirmedAt: "2026-08-16T00:00:00.000Z",
+          updatedAt: "2026-08-16T00:00:00.000Z",
+          errorCode: null,
+        },
+        directions: {
+          status: "ready",
+          version: 1,
+          confirmedVersion: null,
+          contentVersionId: "sha256-direction-state",
+          modelId: "qwen3.7-plus",
+          modelInvocationId: "grs-1:req-1:directions:generate",
+          modelOutputSchemaVersion: "guided-research-directions:v1",
+          confirmedAt: null,
+          updatedAt: "2026-08-16T00:00:01.000Z",
+          errorCode: null,
+        },
+        outline: { status: "locked", version: 0, confirmedVersion: null, contentVersionId: null, modelId: null, modelInvocationId: null, modelOutputSchemaVersion: null, confirmedAt: null, updatedAt: "2026-08-16T00:00:00.000Z", errorCode: null },
+        research: { status: "locked", version: 0, confirmedVersion: null, contentVersionId: null, modelId: null, modelInvocationId: null, modelOutputSchemaVersion: null, confirmedAt: null, updatedAt: "2026-08-16T00:00:00.000Z", errorCode: null },
+        report: { status: "locked", version: 0, confirmedVersion: null, contentVersionId: null, modelId: null, modelInvocationId: null, modelOutputSchemaVersion: null, confirmedAt: null, updatedAt: "2026-08-16T00:00:00.000Z", errorCode: null },
+      },
+      activeNodeState: completeNodeStates.directions,
+      nodeStateVersions: { brief: 2, directions: 1 },
+      skill: {
+        threadId: "grs-1",
+        activeNode: "directions",
+        summaryId: null,
+        recentMessageIds: [],
+        activeProposalId: null,
+        proposalStatus: "none",
+      },
+      interrupt: { node: "directions", allowedActions: ["save", "generate", "confirm", "reconfirm"] },
+    });
+
+    expect(parsed.activeNodeState).toEqual(completeNodeStates.directions);
+    expect(parsed.nodeSummaries.directions.modelId).toBe("qwen3.7-plus");
+  });
+});

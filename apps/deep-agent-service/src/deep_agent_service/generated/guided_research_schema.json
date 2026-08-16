@@ -1,0 +1,1257 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "GuidedResearchNodeCommand": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "save",
+                "generate",
+                "confirm",
+                "start",
+                "retry",
+                "reconfirm",
+                "complete"
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "expectedGraphVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "node": {
+              "type": "string",
+              "const": "brief"
+            },
+            "nodeState": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20
+                  },
+                  "maxItems": 5
+                },
+                "topic": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "objective": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "timeRange": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "geography": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "name",
+                "tags",
+                "topic",
+                "objective",
+                "timeRange",
+                "geography",
+                "focus"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "sessionId",
+            "action",
+            "requestId",
+            "expectedGraphVersion",
+            "node",
+            "nodeState"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "save",
+                "generate",
+                "confirm",
+                "start",
+                "retry",
+                "reconfirm",
+                "complete"
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "expectedGraphVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "node": {
+              "type": "string",
+              "const": "directions"
+            },
+            "nodeState": {
+              "type": "object",
+              "properties": {
+                "directions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "description",
+                      "enabled",
+                      "order"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "directions"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "sessionId",
+            "action",
+            "requestId",
+            "expectedGraphVersion",
+            "node",
+            "nodeState"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "save",
+                "generate",
+                "confirm",
+                "start",
+                "retry",
+                "reconfirm",
+                "complete"
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "expectedGraphVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "node": {
+              "type": "string",
+              "const": "outline"
+            },
+            "nodeState": {
+              "type": "object",
+              "properties": {
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "researchQuestions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "minItems": 1
+                      },
+                      "order": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "description",
+                      "researchQuestions",
+                      "order"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "sections"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "sessionId",
+            "action",
+            "requestId",
+            "expectedGraphVersion",
+            "node",
+            "nodeState"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "save",
+                "generate",
+                "confirm",
+                "start",
+                "retry",
+                "reconfirm",
+                "complete"
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "expectedGraphVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "node": {
+              "type": "string",
+              "const": "research"
+            },
+            "nodeState": {
+              "type": "object",
+              "properties": {
+                "acceptedSourceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "excludedSourceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "acceptedSourceIds",
+                "excludedSourceIds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "sessionId",
+            "action",
+            "requestId",
+            "expectedGraphVersion",
+            "node",
+            "nodeState"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "save",
+                "generate",
+                "confirm",
+                "start",
+                "retry",
+                "reconfirm",
+                "complete"
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "expectedGraphVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "node": {
+              "type": "string",
+              "const": "report"
+            },
+            "nodeState": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "revisionInstruction": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "title",
+                "revisionInstruction"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "sessionId",
+            "action",
+            "requestId",
+            "expectedGraphVersion",
+            "node",
+            "nodeState"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "GuidedResearchWorkflowProjection": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "graphVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "revision": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "currentNode": {
+          "type": "string",
+          "enum": [
+            "brief",
+            "directions",
+            "outline",
+            "research",
+            "report"
+          ]
+        },
+        "availableNodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "brief",
+              "directions",
+              "outline",
+              "research",
+              "report"
+            ]
+          }
+        },
+        "nodeSummaries": {
+          "type": "object",
+          "properties": {
+            "brief": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "draft",
+                    "running",
+                    "ready",
+                    "confirmed",
+                    "failed",
+                    "stale",
+                    "completed"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "confirmedVersion": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contentVersionId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "qwen3.7-plus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelInvocationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelOutputSchemaVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "version",
+                "confirmedVersion",
+                "contentVersionId",
+                "modelId",
+                "modelInvocationId",
+                "modelOutputSchemaVersion",
+                "confirmedAt",
+                "updatedAt",
+                "errorCode"
+              ],
+              "additionalProperties": false
+            },
+            "directions": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "draft",
+                    "running",
+                    "ready",
+                    "confirmed",
+                    "failed",
+                    "stale",
+                    "completed"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "confirmedVersion": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contentVersionId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "qwen3.7-plus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelInvocationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelOutputSchemaVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "version",
+                "confirmedVersion",
+                "contentVersionId",
+                "modelId",
+                "modelInvocationId",
+                "modelOutputSchemaVersion",
+                "confirmedAt",
+                "updatedAt",
+                "errorCode"
+              ],
+              "additionalProperties": false
+            },
+            "outline": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "draft",
+                    "running",
+                    "ready",
+                    "confirmed",
+                    "failed",
+                    "stale",
+                    "completed"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "confirmedVersion": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contentVersionId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "qwen3.7-plus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelInvocationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelOutputSchemaVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "version",
+                "confirmedVersion",
+                "contentVersionId",
+                "modelId",
+                "modelInvocationId",
+                "modelOutputSchemaVersion",
+                "confirmedAt",
+                "updatedAt",
+                "errorCode"
+              ],
+              "additionalProperties": false
+            },
+            "research": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "draft",
+                    "running",
+                    "ready",
+                    "confirmed",
+                    "failed",
+                    "stale",
+                    "completed"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "confirmedVersion": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contentVersionId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "qwen3.7-plus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelInvocationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelOutputSchemaVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "version",
+                "confirmedVersion",
+                "contentVersionId",
+                "modelId",
+                "modelInvocationId",
+                "modelOutputSchemaVersion",
+                "confirmedAt",
+                "updatedAt",
+                "errorCode"
+              ],
+              "additionalProperties": false
+            },
+            "report": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "locked",
+                    "draft",
+                    "running",
+                    "ready",
+                    "confirmed",
+                    "failed",
+                    "stale",
+                    "completed"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "confirmedVersion": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "contentVersionId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "qwen3.7-plus"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "modelInvocationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "modelOutputSchemaVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "confirmedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "version",
+                "confirmedVersion",
+                "contentVersionId",
+                "modelId",
+                "modelInvocationId",
+                "modelOutputSchemaVersion",
+                "confirmedAt",
+                "updatedAt",
+                "errorCode"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "brief",
+            "directions",
+            "outline",
+            "research",
+            "report"
+          ],
+          "additionalProperties": false
+        },
+        "activeNodeState": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20
+                  },
+                  "maxItems": 5
+                },
+                "topic": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "objective": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "timeRange": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "geography": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "name",
+                "tags",
+                "topic",
+                "objective",
+                "timeRange",
+                "geography",
+                "focus"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "directions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "order": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "description",
+                      "enabled",
+                      "order"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "directions"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sections": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "researchQuestions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "minItems": 1
+                      },
+                      "order": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "description",
+                      "researchQuestions",
+                      "order"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "sections"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "acceptedSourceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "excludedSourceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "acceptedSourceIds",
+                "excludedSourceIds"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "revisionInstruction": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "title",
+                "revisionInstruction"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "nodeStateVersions": {
+          "type": "object",
+          "properties": {
+            "brief": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "directions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "outline": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "research": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "report": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "skill": {
+          "type": "object",
+          "properties": {
+            "threadId": {
+              "type": "string"
+            },
+            "activeNode": {
+              "type": "string",
+              "enum": [
+                "brief",
+                "directions",
+                "outline",
+                "research",
+                "report"
+              ]
+            },
+            "summaryId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "recentMessageIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "activeProposalId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "proposalStatus": {
+              "type": "string",
+              "enum": [
+                "none",
+                "proposed",
+                "applied_to_draft",
+                "rejected",
+                "committed",
+                "stale"
+              ]
+            }
+          },
+          "required": [
+            "threadId",
+            "activeNode",
+            "summaryId",
+            "recentMessageIds",
+            "activeProposalId",
+            "proposalStatus"
+          ],
+          "additionalProperties": false
+        },
+        "interrupt": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "node": {
+                  "type": "string",
+                  "enum": [
+                    "brief",
+                    "directions",
+                    "outline",
+                    "research",
+                    "report"
+                  ]
+                },
+                "allowedActions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "save",
+                      "generate",
+                      "confirm",
+                      "start",
+                      "retry",
+                      "reconfirm",
+                      "complete"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "node",
+                "allowedActions"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "graphVersion",
+        "revision",
+        "currentNode",
+        "availableNodes",
+        "nodeSummaries",
+        "activeNodeState",
+        "nodeStateVersions",
+        "skill",
+        "interrupt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

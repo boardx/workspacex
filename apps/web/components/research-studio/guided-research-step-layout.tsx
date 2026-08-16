@@ -2,14 +2,18 @@ import * as React from "react";
 
 export function GuidedResearchStepLayout({
   assistant,
+  wideMain = false,
   children,
 }: {
   assistant: React.ReactNode;
+  wideMain?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div
-      className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start"
+      className={wideMain
+        ? "grid min-w-0 gap-4 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,2.7fr)] lg:items-start"
+        : "grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start"}
       data-layout="skill-workspace-thirds"
     >
       <details open className="min-w-0 rounded-lg border border-border bg-card lg:contents lg:rounded-none lg:border-0 lg:bg-transparent">

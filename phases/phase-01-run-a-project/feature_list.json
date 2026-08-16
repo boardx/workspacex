@@ -4338,9 +4338,10 @@
       "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
-        "cd apps/deep-agent-service && pytest tests/test_guided_research_graph.py tests/test_guided_research_postgres_recovery.py",
+        "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_graph.py",
+        "bash apps/deep-agent-service/scripts/verify-guided-research-postgres-recovery.sh",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts tests/research/guided-session-list-and-recovery.test.ts",
-        "pnpm --filter web exec vitest run tests/ui/guided-research-single-page-workflow.test.tsx tests/ui/guided-research-flow.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-visual-contract.test.tsx",
         "pnpm --filter web run typecheck",
         "node apps/api/scripts/lint-permission-paths.mjs",
         "node .harness/scripts/lint-arch-deps.mjs"

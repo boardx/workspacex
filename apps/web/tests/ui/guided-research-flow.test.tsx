@@ -5,6 +5,7 @@ import { GUIDED_RESEARCH_BRIEF, GUIDED_RESEARCH_HISTORY } from "@/lib/mock/guide
 
 const {
   listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession,
+  getGuidedResearchWorkflow, executeGuidedResearchNodeCommand,
   confirmResearchBrief,
   generateResearchDirections, confirmResearchDirections, generateResearchOutline, confirmResearchOutline,
   finishGuidedResearchCollection, completeGuidedResearchSession,
@@ -12,6 +13,8 @@ const {
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
   getGuidedResearchSession: vi.fn(),
+  getGuidedResearchWorkflow: vi.fn(),
+  executeGuidedResearchNodeCommand: vi.fn(),
   confirmResearchBrief: vi.fn(),
   generateResearchDirections: vi.fn(),
   confirmResearchDirections: vi.fn(),
@@ -25,6 +28,8 @@ vi.mock("@/lib/guided-research-api", () => ({
   listGuidedResearchSessions,
   createGuidedResearchSession,
   getGuidedResearchSession,
+  getGuidedResearchWorkflow,
+  executeGuidedResearchNodeCommand,
   confirmResearchBrief,
   generateResearchDirections,
   confirmResearchDirections,
@@ -99,6 +104,33 @@ function reportCheckpointSession() {
   };
 }
 
+function workflowAt(node: "brief" | "directions" | "outline" | "research" | "report", graphVersion = 7) {
+  const meta = {
+    status: "ready",
+    version: 1,
+    confirmedVersion: null,
+    contentVersionId: null,
+    modelId: null,
+    modelInvocationId: null,
+    modelOutputSchemaVersion: null,
+    confirmedAt: null,
+    updatedAt: "2026-08-13T00:00:00.000Z",
+    errorCode: null,
+  };
+  return {
+    sessionId: "grs-edit",
+    graphVersion,
+    revision: 1,
+    currentNode: node,
+    availableNodes: ["brief", "directions", "outline", "research", "report"],
+    nodeSummaries: { brief: meta, directions: meta, outline: meta, research: meta, report: meta },
+    activeNodeState: { directions: [{ id: "d1", title: "候选方向", description: "候选描述", enabled: true, order: 0 }] },
+    nodeStateVersions: { [node]: 1 },
+    skill: { threadId: "skill-grs-edit", activeNode: node, summaryId: null, recentMessageIds: [], activeProposalId: null, proposalStatus: "none" },
+    interrupt: { node, allowedActions: ["confirm", "generate", "complete"] },
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -113,6 +145,8 @@ beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
+  getGuidedResearchWorkflow.mockReset();
+  executeGuidedResearchNodeCommand.mockReset();
   confirmResearchBrief.mockReset();
   generateResearchDirections.mockReset();
   confirmResearchDirections.mockReset();
@@ -273,7 +307,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认主题" }));
 
     expect(screen.getByTestId("research-flow-brief")).toBeInTheDocument();
-    expect(replaceState).toHaveBeenCalledWith({}, "", "/research");
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/research?session=grs-edit");
     replaceState.mockRestore();
   });
 
@@ -286,7 +320,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
 
     expect(await screen.findByTestId("research-flow-directions")).toBeInTheDocument();
     expect(screen.getByTestId("research-direction-title-d1")).toBeInTheDocument();
-    expect(replaceState).toHaveBeenCalledWith({}, "", "/research");
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/research?session=grs-edit");
     replaceState.mockRestore();
   });
 
@@ -342,6 +376,44 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
       directions: [expect.objectContaining({ title: "更新后的方向" })],
     })));
     expect(window.localStorage.getItem("wsx.guidedResearch.demo.v1.grs-edit")).toBeNull();
+    expect(onStepChange).toHaveBeenCalledWith("outline", "grs-edit");
+  });
+
+  it("submits complete node state and graph version through the workflow command when available", async () => {
+    const updatedSession = {
+      ...checkpointSession,
+      stage: "outline" as const,
+      resumeStage: "outline" as const,
+      directions: {
+        candidateVersion: 1,
+        confirmedVersion: 1,
+        versions: [{
+          version: 1, createdAt: "2026-08-13T00:01:00.000Z", confirmedAt: "2026-08-13T00:02:00.000Z",
+          items: [{ id: "d1", title: "市场规模与增长质量", description: "候选描述", enabled: true, order: 0 }],
+        }],
+      },
+    };
+    getGuidedResearchSession
+      .mockResolvedValueOnce(checkpointSession)
+      .mockResolvedValueOnce(updatedSession);
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("directions", 7));
+    executeGuidedResearchNodeCommand.mockResolvedValueOnce(workflowAt("outline", 8));
+    const onStepChange = vi.fn();
+    render(<GuidedResearchFlow step="directions" sessionId="grs-edit" onStepChange={onStepChange} />);
+
+    const direction = await screen.findByTestId("research-direction-title-d1") as HTMLInputElement;
+    fireEvent.change(direction, { target: { value: "市场规模与增长质量" } });
+    fireEvent.click(screen.getByTestId("research-confirm-directions"));
+
+    await waitFor(() => expect(executeGuidedResearchNodeCommand).toHaveBeenCalledWith("grs-edit", expect.objectContaining({
+      node: "directions",
+      action: "confirm",
+      expectedGraphVersion: 7,
+      nodeState: {
+        directions: [expect.objectContaining({ id: "d1", title: "市场规模与增长质量", order: 0 })],
+      },
+    })));
+    expect(confirmResearchDirections).not.toHaveBeenCalled();
     expect(onStepChange).toHaveBeenCalledWith("outline", "grs-edit");
   });
 
