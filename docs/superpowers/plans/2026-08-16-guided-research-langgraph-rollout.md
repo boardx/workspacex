@@ -11,9 +11,9 @@
 ## Global Constraints
 
 - 权威设计：[2026-08-15-guided-research-langgraph-persistence-design.md](../specs/2026-08-15-guided-research-langgraph-persistence-design.md)。任何实现语义与其冲突时先改设计并重新签核，不在代码里另造规则。
-- 开工前新增 F191–F194，并更新 F170/F171 依赖；每项经 `harness sync --apply` 建 issue 后才认领。不得复用已经被占用的 F188。
+- 开工前新增 F195–F198，并更新 F170/F171 依赖；每项经 `harness sync --apply` 建 issue 后才认领。不得复用已经被占用的 F188。
 - 新 feature 加入 `guided-deep-research` 契约束后必须由人类重新确认 `design-signoff.md`，agent 不修改签核状态。
-- 六个切片共享 `packages/contracts/src/research.ts`、Graph state、API controller、session repository 和单页 flow，禁止并行编辑，顺序固定为 F191 → F192 → F193 → F194 → F170 → F171。
+- 六个切片共享 `packages/contracts/src/research.ts`、Graph state、API controller、session repository 和单页 flow，禁止并行编辑，顺序固定为 F195 → F196 → F197 → F198 → F170 → F171。
 - 浏览器不直接调用 LangGraph，也不能提交 `orgId`、`ownerUserId`、服务端 NodeMeta、checkpoint ID 或模型 ID。
 - `thread_id` 固定为 `sessionId`，`checkpoint_ns` 固定为 `guided-research:v1`；生产不得使用内存 checkpointer。
 - 模型只在用户点击 `generate`、`confirm`、`start`、`retry`、`reconfirm` 或 `complete` 的指定边界调用；编辑、查看、步骤切换和 GET 恢复不调用模型。
@@ -51,14 +51,14 @@
 
 - [ ] **Step 1: Add parseable requirements and feature records**
 
-Add F191–F194 with these exact user-visible boundaries and dependencies:
+Add F195–F198 with these exact user-visible boundaries and dependencies:
 
 ```text
-F191 Graph foundation + canonical single-page projection
-F192 Brief full nodeState -> structured Directions (depends F191)
-F193 Directions full nodeState -> structured Outline (depends F192)
-F194 Outline full nodeState -> structured Research Plan (depends F193)
-F170 Real Research execution (depends F194)
+F195 Graph foundation + canonical single-page projection
+F196 Brief full nodeState -> structured Directions (depends F195)
+F197 Directions full nodeState -> structured Outline (depends F196)
+F198 Outline full nodeState -> structured Research Plan (depends F197)
+F170 Real Research execution (depends F198)
 F171 Structured Report + citations (depends F170)
 ```
 
@@ -82,7 +82,7 @@ Expected: JSON and derived views are consistent; new work is reported as blocked
 
 - [ ] **Step 4: Request human signoff and stop**
 
-Post the contract-bundle delta on its issue. Do not claim F191 until the human has confirmed the updated three-part signoff and phase coherence review.
+Post the contract-bundle delta on its issue. Do not claim F195 until the human has confirmed the updated three-part signoff and phase coherence review.
 
 - [ ] **Step 5: Create public issues and serial sprint assignment**
 
@@ -92,7 +92,7 @@ After signoff:
 pnpm harness sync --phase 01 --apply
 ```
 
-Confirm F191–F194 each has its own issue and F170 remains associated with #1357. Build serial sprints with only the current feature `in_progress`.
+Confirm F195–F198 each has its own issue and F170 remains associated with #1357. Build serial sprints with only the current feature `in_progress`.
 
 - [ ] **Step 6: Commit governance material**
 
@@ -104,7 +104,7 @@ git commit -m "docs(research): register langgraph workflow rollout"
 
 ---
 
-## Task 1 / F191: Persisted Graph Foundation and Single-Page Projection
+## Task 1 / F195: Persisted Graph Foundation and Single-Page Projection
 
 **User-visible result:** Existing sessions open at `/research?session=grs_example` 形态的 canonical URL, restore the server-authoritative current step after web/API/Graph restart, and change steps without a route refresh. No real model generation is introduced yet.
 
@@ -200,11 +200,11 @@ Use a dedicated graph export in `langgraph.json`:
 }
 ```
 
-The graph must have `await_command`, `route_command`, and five handlers, with F191 handlers limited to validated save/transition stubs for migrated existing content. They must not fabricate generated Directions, Outline, Search, or Report data.
+The graph must have `await_command`, `route_command`, and five handlers, with F195 handlers limited to validated save/transition stubs for migrated existing content. They must not fabricate generated Directions, Outline, Search, or Report data.
 
 - [ ] **Step 5: Add RLS persistence for projections and receipts**
 
-The F191 migration creates the minimum foundation tables:
+The F195 migration creates the minimum foundation tables:
 
 ```sql
 guided_research_revisions
@@ -261,7 +261,7 @@ Expected before implementation: FAIL because flow/session routing still drives t
 
 Replace distributed step APIs in the page root with `getGuidedResearchWorkflow` and authorized node hydration. Preserve history/home behavior. Keep old mutation helpers only behind the API compatibility adapter until their corresponding slice is migrated.
 
-- [ ] **Step 11: Verify F191**
+- [ ] **Step 11: Verify F195**
 
 ```bash
 pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
@@ -271,26 +271,26 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec 
 cd apps/deep-agent-service && pytest tests/test_guided_research_graph.py tests/test_guided_research_postgres_recovery.py
 node apps/api/scripts/lint-permission-paths.mjs
 node .harness/scripts/lint-arch-deps.mjs
-pnpm harness verify --sprint "$F191_SPRINT"
+pnpm harness verify --sprint "$F195_SPRINT"
 ```
 
-Expected: all exit 0; harness alone transitions F191 to passing.
+Expected: all exit 0; harness alone transitions F195 to passing.
 
-- [ ] **Step 12: Commit and open the F191 PR**
+- [ ] **Step 12: Commit and open the F195 PR**
 
 ```bash
 git add packages/contracts apps/deep-agent-service apps/api apps/web phases/phase-01-run-a-project
 git diff --cached --check
 git commit -m "feat(research): persist guided langgraph workflow"
 git push -u origin worker/coord-deep-research-01-f191-guided-research-graph
-gh pr create --title "[F191] Persist guided research LangGraph workflow" --body "Closes #${F191_ISSUE}"
+gh pr create --title "[F195] Persist guided research LangGraph workflow" --body "Closes #${F195_ISSUE}"
 ```
 
-Wait for merge before starting F192.
+Wait for merge before starting F196.
 
 ---
 
-## Task 2 / F192: Brief to Structured Directions with qwen3.7-plus
+## Task 2 / F196: Brief to Structured Directions with qwen3.7-plus
 
 **User-visible result:** Clicking “确认并生成研究方向” submits every Brief field, invokes `qwen3.7-plus` once, validates structured Directions, persists input/output, and restores both after refresh.
 
@@ -334,7 +334,7 @@ Sequence: validate full input → persist input checkpoint → reserve model eff
 
 Send one unified command with the full visible Brief draft and a stable requestId. Disable double-submit while pending. On 409, retain the draft and show the latest server projection.
 
-- [ ] **Step 5: Verify and publish F192**
+- [ ] **Step 5: Verify and publish F196**
 
 ```bash
 pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
@@ -342,19 +342,19 @@ cd apps/deep-agent-service && pytest tests/test_guided_research_brief.py tests/t
 pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx
 pnpm --filter web run typecheck
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts
-pnpm harness verify --sprint "$F192_SPRINT"
+pnpm harness verify --sprint "$F196_SPRINT"
 ```
 
-Commit message: `feat(research): generate directions with guided graph`; PR body must include `Closes #${F192_ISSUE}`，其中变量值取自 harness sync 返回的权威 issue。
+Commit message: `feat(research): generate directions with guided graph`; PR body must include `Closes #${F196_ISSUE}`，其中变量值取自 harness sync 返回的权威 issue。
 
 ---
 
-## Task 3 / F193: Directions to Structured Outline and Upstream Reconfirmation
+## Task 3 / F197: Directions to Structured Outline and Upstream Reconfirmation
 
 **User-visible result:** Edited, selected and ordered Directions are fully persisted; confirmation invokes Qwen for a structured Outline; revisiting/reconfirming Brief or Directions creates a new revision and marks only the specified downstream nodes stale.
 
 **Files:**
-- Modify: shared contract/schema files from F192
+- Modify: shared contract/schema files from F196
 - Modify: Graph state/graph/model/prompt files
 - Create: `apps/deep-agent-service/tests/test_guided_research_directions.py`
 - Modify: workflow repository/API tests
@@ -378,7 +378,7 @@ The output schema requires stable section IDs, title, description, `researchQues
 
 Skill proposals are node-scoped structured patches. Applying a proposal changes the page draft only; it reaches Graph State only when the full Directions command is submitted. A stale proposal cannot apply after revision changes.
 
-- [ ] **Step 5: Verify and publish F193**
+- [ ] **Step 5: Verify and publish F197**
 
 ```bash
 pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts
@@ -386,14 +386,14 @@ cd apps/deep-agent-service && pytest tests/test_guided_research_directions.py
 pnpm --filter web exec vitest run tests/guided-research-skill-state.test.ts tests/ui/guided-research-checkpoints-live.test.tsx
 pnpm --filter web run typecheck
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts
-pnpm harness verify --sprint "$F193_SPRINT"
+pnpm harness verify --sprint "$F197_SPRINT"
 ```
 
-Commit message: `feat(research): generate outline from persisted directions`; PR closes only F193.
+Commit message: `feat(research): generate outline from persisted directions`; PR closes only F197.
 
 ---
 
-## Task 4 / F194: Outline to Persisted Research Plan
+## Task 4 / F198: Outline to Persisted Research Plan
 
 **User-visible result:** Confirming the complete edited Outline invokes Qwen once to create a structured chapter/query plan, persists it, and starts one recoverable research run without duplicating already-started work.
 
@@ -422,7 +422,7 @@ Confirm action produces the plan; start action reserves a stable `startKey` and 
 
 Web shows real planned queries and queued state. It does not simulate completion or sources; those remain F170.
 
-- [ ] **Step 5: Verify and publish F194**
+- [ ] **Step 5: Verify and publish F198**
 
 ```bash
 cd apps/deep-agent-service && pytest tests/test_guided_research_outline.py
@@ -430,10 +430,10 @@ pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-cont
 pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts
 node apps/api/scripts/lint-permission-paths.mjs
-pnpm harness verify --sprint "$F194_SPRINT"
+pnpm harness verify --sprint "$F198_SPRINT"
 ```
 
-Commit message: `feat(research): persist guided research plan`; PR closes only F194.
+Commit message: `feat(research): persist guided research plan`; PR closes only F198.
 
 ---
 
@@ -548,8 +548,8 @@ Commit message: `feat(research): persist structured cited report`; PR closes onl
 
 ## Final Rollout Audit
 
-- [ ] F191, F192, F193, F194, F170 and F171 are each `passing`, merged to `main`, and their issues are closed by their own PRs.
-- [ ] 对 F191、F192、F193、F194、F170、F171 的合入 SHA 逐个运行 `git merge-base --is-ancestor "$FEATURE_SHA" origin/main` 并成功；branch existence alone is not accepted as evidence.
+- [ ] F195, F196, F197, F198, F170 and F171 are each `passing`, merged to `main`, and their issues are closed by their own PRs.
+- [ ] 对 F195、F196、F197、F198、F170、F171 的合入 SHA 逐个运行 `git merge-base --is-ancestor "$FEATURE_SHA" origin/main` 并成功；branch existence alone is not accepted as evidence.
 - [ ] Production deployment injects `KERNEL_GUIDED_RESEARCH_MODEL_ID=qwen3.7-plus`, shared Bailian URL/key, Graph PostgreSQL DSN and least-privilege credentials.
 - [ ] A devapp session proves canonical single-page navigation, restart recovery, all four structured Qwen generation boundaries, real independent Web Search and full report hydration.
 - [ ] No business restore path reads `flow=` or localStorage as authority; no production path imports the deterministic Guided Research generator or demo search/report state.
@@ -558,5 +558,5 @@ Commit message: `feat(research): persist structured cited report`; PR closes onl
 ## Self-Review Checklist
 
 - [ ] **Spec coverage:** every confirmed requirement maps to a task and executable assertion: five persisted nodes, full nodeState, explicit-click model calls, `qwen3.7-plus`, structured outputs, independent search, single-page navigation, one-third Skill panel, full report, stale downstream revisions and recovery.
-- [ ] **Dynamic-value scan:** 执行时从 harness 输出设置 `F191_SPRINT` 等 sprint 变量、`F191_ISSUE` 等 issue 变量和 `FEATURE_SHA`；计划中的迁移文件名与分支名已经固定，不含实现占位或省略的业务分支。
+- [ ] **Dynamic-value scan:** 执行时从 harness 输出设置 `F195_SPRINT` 等 sprint 变量、`F195_ISSUE` 等 issue 变量和 `FEATURE_SHA`；计划中的迁移文件名与分支名已经固定，不含实现占位或省略的业务分支。
 - [ ] **Type consistency:** TypeScript Zod remains the public contract source; generated JSON Schema is consumed by Python; Graph internal NodeMeta is never accepted from browser input; IDs and versions use consistent names across Web/API/Python.

@@ -541,16 +541,16 @@ revision，不依赖应用层约定。
 现有 F170、F171 保留其用户可见目标；新增编号必须从最新 `main` 的 F190 之后分配，旧草案中的
 F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直切片组成：
 
-1. **F191 Graph 基础与单页投影**：Python Guided Research StateGraph、Postgres checkpointer、统一
+1. **F195 Graph 基础与单页投影**：Python Guided Research StateGraph、Postgres checkpointer、统一
    Node Command、NestJS Graph Client、旧会话 backfill 和 canonical 单页恢复。
-2. **F192 Brief → Directions**：提交完整 Brief nodeState，`qwen3.7-plus` 返回结构化研究方向，
+2. **F196 Brief → Directions**：提交完整 Brief nodeState，`qwen3.7-plus` 返回结构化研究方向，
    刷新恢复输入与输出。
-3. **F193 Directions → Outline**：提交完整方向列表/选择/排序/人工编辑，模型返回结构化报告大纲，
+3. **F197 Directions → Outline**：提交完整方向列表/选择/排序/人工编辑，模型返回结构化报告大纲，
    支持上游重确认和下游失效。
-4. **F194 Outline → Research Plan**：提交完整大纲，模型生成章节检索计划和查询任务，确认后启动
+4. **F198 Outline → Research Plan**：提交完整大纲，模型生成章节检索计划和查询任务，确认后启动
    后台检索而不重复运行已完成任务。
 5. **F170 Research**：按 Graph Research 节点执行真实独立 Web Search、来源判读、进度事件、失败章节
-   重试和人工来源取舍；更新依赖指向 F194。
+   重试和人工来源取舍；更新依赖指向 F198。
 6. **F171 Report**：Research 确认后由 `qwen3.7-plus` 生成结构化报告、引用与质量检查，持久化完成态。
 
 六个切片共享 Research 契约、Graph State、内部 Graph Client、单页工作区和 migration，必须串行；
@@ -625,9 +625,9 @@ F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直
 
 1. 在 UC-24.6 增加可解析的 LangGraph 节点持久化需求锚点，记录“完整 nodeState + 单路由 +
    checkpoint 恢复”这一新决策，不用 F170 的旧 R4 暗示它已经覆盖全部 Graph 基础。
-2. 新增 F191–F194 四个垂直切片；F170 和 F171 分别承担真实 Search 与真实 Report，共六个串行切片。
+2. 新增 F195–F198 四个垂直切片；F170 和 F171 分别承担真实 Search 与真实 Report，共六个串行切片。
 3. 更新 `contracts/research` 的 UI、用例、API 契约与 coverage，把新 feature 纳入 `covers`；
    `design-signoff.md` 的确认状态只能由人类修改。
 4. 重新执行阶段一致性复核，重点核对 Agent Runtime、Skill、Files/Artifact 和 Research 的跨束约束。
 5. F180 已在最新 `main` 机械转为 passing；开工前仍需确认没有其它 owner 正在修改共享 Research 热点。
-6. F170 已建立公开 issue #1357；F191–F194 仍需分别建立 issue、分支、验证和 PR。
+6. F170 已建立公开 issue #1357；F195–F198 仍需分别建立 issue、分支、验证和 PR。

@@ -3847,19 +3847,20 @@
       "user_visible_behavior": "用户确认大纲并开始研究后，页面显示服务端真实的整体百分比、当前查询、各章节任务状态和最新来源。离开页面后搜索继续运行，回来从同一会话恢复；单章节失败不抹掉其它章节已完成来源，用户可只重试失败阶段，同一大纲版本重复 start 不启动第二次搜索。",
       "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R4",
       "depends_on": [
-        "F169"
+        "F198"
       ],
       "points": 8,
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm --filter @repo/contracts run test",
-        "pnpm --filter api exec vitest run tests/research/guided-search-progress-and-retry.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_search.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-search-progress-and-retry.test.ts",
         "pnpm --filter web exec vitest run tests/ui/guided-research-search-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
       "evidence": "",
-      "notes": "依赖 F169 confirmed outline version。搜索执行复用 open-deep-research/LangGraph 服务，但本 feature 需要持久化 BoardX 侧 snapshot 和幂等 start key；前端只消费 BoardX 契约，不解析上游原始事件。共享 research.ts、guided-research-flow.tsx 和 session repository，必须串行。",
+      "notes": "依赖 F198 产生的结构化 Research Plan。搜索通过独立 search/effect port 执行，qwen3.7-plus 只做查询规划、来源判断和结构化证据抽取；Graph 节点持久化任务、进度、来源身份与采纳/排除决策，同一 outlineVersion + startKey 不启动第二个 run。前端提交完整 Research nodeState，只消费 BoardX projection，不解析 LangGraph checkpoint 或上游原始事件。共享 research.ts、Graph state、workflow controller/repository 与 guided-research-flow.tsx，六项必须串行。",
       "priority": 1,
       "area": "research",
       "capability": "CAP-WEB",
@@ -3869,7 +3870,7 @@
       "id": "F171",
       "title": "完整研究报告与引用：结构化章节、目录和来源可追溯",
       "user_visible_behavior": "研究完成后，用户在报告页看到按已确认大纲生成的结构化章节、目录、生成时间和来源数量；每条关键结论引用的 citationId 都能解析到真实来源标题、规范 URL、类型与抓取时间。报告生成失败时仍可查看已完成搜索和来源并重试，不返回孤儿引用或一段不可追溯的纯文本。",
-      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R5",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R13",
       "depends_on": [
         "F170"
       ],
@@ -3877,13 +3878,14 @@
       "status": "not_started",
       "owner": null,
       "verification": [
-        "pnpm --filter @repo/contracts run test",
-        "pnpm --filter api exec vitest run tests/research/guided-report-citations.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_report.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-report-citations.test.ts",
         "pnpm --filter web exec vitest run tests/ui/guided-research-report-live.test.tsx",
         "pnpm --filter web run typecheck"
       ],
       "evidence": "",
-      "notes": "依赖 F170 已持久化来源。报告章节引用只允许指向同一 report citations 集合内的稳定 id；来源列表必须是真数据，不以计数替代。导出/分享/评论明确不在范围。共享 research.ts、guided-research-flow.tsx 与 session repository，必须串行。",
+      "notes": "依赖 F170 已持久化且由用户采纳的来源。Research complete 提交完整来源决策 nodeState，qwen3.7-plus 返回 strict 结构化报告；报告章节引用只允许指向同一 revision 已采纳来源的稳定 id。导出/分享/评论不在范围。共享 research.ts、Graph state、workflow controller/repository 与 guided-research-flow.tsx，六项必须串行。",
       "priority": 1,
       "area": "research",
       "capability": "CAP-WEB",
@@ -4322,6 +4324,108 @@
       "priority": 3,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F195",
+      "title": "Guided Research LangGraph 持久化基础与单页工作流投影",
+      "user_visible_behavior": "用户打开 /research?session=<sessionId> 后，Brief、Directions、Outline、Research、Report 五步由同一个服务端 LangGraph thread 管理；页面刷新、API/Graph 服务重启后仍恢复到同一当前节点和版本。步骤切换只更新单页状态，不依赖 flow 路由或整页刷新。左侧研究 Skill 助手约占三分之一，右侧步骤工作区约占三分之二，报告在右侧完整显示。F195 只迁移和恢复既有内容，不伪造新的方向、大纲、检索或报告结果。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R12",
+      "depends_on": [
+        "F180"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_graph.py tests/test_guided_research_postgres_recovery.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts tests/research/guided-session-list-and-recovery.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-single-page-workflow.test.tsx tests/ui/guided-research-flow.test.tsx",
+        "pnpm --filter web run typecheck",
+        "node apps/api/scripts/lint-permission-paths.mjs",
+        "node .harness/scripts/lint-arch-deps.mjs"
+      ],
+      "evidence": "",
+      "notes": "建立 Python apps/deep-agent-service 唯一 Guided Research StateGraph、PostgreSQL checkpointer、统一 Node Command、command/effect receipt、租户安全投影和现有会话幂等回填。thread_id=sessionId，checkpoint_ns=guided-research:v1。浏览器不能提交 org/owner/checkpoint/NodeMeta/modelId。共享 research.ts、Graph state、workflow controller/repository 与 guided-research-flow.tsx；F195→F196→F197→F198→F170→F171 必须串行。",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-WEB",
+      "sprint": null
+    },
+    {
+      "id": "F196",
+      "title": "Brief 完整节点状态生成结构化研究方向",
+      "user_visible_behavior": "用户点击“确认并生成研究方向”时，前端一次提交名称、标签、主题、目标、时间范围、地域范围和重点关注的完整 Brief nodeState；服务端只调用一次固定的 qwen3.7-plus，校验结构化 Directions 后持久化输入、模型元数据和候选方向。刷新后恢复相同输入与输出；模型配置缺失、非法 JSON 或 schema 不匹配时保留 Brief 并显示可重试失败，不回退 Mock。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R13",
+      "depends_on": [
+        "F195"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_brief.py tests/test_model.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "显式 confirm 才调用模型；生产 model ID 必须是 qwen3.7-plus，JSON object 经共享 strict schema 二次校验。命令先保存完整 Brief checkpoint，再用 effect receipt 保证 pending replay 不重复调用模型。共享热点同 F195，必须串行。",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-AI",
+      "sprint": null
+    },
+    {
+      "id": "F197",
+      "title": "Directions 完整节点状态生成结构化报告大纲",
+      "user_visible_behavior": "用户编辑、启停、增删和排序研究方向后点击确认，前端提交完整 Directions 数组；服务端固定调用 qwen3.7-plus 生成并校验结构化 Outline，持久化输入输出且刷新可恢复。用户重确认 Brief 或 Directions 时创建新 revision，只把对应下游节点标为 stale，并保留旧 checkpoint 供审计。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R12",
+      "depends_on": [
+        "F196"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_directions.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts",
+        "pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "Directions nodeState 必须是完整排序数组且至少一项启用。结构化 Outline 由固定 qwen3.7-plus 生成；上游 reconfirm 的 stale 范围和版本冲突需有反证。共享热点同 F195，必须串行。",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-AI",
+      "sprint": null
+    },
+    {
+      "id": "F198",
+      "title": "Outline 完整节点状态生成结构化 Research Plan",
+      "user_visible_behavior": "用户编辑、新增和排序大纲后点击“按此大纲开始研究”，前端提交完整 Outline nodeState；服务端固定调用 qwen3.7-plus 生成通过 strict schema 的结构化 Research Plan 与查询任务，持久化两侧状态并解锁 Research 节点。刷新不丢任务；相同请求重放不重复调用模型，重确认 Outline 只使 Research 与 Report stale。",
+      "spec_ref": "24-research/uc-24-6-引导式深度研究与完整报告.md#R13",
+      "depends_on": [
+        "F197"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "cd apps/deep-agent-service && pytest tests/test_guided_research_outline.py",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts",
+        "pnpm --filter web exec vitest run tests/guided-research-stage.test.ts tests/ui/guided-research-checkpoints-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "",
+      "notes": "Outline nodeState 必须是完整章节数组，ID 唯一且顺序连续。qwen3.7-plus 只规划结构化查询任务，真实 Web Search 留给 F170 的独立工具链。pending replay 复用 effect receipt。共享热点同 F195，必须串行。",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-AI",
+      "sprint": null
     }
   ]
 }
