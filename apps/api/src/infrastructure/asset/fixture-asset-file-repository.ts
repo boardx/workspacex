@@ -155,6 +155,9 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
       // repository (the use-case layer rejects any delete/rename of it before calling here).
       rootFile: base[0]!.path,
       entries: [...files.entries()].map(([path, body]) => ({ path, sizeBytes: sizeOf(body) })),
+      // No version concept on this fixture-backed kind (`agent`, per #787) -- see
+      // `AssetDirectoryRecord.currentVersionId`'s own doc comment.
+      currentVersionId: null,
     };
   }
 
