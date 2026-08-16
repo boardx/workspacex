@@ -40,6 +40,8 @@ export type { FlowNodeData, FlowEdgeData } from './fabric-objects';
 export { ConnectionManager, anchorPoint } from './connection-manager';
 export { renderToCanvas, extractModel, getConnectionManager, fitToContent } from './canvas-io';
 export type { FitToContentOptions } from './canvas-io';
+export { attachMindmapEditor } from './interactions/mindmap-editor';
+export type { MindmapEditor, MindmapEditorOptions } from './interactions/mindmap-editor';
 
 export interface MarkdownToCanvasResult {
   model: DiagramModel;
