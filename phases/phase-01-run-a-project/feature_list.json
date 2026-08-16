@@ -4455,6 +4455,8 @@
       "area": "deep-research",
       "capability": "CAP-AI",
       "sprint": null
+    },
+    {
       "id": "F189",
       "title": "「套用后会初始化什么」六类一览接真（BP-07：GET initialization-preview）",
       "user_visible_behavior": "任意本组织成员（不限管理员）对一个自己可见的蓝本请求 GET /blueprints/:id/initialization-preview，真实收到恒 6 类的初始化一览（每类下具体会写入什么条目），一览内容随蓝本当前已填的设计环节实时变化——不是任何写死或猜测的清单。蓝本不存在收到 BLUEPRINT_NOT_FOUND；team-only 蓝本对非该 team 成员收到 BLUEPRINT_NOT_VISIBLE，不返回任何数据。这条端点本身不改变任何界面，是 BP-08（createProject 真执行六类初始化）与 BP-09（/project/new 撤禁用）共同依赖的只读前置——两者都需要在真正套用蓝本之前，把「将会初始化什么」先展示给用户确认。",
