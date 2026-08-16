@@ -202,8 +202,10 @@ export default defineConfig({
     //   · backend-gates.yml 的 `verify:core-loop` 只跑 `--project=core-loop-empty-db`，
     //     Playwright 沿 dependencies 反解只会拉起 core-loop-seeded → core-loop-reset →
     //     core-loop-empty-db 三个，`seeded` 完全不参与，这是速度的来源。
-    //   · harness-verify.yml 的 `verify:fullstack-smoke` 只跑 `--project=seeded`，信息性、
-    //     不阻塞合并（人类裁决：module verify 继续阻塞，浏览器 e2e 不再阻塞合并）。
+    //   · harness-verify.yml 的 `verify:fullstack-smoke` 跑 `--project=seeded-github-import`
+    //     （沿 dependencies 反解先跑 `seeded` 再跑它自己，见下方 `seeded-github-import`
+    //     project 头注），信息性、不阻塞合并（人类裁决：module verify 继续阻塞，
+    //     浏览器 e2e 不再阻塞合并）。
     // ⚠ 代价：两条 project 链不再共享「reset 前所有种子态 spec 必须先跑完」这条保证
     //   （旧版靠 core-loop-reset dependencies: ["seeded"] 保证）。这个保证只有在**同一次
     //   Playwright 调用里两条链都被选中**时才有意义——而现在两条链在 CI 里从来不会同时
@@ -229,17 +231,44 @@ export default defineConfig({
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",
-        // ⚠ 「蓝本到项目」主流程同理排在 `seeded`：它要用种子里的组织管理员
-        //   （`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色）与 sentinel 项目
-        //   （`FULLSTACK_E2E.projectId`，F29 边界证明那条用它做 404 归因排除）。
-        "blueprint-to-project-journey.spec.ts",
-        // ⚠ 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
-        // 这条用户旅程的验收线，同理排在 `seeded` 里：它要用种子里的组织管理员
-        // （`FULLSTACK_E2E.adminEmail`，唯一能写 skill/agent 目录的角色）与
-        // sentinel 项目（`FULLSTACK_E2E.projectId`）。真实访问公网 GitHub。
-        "skill-agent-import-usecase-audit.spec.ts",
+        // ⚠ 蓝本管理闭环 + 契约缺口审计（2026-08-15 由 blueprint-to-project-journey.spec.ts
+        //   重命名，见 issue #1323——旧名暗示测试走到了「建项目」，实际没有，见文件头注）
+        //   同理排在 `seeded`：它要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，
+        //   唯一能写蓝本的角色）与 sentinel 项目（`FULLSTACK_E2E.projectId`，F29
+        //   缺口门控那条用它做 404 归因排除）。
+        "blueprint-contract-gap-audit.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
+    },
+    {
+      /**
+       * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
+       * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
+       * 管理员与 sentinel 项目）——它的用例①会真的往 skill 目录里落一行 GitHub 导入的
+       * skill，而 `skill-create-smoke.spec.ts`（在 `seeded` 里）断言的是**目录从空态
+       * 起步**（`skill-catalog-empty`，验证种子不预置示例 skill）。
+       *
+       * Playwright 不按 `testMatch` 数组声明的顺序跑文件，而是按发现到的文件名
+       * **字典序**（`playwright test --list` 实测可证）：`skill-agent-import-...`
+       * 排在 `skill-create-smoke` 之前，于是用例①的导入会先跑，把目录写脏，
+       * `skill-create-smoke.spec.ts:81` 的空态断言随之打红——这不是两条用例谁的
+       * 断言错了，是**同一个 project 内的隐式字典序**这件事本身靠不住（今天靠字母
+       * 巧合躲过，明天随便一个新文件名就能把顺序打乱）。
+       *
+       * 用 `dependencies` 把它拆成单独 project、显式排在 `seeded` **之后**，
+       * 而不是给用例①加"导入后自清理"：skill 契约目前没有任何删除路径能把一个
+       * 真实导入的 skill 从目录里摘掉（`hardDeleteSkill` 契约里 `out: z.never()`，
+       * 明写着"没有成功形状"，恒被拒绝，见 `packages/contracts/src/skills.ts` 头注
+       * `KNOWN_CONTRACT_GAPS.S1`）——伪造一条清理路径反而会在验收线里悄悄验证一个
+       * 不存在的能力。两条用例的断言力度都不削弱：`skill-create-smoke` 的空态
+       * 断言继续对着一个真空目录跑，`skill-agent-import-usecase-audit` 的导入
+       * 断言继续对着真实 GitHub 内容跑，只是执行顺序从"字典序巧合"变成
+       * "Playwright dependency graph 显式保证"。
+       */
+      name: "seeded-github-import",
+      testMatch: ["skill-agent-import-usecase-audit.spec.ts"],
+      grepInvert: EMPTY_DB_TAG_RE,
+      dependencies: ["seeded"],
     },
     {
       name: "core-loop-seeded",
