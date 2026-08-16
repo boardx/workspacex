@@ -117,6 +117,8 @@ describe("F176 消息级评价（采集侧）", () => {
 
   it("④ 挂载条件是「AI 消息 ∧ 有 agentRunId」—— 由 chat-live-message-panel 源码钉住", async () => {
     // 组件本身不知道这个条件（它只收 messageId）。条件在调用点，所以断言也在那里。
+    // 2026-08-16：动作条（复制/反馈/评分）从身份行挪到气泡下方，但这条挂载条件本身
+    // 原样保留（`isAgent && message.agentRunId ?`），断言不用改。
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const src = readFileSync(

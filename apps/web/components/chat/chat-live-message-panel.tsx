@@ -757,56 +757,6 @@ export function ChatLiveMessagePanel({
                       </span>
                       {isAgent ? agentDuty(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
-                      {/*
-                        FB-2 —— 对「这个 agent 本身」提反馈（与同一行上的 👍/👎 不是一件事）。
-
-                        ⚠ 消息级 👍/👎（F176）答的是「这一条回答好不好」；这个按钮答的是
-                          「这个 agent 老是漏掉附件」这类跨很多条消息、需要正文的话。
-                          两者都留，是因为它们在下游走两条不同的路：前者聚合成满意度与改进建议，
-                          后者直接进分诊队列（`components/feedback/feedback-button.tsx` 头注）。
-
-                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是「真实 agent id」，
-                          不是显示名。显示名会改，反馈要能一直对上同一个 agent。
-                      */}
-                      {isAgent && message.agentId !== null && (
-                        <FeedbackButton
-                          target={{ kind: "agent", agentId: message.agentId }}
-                          targetLabel={agentLabel(message.agentId, agents)}
-                          testid="chat-agent-feedback"
-                          className="invisible transition-opacity focus-visible:visible group-hover:visible"
-                        />
-                      )}
-                      {/*
-                        V3 —— 逐条复制。hover 出现（`opacity-0 group-hover`），键盘聚焦时也
-                        显形（`focus-visible:opacity-100`）保证键盘可达；复制后 2 秒内显对勾。
-                      */}
-                      <button
-                        type="button"
-                        data-testid="chat-message-copy"
-                        data-message-id={message.id}
-                        aria-label="复制消息"
-                        title="复制消息"
-                        onClick={() => void handleCopyMessage(message)}
-                        className="ml-0.5 inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
-                      >
-                        {copiedMessageId === message.id ? (
-                          <Check aria-hidden className="h-3 w-3 text-primary" />
-                        ) : (
-                          <Copy aria-hidden className="h-3 w-3" />
-                        )}
-                      </button>
-                      {/*
-                        F176 —— 👍/👎 只画在 AI 消息上，且只画在「已经写回、有 agent_run」的消息上。
-
-                        ⚠ 两个条件缺一不可：
-                        · `isAgent`——人自己说的话没有 agent 可归因，服务端会 404；
-                        · `agentRunId`——早于 `chat_messages.agent_run_id` 的历史消息
-                          同样归不了因。给它画一个点了必然失败的按钮，比不画更糟。
-                        画在身份行里（与逐条复制同一排），跟随同一套 hover 显形规则。
-                      */}
-                      {isAgent && message.agentRunId ? (
-                        <MessageRating messageId={message.id} />
-                      ) : null}
                     </div>
                     {/*
                       2026-08-14 人类实测反馈重做：思考/工具调用链挂在这条消息自己身上
@@ -849,6 +799,64 @@ export function ChatLiveMessagePanel({
                       ) : (
                         <p className="whitespace-pre-wrap">{message.text}</p>
                       )}
+                    </div>
+                    {/*
+                      2026-08-16 人类实测反馈：动作条从身份行（气泡上方）挪到气泡下方，
+                      对标 Claude Code——回复读完才看到"复制/反馈/评分"，不与身份行的
+                      名字/角色/时间抢视觉重量。逐条复制对人类消息也一直可用（V3 原意
+                      不分 isAgent），挪位时不能把它一并锁进「只对 AI 消息渲染」——
+                      只有反馈按钮和评分这两个 AI 专属动作才挂在 isAgent 判断下面。
+                      hover/键盘聚焦显形规则不变，`group` 仍挂在最外层 `<li>` 上。
+                    */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                      {/*
+                        FB-2 —— 对「这个 agent 本身」提反馈（与同一行上的 👍/👎 不是一件事）。
+
+                        ⚠ 消息级 👍/👎（F176）答的是「这一条回答好不好」；这个按钮答的是
+                          「这个 agent 老是漏掉附件」这类跨很多条消息、需要正文的话。
+                          两者都留，是因为它们在下游走两条不同的路：前者聚合成满意度与改进建议，
+                          后者直接进分诊队列（`components/feedback/feedback-button.tsx` 头注）。
+
+                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是「真实 agent id」，
+                          不是显示名。显示名会改，反馈要能一直对上同一个 agent。
+                      */}
+                      {isAgent && message.agentId !== null && (
+                        <FeedbackButton
+                          target={{ kind: "agent", agentId: message.agentId }}
+                          targetLabel={agentLabel(message.agentId, agents)}
+                          testid="chat-agent-feedback"
+                          className="invisible transition-opacity focus-visible:visible group-hover:visible"
+                        />
+                      )}
+                      {/*
+                        V3 —— 逐条复制。hover 出现（`opacity-0 group-hover`），键盘聚焦时也
+                        显形（`focus-visible:opacity-100`）保证键盘可达；复制后 2 秒内显对勾。
+                        对人类消息也画（此前一直如此，挪位不改这条）。
+                      */}
+                      <button
+                        type="button"
+                        data-testid="chat-message-copy"
+                        data-message-id={message.id}
+                        aria-label="复制消息"
+                        title="复制消息"
+                        onClick={() => void handleCopyMessage(message)}
+                        className="ml-0.5 inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
+                      >
+                        {copiedMessageId === message.id ? (
+                          <Check aria-hidden className="h-3 w-3 text-primary" />
+                        ) : (
+                          <Copy aria-hidden className="h-3 w-3" />
+                        )}
+                      </button>
+                      {/*
+                        F176 —— 👍/👎 只画在 AI 消息上，且只画在「已经写回、有 agent_run」的消息上。
+
+                        ⚠ 两个条件缺一不可：
+                        · `isAgent`——人自己说的话没有 agent 可归因，服务端会 404；
+                        · `agentRunId`——早于 `chat_messages.agent_run_id` 的历史消息
+                          同样归不了因。给它画一个点了必然失败的按钮，比不画更糟。
+                      */}
+                      {isAgent && message.agentRunId ? <MessageRating messageId={message.id} /> : null}
                     </div>
                     {/* #946 · V9-a F152：消息挂的附件（listMessages 投影，只读展示）。 */}
                     {message.attachments && message.attachments.length > 0 ? (
