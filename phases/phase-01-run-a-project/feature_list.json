@@ -4207,7 +4207,7 @@
       ],
       "points": 5,
       "status": "passing",
-      "sprint": "10",
+      "sprint": "11",
       "owner": "dev-project",
       "verification": [
         "pnpm --filter api run typecheck",
