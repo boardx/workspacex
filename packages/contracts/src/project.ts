@@ -41,6 +41,7 @@
 import { z } from "zod";
 import { PermissionReason } from "./identity";
 import { ArtifactError, ArtifactSource, BackflowEntry } from "./artifact";
+import { TemplateError } from "./templates";
 
 /* ─────────────────────── 枚举（与 domain.md 一一对应）─────────────────────── */
 
@@ -144,11 +145,38 @@ export const ProjectReason = z.enum([
    *   应用层这个码是**它的投影**，不是第二处判定。
    */
   "PROJECT_ARCHIVED",
+
+  /* ── ④ templates 束同码同义（design-deltas/createproject-blueprint-error-codes/，
+   *     人类签核 2026-08-16，BP-08 前置）──────────────────────────────────── */
+  /**
+   * `createProject` 传入的 `blueprintVersionId` 解析不到蓝本，**或**该蓝本对调用者
+   * 越权可见——两者不可区分，不泄露资源存在性（与 `templates` 束同一条纪律，
+   * `_sharedWithTemplates` 编译期钉住与 `TemplateError` 同一字面量）。
+   */
+  "BLUEPRINT_NOT_FOUND",
+  /** 解析到蓝本，但 team-only 且调用者不在该 team。 */
+  "BLUEPRINT_NOT_VISIBLE",
+  /** 蓝本存在但从未发布过任何版本（`resolvedVersion === null`）。 */
+  "BLUEPRINT_NOT_PUBLISHED",
+  /**
+   * 传入的版本已被归档，且这是一次**新增绑定**（I-7：存量绑定的实例化不受此拒，
+   * 本码只挡"拿一个归档版本去建新项目"）。
+   */
+  "BLUEPRINT_VERSION_ARCHIVED",
+  /**
+   * 六类写入部分失败（已整体回滚）。detail 须指明失败的类别名（同 `templates.applyBlueprint`
+   * 既有纪律）。⚠ 今天只有"议程环节"一类有真实存储可写（F118），其余五类
+   * （分组/角色分工/材料清单/会前任务/画布与产出物）尚无落地表（F24-F29 未实现，
+   * `KNOWN_CONTRACT_GAPS`/`project-prep-ports.ts` 已记），本码在 BP-08 范围内
+   * 实际只可能因议程环节写入失败而触发，不是本码语义变窄，是当前系统状态如此。
+   */
+  "INITIALIZATION_FAILED",
 ]);
 
 type ProjectReasonT = z.infer<typeof ProjectReason>;
 type PermissionReasonT = z.infer<typeof PermissionReason>;
 type ArtifactErrorT = z.infer<typeof ArtifactError>;
+type TemplateErrorT = z.infer<typeof TemplateError>;
 
 /**
  * **跨束同码同义的编译期门控**（`pnpm --filter @repo/contracts run typecheck` 会红）。
@@ -169,6 +197,20 @@ const _sharedWithIdentity = [
 
 const _sharedWithArtifact = ["DEPENDENCY_UNAVAILABLE"] as const satisfies readonly (ArtifactErrorT &
   ProjectReasonT)[];
+
+/**
+ * **design-deltas/createproject-blueprint-error-codes/ 签核的五个码，与 `templates` 束
+ * 同码同义**（人类签核 2026-08-16，BP-08 前置）。`createProject` 首次需要表达
+ * "传入的 blueprintVersionId 不合法"，而这五种"不合法"的语义已经在 `templates` 束
+ * 钉死——这里不重新定义，只证明字面量与 `TemplateError` 完全对得上。
+ */
+const _sharedWithTemplates = [
+  "BLUEPRINT_NOT_FOUND",
+  "BLUEPRINT_NOT_VISIBLE",
+  "BLUEPRINT_NOT_PUBLISHED",
+  "BLUEPRINT_VERSION_ARCHIVED",
+  "INITIALIZATION_FAILED",
+] as const satisfies readonly (TemplateErrorT & ProjectReasonT)[];
 
 /**
  * **两个由本束「变为可评估」、但抛出者不在本束的失败码。**
@@ -357,11 +399,23 @@ export const operations = {
       })
       .strict(),
     /**
-     * ⚠ 刻意**没有**「蓝本无效」的码：U-5 裁 B（可补套、只填空缺）定的是**补套**这一侧，
-     *   创建时蓝本不合法的判据仍无出处。**一个不会被抛出的码读起来像覆盖。**
+     * ⚠ 2026-08-16 起不再是"刻意没有蓝本码"——BP-08（createProject 真执行六类初始化）
+     *   把 `blueprintVersionId` 从"原样落库"换成"真的用它初始化"之后，"蓝本不合法该
+     *   怎么报错"第一次变成必须存在的分支。五个新码走了独立契约签核
+     *   （`design-deltas/createproject-blueprint-error-codes/`，人类 2026-08-16 确认），
+     *   与 `templates.TemplateError` 同码同义（`_sharedWithTemplates` 编译期钉住）。
      * ⚠ 组织 `disabled` 不在这里：那是 **PG RESTRICTIVE 策略**拒写，断言在数据库层（I-P28）。
      */
-    err: ["ORG_ROLE_INSUFFICIENT", "INVALID_KIND", "AUTH_SERVICE_UNAVAILABLE"] as const,
+    err: [
+      "ORG_ROLE_INSUFFICIENT",
+      "INVALID_KIND",
+      "AUTH_SERVICE_UNAVAILABLE",
+      "BLUEPRINT_NOT_FOUND",
+      "BLUEPRINT_NOT_VISIBLE",
+      "BLUEPRINT_NOT_PUBLISHED",
+      "BLUEPRINT_VERSION_ARCHIVED",
+      "INITIALIZATION_FAILED",
+    ] as const,
   },
 
   /**
@@ -808,4 +862,25 @@ export const KNOWN_CONTRACT_GAPS = {
    * ⇒ 幂等的判据留给实现 + F117 的验收，契约面**不替它编一个键**。
    */
   P9: "uc-00-1 E5/V11 require idempotent creation, but no idempotency key exists in the contract and no uniqueness rule has a source",
+  /**
+   * BP-08（createProject 真执行六类初始化，人类 2026-08-16 裁：最小闭环 B）落地时
+   * 发现两处缺口，登记在一起因为同一根因（"六类初始化"的五个非议程类目从未有过
+   * 真实存储，见 `project-prep-ports.ts` 头注 "F25-F28 建立"）：
+   *
+   * ① `BLUEPRINT_NOT_PUBLISHED` 对 `createProject` 而言是**已知不可达成员**（同 T10
+   *   `TEMPLATE_SWITCH_FORBIDDEN_AFTER_START` 的先例）——`blueprintVersionId` 直接寻址
+   *   一条 `blueprint_versions` 行，该表的 `state` CHECK 只允许 `published`/`archived`
+   *   两值（草稿从不产生版本行），所以"解析到但未发布"这个状态在这条路径上不存在。
+   *   保留该码是因为它与 `templates.applyBlueprint` 同码同义（该操作走 `versionId`
+   *   可空的"当前已发布版本"语义，那条路径上这个码是真实可达的）。
+   *
+   * ② 六类初始化本轮**只写"议程环节"以外的事实**（`blueprint_bindings` 记录"套用过"，
+   *   零新增存储）——议程环节本身该写多少条是清楚的（`planSixCategoryInit` 算得出
+   *   7/11/14/19），但**每条环节的 `duration`**（`agenda_segments.duration integer
+   *   NOT NULL`）没有任何出处：`agenda-segment-table.ts`（F19）只给计数与占位标题，
+   *   `uc-2-1` 需求文档同样只给计数，全仓从未有过"自动生成议程环节"的先例（此前
+   *   `createAgendaSegment` 恒由调用方逐条显式传 `duration`）。⇒ 本轮不发明一个默认
+   *   时长，`agenda_segments` 真实写入留给后续 feature，一并解决"逐段时长从哪来"。
+   */
+  P10: "createProject cannot reach BLUEPRINT_NOT_PUBLISHED (blueprintVersionId addresses a blueprint_versions row directly, whose state is always published/archived when it exists) -- kept for same-code-same-meaning with templates.applyBlueprint, which CAN reach it via nullable versionId; separately, BP-08's six-category init writes only the blueprint_bindings fact this round -- real agenda_segments rows are deferred because per-segment duration has no source anywhere (agenda-segment-table.ts and uc-2-1 only give per-tier counts, never a duration)",
 } as const;

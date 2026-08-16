@@ -398,6 +398,7 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
 // `pg-project-overview-repository.ts` / `pg-project-archive-repository.ts` 的注释。
 import {
   AGENDA_SEGMENT_REPOSITORY,
+  BLUEPRINT_REFERENCE_REPOSITORY,
   PROJECT_ARCHIVE_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
@@ -412,6 +413,10 @@ import { PgProjectListRepository } from "./infrastructure/project/pg-project-lis
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
+// BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
+// 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
+// `pg-blueprint-reference-repository.ts` 的注释。
+import { PgBlueprintReferenceRepository } from "./infrastructure/project/pg-blueprint-reference-repository";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
 // F127（本次新增）：`TEMPORARY_GRANT_REPOSITORY`——F05 交付了判定逻辑但故意不建的存储层，
@@ -1158,6 +1163,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgProjectRepository(db, ids),
       inject: [DATABASE_PORT, ID_FACTORY],
+    },
+    // BP-08：只读，独立 provider，见 `pg-blueprint-reference-repository.ts` 文件头。
+    {
+      provide: BLUEPRINT_REFERENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgBlueprintReferenceRepository(db),
+      inject: [DATABASE_PORT],
     },
     // F122：独立 provider，见 `pg-project-list-repository.ts` 文件头。
     {

@@ -5,12 +5,13 @@
  * `apps/api/src`，要求这句 SQL 恰好出现在**一个**文件里。那条断言就是「一条创建路径」
  * 的机械判据：第二个写点一出现，它当场变红，而没有它，「唯一」只是一句注释。
  *
- * ## 一个事务里的三条语句，顺序不可交换
+ * ## 一个事务里的三条语句（BP-08 起，`blueprintVersionId` 非 null 时是四条），顺序不可交换
  *
  *   ① `project_creation_requests` 占指纹（`ON CONFLICT DO NOTHING`）
  *        └ 命中冲突 ⇒ 这次是**重放**，读出先前那个容器返回，一行都不写
  *   ② `projects`      —— 超类型行
  *   ③ 子类型表        —— 1:1 子行
+ *   ④（可选）`blueprint_bindings` —— 记录"套用过"的事实（BP-08，见方法体内注释）
  *
  * ① 必须在最前：让**数据库**裁决「新建还是重放」，并发下两路才被主键序列化。
  * 先 `SELECT` 再决定的写法在并发下两路都读到「没有」，然后都去建——那正是
@@ -30,6 +31,7 @@ import type {
   CreatedProject,
   ProjectRepository,
 } from "../../application/project/ports";
+import { BlueprintBindingFailedError } from "../../application/project/ports";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
 import { SUBTYPE_TABLE } from "../../domain/project/subtype-tables";
 
@@ -102,13 +104,31 @@ export class PgProjectRepository implements ProjectRepository {
         cmd.orgId,
       ]);
 
-      // ⚠ `blueprintVersionId` 到此为止：**没有任何一列存得下它**。
+      // ⚠ `blueprintVersionId` 本身到此为止：**没有任何一列存得下它**。
       //   `projects` 的列集合是封闭清单（I-P33），蓝本引用属工作坊机件、应当落在
-      //   `workshops` 上，而那一列是 F23 的交付物（蓝本表本身也还不存在）。
-      //   Q-1 C 逐字要求「六类初始化**跳过而非写空值**」，所以这里既不写空值，
-      //   也**不**顺手加一列——加列会同时越过 F23 与 I-P33 两条边。
-      //   ⇒ 后果：本 feature 建出的容器**记不住它是从哪个蓝本来的**，
-      //     而 `getProjectOverview.out.blueprint` 需要它。已作为遗留项报给签核人。
+      //   `workshops` 上，而那一列尚不存在（`KNOWN_CONTRACT_GAPS.P4`/P10 一带，
+      //   已知遗留，BP-08 未新建迁移，不扩大范围）。⇒ 本 feature 建出的容器**仍
+      //   记不住它是从哪个蓝本来的**，`getProjectOverview.out.blueprint` 仍拿不到它。
+      //
+      //   BP-08（人类 2026-08-16 裁：最小闭环 B）补的是**存在性事实**，不是引用列：
+      //   `blueprint_bindings` 一行（`kind='project'`），表/列 BP-04/F179 早已就绪，
+      //   零新增存储。这一步失败（例如蓝本在解析后、写入前被并发删除，`23503`）
+      //   让**整个事务**回滚——不留一个"建了但没绑定成功"的项目行，翻译成
+      //   `BlueprintBindingFailedError` 交给 application 层映射成 `INITIALIZATION_FAILED`。
+      if (cmd.blueprintBinding !== null) {
+        const bindingId = this.ids.next("bpbind");
+        try {
+          await s.query(
+            `INSERT INTO blueprint_bindings (id, blueprint_id, org_id, kind) VALUES ($1, $2, $3, 'project')`,
+            [bindingId, cmd.blueprintBinding.blueprintId, cmd.orgId],
+          );
+        } catch (e) {
+          const code = (e as { code?: string } | null)?.code;
+          if (code === "23503") throw new BlueprintBindingFailedError();
+          throw e;
+        }
+      }
+
       const row = created.rows[0]!;
       return { id: row.id, kind: row.kind, status: row.status, created: true };
     });

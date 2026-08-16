@@ -50,6 +50,7 @@ import {
   Post,
   Query,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { project as C, orgAdmin as OA } from "@repo/contracts";
 import type { z } from "zod";
@@ -77,11 +78,13 @@ import {
 } from "../../application/project/errors";
 import {
   AGENDA_SEGMENT_REPOSITORY,
+  BLUEPRINT_REFERENCE_REPOSITORY,
   PROJECT_ARCHIVE_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
   type AgendaSegmentRepository,
+  type BlueprintReferenceRepository,
   type ProjectArchiveRepository,
   type ProjectListRepository,
   type ProjectOverviewRepository,
@@ -181,6 +184,7 @@ export class ProjectController {
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(TEMPORARY_GRANT_REPOSITORY) private readonly grants: TemporaryGrantRepository,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(BLUEPRINT_REFERENCE_REPOSITORY) private readonly blueprintReference: BlueprintReferenceRepository,
   ) {}
 
   /**
@@ -206,7 +210,7 @@ export class ProjectController {
 
     try {
       const out = await createProject(
-        { repo: this.repo, identity: this.identity },
+        { repo: this.repo, identity: this.identity, blueprintReference: this.blueprintReference },
         {
           orgId: toOrgId(body.orgId),
           actorId: principal.userId,
@@ -215,9 +219,11 @@ export class ProjectController {
           blueprintVersionId: body.blueprintVersionId,
         },
       );
-      // ⚠ `created` 不进响应体：契约的 `out` 是 `.strict()` 且不含它。它只是让幂等
-      //   在测试里可断言（见 `application/project/ports.ts`）。把它暴露出去，
-      //   前端就会拿「这次是不是新建」去分支，而重放在设计上就是不可观测的。
+      // ⚠ `created`/`initialized` 都不进响应体：契约的 `out` 是 `.strict()` 四字段，
+      //   BP-08 本轮未走新的契约 delta 加字段（`application/project/ports.ts` 的
+      //   `CreatedProject.initialized` 头注）。`created` 只是让幂等在测试里可断言；
+      //   把它们暴露出去，前端会拿"这次是不是新建/初始化了什么"去分支，
+      //   而这两件事在契约层面目前都没有对应位置。
       return { id: out.id, kind: out.kind, status: out.status };
     } catch (e) {
       if (e instanceof ProjectError) {
@@ -230,6 +236,23 @@ export class ProjectController {
           // 503 而不是 403：判定服务不可用**不是**一个裁定。把它渲染成拒绝，
           // 用户会去找管理员要一个他本来就有的权限。
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        // BP-08：五个蓝本相关码，映射与 `blueprint.controller.ts` 对同名码的映射逐字一致
+        // （同码同义不该在 HTTP 状态码这一层又分叉出两种渲染）。
+        if (e.reasonCode === "BLUEPRINT_NOT_FOUND") {
+          throw new NotFoundException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "BLUEPRINT_NOT_VISIBLE") {
+          throw new ForbiddenException({ reasonCode: e.reasonCode });
+        }
+        if (
+          e.reasonCode === "BLUEPRINT_NOT_PUBLISHED" ||
+          e.reasonCode === "BLUEPRINT_VERSION_ARCHIVED" ||
+          e.reasonCode === "INITIALIZATION_FAILED"
+        ) {
+          // 422：请求形式合法，但当前资源状态不满足语义前置条件——同
+          // `blueprint.controller.ts` 的 `publishBlueprintVersion` 对 `gate-blocked` 的映射。
+          throw new UnprocessableEntityException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }
