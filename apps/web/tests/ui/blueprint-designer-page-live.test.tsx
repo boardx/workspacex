@@ -138,7 +138,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "topic-and-background", content: "真实主题内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "grouping-rule", content: "真实分组内容", itemRevision: "ir-1" }],
         });
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -148,9 +148,9 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    // 第一项目录默认选中——目录顺序来自 DESIGN_FACET_CATALOG，第一项是 topic-and-background。
-    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
-    expect((editor as HTMLTextAreaElement).value).toBe("真实主题内容");
+    await screen.getByTestId("bp-designer-facet-grouping-rule").click();
+    const editor = await screen.findByTestId("bp-facet-content-grouping-rule");
+    expect((editor as HTMLTextAreaElement).value).toBe("真实分组内容");
     // 不再是占位文案。
     expect(screen.queryByText(/本外壳不自行设计其内部交互/)).not.toBeInTheDocument();
   });
@@ -163,11 +163,11 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "topic-and-background", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "grouping-rule", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
       if (
-        url.pathname === `/blueprints/${BP_ID}/design-facets/topic-and-background` &&
+        url.pathname === `/blueprints/${BP_ID}/design-facets/grouping-rule` &&
         init?.method === "PUT"
       ) {
         putBody = JSON.parse(init.body as string);
@@ -185,7 +185,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
+    await screen.getByTestId("bp-designer-facet-grouping-rule").click();
+    const editor = await screen.findByTestId("bp-facet-content-grouping-rule");
     fireEvent.change(editor, { target: { value: "新内容" } });
     fireEvent.blur(editor);
 
@@ -201,10 +202,10 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "topic-and-background", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "grouping-rule", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets/topic-and-background` && init?.method === "PUT") {
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/grouping-rule` && init?.method === "PUT") {
         return jsonResponse({ reasonCode: "VERSION_CHANGED" }, 409);
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -214,13 +215,85 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
+    await screen.getByTestId("bp-designer-facet-grouping-rule").click();
+    const editor = await screen.findByTestId("bp-facet-content-grouping-rule");
     fireEvent.change(editor, { target: { value: "并发改动" } });
     fireEvent.blur(editor);
 
     await waitFor(() =>
-      expect(screen.getByTestId("bp-facet-error-topic-and-background").textContent).toContain("刷新页面"),
+      expect(screen.getByTestId("bp-facet-error-grouping-rule").textContent).toContain("刷新页面"),
     );
+  });
+
+  it("主题与背景：结构化编辑器显示真实已存内容（JSON 解析，不是自由文本框）", async () => {
+    const saved = {
+      themeStatementText: "以 AI 辅助的方式在 2 周内交付可验证的 MVP",
+      background: [
+        { element: "为什么现在", content: "市场窗口收窄", citedFrom: "客户访谈#3" },
+        { element: "已知结论", content: "", citedFrom: "" },
+        { element: "硬约束", content: "预算 50 万", citedFrom: "" },
+        { element: "要拍板的事", content: "", citedFrom: "" },
+        { element: "不讨论的事", content: "", citedFrom: "" },
+      ],
+    };
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [
+            { designFacetKey: "topic-and-background", content: JSON.stringify(saved), itemRevision: "ir-1" },
+          ],
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    // 目录第一项恒为 topic-and-background（catalog ordinal 1），默认选中。
+    const statementInput = await screen.findByTestId("bp-topic-statement-input");
+    expect((statementInput as HTMLTextAreaElement).value).toBe(saved.themeStatementText);
+    expect((screen.getByTestId("bp-topic-bg-content-为什么现在") as HTMLInputElement).value).toBe("市场窗口收窄");
+    expect((screen.getByTestId("bp-topic-bg-cited-为什么现在") as HTMLInputElement).value).toBe("客户访谈#3");
+    expect((screen.getByTestId("bp-topic-bg-content-硬约束") as HTMLInputElement).value).toBe("预算 50 万");
+  });
+
+  it("主题与背景：编辑一行背景要素并失焦，真实保存成结构化 JSON（不是拼接成自由文本）", async () => {
+    let putBody: { value: string; expectedItemRevision: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/topic-and-background` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-new-1",
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    const bgInput = await screen.findByTestId("bp-topic-bg-content-硬约束");
+    fireEvent.change(bgInput, { target: { value: "预算 50 万" } });
+    fireEvent.blur(bgInput);
+
+    await waitFor(() => expect(putBody).not.toBeNull());
+    expect(putBody!.expectedItemRevision).toBe(""); // 未填过，哨兵空串
+    const parsed = JSON.parse(putBody!.value) as { background: { element: string; content: string }[] };
+    expect(parsed.background.find((b) => b.element === "硬约束")?.content).toBe("预算 50 万");
   });
 
   it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
