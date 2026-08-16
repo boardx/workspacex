@@ -55,7 +55,12 @@ import { TabSettings } from "./tab-settings";
 export function ProjectWorkbench({
   identity, uiState, tab, view, sub, orgDisabled = false, qs, projectId,
 }: {
-  identity: Identity;
+  /**
+   * issue #1316：不再由页面层拼一份 mock 身份——省略时 `AppShell` 落到
+   * `SessionProvider` 解析出的真实会话身份（同 `/projects` 列表页的路径）。
+   * 只有 `ui-preview/project-v2/` 之类的原型/签核材料路由才该显式传一个假身份。
+   */
+  identity?: Identity;
   uiState: UiState;
   tab: ProjectTab;
   view: ProjectRole;
