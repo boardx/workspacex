@@ -273,6 +273,40 @@ interface ResearchSkillState {
 Skill 消息发送后持久化。Skill 只生成针对当前节点的结构化 patch；应用 patch 会进入前端 nodeState，
 只有再次提交 Node Command 才成为 Graph State 的新 checkpoint。
 
+### 5.7 前端可提交状态与服务端状态分离
+
+`BriefNodeState` 等 Graph State 包含 `NodeMeta`、模型结果和业务内容引用，不能原样作为公开写契约。
+公开命令使用五个独立的 strict input schema，只包含当前页面可编辑的完整状态：
+
+```ts
+interface BriefNodeInputState {
+  name: string;
+  tags: string[];
+  topic: string;
+  objective: string;
+  timeRange: string;
+  geography: string;
+  focus: string;
+}
+
+interface DirectionsNodeInputState { directions: ResearchDirection[] }
+interface OutlineNodeInputState { sections: OutlineSection[] }
+interface ResearchNodeInputState { acceptedSourceIds: string[]; excludedSourceIds: string[] }
+interface ReportNodeInputState { title: string; revisionInstruction: string }
+
+interface ResearchNodeInputMap {
+  brief: BriefNodeInputState;
+  directions: DirectionsNodeInputState;
+  outline: OutlineNodeInputState;
+  research: ResearchNodeInputState;
+  report: ReportNodeInputState;
+}
+```
+
+“完整 nodeState”指对应 `ResearchNodeInputMap[node]` 的全部字段，不包含 `NodeMeta`、模型调用身份、
+服务端版本、时间、错误、来源正文或报告正文。公开 schema 拒绝未知字段，Graph 只把校验后的 input
+合并到当前节点，并由服务端生成其余字段。
+
 ## 6. 前后端统一 Node Command
 
 ```ts
@@ -282,15 +316,16 @@ type ResearchNodeAction =
   | "confirm"
   | "start"
   | "retry"
+  | "reconfirm"
   | "complete";
 
-interface ResearchNodeCommand<TNodeState> {
+interface ResearchNodeCommand<TNode extends ResearchNode> {
   sessionId: string;
-  node: ResearchNode;
+  node: TNode;
   action: ResearchNodeAction;
   requestId: string;
   expectedGraphVersion: number;
-  nodeState: TNodeState;
+  nodeState: ResearchNodeInputMap[TNode];
 }
 ```
 
@@ -298,10 +333,11 @@ interface ResearchNodeCommand<TNodeState> {
 
 1. 由 Principal 获取 `orgId` 和 `actorId`，验证会话可见性。
 2. 读取同一 `thread_id` 的最新 checkpoint。
-3. 校验 `node === currentNode`，或属于允许回看的已完成节点。
-4. 校验 `expectedGraphVersion`。
-5. 按节点 schema 校验完整 `nodeState`，拒绝未知字段和非法下游 ID。
-6. 计算 payload 指纹；同一 `requestId` 不同 payload 返回 409。
+3. 按 `ResearchNodeInputMap[node]` 校验完整 `nodeState`，拒绝未知字段和非法下游 ID。
+4. 计算 payload 指纹并先查询 `(sessionId, requestId)` receipt：同指纹回放直接返回首次成功响应所记录的
+   checkpoint/version/projection 身份，不再执行版本校验、模型调用或业务 Effect；不同指纹返回 409。
+5. 对首次请求校验 `node === currentNode`；若 action 为 `reconfirm`，则 node 必须是允许回看的已完成节点。
+6. 对首次请求校验 `expectedGraphVersion`。
 7. NestJS Graph Client 把已授权 command 发送给内部 Graph 服务；Graph 服务用
    `Command({ resume: command })` 恢复当前 interrupt。
 8. Graph 节点先 checkpoint 输入，再调用 `qwen3.7-plus` 或独立检索工具链。
@@ -320,6 +356,7 @@ interface ResearchNodeCommand<TNodeState> {
 | 操作 | HTTP | 作用 |
 |---|---|---|
 | `getGuidedResearchWorkflow` | `GET /research/guided-sessions/:sessionId/workflow` | 返回最新 Graph 投影和当前 interrupt |
+| `getGuidedResearchNode` | `GET /research/guided-sessions/:sessionId/workflow/nodes/:node` | 按权限水合一个当前 revision 的可用节点；刷新后可查看已完成节点 |
 | `executeGuidedResearchNode` | `POST /research/guided-sessions/:sessionId/workflow/nodes/:node` | 提交完整 nodeState 并执行 action |
 | `listGuidedResearchEvents` | `GET /research/guided-sessions/:sessionId/workflow/events?after=` | 恢复检索/报告运行进度 |
 | `appendGuidedResearchSkillMessage` | `POST /research/guided-sessions/:sessionId/skill/messages` | 持久化 Skill 消息并生成 proposal |
@@ -335,6 +372,7 @@ interface GuidedResearchWorkflowProjection {
   availableNodes: ResearchNode[];
   nodeSummaries: Record<ResearchNode, NodeMeta>;
   activeNodeState: HydratedNodeState;
+  nodeStateVersions: Partial<Record<ResearchNode, number>>;
   skill: HydratedResearchSkillState;
   interrupt: { node: ResearchNode; allowedActions: ResearchNodeAction[] } | null;
 }
@@ -372,9 +410,17 @@ stateDiagram-v2
     Report --> Research: revisit
 ```
 
-每个人工节点以 `interrupt()` 暴露当前节点投影和允许动作。恢复时使用相同 thread 的
-`Command({ resume: ResearchNodeCommand })`。因为恢复会从包含 interrupt 的节点开头重新运行，
-所有 Effect 必须放在 interrupt 之后，并通过 receipt 幂等。
+图不把 interrupt 永久停在 Brief/Report 等业务节点本身，而使用稳定的 `await_command` 控制节点：
+
+1. `await_command` 通过 `interrupt()` 暴露当前节点、可回看节点和允许动作。
+2. 相同 thread 以 `Command({ resume: ResearchNodeCommand })` 恢复后进入 `route_command`。
+3. `route_command` 根据 `command.node + action` 条件路由到 Brief、Directions、Outline、Research 或
+   Report handler；因此在 Report 阶段提交 `brief + reconfirm` 会真实进入 Brief handler，而不是错误地
+   把 Brief payload 交给 Report interrupt。
+4. handler 完成保存/生成/确认/失效后统一回到 `await_command`，再产生下一个 checkpoint interrupt。
+
+`reconfirm` 只能路由到 `availableNodes` 中已经完成的上游节点，并在 handler 内创建新 revision、标记
+下游 stale、切换 `currentNode`。因为恢复会重新进入控制节点，所有外部 Effect 都必须通过 receipt 幂等。
 
 运行型节点 Research 和 Report 使用 Python 子图或 task 拆分长任务。每个章节检索、报告章节生成分别拥有
 稳定 operation ID；失败恢复不得重放已完成章节。
@@ -434,6 +480,8 @@ revision，不依赖应用层约定。
 - 左侧 Skill 助手占桌面工作区约三分之一；右侧进度和当前节点工作区约三分之二。
 - 当前节点有未提交修改时，切换、返回首页或关闭页面必须提醒。
 - 恢复时只信任 `getGuidedResearchWorkflow`；localStorage 仅可用于非权威 UI 偏好，不能恢复业务状态。
+- Workflow GET 水合当前节点；用户点击任一已完成节点时调用 `getGuidedResearchNode` 水合该节点。
+  节点读取同样经过会话授权并绑定当前 revision，不能用旧 checkpoint ID 越权读取历史内容。
 
 ## 11. 上游重确认与下游失效
 
@@ -500,6 +548,7 @@ F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直
 ### 16.1 契约
 
 - 五种 Node Command 都要求完整 nodeState。
+- 公开 input schema 不包含 `NodeMeta`、模型身份、服务端版本、时间或错误字段。
 - 四个生成边界断言实际选择 `qwen3.7-plus`，并验证生产配置无 deterministic fallback。
 - 未知字段、非法引用、缺少 requestId、缺少 expectedGraphVersion 均失败。
 - 成功和错误响应封闭，Web 与 API 使用同一 schema。
@@ -509,8 +558,10 @@ F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直
 - 每个节点确认后产生 checkpoint，API 重启后从相同 thread 恢复。
 - Graph 服务进程重启后从 PostgreSQL 恢复，不能依赖 NestJS 内存或 Python in-memory saver。
 - 同 requestId 同 payload 返回首次结果；不同 payload 返回 409。
+- 首次响应丢失后用旧 expectedGraphVersion 重放同 requestId/payload，仍返回首次 checkpoint，不报版本冲突。
 - checkpoint 前后进程退出不会重复写业务内容或重复启动外部调用。
 - 上游重确认只使规定的下游节点 stale。
+- 从 Report interrupt 重确认 Brief 会经 `route_command` 执行 Brief handler，并把 Directions 之后置 stale。
 - 跨组织 session、业务记录和 checkpoint 均不可见。
 
 ### 16.3 Web
@@ -518,6 +569,7 @@ F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直
 - 步骤切换不改变 canonical URL、不触发整页刷新。
 - 每次写调用都包含当前节点完整状态。
 - 刷新后恢复服务端当前节点和已确认内容。
+- 刷新后点击已完成节点通过授权 node-read 恢复完整可编辑状态，不依赖内存草稿。
 - 未来节点禁用；已完成节点可查看，重确认时显示下游失效提示。
 - Skill 应用只改页面草稿，再提交 Node Command 才进入 checkpoint。
 
