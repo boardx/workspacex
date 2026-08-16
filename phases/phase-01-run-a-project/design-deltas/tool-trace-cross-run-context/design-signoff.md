@@ -3,7 +3,7 @@ status: confirmed
 bundle: tool-trace-cross-run-context
 base_bundle: chat-context-engine
 scope: tool-call-trace-fed-back-as-fourth-context-source-across-runs
-covers: [F185]
+covers: []
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-16T00:00:00+08:00
 confirmed_via: >-
@@ -25,7 +25,7 @@ confirmed_via: >-
 ## 这份 delta 为什么存在
 
 已签的 `chat-context-engine` 束把上下文来源定为 L1（近端原文）+ L2（持久摘要）+ L3（文件
-检索）三层。F185 追加**第四类**来源——本线程近期轮次的工具调用轨迹——这是已签束字面参数
+检索）三层。本 delta 追加**第四类**来源——本线程近期轮次的工具调用轨迹——这是已签束字面参数
 之外的新增，且实现会碰 `execute-run.ts`（F154 notes 明确写着"动这个文件需取 coord-main
 串行窗口"），按 ADR-023 的路径需要 design-delta 追加签核，不能援引既有签核直接开工。
 
@@ -45,5 +45,6 @@ confirmed_via: >-
   追加第四类来源，规范以本目录 `contract.md` 为准。
 - `ModelCallInput`/`ModelCallPort` 契约不动（同 L1/L2/L3 的既有边界，coord-main 裁决 A 条件
   延续）。
-- 签核后 requirement-author 把 F185 的 `verification`/`spec_ref` 按本 delta 口径落
-  `feature_list.json`；实现前须先协调 `execute-run.ts` 的 coord-main 串行窗口。
+- 签核后 requirement-author 把对应 feature 的 `verification`/`spec_ref` 按本 delta 口径落
+  `feature_list.json`，并把新编号补回本文件 `covers:`；实现前须先协调 `execute-run.ts`
+  的 coord-main 串行窗口。
