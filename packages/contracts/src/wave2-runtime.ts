@@ -100,6 +100,47 @@ export const SkillUrlImportResult = z.object({
   replayed: z.boolean(),
 }).strict();
 
+/**
+ * #1415 —— agent 版的 `SkillUrlImportError`/`SkillUrlImportResult`。同一条草案许可
+ * （见上方 `SkillUrlImportError` 处的头注），同一份机械门控理由
+ * （`tests/contract-single-source.test.ts` 禁止 `apps/api/src` 里出现第二份形状声明）。
+ */
+export const AgentUrlImportError = z.enum([
+  /* 用例层（`application/agent-import/import-agent-from-url.ts`） */
+  "IMPORT_CONTENT_INVALID",
+  "IMPORT_NAME_CONFLICT",
+  "IMPORT_IDEMPOTENCY_CONFLICT",
+  "IMPORT_NOT_ORG_ADMIN",
+  /* 取回层（`domain/skill/import-source.ts` 的 `ImportSourceRefusalCode`）——
+   * agent 导入复用同一套 SSRF 门，不重开第二套判定，错误码因此逐字相同。 */
+  "IMPORT_URL_MALFORMED",
+  "IMPORT_URL_SCHEME_FORBIDDEN",
+  "IMPORT_URL_CREDENTIALS_FORBIDDEN",
+  "IMPORT_URL_HOST_NOT_PUBLIC",
+  "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG",
+  "IMPORT_PAYLOAD_TOO_LARGE",
+  "IMPORT_TOO_MANY_REDIRECTS",
+  "IMPORT_FETCH_TIMEOUT",
+  "IMPORT_FETCH_FAILED",
+]);
+
+export const AgentUrlImportResult = z.object({
+  agentId: z.string(),
+  /** 落库的 agent 显示名（同一个 idempotencyKey 回放时可能与本次请求的 name 不同）。 */
+  name: z.string(),
+  /** 恒为 `"草稿"`——导入不自动发布，见 `importAgentFromUrl` 头注。 */
+  publishState: z.string(),
+  /**
+   * 回显落库的指令全文。**不是新的读路径**——这一阶段的 Agent 没有单独的
+   * `GET /agents/:id` 定义读接口，回显是让界面在导入成功的这一刻就能显示"到底导入了
+   * 什么"，不需要用户凭空对着一个空文本框决定要不要覆盖它。
+   */
+  instructions: z.string(),
+  contentDigest: Sha256,
+  /** 该 `idempotencyKey` 之前已经导入过，本次未重复落库 */
+  replayed: z.boolean(),
+}).strict();
+
 /* ────────────────── #595 后台编辑 skill 内容：⚠ 草案，**尚未经人类签核**（ADR-023） ──────────────────
  *
  * coord-main 对 #595 的派工逐字写着「不要等签核，先落地导入+编辑+后台测试最小集合」，
@@ -389,6 +430,29 @@ export const operations = {
     }).strict(),
     out: SkillUrlImportResult,
     err: SkillUrlImportError.options,
+  },
+  /**
+   * #1415 —— agent 版的 `importSkillFromUrl`，与它同一心智：URL 内容取回后不落一整棵
+   * 目录（agent 不是文件树，`agents`/`agent_versions` 唯一的"内容"字段是
+   * `instructions`，单个文本 blob），落的是一个**草稿态** agent + 它的 `instructions`。
+   * ⚠ 草案，未签核 —— 见上方 `importSkillFromUrl` 处的同一条许可。
+   *
+   * 导入后**不**自动发布（`selfPublishToollessAgent` 是独立的既有端点）：留一步
+   * 让用户能在发布前先看一眼/改一改导入回来的指令，这正是"导入完还要能编辑"
+   * 这条要求的落点——发布把 `agent_versions` 铸成不可变快照，铸之前才是能改的窗口。
+   */
+  importAgentFromUrl: {
+    method: "POST",
+    path: "/admin/agents/url-imports",
+    in: z.object({
+      /** 要导入的 https 地址；两道 SSRF 门都作用在它上面 */
+      sourceUrl: z.string().min(1).max(2048),
+      /** 导入后 agent 的显示名（同时派生缩写角标与职责一句话） */
+      name: z.string().min(1).max(255),
+      idempotencyKey: z.string().min(1).max(255),
+    }).strict(),
+    out: AgentUrlImportResult,
+    err: AgentUrlImportError.options,
   },
   importAgentStarterPack: {
     method: "POST",

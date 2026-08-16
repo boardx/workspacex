@@ -574,6 +574,12 @@ export const operations = {
         rootFile: z.string(),
         tree: z.array(AssetTreeNode),
         files: z.array(AssetFile),
+        /**
+         * 当前发布版本 id（`skill` 才有，`skill_versions.id`）——`skills.runTrialRun`
+         * 唯一认的 id 空间，与本操作入参 `assetId`（`skills.id`）不是同一个 id 空间。
+         * `agent` 这一档目前没有版本概念，恒为 `null`。
+         */
+        currentVersionId: z.string().nullable(),
       })
       .strict(),
     err: ["ORG_SCOPE_DENIED", "AUTH_SERVICE_UNAVAILABLE"] as const,

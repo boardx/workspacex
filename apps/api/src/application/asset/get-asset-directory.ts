@@ -61,5 +61,10 @@ export async function getAssetDirectory(
   // The contract's inferred type is mutable arrays; the domain builder returns `readonly`
   // ones (deliberately, as a value object). Spreading here is copying, not casting the
   // guarantee away -- `buildAssetDirectory`'s caller-visible return type is unaffected.
-  return { rootFile: built.rootFile, tree: [...built.tree], files: [...built.files] };
+  return {
+    rootFile: built.rootFile,
+    tree: [...built.tree],
+    files: [...built.files],
+    currentVersionId: record.currentVersionId,
+  };
 }

@@ -26,6 +26,7 @@ import type {
 } from "../../application/agent-run/ports";
 import type { FileRetrievalPort } from "../../application/agent-run/file-retrieval";
 import type { AgentRunContextSnapshotPort } from "../../application/agent-run/context-snapshot";
+import type { ToolTraceContextPort } from "../../application/agent-run/tool-trace-context";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
@@ -61,6 +62,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 生产合成必定注入。不注入 ⇒ 不写快照，其余行为逐字节不变。
      */
     private readonly contextSnapshots?: AgentRunContextSnapshotPort,
+    /**
+     * F190 —— 工具调用轨迹跨 run 回喂上下文。可选，与 `usage`/`files`/`contextSnapshots`
+     * 同一条既有理由：既有构造点不必都改，生产合成必定注入。不注入 ⇒ 组装出的 history 与
+     * F190 之前逐字节相同。
+     */
+    private readonly toolTrace?: ToolTraceContextPort,
   ) {}
 
   /**
@@ -85,7 +92,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
   async tick(orgId: OrgId): Promise<number> {
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
-      files: this.files, contextSnapshots: this.contextSnapshots,
+      files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;

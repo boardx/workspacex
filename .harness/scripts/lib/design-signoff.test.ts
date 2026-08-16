@@ -12,8 +12,22 @@
 // 用一次性 fixture phase 目录测真实文件系统行为（同 spec-ref.test.ts 的惯例）。
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PHASES_DIR, REPO_ROOT, findPhaseDir } from "./paths";
+
+// has_ui 逃生口测试需要一个「has_ui: true」的阶段。早先直接用真实的 phase-03 ——
+// 那会读磁盘上 phase-03 当下**是否真的没有 contracts/**，这条前提会随其他 PR
+// 给 phase-03 建束而漂移（已经漂移过一次：PR #1394 补了 feedback-loop 束）。
+// 改成 mock `roadmap.phaseHasUi`，让「某阶段被标了 has_ui」这件事由测试自己声明，
+// 不再依赖 roadmap.yaml + phases/ 目录此刻恰好是什么状态。
+const UI_PHASE_ID = "zz-ui-signoff-test";
+vi.mock("./roadmap", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./roadmap")>();
+  return {
+    ...actual,
+    phaseHasUi: (id: string) => (id === "zz-ui-signoff-test" ? true : actual.phaseHasUi(id)),
+  };
+});
 import {
   assertDesignSignedOff,
   auditSignoff,
@@ -404,12 +418,32 @@ describe("ui.md 的要求范围只覆盖 has_ui 阶段（ADR-023 决策一 ①�
  * 以下三个 describe 是 2026-07-30「两道签核门收敛为一道」的反证（ADR-023 决策一）。
  *
  * 收敛本身很小：`new-sprint` 少调一个 assert。**危险的是它的副作用**：
- * phase-03 标了 `has_ui`、还没建 `contracts/`，此前挡住它的唯一一道门
+ * 标了 `has_ui`、还没建 `contracts/` 的阶段，此前挡住它的唯一一道门
  * 正是被撤掉的那道；而束级门有一个「零契约束 ⇒ 静默放行」的逃生口。
  * 只撤门不堵口 = 该阶段从「有门」变成「无门」。下面的测试就是钉这件事的。
+ *
+ * ⚠ 2026-08-16 教训：这组测试原来直接用真实的 phase-03，断言磁盘上「此刻恰好
+ *   没有 contracts/」——这是一个会随其他 PR 合并而漂移的活前提，PR #1394
+ *   给 phase-03 补了 feedback-loop 契约束之后这组测试整体假红（见
+ *   `.harness/instructions/static-trace-vs-live-fact.md`：磁盘此刻的状态不是
+ *   可以硬编码进测试的事实）。改用 `UI_PHASE_ID` 这个专属 fixture 阶段：
+ *   `has_ui` 由文件顶部的 `vi.mock("./roadmap")` 声明为 true，`contracts/`
+ *   目录由 beforeEach/afterEach 保证「存在阶段目录、不存在 contracts 子目录」，
+ *   不再依赖任何真实阶段此刻是什么状态。
  * ══════════════════════════════════════════════════════════════════════════ */
 
 describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落地，2026-07-30）", () => {
+  const UI_PHASE_DIR = join(PHASES_DIR, `phase-${UI_PHASE_ID}-fixture`);
+
+  beforeEach(() => {
+    // 只建阶段目录本身，故意不建 contracts/ —— 这正是这组测试要断言的前提。
+    mkdirSync(UI_PHASE_DIR, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(UI_PHASE_DIR, { recursive: true, force: true });
+  });
+
   it("非 UI 阶段 + 零契约束 → 仍然不适用，放行（不追溯拦住 ADR-020 之前的阶段）", () => {
     // fixture phase 不在 roadmap 里 ⇒ has_ui 为假，走的正是这条旧路径
     const r = auditSignoff(PHASE_ID, ["F01"], NOW);
@@ -417,12 +451,9 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
     expect(r.fails).toEqual([]);
   });
 
-  // ★ 用真实 roadmap + 真实磁盘断言仍为空的 has_ui 阶段。
-  //   Phase 02 已于 2026-08 新增 Survey 契约束，不能再当作零束 fixture。
-  it("phase-03（has_ui: true，磁盘上没有 contracts/）→ 判失败，且点名 has_ui", () => {
-    const phaseId = "03";
-    expect(existsSync(join(findPhaseDir(phaseId), "contracts"))).toBe(false);
-    const r = auditSignoff(phaseId, [], NOW);
+  it("has_ui: true 且磁盘上没有 contracts/ → 判失败，且点名 has_ui", () => {
+    expect(existsSync(join(findPhaseDir(UI_PHASE_ID), "contracts"))).toBe(false);
+    const r = auditSignoff(UI_PHASE_ID, [], NOW);
     expect(r.applicable).toBe(true);
     expect(r.fails.join("\n")).toMatch(/has_ui/);
     expect(r.fails.join("\n")).toMatch(/没有任何契约束/);
@@ -430,43 +461,35 @@ describe("has_ui 阶段的零契约束逃生口已堵上（ADR-023 决策一落�
 
   /* ── UNSTARTED_PHASE_IS_WARN 的反证套件（2026-07-31）──────────────────
    *
-   * 降级本身的风险是：写成「audit 模式一律放行」。那样 phase-02 真的开工之后
+   * 降级本身的风险是：写成「audit 模式一律放行」。那样一个阶段真的开工之后
    * doctor 会安静地绿着——正是本仓九次「全绿但空转」的第十次。
    * 下面三条把「降级的边界」钉死：只在 audit 模式 ∧ 零开工 feature 时降级，
    * 其余三种组合必须仍是 FAIL。 */
   it("降级只在 audit 模式发生：同样零开工 feature，gate 模式仍判 FAIL", () => {
-    for (const phaseId of ["03"]) {
-      const gate = auditSignoff(phaseId, [], NOW); // 默认 "gate"
-      expect(gate.fails.join("\n")).toMatch(/没有任何契约束/);
-      expect(gate.warns).toEqual([]);
-    }
+    const gate = auditSignoff(UI_PHASE_ID, [], NOW); // 默认 "gate"
+    expect(gate.fails.join("\n")).toMatch(/没有任何契约束/);
+    expect(gate.warns).toEqual([]);
   });
 
   it("降级只在零开工时发生：audit 模式 + 有 in_progress/passing 的 feature ⇒ 变回 FAIL", () => {
-    for (const phaseId of ["03"]) {
-      const started = auditSignoff(phaseId, ["F01"], NOW, "audit");
-      expect(started.fails.join("\n")).toMatch(/没有任何契约束/);
-      expect(started.warns).toEqual([]);
-    }
+    const started = auditSignoff(UI_PHASE_ID, ["F01"], NOW, "audit");
+    expect(started.fails.join("\n")).toMatch(/没有任何契约束/);
+    expect(started.warns).toEqual([]);
   });
 
   it("降级后这条缺口仍然可见、有名字：WARN 文案点名 has_ui、点名它为什么被降级、并给出登记位置", () => {
-    for (const phaseId of ["03"]) {
-      const r = auditSignoff(phaseId, [], NOW, "audit");
-      expect(r.applicable).toBe(true);
-      expect(r.fails).toEqual([]);
-      const w = r.warns.join("\n");
-      expect(w).toMatch(/has_ui/);
-      expect(w).toMatch(/没有任何契约束/);
-      expect(w).toMatch(/一条 feature 都还没开工/);
-      expect(w).toMatch(/DEBT-phase-02-03-signoff-chain\.md/);
-    }
+    const r = auditSignoff(UI_PHASE_ID, [], NOW, "audit");
+    expect(r.applicable).toBe(true);
+    expect(r.fails).toEqual([]);
+    const w = r.warns.join("\n");
+    expect(w).toMatch(/has_ui/);
+    expect(w).toMatch(/没有任何契约束/);
+    expect(w).toMatch(/一条 feature 都还没开工/);
+    expect(w).toMatch(/DEBT-phase-02-03-signoff-chain\.md/);
   });
 
-  it("assertDesignSignedOff 对 phase-03 抛错 —— new-sprint 与 claim 共用它，两个入口一起被挡", () => {
-    for (const phaseId of ["03"]) {
-      expect(() => assertDesignSignedOff(phaseId, ["F01"])).toThrow(/has_ui/);
-    }
+  it("assertDesignSignedOff 对 has_ui 零契约束阶段抛错 —— new-sprint 与 claim 共用它，两个入口一起被挡", () => {
+    expect(() => assertDesignSignedOff(UI_PHASE_ID, ["F01"])).toThrow(/has_ui/);
   });
 
   it("phase-01（has_ui: true 且已建 contracts/）不被这条误伤 —— 它走正常的束级判定", () => {

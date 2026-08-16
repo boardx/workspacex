@@ -621,6 +621,20 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   blueprint: () => AG_BLUEPRINTS.length,
   overview: () => OVERVIEW_ANOMALIES.length,
   members: () => MEMBERS.length,
+  /*
+   * FB-3 注（2026-08-15）：反馈屏已接真实后端，而这个表**不是**生产里左栏计数的来源——
+   * #881 起 `AdminNav` 的缺省来源是 `live-admin-nav-counts.ts`，那里只有 `agent`/`skill`
+   * 两项口径明确，`feedback` 落在「其余一律『—』」里。所以生产左栏的反馈计数**已经是「—」**，
+   * 不是这个 mock 数字。
+   *
+   * ⚠ 本条一度被改成 `throw`（想让它显示「—」），那是**改错了地方**：本表今天的职责是
+   *   `admin-nav-count-unavailable.test.tsx` 里的 `HEALTHY` 夹具——一个「全都健康」的
+   *   来源集合，用来验「健康路径下不出现『—』」。让夹具里有一项恒抛错，等于把那条断言
+   *   变成永远不可能成立。改回原值，并把这段话留下，免得下一个人重犯。
+   *
+   * 真要让左栏显示反馈的待处理数，改的是 `live-admin-nav-counts.ts`（加一条
+   * `GET /feedback/counts`），不是这里。
+   */
   feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
 };

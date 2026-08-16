@@ -1,39 +1,43 @@
 # 会话交接 — Sprint 01/12
 
 ## 当前已验证
-- F195 已签核、已建 Issue #1432、已认领为 `in_progress`。
-- 当前 worktree 已完成 F195A/B/C/D 的实现性闭环，但尚未宣称 feature passing：未跑 `pnpm harness verify --sprint 01/12`，未提交/PR/merge。
-- 最新整体验证:
-  - contracts F195: 13 tests ✅
-  - API F195 workflow + F168 recovery: 11 tests ✅
-  - deep-agent-service graph: 5 tests ✅
-  - deep-agent-service Postgres recovery: 1 test ✅
-  - web guided research UI: 32 tests ✅
-  - web typecheck: exit 0 ✅
-  - permission path lint: exit 0 ✅
-  - arch deps lint: exit 0 ✅
+- F190（工具调用轨迹跨 run 回喂上下文）：`passing`。
+  `pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts`（V1/V2/V3/V5/V6/V6b/V7，7/7 通过）+
+  `tests/chat/tool-trace-context-repo-guard.test.ts`（4/4 通过）；
+  官方门控 `pnpm harness verify --sprint 01/12 --feature F190` 通过，证据见
+  `sprints/sprint-12/evidence/F190.verify.log`。
 
 ## 本轮改动
-- 新增/更新 Guided Research workflow 契约、schema 生成、node command 输入、projection、严格解析与 contract tests。
-- 新增 API workflow service/controller wiring、command receipt/migration、structured directions/outline qwen3.7-plus generator，并用 fake provider 验证模型输出解析与幂等持久化。
-- 新增 deep-agent-service Guided Research StateGraph、state schema、Postgres checkpointer recovery tests。
-- 更新前端 guided research API client 与 flow 组件：`/research?session=...` 恢复、步骤切换 `history.replaceState`、workflow command 携带 `expectedGraphVersion` + nodeState、Skill 进度标识、报告工作区加宽。
+- 新文件：`apps/api/src/application/agent-run/tool-trace-context.ts`（纯组装 + 端口定义）、
+  `apps/api/src/infrastructure/agent-run/pg-tool-trace-context.ts`（PG 实现）。
+- `execute-run.ts`：L1/L2 之后、L3 之前插入工具轨迹回喂段（读最近 3 轮记录过 tool_call 的
+  历史 run，与 L1 已保留消息去重，失败降级不 fail run）；`ExecuteAgentRunDeps` 加
+  `toolTrace?: ToolTraceContextPort`。
+- `context-snapshot.ts` / `pg-agent-run-context-snapshot.ts`：F157 快照追加
+  `toolTraceStatus`/`toolTraceRunCount`/`toolTraceStepCount` 三字段，迁移
+  `20260816010000_f190_tool_trace_context.sql`。
+- `agent-run-executor.ts` / `kernel.module.ts`：生产合成注入 `PgToolTraceContext`。
+- `lint-permission-paths.mjs` 新增一条豁免（`pg-tool-trace-context.ts`，系统内部读，同
+  F157 `record()` 的既有理由）+ 配套 `tests/chat/tool-trace-context-repo-guard.test.ts`
+  把豁免前提钉成机械断言；`permission-propagation-six-paths.test.ts` 的 allowlist 上限
+  57→58（同 F185 先例的写法）。
+
+## 已知与 verification.md 的一处偏差（如实记录，不是漏做）
+- design-delta 的 `verification.md` V4 描述"跨 L1/L2/L3/工具轨迹的共享预算仲裁"，但这份
+  代码库里 L2 摘要与 L3 检索目前都是无条件前置、从不参与任何跨层裁剪（各自只有独立的字符
+  预算）——工具轨迹遵循同一个既有现实，没有新增一个这份代码库里其它层都没有的跨层仲裁器。
+  `tool-trace-context.ts` 头注与测试文件头注都写明了这一点；如果这条偏差不可接受，需要
+  回到 delta 补一轮签核再实现真正的跨层预算器，不是本轮悄悄改了行为。
 
 ## 仍损坏或未验证
-- `pnpm harness tick` 失败：`COORD_GATEWAY_URL 未配置`。
-- `pnpm --filter api run typecheck` 失败在 `packages/fabric-markdown` 的 DOM 类型缺失（`Element` / `CanvasRenderingContext2D` / `document`），不是本轮 F195 文件；未修无关模块。
-- 真实 qwen3.7-plus 调用未用真实 key 验证；测试以 fake OpenAI-compatible provider 覆盖结构化输出。
-- 尚未对 Issue #1432 写进展评论，尚未 PR/merge。
+- 无已知阻塞。
 
 ## 下一步最佳动作
-- 先把本轮验证证据同步到 Issue #1432。
-- 解决 `COORD_GATEWAY_URL` / 全局 api typecheck 阻塞后跑 `pnpm harness verify --sprint 01/12`。
-- 不要手改 `active-features.json`；不要手动把 F195 标 passing。
+- 本 feature 完成，push 分支、开 PR（关联 issue，`Closes` 该 issue）。
+- context-engine 束（chat-context-engine + 两条已签 delta）目前没有更多待办；F150/F153
+  （附件上传相关）属 `chat-file-upload` 束，F150 阻塞于 F110，暂不可开工。
 
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 01/12`
-- 调试:`pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts`
-- 调试 API:`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-workflow-command.test.ts tests/research/guided-session-list-and-recovery.test.ts`
-- 调试 Web:`pnpm --filter web exec vitest run tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-visual-contract.test.tsx && pnpm --filter web run typecheck`
-- 轻量门禁:`node apps/api/scripts/lint-permission-paths.mjs && node .harness/scripts/lint-arch-deps.mjs`
+- 调试:`pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts`

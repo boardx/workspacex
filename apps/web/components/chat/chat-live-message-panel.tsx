@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
@@ -80,6 +81,8 @@ export function ChatLiveMessagePanel({
   onArtifactLanded,
   onRunSettled,
   aboveComposer,
+  onMentionQueryChange,
+  mentionResolvedNonce,
 }: {
   threadId: string;
   bearer: string;
@@ -121,6 +124,20 @@ export function ChatLiveMessagePanel({
    *   它的全部 testid、它的可见性规则一个都没有变，只是换了个挂载位置。
    */
   aboveComposer?: React.ReactNode;
+  /**
+   * 在输入框里敲 `#` 用 skill——不在本组件里重新实现挂载（`ChatSkillMountPanel`
+   * 已经有真实、经过测试的那一套 `version`/`mount()`），本组件只做**检测**：
+   * 光标前最近一个 `#`（且之间没有空白）就是一次活跃的 mention，把它之后的文字
+   * 当 query 报给上层（`ChatReadScreen`），由上层转给 `ChatSkillMountPanel`
+   * 去开面板、按 query 过滤、真正调 `mountSkills`。`null` = 当前没有活跃 mention。
+   */
+  onMentionQueryChange?: (query: string | null) => void;
+  /**
+   * 上层告诉本组件「刚才那次 mention 已经挂载成功了」——每次成功都是一个新的
+   * 递增值（nonce），本组件据此把 `#query` 那一段从输入框正文里删掉。
+   * 用递增数字而不是布尔值：布尔值连续两次挂载可能"没变化"因而不触发 effect。
+   */
+  mentionResolvedNonce?: number;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -482,6 +499,53 @@ export function ChatLiveMessagePanel({
   };
 
   /**
+   * `#` mention 的检测状态。`start` 是 `#` 在 `text` 里的下标（切掉时要用），
+   * `query` 是 `#` 到光标之间的文字。两者都在 `onSelect`（每次光标或选区变化，
+   * 覆盖打字、点击、方向键）里重算——原生 `<textarea>` 没有富文本节点，
+   * 唯一可靠的「光标在哪」信号就是 `selectionStart`。
+   */
+  const [mention, setMention] = React.useState<{ start: number; query: string } | null>(null);
+
+  const recomputeMention = (value: string, caret: number | null) => {
+    if (caret === null) {
+      setMention(null);
+      return;
+    }
+    const upToCaret = value.slice(0, caret);
+    const hashIndex = upToCaret.lastIndexOf("#");
+    if (hashIndex === -1) {
+      setMention(null);
+      return;
+    }
+    const between = upToCaret.slice(hashIndex + 1);
+    // `#` 后面一旦出现空白/换行，这次 mention 就结束了（比如打完 `#foo 然后` 那句话）。
+    if (/\s/.test(between)) {
+      setMention(null);
+      return;
+    }
+    setMention({ start: hashIndex, query: between });
+  };
+
+  React.useEffect(() => {
+    onMentionQueryChange?.(mention?.query ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mention]);
+
+  const previousMentionResolvedNonce = React.useRef(mentionResolvedNonce);
+  React.useEffect(() => {
+    if (mentionResolvedNonce === undefined) return;
+    if (previousMentionResolvedNonce.current === mentionResolvedNonce) return;
+    previousMentionResolvedNonce.current = mentionResolvedNonce;
+    if (mention === null) return;
+    // 把 `#query` 从正文里删掉——挂载已经真的发生了，留着字面量只会让使用者
+    // 以为还要手动发送一条以 `#` 开头的消息。
+    const nextText = text.slice(0, mention.start) + text.slice(mention.start + 1 + mention.query.length);
+    setMention(null);
+    updateDraft({ text: nextText });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionResolvedNonce]);
+
+  /**
    * #925 ③（人类裁决，覆盖 V2 的 ⌘↵）—— **Enter 发送、Shift+Enter 换行**（Claude/ChatGPT 惯例）。
    * ⚠ **必须挡输入法组字（IME composition）中的 Enter**：本仓是中文应用，用户打中文时按 Enter
    * 是"确认候选词"，不是"发送"——`event.nativeEvent.isComposing` 为真时直接放行给输入法，
@@ -693,6 +757,25 @@ export function ChatLiveMessagePanel({
                       </span>
                       {isAgent ? agentDuty(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
+                      {/*
+                        FB-2 —— 对「这个 agent 本身」提反馈（与同一行上的 👍/👎 不是一件事）。
+
+                        ⚠ 消息级 👍/👎（F176）答的是「这一条回答好不好」；这个按钮答的是
+                          「这个 agent 老是漏掉附件」这类跨很多条消息、需要正文的话。
+                          两者都留，是因为它们在下游走两条不同的路：前者聚合成满意度与改进建议，
+                          后者直接进分诊队列（`components/feedback/feedback-button.tsx` 头注）。
+
+                        ⚠ 只在 `message.agentId` 非空时渲染，且传的是「真实 agent id」，
+                          不是显示名。显示名会改，反馈要能一直对上同一个 agent。
+                      */}
+                      {isAgent && message.agentId !== null && (
+                        <FeedbackButton
+                          target={{ kind: "agent", agentId: message.agentId }}
+                          targetLabel={agentLabel(message.agentId, agents)}
+                          testid="chat-agent-feedback"
+                          className="invisible transition-opacity focus-visible:visible group-hover:visible"
+                        />
+                      )}
                       {/*
                         V3 —— 逐条复制。hover 出现（`opacity-0 group-hover`），键盘聚焦时也
                         显形（`focus-visible:opacity-100`）保证键盘可达；复制后 2 秒内显对勾。
@@ -943,8 +1026,13 @@ export function ChatLiveMessagePanel({
             placeholder="输入要持久保存并交给所选 Agent 的消息，或把文件拖进来一起发送"
             value={text}
             disabled={archived || submitting}
-            onChange={(event) => updateDraft({ text: event.target.value })}
+            onChange={(event) => {
+              updateDraft({ text: event.target.value });
+              recomputeMention(event.target.value, event.target.selectionStart);
+            }}
             onKeyDown={handleComposerKeyDown}
+            onKeyUp={(event) => recomputeMention(event.currentTarget.value, event.currentTarget.selectionStart)}
+            onClick={(event) => recomputeMention(event.currentTarget.value, event.currentTarget.selectionStart)}
             className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
           />
           {/*

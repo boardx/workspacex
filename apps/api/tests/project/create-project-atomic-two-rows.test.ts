@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 import { project, provenance } from "@repo/contracts";
 import { createProject } from "../../src/application/project/create-project";
 import { ProjectError } from "../../src/application/project/errors";
+import type { BlueprintReferenceRepository } from "../../src/application/project/ports";
 import { PgProjectRepository } from "../../src/infrastructure/project/pg-project-repository";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -146,7 +147,25 @@ beforeEach(async () => {
     ]),
   );
   await addOrgMember(ORG, LEAD, "lead", null);
+  // BP-08：一条真实蓝本行，供「蓝本是可选参数」那条用例的 stub 解析绑定
+  // （`blueprint_bindings.blueprint_id` 有外键，不能指向一个不存在的行）。
+  await asApp(ORG, (c) =>
+    c.query(
+      `INSERT INTO blueprints (id, org_id, name, origin, created_by) VALUES ($1,$2,$3,'blank',$4)`,
+      ["bp-v1", ORG, "F117 可选参数用蓝本", LEAD],
+    ),
+  );
 }, HOOK_TIMEOUT_MS);
+
+/** 见同名 stub 在 `create-project-idempotent.test.ts` 的说明——本文件只需要它总是解析成功。 */
+const stubBlueprintReference: BlueprintReferenceRepository = {
+  resolve: async (_orgId, blueprintVersionId) => ({
+    kind: "ok",
+    blueprintId: blueprintVersionId,
+    filledFacetKeys: [],
+    tier: "custom",
+  }),
+};
 
 describe("正向：一次提交写出容器行与子类型行", () => {
   it("三类各建一个，两行同 id，且**另外两张子表一行都没有**", async () => {
@@ -189,7 +208,7 @@ describe("正向：一次提交写出容器行与子类型行", () => {
       { orgId: toOrgId(ORG), actorId: LEAD, name: "同名", kind: "workshop", blueprintVersionId: null },
     );
     const fromBlueprint = await createProject(
-      { repo, identity },
+      { repo, identity, blueprintReference: stubBlueprintReference },
       { orgId: toOrgId(ORG), actorId: LEAD, name: "同名", kind: "workshop", blueprintVersionId: "bp-v1" },
     );
 

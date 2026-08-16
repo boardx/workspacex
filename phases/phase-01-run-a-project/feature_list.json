@@ -4284,6 +4284,33 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F191",
+      "title": "createProject 真执行蓝本套用（BP-08：解析 + 五个新错误码明确拒绝 + blueprint_bindings 事实写入，最小闭环）",
+      "user_visible_behavior": "组织成员（lead 或 admin，#608）传一个真实已发布蓝本版本的 blueprintVersionId 建项目，请求真实成功，且这个蓝本被记录为「已套用」（blueprint_bindings 一行，kind='project'）。传一个不存在/已归档版本的 blueprintVersionId，请求被明确拒绝（BLUEPRINT_NOT_FOUND / BLUEPRINT_VERSION_ARCHIVED），不是静默建出一个空白项目、也不是一个契约里没声明的裸错误。六类初始化摘要（议程环节/分组/角色分工/材料清单/会前任务/画布与产出物）与 getInitializationPreview 同一个 planner 计算，逐类计数对得上——但本轮范围收紧到最小闭环：只有「议程环节」以外的真实存储事实（blueprint_bindings）被写入，六类计数本身不落地成真实的 agenda_segments 行（逐段时长无出处，登记为 KNOWN_CONTRACT_GAPS.P10，留给后续 feature）。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F117",
+        "F179"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/project/create-project-blueprint-init.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-atomic-two-rows.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-idempotent.test.ts",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter @repo/contracts run typecheck"
+      ],
+      "evidence": "evidence/F191.verify.log @ 2026-08-16T02:59:25.681Z",
+      "notes": "① #991 backlog 第八件（BP-08），依人类两轮裁决收紧到最小闭环 B：权限口径不整体调用 templates 束的 applyBlueprintUseCase()（带自己的 lead-only 判断，与 createProject 现有 lead-or-admin 不一致），只复用其纯函数 planSixCategoryInit + 仓储层直接读写；档位读活表当前 duration_tier，不是版本快照（快照从未冻结过档位，登记为 KNOWN_CONTRACT_GAPS.T15）；六类真实写入本轮只有 blueprint_bindings 一行（表/列 BP-04/F179 已就绪，零新增存储），议程环节等五类暂不落地真实行（逐段时长无出处，登记为 P10）。\n② 契约先行：五个新错误码（BLUEPRINT_NOT_FOUND/BLUEPRINT_NOT_VISIBLE/BLUEPRINT_NOT_PUBLISHED/BLUEPRINT_VERSION_ARCHIVED/INITIALIZATION_FAILED）走独立 delta 签核（design-deltas/createproject-blueprint-error-codes/，人类 2026-08-16 签核 commit e28aa660），与 templates.TemplateError 同码同义（project.ts 新增 _sharedWithTemplates 编译期钉住）。\n③ 范围边界——做：BlueprintReferenceRepository 只读端口（解析版本存在性/归档态/活表档位，经 guard()/disclose() 走真实可见性判定）+ PgProjectRepository.create() 扩展一个可选的 blueprint_bindings INSERT（同一事务，故障注入反证整体回滚）+ 五个码的 HTTP 状态映射。不做：真实 agenda_segments 写入、版本快照冻结档位（两者均已登记为已知缺口，不在本轮范围）。\n④ 权限口径反证：admin（非 lead）套用一个有效已发布蓝本必须成功——测试文件专门钉住这条边，防止未来有人把 applyBlueprintUseCase() 整体接进来又悄悄改掉它。\n⑤ 验证新增 10 条真库测试（不存在/已归档/不可见三种拒绝、成功写入 blueprint_bindings、六类摘要与 planner 同源核对、空白新建不受影响、档位读活表的行为化反证、admin 权限反证、六类写入失败整体回滚的故障注入反证 + 反证注入器不是全失败），既有 39 条 project 真库测试无回归。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
       "id": "F190",
       "title": "工具调用轨迹跨 run 回喂上下文（agent_run_steps 的 tool_call 摘要作为第四类历史来源注入，ModelCallPort 不动）",
       "user_visible_behavior": "多轮 agentic 任务里，后续轮次能『记得』前面轮次做过的工具调用：某一轮 run 记录的 tool_call step（toolName/toolArgsSummary/toolResultSummary/planningNote）会作为一类新的上下文来源，被后续轮次的历史组装读到并以伪历史消息（role+content）注入 ModelCallInput.history——即使工具结果没有逐字复述进最终回复文字，下一轮 run 也不再对上一轮的工具调用轨迹失明；读取失败时按既有降级策略跳过该来源、不阻断 run。",
@@ -4293,17 +4320,18 @@
         "F157"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "passing",
+      "owner": "dev-chat-e2e",
       "verification": [
-        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-context-repo-guard.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F190.verify.log @ 2026-08-16T09:32:25.666Z",
       "notes": "重编号自 F185：requirement-author 最初把这条注册为 F185（PR #1321），但另一支并行分支（project 域，PR #1405，listProjects 扁平化）独立使用了同一个 ID 并先合并，覆盖了这条登记——本条数据本身未丢（design-delta 材料、需求文档都还在），只是权威功能清单里的 ID槽位被占用。重编号为 F190，不改动 project 域已 passing 的 F185（已有 issue #1392、迁移文件名、测试文件名等大量外部引用，重编号成本远高于这条尚未开工的 feature）。design-delta（design-deltas/tool-trace-cross-run-context/，已签核，PR #1409）的 covers 字段同步改为 [F190]。\n\n依据等级：[已签核]（design-delta tool-trace-cross-run-context，PR #1409，人类 2026-08-16对收窄后的选项作答）。①范围窗口=最近3轮run ②预算优先级=L1>L2>工具轨迹>L3，与L1重叠去重③个人线程一视同仁适用，不破F156边界 ④复用F157 agent_run_context快照追加来源字段 ⑤读取失败降级跳过、不阻断run。⚠ 仍需协调execute-run.ts的coord-main串行窗口再开工——签核解除的是design-delta关卡，不是文件级并发协调。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "12"
     },
     {
       "id": "F188",
@@ -4427,6 +4455,26 @@
       "area": "deep-research",
       "capability": "CAP-AI",
       "sprint": null
+      "id": "F189",
+      "title": "「套用后会初始化什么」六类一览接真（BP-07：GET initialization-preview）",
+      "user_visible_behavior": "任意本组织成员（不限管理员）对一个自己可见的蓝本请求 GET /blueprints/:id/initialization-preview，真实收到恒 6 类的初始化一览（每类下具体会写入什么条目），一览内容随蓝本当前已填的设计环节实时变化——不是任何写死或猜测的清单。蓝本不存在收到 BLUEPRINT_NOT_FOUND；team-only 蓝本对非该 team 成员收到 BLUEPRINT_NOT_VISIBLE，不返回任何数据。这条端点本身不改变任何界面，是 BP-08（createProject 真执行六类初始化）与 BP-09（/project/new 撤禁用）共同依赖的只读前置——两者都需要在真正套用蓝本之前，把「将会初始化什么」先展示给用户确认。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F174"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/initialization-preview-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F189.verify.log @ 2026-08-15T17:36:58.487Z",
+      "notes": "① #991 backlog 第七件（BP-07），当量 1，依赖 BP-02（F174，已 passing）。契约操作 `getInitializationPreview` 与用例 `get-initialization-preview.ts`（`planInitializationPreview` 纯函数）此前均已存在，本 feature 只补控制器接线，不新增契约面、不需要新设计签核。\n② 范围边界——做：控制器 `GET /blueprints/:id/initialization-preview`，读 `BlueprintPersistencePort.getBlueprintDesignFacets()` 派生 `filledFacetKeys`（未填 facet 无行，出现的每一行即已填，判据见仓储层写入侧对空串的过滤 + CHECK 约束，不新增 port 方法），可见性判定复用 `decideCapabilityVisibility`（同 F132 六类 AssetKind 单一事实源，不新造判定）。不做：`versionId`/`tier` 参与派生（用例头注已注明这是当前范围之外，走当前草稿即可覆盖 AC5「随配置实时变化」）；BP-08/BP-09 的前端消费（本条只解除它们的阻塞）。\n③ 门槛按契约 err 枚举（`BLUEPRINT_NOT_FOUND`/`BLUEPRINT_NOT_VISIBLE`/`DEPENDENCY_UNAVAILABLE`，无 `ROLE_INSUFFICIENT`）——本端点是可见性门不是管理员门，与 F186（`requireCapabilityAdmin`）门槛不同，因为契约本身对这两个端点声明的错误集合不同。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
     }
   ]
 }

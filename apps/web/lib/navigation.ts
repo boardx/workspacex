@@ -217,12 +217,18 @@ export const NAV_SEGMENTS: NavSegment[] = [
           // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局
           //   菜单项。项目工作台 `/projects/[projectId]/canvas` 这条参数化路由已经存在
-          //   （`project-workbench.tsx` 头注确认过，与 `files` 子路由同型），但工作台内部
-          //   目前**还没有一个真实按钮/tab 链过去**（与 `files` 子路由同一类已知 mock 债，
-          //   见 `project-workbench.tsx` 头注）——这是本仓已有的缺口，不是本轮制造的。
-          //   href 留在此数组只为满足 lint-nav-reachability 的文本扫描；「给项目工作台补一个
-          //   真实的画布入口」记入后续 issue，不在本轮"后台导航去重"范围内展开（那是项目
-          //   工作台的功能缺口，不是后台信息架构问题）。
+          //   （`project-workbench.tsx` 头注确认过，与 `files` 子路由同型）。
+          //   href 留在此数组只为满足 lint-nav-reachability 的文本扫描（这一条本身是去重后
+          //   不再渲染的重复入口，不代表画布在产品里走不到）。
+          //   ⚠ 2026-08-16（#978）：本节此前写着「工作台内部目前还没有一个真实按钮/tab 链
+          //   过去」——**实测这句话是错的**：`lib/mock/project.ts` 的 `PROJECT_SURFACES`
+          //   （`key: "canvas"`）早在 a914548c（2026-08-02，先于本节这条注释写下的日期）
+          //   就已经把「推演画布」列进「工作面」清单，`tab-overview.tsx` 把它渲染成一个真实
+          //   `<a href="/projects/<id>/canvas">`（`data-testid="project-home-surface-canvas"`），
+          //   不受角色裁剪、不是禁用桩。这条注释写的时候没有核对代码事实就断言了缺口——
+          //   典型的「痕迹写得越具体越像权威，其实是错的」（见 AGENTS.md「静态痕迹 ≠ 动态事实」）。
+          //   已用 `fullstack-smoke.spec.ts`（真栈点击 + URL 断言 + `canvas-main` 可见）和
+          //   `project-overview-live-info.test.tsx`（href 断言）钉住这条入口不是空转。
           //   ⚠ 2026-08-15（D-43，推翻 D-42 ⑤，见 `phases/requirements/DECISIONS-FINAL.md`）：
           //   `ADMIN_NAV` 的 `canvasadmin` 项此前"不改指到这里、合并会丢功能"的判断已被
           //   人类推翻——它现在直接指向这个 hub 的 `template-admin` 屏（`/canvas?screen=

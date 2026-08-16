@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Building2, FolderKanban, Lock, ShieldCheck } from "lucide-react";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { usePathname } from "next/navigation";
 import {
   describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
@@ -86,6 +87,18 @@ export function TopBar({
             switching={switching}
             placement="below"
             testIdSuffix="-mobile"
+          />
+        </div>
+        {/*
+          FB-2 —— <md 时 IconRail 隐藏，反馈入口在这里补一个；≥md 由 rail 承担。
+          同 OrgMenu 的处置：小屏不丢入口，但也不在两处同时出现。
+        */}
+        <div className="md:hidden">
+          <FeedbackButton
+            target={{ kind: "product" }}
+            targetLabel={null}
+            testid="topbar-feedback"
+            className="h-6 w-6"
           />
         </div>
         {local

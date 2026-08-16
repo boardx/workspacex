@@ -31,6 +31,15 @@ const modelProviderPort = String(Number(webPort) + 5_000);
  * 同样**不去动** `.harness/scripts/lib/test-isolation.ts`：那是全队共用的隔离事实源。
  */
 const asrProviderPort = String(Number(webPort) + 10_000);
+/**
+ * #1415 —— `apps/deep-agent-service` 的确定性替身端口，同一套单射逻辑再往后挪一段
+ * （`+15000`，落在 60000–65000，不撞 pg/redis/minio/api/web/model-provider/asr-provider
+ * 任何一段）。`skill-agent-import-usecase-audit.spec.ts` 的自助发布 agent 走的是
+ * `resolveDeepAgentModel()`（`DEEP_AGENT_PROVIDER_NAME`），不是主 chat provider——
+ * 不配 `KERNEL_DEEP_AGENT_BASE_URL`，试跑会以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实
+ * 失败（同 `playwright.chat-read.config.ts` 已经踩过、已经修好的同一件事，P6/P7）。
+ */
+const deepAgentProviderPort = String(Number(webPort) + 15_000);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -163,6 +172,13 @@ const modelProviderEnv = {
    * 因此**每一个起 API 进程的地方**都得供一个，本文件是其中之一。
    */
   MODEL_CREDENTIAL_KEY: "fullstack-smoke-credential-key-not-a-secret",
+  /**
+   * `skill-agent-import-usecase-audit.spec.ts` ③ —— 模型 A skill 试跑要一个 modelId
+   * （skill 本身没有 `model_provider`/`model_id` 列，见 `trial-run-skill.ts` 头注）。
+   * 复用同一个 loopback provider/modelId：不给它配 ⇒ `MODEL_UNAVAILABLE`，
+   * 那条用例会诚实地红在"没配置"而不是"接线错了"，两种红不该混在一起排查。
+   */
+  KERNEL_SKILL_TRIALRUN_MODEL_ID: FULLSTACK_E2E.agentModelId,
 };
 
 export default defineConfig({
@@ -195,8 +211,10 @@ export default defineConfig({
     //   · backend-gates.yml 的 `verify:core-loop` 只跑 `--project=core-loop-empty-db`，
     //     Playwright 沿 dependencies 反解只会拉起 core-loop-seeded → core-loop-reset →
     //     core-loop-empty-db 三个，`seeded` 完全不参与，这是速度的来源。
-    //   · harness-verify.yml 的 `verify:fullstack-smoke` 只跑 `--project=seeded`，信息性、
-    //     不阻塞合并（人类裁决：module verify 继续阻塞，浏览器 e2e 不再阻塞合并）。
+    //   · harness-verify.yml 的 `verify:fullstack-smoke` 跑 `--project=seeded-github-import`
+    //     （沿 dependencies 反解先跑 `seeded` 再跑它自己，见下方 `seeded-github-import`
+    //     project 头注），信息性、不阻塞合并（人类裁决：module verify 继续阻塞，
+    //     浏览器 e2e 不再阻塞合并）。
     // ⚠ 代价：两条 project 链不再共享「reset 前所有种子态 spec 必须先跑完」这条保证
     //   （旧版靠 core-loop-reset dependencies: ["seeded"] 保证）。这个保证只有在**同一次
     //   Playwright 调用里两条链都被选中**时才有意义——而现在两条链在 CI 里从来不会同时
@@ -230,6 +248,36 @@ export default defineConfig({
         "blueprint-contract-gap-audit.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
+    },
+    {
+      /**
+       * 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
+       * 这条用户旅程的验收线**不能**并进上面的 `seeded`（尽管它同样要用种子里的组织
+       * 管理员与 sentinel 项目）——它的用例①会真的往 skill 目录里落一行 GitHub 导入的
+       * skill，而 `skill-create-smoke.spec.ts`（在 `seeded` 里）断言的是**目录从空态
+       * 起步**（`skill-catalog-empty`，验证种子不预置示例 skill）。
+       *
+       * Playwright 不按 `testMatch` 数组声明的顺序跑文件，而是按发现到的文件名
+       * **字典序**（`playwright test --list` 实测可证）：`skill-agent-import-...`
+       * 排在 `skill-create-smoke` 之前，于是用例①的导入会先跑，把目录写脏，
+       * `skill-create-smoke.spec.ts:81` 的空态断言随之打红——这不是两条用例谁的
+       * 断言错了，是**同一个 project 内的隐式字典序**这件事本身靠不住（今天靠字母
+       * 巧合躲过，明天随便一个新文件名就能把顺序打乱）。
+       *
+       * 用 `dependencies` 把它拆成单独 project、显式排在 `seeded` **之后**，
+       * 而不是给用例①加"导入后自清理"：skill 契约目前没有任何删除路径能把一个
+       * 真实导入的 skill 从目录里摘掉（`hardDeleteSkill` 契约里 `out: z.never()`，
+       * 明写着"没有成功形状"，恒被拒绝，见 `packages/contracts/src/skills.ts` 头注
+       * `KNOWN_CONTRACT_GAPS.S1`）——伪造一条清理路径反而会在验收线里悄悄验证一个
+       * 不存在的能力。两条用例的断言力度都不削弱：`skill-create-smoke` 的空态
+       * 断言继续对着一个真空目录跑，`skill-agent-import-usecase-audit` 的导入
+       * 断言继续对着真实 GitHub 内容跑，只是执行顺序从"字典序巧合"变成
+       * "Playwright dependency graph 显式保证"。
+       */
+      name: "seeded-github-import",
+      testMatch: ["skill-agent-import-usecase-audit.spec.ts"],
+      grepInvert: EMPTY_DB_TAG_RE,
+      dependencies: ["seeded"],
     },
     {
       name: "core-loop-seeded",
@@ -303,6 +351,22 @@ export default defineConfig({
         LOOPBACK_MODEL_REPLY_PREFIX: FULLSTACK_E2E.agentReplyPrefix,
       },
     },
+    /**
+     * #1415 —— `apps/deep-agent-service` 的确定性替身，逐字抄
+     * `playwright.chat-read.config.ts` 的同一段（`scripts/loopback-deep-agent-provider.ts`
+     * 自己的头注：不是起真的 Python/LangGraph 服务，是在真实 `DeepAgentModelProvider`
+     * 代码路径上换一个可预测的 HTTP 上游）。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-deep-agent-provider.ts",
+      url: `http://127.0.0.1:${deepAgentProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
+      },
+    },
     {
       command: [
         `${compose} up -d --wait postgres redis minio`,
@@ -332,6 +396,10 @@ export default defineConfig({
         ...(process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW
           ? { WORKSPACEX_COUNTERPROOF_SKILL_REVIEW: process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW }
           : {}),
+        // #1415 —— 不供这一条，`DeepAgentModelProvider` 会以 `MODEL_PROVIDER_NOT_CONFIGURED`
+        // 诚实失败（该 provider 自己的 config 头注），自助发布的 agent 试跑会打不通。
+        // 逐字同一条纪律见 `playwright.chat-read.config.ts` 的同一变量。
+        KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
         PORT: apiPort,
       },
     },

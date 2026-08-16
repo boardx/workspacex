@@ -57,7 +57,18 @@ phase: "01"
 #     即便这次是 delta 也不通过改这三个字段来表达——它们记的是 2026-07-30 那次原始签核事实）。
 #   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
 #     把 F185 从本行删掉，代码与测试不受影响。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185]
+# 2026-08-16（追加 **F191**，dev-chat-e2e agent）——与前四次（F158/F164/F172/F191 前身）
+#   性质不同，**不是**零新增设计面的自查追加（那条规则要求「第四次前先问」，本次不适用它）：
+#   F191 实现了一个真实的新契约面——`project.createProject.err` 新增五个错误码
+#   （`BLUEPRINT_NOT_FOUND`/`BLUEPRINT_NOT_VISIBLE`/`BLUEPRINT_NOT_PUBLISHED`/
+#   `BLUEPRINT_VERSION_ARCHIVED`/`INITIALIZATION_FAILED`）。但这个新契约面本身已经走过
+#   **独立签核**——`design-deltas/createproject-blueprint-error-codes/design-signoff.md`
+#   （status: confirmed，confirmed_by: usam.shen@gmail.com，commit e28aa660，2026-08-16），
+#   本条只是把已批准的 delta 落地成代码，形状与 delta 文档逐字一致（五个码、`ProjectReason`
+#   新增第④节、`_sharedWithTemplates` 编译期钉住同码同义），未偏离批准范围一字
+#   （同 F186 落地 `blueprint-read-path` delta 时的先例，性质与做法都相同）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
