@@ -4,7 +4,7 @@
 > 不被本文件静默修改**——本 delta 在其外追加**第四类**上下文来源（工具调用轨迹），
 > 写在这里等人类签，不援引 F154/F155/F157 的既有签核直接开工。
 >
-> - **覆盖 feature**：F185（工具调用轨迹跨 run 回喂上下文）。
+> - **覆盖 feature**：F190（工具调用轨迹跨 run 回喂上下文；原注册为 F185，因跨域 ID 撞车被 project 域 PR #1405 覆盖而重编号，见 design-signoff.md covers 注）。
 > - **base_bundle**：`chat-context-engine`（已签，`status: confirmed`）；本 delta 不修改
 >   该束任何已签文件的 `status`，只追加一类新来源。
 > - **派工依据**：人类 2026-08-15 要求评估 context engine 与 Codex CLI / Claude Code 的
