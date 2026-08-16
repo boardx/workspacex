@@ -5,7 +5,9 @@ import {
   markdownToCanvas,
   canvasToMarkdown,
   FlowNode,
+  attachMindmapEditor,
   type DiagramModel,
+  type MindmapEditor,
 } from "@repo/fabric-markdown";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,8 @@ export function CanvasStage({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
+  const mindmapEditorRef = React.useRef<MindmapEditor | null>(null);
+  const selectedNodeIdRef = React.useRef<string | null>(null);
   const lastEmittedRef = React.useRef<string>(markdown);
   const toolRef = React.useRef(tool);
   const readOnlyRef = React.useRef(readOnly);
@@ -51,6 +55,7 @@ export function CanvasStage({
   const [parseError, setParseError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [selectedLabel, setSelectedLabel] = React.useState<string | null>(null);
+  const [mindmapActive, setMindmapActive] = React.useState(false);
 
   toolRef.current = tool;
   readOnlyRef.current = readOnly;
@@ -85,13 +90,46 @@ export function CanvasStage({
     canvas.on("object:modified", syncFromCanvas);
     canvas.on("selection:created", (e) => {
       const obj = e.selected?.[0];
-      setSelectedLabel(obj instanceof FlowNode ? obj.label : null);
+      const node = obj instanceof FlowNode ? obj : null;
+      setSelectedLabel(node?.label ?? null);
+      selectedNodeIdRef.current = node?.nodeId ?? null;
+      setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
     });
     canvas.on("selection:updated", (e) => {
       const obj = e.selected?.[0];
-      setSelectedLabel(obj instanceof FlowNode ? obj.label : null);
+      const node = obj instanceof FlowNode ? obj : null;
+      setSelectedLabel(node?.label ?? null);
+      selectedNodeIdRef.current = node?.nodeId ?? null;
+      setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
     });
-    canvas.on("selection:cleared", () => setSelectedLabel(null));
+    canvas.on("selection:cleared", () => {
+      setSelectedLabel(null);
+      selectedNodeIdRef.current = null;
+    });
+
+    // #1453：选中一个 mindmap 节点后 Tab 加子节点 / Enter 加兄弟节点，复用
+    // packages/fabric-markdown 现成的 attachMindmapEditor（未改包内任何逻辑，
+    // 只接线）。它只在 isMindmap() 为真时生效，非 mindmap 图不受影响，也不会
+    // 拦截其他场景下的 Tab/Enter（内部按 isEditableTarget 放行输入框）。
+    const mindmapEditor = attachMindmapEditor(canvas, { onChange: syncFromCanvas });
+    mindmapEditorRef.current = mindmapEditor;
+
+    // Delete/Backspace 删除当前选中节点（含子树）——attachMindmapEditor 只暴露
+    // removeSubtree 命令 API，不自带 Delete 键绑定（Tab/Enter 才是它内部处理的），
+    // 键位由这里接。只读态下 selection 被禁用（见下方 readOnly effect），
+    // selectedNodeIdRef 始终为 null，天然无副作用，不需要额外判断 readOnly。
+    const onDeleteKey = (ev: KeyboardEvent): void => {
+      if (ev.key !== "Delete" && ev.key !== "Backspace") return;
+      const el = ev.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      const nodeId = selectedNodeIdRef.current;
+      if (!nodeId) return;
+      if (mindmapEditorRef.current?.removeSubtree(nodeId)) {
+        selectedNodeIdRef.current = null;
+        setSelectedLabel(null);
+      }
+    };
+    document.addEventListener("keydown", onDeleteKey);
 
     canvas.on("mouse:down", (opt) => {
       if (readOnlyRef.current) return;
@@ -123,6 +161,9 @@ export function CanvasStage({
     });
 
     return () => {
+      document.removeEventListener("keydown", onDeleteKey);
+      mindmapEditor.dispose();
+      mindmapEditorRef.current = null;
       canvas.dispose();
       fabricRef.current = null;
     };
@@ -246,7 +287,9 @@ export function CanvasStage({
             : readOnly
               ? "只读，写操作已禁用 · 可缩放查看"
               : selectedLabel
-                ? `选中：${selectedLabel} · 缩放 ${Math.round(zoom * 100)}%`
+                ? mindmapActive
+                  ? `选中：${selectedLabel} · Tab 加子节点 · Enter 加兄弟 · Delete 删除 · 缩放 ${Math.round(zoom * 100)}%`
+                  : `选中：${selectedLabel} · 缩放 ${Math.round(zoom * 100)}%`
                 : tool === "sticky" || tool === "node"
                   ? `点画布空白处落一个${tool === "sticky" ? "便签" : "节点"} · 缩放 ${Math.round(zoom * 100)}%`
                   : tool === "delete"
