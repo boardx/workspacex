@@ -47,13 +47,18 @@ describe("#451 PR 队列状态机", () => {
   });
 
   // ── 八条必需反证（issue #451「Required fail-closed regressions」）──────────
-  it("反证 1：review 锚在旧 SHA，但 verdict label 仍是 review:feature-ok", () => {
+  //
+  // 2026-08-16（APPROVE_CHECK_SUSPENDED=true，见该常量定义处）："verdict label
+  // 必须锚定当前 head 的 approve 背书"这条判断暂停，只进 advisories 不进
+  // blockers。反证 1/7 因此分成两半断言：state 不再是 MERGE_BLOCKED，但
+  // advisories 里必须仍然出现对应理由——判断逻辑还在算，只是结论不拦人。
+  it("反证 1：review 锚在旧 SHA——暂停期不再 MERGE_BLOCKED，但 advisories 仍报出旧 SHA", () => {
     const got = classifyPr({
       ...greenFacts(),
       formalReviews: [{ author: "rev-feature", state: "APPROVED", commit: OLD }],
     });
-    expect(got.state).toBe("MERGE_BLOCKED");
-    expect(got.reasons.join("\n")).toContain(OLD);
+    expect(got.state).toBe("READY_TO_MERGE"); // 其余条件都满足，条件 5 这一半暂停不拦
+    expect(got.advisories.join("\n")).toContain(OLD);
   });
 
   it("反证 2：同时存在 review:changes 与 review:feature-ok", () => {
@@ -98,14 +103,28 @@ describe("#451 PR 队列状态机", () => {
   });
 
   it("反证 7：作者自审——approve 者与 PR 作者是同一人", () => {
+    // 自审检查（条件 5 前半：selfApprovals.length > 0 → blocked）没有被暂停——
+    // 只有"verdict label 缺独立 approve 背书"那半条（条件 5 后半）暂停了，两者
+    // 是不同的判断，别混为一谈。
     const got = classifyPr({
       ...greenFacts(),
       formalReviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }],
     });
     expect(got.state).toBe("MERGE_BLOCKED");
     expect(got.reasons.join("\n")).toContain("自审");
-    // 自审不得顺带把"有人 approve 过"这件事洗白：仍要求独立 review
-    expect(got.reasons.join("\n")).toContain("没有锚定当前 head");
+    // 自审不得顺带把"有人 approve 过"这件事洗白：条件 5 后半虽然暂停不拦，
+    // 但判断逻辑还在算，advisories 里必须仍然报出"没有锚定当前 head"。
+    expect(got.advisories.join("\n")).toContain("没有锚定当前 head");
+  });
+
+  // ── 2026-08-16 新行为：实测本仓最近 100 个已合并 PR 里 0 个有原生 APPROVE ──
+  it("实测驱动：只有 review:feature-ok 标签、完全没有 formalReviews 也能到 READY_TO_MERGE", () => {
+    // 直接对应实测证据：如果这条不通过，pr-queue 就会像暂停前一样，对本仓
+    // 实际发生过的每一个 PR 都判非 READY_TO_MERGE，不管它有没有真的走过 review。
+    const got = classifyPr({ ...greenFacts(), formalReviews: [] });
+    expect(got.state).toBe("READY_TO_MERGE");
+    // 判断逻辑仍然算出"标签缺 approve 背书"，只是挪进 advisories 不拦人。
+    expect(got.advisories.join("\n")).toContain("没有锚定当前 head");
   });
 
   it("反证 8：无人值守 heartbeat 即便面对 READY_TO_MERGE 也一律拒绝合并", () => {
