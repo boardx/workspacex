@@ -16,7 +16,12 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { AGENT_RUN_STORE, MODEL_CALL_PORT, type AgentRunStore, type ModelCallPort } from "../../application/agent-run/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
-import { TrialRunSkillError, trialRunSkill } from "../../application/skill/trial-run-skill";
+import {
+  ORG_AGENT_MODEL_READER,
+  TrialRunSkillError,
+  trialRunSkill,
+  type OrgAgentModelReader,
+} from "../../application/skill/trial-run-skill";
 
 type TrialRunSkillBody = { readonly versionId: string; readonly sampleInput: string };
 
@@ -30,6 +35,7 @@ export class SkillTrialRunController {
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
     @Inject(SKILL_TRIALRUN_MODEL_ID) private readonly modelIds: { readonly provider: string; readonly modelId: string },
+    @Inject(ORG_AGENT_MODEL_READER) private readonly orgAgentModel: OrgAgentModelReader,
   ) {}
 
   private readonly log = (message: string, detail: Record<string, unknown>): void => {
@@ -53,6 +59,9 @@ export class SkillTrialRunController {
           model: this.model,
           modelProvider: this.modelIds.provider,
           modelId: this.modelIds.modelId,
+          // 人类反馈（2026-08-17）自愈式回退——见 `trial-run-skill.ts` 里
+          // `OrgAgentModelReader` 的头注。用例自己在授权判定之后决定要不要用它。
+          orgAgentModel: this.orgAgentModel,
           log: this.log,
         },
         {

@@ -13,7 +13,6 @@ import {
 import { SkillCatalogLive } from "./skill-catalog-live";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityCatalogScreen } from "@/components/admin/capability-catalog-screen";
-import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 import { SkillLibrary } from "./skill-library";
 import { SkillTryRun } from "./skill-tryrun";
 import { SkillBinding } from "./skill-binding";
@@ -89,14 +88,11 @@ export function SkillApp({
             七屏原型仍可达，见下面的 `library-prototype`。
           */}
           {screen === "library" && <SkillCatalogLive />}
-          {screen === "catalog" && (
-            <CapabilityCatalogScreen
-              kind="skill"
-              renderEditExtra={(row) => (
-                <SkillContentEditorSection id={`skill-catalog-row-${row.id}`} row={row} />
-              )}
-            />
-          )}
+          {/*
+            人类反馈（2026-08-17）：点击「编辑」现在打开独立页面（`/admin/skill/[id]`），
+            `SkillContentEditorSection` 因此搬去那个页面自己传，这里不再需要它。
+          */}
+          {screen === "catalog" && <CapabilityCatalogScreen kind="skill" />}
           {screen === "library-prototype" && <SkillLibrary state={uiState} view={view} />}
           {screen === "tryrun" && <SkillTryRun state={uiState} view={view} />}
           {screen === "binding" && <SkillBinding state={uiState} view={view} />}

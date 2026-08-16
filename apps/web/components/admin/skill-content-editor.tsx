@@ -28,36 +28,26 @@
  * `/asset-governance` 原型路由的七态演示而依赖 mock 常量作 fallback），
  * `agent-admin-route-no-mock.test.ts`（#458）机械断言 `/admin/agent` 的整棵依赖树
  * 不含任何 `lib/mock/**` 边，从共享文件里 import 这个模块会把那条边一起拖进去。
+ *
+ * 人类反馈（2026-08-17）：点击「编辑」现在打开一个独立页面（`CapabilityEditPage`），
+ * 这个区块因此**只**渲染在那个专门的编辑页上，不再和"列表页里展开一行"共用——
+ * 页面本身就是编辑器，不需要再套一层「查看/编辑源码」折叠开关，那只是多一次点击
+ * 去看本来就是这一页唯一目的的内容。折叠态因此删除，恒直接渲染。
  */
-import * as React from "react";
-import { Button } from "@/components/ui/button";
 import { AgSkillEditor } from "@/components/asset-governance/ag-screens";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 
 export function SkillContentEditorSection({ id, row }: { id: string; row: CapabilityListing }) {
-  const [open, setOpen] = React.useState(false);
   return (
     <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-12 font-medium text-foreground">内容（文件树 / 代码）</p>
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() => setOpen((v) => !v)}
-          data-testid={`${id}-content-toggle`}
-        >
-          {open ? "收起" : "查看 / 编辑源码"}
-        </Button>
-      </div>
+      <p className="text-12 font-medium text-foreground">内容（文件树 / 代码）</p>
       <p className="text-10 leading-relaxed text-muted-foreground">
         只支持编辑已存在文件的内容（可浏览这个 skill 的完整目录），不支持新增 /
         重命名 / 删除文件——见 issue #848。
       </p>
-      {open ? (
-        <div data-testid={`${id}-content-editor`}>
-          <AgSkillEditor state="default" view="admin" assetId={row.id} assetLabel={row.name} />
-        </div>
-      ) : null}
+      <div data-testid={`${id}-content-editor`}>
+        <AgSkillEditor state="default" view="admin" assetId={row.id} assetLabel={row.name} />
+      </div>
     </div>
   );
 }

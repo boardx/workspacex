@@ -33,6 +33,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 
 import { AgentScreen } from "@/components/admin/agent-screen";
+import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 
 interface Listing {
   id: string;
@@ -226,9 +227,10 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
       },
     });
 
-    render(<AgentScreen state="default" />);
-    const row = await screen.findByTestId("admin-agent-row-agent-1");
-    fireEvent.click(within(row).getByTestId("admin-agent-row-agent-1-edit"));
+    // 人类反馈（2026-08-17）：编辑现在是独立页面（`CapabilityEditPage`），
+    // 不再需要先渲染列表页、点「编辑」展开——直接渲染那个页面即可。
+    render(<CapabilityEditPage kind="agent" id="agent-1" />);
+    await screen.findByTestId("admin-agent-row-agent-1-name");
     fireEvent.change(screen.getByTestId("admin-agent-row-agent-1-name"), {
       target: { value: "新名字" },
     });

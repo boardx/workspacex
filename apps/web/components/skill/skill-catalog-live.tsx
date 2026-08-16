@@ -244,22 +244,14 @@ interface PendingRow {
 
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   /**
-   * 「编辑源码」目的地：同一个 `/skill` 路由的 `catalog` 屏，带上 `edit=<skillId>`
-   * 让 `CapabilityCatalogScreen` 自动展开那一行的编辑表单（见该组件里读这个 query
-   * 参数的那段）。保留当前已有的其它 query 参数（`as`/`org`/`state`）——同
-   * `skill-app.tsx` 里 `href()` 的纪律，不能因为跳一次「编辑源码」就丢了预览视角。
-   *
-   * ⚠ 故意不用 `next/navigation` 的 `useSearchParams()`——那会把这个已经挂在服务端
-   *   `searchParams` prop 之上的页面拖进「必须包 `<Suspense>`」的客户端渲染路径，
-   *   这里只是拼一个链接，不需要那一层。直接读 `window.location.search`
-   *   （客户端组件，浏览器渲染时才需要这个值——SSR 期间给个安全的空字符串兜底）。
+   * 「编辑源码」目的地——人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，
+   * 不是在当前列表页里内联展开。此前这里拼的是 `?screen=catalog&edit=<skillId>`，
+   * 靠 `CapabilityCatalogScreen` 读这个 query 参数自动展开那一行；那条自动展开逻辑
+   * 已经随「编辑」改成整页跳转一起删掉了，现在直接指向那个独立页面
+   * （`/admin/skill/[id]`，`CapabilityEditPage`）。
    */
   function editSourceHref(skillId: string): string {
-    const currentSearch = typeof window === "undefined" ? "" : window.location.search;
-    const p = new URLSearchParams(currentSearch);
-    p.set("screen", "catalog");
-    p.set("edit", skillId);
-    return `?${p.toString()}`;
+    return `/admin/skill/${skillId}`;
   }
 
   const generation = React.useRef(0);
