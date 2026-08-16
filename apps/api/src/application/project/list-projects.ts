@@ -1,28 +1,26 @@
 /**
- * UC-P2 `listProjects` —— **两段式返回**（Q-6① 裁 B，`usecases.md` UC-P2）。
+ * UC-P2 `listProjects` —— **扁平数组**（Q-6① 2026-08-16 delta 裁 D，覆盖 2026-07-30 裁 B）。
  *
- * ## 两段怎么来的
+ * ⚠ 本用例此前返回两段（`member`/`managed`）。那条裁决已被人类在会话里直接推翻——
+ *   见 `requirements/00-project/OPEN-QUESTIONS.md` 「🔁 2026-08-16 delta」与
+ *   `contracts/project/usecases.md` UC-P2。**仓储层的两段查询没有变**（`listForActor`
+ *   依然分别查 `member`/`managed`，理由仍是 `ports.ts` 上那条注释）——变的只是
+ *   本用例把两段**按 id 合并去重**成一个数组，两种入列理由本身不删除，只是不再
+ *   体现为响应体的顶层分段。
  *
- * `member`：调用者在 `project_memberships` 里有行的容器（任意四种项目角色之一）。
- * `managed`：调用者组织角色是 `lead` 或 `admin` 时，该组织**全部**容器
- *   （U-4 已裁 A：`admin` 不能创建，但「管理」这条入列理由与「创建」无关——
- *   `admin` 的入列理由只剩「管理」，不含「我建的」，见 `domain.md` U-4 那条注释）。
- * ⚠ **两段不互斥**：同一个容器可能同时持有项目角色 `且` 是管理者，也可能只落在一段里
- *   ——这正是 `tests/project/list-projects-two-segments.test.ts` 要钉住的反证。
- *
- * ## `admin` 的 `managed` 段范围没有团队收紧
+ * ## `admin` 的管理范围没有团队收紧
  *
  * `identity` 束里 `team-only` 的收紧只管**内容读取**（`acl_bindings` / `VisibilityScope`），
  * 不管「谁能看见这个容器存在于列表里」——`usecases.md` 与 `domain.md` 都没有给
- * `managed` 段写团队边界，`lead`/`admin` 的「管理」职责本身就是组织范围的（D-11 逐字
+ * 「管理」这条入列理由写团队边界，`lead`/`admin` 的「管理」职责本身就是组织范围的（D-11 逐字
  * 「创建与管理项目」，没有团队限定词）。⚠ 这是本 feature 做的判断：契约与 usecases.md
- * 都没有回答「managed 段要不要按团队收紧」，已在 issue #103 报给签核人。
+ * 都没有回答要不要按团队收紧，已在 issue #103 报给签核人。
  *
- * ## 出现在 `managed` 里 ≠ 能读内容（D-18 边界）
+ * ## 出现在列表里 ≠ 能读内容（D-18 边界）
  *
- * 这里返回的 `ProjectListRow` 除 `id/name/kind/status` 外只多带 `orgStatus`
- * （供 `deriveReadOnlyReason` 判定只读原因），**没有任何内容摘要或计数**——
- * 与 `ProjectListItem` 的契约字段集合逐一对应，没有第五个字段可以夹带。
+ * 这里返回的 `ProjectListRow` 除 `id/name/kind/status` 外只多带 `orgStatus`/`tags`
+ * （前者供 `deriveReadOnlyReason` 判定只读原因），**没有任何内容摘要或计数**——
+ * 与 `ProjectListItem` 的契约字段集合逐一对应，没有第七个字段可以夹带。
  */
 import { deriveReadOnlyReason } from "../../domain/project/readonly-reason";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
@@ -49,12 +47,10 @@ export interface ProjectListItemOutput {
   readonly kind: ProjectKind;
   readonly status: "active" | "archived";
   readonly readOnlyReason: "archived" | "org-disabled" | null;
+  readonly tags: readonly string[];
 }
 
-export interface ListProjectsOutput {
-  readonly member: readonly ProjectListItemOutput[];
-  readonly managed: readonly ProjectListItemOutput[];
-}
+export type ListProjectsOutput = readonly ProjectListItemOutput[];
 
 function toItem(row: ProjectListRow): ProjectListItemOutput {
   return {
@@ -63,6 +59,7 @@ function toItem(row: ProjectListRow): ProjectListItemOutput {
     kind: row.kind,
     status: row.status,
     readOnlyReason: deriveReadOnlyReason({ projectStatus: row.status, orgStatus: row.orgStatus }),
+    tags: row.tags,
   };
 }
 
@@ -79,7 +76,7 @@ export async function listProjects(
     throw new ProjectError("AUTH_SERVICE_UNAVAILABLE");
   }
 
-  // 非成员：两段都按「没有管理权」处理，`member` 段仍然照查——一个没有组织身份的人
+  // 非成员：管理段按「没有管理权」处理，member 段仍然照查——一个没有组织身份的人
   // 理论上也不该能打到这条路由（Guard 会先挡），但用例层不假设 Guard 一定在场。
   const isManager = membership?.orgRole === "lead" || membership?.orgRole === "admin";
 
@@ -89,8 +86,11 @@ export async function listProjects(
     isManager,
   });
 
-  return {
-    member: member.map(toItem),
-    managed: managed.map(toItem),
-  };
+  // 按 id 去重合并：同一个容器可能同时满足「持有项目角色」与「组织 lead/admin 管理」
+  // 两种入列理由——2026-08-16 delta 明确要求响应体去重后只出现一次。
+  const merged = new Map<string, ProjectListItemOutput>();
+  for (const row of [...member, ...managed]) {
+    if (!merged.has(row.id)) merged.set(row.id, toItem(row));
+  }
+  return [...merged.values()];
 }

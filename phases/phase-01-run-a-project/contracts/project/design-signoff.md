@@ -43,7 +43,21 @@ phase: "01"
 #     · 契约已签：`getProjectOverview`（F123 已 passing 且在本 covers 里），白名单四件封闭；
 #     · **零新增面**：没有新端点、没有新错误码、没有新字段——净行数为负。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172]
+# ⚠ 2026-08-16：追加 **F185**，由 agent `dev-project` 追加。**与上面几次追加性质不同，
+#   如实标注，不套用「不引入新设计面」那套理由**：
+#   · F185 **确实推翻了一处已签设计**——`listProjects` 两段式返回（Q-6① 原裁 B）
+#     改为扁平数组 + `tags` 字段（Q-6① 新裁 D）。这不是「已签核范围内的接线」。
+#   · 授权来源：人类（`confirmed_by` 同一位 yanbin shen）在本会话里直接下达指令
+#     「不要保留分组」「你来做」——裁决记录见 `requirements/00-project/OPEN-QUESTIONS.md`
+#     「🔁 2026-08-16 delta：Q-6① 推翻重裁」一节，签名与本文件 frontmatter 的
+#     `confirmed_by` 同名同人，只是没有走表单打勾那套流程（对话记录即留痕）。
+#   · `contracts/project/ui.md` A 节 9 张截图因此**过期**，本次不重拍（见 ui.md 同日 delta 提示）；
+#     不影响本行追加，因为本行只声明「F185 落在 project 束范围内」，不重新断言那 9 张图仍然有效。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023 纪律不变，
+#     即便这次是 delta 也不通过改这三个字段来表达——它们记的是 2026-07-30 那次原始签核事实）。
+#   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
+#     把 F185 从本行删掉，代码与测试不受影响。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

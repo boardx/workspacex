@@ -1,12 +1,14 @@
 /**
- * F122 —— `/project/live` 端到端路径的组件测试：登录 → 列表 → 创建 → 刷新看到它。
+ * F122 → F185（2026-08-16 delta）—— `/project/live` 端到端路径的组件测试：登录 → 列表 →
+ * 创建 → 刷新看到它。
  *
  * `global.fetch` 被替换成一个按 URL/method 分发的假实现，不连真实后端——
  * 那一半由 `apps/api/tests/project/list-projects-*.test.ts`（真实 Postgres）与
  * 手动走一遍浏览器共同覆盖（见 issue #103 的端到端验证记录）。本文件只钉住
- * **前端这一侧**：拿到登录响应后 token 确实被带上、列表确实按 member/managed
- * 两段渲染、创建成功后确实重新拉取并看到新项目——即「填表单 → 提交 → 刷新列表 →
- * 看到它」这条路径在组件层面成立，不依赖任何 mock 数据源。
+ * **前端这一侧**：拿到登录响应后 token 确实被带上、列表确实按扁平数组渲染
+ * （F185 之前是 member/managed 两段，那条裁决已被推翻）、创建成功后确实
+ * 重新拉取并看到新项目——即「填表单 → 提交 → 刷新列表 → 看到它」这条路径在
+ * 组件层面成立，不依赖任何 mock 数据源。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +24,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它", () => {
+describe("F185 /project/live：登录 → 列表（扁平数组）→ 创建 → 刷新看到它", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let projectsAfterCreate = false;
 
@@ -48,17 +50,14 @@ describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它"
         // 鉴权头确实被带上——这是「登录拿到的 token 真的被用于后续请求」的断言。
         expect((init?.headers as Record<string, string>)?.Authorization).toBe("Bearer tok-e2e-123");
         if (!projectsAfterCreate) {
-          return jsonResponse({
-            member: [{ id: "p-mine", name: "我在里面的", kind: "workshop", status: "active", readOnlyReason: null }],
-            managed: [],
-          });
+          return jsonResponse([
+            { id: "p-mine", name: "我在里面的", kind: "workshop", status: "active", readOnlyReason: null, tags: [] },
+          ]);
         }
-        return jsonResponse({
-          member: [{ id: "p-mine", name: "我在里面的", kind: "workshop", status: "active", readOnlyReason: null }],
-          managed: [
-            { id: "p-new", name: "刚创建的项目", kind: "workshop", status: "active", readOnlyReason: null },
-          ],
-        });
+        return jsonResponse([
+          { id: "p-mine", name: "我在里面的", kind: "workshop", status: "active", readOnlyReason: null, tags: [] },
+          { id: "p-new", name: "刚创建的项目", kind: "workshop", status: "active", readOnlyReason: null, tags: [] },
+        ]);
       }
 
       if (url.pathname === "/projects" && method === "POST") {
@@ -76,7 +75,7 @@ describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它"
     vi.unstubAllGlobals();
   });
 
-  it("登录后自动拉取列表，创建新项目后刷新能看到它出现在 managed 段", async () => {
+  it("登录后自动拉取列表，创建新项目后刷新能看到它出现在同一个扁平列表里", async () => {
     render(<ProjectLivePage />);
 
     fireEvent.change(screen.getByTestId("live-login-email"), { target: { value: "lead@example.com" } });
@@ -84,24 +83,23 @@ describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它"
     fireEvent.click(screen.getByTestId("live-login-submit"));
 
     // 登录成功后立刻按第一个组织自动刷新一次列表。
-    const memberList = await screen.findByTestId("live-member-list");
-    expect(within(memberList).getByTestId("live-project-item-p-mine")).toHaveTextContent("我在里面的");
-
-    // managed 段此时是空列表——反证「不生成伪数据」：没有 p-new 之前它不该出现。
-    expect(screen.getByTestId("live-managed-list-empty")).toBeInTheDocument();
+    const list = await screen.findByTestId("live-list");
+    expect(within(list).getByTestId("live-project-item-p-mine")).toHaveTextContent("我在里面的");
+    // 反证「不生成伪数据」：没有 p-new 之前它不该出现。
+    expect(within(list).queryByTestId("live-project-item-p-new")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId("live-create-name"), { target: { value: "刚创建的项目" } });
     fireEvent.click(screen.getByTestId("live-create-submit"));
 
-    // 创建 → 自动刷新 → managed 段出现新项目。这就是「填表单 → 提交 → 刷新列表 → 看到它」。
+    // 创建 → 自动刷新 → 新项目出现在同一个列表里。这就是「填表单 → 提交 → 刷新列表 → 看到它」。
     await waitFor(() => {
-      const managedList = screen.getByTestId("live-managed-list");
-      expect(within(managedList).getByTestId("live-project-item-p-new")).toHaveTextContent("刚创建的项目");
+      const listAfter = screen.getByTestId("live-list");
+      expect(within(listAfter).getByTestId("live-project-item-p-new")).toHaveTextContent("刚创建的项目");
     });
 
-    // member 段的既有项目没有因为一次新的创建而消失或重复。
-    const memberListAfter = screen.getByTestId("live-member-list");
-    expect(within(memberListAfter).getAllByTestId("live-project-item-p-mine")).toHaveLength(1);
+    // 既有项目没有因为一次新的创建而消失或重复。
+    const listAfter = screen.getByTestId("live-list");
+    expect(within(listAfter).getAllByTestId("live-project-item-p-mine")).toHaveLength(1);
   });
 
   it("列表接口失败时显示错误，不把失败呈现成空列表", async () => {
@@ -121,7 +119,7 @@ describe("F122 /project/live：登录 → 列表 → 创建 → 刷新看到它"
       expect(screen.getByTestId("live-list-error")).toHaveTextContent("AUTH_SERVICE_UNAVAILABLE");
     });
     // ⚠ 失败态下不能同时渲染一个「看起来正常」的空列表——两者必须可区分。
-    expect(screen.queryByTestId("live-member-list")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("live-member-list-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("live-list")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("live-list-empty")).not.toBeInTheDocument();
   });
 });

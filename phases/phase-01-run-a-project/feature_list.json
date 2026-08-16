@@ -3559,17 +3559,17 @@
         "F155"
       ],
       "points": 2,
-      "status": "passing",
+      "status": "not_started",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/agent-run-context-snapshot.test.ts"
       ],
-      "evidence": "evidence/F157.verify.log @ 2026-08-15T09:43:23.179Z",
+      "evidence": "",
       "notes": "依据等级：[已签核] 可审计快照 agent_run_context（design-signoff.md）。新表/step jsonb 列 → migration → 已在束级签核。解决 G5（每次 run 重读全史现拼、无会话级快照）。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": "09"
+      "sprint": null
     },
     {
       "id": "F158",
@@ -4199,72 +4199,36 @@
     },
     {
       "id": "F185",
-      "title": "工具调用轨迹跨 run 回喂上下文（agent_run_steps 的 tool_call 摘要作为第四类历史来源注入，ModelCallPort 不动）",
-      "user_visible_behavior": "多轮 agentic 任务里，后续轮次能『记得』前面轮次做过的工具调用：某一轮 run 记录的 tool_call step（toolName/toolArgsSummary/toolResultSummary/planningNote）会作为一类新的上下文来源，被后续轮次的历史组装读到并以伪历史消息（role+content）注入 ModelCallInput.history——即使工具结果没有逐字复述进最终回复文字，下一轮 run 也不再对上一轮的工具调用轨迹失明；读取失败时按既有降级策略跳过该来源、不阻断 run。",
-      "spec_ref": "08-chat/uc-8-10-工具调用轨迹跨run回喂上下文.md#R3",
+      "title": "listProjects 扁平化返回（推翻 Q-6①B 两段式）+ 项目标签（tags）+ 列表页卡片/列表视图切换",
+      "user_visible_behavior": "打开 /projects：不再看到「我在里面」「我管着它」两个分区，所有当前组织可见的项目（我持有项目角色的 + 我作为 lead/admin 可管理的，按 id 去重）平铺展示在一个列表里；每张卡片可以打标签（tags），列表页顶部有标签筛选入口，选中一个或多个标签后列表只显示带那些标签的项目；列表可在卡片视图与列表视图之间切换，切换状态记住在本地不需要每次重选；已归档/组织已停用的项目仍显示且标注只读，平铺不折叠这些既有语义不变。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
       "depends_on": [
-        "F154",
-        "F157"
+        "F122"
       ],
-      "points": 2,
-      "status": "not_started",
-      "owner": null,
-      "verification": [
-        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
-      ],
-      "evidence": "",
-      "notes": "依据等级：[Backlog]+[待设计]。来源：差距分析 G-A（跨 run 的工具调用轨迹不进上下文），人类 2026-08-15 原话『同意 继续执行』。底层数据已在采集/持久化（agent_run_steps 表 kind='tool_call' 行的 tool_name/tool_args_summary/tool_result_summary/planning_note，契约 packages/contracts/src/wave2-runtime.ts:276-288），readThreadHistory 只读 chat_messages 从未读该表——本 feature 是把已有信息接进已有组装管线，不新建表/不新建列。⚠ 不可直接开工：改动 apps/api/src/.../execute-run.ts 的历史组装逻辑（chat-context-engine 束明确要求『动 execute-run.ts 需取 coord-main 串行窗口』，见 F154 notes），且引入 L1/L2/L3 之外的第四类上下文来源，超出该束已签参数字面范围，不能援引 F154/F155/F157 既有签核直接开工——须走 design-delta 追加签核（预计与 context-engine-l3-file-based delta 同等重量级，需人类直接看，不适合 coord-main 代裁）。留给签核裁定的参数（UC R4）：①范围窗口（最近 N 轮 run / 最近 N 条 tool_call / 只读上一轮）②与 L1/L2/L3 的预算相对优先级与 L1 重叠去重 ③与 F156 delta『个人对话零跨范围召回』的边界共存（本线程自产、非跨范围检索，需签核时写死一句不留活口）④是否在 F157 的 agent_run_context 快照追加来源类别留痕（复用不另建，同一事实不得声明在两处）⑤读取失败的降级模式。depends_on F154（历史组装分层落点）+ F157（快照复用来源，R4.4）。UC 头部未声明估点，按『接线已有数据入已有管线、无新采集机制』估 2 点。属 chat-context-engine 束；sprint 留 null：design-delta 追加签核未完成前不分配。",
-      "priority": 1,
-      "area": "chat",
-      "capability": "CAP-API",
-      "sprint": null
-    },
-    {
-      "id": "F186",
-      "title": "蓝本读路径缺口补齐（BP-06 前置：GET design-facets，解锁设计器接线）",
-      "user_visible_behavior": "组织管理员通过 GET /blueprints/:id/design-facets 真实读到一个蓝本当前已填的全部设计环节内容（key/内容/逐项并发令牌）以及蓝本级并发令牌 revision；蓝本不存在时收到 BLUEPRINT_NOT_FOUND，不返回猜测数据。这条端点本身不改变任何界面，是 BP-06（蓝本设计器 /tpl/designer 真实接线）与 BP-03 遗留 T13（setDurationTier 的 expectedVersion 此前无读路径）的共同前置。",
-      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
-      "depends_on": [
-        "F175",
-        "F174",
-        "F177"
-      ],
-      "points": 2,
+      "points": 5,
       "status": "passing",
-      "sprint": "02",
+      "sprint": "11",
       "owner": "dev-project",
       "verification": [
-        "pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts",
-        "pnpm --filter api run typecheck"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/list-projects-flat.test.ts",
+        "pnpm --filter api exec vitest run tests/project/list-projects-repo-shape.test.ts",
+        "pnpm --filter api exec vitest run tests/project/update-project-tags.test.ts",
+        "pnpm --filter api exec vitest run tests/project/tags-repo-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts",
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint",
+        "pnpm --filter web exec vitest run tests/ui/projects-screen-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-live-page.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-overview-live-info.test.tsx",
+        "pnpm --filter @repo/contracts run test",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "evidence/F186.verify.log @ 2026-08-15T11:40:51.323Z",
-      "notes": "① 这是 2026-08-15 人类批准的 delta（design-deltas/blueprint-read-path/，PR #1262）的实现落地——delta 本身只批了契约面，实现是这条 feature 单独走的（同 BP-01~BP-05 的一贯做法：delta/契约变更与实现分开走，实现要过真库测试才能转 passing）。\n② 依据等级：`packages/contracts/src/templates.ts` 已加 `getBlueprintDesignFacets` operation（本 feature 一并加，字段名逐字对齐已签核的 `updateDesignFacet`），仓储层复用早已存在的 `blueprint_design_facets`/`blueprints.revision` 两列（BP-02/BP-03 已建），不需要新迁移。\n③ 范围边界——做：仓储 `getBlueprintDesignFacets()` + 控制器 `GET /blueprints/:id/design-facets`。不做：BP-06 本身（前端把 `/tpl/designer` 从硬编码 `BLUEPRINT[0]` 切到用这条端点读真实数据）——那是下一个 feature，本条只解除它的阻塞，不包含前端改动。\n④ 门槛用 `requireCapabilityAdmin`（同 `updateDesignFacet`/`setDurationTier` 这类写端点），不是 `listBlueprints` 用的 `requireOrgMember`——契约里本端点声明的错误码是 `ROLE_INSUFFICIENT` 不是 `NO_ORG_ROLE`，读写对同一份内容用同一档敏感度，不该不对称。\n⑤ 验证新增 6 条真库测试（空读/填后读一致/revision 随行级写滚动/单项写不影响蓝本级 revision/不存在报错/并发写各 key 的 itemRevision 互不相同的反证），与既有 31 条一起 37/37 通过。",
-      "priority": 1,
-      "area": "project",
-      "capability": "CAP-DATA"
-    },
-    {
-      "id": "F187",
-      "title": "蓝本设计器 /tpl/designer 前端真实接线（BP-06：读半边）",
-      "user_visible_behavior": "组织管理员在「项目模板」列表页点某个蓝本卡片的「编辑设计」，真实跳转到 /tpl/designer?blueprintId=<该蓝本id>，看到的是这个蓝本真实的名称、版本状态（草稿/已发布 vN）、用过次数、完成度 n/15，以及 15 项设计配置目录里哪几项已经真实填过（打勾）——不再是任何人点「编辑设计」都看到同一个写死的 mock 蓝本。没有 blueprintId 或该蓝本不属于自己组织时，如实提示而不是回退显示别的蓝本内容。",
-      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
-      "depends_on": [
-        "F186",
-        "F181"
-      ],
-      "points": 3,
-      "status": "passing",
-      "sprint": "02",
-      "owner": "dev-project",
-      "verification": [
-        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
-        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx",
-        "pnpm --filter web exec vitest run tests/ui/blueprint-list-screen-live.test.tsx",
-        "pnpm --filter web run typecheck"
-      ],
-      "evidence": "evidence/F187.verify.log @ 2026-08-15T12:47:35.208Z",
-      "notes": "① 这是 #991 蓝本闭环 backlog 的第六件（BP-06），track P 的 P2「编设计环节」从 🟡（后端有前端未接）拉到 🟢（前后端都有迹象，官方 1 分仍需人工 devapp 核实）。\n② 依赖 F186（GET design-facets 端点，本会话稍早合并）与 F181（BP-05 的 /tpl/list 生产入口，本次补上「编辑设计」真实链接）。\n③ 范围边界——做：新建 `BlueprintDesignerPageLive`（客户端组件，真实拉取 listBlueprints + getBlueprintDesignFacets 拼出外壳 props）；`/tpl/designer/page.tsx` 从硬编码 `BLUEPRINT[0]`+`mockIdentity()` 切到按 `?blueprintId=` 真实读、`AppShell` 自己读真实会话（顺带修正了该页面这一处 issue #1316 点名的 mockIdentity 用法，不是专门为它开工，是切真实数据的自然结果）；`blueprint-list-screen-live.tsx` 补上「编辑设计」链接。不做：设计环节内容的编辑面板（外壳自身注释「二级 sign-off，D-05 待补抽取」，没有签核过的界面设计，不能自己发明）；试跑/发布/预览三个按钮的交互（外壳组件本身没有 onClick 落点，接它们要先给外壳加事件回调 props，属于下一个增量）；换时长档位交互（T13 契约缺口已被 F186 解决，纯粹是这版没做这块 UI）。\n④ `nextVersionNumber` 显示用「当前 versionNumber + 1」，不是编的数——见组件头注对该算法在无回滚场景下与后端权威算法等价的说明；真正发布时以后端 `publishNewVersion` 的计算为准。\n⑤ 真实浏览器实测（本地 seed 账号 + 真实 docker Postgres，非 mock）：新建蓝本→列表页「编辑设计」跳转→设计器显示真实 v1/已发布/0/15；通过真实 `PUT design-facets` 端点填一项后刷新页面，完成度变 1/15、对应项打勾——读写链路完整闭环验证过一次，不只是组件测试。",
-      "priority": 1,
+      "evidence": "evidence/F185.verify.log @ 2026-08-15T19:02:07.738Z",
+      "notes": "推翻 2026-07-30 已签核的 Q-6① B（两段式返回），改为 Q-6① D（扁平数组）——裁决记录见 requirements/00-project/OPEN-QUESTIONS.md 「🔁 2026-08-16 delta」，contracts/project/usecases.md UC-P2 已同步改写，design-signoff.md covers 已追加本 feature 号（addendum 已如实标注这是 delta 不是「无新设计面」的接线追加）。\n范围：① 契约 packages/contracts/src/project.ts 的 listProjects.out 从 {member,managed} 改为扁平数组，ProjectListItem 新增 tags 字段，新增 updateProjectTags 操作；② 后端 application/project/list-projects.ts 按 id 去重合并 member/managed 两个来源；③ ⚠ 实现期间发现 projects 表列集合是 I-P33 封闭清单（恰好 5 列，apps/api/tests/project/projects-column-set.test.ts 三道门控住），不能直接加 tags 列——改为新建独立表 project_tags（1:N，复合外键钉 (project_id, org_id) REFERENCES projects(id, org_id)，与三张 1:1 子类型表同一形状），迁移 20260816000000_f185_project_tags.sql；④ 新增仓储 pg-project-tags-repository.ts + lint-permission-paths.mjs 白名单条目（第 57 条，tests/kernel/permission-propagation-six-paths.test.ts 上限同步 56→57）+ 更新 pg-project-list-repository.ts 既有豁免条目文案（三表→四表、五键→六键）+ 新增/改写两条 repo-shape 强制前提测试；⑤ 前端 apps/web/components/projects/projects-screen.tsx 去掉 ProjectSection 两段渲染改单一列表 + 标签筛选 + 卡片/列表视图切换（视图偏好存 localStorage，非契约字段，不写回后端）+ 标签增删（整体替换语义）；⑥ apps/web/lib/live-projects.ts、apps/web/app/project/live/page.tsx（F122 历史证明页同步改扁平）、apps/web/components/canvas/template-apply-dialog.tsx（原先手动合并 member+managed 去重的代码随扁平化简化掉）同步。\n不在本次范围：contracts/project/ui.md A 节 9 张两段式截图的重拍（过期，留痕已加提示，未来 delta 重签材料时一并处理）；「编辑项目」多 tab 页换真实数据源与新建项目套用已发布蓝本版本（PJ-12，依赖蓝本发布版本端点，见 new-project-flow.tsx 头注 #991）——这两块是后续独立 feature，不塞进本次单一 PR。",
+      "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
     }

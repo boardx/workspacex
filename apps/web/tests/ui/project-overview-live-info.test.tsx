@@ -23,7 +23,7 @@ describe("F353 project-overview：项目基本信息块只显示真实数据", (
       <TabOverview
         view="facilitator"
         projectId="p1"
-        liveProject={{ id: "p1", name: "真实工作坊", kind: "workshop", status: "archived", readOnlyReason: "archived" }}
+        liveProject={{ id: "p1", name: "真实工作坊", kind: "workshop", status: "archived", readOnlyReason: "archived", tags: [] }}
       />,
     );
     const block = screen.getByTestId("project-overview-live-name");
