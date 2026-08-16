@@ -1,12 +1,17 @@
 ---
-status: pending
+status: confirmed
 bundle: skill-model-a-b-convergence
 base_bundle: skills
 scope: converge-skill-declarative-contract-model-b-and-file-based-model-a
 covers: []
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: yanbin shen
+confirmed_at: 2026-08-16T08:42:00+08:00
+confirmed_via: >-
+  人类在 PR #1408 讨论中选定选项②（A 为唯一权威，B 冻结为只读 legacy）——理由：
+  #595 已把导入/编辑/试跑全部落地在模型 A，模型 B 现在唯一还在用的入口
+  （`POST /skills` 新建）建不出可执行的 skill，留着只是继续维持一条死路；
+  选②风险和工作量都最低，与既成事实一致。选①（B 废弃搬进 A）、选③（保留
+  双模型补编译桥）未选。
 ---
 
 # design delta 签核 · Skill 双模型（声明式契约 vs 文件式导入）收敛
@@ -15,6 +20,13 @@ confirmed_via: null
 
 规范唯一来源：本目录下的 [`contract.md`](./contract.md)。
 验收口径：[`verification.md`](./verification.md)。
+
+## 已选方向：选项②——A 为唯一权威，B 冻结为只读 legacy
+
+`POST /skills`（`createSkillDraft`）摘掉或改 410；`skill-catalog-live.tsx`"完全新建"入口
+移除，声明式录入并入 A 的编辑器工作流；存量 `skill_contracts`/`skill_contract_versions`
+行保留只读（不迁移、不删除，`GET /skills/:skillId` 继续服务它们）；`listAll` 合并读维持
+不变。验收断言见 `verification.md`"若选 选项 2"一节。
 
 ## 这份 delta 为什么存在
 
@@ -30,28 +42,16 @@ confirmed_via: null
 模型 B 建出来的 skill 运行时读不到、chat 里挂不上，是"功能性死路"，不是纯死代码（仍有活跃前端
 入口 `skill-catalog-live.tsx` 的"完全新建"面板 + 多个测试依赖它）。
 
-这不是纯技术债清理，而是要不要保留"结构化 skill 契约"这个产品设计的问题——所以走 delta 签核，
-不能 agent 自己拍板。
-
-## 签核前请重点确认（逐条在 `contract.md` §1 展开）
-
-- [ ] **三选一**：`contract.md` §1 列了三个收敛方向——① B 整体废弃、声明式能力搬进 A（工作量 L，
-      需先裁决未决契约分歧 D08）；② A 为唯一权威、B 冻结只读 legacy（工作量 M，与 #595 既成事实一致，
-      本 delta 倾向的方向）；③ 保留双模型、补一条 B→A 的显式编译桥（工作量 M，但有持续同步维护成本，
-      形状正是 AGENTS.md 警告的"同一事实两处"）。选哪个？
-- [ ] **如果选①**：确认同意先由人类另行裁决 D08（`SkillStatus` 五态 vs 域层四态），不在本 delta 内
-      顺带决定。
-- [ ] **如果选②**：确认可以接受"完全新建声明式 skill"这个入口从 UI 上移除（声明式录入的价值
-      —— 结构化约束——可以作为 A 的编辑器工作流里的辅助校验功能保留，但不再是独立数据模型）。
-- [ ] **如果选③**：确认接受长期维护成本（每次模型 B 的 schema 演进都要想一遍编译桥要不要跟着改），
-      以及要求实现方补一条同步一致性反证测试（`verification.md` V4）。
-- [ ] **派工节奏**（`contract.md` §3）：确认签核后单独排期，与当前活跃的 skill 相关分支
-      （trial-run/url-import/asset-file-repo 等）串行化，不并行改同一批热点文件。
-
 ## 与既有束的关系
 
 - **不修改** `contracts/skills/` 下任何已签文件的 `status`；本 delta 是对该束核心设计前提
-  （"Skill 是什么"）的收敛，规范以本目录 `contract.md` 为准，签核后由 requirement-author 按选中方向
-  生成新的 F-number（目前 #598 在 `feature_list.json` 里没有对应条目）。
-- **不阻塞**已合入的 F595（后台导入/目录/编辑/试跑）——那条已完整落地在模型 A，任何一个选项都不改
+  （"Skill 是什么"）的收敛，规范以本目录 `contract.md` 为准，签核后由 requirement-author 按
+  选项②生成新的 F-number（目前 #598 在 `feature_list.json` 里没有对应条目）。
+- **不阻塞**已合入的 F595（后台导入/目录/编辑/试跑）——那条已完整落地在模型 A，选项②不改
   它已验收的行为（`verification.md` VG1）。
+
+## 派工节奏
+
+签核后单独排期，与当前活跃的 skill 相关分支（trial-run/url-import/asset-file-repo 等）串行化，
+不并行改 `skill.controller.ts` / `pg-skill-contract-repository.ts` / `skill-catalog-live.tsx`
+这几处热点文件（`contract.md` §3）。
