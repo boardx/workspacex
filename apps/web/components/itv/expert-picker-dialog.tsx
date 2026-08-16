@@ -8,19 +8,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   MOCK_DIGITAL_EXPERTS,
-  MOCK_EXPERT_CATEGORIES,
 } from "@/lib/mock/digital-expert-personas";
+
+export interface ExpertPickerItem {
+  readonly expertId: string;
+  readonly displayName: string;
+  readonly role: string;
+  readonly category: string;
+  readonly bio: string;
+}
 
 export function ExpertPickerDialog({
   open,
   selectedExpertIds,
   onOpenChange,
   onConfirm,
+  experts = MOCK_DIGITAL_EXPERTS,
+  description = "从专家目录中多选，本次选择会追加到当前访谈。",
 }: {
   open: boolean;
   selectedExpertIds: readonly string[];
   onOpenChange: (open: boolean) => void;
   onConfirm: (expertIds: readonly string[]) => void;
+  experts?: readonly ExpertPickerItem[];
+  description?: string;
 }) {
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<string | null>(null);
@@ -34,11 +45,12 @@ export function ExpertPickerDialog({
   }, [open, selectedExpertIds]);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
-  const experts = MOCK_DIGITAL_EXPERTS.filter((expert) => {
+  const filteredExperts = experts.filter((expert) => {
     if (category && expert.category !== category) return false;
     if (!normalizedQuery) return true;
     return `${expert.displayName} ${expert.role} ${expert.bio}`.toLocaleLowerCase("zh-CN").includes(normalizedQuery);
   });
+  const categories = Array.from(new Set(experts.map((expert) => expert.category)));
   const selected = new Set(pendingIds);
   const original = new Set(selectedExpertIds);
   const addedCount = pendingIds.filter((expertId) => !original.has(expertId)).length;
@@ -65,7 +77,7 @@ export function ExpertPickerDialog({
           <header className="flex items-start justify-between gap-4 border-b border-border p-6">
             <div>
               <Dialog.Title className="text-2xl font-semibold">添加访谈专家</Dialog.Title>
-              <Dialog.Description className="mt-2 text-sm text-muted-foreground">从 Mock 专家目录中多选，本次选择会追加到当前访谈。</Dialog.Description>
+              <Dialog.Description className="mt-2 text-sm text-muted-foreground">{description}</Dialog.Description>
             </div>
             <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭专家选择"><X className="size-4" /></Button></Dialog.Close>
           </header>
@@ -77,10 +89,10 @@ export function ExpertPickerDialog({
             </label>
             <div className="flex gap-2 overflow-x-auto pb-1">
               <CategoryButton active={category === null} onClick={() => setCategory(null)}>全部</CategoryButton>
-              {MOCK_EXPERT_CATEGORIES.map((value) => <CategoryButton key={value} active={category === value} onClick={() => setCategory(value)}>{value}</CategoryButton>)}
+              {categories.map((value) => <CategoryButton key={value} active={category === value} onClick={() => setCategory(value)}>{value}</CategoryButton>)}
             </div>
             <div className="min-h-0 overflow-y-auto rounded-xl border border-border">
-              {experts.length ? <ul className="divide-y divide-border">{experts.map((expert) => {
+              {filteredExperts.length ? <ul className="divide-y divide-border">{filteredExperts.map((expert) => {
                 const isOriginal = original.has(expert.expertId);
                 const isChecked = selected.has(expert.expertId);
                 return <li key={expert.expertId} className="flex items-start gap-3 p-4 transition-colors hover:bg-muted/40">

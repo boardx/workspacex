@@ -340,6 +340,11 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
 
     expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
     expect(screen.queryByText(/mock/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-add-expert"));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
+    expect(screen.getAllByText(expertCandidate.displayName).length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
     expect(await screen.findByDisplayValue(defaultQuestion.text)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-questions"));

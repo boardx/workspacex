@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { IdFactory } from "../../../application/artifact/ports";
+import { ModelCallError, type ModelCallPort } from "../../../application/agent-run/ports";
 import type {
   CommitDigitalInterviewStepInput,
   CommitDigitalInterviewStepResult,
@@ -66,6 +67,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     private readonly db: DatabasePort,
     private readonly ids: IdFactory,
     private readonly repo: DigitalInterviewRepository,
+    private readonly model: ModelCallPort,
+    private readonly modelProvider: string,
+    private readonly modelId: string,
   ) {}
 
   async findReceipt(input: {
@@ -333,10 +337,62 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   }
 
   async generateExpertCandidates(input: GenerateDigitalInterviewDraftInput): Promise<void> {
+    const payload = { expectedVersion: input.expectedVersion };
+    const replayed = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      const replay = await this.readReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "generate_expert_candidates", input.requestId,
+      );
+      if (!replay) return false;
+      this.assertMatchingReceipt(replay, payload);
+      return true;
+    });
+    if (replayed) return;
     const experts = await this.repo.listVisibleExperts({
       orgId: toOrgId(input.orgId), viewerUserId: input.actorId,
     });
-    const payload = { expectedVersion: input.expectedVersion };
+    if (!experts.length || !this.modelProvider || !this.modelId) {
+      throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    }
+    const topic = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      const result = await session.query<{ topic: string | null }>(
+        "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
+        [input.orgId, input.interviewId],
+      );
+      return result.rows[0]?.topic?.trim() ?? "";
+    });
+    if (!topic) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
+    let recommendedExpertIds: readonly string[];
+    try {
+      const response = await this.model.complete({
+        modelProvider: this.modelProvider,
+        modelId: this.modelId,
+        system: "你是访谈研究助手。只能从候选数字专家中推荐与主题最相关且视角互补的 3 至 5 位。只返回 JSON：{\"expertIds\":[\"id\"]}。",
+        user: JSON.stringify({
+          operation: "recommend_interview_experts",
+          topic,
+          experts: experts.map((expert) => ({
+            expertId: expert.expertId,
+            displayName: expert.displayName,
+            role: expert.role,
+            domains: expert.domains,
+          })),
+        }),
+      });
+      const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(response.text.trim());
+      const parsed = JSON.parse(fenced?.[1]?.trim() ?? response.text) as { expertIds?: unknown };
+      const visibleIds = new Set(experts.map((expert) => expert.expertId));
+      recommendedExpertIds = Array.isArray(parsed.expertIds)
+        ? Array.from(new Set(parsed.expertIds.filter((id): id is string => typeof id === "string" && visibleIds.has(id))))
+        : [];
+    } catch (error) {
+      if (error instanceof ModelCallError || error instanceof SyntaxError) {
+        throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+      }
+      throw error;
+    }
+    if (!recommendedExpertIds.length) {
+      throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    }
     await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       await this.lockRequest(
         session, toOrgId(input.orgId), input.interviewId, "generate_expert_candidates", input.requestId,
@@ -365,6 +421,10 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
             expert.materialVersion],
         );
       }
+      await session.query(
+        "UPDATE interview_sessions SET selected_expert_ids=$3 WHERE org_id=$1 AND id=$2",
+        [input.orgId, input.interviewId, [...recommendedExpertIds]],
+      );
       const workflow = await this.requireWorkflow(session, toOrgId(input.orgId), input.interviewId);
       await this.writeReceipt(session, {
         orgId: toOrgId(input.orgId), interviewId: input.interviewId, operationId: input.operationId,
