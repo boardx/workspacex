@@ -1,11 +1,11 @@
 ---
-status: proposed
 bundle: guided-deep-research-langgraph
 base_bundle: research
 scope: persisted-five-node-langgraph-workflow
 covers: [F195, F196, F197, F198, F170, F171]
-confirmed_by:
-confirmed_at:
+status: confirmed
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-13T02:43:32+08:00
 ---
 
 # Design delta 签核 · Guided Research LangGraph 五节点工作流
@@ -40,4 +40,4 @@ agent-runtime、skills、files/artifact 的边界；确认时需明确这些边�
 
 ## 人类决定
 
-待确认。
+已确认。人类于本任务明确回复“已签核”；frontmatter 的签名与时间由人类填写，本段只同步叙述记录。
