@@ -4383,9 +4383,9 @@
       "spec_ref": "03-skill/uc-3-7-skill双模型收敛-模型a为唯一权威.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "13",
+      "owner": "dev-chat-e2e-32",
       "verification": [
         "pnpm --filter api exec vitest run tests/skill/post-skills-gone-410.test.ts",
         "pnpm --filter web exec vitest run tests/ui/skill-catalog-no-create-panel.test.tsx",
