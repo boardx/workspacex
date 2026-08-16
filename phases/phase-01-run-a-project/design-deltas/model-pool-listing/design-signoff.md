@@ -1,4 +1,4 @@
----
+
 ---
 status: confirmed              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: model-pool-listing
@@ -10,7 +10,6 @@ scope: model-pool-admin-listing-plus-local-model-seed
 confirmed_by: "usamshen"
 confirmed_at: "2026-08-16T08:43:22+08:00"
 ruling: "usamshen 在会话中拍板：批准新增 listModelPool；删除维持停用语义（2026-08-16）。PR #1395 已于 2026-08-15 23:47 UTC 合入 main（usamshen 本人合并）；本次签核为补签，令记录与已上线的事实对齐。"
----
 ---
 
 # 模型池列表读取 —— 设计签核（#1381）
