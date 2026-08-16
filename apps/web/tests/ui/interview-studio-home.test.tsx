@@ -80,8 +80,11 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("德国采购决策链")).toBeInTheDocument();
     expect(within(card).getByText("进行中")).toBeInTheDocument();
     expect(within(card).getByText("2 / 3 位专家完成")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /继续访谈/ }))
+      .toHaveAttribute("href", "/itv/itv-1/setup");
     const reportCard = await screen.findByTestId("itv-history-card-itv-2");
-    expect(within(reportCard).getByRole("link", { name: /生成报告/ })).toHaveAttribute("href", "/itv/itv-2/report");
+    expect(within(reportCard).getByRole("link", { name: /生成报告/ }))
+      .toHaveAttribute("href", "/itv/itv-2/setup");
     expect(within(reportCard).queryByText("继续访谈")).not.toBeInTheDocument();
   });
 
