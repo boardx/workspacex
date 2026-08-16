@@ -3,11 +3,12 @@ status: confirmed
 bundle: skill-model-a-b-convergence
 base_bundle: skills
 scope: converge-skill-declarative-contract-model-b-and-file-based-model-a
-# covers 追加（2026-08-16，requirement-author 生成 F190 后回填）：签核时（08:42）尚无
-# F-number，人类已确认的是选项②这个技术方向本身（不是某个具体 F 编号），F190 是
-# 该方向唯一对应的 feature（UC-3.7），回填是账本记录，不是新的设计决定——不改
-# status/confirmed_by/confirmed_at/confirmed_via 一字。
-covers: [F190]
+# covers 追加（2026-08-16，requirement-author 生成 F191 后回填）：签核时（08:42）尚无
+# F-number，人类已确认的是选项②这个技术方向本身（不是某个具体 F 编号）。回填时
+# 原定的 F190 已被另一支并行分支（chat 域，PR #1421，工具调用轨迹跨run回喂上下文）
+# 独立占用并先合并，本条改用下一个真正空闲的号 F191（coord-main 合并前核对时发现，
+# 机械修正，不是新的设计决定）——不改 status/confirmed_by/confirmed_at/confirmed_via 一字。
+covers: [F191]
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-16T08:42:00+08:00
 confirmed_via: >-
