@@ -181,9 +181,12 @@ describe("#451 PR 队列状态机", () => {
     expect(got.state).toBe("MERGE_BLOCKED");
   });
 
-  it("没有 verdict label 时是 WAITING_REVIEW，不是 MERGE_BLOCKED", () => {
+  it("没有 verdict label——暂停期不再 WAITING_REVIEW，advisories 仍如实记录（2026-08-16 第三次裁决）", () => {
+    // VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED=true：这条判断还在算，只是不再
+    // 产生 waitingReview 信号。判断逻辑本身没删，见该常量定义处的完整说明。
     const got = classifyPr({ ...greenFacts(), verdictLabels: [], formalReviews: [] });
-    expect(got.state).toBe("WAITING_REVIEW");
+    expect(got.state).toBe("READY_TO_MERGE");
+    expect(got.advisories.join("\n")).toContain("还没有 `review:*-ok` verdict");
   });
 
   it("CI 失败退回 worker（CHANGES_REQUIRED），不与门禁完整性问题混为一谈", () => {
