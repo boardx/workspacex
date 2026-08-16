@@ -46,4 +46,17 @@ describe("F353 project-overview：项目基本信息块只显示真实数据", (
       "/chat?projectId=project-route-real",
     );
   });
+
+  /**
+   * #978：PR #977 把「画布」从后台导航移除后，`/canvas`（项目内推演画布）只剩这个
+   * 工作面清单里的入口。断言它是一个真实的、带项目上下文的 `<a href>`——不是
+   * `getByText` 空转、也不是禁用桩（`aria-disabled`）。
+   */
+  it("project workbench surfaces a real, context-bearing Canvas entry point (#978)", () => {
+    render(<TabOverview view="facilitator" projectId="project-route-real" />);
+    const canvasSurface = screen.getByTestId("project-home-surface-canvas");
+    expect(canvasSurface.tagName).toBe("A");
+    expect(canvasSurface).toHaveAttribute("href", "/projects/project-route-real/canvas");
+    expect(canvasSurface).not.toHaveAttribute("aria-disabled");
+  });
 });

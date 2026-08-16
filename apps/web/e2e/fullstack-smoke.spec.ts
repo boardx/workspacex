@@ -110,6 +110,17 @@ test("real login reaches the PG-seeded sentinel through project and Files produc
   await expect(page.getByTestId("project-title")).toHaveText(FULLSTACK_E2E.projectName);
   await expect(page.getByTestId("project-overview-live-overview-body")).toBeVisible();
 
+  // #978: 项目工作台「工作面」清单里的「推演画布」入口——PR #977 把 /canvas 从后台导航
+  // 移除后，这是它唯一剩下的、带项目上下文（projectId）的真实入口。断言真点了会真的
+  // 落到 /projects/:id/canvas 且画布壳体渲染出来，不是 getByText 空转。
+  await page.getByTestId("project-home-surface-canvas").click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${FULLSTACK_E2E.projectId}/canvas`));
+  await expect(page.getByTestId("canvas-main")).toBeVisible();
+  await expect(page.getByTestId("canvas-left-panel")).toBeVisible();
+
+  await page.goto(`/projects/${FULLSTACK_E2E.projectId}`);
+  await expect(page.getByTestId("project-overview-live-overview-body")).toBeVisible();
+
   await page.getByTestId("project-home-surface-files").click();
   await expect(page).toHaveURL(new RegExp(`/projects/${FULLSTACK_E2E.projectId}/files`));
   await expect(page.getByTestId("live-files-browser")).toBeVisible();
