@@ -16,8 +16,8 @@
  *
  * ## 协议
  *
- * OpenAI realtime 形状（`input_audio_buffer.append` / `.commit` 上行，
- * `conversation.item.input_audio_transcription.delta` / `.completed` 下行）——
+ * DashScope Qwen Realtime 的 OpenAI-compatible 形状（`input_audio_buffer.append` / `.commit` 上行，
+ * `conversation.item.input_audio_transcription.text` / `.completed` 下行）——
  * 这正是人类 2026-08-05 指定的 `qwen3-asr-flash-realtime` 所暴露的形状
  * （`wss://…/api-ws/v1/realtime`，另需 `OpenAI-Beta: realtime=v1`）。
  * 选它而不是自创一套，是为了让「指向阿里云」是一次**配置变更**而不是一次改代码。
@@ -52,6 +52,8 @@ import {
   type AsrSessionHandlers,
 } from "../../application/recording/asr-ports";
 
+const DEFAULT_ASR_TURN_SILENCE_MS = 400;
+
 interface ProviderConfig {
   readonly provider: string;
   readonly baseUrl: string;
@@ -59,14 +61,16 @@ interface ProviderConfig {
   readonly model: string;
   /**
    * PROP-CHAT-ASR-LATENCY-001（人类实测反馈：转录延迟大）——`session.update` 里的
-   * `turn_detection.silence_duration_ms`（静音多久判一句话结束）。**默认不设 = 不发
-   * `turn_detection` 字段 = 与本改动之前逐字节相同的行为**。这是一个待真实端点验证的
-   * 实验开关：#802 的教训是凭协议文档猜字段名/取值、不经真实 dashscope 端点验证就
-   * 改上去，错误会静默存在 7+ 天——所以这个字段只能由能访问真实 devapp/凭据的人
-   * 打开并观察（上游会不会报错拒绝、延迟是否真的缩短），不进任何 e2e 默认配置。
-   * 可选：缺省与 null 同义（不发送）。
+   * `turn_detection.silence_duration_ms`（静音多久判一句话结束）。环境变量未配置时
+   * 默认 400ms；有效正整数可覆盖。显式 null 只保留给内部测试/故障排查，表示不发送。
    */
   readonly turnDetectionSilenceMs?: number | null;
+}
+
+export function resolveTurnDetectionSilenceMs(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === "") return DEFAULT_ASR_TURN_SILENCE_MS;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_ASR_TURN_SILENCE_MS;
 }
 
 /**
@@ -80,16 +84,14 @@ function readConfig(): ProviderConfig | null {
   const model = process.env.KERNEL_ASR_MODEL;
   if (!provider || !baseUrl || !apiKey || !model) return null;
   const silenceRaw = process.env.KERNEL_ASR_TURN_SILENCE_MS;
-  // 非法值（非正整数）按未设置处理并留日志，不让一个 typo 把整条 ASR 面拖垮。
-  let turnDetectionSilenceMs: number | null = null;
-  if (silenceRaw !== undefined && silenceRaw !== "") {
+  // 非法值回退安全默认值并留日志，不让一个 typo 把整条 ASR 面拖垮。
+  if (silenceRaw !== undefined && silenceRaw.trim() !== "") {
     const parsed = Number(silenceRaw);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      turnDetectionSilenceMs = parsed;
-    } else {
-      console.warn(`[asr] KERNEL_ASR_TURN_SILENCE_MS=${JSON.stringify(silenceRaw)} 不是正整数，忽略（turn_detection 不发送）`);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      console.warn(`[asr] KERNEL_ASR_TURN_SILENCE_MS=${JSON.stringify(silenceRaw)} 不是正整数，使用默认值 ${DEFAULT_ASR_TURN_SILENCE_MS}ms`);
     }
   }
+  const turnDetectionSilenceMs = resolveTurnDetectionSilenceMs(silenceRaw);
   return { provider, baseUrl, apiKey, model, turnDetectionSilenceMs };
 }
 
@@ -102,11 +104,46 @@ function readConfig(): ProviderConfig | null {
 const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
 const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
 
+type ParsedTranscriptEvent =
+  | { readonly kind: "partial"; readonly text: string; readonly confidence: null }
+  | { readonly kind: "final"; readonly text: string; readonly confidence: number | null };
+
+/**
+ * DashScope Qwen ASR 的高频中间结果不是 OpenAI 风格的 `delta`，而是一个当前句子的
+ * 完整快照：`text` 是已确认前缀，`stash` 是仍可能修订的尾部。BoardX 的 interim
+ * 协议同样是“替换当前临时段”，因此这里必须拼成快照后发送，不能把两者当增量追加。
+ */
+export function parseDashscopeTranscriptEvent(event: unknown): ParsedTranscriptEvent | null {
+  if (typeof event !== "object" || event === null) return null;
+  const frame = event as {
+    type?: unknown;
+    text?: unknown;
+    stash?: unknown;
+    transcript?: unknown;
+    confidence?: unknown;
+  };
+  if (frame.type === "conversation.item.input_audio_transcription.text") {
+    const text = typeof frame.text === "string" ? frame.text : "";
+    const stash = typeof frame.stash === "string" ? frame.stash : "";
+    return { kind: "partial", text: `${text}${stash}`, confidence: null };
+  }
+  if (frame.type === "conversation.item.input_audio_transcription.completed") {
+    return {
+      kind: "final",
+      text: typeof frame.transcript === "string" ? frame.transcript : "",
+      confidence: typeof frame.confidence === "number" ? frame.confidence : null,
+    };
+  }
+  return null;
+}
+
 export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
   private readonly config: ProviderConfig | null;
 
   constructor(config: ProviderConfig | null = readConfig()) {
-    this.config = config;
+    this.config = config !== null && config.turnDetectionSilenceMs === undefined
+      ? { ...config, turnDetectionSilenceMs: DEFAULT_ASR_TURN_SILENCE_MS }
+      : config;
   }
 
   isConfigured(): boolean {
@@ -157,11 +194,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         input_audio_format: "pcm",
         sample_rate: audio.sampleRate,
         input_audio_transcription: { model: config.model },
-        // PROP-CHAT-ASR-LATENCY-001 —— 只在显式设置 KERNEL_ASR_TURN_SILENCE_MS 时
-        // 才多发这一个字段（未设置时本对象与之前逐字节相同）。字段名/取值是否被
-        // dashscope 端点接受**尚未经真实端点验证**（#802 前科），所以由真实环境的
-        // 人打开观察：上游若报错会走下面的 error→close 链路映射成
-        // AUDIO_FORMAT_REJECTED/PROVIDER_UNAVAILABLE，界面有清晰降级提示，不会静默。
+        // PROP-CHAT-ASR-LATENCY-001 —— devapp 已验证该字段可用；未配置环境变量时使用
+        // 400ms 默认值，避免回退到上游更慢的默认断句。显式 null 仅用于内部排障。
         ...(config.turnDetectionSilenceMs != null
           ? {
               turn_detection: {
@@ -195,7 +229,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     };
 
     socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
-      let event: { type?: unknown; delta?: unknown; transcript?: unknown; error?: unknown };
+      let event: { type?: unknown; error?: unknown };
       try {
         event = JSON.parse(String(raw)) as typeof event;
       } catch {
@@ -203,16 +237,16 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       const type = typeof event.type === "string" ? event.type : "";
-      if (type === "conversation.item.input_audio_transcription.delta") {
-        handlers.onPartial({ text: String(event.delta ?? ""), confidence: null });
+      const transcript = parseDashscopeTranscriptEvent(event);
+      if (transcript?.kind === "partial") {
+        handlers.onPartial({ text: transcript.text, confidence: transcript.confidence });
         return;
       }
-      if (type === "conversation.item.input_audio_transcription.completed") {
+      if (transcript?.kind === "final") {
         finalSeen = true;
-        const confidence = (event as { confidence?: unknown }).confidence;
         handlers.onFinal({
-          text: String(event.transcript ?? ""),
-          confidence: typeof confidence === "number" ? confidence : null,
+          text: transcript.text,
+          confidence: transcript.confidence,
         });
         if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         return;
