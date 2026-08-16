@@ -1,5 +1,5 @@
 import { ProjectWorkbench } from "@/components/project/project-workbench";
-import { mockIdentity, resolvePreviewRole } from "@/lib/identity";
+import { resolvePreviewRole } from "@/lib/identity";
 import { resolvePreviewState } from "@/lib/ui-state";
 import { resolveProjectTab } from "@/lib/mock/project";
 
@@ -29,7 +29,14 @@ import { resolveProjectTab } from "@/lib/mock/project";
  *   单个项目」的已挂路由（`getProjectOverview` 在契约与应用层都有，但控制器从未
  *   挂那个 `@Get`，见 `lib/live-projects.ts` `findProject` 头注的缺口报告），
  *   所以这里退化成从 `?org=` 读（`/projects` 列表页的「进入项目」链接会带上它）。
- *   没有 `?org=` 或未登录时，工作台照旧显示 mock 头像信息，不假装有真实数据。
+ *
+ * ⚠ **issue #1316（安全修复）**：本页曾经把 `?org=` 交给一个 mock-身份 helper 去查一张写死的
+ *   `MOCK_ORGS` 表——任何真实组织（不在那张表里）都会静默落到 `MOCK_ORGS[0]`（「远洋新能源」），
+ *   `orgRole` 也跟着被替换掉的 org 重置。真实登录用户因此在自己的项目详情页上看到别人的
+ *   组织名与被降级的角色——不是诚实空态，是显示了错的身份。现在**不再在这里组装身份**：
+ *   `ProjectWorkbench` 不传 `identity` 时，`AppShell` 落到 `SessionProvider` 解析的真实
+ *   会话身份（同 `/projects` 列表页 `ProjectsScreen` 的路径，见 `session-provider.tsx`）。
+ *   未登录会被 `AppShell` 的 `SessionAppShell` 重定向去 `/login`，不会显示任何身份。
  */
 export default function ProjectHomePage({
   params, searchParams,
@@ -42,11 +49,9 @@ export default function ProjectHomePage({
   const tab = resolveProjectTab(searchParams.tab);
   const sub = typeof searchParams.sub === "string" ? searchParams.sub : null;
   const orgDisabled = process.env.NODE_ENV !== "production" && searchParams.orgState === "disabled";
-  const identity = mockIdentity(searchParams.org ?? "org-yuanyang", view);
 
   return (
     <ProjectWorkbench
-      identity={identity}
       uiState={uiState}
       tab={tab}
       view={view}
