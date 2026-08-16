@@ -3043,3 +3043,38 @@ stderr | .harness/scripts/portable-role-generator.test.ts > #441 portable persis
 • turbo 2.10.5
 
 [harness-verify v1 sha256=c184e002f657de3c3f68ffb5aa27accb177c6ca099aac06e1cad75d1434f6c0b commit=8ebe6bdc1ce187631bf28b82df409d366ca4541f at=2026-08-15T09:43:23.177Z]
+===== 2026-08-16 补跑（事故恢复）=====
+背景：PR #1405（feat(project): F185 listProjects 扁平化…，commit 18a0edce）合并时
+把 feature_list.json 整体覆盖，导致本 feature 的 status/evidence 记录丢失（代码/测试
+本身未受影响）。本次重跑用于恢复记录，命令与结果与原 verification 一致。
+
+[stack-admission] load1=31.12 cores=10 perCore=3.11 running=0/2
+[stack-admission] 排队中：机器每核负载 3.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.89（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 20s
+[test-isolation] id=run-msv4b75z-aa02781f-434f1bb8527a db=wsx_434f1bb8527ab4d5d380 compose=wsx-434f1bb8527ab4d5d380 pg=22912 redis=27912
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/upbeat-bouman-15ed2c/apps/api
+
+[db-isolation] db=wsx_434f1bb8527ab4d5d380 capacity=100 current=6 required=32
+ ✓ tests/chat/agent-run-context-snapshot.test.ts (8 tests) 7146ms
+   ✓ F157 可审计上下文快照 agent_run_context_snapshots（真库 + 真 executeQueuedRuns） > 三层齐全：L1 保留轮数、L2 覆盖边界、L3 命中条数与来源、token 估值都落库且可按 run_id 检索 625ms
+   ✓ F157 可审计上下文快照 agent_run_context_snapshots（真库 + 真 executeQueuedRuns） > L2 降级：摘要模型调用失败 —— run 不失败，快照如实记 l2Status=degraded，覆盖边界为 null 476ms
+   ✓ F157 可审计上下文快照 agent_run_context_snapshots（真库 + 真 executeQueuedRuns） > L3 未配置：deps.files 缺省 —— 快照如实记 l3Status=not_configured，命中数与来源为空 966ms
+   ✓ F157 可审计上下文快照 agent_run_context_snapshots（真库 + 真 executeQueuedRuns） > L3 失败：检索查询抛错 —— run 不失败，快照如实记 l3Status=degraded，命中数为 0 653ms
+   ✓ F157 可审计上下文快照 agent_run_context_snapshots（真库 + 真 executeQueuedRuns） > L3 零命中：查询成功但没有相关文件 —— l3Status=ok，命中数为 0（与失败区分开） 363ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:20:28
+   Duration  9.79s (transform 373ms, setup 0ms, collect 493ms, tests 7.15s, environment 0ms, prepare 39ms)
+
+[db-isolation] db=wsx_434f1bb8527ab4d5d380 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/chat/agent-run-context-snapshot.test.ts
+  环境预留：0s
+  等待资源：20s
+  命令执行：10s
+  清理：1s
+  总计：31s

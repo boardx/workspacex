@@ -1992,3 +1992,37 @@ Cached:    1 cached, 10 total
 • turbo 2.10.5
 
 [harness-verify v1 sha256=983eb0ba7f0cbbcca8bb517c851594b3037fefbb8935be1dddd06a8eecc585da commit=09cab8f6c409ae4fa49cd31a675efe85f138fee7 at=2026-08-15T11:40:51.323Z]
+===== 2026-08-16 补跑（事故恢复）=====
+背景：PR #1405（feat(project): F185 listProjects 扁平化…，commit 18a0edce）合并时
+把 feature_list.json 整体覆盖，导致本 feature（原 issue #1377，PR #1352 已合并）的
+entry 整条从 feature_list.json 消失（代码/测试本身未受影响）。本次重跑用于恢复记录。
+
+$ pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts
+[stack-admission] load1=13.67 cores=10 perCore=1.37 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-msv4iyt0-b16b6ce8-b2f85de34af1 db=wsx_b2f85de34af140f1600c compose=wsx-b2f85de34af140f1600c pg=21411 redis=26411
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/upbeat-bouman-15ed2c/apps/api
+
+[db-isolation] db=wsx_b2f85de34af140f1600c capacity=100 current=6 required=32
+ ✓ tests/templates/create-blueprint-persistence.test.ts (37 tests) 5276ms
+
+ Test Files  1 passed (1)
+      Tests  37 passed (37)
+   Start at  09:26:10
+   Duration  8.24s (transform 458ms, setup 0ms, collect 743ms, tests 5.28s, environment 0ms, prepare 47ms)
+
+[db-isolation] db=wsx_b2f85de34af140f1600c peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/templates/create-blueprint-persistence.test.ts
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：9s
+
+$ pnpm --filter api run typecheck
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/upbeat-bouman-15ed2c/apps/api
+> tsc --noEmit
+
+[exit 0]

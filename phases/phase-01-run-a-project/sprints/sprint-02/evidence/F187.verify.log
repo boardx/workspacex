@@ -1931,3 +1931,30 @@ Cached:    5 cached, 10 total
 • turbo 2.10.5
 
 [harness-verify v1 sha256=4ebf3f50c74dfd06c1cf6a249bc794a2775e4b373b7e27c1874255410faf0310 commit=c2a5f407691f2b15df1f868edaaecb7cb231ef70 at=2026-08-15T12:47:35.207Z]
+===== 2026-08-16 补跑（事故恢复）=====
+背景：PR #1405（feat(project): F185 listProjects 扁平化…，commit 18a0edce）合并时
+把 feature_list.json 整体覆盖，导致本 feature（原 issue #1379，PR #1354 已合并）的
+entry 整条从 feature_list.json 消失（代码/测试本身未受影响）。本次重跑用于恢复记录。
+
+$ pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx tests/ui/blueprint-designer-shell.test.tsx tests/ui/blueprint-list-screen-live.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/upbeat-bouman-15ed2c/apps/web
+
+ ✓ tests/ui/blueprint-designer-page-live.test.tsx (4 tests) 91ms
+ ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 225ms
+ ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 811ms
+   ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 547ms
+
+ Test Files  3 passed (3)
+      Tests  32 passed (32)
+   Start at  09:26:47
+   Duration  3.72s (transform 709ms, setup 1.33s, collect 1.52s, tests 1.13s, environment 3.87s, prepare 292ms)
+
+
+$ pnpm --filter web run typecheck
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/upbeat-bouman-15ed2c/apps/web
+> tsc --noEmit
+
+[exit 0]

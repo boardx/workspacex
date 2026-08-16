@@ -57,7 +57,13 @@ phase: "01"
 #     即便这次是 delta 也不通过改这三个字段来表达——它们记的是 2026-07-30 那次原始签核事实）。
 #   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
 #     把 F185 从本行删掉，代码与测试不受影响。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185]
+# ⚠ 2026-08-16 编号纠正：上面这次追加写的是 F185，但 F185 当时已被 chat-context-engine 束的
+#   「工具调用轨迹跨 run 回喂上下文」占用（该条 not_started，design-delta 签核 PR #1409 在途）。
+#   合并 PR #1405 时把 chat 那条 entry 整条覆盖掉，纠正性 PR 已把它改编号为 F190（下一个未被
+#   任何在途 issue/PR 占用的号）并恢复 chat 域的 F185/F186/F187/F157 记账（详见该纠正性 PR）。
+#   本行 covers 同步把 F185 改成 F190；上面 2026-08-16 那段追加理由原文不动，只是编号已过时——
+#   「F185」在那段文字里指的就是这条 listProjects 扁平化 feature，现在编号是 F190。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F190]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
