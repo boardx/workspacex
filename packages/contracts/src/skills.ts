@@ -195,6 +195,14 @@ export const SkillError = z.enum([
   "SOURCE_TAG_IMMUTABLE",
   /** 操作过程中权限被撤回（E6）。⚠ **立即终止后续写操作** */
   "PERMISSION_REVOKED",
+
+  /* ── ⑤ F192：模型 A/B 收敛（design-delta `skill-model-a-b-convergence` 选项②）── */
+  /**
+   * `POST /skills`（`createSkillDraft`）已冻结，对**任何**请求恒返回 410。
+   * ⚠ 不是「校验失败」也不是「权限不足」——是这条写入口**本身**不再存在，
+   *   与 `SKILLS_FROZEN_ROUTES` 逐字对应。
+   */
+  "SKILL_DRAFT_WRITE_PATH_FROZEN",
 ]);
 
 type SkillErrorT = z.infer<typeof SkillError>;
@@ -352,17 +360,51 @@ export const SKILLS_FORBIDDEN_ROUTES = [
   },
 ] as const;
 
+/**
+ * **已冻结的路由**（本束，F192 / design-delta `skill-model-a-b-convergence` 选项②）。
+ *
+ * 与 `SKILLS_FORBIDDEN_ROUTES` 不同：那份登记的路由**从不存在**（连路由表里都没有）；
+ * 这份登记的路由**仍然存在**（`skill.controller.ts` 里仍有 `@Post("/skills")`），
+ * 但对**任何**请求都无条件返回 `410 Gone`——是「唯一入口被摘」而不是「前端按钮
+ * 藏起来但接口还在」（`verification.md` 选项②·V2 的反证要求）。交付物是一条断言
+ * 它恒 410（不是 404/500/200）且响应体带引导信息的测试。
+ */
+export const SKILLS_FROZEN_ROUTES = [
+  {
+    route: "POST /skills",
+    operation: "createSkillDraft",
+    since: "F192",
+    why:
+      "模型 B（`skill_contracts`，声明式契约）建出来的 skill 运行时读不到、chat 里挂不上" +
+      "（`execute-run.ts` 只读模型 A）——#595 已把导入/编辑/试跑全部落地在模型 A，模型 A 是" +
+      "唯一权威写入口。存量 `skill_contracts`/`skill_contract_versions` 行不删、不迁移，" +
+      "继续经 `GET /skills`（合并列表）与 `GET /skills/:skillId`（详情）只读可达。",
+  },
+] as const;
+
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
 export const operations = {
   /* ───── 一、契约建立与门禁（F61 / F62）───── */
 
   /**
-   * UC-3.1 R3 步骤 1：新建草稿 / 导入契约。
-   * 落 `草稿` 态（**仅作者与能力维护者可见**）。
-   * ⚠ 静态契约校验与数据范围越权检查**在服务端**，以**提交人当前权限**为上界（R9）。
-   * ⚠ 越权项直接判校验失败，**不进待审核队列**——进了队列，审核人就会替提交人背这个书。
-   * ⚠ `source` **由系统按入口打标，入参无此字段**（I-11）。
+   * @deprecated **F192（design-delta `skill-model-a-b-convergence` 选项②，issue #598，
+   * 2026-08-16 已签核）——写入口已冻结。**
+   *
+   * `POST /skills` 现在对任何请求一律返回 `410 Gone`（`SKILLS_FROZEN_ROUTES` 逐字
+   * 登记这条冻结，交付物是一条断言它恒 410 的测试）。定义**不删除**——存量调用方 /
+   * 测试仍需引用它曾经存在过，且 `out` 的形状仍是「模型 B 草稿」这份历史事实的记录。
+   *
+   * 原因：模型 B（`skill_contracts`，声明式契约）建出来的 skill 运行时读不到、
+   * chat 里挂不上（`execute-run.ts` 只读模型 A：`skills`/`skill_versions`/
+   * `skill_version_files`）——是一条「功能性死路」。#595 已把导入/编辑/试跑全部
+   * 落地在模型 A，模型 A 是唯一权威写入口；模型 B 冻结为只读 legacy，存量数据不删、
+   * 不迁移，继续经 `GET /skills`（合并列表）与 `GET /skills/:skillId`（详情）只读可达。
+   *
+   * ⚠ 原文档（UC-3.1 R3 步骤 1：新建草稿 / 导入契约，落 `草稿` 态）描述的是**冻结前**
+   *   的行为，留作历史记录：静态契约校验与数据范围越权检查曾经在服务端、以提交人
+   *   当前权限为上界（R9），`source` 由系统按入口打标（I-11）——这些校验逻辑仍在
+   *   `application/skill/create-skill-draft.ts` 里（未删除，只是没有 HTTP 路由能到达它）。
    */
   createSkillDraft: {
     method: "POST",
@@ -396,6 +438,8 @@ export const operations = {
       "MODEL_UNAVAILABLE",
       "DEPENDENCY_UNAVAILABLE",
       "PERMISSION_REVOKED",
+      /** F192：冻结后**唯一**还会真的发生的失败——见本操作上方的 `@deprecated` 长注。 */
+      "SKILL_DRAFT_WRITE_PATH_FROZEN",
     ] as const,
   },
 

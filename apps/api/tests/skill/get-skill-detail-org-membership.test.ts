@@ -59,6 +59,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { skills as C } from "@repo/contracts";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { seedSkillDraft } from "../support/skill-draft-fixture";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -103,22 +104,22 @@ const detailAs = async (user: string, skillId: string) => {
   return { status: response.status, raw };
 };
 
-/** 建一条 `org-wide` 的草稿，返回它的 id。org-wide 是本 issue 要证的那个范围。 */
+/**
+ * 建一条 `org-wide` 的草稿，返回它的 id。org-wide 是本 issue 要证的那个范围。
+ *
+ * ⚠ F192（design-delta `skill-model-a-b-convergence` 选项②）之后 `POST /skills`
+ *   已冻结为 410——本文件要证的是 `getSkillDetail` 的成员资格门禁，不是写入口本身，
+ *   所以种子改走 `seedSkillDraft`（应用层直调，绕过已冻结的 HTTP 写路由）。
+ */
 async function seedOrgWideSkill(): Promise<string> {
-  const response = await fetch(`${BASE}${C.operations.createSkillDraft.path}`, {
-    method: "POST",
-    headers: principal(INSIDER),
-    body: JSON.stringify({
-      orgId: ORG,
-      name: SKILL_NAME,
-      duty: "访谈纪要 → 结论",
-      contract: CONTRACT,
-      visibility: "org-wide",
-      modelRef: "model-default",
-    }),
+  const { skillId } = await seedSkillDraft(app, {
+    orgId: ORG,
+    submitterId: INSIDER,
+    name: SKILL_NAME,
+    contract: CONTRACT,
+    visibility: "org-wide",
   });
-  expect(response.status, await response.clone().text()).toBe(201);
-  return ((await response.json()) as { skillId: string }).skillId;
+  return skillId;
 }
 
 /**
