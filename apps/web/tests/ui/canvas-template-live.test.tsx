@@ -360,6 +360,75 @@ describe("#496 新建画布模板（待补签的契约面）", () => {
     expect(posts[0]!.sections).toEqual([]);
   });
 
+  it("加错的分区能删掉，不用清空重填", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+          visibility: "org-wide", underlyingType: "canvas",
+          sections: [{ sectionId: "s1", name: "优势", order: 0, required: false, capacity: null }],
+        }, 201);
+      }
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    fireEvent.click(screen.getByTestId("tpladmin-create-add-section")); // 现在有两行：分区 1、分区 2
+    fireEvent.change(screen.getByTestId("tpladmin-create-section-0"), { target: { value: "劣势（加错了）" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-section-1"), { target: { value: "优势" } });
+
+    fireEvent.click(screen.getByTestId("tpladmin-create-section-0-remove"));
+    expect(screen.queryByDisplayValue("劣势（加错了）")).toBeNull();
+    expect(screen.getByDisplayValue("优势")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "SWOT" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 删掉的那行没有一起提交上去——不是「先加错再让服务端也存一条错的」。
+    expect(posts[0]!.sections).toEqual([
+      { sectionId: "s1", name: "优势", order: 0, required: false, capacity: null },
+    ]);
+  });
+
+  it("key / 显示名留空并失焦才提示必填——刚打开对话框时不是一片红", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    // 刚打开：还没碰过任何字段，不该有提示。
+    expect(screen.queryByTestId("tpladmin-create-key-hint")).toBeNull();
+    expect(screen.queryByTestId("tpladmin-create-name-hint")).toBeNull();
+
+    // 碰过 key（focus 再 blur）且留空 ⇒ 提示出现；displayName 没碰过 ⇒ 仍不提示。
+    fireEvent.blur(screen.getByTestId("tpladmin-create-key"));
+    expect(screen.getByTestId("tpladmin-create-key-hint")).toBeInTheDocument();
+    expect(screen.queryByTestId("tpladmin-create-name-hint")).toBeNull();
+
+    // 填上内容后提示消失。
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    expect(screen.queryByTestId("tpladmin-create-key-hint")).toBeNull();
+  });
+
+  it("底层类型收进「高级选项」，默认不展开，主表单里看不到那行黑话文案", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+
+    expect(screen.queryByText("底层类型（契约未约束取值，如实开放）")).toBeNull();
+    // 字段还在（收进 <details>），默认值仍是 canvas，不需要用户填。
+    const underlyingType = screen.getByTestId("tpladmin-create-underlying-type") as HTMLInputElement;
+    expect(underlyingType.value).toBe("canvas");
+  });
+
   it("key 冲突回显成一件用户能自己解决的事，且对话框不关", async () => {
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") return jsonResponse({ reasonCode: "TEMPLATE_KEY_CONFLICT" }, 409);

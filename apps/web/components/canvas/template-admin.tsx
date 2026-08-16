@@ -599,6 +599,16 @@ function CreateDialog({
   );
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * 只在用户碰过某个字段之后才提示它「必填」——刚打开对话框时两个空输入框全红，
+   * 不是校验，是噪音。`onBlur` 才标记 touched，不是 `onChange`：那样每敲一个字符
+   * 都会闪一下红边再消失。
+   */
+  const [touched, setTouched] = React.useState<{ key: boolean; displayName: boolean }>({
+    key: false, displayName: false,
+  });
+  const keyMissing = touched.key && key.trim().length === 0;
+  const nameMissing = touched.displayName && displayName.trim().length === 0;
 
   // 提交所需的最小集，与契约的 `.min(1)` 对齐 —— 但**不**在这里重述一份校验规则：
   // 真正的裁决在服务端，这里只是不让一个必然 400 的请求白跑一趟。
@@ -673,33 +683,52 @@ function CreateDialog({
             模板 key（{mintFrom ? "开新版锁定为来源版本的 key，不可改" : "组织内唯一，之后不可改"}）
           </span>
           <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12 disabled:bg-disabled disabled:text-disabled-foreground"
+            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12 disabled:bg-disabled disabled:text-disabled-foreground aria-[invalid=true]:border-destructive"
             value={key}
             onChange={(e) => setKey(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, key: true }))}
             disabled={mintFrom !== undefined}
+            aria-invalid={keyMissing}
             data-testid="tpladmin-create-key"
           />
+          {keyMissing && (
+            <span className="text-10 text-destructive" data-testid="tpladmin-create-key-hint">必填</span>
+          )}
         </label>
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">显示名</span>
           <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-12"
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, displayName: true }))}
+            aria-invalid={nameMissing}
             data-testid="tpladmin-create-name"
           />
+          {nameMissing && (
+            <span className="text-10 text-destructive" data-testid="tpladmin-create-name-hint">必填</span>
+          )}
         </label>
 
-        <label className="flex flex-col gap-1 text-11">
-          <span className="text-muted-foreground">底层类型（契约未约束取值，如实开放）</span>
-          <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
-            value={underlyingType}
-            onChange={(e) => setUnderlyingType(e.target.value)}
-            data-testid="tpladmin-create-underlying-type"
-          />
-        </label>
+        {/*
+          底层类型：今天唯一的真实取值就是 "canvas"（mermaid 分支的扩展已签核但延后为
+          独立 feature，见 #988），默认值已经是它——不需要在主表单里占一个显眼的必填
+          自由文本框。收进 <details> 里，需要改的人（几乎不会有）自己展开，
+          不需要的人（几乎所有人）看不到这个字段。
+        */}
+        <details className="text-11">
+          <summary className="cursor-pointer text-muted-foreground">高级选项</summary>
+          <label className="mt-1 flex flex-col gap-1">
+            <span className="text-muted-foreground">底层类型（今天仅 canvas 一种真实取值）</span>
+            <input
+              className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
+              value={underlyingType}
+              onChange={(e) => setUnderlyingType(e.target.value)}
+              data-testid="tpladmin-create-underlying-type"
+            />
+          </label>
+        </details>
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">可见范围</span>
@@ -725,14 +754,24 @@ function CreateDialog({
         <div className="flex flex-col gap-1" data-testid="tpladmin-create-sections">
           <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区）</span>
           {sectionNames.map((name, i) => (
-            <input
-              key={i}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-12"
-              placeholder={`分区 ${i + 1}`}
-              value={name}
-              onChange={(e) => setSectionNames(sectionNames.map((n, j) => (j === i ? e.target.value : n)))}
-              data-testid={`tpladmin-create-section-${i}`}
-            />
+            <div key={i} className="flex items-center gap-1">
+              <input
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-12"
+                placeholder={`分区 ${i + 1}`}
+                value={name}
+                onChange={(e) => setSectionNames(sectionNames.map((n, j) => (j === i ? e.target.value : n)))}
+                data-testid={`tpladmin-create-section-${i}`}
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`删除分区 ${i + 1}`}
+                onClick={() => setSectionNames(sectionNames.filter((_, j) => j !== i))}
+                data-testid={`tpladmin-create-section-${i}-remove`}
+              >
+                <X aria-hidden className="h-3 w-3" />
+              </Button>
+            </div>
           ))}
           <Button
             size="xs"
